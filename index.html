@@ -512,7 +512,7 @@ function km(a, b) {
 
 // -------------------------------------------------------------- geometry --
 const arcHeight = th => 0.006 + 0.075 * Math.pow(th / Math.PI, 0.85);
-function arcPoints(u, v, segDeg) {
+function arcPoints(u, v, segDeg, lift = 0) {
   const P = NET.P;
   const ax = P[3 * u], ay = P[3 * u + 1], az = P[3 * u + 2], bx = P[3 * v], by = P[3 * v + 1], bz = P[3 * v + 2];
   const th = Math.acos(clamp(ax * bx + ay * by + az * bz, -1, 1)), sn = Math.sin(th), h = arcHeight(th);
@@ -522,16 +522,24 @@ function arcPoints(u, v, segDeg) {
     const s = k / n;
     const w1 = sn < 1e-6 ? 1 - s : Math.sin((1 - s) * th) / sn, w2 = sn < 1e-6 ? s : Math.sin(s * th) / sn;
     const x = w1 * ax + w2 * bx, y = w1 * ay + w2 * by, z = w1 * az + w2 * bz;
-    const r = (1 + LIFT + h * Math.sin(Math.PI * s)) / Math.hypot(x, y, z);
+    const r = (1 + LIFT + lift + h * Math.sin(Math.PI * s)) / Math.hypot(x, y, z);
     out[3 * k] = x * r; out[3 * k + 1] = y * r; out[3 * k + 2] = z * r;
   }
   return out;
 }
 function tubeGeometry(pairs, radius, hops, seed) {
-  const sides = 5, rng = mulberry(seed || 1);
-  const arcs = pairs.map(([u, v]) => arcPoints(u, v, 2.0));
+  // 8 sides so thick tubes look round; lifted by their radius so they don't sink into the globe at airports
+  const sides = 8, rng = mulberry(seed || 1);
+  const arcs = pairs.map(([u, v]) => arcPoints(u, v, 2.0, radius));
+  // stepped paths get a round joint at every stop, shown once the flight reaches it
+  const SJ = 10, SK = 6, joints = [];
+  if (hops) {
+    joints.push([pairs[0][0], hops[0], 0]);
+    pairs.forEach(([, v], e) => joints.push([v, hops[e], 1]));
+  }
   let nv = 0, ni = 0;
   for (const a of arcs) { const m = a.length / 3; nv += m * sides; ni += (m - 1) * sides * 6; }
+  nv += joints.length * (SK + 1) * (SJ + 1); ni += joints.length * SK * SJ * 6;
   const pos = new Float32Array(nv * 3), aT = new Float32Array(nv), aHop = new Float32Array(nv), aRv = new Float32Array(nv);
   const idx = new Uint32Array(ni);
   let vo = 0, io = 0;
@@ -555,6 +563,22 @@ function tubeGeometry(pairs, radius, hops, seed) {
       idx[io++] = a0; idx[io++] = a1; idx[io++] = a1 + sides; idx[io++] = a0; idx[io++] = a1 + sides; idx[io++] = a0 + sides;
     }
   });
+  const P = NET.P, jr = radius * 1.12, jl = 1 + LIFT + radius;
+  for (const [i, hop, t] of joints) {
+    const cx = P[3 * i] * jl, cy = P[3 * i + 1] * jl, cz = P[3 * i + 2] * jl, base = vo;
+    for (let a = 0; a <= SK; a++) {
+      const th = Math.PI * a / SK;
+      for (let b = 0; b <= SJ; b++) {
+        const ph = 2 * Math.PI * b / SJ;
+        pos[3 * vo] = cx + jr * Math.sin(th) * Math.cos(ph); pos[3 * vo + 1] = cy + jr * Math.cos(th); pos[3 * vo + 2] = cz + jr * Math.sin(th) * Math.sin(ph);
+        aT[vo] = t; aHop[vo] = hop; aRv[vo] = 0; vo++;
+      }
+    }
+    for (let a = 0; a < SK; a++) for (let b = 0; b < SJ; b++) {
+      const q0 = base + a * (SJ + 1) + b, q1 = q0 + SJ + 1;
+      idx[io++] = q0; idx[io++] = q1; idx[io++] = q0 + 1; idx[io++] = q0 + 1; idx[io++] = q1; idx[io++] = q1 + 1;
+    }
+  }
   const g = new THREE.BufferGeometry();
   g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
   g.setAttribute('aT', new THREE.BufferAttribute(aT, 1));
@@ -682,6 +706,7 @@ void main() { gl_FragColor = vec4(vCol, vA); }`,
 }
 function highlightMaterial(color, stepped, spread) {
   return new THREE.ShaderMaterial({
+    side: THREE.DoubleSide, // the inside shows through open tube ends instead of a hollow cut
     uniforms: { uProg: { value: 0 }, uAlpha: { value: 0 }, uColor: { value: new THREE.Color(...color) },
       uStepped: { value: stepped ? 1 : 0 }, uSpread: { value: spread || 0 } },
     transparent: true, depthWrite: false,
