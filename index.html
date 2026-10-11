@@ -275,8 +275,8 @@ body.xr #labels, body.xr #tip { display: none; }
 </aside>
 <footer id="bar">
   <button id="play" type="button" aria-label="Pause"></button>
-  <div id="track" role="slider" aria-label="Story position" tabindex="0" aria-valuemin="0" aria-valuemax="216" aria-valuenow="0"></div>
-  <div id="clock">0:00 / 3:36</div>
+  <div id="track" role="slider" aria-label="Story position" tabindex="0" aria-valuemin="0" aria-valuemax="232" aria-valuenow="0"></div>
+  <div id="clock">0:00 / 3:51</div>
   <div id="viewctl"></div>
 </footer>
 <div id="loading">Plotting 3,214 airports and 18,858 routes</div>
@@ -293,7 +293,39 @@ const HOP_DIST=[0.00371, 0.06173, 0.2896, 0.37667, 0.18224, 0.06392, 0.01709, 0.
 'use strict';
 const D2R = Math.PI / 180;
 const LIFT = 0.0015;
-const T_END = 216;
+// Narration timing: [time in your recording, original story cue]. The story's
+// animation is stretched or squeezed between these points so each cue lands
+// on the matching sentence. Edit here if you re-record.
+const NARRATION_SYNC = [
+  [0, 0], [4, 3.6],                                  // intro
+  [16.8, 11], [18, 12.2], [30, 18.5],                // nodes
+  [38.8, 26], [40, 27.2], [46, 29.6], [50, 36], [56, 41],     // edges, LHR-JFK at 0:46
+  [61.8, 48], [63, 49.2], [66, 51], [74, 57.2],      // degree, Amsterdam at 1:06
+  [77.8, 68], [79, 69.2], [95, 74.4],                // hubs
+  [104.8, 86], [106, 87.2], [111, 90], [121, 107.6], [122, 109.4],  // shortest paths, Ushuaia-Tiksi from 1:51
+  [137.8, 116], [139, 117.2], [145, 122], [150, 128.6], [158, 134.8],  // betweenness, Anchorage at 2:38
+  [166.8, 142], [168, 143.2],                        // communities
+  [179.8, 166], [181, 167.2], [189, 172], [197, 176], [203, 184], [210, 196], [213, 197.2],  // robustness
+  [220, 204.6], [231.4, 216],                        // recap
+];
+// recording time -> original story time
+function storyT(t) {
+  const W = NARRATION_SYNC;
+  if (t <= 0) return 0;
+  for (let i = 1; i < W.length; i++) {
+    if (t <= W[i][0]) { const [n0, o0] = W[i - 1], [n1, o1] = W[i]; return o0 + (o1 - o0) * (t - n0) / (n1 - n0); }
+  }
+  return W[W.length - 1][1] + (t - W[W.length - 1][0]);
+}
+// original story time -> recording time
+function narrT(o) {
+  const W = NARRATION_SYNC;
+  for (let i = 1; i < W.length; i++) {
+    if (o <= W[i][1]) { const [n0, o0] = W[i - 1], [n1, o1] = W[i]; return n0 + (n1 - n0) * (o - o0) / (o1 - o0); }
+  }
+  return W[W.length - 1][0] + (o - W[W.length - 1][1]);
+}
+let T_END = NARRATION_SYNC[NARRATION_SYNC.length - 1][0];
 const CH = [
   { key: 'title', name: 'Intro', a: 0, b: 11 },
   { key: 'nodes', name: 'Nodes', a: 11, b: 26 },
@@ -306,6 +338,7 @@ const CH = [
   { key: 'robustness', name: 'Robustness', a: 166, b: 202 },
   { key: 'outro', name: 'Recap', a: 202, b: 216 },
 ];
+CH.forEach(c => { c.na = narrT(c.a); c.nb = narrT(c.b); }); // chapter times on the recording's clock
 const C = Object.fromEntries(CH.map(c => [c.key, c]));
 const COMM_NAMES = ['North & Central America', 'Europe & North Africa', 'East & Southeast Asia',
   'Middle East, South Asia & Africa', 'Oceania', 'South America', 'Russia & Central Asia', 'Alaska',
@@ -1022,8 +1055,8 @@ function buildStory() {
       <div class="big" data-at="3.2" id="robPct">${Math.round(base * 100)}%</div>
       <p class="caption" data-at="3.2">of airport pairs still connected</p>
       <div style="display:grid">
-        <p data-at="6" data-out="17" style="grid-area:1/1">Close 100 random airports: barely a dent. Most airports are small, so random failures rarely hit a hub.</p>
-        <p data-at="18" style="grid-area:1/1">Now close the 100 most central airports, the ones with the highest betweenness.</p>
+        <p data-at="6" data-out="17" style="grid-area:1/1">First we close 100 random airports: barely a dent. Most airports are small, so random failures rarely hit a hub.</p>
+        <p data-at="18" style="grid-area:1/1">Now we close the 100 most central airports, the ones with the highest betweenness.</p>
       </div>
       <p data-at="31.2" class="amber">Robust to random failure, fragile under targeted attack: the price of relying on hubs.</p>`,
     outro: `<h2 data-at="0.6">Network theory</h2>
@@ -1221,7 +1254,7 @@ function updateStoryDOM(t) {
 function buildTimeline() {
   const tr = $('#track');
   tr.innerHTML = '<div class="rail"></div><div class="done"></div>' + CH.slice(1).map(c =>
-    `<div class="tick" style="left:${(100 * c.a / T_END).toFixed(2)}%"></div><div class="name" data-k="${c.key}" style="left:${(100 * c.a / T_END).toFixed(2)}%">${c.name}</div>`).join('') + '<div class="knob"></div>';
+    `<div class="tick" data-k="${c.key}" style="left:${(100 * c.na / T_END).toFixed(2)}%"></div><div class="name" data-k="${c.key}" style="left:${(100 * c.na / T_END).toFixed(2)}%">${c.name}</div>`).join('') + '<div class="knob"></div>';
   const seekAt = ev => {
     const r = tr.getBoundingClientRect();
     APP.seek(clamp((ev.clientX - r.left) / r.width, 0, 1) * T_END);
@@ -1247,7 +1280,7 @@ function updateTimeline(t, playing) {
     $('#track').setAttribute('aria-valuenow', Math.round(t));
     const m = s => Math.floor(s / 60) + ':' + String(Math.floor(s % 60)).padStart(2, '0');
     $('#clock').textContent = m(t) + ' / ' + m(T_END);
-    const c = CH.find(c => t >= c.a && t < c.b) || CH[CH.length - 1];
+    const c = CH.find(c => t >= c.na && t < c.nb) || CH[CH.length - 1];
     document.querySelectorAll('#track .name').forEach(n => n.classList.toggle('cur', n.dataset.k === c.key));
     lastTick = p;
   }
@@ -2016,7 +2049,7 @@ function xrUpdate(S) {
   GL.world.worldToLocal(XR.camLocal);
   const story = APP.mode === 'story';
   for (const L of ST.labels) {
-    if (story) placeLabelXR(L, fadeVal(APP.t, L.tIn, L.tOut, 0.5), S);
+    if (story) placeLabelXR(L, fadeVal(storyT(APP.t), L.tIn, L.tOut, 0.5), S);
     else if (L.sprite) L.sprite.visible = false;
   }
   for (const L of LBL.extra) {
@@ -2709,11 +2742,11 @@ function drawFoot(ctx, P) {
     ctx.fillStyle = VC.ink;
     if (playing) { ctx.fillRect(bx + 34, by + 30, 10, 36); ctx.fillRect(bx + 52, by + 30, 10, 36); }
     else { ctx.beginPath(); ctx.moveTo(bx + 38, by + 26); ctx.lineTo(bx + 38, by + 70); ctx.lineTo(bx + 72, by + 48); ctx.closePath(); ctx.fill(); }
-    const t = APP.t, ci = Math.max(0, CH.findIndex(c => t >= c.a && t < c.b));
+    const t = APP.t, ci = Math.max(0, CH.findIndex(c => t >= c.na && t < c.nb));
     const tri = (cx, cy, dir) => { ctx.beginPath(); ctx.moveTo(cx - 9 * dir, cy - 13); ctx.lineTo(cx - 9 * dir, cy + 13); ctx.lineTo(cx + 9 * dir, cy); ctx.closePath(); ctx.fill(); };
-    vButton(ctx, P, 'prev', 140, 52, 78, 72, '', () => APP.seek(t > CH[ci].a + 2 || ci === 0 ? CH[ci].a : CH[ci - 1].a));
+    vButton(ctx, P, 'prev', 140, 52, 78, 72, '', () => APP.seek(t > CH[ci].na + 2 || ci === 0 ? CH[ci].na : CH[ci - 1].na));
     ctx.fillStyle = VC.ink; tri(171, 88, -1); ctx.fillRect(184, 75, 5, 26);
-    vButton(ctx, P, 'next', 228, 52, 78, 72, '', () => APP.seek(ci < CH.length - 1 ? CH[ci + 1].a : T_END - 0.01));
+    vButton(ctx, P, 'next', 228, 52, 78, 72, '', () => APP.seek(ci < CH.length - 1 ? CH[ci + 1].na : T_END - 0.01));
     ctx.fillStyle = VC.ink; tri(262, 88, 1); ctx.fillRect(271, 75, 5, 26);
     const x0 = 344, x1 = P.w - 40, ty = 100;
     const m = s => Math.floor(s / 60) + ':' + String(Math.floor(s % 60)).padStart(2, '0');
@@ -2722,7 +2755,7 @@ function drawFoot(ctx, P) {
     rr(ctx, x0, ty, x1 - x0, 6, 3); ctx.fillStyle = 'rgba(160,178,202,0.28)'; ctx.fill();
     rr(ctx, x0, ty, (x1 - x0) * t / T_END, 6, 3); ctx.fillStyle = VC.cyan; ctx.fill();
     ctx.fillStyle = 'rgba(160,178,202,0.6)';
-    for (const c of CH.slice(1)) ctx.fillRect(x0 + (x1 - x0) * c.a / T_END - 1, ty - 8, 2, 22);
+    for (const c of CH.slice(1)) ctx.fillRect(x0 + (x1 - x0) * c.na / T_END - 1, ty - 8, 2, 22);
     ctx.beginPath(); ctx.arc(x0 + (x1 - x0) * t / T_END, ty + 3, P.hover === 'track' ? 16 : 13, 0, 7); ctx.fillStyle = VC.cyan; ctx.fill();
     P.regions.push({ id: 'track', x: x0 - 10, y: 66, w: x1 - x0 + 20, h: 80, drag: px => APP.seek(clamp((px - x0) / (x1 - x0), 0, 1) * T_END) });
     return;
@@ -2755,7 +2788,16 @@ function audioInit() {
   try { AUD.muted = localStorage.getItem('narrationMuted') === '1'; } catch (e) { /* storage blocked */ }
   const a = new Audio();
   a.preload = 'auto';
-  a.addEventListener('loadedmetadata', () => { AUD.ok = true; audioButton(); });
+  a.addEventListener('loadedmetadata', () => {
+    AUD.ok = true; audioButton();
+    if (isFinite(a.duration) && a.duration + 1 > T_END) {
+      T_END = a.duration + 1;
+      document.querySelectorAll('#track .tick, #track .name').forEach(el => {
+        const c = C[el.dataset.k]; if (c) el.style.left = (100 * c.na / T_END).toFixed(2) + '%';
+      });
+      $('#track').setAttribute('aria-valuemax', Math.round(T_END)); lastTick = -1;
+    }
+  });
   a.addEventListener('error', () => { AUD.ok = false; audioButton(); });
   a.src = 'audio/narration.mp3';
   AUD.el = a;
@@ -2825,8 +2867,8 @@ const APP = {
     this.mode = 'explore';
     document.body.classList.add('exploring');
     $('#btnMode').textContent = 'Replay story';
-    orbit.cur = storyCam(this.t).slice(); orbit.to = null;
-    const S = storyState(this.t);
+    orbit.cur = storyCam(storyT(this.t)).slice(); orbit.to = null;
+    const S = storyState(storyT(this.t));
     for (const n in DEF) XS[n] = S[n];
     Object.assign(XS, { node_reveal: 1, route_reveal: 1, xrm: 1, path_focus: 0, path_prog: 0, sel_prog: 0 });
     ST.labels.forEach(L => { L.el.style.opacity = 0; L.o = 0; });
@@ -2860,10 +2902,11 @@ function frame(now, xrFrame) {
     if (APP.t >= T_END) { APP.t = T_END; APP.enterExplore(); }
   }
   audioSync();
+  const ts = storyT(APP.t); // original story time for this point in the narration
   if (APP.mode === 'story') {
-    S = storyState(APP.t);
-    if (xr) xrPlaceGlobe(storyCam(APP.t)); else applyCamera(storyCam(APP.t));
-    updateStoryDOM(APP.t);
+    S = storyState(ts);
+    if (xr) xrPlaceGlobe(storyCam(ts)); else applyCamera(storyCam(ts));
+    updateStoryDOM(ts);
     updateTimeline(APP.t, APP.playing);
   } else {
     S = exploreStep(dt);
@@ -2876,7 +2919,7 @@ function frame(now, xrFrame) {
   if (xr) xrUpdate(S);
   GL.renderer.render(GL.scene, GL.camera);
   if (!xr) {
-    if (APP.mode === 'story') ST.labels.forEach(L => placeLabel(L, fadeVal(APP.t, L.tIn, L.tOut, 0.5), S));
+    if (APP.mode === 'story') ST.labels.forEach(L => placeLabel(L, fadeVal(ts, L.tIn, L.tOut, 0.5), S));
     else LBL.extra.forEach(L => placeLabel(L, 1, S));
   }
   window.__frames = (window.__frames || 0) + 1;

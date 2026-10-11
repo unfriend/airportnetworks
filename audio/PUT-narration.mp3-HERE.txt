@@ -1,10 +1,10 @@
 Put your recording in this folder as:  narration.mp3
 
-It plays along with the story: second 0 of the recording = second 0 of the story.
-Chapter start times (record to these):
-  0:00 Intro            1:26 Shortest paths
-  0:11 Nodes            1:56 Betweenness
-  0:26 Edges            2:22 Communities
-  0:48 Degree           2:46 Robustness
-  1:08 Hubs             3:22 Recap (story ends at 3:36)
-Without the file the story simply plays silently. You can delete this note.
+The story is already timed to your recording (chapters at 0:00, 0:16, 0:38,
+1:01, 1:17, 1:44, 2:17, 2:46, 2:59 and 3:38, ending at 3:51). If the file runs
+longer, the story waits for it to finish.
+
+If you re-record with different timings, change NARRATION_SYNC near the top of
+the script in index.html (pairs of [time in recording, original story cue]).
+Without the file the story plays silently on the same timing.
+You can delete this note.
