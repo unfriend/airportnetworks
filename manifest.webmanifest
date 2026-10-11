@@ -1,0 +1,18 @@
+{
+  "name": "Network theory, told with the world's airports",
+  "short_name": "Airport networks",
+  "description": "An interactive globe of 3,214 airports and 18,858 routes that explains network theory. Works in VR and AR headsets.",
+  "id": "./",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#040912",
+  "theme_color": "#040912",
+  "categories": ["education", "science"],
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
