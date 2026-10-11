@@ -664,7 +664,8 @@ varying vec3 vCol; varying float vA;
 void main() {
   gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
   float g = clamp((uReveal - aRv * 0.75) / 0.25, 0.0, 1.0);
-  float vis = step(aT, g + 0.0005);
+  // nothing until this route's reveal has begun (otherwise each route's first point shows as a streak)
+  float vis = step(0.0001, g) * step(aT, g + 0.0005);
   float inter = step(9.5, aComm);
   vec3 col = mix(uBase, uPal[int(aComm + 0.5)], uWComm);
   float ca = mix(1.0, mix(1.0, 0.22, inter), uWComm);
