@@ -1782,7 +1782,7 @@ function bindCanvas() {
 // A/X plays and pauses the story. Hand tracking: point and pinch.
 const XR = {
   on: false, mode: null, session: null, needRecenter: false, fov: false, fontOK: 0, clear: true,
-  head: new THREE.Vector3(), headQ: new THREE.Quaternion(), camLocal: new THREE.Vector3(0, 0, 5),
+  head: new THREE.Vector3(), headQ: new THREE.Quaternion(), globeOff: new THREE.Vector3(), globeBase: new THREE.Vector3(), camLocal: new THREE.Vector3(0, 0, 5),
   baseR: 0.36, R: 0.36, viewH: 1600, pointK: 0.0028, hlScale: 1.4,
   ctrls: [], panels: [], main: null, foot: null, tip: null, tipI: -1, elInfo: null,
   kbd: { open: false, q: '' }, pf: -1, pt: -1, pick: 'from', aiKey: '', ai: null, ccKey: '', cc: null,
@@ -1804,12 +1804,17 @@ function xrPlaceGlobe(p) {
   XR.R = XR.baseR * clamp(Math.pow(4.6 / (d + 1), 0.8), 0.72, 2.0);
   // a little right of centre and below eye level, leaving room for the panel on the left
   const dc = Math.max(1.2, XR.R + 0.62), cx = 0.12, cy = -0.2;
-  _xq2.setFromUnitVectors(_xz, _xa.set(-cx, -cy, dc).normalize());
-  GL.world.position.set(cx, cy, -dc);
+  // plus wherever you have moved it with the grip; the story's focus side keeps facing you
+  const gx = cx + XR.globeOff.x, gy = cy + XR.globeOff.y, gz = -dc + XR.globeOff.z;
+  XR.globeBase.set(cx, cy, -dc);
+  _xq2.setFromUnitVectors(_xz, _xa.set(-gx, -gy, -gz).normalize());
+  GL.world.position.set(gx, gy, gz);
   GL.world.quaternion.copy(_xq2).multiply(_xq);
   GL.world.scale.setScalar(XR.R);
 }
 function xrRecenter() {
+  XR.globeOff.set(0, 0, 0);
+  if (XR.panelGroup) { XR.panelGroup.position.copy(XR.panelHome.p); XR.panelGroup.rotation.set(0, XR.panelHome.yaw, 0); }
   const yaw = new THREE.Euler().setFromQuaternion(XR.headQ, 'YXZ').y;
   GL.rig.position.copy(XR.head);
   GL.rig.quaternion.setFromAxisAngle(new THREE.Vector3(0, 1, 0), yaw);
@@ -1984,7 +1989,31 @@ function xrRelease(c) {
   } else if (!p.moved && p.i >= 0) { buzz(c); xrClickAirport(p.i); }
 }
 function xrGrab(c, on) {
-  c.grab = on && APP.mode === 'explore' ? Object.assign(startDrag(c), { moved: true }) : null;
+  c.grab = null;
+  const h = c.hover;
+  if (!on || !h) return;
+  const obj = h.kind === 'panel' ? XR.panelGroup : GL.world;
+  c.grab = { target: h.kind === 'panel' ? 'panel' : 'globe', q0: new THREE.Quaternion().setFromRotationMatrix(c.g.matrix).invert(),
+    o0: c.o.clone(), p0: obj.getWorldPosition(new THREE.Vector3()), reach: 1 };
+  buzz(c, 0.4, 25);
+}
+const _gq = new THREE.Quaternion(), _gv = new THREE.Vector3(), _gh = new THREE.Vector3();
+// the grabbed object keeps its offset from the controller, so moving or turning your hand carries it
+function carry(c, dt) {
+  const G = c.grab, gp = c.src.gamepad;
+  if (gp && gp.axes.length >= 4 && Math.abs(gp.axes[3]) > 0.2) G.reach = clamp(G.reach * Math.exp(gp.axes[3] * dt * 1.5), 0.15, 6);
+  _gq.setFromRotationMatrix(c.g.matrix).multiply(G.q0);
+  _gv.copy(G.p0).sub(G.o0).multiplyScalar(G.reach);
+  const lenMax = 4;
+  if (_gv.length() > lenMax) _gv.setLength(lenMax);
+  _gv.applyQuaternion(_gq).add(c.o);
+  GL.rig.worldToLocal(_gv);
+  if (G.target === 'globe') XR.globeOff.copy(_gv).sub(XR.globeBase);
+  else {
+    XR.panelGroup.position.copy(_gv);
+    GL.rig.worldToLocal(_gh.copy(XR.head));
+    XR.panelGroup.rotation.set(0, Math.atan2(_gh.x - _gv.x, _gh.z - _gv.z), 0); // keep it upright, facing you
+  }
 }
 function xrPoint(c, dt) {
   const g = c.g;
@@ -2018,13 +2047,13 @@ function xrPoint(c, dt) {
   c.hover = hit;
   if (c.wantPress) { c.wantPress = false; xrPress(c); }
   if (c.press && c.press.kind === 'globe') dragGlobe(c, c.press);
-  if (c.grab) dragGlobe(c, c.grab);
+  if (c.grab) carry(c, dt);
   if (c.press && c.press.kind === 'panel' && c.press.r.drag && hit && hit.kind === 'panel' && hit.P === c.press.P) c.press.r.drag(hit.x, hit.y);
   // thumbstick: spin and zoom the globe; A/X: play or pause the story
   const gp = c.src.gamepad;
   if (gp) {
     const ax = gp.axes.length >= 4 ? gp.axes[2] : 0, ay = gp.axes.length >= 4 ? gp.axes[3] : 0;
-    if (APP.mode === 'explore' && !c.press) {
+    if (APP.mode === 'explore' && !c.press && !c.grab) {
       if (Math.abs(ay) > 0.2) { orbit.to = null; orbit.cur[2] = clamp(orbit.cur[2] * Math.exp(ay * dt * 1.5), 0.9, 5); }
       if (Math.abs(ax) > 0.2) { orbit.to = null; orbit.cur[1] -= ax * dt * 60 * (orbit.cur[2] + 0.35) / 3.4; }
     }
@@ -2228,9 +2257,12 @@ function xrSetup() {
   const mw = 0.62, px = -0.675, py = 0.04, pz = -0.8, yaw = Math.atan2(-px, -pz);
   XR.main = makePanel(1024, 1200, mw, drawMain, sigMain);
   XR.foot = makePanel(1024, 176, mw, drawFoot, sigFoot);
-  XR.main.mesh.position.set(px, py, pz);
-  XR.foot.mesh.position.set(px, py - (mw * 1200 / 1024) / 2 - 0.012 - (mw * 176 / 1024) / 2, pz);
-  for (const P of [XR.main, XR.foot]) { P.mesh.rotation.y = yaw; GL.rig.add(P.mesh); XR.panels.push(P); }
+  XR.panelGroup = new THREE.Group();
+  XR.panelHome = { p: new THREE.Vector3(px, py, pz), yaw };
+  XR.panelGroup.position.copy(XR.panelHome.p); XR.panelGroup.rotation.y = yaw;
+  GL.rig.add(XR.panelGroup);
+  XR.foot.mesh.position.set(0, -(mw * 1200 / 1024) / 2 - 0.012 - (mw * 176 / 1024) / 2, 0);
+  for (const P of [XR.main, XR.foot]) { XR.panelGroup.add(P.mesh); XR.panels.push(P); }
   XR.panelMeshes = XR.panels.map(P => P.mesh);
   for (let i = 0; i < 2; i++) xrController(i);
   GL.renderer.xr.addEventListener('sessionend', xrEnded);
@@ -2372,7 +2404,7 @@ function drawMain(ctx, P) {
   if (story) {
     drawStoryPane(ctx, P, 44, 136, P.w - 88);
     ctx.fillStyle = VC.line; ctx.fillRect(36, P.h - 96, P.w - 72, 2);
-    textBlock(ctx, 'Point and pull the trigger (or pinch) to use buttons. A or X plays and pauses.', 44, P.h - 74, P.w - 88, 22, 30, VC.faint);
+    textBlock(ctx, 'Trigger (or pinch): use buttons. Grip: move the globe or this panel. A or X: play and pause.', 44, P.h - 74, P.w - 88, 22, 30, VC.faint);
   } else drawExplorePane(ctx, P, 40, 120, P.w - 80);
 }
 
@@ -2531,7 +2563,7 @@ function drawAirportPane(ctx, P, x, y, W, bottom) {
   y += 92;
   const i = X.sel, { code, name, city, country, deg, btw, comm } = NET;
   if (i < 0) {
-    y += textBlock(ctx, 'Point at any airport on the globe and pull the trigger (or pinch) to see its routes, rank and reach. Drag the globe to turn it, push the thumbstick to spin and zoom.', x, y, W, 28, 41, VC.muted) + 22;
+    y += textBlock(ctx, 'Point at any airport on the globe and pull the trigger (or pinch) to see its routes, rank and reach. Drag the globe to turn it, push the thumbstick to spin and zoom, hold the grip to move it.', x, y, W, 28, 41, VC.muted) + 22;
     chipFlow(ctx, P, ['AMS', 'ATL', 'ANC', 'DXB', 'SYD', 'USH'], x, y, W, bottom, c => `${c} ${NET.city[A(c)]}`, c => selectAirport(A(c)), 'quick:');
     return;
   }
