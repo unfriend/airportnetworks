@@ -2199,6 +2199,7 @@ async function xrStart(mode) {
     return;
   }
   XR.session = session; XR.mode = mode;
+  session.addEventListener('visibilitychange', xrVisibility);
   xrEnterScene();
   try {
     GL.renderer.xr.setReferenceSpaceType('local');
@@ -2223,7 +2224,7 @@ function xrEnterScene() {
   for (const P of XR.panels) { P.mesh.visible = true; P.last = ''; }
   XR.kbd.open = false;
   if (X.pathEnds) { XR.pf = X.pathEnds[0]; XR.pt = X.pathEnds[1]; }
-  if (APP.mode === 'story' && APP.t < 30) APP.t = 0; // entering early: start the story from the top
+  APP.enterStory(0); APP.playing = true; // every headset session starts the story from the top
   $('#tip').style.opacity = 0;
   rebuildHighlights(XR.hlScale);
   if (document.fonts && !XR.fontOK) {
@@ -2233,9 +2234,29 @@ function xrEnterScene() {
     }).catch(() => {});
   }
 }
+// Headset taken off (or put to sleep) for more than a few seconds: treat the next
+// wearer as a new visitor. Restart the story and place everything in front of them.
+const XR_AWAY_MS = 3000;
+function xrVisibility() {
+  const v = XR.session && XR.session.visibilityState;
+  if (v === 'hidden') { if (!XR.hiddenAt) XR.hiddenAt = performance.now(); }
+  else if (v === 'visible' && XR.hiddenAt) {
+    const away = performance.now() - XR.hiddenAt;
+    XR.hiddenAt = 0;
+    if (away > XR_AWAY_MS) xrFreshStart();
+  }
+  audioSync();
+}
+function xrFreshStart() {
+  XR.kbd.open = false; XR.kbd.q = '';
+  for (const c of XR.ctrls) { c.press = null; c.grab = null; c.wantPress = false; }
+  APP.enterStory(0); APP.playing = true;
+  XR.needRecenter = true; // uses the new wearer's head position and direction on the next frame
+  lastNow = 0;
+}
 function xrEnded() {
   if (!XR.on) return;
-  XR.on = false; XR.session = null; XR.mode = null;
+  XR.on = false; XR.session = null; XR.mode = null; XR.hiddenAt = 0;
   document.body.classList.remove('xr');
   GL.rig.position.set(0, 0, 0); GL.rig.quaternion.identity();
   GL.world.position.set(0, 0, 0); GL.world.quaternion.identity(); GL.world.scale.setScalar(1);
@@ -2889,7 +2910,8 @@ function audioGesture() {
 function audioWanted() {
   const a = AUD.el;
   return AUD.ok && AUD.unlocked && !AUD.muted && APP.mode === 'story' && APP.playing &&
-    !(document.hidden && !XR.on) && isFinite(a.duration) && APP.t < a.duration - 0.05;
+    !(document.hidden && !XR.on) && !(XR.on && XR.session && XR.session.visibilityState === 'hidden') &&
+    isFinite(a.duration) && APP.t < a.duration - 0.05;
 }
 // mute, unmute or re-seek the narration to match the story
 function audioSync() {
