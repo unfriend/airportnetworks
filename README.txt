@@ -11,7 +11,13 @@ Install:
   install icon in the address bar.
 - iPhone/iPad Safari: Share > Add to Home Screen.
 
-After changing any file, bump VERSION in sw.js so installed copies update.
+Narration: put your recording at audio/narration.mp3 (see the note in the
+audio folder for chapter timings). It plays in sync with the story, follows
+pause, seeking and chapter jumps, and has a Sound on/off button (top bar and
+VR panel). Without the file the story runs silently.
 
-Files: index.html (the app), manifest.webmanifest, sw.js (offline cache),
+After changing any file (including adding or replacing narration.mp3),
+bump VERSION in sw.js so installed copies update.
+
+Files: index.html (the app), manifest.webmanifest, sw.js (offline cache), audio/,
 icons/, three.min.js (three.js r128, MIT licence, see three.LICENSE.txt).

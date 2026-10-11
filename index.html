@@ -263,6 +263,7 @@ body.xr #labels, body.xr #tip { display: none; }
 <header id="top">
   <div class="brand">Network theory<span>told with the world's airports</span></div>
   <div class="spacer"></div>
+  <button class="btn" id="btnSound" type="button" hidden aria-pressed="false">Sound on</button>
   <button class="btn" id="btnInstall" type="button" hidden title="Install as an app">Install</button>
   <button class="btn" id="btnAR" type="button" hidden title="Mixed reality: the globe floats in your room">Enter AR</button>
   <button class="btn primary" id="btnVR" type="button" hidden title="View in your VR headset">Enter VR</button>
@@ -2285,7 +2286,7 @@ function panelTick(P, now) {
 function sigMain() {
   if (APP.mode === 'story') {
     const it = ST.items.find(x => x.ch === curCh);
-    let s = 's' + (curCh ? curCh.key : '');
+    let s = 's' + AUD.ok + AUD.muted + (curCh ? curCh.key : '');
     if (it) {
       for (const e of it.els) s += Math.round(Math.max(0, e.o) * 3);
       for (const g of it.grow) s += Math.round(Math.max(0, g.s) * 6);
@@ -2295,7 +2296,7 @@ function sigMain() {
     }
     return s;
   }
-  return ['x', X.tab, X.sel, X.path ? X.path.join(',') : '', X.pathErr || '', X.color, X.pillars, X.iso, X.closeMode,
+  return ['x', AUD.ok, AUD.muted, X.tab, X.sel, X.path ? X.path.join(',') : '', X.pathErr || '', X.color, X.pillars, X.iso, X.closeMode,
     X.closeK, [...X.manual].join(','), X.hubsBy, XR.kbd.open, XR.kbd.q, XR.pf, XR.pt, XR.pick, X.curve ? 1 : 0].join('|');
 }
 function drawMain(ctx, P) {
@@ -2305,6 +2306,7 @@ function drawMain(ctx, P) {
   let x = P.w - 36;
   const hb = (id, label, fn, w, o) => { x -= w; vButton(ctx, P, id, x, 26, w, 54, label, fn, o); x -= 12; };
   hb('exit', 'Exit', () => { if (XR.session) XR.session.end(); }, 96);
+  if (AUD.ok) hb('sound', AUD.muted ? 'Sound off' : 'Sound on', () => audioToggle(), 150, { on: !AUD.muted });
   hb('recenter', 'Recenter', () => { XR.needRecenter = true; }, 150);
   hb('mode', story ? 'Explore now' : 'Replay story', () => (story ? APP.enterExplore() : APP.enterStory(0)), 196, { primary: story });
   ctx.fillStyle = VC.line; ctx.fillRect(36, 104, P.w - 72, 2);
@@ -2742,6 +2744,77 @@ function drawFoot(ctx, P) {
   vButton(ctx, P, 'z+', x + 62, 96, 56, 56, '+', () => xrZoom(1 / 1.3), { px: 28 });
 }
 
+
+// ------------------------------------------------------------- narration --
+// Optional voice-over: put an MP3 at audio/narration.mp3 (next to index.html).
+// Second 0 of the recording plays at second 0 of the story; the story clock
+// follows the audio, so seeking, pausing and chapter jumps stay in sync.
+// Without the file the story runs silently, exactly as before.
+const AUD = { el: null, ok: false, muted: false, unlocked: false, starting: false, needSeek: true };
+function audioInit() {
+  try { AUD.muted = localStorage.getItem('narrationMuted') === '1'; } catch (e) { /* storage blocked */ }
+  const a = new Audio();
+  a.preload = 'auto';
+  a.addEventListener('loadedmetadata', () => { AUD.ok = true; audioButton(); });
+  a.addEventListener('error', () => { AUD.ok = false; audioButton(); });
+  a.src = 'audio/narration.mp3';
+  AUD.el = a;
+  // browsers only allow sound after the first tap, click or key press
+  const unlock = () => {
+    if (AUD.unlocked && !AUD.el.paused) return;
+    AUD.unlocked = true;
+    audioSync();
+    audioButton();
+  };
+  ['pointerdown', 'keydown', 'touchend'].forEach(t => document.addEventListener(t, unlock, true));
+  $('#btnSound').addEventListener('click', () => audioToggle());
+  // react at once to play/pause, seeks, chapter jumps and mode changes
+  for (const name of ['seek', 'togglePlay', 'enterExplore', 'enterStory']) {
+    const f = APP[name];
+    APP[name] = function (...args) { const r = f.apply(APP, args); AUD.needSeek = true; audioSync(); return r; };
+  }
+}
+function audioWanted() {
+  const a = AUD.el;
+  return AUD.ok && AUD.unlocked && !AUD.muted && APP.mode === 'story' && APP.playing &&
+    !document.hidden && isFinite(a.duration) && APP.t < a.duration - 0.05;
+}
+// start, stop or re-seek the audio to match the story
+function audioSync() {
+  const a = AUD.el;
+  if (!a || !AUD.ok) return;
+  if (!audioWanted()) { if (!a.paused) a.pause(); return; }
+  if (AUD.needSeek || a.paused) { if (Math.abs(a.currentTime - APP.t) > 0.15) a.currentTime = APP.t; AUD.needSeek = false; }
+  if (a.paused && !AUD.starting) {
+    AUD.starting = true;
+    a.play().then(() => { AUD.starting = false; }, () => { AUD.starting = false; AUD.unlocked = false; audioButton(); });
+  }
+}
+// while it plays, the audio is the clock: gently pull the story toward it
+function audioFollow() {
+  const a = AUD.el;
+  if (!a || a.paused || a.seeking || !audioWanted()) return;
+  const d = a.currentTime - APP.t;
+  APP.t = Math.abs(d) < 0.6 ? APP.t + d * 0.2 : a.currentTime;
+}
+function audioToggle() {
+  AUD.muted = !AUD.muted;
+  AUD.unlocked = true;
+  try { localStorage.setItem('narrationMuted', AUD.muted ? '1' : '0'); } catch (e) { /* storage blocked */ }
+  if (AUD.muted) AUD.el.pause();
+  audioSync();
+  audioButton();
+}
+function audioButton() {
+  const b = $('#btnSound');
+  b.hidden = !AUD.ok;
+  const on = !AUD.muted;
+  b.textContent = on ? (AUD.unlocked ? 'Sound on' : 'Play sound') : 'Sound off';
+  b.setAttribute('aria-pressed', on ? 'true' : 'false');
+  b.title = on ? 'Turn the narration off' : 'Turn the narration on';
+}
+document.addEventListener('visibilitychange', () => audioSync());
+
 // ================================================================== APP ==
 const APP = {
   mode: 'story', t: 0, playing: true,
@@ -2783,8 +2856,10 @@ function frame(now, xrFrame) {
   let S;
   if (APP.mode === 'story' && APP.playing) {
     APP.t += dt;
+    audioFollow();
     if (APP.t >= T_END) { APP.t = T_END; APP.enterExplore(); }
   }
+  audioSync();
   if (APP.mode === 'story') {
     S = storyState(APP.t);
     if (xr) xrPlaceGlobe(storyCam(APP.t)); else applyCamera(storyCam(APP.t));
@@ -2822,7 +2897,7 @@ function init() {
   }
   resize();
   window.addEventListener('resize', resize);
-  buildStory(); buildTimeline(); buildExplore(); bindCanvas(); xrSetup();
+  buildStory(); buildTimeline(); buildExplore(); bindCanvas(); xrSetup(); audioInit();
   setPathAttribute(ST.path);
   applyTheme();
   matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applyTheme);
