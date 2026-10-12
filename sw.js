@@ -1,6 +1,6 @@
 // Offline support: the app shell is cached on install, so the installed app
 // opens without a network connection. Bump VERSION when you change any file.
-const VERSION = 'airport-networks-v10';
+const VERSION = 'airport-networks-v11';
 const SHELL = ['./', './index.html', './three.min.js', './manifest.webmanifest',
   './icons/icon-192.png', './icons/icon-512.png', './icons/maskable-512.png', './icons/apple-touch-icon.png', './icons/favicon-32.png'];
 
@@ -53,7 +53,7 @@ self.addEventListener('fetch', e => {
   if (url.origin === self.location.origin && url.pathname.endsWith('/audio/narration.mp3')) {
     e.respondWith(caches.match(AUDIO).then(hit => {
       if (!hit) return fetch(req);
-      return req.headers.has('range') ? rangeResponse(req, hit) : hit;
+      return req.headers.has('range') ? rangeResponse(req, hit) : hit.clone();
     }));
     return;
   }
