@@ -919,7 +919,7 @@ void main() {
   rg.setIndex(new THREE.BufferAttribute(ri, 1));
   GL.routeEdgeOf = edgeOf;
   GL.RU = { uReveal: { value: 0 }, uAlpha: { value: 0 }, uWComm: { value: 0 }, uRndRm: { value: 0 }, uTgtRm: { value: 0 },
-    uXrm: { value: 0 }, uIso: { value: -1 }, uBase: { value: new THREE.Vector3(0.16, 0.42, 1.0) }, uPal: { value: pal } };
+    uXrm: { value: 0 }, uIso: { value: -1 }, uBase: { value: new THREE.Vector3(0.38, 0.66, 1.0) }, uPal: { value: pal } };
   GL.routes = new THREE.LineSegments(rg, routeMaterial(GL.RU));
   GL.routes.renderOrder = 4;
   GL.world.add(GL.routes);
@@ -1381,7 +1381,7 @@ function applyUniforms(S, explore) {
   U.uFocus.value = S.path_focus; U.uPathProg.value = S.path_prog; U.uRndRm.value = S.rnd_rm; U.uTgtRm.value = S.tgt_rm;
   U.uXrm.value = S.xrm; U.uDegH.value = S.deg_h; U.uBtwH.value = S.btw_h;
   U.uIso.value = explore ? X.iso : -1; U.uSel.value = explore ? X.sel : -1;
-  RU.uReveal.value = S.route_reveal; RU.uAlpha.value = 0.2 * S.route_alpha; RU.uWComm.value = S.w_comm;
+  RU.uReveal.value = S.route_reveal; RU.uAlpha.value = 0.55 * S.route_alpha; RU.uWComm.value = S.w_comm;
   RU.uRndRm.value = S.rnd_rm; RU.uTgtRm.value = S.tgt_rm; RU.uXrm.value = S.xrm; RU.uIso.value = U.uIso.value;
   GL.pillars.visible = S.deg_h + S.btw_h > 0.002;
   const H = GL.highlights;
