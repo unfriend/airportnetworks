@@ -1,10 +1,10 @@
 // Offline support: the app shell is cached on install, so the installed app
 // opens without a network connection. Bump VERSION when you change any file.
-const VERSION = 'airport-networks-v11';
-const SHELL = ['./', './index.html', './three.min.js', './manifest.webmanifest',
+const VERSION = 'airport-networks-v12';
+const SHELL = ['./', './index.html', './proteins.html', './three.min.js', './manifest.webmanifest',
   './icons/icon-192.png', './icons/icon-512.png', './icons/maskable-512.png', './icons/apple-touch-icon.png', './icons/favicon-32.png'];
 
-const AUDIO = './audio/narration.mp3';
+const AUDIO = ['./audio/narration.mp3', './audio/narration-proteins.mp3'];
 // media elements ask for byte ranges; answer them from the cached file
 async function rangeResponse(req, cached) {
   const buf = await cached.arrayBuffer(), size = buf.byteLength;
@@ -19,8 +19,8 @@ async function rangeResponse(req, cached) {
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(VERSION).then(c => c.addAll(SHELL).then(() =>
-    // the narration is optional: cache it if it exists
-    fetch(AUDIO).then(r => (r.ok ? c.put(AUDIO, r) : null)).catch(() => null)))
+    // the narrations are optional: cache those that exist
+    Promise.all(AUDIO.map(a => fetch(a).then(r => (r.ok ? c.put(a, r) : null)).catch(() => null)))))
     .then(() => self.skipWaiting()));
 });
 self.addEventListener('activate', e => {
@@ -34,11 +34,12 @@ self.addEventListener('fetch', e => {
   const url = new URL(req.url);
   // pages: network first (to pick up updates), cached copy when offline
   if (req.mode === 'navigate') {
+    // each page is cached under its own name (the bare folder URL is index.html)
+    const page = /\/proteins\.html$/.test(url.pathname) ? './proteins.html' : './index.html';
     e.respondWith(fetch(req).then(res => {
-      const copy = res.clone();
-      caches.open(VERSION).then(c => c.put('./index.html', copy));
+      if (res.ok) { const copy = res.clone(); caches.open(VERSION).then(c => c.put(page, copy)); }
       return res;
-    }).catch(() => caches.match('./index.html')));
+    }).catch(() => caches.match(page)));
     return;
   }
   // web font (Google Fonts): cache whatever we get, use the cache when offline
@@ -50,8 +51,9 @@ self.addEventListener('fetch', e => {
     return;
   }
   // the narration: from the cache when it is there (as byte ranges), else the network
-  if (url.origin === self.location.origin && url.pathname.endsWith('/audio/narration.mp3')) {
-    e.respondWith(caches.match(AUDIO).then(hit => {
+  const narr = url.origin === self.location.origin && /\/audio\/(narration(-proteins)?\.mp3)$/.exec(url.pathname);
+  if (narr) {
+    e.respondWith(caches.match('./audio/' + narr[1]).then(hit => {
       if (!hit) return fetch(req);
       return req.headers.has('range') ? rangeResponse(req, hit) : hit.clone();
     }));
