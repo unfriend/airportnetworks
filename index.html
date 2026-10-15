@@ -3,15 +3,20 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Network theory, told with the world's airports</title>
-<meta name="description" content="An interactive globe of the world's airline network that explains network theory. Works in VR and AR headsets.">
+<title>Networks, in three stories</title>
+<meta name="description" content="Network science in three short interactive stories: the world's airports on a globe, proteins and disease in a cell, and where proteins meet in a model human cell. Works on phones, desktops and in VR and AR headsets.">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Networks, in three stories">
+<meta property="og:description" content="Network science in three short interactive stories: airports on a globe, proteins and disease in a cell, and where proteins meet in a model human cell. Works in VR and AR too.">
+<meta property="og:image" content="icons/icon-512.png">
+<meta name="twitter:card" content="summary">
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#040912">
 <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="Airport networks">
+<meta name="apple-mobile-web-app-title" content="Networks">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -305,7 +310,7 @@ body.xr #labels, body.xr #tip { display: none; }
 </style>
 </head>
 <body>
-<canvas id="gl" aria-label="Interactive globe of the world airline network"></canvas>
+<canvas id="gl" aria-label="Interactive 3D network"></canvas>
 <div id="labels" aria-hidden="true"></div>
 <div id="tip" role="status"></div>
 <div id="xrmsg" role="status"></div>
@@ -315,7 +320,7 @@ body.xr #labels, body.xr #tip { display: none; }
   <div class="spacer"></div>
   <button class="btn" id="btnSound" type="button" hidden aria-pressed="false">Sound on</button>
   <button class="btn" id="btnInstall" type="button" hidden title="Install as an app">Install</button>
-  <button class="btn" id="btnAR" type="button" hidden title="Mixed reality: the globe floats in your room">Enter AR</button>
+  <button class="btn" id="btnAR" type="button" hidden title="Mixed reality: the network floats in your room">Enter AR</button>
   <button class="btn primary" id="btnVR" type="button" hidden title="View in your VR headset">Enter VR</button>
   <button class="btn" id="btnMode" type="button">Explore now</button>
 </header>
@@ -336,8 +341,8 @@ body.xr #labels, body.xr #tip { display: none; }
     <div class="cards"></div>
   </div>
 </div>
-<div id="loading">Plotting 3,214 airports and 18,858 routes</div>
-<div id="nogl">This globe needs WebGL, which this browser has turned off.</div>
+<div id="loading">Loading</div>
+<div id="nogl">This app needs WebGL, which this browser has turned off.</div>
 <script src="three.min.js"></script>
 <script>
 'use strict';
@@ -416,7 +421,7 @@ HOST.start = async function (key, keepHash) {
   try { await this.load(meta.key); } catch (e) { ld.textContent = e.message; this.busy = false; return; }
   this.teardown();
   if (!keepHash) history.replaceState(null, '', '#' + meta.key);
-  document.title = meta.page;
+  if (!this.picking) document.title = meta.page;
   document.querySelector('#top .brand').innerHTML = `${meta.brand}<span>${meta.sub}</span>`;
   document.getElementById('gl').setAttribute('aria-label', meta.aria);
   document.getElementById('btnAR').title = `Mixed reality: the ${meta.thing} floats in your room`;
@@ -432,8 +437,9 @@ HOST.go = key => setTimeout(() => HOST.start(key), 0);
 // the address says where you are, so it can be shared: #stories on the Stories
 // screen (page or headset), #airports, #proteins or #spatial in a story
 HOST.setUrl = function (stories) {
-  const h = stories ? '#stories' : '#' + this.curKey;
+  const h = stories ? '#stories' : '#' + this.curKey, meta = this.list.find(s => s.key === this.curKey);
   if (location.hash !== h) history.replaceState(null, '', h);
+  document.title = stories || !meta ? 'Networks, in three stories' : meta.page;
 };
 HOST.openPicker = function () {
   const pk = document.getElementById('picker');

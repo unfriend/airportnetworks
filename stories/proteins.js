@@ -2700,7 +2700,7 @@ function drawFoot(ctx, P) {
 
 
 // ------------------------------------------------------------- narration --
-// Optional voice-over: put an MP3 at audio/narration.mp3 (next to index.html).
+// Optional voice-over: put an MP3 at audio/narration-proteins.mp3.
 // Second 0 of the recording plays at second 0 of the story; the story clock
 // follows the audio, so seeking, pausing and chapter jumps stay in sync.
 // Without the file the story runs silently, exactly as before.

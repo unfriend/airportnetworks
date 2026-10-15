@@ -1,7 +1,7 @@
 {
-  "name": "Network theory, told with the world's airports",
-  "short_name": "Airport networks",
-  "description": "An interactive globe of 3,214 airports and 18,858 routes that explains network theory. Works in VR and AR headsets.",
+  "name": "Networks, in three stories",
+  "short_name": "Networks",
+  "description": "Network science in three short interactive stories: the world's airports on a globe, proteins and disease in a cell, and where proteins meet in a model human cell. Works in VR and AR headsets.",
   "id": "./",
   "start_url": "./",
   "scope": "./",
