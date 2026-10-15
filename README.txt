@@ -52,6 +52,16 @@ LINKS, TOGETHER and MOVES sit at the top of stories/spatial.js and can be
 edited; the cell model and protein positions are built when the page loads.
 Good for teaching, not research.
 
+Tour data (stories/lbi.js): mostly illustrative and built when the story
+loads. The interactome has about 9,100 proteins and 22,100 interactions, of which
+the 254 named proteins (in ten groups) are the curated set of the
+network-medicine story. The friendship globe uses the real positions of the
+3,214 airports; its ties are illustrative. ATP synthase follows the textbook
+structure (13 kinds of subunit, 8-subunit c-ring, 8 protons and 3 ATP per
+turn). The immunity Sankey uses the totals of Guthrie et al. 2023 (173 genes,
+9 clinical categories, 19 clusters); the flows between them are illustrative,
+as are the disease modules, the patient, the organ network and the tissue.
+
 Files: index.html (the app), stories/ (the four stories), proteins.html and
 spatial.html (forward to the app), manifest.webmanifest, sw.js (offline cache), audio/,
 AGENTS.md and CLAUDE.md (notes for AI coding agents), tools/smoke.mjs (headless test),
