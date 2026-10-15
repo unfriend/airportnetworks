@@ -17,6 +17,9 @@
   run `node tools/smoke.mjs` before committing. Report anything that can only
   be checked on a real headset as untested.
 - After any change to app files, bump `VERSION` in `sw.js`.
+- Sound belongs to the shell (`HOST.audio` in `index.html`); stories never
+  create or close an `AudioContext`. After touching sound, run
+  `node tools/audio.mjs` as well as the smoke test.
 - `stories/lbi.js` is built from `tools/lbi/`: edit there and run
   `node tools/lbi/build.mjs`.
 

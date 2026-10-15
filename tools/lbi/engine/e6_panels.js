@@ -181,7 +181,7 @@ function drawMain(ctx, P) {
   let x = P.w - 36;
   const hb = (id, label, fn, w, o) => { x -= w; vButton(ctx, P, id, x, 26, w, 54, label, fn, o); x -= 12; };
   hb('exit', 'Exit', () => { if (XR.session) XR.session.end(); }, 96);
-  if (AUD.state !== 'none') hb('sound', audioLabel(), () => audioToggle(), 180, { on: AUD.ok && !AUD.muted && AUD.ctx.state === 'running', px: 23 });
+  if (AUD && AUD.state !== 'none') hb('sound', audioLabel(), () => audioToggle(), 180, { on: AUD.on(), px: 23 });
   hb('recenter', 'Recenter', () => { XR.needRecenter = true; }, 140);
   hb('stories', 'Stories', () => { XR.stories = true; XR.kbd.open = false; APP.playing = false; }, 130);
   if (!XR.stories) hb('mode', story ? 'Explore now' : 'Replay story', () => (story ? APP.enterExplore() : APP.enterStory(0)), 186, { primary: story });

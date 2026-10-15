@@ -30,7 +30,10 @@ Narration: put your recordings at audio/narration.mp3 (airports),
 audio/narration-proteins.mp3 (proteins), audio/narration-spatial.mp3
 (cell map) and audio/narration-lbi.mp3 (the tour); see the note in the audio folder for chapter timings. It plays in
 sync with the story, follows pause, seeking and chapter jumps, and has a Sound
-on/off button (top bar and VR panel). Without the file the story runs silently.
+on/off button (top bar and VR panel). Browsers only start sound after a tap or
+click: the first one in the app (Enter VR counts) turns sound on for every
+story, also when you change story inside the headset. If the button says Play
+sound, press it. Without the file the story runs silently.
 
 After changing any file (including adding or replacing a narration file),
 bump VERSION in sw.js so installed copies update.

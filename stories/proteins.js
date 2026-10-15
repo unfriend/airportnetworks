@@ -1677,7 +1677,7 @@ function xrController(i) {
   g.addEventListener('disconnected', () => { c.src = null; c.press = null; c.grab = null; c.hover = null; c.wantPress = false; c.dot.visible = false; });
   // presses are handled on the next frame, once the ray has its fresh pose
   g.addEventListener('selectstart', () => { c.wantPress = true; });
-  g.addEventListener('selectend', () => { if (c.wantPress) { c.wantPress = false; xrPress(c); } xrRelease(c); audioGesture(); });
+  g.addEventListener('selectend', () => { if (c.wantPress) { c.wantPress = false; xrPress(c); } xrRelease(c); });
   g.addEventListener('squeezestart', () => xrGrab(c, true));
   g.addEventListener('squeezeend', () => xrGrab(c, false));
   GL.scene.add(g);
@@ -2006,7 +2006,6 @@ function xrVisibility() {
     const away = performance.now() - XR.hiddenAt;
     XR.hiddenAt = 0;
     if (away > XR_AWAY_MS) xrFreshStart();
-    if (AUD.ctx && AUD.ctx.state !== 'running') AUD.ctx.resume().catch(() => {});
   }
   audioSync();
 }
@@ -2269,7 +2268,7 @@ function drawMain(ctx, P) {
   let x = P.w - 36;
   const hb = (id, label, fn, w, o) => { x -= w; vButton(ctx, P, id, x, 26, w, 54, label, fn, o); x -= 12; };
   hb('exit', 'Exit', () => { if (XR.session) XR.session.end(); }, 96);
-  if (AUD.state !== 'none') hb('sound', audioLabel(), () => audioToggle(), 180, { on: AUD.ok && !AUD.muted && AUD.ctx.state === 'running', px: 23 });
+  if (AUD && AUD.state !== 'none') hb('sound', audioLabel(), () => audioToggle(), 180, { on: AUD.on(), px: 23 });
   hb('recenter', 'Recenter', () => { XR.needRecenter = true; }, 140);
   hb('stories', 'Stories', () => { XR.stories = true; XR.kbd.open = false; APP.playing = false; }, 130);
   if (!XR.stories) hb('mode', story ? 'Explore now' : 'Replay story', () => (story ? APP.enterExplore() : APP.enterStory(0)), 186, { primary: story });
@@ -2714,108 +2713,35 @@ function drawFoot(ctx, P) {
 // Optional voice-over: put an MP3 at audio/narration-proteins.mp3.
 // Second 0 of the recording plays at second 0 of the story; the story clock
 // follows the audio, so seeking, pausing and chapter jumps stay in sync.
-// Without the file the story runs silently, exactly as before.
-// Narration through Web Audio. The file is loaded and decoded once; the audio
-// engine is unlocked by the first tap or click (e.g. Enter VR) and from then on
-// can start, stop and jump at any moment, also inside a headset where
-// controller clicks may not count as taps for the browser.
-const AUD = { ctx: null, gain: null, buf: null, src: null, startAt: 0, offset: 0, ok: false, muted: false,
-  state: 'loading', needSeek: true, audible: false, duration: 0 };
+// Without the file the story runs silently. The sound engine is the shell's
+// (HOST.audio): one engine for the whole app, unlocked by the first tap or click
+// and kept running across stories and headset sessions.
+let AUD = null;
 function audioInit() {
-  try { AUD.muted = localStorage.getItem('narrationMuted') === '1'; } catch (e) { /* storage blocked */ }
-  const AC = window.AudioContext || window.webkitAudioContext;
-  if (!AC) { AUD.state = 'none'; audioButton(); return; }
-  AUD.ctx = new AC();
-  AUD.gain = AUD.ctx.createGain();
-  AUD.gain.connect(AUD.ctx.destination);
-  AUD.ctx.addEventListener('statechange', () => { audioSync(); audioButton(); });
-  fetch('audio/narration-proteins.mp3').then(r => {
-    if (!r.ok) throw new Error('missing');
-    return r.arrayBuffer();
-  }).then(data => new Promise((res, rej) => AUD.ctx.decodeAudioData(data, res, rej))).then(buf => {
-    AUD.buf = buf; AUD.duration = buf.duration; AUD.ok = true; AUD.state = 'ok';
-    if (AUD.duration + 1 > T_END) {
-      T_END = AUD.duration + 1;
+  AUD = HOST.audio.narration('audio/narration-proteins.mp3', {
+    // a recording longer than the story stretches the timeline
+    ready(d) {
+      if (d + 1 <= T_END) return;
+      T_END = d + 1;
       document.querySelectorAll('#track .tick, #track .name').forEach(el => {
         const c = C[el.dataset.k]; if (c) el.style.left = (100 * c.na / T_END).toFixed(2) + '%';
       });
       $('#track').setAttribute('aria-valuemax', Math.round(T_END)); lastTick = -1;
-    }
-    audioSync(); audioButton();
-  }).catch(err => {
-    AUD.state = err && err.message === 'missing' ? 'none' : 'error';
-    if (AUD.state === 'error') { console.warn('Narration could not be decoded:', err); xrMsg('The narration file could not be played. Export it as a standard MP3 and upload it again.'); }
-    audioButton();
+    },
+    error() { xrMsg('The narration file could not be played. Export it as a standard MP3 and upload it again.'); },
   });
-  ['pointerdown', 'keydown', 'touchend', 'click'].forEach(t => document.addEventListener(t, audioGesture, true));
-  $('#btnSound').addEventListener('click', () => audioToggle());
   // react at once to play/pause, seeks, chapter jumps and mode changes
   for (const name of ['seek', 'togglePlay', 'enterExplore', 'enterStory']) {
     const f = APP[name];
-    APP[name] = function (...args) { const r = f.apply(APP, args); AUD.needSeek = true; audioSync(); return r; };
+    APP[name] = function (...args) { const r = f.apply(APP, args); AUD.seeked(); audioSync(); return r; };
   }
 }
-// called from every user gesture (page clicks and taps, and controller clicks in VR)
-function audioGesture() {
-  const ctx = AUD.ctx;
-  if (!ctx) return;
-  if (ctx.state !== 'running' && ctx.state !== 'closed') {
-    const r = ctx.resume();
-    if (r && r.then) r.then(() => { audioSync(); audioButton(); }, () => {});
-  }
-  audioSync(); audioButton();
-}
-function audioPos() { return AUD.src ? AUD.offset + (AUD.ctx.currentTime - AUD.startAt) : AUD.offset; }
-function audioStart(at) {
-  audioStop();
-  const src = AUD.ctx.createBufferSource();
-  src.buffer = AUD.buf; src.connect(AUD.gain);
-  src.start(0, Math.max(0, at));
-  AUD.src = src; AUD.offset = at; AUD.startAt = AUD.ctx.currentTime; AUD.audible = true;
-}
-function audioStop() {
-  if (AUD.src) { try { AUD.src.stop(); } catch (e) { /* already stopped */ } AUD.src.disconnect(); AUD.src = null; }
-  AUD.audible = false;
-}
-function audioWanted() {
-  return AUD.ok && !AUD.muted && APP.mode === 'story' && APP.playing &&
-    !(document.hidden && !XR.on) && !(XR.on && XR.session && XR.session.visibilityState === 'hidden') &&
-    APP.t < AUD.duration - 0.05;
-}
-// start, stop or re-seek the narration to match the story
-function audioSync() {
-  const ctx = AUD.ctx;
-  if (!ctx || !AUD.ok) return;
-  const want = audioWanted() && ctx.state === 'running';
-  if (!want) { if (AUD.src) audioStop(); return; }
-  if (!AUD.src || (AUD.needSeek && Math.abs(audioPos() - APP.t) > 0.15)) audioStart(APP.t);
-  AUD.needSeek = false;
-}
-// while it plays, the narration is the clock: gently pull the story toward it
-function audioFollow() {
-  if (!AUD.src || !AUD.audible || AUD.ctx.state !== 'running') return;
-  const d = audioPos() - APP.t;
-  APP.t = Math.abs(d) < 0.6 ? APP.t + d * 0.2 : audioPos();
-}
-function audioToggle() {
-  AUD.muted = !AUD.muted;
-  try { localStorage.setItem('narrationMuted', AUD.muted ? '1' : '0'); } catch (e) { /* storage blocked */ }
-  audioGesture();
-}
-function audioLabel() {
-  if (AUD.state === 'loading') return 'Sound loading';
-  if (AUD.state === 'error') return 'Sound unavailable';
-  if (AUD.muted) return 'Sound off';
-  return AUD.ctx && AUD.ctx.state === 'running' ? 'Sound on' : 'Play sound';
-}
-function audioButton() {
-  const b = $('#btnSound');
-  b.hidden = AUD.state === 'none';
-  b.textContent = audioLabel();
-  b.setAttribute('aria-pressed', AUD.ok && !AUD.muted ? 'true' : 'false');
-  b.title = AUD.muted ? 'Turn the narration on' : 'Turn the narration off';
-}
-document.addEventListener('visibilitychange', () => { if (!document.hidden && AUD.ctx && AUD.ctx.state !== 'running') AUD.ctx.resume().catch(() => {}); audioSync(); });
+// the narration plays while the story plays
+function audioSync() { if (AUD) AUD.sync(APP.mode === 'story' && APP.playing, APP.t); }
+// while it plays, the narration is the clock: the story follows it
+function audioFollow() { if (AUD) APP.t = AUD.follow(APP.t); }
+function audioLabel() { return AUD ? AUD.label() : ''; }
+function audioToggle() { HOST.audio.toggle(); }
 
 // ================================================================== APP ==
 const APP = {
@@ -2900,7 +2826,7 @@ function init() {
   }
   resize();
   window.addEventListener('resize', resize);
-  buildStory(); buildTimeline(); buildExplore(); bindCanvas(); xrSetup(); audioInit();
+  buildStory(); buildTimeline(); buildExplore(); bindCanvas(); audioInit(); xrSetup();
   setPathAttribute(null);
   applyTheme();
   matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applyTheme);
@@ -2916,7 +2842,7 @@ function init() {
   // the start screen pauses the story; picking this story again starts it from the top
   if (HOST.picking) APP.playing = false;
   window.addEventListener('storypause', () => { APP.playing = false; });
-  window.addEventListener('storyrestart', () => { APP.enterStory(0); APP.playing = true; audioGesture(); });
+  window.addEventListener('storyrestart', () => { APP.enterStory(0); APP.playing = true; });
   const hp = new URLSearchParams(location.hash.slice(1));
   if (hp.has('t')) { APP.t = clamp(parseFloat(hp.get('t')) || 0, 0, T_END - 0.01); APP.playing = false; }
   if (hp.has('explore')) {
@@ -2943,7 +2869,6 @@ return {
   // for tests and the browser console: HOST.cur.peek('NET.N')
   peek: src => eval(src),
   dispose() {
-    try { audioStop(); if (AUD.ctx) AUD.ctx.close(); } catch (e) { /* already closed */ }
     if (GL.mo) GL.mo.disconnect();
     if (XR.session) XR.session.removeEventListener('visibilitychange', xrVisibility);
     if (GL.scene) GL.scene.traverse(o => {

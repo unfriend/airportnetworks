@@ -58,8 +58,10 @@ After changing any file (including adding or replacing a narration file), bump
 Optional voice-overs go in `audio/`: `narration.mp3` (airports),
 `narration-proteins.mp3`, `narration-spatial.mp3` and `narration-lbi.mp3`. A narration plays in sync
 with its story, follows pausing, seeking and chapter jumps, and gets a *Sound*
-button in the top bar and the headset panel. Without the file the story runs
-silently on the same timing. Chapter timings and how to re-sync a new recording
+button in the top bar and the headset panel. Browsers only start sound after a
+tap or click; the first one anywhere in the app (Enter VR counts) turns sound on
+for every story, also when you change story inside the headset. Without the file
+the story runs silently on the same timing. Chapter timings and how to re-sync a new recording
 (`NARRATION_SYNC` in each story file) are in `audio/PUT-narration.mp3-HERE.txt`.
 
 ## Data
@@ -111,6 +113,7 @@ The protein data is meant for teaching, not research.
 | `audio/` | optional narrations |
 | `three.min.js` | three.js r128 (MIT licence, see `three.LICENSE.txt`) |
 | `tools/smoke.mjs` | headless test: loads every story and fails on page errors |
+| `tools/audio.mjs` | narration test under the headset browsers' sound rule (needs `audio/narration.mp3`) |
 | `tools/lbi/` | sources of the tour: its 3D sets, engine parts and build script (`node tools/lbi/build.mjs` writes `stories/lbi.js`) |
 | `AGENTS.md`, `CLAUDE.md` | notes on the architecture and conventions for AI coding agents (and people) |
 | `README.txt` | the same notes in plain text |

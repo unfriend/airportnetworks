@@ -404,6 +404,176 @@ for (const proto of [EventTarget.prototype, THREE.EventDispatcher.prototype]) {
     return add.call(this, type, fn, opts);
   };
 }
+// ------------------------------------------------------------------ sound --
+// One sound engine for the whole app. Browsers only let sound start inside a tap
+// or click, and headset browsers (Meta Quest) do not reliably count a controller
+// click inside VR as one. So the shell keeps a single Web Audio context for the
+// life of the page: the first tap or click (Enter VR is one) unlocks it, it is
+// never closed, and a story picked later inside the headset plays at once.
+// A story asks for its narration with HOST.audio.narration(url, hooks) and calls
+// sync() and follow() every frame; the shell owns the Sound button.
+HOST.audio = (function () {
+  const AC = window.AudioContext || window.webkitAudioContext;
+  const A = { ctx: null, gain: null, muted: false, cur: null, session: null, files: new Map(), was: false, on: 0, nudged: 0, nudges: 0 };
+  try { A.muted = localStorage.getItem('narrationMuted') === '1'; } catch (e) { /* storage blocked */ }
+  // iPhones: play even when the ring switch is on silent
+  try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch (e) { /* not supported */ }
+  if (AC) {
+    try {
+      A.ctx = new AC();
+      A.gain = A.ctx.createGain(); A.gain.connect(A.ctx.destination);
+      A.ctx.addEventListener('statechange', changed);
+    } catch (e) { A.ctx = null; }
+  }
+  const running = () => !!A.ctx && A.ctx.state === 'running';
+  // the headset's view when one is on, else the page's
+  const away = () => (A.session ? A.session.visibilityState === 'hidden' : document.hidden);
+  // inside a tap, click, key press or controller click: start the engine if it is not running
+  function unlock() {
+    const c = A.ctx;
+    if (!c || c.state === 'running' || c.state === 'closed') return;
+    A.nudges = 0;
+    try { // a silent blip started inside the gesture: some browsers want a sound, not only resume()
+      const s = c.createBufferSource();
+      s.buffer = c.createBuffer(1, 1, c.sampleRate); s.connect(c.destination); s.start(0);
+    } catch (e) { /* engine not ready */ }
+    const r = c.resume();
+    if (r && r.then) r.then(changed, () => {});
+  }
+  // a story wants sound but the engine is paused (by the browser or the headset): ask again
+  // now and then; browsers that allow it resume at once, the others wait for the next tap
+  function nudge() {
+    if (!A.ctx || A.ctx.state === 'closed' || A.nudges >= 5) return;
+    if (navigator.userActivation && !navigator.userActivation.hasBeenActive) return;
+    const now = performance.now();
+    if (now - A.nudged < 2000) return;
+    A.nudged = now; A.nudges++;
+    const r = A.ctx.resume();
+    if (r && r.then) r.then(changed, () => {});
+  }
+  for (const t of ['pointerdown', 'pointerup', 'touchend', 'click', 'keydown']) window.addEventListener(t, unlock, true);
+  document.addEventListener('visibilitychange', () => { if (away()) hush(); else unlock(); changed(); });
+  // a headset session (stories set HOST.session): its controller clicks and squeezes count as
+  // taps where the browser allows it, and taking the headset off stops the sound (its frame loop stops too)
+  function watch(s) {
+    if (!s || s === A.session) return;
+    A.session = s;
+    for (const t of ['selectstart', 'select', 'selectend', 'squeezestart', 'squeeze', 'squeezeend']) s.addEventListener(t, unlock);
+    s.addEventListener('visibilitychange', () => { if (s.visibilityState === 'hidden') hush(); else unlock(); changed(); });
+    s.addEventListener('end', () => { if (A.session === s) A.session = null; });
+    unlock(); // still close to the click on Enter VR, which browsers count for a few seconds
+  }
+  // each file is fetched and decoded once; the last two stay ready for a quick return
+  function load(url) {
+    let p = A.files.get(url);
+    if (p) { A.files.delete(url); A.files.set(url, p); return p; }
+    p = fetch(url).then(r => {
+      if (!r.ok) throw new Error('missing');
+      return r.arrayBuffer();
+    }, () => { throw new Error('missing'); }).then(data => new Promise((res, rej) => {
+      const q = A.ctx.decodeAudioData(data, res, rej);
+      if (q && q.catch) q.catch(rej);
+    }));
+    p.catch(() => A.files.delete(url)); // try again next time (offline now, or the file added later)
+    A.files.set(url, p);
+    while (A.files.size > 2) A.files.delete(A.files.keys().next().value);
+    return p;
+  }
+  // sources fade in and out over a few hundredths of a second, so jumps and pauses do not click
+  function play(N, t) {
+    stop(N);
+    const c = A.ctx, s = c.createBufferSource(), g = c.createGain();
+    s.buffer = N.buf; s.connect(g); g.connect(A.gain);
+    g.gain.setValueAtTime(0, c.currentTime); g.gain.linearRampToValueAtTime(1, c.currentTime + 0.03);
+    s.start(0, Math.max(0, t));
+    N.src = s; N.fade = g; N.from = t; N.at = c.currentTime;
+  }
+  function stop(N) {
+    if (!N || !N.src) return;
+    const c = A.ctx, s = N.src, g = N.fade, end = c.currentTime + 0.04;
+    N.src = null;
+    s.onended = () => { s.disconnect(); g.disconnect(); };
+    try {
+      g.gain.cancelScheduledValues(c.currentTime); g.gain.setValueAtTime(g.gain.value, c.currentTime);
+      g.gain.linearRampToValueAtTime(0, end); s.stop(end);
+    } catch (e) { try { s.stop(); } catch (e2) { /* already stopped */ } }
+  }
+  const hush = () => stop(A.cur);
+  function label(N) {
+    if (!N || N.state === 'none') return '';
+    if (N.state === 'loading') return 'Sound loading';
+    if (N.state === 'error') return 'Sound unavailable';
+    if (A.muted) return 'Sound off';
+    return running() ? 'Sound on' : 'Play sound';
+  }
+  // the page's Sound button; headset panels read label() every frame
+  function changed() {
+    const r = running();
+    if (r && !A.was) { A.on = performance.now(); A.nudges = 0; }
+    A.was = r;
+    const b = document.getElementById('btnSound'), N = A.cur;
+    b.hidden = !N || N.state === 'none';
+    b.textContent = label(N) || 'Sound on';
+    b.setAttribute('aria-pressed', N && N.state === 'ok' && !A.muted ? 'true' : 'false');
+    b.title = A.muted ? 'Turn the narration on' : 'Turn the narration off';
+  }
+  // Sound button (page or headset): "Play sound" only starts the engine (the press itself
+  // unlocks it, and may just have done so); otherwise it turns the narration off or on
+  function toggle() {
+    if (!A.muted && (!running() || performance.now() - A.on < 800)) { unlock(); changed(); return; }
+    A.muted = !A.muted;
+    try { localStorage.setItem('narrationMuted', A.muted ? '1' : '0'); } catch (e) { /* storage blocked */ }
+    if (A.muted) hush(); else unlock();
+    changed();
+  }
+  document.getElementById('btnSound').addEventListener('click', toggle);
+  // a story's narration: second t of the recording plays at story time t
+  function narration(url, hooks) {
+    hooks = hooks || {};
+    hush();
+    const N = { url, state: A.ctx ? 'loading' : 'none', duration: 0, buf: null, src: null, fade: null, from: 0, at: 0, seek: true };
+    A.cur = N;
+    if (A.ctx) load(url).then(buf => {
+      N.buf = buf; N.duration = buf.duration; N.state = 'ok';
+      if (A.cur === N) { if (hooks.ready) hooks.ready(buf.duration); changed(); }
+    }, err => {
+      N.state = err && err.message === 'missing' ? 'none' : 'error';
+      if (A.cur !== N) return;
+      if (N.state === 'error') { console.warn('Narration could not be decoded:', err); if (hooks.error) hooks.error(); }
+      changed();
+    });
+    // where in the recording the sound is now, or null while silent
+    N.pos = () => (N.src ? N.from + (A.ctx.currentTime - N.at) : null);
+    // play from second t while want is true (the story is playing), else stay silent
+    N.sync = (want, t) => {
+      if (A.cur !== N || N.state !== 'ok') return;
+      want = want && !A.muted && !away() && t < N.duration - 0.05;
+      if (!want || !running()) { stop(N); if (want) nudge(); return; }
+      if (!N.src || (N.seek && Math.abs(N.pos() - t) > 0.15)) play(N, t);
+      N.seek = false;
+    };
+    // the story jumped (seek, chapter, play or pause): move the sound on the next sync
+    N.seeked = () => { N.seek = true; };
+    // while it plays, the recording is the clock: pull the story's time gently toward it
+    N.follow = t => {
+      if (A.cur !== N || !N.src || !running()) return t;
+      const d = N.pos() - t;
+      return Math.abs(d) < 0.6 ? t + d * 0.2 : N.pos();
+    };
+    N.label = () => label(N);
+    N.on = () => N.state === 'ok' && !A.muted && running();
+    changed();
+    return N;
+  }
+  // the shell calls this when a story is swapped out
+  function drop() { hush(); A.cur = null; changed(); }
+  return { get ctx() { return A.ctx; }, get muted() { return A.muted; }, running, narration, unlock, toggle, watch, drop };
+})();
+// stories set HOST.session when they start or take over a headset session; the sound engine listens to it
+(function () {
+  let s = null;
+  Object.defineProperty(HOST, 'session', { get: () => s, set(v) { s = v; HOST.audio.watch(v); }, enumerable: true });
+})();
 HOST.load = key => HOST.loaded[key] || (HOST.loaded[key] = new Promise((res, rej) => {
   const s = document.createElement('script');
   s.src = 'stories/' + key + '.js';
@@ -412,6 +582,7 @@ HOST.load = key => HOST.loaded[key] || (HOST.loaded[key] = new Promise((res, rej
 }));
 HOST.teardown = function () {
   const r = this.renderer;
+  this.audio.drop();
   if (this.cur) {
     try { this.inputs = this.cur.inputs(); } catch (e) { this.inputs = []; }
     try { this.xrPose = this.cur.xrPose(); } catch (e) { this.xrPose = null; }

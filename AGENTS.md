@@ -36,7 +36,8 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
   `narration-proteins.mp3`, `narration-spatial.mp3`, `narration-lbi.mp3`);
   missing files are fine.
 - `manifest.webmanifest`, `icons/` - PWA install metadata.
-- `tools/smoke.mjs` - headless smoke test (see Testing).
+- `tools/smoke.mjs` - headless smoke test; `tools/audio.mjs` - narration test
+  (see Testing).
 - `tools/lbi/` - the sources of `stories/lbi.js` (kit, sets, engine parts,
   build script, set harness, data generators); see its `README.md`.
 
@@ -67,6 +68,17 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
   that story directly; no hash or `#stories` lands on the Stories screen.
 - The shell talks to stories with window events `storypause` and
   `storyrestart`.
+- Sound belongs to the shell (`HOST.audio` in `index.html`): one Web Audio
+  context for the life of the page, unlocked by the first tap or click (Enter
+  VR is one) and never closed, plus the Sound button. Headset browsers (Meta
+  Quest) do not reliably count controller clicks as taps, so a story must
+  never create or close its own `AudioContext`: an engine made after a story
+  change inside the headset stays silent. A story asks for its file with
+  `AUD = HOST.audio.narration(url, { ready, error })` and calls
+  `AUD.sync(playing, t)` and `t = AUD.follow(t)` every frame and `AUD.seeked()`
+  after a jump; `AUD.label()` and `AUD.on()` feed the headset panels. Stories set
+  `HOST.session` when they start or adopt a headset session; the shell listens
+  to its controller events and visibility.
 
 ## Inside a story (all four follow the same pattern)
 
@@ -78,7 +90,8 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
   animation tracks via `ramp()`/`key()` over the names in `DEF`; `storyCam()`
   interpolates camera waypoints.
 - `NARRATION_SYNC` maps recording time to story time; the narration (if
-  present) drives the clock.
+  present) drives the clock (`audioInit`, `audioSync`, `audioFollow`, thin
+  wrappers around `HOST.audio`).
 - Explore mode: the `X` state object, `exploreStep()`, tab renderers
   (`render*`), and the canvas/pointer handling in `bindCanvas()`.
 - WebXR: the `XR` object, controllers (`xrController`, `xrPoint`), canvas-drawn
@@ -165,6 +178,14 @@ WebGL runs in software (SwiftShader) headlessly, so frame rates are low;
 real-headset behaviour (controllers, session hand-over between stories,
 placement and comfort) can only be confirmed on a device - say so when you
 report results.
+
+After touching sound, also run `node tools/audio.mjs http://127.0.0.1:8123/`.
+Headless Chromium plays sound without a tap, so the test imitates the headset
+browser's rule (an engine starts locked; only a real tap unlocks it) and checks
+that the narration plays after a click, after a story change with no tap (as in
+the headset's Stories menu), through pause, jumps and the Sound button, and
+that Play sound never mutes. Whether sound really comes out of a headset can
+only be confirmed on the device.
 
 For the tour, test a changed set on its own in the set harness first
 (`tools/lbi/shot.mjs`, much cheaper than the whole story), then the story at a

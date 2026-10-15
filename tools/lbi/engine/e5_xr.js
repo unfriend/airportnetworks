@@ -136,7 +136,7 @@ function xrController(i) {
   g.addEventListener('disconnected', () => { c.src = null; c.press = null; c.grab = null; c.hover = null; c.wantPress = false; c.dot.visible = false; });
   // presses are handled on the next frame, once the ray has its fresh pose
   g.addEventListener('selectstart', () => { c.wantPress = true; });
-  g.addEventListener('selectend', () => { if (c.wantPress) { c.wantPress = false; xrPress(c); } xrRelease(c); audioGesture(); });
+  g.addEventListener('selectend', () => { if (c.wantPress) { c.wantPress = false; xrPress(c); } xrRelease(c); });
   g.addEventListener('squeezestart', () => xrGrab(c, true));
   g.addEventListener('squeezeend', () => xrGrab(c, false));
   GL.scene.add(g);
@@ -440,7 +440,6 @@ function xrVisibility() {
     const away = performance.now() - XR.hiddenAt;
     XR.hiddenAt = 0;
     if (away > XR_AWAY_MS) xrFreshStart();
-    if (AUD.ctx && AUD.ctx.state !== 'running') AUD.ctx.resume().catch(() => {});
   }
   audioSync();
 }
