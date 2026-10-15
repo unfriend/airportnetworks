@@ -44,12 +44,21 @@ const ctx = await chromium.launchPersistentContext(prof, { executablePath: proce
 const page = ctx.pages()[0] || await ctx.newPage();
 const errors = [];
 page.on('pageerror', e => errors.push(String(e)));
-// the version of the page and of the story it runs: both new when the shell has HOST.ended and the story calls it
+// which version the page runs: its inline scripts and some airports story functions, compared word
+// for word with the files of each version (Function.prototype.toString gives the source text)
+const FNS = ['frame', 'init', 'audioInit', 'xrEnterScene', 'xrSetup', 'drawLandHead', 'drawMain'];
+const files = dir => ({ shell: fs.readFileSync(path.join(dir, 'index.html'), 'utf8'), story: fs.readFileSync(path.join(dir, 'stories/airports.js'), 'utf8') });
+const NEW = files(newDir), OLD = files(oldDir);
+const running = () => page.evaluate(FNS => HOST.cur && HOST.curKey === 'airports' && {
+  shell: [...document.scripts].map(s => s.textContent).filter(t => t.trim()),
+  story: FNS.map(f => { try { return HOST.cur.peek(f + '.toString()'); } catch (e) { return ''; } }).filter(Boolean),
+}, FNS);
+const isFrom = (r, V) => r.shell.every(t => V.shell.includes(t)) && r.story.length > 0 && r.story.every(t => V.story.includes(t));
 const versions = async () => {
   for (let i = 0; i < 80; i++) {
     try {
-      const r = await page.evaluate(() => HOST.cur && { shell: typeof HOST.ended === 'function', story: HOST.cur.peek('String(frame)').includes('HOST.ended') });
-      if (r && ((r.shell && r.story) || i === 79)) return r;
+      const r = await running();
+      if (r) { const v = { shell: isFrom({ ...r, story: ['x'] }, { ...NEW, story: 'x' }), story: isFrom({ ...r, shell: [] }, NEW) }; if ((v.shell && v.story) || i === 79) return v; }
     } catch (e) { /* the page is reloading */ }
     await wait(250);
   }
@@ -59,6 +68,9 @@ let failed = false;
 const report = (what, ok, detail) => { if (!ok) failed = true; console.log(`${ok ? 'ok  ' : 'FAIL'} ${what}${detail ? ': ' + detail : ''}`); };
 
 let srv = await serve(oldDir);
+// the test only means something when the two versions differ in what it compares
+const same = FNS.filter(f => { const m = new RegExp('\\nfunction ' + f + '\\(').exec(OLD.story); return m && NEW.story.includes(OLD.story.slice(m.index + 1, OLD.story.indexOf('\n}\n', m.index) + 2)); });
+if (same.length === FNS.length && OLD.shell === NEW.shell) console.log('note: the two versions look the same to this test');
 await page.goto('http://127.0.0.1:8125/');
 await page.waitForFunction(() => typeof HOST !== 'undefined' && HOST.cur, null, { timeout: 30000 });
 await page.evaluate(() => navigator.serviceWorker.ready);

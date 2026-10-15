@@ -3110,7 +3110,12 @@ function xrBegin(frame, dt) {
 function xrUpdate(S) {
   // the Stories screen replaces the story's panels and hides the story
   const land = !!XR.stories;
-  if (XR.land) { for (const P of XR.land) P.mesh.visible = land; XR.main.mesh.visible = XR.foot.mesh.visible = !land; }
+  if (XR.land) {
+    // Sound check takes the place of the story cards while it is open
+    for (const P of XR.land) P.mesh.visible = land && (P === XR.land[0] || !XR.soundCheck);
+    XR.snd.mesh.visible = land && !!XR.soundCheck;
+    XR.main.mesh.visible = XR.foot.mesh.visible = !land;
+  }
   GL.world.visible = !land;
   if (land !== XR.landShown) { XR.landShown = land; HOST.setUrl(land); }
   GL.rig.updateMatrixWorld(true);
@@ -3193,6 +3198,7 @@ async function xrStart(mode) {
   try {
     session = await navigator.xr.requestSession(mode, { optionalFeatures: ['local-floor', 'hand-tracking'] });
   } catch (err) {
+    HOST.landingVR = false;
     xrMsg(`Could not start ${mode === 'immersive-ar' ? 'AR' : 'VR'}: ${err && err.message ? err.message : err}`);
     return;
   }
@@ -3228,7 +3234,7 @@ function xrEnterScene() {
   const fromStart = HOST.picking || HOST.landingVR;
   HOST.landingVR = false;
   HOST.closePicker();
-  if (fromStart) { APP.enterStory(0); APP.playing = false; XR.stories = true; XR.inStory = false; }
+  if (fromStart) { APP.enterStory(0); APP.playing = false; XR.stories = true; XR.inStory = false; audioSync(); }
   else { XR.inStory = true; if (APP.mode === 'story') APP.playing = true; } // already in a story: carry on where you were
   $('#tip').style.opacity = 0;
   rebuildHighlights(XR.hlScale);
@@ -3255,7 +3261,7 @@ function xrVisibility() {
 function xrFreshStart() {
   XR.kbd.open = false; XR.kbd.q = '';
   for (const c of XR.ctrls) { c.press = null; c.grab = null; c.wantPress = false; }
-  APP.enterStory(0); APP.playing = false;
+  APP.enterStory(0); APP.playing = false; audioSync();
   XR.stories = true; XR.inStory = false; // a new wearer lands in the Stories screen
   XR.needRecenter = true; // uses the new wearer's head position and direction on the next frame
   lastNow = 0;
@@ -3274,6 +3280,8 @@ function xrAdopt() {
     XR.globeOff.copy(p.off);
     XR.panelGroup.position.copy(p.pp); XR.panelGroup.rotation.set(0, p.pr, 0);
   }
+  const ref = GL.renderer.xr.getReferenceSpace();
+  if (ref && ref.addEventListener) ref.addEventListener('reset', () => { XR.needRecenter = true; });
 }
 function xrEnded() {
   if (!XR.on) return;
@@ -3292,6 +3300,7 @@ function xrEnded() {
   GL.U.uPx.value = 0;
   GL.world.visible = true;
   for (const P of XR.land || []) P.mesh.visible = false;
+  if (XR.snd) XR.snd.mesh.visible = false;
   // left the headset from the Stories screen: back to the Stories screen on the page
   if (XR.stories) { XR.stories = false; HOST.openPicker(); }
   applyTheme();
@@ -3447,7 +3456,7 @@ function xrLandingSetup() {
   XR.land = [];
   XR.landGroup = new THREE.Group();
   GL.rig.add(XR.landGroup);
-  const head = makePanel(1400, 300, 1.02, drawLandHead, () => 'h' + XR.inStory + audioLabel() + HOST.repeat);
+  const head = makePanel(1400, 300, 1.02, drawLandHead, () => 'h' + XR.inStory + audioLabel() + HOST.repeat + XR.soundCheck + HOST.audio.muted);
   head.mesh.position.set(0, 0.36, -1.12);
   XR.landGroup.add(head.mesh); XR.land.push(head);
   HOST.list.forEach((s, k) => {
@@ -3458,6 +3467,10 @@ function xrLandingSetup() {
     XR.landGroup.add(P.mesh); XR.land.push(P);
   });
   for (const P of XR.land) XR.panels.push(P);
+  // Sound check (opened from the header), in the place of the story cards
+  XR.snd = makePanel(1400, 860, 1.02, drawSoundCheck, () => 'snd' + Math.floor(performance.now() / 500));
+  XR.snd.mesh.position.set(0, -0.17, -1.1);
+  XR.landGroup.add(XR.snd.mesh); XR.panels.push(XR.snd);
   XR.panelMeshes = XR.panels.map(P => P.mesh);
 }
 // leave the Stories screen: back into this story (resumed, or started if it never ran)
@@ -3469,7 +3482,11 @@ function xrLandingClose() {
 }
 function drawLandHead(ctx, P) {
   ctx.font = vfont(58, 700); ctx.fillStyle = VC.ink; ctx.fillText('Networks, in four stories', 48, 44);
-  textBlock(ctx, 'The same ideas, very different networks. Each story takes a few minutes, then it is yours to explore. Point at a story and pull the trigger (or pinch).', 48, 128, 860, 27, 38, VC.muted);
+  textBlock(ctx, 'The same ideas, very different networks. Point at a story and pull the trigger (or pinch).', 48, 128, 860, 27, 38, VC.muted, 400, 2);
+  // the sound, before a story starts: its state (press to start it, or to turn the narration off and on) and Sound check
+  const sl = audioLabel() || (HOST.audio.muted ? 'Sound off' : 'Sound');
+  vButton(ctx, P, 'land:sound', 48, 212, 300, 64, sl, () => audioToggle(), { on: sl === 'Sound on', px: 25 });
+  vButton(ctx, P, 'land:check', 362, 212, 250, 64, 'Sound check', () => { XR.soundCheck = !XR.soundCheck; }, { on: !!XR.soundCheck, px: 25 });
   let x = P.w - 44;
   const hb = (id, label, fn, w, o) => { x -= w; vButton(ctx, P, id, x, 40, w, 64, label, fn, o); x -= 14; };
   hb('exit', 'Exit', () => { if (XR.session) XR.session.end(); }, 110, { px: 27 });
@@ -3478,6 +3495,25 @@ function drawLandHead(ctx, P) {
   // Repeat: all stories one after another, or the one you pick again and again (pressing a lit one turns it off)
   vButton(ctx, P, 'rep:all', P.w - 44 - 414, 212, 200, 64, 'Repeat all', () => HOST.toggleRepeat('all'), { on: HOST.repeat === 'all', px: 26 });
   vButton(ctx, P, 'rep:one', P.w - 44 - 200, 212, 200, 64, 'Repeat one', () => HOST.toggleRepeat('one'), { on: HOST.repeat === 'one', px: 26 });
+}
+// Sound check in the headset: test beeps through each engine, the engine choice, and what is going on
+function drawSoundCheck(ctx, P) {
+  const x = 48, W = P.w - 96;
+  ctx.font = vfont(46, 700); ctx.fillStyle = VC.ink; ctx.fillText('Sound check', x, 36);
+  vButton(ctx, P, 'snd:close', P.w - 44 - 160, 30, 160, 60, 'Close', () => { XR.soundCheck = false; }, { px: 25 });
+  let y = 100 + textBlock(ctx, 'No narration? Press both beeps. If you hear only one, choose that way to play.', x, 100, W, 27, 37, VC.muted, 400, 2) + 14;
+  const bw = (W - 16) / 2, cw = (W - 48) / 4, p = HOST.audio.pref;
+  vButton(ctx, P, 'snd:beepW', x, y, bw, 70, 'Beep through Web Audio', () => HOST.audio.beep('webaudio'), { px: 26 });
+  vButton(ctx, P, 'snd:beepM', x + bw + 16, y, bw, 70, 'Beep through an audio element', () => HOST.audio.beep('media'), { px: 26 });
+  y += 86;
+  [['auto', 'Automatic'], ['webaudio', 'Web Audio'], ['media', 'Audio element']].forEach(([k, l], i) =>
+    vButton(ctx, P, 'snd:' + k, x + i * (cw + 16), y, cw, 62, l, () => HOST.audio.setEngine(k), { on: p === k, px: 24 }));
+  vButton(ctx, P, 'snd:reset', x + 3 * (cw + 16), y, cw, 62, 'Reset', () => HOST.audio.reset(), { px: 24 });
+  y += 84;
+  for (const line of HOST.audio.report()) {
+    if (y > P.h - 44) break;
+    y += textBlock(ctx, line, x, y, W, 22, 30, VC.muted, 400, 2) + 4;
+  }
 }
 function drawLandCard(ctx, P, s) {
   const here = s.key === XR_HERE, id = 'card', hov = P.hover === id;

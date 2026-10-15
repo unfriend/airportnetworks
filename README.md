@@ -70,7 +70,16 @@ with its story, follows pausing, seeking and chapter jumps, and gets a *Sound*
 button in the top bar and the headset panel. Browsers only start sound after a
 tap or click; the first one anywhere in the app (Enter VR counts) turns sound on
 for every story, also when you change story inside the headset. Without the file
-the story runs silently on the same timing. Chapter timings and how to re-sync a new recording
+the story runs silently on the same timing.
+
+**No sound?** Open **Sound check** on the Stories screen (on the page, or in the
+headset under the title). It shows what the sound system is doing, plays a test
+beep through each of the two ways the app can play sound (Web Audio and an audio
+element), and lets you choose the one you hear; *Reset* clears the saved
+choices. The app also switches to the audio element by itself when Web Audio
+fails. A link ending in `#soundcheck` opens it directly.
+
+Chapter timings and how to re-sync a new recording
 (`NARRATION_SYNC` in each story file) are in `audio/PUT-narration.mp3-HERE.txt`.
 
 ## Data
@@ -123,7 +132,7 @@ The protein data is meant for teaching, not research.
 | `three.min.js` | three.js r128 (MIT licence, see `three.LICENSE.txt`) |
 | `tools/smoke.mjs` | headless test: loads every story and fails on page errors |
 | `tools/update.mjs` | update test: an older version installed, then this one deployed (see `AGENTS.md`) |
-| `tools/audio.mjs` | narration test under the headset browsers' sound rule (needs `audio/narration.mp3`) |
+| `tools/audio.mjs` | narration test under the headset browsers' sound rule, with faults that make the fallback take over (needs `audio/narration.mp3`) |
 | `tools/lbi/` | sources of the tour: its 3D sets, engine parts and build script (`node tools/lbi/build.mjs` writes `stories/lbi.js`) |
 | `AGENTS.md`, `CLAUDE.md` | notes on the architecture and conventions for AI coding agents (and people) |
 | `README.txt` | the same notes in plain text |

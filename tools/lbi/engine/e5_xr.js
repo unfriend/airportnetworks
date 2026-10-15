@@ -312,7 +312,12 @@ function xrBegin(frame, dt) {
 function xrUpdate(S) {
   // the Stories screen replaces the story's panels and hides the story
   const land = !!XR.stories;
-  if (XR.land) { for (const P of XR.land) P.mesh.visible = land; XR.main.mesh.visible = XR.foot.mesh.visible = !land; }
+  if (XR.land) {
+    // Sound check takes the place of the story cards while it is open
+    for (const P of XR.land) P.mesh.visible = land && (P === XR.land[0] || !XR.soundCheck);
+    XR.snd.mesh.visible = land && !!XR.soundCheck;
+    XR.main.mesh.visible = XR.foot.mesh.visible = !land;
+  }
   GL.world.visible = !land;
   if (land !== XR.landShown) { XR.landShown = land; HOST.setUrl(land); }
   GL.rig.updateMatrixWorld(true);
@@ -383,6 +388,7 @@ async function xrStart(mode) {
   try {
     session = await navigator.xr.requestSession(mode, { optionalFeatures: ['local-floor', 'hand-tracking'] });
   } catch (err) {
+    HOST.landingVR = false;
     xrMsg(`Could not start ${mode === 'immersive-ar' ? 'AR' : 'VR'}: ${err && err.message ? err.message : err}`);
     return;
   }
@@ -419,7 +425,7 @@ function xrEnterScene() {
   const fromStart = HOST.picking || HOST.landingVR;
   HOST.landingVR = false;
   HOST.closePicker();
-  if (fromStart) { APP.enterStory(0); APP.playing = false; XR.stories = true; XR.inStory = false; }
+  if (fromStart) { APP.enterStory(0); APP.playing = false; XR.stories = true; XR.inStory = false; audioSync(); }
   else { XR.inStory = true; if (APP.mode === 'story') APP.playing = true; } // already in a story: carry on where you were
   $('#tip').style.opacity = 0;
   for (const L of [...ST.labels, ...LBL.sets, ...LBL.extra]) L.el.style.opacity = 0;
@@ -446,7 +452,7 @@ function xrVisibility() {
 function xrFreshStart() {
   XR.kbd.open = false; XR.kbd.q = '';
   for (const c of XR.ctrls) { c.press = null; c.grab = null; c.wantPress = false; }
-  APP.enterStory(0); APP.playing = false;
+  APP.enterStory(0); APP.playing = false; audioSync();
   XR.stories = true; XR.inStory = false; // a new wearer lands in the Stories screen
   XR.needRecenter = true; // uses the new wearer's head position and direction on the next frame
   lastNow = 0;
@@ -465,6 +471,8 @@ function xrAdopt() {
     XR.globeOff.copy(p.off);
     XR.panelGroup.position.copy(p.pp); XR.panelGroup.rotation.set(0, p.pr, 0);
   }
+  const ref = GL.renderer.xr.getReferenceSpace();
+  if (ref && ref.addEventListener) ref.addEventListener('reset', () => { XR.needRecenter = true; });
 }
 function xrEnded() {
   if (!XR.on) return;
@@ -482,6 +490,7 @@ function xrEnded() {
   GL.stars.visible = true; GL.stars.material.size = 1.3;
   GL.world.visible = true;
   for (const P of XR.land || []) P.mesh.visible = false;
+  if (XR.snd) XR.snd.mesh.visible = false;
   // left the headset from the Stories screen: back to the Stories screen on the page
   if (XR.stories) { XR.stories = false; HOST.openPicker(); }
   applyTheme();

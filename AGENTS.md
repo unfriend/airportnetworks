@@ -79,17 +79,43 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
   a moment the shell starts the next story (`all`, wrapping round) or sends
   `storyrestart` (`one`); otherwise the story opens explore mode. Remembered in
   `localStorage`; `#repeat=all` or `#repeat=one` in a link sets it.
-- Sound belongs to the shell (`HOST.audio` in `index.html`): one Web Audio
-  context for the life of the page, unlocked by the first tap or click (Enter
-  VR is one) and never closed, plus the Sound button. Headset browsers (Meta
-  Quest) do not reliably count controller clicks as taps, so a story must
-  never create or close its own `AudioContext`: an engine made after a story
-  change inside the headset stays silent. A story asks for its file with
+- Sound belongs to the shell (`HOST.audio` in `index.html`); stories only say
+  what should play. A story asks for its file with
   `AUD = HOST.audio.narration(url, { ready, error })` and calls
   `AUD.sync(playing, t)` and `t = AUD.follow(t)` every frame and `AUD.seeked()`
   after a jump; `AUD.label()` and `AUD.on()` feed the headset panels. Stories set
   `HOST.session` when they start or adopt a headset session; the shell listens
-  to its controller events and visibility.
+  to its controller events (`select`, `squeeze`: Chromium counts them as taps,
+  `selectstart` it does not) and its visibility. Never create or close an
+  `AudioContext` in a story. How it works, and why (the narration was silent on
+  the Quest twice):
+  - Two engines, unlocked by the first tap or click (Enter VR is one) and kept
+    for the life of the page: Web Audio (first choice: one `AudioContext`,
+    `latencyHint: 'playback'`, never closed) and one `<audio>` element
+    (fallback: streams the file, no decoding, no `AudioContext`).
+  - From that tap on, Web Audio plays an inaudible hum (noise at 3e-5), so its
+    output never goes silent. Browsers swap a silent output for a dummy one,
+    and opening the real one again inside a headset can fail; the narration
+    used to work on the Quest when it started right at Enter VR, and stopped
+    when it started only after a pick on the headset Stories screen.
+  - A watchdog (`check()`, about once a second from `sync()`) retries
+    `resume()` (allowed without a new tap once the page has had one), reopens a
+    stuck output (suspend and resume, then a new context; decoded files are
+    reused), and switches to the `<audio>` element when Web Audio reports
+    device errors, its clock stops, it does not run 3 s after a tap, or it
+    cannot decode the file within 30 s. `follow()` only trusts a clock that is
+    known to move, so a stuck engine never freezes a story.
+  - The mute is saved under `narrationMuted2`: older versions saved a mute
+    when *Play sound* was pressed in the headset. *Play sound* (and any press
+    while loading) only starts the engines; it never mutes.
+  - Sound check (`#soundcheck`, a button on the Stories screen; in the headset
+    a panel that takes the place of the story cards, `drawSoundCheck`) shows
+    `HOST.audio.report()`, plays a beep through each engine and lets the user
+    pick an engine (`soundEngine` in `localStorage`). Ask a user with sound
+    problems on a device for those lines.
+  - Listeners the shell adds while a story runs (a new context, the headset
+    session) are added with `HOST.quiet` set, so story changes do not remove
+    them.
 
 ## Inside a story (all four follow the same pattern)
 
@@ -199,12 +225,16 @@ placement and comfort) can only be confirmed on a device - say so when you
 report results.
 
 After touching sound, also run `node tools/audio.mjs http://127.0.0.1:8123/`.
-Headless Chromium plays sound without a tap, so the test imitates the headset
-browser's rule (an engine starts locked; only a real tap unlocks it) and checks
-that the narration plays after a click, after a story change with no tap (as in
-the headset's Stories menu), through pause, jumps and the Sound button, and
-that Play sound never mutes. Whether sound really comes out of a headset can
-only be confirmed on the device.
+Headless Chromium plays sound without a tap, so the test imitates the strict
+rule (an `AudioContext` starts locked and only a real tap unlocks it; an
+`<audio>` element plays only once started inside a tap) and checks that the
+narration plays after a click, after a story change with no tap (as in the
+headset's Stories menu), through pause, jumps, the Sound button, the Stories
+screen and a headset session going hidden and visible; that an old saved mute is
+ignored, Play sound never mutes and the hum runs; Sound check's beeps and engine
+choice; and that the `<audio>` element takes over when Web Audio cannot decode,
+never starts, or its clock stops. Whether sound really comes out of a headset
+can only be confirmed on the device (use Sound check there).
 
 After changing `sw.js` or how files are loaded, run the update test with an
 earlier version checked out next to this one:

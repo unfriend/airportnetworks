@@ -1,33 +1,46 @@
-// Narration test: imitates the strict sound rule of headset browsers (sound only
-// starts inside a tap or click) and checks that the narration plays
-// after a click on the page, and still plays after the story is changed with no
-// tap at all, the way the Stories menu inside a headset changes it.
+// Narration test for the shell's sound system (HOST.audio). Headless Chromium plays any sound
+// without a tap, so the strict rule of headset browsers is imitated: an AudioContext starts
+// locked and only resume() within a few seconds of a real tap unlocks it, and an <audio>
+// element plays only once it has been started inside a tap. Faults can be switched on per
+// page (a file Web Audio cannot decode, a Web Audio engine that never starts, a clock that
+// stops) to check that the <audio> element takes over. Checked here: sound after a click,
+// after a story change with no tap (the headset's Stories menu), through pause, jumps, the
+// Sound button and the Stories screen; a mute saved by older versions is ignored; Play sound
+// never mutes; the hum keeps the output busy; each fault falls back to the <audio> element;
+// Sound check (beeps, engine choice); a headset session going hidden and visible again.
+// Whether sound really comes out of a headset can only be confirmed on the device.
 // Usage: serve the folder, then node tools/audio.mjs [http://127.0.0.1:8123/]
 // Needs audio/narration.mp3. PLAYWRIGHT_MODULE and CHROMIUM_PATH as in smoke.mjs.
 const { chromium } = await import(process.env.PLAYWRIGHT_MODULE || 'playwright');
 const base = process.argv[2] || 'http://127.0.0.1:8123/';
 const browser = await chromium.launch({
   executablePath: process.env.CHROMIUM_PATH || undefined,
-  args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist',
-  ],
+  args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'],
 });
 const errors = [];
-// Headless Chromium lets any sound play, so the headset browser's rule is imitated:
-// a new audio engine starts locked, and only resume() within a few seconds of a real
-// tap or click unlocks it (page.evaluate counts as a gesture for Chromium, so the
-// rule looks at real input events instead).
-async function open(url) {
+// page.evaluate counts as a gesture for Chromium, so the imitated rule looks at real input events
+async function open(url, fault = '', seed = null) {
   const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
-  await page.addInitScript(() => {
+  await page.addInitScript(([fault, seed]) => {
+    if (seed) for (const [k, v] of Object.entries(seed)) localStorage.setItem(k, v);
     let tapAt = -1e9;
     for (const t of ['pointerdown', 'pointerup', 'click', 'keydown', 'touchend']) window.addEventListener(t, e => { if (e.isTrusted) tapAt = performance.now(); }, true);
     const tapped = () => performance.now() - tapAt < 5000;
     const AC = window.AudioContext;
     window.AudioContext = class extends AC {
-      constructor(...a) { super(...a); this.locked = !tapped(); if (this.locked) super.suspend(); }
-      resume() { if (this.locked && !tapped()) return Promise.resolve(); this.locked = false; return super.resume(); }
+      constructor(...a) { super(...a); this.locked = !tapped() || fault === 'nostart'; if (this.locked) super.suspend(); }
+      resume() { if (fault === 'nostart' || (this.locked && !tapped())) return Promise.resolve(); this.locked = false; return super.resume(); }
+      // 'clock': three seconds after a tap the engine's clock stops, although it still says 'running'
+      get currentTime() { const t = super.currentTime; if (fault !== 'clock' || performance.now() - tapAt < 3000) return t; return this.frozen === undefined ? (this.frozen = t) : this.frozen; }
+      decodeAudioData(...a) { if (fault !== 'decode') return super.decodeAudioData(...a); const e = new DOMException('Unable to decode audio data', 'EncodingError'); if (typeof a[2] === 'function') a[2](e); return Promise.reject(e); }
     };
-  });
+    const play = HTMLMediaElement.prototype.play;
+    HTMLMediaElement.prototype.play = function () {
+      if (!this.unlocked && !tapped()) return Promise.reject(new DOMException('play() needs a tap', 'NotAllowedError'));
+      this.unlocked = true;
+      return play.call(this);
+    };
+  }, [fault, seed]);
   page.on('pageerror', e => errors.push(String(e)));
   page.on('console', m => { if (m.type() === 'error' && !/404|Failed to load resource/.test(m.text())) errors.push(m.text()); });
   await page.goto(url, { waitUntil: 'load' });
@@ -35,10 +48,11 @@ async function open(url) {
 }
 let page;
 const wait = ms => new Promise(r => setTimeout(r, ms));
-// the engine's state, and where in the recording it is (null when silent)
+// the sound system's state, and where in the recording the sound is (null when silent)
 const probe = () => page.evaluate(() => {
-  const n = HOST.cur && HOST.cur.peek('AUD');
-  return { story: HOST.curKey, ctx: HOST.audio.ctx && HOST.audio.ctx.state, state: n && n.state, pos: n && n.pos(), t: HOST.cur.peek('APP.t') };
+  const n = HOST.cur && HOST.cur.peek('AUD'), A = HOST.audio.state();
+  return { story: HOST.curKey, ctx: A.ctx && A.ctx.state, state: n && n.state, decode: n && n.decode, label: n && n.label(),
+    pos: n && n.pos(), eng: HOST.audio.engine(), hum: !!A.hum, bad: A.bad, t: HOST.cur.peek('APP.t') };
 });
 async function until(what, ok, ms = 30000) {
   const t0 = Date.now();
@@ -46,36 +60,47 @@ async function until(what, ok, ms = 30000) {
   while (Date.now() - t0 < ms) { p = await probe(); if (ok(p)) return p; await wait(250); }
   throw new Error(`${what}: ${JSON.stringify(p)}`);
 }
-// sound plays when the recording moves on between two looks
-async function playing(what) {
-  const a = await until(what + ' (starts)', p => p.ctx === 'running' && p.pos !== null);
+// sound plays (through the given engine) when the recording moves on between two looks
+async function playing(what, eng = 'webaudio', ms = 30000) {
+  const a = await until(what + ' (starts)', p => p.pos !== null && p.eng === eng && (eng !== 'webaudio' || p.ctx === 'running'), ms);
   await wait(1500);
   const b = await probe();
-  if (!(b.pos !== null && b.pos > a.pos + 0.5)) throw new Error(`${what} (moves on): ${JSON.stringify([a, b])}`);
-  console.log(`ok   ${what}: ${a.pos.toFixed(1)} s -> ${b.pos.toFixed(1)} s`);
+  if (!(b.pos !== null && b.pos > a.pos + 0.5 && b.eng === eng)) throw new Error(`${what} (moves on): ${JSON.stringify([a, b])}`);
+  console.log(`ok   ${what}: ${eng === 'webaudio' ? 'Web Audio' : 'audio element'}, ${a.pos.toFixed(1)} s -> ${b.pos.toFixed(1)} s`);
 }
+const lines = () => page.evaluate(() => HOST.audio.report().join('\n'));
 let failed = false;
 async function step(what, fn) {
-  try { await fn(); } catch (e) { failed = true; console.log('FAIL ' + (e.message || e)); }
+  try { await fn(); } catch (e) { failed = true; console.log('FAIL ' + what + ': ' + (e.message || e)); }
 }
+const ready = () => until('narration ready', p => p.story === 'airports' && p.state === 'ok' && p.decode === 'ok');
 
-page = await open(base);
+// 1. the usual way: Stories screen, a click, then everything a visitor does
+page = await open(base, '', { narrationMuted: '1' });
 await step('narration loads on the Stories screen', async () => {
-  const p = await until('narration loads', p => p.story === 'airports' && p.state === 'ok');
-  if (p.ctx === 'running' || p.pos !== null) throw new Error('sound before any tap: ' + JSON.stringify(p));
+  const p = await ready();
+  if (p.ctx === 'running' || p.pos !== null || p.hum) throw new Error('sound before any tap: ' + JSON.stringify(p));
   console.log('ok   narration decoded, silent before a tap');
 });
 await page.click('#picker .card[data-story="airports"]');
-await step('a click on the story card', () => playing('a click on the story card'));
-// let the click's activation run out (a few seconds), then change story with no tap
+await step('a click on the story card', async () => {
+  await playing('a click on the story card');
+  if (!(await probe()).hum) throw new Error('no hum after the tap');
+  if (await page.evaluate(() => localStorage.getItem('narrationMuted')) !== null) throw new Error('old mute key still there');
+  console.log('ok   a mute saved by an older version is ignored; the hum keeps the output busy');
+});
+// let the click's activation run out, then change story with no tap
 await wait(6000);
 await page.evaluate(() => HOST.go('proteins'));
 await until('proteins story', p => p.story === 'proteins');
-await page.evaluate(() => HOST.go('airports'));
-await step('back to the airports with no tap', async () => {
-  await until('airports story', p => p.story === 'airports' && p.state === 'ok');
-  await playing('back to the airports with no tap');
+await step('the hum goes on in a story without narration', async () => {
+  await wait(1500);
+  const p = await probe();
+  if (!p.hum || p.ctx !== 'running') throw new Error(JSON.stringify(p));
+  console.log('ok   hum on and engine running in a story without narration');
 });
+await page.evaluate(() => HOST.go('airports'));
+await step('back to the airports with no tap', async () => { await ready(); await playing('back to the airports with no tap'); });
 await step('pause stops the sound', async () => {
   await page.evaluate(() => HOST.cur.peek('APP.togglePlay()'));
   await until('silent when paused', p => p.pos === null, 3000);
@@ -87,23 +112,47 @@ await step('a jump moves the sound', async () => {
   const p = await until('sound at the new place', p => p.pos !== null && Math.abs(p.pos - 100) < 2, 5000);
   console.log(`ok   jump to 100 s: sound at ${p.pos.toFixed(1)} s`);
 });
-await step('the sound button mutes and unmutes', async () => {
+await step('the Sound button turns the narration off and on', async () => {
   await page.click('#btnSound');
-  await until('muted', p => p.pos === null, 3000);
-  if (await page.textContent('#btnSound') !== 'Sound off') throw new Error('label: ' + await page.textContent('#btnSound'));
+  await until('off', p => p.pos === null && p.label === 'Sound off', 3000);
+  if (await page.evaluate(() => localStorage.getItem('narrationMuted2')) !== '1') throw new Error('not saved');
   await page.click('#btnSound');
-  await playing('unmuted');
+  await playing('on again');
 });
-await step('the Stories screen pauses the sound', async () => {
+await step('a headset session: taken off and put on again', async () => {
+  // a stand-in for an XRSession: the shell listens to its visibility and controller events
+  await page.evaluate(() => { const s = new EventTarget(); s.visibilityState = 'visible'; window.fakeSession = s; HOST.session = s; });
+  await page.evaluate(() => { fakeSession.visibilityState = 'hidden'; fakeSession.dispatchEvent(new Event('visibilitychange')); });
+  await until('silent with the headset off', p => p.pos === null && !p.hum, 3000);
+  await page.evaluate(() => { fakeSession.visibilityState = 'visible'; fakeSession.dispatchEvent(new Event('visibilitychange')); fakeSession.dispatchEvent(new Event('select')); });
+  await playing('headset on again');
+  await page.evaluate(() => { HOST.session = null; fakeSession.dispatchEvent(new Event('end')); });
+});
+await step('Sound check: beeps and engine choice', async () => {
   await page.click('#btnOther');
   await until('silent on the Stories screen', p => p.pos === null, 3000);
-  console.log('ok   Stories screen: silent');
+  await page.click('#btnSndCheck');
+  await page.click('[data-snd="beep:webaudio"]');
+  await page.click('[data-snd="beep:media"]');
+  await wait(800);
+  const l = await lines();
+  if (!/beep through Web Audio/.test(l) || !/beep through an audio element: playing/.test(l)) throw new Error('beeps:\n' + l);
+  if (!/Narration plays through/.test(await page.textContent('#sndcheck pre'))) throw new Error('pane is empty');
+  await page.click('[data-snd="media"]');
+  await page.click('#picker .card[data-story="airports"]');
+  await playing('chosen: audio element', 'media');
+  await page.click('#btnOther');
+  await page.click('[data-snd="auto"]');
+  await page.click('#picker .card[data-story="airports"]');
+  await playing('chosen: automatic', 'webaudio');
+  console.log('ok   Sound check: both beeps play, the engine choice works');
 });
 await page.close();
-// a story opened from a link plays silently until a tap; its Play sound button starts the sound
+
+// 2. a story opened from a link plays silently until a tap; Play sound starts the sound, never mutes
 page = await open(base + '#airports');
 await step('Play sound on a story opened from a link', async () => {
-  await until('waiting for a tap', p => p.state === 'ok' && p.ctx === 'suspended');
+  await until('waiting for a tap', p => p.state === 'ok' && p.decode === 'ok' && p.ctx === 'suspended');
   const before = await page.textContent('#btnSound');
   if (before !== 'Play sound') throw new Error('label before: ' + before);
   await page.click('#btnSound');
@@ -111,6 +160,21 @@ await step('Play sound on a story opened from a link', async () => {
   const after = await page.textContent('#btnSound');
   if (after !== 'Sound on') throw new Error('label after: ' + after);
 });
+await page.close();
+
+// 3. faults: each time the <audio> element takes over
+for (const [fault, what, ms] of [['decode', 'Web Audio cannot decode the file', 30000], ['nostart', 'Web Audio never starts', 30000],
+  ['clock', 'the Web Audio clock stops', 40000]]) {
+  page = await open(base, fault);
+  await step(what, async () => {
+    await until('file found', p => p.story === 'airports' && p.state === 'ok');
+    await page.click('#picker .card[data-story="airports"]');
+    await playing(what + ' -> fallback', 'media', ms);
+    const p = await probe();
+    console.log(`     reason: ${p.bad.webaudio || (p.decode === 'failed' ? 'decoding failed' : '-')}`);
+  });
+  await page.close();
+}
 if (errors.length) { failed = true; console.log('page errors:\n  ' + errors.join('\n  ')); }
 await browser.close();
 console.log(failed ? 'audio test FAILED' : 'audio test: all good');

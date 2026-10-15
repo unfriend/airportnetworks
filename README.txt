@@ -39,6 +39,11 @@ on/off button (top bar and VR panel). Browsers only start sound after a tap or
 click: the first one in the app (Enter VR counts) turns sound on for every
 story, also when you change story inside the headset. If the button says Play
 sound, press it. Without the file the story runs silently.
+No sound? Open Sound check on the Stories screen (on the page, or in the headset
+under the title): it shows what the sound system is doing, plays a test beep
+through each of the app's two ways to play sound (Web Audio and an audio
+element) and lets you choose the one you hear. Reset clears the saved choices.
+A link ending in #soundcheck opens it.
 
 After changing any file (including adding or replacing a narration file),
 bump VERSION in sw.js so installed copies update. Online, the app always fetches

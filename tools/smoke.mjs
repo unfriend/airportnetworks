@@ -37,7 +37,10 @@ for (const key of ['airports', 'proteins', 'spatial', 'lbi']) {
     for (const P of XR.panels) { P.last = ''; P.t = -1e9; panelTick(P, performance.now() + 1e6); }
     XR.stories = true;
     for (const P of XR.panels) { P.last = ''; P.t = -1e9; panelTick(P, performance.now() + 1e6); }
-    XR.stories = false; XR.on = false;
+    XR.soundCheck = true; xrUpdate(storyState(0));
+    for (const P of XR.panels) { P.last = ''; P.t = -1e9; panelTick(P, performance.now() + 1e6); }
+    if (!XR.snd.mesh.visible || XR.land[1].mesh.visible) throw new Error('Sound check panel not shown in place of the cards');
+    XR.soundCheck = false; XR.stories = false; XR.on = false;
   })()`)));
   if (key === 'lbi') await step('lbi: every scene and control in explore mode', () => page.evaluate(async () => {
     const sleep = ms => new Promise(r => setTimeout(r, ms));

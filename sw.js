@@ -1,17 +1,21 @@
 // Offline support: the app shell is cached on install, so the installed app
 // opens without a network connection. Bump VERSION when you change any file.
-const VERSION = 'networks-v29';
+const VERSION = 'networks-v30';
 const SHELL = ['./', './index.html', './proteins.html', './spatial.html', './stories/airports.js', './stories/proteins.js', './stories/spatial.js', './stories/lbi.js', './three.min.js', './manifest.webmanifest',
   './icons/icon-192.png', './icons/icon-512.png', './icons/maskable-512.png', './icons/apple-touch-icon.png', './icons/favicon-32.png'];
 
 const AUDIO = ['./audio/narration.mp3', './audio/narration-proteins.mp3', './audio/narration-spatial.mp3', './audio/narration-lbi.mp3'];
-// media elements ask for byte ranges; answer them from the cached file
-async function rangeResponse(req, cached) {
-  const buf = await cached.arrayBuffer(), size = buf.byteLength;
+// the audio element (the fallback sound engine) asks for byte ranges; answer them from the
+// cached file, read once per file while this worker runs
+const BYTES = new Map();
+async function rangeResponse(req, cached, key) {
+  if (!BYTES.has(key)) BYTES.set(key, cached.clone().arrayBuffer());
+  const buf = await BYTES.get(key), size = buf.byteLength;
   const m = /bytes=(\d*)-(\d*)/.exec(req.headers.get('range') || '');
   let start = m && m[1] ? +m[1] : 0, end = m && m[2] ? +m[2] : size - 1;
-  if (m && !m[1] && m[2]) { start = size - +m[2]; end = size - 1; }
+  if (m && !m[1] && m[2]) { start = Math.max(0, size - +m[2]); end = size - 1; }
   end = Math.min(end, size - 1);
+  if (start > end) return new Response(null, { status: 416, headers: { 'Content-Range': `bytes */${size}` } });
   return new Response(buf.slice(start, end + 1), { status: 206, headers: {
     'Content-Type': cached.headers.get('Content-Type') || 'audio/mpeg',
     'Content-Range': `bytes ${start}-${end}/${size}`, 'Content-Length': String(end - start + 1), 'Accept-Ranges': 'bytes' } });
@@ -70,7 +74,7 @@ self.addEventListener('fetch', e => {
   if (narr) {
     e.respondWith(caches.match('./audio/' + narr[1]).then(hit => {
       if (!hit) return fetch(req);
-      return req.headers.has('range') ? rangeResponse(req, hit) : hit.clone();
+      return req.headers.has('range') ? rangeResponse(req, hit, narr[1]) : hit.clone();
     }));
     return;
   }

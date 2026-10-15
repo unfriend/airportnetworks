@@ -19,8 +19,11 @@
 - After any change to app files, bump `VERSION` in `sw.js`. After changing
   `sw.js` or how files load, run `tools/update.mjs` (see Testing in `AGENTS.md`).
 - Sound belongs to the shell (`HOST.audio` in `index.html`); stories never
-  create or close an `AudioContext`. After touching sound, run
-  `node tools/audio.mjs` as well as the smoke test.
+  create or close an `AudioContext`. Keep both engines, the hum and the
+  watchdog (see the sound notes in `AGENTS.md`): each guards against a way the
+  narration went silent on the Quest. After touching sound, run
+  `node tools/audio.mjs` as well as the smoke test, and report audible output
+  on a headset as untested (Sound check is the on-device tool).
 - `stories/lbi.js` is built from `tools/lbi/`: edit there and run
   `node tools/lbi/build.mjs`.
 
