@@ -51,4 +51,5 @@ Good for teaching, not research.
 
 Files: index.html (the app), stories/ (the three stories), proteins.html and
 spatial.html (forward to the app), manifest.webmanifest, sw.js (offline cache), audio/,
+AGENTS.md and CLAUDE.md (notes for AI coding agents), tools/smoke.mjs (headless test),
 icons/, three.min.js (three.js r128, MIT licence, see three.LICENSE.txt).
