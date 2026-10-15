@@ -1974,7 +1974,8 @@ function xrVisibility() {
 function xrFreshStart() {
   XR.kbd.open = false; XR.kbd.q = '';
   for (const c of XR.ctrls) { c.press = null; c.grab = null; c.wantPress = false; }
-  APP.enterStory(0); APP.playing = true;
+  APP.enterStory(0); APP.playing = false;
+  XR.stories = true; // a new wearer lands in the Stories menu
   XR.needRecenter = true; // uses the new wearer's head position and direction on the next frame
   lastNow = 0;
 }

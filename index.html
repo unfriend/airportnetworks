@@ -452,13 +452,15 @@ HOST.closePicker = function () {
     if (c.dataset.story === HOST.curKey) { HOST.closePicker(); window.dispatchEvent(new Event('storyrestart')); } else HOST.start(c.dataset.story);
   });
   document.getElementById('btnOther').addEventListener('click', () => HOST.openPicker());
-  document.getElementById('top').addEventListener('click', ev => { if (ev.target.closest('button') && !ev.target.closest('#btnOther')) HOST.closePicker(); });
+  // top-bar buttons close the start screen; Enter VR/AR leaves it to the headset, which then shows the Stories menu
+  document.getElementById('top').addEventListener('click', ev => { if (ev.target.closest('button') && !ev.target.closest('#btnOther, #btnVR, #btnAR')) HOST.closePicker(); });
   document.addEventListener('keydown', ev => { if (ev.key === 'Escape') HOST.closePicker(); });
-  // which story: #airports, #proteins or #spatial (old links to proteins.html and spatial.html forward here)
+  // which story to load first: #airports, #proteins or #spatial (old links to proteins.html and spatial.html forward here)
   const hp = new URLSearchParams(location.hash.slice(1));
   const key = HOST.list.map(s => s.key).find(k => hp.has(k)) || 'airports';
+  // the Stories menu is the landing page; a story named in the address is just picked behind it
   HOST.start(key, true).then(() => {
-    if (!HOST.list.some(s => hp.has(s.key)) && !hp.has('t') && !hp.has('explore')) HOST.openPicker();
+    if (!hp.has('t') && !hp.has('explore')) HOST.openPicker();
   });
 })();
 
