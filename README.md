@@ -57,7 +57,10 @@ Installing:
 - **iPhone / iPad Safari**: Share > Add to Home Screen.
 
 After changing any file (including adding or replacing a narration file), bump
-`VERSION` in `sw.js` so installed copies and headsets pick up the change.
+`VERSION` in `sw.js` so installed copies and headsets pick up the change. The
+app always fetches its files fresh when online (the cache is only for offline
+use), and an installed copy that is open while an update arrives reloads itself
+the next time you are on the Stories screen.
 
 ## Narration
 
@@ -119,6 +122,7 @@ The protein data is meant for teaching, not research.
 | `audio/` | optional narrations |
 | `three.min.js` | three.js r128 (MIT licence, see `three.LICENSE.txt`) |
 | `tools/smoke.mjs` | headless test: loads every story and fails on page errors |
+| `tools/update.mjs` | update test: an older version installed, then this one deployed (see `AGENTS.md`) |
 | `tools/audio.mjs` | narration test under the headset browsers' sound rule (needs `audio/narration.mp3`) |
 | `tools/lbi/` | sources of the tour: its 3D sets, engine parts and build script (`node tools/lbi/build.mjs` writes `stories/lbi.js`) |
 | `AGENTS.md`, `CLAUDE.md` | notes on the architecture and conventions for AI coding agents (and people) |

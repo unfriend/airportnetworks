@@ -1,6 +1,6 @@
 // Offline support: the app shell is cached on install, so the installed app
 // opens without a network connection. Bump VERSION when you change any file.
-const VERSION = 'networks-v28';
+const VERSION = 'networks-v29';
 const SHELL = ['./', './index.html', './proteins.html', './spatial.html', './stories/airports.js', './stories/proteins.js', './stories/spatial.js', './stories/lbi.js', './three.min.js', './manifest.webmanifest',
   './icons/icon-192.png', './icons/icon-512.png', './icons/maskable-512.png', './icons/apple-touch-icon.png', './icons/favicon-32.png'];
 
@@ -17,12 +17,30 @@ async function rangeResponse(req, cached) {
     'Content-Range': `bytes ${start}-${end}/${size}`, 'Content-Length': String(end - start + 1), 'Accept-Ranges': 'bytes' } });
 }
 
+// The page and the story files must come from the same version: a new page running an old story
+// file breaks (a story that ends opens explore mode although Repeat is on). So they are fetched
+// from the network first, checked with the server each time (hosts such as GitHub Pages let the
+// browser keep files for ten minutes), and the cache is only the copy for offline use.
 self.addEventListener('install', e => {
-  e.waitUntil(caches.open(VERSION).then(c => c.addAll(SHELL).then(() =>
+  // straight from the server, not from the browser's HTTP cache, which may still hold the old version
+  const get = u => new Request(u, { cache: 'reload' });
+  e.waitUntil(caches.open(VERSION).then(c => c.addAll(SHELL.map(get)).then(() =>
     // the narrations are optional: cache those that exist
-    Promise.all(AUDIO.map(a => fetch(a).then(r => (r.ok ? c.put(a, r) : null)).catch(() => null)))))
+    Promise.all(AUDIO.map(a => fetch(get(a)).then(r => (r.ok ? c.put(a, r) : null)).catch(() => null)))))
     .then(() => self.skipWaiting()));
 });
+// the network's answer (and a fresh copy in the cache); the cached copy when the network fails,
+// or when it has not answered within a few seconds and a copy exists
+function fresh(net, key) {
+  const cached = () => caches.match(key, { ignoreSearch: true });
+  net = net.then(res => {
+    if (res.ok) { const copy = res.clone(); caches.open(VERSION).then(c => c.put(key, copy)); }
+    return res;
+  });
+  const safe = net.catch(() => cached().then(hit => hit || Response.error()));
+  const slow = new Promise(r => setTimeout(r, 4000)).then(cached).then(hit => hit || safe);
+  return Promise.race([safe, slow]);
+}
 self.addEventListener('activate', e => {
   e.waitUntil(caches.keys()
     .then(keys => Promise.all(keys.filter(k => k !== VERSION).map(k => caches.delete(k))))
@@ -32,14 +50,11 @@ self.addEventListener('fetch', e => {
   const req = e.request;
   if (req.method !== 'GET') return;
   const url = new URL(req.url);
-  // pages: network first (to pick up updates), cached copy when offline
+  // pages: network first, checked with the server; each page is cached under its own name
+  // (the bare folder URL is index.html)
   if (req.mode === 'navigate') {
-    // each page is cached under its own name (the bare folder URL is index.html)
     const m = /\/(proteins|spatial)\.html$/.exec(url.pathname), page = m ? './' + m[1] + '.html' : './index.html';
-    e.respondWith(fetch(req).then(res => {
-      if (res.ok) { const copy = res.clone(); caches.open(VERSION).then(c => c.put(page, copy)); }
-      return res;
-    }).catch(() => caches.match(page)));
+    e.respondWith(fresh(fetch(req, { cache: 'no-cache' }), page));
     return;
   }
   // web font (Google Fonts): cache whatever we get, use the cache when offline
@@ -59,8 +74,8 @@ self.addEventListener('fetch', e => {
     }));
     return;
   }
-  // everything else from this app: cache first
+  // everything else from this app (story files, three.js, icons): network first, checked with the server
   if (url.origin === self.location.origin) {
-    e.respondWith(caches.match(req, { ignoreSearch: true }).then(hit => hit || fetch(req)));
+    e.respondWith(fresh(fetch(req, { cache: 'no-cache' }), url.origin + url.pathname));
   }
 });

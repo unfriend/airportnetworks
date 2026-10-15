@@ -31,13 +31,18 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
   `{ inputs, xrPose, peek, dispose }` to the shell.
 - `proteins.html`, `spatial.html` - redirect stubs to `index.html#proteins`
   / `#spatial` so old links keep working. Do not put code there.
-- `sw.js` - service worker (offline cache, cache-first for app files).
+- `sw.js` - service worker. Pages and app files come from the network first,
+  checked with the server each time (`cache: 'no-cache'`), so the page and its
+  story files are always the same version; the cache is the offline copy (and
+  the answer when the network takes more than 4 s). The narration MP3s are
+  served from the cache (with byte ranges). Installing fetches straight from
+  the server (`cache: 'reload'`).
 - `audio/` - optional narration MP3s (`narration.mp3`,
   `narration-proteins.mp3`, `narration-spatial.mp3`, `narration-lbi.mp3`);
   missing files are fine.
 - `manifest.webmanifest`, `icons/` - PWA install metadata.
-- `tools/smoke.mjs` - headless smoke test; `tools/audio.mjs` - narration test
-  (see Testing).
+- `tools/smoke.mjs` - headless smoke test; `tools/audio.mjs` - narration test;
+  `tools/update.mjs` - update test for the service worker (see Testing).
 - `tools/lbi/` - the sources of `stories/lbi.js` (kit, sets, engine parts,
   build script, set harness, data generators); see its `README.md`.
 
@@ -160,6 +165,14 @@ faded in and out by the story; the camera flies between views.
 - Bump `VERSION` in `sw.js` whenever any app file changes, or installed copies
   (and headsets) keep serving the old cache. If you add a file the app needs,
   also add it to `SHELL`.
+- Never let the page and its story files come from different versions: a new
+  `index.html` with an old story file looks fine but misbehaves (Repeat ended
+  in explore mode because the old story never called `HOST.ended()`). Hosts
+  such as GitHub Pages let browsers keep files for ten minutes, so the service
+  worker revalidates every app file, and when an update takes over a running
+  page, the page reloads at the next quiet moment (`HOST.reloadIfUpdated`: on
+  the Stories screen, not in a headset). After changing `sw.js`, run
+  `tools/update.mjs`.
 - Story chapter timings are also documented in `audio/PUT-narration.mp3-HERE.txt`.
 - After changing anything in `tools/lbi/`, rebuild `stories/lbi.js` (and bump
   `VERSION`).
@@ -192,6 +205,13 @@ that the narration plays after a click, after a story change with no tap (as in
 the headset's Stories menu), through pause, jumps and the Sound button, and
 that Play sound never mutes. Whether sound really comes out of a headset can
 only be confirmed on the device.
+
+After changing `sw.js` or how files are loaded, run the update test with an
+earlier version checked out next to this one:
+`git worktree add /tmp/old <earlier commit> && node tools/update.mjs /tmp/old .`
+It installs the old version, serves this one like GitHub Pages (ten-minute
+browser caching, ETags) and checks that the page and its stories are both new
+on the first visit after the update, on the next visit and offline.
 
 For the tour, test a changed set on its own in the set harness first
 (`tools/lbi/shot.mjs`, much cheaper than the whole story), then the story at a

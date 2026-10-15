@@ -683,6 +683,7 @@ HOST.openPicker = function () {
   pk.hidden = false; document.body.classList.add('picking');
   HOST.setUrl(true);
   window.dispatchEvent(new Event('storypause'));
+  HOST.reloadIfUpdated();
   setTimeout(() => (pk.querySelector('.card.here') || pk.querySelector('.card')).focus(), 200);
 };
 HOST.closePicker = function () {
@@ -725,7 +726,19 @@ HOST.closePicker = function () {
 // (Chrome, Edge, Meta Quest Browser, Android) then offer to install it.
 if ('serviceWorker' in navigator && window.isSecureContext && location.protocol !== 'file:') {
   window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(err => console.warn('Service worker not registered:', err)));
+  // An update took over while this page runs: the stories already loaded may be from the old
+  // version. Reload at the next quiet moment (the Stories screen, not in a headset) so the page
+  // and its stories match. Not on a first visit, when the worker simply starts looking after the page.
+  let hadWorker = !!navigator.serviceWorker.controller;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!hadWorker) { hadWorker = true; return; }
+    HOST.updated = true;
+    HOST.reloadIfUpdated();
+  });
 }
+HOST.reloadIfUpdated = function () {
+  if (this.updated && this.picking && !this.session && !this.busy) location.reload();
+};
 let installPrompt = null;
 window.addEventListener('beforeinstallprompt', ev => {
   ev.preventDefault();

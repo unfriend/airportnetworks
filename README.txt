@@ -41,7 +41,9 @@ story, also when you change story inside the headset. If the button says Play
 sound, press it. Without the file the story runs silently.
 
 After changing any file (including adding or replacing a narration file),
-bump VERSION in sw.js so installed copies update.
+bump VERSION in sw.js so installed copies update. Online, the app always fetches
+its files fresh (the cache is for offline use); a copy that is open while an
+update arrives reloads itself the next time you are on the Stories screen.
 
 Protein data: an illustrative, hand-curated subnetwork of 254 well-documented
 human proteins and 375 interactions (complexes and pathways from the

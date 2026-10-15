@@ -16,7 +16,8 @@
   screenshots (hashes such as `#spatial&t=60` jump straight to a moment), and
   run `node tools/smoke.mjs` before committing. Report anything that can only
   be checked on a real headset as untested.
-- After any change to app files, bump `VERSION` in `sw.js`.
+- After any change to app files, bump `VERSION` in `sw.js`. After changing
+  `sw.js` or how files load, run `tools/update.mjs` (see Testing in `AGENTS.md`).
 - Sound belongs to the shell (`HOST.audio` in `index.html`); stories never
   create or close an `AudioContext`. After touching sound, run
   `node tools/audio.mjs` as well as the smoke test.
