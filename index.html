@@ -315,7 +315,7 @@ body.xr #labels, body.xr #tip { display: none; }
 <div id="tip" role="status"></div>
 <div id="xrmsg" role="status"></div>
 <header id="top">
-  <div class="brand">Network theory<span>told with the world's airports</span></div>
+  <div class="brand">Networks<span>in three stories</span></div>
   <button class="btn" id="btnOther" type="button" title="Choose another story">Stories</button>
   <div class="spacer"></div>
   <button class="btn" id="btnSound" type="button" hidden aria-pressed="false">Sound on</button>
@@ -421,13 +421,12 @@ HOST.start = async function (key, keepHash) {
   try { await this.load(meta.key); } catch (e) { ld.textContent = e.message; this.busy = false; return; }
   this.teardown();
   if (!keepHash) history.replaceState(null, '', '#' + meta.key);
-  if (!this.picking) document.title = meta.page;
-  document.querySelector('#top .brand').innerHTML = `${meta.brand}<span>${meta.sub}</span>`;
   document.getElementById('gl').setAttribute('aria-label', meta.aria);
   document.getElementById('btnAR').title = `Mixed reality: the ${meta.thing} floats in your room`;
   document.getElementById('nogl').textContent = `This ${meta.thing} needs WebGL, which this browser has turned off.`;
   document.querySelectorAll('#picker .card').forEach(c => c.classList.toggle('here', c.dataset.story === meta.key));
   this.curKey = meta.key;
+  this.chrome(this.picking);
   this.cur = this.factories[meta.key](this);
   this.busy = false;
   this.closePicker();
@@ -437,9 +436,15 @@ HOST.go = key => setTimeout(() => HOST.start(key), 0);
 // the address says where you are, so it can be shared: #stories on the Stories
 // screen (page or headset), #airports, #proteins or #spatial in a story
 HOST.setUrl = function (stories) {
-  const h = stories ? '#stories' : '#' + this.curKey, meta = this.list.find(s => s.key === this.curKey);
+  const h = stories ? '#stories' : '#' + this.curKey;
   if (location.hash !== h) history.replaceState(null, '', h);
-  document.title = stories || !meta ? 'Networks, in three stories' : meta.page;
+  this.chrome(stories);
+};
+// the title in the tab and the top bar: the app on the Stories screen, the story inside a story
+HOST.chrome = function (stories) {
+  const meta = this.list.find(s => s.key === this.curKey), app = stories || !meta;
+  document.title = app ? 'Networks, in three stories' : meta.page;
+  document.querySelector('#top .brand').innerHTML = app ? 'Networks<span>in three stories</span>' : `${meta.brand}<span>${meta.sub}</span>`;
 };
 HOST.openPicker = function () {
   const pk = document.getElementById('picker');
