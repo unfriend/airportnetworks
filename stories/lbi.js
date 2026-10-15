@@ -2245,7 +2245,7 @@ void main() { gl_FragColor = vec4(vec3(0.66, 0.74, 0.84), pow(vG, 1.7) * 0.3 * u
   P.bezel = part({ grp: 'case', hp: bezC, inner: false, d: 0.38, w: 0.42, arc: 0.28, lr: [-PI / 2, 0, 0] });
   P.crt = part({ grp: 'crt', hp: crtC, inner: false, d: 0.25, w: 0.4, arc: 0.24, lr: [PI / 2, 0, 0] });
   const shell = [solo(P.rear, rearGeo, mPlastic), solo(P.bezel, bezGeo, mPlastic)];
-  solo(P.crt, crtGeo, mGloss);
+  const crtMesh = solo(P.crt, crtGeo, mGloss);
   const spill = solo(P.bezel, spillGeo, spillMat);
   spill.renderOrder = 2;
   {
@@ -3007,7 +3007,7 @@ vec3 rotY(vec3 p, float y0) { float c = cos(uRot), s = sin(uRot); p.y -= y0; ret
     transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
     vertexShader: `attribute vec3 aDir, aS0, aS1, aD0, aD1, aM, aUL;
 uniform float uA, uWire, uStr, uLift, uW;
-varying float vU, vSide, vGrow, vL, vA;
+varying float vU, vSide, vGrow, vL, vA, vE0, vE1;
 ${ROTY}
 void main() {
   vec3 D = rotY(mix(aD0, aD1, uLift), 0.0);
@@ -3018,7 +3018,9 @@ void main() {
   // distance along the wire (or along the straight edge once straightened), plus a phase of its own,
   // so the pulses keep travelling and never flash on every wire at once
   vU = aUL.x; vSide = aM.y;
-  vL = aUL.x * mix(aUL.y, length(D), uStr) + fract(sin(aM.x * 91.7) * 4375.85) * 0.25;
+  // distance to either node along the straight edge, so an edge fades softly into its nodes
+  vE0 = aUL.x * dl; vE1 = (1.0 - aUL.x) * dl;
+  vL = aUL.x * mix(aUL.y, dl, uStr) + fract(sin(aM.x * 91.7) * 4375.85) * 0.25;
   vA = uA * step(0.0001, vGrow) * mix(1.0, 0.75, uStr);
   vec4 mv = modelViewMatrix * vec4(pos, 1.0);
   vec3 dv = normalize((modelViewMatrix * vec4(dir, 0.0)).xyz);
@@ -3033,8 +3035,8 @@ void main() {
   mv.xyz += (sd * aM.y + dv * aM.z * 0.5 * (1.0 - uStr)) * uW * ws * far * mix(aUL.z, min(aUL.z, 1.3), uStr) * (1.0 + 0.4 * uLift);
   gl_Position = projectionMatrix * mv;
 }`,
-    fragmentShader: `uniform float uTime; uniform vec3 uC;
-varying float vU, vSide, vGrow, vL, vA;
+    fragmentShader: `uniform float uTime, uStr; uniform vec3 uC;
+varying float vU, vSide, vGrow, vL, vA, vE0, vE1;
 void main() {
   if (vA < 0.004 || vU > vGrow + 0.0001) discard;
   float x = abs(vSide), a = exp(-x * x * 2.6);
@@ -3042,6 +3044,7 @@ void main() {
   // a comet: a soft tail and a soft head
   float f = fract(vL * 4.0 - uTime * 0.5), pulse = smoothstep(0.84, 0.98, f) * (1.0 - smoothstep(0.98, 1.0, f));
   vec3 c = uC * (0.75 + 0.9 * pulse) + vec3(1.0) * (smoothstep(0.45, 0.0, x) * 0.45 + tip * 1.5);
+  a *= mix(1.0, smoothstep(0.004, 0.02, min(vE0, vE1)), uStr);
   gl_FragColor = vec4(c, a * vA);
 }`,
   });
@@ -3075,7 +3078,9 @@ void main() {
       pPos.set(K.v3.lerp(P0[k], P1[k], lift), 3 * k);
       pA[k] = k < NH ? grow : K.prog(nn, 0.3, 0.6) * K.prog(wi, 0.2, 0.5);
     }
-    junctions.forEach((j, k) => { pA[NN + k] = K.clamp((wi - wires[j.w].w0) / 0.14 - 0.9, 0, 0.1) * 10 * (1 - str); });
+    // junction dots go out before the wires start to straighten, so none is left floating on its own
+    const jOut = 1 - K.prog(nn, 0.12, 0.28);
+    junctions.forEach((j, k) => { pA[NN + k] = K.clamp((wi - wires[j.w].w0) / 0.14 - 0.9, 0, 0.1) * 10 * jOut; });
     pg.attributes.position.needsUpdate = true; pg.attributes.aA.needsUpdate = true;
   }
   // the middle of the bus lines on the table, gliding with the lift to the network's centre
@@ -3091,14 +3096,15 @@ void main() {
   });
   for (const s of solos) s.mesh.frustumCulled = false;
   const screenMesh = solo(P.crt, screenGeo, screenMat, mat([0, 0, FACE_Z - crtC[2]]));
-  // depth prepass for fading the shut computer: opaque, so it draws before every transparent part; it shares
-  // the matrices of the case halves and the screen, and sits a hair behind them so their own faces pass
+  // depth prepass for fading the computer, shut or taken apart: opaque, so it draws before every transparent
+  // part; it shares the matrices of the case halves, the tube and the screen, and sits a hair behind them so
+  // their own faces pass
   const preMat = new THREE.MeshBasicMaterial({ colorWrite: false, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 2 });
-  const prepass = [...shell, screenMesh].map(s => {
+  const prepass = [[P.rear, shell[0]], [P.bezel, shell[1]], [P.crt, crtMesh], [P.crt, screenMesh]].map(([pi, s]) => {
     const m = new THREE.Mesh(s.geometry, preMat);
     m.matrixAutoUpdate = false; m.matrix = s.matrix; m.frustumCulled = false; m.visible = false;
     set.group.add(m);
-    return m;
+    return { pi, m };
   });
   const _p = new THREE.Vector3(), _q = new THREE.Quaternion(), _q2 = new THREE.Quaternion(), _s = new THREE.Vector3(), _ax = new THREE.Vector3(), _m = new THREE.Matrix4();
   parts.forEach((p, i) => { p.r = K.rng(500 + i)(); p.lpV = V(...p.lp); p.hpV = V(...p.hp); p.e = p.s = NaN; });
@@ -3189,19 +3195,27 @@ void main() {
     }
     for (const c of coils) c.mesh.morphTargetInfluences[0] = K.smooth(K.clamp(parts[c.pi].e * 1.3 - 0.15, 0, 1));
     shadows.instanceMatrix.needsUpdate = true; shGeo.attributes.aH.needsUpdate = true;
+    // parts shrunk to nothing (inside the shut case, or gone into the network) cost no draw calls
+    let shown = false;
+    for (const { m, list } of insts) { m.visible = list.some(it => parts[it.pi].s > 0); shown = shown || m.visible; }
+    for (const s of solos) { s.mesh.visible = parts[s.pi].s > 0; shown = shown || s.mesh.visible; }
+    shadows.visible = shown;
   }
   layout(0, 0);
   const tableCol = new THREE.Color(TABLE);
   function update(S, t) {
     // the wiring is drawn over the parts lying on the table (once lifted into a network it needs no table)
-    const ex = K.clamp(S.mac_explode, 0, 1), nn = K.clamp(S.mac_net, 0, 1), wi = K.clamp(S.mac_wire, 0, 1) * Math.max(K.prog(ex, 0.75, 1), K.prog(nn, 0.28, 0.6));
+    // the parts are back on the table before the network lets go of them (in the story mac_net rises only
+    // once mac_explode is 1, so this matters only for jumps in explore, e.g. from Network to Computer)
+    const nn = K.clamp(S.mac_net, 0, 1), ex = Math.max(K.clamp(S.mac_explode, 0, 1), K.prog(nn, 0, 0.3));
+    const wi = K.clamp(S.mac_wire, 0, 1) * Math.max(K.prog(ex, 0.75, 1), K.prog(nn, 0.28, 0.6));
     layout(ex, nn);
-    // while the case is shut and the set fades, a depth-only copy of the case and the screen is drawn
-    // first, so the computer fades evenly instead of showing the tube, rims and screws through it
-    const pre = ex < 0.05 && set.uA.value < 0.97;
-    for (const m of prepass) { m.visible = pre; m.matrixWorldNeedsUpdate = true; }
+    // while the set fades (computer shut or taken apart), a depth-only copy of the case, the tube and the
+    // screen is drawn first, so they fade evenly instead of showing inner walls, rims and screws through them
+    const pre = nn < 0.06 && set.uA.value < 0.97;
+    for (const { pi, m } of prepass) { m.visible = pre && parts[pi].s > 0; m.matrixWorldNeedsUpdate = true; }
     screenMat.uniforms.uOff.value = K.prog(ex, 0.005, 0.11);
-    spill.visible = ex < 0.06;
+    spill.visible = ex < 0.06 && parts[P.bezel].s > 0;
     // seen from above the lay is lit full on, so it is toned down a little; the lights go down while the wiring glows
     const dim = (1 - 0.14 * K.prog(ex, 0.3, 1)) * (1 - 0.55 * K.prog(wi, 0, 0.35));
     for (const m of LIT) m.color.setScalar(dim);
@@ -5535,7 +5549,7 @@ void main() {
     dyn.visible = flow * (1 - net) > 0.002 && build > 0.5;
     if (dyn.visible) protons(turns, flow * (1 - net) * prog(build, 0.85, 1));
     // network
-    netA.value = net * (1 - prog(shrink, 0.75, 1));
+    netA.value = net * (1 - prog(shrink, 0.35, 0.7));
     netPts.visible = netLines.visible = glow.visible = netA.value > 0.002;
     if (netPts.visible) {
       const P = npG.attributes.position.array, E = elG.attributes.position.array, A = npG.attributes.aA.array;
@@ -9109,7 +9123,7 @@ function buildStory() {
     tissue: `<h2 data-at="0.6">From tissue to cells</h2>
       <p data-at="1.2">A slice of stomach wall, stained pink and purple: glands at the surface, loose tissue with blood vessels, muscle below.</p>
       <p data-at="9">Zoom in and it is made of cells. Join each cell to its neighbours, and the tissue becomes a network.</p>
-      <p data-at="18">Imaging dozens of proteins at once tells the cell types apart, and every sample becomes a point we can compare with the others.</p>
+      <p data-at="16">Imaging dozens of proteins at once tells the cell types apart, and every sample becomes a point we can compare with the others.</p>
       <p class="credits" data-at="24">Rendeiro et al., Nature (2021); Abila et al., Nature Medicine (2026).</p>`,
     mission: `<h2 data-at="0.6">Our mission</h2>
       <p data-at="1.2">We are more than 40 researchers from many disciplines at the Ludwig Boltzmann Institute for Network Medicine. We want to</p>
@@ -9127,7 +9141,7 @@ function buildStory() {
   CH.forEach(c => {
     const sec = story.querySelector(`[data-ch="${c.key}"]`);
     ST.items.push({ sec, ch: c, els: Array.from(sec.querySelectorAll('[data-at]')).map(el => ({
-      el, at: c.a + parseFloat(el.dataset.at), out: el.dataset.out ? c.a + parseFloat(el.dataset.out) : c.b - 0.05, o: -1 })),
+      el, at: c.a + parseFloat(el.dataset.at), out: el.dataset.out ? c.a + parseFloat(el.dataset.out) : c === CH[CH.length - 1] ? Infinity : c.b - 0.05, o: -1 })),
       grow: [] });
   });
 
@@ -9158,8 +9172,11 @@ function buildStory() {
   cam(a + 1.5, 'mac', 'default', -25);
   cam(a + 7, 'mac', 'default', 5, 'spin');
   cam(a + 13, 'mac', 'table', -10);
-  cam(a + 24, 'mac', 'table', 10, 'spin');
-  cam(b - 1, 'mac', 'table', 30, 'spin', [0, -15, 0.4]);
+  cam(a + 16, 'mac', 'table', -5, 'spin');
+  cam(a + 22, 'mac', 'wiring', 5);
+  cam(a + 25, 'mac', 'wiring', 10, 'spin');
+  cam(a + 30, 'mac', 'network', 0);
+  cam(b - 1, 'mac', 'network', 25, 'spin');
   // Networks are everywhere: the internet, then friendships around the world
   a = C.everywhere.a; b = C.everywhere.b;
   show('web', a - 0.5, a + 1.5, b - 1.5, b + 0.5);
@@ -9194,11 +9211,11 @@ function buildStory() {
   ramp('atp_flow', a + 18, a + 20, 0, 1); ramp('atp_flow', a + 29, a + 31, 1, 0);
   key('atp_turns', a + 18, 0); key('atp_turns', a + 30, 4.5);
   ramp('atp_net', a + 30, a + 33, 0, 1);
-  ramp('atp_shrink', a + 37.5, a + 41, 0, 1);
+  ramp('atp_shrink', a + 36, a + 40, 0, 1);
   show('int', a + 38, a + 41);
   key('int_atp', a + 36.9, 0); key('int_atp', a + 37, 1);
-  cam(a + 1, 'atp', 'parts');
-  cam(a + 7, 'atp', 'parts', 10, 'spin');
+  cam(a + 1, 'atp', 'parts', 0, null, [0, 0, 0.4, -0.05]);
+  cam(a + 7, 'atp', 'parts', 10, 'spin', [0, 0, 0.4, -0.05]);
   cam(a + 16.5, 'atp', 'complex', -20);
   cam(a + 30, 'atp', 'complex', 40, 'spin');
   cam(a + 36, 'atp', 'complex', 60, 'spin');
@@ -9214,11 +9231,10 @@ function buildStory() {
   ramp('int_route', a + 42, a + 47, 0, 1);
   ramp('int_dis', a + 46.5, a + 50, 0, 1);
   ramp('int_a', b - 1.5, b + 0.5, 1, 0);
-  cam(a + 1, 'int', 'default', 50);
   cam(a + 9, 'int', 'city');
-  cam(a + 27, 'int', 'city', 40, 'spin');
-  cam(a + 41, 'int', 'city', 70, 'spin');
-  cam(b - 1.5, 'int', 'city', 100, 'spin');
+  cam(a + 27, 'int', 'city', 15, 'spin');
+  cam(a + 41, 'int', 'city', 30, 'spin');
+  cam(b - 1.5, 'int', 'city', 50, 'spin');
   // reset the map while the interactome is hidden
   for (const n of ['int_flat', 'int_build', 'int_pins', 'int_route', 'int_dis']) ramp(n, b + 0.6, b + 1.2, 1, 0);
   // Rare diseases: one patient among many, a disease neighbourhood and a drug's
@@ -9254,12 +9270,12 @@ function buildStory() {
   ramp('int_a', a - 1, a + 1, 0, 1);
   ramp('int_drugs', a + 2, a + 10, 0, 1); ramp('int_drugs', a + 11, a + 13, 1, 0);
   ramp('int_iei', a + 12, a + 14, 1, 0);
-  ramp('int_heat', a + 13, a + 22, 0, 1);
+  ramp('int_heat', a + 11, a + 21, 0, 1);
   ramp('int_cand', a + 20, a + 24, 0, 1);
   ramp('int_a', b - 1.5, b + 0.5, 1, 0);
   for (const n of ['int_heat', 'int_cand']) ramp(n, b + 0.6, b + 1.2, 1, 0);
   cam(a + 1, 'int', 'iei', 25);
-  cam(a + 11, 'int', 'iei', 45, 'spin');
+  cam(a + 11, 'int', 'iei', 5, 'spin');
   cam(a + 14, 'int', 'heat', -15);
   cam(b - 1.5, 'int', 'heat', 20, 'spin');
   // Scales: the tower of length scales, time, networks, medicine
@@ -9288,23 +9304,25 @@ function buildStory() {
   ramp('body_pet', a + 0.5, a + 6, 0, 1);
   ramp('body_net', a + 10, a + 13, 0, 1);
   ramp('body_state', a + 17, a + 20, 0, 1);
-  cam(a + 1, 'body', 'front', -25);
-  cam(a + 10, 'body', 'front', 25, 'spin');
-  cam(a + 12, 'body', 'net', -10);
-  cam(b - 1.5, 'body', 'net', 20, 'spin');
+  cam(a + 1, 'body', 'front', -25, null, [0, 0, 0.35]);
+  cam(a + 10, 'body', 'front', 25, 'spin', [0, 0, 0.35]);
+  cam(a + 12, 'body', 'net', -10, null, [0, 0, 0.2]);
+  cam(b - 1.5, 'body', 'net', 20, 'spin', [0, 0, 0.2]);
   // Tissue: a stained section, cells, a network of neighbours, many markers, an embedding
   a = C.tissue.a; b = C.tissue.b;
   show('tissue', a - 0.5, a + 1.5, b - 1.5, b + 0.5);
   ramp('tissue_graph', a + 11, a + 16, 0, 1);
-  ramp('tissue_mark', a + 18, a + 21, 0, 1);
-  ramp('tissue_embed', a + 23, a + 28, 0, 1);
+  ramp('tissue_mark', a + 16, a + 19, 0, 1);
+  ramp('tissue_embed', a + 22, a + 26.5, 0, 1);
   // the section is long: further back, and on wide screens shifted clear of the side panel
   cam(a + 1, 'tissue', 'section', -10, null, [0, 0, 0.8, GL.wide ? -0.2 : 0]);
   cam(a + 5, 'tissue', 'section', 10, 'spin', [0, 0, 0.8, GL.wide ? -0.2 : 0]);
   cam(a + 10, 'tissue', 'zoom');
-  cam(a + 21, 'tissue', 'zoom', 15, 'spin');
-  cam(a + 25, 'tissue', 'embed', -10);
-  cam(b - 1.5, 'tissue', 'embed', 25, 'spin');
+  cam(a + 16, 'tissue', 'zoom', 8, 'spin');
+  cam(a + 19, 'tissue', 'mark');
+  cam(a + 22, 'tissue', 'mark', 10, 'spin');
+  cam(a + 24.5, 'tissue', 'embed', -10);
+  cam(b - 1.5, 'tissue', 'embed', 10, 'spin');
   // Mission: the team, then the interactome with every pathway alight
   a = C.mission.a; b = C.mission.b;
   ramp('scale_team', a - 0.5, a + 3, 0, 1);
@@ -9327,7 +9345,7 @@ function buildStory() {
   label('crowd', 'red', '<b>One patient</b>', C.rare.a + 4, C.rare.a + 11, 'mag');
   label('int', 'rare', '<b>Disease gene</b>and its neighbours', C.rare.a + 16, C.rare.b - 0.5, 'mag');
   label('int', 'treat', '<b>Drug target</b>and its neighbours', C.rare.a + 17, C.rare.b - 0.5, 'grn');
-  label('int', 'seed', '<b>Symptom genes</b>where the signal starts', C.treat.a + 14, C.treat.b - 1, 'amb');
+  label('int', 'seed', '<b>Symptom genes</b>where the signal starts', C.treat.a + 15.5, C.treat.b - 1, 'amb');
   label('int', 'causal', '<b>Top candidate</b>the broken gene', C.treat.a + 22, C.treat.b - 1, 'mag');
   label('tissue', 'mucosa', '<b>Glands</b>', C.tissue.a + 2, C.tissue.a + 9, 'mag');
   label('tissue', 'submucosa', '<b>Loose tissue</b>with vessels', C.tissue.a + 2.6, C.tissue.a + 9, 'mag');
@@ -9574,8 +9592,8 @@ function exploreTargets(now = performance.now()) {
 function exploreStep(dt, now) {
   const tg = exploreTargets(now), k = 1 - Math.exp(-dt * 3.5);
   for (const n in DEF) XS[n] += (tg[n] - XS[n]) * k;
-  // a turning scene, unless you are steering it
-  if (X.turn === 'on' && !orbit.to && !orbit.held) orbit.cur[0] += dt * 4;
+  // a gently swaying scene (about 25 degrees either way, so flat ones never turn edge-on), unless you are steering it
+  if (X.turn === 'on' && !orbit.to && !orbit.held) { X.sway = (X.sway || 0) + dt; orbit.cur[0] += dt * 6 * Math.cos(X.sway * 0.25); }
   return XS;
 }
 function openScene(k, fly = true) {
@@ -9583,15 +9601,22 @@ function openScene(k, fly = true) {
   const same = X.scene === k;
   X.scene = k; X.t0 = performance.now();
   if (!same && k !== 'int') { selectProtein(-1, false); clearRoute(); }
-  if (fly && !same) flyTo(view(k, 'default'));
+  if (fly && !same) flyTo(exploreView(k, 'default'));
   renderScenes();
 }
+// a view for explore mode: wide scenes stand clear of the side panel on wide screens
+function exploreView(k, name) {
+  const v = view(k, name);
+  if (GL.wide && (k === 'sankey' || (k === 'tissue' && (name === 'default' || name === 'section')))) { v[2] += k === 'sankey' ? 1.0 : 0.8; v[3] += k === 'sankey' ? -0.45 : -0.2; }
+  return v;
+}
 function setCtl(k, key, v) {
+  const s = GL.sets[k], c = (s.controls || []).find(x => x.key === key), was = c ? ctlValue(k, c) : null;
   (X.ctl[k] = X.ctl[k] || {})[key] = v;
   X.t0 = performance.now();
-  const s = GL.sets[k], c = (s.controls || []).find(x => x.key === key);
-  // some views have their own best camera (cam views named like the option)
-  if (s.cam && s.cam[v]) flyTo(view(k, v));
+  // some views have their own best camera (cam views named like the option); leaving one goes back to the scene's own view
+  if (s.cam && s.cam[v]) flyTo(exploreView(k, v));
+  else if (s.cam && was && s.cam[was]) flyTo(exploreView(k, 'default'));
   if (c) renderScenes();
 }
 function flyTo(v) {
@@ -9759,7 +9784,7 @@ function renderProtein(i, q) {
   if (!pane) return;
   const C0 = INT().core;
   if (i < 0) {
-    pane.innerHTML = `${i === -2 ? `<p class="empty">No protein matches “${esc(q)}”. Try a gene symbol like TP53, or a name like insulin.</p>` : `<p class="empty">Search above, or click a protein in the interactome. The ${fmt(C0.length)} named proteins come from the network-medicine story; the others are drawn to suggest the rest of the map.</p>`}
+    pane.innerHTML = `${i === -2 ? `<p class="empty">No protein matches “${esc(q)}”. Try a gene symbol like TP53, or a name like kinase.</p>` : `<p class="empty">Search above, or click a protein in the interactome. The ${fmt(C0.length)} named proteins come from the network-medicine story; the others are drawn to suggest the rest of the map.</p>`}
       <div class="quick">${QUICK.filter(s => findProtein(s) >= 0).map(s => `<button type="button" data-c="${s}">${s} ${esc(C0[findProtein(s)].name)}</button>`).join('')}</div>`;
     pane.querySelectorAll('[data-c]').forEach(b => b.addEventListener('click', () => selectProtein(findProtein(b.dataset.c))));
     return;
@@ -10672,7 +10697,7 @@ function drawStoryEl(ctx, P, el, x, y, W, pa) {
     cells.forEach((c, k) => {
       ctx.globalAlpha = a * storyOpacity(c);
       const b = c.querySelector('b'), sm = c.querySelector('small');
-      ctx.font = vfont(58, 700); ctx.fillStyle = VC.amber; ctx.fillText(fitText(ctx, b ? b.textContent : '', cw - 16), x + k * cw, y);
+      ctx.font = vfont(50, 700); ctx.fillStyle = VC.amber; ctx.fillText(fitText(ctx, b ? b.textContent : '', cw - 16), x + k * cw, y);
       if (sm) textBlock(ctx, sm.textContent, x + k * cw, y + 68, cw - 16, 25, 32, VC.muted, 400, 2);
     });
     h = 68 + 64 + 18;
@@ -11046,6 +11071,21 @@ const APP = {
     v[0] += r / D2R; v[3] = x * Math.cos(r) + z * Math.sin(r); v[5] = -x * Math.sin(r) + z * Math.cos(r);
     orbit.cur = v; orbit.to = null;
     X.scene = best; X.t0 = performance.now();
+    // and pick the scene's controls that come closest to what the story was showing
+    const s = GL.sets[best];
+    X.ctl[best] = {};
+    for (const ct of s.controls || []) {
+      let bo = ct.options[0][0], bd = Infinity;
+      for (const [v] of ct.options) {
+        const c = { t: 1e3 };
+        for (const c2 of s.controls) c[c2.key] = c2 === ct ? v : ctlValue(best, c2);
+        const tg = s.explore ? s.explore(c) : {};
+        let d = 0;
+        for (const n in tg) if (n in S && !n.endsWith('_a')) d += (tg[n] - S[n]) ** 2;
+        if (d < bd) { bd = d; bo = v; }
+      }
+      X.ctl[best][ct.key] = bo;
+    }
     ST.labels.forEach(L => { L.el.style.opacity = 0; L.o = 0; });
     renderScenes();
     updateExtraLabels();
@@ -11118,6 +11158,12 @@ function init() {
   resize();
   window.addEventListener('resize', resize);
   buildDefaults(); Object.assign(XS, DEF);
+  // compile every set's shaders now, so a scene's first appearance does not stall the story
+  try {
+    for (const k of SET_ORDER) GL.sets[k].group.visible = true;
+    GL.renderer.compile(GL.scene, GL.camera);
+  } catch (e) { /* compiled on first use instead */ }
+  for (const k of SET_ORDER) GL.sets[k].setAlpha(0);
   buildStory(); buildSetLabels(); buildTimeline(); buildExplore(); bindCanvas(); xrSetup(); audioInit();
   LBL.storyAll = ST.labels.concat(LBL.sets);
   LBL.exploreAll = () => LBL.sets.concat(LBL.extra);

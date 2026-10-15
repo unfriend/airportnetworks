@@ -95,7 +95,10 @@ button { cursor: pointer; }
   pointer-events: none;
 }
 #top > * { pointer-events: auto; }
-.brand { font-weight: 700; font-size: 15px; color: #e7eef8; text-shadow: 0 1px 8px rgba(0, 0, 0, 0.6); white-space: nowrap; }
+.brand { font-weight: 700; font-size: 15px; color: #e7eef8; text-shadow: 0 1px 8px rgba(0, 0, 0, 0.6); white-space: nowrap; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+#top .btn { white-space: nowrap; flex: none; }
+/* keep the timeline readable over bright scenes */
+#clock, #track .name { text-shadow: 0 1px 3px rgba(0, 0, 0, 0.85), 0 0 8px rgba(0, 0, 0, 0.6); }
 .brand span { font-weight: 400; color: #9fb0c7; margin-left: 8px; }
 .spacer { flex: 1; }
 .btn {
@@ -142,7 +145,7 @@ button { cursor: pointer; }
 .credits { font-size: 13px; color: var(--muted); }
 .facts { display: flex; gap: 14px; margin: 4px 0 18px; }
 .facts > div { flex: 1; min-width: 0; }
-.facts b { display: block; font-size: 27px; line-height: 1.1; color: var(--amber); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.facts b { display: block; font-size: 24px; line-height: 1.1; color: var(--amber); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .facts small { display: block; font-size: 13px; color: var(--muted); margin-top: 3px; }
 @media (max-width: 560px) { .facts { gap: 10px; } .facts b { font-size: 20px; } }
 .steps { list-style: none; padding: 0; margin: 4px 0 16px; }
@@ -304,6 +307,8 @@ body.xr #labels, body.xr #tip { display: none; }
 @media (max-width: 899px) {
   body { font-size: 16px; }
   .brand span { display: none; }
+  #top { gap: 8px; }
+  #top .btn { padding: 8px 10px; }
   #panel {
     left: 0; right: 0; width: auto; top: auto; bottom: calc(66px + env(safe-area-inset-bottom, 0px)); height: 44%;
     border-radius: 14px 14px 0 0; padding: 18px 18px 22px;
@@ -375,7 +380,7 @@ const HOST = {
       aria: 'Interactive 3D model of a human cell and its protein network', thing: 'cell', loading: 'Building the cell', len: 'Story 3:40 · cell model' },
     { key: 'lbi', kick: 'LBI Network Medicine', title: 'The future', col: '#ffb43b',
       desc: 'A 3D tour of the Ludwig Boltzmann Institute for Network Medicine: protein machines, the interactome as a map, rare diseases, organs and tissues.',
-      page: 'A glimpse into the future of network medicine', brand: 'LBI Network Medicine', sub: 'a glimpse into the future',
+      page: 'A glimpse into the future of network medicine', brand: 'LBI NetMed', sub: 'a glimpse into the future',
       aria: 'Interactive 3D tour of network medicine, from proteins to the whole body', thing: 'scene', loading: 'Building the scenes', len: 'Story 7:48 · 3D tour' },
   ],
   factories: {}, loaded: {}, cur: null, curKey: null, busy: false,
