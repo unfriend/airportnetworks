@@ -27,9 +27,11 @@ Meta Quest Browser).
   grip to move the network or the panel, thumbstick to spin and zoom, A or X to
   play and pause. Changing story inside the headset keeps you in VR or AR and
   keeps the layout where you put it; *Recenter* puts it back in front of you.
-- Old links still work: `proteins.html` and `spatial.html` open the app with
-  that story ready, and `index.html#airports`, `#proteins` or `#spatial` choose
-  the story loaded behind the Stories screen.
+- The address shows where you are, so you can share it: `#stories` on the
+  Stories screen (on the page or in the headset), `#airports`, `#proteins` or
+  `#spatial` in a story. A story link opens that story directly; a link without
+  a hash lands on the Stories screen. Old links to `proteins.html` and
+  `spatial.html` still work.
 
 ## Running and deploying
 

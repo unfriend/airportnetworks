@@ -429,10 +429,17 @@ HOST.start = async function (key, keepHash) {
 };
 // from the headset menu: change story after the click that asked for it has finished
 HOST.go = key => setTimeout(() => HOST.start(key), 0);
+// the address says where you are, so it can be shared: #stories on the Stories
+// screen (page or headset), #airports, #proteins or #spatial in a story
+HOST.setUrl = function (stories) {
+  const h = stories ? '#stories' : '#' + this.curKey;
+  if (location.hash !== h) history.replaceState(null, '', h);
+};
 HOST.openPicker = function () {
   const pk = document.getElementById('picker');
   if (!pk.hidden) return;
   pk.hidden = false; document.body.classList.add('picking');
+  HOST.setUrl(true);
   window.dispatchEvent(new Event('storypause'));
   setTimeout(() => (pk.querySelector('.card.here') || pk.querySelector('.card')).focus(), 200);
 };
@@ -440,6 +447,7 @@ HOST.closePicker = function () {
   const pk = document.getElementById('picker');
   if (pk.hidden) return;
   pk.hidden = true; document.body.classList.remove('picking');
+  HOST.setUrl(false);
 };
 
 (function boot() {
@@ -461,9 +469,9 @@ HOST.closePicker = function () {
   // which story to load first: #airports, #proteins or #spatial (old links to proteins.html and spatial.html forward here)
   const hp = new URLSearchParams(location.hash.slice(1));
   const key = HOST.list.map(s => s.key).find(k => hp.has(k)) || 'airports';
-  // the Stories menu is the landing page; a story named in the address is just picked behind it
+  // the Stories screen is the landing page (no address, or #stories); a shared story link opens that story
   HOST.start(key, true).then(() => {
-    if (!hp.has('t') && !hp.has('explore')) HOST.openPicker();
+    if (!HOST.list.some(s => hp.has(s.key)) && !hp.has('t') && !hp.has('explore')) HOST.openPicker();
   });
 })();
 

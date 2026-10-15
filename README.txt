@@ -8,9 +8,10 @@ button (top bar, and the panel in VR/AR) brings it back. Stories are loaded into
 the same page, so changing story never ends a VR or AR session; entering VR or
 AR from the start screen opens a Stories screen in the headset (one panel per
 story); entering from inside a story resumes it where you were.
-The start screen is the landing page; index.html#airports, #proteins or
-#spatial picks the story loaded behind it (proteins.html and spatial.html
-forward there). Taking the headset off and on returns to the Stories menu.
+The start screen is the landing page (no hash, or #stories). The address
+follows you: #stories on the Stories screen (page or headset), #airports,
+#proteins or #spatial in a story, so links can be shared and open that story
+directly (proteins.html and spatial.html forward there). Taking the headset off and on returns to the Stories menu.
 
 Upload the whole folder to any HTTPS web server (GitHub Pages, Netlify,
 your university web space ...). Installing and VR both need https://.

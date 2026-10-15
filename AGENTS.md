@@ -57,6 +57,9 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
   (`HOST.landingVR` / `HOST.picking`) shows the headset Stories screen
   (`XR.stories`, built by `xrLandingSetup`). Entering VR/AR from inside a
   story resumes that story.
+- The address mirrors the state (`HOST.setUrl`): `#stories` while the Stories
+  screen shows (page or headset), `#<key>` in a story. A `#<key>` link opens
+  that story directly; no hash or `#stories` lands on the Stories screen.
 - The shell talks to stories with window events `storypause` and
   `storyrestart`.
 

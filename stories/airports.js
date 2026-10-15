@@ -1821,6 +1821,7 @@ function xrUpdate(S) {
   const land = !!XR.stories;
   if (XR.land) { for (const P of XR.land) P.mesh.visible = land; XR.main.mesh.visible = XR.foot.mesh.visible = !land; }
   GL.world.visible = !land;
+  if (land !== XR.landShown) { XR.landShown = land; HOST.setUrl(land); }
   GL.rig.updateMatrixWorld(true);
   XR.camLocal.copy(XR.head);
   GL.world.worldToLocal(XR.camLocal);
