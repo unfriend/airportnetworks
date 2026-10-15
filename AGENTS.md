@@ -4,15 +4,17 @@ Guidance for AI coding agents (and humans) working on this repository.
 
 ## What this is
 
-An installable web app that teaches network science in three narrated,
-about four-minute stories, each followed by an explore mode. Everything works on
-desktop, phones and in VR/AR headsets (built for Meta Quest Browser, WebXR).
+An installable web app that teaches network science in four narrated stories
+(about four minutes each, the tour about eight), each followed by an explore
+mode. Everything works on desktop, phones and in VR/AR headsets (built for Meta
+Quest Browser, WebXR).
 
 | Story | File | Network |
 | --- | --- | --- |
 | Network theory | `stories/airports.js` | 3,214 airports, 18,858 routes on a globe |
 | Network medicine | `stories/proteins.js` | 254 curated proteins, 375 interactions in a cell |
 | Spatial interactome | `stories/spatial.js` | 249 proteins in 13 compartments of a model cell |
+| LBI Network Medicine tour | `stories/lbi.js` | ten 3D scenes, from a protein machine and an illustrative interactome to organs and tissue |
 
 No build step, no framework, no package.json. Plain HTML/JS plus
 `three.min.js` (three.js r128, vendored, MIT). The app is deployed by copying
@@ -31,7 +33,8 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
   / `#spatial` so old links keep working. Do not put code there.
 - `sw.js` - service worker (offline cache, cache-first for app files).
 - `audio/` - optional narration MP3s (`narration.mp3`,
-  `narration-proteins.mp3`, `narration-spatial.mp3`); missing files are fine.
+  `narration-proteins.mp3`, `narration-spatial.mp3`, `narration-lbi.mp3`);
+  missing files are fine.
 - `manifest.webmanifest`, `icons/` - PWA install metadata.
 - `tools/smoke.mjs` - headless smoke test (see Testing).
 
@@ -63,7 +66,7 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
 - The shell talks to stories with window events `storypause` and
   `storyrestart`.
 
-## Inside a story (all three follow the same pattern)
+## Inside a story (all four follow the same pattern)
 
 - Data at the top (airports and proteins: precomputed constants; spatial: the
   editable `PLACES`, `PROTEINS`, `LINKS`, `TOGETHER`, `MOVES` lists, laid out
@@ -81,6 +84,34 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
   redraw on change, `vButton`, `textBlock`). The HTML panel cannot be shown in
   a headset, so every pane exists twice: HTML (`render*`) and canvas (`draw*`).
   Keep both in step when you change one.
+
+## The tour (`stories/lbi.js`) is built from sets
+
+The fourth story turns an institute presentation into a tour through ten 3D
+**sets** (one scene each: the interactome, a computer taken apart, the internet
+and friendships, DNA and protein shapes, ATP synthase, a crowd and a Sankey
+diagram for rare diseases, the tower of scales and the team, a PET body, a
+tissue section). All sets share `GL.world`, are centred on the origin and are
+faded in and out by the story; the camera flies between views.
+
+- `makeKit(THREE)` (top of the file) is the shared kit `K`: seeded random
+  numbers, vector helpers, and materials (`K.points`, `K.lines`, `K.rim`,
+  `K.fade` for built-in lit materials) that fade with their set and size points
+  in local units (`K.U.uPx`, kept current by `updateLight`).
+- Each `SETS.<key> = function (K) { ... }` returns `{ group, params, update(S, t),
+  anchors, labels, cam, controls, explore(c) }`. `params` are the set's
+  animation tracks (names start with `<key>_`; `<key>_a` is its fade);
+  `update` must depend only on the params and the time, so seeking works.
+  `anchors` are named points for labels and camera targets; `labels` are the
+  set's own labels with a rule for when they show; `cam` holds named views
+  `[az, el, dist, tx, ty, tz]`; `controls`/`explore` drive explore mode.
+- `buildStory()` keys the params per chapter (`ramp`, `key`, `show`) and the
+  camera waypoints (`cam(t, set, view, spin)`); story labels are pinned to set
+  anchors. In a headset `xrPlace` turns a view into the pose and scale of
+  `GL.world`, so the view's target floats in front of you.
+- Explore mode has a Scenes tab (any set, with its own controls, as HTML and
+  canvas twins) and a Proteins tab (search, partners and routes on the
+  interactome's named proteins).
 
 ## Conventions
 
@@ -127,6 +158,8 @@ report results.
 
 Useful URL hashes: `#spatial&t=95` (open at a story second, paused),
 `#proteins&explore&q=TP53` (explore mode with a search),
-`#spatial&explore&tab=moves&move=nfkb&now=1`. In the console,
+`#spatial&explore&tab=moves&move=nfkb&now=1`, `#lbi&t=140` (the tour at a
+second), `#lbi&explore&scene=atp&view=network&now=1` (a scene with its controls),
+`#lbi&explore&route=TP53,BRCA1`. In the console,
 `HOST.cur.peek('expression')` evaluates inside the current story
 (e.g. `HOST.cur.peek('NET.P')`).

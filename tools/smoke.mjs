@@ -1,4 +1,4 @@
-// Headless smoke test for the three stories.
+// Headless smoke test for the four stories.
 //   node tools/smoke.mjs [base-url]     (default http://127.0.0.1:8123/)
 // Serve the folder first (npx http-server -p 8123 -c-1 .). Needs Playwright;
 // set PLAYWRIGHT_MODULE to its path if it is installed globally, and
@@ -20,7 +20,7 @@ await page.waitForTimeout(4000);
 await step('start screen is the landing page', async () => {
   if (!await page.evaluate(() => HOST.picking)) errors.push('start screen not shown on load');
 });
-for (const key of ['airports', 'proteins', 'spatial']) {
+for (const key of ['airports', 'proteins', 'spatial', 'lbi']) {
   await step(`load ${key}`, async () => {
     await page.click(`#picker [data-story="${key}"]`).catch(async () => { await page.click('#btnOther'); await page.click(`#picker [data-story="${key}"]`); });
     await page.waitForFunction(k => HOST.curKey === k && HOST.cur && HOST.cur.peek('typeof ST !== "undefined" && ST.items.length > 0'), key, { timeout: 30000 });
@@ -39,6 +39,20 @@ for (const key of ['airports', 'proteins', 'spatial']) {
     for (const P of XR.panels) { P.last = ''; P.t = -1e9; panelTick(P, performance.now() + 1e6); }
     XR.stories = false; XR.on = false;
   })()`)));
+  if (key === 'lbi') await step('lbi: every scene and control in explore mode', () => page.evaluate(async () => {
+    const sleep = ms => new Promise(r => setTimeout(r, ms));
+    for (const [k] of HOST.cur.peek('SCENES')) {
+      HOST.cur.peek(`openScene('${k}')`);
+      for (const c of HOST.cur.peek(`GL.sets['${k}'].controls || []`)) for (const [v] of c.options) {
+        HOST.cur.peek(`setCtl('${k}', '${c.key}', '${v}')`);
+        await sleep(60);
+        HOST.cur.peek(`(() => { XR.on = true; for (const P of XR.panels) { P.last = ''; P.t = -1e9; panelTick(P, performance.now() + 1e6); } XR.on = false; })()`);
+      }
+    }
+    HOST.cur.peek(`(() => { showTab('protein'); runQuery('TP53'); runQuery('TP53 to BRCA1'); XR.routing = true; XR.on = true;
+      for (const P of XR.panels) { P.last = ''; P.t = -1e9; panelTick(P, performance.now() + 1e6); } XR.on = false; XR.routing = false; })()`);
+    await sleep(200);
+  }));
   await page.click('#btnOther');
 }
 await step('old links forward to the app', async () => {

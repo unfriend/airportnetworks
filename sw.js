@@ -1,10 +1,10 @@
 // Offline support: the app shell is cached on install, so the installed app
 // opens without a network connection. Bump VERSION when you change any file.
-const VERSION = 'networks-v23';
-const SHELL = ['./', './index.html', './proteins.html', './spatial.html', './stories/airports.js', './stories/proteins.js', './stories/spatial.js', './three.min.js', './manifest.webmanifest',
+const VERSION = 'networks-v24';
+const SHELL = ['./', './index.html', './proteins.html', './spatial.html', './stories/airports.js', './stories/proteins.js', './stories/spatial.js', './stories/lbi.js', './three.min.js', './manifest.webmanifest',
   './icons/icon-192.png', './icons/icon-512.png', './icons/maskable-512.png', './icons/apple-touch-icon.png', './icons/favicon-32.png'];
 
-const AUDIO = ['./audio/narration.mp3', './audio/narration-proteins.mp3', './audio/narration-spatial.mp3'];
+const AUDIO = ['./audio/narration.mp3', './audio/narration-proteins.mp3', './audio/narration-spatial.mp3', './audio/narration-lbi.mp3'];
 // media elements ask for byte ranges; answer them from the cached file
 async function rangeResponse(req, cached) {
   const buf = await cached.arrayBuffer(), size = buf.byteLength;
@@ -51,7 +51,7 @@ self.addEventListener('fetch', e => {
     return;
   }
   // the narration: from the cache when it is there (as byte ranges), else the network
-  const narr = url.origin === self.location.origin && /\/audio\/(narration(-proteins|-spatial)?\.mp3)$/.exec(url.pathname);
+  const narr = url.origin === self.location.origin && /\/audio\/(narration(-proteins|-spatial|-lbi)?\.mp3)$/.exec(url.pathname);
   if (narr) {
     e.respondWith(caches.match('./audio/' + narr[1]).then(hit => {
       if (!hit) return fetch(req);

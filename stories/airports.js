@@ -2178,7 +2178,7 @@ function xrLandingSetup() {
   head.mesh.position.set(0, 0.36, -1.12);
   XR.landGroup.add(head.mesh); XR.land.push(head);
   HOST.list.forEach((s, k) => {
-    const a = (k - 1) * 0.42, d = 1.06;
+    const a = (k - (HOST.list.length - 1) / 2) * 0.42, d = 1.06;
     const P = makePanel(640, 820, 0.4, (ctx, P) => drawLandCard(ctx, P, s), () => 'c' + XR.inStory + s.key);
     P.mesh.position.set(Math.sin(a) * d, -0.13, -Math.cos(a) * d);
     P.mesh.rotation.y = -a;
@@ -2195,8 +2195,8 @@ function xrLandingClose() {
   if (APP.mode === 'story') APP.playing = true;
 }
 function drawLandHead(ctx, P) {
-  ctx.font = vfont(58, 700); ctx.fillStyle = VC.ink; ctx.fillText('Networks, in three stories', 48, 44);
-  textBlock(ctx, 'The same ideas, very different networks. Each story takes about four minutes, then the network is yours to explore. Point at a story and pull the trigger (or pinch).', 48, 128, 860, 27, 38, VC.muted);
+  ctx.font = vfont(58, 700); ctx.fillStyle = VC.ink; ctx.fillText('Networks, in four stories', 48, 44);
+  textBlock(ctx, 'The same ideas, very different networks. Each story takes a few minutes, then it is yours to explore. Point at a story and pull the trigger (or pinch).', 48, 128, 860, 27, 38, VC.muted);
   let x = P.w - 44;
   const hb = (id, label, fn, w, o) => { x -= w; vButton(ctx, P, id, x, 40, w, 64, label, fn, o); x -= 14; };
   hb('exit', 'Exit', () => { if (XR.session) XR.session.end(); }, 110, { px: 27 });

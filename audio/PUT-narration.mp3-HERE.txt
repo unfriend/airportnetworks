@@ -11,4 +11,9 @@ Without the file the story plays silently on the same timing.
 The cell map story (spatial.html) looks for narration-spatial.mp3. Its chapters
 start at 0:00, 0:12, 0:36, 0:56, 1:20, 1:44, 2:12, 2:38, 3:00 and 3:26, ending
 at 3:40; change NARRATION_SYNC in stories/spatial.js if your recording differs.
+
+The tour of the Ludwig Boltzmann Institute (#lbi) looks for narration-lbi.mp3.
+Its chapters start at 0:00, 0:22, 0:54, 1:18, 1:54, 2:42, 3:42, 4:08, 4:50,
+5:22, 5:56, 6:24, 6:50 and 7:20, ending at 7:48; change NARRATION_SYNC in
+stories/lbi.js if your recording differs.
 You can delete this note.

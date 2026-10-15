@@ -1,7 +1,9 @@
-Networks, in three stories - installable web app
+Networks, in four stories - installable web app
   1. Network theory, told with the world's airports  (stories/airports.js)
   2. Network medicine, told with the proteins in a cell  (stories/proteins.js)
   3. Spatial interactome, where proteins meet in a cell  (stories/spatial.js)
+  4. A glimpse into the future of network medicine: a 3D tour of the Ludwig
+     Boltzmann Institute for Network Medicine  (stories/lbi.js)
 
 index.html is the app: it shows a start screen to pick a story, and the Stories
 button (top bar, and the panel in VR/AR) brings it back. Stories are loaded into
@@ -10,7 +12,7 @@ AR from the start screen opens a Stories screen in the headset (one panel per
 story); entering from inside a story resumes it where you were.
 The start screen is the landing page (no hash, or #stories). The address
 follows you: #stories on the Stories screen (page or headset), #airports,
-#proteins or #spatial in a story, so links can be shared and open that story
+#proteins, #spatial or #lbi in a story, so links can be shared and open that story
 directly (proteins.html and spatial.html forward there). Taking the headset off and on returns to the Stories menu.
 
 Upload the whole folder to any HTTPS web server (GitHub Pages, Netlify,
@@ -25,8 +27,8 @@ Install:
 - iPhone/iPad Safari: Share > Add to Home Screen.
 
 Narration: put your recordings at audio/narration.mp3 (airports),
-audio/narration-proteins.mp3 (proteins) and audio/narration-spatial.mp3
-(cell map); see the note in the audio folder for chapter timings. It plays in
+audio/narration-proteins.mp3 (proteins), audio/narration-spatial.mp3
+(cell map) and audio/narration-lbi.mp3 (the tour); see the note in the audio folder for chapter timings. It plays in
 sync with the story, follows pause, seeking and chapter jumps, and has a Sound
 on/off button (top bar and VR panel). Without the file the story runs silently.
 
@@ -50,7 +52,7 @@ LINKS, TOGETHER and MOVES sit at the top of stories/spatial.js and can be
 edited; the cell model and protein positions are built when the page loads.
 Good for teaching, not research.
 
-Files: index.html (the app), stories/ (the three stories), proteins.html and
+Files: index.html (the app), stories/ (the four stories), proteins.html and
 spatial.html (forward to the app), manifest.webmanifest, sw.js (offline cache), audio/,
 AGENTS.md and CLAUDE.md (notes for AI coding agents), tools/smoke.mjs (headless test),
 icons/, three.min.js (three.js r128, MIT licence, see three.LICENSE.txt).

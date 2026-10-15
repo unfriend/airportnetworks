@@ -3,11 +3,11 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Networks, in three stories</title>
-<meta name="description" content="Network science in three short interactive stories: the world's airports on a globe, proteins and disease in a cell, and where proteins meet in a model human cell. Works on phones, desktops and in VR and AR headsets.">
+<title>Networks, in four stories</title>
+<meta name="description" content="Network science in four short interactive stories: the world's airports on a globe, proteins and disease in a cell, where proteins meet in a model human cell, and a 3D tour of network medicine from protein machines to the whole body. Works on phones, desktops and in VR and AR headsets.">
 <meta property="og:type" content="website">
-<meta property="og:title" content="Networks, in three stories">
-<meta property="og:description" content="Network science in three short interactive stories: airports on a globe, proteins and disease in a cell, and where proteins meet in a model human cell. Works in VR and AR too.">
+<meta property="og:title" content="Networks, in four stories">
+<meta property="og:description" content="Network science in four short interactive stories: airports on a globe, proteins and disease in a cell, where proteins meet in a model human cell, and a 3D tour of network medicine. Works in VR and AR too.">
 <meta property="og:image" content="icons/icon-512.png">
 <meta name="twitter:card" content="summary">
 <link rel="manifest" href="manifest.webmanifest">
@@ -140,6 +140,13 @@ button { cursor: pointer; }
 .concepts { list-style: none; padding: 0; margin: 0 0 18px; display: flex; flex-wrap: wrap; gap: 6px; }
 .concepts li { background: var(--chip); border-radius: 4px; padding: 3px 9px; font-size: 14px; }
 .credits { font-size: 13px; color: var(--muted); }
+.facts { display: flex; gap: 18px; margin: 4px 0 18px; }
+.facts > div { flex: 1; min-width: 0; }
+.facts b { display: block; font-size: 34px; line-height: 1.05; color: var(--amber); font-variant-numeric: tabular-nums; }
+.facts small { display: block; font-size: 13px; color: var(--muted); margin-top: 3px; }
+.steps { list-style: none; padding: 0; margin: 4px 0 16px; }
+.steps li { border-left: 3px solid var(--amber); padding: 1px 0 1px 12px; margin-bottom: 10px; font-size: 15px; }
+.steps li b { display: block; color: var(--amber); font-size: 16px; }
 
 /* explore */
 #explore { display: none; }
@@ -269,7 +276,9 @@ body.picking #panel, body.picking #bar { visibility: hidden; }
 #picker .wrap { max-width: 1040px; width: 100%; }
 #picker h1 { margin: 0 0 6px; font-size: clamp(26px, 4vw, 38px); color: #f2f6fc; font-weight: 700; letter-spacing: -0.01em; }
 #picker .lede { margin: 0 0 22px; color: #a9b8cc; font-size: 15px; }
-#picker .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(270px, 1fr)); gap: 16px; }
+#picker .cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+@media (max-width: 1020px) { #picker .cards { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 560px) { #picker .cards { grid-template-columns: 1fr; } }
 #picker .card { display: block; text-align: left; font: inherit; color: #e7eef8; text-decoration: none; cursor: pointer;
   background: rgba(10, 19, 34, 0.88); border: 1px solid rgba(140, 170, 210, 0.25); border-radius: 10px; padding: 20px 20px 18px;
   transition: border-color 0.15s, transform 0.15s; }
@@ -315,7 +324,7 @@ body.xr #labels, body.xr #tip { display: none; }
 <div id="tip" role="status"></div>
 <div id="xrmsg" role="status"></div>
 <header id="top">
-  <div class="brand">Networks<span>in three stories</span></div>
+  <div class="brand">Networks<span>in four stories</span></div>
   <button class="btn" id="btnOther" type="button" title="Choose another story">Stories</button>
   <div class="spacer"></div>
   <button class="btn" id="btnSound" type="button" hidden aria-pressed="false">Sound on</button>
@@ -336,8 +345,8 @@ body.xr #labels, body.xr #tip { display: none; }
 </footer>
 <div id="picker" hidden role="dialog" aria-labelledby="pickTitle">
   <div class="wrap">
-    <h1 id="pickTitle">Networks, in three stories</h1>
-    <p class="lede">The same ideas, very different networks. Each story takes about four minutes, then the network is yours to explore.</p>
+    <h1 id="pickTitle">Networks, in four stories</h1>
+    <p class="lede">The same ideas, very different networks. Each story takes a few minutes, then it is yours to explore.</p>
     <div class="cards"></div>
   </div>
 </div>
@@ -363,6 +372,10 @@ const HOST = {
       desc: '249 proteins in the compartments of a model cell. Proteins that move, signals that cross the cell, proteins in the wrong place.',
       page: 'Spatial interactome, where proteins meet in a cell', brand: 'Spatial interactome', sub: 'where proteins meet in a cell',
       aria: 'Interactive 3D model of a human cell and its protein network', thing: 'cell', loading: 'Building the cell', len: 'Story 3:40 · cell model' },
+    { key: 'lbi', kick: 'LBI Network Medicine', title: 'The future', col: '#ffb43b',
+      desc: 'A 3D tour of the Ludwig Boltzmann Institute for Network Medicine: protein machines, the interactome as a map, rare diseases, organs and tissues.',
+      page: 'A glimpse into the future of network medicine', brand: 'LBI Network Medicine', sub: 'a glimpse into the future',
+      aria: 'Interactive 3D tour of network medicine, from proteins to the whole body', thing: 'scene', loading: 'Building the scenes', len: 'Story 7:48 · 3D tour' },
   ],
   factories: {}, loaded: {}, cur: null, curKey: null, busy: false,
   renderer: null, session: null, mode: null, inputs: [], quiet: false,
@@ -443,8 +456,8 @@ HOST.setUrl = function (stories) {
 // the title in the tab and the top bar: the app on the Stories screen, the story inside a story
 HOST.chrome = function (stories) {
   const meta = this.list.find(s => s.key === this.curKey), app = stories || !meta;
-  document.title = app ? 'Networks, in three stories' : meta.page;
-  document.querySelector('#top .brand').innerHTML = app ? 'Networks<span>in three stories</span>' : `${meta.brand}<span>${meta.sub}</span>`;
+  document.title = app ? 'Networks, in four stories' : meta.page;
+  document.querySelector('#top .brand').innerHTML = app ? 'Networks<span>in four stories</span>' : `${meta.brand}<span>${meta.sub}</span>`;
 };
 HOST.openPicker = function () {
   const pk = document.getElementById('picker');

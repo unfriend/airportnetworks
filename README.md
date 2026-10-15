@@ -1,8 +1,9 @@
 # airportnetworks
 
-**Networks, in three stories**: an installable web app that teaches network
-science through three short, animated stories. Each story takes about four
-minutes and ends in an explore mode where the network is yours to play with.
+**Networks, in four stories**: an installable web app that teaches network
+science through four short, animated stories. Each story takes a few minutes
+(the tour about eight) and ends in an explore mode where the network is yours
+to play with.
 It runs in any modern browser, on phones, and in VR and AR headsets (built for
 Meta Quest Browser).
 
@@ -11,6 +12,7 @@ Meta Quest Browser).
 | **Airports** (network theory) | 3,214 airports and 18,858 routes on a globe | nodes and edges, degree and hubs, shortest paths, betweenness, communities, robustness when airports close |
 | **Proteins** (network medicine) | 254 proteins and 375 interactions inside a cell | essential hubs, modules, disease modules, drug targets, knockouts |
 | **Cell map** (spatial interactome) | 249 proteins in 13 compartments of a model human cell | where proteins meet, proteins in several places, signals crossing the cell, proteins that move, proximity labelling, proteins in the wrong place |
+| **The future** (LBI Network Medicine) | a 3D tour in ten scenes, after the Ludwig Boltzmann Institute for Network Medicine's welcome talk | the whole is more than its parts, networks everywhere, genes and protein shapes, a protein machine (ATP synthase) assembling and running, the interactome as a city map, rare diseases and inborn errors of immunity, network propagation for diagnosis, networks across scales, the institute's research groups, whole-body PET and organ networks, tissue as a network of cells |
 
 ## Using it
 
@@ -28,8 +30,8 @@ Meta Quest Browser).
   play and pause. Changing story inside the headset keeps you in VR or AR and
   keeps the layout where you put it; *Recenter* puts it back in front of you.
 - The address shows where you are, so you can share it: `#stories` on the
-  Stories screen (on the page or in the headset), `#airports`, `#proteins` or
-  `#spatial` in a story. A story link opens that story directly; a link without
+  Stories screen (on the page or in the headset), `#airports`, `#proteins`,
+  `#spatial` or `#lbi` in a story. A story link opens that story directly; a link without
   a hash lands on the Stories screen. Old links to `proteins.html` and
   `spatial.html` still work.
 
@@ -54,7 +56,7 @@ After changing any file (including adding or replacing a narration file), bump
 ## Narration
 
 Optional voice-overs go in `audio/`: `narration.mp3` (airports),
-`narration-proteins.mp3` and `narration-spatial.mp3`. A narration plays in sync
+`narration-proteins.mp3`, `narration-spatial.mp3` and `narration-lbi.mp3`. A narration plays in sync
 with its story, follows pausing, seeking and chapter jumps, and gets a *Sound*
 button in the top bar and the headset panel. Without the file the story runs
 silently on the same timing. Chapter timings and how to re-sync a new recording
@@ -85,7 +87,7 @@ The protein data is meant for teaching, not research.
 | Path | What it is |
 | --- | --- |
 | `index.html` | the app: Stories screen, shared page layout, loads and swaps the stories |
-| `stories/airports.js`, `stories/proteins.js`, `stories/spatial.js` | the three stories, with their data, explore modes and headset panels |
+| `stories/airports.js`, `stories/proteins.js`, `stories/spatial.js`, `stories/lbi.js` | the four stories, with their data, explore modes and headset panels |
 | `proteins.html`, `spatial.html` | forward old links to the app |
 | `sw.js`, `manifest.webmanifest`, `icons/` | offline cache and app install |
 | `audio/` | optional narrations |
