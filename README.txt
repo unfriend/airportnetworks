@@ -65,4 +65,5 @@ as are the disease modules, the patient, the organ network and the tissue.
 Files: index.html (the app), stories/ (the four stories), proteins.html and
 spatial.html (forward to the app), manifest.webmanifest, sw.js (offline cache), audio/,
 AGENTS.md and CLAUDE.md (notes for AI coding agents), tools/smoke.mjs (headless test),
+tools/lbi/ (sources of the tour; node tools/lbi/build.mjs writes stories/lbi.js),
 icons/, three.min.js (three.js r128, MIT licence, see three.LICENSE.txt).

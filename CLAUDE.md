@@ -17,3 +17,20 @@
   run `node tools/smoke.mjs` before committing. Report anything that can only
   be checked on a real headset as untested.
 - After any change to app files, bump `VERSION` in `sw.js`.
+- `stories/lbi.js` is built from `tools/lbi/`: edit there and run
+  `node tools/lbi/build.mjs`.
+
+## Keeping token use down
+
+Follow "Working economically" in `AGENTS.md`. In particular:
+
+- Ask for (or read) a token budget before large work, and say roughly what a
+  multi-agent run will cost before starting one. Ultracode or other
+  "exhaustive" modes are for showpiece work, not routine changes.
+- Sub-agents and workflow agents that review, verify, sweep screenshots or
+  extract data get `model: 'sonnet'` (or `'haiku'` for mechanical checks) and
+  low or medium effort; keep the strongest model for building and integration.
+- One critique and one fix round; batch verification; only high-severity
+  findings get verified.
+- In the main conversation, view screenshots as small contact sheets, read line
+  ranges with Grep/Read instead of whole files, and delegate broad searches.

@@ -1,1 +1,4 @@
 node_modules/
+tools/lbi/shots/
+tools/lbi/data/*.json
+tools/lbi/data/airports_*

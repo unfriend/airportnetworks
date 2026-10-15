@@ -37,6 +37,8 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
   missing files are fine.
 - `manifest.webmanifest`, `icons/` - PWA install metadata.
 - `tools/smoke.mjs` - headless smoke test (see Testing).
+- `tools/lbi/` - the sources of `stories/lbi.js` (kit, sets, engine parts,
+  build script, set harness, data generators); see its `README.md`.
 
 ## How the shell and stories fit together
 
@@ -87,6 +89,12 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
 
 ## The tour (`stories/lbi.js`) is built from sets
 
+`stories/lbi.js` is generated: edit the sources in `tools/lbi/` and run
+`node tools/lbi/build.mjs`, never edit the built file by hand, and commit both
+(`node tools/lbi/build.mjs --check` tells you if they are out of step). The
+set contract (API, rules, performance budget, palette, shared facts) is
+`tools/lbi/SPEC.md`; each set has a manifest `tools/lbi/sets/<name>.md`.
+
 The fourth story turns an institute presentation into a tour through ten 3D
 **sets** (one scene each: the interactome, a computer taken apart, the internet
 and friendships, DNA and protein shapes, ATP synthase, a crowd and a Sankey
@@ -134,6 +142,8 @@ faded in and out by the story; the camera flies between views.
   (and headsets) keep serving the old cache. If you add a file the app needs,
   also add it to `SHELL`.
 - Story chapter timings are also documented in `audio/PUT-narration.mp3-HERE.txt`.
+- After changing anything in `tools/lbi/`, rebuild `stories/lbi.js` (and bump
+  `VERSION`).
 - Keep `README.txt` (user-facing notes) in sync with structural changes.
 - Several handlers run inside the old story's call stack when switching;
   use `HOST.go(key)` (deferred) from inside a story, not `HOST.start`.
@@ -156,6 +166,10 @@ real-headset behaviour (controllers, session hand-over between stories,
 placement and comfort) can only be confirmed on a device - say so when you
 report results.
 
+For the tour, test a changed set on its own in the set harness first
+(`tools/lbi/shot.mjs`, much cheaper than the whole story), then the story at a
+few seconds (`tools/lbi/sweep.mjs`), then the smoke test.
+
 Useful URL hashes: `#spatial&t=95` (open at a story second, paused),
 `#proteins&explore&q=TP53` (explore mode with a search),
 `#spatial&explore&tab=moves&move=nfkb&now=1`, `#lbi&t=140` (the tour at a
@@ -163,3 +177,36 @@ second), `#lbi&explore&scene=atp&view=network&now=1` (a scene with its controls)
 `#lbi&explore&route=TP53,BRCA1`. In the console,
 `HOST.cur.peek('expression')` evaluates inside the current story
 (e.g. `HOST.cur.peek('NET.P')`).
+
+## Working economically (token budget)
+
+Building the tour cost about 16M tokens in sub-agents, plus the main
+conversation: about a quarter on building, three quarters on critiques, fix
+rounds and verification, all on the most expensive model. Next time:
+
+- **Match the model to the job.** Use the strongest model only to build hard
+  things and to integrate. Critiques, verification, screenshot sweeps, audits,
+  data extraction and mechanical edits go to a cheaper model (for example
+  Sonnet or Haiku) at lower effort.
+- **One review round.** One critique and one fix per piece of work; a second
+  round only for major findings. Verify findings in one batched pass per area,
+  not one agent per finding, and only the high-severity ones.
+- **Cap the visual checks.** Small screenshots (640x400 is plenty), contact
+  sheets instead of single images, a fixed limit per agent (about 20 images),
+  and numbers instead of pictures where possible (label positions, camera
+  speed, build time, draw calls).
+- **Give each agent only what it needs.** Its own section of a spec, not the
+  whole spec; text descriptions of slides or images, not the images; line
+  ranges of the big story files, never whole files.
+- **Set a budget and plan the run.** Put a token target in the request (e.g.
+  "+3M"); workflows can read it and stop early. A workflow runs at most
+  (CPUs - 2) agents at once (2 on a 4-CPU cloud machine), so launch one small
+  workflow per item instead of one big one, and keep headless-browser work to
+  a few agents at a time. Hitting the usage limit mid-run kills in-flight
+  agents and their work is redone, so finish or checkpoint long runs first.
+- **Prefer cheap tests.** The smoke test and the set harness catch most
+  problems; full screenshot sweeps of a story are for the end.
+- **Keep sources small and in the repository.** Edit `tools/lbi/` sources, not
+  the 700 KB built file; keep generators and manifests so nothing has to be
+  rediscovered.
+

@@ -111,6 +111,7 @@ The protein data is meant for teaching, not research.
 | `audio/` | optional narrations |
 | `three.min.js` | three.js r128 (MIT licence, see `three.LICENSE.txt`) |
 | `tools/smoke.mjs` | headless test: loads every story and fails on page errors |
+| `tools/lbi/` | sources of the tour: its 3D sets, engine parts and build script (`node tools/lbi/build.mjs` writes `stories/lbi.js`) |
 | `AGENTS.md`, `CLAUDE.md` | notes on the architecture and conventions for AI coding agents (and people) |
 | `README.txt` | the same notes in plain text |
 
@@ -125,5 +126,9 @@ smoke test (needs Playwright):
 npx http-server -p 8123 -c-1 .
 node tools/smoke.mjs http://127.0.0.1:8123/
 ```
+
+The tour (`stories/lbi.js`) is generated from `tools/lbi/`; edit the sources
+there and rebuild with `node tools/lbi/build.mjs` (see `tools/lbi/README.md`).
+`AGENTS.md` also has advice on working economically with AI coding agents.
 
 Headset behaviour can only be checked on a device.
