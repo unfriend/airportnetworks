@@ -968,9 +968,18 @@ function updateStoryDOM(t) {
     $('#panel').scrollTop = 0;
   }
   const it = ST.items.find(x => x.ch === c);
+  let fresh = null;
   for (const e of it.els) {
     const o = Math.round(fadeVal(t, e.at, e.out, 0.6) * 100) / 100;
-    if (o !== e.o) { e.el.style.opacity = o; e.o = o; e.el.style.visibility = o > 0 ? 'visible' : 'hidden'; }
+    if (o !== e.o) {
+      if (e.o <= 0 && o > 0 && !e.el.classList.contains('credits')) fresh = e.el;
+      e.el.style.opacity = o; e.o = o; e.el.style.visibility = o > 0 ? 'visible' : 'hidden';
+    }
+  }
+  // on a short (phone) panel, scroll just far enough that a line that has just appeared is not below the fold
+  if (fresh) {
+    const p = $('#panel'), over = fresh.getBoundingClientRect().bottom - (p.getBoundingClientRect().bottom - parseFloat(getComputedStyle(p).paddingBottom));
+    if (over > 0) p.scrollTo({ top: p.scrollTop + over, behavior: 'smooth' });
   }
   for (const g of it.grow) {
     const s = Math.round(smooth((t - g.at) / 1.2) * 100) / 100;
@@ -2219,13 +2228,15 @@ function drawLandCard(ctx, P, s) {
 function drawStoriesPane(ctx, P, x, y, W) {
   y += textBlock(ctx, 'Choose a story', x, y, W, 46, 54, VC.ink, 700) + 6;
   y += textBlock(ctx, 'The same ideas, very different networks. Pick one; you stay in the headset view.', x, y, W, 25, 35, VC.muted) + 22;
+  // fit the cards above the Back button (the list grew to four)
+  const h = Math.min(210, Math.floor((P.h - 96 - y) / XR_STORIES.length) - 18);
   for (const { key: k, kick, title, desc, col } of XR_STORIES) {
-    const here = k === XR_HERE, h = 210;
+    const here = k === XR_HERE;
     vButton(ctx, P, 'story:' + k, x, y, W, h, '', () => { if (here) XR.stories = false; else HOST.go(k); }, { on: here, r: 14 });
     ctx.font = vfont(21, 700); ctx.fillStyle = col; ctx.fillText(kick.toUpperCase(), x + 26, y + 22);
     ctx.font = vfont(38, 700); ctx.fillStyle = VC.ink; ctx.fillText(title, x + 26, y + 54);
     if (here) { ctx.font = vfont(22); ctx.fillStyle = VC.cyan; ctx.textAlign = 'right'; ctx.fillText('You are here', x + W - 26, y + 26); ctx.textAlign = 'left'; }
-    textBlock(ctx, desc, x + 26, y + 106, W - 52, 24, 33, VC.muted, 400, 3);
+    textBlock(ctx, desc, x + 26, y + 100, W - 52, 24, 33, VC.muted, 400, 2);
     y += h + 18;
   }
   vButton(ctx, P, 'story:close', x, y + 4, 220, 60, 'Back', () => { XR.stories = false; }, { px: 25 });

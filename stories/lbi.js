@@ -779,7 +779,11 @@ SETS.int = function (K) {
     // seeds on the lower-left side of the cluster, the causal gene across on the upper right (labels apart in the 'heat' view)
     const q4 = IEIC[4], side = v3.norm(v3.add(ieiB[0], ieiB[1])), sd = i => v3.dot(v3.sub(pos(i), q4.c), side);
     const seedAt = v3.sub(q4.c, v3.mul(side, q4.rho * 0.35));
-    const seeds = cl.slice().sort((a, b) => dv(pos(a), seedAt) - dv(pos(b), seedAt)).slice(0, 3);
+    // farthest-point choice inside the lower-left half, so the three seeds stand apart and can be counted
+    const pool0 = cl.filter(i => dv(pos(i), seedAt) < 0.8 * q4.rho && sd(i) < 0.1 * q4.rho);
+    const seeds = [pool0.reduce((b, i) => (dv(pos(i), seedAt) < dv(pos(b), seedAt) ? i : b))];
+    const gap = i => Math.min(...seeds.map(j => dist(i, j)));
+    while (seeds.length < 3) seeds.push(pool0.filter(i => !seeds.includes(i)).reduce((b, i) => (gap(i) > gap(b) ? i : b)));
     const causal = cl.filter(i => !seeds.includes(i)).sort((a, b) => sd(b) - sd(a))[0];
     edge(causal, seeds[0]); edge(causal, seeds[1]);
     const { d } = bfs(seeds);
@@ -868,7 +872,8 @@ SETS.int = function (K) {
     const IS = 0.45, live = [], fixed = new Uint8Array(U + 1);
     units.forEach((u, k) => {
       let n = 0; for (const i of u.mem) n += KIND[i] === 7 ? 0.3 : 1;
-      RH[k] = u.kind === 'mod' ? 0.0175 * Math.sqrt(n) : u.kind === 'atp' ? 0.045 : u.kind === 'hub' ? 0.016
+      // ATP synthase gets room on the map so its 21 contacts stay readable
+      RH[k] = u.kind === 'mod' ? 0.0175 * Math.sqrt(n) : u.kind === 'atp' ? 0.08 : u.kind === 'hub' ? 0.016
         : (u.kind === 'dis' ? 3 : u.kind === 'rare' ? 2 : 1) * (0.0088 * Math.sqrt(n) + 0.004);
       [X0[k], Z0[k]] = start(u.c); X[k] = X0[k]; Z[k] = Z0[k];
       // downtown: TP53's district holds the centre of the map
@@ -877,10 +882,11 @@ SETS.int = function (K) {
     });
     RH[U] = IS * Math.max(...IEIC.map(q => Math.hypot(q.x, q.y) + q.rho)) + 0.01;
     [X0[U], Z0[U]] = start(ieiCentre); X[U] = X0[U]; Z[U] = Z0[U]; live.push(U);
-    // big districts are checked against everything, small ones through a grid
+    // big districts are checked against each other, and against the small ones through the small ones' grid
     const big = [], small = [];
     for (const a of live) (RH[a] > 0.067 ? big : small).push(a);
     const cs = 0.14, GN = 48, head = new Int32Array(GN * GN), nxt = new Int32Array(U + 1), gi = v => clamp(Math.floor(v / cs) + 24, 0, GN - 1);
+    const reach = big.map(a => Math.ceil((RH[a] + 0.067 + 0.006) / cs));
     const sep = (a, b) => {
       const dx = X[b] - X[a], dz = Z[b] - Z[a], m = RH[a] + RH[b] + 0.006, d2 = dx * dx + dz * dz;
       if (d2 >= m * m) return;
@@ -888,9 +894,15 @@ SETS.int = function (K) {
       X[a] -= dx * push * wa; Z[a] -= dz * push * wa; X[b] += dx * push * (1 - wa); Z[b] += dz * push * (1 - wa);
     };
     for (let it = 0; it < 50; it++) {
-      for (const a of big) for (const b of live) if (b !== a && (RH[b] <= 0.067 || b > a)) sep(a, b);
       head.fill(-1);
       for (const a of small) { const c = gi(X[a]) * GN + gi(Z[a]); nxt[a] = head[c]; head[c] = a; }
+      big.forEach((a, q) => {
+        for (const b of big) if (b > a) sep(a, b);
+        const cx = gi(X[a]), cz = gi(Z[a]), n = reach[q];
+        for (let gx = Math.max(0, cx - n); gx <= Math.min(GN - 1, cx + n); gx++) for (let gz = Math.max(0, cz - n); gz <= Math.min(GN - 1, cz + n); gz++) {
+          for (let b = head[gx * GN + gz]; b >= 0; b = nxt[b]) sep(a, b);
+        }
+      });
       for (const a of small) {
         const cx = gi(X[a]), cz = gi(Z[a]);
         for (let gx = Math.max(0, cx - 1); gx <= Math.min(GN - 1, cx + 1); gx++) for (let gz = Math.max(0, cz - 1); gz <= Math.min(GN - 1, cz + 1); gz++) {
@@ -907,7 +919,11 @@ SETS.int = function (K) {
       const c = u.c, l = vl(c), w = l > 1e-3 ? v3.mul(c, 1 / l) : [0, 1, 0], B = basis(w);
       const out = Math.hypot(X[k], Z[k]) > 1e-4 ? [X[k] / Math.hypot(X[k], Z[k]), Z[k] / Math.hypot(X[k], Z[k])] : [1, 0];
       let rms = 0;
-      const loc = u.mem.map(i => { const o = v3.sub(pos(i), c), a = v3.dot(o, B[0]), b = v3.dot(o, B[1]), r = v3.dot(o, B[2]); if (KIND[i] !== 7) rms += a * a + b * b + r * r; return [a, b, r]; });
+      const loc = u.mem.map(i => {
+        const o = v3.sub(pos(i), c), a = v3.dot(o, B[0]), b = v3.dot(o, B[1]), r = v3.dot(o, B[2]);
+        if (KIND[i] !== 7) rms += a * a + b * b + r * r;
+        return [a, b, r];
+      });
       const nn = u.mem.filter(i => KIND[i] !== 7).length || 1;
       rms = Math.sqrt(rms / nn) || 0.02;
       const s = u.kind === 'mod' ? RH[k] / 1.7 / MOD.find(M => M.unit === k).s : u.kind === 'hub' ? 1 : RH[k] / ((u.kind === 'dis' ? 1.5 : 1.9) * rms);
@@ -1018,7 +1034,8 @@ vec3 look(vec3 base, vec3 gc, vec3 hood, vec4 g, vec4 h, float fk, out float sz,
   float ie = kind > 3.5 && kind < 4.5 ? uIei : 0.0;
   c = mix(c, gc * 1.35, ie); sz *= 1.0 + 1.2 * ie; hg = max(hg, ie);
   float shown = h.x * smoothstep(h.y - 0.4, h.y + 0.6, uHeatF);
-  c = mix(c, heatRamp(shown) * 1.2, uHeatOn); sz *= mix(1.0, 0.4 + 1.8 * shown * shown, uHeatOn);
+  c = mix(c, heatRamp(shown) * 1.2, uHeatOn) + 0.12 * base * uHeatOn * (1.0 - smoothstep(0.0, 0.15, shown));
+  sz *= mix(1.0, 0.4 + 1.8 * shown * shown, uHeatOn);
   hi = max(hi, uHeatOn * smoothstep(0.25, 0.6, shown));
   return c;
 }
@@ -1097,7 +1114,8 @@ void main() {
 
   // ---------------------------------------------------------------- haze: big faint sprites that make the dense centre glow
   (() => {
-    const n = 520, g = new THREE.BufferGeometry(), p = new Float32Array(n * 3), f = new Float32Array(n * 3), c = new Float32Array(n * 3), h = new Float32Array(n * 3), sz = new Float32Array(n), rv = new Float32Array(n);
+    const n = 520, g = new THREE.BufferGeometry(), F3 = () => new Float32Array(n * 3);
+    const p = F3(), f = F3(), c = F3(), h = F3(), sz = new Float32Array(n), rv = new Float32Array(n);
     for (let k = 0; k < n; k++) {
       let i; do { i = Math.floor(R() * N); } while (KIND[i] === 7 || R() > 1.15 - vl(pos(i)));
       const o = [gs() * 0.04, gs() * 0.04, gs() * 0.04];
@@ -1149,7 +1167,7 @@ void main() {
   (() => {
     const n = E, g = new THREE.BufferGeometry();
     const pa = new Float32Array(n * 6), po = new Float32Array(n * 6), fa = new Float32Array(n * 6), fo = new Float32Array(n * 6);
-    const ca = new Float32Array(n * 6), gc = new Float32Array(n * 6), hd = new Float32Array(n * 6), ga = new Float32Array(n * 8), ha = new Float32Array(n * 8), ea = new Float32Array(n * 6);
+    const ca = new Float32Array(n * 6), gc = new Float32Array(n * 6), hd = new Float32Array(n * 6), ga = new Float32Array(n * 8), ha = new Float32Array(n * 8), ea = new Float32Array(n * 8);
     const isHub = i => KIND[i] === 1;
     for (let e = 0; e < n; e++) {
       const a = EA[e], b = EB[e], len = dist(a, b);
@@ -1164,14 +1182,14 @@ void main() {
           ca[3 * v + c] = BASE[3 * s + c]; gc[3 * v + c] = GC4[3 * s + c]; hd[3 * v + c] = HOOD[3 * s + c];
         }
         for (let c = 0; c < 4; c++) { ga[4 * v + c] = G4[4 * s + c]; ha[4 * v + c] = H4[4 * s + c]; }
-        ea[3 * v] = al; ea[3 * v + 1] = RV[o]; ea[3 * v + 2] = inner;
+        ea[4 * v] = al; ea[4 * v + 1] = RV[o]; ea[4 * v + 2] = inner; ea[4 * v + 3] = HUBS_S[o];
       }
     }
     attr(g, 'position', pa, 3); attr(g, 'aOth', po, 3); attr(g, 'aFlat', fa, 3); attr(g, 'aOthF', fo, 3); attr(g, 'aCol', ca, 3);
-    attr(g, 'aGc', gc, 3); attr(g, 'aHood', hd, 3); attr(g, 'aG', ga, 4); attr(g, 'aH', ha, 4); attr(g, 'aE', ea, 3);
+    attr(g, 'aGc', gc, 3); attr(g, 'aHood', hd, 3); attr(g, 'aG', ga, 4); attr(g, 'aH', ha, 4); attr(g, 'aE', ea, 4);
     g.boundingSphere = new THREE.Sphere(new THREE.Vector3(), 1.6);
     const m = mat(`
-attribute vec3 aOth, aFlat, aOthF, aCol, aGc, aHood; attribute vec4 aG, aH; attribute vec3 aE;
+attribute vec3 aOth, aFlat, aOthF, aCol, aGc, aHood; attribute vec4 aG, aH, aE;
 uniform float uA; varying vec3 vC; varying float vA;
 void main() {
   float rv = aG.w, ro = aE.y, fk = flatK(rv), fo = flatK(ro);
@@ -1183,6 +1201,9 @@ void main() {
   vec3 c = look(aCol, aGc, aHood, aG, aH, fk, sz, hi, hg);
   // an interaction stays lit with its group only inside the group (those also glow as ribbons)
   hi = max(hi, hg * aE.z);
+  // hubs look: an interaction takes the colour of its bigger end, so the top hubs burst out in amber and red spokes
+  float hm = max(aG.z, aE.w);
+  c = mix(c, hubRamp(hm), uHub); hi = max(hi, uHub * smoothstep(0.4, 0.75, hm));
   float br = mix(1.0, 0.08, max(uDimE, uSel * 0.75) * (1.0 - hi));
   float fm = 0.5 * (fk + fo), len = length(aFlat - aOthF);
   float city = mix(1.0, smoothstep(0.28, 0.05, len) * 1.25, fm);
@@ -1190,7 +1211,7 @@ void main() {
   vec4 mv = modelViewMatrix * vec4(pos, 1.0);
   gl_Position = projectionMatrix * mv;
   vC = c * 0.95 * depthCue(mv);
-  vA = uA * ap * aE.x * uEdges * br * city * (1.0 + 0.6 * uHeatOn * hi);
+  vA = uA * ap * aE.x * uEdges * br * city * (1.0 + 0.6 * uHeatOn * hi) * (1.0 + 1.6 * uHub * smoothstep(0.72, 0.92, hm));
 }`, `
 varying vec3 vC; varying float vA;
 void main() { if (vA < 0.002) discard; gl_FragColor = vec4(vC, vA); }`);
@@ -1201,12 +1222,13 @@ void main() { if (vA < 0.002) discard; gl_FragColor = vec4(vC, vA); }`);
 
   // ---------------------------------------------------------------- glowing ribbons for highlighted interactions (with travelling pulses)
   // kinds: 1 curated (index = module of this end + 16 * module of the other end), 2 ATP synthase, 3 immunity cluster,
-  // 4 disease module, 5 rare, 6 selection, 7 route (index = hop). aX.z: half width, negative at the second end.
+  // 4 disease module, 5 rare, 6 selection, 7 route (index = hop). aX.z: half width, negative at the second end;
+// aX.w: the 'along' value at the second end (aR.w runs from 0 to it), so the fragment knows where the ends are.
   // All four corners of a ribbon get the same visibility and the same side vector, so a ribbon is either a clean quad
   // or wholly hidden (a corner moved off screen alone would smear it into a streak).
   const RIB_VS = `
-attribute vec3 aOth, aFlat, aOthF, aCol; attribute vec4 aR; attribute vec3 aX;
-uniform float uA, uRouteP, uRouteL; varying vec3 vC; varying float vA, vS, vL, vPh, vCut;
+attribute vec3 aOth, aFlat, aOthF, aCol; attribute vec4 aR, aX;
+uniform float uA, uRouteP, uRouteL; varying vec3 vC; varying float vA, vS, vF, vLen, vPh, vCut;
 void main() {
   float fk = flatK(aX.x), fo = flatK(aX.y);
   vec3 me = mix(position + wob(position), aFlat, fk), ot = mix(aOth + wob(aOth), aOthF, fo);
@@ -1221,25 +1243,32 @@ void main() {
   float gm = kind > 6.5 ? min(fk, fo) : 0.0;
   if (gm > 0.0) { vec3 up = (modelViewMatrix * vec4(0.0, 1.0, 0.0, 0.0)).xyz; side = normalize(mix(side, normalize(cross(up, dir) + vec3(1e-6)), gm) + vec3(1e-6)); }
   float s = length(modelViewMatrix[0].xyz);
-  a.xyz += side * aR.z * w * s * (0.5 + 0.5 * vis) * (kind > 6.5 ? 1.0 + 0.9 * min(fk, fo) : 1.0);
+  // the route widens into a road on the map; the dense ATP synthase contacts get thinner there
+  float wm = kind > 6.5 ? 1.0 + 0.9 * min(fk, fo) : kind > 1.5 && kind < 2.5 ? mix(1.0, 0.5, min(fk, fo)) : 1.0;
+  a.xyz += side * aR.z * w * s * (0.5 + 0.5 * vis) * wm;
   gl_Position = projectionMatrix * a;
   float ap = smoothstep(max(aX.x, aX.y), max(aX.x, aX.y) + 0.03, uReveal);
-  vC = aCol * depthCue(a); vA = uA * vis * ap; vS = aR.z; vL = aR.w;
+  vC = aCol * min(depthCue(a), 1.1); vA = uA * vis * ap; vS = aR.z;
+  // 0..1 along the ribbon, and its current length (the same at all four corners)
+  vF = aR.w / max(aX.w, 1e-5); vLen = length(ot - me);
   vPh = fract(sin(dot(position + aOth, vec3(12.9898, 78.233, 37.719))) * 43758.5453);
   vCut = kind > 6.5 ? uRouteP * uRouteL - aR.y : 9.0;
   if (vA < 0.003) gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
 }`;
   const RIB_FS = `
-uniform float uTime; varying vec3 vC; varying float vA, vS, vL, vPh, vCut;
+uniform float uTime; varying vec3 vC; varying float vA, vS, vF, vLen, vPh, vCut;
 void main() {
-  if (vL > vCut) discard;
+  if (vF > vCut) discard;
   float prof = 1.0 - vS * vS;
-  float pulse = pow(fract(vL / 0.14 - uTime * 0.75 + vPh), 7.0);
-  gl_FragColor = vec4(vC * (0.65 + 1.7 * pulse), vA * prof * (0.8 + 0.5 * pulse));
+  // soft, symmetric pulses that keep the ribbon's hue (a sawtooth cut off hard and burnt to white)
+  float f = fract(vF * vLen / 0.14 - uTime * 0.75 + vPh), pulse = exp(-pow((f - 0.5) / 0.09, 2.0));
+  // the square ends fade out inside the node sprites
+  float ends = smoothstep(0.0, min(0.006, 0.3 * vLen), min(vF, 1.0 - vF) * vLen);
+  gl_FragColor = vec4(vC * (0.75 + 0.8 * pulse), vA * prof * ends * (0.75 + 0.35 * pulse));
 }`;
   function ribbonGeo(cap) {
     const g = new THREE.BufferGeometry(), n = cap * 4;
-    for (const [nm, k] of [['position', 3], ['aOth', 3], ['aFlat', 3], ['aOthF', 3], ['aCol', 3], ['aR', 4], ['aX', 3]]) attr(g, nm, new Float32Array(n * k), k);
+    for (const [nm, k] of [['position', 3], ['aOth', 3], ['aFlat', 3], ['aOthF', 3], ['aCol', 3], ['aR', 4], ['aX', 4]]) attr(g, nm, new Float32Array(n * k), k);
     const idx = new Uint32Array(cap * 6);
     for (let e = 0; e < cap; e++) idx.set([4 * e, 4 * e + 1, 4 * e + 2, 4 * e + 2, 4 * e + 1, 4 * e + 3], 6 * e);
     g.setIndex(new THREE.BufferAttribute(idx, 1));
@@ -1247,7 +1276,7 @@ void main() {
     g.boundingSphere = new THREE.Sphere(new THREE.Vector3(), 1.6);
     return g;
   }
-  // list: [a, b, kind, index(a), index(b), colA, colB, width, alongA, alongB]
+  // list: [a, b, kind, index(a), index(b), colA, colB, width, alongA (0), alongB (the ribbon's length)]
   function fillRibbons(g, list) {
     const A = g.attributes;
     list.forEach((r, e) => {
@@ -1258,13 +1287,14 @@ void main() {
         A.position.array.set(pos(me), 3 * v); A.aOth.array.set(pos(ot), 3 * v);
         A.aFlat.array.set(fpos(me), 3 * v); A.aOthF.array.set(fpos(ot), 3 * v);
         A.aCol.array.set(col, 3 * v); A.aR.array.set([kind, kind === 1 ? ix + 16 * ends[1 - j][2] : ix, s ? 1 : -1, al], 4 * v);
-        A.aX.array.set([RV[me], RV[ot], j ? -w : w], 3 * v);
+        A.aX.array.set([RV[me], RV[ot], j ? -w : w, lb], 4 * v);
       }
     });
     for (const k in A) A[k].needsUpdate = true;
     g.setDrawRange(0, list.length * 6);
   }
-  const ribMat = mat(RIB_VS, RIB_FS), mesh = {};
+  // double-sided: a ribbon's winding flips with the direction it is seen from
+  const ribMat = mat(RIB_VS, RIB_FS, { opts: { side: THREE.DoubleSide } }), mesh = {};
   (() => {
     const list = [];
     const L = (a, b) => dist(a, b);
@@ -1291,8 +1321,12 @@ void main() {
   // ---------------------------------------------------------------- markers: candidate rings, seeds, rare gene / target, roof beacons, selection, route stops
   // kinds: 0 candidate, 1 causal gene, 2 seed, 3 rare gene, 4 drug target, 5 roof beacon, 6 selection, 7 route stop
   const MK = [];
-  PAT.cands.forEach(i => MK.push([i, i === PAT.causal ? 1 : 0, i === PAT.causal ? 0.11 : 0.075, i === PAT.causal ? [1, 0.85, 0.45] : v3.lerp([0.6, 0.8, 1], [1, 0.62, 0.28], smooth(HEAT[i] * 1.3 - 0.2)), 0]));
-  PAT.seeds.forEach(i => MK.push([i, 2, 0.085, [1, 0.97, 0.9], 0]));
+  // candidate rings warm with their heat; the causal gene's is gold
+  PAT.cands.forEach(i => {
+    const c = i === PAT.causal;
+    MK.push([i, c ? 1 : 0, c ? 0.11 : 0.075, c ? [1, 0.85, 0.45] : v3.lerp([0.6, 0.8, 1], [1, 0.62, 0.28], smooth(HEAT[i] * 1.3 - 0.2)), 0]);
+  });
+  PAT.seeds.forEach(i => MK.push([i, 2, 0.05, [1, 0.97, 0.9], 0]));
   MK.push([RARE.g, 3, 0.09, [1, 0.25, 0.2], 0], [RARE.T, 4, 0.08, TEAL, 0]);
   const BH = i => 0.03 + 0.017 * core[i].degree;   // building heights
   for (let i = 0; i < NC; i++) if (core[i].degree >= 7) MK.push([i, 5, 0.03, [1, 0.25, 0.2], BH(i) + 0.006]);
@@ -1334,6 +1368,8 @@ void main() {
   vec3 col = vC;
   if (vK < 0.5 || (vK > 3.5 && vK < 4.5) || vK > 5.5) a = smoothstep(0.1, 0.0, abs(d - 0.72)) + 0.12 * smoothstep(0.7, 0.0, d);
   else if (vK < 1.5) { a = smoothstep(0.09, 0.0, abs(d - 0.78)) + 0.8 * smoothstep(0.07, 0.0, abs(d - 0.56)) + 0.5 * pow(1.0 - d, 2.0); col = mix(vC, vec3(1.0), 0.3 * smoothstep(0.4, 0.0, d)); }
+  // seeds: a crisp white-hot core with a short halo, so three close seeds still read as three
+  else if (vK < 2.5) { a = smoothstep(0.5, 0.42, d) + 0.3 * pow(1.0 - d, 2.0); col = mix(vC, vec3(1.0), smoothstep(0.5, 0.3, d)); }
   else { a = pow(1.0 - d, 1.8) * 0.9 + smoothstep(0.3, 0.0, d) * 0.6; col = mix(vC, vec3(1.0), smoothstep(0.35, 0.0, d)); }
   gl_FragColor = vec4(col, vA * a);
 }`);
@@ -1391,29 +1427,33 @@ void main() {
   spin.add(ground, rim);
   const bldMat = K.fade(set, new THREE.MeshStandardMaterial({ roughness: 0.38, metalness: 0.25, emissive: 0x000000 }), 1);
   // windows lit at random; in the hubs look the buildings glow by centrality, in the neighbourhoods look by district,
-  // and a lit pathway's district glows in its colour
+  // a lit pathway's district glows in its colour, and in the spread look the towers go dark and glow with their heat
   bldMat.onBeforeCompile = sh => {
-    sh.uniforms.uHub = U.uHub; sh.uniforms.uHood = U.uHood; sh.uniforms.uPath = U.uPath;
-    sh.vertexShader = 'attribute float iHub, iModK; attribute vec3 iMod; uniform float uPath[10];\n' +
-      'varying vec3 vIP, vLN, vMod; varying vec2 vSeed; varying float vHub, vPath;\n' + sh.vertexShader.replace('#include <begin_vertex>',
+    sh.uniforms.uHub = U.uHub; sh.uniforms.uHood = U.uHood; sh.uniforms.uPath = U.uPath; sh.uniforms.uHeatOn = U.uHeatOn; sh.uniforms.uHeatF = U.uHeatF;
+    sh.vertexShader = 'attribute float iHub, iModK; attribute vec3 iMod; attribute vec2 iHeat; uniform float uPath[10], uHeatF;\n' +
+      'varying vec3 vIP, vLN, vMod; varying vec2 vSeed; varying float vHub, vPath, vHeat;\n' + sh.vertexShader.replace('#include <begin_vertex>',
       '#include <begin_vertex>\n#ifdef USE_INSTANCING\nvIP = (instanceMatrix * vec4(position, 1.0)).xyz; vSeed = instanceMatrix[3].xz;\n#endif\n' +
-      'vLN = normal; vHub = iHub; vMod = iMod;\nvPath = 0.0; for (int k = 0; k < 10; k++) { if (abs(iModK - float(k)) < 0.5) vPath = uPath[k]; }');
-    sh.fragmentShader = 'uniform float uHub, uHood; varying vec3 vIP, vLN, vMod; varying vec2 vSeed; varying float vHub, vPath;\n' +
+      'vLN = normal; vHub = iHub; vMod = iMod; vHeat = iHeat.x * smoothstep(iHeat.y - 0.4, iHeat.y + 0.6, uHeatF);\n' +
+      'vPath = 0.0; for (int k = 0; k < 10; k++) { if (abs(iModK - float(k)) < 0.5) vPath = uPath[k]; }');
+    sh.fragmentShader = 'uniform float uHub, uHood, uHeatOn; varying vec3 vIP, vLN, vMod; varying vec2 vSeed; varying float vHub, vPath, vHeat;\n' +
+      'vec3 heatRamp(float h) { vec3 c = mix(vec3(0.05, 0.0, 0.0), vec3(0.9, 0.1, 0.04), smoothstep(0.0, 0.4, h)); c = mix(c, vec3(1.0, 0.62, 0.12), smoothstep(0.4, 0.75, h)); return mix(c, vec3(1.0, 0.97, 0.9), smoothstep(0.8, 1.0, h)); }\n' +
       sh.fragmentShader.replace('#include <color_fragment>', `#include <color_fragment>
   vec3 hot = mix(mix(vec3(0.1, 0.17, 0.34), vec3(1.0, 0.62, 0.18), smoothstep(0.3, 0.6, vHub)), vec3(1.0, 0.24, 0.16), smoothstep(0.62, 0.92, vHub));
-  diffuseColor.rgb = mix(mix(mix(diffuseColor.rgb, vMod * 0.85, uHood * 0.7), hot * 0.8, uHub), vMod, vPath * 0.6);`).replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
+  diffuseColor.rgb = mix(mix(mix(mix(diffuseColor.rgb, vMod * 0.85, uHood * 0.7), hot * 0.8, uHub), vMod, vPath * 0.6), vec3(0.04, 0.035, 0.04), uHeatOn * 0.9);`).replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
 { totalEmissiveRadiance += hot * uHub * smoothstep(0.35, 0.8, vHub) * 0.55 + vMod * uHood * 0.12 + vMod * vPath * 0.6;
+  totalEmissiveRadiance = mix(totalEmissiveRadiance, heatRamp(vHeat) * (0.3 + 0.55 * smoothstep(0.35, 0.8, vHeat)) * smoothstep(0.02, 0.2, vHeat), uHeatOn);
   float side = 1.0 - abs(vLN.y);
   float u = abs(vLN.x) > 0.5 ? vIP.z : vIP.x;
   vec2 cell = vec2(floor(u / 0.0065), floor(vIP.y / 0.0095));
   vec2 id = cell + floor(vSeed * 500.0 + 0.5);   // exact integers: no per-pixel hash noise
   float lit = step(0.42, fract(sin(dot(id, vec2(12.9898, 78.233))) * 43758.5453));
   float win = step(0.3, fract(u / 0.0065)) * step(0.35, fract(vIP.y / 0.0095)) * step(0.012, vIP.y);
-  totalEmissiveRadiance += vec3(1.0, 0.8, 0.5) * win * lit * side * 0.9 + vec3(0.25, 0.4, 0.7) * (1.0 - side) * 0.15; }`);
+  totalEmissiveRadiance += (vec3(1.0, 0.8, 0.5) * win * lit * side * 0.9 + vec3(0.25, 0.4, 0.7) * (1.0 - side) * 0.15) * (1.0 - uHeatOn); }`);
   };
   const bldGeo = new THREE.BoxGeometry(1, 1, 1).translate(0, 0.5, 0);
-  const bldHub = new Float32Array(NC), bldMod = new Float32Array(NC * 3), bldK = new Float32Array(NC);
-  for (let i = 0; i < NC; i++) { bldHub[i] = HUBS_S[i]; bldMod.set(MCOL[core[i].module], 3 * i); bldK[i] = core[i].module; }
+  const bldHub = new Float32Array(NC), bldMod = new Float32Array(NC * 3), bldK = new Float32Array(NC), bldHeat = new Float32Array(NC * 2);
+  for (let i = 0; i < NC; i++) { bldHub[i] = HUBS_S[i]; bldMod.set(MCOL[core[i].module], 3 * i); bldK[i] = core[i].module; bldHeat.set([H4[4 * i], H4[4 * i + 1]], 2 * i); }
+  bldGeo.setAttribute('iHeat', new THREE.InstancedBufferAttribute(bldHeat, 2));
   bldGeo.setAttribute('iHub', new THREE.InstancedBufferAttribute(bldHub, 1));
   bldGeo.setAttribute('iModK', new THREE.InstancedBufferAttribute(bldK, 1));
   bldGeo.setAttribute('iMod', new THREE.InstancedBufferAttribute(bldMod, 3));
@@ -1436,14 +1476,16 @@ void main() {
     for (let k = 0; k <= 14; k++) { const a = phi + (Math.PI / 2 - phi) * k / 14; pts.push(new THREE.Vector2(Math.max(1e-4, Rr * Math.cos(a)), H + Rr * Math.sin(a))); }
     return new THREE.LatheGeometry(pts, 28);
   })();
-  const pinDot = new THREE.SphereGeometry(0.0105, 16, 12);
+  // the dark dot on each face of the head sits just proud of the surface; pin and dots are one vertex-coloured mesh
+  const pinMat = K.fade(set, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.3, metalness: 0.1 }), 1);
+  pinMat.onBeforeCompile = sh => { sh.fragmentShader = sh.fragmentShader.replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\n  totalEmissiveRadiance += vColor * 0.25;'); };
   const mkPin = col => {
+    const dot = z => K.paint(new THREE.SphereGeometry(0.0105, 16, 12).scale(1, 1, 0.35).translate(0, 0.075, 0.0262 * z), '#15181f');
     const g = new THREE.Group();
-    g.add(new THREE.Mesh(pinGeo, K.fade(set, new THREE.MeshStandardMaterial({ color: col, roughness: 0.3, metalness: 0.1, emissive: col, emissiveIntensity: 0.25 }), 1)));
-    for (const z of [-1, 1]) { const d = new THREE.Mesh(pinDot, K.fade(set, new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.4, emissive: 0x666666 }), 1)); d.position.set(0, 0.075, 0.019 * z); d.scale.set(1, 1, 0.45); g.add(d); }
+    g.add(new THREE.Mesh(K.merge([K.paint(pinGeo.clone(), col), dot(-1), dot(1)]), pinMat));
     g.visible = false; spin.add(g); return g;
   };
-  const pins = [mkPin(0xff3b2f), mkPin(0x2a5cff)];
+  const pins = [mkPin('#ff3b2f'), mkPin('#2a5cff')];
 
   // ---------------------------------------------------------------- drug capsules (two-tone, lit)
   // Each capsule has a path in 3D and one over the map. On the map the immunity patch lies flat: its frame
@@ -1482,9 +1524,10 @@ void main() {
     return [v3.add(v3.lerp(A, B, e), v3.mul(c.up, 0.006 * Math.sin(t * 2.2 + k) * x)), dir];
   };
   const capGeo = top => {
-    const r = 0.015, h = 0.024, pts = [];
-    if (!top) { for (let k = 0; k <= 8; k++) { const a = -Math.PI / 2 + Math.PI / 2 * k / 8; pts.push(new THREE.Vector2(Math.max(1e-4, r * Math.cos(a)), -h + r * Math.sin(a))); } pts.push(new THREE.Vector2(r, 0)); }
-    else { pts.push(new THREE.Vector2(r, 0)); for (let k = 0; k <= 8; k++) { const a = Math.PI / 2 * k / 8; pts.push(new THREE.Vector2(Math.max(1e-4, r * Math.cos(a)), h + r * Math.sin(a))); } }
+    // half a capsule: a cylinder from 0 to +-h with a round cap
+    const r = 0.015, h = 0.024, sg = top ? 1 : -1, pts = [new THREE.Vector2(r, 0)];
+    for (let k = 0; k <= 8; k++) { const a = Math.PI / 2 * k / 8; pts.push(new THREE.Vector2(Math.max(1e-4, r * Math.cos(a)), sg * (h + r * Math.sin(a)))); }
+    if (!top) pts.reverse();
     return new THREE.LatheGeometry(pts, 18);
   };
   const capA = new THREE.InstancedMesh(capGeo(false), K.fade(set, new THREE.MeshStandardMaterial({ roughness: 0.3, metalness: 0.05 }), 1), CAPS.length);
@@ -1574,7 +1617,8 @@ void main() {
     bubMesh.visible = S.int_atp + S.int_dis + S.int_rare + S.int_iei > 0.002;
     bubMat.uniforms.uClip.value = fe;
     if (bubMesh.visible) BUB.forEach((b, k) => {
-      const v = b.which === 'dis' ? prog(S.int_dis, 0.15, 0.8) : b.which === 'rare' ? prog(S.int_rare, 0.1, 0.7) : b.which === 'atp' ? prog(S.int_atp, 0.3, 1) : prog(S.int_iei, 0.2, 0.9);
+      const v = b.which === 'dis' ? prog(S.int_dis, 0.15, 0.8) : b.which === 'rare' ? prog(S.int_rare, 0.1, 0.7)
+        : b.which === 'atp' ? prog(S.int_atp, 0.3, 1) : prog(S.int_iei, 0.2, 0.9);
       bubA.array[3 * k] = v * smooth((S.int_reveal - b.rv) / 0.05);
       const bf = bfk(b), c = v3.lerp(b.c3, b.cf, bf), r = lerp(b.r3, b.rf, bf);
       MM.compose(V1.set(c[0], c[1], c[2]), QQ.identity(), SC.set(r, r * lerp(1, 0.75, bf), r));
@@ -1702,16 +1746,20 @@ void main() {
   const grown = mem => { const rv = mem.reduce((s, i) => s + RV[i], 0) / mem.length; return S => smooth((S.int_reveal - rv) / 0.08); };
   // module names while their pathway is lit; with more than six lit at once the names step back (too many labels)
   const pathsOn = S => { let n = 0; for (let k = 0; k < 10; k++) n += S['int_path' + k] || 0; return n; };
-  MLBL.forEach((l, k) => { const g = grown(MOD[k].mem); labels.push({ text: [l[0], l[1]], at: 'mod' + k, cls: l[2], alpha: S => prog(S['int_path' + k] || 0, 0.3, 0.75) * (1 - prog(pathsOn(S), 6, 7)) * g(S) }); });
+  MLBL.forEach((l, k) => {
+    const g = grown(MOD[k].mem);
+    labels.push({ text: [l[0], l[1]], at: 'mod' + k, cls: l[2], alpha: S => prog(S['int_path' + k] || 0, 0.3, 0.75) * (1 - prog(pathsOn(S), 6, 7)) * g(S) });
+  });
   const gd = grown(DIS.ms.concat(DIS.ra, DIS.px));
   labels.push({ text: ['Multiple sclerosis', ''], at: 'ms', cls: '', alpha: S => prog(S.int_dis, 0.5, 0.8) * gd(S) },
     { text: ['Rheumatoid arthritis', ''], at: 'ra', cls: 'amb', alpha: S => prog(S.int_dis, 0.5, 0.8) * gd(S) },
     { text: ['Peroxisomal disorders', ''], at: 'perox', cls: 'cyn', alpha: S => prog(S.int_dis, 0.5, 0.8) * gd(S) });
-  // immunity clusters with 7 or more genes; the immunity patch is small on the map, so there only the three biggest
+  // immunity clusters with 7 or more genes: the six biggest (15 or more) at int_iei 0.5-0.8, the four smaller ones at
+  // 0.85-1 (so a narrow screen can hold int_iei at 0.8); the patch is small on the map, so there only the three biggest
   IEI.forEach((c, k) => {
     if (c[3] < 7) return;
-    const [b, r] = c[1].split('|'), g = grown(IEIC[k].mem), small = c[3] < 20 ? 1 : 0;
-    labels.push({ text: [b, r || ''], at: 'iei' + k, cls: '', alpha: S => prog(S.int_iei, 0.5, 0.8) * g(S) * (1 - small * prog(S.int_flat, 0.3, 0.7)) });
+    const [b, r] = c[1].split('|'), g = grown(IEIC[k].mem), small = c[3] < 20 ? 1 : 0, late = c[3] < 15;
+    labels.push({ text: [b, r || ''], at: 'iei' + k, cls: '', alpha: S => (late ? prog(S.int_iei, 0.85, 1) : prog(S.int_iei, 0.5, 0.8)) * g(S) * (1 - small * prog(S.int_flat, 0.3, 0.7)) });
   });
   const toward = (c, az, el, d) => [az, el, d, +c[0].toFixed(3), +c[1].toFixed(3), +c[2].toFixed(3)];
   const rareC = v3.lerp(pos(RARE.g), pos(RARE.T), 0.5), seedC = centroid(PAT.seeds);
@@ -1793,7 +1841,7 @@ SETS.mac = function (K) {
   const CW = 0.35, CH = 0.48, CD = 0.42, CZ = 0.12;   // case width, height, depth, front face z
   const CY0 = FLOOR + 0.006, CY1 = CY0 + CH;          // case bottom (on its feet) and top
   const SEAM = CZ - 0.1;              // where the front bezel meets the rear case
-  const TW = 1.76, TD = 1.48;         // teardown table
+  const TW = 1.76, TD = 1.48, TABLE = 0x82807c;   // teardown table
 
   // ------------------------------------------------------------ helpers --
   const V = (x, y, z) => new THREE.Vector3(x, y, z);
@@ -1855,26 +1903,35 @@ SETS.mac = function (K) {
     const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.computeVertexNormals();
     return g;
   }
-  // merged geometry with vertex colours (and uvs, for the textured boards)
+  // merged geometry with vertex colours (and uvs, for the textured boards); filled into typed arrays at the end
   function Bld() {
-    const P = [], N = [], C = [], T = [];
+    const list = [];
     return {
       add(g, m, c, uv) {
-        g = g.index ? g.toNonIndexed() : g.clone();
+        g = g.index ? g.toNonIndexed() : m ? g.clone() : g;
         if (m) g.applyMatrix4(m);
-        const p = g.attributes.position.array, n = g.attributes.normal.array, cc = K.rgb(c);
-        for (let i = 0; i < p.length / 3; i++) {
-          P.push(p[3 * i], p[3 * i + 1], p[3 * i + 2]); N.push(n[3 * i], n[3 * i + 1], n[3 * i + 2]); C.push(cc[0], cc[1], cc[2]);
-          if (uv) { const t = uv(i, p[3 * i], p[3 * i + 1], p[3 * i + 2]); T.push(t[0], t[1]); } else T.push(0.004, 0.004);
-        }
+        list.push([g, K.rgb(c), uv]);
         return this;
       },
       geo() {
+        let n = 0;
+        for (const it of list) n += it[0].attributes.position.count;
+        const P = new Float32Array(n * 3), N = new Float32Array(n * 3), C = new Float32Array(n * 3), T = new Float32Array(n * 2).fill(0.004);
+        let o = 0;
+        for (const [g, cc, uv] of list) {
+          const p = g.attributes.position.array, k = g.attributes.position.count;
+          P.set(p, 3 * o); N.set(g.attributes.normal.array, 3 * o);
+          for (let i = 0; i < k; i++) {
+            const j = 3 * (o + i); C[j] = cc[0]; C[j + 1] = cc[1]; C[j + 2] = cc[2];
+            if (uv) { const t = uv(i, p[3 * i], p[3 * i + 1], p[3 * i + 2]); T[2 * (o + i)] = t[0]; T[2 * (o + i) + 1] = t[1]; }
+          }
+          o += k;
+        }
         const g = new THREE.BufferGeometry();
-        g.setAttribute('position', new THREE.Float32BufferAttribute(P, 3));
-        g.setAttribute('normal', new THREE.Float32BufferAttribute(N, 3));
-        g.setAttribute('color', new THREE.Float32BufferAttribute(C, 3));
-        g.setAttribute('uv', new THREE.Float32BufferAttribute(T, 2));
+        g.setAttribute('position', new THREE.BufferAttribute(P, 3));
+        g.setAttribute('normal', new THREE.BufferAttribute(N, 3));
+        g.setAttribute('color', new THREE.BufferAttribute(C, 3));
+        g.setAttribute('uv', new THREE.BufferAttribute(T, 2));
         g.computeBoundingSphere();
         return g;
       },
@@ -1943,7 +2000,7 @@ SETS.mac = function (K) {
     const pts = [];
     for (let i = 0; i <= 120; i++) { const a = i / 120 * 9 * 2 * PI, y = i / 120 * 4 - 2; pts.push([Math.cos(a), y, Math.sin(a)]); }
     pts.unshift([1, -2.2, 0.0]); pts.push([1, 2.2, 0]);
-    return white(K.tube(pts, 0.13, 260, 5));
+    return white(K.tube(pts, 0.13, 180, 4));
   }
   kind('box', white(box(1, 1, 1)), mPlastic);
   kind('boxm', white(box(1, 1, 1)), mMetal);
@@ -2110,7 +2167,7 @@ SETS.mac = function (K) {
   }
   const screenMat = new THREE.ShaderMaterial({
     uniforms: { uA: set.uA, uMap: { value: screenTexture() }, uOff: { value: 0 }, uImg: { value: new THREE.Vector2(IMW / FW, IMH / FH) } },
-    transparent: true,
+    transparent: true, extensions: { derivatives: true },
     vertexShader: 'varying vec2 vUv; void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
     fragmentShader: `uniform sampler2D uMap; uniform float uA, uOff; uniform vec2 uImg; varying vec2 vUv;
 void main() {
@@ -2123,8 +2180,10 @@ void main() {
   vec2 jp = ip / vec2(sx, sy);
   vec3 c = glass;
   if (abs(jp.x) < 0.5 && abs(jp.y) < 0.5) {
-    vec3 img = texture2D(uMap, jp + 0.5).rgb;
-    float scan = 0.88 + 0.12 * sin((jp.y + 0.5) * 342.0 * 3.14159);
+    // the squeezed picture burns to an even white line
+    vec3 img = mix(texture2D(uMap, jp + 0.5).rgb, vec3(1.0), smoothstep(0.15, 0.4, uOff));
+    // scan lines only where they are big enough on screen not to shimmer
+    float ln = (jp.y + 0.5) * 342.0, scan = 1.0 - 0.06 * (0.5 + 0.5 * sin(ln * 6.28318)) * (1.0 - smoothstep(0.25, 0.5, fwidth(ln)));
     float edge = 1.0 - 0.22 * smoothstep(0.3, 0.75, length(ip));
     float boost = 1.0 + 2.0 * smoothstep(0.0, 0.45, uOff);
     c = mix(glass, min(img * scan * edge * boost, vec3(1.6)) * vec3(0.84, 0.93, 1.0), 1.0 - smoothstep(0.8, 1.0, uOff));
@@ -2143,8 +2202,9 @@ void main() {
   // --------------------------------------------------- big parts (home) --
   const P = {};   // named part indices
   P.rear = part({ grp: 'case', hp: rearC, inner: false, d: 0.05, w: 0.42, arc: 0.32, lr: [-PI / 2, 0, 0] });
-  P.bezel = part({ grp: 'case', hp: bezC, inner: false, d: 0.11, w: 0.42, arc: 0.26, lr: [-PI / 2, 0, 0] });
-  P.crt = part({ grp: 'crt', hp: crtC, inner: false, d: 0.2, w: 0.42, arc: 0.22 });
+  // as in a real teardown: the rear case slides off, the tube lifts out backwards, the front bezel goes last
+  P.bezel = part({ grp: 'case', hp: bezC, inner: false, d: 0.38, w: 0.42, arc: 0.28, lr: [-PI / 2, 0, 0] });
+  P.crt = part({ grp: 'crt', hp: crtC, inner: false, d: 0.25, w: 0.4, arc: 0.24, lr: [PI / 2, 0, 0] });
   solo(P.rear, rearGeo, mPlastic); solo(P.bezel, bezGeo, mPlastic); solo(P.crt, crtGeo, mGloss);
   {
     // rear case details: a carrying handle, vents on the top and the sides, the port panel
@@ -2237,7 +2297,7 @@ void main() {
     [20, 0], [20, 0], [20, 0], [20, 0], [16, 0], [16, 0], [16, 0], [16, 0], [16, 0], [14, 0], [14, 0], [14, 0], [14, 0], [14, 0]];
   const onLB = [], onAB = [];
   CHIPS.forEach((c, k) => {
-    const pi = part({ grp: 'chip', d: 0.3 + 0.012 * k, w: 0.36, arc: 0.16 + 0.002 * k, spin: 0.5, axis: [0, 1, 0] });
+    const pi = part({ grp: 'chip', d: 0.3 + 0.012 * k, w: 0.36, arc: 0.16 + 0.002 * k, spin: 1, axis: [0, 1, 0] });
     const g = c[2] === 'plcc' ? plccPieces(pi, c[0]) : chipPieces(pi, c[0], c[1]);
     nodes.push({ pi, kind: 'chip', pins: g.pins, L: g.L, W: g.W, n: c[0], big: c[0] >= 28 });
     onLB.push({ pi, w: g.L, d: g.W + 0.006, hy: CHIP_HY, chip: g });
@@ -2448,7 +2508,7 @@ void main() {
     b.add(fanUp(ring(top, z => hy(z)), [0, hy(0), 0]), null, BEIGE);
     solo(P.mouse, b.geo(), mPlastic);
   }
-  P.mbutton = part({ grp: 'mouse', hp: msAt(0, 0.0275, -0.052), hr: [0.05, MS.yaw, 0], inner: false, d: 0.14, w: 0.34, arc: 0.1 });
+  P.mbutton = part({ grp: 'mouse', hp: msAt(0, 0.0262, -0.052), hr: [-0.04, MS.yaw, 0], inner: false, d: 0.14, w: 0.34, arc: 0.1 });
   piece('box', P.mbutton, mat([0, 0, 0], null, [0.068, 0.004, 0.036]), BEIGE2);
   P.mball = part({ grp: 'mouse', hp: msAt(0, 0.012, 0.01), d: 0.22, w: 0.36, arc: 0.1, spin: 2, axis: [1, 0, 0] });
   piece('sph', P.mball, mat([0, 0, 0], null, 0.024), '#47474c');
@@ -2540,7 +2600,9 @@ void main() {
   const screws = [];
   function screw(hp, hr, d, long) {
     const pi = part({ grp: long ? 'screwL' : 'screw', hp, hr, d, w: 0.3, arc: 0.1, spin: long ? 4 : 3, axis: [0, 1, 0], inner: !long, lr: [-PI / 2, 0, 0] });
-    piece(long ? 'screwL' : 'screw', pi, mat([0, 0, 0], null, long ? 0.012 : 0.0095 + 0.002 * R()), long ? '#cfd4da' : '#b9bfc6');
+    const sc = long ? 0.012 : 0.0095 + 0.002 * R();
+    piece(long ? 'screwL' : 'screw', pi, mat([0, 0, 0], null, sc), long ? '#cfd4da' : '#b9bfc6');
+    parts[pi].len = sc * (long ? 4.7 : 1.6);
     screws.push(pi);
     return pi;
   }
@@ -2555,7 +2617,7 @@ void main() {
   }
   const UP = [0, 0, 0], DOWN = [PI, 0, 0], BACKW = [-PI / 2, 0, 0];
   const corners = (w, d, y, r, mid) => [[-1, -1], [1, -1], [1, 1], [-1, 1], ...(mid ? [[-1, 0], [1, 0]] : [])].map(([sx, sz]) => [sx * w, y, sz * d, r]);
-  screwsOn(P.crt, [[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([sx, sy]) => [sx * (FW / 2 + 0.0037), sy * (FH / 2 + 0.0037), FACE_Z - 0.0316 - crtC[2], BACKW]), 0.2);
+  screwsOn(P.crt, [[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([sx, sy]) => [sx * (FW / 2 + 0.0037), sy * (FH / 2 + 0.0037), FACE_Z - 0.0316 - crtC[2], BACKW]), 0.25);
   screwsOn(P.logic, corners(LB.w / 2 - 0.007, LB.d / 2 - 0.007, LB.t / 2, UP, true), 0.42);
   screwsOn(P.analog, corners(AB.w / 2 - 0.007, AB.d / 2 - 0.007, AB.t / 2, UP, true), 0.34);
   screwsOn(P.floppy, corners(0.06, 0.07, -0.016, DOWN), 0.26);
@@ -2569,28 +2631,53 @@ void main() {
   // spares for the chassis
   for (let k = 0; k < 6; k++) screw(inside(), UP, 0.32 + 0.015 * k);
   // ------------------------------------------------------------ cables --
-  // each cable is one rigid piece: built where it lies in the computer, centred on its own part
-  function cable(o, pts, r, c, extra) {
+  // each cable is one piece, built where it runs in the computer and centred on its own part;
+  // the long ones also get a second shape (a neat flat coil) that they morph into as they land
+  const mCable = K.fade(set, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.62, metalness: 0, morphTargets: true, morphNormals: true }));
+  LIT.push(mCable);
+  const coils = [];
+  function cable(o, pts, r, c, extra, coil) {
     const ctr = pts.reduce((s, p) => K.v3.add(s, K.v3.mul(p, 1 / pts.length)), [0, 0, 0]);
-    const loc = pts.map(p => K.v3.sub(p, ctr)), b = Bld();
-    b.add(K.tube(loc, r, loc.length * 12, 6), null, c);
-    if (extra) extra(b, loc);
-    const pi = part(Object.assign({ grp: 'cable', hp: ctr }, o));
-    solo(pi, b.geo(), mPlastic);
+    const loc = pts.map(p => K.v3.sub(p, ctr)), n = coil ? 110 : loc.length * 12;
+    const build = l => {
+      const b = Bld();
+      b.add(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(l.map(p => V(p[0], p[1], p[2]))), n, r, 6, false), null, c);
+      if (extra) extra(b, l);
+      return b.geo();
+    };
+    const g = build(loc), pi = part(Object.assign({ grp: 'cable', hp: ctr }, o));
+    if (!coil) { solo(pi, g, mPlastic); return pi; }
+    const gl = build(coil);
+    g.morphAttributes.position = [gl.attributes.position]; g.morphAttributes.normal = [gl.attributes.normal];
+    gl.computeBoundingBox(); parts[pi].layBox = gl.boundingBox;
+    coils.push({ pi, mesh: solo(pi, g, mCable) });
     return pi;
   }
+  // a flat spiral of the given length, lying on the table (y is the height of the plugs' centres)
+  function spiral(len, r0, turns, y) {
+    const k = len / (2 * PI * turns), r1 = 2 * k - r0, out = [];
+    for (let i = 0; i <= 64; i++) { const f = i / 64, a = f * turns * 2 * PI, rr = r0 + (r1 - r0) * f; out.push([rr * Math.cos(a), y, rr * Math.sin(a)]); }
+    const l = out[64], q = out[63], d = K.v3.norm(K.v3.sub(l, q));
+    out.push(K.v3.add(l, K.v3.mul(d, 0.02)));
+    return out;
+  }
+  const plen = pts => pts.reduce((s, p, i) => s + (i ? K.v3.dist(p, pts[i - 1]) : 0), 0);
   const plug = (b, p, q, c) => { const d = K.v3.norm(K.v3.sub(p, q)); b.add(box(0.011, 0.009, 0.016), mat(K.v3.add(p, K.v3.mul(d, 0.006)), [0, Math.atan2(d[0], d[2]), 0]), c); };
   const F = FLOOR;
-  P.kbCable = cable({ inner: false, d: 0.1, w: 0.36, arc: 0.12 }, [[-0.215, F + 0.012, 0.27], [-0.232, F + 0.004, 0.24], [-0.255, F + 0.003, 0.16], [-0.25, F + 0.003, 0.0],
-    [-0.235, F + 0.003, -0.2], [-0.2, F + 0.003, -0.33], [-0.125, F + 0.004, -0.345], [-0.092, F + 0.022, -0.318], [-0.09, F + 0.04, -0.304]], 0.0028, '#c4bdac',
-  (b, l) => { plug(b, l[0], l[1], '#8f897c'); plug(b, l[l.length - 1], l[l.length - 2], '#8f897c'); });
-  P.msCable = cable({ inner: false, d: 0.12, w: 0.34, arc: 0.1 }, [msAt(0, 0.009, -0.074), msAt(0, 0.003, -0.1), [0.385, F + 0.003, 0.228], [0.33, F + 0.003, 0.218], [0.296, F + 0.004, 0.25], [0.284, F + 0.012, 0.285]], 0.0024, '#c4bdac',
-    (b, l) => plug(b, l[l.length - 1], l[l.length - 2], '#8f897c'));
+  {
+    const kp = [[-0.215, F + 0.012, 0.27], [-0.232, F + 0.004, 0.24], [-0.255, F + 0.003, 0.16], [-0.25, F + 0.003, 0.0],
+      [-0.235, F + 0.003, -0.2], [-0.2, F + 0.003, -0.33], [-0.125, F + 0.004, -0.345], [-0.092, F + 0.022, -0.318], [-0.09, F + 0.04, -0.304]];
+    P.kbCable = cable({ inner: false, d: 0.1, w: 0.36, arc: 0.12 }, kp, 0.0028, '#c4bdac',
+      (b, l) => { plug(b, l[0], l[1], '#8f897c'); plug(b, l[l.length - 1], l[l.length - 2], '#8f897c'); }, spiral(plen(kp) - 0.02, 0.03, 2.25, 0.0045));
+    const mp = [msAt(0, 0.009, -0.074), msAt(0, 0.003, -0.1), [0.385, F + 0.003, 0.228], [0.33, F + 0.003, 0.218], [0.296, F + 0.004, 0.25], [0.284, F + 0.012, 0.285]];
+    P.msCable = cable({ inner: false, d: 0.12, w: 0.34, arc: 0.1 }, mp, 0.0024, '#c4bdac',
+      (b, l) => plug(b, l[l.length - 1], l[l.length - 2], '#8f897c'), spiral(plen(mp) - 0.02, 0.022, 1.6, 0.0045));
+  }
   // the floppy's flat ribbon cable, grey with a red edge
   P.ribbon = part({ grp: 'cable', hp: [0.03, CY0 + 0.03, -0.06], d: 0.3, w: 0.38, arc: 0.16 });
   {
     const curve = new THREE.CatmullRomCurve3([V(-0.1, 0, -0.04), V(-0.02, 0, -0.07), V(0.05, 0, -0.03), V(0.1, 0, 0.05)]);
-    const b = Bld(), W = 0.03, pos = [], cols = [], N = 40, lanes = [[-0.5, -0.4, '#c8473c'], [-0.4, 0.5, '#bfc2c6']];
+    const b = Bld(), W = 0.03, pos = [], cols = [], N = 40, lanes = [[-0.5, -0.4, '#b8443a'], [-0.4, 0.5, '#9a9ea4']];
     for (let i = 0; i < N; i++) {
       const p0 = curve.getPoint(i / N), p1 = curve.getPoint((i + 1) / N), t0 = curve.getTangent(i / N), t1 = curve.getTangent((i + 1) / N);
       const s0 = V(-t0.z, 0, t0.x).normalize(), s1 = V(-t1.z, 0, t1.x).normalize();
@@ -2634,10 +2721,12 @@ void main() {
     return bb;
   }
   const layQ = (pi, yaw) => new THREE.Quaternion().setFromEuler(new THREE.Euler(0, yaw || 0, 0)).multiply(quat(parts[pi].lr || [0, 0, 0]));
-  function size(pi, yaw) { const b = aabb(pi, layQ(pi, yaw)); return [b.max.x - b.min.x, b.max.z - b.min.z]; }
+  // the box of a part lying with rotation q (coiled cables have their own laid shape)
+  const layBox = (pi, q) => (parts[pi].layBox ? parts[pi].layBox.clone().applyMatrix4(new THREE.Matrix4().makeRotationFromQuaternion(q)) : aabb(pi, q));
+  function size(pi, yaw) { const b = layBox(pi, layQ(pi, yaw)); return [b.max.x - b.min.x, b.max.z - b.min.z]; }
   // lay a part down with its footprint centred on (x, z)
   function place(pi, x, z, yaw) {
-    const p = parts[pi], q = layQ(pi, yaw), b = aabb(pi, q);
+    const p = parts[pi], q = layQ(pi, yaw), b = layBox(pi, q);
     p.lq = q; p.lp = [x - (b.min.x + b.max.x) / 2, FLOOR - b.min.y + 0.0004, z - (b.min.z + b.max.z) / 2];
     p.at = [x, z];
   }
@@ -2649,7 +2738,8 @@ void main() {
     while (i < items.length) {
       const row = []; let w = 0;
       while (i < items.length && (row.length === 0 || w + gap + items[i].s[0] <= x1 - x0)) { w += (row.length ? gap : 0) + items[i].s[0]; row.push(items[i++]); }
-      const h = Math.max(...row.map(it => it.s[1])), g = just && row.length > 1 && i < items.length ? gap + (x1 - x0 - w) / (row.length - 1) : gap;
+      // justified rows spread to fill the width (a short last row keeps its gaps)
+      const h = Math.max(...row.map(it => it.s[1])), g = just && row.length > 1 && (i < items.length || w > 0.6 * (x1 - x0)) ? gap + (x1 - x0 - w) / (row.length - 1) : gap;
       let x = x0;
       for (const it of row) { place(it.pi, x + it.s[0] / 2, z + h / 2, yaw); x += it.s[0] + g; }
       z += h + rgap;
@@ -2657,51 +2747,56 @@ void main() {
     return z;
   }
   const grp = g => parts.map((p, i) => (p.grp === g ? i : -1)).filter(i => i >= 0);
-  // top row: the boards, the two halves of the case, the tube, then drive, power, speaker and fan
-  place(P.logic, -0.72, -0.565);
-  place(P.analog, -0.725, -0.235);
-  place(P.rear, -0.345, -0.47);
-  place(P.bezel, 0.035, -0.47);
-  place(P.crt, 0.405, -0.53);
-  place(P.floppy, 0.735, -0.6);
-  place(P.psu, 0.665, -0.42);
-  place(P.speaker, 0.8, -0.445);
-  place(P.fan, 0.8, -0.355);
-  rows([P.flyback, P.xfmr, ...grp('ana').filter(i => i !== P.flyback && i !== P.xfmr)], 0.26, 0.6, -0.315, 0.02, 0.02);
+  // top row: the boards, the two halves of the case, the tube face down, the drive; under the tube the
+  // analogue board's big parts, under the drive the power supply, the fan and the speaker
+  place(P.logic, -0.695, -0.555);
+  place(P.analog, -0.695, -0.24);
+  place(P.rear, -0.345, -0.46);
+  place(P.bezel, 0.035, -0.46);
+  place(P.crt, 0.405, -0.562);
+  place(P.floppy, 0.725, -0.599);
+  place(P.psu, 0.66, -0.41);
+  place(P.fan, 0.79, -0.44);
+  place(P.speaker, 0.79, -0.335);
+  rows([P.flyback, P.xfmr, ...heat], 0.255, 0.57, -0.39, 0.03, 0.02, 0, true);
   // electronics in the middle: chips by size, a long line of resistors by value, capacitors, crystals
   const chipsBy = nodes.filter(n => n.kind === 'chip').sort((a, b) => b.n - a.n || b.W - a.W).map(n => n.pi);
   // the gaps between these rows are the channels the wiring runs in (power, address, data and ground buses)
-  const BUS = [-0.248], RG = 0.072;
-  let z = rows(chipsBy.slice(0, 8), -0.5, 0.56, -0.218, 0.035, RG, 0, true);
+  const BUS = [-0.205], RG = 0.068;
+  const MX0 = -0.5, MX1 = 0.84;
+  let z = rows(chipsBy.slice(0, 8), MX0, MX1, -0.18, 0.035, RG, 0, true);
   BUS.push(z - RG / 2);
-  z = rows(chipsBy.slice(8), -0.5, 0.56, z, 0.03, RG, 0, true);
+  z = rows(chipsBy.slice(8), MX0, MX1, z, 0.03, RG, 0, true);
   BUS.push(z - RG / 2);
-  z = rows(grp('res').sort((a, b) => parts[a].ord - parts[b].ord), -0.5, 0.56, z, 0.014, RG, PI / 2, true);
+  z = rows(grp('res').sort((a, b) => parts[a].ord - parts[b].ord), MX0, MX1, z, 0.014, RG, PI / 2, true);
   BUS.push(z - RG / 2);
-  rows([...grp('elco').sort((a, b) => parts[a].ord - parts[b].ord), ...grp('xtal'), ...grp('disc'), P.fuse, P.battery, ...grp('misc').filter(i => i !== P.fuse && i !== P.battery)], -0.5, 0.56, z, 0.02, 0.025, 0, true);
-  // left: memory modules and cables
-  rows(simms, -0.86, -0.58, -0.055, 0.016, 0.016);
-  place(P.kbCable, -0.79, 0.43);
-  place(P.ribbon, -0.585, 0.21);
-  place(P.anode, -0.585, 0.37, PI / 2);
-  place(P.harness, -0.585, 0.53);
+  rows([...grp('elco').sort((a, b) => parts[a].ord - parts[b].ord), ...grp('xtal'), ...grp('disc'), P.fuse, P.battery, ...grp('misc').filter(i => i !== P.fuse && i !== P.battery)], MX0, MX1, z, 0.02, 0.025, 0, true);
+  // left: memory modules and cables, the keyboard's coiled up
+  rows(simms, -0.845, -0.545, -0.045, 0.03, 0.022, 0, true);
+  place(P.ribbon, -0.695, 0.165);
+  place(P.kbCable, -0.765, 0.37); place(P.anode, -0.6, 0.37, PI / 2);
+  place(P.harness, -0.695, 0.555);
   // bottom: keyboard case, its key caps spread out in their own pattern, a line of screws
   place(P.kb, 0, 0.3);
   for (const k of keys) place(k.pi, k.x * 1.32, 0.565 + (k.z - 0.012) * 1.32);
-  const scr = screws.slice().sort((a, b) => (parts[b].grp === 'screwL') - (parts[a].grp === 'screwL'));
-  rows(scr.slice(0, 5), -0.52, 0.52, 0.708, 0.02, 0.02, -PI / 2);
-  rows(scr.slice(5), -0.4, 0.52, 0.708, 0.0065, 0.02, 0);
+  // the screws in one line across the front, longest first
+  const scr = screws.slice().sort((a, b) => parts[b].len - parts[a].len);
+  {
+    let x = -0.66;
+    for (const pi of scr) { const long = parts[pi].grp === 'screwL', w = size(pi, long ? -PI / 2 : 0)[0]; place(pi, x + w / 2, 0.705, long ? -PI / 2 : 0); x += w + (long ? 0.016 : 0.0085); }
+  }
   // right: the mouse in pieces, feet, springs, washers, standoffs, clips, brackets
   place(P.mouse, 0.5, 0.29); place(P.mplate, 0.6, 0.29); place(P.mbutton, 0.7, 0.25); place(P.mball, 0.7, 0.31);
-  place(P.roller0, 0.78, 0.25, PI / 2); place(P.roller1, 0.82, 0.25, PI / 2); place(P.msCable, 0.8, 0.34, PI / 2);
+  place(P.roller0, 0.76, 0.25, PI / 2); place(P.roller1, 0.76, 0.31, PI / 2); place(P.msCable, 0.82, 0.28);
   z = rows(feet, 0.45, 0.86, 0.43, 0.02, 0.02);
   z = rows(grp('spring'), 0.45, 0.86, z, 0.02, 0.02);
   z = rows(grp('washer'), 0.45, 0.86, z, 0.012, 0.02);
   z = rows([...grp('standoff'), ...grp('clip')], 0.45, 0.86, z, 0.016, 0.02);
   rows(grp('bracket'), 0.45, 0.86, z, 0.02, 0.02);
-  for (const p of parts) if (!p.lp) console.warn('mac: part without a place', p.grp);
+  // parts from inside that land in front of the computer wait until the front bezel has lifted (no flying through it)
+  for (const p of parts) if (p.inner && p.at[1] > CZ - 0.02) p.d = Math.max(p.d, 0.5);
   // the pale table of the teardown photo
-  const table = new THREE.Mesh(new THREE.BoxGeometry(TW, 0.02, TD), K.fade(set, new THREE.MeshStandardMaterial({ color: 0x9fa1a4, roughness: 0.92 })));
+  const table = new THREE.Mesh(new THREE.BoxGeometry(TW, 0.02, TD), K.fade(set, new THREE.MeshStandardMaterial({ color: TABLE, roughness: 0.92 })));
   table.position.y = FLOOR - 0.0102;
   table.renderOrder = -1;
   set.group.add(table);
@@ -2709,7 +2804,7 @@ void main() {
   // ------------------------------------------------------------ wiring --
   // A netlist over the laid-out electronics, drawn like a schematic: buses run along the gaps between
   // the rows, every chip taps some of them, resistors and capacitors hang between chips and the buses.
-  const WY = FLOOR + 0.0125, BX0 = -0.52, BX1 = 0.58, NETY = -0.14, rw = K.rng(42);
+  const WY = FLOOR + 0.0125, BX0 = MX0 - 0.02, BX1 = MX1 + 0.02, NETY = -0.14, rw = K.rng(42);
   // each bus (power, address, data, ground) is a chain of four hub nodes in the network
   const SEG = 4, segX = s => BX0 + (s + 0.5) * (BX1 - BX0) / SEG, HUB = [];
   BUS.forEach(z => { for (let s = 0; s < SEG; s++) HUB.push({ x: segX(s), z }); });
@@ -2771,6 +2866,7 @@ void main() {
     addWire([[BX0, z], [segX(0), z]], h, h); addWire([[segX(SEG - 1), z], [BX1, z]], h + SEG - 1, h + SEG - 1);
     for (let s = 0; s < SEG - 1; s++) addWire([[segX(s), z], [segX(s + 1), z]], h + s, h + s + 1);
   });
+  wires.forEach(w => { w.bus = true; });
   rowA.forEach(ni => { tap(ni, 0, -1); tap(ni, 1, 1); tap(ni, 1, 1); if (nodes[ni].n >= 40) tap(ni, 1, 1); tap(ni, 2, 1); });
   rowB.forEach((ni, k) => { tap(ni, 1, -1); if (k < 9) tap(ni, 2, 1); });
   // chips talk to their neighbours and to a few far away
@@ -2795,37 +2891,52 @@ void main() {
   for (const w of wires) if (w.a !== w.b) EDGES.push([w.a, w.b]);
   const P0 = [], P1 = [];
   for (let k = 0; k < NN; k++) P0.push(k < NH ? [nodes[k].x, WY, nodes[k].z] : [HUB[k - NH].x, WY, HUB[k - NH].z]);
-  {
-    const p = P0.map(q => [q[0] * 0.9, (rw() - 0.5) * 0.3, q[2] * 1.6]), f = p.map(() => [0, 0, 0]);
-    for (let it = 0; it < 240; it++) {
-      for (const v of f) v[0] = v[1] = v[2] = 0;
-      for (let i = 0; i < NN; i++) for (let j = i + 1; j < NN; j++) {
-        const dx = p[i][0] - p[j][0], dy = p[i][1] - p[j][1], dz = p[i][2] - p[j][2], d2 = Math.max(dx * dx + dy * dy + dz * dz, 1e-4), s = 0.0011 / d2;
-        f[i][0] += dx * s; f[i][1] += dy * s; f[i][2] += dz * s; f[j][0] -= dx * s; f[j][1] -= dy * s; f[j][2] -= dz * s;
+  // a small force layout in 3D: springs along the wires, every pair repels, a weak pull to the centre
+  // (its own function, so the engine optimises the hot loops)
+  function relax(p, n, E, IT) {
+    const f = new Float64Array(n * 3);
+    for (let it = 0; it < IT; it++) {
+      f.fill(0);
+      for (let i = 0; i < n; i++) {
+        const xi = p[3 * i], yi = p[3 * i + 1], zi = p[3 * i + 2];
+        let fx = 0, fy = 0, fz = 0;
+        for (let j = i + 1; j < n; j++) {
+          const dx = xi - p[3 * j], dy = yi - p[3 * j + 1], dz = zi - p[3 * j + 2], d2 = dx * dx + dy * dy + dz * dz, s = 0.0011 / (d2 > 1e-4 ? d2 : 1e-4);
+          fx += dx * s; fy += dy * s; fz += dz * s; f[3 * j] -= dx * s; f[3 * j + 1] -= dy * s; f[3 * j + 2] -= dz * s;
+        }
+        f[3 * i] += fx; f[3 * i + 1] += fy; f[3 * i + 2] += fz;
       }
-      for (const [a, b] of EDGES) {
-        const dx = p[b][0] - p[a][0], dy = p[b][1] - p[a][1], dz = p[b][2] - p[a][2], l = Math.hypot(dx, dy, dz) || 1e-4, s = (l - 0.1) * 0.06 / l;
-        f[a][0] += dx * s; f[a][1] += dy * s; f[a][2] += dz * s; f[b][0] -= dx * s; f[b][1] -= dy * s; f[b][2] -= dz * s;
+      for (let k = 0; k < E.length; k += 2) {
+        const a = 3 * E[k], b = 3 * E[k + 1], dx = p[b] - p[a], dy = p[b + 1] - p[a + 1], dz = p[b + 2] - p[a + 2], l = Math.sqrt(dx * dx + dy * dy + dz * dz) || 1e-4, s = (l - 0.1) * 0.06 / l;
+        f[a] += dx * s; f[a + 1] += dy * s; f[a + 2] += dz * s; f[b] -= dx * s; f[b + 1] -= dy * s; f[b + 2] -= dz * s;
       }
-      const T = 0.025 * (1 - it / 240) + 0.002;
-      for (let i = 0; i < NN; i++) {
-        for (let c = 0; c < 3; c++) f[i][c] -= p[i][c] * 0.012;
-        const l = Math.hypot(...f[i]), s = l > T ? T / l : 1;
-        for (let c = 0; c < 3; c++) p[i][c] += f[i][c] * s;
+      const T = 0.03 * (1 - it / IT) + 0.002;
+      for (let i = 0; i < 3 * n; i += 3) {
+        const fx = f[i] - p[i] * 0.012, fy = f[i + 1] - p[i + 1] * 0.012, fz = f[i + 2] - p[i + 2] * 0.012, l = Math.sqrt(fx * fx + fy * fy + fz * fz), s = l > T ? T / l : 1;
+        p[i] += fx * s; p[i + 1] += fy * s; p[i + 2] += fz * s;
       }
     }
-    const c = [0, 1, 2].map(k => p.reduce((s, q) => s + q[k], 0) / NN);
-    const rad = p.map(q => Math.hypot(q[0] - c[0], q[1] - c[1], q[2] - c[2])).sort((a, b) => a - b)[Math.floor(NN * 0.9)];
-    for (const q of p) P1.push([(q[0] - c[0]) * 0.6 / rad, NETY + (q[1] - c[1]) * 0.6 / rad, (q[2] - c[2]) * 0.6 / rad]);
+  }
+  {
+    // start from the table positions puffed up into a ball, so neighbours on the table stay near
+    const p = new Float64Array(NN * 3);
+    P0.forEach((q, i) => { p[3 * i] = q[0] * 0.5 + (rw() - 0.5) * 0.1; p[3 * i + 1] = (rw() - 0.5) * 0.5; p[3 * i + 2] = (q[2] + 0.06) * 1.6 + (rw() - 0.5) * 0.1; });
+    relax(p, NN, Int32Array.from(EDGES.flat()), 120);
+    const c = [0, 1, 2].map(k => { let m = 0; for (let i = 0; i < NN; i++) m += p[3 * i + k]; return m / NN; });
+    const rad = Array.from({ length: NN }, (_, i) => Math.hypot(p[3 * i] - c[0], p[3 * i + 1] - c[1], p[3 * i + 2] - c[2])).sort((a, b) => a - b)[Math.floor(NN * 0.9)];
+    for (let i = 0; i < NN; i++) P1.push([(p[3 * i] - c[0]) * 0.6 / rad, NETY + (p[3 * i + 1] - c[1]) * 0.6 / rad, (p[3 * i + 2] - c[2]) * 0.6 / rad]);
   }
   const deg = new Array(NN).fill(0);
   for (const [a, b] of EDGES) { deg[a]++; deg[b]++; }
 
-  // wires as glowing ribbons that face the camera; they grow along their length, then straighten and lift
+  // wires as glowing ribbons that face the camera; they grow along their length, then straighten and lift;
+  // the lifted network sways gently about its centre (ROT is the shared angle)
+  const ROT = { value: 0 }, ROTY = `uniform float uRot;
+vec3 rotY(vec3 p, float y0) { float c = cos(uRot), s = sin(uRot); p.y -= y0; return vec3(c * p.x + s * p.z, p.y + y0, c * p.z - s * p.x); }`;
   let nseg = 0;
   for (const w of wires) nseg += w.pts.length - 1;
   const wg = new THREE.BufferGeometry(), NV = nseg * 4;
-  const A = { position: 3, aDir: 3, aS0: 3, aS1: 3, aD0: 3, aD1: 3, aM: 3, aUL: 2 }, arr = {};
+  const A = { position: 3, aDir: 3, aS0: 3, aS1: 3, aD0: 3, aD1: 3, aM: 3, aUL: 3 }, arr = {};
   for (const k in A) arr[k] = new Float32Array(NV * A[k]);
   const index = [];
   let vi = 0;
@@ -2840,7 +2951,7 @@ void main() {
         arr.position.set([pt[0], WY, pt[1]], 3 * vi); arr.aDir.set(dir, 3 * vi);
         arr.aS0.set(K.v3.lerp(a0, b0, u), 3 * vi); arr.aS1.set(K.v3.lerp(a1, b1, u), 3 * vi);
         arr.aD0.set(K.v3.sub(b0, a0), 3 * vi); arr.aD1.set(K.v3.sub(b1, a1), 3 * vi);
-        arr.aM.set([w.w0, side, end], 3 * vi); arr.aUL.set([u, len], 2 * vi);
+        arr.aM.set([w.w0, side, end], 3 * vi); arr.aUL.set([u, len, w.bus ? 1.7 : 1], 3 * vi);
         vi++;
       }
       const v0 = vi - 4;
@@ -2850,16 +2961,17 @@ void main() {
   for (const k in A) wg.setAttribute(k, new THREE.BufferAttribute(arr[k], A[k]));
   wg.setIndex(index);
   const wireMat = new THREE.ShaderMaterial({
-    uniforms: { uA: set.uA, uTime: K.U.uTime, uWire: { value: 0 }, uStr: { value: 0 }, uLift: { value: 0 }, uW: { value: 0.003 }, uC: { value: new THREE.Color(...K.rgb('#46d9ff')) } },
+    uniforms: { uA: set.uA, uTime: K.U.uTime, uWire: { value: 0 }, uStr: { value: 0 }, uLift: { value: 0 }, uW: { value: 0.0026 }, uC: { value: new THREE.Color(...K.rgb('#46d9ff')) }, uRot: ROT },
     transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
-    vertexShader: `attribute vec3 aDir, aS0, aS1, aD0, aD1, aM; attribute vec2 aUL;
+    vertexShader: `attribute vec3 aDir, aS0, aS1, aD0, aD1, aM, aUL;
 uniform float uA, uWire, uStr, uLift, uW;
 varying float vU, vSide, vGrow, vL, vA;
+${ROTY}
 void main() {
-  vec3 D = mix(aD0, aD1, uLift);
-  vec3 pos = mix(position, mix(aS0, aS1, uLift), uStr);
+  vec3 D = rotY(mix(aD0, aD1, uLift), 0.0);
+  vec3 pos = rotY(mix(position, mix(aS0, aS1, uLift), uStr), ${NETY.toFixed(4)});
   float dl = length(D);
-  vec3 dir = normalize(mix(aDir, dl > 1e-5 ? D / dl : aDir, uStr) + vec3(0.0, 1e-5, 0.0));
+  vec3 dir = normalize(mix(rotY(aDir, 0.0), dl > 1e-5 ? D / dl : aDir, uStr) + vec3(0.0, 1e-5, 0.0));
   vGrow = clamp((uWire - aM.x) / 0.14, 0.0, 1.0);
   vU = aUL.x; vL = aUL.x * aUL.y * mix(1.0, 0.0, uStr); vSide = aM.y;
   vA = uA * step(0.0001, vGrow) * mix(1.0, 0.75, uStr);
@@ -2868,7 +2980,7 @@ void main() {
   vec3 sd = cross(dv, normalize(mv.xyz));
   float sl = length(sd);
   sd = sl > 1e-4 ? sd / sl : vec3(0.0, 1.0, 0.0);
-  mv.xyz += sd * aM.y * uW + dv * aM.z * uW * 0.5;
+  mv.xyz += (sd * aM.y + dv * aM.z * 0.5) * uW * aUL.z * (1.0 + 0.4 * uLift);
   gl_Position = projectionMatrix * mv;
 }`,
     fragmentShader: `uniform float uTime; uniform vec3 uC;
@@ -2891,12 +3003,17 @@ void main() {
   const NP = NN + junctions.length, pg = K.pointsGeo(NP), pPos = pg.attributes.position.array, pA = pg.attributes.aA.array, pSize = pg.attributes.aSize.array, pCol = pg.attributes.aCol.array;
   for (let k = 0; k < NN; k++) { pCol.set(K.rgb(k < NH ? KC[nodes[k].kind] : '#e7eef8'), 3 * k); pSize[k] = k < NH ? 0.024 + 0.0012 * Math.min(deg[k], 10) : 0.042; }
   junctions.forEach((j, k) => { pPos.set([j.x, WY, j.z], 3 * (NN + k)); pCol.set(K.rgb('#bff2ff'), 3 * (NN + k)); pSize[NN + k] = 0.011; });
-  const dots = new THREE.Points(pg, K.points(set, { vertex: 'vA *= 0.82 + 0.18 * sin(uTime * 2.3 + position.x * 37.0 + position.z * 23.0);' }));
+  const dots = new THREE.Points(pg, K.points(set, { uniforms: { uRot: ROT, uBig: { value: 0 } }, head: ROTY.replace('uniform float uRot;', 'uniform float uRot, uBig;'), vertex: `
+  mv = modelViewMatrix * vec4(rotY(pos, ${NETY.toFixed(4)}), 1.0);
+  gl_Position = projectionMatrix * mv;
+  gl_PointSize = pointPx(aSize * (1.0 + 0.45 * uBig), mv);
+  vA *= 0.82 + 0.18 * sin(uTime * 2.3 + position.x * 37.0 + position.z * 23.0);` }));
   dots.frustumCulled = false; dots.renderOrder = 5;
   set.group.add(dots);
   let lastW = -1, lastN = -1;
-  function wireUpdate(wi, nn) {
+  function wireUpdate(wi, nn, t) {
     const str = K.prog(nn, 0.28, 0.6), lift = K.prog(nn, 0.45, 1);
+    ROT.value = lift * 0.45 * Math.sin(t * 0.2); dots.material.uniforms.uBig.value = lift;
     wireMat.uniforms.uWire.value = wi; wireMat.uniforms.uStr.value = str; wireMat.uniforms.uLift.value = lift;
     wireMesh.visible = wi > 0.001;
     if (Math.abs(wi - lastW) < 1e-6 && Math.abs(nn - lastN) < 1e-6) return;
@@ -2904,12 +3021,12 @@ void main() {
     const grow = K.prog(nn, 0.08, 0.36);
     for (let k = 0; k < NN; k++) {
       pPos.set(K.v3.lerp(P0[k], P1[k], lift), 3 * k);
-      pA[k] = k < NH ? grow : K.prog(nn, 0.3, 0.6) * (wi > 0.5 ? 1 : 0);
+      pA[k] = k < NH ? grow : K.prog(nn, 0.3, 0.6) * K.prog(wi, 0.2, 0.5);
     }
     junctions.forEach((j, k) => { pA[NN + k] = K.clamp((wi - wires[j.w].w0) / 0.14 - 0.9, 0, 0.1) * 10 * (1 - str); });
     pg.attributes.position.needsUpdate = true; pg.attributes.aA.needsUpdate = true;
   }
-  const wiresAt = () => (lastN > 0.5 ? [0, NETY, 0] : [0.03, WY, (BUS[0] + BUS[3]) / 2]);
+  const wiresAt = () => (lastN > 0.5 ? [0, NETY, 0] : [(BX0 + BX1) / 2, WY, (BUS[0] + BUS[3]) / 2]);
   // ------------------------------------------------------- meshes, update --
   const insts = kindList.filter(k => KINDS[k].list.length).map(k => {
     const { geo, material, list } = KINDS[k], m = new THREE.InstancedMesh(geo, material, list.length);
@@ -2924,6 +3041,56 @@ void main() {
   const _p = new THREE.Vector3(), _q = new THREE.Quaternion(), _q2 = new THREE.Quaternion(), _s = new THREE.Vector3(), _ax = new THREE.Vector3(), _m = new THREE.Matrix4();
   parts.forEach((p, i) => { p.r = K.rng(500 + i)(); p.lpV = V(...p.lp); p.hpV = V(...p.hp); });
   const nodeOf = new Map(nodes.map((n, k) => [n.pi, k]));
+  // soft contact shadows, one per part: a blurred rounded rectangle on the table under its footprint
+  // (lerped from where the part stands in the computer to where it lies), fainter while it flies
+  const NS = parts.length, shGeo = new THREE.PlaneGeometry(2, 2).rotateX(-PI / 2);
+  const shH = new Float32Array(NS * 4);
+  shGeo.setAttribute('aH', new THREE.InstancedBufferAttribute(shH, 4).setUsage(THREE.DynamicDrawUsage));
+  const shMat = new THREE.ShaderMaterial({
+    uniforms: { uA: set.uA, uK: { value: 1 } },
+    transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -4,
+    vertexShader: `attribute vec4 aH; varying vec2 vL; varying vec4 vH;
+void main() {
+  vH = aH; vL = position.xz * (aH.xy + abs(aH.z));
+  gl_Position = projectionMatrix * modelViewMatrix * instanceMatrix * vec4(position, 1.0);
+  if (aH.w < 0.003) gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
+}`,
+    fragmentShader: `uniform float uA, uK; varying vec2 vL; varying vec4 vH;
+void main() {
+  // a negative blur marks a round part
+  float b = abs(vH.z), r = vH.z < 0.0 ? min(vH.x, vH.y) : min(min(vH.x, vH.y) * 0.6, 0.012);
+  vec2 q = abs(vL) - vH.xy + r;
+  float d = length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - r;
+  float a = vH.w * (1.0 - smoothstep(-b * 0.6, b, d));
+  if (a < 0.003) discard;
+  gl_FragColor = vec4(0.0, 0.0, 0.0, a * uA * uK);
+}`,
+  });
+  set.mats.push(shMat);
+  const shadows = new THREE.InstancedMesh(shGeo, shMat, NS);
+  shadows.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+  shadows.frustumCulled = false; shadows.renderOrder = -1;
+  set.group.add(shadows);
+  const ROUND = new Set(['washer', 'feet', 'disc']);
+  parts.forEach((p, i) => {
+    const bh = aabb(i, p.hq), bl = layBox(i, p.lq), h = bl.max.y - bl.min.y;
+    p.sh = {
+      hx: p.hp[0] + (bh.min.x + bh.max.x) / 2, hz: p.hp[2] + (bh.min.z + bh.max.z) / 2, hw: (bh.max.x - bh.min.x) / 2, hd: (bh.max.z - bh.min.z) / 2,
+      lw: (bl.max.x - bl.min.x) / 2, ld: (bl.max.z - bl.min.z) / 2,
+      ground: !p.inner && p.hp[1] + bh.min.y < FLOOR + 0.03, blur: Math.min(0.035, 0.004 + 0.3 * h),
+      // cables are too thin and open for a box of shadow
+      a: p.grp === 'cable' ? 0 : 0.3 + 0.32 * Math.min(1, h / 0.04), round: ROUND.has(p.grp) || i === P.speaker || i === P.mball,
+    };
+  });
+  const _sm = new THREE.Matrix4();
+  function shadowAt(p, i, s) {
+    // high in the air a shadow is faint and soft
+    const S = p.sh, e = p.e, up = 4 * e * (1 - e), hw = K.lerp(S.hw, S.lw, e) * s, hd = K.lerp(S.hd, S.ld, e) * s, bl = S.blur + 0.03 * up;
+    const a = K.lerp(S.ground ? S.a : 0, S.a, e) * (1 - 0.85 * up) * Math.min(1, s * 1.5);
+    shH[4 * i] = hw; shH[4 * i + 1] = hd; shH[4 * i + 2] = S.round ? -bl : bl; shH[4 * i + 3] = a;
+    _sm.makeScale(hw + bl, 1, hd + bl).setPosition(K.lerp(S.hx, p.at[0], e), FLOOR + 0.0002, K.lerp(S.hz, p.at[1], e));
+    shadows.setMatrixAt(i, _sm);
+  }
   // a part's pose for explode ex and network nn
   function pose(p, i, ex, nn) {
     const e = K.smooth(K.clamp((ex - p.d) / p.w, 0, 1));
@@ -2936,6 +3103,7 @@ void main() {
     else s *= 1 - K.prog(nn, 0.02 + 0.14 * p.r, 0.2 + 0.14 * p.r);
     p.m.compose(_p, _q, _s.set(s, s, s));
     p.e = e;
+    shadowAt(p, i, s);
   }
   let lastEx = -1, lastNn = -1;
   function layout(ex, nn) {
@@ -2950,22 +3118,25 @@ void main() {
       if (s.local) s.mesh.matrix.multiplyMatrices(parts[s.pi].m, s.local); else s.mesh.matrix.copy(parts[s.pi].m);
       s.mesh.matrixWorldNeedsUpdate = true;
     }
+    for (const c of coils) c.mesh.morphTargetInfluences[0] = K.smooth(K.clamp(parts[c.pi].e * 1.3 - 0.15, 0, 1));
+    shadows.instanceMatrix.needsUpdate = true; shGeo.attributes.aH.needsUpdate = true;
   }
   layout(0, 0);
-  const tableCol = new THREE.Color(0x9fa1a4);
+  const tableCol = new THREE.Color(TABLE);
   function update(S, t) {
-    const ex = K.clamp(S.mac_explode, 0, 1), wi = K.clamp(S.mac_wire, 0, 1), nn = K.clamp(S.mac_net, 0, 1);
+    // the wiring is drawn over the parts lying on the table (once lifted into a network it needs no table)
+    const ex = K.clamp(S.mac_explode, 0, 1), nn = K.clamp(S.mac_net, 0, 1), wi = K.clamp(S.mac_wire, 0, 1) * Math.max(K.prog(ex, 0.75, 1), K.prog(nn, 0.28, 0.6));
     layout(ex, nn);
     screenMat.uniforms.uOff.value = K.prog(ex, 0.005, 0.11);
-    // the lights go down while the wiring glows
-    const dim = 1 - 0.55 * K.prog(wi, 0, 0.35);
+    // seen from above the lay is lit full on, so it is toned down a little; the lights go down while the wiring glows
+    const dim = (1 - 0.14 * K.prog(ex, 0.3, 1)) * (1 - 0.55 * K.prog(wi, 0, 0.35));
     for (const m of LIT) m.color.setScalar(dim);
     const tm = table.material;
     tm.color.copy(tableCol).multiplyScalar(1 - 0.72 * K.prog(wi, 0, 0.35));
-    tm.opacity *= K.prog(ex, 0, 0.3) * (1 - K.prog(nn, 0.25, 0.55));
+    tm.opacity = tm.userData.base * set.uA.value * K.prog(ex, 0, 0.3) * (1 - K.prog(nn, 0.25, 0.55));
     tm.depthWrite = tm.opacity > 0.97;
     table.visible = tm.opacity > 0.003;
-    wireUpdate(wi, nn);
+    wireUpdate(wi, nn, t);
   }
   // ----------------------------------------------------------- exports --
   const meanOf = list => () => {
@@ -2983,7 +3154,11 @@ void main() {
     anchors: {
       screen: screenAt, board: meanOf([P.logic]), chips: meanOf(chipsBy.slice(0, 8)), resistors: meanOf(resList),
       screws: meanOf(scr.slice(5)), keys: meanOf(keyList), wires: () => wiresAt(),
+      computer: [0, midY, (CZ + BACK) / 2], crt: meanOf([P.crt]), keyboard: meanOf([P.kb]), mouse: meanOf([P.mouse]),
+      table: [0, FLOOR, 0], network: [0, NETY, 0],
     },
+    // for the story text: what the computer is made of in this model
+    counts: { parts: parts.length, screws: screws.length, resistors: resList.length, chips: chipsBy.length, keys: keys.length, wires: wires.length, nodes: NN, links: EDGES.length },
     labels: [
       { text: ['Screws', `${screws.length} of them`], at: 'screws', cls: 'amb', alpha: fadeLabel },
       { text: ['Resistors', `${resList.length}, by value`], at: 'resistors', cls: 'cyn', alpha: fadeLabel },
@@ -2993,7 +3168,7 @@ void main() {
     cam: {
       default: [32, 13, 2.25, 0.06, -0.09, 0.06], computer: [32, 13, 2.25, 0.06, -0.09, 0.06],
       table: [8, 55, 3.45, 0, -0.32, 0.02], apart: [8, 55, 3.45, 0, -0.32, 0.02],
-      wiring: [4, 60, 2.5, 0.03, -0.3, -0.02], network: [18, 24, 3.2, 0, -0.12, 0], screen: [12, 6, 1.0, 0, SCR_Y, CZ],
+      wiring: [2, 60, 2.6, 0.17, -0.3, -0.06], network: [18, 20, 2.9, 0, NETY, 0], screen: [12, 6, 1.0, 0, SCR_Y, CZ],
     },
     controls: [{ key: 'view', label: 'View', options: [['computer', 'Computer'], ['apart', 'Taken apart'], ['wiring', 'Wiring'], ['network', 'Network']] }],
     explore(c) { const v = VIEWS[c.view] || VIEWS.computer; return { mac_explode: v[0], mac_wire: v[1], mac_net: v[2] }; },
@@ -4694,7 +4869,7 @@ SETS.atp = function (K) {
         if (dx * dx + dy * dy + dz * dz < 100) { nb[i]++; nb[j]++; }
       }
     }
-    C.ao = Array.from(nb, k => clamp(1.22 - 0.024 * (k - 8), 0.46, 1.15));
+    C.ao = Array.from(nb, k => clamp(1.15 - 0.016 * (k - 8), 0.42, 1.12));
     C.res = loc.map(p => v3.mul(p, s));
     C.typ = f.typ;
     C.q0 = qg;
@@ -5000,8 +5175,9 @@ vCol = mix(mix(uGrey, aC0, uColour), aC1, m);`;
   sph.frustumCulled = false; sph.renderOrder = 2;
   cx.add(sph);
   // depth-only pre-pass (low-poly spheres just inside the real ones), so the faint ghost of the network view
-  // shows only the outer surface. Only for that in-set ghost: during set fades and the hand-over it would cut
-  // a complex-shaped hole into whatever is drawn behind it.
+  // shows only the outer surface. It also cuts a complex-shaped hole into whatever other sets draw later, so
+  // it runs only while the set is (nearly) fully in and not shrinking; the ghost fades out before it stops
+  // (shrink 0..0.12, set fade 1..0.7), so neither a hole nor a pop shows in the hand-over or in explore.
   const preMat = new THREE.MeshBasicMaterial({ colorWrite: false, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 2 });
   preMat.onBeforeCompile = sh => {
     Object.assign(sh.uniforms, SU);
@@ -5087,8 +5263,8 @@ vCol = mix(mix(uGrey, aC0, uColour), aC1, m);`;
   }
   // the stream: NPR protons, each a white-hot head with a fading trail of NTR points behind it (the same closed
   // form a little earlier on its path), then the ATP: 4 points each
-  const NPR = 16, NTR = 3, NP = NPR * (1 + NTR), NATP = 6, TRD = 0.017, TRA = [1, 0.55, 0.32, 0.16];
-  const dynG = K.pointsGeo(NP + NATP * 4), dyn = new THREE.Points(dynG, K.points(set));
+  const NPR = 16, NTR = 3, NP = NPR * (1 + NTR), NATP = 6, TRD = 0.021, TRA = [1, 0.55, 0.32, 0.16], NM = NP + NATP * 4;
+  const dynG = K.pointsGeo(NM + 2), dyn = new THREE.Points(dynG, K.points(set));
   dyn.frustumCulled = false; dyn.renderOrder = 4; cx.add(dyn);
   for (let k = 0; k <= NTR; k++) for (let i = 0; i < NPR; i++) {
     dynG.attributes.aCol.array.set(k ? [0.5, 0.9, 1] : [0.92, 1, 1], 3 * (k * NPR + i));
@@ -5097,7 +5273,14 @@ vCol = mix(mix(uGrey, aC0, uColour), aC1, m);`;
   for (let i = 0; i < NATP * 4; i++) dynG.attributes.aCol.array.set(i % 4 ? [1, 0.82, 0.4] : [1, 0.62, 0.16], 3 * (NP + i));
   // protons enter from the intermembrane side through a's lower half-channel and bind a c subunit at PIN, ride
   // the ring almost a full turn and leave through a's upper half-channel at POUT: 8 protons per turn
-  const PIN = PA + 20 * D, POUT = PA - 20 * D, RIDE = 1 - 40 / 360, APP = 0.28, EXI = 0.32, RPR = 0.205;
+  const PIN = PA + 20 * D, POUT = PA - 20 * D, RIDE = 1 - 40 / 360, APP = 0.4, EXI = 0.32, RPR = 0.205;
+  // the mouths of the two half-channels glow faintly while protons flow, and flash as each proton passes
+  // (u at which a proton passes the mouth: into a from below, out of a at the top)
+  const MOUTH = [[az(0.25, PA + 16 * D, YM - 0.17), -0.4 * APP], [az(0.275, POUT - 6 * D, YM + 0.17), RIDE + 0.4 * EXI]];
+  MOUTH.forEach(([p], i) => {
+    dynG.attributes.position.array.set(p, 3 * (NM + i)); dynG.attributes.aCol.array.set([0.45, 0.85, 1], 3 * (NM + i));
+    dynG.attributes.aSize.array[NM + i] = 0.13;
+  });
   const TAU0 = ((((PIN - CPHI(0) - 22.5 * D) / TAU) % 0.125) + 0.125) % 0.125;
   // ATP leaves each beta once per turn, when the bulge of the rotating central stalk faces it: 3 per turn
   const BETAS = COPIES.filter(cp => cp.beta), BBASE = BETAS.map(cp => ((((cp.phi - PG) / TAU) % 1) + 1) % 1);
@@ -5106,13 +5289,14 @@ vCol = mix(mix(uGrey, aC0, uColour), aC1, m);`;
   const proton = (m, u) => {
     if (u < -APP || u > RIDE + EXI) return null;
     if (u < 0) {
-      const s = (u + APP) / APP, from = az(0.3 + 0.3 * hash(m, 1), PA + (hash(m, 2) * 100 - 40) * D, YM - 0.4 - 0.1 * hash(m, 5));
+      const s = (u + APP) / APP, from = az(0.3 + 0.3 * hash(m, 1), PA + (hash(m, 2) * 100 - 40) * D, YM - 0.36 - 0.1 * hash(m, 5));
       return [bez(from, az(0.3, PA + 12 * D, YM - 0.24), az(RPR, PIN, YM), K.smooth(s)), K.smooth(s / 0.3)];
     }
     if (u < RIDE) return [az(RPR, PIN + TAU * u, YM + 0.006 * Math.sin(u * 40)), 1];
     const s = (u - RIDE) / EXI, h2 = hash(m, 4), to = az(0.38 + 0.18 * hash(m, 3), POUT - (10 + 40 * h2) * D, YM + 0.45 + 0.1 * h2);
     return [bez(az(RPR, POUT, YM), az(0.29, POUT - 4 * D, YM + 0.2), to, K.smooth(s)), 1 - K.smooth((s - 0.45) / 0.55)];
   };
+  const ZERO = [0, 0, 0];
   function protons(T, flow) {
     const P = dynG.attributes.position.array, A = dynG.attributes.aA.array, SZ = dynG.attributes.aSize.array;
     let slot = 0;
@@ -5121,11 +5305,11 @@ vCol = mix(mix(uGrey, aC0, uColour), aC1, m);`;
       const u = T - (TAU0 + m / 8);
       for (let k = 0; k <= NTR; k++) {
         const q = proton(m, u - TRD * k), o = k * NPR + slot;
-        if (q) P.set(q[0], 3 * o);
+        P.set(q ? q[0] : ZERO, 3 * o);
         A[o] = q ? q[1] * flow * TRA[k] : 0;
       }
     }
-    for (; slot < NPR; slot++) for (let k = 0; k <= NTR; k++) A[k * NPR + slot] = 0;
+    for (; slot < NPR; slot++) for (let k = 0; k <= NTR; k++) { P.set(ZERO, 3 * (k * NPR + slot)); A[k * NPR + slot] = 0; }
     // ATP: an adenosine dot with its three phosphates, drifting out into the matrix
     let n = 0;
     BETAS.forEach((cp, b) => {
@@ -5139,7 +5323,11 @@ vCol = mix(mix(uGrey, aC0, uColour), aC1, m);`;
         n++;
       }
     });
-    for (; n < NATP; n++) for (let q = 0; q < 4; q++) A[NP + 4 * n + q] = 0;
+    for (; n < NATP; n++) for (let q = 0; q < 4; q++) { P.set(ZERO, 3 * (NP + 4 * n + q)); A[NP + 4 * n + q] = 0; }
+    MOUTH.forEach(([p, u], i) => {
+      const ph = ((((T - TAU0 - u) * 8) % 1) + 1) % 1;
+      A[NM + i] = flow * (0.22 + 0.35 * Math.exp(-ph * 5));
+    });
     dynG.attributes.position.needsUpdate = dynG.attributes.aA.needsUpdate = dynG.attributes.aSize.needsUpdate = true;
   }
 
@@ -5217,7 +5405,8 @@ void main() {
     for (const C of COMP) {
       const rev = Math.max(prog(parts, C.d0, C.d0 + 0.45), prog(build, 0, 0.06)), thin = prog(build, C.s1 + 0.32, C.s1 + 0.6);
       cur.f[C.i] = prog(build, C.s0, C.s0 + 0.32);
-      C.mesh.visible = rev > 0.002 && thin < 0.995;
+      // (hidden once thinned to an eighth of its radius: sub-pixel, and under the surface by then)
+      C.mesh.visible = rev > 0.002 && thin < 0.88;
       if (!C.mesh.visible) continue;
       // thinning by exactly the tube radius collapses a ring to its centre line (zero-area triangles, nothing drawn)
       C.uRev.value = rev * 1.01; C.uThin.value = thin * C.tubeR;
@@ -5242,13 +5431,13 @@ void main() {
     }
     // surface: grows from the docked chains; beta subunits breathe as the rotor's bulge passes; helpers leave
     // (only the spheres that have started growing are drawn)
-    const sOp = (1 - 0.86 * net) * (1 - prog(shrink, 0, 0.45)), ns = started(build - 0.0001);
+    const a = set.uA.value, ns = started(build - 0.0001);
+    const sOp = (1 - 0.86 * net) * (1 - prog(shrink, 0, 0.12)) * (1 - net * (1 - prog(a, 0.7, 1)));
     sg.instanceCount = pg.instanceCount = Math.max(1, ns);
     sph.visible = ns > 0 && sOp > 0.002;
-    sphMat.opacity = set.uA.value * sOp;
+    sphMat.opacity = a * sOp;
     sphMat.depthWrite = sphMat.opacity > 0.97;
-    // the depth pre-pass only for the in-set ghost (see above), never while the set fades or hands over
-    pre.visible = sph.visible && sOp < 0.97 && shrink <= 0 && set.uA.value > 0.98;
+    pre.visible = sph.visible && sOp < 0.97 && shrink < 0.12 && a > 0.7;
     SU.uBuild.value = build; SU.uColour.value = colour; SU.uAng.value = ang;
     SU.uRim.value = 0.32 + 0.4 * net;
     for (const cp of BETAS) {
@@ -5296,10 +5485,10 @@ void main() {
     return v3.lerp(g, c, Math.max(cur.f[i], prog(cur.build, 0, 0.3)));
   };
   const anchors = {
-    head: toSet(az(0.27, -150 * D, YH + 0.1)), rotor: toSet(az(0.21, -150 * D, YM + 0.06)), membrane: toSet(az(0.72, -165 * D, YM)),
-    stalk: toSet(az(0.36, PA - 3 * D, -0.05)), shaft: toSet(az(0.07, -90 * D, -0.15)), ring: toSet(az(0.2, -90 * D, YM)),
-    matrix: toSet(az(0.62, -140 * D, YH)), ims: toSet(az(0.55, -135 * D, YM - 0.22)), atpOut: toSet(az(0.5, BETA_F.phi - 32 * D, YH + 0.1)),
-    protonsIn: toSet(az(0.38, PIN, YM - 0.3)), centre: [0, 0, 0],
+    head: toSet(az(0.27, -150 * D, YH + 0.1)), rotor: toSet(az(0.21, -150 * D, YM + 0.06)),
+    membrane: toSet(az(0.72, -165 * D, YM)), stalk: toSet(az(0.36, PA - 3 * D, -0.05)), shaft: toSet(az(0.07, -90 * D, -0.15)),
+    ring: toSet(az(0.2, -90 * D, YM)), matrix: toSet(az(0.62, -140 * D, YH)), ims: toSet(az(0.55, -135 * D, YM - 0.22)),
+    atpOut: toSet(az(0.5, BETA_F.phi - 32 * D, YH + 0.1)), protonsIn: toSet(az(0.36, PIN, YM - 0.25)), centre: [0, 0, 0],
   };
   COMP.forEach((c, i) => { anchors[c.s] = partAt(i); });
   const built = S => K.prog(S.atp_build, 0.86, 1) * (1 - S.atp_net);
@@ -5308,24 +5497,28 @@ void main() {
       { text: ['Head', '(makes ATP)'], at: 'head', cls: 'cyn', alpha: built },
       { text: ['Rotor', ''], at: 'rotor', cls: 'mag', alpha: built },
       { text: ['Membrane', ''], at: 'membrane', cls: '', alpha: built },
-      { text: ['Protons', 'flow in'], at: 'ims', cls: 'cyn', alpha: S => K.prog(S.atp_flow, 0.5, 1) * built(S) },
+      { text: ['Protons', 'flow in'], at: 'protonsIn', cls: 'cyn', alpha: S => K.prog(S.atp_flow, 0.5, 1) * built(S) },
       { text: ['ATP', 'out'], at: 'atpOut', cls: 'amb', alpha: S => K.prog(S.atp_flow, 0.5, 1) * built(S) },
     ]);
   // explore: while running the rotor keeps turning from wherever it was; on leaving it coasts a little and
   // stops (rather than easing back to 0, which would spin it backwards). Only this mapping keeps memory;
-  // update() itself stays a pure function of the params.
-  const S0 = { atp_turns: 0 };
-  let base = 0, lastView = '', lastT = 0, coast = 0;
+  // update() itself stays a pure function of the params. The base angle is taken from the first update()
+  // after a change of view (or a reopening): until then S0 may be stale (the set was not drawn while the
+  // story or another scene changed atp_turns), so the target simply holds the last known angle.
+  const S0 = { turns: 0, fresh: false };
+  let base = 0, lastView = '', lastT = 0, coast = 0, pending = true;
   function explore(c) {
     const v = c.view;
-    if (v !== lastView || c.t < lastT) { coast = lastView === 'running' ? 0.1 : 0; base = S0.atp_turns; }
+    if (v !== lastView || c.t < lastT) { coast = lastView === 'running' ? 0.1 : 0; pending = true; S0.fresh = false; }
+    if (pending && S0.fresh) { base = S0.turns; pending = false; }
     lastView = v; lastT = c.t;
     return {
       atp_parts: 1, atp_colour: 1, atp_build: v === 'parts' ? 0 : 1, atp_flow: v === 'running' ? 1 : 0,
-      atp_turns: v === 'running' ? base + c.t * 0.35 : base + coast, atp_net: v === 'network' ? 1 : 0, atp_shrink: 0,
+      atp_turns: pending ? S0.turns : v === 'running' ? base + c.t * 0.35 : base + coast,
+      atp_net: v === 'network' ? 1 : 0, atp_shrink: 0,
     };
   }
-  const upd = (S, t, dt) => { S0.atp_turns = S.atp_turns; update(S, t, dt); };
+  const upd = (S, t, dt) => { S0.turns = S.atp_turns; S0.fresh = true; update(S, t, dt); };
   // for panel text and explore: the parts with their current HGNC symbols, what they are and how many copies
   const INFO = {
     ATP5A1: ['ATP5F1A', 'subunit alpha (head)'], ATP5B: ['ATP5F1B', 'subunit beta (head, makes ATP)'],
@@ -5333,7 +5526,8 @@ void main() {
     ATP5C1: ['ATP5F1C', 'subunit gamma (central stalk)'], ATP5D: ['ATP5F1D', 'subunit delta (central stalk)'],
     ATP5E: ['ATP5F1E', 'subunit epsilon (central stalk)'], ATP5F1: ['ATP5PB', 'subunit b (peripheral stalk)'],
     ATP5O: ['ATP5PO', 'OSCP (caps the peripheral stalk)'], 'MT-ATP6': ['MT-ATP6', 'subunit a (mitochondrial DNA)'],
-    ATP5G1: ['ATP5MC1', 'subunit c (rotor ring)'], ATP5G2: ['ATP5MC2', 'subunit c (rotor ring)'], ATP5G3: ['ATP5MC3', 'subunit c (rotor ring)'],
+    ATP5G1: ['ATP5MC1', 'subunit c (rotor ring)'], ATP5G2: ['ATP5MC2', 'subunit c (rotor ring)'],
+    ATP5G3: ['ATP5MC3', 'subunit c (rotor ring)'],
   };
   const parts = COMP.map(c => ({ sym: c.s, hgnc: INFO[c.s][0], name: INFO[c.s][1], copies: c.copies.length }));
   return Object.assign(set, {
@@ -5341,10 +5535,12 @@ void main() {
     params: { atp_a: 1, atp_parts: 1, atp_colour: 0, atp_build: 0, atp_turns: 0, atp_flow: 0, atp_net: 0, atp_shrink: 0 },
     update: upd, anchors, labels,
     cam: {
-      default: [0, 4, 3.9, 0, 0, 0], parts: [0, 4, 3.9, 0, 0, 0], complex: [-10, -8, 2.9, 0, 0.02, 0], top: [-25, 58, 2.8, 0, -0.05, 0],
-      running: [-28, -4, 2.4, 0, -0.12, 0], network: [15, 8, 2.9, 0, 0.02, 0],
+      default: [0, 4, 3.5, 0, 0, 0], parts: [0, 4, 3.5, 0, 0, 0], complex: [-10, -8, 2.9, 0, 0.02, 0],
+      top: [-25, 40, 2.8, 0, -0.05, 0], running: [-28, -4, 2.4, 0, -0.12, 0], network: [15, 8, 2.9, 0, 0.02, 0],
     },
-    controls: [{ key: 'view', label: 'View', options: [['parts', 'Parts'], ['complex', 'Complex'], ['running', 'Running'], ['network', 'Network']] }],
+    controls: [{
+      key: 'view', label: 'View', options: [['parts', 'Parts'], ['complex', 'Complex'], ['running', 'Running'], ['network', 'Network']],
+    }],
     explore,
   });
 };
@@ -6922,7 +7118,7 @@ SETS.body = function (K) {
     let i = 0;
     while (i < T.length - 2 && yy > T[i + 1][0]) i++;
     const f = fade3((yy - T[i][0]) / (T[i + 1][0] - T[i][0]));
-    const w = T[i][1] + (T[i + 1][1] - T[i][1]) * f, d = T[i][2] + (T[i + 1][2] - T[i][2]) * f, zc = T[i][3] + (T[i + 1][3] - T[i][3]) * f;
+    const at = c => T[i][c] + (T[i + 1][c] - T[i][c]) * f, w = at(1), d = at(2), zc = at(3);
     const q = Math.hypot(x / w, (z - zc) / d), e = (q - 1) * Math.min(w, d);
     const dy = y < y0 ? y0 - y : y > y1 ? y - y1 : 0;
     return dy > 0 ? Math.hypot(Math.max(e, 0), dy) : e;
@@ -7203,15 +7399,15 @@ SETS.body = function (K) {
     0.022, null, 0.22, 0.12);
   ellFill([0.005, 0.232, 0.035], [0.075, 0.042, 0.055], 430, (p, q, a) => (a[1] < -0.3 - 0.5 * a[0] ? 0 : liverI(p)), UP.liver,
     0.022, null, 0.22, 0.12);
-  ellFill([0.12, 0.2, -0.056], [0.03, 0.056, 0.03], 300, soft(p => 0.46 + 0.04 * noise(p[0] * 40, p[1] * 40, p[2] * 40), 0.15), UP.spleen, os,
-    along([0.35, 1, -0.2]));
+  const n40 = p => noise(p[0] * 40, p[1] * 40, p[2] * 40);
+  ellFill([0.12, 0.2, -0.056], [0.03, 0.056, 0.03], 300, soft(p => 0.46 + 0.04 * n40(p), 0.15), UP.spleen, os, along([0.35, 1, -0.2]));
   // stomach (with the gullet) and pancreas
   tubeFill([[0.004, 0.56, 0.0], [0.006, 0.42, -0.035], [0.02, 0.33, -0.03], [0.055, 0.29, -0.005]], 0.006, 140, () => 0.3 * jit(0.1),
     UP.gut, 0.016);
-  tubeFill([[0.06, 0.29, -0.004], [0.104, 0.24, 0.02], [0.1, 0.17, 0.05], [0.05, 0.13, 0.07], [0.0, 0.142, 0.062], [-0.026, 0.162, 0.046]],
-    s => 0.034 - 0.018 * s, 460, (s, p) => 0.27 + 0.06 * noise(p[0] * 40, p[1] * 40, p[2] * 40), UP.gut, os);
+  tubeFill([[0.06, 0.29, -0.004], [0.104, 0.24, 0.02], [0.1, 0.17, 0.05], [0.05, 0.13, 0.07], [0.0, 0.142, 0.062],
+    [-0.026, 0.162, 0.046]], s => 0.034 - 0.018 * s, 460, (s, p) => 0.27 + 0.06 * n40(p), UP.gut, os);
   tubeFill([[-0.036, 0.116, 0.02], [0.02, 0.135, -0.006], [0.07, 0.15, -0.026], [0.106, 0.166, -0.04]], s => 0.016 - 0.006 * s, 240,
-    (s, p) => 0.3 + 0.06 * noise(p[0] * 40, p[1] * 40, p[2] * 40), UP.liver, os);
+    (s, p) => 0.3 + 0.06 * n40(p), UP.liver, os);
   // kidneys (bright cortex, white-hot collecting system as the tracer is cleared into the urine), ureters, bladder
   resp = RESP.urine;
   for (const s of SIDES) {
@@ -7241,8 +7437,9 @@ SETS.body = function (K) {
       pts.push([clamp(p[0], -0.085, 0.085), clamp(p[1], -0.05, 0.1), clamp(p[2], -0.02, 0.08)]);
     }
     tubeFill(pts, 0.011, 1050, (s, q) => 0.22 + 0.14 * Math.pow(noise(q[0] * 30, q[1] * 30, q[2] * 30), 2), UP.gut, 0.018);
-    const colon = [[-0.104, -0.065, 0.024], [-0.11, 0.04, 0.004], [-0.098, 0.13, 0.02], [-0.03, 0.104, 0.074], [0.04, 0.104, 0.074],
-      [0.11, 0.152, 0.004], [0.116, 0.05, -0.012], [0.104, -0.04, 0.004], [0.06, -0.085, 0.034], [0.0, -0.08, -0.03], [0.0, -0.13, -0.064]];
+    const colon = [[-0.104, -0.065, 0.024], [-0.11, 0.04, 0.004], [-0.098, 0.13, 0.02], [-0.03, 0.104, 0.074],
+      [0.04, 0.104, 0.074], [0.11, 0.152, 0.004], [0.116, 0.05, -0.012], [0.104, -0.04, 0.004], [0.06, -0.085, 0.034],
+      [0.0, -0.08, -0.03], [0.0, -0.13, -0.064]];
     tubeFill(colon, 0.019, 820, (s, q) => 0.24 + 0.5 * Math.pow(noise(q[0] * 18 + 3, q[1] * 18, q[2] * 18), 3), UP.gut, 0.02);
   }
 
@@ -7261,19 +7458,20 @@ SETS.body = function (K) {
   const vessel = (pts, rad, n, a0, amp, speed) => flow(pts, rad, n, (s, len) => a0 + s * len * speed, amp);
   const vein = (pts, rad, n, a0, a1) => flow(pts, rad, n, s => a0 + (a1 - a0) * s, 1.0);
   const INJ = [-0.21, 0.83, 0.03];   // the injection site, in a vein of the right forearm
-  vein([INJ, mir(J.elbow, -1), [-0.24, 0.62, 0.01], [-0.17, 0.48, 0.0], [-0.08, 0.465, 0.03], [-0.026, 0.42, 0.024], [-0.034, 0.33, 0.03]],
-    0.006, 600, 0.0, 0.045);
+  vein([INJ, mir(J.elbow, -1), [-0.24, 0.62, 0.01], [-0.17, 0.48, 0.0], [-0.08, 0.465, 0.03], [-0.026, 0.42, 0.024],
+    [-0.034, 0.33, 0.03]], 0.006, 600, 0.0, 0.045);
   vein([[-0.026, -0.02, -0.02], [-0.024, 0.15, -0.02], [-0.03, 0.29, 0.02]], 0.008, 160, 0.28, 0.32);
   const sp = 0.22;
-  const aorta = [[0.03, 0.31, 0.04], [0.015, 0.4, 0.035], [0.0, 0.43, 0.0], [0.016, 0.4, -0.04], [0.016, 0.25, -0.04], [0.01, 0.1, -0.022],
-    [0.0, -0.01, -0.016]];
+  const aorta = [[0.03, 0.31, 0.04], [0.015, 0.4, 0.035], [0.0, 0.43, 0.0], [0.016, 0.4, -0.04], [0.016, 0.25, -0.04],
+    [0.01, 0.1, -0.022], [0.0, -0.01, -0.016]];
   const aLen = vessel(aorta, 0.009, 420, 0.09, 0.9, sp);
   for (const s of SIDES) {
     const kn = mir(J.knee, s), an = mir(J.ankle, s), el = mir(J.elbow, s), sh = mir(J.shoulder, s);
     // leg, neck and arm arteries
     vessel([[0.004 * s, -0.01, -0.016], [0.045 * s, -0.07, 0.01], [0.08 * s, -0.12, 0.04], [0.088 * s, -0.3, 0.02],
       v3.add(kn, [0, 0, -0.03]), v3.add(an, [0, 0.03, -0.005]), mir(J.toe, s)], 0.005, 520, 0.09 + aLen * sp, 0.75, sp);
-    vessel([[0.008 * s, 0.43, 0.0], [0.025 * s, 0.55, 0.022], [0.03 * s, 0.66, 0.0], [0.03 * s, 0.72, -0.02]], 0.0042, 120, 0.11, 0.8, sp);
+    vessel([[0.008 * s, 0.43, 0.0], [0.025 * s, 0.55, 0.022], [0.03 * s, 0.66, 0.0], [0.03 * s, 0.72, -0.02]], 0.0042, 120,
+      0.11, 0.8, sp);
     vessel([[0.01 * s, 0.43, 0.0], [0.09 * s, 0.48, 0.0], v3.add(sh, [0, 0.01, 0.01]), v3.add(el, [-0.012 * s, -0.01, 0.012]),
       v3.add(wrists[s], [0, -0.006, 0])], 0.0042, 380, 0.11, 0.75, sp);
     vessel([[0.01 * s, 0.11, -0.022], [0.06 * s, 0.1, -0.05]], 0.004, 40, 0.13, 0.7, sp);   // renal arteries
@@ -7291,7 +7489,8 @@ SETS.body = function (K) {
   geo.setAttribute('aSz', new THREE.BufferAttribute(AS.slice(0, NB), 1));
   geo.setAttribute('aK', new THREE.BufferAttribute(AK.slice(0, 3 * NB), 3));
   const scanMat = new THREE.ShaderMaterial({
-    uniforms: { uA: set.uA, uPx: K.U.uPx, uTime: K.U.uTime, uP: { value: 1 }, uS: { value: 0 }, uK: { value: 1 }, uDim: { value: 1 } },
+    uniforms: { uA: set.uA, uPx: K.U.uPx, uTime: K.U.uTime, uP: { value: 1 }, uS: { value: 0 }, uK: { value: 1 },
+      uDim: { value: 1 } },
     transparent: true, depthWrite: false, depthTest: true,
     blending: THREE.CustomBlending, blendEquation: THREE.MaxEquation, blendSrc: THREE.OneFactor, blendDst: THREE.OneFactor,
     vertexShader: K.GLSL + `
@@ -7348,10 +7547,10 @@ void main() {
   // [key, label, organ position, angle around the body (degrees, 0 = front, +90 = the person's left),
   //  cage height, cage radius]
   const ORG = [
-    ['brain', 'Brain', [0, 0.745, 0.0], 0, 0.8, 0.3], ['thyroid', 'Thyroid', [0, 0.548, 0.045], 17, 0.69, 0.42],
+    ['brain', 'Brain', [0, 0.745, 0.0], 0, 0.8, 0.3], ['thyroid', 'Thyroid', [0, 0.548, 0.045], -36, 0.68, 0.42],
     ['lungs', 'Lungs', [-0.09, 0.375, -0.005], -60, 0.43, 0.42], ['heart', 'Heart', [0.045, 0.29, 0.06], 38, 0.55, 0.34],
     ['liver', 'Liver', [-0.085, 0.215, 0.025], -60, 0.34, 0.46], ['stomach', 'Stomach', [0.085, 0.2, 0.05], 110, 0.26, 0.4],
-    ['spleen', 'Spleen', [0.12, 0.2, -0.056], 113, -0.08, 0.46], ['pancreas', 'Pancreas', [0.03, 0.14, -0.008], -10, 0.2, 0.46],
+    ['spleen', 'Spleen', [0.12, 0.2, -0.056], 120, -0.08, 0.46], ['pancreas', 'Pancreas', [0.03, 0.14, -0.008], -10, 0.2, 0.46],
     ['kidneys', 'Kidneys', [-0.072, 0.098, -0.066], -129, -0.07, 0.46],
     ['intestine', 'Intestine', [-0.01, 0.02, 0.05], -39, -0.09, 0.46],
     ['marrow', 'Bone marrow', [0.09, -0.005, -0.045], 99, -0.42, 0.45], ['bladder', 'Bladder', [0, -0.112, 0.045], 2, -0.38, 0.46],
@@ -7511,7 +7710,9 @@ void main() {
     anchors,
     labels,
     organs: ORG.map(o => ({ key: o[0], name: o[1] })),
-    cam: { default: [0, 4, 3.75, 0, 0, 0], front: [0, 4, 3.75, 0, 0, 0], side: [90, 4, 3.75, 0, 0, 0], net: [14, 6, 2.5, 0, 0.28, 0] },
+    // the cage with its labels is about 1.3 units wide: netTall frames it on a portrait screen (phone)
+    cam: { default: [0, 4, 3.75, 0, 0, 0], front: [0, 4, 3.75, 0, 0, 0], side: [90, 4, 3.75, 0, 0, 0],
+      net: [14, 6, 3.0, 0, 0.17, 0], netTall: [14, 6, 5.8, 0.1, 0.17, 0] },
     controls: [
       { key: 'view', label: 'View', options: [['scan', 'Scan'], ['net', 'Network']] },
       { key: 'state', label: 'State', options: [['healthy', 'Healthy'], ['disease', 'Disease']] },
@@ -7725,6 +7926,11 @@ SETS.tissue = function (K) {
   // a lymphoid aggregate at the base of the mucosa (glands give way to it)
   const AG = { s: 0.6, d: layerAt(0.6).b1 - 0.008, a: 0.046, b: 0.032 };
   const inAgg = (s, d, m = 0) => ((s - AG.s) / (AG.a + m)) ** 2 + ((d - AG.d) / (AG.b + m)) ** 2 < 1;
+  // the packed lymphocytes push the muscularis mucosae and the collagen aside: loose, fibre-free matrix under it
+  paintEll(AG.s, AG.d, AG.a, AG.b, 0, 1.1, (k, rho) => {
+    const w = clamp((1.1 - rho) / 0.15, 0, 1);
+    MAT[4 * k] += (0.4 * EB - MAT[4 * k]) * w; MAT[4 * k + 2] += (127.5 - MAT[4 * k + 2]) * w; MAT[4 * k + 3] += (127.5 - MAT[4 * k + 3]) * w;
+  });
   // the zoom patch: deep glands above, the muscularis mucosae, loose tissue with an artery and a vein below
   const sZ = 1.27, dZ = layerAt(sZ).b1 + 0.004, DM = 1.3;   // DM: about the farthest any cell is from it
 
@@ -7807,7 +8013,7 @@ SETS.tissue = function (K) {
     for (let n = 0; n < 900 && vessels.length < 30; n++) {
       const s = rr(0.22, 1.92), ly = layerAt(s), r = rr(0.006, 0.012) + 0.012 * R() * R(), asp = rr(1, 2.6);
       const d = rr(ly.b1 + r + 0.012, ly.b2 - r - 0.01);
-      if (!(d > ly.b1) || vessels.some(v => Math.hypot(v.s - s, v.d - d) < v.r * 1.4 + r * 1.4 + 0.02)) continue;
+      if (!(d > ly.b1) || inAgg(s, d, 1.6 * r + 0.004) || vessels.some(v => Math.hypot(v.s - s, v.d - d) < v.r * 1.4 + r * 1.4 + 0.02)) continue;
       vessels.push({ s, d, r, asp, ang: rr(-0.6, 0.6), kind: R() < 0.4 ? 0 : R() < 0.8 ? 1 : 2 });
     }
   }
@@ -7871,7 +8077,7 @@ SETS.tissue = function (K) {
     for (let n = 0, made = 0; n < 4000 && made < 320; n++) {
       const s = rr(0.05, L - 0.05), ly = layerAt(s), a = 0.0025 + 0.016 * Math.pow(R(), 2.4), asp = rr(1.3, 3.5) + (R() < 0.15 ? 5 : 0);
       const d = rr(ly.b1 + 0.004, ly.b2 - 0.004);
-      if (d - a / asp < ly.b1 + 0.003 || d + a / asp > ly.b2 - 0.002 || nearVessel(s, d, a + 0.006)) continue;
+      if (d - a / asp < ly.b1 + 0.003 || d + a / asp > ly.b2 - 0.002 || nearVessel(s, d, a + 0.006) || inAgg(s, d, a + 0.004)) continue;
       voidEll(s, d, a, a / asp, fibreAng(s, d) + rr(-0.3, 0.3), rr(0.75, 1));
       made++;
     }
@@ -7949,12 +8155,13 @@ SETS.tissue = function (K) {
   }
   muscleCells();
   function fillers() {
-    // the lymphoid aggregate
-    for (let s = AG.s - AG.a; s < AG.s + AG.a; s += 0.0037) {
-      for (let d = AG.d - AG.b; d < AG.d + AG.b; d += 0.0037) {
-        const x = s + rr(-0.0009, 0.0009), y = d + rr(-0.0009, 0.0009);
-        if (inAgg(x, y) && free(x, y, 0.0033)) lympho(x, y);
-      }
+    // the lymphoid aggregate: lymphocytes packed densely and irregularly (random positions, nuclei almost touching),
+    // thinning out towards a lumpy edge
+    const nAg = noise2(42);
+    for (let n = 0; n < 4500; n++) {
+      const x = AG.s + rr(-1.1, 1.1) * AG.a, y = AG.d + rr(-1.1, 1.1) * AG.b, u = (x - AG.s) / AG.a, w = (y - AG.d) / AG.b, h = Math.hypot(u, w);
+      const rho = h / (1 + 0.16 * nAg(1.3 * u / (h + 1e-6) + 20, 1.3 * w / (h + 1e-6) + 20));
+      if (rho < 1.06 && vAt(x, y) < 0.3 && free(x, y, 0.0029 + 0.0032 * smooth((rho - 0.62) / 0.44))) lympho(x, y);
     }
     // lamina propria: immune cells and a few fibroblasts between the glands
     for (let n = 0; n < 9000; n++) {
@@ -8048,12 +8255,15 @@ SETS.tissue = function (K) {
   slabGeo.setIndex(new THREE.BufferAttribute(idx, 1));
   slabGeo.boundingSphere = new THREE.Sphere(new THREE.Vector3(), 1.2);
   const slabU = { uA: set.uA, tM: { value: texM }, tC: { value: texHE }, tK: { value: texMK }, uMark: { value: 0 }, uCells: { value: 1 },
-    uGhost: { value: 0 }, uSz: { value: new THREE.Vector2(MSL, MDL) }, uZ: { value: new THREE.Vector2(sZ - MS0, dZ - MD0) } };
+    uGhost: { value: 0 }, uSz: { value: new THREE.Vector2(MSL, MDL) }, uZ: { value: new THREE.Vector2(sZ - MS0, dZ - MD0) },
+    uAg: { value: new THREE.Vector4(AG.s - MS0, AG.d - MD0, AG.a, AG.b) } };
+  // premultiplied blending: opaque as a section, a faint glassy glow as a ghost (never a dark pane, also in AR)
   const slabMat = new THREE.ShaderMaterial({
     uniforms: slabU, transparent: true, extensions: { derivatives: true },
+    blending: THREE.CustomBlending, blendSrc: THREE.OneFactor, blendDst: THREE.OneMinusSrcAlphaFactor,
     vertexShader: `attribute float aWall; varying vec2 vUv; varying float vWall;
 void main() { vUv = uv; vWall = aWall; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
-    fragmentShader: `uniform sampler2D tM, tC, tK; uniform float uA, uMark, uCells, uGhost; uniform vec2 uSz, uZ;
+    fragmentShader: `uniform sampler2D tM, tC, tK; uniform float uA, uMark, uCells, uGhost; uniform vec2 uSz, uZ; uniform vec4 uAg;
 varying vec2 vUv; varying float vWall;
 float h21(vec2 p) { vec3 q = fract(vec3(p.xyx) * 0.1031); q += dot(q, q.yzx + 33.33); return fract((q.x + q.y) * q.z); }
 float vn(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
@@ -8090,19 +8300,22 @@ void main() {
   // the edges of empty spaces sharpen as you come close
   float sw = clamp(px / 0.0016, 0.06, 0.5);
   V = smoothstep(0.5 - sw, 0.5 + sw, V);
-  vec3 he = exp(-E * vec3(0.16, 1.05, 0.60));
+  // the lymphoid aggregate: nuclei packed above and below the cut add a diffuse haematoxylin density
+  float ag = smoothstep(1.05, 0.7, length((sd - uAg.xy) / uAg.zw) + 0.3 * (vn(sd * 150.0) - 0.5));
+  vec3 he = exp(-E * vec3(0.16, 1.05, 0.60) - ag * 0.6 * vec3(1.31, 1.37, 0.62));
   he = mix(he, vec3(0.96, 0.94, 0.96), V);
   // far away the cells come from their pre-averaged map; close up they are drawn one by one
   float lod = smoothstep(1.0, 2.6, 0.005 / px);
   vec4 c = texture2D(tC, vUv) * (uCells * (1.0 - lod));
   he = he * (1.0 - c.a) + c.rgb;
   vec4 k = texture2D(tK, vUv) * (uCells * (1.0 - lod));
-  vec3 fl = vec3(0.012, 0.016, 0.03) + vec3(0.02, 0.06, 0.05) * E * (1.0 - V);   // faint stroma
+  vec3 fl = vec3(0.012, 0.016, 0.03) + vec3(0.02, 0.06, 0.05) * E * (1.0 - V) + vec3(0.05, 0.01, 0.008) * ag;   // faint stroma
   fl = fl * (1.0 - k.a) + k.rgb;
   float mk = smoothstep(0.0, 1.0, clamp((uMark * 1.4 - 0.7 * sqrt(min(length(sd - uZ) / ${DM.toFixed(2)}, 1.0)) - 0.15) / 0.4, 0.0, 1.0));
   vec3 col = mix(he, fl, mk) * mix(1.0, 0.62, vWall);
-  col *= 1.0 - uGhost;
-  gl_FragColor = vec4(col, uA * (1.0 - 0.7 * uGhost));
+  // the ghost: mostly see-through, keeping a dim tint of its look and a faint cool sheen so its outline reads
+  col = col * (1.0 - 0.75 * uGhost) + vec3(0.025, 0.04, 0.07) * uGhost * (1.0 + 2.0 * vWall);
+  gl_FragColor = vec4(col * uA, uA * (1.0 - 0.85 * uGhost));
 }`,
   });
   set.mats.push(slabMat);
@@ -8233,6 +8446,9 @@ void main() {
   // lift off into the embedding along a curve that first rises from the slab
   float f = smoothstep(0.0, 1.0, clamp((uEmbed - aInfo.w) / 0.42, 0.0, 1.0));
   vec3 pos = (1.0 - f) * (1.0 - f) * p0 + 2.0 * f * (1.0 - f) * (position + n * 0.3) + f * f * aEmb;
+  // once lifted, each cell drifts gently round its place, so the cloud feels alive
+  float ph = aDir.z * 41.0;
+  pos += f * 0.005 * vec3(sin(uTime * 0.8 + ph), sin(uTime * 0.67 + 1.7 * ph), cos(uTime * 0.73 + 2.3 * ph));
   vec4 mv = modelViewMatrix * vec4(pos, 1.0);
   float iz = 1.0 / max(-mv.z, 1e-4), k = uPx * projectionMatrix[1][1] * iz;
   // the cell's ellipse, projected: its two axes in pixels
@@ -8257,6 +8473,11 @@ void main() {
   float lod = mix(smoothstep(1.0, 2.6, 0.005 * k), 1.0, q);
   // red blood cells and gland bodies are not cells of the network: they stay behind (red cells carry no markers)
   vA = uA * lod * (ty >= 5 ? (1.0 - smoothstep(0.0, 0.5, uEmbed)) * (ty == 5 ? 1.0 - mk : 1.0) : 1.0);
+  // a flat ellipse is a good stand-in only while the cell's depth range is small against its distance: close and
+  // edge-on it would smear into a huge streak, so fade it there; also fade splats that grow huge, and cull very near
+  float g = (abs(e1.z) * aShape.x + abs(e2.z) * aShape.y) * iz * (1.0 - q);
+  vA *= (1.0 - smoothstep(0.08, 0.2, g)) * (1.0 - smoothstep(250.0, 400.0, vPS));
+  if (-mv.z < 3.0 * aShape.x * (1.0 - q)) vA = 0.0;
   // a small depth bias towards the camera so splats never sink into the slab
   gl_Position = projectionMatrix * vec4(mv.xyz * (1.0 - (1.0 - q) * 0.004 * iz), 1.0);
   if (vA < 0.004 || abs(det) < 0.05) gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
@@ -8282,13 +8503,16 @@ void main() {
   // ------------------------------------------- the network of neighbouring cells
   // nuclei near the zoom patch joined to their nearest neighbours (k nearest, minus edges that pass by a third cell:
   // close to a Delaunay triangulation), drawn outwards from the centre
-  const RG = 0.16, gN = typed.filter(i => (PX[i] - zp[0]) ** 2 + (PY[i] - zp[1]) ** 2 < RG * RG);
+  // (the vertices are the nuclei, as on the slide: nucleus centres in strip coordinates, mapped onto the plane)
+  const NX = new Float32Array(N), NY = new Float32Array(N);
+  for (let i = 0; i < N; i++) { const c = cells[i], p = plane(c[0] + Math.cos(c[2]) * c[7] * c[3], c[1] + Math.sin(c[2]) * c[7] * c[3]); NX[i] = p[0]; NY[i] = p[1]; }
+  const RG = 0.16, gN = typed.filter(i => (NX[i] - zp[0]) ** 2 + (NY[i] - zp[1]) ** 2 < RG * RG);
   function neighbourEdges(ids) {
     const n = ids.length, KN = 7, G = 0.028, x0 = zp[0] - RG - G, y0 = zp[1] - RG - G, gw2 = Math.ceil((2 * RG) / G) + 3;
     const head = new Int32Array(gw2 * gw2).fill(-1), next = new Int32Array(n), nb = new Int32Array(n * KN).fill(-1), nd = new Float32Array(KN);
     const X = new Float32Array(n), Y = new Float32Array(n), gx = new Int32Array(n), gy = new Int32Array(n);
     for (let a = 0; a < n; a++) {
-      X[a] = PX[ids[a]]; Y[a] = PY[ids[a]]; gx[a] = Math.floor((X[a] - x0) / G); gy[a] = Math.floor((Y[a] - y0) / G);
+      X[a] = NX[ids[a]]; Y[a] = NY[ids[a]]; gx[a] = Math.floor((X[a] - x0) / G); gy[a] = Math.floor((Y[a] - y0) / G);
       const c = gx[a] + gw2 * gy[a]; next[a] = head[c]; head[c] = a;
     }
     for (let a = 0; a < n; a++) {   // the KN nearest within G, by insertion
@@ -8326,9 +8550,11 @@ void main() {
   const edges = neighbourEdges(gN);
   const lGeo = K.linesGeo(edges.length);
   const lP = lGeo.attributes.position.array, lA = lGeo.attributes.aA.array, lT = lGeo.attributes.aT.array;
+  let eLen = 0;
   edges.forEach(([i, j], k) => {
-    const dm = Math.hypot((PX[i] + PX[j]) / 2 - zp[0], (PY[i] + PY[j]) / 2 - zp[1]) / RG;
-    for (let q = 0; q < 3; q++) { lP[6 * k + q] = aP[3 * i + q]; lP[6 * k + 3 + q] = aP[3 * j + q]; }
+    const dm = Math.hypot((NX[i] + NX[j]) / 2 - zp[0], (NY[i] + NY[j]) / 2 - zp[1]) / RG;
+    lP.set([NX[i], NY[i], BK * NX[i] * NX[i] - CZ, NX[j], NY[j], BK * NX[j] * NX[j] - CZ], 6 * k);
+    eLen += Math.hypot(NX[i] - NX[j], NY[i] - NY[j]) / edges.length;
     lA[2 * k] = lA[2 * k + 1] = 1 - smooth((dm - 0.7) / 0.3); lT[2 * k] = lT[2 * k + 1] = dm;
   });
   const lineU = { uBK: common.uBK, uTH: common.uTH, uMark: common.uMark, uLA: { value: 0 } };
@@ -8339,8 +8565,12 @@ void main() {
   mv = modelViewMatrix * vec4(position + nn * sd * (uTH * 0.5 + 0.0016), 1.0);
   gl_Position = projectionMatrix * vec4(mv.xyz * (1.0 - 0.003 / length(mv.xyz)), 1.0);
   float mk = smoothstep(0.0, 1.0, clamp((uMark * 1.4 - 0.7 * sqrt(aT * ${(RG / DM).toFixed(4)}) - 0.15) / 0.4, 0.0, 1.0));
-  vC = mix(vec3(0.1, 0.04, 0.15), vec3(0.85, 0.9, 1.0), mk);
-  vA *= uLA * mix(0.85, 0.5, mk);`,
+  // faint pulses run outwards through the network, edge by edge
+  float pu = pow(0.5 + 0.5 * cos(6.2832 * (aT * 1.6 - uTime * 0.22)), 14.0) * smoothstep(0.0, 0.15, aT);
+  vC = mix(mix(vec3(0.1, 0.04, 0.15), vec3(0.85, 0.9, 1.0), mk), mix(vec3(0.3, 0.2, 0.75), vec3(0.45, 0.95, 1.0), mk), 0.7 * pu);
+  vA *= uLA * mix(0.85, 0.5, mk) * (1.0 + 0.6 * pu * mk);
+  // lines fade before they crowd together at a distance (an edge under a few pixels long), the cells carry the look
+  vA *= smoothstep(2.0, 6.0, ${eLen.toFixed(4)} * uPx * projectionMatrix[1][1] / max(-mv.z, 1e-3));`,
   });
   const graph = new THREE.LineSegments(lGeo, lineMat);
   graph.frustumCulled = false; graph.renderOrder = 2;
@@ -8357,7 +8587,7 @@ void main() {
   }
   glowGeo.setAttribute('aDel', new THREE.BufferAttribute(del, 1));
   const glowMat = K.points(set, { uniforms: { uEm: common.uEmbed }, head: 'attribute float aDel; uniform float uEm;',
-    vertex: 'vA *= smoothstep(0.85, 1.0, (uEm - aDel) / 0.42);' });   // once its cells have arrived
+    vertex: 'vA *= smoothstep(0.85, 1.0, (uEm - aDel) / 0.42) * (0.75 + 0.25 * sin(uTime * 1.3 + aDel * 47.0));' });   // once its cells have arrived; breathing
   const glow = new THREE.Points(glowGeo, glowMat);
   glow.frustumCulled = false; glow.renderOrder = 3;
   set.group.add(glow);
@@ -8398,12 +8628,13 @@ void main() {
   const anchors = {
     mucosa: front(0.5, lyA.top0 + 0.06), submucosa: front(0.95, (lyB.b1 + lyB.b2) / 2), muscle: front(1.42, (lyC.b2 + lyC.bot) / 2),
     vessel: front(bigV.s, bigV.d), zoom: front(sZ, dZ, 0), embed: O.slice(),
-    epi: nearest(0, -0.035, -0.04), imm: nearest(1, 0.05, -0.035), str: nearest(2, -0.035, 0.045), endo: nearest(3, 0.034, 0.031 - 0.004),
-    smc: nearest(4, -0.065, -0.009),
+    // (spread over the zoom view's corners, so the labels stay apart; the labels run to the right of their anchors)
+    epi: nearest(0, -0.08, -0.043), imm: nearest(1, 0.045, -0.047), str: nearest(2, -0.085, 0.05), endo: nearest(3, 0.034, 0.027),
+    smc: nearest(4, -0.02, -0.009),
   };
   tips.forEach((tp, t) => { anchors['load' + t] = v3.add(O, v3.mul(tp, 1.08)); });
   const zn = nrm(anchors.zoom[0]), azN = Math.atan2(zn[0], zn[2]) * 180 / PI, Zm = anchors.zoom;
-  const mkA = S => prog(S.tissue_mark, 0.5, 1) * (1 - prog(S.tissue_embed, 0, 0.15));
+  const mkA = S => prog(S.tissue_mark, 0.5, 1) * (1 - prog(S.tissue_embed, 0, 0.04));
   const emA = S => prog(S.tissue_embed, 0.75, 1);
   const CLS = ['amb', '', 'grn', 'mag', 'cyn'];
 
@@ -8414,12 +8645,16 @@ void main() {
       common.uMark.value = mk; common.uEmbed.value = em;
       slabU.uMark.value = mk;
       slabU.uCells.value = 1 - prog(em, 0.05, 0.6);
-      slabU.uGhost.value = 0.55 * prog(em, 0, 0.7);
+      slabU.uGhost.value = prog(em, 0, 0.7);
+      // a see-through ghost must not hide what lies behind it
+      slabMat.depthWrite = slabU.uGhost.value < 0.02;
       lineMat.uniforms.uReveal.value = gr * 1.02;
       lineU.uLA.value = smooth(gr * 4) * (1 - prog(em, 0, 0.3));
       axU.uK.value = prog(em, 0.35, 0.85);
       const ga = prog(em, 0.5, 0.95);
       arrows.visible = ga > 0.01; arrows.scale.setScalar(Math.max(0.01, ga));
+      // hidden parts are not drawn at all
+      graph.visible = lineU.uLA.value > 0.003; glow.visible = em > 0.3; axes.visible = axU.uK.value > 0.003;
     },
     anchors,
     labels: [
@@ -8435,11 +8670,14 @@ void main() {
       zoom: [azN, 3, 0.25, ...Zm], graph: [azN + 8, 5, 0.28, ...Zm], mark: [azN - 8, 5, 0.42, ...Zm],
       embed: [-18, 14, 2.4, ...O],
     },
-    controls: [{ key: 'view', label: 'Show', options: [['section', 'Tissue'], ['graph', 'Cell network'], ['mark', 'Markers'], ['embed', 'Embedding']] }],
+    controls: [{ key: 'view', label: 'View', options: [['section', 'Tissue'], ['graph', 'Cell network'], ['mark', 'Markers'], ['embed', 'Embedding']] }],
     explore(c) {
       const v = c.view;
       return { tissue_graph: v === 'graph' || v === 'mark' ? 1 : 0, tissue_mark: v === 'mark' || v === 'embed' ? 1 : 0, tissue_embed: v === 'embed' ? 1 : 0 };
     },
+    // the stain maps live in uniforms, which K.dispose does not reach: free them here too
+    textures: [texM, texHE, texMK],
+    dispose() { K.dispose(set); texM.dispose(); texHE.dispose(); texMK.dispose(); },
     cellCount: typed.length, regionCount: NRg, types: TYPE_NAME.map((n, t) => ({ name: n, css: ['#ffd84a', '#ff5a4b', '#3ee08f', '#ff5ad9', '#4d94ff'][t] })),
   });
 };
@@ -8621,7 +8859,7 @@ function buildStory() {
       <h1 data-at="1.2">A glimpse into the future</h1>
       <p class="lede" data-at="2.4">of network medicine</p>
       <p data-at="3.6">Welcome to the Ludwig Boltzmann Institute for Network Medicine in Vienna: a tour from the parts of a protein machine to the whole body.</p>
-      <p data-at="8">Each dot is a human protein, each line a physical interaction between two of them: ${fmt(I.nodeCount)} proteins and ${fmt(I.edgeCount)} interactions in this illustrative map.</p>
+      <p data-at="8">Each dot stands for a human protein, each line for a physical interaction between two of them. This illustrative map has ${fmt(I.nodeCount)} dots and ${fmt(I.edgeCount)} lines; real maps of the human interactome hold more than 13,000 proteins and 140,000 interactions.</p>
       <p class="note" data-at="13">The lights are groups of proteins that work together: the proteasome, growth-factor signalling, cell death and DNA repair.</p>`,
     whole: `<h2 data-at="0.6">More than the sum of its parts</h2>
       <p data-at="1.2">A computer is built from a few hundred parts: chips full of transistors, resistors, screws.</p>
@@ -8630,22 +8868,22 @@ function buildStory() {
         <p data-at="16" class="amber" style="grid-area:1/1">What makes it work is how the parts are wired together.</p>
       </div>
       <p data-at="25">Parts joined by wires: a network. Life is built the same way.</p>
-      <p class="credits" data-at="27">After Todd McLellan, Things Come Apart (2013), and the Apple I circuit diagram by Steve Wozniak and Steve Jobs (1976).</p>`,
+      <p class="credits" data-at="27">After Todd McLellan, Things Come Apart (2013), and the Apple I schematic (Apple Computer Company, 1976), designed by Steve Wozniak.</p>`,
     everywhere: `<h2 data-at="0.6">Networks are everywhere</h2>
       <p data-at="1.2">Once you look for the wiring, you find it everywhere. The internet is a network of computers and cables, held together by a few giant hubs.</p>
-      <p data-at="11">Friendships form a network too. Each light is a city; most ties join nearby cities, a few cross oceans.</p>
+      <p data-at="11">Friendships form a network too. Each bright light is a city; most ties join nearby cities, a few cross oceans.</p>
       <p class="note" data-at="17">The first story in this app follows the world's airline network.</p>
-      <p class="credits" data-at="19">Friendship map after Paul Butler, Facebook (December 2010). City positions from the airports story; ties illustrative.</p>`,
+      <p class="credits" data-at="19">Friendship map after Paul Butler, Facebook (December 2010). Bright city lights from the airports story; fainter lights and ties illustrative.</p>`,
     blocks: `<h2 data-at="0.6">The building blocks of life</h2>
-      <p data-at="1.2">In 2001 the human genome was read for the first time. Our DNA holds</p>
-      <div class="facts"><div data-at="3"><b>23</b><small>chromosomes</small></div><div data-at="5.5"><b>3 billion</b><small>letters (base pairs)</small></div><div data-at="9"><b>20,000</b><small>genes</small></div></div>
-      <p data-at="16">Each gene is the recipe for a protein. In 2021 AlphaFold predicted the shape of nearly every human protein.</p>
+      <p data-at="1.2">In 2001 a first draft of the human genome was published. One copy of our DNA holds</p>
+      <div class="facts"><div data-at="3"><b>23</b><small>chromosomes</small></div><div data-at="5.5"><b>3 billion</b><small>letters (base pairs)</small></div><div data-at="9"><b>20,000</b><small>protein-coding genes</small></div></div>
+      <p data-at="16">Each of these genes is the recipe for a protein. In 2021 AlphaFold predicted the shape of nearly every human protein.</p>
       <p data-at="26">Here are 25 of them. There are about 20,000 kinds, each with its own shape and job.</p>
-      <p class="credits" data-at="30">International Human Genome Sequencing Consortium, Nature (2001); Jumper et al., Nature (2021). Shapes in the AlphaFold style, coloured by confidence; illustrative.</p>`,
+      <p class="credits" data-at="30">International Human Genome Sequencing Consortium, Nature (2001, 2004); Jumper et al. and Tunyasuvunakool et al., Nature (2021). Shapes in the AlphaFold style, coloured by confidence; illustrative.</p>`,
     complex: `<h2 data-at="0.6">Putting the pieces together</h2>
-      <p data-at="1.2">Proteins rarely work alone. These 13 build ATP synthase, the machine that makes most of the cell's energy currency, ATP.</p>
+      <p data-at="1.2">Proteins rarely work alone. Here are 13 of the proteins that build ATP synthase, the machine that makes most of the cell's energy currency, ATP.</p>
       <div style="display:grid">
-        <p data-at="9" data-out="17.5" style="grid-area:1/1">Assembled, they form a rotary motor in the inner membrane of mitochondria. Two helpers, ATPAF1 and ATPAF2, hold the head together while it is built, then leave.</p>
+        <p data-at="9" data-out="17.5" style="grid-area:1/1">Assembled, they form a rotary motor in the inner membrane of mitochondria. Two helpers, ATPAF1 and ATPAF2, keep the alpha and beta parts from clumping until they join the head, then leave.</p>
         <p data-at="18" data-out="29.5" style="grid-area:1/1">In action: protons flowing through the membrane turn the rotor. Each turn takes 8 protons and makes 3 ATP.</p>
         <p data-at="30" style="grid-area:1/1">As a network, each protein is a node and each contact a link.</p>
       </div>
@@ -8661,27 +8899,28 @@ function buildStory() {
       </ul>
       <div style="display:grid">
         <p class="note" data-at="15" data-out="27.5" style="grid-area:1/1">In yeast, proteins with many partners are about three times as likely to be essential for life as those with few.</p>
-        <p class="note" data-at="29" data-out="41.5" style="grid-area:1/1">Map which genes depend on which, and the cell's jobs fall into districts.</p>
+        <p class="note" data-at="29" data-out="41.5" style="grid-area:1/1">In yeast, map which genes depend on which, and the cell's jobs fall into districts.</p>
         <p class="note" data-at="47" style="grid-area:1/1">Diseases whose modules overlap, like multiple sclerosis and rheumatoid arthritis, tend to share symptoms and to occur together. Peroxisomal disorders lie far away.</p>
       </div>
-      <p class="credits" data-at="52">Köberlin et al., Cell (2015); Jeong et al., Nature (2001); Costanzo et al., Science (2018); Menche et al., Science (2015). Disease modules illustrative.</p>`,
+      <p class="credits" data-at="52">Köberlin et al., Cell (2015); Jeong et al., Nature (2001); Costanzo et al., Science (2016); Menche et al., Science (2015). Disease modules illustrative.</p>`,
     rare: `<h2 data-at="0.6">Understand, diagnose, treat</h2>
-      <p data-at="1.2">More than 6,000 rare diseases have a known genetic cause. Each is rare; together they affect millions.</p>
+      <p data-at="1.2">More than 6,000 rare diseases have a known genetic cause; about four in five rare diseases are genetic. Each is rare, but together they affect some 300 million people.</p>
       <p data-at="6">For every patient the same questions: which gene is broken? What does that do to the cell? How can we treat it?</p>
-      <p data-at="14" class="amber">A broken gene sits in a neighbourhood of the interactome. Drugs act on neighbourhoods too: where the two overlap, a drug may help.</p>`,
+      <p data-at="14" class="amber">A broken gene sits in a neighbourhood of the interactome. Drugs act on neighbourhoods too: where the two overlap, a drug may help.</p>
+      <p class="credits" data-at="18">Nguengang Wakap et al., European Journal of Human Genetics (2020). Disease and drug neighbourhoods illustrative.</p>`,
     iei: `<h2 data-at="0.6">Inborn errors of immunity</h2>
-      <div class="facts"><div data-at="1.2"><b>430</b><small>rare diseases</small></div><div data-at="2.4"><b>80%</b><small>of genetic origin</small></div><div data-at="3.6"><b>1 in 1,000</b><small>to 1 in 5,000 people</small></div></div>
-      <p data-at="6">Diagnosis is often missing or late, the diseases are poorly understood, and 95% of patients get treatment that is not specific to their disease.</p>
+      <div class="facts"><div data-at="1.2"><b>430</b><small>rare diseases</small></div><div data-at="2.4"><b>1 in 1,000</b><small>to 1 in 5,000 people, all together</small></div><div data-at="3.6"><b>95%</b><small>of patients get non-specific treatment</small></div></div>
+      <p data-at="6">Diagnosis is often missing or late, and the diseases are poorly understood.</p>
       <div style="display:grid">
-        <p data-at="12" data-out="20" style="grid-area:1/1">On the interactome, the disease genes fall into clusters. Each cluster is a shared mechanism: an endotype.</p>
-        <p data-at="21" style="grid-area:1/1">The ${SANKEY_N[0]} clinical categories doctors use cut across the ${SANKEY_N[1]} molecular clusters. Endotypes define diseases by their mechanism.</p>
+        <p data-at="12" data-out="20" style="grid-area:1/1">On the interactome, the genes of those that mainly cause autoimmunity or autoinflammation fall into clusters. Each cluster is a shared mechanism: an endotype.</p>
+        <p data-at="21" style="grid-area:1/1">The ${SANKEY_N[0]} clinical categories doctors use cut across their ${SANKEY_N[1]} molecular clusters. Endotypes define diseases by their mechanism.</p>
       </div>
-      <p class="credits" data-at="34">Guthrie et al., Science Advances (2023): ${SANKEY_N[2]} disease genes; flows between categories illustrative. Zhang et al. 2017; Picard et al. 2017; Bousfiha et al. 2018.</p>`,
+      <p class="credits" data-at="34">Guthrie et al., Science Advances (2023): ${SANKEY_N[2]} genes of inborn errors with mainly autoimmunity or autoinflammation; flows between categories illustrative. Zhang et al. 2017; Picard et al. 2017; Bousfiha et al. 2018.</p>`,
     treat: `<h2 data-at="0.6">Better treatments, faster diagnoses</h2>
       <p data-at="1.2">Drugs already used for a cluster sit closer to it in the network than other drugs. That points to old drugs worth repurposing, and to new targeted ones.</p>
       <p data-at="12">Diagnosis: a patient's genome holds many rare variants. Let a signal spread through the network from genes that match the patient's symptoms, and it ranks the candidate genes.</p>
-      <p data-at="24" class="amber">The broken gene comes out on top. On real patients, this informed network propagation ranked the right gene better than any single clue.</p>
-      <p class="credits" data-at="28">Guthrie et al., Science Advances (2023); Buphamalai et al., Nature Communications (2021).</p>`,
+      <p data-at="24" class="amber">Here the broken gene comes out on top. In 139 patients with rare neurological disorders, informed network propagation ranked the right gene better than any single clue.</p>
+      <p class="credits" data-at="28">Guthrie et al., Science Advances (2023); Buphamalai et al., Nature Communications (2021). Patient illustrative.</p>`,
     scales: `<h2 data-at="0.6">Networks across scales</h2>
       <p data-at="1.2">From a billionth of a metre to a whole body, from a millionth of a second to a lifetime, life is built from networks.</p>
       <p data-at="15">Proteins bind proteins, cells signal to cells, organs talk to organs, and diseases spread from person to person.</p>
@@ -8696,7 +8935,7 @@ function buildStory() {
       </ul>
       <p data-at="15">Led by Julia Guthrie, André Rendeiro and Jörg Menche, the groups work together across every scale.</p>`,
     body: `<h2 data-at="0.6">Whole-body networks</h2>
-      <p data-at="1.2">A total-body PET scan follows a tracer sugar through every organ at once. The brain and the heart take up the most.</p>
+      <p data-at="1.2">A total-body PET scan follows a tracer sugar through every organ at once. The brain takes up the most, and often the heart; the kidneys and bladder glow because the tracer leaves the body in the urine.</p>
       <p data-at="10">Organs that rise and fall together form a network of organs.</p>
       <p data-at="17" class="amber">Disease rewires it.</p>
       <p class="credits" data-at="21">Reed et al., NeuroImage (2023); Geist et al., Med (2025). Organ network illustrative.</p>`,
@@ -8840,9 +9079,9 @@ function buildStory() {
   key('sankey_hi', b - 1.5, 1); key('sankey_hi', b - 1.49, 0);
   cam(a + 5, 'int', 'iei', -15);
   cam(a + 20, 'int', 'iei', 25, 'spin');
-  // the diagram is wide: a little further back, and shifted clear of the panel
-  cam(a + 21.5, 'sankey', 'default', -12, null, [0, 0, 1.0, -0.45]);
-  cam(b - 1.5, 'sankey', 'default', 12, 'spin', [0, 0, 1.0, -0.45]);
+  // the diagram is wide: a little further back, and on wide screens shifted clear of the side panel
+  cam(a + 21.5, 'sankey', 'default', -12, null, [0, 0, 1.0, GL.wide ? -0.45 : 0]);
+  cam(b - 1.5, 'sankey', 'default', 12, 'spin', [0, 0, 1.0, GL.wide ? -0.45 : 0]);
   // Treatments and diagnosis: drugs dock on clusters, a signal spreads from the patient's genes
   a = C.treat.a; b = C.treat.b;
   ramp('int_a', a - 1, a + 1, 0, 1);
@@ -8864,7 +9103,7 @@ function buildStory() {
   ramp('scale_net', a + 15, a + 22, 0, 1);
   ramp('scale_med', a + 24, a + 29, 0, 1);
   cam(a + 1, 'scale', 'low', -20);
-  cam(a + 9, 'scale', 'high', 10);
+  cam(a + 9, 'scale', 'time', 2);
   cam(a + 15, 'scale', 'tower', 20);
   cam(b, 'scale', 'tower', 50, 'spin');
   // The institute: four research groups across the scales, and the links between them
@@ -8892,9 +9131,9 @@ function buildStory() {
   ramp('tissue_graph', a + 11, a + 16, 0, 1);
   ramp('tissue_mark', a + 18, a + 21, 0, 1);
   ramp('tissue_embed', a + 23, a + 28, 0, 1);
-  // the section is long: further back, and shifted clear of the panel
-  cam(a + 1, 'tissue', 'section', -10, null, [0, 0, 0.8, -0.2]);
-  cam(a + 5, 'tissue', 'section', 10, 'spin', [0, 0, 0.8, -0.2]);
+  // the section is long: further back, and on wide screens shifted clear of the side panel
+  cam(a + 1, 'tissue', 'section', -10, null, [0, 0, 0.8, GL.wide ? -0.2 : 0]);
+  cam(a + 5, 'tissue', 'section', 10, 'spin', [0, 0, 0.8, GL.wide ? -0.2 : 0]);
   cam(a + 10, 'tissue', 'zoom');
   cam(a + 21, 'tissue', 'zoom', 15, 'spin');
   cam(a + 25, 'tissue', 'embed', -10);
@@ -9001,6 +9240,7 @@ function labelEl(html, cls) {
   return el;
 }
 function label(set, at, html, tIn, tOut, cls) {
+  if (typeof at === 'string' && (GL.sets[set].labels || []).some(L => L.at === at)) return; // the set labels this point itself
   ST.labels.push({ kind: 'story', el: labelEl(html, cls), set, at, tIn, tOut, o: -1 });
 }
 function buildSetLabels() {
@@ -9073,9 +9313,18 @@ function updateStoryDOM(t) {
     $('#panel').scrollTop = 0;
   }
   const it = ST.items.find(x => x.ch === c);
+  let fresh = null;
   for (const e of it.els) {
     const o = Math.round(fadeVal(t, e.at, e.out, 0.6) * 100) / 100;
-    if (o !== e.o) { e.el.style.opacity = o; e.o = o; e.el.style.visibility = o > 0 ? 'visible' : 'hidden'; }
+    if (o !== e.o) {
+      if (e.o <= 0 && o > 0 && !e.el.classList.contains('credits')) fresh = e.el;
+      e.el.style.opacity = o; e.o = o; e.el.style.visibility = o > 0 ? 'visible' : 'hidden';
+    }
+  }
+  // on a short (phone) panel, scroll just far enough that a line that has just appeared is not below the fold
+  if (fresh) {
+    const p = $('#panel'), over = fresh.getBoundingClientRect().bottom - (p.getBoundingClientRect().bottom - parseFloat(getComputedStyle(p).paddingBottom));
+    if (over > 0) p.scrollTo({ top: p.scrollTop + over, behavior: 'smooth' });
   }
   if (c.key === 'title') {
     const arc = $('#titleArc');
@@ -9131,9 +9380,9 @@ const SCENES = [
   ['mac', 'Computer', 'A classic computer, its parts and its wiring: the parts list alone does not tell you how it works.'],
   ['web', 'Internet and friends', 'A map of the internet and the ties between cities around the world: networks are everywhere.'],
   ['dna', 'Genome and proteins', 'DNA, the 23 chromosomes, the shapes of proteins and how many kinds there are.'],
-  ['atp', 'ATP synthase', 'A rotary motor built from 13 kinds of protein: its parts, the machine, how it runs and its network.'],
+  ['atp', 'ATP synthase', 'A rotary motor and 13 of the proteins that build it: its parts, the machine, how it runs and its network.'],
   ['crowd', 'Rare diseases', 'More than 6,000 rare diseases have a known genetic cause. Each patient asks: which gene, what mechanism, which treatment?'],
-  ['sankey', 'Immunity', 'Inborn errors of immunity: the clinical categories doctors use, against the clusters the disease genes form in the interactome.'],
+  ['sankey', 'Immunity', 'Inborn errors of immunity that mainly cause autoimmunity or autoinflammation: the clinical categories doctors use, against the clusters their genes form in the interactome.'],
   ['scale', 'Scales and team', 'Networks from molecules to people, the four research groups of the institute, and the team.'],
   ['body', 'Whole body', 'A total-body PET scan and the network of organs, in health and in disease.'],
   ['tissue', 'Tissue', 'A stained section of stomach wall, its cells, their network of neighbours, many markers at once, and an embedding.'],
@@ -9343,7 +9592,7 @@ function renderProtein(i, q) {
   if (!pane) return;
   const C0 = INT().core;
   if (i < 0) {
-    pane.innerHTML = `${i === -2 ? `<p class="empty">No protein matches “${esc(q)}”. Try a gene symbol like TP53, or a name like insulin.</p>` : `<p class="empty">Search above, or click a protein in the interactome. The ${fmt(C0.length)} named proteins come from the network-medicine story; the others are drawn to show the size of the whole map.</p>`}
+    pane.innerHTML = `${i === -2 ? `<p class="empty">No protein matches “${esc(q)}”. Try a gene symbol like TP53, or a name like insulin.</p>` : `<p class="empty">Search above, or click a protein in the interactome. The ${fmt(C0.length)} named proteins come from the network-medicine story; the others are drawn to suggest the rest of the map.</p>`}
       <div class="quick">${QUICK.filter(s => findProtein(s) >= 0).map(s => `<button type="button" data-c="${s}">${s} ${esc(C0[findProtein(s)].name)}</button>`).join('')}</div>`;
     pane.querySelectorAll('[data-c]').forEach(b => b.addEventListener('click', () => selectProtein(findProtein(b.dataset.c))));
     return;
@@ -9473,7 +9722,7 @@ const _xX = new THREE.Vector3(1, 0, 0), _xY = new THREE.Vector3(0, 1, 0);
 function xrPlace(v) {
   const d = Math.max(v[2], 0.05);
   _xq.setFromAxisAngle(_xX, clamp(v[1], -85, 85) * D2R).multiply(_xq2.setFromAxisAngle(_xY, -v[0] * D2R));
-  XR.R = XR.baseR * clamp(Math.pow(3.6 / d, 0.85), 0.12, 3.2);
+  XR.R = XR.baseR * clamp(Math.pow(3.6 / d, 0.85), 0.12, 10);
   XR.hitR = 1.15 * d / 3.6;
   XR.target.set(v[3], v[4], v[5]);
   // a little right of centre and below eye level, leaving room for the panel on the left
@@ -9714,7 +9963,7 @@ function xrPoint(c, dt) {
   if (gp) {
     const ax = gp.axes.length >= 4 ? gp.axes[2] : 0, ay = gp.axes.length >= 4 ? gp.axes[3] : 0;
     if (APP.mode === 'explore' && !c.press && !c.grab) {
-      if (Math.abs(ay) > 0.2) { orbit.to = null; orbit.cur[2] = clamp(orbit.cur[2] * Math.exp(ay * dt * 1.5), 0.3, 40); }
+      if (Math.abs(ay) > 0.2) { orbit.to = null; orbit.cur[2] = clamp(orbit.cur[2] * Math.exp(ay * dt * 1.5), xrMinD(), 40); }
       if (Math.abs(ax) > 0.2) { orbit.to = null; orbit.cur[0] -= ax * dt * 60; }
     }
     const b4 = !!(gp.buttons[4] && gp.buttons[4].pressed);
@@ -9810,10 +10059,12 @@ function xrPickSuggestion(i) {
   if (XR.routing) xrSetPathEnd(i);
   else { $('#q').value = INT().core[i].sym; showTab('protein'); selectProtein(i); }
 }
+// how close the headset may zoom: as close as the scene's own closest view, else 0.9 (closer, the scene would surround your head)
+const xrMinD = () => Math.min(0.9, ...Object.values(GL.sets[X.scene].cam || {}).map(v => +v[2] || 9));
 function xrZoom(f) {
   const c = orbit.cur;
   orbit.from = c.slice();
-  orbit.to = c.slice(); orbit.to[2] = clamp(c[2] * f, 0.3, 40);
+  orbit.to = c.slice(); orbit.to[2] = clamp(c[2] * f, xrMinD(), 40);
   orbit.t0 = performance.now();
 }
 
@@ -10128,13 +10379,15 @@ function drawLandCard(ctx, P, s) {
 function drawStoriesPane(ctx, P, x, y, W) {
   y += textBlock(ctx, 'Choose a story', x, y, W, 46, 54, VC.ink, 700) + 6;
   y += textBlock(ctx, 'The same ideas, very different networks. Pick one; you stay in the headset view.', x, y, W, 25, 35, VC.muted) + 22;
+  // fit the cards above the Back button (the list grew to four)
+  const h = Math.min(210, Math.floor((P.h - 96 - y) / XR_STORIES.length) - 18);
   for (const { key: k, kick, title, desc, col } of XR_STORIES) {
-    const here = k === XR_HERE, h = 210;
+    const here = k === XR_HERE;
     vButton(ctx, P, 'story:' + k, x, y, W, h, '', () => { if (here) XR.stories = false; else HOST.go(k); }, { on: here, r: 14 });
     ctx.font = vfont(21, 700); ctx.fillStyle = col; ctx.fillText(kick.toUpperCase(), x + 26, y + 22);
     ctx.font = vfont(38, 700); ctx.fillStyle = VC.ink; ctx.fillText(title, x + 26, y + 54);
     if (here) { ctx.font = vfont(22); ctx.fillStyle = VC.cyan; ctx.textAlign = 'right'; ctx.fillText('You are here', x + W - 26, y + 26); ctx.textAlign = 'left'; }
-    textBlock(ctx, desc, x + 26, y + 106, W - 52, 24, 33, VC.muted, 400, 3);
+    textBlock(ctx, desc, x + 26, y + 100, W - 52, 24, 33, VC.muted, 400, 2);
     y += h + 18;
   }
   vButton(ctx, P, 'story:close', x, y + 4, 220, 60, 'Back', () => { XR.stories = false; }, { px: 25 });
@@ -10392,7 +10645,7 @@ function drawProteinPane(ctx, P, x, y, W, bottom) {
   }
   const i = X.sel;
   if (i < 0) {
-    y += textBlock(ctx, `Point at a named protein in the interactome and pull the trigger (or pinch). The ${fmt(C0.length)} named proteins come from the network-medicine story; the others show the size of the whole map.`, x, y, W, 27, 40, VC.muted) + 22;
+    y += textBlock(ctx, `Point at a named protein in the interactome and pull the trigger (or pinch). The ${fmt(C0.length)} named proteins come from the network-medicine story; the others suggest the rest of the map.`, x, y, W, 27, 40, VC.muted) + 22;
     chipFlow(ctx, P, QUICK.filter(s => findProtein(s) >= 0), x, y, W, bottom, c => `${c} ${C0[findProtein(c)].name}`, c => selectProtein(findProtein(c)), 'quick:');
     return;
   }

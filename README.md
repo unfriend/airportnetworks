@@ -88,10 +88,12 @@ silently on the same timing. Chapter timings and how to re-sync a new recording
     ten groups; the others are drawn to show the size and shape of the whole map.
   - The friendship globe puts lights at the real positions of the airports
     story's 3,214 airports; its ties are illustrative.
-  - The ATP synthase follows the textbook structure: 13 kinds of subunit, an
-    8-subunit c-ring, 8 protons and 3 ATP per turn.
+  - The ATP synthase follows the textbook structure, shown with 13 of the
+    proteins that build it (two are assembly helpers that leave): an 8-subunit
+    c-ring, 8 protons and 3 ATP per turn.
   - The immunity Sankey uses the totals of Guthrie et al. (Science Advances
-    2023): 173 genes, 9 clinical categories, 19 interactome clusters. The flows
+    2023) for inborn errors of immunity that mainly cause autoimmunity or
+    autoinflammation: 173 genes, 9 clinical categories, 19 interactome clusters. The flows
     between them are illustrative.
   - The disease modules, the patient for network propagation, the organ
     network, the stomach section and its embedding are illustrative too.
