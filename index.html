@@ -234,17 +234,17 @@ body.exploring #viewctl { display: flex; }
 #picker[hidden] { display: none; }
 body.picking #top { z-index: 9; }
 body.picking #panel, body.picking #bar { visibility: hidden; }
-#picker .wrap { max-width: 760px; width: 100%; }
+#picker .wrap { max-width: 1040px; width: 100%; }
 #picker h1 { margin: 0 0 6px; font-size: clamp(26px, 4vw, 38px); color: #f2f6fc; font-weight: 700; letter-spacing: -0.01em; }
 #picker .lede { margin: 0 0 22px; color: #a9b8cc; font-size: 15px; }
-#picker .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; }
+#picker .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(270px, 1fr)); gap: 16px; }
 #picker .card { display: block; text-align: left; font: inherit; color: #e7eef8; text-decoration: none; cursor: pointer;
   background: rgba(10, 19, 34, 0.88); border: 1px solid rgba(140, 170, 210, 0.25); border-radius: 10px; padding: 20px 20px 18px;
   transition: border-color 0.15s, transform 0.15s; }
 #picker .card:hover, #picker .card:focus-visible { border-color: #46d9ff; transform: translateY(-2px); outline: none; }
 #picker .card b { display: block; font-size: 21px; margin-bottom: 2px; }
 #picker .card .k { display: block; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 10px; }
-#picker .card.air .k { color: #46d9ff; } #picker .card.ppi .k { color: #ff5fd2; }
+#picker .card.air .k { color: #46d9ff; } #picker .card.ppi .k { color: #ff5fd2; } #picker .card.cell .k { color: #3ee08f; }
 #picker .card span.d { display: block; color: #a9b8cc; font-size: 14px; line-height: 1.45; }
 #picker .card em { display: block; margin-top: 12px; font-style: normal; font-size: 13px; color: #7f91a8; }
 #nogl { display: none; position: fixed; inset: 0; place-items: center; padding: 30px; text-align: center; background: var(--scene); color: #e7eef8; z-index: 11; }
@@ -283,7 +283,7 @@ body.xr #labels, body.xr #tip { display: none; }
 <div id="xrmsg" role="status"></div>
 <header id="top">
   <div class="brand">Network theory<span>told with the world's airports</span></div>
-  <a class="btn" id="btnOther" href="proteins.html" title="Switch to the protein story">Proteins</a>
+  <button class="btn" id="btnOther" type="button" title="Choose another story">Stories</button>
   <div class="spacer"></div>
   <button class="btn" id="btnSound" type="button" hidden aria-pressed="false">Sound on</button>
   <button class="btn" id="btnInstall" type="button" hidden title="Install as an app">Install</button>
@@ -303,11 +303,12 @@ body.xr #labels, body.xr #tip { display: none; }
 </footer>
 <div id="picker" hidden role="dialog" aria-labelledby="pickTitle">
   <div class="wrap">
-    <h1 id="pickTitle">Networks, in two stories</h1>
-    <p class="lede">The same ideas, two very different networks. Each story takes about four minutes, then the network is yours to explore.</p>
+    <h1 id="pickTitle">Networks, in three stories</h1>
+    <p class="lede">The same ideas, very different networks. Each story takes about four minutes, then the network is yours to explore.</p>
     <div class="cards">
       <button class="card air" id="pickAir" type="button"><span class="k">Network theory</span><b>Airports</b><span class="d">3,214 airports and 18,858 routes. Hubs, communities, shortest paths and what happens when airports close.</span><em>Story 3:51 · globe</em></button>
       <a class="card ppi" id="pickPPI" href="proteins.html"><span class="k">Network medicine</span><b>Proteins</b><span class="d">254 proteins inside a human cell. Essential hubs, disease modules, drug targets and knockouts.</span><em>Story 3:32 · cell</em></a>
+      <a class="card cell" id="pickCell" href="spatial.html"><span class="k">Spatial interactome</span><b>Cell map</b><span class="d">249 proteins in the compartments of a model cell. Where proteins meet, proteins that move, signals that cross the cell, and proteins in the wrong place.</span><em>Story 3:40 · cell model</em></a>
     </div>
   </div>
 </div>
@@ -3106,16 +3107,24 @@ function init() {
     if (hp.get('q')) { $('#q').value = hp.get('q'); runQuery(hp.get('q')); }
     if (hp.get('nofly')) { orbit.cur = orbit.to || orbit.cur; orbit.to = null; }
   }
-  // start screen (airport page only): the story waits until a story is picked
+  // start screen (airport page only): the story waits until a story is picked;
+  // the Stories button brings it back
   const pk = $('#picker');
-  if (pk && !hp.has('airports') && !hp.has('t') && !hp.has('explore')) {
-    pk.hidden = false; document.body.classList.add('picking'); APP.playing = false;
+  if (pk) {
     $('#pickAir').addEventListener('click', () => { closePicker(); APP.enterStory(0); APP.playing = true; audioGesture(); });
-    $('#top').addEventListener('click', ev => { if (ev.target.closest('button')) closePicker(); });
-    setTimeout(() => $('#pickAir').focus(), 200);
+    $('#btnOther').addEventListener('click', openPicker);
+    $('#top').addEventListener('click', ev => { if (ev.target.closest('button') && !ev.target.closest('#btnOther')) closePicker(); });
+    document.addEventListener('keydown', ev => { if (ev.key === 'Escape') closePicker(); });
+    if (!hp.has('airports') && !hp.has('t') && !hp.has('explore')) openPicker();
   }
   GL.renderer.setAnimationLoop(frame); // also drives the headset's frame loop
   setTimeout(() => $('#loading').classList.add('gone'), 120);
+}
+function openPicker() {
+  const pk = $('#picker');
+  if (!pk || !pk.hidden) return;
+  pk.hidden = false; document.body.classList.add('picking'); APP.playing = false;
+  setTimeout(() => $('#pickAir').focus(), 200);
 }
 function closePicker() {
   const pk = $('#picker');

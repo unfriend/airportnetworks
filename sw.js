@@ -1,10 +1,10 @@
 // Offline support: the app shell is cached on install, so the installed app
 // opens without a network connection. Bump VERSION when you change any file.
-const VERSION = 'airport-networks-v13';
-const SHELL = ['./', './index.html', './proteins.html', './three.min.js', './manifest.webmanifest',
+const VERSION = 'airport-networks-v14';
+const SHELL = ['./', './index.html', './proteins.html', './spatial.html', './three.min.js', './manifest.webmanifest',
   './icons/icon-192.png', './icons/icon-512.png', './icons/maskable-512.png', './icons/apple-touch-icon.png', './icons/favicon-32.png'];
 
-const AUDIO = ['./audio/narration.mp3', './audio/narration-proteins.mp3'];
+const AUDIO = ['./audio/narration.mp3', './audio/narration-proteins.mp3', './audio/narration-spatial.mp3'];
 // media elements ask for byte ranges; answer them from the cached file
 async function rangeResponse(req, cached) {
   const buf = await cached.arrayBuffer(), size = buf.byteLength;
@@ -35,7 +35,7 @@ self.addEventListener('fetch', e => {
   // pages: network first (to pick up updates), cached copy when offline
   if (req.mode === 'navigate') {
     // each page is cached under its own name (the bare folder URL is index.html)
-    const page = /\/proteins\.html$/.test(url.pathname) ? './proteins.html' : './index.html';
+    const m = /\/(proteins|spatial)\.html$/.exec(url.pathname), page = m ? './' + m[1] + '.html' : './index.html';
     e.respondWith(fetch(req).then(res => {
       if (res.ok) { const copy = res.clone(); caches.open(VERSION).then(c => c.put(page, copy)); }
       return res;
@@ -51,7 +51,7 @@ self.addEventListener('fetch', e => {
     return;
   }
   // the narration: from the cache when it is there (as byte ranges), else the network
-  const narr = url.origin === self.location.origin && /\/audio\/(narration(-proteins)?\.mp3)$/.exec(url.pathname);
+  const narr = url.origin === self.location.origin && /\/audio\/(narration(-proteins|-spatial)?\.mp3)$/.exec(url.pathname);
   if (narr) {
     e.respondWith(caches.match('./audio/' + narr[1]).then(hit => {
       if (!hit) return fetch(req);
