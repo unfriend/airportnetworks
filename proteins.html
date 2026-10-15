@@ -2259,6 +2259,7 @@ async function xrStart(mode) {
   }
 }
 function xrEnterScene() {
+  XR.stories = false;
   XR.on = true; XR.needRecenter = true; XR.fov = false; XR.tipI = -1;
   document.body.classList.add('xr');
   GL.rig.position.set(0, 0, 0); GL.rig.quaternion.identity();
@@ -2340,6 +2341,12 @@ function xrSetup() {
     if (/OculusBrowser|Quest|Pico|Wolvic/i.test(navigator.userAgent)) xrMsg('Open this page over https:// to view it in VR.');
     return;
   }
+  // arriving from another story picked in the headset: the browser lets this page take the session over
+  navigator.xr.addEventListener('sessiongranted', () => {
+    let mode = 'immersive-vr';
+    try { mode = sessionStorage.getItem('xrResume') || mode; } catch (e) { /* storage blocked */ }
+    xrStart(mode);
+  });
   navigator.xr.isSessionSupported('immersive-vr').then(vr => {
     if (vr) $('#btnVR').hidden = false;
     // headsets support both; phones only AR, which this layout is not made for
@@ -2443,6 +2450,7 @@ function panelTick(P, now) {
 
 // ------------------------------------------------------------ main panel --
 function sigMain() {
+  if (XR.stories) return 'stories' + audioLabel();
   if (APP.mode === 'story') {
     const it = ST.items.find(x => x.ch === curCh);
     let s = 's' + audioLabel() + (curCh ? curCh.key : '');
@@ -2458,18 +2466,46 @@ function sigMain() {
   return ['x', audioLabel(), X.tab, X.sel, X.path ? X.path.join(',') : '', X.pathErr || '', X.color, X.pillars, X.iso, X.closeMode,
     X.closeK, [...X.manual].join(','), X.hubsBy, XR.kbd.open, XR.kbd.q, XR.pf, XR.pt, XR.pick, X.curve ? 1 : 0].join('|');
 }
+const XR_HERE = 'ppi';
+// the three stories, for the Stories menu in the headset
+const XR_STORIES = [
+  ['air', 'index.html#airports', 'Network theory', 'Airports', '3,214 airports and 18,858 routes. Hubs, communities, shortest paths and what happens when airports close.', '#46d9ff'],
+  ['ppi', 'proteins.html', 'Network medicine', 'Proteins', '254 proteins inside a human cell. Essential hubs, disease modules, drug targets and knockouts.', '#ff5fd2'],
+  ['cell', 'spatial.html', 'Spatial interactome', 'Cell map', '249 proteins in the compartments of a model cell. Proteins that move, signals that cross the cell, proteins in the wrong place.', '#3ee08f'],
+];
+// another story: the page changes, and the headset browser hands the session to the new page
+function xrGoTo(href) {
+  try { sessionStorage.setItem('xrResume', XR.mode || 'immersive-vr'); } catch (e) { /* storage blocked */ }
+  location.href = href;
+}
+function drawStoriesPane(ctx, P, x, y, W) {
+  y += textBlock(ctx, 'Choose a story', x, y, W, 46, 54, VC.ink, 700) + 6;
+  y += textBlock(ctx, 'The same ideas, very different networks. Picking another story loads its page; on Meta Quest you stay in the headset view.', x, y, W, 25, 35, VC.muted) + 22;
+  for (const [k, href, kick, title, desc, col] of XR_STORIES) {
+    const here = k === XR_HERE, h = 210;
+    vButton(ctx, P, 'story:' + k, x, y, W, h, '', () => { if (here) XR.stories = false; else xrGoTo(href); }, { on: here, r: 14 });
+    ctx.font = vfont(21, 700); ctx.fillStyle = col; ctx.fillText(kick.toUpperCase(), x + 26, y + 22);
+    ctx.font = vfont(38, 700); ctx.fillStyle = VC.ink; ctx.fillText(title, x + 26, y + 54);
+    if (here) { ctx.font = vfont(22); ctx.fillStyle = VC.cyan; ctx.textAlign = 'right'; ctx.fillText('You are here', x + W - 26, y + 26); ctx.textAlign = 'left'; }
+    textBlock(ctx, desc, x + 26, y + 106, W - 52, 24, 33, VC.muted, 400, 3);
+    y += h + 18;
+  }
+  vButton(ctx, P, 'story:close', x, y + 4, 220, 60, 'Back', () => { XR.stories = false; }, { px: 25 });
+}
 function drawMain(ctx, P) {
   const story = APP.mode === 'story';
-  ctx.font = vfont(30, 700); ctx.fillStyle = VC.ink;
-  ctx.fillText('Network medicine', 40, 36);
   let x = P.w - 36;
   const hb = (id, label, fn, w, o) => { x -= w; vButton(ctx, P, id, x, 26, w, 54, label, fn, o); x -= 12; };
   hb('exit', 'Exit', () => { if (XR.session) XR.session.end(); }, 96);
-  if (AUD.state !== 'none') hb('sound', audioLabel(), () => audioToggle(), 210, { on: AUD.ok && !AUD.muted && AUD.ctx.state === 'running' });
-  hb('recenter', 'Recenter', () => { XR.needRecenter = true; }, 150);
-  hb('mode', story ? 'Explore now' : 'Replay story', () => (story ? APP.enterExplore() : APP.enterStory(0)), 196, { primary: story });
+  if (AUD.state !== 'none') hb('sound', audioLabel(), () => audioToggle(), 180, { on: AUD.ok && !AUD.muted && AUD.ctx.state === 'running', px: 23 });
+  hb('recenter', 'Recenter', () => { XR.needRecenter = true; }, 140);
+  hb('stories', 'Stories', () => { XR.stories = !XR.stories; if (XR.stories) { XR.kbd.open = false; APP.playing = false; } }, 130, { on: XR.stories });
+  if (!XR.stories) hb('mode', story ? 'Explore now' : 'Replay story', () => (story ? APP.enterExplore() : APP.enterStory(0)), 186, { primary: story });
+  ctx.font = vfont(30, 700); ctx.fillStyle = VC.ink;
+  ctx.fillText(fitText(ctx, 'Network medicine', x - 40), 40, 36);
   ctx.fillStyle = VC.line; ctx.fillRect(36, 104, P.w - 72, 2);
-  if (story) {
+  if (XR.stories) drawStoriesPane(ctx, P, 44, 136, P.w - 88);
+  else if (story) {
     drawStoryPane(ctx, P, 44, 136, P.w - 88);
     ctx.fillStyle = VC.line; ctx.fillRect(36, P.h - 96, P.w - 72, 2);
     textBlock(ctx, 'Trigger (or pinch): use buttons. Grip: move the cell or this panel. A or X: play and pause.', 44, P.h - 74, P.w - 88, 22, 30, VC.faint);
