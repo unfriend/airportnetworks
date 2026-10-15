@@ -68,6 +68,12 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
   that story directly; no hash or `#stories` lands on the Stories screen.
 - The shell talks to stories with window events `storypause` and
   `storyrestart`.
+- Repeat (`HOST.repeat`: `off`, `all` or `one`; buttons on the Stories screen,
+  page and headset, via `HOST.toggleRepeat`): a story that reaches its end
+  calls `HOST.ended()`; when that returns true the story only pauses, and after
+  a moment the shell starts the next story (`all`, wrapping round) or sends
+  `storyrestart` (`one`); otherwise the story opens explore mode. Remembered in
+  `localStorage`; `#repeat=all` or `#repeat=one` in a link sets it.
 - Sound belongs to the shell (`HOST.audio` in `index.html`): one Web Audio
   context for the life of the page, unlocked by the first tap or click (Enter
   VR is one) and never closed, plus the Sound button. Headset browsers (Meta
@@ -195,7 +201,8 @@ Useful URL hashes: `#spatial&t=95` (open at a story second, paused),
 `#proteins&explore&q=TP53` (explore mode with a search),
 `#spatial&explore&tab=moves&move=nfkb&now=1`, `#lbi&t=140` (the tour at a
 second), `#lbi&explore&scene=atp&view=network&now=1` (a scene with its controls),
-`#lbi&explore&route=TP53,BRCA1`. In the console,
+`#lbi&explore&route=TP53,BRCA1`, `#airports&repeat=all` (a kiosk that plays
+every story in turn). In the console,
 `HOST.cur.peek('expression')` evaluates inside the current story
 (e.g. `HOST.cur.peek('NET.P')`).
 

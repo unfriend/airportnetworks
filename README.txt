@@ -14,6 +14,11 @@ The start screen is the landing page (no hash, or #stories). The address
 follows you: #stories on the Stories screen (page or headset), #airports,
 #proteins, #spatial or #lbi in a story, so links can be shared and open that story
 directly (proteins.html and spatial.html forward there). Taking the headset off and on returns to the Stories menu.
+Repeat all and Repeat one on the Stories screen (page and headset) keep the app
+playing for an exhibition: Repeat all plays the stories one after another
+without end, Repeat one plays the story you pick again and again. Press the lit
+button to turn it off. It is remembered on the device; a link ending in
+#airports&repeat=all (or repeat=one) sets it.
 
 Upload the whole folder to any HTTPS web server (GitHub Pages, Netlify,
 your university web space ...). Installing and VR both need https://.

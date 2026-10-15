@@ -18,6 +18,12 @@ Meta Quest Browser).
 
 - The **Stories screen** is the landing page. Pick a story; the **Stories**
   button in the top bar brings the screen back at any time.
+- **Repeat all** and **Repeat one** on the Stories screen (page and headset)
+  keep it playing, for an exhibition or a kiosk: with *Repeat all* each story
+  is followed by the next, and the last by the first; with *Repeat one* the
+  story you pick starts again each time it ends. Press the lit button to turn
+  it off. The choice is remembered on the device, and a link such as
+  `index.html#airports&repeat=all` sets it.
 - Each story plays by itself. Pause, scrub the timeline or jump between
   chapters, or press **Explore now** to search, trace shortest paths and try
   the story's tools (closing airports, knocking out proteins, starting

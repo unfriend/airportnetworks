@@ -55,6 +55,26 @@ for (const key of ['airports', 'proteins', 'spatial', 'lbi']) {
   }));
   await page.click('#btnOther');
 }
+// Repeat on the Stories screen: one story again and again, or all of them in turn (the last leads to the first)
+await step('Repeat one and Repeat all', async () => {
+  const ready = k => page.waitForFunction(k => HOST.curKey === k && !HOST.picking && HOST.cur && HOST.cur.peek('typeof ST !== "undefined" && ST.items.length > 0'), k, { timeout: 30000 });
+  const toEnd = () => page.evaluate(() => HOST.cur.peek('(APP.seek(T_END - 0.5), APP.playing = true)'));
+  const playsFromTop = (k, what) => page.waitForFunction(k => HOST.curKey === k && HOST.cur.peek('APP.mode === "story" && APP.playing && APP.t < 10'), k, { timeout: 30000 })
+    .catch(() => errors.push(what));
+  await page.click('#picker [data-repeat="one"]');
+  await page.click('#picker [data-story="spatial"]');
+  await ready('spatial'); await toEnd();
+  await playsFromTop('spatial', 'Repeat one did not start the story again');
+  await page.click('#btnOther');
+  await page.click('#picker [data-repeat="all"]');
+  if (await page.getAttribute('#picker [data-repeat="one"]', 'aria-pressed') !== 'false') errors.push('Repeat one still lit');
+  await page.click('#picker [data-story="lbi"]');
+  await ready('lbi'); await toEnd();
+  await playsFromTop('airports', 'Repeat all did not go from the last story to the first');
+  await page.click('#btnOther');
+  await page.click('#picker [data-repeat="all"]');
+  if (await page.evaluate(() => HOST.repeat) !== 'off') errors.push('pressing the lit Repeat button did not turn it off');
+});
 await step('old links forward to the app', async () => {
   await page.goto(base + 'spatial.html#t=20');
   await page.waitForFunction(() => typeof HOST !== 'undefined' && HOST.curKey === 'spatial', null, { timeout: 30000 });

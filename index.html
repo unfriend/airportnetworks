@@ -293,6 +293,12 @@ body.picking #panel, body.picking #bar { visibility: hidden; }
 #picker .card span.d { display: block; color: #a9b8cc; font-size: 14px; line-height: 1.45; }
 #picker .card em { display: block; margin-top: 12px; font-style: normal; font-size: 13px; color: #7f91a8; }
 #picker .card.here { border-color: rgba(70, 217, 255, 0.55); }
+#picker .repeat { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 12px; margin-top: 18px; }
+#picker .rep { font: inherit; font-size: 14px; color: #e7eef8; background: rgba(10, 19, 34, 0.88); cursor: pointer;
+  border: 1px solid rgba(140, 170, 210, 0.3); border-radius: 999px; padding: 8px 16px; transition: border-color 0.15s, background 0.15s; }
+#picker .rep:hover, #picker .rep:focus-visible { border-color: #46d9ff; outline: none; }
+#picker .rep[aria-pressed="true"] { border-color: #46d9ff; background: rgba(70, 217, 255, 0.18); color: #fff; font-weight: 700; }
+#picker .repeat .hint { color: #7f91a8; font-size: 13px; line-height: 1.4; flex: 1 1 260px; }
 #nogl { display: none; position: fixed; inset: 0; place-items: center; padding: 30px; text-align: center; background: var(--scene); color: #e7eef8; z-index: 11; }
 
 .btn[hidden] { display: none; }
@@ -354,6 +360,11 @@ body.xr #labels, body.xr #tip { display: none; }
     <h1 id="pickTitle">Networks, in four stories</h1>
     <p class="lede">The same ideas, very different networks. Each story takes a few minutes, then it is yours to explore.</p>
     <div class="cards"></div>
+    <div class="repeat" role="group" aria-label="Repeat">
+      <button class="rep" type="button" data-repeat="all" aria-pressed="false">Repeat all</button>
+      <button class="rep" type="button" data-repeat="one" aria-pressed="false">Repeat one</button>
+      <span class="hint"></span>
+    </div>
   </div>
 </div>
 <div id="loading">Loading</div>
@@ -636,6 +647,36 @@ HOST.chrome = function (stories) {
   document.title = app ? 'Networks, in four stories' : meta.page;
   document.querySelector('#top .brand').innerHTML = app ? 'Networks<span>in four stories</span>' : `${meta.brand}<span>${meta.sub}</span>`;
 };
+// Repeat (Stories screen, page and headset): 'all' starts the next story when one ends (after
+// the last, the first), 'one' starts the same story again; 'off' opens explore mode as usual.
+// Remembered on this device, so a kiosk stays set up; #repeat=all or #repeat=one in a link sets it.
+HOST.repeat = 'off';
+try { HOST.repeat = localStorage.getItem('storyRepeat') || 'off'; } catch (e) { /* storage blocked */ }
+HOST.setRepeat = function (mode) {
+  this.repeat = /^(all|one)$/.test(mode) ? mode : 'off';
+  try { localStorage.setItem('storyRepeat', this.repeat); } catch (e) { /* storage blocked */ }
+  document.querySelectorAll('#picker [data-repeat]').forEach(b => b.setAttribute('aria-pressed', b.dataset.repeat === this.repeat ? 'true' : 'false'));
+  document.querySelector('#picker .repeat .hint').textContent = {
+    off: 'Repeat all plays the stories one after another, without end. Repeat one plays the story you pick again and again.',
+    all: 'Each story is followed by the next, and the last by the first.',
+    one: 'The story you pick starts again each time it ends.',
+  }[this.repeat];
+};
+// the buttons: pressing the lit one turns Repeat off
+HOST.toggleRepeat = function (mode) { this.setRepeat(this.repeat === mode ? 'off' : mode); };
+// a story calls this when it reaches its end; true means Repeat takes over (after a moment on
+// the last picture) and the story should just stop, false that it opens explore mode as usual
+HOST.ended = function () {
+  if (this.repeat === 'off' || this.picking || !this.cur) return false;
+  const cur = this.cur, i = this.list.findIndex(s => s.key === this.curKey);
+  const next = this.repeat === 'all' ? this.list[(i + 1) % this.list.length].key : this.curKey;
+  setTimeout(() => {
+    if (this.cur !== cur || this.repeat === 'off' || this.picking) return; // changed meanwhile
+    if (next === this.curKey) window.dispatchEvent(new Event('storyrestart'));
+    else this.start(next);
+  }, 1500);
+  return true;
+};
 HOST.openPicker = function () {
   const pk = document.getElementById('picker');
   if (!pk.hidden) return;
@@ -656,6 +697,8 @@ HOST.closePicker = function () {
   pk.querySelector('.cards').innerHTML = HOST.list.map(s => `<button class="card" type="button" data-story="${s.key}">
     <span class="k" style="color:${s.col}">${s.kick}</span><b>${s.title}</b><span class="d">${s.desc}</span><em>${s.len}</em></button>`).join('');
   pk.addEventListener('click', ev => {
+    const r = ev.target.closest('[data-repeat]');
+    if (r) { HOST.toggleRepeat(r.dataset.repeat); return; }
     const c = ev.target.closest('[data-story]');
     if (!c) return;
     if (c.dataset.story === HOST.curKey) { HOST.closePicker(); window.dispatchEvent(new Event('storyrestart')); } else HOST.start(c.dataset.story);
@@ -669,6 +712,7 @@ HOST.closePicker = function () {
   document.addEventListener('keydown', ev => { if (ev.key === 'Escape') HOST.closePicker(); });
   // which story to load first: #airports, #proteins or #spatial (old links to proteins.html and spatial.html forward here)
   const hp = new URLSearchParams(location.hash.slice(1));
+  HOST.setRepeat(hp.get('repeat') || HOST.repeat);
   const key = HOST.list.map(s => s.key).find(k => hp.has(k)) || 'airports';
   // the Stories screen is the landing page (no address, or #stories); a shared story link opens that story
   HOST.start(key, true).then(() => {

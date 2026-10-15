@@ -94,7 +94,8 @@ function frame(now, xrFrame) {
   if (APP.mode === 'story' && APP.playing) {
     APP.t += dt;
     audioFollow();
-    if (APP.t >= T_END) { APP.t = T_END; APP.enterExplore(); }
+    // the end: Repeat (shell) starts this story or the next one again, else explore mode opens
+    if (APP.t >= T_END) { APP.t = T_END; if (HOST.ended()) APP.playing = false; else APP.enterExplore(); }
   }
   audioSync();
   const ts = storyT(APP.t); // original story time for this point in the narration

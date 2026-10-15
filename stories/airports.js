@@ -2182,7 +2182,7 @@ function xrLandingSetup() {
   XR.land = [];
   XR.landGroup = new THREE.Group();
   GL.rig.add(XR.landGroup);
-  const head = makePanel(1400, 300, 1.02, drawLandHead, () => 'h' + XR.inStory + audioLabel());
+  const head = makePanel(1400, 300, 1.02, drawLandHead, () => 'h' + XR.inStory + audioLabel() + HOST.repeat);
   head.mesh.position.set(0, 0.36, -1.12);
   XR.landGroup.add(head.mesh); XR.land.push(head);
   HOST.list.forEach((s, k) => {
@@ -2210,6 +2210,9 @@ function drawLandHead(ctx, P) {
   hb('exit', 'Exit', () => { if (XR.session) XR.session.end(); }, 110, { px: 27 });
   hb('recenter', 'Recenter', () => { XR.needRecenter = true; }, 170, { px: 27 });
   if (XR.inStory) vButton(ctx, P, 'back', P.w - 44 - 294, 128, 294, 64, 'Back to the story', xrLandingClose, { px: 26 });
+  // Repeat: all stories one after another, or the one you pick again and again (pressing a lit one turns it off)
+  vButton(ctx, P, 'rep:all', P.w - 44 - 414, 212, 200, 64, 'Repeat all', () => HOST.toggleRepeat('all'), { on: HOST.repeat === 'all', px: 26 });
+  vButton(ctx, P, 'rep:one', P.w - 44 - 200, 212, 200, 64, 'Repeat one', () => HOST.toggleRepeat('one'), { on: HOST.repeat === 'one', px: 26 });
 }
 function drawLandCard(ctx, P, s) {
   const here = s.key === XR_HERE, id = 'card', hov = P.hover === id;
@@ -2764,7 +2767,8 @@ function frame(now, xrFrame) {
   if (APP.mode === 'story' && APP.playing) {
     APP.t += dt;
     audioFollow();
-    if (APP.t >= T_END) { APP.t = T_END; APP.enterExplore(); }
+    // the end: Repeat (shell) starts this story or the next one again, else explore mode opens
+    if (APP.t >= T_END) { APP.t = T_END; if (HOST.ended()) APP.playing = false; else APP.enterExplore(); }
   }
   audioSync();
   const ts = storyT(APP.t); // original story time for this point in the narration
