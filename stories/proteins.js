@@ -1549,7 +1549,7 @@ function xrPlaceGlobe(p) {
   _xq.setFromRotationMatrix(_xm.makeBasis(_xa, _xb, _xc).transpose());
   XR.R = XR.baseR * clamp(Math.pow(4.6 / (d + 1), 0.8), 0.72, 2.0);
   // a little right of centre and below eye level, leaving room for the panel on the left
-  const dc = Math.max(1.2, XR.R + 0.62), cx = 0.12, cy = -0.2;
+  const dc = Math.max(1.2, XR.R + 0.62), cx = 0.3, cy = -0.2;
   // plus wherever you have moved it with the grip; the story's focus side keeps facing you
   const gx = cx + XR.globeOff.x, gy = cy + XR.globeOff.y, gz = -dc + XR.globeOff.z;
   XR.globeBase.set(cx, cy, -dc);
@@ -2007,6 +2007,14 @@ function xrAdopt() {
   XR.session.addEventListener('visibilitychange', xrVisibility);
   XR.ctrls.forEach((c, i) => { const s = HOST.inputs[i]; if (s) { c.src = s; c.ray.visible = s.targetRayMode !== 'screen'; } });
   xrEnterScene();
+  // keep the cell and the panel where they were in the story before
+  const p = HOST.xrPose;
+  if (p) {
+    XR.needRecenter = false;
+    GL.rig.position.copy(p.rp); GL.rig.quaternion.copy(p.rq);
+    XR.globeOff.copy(p.off);
+    XR.panelGroup.position.copy(p.pp); XR.panelGroup.rotation.set(0, p.pr, 0);
+  }
 }
 function xrEnded() {
   if (!XR.on) return;
@@ -2030,7 +2038,7 @@ function xrEnded() {
 function xrSetup() {
   XR.raycaster = new THREE.Raycaster();
   // panel 0.62 m wide, about 40 degrees to the left and facing you
-  const mw = 0.62, px = -0.675, py = 0.04, pz = -0.8, yaw = Math.atan2(-px, -pz);
+  const mw = 0.62, px = -0.56, py = 0.04, pz = -0.86, yaw = Math.atan2(-px, -pz);
   XR.main = makePanel(1024, 1200, mw, drawMain, sigMain);
   XR.foot = makePanel(1024, 176, mw, drawFoot, sigFoot);
   XR.panelGroup = new THREE.Group();
@@ -2857,6 +2865,8 @@ setTimeout(init, 40);
 // what the app shell needs to change story
 return {
   inputs: () => XR.ctrls.map(c => c.src),
+  xrPose: () => (XR.on ? { rp: GL.rig.position.clone(), rq: GL.rig.quaternion.clone(), off: XR.globeOff.clone(),
+    pp: XR.panelGroup.position.clone(), pr: XR.panelGroup.rotation.y } : null),
   // for tests and the browser console: HOST.cur.peek('NET.N')
   peek: src => eval(src),
   dispose() {

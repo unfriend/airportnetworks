@@ -390,6 +390,7 @@ HOST.teardown = function () {
   const r = this.renderer;
   if (this.cur) {
     try { this.inputs = this.cur.inputs(); } catch (e) { this.inputs = []; }
+    try { this.xrPose = this.cur.xrPose(); } catch (e) { this.xrPose = null; }
     try { this.cur.dispose(); } catch (e) { console.warn(e); }
   }
   for (const [t, type, fn, opts] of HOST_REC.splice(0)) t.removeEventListener(type, fn, opts);
