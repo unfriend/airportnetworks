@@ -1,7 +1,8 @@
 // Update test: what a returning visitor gets after a new version is deployed. Installs an
 // older version (service worker and offline cache), then serves this one the way GitHub Pages
 // does (browsers may keep files for ten minutes) and checks that the page and its story files
-// are from the same, new version within the first visit, on the next visit and offline.
+// are from the same, new version within the first visit, on the next visit and offline, and
+// that the worker answers byte ranges of the cached narration.
 // Usage: git worktree add /tmp/old <an earlier commit>
 //        node tools/update.mjs /tmp/old [.]
 // PLAYWRIGHT_MODULE and CHROMIUM_PATH as in smoke.mjs. Uses port 8125.
@@ -86,6 +87,12 @@ for (const visit of ['first visit after the update', 'next visit']) {
   const v = await versions();
   report(visit + ': page and stories are new', v && v.shell && v.story, JSON.stringify(v));
 }
+// the worker answers byte ranges from the cached narration
+const ranges = await page.evaluate(async () => {
+  const get = async h => { const r = await fetch('audio/narration.mp3', { headers: { Range: h } }); return [r.status, (await r.arrayBuffer()).byteLength]; };
+  return { first: await get('bytes=0-99'), last: await get('bytes=-100'), beyond: await get('bytes=999999999-') };
+});
+report('narration byte ranges from the cache', ranges.first.join() === '206,100' && ranges.last.join() === '206,100' && ranges.beyond[0] === 416, JSON.stringify(ranges));
 await stop(srv);
 await page.reload().catch(() => {});
 const v = await versions();

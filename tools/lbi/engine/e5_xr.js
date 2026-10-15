@@ -453,7 +453,7 @@ function xrFreshStart() {
   XR.kbd.open = false; XR.kbd.q = '';
   for (const c of XR.ctrls) { c.press = null; c.grab = null; c.wantPress = false; }
   APP.enterStory(0); APP.playing = false; audioSync();
-  XR.stories = true; XR.inStory = false; // a new wearer lands in the Stories screen
+  XR.stories = true; XR.inStory = false; XR.soundCheck = false; // a new wearer lands in the Stories screen
   XR.needRecenter = true; // uses the new wearer's head position and direction on the next frame
   lastNow = 0;
 }
@@ -491,6 +491,7 @@ function xrEnded() {
   GL.world.visible = true;
   for (const P of XR.land || []) P.mesh.visible = false;
   if (XR.snd) XR.snd.mesh.visible = false;
+  XR.soundCheck = false;
   // left the headset from the Stories screen: back to the Stories screen on the page
   if (XR.stories) { XR.stories = false; HOST.openPicker(); }
   applyTheme();

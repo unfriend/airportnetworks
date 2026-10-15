@@ -130,7 +130,7 @@ function xrLandingSetup() {
   });
   for (const P of XR.land) XR.panels.push(P);
   // Sound check (opened from the header), in the place of the story cards
-  XR.snd = makePanel(1400, 860, 1.02, drawSoundCheck, () => 'snd' + Math.floor(performance.now() / 500));
+  XR.snd = makePanel(1400, 860, 1.02, drawSoundCheck, () => (XR.snd.mesh.visible ? 'snd' + Math.floor(performance.now() / 500) : 'off'));
   XR.snd.mesh.position.set(0, -0.17, -1.1);
   XR.landGroup.add(XR.snd.mesh); XR.panels.push(XR.snd);
   XR.panelMeshes = XR.panels.map(P => P.mesh);

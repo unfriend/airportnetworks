@@ -92,19 +92,29 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
   - Two engines, unlocked by the first tap or click (Enter VR is one) and kept
     for the life of the page: Web Audio (first choice: one `AudioContext`,
     `latencyHint: 'playback'`, never closed) and one `<audio>` element
-    (fallback: streams the file, no decoding, no `AudioContext`).
-  - From that tap on, Web Audio plays an inaudible hum (noise at 3e-5), so its
-    output never goes silent. Browsers swap a silent output for a dummy one,
-    and opening the real one again inside a headset can fail; the narration
-    used to work on the Quest when it started right at Enter VR, and stopped
-    when it started only after a pick on the headset Stories screen.
+    (fallback: plays the fetched bytes from a blob URL, so it needs no
+    decoding, no `AudioContext`, no network and no service worker; Chromium
+    refuses a media file whose byte ranges come partly from the network and
+    partly from a service worker, as on a first visit). The element also plays
+    while Web Audio is still decoding. Only one decoded file is kept.
+  - Only taps the browser counts unlock (`navigator.userActivation.isActive`;
+    Esc or a bare Shift do not).
+  - While a headset session runs, Web Audio plays an inaudible hum (noise at
+    3e-5), so its output never goes silent. Browsers swap a silent output for a
+    dummy one, and opening the real one again inside a headset can fail; the
+    narration used to work on the Quest when it started right at Enter VR, and
+    stopped when it started only after a pick on the headset Stories screen.
+    Outside a headset there is no hum (on a phone it could stop other apps'
+    audio).
   - A watchdog (`check()`, about once a second from `sync()`) retries
     `resume()` (allowed without a new tap once the page has had one), reopens a
-    stuck output (suspend and resume, then a new context; decoded files are
-    reused), and switches to the `<audio>` element when Web Audio reports
-    device errors, its clock stops, it does not run 3 s after a tap, or it
-    cannot decode the file within 30 s. `follow()` only trusts a clock that is
-    known to move, so a stuck engine never freezes a story.
+    stuck output (suspend and resume with a 3 s deadline, then a new context;
+    decoded files are reused), and switches to the `<audio>` element when Web
+    Audio reports two device errors within a minute, its clock stops, a tap or a
+    new context has not started it within 3 s, or it cannot decode the file
+    within 30 s. A Web Audio engine that runs after all is taken back.
+    `follow()` only trusts a clock that is known to move, so a stuck engine never
+    freezes a story.
   - The mute is saved under `narrationMuted2`: older versions saved a mute
     when *Play sound* was pressed in the headset. *Play sound* (and any press
     while loading) only starts the engines; it never mutes.

@@ -440,11 +440,13 @@ for (const proto of [EventTarget.prototype, THREE.EventDispatcher.prototype]) {
 // One sound system for the whole app, owned by the shell; stories only say what should play.
 // Browsers start sound only after a tap or click, and the first one anywhere (Enter VR is
 // one) unlocks two engines for the life of the page:
-//  - Web Audio (first choice): one AudioContext, never closed. From that tap on it plays an
-//    inaudible hum, so its output never goes idle: browsers swap a silent output for a dummy
-//    one after a while, and opening the real one again inside a headset (Meta Quest) can fail.
-//    This is how it worked when the narration started right at Enter VR.
-//  - an <audio> element (fallback): streams the file, needs no decoding and no AudioContext.
+//  - Web Audio (first choice): one AudioContext, never closed. While a headset session runs it
+//    plays an inaudible hum, so its output never goes idle: browsers swap a silent output for a
+//    dummy one after a while, and opening the real one again inside a headset (Meta Quest) can
+//    fail. This is how it worked when the narration started right at Enter VR.
+//  - an <audio> element (fallback): plays the same bytes from memory (a blob URL, so it needs
+//    no decoding, no AudioContext, no network and no service worker); it also plays while
+//    Web Audio is still decoding the file.
 // A watchdog checks once a second that the engine in use really runs (state, clock), reopens
 // a stuck Web Audio output, and moves to the <audio> element when Web Audio reports device
 // errors, stalls, will not start after a tap or cannot decode the file. Sound check (on the
@@ -456,10 +458,11 @@ HOST.audio = (function () {
   const get = k => { try { return localStorage.getItem(k); } catch (e) { return null; } };
   const put = (k, v) => { try { localStorage.setItem(k, v); } catch (e) { /* storage blocked */ } };
   const A = {
-    ctx: null, gain: null, hum: null, el: null, primed: false, priming: false, starting: false, blocked: '', blockedAt: 0,
+    ctx: null, gain: null, hum: null, el: null, elFor: '', elBlob: '', primed: false, priming: false, starting: false, blocked: '', blockedAt: 0,
     // a new key: older versions saved a mute when "Play sound" was pressed in the headset
     muted: get('narrationMuted2') === '1', pref: get('soundEngine') || 'auto', bad: { webaudio: '', media: '' },
-    cur: null, session: null, files: new Map(), mediaOn: false, tapped: false, tapAt: -1e9, lastTap: '', ranAt: -1e9, renewAt: -1e9,
+    cur: null, session: null, files: new Map(), mediaOn: false, tapped: false, tapAt: -1e9, lastTap: '', ranAt: -1e9,
+    tryAt: 0, tryWhy: '', resumeAt: 0, cycleAt: 0, errorAt: 0,
     shown: '', on: 0, checkAt: 0, ct: null, rate: null, stalls: 0, errors: 0, cycling: false, mt: null, mrate: null, mStalls: 0,
     log: [], t0: performance.now(), beep: '',
   };
@@ -477,6 +480,8 @@ HOST.audio = (function () {
   // the headset's view when a session is on, else the page's
   const away = () => (A.session ? A.session.visibilityState === 'hidden' : document.hidden);
   const activated = () => A.tapped || !!(navigator.userActivation && navigator.userActivation.hasBeenActive);
+  // the hum is only needed in a headset (on a phone it could also stop other apps' audio)
+  const humWanted = () => !!A.session && !away() && A.pref !== 'media' && !A.bad.webaudio;
 
   // ---- engine 1: Web Audio. 'playback' asks for larger, sturdier output buffers (no need for low latency)
   function makeContext() {
@@ -489,19 +494,23 @@ HOST.audio = (function () {
       c.addEventListener('statechange', () => {
         if (c !== A.ctx) return;
         note('Web Audio ' + c.state);
-        if (c.state === 'running') A.ranAt = performance.now();
+        if (c.state === 'running') {
+          A.ranAt = performance.now(); A.tryAt = 0;
+          if (/would not start/.test(A.bad.webaudio)) { A.bad.webaudio = ''; note('Web Audio runs after all'); if (A.cur) A.cur.seek = true; }
+        }
         changed();
       });
       // the output device failed (Chromium then suspends the context): reopen it, give up on the second time
       c.addEventListener('error', () => {
         if (c !== A.ctx) return;
         note('Web Audio: error from the output device');
+        A.errorAt = performance.now();
         if (++A.errors >= 2) fail('webaudio', 'output device errors'); else cycle();
       });
     });
   }
   makeContext();
-  // the hum: noise at about one hundred-thousandth of full scale, far below hearing, but not silence
+  // the hum: noise at about three hundred-thousandths of full scale, far below hearing, but not silence
   function hum(on) {
     const c = A.ctx;
     if (!c) return;
@@ -520,6 +529,8 @@ HOST.audio = (function () {
   function resume() {
     const c = A.ctx;
     if (!c || c.state === 'running' || c.state === 'closed' || A.cycling || !activated()) return;
+    if (performance.now() - A.resumeAt < 900) return;
+    A.resumeAt = performance.now();
     const r = c.resume();
     if (r && r.then) r.then(changed, e => note('Web Audio would not resume: ' + (e && e.name)));
   }
@@ -527,20 +538,20 @@ HOST.audio = (function () {
   function cycle() {
     const c = A.ctx;
     if (!c || A.cycling) return;
-    A.cycling = true; note('Web Audio: reopening the output');
+    A.cycling = true; A.cycleAt = performance.now(); note('Web Audio: reopening the output');
     if (A.cur) stopSource(A.cur);
-    c.suspend().then(() => c.resume()).catch(e => note('reopen failed: ' + (e && e.name)))
-      .then(() => { A.cycling = false; A.ct = null; changed(); });
+    const done = () => { A.cycling = false; A.ct = null; changed(); };
+    try { c.suspend().then(() => c.resume()).catch(e => note('reopen failed: ' + (e && e.name))).then(done); } catch (e) { done(); }
   }
   // a new AudioContext (decoded files work with any context)
   function renew() {
     note('Web Audio: starting a new engine');
     const old = A.ctx;
-    A.renewAt = performance.now();
+    A.tryAt = performance.now(); A.tryWhy = 'stuck, and a new engine would not start';
     if (A.cur) stopSource(A.cur);
     hum(false);
     makeContext();
-    if (!away() && activated()) { hum(true); resume(); }
+    if (activated()) { hum(humWanted()); resume(); }
     try { old.close(); } catch (e) { /* already closed */ }
   }
   // sources fade in and out over a few hundredths of a second, so jumps and pauses do not click
@@ -569,13 +580,13 @@ HOST.audio = (function () {
   for (const t of ['playing', 'waiting', 'error']) A.el.addEventListener(t, () => {
     const e = A.el.error;
     if (t !== 'waiting' || A.mediaOn) note('audio element: ' + t + (e ? ' (code ' + e.code + ')' : ''));
-    if (t === 'error' && A.el.getAttribute('src')) fail('media', 'cannot play the file' + (e ? ' (code ' + e.code + ')' : ''));
+    if (t === 'error' && A.elFor) fail('media', 'cannot play the file' + (e ? ' (code ' + e.code + ')' : ''));
     changed();
   });
-  A.el.addEventListener('loadedmetadata', () => { const N = A.cur; if (N && N.url === A.el.getAttribute('src')) known(N, A.el.duration); });
+  A.el.addEventListener('loadedmetadata', () => { const N = A.cur; if (N && N.url === A.elFor) known(N, A.el.duration); });
   function prime() {
     const el = A.el;
-    if (A.primed || A.priming || !el.getAttribute('src') || A.bad.media) return;
+    if (A.primed || A.priming || !A.elFor || A.bad.media) return;
     A.priming = true; el.muted = true;
     let p;
     try { p = el.play(); } catch (e) { p = Promise.reject(e); }
@@ -587,7 +598,7 @@ HOST.audio = (function () {
   }
   function mediaPlay(N, t) {
     const el = A.el;
-    if (el.getAttribute('src') !== N.url || A.priming) return;
+    if (A.elFor !== N.url || A.priming) return;
     if (!A.mediaOn || N.seek) {
       if (Math.abs(el.currentTime - t) > 0.3) { try { el.currentTime = t; } catch (e) { /* not loaded yet */ } A.mt = null; }
     }
@@ -595,10 +606,13 @@ HOST.audio = (function () {
     // refused without a tap: wait for the next one instead of asking every frame
     if (!el.paused || A.starting || (A.blocked && A.tapAt < A.blockedAt)) return;
     A.starting = true; el.muted = false;
+    const at = performance.now();
     let p;
     try { p = el.play(); } catch (e) { p = Promise.reject(e); }
     Promise.resolve(p).then(() => { A.starting = false; A.primed = true; A.blocked = ''; changed(); }, e => {
-      A.starting = false; A.blocked = (e && e.name) || 'refused'; A.blockedAt = performance.now();
+      A.starting = false;
+      if (e && e.name === 'AbortError') return; // paused before it started: not a refusal
+      A.blocked = (e && e.name) || 'refused'; A.blockedAt = at;
       note('audio element would not play: ' + A.blocked);
       if (A.blocked !== 'NotAllowedError' && A.blocked !== 'AbortError') fail('media', A.blocked);
       changed();
@@ -613,14 +627,18 @@ HOST.audio = (function () {
   // ---- taps, headset clicks and visibility
   // every tap, click, key press and controller click: unlock both engines and start the hum
   function unlock(ev) {
-    A.tapped = true; A.tapAt = performance.now();
+    const ua = navigator.userActivation;
+    // only what the browser counts as a tap can start sound (not Esc, Tab or a bare Shift)
+    const real = ua ? ua.isActive : !ev || /^(click|pointerup|touchend|keydown|select|squeeze)/.test(ev.type);
     if (ev && ev.type) {
-      const ua = navigator.userActivation;
       A.lastTap = ev.type + (ua ? (ua.isActive ? ' (counted as a tap)' : ' (not counted as a tap)') : '');
       if (ev.type === 'select' || ev.type === 'squeeze') note('headset ' + A.lastTap);
     }
+    if (!real) return;
+    A.tapped = true; A.tapAt = performance.now();
     const c = A.ctx;
     if (c && c.state !== 'running' && c.state !== 'closed' && !A.cycling) {
+      if (!A.tryAt) { A.tryAt = A.tapAt; A.tryWhy = 'would not start after a tap'; }
       try { // a silent blip started inside the gesture: some browsers want a sound, not only resume()
         const s = c.createBufferSource();
         s.buffer = c.createBuffer(1, 1, c.sampleRate); s.connect(c.destination); s.start(0);
@@ -628,13 +646,13 @@ HOST.audio = (function () {
       const r = c.resume();
       if (r && r.then) r.then(changed, e => note('Web Audio would not start: ' + (e && e.name)));
     }
-    if (!away()) hum(true);
+    hum(humWanted());
     prime();
     changed();
   }
   for (const t of ['pointerdown', 'pointerup', 'touchend', 'click', 'keydown']) window.addEventListener(t, unlock, true);
   document.addEventListener('visibilitychange', () => {
-    if (away()) { hush(); hum(false); } else if (A.tapped) { hum(true); resume(); }
+    if (away()) { hush(); hum(false); } else if (A.tapped) { hum(humWanted()); resume(); }
     changed();
   });
   // a headset session (stories set HOST.session). Chromium counts a controller's select and squeeze
@@ -647,13 +665,14 @@ HOST.audio = (function () {
       for (const t of ['select', 'selectend', 'squeeze', 'squeezeend']) s.addEventListener(t, unlock);
       s.addEventListener('visibilitychange', () => {
         note('headset ' + s.visibilityState);
-        if (s.visibilityState === 'hidden') { hush(); hum(false); } else { hum(true); resume(); }
+        if (s.visibilityState === 'hidden') { hush(); hum(false); } else { hum(humWanted()); resume(); }
         A.ct = null; A.mt = null; changed();
       });
-      s.addEventListener('end', () => { if (A.session === s) A.session = null; note('headset session ended'); });
+      s.addEventListener('end', () => { if (A.session === s) { A.session = null; hum(false); } note('headset session ended'); });
     });
     note('headset session started');
     unlock(); // still close to the Enter VR click, which browsers count for a few seconds
+    if (activated()) { hum(humWanted()); resume(); }
   }
 
   // ---- the watchdog, about once a second while a story runs
@@ -662,15 +681,15 @@ HOST.audio = (function () {
     if (dt < 1) return;
     A.checkAt = now;
     if (away() || !A.tapped) { A.ct = null; A.mt = null; return; }
+    if (A.cycling && now - A.cycleAt > 3000) { A.cycling = false; note('Web Audio: reopening took too long'); renew(); }
     const c = A.ctx;
     if (c && A.pref !== 'media' && !A.bad.webaudio && !A.cycling) {
-      hum(true);
+      hum(humWanted());
       if (c.state !== 'running') {
         A.ct = null; A.rate = null;
         resume();
-        // not running 3 s after a tap (or after a new engine was made): Web Audio will not start here
-        const since = Math.max(A.tapAt, A.renewAt);
-        if (A.pref === 'auto' && now - since > 3000 && A.ranAt < since) fail('webaudio', since === A.renewAt ? 'stuck, and a new engine would not start' : 'would not start after a tap');
+        // a tap (or a new engine) tried to start it over 3 s ago and it has not run since: it will not start here
+        if (A.pref === 'auto' && A.tryAt && now - A.tryAt > 3000) fail('webaudio', A.tryWhy);
       } else {
         const ct = c.currentTime;
         if (A.ct !== null) {
@@ -678,7 +697,10 @@ HOST.audio = (function () {
           if (A.rate < 0.5) {
             A.stalls++; note('Web Audio clock at x' + A.rate.toFixed(2));
             if (A.stalls === 2) cycle(); else if (A.stalls === 4) renew(); else if (A.stalls >= 6) fail('webaudio', 'its clock stopped');
-          } else A.stalls = 0;
+          } else {
+            A.stalls = 0;
+            if (A.errors && now - A.errorAt > 60000) A.errors = 0;
+          }
         }
         A.ct = ct;
       }
@@ -699,12 +721,15 @@ HOST.audio = (function () {
     A.bad[e] = why;
     note((e === 'webaudio' ? 'Web Audio' : 'audio element') + ' is out: ' + why);
     if (A.cur) { A.cur.seek = true; if (e === 'webaudio') stopSource(A.cur); else mediaStop(); }
+    if (e === 'webaudio') hum(false);
     changed();
   }
   // the engine that plays: the one chosen in Sound check, else Web Audio unless it is out
   function engine(N) {
     if (A.pref === 'webaudio' || A.pref === 'media') return A.pref;
     if (!A.ctx || A.bad.webaudio || (N && N.decode === 'failed')) return A.bad.media && A.ctx ? 'webaudio' : 'media';
+    // while Web Audio is still decoding the file, the <audio> element plays it
+    if (N && N.decode !== 'ok' && !A.bad.media && A.elFor === N.url) return 'media';
     return 'webaudio';
   }
 
@@ -717,19 +742,42 @@ HOST.audio = (function () {
       try { const q = A.ctx.decodeAudioData(data, ok, bad); if (q && q.catch) q.catch(bad); } catch (e) { bad(e); }
     });
   }
-  // the last two files stay ready for a quick return
+  // one file at a time (a decoded narration is tens of MB, which a headset feels)
   function load(url) {
     let f = A.files.get(url);
-    if (f) { A.files.delete(url); A.files.set(url, f); return f; }
-    const data = fetch(url).then(r => {
+    if (f) return f;
+    f = { data: null, buf: null, blob: '' };
+    // the bytes also become a blob URL for the <audio> element, before decoding uses them up
+    f.data = fetch(url).then(r => {
       if (!r.ok) throw new Error(r.status === 404 ? 'missing' : 'not loaded (' + r.status + ')');
-      return r.arrayBuffer();
+      return r.arrayBuffer().then(b => { f.blob = URL.createObjectURL(new Blob([b], { type: r.headers.get('Content-Type') || 'audio/mpeg' })); return b; });
     }, () => { throw new Error('not loaded (offline?)'); });
-    f = { data, buf: data.then(d => (A.ctx ? decode(d) : Promise.reject(new Error('no Web Audio')))) };
-    f.buf.catch(() => A.files.delete(url)); // try again next time (offline now, or the file added later)
+    f.data.catch(() => A.files.delete(url)); // try again next time (offline now, or the file added later)
     A.files.set(url, f);
-    while (A.files.size > 2) A.files.delete(A.files.keys().next().value);
+    while (A.files.size > 1) {
+      const k = A.files.keys().next().value, old = A.files.get(k);
+      A.files.delete(k);
+      if (old.blob && old.blob !== A.elBlob) URL.revokeObjectURL(old.blob);
+    }
     return f;
+  }
+  // decoding for Web Audio, started unless the <audio> element was chosen in Sound check
+  function startDecode(N) {
+    const f = A.files.get(N.url);
+    if (!f || N.decode !== 'idle' || A.pref === 'media') return;
+    N.decode = 'loading';
+    if (!f.buf) {
+      f.buf = f.data.then(d => (A.ctx ? decode(d) : Promise.reject(new Error('no Web Audio'))));
+      f.buf.catch(() => A.files.delete(N.url)); // decoding used up the bytes: fetch again next time
+    }
+    f.buf.then(buf => { N.buf = buf; N.decode = 'ok'; if (A.cur === N) { known(N, buf.duration); changed(); } }, err => {
+      if (N.state === 'none' || err.message === 'missing') return;
+      N.decode = 'failed';
+      if (A.cur !== N) return;
+      note(N.url + ': ' + err.message);
+      if (N.hooks.error && (A.bad.media || A.pref === 'webaudio')) N.hooks.error();
+      changed();
+    });
   }
   function known(N, d) {
     if (!isFinite(d) || d <= N.duration) return;
@@ -739,29 +787,27 @@ HOST.audio = (function () {
   // a story's narration: second t of the recording plays at story time t
   function narration(url, hooks) {
     hush();
-    const N = { url, hooks: hooks || {}, state: 'loading', decode: 'loading', duration: 0, buf: null,
+    const N = { url, hooks: hooks || {}, state: 'loading', decode: 'idle', duration: 0, buf: null,
       src: null, fade: null, ctx: null, from: 0, at: 0, seek: true, want: false, t: 0 };
     A.cur = N;
     const f = load(url);
     f.data.then(() => {
       if (A.cur !== N) return;
       N.state = 'ok';
-      if (A.el.getAttribute('src') !== url) { mediaStop(); A.el.src = url; }
+      if (A.elFor !== url && f.blob) {
+        mediaStop();
+        const was = A.elBlob;
+        A.el.src = f.blob; A.elFor = url; A.elBlob = f.blob;
+        if (was && ![...A.files.values()].some(x => x.blob === was)) URL.revokeObjectURL(was);
+      }
       changed();
     }, err => {
-      N.state = 'none'; N.decode = '';
+      N.state = 'none';
       if (A.cur !== N) return;
       if (err.message !== 'missing') note(url + ': ' + err.message);
       changed();
     });
-    f.buf.then(buf => { N.buf = buf; N.decode = 'ok'; if (A.cur === N) { known(N, buf.duration); changed(); } }, err => {
-      if (N.state === 'none' || err.message === 'missing') return;
-      N.decode = 'failed';
-      if (A.cur !== N) return;
-      note(url + ': ' + err.message);
-      if (N.hooks.error && (A.bad.media || A.pref === 'webaudio')) N.hooks.error();
-      changed();
-    });
+    startDecode(N);
     // where in the recording the sound is now, or null while silent
     N.pos = () => {
       if (N.src) return N.from + (N.ctx.currentTime - N.at);
@@ -780,8 +826,7 @@ HOST.audio = (function () {
       if (!want || e !== 'media') { if (A.mediaOn) mediaStop(); }
       if (!want) return;
       if (e === 'webaudio') {
-        if (!running()) { resume(); return; }
-        if (!N.buf || A.cycling) return;
+        if (!running() || !N.buf || A.cycling) return;
         if (!N.src || (N.seek && Math.abs(N.pos() - t) > 0.15)) play(N, t);
       } else mediaPlay(N, t);
       N.seek = false;
@@ -810,7 +855,8 @@ HOST.audio = (function () {
     if (N.state === 'loading') return 'Sound loading';
     if (A.muted) return 'Sound off';
     if (engine(N) === 'webaudio') {
-      if (N.decode === 'loading') return 'Sound loading';
+      if (A.bad.webaudio && A.pref === 'auto') return 'Sound unavailable'; // both engines are out
+      if (N.decode === 'loading' || N.decode === 'idle') return 'Sound loading';
       if (N.decode !== 'ok') return 'Sound unavailable';
       return running() ? 'Sound on' : 'Play sound';
     }
@@ -877,6 +923,7 @@ HOST.audio = (function () {
     put('soundEngine', A.pref);
     if (A.cur) { A.cur.seek = true; stopSource(A.cur); mediaStop(); }
     note('play through: ' + { auto: 'automatic', webaudio: 'Web Audio', media: 'audio element' }[A.pref]);
+    if (A.cur) startDecode(A.cur);
     unlock();
   }
   function reset() {
@@ -885,6 +932,7 @@ HOST.audio = (function () {
     put('narrationMuted2', '0'); put('soundEngine', 'auto');
     note('sound settings reset');
     if (A.ctx && A.ctx.state === 'closed') makeContext();
+    if (A.cur) startDecode(A.cur);
     unlock();
   }
   // the lines Sound check shows, on the page and in the headset
@@ -899,7 +947,7 @@ HOST.audio = (function () {
       'Audio element: ' + (A.primed ? 'unlocked' : 'locked') + ', ' + (el.paused ? 'paused' : 'playing') + ' at ' + num(el.currentTime) + ' s' +
         (A.blocked ? ', refused: ' + A.blocked : '') + out(A.bad.media),
       'File: ' + (N ? N.url + ' - ' + ({ loading: 'loading', none: 'none for this story', ok: 'found' }[N.state]) +
-        (N.state === 'ok' ? ', decoding ' + ({ loading: 'running', ok: 'done', failed: 'failed' }[N.decode] || '-') : '') +
+        (N.state === 'ok' ? ', decoding ' + ({ idle: 'not needed', loading: 'running', ok: 'done', failed: 'failed' }[N.decode] || '-') : '') +
         (N.duration ? ', ' + Math.round(N.duration) + ' s long' : '') : 'no story'),
       'Narration ' + (A.muted ? 'turned off here' : 'on') + '. Taps: ' + (A.tapped ? 'yes, last ' + (A.lastTap || '-') : 'none yet') +
         (ua ? '. Page has had a tap: ' + (ua.hasBeenActive ? 'yes' : 'no') : ''),
@@ -993,7 +1041,7 @@ HOST.soundCheck = function (open) {
 };
 HOST.soundCheckShown = function () {
   const el = document.getElementById('sndcheck');
-  if (!el || el.hidden) return;
+  if (!el || el.hidden || HOST.picking === false) return;
   const p = HOST.audio.pref;
   el.querySelectorAll('[data-snd]').forEach(b => { if (/^(auto|webaudio|media)$/.test(b.dataset.snd)) b.setAttribute('aria-pressed', b.dataset.snd === p ? 'true' : 'false'); });
   const t = HOST.audio.report().join('\n');
@@ -1043,6 +1091,7 @@ HOST.closePicker = function () {
   const pk = document.getElementById('picker');
   if (pk.hidden) return;
   pk.hidden = true; document.body.classList.remove('picking');
+  HOST.soundCheck(false);
   HOST.setUrl(false);
 };
 

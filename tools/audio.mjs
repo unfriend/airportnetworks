@@ -6,8 +6,9 @@
 // stops) to check that the <audio> element takes over. Checked here: sound after a click,
 // after a story change with no tap (the headset's Stories menu), through pause, jumps, the
 // Sound button and the Stories screen; a mute saved by older versions is ignored; Play sound
-// never mutes; the hum keeps the output busy; each fault falls back to the <audio> element;
-// Sound check (beeps, engine choice); a headset session going hidden and visible again.
+// never mutes; Esc is not a tap; the hum runs only in a headset session (hidden and visible
+// again); each fault falls back to the <audio> element, which also plays while a slow decode
+// runs; Sound check (beeps, engine choice).
 // Whether sound really comes out of a headset can only be confirmed on the device.
 // Usage: serve the folder, then node tools/audio.mjs [http://127.0.0.1:8123/]
 // Needs audio/narration.mp3. PLAYWRIGHT_MODULE and CHROMIUM_PATH as in smoke.mjs.
@@ -24,7 +25,9 @@ async function open(url, fault = '', seed = null) {
   await page.addInitScript(([fault, seed]) => {
     if (seed) for (const [k, v] of Object.entries(seed)) localStorage.setItem(k, v);
     let tapAt = -1e9;
-    for (const t of ['pointerdown', 'pointerup', 'click', 'keydown', 'touchend']) window.addEventListener(t, e => { if (e.isTrusted) tapAt = performance.now(); }, true);
+    for (const t of ['pointerdown', 'pointerup', 'click', 'keydown', 'touchend']) window.addEventListener(t, e => {
+      if (e.isTrusted && !(e.type === 'keydown' && /^(Escape|Shift|Control|Alt|Meta|Tab)$/.test(e.key))) tapAt = performance.now();
+    }, true);
     const tapped = () => performance.now() - tapAt < 5000;
     const AC = window.AudioContext;
     window.AudioContext = class extends AC {
@@ -32,7 +35,12 @@ async function open(url, fault = '', seed = null) {
       resume() { if (fault === 'nostart' || (this.locked && !tapped())) return Promise.resolve(); this.locked = false; return super.resume(); }
       // 'clock': three seconds after a tap the engine's clock stops, although it still says 'running'
       get currentTime() { const t = super.currentTime; if (fault !== 'clock' || performance.now() - tapAt < 3000) return t; return this.frozen === undefined ? (this.frozen = t) : this.frozen; }
-      decodeAudioData(...a) { if (fault !== 'decode') return super.decodeAudioData(...a); const e = new DOMException('Unable to decode audio data', 'EncodingError'); if (typeof a[2] === 'function') a[2](e); return Promise.reject(e); }
+      decodeAudioData(...a) {
+        // 'slowdecode': the decoded file arrives 12 s late
+        if (fault === 'slowdecode') return new Promise(r => setTimeout(r, 12000)).then(() => super.decodeAudioData(a[0])).then(b => { if (typeof a[1] === 'function') a[1](b); return b; });
+        if (fault !== 'decode') return super.decodeAudioData(...a);
+        const e = new DOMException('Unable to decode audio data', 'EncodingError'); if (typeof a[2] === 'function') a[2](e); return Promise.reject(e);
+      }
     };
     const play = HTMLMediaElement.prototype.play;
     HTMLMediaElement.prototype.play = function () {
@@ -85,19 +93,19 @@ await step('narration loads on the Stories screen', async () => {
 await page.click('#picker .card[data-story="airports"]');
 await step('a click on the story card', async () => {
   await playing('a click on the story card');
-  if (!(await probe()).hum) throw new Error('no hum after the tap');
+  if ((await probe()).hum) throw new Error('a hum without a headset session');
   if (await page.evaluate(() => localStorage.getItem('narrationMuted')) !== null) throw new Error('old mute key still there');
-  console.log('ok   a mute saved by an older version is ignored; the hum keeps the output busy');
+  console.log('ok   a mute saved by an older version is ignored; no hum outside a headset');
 });
 // let the click's activation run out, then change story with no tap
 await wait(6000);
 await page.evaluate(() => HOST.go('proteins'));
 await until('proteins story', p => p.story === 'proteins');
-await step('the hum goes on in a story without narration', async () => {
+await step('the engine keeps running in a story without narration', async () => {
   await wait(1500);
   const p = await probe();
-  if (!p.hum || p.ctx !== 'running') throw new Error(JSON.stringify(p));
-  console.log('ok   hum on and engine running in a story without narration');
+  if (p.ctx !== 'running') throw new Error(JSON.stringify(p));
+  console.log('ok   engine running in a story without narration');
 });
 await page.evaluate(() => HOST.go('airports'));
 await step('back to the airports with no tap', async () => { await ready(); await playing('back to the airports with no tap'); });
@@ -122,11 +130,15 @@ await step('the Sound button turns the narration off and on', async () => {
 await step('a headset session: taken off and put on again', async () => {
   // a stand-in for an XRSession: the shell listens to its visibility and controller events
   await page.evaluate(() => { const s = new EventTarget(); s.visibilityState = 'visible'; window.fakeSession = s; HOST.session = s; });
+  await until('hum in the headset', p => p.hum, 3000);
   await page.evaluate(() => { fakeSession.visibilityState = 'hidden'; fakeSession.dispatchEvent(new Event('visibilitychange')); });
   await until('silent with the headset off', p => p.pos === null && !p.hum, 3000);
   await page.evaluate(() => { fakeSession.visibilityState = 'visible'; fakeSession.dispatchEvent(new Event('visibilitychange')); fakeSession.dispatchEvent(new Event('select')); });
   await playing('headset on again');
+  if (!(await probe()).hum) throw new Error('no hum with the headset on again');
   await page.evaluate(() => { HOST.session = null; fakeSession.dispatchEvent(new Event('end')); });
+  await until('no hum after the session', p => !p.hum, 3000);
+  console.log('ok   the hum runs only while the headset session is visible');
 });
 await step('Sound check: beeps and engine choice', async () => {
   await page.click('#btnOther');
@@ -142,6 +154,7 @@ await step('Sound check: beeps and engine choice', async () => {
   await page.click('#picker .card[data-story="airports"]');
   await playing('chosen: audio element', 'media');
   await page.click('#btnOther');
+  await page.click('#btnSndCheck'); // Sound check closes with the Stories screen
   await page.click('[data-snd="auto"]');
   await page.click('#picker .card[data-story="airports"]');
   await playing('chosen: automatic', 'webaudio');
@@ -162,7 +175,31 @@ await step('Play sound on a story opened from a link', async () => {
 });
 await page.close();
 
-// 3. faults: each time the <audio> element takes over
+// 3. Esc does not count as a tap, so Web Audio is not given up on; the next click starts it
+page = await open(base + '#airports');
+await step('Esc is not a tap', async () => {
+  await until('waiting for a tap', p => p.state === 'ok' && p.decode === 'ok' && p.ctx === 'suspended');
+  await wait(5500); // page.evaluate (the probes) counts as a tap for Chromium: let that run out first
+  await page.keyboard.press('Escape');
+  await wait(4500);
+  const p = await probe();
+  if (p.bad.webaudio || p.eng !== 'webaudio' || p.label !== 'Play sound') throw new Error(JSON.stringify(p));
+  await page.click('#btnSound');
+  await playing('Esc, then Play sound');
+});
+await page.close();
+
+// 4. a slow decode: the <audio> element plays meanwhile, then Web Audio takes over
+page = await open(base, 'slowdecode');
+await step('a slow decode', async () => {
+  await until('file found', p => p.story === 'airports' && p.state === 'ok');
+  await page.click('#picker .card[data-story="airports"]');
+  await playing('while decoding', 'media', 10000);
+  await playing('after decoding', 'webaudio', 30000);
+});
+await page.close();
+
+// 5. faults: each time the <audio> element takes over
 for (const [fault, what, ms] of [['decode', 'Web Audio cannot decode the file', 30000], ['nostart', 'Web Audio never starts', 30000],
   ['clock', 'the Web Audio clock stops', 40000]]) {
   page = await open(base, fault);
