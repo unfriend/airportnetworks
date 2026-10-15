@@ -1372,7 +1372,7 @@ const GL = {};
 const ORGS = ['Plasma membrane', 'Nucleus', 'Nucleolus', 'Endoplasmic reticulum', 'Golgi apparatus', 'Mitochondria', 'Lysosomes', 'Endosomes and vesicles', 'Peroxisomes', 'Cytoskeleton'];
 const ORG_OF_PLACE = { ext: 0, pm: 0, cyto: -1, cytosk: 9, nuc: 1, nucl: 2, ne: 1, er: 3, golgi: 4, mito: 5, lyso: 6, endo: 7, perox: 8 };
 function buildScene(canvas) {
-  const renderer = HOST.renderer || (HOST.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, powerPreference: 'high-performance' }));
+  const renderer = HOST.makeRenderer({ canvas, antialias: true, alpha: true, powerPreference: 'high-performance' });
   renderer.xr.enabled = true;
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
   const scene = new THREE.Scene();
@@ -4085,6 +4085,7 @@ return {
   dispose() {
     try { audioStop(); if (AUD.ctx) AUD.ctx.close(); } catch (e) { /* already closed */ }
     if (GL.mo) GL.mo.disconnect();
+    if (XR.session) XR.session.removeEventListener('visibilitychange', xrVisibility);
     if (GL.scene) GL.scene.traverse(o => {
       if (o.geometry) o.geometry.dispose();
       if (o.material) [].concat(o.material).forEach(m => { if (m.map) m.map.dispose(); if (m.uniforms) for (const u of Object.values(m.uniforms)) if (u.value && u.value.isTexture) u.value.dispose(); m.dispose(); });

@@ -360,7 +360,12 @@ const HOST = {
       aria: 'Interactive 3D model of a human cell and its protein network', thing: 'cell', loading: 'Building the cell' },
   ],
   factories: {}, loaded: {}, cur: null, curKey: null, busy: false,
-  renderer: null, session: null, mode: null, inputs: [],
+  renderer: null, session: null, mode: null, inputs: [], quiet: false,
+  // the one renderer all stories draw with; its internal listeners belong to it, not to a story
+  makeRenderer(opts) {
+    if (!this.renderer) { this.quiet = true; try { this.renderer = new THREE.WebGLRenderer(opts); } finally { this.quiet = false; } }
+    return this.renderer;
+  },
   register(key, fn) { this.factories[key] = fn; },
   get picking() { return !document.getElementById('picker').hidden; },
 };
@@ -369,7 +374,9 @@ const HOST_REC = [];
 for (const proto of [EventTarget.prototype, THREE.EventDispatcher.prototype]) {
   const add = proto.addEventListener;
   proto.addEventListener = function (type, fn, opts) {
-    if (HOST.curKey) HOST_REC.push([this, type, fn, opts]);
+    // three.js's own listeners on the headset session and the WebGL canvas must outlive any story
+    const own = HOST.quiet || type === 'dispose' || (typeof XRSession !== 'undefined' && this instanceof XRSession) || /^webglcontext/.test(type);
+    if (HOST.curKey && !own) HOST_REC.push([this, type, fn, opts]);
     return add.call(this, type, fn, opts);
   };
 }
