@@ -6,7 +6,8 @@ Networks, in three stories - installable web app
 index.html is the app: it shows a start screen to pick a story, and the Stories
 button (top bar, and the panel in VR/AR) brings it back. Stories are loaded into
 the same page, so changing story never ends a VR or AR session; entering VR or
-AR from the start screen opens the Stories menu in the headset first.
+AR from the start screen opens a Stories screen in the headset (one panel per
+story); entering from inside a story resumes it where you were.
 The start screen is the landing page; index.html#airports, #proteins or
 #spatial picks the story loaded behind it (proteins.html and spatial.html
 forward there). Taking the headset off and on returns to the Stories menu.

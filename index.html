@@ -349,15 +349,15 @@ const HOST = {
     { key: 'airports', kick: 'Network theory', title: 'Airports', col: '#46d9ff',
       desc: '3,214 airports and 18,858 routes. Hubs, communities, shortest paths and what happens when airports close.',
       page: "Network theory, told with the world's airports", brand: 'Network theory', sub: "told with the world's airports",
-      aria: 'Interactive globe of the world airline network', thing: 'globe', loading: 'Plotting 3,214 airports and 18,858 routes' },
+      aria: 'Interactive globe of the world airline network', thing: 'globe', loading: 'Plotting 3,214 airports and 18,858 routes', len: 'Story 3:51 · globe' },
     { key: 'proteins', kick: 'Network medicine', title: 'Proteins', col: '#ff5fd2',
       desc: '254 proteins inside a human cell. Essential hubs, disease modules, drug targets and knockouts.',
       page: 'Network medicine, told with the proteins in a cell', brand: 'Network medicine', sub: 'told with the proteins in a cell',
-      aria: 'Interactive 3D cell of protein interactions', thing: 'cell', loading: 'Placing 254 proteins and 375 interactions' },
+      aria: 'Interactive 3D cell of protein interactions', thing: 'cell', loading: 'Placing 254 proteins and 375 interactions', len: 'Story 3:32 · cell' },
     { key: 'spatial', kick: 'Spatial interactome', title: 'Cell map', col: '#3ee08f',
       desc: '249 proteins in the compartments of a model cell. Proteins that move, signals that cross the cell, proteins in the wrong place.',
       page: 'Spatial interactome, where proteins meet in a cell', brand: 'Spatial interactome', sub: 'where proteins meet in a cell',
-      aria: 'Interactive 3D model of a human cell and its protein network', thing: 'cell', loading: 'Building the cell' },
+      aria: 'Interactive 3D model of a human cell and its protein network', thing: 'cell', loading: 'Building the cell', len: 'Story 3:40 · cell model' },
   ],
   factories: {}, loaded: {}, cur: null, curKey: null, busy: false,
   renderer: null, session: null, mode: null, inputs: [], quiet: false,
@@ -445,7 +445,7 @@ HOST.closePicker = function () {
 (function boot() {
   const pk = document.getElementById('picker');
   pk.querySelector('.cards').innerHTML = HOST.list.map(s => `<button class="card" type="button" data-story="${s.key}">
-    <span class="k" style="color:${s.col}">${s.kick}</span><b>${s.title}</b><span class="d">${s.desc}</span><em>${{ airports: 'Story 3:51 · globe', proteins: 'Story 3:32 · cell', spatial: 'Story 3:40 · cell model' }[s.key]}</em></button>`).join('');
+    <span class="k" style="color:${s.col}">${s.kick}</span><b>${s.title}</b><span class="d">${s.desc}</span><em>${s.len}</em></button>`).join('');
   pk.addEventListener('click', ev => {
     const c = ev.target.closest('[data-story]');
     if (!c) return;
@@ -453,7 +453,10 @@ HOST.closePicker = function () {
   });
   document.getElementById('btnOther').addEventListener('click', () => HOST.openPicker());
   // top-bar buttons close the start screen; Enter VR/AR leaves it to the headset, which then shows the Stories menu
-  document.getElementById('top').addEventListener('click', ev => { if (ev.target.closest('button') && !ev.target.closest('#btnOther, #btnVR, #btnAR')) HOST.closePicker(); });
+  document.getElementById('top').addEventListener('click', ev => {
+    if (ev.target.closest('#btnVR, #btnAR')) { if (HOST.picking) HOST.landingVR = true; return; }
+    if (ev.target.closest('button') && !ev.target.closest('#btnOther')) HOST.closePicker();
+  });
   document.addEventListener('keydown', ev => { if (ev.key === 'Escape') HOST.closePicker(); });
   // which story to load first: #airports, #proteins or #spatial (old links to proteins.html and spatial.html forward here)
   const hp = new URLSearchParams(location.hash.slice(1));

@@ -1709,6 +1709,7 @@ function xrGrab(c, on) {
   c.grab = null;
   const h = c.hover;
   if (!on || !h) return;
+  if (XR.stories) return; // the Stories screen stays put
   const obj = h.kind === 'panel' ? XR.panelGroup : GL.world;
   c.grab = { target: h.kind === 'panel' ? 'panel' : 'globe', q0: new THREE.Quaternion().setFromRotationMatrix(c.g.matrix).invert(),
     o0: c.o.clone(), p0: obj.getWorldPosition(new THREE.Vector3()), reach: 1 };
@@ -1740,12 +1741,12 @@ function xrPoint(c, dt) {
   let hit = null, dist = 2.5;
   // panels first: they are drawn on top of everything
   XR.raycaster.set(c.o, c.d);
-  const hs = XR.raycaster.intersectObjects(XR.panelMeshes, false);
+  const hs = XR.raycaster.intersectObjects(XR.panelMeshes.filter(m => m.visible), false);
   if (hs.length) {
     const h = hs[0], P = XR.panels.find(q => q.mesh === h.object);
     hit = { kind: 'panel', P, x: h.uv.x * P.w, y: (1 - h.uv.y) * P.h, point: h.point };
     dist = h.distance;
-  } else {
+  } else if (!XR.stories) {
     const oL = _xa.copy(c.o).applyMatrix4(_xinv), dL = _xb.copy(c.d).transformDirection(_xinv);
     const b = oL.dot(dL), disc = b * b - (oL.lengthSq() - 1.0816);
     const t = disc > 0 ? -b - Math.sqrt(disc) : -1;
@@ -1816,6 +1817,10 @@ function xrBegin(frame, dt) {
   }
 }
 function xrUpdate(S) {
+  // the Stories screen replaces the story's panels and hides the story
+  const land = !!XR.stories;
+  if (XR.land) { for (const P of XR.land) P.mesh.visible = land; XR.main.mesh.visible = XR.foot.mesh.visible = !land; }
+  GL.world.visible = !land;
   GL.rig.updateMatrixWorld(true);
   XR.camLocal.copy(XR.head);
   GL.world.worldToLocal(XR.camLocal);
@@ -1944,10 +1949,11 @@ function xrEnterScene() {
   XR.kbd.open = false;
   if (X.pathEnds) { XR.pf = X.pathEnds[0]; XR.pt = X.pathEnds[1]; }
   // every headset session starts the story from the top; entered from the start screen, it shows the Stories menu first
-  const fromStart = HOST.picking;
+  const fromStart = HOST.picking || HOST.landingVR;
+  HOST.landingVR = false;
   HOST.closePicker();
-  APP.enterStory(0); APP.playing = !fromStart;
-  if (fromStart) XR.stories = true;
+  if (fromStart) { APP.enterStory(0); APP.playing = false; XR.stories = true; XR.inStory = false; }
+  else { XR.inStory = true; if (APP.mode === 'story') APP.playing = true; } // already in a story: carry on where you were
   $('#tip').style.opacity = 0;
   rebuildHighlights(XR.hlScale);
   if (document.fonts && !XR.fontOK) {
@@ -1975,7 +1981,7 @@ function xrFreshStart() {
   XR.kbd.open = false; XR.kbd.q = '';
   for (const c of XR.ctrls) { c.press = null; c.grab = null; c.wantPress = false; }
   APP.enterStory(0); APP.playing = false;
-  XR.stories = true; // a new wearer lands in the Stories menu
+  XR.stories = true; XR.inStory = false; // a new wearer lands in the Stories screen
   XR.needRecenter = true; // uses the new wearer's head position and direction on the next frame
   lastNow = 0;
 }
@@ -2009,6 +2015,10 @@ function xrEnded() {
   XR.clear = true;
   GL.stars.visible = true; GL.stars.material.size = 1.3;
   GL.U.uPx.value = 0;
+  GL.world.visible = true;
+  for (const P of XR.land || []) P.mesh.visible = false;
+  // left the headset from the Stories screen: back to the Stories screen on the page
+  if (XR.stories) { XR.stories = false; HOST.openPicker(); }
   applyTheme();
   rebuildHighlights(1);
   resize();
@@ -2026,6 +2036,7 @@ function xrSetup() {
   XR.foot.mesh.position.set(0, -(mw * 1200 / 1024) / 2 - 0.012 - (mw * 176 / 1024) / 2, 0);
   for (const P of [XR.main, XR.foot]) { XR.panelGroup.add(P.mesh); XR.panels.push(P); }
   XR.panelMeshes = XR.panels.map(P => P.mesh);
+  xrLandingSetup();
   for (let i = 0; i < 2; i++) xrController(i);
   GL.renderer.xr.addEventListener('sessionend', xrEnded);
   $('#btnVR').addEventListener('click', () => xrStart('immersive-vr'));
@@ -2155,6 +2166,55 @@ function sigMain() {
 }
 const XR_HERE = 'airports';
 const XR_STORIES = HOST.list;
+// ------------------------------------------------------- headset landing --
+// The Stories screen in the headset: a title panel and one card per story,
+// floating in an arc in front of you while the story itself is hidden.
+function xrLandingSetup() {
+  XR.land = [];
+  XR.landGroup = new THREE.Group();
+  GL.rig.add(XR.landGroup);
+  const head = makePanel(1400, 300, 1.02, drawLandHead, () => 'h' + XR.inStory + audioLabel());
+  head.mesh.position.set(0, 0.36, -1.12);
+  XR.landGroup.add(head.mesh); XR.land.push(head);
+  HOST.list.forEach((s, k) => {
+    const a = (k - 1) * 0.42, d = 1.06;
+    const P = makePanel(640, 820, 0.4, (ctx, P) => drawLandCard(ctx, P, s), () => 'c' + XR.inStory + s.key);
+    P.mesh.position.set(Math.sin(a) * d, -0.13, -Math.cos(a) * d);
+    P.mesh.rotation.y = -a;
+    XR.landGroup.add(P.mesh); XR.land.push(P);
+  });
+  for (const P of XR.land) XR.panels.push(P);
+  XR.panelMeshes = XR.panels.map(P => P.mesh);
+}
+// leave the Stories screen: back into this story (resumed, or started if it never ran)
+function xrLandingClose() {
+  XR.stories = false;
+  if (!XR.inStory) APP.enterStory(0);
+  XR.inStory = true;
+  if (APP.mode === 'story') APP.playing = true;
+}
+function drawLandHead(ctx, P) {
+  ctx.font = vfont(58, 700); ctx.fillStyle = VC.ink; ctx.fillText('Networks, in three stories', 48, 44);
+  textBlock(ctx, 'The same ideas, very different networks. Each story takes about four minutes, then the network is yours to explore. Point at a story and pull the trigger (or pinch).', 48, 128, 860, 27, 38, VC.muted);
+  let x = P.w - 44;
+  const hb = (id, label, fn, w, o) => { x -= w; vButton(ctx, P, id, x, 40, w, 64, label, fn, o); x -= 14; };
+  hb('exit', 'Exit', () => { if (XR.session) XR.session.end(); }, 110, { px: 27 });
+  hb('recenter', 'Recenter', () => { XR.needRecenter = true; }, 170, { px: 27 });
+  if (XR.inStory) vButton(ctx, P, 'back', P.w - 44 - 294, 128, 294, 64, 'Back to the story', xrLandingClose, { px: 26 });
+}
+function drawLandCard(ctx, P, s) {
+  const here = s.key === XR_HERE, id = 'card', hov = P.hover === id;
+  rr(ctx, 8, 8, P.w - 16, P.h - 16, 22);
+  ctx.lineWidth = 4; ctx.strokeStyle = hov ? s.col : here && XR.inStory ? 'rgba(70,217,255,0.6)' : 'rgba(140,170,210,0.3)'; ctx.stroke();
+  ctx.fillStyle = s.col; ctx.fillRect(8, 8, P.w - 16, 10);
+  ctx.font = vfont(28, 700); ctx.fillStyle = s.col; ctx.fillText(s.kick.toUpperCase(), 48, 64);
+  ctx.font = vfont(72, 700); ctx.fillStyle = VC.ink; ctx.fillText(s.title, 46, 112);
+  textBlock(ctx, s.desc, 48, 222, P.w - 96, 31, 45, VC.muted, 400, 7);
+  ctx.font = vfont(26); ctx.fillStyle = VC.faint; ctx.fillText(s.len, 48, P.h - 196);
+  const label = here && XR.inStory ? 'Resume' : 'Start';
+  vButton(ctx, P, 'go', 48, P.h - 140, P.w - 96, 92, label, null, { primary: true, px: 34 });
+  P.regions.push({ id, x: 0, y: 0, w: P.w, h: P.h, fn: () => (here ? xrLandingClose() : HOST.go(s.key)) });
+}
 function drawStoriesPane(ctx, P, x, y, W) {
   y += textBlock(ctx, 'Choose a story', x, y, W, 46, 54, VC.ink, 700) + 6;
   y += textBlock(ctx, 'The same ideas, very different networks. Pick one; you stay in the headset view.', x, y, W, 25, 35, VC.muted) + 22;
@@ -2176,7 +2236,7 @@ function drawMain(ctx, P) {
   hb('exit', 'Exit', () => { if (XR.session) XR.session.end(); }, 96);
   if (AUD.state !== 'none') hb('sound', audioLabel(), () => audioToggle(), 180, { on: AUD.ok && !AUD.muted && AUD.ctx.state === 'running', px: 23 });
   hb('recenter', 'Recenter', () => { XR.needRecenter = true; }, 140);
-  hb('stories', 'Stories', () => { XR.stories = !XR.stories; if (XR.stories) { XR.kbd.open = false; APP.playing = false; } }, 130, { on: XR.stories });
+  hb('stories', 'Stories', () => { XR.stories = true; XR.kbd.open = false; APP.playing = false; }, 130);
   if (!XR.stories) hb('mode', story ? 'Explore now' : 'Replay story', () => (story ? APP.enterExplore() : APP.enterStory(0)), 186, { primary: story });
   ctx.font = vfont(30, 700); ctx.fillStyle = VC.ink;
   ctx.fillText(fitText(ctx, 'Network theory', x - 40), 40, 36);
