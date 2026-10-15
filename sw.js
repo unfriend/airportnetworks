@@ -1,7 +1,7 @@
 // Offline support: the app shell is cached on install, so the installed app
 // opens without a network connection. Bump VERSION when you change any file.
-const VERSION = 'airport-networks-v15';
-const SHELL = ['./', './index.html', './proteins.html', './spatial.html', './three.min.js', './manifest.webmanifest',
+const VERSION = 'airport-networks-v16';
+const SHELL = ['./', './index.html', './proteins.html', './spatial.html', './stories/airports.js', './stories/proteins.js', './stories/spatial.js', './three.min.js', './manifest.webmanifest',
   './icons/icon-192.png', './icons/icon-512.png', './icons/maskable-512.png', './icons/apple-touch-icon.png', './icons/favicon-32.png'];
 
 const AUDIO = ['./audio/narration.mp3', './audio/narration-proteins.mp3', './audio/narration-spatial.mp3'];

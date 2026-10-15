@@ -1,11 +1,14 @@
 Networks, in three stories - installable web app
-  1. Network theory, told with the world's airports  (index.html)
-  2. Network medicine, told with the proteins in a cell  (proteins.html)
-  3. Spatial interactome, where proteins meet in a cell  (spatial.html)
+  1. Network theory, told with the world's airports  (stories/airports.js)
+  2. Network medicine, told with the proteins in a cell  (stories/proteins.js)
+  3. Spatial interactome, where proteins meet in a cell  (stories/spatial.js)
 
-Opening the app shows a start screen to pick a story; each page also has a
-Stories button in the top bar that brings it back. index.html#airports skips
-the start screen.
+index.html is the app: it shows a start screen to pick a story, and the Stories
+button (top bar, and the panel in VR/AR) brings it back. Stories are loaded into
+the same page, so changing story never ends a VR or AR session; entering VR or
+AR from the start screen opens the Stories menu in the headset first.
+index.html#airports, #proteins or #spatial skips the start screen;
+proteins.html and spatial.html forward there.
 
 Upload the whole folder to any HTTPS web server (GitHub Pages, Netlify,
 your university web space ...). Installing and VR both need https://.
@@ -40,10 +43,10 @@ lines; 252 documented interactions join copies that meet (same compartment, or
 across a membrane they share). Places follow the Human Protein Atlas and
 UniProt. Seven "moves" (NF-kB, apoptosis, TFEB, GLUT4, NRF2, and the disease
 cases ALS and cystic fibrosis) switch copies on and off. The lists PROTEINS,
-LINKS, TOGETHER and MOVES sit at the top of the page's script and can be
+LINKS, TOGETHER and MOVES sit at the top of stories/spatial.js and can be
 edited; the cell model and protein positions are built when the page loads.
 Good for teaching, not research.
 
-Files: index.html (airport story), proteins.html (protein story), spatial.html (cell map story),
-manifest.webmanifest, sw.js (offline cache), audio/,
+Files: index.html (the app), stories/ (the three stories), proteins.html and
+spatial.html (forward to the app), manifest.webmanifest, sw.js (offline cache), audio/,
 icons/, three.min.js (three.js r128, MIT licence, see three.LICENSE.txt).
