@@ -1220,12 +1220,14 @@ function buildStory() {
   const pv = i => [NET.P[3 * i], NET.P[3 * i + 1], NET.P[3 * i + 2]];
   const dirOf = list => { const c = [0, 0, 0]; list.forEach(i => pv(i).forEach((x, k) => { c[k] += x; })); const n = Math.hypot(...c) || 1; return ll(c.map(x => x / n)); };
   const at = (t, list, d, tilt) => { const [la, lo] = dirOf(list); return [t, clamp(la, -60, 60), lo, d, tilt || 0, 0]; };
+  // slow turn past a focus: shift the longitude, keep 'east' unwrapping so the sweep goes the short way
+  const spinAround = (w, dLon, ease) => [w[0], w[1], w[2] + dLon, w[3], w[4], w[5], ease && 'east', ease];
   const wp = [[0, 18, 20, 3.4, 0, 0], [C.nodes.a, 14, 60, 3.0, 0, 0], [C.nodes.b - 2, 10, 140, 3.0, 0, 0],
     at(C.edges.a + 3, [tp53, mdm2], 2.1), at(C.edges.a + 15, [tp53, mdm2], 2.2), [C.edges.b, 20, 200, 3.0, 0, 0],
     at(C.degree.a + 3, [tp53], 2.4, 25), at(C.degree.b - 4, [tp53], 2.6, 25),
     [C.essential.a + 3, 10, 260, 3.0, 0, 0], [C.essential.b, 5, 330, 3.0, 0, 0],
-    [C.communities.a + 3, 20, 330, 3.2, 0, 0], [C.communities.b, 15, 470, 3.2, 0, 0, 'east'],
-    at(C.disease.a + 3, breast, 2.5), at(C.disease.b - 2, breast, 2.6),
+    [C.communities.a + 2, 20, 330, 3.2, 0, 0], [C.communities.b, 15, 490, 3.2, 0, 0, 'east', 'spin'],
+    spinAround(at(C.disease.a + 3, breast, 2.5), -30), spinAround(at(C.disease.b - 1, breast, 2.6), 30, 'spin'),
     at(C.paths.a + 3, [parp1, ...breast], 2.6)];
   if (path) wp.push(at(C.paths.a + 12, path, 2.6), at(C.paths.b - 2, path, 2.8));
   wp.push([C.robustness.a + 5, 25, 40, 3.1, 0, 0], [C.robustness.b, 20, 120, 3.1, 0, 0], [C.outro.b, 18, 200, 3.4, 0, 0]);
@@ -1235,15 +1237,27 @@ function buildStory() {
     let lon = w[2];
     if (prev !== null) lon = w[6] === 'east' ? prev + (((w[2] - prev) % 360) + 360) % 360 : w[2] + 360 * Math.round((prev - w[2]) / 360);
     prev = lon;
-    return [w[0], w[1], lon, w[3], w[4], w[5]];
+    return [w[0], w[1], lon, w[3], w[4], w[5], w[7]];
   });
+}
+// 0..1 progress over a segment of length D: smoothstep, or for 'spin' segments a steady
+// slow turn with short eased starts and stops (trapezoidal speed profile)
+const smoothSeg = (t, D) => smooth(t / D);
+function spinEase(t, D) {
+  const r = Math.min(2.5, D / 3);
+  if (t <= 0) return 0;
+  if (t >= D) return 1;
+  const v = 1 / (D - r); // cruise speed so the ramps plus cruise cover 0..1
+  if (t < r) return v * t * t / (2 * r);
+  if (t > D - r) return 1 - v * (D - t) * (D - t) / (2 * r);
+  return v * (t - r / 2);
 }
 function storyCam(t) {
   const wp = ST.wp;
   if (t <= wp[0][0]) return wp[0].slice(1);
   for (let i = 1; i < wp.length; i++) {
     if (t <= wp[i][0]) {
-      const a = wp[i - 1], b = wp[i], x = smooth((t - a[0]) / (b[0] - a[0]));
+      const a = wp[i - 1], b = wp[i], x = (b[6] === 'spin' ? spinEase : smoothSeg)(t - a[0], b[0] - a[0]);
       return [a[1] + (b[1] - a[1]) * x, a[2] + (b[2] - a[2]) * x, Math.exp(Math.log(a[3]) + (Math.log(b[3]) - Math.log(a[3])) * x),
         a[4] + (b[4] - a[4]) * x, a[5] + (b[5] - a[5]) * x];
     }
