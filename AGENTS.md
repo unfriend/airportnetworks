@@ -4,8 +4,8 @@ Guidance for AI coding agents (and humans) working on this repository.
 
 ## What this is
 
-An installable web app that teaches network science in four narrated stories
-(about four minutes each, the tour about eight), each followed by an explore
+An installable web app that teaches network science in five narrated stories
+(about four minutes each, the tour about eight, the muscle story about seven), each followed by an explore
 mode. Everything works on desktop, phones and in VR/AR headsets (built for Meta
 Quest Browser, WebXR).
 
@@ -15,6 +15,7 @@ Quest Browser, WebXR).
 | Network medicine | `stories/proteins.js` | 254 curated proteins, 375 interactions in a cell |
 | Spatial interactome | `stories/spatial.js` | 249 proteins in 13 compartments of a model cell |
 | LBI Network Medicine tour | `stories/lbi.js` | ten 3D scenes, from a protein machine and an illustrative interactome to organs and tissue |
+| Rare muscle diseases | `stories/nmd.js` | 1,182 genes of 13 neuromuscular disease groups in a tower of 71 layers (real data in `ikerdata/`), the motor unit, a supercomputer |
 
 No build step, no framework, no package.json. Plain HTML/JS plus
 `three.min.js` (three.js r128, vendored, MIT). The app is deployed by copying
@@ -43,6 +44,9 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
 - `manifest.webmanifest`, `icons/` - PWA install metadata.
 - `tools/smoke.mjs` - headless smoke test; `tools/audio.mjs` - narration test;
   `tools/update.mjs` - update test for the service worker (see Testing).
+- `tools/nmd/` - the sources of `stories/nmd.js` (data generator, data block, sets,
+  engine parts, build script, set harness; it uses `tools/lbi/kit.js`); see its
+  `README.md`. `ikerdata/` holds the authors' analysis files it reads.
 - `tools/lbi/` - the sources of `stories/lbi.js` (kit, sets, engine parts,
   build script, set harness, data generators); see its `README.md`.
 
@@ -146,7 +150,7 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
     session) are added with `HOST.quiet` set, so story changes do not remove
     them.
 
-## Inside a story (all four follow the same pattern)
+## Inside a story (all five follow the same pattern)
 
 - Data at the top (airports and proteins: precomputed constants; spatial: the
   editable `PLACES`, `PROTEINS`, `LINKS`, `TOGETHER`, `MOVES` lists, laid out
@@ -200,6 +204,36 @@ faded in and out by the story; the camera flies between views.
   canvas twins) and a Proteins tab (search, partners and routes on the
   interactome's named proteins).
 
+## The muscle story (`stories/nmd.js`) is built the same way
+
+`stories/nmd.js` is generated like the tour: edit `tools/nmd/` and run
+`node tools/nmd/build.mjs` (`--check` as for the tour). It uses the tour's kit
+(`tools/lbi/kit.js`) and set contract (`tools/lbi/SPEC.md`); `tools/nmd/SPEC.md`
+describes its three sets: `tower` (the multiplex network: 71 layers, the hero
+of the story and of explore mode), `motor` (the motor unit, sarcomere and heart)
+and `hpc` (the supercomputer and the stress test).
+
+- The data is real: `tools/nmd/data/gen_data.mjs` reads the authors' files in
+  `ikerdata/` and writes `tools/nmd/sets/data.js` (the constant `NMD_DATA`,
+  documented in its header), never edited by hand. It also computes the layer
+  z-scores (degree-matched random sets) and the walk's visits on the protein
+  layers, and names endotypes after their most typical GO process; these are
+  stand-ins until the authors send their own. Layers without links yet
+  (`data: ''`) fill in when their links arrive in the data, without code
+  changes. No patient or variant data, and nothing about zebrafish, may appear.
+- Everything the story says in numbers comes from `NMD_DATA` (`FACTS` in
+  `engine/e3_story.js`).
+- Explore mode (`engine/e4_explore.js`, canvas twins in `engine/e6_panels.js`):
+  tabs Diseases (pick a group: its module, endotypes, layer scores, grid by
+  endotype), Genes (search, partners per layer, terms), Walk (a live random walk
+  from a group's seeds or your own genes, on the layers that are on), Layers
+  (knock layers out), Endotypes (pick several, across groups: links between
+  them per layer) and Scenes. The panels talk to the tower through its API
+  (`setState`, `walk`, `pick`, anchors `gene`, `endo`, `group`).
+- *Stand inside* (view controls, or the Scenes tab in the headset) opens the
+  tower around you: on screen from its middle, in a headset life size around
+  where you stand (`XR.room`, `xrPlace`).
+
 ## Conventions
 
 - Match the surrounding style: 2-space indent, single quotes, semicolons,
@@ -229,6 +263,9 @@ faded in and out by the story; the camera flies between views.
   the Stories screen, not in a headset). After changing `sw.js`, run
   `tools/update.mjs`.
 - Story chapter timings are also documented in `audio/PUT-narration.mp3-HERE.txt`.
+- After changing anything in `tools/nmd/` (or `ikerdata/`: first
+  `node tools/nmd/data/gen_data.mjs`), rebuild `stories/nmd.js` with
+  `node tools/nmd/build.mjs` (and bump `VERSION`).
 - After changing anything in `tools/lbi/`, rebuild `stories/lbi.js` (and bump
   `VERSION`).
 - Keep `README.txt` (user-facing notes) in sync with structural changes.
@@ -282,7 +319,9 @@ Useful URL hashes: `#spatial&t=95` (open at a story second, paused),
 `#proteins&explore&q=TP53` (explore mode with a search),
 `#spatial&explore&tab=moves&move=nfkb&now=1`, `#lbi&t=140` (the tour at a
 second), `#lbi&explore&scene=atp&view=network&now=1` (a scene with its controls),
-`#lbi&explore&route=TP53,BRCA1`, `#airports&repeat=all` (a kiosk that plays
+`#lbi&explore&route=TP53,BRCA1`, `#nmd&explore&group=Cardiomyopathies`,
+`#nmd&explore&pick=5:13,11:7` (endotypes, group:number), `#nmd&explore&walk=5` or
+`&walk=TTN,DES`, `#nmd&explore&inside`, `#airports&repeat=all` (a kiosk that plays
 every story in turn), `#anchor=on` (anchored headset placement). In the console,
 `HOST.cur.peek('expression')` evaluates inside the current story
 (e.g. `HOST.cur.peek('NET.P')`).

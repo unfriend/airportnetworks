@@ -1,4 +1,4 @@
-// Headless smoke test for the four stories.
+// Headless smoke test for the five stories.
 //   node tools/smoke.mjs [base-url]     (default http://127.0.0.1:8123/)
 // Serve the folder first (npx http-server -p 8123 -c-1 .). Needs Playwright;
 // set PLAYWRIGHT_MODULE to its path if it is installed globally, and
@@ -20,7 +20,7 @@ await page.waitForTimeout(4000);
 await step('start screen is the landing page', async () => {
   if (!await page.evaluate(() => HOST.picking)) errors.push('start screen not shown on load');
 });
-for (const key of ['airports', 'proteins', 'spatial', 'lbi']) {
+for (const key of ['airports', 'proteins', 'spatial', 'lbi', 'nmd']) {
   await step(`load ${key}`, async () => {
     await page.click(`#picker [data-story="${key}"]`).catch(async () => { await page.click('#btnOther'); await page.click(`#picker [data-story="${key}"]`); });
     await page.waitForFunction(k => HOST.curKey === k && HOST.cur && HOST.cur.peek('typeof ST !== "undefined" && ST.items.length > 0'), key, { timeout: 30000 });
@@ -56,6 +56,30 @@ for (const key of ['airports', 'proteins', 'spatial', 'lbi']) {
       for (const P of XR.panels) { P.last = ''; P.t = -1e9; panelTick(P, performance.now() + 1e6); } XR.on = false; XR.routing = false; })()`);
     await sleep(200);
   }));
+  if (key === 'nmd') await step('nmd: every explore tool, on the page and in the headset', () => page.evaluate(async () => {
+    const sleep = ms => new Promise(r => setTimeout(r, ms));
+    const bad = HOST.cur.peek(`(() => {
+      const out = [], T = GL.sets.tower;
+      for (const g of [0, 5, 11]) { selectGroup(g); X.showZ = true; X.colour = 'endo'; X.grid = true; }
+      runQuery('TTN'); if (X.gene !== findGene('TTN')) out.push('gene search did not select TTN');
+      togglePick(5, 13); togglePick(11, 7); if (!endoStats().rows.length) out.push('no links between two picked endotypes');
+      runWalk(5); if (!X.walk || !X.walk.top.length) out.push('the walk found nothing');
+      const top = X.walk ? X.walk.top[0] : -1;
+      setLayers(L => L.cat === 'ppi'); knockRandom(10); runWalk(5); if (!X.walk) out.push('the walk failed with layers knocked out');
+      addMine(findGene('DES')); addMine(findGene('MYH7')); runWalk('mine'); if (!X.walk) out.push('a walk from your own genes failed');
+      if (T.pick && typeof T.pick(new THREE.Vector3(0, 0, 5), new THREE.Vector3(0, 0, -1)) !== 'number') out.push('pick returned no number');
+      setRoom(true); setRoom(false);
+      for (const s of ['motor', 'hpc', 'tower']) { openScene(s); for (const c of GL.sets[s].controls || []) for (const [v] of c.options) setCtl(s, c.key, v); }
+      XR.on = true;
+      for (const [k] of TABS) { showTab(k); for (const P of XR.panels) { P.last = ''; P.t = -1e9; panelTick(P, performance.now() + 1e6); } }
+      XR.kbd.open = true; showTab('genes'); XR.kbd.q = 'MYH'; for (const P of XR.panels) { P.last = ''; P.t = -1e9; panelTick(P, performance.now() + 1e6); }
+      XR.kbd.open = false; XR.on = false;
+      clearWalk(); clearPick(); setLayers(() => true); selectGene(-1); selectGroup(-1);
+      return out;
+    })()`);
+    await sleep(300);
+    if (bad.length) throw new Error(bad.join('; '));
+  }));
   await page.click('#btnOther');
 }
 // Repeat on the Stories screen: one story again and again, or all of them in turn (the last leads to the first)
@@ -71,8 +95,8 @@ await step('Repeat one and Repeat all', async () => {
   await page.click('#btnOther');
   await page.click('#picker [data-repeat="all"]');
   if (await page.getAttribute('#picker [data-repeat="one"]', 'aria-pressed') !== 'false') errors.push('Repeat one still lit');
-  await page.click('#picker [data-story="lbi"]');
-  await ready('lbi'); await toEnd();
+  await page.click('#picker [data-story="nmd"]');
+  await ready('nmd'); await toEnd();
   await playsFromTop('airports', 'Repeat all did not go from the last story to the first');
   await page.click('#btnOther');
   await page.click('#picker [data-repeat="all"]');
@@ -80,7 +104,7 @@ await step('Repeat one and Repeat all', async () => {
 });
 // Anchored mode with a pretend headset: a room whose tracking origin can jump (recentring) and
 // anchors that keep their place in it, saved under a handle (Quest's persistent anchors)
-for (const key of ['airports', 'proteins', 'spatial', 'lbi']) await step(`${key}: anchored placement`, async () => {
+for (const key of ['airports', 'proteins', 'spatial', 'lbi', 'nmd']) await step(`${key}: anchored placement`, async () => {
   await page.evaluate(k => HOST.start(k), key);
   await page.waitForFunction(k => HOST.curKey === k && HOST.cur && HOST.cur.peek('typeof ST !== "undefined" && ST.items.length > 0'), key, { timeout: 30000 });
   const bad = await page.evaluate(async () => {

@@ -10,7 +10,7 @@
 - The story files are large (`stories/airports.js` is ~640 KB because of its
   embedded data). Search with Grep and read line ranges; never read them whole.
 - Prefer small, exact edits. When a change touches the headset code, apply it
-  to all four stories: their XR, panel and landing-screen code is meant to
+  to all five stories: their XR, panel and landing-screen code is meant to
   stay identical apart from story-specific panes.
 - Verify visual changes by serving the folder and taking headless Chromium
   screenshots (hashes such as `#spatial&t=60` jump straight to a moment), and
@@ -30,7 +30,9 @@
   `HOST.anchor.locked()` before letting the grip move anything. Real anchors
   only exist on a headset: report their behaviour as untested.
 - `stories/lbi.js` is built from `tools/lbi/`: edit there and run
-  `node tools/lbi/build.mjs`.
+  `node tools/lbi/build.mjs`. `stories/nmd.js` likewise from `tools/nmd/`
+  (`node tools/nmd/build.mjs`; data from `ikerdata/` via
+  `node tools/nmd/data/gen_data.mjs`). Never show patient or variant data in it.
 
 ## Keeping token use down
 

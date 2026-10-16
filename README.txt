@@ -1,9 +1,11 @@
-Networks, in four stories - installable web app
+Networks, in five stories - installable web app
   1. Network theory, told with the world's airports  (stories/airports.js)
   2. Network medicine, told with the proteins in a cell  (stories/proteins.js)
   3. Spatial interactome, where proteins meet in a cell  (stories/spatial.js)
   4. A glimpse into the future of network medicine: a 3D tour of the Ludwig
      Boltzmann Institute for Network Medicine  (stories/lbi.js)
+  5. Muscle and heart: rare diseases of nerves and muscles in a 71-layer
+     network, after Iker Núñez-Carpintero and Philipp Friedrich  (stories/nmd.js)
 
 index.html is the app: it shows a start screen to pick a story, and the Stories
 button (top bar, and the panel in VR/AR) brings it back. Stories are loaded into
@@ -87,8 +89,20 @@ structure (13 of its proteins, two of them assembly helpers that leave;
 9 clinical categories, 19 clusters); the flows between them are illustrative,
 as are the disease modules, the patient, the organ network and the tissue.
 
-Files: index.html (the app), stories/ (the four stories), proteins.html and
+Muscle story data (stories/nmd.js): the authors' analysis files in ikerdata/
+(no patient data): 13 disease groups of the 2024 Gene Table of Neuromuscular
+Disorders, their known genes, the genes the random walk added and their
+endotypes; 15,246 links among 1,182 genes in the 27 protein layers, and the
+phenotype and co-expression layers for the overlap of congenital myopathies and
+cardiomyopathies. The other layers show no links yet. Layer z-scores and walk
+visits are computed in this map on the protein layers; endotype names are the
+most typical GO process of their genes. The motor unit and the supercomputer
+are illustrative.
+
+Files: index.html (the app), stories/ (the five stories), proteins.html and
 spatial.html (forward to the app), manifest.webmanifest, sw.js (offline cache), audio/,
 AGENTS.md and CLAUDE.md (notes for AI coding agents), tools/smoke.mjs (headless test),
 tools/lbi/ (sources of the tour; node tools/lbi/build.mjs writes stories/lbi.js),
+tools/nmd/ and ikerdata/ (sources and data of the muscle story; node tools/nmd/build.mjs
+writes stories/nmd.js),
 icons/, three.min.js (three.js r128, MIT licence, see three.LICENSE.txt).

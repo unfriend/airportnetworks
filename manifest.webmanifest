@@ -1,7 +1,7 @@
 {
-  "name": "Networks, in four stories",
+  "name": "Networks, in five stories",
   "short_name": "Networks",
-  "description": "Network science in four short interactive stories: the world's airports on a globe, proteins and disease in a cell, where proteins meet in a model human cell, and a 3D tour of network medicine. Works in VR and AR headsets.",
+  "description": "Network science in five short interactive stories: the world's airports on a globe, proteins and disease in a cell, where proteins meet in a model human cell, a 3D tour of network medicine, and rare muscle diseases in a 71-layer network. Works in VR and AR headsets.",
   "id": "./",
   "start_url": "./",
   "scope": "./",

@@ -1,7 +1,7 @@
 # airportnetworks
 
-**Networks, in four stories**: an installable web app that teaches network
-science through four short, animated stories. Each story takes a few minutes
+**Networks, in five stories**: an installable web app that teaches network
+science through five short, animated stories. Each story takes a few minutes
 (the tour about eight) and ends in an explore mode where the network is yours
 to play with.
 It runs in any modern browser, on phones, and in VR and AR headsets (built for
@@ -12,6 +12,7 @@ Meta Quest Browser).
 | **Airports** (network theory) | 3,214 airports and 18,858 routes on a globe | nodes and edges, degree and hubs, shortest paths, betweenness, communities, robustness when airports close |
 | **Proteins** (network medicine) | 254 proteins and 375 interactions inside a cell | essential hubs, modules, disease modules, drug targets, knockouts |
 | **Cell map** (spatial interactome) | 249 proteins in 13 compartments of a model human cell | where proteins meet, proteins in several places, signals crossing the cell, proteins that move, proximity labelling, proteins in the wrong place |
+| **Muscle and heart** (rare muscle diseases) | 1,182 genes of 13 groups of neuromuscular disorders in a tower of 71 layers, after the ISMB 2026 talk by Iker Núñez-Carpintero and Philipp Friedrich (LBI Network Medicine), on their data | the motor unit from nerve to sarcomere, a multiplex network, a random walk with restart, disease modules, endotypes, the overlap of congenital myopathies and cardiomyopathies, a stress test on a supercomputer; explore: pick a group, search a gene, run your own walk, knock out layers, pick endotypes, stand inside the tower |
 | **The future** (LBI Network Medicine) | a 3D tour in ten scenes, after the Ludwig Boltzmann Institute for Network Medicine's welcome talk | the whole is more than its parts, networks everywhere, genes and protein shapes, a protein machine (ATP synthase) assembling and running, the interactome as a city map, rare diseases and inborn errors of immunity, network propagation for diagnosis, networks across scales, the institute's research groups, whole-body PET and organ networks, tissue as a network of cells |
 
 ## Using it
@@ -128,6 +129,20 @@ Chapter timings and how to re-sync a new recording
   - The disease modules, the patient for network propagation, the organ
     network, the stomach section and its embedding are illustrative too.
 
+- **Muscle and heart** (`stories/nmd.js`), after the ISMB 2026 talk "Deep
+  integrative multiplex network-based analysis of rare neuromuscular
+  disorders" (Iker Núñez-Carpintero, Philipp Friedrich, Julia Guthrie, Jörg
+  Menche), on the authors' data in `ikerdata/` (no patient data): the 13
+  disease groups of the 2024 Gene Table of Neuromuscular Disorders with their
+  known genes, the genes the random walk added and their endotypes; 15,246
+  links among the 1,182 module genes in the 27 protein-interaction layers
+  (IID), and, for the overlap of congenital myopathies and cardiomyopathies, the
+  phenotype and co-expression layers. The other layers of the 71 show no links
+  yet. Layer z-scores and the walk's visits are computed in this map on the
+  protein layers (`tools/nmd/data/gen_data.mjs`); endotype names are the most
+  typical GO process of their genes. The motor unit and the supercomputer are
+  illustrative.
+
 The protein data is meant for teaching, not research.
 
 ## Files
@@ -135,7 +150,7 @@ The protein data is meant for teaching, not research.
 | Path | What it is |
 | --- | --- |
 | `index.html` | the app: Stories screen, shared page layout, loads and swaps the stories |
-| `stories/airports.js`, `stories/proteins.js`, `stories/spatial.js`, `stories/lbi.js` | the four stories, with their data, explore modes and headset panels |
+| `stories/airports.js`, `stories/proteins.js`, `stories/spatial.js`, `stories/lbi.js`, `stories/nmd.js` | the five stories, with their data, explore modes and headset panels |
 | `proteins.html`, `spatial.html` | forward old links to the app |
 | `sw.js`, `manifest.webmanifest`, `icons/` | offline cache and app install |
 | `audio/` | optional narrations |
@@ -144,6 +159,7 @@ The protein data is meant for teaching, not research.
 | `tools/update.mjs` | update test: an older version installed, then this one deployed (see `AGENTS.md`) |
 | `tools/audio.mjs` | narration test under the headset browsers' sound rule, with faults that make the fallback take over (needs `audio/narration.mp3`) |
 | `tools/lbi/` | sources of the tour: its 3D sets, engine parts and build script (`node tools/lbi/build.mjs` writes `stories/lbi.js`) |
+| `tools/nmd/`, `ikerdata/` | sources of the muscle story and the authors' data (`node tools/nmd/data/gen_data.mjs`, then `node tools/nmd/build.mjs` writes `stories/nmd.js`) |
 | `AGENTS.md`, `CLAUDE.md` | notes on the architecture and conventions for AI coding agents (and people) |
 | `README.txt` | the same notes in plain text |
 
@@ -161,6 +177,8 @@ node tools/smoke.mjs http://127.0.0.1:8123/
 
 The tour (`stories/lbi.js`) is generated from `tools/lbi/`; edit the sources
 there and rebuild with `node tools/lbi/build.mjs` (see `tools/lbi/README.md`).
+The muscle story (`stories/nmd.js`) is generated the same way from `tools/nmd/`
+(see `tools/nmd/README.md`).
 `AGENTS.md` also has advice on working economically with AI coding agents.
 
 Headset behaviour can only be checked on a device.
