@@ -2836,6 +2836,9 @@ function xrPlaceGlobe(p) {
 function xrRecenter() {
   XR.globeOff.set(0, 0, 0);
   if (XR.panelGroup) { XR.panelGroup.position.copy(XR.panelHome.p); XR.panelGroup.rotation.set(0, XR.panelHome.yaw, 0); }
+  // anchored: the scene and the panel go back where they were saved with the place
+  const s = HOST.anchor.saved();
+  if (s) { XR.globeOff.fromArray(s.off); if (XR.panelGroup) { XR.panelGroup.position.fromArray(s.pp); XR.panelGroup.rotation.set(0, s.pr, 0); } }
   const yaw = new THREE.Euler().setFromQuaternion(XR.headQ, 'YXZ').y;
   GL.rig.position.copy(XR.head);
   GL.rig.quaternion.setFromAxisAngle(new THREE.Vector3(0, 1, 0), yaw);
@@ -3003,7 +3006,7 @@ function xrGrab(c, on) {
   c.grab = null;
   const h = c.hover;
   if (!on || !h) return;
-  if (XR.stories) return; // the Stories screen stays put
+  if (XR.stories || HOST.anchor.locked()) return; // the Stories screen stays put, and so does an anchored place
   const obj = h.kind === 'panel' ? XR.panelGroup : GL.world;
   c.grab = { target: h.kind === 'panel' ? 'panel' : 'globe', q0: new THREE.Quaternion().setFromRotationMatrix(c.g.matrix).invert(),
     o0: c.o.clone(), p0: obj.getWorldPosition(new THREE.Vector3()), reach: 1 };
@@ -3080,13 +3083,18 @@ function xrPoint(c, dt) {
 }
 
 // ---------------------------------------------------------------- frames --
+const _xUp = new THREE.Vector3(0, 1, 0);
 function xrBegin(frame, dt) {
   const ref = GL.renderer.xr.getReferenceSpace();
   const pose = frame && ref ? frame.getViewerPose(ref) : null;
   if (pose) {
     const p = pose.transform.position, q = pose.transform.orientation;
     XR.head.set(p.x, p.y, p.z); XR.headQ.set(q.x, q.y, q.z, q.w);
-    if (XR.needRecenter) { xrRecenter(); XR.needRecenter = false; }
+    if (XR.needRecenter) { if (!HOST.anchor.held()) xrRecenter(); XR.needRecenter = false; } // an anchored place stays put
+    // anchored: the spot in the room carries the frame that holds the panels, the Stories screen and the scene
+    // (asked only once the headset has a pose, so a new anchor goes where things really are)
+    const A = HOST.anchor.frame(frame, ref);
+    if (A) { GL.rig.position.fromArray(A.p); GL.rig.quaternion.setFromAxisAngle(_xUp, A.yaw); }
   }
   const bl = XR.session && XR.session.renderState.baseLayer;
   if (bl) {
@@ -3196,7 +3204,7 @@ async function xrStart(mode) {
   if (XR.session || !navigator.xr) return;
   let session;
   try {
-    session = await navigator.xr.requestSession(mode, { optionalFeatures: ['local-floor', 'hand-tracking'] });
+    session = await navigator.xr.requestSession(mode, { optionalFeatures: ['local-floor', 'hand-tracking', 'anchors'] });
   } catch (err) {
     HOST.landingVR = false;
     xrMsg(`Could not start ${mode === 'immersive-ar' ? 'AR' : 'VR'}: ${err && err.message ? err.message : err}`);
@@ -3246,7 +3254,8 @@ function xrEnterScene() {
   }
 }
 // Headset taken off (or put to sleep) for more than a few seconds: treat the next
-// wearer as a new visitor. Restart the story and place everything in front of them.
+// wearer as a new visitor. Restart the story and place everything in front of them
+// (when anchored, everything stays at its spot in the room).
 const XR_AWAY_MS = 3000;
 function xrVisibility() {
   const v = XR.session && XR.session.visibilityState;
@@ -3457,7 +3466,7 @@ function xrLandingSetup() {
   XR.land = [];
   XR.landGroup = new THREE.Group();
   GL.rig.add(XR.landGroup);
-  const head = makePanel(1400, 300, 1.02, drawLandHead, () => 'h' + XR.inStory + audioLabel() + HOST.repeat + XR.soundCheck + HOST.audio.muted);
+  const head = makePanel(1400, 300, 1.02, drawLandHead, () => 'h' + XR.inStory + audioLabel() + HOST.repeat + XR.soundCheck + HOST.audio.muted + HOST.anchor.status());
   head.mesh.position.set(0, 0.36, -1.12);
   XR.landGroup.add(head.mesh); XR.land.push(head);
   HOST.list.forEach((s, k) => {
@@ -3483,15 +3492,21 @@ function xrLandingClose() {
 }
 function drawLandHead(ctx, P) {
   ctx.font = vfont(58, 700); ctx.fillStyle = VC.ink; ctx.fillText('Networks, in four stories', 48, 44);
-  textBlock(ctx, 'The same ideas, very different networks. Point at a story and pull the trigger (or pinch).', 48, 128, 860, 27, 38, VC.muted, 400, 2);
+  // anchored: where the place stands, in place of the hint
+  const an = HOST.anchor.status();
+  textBlock(ctx, an || 'The same ideas, very different networks. Point at a story and pull the trigger (or pinch).', 48, 128, 860, 27, 38, an ? VC.ink : VC.muted, 400, 2);
   // the sound, before a story starts: its state (press to start it, or to turn the narration off and on) and Sound check
   const sl = audioLabel() || (HOST.audio.muted ? 'Sound off' : 'Sound');
   vButton(ctx, P, 'land:sound', 48, 212, 300, 64, sl, () => audioToggle(), { on: sl === 'Sound on', px: 25 });
   vButton(ctx, P, 'land:check', 362, 212, 250, 64, 'Sound check', () => { XR.soundCheck = !XR.soundCheck; }, { on: !!XR.soundCheck, px: 25 });
+  // Anchor: keep the scenes and panels at this spot in the room, for every story (pressing it lit turns it off)
+  vButton(ctx, P, 'land:anchor', 626, 212, 200, 64, 'Anchor', () => HOST.anchor.set(!HOST.anchor.on), { on: HOST.anchor.on, px: 25 });
   let x = P.w - 44;
   const hb = (id, label, fn, w, o) => { x -= w; vButton(ctx, P, id, x, 40, w, 64, label, fn, o); x -= 14; };
   hb('exit', 'Exit', () => { if (XR.session) XR.session.end(); }, 110, { px: 27 });
-  hb('recenter', 'Recenter', () => { XR.needRecenter = true; }, 170, { px: 27 });
+  // anchored, Recenter becomes Place again: everything in front of you, then anchored there
+  if (HOST.anchor.on) hb('again', 'Place again', () => { HOST.anchor.again(); XR.needRecenter = true; }, 210, { px: 27 });
+  else hb('recenter', 'Recenter', () => { XR.needRecenter = true; }, 170, { px: 27 });
   if (XR.inStory) vButton(ctx, P, 'back', P.w - 44 - 294, 128, 294, 64, 'Back to the story', xrLandingClose, { px: 26 });
   // Repeat: all stories one after another, or the one you pick again and again (pressing a lit one turns it off)
   vButton(ctx, P, 'rep:all', P.w - 44 - 414, 212, 200, 64, 'Repeat all', () => HOST.toggleRepeat('all'), { on: HOST.repeat === 'all', px: 26 });
@@ -3551,7 +3566,7 @@ function drawMain(ctx, P) {
   const hb = (id, label, fn, w, o) => { x -= w; vButton(ctx, P, id, x, 26, w, 54, label, fn, o); x -= 12; };
   hb('exit', 'Exit', () => { if (XR.session) XR.session.end(); }, 96);
   if (AUD && AUD.state !== 'none') hb('sound', audioLabel(), () => audioToggle(), 180, { on: AUD.on(), px: 23 });
-  hb('recenter', 'Recenter', () => { XR.needRecenter = true; }, 140);
+  if (!HOST.anchor.on) hb('recenter', 'Recenter', () => { XR.needRecenter = true; }, 140); // anchored: nothing moves
   hb('stories', 'Stories', () => { XR.stories = true; XR.kbd.open = false; APP.playing = false; }, 130);
   if (!XR.stories) hb('mode', story ? 'Explore now' : 'Replay story', () => (story ? APP.enterExplore() : APP.enterStory(0)), 186, { primary: story });
   ctx.font = vfont(30, 700); ctx.fillStyle = VC.ink;
@@ -3561,7 +3576,7 @@ function drawMain(ctx, P) {
   else if (story) {
     drawStoryPane(ctx, P, 44, 136, P.w - 88);
     ctx.fillStyle = VC.line; ctx.fillRect(36, P.h - 96, P.w - 72, 2);
-    textBlock(ctx, 'Trigger (or pinch): use buttons. Grip: move the cell or this panel. A or X: play and pause.', 44, P.h - 74, P.w - 88, 22, 30, VC.faint);
+    textBlock(ctx, HOST.anchor.on ? 'Trigger (or pinch): use buttons. A or X: play and pause. Anchored: to move things, use Place again on the Stories screen.' : 'Trigger (or pinch): use buttons. Grip: move the cell or this panel. A or X: play and pause.', 44, P.h - 74, P.w - 88, 22, 30, VC.faint);
   } else drawExplorePane(ctx, P, 40, 120, P.w - 80);
 }
 

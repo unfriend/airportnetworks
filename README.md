@@ -35,6 +35,16 @@ Meta Quest Browser).
   grip to move the network or the panel, thumbstick to spin and zoom, A or X to
   play and pause. Changing story inside the headset keeps you in VR or AR and
   keeps the layout where you put it; *Recenter* puts it back in front of you.
+- **Anchor** (a button on the headset's Stories screen) keeps the network and
+  the panels at one spot in the real room, for every story: they stay there
+  when the headset is taken off and put on again (the next wearer still starts
+  on the Stories screen), when it recentres, after leaving VR and after a
+  reload. While anchored the grip moves nothing; *Place again* puts everything
+  in front of you and anchors it there. To arrange things first, leave Anchor
+  off, move them with the grip, then press Anchor. It uses the Quest Browser's
+  room anchors (not in private browsing; clearing the site's data forgets the
+  place); where a headset has none, the place holds until you leave VR. A link
+  with `#anchor=on` (or `#anchor=off`) sets it, for a kiosk.
 - The address shows where you are, so you can share it: `#stories` on the
   Stories screen (on the page or in the headset), `#airports`, `#proteins`,
   `#spatial` or `#lbi` in a story. A story link opens that story directly; a link without

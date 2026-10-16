@@ -13,12 +13,22 @@ story); entering from inside a story resumes it where you were.
 The start screen is the landing page (no hash, or #stories). The address
 follows you: #stories on the Stories screen (page or headset), #airports,
 #proteins, #spatial or #lbi in a story, so links can be shared and open that story
-directly (proteins.html and spatial.html forward there). Taking the headset off and on returns to the Stories menu.
+directly (proteins.html and spatial.html forward there). Taking the headset off and on returns to the Stories menu
+(and, unless Anchor is on, places everything in front of the next wearer).
 Repeat all and Repeat one on the Stories screen (page and headset) keep the app
 playing for an exhibition: Repeat all plays the stories one after another
 without end, Repeat one plays the story you pick again and again. Press the lit
 button to turn it off. It is remembered on the device; a link ending in
 #airports&repeat=all (or repeat=one) sets it.
+Anchor (headset Stories screen) keeps the network and the panels at one spot
+in the real room, for every story: through taking the headset off and on (the
+next wearer still starts on the Stories menu), recentring, leaving VR and
+reloading. While anchored the grip moves nothing; Place again puts everything
+in front of you and anchors it there. To arrange things first, leave Anchor off,
+move them with the grip, then press Anchor. It uses the Quest Browser's room
+anchors (not in private browsing; clearing the site's data forgets the place);
+without them the place holds until you leave VR. #anchor=on (or #anchor=off) in
+a link sets it.
 
 Upload the whole folder to any HTTPS web server (GitHub Pages, Netlify,
 your university web space ...). Installing and VR both need https://.

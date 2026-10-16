@@ -963,10 +963,160 @@ HOST.audio = (function () {
     running, narration, unlock, toggle, watch, drop, beep, setEngine, reset, report, engine: () => engine(A.cur), state: () => A,
   };
 })();
-// stories set HOST.session when they start or take over a headset session; the sound system listens to it
+// stories set HOST.session when they start or take over a headset session; the sound system and the anchor listen to it
 (function () {
   let s = null;
-  Object.defineProperty(HOST, 'session', { get: () => s, set(v) { s = v; HOST.audio.watch(v); }, enumerable: true });
+  Object.defineProperty(HOST, 'session', { get: () => s, set(v) { s = v; HOST.audio.watch(v); HOST.anchor.watch(v); }, enumerable: true });
+})();
+// --------------------------------------------------------------- anchored placement --
+// Anchored mode (the Anchor button on the headset Stories screen, or #anchor=on / #anchor=off in a
+// link; remembered on this device): the scenes and panels stay at one spot in the real room, for
+// every story. The stories hang the Stories screen, the story panel and the scene's placement point
+// on one frame (their rig); while anchored, that frame follows a WebXR anchor, which keeps its place
+// when the headset recentres or is taken off and put on again, and whose persistent handle brings it
+// back after leaving VR or reloading (Meta Quest Browser: at most 8 per site, none in private
+// browsing, gone when the site's data is cleared). Where the scene and the panel sit in the frame is
+// saved with it. While anchored the grip moves nothing; Place again puts everything in front of you
+// and anchors it there. Without anchors the place still holds until you leave the headset view.
+HOST.anchor = (function () {
+  // gen counts placements: a request (restore, create) still running when the place is dropped, placed
+  // again or the session changes finds a newer gen when it settles, and throws its result away
+  const N = { on: false, uuid: '', old: [], off: null, pp: null, pr: 0, session: null, anchor: null, want: '', busy: false,
+    gen: 0, placed: false, restored: false, kind: '', note: '', last: null, since: 0, wait: 8000 };
+  try {
+    N.on = localStorage.getItem('xrAnchor') === '1';
+    const s = JSON.parse(localStorage.getItem('xrPlace') || 'null');
+    if (s) Object.assign(N, { uuid: s.uuid || '', old: s.old || [], off: s.off || null, pp: s.pp || null, pr: +s.pr || 0 });
+  } catch (e) { /* storage blocked */ }
+  function store() {
+    try {
+      localStorage.setItem('xrAnchor', N.on ? '1' : '0');
+      localStorage.setItem('xrPlace', JSON.stringify({ uuid: N.uuid, old: N.old, off: N.off, pp: N.pp, pr: N.pr }));
+    } catch (e) { /* storage blocked */ }
+  }
+  // a saved handle we no longer need: delete it now, or at the start of the next headset session
+  function forget(u) {
+    if (!u) return;
+    const s = N.session;
+    if (s && s.deletePersistentAnchor) s.deletePersistentAnchor(u).catch(() => {});
+    else { N.old.push(u); store(); }
+  }
+  function release(a) { try { a.delete(); } catch (e) { /* already gone */ } }
+  function drop() {
+    N.gen++; N.busy = false;
+    if (N.anchor) release(N.anchor);
+    N.anchor = null; N.last = null; N.placed = false; N.restored = false; N.kind = '';
+    forget(N.uuid); N.uuid = '';
+  }
+  // the saved place cannot be found (yet): hold things where they are and keep the saved place for next time
+  function lost() {
+    N.placed = true; N.kind = 'session';
+    N.note = 'The saved place was not found here. Place again to anchor everything where it is now.';
+  }
+  // the headset session started, was taken over by the next story (the same session) or ended
+  function watch(s) {
+    if (s === N.session) return;
+    N.gen++;
+    Object.assign(N, { session: s, anchor: null, last: null, placed: false, restored: false, busy: false, want: '', kind: '', note: '' });
+    if (s && s.deletePersistentAnchor) for (const u of N.old.splice(0)) s.deletePersistentAnchor(u).catch(() => {});
+    store();
+    if (s && N.on) N.want = N.uuid ? 'restore' : 'create';
+  }
+  function restore() {
+    const s = N.session, g = N.gen;
+    if (!s.restorePersistentAnchor) { N.want = 'create'; return; }
+    N.busy = true; N.since = performance.now();
+    let pr;
+    try { pr = s.restorePersistentAnchor(N.uuid); } catch (e) { pr = Promise.reject(e); }
+    Promise.resolve(pr).then(a => {
+      if (!a) throw new Error('no anchor');
+      if (g !== N.gen) { release(a); return; }
+      N.anchor = a; N.restored = true; N.kind = 'restoring'; // it counts once the headset finds it in the room (frame)
+    }).catch(() => { if (g === N.gen) lost(); })
+      .finally(() => { if (g === N.gen) N.busy = false; });
+  }
+  // anchor the frame where it is now, with the scene and the panel where they are in it
+  function create(f, ref) {
+    const s = N.session, g = N.gen;
+    let P = null;
+    try { P = HOST.cur && HOST.cur.xrPose(); } catch (e) { /* story not ready */ }
+    if (!P) { N.want = 'create'; return; }
+    N.off = P.off.toArray(); N.pp = P.pp.toArray(); N.pr = P.pr; N.placed = true; N.kind = 'session'; N.note = '';
+    store();
+    if (typeof f.createAnchor !== 'function' || typeof XRRigidTransform === 'undefined') return;
+    N.busy = true;
+    let pr;
+    try {
+      pr = f.createAnchor(new XRRigidTransform({ x: P.rp.x, y: P.rp.y, z: P.rp.z }, { x: P.rq.x, y: P.rq.y, z: P.rq.z, w: P.rq.w }), ref);
+    } catch (e) { pr = Promise.reject(e); }
+    Promise.resolve(pr).then(a => {
+      if (!a) throw new Error('no anchor');
+      if (g !== N.gen) { release(a); return; }
+      N.anchor = a; N.kind = 'room';
+      if (!a.requestPersistentHandle) return;
+      return a.requestPersistentHandle().then(u => {
+        if (g !== N.gen || N.session !== s) { forget(u); return; }
+        if (N.uuid && N.uuid !== u) forget(N.uuid);
+        N.uuid = u; N.kind = 'saved'; store();
+      }, () => { /* private browsing: anchored until the headset view ends */ });
+    }).catch(() => { /* no anchors in this session: the place holds until the headset view ends */ })
+      .finally(() => { if (g === N.gen) N.busy = false; });
+  }
+  return {
+    get on() { return N.on; },
+    // switched on, it anchors where things are now; off, it forgets the place (things stay put, but can move again)
+    set(on) {
+      on = !!on;
+      if (on === N.on) return;
+      N.on = on; N.note = '';
+      if (on) N.want = N.session ? 'create' : '';
+      else { N.want = ''; drop(); }
+      store();
+    },
+    // Place again: forget the place; the story puts everything in front of you, then it is anchored there
+    again() {
+      if (!N.on) return;
+      drop(); N.off = N.pp = null; N.pr = 0; N.note = ''; store();
+      N.want = 'create';
+    },
+    // while true, a story must not re-place anything (headset taken off, recentring)
+    held: () => N.on && N.placed,
+    // while true, the grip moves nothing
+    locked: () => N.on,
+    // the arrangement saved with the place: { off, pp, pr } in the frame, or null
+    saved: () => (N.on && N.off && N.pp ? { off: N.off, pp: N.pp, pr: N.pr } : null),
+    // once a frame from a story's headset loop, once the headset has a pose: the frame's pose in the room ({ p, yaw }), or null
+    frame(f, ref) {
+      if (!N.on || !N.session || !f || !ref) return null;
+      if (N.want && !N.busy) { const w = N.want; N.want = ''; if (w === 'restore') restore(); else create(f, ref); }
+      if (!N.anchor) return null;
+      const p = f.trackedAnchors && !f.trackedAnchors.has(N.anchor) ? null : f.getPose(N.anchor.anchorSpace, ref);
+      if (!p) {
+        // not found yet, or tracking lost: stay put; a saved place still not found after a while is reported
+        if (N.kind === 'restoring' && performance.now() - N.since > N.wait) lost();
+        return N.last;
+      }
+      if (N.restored && N.kind !== 'saved') { N.placed = true; N.kind = 'saved'; N.note = ''; }
+      const t = p.transform.position, q = p.transform.orientation;
+      // upright: only the anchor's turn about the vertical counts
+      N.last = { p: [t.x, t.y, t.z], yaw: Math.atan2(2 * (q.x * q.z + q.w * q.y), 1 - 2 * (q.x * q.x + q.y * q.y)) };
+      return N.last;
+    },
+    // one line for the Stories screen in the headset
+    status() {
+      if (!N.on) return '';
+      if (N.note) return N.note;
+      if (!N.session) return 'Anchored: the scenes stay at one spot in the room.';
+      if (N.kind === 'restoring' || (N.busy && !N.placed)) return 'Finding the saved place in the room...';
+      if (N.busy || !N.placed) return 'Anchoring...';
+      return {
+        saved: 'Anchored in the room: everything stays here, also after you leave VR or reload. Place again to move it.',
+        room: 'Anchored in the room until you leave VR (this browser cannot keep it longer). Place again to move it.',
+        session: 'This headset gives no room anchors here: the place holds until you leave VR. Place again to move it.',
+      }[N.kind] || '';
+    },
+    watch, state: () => N,
+  };
 })();
 HOST.load = key => HOST.loaded[key] || (HOST.loaded[key] = new Promise((res, rej) => {
   const s = document.createElement('script');
@@ -1124,6 +1274,7 @@ HOST.closePicker = function () {
   // which story to load first: #airports, #proteins or #spatial (old links to proteins.html and spatial.html forward here)
   const hp = new URLSearchParams(location.hash.slice(1));
   HOST.setRepeat(hp.get('repeat') || HOST.repeat);
+  if (hp.has('anchor')) HOST.anchor.set(hp.get('anchor') !== 'off');
   if (hp.has('soundcheck')) HOST.soundCheck(true);
   const key = HOST.list.map(s => s.key).find(k => hp.has(k)) || 'airports';
   // the Stories screen is the landing page (no address, or #stories); a shared story link opens that story

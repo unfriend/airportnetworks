@@ -24,6 +24,11 @@
   narration went silent on the Quest. After touching sound, run
   `node tools/audio.mjs` as well as the smoke test, and report audible output
   on a headset as untested (Sound check is the on-device tool).
+- Headset placement can be anchored in the room (`HOST.anchor`, see
+  "Placement in the headset" in `AGENTS.md`): story code must never move
+  `GL.rig` past it, so check `HOST.anchor.held()` before re-placing and
+  `HOST.anchor.locked()` before letting the grip move anything. Real anchors
+  only exist on a headset: report their behaviour as untested.
 - `stories/lbi.js` is built from `tools/lbi/`: edit there and run
   `node tools/lbi/build.mjs`.
 

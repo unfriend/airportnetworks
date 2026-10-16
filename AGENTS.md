@@ -79,6 +79,25 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
   a moment the shell starts the next story (`all`, wrapping round) or sends
   `storyrestart` (`one`); otherwise the story opens explore mode. Remembered in
   `localStorage`; `#repeat=all` or `#repeat=one` in a link sets it.
+- Placement in the headset: each story hangs its Stories screen, story panel
+  and the scene's placement point (`XR.globeBase + XR.globeOff`) on one frame,
+  `GL.rig`. Normally the rig is set from your head (`xrRecenter`) when a
+  session starts, on Recenter, when the reference space resets, and when the
+  headset was off for more than 3 s (`xrFreshStart`: a new wearer). Anchored
+  mode (`HOST.anchor` in `index.html`; the Anchor button on the headset Stories
+  screen, `#anchor=on` / `#anchor=off`; remembered as `xrAnchor` and `xrPlace`
+  in `localStorage`) pins the rig to a WebXR anchor with a persistent handle
+  (Meta Quest Browser), so the place survives all of those and reloads. Stories
+  call `HOST.anchor.frame(frame, ref)` in `xrBegin` and set the rig from what
+  it returns, skip `xrRecenter` while `HOST.anchor.held()`, block the grip while
+  `HOST.anchor.locked()`, and take the saved arrangement from
+  `HOST.anchor.saved()` in `xrRecenter`; *Place again* is `HOST.anchor.again()`
+  plus a recentre. Without anchors (`frame.createAnchor` missing or refused)
+  the place holds until the session ends; a saved place the headset cannot
+  find (another room) is kept for the next session while things hold where
+  they are. Each request carries a generation number, so one that settles
+  after Place again, Anchor off or the end of the session is thrown away.
+  Sessions request `anchors` as an optional feature.
 - Sound belongs to the shell (`HOST.audio` in `index.html`); stories only say
   what should play. A story asks for its file with
   `AUD = HOST.audio.narration(url, { ready, error })` and calls
@@ -220,7 +239,9 @@ faded in and out by the story; the camera flies between views.
 
 There is no unit-test suite. Before committing, serve the folder and run the
 smoke test, which loads every story, scrubs through it, exercises explore
-mode and the headset panels, switches stories, and fails on console errors:
+mode and the headset panels, switches stories, runs anchored placement in each
+story with a pretend headset (an origin that jumps, anchors that stay, saved
+handles), and fails on console errors:
 
 ```sh
 npx http-server -p 8123 -c-1 .          # or: python3 -m http.server 8123
@@ -262,7 +283,7 @@ Useful URL hashes: `#spatial&t=95` (open at a story second, paused),
 `#spatial&explore&tab=moves&move=nfkb&now=1`, `#lbi&t=140` (the tour at a
 second), `#lbi&explore&scene=atp&view=network&now=1` (a scene with its controls),
 `#lbi&explore&route=TP53,BRCA1`, `#airports&repeat=all` (a kiosk that plays
-every story in turn). In the console,
+every story in turn), `#anchor=on` (anchored headset placement). In the console,
 `HOST.cur.peek('expression')` evaluates inside the current story
 (e.g. `HOST.cur.peek('NET.P')`).
 

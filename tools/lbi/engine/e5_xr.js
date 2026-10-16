@@ -42,6 +42,9 @@ function xrPlace(v) {
 function xrRecenter() {
   XR.globeOff.set(0, 0, 0);
   if (XR.panelGroup) { XR.panelGroup.position.copy(XR.panelHome.p); XR.panelGroup.rotation.set(0, XR.panelHome.yaw, 0); }
+  // anchored: the scene and the panel go back where they were saved with the place
+  const s = HOST.anchor.saved();
+  if (s) { XR.globeOff.fromArray(s.off); if (XR.panelGroup) { XR.panelGroup.position.fromArray(s.pp); XR.panelGroup.rotation.set(0, s.pr, 0); } }
   const yaw = new THREE.Euler().setFromQuaternion(XR.headQ, 'YXZ').y;
   GL.rig.position.copy(XR.head);
   GL.rig.quaternion.setFromAxisAngle(new THREE.Vector3(0, 1, 0), yaw);
@@ -202,7 +205,7 @@ function xrGrab(c, on) {
   c.grab = null;
   const h = c.hover;
   if (!on || !h) return;
-  if (XR.stories) return; // the Stories screen stays put
+  if (XR.stories || HOST.anchor.locked()) return; // the Stories screen stays put, and so does an anchored place
   // the scene is held by its placement point (where the view's target sits), so a still hand moves nothing
   const p0 = h.kind === 'panel' ? XR.panelGroup.getWorldPosition(new THREE.Vector3()) : GL.rig.localToWorld(XR.globeBase.clone().add(XR.globeOff));
   c.grab = { target: h.kind === 'panel' ? 'panel' : 'globe', q0: new THREE.Quaternion().setFromRotationMatrix(c.g.matrix).invert(),
@@ -282,13 +285,18 @@ function xrPoint(c, dt) {
 }
 
 // ---------------------------------------------------------------- frames --
+const _xUp = new THREE.Vector3(0, 1, 0);
 function xrBegin(frame, dt) {
   const ref = GL.renderer.xr.getReferenceSpace();
   const pose = frame && ref ? frame.getViewerPose(ref) : null;
   if (pose) {
     const p = pose.transform.position, q = pose.transform.orientation;
     XR.head.set(p.x, p.y, p.z); XR.headQ.set(q.x, q.y, q.z, q.w);
-    if (XR.needRecenter) { xrRecenter(); XR.needRecenter = false; }
+    if (XR.needRecenter) { if (!HOST.anchor.held()) xrRecenter(); XR.needRecenter = false; } // an anchored place stays put
+    // anchored: the spot in the room carries the frame that holds the panels, the Stories screen and the scene
+    // (asked only once the headset has a pose, so a new anchor goes where things really are)
+    const A = HOST.anchor.frame(frame, ref);
+    if (A) { GL.rig.position.fromArray(A.p); GL.rig.quaternion.setFromAxisAngle(_xUp, A.yaw); }
   }
   const bl = XR.session && XR.session.renderState.baseLayer;
   if (bl) {
@@ -386,7 +394,7 @@ async function xrStart(mode) {
   if (XR.session || !navigator.xr) return;
   let session;
   try {
-    session = await navigator.xr.requestSession(mode, { optionalFeatures: ['local-floor', 'hand-tracking'] });
+    session = await navigator.xr.requestSession(mode, { optionalFeatures: ['local-floor', 'hand-tracking', 'anchors'] });
   } catch (err) {
     HOST.landingVR = false;
     xrMsg(`Could not start ${mode === 'immersive-ar' ? 'AR' : 'VR'}: ${err && err.message ? err.message : err}`);
@@ -437,7 +445,8 @@ function xrEnterScene() {
   }
 }
 // Headset taken off (or put to sleep) for more than a few seconds: treat the next
-// wearer as a new visitor. Restart the story and place everything in front of them.
+// wearer as a new visitor. Restart the story and place everything in front of them
+// (when anchored, everything stays at its spot in the room).
 const XR_AWAY_MS = 3000;
 function xrVisibility() {
   const v = XR.session && XR.session.visibilityState;
