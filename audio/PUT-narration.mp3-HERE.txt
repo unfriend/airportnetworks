@@ -21,4 +21,9 @@ The muscle story (#nmd) looks for narration-nmd.mp3. Its chapters start at
 0:00, 0:20, 1:12, 1:36, 2:22, 3:15, 3:52, 4:38, 5:40 and 6:15, ending at 6:50;
 change NARRATION_SYNC in tools/nmd/engine/e3_story.js (then rebuild) if your
 recording differs.
+
+The flock (#flock) looks for narration-flock.mp3. Its chapters start at 0:00,
+0:18, 0:40 and 1:02, ending at 1:12 (after that the flock flies on in explore
+mode); change NARRATION_SYNC in tools/flock/engine/e3_story.js (then rebuild)
+if your recording differs.
 You can delete this note.

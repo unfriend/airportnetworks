@@ -20,7 +20,7 @@ await page.waitForTimeout(4000);
 await step('start screen is the landing page', async () => {
   if (!await page.evaluate(() => HOST.picking)) errors.push('start screen not shown on load');
 });
-for (const key of ['airports', 'proteins', 'spatial', 'lbi', 'nmd']) {
+for (const key of ['airports', 'proteins', 'spatial', 'lbi', 'nmd', 'flock']) {
   await step(`load ${key}`, async () => {
     await page.click(`#picker [data-story="${key}"]`).catch(async () => { await page.click('#btnOther'); await page.click(`#picker [data-story="${key}"]`); });
     await page.waitForFunction(k => HOST.curKey === k && HOST.cur && HOST.cur.peek('typeof ST !== "undefined" && ST.items.length > 0'), key, { timeout: 30000 });
@@ -55,6 +55,21 @@ for (const key of ['airports', 'proteins', 'spatial', 'lbi', 'nmd']) {
     HOST.cur.peek(`(() => { showTab('protein'); runQuery('TP53'); runQuery('TP53 to BRCA1'); XR.routing = true; XR.on = true;
       for (const P of XR.panels) { P.last = ''; P.t = -1e9; panelTick(P, performance.now() + 1e6); } XR.on = false; XR.routing = false; })()`);
     await sleep(200);
+  }));
+  if (key === 'flock') await step('flock: every control, a falcon from the page and from a headset trigger', () => page.evaluate(async () => {
+    const sleep = ms => new Promise(r => setTimeout(r, ms)), peek = src => HOST.cur.peek(src);
+    for (const c of peek('GL.sets.flock.controls')) for (const [v] of c.options) {
+      peek(`setCtl('flock', '${c.key}', '${v}')`); await sleep(150);
+      peek(`(() => { XR.on = true; for (const P of XR.panels) { P.last = ''; P.t = -1e9; panelTick(P, performance.now() + 1e6); } XR.on = false; })()`);
+    }
+    if (peek('GL.sets.flock.birds()') !== 400) throw new Error('the bird count did not follow its control');
+    peek('sendFalcon([0, 0.3, -1])'); await sleep(100);
+    if (!peek('GL.sets.flock.falconOn()')) throw new Error('a click on the sky sent no falcon');
+    // a headset trigger on the sky sends one too (once the first has gone)
+    peek(`(() => { GL.sets.flock.state().falcon.on = false; const c = XR.ctrls[0]; c.hover = { kind: 'sky', point: new THREE.Vector3() }; c.d.set(0, 0.3, -1).normalize(); xrPress(c); c.hover = null; c.press = null; })()`);
+    if (!peek('GL.sets.flock.falconOn()')) throw new Error('the trigger on the sky sent no falcon');
+    await sleep(400);
+    if (!peek('(() => { const st = GL.sets.flock.state(); for (let i = 0; i < st.N * 3; i++) if (!isFinite(st.P[i])) return false; return true; })()')) throw new Error('a bird flew off to NaN');
   }));
   if (key === 'nmd') await step('nmd: every explore tool, on the page and in the headset', () => page.evaluate(async () => {
     const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -95,8 +110,8 @@ await step('Repeat one and Repeat all', async () => {
   await page.click('#btnOther');
   await page.click('#picker [data-repeat="all"]');
   if (await page.getAttribute('#picker [data-repeat="one"]', 'aria-pressed') !== 'false') errors.push('Repeat one still lit');
-  await page.click('#picker [data-story="nmd"]');
-  await ready('nmd'); await toEnd();
+  await page.click('#picker [data-story="flock"]');
+  await ready('flock'); await toEnd();
   await playsFromTop('airports', 'Repeat all did not go from the last story to the first');
   await page.click('#btnOther');
   await page.click('#picker [data-repeat="all"]');
@@ -104,7 +119,7 @@ await step('Repeat one and Repeat all', async () => {
 });
 // Anchored mode with a pretend headset: a room whose tracking origin can jump (recentring) and
 // anchors that keep their place in it, saved under a handle (Quest's persistent anchors)
-for (const key of ['airports', 'proteins', 'spatial', 'lbi', 'nmd']) await step(`${key}: anchored placement`, async () => {
+for (const key of ['airports', 'proteins', 'spatial', 'lbi', 'nmd', 'flock']) await step(`${key}: anchored placement`, async () => {
   await page.evaluate(k => HOST.start(k), key);
   await page.waitForFunction(k => HOST.curKey === k && HOST.cur && HOST.cur.peek('typeof ST !== "undefined" && ST.items.length > 0'), key, { timeout: 30000 });
   const bad = await page.evaluate(async () => {

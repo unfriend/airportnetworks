@@ -3,11 +3,11 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Networks, in five stories</title>
-<meta name="description" content="Network science in five short interactive stories: the world's airports on a globe, proteins and disease in a cell, where proteins meet in a model human cell, a 3D tour of network medicine from protein machines to the whole body, and rare muscle diseases in a 71-layer network. Works on phones, desktops and in VR and AR headsets.">
+<title>Networks, in six stories</title>
+<meta name="description" content="Network science in six short interactive stories: the world's airports on a globe, proteins and disease in a cell, where proteins meet in a model human cell, a 3D tour of network medicine from protein machines to the whole body, rare muscle diseases in a 71-layer network, and a flock of starlings flying all around you. Works on phones, desktops and in VR and AR headsets.">
 <meta property="og:type" content="website">
-<meta property="og:title" content="Networks, in five stories">
-<meta property="og:description" content="Network science in five short interactive stories: airports on a globe, proteins and disease in a cell, where proteins meet in a model human cell, a 3D tour of network medicine, and rare muscle diseases in a 71-layer network. Works in VR and AR too.">
+<meta property="og:title" content="Networks, in six stories">
+<meta property="og:description" content="Network science in six short interactive stories: airports on a globe, proteins and disease in a cell, where proteins meet in a model human cell, a 3D tour of network medicine, rare muscle diseases in a 71-layer network, and a flock of starlings around you. Works in VR and AR too.">
 <meta property="og:image" content="icons/icon-512.png">
 <meta name="twitter:card" content="summary">
 <link rel="manifest" href="manifest.webmanifest">
@@ -280,8 +280,7 @@ body.picking #panel, body.picking #bar { visibility: hidden; }
 #picker .wrap { max-width: 1040px; width: 100%; }
 #picker h1 { margin: 0 0 6px; font-size: clamp(26px, 4vw, 38px); color: #f2f6fc; font-weight: 700; letter-spacing: -0.01em; }
 #picker .lede { margin: 0 0 22px; color: #a9b8cc; font-size: 15px; }
-#picker .cards { display: grid; grid-template-columns: repeat(5, 1fr); gap: 14px; }
-@media (max-width: 1240px) { #picker .cards { grid-template-columns: repeat(3, 1fr); } }
+#picker .cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
 @media (max-width: 1020px) { #picker .cards { grid-template-columns: repeat(2, 1fr); } }
 @media (max-width: 560px) { #picker .cards { grid-template-columns: 1fr; } }
 #picker .card { display: block; text-align: left; font: inherit; color: #e7eef8; text-decoration: none; cursor: pointer;
@@ -344,7 +343,7 @@ body.xr #labels, body.xr #tip { display: none; }
 <div id="tip" role="status"></div>
 <div id="xrmsg" role="status"></div>
 <header id="top">
-  <div class="brand">Networks<span>in five stories</span></div>
+  <div class="brand">Networks<span>in six stories</span></div>
   <button class="btn" id="btnOther" type="button" title="Choose another story">Stories</button>
   <div class="spacer"></div>
   <button class="btn" id="btnSound" type="button" hidden aria-pressed="false">Sound on</button>
@@ -365,7 +364,7 @@ body.xr #labels, body.xr #tip { display: none; }
 </footer>
 <div id="picker" hidden role="dialog" aria-labelledby="pickTitle">
   <div class="wrap">
-    <h1 id="pickTitle">Networks, in five stories</h1>
+    <h1 id="pickTitle">Networks, in six stories</h1>
     <p class="lede">The same ideas, very different networks. Each story takes a few minutes, then it is yours to explore.</p>
     <div class="cards"></div>
     <div class="repeat" role="group" aria-label="Repeat">
@@ -419,6 +418,10 @@ const HOST = {
       desc: 'Rare diseases of nerves and muscles in a 71-layer network: a random walk, disease modules, endotypes, and what muscle and heart share.',
       page: 'Rare muscle diseases, seen through 71 layers', brand: 'Muscle and heart', sub: 'rare diseases in 71 layers',
       aria: 'Interactive 3D multiplex network of rare neuromuscular diseases', thing: 'tower', loading: 'Stacking 71 layers', len: 'Story 6:50 · 3D tower' },
+    { key: 'flock', kick: 'Collective motion', title: 'Flock', col: '#9db4ff',
+      desc: '200 starlings at dusk, flying all around you. Each follows its seven nearest neighbours: a network that never stands still.',
+      page: 'A flock of starlings, all around you', brand: 'Flock', sub: 'starlings at dusk',
+      aria: 'Interactive 3D flock of starlings flying around you at dusk', thing: 'flock', loading: 'Gathering the flock', len: 'Story 1:12 · then on and on' },
   ],
   factories: {}, loaded: {}, cur: null, curKey: null, busy: false,
   renderer: null, session: null, mode: null, inputs: [], quiet: false,
@@ -1182,8 +1185,8 @@ HOST.setUrl = function (stories) {
 // the title in the tab and the top bar: the app on the Stories screen, the story inside a story
 HOST.chrome = function (stories) {
   const meta = this.list.find(s => s.key === this.curKey), app = stories || !meta;
-  document.title = app ? 'Networks, in five stories' : meta.page;
-  document.querySelector('#top .brand').innerHTML = app ? 'Networks<span>in five stories</span>' : `${meta.brand}<span>${meta.sub}</span>`;
+  document.title = app ? 'Networks, in six stories' : meta.page;
+  document.querySelector('#top .brand').innerHTML = app ? 'Networks<span>in six stories</span>' : `${meta.brand}<span>${meta.sub}</span>`;
 };
 // Sound check on the page's Stories screen (the headset has its own panel): what the sound
 // system is doing, refreshed twice a second while open; #soundcheck in a link opens it

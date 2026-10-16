@@ -1,4 +1,4 @@
-Networks, in five stories - installable web app
+Networks, in six stories - installable web app
   1. Network theory, told with the world's airports  (stories/airports.js)
   2. Network medicine, told with the proteins in a cell  (stories/proteins.js)
   3. Spatial interactome, where proteins meet in a cell  (stories/spatial.js)
@@ -6,6 +6,8 @@ Networks, in five stories - installable web app
      Boltzmann Institute for Network Medicine  (stories/lbi.js)
   5. Muscle and heart: rare diseases of nerves and muscles in a 71-layer
      network, after Iker Núñez-Carpintero and Philipp Friedrich  (stories/nmd.js)
+  6. Flock: 200 starlings at dusk flying all around you, each following its
+     seven nearest neighbours  (stories/flock.js)
 
 index.html is the app: it shows a start screen to pick a story, and the Stories
 button (top bar, and the panel in VR/AR) brings it back. Stories are loaded into
@@ -99,10 +101,16 @@ visits are computed in this map on the protein layers; endotype names are the
 most typical GO process of their genes. The motor unit and the supercomputer
 are illustrative.
 
-Files: index.html (the app), stories/ (the five stories), proteins.html and
+Flock (stories/flock.js): a live simulation, not data. Each bird follows its
+seven nearest neighbours (Ballerini et al. 2008), keeps its distance and follows
+the flock's wandering roost round you; a falcon sets off a wave of alarm that
+passes from neighbour to neighbour. Sky, land and birds are illustrative.
+
+Files: index.html (the app), stories/ (the six stories), proteins.html and
 spatial.html (forward to the app), manifest.webmanifest, sw.js (offline cache), audio/,
 AGENTS.md and CLAUDE.md (notes for AI coding agents), tools/smoke.mjs (headless test),
 tools/lbi/ (sources of the tour; node tools/lbi/build.mjs writes stories/lbi.js),
 tools/nmd/ and ikerdata/ (sources and data of the muscle story; node tools/nmd/build.mjs
-writes stories/nmd.js),
+writes stories/nmd.js), tools/flock/ (sources of the flock; node tools/flock/build.mjs
+writes stories/flock.js),
 icons/, three.min.js (three.js r128, MIT licence, see three.LICENSE.txt).

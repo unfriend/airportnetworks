@@ -1,7 +1,7 @@
 # airportnetworks
 
-**Networks, in five stories**: an installable web app that teaches network
-science through five short, animated stories. Each story takes a few minutes
+**Networks, in six stories**: an installable web app that teaches network
+science through six short, animated stories. Each story takes a few minutes
 (the tour about eight) and ends in an explore mode where the network is yours
 to play with.
 It runs in any modern browser, on phones, and in VR and AR headsets (built for
@@ -13,6 +13,7 @@ Meta Quest Browser).
 | **Proteins** (network medicine) | 254 proteins and 375 interactions inside a cell | essential hubs, modules, disease modules, drug targets, knockouts |
 | **Cell map** (spatial interactome) | 249 proteins in 13 compartments of a model human cell | where proteins meet, proteins in several places, signals crossing the cell, proteins that move, proximity labelling, proteins in the wrong place |
 | **Muscle and heart** (rare muscle diseases) | 1,182 genes of 13 groups of neuromuscular disorders in a tower of 71 layers, after the ISMB 2026 talk by Iker Núñez-Carpintero and Philipp Friedrich (LBI Network Medicine), on their data | the motor unit from nerve to sarcomere, a multiplex network, a random walk with restart, disease modules, endotypes, the overlap of congenital myopathies and cardiomyopathies, a stress test on a supercomputer; explore: pick a group, search a gene, run your own walk, knock out layers, pick endotypes, stand inside the tower |
+| **Flock** (collective motion) | 200 starlings at dusk flying all around you (in a headset, life size), over a field by a lake | no leader: each bird follows its seven nearest neighbours, so the flock is a network that changes from moment to moment; a falcon sets off a wave that runs through the whole flock; explore: as many birds as you like (100 to 400), who follows whom, send a falcon; then it flies on for as long as you stay |
 | **The future** (LBI Network Medicine) | a 3D tour in ten scenes, after the Ludwig Boltzmann Institute for Network Medicine's welcome talk | the whole is more than its parts, networks everywhere, genes and protein shapes, a protein machine (ATP synthase) assembling and running, the interactome as a city map, rare diseases and inborn errors of immunity, network propagation for diagnosis, networks across scales, the institute's research groups, whole-body PET and organ networks, tissue as a network of cells |
 
 ## Using it
@@ -143,6 +144,14 @@ Chapter timings and how to re-sync a new recording
   typical GO process of their genes. The motor unit and the supercomputer are
   illustrative.
 
+- **Flock** (`stories/flock.js`): a live simulation, not data. Each bird
+  matches the heading of its seven nearest neighbours (topological interaction,
+  after Ballerini et al., PNAS 2008), keeps its distance and follows the flock's
+  wandering roost round you; alarm passes from neighbour to neighbour when a
+  falcon comes (after Procaccini et al., Animal Behaviour 2011; Cavagna et al.,
+  PNAS 2010 on how far a change spreads in a flock). Sky, land and birds are
+  illustrative.
+
 The protein data is meant for teaching, not research.
 
 ## Files
@@ -150,7 +159,7 @@ The protein data is meant for teaching, not research.
 | Path | What it is |
 | --- | --- |
 | `index.html` | the app: Stories screen, shared page layout, loads and swaps the stories |
-| `stories/airports.js`, `stories/proteins.js`, `stories/spatial.js`, `stories/lbi.js`, `stories/nmd.js` | the five stories, with their data, explore modes and headset panels |
+| `stories/airports.js`, `stories/proteins.js`, `stories/spatial.js`, `stories/lbi.js`, `stories/nmd.js`, `stories/flock.js` | the six stories, with their data, explore modes and headset panels |
 | `proteins.html`, `spatial.html` | forward old links to the app |
 | `sw.js`, `manifest.webmanifest`, `icons/` | offline cache and app install |
 | `audio/` | optional narrations |
@@ -160,6 +169,7 @@ The protein data is meant for teaching, not research.
 | `tools/audio.mjs` | narration test under the headset browsers' sound rule, with faults that make the fallback take over (needs `audio/narration.mp3`) |
 | `tools/lbi/` | sources of the tour: its 3D sets, engine parts and build script (`node tools/lbi/build.mjs` writes `stories/lbi.js`) |
 | `tools/nmd/`, `ikerdata/` | sources of the muscle story and the authors' data (`node tools/nmd/data/gen_data.mjs`, then `node tools/nmd/build.mjs` writes `stories/nmd.js`) |
+| `tools/flock/` | sources of the flock (`node tools/flock/build.mjs` writes `stories/flock.js`) |
 | `AGENTS.md`, `CLAUDE.md` | notes on the architecture and conventions for AI coding agents (and people) |
 | `README.txt` | the same notes in plain text |
 
@@ -178,7 +188,7 @@ node tools/smoke.mjs http://127.0.0.1:8123/
 The tour (`stories/lbi.js`) is generated from `tools/lbi/`; edit the sources
 there and rebuild with `node tools/lbi/build.mjs` (see `tools/lbi/README.md`).
 The muscle story (`stories/nmd.js`) is generated the same way from `tools/nmd/`
-(see `tools/nmd/README.md`).
+(see `tools/nmd/README.md`), and the flock (`stories/flock.js`) from `tools/flock/`.
 `AGENTS.md` also has advice on working economically with AI coding agents.
 
 Headset behaviour can only be checked on a device.

@@ -4,9 +4,9 @@ Guidance for AI coding agents (and humans) working on this repository.
 
 ## What this is
 
-An installable web app that teaches network science in five narrated stories
-(about four minutes each, the tour about eight, the muscle story about seven), each followed by an explore
-mode. Everything works on desktop, phones and in VR/AR headsets (built for Meta
+An installable web app that teaches network science in six narrated stories
+(about four minutes each, the tour about eight, the muscle story about seven, the flock just over one), each
+followed by an explore mode. Everything works on desktop, phones and in VR/AR headsets (built for Meta
 Quest Browser, WebXR).
 
 | Story | File | Network |
@@ -16,6 +16,7 @@ Quest Browser, WebXR).
 | Spatial interactome | `stories/spatial.js` | 249 proteins in 13 compartments of a model cell |
 | LBI Network Medicine tour | `stories/lbi.js` | ten 3D scenes, from a protein machine and an illustrative interactome to organs and tissue |
 | Rare muscle diseases | `stories/nmd.js` | 1,182 genes of 13 neuromuscular disease groups in a tower of 71 layers (real data in `ikerdata/`), the motor unit, a supercomputer |
+| Flock | `stories/flock.js` | 200 starlings (a live simulation) flying all around you at dusk, each following its seven nearest neighbours |
 
 No build step, no framework, no package.json. Plain HTML/JS plus
 `three.min.js` (three.js r128, vendored, MIT). The app is deployed by copying
@@ -49,6 +50,8 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
   `README.md`. `ikerdata/` holds the authors' analysis files it reads.
 - `tools/lbi/` - the sources of `stories/lbi.js` (kit, sets, engine parts,
   build script, set harness, data generators); see its `README.md`.
+- `tools/flock/` - the sources of `stories/flock.js` (the flock set, engine parts
+  adapted from the tour's, build script, set harness); see its `README.md`.
 
 ## How the shell and stories fit together
 
@@ -150,7 +153,7 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
     session) are added with `HOST.quiet` set, so story changes do not remove
     them.
 
-## Inside a story (all five follow the same pattern)
+## Inside a story (all six follow the same pattern)
 
 - Data at the top (airports and proteins: precomputed constants; spatial: the
   editable `PLACES`, `PROTEINS`, `LINKS`, `TOGETHER`, `MOVES` lists, laid out
@@ -245,6 +248,32 @@ and `hpc` (the supercomputer and the stress test).
   supercomputer uses them to keep the camera out of its racks; the story's
   aisle shot stays on the aisle's centre line by design.
 
+## The flock (`stories/flock.js`) is built the same way
+
+`stories/flock.js` is generated from `tools/flock/` (`node tools/flock/build.mjs`,
+`--check` as for the tour): the tour's kit, one set (`sets/flock.js`, manifest
+`sets/flock.md`) and engine parts adapted from the tour's (no Proteins tab, no
+scene list).
+
+- The set is a live simulation, so unlike other sets its `update` is not a pure
+  function of the params and the time: 200 birds (100 to 400) in steps of a
+  thirtieth of a second (the birds glide on between steps in the shader); each
+  follows its seven nearest neighbours (the neighbour search is a sorted grid),
+  keeps its distance, follows a roost circling the viewer, and flees a falcon,
+  with alarm passing from neighbour to neighbour. A story key `flock_hunt`
+  sends a falcon each time it passes a whole number.
+- Life size: 1 unit is 1 m, the viewer stands at the origin, the ground is
+  y = 0, the sunset is towards -z. In a headset `xrPlace` puts the land under
+  your feet (eye height below the rig) and never moves it; in passthrough AR
+  the sky and the land are hidden (`flock_sky` 0) and the birds fly in your room.
+- The engine tells the set where you are every frame (`see(head, hands)`, in
+  its frame: the camera on a screen, the head and controllers in a headset), and
+  `scatter(dir)` sends a falcon where you point (a click on the sky, or the
+  trigger pointed at the sky).
+- On a screen the camera stands where you do and turns to follow the flock
+  (`followView`; from afar it aims at the flock instead); dragging takes the
+  camera over (View: Look around).
+
 ## Conventions
 
 - Match the surrounding style: 2-space indent, single quotes, semicolons,
@@ -278,7 +307,7 @@ and `hpc` (the supercomputer and the stress test).
   `node tools/nmd/data/gen_data.mjs`), rebuild `stories/nmd.js` with
   `node tools/nmd/build.mjs` (and bump `VERSION`).
 - After changing anything in `tools/lbi/`, rebuild `stories/lbi.js` (and bump
-  `VERSION`).
+  `VERSION`). Likewise `tools/flock/` and `stories/flock.js`.
 - Keep `README.txt` (user-facing notes) in sync with structural changes.
 - Several handlers run inside the old story's call stack when switching;
   use `HOST.go(key)` (deferred) from inside a story, not `HOST.start`.
@@ -334,7 +363,8 @@ Useful URL hashes: `#spatial&t=95` (open at a story second, paused),
 second), `#lbi&explore&scene=atp&view=network&now=1` (a scene with its controls),
 `#lbi&explore&route=TP53,BRCA1`, `#nmd&explore&group=Cardiomyopathies`,
 `#nmd&explore&pick=5:13,11:7` (endotypes, group:number), `#nmd&explore&walk=5` or
-`&walk=TTN,DES`, `#nmd&explore&inside`, `#airports&repeat=all` (a kiosk that plays
+`&walk=TTN,DES`, `#nmd&explore&inside`, `#flock&explore&view=afar&links=on&birds=400`
+(`&hunt` sends a falcon), `#airports&repeat=all` (a kiosk that plays
 every story in turn), `#anchor=on` (anchored headset placement). In the console,
 `HOST.cur.peek('expression')` evaluates inside the current story
 (e.g. `HOST.cur.peek('NET.P')`).
