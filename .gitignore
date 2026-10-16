@@ -2,3 +2,4 @@ node_modules/
 tools/lbi/shots/
 tools/lbi/data/*.json
 tools/lbi/data/airports_*
+tools/nmd/shots/
