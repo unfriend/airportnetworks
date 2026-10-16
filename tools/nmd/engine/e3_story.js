@@ -304,12 +304,15 @@ function buildStory() {
   jump('tower_group', a + 15, CMg, 0);
   cam(a + 1, 'tower', 'default', 15);
   cam(a + 12, 'tower', 'default', 45, 'spin');
-  // over the hall, down the aisle between the racks, back up and out over the sea of towers
+  // over the hall, then in along the cold aisle's centre line (so the camera never meets a rack), a slow walk down
+  // it, back out the same way, and up and out over the sea of towers
   cam(a + 14, 'hpc', 'default');
+  cam(a + 16.5, 'hpc', 'aisle');
   cam(a + 18, 'hpc', 'racks');
-  cam(a + 21, 'hpc', 'racks', 8, 'spin');
-  cam(a + 24, 'hpc', 'default', 20);
-  cam(a + 27, 'hpc', 'field');
+  cam(a + 21, 'hpc', 'racks', 0, 'spin', [0, 0, 0, 0, 0, -0.24]);
+  cam(a + 23, 'hpc', 'aisle');
+  cam(a + 25.5, 'hpc', 'default', 20);
+  cam(a + 28, 'hpc', 'field');
   cam(b - 1, 'hpc', 'field', 15, 'spin');
   // What comes next: the whole tower once more, opened up around the viewer
   a = C.next.a; b = C.next.b;

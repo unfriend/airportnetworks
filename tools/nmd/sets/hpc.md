@@ -40,11 +40,20 @@ tower the `near` view frames, at about [1.8, -0.19, 3.0]).
 ## Cam views
 
 - `default` [38, 24, 3.6, 0, -0.12, 0]: the hall from above, three-quarter view.
-- `racks` [4, 3, 1.4, 0, -0.03, -0.62]: standing in the cold aisle at eye height, looking down it to the far door.
+- `racks` [0, 4, 1.4, 0, -0.03, -0.62]: standing in the cold aisle at eye height, on its centre line, looking down
+  it to the far door.
+- `aisle` [0, 6, 2.1, 0, -0.03, -0.62]: on the same line, just outside the aisle's open end: the way in and out.
+  Turning about a target down the aisle swings the camera through the racks, so a path into the aisle goes through
+  `aisle` and stays on the line (the story walks down it by moving the target, not by turning).
 - `field` [24, 19, 7.5, 0, -0.3, -1]: high and wide, the hall in the middle, towers to the horizon.
 - `near` [53, 18, 1, 1.8, -0.19, 3]: one tower close, its neighbours receding towards the hall.
 
 Towers closer than about 0.4 units to the camera fade out, so a camera can fly through the field.
+
+The set exports `keepOut(p)` and `still(p)` (the engine's camera guard, `keepCamera` in `engine/e2_scene.js`): the
+camera never enters a rack row or the far glass door; over one it is lifted to 0.2 above the racks, near one it rises
+smoothly (6 units up per unit closer), so a dragged view glides over the rows. While the camera is in the hall
+explore mode stops its sway.
 
 ## Controls (explore)
 

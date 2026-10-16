@@ -103,14 +103,14 @@ function frame(now, xrFrame) {
   const ts = storyT(APP.t); // original story time for this point in the narration
   if (APP.mode === 'story') {
     S = storyState(ts); tSet = ts;
-    if (xr) xrPlace(storyCam(ts)); else applyCamera(storyCam(ts));
+    if (xr) xrPlace(storyCam(ts)); else { applyCamera(storyCam(ts)); keepCamera(S, ts); }
     updateStoryDOM(ts);
     updateTimeline(APP.t, APP.playing);
   } else {
     const pn = performance.now();
     S = exploreStep(dt, pn); tSet = pn / 1000;
     orbitStep(xr ? pn : now);
-    if (xr) xrPlace(orbit.cur); else applyCamera(orbit.cur);
+    if (xr) xrPlace(orbit.cur); else { applyCamera(orbit.cur); keepCamera(S, null); }
   }
   K.U.uTime.value = tSet;
   GL.camera.updateMatrixWorld();

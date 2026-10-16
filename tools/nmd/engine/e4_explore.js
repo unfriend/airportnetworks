@@ -77,8 +77,8 @@ function exploreTargets(now = performance.now()) {
 function exploreStep(dt, now) {
   const tg = exploreTargets(now), k = 1 - Math.exp(-dt * 3.5);
   for (const n in DEF) XS[n] = STEP.has(n) ? tg[n] : XS[n] + (tg[n] - XS[n]) * k;
-  // a gently swaying scene, unless you are steering it or standing inside
-  if (X.turn === 'on' && !(X.room && X.scene === 'tower') && !orbit.to && !orbit.held) { X.sway = (X.sway || 0) + dt; orbit.cur[0] += dt * 6 * Math.cos(X.sway * 0.25); }
+  // a gently swaying scene, unless you are steering it, standing inside, or among the supercomputer's racks
+  if (X.turn === 'on' && !(X.room && X.scene === 'tower') && !orbit.to && !orbit.held && !GL.still) { X.sway = (X.sway || 0) + dt; orbit.cur[0] += dt * 6 * Math.cos(X.sway * 0.25); }
   return XS;
 }
 // the tower's own display state: the picked gene, endotypes, knocked-out layers and a walk's result

@@ -239,6 +239,11 @@ and `hpc` (the supercomputer and the stress test).
   return `idle(dt)` (the engine calls it while the set is hidden) and
   `finish()` (build now: the harness and `sweep.mjs` call it before
   screenshots). The heart fades in once built.
+- A set may also export `keepOut(p)` (the camera's position in its own frame,
+  returned moved if need be) and `still(p)` (explore's sway rests there): the
+  engine's `keepCamera` applies them every frame outside a headset. The
+  supercomputer uses them to keep the camera out of its racks; the story's
+  aisle shot stays on the aisle's centre line by design.
 
 ## Conventions
 

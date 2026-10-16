@@ -392,7 +392,8 @@ void main() { if (vAl < 0.004) discard; float pulse = 0.8 + 0.2 * sin(vY * 18.0 
   const naz = Math.atan2(NX, NZ) * 180 / Math.PI;
   const cam = {
     default: [38, 24, 3.6, 0, -0.12, 0],
-    racks: [4, 3, 1.4, 0, -0.03, -0.62],
+    racks: [0, 4, 1.4, 0, -0.03, -0.62],   // in the cold aisle, on its centre line, looking down it
+    aisle: [0, 6, 2.1, 0, -0.03, -0.62],   // on the same line, just outside its open end (the way in and out)
     field: [24, 19, 7.5, 0, -0.3, -1.0],
     near: [Math.round(naz + 22), 18, 1.0, NEARP[0], NEARP[1], NEARP[2]],
   };
@@ -404,6 +405,23 @@ void main() { if (vAl < 0.004) discard; float pulse = 0.8 + 0.2 * sin(vY * 18.0 
     const rm = { none: 0, half: 0.5, most: 1 }[c.removed] || 0;
     return { hpc_racks: 1, hpc_field: c.view === 'field' || rm > 0 ? 1 : 0, hpc_remove: rm };
   }
-  return Object.assign(set, { params, update, anchors, labels, cam, controls, explore,
+  // the camera never enters a rack: over a row (or the glass door at the cold aisle's far end) it is lifted well above
+  // the cable trays, and close to one it rises smoothly, so a free orbit glides over them. The engine hands keepOut the
+  // camera's position in the set's frame and uses what it returns; still tells explore mode to stop swaying the
+  // view while the camera is in the hall, where a sway would swing it at the racks.
+  const SOLID = ROWS.map(([x]) => [x - RD / 2, x + RD / 2, Z0, -Z0]).concat([[-0.14, 0.14, Z0 - 0.012, Z0 + 0.004]]);
+  const LIFT = TOP + 0.2, MARGIN = 0.02, SLOPE = 6;
+  function keepOut(p) {
+    const r = U.uRacks.value;
+    if (r < 0.02) return p;
+    let h = -1e9;
+    for (const [x0, x1, z0, z1] of SOLID) {
+      const dx = Math.max(x0 - MARGIN - p[0], 0, p[0] - x1 - MARGIN), dz = Math.max(z0 - MARGIN - p[2], 0, p[2] - z1 - MARGIN);
+      h = Math.max(h, FLOOR + (LIFT - FLOOR) * r - SLOPE * Math.hypot(dx, dz));
+    }
+    return p[1] < h ? [p[0], h, p[2]] : p;
+  }
+  const still = p => U.uRacks.value > 0.02 && Math.abs(p[0]) < 0.9 && Math.abs(p[2]) < 0.9 && p[1] < TOP + 0.3;
+  return Object.assign(set, { params, update, anchors, labels, cam, controls, explore, keepOut, still,
     towerCount: NT, pointCount: far.length, nearTower: nearIdx });
 };

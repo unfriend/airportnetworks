@@ -2831,7 +2831,8 @@ void main() { if (vAl < 0.004) discard; float pulse = 0.8 + 0.2 * sin(vY * 18.0 
   const naz = Math.atan2(NX, NZ) * 180 / Math.PI;
   const cam = {
     default: [38, 24, 3.6, 0, -0.12, 0],
-    racks: [4, 3, 1.4, 0, -0.03, -0.62],
+    racks: [0, 4, 1.4, 0, -0.03, -0.62],   // in the cold aisle, on its centre line, looking down it
+    aisle: [0, 6, 2.1, 0, -0.03, -0.62],   // on the same line, just outside its open end (the way in and out)
     field: [24, 19, 7.5, 0, -0.3, -1.0],
     near: [Math.round(naz + 22), 18, 1.0, NEARP[0], NEARP[1], NEARP[2]],
   };
@@ -2843,7 +2844,24 @@ void main() { if (vAl < 0.004) discard; float pulse = 0.8 + 0.2 * sin(vY * 18.0 
     const rm = { none: 0, half: 0.5, most: 1 }[c.removed] || 0;
     return { hpc_racks: 1, hpc_field: c.view === 'field' || rm > 0 ? 1 : 0, hpc_remove: rm };
   }
-  return Object.assign(set, { params, update, anchors, labels, cam, controls, explore,
+  // the camera never enters a rack: over a row (or the glass door at the cold aisle's far end) it is lifted well above
+  // the cable trays, and close to one it rises smoothly, so a free orbit glides over them. The engine hands keepOut the
+  // camera's position in the set's frame and uses what it returns; still tells explore mode to stop swaying the
+  // view while the camera is in the hall, where a sway would swing it at the racks.
+  const SOLID = ROWS.map(([x]) => [x - RD / 2, x + RD / 2, Z0, -Z0]).concat([[-0.14, 0.14, Z0 - 0.012, Z0 + 0.004]]);
+  const LIFT = TOP + 0.2, MARGIN = 0.02, SLOPE = 6;
+  function keepOut(p) {
+    const r = U.uRacks.value;
+    if (r < 0.02) return p;
+    let h = -1e9;
+    for (const [x0, x1, z0, z1] of SOLID) {
+      const dx = Math.max(x0 - MARGIN - p[0], 0, p[0] - x1 - MARGIN), dz = Math.max(z0 - MARGIN - p[2], 0, p[2] - z1 - MARGIN);
+      h = Math.max(h, FLOOR + (LIFT - FLOOR) * r - SLOPE * Math.hypot(dx, dz));
+    }
+    return p[1] < h ? [p[0], h, p[2]] : p;
+  }
+  const still = p => U.uRacks.value > 0.02 && Math.abs(p[0]) < 0.9 && Math.abs(p[2]) < 0.9 && p[1] < TOP + 0.3;
+  return Object.assign(set, { params, update, anchors, labels, cam, controls, explore, keepOut, still,
     towerCount: NT, pointCount: far.length, nearTower: nearIdx });
 };
 
@@ -2908,6 +2926,22 @@ function applyCamera(v) {
   viewDir(v, _vd); _vt.set(v[3], v[4], v[5]);
   GL.camera.position.copy(_vt).addScaledVector(_vd, v[2] * (GL.fit || 1));
   GL.camera.up.set(0, 1, 0); GL.camera.lookAt(_vt);
+}
+// sets on show may keep the camera out of their solid parts (the supercomputer's racks): keepOut takes the camera's
+// position in the set's own frame (t: story time, for the set's turn; null in explore mode) and returns it, moved if
+// need be; still(p) says explore mode should stop swaying the view (GL.still, read next frame)
+const _yA = new THREE.Vector3(0, 1, 0), _kp = new THREE.Vector3();
+function keepCamera(S, t) {
+  GL.still = false;
+  for (const k of SET_ORDER) {
+    const s = GL.sets[k];
+    if (!s.keepOut || (S[k + '_a'] || 0) < 0.05) continue;
+    const yaw = t === null ? 0 : setYaw(k, t) * D2R;
+    _kp.copy(GL.camera.position).applyAxisAngle(_yA, -yaw);
+    const p = [_kp.x, _kp.y, _kp.z], q = s.keepOut(p);
+    if (s.still && s.still(q)) GL.still = true;
+    if (q !== p) { GL.camera.position.copy(_kp.set(q[0], q[1], q[2]).applyAxisAngle(_yA, yaw)); GL.camera.lookAt(_vt); }
+  }
 }
 function resize() {
   if (GL.renderer.xr.isPresenting) return;
@@ -3235,12 +3269,15 @@ function buildStory() {
   jump('tower_group', a + 15, CMg, 0);
   cam(a + 1, 'tower', 'default', 15);
   cam(a + 12, 'tower', 'default', 45, 'spin');
-  // over the hall, down the aisle between the racks, back up and out over the sea of towers
+  // over the hall, then in along the cold aisle's centre line (so the camera never meets a rack), a slow walk down
+  // it, back out the same way, and up and out over the sea of towers
   cam(a + 14, 'hpc', 'default');
+  cam(a + 16.5, 'hpc', 'aisle');
   cam(a + 18, 'hpc', 'racks');
-  cam(a + 21, 'hpc', 'racks', 8, 'spin');
-  cam(a + 24, 'hpc', 'default', 20);
-  cam(a + 27, 'hpc', 'field');
+  cam(a + 21, 'hpc', 'racks', 0, 'spin', [0, 0, 0, 0, 0, -0.24]);
+  cam(a + 23, 'hpc', 'aisle');
+  cam(a + 25.5, 'hpc', 'default', 20);
+  cam(a + 28, 'hpc', 'field');
   cam(b - 1, 'hpc', 'field', 15, 'spin');
   // What comes next: the whole tower once more, opened up around the viewer
   a = C.next.a; b = C.next.b;
@@ -3541,8 +3578,8 @@ function exploreTargets(now = performance.now()) {
 function exploreStep(dt, now) {
   const tg = exploreTargets(now), k = 1 - Math.exp(-dt * 3.5);
   for (const n in DEF) XS[n] = STEP.has(n) ? tg[n] : XS[n] + (tg[n] - XS[n]) * k;
-  // a gently swaying scene, unless you are steering it or standing inside
-  if (X.turn === 'on' && !(X.room && X.scene === 'tower') && !orbit.to && !orbit.held) { X.sway = (X.sway || 0) + dt; orbit.cur[0] += dt * 6 * Math.cos(X.sway * 0.25); }
+  // a gently swaying scene, unless you are steering it, standing inside, or among the supercomputer's racks
+  if (X.turn === 'on' && !(X.room && X.scene === 'tower') && !orbit.to && !orbit.held && !GL.still) { X.sway = (X.sway || 0) + dt; orbit.cur[0] += dt * 6 * Math.cos(X.sway * 0.25); }
   return XS;
 }
 // the tower's own display state: the picked gene, endotypes, knocked-out layers and a walk's result
@@ -5201,14 +5238,14 @@ function frame(now, xrFrame) {
   const ts = storyT(APP.t); // original story time for this point in the narration
   if (APP.mode === 'story') {
     S = storyState(ts); tSet = ts;
-    if (xr) xrPlace(storyCam(ts)); else applyCamera(storyCam(ts));
+    if (xr) xrPlace(storyCam(ts)); else { applyCamera(storyCam(ts)); keepCamera(S, ts); }
     updateStoryDOM(ts);
     updateTimeline(APP.t, APP.playing);
   } else {
     const pn = performance.now();
     S = exploreStep(dt, pn); tSet = pn / 1000;
     orbitStep(xr ? pn : now);
-    if (xr) xrPlace(orbit.cur); else applyCamera(orbit.cur);
+    if (xr) xrPlace(orbit.cur); else { applyCamera(orbit.cur); keepCamera(S, null); }
   }
   K.U.uTime.value = tSet;
   GL.camera.updateMatrixWorld();
