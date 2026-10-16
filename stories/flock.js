@@ -269,6 +269,7 @@ vec3 hazeCol(vec3 d) { return skyCol(normalize(vec3(d.x, 0.004, d.z))); }
 `;
   const U = { uSun: { value: SUN }, uSky: { value: 1 }, uLag: { value: 0 } };
   const mat = o => { const m = new THREE.ShaderMaterial(o); set.mats.push(m); return m; };
+  const ENV = [];   // the sky, the land, the trees and the reeds: hidden in passthrough, where your room takes their place
 
   // sky dome
   {
@@ -279,7 +280,7 @@ vec3 hazeCol(vec3 d) { return skyCol(normalize(vec3(d.x, 0.004, d.z))); }
 void main() { vec3 d = normalize(vD); gl_FragColor = vec4(skyCol(d), uA * uSky); }`,
     });
     const sky = new THREE.Mesh(new THREE.SphereGeometry(900, 48, 24), m);
-    sky.renderOrder = -2; sky.frustumCulled = false; set.group.add(sky);
+    sky.renderOrder = -2; sky.frustumCulled = false; set.group.add(sky); ENV.push(sky);
   }
   // the land: a dark field running into the haze, a lake towards the sunset that mirrors the sky, a line of trees
   {
@@ -304,7 +305,7 @@ void main() {
     });
     m.uniforms.uTimeW = K.U.uTime;
     const g = new THREE.CircleGeometry(880, 96).rotateX(-Math.PI / 2);
-    const land = new THREE.Mesh(g, m); land.renderOrder = -1; land.frustumCulled = false; set.group.add(land);
+    const land = new THREE.Mesh(g, m); land.renderOrder = -1; land.frustumCulled = false; set.group.add(land); ENV.push(land);
     // the tree line: a ring of dark crowns of varying height, hazy with distance
     const R = rng(77), NS = 720, P = [], idx = [];
     for (let i = 0; i <= NS; i++) {
@@ -320,7 +321,7 @@ void main() {
       fragmentShader: SKY + `uniform float uA, uSky; varying vec3 vW;
 void main() { vec3 d = normalize(vW - cameraPosition); gl_FragColor = vec4(mix(vec3(0.03, 0.035, 0.05), hazeCol(d), 0.62), uA * uSky); }`,
     });
-    const trees = new THREE.Mesh(tg, tm); trees.renderOrder = -1; trees.frustumCulled = false; set.group.add(trees);
+    const trees = new THREE.Mesh(tg, tm); trees.renderOrder = -1; trees.frustumCulled = false; set.group.add(trees); ENV.push(trees);
   }
   // reeds and grass round where you stand, swaying (a sense of scale, and ground under your feet)
   {
@@ -347,7 +348,7 @@ void main() { vec3 d = normalize(vW - cameraPosition);
   c = mix(c, hazeCol(d), 1.0 - exp(-length(vW.xz - cameraPosition.xz) * 0.0035));
   gl_FragColor = vec4(c, uA * uSky); }`,
     });
-    const reeds = new THREE.Mesh(g, m); reeds.frustumCulled = false; set.group.add(reeds);
+    const reeds = new THREE.Mesh(g, m); reeds.frustumCulled = false; set.group.add(reeds); ENV.push(reeds);
   }
 
   // ---------------------------------------------------------------- the birds: a live simulation
@@ -366,21 +367,32 @@ void main() { vec3 d = normalize(vW - cameraPosition);
   for (let i = 0; i < MAXN; i++) spawn(i, [0, 9, -14]);
   // the viewer (head and hands, in this set's frame; the engine updates them) and the falcon
   const ME = { head: [0, 1.6, 0], hands: [], c: [0, 0] };
-  const FAL = { on: false, p: [0, 0, 0], v: [0, 0, 0], t: 0, next: 30, aim: null };
+  const FAL = { on: false, p: [0, 0, 0], v: [0, 0, 0], t: 0, pass: 0, next: 30, aim: null };
 
-  // the roost the flock follows: a point circling the viewer, wandering in and out and up and down, now and then
-  // swooping low and close; two more points near it pull parts of the flock aside, so it stretches and folds
+  // where the flock likes to be: a roost point in front of the viewer (towards the sunset) that wanders slowly
+  // left and right, in and out, up and down, and every 88 s comes in low and close for about ten seconds, so the
+  // flock flies round the viewer (first at 72 s of flight: the story's last chapter, as the flock warms up for
+  // 6 s); two more points near it pull parts of the flock aside, so it stretches and folds
   const roost = (k, t, out) => {
-    const th = t * 0.1 + 0.7 * Math.sin(t * 0.043), sw = Math.pow(Math.max(0, Math.sin(t * 0.071 + 1)), 10);
-    const r = lerp(8.5 + 3 * Math.sin(t * 0.061), 3.5, sw), h = lerp(8 + 3 * Math.sin(t * 0.083 + 2), 3.4, sw);
+    const th = -Math.PI / 2 + 1.1 * Math.sin(t * 0.037) + 0.7 * Math.sin(t * 0.059 - 0.3) + t * 0.012, sw = Math.pow(Math.max(0, Math.sin(t * 0.071 - 3.54)), 10);
+    const r = lerp(16 + 3 * Math.sin(t * 0.061), 2, sw), h = lerp(9 + 3 * Math.sin(t * 0.083 + 2), 5, sw);
+    if (!k) SW = sw;
     out[0] = ME.c[0] + Math.cos(th) * r; out[1] = h; out[2] = ME.c[1] + Math.sin(th) * r;
-    if (k) {   // the satellites: 8-14 m off the main point, turning round it
-      const a = t * (0.23 + 0.07 * k) * (k === 1 ? 1 : -1) + k * 2.4, o = 4 + 2.5 * Math.sin(t * 0.05 * k + k);
+    if (k) {   // the satellites: 3-9 m off the main point, turning round it
+      const a = t * (0.23 + 0.07 * k) * (k === 1 ? 1 : -1) + k * 2.4, o = 6 + 3 * Math.sin(t * 0.05 * k + k);
       out[0] += Math.cos(a) * o; out[1] += Math.sin(a * 0.7 + k) * o * 0.4; out[2] += Math.sin(a) * o;
     }
     return out;
   };
+  // and the flock's whim: a heading that turns now left, now right (slow waves of turning), climbing and diving a
+  // little, which the whole flock leans towards; so it wheels and doubles back instead of circling
+  const whim = t => {
+    const a = -Math.PI / 2 - 2.9 * Math.cos(t * 0.31) - 1.13 * Math.cos(t * 0.53 + 2) + 0.9 * Math.sin(t * 0.13);
+    return [Math.cos(a), 0.18 * Math.sin(t * 0.27) + 0.1 * Math.sin(t * 0.71 + 1), Math.sin(a)];
+  };
   const RT = [[0, 0, 0], [0, 0, 0], [0, 0, 0]];
+  let SW = 0;   // how far into a swoop
+  const CEN = [0, 9, -14];   // the middle of the flock's main body (centre())
 
   // a grid of cells round the viewer for the neighbour search (birds beyond its edge share the edge cells)
   const CS = 1.1, GX = 72, GY = 34, GZ = 72, NC = GX * GY * GZ, cnt = new Int32Array(NC), start = new Int32Array(NC), mark = new Int32Array(NC), ids = new Int32Array(MAXN), key = new Float64Array(MAXN);
@@ -424,7 +436,7 @@ void main() { vec3 d = normalize(vW - cameraPosition);
     }
   }
   // one step of the flock
-  const V0 = 10;
+  const V0 = 8.5, KR = 0.16, KH = 0.6, EDGE = 24;   // cruising speed; the pulls of the roost and the whim; how far the flock may roam
   function step(dt, t, S) {
     neighbours();
     for (let k = 0; k < 3; k++) roost(k, t, RT[k]);
@@ -432,6 +444,9 @@ void main() { vec3 d = normalize(vW - cameraPosition);
     let gcx = 0, gcy = 0, gcz = 0;
     for (let i = 0; i < N; i++) { gcx += P[i * 3]; gcy += P[i * 3 + 1]; gcz += P[i * 3 + 2]; }
     gcx /= N; gcy /= N; gcz /= N;
+    // the pull to the roost acts on the flock as a whole (on its middle), so the flock moves as one body
+    const rpx = RT[0][0] - gcx, rpy = RT[0][1] - gcy, rpz = RT[0][2] - gcz, rpl = Math.hypot(rpx, rpy, rpz) + 1e-3, rpf = KR * (1 + 3 * SW) * Math.min(rpl, 30) / rpl, kh = KH * (1 - 0.8 * SW);   // in a swoop the roost wins
+    const H = whim(t), hvx = H[0] * V0, hvy = H[1] * V0, hvz = H[2] * V0;
     for (let i = 0; i < N; i++) {
       const i3 = i * 3, x = P[i3], y = P[i3 + 1], z = P[i3 + 2], vx = V[i3], vy = V[i3 + 1], vz = V[i3 + 2];
       let ax = 0, ay = 0, az = 0;
@@ -442,7 +457,7 @@ void main() { vec3 d = normalize(vW - cameraPosition);
         for (let k = 0; k < nb; k++) {
           const j = NB[i * KN + k], j3 = j * 3, ex = x - P[j3], ey = y - P[j3 + 1], ez = z - P[j3 + 2], d2 = ex * ex + ey * ey + ez * ez + 1e-4;
           mvx += V[j3]; mvy += V[j3 + 1]; mvz += V[j3 + 2]; mx += P[j3]; my += P[j3 + 1]; mz += P[j3 + 2];
-          if (d2 < 1.3) { const f = 2.6 * (1.3 - d2) / d2; ax += ex * f; ay += ey * f; az += ez * f; }
+          if (d2 < 1.8) { const f = 2.6 * (1.8 - d2) / d2; ax += ex * f; ay += ey * f; az += ez * f; }
           if (AL[j] > amax) amax = AL[j];
         }
         const ia = 1 / nb, al = 1 + 2 * AL[i];
@@ -452,15 +467,14 @@ void main() { vec3 d = normalize(vW - cameraPosition);
         const tgt = Math.max(AL[i] * Math.exp(-dt * 0.9), amax * 0.93);
         AL2[i] = AL[i] + (tgt - AL[i]) * Math.min(1, dt * 14);
       } else AL2[i] = AL[i] * Math.exp(-dt * 0.9);
-      // the roosts: each bird leans towards one of them, the lean changing slowly, so the flock stretches and folds
+      // the roost and the whim; and a few birds lean towards a satellite instead (the lean changing slowly)
       const w = (GR[i] + t * 0.013) % 1, k = w < 0.8 ? 0 : w < 0.9 ? 1 : 2, rk = RT[k];
-      let rx = rk[0] - x, ry = rk[1] - y, rz = rk[2] - z; const rl = Math.hypot(rx, ry, rz) + 1e-3, rf = Math.min(rl, 25) / rl * 0.32;
-      ax += rx * rf; ay += ry * rf; az += rz * rf;
+      ax += rpx * rpf + (rk[0] - RT[0][0]) * 0.3 + (hvx - vx) * kh; ay += rpy * rpf + (rk[1] - RT[0][1]) * 0.3 + (hvy - vy) * kh; az += rpz * rpf + (rk[2] - RT[0][2]) * 0.3 + (hvz - vz) * kh;
       // and the flock as a whole holds together
       ax += (gcx - x) * 0.28; ay += (gcy - y) * 0.28; az += (gcz - z) * 0.28;
       // keep round the viewer: not too far, not too close, not too low
       const ox = x - ME.c[0], oz = z - ME.c[1], od = Math.hypot(ox, oz) + 1e-3;
-      if (od > 15) { const f = (od - 15) * 0.6 / od; ax -= ox * f; az -= oz * f; }
+      if (od > EDGE) { const f = (od - EDGE) * 1.2 / od; ax -= ox * f; az -= oz * f; }
       if (y < 3.5) ay += (3.5 - y) * 6; if (y > 34) ay -= (y - 34) * 2;
       // the viewer's head and hands: give them a wide berth
       const qx = x - hx, qy = y - hy, qz = z - hz, qd = Math.hypot(qx, qy, qz) + 1e-3;
@@ -469,7 +483,7 @@ void main() { vec3 d = normalize(vW - cameraPosition);
       // the falcon: those it nears flee, and raise the alarm
       if (FAL.on) {
         const fx = x - FAL.p[0], fy = y - FAL.p[1], fz = z - FAL.p[2], fd = Math.hypot(fx, fy, fz) + 1e-3;
-        if (fd < 9) { const f = 70 * (9 - fd) / (9 * fd); ax += fx * f; ay += fy * f; az += fz * f; AL2[i] = Math.max(AL2[i], 1 - fd / 9 * 0.5); }
+        if (fd < 8) { const f = 40 * (8 - fd) / (8 * fd); ax += fx * f; ay += fy * f; az += fz * f; AL2[i] = Math.max(AL2[i], 1 - fd / 8 * 0.5); }
       }
       // speed: back towards cruising, faster when alarmed
       const sp = Math.hypot(vx, vy, vz) + 1e-3, want = V0 * (1 + 0.35 * AL[i]);
@@ -490,18 +504,21 @@ void main() { vec3 d = normalize(vW - cameraPosition);
       P[i3] += V[i3] * dt; P[i3 + 1] += V[i3 + 1] * dt; P[i3 + 2] += V[i3 + 2] * dt;
       AL[i] = AL2[i];
     }
-    // the falcon: in fast from afar, through the thick of the flock, then away
+    centre();
+    // the falcon: in fast from afar, one stoop straight through the thick of the flock, then up and away
     if (FAL.on) {
       FAL.t += dt;
       let tx, ty, tz;
-      if (FAL.t < 4.5) {   // home on the flock's middle (or where it was sent)
-        let cx = 0, cy = 0, cz = 0; const M = N;
-        for (let i = 0; i < M; i++) { cx += P[i * 3]; cy += P[i * 3 + 1]; cz += P[i * 3 + 2]; }
-        tx = cx / M; ty = cy / M; tz = cz / M;
+      const hunting = !FAL.pass && FAL.t < 6, through = FAL.pass && FAL.t < FAL.pass + 1.2;
+      if (hunting) {   // home on the flock's main body (or where it was sent)
+        tx = CEN[0]; ty = CEN[1]; tz = CEN[2];
         if (FAL.aim && FAL.t < 1.5) { tx = FAL.aim[0]; ty = FAL.aim[1]; tz = FAL.aim[2]; }
-      } else { tx = FAL.p[0] + FAL.v[0] * 3; ty = FAL.p[1] + 30; tz = FAL.p[2] + FAL.v[2] * 3; }
-      const dx = tx - FAL.p[0], dy = ty - FAL.p[1], dz = tz - FAL.p[2], dl = Math.hypot(dx, dy, dz) + 1e-3, sp = FAL.t < 4.5 ? 26 : 18;
+        if (Math.hypot(CEN[0] - FAL.p[0], CEN[1] - FAL.p[1], CEN[2] - FAL.p[2]) < 4) FAL.pass = FAL.t;
+      } else if (through) { tx = FAL.p[0] + FAL.v[0]; ty = Math.max(FAL.p[1] + FAL.v[1], 6); tz = FAL.p[2] + FAL.v[2]; }
+      else { tx = FAL.p[0] + FAL.v[0] * 3; ty = FAL.p[1] + 30; tz = FAL.p[2] + FAL.v[2] * 3; }
+      const dx = tx - FAL.p[0], dy = ty - FAL.p[1], dz = tz - FAL.p[2], dl = Math.hypot(dx, dy, dz) + 1e-3, sp = hunting || through ? 26 : 18;
       for (let c = 0; c < 3; c++) { FAL.v[c] += ([dx, dy, dz][c] / dl * sp - FAL.v[c]) * Math.min(1, dt * 2.2); FAL.p[c] += FAL.v[c] * dt; }
+      if (FAL.p[1] < 2) { FAL.p[1] = 2; FAL.v[1] = Math.max(FAL.v[1], 0); }   // never into the ground
       if (FAL.t > 10) { FAL.on = false; FAL.aim = null; }
     }
   }
@@ -509,7 +526,7 @@ void main() { vec3 d = normalize(vW - cameraPosition);
     const a = R() * TAU, from = aim ? Math.atan2(aim[2] - ME.c[1], aim[0] - ME.c[0]) + Math.PI * (0.7 + R() * 0.6) : a;
     FAL.p = [ME.c[0] + Math.cos(from) * 70, 30 + R() * 15, ME.c[1] + Math.sin(from) * 70];
     FAL.v = [-Math.cos(from) * 20, -4, -Math.sin(from) * 20];
-    FAL.on = true; FAL.t = 0; FAL.aim = aim || null;
+    FAL.on = true; FAL.t = 0; FAL.pass = 0; FAL.aim = aim || null;
   }
 
   // drawing: one instanced batch of birds; a body and two pointed wings that flap and glide, banking with the bird
@@ -603,11 +620,29 @@ void main() {
   }
 
   // ---------------------------------------------------------------- params, update, exports
+  // the middle of the flock's main body: a few steps of mean shift (the birds within 9 m, from where the body was
+  // last), so a flock split by the falcon is not looked for in the empty sky between its parts
+  function middle() { let x = 0, y = 0, z = 0; for (let i = 0; i < N; i++) { x += P[i * 3]; y += P[i * 3 + 1]; z += P[i * 3 + 2]; } return [x / N, y / N, z / N]; }
+  function centre() {
+    let c = CEN;
+    for (let it = 0; it < 2; it++) {
+      let sx = 0, sy = 0, sz = 0, n = 0;
+      for (let i = 0; i < N; i++) {
+        const x = P[i * 3], y = P[i * 3 + 1], z = P[i * 3 + 2];
+        if ((x - c[0]) ** 2 + (y - c[1]) ** 2 + (z - c[2]) ** 2 < 81) { sx += x; sy += y; sz += z; n++; }
+      }
+      c = n < N * 0.15 ? middle() : [sx / n, sy / n, sz / n];   // lost: start again from the middle of all
+    }
+    CEN[0] = c[0]; CEN[1] = c[1]; CEN[2] = c[2];
+  }
   const params = { flock_a: 1, flock_birds: 200, flock_links: 0, flock_sky: 1, flock_falcon: 1, flock_hunt: 0 };
   let tLast = null, hunts = 0, tSim = 0, acc = 0;
   const SIM = 1 / 30;   // the flock moves in steps of a thirtieth of a second; between them the birds glide on (uLag)
   function update(S, t, dt) {
-    U.uSky.value = clamp(S.flock_sky, 0, 1);
+    const sky = U.uSky.value = clamp(S.flock_sky, 0, 1);
+    for (const m of ENV) m.visible = sky > 0.003;
+    // without the sky (passthrough) the flock flies in your room, at a third of life size
+    set.group.scale.setScalar(sky > 0.5 ? 1 : 0.3);
     // more or fewer birds: new ones join beside a bird already flying
     const want = clamp(Math.round(S.flock_birds), 50, MAXN);
     if (want > N) for (let i = N; i < want; i++) { const j = Math.floor(R() * N) * 3; spawn(i, [P[j], P[j + 1], P[j + 2]]); }
@@ -627,11 +662,17 @@ void main() {
     if (stepped) draw(S);
     U.uLag.value = acc;
   }
-  // warm up, so the flock is already in the air when the scene first shows
+  // warm up, so the flock is already in the air when the scene first shows; then move it to its roost, in front
   for (let k = 0; k < 180; k++) { tSim += SIM; step(SIM, tSim, params); }
+  {
+    const c = middle();
+    roost(0, tSim, RT[0]);
+    for (let i = 0; i < MAXN; i++) { P[i * 3] += RT[0][0] - c[0]; P[i * 3 + 1] += RT[0][1] - c[1]; P[i * 3 + 2] += RT[0][2] - c[2]; }
+    CEN[0] = RT[0][0]; CEN[1] = RT[0][1]; CEN[2] = RT[0][2]; centre();
+  }
   draw(params);
 
-  const anchors = { flock: () => { const M = N; let x = 0, y = 0, z = 0; for (let i = 0; i < M; i++) { x += P[i * 3]; y += P[i * 3 + 1]; z += P[i * 3 + 2]; } return [x / M, y / M + 3, z / M]; },
+  const anchors = { flock: () => [CEN[0], CEN[1] + 3, CEN[2]],   // 3 m above the body: where the camera aims
     falcon: () => (FAL.on ? [FAL.p[0], FAL.p[1] + 1.5, FAL.p[2]] : [0, -100, 0]) };
   const labels = [
     { text: ['Falcon', ''], at: 'falcon', cls: 'amb', alpha: () => (FAL.on && FAL.t < 6 ? 1 : 0) },
@@ -641,7 +682,7 @@ void main() {
   const cam = {
     default: [0, -26, 0.25, 0, 1.6, 0],
     up: [30, -48, 0.25, 0, 1.6, 0],
-    afar: [20, 8, 26, 0, 9, -4],
+    afar: [20, 6, 17, 0, 9, -4],
   };
   const controls = [
     { key: 'view', label: 'View', options: [['default', 'Follow the flock'], ['free', 'Look around'], ['afar', 'From afar']] },
@@ -725,6 +766,7 @@ function viewDir(v, out) {
 function applyCamera(v) {
   viewDir(v, _vd); _vt.set(v[3], v[4], v[5]);
   GL.camera.position.copy(_vt).addScaledVector(_vd, v[2] * (GL.fit || 1));
+  GL.camera.position.y = Math.max(GL.camera.position.y, 0.4);   // never under the ground
   GL.camera.up.set(0, 1, 0); GL.camera.lookAt(_vt);
 }
 function resize() {
@@ -749,30 +791,53 @@ function updateLight(xr) {
 }
 
 // ----------------------------------------------------------- the flock --
-// The flock is all round you. On a screen the camera, standing where you stand, turns to keep it in view; from
-// afar it keeps the flock in the middle (blended by distance, so a flight between the two is smooth).
-// keep: return the followed view as it is now (when you take over the camera).
-const FOL = { az: null, el: -20, tx: 0, ty: 8, tz: -10 };
+// The flock is all round you. On a screen the camera, standing where you stand, turns to keep it in view as you
+// would turn your head: it lets the flock wander a little first, and eases into and out of each turn, at up to
+// 50 degrees a second. From afar it keeps the flock in the middle; flying out
+// to a far view or back it keeps the flock framed and comes round to the view's own side at up to 60 degrees a
+// second. keep: return the followed view as it is now (when you take over the camera).
+const FOL = { az: null, el: -20, wa: 0, we: 0, tx: 0, ty: 8, tz: -10, vz: null, ve: 0 };
+const lazy = (d, dz) => Math.sign(d) * Math.max(0, Math.abs(d) - dz);
+// turn o[x] towards g: the speed it wants grows with the error beyond the dead zone; its speed o[w] eases there
+function track(o, x, w, g, dz, gain, top, dt) {
+  const want = clamp(lazy(g - o[x], dz) * gain, -top, top);
+  o[w] += (want - o[w]) * (1 - Math.exp(-dt * 4));
+  o[x] += o[w] * dt;
+}
 function followView(v, dt, keep) {
-  const c = GL.sets.flock.anchors.flock(), k = keep ? 0 : 1 - Math.exp(-(dt || 0) * 1.3);
+  dt = keep ? 0 : dt || 0;
+  const c = GL.sets.flock.anchors.flock(), k = 1 - Math.exp(-dt * 1.2);
   const dx = c[0] - v[3], dy = c[1] - 3 - v[4], dz = c[2] - v[5], h = Math.hypot(dx, dz) + 1e-6;
   // the camera looks along -dir(az, el): it faces the flock at az = atan2(-dx, -dz), el = -atan(dy / h)
   let az = Math.atan2(-dx, -dz) / D2R;
   const el = clamp(-Math.atan2(dy, h) / D2R, -70, 8);
-  if (FOL.az === null) { FOL.az = az; FOL.el = el; FOL.tx = c[0]; FOL.ty = c[1] - 3; FOL.tz = c[2]; }
+  if (FOL.az === null) { FOL.az = az; FOL.el = el; FOL.wa = FOL.we = 0; FOL.tx = c[0]; FOL.ty = c[1] - 3; FOL.tz = c[2]; }
   az += 360 * Math.round((FOL.az - az) / 360);
-  FOL.az += (az - FOL.az) * k; FOL.el += (el - FOL.el) * k;
+  // the dead zone: about half the way to the edge of the picture (narrow on a phone held upright)
+  const hw = Math.atan(Math.tan(GL.camera.fov * D2R / 2) * GL.camera.aspect) / D2R;
+  // below the picture's middle the side panel covers a narrow screen: there the flock is held a little higher
+  track(FOL, 'az', 'wa', az, clamp(hw * 0.45, 6, 22), 2.5, 50, dt); track(FOL, 'el', 'we', el + (GL.wide ? 0 : 5), 6, 2.5, 30, dt);
   FOL.tx += (c[0] - FOL.tx) * k; FOL.ty += (c[1] - 3 - FOL.ty) * k; FOL.tz += (c[2] - FOL.tz) * k;
+  // FOL.az winds on as the flock circles: blend from the turn nearest the view's own, or the camera whirls
+  const fa = FOL.az + 360 * Math.round((v[0] - FOL.az) / 360);
   const w = smooth((v[2] - 0.6) / 2.4);   // 0 close up (turn to the flock), 1 from afar (aim at it)
-  return [FOL.az + (v[0] - FOL.az) * w, FOL.el + (v[1] - FOL.el) * w, v[2], v[3] + (FOL.tx - v[3]) * w, v[4] + (FOL.ty - v[4]) * w, v[5] + (FOL.tz - v[5]) * w];
+  let va = fa + (v[0] - fa) * w;
+  const ve = FOL.el + (v[1] - FOL.el) * w;
+  if (keep || FOL.vz === null) { FOL.vz = va; FOL.ve = ve; }
+  else {
+    va += 360 * Math.round((FOL.vz - va) / 360);
+    FOL.vz += clamp(va - FOL.vz, -60 * dt, 60 * dt); FOL.ve += clamp(ve - FOL.ve, -40 * dt, 40 * dt);
+  }
+  return [FOL.vz, FOL.ve, v[2], v[3] + (FOL.tx - v[3]) * w, v[4] + (FOL.ty - v[4]) * w, v[5] + (FOL.tz - v[5]) * w];
 }
-// the flock steers clear of you: your head (the camera, on a screen) and your hands, in the flock's own frame
+// the flock steers clear of you: your head and hands, in the flock's own frame. On a screen you stand at the
+// middle of the field (not where the camera is: from afar the flock would follow the camera away)
 const _sv = new THREE.Vector3(), _sm = new THREE.Matrix4();
 function tellFlock(xr) {
   const s = GL.sets.flock;
   GL.world.updateMatrixWorld(true);
   _sm.copy(s.group.matrixWorld).invert();
-  const head = _sv.copy(xr ? XR.head : GL.camera.position).applyMatrix4(_sm).toArray();
+  const head = xr ? _sv.copy(XR.head).applyMatrix4(_sm).toArray() : [0, 1.6, 0];
   const hands = xr ? XR.ctrls.filter(c => c.src && c.g.visible).map(c => _sv.copy(c.o).applyMatrix4(_sm).toArray()) : [];
   s.see(head, hands);
 }
@@ -1278,11 +1343,12 @@ const _xa = new THREE.Vector3(), _xb = new THREE.Vector3(), _xc = new THREE.Vect
 
 // ------------------------------------------------------------ scene pose --
 const _xX = new THREE.Vector3(1, 0, 0), _xY = new THREE.Vector3(0, 1, 0);
-// The flock is life size round you: the land under your feet (the frame hangs at your head, so the land is your
-// eye height below it), the sunset ahead of where you faced when the place was set; views do not move it.
+// The flock is life size round you: the land under your feet (the frame hangs at your head, so the land is a
+// standing eye height below it: the reference space is 'local', so the floor is not known), the sunset ahead of
+// where you faced when the place was set; views do not move it.
 function xrPlace(v) {
   XR.R = 1; XR.hitR = 1; XR.target.set(0, 0, 0);
-  const eye = GL.rig.position.y > 0.5 ? GL.rig.position.y : 1.6;   // no floor-level reference space: a standing eye height
+  const eye = 1.6;
   GL.world.quaternion.identity();
   GL.world.scale.setScalar(1);
   GL.world.position.set(0, -eye, 0);
@@ -1346,7 +1412,7 @@ function placeLabelXR(L, alpha, S) {
   sp.visible = o > 0.01;
   sp.material.opacity = o;
   labelPos(L, sp.position);
-  const hm = 0.021 / XR.R;
+  const hm = 0.021 * Math.max(1, sp.position.distanceTo(XR.camLocal));   // the same size to the eye, near or far
   sp.scale.set(hm * sp.userData.aspect, hm, 1);
 }
 function xrTip() {}
@@ -1414,9 +1480,9 @@ function xrGrab(c, on) {
   const h = c.hover;
   if (!on || !h) return;
   if (XR.stories || HOST.anchor.locked()) return; // the Stories screen stays put, and so does an anchored place
-  // the scene is held by its placement point (where the view's target sits), so a still hand moves nothing
-  const p0 = h.kind === 'panel' ? XR.panelGroup.getWorldPosition(new THREE.Vector3()) : GL.rig.localToWorld(XR.globeBase.clone().add(XR.globeOff));
-  c.grab = { target: h.kind === 'panel' ? 'panel' : 'globe', q0: new THREE.Quaternion().setFromRotationMatrix(c.g.matrix).invert(),
+  if (h.kind !== 'panel') return;   // the field and the sky stay where they are: only the panel moves
+  const p0 = XR.panelGroup.getWorldPosition(new THREE.Vector3());
+  c.grab = { target: 'panel', q0: new THREE.Quaternion().setFromRotationMatrix(c.g.matrix).invert(),
     o0: c.o.clone(), p0, reach: 1 };
   buzz(c, 0.4, 25);
 }
@@ -1649,7 +1715,7 @@ function xrEnded() {
   if (XR.tip) dropSprite(XR.tip);
   XR.tip = null; XR.tipI = -1;
   XR.clear = true;
-  GL.stars.visible = true; GL.stars.material.size = 1.3;
+  GL.stars.visible = false;   // the sky has no stars yet
   GL.world.visible = true;
   for (const P of XR.land || []) P.mesh.visible = false;
   if (XR.snd) XR.snd.mesh.visible = false;
@@ -1810,7 +1876,7 @@ function xrLandingSetup() {
   head.mesh.position.set(0, 0.36, -1.12);
   XR.landGroup.add(head.mesh); XR.land.push(head);
   HOST.list.forEach((s, k) => {
-    const a = (k - (HOST.list.length - 1) / 2) * 0.42, d = 1.06;
+    const a = (k - (HOST.list.length - 1) / 2) * 0.37, d = 1.15;   // six cards, none far to the side
     const P = makePanel(640, 820, 0.4, (ctx, P) => drawLandCard(ctx, P, s), () => 'c' + XR.inStory + s.key);
     P.mesh.position.set(Math.sin(a) * d, -0.13, -Math.cos(a) * d);
     P.mesh.rotation.y = -a;
@@ -1910,13 +1976,13 @@ function drawMain(ctx, P) {
   hb('stories', 'Stories', () => { XR.stories = true; XR.kbd.open = false; APP.playing = false; }, 130);
   if (!XR.stories) hb('mode', story ? 'Explore now' : 'Replay story', () => (story ? APP.enterExplore() : APP.enterStory(0)), 186, { primary: story });
   ctx.font = vfont(30, 700); ctx.fillStyle = VC.ink;
-  ctx.fillText(fitText(ctx, 'LBI NetMed tour', x - 40), 40, 36);
+  ctx.fillText(fitText(ctx, 'Flock', x - 40), 40, 36);
   ctx.fillStyle = VC.line; ctx.fillRect(36, 104, P.w - 72, 2);
   if (XR.stories) drawStoriesPane(ctx, P, 44, 136, P.w - 88);
   else if (story) {
     drawStoryPane(ctx, P, 44, 136, P.w - 88);
     ctx.fillStyle = VC.line; ctx.fillRect(36, P.h - 96, P.w - 72, 2);
-    textBlock(ctx, HOST.anchor.on ? 'Trigger (or pinch): use buttons. A or X: play and pause. Anchored: to move things, use Place again on the Stories screen.' : 'Trigger (or pinch): use buttons. Grip: move the scene or this panel. A or X: play and pause.', 44, P.h - 74, P.w - 88, 22, 30, VC.faint);
+    textBlock(ctx, HOST.anchor.on ? 'Trigger (or pinch): use buttons. A or X: play and pause. Anchored: to move things, use Place again on the Stories screen.' : 'Trigger (or pinch): use buttons, or point at the sky to send a falcon. Grip: move this panel. A or X: play and pause.', 44, P.h - 74, P.w - 88, 22, 30, VC.faint);
   } else drawExplorePane(ctx, P, 40, 120, P.w - 80);
 }
 
@@ -2219,7 +2285,7 @@ function frame(now, xrFrame) {
     orbitStep(xr ? pn : now);
     if (xr) xrPlace(orbit.cur); else applyCamera(following() ? followView(orbit.cur, dt) : orbit.cur);
   }
-  K.U.uTime.value = tSet;
+  K.U.uTime.value = (performance.now() / 1000) % 3600;   // wings and reeds move on while the story is paused
   GL.camera.updateMatrixWorld();
   updateLight(xr);
   if (XR.on && !XR.clear) S = Object.assign({}, S, { flock_sky: 0 });   // passthrough: the birds fly in your room

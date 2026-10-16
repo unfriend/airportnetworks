@@ -121,7 +121,7 @@ function xrLandingSetup() {
   head.mesh.position.set(0, 0.36, -1.12);
   XR.landGroup.add(head.mesh); XR.land.push(head);
   HOST.list.forEach((s, k) => {
-    const a = (k - (HOST.list.length - 1) / 2) * 0.42, d = 1.06;
+    const a = (k - (HOST.list.length - 1) / 2) * 0.37, d = 1.15;   // six cards, none far to the side
     const P = makePanel(640, 820, 0.4, (ctx, P) => drawLandCard(ctx, P, s), () => 'c' + XR.inStory + s.key);
     P.mesh.position.set(Math.sin(a) * d, -0.13, -Math.cos(a) * d);
     P.mesh.rotation.y = -a;
@@ -221,13 +221,13 @@ function drawMain(ctx, P) {
   hb('stories', 'Stories', () => { XR.stories = true; XR.kbd.open = false; APP.playing = false; }, 130);
   if (!XR.stories) hb('mode', story ? 'Explore now' : 'Replay story', () => (story ? APP.enterExplore() : APP.enterStory(0)), 186, { primary: story });
   ctx.font = vfont(30, 700); ctx.fillStyle = VC.ink;
-  ctx.fillText(fitText(ctx, 'LBI NetMed tour', x - 40), 40, 36);
+  ctx.fillText(fitText(ctx, 'Flock', x - 40), 40, 36);
   ctx.fillStyle = VC.line; ctx.fillRect(36, 104, P.w - 72, 2);
   if (XR.stories) drawStoriesPane(ctx, P, 44, 136, P.w - 88);
   else if (story) {
     drawStoryPane(ctx, P, 44, 136, P.w - 88);
     ctx.fillStyle = VC.line; ctx.fillRect(36, P.h - 96, P.w - 72, 2);
-    textBlock(ctx, HOST.anchor.on ? 'Trigger (or pinch): use buttons. A or X: play and pause. Anchored: to move things, use Place again on the Stories screen.' : 'Trigger (or pinch): use buttons. Grip: move the scene or this panel. A or X: play and pause.', 44, P.h - 74, P.w - 88, 22, 30, VC.faint);
+    textBlock(ctx, HOST.anchor.on ? 'Trigger (or pinch): use buttons. A or X: play and pause. Anchored: to move things, use Place again on the Stories screen.' : 'Trigger (or pinch): use buttons, or point at the sky to send a falcon. Grip: move this panel. A or X: play and pause.', 44, P.h - 74, P.w - 88, 22, 30, VC.faint);
   } else drawExplorePane(ctx, P, 40, 120, P.w - 80);
 }
 

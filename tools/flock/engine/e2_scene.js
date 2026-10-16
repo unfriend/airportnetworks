@@ -57,6 +57,7 @@ function viewDir(v, out) {
 function applyCamera(v) {
   viewDir(v, _vd); _vt.set(v[3], v[4], v[5]);
   GL.camera.position.copy(_vt).addScaledVector(_vd, v[2] * (GL.fit || 1));
+  GL.camera.position.y = Math.max(GL.camera.position.y, 0.4);   // never under the ground
   GL.camera.up.set(0, 1, 0); GL.camera.lookAt(_vt);
 }
 function resize() {
@@ -81,30 +82,53 @@ function updateLight(xr) {
 }
 
 // ----------------------------------------------------------- the flock --
-// The flock is all round you. On a screen the camera, standing where you stand, turns to keep it in view; from
-// afar it keeps the flock in the middle (blended by distance, so a flight between the two is smooth).
-// keep: return the followed view as it is now (when you take over the camera).
-const FOL = { az: null, el: -20, tx: 0, ty: 8, tz: -10 };
+// The flock is all round you. On a screen the camera, standing where you stand, turns to keep it in view as you
+// would turn your head: it lets the flock wander a little first, and eases into and out of each turn, at up to
+// 50 degrees a second. From afar it keeps the flock in the middle; flying out
+// to a far view or back it keeps the flock framed and comes round to the view's own side at up to 60 degrees a
+// second. keep: return the followed view as it is now (when you take over the camera).
+const FOL = { az: null, el: -20, wa: 0, we: 0, tx: 0, ty: 8, tz: -10, vz: null, ve: 0 };
+const lazy = (d, dz) => Math.sign(d) * Math.max(0, Math.abs(d) - dz);
+// turn o[x] towards g: the speed it wants grows with the error beyond the dead zone; its speed o[w] eases there
+function track(o, x, w, g, dz, gain, top, dt) {
+  const want = clamp(lazy(g - o[x], dz) * gain, -top, top);
+  o[w] += (want - o[w]) * (1 - Math.exp(-dt * 4));
+  o[x] += o[w] * dt;
+}
 function followView(v, dt, keep) {
-  const c = GL.sets.flock.anchors.flock(), k = keep ? 0 : 1 - Math.exp(-(dt || 0) * 1.3);
+  dt = keep ? 0 : dt || 0;
+  const c = GL.sets.flock.anchors.flock(), k = 1 - Math.exp(-dt * 1.2);
   const dx = c[0] - v[3], dy = c[1] - 3 - v[4], dz = c[2] - v[5], h = Math.hypot(dx, dz) + 1e-6;
   // the camera looks along -dir(az, el): it faces the flock at az = atan2(-dx, -dz), el = -atan(dy / h)
   let az = Math.atan2(-dx, -dz) / D2R;
   const el = clamp(-Math.atan2(dy, h) / D2R, -70, 8);
-  if (FOL.az === null) { FOL.az = az; FOL.el = el; FOL.tx = c[0]; FOL.ty = c[1] - 3; FOL.tz = c[2]; }
+  if (FOL.az === null) { FOL.az = az; FOL.el = el; FOL.wa = FOL.we = 0; FOL.tx = c[0]; FOL.ty = c[1] - 3; FOL.tz = c[2]; }
   az += 360 * Math.round((FOL.az - az) / 360);
-  FOL.az += (az - FOL.az) * k; FOL.el += (el - FOL.el) * k;
+  // the dead zone: about half the way to the edge of the picture (narrow on a phone held upright)
+  const hw = Math.atan(Math.tan(GL.camera.fov * D2R / 2) * GL.camera.aspect) / D2R;
+  // below the picture's middle the side panel covers a narrow screen: there the flock is held a little higher
+  track(FOL, 'az', 'wa', az, clamp(hw * 0.45, 6, 22), 2.5, 50, dt); track(FOL, 'el', 'we', el + (GL.wide ? 0 : 5), 6, 2.5, 30, dt);
   FOL.tx += (c[0] - FOL.tx) * k; FOL.ty += (c[1] - 3 - FOL.ty) * k; FOL.tz += (c[2] - FOL.tz) * k;
+  // FOL.az winds on as the flock circles: blend from the turn nearest the view's own, or the camera whirls
+  const fa = FOL.az + 360 * Math.round((v[0] - FOL.az) / 360);
   const w = smooth((v[2] - 0.6) / 2.4);   // 0 close up (turn to the flock), 1 from afar (aim at it)
-  return [FOL.az + (v[0] - FOL.az) * w, FOL.el + (v[1] - FOL.el) * w, v[2], v[3] + (FOL.tx - v[3]) * w, v[4] + (FOL.ty - v[4]) * w, v[5] + (FOL.tz - v[5]) * w];
+  let va = fa + (v[0] - fa) * w;
+  const ve = FOL.el + (v[1] - FOL.el) * w;
+  if (keep || FOL.vz === null) { FOL.vz = va; FOL.ve = ve; }
+  else {
+    va += 360 * Math.round((FOL.vz - va) / 360);
+    FOL.vz += clamp(va - FOL.vz, -60 * dt, 60 * dt); FOL.ve += clamp(ve - FOL.ve, -40 * dt, 40 * dt);
+  }
+  return [FOL.vz, FOL.ve, v[2], v[3] + (FOL.tx - v[3]) * w, v[4] + (FOL.ty - v[4]) * w, v[5] + (FOL.tz - v[5]) * w];
 }
-// the flock steers clear of you: your head (the camera, on a screen) and your hands, in the flock's own frame
+// the flock steers clear of you: your head and hands, in the flock's own frame. On a screen you stand at the
+// middle of the field (not where the camera is: from afar the flock would follow the camera away)
 const _sv = new THREE.Vector3(), _sm = new THREE.Matrix4();
 function tellFlock(xr) {
   const s = GL.sets.flock;
   GL.world.updateMatrixWorld(true);
   _sm.copy(s.group.matrixWorld).invert();
-  const head = _sv.copy(xr ? XR.head : GL.camera.position).applyMatrix4(_sm).toArray();
+  const head = xr ? _sv.copy(XR.head).applyMatrix4(_sm).toArray() : [0, 1.6, 0];
   const hands = xr ? XR.ctrls.filter(c => c.src && c.g.visible).map(c => _sv.copy(c.o).applyMatrix4(_sm).toArray()) : [];
   s.see(head, hands);
 }

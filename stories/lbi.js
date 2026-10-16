@@ -10549,7 +10549,7 @@ function xrLandingSetup() {
   head.mesh.position.set(0, 0.36, -1.12);
   XR.landGroup.add(head.mesh); XR.land.push(head);
   HOST.list.forEach((s, k) => {
-    const a = (k - (HOST.list.length - 1) / 2) * 0.42, d = 1.06;
+    const a = (k - (HOST.list.length - 1) / 2) * 0.37, d = 1.15;   // six cards, none far to the side
     const P = makePanel(640, 820, 0.4, (ctx, P) => drawLandCard(ctx, P, s), () => 'c' + XR.inStory + s.key);
     P.mesh.position.set(Math.sin(a) * d, -0.13, -Math.cos(a) * d);
     P.mesh.rotation.y = -a;

@@ -18,11 +18,12 @@ const _xa = new THREE.Vector3(), _xb = new THREE.Vector3(), _xc = new THREE.Vect
 
 // ------------------------------------------------------------ scene pose --
 const _xX = new THREE.Vector3(1, 0, 0), _xY = new THREE.Vector3(0, 1, 0);
-// The flock is life size round you: the land under your feet (the frame hangs at your head, so the land is your
-// eye height below it), the sunset ahead of where you faced when the place was set; views do not move it.
+// The flock is life size round you: the land under your feet (the frame hangs at your head, so the land is a
+// standing eye height below it: the reference space is 'local', so the floor is not known), the sunset ahead of
+// where you faced when the place was set; views do not move it.
 function xrPlace(v) {
   XR.R = 1; XR.hitR = 1; XR.target.set(0, 0, 0);
-  const eye = GL.rig.position.y > 0.5 ? GL.rig.position.y : 1.6;   // no floor-level reference space: a standing eye height
+  const eye = 1.6;
   GL.world.quaternion.identity();
   GL.world.scale.setScalar(1);
   GL.world.position.set(0, -eye, 0);
@@ -86,7 +87,7 @@ function placeLabelXR(L, alpha, S) {
   sp.visible = o > 0.01;
   sp.material.opacity = o;
   labelPos(L, sp.position);
-  const hm = 0.021 / XR.R;
+  const hm = 0.021 * Math.max(1, sp.position.distanceTo(XR.camLocal));   // the same size to the eye, near or far
   sp.scale.set(hm * sp.userData.aspect, hm, 1);
 }
 function xrTip() {}
@@ -154,9 +155,9 @@ function xrGrab(c, on) {
   const h = c.hover;
   if (!on || !h) return;
   if (XR.stories || HOST.anchor.locked()) return; // the Stories screen stays put, and so does an anchored place
-  // the scene is held by its placement point (where the view's target sits), so a still hand moves nothing
-  const p0 = h.kind === 'panel' ? XR.panelGroup.getWorldPosition(new THREE.Vector3()) : GL.rig.localToWorld(XR.globeBase.clone().add(XR.globeOff));
-  c.grab = { target: h.kind === 'panel' ? 'panel' : 'globe', q0: new THREE.Quaternion().setFromRotationMatrix(c.g.matrix).invert(),
+  if (h.kind !== 'panel') return;   // the field and the sky stay where they are: only the panel moves
+  const p0 = XR.panelGroup.getWorldPosition(new THREE.Vector3());
+  c.grab = { target: 'panel', q0: new THREE.Quaternion().setFromRotationMatrix(c.g.matrix).invert(),
     o0: c.o.clone(), p0, reach: 1 };
   buzz(c, 0.4, 25);
 }
@@ -389,7 +390,7 @@ function xrEnded() {
   if (XR.tip) dropSprite(XR.tip);
   XR.tip = null; XR.tipI = -1;
   XR.clear = true;
-  GL.stars.visible = true; GL.stars.material.size = 1.3;
+  GL.stars.visible = false;   // the sky has no stars yet
   GL.world.visible = true;
   for (const P of XR.land || []) P.mesh.visible = false;
   if (XR.snd) XR.snd.mesh.visible = false;

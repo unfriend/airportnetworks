@@ -102,9 +102,9 @@ most typical GO process of their genes. The motor unit and the supercomputer
 are illustrative.
 
 Flock (stories/flock.js): a live simulation, not data. Each bird follows its
-seven nearest neighbours (Ballerini et al. 2008), keeps its distance and follows
-the flock's wandering roost round you; a falcon sets off a wave of alarm that
-passes from neighbour to neighbour. Sky, land and birds are illustrative.
+seven nearest neighbours (Ballerini et al. 2008) and keeps its distance; the
+flock as a whole wheels about in front of you and now and then swoops round you;
+a falcon sets off a wave of alarm that passes from neighbour to neighbour. Sky, land and birds are illustrative.
 
 Files: index.html (the app), stories/ (the six stories), proteins.html and
 spatial.html (forward to the app), manifest.webmanifest, sw.js (offline cache), audio/,

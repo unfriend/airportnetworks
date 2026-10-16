@@ -146,8 +146,9 @@ Chapter timings and how to re-sync a new recording
 
 - **Flock** (`stories/flock.js`): a live simulation, not data. Each bird
   matches the heading of its seven nearest neighbours (topological interaction,
-  after Ballerini et al., PNAS 2008), keeps its distance and follows the flock's
-  wandering roost round you; alarm passes from neighbour to neighbour when a
+  after Ballerini et al., PNAS 2008) and keeps its distance; the flock as a
+  whole wheels about in front of you and now and then swoops round you; alarm
+  passes from neighbour to neighbour when a
   falcon comes (after Procaccini et al., Animal Behaviour 2011; Cavagna et al.,
   PNAS 2010 on how far a change spreads in a flock). Sky, land and birds are
   illustrative.

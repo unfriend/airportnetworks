@@ -259,20 +259,28 @@ scene list).
   function of the params and the time: 200 birds (100 to 400) in steps of a
   thirtieth of a second (the birds glide on between steps in the shader); each
   follows its seven nearest neighbours (the neighbour search is a sorted grid),
-  keeps its distance, follows a roost circling the viewer, and flees a falcon,
-  with alarm passing from neighbour to neighbour. A story key `flock_hunt`
-  sends a falcon each time it passes a whole number.
+  keeps its distance, and flees a falcon, with alarm passing from neighbour to
+  neighbour; the flock as a whole follows a whim (a heading turning now left,
+  now right) and a weak pull to a roost in front of you, and every 88 s swoops
+  round you. A story key `flock_hunt` sends a falcon each time it passes a whole
+  number. Tune the flight by numbers (bearing rate, distance, reversals), not
+  by eye: the flock and the screen camera are easy to make dizzying.
 - Life size: 1 unit is 1 m, the viewer stands at the origin, the ground is
   y = 0, the sunset is towards -z. In a headset `xrPlace` puts the land under
-  your feet (eye height below the rig) and never moves it; in passthrough AR
-  the sky and the land are hidden (`flock_sky` 0) and the birds fly in your room.
+  your feet (a standing eye height, 1.6 m, below the rig: the reference space
+  is `local`, so the floor is unknown) and never moves it; the grip moves only
+  the panel. In passthrough AR the sky and the land are hidden (`flock_sky` 0)
+  and the flock flies in your room at a third of life size.
 - The engine tells the set where you are every frame (`see(head, hands)`, in
-  its frame: the camera on a screen, the head and controllers in a headset), and
-  `scatter(dir)` sends a falcon where you point (a click on the sky, or the
+  its frame: the head and controllers in a headset; on a screen a fixed spot,
+  1.6 m above the middle of the field, so the flock never follows the camera),
+  and `scatter(dir)` sends a falcon where you point (a click on the sky, or the
   trigger pointed at the sky).
 - On a screen the camera stands where you do and turns to follow the flock
-  (`followView`; from afar it aims at the flock instead); dragging takes the
-  camera over (View: Look around).
+  (`followView`: a dead zone, eased turns of up to 50 degrees a second; from
+  afar it aims at the flock instead and comes round to the view's side at up
+  to 60); dragging takes the camera over (View: Look around). Wings and reeds
+  move on real time, so they keep moving while the story is paused.
 
 ## Conventions
 

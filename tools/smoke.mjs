@@ -124,6 +124,7 @@ for (const key of ['airports', 'proteins', 'spatial', 'lbi', 'nmd', 'flock']) aw
   await page.waitForFunction(k => HOST.curKey === k && HOST.cur && HOST.cur.peek('typeof ST !== "undefined" && ST.items.length > 0'), key, { timeout: 30000 });
   const bad = await page.evaluate(async () => {
     const sleep = ms => new Promise(r => setTimeout(r, ms)), out = [];
+    const grip = HOST.curKey === 'flock' ? 'panel' : 'globe';   // in the flock the grip moves only the panel
     const R = { shift: 0, head: { x: 0, y: 1.6, z: 0 }, live: new Set(), handles: new Map(), n: 0, slow: 0, hidden: false };
     const later = v => (R.slow ? new Promise(r => setTimeout(() => r(v), R.slow)) : Promise.resolve(v));
     const mk = room => { const a = { room, anchorSpace: {}, delete() { R.live.delete(a); },
@@ -159,7 +160,7 @@ for (const key of ['airports', 'proteins', 'spatial', 'lbi', 'nmd', 'flock']) aw
       R.head.x = 2; peek('xrFreshStart()'); await frames(2); // taken off; the next wearer stands elsewhere
       near(rigX(), -0.5, 'after taking the headset off the place moved');
       if (!peek('XR.stories')) out.push('the next wearer did not land on the Stories screen');
-      peek('(XR.stories = false, XR.ctrls[0].hover = { kind: "globe", i: -1 }, xrGrab(XR.ctrls[0], true))');
+      peek(`(XR.stories = false, XR.ctrls[0].hover = { kind: "${grip}", i: -1 }, xrGrab(XR.ctrls[0], true))`);
       if (peek('!!XR.ctrls[0].grab')) out.push('the grip still moves things while anchored');
       peek('XR.ctrls[0].hover = null');
       end(); HOST.session = null; R.live.clear();
@@ -190,7 +191,7 @@ for (const key of ['airports', 'proteins', 'spatial', 'lbi', 'nmd', 'flock']) aw
       if (!/Anchored in the room/.test(HOST.anchor.status())) out.push('the status did not recover once the saved place was found');
       HOST.anchor.set(false); await frames(1);
       if (R.handles.size || HOST.anchor.held()) out.push('switching Anchor off did not forget the place');
-      peek('(XR.stories = false, XR.ctrls[0].hover = { kind: "globe", i: -1 }, xrGrab(XR.ctrls[0], true))');
+      peek(`(XR.stories = false, XR.ctrls[0].hover = { kind: "${grip}", i: -1 }, xrGrab(XR.ctrls[0], true))`);
       if (!peek('!!XR.ctrls[0].grab')) out.push('the grip does not move things after Anchor is off');
       peek('(XR.ctrls[0].grab = null, XR.ctrls[0].hover = null)');
       end(); HOST.session = null;

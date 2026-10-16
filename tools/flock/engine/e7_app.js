@@ -107,7 +107,7 @@ function frame(now, xrFrame) {
     orbitStep(xr ? pn : now);
     if (xr) xrPlace(orbit.cur); else applyCamera(following() ? followView(orbit.cur, dt) : orbit.cur);
   }
-  K.U.uTime.value = tSet;
+  K.U.uTime.value = (performance.now() / 1000) % 3600;   // wings and reeds move on while the story is paused
   GL.camera.updateMatrixWorld();
   updateLight(xr);
   if (XR.on && !XR.clear) S = Object.assign({}, S, { flock_sky: 0 });   // passthrough: the birds fly in your room
