@@ -35,17 +35,34 @@ y -0.5 to 0.7; the heart above the muscle reaches the top):
   thick filaments at x 0). The heads are kept small (about 0.007 long, reaching 0.015 from the thick filament's
   axis, so they lean towards the thin filaments but leave the corridors open). Colours: actin cyan, myosin amber with orange heads, titin green, Z-disc violet, M-band
   pale violet.
-- **Heart** (centre (0.30, 0.29, -0.12)): ventricles (a blunt cone, apex down, left and forward) with anterior
-  and posterior interventricular grooves, right and left atria and auricles, aorta (ascending, arch with its three
-  branches, descending), pulmonary trunk and arteries (blue-violet), superior and inferior venae cavae, four
-  pulmonary veins; raised coronary vessels (anterior descending, a diagonal, circumflex, right coronary with the
-  posterior descending; great cardiac vein). Deep red-magenta with a magenta rim glow. A cut window in the front
-  wall (right ventricle) shows two layers of branched, striated heart muscle cells with intercalated discs.
+- **Heart** (centre (0.30, 0.29, -0.12); local frame x the patient's left, y up, z forward): one smooth surface,
+  a signed distance field of round cones and ellipsoids blended softly (so the parts merge with grooves instead of
+  seams), polygonised by surface nets on a 6.5 mm grid (local units), watertight, about 52k triangles, its
+  creases darkened by an occlusion term read from the field. Ventricles: the left a blunt cone ending in the apex
+  (left, down and forward), the right wrapped round its front, the interventricular groove between them fading out
+  towards the apex; their base is a plane across the axis, on which the atria sit; the right ventricle's outflow
+  tract rises to the pulmonary trunk. Right atrium between the venae cavae, left atrium at the back, each with a
+  flat auricle (the right over the aortic root, the left along the trunk's left side). Ascending aorta behind the
+  trunk, arch with its three branches (brachiocephalic, left common carotid, left subclavian), descending aorta
+  behind the left atrium; pulmonary trunk dividing under the arch, the right pulmonary artery passing behind the
+  aorta and the superior vena cava; superior and inferior venae cavae; four pulmonary veins. Open vessel ends are
+  cut flat, the wider ones with their lumen. Colours: muscle warm crimson, atria a little darker, oxygenated blood
+  red (aorta, pulmonary veins), deoxygenated blue (venae cavae, pulmonary trunk and arteries, a little more
+  violet). Coronary vessels are tubes laid into the grooves (pulled onto the crease between two parts), tapering
+  and sinking into the surface at their ends: anterior descending to the apex with a diagonal branch and the
+  anterior interventricular vein beside it, circumflex under the left auricle, right coronary in the right
+  atrioventricular groove. A round window cut into the right ventricle's front wall (cut muscle walls, a dark
+  floor) shows branched, striated heart muscle cells with intercalated discs lying on its floor and running on
+  into its walls. With `motor_groups` the disease colour shows mostly at the rim, so the anatomy stays readable.
+  The surface is built after loading, in slices between frames (`idle(dt)` while the set is hidden, about 1-2 ms
+  a frame; 12 ms a frame once `motor_heart` is above 0; `finish()` builds it at once), about 0.6 s of work in
+  headless Chromium; it fades in when ready.
 
-Draw calls at most 13 (the merged meshes: neurites, nuclei, fibres, sarcomere, heart, heart window, grey matter,
-somata, myelin, glass, rings, points, magnifier lines). Heaviest look (`motor_open` 1, `motor_heart` 1): 246k
-triangles, 1,254 points, 28 line segments. Build 260-420 ms in headless Chromium (median about 310 ms; the
-sarcomere is about a third of it).
+Draw calls at most 14 (the merged meshes: neurites, nuclei, fibres, sarcomere, heart, coronary vessels, heart
+window, grey matter, somata, myelin, glass, rings, points, magnifier lines). Heaviest look (`motor_open` 1,
+`motor_heart` 1): about 285k triangles (over the tour's ~250k guideline because of the heart; untested on a
+headset), 1,254 points, 28 line segments. Build at load 210-260 ms in headless Chromium (the heart comes later,
+see above; the sarcomere is about a third of the build).
 
 ## Params
 
@@ -56,7 +73,7 @@ sarcomere is about a third of it).
 | `motor_signal` | 0 | Impulses, all from `t` (a 1.7 s cycle, the stretch reflex): the spindle fires and a cyan impulse runs up the sensory axon (bright flashes at the nodes) to the T, the dorsal root and the motor neuron (0 to 0.37 s; it bypasses the sensory cell body); the motor neuron flashes (0.5 s) and a warm impulse runs down the axon (saltatory: flashes at each node) and the terminals; the vesicles flash at each junction (about 1.08 s), transmitter dots light the cleft, and the six fibres of the motor unit twitch (shorter, thicker, a flash; peak about 1.24 s). The axon surface itself lights as the impulse passes. 0 is still; in-between values dim it all. |
 | `motor_open` | 0 | 0-0.5: one front fibre's sheath opens along its distal part (a widening wedge, its far cap goes) and the myofibrils grow in; 0.3-0.55 the sarcomere fades in at the tip of one myofibril; 0.35-1 it magnifies (scale 1/30 to 1) and flies out to its place at the right, the magnifier lines drawing on. |
 | `motor_contract` | 0 | Sarcomere contraction: thin filaments and Z-discs slide towards the M-band (by 0.055 of 0.27; the H-zone nearly closes, titin springs compress) and the myosin heads cycle (lean towards the M-band). With `motor_signal` > 0.5 it pulses with the twitches instead of holding. |
-| `motor_heart` | 0 | 0-0.3 a magenta glow, 0.2-0.75 the heart fades in from it and grows (scale 0.55 to 1 over 0.1-1), the rim glow settling; it beats at 69 per minute (atria first, then the ventricles, the window's fibres with them). |
+| `motor_heart` | 0 | 0-0.3 a magenta glow, 0.2-0.75 the heart fades in from it and grows (scale 0.55 to 1 over 0.1-1), the rim glow settling; it beats at 69 per minute (atria first, then the ventricles, the window's fibres with them; each vertex is weighted between ventricles and atria, so the surface stretches smoothly where they meet). Above 0 the heart's build gets more time per frame; until it is built, only the glow shows. |
 | `motor_groups` | 0 | Every disease group's colour lights its site (colours and sites from `NMD_DATA.groups`): rings with a running highlight and soft halos, and the part's surfaces take the colour (a tint plus rim light). Neuron: three rings round the motor neuron (motor neuron diseases, ataxias, paraplegias), one round the ganglion (ataxias' colour); the grey matter, white matter and dendrites tinted. Nerve: three rings on the spinal nerve and the axons (motor and sensory neuropathies). Junction: a ring round each end plate (myasthenic syndromes). Muscle: one ring per muscle group along the fascicle (7) and each fibre in one of their colours. Heart: two rings and the heart (cardiomyopathies). The sarcomere glows for both muscle (thin filaments, Z-discs, titin) and heart (thick filaments, M-band), since they share it. |
 | `motor_site` | 0 | 0 all sites alike; 1 neuron, 2 nerve, 3 junction, 4 muscle, 5 heart: that site glows and the rest dims to 30 %. In-between values cross-fade between the two neighbouring sites (at whole numbers this is the rounded value), so an eased change from 1 to 3 passes briefly through 2. Dimming works without `motor_groups` too (a focus). The sarcomere dims only when neither muscle nor heart is chosen. |
 
@@ -93,7 +110,9 @@ for `motor_build` to reach their part.
   crown of heads); the nearest head is about 0.02 away and the nearest thin filament about 0.012 to the side, so
   nothing is cut by a near plane of 0.01 at world scale 1. The two thin filaments beside the corridor form its
   walls and look large and slightly faceted that close. Needs `motor_open` 1.
-- `heart` [-22, 8, 1.35, 0.30, 0.35, -0.12]: the heart from the front left, the window towards you.
+- `heart` [-10, 8, 1.35, 0.30, 0.34, -0.12]: the heart from the front, a little from its right: right atrium,
+  right ventricle with the window, the anterior descending artery in its groove and the left border, the trunk and
+  the aortic arch.
 
 A good outside view of the sarcomere is [-35, 15, 0.75, 1.0, -0.05, 0].
 

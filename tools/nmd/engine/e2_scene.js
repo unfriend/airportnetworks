@@ -35,7 +35,7 @@ function buildScene(canvas) {
     s.setAlpha(0);
   }
 }
-// show each set as far as S fades it in, and let the visible ones update; in the story a set
+// show each set as far as S fades it in, and let the visible ones update (the hidden ones idle); in the story a set
 // may be turned to meet the camera (see buildCamera)
 function updateSets(S, t, dt, story) {
   for (const k of SET_ORDER) {
@@ -43,6 +43,7 @@ function updateSets(S, t, dt, story) {
     s.group.rotation.y = story ? setYaw(k, t) * D2R : 0;
     s.setAlpha(a);
     if (a > 0.003) s.update(S, t, dt);
+    else if (s.idle) s.idle(dt);   // a hidden set may build in slices
   }
 }
 

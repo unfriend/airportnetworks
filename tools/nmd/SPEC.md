@@ -17,6 +17,10 @@ exports, labels, controls, camera views, performance budget, harness, palette), 
   `tools/nmd/data/gen_data.mjs`; never edit it by hand). It is loaded before the sets, in the harness and in the
   story. Its header comment documents every field. Decode it once per set (base64 to typed arrays).
 - No patient data and no variants appear anywhere, and nothing about zebrafish.
+- A set whose geometry is too slow to build at load may build it in slices: return `idle(dt)` (called every frame
+  while the set is hidden; keep each call to a millisecond or two) and `finish()` (build the rest now; the harness
+  calls it after building the set, `sweep.mjs` after loading the story), and slice in `update` too, showing the part
+  only once it is ready. The motor set's heart does this.
 
 ## The data, in short
 

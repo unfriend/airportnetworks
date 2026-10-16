@@ -233,6 +233,12 @@ and `hpc` (the supercomputer and the stress test).
 - *Stand inside* (view controls, or the Scenes tab in the headset) opens the
   tower around you: on screen from its middle, in a headset life size around
   where you stand (`XR.room`, `xrPlace`).
+- The heart (in `motor`) is one smooth surface: a signed distance field (round
+  cones and ellipsoids blended softly) polygonised by surface nets. That is too
+  slow for load time, so it runs as a job in slices between frames: a set may
+  return `idle(dt)` (the engine calls it while the set is hidden) and
+  `finish()` (build now: the harness and `sweep.mjs` call it before
+  screenshots). The heart fades in once built.
 
 ## Conventions
 

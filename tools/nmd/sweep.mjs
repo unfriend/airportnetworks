@@ -12,6 +12,7 @@ pg.on('console', m => { if ((m.type() === 'error' || m.type() === 'warning') && 
 const t0 = Date.now();
 await pg.goto('http://127.0.0.1:8123/index.html#nmd&t=0.5');
 await pg.waitForFunction(() => typeof HOST !== 'undefined' && HOST.cur && HOST.cur.peek('typeof ST !== "undefined" && ST.items.length > 0') && window.__frames > 2, null, { timeout: 120000 });
+await pg.evaluate(() => HOST.cur.peek('for (const k in GL.sets) if (GL.sets[k].finish) GL.sets[k].finish();'));   // sets that build in slices
 console.log('ready in', Date.now() - t0, 'ms');
 for (const t of times.split(',')) {
   await pg.evaluate(t => HOST.cur.peek(`APP.seek(${t}); APP.playing = false;`), +t);

@@ -223,7 +223,8 @@ function buildStory() {
   ramp('motor_open', a + 17, a + 21, 0, 1);
   ramp('motor_contract', a + 23, a + 26, 0, 1); ramp('motor_contract', a + 30, a + 32, 1, 0);
   ramp('motor_groups', a + 31, a + 34, 0, 1);
-  [[a + 37, 1], [a + 39, 2], [a + 41, 3], [a + 43, 4], [a + 46.5, 5]].reduce((v0, [t, v]) => { jump('motor_site', t, v0, v); return v; }, 0);
+  // the heart lights as the camera reaches it
+  [[a + 37, 1], [a + 39, 2], [a + 40.5, 3], [a + 42, 4], [a + 44, 5]].reduce((v0, [t, v]) => { jump('motor_site', t, v0, v); return v; }, 0);
   jump('motor_site', b - 3, 5, 0);
   ramp('motor_heart', a + 40, a + 44, 0, 1);
   cam(a + 1, 'motor', 'default', -20);

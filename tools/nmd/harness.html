@@ -38,6 +38,7 @@ scene.add(new THREE.HemisphereLight(0xdde8ff, 0x1a2233, 0.85));
 const sun = new THREE.DirectionalLight(0xffffff, 0.85); sun.position.set(-0.5, 0.6, 1); camera.add(sun);
 const t0 = performance.now();
 const set = SETS[key](K);
+if (set.finish) set.finish();   // a set that builds in slices (the motor set's heart) builds now
 const buildMs = performance.now() - t0;
 scene.add(set.group);
 const S = Object.assign({}, set.params);
@@ -54,7 +55,7 @@ const anchor = a => (typeof a === 'function' ? a() : typeof a === 'string' ? (ty
 let t = parseFloat(Q.get('t') || '0'), last = performance.now(), frames = 0, ms = 0;
 const v = new THREE.Vector3();
 function frame(now) {
-  const dt = Math.min(0.1, (now - last) / 1000); last = now;
+  const dt = Math.min(0.1, Math.max(0, (now - last) / 1000)); last = now;
   if (Q.get('anim')) t += dt;
   K.U.uTime.value = t;
   K.U.uPx.value = renderer.getDrawingBufferSize(new THREE.Vector2()).y * 0.5;
