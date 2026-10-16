@@ -276,7 +276,8 @@ and `hpc` (the supercomputer and the stress test).
 
 There is no unit-test suite. Before committing, serve the folder and run the
 smoke test, which loads every story, scrubs through it, exercises explore
-mode and the headset panels, switches stories, runs anchored placement in each
+mode and the headset panels (for the muscle story every explore tool too),
+switches stories, runs anchored placement in each
 story with a pretend headset (an origin that jumps, anchors that stay, saved
 handles), and fails on console errors:
 
@@ -313,7 +314,8 @@ on the first visit after the update, on the next visit and offline.
 
 For the tour, test a changed set on its own in the set harness first
 (`tools/lbi/shot.mjs`, much cheaper than the whole story), then the story at a
-few seconds (`tools/lbi/sweep.mjs`), then the smoke test.
+few seconds (`tools/lbi/sweep.mjs`), then the smoke test. The muscle story has
+the same tools in `tools/nmd/` (`shot.mjs`, `sweep.mjs`).
 
 Useful URL hashes: `#spatial&t=95` (open at a story second, paused),
 `#proteins&explore&q=TP53` (explore mode with a search),

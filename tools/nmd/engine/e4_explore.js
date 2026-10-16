@@ -6,12 +6,14 @@
 const SCENES = [
   ['tower', 'Multiplex network', 'The genes of 13 groups of neuromuscular disorders in up to 71 layers of evidence: modules, the walk, endotypes and the overlap of muscle and heart.'],
   ['motor', 'Motor unit', 'Nerve cell, myelinated axon, neuromuscular junction, muscle fibre, sarcomere and heart, with the disease groups where they strike.'],
-  ['hpc', 'Stress test', 'The supercomputer and 680,000 networks with layers removed at random: the modules hold.'],
+  ['hpc', 'Stress test', 'The supercomputer and 680,000 networks with layers removed at random: the disease modules keep their originally detected genes until most layers are gone (the authors\' result; the picture is illustrative).'],
 ];
 const TABS = [['groups', 'Diseases'], ['genes', 'Genes'], ['walk', 'Walk'], ['layers', 'Layers'], ['endo', 'Endotypes'], ['scenes', 'Scenes']];
 const X = { tab: 'groups', scene: 'tower', ctl: {}, t0: 0, turn: 'on', group: -1, gene: -1, pick: [], off: new Set(), egroup: 5,
   walk: null, walkFrom: 5, mine: [], walkers: true, showZ: false, colour: 'group', grid: false, room: false, err: '' };
 const XS = {};
+// params that pick something by number jump to their new value instead of easing through the ones in between
+const STEP = new Set(['tower_group', 'motor_site']);
 const orbit = { cur: [0, 12, 3.6, 0, 0, 0], from: null, to: null, t0: 0, dur: 1.6 };
 const ctlValue = (k, c) => (X.ctl[k] && X.ctl[k][c.key] !== undefined ? X.ctl[k][c.key] : c.options[0][0]);
 
@@ -74,9 +76,9 @@ function exploreTargets(now = performance.now()) {
 }
 function exploreStep(dt, now) {
   const tg = exploreTargets(now), k = 1 - Math.exp(-dt * 3.5);
-  for (const n in DEF) XS[n] += (tg[n] - XS[n]) * k;
+  for (const n in DEF) XS[n] = STEP.has(n) ? tg[n] : XS[n] + (tg[n] - XS[n]) * k;
   // a gently swaying scene, unless you are steering it or standing inside
-  if (X.turn === 'on' && !X.room && !orbit.to && !orbit.held) { X.sway = (X.sway || 0) + dt; orbit.cur[0] += dt * 6 * Math.cos(X.sway * 0.25); }
+  if (X.turn === 'on' && !(X.room && X.scene === 'tower') && !orbit.to && !orbit.held) { X.sway = (X.sway || 0) + dt; orbit.cur[0] += dt * 6 * Math.cos(X.sway * 0.25); }
   return XS;
 }
 // the tower's own display state: the picked gene, endotypes, knocked-out layers and a walk's result
@@ -97,6 +99,7 @@ const needTower = () => { if (X.scene !== 'tower') openScene('tower'); };
 function setCtl(k, key, v) {
   const s = GL.sets[k], c = (s.controls || []).find(x => x.key === key), was = c ? ctlValue(k, c) : null;
   (X.ctl[k] = X.ctl[k] || {})[key] = v;
+  if (k === 'tower' && key === 'view' && (v === 'room') !== X.room) { setRoom(v === 'room'); if (v === 'room') { renderScenes(); return; } }
   X.t0 = performance.now();
   // some views have their own best camera (cam views named like the option); leaving one goes back to the scene's own view
   if (s.cam && s.cam[v]) flyTo(view(k, v));
@@ -173,7 +176,9 @@ function addMine(i) { if (i >= 0 && !X.mine.includes(i) && X.mine.length < 12) X
 function setRoom(on) {
   X.room = on;
   if (XR.on) xrRoom(on);
-  else if (X.scene === 'tower') flyTo(view('tower', on ? 'inside' : 'default'));
+  // on screen the camera goes into the middle; in the headset the tower comes round you, and leaving it the usual view returns
+  if (X.scene === 'tower') flyTo(view('tower', on ? 'inside' : 'default'));
+  if (X.ctl.tower && (X.ctl.tower.view === 'room') !== on) X.ctl.tower.view = on ? 'room' : 'tower';
   document.querySelectorAll('[data-ctl="room"] button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.v === (on ? 'on' : 'off'))));
 }
 
@@ -306,7 +311,7 @@ function renderGene(i, q) {
   const pane = $('#ginfo');
   if (!pane) return;
   if (i < 0) {
-    pane.innerHTML = `${i === -2 ? `<p class="empty">No gene matches “${esc(q)}”. Try a symbol like TTN, or a process like sarcomere.</p>` : `<p class="empty">Search above, or click a gene in the tower. The ${fmt(ND.N)} genes are those of the ${ND.groups.length} disease modules.</p>`}
+    pane.innerHTML = `${i === -2 ? `<p class="empty">No gene matches “${esc(q)}”. Try a symbol like TTN, or a process like sarcomere.</p>` : `<p class="empty">Search above, or click a gene in the tower. The ${fmt(ND.N)} genes are those of the ${ND.groups.length} disease modules: their known genes and the genes the walk added.</p>`}
       <div class="quick">${QUICK.map(s => findGene(s)).filter(k => k >= 0).map(k => `<button type="button" data-act="quick" data-v="${k}">${esc(ND.genes[k].sym)}</button>`).join('')}</div>`;
     return;
   }
@@ -334,7 +339,7 @@ function renderWalk() {
   const pane = $('#pane-walk');
   if (!pane) return;
   const W = X.walk, off = X.off.size;
-  let h = `<p class="sub">A walker starts at the chosen genes. At every step it jumps back to one of them seven times in ten, otherwise it follows a link; at a gene in several layers it changes layer half the time, preferring the layers where the disease's genes cluster. Genes it visits most are closest.</p>
+  let h = `<p class="sub">A walker starts at the chosen genes. At every step it jumps back to one of them seven times in ten, otherwise it follows a link; at a gene in several layers it changes layer half the time, preferring the layers where a disease group's genes cluster (from your own genes, all layers count the same). The genes it visits most are the most closely linked to the start genes, in this map.</p>
     <p class="grp-h">Start from</p>
     <div class="chips">${ND.groups.map((G, k) => chip(`data-act="from" data-v="${k}"`, esc(G.short), X.walkFrom === k, G.col)).join('')}${chip('data-act="from" data-v="mine"', `Your genes (${X.mine.length})`, X.walkFrom === 'mine')}</div>
     ${X.walkFrom === 'mine' ? `<div class="chips">${X.mine.length ? X.mine.map(i => `<button type="button" data-act="unmine" data-v="${i}" title="Remove">${esc(ND.genes[i].sym)} ×</button>`).join('') : '<span class="empty">Search a gene in Genes, then press Walk from here.</span>'}</div>` : ''}
@@ -351,7 +356,7 @@ function renderLayers() {
   const pane = $('#pane-layers');
   if (!pane) return;
   const g = X.group;
-  let h = `<p class="sub">Knock layers out and see what holds: the tower drops them, and a walk you run avoids them. Layers without links yet are dotted in the tower.</p>
+  let h = `<p class="sub">Switch layers off: the tower drops them and a walk you run avoids them. (The modules are not computed again; the stress test is in the story.) Layers whose data is still to come are dotted in the tower.</p>
     <div class="chips"><button type="button" data-act="layers" data-v="all">All on</button><button type="button" data-act="layers" data-v="ppi">Proteins only</button><button type="button" data-act="layers" data-v="cores">Only the cores</button><button type="button" data-act="knock" data-v="10">Knock out 10 at random</button></div>
     <p class="sub">${ND.L - X.off.size} of ${ND.L} layers on.</p>`;
   for (const c of CAT_ORDER) {

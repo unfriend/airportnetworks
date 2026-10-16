@@ -491,7 +491,7 @@ function drawLayersPane(ctx, P, x, y, W, bottom) {
     if (y + 70 > bottom) break;
     swatch(ctx, x, y + 6, 16, CAT[c][1]); ctx.font = vfont(21, 700); ctx.fillStyle = VC.muted; ctx.fillText(`${CAT[c][0]} · ${ls.length}`, x + 26, y + 2);
     y += 30;
-    y += flow(ctx, P, ls.map(([L, l]) => ({ id: 'ly:' + l, label: L.name.replace(/ \((IID|GTEx|HPO|MPO|Reactome|NeDRex|CRISPR screens)\)$/, ''), on: !X.off.has(l), fn: () => setLayer(l, X.off.has(l)) })), x, y, W, bottom, { px: 17, h: 32 }) + 10;
+    y += flow(ctx, P, ls.map(([L, l]) => ({ id: 'ly:' + l, label: L.name.replace(/ \((IID|GTEx|HPO|MPO|Reactome|NeDRex|CRISPR screens)\)$/, ''), on: !X.off.has(l), fn: () => setLayer(l, X.off.has(l)) })), x, y, W, bottom, { px: 16, h: 30 }) + 8;
   }
 }
 function drawEndoPane(ctx, P, x, y, W, bottom) {

@@ -19,6 +19,7 @@ node tools/nmd/build.mjs --check   # exits 1 if stories/nmd.js is out of date
 | `SPEC.md` | what each set must do; read with `tools/lbi/SPEC.md` |
 | `build.mjs` | the assembler |
 | `harness.html`, `shot.mjs` | render one set alone, take screenshots (run `shot.mjs` from this folder; shots go to `shots/`, ignored by git) |
+| `sweep.mjs` | screenshots of the whole story at chosen story seconds, from one page load (`node sweep.mjs <prefix> "6,46,300"`) |
 
 When the authors send more data (the other layers' links, their own z-scores, endotype names), add it to
 `ikerdata/`, extend `gen_data.mjs` to read it, and rebuild: layers fill in without changes to the sets.

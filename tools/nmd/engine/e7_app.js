@@ -79,7 +79,7 @@ const APP = {
     $('#btnMode').textContent = 'Explore now';
     // the story shows the tower as it tells it: no picked gene, endotypes, knocked-out layers or walks
     if (X.room) setRoom(false);
-    X.gene = -1; X.pick = []; X.off = new Set(); X.walk = null; pushState();
+    X.group = -1; X.gene = -1; X.pick = []; X.off = new Set(); X.walk = null; X.err = ''; X.showZ = false; pushState();
     LBL.extra.forEach(L => { L.el.remove(); dropSprite(L); }); LBL.extra = [];
     $('#tip').style.opacity = 0;
     this.t = t || 0; this.playing = true; curCh = null;
@@ -177,8 +177,8 @@ function init() {
     // controls after the default view, so a control's own view wins
     const s = GL.sets[X.scene];
     for (const c of s.controls || []) if (hp.get(c.key)) setCtl(X.scene, c.key, hp.get(c.key));
-    const grp = v => { const n = parseInt(v, 10); return !isNaN(n) ? n : ND.groups.findIndex(G => [G.name, G.short].some(x => x.toLowerCase().startsWith(String(v).toLowerCase()))); };
-    if (hp.get('group')) selectGroup(grp(hp.get('group')));
+    const grp = v => { const n = parseInt(v, 10); if (!isNaN(n)) return n >= 0 && n < ND.groups.length ? n : -1; return ND.groups.findIndex(G => [G.name, G.short].some(x => x.toLowerCase().startsWith(String(v).toLowerCase()))); };
+    if (hp.get('group') && grp(hp.get('group')) >= 0) selectGroup(grp(hp.get('group')));
     if (hp.get('pick')) { for (const pc of hp.get('pick').split(',')) { const [g, c] = pc.split(':').map(Number); if (ND.groups[g] && endoOf(g, c).n) togglePick(g, c); } showTab('endo'); }
     if (hp.get('off')) knockRandom(parseInt(hp.get('off'), 10) || 0);
     if (hp.get('walk')) {
@@ -188,7 +188,7 @@ function init() {
     }
     if (hp.get('tab')) showTab(hp.get('tab'));
     if (hp.get('q')) { $('#q').value = hp.get('q'); runQuery(hp.get('q')); }
-    if (hp.has('inside')) setRoom(true);
+    if (hp.has('inside')) { needTower(); setRoom(true); }
     if (hp.has('now')) { Object.assign(XS, exploreTargets()); orbit.cur = orbit.to || orbit.cur; orbit.to = null; }
   }
   GL.renderer.setAnimationLoop(frame); // also drives the headset's frame loop

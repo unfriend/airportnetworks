@@ -55,7 +55,8 @@ const N = genes.length;
 const nodes = tsv('iker_nodes.tsv'), allIdx = new Map(nodes.map((x, i) => [x.id, i]));
 // GO and HPO terms end with their id in brackets, so they split after it; KEGG names have no commas
 const terms = (s, col) => (s ? s.split(/_KEGG/.test(col) ? ',' : /(?<=\)),/).map(t => t.trim()).filter(Boolean) : []);
-const goName = t => t.replace(/\s*\(GO:\d+\)$/, '');
+// some GO names come abbreviated in the source files ('Reg Of ... By Reg Of ...')
+const goName = t => t.replace(/\s*\(GO:\d+\)$/, '').replace(/\bReg\b/g, 'Regulation').replace(/\bFrm\b/g, 'From').replace(/\bTrnscpt\b/g, 'Transcript').replace(/\bGen Mat\b/g, 'Generate Mature');
 // GO and KEGG names come in Title Case: keep the first word, acronyms (DNA, RNA II), N-linked and proper names
 const PROPER = new Set(['Golgi', 'Notch', 'Wnt', 'Hedgehog', 'Toll', 'Ras', 'Rho', 'Rac', 'Fc', 'Schwann', 'Purkinje', 'Ranvier', 'Huntington', 'Parkinson', 'Alzheimer']);
 const keepCase = x => /[A-Z]{2}/.test(x) || /^[A-Z][-\d]/.test(x) || /\d[A-Z]/.test(x) || PROPER.has(x.replace(/[^A-Za-z]/g, ''));
