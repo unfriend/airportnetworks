@@ -226,8 +226,9 @@ function buildStory() {
   cam(a + 6, 'motor', 'cord');
   cam(a + 11, 'motor', 'junction');
   cam(a + 16, 'motor', 'fibre');
-  cam(a + 22, 'motor', 'sarcomere');
-  cam(a + 29, 'motor', 'sarcomere', 15, 'spin');
+  // the magnified sarcomere from just outside its lattice: down the filaments, then from the side
+  cam(a + 22, 'motor', 'sarcomere', 0, null, [0, 8.66, 0.49]);
+  cam(a + 29, 'motor', 'sarcomere', 22, 'spin', [0, 16.66, 0.24]);
   cam(a + 34, 'motor', 'default', -10);
   cam(a + 44, 'motor', 'heart');
   cam(b - 1, 'motor', 'default', 15, 'spin');
@@ -298,9 +299,12 @@ function buildStory() {
   jump('tower_group', a + 15, CMg, 0);
   cam(a + 1, 'tower', 'default', 15);
   cam(a + 12, 'tower', 'default', 45, 'spin');
-  cam(a + 14, 'hpc', 'racks');
-  cam(a + 19, 'hpc', 'racks', 10, 'spin');
-  cam(a + 24, 'hpc', 'field');
+  // over the hall, down the aisle between the racks, back up and out over the sea of towers
+  cam(a + 14, 'hpc', 'default');
+  cam(a + 18, 'hpc', 'racks');
+  cam(a + 21, 'hpc', 'racks', 8, 'spin');
+  cam(a + 24, 'hpc', 'default', 20);
+  cam(a + 27, 'hpc', 'field');
   cam(b - 1, 'hpc', 'field', 15, 'spin');
   // What comes next: the whole tower once more, opened up around the viewer
   a = C.next.a; b = C.next.b;

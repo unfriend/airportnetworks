@@ -56,17 +56,17 @@ function exploreTargets(now = performance.now()) {
   const c = { t: (now - X.t0) / 1000 };
   for (const ct of s.controls || []) c[ct.key] = ctlValue(X.scene, ct);
   if (s.explore) Object.assign(tg, s.explore(c));
-  // the tower follows the panels: the picked group, its colours and grid, a walk, the room view
+  // the tower follows the panels on top of its own controls (Scenes tab): the picked group, its colours and
+  // grid, a walk's heat and walkers, the room view
   if (X.scene === 'tower') {
     const g = X.group;
     tg.tower_group = g + 1;
-    if (g >= 0) { tg.tower_seeds = 1; tg.tower_module = 1; }
-    tg.tower_z = g >= 0 && X.showZ ? 1 : 0;
-    tg.tower_endo = g >= 0 && X.colour === 'endo' ? 1 : 0;
-    tg.tower_grid = g >= 0 && X.grid ? 1 : 0;
-    tg.tower_heat = X.walk ? 1 : 0;
-    tg.tower_walk = X.walk && X.walkers ? 1 : 0;
-    tg.tower_room = X.room ? 1 : 0;
+    if (g >= 0 && (c.show === 'module' || c.show === undefined)) { tg.tower_seeds = 1; tg.tower_module = 1; }
+    if (g >= 0 && X.showZ) tg.tower_z = 1;
+    if (g >= 0 && X.colour === 'endo') tg.tower_endo = 1;
+    if (g >= 0 && X.grid) tg.tower_grid = 1;
+    if (X.walk) { tg.tower_heat = 1; if (X.walkers) tg.tower_walk = 1; }
+    if (X.room) tg.tower_room = 1;
   }
   const out = {};
   for (const n in DEF) out[n] = n in tg ? tg[n] : n.endsWith('_a') ? 0 : XS[n];
@@ -410,7 +410,7 @@ function renderScenes() {
   pane.innerHTML = `<div class="chips">${SCENES.map(([k, n]) => chip(`data-act="scene" data-v="${k}"`, esc(n), k === X.scene)).join('')}</div>
     <h3>${esc(sc[1])}</h3><p class="sub">${esc(sc[2])}</p>
     ${X.scene === 'tower' ? '' : (s.controls || []).map(c => `<p class="grp-h">${esc(c.label)}</p><div class="chips">${c.options.map(([v, n]) => chip(`data-act="ctl" data-ctl="${c.key}" data-v="${v}"`, esc(n), ctlValue(X.scene, c) === v)).join('')}</div>`).join('')}
-    ${X.scene === 'tower' ? `<p class="sub">The tower answers to the other tabs: Diseases, Genes, Walk, Layers and Endotypes.</p>${(s.controls || []).filter(c => !/^(group|colour|grid)$/.test(c.key)).map(c => `<p class="grp-h">${esc(c.label)}</p><div class="chips">${c.options.map(([v, n]) => chip(`data-act="ctl" data-ctl="${c.key}" data-v="${v}"`, esc(n), ctlValue(X.scene, c) === v)).join('')}</div>`).join('')}` : ''}`;
+    ${X.scene === 'tower' ? `<p class="sub">The tower answers to the other tabs: Diseases, Genes, Walk, Layers and Endotypes.</p>${(s.controls || []).filter(c => c.key !== 'colour').map(c => `<p class="grp-h">${esc(c.label)}</p><div class="chips">${c.options.map(([v, n]) => chip(`data-act="ctl" data-ctl="${c.key}" data-v="${v}"`, esc(n), ctlValue(X.scene, c) === v)).join('')}</div>`).join('')}` : ''}`;
 }
 function updateExtraLabels() {
   LBL.extra.forEach(L => { L.el.remove(); dropSprite(L); });

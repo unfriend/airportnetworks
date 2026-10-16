@@ -515,7 +515,7 @@ function drawScenesPane(ctx, P, x, y, W, bottom) {
   const sc = SCENES.find(s => s[0] === X.scene), s = GL.sets[X.scene];
   y += textBlock(ctx, sc[2], x, y, W, 25, 35, VC.muted, 400, 4) + 18;
   if (X.scene === 'tower') y += textBlock(ctx, 'The tower answers to the other tabs: Diseases, Genes, Walk, Layers and Endotypes.', x, y, W, 23, 32, VC.faint, 400, 2) + 14;
-  for (const c of (s.controls || []).filter(c => X.scene !== 'tower' || !/^(group|colour|grid)$/.test(c.key))) {
+  for (const c of (s.controls || []).filter(c => X.scene !== 'tower' || c.key !== 'colour')) {
     if (y + 110 > bottom) break;
     ctx.font = vfont(23); ctx.fillStyle = VC.muted; ctx.fillText(c.label, x, y);
     y += 36;
