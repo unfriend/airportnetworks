@@ -764,7 +764,7 @@ try {
   await frames(H, 1500);
   const kept = await H.evaluate(() => ({ src: HOST.room.src, frame: HOST.room.frame, cmp: HOST.room.cmp, line: HOST.room.sourceLine() }));
   check('shared space: a newer frame published by someone else does not move a calibrated headset; the panel says how far apart their marks are',
-    kept.src === 'marks' && near(kept.frame.o, [fa[0], 0, fa[2]], 2e-3) && !!kept.cmp && Math.abs(kept.cmp.d - 0.1) < 3e-3 && Math.abs(kept.cmp.a - 2.9) < 0.15 && /puts .* marks 10 cm, 2\.9/.test(kept.line),
+    kept.src === 'marks' && near(kept.frame.o, [fa[0], 0, fa[2]], 2e-3) && !!kept.cmp && Math.abs(kept.cmp.d - 0.1) < 3e-3 && Math.abs(kept.cmp.a - 2.9) < 0.15 && /puts .*'s marks 10 cm, 2\.\d\u00b0 from yours/.test(kept.line),
     JSON.stringify(kept));
   await H.evaluate(() => HOST.room.forget());
   await frames(H, 800);

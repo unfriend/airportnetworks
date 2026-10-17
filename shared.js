@@ -1703,7 +1703,9 @@
   // where controller i pointed just before the press: pulling the trigger moves the hand a little
   // (a controller that only just arrived, more than 5 cm away a moment ago, is taken where it is)
   function steady(h) {
-    const t = performance.now(), S = (h.hist || []).filter(e => t - e[0] >= 70 && t - e[0] <= 260);
+    const t = performance.now(), H = (h.hist || []).filter(e => t - e[0] >= 70);
+    let S = H.filter(e => t - e[0] <= 260);
+    if (!S.length && H.length) S = H.slice(-1);   // few frames (a slow page): the last one before the pull
     if (!S.length) return h.o.clone();
     const p = new THREE.Vector3();
     for (const e of S) { p.x += e[1]; p.y += e[2]; p.z += e[3]; }
