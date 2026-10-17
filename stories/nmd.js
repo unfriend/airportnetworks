@@ -3657,10 +3657,11 @@ function knockRandom(k) {
   for (let n = 0; n < k && live.length > 1; n++) { s = (s * 9301 + 49297) % 233280; X.off.add(live.splice(Math.floor(s / 233280 * live.length), 1)[0]); }
   pushState(); if (X.walk) runWalk(X.walk.from, true); renderLayers();
 }
-// a random walk from a group's seeds (from = group index) or from your own genes (from = 'mine')
-function runWalk(from, quiet) {
+// a random walk from a group's seeds (from = group index) or from your own genes (from = 'mine'; own: those genes
+// instead of the list, as when another person in a shared room ran it)
+function runWalk(from, quiet, own) {
   const T = TW();
-  const seeds = from === 'mine' ? X.mine.slice() : ND.genes.map((_, i) => i).filter(i => isSeed(i, from));
+  const seeds = from === 'mine' ? (own || X.mine).slice() : ND.genes.map((_, i) => i).filter(i => isSeed(i, from));
   X.err = '';
   if (!seeds.length) { X.walk = null; X.err = 'Add at least one gene to walk from (search a gene, then press Walk from here).'; }
   else if (!T || !T.walk) { X.walk = null; X.err = 'The walk is not available.'; }
@@ -3681,6 +3682,58 @@ function setRoom(on) {
   if (X.scene === 'tower') flyTo(view('tower', on ? 'inside' : 'default'));
   if (X.ctl.tower && (X.ctl.tower.view === 'room') !== on) X.ctl.tower.view = on ? 'room' : 'tower';
   document.querySelectorAll('[data-ctl="room"] button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.v === (on ? 'on' : 'off'))));
+}
+
+// ------------------------------------------------------- shared rooms --
+// What everyone at a station sees alike in explore mode: the tab, the scene and its controls, the picked group,
+// gene and endotypes, the knocked-out layers, your genes, the walk and its settings. Turning and standing inside
+// are each person's own view (a tower view of Room counts as Tower). The walk is worked out the same way on every
+// device, so it travels as where it started: a group, or the genes it started from.
+const ctlShared = (k, c) => { const v = ctlValue(k, c); return k === 'tower' && c.key === 'view' && v === 'room' ? 'tower' : v; };
+const walkShared = () => (X.walk ? (X.walk.from === 'mine' ? X.walk.seeds.slice() : X.walk.from) : null);
+const offShared = () => [...X.off].sort((a, b) => a - b);
+function collabState() {
+  const ctl = {};
+  for (const [k] of SCENES) ctl[k] = Object.fromEntries((GL.sets[k].controls || []).map(c => [c.key, ctlShared(k, c)]));
+  return { tab: X.tab, scene: X.scene, ctl, group: X.group, gene: X.gene, pick: X.pick.map(p => p.slice()), egroup: X.egroup,
+    off: offShared(), mine: X.mine.slice(), from: X.walkFrom, walk: walkShared(), walkers: X.walkers,
+    colour: X.colour, grid: X.grid, z: X.showZ };
+}
+// show another person's state with the story's own setters (so both panels follow); every field is checked, and
+// the camera stays where this person has it
+function collabApply(v) {
+  if (!v || typeof v !== 'object') return;
+  const NG = ND.groups.length, J = JSON.stringify, int = (n, lo, hi) => Number.isInteger(n) && n >= lo && n < hi;
+  const genes = a => (Array.isArray(a) && a.length <= 12 && a.every(i => int(i, 0, ND.N)) && new Set(a).size === a.length ? a : null);
+  if (TABS.some(t => t[0] === v.tab) && v.tab !== X.tab) showTab(v.tab);
+  if ((v.group === -1 || int(v.group, 0, NG)) && v.group !== X.group) selectGroup(v.group);
+  if (int(v.egroup, 0, NG) && v.egroup !== X.egroup) { X.egroup = v.egroup; renderEndo(); }
+  if (['group', 'endo'].includes(v.colour) && v.colour !== X.colour) { X.colour = v.colour; renderGroups(); }
+  if (typeof v.grid === 'boolean' && v.grid !== X.grid) { X.grid = v.grid; renderGroups(); }
+  if (typeof v.z === 'boolean' && v.z !== X.showZ) { X.showZ = v.z; renderGroups(); }
+  if ((v.gene === -1 || int(v.gene, 0, ND.N)) && v.gene !== X.gene) { $('#q').value = v.gene >= 0 ? ND.genes[v.gene].sym : ''; selectGene(v.gene, false); }
+  if (Array.isArray(v.pick) && v.pick.length <= 8 && v.pick.every(p => Array.isArray(p) && int(p[0], 0, NG) && endoOf(p[0], p[1]).n) && J(v.pick) !== J(X.pick)) {
+    X.pick = v.pick.map(p => [p[0], p[1]]); pushState(); renderGroups(); renderEndo();
+  }
+  const mine = genes(v.mine);
+  if (mine && J(mine) !== J(X.mine)) { X.mine = mine.slice(); renderWalk(); }
+  if ((v.from === 'mine' || int(v.from, 0, NG)) && v.from !== X.walkFrom) { X.walkFrom = v.from; renderWalk(); }
+  if (Array.isArray(v.off) && v.off.every(l => int(l, 0, ND.L)) && J([...new Set(v.off)].sort((a, b) => a - b)) !== J(offShared())) {
+    const off = new Set(v.off); setLayers((L, l) => !off.has(l)); renderWalk(); renderEndo();
+  }
+  if (typeof v.walkers === 'boolean' && v.walkers !== X.walkers) { X.walkers = v.walkers; pushState(); renderWalk(); }
+  if (J(v.walk) !== J(walkShared())) {
+    if (v.walk === null) clearWalk();
+    else if (int(v.walk, 0, NG)) runWalk(v.walk, true);
+    else if (genes(v.walk) && v.walk.length) runWalk('mine', true, v.walk);
+  }
+  // the scene and its controls last: the panes above bring the tower back; a control flies to its own view as it does here
+  if (SCENES.some(s => s[0] === v.scene) && v.scene !== X.scene) openScene(v.scene);
+  for (const [k] of SCENES) for (const c of GL.sets[k].controls || []) {
+    const x = v.ctl && v.ctl[k] && v.ctl[k][c.key];
+    if (x === 'room' || !c.options.some(o => o[0] === x) || ctlShared(k, c) === x) continue;
+    if (k === X.scene) setCtl(k, c.key, x); else (X.ctl[k] = X.ctl[k] || {})[c.key] = x;
+  }
 }
 
 // ------------------------------------------------------------- search --
@@ -4190,6 +4243,7 @@ function xrPress(c) {
   const h = c.hover;
   c.press = null;
   if (!h) return;
+  if (h.kind === 'shell') { HOST.collab.press(c.i); return; }   // the shared room's panel, previews, calibration
   if (h.kind === 'panel') {
     const r = h.P.at(h.x, h.y);
     if (!r) return;
@@ -4215,7 +4269,7 @@ function xrGrab(c, on) {
   c.grab = null;
   const h = c.hover;
   if (!on || !h) return;
-  if (XR.stories || HOST.anchor.locked()) return; // the Stories screen stays put, and so does an anchored place
+  if (XR.stories || HOST.anchor.locked(h.kind)) return; // the Stories screen stays put, and so does an anchored place (a station: only its panel moves)
   // the scene is held by its placement point (where the view's target sits), so a still hand moves nothing
   const p0 = h.kind === 'panel' ? XR.panelGroup.getWorldPosition(new THREE.Vector3()) : GL.rig.localToWorld(XR.globeBase.clone().add(XR.globeOff));
   c.grab = { target: h.kind === 'panel' ? 'panel' : 'globe', q0: new THREE.Quaternion().setFromRotationMatrix(c.g.matrix).invert(),
@@ -4246,10 +4300,13 @@ function xrPoint(c, dt) {
   c.o.setFromMatrixPosition(g.matrix);
   c.d.set(0, 0, -1).transformDirection(g.matrix);
   let hit = null, dist = 2.5;
+  // the shared room's own things (its panel, the other stations, a calibration) come first
+  const sh = HOST.collab.ray(c.i, c.o, c.d);
   // panels first: they are drawn on top of everything
   XR.raycaster.set(c.o, c.d);
-  const hs = XR.raycaster.intersectObjects(XR.panelMeshes.filter(m => m.visible), false);
-  if (hs.length) {
+  const hs = sh ? [] : XR.raycaster.intersectObjects(XR.panelMeshes.filter(m => m.visible), false);
+  if (sh) { hit = sh; dist = sh.dist; }
+  else if (hs.length) {
     const h = hs[0], P = XR.panels.find(q => q.mesh === h.object);
     hit = { kind: 'panel', P, x: h.uv.x * P.w, y: (1 - h.uv.y) * P.h, point: h.point };
     dist = h.distance;
@@ -4388,7 +4445,7 @@ async function xrStart(mode) {
   if (XR.session || !navigator.xr) return;
   let session;
   try {
-    session = await navigator.xr.requestSession(mode, { optionalFeatures: ['local-floor', 'hand-tracking', 'anchors', 'plane-detection', 'mesh-detection'] });
+    session = await navigator.xr.requestSession(mode, { optionalFeatures: ['local-floor', 'hand-tracking', 'anchors', 'plane-detection', 'mesh-detection', 'shared'] });
   } catch (err) {
     HOST.landingVR = false;
     xrMsg(`Could not start ${mode === 'immersive-ar' ? 'AR' : 'VR'}: ${err && err.message ? err.message : err}`);
@@ -4455,6 +4512,8 @@ function xrVisibility() {
 function xrFreshStart() {
   XR.kbd.open = false; XR.kbd.q = '';
   for (const c of XR.ctrls) { c.press = null; c.grab = null; c.wantPress = false; }
+  // at a shared room's station the story and its place stay: the room's clock and state go on applying
+  if (HOST.collab.mine()) { lastNow = 0; return; }
   APP.enterStory(0); APP.playing = false; audioSync();
   XR.stories = true; XR.inStory = false; XR.soundCheck = false; // a new wearer lands in the Stories screen
   XR.needRecenter = true; // uses the new wearer's head position and direction on the next frame
@@ -5338,6 +5397,13 @@ return {
   inputs: () => XR.ctrls.map(c => c.src),
   xrPose: () => (XR.on ? { rp: GL.rig.position.clone(), rq: GL.rig.quaternion.clone(), off: XR.globeOff.clone(),
     pp: XR.panelGroup.position.clone(), pr: XR.panelGroup.rotation.y } : null),
+  // shared rooms (shared.js): the clock is APP's, the shared state the explore panes (a walk is state: it comes out
+  // the same everywhere), so there are no effects
+  collab: {
+    APP, scene: () => GL.scene, state: collabState, apply: collabApply,
+    hover: i => { const c = XR.ctrls[i]; return c && c.hover ? c.ray.scale.z : 0; },
+    panel(p, yaw) { XR.panelGroup.position.fromArray(p); XR.panelGroup.rotation.set(0, yaw, 0); },
+  },
   // for tests and the browser console: HOST.cur.peek('NET.N')
   peek: src => eval(src),
   dispose() {

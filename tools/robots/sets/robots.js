@@ -1410,7 +1410,7 @@ void main() {
     for (let k = 0; k < Math.min(N >= 3 ? 2 : 1, cand.length); k++) { const i = cand[k][1]; PILE[i] = slot; NT[i] = 0; if (MODE[i] === M_REST || MODE[i] === M_SPIRAL) MODE[i] = M_DRIVE; }
     return true;
   }
-  // the story's piles: on open floor, 1-2 m from you, in front of you if possible
+  // the story's piles: on open floor, 1-2 m from you, in front of you if possible (returns the spot, or null)
   function spillNear() {
     const yaw = AV.ext ? PL.yaw : AV.h;
     let best = null, bs = -Infinity;
@@ -1422,7 +1422,7 @@ void main() {
       if (sc > bs) { bs = sc; best = [x, z]; }
     }
     if (!best) best = nearestFree(PL.x + Math.cos(yaw) * 1.3, PL.z + Math.sin(yaw) * 1.3, NAV.clr, 0.3);
-    return spill(best[0], best[1]);
+    return spill(best[0], best[1]) ? best : null;
   }
 
   // ---------------------------------------------------------------- one step of the gang
@@ -1991,6 +1991,6 @@ void main() {
       room: { kind: ROOM.kind, walls: WALLS.length, blocks: BLOCKS.length, floor: ROOM.floor }, slots: SLOTS.map(s => [s.x, s.z, s.row]) };
   }
   return Object.assign(set, { params, update, anchors, labels, cam, controls, explore,
-    setRoom, modelRoom, room: () => ROOM, player, walkTo, crumbs: spill, floorPoint, see, avatar, shift,
+    setRoom, modelRoom, room: () => ROOM, player, walkTo, crumbs: spill, crumbsNear: spillNear, floorPoint, see, avatar, shift,
     coverage: () => (MAP.count ? MAP.done / MAP.count : 0), robots: () => N, bumps: () => BUMPS, state });
 };

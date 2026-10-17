@@ -1642,7 +1642,7 @@ void main() {
     for (let k = 0; k < Math.min(N >= 3 ? 2 : 1, cand.length); k++) { const i = cand[k][1]; PILE[i] = slot; NT[i] = 0; if (MODE[i] === M_REST || MODE[i] === M_SPIRAL) MODE[i] = M_DRIVE; }
     return true;
   }
-  // the story's piles: on open floor, 1-2 m from you, in front of you if possible
+  // the story's piles: on open floor, 1-2 m from you, in front of you if possible (returns the spot, or null)
   function spillNear() {
     const yaw = AV.ext ? PL.yaw : AV.h;
     let best = null, bs = -Infinity;
@@ -1654,7 +1654,7 @@ void main() {
       if (sc > bs) { bs = sc; best = [x, z]; }
     }
     if (!best) best = nearestFree(PL.x + Math.cos(yaw) * 1.3, PL.z + Math.sin(yaw) * 1.3, NAV.clr, 0.3);
-    return spill(best[0], best[1]);
+    return spill(best[0], best[1]) ? best : null;
   }
 
   // ---------------------------------------------------------------- one step of the gang
@@ -2223,7 +2223,7 @@ void main() {
       room: { kind: ROOM.kind, walls: WALLS.length, blocks: BLOCKS.length, floor: ROOM.floor }, slots: SLOTS.map(s => [s.x, s.z, s.row]) };
   }
   return Object.assign(set, { params, update, anchors, labels, cam, controls, explore,
-    setRoom, modelRoom, room: () => ROOM, player, walkTo, crumbs: spill, floorPoint, see, avatar, shift,
+    setRoom, modelRoom, room: () => ROOM, player, walkTo, crumbs: spill, crumbsNear: spillNear, floorPoint, see, avatar, shift,
     coverage: () => (MAP.count ? MAP.done / MAP.count : 0), robots: () => N, bumps: () => BUMPS, state });
 };
 
@@ -2851,9 +2851,41 @@ function setCtl(k, key, v) {
   if (key === 'view') { CAMV.hold = 0; if (s.cam && s.cam[v] && v !== 'eyes') flyTo(view(k, v)); }
   if (c) renderScenes();
 }
-// the buttons: a pile of crumbs 1-2 m from you (the set picks the spot), a dusty floor again
-function spillCrumbs() { XS.robots_crumbs = Math.floor(XS.robots_crumbs || 0) + 1; }
-function dustAgain() { XS.robots_dust = Math.floor(XS.robots_dust || 0) + 1; }
+// the buttons: a pile of crumbs 1-2 m from you (the set picks the spot), a dusty floor again; in a shared room the
+// others at the station get both too (effects: the pile at the same spot)
+function spillCrumbs() { const p = GL.sets.robots.crumbsNear(); if (p) crumbsOut(p[0], p[1]); }
+const dustNow = () => { XS.robots_dust = Math.floor(XS.robots_dust || 0) + 1; };
+function dustAgain() { dustNow(); HOST.collab.effect('dust'); }
+// shared rooms: the controls everyone at the station sees alike (the view is each person's own camera, the walk their own)
+const SHARED_CTL = ['rule', 'robots', 'trails', 'links'];
+function collabState() {
+  return Object.fromEntries(GL.sets.robots.controls.filter(c => SHARED_CTL.includes(c.key)).map(c => [c.key, ctlValue('robots', c)]));
+}
+function collabApply(v) {
+  for (const c of GL.sets.robots.controls) {
+    const x = v && v[c.key];
+    if (SHARED_CTL.includes(c.key) && c.options.some(o => o[0] === x) && ctlValue('robots', c) !== x) setCtl('robots', c.key, x);
+  }
+}
+// A pile spilled here, sent to the others at the station: in a headset with the room frame in room coordinates (a real
+// room is the same floor for everyone), otherwise in the set's frame, which is the station's (the model room, or the
+// virtual room that hangs on the rig at the station). Played there without sending it again.
+const _kp = new THREE.Vector3(), _ks = new THREE.Vector3(), _kY = new THREE.Vector3(0, 1, 0);
+function crumbsOut(x, z) {
+  const F = GL.sets.robots;
+  if (!XR.on || !HOST.room.aligned) { HOST.collab.effect('crumbs', { x, z, f: 'station' }); return; }
+  const r = HOST.room.toRoom(F.group.localToWorld(_kp.set(x, 0, z)));
+  HOST.collab.effect('crumbs', { x: r.x, z: r.z, f: 'room' });
+}
+function crumbsIn(d) {
+  const F = GL.sets.robots, L = HOST.collab.live(), room = XR.on && HOST.room.aligned;
+  if (!d || !isFinite(d.x) || !isFinite(d.z)) return false;
+  const p = _kp.set(+d.x, 0, +d.z), spot = L ? _ks.set(L.x, 0, L.z) : null;
+  if (d.f === 'room' && room) F.group.worldToLocal(p.copy(HOST.room.toLocal(p)));
+  else if (d.f === 'room') { if (!spot) return false; p.sub(spot).applyAxisAngle(_kY, -L.yaw); }   // no room frame here: the station's
+  else if (room && XRR.kind === 'real' && spot) F.group.worldToLocal(p.copy(HOST.room.toLocal(p.applyAxisAngle(_kY, L.yaw).add(spot))));
+  return F.crumbs(p.x, p.z);
+}
 function flyTo(v) {
   const c = orbit.cur;
   orbit.from = c.slice();
@@ -3293,6 +3325,7 @@ function xrPress(c) {
   const h = c.hover;
   c.press = null;
   if (!h) return;
+  if (h.kind === 'shell') { HOST.collab.press(c.i); return; }   // the shared room's panel, previews, calibration
   if (h.kind === 'panel') {
     const r = h.P.at(h.x, h.y);
     if (!r) return;
@@ -3300,7 +3333,7 @@ function xrPress(c) {
     if (r.drag) { r.drag(h.x, h.y); buzz(c, 0.2, 12); }
   } else if (h.kind === 'floor' && !XR.stories) {   // the trigger on the floor spills crumbs there
     c.press = { kind: 'floor' };
-    if (GL.sets.robots.crumbs(h.x, h.z)) buzz(c, 0.5, 40);
+    if (GL.sets.robots.crumbs(h.x, h.z)) { buzz(c, 0.5, 40); crumbsOut(h.x, h.z); }
   }
 }
 function xrRelease(c) {
@@ -3320,7 +3353,7 @@ function xrGrab(c, on) {
   c.grab = null;
   const h = c.hover;
   if (!on || !h) return;
-  if (XR.stories || HOST.anchor.locked()) return; // the Stories screen stays put, and so does an anchored place
+  if (XR.stories || HOST.anchor.locked(h.kind)) return; // the Stories screen stays put, and so does an anchored place (a station: only its panel moves)
   if (h.kind !== 'panel') return;   // the room stays where it is: only the panel moves
   const p0 = XR.panelGroup.getWorldPosition(new THREE.Vector3());
   c.grab = { target: 'panel', q0: new THREE.Quaternion().setFromRotationMatrix(c.g.matrix).invert(),
@@ -3351,10 +3384,13 @@ function xrPoint(c, dt) {
   c.o.setFromMatrixPosition(g.matrix);
   c.d.set(0, 0, -1).transformDirection(g.matrix);
   let hit = null, dist = 2.5;
+  // the shared room's own things (its panel, the other stations, a calibration) come first
+  const sh = HOST.collab.ray(c.i, c.o, c.d);
   // panels first: they are drawn on top of everything
   XR.raycaster.set(c.o, c.d);
-  const hs = XR.raycaster.intersectObjects(XR.panelMeshes.filter(m => m.visible), false);
-  if (hs.length) {
+  const hs = sh ? [] : XR.raycaster.intersectObjects(XR.panelMeshes.filter(m => m.visible), false);
+  if (sh) { hit = sh; dist = sh.dist; }
+  else if (hs.length) {
     const h = hs[0], P = XR.panels.find(q => q.mesh === h.object);
     hit = { kind: 'panel', P, x: h.uv.x * P.w, y: (1 - h.uv.y) * P.h, point: h.point };
     dist = h.distance;
@@ -3465,7 +3501,7 @@ async function xrStart(mode) {
   if (XR.session || !navigator.xr) return;
   let session;
   try {
-    session = await navigator.xr.requestSession(mode, { optionalFeatures: ['local-floor', 'hand-tracking', 'anchors', 'plane-detection', 'mesh-detection'] });
+    session = await navigator.xr.requestSession(mode, { optionalFeatures: ['local-floor', 'hand-tracking', 'anchors', 'plane-detection', 'mesh-detection', 'shared'] });
   } catch (err) {
     HOST.landingVR = false;
     xrMsg(`Could not start ${mode === 'immersive-ar' ? 'AR' : 'VR'}: ${err && err.message ? err.message : err}`);
@@ -3531,6 +3567,8 @@ function xrVisibility() {
 function xrFreshStart() {
   XR.kbd.open = false; XR.kbd.q = '';
   for (const c of XR.ctrls) { c.press = null; c.grab = null; c.wantPress = false; }
+  // at a shared room's station the story and its place stay: the room's clock and state go on applying
+  if (HOST.collab.mine()) { lastNow = 0; return; }
   APP.enterStory(0); APP.playing = false; audioSync();
   XR.stories = true; XR.inStory = false; XR.soundCheck = false; // a new wearer lands in the Stories screen
   XR.needRecenter = true; // uses the new wearer's head position and direction on the next frame
@@ -4236,6 +4274,14 @@ return {
   inputs: () => XR.ctrls.map(c => c.src),
   xrPose: () => (XR.on ? { rp: GL.rig.position.clone(), rq: GL.rig.quaternion.clone(), off: XR.globeOff.clone(),
     pp: XR.panelGroup.position.clone(), pr: XR.panelGroup.rotation.y } : null),
+  // shared rooms (shared.js): the clock is APP's, the shared state the gang's controls, crumbs and dust effects (the
+  // robots themselves run on each device)
+  collab: {
+    APP, scene: () => GL.scene, state: collabState, apply: collabApply,
+    effect(type, d) { if (type === 'crumbs') crumbsIn(d); else if (type === 'dust') dustNow(); },
+    hover: i => { const c = XR.ctrls[i]; return c && c.hover ? c.ray.scale.z : 0; },
+    panel(p, yaw) { XR.panelGroup.position.fromArray(p); XR.panelGroup.rotation.set(0, yaw, 0); },
+  },
   // for tests and the browser console: HOST.cur.peek('NET.N')
   peek: src => eval(src),
   dispose() {

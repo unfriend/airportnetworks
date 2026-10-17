@@ -49,9 +49,41 @@ function setCtl(k, key, v) {
   if (key === 'view') { CAMV.hold = 0; if (s.cam && s.cam[v] && v !== 'eyes') flyTo(view(k, v)); }
   if (c) renderScenes();
 }
-// the buttons: a pile of crumbs 1-2 m from you (the set picks the spot), a dusty floor again
-function spillCrumbs() { XS.robots_crumbs = Math.floor(XS.robots_crumbs || 0) + 1; }
-function dustAgain() { XS.robots_dust = Math.floor(XS.robots_dust || 0) + 1; }
+// the buttons: a pile of crumbs 1-2 m from you (the set picks the spot), a dusty floor again; in a shared room the
+// others at the station get both too (effects: the pile at the same spot)
+function spillCrumbs() { const p = GL.sets.robots.crumbsNear(); if (p) crumbsOut(p[0], p[1]); }
+const dustNow = () => { XS.robots_dust = Math.floor(XS.robots_dust || 0) + 1; };
+function dustAgain() { dustNow(); HOST.collab.effect('dust'); }
+// shared rooms: the controls everyone at the station sees alike (the view is each person's own camera, the walk their own)
+const SHARED_CTL = ['rule', 'robots', 'trails', 'links'];
+function collabState() {
+  return Object.fromEntries(GL.sets.robots.controls.filter(c => SHARED_CTL.includes(c.key)).map(c => [c.key, ctlValue('robots', c)]));
+}
+function collabApply(v) {
+  for (const c of GL.sets.robots.controls) {
+    const x = v && v[c.key];
+    if (SHARED_CTL.includes(c.key) && c.options.some(o => o[0] === x) && ctlValue('robots', c) !== x) setCtl('robots', c.key, x);
+  }
+}
+// A pile spilled here, sent to the others at the station: in a headset with the room frame in room coordinates (a real
+// room is the same floor for everyone), otherwise in the set's frame, which is the station's (the model room, or the
+// virtual room that hangs on the rig at the station). Played there without sending it again.
+const _kp = new THREE.Vector3(), _ks = new THREE.Vector3(), _kY = new THREE.Vector3(0, 1, 0);
+function crumbsOut(x, z) {
+  const F = GL.sets.robots;
+  if (!XR.on || !HOST.room.aligned) { HOST.collab.effect('crumbs', { x, z, f: 'station' }); return; }
+  const r = HOST.room.toRoom(F.group.localToWorld(_kp.set(x, 0, z)));
+  HOST.collab.effect('crumbs', { x: r.x, z: r.z, f: 'room' });
+}
+function crumbsIn(d) {
+  const F = GL.sets.robots, L = HOST.collab.live(), room = XR.on && HOST.room.aligned;
+  if (!d || !isFinite(d.x) || !isFinite(d.z)) return false;
+  const p = _kp.set(+d.x, 0, +d.z), spot = L ? _ks.set(L.x, 0, L.z) : null;
+  if (d.f === 'room' && room) F.group.worldToLocal(p.copy(HOST.room.toLocal(p)));
+  else if (d.f === 'room') { if (!spot) return false; p.sub(spot).applyAxisAngle(_kY, -L.yaw); }   // no room frame here: the station's
+  else if (room && XRR.kind === 'real' && spot) F.group.worldToLocal(p.copy(HOST.room.toLocal(p.applyAxisAngle(_kY, L.yaw).add(spot))));
+  return F.crumbs(p.x, p.z);
+}
 function flyTo(v) {
   const c = orbit.cur;
   orbit.from = c.slice();
