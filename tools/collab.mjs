@@ -210,7 +210,13 @@ try {
     await peek(A, 'APP.playing || APP.togglePlay()');
     check(`${key}: play reaches a following page within a second`, await until(B, () => HOST.cur.peek('APP.mode === "story" && APP.playing'), null, 1000));
     await sleep(1500);
-    const run = (await clockOf(B))[2], ran = from + (Date.now() - t0) / 1000;
+    // read just after the shell's five-times-a-second check (a page rendering a frame a second, as headless
+    // software WebGL can, falls behind between two checks: the stories cap a frame's step at 0.1 s)
+    const run = await B.evaluate(() => new Promise(r => {
+      const C = HOST.collab.internals(), p0 = C.pumpAt;
+      const iv = setInterval(() => { if (C.pumpAt !== p0) { clearInterval(iv); r(HOST.cur.peek('APP.t')); } }, 1);
+    }));
+    const ran = from + (Date.now() - t0) / 1000;
     check(`${key}: a playing station runs on the relay's clock (a following page keeps up)`, Math.abs(run - ran) < 0.45, `B at ${run.toFixed(2)} s, ${ran.toFixed(2)} s since play`);
     await peek(A, 'APP.togglePlay()');
     const paused = await until(B, () => !HOST.cur.peek('APP.playing'), null, 1000);
