@@ -137,9 +137,10 @@ for (const key of ['airports', 'proteins', 'spatial', 'lbi', 'nmd', 'flock', 'ro
         return out;
       })()`);
     });
-    // a click on the floor walks you there; a drag turns the view and walks nowhere
+    // a click on the floor walks you there; a drag turns the view and walks nowhere (with a small gang in the way)
     await page.waitForTimeout(300);
     const peek = s => page.evaluate(s => HOST.cur.peek(s), s);
+    await peek(`(setCtl('robots', 'robots', '6'), simExplore(2))`);
     const spot = far => peek(`(() => {
       const p = GL.sets.robots.state().player;
       GL.scene.updateMatrixWorld(true); GL.camera.updateMatrixWorld();
@@ -157,9 +158,9 @@ for (const key of ['airports', 'proteins', 'spatial', 'lbi', 'nmd', 'flock', 'ro
       await page.waitForTimeout(100);
       const p1 = await pl();
       if (!p1.target || Math.hypot(p1.target[0] - a[2], p1.target[1] - a[3]) > 0.3) bad.push(`a click on the floor at (${a[2]}, ${a[3]}) set no walk there (${JSON.stringify(p1.target)})`);
-      await peek('simExplore(3)');
+      await peek('simExplore(5)');   // it turns first and gives way to robots, so allow it time
       const p2 = await pl(), d0 = Math.hypot(p0.x - a[2], p0.z - a[3]), d2 = Math.hypot(p2.x - a[2], p2.z - a[3]);
-      if (!(d2 < d0 - 1)) bad.push(`after a click on the floor the avatar did not walk there (${d0.toFixed(2)} m to go, then ${d2.toFixed(2)})`);
+      if (!(d2 < 0.3 || d2 < d0 * 0.5)) bad.push(`after a click on the floor the avatar did not walk there (${d0.toFixed(2)} m to go, then ${d2.toFixed(2)})`);
       const b = await spot(1.5);
       if (b) {
         const az0 = await peek('orbit.cur[0]');
