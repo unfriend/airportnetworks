@@ -209,16 +209,18 @@ the content floats 1.4 m ahead of the spot), with `st.<id>.play` (the clock:
   (*Shared space: used* on the panel, `collabSharedAlign`, off by default) the
   frame published for its shared space (key `rf.<space id>`, `{ uuid, o, x, g,
   by, at, m }`, `g` `'marks'` or `'shared'`, `m` the marks for drawing) by a
-  calibrated headset or the first one in the space (`'adopted'`, followed when
-  it moves more than 3 cm or 1 degree), or (3) the space's own origin when
+  calibrated headset or the first one in the space (`'adopted'`, on this
+  headset's own floor, followed when it moves more than 3 cm or 1 degree), or
+  (3) the space's own origin when
   nobody published for it (`'shared'`); (4) else calibrate. A calibrated
   headset publishes its marks for its space anyway and reports how far the
   shared space puts another calibrated headset's marks from its own (`R.cmp`,
   a line on the panel). People elsewhere (VR) use their own floor.
 - The room's floor is under the marks, not under each headset: key `rm`
   `{ a, d, by, at }` is mark A's height over the floor of the first headset
-  that calibrated (and the marks' distance; taken over by a newer calibration
-  of the same headset, other marks, or when its writer has left). A headset
+  that calibrated (and the marks' distance: marks within 10 cm of it are the
+  same marks; taken over by a newer calibration of the same headset, other
+  marks, or a calibrated headset when its writer has left). A headset
   whose floor differs puts the room's origin that far above its own floor
   (`frame.o[1]`, from the anchors' heights, so a floor that jumps does not move
   the room), and the panel says so ("Your floor is 28 cm lower than the

@@ -1056,10 +1056,8 @@
         y += 76;
         if (here()) {
           ctx.font = FONT(21); ctx.fillStyle = MUTED; ctx.fillText(fit(ctx, sharedLine(), w), x, y); y += 30;
-          const src = sourceLine();
-          if (src) { ctx.fillStyle = R.cmp && (R.cmp.d > 0.05 || R.cmp.a > 2) ? '#ffb43b' : MUTED; ctx.fillText(fit(ctx, src, w), x, y); y += 30; }
-          const fl = floorNote();
-          if (fl) { ctx.fillStyle = '#ffb43b'; ctx.fillText(fit(ctx, fl, w), x, y); y += 30; }
+          const fl = floorNote(), src = fl || sourceLine();   // a floor that differs matters more than what the frame rests on
+          if (src) { ctx.fillStyle = fl || (R.cmp && (R.cmp.d > 0.05 || R.cmp.a > 2)) ? '#ffb43b' : MUTED; ctx.fillText(fit(ctx, src, w), x, y); y += 30; }
           y += 4;
           const fa = forgetArmed();
           button(S, 'forget', x, y, bw, 56, fa ? 'Forget? Press again' : 'Forget calibration', R.saved || R.frame ? forgetAsk : null,
@@ -1359,16 +1357,17 @@
   // the room's floor under the marks: the first calibration in the room says how high mark A stands over the floor
   // (key rm), and a headset whose own floor differs (a Guardian floor set wrong, or one that jumped) stands the room
   // on the marks instead: its frame's origin is that far above its floor. Other marks (another distance): its floor.
-  const floorUnder = (a, b) => { const M = val('rm'); return M && Number.isFinite(M.a) && Math.abs(M.d - Math.hypot(b[0] - a[0], b[2] - a[2])) <= 0.05 ? a[1] - M.a : 0; };
+  const SAME = 0.1;   // marks measured within 10 cm of the same distance apart are the same marks (touched by hand)
+  const floorUnder = (a, b) => { const M = val('rm'); return M && Number.isFinite(M.a) && Math.abs(M.d - Math.hypot(b[0] - a[0], b[2] - a[2])) <= SAME ? a[1] - M.a : 0; };
   const fromMarks = (a, b) => ({ o: [a[0], floorUnder(a, b), a[2]], x: level([b[0] - a[0], 0, b[2] - a[2]]) });
   const marksMk = (a, b) => { const y = floorUnder(a, b); return [r3(a[1] - y), r3(Math.hypot(b[0] - a[0], b[2] - a[2])), r3(b[1] - y)]; };
   // our marks set the room's floor when nobody's do yet, when the room's are our own older ones or other marks, or
   // when whoever set them has left (asked when a calibration is made or found again, not every frame)
   function claimFloor(a, b) {
     const M = val('rm'), d = Math.hypot(b[0] - a[0], b[2] - a[2]);
-    if (M && Number.isFinite(M.a) && Math.abs(M.d - d) <= 0.05 && M.by !== C.id && member(M.by)) return;
+    if (M && Number.isFinite(M.a) && Math.abs(M.d - d) <= SAME && M.by !== C.id && member(M.by)) return;
     publish([['rm', { a: r3(a[1]), d: r3(d), by: C.id, at: Math.round(now()) }]]);
-    log('floor claimed', { a: r3(a[1]), d: r3(d) });
+    log('floor claimed', { a: r3(a[1]), d: r3(d), was: M ? M.by : '' });
   }
   const dist3 = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
   const own = () => R.src === 'marks' || R.src === 'anchor';
@@ -1438,8 +1437,8 @@
     if (!tr) { originMoved('reset'); return; }
     // the frame in the new coordinates: the transform is the new origin seen from the old
     _m.fromArray(tr.inverse ? tr.inverse.matrix : new THREE.Matrix4().fromArray(tr.matrix).invert().toArray());
-    const move = fr => { const o = _v.fromArray(fr.o).applyMatrix4(_m).toArray(), x = _v.fromArray(fr.x).transformDirection(_m).toArray(); fr.o = o; fr.x = level(x) || fr.x; };
-    if (R.frame) move(R.frame);
+    const move = (fr, h) => { const o = _v.fromArray(fr.o).applyMatrix4(_m).toArray(), x = _v.fromArray(fr.x).transformDirection(_m).toArray(); fr.o = [o[0], h ? o[1] : 0, o[2]]; fr.x = level(x) || fr.x; };
+    if (R.frame) move(R.frame, own());   // only a frame on the marks moves in height (the others stand on this floor)
     if (R.saved) for (const k of ['a', 'b']) R.saved[k] = _v.fromArray(R.saved[k]).applyMatrix4(_m).toArray().map(r3);
     if (R.calib && R.calib.a) R.calib.a.applyMatrix4(_m);
     R.prev = null;
@@ -1499,7 +1498,7 @@
     if (!R.shared || !R.sharedOK || !R.sharedId || !R.frame || performance.now() - R.pubAt < 1000) return;
     const P = val(kFrame(R.sharedId)), at = (R.saved && R.saved.at) || 0, mine = validFrame(P) && P.by === C.id;
     if (validFrame(P) && !mine && gradeOf(P) === 'marks' && member(P.by) && (+P.at || 0) >= at) return;
-    if (mine && P.at === at && P.g === 'marks') { const [d, a] = apart(fromShared(P), R.frame); if (d < 0.01 && a < 0.003) return; }
+    if (mine && P.at === at && P.g === 'marks') { const F = fromShared(P), [d, a] = apart(F, R.frame); if (d < 0.01 && a < 0.003 && Math.abs(F.o[1] - R.frame.o[1]) < 0.01) return; }
     publishFrame('marks', at);
   }
   // with marks of our own: how far the shared space puts another headset's calibration from ours
@@ -1517,7 +1516,7 @@
   function reconcile(P) {
     const F = fromShared(P), x = level(F.x);
     if (!x) return;
-    F.x = x;
+    F.x = x; F.o[1] = 0;   // on this headset's own floor: the shared space's height is not to be trusted either
     const mk = Array.isArray(P.m) && P.m.length === 3 && P.m.every(Number.isFinite) ? P.m : null;
     if (!R.frame) { R.mk = mk; setFrame(F, 'adopted', 'Aligned automatically', 'This headset took the room from the shared space. Check: the orange crosses sit on the tape marks.'); return; }
     if (R.src === 'shared' && P.by === C.id) {   // our own space's origin: kept on the space (a recentre moves local-floor)
@@ -1635,14 +1634,14 @@
     if (R.src === 'own') { R.frame = null; R.src = ''; }
     // (1) our own marks: nothing overrides them; their anchors keep the frame on them
     if (own() && R.frame) {
-      if (t - R.recAt > 500) { R.recAt = t; followAnchors(f); refloor(); compare(); publishOwn(); if (!validFloor()) claimFloor(...marksNow()); }
+      if (t - R.recAt > 500) { R.recAt = t; followAnchors(f); refloor(); compare(); publishOwn(); if (!validFloor() || !member(val('rm').by)) claimFloor(...marksNow()); }
       return;
     }
     if (R.saved && R.saved.anchors.length === 2 && !R.anchorTried && !R.anchors) restore(t);
     if (R.anchors) {
       const P = anchorsAt(f);
       if (P && (R.anchorsOK || anchorsFit(P))) {
-        if (!validFloor()) claimFloor(P[0], P[1]);
+        claimFloor(P[0], P[1]);
         R.mk = marksMk(P[0], P[1]);
         setFrame(fromMarks(P[0], P[1]), 'anchor', 'Room calibration from last time', 'Found the marks this headset saved. Check: the orange crosses sit on the tape marks.');
         return;
@@ -1756,7 +1755,7 @@
   function floorNote() {
     if (!own() || !R.frame || !R.saved) return '';
     const M = val('rm'), [a, b] = marksNow(), d = Math.hypot(b[0] - a[0], b[2] - a[2]);
-    if (M && Number.isFinite(M.d) && Math.abs(M.d - d) > 0.05) return `Your marks are ${Math.round(Math.abs(M.d - d) * 100)} cm ${d > M.d ? 'further apart' : 'closer'} than the room's: other tape?`;
+    if (M && Number.isFinite(M.d) && Math.abs(M.d - d) > SAME) return `Your marks are ${Math.round(Math.abs(M.d - d) * 100)} cm ${d > M.d ? 'further apart' : 'closer'} than the room's: other tape?`;
     const y = R.frame.o[1];
     return Math.abs(y) > 0.03 ? `Your floor is ${Math.round(Math.abs(y) * 100)} cm ${y > 0 ? 'lower' : 'higher'} than the room's (allowed for)` : '';
   }
