@@ -234,6 +234,10 @@ the content floats 1.4 m ahead of the spot), with `st.<id>.play` (the clock:
   true except for `'panel'`; `HOST.audio.zone()` pans the narration from the
   station (full volume within 1.5 m, so at the station's spot; nothing changes
   outside a room).
+- The explore view at a station (`st.<id>.view`): headsets at the station share
+  it (`viewSync` in the pump: a view from the room glides in, one turned here
+  goes out, by value like the rest), so the scene stands turned and sized alike
+  for everyone there; screens following the station keep their own camera.
 - The relay (`relay/server.mjs`) keeps per room a map key -> `{ v, seq, by }`
   (every stored write takes the next seq; the last writer wins), the members,
   and passes on ephemeral `fx` messages (presence, effects) without storing
@@ -255,11 +259,17 @@ the content floats 1.4 m ahead of the spot), with `st.<id>.play` (the clock:
 The hooks every story keeps (all seven, the same lines; the flock is the
 reference, `tools/flock/engine/`):
 
-- `collab: { APP, scene: () => GL.scene, state, apply, effect, hover, panel }`
+- `collab: { APP, scene: () => GL.scene, state, apply, view, setView, effect, hover, panel }`
   in its returned object: `APP` is its own clock object, `effect(type, data)`
   plays a one-shot effect another person caused (without sending it again),
   `hover(i)` is how far controller i's ray reaches now (or 0), `panel(p, yaw)`
-  puts the story panel where another person moved it.
+  puts the story panel where another person moved it. `view()` is the scene's
+  view in explore mode (`orbit.cur`, rounded; the longitude or azimuth
+  normalised), which in a headset turns and sizes the scene in the room, or
+  null (story mode, or while it flies somewhere); `setView(v)` glides there in
+  0.25 s (`orbit.fast`). The flock and the robots are life size in a headset:
+  their `view()` is always null. While a headset stands at its station the
+  explore sway rests (`HOST.room.placing()`).
 - `xrPoint`: after raycasting its own panels (`hs`),
   `const sh = HOST.collab.ray(c.i, c.o, c.d, hs.length ? hs[0].distance : Infinity);`;
   a hit (`kind: 'shell'`: the shell's panel, the other stations' cards and
@@ -321,9 +331,7 @@ win, two anchors, no stale coordinates). Not confirmed on headsets yet:
 whether they line up now, shared-space ids and accuracy (the panel's line and
 the relay's logs tell), persistent anchors restored, whether a recentre fires
 a reset, sound zones heard, comfort and frame rate with presence drawn, and
-whether the socket keeps running inside an immersive session. In explore mode
-the scene's view (turned, zoomed, sway) is still per headset, also at a
-station.
+whether the socket keeps running inside an immersive session.
 
 ## Inside a story (all seven follow the same pattern)
 

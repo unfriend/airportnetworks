@@ -601,6 +601,25 @@ try {
   const keys2 = (await roomInfo(code)).keys, x2 = keys2['st.' + S2.id + '.x'], mode2 = (keys2['st.' + S2.id + '.play'] || { v: {} }).v.mode;
   check(`headset: and ${OTHER_STORY}'s clock and explore state apply there`, !!x2 && await until(H, ([s, m]) => HOST.cur.peek('APP.mode') === m && JSON.stringify(HOST.cur.collab.state()) === s, [JSON.stringify(x2.v), mode2], 3000),
     `room ${x2 && JSON.stringify(x2.v)}, headset ${await stateOf(H)}`);
+  // in explore mode at a station the scene's view (how it is turned and sized: where it stands in the room) is
+  // shared by the headsets there: this one publishes its view, glides to one published by someone else, and a turn
+  // made here goes out
+  const kv = 'st.' + S2.id + '.view';
+  await H.evaluate(() => { if (HOST.cur.peek('APP.mode') !== 'explore') HOST.cur.peek('APP.enterExplore()'); });
+  const viewIs = want => until(H, w => { const v = HOST.cur.collab.view(); return !!v && JSON.stringify(v) === w; }, JSON.stringify(want), 6000);
+  let v0 = null;
+  for (let k = 0; k < 20 && !v0; k++) { await frames(H, 250); v0 = await H.evaluate(() => HOST.cur.collab.view()); }
+  for (let k = 0; k < 12 && JSON.stringify(((await roomInfo(code)).keys[kv] || {}).v) !== JSON.stringify(v0); k++) await frames(H, 250);
+  const pub0 = ((await roomInfo(code)).keys[kv] || {}).v;
+  const v1 = [v0[0] > 0 ? v0[0] - 12 : v0[0] + 12, Math.round(((v0[1] + 220) % 360 - 180) * 10) / 10, Math.round(v0[2] * 0.8 * 100) / 100, v0[3], v0[4]];
+  await A.evaluate(([k, v]) => HOST.collab.publish([[k, v]]), [kv, v1]);
+  const got1 = await viewIs(v1);
+  await H.evaluate(() => { const o = HOST.cur.peek('orbit'); o.to = null; o.cur[1] += 25; });
+  const v2 = await H.evaluate(() => HOST.cur.collab.view());
+  for (let k = 0; k < 12 && JSON.stringify(((await roomInfo(code)).keys[kv] || {}).v) !== JSON.stringify(v2); k++) await frames(H, 250);
+  const pub2 = ((await roomInfo(code)).keys[kv] || {}).v;
+  check(`headset: in explore mode at a station the scene's view is shared (${OTHER_STORY}: published, followed, a turn here goes out)`,
+    !!v0 && JSON.stringify(pub0) === JSON.stringify(v0) && got1 && JSON.stringify(pub2) === JSON.stringify(v2), JSON.stringify({ v0, pub0, v1, got1, v2, pub2 }));
   check('headset: and back again', await walk(H, S1, HEADSET_STORY, 0));
   // Remove on the headset panel asks first: the first press only arms it (for 3 s), the station stays
   await H.evaluate(() => HOST.collab.panelOpen(true));

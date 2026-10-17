@@ -197,7 +197,7 @@ return {
     pp: XR.panelGroup.position.clone(), pr: XR.panelGroup.rotation.y } : null),
   // shared rooms (shared.js): the clock is APP's, the shared state the scene, its controls and the proteins (no one-shot effects)
   collab: {
-    APP, scene: () => GL.scene, state: collabState, apply: collabApply,
+    APP, scene: () => GL.scene, state: collabState, apply: collabApply, view: collabView, setView: collabSetView,
     hover: i => { const c = XR.ctrls[i]; return c && c.hover ? c.ray.scale.z : 0; },
     panel(p, yaw) { XR.panelGroup.position.fromArray(p); XR.panelGroup.rotation.set(0, yaw, 0); },
   },

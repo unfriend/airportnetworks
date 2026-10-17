@@ -188,7 +188,7 @@ return {
     pp: XR.panelGroup.position.clone(), pr: XR.panelGroup.rotation.y } : null),
   // shared rooms (shared.js): the clock is APP's, the shared state the explore controls, the falcon an effect
   collab: {
-    APP, scene: () => GL.scene, state: collabState, apply: collabApply,
+    APP, scene: () => GL.scene, state: collabState, apply: collabApply, view: collabView, setView: collabSetView,
     effect(type, d) { if (type === 'falcon' && GL.sets.flock.scatter((d && d.dir) || null)) renderScenes(); },
     hover: i => { const c = XR.ctrls[i]; return c && c.hover ? c.ray.scale.z : 0; },
     panel(p, yaw) { XR.panelGroup.position.fromArray(p); XR.panelGroup.rotation.set(0, yaw, 0); },
