@@ -693,6 +693,31 @@ try {
   check('Forget calibration: the first press only asks, the second forgets the marks and their anchor, and the headset asks to calibrate again',
     forgot.first && forgot.kept && forgot.second && !!forgot.uuid && forgot.gone && !forgot.saved && !forgot.frame && forgotState === 'calibrate' && /No shared space/.test(forgot.line),
     JSON.stringify(Object.assign({ state: forgotState }, forgot)));
+  // calibrating again drops the old marks' anchor at once (it would pull the new frame back to the old mark A)
+  const savedAnchor = () => H.evaluate(() => { const S = HOST.room.internals().saved; return S && S.anchor; });
+  const recal = async () => {
+    await H.evaluate(() => HOST.room.calibrate());
+    await touch(markA); await touch(markB);
+    for (let k = 0; k < 8 && !(await savedAnchor()); k++) await frames(H, 250);
+    return savedAnchor();
+  };
+  const h1 = await recal(), h2 = await recal();
+  const hs = await H.evaluate(([a, b]) => [window.__xr.handles.has(a), window.__xr.handles.has(b)], [h1, h2]);
+  check('calibrating again replaces the old marks\' anchor (its saved handle is deleted)', !!h1 && !!h2 && h1 !== h2 && !hs[0] && hs[1], JSON.stringify({ h1, h2, hs }));
+  // Forget while the next session is still finding that anchor: the anchor that arrives afterwards is not used
+  await H.evaluate(() => window.__xr.end());
+  await H.evaluate(installXR, Object.assign({}, xrOpts, { features: ['local-floor', 'anchors'] }));
+  await H.evaluate(() => {
+    const S = window.__xr.session, restore = S.restorePersistentAnchor;
+    S.restorePersistentAnchor = u => new Promise(r => { window.__releaseAnchor = () => r(restore(u)); });
+    window.__xr.begin();
+  });
+  for (let k = 0; k < 12 && (await H.evaluate(() => HOST.room.state)) !== 'restoring'; k++) await frames(H, 250);
+  const lateSt = await H.evaluate(() => { const st = HOST.room.state; HOST.room.forget(); if (window.__releaseAnchor) window.__releaseAnchor(); return st; });
+  await frames(H, 400);
+  const late = await H.evaluate(h => ({ anchor: !!HOST.room.internals().anchor, state: HOST.room.state, frame: !!HOST.room.frame, handle: window.__xr.handles.has(h) }), h2);
+  check('Forget while last time\'s anchor is still being found: the late anchor is not used, and the headset asks to calibrate',
+    lateSt === 'restoring' && !late.anchor && !late.frame && late.state === 'calibrate' && !late.handle, JSON.stringify(Object.assign({ was: lateSt }, late)));
   await H.evaluate(() => window.__xr.end());
 
   // ------------------------------------------ a VR headset elsewhere --

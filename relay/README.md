@@ -88,11 +88,13 @@ the app's files from the repository over HTTPS, and prints the address to open.
 4. In the room, use **Enter AR**: you see the room and each other, and the stations stand in it. In VR the panel
    asks once whether you are in the same room as the others (then the room is aligned as in AR) or elsewhere
    (then you get your own floor and the others see you as an avatar).
-5. The room lines up by itself when shared spaces work (in a new room the first headset says "Shared space
-   found", the others "Aligned automatically"); otherwise the panel asks you to **Calibrate**: touch mark A with the tip of
-   the controller and pull the trigger, then mark B (hold the controller the same way at both). Each headset
-   remembers its marks for next time ("Room calibration from last time"), and those marks win over the shared
-   space. The Shared panel's room section shows the shared space's id: it must be the same on every headset.
+5. The room lines up by itself when shared spaces work (in a new room the first headset to enter says "Shared
+   space found", the others "Aligned automatically"); otherwise the panel asks you to **Calibrate**: touch mark A
+   with the tip of the controller and pull the trigger, then mark B (hold the controller the same way at both).
+   Each headset remembers its marks for next time ("Room calibration from last time"); they are used when the
+   room holds no frame for the shared space yet, or when they are newer than the one it holds (then the others
+   follow them). The Shared panel's room section shows the shared space's id: it must be the same on every
+   headset.
 6. Walk up to a station (or point at its card and pull the trigger): its story runs for everyone there, its
    narration plays where it stands, and everyone sees everyone's pointer.
 7. Desktop operators on the same network open the same address in a browser (and accept the warning once),
@@ -116,14 +118,16 @@ machine or public hosting.
 - **The app says the room does not exist**: a mistyped room code, an expired room (6 hours after the last
   person left), or a relay that was restarted. Pick the room from **Open rooms** instead of typing, or start a
   new one.
-- **Always "calibration from last time", never "Aligned automatically"**: the headset uses its saved marks.
-  Compare the **Shared space** line in the Shared panel's room section on every headset: the same id means
-  they share the space; "No shared space here" means the WebXR experiments flag or Enhanced spatial services
-  is off on that headset (setup step 3). To start again, press **Forget calibration** twice on every headset
-  (or clear the site's data in Quest Browser), leave AR, then enter AR on one headset and wait until it is
-  aligned ("Shared space found", or "Aligned automatically" when the room already holds a frame for that space)
-  before the others enter. If the ids differ, or a headset has no shared space, calibrate every headset with the
-  same two marks instead.
+- **Every headset says "calibration from last time", never "Aligned automatically"**: each uses its own saved
+  marks, which happens when the headsets do not share a space. Compare the **Shared space** line in the Shared
+  panel's room section: the same id on every headset means they share the space; "No shared space" means the
+  WebXR experiments flag or Enhanced spatial services is off on that headset (setup step 3). Once the ids
+  match, press **Forget calibration** twice on every headset but one (or clear the site's data in Quest
+  Browser): each then takes the room from that one ("Aligned automatically"). Forget calibration drops only
+  that headset's own marks: a frame the room already holds for the shared space stays, and a headset that
+  forgets takes it again; to move the room's origin, calibrate one headset (its new marks go out to the
+  others). If the ids differ, or a headset has no shared space, calibrate every headset with the same two marks
+  instead.
 - **No sound at a station**: use **Sound check** on the Stories screen (it plays a beep through each sound
   engine).
 

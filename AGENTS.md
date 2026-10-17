@@ -202,12 +202,16 @@ the content floats 1.4 m ahead of the spot), with `st.<id>.play` (the clock:
   runs its own frame callback; the room frame comes from a frame published for
   the shared space (`roomFrameShared`), this headset's saved marks (anchor at
   mark A, `roomFrame` in `localStorage`) or a two-point calibration; people
-  elsewhere (VR) use their own floor. Saved marks win over the shared space
-  (a frame published for it is only reconciled with them), so the panel's
-  room section shows the shared space's id (`sharedLine()`: the same id on
-  every headset means they share it) and *Forget calibration*
-  (`HOST.room.forget()`, press twice: drops the saved marks and their anchor,
-  then aligns again). While aligned and at its station,
+  elsewhere (VR) use their own floor. Saved marks are used when the room
+  holds no frame for this headset's shared space, or when they are newer than
+  that frame (they then go out to the others); else the room's frame wins.
+  The panel's room section shows the shared space's id (`sharedLine()`: the
+  same id on every headset means they share it) and *Forget calibration*
+  (`HOST.room.forget()`, press twice: drops this headset's marks and their
+  anchor and aligns again; a frame the room holds stays, and a new
+  calibration replaces it for everyone). Anchor requests carry the marks'
+  generation (`R.mgen`), so one that settles after Forget or new marks is
+  thrown away. While aligned and at its station,
   `HOST.anchor.frame()` returns the station's rig pose (spot at 1.6 m, facing
   its way), `held()` is true and `locked(kind)` is true except for `'panel'`;
   `HOST.audio.zone()` pans the narration from the station (full volume within
@@ -578,8 +582,10 @@ the station's clock and state, rays and head in room coordinates, another
 person drawn, the sound zone, the shell's panel and a card pick, the story
 panel winning over a card behind it, re-alignment, walking to another station
 and back, Remove asking first; calibration from two marks (Stop calibrating
-still pressable), a reset with a transform, and VR elsewhere with its in-room
-question. `--quick` runs only the last story in the per-story part. A new story needs an entry in `STORIES`
+still pressable), a reset with a transform, the anchor found next session,
+Forget calibration (two presses; also while that anchor is still being found)
+and a new calibration replacing the old anchor, and VR elsewhere with its
+in-room question. `--quick` runs only the last story in the per-story part. A new story needs an entry in `STORIES`
 (`change` and `back`: code that changes its `state()`, and optional `effect`
 and `more`); the headset's story (`HEADSET_STORY`) stays the last entry.
 `--shots <dir>` also saves pictures of the dialog and two headset views.

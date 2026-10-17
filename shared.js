@@ -1253,6 +1253,7 @@
     session: null, begun: null, loopFor: null, floor: null, noFloor: false, shared: null, sharedId: '', sharedAt: 0, sharedAsked: 0, sharedOK: false,
     frame: null, src: '', state: 'off', aligned: false, calib: null, recAt: 0, pubAt: 0, noticed: '',
     saved: null, anchor: null, anchorBusy: false, anchorTried: false, anchorSince: 0, wantAnchor: null,
+    mgen: 0,   // the marks' generation: an anchor that arrives for older marks (forgotten, replaced) is thrown away
     lf: new THREE.Matrix4(), lfi: new THREE.Matrix4(), ls: new THREE.Matrix4(), fr: new THREE.Matrix4(), m: new THREE.Matrix4(), mi: new THREE.Matrix4(),
     yaw: 0, hr: new THREE.Vector3(), hyaw: 0, headOK: false, lfOK: false,
   };
@@ -1284,7 +1285,7 @@
     try { if (R.floor && R.floor.removeEventListener) R.floor.removeEventListener('reset', floorReset); } catch (e) { /* gone */ }
     try { if (R.shared && R.shared.removeEventListener) R.shared.removeEventListener('reset', sharedReset); } catch (e) { /* gone */ }
     Object.assign(R, { begun: s, floor: null, noFloor: false, shared: null, sharedNo: false, sharedId: '', sharedAt: 0, sharedAsked: performance.now(), sharedOK: false,
-      frame: null, src: '', aligned: false, calib: null, anchor: null, anchorBusy: false, anchorTried: false, wantAnchor: null, noticed: '' });
+      frame: null, src: '', aligned: false, calib: null, anchor: null, anchorBusy: false, anchorTried: false, wantAnchor: null, noticed: '', mgen: R.mgen + 1 });
     setState('waiting');
     const feats = s.enabledFeatures ? [...s.enabledFeatures] : null;
     log('session', { mode: HOST.mode, features: feats });
@@ -1371,9 +1372,9 @@
     const S = R.saved;
     if (S.anchor && !R.anchorTried && HOST.anchor.find) {
       R.anchorTried = true; R.anchorBusy = true; R.anchorSince = t;
-      const s = R.session;
-      HOST.anchor.find(S.anchor).then(a => { if (R.session === s) R.anchor = a; else try { a.delete(); } catch (e) { /* gone */ } },
-        e => log('anchor not found', { e: e && e.message })).then(() => { R.anchorBusy = false; });
+      const s = R.session, g = R.mgen;
+      HOST.anchor.find(S.anchor).then(a => { if (R.session === s && R.mgen === g) R.anchor = a; else try { a.delete(); } catch (e) { /* gone */ } },
+        e => log('anchor not found', { e: e && e.message })).then(() => { if (R.mgen === g) R.anchorBusy = false; });
     }
     const A = anchorFrame(f);
     if (A) { setFrame(A, 'anchor', 'Room calibration from last time', 'Found the mark this headset saved.'); return; }
@@ -1454,10 +1455,14 @@
     align(f, local);
     // a new anchor at mark A (asked inside a frame, as WebXR wants)
     if (R.wantAnchor && R.floor && HOST.anchor.keep) {
-      const w = R.wantAnchor, s = R.session;
+      const w = R.wantAnchor, s = R.session, g = R.mgen;
       R.wantAnchor = null;
-      HOST.anchor.keep(f, R.floor, w.p, w.q, R.saved && R.saved.anchor).then(r => {
-        if (R.session !== s) return;
+      HOST.anchor.keep(f, R.floor, w.p, w.q, '').then(r => {
+        if (R.session !== s || R.mgen !== g) {   // the marks were forgotten or replaced meanwhile
+          try { r.anchor.delete(); } catch (e) { /* gone */ }
+          if (r.uuid) HOST.anchor.drop(r.uuid);
+          return;
+        }
         R.anchor = r.anchor;
         if (r.uuid && R.saved) { R.saved.anchor = r.uuid; storeSaved(); }
         log('anchor made', { saved: !!r.uuid });
@@ -1484,18 +1489,18 @@
     if (R.saved && R.saved.anchor) HOST.anchor.drop(R.saved.anchor);
     if (R.anchor) { try { R.anchor.delete(); } catch (e) { /* gone */ } }
     R.saved = null; storeSaved();
-    Object.assign(R, { frame: null, src: '', aligned: false, anchor: null, anchorBusy: false, anchorTried: false, wantAnchor: null, calib: null, noticed: '', recAt: 0 });
+    Object.assign(R, { frame: null, src: '', aligned: false, anchor: null, anchorBusy: false, anchorTried: false, wantAnchor: null, calib: null, noticed: '', recAt: 0, mgen: R.mgen + 1 });
     const t = performance.now(); R.sharedAsked = t; if (R.sharedId) R.sharedAt = t;
     setState('waiting');
-    notice('Calibration forgotten', 'This headset lines up again: from the shared space if there is one, else it asks you to calibrate.', 6000);
+    notice('Calibration forgotten', 'This headset lines up again: from the frame the room holds for its shared space, else it asks you to calibrate.', 6000);
     log('forget marks');
   }
   // the shared space, to compare headsets: the same id on each means they share one room
   function sharedLine() {
     if (!R.session || !C.code) return '';
-    if (R.sharedId) return 'Shared space ' + R.sharedId.slice(0, 8) + ' (the same on every headset if they share it)';
+    if (R.sharedId) return 'Shared space ' + R.sharedId.slice(0, 8) + ': the same on every headset?';
     if (R.shared) return 'Shared space: waiting for its id...';
-    return R.sharedNo ? 'No shared space here (needs the WebXR experiments flag)' : 'Shared space: asking...';
+    return R.sharedNo ? 'No shared space (check the WebXR flag, spatial services)' : 'Shared space: asking...';
   }
   const FG = { until: 0 };   // Forget calibration takes two presses: the first arms it for 3 s
   const forgetArmed = () => performance.now() < FG.until;
@@ -1513,7 +1518,11 @@
     if (Math.hypot(dx, dz) < 0.3) { notice('Marks too close', 'Mark B must be at least 30 cm from mark A. Touch mark B again.', 0); return; }
     R.calib = null;
     const fr = { o: [a.x, 0, a.z], x: level([dx, 0, dz]) };
-    R.saved = { o: fr.o.map(r3), x: fr.x.map(r3), a: a.toArray().map(r3), b: p.toArray().map(r3), at: Math.round(now()), anchor: (R.saved && R.saved.anchor) || '' };
+    // the old marks' anchor goes now: it would pull the new frame back to the old mark A until the new one is made
+    if (R.saved && R.saved.anchor) HOST.anchor.drop(R.saved.anchor);
+    if (R.anchor) { try { R.anchor.delete(); } catch (e) { /* gone */ } }
+    R.anchor = null; R.anchorBusy = false; R.mgen++;
+    R.saved = { o: fr.o.map(r3), x: fr.x.map(r3), a: a.toArray().map(r3), b: p.toArray().map(r3), at: Math.round(now()), anchor: '' };
     storeSaved();
     setFrame(R.saved, 'marks', 'Room calibrated', 'Everyone who calibrated with the same marks sees the stations in the same places.');
     R.wantAnchor = { p: { x: a.x, y: a.y, z: a.z }, q: new THREE.Quaternion().setFromAxisAngle(_Y, yawOfX(fr.x)) };

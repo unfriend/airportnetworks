@@ -274,7 +274,9 @@ Differences from the plan:
   the in-room button names the action ("Say I am elsewhere" / "Say I am in this room") under a line that says
   where you are; cards turn to face you and are drawn under the story's panels. In the room, a line shows the
   shared space's id (or that there is none) so headsets can be compared, and Forget calibration (press twice)
-  drops this headset's saved marks and their anchor: saved marks otherwise win over the shared space.
+  drops this headset's saved marks and their anchor (saved marks are used while the room holds no frame for the
+  space, or when they are newer than its frame); a frame the room holds stays. Anchor requests carry the marks'
+  generation, so one that settles after Forget or new marks is thrown away, and new marks drop the old anchor.
 - **Room format**: `FORMAT` in `shared.js` is the room's version; a room refuses clients of another format, so it
   is bumped whenever the keys or a story's `state()` change shape.
 - Not built: phases 1 to 3 (one live station per headset; simulations still run per device). Untested until

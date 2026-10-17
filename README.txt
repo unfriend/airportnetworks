@@ -45,7 +45,8 @@ floor with a card, and pointing at one and pulling the trigger goes there too.
 People in the room calibrate once (Calibrate: touch two tape marks with a
 controller) unless their headsets share a space (the Shared panel shows the
 space's id, the same on every headset that shares it, and Forget calibration
-starts the alignment again); people elsewhere and screens
+drops a headset's own marks so it takes the room's frame); people elsewhere
+and screens
 see the stations round their own spot. Screens get a room map and Follow a
 station. The flock's birds and the robots move separately on each device; their
 controls, falcons and crumbs are shared. Rooms need the relay (relay/, Node, no
