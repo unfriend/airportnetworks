@@ -4,6 +4,7 @@
 // Node 18 or newer and no packages: its own minimal WebSocket code (RFC 6455). It can serve the
 // app as well (--static), so the page and the relay share one address.
 //   node relay/server.mjs [--port 8787] [--host 0.0.0.0] [--cert c.pem --key k.pem] [--static .]
+//   node relay/server.mjs --lan    (for headsets on the same Wi-Fi: HTTPS with a certificate of its own, the app served)
 import http from 'node:http';
 import https from 'node:https';
 import crypto from 'node:crypto';
@@ -11,14 +12,19 @@ import fs from 'node:fs';
 import path from 'node:path';
 import zlib from 'node:zlib';
 import { promisify } from 'node:util';
+import os from 'node:os';
+import { execFileSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 
 const PROTO = 1;
-const OPT = { port: 8787, host: '0.0.0.0', cert: '', key: '', static: '', timeout: 40, expire: 6 * 3600, ping: 20, quiet: false };
+const OPT = { port: 8787, host: '0.0.0.0', cert: '', key: '', static: '', timeout: 40, expire: 6 * 3600, ping: 20, quiet: false, lan: false };
 const HELP = `usage: node relay/server.mjs [options]
   --port <n>       port (8787; 0 picks a free one)       --host <addr>   address (0.0.0.0)
   --cert <file>    with --key: speak HTTPS and WSS       --static <dir>  also serve the app from <dir>
   --timeout <s>    a silent member is dropped (40)       --expire <s>    a room without members goes (21600)
-  --ping <s>       WebSocket ping to every member (20)   --quiet         no log lines`;
+  --ping <s>       WebSocket ping to every member (20)   --quiet         no log lines
+  --lan            for headsets on the same Wi-Fi: HTTPS with a self-signed certificate made once with openssl for
+                   this machine's addresses (in relay/.lan/), and the app served from the repository`;
 for (let i = 2; i < process.argv.length; i++) {
   const name = process.argv[i].replace(/^--/, '');
   if (name === 'help' || !(name in OPT) || name === process.argv[i]) { console.log(HELP); process.exit(name === 'help' ? 0 : 1); }
@@ -28,6 +34,38 @@ for (let i = 2; i < process.argv.length; i++) {
   if (v === undefined || (typeof OPT[name] === 'number' && !(OPT[name] >= 0))) { console.log(HELP); process.exit(1); }
 }
 if (!OPT.cert !== !OPT.key) { console.log('--cert and --key go together'); process.exit(1); }
+
+// This machine's addresses on the local network (what a headset on the same Wi-Fi types in)
+const lanAddresses = () => Object.values(os.networkInterfaces()).flat().filter(a => a && a.family === 'IPv4' && !a.internal).map(a => a.address);
+// --lan: headsets need a secure page for WebXR, and a secure page may only open wss://. A certificate of our own
+// (self-signed, so each headset asks once whether to trust it) for every address of this machine, made again
+// when the addresses change; and the app from the repository unless --static says otherwise.
+if (OPT.lan) {
+  const here = path.dirname(fileURLToPath(import.meta.url)), dir = path.join(here, '.lan');
+  if (!OPT.static) OPT.static = path.join(here, '..');
+  if (!OPT.cert) {
+    const names = ['127.0.0.1', ...lanAddresses()], want = names.join(' ');
+    OPT.cert = path.join(dir, 'cert.pem'); OPT.key = path.join(dir, 'key.pem');
+    let have = '';
+    try { have = fs.readFileSync(path.join(dir, 'names.txt'), 'utf8'); } catch { /* none yet */ }
+    if (have !== want || !fs.existsSync(OPT.cert) || !fs.existsSync(OPT.key)) {
+      fs.mkdirSync(dir, { recursive: true });
+      const conf = path.join(dir, 'openssl.cnf');
+      fs.writeFileSync(conf, ['[req]', 'distinguished_name = dn', 'x509_extensions = ext', 'prompt = no', '[dn]', 'CN = Networks relay',
+        '[ext]', 'basicConstraints = CA:FALSE', 'keyUsage = digitalSignature, keyEncipherment', 'extendedKeyUsage = serverAuth',
+        'subjectAltName = ' + ['DNS:localhost', ...names.map(n => 'IP:' + n)].join(', '), ''].join('\n'));
+      try {
+        execFileSync('openssl', ['req', '-x509', '-newkey', 'rsa:2048', '-nodes', '-days', '825', '-config', conf,
+          '-keyout', OPT.key, '-out', OPT.cert], { stdio: 'ignore' });
+      } catch (err) {
+        console.log('--lan makes its certificate with openssl, which did not run (' + err.message + ').\n' +
+          'Install openssl (on Windows it comes with Git), or pass --cert and --key, or use adb reverse and http://localhost.');
+        process.exit(1);
+      }
+      fs.writeFileSync(path.join(dir, 'names.txt'), want);
+    }
+  }
+}
 
 const MAX_MSG = 1 << 20;            // one WebSocket message, reassembled
 const MAX_VALUE = 256 << 10;        // one stored value, as JSON
@@ -425,8 +463,14 @@ function request(req, res) {
 const server = OPT.cert ? https.createServer({ cert: fs.readFileSync(OPT.cert), key: fs.readFileSync(OPT.key) }, request) : http.createServer(request);
 server.on('upgrade', upgrade);
 server.listen(OPT.port, OPT.host, () => {
-  const a = server.address(), host = a.family === 'IPv6' ? `[${a.address}]` : a.address;
-  console.log(`relay listening on ${OPT.cert ? 'https' : 'http'}://${host}:${a.port}${ROOT ? ', serving ' + ROOT : ''} (protocol ${PROTO})`);
+  const a = server.address(), host = a.family === 'IPv6' ? `[${a.address}]` : a.address, scheme = OPT.cert ? 'https' : 'http';
+  console.log(`relay listening on ${scheme}://${host}:${a.port}${ROOT ? ', serving ' + ROOT : ''} (protocol ${PROTO})`);
+  if (ROOT && /^(0\.0\.0\.0|::)$/.test(a.address)) {
+    const lan = lanAddresses();
+    if (lan.length) console.log(`On every headset (same Wi-Fi), open the same address: ${lan.map(ip => `${scheme}://${ip}:${a.port}/`).join(' or ')}` +
+      (OPT.lan ? '\n(The certificate is this machine\'s own: accept the warning once on each headset.)' : ''));
+    console.log(`On this machine: ${scheme}://localhost:${a.port}/`);
+  }
 });
 for (const sig of ['SIGINT', 'SIGTERM']) {
   process.on(sig, () => {   // say goodbye, so clients reconnect at once (a container stop sends SIGTERM)

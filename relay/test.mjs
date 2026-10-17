@@ -1,9 +1,10 @@
 // Test of the relay: node relay/test.mjs
 // Starts relay/server.mjs on a free port (short timeouts, serving the repository), talks to it with
 // Node's WebSocket and with raw sockets (for frames a browser never sends), and exits 1 on a failure.
-import { spawn } from 'node:child_process';
+import { spawn, execFileSync } from 'node:child_process';
 import net from 'node:net';
 import http from 'node:http';
+import https from 'node:https';
 import crypto from 'node:crypto';
 import zlib from 'node:zlib';
 import fs from 'node:fs';
@@ -24,7 +25,7 @@ async function start(args) {
   procs.push(p);
   p.out = '';
   p.port = await new Promise((res, rej) => {
-    p.stdout.on('data', d => { p.out += d; const m = /listening on http:\/\/[^\s]+:(\d+)/.exec(p.out); if (m) res(+m[1]); });
+    p.stdout.on('data', d => { p.out += d; const m = /listening on https?:\/\/[^\s]+:(\d+)/.exec(p.out); if (m) res(+m[1]); });
     p.on('exit', c => rej(new Error('relay exited with ' + c)));
     setTimeout(() => rej(new Error('relay did not start')), 5000);
   });
@@ -417,6 +418,20 @@ try {
     ok(r.status === 404 && !/secret/.test(r.text), 'the link is 404');
     other.kill();
     fs.rmSync(dir, { recursive: true }); fs.rmSync(outside);
+  });
+
+  await step('--lan: HTTPS with a certificate of its own for this machine, the app served', async () => {
+    try { execFileSync('openssl', ['version'], { stdio: 'ignore' }); } catch { console.log('  (no openssl here: skipped)'); return; }
+    const L = await start(['--lan']);
+    const get = p => new Promise((res, rej) => https.get({ host: '127.0.0.1', port: L.port, path: p, rejectUnauthorized: false }, r => {
+      const san = r.socket.getPeerCertificate().subjectaltname || '';
+      r.resume(); r.on('end', () => res({ status: r.statusCode, san }));
+    }).on('error', rej));
+    const a = await get('/api/ping'), b = await get('/index.html');
+    ok(a.status === 200 && b.status === 200, 'the API and the app over HTTPS');
+    ok(/IP Address:127\.0\.0\.1/.test(a.san) && /DNS:localhost/.test(a.san), 'the certificate names this machine');
+    ok(/listening on https:/.test(L.out), 'it says https');
+    L.kill();
   });
 
   await step('the log has a line per write and per refusal', async () => {

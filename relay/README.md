@@ -6,17 +6,17 @@ per room, the latest value of every shared state key and passes ephemeral messag
 without storing them. One file, `server.mjs`: Node 18 or newer, no packages (its own minimal WebSocket code). It
 can serve the app as well (`--static .`), so the page and the relay share one address.
 
-**Where it runs.** GitHub Pages serves static files only, so it cannot run the relay. The app itself keeps
-working there as it does today; only shared rooms need the relay, on any machine that runs Node or Docker
-(Coolify, a lab machine, a laptop).
+**Where it runs.** For now on a machine (a laptop will do) on the **same Wi-Fi as the headsets**, not on the
+internet. It serves the app too, so every headset and desktop opens one address on that machine. GitHub Pages
+serves static files only, so it cannot run the relay; the app keeps working there for everyone else, and only
+shared rooms need the relay. Public hosting (Coolify) stays possible later: see the end of this file.
 
 **No accounts, no passwords: the room code is the secret.** Rooms live in memory: a restart empties them.
-Meant for a lab network or a self-hosted server, not for the open internet.
 
 ## Running it
 
 ```sh
-node relay/server.mjs [--port 8787] [--host 0.0.0.0] [--static .] [--cert cert.pem --key key.pem]
+node relay/server.mjs [--lan] [--port 8787] [--host 0.0.0.0] [--static .] [--cert cert.pem --key key.pem]
 ```
 
 | flag | default | meaning |
@@ -29,16 +29,65 @@ node relay/server.mjs [--port 8787] [--host 0.0.0.0] [--static .] [--cert cert.p
 | `--expire <s>` | 21600 (6 h) | a room without members is deleted after this |
 | `--ping <s>` | 20 | how often the relay pings every member (keeps proxies from closing idle sockets) |
 | `--quiet` | off | no log lines |
+| `--lan` | off | for headsets on the same Wi-Fi: HTTPS with a certificate of its own (made with `openssl` in `relay/.lan/`) and the app served from the repository; prints the address to open |
 
 It prints `relay listening on http://<host>:<port>` when it starts, then one line per event: a room created, a
 join, a hello, every stored write (`XYZ set #12 by k7f2: st.a1.play`, deletions as `key=null`), every refusal
 with its reason, dropped ephemeral messages (counted), a leave, a timeout, an expired room. `X-Forwarded-For`
 is used for these lines only. It stops cleanly on SIGTERM (telling every member, close code 1001).
 
-Headsets need a secure context for WebXR: `https://`, or `http://localhost`. A page on `https://` can only open
-`wss://` sockets. Three set-ups:
+Headsets need a secure context for WebXR (`https://`, or `http://localhost`), and a page on `https://` can only
+open `wss://` sockets. `--lan` takes care of both on a local network: it makes a certificate of its own for
+this machine's addresses (once, with `openssl`, in `relay/.lan/`, made again when the addresses change), serves
+the app from the repository over HTTPS, and prints the address to open.
 
-### 1. Coolify (recommended): one address for the app and the relay
+## A session on one Wi-Fi, step by step
+
+**Once, before the first session**
+
+1. A machine on the same Wi-Fi as the headsets, with Node 18 or newer, `openssl` (macOS and Linux have it; on
+   Windows it comes with Git) and this repository.
+2. A Wi-Fi where devices can reach each other. University and guest networks (eduroam, for instance) usually
+   keep devices apart: then use a router of your own or a phone's hotspot. Let the machine's firewall accept
+   connections on port 8787 (macOS asks the first time the relay starts).
+3. For automatic alignment on each Quest 3 (optional; without it people touch two marks instead): in Quest
+   Browser open `chrome://flags`, set **WebXR experiments** to Enabled and restart the browser completely; and
+   turn on **Enhanced spatial services** in the headset's settings (privacy, device permissions). See
+   [docs/shared-spaces.md](../docs/shared-spaces.md).
+4. Two marks for calibration: two crosses of tape about a metre apart (two corners of a table work well).
+
+**Each session**
+
+1. On the machine: `node relay/server.mjs --lan`. It prints the address, for example
+   `https://192.168.1.20:8787/`.
+2. On every headset, open **exactly that address** in Quest Browser (a bookmark helps: shared spaces need the
+   same page address on every headset). The first time, the browser warns that the certificate is not trusted:
+   choose to continue (it is this machine's own certificate).
+3. The first person: **Shared** > **Start a room**, then **Arrange all** puts the seven stories as stations on
+   an arc in front of you (or **Add here** for one story where you stand). Everyone else: **Shared** > pick the
+   room under **Open rooms**.
+4. In the headset, the room lines up by itself when shared spaces work ("Aligned automatically"); otherwise the
+   panel asks you to **Calibrate**: touch mark A with the controller and pull the trigger, then mark B. Each
+   headset remembers its marks for next time.
+5. Walk up to a station (or point at its card and pull the trigger): its story runs for everyone there, its
+   narration plays where it stands, and everyone sees everyone's pointer.
+6. Desktop operators on the same network open the same address in a browser (and accept the warning once),
+   join with **Shared**, and follow a station from the room map.
+
+People elsewhere (remote VR, remote desktops) cannot reach a relay on a local network: that needs a VPN to the
+machine or public hosting.
+
+**Without a certificate**: `node relay/server.mjs --static .` and, per headset in developer mode,
+`adb reverse tcp:8787 tcp:8787` (USB or wireless adb); then open `http://localhost:8787/` on each headset, which
+counts as secure (no warning, and the service worker runs). Other machines can use `http://<machine>:8787/` for the
+desktop page only (no headset view there).
+
+**Caveats.** A page with a self-signed certificate gets no service worker (no offline copy; nothing else
+changes). The app on GitHub Pages cannot use a relay with a self-signed certificate (the `wss://` connection
+fails without asking): open the app from the relay instead. `--cert` and `--key` take a real certificate if you
+have one.
+
+## Later: public hosting (Coolify)
 
 1. In Coolify, **New resource** > this Git repository (and branch).
 2. Build pack **Dockerfile**; base directory `/`, Dockerfile location `/relay/Dockerfile`.
@@ -49,37 +98,12 @@ Headsets need a secure context for WebXR: `https://`, or `http://localhost`. A p
 5. Deploy. Check `https://networks.example.org/api/ping` (the image's health check uses it too).
 
 Then open `https://networks.example.org/` on every headset and desktop: the relay serves the app, and the
-app's shared-room client talks to the relay on the same origin (`wss://networks.example.org/api/ws`). Use the
-same page link on every headset (Quest shared spaces are per page URL). The image (`node:22-alpine`, about
-8 MB of app) holds the app files and the relay only; `.dockerignore` leaves out `tools/`, `ikerdata/`, `docs/`
-and the git history. A redeploy restarts the relay and empties its rooms (see "A restart" below).
-
-### 2. The app on GitHub Pages, the relay elsewhere
-
-Run the relay as in 1 (or on any host with HTTPS in front), and keep the app on GitHub Pages. The app is told
-the relay's address once (it remembers it), or by a link:
-`https://<user>.github.io/<repo>/#s=XYZ&relay=wss://networks.example.org`. The API sends CORS headers (and
-answers Private Network Access preflights) for this. The relay must be on `wss://` (a Pages site is `https://`),
-and the app on Pages and the relay should be the same version (a room refuses another app version).
-
-### 3. A laptop, for testing
-
-```sh
-node relay/server.mjs --static .          # the app and the relay on http://<laptop>:8787
-adb reverse tcp:8787 tcp:8787             # once per headset (USB, or wireless adb: adb -s <serial> reverse ...)
-```
-
-Then open `http://localhost:8787/` in Quest Browser on each headset: `localhost` is a secure context, so WebXR,
-the service worker and `ws://` all work, and every headset has the same page URL. Desktop browsers on the
-laptop use the same address; other machines can use `http://<laptop-ip>:8787/` for the desktop page (no
-headset view there: not a secure context).
-
-Caveats: a headset that opens `http://<laptop-ip>:8787/` gets no WebXR. `--cert/--key` with a self-signed
-certificate is a poor fit for headsets: each must accept the browser's warning, a page with a certificate
-error does not get its service worker, and a `wss://` connection to a host whose certificate was not accepted
-fails without asking. On a lab machine use a real certificate for a real name instead (for example from Let's
-Encrypt with a DNS challenge, the name pointing at the machine's LAN address):
-`node relay/server.mjs --static . --port 443 --cert fullchain.pem --key privkey.pem`.
+app's shared-room client talks to the relay on the same origin (`wss://networks.example.org/api/ws`). The image
+(`node:22-alpine`, about 8 MB of app) holds the app files and the relay only; `.dockerignore` leaves out
+`tools/`, `ikerdata/`, `docs/` and the git history. A redeploy restarts the relay and empties its rooms.
+Or keep the app on GitHub Pages and give it the relay's address once (it remembers it), or by a link:
+`https://<user>.github.io/<repo>/#s=XYZ&relay=wss://networks.example.org` (the API sends CORS headers and answers
+Private Network Access preflights for this; the app versions must match).
 
 ## HTTP API
 

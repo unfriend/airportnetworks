@@ -5,3 +5,4 @@ tools/lbi/data/airports_*
 tools/nmd/shots/
 tools/flock/shots/
 tools/robots/shots/
+relay/.lan/
