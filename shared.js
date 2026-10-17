@@ -925,7 +925,7 @@
   function panelSig() {
     return J([C.code, C.status, C.note, PNL.open, PNL.page, OV.panel.hover, C.name, C.color, C.hereSet, here(), askHere(), R.status(), C.mine, C.live, armed(C.mine),
       C.st.map(s => s.id + s.story), C.members.map(m => m.id + m.name + m.color + m.kind + m.here), [...C.pres].map(([id, P]) => id + P.st),
-      C.code ? 0 : (C.rooms || []).map(r => r.code + r.members), C.roomsErr, C.relay]);
+      C.code ? 0 : (C.rooms || []).map(r => r.code + r.members), C.roomsErr, C.relay, sharedLine(), forgetArmed(), !!(R.saved || R.frame)]);
   }
   function drawPanel() {
     const S = OV.panel, sig = panelSig();
@@ -993,6 +993,13 @@
         else button(S, 'cal', x, y, bw, 60, 'Calibrate', null);
         button(S, 'here', x + bw + 16, y, bw, 60, here() ? 'Say I am elsewhere' : 'Say I am in this room', () => setHere(!here()), { px: 22 });
         y += 76;
+        if (here()) {
+          ctx.font = FONT(21); ctx.fillStyle = MUTED; ctx.fillText(fit(ctx, sharedLine(), w), x, y); y += 34;
+          const fa = forgetArmed();
+          button(S, 'forget', x, y, bw, 56, fa ? 'Forget? Press again' : 'Forget calibration', R.saved || R.frame ? forgetAsk : null,
+            { px: 22, color: fa ? '#ffb43b' : undefined, on: fa });
+          y += 72;
+        }
       }
       label('Stations');
       const mine = C.stById.get(C.mine), arm = mine && armed(mine.id);
@@ -1276,7 +1283,7 @@
     // spaces asked for by an earlier join (leave and join again in one session) stop reporting here
     try { if (R.floor && R.floor.removeEventListener) R.floor.removeEventListener('reset', floorReset); } catch (e) { /* gone */ }
     try { if (R.shared && R.shared.removeEventListener) R.shared.removeEventListener('reset', sharedReset); } catch (e) { /* gone */ }
-    Object.assign(R, { begun: s, floor: null, noFloor: false, shared: null, sharedId: '', sharedAt: 0, sharedAsked: performance.now(), sharedOK: false,
+    Object.assign(R, { begun: s, floor: null, noFloor: false, shared: null, sharedNo: false, sharedId: '', sharedAt: 0, sharedAsked: performance.now(), sharedOK: false,
       frame: null, src: '', aligned: false, calib: null, anchor: null, anchorBusy: false, anchorTried: false, wantAnchor: null, noticed: '' });
     setState('waiting');
     const feats = s.enabledFeatures ? [...s.enabledFeatures] : null;
@@ -1296,8 +1303,8 @@
       let props = [];
       try { props = Object.getOwnPropertyNames(Object.getPrototypeOf(sp)).concat(Object.keys(sp)); } catch (e) { /* host object */ }
       log('space', { type: 'shared', id: R.sharedId, props });
-    }, e => log('space refused', { type: 'shared', e: e && e.message }));
-    else log('space', { type: 'shared', granted: false });
+    }, e => { if (R.session === s) R.sharedNo = true; log('space refused', { type: 'shared', e: e && e.message }); });
+    else { R.sharedNo = true; log('space', { type: 'shared', granted: false }); }
   }
   function floorReset(ev) {
     const sp = ev && (ev.referenceSpace || ev.target);
@@ -1471,6 +1478,31 @@
     log('calibrate');
   }
   function cancel() { if (!R.calib) return; R.calib = null; NOTE.until = 0; setState(R.frame ? R.src : 'calibrate'); log('calibrate cancelled'); }
+  // Forget calibration: this headset's saved marks and their anchor go, and it aligns again from the start
+  // (the shared space first, if there is one; else it asks to calibrate)
+  function forgetMarks() {
+    if (R.saved && R.saved.anchor) HOST.anchor.drop(R.saved.anchor);
+    if (R.anchor) { try { R.anchor.delete(); } catch (e) { /* gone */ } }
+    R.saved = null; storeSaved();
+    Object.assign(R, { frame: null, src: '', aligned: false, anchor: null, anchorBusy: false, anchorTried: false, wantAnchor: null, calib: null, noticed: '', recAt: 0 });
+    const t = performance.now(); R.sharedAsked = t; if (R.sharedId) R.sharedAt = t;
+    setState('waiting');
+    notice('Calibration forgotten', 'This headset lines up again: from the shared space if there is one, else it asks you to calibrate.', 6000);
+    log('forget marks');
+  }
+  // the shared space, to compare headsets: the same id on each means they share one room
+  function sharedLine() {
+    if (!R.session || !C.code) return '';
+    if (R.sharedId) return 'Shared space ' + R.sharedId.slice(0, 8) + ' (the same on every headset if they share it)';
+    if (R.shared) return 'Shared space: waiting for its id...';
+    return R.sharedNo ? 'No shared space here (needs the WebXR experiments flag)' : 'Shared space: asking...';
+  }
+  const FG = { until: 0 };   // Forget calibration takes two presses: the first arms it for 3 s
+  const forgetArmed = () => performance.now() < FG.until;
+  function forgetAsk() {
+    if (forgetArmed()) { FG.until = 0; forgetMarks(); return; }
+    FG.until = performance.now() + 3000; setTimeout(changed, 3050); changed();
+  }
   function mark(i) {
     const h = C.rays.get(i);
     if (!R.calib || !h || !R.lfOK) return;
@@ -1549,7 +1581,7 @@
 
   HOST.room = {
     get state() { return R.state; }, get aligned() { return R.aligned; }, get frame() { return R.frame; }, get src() { return R.src; },
-    watch, update: f => update(f), place, placing, adopt, calibrate, cancel, mark, status,
+    watch, update: f => update(f), place, placing, adopt, calibrate, cancel, mark, status, forget: forgetMarks, sharedLine,
     // the station's panel, for a story's xrRecenter while placed (off, pp, pr in its rig)
     saved: () => { const L = liveSt(), P = panelPose(L); return placing() ? { off: [0, 0, 0], pp: P.pp, pr: P.pr } : null; },
     joined() { if (R.session) { begin(); loop(R.session); } },

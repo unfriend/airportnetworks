@@ -676,6 +676,25 @@ try {
   const re = await H.evaluate(() => ({ frame: HOST.room.frame, src: HOST.room.src }));
   check('calibration: the next session finds the frame again by its anchor', re.src === 'anchor' && re.frame && near(re.frame.o, cal.frame.o, 2e-3) && near(re.frame.x, cal.frame.x, 2e-3),
     `${re.src} ${re.frame ? fmt(re.frame.o) : ''} ` + await H.evaluate(() => JSON.stringify(window.__collabLog.slice(-10).map(e => [e.ev, e.state || e.src || e.e || '']))));
+  // Forget calibration (two presses on the shell's panel): the marks and their saved anchor go, and the headset
+  // lines up again from the start (here, with no shared space, it asks to calibrate); the panel says there is no
+  // shared space
+  const forgot = await H.evaluate(async () => {
+    const S = HOST.collab.overlay().panel, uuid = HOST.room.internals().saved && HOST.room.internals().saved.anchor;
+    const press = () => { const r = S.regions.find(x => x.id === 'forget'); if (r && r.fn) r.fn(); return !!(r && r.fn); };
+    HOST.collab.panelOpen(true);
+    await new Promise(r => setTimeout(r, 400));
+    const first = press(), kept = !!localStorage.getItem('roomFrame');
+    await new Promise(r => setTimeout(r, 300));
+    const second = press();
+    await new Promise(r => setTimeout(r, 50));
+    return { first, kept, second, uuid, gone: !window.__xr.handles.has(uuid), saved: localStorage.getItem('roomFrame'), frame: HOST.room.frame, line: HOST.room.sharedLine() };
+  });
+  await frames(H, 300);
+  const forgotState = await H.evaluate(() => { HOST.collab.panelOpen(false); return HOST.room.state; });
+  check('Forget calibration: the first press only asks, the second forgets the marks and their anchor, and the headset asks to calibrate again',
+    forgot.first && forgot.kept && forgot.second && !!forgot.uuid && forgot.gone && !forgot.saved && !forgot.frame && forgotState === 'calibrate' && /No shared space/.test(forgot.line),
+    JSON.stringify(Object.assign({ state: forgotState }, forgot)));
   await H.evaluate(() => window.__xr.end());
 
   // ------------------------------------------ a VR headset elsewhere --

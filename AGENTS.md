@@ -202,7 +202,12 @@ the content floats 1.4 m ahead of the spot), with `st.<id>.play` (the clock:
   runs its own frame callback; the room frame comes from a frame published for
   the shared space (`roomFrameShared`), this headset's saved marks (anchor at
   mark A, `roomFrame` in `localStorage`) or a two-point calibration; people
-  elsewhere (VR) use their own floor. While aligned and at its station,
+  elsewhere (VR) use their own floor. Saved marks win over the shared space
+  (a frame published for it is only reconciled with them), so the panel's
+  room section shows the shared space's id (`sharedLine()`: the same id on
+  every headset means they share it) and *Forget calibration*
+  (`HOST.room.forget()`, press twice: drops the saved marks and their anchor,
+  then aligns again). While aligned and at its station,
   `HOST.anchor.frame()` returns the station's rig pose (spot at 1.6 m, facing
   its way), `held()` is true and `locked(kind)` is true except for `'panel'`;
   `HOST.audio.zone()` pans the narration from the station (full volume within

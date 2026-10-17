@@ -81,16 +81,18 @@ the app's files from the repository over HTTPS, and prints the address to open.
    choose to continue (it is this machine's own certificate).
 3. Open **Shared**: on the page, the **Shared** button in the top bar or on the Stories screen; in the headset,
    the **Open** tab on the **Shared space** panel beside the story panel. The first person: **Start a room**,
-   then **Arrange all** puts the seven stories as stations on an arc in front of you (or one story where you
+   then **Arrange all** puts the seven stories as stations in two rows in front of you (or one story where you
    stand: **Add here** in the headset, **Add a station** on the page). Arrange all from a page, without a
-   headset, puts the arc round the room's origin (mark A). Everyone else: **Shared**, then pick the room under
+   headset, puts the rows round the room's origin (mark A). Everyone else: **Shared**, then pick the room under
    **Open rooms**.
 4. In the room, use **Enter AR**: you see the room and each other, and the stations stand in it. In VR the panel
    asks once whether you are in the same room as the others (then the room is aligned as in AR) or elsewhere
    (then you get your own floor and the others see you as an avatar).
-5. The room lines up by itself when shared spaces work ("Aligned automatically"); otherwise the panel asks you
-   to **Calibrate**: touch mark A with the tip of the controller and pull the trigger, then mark B (hold the
-   controller the same way at both). Each headset remembers its marks for next time.
+5. The room lines up by itself when shared spaces work (in a new room the first headset says "Shared space
+   found", the others "Aligned automatically"); otherwise the panel asks you to **Calibrate**: touch mark A with the tip of
+   the controller and pull the trigger, then mark B (hold the controller the same way at both). Each headset
+   remembers its marks for next time ("Room calibration from last time"), and those marks win over the shared
+   space. The Shared panel's room section shows the shared space's id: it must be the same on every headset.
 6. Walk up to a station (or point at its card and pull the trigger): its story runs for everyone there, its
    narration plays where it stands, and everyone sees everyone's pointer.
 7. Desktop operators on the same network open the same address in a browser (and accept the warning once),
@@ -114,6 +116,14 @@ machine or public hosting.
 - **The app says the room does not exist**: a mistyped room code, an expired room (6 hours after the last
   person left), or a relay that was restarted. Pick the room from **Open rooms** instead of typing, or start a
   new one.
+- **Always "calibration from last time", never "Aligned automatically"**: the headset uses its saved marks.
+  Compare the **Shared space** line in the Shared panel's room section on every headset: the same id means
+  they share the space; "No shared space here" means the WebXR experiments flag or Enhanced spatial services
+  is off on that headset (setup step 3). To start again, press **Forget calibration** twice on every headset
+  (or clear the site's data in Quest Browser), leave AR, then enter AR on one headset and wait until it is
+  aligned ("Shared space found", or "Aligned automatically" when the room already holds a frame for that space)
+  before the others enter. If the ids differ, or a headset has no shared space, calibrate every headset with the
+  same two marks instead.
 - **No sound at a station**: use **Sound check** on the Stories screen (it plays a beep through each sound
   engine).
 

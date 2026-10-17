@@ -1261,6 +1261,8 @@ HOST.anchor = (function () {
         }, () => ({ anchor: a, uuid: '' }));
       });
     },
+    // a saved handle no longer wanted (Forget calibration): deleted now, or at the start of the next session
+    drop(u) { forget(u); },
     // a saved anchor back by its handle (rejects when this session cannot restore it)
     find(u) {
       const s = N.session;
