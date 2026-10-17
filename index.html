@@ -1156,16 +1156,26 @@ HOST.anchor = (function () {
     N.gen++;
     Object.assign(N, { session: s, anchor: null, last: null, placed: false, restored: false, busy: false, want: '', kind: '', note: '' });
     if (s && s.deletePersistentAnchor) for (const u of N.old.splice(0)) s.deletePersistentAnchor(u).catch(() => {});
-    // handles nobody here knows any more (older versions, or lost on the way) take the browser's few slots (8 a
-    // site on the Quest, and a new one is refused when they are full): all but the placement's and the room's go
-    let all = null;
-    try { all = s && s.persistentAnchors; } catch (e) { /* not here */ }
-    if (all && s.deletePersistentAnchor && typeof all[Symbol.iterator] === 'function') {
-      const keep = new Set([N.uuid, ...(HOST.room && HOST.room.handles ? HOST.room.handles() : [])].filter(Boolean));
-      for (const u of [...all]) if (!keep.has(u)) s.deletePersistentAnchor(u).catch(() => {});
-    }
+    N.tidied = s ? tidy() : null;
     store();
     if (s && N.on) N.want = N.uuid ? 'restore' : 'create';
+  }
+  // handles nobody here knows any more (older versions, or lost on the way) take the browser's few slots (a new
+  // one is refused with "Maximum number of anchors reached" when they are full): all but the placement's and the
+  // room's go. The answer says what happened, for the room's log: { listed, deleted, failed: [reasons], left }
+  function tidy() {
+    const s = N.session;
+    let all = null;
+    try { all = s && s.persistentAnchors; } catch (e) { /* not here */ }
+    if (!all || !s.deletePersistentAnchor || typeof all[Symbol.iterator] !== 'function') return Promise.resolve(null);
+    const keep = new Set([N.uuid, ...(HOST.room && HOST.room.handles ? HOST.room.handles() : [])].filter(Boolean));
+    const gone = [...all].filter(u => !keep.has(u));
+    const del = u => { try { return Promise.resolve(s.deletePersistentAnchor(u)); } catch (e) { return Promise.reject(e); } };
+    return Promise.all(gone.map(u => del(u).then(() => '', e => (e && (e.name + ': ' + e.message)) || 'refused'))).then(rs => {
+      let left = null;
+      try { left = [...s.persistentAnchors].length; } catch (e) { /* not here */ }
+      return { listed: [...all].length, kept: keep.size, deleted: rs.filter(r => !r).length, failed: rs.filter(Boolean).slice(0, 3), left };
+    });
   }
   function restore() {
     const s = N.session, g = N.gen;
@@ -1269,8 +1279,20 @@ HOST.anchor = (function () {
         }, e => ({ anchor: a, uuid: '', err: (e && (e.name + ': ' + e.message)) || 'refused' }));   // (why, for the room's log)
       });
     },
+    // a handle asked again for an anchor made earlier (its first request was refused: the store was full)
+    handle(a) {
+      const s = N.session;
+      if (!s || !a || !a.requestPersistentHandle) return Promise.resolve({ uuid: '', err: 'no persistent handles here' });
+      let pr;
+      try { pr = a.requestPersistentHandle(); } catch (e) { pr = Promise.reject(e); }
+      return Promise.resolve(pr).then(u => { if (N.session !== s) { forget(u); return { uuid: '' }; } return { uuid: u }; },
+        e => ({ uuid: '', err: (e && (e.name + ': ' + e.message)) || 'refused' }));
+    },
     // a saved handle no longer wanted (Forget calibration): deleted now, or at the start of the next session
     drop(u) { forget(u); },
+    // the tidy-up of saved anchors at this session's start (a promise of its report), and one now
+    tidied: () => N.tidied || Promise.resolve(null),
+    tidy: () => (N.session ? tidy() : Promise.resolve(null)),
     // a saved anchor back by its handle (rejects when this session cannot restore it)
     find(u) {
       const s = N.session;

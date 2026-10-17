@@ -90,6 +90,7 @@ const check = (name, ok, detail) => {
 };
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const near = (a, b, tol) => a.length === b.length && a.every((v, i) => Math.abs(v - b[i]) <= tol);
+const dist = (a, b) => Math.hypot(...a.map((v, i) => v - b[i]));
 const fmt = a => '[' + a.map(v => (+v).toFixed(4)).join(', ') + ']';
 const r3 = x => Math.round(x * 1000) / 1000;
 const angle = (a, b) => { let d = Math.abs(a - b) % (2 * Math.PI); return d > Math.PI ? 2 * Math.PI - d : d; };
@@ -158,7 +159,10 @@ function installXR(o) {
     return { transform: { position: { x: p.x, y: p.y, z: p.z, w: 1 }, orientation: { x: q.x, y: q.y, z: q.z, w: q.w }, matrix: Float32Array.from(m.elements) } };
   };
   const mkAnchor = w => { const a = { anchorSpace: { world: w }, delete() {},
-    requestPersistentHandle: () => { const u = 'room' + ++X.n + Math.random().toString(36).slice(2, 6); X.handles.set(u, w); return Promise.resolve(u); } }; return a; };
+    requestPersistentHandle: () => {   // a full store (o.cap handles) refuses, with Quest Browser's words
+      if (o.cap && X.handles.size >= o.cap) return Promise.reject(new DOMException('Failed to execute \'requestPersistentHandle\' on \'XRAnchor\': Maximum number of anchors reached!', 'InvalidStateError'));
+      const u = 'room' + ++X.n + Math.random().toString(36).slice(2, 6); X.handles.set(u, w); return Promise.resolve(u);
+    } }; return a; };
   X.frame = {
     getPose: (s, b) => pose(world(b).clone().invert().multiply(world(s))),
     getViewerPose: b => pose(world(b).clone().invert().multiply(X.W.head)),
@@ -175,7 +179,7 @@ function installXR(o) {
     requestReferenceSpace: t => (t === 'local' || o.features.includes(t) ? Promise.resolve(X.spaces[t]) : Promise.reject(new Error(t + ' not supported'))),
     requestAnimationFrame(cb) { X.raf.push(cb); return X.raf.length; },
     restorePersistentAnchor: u => (X.handles.has(u) ? Promise.resolve(mkAnchor(X.handles.get(u))) : Promise.reject(new Error('unknown'))),
-    deletePersistentAnchor: u => { X.handles.delete(u); return Promise.resolve(); },
+    deletePersistentAnchor: u => { if (X.stuck) return Promise.reject(new DOMException('cannot delete', 'InvalidStateError')); X.handles.delete(u); return Promise.resolve(); },
     get persistentAnchors() { return [...X.handles.keys()]; } };
   const xr = HOST.renderer.xr;
   X.getRef = X.getRef || xr.getReferenceSpace;
@@ -204,6 +208,15 @@ function installXR(o) {
     c.g.matrix.compose(ol, new THREE.Quaternion().setFromUnitVectors(V(0, 0, -1), dl), V(1, 1, 1));
   };
   X.end = () => { try { HOST.cur.peek('xrEnded()'); } catch (e) { /* no story */ } HOST.session = null; HOST.mode = null; xr.getReferenceSpace = X.getRef; };
+  // local-floor moves to F (the room's pose of its origin) and says so as Quest Browser does: a reset whose
+  // transform carries points from the old coordinates into the new ones, its height the head's change (dy, which
+  // must not count); err moves the reported origin (Quest's was 1 to 1.5 cm out)
+  X.floorReset = (F, dy, err) => {
+    const old = X.W.floor, E = err ? M([F[0] + err[0], F[1], F[2] + err[2], F[3]]) : M(F);
+    X.W.floor = M(F);
+    const newFromOld = new THREE.Matrix4().makeTranslation(0, dy || 0, 0).multiply(E.clone().invert().multiply(old));
+    for (const fn of X.resets['local-floor'] || []) fn({ transform: { matrix: Float32Array.from(newFromOld.elements), inverse: { matrix: Float32Array.from(newFromOld.clone().invert().elements) } } });
+  };
   return true;
 }
 // frames for a while (real time passes: the station dwell, the reconciliation)
@@ -707,17 +720,10 @@ try {
     /floor is 15 cm lower/.test(fl.note) && Math.abs(fl0) < 3e-3, JSON.stringify({ rm0, fl, fl0 }));
   // the Guardian origin moves within the session (a reset with a transform): the frame follows at once
   const F2 = [0.1, 0, -0.2, 0.2];
-  const moved = await H.evaluate(([F, F2]) => {
-    const X = window.__xr, V = (x, y, z) => new THREE.Vector3(x, y, z);
-    const M = a => new THREE.Matrix4().compose(V(a[0], a[1], a[2]), new THREE.Quaternion().setFromAxisAngle(V(0, 1, 0), a[3]), V(1, 1, 1));
-    const oldFromNew = M(F).invert().multiply(M(F2));
-    X.W.floor = M(F2);
-    for (const fn of X.resets['local-floor'] || []) fn({ transform: { matrix: Float32Array.from(oldFromNew.elements), inverse: { matrix: Float32Array.from(oldFromNew.clone().invert().elements) } } });
-    return HOST.room.frame;
-  }, [FLOOR, F2]);
+  const moved = await H.evaluate(F2 => { window.__xr.floorReset(F2, 0.3); return HOST.room.frame; }, F2);
   const mo = unapply(F2, apply(FLOOR, [fa[0], 0, fa[2]])), mx = rot(-F2[3], rot(FLOOR[3], cx));
-  check('a reset of local-floor with a transform moves the frame into the new coordinates', moved && near(moved.o, [mo[0], 0, mo[2]], 2e-3) && near(moved.x, mx, 2e-3),
-    `${moved ? fmt(moved.o) + ' ' + fmt(moved.x) : 'no frame'}, want ${fmt(mo)} ${fmt(mx)}`);
+  check('a reset of local-floor as Quest Browser sends it (old to new, the head\'s height ignored) moves the frame into the new coordinates',
+    moved && near(moved.o, [mo[0], 0, mo[2]], 2e-3) && near(moved.x, mx, 2e-3), `${moved ? fmt(moved.o) + ' ' + fmt(moved.x) : 'no frame'}, want ${fmt(mo)} ${fmt(mx)}`);
   // a recentre without a word (Quest Browser fires no reset): local and local-floor both move; the two anchors
   // keep the frame on the marks
   const F3 = [-0.6, 0, 0.5, -0.9], L3 = [F3[0], 1.6, F3[2], F3[3]];
@@ -731,24 +737,31 @@ try {
   const fa3 = unapply(F3, markA), fb3 = unapply(F3, markB), cx3 = unit([fb3[0] - fa3[0], 0, fb3[2] - fa3[2]]);
   check('a recentre without a reset event: the anchors keep the frame on the marks', rc.src === 'marks' && rc.frame && near(rc.frame.o, [fa3[0], 0, fa3[2]], 2e-3) && near(rc.frame.x, cx3, 2e-3),
     `${rc.src} ${rc.frame ? fmt(rc.frame.o) + ' ' + fmt(rc.frame.x) : 'no frame'}, want ${fmt(fa3)} ${fmt(cx3)}`);
-  // taken off and on again: the origin moves, and the anchors are not tracked any more (as after a Quest's sleep):
-  // after 5 s they are found again by their saved handles, and the frame stands on the marks again
+  // taken off and on again (as two Quest 3s did): the origin moves and a reset says how (4 cm out here), and the
+  // anchors are not tracked any more: the frame follows the reset at once, and the anchors found again by their
+  // saved handles put it back on the marks
   const F4 = [0.8, 0, 0.9, 2.1], L4 = [F4[0], 1.6, F4[2], F4[3]];
-  await H.evaluate(([F, L]) => {
+  const wk0 = await H.evaluate(([F, L]) => {
     const X = window.__xr, V = (x, y, z) => new THREE.Vector3(x, y, z);
     const M = a => new THREE.Matrix4().compose(V(a[0], a[1], a[2]), new THREE.Quaternion().setFromAxisAngle(V(0, 1, 0), a[3]), V(1, 1, 1));
     const stale = new Set(HOST.room.internals().anchors || []);
     X.visibility('hidden');
-    X.W.floor = M(F); X.W.local = M(L);
+    X.floorReset(F, -0.25, [0.04, 0, 0]); X.W.local = M(L);
     X.frame.trackedAnchors = { has: a => !stale.has(a) };
     X.visibility('visible');
+    window.__collabLog.push({ ev: 'test woke' });
+    return HOST.room.frame;
   }, [F4, L4]);
-  for (let k = 0; k < 40 && (await H.evaluate(() => HOST.room.src)) !== 'anchor'; k++) await frames(H, 250);
-  const wk = await H.evaluate(() => ({ src: HOST.room.src, frame: HOST.room.frame, log: window.__collabLog.filter(e => /woke|marks lost|marks tracked/.test(e.ev)).map(e => e.ev) }));
-  await H.evaluate(() => { delete window.__xr.frame.trackedAnchors; });
   const fa4 = unapply(F4, markA), fb4 = unapply(F4, markB), cx4 = unit([fb4[0] - fa4[0], 0, fb4[2] - fa4[2]]);
-  check('off and on again, the anchors lost: found again by their saved handles, the frame back on the marks', wk.src === 'anchor' && !!wk.frame &&
-    near(wk.frame.o, [fa4[0], 0, fa4[2]], 3e-3) && near(wk.frame.x, cx4, 3e-3) && wk.log.includes('woke') && wk.log.includes('marks lost'),
+  const sinceWake = () => H.evaluate(() => { const L = window.__collabLog, i = L.map(e => e.ev).lastIndexOf('test woke'); return L.slice(i + 1).map(e => e.ev); });
+  for (let k = 0; k < 40 && !(await sinceWake()).includes('anchors moved'); k++) await frames(H, 250);
+  const wk = await H.evaluate(() => ({ src: HOST.room.src, frame: HOST.room.frame, state: HOST.room.state }));
+  wk.log = await sinceWake();
+  await H.evaluate(() => { delete window.__xr.frame.trackedAnchors; });
+  check('off and on again: the frame follows the reset at once (the right way round), and is kept', !!wk0 && dist(wk0.o, [fa4[0], 0, fa4[2]]) < 0.05 &&
+    near(wk0.x, cx4, 3e-3) && Math.abs(wk0.o[1]) < 3e-3, JSON.stringify({ o: wk0 && wk0.o, x: wk0 && wk0.x, want: [fa4, cx4] }));
+  check('off and on again, the anchors not tracked: found again by their saved handles, the frame back on the marks', ['marks', 'anchor'].includes(wk.src) && !!wk.frame &&
+    near(wk.frame.o, [fa4[0], 0, fa4[2]], 3e-3) && near(wk.frame.x, cx4, 3e-3) && wk.log.includes('marks unanswered') && !wk.log.includes('calibrate'),
     JSON.stringify(Object.assign(wk, { want: [fa4, cx4] })));
   // next session (or a reload): the anchors at mark A and mark B bring the frame back; handles nobody knows go
   await H.evaluate(() => window.__xr.end());
@@ -876,12 +889,46 @@ try {
   const jumped = await H.evaluate(() => { const R = HOST.room.internals(); R.prev = { p: [9, 1.6, 9], q: [0, 0, 0, 1], t: performance.now() - 20 }; R.originCheck(performance.now()); return HOST.room.state; });
   await recal();
   await frames(H, 200);
-  await H.evaluate(() => { window.__xr.visibility('hidden'); window.__xr.visibility('visible'); });
+  check('without anchors: the marks hold for the session (nothing saved), and a reset with no transform or a jump of the origin asks to calibrate again',
+    noA.src === 'marks' && /no anchors/.test(noA.line) && !noA.saved && afterReset === 'calibrate' && jumped === 'calibrate', JSON.stringify({ noA, afterReset, jumped }));
+  // off and on again with a reset that says how the origin moved: the frame follows it and stays (asking to
+  // calibrate after every wake was worse), and the marks are shown to check by eye
+  const F5 = [0.2, 0, 0.3, 1.2];
+  await H.evaluate(F => { const X = window.__xr; X.visibility('hidden'); X.floorReset(F, 0.1); X.visibility('visible'); }, F5);
   await frames(H, 300);
-  const woke = await H.evaluate(() => HOST.room.state);
-  check('without anchors: the marks hold for the session (nothing saved), and a reset, a jump of the origin or the headset off and on asks to calibrate again',
-    noA.src === 'marks' && /no anchors/.test(noA.line) && !noA.saved && afterReset === 'calibrate' && jumped === 'calibrate' && woke === 'calibrate', JSON.stringify({ noA, afterReset, jumped, woke }));
+  const woke = await H.evaluate(() => ({ state: HOST.room.state, frame: HOST.room.frame }));
+  await frames(H, 5200);
+  const woke2 = await H.evaluate(() => ({ state: HOST.room.state, last: window.__collabLog.filter(e => e.ev === 'marks unanswered').slice(-1)[0] || null }));
+  const fa5 = unapply(F5, markA), fb5 = unapply(F5, markB), cx5 = unit([fb5[0] - fa5[0], 0, fb5[2] - fa5[2]]);
+  check('without anchors, off and on again: the frame follows the reset and is kept (no new calibration asked)', woke.state === 'marks' && !!woke.frame &&
+    near([woke.frame.o[0], woke.frame.o[2]], [fa5[0], fa5[2]], 3e-3) && near(woke.frame.x, cx5, 3e-3) && woke2.state === 'marks' && !!woke2.last && woke2.last.reset === true,
+    JSON.stringify({ woke, woke2, want: [fa5, cx5] }));
   await H.evaluate(() => window.__xr.end());
+
+  // a full store of saved anchors (one Quest 3 refused every handle: "Maximum number of anchors reached!"): the
+  // leftovers nobody knows are deleted and the handles asked again; when the store cannot be freed the marks hold
+  // for the session and the panel says a restart will ask to calibrate
+  const fullStore = async stuck => {
+    await H.evaluate(() => { localStorage.removeItem('roomFrame'); HOST.room.internals().saved = null; });
+    await H.evaluate(installXR, Object.assign({}, xrOpts, { features: ['local-floor', 'anchors'], cap: 8 }));
+    await H.evaluate(stuck => { window.__xr.stuck = stuck; window.__xr.begin(); }, stuck);
+    await frames(H, 300);
+    await H.evaluate(() => { const X = window.__xr; for (let i = 0; X.handles.size < 8; i++) X.handles.set('junk-' + i, new THREE.Matrix4()); window.__collabLog.push({ ev: 'test full' }); });
+    await recal();
+    for (let k = 0; k < 8 && !(await H.evaluate(() => window.__collabLog.some(e => e.ev === 'handles again'))); k++) await frames(H, 250);
+    const r = await H.evaluate(() => {
+      const L = window.__collabLog, i = L.map(e => e.ev).lastIndexOf('test full'), after = L.slice(i + 1), S = HOST.room.internals().saved;
+      return { made: after.find(e => e.ev === 'anchors made') || null, tidied: after.find(e => e.ev === 'anchors tidied') || null, again: after.find(e => e.ev === 'handles again') || null,
+        saved: S ? S.anchors.length : -1, junk: [...window.__xr.handles.keys()].filter(u => /^junk/.test(u)).length, full: HOST.room.internals().full, state: HOST.room.state };
+    });
+    await H.evaluate(() => window.__xr.end());
+    return r;
+  };
+  const fs1 = await fullStore(false), fs2 = await fullStore(true);
+  check('a full anchor store: leftovers deleted, the handles asked again and saved', !!fs1.made && /Maximum number of anchors/.test((fs1.made.err || [])[0] || '') &&
+    !!fs1.tidied && fs1.tidied.deleted >= 1 && !!fs1.again && fs1.again.saved && fs1.saved === 2 && !fs1.junk && !fs1.full && fs1.state === 'marks', JSON.stringify(fs1));
+  check('a full anchor store that cannot be freed: the marks hold for the session, and the panel says so', !!fs2.again && !fs2.again.saved && fs2.full &&
+    fs2.saved === 0 && fs2.state === 'marks' && !!fs2.tidied && fs2.tidied.failed.length > 0, JSON.stringify(fs2));
 
   // ------------------------------------------ a VR headset elsewhere --
   await H.evaluate(installXR, Object.assign({}, xrOpts, { mode: 'immersive-vr', head: [0.3, 1.7, -0.2, 0.6] }));

@@ -45,7 +45,9 @@ floor with a card, and pointing at one and pulling the trigger goes there too.
 People in the room calibrate every headset on the same two tape marks
 (Calibrate: touch mark A, then mark B, with the ring at the front of a
 controller; orange crosses then show where the headset puts the marks, and two
-anchors keep the calibration for next time). A headset's own calibration is
+anchors keep the calibration for next time and after the headset was off; if
+the panel says the anchor store is full, clearing Quest Browser's site data may
+help, see relay/README.md). A headset's own calibration is
 never overridden, and the room's floor comes from the marks, so a headset
 with a wrong floor still shows things at the same height. Quest Browser's
 experimental shared space is only used when asked for on the Shared panel (it

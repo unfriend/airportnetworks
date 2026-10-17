@@ -179,6 +179,21 @@ same page address, the relay on the same Wi-Fi; every 5 s each headset logged it
   old origin put it until its anchors answered, which they did not. Now a woken headset waits 5 s for its
   anchors, then finds them again by their saved handles, else asks to calibrate; and saved anchors nobody knows
   are deleted at session start (the Quest refuses new handles when its few slots are full).
+- **Off and on again, measured** (fourth test): on waking Quest Browser sent two `reset` events of
+  `local-floor`, each with a transform. Its matrix carries points from the old coordinates into the new ones,
+  the opposite of how we had read the spec: applied our way it turned the room -126 instead of +126 degrees;
+  applied its way it matched a calibration on the same tape right after within 1 to 1.5 cm. Its height was the
+  change of the head's height, not the floor's. The anchors made in the session were not tracked again after
+  waking. Now the reset moves the frame (its turn about the vertical and its move along the floor only), the
+  anchors are looked for again by their saved handles, and waking never drops the calibration.
+- **A full anchor store**: one Quest 3 refused every persistent handle ("InvalidStateError: Failed to execute
+  'requestPersistentHandle' on 'XRAnchor': Maximum number of anchors reached!") with 9 anchors listed for the
+  site, while the other saved with 11 listed, so the limit is not simply per site (perhaps per device, or
+  counting older addresses of the relay). That headset asked to calibrate after every restart. Deleting the
+  unknown anchors at session start did not free it; the log now says what deleting did, and the room deletes
+  and asks again when a handle is refused.
+- **The floor**: in the fourth test one headset's floor was about 50 cm off the other's; the room's floor
+  from the marks allowed for it.
 
 So: tape marks on every headset, the room's height taken from the marks (the first calibration's height of
 mark A over its floor, others allowing for their own floor), anchors to follow origin jumps, and the shared

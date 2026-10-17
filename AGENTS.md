@@ -232,16 +232,33 @@ the content floats 1.4 m ahead of the spot), with `st.<id>.play` (the clock:
   head's pose; one headset's floor was 28 cm too low (its head at 2 m), and its
   origin later jumped 5.5 m and 0.7 m down; `local-floor` moves with a recentre
   without a reset event. Two anchors (positions only) keep the frame on the
-  marks; without anchors a reset or a jump of the head asks to calibrate again.
+  marks; without anchors a reset without a transform or a jump of the head
+  asks to calibrate again.
 - Off and on again (the session hidden, then visible: sleep, the system menu)
   the origin moves under the frame (manual calibration lined two Quest 3s up,
-  but switching one off and on left it "totally off"): a calibrated headset
-  waits up to 5 s for its anchors to answer again (`afterWake`), else finds
-  them again by their saved handles ("Finding the marks again"), else (no
-  saved handles, or no anchors) asks to calibrate again. At session start
-  `HOST.anchor` deletes saved anchors nobody here knows (`session.persistentAnchors`
-  minus the placement's and `HOST.room.handles()`): the Quest keeps few per site
-  and refuses new ones when they are full.
+  but switching one off and on left it "totally off"). Quest Browser says how
+  with `reset` events of `local-floor` (two on waking) whose `transform`
+  carries points from the old coordinates into the new ones (not the other
+  way, as the spec reads: applied inverted it turned the room -126 instead of
+  +126 degrees; applied this way it matched a fresh calibration on the same
+  tape within 1 to 1.5 cm), and whose height is the head's change, not the
+  floor's: `floorReset` uses only its turn about the vertical and its move
+  along the floor. Anchors made in the session were not tracked again after a
+  sleep: a woken calibrated headset keeps its frame (moved by the reset), waits
+  up to 5 s for its anchors (`afterWake`), then looks for them again by their
+  saved handles (they put the frame back on the marks) and shows the orange
+  crosses for 30 s ("Check the marks"). Waking never drops a calibration
+  (asking to calibrate after every wake was worse).
+- The browser's store of saved anchors can be full ("Maximum number of
+  anchors reached!": one Quest 3 refused every handle with 9 listed for the
+  site, another saved with 11, so the limit is not simply per site). At
+  session start `HOST.anchor` deletes saved anchors nobody here knows
+  (`session.persistentAnchors` minus the placement's and `HOST.room.handles()`)
+  and the room logs what that did (`anchors tidied`); a handle refused as full
+  is asked once more after deleting again (`handlesAgain`,
+  `HOST.anchor.handle(a)`); if it is still refused the marks hold for this
+  session only and the panel says a restart will ask to calibrate. Clearing
+  the browser's site data may free the store (not confirmed).
 - Calibrating: a mark is where the controller's ray origin was held still 70 to
   260 ms before the trigger (a bright ring shows that point), at least 50 cm
   apart; a second pull within 0.6 s is ignored, and marks more than 5 cm
@@ -651,10 +668,14 @@ anchors are still being found), a new calibration replacing the old anchors,
 the shared space never overriding marks (a newer frame from someone else only
 reported, as a distance; not used at all by default), the room's floor from
 the first calibration (a lower floor allowed for), no mark from a double
-pull, Forget taking the published frame, a calibration
-without anchors asked again after a reset, a jump or the headset off and on, off
-and on again with the anchors lost (found again by their handles), unknown
-saved anchors deleted at session start, the mark taken where the
+pull, Forget taking the published frame, a reset as Quest Browser
+sends it (old to new coordinates, the head's height ignored), a calibration
+without anchors asked again after a reset without a transform or a jump, and
+kept (moved by the reset) off and on again, off and on again with the anchors
+not tracked (the frame follows the reset at once, then the anchors found
+again by their handles), unknown saved anchors deleted at session start, a
+full anchor store (cleaned and asked again; still full: the marks hold and the
+panel says so), the mark taken where the
 controller was held still, and VR elsewhere with its in-room question. `--quick` runs only the last story in the per-story part. A new story needs an entry in `STORIES`
 (`change` and `back`: code that changes its `state()`, and optional `effect`
 and `more`); the headset's story (`HEADSET_STORY`) stays the last entry.

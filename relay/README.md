@@ -94,7 +94,7 @@ the app's files from the repository over HTTPS, and prints the address to open.
    same on mark B (while calibrating, any trigger pull away from the Shared panel takes a mark). Orange crosses then show where this headset puts the
    marks: they must sit on the tape (they show for 30 s, and whenever the Shared panel is open). A headset's own
    calibration is never overridden. It is kept for next time by two anchors at the marks ("Room calibration from
-   last time"; Quest Browser keeps up to 8 anchors per site); a headset without anchors, or after a recentre (a
+   last time", when the headset can save anchors); a headset without anchors, or after a recentre (a
    long press on the Meta button), may ask to calibrate again. The room's floor is set by the first headset
    that calibrates: if another headset's floor is lower or higher (a Guardian floor set wrong), it says so on the
    panel ("Your floor is 28 cm lower than the room's") and allows for it, so things stand at the same height
@@ -131,12 +131,19 @@ machine or public hosting.
   settings.
 - **"Your marks are ... further apart than the room's"**: this headset touched other marks than the first one,
   or touched one badly: calibrate again on the same tape.
-- **Off by a lot after a headset was switched off and on**: it waits up to 5 s for its anchors, then looks for
-  them by their saved handles ("Finding the marks again"); if it cannot (its anchors were never saved) it asks
-  you to calibrate again. If it stays off without asking, press **Calibrate** and please send the logs.
+- **Off after a headset was switched off and on**: it moves the room as the headset says its origin moved,
+  looks for its anchors again by their saved handles (they put it back on the marks) and shows the orange
+  crosses for 30 s ("Check the marks"). If they are not on the tape, press **Calibrate** and please send the
+  logs.
 - **Calibration lost after a recentre or a new session**: the anchors were not kept (private browsing, cleared
-  site data, more than 8 anchors on the site, or a browser without anchors). Calibrate again; **Forget
-  calibration** (press twice) clears a headset's marks and anchors.
+  site data, a full anchor store, or a browser without anchors). Calibrate again; **Forget calibration** (press
+  twice) clears a headset's marks and anchors.
+- **"Anchors not saved (the store is full)"** on the panel, or a headset that asks to calibrate after every
+  restart: Quest Browser refused to save more anchors ("Maximum number of anchors reached!" in the log). The
+  app deletes the saved anchors it no longer knows and tries once more. If the panel still says so, clear
+  Quest Browser's browsing data (cookies and site data) on that headset, then calibrate once more. Every
+  address of the relay (another IP or port) is a site of its own, with its own old anchors. Whether clearing
+  frees the store is not confirmed yet: the log line `anchors tidied` says what deleting did.
 - **No sound at a station**: use **Sound check** on the Stories screen (it plays a beep through each sound
   engine).
 

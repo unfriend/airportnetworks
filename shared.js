@@ -986,7 +986,7 @@
   function panelSig() {
     return J([C.code, C.status, C.note, PNL.open, PNL.page, OV.panel.hover, C.name, C.color, C.hereSet, here(), askHere(), R.status(), C.mine, C.live, armed(C.mine),
       C.st.map(s => s.id + s.story), C.members.map(m => m.id + m.name + m.color + m.kind + m.here), [...C.pres].map(([id, P]) => id + P.st),
-      C.code ? 0 : (C.rooms || []).map(r => r.code + r.members), C.roomsErr, C.relay, sharedLine(), sourceLine(), floorNote(), forgetArmed(), !!(R.saved || R.frame), R.sharedAlign]);
+      C.code ? 0 : (C.rooms || []).map(r => r.code + r.members), C.roomsErr, C.relay, sharedLine(), sourceLine(), fullNote(), floorNote(), forgetArmed(), !!(R.saved || R.frame), R.sharedAlign]);
   }
   function drawPanel() {
     const S = OV.panel, sig = panelSig();
@@ -1056,7 +1056,7 @@
         y += 76;
         if (here()) {
           ctx.font = FONT(21); ctx.fillStyle = MUTED; ctx.fillText(fit(ctx, sharedLine(), w), x, y); y += 30;
-          const fl = floorNote(), src = fl || sourceLine();   // a floor that differs matters more than what the frame rests on
+          const fl = fullNote() || floorNote(), src = fl || sourceLine();   // a floor that differs matters more than what the frame rests on
           if (src) { ctx.fillStyle = fl || (R.cmp && (R.cmp.d > 0.05 || R.cmp.a > 2)) ? '#ffb43b' : MUTED; ctx.fillText(fit(ctx, src, w), x, y); y += 30; }
           y += 4;
           const fa = forgetArmed();
@@ -1336,7 +1336,8 @@
     mgen: 0,   // the marks' generation: anchors that arrive for older marks (forgotten, replaced) are thrown away
     mk: null,  // the marks in room coordinates, to draw: [height of A, A to B, height of B] (null: none known)
     cmp: null, showUntil: 0, prev: null, sampleAt: 0, oldAnchor: '', markAt: 0,
-    hiddenAt: 0, woke: 0, anchorSeen: 0,   // the headset off (or the origin moved): the marks are checked again
+    hiddenAt: 0, sleptAt: 0, woke: 0, anchorSeen: 0, resetAt: 0,   // the headset off (or the origin moved): the marks are checked again
+    full: false,   // the store of saved anchors refused their handles: the marks hold for this session only
     // aligning from the shared space is off unless asked for: on two Quest 3s it was 0.9 m and 19 degrees out
     // against the tape marks, and at first just the headset's own floor (see shared-spaces.md)
     sharedAlign: get('collabSharedAlign') === '1',
@@ -1405,13 +1406,14 @@
     letGo();
     Object.assign(R, { begun: s, floor: null, noFloor: false, shared: null, sharedNo: false, sharedId: '', sharedAt: 0, sharedAsked: performance.now(), sharedOK: false,
       frame: null, src: '', aligned: false, calib: null, anchorBusy: false, anchorTried: false, wantAnchors: null, noticed: '', mgen: R.mgen + 1,
-      mk: null, cmp: null, prev: null, pubAt: 0, recAt: 0 });
+      mk: null, cmp: null, prev: null, pubAt: 0, recAt: 0, full: false });
     if (R.oldAnchor && HOST.anchor.drop) { HOST.anchor.drop(R.oldAnchor); R.oldAnchor = ''; }   // an older version's anchor
     setState('waiting');
     const feats = s.enabledFeatures ? [...s.enabledFeatures] : null;
     let kept = null;
     try { kept = s.persistentAnchors ? [...s.persistentAnchors].length : null; } catch (e) { /* not here */ }
     log('session', { mode: HOST.mode, features: feats, format: FORMAT, ua: navigator.userAgent, persisted: kept });
+    if (HOST.anchor.tidied) HOST.anchor.tidied().then(rep => { if (rep && R.session === s) log('anchors tidied', rep); }, () => {});
     const ask = type => new Promise((res, rej) => { try { Promise.resolve(s.requestReferenceSpace(type)).then(res, rej); } catch (e) { rej(e); } });
     ask('local-floor').then(sp => {
       if (R.session !== s) return;
@@ -1434,17 +1436,22 @@
     const sp = ev && (ev.referenceSpace || ev.target);
     if (sp && sp !== R.floor) return;   // an older space of ours
     const tr = ev && ev.transform;
-    log('reset', { space: 'local-floor', transform: !!tr });
     // without a transform the origin may have moved (a recentre): anchors and the shared space put things right,
     // a calibration without anchors is asked again
-    if (!tr) { originMoved('reset'); return; }
-    // the frame in the new coordinates: the transform is the new origin seen from the old
-    _m.fromArray(tr.inverse ? tr.inverse.matrix : new THREE.Matrix4().fromArray(tr.matrix).invert().toArray());
-    const move = (fr, h) => { const o = _v.fromArray(fr.o).applyMatrix4(_m).toArray(), x = _v.fromArray(fr.x).transformDirection(_m).toArray(); fr.o = [o[0], h ? o[1] : 0, o[2]]; fr.x = level(x) || fr.x; };
-    if (R.frame) move(R.frame, own());   // only a frame on the marks moves in height (the others stand on this floor)
-    if (R.saved) for (const k of ['a', 'b']) R.saved[k] = _v.fromArray(R.saved[k]).applyMatrix4(_m).toArray().map(r3);
-    if (R.calib && R.calib.a) R.calib.a.applyMatrix4(_m);
-    R.prev = null;
+    if (!tr) { log('reset', { space: 'local-floor', transform: false }); originMoved('reset'); return; }
+    // Quest Browser's transform carries points from the old coordinates into the new ones (not the other way, as
+    // the spec reads: its inverse turned the room the wrong way when a headset woke, -126 instead of +126 degrees,
+    // measured against a calibration on the same tape right after), and its height is the head's change, not the
+    // floor's: only its turn about the vertical and its move along the floor count
+    const e = new THREE.Matrix4().fromArray(tr.matrix).elements, yaw = Math.atan2(-e[2], e[0]);
+    _m.makeRotationY(yaw).setPosition(e[12], 0, e[14]);
+    log('reset', { space: 'local-floor', transform: true, p: [e[12], e[13], e[14]].map(r3), yaw: r3(yaw) });
+    const move = fr => { const o = _v.fromArray(fr.o).applyMatrix4(_m), x = _v2.fromArray(fr.x).transformDirection(_m).toArray(); fr.o = [o.x, fr.o[1], o.z]; fr.x = level(x) || fr.x; };
+    if (R.frame) move(R.frame);
+    const lev = a => { const p = _v.set(a[0], 0, a[2]).applyMatrix4(_m); return [r3(p.x), a[1], r3(p.z)]; };
+    if (R.saved) for (const k of ['a', 'b']) R.saved[k] = lev(R.saved[k]);
+    if (R.calib && R.calib.a) R.calib.a.fromArray(lev(R.calib.a.toArray()));
+    R.prev = null; R.resetAt = performance.now();
   }
   function sharedReset(ev) {
     const id = sharedIdOf(R.shared);
@@ -1578,6 +1585,29 @@
     if (R.anchorIds && R.anchorIds.every(Boolean)) { S.anchors = R.anchorIds.slice(); storeSaved(); }
     return true;
   }
+  // the browser's store of saved anchors was full ("Maximum number of anchors reached", on one Quest 3 with 9 listed
+  // while another saved with 11): the leftovers nobody here knows are deleted and the handles asked once more; if
+  // it is still full the marks hold for this session only, and the panel says so (a restart asks to calibrate)
+  function handlesAgain(s, g) {
+    if (!HOST.anchor.tidy || !HOST.anchor.handle) { R.full = true; return; }
+    let ids = null, as = null;   // the anchors whose handles are asked (others may replace them meanwhile: a wake)
+    HOST.anchor.tidy().then(rep => {
+      log('anchors tidied', rep || { none: true });
+      if (R.session !== s || R.mgen !== g || !R.anchors || !R.anchorIds) return null;
+      as = R.anchors; ids = R.anchorIds.slice();
+      return Promise.all(as.map((a, i) => (ids[i] ? { uuid: ids[i] } : HOST.anchor.handle(a))));
+    }).then(rs => {
+      if (!rs) return;
+      if (R.session !== s || R.mgen !== g || R.anchors !== as) { rs.forEach((r, i) => { if (r.uuid && !ids[i] && HOST.anchor.drop) HOST.anchor.drop(r.uuid); }); return; }
+      R.anchorIds = rs.map(r => r.uuid || '');
+      const ok = R.anchorIds.every(Boolean);
+      log('handles again', { saved: ok, err: rs.map(r => r.err || '').filter(Boolean) });
+      R.full = !ok;
+      if (ok && R.anchorsOK && R.saved) { R.saved.anchors = R.anchorIds.slice(); storeSaved(); }
+      if (!ok) notice('Anchors not saved', 'The headset\'s store of saved anchors is full: the marks hold until the app closes, then it asks to calibrate. Clearing the browser\'s site data may free the store.', 12000);
+      changed();
+    }).catch(e => { log('handles again', { saved: false, err: [String(e && e.message)] }); if (R.session === s && R.mgen === g) { R.full = true; changed(); } });
+  }
   // last time's marks, found again by their anchors
   function restore(t) {
     R.anchorTried = true;
@@ -1610,24 +1640,21 @@
   }
   const validFloor = () => { const M = val('rm'); return !!(M && Number.isFinite(M.a) && Number.isFinite(M.d)); };
   const marksNow = () => (R.anchors && R.anchorsOK && R.anchorP ? R.anchorP : [R.saved.a, R.saved.b]);   // in local-floor now
-  // back from being off (or the origin moved): the anchors put the frame right once they are tracked again; if they
-  // are not within 5 s they are found again by their saved handles; without anchors, or without saved handles,
-  // the marks are lost: calibrate again (a frame left where the old origin put it was 'totally off' on the Quest)
+  // back from being off (or the origin moved): Quest moves the origin and says so with a reset (applied in
+  // floorReset); anchors made this session were not tracked again after a sleep, so they are looked for again by
+  // their saved handles while the frame stays (the frame is never dropped here: a woken headset that asked to
+  // calibrate every time was worse), and the orange crosses show for a while, so a frame off the tape is seen
   function afterWake(f, t) {
-    if (!(R.anchors && R.anchorsOK)) { R.woke = 0; originMoved('woke'); return false; }
-    if (anchorsAt(f)) { log('marks tracked again', { after: Math.round(t - R.woke) }); R.woke = 0; R.recAt = 0; return true; }
-    if (t - R.woke < 5000) return true;   // meanwhile the frame stays (and follows the anchors as soon as they answer)
+    if (R.anchors && R.anchorsOK && anchorsAt(f)) { log('marks tracked again', { after: Math.round(t - R.woke) }); R.woke = 0; R.recAt = 0; return true; }
+    if (t - R.woke < 5000) return true;
+    const reset = R.resetAt > R.sleptAt, anchors = !!R.anchors, ids = !!(R.saved && R.saved.anchors.length === 2);
+    log('marks unanswered', { reset, anchors, handles: ids });
     R.woke = 0;
-    const ids = R.saved && R.saved.anchors.length === 2;
-    log('marks lost', { handles: ids });
-    releaseAnchors();
-    Object.assign(R, { frame: null, src: '', aligned: false, cmp: null, anchorBusy: false, anchorTried: false, mgen: R.mgen + 1 });
-    if (ids) { R.noticed = ''; setState('restoring'); notice('Finding the marks again', 'The headset lost them while it was off: it looks for its saved anchors.', 6000); }
-    else {
-      setState('calibrate'); R.noticed = 'calibrate';
-      notice('Calibrate again', 'The headset lost the marks while it was off (it could not save its anchors): touch mark A and mark B again.', 9000);
-    }
-    return false;
+    if (anchors && ids) { releaseAnchors(); R.anchorTried = false; }   // looked for again by their handles (align)
+    if (!reset && !anchors) return true;   // nothing moved, as far as the headset says (the system menu)
+    R.showUntil = t + 30000;
+    notice('Check the marks', 'The headset was off: the orange crosses should sit on the tape marks. If they do not, calibrate again.', 8000);
+    return true;
   }
   // remote people and VR: their own floor, centred where they stand, facing where they face
   function ownFrame(f, local) {
@@ -1659,6 +1686,7 @@
     // (1) our own marks: nothing overrides them; their anchors keep the frame on them
     if (own() && R.frame) {
       if (R.woke && !afterWake(f, t)) return;
+      if (R.saved && R.saved.anchors.length === 2 && !R.anchorTried && !R.anchors) restore(t);   // after waking
       if (t - R.recAt > 500) { R.recAt = t; followAnchors(f); refloor(); compare(); publishOwn(); if (!validFloor() || !member(val('rm').by)) claimFloor(...marksNow()); }
       return;
     }
@@ -1732,6 +1760,7 @@
         releaseAnchors();
         R.anchors = rs.map(r => r.anchor); R.anchorIds = rs.map(r => r.uuid || ''); R.anchorsOK = false; R.recAt = 0;
         log('anchors made', { saved: rs.every(r => r.uuid), err: rs.map(r => r.err || '').filter(Boolean) });
+        if (rs.some(r => !r.uuid && /maximum/i.test(r.err || ''))) handlesAgain(s, g); else R.full = false;
       });
     }
     if (!R.frame) { R.aligned = false; return; }
@@ -1777,6 +1806,7 @@
     return '';
   }
   // how this headset's floor compares with the room's (the marks' height), for the panel
+  const fullNote = () => (R.full && own() && R.frame ? 'Anchors not saved (the store is full): a restart asks to calibrate' : '');
   function floorNote() {
     if (!own() || !R.frame || !R.saved) return '';
     const M = val('rm'), [a, b] = marksNow(), d = Math.hypot(b[0] - a[0], b[2] - a[2]);
@@ -1907,7 +1937,7 @@
       if (s.visibilityState === 'hidden') { if (!R.hiddenAt) R.hiddenAt = t; }
       else if (R.hiddenAt) {   // back from off (or the system menu): the origin may have moved under the frame
         log('woke', { away: Math.round(t - R.hiddenAt), src: R.src, anchors: !!(R.anchors && R.anchorsOK) });
-        R.hiddenAt = 0; R.prev = null;
+        R.sleptAt = R.hiddenAt; R.hiddenAt = 0; R.prev = null;
         if (own() && R.frame) R.woke = t;
       }
       if (s.visibilityState === 'visible' && C.code) wake('headset');
