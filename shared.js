@@ -22,7 +22,7 @@
 // (or #debug in a link) prints them as well.
 (function () {
   const PROTO = 1;
-  const FORMAT = 'networks-2';   // the shared state's format (keys, the stories' state()): bump when it changes shape
+  const FORMAT = 'networks-3';   // the shared state's format (keys, the stories' state()): bump when it changes shape
   const EYE = 1.6;               // a standing eye height (m): a station's rig hangs this high over its spot
   const AHEAD = 1.4;             // a station's content floats this far in front of its spot
   // your station: within 1.1 m of its spot for a second; left beyond 1.5 m. Arrange all's spots are 2.4 m apart,
@@ -371,7 +371,7 @@
       if (all || keys.includes(kX(L.id))) stateApply(!all && !plain);
       if (all || keys.includes(kPanel(L.id))) panelApply();
     }
-    if (!local && has(/^roomFrameShared$/)) R.recAt = 0;   // check it on the next frame
+    if (!local && has(/^rf\./)) R.recAt = 0;   // a frame published for a shared space: checked on the next frame
     changed();
   }
 
@@ -745,7 +745,49 @@
     OV.panel.mesh.userData.shell = { kind: 'panel' };
     OV.note = sheet(720, 170, 0.5, 54);
     OV.root.add(OV.note.mesh); OV.note.mesh.visible = false;
+    // the tape marks where this headset puts them (in the room), and while calibrating a bright ring at each
+    // controller's ray origin (the point a mark takes) and a cross at mark A once taken (scene coordinates)
+    OV.marks = new THREE.Group(); OV.marks.visible = false;
+    OV.crossA = cross(); OV.crossB = cross();
+    OV.markLine = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3(1, 0, 0)]),
+      new THREE.LineBasicMaterial({ color: MARK, transparent: true, opacity: 0.8 }));
+    OV.marks.add(OV.crossA, OV.crossB, OV.markLine); OV.room.add(OV.marks);
+    OV.aims = [aim(), aim()]; OV.calA = cross();
+    OV.root.add(OV.aims[0], OV.aims[1], OV.calA);
     OV.root.visible = false;
+  }
+  const MARK = 0xffb43b;
+  function cross() {
+    const g = new THREE.Group(), m = new THREE.MeshBasicMaterial({ color: MARK });
+    g.add(new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.004, 0.01), m), new THREE.Mesh(new THREE.BoxGeometry(0.01, 0.004, 0.14), m),
+      new THREE.Mesh(new THREE.SphereGeometry(0.008, 12, 8), m));
+    g.visible = false;
+    return g;
+  }
+  function aim() {
+    const m = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.95, depthTest: false, side: THREE.DoubleSide });
+    const g = new THREE.Group(), ring = new THREE.Mesh(new THREE.RingGeometry(0.013, 0.018, 32), m), dot = new THREE.Mesh(new THREE.CircleGeometry(0.0035, 16), m);
+    ring.renderOrder = dot.renderOrder = 75;
+    g.add(ring, dot); g.visible = false;
+    return g;
+  }
+  function drawMarks() {
+    const mk = R.mk, t = performance.now();
+    OV.marks.visible = OV.room.visible && !!mk && !R.calib && (PNL.open || t < R.showUntil);
+    if (OV.marks.visible) {
+      OV.crossA.position.set(0, mk[0], 0); OV.crossB.position.set(mk[1], mk[2], 0);
+      OV.crossA.visible = OV.crossB.visible = true;
+      const a = OV.markLine.geometry.attributes.position;
+      a.setXYZ(0, 0, mk[0], 0); a.setXYZ(1, mk[1], mk[2], 0); a.needsUpdate = true;
+      OV.markLine.geometry.computeBoundingSphere();
+    }
+    for (let i = 0; i < 2; i++) {
+      const h = C.rays.get(i), A = OV.aims[i];
+      A.visible = !!(R.calib && h && C.frameN - h.n <= 2);
+      if (A.visible) { A.position.copy(h.o); if (HD.ok) A.lookAt(HD.p); }
+    }
+    OV.calA.visible = !!(R.calib && R.calib.a && R.lfOK);
+    if (OV.calA.visible) OV.calA.position.copy(R.calib.a).applyMatrix4(R.lf);
   }
   function hang(sc) { build(); if (OV.root.parent !== sc) sc.add(OV.root); }
 
@@ -925,7 +967,7 @@
   function panelSig() {
     return J([C.code, C.status, C.note, PNL.open, PNL.page, OV.panel.hover, C.name, C.color, C.hereSet, here(), askHere(), R.status(), C.mine, C.live, armed(C.mine),
       C.st.map(s => s.id + s.story), C.members.map(m => m.id + m.name + m.color + m.kind + m.here), [...C.pres].map(([id, P]) => id + P.st),
-      C.code ? 0 : (C.rooms || []).map(r => r.code + r.members), C.roomsErr, C.relay, sharedLine(), forgetArmed(), !!(R.saved || R.frame)]);
+      C.code ? 0 : (C.rooms || []).map(r => r.code + r.members), C.roomsErr, C.relay, sharedLine(), sourceLine(), forgetArmed(), !!(R.saved || R.frame)]);
   }
   function drawPanel() {
     const S = OV.panel, sig = panelSig();
@@ -994,7 +1036,10 @@
         button(S, 'here', x + bw + 16, y, bw, 60, here() ? 'Say I am elsewhere' : 'Say I am in this room', () => setHere(!here()), { px: 22 });
         y += 76;
         if (here()) {
-          ctx.font = FONT(21); ctx.fillStyle = MUTED; ctx.fillText(fit(ctx, sharedLine(), w), x, y); y += 34;
+          ctx.font = FONT(21); ctx.fillStyle = MUTED; ctx.fillText(fit(ctx, sharedLine(), w), x, y); y += 30;
+          const src = sourceLine();
+          if (src) { ctx.fillStyle = R.cmp && (R.cmp.d > 0.05 || R.cmp.a > 2) ? '#ffb43b' : MUTED; ctx.fillText(fit(ctx, src, w), x, y); y += 30; }
+          y += 4;
           const fa = forgetArmed();
           button(S, 'forget', x, y, bw, 56, fa ? 'Forget? Press again' : 'Forget calibration', R.saved || R.frame ? forgetAsk : null,
             { px: 22, color: fa ? '#ffb43b' : undefined, on: fa });
@@ -1091,6 +1136,8 @@
     let h = C.rays.get(i);
     if (!h) C.rays.set(i, (h = { o: new THREE.Vector3(), d: new THREE.Vector3(), at: 0 }));
     h.o.copy(o); h.d.copy(d); h.at = performance.now(); h.n = C.frameN;
+    (h.hist = h.hist || []).push([h.at, o.x, o.y, o.z]);   // the last half second, for a calibration mark (steady)
+    while (h.hist.length && h.at - h.hist[0][0] > 500) h.hist.shift();
     if (!OV.root || !OV.root.visible || !OV.root.parent) return null;
     RC.set(o, d); RC.far = 30;   // a station across a large room can be picked too
     const hits = RC.intersectObjects(R.calib ? OV.hit.filter(m => m === OV.panel.mesh) : OV.hit, false);
@@ -1133,6 +1180,8 @@
       if (vp) { const p = vp.transform.position, q = vp.transform.orientation; HD.p.set(p.x, p.y, p.z); HD.q.set(q.x, q.y, q.z, q.w); HD.ok = true; }
     }
     if (C.code) R.update(f);
+    if (C.code && R.session && R.lfOK && HD.ok) { R.originCheck(t); R.sample(t); }
+    if (C.code && R.session) R.upload(t);
     R.headOK = false;
     if (C.code && R.aligned && HD.ok) {
       R.hr.copy(HD.p).applyMatrix4(R.mi);
@@ -1206,6 +1255,7 @@
       drawPreviews();
       drawPeople(dt);
     }
+    drawMarks();
     // the panel, beside the story's own (its pose from the story, every frame)
     const t = performance.now();
     const showPanel = !!(C.code || C.relay);
@@ -1242,26 +1292,53 @@
   // =========================================================== the room frame ==
   // HOST.room. The renderer keeps the 'local' reference space; the shell asks the session for 'local-floor'
   // and 'shared' spaces of its own. The room frame (an origin on the floor and a level x axis) is kept in
-  // local-floor coordinates and turned into room -> local every frame. Alignment (shared-spaces.md, section 4):
-  //  1. a shared space: adopt the frame published for its id; if none comes within 8 s, publish ours (our
-  //     saved marks, else the space's own origin); reconcile twice a second (3 cm / 1 degree)
-  //  2. else this headset's marks from last time: the persistent anchor made at mark A, else the saved coordinates
-  //  3. else calibrate: touch mark A with a controller and pull the trigger, then mark B
+  // local-floor coordinates and turned into room -> local every frame. Where it comes from, first found first
+  // (shared-spaces.md, section 4):
+  //  1. this headset's own calibration, which nothing overrides: two tape marks touched with a controller this
+  //     session ('marks'), or last time's, found again by the two anchors made at them ('anchor')
+  //  2. a frame published for this headset's shared space (Quest Browser's experimental 'shared' reference
+  //     space, key rf.<space>): a calibrated headset's, or the first one's in the space ('adopted'), followed
+  //     when it moves by more than 3 cm or a degree
+  //  3. a shared space nobody has published for: the space's own origin ('shared'), published for the others
+  //  4. else calibrate: touch mark A with a controller and pull the trigger, then mark B
+  // The shared space only aligns headsets without marks of their own; a calibrated headset just reports how far
+  // the shared space puts another headset's marks from its own (R.cmp). Coordinates are never kept without
+  // anchors: on the Quest local-floor starts where the headset does, so they would be wrong next time, and a
+  // recentre moves it within a session (a calibration without anchors then asks to be done again).
   // People elsewhere (VR, `here` false) and desktops never calibrate: their room is their own floor, facing
   // where they faced when they joined.
   const R = {
-    session: null, begun: null, loopFor: null, floor: null, noFloor: false, shared: null, sharedId: '', sharedAt: 0, sharedAsked: 0, sharedOK: false,
+    session: null, begun: null, loopFor: null, floor: null, noFloor: false, shared: null, sharedNo: false, sharedId: '', sharedAt: 0, sharedAsked: 0, sharedOK: false,
     frame: null, src: '', state: 'off', aligned: false, calib: null, recAt: 0, pubAt: 0, noticed: '',
-    saved: null, anchor: null, anchorBusy: false, anchorTried: false, anchorSince: 0, wantAnchor: null,
-    mgen: 0,   // the marks' generation: an anchor that arrives for older marks (forgotten, replaced) is thrown away
+    // the marks ({ v: 2, a, b in local-floor, at, anchors: [handle A, handle B] }) and their anchors this session
+    saved: null, anchors: null, anchorIds: null, anchorsOK: false, anchorBusy: false, anchorTried: false, anchorSince: 0, wantAnchors: null, anchorP: null,
+    mgen: 0,   // the marks' generation: anchors that arrive for older marks (forgotten, replaced) are thrown away
+    mk: null,  // the marks in room coordinates, to draw: [height of A, A to B, height of B] (null: none known)
+    cmp: null, showUntil: 0, prev: null, sampleAt: 0, oldAnchor: '',
     lf: new THREE.Matrix4(), lfi: new THREE.Matrix4(), ls: new THREE.Matrix4(), fr: new THREE.Matrix4(), m: new THREE.Matrix4(), mi: new THREE.Matrix4(),
     yaw: 0, hr: new THREE.Vector3(), hyaw: 0, headOK: false, lfOK: false,
   };
-  try { R.saved = JSON.parse(get('roomFrame') || 'null'); } catch (e) { R.saved = null; }
-  const storeSaved = () => put('roomFrame', R.saved ? J(R.saved) : null);
+  try {
+    const s = JSON.parse(get('roomFrame') || 'null');
+    // only marks with their two anchors are kept (older versions kept coordinates, and one anchor at mark A)
+    if (s && s.v === 2 && Array.isArray(s.a) && Array.isArray(s.b) && Array.isArray(s.anchors) && s.anchors.length === 2 && s.anchors.every(u => typeof u === 'string' && u)) R.saved = s;
+    else if (s) { R.oldAnchor = (s && typeof s.anchor === 'string' && s.anchor) || ''; put('roomFrame', null); }
+  } catch (e) { R.saved = null; }
+  const storeSaved = () => put('roomFrame', R.saved && R.saved.anchors.length === 2 && R.saved.anchors.every(Boolean) ? J(R.saved) : null);
   const sharedIdOf = s => (s && (s.UUId || s.uuid || s.UUID)) || '';
+  const kFrame = id => 'rf.' + (String(id).replace(/[^\w-]/g, '').slice(0, 64) || 'x');   // the frame published for a shared space
   const level = x => { const l = Math.hypot(x[0], x[2]); return l > 1e-6 ? [x[0] / l, 0, x[2] / l] : null; };
   const yawOfX = x => Math.atan2(-x[2], x[0]);   // the x axis (cos a, 0, -sin a) of a turn by a about y
+  const fromMarks = (a, b) => ({ o: [a[0], 0, a[2]], x: level([b[0] - a[0], 0, b[2] - a[2]]) });
+  const marksMk = (a, b) => [r3(a[1]), r3(Math.hypot(b[0] - a[0], b[2] - a[2])), r3(b[1])];
+  const dist3 = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
+  const own = () => R.src === 'marks' || R.src === 'anchor';
+  // how far apart two frames are: [metres between the origins, radians between the x axes]
+  function apart(F, G) {
+    let a = Math.abs(yawOfX(F.x) - yawOfX(G.x)) % (2 * Math.PI);
+    if (a > Math.PI) a = 2 * Math.PI - a;
+    return [Math.hypot(F.o[0] - G.o[0], F.o[2] - G.o[2]), a];
+  }
   // floor <- room, from the frame's origin and x axis (y up, z = x cross y)
   function basis(fr, out) {
     const x = _v.fromArray(fr.x), z = _v2.crossVectors(x, _Y);
@@ -1269,13 +1346,15 @@
   }
   function setState(s) { if (R.state !== s) { R.state = s; log('align', { state: s }); changed(); } }
   function setFrame(fr, src, title, text) {
-    const x = level(fr.x);
+    const x = fr && fr.x && level(fr.x);
     if (!x) return;
+    const was = R.src;
     R.frame = { o: [fr.o[0], 0, fr.o[2]], x };
     R.src = src;
     setState(src);
     log('frame', { src, o: R.frame.o.map(r3), x: x.map(r3) });
-    if (title) notice(title, text);
+    if (title) { notice(title, text); R.showUntil = performance.now() + 30000; }   // the marks show for a while
+    if (src !== was) changed();
   }
   // the session's spaces: asked when a headset session runs in a room
   function begin() {
@@ -1284,11 +1363,14 @@
     // spaces asked for by an earlier join (leave and join again in one session) stop reporting here
     try { if (R.floor && R.floor.removeEventListener) R.floor.removeEventListener('reset', floorReset); } catch (e) { /* gone */ }
     try { if (R.shared && R.shared.removeEventListener) R.shared.removeEventListener('reset', sharedReset); } catch (e) { /* gone */ }
+    releaseAnchors();
     Object.assign(R, { begun: s, floor: null, noFloor: false, shared: null, sharedNo: false, sharedId: '', sharedAt: 0, sharedAsked: performance.now(), sharedOK: false,
-      frame: null, src: '', aligned: false, calib: null, anchor: null, anchorBusy: false, anchorTried: false, wantAnchor: null, noticed: '', mgen: R.mgen + 1 });
+      frame: null, src: '', aligned: false, calib: null, anchorBusy: false, anchorTried: false, wantAnchors: null, noticed: '', mgen: R.mgen + 1,
+      mk: null, cmp: null, prev: null, pubAt: 0, recAt: 0 });
+    if (R.oldAnchor && HOST.anchor.drop) { HOST.anchor.drop(R.oldAnchor); R.oldAnchor = ''; }   // an older version's anchor
     setState('waiting');
     const feats = s.enabledFeatures ? [...s.enabledFeatures] : null;
-    log('session', { mode: HOST.mode, features: feats });
+    log('session', { mode: HOST.mode, features: feats, format: FORMAT, ua: navigator.userAgent });
     const ask = type => new Promise((res, rej) => { try { Promise.resolve(s.requestReferenceSpace(type)).then(res, rej); } catch (e) { rej(e); } });
     ask('local-floor').then(sp => {
       if (R.session !== s) return;
@@ -1312,17 +1394,40 @@
     if (sp && sp !== R.floor) return;   // an older space of ours
     const tr = ev && ev.transform;
     log('reset', { space: 'local-floor', transform: !!tr });
-    if (!tr) return;   // without a transform nothing moves (local-floor is the room's own origin)
-    // the frame (and the saved marks) in the new coordinates: the transform is the new origin seen from the old
+    // without a transform the origin may have moved (a recentre): anchors and the shared space put things right,
+    // a calibration without anchors is asked again
+    if (!tr) { originMoved('reset'); return; }
+    // the frame in the new coordinates: the transform is the new origin seen from the old
     _m.fromArray(tr.inverse ? tr.inverse.matrix : new THREE.Matrix4().fromArray(tr.matrix).invert().toArray());
     const move = fr => { const o = _v.fromArray(fr.o).applyMatrix4(_m).toArray(), x = _v.fromArray(fr.x).transformDirection(_m).toArray(); fr.o = [o[0], 0, o[2]]; fr.x = level(x) || fr.x; };
     if (R.frame) move(R.frame);
-    if (R.saved && /^(marks|saved|anchor)$/.test(R.src)) { move(R.saved); storeSaved(); }
+    if (R.saved) for (const k of ['a', 'b']) R.saved[k] = _v.fromArray(R.saved[k]).applyMatrix4(_m).toArray().map(r3);
+    R.prev = null;
   }
   function sharedReset(ev) {
     const id = sharedIdOf(R.shared);
     log('reset', { space: 'shared', id, transform: !!(ev && ev.transform) });
     if (id !== R.sharedId) { R.sharedId = id; R.sharedAt = performance.now(); R.recAt = 0; }
+  }
+  // the head seems to jump when the origin moves without a word (a recentre: Quest Browser fires no reset then)
+  function originCheck(t) {
+    const p = _v.copy(HD.p).applyMatrix4(R.lfi), d = _v2.set(0, 0, -1).applyQuaternion(HD.q).transformDirection(R.lfi), yaw = Math.atan2(-d.x, -d.z);
+    const P = R.prev;
+    R.prev = { p: p.toArray(), yaw, t };
+    if (!P || t <= P.t || t - P.t > 250) return;
+    let a = Math.abs(yaw - P.yaw) % (2 * Math.PI);
+    if (a > Math.PI) a = 2 * Math.PI - a;
+    const dt = (t - P.t) / 1000;
+    if (dist3(p.toArray(), P.p) / dt > 6 || a / dt > 20) originMoved('jump');   // 6 m/s, or 1150 degrees a second
+  }
+  function originMoved(why) {
+    log('origin moved', { why, src: R.src, anchors: !!(R.anchors && R.anchorsOK) });
+    R.recAt = 0;
+    if (own() && !(R.anchors && R.anchorsOK)) {
+      R.frame = null; R.src = ''; R.aligned = false; R.mk = null; R.noticed = 'calibrate';
+      setState('calibrate');
+      notice('Calibrate again', 'The headset moved its origin (a recentre?) and has no anchors to find the marks by: touch mark A and mark B again.', 9000);
+    }
   }
   // floor <- shared, this frame (only inside the frame callback)
   function floorFromShared(out) { return out.multiplyMatrices(R.lfi, R.ls); }
@@ -1335,51 +1440,115 @@
     const M = floorFromShared(new THREE.Matrix4()).invert();
     return { o: new THREE.Vector3().fromArray(fr.o).applyMatrix4(M).toArray().map(r3), x: new THREE.Vector3().fromArray(fr.x).transformDirection(M).toArray().map(r3) };
   }
-  const marksAt = () => (/^(marks|saved|anchor)$/.test(R.src) && R.saved ? R.saved.at || 0 : 0);
-  function publishFrame() {
+  // our frame for our shared space: g 'marks' (a calibration, at: when) or 'shared' (the space's own origin)
+  function publishFrame(g, at) {
     if (!R.frame || !R.sharedId || !R.sharedOK) return;
     const S = toShared(R.frame);
     R.pubAt = performance.now();
-    publish([['roomFrameShared', { uuid: R.sharedId, o: S.o, x: S.x, by: C.id, at: marksAt() || Math.round(now()), src: R.src }]]);
-    log('frame published', { uuid: R.sharedId, src: R.src });
+    publish([[kFrame(R.sharedId), { uuid: R.sharedId, o: S.o, x: S.x, g, by: C.id, at: at || Math.round(now()), m: R.mk }]]);
+    log('frame published', { uuid: R.sharedId, g });
   }
-  // keep to the frame published for our shared space: adopt it when ours differs by more than 3 cm or a
-  // degree, unless our own marks are newer, in which case ours goes out and the others follow
+  const validFrame = P => !!(P && typeof P === 'object' && Array.isArray(P.o) && P.o.length === 3 && Array.isArray(P.x) && P.x.length === 3 &&
+    P.o.concat(P.x).every(Number.isFinite));
+  const gradeOf = P => (P.g === 'marks' || P.g === 'shared' ? P.g : /^(marks|anchor|saved)$/.test(P.src) ? 'marks' : 'shared');
+  // a calibrated headset publishes its frame for its shared space, so headsets without marks there can take it;
+  // a newer calibration of someone still in the room stays
+  function publishOwn() {
+    if (!R.shared || !R.sharedOK || !R.sharedId || !R.frame || performance.now() - R.pubAt < 1000) return;
+    const P = val(kFrame(R.sharedId)), at = (R.saved && R.saved.at) || 0, mine = validFrame(P) && P.by === C.id;
+    if (validFrame(P) && !mine && gradeOf(P) === 'marks' && member(P.by) && (+P.at || 0) >= at) return;
+    if (mine && P.at === at && P.g === 'marks') { const [d, a] = apart(fromShared(P), R.frame); if (d < 0.01 && a < 0.003) return; }
+    publishFrame('marks', at);
+  }
+  // with marks of our own: how far the shared space puts another headset's calibration from ours
+  function compare() {
+    const P = R.sharedOK && R.sharedId ? val(kFrame(R.sharedId)) : null;
+    if (!validFrame(P) || P.by === C.id || gradeOf(P) !== 'marks' || !R.frame) { R.cmp = null; return; }
+    const F = fromShared(P);
+    if (!level(F.x)) { R.cmp = null; return; }
+    const [d, a] = apart(F, R.frame), was = R.cmp;
+    R.cmp = { d: r3(d), a: Math.round(a * 1800 / Math.PI) / 10, by: P.by };
+    if (!was || Math.abs(was.d - R.cmp.d) > 0.005 || Math.abs(was.a - R.cmp.a) > 0.2) { log('compare', R.cmp); changed(); }
+  }
+  // without marks: keep to the frame published for our shared space (adopt it when ours differs by more than
+  // 3 cm or a degree)
   function reconcile(P) {
     const F = fromShared(P), x = level(F.x);
     if (!x) return;
-    if (!R.frame) { setFrame(F, 'adopted', 'Aligned automatically', 'This headset found the shared space and took the room from it.'); return; }
-    const d = Math.hypot(F.o[0] - R.frame.o[0], F.o[2] - R.frame.o[2]);
-    let a = Math.abs(yawOfX(x) - yawOfX(R.frame.x)) % (2 * Math.PI);
-    if (a > Math.PI) a = 2 * Math.PI - a;
-    if (d <= 0.03 && a <= Math.PI / 180) return;
-    if (marksAt() > (+P.at || 0) && P.by !== C.id) { log('reconcile', { keep: 'ours', d: r3(d), a: r3(a) }); publishFrame(); return; }
-    if (P.by === C.id && performance.now() - R.pubAt < 3000) return;   // our own, just published
-    log('reconcile', { keep: 'theirs', d: r3(d), a: r3(a) });
+    F.x = x;
+    const mk = Array.isArray(P.m) && P.m.length === 3 && P.m.every(Number.isFinite) ? P.m : null;
+    if (!R.frame) { R.mk = mk; setFrame(F, 'adopted', 'Aligned automatically', 'This headset took the room from the shared space. Check: the orange crosses sit on the tape marks.'); return; }
+    if (R.src === 'shared' && P.by === C.id) return;   // our own space's origin
+    const [d, a] = apart(F, R.frame);
+    if (d <= 0.03 && a <= Math.PI / 180 && R.src === 'adopted') { R.mk = mk; return; }
+    log('reconcile', { d: r3(d), a: r3(a), by: P.by, g: gradeOf(P) });
+    R.mk = mk;
     setFrame(F, 'adopted', 'Re-aligned', 'The room frame changed: things moved to where the others see them.');
   }
-  function anchorFrame(f) {
-    if (!R.anchor || !R.floor) return null;
-    if (f.trackedAnchors && !f.trackedAnchors.has(R.anchor)) return null;
-    let p = null;
-    try { p = f.getPose(R.anchor.anchorSpace, R.floor); } catch (e) { /* lost */ }
-    if (!p) return null;
-    const t = p.transform.position, q = p.transform.orientation, yaw = Math.atan2(2 * (q.x * q.z + q.w * q.y), 1 - 2 * (q.x * q.x + q.y * q.y));
-    return { o: [t.x, 0, t.z], x: [Math.cos(yaw), 0, -Math.sin(yaw)] };
+  // ------------------------------------------------------------ the marks' anchors --
+  // Two anchors, at mark A and mark B: only their positions are used (an anchor's turn is not trusted), they
+  // keep the frame on the marks when the origin moves, and their saved handles find the marks next time.
+  function releaseAnchors() {
+    if (R.anchors) for (const a of R.anchors) { try { a.delete(); } catch (e) { /* gone */ } }
+    R.anchors = null; R.anchorIds = null; R.anchorsOK = false; R.anchorP = null;
   }
-  // this headset's marks from last time: the anchor at mark A (it survives a moved Guardian), else the coordinates
-  function fromSaved(f, t) {
-    const S = R.saved;
-    if (S.anchor && !R.anchorTried && HOST.anchor.find) {
-      R.anchorTried = true; R.anchorBusy = true; R.anchorSince = t;
-      const s = R.session, g = R.mgen;
-      HOST.anchor.find(S.anchor).then(a => { if (R.session === s && R.mgen === g) R.anchor = a; else try { a.delete(); } catch (e) { /* gone */ } },
-        e => log('anchor not found', { e: e && e.message })).then(() => { if (R.mgen === g) R.anchorBusy = false; });
+  function dropAnchors() {   // and their saved handles
+    const ids = new Set([...(R.anchorIds || []), ...((R.saved && R.saved.anchors) || [])].filter(Boolean));
+    releaseAnchors();
+    if (HOST.anchor.drop) for (const u of ids) HOST.anchor.drop(u);
+  }
+  function anchorsAt(f) {
+    if (!R.anchors || !R.floor) return null;
+    const P = [];
+    for (const a of R.anchors) {
+      if (f.trackedAnchors && !f.trackedAnchors.has(a)) return null;
+      let p = null;
+      try { p = f.getPose(a.anchorSpace, R.floor); } catch (e) { /* lost */ }
+      if (!p) return null;
+      const t = p.transform.position;
+      P.push([t.x, t.y, t.z]);
     }
-    const A = anchorFrame(f);
-    if (A) { setFrame(A, 'anchor', 'Room calibration from last time', 'Found the mark this headset saved.'); return; }
-    if ((R.anchorBusy || R.anchor) && t - R.anchorSince < 8000) { setState('restoring'); return; }
-    setFrame({ o: S.o, x: S.x }, 'saved', 'Room calibration from last time', 'If things look out of place, calibrate again.');
+    return (R.anchorP = P);
+  }
+  // are the anchors where the marks are? New ones: within 5 cm of where they were asked for; found again: as
+  // far apart as the marks were (else they are someone else's, or lost: the marks are calibrated again)
+  function anchorsFit(P) {
+    const S = R.saved;
+    if (!S) return false;
+    const ok = R.anchorIds ? dist3(P[0], S.a) <= 0.05 && dist3(P[1], S.b) <= 0.05 : Math.abs(dist3(P[0], P[1]) - dist3(S.a, S.b)) <= 0.05;
+    log(ok ? 'anchors fit' : 'anchors off', { made: !!R.anchorIds, a: P[0].map(r3), b: P[1].map(r3) });
+    if (!ok) {
+      dropAnchors();
+      if (S) { S.anchors = []; storeSaved(); }
+      return false;
+    }
+    R.anchorsOK = true;
+    if (R.anchorIds && R.anchorIds.every(Boolean)) { S.anchors = R.anchorIds.slice(); storeSaved(); }
+    return true;
+  }
+  // last time's marks, found again by their anchors
+  function restore(t) {
+    R.anchorTried = true;
+    if (!HOST.anchor.find) return;
+    R.anchorBusy = true; R.anchorSince = t;
+    const s = R.session, g = R.mgen;
+    Promise.all(R.saved.anchors.map(u => HOST.anchor.find(u).then(a => a, () => null))).then(as => {
+      if (R.session === s && R.mgen === g && as.every(Boolean)) { R.anchors = as; R.anchorIds = null; R.anchorsOK = false; R.anchorSince = performance.now(); }
+      else {
+        for (const a of as) if (a) { try { a.delete(); } catch (e) { /* gone */ } }
+        if (R.mgen === g) log('anchors not found', { found: as.filter(Boolean).length });
+      }
+    }).then(() => { if (R.mgen === g) R.anchorBusy = false; });
+  }
+  // with marks of our own: the anchors keep the frame on them (a recentre moves local-floor, not the marks)
+  function followAnchors(f) {
+    const P = anchorsAt(f);
+    if (!P) return;
+    if (!R.anchorsOK && !anchorsFit(P)) return;
+    const F = fromMarks(P[0], P[1]);
+    if (!F.x) return;
+    const [d, a] = apart(F, R.frame);
+    if (d > 0.02 || a > 0.005) { log('anchors moved', { d: r3(d), a: r3(a) }); R.mk = marksMk(P[0], P[1]); setFrame(F, R.src); }
   }
   // remote people and VR: their own floor, centred where they stand, facing where they face
   function ownFrame(f, local) {
@@ -1390,43 +1559,57 @@
     const p = vp.transform.position, q = vp.transform.orientation;
     const hp = _v.set(p.x, p.y, p.z).applyMatrix4(R.lfi);
     const d = _v2.set(0, 0, -1).applyQuaternion(_q.set(q.x, q.y, q.z, q.w)).transformDirection(R.lfi), yaw = Math.atan2(-d.x, -d.z);
+    R.mk = null;
     setFrame({ o: [hp.x, 0, hp.z], x: [Math.cos(yaw), 0, -Math.sin(yaw)] }, 'own', askHere() ? '' : 'Joined from elsewhere',
       'The stations stand round you as they stand in the room. In the room with the others after all? Say so on the Shared panel.');
+  }
+  // is the room calibrated in a shared space other than ours, by someone still here? (then our space's own
+  // origin would make another room: calibrate instead)
+  function calibratedElsewhere() {
+    for (const [k, e] of C.keys) {
+      const P = e && e.v;
+      if (/^rf\./.test(k) && validFrame(P) && P.uuid !== R.sharedId && gradeOf(P) === 'marks' && P.by !== C.id && member(P.by)) return true;
+    }
+    return false;
   }
   function align(f, local) {
     const t = performance.now();
     if (R.calib) return;   // calibrating: the old frame (if any) holds until both marks are in
     if (!here()) { ownFrame(f, local); return; }
     if (R.src === 'own') { R.frame = null; R.src = ''; }
-    const sp = !!(R.shared && R.sharedOK && R.sharedId), P = val('roomFrameShared');
-    // (1) a frame published for our shared space
-    if (sp && P && P.uuid === R.sharedId && Array.isArray(P.o) && Array.isArray(P.x)) {
-      // our marks are newer: they go out (once restored: the anchor may take a few seconds)
-      if (!R.frame && R.saved && (R.saved.at || 0) > (+P.at || 0)) { fromSaved(f, t); if (!R.frame) return; }
-      if (t - R.recAt > 500) { R.recAt = t; reconcile(P); }
+    // (1) our own marks: nothing overrides them; their anchors keep the frame on them
+    if (own() && R.frame) {
+      if (t - R.recAt > 500) { R.recAt = t; followAnchors(f); compare(); publishOwn(); }
       return;
     }
-    // (2) our marks from last time
-    if (!R.frame && R.saved && Array.isArray(R.saved.o) && Array.isArray(R.saved.x)) fromSaved(f, t);
-    else if (R.frame && /^(anchor|saved|marks)$/.test(R.src) && R.anchor && t - R.recAt > 500) {
-      // the anchor keeps the frame where the marks are, even if the Guardian origin moved
-      R.recAt = t;
-      const A = anchorFrame(f);
-      if (A && (Math.hypot(A.o[0] - R.frame.o[0], A.o[2] - R.frame.o[2]) > 0.03 || Math.abs(yawOfX(A.x) - yawOfX(R.frame.x)) > Math.PI / 180)) setFrame(A, R.src);
+    if (R.saved && R.saved.anchors.length === 2 && !R.anchorTried) restore(t);
+    if (R.anchors) {
+      const P = anchorsAt(f);
+      if (P && (R.anchorsOK || anchorsFit(P))) {
+        R.mk = marksMk(P[0], P[1]);
+        setFrame(fromMarks(P[0], P[1]), 'anchor', 'Room calibration from last time', 'Found the marks this headset saved. Check: the orange crosses sit on the tape marks.');
+        return;
+      }
+    }
+    if (R.anchorBusy || (R.anchors && t - R.anchorSince < 8000)) { setState('restoring'); return; }
+    if (R.anchors && !R.anchorsOK) { log('anchors not tracked'); releaseAnchors(); }
+    // (2) a frame published for our shared space
+    const sp = !!(R.shared && R.sharedOK && R.sharedId), P = sp ? val(kFrame(R.sharedId)) : null;
+    if (validFrame(P)) {
+      if (!R.frame || t - R.recAt > 500) { R.recAt = t; reconcile(P); }
+      if (R.frame) return;
     }
     // waiting a little for the shared space's id, or for someone's published frame
     if (R.shared && !R.frame && t - (R.sharedId ? R.sharedAt : R.sharedAsked) < 8000) { setState('shared-wait'); return; }
-    // (1b) nobody published for this space (or the publisher left): ours goes out, or the space's own origin
-    if (sp && t - R.pubAt > 2000) {
-      const other = P && P.uuid !== R.sharedId && P.by !== C.id && !!member(P.by);   // another group, still here: leave it
-      if (!other) {
-        if (!R.frame) setFrame(fromShared({ o: [0, 0, 0], x: [1, 0, 0] }), 'shared', 'Shared space found', 'This headset defines the room for the others.');
-        publishFrame();
-      }
+    // (3) nobody published for this space: its own origin, published (unless the room was calibrated in another space)
+    if (sp && !R.frame && !calibratedElsewhere()) {
+      R.mk = null;
+      setFrame(fromShared({ o: [0, 0, 0], x: [1, 0, 0] }), 'shared', 'Shared space found', 'This headset defines the room for the others in its shared space.');
     }
+    if (sp && R.src === 'shared' && !validFrame(P) && t - R.pubAt > 2000) publishFrame('shared');
     if (!R.frame && R.state !== 'restoring') {
       setState('calibrate');
-      if (R.noticed !== 'calibrate') { R.noticed = 'calibrate'; notice('Calibrate the room', 'Open the Shared panel and press Calibrate: touch mark A, then mark B, with the tip of a controller. Tape crosses on a table or the floor work well.', 9000); }
+      if (R.noticed !== 'calibrate') { R.noticed = 'calibrate'; notice('Calibrate the room', 'Open the Shared panel and press Calibrate: touch mark A, then mark B, with the tip of a controller. Tape crosses a metre or more apart work well.', 9000); }
     }
   }
   function update(f) {
@@ -1453,20 +1636,20 @@
       if (p) { R.ls.fromArray(p.transform.matrix); R.sharedOK = true; }
     }
     align(f, local);
-    // a new anchor at mark A (asked inside a frame, as WebXR wants)
-    if (R.wantAnchor && R.floor && HOST.anchor.keep) {
-      const w = R.wantAnchor, s = R.session, g = R.mgen;
-      R.wantAnchor = null;
-      HOST.anchor.keep(f, R.floor, w.p, w.q, '').then(r => {
-        if (R.session !== s || R.mgen !== g) {   // the marks were forgotten or replaced meanwhile
-          try { r.anchor.delete(); } catch (e) { /* gone */ }
-          if (r.uuid) HOST.anchor.drop(r.uuid);
+    // new anchors at mark A and mark B (asked inside a frame, as WebXR wants)
+    if (R.wantAnchors && R.floor && HOST.anchor.keep) {
+      const w = R.wantAnchors, s = R.session, g = R.mgen, q = { x: 0, y: 0, z: 0, w: 1 };
+      R.wantAnchors = null;
+      const one = p => HOST.anchor.keep(f, R.floor, { x: p[0], y: p[1], z: p[2] }, q, '').then(r => r, e => { log('no anchor', { e: e && e.message }); return null; });
+      Promise.all([one(w.a), one(w.b)]).then(rs => {
+        if (R.session !== s || R.mgen !== g || !rs[0] || !rs[1]) {   // the marks were forgotten or replaced meanwhile, or one failed
+          for (const r of rs) if (r) { try { r.anchor.delete(); } catch (e) { /* gone */ } if (r.uuid && HOST.anchor.drop) HOST.anchor.drop(r.uuid); }
           return;
         }
-        R.anchor = r.anchor;
-        if (r.uuid && R.saved) { R.saved.anchor = r.uuid; storeSaved(); }
-        log('anchor made', { saved: !!r.uuid });
-      }, e => log('no anchor', { e: e && e.message }));
+        releaseAnchors();
+        R.anchors = rs.map(r => r.anchor); R.anchorIds = rs.map(r => r.uuid || ''); R.anchorsOK = false; R.recAt = 0;
+        log('anchors made', { saved: rs.every(r => r.uuid) });
+      });
     }
     if (!R.frame) { R.aligned = false; return; }
     basis(R.frame, R.fr);
@@ -1479,17 +1662,17 @@
     if (!R.session || !C.code || !here()) return;
     R.calib = { step: 'a', a: null };
     setState('mark-a');
-    notice('Calibrate the room', 'Touch mark A with the tip of a controller and pull the trigger.', 0);
+    notice('Calibrate the room', 'Put the bright ring at the front of a controller on mark A, hold still and pull the trigger.', 0);
     log('calibrate');
   }
   function cancel() { if (!R.calib) return; R.calib = null; NOTE.until = 0; setState(R.frame ? R.src : 'calibrate'); log('calibrate cancelled'); }
-  // Forget calibration: this headset's saved marks and their anchor go, and it aligns again from the start
-  // (the shared space first, if there is one; else it asks to calibrate)
+  // Forget calibration: this headset's marks and their anchors go, and it aligns again from the start (from the
+  // frame published for its shared space, if there is one; else it asks to calibrate)
   function forgetMarks() {
-    if (R.saved && R.saved.anchor) HOST.anchor.drop(R.saved.anchor);
-    if (R.anchor) { try { R.anchor.delete(); } catch (e) { /* gone */ } }
+    dropAnchors();
     R.saved = null; storeSaved();
-    Object.assign(R, { frame: null, src: '', aligned: false, anchor: null, anchorBusy: false, anchorTried: false, wantAnchor: null, calib: null, noticed: '', recAt: 0, mgen: R.mgen + 1 });
+    Object.assign(R, { frame: null, src: '', aligned: false, anchorBusy: false, anchorTried: false, wantAnchors: null, calib: null, noticed: '', recAt: 0,
+      mgen: R.mgen + 1, mk: null, cmp: null });
     const t = performance.now(); R.sharedAsked = t; if (R.sharedId) R.sharedAt = t;
     setState('waiting');
     notice('Calibration forgotten', 'This headset lines up again: from the frame the room holds for its shared space, else it asks you to calibrate.', 6000);
@@ -1502,48 +1685,94 @@
     if (R.shared) return 'Shared space: waiting for its id...';
     return R.sharedNo ? 'No shared space (check the WebXR flag, spatial services)' : 'Shared space: asking...';
   }
+  // what the room frame rests on, in a line: the check that tells whether the shared space can be trusted
+  function sourceLine() {
+    if (!R.session || !C.code || !here()) return '';
+    if (R.cmp) return `The shared space puts ${nameOf(R.cmp.by)}'s marks ${Math.round(R.cmp.d * 100)} cm, ${R.cmp.a}° from yours`;
+    if (R.src === 'adopted') { const P = R.sharedId && val(kFrame(R.sharedId)); return P && gradeOf(P) === 'marks' ? `From ${nameOf(P.by)}'s marks, through the shared space` : 'From the shared space\'s own origin'; }
+    if (own()) return R.anchors && R.anchorsOK ? 'Your own marks, held by two anchors' : R.anchors ? 'Your own marks (checking their anchors...)' : 'Your own marks (no anchors: calibrate after a recentre)';
+    return '';
+  }
+  const nameOf = id => { const m = member(id); return id === C.id ? 'your' : (m && m.name) || 'someone'; };
   const FG = { until: 0 };   // Forget calibration takes two presses: the first arms it for 3 s
   const forgetArmed = () => performance.now() < FG.until;
   function forgetAsk() {
     if (forgetArmed()) { FG.until = 0; forgetMarks(); return; }
     FG.until = performance.now() + 3000; setTimeout(changed, 3050); changed();
   }
+  // where controller i pointed just before the press: pulling the trigger moves the hand a little
+  // (a controller that only just arrived, more than 5 cm away a moment ago, is taken where it is)
+  function steady(h) {
+    const t = performance.now(), S = (h.hist || []).filter(e => t - e[0] >= 70 && t - e[0] <= 260);
+    if (!S.length) return h.o.clone();
+    const p = new THREE.Vector3();
+    for (const e of S) { p.x += e[1]; p.y += e[2]; p.z += e[3]; }
+    p.multiplyScalar(1 / S.length);
+    return p.distanceTo(h.o) > 0.05 ? h.o.clone() : p;
+  }
   function mark(i) {
     const h = C.rays.get(i);
     if (!R.calib || !h || !R.lfOK) return;
-    const p = h.o.clone().applyMatrix4(R.lfi);   // the controller's target-ray origin, in local-floor coordinates
-    log('mark', { step: R.calib.step, p: p.toArray().map(r3) });
-    if (R.calib.step === 'a') { R.calib.a = p; R.calib.step = 'b'; setState('mark-b'); notice('Mark A taken', 'Now touch mark B, as far from A as you can, and pull the trigger.', 0); return; }
+    const s = steady(h), p = s.clone().applyMatrix4(R.lfi);   // the controller's target-ray origin, in local-floor coordinates
+    log('mark', { step: R.calib.step, p: p.toArray().map(r3), moved: r3(s.distanceTo(h.o)) });
+    if (R.calib.step === 'a') { R.calib.a = p; R.calib.step = 'b'; setState('mark-b'); notice('Mark A taken', 'Now put the ring on mark B, a metre or more from A, hold still and pull the trigger.', 0); return; }
     const a = R.calib.a, dx = p.x - a.x, dz = p.z - a.z;
-    if (Math.hypot(dx, dz) < 0.3) { notice('Marks too close', 'Mark B must be at least 30 cm from mark A. Touch mark B again.', 0); return; }
+    if (Math.hypot(dx, dz) < 0.5) { notice('Marks too close', 'Mark B must be at least 50 cm from mark A (a metre or more is better). Touch mark B again.', 0); return; }
     R.calib = null;
-    const fr = { o: [a.x, 0, a.z], x: level([dx, 0, dz]) };
-    // the old marks' anchor goes now: it would pull the new frame back to the old mark A until the new one is made
-    if (R.saved && R.saved.anchor) HOST.anchor.drop(R.saved.anchor);
-    if (R.anchor) { try { R.anchor.delete(); } catch (e) { /* gone */ } }
-    R.anchor = null; R.anchorBusy = false; R.mgen++;
-    R.saved = { o: fr.o.map(r3), x: fr.x.map(r3), a: a.toArray().map(r3), b: p.toArray().map(r3), at: Math.round(now()), anchor: '' };
-    storeSaved();
-    setFrame(R.saved, 'marks', 'Room calibrated', 'Everyone who calibrated with the same marks sees the stations in the same places.');
-    R.wantAnchor = { p: { x: a.x, y: a.y, z: a.z }, q: new THREE.Quaternion().setFromAxisAngle(_Y, yawOfX(fr.x)) };
-    if (R.shared && R.sharedId) publishFrame();
+    dropAnchors();   // the old marks' anchors go now: they would pull the new frame back to the old marks
+    R.mgen++;
+    R.saved = { v: 2, a: a.toArray().map(r3), b: p.toArray().map(r3), at: Math.round(now()), anchors: [] };
+    storeSaved();   // kept once its anchors are made
+    R.mk = marksMk(R.saved.a, R.saved.b); R.cmp = null; R.pubAt = 0; R.recAt = 0;
+    setFrame(fromMarks(R.saved.a, R.saved.b), 'marks', 'Room calibrated', 'Check: the orange crosses sit on the tape marks. Everyone who calibrates with the same marks sees the stations in the same places.');
+    R.wantAnchors = { a: R.saved.a, b: R.saved.b };
   }
   function status() {
     if (!C.code) return '';
     if (!R.session) return kind() === 'desktop' ? '' : 'starting';
     return { waiting: 'asking the headset...', 'shared-wait': 'looking for the shared space...', restoring: 'finding last time\'s marks...',
-      adopted: 'aligned automatically', shared: 'aligned to the shared space', marks: 'calibrated', saved: 'calibration from last time',
-      anchor: 'calibration from last time', own: 'elsewhere: the room is round you', calibrate: 'not aligned: calibrate',
+      adopted: 'aligned automatically', shared: 'aligned to the shared space', marks: 'calibrated',
+      anchor: 'calibrated last time', own: 'elsewhere: the room is round you', calibrate: 'not aligned: calibrate',
       'mark-a': 'touch mark A', 'mark-b': 'touch mark B' }[R.state] || R.state;
   }
-  // the station's place for the story's rig: the spot at eye height, facing the station's way (local space)
+  // a line a minute (and at every change): what the alignment rests on, for the relay's log (sample, below)
+  function sample(t) {
+    if (t - R.sampleAt < 5000) return;
+    R.sampleAt = t;
+    const S = { src: R.src, state: R.state, sid: R.sharedId, sharedOK: R.sharedOK, here: here() };
+    if (R.frame) S.frame = { o: R.frame.o.map(r3), x: R.frame.x.map(r3) };
+    if (R.lfOK) { const e = R.lf.elements; S.lf = { p: [e[12], e[13], e[14]].map(r3), yaw: r3(Math.atan2(-e[2], e[0])) }; }
+    if (R.sharedOK) { const M = floorFromShared(new THREE.Matrix4()), e = M.elements; S.shared = { p: [e[12], e[13], e[14]].map(r3), yaw: r3(Math.atan2(-e[2], e[0])) }; }
+    if (HD.ok && R.lfOK) { const p = _v.copy(HD.p).applyMatrix4(R.lfi); S.head = p.toArray().map(r3); }
+    if (R.anchorP) S.anchors = R.anchorP.map(p => p.map(r3));
+    if (R.saved) S.marks = { a: R.saved.a, b: R.saved.b, at: R.saved.at, kept: R.saved.anchors.length === 2 };
+    if (R.cmp) S.cmp = R.cmp;
+    const P = R.sharedId ? val(kFrame(R.sharedId)) : null;
+    if (validFrame(P)) S.pub = { by: P.by, g: gradeOf(P), at: P.at };
+    log('sample', S);
+  }
+  // the log goes to the relay every 10 s while a headset is in a room (kept in relay/logs/ with --lan or --logs):
+  // whether two headsets line up can only be judged from both headsets' numbers
+  const UP = { t: -1, at: 0, off: false, busy: false };
+  function upload(t, now) {
+    if (UP.off || UP.busy || !C.code || !C.relay || (!now && t - UP.at < 10000)) return;
+    UP.at = t;
+    const entries = LOG.filter(e => e.t > UP.t);
+    if (!entries.length) return;
+    const last = entries[entries.length - 1].t;
+    UP.busy = true;
+    api('log', { room: C.code, id: C.id, name: C.name, kind: kind(), entries }).then(r => {
+      if (r.ok) UP.t = last;
+      else if (r.status === 404 || r.status === 405) { UP.off = true; log('log upload off', { status: r.status }); }
+    }, () => { /* the relay is away: next time */ }).then(() => { UP.busy = false; });
+  }
   function place(f) {
     if (!C.code || !R.session) return null;
     if (f) update(f);
     const L = liveSt();
     if (!R.aligned || !L || L.story !== HOST.curKey) return null;
     _v.set(L.x, EYE, L.z).applyMatrix4(R.m);
-    return { p: [_v.x, _v.y, _v.z], yaw: R.yaw + L.yaw };
+    return { p: [_v.x, _v.y, _v.z], yaw: R.yaw + L.yaw, room: true };
   }
   const placing = () => { const L = liveSt(); return !!(C.code && R.session && R.aligned && L && L.story === HOST.curKey); };
   function panelPose(L) {
@@ -1564,7 +1793,7 @@
     R.session = s; R.begun = null; R.aligned = false; R.frame = null; R.src = ''; R.calib = null;
     // what a story does by itself when a session starts or a headset wakes is not a person's action: not published
     holdTask();
-    if (!s) { setState('off'); HOST.audio.zone(null); if (C.code) { hello(); connect(); } changed(); return; }
+    if (!s) { releaseAnchors(); setState('off'); HOST.audio.zone(null); if (C.code) { upload(performance.now(), true); hello(); connect(); } changed(); return; }
     quiet(() => s.addEventListener('visibilitychange', () => {
       holdTask();
       log('headset', { visibility: s.visibilityState });
@@ -1590,7 +1819,8 @@
 
   HOST.room = {
     get state() { return R.state; }, get aligned() { return R.aligned; }, get frame() { return R.frame; }, get src() { return R.src; },
-    watch, update: f => update(f), place, placing, adopt, calibrate, cancel, mark, status, forget: forgetMarks, sharedLine,
+    watch, update: f => update(f), place, placing, adopt, calibrate, cancel, mark, status, forget: forgetMarks, sharedLine, sourceLine,
+    get marks() { return R.mk; }, get cmp() { return R.cmp; }, frameKey: kFrame,
     // the station's panel, for a story's xrRecenter while placed (off, pp, pr in its rig)
     saved: () => { const L = liveSt(), P = panelPose(L); return placing() ? { off: [0, 0, 0], pp: P.pp, pr: P.pr } : null; },
     joined() { if (R.session) { begin(); loop(R.session); } },
@@ -1601,7 +1831,7 @@
     internals: () => R,
   };
   // the session code above reaches the room frame through R
-  Object.assign(R, { joined: HOST.room.joined, left: HOST.room.left, realign: HOST.room.realign, placing, status, update, calibrate, cancel, mark });
+  Object.assign(R, { joined: HOST.room.joined, left: HOST.room.left, realign: HOST.room.realign, placing, status, update, calibrate, cancel, mark, originCheck, sample, upload });
 
   // ============================================================ the page's dialog ==
   // The Shared button (top bar and Stories screen): the relay, the open rooms, your name and colour, and when

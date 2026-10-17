@@ -42,11 +42,15 @@ room and see the same stations, a story each at a spot in the room, in step on
 every device (anyone can play, pause, jump or change a control; the last action
 wins). A headset runs the station it stands at; the others show as rings on the
 floor with a card, and pointing at one and pulling the trigger goes there too.
-People in the room calibrate once (Calibrate: touch two tape marks with a
-controller) unless their headsets share a space (the Shared panel shows the
-space's id, the same on every headset that shares it, and Forget calibration
-drops a headset's own marks so it takes the room's frame); people elsewhere
-and screens
+People in the room calibrate every headset on the same two tape marks
+(Calibrate: touch mark A, then mark B, with the ring at the front of a
+controller; orange crosses then show where the headset puts the marks, and two
+anchors keep the calibration for next time). A headset's own calibration is
+never overridden; one that has not calibrated takes the room from one that
+has, if their headsets share a space (the Shared panel shows the space's id,
+and Forget calibration drops a headset's own marks). The relay keeps the
+headsets' logs in relay/logs/ for checking alignment. People elsewhere and
+screens
 see the stations round their own spot. Screens get a room map and Follow a
 station. The flock's birds and the robots move separately on each device; their
 controls, falcons and crumbs are shared. Rooms need the relay (relay/, Node, no

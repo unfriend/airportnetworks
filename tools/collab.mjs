@@ -426,7 +426,7 @@ try {
   await st7(H);
   await ready(H, 'airports');
   const aId = await A.evaluate(() => HOST.collab.id);
-  await A.evaluate(f => HOST.collab.publish([['roomFrameShared', f]]), frameFor(ROOM, 'U1', aId, Date.now() - 60000));
+  await A.evaluate(f => HOST.collab.publish([[HOST.room.frameKey('U1'), f]]), frameFor(ROOM, 'U1', aId, Date.now() - 60000));
   await until(A, () => !HOST.collab.internals().pending.size, null, 3000);   // stored before the headset's writes are counted
   const xrOpts = { mode: 'immersive-ar', features: ['local-floor', 'anchors', 'shared'], local: LOCAL, floor: FLOOR, shared: SHARED, sharedId: '', head: [0, 1.6, 0, 0] };
   await H.evaluate(installXR, xrOpts);
@@ -587,7 +587,7 @@ try {
     await H.evaluate(() => JSON.stringify(window.__collabLog.slice(-8).map(e => [e.ev, e.id || e.st || e.story || '']))));
   // the room frame moves (newer marks elsewhere): this headset follows within a second
   ROOM = [2.05, 0, 1, 0.3];
-  await A.evaluate(f => HOST.collab.publish([['roomFrameShared', f]]), frameFor(ROOM, 'U1', aId, Date.now()));
+  await A.evaluate(f => HOST.collab.publish([[HOST.room.frameKey('U1'), f]]), frameFor(ROOM, 'U1', aId, Date.now()));
   await frames(H, 900);
   const fr2 = await H.evaluate(() => HOST.room.frame.o), wantO2 = unapply(FLOOR, ROOM.slice(0, 3));
   check('headset: re-aligns when the published frame moves more than 3 cm', near(fr2, [wantO2[0], 0, wantO2[2]], 1e-4), `${fmt(fr2)} want ${fmt(wantO2)}`);
@@ -647,14 +647,21 @@ try {
   await touch([markA[0] + 0.1, markA[1], markA[2] + 0.05]);
   const stClose = await H.evaluate(() => HOST.room.state);
   await touch(markB);
-  await frames(H, 200);
-  const cal = await H.evaluate(() => ({ frame: HOST.room.frame, src: HOST.room.src, saved: JSON.parse(localStorage.getItem('roomFrame') || 'null'), made: window.__xr.made }));
-  const fa = unapply(FLOOR, markA), fb = unapply(FLOOR, markB), cx = unit([fb[0] - fa[0], 0, fb[2] - fa[2]]);
+  // the anchors at A and B are made, checked against the marks, and their handles saved
+  const keptMarks = () => H.evaluate(() => { const s = JSON.parse(localStorage.getItem('roomFrame') || 'null'); return !!(s && s.anchors && s.anchors.length === 2); });
+  for (let k = 0; k < 12 && !(await keptMarks()); k++) await frames(H, 250);
+  const cal = await H.evaluate(() => ({ frame: HOST.room.frame, src: HOST.room.src, saved: JSON.parse(localStorage.getItem('roomFrame') || 'null'), made: window.__xr.made,
+    mk: HOST.room.marks, line: HOST.room.sourceLine() }));
+  const fa = unapply(FLOOR, markA), fb = unapply(FLOOR, markB), cx = unit([fb[0] - fa[0], 0, fb[2] - fa[2]]), dAB = Math.hypot(fb[0] - fa[0], fb[2] - fa[2]);
   check('calibration: mark A, then a mark B too close is refused', stA === 'mark-b' && stClose === 'mark-b', `${stA}, ${stClose}`);
   check('calibration: two marks give the expected frame (A the origin, A to B the x axis)', cal.src === 'marks' && near(cal.frame.o, [fa[0], 0, fa[2]], 2e-3) && near(cal.frame.x, cx, 2e-3),
     `${cal.src} o ${fmt(cal.frame ? cal.frame.o : [])} x ${fmt(cal.frame ? cal.frame.x : [])}, want ${fmt(fa)} ${fmt(cx)}`);
-  check('calibration: saved on the headset, with a persistent anchor at mark A', cal.saved && near(cal.saved.o, [fa[0], 0, fa[2]], 2e-3) && !!cal.saved.anchor &&
-    cal.made.length === 1 && cal.made[0].space === 'local-floor' && near(cal.made[0].p, fa, 2e-3), JSON.stringify({ saved: cal.saved, made: cal.made }));
+  check('calibration: saved with two anchors, at mark A and at mark B (their handles kept, no coordinates trusted alone)', cal.saved && cal.saved.v === 2 &&
+    near(cal.saved.a, fa, 2e-3) && near(cal.saved.b, fb, 2e-3) && cal.saved.anchors.length === 2 && cal.saved.anchors.every(Boolean) && cal.made.length === 2 &&
+    cal.made.every(m => m.space === 'local-floor') && near(cal.made[0].p, fa, 2e-3) && near(cal.made[1].p, fb, 2e-3), JSON.stringify({ saved: cal.saved, made: cal.made }));
+  check('calibration: the marks are drawn where they were touched (A at the origin, B along x), and the panel says the room rests on them',
+    !!cal.mk && Math.abs(cal.mk[0] - fa[1]) < 2e-3 && Math.abs(cal.mk[1] - dAB) < 2e-3 && Math.abs(cal.mk[2] - fb[1]) < 2e-3 && /own marks, held by two anchors/.test(cal.line),
+    JSON.stringify({ mk: cal.mk, line: cal.line, want: [fa[1], dAB, fb[1]] }));
   // the Guardian origin moves within the session (a reset with a transform): the frame follows at once
   const F2 = [0.1, 0, -0.2, 0.2];
   const moved = await H.evaluate(([F, F2]) => {
@@ -668,56 +675,130 @@ try {
   const mo = unapply(F2, apply(FLOOR, [fa[0], 0, fa[2]])), mx = rot(-F2[3], rot(FLOOR[3], cx));
   check('a reset of local-floor with a transform moves the frame into the new coordinates', moved && near(moved.o, [mo[0], 0, mo[2]], 2e-3) && near(moved.x, mx, 2e-3),
     `${moved ? fmt(moved.o) + ' ' + fmt(moved.x) : 'no frame'}, want ${fmt(mo)} ${fmt(mx)}`);
-  // next session (or a reload): the anchor at mark A brings the frame back
+  // a recentre without a word (Quest Browser fires no reset): local and local-floor both move; the two anchors
+  // keep the frame on the marks
+  const F3 = [-0.6, 0, 0.5, -0.9], L3 = [F3[0], 1.6, F3[2], F3[3]];
+  await H.evaluate(([F, L]) => {
+    const X = window.__xr, V = (x, y, z) => new THREE.Vector3(x, y, z);
+    const M = a => new THREE.Matrix4().compose(V(a[0], a[1], a[2]), new THREE.Quaternion().setFromAxisAngle(V(0, 1, 0), a[3]), V(1, 1, 1));
+    X.W.floor = M(F); X.W.local = M(L);
+  }, [F3, L3]);
+  await frames(H, 900);
+  const rc = await H.evaluate(() => ({ frame: HOST.room.frame, src: HOST.room.src }));
+  const fa3 = unapply(F3, markA), fb3 = unapply(F3, markB), cx3 = unit([fb3[0] - fa3[0], 0, fb3[2] - fa3[2]]);
+  check('a recentre without a reset event: the anchors keep the frame on the marks', rc.src === 'marks' && rc.frame && near(rc.frame.o, [fa3[0], 0, fa3[2]], 2e-3) && near(rc.frame.x, cx3, 2e-3),
+    `${rc.src} ${rc.frame ? fmt(rc.frame.o) + ' ' + fmt(rc.frame.x) : 'no frame'}, want ${fmt(fa3)} ${fmt(cx3)}`);
+  // next session (or a reload): the anchors at mark A and mark B bring the frame back
   await H.evaluate(() => window.__xr.end());
   await H.evaluate(installXR, Object.assign({}, xrOpts, { features: ['local-floor', 'anchors'] }));
   await H.evaluate(() => window.__xr.begin());
   for (let k = 0; k < 12 && !(await H.evaluate(() => HOST.room.src)); k++) await frames(H, 250);   // a busy machine draws few frames
   const re = await H.evaluate(() => ({ frame: HOST.room.frame, src: HOST.room.src }));
-  check('calibration: the next session finds the frame again by its anchor', re.src === 'anchor' && re.frame && near(re.frame.o, cal.frame.o, 2e-3) && near(re.frame.x, cal.frame.x, 2e-3),
+  check('calibration: the next session finds the frame again by its two anchors', re.src === 'anchor' && re.frame && near(re.frame.o, cal.frame.o, 2e-3) && near(re.frame.x, cal.frame.x, 2e-3),
     `${re.src} ${re.frame ? fmt(re.frame.o) : ''} ` + await H.evaluate(() => JSON.stringify(window.__collabLog.slice(-10).map(e => [e.ev, e.state || e.src || e.e || '']))));
-  // Forget calibration (two presses on the shell's panel): the marks and their saved anchor go, and the headset
+  // Forget calibration (two presses on the shell's panel): the marks and their saved anchors go, and the headset
   // lines up again from the start (here, with no shared space, it asks to calibrate); the panel says there is no
   // shared space
   await H.evaluate(() => HOST.collab.panelOpen(true));
   await frames(H, 200);   // the panel draws (and lists its buttons) in the headset's frames
   const forgot = await H.evaluate(() => {
-    const S = HOST.collab.overlay().panel, uuid = HOST.room.internals().saved && HOST.room.internals().saved.anchor;
+    const S = HOST.collab.overlay().panel, ids = (HOST.room.internals().saved || {}).anchors || [];
     const press = () => { const r = S.regions.find(x => x.id === 'forget'); if (r && r.fn) r.fn(); return !!(r && r.fn); };
     // both presses at once: a busy page can take longer than the 3 s the first press arms it for
     const first = press(), kept = !!localStorage.getItem('roomFrame') && !!HOST.room.frame, second = press();
-    return { first, kept, second, uuid, gone: !window.__xr.handles.has(uuid), saved: localStorage.getItem('roomFrame'), frame: HOST.room.frame, line: HOST.room.sharedLine() };
+    return { first, kept, second, ids, gone: ids.every(u => !window.__xr.handles.has(u)), saved: localStorage.getItem('roomFrame'), frame: HOST.room.frame, line: HOST.room.sharedLine() };
   });
   await frames(H, 300);
   const forgotState = await H.evaluate(() => { HOST.collab.panelOpen(false); return HOST.room.state; });
-  check('Forget calibration: the first press only asks, the second forgets the marks and their anchor, and the headset asks to calibrate again',
-    forgot.first && forgot.kept && forgot.second && !!forgot.uuid && forgot.gone && !forgot.saved && !forgot.frame && forgotState === 'calibrate' && /No shared space/.test(forgot.line),
+  check('Forget calibration: the first press only asks, the second forgets the marks and their anchors, and the headset asks to calibrate again',
+    forgot.first && forgot.kept && forgot.second && forgot.ids.length === 2 && forgot.gone && !forgot.saved && !forgot.frame && forgotState === 'calibrate' && /No shared space/.test(forgot.line),
     JSON.stringify(Object.assign({ state: forgotState }, forgot)));
-  // calibrating again drops the old marks' anchor at once (it would pull the new frame back to the old mark A)
-  const savedAnchor = () => H.evaluate(() => { const S = HOST.room.internals().saved; return S && S.anchor; });
+  // calibrating again drops the old marks' anchors at once (they would pull the new frame back to the old marks)
+  const savedIds = () => H.evaluate(() => { const S = HOST.room.internals().saved; return S && S.anchors.length === 2 ? S.anchors.slice() : null; });
   const recal = async () => {
     await H.evaluate(() => HOST.room.calibrate());
     await touch(markA); await touch(markB);
-    for (let k = 0; k < 8 && !(await savedAnchor()); k++) await frames(H, 250);
-    return savedAnchor();
+    for (let k = 0; k < 8 && !(await savedIds()); k++) await frames(H, 250);
+    return savedIds();
   };
   const h1 = await recal(), h2 = await recal();
-  const hs = await H.evaluate(([a, b]) => [window.__xr.handles.has(a), window.__xr.handles.has(b)], [h1, h2]);
-  check('calibrating again replaces the old marks\' anchor (its saved handle is deleted)', !!h1 && !!h2 && h1 !== h2 && !hs[0] && hs[1], JSON.stringify({ h1, h2, hs }));
-  // Forget while the next session is still finding that anchor: the anchor that arrives afterwards is not used
+  const hs = await H.evaluate(([a, b]) => [a.some(u => window.__xr.handles.has(u)), b.every(u => window.__xr.handles.has(u))], [h1 || [], h2 || []]);
+  check('calibrating again replaces the old marks\' anchors (their saved handles are deleted)', !!h1 && !!h2 && h1[0] !== h2[0] && !hs[0] && hs[1], JSON.stringify({ h1, h2, hs }));
+  // Forget while the next session is still finding those anchors: the anchors that arrive afterwards are not used
   await H.evaluate(() => window.__xr.end());
   await H.evaluate(installXR, Object.assign({}, xrOpts, { features: ['local-floor', 'anchors'] }));
   await H.evaluate(() => {
     const S = window.__xr.session, restore = S.restorePersistentAnchor;
-    S.restorePersistentAnchor = u => new Promise(r => { window.__releaseAnchor = () => r(restore(u)); });
+    window.__releaseAnchors = [];
+    S.restorePersistentAnchor = u => new Promise(r => { window.__releaseAnchors.push(() => r(restore(u))); });
     window.__xr.begin();
   });
   for (let k = 0; k < 12 && (await H.evaluate(() => HOST.room.state)) !== 'restoring'; k++) await frames(H, 250);
-  const lateSt = await H.evaluate(() => { const st = HOST.room.state; HOST.room.forget(); if (window.__releaseAnchor) window.__releaseAnchor(); return st; });
+  const lateSt = await H.evaluate(() => { const st = HOST.room.state; HOST.room.forget(); for (const f of window.__releaseAnchors) f(); return st; });
   await frames(H, 400);
-  const late = await H.evaluate(h => ({ anchor: !!HOST.room.internals().anchor, state: HOST.room.state, frame: !!HOST.room.frame, handle: window.__xr.handles.has(h) }), h2);
-  check('Forget while last time\'s anchor is still being found: the late anchor is not used, and the headset asks to calibrate',
-    lateSt === 'restoring' && !late.anchor && !late.frame && late.state === 'calibrate' && !late.handle, JSON.stringify(Object.assign({ was: lateSt }, late)));
+  const late = await H.evaluate(h => ({ anchors: !!HOST.room.internals().anchors, state: HOST.room.state, frame: !!HOST.room.frame, handles: h.filter(u => window.__xr.handles.has(u)) }), h2 || []);
+  check('Forget while last time\'s anchors are still being found: the late anchors are not used, and the headset asks to calibrate',
+    lateSt === 'restoring' && !late.anchors && !late.frame && late.state === 'calibrate' && !late.handles.length, JSON.stringify(Object.assign({ was: lateSt }, late)));
+  await H.evaluate(() => window.__xr.end());
+
+  // ----------------------------- the shared space never overrides marks --
+  // a headset in shared space U1 with no marks takes the frame published for U1; once calibrated it keeps its own
+  // marks, publishes them for U1 (with the marks, for drawing), ignores a newer frame someone else publishes there,
+  // and only says how far the shared space puts that one's marks from its own
+  await H.evaluate(installXR, Object.assign({}, xrOpts, { sharedId: 'U1' }));
+  await H.evaluate(() => window.__xr.begin());
+  for (let k = 0; k < 12 && (await H.evaluate(() => HOST.room.src)) !== 'adopted'; k++) await frames(H, 250);
+  const ad0 = await H.evaluate(() => HOST.room.src);
+  const hId2 = await H.evaluate(() => HOST.collab.id);
+  await recal();
+  await frames(H, 1200);
+  const rfKey = await H.evaluate(() => HOST.room.frameKey('U1'));
+  const pub = ((await roomInfo(code)).keys[rfKey] || {}).v || null;
+  const own1 = await H.evaluate(() => ({ src: HOST.room.src, frame: HOST.room.frame }));
+  check('shared space: a headset without marks takes the published frame; once calibrated it uses its marks and publishes them for its space',
+    ad0 === 'adopted' && own1.src === 'marks' && near(own1.frame.o, [fa[0], 0, fa[2]], 2e-3) && !!pub && pub.by === hId2 && pub.g === 'marks' && Array.isArray(pub.m) &&
+    Math.abs(pub.m[1] - dAB) < 2e-3, JSON.stringify({ ad0, own1, pub }));
+  const yawW = Math.atan2(-(markB[2] - markA[2]), markB[0] - markA[0]);
+  const P3 = Object.assign(frameFor([markA[0] + 0.1, 0, markA[2], yawW + 0.05], 'U1', aId, Date.now() + 5000), { g: 'marks', m: [0.7, 1.5, 0.72] });
+  await A.evaluate(([k, f]) => HOST.collab.publish([[k, f]]), [rfKey, P3]);
+  await frames(H, 1500);
+  const kept = await H.evaluate(() => ({ src: HOST.room.src, frame: HOST.room.frame, cmp: HOST.room.cmp, line: HOST.room.sourceLine() }));
+  check('shared space: a newer frame published by someone else does not move a calibrated headset; the panel says how far apart their marks are',
+    kept.src === 'marks' && near(kept.frame.o, [fa[0], 0, fa[2]], 2e-3) && !!kept.cmp && Math.abs(kept.cmp.d - 0.1) < 3e-3 && Math.abs(kept.cmp.a - 2.9) < 0.15 && /puts .* marks 10 cm, 2\.9/.test(kept.line),
+    JSON.stringify(kept));
+  await H.evaluate(() => HOST.room.forget());
+  await frames(H, 800);
+  const ad1 = await H.evaluate(() => ({ src: HOST.room.src, frame: HOST.room.frame, mk: HOST.room.marks, line: HOST.room.sourceLine() }));
+  const w3 = unapply(FLOOR, [markA[0] + 0.1, 0, markA[2]]);
+  check('shared space: after Forget calibration the headset takes that frame instead, marks included', ad1.src === 'adopted' && near(ad1.frame.o, [w3[0], 0, w3[2]], 2e-3) &&
+    JSON.stringify(ad1.mk) === JSON.stringify(P3.m) && /through the shared space/.test(ad1.line), JSON.stringify(ad1));
+  await H.evaluate(() => window.__xr.end());
+
+  // -------------------------------------------- a calibration without anchors --
+  // a browser without anchors: the marks hold for the session until the origin moves (a reset, or the head
+  // seeming to jump), then the headset asks to calibrate again; a mark is taken where the controller was held
+  // still, not where the trigger pull moved it
+  await H.evaluate(installXR, Object.assign({}, xrOpts, { features: ['local-floor'] }));
+  await H.evaluate(() => { delete window.__xr.frame.createAnchor; window.__xr.begin(); });
+  await frames(H, 300);
+  await H.evaluate(p => { HOST.room.calibrate(); window.__xr.ctrl(0, p, [0, -1, 0]); }, markA);
+  await frames(H, 300);
+  const stillA = await H.evaluate(p => {
+    window.__xr.ctrl(0, [p[0] + 0.03, p[1] - 0.01, p[2]], [0, -1, 0]); HOST.cur.peek('XR.ctrls[0].wantPress = true'); window.__xr.step();
+    const c = HOST.room.internals().calib; return c && c.a ? c.a.toArray() : null;
+  }, markA);
+  check('calibration: the mark is where the controller was held still before the trigger, not where the pull moved it', !!stillA && near(stillA, fa, 5e-3), `${stillA && fmt(stillA)} want ${fmt(fa)}`);
+  await touch(markB);
+  await frames(H, 300);
+  const noA = await H.evaluate(() => ({ src: HOST.room.src, line: HOST.room.sourceLine(), saved: localStorage.getItem('roomFrame') }));
+  await H.evaluate(() => { for (const fn of window.__xr.resets['local-floor'] || []) fn({ transform: null }); });
+  await frames(H, 200);
+  const afterReset = await H.evaluate(() => HOST.room.state);
+  await recal();
+  await frames(H, 200);
+  const jumped = await H.evaluate(() => { const R = HOST.room.internals(); R.prev = { p: [9, 1.6, 9], yaw: 0, t: performance.now() - 20 }; R.originCheck(performance.now()); return HOST.room.state; });
+  check('without anchors: the marks hold for the session (nothing saved), and a reset or a jump of the origin asks to calibrate again',
+    noA.src === 'marks' && /no anchors/.test(noA.line) && !noA.saved && afterReset === 'calibrate' && jumped === 'calibrate', JSON.stringify({ noA, afterReset, jumped }));
   await H.evaluate(() => window.__xr.end());
 
   // ------------------------------------------ a VR headset elsewhere --

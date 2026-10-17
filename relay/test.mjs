@@ -509,6 +509,23 @@ try {
     L.kill();
   });
 
+  await step('--logs: what a headset sends is kept, a JSON line per entry, per room and member', async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'relay-logs-'));
+    const L = await start(['--logs', dir, '--quiet']);
+    const send = body => req('POST', '/api/log', { body, at: L.port });
+    const r1 = await send({ room: 'ABC', id: 'm1abcdef', name: 'Ada L.', kind: 'ar', entries: [{ t: 1, ev: 'frame', src: 'marks' }, { t: 2, ev: 'sample' }, 'not an entry'] });
+    const files = fs.readdirSync(dir);
+    const lines = files.length ? fs.readFileSync(path.join(dir, files[0]), 'utf8').trim().split('\n').map(l => JSON.parse(l)) : [];
+    ok(r1.status === 200 && files.length === 1 && /^\d{4}-\d\d-\d\d-ABC-AdaL-m1abcd\.jsonl$/.test(files[0]) && lines.length === 2 && lines[0].ev === 'frame' &&
+      lines[0].kind === 'ar' && Number.isFinite(lines[0].at), 'two lines in a file named after the day, room, name and member');
+    ok((await send({ room: 'ABC', id: 'm1abcdef', entries: [{ t: 3 }] })).status === 429, 'one a second per member');
+    ok((await send({ room: 'abc!', id: 'm2', entries: [] })).status === 400 && (await send('not json')).status === 400, 'a bad room, or not JSON, is refused');
+    ok((await req('GET', '/api/log', { at: L.port })).status === 405, 'only POST');
+    ok((await req('POST', '/api/log', { body: { room: 'ABC', id: 'm3', entries: [] } })).status === 404, 'without --logs (or --lan) logs are off');
+    L.kill();
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+
   await step('the log has a line per write and per refusal', async () => {
     ok(new RegExp(`${R} set #1 by a1: st\\.s1 st\\.s1\\.play`).test(relay.out), 'a write');
     ok(new RegExp(`${R} refused a1 \\(roomFrameShared: null outside the deletable families\\)`).test(relay.out), 'a refusal');

@@ -6,3 +6,4 @@ tools/nmd/shots/
 tools/flock/shots/
 tools/robots/shots/
 relay/.lan/
+relay/logs/

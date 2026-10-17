@@ -18,8 +18,13 @@ experimental *shared spaces* below.
 - `local` puts the origin at the head when the session starts and makes it again per session and on every
   recentre: a room frame or a placement saved in `local` coordinates lives in a dead coordinate system after
   the next entry. This was the main cause of "quirky alignment" there.
-- `local-floor` is the Guardian (stage) origin: stable across sessions on the same headset. Verify it by logging
-  the viewer height (*verified*: 1.73 m standing).
+- `local-floor` was taken there for the Guardian (stage) origin, stable across sessions; only the viewer height
+  was *verified* (1.73 m standing). **This app's first test on two Quest 3s says otherwise**: in upstream
+  Chromium's OpenXR path `local`/`local-floor` start at the headset's pose when the session starts (or at the
+  last recentre), a recentre moves them **without a `reset` event** (Chromium dispatches resets without a
+  transform, and OpenXR never sets the reset flag), and a floor not known is estimated 1.6 m below the head. So
+  coordinates saved in `local-floor` are stale next session and after a recentre: keep a room frame on
+  anchors, or calibrate again.
 - **This app uses `local` today** (`setReferenceSpaceType('local')` in every story's `e5_xr.js` or its hand-written
   copy) and treats the floor as 1.6 m below the head. A shared space needs `local-floor` (with a fallback to
   `local` when it is refused), and every story's placement code must then use the known floor.
@@ -44,31 +49,44 @@ One idempotent `ensureAligned()` per session, run on headset entry **and** when 
 while already in AR must align too). States: unaligned -> shared space adopted | shared space defined | marks
 -> aligned; show the state in the UI.
 
-1. **Shared space available** (see section 5): if a room frame was published for this shared space's id, adopt
-   it ("Aligned automatically"). If nobody published within ~8 s, use this headset's saved marks, else the
-   shared space's own origin, and publish that.
-2. **No shared space**: this headset's earlier marks ("Room calibration from last time"): first the
-   **persistent anchor** made at mark A (its pose survives a moved Guardian origin), else the saved
-   `local-floor` coordinates, else calibrate.
-3. **Two-point calibration**: the person touches mark A, then mark B, with the controller tip (tape crosses on a
-   table or the floor, as far apart as comfortable, e.g. diagonal table corners). A gives the translation, A->B
-   the yaw, gravity the rest. Expected accuracy 1-2 cm and under 1 degree (controller error ~3 mm; rotation
-   error ~ touch error / distance). About 20 s a person. Only frames from marks are saved. Marks are the
-   controller's target-ray origin: hold it the same way at both marks.
-4. **Reconciliation** (twice a second while a shared space is known): a headset whose frame differs from the
-   room's for this shared-space id by more than **3 cm or 1 degree** adopts it ("Re-aligned"), unless its own
-   marks are newer, in which case it republishes and the others follow. A published frame for another id whose
-   publisher is still in the session is left alone (two groups in two spaces; marks are the reference then);
-   a stale one (publisher gone) is replaced.
+In this app (after the first test on two Quest 3s, where neither the shared space nor the marks lined the
+headsets up: the shared space overrode each fresh calibration, see below), first found first:
+
+1. **This headset's own marks**: calibrated this session, or last time's found again by the **two anchors** made
+   at them. Nothing overrides them: tape marks are the truth. With a shared space, the headset publishes its
+   frame for that space (with the marks, so others can draw them) and only *reports* how far the shared space
+   puts another calibrated headset's marks from its own (a line on the panel: the measure of the shared
+   space's accuracy).
+2. **A frame published for this shared space** (key `rf.<id>`, grade `marks` or `shared`): adopted by headsets
+   without marks ("Aligned automatically"), followed when it moves by more than **3 cm or 1 degree**
+   ("Re-aligned"). An adopted frame is never published again.
+3. **The shared space's own origin** when nobody has published for it ("Shared space found"), published with
+   grade `shared` (unless the room was calibrated in another space by someone still there: then calibrate).
+4. **Two-point calibration**: the person touches mark A, then mark B (tape crosses on a table or the floor, a
+   metre or more apart, at least 50 cm). A gives the translation, A->B the yaw, gravity the rest. The point
+   taken is the controller's target-ray origin where it was held still 70 to 260 ms before the trigger (the
+   pull moves the hand); a bright ring shows that point while calibrating, and orange crosses show the marks
+   afterwards, where the headset puts them, so a bad touch is seen at once. Expected accuracy 1-2 cm and under
+   1 degree with a metre between the marks.
+
+What went wrong before (phase 0): the shared space came first and a headset's newer marks went out to the
+others through it, so every calibration was transported through the shared space's error to the other
+headset, and calibrating that one only sent the error back; frames that were not calibrations were stamped
+"now" and so beat older real marks; saved `local-floor` coordinates were used when the anchor was not found;
+and the anchor's orientation was trusted for the room's direction.
 
 VR users and people in other rooms skip all this: their room frame is their own floor origin (they share the
 content, not the room).
 
-**Persistent anchors** (Quest Browser, optional feature `anchors`, *verified* working): create one at mark A with
-the frame's yaw after each calibration, keep its handle in `localStorage`, delete the old one (**8 per site**).
-Restore it next session and read the frame from its pose. Restoring took more than 3 s once (*verified*): allow
-about 8 s. This app's `HOST.anchor` already manages one persistent anchor per site for headset placement; a
-room-frame anchor must share that budget and code.
+**Persistent anchors** (Quest Browser, optional feature `anchors`, *verified* working): create **two**, at mark A
+and mark B, after each calibration, and use **only their positions** (an anchor's orientation is not trusted;
+WebXR does not promise to keep the one asked for). Check them once tracked: new ones within 5 cm of where they
+were asked for, restored ones as far apart as the marks were; else drop them. Keep their handles in
+`localStorage` (never the coordinates alone), delete the old ones (**8 per site**). They keep the frame on the
+marks when the origin moves (a recentre) and find the marks next session. Restoring took more than 3 s once
+(*verified*): allow about 8 s. This app's `HOST.anchor` manages one more persistent anchor per site for headset
+placement (the same budget and code). Without anchors, a reset event or a jump of the head (more than 6 m/s or
+1150 degrees a second, the origin moving under it) asks to calibrate again.
 
 **Notices** in the headset: a small self-closing panel in front of the person for each step ("Aligned
 automatically", "Shared space found", "Room calibration from last time", "Calibrate the room" with the how-to

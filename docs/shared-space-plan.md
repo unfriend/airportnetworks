@@ -109,7 +109,7 @@ All poses are in **room coordinates** (metres, y up, the floor at y = 0; see the
 | `st.<id>.play` | `{ mode: 'story' | 'explore', t, playing, at }`: the story clock: at relay time `at` the story was at `t`; while playing it runs on from there | whoever plays, pauses, jumps, changes mode (or the story reaches its end) |
 | `st.<id>.x` | the story's explore state (opaque JSON, from the story's `collab.state()`) | whoever changes a control |
 | `st.<id>.panel` | `{ x, y, z, yaw }`: the station's panel, relative to its spot | whoever moves the panel |
-| `roomFrameShared` | `{ uuid, o, x, by, at, src }` (shared-spaces.md) | the alignment |
+| `rf.<space id>` | `{ uuid, o, x, g, by, at, m }` (shared-spaces.md): a room frame in a shared space's coordinates, `g` `marks` or `shared`, `m` the marks to draw | the alignment |
 
 Station ids are short random strings. A new room has no stations; the headset panel and the desktop dialog offer
 **Arrange all** (the seven stories in two rows in front of the person: four spots 1.2 m ahead, three in the gaps
@@ -273,12 +273,22 @@ Differences from the plan:
 - **Headset panel**: Stop calibrating stays pressable while calibrating (a press anywhere else takes the mark);
   the in-room button names the action ("Say I am elsewhere" / "Say I am in this room") under a line that says
   where you are; cards turn to face you and are drawn under the story's panels. In the room, a line shows the
-  shared space's id (or that there is none) so headsets can be compared, and Forget calibration (press twice)
-  drops this headset's saved marks and their anchor (saved marks are used while the room holds no frame for the
-  space, or when they are newer than its frame); a frame the room holds stays. Anchor requests carry the marks'
-  generation, so one that settles after Forget or new marks is thrown away, and new marks drop the old anchor.
+  shared space's id (or that there is none) so headsets can be compared, a line says what the frame rests on
+  (and, on a calibrated headset, how far the shared space puts another headset's marks from its own), and
+  Forget calibration (press twice) drops this headset's marks and their anchors.
+- **Alignment after the first test on two Quest 3s** (neither the shared space nor the marks lined them up):
+  a headset's own marks always win (the shared space only aligns headsets without marks, and a frame that went
+  through it is never published again); two anchors per calibration, positions only, checked once tracked,
+  keep the frame on the marks through a recentre and find them next session; coordinates are never kept
+  without anchors; without anchors a reset or a jump of the head asks to calibrate again; a mark is taken
+  where the controller was held still before the trigger, at least 50 cm apart; orange crosses show the marks
+  where each headset puts them; the published frame is per shared space (`rf.<id>`, FORMAT networks-3); and
+  every headset sends its log to the relay (`relay/logs/`) so two headsets' numbers can be compared. At a
+  station a story's grip offset from before is dropped. Still per headset at a station: the explore view
+  (turned, zoomed, the sway).
 - **Room format**: `FORMAT` in `shared.js` is the room's version; a room refuses clients of another format, so it
   is bumped whenever the keys or a story's `state()` change shape.
 - Not built: phases 1 to 3 (one live station per headset; simulations still run per device). Untested until
-  headsets are in a room: shared-space ids, calibration accuracy, persistent anchors restored, sound zones heard,
-  comfort, frame rate with presence drawn, and whether the socket keeps running inside an immersive session.
+  headsets are in a room again: whether they line up now, shared-space ids and accuracy, persistent anchors
+  restored, whether a recentre fires a reset, sound zones heard, comfort, frame rate with presence drawn, and
+  whether the socket keeps running inside an immersive session.

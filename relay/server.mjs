@@ -3,8 +3,9 @@
 // room's next seq: last writer wins), ephemeral messages that are never stored, and members.
 // Node 18 or newer and no packages: its own minimal WebSocket code (RFC 6455). It can serve the
 // app as well (--static), so the page and the relay share one address.
-//   node relay/server.mjs [--port 8787] [--host 0.0.0.0] [--cert c.pem --key k.pem] [--static .]
-//   node relay/server.mjs --lan    (for headsets on the same Wi-Fi: HTTPS with a certificate of its own, the app served)
+//   node relay/server.mjs [--port 8787] [--host 0.0.0.0] [--cert c.pem --key k.pem] [--static .] [--logs dir]
+//   node relay/server.mjs --lan    (for headsets on the same Wi-Fi: HTTPS with a certificate of its own, the app
+//                                   served, the headsets' logs kept in relay/logs/)
 import http from 'node:http';
 import https from 'node:https';
 import crypto from 'node:crypto';
@@ -18,14 +19,16 @@ import { pipeline } from 'node:stream';
 import { fileURLToPath } from 'node:url';
 
 const PROTO = 1;
-const OPT = { port: 8787, host: '0.0.0.0', cert: '', key: '', static: '', timeout: 40, expire: 6 * 3600, ping: 20, quiet: false, lan: false };
+const OPT = { port: 8787, host: '0.0.0.0', cert: '', key: '', static: '', timeout: 40, expire: 6 * 3600, ping: 20, quiet: false, lan: false, logs: '' };
 const HELP = `usage: node relay/server.mjs [options]
   --port <n>       port (8787; 0 picks a free one)       --host <addr>   address (0.0.0.0)
   --cert <file>    with --key: speak HTTPS and WSS       --static <dir>  also serve the app from <dir>
   --timeout <s>    a silent member is dropped (40)       --expire <s>    a room without members goes (21600)
   --ping <s>       WebSocket ping to every member (20)   --quiet         no log lines
+  --logs <dir>     keep the logs headsets send (their room alignment, one JSON line per entry) in <dir>
   --lan            for headsets on the same Wi-Fi: HTTPS with a self-signed certificate made once with openssl for
-                   this machine's addresses (in relay/.lan/), and the app served from the repository`;
+                   this machine's addresses (in relay/.lan/), the app served from the repository, and the headsets'
+                   logs kept in relay/logs/`;
 for (let i = 2; i < process.argv.length; i++) {
   const name = process.argv[i].replace(/^--/, '');
   if (name === 'help' || !(name in OPT) || name === process.argv[i]) { console.log(HELP); process.exit(name === 'help' ? 0 : 1); }
@@ -44,6 +47,7 @@ const lanAddresses = () => Object.values(os.networkInterfaces()).flat().filter(a
 if (OPT.lan) {
   const here = path.dirname(fileURLToPath(import.meta.url)), dir = path.join(here, '.lan');
   if (!OPT.static) OPT.static = path.join(here, '..');
+  if (!OPT.logs) OPT.logs = path.join(here, 'logs');
   if (!OPT.cert) {
     const names = ['127.0.0.1', ...lanAddresses()], want = names.join(' ');
     OPT.cert = path.join(dir, 'cert.pem'); OPT.key = path.join(dir, 'key.pem');
@@ -381,12 +385,13 @@ function api(req, res, url) {
     return json(res, 200, [...rooms.values()].map(r => ({ code: r.code, members: r.members.size, names: [...r.members.values()].map(m => m.name), stations: stations(r), idle: idle(r), version: r.version })));
   }
   if (p === '/api/rooms' && req.method === 'POST') return createRoom(req, res);
+  if (p === '/api/log' && req.method === 'POST') return saveLog(req, res);
   if (room && req.method === 'GET') {
     const r = rooms.get(room[1].toUpperCase());
     if (!r) return json(res, 404, { error: 'no such room' });
     return json(res, 200, { code: r.code, app: r.app, version: r.version, created: r.created, seq: r.seq, idle: idle(r), members: people(r), keys: keysOut(r) });
   }
-  if (p === '/api/ping' || p === '/api/rooms' || room) return json(res, 405, { error: 'method not allowed' });
+  if (p === '/api/ping' || p === '/api/rooms' || p === '/api/log' || room) return json(res, 405, { error: 'method not allowed' });
   json(res, 404, { error: 'not found' });
 }
 function createRoom(req, res) {
@@ -406,6 +411,38 @@ function createRoom(req, res) {
     const r = makeRoom(code, str(b.app, 32), str(b.version, 64));
     log(`${code} created by ${clientIp(req)} (${r.app || 'no app'} ${r.version || 'no version'})`);
     json(res, 201, { code });
+  });
+}
+
+// --logs: what a headset logs about its room alignment (shared.js sends it every 10 s), one JSON line per entry in
+// <dir>/<day>-<room>-<name>-<member>.jsonl, so two headsets' numbers can be compared afterwards
+const MAX_LOG_BODY = 1 << 20, MAX_LOG_FILE = 20 << 20, LOGGED = new Map();
+function saveLog(req, res) {
+  if (!OPT.logs) return json(res, 404, { error: 'logs are off (start the relay with --logs <dir>, or --lan)' });
+  const parts = [];
+  let n = 0;
+  req.on('data', c => { if ((n += c.length) <= MAX_LOG_BODY) parts.push(c); else if (!res.headersSent) { res.setHeader('Connection', 'close'); json(res, 413, { error: 'body too big' }); } });
+  req.on('end', () => {
+    if (res.headersSent) return;
+    let b;
+    try { b = JSON.parse(Buffer.concat(parts).toString()); } catch { return json(res, 400, { error: 'body is not JSON' }); }
+    if (!b || typeof b !== 'object' || !CODE.test(b.room) || !ID.test(b.id) || !Array.isArray(b.entries) || b.entries.length > 2000) return json(res, 400, { error: 'room, id and entries needed' });
+    const now = Date.now();
+    if (now - (LOGGED.get(b.id) || 0) < 1000) return json(res, 429, { error: 'one a second' });
+    LOGGED.set(b.id, now);
+    if (LOGGED.size > 1000) LOGGED.delete(LOGGED.keys().next().value);
+    const name = String(b.name || '').replace(/[^\w-]/g, '').slice(0, 24) || 'someone';
+    const file = path.join(OPT.logs, `${new Date(now).toISOString().slice(0, 10)}-${b.room}-${name}-${b.id.slice(0, 6)}.jsonl`);
+    const lines = b.entries.filter(e => e && typeof e === 'object' && !Array.isArray(e)).map(e => JSON.stringify({ at: now, kind: str(b.kind, 16), ...e }) + '\n').join('');
+    try {
+      fs.mkdirSync(OPT.logs, { recursive: true });
+      let size = 0;
+      try { size = fs.statSync(file).size; } catch { /* a new file */ }
+      if (size + lines.length > MAX_LOG_FILE) return json(res, 507, { error: 'the log file is full' });
+      if (!size) log(`log ${path.relative(process.cwd(), file)} started (${b.room}, ${name})`);
+      fs.appendFileSync(file, lines);
+    } catch (err) { return json(res, 500, { error: 'cannot write the log: ' + err.message }); }
+    json(res, 200, { lines: lines ? lines.split('\n').length - 1 : 0 });
   });
 }
 
@@ -497,6 +534,7 @@ server.listen(OPT.port, OPT.host, () => {
     }
     console.log(`On this machine: ${scheme}://localhost:${a.port}/`);
   }
+  if (OPT.logs) console.log(`Headsets' logs (room alignment) go to ${OPT.logs}`);
 });
 for (const sig of ['SIGINT', 'SIGTERM']) {
   process.on(sig, () => {   // say goodbye, so clients reconnect at once (a container stop sends SIGTERM)

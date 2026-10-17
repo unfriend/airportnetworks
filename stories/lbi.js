@@ -10217,7 +10217,7 @@ function xrBegin(frame, dt) {
     // anchored: the spot in the room carries the frame that holds the panels, the Stories screen and the scene
     // (asked only once the headset has a pose, so a new anchor goes where things really are)
     const A = HOST.anchor.frame(frame, ref);
-    if (A) { GL.rig.position.fromArray(A.p); GL.rig.quaternion.setFromAxisAngle(_xUp, A.yaw); }
+    if (A) { GL.rig.position.fromArray(A.p); GL.rig.quaternion.setFromAxisAngle(_xUp, A.yaw); if (A.room) XR.globeOff.set(0, 0, 0); }   // at a station: no grip offset from before
   }
   const bl = XR.session && XR.session.renderState.baseLayer;
   if (bl) {

@@ -62,12 +62,12 @@ the app's files from the repository over HTTPS, and prints the address to open.
    keep devices apart: then use a router of your own or a phone's hotspot. Let the machine's firewall accept
    connections on port 8787 (macOS and Windows ask the first time the relay starts: allow it on private
    networks).
-3. For automatic alignment on each Quest 3 (optional; without it people touch two marks instead): in Quest
-   Browser open `chrome://flags`, set **WebXR experiments** to Enabled and restart the browser completely; and
-   turn on **Enhanced spatial services** in the headset's settings (privacy, device permissions). See
-   [docs/shared-spaces.md](../docs/shared-spaces.md).
-4. Two marks for calibration: two crosses of tape as far apart as is comfortable to reach (two corners of a
-   table, a metre or more apart; the further apart, the better the room lines up). Mark A is the room's origin.
+3. For automatic alignment on each Quest 3 (optional, experimental; the marks below are what lines headsets up
+   reliably): in Quest Browser open `chrome://flags`, set **WebXR experiments** to Enabled and restart the
+   browser completely; and turn on **Enhanced spatial services** in the headset's settings (privacy, device
+   permissions). See [docs/shared-spaces.md](../docs/shared-spaces.md).
+4. Two marks for calibration: two crosses of tape on the floor or a table, a metre or more apart (at least
+   50 cm; the further apart, the better the room lines up). Mark A is the room's origin.
 5. Floor space: Arrange all needs about 8 m wide and 5 m deep for all seven (two rows, starting just in front of
    where you stand); in a smaller room add 2-4 stations with **Add here** (headset) or **Add a station** (page).
 
@@ -88,13 +88,17 @@ the app's files from the repository over HTTPS, and prints the address to open.
 4. In the room, use **Enter AR**: you see the room and each other, and the stations stand in it. In VR the panel
    asks once whether you are in the same room as the others (then the room is aligned as in AR) or elsewhere
    (then you get your own floor and the others see you as an avatar).
-5. The room lines up by itself when shared spaces work (in a new room the first headset to enter says "Shared
-   space found", the others "Aligned automatically"); otherwise the panel asks you to **Calibrate**: touch mark A
-   with the tip of the controller and pull the trigger, then mark B (hold the controller the same way at both).
-   Each headset remembers its marks for next time ("Room calibration from last time"); they are used when the
-   room holds no frame for the shared space yet, or when they are newer than the one it holds (then the others
-   follow them). The Shared panel's room section shows the shared space's id: it must be the same on every
-   headset.
+5. **Calibrate every headset on the same two marks** (Shared panel, **Calibrate**): a bright ring shows the point
+   that counts, at the front of the controller. Put it on mark A, hold still, pull the trigger; then the same on
+   mark B. Orange crosses then show where this headset puts the marks: they must sit on the tape (they show for
+   30 s, and whenever the Shared panel is open). A headset's own calibration is never overridden. It is kept for
+   next time by two anchors at the marks ("Room calibration from last time"; Quest Browser keeps up to 8
+   anchors per site); a headset without anchors, or after a recentre (a long press on the Meta button), may ask
+   to calibrate again. A headset that has not calibrated takes the room from a calibrated one through the shared
+   space, if both share one ("Aligned automatically"; check the orange crosses), else it asks you to calibrate.
+   The panel's room section shows the shared space's id (the same on every headset that shares it) and, on a
+   calibrated headset, how far the shared space puts another calibrated headset's marks from its own: that
+   number says how far the automatic alignment can be trusted.
 6. Walk up to a station (or point at its card and pull the trigger): its story runs for everyone there, its
    narration plays where it stands, and everyone sees everyone's pointer.
 7. Desktop operators on the same network open the same address in a browser (and accept the warning once),
@@ -118,16 +122,15 @@ machine or public hosting.
 - **The app says the room does not exist**: a mistyped room code, an expired room (6 hours after the last
   person left), or a relay that was restarted. Pick the room from **Open rooms** instead of typing, or start a
   new one.
-- **Every headset says "calibration from last time", never "Aligned automatically"**: each uses its own saved
-  marks, which happens when the headsets do not share a space. Compare the **Shared space** line in the Shared
-  panel's room section: the same id on every headset means they share the space; "No shared space" means the
-  WebXR experiments flag or Enhanced spatial services is off on that headset (setup step 3). Once the ids
-  match, press **Forget calibration** twice on every headset but one (or clear the site's data in Quest
-  Browser): each then takes the room from that one ("Aligned automatically"). Forget calibration drops only
-  that headset's own marks: a frame the room already holds for the shared space stays, and a headset that
-  forgets takes it again; to move the room's origin, calibrate one headset (its new marks go out to the
-  others). If the ids differ, or a headset has no shared space, calibrate every headset with the same two marks
-  instead.
+- **The headsets do not line up**: check the orange crosses on each headset (open the Shared panel). Crosses
+  off the tape: calibrate that headset again, holding still at each mark. Crosses on the tape on both
+  headsets but things still apart: please send the logs (below). The pointer rays of the others should start at
+  their real controllers.
+- **"Aligned automatically" but off**: the shared space is not accurate (or not shared: compare the ids). Press
+  **Calibrate** on that headset; its own marks then win.
+- **Calibration lost after a recentre or a new session**: the anchors were not kept (private browsing, cleared
+  site data, more than 8 anchors on the site, or a browser without anchors). Calibrate again; **Forget
+  calibration** (press twice) clears a headset's marks and anchors.
 - **No sound at a station**: use **Sound check** on the Stories screen (it plays a beep through each sound
   engine).
 
@@ -136,8 +139,13 @@ machine or public hosting.
 counts as secure (no warning, and the service worker runs). Other machines can use `http://<machine>:8787/` for
 the desktop page only (no VR or AR there). The relay prints these addresses when it starts.
 
-**Caveats.** The self-signed HTTPS and `wss://` path (`--lan`) is tested headlessly (`relay/test.mjs`), not yet
-on a headset. A page with a self-signed certificate gets no service worker (no offline copy;
+**Logs.** With `--lan` (or `--logs <dir>`) every headset in a room sends its log every 10 s: what its room
+frame rests on, the shared space, its anchors and its head, sampled every 5 s. They are kept as
+`relay/logs/<day>-<room>-<name>-<id>.jsonl` (the relay prints each new file). To have alignment looked at,
+send those files, for example: `git checkout -b logs-$(date +%F) && git add -f relay/logs && git commit -m "Headset
+logs" && git push -u origin HEAD`. They hold no more than names, the room code and positions in the room.
+
+**Caveats.** The self-signed HTTPS and `wss://` path (`--lan`) works on Quest 3 headsets. A page with a self-signed certificate gets no service worker (no offline copy;
 nothing else changes). The app on GitHub Pages cannot use a relay with a self-signed certificate (the `wss://`
 connection fails without asking): open the app from the relay instead. `--cert` and `--key` take a real
 certificate if you have one.
@@ -174,6 +182,7 @@ All under `/api/`, JSON, `Cache-Control: no-store`, `Access-Control-Allow-Origin
 | `POST /api/rooms` `{ app, version, code? }` | 201 `{ code }`: a new room, 3 letters A-Z. With `code`, that code if it is free (409 `{ error: 'taken' }` if not): how a client brings back its room after a relay restart. 400 for a body that is not JSON or a bad code, 413 over 16 KB, 503 at 2000 rooms |
 | `GET /api/rooms` | `[{ code, members, names, stations, idle, version }]`: `members` a count, `names` theirs, `stations` how many `st.<id>` keys, `idle` seconds since the last member left (0 while anyone is in) |
 | `GET /api/rooms/XYZ` | `{ code, app, version, created, seq, idle, members, keys }` (for debugging), or 404 |
+| `POST /api/log` `{ room, id, name, kind, entries }` | with `--logs` (or `--lan`): `entries` (objects, at most 2000) appended as JSON lines to `<logs>/<day>-<room>-<name>-<id>.jsonl`; 200 `{ lines }`, 400 for a bad body, 429 more than once a second per member, 507 over 20 MB a file; 404 without `--logs` |
 
 With `--static <dir>`, every other path may be a file of the app, and only that: `index.html` (also at `/`),
 `shared.js`, `sw.js`, `manifest.webmanifest`, `three.min.js`, `three.LICENSE.txt`, `proteins.html`,
