@@ -462,6 +462,7 @@ try {
   const glitch = await H.evaluate(() => {
     const X = window.__xr, keep = X.W.shared, R = HOST.room.internals(), sa = R.sharedAlign;
     R.sharedAlign = false;   // the adopted frame stays put meanwhile
+    X.head([-6, 1.6, 6, 0]);   // away from the stations (a second at one would make it the headset's)
     X.W.shared = X.W.head.clone(); X.step(); X.step();
     const atHead = !R.sharedOK && R.sharedHead && window.__collabLog.some(e => e.ev === 'shared at head');
     X.W.shared = X.W.floor.clone(); X.step(); X.step();
@@ -504,7 +505,9 @@ try {
   check('headset: and it stays in its story at its station (no Stories screen)', onAgain[0] === HEADSET_STORY && onAgain[1] === false && onAgain[2] === S1.id, JSON.stringify(onAgain));
   check('headset: at the station, HOST.anchor holds the place and locks all but panels', await H.evaluate(() => HOST.anchor.held() && HOST.anchor.locked('globe') && !HOST.anchor.locked('panel')));
   const wrote = Object.entries((await roomInfo(code)).keys).filter(([, e]) => e.seq > q2).map(([k, e]) => `${k} by ${e.by === hId0 ? 'the headset' : e.by}`);
-  check('headset: arriving at a station and starting a session write nothing', !wrote.length, wrote.join(', '));
+  const wroteWhy = wrote.length ? ' ' + JSON.stringify(Object.entries((await roomInfo(code)).keys).filter(([, e]) => e.seq > q2).map(([k, e]) => [k, e.seq, e.v])) + ' ' +
+    await H.evaluate(() => JSON.stringify(window.__collabLog.filter(e => /publish|switch|attach|apply|recv|go|station|adopt|hold/.test(e.ev)).slice(-40).map(e => [e.t, e.ev, e.keys || e.st || e.story || e.id || '']))) : '';
+  check('headset: arriving at a station and starting a session write nothing', !wrote.length, wrote.join(', ') + wroteWhy);
   check('headset: the station\'s clock and state apply there', await until(H, s => HOST.cur.peek('APP.mode') === 'explore' && JSON.stringify(HOST.cur.collab.state()) === s, await stateOf(A), 2000));
   // a session begun on the headset's Stories screen at a station: its card (Start) goes into the story as the
   // room has it, and restarts nothing for the others
