@@ -58,12 +58,16 @@ for free; recommended in the lab). With `--cert/--key` it speaks HTTPS/WSS (head
 page on HTTPS can only open `wss://`). CORS on the API for other origins (the app on GitHub Pages).
 
 **Hosting.** GitHub Pages cannot run the relay (static files only); everything that exists today keeps working
-there, and only shared rooms need the relay. Two set-ups, both documented in `relay/README.md`: (1) the app on
-GitHub Pages and the relay on Coolify (the app is told the relay's `wss://` address once: remembered, or
-`&relay=` in a link); (2) everything on Coolify: the relay with `--static .` serves the app too, one address
-(recommended for shared rooms: Quest shared spaces want the same page URL on every headset). Coolify's proxy
-terminates TLS and passes the WebSocket upgrade; the relay listens on plain HTTP behind it and must trust
-`X-Forwarded-*` only for logging. A health check: `GET /api/ping`.
+there, and only shared rooms need the relay. **For now the relay runs on a local machine on the same Wi-Fi as the
+headsets (owner's decision, 2026-10-17), not publicly.** It serves the app too (`--static .`), so the headsets open
+one address on that machine. Headsets need a secure context for WebXR, so either: (a) HTTPS with a self-signed
+certificate (`--lan`: make one once with `openssl` for the machine's LAN addresses, serve HTTPS, and print the
+`https://<address>:<port>/` to open on each headset; the headset shows a certificate warning once, to accept; the
+service worker does not run on such a page, which only loses the offline copy), or (b) `adb reverse` per headset
+(developer mode) and `http://localhost:<port>/`, which counts as secure. The Wi-Fi must let devices reach each
+other (networks such as eduroam usually isolate clients: use an own router or a phone hotspot), and the machine's
+firewall must allow the port. People elsewhere (remote VR, remote desktop operators) cannot reach a relay on a
+local network; that needs a VPN or public hosting later (`relay/Dockerfile` keeps Coolify possible).
 
 HTTP API (JSON): `POST /api/rooms` `{ app: 'networks', version }` -> `{ code }` (3 letters A-Z, unused);
 `GET /api/rooms` -> `[{ code, members, stations, idle }]`; `GET /api/rooms/XYZ` -> the stored state (debugging);

@@ -1,0 +1,7 @@
+# The image (relay/Dockerfile) holds the app and the relay only. The app needs none of these:
+# the git history, the build tools and their screenshots, and the authors' data the tools read.
+.git
+node_modules
+tools
+ikerdata
+docs

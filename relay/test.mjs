@@ -1,0 +1,432 @@
+// Test of the relay: node relay/test.mjs
+// Starts relay/server.mjs on a free port (short timeouts, serving the repository), talks to it with
+// Node's WebSocket and with raw sockets (for frames a browser never sends), and exits 1 on a failure.
+import { spawn } from 'node:child_process';
+import net from 'node:net';
+import http from 'node:http';
+import crypto from 'node:crypto';
+import zlib from 'node:zlib';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const HERE = path.dirname(fileURLToPath(import.meta.url)), REPO = path.resolve(HERE, '..');
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+let passed = 0, failed = 0;
+const ok = (cond, what) => { if (cond) passed++; else { failed++; console.log('  FAIL', what); } };
+const is = (t, more = () => true) => m => m.t === t && more(m);
+
+// ---- the relay
+const procs = [];
+async function start(args) {
+  const p = spawn(process.execPath, [path.join(HERE, 'server.mjs'), '--port', '0', '--host', '127.0.0.1', ...args], { stdio: ['ignore', 'pipe', 'inherit'] });
+  procs.push(p);
+  p.out = '';
+  p.port = await new Promise((res, rej) => {
+    p.stdout.on('data', d => { p.out += d; const m = /listening on http:\/\/[^\s]+:(\d+)/.exec(p.out); if (m) res(+m[1]); });
+    p.on('exit', c => rej(new Error('relay exited with ' + c)));
+    setTimeout(() => rej(new Error('relay did not start')), 5000);
+  });
+  return p;
+}
+const relay = await start(['--static', REPO, '--timeout', '1', '--expire', '1', '--ping', '0.2']);
+const port = relay.port;
+
+// ---- HTTP with raw paths (no normalising)
+function req(method, p, { body, headers = {}, at = port } = {}) {
+  return new Promise((resolve, reject) => {
+    const r = http.request({ host: '127.0.0.1', port: at, method, path: p, headers }, res => {
+      const parts = [];
+      res.on('data', c => parts.push(c));
+      res.on('end', () => { const buf = Buffer.concat(parts); resolve({ status: res.statusCode, headers: res.headers, buf, text: buf.toString(), json: () => JSON.parse(buf.toString()) }); });
+    });
+    r.on('error', reject);
+    if (body !== undefined) r.write(typeof body === 'string' ? body : JSON.stringify(body));
+    r.end();
+  });
+}
+const newRoom = async (body = { app: 'networks', version: 'v1' }) => (await req('POST', '/api/rooms', { body })).json().code;
+const state = async code => (await req('GET', '/api/rooms/' + code)).json();
+
+// ---- a WebSocket client (Node's own, as a browser would)
+function client(room, id, extra = '') {
+  const ws = new WebSocket(`ws://127.0.0.1:${port}/api/ws?room=${room}&id=${id}${extra}`);
+  const c = { ws, id, q: [], closed: null };
+  c.opened = new Promise(r => { ws.onopen = r; ws.onerror = r; });
+  c.done = new Promise(r => { ws.onclose = e => { c.closed = { code: e.code, reason: e.reason }; r(c.closed); }; });
+  ws.onmessage = e => c.q.push(JSON.parse(e.data));
+  c.send = m => ws.send(typeof m === 'string' ? m : JSON.stringify(m));
+  c.next = async (pred, ms = 2000) => {   // the first message so far (or within ms) that matches; it is taken
+    for (const end = Date.now() + ms; ;) {
+      const i = c.q.findIndex(pred);
+      if (i >= 0) return c.q.splice(i, 1)[0];
+      if (Date.now() > end) return null;
+      await sleep(10);
+    }
+  };
+  c.none = async (pred, ms = 300) => { await sleep(ms); return !c.q.some(pred); };
+  c.closedIn = ms => Promise.race([c.done, sleep(ms).then(() => null)]);
+  return c;
+}
+async function joined(room, id, hello) {
+  const c = client(room, id);
+  c.welcome = await c.next(is('welcome'));
+  if (hello) c.send({ t: 'hello', ...hello });
+  return c;
+}
+
+// ---- a raw client: masked frames by hand, server frames parsed
+function frame({ op = 1, fin = true, payload = '', mask = true, rsv = 0, len }) {
+  const body = Buffer.from(payload), n = len ?? body.length, key = mask ? crypto.randomBytes(4) : Buffer.alloc(0);
+  const b0 = (fin ? 0x80 : 0) | rsv | op, m = mask ? 0x80 : 0;
+  const head = n < 126 ? Buffer.from([b0, m | n]) : n < 65536 ? Buffer.from([b0, m | 126, n >> 8, n & 255]) : Buffer.from([b0, m | 127, 0, 0, 0, 0, (n >>> 24) & 255, (n >> 16) & 255, (n >> 8) & 255, n & 255]);
+  if (mask) for (let i = 0; i < body.length; i++) body[i] ^= key[i & 3];
+  return Buffer.concat([head, key, body]);
+}
+async function raw(pathAndQuery, { version = '13' } = {}) {
+  const s = net.connect(port, '127.0.0.1');
+  await new Promise(r => s.once('connect', r));
+  const r = { s, buf: Buffer.alloc(0), head: '', frames: [], msgs: [], ended: false };
+  s.on('data', d => {
+    r.buf = Buffer.concat([r.buf, d]);
+    if (!r.head) { const i = r.buf.indexOf('\r\n\r\n'); if (i < 0) return; r.head = r.buf.subarray(0, i).toString(); r.buf = r.buf.subarray(i + 4); }
+    while (r.buf.length >= 2) {
+      let len = r.buf[1] & 0x7f, at = 2;
+      if (len === 126) { if (r.buf.length < 4) return; len = r.buf.readUInt16BE(2); at = 4; }
+      else if (len === 127) { if (r.buf.length < 10) return; len = r.buf.readUInt32BE(6); at = 10; }
+      if (r.buf.length < at + len) return;
+      const f = { op: r.buf[0] & 15, payload: r.buf.subarray(at, at + len) };
+      r.frames.push(f);
+      if (f.op === 1) r.msgs.push(JSON.parse(f.payload.toString()));
+      r.buf = r.buf.subarray(at + len);
+    }
+  });
+  s.on('close', () => { r.ended = true; });
+  s.on('error', () => {});
+  s.write(`GET ${pathAndQuery} HTTP/1.1\r\nHost: x\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: ${crypto.randomBytes(16).toString('base64')}\r\nSec-WebSocket-Version: ${version}\r\n\r\n`);
+  r.send = f => s.write(frame(f));
+  r.wait = async (pred, ms = 2000) => { for (const end = Date.now() + ms; Date.now() < end; await sleep(10)) { const f = r.frames.find(pred); if (f) return f; } return null; };
+  r.closeCode = async (ms = 2000) => { const f = await r.wait(f => f.op === 8, ms); return f && f.payload.length >= 2 ? f.payload.readUInt16BE(0) : null; };
+  return r;
+}
+
+async function step(name, fn) {
+  const before = failed;
+  try { await fn(); } catch (err) { failed++; console.log('  FAIL', name, '-', err.stack || err); }
+  console.log(failed === before ? 'ok  ' : 'FAIL', name);
+}
+
+try {
+  let R, A, B;
+  await step('HTTP API: ping, CORS, rooms', async () => {
+    const p = await req('GET', '/api/ping');
+    ok(p.status === 200 && Math.abs(p.json().now - Date.now()) < 5000 && p.json().proto === 1, 'ping answers now and proto');
+    ok(p.headers['access-control-allow-origin'] === '*', 'CORS on the API');
+    const pre = await req('OPTIONS', '/api/rooms', { headers: { Origin: 'https://example.github.io', 'Access-Control-Request-Method': 'POST', 'Access-Control-Request-Private-Network': 'true' } });
+    ok(pre.status === 204 && /POST/.test(pre.headers['access-control-allow-methods']) && pre.headers['access-control-allow-private-network'] === 'true', 'preflight');
+    R = await newRoom();
+    ok(/^[A-Z]{3}$/.test(R), 'a 3-letter code');
+    ok((await req('POST', '/api/rooms', { body: { code: R } })).status === 409, 'a taken code is refused');
+    const free = ['QZX', 'QZY'].find(c => c !== R);
+    const mine = await req('POST', '/api/rooms', { body: { app: 'networks', version: 'v1', code: free.toLowerCase() } });
+    ok(mine.status === 201 && mine.json().code === free, 'a chosen free code (after a relay restart)');
+    ok((await req('POST', '/api/rooms', { body: 'not json' })).status === 400, 'a body that is not JSON');
+    ok((await req('POST', '/api/rooms', { body: { code: 'AB1' } })).status === 400, 'a bad code');
+    ok((await req('POST', '/api/rooms', { body: 'x'.repeat(20000) })).status === 413, 'a body too big');
+    const list = (await req('GET', '/api/rooms')).json();
+    const row = list.find(r => r.code === R);
+    ok(row && row.members === 0 && row.stations === 0 && typeof row.idle === 'number' && row.version === 'v1', 'the room list');
+    ok((await req('GET', '/api/rooms/' + (R === 'ZZZ' ? 'ZZY' : 'ZZZ'))).status === 404, 'an unknown room is 404');
+    ok((await req('GET', '/api/nothing')).status === 404 && (await req('DELETE', '/api/rooms')).status === 405, '404 and 405');
+  });
+
+  await step('sockets that cannot join', async () => {
+    const u = client('ZZQ', 'x1');
+    ok((await u.next(is('error')))?.code === 'room' && (await u.closedIn(2000))?.code === 4004, 'unknown room: error room, close 4004');
+    const b = client(R, '');
+    ok((await b.next(is('error')))?.code === 'bad' && (await b.closedIn(2000))?.code === 4000, 'no id: error bad, close 4000');
+    const p = client(R, 'p1', '&proto=2');
+    ok((await p.next(is('error')))?.code === 'proto' && (await p.closedIn(2000))?.code === 4005, 'wrong protocol: close 4005');
+    const w = await raw('/api/elsewhere?room=' + R + '&id=w');
+    await sleep(200);
+    ok(/^HTTP\/1.1 404/.test(w.head), 'a socket on another path is 404');
+    const v = await raw(`/api/ws?room=${R}&id=v`, { version: '8' });
+    await sleep(200);
+    ok(/^HTTP\/1.1 426/.test(v.head), 'another WebSocket version is 426');
+  });
+
+  await step('join, welcome, hello, members', async () => {
+    A = await joined(R, 'a1');
+    const w = A.welcome;
+    ok(w && w.you === 'a1' && w.room === R && w.seq === 0 && JSON.stringify(w.keys) === '{}' && w.members.length === 1 && typeof w.now === 'number' && w.proto === 1 && w.version === 'v1', 'welcome');
+    A.q.length = 0;
+    A.send({ t: 'hello', name: 'Ann', color: '#ff8800', kind: 'ar', here: true, version: 'v1' });
+    const m = await A.next(is('members', m => m.members[0]?.name === 'Ann'));
+    ok(m && m.members[0].kind === 'ar' && m.members[0].here === true && m.members[0].color === '#ff8800', 'hello reaches members');
+    B = await joined(R, 'b1', { name: 'Bob', kind: 'robot', here: false, version: 'v1' });
+    ok(B.welcome.members.length === 2 && B.welcome.members.some(x => x.name === 'Ann'), 'a joiner sees who is there');
+    const mb = await A.next(is('members', m => m.members.some(x => x.name === 'Bob')));
+    ok(mb && mb.members.find(x => x.id === 'b1').kind === 'desktop', 'others hear of the joiner; an unknown kind is desktop');
+    ok((await state(R)).members.length === 2, 'two members in the stored room');
+  });
+
+  await step('writes: seq, acknowledgement, order, last writer wins', async () => {
+    const batch = [['st.s1', { story: 'flock', x: 0, z: -2, yaw: 0 }], ['st.s1.play', { mode: 'story', t: 0, playing: true, at: 1 }]];
+    A.send({ t: 'set', batch, cid: 'a-1' });
+    const ack = await A.next(is('set', m => m.cid === 'a-1')), got = await B.next(is('set', m => m.cid === 'a-1'));
+    ok(ack && ack.seq === 1 && ack.by === 'a1' && JSON.stringify(ack.batch) === JSON.stringify(batch), 'the writer gets its batch back with seq 1');
+    ok(got && got.seq === 1 && got.by === 'a1', 'the other member gets the same');
+    A.send({ t: 'set', batch: [['st.s1.play', { mode: 'story', t: 5, playing: true, at: 2 }]], cid: 'a-2' });
+    B.send({ t: 'set', batch: [['st.s1.play', { mode: 'story', t: 7, playing: false, at: 3 }]], cid: 'b-1' });
+    const seen = async c => [await c.next(is('set')), await c.next(is('set'))];
+    const [sa, sb] = [await seen(A), await seen(B)];
+    ok(sa.every(Boolean) && sa.map(m => m.cid).join() === sb.map(m => m.cid).join() && sa[0].seq === 2 && sa[1].seq === 3, 'both see the same order');
+    const st = await state(R), last = sa[1];
+    ok(st.keys['st.s1.play'].seq === 3 && st.keys['st.s1.play'].by === last.by && JSON.stringify(st.keys['st.s1.play'].v) === JSON.stringify(last.batch[0][1]), 'the later write wins');
+    for (let i = 0; i < 20; i++) A.send({ t: 'set', batch: [['st.s1.play', { mode: 'story', t: i, playing: true, at: 4 }]], cid: 'r' + i });
+    const seqs = [];
+    for (let i = 0; i < 20; i++) seqs.push((await B.next(is('set')))?.seq);
+    ok(seqs.every((s, i) => s === 4 + i), 'twenty writes arrive in order, seq by seq');
+    A.q.length = 0;
+  });
+
+  await step('null refused outside the deletable families', async () => {
+    A.send({ t: 'set', batch: [['roomFrameShared', { uuid: 'u1', o: [0, 0, 0], x: [1, 0, 0], by: 'a1', at: 1, src: 'marks' }]], cid: 'a-rf' });
+    ok(await A.next(is('set', m => m.cid === 'a-rf')), 'roomFrameShared stored');
+    B.q.length = 0;
+    A.send({ t: 'set', batch: [['roomFrameShared', null]], cid: 'a-null' });
+    const e = await A.next(is('error', m => m.cid === 'a-null'));
+    ok(e && e.code === 'refused' && e.keys.join() === 'roomFrameShared', 'the writer hears why, with its cid');
+    ok(await B.none(is('set')), 'nobody else hears of it');
+    ok((await state(R)).keys.roomFrameShared, 'the value stays');
+    A.send({ t: 'set', batch: [['foo', null], ['pose.p1', { x: 1 }]], cid: 'a-mix' });
+    const s = await A.next(is('set', m => m.cid === 'a-mix')), e2 = await A.next(is('error', m => m.cid === 'a-mix'));
+    ok(s && s.batch.length === 1 && s.batch[0][0] === 'pose.p1' && e2 && e2.keys.join() === 'foo', 'a mixed batch stores what it can and names the rest');
+    A.send({ t: 'set', batch: [['pose.p1', null]], cid: 'a-del' });
+    const d = await B.next(is('set', m => m.cid === 'a-del'));
+    ok(d && d.batch[0][1] === null && !('pose.p1' in (await state(R)).keys), 'null deletes a pose');
+  });
+
+  await step('the station epoch rule', async () => {
+    const write = async (c, batch, cid) => { c.send({ t: 'set', batch, cid }); return Promise.race([c.next(is('set', m => m.cid === cid)), c.next(is('error', m => m.cid === cid))]); };
+    await write(A, [['st.s1.x', { tab: 'a' }]], 'x1');
+    let s = await write(A, [['st.s1', { story: 'flock', x: 1, z: -2, yaw: 0 }]], 'mv');
+    let k = (await state(R)).keys;
+    ok(s.batch.length === 1 && k['st.s1.play'] && k['st.s1.x'], 'moving a station keeps its state');
+    B.q.length = 0;
+    s = await write(B, [['st.s1', { story: 'robots', x: 1, z: -2, yaw: 0 }]], 'ep');
+    const seenA = await A.next(is('set', m => m.cid === 'ep'));
+    const nulls = seenA.batch.filter(p => p[1] === null).map(p => p[0]).sort().join();
+    k = (await state(R)).keys;
+    ok(nulls === 'st.s1.play,st.s1.x' && seenA.batch.at(-1)[0] === 'st.s1' && !k['st.s1.play'] && !k['st.s1.x'] && k['st.s1'].v.story === 'robots', 'another story drops the state keys in the same seq');
+    s = await write(A, [['st.s1', { story: 'airports', x: 1, z: -2, yaw: 0 }], ['st.s1.play', { mode: 'explore', t: 0, playing: false, at: 9 }]], 'ep2');
+    k = (await state(R)).keys;
+    ok(k['st.s1.play']?.v.mode === 'explore' && k['st.s1.play'].seq === s.seq, 'state written with the change survives it');
+    s = await write(A, [['st.s1.x', { story: 'robots', tab: 'b' }]], 'stale');
+    ok(s.t === 'error' && /stale/.test(s.text), 'a late write for the old story is refused');
+    s = await write(A, [['st.zz.play', { t: 0 }]], 'nost');
+    ok(s.t === 'error' && /no such station/.test(s.text), 'state for a missing station is refused');
+    s = await write(A, [['st.s2', { x: 0 }]], 'nostory');
+    ok(s.t === 'error' && /story/.test(s.text), 'a station needs a story');
+    s = await write(A, [['st.' + 'x'.repeat(40), { story: 'flock' }]], 'longid');
+    ok(s.t === 'error', 'a station id is at most 32 characters');
+    s = await write(A, [['st.s1', null]], 'rm');
+    k = (await state(R)).keys;
+    ok(s.t === 'set' && s.batch.some(p => p[0] === 'st.s1.play' && p[1] === null) && !Object.keys(k).some(x => x.startsWith('st.s1')), 'removing a station removes its state');
+    await write(A, [['st.s1', { story: 'flock', x: 0, z: -2, yaw: 0 }], ['st.s1.play', { mode: 'story', t: 3, playing: true, at: 10 }]], 'again');
+    B.q.length = 0;
+  });
+
+  await step('fx: passed on, not stored, not echoed, rate capped', async () => {
+    A.send({ t: 'fx', k: 'p.a1', v: { st: 's1', head: [0, 1.6, 0, 0, 0, 0, 1] } });
+    const f = await B.next(is('fx'));
+    ok(f && f.k === 'p.a1' && f.by === 'a1' && f.v.head[1] === 1.6, 'the others get it');
+    ok(await A.none(is('fx')), 'the sender does not');
+    ok(!('p.a1' in (await state(R)).keys), 'not stored');
+    B.q.length = 0;
+    for (let i = 0; i < 150; i++) A.send({ t: 'fx', k: 'p.a1', v: i });
+    await sleep(600);
+    const n = B.q.filter(is('fx')).length;
+    ok(n >= 50 && n <= 120, `at most 60 a second get through (${n} of 150 in a burst)`);
+    await sleep(400);
+    ok(/refused \d+ fx from a1/.test(relay.out), 'dropped fx are logged');
+    B.q.length = 0;
+  });
+
+  await step('ping and pong', async () => {
+    A.send({ t: 'ping', c: 123.5 });
+    const p = await A.next(is('pong'));
+    ok(p && p.c === 123.5 && Math.abs(p.now - Date.now()) < 5000, 'pong carries c and now');
+  });
+
+  let C;
+  await step('a late joiner gets everything', async () => {
+    C = await joined(R, 'c1', { name: 'Cy', kind: 'vr', version: 'v1' });
+    const st = await state(R), w = C.welcome;
+    ok(w.seq === st.seq && JSON.stringify(w.keys) === JSON.stringify(st.keys), 'welcome has every key, with seq and by');
+    ok(Object.values(w.keys).every(e => 'v' in e && e.seq > 0 && typeof e.by === 'string') && w.keys['st.s1.play'], 'entries are { v, seq, by }');
+    ok(!Object.keys(w.keys).some(k => k.startsWith('p.')), 'no fx in the room state');
+  });
+
+  await step('malformed messages are refused, the socket stays', async () => {
+    const bad = async (m, code = 'bad') => { C.send(m); const e = await C.next(is('error')); return e && e.code === code; };
+    ok(await bad('not json'), 'not JSON');
+    ok(await bad('[1,2]'), 'not an object');
+    ok(await bad({ t: 'nope' }), 'unknown t');
+    ok(await bad({ t: 'set', batch: 'x' }), 'a batch that is not a list');
+    ok(await bad({ t: 'set', batch: [] }), 'an empty batch');
+    ok(await bad({ t: 'set', batch: [['bad key!', 1]], cid: 'k' }, 'refused'), 'a bad key');
+    ok(await bad({ t: 'set', batch: [['x']] }, 'refused'), 'not a pair');
+    ok(await bad({ t: 'set', batch: [['big', 'x'.repeat(300000)]] }, 'refused'), 'a value too big');
+    ok(await bad({ t: 'fx', k: 'p.c1' }), 'fx without v');
+    ok(await bad({ t: 'fx', k: 'p.c1', v: 'x'.repeat(70000) }), 'fx too big');
+    const deep = '['.repeat(200000) + ']'.repeat(200000);
+    ok(await bad(`{"t":"set","batch":[["deep",${deep}]]}`), 'a value nested too deeply');
+    ok(await bad(`{"t":"fx","k":"deep","v":${deep}}`), 'an fx nested too deeply');
+    C.send({ t: 'ping', c: 1 });
+    ok(await C.next(is('pong')), 'still answered afterwards');
+  });
+
+  await step('a message over 1 MB closes the socket (1009)', async () => {
+    C.send(JSON.stringify({ t: 'fx', k: 'big', v: 'x'.repeat(1.1e6) }));
+    ok((await C.closedIn(3000))?.code === 1009, 'closed with 1009');
+    ok(await A.next(is('members', m => !m.members.some(x => x.id === 'c1'))), 'and the member leaves');
+    ok(await B.none(is('fx', m => m.k === 'big'), 100), 'nothing passed on');
+  });
+
+  await step('frames by hand: masking, fragmentation, control frames, close', async () => {
+    const q = `/api/ws?room=${R}&id=`;
+    let r = await raw(q + 'r1');
+    r.send({ payload: '{"t":"ping","c":1}', mask: false });
+    ok((await r.closeCode()) === 1002, 'an unmasked frame: 1002');
+    r = await raw(q + 'r2');
+    r.send({ op: 2, payload: 'abc' });
+    ok((await r.closeCode()) === 1003, 'a binary frame: 1003');
+    r = await raw(q + 'r3');
+    r.s.write(frame({ payload: Buffer.from([0x7b, 0xff, 0xfe, 0x7d]) }));
+    ok((await r.closeCode()) === 1007, 'invalid UTF-8: 1007');
+    r = await raw(q + 'r4');
+    r.send({ op: 0, payload: 'x' });
+    ok((await r.closeCode()) === 1002, 'a continuation without a start: 1002');
+    r = await raw(q + 'r5');
+    r.send({ rsv: 0x40, payload: '{}' });
+    ok((await r.closeCode()) === 1002, 'reserved bits: 1002');
+    r = await raw(q + 'r6');
+    r.send({ op: 9, payload: 'x'.repeat(126) });
+    ok((await r.closeCode()) === 1002, 'a control frame over 125 bytes: 1002');
+    r = await raw(q + 'r7');
+    r.s.write(frame({ len: 2 << 20 }).subarray(0, 14));   // only the header of a 2 MB frame
+    ok((await r.closeCode()) === 1009, 'a frame announced over 1 MB: 1009 at once');
+    r = await raw(q + 'r8');
+    r.send({ fin: false, payload: '{"t":"pi' });
+    r.send({ op: 9, payload: 'hi' });
+    r.send({ op: 0, fin: false, payload: 'ng",' });
+    r.send({ op: 0, payload: '"c":7}' });
+    const pong = await r.wait(f => f.op === 10);
+    ok(pong && pong.payload.toString() === 'hi', 'a ping inside a fragmented message gets its pong');
+    for (const end = Date.now() + 2000; !r.msgs.some(is('pong')) && Date.now() < end;) await sleep(10);
+    ok(r.msgs.find(is('pong'))?.c === 7, 'the fragments make one message');
+    ok(await r.wait(f => f.op === 9, 1000), 'the relay pings');
+    const c = Buffer.alloc(2); c.writeUInt16BE(1000);
+    r.send({ op: 8, payload: c });
+    ok((await r.closeCode()) === 1000, 'a close is answered with its code');
+    for (const end = Date.now() + 2000; !r.ended && Date.now() < end;) await sleep(10);
+    ok(r.ended, 'and the connection ends');
+  });
+
+  await step('a silent member times out; answering pings keeps one in', async () => {
+    A.q.length = 0;
+    const s = await raw(`/api/ws?room=${R}&id=quiet`);
+    s.send({ payload: JSON.stringify({ t: 'hello', name: 'Quiet', version: 'v1' }) });
+    ok(await A.next(is('members', m => m.members.some(x => x.id === 'quiet'))), 'joined');
+    const gone = await A.next(is('members', m => !m.members.some(x => x.id === 'quiet')), 4000);
+    ok(gone, 'dropped after the timeout (1 s here)');
+    ok(s.msgs.some(is('error', m => m.code === 'timeout')) && (await s.closeCode()) === 4009, 'told why, closed with 4009');
+    const st = await state(R);
+    ok(st.members.some(x => x.id === 'a1') && st.members.some(x => x.id === 'b1'), 'members whose sockets answer pings stay, idle or not');
+  });
+
+  await step('version and protocol mismatch, a second socket for one id', async () => {
+    const d = await joined(R, 'd1', { name: 'Dee', version: 'v2' });
+    ok((await d.next(is('error')))?.code === 'version' && (await d.closedIn(2000))?.code === 4006, 'another app version: 4006');
+    const p = await joined(R, 'p2', { name: 'Pat', version: 'v1', proto: 9 });
+    ok((await p.next(is('error')))?.code === 'proto' && (await p.closedIn(2000))?.code === 4005, 'another protocol in hello: 4005');
+    const e1 = await joined(R, 'e', { name: 'Eve', version: 'v1' });
+    const e2 = await joined(R, 'e', { name: 'Eve', version: 'v1' });
+    ok((await e1.next(is('error')))?.code === 'replaced' && (await e1.closedIn(2000))?.code === 4008, 'the old socket is replaced');
+    await sleep(200);
+    ok((await state(R)).members.filter(x => x.id === 'e').length === 1, 'one member for the id');
+    e2.send({ t: 'ping', c: 2 });
+    ok(await e2.next(is('pong')), 'the new socket works');
+    e2.ws.close();
+  });
+
+  await step('rooms expire after their last member left', async () => {
+    const X = await newRoom(), Y = await newRoom();
+    const f = await joined(X, 'f1', { name: 'Fay', version: 'v1' });
+    f.ws.close();
+    await f.done;
+    ok((await req('GET', '/api/rooms/' + X)).status === 200, 'still there at once');
+    await sleep(2600);
+    ok((await req('GET', '/api/rooms/' + X)).status === 404 && (await req('GET', '/api/rooms/' + Y)).status === 404, 'gone after the expiry (1 s here), joined or not');
+    const g = client(X, 'g1');
+    ok((await g.next(is('error')))?.code === 'room', 'joining it now: unknown room');
+    ok((await req('GET', '/api/rooms/' + R)).status === 200, 'a room with members stays');
+  });
+
+  await step('serving the app', async () => {
+    const file = p => fs.readFileSync(path.join(REPO, p));
+    let r = await req('GET', '/');
+    ok(r.status === 200 && /^text\/html/.test(r.headers['content-type']) && r.buf.equals(file('index.html')), '/ is index.html');
+    r = await req('GET', '/stories/flock.js');
+    ok(r.status === 200 && r.headers['content-type'] === 'text/javascript; charset=utf-8' && r.buf.equals(file('stories/flock.js')), 'a story file');
+    r = await req('GET', '/stories/flock.js', { headers: { 'Accept-Encoding': 'gzip, br' } });
+    ok(r.headers['content-encoding'] === 'gzip' && zlib.gunzipSync(r.buf).equals(file('stories/flock.js')) && /Accept-Encoding/.test(r.headers.vary), 'gzipped when asked');
+    const types = { '/relay/server.mjs': 'text/javascript', '/sw.js': 'text/javascript', '/manifest.webmanifest': 'application/manifest+json', '/icons/icon-192.png': 'image/png', '/three.min.js': 'text/javascript', '/README.txt': 'text/plain' };
+    for (const [p, t] of Object.entries(types)) { r = await req('HEAD', p); ok(r.status === 200 && r.headers['content-type'].startsWith(t), `${p} is ${t}`); }
+    ok((await req('GET', '/sw.js')).headers['cache-control'] === 'no-cache', 'files are revalidated (no-cache)');
+    const mp3 = file('audio/narration.mp3'), size = mp3.length;
+    r = await req('HEAD', '/audio/narration.mp3');
+    ok(r.headers['content-type'] === 'audio/mpeg' && r.headers['accept-ranges'] === 'bytes' && +r.headers['content-length'] === size, 'the narration: audio/mpeg, ranges');
+    r = await req('GET', '/audio/narration.mp3', { headers: { Range: 'bytes=0-99' } });
+    ok(r.status === 206 && r.headers['content-range'] === `bytes 0-99/${size}` && r.buf.equals(mp3.subarray(0, 100)), 'a byte range');
+    r = await req('GET', '/audio/narration.mp3', { headers: { Range: 'bytes=-10' } });
+    ok(r.status === 206 && r.buf.equals(mp3.subarray(size - 10)), 'a suffix range');
+    r = await req('GET', '/audio/narration.mp3', { headers: { Range: `bytes=${size - 5}-` } });
+    ok(r.status === 206 && r.buf.length === 5, 'an open range');
+    r = await req('GET', '/audio/narration.mp3', { headers: { Range: `bytes=${size}-` } });
+    ok(r.status === 416 && r.headers['content-range'] === `bytes */${size}`, 'an unsatisfiable range: 416');
+    const etag = (await req('HEAD', '/index.html')).headers.etag;
+    ok((await req('GET', '/index.html', { headers: { 'If-None-Match': etag } })).status === 304, 'a matching ETag: 304');
+    ok((await req('GET', '/nope.html')).status === 404 && (await req('POST', '/index.html')).status === 405, '404 and 405');
+    const evil = ['/../../../../etc/passwd', '/%2e%2e/%2e%2e/%2e%2e/etc/passwd', '/stories/..%2f..%2f..%2f..%2fetc%2fpasswd', '/stories/%2e%2e%2f%2e%2e%2f%2e%2e%2fetc%2fpasswd',
+      '/..%5c..%5c..%5cetc%5cpasswd', '/.git/HEAD', '/%2egit/HEAD', '/index.html%00.png', '/%E0%A4%A'];
+    for (const p of evil) { r = await req('GET', p); ok(r.status >= 400 && !/root:|ref: /.test(r.text), `refused: ${p} (${r.status})`); }
+  });
+
+  await step('a link out of the served folder is not followed', async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'relay-test-'));
+    fs.writeFileSync(path.join(dir, 'index.html'), '<!doctype html><title>t</title>');
+    const outside = path.join(os.tmpdir(), `relay-secret-${process.pid}.txt`);
+    fs.writeFileSync(outside, 'secret');
+    fs.symlinkSync(outside, path.join(dir, 'link.txt'));
+    const other = await start(['--static', dir, '--quiet']);
+    ok((await req('GET', '/', { at: other.port })).status === 200, 'its index');
+    const r = await req('GET', '/link.txt', { at: other.port });
+    ok(r.status === 404 && !/secret/.test(r.text), 'the link is 404');
+    other.kill();
+    fs.rmSync(dir, { recursive: true }); fs.rmSync(outside);
+  });
+
+  await step('the log has a line per write and per refusal', async () => {
+    ok(new RegExp(`${R} set #1 by a1: st\\.s1 st\\.s1\\.play`).test(relay.out), 'a write');
+    ok(new RegExp(`${R} refused a1 \\(roomFrameShared: null outside the deletable families\\)`).test(relay.out), 'a refusal');
+    ok(/set #\d+ by b1: st\.s1\.play=null st\.s1\.x=null st\.s1/.test(relay.out), 'the epoch deletions');
+  });
+  A.ws.close(); B.ws.close();
+} finally {
+  await Promise.all(procs.filter(p => p.exitCode === null).map(p => new Promise(r => { p.on('exit', r); p.kill(); })));
+}
+console.log(`\n${passed} checks passed, ${failed} failed`);
+process.exit(failed ? 1 : 0);
