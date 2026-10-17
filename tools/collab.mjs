@@ -878,7 +878,7 @@ try {
   await H.evaluate(() => window.__xr.begin());
   await frames(H, 3000);
   const nj = await H.evaluate(() => ({ state: HOST.room.state, frame: HOST.room.frame, line: HOST.room.sourceLine(), shared: HOST.room.sharedLine(),
-    log: window.__collabLog.some(e => e.ev === 'shared alone') }));
+    log: window.__collabLog.some(e => e.ev === 'shared not joined') }));
   check('shared space: a headset whose space is just its own floor takes no frame through it from someone here, and says it has not joined',
     !nj.frame && nj.state === 'shared-wait' && /Not in the others/.test(nj.line) && /your own floor/.test(nj.shared) && nj.log, JSON.stringify(nj));
   await H.evaluate(() => window.__xr.end());

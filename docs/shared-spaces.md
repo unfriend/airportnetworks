@@ -62,8 +62,11 @@ headsets up: the shared space overrode each fresh calibration, see below), first
    again since two headsets on one browser version lined up through it): adopted by headsets without marks
    ("Aligned automatically"), first on the headset's own floor and then held at that height in the shared space,
    followed when it moves by more than **3 cm, 1 degree or 2 cm in height** ("Re-aligned"). An adopted frame is
-   never published again. Not taken through a space that is just this headset's own floor while someone present
-   published for it (not joined); a frame from someone who has left is last time's.
+   never published again. A space that is just this headset's own floor is the first headset's, or, when someone
+   present had already published for the id as it appeared, not joined: nothing is taken or published through it
+   then. A frame from someone who has left may be last time's (the id stayed the same across days): taken only
+   after 8 s, and replaced by the first headset's own space. A height change alone moves things without a
+   notice.
 3. **The shared space's own origin** when nobody (still here) has published for it ("Shared space found"; also
    unless switched off), published with grade `shared` (unless the room was calibrated in another space by someone still
    there: then calibrate).

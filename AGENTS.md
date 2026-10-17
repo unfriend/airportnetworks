@@ -252,11 +252,16 @@ the content floats 1.4 m ahead of the spot), with `st.<id>.play` (the clock:
   published or compared through the space within 20 s of waking (`settled`). The panel names a space that is exactly this
   headset's own floor (`sharedOwn`: the default one, the first headset, or not
   joined) and shows the browser's version; the log has the page address.
-  Such a space while someone here published for it means not joined: nothing
-  is taken through it, a frame held so far stays, and the panel says so ("Not
-  in the others' shared space"); a frame for it from someone who has left is
-  last time's (the id stayed the same across sessions and days), replaced by
-  this headset's own space after the 8 s wait.
+  Such a space is the first headset's (its origin is the space's) or, when
+  someone here had already published for its id as the id appeared
+  (`R.firstHere` false), not joined: then nothing is taken or published
+  through it (`notInIt`), a frame held so far stays, and after 2 s the panel
+  says so ("Not in the others' shared space"). A frame for the id from someone
+  who has left may be last time's (the id stayed the same across sessions and
+  days): every headset waits 8 s before taking it, and the first headset then
+  replaces it with its own space. A frame someone here published for another
+  space id means the others are elsewhere (`othersElsewhere`): this headset's
+  own space then never becomes the room (not joined, calibrate).
 - Standby with the shared space in use (an adopted frame, or the space's own
   origin): it was offset after waking in a test. The frame the floor's resets
   carried over holds (`R.wakeHold`) until the shared space agrees with it
@@ -706,7 +711,8 @@ the first calibration (a lower floor allowed for), no mark from a double
 pull, Forget taking the published frame, the shared space on by default
 (off: calibrate), a space that is just this headset's own floor while someone
 here published (not joined: nothing taken), a frame from someone who has left
-(replaced by this headset's own space), standby with the shared space in use
+(waited for, then replaced by the first headset's own space), the first
+headset taking a frame someone here publishes later, standby with the shared space in use
 (a wrong space held off, then the room where it was and at the same height
 though the floor moved), a reset as Quest Browser
 sends it (old to new coordinates, the head's height ignored), a calibration
