@@ -796,7 +796,7 @@ try {
   const afterReset = await H.evaluate(() => HOST.room.state);
   await recal();
   await frames(H, 200);
-  const jumped = await H.evaluate(() => { const R = HOST.room.internals(); R.prev = { p: [9, 1.6, 9], yaw: 0, t: performance.now() - 20 }; R.originCheck(performance.now()); return HOST.room.state; });
+  const jumped = await H.evaluate(() => { const R = HOST.room.internals(); R.prev = { p: [9, 1.6, 9], q: [0, 0, 0, 1], t: performance.now() - 20 }; R.originCheck(performance.now()); return HOST.room.state; });
   check('without anchors: the marks hold for the session (nothing saved), and a reset or a jump of the origin asks to calibrate again',
     noA.src === 'marks' && /no anchors/.test(noA.line) && !noA.saved && afterReset === 'calibrate' && jumped === 'calibrate', JSON.stringify({ noA, afterReset, jumped }));
   await H.evaluate(() => window.__xr.end());

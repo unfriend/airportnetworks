@@ -424,26 +424,30 @@ function saveLog(req, res) {
   req.on('data', c => { if ((n += c.length) <= MAX_LOG_BODY) parts.push(c); else if (!res.headersSent) { res.setHeader('Connection', 'close'); json(res, 413, { error: 'body too big' }); } });
   req.on('end', () => {
     if (res.headersSent) return;
-    let b;
-    try { b = JSON.parse(Buffer.concat(parts).toString()); } catch { return json(res, 400, { error: 'body is not JSON' }); }
-    if (!b || typeof b !== 'object' || !CODE.test(b.room) || !ID.test(b.id) || !Array.isArray(b.entries) || b.entries.length > 2000) return json(res, 400, { error: 'room, id and entries needed' });
-    const now = Date.now();
-    if (now - (LOGGED.get(b.id) || 0) < 1000) return json(res, 429, { error: 'one a second' });
-    LOGGED.set(b.id, now);
-    if (LOGGED.size > 1000) LOGGED.delete(LOGGED.keys().next().value);
-    const name = String(b.name || '').replace(/[^\w-]/g, '').slice(0, 24) || 'someone';
-    const file = path.join(OPT.logs, `${new Date(now).toISOString().slice(0, 10)}-${b.room}-${name}-${b.id.slice(0, 6)}.jsonl`);
-    const lines = b.entries.filter(e => e && typeof e === 'object' && !Array.isArray(e)).map(e => JSON.stringify({ at: now, kind: str(b.kind, 16), ...e }) + '\n').join('');
-    try {
-      fs.mkdirSync(OPT.logs, { recursive: true });
-      let size = 0;
-      try { size = fs.statSync(file).size; } catch { /* a new file */ }
-      if (size + lines.length > MAX_LOG_FILE) return json(res, 507, { error: 'the log file is full' });
-      if (!size) log(`log ${path.relative(process.cwd(), file)} started (${b.room}, ${name})`);
-      fs.appendFileSync(file, lines);
-    } catch (err) { return json(res, 500, { error: 'cannot write the log: ' + err.message }); }
-    json(res, 200, { lines: lines ? lines.split('\n').length - 1 : 0 });
+    try { keepLog(parts, res); } catch (err) { if (!res.headersSent) json(res, 400, { error: 'bad log: ' + err.message }); }
   });
+}
+function keepLog(parts, res) {
+  let b;
+  try { b = JSON.parse(Buffer.concat(parts).toString()); } catch { return json(res, 400, { error: 'body is not JSON' }); }
+  if (!b || typeof b !== 'object' || typeof b.room !== 'string' || !CODE.test(b.room) || typeof b.id !== 'string' || !ID.test(b.id) ||
+    !Array.isArray(b.entries) || b.entries.length > 2000) return json(res, 400, { error: 'room, id and entries needed' });
+  const now = Date.now();
+  if (now - (LOGGED.get(b.id) || 0) < 1000) return json(res, 429, { error: 'one a second' });
+  LOGGED.set(b.id, now);
+  if (LOGGED.size > 1000) LOGGED.delete(LOGGED.keys().next().value);
+  const name = String(b.name || '').replace(/[^\w-]/g, '').slice(0, 24) || 'someone';
+  const file = path.join(OPT.logs, `${new Date(now).toISOString().slice(0, 10)}-${b.room}-${name}-${b.id.slice(0, 6)}.jsonl`);
+  const lines = b.entries.filter(e => e && typeof e === 'object' && !Array.isArray(e)).map(e => JSON.stringify({ at: now, kind: str(b.kind, 16), ...e }) + '\n').join('');
+  try {
+    fs.mkdirSync(OPT.logs, { recursive: true });
+    let size = 0;
+    try { size = fs.statSync(file).size; } catch { /* a new file */ }
+    if (size + lines.length > MAX_LOG_FILE) return json(res, 507, { error: 'the log file is full' });
+    if (!size) log(`log ${path.relative(process.cwd(), file)} started (${b.room}, ${name})`);
+    fs.appendFileSync(file, lines);
+  } catch (err) { return json(res, 500, { error: 'cannot write the log: ' + err.message }); }
+  json(res, 200, { lines: lines ? lines.split('\n').length - 1 : 0 });
 }
 
 const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.mjs': 'text/javascript; charset=utf-8',

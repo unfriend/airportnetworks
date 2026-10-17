@@ -520,6 +520,8 @@ try {
       lines[0].kind === 'ar' && Number.isFinite(lines[0].at), 'two lines in a file named after the day, room, name and member');
     ok((await send({ room: 'ABC', id: 'm1abcdef', entries: [{ t: 3 }] })).status === 429, 'one a second per member');
     ok((await send({ room: 'abc!', id: 'm2', entries: [] })).status === 400 && (await send('not json')).status === 400, 'a bad room, or not JSON, is refused');
+    ok((await send({ room: 'ABC', id: 123456, entries: [] })).status === 400 && (await send({ room: 'ABC', id: null, entries: [] })).status === 400 &&
+      (await req('GET', '/api/ping', { at: L.port })).status === 200, 'an id that is not a string is refused, and the relay lives on');
     ok((await req('GET', '/api/log', { at: L.port })).status === 405, 'only POST');
     ok((await req('POST', '/api/log', { body: { room: 'ABC', id: 'm3', entries: [] } })).status === 404, 'without --logs (or --lan) logs are off');
     L.kill();
