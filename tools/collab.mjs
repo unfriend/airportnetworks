@@ -266,11 +266,11 @@ try {
   const rmId = await stationOf(A, 'airports');
   await A.evaluate(() => HOST.collab.dialog(true));
   await sleep(200);
-  // (both presses in one go, 0.3 s apart: a busy page could take longer than the 3 s the first one lasts)
-  const rm = await A.evaluate(async id => {
+  // (both presses in one go, with no wait between: a page busy building shaders in software can block for
+  // longer than the 3 s the first press lasts, which would only arm Remove again)
+  const rm = await A.evaluate(id => {
     const q = () => document.querySelector(`[data-sh="remove:${id}"]`);
     q().click();
-    await new Promise(r => setTimeout(r, 300));
     const text = q() && q().textContent, still = !!HOST.collab.station(id);
     q().click();
     return { text, still };
