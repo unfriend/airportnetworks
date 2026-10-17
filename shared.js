@@ -1340,9 +1340,12 @@
     hiddenAt: 0, sleptAt: 0, visibleAt: 0, woke: 0, anchorSeen: 0, resetAt: 0,   // the headset off (or the origin moved): the marks are checked again
     sharedPose: false, sharedHead: false, sharedOwn: null,   // the shared space's pose this frame: there, at the head, this headset's own floor
     full: false,   // the store of saved anchors refused their handles: the marks hold for this session only
-    // aligning from the shared space is off unless asked for: on two Quest 3s it was 0.9 m and 19 degrees out
-    // against the tape marks, and at first just the headset's own floor (see shared-spaces.md)
-    sharedAlign: get('collabSharedAlign') === '1',
+    // after waking, a frame taken from the shared space holds until the space agrees with it again (wakeOK); its
+    // height is kept in the shared space (hS); the space's pose in our floor last moved at stillSince
+    wakeHold: 0, wakeLog: 0, hS: null, stillSince: 0, lastS: null, aloneAt: 0, notJoined: false,
+    // aligning from the shared space is on unless switched off on the panel: it lined two Quest 3s up once both ran
+    // the same browser (with different versions they were in two spaces under one id, see shared-spaces.md)
+    sharedAlign: get('collabSharedAlign') !== '0',
     lf: new THREE.Matrix4(), lfi: new THREE.Matrix4(), ls: new THREE.Matrix4(), fr: new THREE.Matrix4(), m: new THREE.Matrix4(), mi: new THREE.Matrix4(),
     yaw: 0, hr: new THREE.Vector3(), hyaw: 0, headOK: false, lfOK: false,
   };
@@ -1407,7 +1410,7 @@
     try { if (R.shared && R.shared.removeEventListener) R.shared.removeEventListener('reset', sharedReset); } catch (e) { /* gone */ }
     letGo();
     Object.assign(R, { begun: s, floor: null, noFloor: false, shared: null, sharedNo: false, sharedId: '', sharedAt: 0, sharedAsked: performance.now(), sharedOK: false,
-      sharedPose: false, sharedHead: false, sharedOwn: null, visibleAt: 0,
+      sharedPose: false, sharedHead: false, sharedOwn: null, visibleAt: 0, wakeHold: 0, hS: null, stillSince: 0, lastS: null, aloneAt: 0, notJoined: false,
       frame: null, src: '', aligned: false, calib: null, anchorBusy: false, anchorTried: false, wantAnchors: null, noticed: '', mgen: R.mgen + 1,
       mk: null, cmp: null, prev: null, pubAt: 0, recAt: 0, full: false });
     if (R.oldAnchor && HOST.anchor.drop) { HOST.anchor.drop(R.oldAnchor); R.oldAnchor = ''; }   // an older version's anchor
@@ -1459,7 +1462,7 @@
   function sharedReset(ev) {
     const id = sharedIdOf(R.shared);
     log('reset', { space: 'shared', id, transform: !!(ev && ev.transform) });
-    if (id !== R.sharedId) { R.sharedId = id; R.sharedAt = performance.now(); R.recAt = 0; }
+    if (id !== R.sharedId) { R.sharedId = id; R.sharedAt = performance.now(); R.recAt = 0; R.hS = null; }
   }
   // the head seems to jump when the origin moves without a word (a recentre: Quest Browser fires no reset then)
   function originCheck(t) {
@@ -1492,11 +1495,18 @@
   // headset was the first in it (its origin is the space's, by design). In the relay logs one of two Quest 3s (the
   // older browser) had that every session, under the same id as the other, whose space was 1 to 2.6 m and 19 to 84
   // degrees away: it had not joined
+  // Also when the space last moved in this headset's floor (more than 1 cm or half a degree): after waking, one that
+  // holds still is trusted again
   const _mo = new THREE.Matrix4();
-  function ownFloorCheck() {
-    const e = floorFromShared(_mo).elements, mine = Math.hypot(e[12], e[13], e[14]) < 0.02 && Math.abs(Math.atan2(-e[2], e[0])) < 0.026;
+  function ownFloorCheck(t) {
+    const e = floorFromShared(_mo).elements, yaw = Math.atan2(-e[2], e[0]), mine = Math.hypot(e[12], e[13], e[14]) < 0.02 && Math.abs(yaw) < 0.026;
     if (mine !== R.sharedOwn) { R.sharedOwn = mine; log('shared own floor', { own: mine }); changed(); }
+    const L = R.lastS;
+    let a = L ? Math.abs(yaw - L[3]) % (2 * Math.PI) : 0;
+    if (a > Math.PI) a = 2 * Math.PI - a;
+    if (!L || Math.hypot(e[12] - L[0], e[13] - L[1], e[14] - L[2]) > 0.01 || a > 0.0087) { R.lastS = [e[12], e[13], e[14], yaw]; R.stillSince = t; }
   }
+  const sharedY = () => floorFromShared(_mo).elements[13];   // the space's origin over this headset's floor (both level)
   // a frame given in shared coordinates, in ours (floor)
   function fromShared(P) {
     const M = floorFromShared(new THREE.Matrix4());
@@ -1543,17 +1553,21 @@
   function reconcile(P) {
     const F = fromShared(P), x = level(F.x);
     if (!x) return;
-    F.x = x; F.o[1] = 0;   // on this headset's own floor: the shared space's height is not to be trusted either
+    // the height: this headset's own floor when it first takes the room (two headsets' floors were 44 cm apart
+    // through two spaces that were not one), then held in the shared space, so a floor estimated again (12 to 17 cm
+    // after waking, in the logs) does not move the room up or down
+    const ys = sharedY();
+    if (R.hS === null) R.hS = -ys;
+    F.x = x; F.o[1] = R.hS + ys;
     const mk = Array.isArray(P.m) && P.m.length === 3 && P.m.every(Number.isFinite) ? P.m : null;
     if (!R.frame) { R.mk = mk; setFrame(F, 'adopted', 'Aligned automatically', 'This headset took the room from the shared space. Check: the orange crosses sit on the tape marks.'); return; }
+    const [d, a] = apart(F, R.frame), h = Math.abs(F.o[1] - R.frame.o[1]);
     if (R.src === 'shared' && P.by === C.id) {   // our own space's origin: kept on the space (a recentre moves local-floor)
-      const [d, a] = apart(F, R.frame);
-      if (d > 0.03 || a > Math.PI / 180) { log('reconcile', { own: true, d: r3(d), a: r3(a) }); setFrame(F, 'shared'); }
+      if (d > 0.03 || a > Math.PI / 180 || h > 0.02) { log('reconcile', { own: true, d: r3(d), a: r3(a), h: r3(h) }); setFrame(F, 'shared'); }
       return;
     }
-    const [d, a] = apart(F, R.frame);
-    if (d <= 0.03 && a <= Math.PI / 180 && R.src === 'adopted') { R.mk = mk; return; }
-    log('reconcile', { d: r3(d), a: r3(a), by: P.by, g: gradeOf(P) });
+    if (d <= 0.03 && a <= Math.PI / 180 && h <= 0.02 && R.src === 'adopted') { R.mk = mk; return; }
+    log('reconcile', { d: r3(d), a: r3(a), h: r3(h), by: P.by, g: gradeOf(P) });
     R.mk = mk;
     setFrame(F, 'adopted', 'Re-aligned', 'The room frame changed: things moved to where the others see them.');
   }
@@ -1718,26 +1732,46 @@
     }
     if ((R.anchorBusy || R.anchors) && t - R.anchorSince < 8000) { setState('restoring'); return; }
     if (R.anchors && !R.anchorsOK) { log('anchors not tracked'); letGo(); }
-    // (2) a frame published for our shared space (only when asked for: Use the shared space on the panel)
-    const sp = !!(R.sharedAlign && R.shared && R.sharedOK && R.sharedId), P = sp ? val(kFrame(R.sharedId)) : null;
+    // (2) a frame published for our shared space (unless switched off on the panel)
+    const sp = !!(R.sharedAlign && R.shared && R.sharedOK && R.sharedId), P0 = sp ? val(kFrame(R.sharedId)) : null;
+    // a space that is just this headset's own floor (the default one, or not joined: one Quest 3 had that every
+    // session under the others' id) while someone here published for it: their frame through it would put the room
+    // where this headset began, so it is not taken. One from someone who has left is last time's (the space was made
+    // again under the same id): after the wait this headset's space replaces it
+    const alone = !!(validFrame(P0) && P0.by !== C.id && R.sharedOwn), stale = alone && !member(P0.by), P = alone ? null : P0;
+    if (alone !== !!R.aloneAt) { R.aloneAt = alone ? t : 0; log(alone ? 'shared alone' : 'shared joined', alone ? { by: P0.by, left: stale } : {}); changed(); }
+    R.notJoined = alone && !stale;
     if (validFrame(P)) {
+      if (R.frame && R.wakeHold && !wakeOK(P, t)) return;   // after waking: the frame the floor's resets carried over holds
       if (!R.frame || t - R.recAt > 500) { R.recAt = t; reconcile(P); }
       if (R.frame) return;
     }
+    if (R.notJoined && R.frame) return;   // the frame held so far stays (moved by the floor's resets) until it joins
     // waiting a little for the shared space's id, or for someone's published frame
     if (R.sharedAlign && R.shared && !R.frame && t - (R.sharedId ? R.sharedAt : R.sharedAsked) < 8000) { setState('shared-wait'); return; }
     // (3) nobody published for this space: its own origin, published (unless the room was calibrated in another space)
-    if (sp && !R.frame && !calibratedElsewhere()) {
+    if (sp && !R.frame && !calibratedElsewhere() && !R.notJoined) {
       R.mk = null;
       const F = fromShared({ o: [0, 0, 0], x: [1, 0, 0] });
-      F.o[1] = 0;   // the space's origin need not lie on the floor
+      F.o[1] = 0; R.hS = -sharedY();   // the space's origin need not lie on the floor: this headset's floor is the room's
       setFrame(F, 'shared', 'Shared space found', 'This headset defines the room for the others in its shared space.');
     }
     if (sp && R.src === 'shared' && !validFrame(P) && t - R.pubAt > 2000) publishFrame('shared');
     if (!R.frame && R.state !== 'restoring') {
       setState('calibrate');
-      if (R.noticed !== 'calibrate') { R.noticed = 'calibrate'; notice('Calibrate the room', 'Open the Shared panel and press Calibrate: touch mark A, then mark B, with the tip of a controller. Tape crosses a metre or more apart work well.', 9000); }
+      if (R.notJoined && R.noticed !== 'alone') { R.noticed = 'alone'; notice('Not in the shared space', 'The others are in a shared space this headset has not joined: take it off and put it on again, or calibrate on the tape marks.', 9000); }
+      else if (!R.notJoined && R.noticed !== 'calibrate') { R.noticed = 'calibrate'; notice('Calibrate the room', 'Open the Shared panel and press Calibrate: touch mark A, then mark B, with the tip of a controller. Tape crosses a metre or more apart work well.', 9000); }
     }
+  }
+  // after waking, the shared space is used again only when it agrees with the frame the floor's resets carried
+  // over (10 cm and 3 degrees along the floor; the height may have moved with the floor), or once it has held still
+  // for 5 s and is not just this headset's own floor (a default space would be): right after waking it gave the
+  // head's pose for up to 15 s
+  function wakeOK(P, t) {
+    const [d, a] = apart(fromShared(P), R.frame), agree = d <= 0.1 && a <= 0.05, still = t - R.stillSince > 5000 && !R.sharedOwn;
+    if (agree || still) { log('shared after wake', { agree, d: r3(d), a: r3(a), after: Math.round(t - R.wakeHold) }); R.wakeHold = 0; return true; }
+    if (t - R.wakeLog > 2000) { R.wakeLog = t; log('shared held after wake', { d: r3(d), a: r3(a), own: !!R.sharedOwn }); }
+    return false;
   }
   function update(f) {
     if (!R.session || !C.code || !f) return;
@@ -1757,7 +1791,7 @@
     R.sharedOK = false;
     if (R.shared) {
       const id = sharedIdOf(R.shared);
-      if (id && id !== R.sharedId) { R.sharedId = id; R.sharedAt = performance.now(); log('shared id', { id }); }
+      if (id && id !== R.sharedId) { R.sharedId = id; R.sharedAt = performance.now(); R.hS = null; log('shared id', { id }); }
       let p = null;
       try { p = f.getPose(R.shared, local); } catch (e) { /* not now */ }
       R.sharedPose = !!p;
@@ -1768,7 +1802,7 @@
         const q = p.transform.position, atHead = HD.ok && Math.hypot(q.x - HD.p.x, q.y - HD.p.y, q.z - HD.p.z) < 0.05;
         if (atHead !== R.sharedHead) { R.sharedHead = atHead; log(atHead ? 'shared at head' : 'shared off head', {}); }
         R.sharedOK = !atHead;
-        if (R.sharedOK) ownFloorCheck();
+        if (R.sharedOK) ownFloorCheck(performance.now());
       }
     }
     align(f, local);
@@ -1828,6 +1862,7 @@
   // what the room frame rests on, in a line: the check that tells whether the shared space can be trusted
   function sourceLine() {
     if (!R.session || !C.code || !here()) return '';
+    if (R.notJoined) return 'Not in the others\' shared space: take the headset off and on, or calibrate';
     if (R.cmp) return `The shared space puts ${whose(R.cmp.by)} marks ${Math.round(R.cmp.d * 100)} cm, ${R.cmp.a}° from yours` + (R.sharedAlign ? '' : ' (not used)');
     if (R.src === 'adopted') { const P = R.sharedId && val(kFrame(R.sharedId)); return P && gradeOf(P) === 'marks' ? `From ${whose(P.by)} marks, through the shared space` : 'From the shared space\'s own origin'; }
     if (own()) return (R.anchors && R.anchorsOK ? 'Your own marks, held by two anchors' : R.anchors ? 'Your own marks (checking their anchors...)' : 'Your own marks (no anchors: calibrate after a recentre)');
@@ -1836,6 +1871,10 @@
   // how this headset's floor compares with the room's (the marks' height), for the panel
   const fullNote = () => (R.full && own() && R.frame ? 'Anchors not saved (the store is full): a restart asks to calibrate' : '');
   function floorNote() {
+    if (R.frame && !own()) {   // from the shared space: the floor this headset had when it took the room, held there
+      const y = R.frame.o[1];
+      return Math.abs(y) > 0.03 ? `Your floor moved ${Math.round(Math.abs(y) * 100)} cm ${y > 0 ? 'down' : 'up'} since you joined (allowed for)` : '';
+    }
     if (!own() || !R.frame || !R.saved) return '';
     const M = val('rm'), [a, b] = marksNow(), d = Math.hypot(b[0] - a[0], b[2] - a[2]);
     if (M && Number.isFinite(M.d) && Math.abs(M.d - d) > SAME) return `Your marks are ${Math.round(Math.abs(M.d - d) * 100)} cm ${d > M.d ? 'further apart' : 'closer'} than the room's: other tape?`;
@@ -1843,7 +1882,7 @@
     return Math.abs(y) > 0.03 ? `Your floor is ${Math.round(Math.abs(y) * 100)} cm ${y > 0 ? 'lower' : 'higher'} than the room's (allowed for)` : '';
   }
   function setSharedAlign(on) {
-    R.sharedAlign = !!on; put('collabSharedAlign', on ? '1' : null); log('shared align', { on: R.sharedAlign });
+    R.sharedAlign = !!on; put('collabSharedAlign', on ? '1' : '0'); log('shared align', { on: R.sharedAlign });
     if (!on && (R.src === 'adopted' || R.src === 'shared')) { R.frame = null; R.src = ''; R.aligned = false; }
     R.recAt = 0; R.sharedAt = R.sharedAsked = performance.now(); changed();
   }
@@ -1906,6 +1945,9 @@
     if (R.lfOK) { const e = R.lf.elements; S.lf = { p: [e[12], e[13], e[14]].map(r3), yaw: r3(Math.atan2(-e[2], e[0])) }; }
     if (R.sharedPose) { const M = floorFromShared(new THREE.Matrix4()), e = M.elements; S.shared = { p: [e[12], e[13], e[14]].map(r3), yaw: r3(Math.atan2(-e[2], e[0])) }; }
     if (R.sharedOwn) S.sharedOwn = true;
+    if (R.wakeHold) S.wakeHold = Math.round(t - R.wakeHold);
+    if (R.notJoined) S.notJoined = true;
+    if (R.hS !== null) S.hS = r3(R.hS);
     if (R.sharedHead) S.sharedHead = true;
     if (HD.ok && R.lfOK) { const p = _v.copy(HD.p).applyMatrix4(R.lfi); S.head = p.toArray().map(r3); }
     if (R.anchorP) { S.anchors = R.anchorP.map(p => p.map(r3)); S.anchorsAge = Math.round(t - R.anchorSeen); }
@@ -1967,8 +2009,9 @@
       if (s.visibilityState === 'hidden') { if (!R.hiddenAt) R.hiddenAt = t; }
       else if (R.hiddenAt) {   // back from off (or the system menu): the origin may have moved under the frame
         log('woke', { away: Math.round(t - R.hiddenAt), src: R.src, anchors: !!(R.anchors && R.anchorsOK) });
-        R.sleptAt = R.hiddenAt; R.hiddenAt = 0; R.prev = null; R.visibleAt = t;
+        R.sleptAt = R.hiddenAt; R.hiddenAt = 0; R.prev = null; R.visibleAt = t; R.stillSince = t; R.lastS = null;
         if (own() && R.frame) R.woke = t;
+        else if (R.frame) R.wakeHold = t;   // a frame from the shared space: held until the space agrees again
       }
       if (s.visibilityState === 'visible' && C.code) wake('headset');
     }));

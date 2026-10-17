@@ -472,6 +472,36 @@ try {
     return { atHead, own, back: R.sharedOK && !R.sharedHead && !/your own floor/.test(HOST.room.sharedLine()) };
   });
   check('headset: a shared space at the head is not used, and one that is just its own floor is named on the panel', glitch.atHead && glitch.own && glitch.back, JSON.stringify(glitch));
+  // standby with the shared space in use: the floor moves while the headset sleeps (a reset says how; Quest's floor
+  // came back 12 to 17 cm off) and the shared space is wrong for a while: the frame the reset carried over holds;
+  // once the space is back and agrees, the room is where it was, and at the same height as before
+  const F6 = [FLOOR[0] + 0.5, -0.15, FLOOR[2] - 0.3, FLOOR[3] + 0.6], JUNK = [SHARED[0] + 0.8, 0, SHARED[2] - 0.4, SHARED[3] + 0.35];
+  const sleepWake = (F, S) => H.evaluate(([F, S]) => {
+    const X = window.__xr, V = (x, y, z) => new THREE.Vector3(x, y, z);
+    const M = a => new THREE.Matrix4().compose(V(a[0], a[1], a[2]), new THREE.Quaternion().setFromAxisAngle(V(0, 1, 0), a[3]), V(1, 1, 1));
+    X.visibility('hidden'); X.floorReset(F, 0.2); X.W.shared = M(S); X.visibility('visible');
+    for (let k = 0; k < 20; k++) X.step();
+    return { src: HOST.room.src, frame: HOST.room.frame && { o: HOST.room.frame.o.slice(), x: HOST.room.frame.x.slice() }, held: window.__collabLog.slice(-40).some(e => e.ev === 'shared held after wake') };
+  }, [F, S]);
+  const spaceBack = S => H.evaluate(S => {
+    const X = window.__xr, V = (x, y, z) => new THREE.Vector3(x, y, z);
+    X.W.shared = new THREE.Matrix4().compose(V(S[0], S[1], S[2]), new THREE.Quaternion().setFromAxisAngle(V(0, 1, 0), S[3]), V(1, 1, 1));
+    for (const fn of X.resets.shared || []) fn({ transform: null });
+  }, S);
+  const held6 = await sleepWake(F6, JUNK);
+  await spaceBack(SHARED);
+  await frames(H, 800);
+  const back6 = await H.evaluate(() => ({ src: HOST.room.src, frame: HOST.room.frame, note: HOST.room.floorNote(), after: window.__collabLog.filter(e => e.ev === 'shared after wake').slice(-1)[0] || null }));
+  const w6 = unapply(F6, ROOM.slice(0, 3)), x6 = rot(-F6[3], rot(ROOM[3], [1, 0, 0]));
+  check('headset: after standby, while the shared space is wrong, the frame the floor\'s reset carried over holds', held6.src === 'adopted' && held6.held && !!held6.frame &&
+    near([held6.frame.o[0], held6.frame.o[2]], [w6[0], w6[2]], 2e-3) && near(held6.frame.x, x6, 2e-3), JSON.stringify(Object.assign(held6, { want: [w6, x6] })));
+  check('headset: once the shared space agrees again the room is where it was, at the same height though the floor moved 15 cm', back6.src === 'adopted' &&
+    near(back6.frame.o, [w6[0], 0.15, w6[2]], 2e-3) && near(back6.frame.x, x6, 2e-3) && !!back6.after && back6.after.agree && /floor moved 15 cm down/.test(back6.note),
+    JSON.stringify(Object.assign(back6, { want: [w6, x6] })));
+  await sleepWake(FLOOR, SHARED);   // and back to the floor the rest expects
+  await frames(H, 800);
+  check('headset: woken again on the first floor, the room is back on it', near(await H.evaluate(() => HOST.room.frame.o), [wantO[0], 0, wantO[2]], 2e-3),
+    fmt(await H.evaluate(() => HOST.room.frame.o)));
   // walk to the headset story's station: after a second there it becomes this headset's story, placed at the station
   const stationFor = async k => { const s = await H.evaluate(k => HOST.collab.stations().find(s => s.story === k) || null, k); if (!s) throw new Error('no station for ' + k); return s; };
   const S1 = await stationFor(HEADSET_STORY);
@@ -840,12 +870,41 @@ try {
   // a headset in shared space U1 with no marks takes the frame published for U1; once calibrated it keeps its own
   // marks, publishes them for U1 (with the marks, for drawing), ignores a newer frame someone else publishes there,
   // and only says how far the shared space puts that one's marks from its own
+  check('shared space: used unless switched off (the default)', await A.evaluate(() => HOST.room.sharedAlign()) === true);
+  // a headset whose shared space is just its own floor while someone here published for it has not joined (one
+  // Quest 3 had that every session): it takes nothing through it and says so
+  await H.evaluate(() => HOST.room.sharedAlign(true));
+  await H.evaluate(installXR, Object.assign({}, xrOpts, { sharedId: 'U1', shared: FLOOR, head: [-6, 1.6, 6, 0] }));
+  await H.evaluate(() => window.__xr.begin());
+  await frames(H, 1500);
+  const nj = await H.evaluate(() => ({ state: HOST.room.state, frame: HOST.room.frame, line: HOST.room.sourceLine(), shared: HOST.room.sharedLine(),
+    log: window.__collabLog.some(e => e.ev === 'shared alone') }));
+  check('shared space: a headset whose space is just its own floor takes no frame through it from someone here, and says it has not joined',
+    !nj.frame && nj.state === 'shared-wait' && /Not in the others/.test(nj.line) && /your own floor/.test(nj.shared) && nj.log, JSON.stringify(nj));
+  await H.evaluate(() => window.__xr.end());
+  // a frame published there by someone who has left is last time's (the space was made again under its id): after
+  // the wait, this headset's own space replaces it
+  // (the room's calibration in space U1 is made a plain one meanwhile: a headset never makes its own space the room
+  // when the room was calibrated in another)
+  const rfKey7 = await H.evaluate(() => HOST.room.frameKey('U7')), rfKey1 = await H.evaluate(() => HOST.room.frameKey('U1'));
+  await A.evaluate(([k, f]) => HOST.collab.publish([[k, f]]), [rfKey1, Object.assign(frameFor(ROOM, 'U1', aId, Date.now() - 60000), { g: 'shared' })]);
+  await A.evaluate(([k, f]) => HOST.collab.publish([[k, f]]), [rfKey7, Object.assign(frameFor([ROOM[0] + 1, 0, ROOM[2], ROOM[3]], 'U7', 'left-long-ago', Date.now() - 3600e3), { g: 'shared' })]);
+  await H.evaluate(installXR, Object.assign({}, xrOpts, { sharedId: 'U7', shared: FLOOR, head: [-6, 1.6, 6, 0] }));
+  await H.evaluate(() => window.__xr.begin());
+  for (let k = 0; k < 60 && (await H.evaluate(() => HOST.room.src)) !== 'shared'; k++) await frames(H, 250);   // after the 8 s wait
+  await frames(H, 600);
+  const sU7 = await H.evaluate(() => ({ src: HOST.room.src, frame: HOST.room.frame, id: HOST.collab.id }));
+  const pub7 = ((await roomInfo(code)).keys[rfKey7] || {}).v || null;
+  check('shared space: a frame there from someone who has left is replaced by this headset\'s own space', sU7.src === 'shared' && !!sU7.frame &&
+    near(sU7.frame.o, [0, 0, 0], 1e-3) && !!pub7 && pub7.by === sU7.id, JSON.stringify({ sU7, pub7 }));
+  await H.evaluate(() => window.__xr.end());
+  await A.evaluate(([k, f]) => HOST.collab.publish([[k, f]]), [rfKey1, frameFor(ROOM, 'U1', aId, Date.now() - 60000)]);
   await H.evaluate(() => HOST.room.sharedAlign(false));
   await H.evaluate(installXR, Object.assign({}, xrOpts, { sharedId: 'U1' }));
   await H.evaluate(() => window.__xr.begin());
   await frames(H, 1500);
   const off = await H.evaluate(() => ({ state: HOST.room.state, frame: HOST.room.frame }));
-  check('shared space: not used unless asked for (the default): a headset without marks asks to calibrate', off.state === 'calibrate' && !off.frame, JSON.stringify(off));
+  check('shared space: switched off on the panel, a headset without marks asks to calibrate', off.state === 'calibrate' && !off.frame, JSON.stringify(off));
   await H.evaluate(() => HOST.room.sharedAlign(true));
   for (let k = 0; k < 12 && (await H.evaluate(() => HOST.room.src)) !== 'adopted'; k++) await frames(H, 250);
   const ad0 = await H.evaluate(() => HOST.room.src);

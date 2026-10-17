@@ -287,7 +287,8 @@ Differences from the plan:
   where each headset puts them; the published frame is per shared space (`rf.<id>`, FORMAT networks-3); and
   every headset sends its log to the relay (`relay/logs/`) so two headsets' numbers can be compared.
 - **After the second test** (the logs, shared-spaces.md section 9): the shared space is not used for alignment
-  unless asked for (it was 0.9 m and 19 degrees out); the room's floor comes from the marks (`rm`, FORMAT
+  unless asked for (it was 0.9 m and 19 degrees out; the two headsets turned out to be in two spaces, and with
+  one browser version it lined them up, so it is on by default again after the fifth test); the room's floor comes from the marks (`rm`, FORMAT
   networks-5), so a headset with a wrong floor still shows things at the same height; a double pull takes no
   second mark; a refused anchor handle is logged with its reason. At a
   station a story's grip offset from before is dropped, and in explore mode the scene's view (turned and sized,

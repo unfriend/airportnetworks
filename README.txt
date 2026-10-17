@@ -49,9 +49,10 @@ anchors keep the calibration for next time and after the headset was off; if
 the panel says the anchor store is full, clearing Quest Browser's site data may
 help, see relay/README.md). A headset's own calibration is
 never overridden, and the room's floor comes from the marks, so a headset
-with a wrong floor still shows things at the same height. Quest Browser's
-experimental shared space is only used when asked for on the Shared panel (it
-was too far out in our test). The relay keeps the headsets' logs in
+with a wrong floor still shows things at the same height. Headsets without
+marks line up through Quest Browser's experimental shared space (on unless
+switched off on the Shared panel; every headset needs the same browser version
+and the WebXR experiments flag), and line up again after standby. The relay keeps the headsets' logs in
 relay/logs/ for checking alignment. People elsewhere and
 screens
 see the stations round their own spot. Screens get a room map and Follow a

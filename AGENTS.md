@@ -205,12 +205,15 @@ the content floats 1.4 m ahead of the spot), with `st.<id>.play` (the clock:
   headset's own calibration, which nothing overrides: two tape marks touched
   with a controller (`'marks'`), or last time's found again by the two anchors
   made at them (`'anchor'`; `roomFrame` in `localStorage` keeps the marks and
-  the anchors' handles, never coordinates alone); (2) only when asked for
-  (*Shared space: used* on the panel, `collabSharedAlign`, off by default) the
+  the anchors' handles, never coordinates alone); (2) unless switched off
+  (*Shared space: not used* on the panel, `collabSharedAlign` `'0'`; on by
+  default since two Quest 3s on one browser version lined up through it) the
   frame published for its shared space (key `rf.<space id>`, `{ uuid, o, x, g,
   by, at, m }`, `g` `'marks'` or `'shared'`, `m` the marks for drawing) by a
-  calibrated headset or the first one in the space (`'adopted'`, on this
-  headset's own floor, followed when it moves more than 3 cm or 1 degree), or
+  calibrated headset or the first one in the space (`'adopted'`, first on this
+  headset's own floor, then held at that height in the shared space (`R.hS`),
+  so a floor the headset estimates again does not move the room; followed
+  when it moves more than 3 cm, 1 degree or 2 cm in height), or
   (3) the space's own origin when
   nobody published for it (`'shared'`); (4) else calibrate. A calibrated
   headset publishes its marks for its space anyway and reports how far the
@@ -249,6 +252,19 @@ the content floats 1.4 m ahead of the spot), with `st.<id>.play` (the clock:
   published or compared through the space within 20 s of waking (`settled`). The panel names a space that is exactly this
   headset's own floor (`sharedOwn`: the default one, the first headset, or not
   joined) and shows the browser's version; the log has the page address.
+  Such a space while someone here published for it means not joined: nothing
+  is taken through it, a frame held so far stays, and the panel says so ("Not
+  in the others' shared space"); a frame for it from someone who has left is
+  last time's (the id stayed the same across sessions and days), replaced by
+  this headset's own space after the 8 s wait.
+- Standby with the shared space in use (an adopted frame, or the space's own
+  origin): it was offset after waking in a test. The frame the floor's resets
+  carried over holds (`R.wakeHold`) until the shared space agrees with it
+  again (10 cm and 3 degrees along the floor) or has held still for 5 s
+  without being just this headset's own floor (`wakeOK`): right after waking
+  the space gave the head's pose, and a default space is possible; the height
+  comes back from the space (`R.hS`), since the floor came back 12 to 17 cm
+  off after waking.
 - Off and on again (the session hidden, then visible: sleep, the system menu)
   the origin moves under the frame (manual calibration lined two Quest 3s up,
   but switching one off and on left it "totally off"). Quest Browser says how
@@ -384,10 +400,12 @@ Rules that matter most (from `docs/multiplayer.md`):
 
 Testing: `node relay/test.mjs` and `node tools/collab.mjs` (see Testing). A new
 story gets the hooks, then an entry in `STORIES` in `tools/collab.mjs`.
-Tried on two Quest 3 headsets in one room twice: in phase 0 neither the shared
-space nor the calibration lined them up; the relay's logs of the second test
-led to the rules above (own marks win, the shared space off, the floor from
-the marks). Not confirmed on headsets yet: whether they line up now,
+Tried on two Quest 3 headsets in one room several times: in phase 0 neither the
+shared space nor the calibration lined them up; the relay's logs of the second
+test led to the rules above (own marks win, the floor from the marks); with
+both on one Quest Browser version the shared space lined them up, but one was
+offset after standby (the rules for waking above). Not confirmed on headsets
+yet: whether they line up again after standby now,
 persistent anchors restored (one headset's handles were refused; the log now
 says why), whether a recentre fires a reset, sound zones heard, comfort and
 frame rate with presence drawn, and whether the socket keeps running inside an
@@ -685,7 +703,12 @@ anchors are still being found), a new calibration replacing the old anchors,
 the shared space never overriding marks (a newer frame from someone else only
 reported, as a distance; not used at all by default), the room's floor from
 the first calibration (a lower floor allowed for), no mark from a double
-pull, Forget taking the published frame, a reset as Quest Browser
+pull, Forget taking the published frame, the shared space on by default
+(off: calibrate), a space that is just this headset's own floor while someone
+here published (not joined: nothing taken), a frame from someone who has left
+(replaced by this headset's own space), standby with the shared space in use
+(a wrong space held off, then the room where it was and at the same height
+though the floor moved), a reset as Quest Browser
 sends it (old to new coordinates, the head's height ignored), a calibration
 without anchors asked again after a reset without a transform or a jump, and
 kept (moved by the reset) off and on again, off and on again with the anchors

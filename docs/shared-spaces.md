@@ -57,12 +57,15 @@ headsets up: the shared space overrode each fresh calibration, see below), first
    frame for that space (with the marks, so others can draw them) and only *reports* how far the shared space
    puts another calibrated headset's marks from its own (a line on the panel: the measure of the shared
    space's accuracy).
-2. **A frame published for this shared space** (key `rf.<id>`, grade `marks` or `shared`), **only when asked for**
-   (*Shared space: used* on the panel; off by default after the measurements in section 9): adopted by headsets
-   without marks ("Aligned automatically"), followed when it moves by more than **3 cm or 1 degree**
-   ("Re-aligned"). An adopted frame is never published again.
-3. **The shared space's own origin** when nobody has published for it ("Shared space found"; also only when
-   asked for), published with grade `shared` (unless the room was calibrated in another space by someone still
+2. **A frame published for this shared space** (key `rf.<id>`, grade `marks` or `shared`), **unless switched off**
+   (*Shared space: not used* on the panel; it was off by default after the measurements in section 9, and is on
+   again since two headsets on one browser version lined up through it): adopted by headsets without marks
+   ("Aligned automatically"), first on the headset's own floor and then held at that height in the shared space,
+   followed when it moves by more than **3 cm, 1 degree or 2 cm in height** ("Re-aligned"). An adopted frame is
+   never published again. Not taken through a space that is just this headset's own floor while someone present
+   published for it (not joined); a frame from someone who has left is last time's.
+3. **The shared space's own origin** when nobody (still here) has published for it ("Shared space found"; also
+   unless switched off), published with grade `shared` (unless the room was calibrated in another space by someone still
    there: then calibrate).
 4. **Two-point calibration**: the person touches mark A, then mark B (tape crosses on a table or the floor, a
    metre or more apart, at least 50 cm). A gives the translation, A->B the yaw, gravity the rest. The point
@@ -214,6 +217,12 @@ same page address, the relay on the same Wi-Fi; every 5 s each headset logged it
   Next test: the same Quest Browser version on both, the same page address, both in AR, one started ten
   seconds before the other; the second's panel must not say *your own floor*, and the distance line should then
   read a few centimetres if the space is usable.
+- **Fifth test**: with both headsets on the same Quest Browser version the shared space lined them up "perfectly"
+  (no tape), so it is used by default again. After standby one headset was offset (no logs yet). What the earlier
+  logs say happens on waking: the floor's resets move the origin (applied), the space gives the head's pose for
+  up to 15 s (ignored), and the floor comes back 12 to 17 cm off. Now a frame from the shared space holds as the
+  resets carried it until the space agrees with it again (or holds still for 5 s and is not just this headset's
+  own floor), and its height is kept in the space.
 
 So: tape marks on every headset, the room's height taken from the marks (the first calibration's height of
 mark A over its floor, others allowing for their own floor), anchors to follow origin jumps, and the shared

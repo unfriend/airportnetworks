@@ -62,8 +62,8 @@ the app's files from the repository over HTTPS, and prints the address to open.
    keep devices apart: then use a router of your own or a phone's hotspot. Let the machine's firewall accept
    connections on port 8787 (macOS and Windows ask the first time the relay starts: allow it on private
    networks).
-3. Optional, for trying Quest Browser's experimental shared space (it is **not used** for alignment unless you
-   press *Shared space: not used* on the Shared panel; in our tests the two headsets were not in one space): in
+3. For Quest Browser's experimental shared space (used for alignment unless you switch it off on the Shared panel,
+   *Shared space: used*; with both headsets on one browser version it lined them up without tape): in
    Quest Browser open `chrome://flags`, set **WebXR experiments** to Enabled and restart the browser completely;
    turn on **Enhanced spatial services** in the headset's settings (privacy, device permissions); and **update
    Quest Browser on every headset to the same version** (the panel shows it beside the shared space's id: in our
@@ -137,7 +137,10 @@ machine or public hosting.
 - **Off after a headset was switched off and on**: it moves the room as the headset says its origin moved,
   looks for its anchors again by their saved handles (they put it back on the marks) and shows the orange
   crosses for 30 s ("Check the marks"). If they are not on the tape, press **Calibrate** and please send the
-  logs.
+  logs. Lined up through the shared space (no tape), it holds the room where the headset says it moved until the
+  shared space agrees again (a few seconds; right after waking the space is wrong for up to 15 s). If it stays
+  off, take that headset off and on once more, and please send the logs (`shared held after wake`, `shared
+  after wake` and `shared alone` lines say what it did).
 - **Calibration lost after a recentre or a new session**: the anchors were not kept (private browsing, cleared
   site data, a full anchor store, or a browser without anchors). Calibrate again; **Forget calibration** (press
   twice) clears a headset's marks and anchors.
