@@ -91,7 +91,7 @@ the app's files from the repository over HTTPS, and prints the address to open.
    (then you get your own floor and the others see you as an avatar).
 5. **Calibrate every headset on the same two marks** (Shared panel, **Calibrate**): a bright ring shows the point
    that counts, at the front of the controller. Put it on mark A, hold still, pull the trigger once; then the
-   same on mark B. Pointing at a story panel takes no mark. Orange crosses then show where this headset puts the
+   same on mark B (while calibrating, any trigger pull away from the Shared panel takes a mark). Orange crosses then show where this headset puts the
    marks: they must sit on the tape (they show for 30 s, and whenever the Shared panel is open). A headset's own
    calibration is never overridden. It is kept for next time by two anchors at the marks ("Room calibration from
    last time"; Quest Browser keeps up to 8 anchors per site); a headset without anchors, or after a recentre (a

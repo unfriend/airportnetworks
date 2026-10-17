@@ -1172,8 +1172,8 @@
       C.hov.set(i, { target: t, x: S && x.uv ? x.uv.x * S.w : 0, y: S && x.uv ? (1 - x.uv.y) * S.vis : 0, at: h.at });
       return { kind: 'shell', point: x.point, dist: x.distance };
     }
-    // calibrating: the trigger anywhere else (not at a story panel) takes a mark at the controller's tip
-    if (R.calib && !(near < Infinity)) { C.hov.set(i, { target: { kind: 'mark' }, at: h.at }); return { kind: 'shell', point: _v2.copy(d).multiplyScalar(0.03).add(o).clone(), dist: 0.03 }; }
+    // calibrating: the trigger anywhere else takes a mark at the controller's tip
+    if (R.calib) { C.hov.set(i, { target: { kind: 'mark' }, at: h.at }); return { kind: 'shell', point: _v2.copy(d).multiplyScalar(0.03).add(o).clone(), dist: 0.03 }; }
     C.hov.set(i, null);
     return null;
   }
@@ -1181,8 +1181,8 @@
   const hovOf = i => { const h = C.hov.get(i); return h && performance.now() - h.at < 250 ? h : null; };
   function press(i) {
     const h = hovOf(i);
-    if (R.calib && !(h && h.target.kind === 'panel')) { R.mark(i); return; }   // the panel's Stop calibrating still works
     if (!h) return;
+    if (h.target.kind === 'mark') { R.mark(i); return; }   // calibrating (the panel's Stop calibrating still works)
     if (h.target.kind === 'panel') { const r = OV.panel.at(h.x, h.y); if (r && r.fn) { log('panel', { id: r.id }); r.fn(); OV.panel.sig = ''; } }
     else if (h.target.kind === 'station') choose(h.target.id, 'pick');
   }

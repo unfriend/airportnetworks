@@ -669,12 +669,6 @@ try {
   await H.evaluate(() => { HOST.collab.panelOpen(false); window.__xr.ctrl(0, null); });
   await frames(H, 100);
   await H.evaluate(() => HOST.room.calibrate());
-  const atPanel = await H.evaluate(() => {   // the story says its own panel is 1.2 m along the ray: the press is the story's
-    const r = HOST.collab.ray(0, new THREE.Vector3(0, 1, 0), new THREE.Vector3(0, 0, -1), 1.2);
-    HOST.collab.press(0);
-    return [r, HOST.room.state];
-  });
-  check('calibration: a press aimed at a story panel takes no mark', atPanel[0] === null && atPanel[1] === 'mark-a', JSON.stringify(atPanel));
   await touch(markA);
   const stA = await H.evaluate(() => HOST.room.state);
   const dbl = await H.evaluate(p => { window.__xr.ctrl(0, p, [0, -1, 0]); HOST.cur.peek('XR.ctrls[0].wantPress = true'); window.__xr.step(); return HOST.room.state; }, markB);

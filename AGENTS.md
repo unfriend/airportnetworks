@@ -233,8 +233,8 @@ the content floats 1.4 m ahead of the spot), with `st.<id>.play` (the clock:
   marks; without anchors a reset or a jump of the head asks to calibrate again.
 - Calibrating: a mark is where the controller's ray origin was held still 70 to
   260 ms before the trigger (a bright ring shows that point), at least 50 cm
-  apart; a press aimed at a story panel is the story's, a second pull within
-  0.6 s is ignored, and marks more than 5 cm apart in height get a note. Orange
+  apart; a second pull within 0.6 s is ignored, and marks more than 5 cm
+  apart in height get a note. Orange
   crosses show the marks where this headset puts them (while the Shared panel
   is open, and 30 s after aligning). The panel's room section also shows the
   shared space's id and *Forget calibration* (`HOST.room.forget()`, press
@@ -639,8 +639,8 @@ anchors found next session, Forget calibration (two presses; also while those
 anchors are still being found), a new calibration replacing the old anchors,
 the shared space never overriding marks (a newer frame from someone else only
 reported, as a distance; not used at all by default), the room's floor from
-the first calibration (a lower floor allowed for), no mark from a press at a
-story panel or a double pull, Forget taking the published frame, a calibration
+the first calibration (a lower floor allowed for), no mark from a double
+pull, Forget taking the published frame, a calibration
 without anchors asked again after a reset or a jump, the mark taken where the
 controller was held still, and VR elsewhere with its in-room question. `--quick` runs only the last story in the per-story part. A new story needs an entry in `STORIES`
 (`change` and `back`: code that changes its `state()`, and optional `effect`
