@@ -10,7 +10,7 @@
 - The story files are large (`stories/airports.js` is ~640 KB because of its
   embedded data). Search with Grep and read line ranges; never read them whole.
 - Prefer small, exact edits. When a change touches the headset code, apply it
-  to all six stories: their XR, panel and landing-screen code is meant to
+  to all seven stories: their XR, panel and landing-screen code is meant to
   stay identical apart from story-specific panes.
 - Verify visual changes by serving the folder and taking headless Chromium
   screenshots (hashes such as `#spatial&t=60` jump straight to a moment), and
@@ -33,7 +33,8 @@
   `node tools/lbi/build.mjs`. `stories/nmd.js` likewise from `tools/nmd/`
   (`node tools/nmd/build.mjs`; data from `ikerdata/` via
   `node tools/nmd/data/gen_data.mjs`). Never show patient or variant data in it.
-  `stories/flock.js` likewise from `tools/flock/` (`node tools/flock/build.mjs`).
+  `stories/flock.js` likewise from `tools/flock/` (`node tools/flock/build.mjs`),
+  and `stories/robots.js` from `tools/robots/` (`node tools/robots/build.mjs`).
 
 ## Keeping token use down
 

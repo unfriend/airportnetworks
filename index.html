@@ -3,11 +3,11 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Networks, in six stories</title>
-<meta name="description" content="Network science in six short interactive stories: the world's airports on a globe, proteins and disease in a cell, where proteins meet in a model human cell, a 3D tour of network medicine from protein machines to the whole body, rare muscle diseases in a 71-layer network, and a flock of starlings flying all around you. Works on phones, desktops and in VR and AR headsets.">
+<title>Networks, in seven stories</title>
+<meta name="description" content="Network science in seven short interactive stories: the world's airports on a globe, proteins and disease in a cell, where proteins meet in a model human cell, a 3D tour of network medicine from protein machines to the whole body, rare muscle diseases in a 71-layer network, a flock of starlings flying all around you, and a gang of robot vacuums that follow you about your room. Works on phones, desktops and in VR and AR headsets.">
 <meta property="og:type" content="website">
-<meta property="og:title" content="Networks, in six stories">
-<meta property="og:description" content="Network science in six short interactive stories: airports on a globe, proteins and disease in a cell, where proteins meet in a model human cell, a 3D tour of network medicine, rare muscle diseases in a 71-layer network, and a flock of starlings around you. Works in VR and AR too.">
+<meta property="og:title" content="Networks, in seven stories">
+<meta property="og:description" content="Network science in seven short interactive stories: airports on a globe, proteins and disease in a cell, where proteins meet in a model human cell, a 3D tour of network medicine, rare muscle diseases in a 71-layer network, a flock of starlings around you, and a gang of robot vacuums in your room. Works in VR and AR too.">
 <meta property="og:image" content="icons/icon-512.png">
 <meta name="twitter:card" content="summary">
 <link rel="manifest" href="manifest.webmanifest">
@@ -260,12 +260,13 @@ input[type="range"] { width: 100%; accent-color: var(--red); }
 #track .name { position: absolute; top: 24px; font-size: 12px; color: #9fb0c7; white-space: nowrap; transform: translateX(4px); text-shadow: 0 1px 6px rgba(0, 0, 0, 0.7); }
 #track .name.cur { color: #ffffff; font-weight: 700; }
 #track .knob { position: absolute; top: 8px; width: 13px; height: 13px; margin-left: -6px; border-radius: 50%; background: #46d9ff; box-shadow: 0 0 0 3px rgba(70, 217, 255, 0.25); }
-#clock { font-size: 13px; color: #c5d2e3; font-variant-numeric: tabular-nums; white-space: nowrap; text-shadow: 0 1px 6px rgba(0, 0, 0, 0.7); }
+#clock { font-size: 13px; color: #c5d2e3; font-variant-numeric: tabular-nums; white-space: nowrap; text-shadow: 0 1px 3px rgba(0, 0, 0, 0.85), 0 0 8px rgba(0, 0, 0, 0.6); }
 #viewctl { display: none; flex: 1; gap: 14px; align-items: center; flex-wrap: wrap; }
 body.exploring #play, body.exploring #track, body.exploring #clock { display: none; }
 body.exploring #viewctl { display: flex; }
-#viewctl .grp { display: flex; align-items: center; gap: 8px; font-size: 13px; color: #c5d2e3; text-shadow: 0 1px 6px rgba(0,0,0,.7); }
+#viewctl .grp { display: flex; align-items: center; gap: 8px; font-size: 13px; color: #c5d2e3; text-shadow: 0 1px 3px rgba(0, 0, 0, 0.85), 0 0 8px rgba(0, 0, 0, 0.6); }   /* readable over bright floors */
 #viewctl .seg { background: var(--panel); backdrop-filter: blur(6px); }
+#viewctl .grp > span { background: rgba(3, 8, 16, 0.5); border-radius: 6px; padding: 2px 7px; }
 #viewctl input[type="range"] { width: 110px; accent-color: #46d9ff; }
 
 #loading { position: fixed; inset: 0; display: grid; place-items: center; background: var(--scene); color: #c5d2e3; z-index: 10; font-size: 15px; transition: opacity 0.6s; }
@@ -280,9 +281,12 @@ body.picking #panel, body.picking #bar { visibility: hidden; }
 #picker .wrap { max-width: 1040px; width: 100%; }
 #picker h1 { margin: 0 0 6px; font-size: clamp(26px, 4vw, 38px); color: #f2f6fc; font-weight: 700; letter-spacing: -0.01em; }
 #picker .lede { margin: 0 0 22px; color: #a9b8cc; font-size: 15px; }
-#picker .cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
-@media (max-width: 1020px) { #picker .cards { grid-template-columns: repeat(2, 1fr); } }
-@media (max-width: 560px) { #picker .cards { grid-template-columns: 1fr; } }
+/* rows of four, two, one; a last row that is not full is centred (seven stories: 4 + 3, or 2 + 2 + 2 + 1) */
+#picker .cards { display: flex; flex-wrap: wrap; justify-content: center; gap: 14px; }
+#picker .cards .card { flex: 0 0 calc((100% - 42px) / 4); }
+@media (min-width: 1021px) { #picker .wrap { max-width: 1180px; } }
+@media (max-width: 1020px) { #picker .cards .card { flex-basis: calc((100% - 14px) / 2); } }
+@media (max-width: 560px) { #picker .cards .card { flex-basis: 100%; } }
 #picker .card { display: block; text-align: left; font: inherit; color: #e7eef8; text-decoration: none; cursor: pointer;
   background: rgba(10, 19, 34, 0.88); border: 1px solid rgba(140, 170, 210, 0.25); border-radius: 10px; padding: 20px 20px 18px;
   transition: border-color 0.15s, transform 0.15s; }
@@ -333,6 +337,8 @@ body.xr #labels, body.xr #tip { display: none; }
   #viewctl .grp.opt { display: none; }
   #viewctl { gap: 8px 12px; }
   body.exploring #panel { bottom: calc(112px + env(safe-area-inset-bottom, 0px)); height: 46%; }
+  /* one group of view controls fits in one row: the pane comes down to the bar (no empty strip) */
+  body.exploring:has(#viewctl > .grp:only-child) #panel { bottom: calc(66px + env(safe-area-inset-bottom, 0px)); height: calc(46% + 46px); }
 }
 @media (prefers-reduced-motion: reduce) { #tip { transition: none; } #loading { transition: none; } }
 </style>
@@ -343,7 +349,7 @@ body.xr #labels, body.xr #tip { display: none; }
 <div id="tip" role="status"></div>
 <div id="xrmsg" role="status"></div>
 <header id="top">
-  <div class="brand">Networks<span>in six stories</span></div>
+  <div class="brand">Networks<span>in seven stories</span></div>
   <button class="btn" id="btnOther" type="button" title="Choose another story">Stories</button>
   <div class="spacer"></div>
   <button class="btn" id="btnSound" type="button" hidden aria-pressed="false">Sound on</button>
@@ -364,7 +370,7 @@ body.xr #labels, body.xr #tip { display: none; }
 </footer>
 <div id="picker" hidden role="dialog" aria-labelledby="pickTitle">
   <div class="wrap">
-    <h1 id="pickTitle">Networks, in six stories</h1>
+    <h1 id="pickTitle">Networks, in seven stories</h1>
     <p class="lede">The same ideas, very different networks. Each story takes a few minutes, then it is yours to explore.</p>
     <div class="cards"></div>
     <div class="repeat" role="group" aria-label="Repeat">
@@ -422,6 +428,10 @@ const HOST = {
       desc: '200 starlings at dusk, flying all around you. Each follows its seven nearest neighbours: a network that never stands still.',
       page: 'A flock of starlings, all around you', brand: 'Flock', sub: 'starlings at dusk',
       aria: 'Interactive 3D flock of starlings flying around you at dusk', thing: 'flock', loading: 'Gathering the flock', len: 'Story 1:12 · then on and on' },
+    { key: 'robots', kick: 'Swarm robotics', title: 'Robot gang', col: '#c3e85a',
+      desc: 'A gang of robot vacuums in your room. In a headset they find your floor and walls, follow you about and bounce off the walls.',
+      page: 'A gang of robot vacuums in your room', brand: 'Robot gang', sub: 'vacuums in your room',
+      aria: 'Interactive 3D room with a gang of robot vacuums that follow you about', thing: 'room', loading: 'Waking the robots', len: 'Story 1:24 · then free play' },
   ],
   factories: {}, loaded: {}, cur: null, curKey: null, busy: false,
   renderer: null, session: null, mode: null, inputs: [], quiet: false,
@@ -1185,8 +1195,8 @@ HOST.setUrl = function (stories) {
 // the title in the tab and the top bar: the app on the Stories screen, the story inside a story
 HOST.chrome = function (stories) {
   const meta = this.list.find(s => s.key === this.curKey), app = stories || !meta;
-  document.title = app ? 'Networks, in six stories' : meta.page;
-  document.querySelector('#top .brand').innerHTML = app ? 'Networks<span>in six stories</span>' : `${meta.brand}<span>${meta.sub}</span>`;
+  document.title = app ? 'Networks, in seven stories' : meta.page;
+  document.querySelector('#top .brand').innerHTML = app ? 'Networks<span>in seven stories</span>' : `${meta.brand}<span>${meta.sub}</span>`;
 };
 // Sound check on the page's Stories screen (the headset has its own panel): what the sound
 // system is doing, refreshed twice a second while open; #soundcheck in a link opens it

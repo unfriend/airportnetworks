@@ -1,4 +1,4 @@
-Networks, in six stories - installable web app
+Networks, in seven stories - installable web app
   1. Network theory, told with the world's airports  (stories/airports.js)
   2. Network medicine, told with the proteins in a cell  (stories/proteins.js)
   3. Spatial interactome, where proteins meet in a cell  (stories/spatial.js)
@@ -8,6 +8,9 @@ Networks, in six stories - installable web app
      network, after Iker Núñez-Carpintero and Philipp Friedrich  (stories/nmd.js)
   6. Flock: 200 starlings at dusk flying all around you, each following its
      seven nearest neighbours  (stories/flock.js)
+  7. Robot gang: robot vacuums in your room that bump and turn, follow you
+     about or form a conga line; in a headset they find your floor and walls
+     (stories/robots.js)
 
 index.html is the app: it shows a start screen to pick a story, and the Stories
 button (top bar, and the panel in VR/AR) brings it back. Stories are loaded into
@@ -16,7 +19,7 @@ AR from the start screen opens a Stories screen in the headset (one panel per
 story); entering from inside a story resumes it where you were.
 The start screen is the landing page (no hash, or #stories). The address
 follows you: #stories on the Stories screen (page or headset), #airports,
-#proteins, #spatial or #lbi in a story, so links can be shared and open that story
+#proteins, #spatial, #lbi, #nmd, #flock or #robots in a story, so links can be shared and open that story
 directly (proteins.html and spatial.html forward there). Taking the headset off and on returns to the Stories menu
 (and, unless Anchor is on, places everything in front of the next wearer).
 Repeat all and Repeat one on the Stories screen (page and headset) keep the app
@@ -47,7 +50,8 @@ Install:
 
 Narration: put your recordings at audio/narration.mp3 (airports),
 audio/narration-proteins.mp3 (proteins), audio/narration-spatial.mp3
-(cell map) and audio/narration-lbi.mp3 (the tour); see the note in the audio folder for chapter timings. It plays in
+(cell map), audio/narration-lbi.mp3 (the tour), audio/narration-nmd.mp3,
+audio/narration-flock.mp3 and audio/narration-robots.mp3; see the note in the audio folder for chapter timings. It plays in
 sync with the story, follows pause, seeking and chapter jumps, and has a Sound
 on/off button (top bar and VR panel). Browsers only start sound after a tap or
 click: the first one in the app (Enter VR counts) turns sound on for every
@@ -106,11 +110,21 @@ seven nearest neighbours (Ballerini et al. 2008) and keeps its distance; the
 flock as a whole wheels about in front of you and now and then swoops round you;
 a falcon sets off a wave of alarm that passes from neighbour to neighbour. Sky, land and birds are illustrative.
 
-Files: index.html (the app), stories/ (the six stories), proteins.html and
+Robot gang (stories/robots.js): a live simulation, not data, and no particular
+brand of robot. On a screen the robots live in a model living room and you click
+the floor to walk. In a headset they use your own room: every story asks the
+headset for the floor, walls and furniture of its room setup (WebXR plane and
+mesh detection, an optional feature; the Quest Browser may ask you to allow
+it). Without a room setup they get a virtual room round you, and the panel
+offers Set up your room. Point at the floor and pull the trigger to spill
+crumbs. Speeds and cleaning times are tuned to look right, not measured.
+
+Files: index.html (the app), stories/ (the seven stories), proteins.html and
 spatial.html (forward to the app), manifest.webmanifest, sw.js (offline cache), audio/,
 AGENTS.md and CLAUDE.md (notes for AI coding agents), tools/smoke.mjs (headless test),
 tools/lbi/ (sources of the tour; node tools/lbi/build.mjs writes stories/lbi.js),
 tools/nmd/ and ikerdata/ (sources and data of the muscle story; node tools/nmd/build.mjs
 writes stories/nmd.js), tools/flock/ (sources of the flock; node tools/flock/build.mjs
-writes stories/flock.js),
+writes stories/flock.js), tools/robots/ (sources of the robot gang;
+node tools/robots/build.mjs writes stories/robots.js),
 icons/, three.min.js (three.js r128, MIT licence, see three.LICENSE.txt).

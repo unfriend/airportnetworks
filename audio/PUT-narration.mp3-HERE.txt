@@ -26,4 +26,9 @@ The flock (#flock) looks for narration-flock.mp3. Its chapters start at 0:00,
 0:18, 0:40 and 1:02, ending at 1:12 (after that the flock flies on in explore
 mode); change NARRATION_SYNC in tools/flock/engine/e3_story.js (then rebuild)
 if your recording differs.
+
+The robot gang (#robots) looks for narration-robots.mp3. Its chapters start at
+0:00, 0:14, 0:34, 0:54 and 1:14, ending at 1:24 (after that the gang stays in
+explore mode); change NARRATION_SYNC in tools/robots/engine/e3_story.js (then
+rebuild) if your recording differs.
 You can delete this note.

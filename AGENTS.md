@@ -4,8 +4,9 @@ Guidance for AI coding agents (and humans) working on this repository.
 
 ## What this is
 
-An installable web app that teaches network science in six narrated stories
-(about four minutes each, the tour about eight, the muscle story about seven, the flock just over one), each
+An installable web app that teaches network science in seven narrated stories
+(about four minutes each, the tour about eight, the muscle story about seven, the flock just over one, the
+robot gang about one and a half), each
 followed by an explore mode. Everything works on desktop, phones and in VR/AR headsets (built for Meta
 Quest Browser, WebXR).
 
@@ -17,6 +18,7 @@ Quest Browser, WebXR).
 | LBI Network Medicine tour | `stories/lbi.js` | ten 3D scenes, from a protein machine and an illustrative interactome to organs and tissue |
 | Rare muscle diseases | `stories/nmd.js` | 1,182 genes of 13 neuromuscular disease groups in a tower of 71 layers (real data in `ikerdata/`), the motor unit, a supercomputer |
 | Flock | `stories/flock.js` | 200 starlings (a live simulation) flying all around you at dusk, each following its seven nearest neighbours |
+| Robot gang | `stories/robots.js` | 6 to 24 robot vacuums (a live simulation) in a model living room, or in a headset your own room; who follows whom (you, or the one ahead) is the network |
 
 No build step, no framework, no package.json. Plain HTML/JS plus
 `three.min.js` (three.js r128, vendored, MIT). The app is deployed by copying
@@ -39,8 +41,8 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
   the answer when the network takes more than 4 s). The narration MP3s are
   served from the cache (with byte ranges). Installing fetches straight from
   the server (`cache: 'reload'`).
-- `audio/` - optional narration MP3s (`narration.mp3`,
-  `narration-proteins.mp3`, `narration-spatial.mp3`, `narration-lbi.mp3`);
+- `audio/` - optional narration MP3s (`narration.mp3` for the airports,
+  `narration-<key>.mp3` for the others, such as `narration-lbi.mp3`);
   missing files are fine.
 - `manifest.webmanifest`, `icons/` - PWA install metadata.
 - `tools/smoke.mjs` - headless smoke test; `tools/audio.mjs` - narration test;
@@ -52,6 +54,9 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
   build script, set harness, data generators); see its `README.md`.
 - `tools/flock/` - the sources of `stories/flock.js` (the flock set, engine parts
   adapted from the tour's, build script, set harness); see its `README.md`.
+- `tools/robots/` - the sources of `stories/robots.js` (the robots set, engine
+  parts adapted from the flock's, build script, set harness); see its
+  `README.md` and `SPEC.md`.
 
 ## How the shell and stories fit together
 
@@ -104,7 +109,8 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
   find (another room) is kept for the next session while things hold where
   they are. Each request carries a generation number, so one that settles
   after Place again, Anchor off or the end of the session is thrown away.
-  Sessions request `anchors` as an optional feature.
+  Sessions request `anchors` as an optional feature (and `plane-detection` and
+  `mesh-detection`, for the robot gang's room).
 - Sound belongs to the shell (`HOST.audio` in `index.html`); stories only say
   what should play. A story asks for its file with
   `AUD = HOST.audio.narration(url, { ready, error })` and calls
@@ -153,7 +159,7 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
     session) are added with `HOST.quiet` set, so story changes do not remove
     them.
 
-## Inside a story (all six follow the same pattern)
+## Inside a story (all seven follow the same pattern)
 
 - Data at the top (airports and proteins: precomputed constants; spatial: the
   editable `PLACES`, `PROTEINS`, `LINKS`, `TOGETHER`, `MOVES` lists, laid out
@@ -282,6 +288,58 @@ scene list).
   to 60); dragging takes the camera over (View: Look around). Wings and reeds
   move on real time, so they keep moving while the story is paused.
 
+## The robot gang (`stories/robots.js`) is built the same way
+
+`stories/robots.js` is generated from `tools/robots/` (`node tools/robots/build.mjs`,
+`--check` as for the tour): the tour's kit, one set (`sets/robots.js`, manifest
+`sets/robots.md`) and engine parts adapted from the flock's. `tools/robots/SPEC.md`
+is the contract between them.
+
+- A live simulation, like the flock: `update(S, t, dt)` advances it (steps of at
+  most 1/60 s), and seeking the story changes only the params (the rule, the
+  count), not the robots' past. Robots are discs (radius 0.17 m) that drive
+  like real ones (turn on the spot, smooth speed); the rule (`robots_rule`:
+  dock, bump and turn, follow you, conga line, keep away) only changes their
+  targets, so a switch is smooth. They never leave the floor polygon, never
+  overlap, and bump off walls, furniture, each other and your feet. The
+  counters `robots_dust` and `robots_crumbs` act each time they pass a whole
+  number. Tests and `sweep.mjs` run it fast with `simStory(t0, t1)` and
+  `simExplore(sec)`.
+- The set works on a room description in its own frame (floor at y = 0,
+  1 unit = 1 m): `{ kind: 'model' | 'real' | 'box', floor, walls, blocks }`,
+  given with `setRoom()` (it rebuilds the colliders, the floor texture and the
+  drawn room, but skips a room that has not changed to the centimetre, and a
+  refined room of the same kind keeps its cleaned floor; a floor under 1 m² or
+  too thin for a robot gives way to a box room). On a screen it is the model living room
+  and you are an avatar: a click on the floor walks it there (`floorPoint`,
+  then `walkTo`), a drag turns the view.
+- In a headset the room is yours. Every story asks for `plane-detection` and
+  `mesh-detection` as optional features when it starts a session (a session
+  survives story changes), and `xrRoom` (`engine/e5_xr.js`) reads
+  `frame.detectedPlanes` and `frame.detectedMeshes` (only when
+  `session.enabledFeatures` lists them, inside try/catch) when they change,
+  once a second besides (poses can move on their own, and a first read may
+  come before tracking has them), at most twice a second, and at once after a
+  reference-space reset; a reset's transform carries the robots, piles and
+  cleaned floor to the new coordinates (`shift`; without one they start again
+  from the dock). The
+  floor is the plane labelled floor; walls are planes labelled wall (or tall
+  unlabelled ones); furniture is seats, cupboards, beds and detected volumes
+  (tables and desks are left out, and volumes raised more than 12 cm off the
+  floor: the robots go under them).
+- A real room must not move with the rig, which carries the panels and may be
+  anchored: `GL.world` is the reference space moved down to the floor (world
+  matrix = inverse(rig) x translation(0, floor, 0)), so set x and z are
+  reference x and z. Without a room (no feature, no room setup) a virtual
+  room hangs on the rig 1.6 m below your head, as the flock's land does: the
+  model living room in VR, a bare 4 m x 5 m box in passthrough; the panel then
+  offers *Set up your room* (`initiateRoomCapture`, once a session), and
+  planes that arrive later take over. Nothing here moves `GL.rig`.
+- Your head is the player (no avatar), the trigger aimed at the floor spills
+  crumbs there, and the grip moves only the panel. In passthrough
+  (`robots_room` 0) nothing opaque is drawn: a glowing line along each wall's
+  base, ripples where a robot bumps it, and the cleaned trail.
+
 ## Conventions
 
 - Match the surrounding style: 2-space indent, single quotes, semicolons,
@@ -315,7 +373,8 @@ scene list).
   `node tools/nmd/data/gen_data.mjs`), rebuild `stories/nmd.js` with
   `node tools/nmd/build.mjs` (and bump `VERSION`).
 - After changing anything in `tools/lbi/`, rebuild `stories/lbi.js` (and bump
-  `VERSION`). Likewise `tools/flock/` and `stories/flock.js`.
+  `VERSION`). Likewise `tools/flock/` and `stories/flock.js`, and `tools/robots/`
+  and `stories/robots.js`.
 - Keep `README.txt` (user-facing notes) in sync with structural changes.
 - Several handlers run inside the old story's call stack when switching;
   use `HOST.go(key)` (deferred) from inside a story, not `HOST.start`.
@@ -324,7 +383,9 @@ scene list).
 
 There is no unit-test suite. Before committing, serve the folder and run the
 smoke test, which loads every story, scrubs through it, exercises explore
-mode and the headset panels (for the muscle story every explore tool too),
+mode and the headset panels (for the muscle story every explore tool too; for
+the robot gang every rule, a click to walk, crumbs, a big open floor and one
+with no area, and a pretend headset room from detected planes),
 switches stories, runs anchored placement in each
 story with a pretend headset (an origin that jumps, anchors that stay, saved
 handles), and fails on console errors:
@@ -363,7 +424,8 @@ on the first visit after the update, on the next visit and offline.
 For the tour, test a changed set on its own in the set harness first
 (`tools/lbi/shot.mjs`, much cheaper than the whole story), then the story at a
 few seconds (`tools/lbi/sweep.mjs`), then the smoke test. The muscle story has
-the same tools in `tools/nmd/` (`shot.mjs`, `sweep.mjs`).
+the same tools in `tools/nmd/` (`shot.mjs`, `sweep.mjs`), and so has the robot
+gang in `tools/robots/`.
 
 Useful URL hashes: `#spatial&t=95` (open at a story second, paused),
 `#proteins&explore&q=TP53` (explore mode with a search),
@@ -372,7 +434,8 @@ second), `#lbi&explore&scene=atp&view=network&now=1` (a scene with its controls)
 `#lbi&explore&route=TP53,BRCA1`, `#nmd&explore&group=Cardiomyopathies`,
 `#nmd&explore&pick=5:13,11:7` (endotypes, group:number), `#nmd&explore&walk=5` or
 `&walk=TTN,DES`, `#nmd&explore&inside`, `#flock&explore&view=afar&links=on&birds=400`
-(`&hunt` sends a falcon), `#airports&repeat=all` (a kiosk that plays
+(`&hunt` sends a falcon), `#robots&explore&rule=chain&robots=12&trails=on&links=on&view=low`
+(`&crumbs` spills a pile, `&walk=1.5,1.2` walks you there), `#airports&repeat=all` (a kiosk that plays
 every story in turn), `#anchor=on` (anchored headset placement). In the console,
 `HOST.cur.peek('expression')` evaluates inside the current story
 (e.g. `HOST.cur.peek('NET.P')`).

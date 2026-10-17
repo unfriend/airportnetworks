@@ -1938,7 +1938,7 @@ async function xrStart(mode) {
   if (XR.session || !navigator.xr) return;
   let session;
   try {
-    session = await navigator.xr.requestSession(mode, { optionalFeatures: ['local-floor', 'hand-tracking', 'anchors'] });
+    session = await navigator.xr.requestSession(mode, { optionalFeatures: ['local-floor', 'hand-tracking', 'anchors', 'plane-detection', 'mesh-detection'] });
   } catch (err) {
     HOST.landingVR = false;
     xrMsg(`Could not start ${mode === 'immersive-ar' ? 'AR' : 'VR'}: ${err && err.message ? err.message : err}`);
@@ -2202,19 +2202,20 @@ function xrLandingSetup() {
   XR.landGroup = new THREE.Group();
   GL.rig.add(XR.landGroup);
   const head = makePanel(1400, 300, 1.02, drawLandHead, () => 'h' + XR.inStory + audioLabel() + HOST.repeat + XR.soundCheck + HOST.audio.muted + HOST.anchor.status());
-  head.mesh.position.set(0, 0.36, -1.12);
+  head.mesh.position.set(0, 0.36, -1.22);
   XR.landGroup.add(head.mesh); XR.land.push(head);
   HOST.list.forEach((s, k) => {
-    const a = (k - (HOST.list.length - 1) / 2) * 0.37, d = 1.15;   // six cards, none far to the side
-    const P = makePanel(640, 820, 0.4, (ctx, P) => drawLandCard(ctx, P, s), () => 'c' + XR.inStory + s.key);
-    P.mesh.position.set(Math.sin(a) * d, -0.13, -Math.cos(a) * d);
+    // seven cards 0.36 m wide on an arc: neighbours 2 d sin(0.155) = 0.386 m apart, the outer ones 53° to the side
+    const a = (k - (HOST.list.length - 1) / 2) * 0.31, d = 1.25;
+    const P = makePanel(640, 820, 0.36, (ctx, P) => drawLandCard(ctx, P, s), () => 'c' + XR.inStory + s.key);
+    P.mesh.position.set(Math.sin(a) * d, -0.105, -Math.cos(a) * d);   // top edge 0.126 m up, under the header
     P.mesh.rotation.y = -a;
     XR.landGroup.add(P.mesh); XR.land.push(P);
   });
   for (const P of XR.land) XR.panels.push(P);
   // Sound check (opened from the header), in the place of the story cards
   XR.snd = makePanel(1400, 860, 1.02, drawSoundCheck, () => (XR.snd.mesh.visible ? 'snd' + Math.floor(performance.now() / 500) : 'off'));
-  XR.snd.mesh.position.set(0, -0.17, -1.1);
+  XR.snd.mesh.position.set(0, -0.17, -1.2);
   XR.landGroup.add(XR.snd.mesh); XR.panels.push(XR.snd);
   XR.panelMeshes = XR.panels.map(P => P.mesh);
 }

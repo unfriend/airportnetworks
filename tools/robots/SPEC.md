@@ -241,8 +241,10 @@ rule follow, 6 robots, trails off, links off, view default. Hash: `#robots&explo
   `'mesh-detection'` to every story's `requestSession` (sessions survive story changes). Check
   `session.enabledFeatures` (when present) before touching `frame.detectedPlanes` / `frame.detectedMeshes`, and wrap
   the access in try/catch (Chromium throws when the feature is not enabled).
-- **Reading the room** (`xrRoom(frame, ref)`, every frame but cheap: rebuild only when the set of planes/meshes or any
-  `lastChangedTime` changed, at most twice a second). WebXR Plane Detection: `frame.detectedPlanes` is a set of
+- **Reading the room** (`xrRoom(frame, ref)`, every frame but cheap: rebuild when the set of planes/meshes or any
+  `lastChangedTime` changed, at most twice a second, and re-read once a second while planes exist, since a first read
+  can miss poses; `setRoom` ignores an unchanged room and keeps the cleaned floor when a room of the same kind is
+  refined). WebXR Plane Detection: `frame.detectedPlanes` is a set of
   `XRPlane` with `planeSpace`, `polygon` (points in plane space; the plane is the plane space's x-z plane, its +y the
   normal), `orientation` (`'horizontal'`/`'vertical'`), `lastChangedTime`, and on Quest `semanticLabel` (`'floor'`,
   `'wall'`, `'ceiling'`, `'table'`, `'couch'`, `'storage'`, `'bed'`, `'door frame'`, `'window frame'`, `'screen'`,
