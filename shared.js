@@ -175,7 +175,12 @@
     }
     C.ws = ws; C.status = 'connecting'; C.heard = clock();
     log('connect', { code: C.code });
-    ws.onopen = () => { if (C.ws !== ws) return; log('open'); hello(); ping(); setTimeout(ping, 300); setTimeout(ping, 900); };
+    // pings: a few at once, then every 2 s for 20 s (a page that is busy loading a story delays them all), then every 15 s
+    ws.onopen = () => {
+      if (C.ws !== ws) return;
+      log('open'); hello(); ping(); C.openAt = performance.now();
+      for (const ms of [300, 900]) setTimeout(() => { if (C.ws === ws) ping(); }, ms);
+    };
     ws.onmessage = ev => {
       if (C.ws !== ws) return;
       C.heard = clock();
@@ -218,15 +223,16 @@
     send({ t: 'hello', name: C.name, color: C.color, kind: kind(), here: here(), version: FORMAT, proto: PROTO });
   }
   function ping() { if (send({ t: 'ping', c: clock() })) C.pingAt = performance.now(); }
-  // the relay's clock: the median of the last few offsets, each from half the round trip
+  // the relay's clock: of the last few round trips, the shortest gives the offset (half of it each way). A
+  // long one was held up somewhere (a busy page, a slow network), most likely on one side only.
   function pong(m) {
     if (typeof m.c !== 'number' || typeof m.now !== 'number') return;
     const t = clock(), rtt = t - m.c;
     if (rtt < 0 || rtt > 10000) return;
-    C.samples.push(m.now + rtt / 2 - t);
-    if (C.samples.length > 7) C.samples.shift();
-    const s = C.samples.slice().sort((a, b) => a - b);
-    C.offset = s[s.length >> 1]; C.rtt = rtt;
+    C.samples.push([rtt, m.now + rtt / 2 - t]);
+    if (C.samples.length > 8) C.samples.shift();
+    const best = C.samples.reduce((a, b) => (b[0] < a[0] ? b : a));
+    C.offset = best[1]; C.rtt = best[0];
   }
   function recv(m) {
     if (m.t === 'welcome') welcome(m);
@@ -502,9 +508,10 @@
       if (A.playing === !!P.playing && Math.abs(A.t - want) > DRIFT) { A.seek(want); did = did || 'jump'; }
     });
     if (did) {
-      log('clock', { st: L.id, did, t: r3(want), remote: !!remote });
-      // a mode change here was the room's: what it did to the explore state is not this page's to publish
-      if (did === 'explore' || did === 'story') rebase(L);
+      log('clock', { st: L.id, did, to: r3(want), remote: !!remote });
+      // a mode change here was the room's: the room's explore state goes with it (what entering a mode did to the
+      // controls here is not this page's to publish)
+      if (did === 'explore' || did === 'story') { if (val(kX(L.id)) !== undefined) stateApply(); else rebase(L); }
     }
   }
   function rebase(L) { try { if (C.hook.state) C.synced.set(kX(L.id), J(C.hook.state())); } catch (e) { /* story not ready */ } }
@@ -554,7 +561,7 @@
     attachCheck();
     if (!C.code) return;
     if (C.ws && C.ws.readyState === 1) {
-      if (t - C.pingAt > 15000) ping();
+      if (t - C.pingAt > (t - C.openAt < 20000 ? 2000 : 15000)) ping();
       if (clock() - C.heard > 40000) { log('silent socket'); try { C.ws.close(); } catch (e) { /* gone */ } }
     }
     const L = liveSt();
@@ -572,7 +579,7 @@
   // the notices. Shown only in a headset.
   const OV = { root: null, room: null, rings: new Map(), cards: new Map(), people: new Map(), hit: [], panel: null, note: null };
   const RC = new THREE.Raycaster();
-  const _v = new THREE.Vector3(), _v2 = new THREE.Vector3(), _q = new THREE.Quaternion(), _m = new THREE.Matrix4(), _Y = new THREE.Vector3(0, 1, 0);
+  const _v = new THREE.Vector3(), _v2 = new THREE.Vector3(), _q = new THREE.Quaternion(), _m = new THREE.Matrix4(), _Y = new THREE.Vector3(0, 1, 0), _Z = new THREE.Vector3(0, 0, 1);
   const FONT = (px, w) => `${w || 400} ${px}px B612, "Segoe UI", "Helvetica Neue", Arial, sans-serif`;
   const INK = '#e7eef8', MUTED = '#95a6bd', FAINT = '#6c7d94', CYAN = '#46d9ff';
   function rr(ctx, x, y, w, h, r) {
@@ -773,7 +780,8 @@
         if (!E) E = o.e.hands[i] = { o: new THREE.Vector3(H[0], H[1], H[2]), d: new THREE.Vector3(H[3], H[4], H[5]), len: H[6] };
         E.o.lerp(_v.set(H[0], H[1], H[2]), k); E.d.lerp(_v.set(H[3], H[4], H[5]), k).normalize(); E.len += (H[6] - E.len) * k;
         const len = E.len > 0.05 ? E.len : 1.2;
-        o.rays[i].position.copy(E.o); o.rays[i].lookAt(_v.copy(E.o).add(E.d)); o.rays[i].scale.set(1, 1, len);
+        // the line runs along its +z: turned to the ray's direction in room coordinates (lookAt would want world ones)
+        o.rays[i].position.copy(E.o); o.rays[i].quaternion.setFromUnitVectors(_Z, E.d); o.rays[i].scale.set(1, 1, len);
         o.dots[i].position.copy(E.o).addScaledVector(E.d, len);
         o.hands[i].position.copy(E.o);
       }
@@ -943,7 +951,7 @@
     h.o.copy(o); h.d.copy(d); h.at = performance.now();
     if (!OV.root || !OV.root.visible || !OV.root.parent) return null;
     if (R.calib) { C.hov.set(i, { target: { kind: 'mark' }, at: h.at }); return { kind: 'shell', point: _v2.copy(d).multiplyScalar(0.03).add(o).clone(), dist: 0.03 }; }
-    RC.set(o, d); RC.far = 8;
+    RC.set(o, d); RC.far = 30;   // a station across a large room can be picked too
     const hits = RC.intersectObjects(OV.hit, false);
     for (const x of hits) {
       const t = x.object.userData.shell;
@@ -1532,7 +1540,10 @@
       ctx.globalAlpha = 1; ctx.fillStyle = m.col; ctx.fillRect(X(qx) - 4, Y(qz) - 4, 8, 8);
       ctx.beginPath(); ctx.arc(X(s.x), Y(s.z), 7, 0, Math.PI * 2); ctx.fill();
       if (on) { ctx.strokeStyle = '#f2f6fc'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(X(s.x), Y(s.z), 12, 0, Math.PI * 2); ctx.stroke(); }
-      ctx.fillStyle = '#e7eef8'; ctx.fillText(m.title, X(s.x) + 14, Y(s.z));
+      // the title beside its dot, on the left near the right edge
+      ctx.fillStyle = '#e7eef8';
+      const tw = ctx.measureText(m.title).width, right = X(s.x) + 14 + tw > W - 4;
+      ctx.fillText(m.title, right ? X(s.x) - 14 - tw : X(s.x) + 14, Y(s.z));
     }
     for (const [id, P] of C.pres) {
       if (!P.head) continue;
@@ -1583,6 +1594,7 @@
     arrange, add, move, remove, follow: id => choose(id, 'follow'), pick: id => choose(id, 'pick'), unfollow, me: setMe, setHere,
     ray, press, effect, detach, hash, dialog, people: () => C.pres, log,
     panelOpen(on) { PNL.open = !!on; PNL.page = 'main'; },
+    overlay: () => OV,   // for tests: the overlay's objects (panel, cards, rings, people)
     // a story is about to start (HOST.start): in a headset at its station, it takes the station's place and panel
     starting(key) { return adopt(key); },
     debug(on) { DEBUG = !!on; put('collabDebug', on ? '1' : null); },
