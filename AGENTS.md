@@ -233,6 +233,15 @@ the content floats 1.4 m ahead of the spot), with `st.<id>.play` (the clock:
   origin later jumped 5.5 m and 0.7 m down; `local-floor` moves with a recentre
   without a reset event. Two anchors (positions only) keep the frame on the
   marks; without anchors a reset or a jump of the head asks to calibrate again.
+- Off and on again (the session hidden, then visible: sleep, the system menu)
+  the origin moves under the frame (manual calibration lined two Quest 3s up,
+  but switching one off and on left it "totally off"): a calibrated headset
+  waits up to 5 s for its anchors to answer again (`afterWake`), else finds
+  them again by their saved handles ("Finding the marks again"), else (no
+  saved handles, or no anchors) asks to calibrate again. At session start
+  `HOST.anchor` deletes saved anchors nobody here knows (`session.persistentAnchors`
+  minus the placement's and `HOST.room.handles()`): the Quest keeps few per site
+  and refuses new ones when they are full.
 - Calibrating: a mark is where the controller's ray origin was held still 70 to
   260 ms before the trigger (a bright ring shows that point), at least 50 cm
   apart; a second pull within 0.6 s is ignored, and marks more than 5 cm
@@ -643,7 +652,9 @@ the shared space never overriding marks (a newer frame from someone else only
 reported, as a distance; not used at all by default), the room's floor from
 the first calibration (a lower floor allowed for), no mark from a double
 pull, Forget taking the published frame, a calibration
-without anchors asked again after a reset or a jump, the mark taken where the
+without anchors asked again after a reset, a jump or the headset off and on, off
+and on again with the anchors lost (found again by their handles), unknown
+saved anchors deleted at session start, the mark taken where the
 controller was held still, and VR elsewhere with its in-room question. `--quick` runs only the last story in the per-story part. A new story needs an entry in `STORIES`
 (`change` and `back`: code that changes its `state()`, and optional `effect`
 and `more`); the headset's story (`HEADSET_STORY`) stays the last entry.

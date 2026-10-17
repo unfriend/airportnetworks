@@ -1156,6 +1156,14 @@ HOST.anchor = (function () {
     N.gen++;
     Object.assign(N, { session: s, anchor: null, last: null, placed: false, restored: false, busy: false, want: '', kind: '', note: '' });
     if (s && s.deletePersistentAnchor) for (const u of N.old.splice(0)) s.deletePersistentAnchor(u).catch(() => {});
+    // handles nobody here knows any more (older versions, or lost on the way) take the browser's few slots (8 a
+    // site on the Quest, and a new one is refused when they are full): all but the placement's and the room's go
+    let all = null;
+    try { all = s && s.persistentAnchors; } catch (e) { /* not here */ }
+    if (all && s.deletePersistentAnchor && typeof all[Symbol.iterator] === 'function') {
+      const keep = new Set([N.uuid, ...(HOST.room && HOST.room.handles ? HOST.room.handles() : [])].filter(Boolean));
+      for (const u of [...all]) if (!keep.has(u)) s.deletePersistentAnchor(u).catch(() => {});
+    }
     store();
     if (s && N.on) N.want = N.uuid ? 'restore' : 'create';
   }

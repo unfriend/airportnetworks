@@ -131,6 +131,9 @@ machine or public hosting.
   settings.
 - **"Your marks are ... further apart than the room's"**: this headset touched other marks than the first one,
   or touched one badly: calibrate again on the same tape.
+- **Off by a lot after a headset was switched off and on**: it waits up to 5 s for its anchors, then looks for
+  them by their saved handles ("Finding the marks again"); if it cannot (its anchors were never saved) it asks
+  you to calibrate again. If it stays off without asking, press **Calibrate** and please send the logs.
 - **Calibration lost after a recentre or a new session**: the anchors were not kept (private browsing, cleared
   site data, more than 8 anchors on the site, or a browser without anchors). Calibrate again; **Forget
   calibration** (press twice) clears a headset's marks and anchors.

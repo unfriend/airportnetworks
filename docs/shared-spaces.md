@@ -174,6 +174,12 @@ same page address, the relay on the same Wi-Fi; every 5 s each headset logged it
 - **Calibration**: one headset's first mark A was 16 cm (and 11 cm in height) off its second; a double pull
   took mark B 0.1 s after mark A; presses meant for a story panel took marks while calibrating.
 
+- **Off and on again** (third test): with both headsets calibrated by hand things lined up, but switching one
+  off and on left it far off for good: the origin moves while the headset is off, and the frame stayed where the
+  old origin put it until its anchors answered, which they did not. Now a woken headset waits 5 s for its
+  anchors, then finds them again by their saved handles, else asks to calibrate; and saved anchors nobody knows
+  are deleted at session start (the Quest refuses new handles when its few slots are full).
+
 So: tape marks on every headset, the room's height taken from the marks (the first calibration's height of
 mark A over its floor, others allowing for their own floor), anchors to follow origin jumps, and the shared
 space only as an opt-in experiment with its measured distance shown.

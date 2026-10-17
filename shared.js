@@ -1336,6 +1336,7 @@
     mgen: 0,   // the marks' generation: anchors that arrive for older marks (forgotten, replaced) are thrown away
     mk: null,  // the marks in room coordinates, to draw: [height of A, A to B, height of B] (null: none known)
     cmp: null, showUntil: 0, prev: null, sampleAt: 0, oldAnchor: '', markAt: 0,
+    hiddenAt: 0, woke: 0, anchorSeen: 0,   // the headset off (or the origin moved): the marks are checked again
     // aligning from the shared space is off unless asked for: on two Quest 3s it was 0.9 m and 19 degrees out
     // against the tape marks, and at first just the headset's own floor (see shared-spaces.md)
     sharedAlign: get('collabSharedAlign') === '1',
@@ -1408,7 +1409,9 @@
     if (R.oldAnchor && HOST.anchor.drop) { HOST.anchor.drop(R.oldAnchor); R.oldAnchor = ''; }   // an older version's anchor
     setState('waiting');
     const feats = s.enabledFeatures ? [...s.enabledFeatures] : null;
-    log('session', { mode: HOST.mode, features: feats, format: FORMAT, ua: navigator.userAgent });
+    let kept = null;
+    try { kept = s.persistentAnchors ? [...s.persistentAnchors].length : null; } catch (e) { /* not here */ }
+    log('session', { mode: HOST.mode, features: feats, format: FORMAT, ua: navigator.userAgent, persisted: kept });
     const ask = type => new Promise((res, rej) => { try { Promise.resolve(s.requestReferenceSpace(type)).then(res, rej); } catch (e) { rej(e); } });
     ask('local-floor').then(sp => {
       if (R.session !== s) return;
@@ -1464,6 +1467,7 @@
       R.calib = null; NOTE.until = 0; setState(R.frame ? R.src : 'calibrate');
       notice('Calibrate again', 'The headset moved its origin while you were calibrating: touch mark A and mark B again.', 9000);
     }
+    if (own() && R.anchors && R.anchorsOK && !R.woke) R.woke = performance.now();   // the anchors must answer again
     if (own() && !(R.anchors && R.anchorsOK)) {
       R.frame = null; R.src = ''; R.aligned = false; R.mk = null; R.noticed = 'calibrate';
       setState('calibrate');
@@ -1555,6 +1559,7 @@
       const t = p.transform.position;
       P.push([t.x, t.y, t.z]);
     }
+    R.anchorSeen = performance.now();
     return (R.anchorP = P);
   }
   // are the anchors where the marks are? New ones: within 5 cm of where they were asked for; found again: as
@@ -1605,6 +1610,25 @@
   }
   const validFloor = () => { const M = val('rm'); return !!(M && Number.isFinite(M.a) && Number.isFinite(M.d)); };
   const marksNow = () => (R.anchors && R.anchorsOK && R.anchorP ? R.anchorP : [R.saved.a, R.saved.b]);   // in local-floor now
+  // back from being off (or the origin moved): the anchors put the frame right once they are tracked again; if they
+  // are not within 5 s they are found again by their saved handles; without anchors, or without saved handles,
+  // the marks are lost: calibrate again (a frame left where the old origin put it was 'totally off' on the Quest)
+  function afterWake(f, t) {
+    if (!(R.anchors && R.anchorsOK)) { R.woke = 0; originMoved('woke'); return false; }
+    if (anchorsAt(f)) { log('marks tracked again', { after: Math.round(t - R.woke) }); R.woke = 0; R.recAt = 0; return true; }
+    if (t - R.woke < 5000) return true;   // meanwhile the frame stays (and follows the anchors as soon as they answer)
+    R.woke = 0;
+    const ids = R.saved && R.saved.anchors.length === 2;
+    log('marks lost', { handles: ids });
+    releaseAnchors();
+    Object.assign(R, { frame: null, src: '', aligned: false, cmp: null, anchorBusy: false, anchorTried: false, mgen: R.mgen + 1 });
+    if (ids) { setState('restoring'); notice('Finding the marks again', 'The headset lost them while it was off: it looks for its saved anchors.', 6000); }
+    else {
+      setState('calibrate'); R.noticed = 'calibrate';
+      notice('Calibrate again', 'The headset lost the marks while it was off (it could not save its anchors): touch mark A and mark B again.', 9000);
+    }
+    return false;
+  }
   // remote people and VR: their own floor, centred where they stand, facing where they face
   function ownFrame(f, local) {
     if (R.src === 'own' && R.frame) return;
@@ -1634,6 +1658,7 @@
     if (R.src === 'own') { R.frame = null; R.src = ''; }
     // (1) our own marks: nothing overrides them; their anchors keep the frame on them
     if (own() && R.frame) {
+      if (R.woke && !afterWake(f, t)) return;
       if (t - R.recAt > 500) { R.recAt = t; followAnchors(f); refloor(); compare(); publishOwn(); if (!validFloor() || !member(val('rm').by)) claimFloor(...marksNow()); }
       return;
     }
@@ -1823,7 +1848,7 @@
     if (R.lfOK) { const e = R.lf.elements; S.lf = { p: [e[12], e[13], e[14]].map(r3), yaw: r3(Math.atan2(-e[2], e[0])) }; }
     if (R.sharedOK) { const M = floorFromShared(new THREE.Matrix4()), e = M.elements; S.shared = { p: [e[12], e[13], e[14]].map(r3), yaw: r3(Math.atan2(-e[2], e[0])) }; }
     if (HD.ok && R.lfOK) { const p = _v.copy(HD.p).applyMatrix4(R.lfi); S.head = p.toArray().map(r3); }
-    if (R.anchorP) S.anchors = R.anchorP.map(p => p.map(r3));
+    if (R.anchorP) { S.anchors = R.anchorP.map(p => p.map(r3)); S.anchorsAge = Math.round(t - R.anchorSeen); }
     if (R.saved) S.marks = { a: R.saved.a, b: R.saved.b, at: R.saved.at, kept: R.saved.anchors.length === 2 };
     if (R.cmp) S.cmp = R.cmp;
     if (validFloor()) S.rm = val('rm');
@@ -1878,6 +1903,13 @@
     quiet(() => s.addEventListener('visibilitychange', () => {
       holdTask();
       log('headset', { visibility: s.visibilityState });
+      const t = performance.now();
+      if (s.visibilityState === 'hidden') { if (!R.hiddenAt) R.hiddenAt = t; }
+      else if (R.hiddenAt) {   // back from off (or the system menu): the origin may have moved under the frame
+        log('woke', { away: Math.round(t - R.hiddenAt), src: R.src, anchors: !!(R.anchors && R.anchorsOK) });
+        R.hiddenAt = 0; R.prev = null;
+        if (own() && R.frame) R.woke = t;
+      }
       if (s.visibilityState === 'visible' && C.code) wake('headset');
     }));
     // the stories set HOST.mode just after HOST.session: say who we are once both are known
@@ -1902,6 +1934,7 @@
     get state() { return R.state; }, get aligned() { return R.aligned; }, get frame() { return R.frame; }, get src() { return R.src; },
     watch, update: f => update(f), place, placing, adopt, calibrate, cancel, mark, status, forget: forgetMarks, sharedLine, sourceLine,
     sharedAlign(on) { if (on !== undefined) setSharedAlign(on); return R.sharedAlign; }, floorNote,
+    handles: () => ((R.saved && R.saved.anchors) || []).concat(R.anchorIds || []).filter(Boolean),   // kept by HOST.anchor's tidy-up
     get marks() { return R.mk; }, get cmp() { return R.cmp; }, frameKey: kFrame,
     // the station's panel, for a story's xrRecenter while placed (off, pp, pr in its rig)
     saved: () => { const L = liveSt(), P = panelPose(L); return placing() ? { off: [0, 0, 0], pp: P.pp, pr: P.pr } : null; },
