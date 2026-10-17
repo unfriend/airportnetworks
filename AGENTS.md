@@ -32,7 +32,8 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
 - `stories/<key>.js` - one story each, wrapped in
   `HOST.register('<key>', function (HOST) { ... })`. Everything a story
   defines is local to that function. Each returns
-  `{ inputs, xrPose, peek, dispose }` to the shell.
+  `{ inputs, xrPose, collab, peek, dispose }` to the shell (`collab`: its
+  shared-room hooks, see "Shared rooms").
 - `proteins.html`, `spatial.html` - redirect stubs to `index.html#proteins`
   / `#spatial` so old links keep working. Do not put code there.
 - `sw.js` - service worker. Pages and app files come from the network first,
@@ -48,8 +49,11 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
 - `shared.js` - the shell's shared-room client (`HOST.collab`, `HOST.room`), loaded
   by `index.html` between its two scripts (see "Shared rooms" below).
 - `relay/` - the shared rooms' server (`server.mjs`, Node, no packages; it can serve
-  the app too), its test and Dockerfile; see its `README.md`. `docs/` holds the
-  plan (`shared-space-plan.md`) and the lessons it applies.
+  the app too, and `--lan` makes it an HTTPS server for the headsets on one
+  Wi-Fi), its test (`test.mjs`) and Dockerfile; see its `README.md`.
+- `docs/` - the shared rooms' plan (`shared-space-plan.md`, with what phase 0
+  built) and the lessons from another project it applies (`multiplayer.md`:
+  syncing; `shared-spaces.md`: one room frame for several headsets).
 - `tools/smoke.mjs` - headless smoke test; `tools/audio.mjs` - narration test;
   `tools/update.mjs` - update test for the service worker; `tools/collab.mjs` -
   shared rooms test (see Testing).
@@ -192,16 +196,82 @@ the content floats 1.4 m ahead of the spot), with `st.<id>.play` (the clock:
   its way), `held()` is true and `locked(kind)` is true except for `'panel'`;
   `HOST.audio.zone()` pans the narration from the station (nothing changes
   outside a room).
-- Each story takes part with `collab: { APP, scene, state, apply, effect, hover,
-  panel }` in its returned object, `HOST.collab.ray(c.i, c.o, c.d)` before its
-  own raycast in `xrPoint` (a hit is the hover; a press goes to
-  `HOST.collab.press(c.i)`), `HOST.anchor.locked(h.kind)` in `xrGrab`,
-  `HOST.collab.effect(type, data)` where it causes a one-shot effect, and
-  `'shared'` in its optional features. `state()` is plain JSON of what another
-  person must see alike (controls, selection, search), never the camera, hover
-  or page layout. The flock is the reference (`tools/flock/engine/`).
-- Not tried on headsets yet: shared-space ids, calibration accuracy, sound
-  zones heard, comfort and frame rate with presence drawn.
+- The relay (`relay/server.mjs`) keeps per room a map key -> `{ v, seq, by }`
+  (every stored write takes the next seq; the last writer wins), the members,
+  and passes on ephemeral `fx` messages (presence, effects) without storing
+  them. `null` deletes only `st.*` and `pose.*` keys; giving a station another
+  story drops its `st.<id>.*` keys in the same seq. For now it runs on a machine
+  on the same Wi-Fi as the headsets and serves the app itself
+  (`node relay/server.mjs --lan`, see `relay/README.md`); GitHub Pages serves
+  everything else, and a copy there can join a relay elsewhere with `&relay=`.
+- The shell wraps the story's `APP.seek`, `togglePlay`, `enterExplore` and
+  `enterStory` to publish the clock, polls `collab.state()` five times a second
+  and publishes it when its value changed; a value from the room goes through
+  `collab.apply()`. A story never publishes anything itself except effects.
+  A page following a station (Follow) leaves its Stories screen: while that
+  shows, nothing syncs.
+
+The hooks every story keeps (all seven, the same lines; the flock is the
+reference, `tools/flock/engine/`):
+
+- `collab: { APP, scene: () => GL.scene, state, apply, effect, hover, panel }`
+  in its returned object: `APP` is its own clock object, `effect(type, data)`
+  plays a one-shot effect another person caused (without sending it again),
+  `hover(i)` is how far controller i's ray reaches now (or 0), `panel(p, yaw)`
+  puts the story panel where another person moved it.
+- `xrPoint`: `const sh = HOST.collab.ray(c.i, c.o, c.d);` right after `c.o` and
+  `c.d` are set; a hit (`kind: 'shell'`: the shell's panel, the other
+  stations' cards, calibration marks) is the hover and the story's own
+  raycast is skipped. `xrPress`: `if (h.kind === 'shell') { HOST.collab.press(c.i); return; }`.
+- `xrGrab`: `if (XR.stories || HOST.anchor.locked(h.kind)) return;` (at a
+  station only the panel moves; the shell's own things never move the scene).
+- `'shared'` in the session's optional features.
+- `xrFreshStart`: `if (HOST.collab.mine()) { lastNow = 0; return; }`: a
+  headset taken off at a station keeps its story and place (no Stories screen
+  for a new wearer); the room's clock and state go on applying.
+- `xrLandingClose`: `if (!XR.inStory && !HOST.collab.mine()) APP.enterStory(0);`:
+  Start on the headset Stories screen at a station never restarts the story
+  for everyone.
+- `HOST.collab.effect(type, data)` where the story itself causes a one-shot
+  effect.
+
+What each story shares:
+
+| Story | `state()` | Effects |
+| --- | --- | --- |
+| airports, proteins | tab, colour, pillars, routes (to 0.05), hubs by, community level, closure mode and count, closed items, selection, path (items by airport code or gene symbol) | none |
+| spatial | tab, colour, cell, routes, selection and its copy, path, community level, moves (a 0/1 string), bait and its labelling radius | none |
+| lbi | tab, scene, every control of that scene, selected protein, route | none |
+| nmd | tab, scene, every scene's controls, group, gene, picked endotypes, layers knocked out, your genes, the walk (its start and result, the same on every device), walkers, colour, grid, z-scores | none |
+| flock | birds, links, falcon | `falcon` (its direction in the set's frame) |
+| robots | rule, robots, trails, links | `crumbs` (a pile: in room coordinates in a headset with an aligned frame, else in the station's frame), `dust` |
+
+Rules that matter most (from `docs/multiplayer.md`):
+
+- Share outcomes, not events: `state()` is plain JSON of what another person
+  must see alike (tab, controls, selection, search, route), and `apply()` sets
+  it with the story's own setters so both panels (HTML and canvas) follow.
+  Never share the camera, hover, open menus, text being typed, timers, page
+  layout, or anything random or per device.
+- `state()` must be the same on every device for the same view, and
+  `apply(state())` must give the same `state()` back: echoes are suppressed by
+  value, so a value that changes when applied goes back and forth for ever.
+  `apply()` checks every field, ignores unknown ones and never publishes.
+- One-shot effects are ephemeral (`e.<station>`), never stored; their data
+  must mean the same on every device (the set's frame, room coordinates).
+- Bump `FORMAT` in `shared.js` when the keys or a story's `state()` change
+  shape (a room refuses another format).
+- `dispose()` clears the story's timers: rooms make quick story changes
+  likely, and a late timer that wrote into shared element ids once crashed
+  the next story.
+- The live simulations (the flock's birds, the robots) still run separately on
+  each device; only their controls and effects are shared (phase 2 of the plan).
+
+Testing: `node relay/test.mjs` and `node tools/collab.mjs` (see Testing). A new
+story gets the hooks, then an entry in `STORIES` in `tools/collab.mjs`.
+Not tried on headsets yet: shared-space ids, calibration accuracy, persistent
+anchors restored, sound zones heard, comfort and frame rate with presence
+drawn, and whether the socket keeps running inside an immersive session.
 
 ## Inside a story (all seven follow the same pattern)
 
@@ -469,13 +539,23 @@ browser caching, ETags) and checks that the page and its stories are both new
 on the first visit after the update, on the next visit and offline.
 
 After touching `shared.js`, the relay or a story's shared-room hooks, run
-`node relay/test.mjs` (the protocol) and `node tools/collab.mjs` (it starts its
-own relay with `--static .`: three pages in a room, play, pause, jumps, mode
-changes and each story's explore state and effect, no writes while idle, a late
-joiner, a relay restart, and a pretend headset with fake `local-floor` and
-`shared` spaces: alignment, placement at the station, rays in room coordinates,
-switching by walking, calibration from two marks). Its `STORIES` table says how
-to change each story's shared state; add a story there when it gets its hooks.
+`node relay/test.mjs` (the protocol: rooms, writes and their order, the epoch
+rule, `fx`, timeouts, bad frames, static serving; no browser, seconds) and
+`node tools/collab.mjs` (about a quarter of an hour; it starts its own relay with
+`--static .`, so no server is needed). For every story in its `STORIES` table,
+three pages in a room follow its station and check play, pause, jumps, mode
+changes and Replay within a second, the relay's clock, the explore state both
+ways and the story's effect (for the robots also the pile's spot and dust).
+Then: no writes while idle (no ping-pong), a late joiner, a relay restart, and
+a pretend headset with fake `local-floor` and `shared` spaces: alignment,
+placement at its station, a recentre, taken off and on again (it stays in its
+story), Start on its Stories screen (restarts nothing), the hold and the lock,
+the station's clock and state, rays and head in room coordinates, another
+person drawn, the sound zone, the shell's panel and a card pick, re-alignment,
+walking to another station and back; calibration from two marks, a reset with
+a transform, and VR elsewhere. A new story needs an entry in `STORIES`
+(`change` and `back`: code that changes its `state()`, and optional `effect`
+and `more`); the headset's story (`HEADSET_STORY`) stays the last entry.
 `--shots <dir>` also saves pictures of the dialog and two headset views.
 
 For the tour, test a changed set on its own in the set harness first

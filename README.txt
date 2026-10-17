@@ -45,10 +45,14 @@ floor with a card, and pointing at one and pulling the trigger goes there too.
 People in the room calibrate once (Calibrate: touch two tape marks with a
 controller) unless their headsets share a space; people elsewhere and screens
 see the stations round their own spot. Screens get a room map and Follow a
-station. Rooms need the relay (relay/, see relay/README.md): GitHub Pages cannot
-run it, so either run the relay with the app (one address, recommended) or keep
-the app here and add &relay=wss://... to the room link. #s=XYZ in a link joins
-room XYZ. Nothing changes for anyone not in a room. Not yet tried on headsets.
+station. The flock's birds and the robots move separately on each device; their
+controls, falcons and crumbs are shared. Rooms need the relay (relay/, Node, no
+packages), which GitHub Pages cannot run: for now it runs on a machine on the
+same Wi-Fi as the headsets and serves the app itself (node relay/server.mjs --lan
+prints the https:// address to open on each headset; see relay/README.md).
+GitHub Pages serves everything else; a copy there can join a relay elsewhere
+with &relay=wss://... in the room link. #s=XYZ in a link joins room XYZ.
+Nothing changes for anyone not in a room. Not yet tried on headsets.
 
 Upload the whole folder to any HTTPS web server (GitHub Pages, Netlify,
 your university web space ...). Installing and VR both need https://.
@@ -136,7 +140,7 @@ Files: index.html (the app), stories/ (the seven stories), proteins.html and
 spatial.html (forward to the app), manifest.webmanifest, sw.js (offline cache), audio/,
 shared.js (shared rooms), relay/ (the shared rooms' server), docs/ (the shared rooms' plan),
 AGENTS.md and CLAUDE.md (notes for AI coding agents), tools/smoke.mjs (headless test),
-tools/collab.mjs (headless test of shared rooms),
+tools/collab.mjs (headless test of shared rooms; node relay/test.mjs tests the relay),
 tools/lbi/ (sources of the tour; node tools/lbi/build.mjs writes stories/lbi.js),
 tools/nmd/ and ikerdata/ (sources and data of the muscle story; node tools/nmd/build.mjs
 writes stories/nmd.js), tools/flock/ (sources of the flock; node tools/flock/build.mjs

@@ -27,8 +27,19 @@
 - Headset placement can be anchored in the room (`HOST.anchor`, see
   "Placement in the headset" in `AGENTS.md`): story code must never move
   `GL.rig` past it, so check `HOST.anchor.held()` before re-placing and
-  `HOST.anchor.locked()` before letting the grip move anything. Real anchors
+  `HOST.anchor.locked(kind)` before letting the grip move anything. Real anchors
   only exist on a headset: report their behaviour as untested.
+- Shared rooms (`shared.js`, `relay/`, see "Shared rooms" in `AGENTS.md`): keep
+  the shared hooks in all seven stories, the same lines in each (the `collab`
+  object, the ray and press lines, the grip line, `'shared'` in the optional
+  features, the `HOST.collab.mine()` lines in `xrFreshStart` and
+  `xrLandingClose`). `state()` never holds the camera, hover or anything per
+  device, and `apply(state())` gives the same `state()` back. After touching
+  `shared.js`, the relay or a story's hooks or its `state()`, run
+  `node relay/test.mjs` and `node tools/collab.mjs` as well as the smoke test
+  (and bump `FORMAT` in `shared.js` when a `state()` changes shape). Shared
+  spaces, calibration and sound zones only exist on headsets: report them as
+  untested.
 - `stories/lbi.js` is built from `tools/lbi/`: edit there and run
   `node tools/lbi/build.mjs`. `stories/nmd.js` likewise from `tools/nmd/`
   (`node tools/nmd/build.mjs`; data from `ikerdata/` via

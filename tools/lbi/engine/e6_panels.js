@@ -139,7 +139,8 @@ function xrLandingSetup() {
 // leave the Stories screen: back into this story (resumed, or started if it never ran)
 function xrLandingClose() {
   XR.stories = false;
-  if (!XR.inStory) APP.enterStory(0);
+  // at a shared room's station the story goes on as the room has it: a restart here would restart it for everyone
+  if (!XR.inStory && !HOST.collab.mine()) APP.enterStory(0);
   XR.inStory = true;
   if (APP.mode === 'story') APP.playing = true;
 }

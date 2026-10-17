@@ -5,8 +5,9 @@
 // (below) play, pause, a jump and mode changes reach a following page within a second, the explore state
 // round-trips both ways and the story's effect reaches the others; no writes while idle (no ping-pong); a late
 // joiner gets everything; a relay restart is survived; a pretend headset (fake local-floor and shared spaces,
-// as tools/smoke.mjs pretends) aligns from a published frame, stands at its station, sends its rays in room
-// coordinates, re-aligns when the frame moves, switches story by walking to another station; a headset
+// as tools/smoke.mjs pretends) aligns from a published frame, stands at its station, stays there when taken off
+// and on again, restarts nothing with Start on its Stories screen, sends its rays in room coordinates, re-aligns
+// when the frame moves, switches story by walking to another station (and takes its state); a headset
 // without a shared space calibrates from two marks, saves the frame with an anchor at mark A and finds it
 // again next time; a VR headset elsewhere takes its own floor. --shots also saves pictures (the Shared dialog
 // on a desktop and a phone, two pretend headset views).
@@ -17,17 +18,55 @@
 //                  again differently (both must change what collab.state() returns)
 //   effect (optional): quiet stops the story's own effects, idle is true when none is playing, send causes one
 //                  (calling HOST.collab.effect), seen is true on the other page once it plays there
+//   more (optional): async (A, B) => more checks of its own, after the effect (A changed things, B follows)
+// The first entry starts on every page's Stories screen with its story already loaded (Follow must close it);
+// the last is the station page A follows last, so it is the pretend headset's (HEADSET_STORY).
 import { spawn } from 'child_process';
 import path from 'path';
 import fs from 'fs';
 
 const STORIES = {
+  airports: {
+    change: "(showTab('closures'), xrSetK(20), setView('color', 'btw'))",
+    back: "(X.manual.add(A('LHR')), updateClosures(), showTab('communities'), X.iso = 3, renderCommunities(), X.hubsBy = 'btw', renderHubs(), X.routes = 1.1)",
+  },
+  proteins: {
+    change: "(selectAirport(A('TP53')), showTab('communities'), X.iso = 3, renderCommunities(), xrSetK(20), setView('pillars', 'btw'))",
+    back: "(X.manual.add(A('EGFR')), updateClosures(), xrPathPreset(A('BACE1'), A('BRCA1')), showTab('path'), X.hubsBy = 'btw', renderHubs(), setView('color', 'deg'), X.routes = 1.1)",
+  },
+  spatial: {
+    change: "setView('color', 'deg'); setMove(MV.nfkb, true); runPath(A('EGF'), A('SRF'))",
+    back: "showTab('prox'); setBait(CP('NUP153')); X.proxR = 0.12; selectProtein(A('RELA'), false)",
+  },
+  lbi: {
+    change: "openScene('atp'); setCtl('atp', 'view', 'network')",
+    back: "showTab('protein'); selectProtein(findProtein('TP53')); xrPathPreset(findProtein('TP53'), findProtein('BRCA1'))",
+  },
+  nmd: {
+    change: "selectGroup(5); togglePick(5, 13); runWalk(5); setCtl('tower', 'show', 'walk')",
+    back: "addMine(findGene('TTN')); addMine(findGene('DES')); runWalk('mine'); knockRandom(10); showTab('layers')",
+  },
+  robots: {
+    change: "setCtl('robots', 'rule', 'chain'); setCtl('robots', 'robots', '12')", back: "setCtl('robots', 'trails', 'on'); setCtl('robots', 'links', 'on')",
+    effect: { quiet: '0', idle: "(window.__c0 = GL.sets.robots.anchors.crumbs().join(), true)", send: 'spillCrumbs()', seen: "GL.sets.robots.anchors.crumbs().join() !== window.__c0" },
+    // the pile lands at the same spot everywhere, and a dusty floor again (a counter, not state) dusts the others' too
+    async more(A, B) {
+      const pile = p => peek(p, 'GL.sets.robots.anchors.crumbs().join()');
+      const [a, b] = [await pile(A), await pile(B)];
+      check('robots: the crumbs land at the same spot on the others', a === b, `A ${a}, B ${b}`);
+      const d0 = await peek(A, 'Math.floor(XS.robots_dust || 0)');
+      await peek(B, 'dustAgain()');
+      check('robots: a dusty floor again on one page dusts the others', await until(A, d => HOST.cur.peek('Math.floor(XS.robots_dust || 0)') === d + 1, d0, 1000),
+        `A from ${d0} to ${await peek(A, 'XS.robots_dust')}`);
+    },
+  },
   flock: {
     change: "setCtl('flock', 'birds', '400')", back: "setCtl('flock', 'birds', '100')",
     effect: { quiet: "setCtl('flock', 'falcon', 'off')", idle: '!GL.sets.flock.falconOn()', send: 'sendFalcon(null)', seen: 'GL.sets.flock.falconOn()' },
   },
 };
-// the story a pretend headset walks between (it needs the hooks: the flock), and one more without them
+// the stories a pretend headset walks between: its own (the last in STORIES, whose station has an explore clock and
+// stored state; the flock's sky catches every ray, so its rays have a length), another, and one whose card it picks
 const HEADSET_STORY = 'flock', OTHER_STORY = 'spatial', PICK_STORY = 'proteins';
 
 const root = path.join(path.dirname(new URL(import.meta.url).pathname), '..');
@@ -204,7 +243,9 @@ try {
     const id = await stationOf(A, key);
     for (const p of [A, B, C]) { await p.evaluate(i => HOST.collab.follow(i), id); }
     for (const p of [A, B, C]) await ready(p, key);
-    check(`${key}: Follow shows the station's story on every page`, (await Promise.all([A, B, C].map(p => p.evaluate(() => HOST.curKey)))).every(k => k === key));
+    // (and closes the Stories screen, also where the story was loaded already: while it shows, nothing syncs)
+    const shown = await Promise.all([A, B, C].map(p => p.evaluate(() => HOST.curKey + (HOST.picking ? ' on its Stories screen' : ''))));
+    check(`${key}: Follow shows the station's story on every page`, shown.every(k => k === key), shown.join(', '));
     await until(B, () => !HOST.cur.peek('APP.playing'), null, 3000);
     const t0 = Date.now(), from = (await clockOf(A))[2];
     await peek(A, 'APP.playing || APP.togglePlay()');
@@ -232,7 +273,7 @@ try {
     const s0 = await stateOf(A);
     await peek(A, T.change);
     const s1 = await stateOf(A);
-    const same = (p, s) => until(p, s => JSON.stringify(HOST.cur.collab.state()) === s, s, 3000);
+    const same = (p, s) => until(p, s => JSON.stringify(HOST.cur.collab.state()) === s, s, 6000);
     check(`${key}: the explore state reaches the others`, s1 !== s0 && await same(B, s1) && await same(C, s1), `${s0} -> ${s1}, B ${await stateOf(B)}`);
     await peek(B, T.back);
     const s2 = await stateOf(B);
@@ -245,6 +286,7 @@ try {
       await peek(A, E.send);
       check(`${key}: its effect plays at the others`, calm && await until(B, s => HOST.cur.peek(s), E.seen, 1000));
     }
+    if (T.more) await T.more(A, B);
     await peek(B, 'APP.enterStory(0)');
     check(`${key}: Replay story on another page reaches the first`, await until(A, () => HOST.cur.peek('APP.mode === "story" && APP.t < 2'), null, 1000));
     await peek(A, 'APP.enterExplore()');
@@ -259,7 +301,8 @@ try {
   check('no ping-pong: no writes in 5 s of idle with three pages following', q1 === q0, `${q1 - q0} writes`);
 
   // ------------------------------------------------------- late joiner --
-  const key0 = Object.keys(STORIES)[0], id0 = await stationOf(A, key0);
+  // at the station page A followed last
+  const key0 = Object.keys(STORIES).at(-1), id0 = await stationOf(A, key0);
   const D = await open('#s=' + code);
   await st7(D);
   await D.evaluate(i => HOST.collab.follow(i), id0);
@@ -324,8 +367,8 @@ try {
   await relocal(LOCAL); await frames(H, 250);
   check('headset: when the headset recentres, the story stays at its station', near(rigR.slice(0, 3), wantR.slice(0, 3), 1e-4) && angle(rigR[3], wantR[3]) < 1e-4,
     `rig ${fmt(rigR)}, want ${fmt(wantR)}`);
-  // taken off for more than 3 s and put on again: the story restarts for a new wearer by itself, which is
-  // nobody's action: the room's clock is not touched, and the station's clock comes back
+  // taken off for more than 3 s and put on again: outside a room the story would restart for a new wearer on its
+  // Stories screen; at a station it stays, and nothing is written (the station's clock and state go on applying)
   const q3 = (await roomInfo(code)).seq;
   await H.evaluate(() => window.__xr.visibility('hidden'));
   await sleep(3300);
@@ -333,11 +376,20 @@ try {
   await frames(H, 600);
   const q4 = (await roomInfo(code)).seq, modeBack = await H.evaluate(() => HOST.cur.peek('APP.mode'));
   check('headset: taken off and put on again, it writes nothing and takes the station\'s clock again', q4 === q3 && modeBack === 'explore', `${q4 - q3} writes, mode ${modeBack}`);
-  await H.evaluate(() => HOST.cur.peek('XR.stories = false'));
+  const onAgain = await H.evaluate(() => [HOST.curKey, HOST.cur.peek('XR.stories'), HOST.collab.mine()]);
+  check('headset: and it stays in its story at its station (no Stories screen)', onAgain[0] === HEADSET_STORY && onAgain[1] === false && onAgain[2] === S1.id, JSON.stringify(onAgain));
   check('headset: at the station, HOST.anchor holds the place and locks all but panels', await H.evaluate(() => HOST.anchor.held() && HOST.anchor.locked('globe') && !HOST.anchor.locked('panel')));
   const wrote = Object.entries((await roomInfo(code)).keys).filter(([, e]) => e.seq > q2).map(([k, e]) => `${k} by ${e.by === hId0 ? 'the headset' : e.by}`);
   check('headset: arriving at a station and starting a session write nothing', !wrote.length, wrote.join(', '));
   check('headset: the station\'s clock and state apply there', await until(H, s => HOST.cur.peek('APP.mode') === 'explore' && JSON.stringify(HOST.cur.collab.state()) === s, await stateOf(A), 2000));
+  // a session begun on the headset's Stories screen at a station: its card (Start) goes into the story as the
+  // room has it, and restarts nothing for the others
+  const q5 = (await roomInfo(code)).seq;
+  await H.evaluate(() => HOST.cur.peek('(XR.stories = true, XR.inStory = false, xrLandingClose())'));
+  await frames(H, 400);
+  const q6 = (await roomInfo(code)).seq, card = await H.evaluate(() => HOST.cur.peek('[APP.mode, XR.stories]')), modeA = (await clockOf(A))[0];
+  check('headset: Start on its Stories screen at a station restarts nothing (no writes, still exploring)', q6 === q5 && card[0] === 'explore' && card[1] === false && modeA === 'explore',
+    `${q6 - q5} writes, headset ${card}, A ${modeA}`);
   // a ray: the others see it in room coordinates
   const ow = apply(ROOM, [S1.x + 0.2, 1.3, S1.z - 0.1]), dw = unit([0.3, -0.2, -1]);
   await H.evaluate(([o, d]) => window.__xr.ctrl(0, o, d), [ow, dw]);
@@ -415,17 +467,21 @@ try {
   await frames(H, 900);
   const fr2 = await H.evaluate(() => HOST.room.frame.o), wantO2 = unapply(FLOOR, ROOM.slice(0, 3));
   check('headset: re-aligns when the published frame moves more than 3 cm', near(fr2, [wantO2[0], 0, wantO2[2]], 1e-4), `${fmt(fr2)} want ${fmt(wantO2)}`);
-  // walk to a station of a story without hooks yet: it is placed there all the same (HOST.anchor)
+  // walk on to another station: placed there, with that station's clock and state
   const S2 = await stationFor(OTHER_STORY);
   await H.evaluate(() => window.__xr.ctrl(0, null));
   const sw2 = await walk(H, S2, OTHER_STORY, 1);
   const rig2 = await rigOf(H), want2 = rigAt(S2);
   check(`headset: walking on to ${OTHER_STORY} switches again, placed at its station`, sw2 && near(rig2.slice(0, 3), want2.slice(0, 3), 1e-4) && angle(rig2[3], want2[3]) < 1e-4,
     `story ${await H.evaluate(() => HOST.curKey)}, rig ${fmt(rig2)}, want ${fmt(want2)}`);
+  const x2 = (await roomInfo(code)).keys['st.' + S2.id + '.x'];
+  check(`headset: and ${OTHER_STORY}'s explore state applies there`, !!x2 && await until(H, s => HOST.cur.peek('APP.mode') === 'explore' && JSON.stringify(HOST.cur.collab.state()) === s, JSON.stringify(x2.v), 3000),
+    `room ${x2 && JSON.stringify(x2.v)}, headset ${await stateOf(H)}`);
   check('headset: and back again', await walk(H, S1, HEADSET_STORY, 0));
   await H.evaluate(() => window.__xr.end());
-  const quietAfter = await H.evaluate(() => { const A = HOST.audio.state(); return { pan: !!A.pan, vol: A.el.volume, held: HOST.anchor.held() }; });
-  check('headset: after the session no sound zone and no hold (all as outside a room)', !quietAfter.pan && quietAfter.vol === 1 && !quietAfter.held, JSON.stringify(quietAfter));
+  const quietAfter = await H.evaluate(() => { const A = HOST.audio.state(); return { pan: !!A.pan, vol: A.el.volume, held: HOST.anchor.held(), lock: HOST.anchor.locked('globe'), shell: HOST.anchor.locked('shell') }; });
+  check('headset: after the session no sound zone and no hold (all as outside a room)', !quietAfter.pan && quietAfter.vol === 1 && !quietAfter.held && !quietAfter.lock, JSON.stringify(quietAfter));
+  check('headset: the grip on the shell\'s own things never moves the scene', quietAfter.shell);
 
   // ----------------------------------------- calibration from two marks --
   // a headset without a shared space and without saved marks: calibrate, touching mark A then mark B

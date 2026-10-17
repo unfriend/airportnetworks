@@ -48,6 +48,21 @@ Meta Quest Browser).
   room anchors (not in private browsing; clearing the site's data forgets the
   place); where a headset has none, the place holds until you leave VR. A link
   with `#anchor=on` (or `#anchor=off`) sets it, for a kiosk.
+- **Shared rooms** (the *Shared* button in the top bar and on the Stories
+  screen; in a headset a small *Shared* panel beside the story panel): several
+  headsets and screens join one room and see the same **stations**, each a
+  story at a spot in the room, in step on every device. Anyone can play,
+  pause, jump or change a control; the last action wins. A headset runs the
+  station it stands at; the others show as rings on the floor with a card,
+  and pointing at a card and pulling the trigger goes there too. Each station's
+  narration comes from where it stands, and you see where the others point.
+  People in the room calibrate once (*Calibrate*: touch two tape marks with a
+  controller) unless their headsets share a space; people elsewhere and
+  screens see the stations round their own spot. Screens get a room map and
+  *Follow* a station. The flock's birds and the robots move separately on each
+  device; their controls, falcons and crumbs are shared. `#s=XYZ` in a link
+  joins room XYZ. Nothing changes for anyone not in a room. Not yet tried on
+  headsets.
 - The address shows where you are, so you can share it: `#stories` on the
   Stories screen (on the page or in the headset), `#airports`, `#proteins`,
   `#spatial`, `#lbi`, `#nmd`, `#flock` or `#robots` in a story. A story link opens that story directly; a link without
@@ -68,6 +83,17 @@ Installing:
 - **Chrome / Edge** (desktop, Android): the *Install* button in the top bar or
   the install icon in the address bar.
 - **iPhone / iPad Safari**: Share > Add to Home Screen.
+
+Shared rooms need the relay (`relay/server.mjs`, Node 18 or newer, no
+packages), which GitHub Pages cannot run. For now it runs on a machine on the
+same Wi-Fi as the headsets and serves the app itself:
+`node relay/server.mjs --lan` makes an HTTPS server with a certificate of its
+own and prints the address to open on each headset (accept the certificate
+warning once). The Wi-Fi must let devices reach each other (use your own router
+or a phone hotspot, not eduroam). `relay/README.md` has the step-by-step guide
+and the alternatives (`adb reverse`, later public hosting). Everything else
+stays on GitHub Pages; a copy there can join a relay elsewhere with
+`&relay=wss://host:port` in the room link.
 
 After changing any file (including adding or replacing a narration file), bump
 `VERSION` in `sw.js` so installed copies and headsets pick up the change. The
@@ -178,7 +204,11 @@ The protein data is meant for teaching, not research.
 | `sw.js`, `manifest.webmanifest`, `icons/` | offline cache and app install |
 | `audio/` | optional narrations |
 | `three.min.js` | three.js r128 (MIT licence, see `three.LICENSE.txt`) |
+| `shared.js` | shared rooms: the client (rooms, stations, the clock, the room frame in a headset, presence, the Shared dialog and headset panel) |
+| `relay/` | the shared rooms' server (`server.mjs`, no packages), its test, Dockerfile and guide (`README.md`) |
+| `docs/` | the shared rooms' plan (`shared-space-plan.md`) and the lessons it applies (`multiplayer.md`, `shared-spaces.md`) |
 | `tools/smoke.mjs` | headless test: loads every story and fails on page errors |
+| `tools/collab.mjs` | headless test of shared rooms: a relay and several pages, and a pretend headset, in one room |
 | `tools/update.mjs` | update test: an older version installed, then this one deployed (see `AGENTS.md`) |
 | `tools/audio.mjs` | narration test under the headset browsers' sound rule, with faults that make the fallback take over (needs `audio/narration.mp3`) |
 | `tools/lbi/` | sources of the tour: its 3D sets, engine parts and build script (`node tools/lbi/build.mjs` writes `stories/lbi.js`) |
@@ -206,5 +236,9 @@ The muscle story (`stories/nmd.js`) is generated the same way from `tools/nmd/`
 (see `tools/nmd/README.md`), the flock (`stories/flock.js`) from `tools/flock/`
 and the robot gang (`stories/robots.js`) from `tools/robots/`.
 `AGENTS.md` also has advice on working economically with AI coding agents.
+
+After changing shared rooms (`shared.js`, `relay/` or a story's shared-room
+hooks), also run `node relay/test.mjs` and `node tools/collab.mjs` (it starts
+its own relay).
 
 Headset behaviour can only be checked on a device.

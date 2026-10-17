@@ -195,7 +195,7 @@ function init() {
   if (HOST.session && GL.renderer.xr.isPresenting) xrAdopt();
   setTimeout(() => $('#loading').classList.add('gone'), 120);
 }
-setTimeout(init, 40);
+const initT = setTimeout(init, 40);
 
 // what the app shell needs to change story
 return {
@@ -212,6 +212,8 @@ return {
   // for tests and the browser console: HOST.cur.peek('NET.N')
   peek: src => eval(src),
   dispose() {
+    // timers left running must not write into the next story's panes (they share ids) or build this one after all
+    clearTimeout(initT); clearTimeout(xrMsg.t);
     if (GL.mo) GL.mo.disconnect();
     if (XR.session) XR.session.removeEventListener('visibilitychange', xrVisibility);
     if (GL.scene) GL.scene.traverse(o => {

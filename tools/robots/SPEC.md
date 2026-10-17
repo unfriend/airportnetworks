@@ -168,7 +168,9 @@ with a small bright dot at the follower's end. These are the network.
 ### Exports beyond the set contract
 
 `setRoom(room)`, `modelRoom()`, `room()` (the current description), `player(x, z, yaw, show)`, `walkTo(x, z)`,
-`crumbs(x, z)` (returns false if the point is not on the floor), `floorPoint(origin, dir)` (a ray in the set's
+`crumbs(x, z)` (returns false if the point is not on the floor), `crumbsNear()` (spills a pile on clear floor 1-2 m
+from you, ahead rather than behind, and returns its spot `[x, z]`, or null: the Spill crumbs button, which then sends
+the spot to the others at a shared room's station), `floorPoint(origin, dir)` (a ray in the set's
 frame against the floor y = 0: `[x, z]` if it lands on the floor polygon outside blocks, else null), `see(eye)`
 (the eye position in the set's frame, every frame: for the cutaway and for eyes that glance at you), `coverage()`,
 `robots()`, `bumps()` (total so far), `state()` (for tests: positions, headings, rule, targets, piles, player).
@@ -232,7 +234,9 @@ Text (adjust only to fit; keep the facts):
   crumbs: click the floor to walk; in a headset, point at the floor and pull the trigger."
 
 **Explore mode**: one pane ("The gang") with the controls above, plus buttons "Spill crumbs" (a pile 1-2 m from
-you) and "Dust again" (`robots_dust`), and a live line "Cleaned: N % of the floor · M robots". Defaults on entering:
+you) and "Dust again" (`robots_dust`), and a live line "Cleaned: N % of the floor · M robots". In a shared room both
+are effects (`crumbs` at the same spot, `dust`) for the others at the station; rule, robots, trails and links are its
+shared state (the view and your walk are your own). Defaults on entering:
 rule follow, 6 robots, trails off, links off, view default. Hash: `#robots&explore&rule=chain&robots=12&trails=on&links=on&view=low`, `&crumbs` spills a pile, `&walk=x,z` walks the avatar.
 
 **Headset** (all of the flock's XR machinery: panels, Stories screen, anchors, Sound check, controllers):

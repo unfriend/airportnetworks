@@ -1916,7 +1916,8 @@ function xrLandingSetup() {
 // leave the Stories screen: back into this story (resumed, or started if it never ran)
 function xrLandingClose() {
   XR.stories = false;
-  if (!XR.inStory) APP.enterStory(0);
+  // at a shared room's station the story goes on as the room has it: a restart here would restart it for everyone
+  if (!XR.inStory && !HOST.collab.mine()) APP.enterStory(0);
   XR.inStory = true;
   if (APP.mode === 'story') APP.playing = true;
 }
@@ -2381,7 +2382,7 @@ function init() {
   if (HOST.session && GL.renderer.xr.isPresenting) xrAdopt();
   setTimeout(() => $('#loading').classList.add('gone'), 120);
 }
-setTimeout(init, 40);
+const initT = setTimeout(init, 40);
 
 // what the app shell needs to change story
 return {
@@ -2398,6 +2399,8 @@ return {
   // for tests and the browser console: HOST.cur.peek('NET.N')
   peek: src => eval(src),
   dispose() {
+    // timers left running must not write into the next story's panes (they share ids) or build this one after all
+    clearTimeout(initT); clearTimeout(xrMsg.t);
     if (GL.mo) GL.mo.disconnect();
     if (XR.session) XR.session.removeEventListener('visibilitychange', xrVisibility);
     if (GL.scene) GL.scene.traverse(o => {

@@ -22,7 +22,7 @@
 // (or #debug in a link) prints them as well.
 (function () {
   const PROTO = 1;
-  const FORMAT = 'networks-1';   // the shared state's format (keys, the stories' state()): bump when it changes shape
+  const FORMAT = 'networks-2';   // the shared state's format (keys, the stories' state()): bump when it changes shape
   const EYE = 1.6;               // a standing eye height (m): a station's rig hangs this high over its spot
   const AHEAD = 1.4;             // a station's content floats this far in front of its spot
   const NEAR = 1.6, FAR = 2.2, DWELL = 1000;   // your station: within 1.6 m for a second; left beyond 2.2 m
@@ -381,6 +381,8 @@
     C.mine = id; C.live = id; C.picked = how === 'pick';
     if (how === 'follow') C.follow = id;
     log('station', { st: id, story: s.story, how });
+    // following from a page shows the station: its Stories screen closes (while it shows, the pump stands still)
+    if (how === 'follow') HOST.closePicker();
     if (HOST.curKey !== s.story) goTo(s);
     else if (C.ready) { clockApply(true); stateApply(); panelApply(); }
     changed();

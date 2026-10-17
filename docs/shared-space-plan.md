@@ -11,6 +11,10 @@ Decisions (2026-10-17, from the owner): a **new relay in this repository** (Node
 **stations, nearby ones live**; **everyone equal** (anyone can play, pause, jump, change controls; last action
 wins); participants mostly Quest 3 in one room, sometimes **remote VR** people and **remote desktop operators**.
 
+**Status (2026-10-17):** phase 0 is built: the relay, the client in the shell and the hooks in all seven stories,
+tested headlessly (`relay/test.mjs`, `tools/collab.mjs` with pretend headsets) but not yet on headsets. Section 10
+says what was built and where it differs from this plan.
+
 ## 1. Phases
 
 0. **This build: shared rooms with one live station per person.** The relay; the session client in the shell;
@@ -208,3 +212,45 @@ address while joined, so a reload rejoins.
 - `node tools/smoke.mjs` stays green (nobody in a room: nothing changes).
 - Untested until two Quest 3 headsets are in a room: shared-space ids, calibration accuracy, sound zones heard,
   comfort, frame rate with presence drawn.
+
+## 10. What phase 0 built, and where it differs
+
+Built as planned: the relay (`relay/server.mjs`, `relay/test.mjs`, `relay/Dockerfile`, `relay/README.md` with a
+step-by-step guide for a session on one Wi-Fi), the client (`shared.js`: rooms, stations, the clock, the room frame
+and calibration, stations on a headset, previews, presence, sound zones, the Shared dialog with the room map, the
+headset panel), and the hooks in all seven stories. `tools/collab.mjs` covers section 9 for every story.
+
+What each story shares (`collab.state()`) and its effects:
+
+| Story | State | Effects |
+| --- | --- | --- |
+| airports, proteins | tab, colour, pillars, routes, hubs by, community level, closures (mode, count, closed items), selection, path; items by airport code or gene symbol | none |
+| spatial | tab, colour, cell, routes, selection and its copy, path, community level, moves, bait and labelling radius | none |
+| lbi | tab, scene, that scene's controls, selected protein, route | none |
+| nmd | tab, scene, every scene's controls, group, gene, picked endotypes, layers knocked out, your genes, the walk and walkers, colour, grid, z-scores | none |
+| flock | birds, links, falcon | `falcon` |
+| robots | rule, robots, trails, links | `crumbs` (at the same spot), `dust` |
+
+Differences from the plan:
+
+- **Hooks** (section 7): `collab` also has `panel(p, yaw)` (a panel another person moved applies live), and every
+  story has four more lines: `HOST.anchor.locked(h.kind)` in `xrGrab` (at a station the grip moves only the panel,
+  and the shell's own things never move the scene); in `xrFreshStart` a headset taken off at a station keeps its
+  story and place instead of starting a new wearer on the Stories screen; in `xrLandingClose` Start on the headset
+  Stories screen at a station does not restart the story for everyone. `effect` exists only where a story has
+  one-shot effects. A story's `dispose()` clears its timers (quick story changes in a room made a late one crash
+  the next story).
+- **Relay**: a state key `st.<id>.*` is refused unless its station exists after the batch, and a state value with
+  a `story` field must match the station's story ("stale"). After a restart the room is empty: the first client to
+  reconnect makes it again under the same code (`POST /api/rooms { code }`) and writes back its stations and
+  state. `--lan` makes a certificate of its own and serves HTTPS (option (a) of section 3). Further limits: 60 `fx`
+  and 120 `set` messages a second per member, values up to 256 KB, 4 MB a room. The service worker leaves `/api/`
+  alone.
+- **Clock**: the offset uses the ping with the shortest round trip (not a median); pings go every 2 s for the
+  first 20 s, then every 15 s.
+- **Follow** on a page closes its Stories screen (while it shows, nothing syncs).
+- **Room format**: `FORMAT` in `shared.js` is the room's version; a room refuses clients of another format, so it
+  is bumped whenever the keys or a story's `state()` change shape.
+- Not built: phases 1 to 3 (one live station per headset; simulations still run per device). Untested until
+  headsets are in a room: shared-space ids, calibration accuracy, persistent anchors restored, sound zones heard,
+  comfort, frame rate with presence drawn, and whether the socket keeps running inside an immersive session.
