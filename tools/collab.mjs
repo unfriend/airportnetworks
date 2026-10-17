@@ -801,7 +801,12 @@ try {
   await frames(H, 1200);
   const rfKey = await H.evaluate(() => HOST.room.frameKey('U1'));
   const pub = ((await roomInfo(code)).keys[rfKey] || {}).v || null;
-  const own1 = await H.evaluate(() => ({ src: HOST.room.src, frame: HOST.room.frame }));
+  const own1 = await H.evaluate(() => {
+    const O = HOST.collab.overlay(), h = HOST.collab.internals().hov.get(0), r = HOST.collab.internals().rays.get(0);
+    return { src: HOST.room.src, frame: HOST.room.frame, cur: HOST.curKey, root: !!(O.root && O.root.parent), vis: !!(O.root && O.root.visible),
+      hov: h ? [h.target.kind, Math.round(performance.now() - h.at)] : null, ray: r ? [Math.round(performance.now() - r.at)] : null,
+      log: window.__collabLog.slice(-25).map(e => e.ev + (e.state ? ':' + e.state : e.st ? ':' + e.st : e.story ? ':' + e.story : e.why ? ':' + e.why : '')) };
+  });
   check('shared space: a headset without marks takes the published frame; once calibrated it uses its marks and publishes them for its space',
     ad0 === 'adopted' && own1.src === 'marks' && near(own1.frame.o, [fa[0], 0, fa[2]], 2e-3) && !!pub && pub.by === hId2 && pub.g === 'marks' && Array.isArray(pub.m) &&
     Math.abs(pub.m[1] - dAB) < 2e-3, JSON.stringify({ ad0, own1, pub }));
