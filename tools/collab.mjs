@@ -679,15 +679,13 @@ try {
   // Forget calibration (two presses on the shell's panel): the marks and their saved anchor go, and the headset
   // lines up again from the start (here, with no shared space, it asks to calibrate); the panel says there is no
   // shared space
-  const forgot = await H.evaluate(async () => {
+  await H.evaluate(() => HOST.collab.panelOpen(true));
+  await frames(H, 200);   // the panel draws (and lists its buttons) in the headset's frames
+  const forgot = await H.evaluate(() => {
     const S = HOST.collab.overlay().panel, uuid = HOST.room.internals().saved && HOST.room.internals().saved.anchor;
     const press = () => { const r = S.regions.find(x => x.id === 'forget'); if (r && r.fn) r.fn(); return !!(r && r.fn); };
-    HOST.collab.panelOpen(true);
-    await new Promise(r => setTimeout(r, 400));
-    const first = press(), kept = !!localStorage.getItem('roomFrame');
-    await new Promise(r => setTimeout(r, 300));
-    const second = press();
-    await new Promise(r => setTimeout(r, 50));
+    // both presses at once: a busy page can take longer than the 3 s the first press arms it for
+    const first = press(), kept = !!localStorage.getItem('roomFrame') && !!HOST.room.frame, second = press();
     return { first, kept, second, uuid, gone: !window.__xr.handles.has(uuid), saved: localStorage.getItem('roomFrame'), frame: HOST.room.frame, line: HOST.room.sharedLine() };
   });
   await frames(H, 300);
