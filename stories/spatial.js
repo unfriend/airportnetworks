@@ -2654,6 +2654,40 @@ function setBait(c, render = true) {
   updateExtraLabels();
   if (c >= 0) { const [la, lo] = latLonOf(cpos(c)); flyTo(la, lo, 1.25); }
 }
+// shared rooms: what everyone at the station sees alike: the tab, the view controls, the selected protein (and
+// which copy), the path's two ends, the isolated place, the moves, the bait and its radius (the camera, the search
+// box and the headset keyboard stay each person's own)
+function collabState() {
+  return { tab: X.tab, color: X.color, cell: X.cell, routes: X.routes, sel: X.sel, copy: X.selCopy,
+    path: (X.path || X.pathErr) && X.pathEnds ? X.pathEnds.slice() : null, iso: X.iso, moves: X.scen.join(''), bait: X.bait, r: X.proxR };
+}
+// shows a shared state with the story's own setters (no camera flights), dependencies first; ignores what is not valid
+function collabApply(v) {
+  if (!v || typeof v !== 'object') return;
+  const int = (x, lo, hi) => Number.isInteger(x) && x >= lo && x < hi, num = (x, lo, hi) => typeof x === 'number' && x >= lo && x <= hi;
+  if (['place', 'multi', 'deg', 'plain'].includes(v.color) && X.color !== v.color) setView('color', v.color);
+  if (['on', 'faint', 'off'].includes(v.cell) && X.cell !== v.cell) setView('cell', v.cell);
+  if (num(v.routes, 0, 1.6) && X.routes !== v.routes) { X.routes = v.routes; $('#rta').value = v.routes; }
+  if (num(v.r, 0.03, 0.16) && X.proxR !== v.r) { X.proxR = v.r; $('#pxr').value = v.r; renderProx(); }
+  if (typeof v.moves === 'string' && /^[01]*$/.test(v.moves) && v.moves.length === MOVES.length)
+    MOVES.forEach((_, j) => { const on = v.moves[j] === '1'; if (!!X.scen[j] !== on) setMove(j, on); });
+  if (int(v.sel, -1, NET.P) && (v.sel < 0 || NET.pCopies[v.sel].includes(v.copy)) && (X.sel !== v.sel || (v.sel >= 0 && X.selCopy !== v.copy))) {
+    selectProtein(v.sel, false, v.sel >= 0 ? v.copy : undefined);
+    if (v.sel >= 0 && document.activeElement !== $('#q')) $('#q').value = NET.sym[v.sel];
+  }
+  const pe = v.path, cur = collabState().path;
+  if (pe === null && cur) xrClearPath();
+  else if (Array.isArray(pe) && pe.length === 2 && pe.every(x => int(x, -1, NET.P)) && !(cur && cur[0] === pe[0] && cur[1] === pe[1])) {
+    XR.pf = pe[0]; XR.pt = pe[1]; XR.pick = 'to';
+    if (pe[0] >= 0) $('#pf').value = NET.sym[pe[0]];
+    if (pe[1] >= 0) $('#pt').value = NET.sym[pe[1]];
+    runPath(pe[0], pe[1], false);
+  }
+  // the bait before the tab: opening Proximity without one picks one (and flies there)
+  if (int(v.bait, -1, NET.NC) && X.bait !== v.bait) { X.bait = v.bait; renderProx(); updateExtraLabels(); }
+  if (TABS.some(([k]) => k === v.tab) && X.tab !== v.tab) showTab(v.tab);
+  if (int(v.iso, -1, PLACES.length) && X.iso !== v.iso) { X.iso = v.iso; renderPlaces(); }
+}
 function proxTagged() {
   const b = X.bait, out = [];
   if (b < 0) return out;
@@ -2982,6 +3016,7 @@ function xrPress(c) {
   const h = c.hover;
   c.press = null;
   if (!h) return;
+  if (h.kind === 'shell') { HOST.collab.press(c.i); return; }   // the shared room's panel, previews, calibration
   if (h.kind === 'panel') {
     const r = h.P.at(h.x, h.y);
     if (!r) return;
@@ -3006,7 +3041,7 @@ function xrGrab(c, on) {
   c.grab = null;
   const h = c.hover;
   if (!on || !h) return;
-  if (XR.stories || HOST.anchor.locked()) return; // the Stories screen stays put, and so does an anchored place
+  if (XR.stories || HOST.anchor.locked(h.kind)) return; // the Stories screen stays put, and so does an anchored place (a station: only its panel moves)
   const obj = h.kind === 'panel' ? XR.panelGroup : GL.world;
   c.grab = { target: h.kind === 'panel' ? 'panel' : 'globe', q0: new THREE.Quaternion().setFromRotationMatrix(c.g.matrix).invert(),
     o0: c.o.clone(), p0: obj.getWorldPosition(new THREE.Vector3()), reach: 1 };
@@ -3036,10 +3071,13 @@ function xrPoint(c, dt) {
   c.o.setFromMatrixPosition(g.matrix);
   c.d.set(0, 0, -1).transformDirection(g.matrix);
   let hit = null, dist = 2.5;
+  // the shared room's own things (its panel, the other stations, a calibration) come first
+  const sh = HOST.collab.ray(c.i, c.o, c.d);
   // panels first: they are drawn on top of everything
   XR.raycaster.set(c.o, c.d);
-  const hs = XR.raycaster.intersectObjects(XR.panelMeshes.filter(m => m.visible), false);
-  if (hs.length) {
+  const hs = sh ? [] : XR.raycaster.intersectObjects(XR.panelMeshes.filter(m => m.visible), false);
+  if (sh) { hit = sh; dist = sh.dist; }
+  else if (hs.length) {
     const h = hs[0], P = XR.panels.find(q => q.mesh === h.object);
     hit = { kind: 'panel', P, x: h.uv.x * P.w, y: (1 - h.uv.y) * P.h, point: h.point };
     dist = h.distance;
@@ -3204,7 +3242,7 @@ async function xrStart(mode) {
   if (XR.session || !navigator.xr) return;
   let session;
   try {
-    session = await navigator.xr.requestSession(mode, { optionalFeatures: ['local-floor', 'hand-tracking', 'anchors', 'plane-detection', 'mesh-detection'] });
+    session = await navigator.xr.requestSession(mode, { optionalFeatures: ['local-floor', 'hand-tracking', 'anchors', 'plane-detection', 'mesh-detection', 'shared'] });
   } catch (err) {
     HOST.landingVR = false;
     xrMsg(`Could not start ${mode === 'immersive-ar' ? 'AR' : 'VR'}: ${err && err.message ? err.message : err}`);
@@ -3270,6 +3308,8 @@ function xrVisibility() {
 function xrFreshStart() {
   XR.kbd.open = false; XR.kbd.q = '';
   for (const c of XR.ctrls) { c.press = null; c.grab = null; c.wantPress = false; }
+  // at a shared room's station the story and its place stay: the room's clock and state go on applying
+  if (HOST.collab.mine()) { lastNow = 0; return; }
   APP.enterStory(0); APP.playing = false; audioSync();
   XR.stories = true; XR.inStory = false; XR.soundCheck = false; // a new wearer lands in the Stories screen
   XR.needRecenter = true; // uses the new wearer's head position and direction on the next frame
@@ -4146,9 +4186,16 @@ return {
   inputs: () => XR.ctrls.map(c => c.src),
   xrPose: () => (XR.on ? { rp: GL.rig.position.clone(), rq: GL.rig.quaternion.clone(), off: XR.globeOff.clone(),
     pp: XR.panelGroup.position.clone(), pr: XR.panelGroup.rotation.y } : null),
+  // shared rooms (shared.js): the clock is APP's, the shared state the explore tabs and controls (no one-shot effects)
+  collab: {
+    APP, scene: () => GL.scene, state: collabState, apply: collabApply,
+    hover: i => { const c = XR.ctrls[i]; return c && c.hover ? c.ray.scale.z : 0; },
+    panel(p, yaw) { XR.panelGroup.position.fromArray(p); XR.panelGroup.rotation.set(0, yaw, 0); },
+  },
   // for tests and the browser console: HOST.cur.peek('NET.N')
   peek: src => eval(src),
   dispose() {
+    clearTimeout(setMove.t);   // a move's late refresh must not write into the next story's panes (they share ids)
     if (GL.mo) GL.mo.disconnect();
     if (XR.session) XR.session.removeEventListener('visibilitychange', xrVisibility);
     if (GL.scene) GL.scene.traverse(o => {

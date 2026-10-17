@@ -9715,6 +9715,32 @@ function runRoute(s, t) {
   renderRoute();
   updateExtraLabels();
 }
+// shared rooms: what everyone at the station sees alike: the tab, the scene and its controls, the selected protein
+// and the route's two ends (the camera, its turning, the search box and the headset keyboard stay each person's own)
+function collabState() {
+  const s = GL.sets[X.scene];
+  return { tab: X.tab, scene: X.scene, ctl: Object.fromEntries((s.controls || []).map(c => [c.key, ctlValue(X.scene, c)])),
+    sel: X.sel, route: X.pathEnds ? X.pathEnds.slice() : null };
+}
+// shows a shared state with the story's own setters, the scene first; ignores what is not valid
+function collabApply(v) {
+  if (!v || typeof v !== 'object') return;
+  const N = INT().core.length, int = x => Number.isInteger(x) && x >= -1 && x < N;
+  if (SCENES.some(([k]) => k === v.scene) && GL.sets[v.scene] && X.scene !== v.scene) openScene(v.scene);
+  const ctl = v.ctl && typeof v.ctl === 'object' ? v.ctl : {};
+  for (const c of GL.sets[X.scene].controls || []) {
+    const x = ctl[c.key];
+    if (c.options.some(o => o[0] === x) && ctlValue(X.scene, c) !== x) setCtl(X.scene, c.key, x);
+  }
+  if (int(v.sel) && X.sel !== v.sel) {
+    selectProtein(v.sel, false);
+    if (v.sel >= 0 && document.activeElement !== $('#q')) $('#q').value = INT().core[v.sel].sym;
+  }
+  const r = v.route, cur = X.pathEnds;
+  if (r === null && cur) xrClearPath();
+  else if (Array.isArray(r) && r.length === 2 && r.every(x => int(x) && x >= 0) && r[0] !== r[1] && !(cur && cur[0] === r[0] && cur[1] === r[1])) xrPathPreset(r[0], r[1]);
+  if (TABS.some(([k]) => k === v.tab) && X.tab !== v.tab) showTab(v.tab);
+}
 function clearRoute() {
   X.path = null; X.pathErr = null; X.pathEnds = null;
   if (INT().route) INT().route(-1, -1);
@@ -10071,6 +10097,7 @@ function xrPress(c) {
   const h = c.hover;
   c.press = null;
   if (!h) return;
+  if (h.kind === 'shell') { HOST.collab.press(c.i); return; }   // the shared room's panel, previews, calibration
   if (h.kind === 'panel') {
     const r = h.P.at(h.x, h.y);
     if (!r) return;
@@ -10096,7 +10123,7 @@ function xrGrab(c, on) {
   c.grab = null;
   const h = c.hover;
   if (!on || !h) return;
-  if (XR.stories || HOST.anchor.locked()) return; // the Stories screen stays put, and so does an anchored place
+  if (XR.stories || HOST.anchor.locked(h.kind)) return; // the Stories screen stays put, and so does an anchored place (a station: only its panel moves)
   // the scene is held by its placement point (where the view's target sits), so a still hand moves nothing
   const p0 = h.kind === 'panel' ? XR.panelGroup.getWorldPosition(new THREE.Vector3()) : GL.rig.localToWorld(XR.globeBase.clone().add(XR.globeOff));
   c.grab = { target: h.kind === 'panel' ? 'panel' : 'globe', q0: new THREE.Quaternion().setFromRotationMatrix(c.g.matrix).invert(),
@@ -10127,10 +10154,13 @@ function xrPoint(c, dt) {
   c.o.setFromMatrixPosition(g.matrix);
   c.d.set(0, 0, -1).transformDirection(g.matrix);
   let hit = null, dist = 2.5;
+  // the shared room's own things (its panel, the other stations, a calibration) come first
+  const sh = HOST.collab.ray(c.i, c.o, c.d);
   // panels first: they are drawn on top of everything
   XR.raycaster.set(c.o, c.d);
-  const hs = XR.raycaster.intersectObjects(XR.panelMeshes.filter(m => m.visible), false);
-  if (hs.length) {
+  const hs = sh ? [] : XR.raycaster.intersectObjects(XR.panelMeshes.filter(m => m.visible), false);
+  if (sh) { hit = sh; dist = sh.dist; }
+  else if (hs.length) {
     const h = hs[0], P = XR.panels.find(q => q.mesh === h.object);
     hit = { kind: 'panel', P, x: h.uv.x * P.w, y: (1 - h.uv.y) * P.h, point: h.point };
     dist = h.distance;
@@ -10285,7 +10315,7 @@ async function xrStart(mode) {
   if (XR.session || !navigator.xr) return;
   let session;
   try {
-    session = await navigator.xr.requestSession(mode, { optionalFeatures: ['local-floor', 'hand-tracking', 'anchors', 'plane-detection', 'mesh-detection'] });
+    session = await navigator.xr.requestSession(mode, { optionalFeatures: ['local-floor', 'hand-tracking', 'anchors', 'plane-detection', 'mesh-detection', 'shared'] });
   } catch (err) {
     HOST.landingVR = false;
     xrMsg(`Could not start ${mode === 'immersive-ar' ? 'AR' : 'VR'}: ${err && err.message ? err.message : err}`);
@@ -10352,6 +10382,8 @@ function xrVisibility() {
 function xrFreshStart() {
   XR.kbd.open = false; XR.kbd.q = '';
   for (const c of XR.ctrls) { c.press = null; c.grab = null; c.wantPress = false; }
+  // at a shared room's station the story and its place stay: the room's clock and state go on applying
+  if (HOST.collab.mine()) { lastNow = 0; return; }
   APP.enterStory(0); APP.playing = false; audioSync();
   XR.stories = true; XR.inStory = false; XR.soundCheck = false; // a new wearer lands in the Stories screen
   XR.needRecenter = true; // uses the new wearer's head position and direction on the next frame
@@ -11197,6 +11229,12 @@ return {
   inputs: () => XR.ctrls.map(c => c.src),
   xrPose: () => (XR.on ? { rp: GL.rig.position.clone(), rq: GL.rig.quaternion.clone(), off: XR.globeOff.clone(),
     pp: XR.panelGroup.position.clone(), pr: XR.panelGroup.rotation.y } : null),
+  // shared rooms (shared.js): the clock is APP's, the shared state the scene, its controls and the proteins (no one-shot effects)
+  collab: {
+    APP, scene: () => GL.scene, state: collabState, apply: collabApply,
+    hover: i => { const c = XR.ctrls[i]; return c && c.hover ? c.ray.scale.z : 0; },
+    panel(p, yaw) { XR.panelGroup.position.fromArray(p); XR.panelGroup.rotation.set(0, yaw, 0); },
+  },
   // for tests and the browser console: HOST.cur.peek('NET.N')
   peek: src => eval(src),
   dispose() {

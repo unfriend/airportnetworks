@@ -156,6 +156,32 @@ function runRoute(s, t) {
   renderRoute();
   updateExtraLabels();
 }
+// shared rooms: what everyone at the station sees alike: the tab, the scene and its controls, the selected protein
+// and the route's two ends (the camera, its turning, the search box and the headset keyboard stay each person's own)
+function collabState() {
+  const s = GL.sets[X.scene];
+  return { tab: X.tab, scene: X.scene, ctl: Object.fromEntries((s.controls || []).map(c => [c.key, ctlValue(X.scene, c)])),
+    sel: X.sel, route: X.pathEnds ? X.pathEnds.slice() : null };
+}
+// shows a shared state with the story's own setters, the scene first; ignores what is not valid
+function collabApply(v) {
+  if (!v || typeof v !== 'object') return;
+  const N = INT().core.length, int = x => Number.isInteger(x) && x >= -1 && x < N;
+  if (SCENES.some(([k]) => k === v.scene) && GL.sets[v.scene] && X.scene !== v.scene) openScene(v.scene);
+  const ctl = v.ctl && typeof v.ctl === 'object' ? v.ctl : {};
+  for (const c of GL.sets[X.scene].controls || []) {
+    const x = ctl[c.key];
+    if (c.options.some(o => o[0] === x) && ctlValue(X.scene, c) !== x) setCtl(X.scene, c.key, x);
+  }
+  if (int(v.sel) && X.sel !== v.sel) {
+    selectProtein(v.sel, false);
+    if (v.sel >= 0 && document.activeElement !== $('#q')) $('#q').value = INT().core[v.sel].sym;
+  }
+  const r = v.route, cur = X.pathEnds;
+  if (r === null && cur) xrClearPath();
+  else if (Array.isArray(r) && r.length === 2 && r.every(x => int(x) && x >= 0) && r[0] !== r[1] && !(cur && cur[0] === r[0] && cur[1] === r[1])) xrPathPreset(r[0], r[1]);
+  if (TABS.some(([k]) => k === v.tab) && X.tab !== v.tab) showTab(v.tab);
+}
 function clearRoute() {
   X.path = null; X.pathErr = null; X.pathEnds = null;
   if (INT().route) INT().route(-1, -1);
