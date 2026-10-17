@@ -91,6 +91,7 @@ const check = (name, ok, detail) => {
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const near = (a, b, tol) => a.length === b.length && a.every((v, i) => Math.abs(v - b[i]) <= tol);
 const fmt = a => '[' + a.map(v => (+v).toFixed(4)).join(', ') + ']';
+const r3 = x => Math.round(x * 1000) / 1000;
 const angle = (a, b) => { let d = Math.abs(a - b) % (2 * Math.PI); return d > Math.PI ? 2 * Math.PI - d : d; };
 
 // ---- the relay
@@ -429,6 +430,7 @@ try {
   await A.evaluate(f => HOST.collab.publish([[HOST.room.frameKey('U1'), f]]), frameFor(ROOM, 'U1', aId, Date.now() - 60000));
   await until(A, () => !HOST.collab.internals().pending.size, null, 3000);   // stored before the headset's writes are counted
   const xrOpts = { mode: 'immersive-ar', features: ['local-floor', 'anchors', 'shared'], local: LOCAL, floor: FLOOR, shared: SHARED, sharedId: '', head: [0, 1.6, 0, 0] };
+  await H.evaluate(() => HOST.room.sharedAlign(true));   // aligning from the shared space is off unless asked for
   await H.evaluate(installXR, xrOpts);
   const q2 = (await roomInfo(code)).seq, hId0 = await H.evaluate(() => HOST.collab.id);
   await H.evaluate(() => window.__xr.begin());
@@ -648,7 +650,10 @@ try {
   await frames(H, 300);
   check('calibration: a headset with no shared space and no marks asks to calibrate', await H.evaluate(() => HOST.room.state === 'calibrate'), await H.evaluate(() => HOST.room.state));
   const markA = [1.0, 0.75, -0.4], markB = [2.2, 0.75, 0.9];
-  const touch = async p => { await H.evaluate(p => { window.__xr.ctrl(0, p, [0, -1, 0]); HOST.cur.peek('XR.ctrls[0].wantPress = true'); }, p); await frames(H, 80); };
+  const touch = async p => {   // held still on the mark, then the trigger (a second pull within 0.6 s would be ignored)
+    await H.evaluate(p => window.__xr.ctrl(0, p, [0, -1, 0]), p); await frames(H, 650);
+    await H.evaluate(() => HOST.cur.peek('XR.ctrls[0].wantPress = true')); await frames(H, 100);
+  };
   // pressed by mistake: the panel's Stop calibrating still takes the trigger (no mark is taken)
   await H.evaluate(() => { HOST.room.calibrate(); HOST.collab.panelOpen(true); });
   await frames(H, 200);
@@ -664,8 +669,17 @@ try {
   await H.evaluate(() => { HOST.collab.panelOpen(false); window.__xr.ctrl(0, null); });
   await frames(H, 100);
   await H.evaluate(() => HOST.room.calibrate());
+  const atPanel = await H.evaluate(() => {   // the story says its own panel is 1.2 m along the ray: the press is the story's
+    const r = HOST.collab.ray(0, new THREE.Vector3(0, 1, 0), new THREE.Vector3(0, 0, -1), 1.2);
+    HOST.collab.press(0);
+    return [r, HOST.room.state];
+  });
+  check('calibration: a press aimed at a story panel takes no mark', atPanel[0] === null && atPanel[1] === 'mark-a', JSON.stringify(atPanel));
   await touch(markA);
   const stA = await H.evaluate(() => HOST.room.state);
+  const dbl = await H.evaluate(p => { window.__xr.ctrl(0, p, [0, -1, 0]); HOST.cur.peek('XR.ctrls[0].wantPress = true'); window.__xr.step(); return HOST.room.state; }, markB);
+  check('calibration: a second pull right after a mark (a double pull) is ignored', dbl === 'mark-b' &&
+    await H.evaluate(() => window.__collabLog.some(e => e.ev === 'mark ignored')), dbl);
   await touch([markA[0] + 0.1, markA[1], markA[2] + 0.05]);
   const stClose = await H.evaluate(() => HOST.room.state);
   await touch(markB);
@@ -684,6 +698,18 @@ try {
   check('calibration: the marks are drawn where they were touched (A at the origin, B along x), and the panel says the room rests on them',
     !!cal.mk && Math.abs(cal.mk[0] - fa[1]) < 2e-3 && Math.abs(cal.mk[1] - dAB) < 2e-3 && Math.abs(cal.mk[2] - fb[1]) < 2e-3 && /own marks, held by two anchors/.test(cal.line),
     JSON.stringify({ mk: cal.mk, line: cal.line, want: [fa[1], dAB, fb[1]] }));
+  // the room's floor under the marks: the first calibration sets it (mark A's height); a headset whose floor is
+  // lower (a Guardian floor set wrong) stands the room on the marks instead, and says so
+  const rm0 = ((await roomInfo(code)).keys.rm || {}).v || null;
+  await A.evaluate(v => HOST.collab.publish([['rm', v]]), { a: r3(fa[1] - 0.15), d: r3(dAB), by: aId, at: Date.now() });
+  await frames(H, 1200);
+  const fl = await H.evaluate(() => ({ y: HOST.room.frame.o[1], mk: HOST.room.marks, note: HOST.room.floorNote() }));
+  await A.evaluate(v => HOST.collab.publish([['rm', v]]), { a: r3(fa[1]), d: r3(dAB), by: aId, at: Date.now() });
+  await frames(H, 1200);
+  const fl0 = await H.evaluate(() => HOST.room.frame.o[1]);
+  check('the room\'s floor: the first calibration sets it; a floor 15 cm lower than the room\'s is allowed for (the room stands on the marks)',
+    !!rm0 && Math.abs(rm0.a - fa[1]) < 2e-3 && Math.abs(rm0.d - dAB) < 2e-3 && Math.abs(fl.y - 0.15) < 3e-3 && Math.abs(fl.mk[0] - (fa[1] - 0.15)) < 3e-3 &&
+    /floor is 15 cm lower/.test(fl.note) && Math.abs(fl0) < 3e-3, JSON.stringify({ rm0, fl, fl0 }));
   // the Guardian origin moves within the session (a reset with a transform): the frame follows at once
   const F2 = [0.1, 0, -0.2, 0.2];
   const moved = await H.evaluate(([F, F2]) => {
@@ -767,8 +793,13 @@ try {
   // a headset in shared space U1 with no marks takes the frame published for U1; once calibrated it keeps its own
   // marks, publishes them for U1 (with the marks, for drawing), ignores a newer frame someone else publishes there,
   // and only says how far the shared space puts that one's marks from its own
+  await H.evaluate(() => HOST.room.sharedAlign(false));
   await H.evaluate(installXR, Object.assign({}, xrOpts, { sharedId: 'U1' }));
   await H.evaluate(() => window.__xr.begin());
+  await frames(H, 1500);
+  const off = await H.evaluate(() => ({ state: HOST.room.state, frame: HOST.room.frame }));
+  check('shared space: not used unless asked for (the default): a headset without marks asks to calibrate', off.state === 'calibrate' && !off.frame, JSON.stringify(off));
+  await H.evaluate(() => HOST.room.sharedAlign(true));
   for (let k = 0; k < 12 && (await H.evaluate(() => HOST.room.src)) !== 'adopted'; k++) await frames(H, 250);
   const ad0 = await H.evaluate(() => HOST.room.src);
   const hId2 = await H.evaluate(() => HOST.collab.id);

@@ -46,10 +46,11 @@ People in the room calibrate every headset on the same two tape marks
 (Calibrate: touch mark A, then mark B, with the ring at the front of a
 controller; orange crosses then show where the headset puts the marks, and two
 anchors keep the calibration for next time). A headset's own calibration is
-never overridden; one that has not calibrated takes the room from one that
-has, if their headsets share a space (the Shared panel shows the space's id,
-and Forget calibration drops a headset's own marks). The relay keeps the
-headsets' logs in relay/logs/ for checking alignment. People elsewhere and
+never overridden, and the room's floor comes from the marks, so a headset
+with a wrong floor still shows things at the same height. Quest Browser's
+experimental shared space is only used when asked for on the Shared panel (it
+was too far out in our test). The relay keeps the headsets' logs in
+relay/logs/ for checking alignment. People elsewhere and
 screens
 see the stations round their own spot. Screens get a room map and Follow a
 station. The flock's birds and the robots move separately on each device; their

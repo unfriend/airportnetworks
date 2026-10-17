@@ -200,40 +200,54 @@ the content floats 1.4 m ahead of the spot), with `st.<id>.play` (the clock:
   others?" (In this room / Somewhere else, kept per room code in
   `localStorage` `collabHere`); passthrough counts as in the room.
 - `HOST.room` (headsets) asks for its own `local-floor` and `shared` spaces and
-  runs its own frame callback. The room frame (an origin on the floor and a
-  level x axis, kept in `local-floor` coordinates) comes from, first found
-  first: (1) this headset's own calibration, which nothing overrides: two tape
-  marks touched with a controller (`'marks'`), or last time's found again by
-  the two anchors made at them (`'anchor'`; `roomFrame` in `localStorage` keeps
-  the marks and the anchors' handles, never coordinates alone); (2) the frame
-  published for its shared space (key `rf.<space id>`, `{ uuid, o, x, g, by,
-  at, m }`, `g` `'marks'` or `'shared'`, `m` the marks for drawing) by a
+  runs its own frame callback. The room frame (an origin and a level x axis,
+  kept in `local-floor` coordinates) comes from, first found first: (1) this
+  headset's own calibration, which nothing overrides: two tape marks touched
+  with a controller (`'marks'`), or last time's found again by the two anchors
+  made at them (`'anchor'`; `roomFrame` in `localStorage` keeps the marks and
+  the anchors' handles, never coordinates alone); (2) only when asked for
+  (*Shared space: used* on the panel, `collabSharedAlign`, off by default) the
+  frame published for its shared space (key `rf.<space id>`, `{ uuid, o, x, g,
+  by, at, m }`, `g` `'marks'` or `'shared'`, `m` the marks for drawing) by a
   calibrated headset or the first one in the space (`'adopted'`, followed when
-  it moves more than 3 cm or 1 degree); (3) the space's own origin when nobody
-  published for it (`'shared'`); (4) else calibrate. A calibrated headset
-  publishes its marks for its space and only reports how far the shared space
-  puts another calibrated headset's marks from its own (`R.cmp`, a line on the
-  panel); an adopted frame is never published again. People elsewhere (VR) use
-  their own floor. Why: on the Quest `local-floor` starts where the headset
-  does and moves with a recentre without a reset event, so coordinates go stale
-  (the two anchors, positions only, keep the frame on the marks; without
-  anchors a reset or a jump of the head asks to calibrate again), and the
-  shared space was not accurate enough to override tape marks. A mark is
-  where the controller's ray origin was held still 70 to 260 ms before the
-  trigger (a bright ring shows that point while calibrating), at least 50 cm
-  apart; orange crosses show the marks where this headset puts them (while the
-  Shared panel is open, and 30 s after aligning). The panel's room section
-  also shows the shared space's id and *Forget calibration*
-  (`HOST.room.forget()`, press twice: drops this headset's marks and anchors).
-  Anchor requests carry the marks' generation (`R.mgen`), so ones that settle
-  after Forget or new marks are thrown away. Every 10 s a headset in a room
-  sends its log (alignment samples every 5 s) to the relay (`POST /api/log`,
-  kept in `relay/logs/` with `--lan` or `--logs`). While aligned and at its
-  station, `HOST.anchor.frame()` returns the station's rig pose (spot at
-  1.6 m, facing its way, `room: true`), `held()` is true and `locked(kind)` is
-  true except for `'panel'`; `HOST.audio.zone()` pans the narration from the
-  station (full volume within 1.5 m, so at the station's spot; nothing changes
-  outside a room).
+  it moves more than 3 cm or 1 degree), or (3) the space's own origin when
+  nobody published for it (`'shared'`); (4) else calibrate. A calibrated
+  headset publishes its marks for its space anyway and reports how far the
+  shared space puts another calibrated headset's marks from its own (`R.cmp`,
+  a line on the panel). People elsewhere (VR) use their own floor.
+- The room's floor is under the marks, not under each headset: key `rm`
+  `{ a, d, by, at }` is mark A's height over the floor of the first headset
+  that calibrated (and the marks' distance; taken over by a newer calibration
+  of the same headset, other marks, or when its writer has left). A headset
+  whose floor differs puts the room's origin that far above its own floor
+  (`frame.o[1]`, from the anchors' heights, so a floor that jumps does not move
+  the room), and the panel says so ("Your floor is 28 cm lower than the
+  room's").
+- Why (the relay's logs of two Quest 3s in one room): the shared space came
+  with the same id on both at once but was at first just one headset's own
+  floor, jumped by 40 cm and 74 degrees when colocation found something, then
+  stayed 0.9 m and 19 degrees out against the tape, and sometimes reported the
+  head's pose; one headset's floor was 28 cm too low (its head at 2 m), and its
+  origin later jumped 5.5 m and 0.7 m down; `local-floor` moves with a recentre
+  without a reset event. Two anchors (positions only) keep the frame on the
+  marks; without anchors a reset or a jump of the head asks to calibrate again.
+- Calibrating: a mark is where the controller's ray origin was held still 70 to
+  260 ms before the trigger (a bright ring shows that point), at least 50 cm
+  apart; a press aimed at a story panel is the story's, a second pull within
+  0.6 s is ignored, and marks more than 5 cm apart in height get a note. Orange
+  crosses show the marks where this headset puts them (while the Shared panel
+  is open, and 30 s after aligning). The panel's room section also shows the
+  shared space's id and *Forget calibration* (`HOST.room.forget()`, press
+  twice). Anchor requests carry the marks' generation (`R.mgen`), so ones that
+  settle after Forget or new marks are thrown away; a handle the browser
+  refuses is logged with its reason. Every 10 s a headset in a room sends its
+  log (alignment samples every 5 s) to the relay (`POST /api/log`, kept in
+  `relay/logs/` with `--lan` or `--logs`). While aligned and at its station,
+  `HOST.anchor.frame()` returns the station's rig pose (spot at 1.6 m over the
+  room's floor, facing its way, `room: true`), `held()` is true and
+  `locked(kind)` is true except for `'panel'`; `HOST.audio.zone()` pans the
+  narration from the station (full volume within 1.5 m, so at the station's
+  spot; nothing changes outside a room).
 - The explore view at a station (`st.<id>.view`): headsets at the station share
   it (`viewSync` in the pump: a view from the room glides in, one turned here
   goes out, by value like the rest), so the scene stands turned and sized alike
@@ -325,13 +339,14 @@ Rules that matter most (from `docs/multiplayer.md`):
 
 Testing: `node relay/test.mjs` and `node tools/collab.mjs` (see Testing). A new
 story gets the hooks, then an entry in `STORIES` in `tools/collab.mjs`.
-Tried on two Quest 3 headsets in one room (phase 0): neither the shared space
-nor the calibration lined them up, which led to the rules above (own marks
-win, two anchors, no stale coordinates). Not confirmed on headsets yet:
-whether they line up now, shared-space ids and accuracy (the panel's line and
-the relay's logs tell), persistent anchors restored, whether a recentre fires
-a reset, sound zones heard, comfort and frame rate with presence drawn, and
-whether the socket keeps running inside an immersive session.
+Tried on two Quest 3 headsets in one room twice: in phase 0 neither the shared
+space nor the calibration lined them up; the relay's logs of the second test
+led to the rules above (own marks win, the shared space off, the floor from
+the marks). Not confirmed on headsets yet: whether they line up now,
+persistent anchors restored (one headset's handles were refused; the log now
+says why), whether a recentre fires a reset, sound zones heard, comfort and
+frame rate with presence drawn, and whether the socket keeps running inside an
+immersive session.
 
 ## Inside a story (all seven follow the same pattern)
 
@@ -623,7 +638,9 @@ a transform, a recentre without a reset (the anchors keep the frame), the
 anchors found next session, Forget calibration (two presses; also while those
 anchors are still being found), a new calibration replacing the old anchors,
 the shared space never overriding marks (a newer frame from someone else only
-reported, as a distance), Forget taking the published frame, a calibration
+reported, as a distance; not used at all by default), the room's floor from
+the first calibration (a lower floor allowed for), no mark from a press at a
+story panel or a double pull, Forget taking the published frame, a calibration
 without anchors asked again after a reset or a jump, the mark taken where the
 controller was held still, and VR elsewhere with its in-room question. `--quick` runs only the last story in the per-story part. A new story needs an entry in `STORIES`
 (`change` and `back`: code that changes its `state()`, and optional `effect`

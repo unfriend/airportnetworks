@@ -57,11 +57,13 @@ headsets up: the shared space overrode each fresh calibration, see below), first
    frame for that space (with the marks, so others can draw them) and only *reports* how far the shared space
    puts another calibrated headset's marks from its own (a line on the panel: the measure of the shared
    space's accuracy).
-2. **A frame published for this shared space** (key `rf.<id>`, grade `marks` or `shared`): adopted by headsets
+2. **A frame published for this shared space** (key `rf.<id>`, grade `marks` or `shared`), **only when asked for**
+   (*Shared space: used* on the panel; off by default after the measurements in section 9): adopted by headsets
    without marks ("Aligned automatically"), followed when it moves by more than **3 cm or 1 degree**
    ("Re-aligned"). An adopted frame is never published again.
-3. **The shared space's own origin** when nobody has published for it ("Shared space found"), published with
-   grade `shared` (unless the room was calibrated in another space by someone still there: then calibrate).
+3. **The shared space's own origin** when nobody has published for it ("Shared space found"; also only when
+   asked for), published with grade `shared` (unless the room was calibrated in another space by someone still
+   there: then calibrate).
 4. **Two-point calibration**: the person touches mark A, then mark B (tape crosses on a table or the floor, a
    metre or more apart, at least 50 cm). A gives the translation, A->B the yaw, gravity the rest. The point
    taken is the controller's target-ray origin where it was held still 70 to 260 ms before the trigger (the
@@ -150,3 +152,29 @@ and the flag tip, "Room calibrated", "Re-aligned").
 3. How long does a second headset take to get the first one's id?
 4. How accurate is the shared space compared with tape marks?
 5. Is a reset with a transform on `local-floor` right at session start related to the shared space?
+
+## 9. Measured on two Quest 3s (this app's relay logs, October 2026)
+
+Two Quest 3 headsets in one room, Quest Browser with WebXR experiments and Enhanced spatial services on, the
+same page address, the relay on the same Wi-Fi; every 5 s each headset logged its frame, `local-floor` in
+`local`, the shared space in `local-floor`, its head and its anchors (`relay/logs/`).
+
+- **The shared space's id** was the same on both headsets at once (it came with a `reset` without a transform
+  right at the start), but on the second headset the space was at first just its own `local-floor` (identity),
+  so "Aligned automatically" meant nothing. About 40 s later it jumped by 40 cm and 74 degrees, then settled.
+- **Its accuracy**: with both headsets calibrated on the same tape marks (both measured 1.59 m between them),
+  the shared space put one headset's marks **0.84 to 0.90 m and 18 to 19 degrees** from the other's, steadily.
+  For some seconds it also reported the head's pose as its own (the space's origin at the head).
+- **The floor**: one headset's `local-floor` was about **28 cm too low** (the tape on a table measured 1.13 m
+  there and 0.85 m on the other; its wearer's head stood at 1.9 to 2.05 m). Later its whole origin jumped by
+  5.5 m and its floor by 0.7 m (anchors measured it). The other headset's `local-floor` moved by 0.3 m in height
+  when it went hidden and visible again (taken off, or the Meta button).
+- **Anchors**: two anchors per calibration were made and checked within 5 cm on both headsets; on one the
+  persistent handles were refused (the reason is now logged).
+- **Calibration**: one headset's first mark A was 16 cm (and 11 cm in height) off its second; a double pull
+  took mark B 0.1 s after mark A; presses meant for a story panel took marks while calibrating.
+
+So: tape marks on every headset, the room's height taken from the marks (the first calibration's height of
+mark A over its floor, others allowing for their own floor), anchors to follow origin jumps, and the shared
+space only as an opt-in experiment with its measured distance shown.
+

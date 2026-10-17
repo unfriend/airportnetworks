@@ -1253,12 +1253,12 @@ HOST.anchor = (function () {
       try { pr = f.createAnchor(new XRRigidTransform({ x: p.x, y: p.y, z: p.z }, { x: q.x, y: q.y, z: q.z, w: q.w }), space); } catch (e) { pr = Promise.reject(e); }
       return Promise.resolve(pr).then(a => {
         if (!a) throw new Error('no anchor');
-        if (!a.requestPersistentHandle) return { anchor: a, uuid: '' };
+        if (!a.requestPersistentHandle) return { anchor: a, uuid: '', err: 'no persistent handles here' };
         return a.requestPersistentHandle().then(u => {
           if (N.session !== s) { forget(u); return { anchor: a, uuid: '' }; }
           if (old && old !== u) forget(old);
           return { anchor: a, uuid: u };
-        }, () => ({ anchor: a, uuid: '' }));
+        }, e => ({ anchor: a, uuid: '', err: (e && (e.name + ': ' + e.message)) || 'refused' }));   // (why, for the room's log)
       });
     },
     // a saved handle no longer wanted (Forget calibration): deleted now, or at the start of the next session

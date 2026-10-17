@@ -62,10 +62,11 @@ the app's files from the repository over HTTPS, and prints the address to open.
    keep devices apart: then use a router of your own or a phone's hotspot. Let the machine's firewall accept
    connections on port 8787 (macOS and Windows ask the first time the relay starts: allow it on private
    networks).
-3. For automatic alignment on each Quest 3 (optional, experimental; the marks below are what lines headsets up
-   reliably): in Quest Browser open `chrome://flags`, set **WebXR experiments** to Enabled and restart the
-   browser completely; and turn on **Enhanced spatial services** in the headset's settings (privacy, device
-   permissions). See [docs/shared-spaces.md](../docs/shared-spaces.md).
+3. Optional, for trying Quest Browser's experimental shared space (it is **not used** for alignment unless you
+   press *Shared space: not used* on the Shared panel; in our test it was 0.9 m and 19 degrees out): in Quest
+   Browser open `chrome://flags`, set **WebXR experiments** to Enabled and restart the browser completely; and
+   turn on **Enhanced spatial services** in the headset's settings (privacy, device permissions). See
+   [docs/shared-spaces.md](../docs/shared-spaces.md).
 4. Two marks for calibration: two crosses of tape on the floor or a table, a metre or more apart (at least
    50 cm; the further apart, the better the room lines up). Mark A is the room's origin.
 5. Floor space: Arrange all needs about 8 m wide and 5 m deep for all seven (two rows, starting just in front of
@@ -89,16 +90,15 @@ the app's files from the repository over HTTPS, and prints the address to open.
    asks once whether you are in the same room as the others (then the room is aligned as in AR) or elsewhere
    (then you get your own floor and the others see you as an avatar).
 5. **Calibrate every headset on the same two marks** (Shared panel, **Calibrate**): a bright ring shows the point
-   that counts, at the front of the controller. Put it on mark A, hold still, pull the trigger; then the same on
-   mark B. Orange crosses then show where this headset puts the marks: they must sit on the tape (they show for
-   30 s, and whenever the Shared panel is open). A headset's own calibration is never overridden. It is kept for
-   next time by two anchors at the marks ("Room calibration from last time"; Quest Browser keeps up to 8
-   anchors per site); a headset without anchors, or after a recentre (a long press on the Meta button), may ask
-   to calibrate again. A headset that has not calibrated takes the room from a calibrated one through the shared
-   space, if both share one ("Aligned automatically"; check the orange crosses), else it asks you to calibrate.
-   The panel's room section shows the shared space's id (the same on every headset that shares it) and, on a
-   calibrated headset, how far the shared space puts another calibrated headset's marks from its own: that
-   number says how far the automatic alignment can be trusted.
+   that counts, at the front of the controller. Put it on mark A, hold still, pull the trigger once; then the
+   same on mark B. Pointing at a story panel takes no mark. Orange crosses then show where this headset puts the
+   marks: they must sit on the tape (they show for 30 s, and whenever the Shared panel is open). A headset's own
+   calibration is never overridden. It is kept for next time by two anchors at the marks ("Room calibration from
+   last time"; Quest Browser keeps up to 8 anchors per site); a headset without anchors, or after a recentre (a
+   long press on the Meta button), may ask to calibrate again. The room's floor is set by the first headset
+   that calibrates: if another headset's floor is lower or higher (a Guardian floor set wrong), it says so on the
+   panel ("Your floor is 28 cm lower than the room's") and allows for it, so things stand at the same height
+   for everyone; fix that headset's floor in its boundary settings when you can.
 6. Walk up to a station (or point at its card and pull the trigger): its story runs for everyone there, its
    narration plays where it stands, and everyone sees everyone's pointer.
 7. Desktop operators on the same network open the same address in a browser (and accept the warning once),
@@ -126,8 +126,11 @@ machine or public hosting.
   off the tape: calibrate that headset again, holding still at each mark. Crosses on the tape on both
   headsets but things still apart: please send the logs (below). The pointer rays of the others should start at
   their real controllers.
-- **"Aligned automatically" but off**: the shared space is not accurate (or not shared: compare the ids). Press
-  **Calibrate** on that headset; its own marks then win.
+- **Things at different heights on two headsets**: one headset's floor is off (the panel says by how much, and
+  allows for it once both have calibrated on the same marks). Set the floor again in that headset's boundary
+  settings.
+- **"Your marks are ... further apart than the room's"**: this headset touched other marks than the first one,
+  or touched one badly: calibrate again on the same tape.
 - **Calibration lost after a recentre or a new session**: the anchors were not kept (private browsing, cleared
   site data, more than 8 anchors on the site, or a browser without anchors). Calibrate again; **Forget
   calibration** (press twice) clears a headset's marks and anchors.

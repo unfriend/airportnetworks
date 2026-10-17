@@ -110,6 +110,7 @@ All poses are in **room coordinates** (metres, y up, the floor at y = 0; see the
 | `st.<id>.x` | the story's explore state (opaque JSON, from the story's `collab.state()`) | whoever changes a control |
 | `st.<id>.panel` | `{ x, y, z, yaw }`: the station's panel, relative to its spot | whoever moves the panel |
 | `st.<id>.view` | the story's `collab.view()`: its explore view, shared by the headsets at the station | the scene placed alike |
+| `rm` | `{ a, d, by, at }`: mark A's height over the floor of the first headset that calibrated, and the marks' distance | the room's floor, alike on every headset |
 | `rf.<space id>` | `{ uuid, o, x, g, by, at, m }` (shared-spaces.md): a room frame in a shared space's coordinates, `g` `marks` or `shared`, `m` the marks to draw | the alignment |
 
 Station ids are short random strings. A new room has no stations; the headset panel and the desktop dialog offer
@@ -284,7 +285,11 @@ Differences from the plan:
   without anchors; without anchors a reset or a jump of the head asks to calibrate again; a mark is taken
   where the controller was held still before the trigger, at least 50 cm apart; orange crosses show the marks
   where each headset puts them; the published frame is per shared space (`rf.<id>`, FORMAT networks-3); and
-  every headset sends its log to the relay (`relay/logs/`) so two headsets' numbers can be compared. At a
+  every headset sends its log to the relay (`relay/logs/`) so two headsets' numbers can be compared.
+- **After the second test** (the logs, shared-spaces.md section 9): the shared space is not used for alignment
+  unless asked for (it was 0.9 m and 19 degrees out); the room's floor comes from the marks (`rm`, FORMAT
+  networks-5), so a headset with a wrong floor still shows things at the same height; a press at a story panel
+  or a double pull takes no mark; a refused anchor handle is logged with its reason. At a
   station a story's grip offset from before is dropped, and in explore mode the scene's view (turned and sized,
   which places it in the room) is shared by the headsets there (`st.<id>.view`, FORMAT networks-4; the sway
   rests at a station).

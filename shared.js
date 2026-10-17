@@ -22,7 +22,7 @@
 // (or #debug in a link) prints them as well.
 (function () {
   const PROTO = 1;
-  const FORMAT = 'networks-4';   // the shared state's format (keys, the stories' state()): bump when it changes shape
+  const FORMAT = 'networks-5';   // the shared state's format (keys, the stories' state()): bump when it changes shape
   const EYE = 1.6;               // a standing eye height (m): a station's rig hangs this high over its spot
   const AHEAD = 1.4;             // a station's content floats this far in front of its spot
   // your station: within 1.1 m of its spot for a second; left beyond 1.5 m. Arrange all's spots are 2.4 m apart,
@@ -986,7 +986,7 @@
   function panelSig() {
     return J([C.code, C.status, C.note, PNL.open, PNL.page, OV.panel.hover, C.name, C.color, C.hereSet, here(), askHere(), R.status(), C.mine, C.live, armed(C.mine),
       C.st.map(s => s.id + s.story), C.members.map(m => m.id + m.name + m.color + m.kind + m.here), [...C.pres].map(([id, P]) => id + P.st),
-      C.code ? 0 : (C.rooms || []).map(r => r.code + r.members), C.roomsErr, C.relay, sharedLine(), sourceLine(), forgetArmed(), !!(R.saved || R.frame)]);
+      C.code ? 0 : (C.rooms || []).map(r => r.code + r.members), C.roomsErr, C.relay, sharedLine(), sourceLine(), floorNote(), forgetArmed(), !!(R.saved || R.frame), R.sharedAlign]);
   }
   function drawPanel() {
     const S = OV.panel, sig = panelSig();
@@ -1058,10 +1058,14 @@
           ctx.font = FONT(21); ctx.fillStyle = MUTED; ctx.fillText(fit(ctx, sharedLine(), w), x, y); y += 30;
           const src = sourceLine();
           if (src) { ctx.fillStyle = R.cmp && (R.cmp.d > 0.05 || R.cmp.a > 2) ? '#ffb43b' : MUTED; ctx.fillText(fit(ctx, src, w), x, y); y += 30; }
+          const fl = floorNote();
+          if (fl) { ctx.fillStyle = '#ffb43b'; ctx.fillText(fit(ctx, fl, w), x, y); y += 30; }
           y += 4;
           const fa = forgetArmed();
           button(S, 'forget', x, y, bw, 56, fa ? 'Forget? Press again' : 'Forget calibration', R.saved || R.frame ? forgetAsk : null,
             { px: 22, color: fa ? '#ffb43b' : undefined, on: fa });
+          button(S, 'sharedalign', x + bw + 16, y, bw, 56, R.sharedAlign ? 'Shared space: used' : 'Shared space: not used', () => setSharedAlign(!R.sharedAlign),
+            { px: 21, on: R.sharedAlign });
           y += 72;
         }
       }
@@ -1168,8 +1172,8 @@
       C.hov.set(i, { target: t, x: S && x.uv ? x.uv.x * S.w : 0, y: S && x.uv ? (1 - x.uv.y) * S.vis : 0, at: h.at });
       return { kind: 'shell', point: x.point, dist: x.distance };
     }
-    // calibrating: the trigger anywhere else takes a mark at the controller's tip
-    if (R.calib) { C.hov.set(i, { target: { kind: 'mark' }, at: h.at }); return { kind: 'shell', point: _v2.copy(d).multiplyScalar(0.03).add(o).clone(), dist: 0.03 }; }
+    // calibrating: the trigger anywhere else (not at a story panel) takes a mark at the controller's tip
+    if (R.calib && !(near < Infinity)) { C.hov.set(i, { target: { kind: 'mark' }, at: h.at }); return { kind: 'shell', point: _v2.copy(d).multiplyScalar(0.03).add(o).clone(), dist: 0.03 }; }
     C.hov.set(i, null);
     return null;
   }
@@ -1333,7 +1337,10 @@
     saved: null, anchors: null, anchorIds: null, anchorsOK: false, anchorBusy: false, anchorTried: false, anchorSince: 0, wantAnchors: null, anchorP: null,
     mgen: 0,   // the marks' generation: anchors that arrive for older marks (forgotten, replaced) are thrown away
     mk: null,  // the marks in room coordinates, to draw: [height of A, A to B, height of B] (null: none known)
-    cmp: null, showUntil: 0, prev: null, sampleAt: 0, oldAnchor: '',
+    cmp: null, showUntil: 0, prev: null, sampleAt: 0, oldAnchor: '', markAt: 0,
+    // aligning from the shared space is off unless asked for: on two Quest 3s it was 0.9 m and 19 degrees out
+    // against the tape marks, and at first just the headset's own floor (see shared-spaces.md)
+    sharedAlign: get('collabSharedAlign') === '1',
     lf: new THREE.Matrix4(), lfi: new THREE.Matrix4(), ls: new THREE.Matrix4(), fr: new THREE.Matrix4(), m: new THREE.Matrix4(), mi: new THREE.Matrix4(),
     yaw: 0, hr: new THREE.Vector3(), hyaw: 0, headOK: false, lfOK: false,
   };
@@ -1349,8 +1356,20 @@
   const kFrame = id => 'rf.' + (String(id).replace(/[^\w-]/g, '').slice(0, 64) || 'x');   // the frame published for a shared space
   const level = x => { const l = Math.hypot(x[0], x[2]); return l > 1e-6 ? [x[0] / l, 0, x[2] / l] : null; };
   const yawOfX = x => Math.atan2(-x[2], x[0]);   // the x axis (cos a, 0, -sin a) of a turn by a about y
-  const fromMarks = (a, b) => ({ o: [a[0], 0, a[2]], x: level([b[0] - a[0], 0, b[2] - a[2]]) });
-  const marksMk = (a, b) => [r3(a[1]), r3(Math.hypot(b[0] - a[0], b[2] - a[2])), r3(b[1])];
+  // the room's floor under the marks: the first calibration in the room says how high mark A stands over the floor
+  // (key rm), and a headset whose own floor differs (a Guardian floor set wrong, or one that jumped) stands the room
+  // on the marks instead: its frame's origin is that far above its floor. Other marks (another distance): its floor.
+  const floorUnder = (a, b) => { const M = val('rm'); return M && Number.isFinite(M.a) && Math.abs(M.d - Math.hypot(b[0] - a[0], b[2] - a[2])) <= 0.05 ? a[1] - M.a : 0; };
+  const fromMarks = (a, b) => ({ o: [a[0], floorUnder(a, b), a[2]], x: level([b[0] - a[0], 0, b[2] - a[2]]) });
+  const marksMk = (a, b) => { const y = floorUnder(a, b); return [r3(a[1] - y), r3(Math.hypot(b[0] - a[0], b[2] - a[2])), r3(b[1] - y)]; };
+  // our marks set the room's floor when nobody's do yet, when the room's are our own older ones or other marks, or
+  // when whoever set them has left (asked when a calibration is made or found again, not every frame)
+  function claimFloor(a, b) {
+    const M = val('rm'), d = Math.hypot(b[0] - a[0], b[2] - a[2]);
+    if (M && Number.isFinite(M.a) && Math.abs(M.d - d) <= 0.05 && M.by !== C.id && member(M.by)) return;
+    publish([['rm', { a: r3(a[1]), d: r3(d), by: C.id, at: Math.round(now()) }]]);
+    log('floor claimed', { a: r3(a[1]), d: r3(d) });
+  }
   const dist3 = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
   const own = () => R.src === 'marks' || R.src === 'anchor';
   // how far apart two frames are: [metres between the origins, radians between the x axes]
@@ -1369,7 +1388,7 @@
     const x = fr && fr.x && level(fr.x);
     if (!x) return;
     const was = R.src;
-    R.frame = { o: [fr.o[0], 0, fr.o[2]], x };
+    R.frame = { o: [fr.o[0], Number.isFinite(fr.o[1]) ? fr.o[1] : 0, fr.o[2]], x };
     R.src = src;
     setState(src);
     log('frame', { src, o: R.frame.o.map(r3), x: x.map(r3) });
@@ -1419,7 +1438,7 @@
     if (!tr) { originMoved('reset'); return; }
     // the frame in the new coordinates: the transform is the new origin seen from the old
     _m.fromArray(tr.inverse ? tr.inverse.matrix : new THREE.Matrix4().fromArray(tr.matrix).invert().toArray());
-    const move = fr => { const o = _v.fromArray(fr.o).applyMatrix4(_m).toArray(), x = _v.fromArray(fr.x).transformDirection(_m).toArray(); fr.o = [o[0], 0, o[2]]; fr.x = level(x) || fr.x; };
+    const move = fr => { const o = _v.fromArray(fr.o).applyMatrix4(_m).toArray(), x = _v.fromArray(fr.x).transformDirection(_m).toArray(); fr.o = o; fr.x = level(x) || fr.x; };
     if (R.frame) move(R.frame);
     if (R.saved) for (const k of ['a', 'b']) R.saved[k] = _v.fromArray(R.saved[k]).applyMatrix4(_m).toArray().map(r3);
     if (R.calib && R.calib.a) R.calib.a.applyMatrix4(_m);
@@ -1576,9 +1595,17 @@
     if (!R.anchorsOK && !anchorsFit(P)) return;
     const F = fromMarks(P[0], P[1]);
     if (!F.x) return;
-    const [d, a] = apart(F, R.frame);
-    if (d > 0.02 || a > 0.005) { log('anchors moved', { d: r3(d), a: r3(a) }); R.mk = marksMk(P[0], P[1]); setFrame(F, R.src); }
+    const [d, a] = apart(F, R.frame), h = Math.abs(F.o[1] - R.frame.o[1]);
+    if (d > 0.02 || a > 0.005 || h > 0.02) { log('anchors moved', { d: r3(d), a: r3(a), h: r3(h) }); R.mk = marksMk(P[0], P[1]); setFrame(F, R.src); }
   }
+  // without anchors: the room's floor (key rm) may change; the marks stay where they were touched
+  function refloor() {
+    if (R.anchors && R.anchorsOK || !R.saved || !R.frame) return;
+    const y = floorUnder(R.saved.a, R.saved.b);
+    if (Math.abs(y - R.frame.o[1]) > 0.01) { log('floor', { y: r3(y) }); R.mk = marksMk(R.saved.a, R.saved.b); R.frame.o[1] = y; }
+  }
+  const validFloor = () => { const M = val('rm'); return !!(M && Number.isFinite(M.a) && Number.isFinite(M.d)); };
+  const marksNow = () => (R.anchors && R.anchorsOK && R.anchorP ? R.anchorP : [R.saved.a, R.saved.b]);   // in local-floor now
   // remote people and VR: their own floor, centred where they stand, facing where they face
   function ownFrame(f, local) {
     if (R.src === 'own' && R.frame) return;
@@ -1608,13 +1635,14 @@
     if (R.src === 'own') { R.frame = null; R.src = ''; }
     // (1) our own marks: nothing overrides them; their anchors keep the frame on them
     if (own() && R.frame) {
-      if (t - R.recAt > 500) { R.recAt = t; followAnchors(f); compare(); publishOwn(); }
+      if (t - R.recAt > 500) { R.recAt = t; followAnchors(f); refloor(); compare(); publishOwn(); if (!validFloor()) claimFloor(...marksNow()); }
       return;
     }
     if (R.saved && R.saved.anchors.length === 2 && !R.anchorTried && !R.anchors) restore(t);
     if (R.anchors) {
       const P = anchorsAt(f);
       if (P && (R.anchorsOK || anchorsFit(P))) {
+        if (!validFloor()) claimFloor(P[0], P[1]);
         R.mk = marksMk(P[0], P[1]);
         setFrame(fromMarks(P[0], P[1]), 'anchor', 'Room calibration from last time', 'Found the marks this headset saved. Check: the orange crosses sit on the tape marks.');
         return;
@@ -1622,18 +1650,20 @@
     }
     if ((R.anchorBusy || R.anchors) && t - R.anchorSince < 8000) { setState('restoring'); return; }
     if (R.anchors && !R.anchorsOK) { log('anchors not tracked'); letGo(); }
-    // (2) a frame published for our shared space
-    const sp = !!(R.shared && R.sharedOK && R.sharedId), P = sp ? val(kFrame(R.sharedId)) : null;
+    // (2) a frame published for our shared space (only when asked for: Use the shared space on the panel)
+    const sp = !!(R.sharedAlign && R.shared && R.sharedOK && R.sharedId), P = sp ? val(kFrame(R.sharedId)) : null;
     if (validFrame(P)) {
       if (!R.frame || t - R.recAt > 500) { R.recAt = t; reconcile(P); }
       if (R.frame) return;
     }
     // waiting a little for the shared space's id, or for someone's published frame
-    if (R.shared && !R.frame && t - (R.sharedId ? R.sharedAt : R.sharedAsked) < 8000) { setState('shared-wait'); return; }
+    if (R.sharedAlign && R.shared && !R.frame && t - (R.sharedId ? R.sharedAt : R.sharedAsked) < 8000) { setState('shared-wait'); return; }
     // (3) nobody published for this space: its own origin, published (unless the room was calibrated in another space)
     if (sp && !R.frame && !calibratedElsewhere()) {
       R.mk = null;
-      setFrame(fromShared({ o: [0, 0, 0], x: [1, 0, 0] }), 'shared', 'Shared space found', 'This headset defines the room for the others in its shared space.');
+      const F = fromShared({ o: [0, 0, 0], x: [1, 0, 0] });
+      F.o[1] = 0;   // the space's origin need not lie on the floor
+      setFrame(F, 'shared', 'Shared space found', 'This headset defines the room for the others in its shared space.');
     }
     if (sp && R.src === 'shared' && !validFrame(P) && t - R.pubAt > 2000) publishFrame('shared');
     if (!R.frame && R.state !== 'restoring') {
@@ -1677,7 +1707,7 @@
         }
         releaseAnchors();
         R.anchors = rs.map(r => r.anchor); R.anchorIds = rs.map(r => r.uuid || ''); R.anchorsOK = false; R.recAt = 0;
-        log('anchors made', { saved: rs.every(r => r.uuid) });
+        log('anchors made', { saved: rs.every(r => r.uuid), err: rs.map(r => r.err || '').filter(Boolean) });
       });
     }
     if (!R.frame) { R.aligned = false; return; }
@@ -1717,10 +1747,23 @@
   // what the room frame rests on, in a line: the check that tells whether the shared space can be trusted
   function sourceLine() {
     if (!R.session || !C.code || !here()) return '';
-    if (R.cmp) return `The shared space puts ${whose(R.cmp.by)} marks ${Math.round(R.cmp.d * 100)} cm, ${R.cmp.a}° from yours`;
+    if (R.cmp) return `The shared space puts ${whose(R.cmp.by)} marks ${Math.round(R.cmp.d * 100)} cm, ${R.cmp.a}° from yours` + (R.sharedAlign ? '' : ' (not used)');
     if (R.src === 'adopted') { const P = R.sharedId && val(kFrame(R.sharedId)); return P && gradeOf(P) === 'marks' ? `From ${whose(P.by)} marks, through the shared space` : 'From the shared space\'s own origin'; }
-    if (own()) return R.anchors && R.anchorsOK ? 'Your own marks, held by two anchors' : R.anchors ? 'Your own marks (checking their anchors...)' : 'Your own marks (no anchors: calibrate after a recentre)';
+    if (own()) return (R.anchors && R.anchorsOK ? 'Your own marks, held by two anchors' : R.anchors ? 'Your own marks (checking their anchors...)' : 'Your own marks (no anchors: calibrate after a recentre)');
     return '';
+  }
+  // how this headset's floor compares with the room's (the marks' height), for the panel
+  function floorNote() {
+    if (!own() || !R.frame || !R.saved) return '';
+    const M = val('rm'), [a, b] = marksNow(), d = Math.hypot(b[0] - a[0], b[2] - a[2]);
+    if (M && Number.isFinite(M.d) && Math.abs(M.d - d) > 0.05) return `Your marks are ${Math.round(Math.abs(M.d - d) * 100)} cm ${d > M.d ? 'further apart' : 'closer'} than the room's: other tape?`;
+    const y = R.frame.o[1];
+    return Math.abs(y) > 0.03 ? `Your floor is ${Math.round(Math.abs(y) * 100)} cm ${y > 0 ? 'lower' : 'higher'} than the room's (allowed for)` : '';
+  }
+  function setSharedAlign(on) {
+    R.sharedAlign = !!on; put('collabSharedAlign', on ? '1' : null); log('shared align', { on: R.sharedAlign });
+    if (!on && (R.src === 'adopted' || R.src === 'shared')) { R.frame = null; R.src = ''; R.aligned = false; }
+    R.recAt = 0; R.sharedAt = R.sharedAsked = performance.now(); changed();
   }
   const whose = id => { const m = member(id); return id === C.id ? 'your' : ((m && m.name) || 'someone') + '\'s'; };
   const FG = { until: 0 };   // Forget calibration takes two presses: the first arms it for 3 s
@@ -1742,8 +1785,10 @@
     return p.distanceTo(h.o) > 0.05 ? h.o.clone() : p;
   }
   function mark(i) {
-    const h = C.rays.get(i);
+    const h = C.rays.get(i), t = performance.now();
     if (!R.calib || !h || !R.lfOK) return;
+    if (t - R.markAt < 600) { log('mark ignored', { why: 'too soon' }); return; }   // a double pull (or a bouncing trigger)
+    R.markAt = t;
     const s = steady(h), p = s.clone().applyMatrix4(R.lfi);   // the controller's target-ray origin, in local-floor coordinates
     log('mark', { step: R.calib.step, p: p.toArray().map(r3), moved: r3(s.distanceTo(h.o)) });
     if (R.calib.step === 'a') { R.calib.a = p; R.calib.step = 'b'; setState('mark-b'); notice('Mark A taken', 'Now put the ring on mark B, a metre or more from A, hold still and pull the trigger.', 0); return; }
@@ -1754,8 +1799,12 @@
     R.mgen++; R.anchorBusy = false;
     R.saved = { v: 2, a: a.toArray().map(r3), b: p.toArray().map(r3), at: Math.round(now()), anchors: [] };
     storeSaved();   // kept once its anchors are made
+    claimFloor(R.saved.a, R.saved.b);
     R.mk = marksMk(R.saved.a, R.saved.b); R.cmp = null; R.pubAt = 0; R.recAt = 0;
-    setFrame(fromMarks(R.saved.a, R.saved.b), 'marks', 'Room calibrated', 'Check: the orange crosses sit on the tape marks. Everyone who calibrates with the same marks sees the stations in the same places.');
+    const dh = R.saved.b[1] - R.saved.a[1];
+    if (Math.abs(dh) > 0.05) setFrame(fromMarks(R.saved.a, R.saved.b), 'marks', 'Marks at different heights',
+      `Mark B is ${Math.round(Math.abs(dh) * 100)} cm ${dh > 0 ? 'higher' : 'lower'} than mark A. If both are on one table or the floor, calibrate again, holding the controller the same way at both.`);
+    else setFrame(fromMarks(R.saved.a, R.saved.b), 'marks', 'Room calibrated', 'Check: the orange crosses sit on the tape marks. Everyone who calibrates with the same marks sees the stations in the same places.');
     R.wantAnchors = true;   // made in the next frame, at the marks as they are then
   }
   function status() {
@@ -1778,6 +1827,8 @@
     if (R.anchorP) S.anchors = R.anchorP.map(p => p.map(r3));
     if (R.saved) S.marks = { a: R.saved.a, b: R.saved.b, at: R.saved.at, kept: R.saved.anchors.length === 2 };
     if (R.cmp) S.cmp = R.cmp;
+    if (validFloor()) S.rm = val('rm');
+    S.sharedAlign = R.sharedAlign;
     const P = R.sharedId ? val(kFrame(R.sharedId)) : null;
     if (validFrame(P)) S.pub = { by: P.by, g: gradeOf(P), at: P.at };
     log('sample', S);
@@ -1851,6 +1902,7 @@
   HOST.room = {
     get state() { return R.state; }, get aligned() { return R.aligned; }, get frame() { return R.frame; }, get src() { return R.src; },
     watch, update: f => update(f), place, placing, adopt, calibrate, cancel, mark, status, forget: forgetMarks, sharedLine, sourceLine,
+    sharedAlign(on) { if (on !== undefined) setSharedAlign(on); return R.sharedAlign; }, floorNote,
     get marks() { return R.mk; }, get cmp() { return R.cmp; }, frameKey: kFrame,
     // the station's panel, for a story's xrRecenter while placed (off, pp, pr in its rig)
     saved: () => { const L = liveSt(), P = panelPose(L); return placing() ? { off: [0, 0, 0], pp: P.pp, pr: P.pr } : null; },
