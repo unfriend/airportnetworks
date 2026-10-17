@@ -460,12 +460,14 @@ try {
   // the shared space as the relay logs caught Quest Browser: its pose at the head right after waking (not used,
   // nothing compared or published from it), and a space that is just this headset's own floor (named on the panel)
   const glitch = await H.evaluate(() => {
-    const X = window.__xr, keep = X.W.shared, R = HOST.room.internals();
+    const X = window.__xr, keep = X.W.shared, R = HOST.room.internals(), sa = R.sharedAlign;
+    R.sharedAlign = false;   // the adopted frame stays put meanwhile
     X.W.shared = X.W.head.clone(); X.step(); X.step();
     const atHead = !R.sharedOK && R.sharedHead && window.__collabLog.some(e => e.ev === 'shared at head');
     X.W.shared = X.W.floor.clone(); X.step(); X.step();
     const own = R.sharedOK && /your own floor/.test(HOST.room.sharedLine());
     X.W.shared = keep; X.step(); X.step();
+    R.sharedAlign = sa;
     return { atHead, own, back: R.sharedOK && !R.sharedHead && !/your own floor/.test(HOST.room.sharedLine()) };
   });
   check('headset: a shared space at the head is not used, and one that is just its own floor is named on the panel', glitch.atHead && glitch.own && glitch.back, JSON.stringify(glitch));

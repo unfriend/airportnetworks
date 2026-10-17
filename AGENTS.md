@@ -245,8 +245,8 @@ the content floats 1.4 m ahead of the spot), with `st.<id>.play` (the clock:
   that held to 2 cm over 71 minutes and three sessions; so the 0.9 m and 19
   degrees (later 1.2 m and 28, 2.4 m and 84) were two spaces, not an
   inaccurate one. Right after waking Quest gave the head's pose as the space's
-  for up to 15 s: such a pose, and any within 20 s of waking, is not used
-  (`sharedHead`, `visibleAt`). The panel names a space that is exactly this
+  for up to 15 s: such a pose is not used (`sharedHead`), and nothing is
+  published or compared through the space within 20 s of waking (`settled`). The panel names a space that is exactly this
   headset's own floor (`sharedOwn`: the default one, the first headset, or not
   joined) and shows the browser's version; the log has the page address.
 - Off and on again (the session hidden, then visible: sleep, the system menu)

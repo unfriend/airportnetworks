@@ -1507,8 +1507,10 @@
     return { o: new THREE.Vector3().fromArray(fr.o).applyMatrix4(M).toArray().map(r3), x: new THREE.Vector3().fromArray(fr.x).transformDirection(M).toArray().map(r3) };
   }
   // our frame for our shared space: g 'marks' (a calibration, at: when) or 'shared' (the space's own origin)
+  // nothing is published or compared through the shared space within 20 s of waking (its pose was the head's then)
+  const settled = () => !R.visibleAt || performance.now() - R.visibleAt > 20000;
   function publishFrame(g, at) {
-    if (!R.frame || !R.sharedId || !R.sharedOK) return;
+    if (!R.frame || !R.sharedId || !R.sharedOK || !settled()) return;
     const S = toShared(R.frame);
     R.pubAt = performance.now();
     publish([[kFrame(R.sharedId), { uuid: R.sharedId, o: S.o, x: S.x, g, by: C.id, at: at || Math.round(now()), m: R.mk }]]);
@@ -1520,7 +1522,7 @@
   // a calibrated headset publishes its frame for its shared space, so headsets without marks there can take it;
   // a newer calibration of someone still in the room stays
   function publishOwn() {
-    if (!R.shared || !R.sharedOK || !R.sharedId || !R.frame || performance.now() - R.pubAt < 1000) return;
+    if (!R.shared || !R.sharedOK || !R.sharedId || !R.frame || !settled() || performance.now() - R.pubAt < 1000) return;
     const P = val(kFrame(R.sharedId)), at = (R.saved && R.saved.at) || 0, mine = validFrame(P) && P.by === C.id;
     if (validFrame(P) && !mine && gradeOf(P) === 'marks' && member(P.by) && (+P.at || 0) >= at) return;
     if (mine && P.at === at && P.g === 'marks') { const F = fromShared(P), [d, a] = apart(F, R.frame); if (d < 0.01 && a < 0.003 && Math.abs(F.o[1] - R.frame.o[1]) < 0.01) return; }
@@ -1528,7 +1530,7 @@
   }
   // with marks of our own: how far the shared space puts another headset's calibration from ours
   function compare() {
-    const P = R.sharedOK && R.sharedId ? val(kFrame(R.sharedId)) : null;
+    const P = R.sharedOK && R.sharedId && settled() ? val(kFrame(R.sharedId)) : null;
     if (!validFrame(P) || P.by === C.id || gradeOf(P) !== 'marks' || !R.frame) { R.cmp = null; return; }
     const F = fromShared(P);
     if (!level(F.x)) { R.cmp = null; return; }
@@ -1661,7 +1663,7 @@
   function afterWake(f, t) {
     if (R.anchors && R.anchorsOK && anchorsAt(f)) { log('marks tracked again', { after: Math.round(t - R.woke) }); R.woke = 0; R.recAt = 0; return true; }
     if (t - R.woke < 5000) return true;
-    const reset = R.resetAt > R.sleptAt, anchors = !!R.anchors, ids = !!(R.saved && R.saved.anchors.length === 2);
+    const reset = R.resetAt >= R.sleptAt, anchors = !!R.anchors, ids = !!(R.saved && R.saved.anchors.length === 2);
     log('marks unanswered', { reset, anchors, handles: ids });
     R.woke = 0;
     if (anchors && ids) { releaseAnchors(); R.anchorTried = false; }   // looked for again by their handles (align)
@@ -1762,10 +1764,10 @@
       if (p) {
         R.ls.fromArray(p.transform.matrix);
         // right after waking Quest gave the head's pose as the shared space's for up to 15 s (relay logs: frames
-        // published and compared then were metres out): such a pose is not used, nor any in the 20 s after waking
+        // published and compared then were metres out): such a pose is not used (and see settled)
         const q = p.transform.position, atHead = HD.ok && Math.hypot(q.x - HD.p.x, q.y - HD.p.y, q.z - HD.p.z) < 0.05;
         if (atHead !== R.sharedHead) { R.sharedHead = atHead; log(atHead ? 'shared at head' : 'shared off head', {}); }
-        R.sharedOK = !atHead && !(R.visibleAt && performance.now() - R.visibleAt < 20000);
+        R.sharedOK = !atHead;
         if (R.sharedOK) ownFloorCheck();
       }
     }

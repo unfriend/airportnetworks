@@ -209,8 +209,8 @@ same page address, the relay on the same Wi-Fi; every 5 s each headset logged it
   - so the offset between them was a different rigid one every session: 0.9 m and 19 degrees, 1.2 m and 28,
     2.4 m and 84, always 44 cm in height. Not an inaccurate shared space: two spaces.
   - Right after the headset became visible again, `getPose(shared, local)` returned the head's pose for up to
-    15 s (on both headsets); frames published and compared then were metres out. Such poses are now ignored, as
-    is any pose within 20 s of waking.
+    15 s (on both headsets); frames published and compared then were metres out. Such poses are now ignored, and
+    nothing is published or compared through the space within 20 s of waking.
   Next test: the same Quest Browser version on both, the same page address, both in AR, one started ten
   seconds before the other; the second's panel must not say *your own floor*, and the distance line should then
   read a few centimetres if the space is usable.
