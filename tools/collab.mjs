@@ -487,9 +487,12 @@ try {
   // a ray: the others see it in room coordinates
   const ow = apply(ROOM, [S1.x + 0.2, 1.3, S1.z - 0.1]), dw = unit([0.3, -0.2, -1]);
   await H.evaluate(([o, d]) => window.__xr.ctrl(0, o, d), [ow, dw]);
-  await frames(H, 500);
   const hId = await H.evaluate(() => HOST.collab.id);
-  const seen = await A.evaluate(id => { const P = HOST.collab.people().get(id); return P && P.head ? { head: P.head, hands: P.hands, st: P.st } : null; }, hId);
+  let seen = null;   // presence goes out 15 times a second; a busy machine may take a while to show it
+  for (let k = 0; k < 8 && !(seen && seen.hands.length); k++) {
+    await frames(H, 400);
+    seen = await A.evaluate(id => { const P = HOST.collab.people().get(id); return P && P.head ? { head: P.head, hands: P.hands, st: P.st } : null; }, hId);
+  }
   const wantRay = [...unapply(ROOM, ow), ...rot(-ROOM[3], dw)], headRoom = unapply(ROOM, headAt(S1));
   check('headset: its rays reach the others in room coordinates', seen && seen.hands.length === 1 && near(seen.hands[0].slice(0, 6), wantRay, 3e-3) && seen.hands[0][6] > 0,
     seen ? `got ${fmt(seen.hands[0] || [])}, want ${fmt(wantRay)}` : 'no presence');
