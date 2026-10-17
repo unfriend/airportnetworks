@@ -56,7 +56,11 @@ and the WebXR experiments flag), and line up again after standby. The relay keep
 relay/logs/ for checking alignment. People elsewhere and
 screens
 see the stations round their own spot. Screens get a room map and Follow a
-station. The flock's birds and the robots move separately on each device; their
+station. A station moves with the grip on its ring or card in a headset (point
+to swing it round, raise or lower to push or pull, twist to turn it), or by
+dragging its dot (or its square, to turn it) on the room map; everyone sees it
+move. In a room nobody can move the story panels or scenes, so they look the
+same for everyone. The flock's birds and the robots move separately on each device; their
 controls, falcons and crumbs are shared. Rooms need the relay (relay/, Node, no
 packages), which GitHub Pages cannot run: for now it runs on a machine on the
 same Wi-Fi as the headsets and serves the app itself (node relay/server.mjs --lan

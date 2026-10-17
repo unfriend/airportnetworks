@@ -72,7 +72,7 @@ const STORIES = {
 };
 // the stories a pretend headset walks between: its own (the last in STORIES, whose station has an explore clock and
 // stored state; the flock's sky catches every ray, so its rays have a length), another, and one whose card it picks
-const HEADSET_STORY = 'flock', OTHER_STORY = 'spatial', PICK_STORY = 'proteins';
+const HEADSET_STORY = 'flock', OTHER_STORY = 'spatial', PICK_STORY = 'proteins', MOVE_STORY = 'nmd';
 
 const root = path.join(path.dirname(new URL(import.meta.url).pathname), '..');
 const argv = process.argv.slice(2), shots = argv.includes('--shots') ? argv[argv.indexOf('--shots') + 1] : '';
@@ -173,9 +173,10 @@ function installXR(o) {
       return Promise.resolve(mkAnchor(w));
     },
   };
-  X.sl = [];
+  X.sl = []; X.ev = {};
   X.session = { mode: o.mode, enabledFeatures: o.features, visibilityState: 'visible', renderState: {},
-    addEventListener(t, fn) { if (t === 'visibilitychange') X.sl.push(fn); }, removeEventListener(t, fn) { X.sl = X.sl.filter(f => f !== fn); },
+    addEventListener(t, fn) { if (t === 'visibilitychange') X.sl.push(fn); else (X.ev[t] = X.ev[t] || []).push(fn); },
+    removeEventListener(t, fn) { X.sl = X.sl.filter(f => f !== fn); if (X.ev[t]) X.ev[t] = X.ev[t].filter(f => f !== fn); }, inputSources: [],
     requestReferenceSpace: t => (t === 'local' || o.features.includes(t) ? Promise.resolve(X.spaces[t]) : Promise.reject(new Error(t + ' not supported'))),
     requestAnimationFrame(cb) { X.raf.push(cb); return X.raf.length; },
     restorePersistentAnchor: u => (X.handles.has(u) ? Promise.resolve(mkAnchor(X.handles.get(u))) : Promise.reject(new Error('unknown'))),
@@ -198,6 +199,16 @@ function installXR(o) {
   X.head = h => { X.W.head = M(h); };
   // the headset taken off (hidden) or put on again (visible): its listeners in the order they were added
   X.visibility = v => { X.session.visibilityState = v; for (const fn of X.sl.slice()) fn({ session: X.session }); };
+  // a session event (squeezestart, squeezeend) to the listeners the page added
+  X.fire = (t, e) => { for (const fn of (X.ev[t] || []).slice()) fn(e); };
+  // controller i by its whole pose in the story's local space: the story's controller and the session's input
+  // source (whose target ray the shell reads while it carries a station)
+  X.aim = (i, m) => {
+    const c = HOST.cur.peek('XR.ctrls')[i];
+    const src = X.session.inputSources[i] || (X.session.inputSources[i] = { targetRayMode: 'tracked-pointer', handedness: i ? 'left' : 'right', gamepad: null, targetRaySpace: {} });
+    c.src = src; c.g.visible = true; c.g.matrix.copy(m);
+    src.targetRaySpace.world = X.W.local.clone().multiply(m);
+  };
   // a controller's ray, given in the room (world) coordinates
   X.ctrl = (i, ow, dw) => {
     const c = HOST.cur.peek('XR.ctrls')[i];
@@ -293,6 +304,25 @@ try {
   const gone = await until(B, id => !HOST.collab.station(id), rmId, 5000);
   check('Remove asks first (Remove for everyone?), and a second press removes the station for everyone', rm.text === 'Remove for everyone?' && rm.still && gone,
     `first press: ${rm.text}, still there ${rm.still}, then gone ${gone} (A: ${await A.evaluate(id => !!HOST.collab.station(id), rmId)})`);
+  // the room map: a station's dot dragged moves it, its square dragged turns it, for everyone
+  const mapT = await A.evaluate(async () => {
+    const cv = document.querySelector('#shMap'), s = HOST.collab.stations().find(x => x.story === 'proteins') || HOST.collab.stations()[0];
+    for (let k = 0; k < 20 && !HOST.collab.mapView(); k++) await new Promise(r => setTimeout(r, 100));   // drawn by the pump
+    const tf = HOST.collab.mapView();
+    if (!tf || !s) return { err: 'no map' };
+    const r = cv.getBoundingClientRect(), ev = (type, x, z) => cv.dispatchEvent(new PointerEvent(type, { clientX: r.left + tf.X(x), clientY: r.top + tf.Y(z), pointerId: 7, bubbles: true }));
+    ev('pointerdown', s.x, s.z); ev('pointermove', s.x + 0.5, s.z + 0.3); await new Promise(r => setTimeout(r, 150)); ev('pointermove', s.x + 1, s.z + 0.6); ev('pointerup', s.x + 1, s.z + 0.6);
+    const m = HOST.collab.station(s.id), tf2 = HOST.collab.mapView(), r2 = cv.getBoundingClientRect(), a = s.yaw + Math.PI / 2;
+    const at = (x, z) => ({ clientX: r2.left + tf2.X(x), clientY: r2.top + tf2.Y(z), pointerId: 8, bubbles: true });
+    cv.dispatchEvent(new PointerEvent('pointerdown', at(m.x - 1.4 * Math.sin(m.yaw), m.z - 1.4 * Math.cos(m.yaw))));
+    cv.dispatchEvent(new PointerEvent('pointermove', at(m.x - 1.4 * Math.sin(a), m.z - 1.4 * Math.cos(a))));
+    cv.dispatchEvent(new PointerEvent('pointerup', at(m.x - 1.4 * Math.sin(a), m.z - 1.4 * Math.cos(a))));
+    return { id: s.id, from: [s.x, s.z, s.yaw], moved: [m.x, m.z], turned: HOST.collab.station(s.id).yaw, follow: HOST.collab.internals().follow };
+  });
+  const mapB = !mapT.err && await until(B, ([id, x, z, yaw]) => { const s = HOST.collab.station(id); return !!s && Math.abs(s.x - x) < 0.005 && Math.abs(s.z - z) < 0.005 && Math.abs(Math.sin(s.yaw - yaw)) < 0.005; },
+    [mapT.id, mapT.from[0] + 1, mapT.from[1] + 0.6, mapT.from[2] + Math.PI / 2], 3000);
+  check('the room map: a station\'s dot dragged moves it and its square dragged turns it, for everyone (a drag follows nothing)', !mapT.err &&
+    near(mapT.moved, [mapT.from[0] + 1, mapT.from[1] + 0.6], 0.005) && Math.abs(Math.sin(mapT.turned - mapT.from[2] - Math.PI / 2)) < 0.005 && !mapT.follow && mapB, JSON.stringify(mapT));
   await A.evaluate(() => { HOST.collab.dialog(false); HOST.collab.arrange({ x: 0, z: 0, yaw: 0 }); });
   await st7(B); await st7(C);
 
@@ -533,7 +563,8 @@ try {
   check('headset: taken off and put on again, it writes nothing and takes the station\'s clock again', q4 === q3 && modeBack === 'explore', `${q4 - q3} writes, mode ${modeBack}`);
   const onAgain = await H.evaluate(() => [HOST.curKey, HOST.cur.peek('XR.stories'), HOST.collab.mine()]);
   check('headset: and it stays in its story at its station (no Stories screen)', onAgain[0] === HEADSET_STORY && onAgain[1] === false && onAgain[2] === S1.id, JSON.stringify(onAgain));
-  check('headset: at the station, HOST.anchor holds the place and locks all but panels', await H.evaluate(() => HOST.anchor.held() && HOST.anchor.locked('globe') && !HOST.anchor.locked('panel')));
+  check('headset: at the station, HOST.anchor holds the place, and in the room the grip moves no panel and no scene', await H.evaluate(() => HOST.anchor.held() &&
+    HOST.anchor.locked('globe') && HOST.anchor.locked('panel') && HOST.room.inRoom()));
   const wrote = Object.entries((await roomInfo(code)).keys).filter(([, e]) => e.seq > q2).map(([k, e]) => `${k} by ${e.by === hId0 ? 'the headset' : e.by}`);
   const wroteWhy = wrote.length ? ' ' + JSON.stringify(Object.entries((await roomInfo(code)).keys).filter(([, e]) => e.seq > q2).map(([k, e]) => [k, e.seq, e.v])) + ' ' +
     await H.evaluate(() => JSON.stringify(window.__collabLog.filter(e => /publish|switch|attach|apply|recv|go|station|adopt|hold/.test(e.ev)).slice(-40).map(e => [e.t, e.ev, e.keys || e.st || e.story || e.id || '']))) : '';
@@ -651,6 +682,56 @@ try {
   check(`headset: pointing at a station's card and pulling the trigger goes there (${PICK_STORY}, placed at its station)`, picked && near(rigP.slice(0, 3), wantP.slice(0, 3), 1e-4),
     `story ${await H.evaluate(() => HOST.curKey)}, rig ${fmt(rigP)}, want ${fmt(wantP)}, card ${cardAt && fmt(cardAt)}; ` +
     await H.evaluate(() => JSON.stringify(window.__collabLog.slice(-8).map(e => [e.ev, e.id || e.st || e.story || '']))));
+  // the grip on another station's card picks it up: pointed 20 degrees further left it swings round the hand, raised
+  // 10 degrees it goes further, a twist of the wrist turns it; the room has it while it moves (ten times a second)
+  // and where it is put down; when someone else moves it, its ring here glides there
+  const SM = await stationFor(MOVE_STORY);
+  const grabStep = (what, deg) => H.evaluate(async ([id, what, deg]) => {
+    const X = window.__xr, V = THREE.Vector3, Q = THREE.Quaternion, rad = deg * Math.PI / 180;
+    const run = async ms => { const t0 = performance.now(); while (performance.now() - t0 < ms) { X.step(); await new Promise(r => setTimeout(r, 16)); } };
+    const G = window.__grab = window.__grab || {};
+    if (what === 'aim') {
+      const card = HOST.collab.overlay().cards.get(id);
+      if (!card) return { err: 'no card' };
+      const head = new V().setFromMatrixPosition(X.W.head).applyMatrix4(X.W.local.clone().invert());
+      G.o = head.clone().add(new V(0.12, -0.3, -0.1));
+      G.q = new Q().setFromUnitVectors(new V(0, 0, -1), card.mesh.getWorldPosition(new V()).sub(G.o).normalize());
+    } else if (what === 'swing') G.q.premultiply(new Q().setFromAxisAngle(new V(0, 1, 0), rad));
+    else if (what === 'raise') { const f = new V(0, 0, -1).applyQuaternion(G.q); G.q.premultiply(new Q().setFromAxisAngle(f.cross(new V(0, 1, 0)).normalize(), rad)); }
+    else if (what === 'twist') G.q.premultiply(new Q().setFromAxisAngle(new V(0, 0, -1).applyQuaternion(G.q), rad));
+    if (G.o) X.aim(0, new THREE.Matrix4().compose(G.o, G.q, new V(1, 1, 1)));
+    if (what === 'grip') X.fire('squeezestart', { inputSource: X.session.inputSources[0] });
+    if (what === 'let go') X.fire('squeezeend', { inputSource: X.session.inputSources[0] });
+    await run(what === 'aim' ? 200 : 400);
+    const h = HOST.collab.internals().hov.get(0), o = HOST.room.toRoom(G.o.clone());
+    return { hov: h && h.target.kind === 'station' ? h.target.id : '', moving: HOST.room.moving, hand: [o.x, o.z], st: HOST.collab.station(id) };
+  }, [SM.id, what, deg || 0]);
+  const g0 = await grabStep('aim'), g1 = await grabStep('grip');
+  const sM0 = g1.st, vM0 = [sM0.x - g1.hand[0], 0, sM0.z - g1.hand[1]], deg = d => d * Math.PI / 180;
+  const g2 = await grabStep('swing', 20);
+  const vM1 = rot(deg(20), vM0), wM1 = [g1.hand[0] + vM1[0], g1.hand[1] + vM1[2], sM0.yaw + deg(20)];
+  const seenA = await until(A, ([id, w]) => { const s = HOST.collab.station(id); return !!s && Math.hypot(s.x - w[0], s.z - w[1]) < 0.01; }, [SM.id, wM1], 3000);
+  await grabStep('raise', 10);
+  await grabStep('twist', 30);
+  const g5 = await grabStep('let go');
+  const kM2 = Math.exp(2 * deg(10)), wantM = [g1.hand[0] + vM1[0] * kM2, g1.hand[1] + vM1[2] * kM2, Math.atan2(Math.sin(sM0.yaw + deg(20) - deg(30)), Math.cos(sM0.yaw + deg(20) - deg(30)))];
+  const putA = await until(A, ([id, w]) => { const s = HOST.collab.station(id); return !!s && Math.hypot(s.x - w[0], s.z - w[1]) < 0.01 && Math.abs(Math.sin(s.yaw - w[2])) < 0.01; }, [SM.id, wantM], 3000);
+  check('headset: the grip on a station\'s card picks it up (its story does not move), pointing swings it round, and the others see it move',
+    g0.hov === SM.id && g1.moving === SM.id && !(await H.evaluate(() => HOST.cur.peek('XR.ctrls[0].grab'))) && !!g2.st && Math.hypot(g2.st.x - wM1[0], g2.st.z - wM1[1]) < 0.01 && seenA,
+    JSON.stringify({ hov: g0.hov, moving: g1.moving, st: g2.st, want: wM1, seenA }));
+  check('headset: raised it goes further, a twist of the wrist turns it, and the room has it where it is put down', putA && !g5.moving &&
+    Math.hypot(g5.st.x - wantM[0], g5.st.z - wantM[1]) < 0.01 && Math.abs(Math.sin(g5.st.yaw - wantM[2])) < 0.01, JSON.stringify({ st: g5.st, want: wantM, putA }));
+  await A.evaluate(s => HOST.collab.publish([['st.' + s.id, { story: s.story, x: s.x, z: s.z, yaw: s.yaw }]]), sM0);
+  await until(H, ([id, x]) => { const s = HOST.collab.station(id); return !!s && Math.abs(s.x - x) < 1e-6; }, [SM.id, sM0.x], 3000);
+  const glide = await H.evaluate(async ([id, x, z]) => {
+    const X = window.__xr, ring = () => { const g = HOST.collab.overlay().rings.get(id).g; return Math.hypot(g.position.x - x, g.position.z - z); };
+    const before = ring(); X.step(); const one = ring();
+    const t0 = performance.now(); while (performance.now() - t0 < 900) { X.step(); await new Promise(r => setTimeout(r, 16)); }
+    return { before, one, after: ring() };
+  }, [SM.id, sM0.x, sM0.z]);
+  check('headset: a station someone else moves glides to its new place here', glide.before > 0.5 && glide.one > 0.02 && glide.one < glide.before && glide.after < 0.002, JSON.stringify(glide));
+  await H.evaluate(() => { const c = HOST.cur.peek('XR.ctrls')[0]; c.g.visible = false; c.src = null; window.__xr.session.inputSources.length = 0; });
+  await frames(H, 150);
   // the room frame moves (newer marks elsewhere): this headset follows within a second
   ROOM = [2.05, 0, 1, 0.3];
   await A.evaluate(f => HOST.collab.publish([[HOST.room.frameKey('U1'), f]]), frameFor(ROOM, 'U1', aId, Date.now()));

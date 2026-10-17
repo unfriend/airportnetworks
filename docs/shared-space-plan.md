@@ -246,8 +246,9 @@ What each story shares (`collab.state()`) and its effects:
 Differences from the plan:
 
 - **Hooks** (section 7): `collab` also has `panel(p, yaw)` (a panel another person moved applies live), and every
-  story has four more lines: `HOST.anchor.locked(h.kind)` in `xrGrab` (at a station the grip moves only the panel,
-  and the shell's own things never move the scene); in `xrFreshStart` a headset taken off at a station keeps its
+  story has four more lines: `HOST.anchor.locked(h.kind)` in `xrGrab` (at a station the grip moved only the panel;
+  since stations can be moved by hand, in a room it moves nothing, and the grip on a station's preview moves that
+  station, done by the shell; the shell's own things never move the scene); in `xrFreshStart` a headset taken off at a station keeps its
   story and place instead of starting a new wearer on the Stories screen; in `xrLandingClose` Start on the headset
   Stories screen at a station does not restart the story for everyone. `effect` exists only where a story has
   one-shot effects. A story's `dispose()` clears its timers (quick story changes in a room made a late one crash

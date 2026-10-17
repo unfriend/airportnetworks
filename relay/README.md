@@ -88,7 +88,10 @@ the app's files from the repository over HTTPS, and prints the address to open.
    then **Arrange all** puts the seven stories as stations in two rows in front of you (or one story where you
    stand: **Add here** in the headset, **Add a station** on the page). Arrange all from a page, without a
    headset, puts the rows round the room's origin (mark A). Everyone else: **Shared**, then pick the room under
-   **Open rooms**.
+   **Open rooms**. To move a station, point at its ring or card in the headset and hold the grip: point to swing
+   it round, raise or lower the controller to push it away or bring it nearer, twist your wrist to turn it, and let
+   go to put it down (everyone sees it move). On the page, drag its dot on the room map to move it, or its small
+   square to turn it. In a room nobody can move the story panels or the scenes, so everyone sees them alike.
 4. In the room, use **Enter AR**: you see the room and each other, and the stations stand in it. In VR the panel
    asks once whether you are in the same room as the others (then the room is aligned as in AR) or elsewhere
    (then you get your own floor and the others see you as an avatar).

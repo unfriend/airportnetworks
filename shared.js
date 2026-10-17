@@ -461,6 +461,93 @@
   function unfollow() { log('unfollow', { st: C.follow }); C.follow = ''; C.mine = ''; C.live = ''; C.picked = false; changed(); }
   // the stories' station: its spot (x, z), facing yaw; the content floats 1.4 m ahead
   const content = s => { const [fx, fz] = fwd(s.yaw); return [s.x + AHEAD * fx, s.z + AHEAD * fz]; };
+  // where a station is drawn and placed in a headset: it glides to where the room has it (a station someone moves
+  // by hand arrives ten times a second), and the one carried here follows the hand at once
+  const SHOWN = new Map();
+  const shown = s => SHOWN.get(s.id) || s;
+  function easeStations(dt) {
+    const k = 1 - Math.exp(-dt * 12);
+    for (const id of SHOWN.keys()) if (!C.stById.has(id)) SHOWN.delete(id);
+    for (const s of C.st) {
+      let E = SHOWN.get(s.id);
+      if (!E) { SHOWN.set(s.id, { id: s.id, story: s.story, x: s.x, z: s.z, yaw: s.yaw }); continue; }
+      E.story = s.story;
+      if (MV.id === s.id && MV.pose) { Object.assign(E, MV.pose); continue; }
+      let a = (s.yaw - E.yaw) % (2 * Math.PI);
+      if (a > Math.PI) a -= 2 * Math.PI; else if (a < -Math.PI) a += 2 * Math.PI;
+      if (Math.hypot(s.x - E.x, s.z - E.z) < 0.002 && Math.abs(a) < 0.002) { E.x = s.x; E.z = s.z; E.yaw = s.yaw; continue; }
+      E.x += (s.x - E.x) * k; E.z += (s.z - E.z) * k; E.yaw += a * k;
+    }
+  }
+
+  // ------------------------------------------------- moving a station by hand --
+  // In a headset the grip on a station's ring or card picks it up: it swings round you as you point, goes further
+  // as you raise the controller and comes nearer as you lower it, turns as you twist your wrist, and goes out to
+  // the room ten times a second, so everybody sees it move; letting go of the grip puts it down. The grip comes
+  // from the session itself (controller i is session.inputSources[i] in three.js), so the stories need nothing
+  const MV = { id: '', src: null, a: null, pose: null, at: 0, sent: '' };
+  function pulse(src, v, ms) { try { const a = src && src.gamepad && src.gamepad.hapticActuators; if (a && a[0] && a[0].pulse) a[0].pulse(v, ms); } catch (e) { /* no haptics */ } }
+  function grabStation(e) {
+    const s = R.session;
+    if (!s || !C.code || !R.aligned || MV.src || !e || !e.inputSource) return;
+    let i = -1;
+    try { i = [...s.inputSources].indexOf(e.inputSource); } catch (err) { /* gone */ }
+    const h = i >= 0 ? C.hov.get(i) : null;
+    if (!h || h.target.kind !== 'station' || !C.stById.has(h.target.id)) return;
+    Object.assign(MV, { id: h.target.id, src: e.inputSource, a: null, pose: null, at: 0, sent: '' });
+    log('station grab', { st: MV.id });
+    pulse(e.inputSource, 0.4, 25);
+    changed();
+  }
+  function dropStation(e) {
+    if (!MV.src || (e && e.inputSource !== MV.src)) return;
+    if (MV.pose) sendStation(true);
+    log('station put', { st: MV.id, at: MV.pose ? [r3(MV.pose.x), r3(MV.pose.z), r3(MV.pose.yaw)] : null });
+    if (MV.pose) pulse(MV.src, 0.25, 15);
+    Object.assign(MV, { id: '', src: null, a: null, pose: null });
+    changed();
+  }
+  const _mc = new THREE.Matrix4();
+  const turnTo = a => { a %= 2 * Math.PI; return a > Math.PI ? a - 2 * Math.PI : a <= -Math.PI ? a + 2 * Math.PI : a; };
+  // each frame while held: the controller in room coordinates (position, pointing direction, twist about it)
+  function carryStation(f, t) {
+    const s = C.stById.get(MV.id), local = refSpace();
+    if (!s || !R.aligned || !local || !R.session) { dropStation(null); return; }
+    let p = null;
+    try { p = f.getPose(MV.src.targetRaySpace, local); } catch (e) { /* not now */ }
+    if (!p) return;
+    const e = _mc.fromArray(p.transform.matrix).premultiply(R.mi).elements;
+    const o = [e[12], e[13], e[14]], fw = [-e[8], -e[9], -e[10]], up = [e[4], e[5], e[6]];
+    const phi = Math.atan2(-fw[0], -fw[2]), pitch = Math.atan2(fw[1], Math.hypot(fw[0], fw[2]));
+    // the twist: the controller's up against the world's up, both across the pointing direction (not when the
+    // controller points nearly straight up or down)
+    const wu = [-fw[1] * fw[0], 1 - fw[1] * fw[1], -fw[1] * fw[2]], wl = Math.hypot(wu[0], wu[1], wu[2]);
+    let roll = null;
+    if (wl > 0.3) {
+      const w = wu.map(v => v / wl), c = [w[1] * up[2] - w[2] * up[1], w[2] * up[0] - w[0] * up[2], w[0] * up[1] - w[1] * up[0]];
+      roll = Math.atan2(c[0] * fw[0] + c[1] * fw[1] + c[2] * fw[2], w[0] * up[0] + w[1] * up[1] + w[2] * up[2]);
+    }
+    const A = MV.a;
+    if (!A) {   // the first frame: where the station is, seen from the hand
+      const dx = s.x - o[0], dz = s.z - o[2];
+      MV.a = { phi, pitch, roll: roll === null ? 0 : roll, twist: 0, d: Math.max(0.3, Math.hypot(dx, dz)), da: Math.atan2(-dx, -dz) - phi, yaw: s.yaw - phi };
+      MV.pose = { x: s.x, z: s.z, yaw: s.yaw };
+      return;
+    }
+    if (roll !== null) { A.twist += turnTo(roll - A.roll); A.roll = roll; }
+    const d = Math.min(12, Math.max(0.3, A.d * Math.exp(2 * (pitch - A.pitch)))), al = phi + A.da;
+    MV.pose = { x: o[0] - d * Math.sin(al), z: o[2] - d * Math.cos(al), yaw: turnTo(phi + A.yaw - A.twist) };
+    if (t - MV.at > 100) sendStation(false, t);
+  }
+  function sendStation(final, t) {
+    const s = C.stById.get(MV.id), P = MV.pose;
+    if (!s || !P) return;
+    const v = { story: s.story, x: r3(P.x), z: r3(P.z), yaw: r3(P.yaw) }, k = J(v);
+    if (k === MV.sent) return;
+    MV.sent = k; MV.at = t || performance.now();
+    publish([['st.' + MV.id, v]]);
+    if (final) log('station moved', { st: MV.id, x: v.x, z: v.z, yaw: v.yaw });
+  }
   const startClock = () => ({ mode: 'story', t: 0, playing: false, at: 0 });
   // where you are in the room and which way you face: a headset's head, a desktop's room origin
   function base() {
@@ -828,7 +915,8 @@
       OV.rings.set(s.id, o); OV.room.add(g);
     }
     if (o.story !== s.story) { o.mat.color.set(meta(s.story).col); o.story = s.story; }
-    o.g.position.set(s.x, 0, s.z); o.g.rotation.set(0, s.yaw, 0);
+    const S = shown(s), held = MV.id === s.id;
+    o.g.position.set(S.x, 0, S.z); o.g.rotation.set(0, S.yaw, 0); o.g.scale.setScalar(held ? 1.12 : 1);
     return o;
   }
   function cardFor(s) {
@@ -839,9 +927,9 @@
       o.mesh.userData.shell = { kind: 'station', id: s.id };
       OV.cards.set(s.id, o); OV.room.add(o.mesh);
     }
-    const [cx, cz] = content(s);
+    const S = shown(s), [cx, cz] = content(S);
     // turned to you (seen from another row it would be back to front), else facing back to its spot
-    o.mesh.position.set(cx, 1.45, cz); o.mesh.rotation.set(0, R.headOK ? Math.atan2(R.hr.x - cx, R.hr.z - cz) : s.yaw, 0);
+    o.mesh.position.set(cx, 1.45, cz); o.mesh.rotation.set(0, R.headOK ? Math.atan2(R.hr.x - cx, R.hr.z - cz) : S.yaw, 0);
     return o;
   }
   function stationLine(s) {
@@ -858,7 +946,7 @@
     return out;
   }
   function drawCard(o, s) {
-    const m = meta(s.story), who = whoAt(s.id), sig = [s.story, stationLine(s), who.join(','), o.hover].join('|');
+    const m = meta(s.story), who = whoAt(s.id), held = MV.id === s.id, sig = [s.story, stationLine(s), who.join(','), o.hover, held].join('|');
     if (sig === o.sig) return;
     o.sig = sig;
     const ctx = o.ctx, W = o.w, H = o.h;
@@ -870,7 +958,9 @@
     ctx.font = FONT(54, 700); ctx.fillStyle = INK; ctx.fillText(fit(ctx, m.title, W - 64), 30, 70);
     ctx.font = FONT(28); ctx.fillStyle = INK; ctx.fillText(stationLine(s), 32, 150);
     ctx.fillStyle = MUTED; ctx.fillText(fit(ctx, who.length ? 'Here: ' + who.join(', ') : 'Nobody here yet', W - 64), 32, 194);
-    ctx.font = FONT(22); ctx.fillStyle = FAINT; ctx.fillText('Walk up to it, or point here and pull the trigger', 32, H - 62);
+    ctx.font = FONT(22); ctx.fillStyle = held ? INK : FAINT;
+    const tip = held ? ['Moving: point, raise or lower, twist to turn.', 'Let go of the grip to put it down.'] : ['Walk up, or point here and pull the trigger.', 'Hold the grip to move it.'];
+    tip.forEach((l, k) => ctx.fillText(fit(ctx, l, W - 64), 32, H - 76 + 30 * k));
     o.tex.needsUpdate = true;
   }
   // the other people, in room coordinates: rays with a bright dot at the end, a name tag over the head and, for
@@ -961,7 +1051,7 @@
     }
     for (const s of C.st) {
       const r = ringFor(s), live = s.id === C.live && s.story === HOST.curKey;
-      r.mat.opacity = live ? 0.3 : 0.75;
+      r.mat.opacity = live ? 0.3 : MV.id === s.id ? 1 : 0.75;
       r.ring.userData.shell = live ? null : { kind: 'station', id: s.id };
       if (live) continue;
       const c = cardFor(s);
@@ -1218,6 +1308,8 @@
       PNL.asked = C.code; PNL.open = true; PNL.page = 'main';
       notice('One question', 'Are you in the same room as the others? Answer on the Shared panel, left of the story panel.', 9000);
     }
+    if (MV.src && f) carryStation(f, t);
+    easeStations(dt);
     drawOverlay(dt);
     pump();
   }
@@ -1228,7 +1320,7 @@
     const Z = C.zone && C.stById.get(C.zone);
     if (Z && dist(Z) > FAR) { C.zone = ''; if (!C.picked) C.mine = ''; log('zone left', { st: Z.id }); changed(); }
     let best = null, bd = NEAR;
-    for (const s of C.st) { const d = dist(s); if (d < bd) { bd = d; best = s; } }
+    for (const s of C.st) { if (s.id === MV.id) continue; const d = dist(s); if (d < bd) { bd = d; best = s; } }
     const zd = C.zone && C.stById.get(C.zone) ? dist(C.stById.get(C.zone)) : Infinity;
     const cand = best && best.id !== C.zone && bd < zd ? best.id : '';
     if (cand !== C.cand) { C.cand = cand; C.candAt = t; }
@@ -2008,8 +2100,9 @@
     if (f) update(f);
     const L = liveSt();
     if (!R.aligned || !L || L.story !== HOST.curKey) return null;
-    _v.set(L.x, EYE, L.z).applyMatrix4(R.m);
-    return { p: [_v.x, _v.y, _v.z], yaw: R.yaw + L.yaw, room: true };
+    const S = shown(L);
+    _v.set(S.x, EYE, S.z).applyMatrix4(R.m);
+    return { p: [_v.x, _v.y, _v.z], yaw: R.yaw + S.yaw, room: true };
   }
   const placing = () => { const L = liveSt(); return !!(C.code && R.session && R.aligned && L && L.story === HOST.curKey); };
   function panelPose(L) {
@@ -2030,7 +2123,7 @@
     R.session = s; R.begun = null; R.aligned = false; R.frame = null; R.src = ''; R.calib = null;
     // what a story does by itself when a session starts or a headset wakes is not a person's action: not published
     holdTask();
-    if (!s) { letGo(); setState('off'); HOST.audio.zone(null); if (C.code) { upload(performance.now(), true); hello(); connect(); } changed(); return; }
+    if (!s) { dropStation(null); letGo(); setState('off'); HOST.audio.zone(null); if (C.code) { upload(performance.now(), true); hello(); connect(); } changed(); return; }
     quiet(() => s.addEventListener('visibilitychange', () => {
       holdTask();
       log('headset', { visibility: s.visibilityState });
@@ -2044,6 +2137,7 @@
       }
       if (s.visibilityState === 'visible' && C.code) wake('headset');
     }));
+    quiet(() => { s.addEventListener('squeezestart', grabStation); s.addEventListener('squeezeend', dropStation); });
     // the stories set HOST.mode just after HOST.session: say who we are once both are known
     setTimeout(() => { if (R.session === s && C.code) { hello(); connect(); begin(); } }, 0);
     if (!C.relay || C.served === null) detect();
@@ -2065,6 +2159,8 @@
   HOST.room = {
     get state() { return R.state; }, get aligned() { return R.aligned; }, get frame() { return R.frame; }, get src() { return R.src; },
     watch, update: f => update(f), place, placing, adopt, calibrate, cancel, mark, status, forget: forgetMarks, sharedLine, sourceLine,
+    inRoom: () => !!(C.code && R.session),   // a headset in a shared room: the grip moves no panel and no scene
+    get moving() { return MV.id; },
     sharedAlign(on) { if (on !== undefined) setSharedAlign(on); return R.sharedAlign; }, floorNote,
     handles: () => ((R.saved && R.saved.anchors) || []).concat(R.anchorIds || []).filter(Boolean),   // kept by HOST.anchor's tidy-up
     get marks() { return R.mk; }, get cmp() { return R.cmp; }, frameKey: kFrame,
@@ -2126,10 +2222,38 @@
     $('#shRelay').addEventListener('keydown', ev => { if (ev.key === 'Enter') { setRelay(ev.target.value, 'typed'); listRooms(); } });
     $('#shCode').addEventListener('keydown', ev => { if (ev.key === 'Enter') join(ev.target.value); });
     DLG.map = $('#shMap');
-    DLG.map.addEventListener('click', ev => {
-      const r = DLG.map.getBoundingClientRect(), hit = mapHit(ev.clientX - r.left, ev.clientY - r.top);
-      if (hit) { choose(hit, 'follow'); renderDialog(); }
+    DLG.map.style.touchAction = 'none';
+    // a station's dot dragged moves it, its square dragged turns it (out to the room ten times a second, so the
+    // headsets see it move); a click on either follows it
+    const at = ev => { const r = DLG.map.getBoundingClientRect(); return [ev.clientX - r.left, ev.clientY - r.top]; };
+    DLG.map.addEventListener('pointerdown', ev => {
+      const [px, py] = at(ev), g = mapGrab(px, py), s = g && C.stById.get(g.id);
+      if (!s || !MAP.tf) return;
+      MAP.drag = { id: g.id, turn: g.turn, px, py, moved: false, tf: MAP.tf, ox: s.x - MAP.tf.ix(px), oz: s.z - MAP.tf.iz(py), pose: null, at: 0, sent: '' };
+      try { DLG.map.setPointerCapture(ev.pointerId); } catch (e) { /* a pointer the page made up */ }
+      ev.preventDefault();
     });
+    DLG.map.addEventListener('pointermove', ev => {
+      const D = MAP.drag, s = D && C.stById.get(D.id);
+      if (!s) { MAP.drag = null; return; }
+      const [px, py] = at(ev);
+      if (!D.moved && Math.hypot(px - D.px, py - D.py) < 4) return;
+      D.moved = true;
+      const x = D.tf.ix(px), z = D.tf.iz(py);
+      D.pose = D.turn ? { x: s.x, z: s.z, yaw: Math.atan2(-(x - s.x), -(z - s.z)) } : { x: x + D.ox, z: z + D.oz, yaw: s.yaw };
+      mapSend(D, false);
+      drawMap();
+    });
+    const end = ev => {
+      const D = MAP.drag;
+      MAP.drag = null;
+      if (!D) return;
+      if (D.moved) mapSend(D, true);
+      else if (ev.type === 'pointerup') { choose(D.id, 'follow'); renderDialog(); }
+      drawMap();
+    };
+    DLG.map.addEventListener('pointerup', end);
+    DLG.map.addEventListener('pointercancel', end);
   }
   // a desktop's new station: on the arc's free side, so it does not land on another one
   function freeSpot() {
@@ -2180,7 +2304,7 @@
   }
   // the room from above: stations (dots in their colours, a line to where the content floats, titles), people
   // (arrows where they stand and look, their rays); north (forward, -z) is up
-  const MAP = { tf: null };
+  const MAP = { tf: null, drag: null };
   function drawMap() {
     const cv = DLG.map;
     if (!cv || !C.code || cv.offsetParent === null) return;
@@ -2196,8 +2320,9 @@
     let x0 = Math.min(...pts.map(p => p[0])) - 1.2, x1 = Math.max(...pts.map(p => p[0])) + 1.2;
     let z0 = Math.min(...pts.map(p => p[1])) - 1.2, z1 = Math.max(...pts.map(p => p[1])) + 1.2;
     const sc = Math.min(W / (x1 - x0), H / (z1 - z0)), cx = (x0 + x1) / 2, cz = (z0 + z1) / 2;
-    const X = x => W / 2 + (x - cx) * sc, Y = z => H / 2 + (z - cz) * sc;
-    MAP.tf = { X, Y };
+    // while a station is dragged the map keeps its scale (it would grow and shrink under the pointer)
+    MAP.tf = MAP.drag ? MAP.drag.tf : { X: x => W / 2 + (x - cx) * sc, Y: z => H / 2 + (z - cz) * sc, ix: px => cx + (px - W / 2) / sc, iz: py => cz + (py - H / 2) / sc };
+    const { X, Y } = MAP.tf, D = MAP.drag, st = C.st.map(s => (D && D.pose && D.id === s.id ? Object.assign({}, s, D.pose) : s));
     // a metre grid
     ctx.strokeStyle = 'rgba(149,166,189,0.10)'; ctx.lineWidth = 1;
     for (let gx = Math.ceil(cx - W / 2 / sc); gx <= cx + W / 2 / sc; gx++) { ctx.beginPath(); ctx.moveTo(X(gx), 0); ctx.lineTo(X(gx), H); ctx.stroke(); }
@@ -2205,9 +2330,9 @@
     ctx.strokeStyle = 'rgba(149,166,189,0.45)'; ctx.beginPath(); ctx.moveTo(X(0) - 6, Y(0)); ctx.lineTo(X(0) + 6, Y(0)); ctx.moveTo(X(0), Y(0) - 6); ctx.lineTo(X(0), Y(0) + 6); ctx.stroke();
     ctx.font = '12px B612, "Segoe UI", Arial, sans-serif'; ctx.textBaseline = 'middle';
     // titles: beside their dot, right or left, else below or above, where they overlap no other title or dot
-    const boxes = C.st.map(s => [X(s.x) - 8, Y(s.z) - 8, 16, 16]), free = b => b[0] >= 2 && b[0] + b[2] <= W - 2 && b[1] >= 2 && b[1] + b[3] <= H - 2 &&
+    const boxes = st.map(s => [X(s.x) - 8, Y(s.z) - 8, 16, 16]), free = b => b[0] >= 2 && b[0] + b[2] <= W - 2 && b[1] >= 2 && b[1] + b[3] <= H - 2 &&
       !boxes.some(o => b[0] < o[0] + o[2] && o[0] < b[0] + b[2] && b[1] < o[1] + o[3] && o[1] < b[1] + b[3]);
-    for (const s of C.st) {
+    for (const s of st) {
       const m = meta(s.story), [qx, qz] = content(s), on = s.id === C.follow;
       ctx.strokeStyle = m.col; ctx.globalAlpha = 0.6; ctx.lineWidth = 2;
       ctx.beginPath(); ctx.moveTo(X(s.x), Y(s.z)); ctx.lineTo(X(qx), Y(qz)); ctx.stroke();
@@ -2232,6 +2357,26 @@
       ctx.restore();
       ctx.fillStyle = col; ctx.fillText(m.name || 'Someone', X(h[0]) + 12, Y(h[2]) + 12);
     }
+  }
+  // the station whose dot (to move it) or square (to turn it) is under the pointer
+  function mapGrab(px, py) {
+    if (!MAP.tf) return null;
+    let best = null, bd = 16;
+    for (const s of C.st) {
+      const [qx, qz] = content(s), d = Math.hypot(MAP.tf.X(s.x) - px, MAP.tf.Y(s.z) - py), q = Math.hypot(MAP.tf.X(qx) - px, MAP.tf.Y(qz) - py);
+      if (d < bd) { bd = d; best = { id: s.id, turn: false }; }
+      if (q + 4 < bd) { bd = q + 4; best = { id: s.id, turn: true }; }   // a dot wins over a square at the same spot
+    }
+    return best;
+  }
+  function mapSend(D, final) {
+    const s = C.stById.get(D.id), P = D.pose, t = performance.now();
+    if (!s || !P || (!final && t - D.at < 100)) return;
+    const v = { story: s.story, x: r3(P.x), z: r3(P.z), yaw: r3(P.yaw) }, k = J(v);
+    if (k === D.sent) return;
+    D.sent = k; D.at = t;
+    publish([['st.' + D.id, v]]);
+    if (final) log('station moved', { st: D.id, x: v.x, z: v.z, yaw: v.yaw, on: 'map' });
   }
   function mapHit(px, py) {
     if (!MAP.tf) return '';
@@ -2268,6 +2413,7 @@
     stations: () => C.st, station: id => C.stById.get(id) || null, mine: () => C.mine, live: () => liveSt(), following: () => C.follow,
     val, now, publish: pairs => publish(pairs), fx, setRelay: s => setRelay(s, 'typed'), detect, list: listRooms, create, join, leave,
     arrange, add, move, remove, follow: id => choose(id, 'follow'), pick: id => choose(id, 'pick'), unfollow, me: setMe, setHere,
+    mapView: () => MAP.tf,   // the room map's room <-> pixel transform (X, Y, ix, iz), once drawn
     ray, press, effect, detach, hash, dialog, people: () => C.pres, log,
     panelOpen(on) { PNL.open = !!on; PNL.page = 'main'; },
     overlay: () => OV,   // for tests: the overlay's objects (panel, cards, rings, people)

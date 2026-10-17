@@ -196,6 +196,22 @@ the content floats 1.4 m ahead of the spot), with `st.<id>.play` (the clock:
   (its content floats 1.4 m beyond its spot); it needs about 7.2 m x 4 m of
   floor from 1.2 m in front of you. Remove asks first ("Remove for
   everyone?", 3 s), on the page and in the headset.
+- Moving a station by hand: in a headset the grip on a station's ring or card
+  picks it up (the shell hears the session's own `squeezestart` and
+  `squeezeend`, controller i being `session.inputSources[i]` in three.js r128,
+  so the stories need nothing); it swings round your hand as you point, its
+  distance from the hand grows as you raise the controller and shrinks as you
+  lower it (`exp(2 x the pitch's change)`), and twisting your wrist turns it
+  (`carryStation`). It goes out to the room at most every 100 ms and once more
+  when let go (`MV`); every headset draws rings, cards and its live station's
+  placement where `SHOWN` eases them to the room's value, so a moved station
+  glides. On a page the room map does the same: a station's dot dragged moves
+  it, its square (where its content floats) dragged turns it; a click still
+  follows it, and the map keeps its scale while dragging.
+- In a shared room nothing else moves: `HOST.anchor.locked(kind)` is true for
+  every kind while a headset is in a room (`HOST.room.inRoom()`), so the grip
+  moves no story panel and no scene, and everybody sees them alike (the explore
+  view at a station stays shared as before).
 - In VR the shell's panel asks once per room "Are you in the same room as the
   others?" (In this room / Somewhere else, kept per room code in
   `localStorage` `collabHere`); passthrough counts as in the room.
@@ -311,7 +327,7 @@ the content floats 1.4 m ahead of the spot), with `st.<id>.play` (the clock:
   `relay/logs/` with `--lan` or `--logs`). While aligned and at its station,
   `HOST.anchor.frame()` returns the station's rig pose (spot at 1.6 m over the
   room's floor, facing its way, `room: true`), `held()` is true and
-  `locked(kind)` is true except for `'panel'`; `HOST.audio.zone()` pans the
+  `locked(kind)` is true (in a room it is anyway); `HOST.audio.zone()` pans the
   narration from the station (full volume within 1.5 m, so at the station's
   spot; nothing changes outside a room).
 - The explore view at a station (`st.<id>.view`): headsets at the station share
@@ -356,8 +372,9 @@ reference, `tools/flock/engine/`):
   rings, calibration marks) is nearer than the story's panels and is the hover
   instead of them and of the scene. `xrPress`:
   `if (h.kind === 'shell') { HOST.collab.press(c.i); return; }`.
-- `xrGrab`: `if (XR.stories || HOST.anchor.locked(h.kind)) return;` (at a
-  station only the panel moves; the shell's own things never move the scene).
+- `xrGrab`: `if (XR.stories || HOST.anchor.locked(h.kind)) return;` (in a
+  shared room nothing moves; the shell's own things never move the scene, and
+  the grip on a station's preview moves that station, done by the shell).
 - `xrBegin`: `if (A.room) XR.globeOff.set(0, 0, 0);` after setting the rig from
   `HOST.anchor.frame()`: at a station the scene is where the station puts it (a
   grip offset from before does not carry over).
@@ -593,7 +610,7 @@ is the contract between them.
   offers *Set up your room* (`initiateRoomCapture`, once a session), and
   planes that arrive later take over. Nothing here moves `GL.rig`.
 - Your head is the player (no avatar), the trigger aimed at the floor spills
-  crumbs there, and the grip moves only the panel. In passthrough
+  crumbs there, and the grip moves only the panel (outside a shared room). In passthrough
   (`robots_room` 0) nothing opaque is drawn: a glowing line along each wall's
   base, ripples where a robot bumps it, and the cleaned trail.
 
@@ -691,7 +708,8 @@ three pages in a room follow its station and check play, pause, jumps, mode
 changes and Replay (within 5 s), the relay's clock, the explore state both
 ways and the story's effect (for the robots also the pile's spot and dust).
 Before that: Arrange all's rows, a code with no room, Remove asking first.
-After: two controls changed at once on two pages (both kept), two stations
+After: a station moved and turned on the room map,
+two controls changed at once on two pages (both kept), two stations
 followed back to back (the second not lost), a story picked by hand (stops
 following), no writes while idle (no ping-pong), a late joiner, a relay restart, and
 a pretend headset with fake `local-floor` and `shared` spaces: alignment,
@@ -699,7 +717,9 @@ placement at its station, a recentre, taken off and on again (it stays in its
 story), Start on its Stories screen (restarts nothing), the hold and the lock,
 the station's clock and state, rays and head in room coordinates, another
 person drawn, the sound zone, the shell's panel and a card pick, the story
-panel winning over a card behind it, re-alignment, walking to another station
+panel winning over a card behind it, a station moved with the grip on its
+card (swung, pushed further, turned; the others see it while it moves) and
+gliding into place when someone else moves it, re-alignment, walking to another station
 and back, Remove asking first; calibration from two marks (Stop calibrating
 still pressable, two anchors made and checked, the marks drawn), a reset with
 a transform, a recentre without a reset (the anchors keep the frame), the

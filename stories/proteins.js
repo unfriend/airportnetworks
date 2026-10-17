@@ -1803,7 +1803,7 @@ function xrGrab(c, on) {
   c.grab = null;
   const h = c.hover;
   if (!on || !h) return;
-  if (XR.stories || HOST.anchor.locked(h.kind)) return; // the Stories screen stays put, and so does an anchored place (a station: only its panel moves)
+  if (XR.stories || HOST.anchor.locked(h.kind)) return; // the Stories screen stays put, and so does an anchored place (in a shared room nothing moves)
   const obj = h.kind === 'panel' ? XR.panelGroup : GL.world;
   c.grab = { target: h.kind === 'panel' ? 'panel' : 'globe', q0: new THREE.Quaternion().setFromRotationMatrix(c.g.matrix).invert(),
     o0: c.o.clone(), p0: obj.getWorldPosition(new THREE.Vector3()), reach: 1 };

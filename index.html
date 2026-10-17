@@ -1237,9 +1237,10 @@ HOST.anchor = (function () {
     // while true, a story must not re-place anything (headset taken off, recentring); also while it stands at
     // its station in a shared room (shared.js)
     held: () => (N.on && N.placed) || room(),
-    // while true, the grip moves nothing; at a station in a shared room it moves only panels (kind 'panel'), and
-    // the shell's own things (kind 'shell': its panel, previews, marks) never move the scene behind them
-    locked: kind => kind === 'shell' || (room() ? kind !== 'panel' : N.on),
+    // while true, the grip moves nothing: anchored, and in a shared room (panels and scenes stay where the room
+    // puts them, alike for everyone); the shell's own things (kind 'shell': its panel, previews, marks) never move
+    // the scene behind them (the grip on a station's preview moves that station: shared.js)
+    locked: kind => kind === 'shell' || !!(HOST.room && HOST.room.inRoom && HOST.room.inRoom()) || N.on,
     // the arrangement saved with the place: { off, pp, pr } in the frame, or null (at a station: its panel)
     saved: () => (room() ? HOST.room.saved() : N.on && N.off && N.pp ? { off: N.off, pp: N.pp, pr: N.pr } : null),
     // once a frame from a story's headset loop, once the headset has a pose: the frame's pose in the room ({ p, yaw }), or null.
