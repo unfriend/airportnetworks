@@ -1622,7 +1622,7 @@
     log('marks lost', { handles: ids });
     releaseAnchors();
     Object.assign(R, { frame: null, src: '', aligned: false, cmp: null, anchorBusy: false, anchorTried: false, mgen: R.mgen + 1 });
-    if (ids) { setState('restoring'); notice('Finding the marks again', 'The headset lost them while it was off: it looks for its saved anchors.', 6000); }
+    if (ids) { R.noticed = ''; setState('restoring'); notice('Finding the marks again', 'The headset lost them while it was off: it looks for its saved anchors.', 6000); }
     else {
       setState('calibrate'); R.noticed = 'calibrate';
       notice('Calibrate again', 'The headset lost the marks while it was off (it could not save its anchors): touch mark A and mark B again.', 9000);
