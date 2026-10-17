@@ -876,27 +876,33 @@ try {
   await H.evaluate(() => HOST.room.sharedAlign(true));
   await H.evaluate(installXR, Object.assign({}, xrOpts, { sharedId: 'U1', shared: FLOOR, head: [-6, 1.6, 6, 0] }));
   await H.evaluate(() => window.__xr.begin());
-  await frames(H, 1500);
+  await frames(H, 3000);
   const nj = await H.evaluate(() => ({ state: HOST.room.state, frame: HOST.room.frame, line: HOST.room.sourceLine(), shared: HOST.room.sharedLine(),
     log: window.__collabLog.some(e => e.ev === 'shared alone') }));
   check('shared space: a headset whose space is just its own floor takes no frame through it from someone here, and says it has not joined',
     !nj.frame && nj.state === 'shared-wait' && /Not in the others/.test(nj.line) && /your own floor/.test(nj.shared) && nj.log, JSON.stringify(nj));
   await H.evaluate(() => window.__xr.end());
   // a frame published there by someone who has left is last time's (the space was made again under its id): after
-  // the wait, this headset's own space replaces it
-  // (the room's calibration in space U1 is made a plain one meanwhile: a headset never makes its own space the room
-  // when the room was calibrated in another)
-  const rfKey7 = await H.evaluate(() => HOST.room.frameKey('U7')), rfKey1 = await H.evaluate(() => HOST.room.frameKey('U1'));
-  await A.evaluate(([k, f]) => HOST.collab.publish([[k, f]]), [rfKey1, Object.assign(frameFor(ROOM, 'U1', aId, Date.now() - 60000), { g: 'shared' })]);
-  await A.evaluate(([k, f]) => HOST.collab.publish([[k, f]]), [rfKey7, Object.assign(frameFor([ROOM[0] + 1, 0, ROOM[2], ROOM[3]], 'U7', 'left-long-ago', Date.now() - 3600e3), { g: 'shared' })]);
-  await H.evaluate(installXR, Object.assign({}, xrOpts, { sharedId: 'U7', shared: FLOOR, head: [-6, 1.6, 6, 0] }));
+  // the wait the first headset in the space replaces it with its own; and a frame someone here publishes later for
+  // that space is taken, though the first headset's space is its own floor
+  const rfKey1 = await H.evaluate(() => HOST.room.frameKey('U1'));
+  await A.evaluate(([k, f]) => HOST.collab.publish([[k, f]]), [rfKey1, Object.assign(frameFor([ROOM[0] + 1, 0, ROOM[2], ROOM[3]], 'U1', 'left-long-ago', Date.now() - 3600e3), { g: 'shared' })]);
+  await H.evaluate(installXR, Object.assign({}, xrOpts, { sharedId: 'U1', shared: FLOOR, head: [-6, 1.6, 6, 0] }));
   await H.evaluate(() => window.__xr.begin());
+  await frames(H, 3000);
+  const early7 = await H.evaluate(() => ({ src: HOST.room.src, state: HOST.room.state }));
   for (let k = 0; k < 60 && (await H.evaluate(() => HOST.room.src)) !== 'shared'; k++) await frames(H, 250);   // after the 8 s wait
   await frames(H, 600);
-  const sU7 = await H.evaluate(() => ({ src: HOST.room.src, frame: HOST.room.frame, id: HOST.collab.id }));
-  const pub7 = ((await roomInfo(code)).keys[rfKey7] || {}).v || null;
-  check('shared space: a frame there from someone who has left is replaced by this headset\'s own space', sU7.src === 'shared' && !!sU7.frame &&
-    near(sU7.frame.o, [0, 0, 0], 1e-3) && !!pub7 && pub7.by === sU7.id, JSON.stringify({ sU7, pub7 }));
+  const sU7 = await H.evaluate(() => ({ src: HOST.room.src, frame: HOST.room.frame, id: HOST.collab.id, first: HOST.room.internals().firstHere }));
+  const pub7 = ((await roomInfo(code)).keys[rfKey1] || {}).v || null;
+  check('shared space: a frame there from someone who has left waits, then the first headset\'s own space replaces it', early7.src === '' && early7.state === 'shared-wait' &&
+    sU7.src === 'shared' && sU7.first === true && !!sU7.frame && near(sU7.frame.o, [0, 0, 0], 1e-3) && !!pub7 && pub7.by === sU7.id, JSON.stringify({ early7, sU7, pub7 }));
+  await A.evaluate(([k, f]) => HOST.collab.publish([[k, f]]), [rfKey1, frameFor(ROOM, 'U1', aId, Date.now())]);
+  await frames(H, 1000);
+  const took7 = await H.evaluate(() => ({ src: HOST.room.src, frame: HOST.room.frame, line: HOST.room.sourceLine() }));
+  const w7 = unapply(SHARED, ROOM.slice(0, 3));   // its space is its floor here, so the frame lands where the space puts it
+  check('shared space: the first headset (its space is its own floor) takes a frame someone here publishes for it', took7.src === 'adopted' &&
+    near(took7.frame.o, [w7[0], 0, w7[2]], 2e-3) && !/Not in the others/.test(took7.line), JSON.stringify(took7));
   await H.evaluate(() => window.__xr.end());
   await A.evaluate(([k, f]) => HOST.collab.publish([[k, f]]), [rfKey1, frameFor(ROOM, 'U1', aId, Date.now() - 60000)]);
   await H.evaluate(() => HOST.room.sharedAlign(false));

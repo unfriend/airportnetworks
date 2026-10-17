@@ -1342,7 +1342,7 @@
     full: false,   // the store of saved anchors refused their handles: the marks hold for this session only
     // after waking, a frame taken from the shared space holds until the space agrees with it again (wakeOK); its
     // height is kept in the shared space (hS); the space's pose in our floor last moved at stillSince
-    wakeHold: 0, wakeLog: 0, hS: null, stillSince: 0, lastS: null, aloneAt: 0, notJoined: false,
+    wakeHold: 0, wakeLog: 0, hS: null, stillSince: 0, lastS: null, aloneAt: 0, notJoined: false, firstHere: null,
     // aligning from the shared space is on unless switched off on the panel: it lined two Quest 3s up once both ran
     // the same browser (with different versions they were in two spaces under one id, see shared-spaces.md)
     sharedAlign: get('collabSharedAlign') !== '0',
@@ -1394,6 +1394,8 @@
     const x = fr && fr.x && level(fr.x);
     if (!x) return;
     const was = R.src;
+    if (src !== was) R.wakeHold = 0;
+    if (src === 'marks' || src === 'anchor') { R.aloneAt = 0; R.notJoined = false; }
     R.frame = { o: [fr.o[0], Number.isFinite(fr.o[1]) ? fr.o[1] : 0, fr.o[2]], x };
     R.src = src;
     setState(src);
@@ -1410,7 +1412,7 @@
     try { if (R.shared && R.shared.removeEventListener) R.shared.removeEventListener('reset', sharedReset); } catch (e) { /* gone */ }
     letGo();
     Object.assign(R, { begun: s, floor: null, noFloor: false, shared: null, sharedNo: false, sharedId: '', sharedAt: 0, sharedAsked: performance.now(), sharedOK: false,
-      sharedPose: false, sharedHead: false, sharedOwn: null, visibleAt: 0, wakeHold: 0, hS: null, stillSince: 0, lastS: null, aloneAt: 0, notJoined: false,
+      sharedPose: false, sharedHead: false, sharedOwn: null, visibleAt: 0, wakeHold: 0, hS: null, stillSince: 0, lastS: null, aloneAt: 0, notJoined: false, firstHere: null,
       frame: null, src: '', aligned: false, calib: null, anchorBusy: false, anchorTried: false, wantAnchors: null, noticed: '', mgen: R.mgen + 1,
       mk: null, cmp: null, prev: null, pubAt: 0, recAt: 0, full: false });
     if (R.oldAnchor && HOST.anchor.drop) { HOST.anchor.drop(R.oldAnchor); R.oldAnchor = ''; }   // an older version's anchor
@@ -1462,7 +1464,7 @@
   function sharedReset(ev) {
     const id = sharedIdOf(R.shared);
     log('reset', { space: 'shared', id, transform: !!(ev && ev.transform) });
-    if (id !== R.sharedId) { R.sharedId = id; R.sharedAt = performance.now(); R.recAt = 0; R.hS = null; }
+    if (id !== R.sharedId) { R.sharedId = id; R.sharedAt = performance.now(); R.recAt = 0; R.hS = null; R.firstHere = null; }
   }
   // the head seems to jump when the origin moves without a word (a recentre: Quest Browser fires no reset then)
   function originCheck(t) {
@@ -1495,7 +1497,7 @@
   // headset was the first in it (its origin is the space's, by design). In the relay logs one of two Quest 3s (the
   // older browser) had that every session, under the same id as the other, whose space was 1 to 2.6 m and 19 to 84
   // degrees away: it had not joined
-  // Also when the space last moved in this headset's floor (more than 1 cm or half a degree): after waking, one that
+  // Also when the space last moved in this headset's floor (more than 2 cm or half a degree): after waking, one that
   // holds still is trusted again
   const _mo = new THREE.Matrix4();
   function ownFloorCheck(t) {
@@ -1504,7 +1506,8 @@
     const L = R.lastS;
     let a = L ? Math.abs(yaw - L[3]) % (2 * Math.PI) : 0;
     if (a > Math.PI) a = 2 * Math.PI - a;
-    if (!L || Math.hypot(e[12] - L[0], e[13] - L[1], e[14] - L[2]) > 0.01 || a > 0.0087) { R.lastS = [e[12], e[13], e[14], yaw]; R.stillSince = t; }
+    // (along the floor only: a floor estimated again moves it up or down, and that is allowed for)
+    if (!L || Math.hypot(e[12] - L[0], e[14] - L[2]) > 0.02 || a > 0.0087) { R.lastS = [e[12], e[13], e[14], yaw]; R.stillSince = t; }
   }
   const sharedY = () => floorFromShared(_mo).elements[13];   // the space's origin over this headset's floor (both level)
   // a frame given in shared coordinates, in ours (floor)
@@ -1519,8 +1522,19 @@
   // our frame for our shared space: g 'marks' (a calibration, at: when) or 'shared' (the space's own origin)
   // nothing is published or compared through the shared space within 20 s of waking (its pose was the head's then)
   const settled = () => !R.visibleAt || performance.now() - R.visibleAt > 20000;
+  // nor through a space that is just this headset's own floor while someone here published for it (not joined:
+  // the others would take this headset's frame through their real space)
+  const notInIt = () => { const Q = val(kFrame(R.sharedId)); return !!(R.sharedOwn && R.firstHere === false && validFrame(Q) && Q.by !== C.id && member(Q.by)); };
+  // was this headset the first in its space? Decided once its id is known and the room's keys are in: not when
+  // someone here had already published for that id (null: not decided yet)
+  function firstCheck(t) {
+    if (R.firstHere !== null || !R.sharedId || !C.welcomed || !(C.ws && C.ws.readyState === 1 && t - C.openAt > 1000)) return;
+    const Q = val(kFrame(R.sharedId));
+    R.firstHere = !(validFrame(Q) && Q.by !== C.id && member(Q.by));
+    log('shared first', { first: R.firstHere, id: R.sharedId });
+  }
   function publishFrame(g, at) {
-    if (!R.frame || !R.sharedId || !R.sharedOK || !settled()) return;
+    if (!R.frame || !R.sharedId || !R.sharedOK || !settled() || notInIt()) return;
     const S = toShared(R.frame);
     R.pubAt = performance.now();
     publish([[kFrame(R.sharedId), { uuid: R.sharedId, o: S.o, x: S.x, g, by: C.id, at: at || Math.round(now()), m: R.mk }]]);
@@ -1540,7 +1554,7 @@
   }
   // with marks of our own: how far the shared space puts another headset's calibration from ours
   function compare() {
-    const P = R.sharedOK && R.sharedId && settled() ? val(kFrame(R.sharedId)) : null;
+    const P = R.sharedOK && R.sharedId && settled() && !notInIt() ? val(kFrame(R.sharedId)) : null;
     if (!validFrame(P) || P.by === C.id || gradeOf(P) !== 'marks' || !R.frame) { R.cmp = null; return; }
     const F = fromShared(P);
     if (!level(F.x)) { R.cmp = null; return; }
@@ -1557,6 +1571,8 @@
     // through two spaces that were not one), then held in the shared space, so a floor estimated again (12 to 17 cm
     // after waking, in the logs) does not move the room up or down
     const ys = sharedY();
+    // a jump of more than 30 cm is no floor estimated again (12 to 17 cm) but a space made again under the same id
+    if (R.hS !== null && R.frame && Math.abs(R.hS + ys - R.frame.o[1]) > 0.3) { log('shared height again', { was: r3(R.frame.o[1]), now: r3(R.hS + ys) }); R.hS = null; }
     if (R.hS === null) R.hS = -ys;
     F.x = x; F.o[1] = R.hS + ys;
     const mk = Array.isArray(P.m) && P.m.length === 3 && P.m.every(Number.isFinite) ? P.m : null;
@@ -1569,6 +1585,7 @@
     if (d <= 0.03 && a <= Math.PI / 180 && h <= 0.02 && R.src === 'adopted') { R.mk = mk; return; }
     log('reconcile', { d: r3(d), a: r3(a), h: r3(h), by: P.by, g: gradeOf(P) });
     R.mk = mk;
+    if (d <= 0.03 && a <= Math.PI / 180 && R.src === 'adopted') { setFrame(F, 'adopted'); return; }   // the height only: no notice
     setFrame(F, 'adopted', 'Re-aligned', 'The room frame changed: things moved to where the others see them.');
   }
   // ------------------------------------------------------------ the marks' anchors --
@@ -1701,10 +1718,12 @@
   }
   // is the room calibrated in a shared space other than ours, by someone still here? (then our space's own
   // origin would make another room: calibrate instead)
-  function calibratedElsewhere() {
+  // someone here published a frame for another shared space (calibrated there, or its first headset): this headset
+  // is not in theirs, so its own space must not become the room
+  function othersElsewhere() {
     for (const [k, e] of C.keys) {
       const P = e && e.v;
-      if (/^rf\./.test(k) && validFrame(P) && P.uuid !== R.sharedId && gradeOf(P) === 'marks' && P.by !== C.id && member(P.by)) return true;
+      if (/^rf\./.test(k) && validFrame(P) && P.uuid !== R.sharedId && P.by !== C.id && member(P.by)) return true;
     }
     return false;
   }
@@ -1733,34 +1752,44 @@
     if ((R.anchorBusy || R.anchors) && t - R.anchorSince < 8000) { setState('restoring'); return; }
     if (R.anchors && !R.anchorsOK) { log('anchors not tracked'); letGo(); }
     // (2) a frame published for our shared space (unless switched off on the panel)
+    firstCheck(t);
     const sp = !!(R.sharedAlign && R.shared && R.sharedOK && R.sharedId), P0 = sp ? val(kFrame(R.sharedId)) : null;
-    // a space that is just this headset's own floor (the default one, or not joined: one Quest 3 had that every
-    // session under the others' id) while someone here published for it: their frame through it would put the room
-    // where this headset began, so it is not taken. One from someone who has left is last time's (the space was made
-    // again under the same id): after the wait this headset's space replaces it
-    const alone = !!(validFrame(P0) && P0.by !== C.id && R.sharedOwn), stale = alone && !member(P0.by), P = alone ? null : P0;
-    if (alone !== !!R.aloneAt) { R.aloneAt = alone ? t : 0; log(alone ? 'shared alone' : 'shared joined', alone ? { by: P0.by, left: stale } : {}); changed(); }
-    R.notJoined = alone && !stale;
+    // A space that is just this headset's own floor is either the first headset's (its origin is the space's) or,
+    // when someone here had already published for it as its id appeared, not joined (the default space, or one
+    // Quest 3 every session under the others' id): their frame through it would put the room where this headset
+    // began, so it is not taken. A frame from someone who has left may be last time's (the id stayed the same across
+    // days): it is taken only after the wait, and the first headset replaces it with its own space then. Not right
+    // after connecting (the members may not be known yet)
+    const other = validFrame(P0) && P0.by !== C.id, known = !!(C.ws && C.ws.readyState === 1 && t - C.openAt > 5000);
+    const gone = other && known && !member(P0.by), mine = !!(other && R.sharedOwn);
+    const alone = mine && R.firstHere === false, stale = mine && R.firstHere === true && gone;
+    const early = gone && !R.frame && t - (R.sharedAt || 0) < 8000;
+    // nothing published for this space while someone here published for another one: the others are elsewhere
+    const away = !validFrame(P0) && !R.frame && sp && othersElsewhere();
+    const notJoined = alone || away, P = alone || early || stale ? null : P0;
+    if (notJoined !== !!R.aloneAt) { R.aloneAt = notJoined ? t : 0; log(notJoined ? 'shared not joined' : 'shared joined', notJoined ? { by: P0 && P0.by, away } : {}); }
+    const shown = notJoined && t - R.aloneAt > 2000;   // the panel says so after 2 s (a default space passes)
+    if (shown !== R.notJoined) { R.notJoined = shown; changed(); }
     if (validFrame(P)) {
       if (R.frame && R.wakeHold && !wakeOK(P, t)) return;   // after waking: the frame the floor's resets carried over holds
       if (!R.frame || t - R.recAt > 500) { R.recAt = t; reconcile(P); }
       if (R.frame) return;
     }
-    if (R.notJoined && R.frame) return;   // the frame held so far stays (moved by the floor's resets) until it joins
+    if (notJoined && R.frame) return;   // the frame held so far stays (moved by the floor's resets) until it joins
     // waiting a little for the shared space's id, or for someone's published frame
     if (R.sharedAlign && R.shared && !R.frame && t - (R.sharedId ? R.sharedAt : R.sharedAsked) < 8000) { setState('shared-wait'); return; }
-    // (3) nobody published for this space: its own origin, published (unless the room was calibrated in another space)
-    if (sp && !R.frame && !calibratedElsewhere() && !R.notJoined) {
+    // (3) nobody (still here) published for this space: its own origin, published (unless the others are elsewhere)
+    if (sp && !R.frame && !othersElsewhere() && !notJoined) {
       R.mk = null;
       const F = fromShared({ o: [0, 0, 0], x: [1, 0, 0] });
       F.o[1] = 0; R.hS = -sharedY();   // the space's origin need not lie on the floor: this headset's floor is the room's
       setFrame(F, 'shared', 'Shared space found', 'This headset defines the room for the others in its shared space.');
     }
-    if (sp && R.src === 'shared' && !validFrame(P) && t - R.pubAt > 2000) publishFrame('shared');
+    if (sp && R.src === 'shared' && (!validFrame(P0) || stale) && t - R.pubAt > 2000) publishFrame('shared');
     if (!R.frame && R.state !== 'restoring') {
       setState('calibrate');
-      if (R.notJoined && R.noticed !== 'alone') { R.noticed = 'alone'; notice('Not in the shared space', 'The others are in a shared space this headset has not joined: take it off and put it on again, or calibrate on the tape marks.', 9000); }
-      else if (!R.notJoined && R.noticed !== 'calibrate') { R.noticed = 'calibrate'; notice('Calibrate the room', 'Open the Shared panel and press Calibrate: touch mark A, then mark B, with the tip of a controller. Tape crosses a metre or more apart work well.', 9000); }
+      if (notJoined && R.noticed !== 'alone') { R.noticed = 'alone'; notice('Not in the shared space', 'The others are in a shared space this headset has not joined: take it off and put it on again, or calibrate on the tape marks.', 9000); }
+      else if (!notJoined && R.noticed !== 'calibrate') { R.noticed = 'calibrate'; notice('Calibrate the room', 'Open the Shared panel and press Calibrate: touch mark A, then mark B, with the tip of a controller. Tape crosses a metre or more apart work well.', 9000); }
     }
   }
   // after waking, the shared space is used again only when it agrees with the frame the floor's resets carried
@@ -1791,7 +1820,7 @@
     R.sharedOK = false;
     if (R.shared) {
       const id = sharedIdOf(R.shared);
-      if (id && id !== R.sharedId) { R.sharedId = id; R.sharedAt = performance.now(); R.hS = null; log('shared id', { id }); }
+      if (id && id !== R.sharedId) { R.sharedId = id; R.sharedAt = performance.now(); R.hS = null; R.firstHere = null; log('shared id', { id }); }
       let p = null;
       try { p = f.getPose(R.shared, local); } catch (e) { /* not now */ }
       R.sharedPose = !!p;
@@ -1883,7 +1912,7 @@
   }
   function setSharedAlign(on) {
     R.sharedAlign = !!on; put('collabSharedAlign', on ? '1' : '0'); log('shared align', { on: R.sharedAlign });
-    if (!on && (R.src === 'adopted' || R.src === 'shared')) { R.frame = null; R.src = ''; R.aligned = false; }
+    if (!on && (R.src === 'adopted' || R.src === 'shared')) { R.frame = null; R.src = ''; R.aligned = false; R.wakeHold = 0; }
     R.recAt = 0; R.sharedAt = R.sharedAsked = performance.now(); changed();
   }
   const whose = id => { const m = member(id); return id === C.id ? 'your' : ((m && m.name) || 'someone') + '\'s'; };
@@ -2011,7 +2040,7 @@
         log('woke', { away: Math.round(t - R.hiddenAt), src: R.src, anchors: !!(R.anchors && R.anchorsOK) });
         R.sleptAt = R.hiddenAt; R.hiddenAt = 0; R.prev = null; R.visibleAt = t; R.stillSince = t; R.lastS = null;
         if (own() && R.frame) R.woke = t;
-        else if (R.frame) R.wakeHold = t;   // a frame from the shared space: held until the space agrees again
+        else if (R.frame && (R.src === 'adopted' || R.src === 'shared')) R.wakeHold = t;   // from the shared space: held until it agrees again
       }
       if (s.visibilityState === 'visible' && C.code) wake('headset');
     }));
