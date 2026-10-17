@@ -41,7 +41,7 @@ says what was built and where it differs from this plan.
 | `relay/server.mjs` | the relay: HTTP + WebSocket (own minimal RFC 6455 code, no packages), optional TLS, optional static serving of the app |
 | `relay/test.mjs` | Node test of the protocol (two or three clients) |
 | `relay/README.md` | running it (Coolify, a lab machine with TLS, a laptop with `adb reverse`), the protocol |
-| `relay/Dockerfile` | for Coolify (or any Docker host): Node 22 slim, the app copied in, `node relay/server.mjs --port 8787 --static .` |
+| `relay/Dockerfile` | for Coolify (or any Docker host): `node:22-alpine`, the app copied in, `node relay/server.mjs --port 8787 --static .` |
 | `shared.js` | the shell's shared-space client (`HOST.collab`, `HOST.room`), loaded by `index.html`, in `sw.js` `SHELL` |
 | `index.html` | wiring: the Shared button and dialog on the page, the placement hook, the audio panner |
 | every story | a small hook object and three short additions in its headset pointer code (section 7) |
@@ -112,9 +112,11 @@ All poses are in **room coordinates** (metres, y up, the floor at y = 0; see the
 | `roomFrameShared` | `{ uuid, o, x, by, at, src }` (shared-spaces.md) | the alignment |
 
 Station ids are short random strings. A new room has no stations; the headset panel and the desktop dialog offer
-**Arrange all** (the seven stories on an arc in front of the person, 2.2 m apart, facing inwards, the spot 1.4 m
-from where the content floats) and **Add a station here** (one story, at your feet, facing where you face),
-**Move here**, **Remove**.
+**Arrange all** (the seven stories in two rows in front of the person: four spots 1.2 m ahead, three in the gaps
+2.6 m further on, 2.4 m apart, every station facing away from the person so its content floats 1.4 m beyond its
+spot and faces the person's side; spots and content cover 7.2 m x 4 m, from 1.2 m to 5.2 m ahead) and **Add a
+station here** (one story, at your feet, facing where you face), **Move here**, **Remove** (it asks first:
+"Remove for everyone?" for 3 s, a second press removes).
 
 Ephemeral (`fx`): `p.<member>` presence at 15 Hz: `{ st, head: [x, y, z, qx, qy, qz, qw], hands: [[ox, oy, oz,
 dx, dy, dz, len], ...] }` (room coordinates; `len` how far the ray reaches: to the panel or object it hits);
@@ -144,8 +146,8 @@ asks the session for `local-floor` and, when granted, `shared` spaces of its own
 
 ## 6. Stations on a headset
 
-- **Your station**: the nearest station whose spot is within 1.6 m of you for 1 s (leave it beyond 2.2 m), or the
-  one you point at and pick. Your station's story is the live story on your headset (`HOST.go(key)` when it
+- **Your station**: the nearest station whose spot is within 1.1 m of you for 1 s (leave it beyond 1.5 m; spots
+  2.4 m apart never compete), or the one you point at and pick. Your station's story is the live story on your headset (`HOST.go(key)` when it
   differs) and is placed at its station; all other stations show as **previews** drawn by the shell: a ring on
   the floor at the spot in the story's colour, and a small upright card (title, kick, who is there, its state:
   playing at 1:23 / exploring) where the content would float. Pointing at a preview and pulling the trigger
@@ -156,7 +158,8 @@ asks the session for `local-floor` and, when granted, `shared` spaces of its own
   `saved()` gives the station's panel pose. So the story stands at its station for everybody, with no story
   change. Outside a room, everything is as today.
 - **Sound zone**: the shell routes the narration through a Web Audio `PannerNode` at the station's content
-  (HRTF, inverse distance, reference 1 m, rolling off so it is faint beyond about 4 m) and moves the listener with
+  (HRTF, inverse distance, reference 1.5 m so it is at full volume at the station's own spot, 1.4 m from the
+  content, rolling off to a fifth at 4 m) and moves the listener with
   your head every frame. The `<audio>` element fallback sets its volume by distance instead. Previews are silent.
   Both engines, the hum and the watchdog stay as they are (CLAUDE.md); Sound check is unchanged.
 - **Presence**: every headset sends `p.<me>` at 15 Hz. Others draw, in the room frame: each hand's ray as a thin
@@ -166,7 +169,9 @@ asks the session for `local-floor` and, when granted, `shared` spaces of its own
 - **The shell's headset panel**: a small panel beside the story panel ("Shared: XYZ · 4 people" when joined,
   "Shared space" when not): join a room from the list (no typing), leave, your name and colour, calibrate, the
   alignment state, the stations (Arrange all, Add a station here, Move here, Remove), and the people. Shell
-  objects take part in the story's pointer handling (section 7) and are always nearer than the scene behind.
+  objects take part in the story's pointer handling (section 7): a story panel nearer along the ray wins, and
+  shell objects always beat the scene behind them. In VR the panel asks once per room "Are you in the same room
+  as the others?" (In this room / Somewhere else; kept per room code); passthrough (AR) counts as in the room.
 
 ## 7. What each story adds (all seven, kept identical where the code is shared)
 
@@ -179,13 +184,18 @@ asks the session for `local-floor` and, when granted, `shared` spaces of its own
    data)` -> play a one-shot effect another person caused (the flock's falcon, the robots' crumbs); `hover(i)` ->
    how far controller i's ray reaches now (for the shared ray's length), or 0.
 2. A story calls `HOST.collab.effect(type, data)` where it causes such a one-shot effect itself.
-3. In its headset pointer code: before its own raycast, `const sh = HOST.collab.ray(c.i, c.o, c.d)`; when it
-   returns a hit, that is the hover (`{ kind: 'shell', point, dist }`, drawn with the usual dot) and a press goes
-   to `HOST.collab.press(c.i)` instead of the story.
+3. In its headset pointer code: after raycasting its own panels (`hs`) and before its scene,
+   `const sh = HOST.collab.ray(c.i, c.o, c.d, hs.length ? hs[0].distance : Infinity)`; when it returns a hit (a
+   shell object nearer than the story's nearest panel), that is the hover (`{ kind: 'shell', point, dist }`,
+   drawn with the usual dot) and a press goes to `HOST.collab.press(c.i)` instead of the story.
 4. `'shared'` in the session's optional features.
 
 The shell polls `state()` five times a second and publishes it when its value changed (echo suppression by
-value); a remote value goes through `apply()` and becomes the last synced value.
+value); a remote value goes through `apply()` and becomes the last synced value. A remote value that arrives
+while controls changed here (not yet published, or not yet acknowledged) is merged per top-level field of
+`state()`: the fields changed here since the last value both sides knew stay, the rest come from the room, and
+the merged value goes out, so two people changing different controls at once both keep their change (the same
+control: the later write wins).
 
 ## 8. Desktop operators
 
@@ -203,7 +213,7 @@ address while joined, so a reload rejoins.
   families, a station's story change dropping its state keys, `fx` not stored and not echoed, ping/pong, member
   timeout, room expiry (with a short test timeout).
 - `tools/collab.mjs` (Playwright, starts the relay with `--static .`): three pages in one room: stations arranged;
-  a page following a station sees play, pause, jump and mode changes from another within a second; each story's
+  a page following a station sees play, pause, jump and mode changes from another (within 5 s); each story's
   explore state round-trips (`state()` on one equals `state()` on another after a change); no ping-pong (count
   writes over 5 s of idle: zero); a late joiner gets everything; a relay restart is survived (reconnect and
   refetch); a pretend headset (as `tools/smoke.mjs` does) with fake `local-floor` and `shared` spaces aligns from a
@@ -244,11 +254,25 @@ Differences from the plan:
   a `story` field must match the station's story ("stale"). After a restart the room is empty: the first client to
   reconnect makes it again under the same code (`POST /api/rooms { code }`) and writes back its stations and
   state. `--lan` makes a certificate of its own and serves HTTPS (option (a) of section 3). Further limits: 60 `fx`
-  and 120 `set` messages a second per member, values up to 256 KB, 4 MB a room. The service worker leaves `/api/`
+  and 120 `set` messages a second per member, values up to 256 KB, 4 MB and 5000 keys a room (keys counted).
+  `--static` and `--lan` serve only the app's own files (a list in `relay/server.mjs`), not the rest of the
+  repository. The service worker leaves `/api/`
   alone.
 - **Clock**: the offset uses the ping with the shortest round trip (not a median); pings go every 2 s for the
-  first 20 s, then every 15 s.
-- **Follow** on a page closes its Stories screen (while it shows, nothing syncs).
+  first 20 s, then every 15 s. The samples start again on every new socket, and the client reads the wall clock
+  (`Date.now()`: a monotonic clock may stand still while a device sleeps).
+- **Follow** on a page closes its Stories screen (while it shows, nothing syncs). A story the person starts
+  themselves (the Stories screen, the headset's menu) leaves the station: the page stops following it and is not
+  pulled back. A switch the room asks for while a story is still loading is queued (`HOST.start` in a room keeps
+  the last request) and retried by the pump if it was lost.
+- **Joining**: a code with no room behind it (a typo, an old link) says "There is no room ABC on this relay (any
+  more)" and stays out; only a page that was in the room brings it back after a relay restart, and every such
+  page fills in what the room lacks.
+- **Clock writes** are throttled to one every 100 ms (leading and trailing); a woken page or headset pings at
+  once and reopens a socket that does not answer within 3 s.
+- **Headset panel**: Stop calibrating stays pressable while calibrating (a press anywhere else takes the mark);
+  the in-room button names the action ("Say I am elsewhere" / "Say I am in this room") under a line that says
+  where you are; cards turn to face you and are drawn under the story's panels.
 - **Room format**: `FORMAT` in `shared.js` is the room's version; a room refuses clients of another format, so it
   is bumped whenever the keys or a story's `state()` change shape.
 - Not built: phases 1 to 3 (one live station per headset; simulations still run per device). Untested until

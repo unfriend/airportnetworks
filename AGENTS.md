@@ -184,9 +184,20 @@ the content floats 1.4 m ahead of the spot), with `st.<id>.play` (the clock:
   panel), members, the relay's clock (ping/pong), presence (`p.<member>` at
   15 Hz) and effects (`e.<station>`); it reconnects with backoff and brings the
   room back after a relay restart. Log: `window.__collabLog` (and `#debug`).
-- A headset runs live the station it stands at (within 1.6 m for 1 s, left
-  beyond 2.2 m) or picks one by pointing at its preview (a ring and a card);
-  `HOST.go` switches story. A desktop page follows one from the Shared dialog.
+- A headset runs live the station it stands at (within 1.1 m for 1 s, left
+  beyond 1.5 m) or picks one by pointing at its preview (a ring and a card);
+  `HOST.go` switches story (in a room `HOST.start` queues a request made while
+  a story loads, and the pump retries a lost one). A desktop page follows one
+  from the Shared dialog. A story the person starts themselves leaves the
+  station (no longer following, not pulled back).
+- Arrange all: two rows in front of you, four spots 1.2 m ahead and three in
+  the gaps 2.6 m further on, 2.4 m apart, every station facing away from you
+  (its content floats 1.4 m beyond its spot); it needs about 7.2 m x 4 m of
+  floor from 1.2 m in front of you. Remove asks first ("Remove for
+  everyone?", 3 s), on the page and in the headset.
+- In VR the shell's panel asks once per room "Are you in the same room as the
+  others?" (In this room / Somewhere else, kept per room code in
+  `localStorage` `collabHere`); passthrough counts as in the room.
 - `HOST.room` (headsets) asks for its own `local-floor` and `shared` spaces and
   runs its own frame callback; the room frame comes from a frame published for
   the shared space (`roomFrameShared`), this headset's saved marks (anchor at
@@ -194,8 +205,8 @@ the content floats 1.4 m ahead of the spot), with `st.<id>.play` (the clock:
   elsewhere (VR) use their own floor. While aligned and at its station,
   `HOST.anchor.frame()` returns the station's rig pose (spot at 1.6 m, facing
   its way), `held()` is true and `locked(kind)` is true except for `'panel'`;
-  `HOST.audio.zone()` pans the narration from the station (nothing changes
-  outside a room).
+  `HOST.audio.zone()` pans the narration from the station (full volume within
+  1.5 m, so at the station's spot; nothing changes outside a room).
 - The relay (`relay/server.mjs`) keeps per room a map key -> `{ v, seq, by }`
   (every stored write takes the next seq; the last writer wins), the members,
   and passes on ephemeral `fx` messages (presence, effects) without storing
@@ -207,7 +218,10 @@ the content floats 1.4 m ahead of the spot), with `st.<id>.play` (the clock:
 - The shell wraps the story's `APP.seek`, `togglePlay`, `enterExplore` and
   `enterStory` to publish the clock, polls `collab.state()` five times a second
   and publishes it when its value changed; a value from the room goes through
-  `collab.apply()`. A story never publishes anything itself except effects.
+  `collab.apply()`, merged per top-level field with controls changed here
+  that the room has not yet acknowledged (so two people changing different
+  controls at once both keep theirs). A story never publishes anything itself
+  except effects.
   A page following a station (Follow) leaves its Stories screen: while that
   shows, nothing syncs.
 
@@ -219,10 +233,12 @@ reference, `tools/flock/engine/`):
   plays a one-shot effect another person caused (without sending it again),
   `hover(i)` is how far controller i's ray reaches now (or 0), `panel(p, yaw)`
   puts the story panel where another person moved it.
-- `xrPoint`: `const sh = HOST.collab.ray(c.i, c.o, c.d);` right after `c.o` and
-  `c.d` are set; a hit (`kind: 'shell'`: the shell's panel, the other
-  stations' cards, calibration marks) is the hover and the story's own
-  raycast is skipped. `xrPress`: `if (h.kind === 'shell') { HOST.collab.press(c.i); return; }`.
+- `xrPoint`: after raycasting its own panels (`hs`),
+  `const sh = HOST.collab.ray(c.i, c.o, c.d, hs.length ? hs[0].distance : Infinity);`;
+  a hit (`kind: 'shell'`: the shell's panel, the other stations' cards and
+  rings, calibration marks) is nearer than the story's panels and is the hover
+  instead of them and of the scene. `xrPress`:
+  `if (h.kind === 'shell') { HOST.collab.press(c.i); return; }`.
 - `xrGrab`: `if (XR.stories || HOST.anchor.locked(h.kind)) return;` (at a
   station only the panel moves; the shell's own things never move the scene).
 - `'shared'` in the session's optional features.
@@ -544,16 +560,21 @@ rule, `fx`, timeouts, bad frames, static serving; no browser, seconds) and
 `node tools/collab.mjs` (about a quarter of an hour; it starts its own relay with
 `--static .`, so no server is needed). For every story in its `STORIES` table,
 three pages in a room follow its station and check play, pause, jumps, mode
-changes and Replay within a second, the relay's clock, the explore state both
+changes and Replay (within 5 s), the relay's clock, the explore state both
 ways and the story's effect (for the robots also the pile's spot and dust).
-Then: no writes while idle (no ping-pong), a late joiner, a relay restart, and
+Before that: Arrange all's rows, a code with no room, Remove asking first.
+After: two controls changed at once on two pages (both kept), two stations
+followed back to back (the second not lost), a story picked by hand (stops
+following), no writes while idle (no ping-pong), a late joiner, a relay restart, and
 a pretend headset with fake `local-floor` and `shared` spaces: alignment,
 placement at its station, a recentre, taken off and on again (it stays in its
 story), Start on its Stories screen (restarts nothing), the hold and the lock,
 the station's clock and state, rays and head in room coordinates, another
-person drawn, the sound zone, the shell's panel and a card pick, re-alignment,
-walking to another station and back; calibration from two marks, a reset with
-a transform, and VR elsewhere. A new story needs an entry in `STORIES`
+person drawn, the sound zone, the shell's panel and a card pick, the story
+panel winning over a card behind it, re-alignment, walking to another station
+and back, Remove asking first; calibration from two marks (Stop calibrating
+still pressable), a reset with a transform, and VR elsewhere with its in-room
+question. `--quick` runs only the last story in the per-story part. A new story needs an entry in `STORIES`
 (`change` and `back`: code that changes its `state()`, and optional `effect`
 and `more`); the headset's story (`HEADSET_STORY`) stays the last entry.
 `--shots <dir>` also saves pictures of the dialog and two headset views.

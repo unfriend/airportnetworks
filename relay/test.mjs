@@ -14,6 +14,7 @@ import { fileURLToPath } from 'node:url';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url)), REPO = path.resolve(HERE, '..');
 const sleep = ms => new Promise(r => setTimeout(r, ms));
+const MAX_VALUE = 256 << 10, MAX_ROOM = 4 << 20;   // as in server.mjs
 let passed = 0, failed = 0;
 const ok = (cond, what) => { if (cond) passed++; else { failed++; console.log('  FAIL', what); } };
 const is = (t, more = () => true) => m => m.t === t && more(m);
@@ -363,6 +364,29 @@ try {
     e2.ws.close();
   });
 
+  await step('a room holds at most 5000 keys and 4 MB, keys counted', async () => {
+    const write = async (c, batch, cid) => { c.send({ t: 'set', batch, cid }); return Promise.race([c.next(is('set', m => m.cid === cid), 5000), c.next(is('error', m => m.cid === cid), 5000)]); };
+    const K = await newRoom(), h = await joined(K, 'h1', { name: 'Hal', version: 'v1' });
+    let s;
+    for (let b = 0; b < 10; b++) s = await write(h, Array.from({ length: 500 }, (_, i) => ['pose.' + (b * 500 + i), 1]), 'fill' + b);
+    ok(s?.t === 'set' && Object.keys((await state(K)).keys).length === 5000, '5000 keys stored');
+    s = await write(h, [['pose.more', 1]], 'more');
+    ok(s?.t === 'error' && /5000 keys/.test(s.text), 'one more is refused');
+    ok((await write(h, [['pose.0', 2]], 'same'))?.t === 'set', 'a key already there can still change');
+    ok((await write(h, [['pose.1', null], ['pose.more', 1]], 'swap'))?.t === 'set', 'one goes, one comes: fine');
+    h.ws.close();
+    const S = await newRoom(), g = await joined(S, 'g2', { name: 'Gil', version: 'v1' });
+    const big = n => 'x'.repeat(n - 2);   // a string whose JSON is n bytes
+    for (let i = 0; i < 15; i++) s = await write(g, [['f' + String(i).padStart(2, '0'), big(MAX_VALUE)]], 'big' + i);
+    ok(s?.t === 'set', '15 values of 256 KB');
+    const left = MAX_ROOM - 15 * (3 + MAX_VALUE);   // what is left with the keys counted
+    s = await write(g, [['f15', big(left - 3 + 4)]], 'over');
+    ok(s?.t === 'error' && /full/.test(s.text), 'a value that fits only if keys were free is refused');
+    s = await write(g, [['f15', big(left - 3)]], 'exact');
+    ok(s?.t === 'set', 'one that fits with its key is stored');
+    g.ws.close();
+  });
+
   await step('rooms expire after their last member left', async () => {
     const X = await newRoom(), Y = await newRoom();
     const f = await joined(X, 'f1', { name: 'Fay', version: 'v1' });
@@ -384,7 +408,8 @@ try {
     ok(r.status === 200 && r.headers['content-type'] === 'text/javascript; charset=utf-8' && r.buf.equals(file('stories/flock.js')), 'a story file');
     r = await req('GET', '/stories/flock.js', { headers: { 'Accept-Encoding': 'gzip, br' } });
     ok(r.headers['content-encoding'] === 'gzip' && zlib.gunzipSync(r.buf).equals(file('stories/flock.js')) && /Accept-Encoding/.test(r.headers.vary), 'gzipped when asked');
-    const types = { '/relay/server.mjs': 'text/javascript', '/sw.js': 'text/javascript', '/manifest.webmanifest': 'application/manifest+json', '/icons/icon-192.png': 'image/png', '/three.min.js': 'text/javascript', '/README.txt': 'text/plain' };
+    const types = { '/shared.js': 'text/javascript', '/sw.js': 'text/javascript', '/manifest.webmanifest': 'application/manifest+json', '/icons/icon-192.png': 'image/png', '/three.min.js': 'text/javascript',
+      '/three.LICENSE.txt': 'text/plain', '/README.txt': 'text/plain', '/proteins.html': 'text/html' };
     for (const [p, t] of Object.entries(types)) { r = await req('HEAD', p); ok(r.status === 200 && r.headers['content-type'].startsWith(t), `${p} is ${t}`); }
     ok((await req('GET', '/sw.js')).headers['cache-control'] === 'no-cache', 'files are revalidated (no-cache)');
     const mp3 = file('audio/narration.mp3'), size = mp3.length;
@@ -406,23 +431,70 @@ try {
     for (const p of evil) { r = await req('GET', p); ok(r.status >= 400 && !/root:|ref: /.test(r.text), `refused: ${p} (${r.status})`); }
   });
 
+  await step('only the app\'s files are served, not the rest of the repository', async () => {
+    // everything the service worker caches (SHELL, and the narrations that exist) is served
+    const sw = fs.readFileSync(path.join(REPO, 'sw.js'), 'utf8'), want = [];
+    for (const name of ['SHELL', 'AUDIO']) want.push(...[...new RegExp(`const ${name} = \\[([^\\]]*)\\]`).exec(sw)[1].matchAll(/'\.\/([^']*)'/g)].map(m => m[1]));
+    ok(want.length > 15, `sw.js lists the app's files (${want.length})`);
+    const missing = [];
+    for (const f of want) if (!f || fs.existsSync(path.join(REPO, f))) { const r = await req('HEAD', '/' + f); if (r.status !== 200) missing.push(`/${f} (${r.status})`); }
+    ok(!missing.length, 'every file sw.js caches is served' + (missing.length ? ': not ' + missing.join(' ') : ''));
+    const data = fs.readdirSync(path.join(REPO, 'ikerdata')).find(f => !f.startsWith('.'));
+    const not = ['/ikerdata/' + encodeURIComponent(data), '/tools/smoke.mjs', '/tools/lbi/build.mjs', '/docs/shared-space-plan.md', '/relay/server.mjs', '/relay/README.md',
+      '/AGENTS.md', '/README.md', '/stories/', '/audio', '/ikerdata/', '/stories/x/../../tools/smoke.mjs', '/INDEX.HTML'];
+    for (const p of not) { const r = await req('GET', p); ok(r.status === 404, `not served: ${p} (${r.status})`); }
+  });
+
+  await step('a download cut short closes its file', async () => {
+    const fds = () => fs.readdirSync(`/proc/${relay.pid}/fd`).filter(f => { try { return fs.readlinkSync(`/proc/${relay.pid}/fd/${f}`).endsWith('narration.mp3'); } catch { return false; } }).length;
+    try { fds(); } catch { console.log('  (no /proc here: skipped)'); return; }
+    const cut = headers => new Promise(resolve => {   // read the first bytes, then hang up
+      const r = http.get({ host: '127.0.0.1', port, path: '/audio/narration.mp3', headers }, res => res.once('data', () => { r.destroy(); resolve(); }));
+      r.on('error', resolve);
+    });
+    for (let i = 0; i < 20; i++) await cut(i % 2 ? { Range: 'bytes=1000-' } : {});
+    let n = 0;
+    for (const end = Date.now() + 2000; (n = fds()) && Date.now() < end;) await sleep(50);
+    ok(n === 0, `no file left open after 20 aborted downloads (${n} open)`);
+    const r = await req('GET', '/audio/narration.mp3', { headers: { Range: 'bytes=0-9' } });
+    ok(r.status === 206 && r.buf.length === 10, 'and the file is still served');
+  });
+
   await step('a link out of the served folder is not followed', async () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'relay-test-'));
     fs.writeFileSync(path.join(dir, 'index.html'), '<!doctype html><title>t</title>');
+    fs.mkdirSync(path.join(dir, 'stories'));
+    fs.writeFileSync(path.join(dir, 'stories', 'a.js'), '// a');
+    fs.writeFileSync(path.join(dir, 'notes.txt'), 'secret inside');
     const outside = path.join(os.tmpdir(), `relay-secret-${process.pid}.txt`);
     fs.writeFileSync(outside, 'secret');
-    fs.symlinkSync(outside, path.join(dir, 'link.txt'));
+    fs.symlinkSync(outside, path.join(dir, 'stories', 'out.js'));
+    fs.symlinkSync(path.join(dir, 'notes.txt'), path.join(dir, 'stories', 'in.js'));
+    fs.symlinkSync(path.join(dir, 'stories', 'a.js'), path.join(dir, 'stories', 'b.js'));
     const other = await start(['--static', dir, '--quiet']);
-    ok((await req('GET', '/', { at: other.port })).status === 200, 'its index');
-    const r = await req('GET', '/link.txt', { at: other.port });
-    ok(r.status === 404 && !/secret/.test(r.text), 'the link is 404');
+    ok((await req('GET', '/', { at: other.port })).status === 200 && (await req('GET', '/stories/a.js', { at: other.port })).status === 200, 'its index and a story');
+    let r = await req('GET', '/stories/out.js', { at: other.port });
+    ok(r.status === 404 && !/secret/.test(r.text), 'a link out of the folder is 404');
+    r = await req('GET', '/stories/in.js', { at: other.port });
+    ok(r.status === 404 && !/secret/.test(r.text), 'a link to a file that is not the app\'s is 404');
+    ok((await req('GET', '/notes.txt', { at: other.port })).status === 404, 'a file that is not the app\'s is 404');
+    ok((await req('GET', '/stories/b.js', { at: other.port })).status === 200, 'a link to an app file is served');
     other.kill();
     fs.rmSync(dir, { recursive: true }); fs.rmSync(outside);
   });
 
+  const lanIps = Object.values(os.networkInterfaces()).flat().filter(a => a && a.family === 'IPv4' && !a.internal);
+  await step('over http, the start lines send headsets to --lan or adb reverse', async () => {
+    const H = await start(['--static', REPO, '--host', '0.0.0.0', '--quiet']);
+    for (const end = Date.now() + 2000; !/On this machine/.test(H.out) && Date.now() < end;) await sleep(20);
+    ok(!/On every headset/.test(H.out) && new RegExp(`--lan .*adb reverse tcp:${H.port} tcp:${H.port} and open http://localhost:${H.port}/`).test(H.out), 'no http:// address for headsets; --lan or adb reverse instead');
+    if (lanIps.length) ok(/Desktops on the same network can open http:/.test(H.out), 'the network address for desktops');
+    H.kill();
+  });
+
   await step('--lan: HTTPS with a certificate of its own for this machine, the app served', async () => {
     try { execFileSync('openssl', ['version'], { stdio: 'ignore' }); } catch { console.log('  (no openssl here: skipped)'); return; }
-    const L = await start(['--lan']);
+    const L = await start(['--lan', '--host', '0.0.0.0']);
     const get = p => new Promise((res, rej) => https.get({ host: '127.0.0.1', port: L.port, path: p, rejectUnauthorized: false }, r => {
       const san = r.socket.getPeerCertificate().subjectaltname || '';
       r.resume(); r.on('end', () => res({ status: r.statusCode, san }));
@@ -431,6 +503,9 @@ try {
     ok(a.status === 200 && b.status === 200, 'the API and the app over HTTPS');
     ok(/IP Address:127\.0\.0\.1/.test(a.san) && /DNS:localhost/.test(a.san), 'the certificate names this machine');
     ok(/listening on https:/.test(L.out), 'it says https');
+    for (const end = Date.now() + 2000; !/On this machine/.test(L.out) && Date.now() < end;) await sleep(20);
+    if (lanIps.length) ok(/On every headset .*: https:\/\//.test(L.out) && !/adb reverse/.test(L.out), 'the https:// address for headsets');
+    ok((await get('/tools/smoke.mjs')).status === 404 && (await get('/ikerdata/')).status === 404, 'and only the app');
     L.kill();
   });
 

@@ -1528,11 +1528,11 @@ function xrPoint(c, dt) {
   c.o.setFromMatrixPosition(g.matrix);
   c.d.set(0, 0, -1).transformDirection(g.matrix);
   let hit = null, dist = 2.5;
-  // the shared room's own things (its panel, the other stations, a calibration) come first
-  const sh = HOST.collab.ray(c.i, c.o, c.d);
   // panels first: they are drawn on top of everything
   XR.raycaster.set(c.o, c.d);
-  const hs = sh ? [] : XR.raycaster.intersectObjects(XR.panelMeshes.filter(m => m.visible), false);
+  const hs = XR.raycaster.intersectObjects(XR.panelMeshes.filter(m => m.visible), false);
+  // then the shared room's own things (its panel, the other stations, a calibration), if nearer than a panel
+  const sh = HOST.collab.ray(c.i, c.o, c.d, hs.length ? hs[0].distance : Infinity);
   if (sh) { hit = sh; dist = sh.dist; }
   else if (hs.length) {
     const h = hs[0], P = XR.panels.find(q => q.mesh === h.object);

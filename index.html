@@ -312,14 +312,15 @@ body.picking #panel, body.picking #bar { visibility: hidden; }
 #sndcheck pre { margin: 4px 0 0; white-space: pre-wrap; word-break: break-word; color: #a9b8cc; font: 12px/1.55 ui-monospace, Menlo, Consolas, monospace; }
 /* the shared space: the Shared buttons and their dialog (shared.js fills it in) */
 #top .btn.on, #picker .rep.on { border-color: #46d9ff; }
-@media (max-width: 560px) { #btnShared:not(.on) { display: none; } }
+@media (max-width: 760px) { #btnShared:not(.on) { display: none; } }
 #shared { position: fixed; inset: 0; z-index: 12; display: grid; place-items: center; padding: max(12px, env(safe-area-inset-top, 0px)) 12px 12px;
   background: rgba(3, 8, 16, 0.62); overflow-y: auto; }
 #shared[hidden] { display: none; }
 #shared .box { width: min(760px, 100%); max-height: calc(100dvh - 24px); overflow-y: auto; overscroll-behavior: contain; color: #e7eef8;
   background: rgba(10, 19, 34, 0.97); border: 1px solid rgba(140, 170, 210, 0.3); border-radius: 12px; padding: 18px 20px 20px;
   font-size: 15px; box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5); }
-#shared header { display: flex; align-items: center; gap: 12px; }
+#shared header { display: flex; align-items: center; gap: 12px; position: sticky; top: -18px; z-index: 1; margin: -18px 0 0; padding: 18px 0 8px;
+  background: rgba(10, 19, 34, 0.97); }
 #shared h2 { margin: 0; font-size: 22px; flex: 1; }
 #shared h3 { margin: 18px 0 8px; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: #95a6bd; }
 #shared .sh-status { margin: 6px 0 0; color: #a9b8cc; font-size: 14px; }
@@ -336,6 +337,10 @@ body.picking #panel, body.picking #bar { visibility: hidden; }
 #shared li span { color: #a9b8cc; font-size: 13px; flex: 1 1 160px; }
 #shared li.none { color: #a9b8cc; font-size: 14px; }
 #shared li.on b { color: #46d9ff; }
+#shared li.empty b { color: #7f91a8; }
+#shared .btn.rm { margin-left: 14px; }
+#shared .btn.rm.armed { border-color: #ffb43b; color: #ffb43b; }
+#shared .btn:disabled { opacity: 0.45; cursor: default; }
 #shared li i { width: 12px; height: 12px; border-radius: 3px; flex: none; }
 #shared .btn { padding: 6px 12px; font-size: 13px; background: rgba(10, 19, 34, 0.88); color: #e7eef8; border-color: rgba(140, 170, 210, 0.3); }
 #shared .btn:hover { border-color: #46d9ff; }
@@ -346,7 +351,7 @@ body.picking #panel, body.picking #bar { visibility: hidden; }
 #shared .sh-room { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; margin-top: 12px; }
 #shared .sh-room b { font-size: 26px; letter-spacing: 0.08em; }
 #shared .sh-room span { flex: 1 1 200px; color: #a9b8cc; font-size: 13px; }
-#shMap { display: block; width: 100%; aspect-ratio: 16 / 10; border-radius: 8px; margin-top: 10px; cursor: pointer; background: #071021; }
+#shMap { display: block; width: 100%; aspect-ratio: 16 / 10; max-height: 45vh; border-radius: 8px; margin-top: 10px; cursor: pointer; background: #071021; }
 #shared .sh-colors { display: flex; gap: 8px; flex-wrap: wrap; }
 #shared .sh-colors button { width: 30px; height: 30px; border-radius: 7px; border: 2px solid transparent; padding: 0; }
 #shared .sh-colors button[aria-pressed="true"] { border-color: #f2f6fc; }
@@ -442,10 +447,11 @@ body.xr #labels, body.xr #tip { display: none; }
     <header><h2 id="shTitle">Shared space</h2><button class="btn" type="button" data-sh="close">Close</button></header>
     <p class="sh-status" aria-live="polite"></p>
     <div class="sh-out">
+      <p class="hint">In a room, several headsets and screens see the same stories in step. Each story stands at a station, a spot in the room: walk up to one in a headset, or follow one on a screen.</p>
       <div class="sh-relay">
         <h3>Relay</h3>
         <div class="row"><input id="shRelay" type="url" inputmode="url" autocomplete="off" spellcheck="false" placeholder="wss://relay.example.org" aria-label="Relay address"><button class="btn" type="button" data-sh="relay">Use</button></div>
-        <p class="hint">The relay is a small server that keeps a room in step (see relay/README.md). A page that comes from the relay finds it by itself.</p>
+        <p class="hint">Whoever runs the relay has its address. A page that comes from the relay finds it by itself.</p>
       </div>
       <h3>Open rooms</h3>
       <ul class="sh-rooms"></ul>
@@ -455,6 +461,7 @@ body.xr #labels, body.xr #tip { display: none; }
     <div class="sh-in">
       <div class="sh-room"></div>
       <canvas id="shMap" role="img" aria-label="Room map: the stations and the people, seen from above. Click a station to follow it."></canvas>
+      <p class="hint">Dot: where you stand at a station. Square: where its story floats. Arrows: people. Up is forward.</p>
       <h3>Stations</h3>
       <ul class="sh-stations"></ul>
       <div class="row mt"><button class="btn" type="button" data-sh="arrange">Arrange all</button><select id="shAdd" aria-label="Story for a new station"></select><button class="btn" type="button" data-sh="add">Add a station</button></div>
@@ -504,7 +511,7 @@ const HOST = {
       page: 'A gang of robot vacuums in your room', brand: 'Robot gang', sub: 'vacuums in your room',
       aria: 'Interactive 3D room with a gang of robot vacuums that follow you about', thing: 'room', loading: 'Waking the robots', len: 'Story 1:24 · then free play' },
   ],
-  factories: {}, loaded: {}, cur: null, curKey: null, busy: false,
+  factories: {}, loaded: {}, cur: null, curKey: null, busy: false, queued: '',
   renderer: null, session: null, mode: null, inputs: [], quiet: false,
   // the one renderer all stories draw with; its internal listeners belong to it, not to a story
   makeRenderer(opts) {
@@ -823,10 +830,11 @@ HOST.audio = (function () {
   }
 
   // ---- the sound zone, in a shared room only (shared.js): the narration comes from its station's content and
-  // fades with distance (inverse distance from 1 m: an eighth as loud at 4 m). Web Audio through an HRTF panner,
-  // the listener moving with your head; the <audio> element by its volume. zone(null): everything as without
-  // a room. The hum and Sound check's beeps do not go through it.
-  const ROLL = 2.5;
+  // fades with distance (inverse distance, full volume within 1.5 m, so at your own station's spot, 1.4 m from
+  // its content; a fifth as loud at 4 m). Web Audio through an HRTF panner, the listener moving with your head;
+  // the <audio> element by its volume. zone(null): everything as without a room. The hum and Sound check's beeps
+  // do not go through it.
+  const ROLL = 2.5, REF = 1.5;
   const setXYZ = (n, k, v) => { if (n[k + 'X']) { n[k + 'X'].value = v[0]; n[k + 'Y'].value = v[1]; n[k + 'Z'].value = v[2]; } else return false; return true; };
   function zone(z) {
     if (!z && !A.zone) return;
@@ -836,7 +844,7 @@ HOST.audio = (function () {
       if (z && !A.pan) {
         try {
           const p = c.createPanner();
-          p.panningModel = 'HRTF'; p.distanceModel = 'inverse'; p.refDistance = 1; p.rolloffFactor = ROLL; p.maxDistance = 10000;
+          p.panningModel = 'HRTF'; p.distanceModel = 'inverse'; p.refDistance = REF; p.rolloffFactor = ROLL; p.maxDistance = 10000;
           A.gain.disconnect(); A.gain.connect(p); p.connect(c.destination); A.pan = p;
           note('sound zone on');
         } catch (e) { note('no sound zone: ' + (e && e.message)); }
@@ -855,7 +863,7 @@ HOST.audio = (function () {
       }
     }
     const d = z ? Math.hypot(z.p[0] - z.head[0], z.p[1] - z.head[1], z.p[2] - z.head[2]) : 0;
-    const v = z ? Math.min(1, 1 / (1 + ROLL * Math.max(0, d - 1))) : 1;
+    const v = z ? Math.min(1, REF / (REF + ROLL * Math.max(0, d - REF))) : 1;   // as the panner's inverse model
     if (Math.abs(A.el.volume - v) > 0.01 || (v === 1 && A.el.volume !== 1)) A.el.volume = v;
   }
 
@@ -1213,7 +1221,7 @@ HOST.anchor = (function () {
     held: () => (N.on && N.placed) || room(),
     // while true, the grip moves nothing; at a station in a shared room it moves only panels (kind 'panel'), and
     // the shell's own things (kind 'shell': its panel, previews, marks) never move the scene behind them
-    locked: kind => N.on || kind === 'shell' || (room() && kind !== 'panel'),
+    locked: kind => kind === 'shell' || (room() ? kind !== 'panel' : N.on),
     // the arrangement saved with the place: { off, pp, pr } in the frame, or null (at a station: its panel)
     saved: () => (room() ? HOST.room.saved() : N.on && N.off && N.pp ? { off: N.off, pp: N.pp, pr: N.pr } : null),
     // once a frame from a story's headset loop, once the headset has a pose: the frame's pose in the room ({ p, yaw }), or null.
@@ -1306,13 +1314,15 @@ HOST.teardown = function () {
   this.cur = null;
 };
 HOST.start = async function (key, keepHash) {
-  if (this.busy) return;
+  // a story still loading: in a shared room the last story asked for meanwhile follows (the room's switches
+  // must not get lost); outside a room the request is dropped as before
+  if (this.busy) { if (this.collab && this.collab.joined) this.queued = key; return; }
   const meta = this.list.find(s => s.key === key) || this.list[0];
   if (this.curKey === meta.key && this.cur) { this.closePicker(); return; }
   this.busy = true;
   const ld = document.getElementById('loading');
   ld.textContent = meta.loading; ld.classList.remove('gone');
-  try { await this.load(meta.key); } catch (e) { ld.textContent = e.message; this.busy = false; return; }
+  try { await this.load(meta.key); } catch (e) { ld.textContent = e.message; this.busy = false; this.queued = ''; return; }
   this.teardown();
   // in a shared room, a story started at your station takes the station's place in the headset
   const at = this.collab && this.collab.starting(meta.key);
@@ -1327,6 +1337,9 @@ HOST.start = async function (key, keepHash) {
   this.cur = this.factories[meta.key](this);
   this.busy = false;
   this.closePicker();
+  const q = this.queued;
+  this.queued = '';
+  if (q && q !== this.curKey) this.go(q);
 };
 // from the headset menu: change story after the click that asked for it has finished
 HOST.go = key => setTimeout(() => HOST.start(key), 0);

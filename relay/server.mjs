@@ -14,6 +14,7 @@ import zlib from 'node:zlib';
 import { promisify } from 'node:util';
 import os from 'node:os';
 import { execFileSync } from 'node:child_process';
+import { pipeline } from 'node:stream';
 import { fileURLToPath } from 'node:url';
 
 const PROTO = 1;
@@ -59,7 +60,8 @@ if (OPT.lan) {
           '-keyout', OPT.key, '-out', OPT.cert], { stdio: 'ignore' });
       } catch (err) {
         console.log('--lan makes its certificate with openssl, which did not run (' + err.message + ').\n' +
-          'Install openssl (on Windows it comes with Git), or pass --cert and --key, or use adb reverse and http://localhost.');
+          'Install openssl (macOS and Linux have it). On Windows it comes with Git but is not on the PATH: run the relay\n' +
+          'from Git Bash, or add C:\\Program Files\\Git\\usr\\bin to PATH. Or pass --cert and --key, or use adb reverse and http://localhost.');
         process.exit(1);
       }
       fs.writeFileSync(path.join(dir, 'names.txt'), want);
@@ -70,7 +72,8 @@ if (OPT.lan) {
 const MAX_MSG = 1 << 20;            // one WebSocket message, reassembled
 const MAX_VALUE = 256 << 10;        // one stored value, as JSON
 const MAX_FX = 64 << 10;            // one ephemeral message
-const MAX_ROOM = 4 << 20;           // everything a room stores, as JSON
+const MAX_ROOM = 4 << 20;           // everything a room stores: keys and values, as JSON
+const MAX_KEYS = 5000;              // keys in a room (each one costs every later welcome a few bytes more)
 const MAX_ROOMS = 2000, MAX_BATCH = 500, FX_RATE = 60, SET_RATE = 120;   // rates: messages a second per member
 const KEY = /^[\w-]+(?:\.[\w:-]+)*$/, ID = /^[\w-]{1,64}$/, CODE = /^[A-Z]{3}$/;
 const STATION = /^st\.([\w-]{1,32})(?:\.|$)/;           // st.<id> and its state keys st.<id>.*
@@ -299,7 +302,7 @@ function set(room, m, msg) {
     const [k, v] = Array.isArray(p) && p.length === 2 ? p : [];
     const why = Array.isArray(p) && p.length === 2 ? check(k, v) : 'not a [key, value] pair';
     if (why) { bad.push([typeof k === 'string' ? k.slice(0, 128) : '?', why]); continue; }
-    good.push({ k, v, n: v === null ? 0 : JSON.stringify(v).length });
+    good.push({ k, v, n: v === null ? 0 : k.length + JSON.stringify(v).length });   // a key's size counts too
     const s = STATION.exec(k);
     if (s && k === 'st.' + s[1]) st.set(s[1], v);
   }
@@ -313,16 +316,24 @@ function set(room, m, msg) {
     if (why) bad.push([k, why]);
     return !why;
   });
-  const grow = ok.reduce((a, { k, n }) => a + n - (room.keys.get(k)?.n || 0), 0);
+  // the epoch rule: a station that shows another story (or goes) loses its state keys, in this seq
+  const gone = [];
+  for (const [id, v] of st) {
+    const old = room.keys.get('st.' + id);
+    if (old && v && old.v.story === v.story) continue;
+    for (const k of room.keys.keys()) if (k.startsWith(`st.${id}.`)) gone.push(k);
+  }
+  // the room as it would be after the batch: its size and how many keys
+  const after = new Map(gone.map(k => [k, 0]));
+  for (const { k, v, n } of ok) after.set(k, v === null ? 0 : n);
+  let grow = 0, more = 0;
+  for (const [k, n] of after) { const e = room.keys.get(k); grow += n - (e ? e.n : 0); more += (n ? 1 : 0) - (e ? 1 : 0); }
   if (ok.length && room.size + grow > MAX_ROOM) return refuse(room, m, cid, named, 'the room is full');
+  if (ok.length && more > 0 && room.keys.size + more > MAX_KEYS) return refuse(room, m, cid, named, `the room is full (${MAX_KEYS} keys)`);
   if (ok.length) {
     const seq = ++room.seq, out = [];
     const drop = k => { const e = room.keys.get(k); if (e) { room.size -= e.n; room.keys.delete(k); } };
-    for (const [id, v] of st) {   // the epoch rule: a station that shows another story (or goes) loses its state, in this seq
-      const old = room.keys.get('st.' + id);
-      if (old && v && old.v.story === v.story) continue;
-      for (const k of [...room.keys.keys()]) if (k.startsWith(`st.${id}.`)) { drop(k); out.push([k, null]); }
-    }
+    for (const k of gone) { drop(k); out.push([k, null]); }
     for (const { k, v, n } of ok) {
       if (v === null) drop(k);
       else { room.size += n - (room.keys.get(k)?.n || 0); room.keys.set(k, { v, seq, by: m.id, n }); }
@@ -407,6 +418,13 @@ const SQUEEZE = /^(text\/|application\/(json|manifest\+json|wasm)|image\/svg)/; 
 const gzip = promisify(zlib.gzip), GZ = new Map();
 const ROOT = OPT.static ? path.resolve(OPT.static) : '';
 const REAL = ROOT ? fs.realpathSync(ROOT) : '';
+// Only the app's own files are served, not the rest of the repository (the authors' data in ikerdata/,
+// tools/, docs/, the relay's certificate): these files at the top, and the files directly inside these
+// folders. Everything index.html, sw.js (SHELL, AUDIO) and the stories load is here; add what the app gains.
+const APP_FILES = new Set(['index.html', 'shared.js', 'sw.js', 'manifest.webmanifest', 'three.min.js', 'three.LICENSE.txt',
+  'proteins.html', 'spatial.html', 'README.txt']);
+const APP_DIRS = new Set(['stories', 'audio', 'icons']);
+const appFile = segs => (segs.length === 1 && APP_FILES.has(segs[0])) || (segs.length === 2 && APP_DIRS.has(segs[0]));
 
 async function serve(req, res, url) {
   if (req.method !== 'GET' && req.method !== 'HEAD') return plain(res, 405, 'Method not allowed', { Allow: 'GET, HEAD' });
@@ -415,12 +433,14 @@ async function serve(req, res, url) {
   const segs = p.split('/').filter(Boolean);
   // no way out of the folder and nothing hidden: no '..', no dot files (.git), no backslashes, no NUL
   if (p.includes('\0') || p.includes('\\') || segs.some(s => s.startsWith('.'))) return plain(res, 404, 'Not found');
-  let file = path.join(REAL, ...segs), st;
+  if (!segs.length) segs.push('index.html');   // / is the app; no folder listings
+  if (!appFile(segs)) return plain(res, 404, 'Not found');
+  const file = path.join(REAL, ...segs);
+  let st;
   try {
     st = await fs.promises.stat(file);
-    if (st.isDirectory()) { file = path.join(file, 'index.html'); st = await fs.promises.stat(file); }
-    const real = await fs.promises.realpath(file);
-    if (!st.isFile() || (real !== REAL && !real.startsWith(REAL + path.sep))) throw new Error('outside');   // a link out of the folder
+    const real = await fs.promises.realpath(file);   // a link must lead to an app file too, not out of the folder
+    if (!st.isFile() || !appFile(path.relative(REAL, real).split(path.sep))) throw new Error('not an app file');
   } catch { return plain(res, 404, 'Not found'); }
   const type = TYPES[path.extname(file).toLowerCase()] || 'application/octet-stream';
   const range = /^bytes=(\d*)-(\d*)$/.exec(String(req.headers.range || '').trim());
@@ -434,7 +454,7 @@ async function serve(req, res, url) {
   const stream = (opts, status, extra) => {
     res.writeHead(status, { ...head, ...extra });
     if (req.method === 'HEAD') return res.end();
-    fs.createReadStream(file, opts).on('error', () => res.destroy()).pipe(res);
+    pipeline(fs.createReadStream(file, opts), res, () => {});   // a download cut short closes the file too
   };
   if (useRange) {   // one range (the audio element asks for them); several ranges get the whole file
     let start = range[1] ? +range[1] : Math.max(0, st.size - +range[2]), end = range[1] && range[2] ? Math.min(+range[2], st.size - 1) : st.size - 1;
@@ -466,9 +486,15 @@ server.listen(OPT.port, OPT.host, () => {
   const a = server.address(), host = a.family === 'IPv6' ? `[${a.address}]` : a.address, scheme = OPT.cert ? 'https' : 'http';
   console.log(`relay listening on ${scheme}://${host}:${a.port}${ROOT ? ', serving ' + ROOT : ''} (protocol ${PROTO})`);
   if (ROOT && /^(0\.0\.0\.0|::)$/.test(a.address)) {
-    const lan = lanAddresses();
-    if (lan.length) console.log(`On every headset (same Wi-Fi), open the same address: ${lan.map(ip => `${scheme}://${ip}:${a.port}/`).join(' or ')}` +
-      (OPT.lan ? '\n(The certificate is this machine\'s own: accept the warning once on each headset.)' : ''));
+    const lan = lanAddresses(), at = lan.map(ip => `${scheme}://${ip}:${a.port}/`).join(' or ');
+    const pick = lan.length > 1 ? '\n(This machine has several addresses: use the one on the Wi-Fi the headsets are on.)' : '';
+    if (OPT.cert && lan.length) {   // a headset needs a secure page for WebXR: an https:// address is one
+      console.log(`On every headset (same Wi-Fi), open the same address: ${at}${pick}` +
+        (OPT.lan ? '\n(The certificate is this machine\'s own: accept the warning once on each headset.)' : ''));
+    } else if (!OPT.cert) {         // an http:// address on the network is not secure: no VR or AR there
+      if (lan.length) console.log(`Desktops on the same network can open ${at} (the page only: no VR or AR at an http:// address)${pick}`);
+      console.log(`For headsets, start the relay with --lan (HTTPS), or per headset run adb reverse tcp:${a.port} tcp:${a.port} and open http://localhost:${a.port}/`);
+    }
     console.log(`On this machine: ${scheme}://localhost:${a.port}/`);
   }
 });
