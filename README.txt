@@ -36,6 +36,19 @@ move them with the grip, then press Anchor. It uses the Quest Browser's room
 anchors (not in private browsing; clearing the site's data forgets the place);
 without them the place holds until you leave VR. #anchor=on (or #anchor=off) in
 a link sets it.
+Shared rooms (Shared button, top bar and Stories screen; in a headset a small
+Shared panel beside the story panel): several headsets and screens join one
+room and see the same stations, a story each at a spot in the room, in step on
+every device (anyone can play, pause, jump or change a control; the last action
+wins). A headset runs the station it stands at; the others show as rings on the
+floor with a card, and pointing at one and pulling the trigger goes there too.
+People in the room calibrate once (Calibrate: touch two tape marks with a
+controller) unless their headsets share a space; people elsewhere and screens
+see the stations round their own spot. Screens get a room map and Follow a
+station. Rooms need the relay (relay/, see relay/README.md): GitHub Pages cannot
+run it, so either run the relay with the app (one address, recommended) or keep
+the app here and add &relay=wss://... to the room link. #s=XYZ in a link joins
+room XYZ. Nothing changes for anyone not in a room. Not yet tried on headsets.
 
 Upload the whole folder to any HTTPS web server (GitHub Pages, Netlify,
 your university web space ...). Installing and VR both need https://.
@@ -121,7 +134,9 @@ crumbs. Speeds and cleaning times are tuned to look right, not measured.
 
 Files: index.html (the app), stories/ (the seven stories), proteins.html and
 spatial.html (forward to the app), manifest.webmanifest, sw.js (offline cache), audio/,
+shared.js (shared rooms), relay/ (the shared rooms' server), docs/ (the shared rooms' plan),
 AGENTS.md and CLAUDE.md (notes for AI coding agents), tools/smoke.mjs (headless test),
+tools/collab.mjs (headless test of shared rooms),
 tools/lbi/ (sources of the tour; node tools/lbi/build.mjs writes stories/lbi.js),
 tools/nmd/ and ikerdata/ (sources and data of the muscle story; node tools/nmd/build.mjs
 writes stories/nmd.js), tools/flock/ (sources of the flock; node tools/flock/build.mjs

@@ -48,8 +48,25 @@ function setCtl(k, key, v) {
   if (key === 'view' && s.cam && s.cam[v]) flyTo(view(k, v));
   if (c) renderScenes();
 }
-// send a falcon (dir: where you point, in the flock's frame; none: from anywhere)
-function sendFalcon(dir) { if (GL.sets.flock.scatter(dir || null)) renderScenes(); }
+// send a falcon (dir: where you point, in the flock's frame; none: from anywhere); in a shared room the others
+// at this station see it too (an effect); true if one went
+function sendFalcon(dir) {
+  if (!GL.sets.flock.scatter(dir || null)) return false;
+  renderScenes();
+  HOST.collab.effect('falcon', { dir: dir || null });
+  return true;
+}
+// shared rooms: the controls everyone at the station sees alike (the view is each person's own camera)
+const SHARED_CTL = ['birds', 'links', 'falcon'];
+function collabState() {
+  return Object.fromEntries(GL.sets.flock.controls.filter(c => SHARED_CTL.includes(c.key)).map(c => [c.key, ctlValue('flock', c)]));
+}
+function collabApply(v) {
+  for (const c of GL.sets.flock.controls) {
+    const x = v && v[c.key];
+    if (SHARED_CTL.includes(c.key) && c.options.some(o => o[0] === x) && ctlValue('flock', c) !== x) setCtl('flock', c.key, x);
+  }
+}
 function flyTo(v) {
   const c = orbit.cur;
   orbit.from = c.slice();

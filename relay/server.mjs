@@ -159,7 +159,7 @@ const idle = r => (r.members.size ? 0 : Math.round((Date.now() - r.empty) / 1000
 const keysOut = r => Object.fromEntries([...r.keys].map(([k, e]) => [k, { v: e.v, seq: e.seq, by: e.by }]));
 function broadcast(room, msg, except) {
   const buf = Ws.frame(1, Buffer.from(JSON.stringify(msg)));
-  for (const m of room.members.values()) if (m !== except) m.ws.write(buf);
+  for (const m of room.members.values()) if (m !== except && !m.ws.closing) m.ws.write(buf);   // nothing after a close frame
 }
 const send = (m, msg) => m.ws.text(JSON.stringify(msg));
 const cut = keys => (keys.length > 12 ? keys.slice(0, 12).join(' ') + ` +${keys.length - 12} more` : keys.join(' '));

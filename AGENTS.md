@@ -45,8 +45,14 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
   `narration-<key>.mp3` for the others, such as `narration-lbi.mp3`);
   missing files are fine.
 - `manifest.webmanifest`, `icons/` - PWA install metadata.
+- `shared.js` - the shell's shared-room client (`HOST.collab`, `HOST.room`), loaded
+  by `index.html` between its two scripts (see "Shared rooms" below).
+- `relay/` - the shared rooms' server (`server.mjs`, Node, no packages; it can serve
+  the app too), its test and Dockerfile; see its `README.md`. `docs/` holds the
+  plan (`shared-space-plan.md`) and the lessons it applies.
 - `tools/smoke.mjs` - headless smoke test; `tools/audio.mjs` - narration test;
-  `tools/update.mjs` - update test for the service worker (see Testing).
+  `tools/update.mjs` - update test for the service worker; `tools/collab.mjs` -
+  shared rooms test (see Testing).
 - `tools/nmd/` - the sources of `stories/nmd.js` (data generator, data block, sets,
   engine parts, build script, set harness; it uses `tools/lbi/kit.js`); see its
   `README.md`. `ikerdata/` holds the authors' analysis files it reads.
@@ -158,6 +164,44 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
   - Listeners the shell adds while a story runs (a new context, the headset
     session) are added with `HOST.quiet` set, so story changes do not remove
     them.
+
+## Shared rooms (`shared.js`, `relay/`)
+
+Several headsets and desktop pages join a room on the relay (`#s=XYZ` in the
+address while joined, the same on every headset; `&relay=wss://...` when the
+relay is not the page's own origin). A room holds **stations**: `st.<id>` =
+`{ story, x, z, yaw }` in room coordinates (metres, floor y = 0, yaw 0 faces -z;
+the content floats 1.4 m ahead of the spot), with `st.<id>.play` (the clock:
+`{ mode, t, playing, at }`, `at` in relay time), `st.<id>.x` (the story's
+`collab.state()`) and `st.<id>.panel`. The plan is `docs/shared-space-plan.md`.
+
+- `HOST.collab` keeps the room's keys (echo suppression by value, optimistic
+  writes acknowledged by the relay, apply order stations > clock > state >
+  panel), members, the relay's clock (ping/pong), presence (`p.<member>` at
+  15 Hz) and effects (`e.<station>`); it reconnects with backoff and brings the
+  room back after a relay restart. Log: `window.__collabLog` (and `#debug`).
+- A headset runs live the station it stands at (within 1.6 m for 1 s, left
+  beyond 2.2 m) or picks one by pointing at its preview (a ring and a card);
+  `HOST.go` switches story. A desktop page follows one from the Shared dialog.
+- `HOST.room` (headsets) asks for its own `local-floor` and `shared` spaces and
+  runs its own frame callback; the room frame comes from a frame published for
+  the shared space (`roomFrameShared`), this headset's saved marks (anchor at
+  mark A, `roomFrame` in `localStorage`) or a two-point calibration; people
+  elsewhere (VR) use their own floor. While aligned and at its station,
+  `HOST.anchor.frame()` returns the station's rig pose (spot at 1.6 m, facing
+  its way), `held()` is true and `locked(kind)` is true except for `'panel'`;
+  `HOST.audio.zone()` pans the narration from the station (nothing changes
+  outside a room).
+- Each story takes part with `collab: { APP, scene, state, apply, effect, hover,
+  panel }` in its returned object, `HOST.collab.ray(c.i, c.o, c.d)` before its
+  own raycast in `xrPoint` (a hit is the hover; a press goes to
+  `HOST.collab.press(c.i)`), `HOST.anchor.locked(h.kind)` in `xrGrab`,
+  `HOST.collab.effect(type, data)` where it causes a one-shot effect, and
+  `'shared'` in its optional features. `state()` is plain JSON of what another
+  person must see alike (controls, selection, search), never the camera, hover
+  or page layout. The flock is the reference (`tools/flock/engine/`).
+- Not tried on headsets yet: shared-space ids, calibration accuracy, sound
+  zones heard, comfort and frame rate with presence drawn.
 
 ## Inside a story (all seven follow the same pattern)
 
@@ -376,6 +420,9 @@ is the contract between them.
   `VERSION`). Likewise `tools/flock/` and `stories/flock.js`, and `tools/robots/`
   and `stories/robots.js`.
 - Keep `README.txt` (user-facing notes) in sync with structural changes.
+- Shared rooms: bump `FORMAT` in `shared.js` when the keys or a story's
+  `collab.state()` change shape (a room refuses another format). A story's
+  hooks (see "Shared rooms") must stay in step with its pointer code.
 - Several handlers run inside the old story's call stack when switching;
   use `HOST.go(key)` (deferred) from inside a story, not `HOST.start`.
 
@@ -420,6 +467,16 @@ earlier version checked out next to this one:
 It installs the old version, serves this one like GitHub Pages (ten-minute
 browser caching, ETags) and checks that the page and its stories are both new
 on the first visit after the update, on the next visit and offline.
+
+After touching `shared.js`, the relay or a story's shared-room hooks, run
+`node relay/test.mjs` (the protocol) and `node tools/collab.mjs` (it starts its
+own relay with `--static .`: three pages in a room, play, pause, jumps, mode
+changes and each story's explore state and effect, no writes while idle, a late
+joiner, a relay restart, and a pretend headset with fake `local-floor` and
+`shared` spaces: alignment, placement at the station, rays in room coordinates,
+switching by walking, calibration from two marks). Its `STORIES` table says how
+to change each story's shared state; add a story there when it gets its hooks.
+`--shots <dir>` also saves pictures of the dialog and two headset views.
 
 For the tour, test a changed set on its own in the set harness first
 (`tools/lbi/shot.mjs`, much cheaper than the whole story), then the story at a

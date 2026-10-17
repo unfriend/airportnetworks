@@ -1,7 +1,7 @@
 // Offline support: the app shell is cached on install, so the installed app
 // opens without a network connection. Bump VERSION when you change any file.
-const VERSION = 'networks-v38';
-const SHELL = ['./', './index.html', './proteins.html', './spatial.html', './stories/airports.js', './stories/proteins.js', './stories/spatial.js', './stories/lbi.js', './stories/nmd.js', './stories/flock.js', './stories/robots.js', './three.min.js', './manifest.webmanifest',
+const VERSION = 'networks-v39';
+const SHELL = ['./', './index.html', './shared.js', './proteins.html', './spatial.html', './stories/airports.js', './stories/proteins.js', './stories/spatial.js', './stories/lbi.js', './stories/nmd.js', './stories/flock.js', './stories/robots.js', './three.min.js', './manifest.webmanifest',
   './icons/icon-192.png', './icons/icon-512.png', './icons/maskable-512.png', './icons/apple-touch-icon.png', './icons/favicon-32.png'];
 
 const AUDIO = ['./audio/narration.mp3', './audio/narration-proteins.mp3', './audio/narration-spatial.mp3', './audio/narration-lbi.mp3', './audio/narration-nmd.mp3', './audio/narration-flock.mp3', './audio/narration-robots.mp3'];
@@ -78,6 +78,8 @@ self.addEventListener('fetch', e => {
     }));
     return;
   }
+  // the shared rooms' relay (when it serves the app): its API is live, never cached
+  if (url.origin === self.location.origin && /\/api\//.test(url.pathname)) return;
   // everything else from this app (story files, three.js, icons): network first, checked with the server
   if (url.origin === self.location.origin) {
     e.respondWith(fresh(fetch(req, { cache: 'no-cache' }), url.origin + url.pathname));

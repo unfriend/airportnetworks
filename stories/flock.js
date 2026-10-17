@@ -1226,8 +1226,25 @@ function setCtl(k, key, v) {
   if (key === 'view' && s.cam && s.cam[v]) flyTo(view(k, v));
   if (c) renderScenes();
 }
-// send a falcon (dir: where you point, in the flock's frame; none: from anywhere)
-function sendFalcon(dir) { if (GL.sets.flock.scatter(dir || null)) renderScenes(); }
+// send a falcon (dir: where you point, in the flock's frame; none: from anywhere); in a shared room the others
+// at this station see it too (an effect); true if one went
+function sendFalcon(dir) {
+  if (!GL.sets.flock.scatter(dir || null)) return false;
+  renderScenes();
+  HOST.collab.effect('falcon', { dir: dir || null });
+  return true;
+}
+// shared rooms: the controls everyone at the station sees alike (the view is each person's own camera)
+const SHARED_CTL = ['birds', 'links', 'falcon'];
+function collabState() {
+  return Object.fromEntries(GL.sets.flock.controls.filter(c => SHARED_CTL.includes(c.key)).map(c => [c.key, ctlValue('flock', c)]));
+}
+function collabApply(v) {
+  for (const c of GL.sets.flock.controls) {
+    const x = v && v[c.key];
+    if (SHARED_CTL.includes(c.key) && c.options.some(o => o[0] === x) && ctlValue('flock', c) !== x) setCtl('flock', c.key, x);
+  }
+}
 function flyTo(v) {
   const c = orbit.cur;
   orbit.from = c.slice();
@@ -1451,6 +1468,7 @@ function xrPress(c) {
   const h = c.hover;
   c.press = null;
   if (!h) return;
+  if (h.kind === 'shell') { HOST.collab.press(c.i); return; }   // the shared room's panel, previews, calibration
   if (h.kind === 'panel') {
     const r = h.P.at(h.x, h.y);
     if (!r) return;
@@ -1459,7 +1477,7 @@ function xrPress(c) {
   } else if (h.kind === 'sky' && !XR.stories) {   // the trigger on the sky sends a falcon where you point
     c.press = { kind: 'sky' };
     _sm.copy(GL.sets.flock.group.matrixWorld).invert();
-    if (GL.sets.flock.scatter(_xb.copy(c.d).transformDirection(_sm).toArray())) { buzz(c, 0.5, 40); renderScenes(); }
+    if (sendFalcon(_xb.copy(c.d).transformDirection(_sm).toArray())) buzz(c, 0.5, 40);
   }
 }
 function xrRelease(c) {
@@ -1479,7 +1497,7 @@ function xrGrab(c, on) {
   c.grab = null;
   const h = c.hover;
   if (!on || !h) return;
-  if (XR.stories || HOST.anchor.locked()) return; // the Stories screen stays put, and so does an anchored place
+  if (XR.stories || HOST.anchor.locked(h.kind)) return; // the Stories screen stays put, and so does an anchored place (a station: only its panel moves)
   if (h.kind !== 'panel') return;   // the field and the sky stay where they are: only the panel moves
   const p0 = XR.panelGroup.getWorldPosition(new THREE.Vector3());
   c.grab = { target: 'panel', q0: new THREE.Quaternion().setFromRotationMatrix(c.g.matrix).invert(),
@@ -1510,10 +1528,13 @@ function xrPoint(c, dt) {
   c.o.setFromMatrixPosition(g.matrix);
   c.d.set(0, 0, -1).transformDirection(g.matrix);
   let hit = null, dist = 2.5;
+  // the shared room's own things (its panel, the other stations, a calibration) come first
+  const sh = HOST.collab.ray(c.i, c.o, c.d);
   // panels first: they are drawn on top of everything
   XR.raycaster.set(c.o, c.d);
-  const hs = XR.raycaster.intersectObjects(XR.panelMeshes.filter(m => m.visible), false);
-  if (hs.length) {
+  const hs = sh ? [] : XR.raycaster.intersectObjects(XR.panelMeshes.filter(m => m.visible), false);
+  if (sh) { hit = sh; dist = sh.dist; }
+  else if (hs.length) {
     const h = hs[0], P = XR.panels.find(q => q.mesh === h.object);
     hit = { kind: 'panel', P, x: h.uv.x * P.w, y: (1 - h.uv.y) * P.h, point: h.point };
     dist = h.distance;
@@ -1615,7 +1636,7 @@ async function xrStart(mode) {
   if (XR.session || !navigator.xr) return;
   let session;
   try {
-    session = await navigator.xr.requestSession(mode, { optionalFeatures: ['local-floor', 'hand-tracking', 'anchors', 'plane-detection', 'mesh-detection'] });
+    session = await navigator.xr.requestSession(mode, { optionalFeatures: ['local-floor', 'hand-tracking', 'anchors', 'plane-detection', 'mesh-detection', 'shared'] });
   } catch (err) {
     HOST.landingVR = false;
     xrMsg(`Could not start ${mode === 'immersive-ar' ? 'AR' : 'VR'}: ${err && err.message ? err.message : err}`);
@@ -2365,6 +2386,13 @@ return {
   inputs: () => XR.ctrls.map(c => c.src),
   xrPose: () => (XR.on ? { rp: GL.rig.position.clone(), rq: GL.rig.quaternion.clone(), off: XR.globeOff.clone(),
     pp: XR.panelGroup.position.clone(), pr: XR.panelGroup.rotation.y } : null),
+  // shared rooms (shared.js): the clock is APP's, the shared state the explore controls, the falcon an effect
+  collab: {
+    APP, scene: () => GL.scene, state: collabState, apply: collabApply,
+    effect(type, d) { if (type === 'falcon' && GL.sets.flock.scatter((d && d.dir) || null)) renderScenes(); },
+    hover: i => { const c = XR.ctrls[i]; return c && c.hover ? c.ray.scale.z : 0; },
+    panel(p, yaw) { XR.panelGroup.position.fromArray(p); XR.panelGroup.rotation.set(0, yaw, 0); },
+  },
   // for tests and the browser console: HOST.cur.peek('NET.N')
   peek: src => eval(src),
   dispose() {

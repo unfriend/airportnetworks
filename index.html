@@ -310,6 +310,47 @@ body.picking #panel, body.picking #bar { visibility: hidden; }
 #sndcheck .hint { color: #a9b8cc; font-size: 13px; line-height: 1.4; }
 #sndcheck .sep { width: 10px; }
 #sndcheck pre { margin: 4px 0 0; white-space: pre-wrap; word-break: break-word; color: #a9b8cc; font: 12px/1.55 ui-monospace, Menlo, Consolas, monospace; }
+/* the shared space: the Shared buttons and their dialog (shared.js fills it in) */
+#top .btn.on, #picker .rep.on { border-color: #46d9ff; }
+@media (max-width: 560px) { #btnShared:not(.on) { display: none; } }
+#shared { position: fixed; inset: 0; z-index: 12; display: grid; place-items: center; padding: max(12px, env(safe-area-inset-top, 0px)) 12px 12px;
+  background: rgba(3, 8, 16, 0.62); overflow-y: auto; }
+#shared[hidden] { display: none; }
+#shared .box { width: min(760px, 100%); max-height: calc(100dvh - 24px); overflow-y: auto; overscroll-behavior: contain; color: #e7eef8;
+  background: rgba(10, 19, 34, 0.97); border: 1px solid rgba(140, 170, 210, 0.3); border-radius: 12px; padding: 18px 20px 20px;
+  font-size: 15px; box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5); }
+#shared header { display: flex; align-items: center; gap: 12px; }
+#shared h2 { margin: 0; font-size: 22px; flex: 1; }
+#shared h3 { margin: 18px 0 8px; font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: #95a6bd; }
+#shared .sh-status { margin: 6px 0 0; color: #a9b8cc; font-size: 14px; }
+#shared .sh-status.warn { color: #ffb43b; }
+#shared .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+#shared .row.mt { margin-top: 10px; }
+#shared input, #shared select { background: rgba(4, 9, 18, 0.9); color: #e7eef8; border: 1px solid rgba(140, 170, 210, 0.35); border-radius: 6px;
+  padding: 7px 10px; font-size: 14px; min-width: 0; }
+#shRelay { flex: 1 1 240px; }
+#shCode { width: 5.5em; text-transform: uppercase; }
+#shName { flex: 0 1 14em; }
+#shared ul { list-style: none; margin: 0; padding: 0; }
+#shared li { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; padding: 8px 0; border-top: 1px solid rgba(149, 166, 189, 0.15); }
+#shared li span { color: #a9b8cc; font-size: 13px; flex: 1 1 160px; }
+#shared li.none { color: #a9b8cc; font-size: 14px; }
+#shared li.on b { color: #46d9ff; }
+#shared li i { width: 12px; height: 12px; border-radius: 3px; flex: none; }
+#shared .btn { padding: 6px 12px; font-size: 13px; background: rgba(10, 19, 34, 0.88); color: #e7eef8; border-color: rgba(140, 170, 210, 0.3); }
+#shared .btn:hover { border-color: #46d9ff; }
+#shared .btn.primary { background: #46d9ff; color: #04131c; border-color: transparent; }
+#shared .sh-in { display: none; }
+#shared.joined .sh-in { display: block; }
+#shared.joined .sh-out { display: none; }
+#shared .sh-room { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; margin-top: 12px; }
+#shared .sh-room b { font-size: 26px; letter-spacing: 0.08em; }
+#shared .sh-room span { flex: 1 1 200px; color: #a9b8cc; font-size: 13px; }
+#shMap { display: block; width: 100%; aspect-ratio: 16 / 10; border-radius: 8px; margin-top: 10px; cursor: pointer; background: #071021; }
+#shared .sh-colors { display: flex; gap: 8px; flex-wrap: wrap; }
+#shared .sh-colors button { width: 30px; height: 30px; border-radius: 7px; border: 2px solid transparent; padding: 0; }
+#shared .sh-colors button[aria-pressed="true"] { border-color: #f2f6fc; }
+#shared .hint { color: #7f91a8; font-size: 13px; margin: 6px 0 0; }
 #nogl { display: none; position: fixed; inset: 0; place-items: center; padding: 30px; text-align: center; background: var(--scene); color: #e7eef8; z-index: 11; }
 
 .btn[hidden] { display: none; }
@@ -351,6 +392,7 @@ body.xr #labels, body.xr #tip { display: none; }
 <header id="top">
   <div class="brand">Networks<span>in seven stories</span></div>
   <button class="btn" id="btnOther" type="button" title="Choose another story">Stories</button>
+  <button class="btn" id="btnShared" type="button" data-open-shared aria-expanded="false" aria-controls="shared" title="Shared rooms: several headsets and screens see the same stories">Shared</button>
   <div class="spacer"></div>
   <button class="btn" id="btnSound" type="button" hidden aria-pressed="false">Sound on</button>
   <button class="btn" id="btnInstall" type="button" hidden title="Install as an app">Install</button>
@@ -378,6 +420,7 @@ body.xr #labels, body.xr #tip { display: none; }
       <button class="rep" type="button" data-repeat="one" aria-pressed="false">Repeat one</button>
       <span class="hint"></span>
       <button class="rep" type="button" id="btnSndCheck" aria-expanded="false" aria-controls="sndcheck">Sound check</button>
+      <button class="rep" type="button" id="btnSharedPick" data-open-shared aria-expanded="false" aria-controls="shared">Shared</button>
     </div>
     <div id="sndcheck" hidden>
       <div class="row"><b>Sound check</b><span class="hint">No narration? Press both beeps. If you hear only one, choose that way to play.</span></div>
@@ -392,6 +435,34 @@ body.xr #labels, body.xr #tip { display: none; }
       </div>
       <pre aria-live="off"></pre>
     </div>
+  </div>
+</div>
+<div id="shared" hidden role="dialog" aria-modal="true" aria-labelledby="shTitle">
+  <div class="box">
+    <header><h2 id="shTitle">Shared space</h2><button class="btn" type="button" data-sh="close">Close</button></header>
+    <p class="sh-status" aria-live="polite"></p>
+    <div class="sh-out">
+      <div class="sh-relay">
+        <h3>Relay</h3>
+        <div class="row"><input id="shRelay" type="url" inputmode="url" autocomplete="off" spellcheck="false" placeholder="wss://relay.example.org" aria-label="Relay address"><button class="btn" type="button" data-sh="relay">Use</button></div>
+        <p class="hint">The relay is a small server that keeps a room in step (see relay/README.md). A page that comes from the relay finds it by itself.</p>
+      </div>
+      <h3>Open rooms</h3>
+      <ul class="sh-rooms"></ul>
+      <div class="row mt"><button class="btn primary" type="button" data-sh="start">Start a room</button><button class="btn" type="button" data-sh="refresh">Refresh</button>
+        <input id="shCode" maxlength="3" autocomplete="off" spellcheck="false" placeholder="ABC" aria-label="Room code"><button class="btn" type="button" data-sh="code">Join by code</button></div>
+    </div>
+    <div class="sh-in">
+      <div class="sh-room"></div>
+      <canvas id="shMap" role="img" aria-label="Room map: the stations and the people, seen from above. Click a station to follow it."></canvas>
+      <h3>Stations</h3>
+      <ul class="sh-stations"></ul>
+      <div class="row mt"><button class="btn" type="button" data-sh="arrange">Arrange all</button><select id="shAdd" aria-label="Story for a new station"></select><button class="btn" type="button" data-sh="add">Add a station</button></div>
+      <h3>People</h3>
+      <ul class="sh-people"></ul>
+    </div>
+    <h3>You</h3>
+    <div class="row"><input id="shName" maxlength="32" autocomplete="nickname" aria-label="Your name"><div class="sh-colors" role="group" aria-label="Your colour"></div></div>
   </div>
 </div>
 <div id="loading">Loading</div>
@@ -482,7 +553,7 @@ HOST.audio = (function () {
     cur: null, session: null, files: new Map(), mediaOn: false, tapped: false, tapAt: -1e9, lastTap: '', ranAt: -1e9,
     tryAt: 0, tryWhy: '', resumeAt: 0, cycleAt: 0, errorAt: 0,
     shown: '', on: 0, checkAt: 0, ct: null, rate: null, stalls: 0, errors: 0, cycling: false, mt: null, mrate: null, mStalls: 0,
-    log: [], t0: performance.now(), beep: '',
+    log: [], t0: performance.now(), beep: '', zone: null, pan: null,
   };
   try { localStorage.removeItem('narrationMuted'); } catch (e) { /* storage blocked */ }
   // iPhones: play even when the ring switch is on silent
@@ -507,7 +578,7 @@ HOST.audio = (function () {
     quiet(() => {
       let c;
       try { c = new AC({ latencyHint: 'playback' }); } catch (e) { try { c = new AC(); } catch (e2) { return; } }
-      A.ctx = c; A.hum = null; A.ct = null; A.rate = null; A.stalls = 0;
+      A.ctx = c; A.hum = null; A.ct = null; A.rate = null; A.stalls = 0; A.pan = null;
       A.gain = c.createGain(); A.gain.connect(c.destination);
       c.addEventListener('statechange', () => {
         if (c !== A.ctx) return;
@@ -751,6 +822,43 @@ HOST.audio = (function () {
     return 'webaudio';
   }
 
+  // ---- the sound zone, in a shared room only (shared.js): the narration comes from its station's content and
+  // fades with distance (inverse distance from 1 m: an eighth as loud at 4 m). Web Audio through an HRTF panner,
+  // the listener moving with your head; the <audio> element by its volume. zone(null): everything as without
+  // a room. The hum and Sound check's beeps do not go through it.
+  const ROLL = 2.5;
+  const setXYZ = (n, k, v) => { if (n[k + 'X']) { n[k + 'X'].value = v[0]; n[k + 'Y'].value = v[1]; n[k + 'Z'].value = v[2]; } else return false; return true; };
+  function zone(z) {
+    if (!z && !A.zone) return;
+    A.zone = z || null;
+    const c = A.ctx;
+    if (c && A.gain) {
+      if (z && !A.pan) {
+        try {
+          const p = c.createPanner();
+          p.panningModel = 'HRTF'; p.distanceModel = 'inverse'; p.refDistance = 1; p.rolloffFactor = ROLL; p.maxDistance = 10000;
+          A.gain.disconnect(); A.gain.connect(p); p.connect(c.destination); A.pan = p;
+          note('sound zone on');
+        } catch (e) { note('no sound zone: ' + (e && e.message)); }
+      } else if (!z && A.pan) {
+        try { A.gain.disconnect(); A.pan.disconnect(); } catch (e) { /* already apart */ }
+        A.gain.connect(c.destination); A.pan = null;
+        note('sound zone off');
+      }
+      if (z && A.pan) {
+        try {
+          if (!setXYZ(A.pan, 'position', z.p)) A.pan.setPosition(z.p[0], z.p[1], z.p[2]);
+          const L = c.listener;
+          if (!setXYZ(L, 'position', z.head)) L.setPosition(z.head[0], z.head[1], z.head[2]);
+          if (!setXYZ(L, 'forward', z.f) || !setXYZ(L, 'up', z.u)) L.setOrientation(z.f[0], z.f[1], z.f[2], z.u[0], z.u[1], z.u[2]);
+        } catch (e) { /* an old engine: positions stay */ }
+      }
+    }
+    const d = z ? Math.hypot(z.p[0] - z.head[0], z.p[1] - z.head[1], z.p[2] - z.head[2]) : 0;
+    const v = z ? Math.min(1, 1 / (1 + ROLL * Math.max(0, d - 1))) : 1;
+    if (Math.abs(A.el.volume - v) > 0.01 || (v === 1 && A.el.volume !== 1)) A.el.volume = v;
+  }
+
   // ---- narration files: fetched once (a missing file is normal), decoded for Web Audio with a time limit
   function decode(data) {
     return new Promise((res, rej) => {
@@ -978,13 +1086,14 @@ HOST.audio = (function () {
   document.getElementById('btnSound').addEventListener('click', toggle);
   return {
     get ctx() { return A.ctx; }, get el() { return A.el; }, get muted() { return A.muted; }, get pref() { return A.pref; },
-    running, narration, unlock, toggle, watch, drop, beep, setEngine, reset, report, engine: () => engine(A.cur), state: () => A,
+    running, narration, unlock, toggle, watch, drop, beep, setEngine, reset, report, zone, engine: () => engine(A.cur), state: () => A,
   };
 })();
-// stories set HOST.session when they start or take over a headset session; the sound system and the anchor listen to it
+// stories set HOST.session when they start or take over a headset session; the sound system, the anchor and the
+// shared room (shared.js) listen to it
 (function () {
   let s = null;
-  Object.defineProperty(HOST, 'session', { get: () => s, set(v) { s = v; HOST.audio.watch(v); HOST.anchor.watch(v); }, enumerable: true });
+  Object.defineProperty(HOST, 'session', { get: () => s, set(v) { s = v; HOST.audio.watch(v); HOST.anchor.watch(v); if (HOST.room) HOST.room.watch(v); }, enumerable: true });
 })();
 // --------------------------------------------------------------- anchored placement --
 // Anchored mode (the Anchor button on the headset Stories screen, or #anchor=on / #anchor=off in a
@@ -997,6 +1106,8 @@ HOST.audio = (function () {
 // saved with it. While anchored the grip moves nothing; Place again puts everything in front of you
 // and anchors it there. Without anchors the place still holds until you leave the headset view.
 HOST.anchor = (function () {
+  // at its station in a shared room with an aligned room frame (shared.js), a story is placed there
+  const room = () => !!(HOST.room && HOST.room.placing());
   // gen counts placements: a request (restore, create) still running when the place is dropped, placed
   // again or the session changes finds a newer gen when it settles, and throws its result away
   const N = { on: false, uuid: '', old: [], off: null, pp: null, pr: 0, session: null, anchor: null, want: '', busy: false,
@@ -1097,14 +1208,18 @@ HOST.anchor = (function () {
       drop(); N.off = N.pp = null; N.pr = 0; N.note = ''; store();
       N.want = 'create';
     },
-    // while true, a story must not re-place anything (headset taken off, recentring)
-    held: () => N.on && N.placed,
-    // while true, the grip moves nothing
-    locked: () => N.on,
-    // the arrangement saved with the place: { off, pp, pr } in the frame, or null
-    saved: () => (N.on && N.off && N.pp ? { off: N.off, pp: N.pp, pr: N.pr } : null),
-    // once a frame from a story's headset loop, once the headset has a pose: the frame's pose in the room ({ p, yaw }), or null
+    // while true, a story must not re-place anything (headset taken off, recentring); also while it stands at
+    // its station in a shared room (shared.js)
+    held: () => (N.on && N.placed) || room(),
+    // while true, the grip moves nothing; at a station in a shared room it moves only panels (kind 'panel')
+    locked: kind => N.on || (room() && kind !== 'panel'),
+    // the arrangement saved with the place: { off, pp, pr } in the frame, or null (at a station: its panel)
+    saved: () => (room() ? HOST.room.saved() : N.on && N.off && N.pp ? { off: N.off, pp: N.pp, pr: N.pr } : null),
+    // once a frame from a story's headset loop, once the headset has a pose: the frame's pose in the room ({ p, yaw }), or null.
+    // In a shared room with an aligned frame it is the story's station: its spot at eye height, facing its way.
     frame(f, ref) {
+      const st = HOST.room && HOST.room.place(f);
+      if (st) return st;
       if (!N.on || !N.session || !f || !ref) return null;
       if (N.want && !N.busy) { const w = N.want; N.want = ''; if (w === 'restore') restore(); else create(f, ref); }
       if (!N.anchor) return null;
@@ -1119,6 +1234,31 @@ HOST.anchor = (function () {
       // upright: only the anchor's turn about the vertical counts
       N.last = { p: [t.x, t.y, t.z], yaw: Math.atan2(2 * (q.x * q.z + q.w * q.y), 1 - 2 * (q.x * q.x + q.y * q.y)) };
       return N.last;
+    },
+    // the shared room's anchor at mark A (shared.js), in the same budget of saved anchors per site: made at
+    // pose p, q in space, its handle saved; the handle it replaces (old) is deleted
+    keep(f, space, p, q, old) {
+      const s = N.session;
+      if (!s || !f || typeof f.createAnchor !== 'function' || typeof XRRigidTransform === 'undefined') return Promise.reject(new Error('no anchors here'));
+      let pr;
+      try { pr = f.createAnchor(new XRRigidTransform({ x: p.x, y: p.y, z: p.z }, { x: q.x, y: q.y, z: q.z, w: q.w }), space); } catch (e) { pr = Promise.reject(e); }
+      return Promise.resolve(pr).then(a => {
+        if (!a) throw new Error('no anchor');
+        if (!a.requestPersistentHandle) return { anchor: a, uuid: '' };
+        return a.requestPersistentHandle().then(u => {
+          if (N.session !== s) { forget(u); return { anchor: a, uuid: '' }; }
+          if (old && old !== u) forget(old);
+          return { anchor: a, uuid: u };
+        }, () => ({ anchor: a, uuid: '' }));
+      });
+    },
+    // a saved anchor back by its handle (rejects when this session cannot restore it)
+    find(u) {
+      const s = N.session;
+      if (!s || !s.restorePersistentAnchor || !u) return Promise.reject(new Error('no saved anchors here'));
+      let pr;
+      try { pr = s.restorePersistentAnchor(u); } catch (e) { pr = Promise.reject(e); }
+      return Promise.resolve(pr).then(a => { if (!a) throw new Error('no anchor'); return a; });
     },
     // one line for the Stories screen in the headset
     status() {
@@ -1148,6 +1288,7 @@ HOST.teardown = function () {
   if (this.cur) {
     try { this.inputs = this.cur.inputs(); } catch (e) { this.inputs = []; }
     try { this.xrPose = this.cur.xrPose(); } catch (e) { this.xrPose = null; }
+    if (this.collab) this.collab.detach(); // the shared room's overlay leaves the old scene before it is disposed
     try { this.cur.dispose(); } catch (e) { console.warn(e); }
   }
   for (const [t, type, fn, opts] of HOST_REC.splice(0)) t.removeEventListener(type, fn, opts);
@@ -1172,7 +1313,10 @@ HOST.start = async function (key, keepHash) {
   ld.textContent = meta.loading; ld.classList.remove('gone');
   try { await this.load(meta.key); } catch (e) { ld.textContent = e.message; this.busy = false; return; }
   this.teardown();
-  if (!keepHash) history.replaceState(null, '', '#' + meta.key);
+  // in a shared room, a story started at your station takes the station's place in the headset
+  const at = this.collab && this.collab.starting(meta.key);
+  if (at) this.xrPose = at;
+  if (!keepHash) history.replaceState(null, '', (this.collab && this.collab.hash()) || '#' + meta.key);
   document.getElementById('gl').setAttribute('aria-label', meta.aria);
   document.getElementById('btnAR').title = `Mixed reality: the ${meta.thing} floats in your room`;
   document.getElementById('nogl').textContent = `This ${meta.thing} needs WebGL, which this browser has turned off.`;
@@ -1186,9 +1330,10 @@ HOST.start = async function (key, keepHash) {
 // from the headset menu: change story after the click that asked for it has finished
 HOST.go = key => setTimeout(() => HOST.start(key), 0);
 // the address says where you are, so it can be shared: #stories on the Stories
-// screen (page or headset), #airports, #proteins or #spatial in a story
+// screen (page or headset), #airports, #proteins or #spatial in a story; in a shared
+// room #s=XYZ (the same on every headset there: Quest shared spaces are per page URL)
 HOST.setUrl = function (stories) {
-  const h = stories ? '#stories' : '#' + this.curKey;
+  const h = (this.collab && this.collab.hash()) || (stories ? '#stories' : '#' + this.curKey);
   if (location.hash !== h) history.replaceState(null, '', h);
   this.chrome(stories);
 };
@@ -1237,6 +1382,9 @@ HOST.toggleRepeat = function (mode) { this.setRepeat(this.repeat === mode ? 'off
 // the last picture) and the story should just stop, false that it opens explore mode as usual
 HOST.ended = function () {
   if (this.repeat === 'off' || this.picking || !this.cur) return false;
+  // a station in a shared room ends as everywhere else in the room: explore mode (no Repeat)
+  const st = this.collab && this.collab.live();
+  if (st && st.story === this.curKey) return false;
   const cur = this.cur, i = this.list.findIndex(s => s.key === this.curKey);
   const next = this.repeat === 'all' ? this.list[(i + 1) % this.list.length].key : this.curKey;
   setTimeout(() => {
@@ -1262,12 +1410,16 @@ HOST.closePicker = function () {
   HOST.soundCheck(false);
   HOST.setUrl(false);
 };
-
+</script>
+<script src="shared.js"></script>
+<script>
+'use strict';
 (function boot() {
   const pk = document.getElementById('picker');
   pk.querySelector('.cards').innerHTML = HOST.list.map(s => `<button class="card" type="button" data-story="${s.key}">
     <span class="k" style="color:${s.col}">${s.kick}</span><b>${s.title}</b><span class="d">${s.desc}</span><em>${s.len}</em></button>`).join('');
   pk.addEventListener('click', ev => {
+    if (ev.target.closest('[data-open-shared]')) { HOST.collab.dialog(true); return; }
     const r = ev.target.closest('[data-repeat]');
     if (r) { HOST.toggleRepeat(r.dataset.repeat); return; }
     if (ev.target.closest('#btnSndCheck')) { HOST.soundCheck(document.getElementById('sndcheck').hidden); return; }
@@ -1285,15 +1437,21 @@ HOST.closePicker = function () {
   document.getElementById('btnOther').addEventListener('click', () => HOST.openPicker());
   // top-bar buttons close the start screen; Enter VR/AR leaves it to the headset, which then shows the Stories menu
   document.getElementById('top').addEventListener('click', ev => {
-    if (ev.target.closest('#btnVR, #btnAR')) { if (HOST.picking) HOST.landingVR = true; return; }
+    // in a shared room the headset goes straight to the stations, not to the Stories menu
+    if (ev.target.closest('#btnVR, #btnAR')) { if (HOST.picking) { if (HOST.collab.joined) HOST.closePicker(); else HOST.landingVR = true; } return; }
+    if (ev.target.closest('[data-open-shared]')) { HOST.collab.dialog(true); return; }
     if (ev.target.closest('button') && !ev.target.closest('#btnOther')) HOST.closePicker();
   });
-  document.addEventListener('keydown', ev => { if (ev.key === 'Escape') HOST.closePicker(); });
+  document.addEventListener('keydown', ev => {
+    if (ev.key !== 'Escape') return;
+    if (!document.getElementById('shared').hidden) HOST.collab.dialog(false); else HOST.closePicker();
+  });
   // which story to load first: #airports, #proteins or #spatial (old links to proteins.html and spatial.html forward here)
   const hp = new URLSearchParams(location.hash.slice(1));
   HOST.setRepeat(hp.get('repeat') || HOST.repeat);
   if (hp.has('anchor')) HOST.anchor.set(hp.get('anchor') !== 'off');
   if (hp.has('soundcheck')) HOST.soundCheck(true);
+  HOST.collab.boot(hp); // #s=XYZ joins a shared room
   const key = HOST.list.map(s => s.key).find(k => hp.has(k)) || 'airports';
   // the Stories screen is the landing page (no address, or #stories); a shared story link opens that story
   HOST.start(key, true).then(() => {
