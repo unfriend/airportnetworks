@@ -797,6 +797,8 @@ try {
   for (let k = 0; k < 12 && (await H.evaluate(() => HOST.room.src)) !== 'adopted'; k++) await frames(H, 250);
   const ad0 = await H.evaluate(() => HOST.room.src);
   const hId2 = await H.evaluate(() => HOST.collab.id);
+  await H.evaluate(() => window.__xr.head([-6, 1.6, 6, 0]));   // away from the stations: no story switch while calibrating
+  await frames(H, 300);
   await recal();
   await frames(H, 1200);
   const rfKey = await H.evaluate(() => HOST.room.frameKey('U1'));
