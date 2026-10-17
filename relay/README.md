@@ -63,10 +63,13 @@ the app's files from the repository over HTTPS, and prints the address to open.
    connections on port 8787 (macOS and Windows ask the first time the relay starts: allow it on private
    networks).
 3. Optional, for trying Quest Browser's experimental shared space (it is **not used** for alignment unless you
-   press *Shared space: not used* on the Shared panel; in our test it was 0.9 m and 19 degrees out): in Quest
-   Browser open `chrome://flags`, set **WebXR experiments** to Enabled and restart the browser completely; and
-   turn on **Enhanced spatial services** in the headset's settings (privacy, device permissions). See
-   [docs/shared-spaces.md](../docs/shared-spaces.md).
+   press *Shared space: not used* on the Shared panel; in our tests the two headsets were not in one space): in
+   Quest Browser open `chrome://flags`, set **WebXR experiments** to Enabled and restart the browser completely;
+   turn on **Enhanced spatial services** in the headset's settings (privacy, device permissions); and **update
+   Quest Browser on every headset to the same version** (the panel shows it beside the shared space's id: in our
+   test the headset with the older browser never joined the other's space). Open the same address everywhere,
+   start AR on one headset, wait ten seconds, then the others. A headset whose panel says *your own floor* on
+   the shared space line has not joined (unless it was the first). See [docs/shared-spaces.md](../docs/shared-spaces.md).
 4. Two marks for calibration: two crosses of tape on the floor or a table, a metre or more apart (at least
    50 cm; the further apart, the better the room lines up). Mark A is the room's origin.
 5. Floor space: Arrange all needs about 8 m wide and 5 m deep for all seven (two rows, starting just in front of
@@ -141,9 +144,11 @@ machine or public hosting.
 - **"Anchors not saved (the store is full)"** on the panel, or a headset that asks to calibrate after every
   restart: Quest Browser refused to save more anchors ("Maximum number of anchors reached!" in the log). The
   app deletes the saved anchors it no longer knows and tries once more. If the panel still says so, clear
-  Quest Browser's browsing data (cookies and site data) on that headset, then calibrate once more. Every
-  address of the relay (another IP or port) is a site of its own, with its own old anchors. Whether clearing
-  frees the store is not confirmed yet: the log line `anchors tidied` says what deleting did.
+  Quest Browser's browsing data (cookies and site data) on that headset, then calibrate once more. Meta's
+  WebXR docs say a site can keep 8 persistent anchors at a time and clearing its browsing history deletes them;
+  the browser's author says the browser keeps a limited set across all sites (so old addresses of the relay,
+  another IP or port, may count too), and others report a store that fills early with entries that cannot be
+  deleted from the page. The log line `anchors tidied` says what deleting did.
 - **No sound at a station**: use **Sound check** on the Stories screen (it plays a beep through each sound
   engine).
 

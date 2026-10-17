@@ -234,6 +234,21 @@ the content floats 1.4 m ahead of the spot), with `st.<id>.play` (the clock:
   without a reset event. Two anchors (positions only) keep the frame on the
   marks; without anchors a reset without a transform or a jump of the head
   asks to calibrate again.
+- The shared space (Quest Browser's experiment, explainer
+  github.com/cabanier/shared-spaces): a default space for a few seconds, then
+  a reset and the real one; the first headset's origin is the space's; one
+  space per page address; lost when a headset leaves VR or AR. Our reading of
+  its pose (`floorFromShared`) is right: it keeps a headset's own marks in one
+  place across its resets to 2 cm (the inverse is 80 cm out). In the logs the
+  two Quest 3s had the same id but different spaces: the one with the older
+  browser (149) had its own floor every session, the other (150) one frame
+  that held to 2 cm over 71 minutes and three sessions; so the 0.9 m and 19
+  degrees (later 1.2 m and 28, 2.4 m and 84) were two spaces, not an
+  inaccurate one. Right after waking Quest gave the head's pose as the space's
+  for up to 15 s: such a pose, and any within 20 s of waking, is not used
+  (`sharedHead`, `visibleAt`). The panel names a space that is exactly this
+  headset's own floor (`sharedOwn`: the default one, the first headset, or not
+  joined) and shows the browser's version; the log has the page address.
 - Off and on again (the session hidden, then visible: sleep, the system menu)
   the origin moves under the frame (manual calibration lined two Quest 3s up,
   but switching one off and on left it "totally off"). Quest Browser says how
@@ -257,8 +272,10 @@ the content floats 1.4 m ahead of the spot), with `st.<id>.play` (the clock:
   and the room logs what that did (`anchors tidied`); a handle refused as full
   is asked once more after deleting again (`handlesAgain`,
   `HOST.anchor.handle(a)`); if it is still refused the marks hold for this
-  session only and the panel says a restart will ask to calibrate. Clearing
-  the browser's site data may free the store (not confirmed).
+  session only and the panel says a restart will ask to calibrate. Meta's
+  docs: 8 persistent anchors per site, deleted with the site's browsing
+  history; the browser's author: a limited set across all sites. Clearing the
+  browser's data is the remedy (not confirmed on our headsets).
 - Calibrating: a mark is where the controller's ray origin was held still 70 to
   260 ms before the trigger (a bright ring shows that point), at least 50 cm
   apart; a second pull within 0.6 s is ignored, and marks more than 5 cm

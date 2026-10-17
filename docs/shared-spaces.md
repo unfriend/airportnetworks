@@ -120,7 +120,11 @@ and the flag tip, "Room calibrated", "Re-aligned").
   colocated experiences); all headsets in the same room, on the same page, the first staying in AR while the
   others enter.
 - **Seen there**: two headsets in one room got **different** ids (probably enhanced spatial services off; not
-  re-tested). Same id on all headsets = colocated. Keep the two-point calibration as the fallback.
+  re-tested). Keep the two-point calibration as the fallback.
+- **The same id does not prove one space** (section 9, fourth test): two Quest 3s reported the same id while one
+  of them (Quest Browser 149) had just its own floor as the space in every session and the other (150) had one
+  frame that held for 71 minutes. Compare the browser versions (the panel shows them), and judge a space by the
+  calibrated headsets' distance (`R.cmp`, on the panel), never by its id.
 
 ## 6. Panels and placed things
 
@@ -194,6 +198,22 @@ same page address, the relay on the same Wi-Fi; every 5 s each headset logged it
   and asks again when a handle is refused.
 - **The floor**: in the fourth test one headset's floor was about 50 cm off the other's; the room's floor
   from the marks allowed for it.
+- **The shared space, from all three tests' logs** (checked twice, independently): our reading of its pose is
+  right. Through it, each headset's own tape marks stay in one place across its own resets and wakes, to 1-2 cm
+  and 0.2 degrees; read the other way round (as the reset transforms need) they move by 80 cm and more. But the
+  two headsets were never in one space, though both reported the same id (`a4f5d9f5...`) in all three tests:
+  - the headset with Quest Browser 149 got that id at once, with the identity pose: its space was its own floor at
+    the start of each session (a new place every session);
+  - the headset with Quest Browser 150 got a default space for 1.5 s, then a reset to that id, and one frame that
+    held for 71 minutes over three sessions and many resets, to 1-2 cm (its origin 0.94 m under the floor);
+  - so the offset between them was a different rigid one every session: 0.9 m and 19 degrees, 1.2 m and 28,
+    2.4 m and 84, always 44 cm in height. Not an inaccurate shared space: two spaces.
+  - Right after the headset became visible again, `getPose(shared, local)` returned the head's pose for up to
+    15 s (on both headsets); frames published and compared then were metres out. Such poses are now ignored, as
+    is any pose within 20 s of waking.
+  Next test: the same Quest Browser version on both, the same page address, both in AR, one started ten
+  seconds before the other; the second's panel must not say *your own floor*, and the distance line should then
+  read a few centimetres if the space is usable.
 
 So: tape marks on every headset, the room's height taken from the marks (the first calibration's height of
 mark A over its floor, others allowing for their own floor), anchors to follow origin jumps, and the shared

@@ -23,6 +23,7 @@
 (function () {
   const PROTO = 1;
   const FORMAT = 'networks-5';   // the shared state's format (keys, the stories' state()): bump when it changes shape
+  const BROWSER = (/OculusBrowser\/(\d+)/.exec(navigator.userAgent) || [])[1] || '';   // Quest Browser's version (shared spaces differ by it)
   const EYE = 1.6;               // a standing eye height (m): a station's rig hangs this high over its spot
   const AHEAD = 1.4;             // a station's content floats this far in front of its spot
   // your station: within 1.1 m of its spot for a second; left beyond 1.5 m. Arrange all's spots are 2.4 m apart,
@@ -1336,7 +1337,8 @@
     mgen: 0,   // the marks' generation: anchors that arrive for older marks (forgotten, replaced) are thrown away
     mk: null,  // the marks in room coordinates, to draw: [height of A, A to B, height of B] (null: none known)
     cmp: null, showUntil: 0, prev: null, sampleAt: 0, oldAnchor: '', markAt: 0,
-    hiddenAt: 0, sleptAt: 0, woke: 0, anchorSeen: 0, resetAt: 0,   // the headset off (or the origin moved): the marks are checked again
+    hiddenAt: 0, sleptAt: 0, visibleAt: 0, woke: 0, anchorSeen: 0, resetAt: 0,   // the headset off (or the origin moved): the marks are checked again
+    sharedPose: false, sharedHead: false, sharedOwn: null,   // the shared space's pose this frame: there, at the head, this headset's own floor
     full: false,   // the store of saved anchors refused their handles: the marks hold for this session only
     // aligning from the shared space is off unless asked for: on two Quest 3s it was 0.9 m and 19 degrees out
     // against the tape marks, and at first just the headset's own floor (see shared-spaces.md)
@@ -1405,6 +1407,7 @@
     try { if (R.shared && R.shared.removeEventListener) R.shared.removeEventListener('reset', sharedReset); } catch (e) { /* gone */ }
     letGo();
     Object.assign(R, { begun: s, floor: null, noFloor: false, shared: null, sharedNo: false, sharedId: '', sharedAt: 0, sharedAsked: performance.now(), sharedOK: false,
+      sharedPose: false, sharedHead: false, sharedOwn: null, visibleAt: 0,
       frame: null, src: '', aligned: false, calib: null, anchorBusy: false, anchorTried: false, wantAnchors: null, noticed: '', mgen: R.mgen + 1,
       mk: null, cmp: null, prev: null, pubAt: 0, recAt: 0, full: false });
     if (R.oldAnchor && HOST.anchor.drop) { HOST.anchor.drop(R.oldAnchor); R.oldAnchor = ''; }   // an older version's anchor
@@ -1412,7 +1415,7 @@
     const feats = s.enabledFeatures ? [...s.enabledFeatures] : null;
     let kept = null;
     try { kept = s.persistentAnchors ? [...s.persistentAnchors].length : null; } catch (e) { /* not here */ }
-    log('session', { mode: HOST.mode, features: feats, format: FORMAT, ua: navigator.userAgent, persisted: kept });
+    log('session', { mode: HOST.mode, features: feats, format: FORMAT, ua: navigator.userAgent, browser: BROWSER, page: location.origin + location.pathname, persisted: kept });
     if (HOST.anchor.tidied) HOST.anchor.tidied().then(rep => { if (rep && R.session === s) log('anchors tidied', rep); }, () => {});
     const ask = type => new Promise((res, rej) => { try { Promise.resolve(s.requestReferenceSpace(type)).then(res, rej); } catch (e) { rej(e); } });
     ask('local-floor').then(sp => {
@@ -1481,8 +1484,19 @@
       notice('Calibrate again', 'The headset moved its origin (a recentre?) and has no anchors to find the marks by: touch mark A and mark B again.', 9000);
     }
   }
-  // floor <- shared, this frame (only inside the frame callback)
+  // floor <- shared, this frame (only inside the frame callback). This reading of getPose is right: it keeps a
+  // headset's own marks in one place in the shared space across its resets, to 2 cm (the inverse, as Quest's
+  // reset transforms need, is out by 80 cm there)
   function floorFromShared(out) { return out.multiplyMatrices(R.lfi, R.ls); }
+  // a shared space that is exactly this headset's own floor: the default one before the real one is found, or this
+  // headset was the first in it (its origin is the space's, by design). In the relay logs one of two Quest 3s (the
+  // older browser) had that every session, under the same id as the other, whose space was 1 to 2.6 m and 19 to 84
+  // degrees away: it had not joined
+  const _mo = new THREE.Matrix4();
+  function ownFloorCheck() {
+    const e = floorFromShared(_mo).elements, mine = Math.hypot(e[12], e[13], e[14]) < 0.02 && Math.abs(Math.atan2(-e[2], e[0])) < 0.026;
+    if (mine !== R.sharedOwn) { R.sharedOwn = mine; log('shared own floor', { own: mine }); changed(); }
+  }
   // a frame given in shared coordinates, in ours (floor)
   function fromShared(P) {
     const M = floorFromShared(new THREE.Matrix4());
@@ -1744,7 +1758,16 @@
       if (id && id !== R.sharedId) { R.sharedId = id; R.sharedAt = performance.now(); log('shared id', { id }); }
       let p = null;
       try { p = f.getPose(R.shared, local); } catch (e) { /* not now */ }
-      if (p) { R.ls.fromArray(p.transform.matrix); R.sharedOK = true; }
+      R.sharedPose = !!p;
+      if (p) {
+        R.ls.fromArray(p.transform.matrix);
+        // right after waking Quest gave the head's pose as the shared space's for up to 15 s (relay logs: frames
+        // published and compared then were metres out): such a pose is not used, nor any in the 20 s after waking
+        const q = p.transform.position, atHead = HD.ok && Math.hypot(q.x - HD.p.x, q.y - HD.p.y, q.z - HD.p.z) < 0.05;
+        if (atHead !== R.sharedHead) { R.sharedHead = atHead; log(atHead ? 'shared at head' : 'shared off head', {}); }
+        R.sharedOK = !atHead && !(R.visibleAt && performance.now() - R.visibleAt < 20000);
+        if (R.sharedOK) ownFloorCheck();
+      }
     }
     align(f, local);
     // new anchors at mark A and mark B (asked inside a frame, as WebXR wants)
@@ -1793,7 +1816,10 @@
   // the shared space, to compare headsets: the same id on each means they share one room
   function sharedLine() {
     if (!R.session || !C.code) return '';
-    if (R.sharedId) return 'Shared space ' + R.sharedId.slice(0, 8) + ': the same on every headset?';
+    // the id alone proves little (two headsets had the same id and different spaces), so the browser's version is
+    // shown too: the headset with the older one never joined the other's space
+    if (R.sharedId) return 'Shared space ' + R.sharedId.slice(0, 8) + (BROWSER ? ' (browser ' + BROWSER + ')' : '') +
+      (R.sharedOwn ? ': your own floor (first here, or not joined)' : ': the same on every headset?');
     if (R.shared) return 'Shared space: waiting for its id...';
     return R.sharedNo ? 'No shared space (check the WebXR flag, spatial services)' : 'Shared space: asking...';
   }
@@ -1876,7 +1902,9 @@
     const S = { src: R.src, state: R.state, sid: R.sharedId, sharedOK: R.sharedOK, here: here() };
     if (R.frame) S.frame = { o: R.frame.o.map(r3), x: R.frame.x.map(r3) };
     if (R.lfOK) { const e = R.lf.elements; S.lf = { p: [e[12], e[13], e[14]].map(r3), yaw: r3(Math.atan2(-e[2], e[0])) }; }
-    if (R.sharedOK) { const M = floorFromShared(new THREE.Matrix4()), e = M.elements; S.shared = { p: [e[12], e[13], e[14]].map(r3), yaw: r3(Math.atan2(-e[2], e[0])) }; }
+    if (R.sharedPose) { const M = floorFromShared(new THREE.Matrix4()), e = M.elements; S.shared = { p: [e[12], e[13], e[14]].map(r3), yaw: r3(Math.atan2(-e[2], e[0])) }; }
+    if (R.sharedOwn) S.sharedOwn = true;
+    if (R.sharedHead) S.sharedHead = true;
     if (HD.ok && R.lfOK) { const p = _v.copy(HD.p).applyMatrix4(R.lfi); S.head = p.toArray().map(r3); }
     if (R.anchorP) { S.anchors = R.anchorP.map(p => p.map(r3)); S.anchorsAge = Math.round(t - R.anchorSeen); }
     if (R.saved) S.marks = { a: R.saved.a, b: R.saved.b, at: R.saved.at, kept: R.saved.anchors.length === 2 };
@@ -1937,7 +1965,7 @@
       if (s.visibilityState === 'hidden') { if (!R.hiddenAt) R.hiddenAt = t; }
       else if (R.hiddenAt) {   // back from off (or the system menu): the origin may have moved under the frame
         log('woke', { away: Math.round(t - R.hiddenAt), src: R.src, anchors: !!(R.anchors && R.anchorsOK) });
-        R.sleptAt = R.hiddenAt; R.hiddenAt = 0; R.prev = null;
+        R.sleptAt = R.hiddenAt; R.hiddenAt = 0; R.prev = null; R.visibleAt = t;
         if (own() && R.frame) R.woke = t;
       }
       if (s.visibilityState === 'visible' && C.code) wake('headset');

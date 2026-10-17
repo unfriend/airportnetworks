@@ -457,6 +457,18 @@ try {
   const wantO = unapply(FLOOR, ROOM.slice(0, 3)), wantX = rot(-FLOOR[3], rot(ROOM[3], [1, 0, 0]));
   check('headset: aligns from the frame published for its shared space', fr && fr.src === 'adopted' && near(fr.o, [wantO[0], 0, wantO[2]], 1e-4) && near(fr.x, wantX, 1e-4),
     fr ? `${fr.src} o ${fmt(fr.o)} x ${fmt(fr.x)}, want o ${fmt(wantO)} x ${fmt(wantX)}` : 'no frame');
+  // the shared space as the relay logs caught Quest Browser: its pose at the head right after waking (not used,
+  // nothing compared or published from it), and a space that is just this headset's own floor (named on the panel)
+  const glitch = await H.evaluate(() => {
+    const X = window.__xr, keep = X.W.shared, R = HOST.room.internals();
+    X.W.shared = X.W.head.clone(); X.step(); X.step();
+    const atHead = !R.sharedOK && R.sharedHead && window.__collabLog.some(e => e.ev === 'shared at head');
+    X.W.shared = X.W.floor.clone(); X.step(); X.step();
+    const own = R.sharedOK && /your own floor/.test(HOST.room.sharedLine());
+    X.W.shared = keep; X.step(); X.step();
+    return { atHead, own, back: R.sharedOK && !R.sharedHead && !/your own floor/.test(HOST.room.sharedLine()) };
+  });
+  check('headset: a shared space at the head is not used, and one that is just its own floor is named on the panel', glitch.atHead && glitch.own && glitch.back, JSON.stringify(glitch));
   // walk to the headset story's station: after a second there it becomes this headset's story, placed at the station
   const stationFor = async k => { const s = await H.evaluate(k => HOST.collab.stations().find(s => s.story === k) || null, k); if (!s) throw new Error('no station for ' + k); return s; };
   const S1 = await stationFor(HEADSET_STORY);
