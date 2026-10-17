@@ -58,6 +58,9 @@ function sendFalcon(dir) {
 }
 // shared rooms: the controls everyone at the station sees alike (the view is each person's own camera)
 const SHARED_CTL = ['birds', 'links', 'falcon'];
+// shared rooms: life size in a headset, so no view places anything there (none to share)
+function collabView() { return null; }
+function collabSetView() { /* nothing to set */ }
 function collabState() {
   return Object.fromEntries(GL.sets.flock.controls.filter(c => SHARED_CTL.includes(c.key)).map(c => [c.key, ctlValue('flock', c)]));
 }

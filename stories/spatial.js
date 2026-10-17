@@ -2657,6 +2657,19 @@ function setBait(c, render = true) {
 // shared rooms: what everyone at the station sees alike: the tab, the view controls, the selected protein (and
 // which copy), the path's two ends, the isolated place, the moves, the bait and its radius (the camera, the search
 // box and the headset keyboard stay each person's own)
+// shared rooms: the cell's view in a headset at a station (explore mode), which turns and sizes it in the room:
+// shared (HOST.collab), so everyone there sees it alike; null while it flies somewhere (a pick, a view arriving)
+function collabView() {
+  if (APP.mode !== 'explore' || orbit.to) return null;
+  const c = orbit.cur, r = (x, k) => Math.round(x * k) / k;
+  return [r(c[0], 10), r((((c[1] + 180) % 360) + 360) % 360 - 180, 10), r(c[2], 100), r(c[3], 10), r(c[4], 10)];
+}
+function collabSetView(v) {
+  if (APP.mode !== 'explore' || !Array.isArray(v) || v.length !== 5 || !v.every(Number.isFinite)) return;
+  const c = orbit.cur, to = v.slice();
+  to[1] += 360 * Math.round((c[1] - to[1]) / 360);
+  Object.assign(orbit, { from: c.slice(), to, t0: performance.now(), fast: true });   // a short glide there
+}
 function collabState() {
   return { tab: X.tab, color: X.color, cell: X.cell, routes: X.routes, sel: X.sel, copy: X.selCopy,
     path: (X.path || X.pathErr) && X.pathEnds ? X.pathEnds.slice() : null, iso: X.iso, moves: X.scen.join(''), bait: X.bait, r: X.proxR };
@@ -2763,13 +2776,13 @@ function flyTo(lat, lon, dist) {
   const c = orbit.cur;
   orbit.from = c.slice();
   orbit.to = [clamp(lat * 0.85, -70, 75), lon + 360 * Math.round((c[1] - lon) / 360), dist, 0, 0];
-  orbit.t0 = performance.now();
+  orbit.t0 = performance.now(); orbit.fast = false;
 }
 function orbitStep(now) {
   if (!orbit.to) return;
-  const x = smooth((now - orbit.t0) / (orbit.dur * 1000)), f = orbit.from, t = orbit.to;
+  const x = smooth((now - orbit.t0) / ((orbit.fast ? 0.25 : orbit.dur) * 1000)), f = orbit.from, t = orbit.to;   // fast: a view from the room
   orbit.cur = f.map((v, k) => (k === 2 ? Math.exp(Math.log(v) + (Math.log(t[k]) - Math.log(v)) * x) : v + (t[k] - v) * x));
-  if (x >= 1) orbit.to = null;
+  if (x >= 1) { orbit.to = null; orbit.fast = false; }
 }
 function bindCanvas() {
   const cv = GL.canvas, tip = $('#tip'), pts = new Map();
@@ -4189,7 +4202,7 @@ return {
     pp: XR.panelGroup.position.clone(), pr: XR.panelGroup.rotation.y } : null),
   // shared rooms (shared.js): the clock is APP's, the shared state the explore tabs and controls (no one-shot effects)
   collab: {
-    APP, scene: () => GL.scene, state: collabState, apply: collabApply,
+    APP, scene: () => GL.scene, state: collabState, apply: collabApply, view: collabView, setView: collabSetView,
     hover: i => { const c = XR.ctrls[i]; return c && c.hover ? c.ray.scale.z : 0; },
     panel(p, yaw) { XR.panelGroup.position.fromArray(p); XR.panelGroup.rotation.set(0, yaw, 0); },
   },

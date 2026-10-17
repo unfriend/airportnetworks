@@ -9594,7 +9594,7 @@ function exploreStep(dt, now) {
   const tg = exploreTargets(now), k = 1 - Math.exp(-dt * 3.5);
   for (const n in DEF) XS[n] += (tg[n] - XS[n]) * k;
   // a gently swaying scene (about 25 degrees either way, so flat ones never turn edge-on), unless you are steering it
-  if (X.turn === 'on' && !orbit.to && !orbit.held) { X.sway = (X.sway || 0) + dt; orbit.cur[0] += dt * 6 * Math.cos(X.sway * 0.25); }
+  if (X.turn === 'on' && !orbit.to && !orbit.held && !HOST.room.placing()) { X.sway = (X.sway || 0) + dt; orbit.cur[0] += dt * 6 * Math.cos(X.sway * 0.25); }
   return XS;
 }
 function openScene(k, fly = true) {
@@ -9625,13 +9625,13 @@ function flyTo(v) {
   orbit.from = c.slice();
   orbit.to = v.slice();
   orbit.to[0] = v[0] + 360 * Math.round((c[0] - v[0]) / 360);
-  orbit.t0 = performance.now();
+  orbit.t0 = performance.now(); orbit.fast = false;
 }
 function orbitStep(now) {
   if (!orbit.to) return;
-  const x = smooth((now - orbit.t0) / (orbit.dur * 1000)), f = orbit.from, t = orbit.to;
+  const x = smooth((now - orbit.t0) / ((orbit.fast ? 0.25 : orbit.dur) * 1000)), f = orbit.from, t = orbit.to;   // fast: a view from the room
   orbit.cur = f.map((v, k) => (k === 2 ? Math.exp(Math.log(v) + (Math.log(t[k]) - Math.log(v)) * x) : v + (t[k] - v) * x));
-  if (x >= 1) orbit.to = null;
+  if (x >= 1) { orbit.to = null; orbit.fast = false; }
 }
 
 // ------------------------------------------------------- proteins (curated) --
@@ -9717,6 +9717,19 @@ function runRoute(s, t) {
 }
 // shared rooms: what everyone at the station sees alike: the tab, the scene and its controls, the selected protein
 // and the route's two ends (the camera, its turning, the search box and the headset keyboard stay each person's own)
+// shared rooms: the scene's view in a headset at a station (explore mode), which turns and sizes it in the room:
+// shared (HOST.collab), so everyone there sees it alike; null while it flies somewhere (a pick, a view arriving)
+function collabView() {
+  if (APP.mode !== 'explore' || orbit.to) return null;
+  const c = orbit.cur, r = (x, k) => Math.round(x * k) / k;
+  return [r((((c[0] + 180) % 360) + 360) % 360 - 180, 10), r(c[1], 10), r(c[2], 100), r(c[3], 100), r(c[4], 100), r(c[5], 100)];
+}
+function collabSetView(v) {
+  if (APP.mode !== 'explore' || !Array.isArray(v) || v.length !== 6 || !v.every(Number.isFinite)) return;
+  const c = orbit.cur, to = v.slice();
+  to[0] += 360 * Math.round((c[0] - to[0]) / 360);
+  Object.assign(orbit, { from: c.slice(), to, t0: performance.now(), fast: true });   // a short glide there
+}
 function collabState() {
   const s = GL.sets[X.scene];
   return { tab: X.tab, scene: X.scene, ctl: Object.fromEntries((s.controls || []).map(c => [c.key, ctlValue(X.scene, c)])),
@@ -11232,7 +11245,7 @@ return {
     pp: XR.panelGroup.position.clone(), pr: XR.panelGroup.rotation.y } : null),
   // shared rooms (shared.js): the clock is APP's, the shared state the scene, its controls and the proteins (no one-shot effects)
   collab: {
-    APP, scene: () => GL.scene, state: collabState, apply: collabApply,
+    APP, scene: () => GL.scene, state: collabState, apply: collabApply, view: collabView, setView: collabSetView,
     hover: i => { const c = XR.ctrls[i]; return c && c.hover ? c.ray.scale.z : 0; },
     panel(p, yaw) { XR.panelGroup.position.fromArray(p); XR.panelGroup.rotation.set(0, yaw, 0); },
   },

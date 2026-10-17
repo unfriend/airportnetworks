@@ -1236,6 +1236,9 @@ function sendFalcon(dir) {
 }
 // shared rooms: the controls everyone at the station sees alike (the view is each person's own camera)
 const SHARED_CTL = ['birds', 'links', 'falcon'];
+// shared rooms: life size in a headset, so no view places anything there (none to share)
+function collabView() { return null; }
+function collabSetView() { /* nothing to set */ }
 function collabState() {
   return Object.fromEntries(GL.sets.flock.controls.filter(c => SHARED_CTL.includes(c.key)).map(c => [c.key, ctlValue('flock', c)]));
 }
@@ -2391,7 +2394,7 @@ return {
     pp: XR.panelGroup.position.clone(), pr: XR.panelGroup.rotation.y } : null),
   // shared rooms (shared.js): the clock is APP's, the shared state the explore controls, the falcon an effect
   collab: {
-    APP, scene: () => GL.scene, state: collabState, apply: collabApply,
+    APP, scene: () => GL.scene, state: collabState, apply: collabApply, view: collabView, setView: collabSetView,
     effect(type, d) { if (type === 'falcon' && GL.sets.flock.scatter((d && d.dir) || null)) renderScenes(); },
     hover: i => { const c = XR.ctrls[i]; return c && c.hover ? c.ray.scale.z : 0; },
     panel(p, yaw) { XR.panelGroup.position.fromArray(p); XR.panelGroup.rotation.set(0, yaw, 0); },

@@ -1402,6 +1402,19 @@ function updateClosures() {
 const TABS = ['airport', 'path', 'hubs', 'communities', 'closures'];
 const codeOf = i => (i >= 0 ? NET.code[i] : null);
 const codeIndex = c => (typeof c === 'string' && NET.index.has(c) ? NET.index.get(c) : -1);
+// shared rooms: the globe's view in a headset at a station (explore mode), which turns and sizes it in the room:
+// shared (HOST.collab), so everyone there sees it alike; null while it flies somewhere (a pick, a view arriving)
+function collabView() {
+  if (APP.mode !== 'explore' || orbit.to) return null;
+  const c = orbit.cur, r = (x, k) => Math.round(x * k) / k;
+  return [r(c[0], 10), r((((c[1] + 180) % 360) + 360) % 360 - 180, 10), r(c[2], 100), r(c[3], 10), r(c[4], 10)];
+}
+function collabSetView(v) {
+  if (APP.mode !== 'explore' || !Array.isArray(v) || v.length !== 5 || !v.every(Number.isFinite)) return;
+  const c = orbit.cur, to = v.slice();
+  to[1] += 360 * Math.round((c[1] - to[1]) / 360);
+  Object.assign(orbit, { from: c.slice(), to, t0: performance.now(), fast: true });   // a short glide there
+}
 function collabState() {
   return { tab: X.tab, color: X.color, pillars: X.pillars, routes: Math.round(X.routes * 20) / 20, hubsBy: X.hubsBy, iso: X.iso,
     closeMode: X.closeMode, closeK: X.closeK, closed: [...X.manual].map(codeOf), sel: codeOf(X.sel),
@@ -1478,13 +1491,13 @@ function flyTo(lat, lon, dist) {
   const c = orbit.cur;
   orbit.from = c.slice();
   orbit.to = [clamp(lat * 0.85, -70, 75), lon + 360 * Math.round((c[1] - lon) / 360), dist, 0, 0];
-  orbit.t0 = performance.now();
+  orbit.t0 = performance.now(); orbit.fast = false;
 }
 function orbitStep(now) {
   if (!orbit.to) return;
-  const x = smooth((now - orbit.t0) / (orbit.dur * 1000)), f = orbit.from, t = orbit.to;
+  const x = smooth((now - orbit.t0) / ((orbit.fast ? 0.25 : orbit.dur) * 1000)), f = orbit.from, t = orbit.to;   // fast: a view from the room
   orbit.cur = f.map((v, k) => (k === 2 ? Math.exp(Math.log(v) + (Math.log(t[k]) - Math.log(v)) * x) : v + (t[k] - v) * x));
-  if (x >= 1) orbit.to = null;
+  if (x >= 1) { orbit.to = null; orbit.fast = false; }
 }
 function bindCanvas() {
   const cv = GL.canvas, tip = $('#tip'), pts = new Map();
@@ -2956,7 +2969,7 @@ return {
     pp: XR.panelGroup.position.clone(), pr: XR.panelGroup.rotation.y } : null),
   // shared rooms (shared.js): the clock is APP's, the shared state explore mode's tab, controls and picks
   collab: {
-    APP, scene: () => GL.scene, state: collabState, apply: collabApply,
+    APP, scene: () => GL.scene, state: collabState, apply: collabApply, view: collabView, setView: collabSetView,
     hover: i => { const c = XR.ctrls[i]; return c && c.hover ? c.ray.scale.z : 0; },
     panel(p, yaw) { XR.panelGroup.position.fromArray(p); XR.panelGroup.rotation.set(0, yaw, 0); },
   },

@@ -109,6 +109,7 @@ All poses are in **room coordinates** (metres, y up, the floor at y = 0; see the
 | `st.<id>.play` | `{ mode: 'story' | 'explore', t, playing, at }`: the story clock: at relay time `at` the story was at `t`; while playing it runs on from there | whoever plays, pauses, jumps, changes mode (or the story reaches its end) |
 | `st.<id>.x` | the story's explore state (opaque JSON, from the story's `collab.state()`) | whoever changes a control |
 | `st.<id>.panel` | `{ x, y, z, yaw }`: the station's panel, relative to its spot | whoever moves the panel |
+| `st.<id>.view` | the story's `collab.view()`: its explore view, shared by the headsets at the station | the scene placed alike |
 | `rf.<space id>` | `{ uuid, o, x, g, by, at, m }` (shared-spaces.md): a room frame in a shared space's coordinates, `g` `marks` or `shared`, `m` the marks to draw | the alignment |
 
 Station ids are short random strings. A new room has no stations; the headset panel and the desktop dialog offer
@@ -284,8 +285,9 @@ Differences from the plan:
   where the controller was held still before the trigger, at least 50 cm apart; orange crosses show the marks
   where each headset puts them; the published frame is per shared space (`rf.<id>`, FORMAT networks-3); and
   every headset sends its log to the relay (`relay/logs/`) so two headsets' numbers can be compared. At a
-  station a story's grip offset from before is dropped. Still per headset at a station: the explore view
-  (turned, zoomed, the sway).
+  station a story's grip offset from before is dropped, and in explore mode the scene's view (turned and sized,
+  which places it in the room) is shared by the headsets there (`st.<id>.view`, FORMAT networks-4; the sway
+  rests at a station).
 - **Room format**: `FORMAT` in `shared.js` is the room's version; a room refuses clients of another format, so it
   is bumped whenever the keys or a story's `state()` change shape.
 - Not built: phases 1 to 3 (one live station per headset; simulations still run per device). Untested until

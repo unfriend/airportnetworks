@@ -22,7 +22,7 @@
 // (or #debug in a link) prints them as well.
 (function () {
   const PROTO = 1;
-  const FORMAT = 'networks-3';   // the shared state's format (keys, the stories' state()): bump when it changes shape
+  const FORMAT = 'networks-4';   // the shared state's format (keys, the stories' state()): bump when it changes shape
   const EYE = 1.6;               // a standing eye height (m): a station's rig hangs this high over its spot
   const AHEAD = 1.4;             // a station's content floats this far in front of its spot
   // your station: within 1.1 m of its spot for a second; left beyond 1.5 m. Arrange all's spots are 2.4 m apart,
@@ -37,7 +37,7 @@
   const NAMES = ['Ada', 'Alan', 'Barbara', 'Dorothy', 'Emmy', 'Erwin', 'Grace', 'Hedy', 'Karl', 'Lise', 'Marie',
     'Niels', 'Paul', 'Rosalind', 'Tim', 'Vera'];
   const ST_RE = /^st\.([\w-]{1,32})$/;
-  const kPlay = id => 'st.' + id + '.play', kX = id => 'st.' + id + '.x', kPanel = id => 'st.' + id + '.panel';
+  const kPlay = id => 'st.' + id + '.play', kX = id => 'st.' + id + '.x', kPanel = id => 'st.' + id + '.panel', kView = id => 'st.' + id + '.view';
 
   const get = k => { try { return localStorage.getItem(k); } catch (e) { return null; } };
   const put = (k, v) => { try { if (v == null || v === '') localStorage.removeItem(k); else localStorage.setItem(k, v); } catch (e) { /* storage blocked */ } };
@@ -74,7 +74,7 @@
     rooms: null, roomsErr: '', roomsAt: 0,
     st: [], stById: new Map(), mine: '', live: '', picked: false, follow: '', zone: '', cand: '', candAt: 0, going: new Map(), goAt: 0,
     pres: new Map(), rays: new Map(), hov: new Map(), presAt: 0, deskAt: 0,
-    cur: null, hook: null, ready: false, guard: 0, hush: false, pumpAt: 0, panelSeen: '', panelAt: 0,
+    cur: null, hook: null, ready: false, guard: 0, hush: false, pumpAt: 0, panelSeen: '', panelAt: 0, viewSeen: '',
   };
   // what is shown for a key: our own unacknowledged write, else the room's value
   const val = k => { const p = C.pending.get(k); if (p) return p.v; const e = C.keys.get(k); return e ? e.v : undefined; };
@@ -371,6 +371,7 @@
       if ((all || keys.includes(kPlay(L.id))) && !C.clockT) clockApply(true);
       if (all || keys.includes(kX(L.id))) stateApply(!all && !plain);
       if (all || keys.includes(kPanel(L.id))) panelApply();
+      if (all || keys.includes(kView(L.id))) viewSync();
     }
     if (!local && has(/^rf\./)) R.recAt = 0;   // a frame published for a shared space: checked on the next frame
     changed();
@@ -653,6 +654,23 @@
     C.panelSeen = J({ x: v.x, y: v.y, z: v.z, yaw: v.yaw });
   }
 
+  // the scene's view at a station in a headset (explore mode: how the story turns and sizes its scene, which is
+  // where it stands in the room): shared by the headsets there, so they see it alike (a view from the room glides
+  // in; one turned here goes out). Screens keep their own camera; story mode follows the clock.
+  function viewSync() {
+    const L = liveSt();
+    if (!synced(L) || !R.placing() || !C.hook.view || !C.hook.setView) return;
+    const k = kView(L.id), room = val(k), seen = k + J(room);
+    let cur = null;
+    try { cur = C.hook.view(); } catch (e) { return; }
+    if (room != null && seen !== C.viewSeen && !C.pending.has(k)) {   // new from the room (or a station just reached)
+      C.viewSeen = seen;
+      if (J(cur) !== J(room)) { log('view', { st: L.id }); guarded(() => { try { C.hook.setView(room); } catch (e) { log('view failed', { e: e.message }); } }); }
+      return;
+    }
+    if (cur != null && J(cur) !== J(room)) { publish([[k, cur]]); C.viewSeen = k + J(cur); }
+  }
+
   // ------------------------------------------- the pump: five times a second --
   function pump() {
     const t = performance.now();
@@ -665,7 +683,7 @@
       if (clock() - C.heard > 40000) { log('silent socket'); const ws = C.ws; C.ws = null; try { ws.close(); } catch (e) { /* gone */ } closed(1006, 'silent'); }
     }
     const L = liveSt();
-    if (synced(L) && !HOST.picking) { if (!C.clockT) clockApply(false); statePoll(); panelPoll(); }
+    if (synced(L) && !HOST.picking) { if (!C.clockT) clockApply(false); statePoll(); panelPoll(); viewSync(); }
     // a switch the room asked for that got lost (a story still loading drops a second request): ask again
     else if (L && L.story !== HOST.curKey && (C.mine === L.id || C.follow === L.id) && !HOST.busy && t - C.goAt > 3000) goTo(L);
     for (const [id, P] of C.pres) if (t - P.at > (P.head ? 3000 : 8000)) C.pres.delete(id);

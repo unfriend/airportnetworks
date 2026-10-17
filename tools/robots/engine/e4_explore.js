@@ -56,6 +56,9 @@ const dustNow = () => { XS.robots_dust = Math.floor(XS.robots_dust || 0) + 1; };
 function dustAgain() { dustNow(); HOST.collab.effect('dust'); }
 // shared rooms: the controls everyone at the station sees alike (the view is each person's own camera, the walk their own)
 const SHARED_CTL = ['rule', 'robots', 'trails', 'links'];
+// shared rooms: life size in a headset, so no view places anything there (none to share)
+function collabView() { return null; }
+function collabSetView() { /* nothing to set */ }
 function collabState() {
   return Object.fromEntries(GL.sets.robots.controls.filter(c => SHARED_CTL.includes(c.key)).map(c => [c.key, ctlValue('robots', c)]));
 }
