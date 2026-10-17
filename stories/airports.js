@@ -1268,7 +1268,7 @@ function runPath(s, t) {
   if (!X.pathErr && !res) X.pathErr = removed[s] || removed[t] ? 'One of these airports is closed. Reopen it in Closures.' : 'No route connects these airports' + (anyRemoved() ? ' with the current closures.' : '.');
   X.path = res ? res.path : null; X.count = res ? res.count : 0; X.pathEnds = [s, t];
   XS.path_prog = 0;
-  setPathAttribute(X.path);
+  if (APP.mode === 'explore') setPathAttribute(X.path); // the story shows its own (enterExplore sets this one)
   setHighlight('xpath', X.path ? X.path.slice(0, -1).map((p, k) => [p, X.path[k + 1]]) : null, [1.0, 0.35, 0.86],
     { radius: 0.0034, hops: X.path ? X.path.slice(0, -1).map((_, k) => k + 1) : null });
   renderPathResult(); updateExtraLabels();
@@ -1391,10 +1391,54 @@ function updateClosures() {
   const ord = X.closeMode === 'btw' ? NET.btwOrd : X.closeMode === 'deg' ? NET.degOrd : PERM;
   for (let k = 0; k < X.closeK; k++) removed[ord[k]] = 1;
   X.manual.forEach(i => { removed[i] = 1; });
-  setClosedAttributes(removed);
+  if (APP.mode === 'explore') setClosedAttributes(removed); // the story shows none (enterExplore sets these)
   renderClosures();
   if (X.sel >= 0) selectAirport(X.sel, false);
   if (X.path || X.pathErr) runPath(X.pathEnds[0], X.pathEnds[1]);
+}
+// shared rooms: what everyone at the station sees alike in explore mode (the tab, the view controls, the pick, the
+// path, the closures, the community shown), by code; the camera, the headset's keyboard and which path end it
+// fills next are each person's own. apply works in story mode too: it sets what explore mode will show.
+const TABS = ['airport', 'path', 'hubs', 'communities', 'closures'];
+const codeOf = i => (i >= 0 ? NET.code[i] : null);
+const codeIndex = c => (typeof c === 'string' && NET.index.has(c) ? NET.index.get(c) : -1);
+function collabState() {
+  return { tab: X.tab, color: X.color, pillars: X.pillars, routes: Math.round(X.routes * 20) / 20, hubsBy: X.hubsBy, iso: X.iso,
+    closeMode: X.closeMode, closeK: X.closeK, closed: [...X.manual].map(codeOf), sel: codeOf(X.sel),
+    path: X.path || X.pathErr ? X.pathEnds.map(codeOf) : null };
+}
+function collabApply(v) {
+  if (!v || typeof v !== 'object') return;
+  // the closures first: the pick and the path are worked out with them
+  const mode = ['btw', 'deg', 'rnd'].includes(v.closeMode) ? v.closeMode : X.closeMode;
+  const k = Number.isInteger(v.closeK) ? clamp(v.closeK, 0, +$('#kslider').max) : X.closeK;
+  const man = Array.isArray(v.closed) ? [...new Set(v.closed.map(codeIndex).filter(i => i >= 0))] : [...X.manual];
+  if (mode !== X.closeMode || k !== X.closeK || man.join() !== [...X.manual].join()) {
+    X.closeMode = mode; X.closeK = k; $('#kslider').value = k;
+    document.querySelectorAll('#pane-closures [data-m]').forEach(b => b.setAttribute('aria-pressed', b.dataset.m === mode));
+    X.manual.clear(); man.forEach(i => X.manual.add(i));
+    updateClosures();
+  }
+  if (v.sel === null || codeIndex(v.sel) >= 0) { const i = codeIndex(v.sel); if (i !== X.sel) selectAirport(i); }
+  const p = Array.isArray(v.path) && v.path.length === 2 ? v.path.map(codeIndex) : null, cur = X.path || X.pathErr ? X.pathEnds : null;
+  if (p ? !cur || p[0] !== cur[0] || p[1] !== cur[1] : cur && v.path === null) {
+    if (!p) xrClearPath();
+    else {
+      XR.pf = p[0]; XR.pt = p[1]; XR.pick = 'to';
+      $('#pf').value = codeOf(p[0]) || ''; $('#pt').value = codeOf(p[1]) || '';
+      runPath(p[0], p[1]);
+    }
+  }
+  if (TABS.includes(v.tab) && v.tab !== X.tab) showTab(v.tab);
+  if ((v.hubsBy === 'deg' || v.hubsBy === 'btw') && v.hubsBy !== X.hubsBy) { X.hubsBy = v.hubsBy; renderHubs(); }
+  // after the tab: showing a tab sets the colour and pillars it needs
+  if (['plain', 'deg', 'btw', 'comm'].includes(v.color) && v.color !== X.color) setView('color', v.color);
+  if (['off', 'deg', 'btw'].includes(v.pillars) && v.pillars !== X.pillars) setView('pillars', v.pillars);
+  if (Number.isFinite(v.routes)) {
+    const r = clamp(Math.round(v.routes * 20) / 20, 0, 1.6);
+    if (r !== Math.round(X.routes * 20) / 20) { X.routes = r; $('#rta').value = r; }
+  }
+  if (Number.isInteger(v.iso) && v.iso >= -1 && v.iso < COMM_NAMES.length && v.iso !== X.iso) { X.iso = v.iso; renderCommunities(); }
 }
 function updateExtraLabels() {
   LBL.extra.forEach(L => { L.el.remove(); dropSprite(L); });
@@ -1697,6 +1741,7 @@ function xrPress(c) {
   const h = c.hover;
   c.press = null;
   if (!h) return;
+  if (h.kind === 'shell') { HOST.collab.press(c.i); return; }   // the shared room's panel, previews, calibration
   if (h.kind === 'panel') {
     const r = h.P.at(h.x, h.y);
     if (!r) return;
@@ -1721,7 +1766,7 @@ function xrGrab(c, on) {
   c.grab = null;
   const h = c.hover;
   if (!on || !h) return;
-  if (XR.stories || HOST.anchor.locked()) return; // the Stories screen stays put, and so does an anchored place
+  if (XR.stories || HOST.anchor.locked(h.kind)) return; // the Stories screen stays put, and so does an anchored place (a station: only its panel moves)
   const obj = h.kind === 'panel' ? XR.panelGroup : GL.world;
   c.grab = { target: h.kind === 'panel' ? 'panel' : 'globe', q0: new THREE.Quaternion().setFromRotationMatrix(c.g.matrix).invert(),
     o0: c.o.clone(), p0: obj.getWorldPosition(new THREE.Vector3()), reach: 1 };
@@ -1751,10 +1796,13 @@ function xrPoint(c, dt) {
   c.o.setFromMatrixPosition(g.matrix);
   c.d.set(0, 0, -1).transformDirection(g.matrix);
   let hit = null, dist = 2.5;
+  // the shared room's own things (its panel, the other stations, a calibration) come first
+  const sh = HOST.collab.ray(c.i, c.o, c.d);
   // panels first: they are drawn on top of everything
   XR.raycaster.set(c.o, c.d);
-  const hs = XR.raycaster.intersectObjects(XR.panelMeshes.filter(m => m.visible), false);
-  if (hs.length) {
+  const hs = sh ? [] : XR.raycaster.intersectObjects(XR.panelMeshes.filter(m => m.visible), false);
+  if (sh) { hit = sh; dist = sh.dist; }
+  else if (hs.length) {
     const h = hs[0], P = XR.panels.find(q => q.mesh === h.object);
     hit = { kind: 'panel', P, x: h.uv.x * P.w, y: (1 - h.uv.y) * P.h, point: h.point };
     dist = h.distance;
@@ -1882,7 +1930,8 @@ function xrPathPreset(s, t) {
 }
 function xrClearPath() {
   X.path = null; X.pathErr = null; X.count = 0;
-  setPathAttribute(null); setHighlight('xpath', null);
+  if (APP.mode === 'explore') setPathAttribute(null);
+  setHighlight('xpath', null);
   renderPathResult(); updateExtraLabels();
 }
 function xrPickSuggestion(i) {
@@ -1938,7 +1987,7 @@ async function xrStart(mode) {
   if (XR.session || !navigator.xr) return;
   let session;
   try {
-    session = await navigator.xr.requestSession(mode, { optionalFeatures: ['local-floor', 'hand-tracking', 'anchors', 'plane-detection', 'mesh-detection'] });
+    session = await navigator.xr.requestSession(mode, { optionalFeatures: ['local-floor', 'hand-tracking', 'anchors', 'plane-detection', 'mesh-detection', 'shared'] });
   } catch (err) {
     HOST.landingVR = false;
     xrMsg(`Could not start ${mode === 'immersive-ar' ? 'AR' : 'VR'}: ${err && err.message ? err.message : err}`);
@@ -2004,6 +2053,8 @@ function xrVisibility() {
 function xrFreshStart() {
   XR.kbd.open = false; XR.kbd.q = '';
   for (const c of XR.ctrls) { c.press = null; c.grab = null; c.wantPress = false; }
+  // at a shared room's station the story and its place stay: the room's clock and state go on applying
+  if (HOST.collab.mine()) { lastNow = 0; return; }
   APP.enterStory(0); APP.playing = false; audioSync();
   XR.stories = true; XR.inStory = false; XR.soundCheck = false; // a new wearer lands in the Stories screen
   XR.needRecenter = true; // uses the new wearer's head position and direction on the next frame
@@ -2902,6 +2953,12 @@ return {
   inputs: () => XR.ctrls.map(c => c.src),
   xrPose: () => (XR.on ? { rp: GL.rig.position.clone(), rq: GL.rig.quaternion.clone(), off: XR.globeOff.clone(),
     pp: XR.panelGroup.position.clone(), pr: XR.panelGroup.rotation.y } : null),
+  // shared rooms (shared.js): the clock is APP's, the shared state explore mode's tab, controls and picks
+  collab: {
+    APP, scene: () => GL.scene, state: collabState, apply: collabApply,
+    hover: i => { const c = XR.ctrls[i]; return c && c.hover ? c.ray.scale.z : 0; },
+    panel(p, yaw) { XR.panelGroup.position.fromArray(p); XR.panelGroup.rotation.set(0, yaw, 0); },
+  },
   // for tests and the browser console: HOST.cur.peek('NET.N')
   peek: src => eval(src),
   dispose() {
