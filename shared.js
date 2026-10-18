@@ -1088,6 +1088,7 @@
   // Remove takes two presses (page and headset): the first arms it for 3 s ("Remove for everyone?")
   const armed = id => !!(C.rm && C.rm.id === id && performance.now() < C.rm.until);
   function removeAsk(id) {
+    if (layoutLocked()) return false;
     if (armed(id)) { C.rm = null; remove(id); return true; }
     C.rm = { id, until: performance.now() + 3000 };
     setTimeout(changed, 3050);
@@ -1279,6 +1280,7 @@
     for (const x of hits) {
       const t = x.object.userData.shell;
       if (!t) continue;
+      if (x.object === OV.panel.mesh && OV.onHand && i === HAND.i && x.distance < 0.4) continue;   // the left hand's own panel, just above it
       if (!R.calib && near != null && x.distance > near) break;   // the story's own panel is in front
       const S = x.object.userData.sheet;
       C.hov.set(i, { target: t, x: S && x.uv ? x.uv.x * S.w : 0, y: S && x.uv ? (1 - x.uv.y) * S.vis : 0, at: h.at });
@@ -1304,17 +1306,19 @@
   // the room frame, your head in the room, your station, presence, the sound zone and the overlay
   const HD = { p: new THREE.Vector3(), q: new THREE.Quaternion(), ok: false };
   // the left controller (or hand) in the story's space: the shared panel rides on it
-  const HAND = { m: new THREE.Matrix4(), ok: false }, HAND_SCALE = 0.62;
+  // (a pose only guessed, or none for a moment, keeps the last one for half a second: no jumping to the story
+  // panel and back when tracking drops briefly)
+  const HAND = { m: new THREE.Matrix4(), ok: false, at: 0, i: -1 }, HAND_SCALE = 0.62;
   function leftHand(f, local) {
-    HAND.ok = false;
-    const s = R.session;
-    if (!s || !f || !local) return;
-    let src = null;
-    try { for (const x of s.inputSources) if (x && x.handedness === 'left') { src = x; break; } } catch (e) { return; }
-    if (!src) return;
-    let p = null;
-    try { p = f.getPose(src.gripSpace || src.targetRaySpace, local); } catch (e) { /* not tracked now */ }
-    if (p) { HAND.m.fromArray(p.transform.matrix); HAND.ok = true; }
+    const s = R.session, t = performance.now();
+    let src = null, p = null;
+    HAND.i = -1;
+    if (s && f && local) {
+      try { [...s.inputSources].forEach((x, k) => { if (!src && x && x.handedness === 'left') { src = x; HAND.i = k; } }); } catch (e) { /* gone */ }
+      if (src) try { p = f.getPose(src.gripSpace || src.targetRaySpace, local); } catch (e) { /* not tracked now */ }
+    }
+    if (p && !p.emulatedPosition) { HAND.m.fromArray(p.transform.matrix); HAND.at = t; }
+    HAND.ok = !!src && t - HAND.at < 500;
   }
   function tick(f) {
     const t = performance.now(), dt = Math.min(0.1, (t - (C.tickAt || t)) / 1000);
@@ -2438,7 +2442,7 @@
   }
   function mapSend(D, final) {
     const s = C.stById.get(D.id), P = D.pose, t = performance.now();
-    if (!s || !P || (!final && t - D.at < 100)) return;
+    if (!s || !P || (!final && t - D.at < 100) || layoutLocked()) return;   // (locked meanwhile: it stays as last sent)
     const v = { story: s.story, x: r3(P.x), z: r3(P.z), yaw: r3(P.yaw) }, k = J(v);
     if (k === D.sent) return;
     D.sent = k; D.at = t;
