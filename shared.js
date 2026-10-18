@@ -69,7 +69,7 @@
   const C = {
     id: rid(12), relay: get('collabRelay') || '', linked: false, served: null, detecting: null,
     code: '', ws: null, status: 'off', note: '', want: false, welcomed: false, refill: null, tries: 0, timer: 0, heard: 0, pingAt: 0,
-    local: false, probeAt: 0, probing: false, openTimer: 0,   // a room on this device (no relay reached): see LocalSocket
+    local: false, probeAt: 0, probing: false, openTimer: 0, creating: false,   // a room on this device (no relay reached): see LocalSocket
     keys: new Map(), synced: new Map(), pending: new Map(), cid: 0, members: [], xb: null, clockAt: 0, clockT: 0, rm: null,
     offset: 0, samples: [], rtt: 0,
     name: get('collabName') || any(NAMES), color: get('collabColor') || any(COLORS), hereSet: null,
@@ -122,9 +122,9 @@
   }
   const mixed = () => (location.protocol === 'https:' && /^http:/.test(C.relay) && !/^http:\/\/(localhost|127\.)/.test(C.relay)
     ? ' This page is on https, so the relay must be too (wss://).' : '');
-  async function api(path, body) {
+  async function api(path, body, ms) {
     // (an address nobody answers at can take half a minute to fail: given up after 8 s)
-    const ab = new AbortController(), to = setTimeout(() => ab.abort(), 8000);
+    const ab = new AbortController(), to = setTimeout(() => ab.abort(), ms || 8000);
     const r = await fetch(C.relay + '/api/' + path, body === undefined ? { cache: 'no-store', signal: ab.signal } :
       { method: 'POST', cache: 'no-store', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal: ab.signal }).finally(() => clearTimeout(to));
     let j = null;
@@ -147,8 +147,11 @@
   // a new room: on the relay, or on this device when no relay is known or the relay cannot be reached
   async function create() {
     if (!C.relay) { join(freeCode(), true); return; }
+    if (C.creating) return;
+    C.creating = true; C.note = 'Asking the relay for a room...'; changed();
     let r = null;
-    try { r = await api('rooms', { app: 'networks', version: FORMAT }); } catch (e) { log('create failed', { e: e.message }); join(freeCode(), true); return; }
+    try { r = await api('rooms', { app: 'networks', version: FORMAT }, 5000); } catch (e) { log('create failed', { e: e.message }); C.creating = false; join(freeCode(), true); return; }
+    C.creating = false; C.note = '';
     if (!r.ok || !r.j || !r.j.code) { C.note = 'Could not start a room: the relay answered ' + r.status + '.'; changed(); return; }
     log('created', { code: r.j.code });
     join(r.j.code);
@@ -319,9 +322,10 @@
     C.samples = [];
     if (typeof m.now === 'number') C.offset = m.now - clock();
     log('welcome', { seq: m.seq, keys: C.keys.size, members: C.members.length });
-    // after a relay restart every page back fills in what the room lacks of what it knew, stations first
-    const old = C.refill;
-    C.refill = null;
+    // after a relay restart every page back fills in what the room lacks of what it knew, stations first (kept for
+    // the relay's welcome: a room on this device that failed to reach it keeps it for the next try)
+    const old = C.local ? null : C.refill;
+    if (!C.local) C.refill = null;
     if (old && old.size) {
       const pairs = [...old].filter(([k]) => !C.keys.has(k)).map(([k, e]) => [k, e.v]).sort((a, b) => rank(a[0]) - rank(b[0]));
       for (let i = 0; i < pairs.length; i += 400) publish(pairs.slice(i, i + 400), true);
@@ -465,6 +469,21 @@
     locSave();
   }
   window.addEventListener('pagehide', () => locFlush());
+  // another tab wrote a room kept here: the list is read again, and a room on this device open here takes its copy
+  // (its own writes still on their way win)
+  window.addEventListener('storage', e => {
+    if (!e.key || !e.key.startsWith(LR)) return;
+    LOC.list = null;
+    if (C.local && C.code && e.key === LR + C.code && LOC.code === C.code && !LOC.timer) {
+      LOC.code = '';
+      const ws = C.ws;
+      C.ws = null;
+      if (ws) try { ws.close(1000); } catch (er) { /* closed */ }
+      log('local room from another tab', { code: C.code });
+      connect();
+    }
+    changed();
+  });
   // the relay's part, played in the page (relay/server.mjs: join, set, ping, hello)
   class LocalSocket {
     constructor(code, id) {
@@ -537,7 +556,7 @@
     log('local room', { code: C.code, why });
     clearTimeout(C.openTimer);
     C.local = true; C.note = ''; C.tries = 0; C.probeAt = performance.now();
-    connect(); R.realign(); changed();
+    connect(); changed();
   }
   // a room on this device: does a relay answer now? Asked every 15 s, and at once when an address is entered. Then
   // the room goes there: made from this device's copy when the relay has no such room, else joined as it is there
@@ -552,13 +571,18 @@
       const p = await api('ping');
       if (!p.ok || !p.j || !p.j.proto) return;
       const r = await api('rooms/' + code);
-      if (r.ok && r.j && r.j.version && r.j.version !== FORMAT) { log('relay back', { code, other: r.j.version }); return; }
+      if (r.ok && r.j && r.j.version && r.j.version !== FORMAT) {   // another version of the app there: asked again in 2 minutes
+        log('relay back', { code, other: r.j.version }); C.probeAt = performance.now() + 105000;
+        C.note = 'The relay has a room ' + code + ' of another version of the app: this one stays on this device.'; changed(); return;
+      }
       let made = false;
       if (r.status === 404) {
         const c = await api('rooms', { app: 'networks', version: FORMAT, code });
         if (!c.ok && c.status !== 409) return;
         made = c.ok;
       } else if (!r.ok) return;
+      // a room there with no stations (made by an earlier try that did not get through) gets this device's copy too
+      else if (!Object.keys((r.j && r.j.keys) || {}).some(k => ST_RE.test(k))) made = true;
       if (C.local && C.code === code) toRelay(made);
     }).catch(e => log('probe failed', { e: e && e.message })).then(() => { C.probing = false; });
   }
@@ -568,8 +592,9 @@
     C.refill = made ? new Map(C.keys) : null;   // a room made there gets this device's keys (welcome)
     const ws = C.ws;
     C.ws = null; C.local = false; C.welcomed = false; C.tries = 0;
+    if (C.hereSet === null) C.hereSet = true;   // (placed in this room alone so far: not asked whether it is with the others)
     if (ws) try { ws.close(1000); } catch (e) { /* closed */ }
-    connect(); R.realign(); changed();
+    connect(); changed();   // (the placement stays: a 'floor' frame gives way once the shared space gives one, align)
   }
 
   // ----------------------------------------------------------- ephemeral --
@@ -1062,7 +1087,7 @@
     OV.room = new THREE.Group(); OV.room.matrixAutoUpdate = false;
     OV.root.add(OV.room);
     OV.panelG = new THREE.Group();
-    OV.panel = sheet(720, 960, 0.42, 53);
+    OV.panel = sheet(720, 1040, 0.42, 53);
     OV.panelG.add(OV.panel.mesh); OV.root.add(OV.panelG);
     OV.panel.mesh.userData.shell = { kind: 'panel' };
     OV.note = sheet(720, 170, 0.5, 54);
@@ -1409,12 +1434,12 @@
       y += 72; line();
       if (C.local) {   // nobody else: what a relay would add, and that the room is kept here
         ctx.font = FONT(22); ctx.fillStyle = MUTED;
-        y += wrapText(ctx, 'The stations and their places are kept on this headset. Once a relay answers, the room moves there and others can join it.', x, y, w, 30, 3) + 14;
+        y += wrapText(ctx, 'Kept on this headset. Once a relay answers, the room moves there and others can join.', x, y, w, 30, 2) + 14;
         line();
-      } else {
+      } else if (S.h - y - 152 - 26 - 36 >= 38) {   // (as many people as fit above You; none when nothing fits: the title counts them)
         label('People');
         // as many as fit above "You" (152 px); the rest as a count
-        const fitN = Math.max(1, Math.floor((S.h - y - 152 - 26) / 38)), shown = C.members.length > fitN ? fitN - 1 : fitN;
+        const fitN = Math.max(1, Math.floor((S.h - y - 152 - 26 - 36) / 38)), shown = C.members.length > fitN ? fitN - 1 : fitN;
         for (const m of C.members.slice(0, Math.max(0, shown))) {
           const P = m.id === C.id ? { st: C.mine } : C.pres.get(m.id), s = P && C.stById.get(P.st);
           ctx.fillStyle = m.color || INK; rr(ctx, x, y + 4, 22, 22, 6); ctx.fill();
@@ -1718,6 +1743,7 @@
     reasked: 0,   // the wake (visibleAt) after which the shared space was asked for again
     sleptRel: 0, refresh: 0,   // when this headset went to sleep (relay time); a wake whose frame is still to be written again
     blind: false,   // since waking the floor moved with no transform: the frame held is no better than the space
+    qAsk: 0,   // the wake after which the room's frame was asked for (q.frame)
     // aligning from the shared space is on unless switched off on the panel: it lined two Quest 3s up once both ran
     // the same browser (with different versions they were in two spaces under one id, see shared-spaces.md)
     sharedAlign: get('collabSharedAlign') !== '0',
@@ -1824,6 +1850,11 @@
     if (!tr) {
       log('reset', { space: 'local-floor', transform: false });
       if (R.wakeHold) R.blind = true;   // after waking: the frame held is no better than the space now (wakeOK)
+      else if (R.frame && !R.hiddenAt && (R.src === 'adopted' || R.src === 'shared')) {   // a wake the session did not report
+        const t = performance.now();
+        Object.assign(R, { wakeHold: t, visibleAt: t, stillSince: t, lastS: null, sleptRel: now(), blind: true, refresh: t });
+        log('reset holds', { src: R.src, blind: true });
+      }
       originMoved('reset'); return;
     }
     // Quest Browser's transform carries points from the old coordinates into the new ones (not the other way, as
@@ -1929,7 +1960,9 @@
     if (!v || v.id !== R.sharedId || !R.frame || !here() || C.local) return;
     const P = val(kFrame(R.sharedId));
     if (!validFrame(P) || P.by !== C.id) return;
-    log('frame asked', { by, hold: !!R.wakeHold });
+    const can = R.sharedOK && settled() && !notInIt();
+    log('frame asked', { by, hold: !!R.wakeHold, can });
+    if (!can) return;   // (not now: right after waking, say; the hold stays, and the asker takes what there is)
     R.wakeHold = 0; R.pubAt = 0; R.refresh = 0;
     publishFrame(gradeOf(P), P.g === 'marks' ? P.at : 0);
   }
@@ -2188,8 +2221,9 @@
     const other = validFrame(P0) && P0.by !== C.id, known = !!(C.ws && C.ws.readyState === 1 && t - C.openAt > 5000);
     const gone = other && known && !member(P0.by), mine = !!(other && R.sharedOwn);
     const alone = mine && R.firstHere === false, stale = mine && R.firstHere === true && gone && !othersHere();
-    // Re-align (R.again): decided again as at the start, while the frame held so far stays until another is found
-    const fresh = !R.frame || !!R.again;
+    // Re-align (R.again): decided again as at the start, while the frame held so far stays until another is found.
+    // A 'floor' frame (a room on this device, now on a relay) is kept only until the shared space gives a frame
+    const fresh = !R.frame || !!R.again || (R.src === 'floor' && !C.local);
     // (also while the room's members are not known: a session begun after a night may still have last night's keys,
     // its socket not yet back)
     const early = other && (gone || !known) && fresh && t - (R.sharedAt || 0) < 8000;
@@ -2212,8 +2246,20 @@
     }
     // waiting a little for the shared space's id, or for someone's published frame
     if (R.sharedAlign && R.shared && fresh && t - (R.sharedId ? R.sharedAt : R.sharedAsked) < 8000) { if (!R.frame) setState('shared-wait'); return; }
+    // a frame this headset holds and nobody published for this space: Re-align on the headset whose frame is the
+    // room's (a new id), or the 'floor' of a room on this device now on a relay. The room stays where it is and goes
+    // into this space for the others (taking the space's origin would move it for this headset alone)
+    const keep = R.frame && ((R.again && R.src === 'shared') || (R.src === 'floor' && !C.local));
+    if (sp && keep && !validFrame(P0) && !othersElsewhere() && !notJoined) {
+      const was = R.src;
+      R.again = 0; R.pubAt = 0; R.mk = null; R.hS = R.frame.o[1] - sharedY();
+      if (was === 'floor') setFrame(R.frame, 'shared');
+      publishFrame('shared');
+      notice(was === 'floor' ? 'Shared space found' : 'Re-aligned', 'The room stays where it is, written into this shared space for the others.', 6000); changed();
+      return;
+    }
     // (3) nobody (still here) published for this space: its own origin, published (unless the others are elsewhere)
-    if (sp && fresh && !othersElsewhere() && !notJoined) {
+    if (sp && (!R.frame || R.again) && !othersElsewhere() && !notJoined) {
       R.mk = null;
       const F = fromShared({ o: [0, 0, 0], x: [1, 0, 0] }), again = !!R.frame;
       F.o[1] = 0; R.hS = -sharedY();   // the space's origin need not lie on the floor: this headset's floor is the room's
@@ -2230,6 +2276,7 @@
       else notice('Nothing to re-align to', C.local ? 'No shared space here: the stations stay where they are. Calibrate on two tape marks to keep them in place.' : 'No frame came through the shared space: things stay where they are. Calibrate on the tape marks to line up with the others.', 9000);
       return;
     }
+    if (R.again && !R.frame && R.state !== 'restoring') { R.again = 0; changed(); }   // Re-align with no frame: as at the start (below)
     if (!R.frame && R.state !== 'restoring') {
       // on this headset alone there is nobody to line up with: the stations stand on its floor (where the session
       // began) until it is calibrated, which keeps them in place next time
@@ -2266,6 +2313,8 @@
     // someone else's, written since this headset fell asleep; or the floor moved with no transform to carry the frame
     // (then the carried frame is no better than the space)
     if (steady && P.by !== C.id && !R.sharedOwn && ((+P.p || 0) > R.sleptRel || R.blind)) { out({ fresh: (+P.p || 0) > R.sleptRel, blind: R.blind }); return true; }
+    // still held: whoever wrote the room's frame is asked once (per wake) to write it into the space as it is now
+    if (steady && P.by !== C.id && R.qAsk !== R.visibleAt) { R.qAsk = R.visibleAt; fx('q.frame', { id: R.sharedId }); log('frame asked for', { by: P.by }); }
     if (R.blind && R.sharedOwn && steady && R.noticed !== 'lost') {
       R.noticed = 'lost';
       notice('Lost its place', 'The headset lost its place while it was off: press Re-align on the Shared panel, or calibrate on the tape marks.', 12000);
@@ -2330,7 +2379,7 @@
   // two-point calibration: mark A gives the origin, A -> B the direction, gravity the rest
   function calibrate() {
     if (!R.session || !C.code || !here()) return;
-    R.calib = { step: 'a', a: null };
+    R.calib = { step: 'a', a: null }; R.again = 0;
     setState('mark-a');
     notice('Calibrate the room', 'Put the bright ring at the front of a controller on mark A, hold still and pull the trigger.', 0);
     log('calibrate');
@@ -2627,6 +2676,7 @@
       const [act, arg] = b.dataset.sh.split(':');
       if (act === 'close') dialog(false);
       else if (act === 'relay') { setRelay($('#shRelay').value, 'typed'); listRooms(); }
+      else if (act === 'relay2') { const v = $('#shRelay2') && $('#shRelay2').value; if (v) { setRelay(v, 'typed'); probe(performance.now(), true); } }
       else if (act === 'refresh') listRooms();
       else if (act === 'start') create();
       else if (act === 'join') join(arg);
@@ -2716,10 +2766,13 @@
       $('.sh-rooms').innerHTML = (!C.relay ? '' : rooms.length ? rooms.map(r => `<li${r.members ? '' : ' class="empty"'}><b>${esc(r.code)}</b><span>${esc(peopleIn(r))}${r.stations ? ` · ${r.stations} station${r.stations === 1 ? '' : 's'}` : ''}</span><button class="btn${r.members ? ' primary' : ''}" type="button" data-sh="join:${esc(r.code)}">Join</button></li>`).join('')
         : `<li class="none">${esc(C.roomsErr || (C.rooms ? 'No open rooms yet. Start one, and others join it here or from a headset.' : 'Looking for rooms...'))}</li>`) +
         kept.map(r => `<li class="empty"><b>${esc(r.code)}</b><span>Kept on this device · ${r.stations} station${r.stations === 1 ? '' : 's'}</span><button class="btn" type="button" data-sh="open:${esc(r.code)}">Open</button></li>`).join('');
+      const rf = $('[data-sh="refresh"]');
+      if (rf) rf.hidden = !C.relay;
     } else {
       const L = C.stById.get(C.follow);
       $('.sh-room').innerHTML = `<b>${esc(C.code)}</b><span>${L ? 'Following ' + esc(meta(L.story).title) + ' on this page' : 'Follow a station to see its story here, in step with the room'}</span>
-        <button class="btn" type="button" data-sh="copy">Copy link</button><button class="btn" type="button" data-sh="leave">Leave</button>`;
+        ${C.local ? '' : '<button class="btn" type="button" data-sh="copy">Copy link</button>'}<button class="btn" type="button" data-sh="leave">Leave</button>` +
+        (C.local ? `<div class="row"><input id="shRelay2" type="url" inputmode="url" autocomplete="off" spellcheck="false" placeholder="wss://relay.example.org" aria-label="Relay address" value="${esc(C.relay.replace(/^http/, 'ws'))}"><button class="btn" type="button" data-sh="relay2">Move to this relay</button></div>` : '');
       $('.sh-stations').innerHTML = C.st.length ? C.st.map(s => {
         const m = meta(s.story), on = C.follow === s.id, who = whoAt(s.id).filter(w => w !== 'you');
         return `<li class="${on ? 'on' : ''}"><i style="background:${m.col}"></i><b>${esc(m.title)}</b><span>${esc(stationLine(s))}${who.length ? ' · ' + esc(who.join(', ')) : ''}</span>

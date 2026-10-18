@@ -202,7 +202,11 @@ the content floats 1.4 m ahead of the spot), with `st.<id>.play` (the clock:
   (`'floor'`, for the session; calibrating keeps them in place). The room goes
   to a relay once one answers (asked every 15 s, and at once when an address
   is entered): made there from the device's copy when the relay has no such
-  room, else joined as the relay has it (changes made meanwhile give way).
+  room or one with no stations, else joined as the relay has it (changes made
+  meanwhile give way; a room there of another version is left alone, and the
+  panel says so). The placement stays as it moves; a `'floor'` frame then gives
+  way once the shared space gives a frame. Another tab's writes to a room on
+  this device are taken (the `storage` event).
 - Re-align (a button on the headset's Shared panel, `HOST.room.realignNow()`):
   this headset lines up again from the start without leaving the session or
   forgetting its marks. The shared space is asked for again, what was held
@@ -334,8 +338,9 @@ the content floats 1.4 m ahead of the spot), with `st.<id>.play` (the clock:
   fell asleep (`p` in the frame, FORMAT networks-7; its writer writes it again
   once settled after waking, `R.refresh`) or when the floor moved with no
   transform (`R.blind`), never through a space that is just this headset's own
-  floor. A headset still outside the others' space 15 s after waking asks for
-  it once more. The height comes back from the space (`R.hS`; a jump of more
+  floor; a headset still held once settled asks the writer once to write it
+  again (`q.frame`, answered only when the writer can write it now). A headset
+  still outside the others' space 15 s after waking asks for it once more. The height comes back from the space (`R.hS`; a jump of more
   than 30 cm keeps the room's height), since the floor came back 12 to 17 cm
   off after waking. A session that begins before the room's members are known
   (a socket not yet back after a night) waits up to 8 s before taking someone's

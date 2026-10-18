@@ -555,15 +555,16 @@ try {
     for (let k = 0; k < 3; k++) X.step();
     const off = Math.hypot(R.frame.o[0] - good[0], R.frame.o[2] - good[2]);
     HOST.collab.panelOpen(true); X.step(); X.step();
-    const r = HOST.collab.overlay().panel.regions.find(x => x.id === 'realign');
+    const S = HOST.collab.overlay().panel, last = S.regions.find(x => x.id === 'col:7'), fits = !!last && last.y + last.h <= S.h;   // the whole panel on its canvas
+    const r = S.regions.find(x => x.id === 'realign');
     if (r) r.fn();
     // (it waits up to 3 s for the room's frame written again, which a page without a headset never does)
     for (let k = 0; k < 70; k++) { X.step(); await new Promise(res => setTimeout(res, 60)); if (!R.again) break; }
     HOST.collab.panelOpen(false);
-    return { region: !!r, off, d: Math.hypot(R.frame.o[0] - good[0], R.frame.o[2] - good[2]), src: R.src, again: R.again,
+    return { region: !!r, fits, off, d: Math.hypot(R.frame.o[0] - good[0], R.frame.o[2] - good[2]), src: R.src, again: R.again,
       asked: window.__collabLog.some(e => e.ev === 'shared asked again' && e.why === 'realign'), note: (window.__collabLog.filter(e => e.ev === 'notice').slice(-1)[0] || {}).title };
   });
-  check('Re-align: an offset headset goes back to the room\'s frame through the shared space, asked for again', ra.region && ra.off > 0.5 && ra.d < 2e-3 &&
+  check('Re-align: an offset headset goes back to the room\'s frame through the shared space, asked for again (the panel fits its canvas)', ra.region && ra.fits && ra.off > 0.5 && ra.d < 2e-3 &&
     ra.src === 'adopted' && !ra.again && ra.asked && ra.note === 'Re-aligned', JSON.stringify(ra));
   // back from standby but still not in the others' space 15 s later (here: no pose but the head's): asked for again
   const rq = await H.evaluate(async () => {
@@ -1293,12 +1294,13 @@ try {
   await Lp.evaluate(() => HOST.collab.panelOpen(true));
   await frames(Lp, 100);
   const lids = await Lp.evaluate(() => HOST.collab.overlay().panel.regions.map(r => r.id));
-  const lre = lids.includes('realign') && !lids.includes('here') && !lids.some(id => id.startsWith('ask:')) &&
+  const lfits = await Lp.evaluate(() => { const S = HOST.collab.overlay().panel, c = S.regions.find(x => x.id === 'col:7'); return !!c && c.y + c.h <= S.h; });
+  const lre = lfits && lids.includes('realign') && !lids.includes('here') && !lids.some(id => id.startsWith('ask:')) &&
     await Lp.evaluate(() => { HOST.collab.overlay().panel.regions.find(r => r.id === 'realign').fn(); return !!HOST.room.internals().again; });
   await frames(Lp, 200);
   const lre2 = await Lp.evaluate(() => ({ again: HOST.room.internals().again, src: HOST.room.src, note: window.__collabLog.filter(e => e.ev === 'notice').slice(-1)[0] }));
   check('a room on this device: Re-align with nothing to line up with keeps the stations where they are', lre && !lre2.again && lre2.src === 'floor' &&
-    lre2.note && lre2.note.title === 'Nothing to re-align to', JSON.stringify({ lids, lre, lre2 }));
+    lre2.note && lre2.note.title === 'Nothing to re-align to', JSON.stringify({ lids, lfits, lre, lre2 }));
   const ROOM0 = ROOM;
   ROOM = FLOOR;   // this headset's room is its floor
   const lS = await Lp.evaluate(k => HOST.collab.stations().find(s => s.story === k), HEADSET_STORY);
@@ -1306,11 +1308,15 @@ try {
   const lrig = await rigOf(Lp), lwant = rigAt(lS);
   ROOM = ROOM0;
   check('a room on this device, in a headset: a second at a station plays its story there', lw && near(lrig.slice(0, 3), lwant.slice(0, 3), 1e-4), `rig ${fmt(lrig)}, want ${fmt(lwant)}`);
-  await Lp.evaluate(() => window.__xr.end());
-  // a relay entered later: the room goes there (made from this device's copy), and others can join it
+  // a relay entered later: the room goes there (made from this device's copy), and others can join it; the headset
+  // keeps its placement and is not asked whether it is with the others
   await lctx.unroute('**/api/**');
   await Lp.evaluate(u => HOST.collab.setRelay(u), base().replace(/^http/, 'ws'));
-  const lback = await until(Lp, () => !HOST.collab.local && HOST.collab.status === 'open', null, 10000);
+  const lback = await until(Lp, () => { window.__xr.step(); return !HOST.collab.local && HOST.collab.status === 'open'; }, null, 10000);
+  await frames(Lp, 400);
+  const lkeep = await Lp.evaluate(() => ({ src: HOST.room.src, o: HOST.room.frame && HOST.room.frame.o, ask: HOST.collab.overlay().panel.regions.some(r => r.id.startsWith('ask:')), here: HOST.collab.internals().hereSet }));
+  check('moving to the relay, the headset keeps its placement (no question about the others)', lkeep.src === 'floor' && near(lkeep.o || [9, 9, 9], [0, 0, 0], 1e-6) && !lkeep.ask && lkeep.here === true, JSON.stringify(lkeep));
+  await Lp.evaluate(() => window.__xr.end());
   const linfo = lback ? await until(Lp, () => !HOST.collab.internals().pending.size, null, 5000) && await roomInfo('LCL') : null;
   const ist = linfo ? Object.keys(linfo.keys).filter(k => /^st\.[\w-]+$/.test(k)).length : 0;
   check('a room on this device goes to a relay once one answers, with its stations', lback && ist === 7 && linfo.keys['st.' + lsid].v.z === -3, JSON.stringify({ lback, ist }));
