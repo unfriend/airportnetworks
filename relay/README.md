@@ -131,7 +131,10 @@ machine or public hosting.
   `adb reverse` and `http://localhost:8787/` (below).
 - **The app says the room does not exist**: a mistyped room code, an expired room (6 hours after the last
   person left), or a relay that was restarted. Pick the room from **Open rooms** instead of typing, or start a
-  new one.
+  new one. (A device that was in the room keeps a copy of it and brings it back by itself.)
+- **No relay at all**: a room still works on one device (the panel says "this headset only"): its stations,
+  their places and the lock are kept on the device, and the room moves to the relay once one answers (the app
+  asks every 15 s, and at once when an address is entered), made there from the device's copy.
 - **The headsets do not line up**: check the orange crosses on each headset (open the Shared panel). Crosses
   off the tape: calibrate that headset again, holding still at each mark. Crosses on the tape on both
   headsets but things still apart: please send the logs (below). The pointer rays of the others should start at
@@ -145,9 +148,11 @@ machine or public hosting.
   looks for its anchors again by their saved handles (they put it back on the marks) and shows the orange
   crosses for 30 s ("Check the marks"). If they are not on the tape, press **Calibrate** and please send the
   logs. Lined up through the shared space (no tape), it holds the room where the headset says it moved until the
-  shared space agrees again (a few seconds; right after waking the space is wrong for up to 15 s). If it stays
-  off, take that headset off and on once more, and please send the logs (`shared held after wake`, `shared
-  after wake` and `shared alone` lines say what it did).
+  shared space agrees again (at least 20 s; right after waking the space is wrong for up to 15 s, and after a
+  night it may come back made again). If it stays off, press **Re-align** on that headset's Shared panel (it
+  asks for the shared space again and takes the room's frame afresh, as the others show it); if nothing changes,
+  press it on the other headset, and please send the logs (`shared held after wake`, `shared after
+  wake`, `shared asked again`, `realign` and `frame asked` lines say what it did).
 - **Calibration lost after a recentre or a new session**: the anchors were not kept (private browsing, cleared
   site data, a full anchor store, or a browser without anchors). Calibrate again; **Forget calibration** (press
   twice) clears a headset's marks and anchors.

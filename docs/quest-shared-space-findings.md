@@ -64,6 +64,12 @@ what we do about it.
 - **Anchors.** Anchors made during the session were not tracked again after waking. We wait up to 5 s, then look
   them up again by their persistent handles. Waking never drops a calibration: asking to calibrate after every
   wake was worse.
+- **After a night** (seen once, no logs yet): one of two headsets was offset, the other right. Our reading: the
+  space can come back made again under the same id, around whichever headset woke first. So we hold the frame
+  the resets carried for at least 20 s, write our own frame into a space that disagrees (never into one that is
+  just our own floor), and follow someone else's frame through a disagreeing space only if it was written after
+  we fell asleep (frames carry a write time). A **Re-align** button lines a headset up again by hand: it asks for
+  the shared space again and has whoever wrote the room's frame write it again.
 
 ## 4. Floors and origins move
 
@@ -105,8 +111,9 @@ Comparing both headsets' logs afterwards found every item on this page.
 
 ## Still untested on headsets
 
-Whether headsets line up again after standby with these rules, whether restored persistent anchors hold, and
-whether a recentre ever fires a reset.
+Whether headsets line up again after standby (and after a night) with these rules, whether asking for the shared
+space again joins the others' space, whether restored persistent anchors hold, and whether a recentre ever fires a
+reset.
 
 ## Sources
 

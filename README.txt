@@ -52,7 +52,9 @@ never overridden, and the room's floor comes from the marks, so a headset
 with a wrong floor still shows things at the same height. Headsets without
 marks line up through Quest Browser's experimental shared space (on unless
 switched off on the Shared panel; every headset needs the same browser version
-and the WebXR experiments flag), and line up again after standby. The relay keeps the headsets' logs in
+and the WebXR experiments flag), and line up again after standby; if one is
+still off, press Re-align on its Shared panel (it lines that headset up again
+from the start). The relay keeps the headsets' logs in
 relay/logs/ for checking alignment. People elsewhere and
 screens
 see the stations round their own spot. Screens get a room map and Follow a
@@ -63,12 +65,16 @@ move. Lock layout (Shared panel or dialog) then keeps them where they are,
 until someone unlocks it. In a room nobody can move the story panels or
 scenes, so they look the same for everyone. In a headset the Shared panel rides
 on the left controller. The flock's birds and the robots move separately on each device; their
-controls, falcons and crumbs are shared. Rooms need the relay (relay/, Node, no
-packages), which GitHub Pages cannot run: for now it runs on a machine on the
-same Wi-Fi as the headsets and serves the app itself (node relay/server.mjs --lan
-prints the https:// address to open on each headset; see relay/README.md).
-GitHub Pages serves everything else; a copy there can join a relay elsewhere
-with &relay=wss://... in the room link. #s=XYZ in a link joins room XYZ.
+controls, falcons and crumbs are shared. Others join a room through the relay
+(relay/, Node, no packages), which GitHub Pages cannot run: for now it runs on a
+machine on the same Wi-Fi as the headsets and serves the app itself (node
+relay/server.mjs --lan prints the https:// address to open on each headset; see
+relay/README.md). GitHub Pages serves everything else; a copy there can join a
+relay elsewhere with &relay=wss://... in the room link. #s=XYZ in a link joins
+room XYZ. Without a relay (none known, or none answers) a room still works on
+the device alone: Start a room here on the Shared panel places the stories in
+your room (Arrange all, moving them, Lock layout, calibrating); the room is kept
+on the device, and once a relay answers it moves there and others can join it.
 Nothing changes for anyone not in a room. Not yet tried on headsets.
 
 Upload the whole folder to any HTTPS web server (GitHub Pages, Netlify,

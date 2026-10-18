@@ -227,6 +227,18 @@ same page address, the relay on the same Wi-Fi; every 5 s each headset logged it
   resets carried it until the space agrees with it again (or holds still for 5 s and is not just this headset's
   own floor), and its height is kept in the space.
 
+- **After a night's standby** (18 October): one of two headsets lined up through the shared space was offset, the
+  other right. No logs of it (and the pages may still have run the previous day's version: a page in a headset
+  does not reload by itself). Two independent readings of the code found one likely way: the shared space came
+  back made again under the same id, around the headset that woke first; that headset held the room where its
+  floor's resets carried it, and the other followed last night's frame through the new space. Now (`wakeOK`):
+  nothing is let go within 20 s of waking; a headset's own frame is written into a space that disagrees once it
+  holds still (not into one that is just its own floor); someone else's frame is followed through a space that
+  disagrees only when written since this headset fell asleep (frames carry `p`, when they were written) or when
+  the floor moved with no transform; a headset still outside the others' space 15 s after waking asks for it once
+  more; and **Re-align** on the Shared panel lines a headset up again by hand (the shared space asked for again,
+  the room's frame written again by whoever wrote it, then taken).
+
 So: tape marks on every headset, the room's height taken from the marks (the first calibration's height of
 mark A over its floor, others allowing for their own floor), anchors to follow origin jumps, and the shared
 space on by default (the same Quest Browser version on every headset) with its measured distance shown. A short

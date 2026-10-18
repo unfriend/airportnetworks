@@ -527,6 +527,7 @@ try {
     const X = window.__xr, V = (x, y, z) => new THREE.Vector3(x, y, z);
     X.W.shared = new THREE.Matrix4().compose(V(S[0], S[1], S[2]), new THREE.Quaternion().setFromAxisAngle(V(0, 1, 0), S[3]), V(1, 1, 1));
     for (const fn of X.resets.shared || []) fn({ transform: null });
+    HOST.room.internals().visibleAt -= 21000;   // (nothing is let go within 20 s of waking)
   }, S);
   const held6 = await sleepWake(F6, JUNK);
   await spaceBack(SHARED);
@@ -542,6 +543,90 @@ try {
   await frames(H, 800);
   check('headset: woken again on the first floor, the room is back on it', near(await H.evaluate(() => HOST.room.frame.o), [wantO[0], 0, wantO[2]], 2e-3),
     fmt(await H.evaluate(() => HOST.room.frame.o)));
+  // Re-align by hand (the Shared panel): a headset left offset (as one was after a long standby) goes back to the
+  // room's frame through the shared space, which is asked for again
+  const ra = await H.evaluate(async () => {
+    const X = window.__xr, R = HOST.room.internals();
+    X.head([-6, 1.6, 6, 0]);   // away from the stations
+    const good = R.frame.o.slice(), t = performance.now();
+    R.frame.o[0] += 0.6; R.frame.o[2] -= 0.4; R.wakeHold = t; R.stillSince = t;   // offset, and held as after waking
+    for (let k = 0; k < 3; k++) X.step();
+    const off = Math.hypot(R.frame.o[0] - good[0], R.frame.o[2] - good[2]);
+    HOST.collab.panelOpen(true); X.step(); X.step();
+    const r = HOST.collab.overlay().panel.regions.find(x => x.id === 'realign');
+    if (r) r.fn();
+    // (it waits up to 3 s for the room's frame written again, which a page without a headset never does)
+    for (let k = 0; k < 70; k++) { X.step(); await new Promise(res => setTimeout(res, 60)); if (!R.again) break; }
+    HOST.collab.panelOpen(false);
+    return { region: !!r, off, d: Math.hypot(R.frame.o[0] - good[0], R.frame.o[2] - good[2]), src: R.src, again: R.again,
+      asked: window.__collabLog.some(e => e.ev === 'shared asked again' && e.why === 'realign'), note: (window.__collabLog.filter(e => e.ev === 'notice').slice(-1)[0] || {}).title };
+  });
+  check('Re-align: an offset headset goes back to the room\'s frame through the shared space, asked for again', ra.region && ra.off > 0.5 && ra.d < 2e-3 &&
+    ra.src === 'adopted' && !ra.again && ra.asked && ra.note === 'Re-aligned', JSON.stringify(ra));
+  // back from standby but still not in the others' space 15 s later (here: no pose but the head's): asked for again
+  const rq = await H.evaluate(async () => {
+    const X = window.__xr, R = HOST.room.internals(), keep = X.W.shared;
+    X.visibility('hidden'); X.visibility('visible');
+    X.W.shared = X.W.head.clone(); X.step(); X.step();
+    R.visibleAt -= 16000; X.step(); X.step();
+    await new Promise(res => setTimeout(res, 50));
+    X.step(); X.step();
+    const asked = window.__collabLog.filter(e => e.ev === 'shared asked again' && e.why === 'wake').length;
+    X.W.shared = keep; R.visibleAt -= 21000;
+    return { asked };
+  });
+  await frames(H, 600);
+  check('after standby, a headset still outside the shared space 15 s later asks for it again (once)', rq.asked === 1, JSON.stringify(rq));
+  // after a night the shared space may come back made again under the same id. A follower holds the room where it
+  // was rather than take last night's frame through the new space, and follows the room's frame once its writer has
+  // written it again since
+  const frameIn = (S, P, uuid, by, g, p) => ({ uuid, o: unapply(S, [P[0], P[1], P[2]]), x: rot(-S[3], rot(P[3], [1, 0, 0])), by, g, at: Date.now() - 60000, p });
+  const F8 = [FLOOR[0] + 0.3, 0, FLOOR[2] + 0.5, FLOOR[3] + 0.4], NEWS = [SHARED[0] + 1.3, 0, SHARED[2] - 0.6, SHARED[3] - 0.8], ROOM2 = [ROOM[0] + 0.5, 0, ROOM[2] - 0.4, ROOM[3] + 0.2];
+  const inFloor = (F, P) => [unapply(F, P.slice(0, 3)), rot(-F[3], rot(P[3], [1, 0, 0]))];
+  const nap = (F, S) => H.evaluate(([F, S]) => {
+    const X = window.__xr, R = HOST.room.internals(), V = (x, y, z) => new THREE.Vector3(x, y, z);
+    const M = a => new THREE.Matrix4().compose(V(a[0], a[1], a[2]), new THREE.Quaternion().setFromAxisAngle(V(0, 1, 0), a[3]), V(1, 1, 1));
+    X.visibility('hidden'); X.floorReset(F, 0.1); X.W.shared = M(S); X.visibility('visible');
+    for (let k = 0; k < 4; k++) X.step();
+    R.visibleAt -= 21000; R.stillSince -= 6000;   // settled, and the space still for 5 s
+    for (let k = 0; k < 4; k++) X.step();
+    return { src: R.src, o: R.frame.o.slice(), x: R.frame.x.slice(), hold: !!R.wakeHold, held: window.__collabLog.slice(-30).some(e => e.ev === 'shared held after wake') };
+  }, [F, S]);
+  const fz = await nap(F8, NEWS), [fo8, fx8] = inFloor(F8, ROOM);
+  check('after a night, a follower holds the room where it was rather than take last night\'s frame through a space made again', fz.src === 'adopted' && fz.hold && fz.held &&
+    near([fz.o[0], fz.o[2]], [fo8[0], fo8[2]], 2e-3) && near(fz.x, fx8, 2e-3), JSON.stringify(Object.assign(fz, { want: [fo8, fx8] })));
+  await A.evaluate(f => HOST.collab.publish([[HOST.room.frameKey('U1'), Object.assign(f, { p: Math.round(HOST.collab.now()) })]]), frameIn(NEWS, ROOM2, 'U1', aId, 'shared'));
+  await frames(H, 400);
+  const fw2 = await H.evaluate(() => ({ src: HOST.room.src, o: HOST.room.frame.o.slice(), x: HOST.room.frame.x.slice(), hold: !!HOST.room.internals().wakeHold })), [fo2, fx2] = inFloor(F8, ROOM2);
+  check('and follows the room\'s frame once its writer has written it into the space again', fw2.src === 'adopted' && !fw2.hold && near([fw2.o[0], fw2.o[2]], [fo2[0], fo2[2]], 2e-3) &&
+    near(fw2.x, fx2, 2e-3), JSON.stringify(Object.assign(fw2, { want: [fo2, fx2] })));
+  // the room's frame written by this headset itself, after a night in a space made again: written into the new space
+  // as it was held, so whoever is in that space finds the room where it was
+  const hIdW = await H.evaluate(() => HOST.collab.id), F9 = [FLOOR[0] - 0.4, 0, FLOOR[2] + 0.2, FLOOR[3] - 0.6], NEW9 = [SHARED[0] - 0.7, 0, SHARED[2] + 0.9, SHARED[3] + 1.1];
+  await A.evaluate(f => HOST.collab.publish([[HOST.room.frameKey('U1'), f]]), frameIn(NEWS, ROOM2, 'U1', hIdW, 'shared'));
+  await frames(H, 300);
+  const rp = await H.evaluate(async ([F9, NEW9]) => {
+    const X = window.__xr, R = HOST.room.internals(), V = (x, y, z) => new THREE.Vector3(x, y, z), key = HOST.room.frameKey('U1');
+    const M = a => new THREE.Matrix4().compose(V(a[0], a[1], a[2]), new THREE.Quaternion().setFromAxisAngle(V(0, 1, 0), a[3]), V(1, 1, 1));
+    const world = () => V(R.frame.o[0], 0, R.frame.o[2]).applyMatrix4(X.W.floor), w0 = world();
+    X.visibility('hidden'); X.floorReset(F9, 0.1); X.W.shared = M(NEW9); X.visibility('visible');
+    for (let k = 0; k < 4; k++) X.step();
+    R.visibleAt -= 21000; R.stillSince -= 6000;
+    for (let k = 0; k < 4; k++) { X.step(); await new Promise(res => setTimeout(res, 20)); }
+    const P = HOST.collab.val(key);
+    return { held: world().distanceTo(w0), sent: V(...P.o).applyMatrix4(X.W.shared).setY(0).distanceTo(w0.clone().setY(0)), by: P.by === HOST.collab.id, fresh: !!P.p,
+      hold: !!R.wakeHold, rep: window.__collabLog.slice(-40).some(e => e.ev === 'shared after wake' && e.republished) };
+  }, [F9, NEW9]);
+  check('after a night, the room\'s frame written by this headset goes into the space made again as it was held', rp.held < 2e-3 && rp.sent < 2e-3 && rp.by && rp.fresh &&
+    !rp.hold && rp.rep, JSON.stringify(rp));
+  // back to the room as the rest expects: the space where it was, the room's frame by A, the first floor
+  await spaceBack(SHARED);
+  await A.evaluate(f => HOST.collab.publish([[HOST.room.frameKey('U1'), f]]), frameFor(ROOM, 'U1', aId, Date.now() - 60000));
+  await sleepWake(FLOOR, SHARED);
+  await H.evaluate(() => HOST.room.realignNow());
+  for (let k = 0; k < 10 && !(await H.evaluate(() => !HOST.room.internals().again)); k++) await frames(H, 500);
+  const rb = await H.evaluate(() => ({ src: HOST.room.src, o: HOST.room.frame.o }));
+  check('and back in the room\'s space, it takes the room\'s frame again', rb.src === 'adopted' && near([rb.o[0], rb.o[2]], [wantO[0], wantO[2]], 2e-3), JSON.stringify(rb));
   // walk to the headset story's station: after a second there it becomes this headset's story, placed at the station
   const stationFor = async k => { const s = await H.evaluate(k => HOST.collab.stations().find(s => s.story === k) || null, k); if (!s) throw new Error('no station for ' + k); return s; };
   const S1 = await stationFor(HEADSET_STORY);
@@ -1168,6 +1253,76 @@ try {
   check('VR: the panel asks once whether you are in the room with the others (In this room: aligned with them; Say I am elsewhere: your own floor; kept for the room)',
     asked && inRoom[0] === true && inRoom[1] !== 'own' && sayAway && away[0] === false && away[1] === 'own' && away[2] === false && !again,
     JSON.stringify({ asked, inRoom, sayAway, away, again }));
+
+  // ------------------------------------------- a room on this device --
+  // no relay known (a copy on a plain web host): a room still works on the page alone, kept in its storage
+  const lctx = await browser.newContext({ viewport: { width: 640, height: 400 } });
+  await lctx.route('**/api/**', r => r.abort());   // this host answers no relay calls
+  const Lp = await lctx.newPage();
+  Lp.on('pageerror', e => errors.push(e.stack || e.message));
+  Lp.on('console', m => { if (m.type() === 'error' && !/404|Failed to load resource|ERR_FAILED/.test(m.text())) errors.push(m.text()); });
+  const lopen = async () => { await Lp.waitForFunction(() => typeof HOST !== 'undefined' && HOST.collab, null, { timeout: 30000 }); };
+  await Lp.goto(base() + 'index.html#s=LCL'); await lopen();
+  const lj = await until(Lp, () => HOST.collab.code === 'LCL' && HOST.collab.local && HOST.collab.status === 'open', null, 8000);
+  check('no relay known: a link opens its room on this device', lj, JSON.stringify(await Lp.evaluate(() => [HOST.collab.code, HOST.collab.local, HOST.collab.status, HOST.collab.relay])));
+  await Lp.evaluate(() => { HOST.collab.arrange({ x: 0, z: 0, yaw: 0 }); });
+  await until(Lp, () => HOST.collab.stations().length === 7 && !HOST.collab.internals().pending.size, null, 3000);
+  const lsid = await stationOf(Lp, OTHER_STORY);
+  await Lp.evaluate(id => { HOST.collab.move(id, { x: 0.5, z: -3, yaw: 0.2 }); HOST.collab.lock(true); }, lsid);
+  check('a room on this device: Arrange all, moving a station and the lock work alone', await until(Lp, () => HOST.collab.stations().length === 7 && HOST.collab.locked &&
+    !HOST.collab.internals().pending.size, null, 3000));
+  await sleep(700);   // kept at most 0.4 s after a change
+  await Lp.reload(); await lopen();
+  const lk = await until(Lp, id => HOST.collab.code === 'LCL' && HOST.collab.local && HOST.collab.stations().length === 7 && HOST.collab.locked &&
+    HOST.collab.station(id) && HOST.collab.station(id).z === -3 && HOST.collab.kept().some(r => r.code === 'LCL' && r.stations === 7), lsid, 8000);
+  check('a room on this device: kept across a reload (stations, places, the lock)', lk, JSON.stringify(await Lp.evaluate(() => [HOST.collab.code, HOST.collab.local, HOST.collab.stations().length, HOST.collab.locked, HOST.collab.kept()])));
+  await Lp.evaluate(() => HOST.collab.lock(false));
+  await ready(Lp, 'airports');
+  // a headset alone (no shared space): the stations stand on its floor; the panel has Re-align, not the question
+  // whether it is in the room with the others; walking up to a station plays its story there
+  await Lp.evaluate(installXR, Object.assign({}, xrOpts, { mode: 'immersive-vr', features: ['local-floor', 'anchors'] }));
+  await Lp.evaluate(() => window.__xr.begin());
+  await frames(Lp, 400);
+  const lf = await Lp.evaluate(() => ({ src: HOST.room.src, aligned: HOST.room.aligned, o: HOST.room.frame && HOST.room.frame.o, ids: HOST.collab.overlay().panel.regions.map(r => r.id) }));
+  check('a room on this device, in a headset: the stations stand on its floor, and the panel offers Re-align (no question about the others)',
+    lf.src === 'floor' && lf.aligned && near(lf.o, [0, 0, 0], 1e-6), JSON.stringify(lf));
+  await Lp.evaluate(() => HOST.collab.panelOpen(true));
+  await frames(Lp, 100);
+  const lids = await Lp.evaluate(() => HOST.collab.overlay().panel.regions.map(r => r.id));
+  const lre = lids.includes('realign') && !lids.includes('here') && !lids.some(id => id.startsWith('ask:')) &&
+    await Lp.evaluate(() => { HOST.collab.overlay().panel.regions.find(r => r.id === 'realign').fn(); return !!HOST.room.internals().again; });
+  await frames(Lp, 200);
+  const lre2 = await Lp.evaluate(() => ({ again: HOST.room.internals().again, src: HOST.room.src, note: window.__collabLog.filter(e => e.ev === 'notice').slice(-1)[0] }));
+  check('a room on this device: Re-align with nothing to line up with keeps the stations where they are', lre && !lre2.again && lre2.src === 'floor' &&
+    lre2.note && lre2.note.title === 'Nothing to re-align to', JSON.stringify({ lids, lre, lre2 }));
+  const ROOM0 = ROOM;
+  ROOM = FLOOR;   // this headset's room is its floor
+  const lS = await Lp.evaluate(k => HOST.collab.stations().find(s => s.story === k), HEADSET_STORY);
+  const lw = await walk(Lp, lS, HEADSET_STORY, 0.2);
+  const lrig = await rigOf(Lp), lwant = rigAt(lS);
+  ROOM = ROOM0;
+  check('a room on this device, in a headset: a second at a station plays its story there', lw && near(lrig.slice(0, 3), lwant.slice(0, 3), 1e-4), `rig ${fmt(lrig)}, want ${fmt(lwant)}`);
+  await Lp.evaluate(() => window.__xr.end());
+  // a relay entered later: the room goes there (made from this device's copy), and others can join it
+  await lctx.unroute('**/api/**');
+  await Lp.evaluate(u => HOST.collab.setRelay(u), base().replace(/^http/, 'ws'));
+  const lback = await until(Lp, () => !HOST.collab.local && HOST.collab.status === 'open', null, 10000);
+  const linfo = lback ? await until(Lp, () => !HOST.collab.internals().pending.size, null, 5000) && await roomInfo('LCL') : null;
+  const ist = linfo ? Object.keys(linfo.keys).filter(k => /^st\.[\w-]+$/.test(k)).length : 0;
+  check('a room on this device goes to a relay once one answers, with its stations', lback && ist === 7 && linfo.keys['st.' + lsid].v.z === -3, JSON.stringify({ lback, ist }));
+  const Lo = await open('#s=LCL');
+  check('and another device joins it there', await st7(Lo));
+  await Lo.context().close();
+  await lctx.close();
+  // a relay that cannot be reached as the room is joined: the room goes on, on this device
+  const uctx = await browser.newContext({ viewport: { width: 640, height: 400 } });
+  const Up = await uctx.newPage();
+  Up.on('pageerror', e => errors.push(e.stack || e.message));
+  await Up.goto(base() + 'index.html#s=QQQ&relay=' + encodeURIComponent('ws://127.0.0.1:9'));
+  await Up.waitForFunction(() => typeof HOST !== 'undefined' && HOST.collab, null, { timeout: 30000 });
+  check('a relay that cannot be reached: the room opens on this device instead', await until(Up, () => HOST.collab.code === 'QQQ' && HOST.collab.local && HOST.collab.status === 'open', null, 10000),
+    JSON.stringify(await Up.evaluate(() => [HOST.collab.code, HOST.collab.local, HOST.collab.status, window.__collabLog.filter(e => /local|close|join/.test(e.ev)).slice(-5)])));
+  await uctx.close();
 
   // ------------------------------------------------------ pictures --
   if (shots) {

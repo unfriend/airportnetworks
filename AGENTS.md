@@ -46,8 +46,9 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
   `narration-<key>.mp3` for the others, such as `narration-lbi.mp3`);
   missing files are fine.
 - `manifest.webmanifest`, `icons/` - PWA install metadata.
-- `shared.js` - the shell's shared-room client (`HOST.collab`, `HOST.room`), loaded
-  by `index.html` between its two scripts (see "Shared rooms" below).
+- `shared.js` - the shell's shared-room client (`HOST.collab`, `HOST.room`; it plays
+  the relay's part itself for a room on this device), loaded by `index.html`
+  between its two scripts (see "Shared rooms" below).
 - `relay/` - the shared rooms' server (`server.mjs`, Node, no packages; it can serve
   the app too, and `--lan` makes it an HTTPS server for the headsets on one
   Wi-Fi that keeps their alignment logs in `relay/logs/`), its test (`test.mjs`)
@@ -186,6 +187,30 @@ the content floats 1.4 m ahead of the spot), with `st.<id>.play` (the clock:
   panel), members, the relay's clock (ping/pong), presence (`p.<member>` at
   15 Hz) and effects (`e.<station>`); it reconnects with backoff and brings the
   room back after a relay restart. Log: `window.__collabLog` (and `#debug`).
+- A room on this device: when no relay is known, or the relay cannot be
+  reached as a room is joined (no answer within 6 s), the room works on the
+  device alone. `LocalSocket` in `shared.js` plays the relay's part in the page
+  (the same messages and the same rules for keys, a station's epoch and stale
+  writes; presence and effects go nowhere, no log is sent). Its keys are kept
+  in `localStorage` (`collabRoom.<code>`, the last 8 rooms), and a room joined
+  through a relay is kept there too as last seen, so its layout is still there
+  on a day the relay is not; a relay that forgot a room (expired overnight, or
+  restarted) gets it back from any page that keeps a copy. The headset's Shared
+  panel shows without a relay too (*Start a room here*, the rooms kept on the
+  headset). A headset alone is never asked about the others, and without marks
+  or a shared space its stations stand on its floor where the session began
+  (`'floor'`, for the session; calibrating keeps them in place). The room goes
+  to a relay once one answers (asked every 15 s, and at once when an address
+  is entered): made there from the device's copy when the relay has no such
+  room, else joined as the relay has it (changes made meanwhile give way).
+- Re-align (a button on the headset's Shared panel, `HOST.room.realignNow()`):
+  this headset lines up again from the start without leaving the session or
+  forgetting its marks. The shared space is asked for again, what was held
+  since waking is dropped, its own marks are looked for again by their anchors,
+  and otherwise it asks whoever wrote the room's frame to write it into the
+  space again (`q.frame`, passed on like presence) and takes it (waiting up to
+  3 s). The frame held so far stays until another is found ("Re-aligned", or
+  "Nothing to re-align to").
 - A headset runs live the station it stands at (within 1.1 m for 1 s, left
   beyond 1.5 m) or picks one by pointing at its preview (a ring and a card);
   `HOST.go` switches story (in a room `HOST.start` queues a request made while
@@ -296,13 +321,29 @@ the content floats 1.4 m ahead of the spot), with `st.<id>.play` (the clock:
   space id means the others are elsewhere (`othersElsewhere`): this headset's
   own space then never becomes the room (not joined, calibrate).
 - Standby with the shared space in use (an adopted frame, or the space's own
-  origin): it was offset after waking in a test. The frame the floor's resets
-  carried over holds (`R.wakeHold`) until the shared space agrees with it
-  again (10 cm and 3 degrees along the floor) or has held still for 5 s
-  without being just this headset's own floor (`wakeOK`): right after waking
-  the space gave the head's pose, and a default space is possible; the height
-  comes back from the space (`R.hS`), since the floor came back 12 to 17 cm
-  off after waking.
+  origin): one headset was offset after waking in a test, and one of two after
+  a night's standby. The frame the floor's resets carried over holds
+  (`R.wakeHold`, also after a reset with no `hidden` before it) for 20 s and
+  until the shared space agrees with it again (10 cm and 3 degrees along the
+  floor; `wakeOK`): right after waking the space gave the head's pose, and
+  after a night it may come back made again under the same id (around the
+  headset that woke first). A space that still disagrees once it has held
+  still for 5 s: this headset's own publication is written into it again as
+  held (not into a space that is just its own floor: nobody else is known to
+  be in it); someone else's is followed only when written since this headset
+  fell asleep (`p` in the frame, FORMAT networks-7; its writer writes it again
+  once settled after waking, `R.refresh`) or when the floor moved with no
+  transform (`R.blind`), never through a space that is just this headset's own
+  floor. A headset still outside the others' space 15 s after waking asks for
+  it once more. The height comes back from the space (`R.hS`; a jump of more
+  than 30 cm keeps the room's height), since the floor came back 12 to 17 cm
+  off after waking. A session that begins before the room's members are known
+  (a socket not yet back after a night) waits up to 8 s before taking someone's
+  frame, and another headset here since earlier counts as someone here (a
+  page reloaded overnight does not make its own space the room). Why: no logs
+  of the night; two independent readings of the code found that the headset
+  that woke second would follow last night's frame through a space made again
+  around the other, which matches what was seen.
 - Off and on again (the session hidden, then visible: sleep, the system menu)
   the origin moves under the frame (manual calibration lined two Quest 3s up,
   but switching one off and on left it "totally off"). Quest Browser says how
@@ -443,8 +484,10 @@ Tried on two Quest 3 headsets in one room several times: in phase 0 neither the
 shared space nor the calibration lined them up; the relay's logs of the second
 test led to the rules above (own marks win, the floor from the marks); with
 both on one Quest Browser version the shared space lined them up, but one was
-offset after standby (the rules for waking above). Not confirmed on headsets
-yet: whether they line up again after standby now,
+offset after standby, and one of two after a night's standby (the rules for
+waking above). Not confirmed on headsets yet: whether they line up again after
+standby (and a night) now, whether asking for the shared space again (Re-align,
+or 15 s after waking) joins the others' space,
 persistent anchors restored (one headset's handles were refused; the log now
 says why), whether a recentre fires a reset, sound zones heard, comfort and
 frame rate with presence drawn, and whether the socket keeps running inside an
@@ -762,7 +805,15 @@ not tracked (the frame follows the reset at once, then the anchors found
 again by their handles), unknown saved anchors deleted at session start, a
 full anchor store (cleaned and asked again; still full: the marks hold and the
 panel says so), the mark taken where the
-controller was held still, and VR elsewhere with its in-room question. `--quick` runs only the last story in the per-story part. A new story needs an entry in `STORIES`
+controller was held still, VR elsewhere with its in-room question; Re-align
+(an offset headset back on the room's frame, the shared space asked for again),
+and after a night: a headset still outside the space asking for it again, a
+follower holding against a space made again and following the room's frame
+once written again, this headset's own frame written into a space made again;
+a room on this device (no relay known: a link opens it, Arrange all, a moved
+station and the lock kept across a reload, a headset alone on its floor with
+Re-align, a station played there, the room taken to a relay that answers and
+joined there by another page; a relay that cannot be reached). `--quick` runs only the last story in the per-story part. A new story needs an entry in `STORIES`
 (`change` and `back`: code that changes its `state()`, and optional `effect`
 and `more`); the headset's story (`HEADSET_STORY`) stays the last entry.
 `--shots <dir>` also saves pictures of the dialog and two headset views.
