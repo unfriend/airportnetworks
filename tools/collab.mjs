@@ -700,7 +700,7 @@ try {
     else if (what === 'raise') { const f = new V(0, 0, -1).applyQuaternion(G.q); G.q.premultiply(new Q().setFromAxisAngle(f.cross(new V(0, 1, 0)).normalize(), rad)); }
     else if (what === 'twist') G.q.premultiply(new Q().setFromAxisAngle(new V(0, 0, -1).applyQuaternion(G.q), rad));
     if (G.o) X.aim(0, new THREE.Matrix4().compose(G.o, G.q, new V(1, 1, 1)));
-    if (what === 'grip') X.fire('squeezestart', { inputSource: X.session.inputSources[0] });
+    if (what === 'grip') { X.step(); X.fire('squeezestart', { inputSource: X.session.inputSources[0] }); }   // (a grip comes between frames, on a fresh hover)
     if (what === 'let go') X.fire('squeezeend', { inputSource: X.session.inputSources[0] });
     await run(what === 'aim' ? 200 : 400);
     const h = HOST.collab.internals().hov.get(0), o = HOST.room.toRoom(G.o.clone());
