@@ -203,15 +203,21 @@ the content floats 1.4 m ahead of the spot), with `st.<id>.play` (the clock:
   distance from the hand grows as you raise the controller and shrinks as you
   lower it (`exp(2 x the pitch's change)`), and twisting your wrist turns it
   (`carryStation`). It goes out to the room at most every 100 ms and once more
-  when let go (`MV`); every headset draws rings, cards and its live station's
-  placement where `SHOWN` eases them to the room's value, so a moved station
-  glides. On a page the room map does the same: a station's dot dragged moves
-  it, its square (where its content floats) dragged turns it; a click still
-  follows it, and the map keeps its scale while dragging.
+  when let go (`MV`); it is also put down when its controller goes, its grip
+  is up or the headset is taken off (no `squeezeend` may come then). Your own
+  station's ring can be grabbed too (a trigger on it does nothing). Every
+  headset draws rings, cards and its live station's placement where `SHOWN`
+  eases them to the room's value, so a moved station glides, and the people at
+  a moved station keep it: they leave it by walking away from where it is now
+  (`C.zoneD`). On a page the room map does the same: a station's dot dragged
+  moves it, its square (where its content floats) dragged turns it; a click
+  still follows it, the map keeps its scale while dragging, and an interrupted
+  drag (`pointercancel`) puts it back.
 - In a shared room nothing else moves: `HOST.anchor.locked(kind)` is true for
   every kind while a headset is in a room (`HOST.room.inRoom()`), so the grip
   moves no story panel and no scene, and everybody sees them alike (the explore
-  view at a station stays shared as before).
+  view at a station stays shared as before); the stories' panels then say so
+  (`HOST.room.gripHint`, and `sigMain` redraws when that changes).
 - In VR the shell's panel asks once per room "Are you in the same room as the
   others?" (In this room / Somewhere else, kept per room code in
   `localStorage` `collabHere`); passthrough counts as in the room.

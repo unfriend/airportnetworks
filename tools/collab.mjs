@@ -310,12 +310,12 @@ try {
     for (let k = 0; k < 20 && !HOST.collab.mapView(); k++) await new Promise(r => setTimeout(r, 100));   // drawn by the pump
     const tf = HOST.collab.mapView();
     if (!tf || !s) return { err: 'no map' };
-    const r = cv.getBoundingClientRect(), ev = (type, x, z) => cv.dispatchEvent(new PointerEvent(type, { clientX: r.left + tf.X(x), clientY: r.top + tf.Y(z), pointerId: 7, bubbles: true }));
+    const r = cv.getBoundingClientRect(), ev = (type, x, z) => cv.dispatchEvent(new PointerEvent(type, { clientX: r.left + tf.X(x), clientY: r.top + tf.Y(z), pointerId: 7, buttons: type === 'pointerup' ? 0 : 1, bubbles: true }));
     ev('pointerdown', s.x, s.z); ev('pointermove', s.x + 0.5, s.z + 0.3); await new Promise(r => setTimeout(r, 150)); ev('pointermove', s.x + 1, s.z + 0.6); ev('pointerup', s.x + 1, s.z + 0.6);
     const m = HOST.collab.station(s.id), tf2 = HOST.collab.mapView(), r2 = cv.getBoundingClientRect(), a = s.yaw + Math.PI / 2;
     const at = (x, z) => ({ clientX: r2.left + tf2.X(x), clientY: r2.top + tf2.Y(z), pointerId: 8, bubbles: true });
     cv.dispatchEvent(new PointerEvent('pointerdown', at(m.x - 1.4 * Math.sin(m.yaw), m.z - 1.4 * Math.cos(m.yaw))));
-    cv.dispatchEvent(new PointerEvent('pointermove', at(m.x - 1.4 * Math.sin(a), m.z - 1.4 * Math.cos(a))));
+    cv.dispatchEvent(new PointerEvent('pointermove', Object.assign(at(m.x - 1.4 * Math.sin(a), m.z - 1.4 * Math.cos(a)), { buttons: 1 })));
     cv.dispatchEvent(new PointerEvent('pointerup', at(m.x - 1.4 * Math.sin(a), m.z - 1.4 * Math.cos(a))));
     return { id: s.id, from: [s.x, s.z, s.yaw], moved: [m.x, m.z], turned: HOST.collab.station(s.id).yaw, follow: HOST.collab.internals().follow };
   });
@@ -726,10 +726,11 @@ try {
   const glide = await H.evaluate(async ([id, x, z]) => {
     const X = window.__xr, ring = () => { const g = HOST.collab.overlay().rings.get(id).g; return Math.hypot(g.position.x - x, g.position.z - z); };
     const before = ring(); X.step(); const one = ring();
-    const t0 = performance.now(); while (performance.now() - t0 < 900) { X.step(); await new Promise(r => setTimeout(r, 16)); }
-    return { before, one, after: ring() };
+    let n = 1;   // (in frames: a slow machine draws few, and each eases at most a tenth of a second's worth)
+    for (; n < 120 && ring() > 0.002; n++) { X.step(); await new Promise(r => setTimeout(r, 16)); }
+    return { before, one, after: ring(), frames: n };
   }, [SM.id, sM0.x, sM0.z]);
-  check('headset: a station someone else moves glides to its new place here', glide.before > 0.5 && glide.one > 0.02 && glide.one < glide.before && glide.after < 0.002, JSON.stringify(glide));
+  check('headset: a station someone else moves glides to its new place here', glide.before > 0.5 && glide.one > 0.02 && glide.one < glide.before && glide.after < 0.002 && glide.frames > 2, JSON.stringify(glide));
   await H.evaluate(() => { const c = HOST.cur.peek('XR.ctrls')[0]; c.g.visible = false; c.src = null; window.__xr.session.inputSources.length = 0; });
   await frames(H, 150);
   // the room frame moves (newer marks elsewhere): this headset follows within a second

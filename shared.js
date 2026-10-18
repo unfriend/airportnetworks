@@ -492,9 +492,9 @@
     if (!s || !C.code || !R.aligned || MV.src || !e || !e.inputSource) return;
     let i = -1;
     try { i = [...s.inputSources].indexOf(e.inputSource); } catch (err) { /* gone */ }
-    const h = i >= 0 ? C.hov.get(i) : null;
+    const h = i >= 0 ? hovOf(i) : null;
     if (!h || h.target.kind !== 'station' || !C.stById.has(h.target.id)) return;
-    Object.assign(MV, { id: h.target.id, src: e.inputSource, a: null, pose: null, at: 0, sent: '' });
+    Object.assign(MV, { id: h.target.id, src: e.inputSource, a: null, pose: null, at: 0, sent: '', t0: performance.now() });
     log('station grab', { st: MV.id });
     pulse(e.inputSource, 0.4, 25);
     changed();
@@ -513,12 +513,19 @@
   function carryStation(f, t) {
     const s = C.stById.get(MV.id), local = refSpace();
     if (!s || !R.aligned || !local || !R.session) { dropStation(null); return; }
+    // put down when its controller is gone or its grip is up, though no squeezeend came (the controller slept, or
+    // the headset was taken off with the grip held)
+    let here = false;
+    try { here = [...R.session.inputSources].includes(MV.src); } catch (e) { /* gone */ }
+    const gp = MV.src.gamepad, open = !!(gp && gp.buttons && gp.buttons[1] && !gp.buttons[1].pressed && t - MV.t0 > 300);
+    if (!here || open) { log('station let go', { gone: !here, open }); dropStation(null); return; }
     let p = null;
     try { p = f.getPose(MV.src.targetRaySpace, local); } catch (e) { /* not now */ }
     if (!p) return;
     const e = _mc.fromArray(p.transform.matrix).premultiply(R.mi).elements;
     const o = [e[12], e[13], e[14]], fw = [-e[8], -e[9], -e[10]], up = [e[4], e[5], e[6]];
-    const phi = Math.atan2(-fw[0], -fw[2]), pitch = Math.atan2(fw[1], Math.hypot(fw[0], fw[2]));
+    const A = MV.a, flat = Math.hypot(fw[0], fw[2]), pitch = Math.atan2(fw[1], flat);
+    const phi = flat < 0.2 && A ? A.phi1 : Math.atan2(-fw[0], -fw[2]);   // pointing nearly straight up or down: no swing
     // the twist: the controller's up against the world's up, both across the pointing direction (not when the
     // controller points nearly straight up or down)
     const wu = [-fw[1] * fw[0], 1 - fw[1] * fw[1], -fw[1] * fw[2]], wl = Math.hypot(wu[0], wu[1], wu[2]);
@@ -527,15 +534,15 @@
       const w = wu.map(v => v / wl), c = [w[1] * up[2] - w[2] * up[1], w[2] * up[0] - w[0] * up[2], w[0] * up[1] - w[1] * up[0]];
       roll = Math.atan2(c[0] * fw[0] + c[1] * fw[1] + c[2] * fw[2], w[0] * up[0] + w[1] * up[1] + w[2] * up[2]);
     }
-    const A = MV.a;
     if (!A) {   // the first frame: where the station is, seen from the hand
-      const dx = s.x - o[0], dz = s.z - o[2];
-      MV.a = { phi, pitch, roll: roll === null ? 0 : roll, twist: 0, d: Math.max(0.3, Math.hypot(dx, dz)), da: Math.atan2(-dx, -dz) - phi, yaw: s.yaw - phi };
+      const dx = s.x - o[0], dz = s.z - o[2], d0 = Math.hypot(dx, dz);
+      MV.a = { phi, phi1: phi, pitch, roll, twist: 0, d: Math.max(0.05, d0), da: d0 > 0.05 ? Math.atan2(-dx, -dz) - phi : 0, yaw: s.yaw - phi };
       MV.pose = { x: s.x, z: s.z, yaw: s.yaw };
       return;
     }
-    if (roll !== null) { A.twist += turnTo(roll - A.roll); A.roll = roll; }
-    const d = Math.min(12, Math.max(0.3, A.d * Math.exp(2 * (pitch - A.pitch)))), al = phi + A.da;
+    A.phi1 = phi;
+    if (roll !== null) { if (A.roll !== null) A.twist += turnTo(roll - A.roll); A.roll = roll; }   // (a twist counts from the first one known)
+    const d = Math.min(12, Math.max(Math.min(0.3, A.d), A.d * Math.exp(2 * (pitch - A.pitch)))), al = phi + A.da;
     MV.pose = { x: o[0] - d * Math.sin(al), z: o[2] - d * Math.cos(al), yaw: turnTo(phi + A.yaw - A.twist) };
     if (t - MV.at > 100) sendStation(false, t);
   }
@@ -1052,7 +1059,7 @@
     for (const s of C.st) {
       const r = ringFor(s), live = s.id === C.live && s.story === HOST.curKey;
       r.mat.opacity = live ? 0.3 : MV.id === s.id ? 1 : 0.75;
-      r.ring.userData.shell = live ? null : { kind: 'station', id: s.id };
+      r.ring.userData.shell = { kind: 'station', id: s.id, live };   // (the live one: only to move it)
       if (live) continue;
       const c = cardFor(s);
       c.hover = HOV.some(h => h.target.kind === 'station' && h.target.id === s.id);
@@ -1273,7 +1280,7 @@
     if (!h) return;
     if (h.target.kind === 'mark') { R.mark(i); return; }   // calibrating (the panel's Stop calibrating still works)
     if (h.target.kind === 'panel') { const r = OV.panel.at(h.x, h.y); if (r && r.fn) { log('panel', { id: r.id }); r.fn(); OV.panel.sig = ''; } }
-    else if (h.target.kind === 'station') choose(h.target.id, 'pick');
+    else if (h.target.kind === 'station' && !h.target.live && !MV.src) choose(h.target.id, 'pick');   // not while carrying one
   }
 
   // ---------------------------------------------------------- every frame --
@@ -1318,14 +1325,21 @@
   function zoneStep(t) {
     const x = R.hr.x, z = R.hr.z, dist = s => Math.hypot(s.x - x, s.z - z);
     const Z = C.zone && C.stById.get(C.zone);
-    if (Z && dist(Z) > FAR) { C.zone = ''; if (!C.picked) C.mine = ''; log('zone left', { st: Z.id }); changed(); }
+    // a station moved (by hand, or Arrange all) keeps the people at it: they leave it by walking away from where it
+    // is now, not because it moved away from them
+    if (Z) {
+      const dz = dist(Z), was = C.zoneAt;
+      if (!was || Math.hypot(Z.x - was[0], Z.z - was[1]) > 0.01) { C.zoneAt = [Z.x, Z.z]; if (was) C.zoneD = Math.max(FAR, dz + 0.5); }
+      C.zoneD = Math.max(FAR, Math.min(C.zoneD || FAR, dz + 0.5));
+      if (dz > C.zoneD) { C.zone = ''; C.zoneAt = null; C.zoneD = 0; if (!C.picked) C.mine = ''; log('zone left', { st: Z.id }); changed(); }
+    }
     let best = null, bd = NEAR;
     for (const s of C.st) { if (s.id === MV.id) continue; const d = dist(s); if (d < bd) { bd = d; best = s; } }
     const zd = C.zone && C.stById.get(C.zone) ? dist(C.stById.get(C.zone)) : Infinity;
     const cand = best && best.id !== C.zone && bd < zd ? best.id : '';
     if (cand !== C.cand) { C.cand = cand; C.candAt = t; }
     if (cand && t - C.candAt >= DWELL) {
-      C.zone = cand; C.cand = '';
+      C.zone = cand; C.cand = ''; C.zoneAt = null; C.zoneD = 0;
       log('zone', { st: cand });
       choose(cand, 'walk');
     }
@@ -2128,7 +2142,7 @@
       holdTask();
       log('headset', { visibility: s.visibilityState });
       const t = performance.now();
-      if (s.visibilityState === 'hidden') { if (!R.hiddenAt) R.hiddenAt = t; }
+      if (s.visibilityState === 'hidden') { if (!R.hiddenAt) R.hiddenAt = t; dropStation(null); }
       else if (R.hiddenAt) {   // back from off (or the system menu): the origin may have moved under the frame
         log('woke', { away: Math.round(t - R.hiddenAt), src: R.src, anchors: !!(R.anchors && R.anchorsOK) });
         R.sleptAt = R.hiddenAt; R.hiddenAt = 0; R.prev = null; R.visibleAt = t; R.stillSince = t; R.lastS = null;
@@ -2160,6 +2174,7 @@
     get state() { return R.state; }, get aligned() { return R.aligned; }, get frame() { return R.frame; }, get src() { return R.src; },
     watch, update: f => update(f), place, placing, adopt, calibrate, cancel, mark, status, forget: forgetMarks, sharedLine, sourceLine,
     inRoom: () => !!(C.code && R.session),   // a headset in a shared room: the grip moves no panel and no scene
+    gripHint: 'Trigger (or pinch): use buttons and point. A or X: play and pause. In a shared room panels and scenes stay put: hold the grip on a station\'s ring or card to move the station.',
     get moving() { return MV.id; },
     sharedAlign(on) { if (on !== undefined) setSharedAlign(on); return R.sharedAlign; }, floorNote,
     handles: () => ((R.saved && R.saved.anchors) || []).concat(R.anchorIds || []).filter(Boolean),   // kept by HOST.anchor's tidy-up
@@ -2227,16 +2242,21 @@
     // headsets see it move); a click on either follows it
     const at = ev => { const r = DLG.map.getBoundingClientRect(); return [ev.clientX - r.left, ev.clientY - r.top]; };
     DLG.map.addEventListener('pointerdown', ev => {
+      if (MAP.drag || ev.button !== 0) return;
       const [px, py] = at(ev), g = mapGrab(px, py), s = g && C.stById.get(g.id);
       if (!s || !MAP.tf) return;
-      MAP.drag = { id: g.id, turn: g.turn, px, py, moved: false, tf: MAP.tf, ox: s.x - MAP.tf.ix(px), oz: s.z - MAP.tf.iz(py), pose: null, at: 0, sent: '' };
+      MAP.drag = { id: g.id, turn: g.turn, pid: ev.pointerId, px, py, moved: false, tf: MAP.tf, ox: s.x - MAP.tf.ix(px), oz: s.z - MAP.tf.iz(py),
+        from: { x: s.x, z: s.z, yaw: s.yaw }, pose: null, at: 0, sent: '' };
       try { DLG.map.setPointerCapture(ev.pointerId); } catch (e) { /* a pointer the page made up */ }
       ev.preventDefault();
     });
     DLG.map.addEventListener('pointermove', ev => {
-      const D = MAP.drag, s = D && C.stById.get(D.id);
+      const D = MAP.drag;
+      if (!D || ev.pointerId !== D.pid) return;
+      const s = C.stById.get(D.id);
       if (!s) { MAP.drag = null; return; }
-      const [px, py] = at(ev);
+      if (!ev.buttons) { end(ev); return; }   // the button came up where we did not hear it
+      const r = DLG.map.getBoundingClientRect(), [qx, qy] = at(ev), px = Math.max(0, Math.min(r.width, qx)), py = Math.max(0, Math.min(r.height, qy));
       if (!D.moved && Math.hypot(px - D.px, py - D.py) < 4) return;
       D.moved = true;
       const x = D.tf.ix(px), z = D.tf.iz(py);
@@ -2244,16 +2264,19 @@
       mapSend(D, false);
       drawMap();
     });
-    const end = ev => {
+    function end(ev) {
       const D = MAP.drag;
+      if (!D || ev.pointerId !== D.pid) return;
       MAP.drag = null;
-      if (!D) return;
-      if (D.moved) mapSend(D, true);
-      else if (ev.type === 'pointerup') { choose(D.id, 'follow'); renderDialog(); }
+      if (ev.type === 'pointercancel' || ev.type === 'lostpointercapture') {   // interrupted: back where it was
+        if (D.moved) { D.pose = D.from; D.sent = ''; mapSend(D, true); }
+      } else if (D.moved) mapSend(D, true);
+      else if (ev.type === 'pointerup') { choose(D.id, 'follow'); renderDialog(); }   // a click
       drawMap();
-    };
+    }
     DLG.map.addEventListener('pointerup', end);
     DLG.map.addEventListener('pointercancel', end);
+    DLG.map.addEventListener('lostpointercapture', end);
   }
   // a desktop's new station: on the arc's free side, so it does not land on another one
   function freeSpot() {
