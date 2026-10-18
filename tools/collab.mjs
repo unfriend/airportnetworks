@@ -1041,7 +1041,9 @@ try {
     window.__xr.ctrl(0, [p[0] + 0.03, p[1] - 0.01, p[2]], [0, -1, 0]); HOST.cur.peek('XR.ctrls[0].wantPress = true'); window.__xr.step();
     const c = HOST.room.internals().calib; return c && c.a ? c.a.toArray() : null;
   }, markA);
-  check('calibration: the mark is where the controller was held still before the trigger, not where the pull moved it', !!stillA && near(stillA, fa, 5e-3), `${stillA && fmt(stillA)} want ${fmt(fa)}`);
+  const stillWhy = stillA && near(stillA, fa, 5e-3) ? '' : ' ' + await H.evaluate(() => { const h = HOST.collab.internals().rays.get(0), t = performance.now();
+    return JSON.stringify({ story: HOST.curKey, hist: h && h.hist ? h.hist.map(e => Math.round(t - e[0])) : null, log: window.__collabLog.slice(-14).map(e => [Math.round(t - e.t), e.ev, e.st || e.story || e.state || e.step || '']) }); });
+  check('calibration: the mark is where the controller was held still before the trigger, not where the pull moved it', !!stillA && near(stillA, fa, 5e-3), `${stillA && fmt(stillA)} want ${fmt(fa)}` + stillWhy);
   await touch(markB);
   await frames(H, 300);
   const noA = await H.evaluate(() => ({ src: HOST.room.src, line: HOST.room.sourceLine(), saved: localStorage.getItem('roomFrame') }));
