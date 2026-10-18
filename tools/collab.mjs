@@ -540,11 +540,13 @@ try {
     near(back6.frame.o, [w6[0], 0.15, w6[2]], 2e-3) && near(back6.frame.x, x6, 2e-3) && !!back6.after && back6.after.agree && /floor moved 15 cm down/.test(back6.note),
     JSON.stringify(Object.assign(back6, { want: [w6, x6] })));
   await sleepWake(FLOOR, SHARED);   // and back to the floor the rest expects
+  await H.evaluate(() => { HOST.room.internals().visibleAt -= 21000; });   // (held for 20 s after waking, at the height it had)
   await frames(H, 800);
   check('headset: woken again on the first floor, the room is back on it', near(await H.evaluate(() => HOST.room.frame.o), [wantO[0], 0, wantO[2]], 2e-3),
     fmt(await H.evaluate(() => HOST.room.frame.o)));
   // Re-align by hand (the Shared panel): a headset left offset (as one was after a long standby) goes back to the
   // room's frame through the shared space, which is asked for again
+  const qA = (await roomInfo(code)).seq;   // (the room's frame is written on purpose from here to qB)
   const ra = await H.evaluate(async () => {
     const X = window.__xr, R = HOST.room.internals();
     X.head([-6, 1.6, 6, 0]);   // away from the stations
@@ -627,6 +629,7 @@ try {
   for (let k = 0; k < 10 && !(await H.evaluate(() => !HOST.room.internals().again)); k++) await frames(H, 500);
   const rb = await H.evaluate(() => ({ src: HOST.room.src, o: HOST.room.frame.o }));
   check('and back in the room\'s space, it takes the room\'s frame again', rb.src === 'adopted' && near([rb.o[0], rb.o[2]], [wantO[0], wantO[2]], 2e-3), JSON.stringify(rb));
+  const qB = (await roomInfo(code)).seq;
   // walk to the headset story's station: after a second there it becomes this headset's story, placed at the station
   const stationFor = async k => { const s = await H.evaluate(k => HOST.collab.stations().find(s => s.story === k) || null, k); if (!s) throw new Error('no station for ' + k); return s; };
   const S1 = await stationFor(HEADSET_STORY);
@@ -660,8 +663,9 @@ try {
   check('headset: and it stays in its story at its station (no Stories screen)', onAgain[0] === HEADSET_STORY && onAgain[1] === false && onAgain[2] === S1.id, JSON.stringify(onAgain));
   check('headset: at the station, HOST.anchor holds the place, and in the room the grip moves no panel and no scene', await H.evaluate(() => HOST.anchor.held() &&
     HOST.anchor.locked('globe') && HOST.anchor.locked('panel') && HOST.room.inRoom()));
-  const wrote = Object.entries((await roomInfo(code)).keys).filter(([, e]) => e.seq > q2).map(([k, e]) => `${k} by ${e.by === hId0 ? 'the headset' : e.by}`);
-  const wroteWhy = wrote.length ? ' ' + JSON.stringify(Object.entries((await roomInfo(code)).keys).filter(([, e]) => e.seq > q2).map(([k, e]) => [k, e.seq, e.v])) + ' ' +
+  const since = e => (e.seq > q2 && e.seq <= qA) || e.seq > qB;   // (not the writes the standby tests made on purpose)
+  const wrote = Object.entries((await roomInfo(code)).keys).filter(([, e]) => since(e)).map(([k, e]) => `${k} by ${e.by === hId0 ? 'the headset' : e.by}`);
+  const wroteWhy = wrote.length ? ' ' + JSON.stringify(Object.entries((await roomInfo(code)).keys).filter(([, e]) => since(e)).map(([k, e]) => [k, e.seq, e.v])) + ' ' +
     await H.evaluate(() => JSON.stringify(window.__collabLog.filter(e => /publish|switch|attach|apply|recv|go|station|adopt|hold/.test(e.ev)).slice(-40).map(e => [e.t, e.ev, e.keys || e.st || e.story || e.id || '']))) : '';
   check('headset: arriving at a station and starting a session write nothing', !wrote.length, wrote.join(', ') + wroteWhy);
   check('headset: the station\'s clock and state apply there', await until(H, s => HOST.cur.peek('APP.mode') === 'explore' && JSON.stringify(HOST.cur.collab.state()) === s, await stateOf(A), 2000));

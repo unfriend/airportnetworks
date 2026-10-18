@@ -1836,7 +1836,7 @@
     const move = fr => { const o = _v.fromArray(fr.o).applyMatrix4(_m), x = _v2.fromArray(fr.x).transformDirection(_m).toArray(); fr.o = [o.x, fr.o[1], o.z]; fr.x = level(x) || fr.x; };
     if (R.frame) move(R.frame);
     // a reset with no 'hidden' before it (a wake the session did not report): held as after waking
-    if (R.frame && !R.wakeHold && (R.src === 'adopted' || R.src === 'shared')) {
+    if (R.frame && !R.wakeHold && !R.hiddenAt && (R.src === 'adopted' || R.src === 'shared')) {
       const t = performance.now();
       Object.assign(R, { wakeHold: t, visibleAt: t, stillSince: t, lastS: null, sleptRel: now(), blind: false, refresh: t });
       log('reset holds', { src: R.src });
@@ -2202,7 +2202,7 @@
     // Re-align asked the others to write the room's frame into the space again (q.frame): a moment for it to come
     if (R.again && validFrame(P) && P.by !== C.id && (+P.p || 0) < R.againRel && t - R.again < 3000) return;
     if (validFrame(P)) {
-      if (R.frame && R.wakeHold && (!settled() || !wakeOK(P, t))) return;   // after waking: the frame the floor's resets carried over holds
+      if (R.frame && R.wakeHold && !wakeOK(P, t)) return;   // after waking: the frame the floor's resets carried over holds
       if (fresh || t - R.recAt > 500) { R.recAt = t; reconcile(P); }
       if (R.frame && !R.again) return;
     }
@@ -2255,6 +2255,8 @@
   function wakeOK(P, t) {
     const [d, a] = apart(fromShared(P), R.frame), agree = d <= 0.1 && a <= 0.05, steady = t - R.stillSince > 5000;
     const out = why => { log('shared after wake', Object.assign({ d: r3(d), a: r3(a), after: Math.round(t - R.wakeHold) }, why)); R.wakeHold = 0; };
+    const held = () => { if (t - R.wakeLog > 2000) { R.wakeLog = t; log('shared held after wake', { d: r3(d), a: r3(a), own: !!R.sharedOwn, blind: R.blind, settling: !settled() }); } return false; };
+    if (!settled()) return held();
     if (agree) { out({ agree }); return true; }
     if (steady && P.by === C.id && !R.sharedOwn) {   // our own frame, written into the space this headset is in now
       out({ republished: true }); R.pubAt = 0; R.refresh = 0;
@@ -2268,8 +2270,7 @@
       R.noticed = 'lost';
       notice('Lost its place', 'The headset lost its place while it was off: press Re-align on the Shared panel, or calibrate on the tape marks.', 12000);
     }
-    if (t - R.wakeLog > 2000) { R.wakeLog = t; log('shared held after wake', { d: r3(d), a: r3(a), own: !!R.sharedOwn, blind: R.blind }); }
-    return false;
+    return held();
   }
   function update(f) {
     if (!R.session || !C.code || !f) return;
