@@ -72,8 +72,8 @@ what we do about it.
 - What we do: the first headset to calibrate stores mark A's height over its own floor (and the distance between
   the marks, to recognise the same marks later). Every other headset puts the room's floor that far below its own
   mark A, and the panel says by how much its floor differs.
-- In one session a headset's whole origin jumped 5.5 m and its floor 0.7 m. A recentre moves `local-floor`
-  without any reset event. Two anchors at the marks (positions only) catch both.
+- In one session a headset's whole origin jumped 5.5 m and its floor 0.7 m. In our logs a recentre moved
+  `local-floor` with no `reset` event we could see. Two anchors at the marks (positions only) catch both.
 
 ## 5. The persistent anchor store fills up
 
