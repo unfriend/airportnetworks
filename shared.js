@@ -1418,37 +1418,36 @@
       drawPeople(dt);
     }
     drawMarks();
-    // the panel: on the left controller when there is one (always at hand), else beside the story's own
+    // the panel: on the left controller when there is one (always at hand), else beside the story's own. Drawn
+    // first, so it is placed by its height this frame (it hangs from its top edge, and opening changes that)
     const t = performance.now();
     const showPanel = !!(C.code || C.relay);
-    if (showPanel && HAND.ok) {
-      // above the controller, its lower edge 7 cm over it (the panel hangs from its top edge, so that rises as it
-      // opens), at about two thirds of its size, turned to your eyes; eased a little, so a shaking hand does not shake it
-      const S = OV.panel, sc = HAND_SCALE, vh = S.mw * S.vis / S.w * sc;
-      _v.setFromMatrixPosition(HAND.m); _v.y += 0.07 + vh;
-      if (!OV.onHand) OV.panelG.position.copy(_v); else OV.panelG.position.lerp(_v, 1 - Math.exp(-dt * 30));
-      if (HD.ok) OV.panelG.quaternion.setFromRotationMatrix(_m.lookAt(HD.p, OV.panelG.position, _Y));
-      OV.panelG.scale.setScalar(sc);
-      OV.panelG.visible = true; OV.onHand = true;
-    } else if (showPanel) {
-      OV.onHand = false; OV.panelG.scale.setScalar(1);
-      let p = null;
-      try { p = HOST.cur && HOST.cur.xrPose(); } catch (e) { /* not ready */ }
-      OV.panelG.visible = !!p;
-      if (p) {
-        // to the left of the story panel (0.62 m wide), turned a little more towards you
-        const a = 0.42;
-        _v.set(-0.31 - 0.02 - 0.21 * Math.cos(a), 0.36, 0.21 * Math.sin(a)).applyAxisAngle(_Y, p.pr).add(p.pp);
-        OV.panelG.position.copy(_v).applyQuaternion(p.rq).add(p.rp);
-        OV.panelG.quaternion.copy(p.rq).multiply(_q.setFromAxisAngle(_Y, p.pr + a));
-      }
-    } else OV.panelG.visible = false;
+    let p = null;
+    if (showPanel && !HAND.ok) { try { p = HOST.cur && HOST.cur.xrPose(); } catch (e) { /* not ready */ } }
+    OV.panelG.visible = showPanel && (HAND.ok || !!p);
     if (OV.panelG.visible) {
       OV.panel.hover = null;
       for (const h of HOV) if (h.target.kind === 'panel') { const r = OV.panel.at(h.x, h.y); if (r) OV.panel.hover = r.id; }
       drawPanel();
       if (PNL.open && !C.code && t - C.roomsAt > 4000) listRooms();
     }
+    if (OV.panelG.visible && HAND.ok) {
+      // above the controller, its lower edge 7 cm over it, at about two thirds of its size, turned to your eyes;
+      // eased a little, so a shaking hand does not shake it
+      const S = OV.panel, sc = HAND_SCALE, vh = S.mw * S.vis / S.w * sc;
+      _v.setFromMatrixPosition(HAND.m); _v.y += 0.07 + vh;
+      if (!OV.onHand) OV.panelG.position.copy(_v); else OV.panelG.position.lerp(_v, 1 - Math.exp(-dt * 30));
+      if (HD.ok) OV.panelG.quaternion.setFromRotationMatrix(_m.lookAt(HD.p, OV.panelG.position, _Y));
+      OV.panelG.scale.setScalar(sc);
+      OV.onHand = true;
+    } else if (OV.panelG.visible) {
+      OV.onHand = false; OV.panelG.scale.setScalar(1);
+      // to the left of the story panel (0.62 m wide), turned a little more towards you
+      const a = 0.42;
+      _v.set(-0.31 - 0.02 - 0.21 * Math.cos(a), 0.36, 0.21 * Math.sin(a)).applyAxisAngle(_Y, p.pr).add(p.pp);
+      OV.panelG.position.copy(_v).applyQuaternion(p.rq).add(p.rp);
+      OV.panelG.quaternion.copy(p.rq).multiply(_q.setFromAxisAngle(_Y, p.pr + a));
+    } else OV.onHand = false;
     drawNote(HD.ok ? HD.p : null, HD.q);
     // what the controllers can point at
     OV.hit.length = 0;

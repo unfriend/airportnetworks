@@ -1079,7 +1079,10 @@ try {
   await frames(H, 300);
   await H.evaluate(p => { HOST.room.calibrate(); window.__xr.ctrl(0, p, [0, -1, 0]); }, markA);
   await frames(H, 300);
-  const stillA = await H.evaluate(p => {
+  const stillA = await H.evaluate(async p => {
+    // held still right up to the pull (a busy machine can take longer between two calls than the half second of
+    // history the mark looks back over)
+    for (let k = 0; k < 4; k++) { window.__xr.step(); await new Promise(r => setTimeout(r, 40)); }
     window.__xr.ctrl(0, [p[0] + 0.03, p[1] - 0.01, p[2]], [0, -1, 0]); HOST.cur.peek('XR.ctrls[0].wantPress = true'); window.__xr.step();
     const c = HOST.room.internals().calib; return c && c.a ? c.a.toArray() : null;
   }, markA);
