@@ -2288,7 +2288,7 @@
   }
   // After waking, the frame the floor's resets carried over (the room as it was; Quest's transforms were right to
   // 1-1.5 cm) holds until the shared space agrees with it again (10 cm and 3 degrees along the floor; the height may
-  // have moved with the floor), and in any case for 20 s (settled). Right after waking the space gave the head's pose
+  // have moved with the floor; not in the first 3 s, while the resets come in). Right after waking the space gave the head's pose
   // for up to 15 s, and after a night it may come back made again under the same id (around whichever headset woke
   // first), so a space that still disagrees once it has held still for 5 s is not simply believed:
   //  - our own publication (this headset wrote the room's frame): written into the space again as the frame is now
@@ -2303,8 +2303,11 @@
     const [d, a] = apart(fromShared(P), R.frame), agree = d <= 0.1 && a <= 0.05, steady = t - R.stillSince > 5000;
     const out = why => { log('shared after wake', Object.assign({ d: r3(d), a: r3(a), after: Math.round(t - R.wakeHold) }, why)); R.wakeHold = 0; };
     const held = () => { if (t - R.wakeLog > 2000) { R.wakeLog = t; log('shared held after wake', { d: r3(d), a: r3(a), own: !!R.sharedOwn, blind: R.blind, settling: !settled() }); } return false; };
-    if (!settled()) return held();
+    // a space that agrees is trusted once the floor's resets are in (they come just after waking); one that disagrees
+    // only once settled (20 s: the space gave the head's pose for up to 15 s)
+    if (t - R.visibleAt < 3000) return held();
     if (agree) { out({ agree }); return true; }
+    if (!settled()) return held();
     if (steady && P.by === C.id && !R.sharedOwn) {   // our own frame, written into the space this headset is in now
       out({ republished: true }); R.pubAt = 0; R.refresh = 0;
       publishFrame(gradeOf(P), P.g === 'marks' ? P.at : 0);

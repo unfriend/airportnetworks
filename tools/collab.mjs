@@ -970,11 +970,13 @@ try {
   // the room's floor under the marks: the first calibration sets it (mark A's height); a headset whose floor is
   // lower (a Guardian floor set wrong) stands the room on the marks instead, and says so
   const rm0 = ((await roomInfo(code)).keys.rm || {}).v || null;
+  // (the anchors are read every 0.5 s and the value comes through the relay: a slow machine may need a few frames)
+  const floorTo = async y => { for (let k = 0; k < 16; k++) { await frames(H, 250); if (Math.abs(await H.evaluate(() => HOST.room.frame.o[1]) - y) < 3e-3) break; } };
   await A.evaluate(v => HOST.collab.publish([['rm', v]]), { a: r3(fa[1] - 0.15), d: r3(dAB), by: aId, at: Date.now() });
-  await frames(H, 1200);
+  await floorTo(0.15);
   const fl = await H.evaluate(() => ({ y: HOST.room.frame.o[1], mk: HOST.room.marks, note: HOST.room.floorNote() }));
   await A.evaluate(v => HOST.collab.publish([['rm', v]]), { a: r3(fa[1]), d: r3(dAB), by: aId, at: Date.now() });
-  await frames(H, 1200);
+  await floorTo(0);
   const fl0 = await H.evaluate(() => HOST.room.frame.o[1]);
   check('the room\'s floor: the first calibration sets it; a floor 15 cm lower than the room\'s is allowed for (the room stands on the marks)',
     !!rm0 && Math.abs(rm0.a - fa[1]) < 2e-3 && Math.abs(rm0.d - dAB) < 2e-3 && Math.abs(fl.y - 0.15) < 3e-3 && Math.abs(fl.mk[0] - (fa[1] - 0.15)) < 3e-3 &&
@@ -993,11 +995,17 @@ try {
     const M = a => new THREE.Matrix4().compose(V(a[0], a[1], a[2]), new THREE.Quaternion().setFromAxisAngle(V(0, 1, 0), a[3]), V(1, 1, 1));
     X.W.floor = M(F); X.W.local = M(L);
   }, [F3, L3]);
-  await frames(H, 900);
-  const rc = await H.evaluate(() => ({ frame: HOST.room.frame, src: HOST.room.src }));
   const fa3 = unapply(F3, markA), fb3 = unapply(F3, markB), cx3 = unit([fb3[0] - fa3[0], 0, fb3[2] - fa3[2]]);
+  // (the anchors are read every 0.5 s, at once when the origin seems to jump: a slow machine may need a few frames)
+  let rc = null;
+  for (let k = 0; k < 16; k++) {
+    await frames(H, 250);
+    rc = await H.evaluate(() => ({ frame: HOST.room.frame, src: HOST.room.src }));
+    if (rc.frame && near(rc.frame.o, [fa3[0], 0, fa3[2]], 2e-3)) break;
+  }
   check('a recentre without a reset event: the anchors keep the frame on the marks', rc.src === 'marks' && rc.frame && near(rc.frame.o, [fa3[0], 0, fa3[2]], 2e-3) && near(rc.frame.x, cx3, 2e-3),
-    `${rc.src} ${rc.frame ? fmt(rc.frame.o) + ' ' + fmt(rc.frame.x) : 'no frame'}, want ${fmt(fa3)} ${fmt(cx3)}`);
+    `${rc.src} ${rc.frame ? fmt(rc.frame.o) + ' ' + fmt(rc.frame.x) : 'no frame'}, want ${fmt(fa3)} ${fmt(cx3)} ` +
+    await H.evaluate(() => JSON.stringify(window.__collabLog.slice(-25).map(e => [e.t, e.ev, e.why || e.src || '']))));
   // taken off and on again (as two Quest 3s did): the origin moves and a reset says how (4 cm out here), and the
   // anchors are not tracked any more: the frame follows the reset at once, and the anchors found again by their
   // saved handles put it back on the marks
@@ -1110,7 +1118,8 @@ try {
   const sU7 = await H.evaluate(() => ({ src: HOST.room.src, frame: HOST.room.frame, id: HOST.collab.id, first: HOST.room.internals().firstHere }));
   const pub7 = ((await roomInfo(code)).keys[rfKey1] || {}).v || null;
   check('shared space: a frame there from someone who has left waits, then the first headset\'s own space replaces it', early7.src === '' && early7.state === 'shared-wait' &&
-    sU7.src === 'shared' && sU7.first === true && !!sU7.frame && near(sU7.frame.o, [0, 0, 0], 1e-3) && !!pub7 && pub7.by === sU7.id, JSON.stringify({ early7, sU7, pub7 }));
+    sU7.src === 'shared' && sU7.first === true && !!sU7.frame && near(sU7.frame.o, [0, 0, 0], 1e-3) && !!pub7 && pub7.by === sU7.id, JSON.stringify({ early7, sU7, pub7 }) + ' ' +
+    await H.evaluate(() => JSON.stringify({ members: HOST.collab.members.map(m => [m.id, m.kind, m.here, m.since]), log: window.__collabLog.filter(e => /shared|first|frame|welcome|close|connect/.test(e.ev)).slice(-20) })));
   await A.evaluate(([k, f]) => HOST.collab.publish([[k, f]]), [rfKey1, frameFor(ROOM, 'U1', aId, Date.now())]);
   await frames(H, 1000);
   const took7 = await H.evaluate(() => ({ src: HOST.room.src, frame: HOST.room.frame, line: HOST.room.sourceLine() }));

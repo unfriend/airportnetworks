@@ -65,11 +65,11 @@ what we do about it.
   them up again by their persistent handles. Waking never drops a calibration: asking to calibrate after every
   wake was worse.
 - **After a night** (seen once, no logs yet): one of two headsets was offset, the other right. Our reading: the
-  space can come back made again under the same id, around whichever headset woke first. So we hold the frame
-  the resets carried for at least 20 s, write our own frame into a space that disagrees (never into one that is
-  just our own floor), and follow someone else's frame through a disagreeing space only if it was written after
-  we fell asleep (frames carry a write time). A **Re-align** button lines a headset up again by hand: it asks for
-  the shared space again and has whoever wrote the room's frame write it again.
+  space can come back made again under the same id, around whichever headset woke first. So we hold the frame the
+  resets carried until the space agrees, judge a space that disagrees only after 20 s, write our own frame into it
+  (never into one that is just our own floor), and follow someone else's frame through a disagreeing space only if
+  it was written after we fell asleep (frames carry a write time). A **Re-align** button lines a headset up again
+  by hand: it asks for the shared space again and has whoever wrote the room's frame write it again.
 
 ## 4. Floors and origins move
 

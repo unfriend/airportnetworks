@@ -148,8 +148,8 @@ machine or public hosting.
   looks for its anchors again by their saved handles (they put it back on the marks) and shows the orange
   crosses for 30 s ("Check the marks"). If they are not on the tape, press **Calibrate** and please send the
   logs. Lined up through the shared space (no tape), it holds the room where the headset says it moved until the
-  shared space agrees again (at least 20 s; right after waking the space is wrong for up to 15 s, and after a
-  night it may come back made again). If it stays off, press **Re-align** on that headset's Shared panel (it
+  shared space agrees again (a few seconds; one that disagrees is judged after 20 s: right after waking the space is
+  wrong for up to 15 s, and after a night it may come back made again). If it stays off, press **Re-align** on that headset's Shared panel (it
   asks for the shared space again and takes the room's frame afresh, as the others show it); if nothing changes,
   press it on the other headset, and please send the logs (`shared held after wake`, `shared after
   wake`, `shared asked again`, `realign` and `frame asked` lines say what it did).

@@ -327,12 +327,13 @@ the content floats 1.4 m ahead of the spot), with `st.<id>.play` (the clock:
 - Standby with the shared space in use (an adopted frame, or the space's own
   origin): one headset was offset after waking in a test, and one of two after
   a night's standby. The frame the floor's resets carried over holds
-  (`R.wakeHold`, also after a reset with no `hidden` before it) for 20 s and
-  until the shared space agrees with it again (10 cm and 3 degrees along the
-  floor; `wakeOK`): right after waking the space gave the head's pose, and
-  after a night it may come back made again under the same id (around the
-  headset that woke first). A space that still disagrees once it has held
-  still for 5 s: this headset's own publication is written into it again as
+  (`R.wakeHold`, also after a reset with no `hidden` before it) until the
+  shared space agrees with it again (10 cm and 3 degrees along the floor, not
+  in the first 3 s while the resets come in; `wakeOK`): right after waking the
+  space gave the head's pose, and after a night it may come back made again
+  under the same id (around the headset that woke first). A space that still
+  disagrees once settled (20 s) and still for 5 s: this headset's own
+  publication is written into it again as
   held (not into a space that is just its own floor: nobody else is known to
   be in it); someone else's is followed only when written since this headset
   fell asleep (`p` in the frame, FORMAT networks-7; its writer writes it again
