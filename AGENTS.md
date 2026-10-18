@@ -54,7 +54,8 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
   and Dockerfile; see its `README.md`.
 - `docs/` - the shared rooms' plan (`shared-space-plan.md`, with what phase 0
   built) and the lessons from another project it applies (`multiplayer.md`:
-  syncing; `shared-spaces.md`: one room frame for several headsets).
+  syncing; `shared-spaces.md`: one room frame for several headsets), and
+  `quest-shared-space-findings.md`, a short page of what Quest did that those notes did not say.
 - `tools/smoke.mjs` - headless smoke test; `tools/audio.mjs` - narration test;
   `tools/update.mjs` - update test for the service worker; `tools/collab.mjs` -
   shared rooms test (see Testing).

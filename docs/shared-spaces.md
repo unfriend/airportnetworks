@@ -229,5 +229,6 @@ same page address, the relay on the same Wi-Fi; every 5 s each headset logged it
 
 So: tape marks on every headset, the room's height taken from the marks (the first calibration's height of
 mark A over its floor, others allowing for their own floor), anchors to follow origin jumps, and the shared
-space only as an opt-in experiment with its measured distance shown.
+space on by default (the same Quest Browser version on every headset) with its measured distance shown. A short
+summary for other projects: [quest-shared-space-findings.md](quest-shared-space-findings.md).
 
