@@ -317,12 +317,22 @@ try {
     cv.dispatchEvent(new PointerEvent('pointerdown', at(m.x - 1.4 * Math.sin(m.yaw), m.z - 1.4 * Math.cos(m.yaw))));
     cv.dispatchEvent(new PointerEvent('pointermove', Object.assign(at(m.x - 1.4 * Math.sin(a), m.z - 1.4 * Math.cos(a)), { buttons: 1 })));
     cv.dispatchEvent(new PointerEvent('pointerup', at(m.x - 1.4 * Math.sin(a), m.z - 1.4 * Math.cos(a))));
-    return { id: s.id, from: [s.x, s.z, s.yaw], moved: [m.x, m.z], turned: HOST.collab.station(s.id).yaw, follow: HOST.collab.internals().follow };
+    const after = HOST.collab.station(s.id), lockB = document.querySelector('[data-sh="lock"]');
+    lockB.click(); await new Promise(r => setTimeout(r, 300));
+    const tf3 = HOST.collab.mapView(), r3 = cv.getBoundingClientRect(), at3 = (x, z, b) => ({ clientX: r3.left + tf3.X(x), clientY: r3.top + tf3.Y(z), pointerId: 9, buttons: b, bubbles: true });
+    cv.dispatchEvent(new PointerEvent('pointerdown', at3(after.x, after.z, 1))); cv.dispatchEvent(new PointerEvent('pointermove', at3(after.x - 1, after.z, 1)));
+    cv.dispatchEvent(new PointerEvent('pointerup', at3(after.x - 1, after.z, 0)));
+    const still = HOST.collab.station(s.id), arrOff = document.querySelector('[data-sh="arrange"]').disabled, label = lockB.textContent;
+    const followed = HOST.collab.internals().follow;   // (a drag on the locked map is no click: it follows nothing)
+    lockB.click(); await new Promise(r => setTimeout(r, 300));
+    return { id: s.id, from: [s.x, s.z, s.yaw], moved: [m.x, m.z], turned: after.yaw, follow: HOST.collab.internals().follow, locked: { kept: Math.abs(still.x - after.x) < 1e-6, arrOff, label, followed, unlocked: !HOST.collab.locked } };
   });
   const mapB = !mapT.err && await until(B, ([id, x, z, yaw]) => { const s = HOST.collab.station(id); return !!s && Math.abs(s.x - x) < 0.005 && Math.abs(s.z - z) < 0.005 && Math.abs(Math.sin(s.yaw - yaw)) < 0.005; },
     [mapT.id, mapT.from[0] + 1, mapT.from[1] + 0.6, mapT.from[2] + Math.PI / 2], 3000);
   check('the room map: a station\'s dot dragged moves it and its square dragged turns it, for everyone (a drag follows nothing)', !mapT.err &&
     near(mapT.moved, [mapT.from[0] + 1, mapT.from[1] + 0.6], 0.005) && Math.abs(Math.sin(mapT.turned - mapT.from[2] - Math.PI / 2)) < 0.005 && !mapT.follow && mapB, JSON.stringify(mapT));
+  check('the room map: with the layout locked (its button) a station cannot be dragged and Arrange all is off; unlocked again', !mapT.err &&
+    mapT.locked.kept && mapT.locked.arrOff && mapT.locked.label === 'Unlock layout' && !mapT.locked.followed && mapT.locked.unlocked, JSON.stringify(mapT.locked));
   await A.evaluate(() => { HOST.collab.dialog(false); HOST.collab.arrange({ x: 0, z: 0, yaw: 0 }); });
   await st7(B); await st7(C);
 
@@ -731,6 +741,38 @@ try {
     return { before, one, after: ring(), frames: n };
   }, [SM.id, sM0.x, sM0.z]);
   check('headset: a station someone else moves glides to its new place here', glide.before > 0.5 && glide.one > 0.02 && glide.one < glide.before && glide.after < 0.002 && glide.frames > 2, JSON.stringify(glide));
+  // the layout lock: locked from a page, the grip moves no station and Arrange all is refused; unlocked with the
+  // headset panel's button, for everyone
+  await A.evaluate(() => HOST.collab.lock(true));
+  const lockSeen = await until(H, () => HOST.collab.locked, null, 3000);
+  const lk0 = await grabStep('aim'), lk1 = await grabStep('grip');
+  await grabStep('let go');
+  const arrRefused = await H.evaluate(() => { const before = JSON.stringify(HOST.collab.stations()); HOST.collab.arrange({ x: 5, z: 5, yaw: 0 }); return before === JSON.stringify(HOST.collab.stations()); });
+  await H.evaluate(() => HOST.collab.panelOpen(true));
+  await frames(H, 300);
+  const unlockBtn = await H.evaluate(() => { const r = HOST.collab.overlay().panel.regions.find(x => x.id === 'lock'); if (!r || !r.fn) return false; r.fn(); return true; });
+  const unlocked = await until(A, () => !HOST.collab.locked, null, 3000);
+  await H.evaluate(() => HOST.collab.panelOpen(false));
+  check('headset: the layout lock (from a page) stops the grip moving a station and Arrange all; the headset panel\'s button unlocks it for everyone',
+    lockSeen && lk0.hov === SM.id && !lk1.moving && !!lk1.st && Math.abs(lk1.st.x - lk0.st.x) < 1e-6 && arrRefused && unlockBtn && unlocked,
+    JSON.stringify({ lockSeen, hov: lk0.hov, moving: lk1.moving, arrRefused, unlockBtn, unlocked }));
+  // the shared panel rides on the left controller (above it, turned to the eyes); without one it goes back beside
+  // the story panel
+  const hand = await H.evaluate(async () => {
+    const X = window.__xr, V = THREE.Vector3, O = HOST.collab.overlay();
+    const head = new V().setFromMatrixPosition(X.W.head).applyMatrix4(X.W.local.clone().invert()), lp = head.clone().add(new V(-0.2, -0.35, -0.3));
+    X.aim(1, new THREE.Matrix4().compose(lp, new THREE.Quaternion(), new V(1, 1, 1)));
+    for (let k = 0; k < 4; k++) { X.step(); await new Promise(r => setTimeout(r, 20)); }
+    const g = O.panelG, S = O.panel, vh = S.mw * S.vis / S.w * g.scale.x;
+    const out = { p: g.position.toArray(), want: [lp.x, lp.y + 0.07 + vh, lp.z], scale: g.scale.x,
+      facing: new V(0, 0, 1).applyQuaternion(g.quaternion).dot(head.clone().sub(g.position).normalize()) };
+    const c1 = HOST.cur.peek('XR.ctrls')[1]; c1.g.visible = false; c1.src = null; X.session.inputSources.length = 1;
+    for (let k = 0; k < 3; k++) { X.step(); await new Promise(r => setTimeout(r, 20)); }
+    out.back = O.panelG.scale.x;
+    return out;
+  });
+  check('headset: the shared panel rides on the left controller (above it, turned to your eyes), and without one goes back beside the story panel',
+    near(hand.p, hand.want, 2e-3) && Math.abs(hand.scale - 0.62) < 1e-6 && hand.facing > 0.99 && hand.back === 1, JSON.stringify(hand));
   await H.evaluate(() => { const c = HOST.cur.peek('XR.ctrls')[0]; c.g.visible = false; c.src = null; window.__xr.session.inputSources.length = 0; });
   await frames(H, 150);
   // the room frame moves (newer marks elsewhere): this headset follows within a second

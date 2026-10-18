@@ -37,7 +37,7 @@ anchors (not in private browsing; clearing the site's data forgets the place);
 without them the place holds until you leave VR. #anchor=on (or #anchor=off) in
 a link sets it.
 Shared rooms (Shared button, top bar and Stories screen; in a headset a small
-Shared panel beside the story panel): several headsets and screens join one
+Shared panel on the left controller): several headsets and screens join one
 room and see the same stations, a story each at a spot in the room, in step on
 every device (anyone can play, pause, jump or change a control; the last action
 wins). A headset runs the station it stands at; the others show as rings on the
@@ -59,8 +59,10 @@ see the stations round their own spot. Screens get a room map and Follow a
 station. A station moves with the grip on its ring or card in a headset (point
 to swing it round, raise or lower to push or pull, twist to turn it), or by
 dragging its dot (or its square, to turn it) on the room map; everyone sees it
-move. In a room nobody can move the story panels or scenes, so they look the
-same for everyone. The flock's birds and the robots move separately on each device; their
+move. Lock layout (Shared panel or dialog) then keeps them where they are,
+until someone unlocks it. In a room nobody can move the story panels or
+scenes, so they look the same for everyone. In a headset the Shared panel rides
+on the left controller. The flock's birds and the robots move separately on each device; their
 controls, falcons and crumbs are shared. Rooms need the relay (relay/, Node, no
 packages), which GitHub Pages cannot run: for now it runs on a machine on the
 same Wi-Fi as the headsets and serves the app itself (node relay/server.mjs --lan

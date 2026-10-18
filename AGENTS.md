@@ -213,6 +213,16 @@ the content floats 1.4 m ahead of the spot), with `st.<id>.play` (the clock:
   moves it, its square (where its content floats) dragged turns it; a click
   still follows it, the map keeps its scale while dragging, and an interrupted
   drag (`pointercancel`) puts it back.
+- The layout lock (key `lock`, `{ on, by, at }`, FORMAT networks-6): once the
+  stations are in place anyone locks them (a button on the headset's Shared
+  panel and in the page's Shared dialog) and anyone unlocks them. While on,
+  the grip on a station, the map drag, Arrange all, Add, Move here and Remove
+  are refused (`refused()`), a station being carried stops where it was last
+  sent, and the cards say so.
+- The headset's Shared panel rides on the left controller (`HAND`, from the
+  left input source's grip or target ray each frame): above it, its lower edge
+  7 cm over it, at 0.62 of its size, turned to your eyes and eased; without a
+  left controller it hangs beside the story panel as before.
 - In a shared room nothing else moves: `HOST.anchor.locked(kind)` is true for
   every kind while a headset is in a room (`HOST.room.inRoom()`), so the grip
   moves no story panel and no scene, and everybody sees them alike (the explore
@@ -714,7 +724,8 @@ three pages in a room follow its station and check play, pause, jumps, mode
 changes and Replay (within 5 s), the relay's clock, the explore state both
 ways and the story's effect (for the robots also the pile's spot and dust).
 Before that: Arrange all's rows, a code with no room, Remove asking first.
-After: a station moved and turned on the room map,
+After: a station moved and turned on the room map (and refused while the
+layout is locked),
 two controls changed at once on two pages (both kept), two stations
 followed back to back (the second not lost), a story picked by hand (stops
 following), no writes while idle (no ping-pong), a late joiner, a relay restart, and
@@ -725,7 +736,9 @@ the station's clock and state, rays and head in room coordinates, another
 person drawn, the sound zone, the shell's panel and a card pick, the story
 panel winning over a card behind it, a station moved with the grip on its
 card (swung, pushed further, turned; the others see it while it moves) and
-gliding into place when someone else moves it, re-alignment, walking to another station
+gliding into place when someone else moves it, the layout lock (the grip and
+Arrange all refused; unlocked from the headset panel), the Shared panel on the
+left controller, re-alignment, walking to another station
 and back, Remove asking first; calibration from two marks (Stop calibrating
 still pressable, two anchors made and checked, the marks drawn), a reset with
 a transform, a recentre without a reset (the anchors keep the frame), the

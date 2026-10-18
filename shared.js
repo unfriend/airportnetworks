@@ -6,7 +6,7 @@
 // live the station it stands at (the others show as previews on the floor), placed at that station for
 // everybody and with its narration coming from there; desktop operators follow a station from a room map.
 // Nobody outside a room is affected: until you join, only the Shared buttons show (and, in a headset, a small
-// tab beside the story panel once a relay is known).
+// tab on the left controller, or beside the story panel, once a relay is known).
 //
 //  HOST.collab  the session: relay, room, keys (echo suppression by value, optimistic writes, apply order),
 //               members, the relay's clock, stations, the story hooks, presence, effects, the overlay hung in the
@@ -22,7 +22,7 @@
 // (or #debug in a link) prints them as well.
 (function () {
   const PROTO = 1;
-  const FORMAT = 'networks-5';   // the shared state's format (keys, the stories' state()): bump when it changes shape
+  const FORMAT = 'networks-6';   // the shared state's format (keys, the stories' state()): bump when it changes shape
   const BROWSER = (/OculusBrowser\/(\d+)/.exec(navigator.userAgent) || [])[1] || '';   // Quest Browser's version (shared spaces differ by it)
   const EYE = 1.6;               // a standing eye height (m): a station's rig hangs this high over its spot
   const AHEAD = 1.4;             // a station's content floats this far in front of its spot
@@ -494,6 +494,7 @@
     try { i = [...s.inputSources].indexOf(e.inputSource); } catch (err) { /* gone */ }
     const h = i >= 0 ? hovOf(i) : null;
     if (!h || h.target.kind !== 'station' || !C.stById.has(h.target.id)) return;
+    if (refused('grab')) { notice('The layout is locked', 'Unlock it on the Shared panel to move the stations.', 3000); pulse(e.inputSource, 0.15, 10); return; }
     Object.assign(MV, { id: h.target.id, src: e.inputSource, a: null, pose: null, at: 0, sent: '', t0: performance.now() });
     log('station grab', { st: MV.id });
     pulse(e.inputSource, 0.4, 25);
@@ -513,6 +514,7 @@
   function carryStation(f, t) {
     const s = C.stById.get(MV.id), local = refSpace();
     if (!s || !R.aligned || !local || !R.session) { dropStation(null); return; }
+    if (layoutLocked()) { log('station locked while carried', { st: MV.id }); Object.assign(MV, { id: '', src: null, a: null, pose: null }); changed(); return; }   // someone locked it meanwhile: it stays where it was last sent
     // put down when its controller is gone or its grip is up, though no squeezeend came (the controller slept, or
     // the headset was taken off with the grip held)
     let here = false;
@@ -561,10 +563,20 @@
     if (R.aligned && R.headOK) return { x: R.hr.x, z: R.hr.z, yaw: R.hyaw };
     return { x: 0, z: 0, yaw: 0 };
   }
+  // the layout lock (key lock: { on, by, at }): once the stations are in place anyone can lock them, so nobody
+  // moves one by accident (the grip, the map, Arrange all, Add, Move here and Remove are refused); anyone unlocks
+  const layoutLocked = () => { const v = val('lock'); return !!(v && v.on); };
+  function setLock(on) {
+    publish([['lock', { on: !!on, by: C.id, at: Math.round(now()) }]]);
+    log('layout lock', { on: !!on });
+    changed();
+  }
+  const refused = what => { if (!layoutLocked()) return false; log('layout locked', { what }); return true; };
   // Arrange all: the seven stories in two rows in front of you (4, then 3 in the gaps behind), spots 2.4 m apart,
   // every station facing away from you, so its content floats beyond its spot and faces your side; a story that
   // already has a station keeps it (moved, its state kept)
   function arrange(b) {
+    if (refused('arrange')) return;
     b = b || base();
     const n = HOST.list.length, front = Math.ceil(n / 2), pairs = [], used = new Set(), [fx, fz] = fwd(b.yaw), rx = -fz, rz = fx;
     HOST.list.forEach((m, i) => {
@@ -581,7 +593,7 @@
   }
   // Add a station here: one story at your feet, facing where you face
   function add(story, b) {
-    if (!meta(story)) return '';
+    if (!meta(story) || refused('add')) return '';
     b = b || base();
     const id = rid(5);
     publish([['st.' + id, { story, x: r3(b.x), z: r3(b.z), yaw: r3(b.yaw) }], [kPlay(id), startClock()]]);
@@ -589,11 +601,11 @@
   }
   function move(id, b) {
     const s = C.stById.get(id);
-    if (!s) return;
+    if (!s || refused('move')) return;
     b = b || base();
     publish([['st.' + id, { story: s.story, x: r3(b.x), z: r3(b.z), yaw: r3(b.yaw) }]]);
   }
-  function remove(id) { if (C.stById.has(id)) publish([['st.' + id, null]]); }
+  function remove(id) { if (C.stById.has(id) && !refused('remove')) publish([['st.' + id, null]]); }
 
   // ----------------------------------------------------- the story's hooks --
   // A story's object: collab: { APP, scene, state, apply, effect, hover, panel }. The shell wraps APP's
@@ -953,7 +965,7 @@
     return out;
   }
   function drawCard(o, s) {
-    const m = meta(s.story), who = whoAt(s.id), held = MV.id === s.id, sig = [s.story, stationLine(s), who.join(','), o.hover, held].join('|');
+    const m = meta(s.story), who = whoAt(s.id), held = MV.id === s.id, lk = layoutLocked(), sig = [s.story, stationLine(s), who.join(','), o.hover, held, lk].join('|');
     if (sig === o.sig) return;
     o.sig = sig;
     const ctx = o.ctx, W = o.w, H = o.h;
@@ -966,7 +978,8 @@
     ctx.font = FONT(28); ctx.fillStyle = INK; ctx.fillText(stationLine(s), 32, 150);
     ctx.fillStyle = MUTED; ctx.fillText(fit(ctx, who.length ? 'Here: ' + who.join(', ') : 'Nobody here yet', W - 64), 32, 194);
     ctx.font = FONT(22); ctx.fillStyle = held ? INK : FAINT;
-    const tip = held ? ['Moving: point, raise or lower, twist to turn.', 'Let go of the grip to put it down.'] : ['Walk up, or point here and pull the trigger.', 'Hold the grip to move it.'];
+    const tip = held ? ['Moving: point, raise or lower, twist to turn.', 'Let go of the grip to put it down.'] :
+      ['Walk up, or point here and pull the trigger.', lk ? 'The layout is locked.' : 'Hold the grip to move it.'];
     tip.forEach((l, k) => ctx.fillText(fit(ctx, l, W - 64), 32, H - 76 + 30 * k));
     o.tex.needsUpdate = true;
   }
@@ -1084,7 +1097,7 @@
   function panelSig() {
     return J([C.code, C.status, C.note, PNL.open, PNL.page, OV.panel.hover, C.name, C.color, C.hereSet, here(), askHere(), R.status(), C.mine, C.live, armed(C.mine),
       C.st.map(s => s.id + s.story), C.members.map(m => m.id + m.name + m.color + m.kind + m.here), [...C.pres].map(([id, P]) => id + P.st),
-      C.code ? 0 : (C.rooms || []).map(r => r.code + r.members), C.roomsErr, C.relay, sharedLine(), sourceLine(), fullNote(), floorNote(), forgetArmed(), !!(R.saved || R.frame), R.sharedAlign]);
+      C.code ? 0 : (C.rooms || []).map(r => r.code + r.members), C.roomsErr, C.relay, sharedLine(), sourceLine(), fullNote(), floorNote(), forgetArmed(), !!(R.saved || R.frame), R.sharedAlign, layoutLocked()]);
   }
   function drawPanel() {
     const S = OV.panel, sig = panelSig();
@@ -1169,12 +1182,15 @@
       const mine = C.stById.get(C.mine), arm = mine && armed(mine.id);
       ctx.font = FONT(24); ctx.fillStyle = INK;
       ctx.fillText(fit(ctx, mine ? 'Yours: ' + meta(mine.story).title : C.st.length ? 'Walk up to one, or point at its card' : 'None yet: Arrange all puts the seven stories in front of you', w), x, y); y += 40;
-      button(S, 'move', x, y, bw, 60, 'Move here', mine ? () => move(mine.id) : null);
-      button(S, 'addpage', x + bw + 16, y, bw, 60, 'Add here', () => { PNL.page = 'add'; });
+      const lk = layoutLocked();
+      button(S, 'move', x, y, bw, 60, 'Move here', mine && !lk ? () => move(mine.id) : null);
+      button(S, 'addpage', x + bw + 16, y, bw, 60, 'Add here', lk ? null : () => { PNL.page = 'add'; });
       y += 72;
-      button(S, 'arrange', x, y, bw, 60, 'Arrange all', () => arrange());
-      button(S, 'remove', x + bw + 16, y, bw, 60, arm ? 'Remove for everyone?' : 'Remove', mine ? () => removeAsk(mine.id) : null, { px: arm ? 21 : 24, color: arm ? '#ffb43b' : undefined, on: arm });
-      y += 84; line();
+      button(S, 'arrange', x, y, bw, 60, 'Arrange all', lk ? null : () => arrange());
+      button(S, 'remove', x + bw + 16, y, bw, 60, arm ? 'Remove for everyone?' : 'Remove', mine && !lk ? () => removeAsk(mine.id) : null, { px: arm ? 21 : 24, color: arm ? '#ffb43b' : undefined, on: arm });
+      y += 72;
+      button(S, 'lock', x, y, w, 56, lk ? 'Layout locked: press to unlock' : 'Lock the layout (nobody moves a station)', () => setLock(!lk), { px: 22, on: lk });
+      y += 72; line();
       label('People');
       // as many as fit above "You" (152 px); the rest as a count
       const fitN = Math.max(1, Math.floor((S.h - y - 152 - 26) / 38)), shown = C.members.length > fitN ? fitN - 1 : fitN;
@@ -1287,6 +1303,19 @@
   // From the shell's own frame callback in a headset (and from HOST.anchor.frame, which every story calls):
   // the room frame, your head in the room, your station, presence, the sound zone and the overlay
   const HD = { p: new THREE.Vector3(), q: new THREE.Quaternion(), ok: false };
+  // the left controller (or hand) in the story's space: the shared panel rides on it
+  const HAND = { m: new THREE.Matrix4(), ok: false }, HAND_SCALE = 0.62;
+  function leftHand(f, local) {
+    HAND.ok = false;
+    const s = R.session;
+    if (!s || !f || !local) return;
+    let src = null;
+    try { for (const x of s.inputSources) if (x && x.handedness === 'left') { src = x; break; } } catch (e) { return; }
+    if (!src) return;
+    let p = null;
+    try { p = f.getPose(src.gripSpace || src.targetRaySpace, local); } catch (e) { /* not tracked now */ }
+    if (p) { HAND.m.fromArray(p.transform.matrix); HAND.ok = true; }
+  }
   function tick(f) {
     const t = performance.now(), dt = Math.min(0.1, (t - (C.tickAt || t)) / 1000);
     C.tickAt = t; C.frameN = (C.frameN || 0) + 1;
@@ -1313,9 +1342,10 @@
     // in VR, once per room: the shell's panel opens with its question (in the room with the others, or elsewhere?)
     if (HOST.session && askHere() && PNL.asked !== C.code && OV.root && OV.root.visible) {
       PNL.asked = C.code; PNL.open = true; PNL.page = 'main';
-      notice('One question', 'Are you in the same room as the others? Answer on the Shared panel, left of the story panel.', 9000);
+      notice('One question', 'Are you in the same room as the others? Answer on the Shared panel, ' + (HAND.ok ? 'above your left controller.' : 'left of the story panel.'), 9000);
     }
     if (MV.src && f) carryStation(f, t);
+    leftHand(f, local);
     easeStations(dt);
     drawOverlay(dt);
     pump();
@@ -1384,10 +1414,20 @@
       drawPeople(dt);
     }
     drawMarks();
-    // the panel, beside the story's own (its pose from the story, every frame)
+    // the panel: on the left controller when there is one (always at hand), else beside the story's own
     const t = performance.now();
     const showPanel = !!(C.code || C.relay);
-    if (showPanel) {
+    if (showPanel && HAND.ok) {
+      // above the controller, its lower edge 7 cm over it (the panel hangs from its top edge, so that rises as it
+      // opens), at about two thirds of its size, turned to your eyes; eased a little, so a shaking hand does not shake it
+      const S = OV.panel, sc = HAND_SCALE, vh = S.mw * S.vis / S.w * sc;
+      _v.setFromMatrixPosition(HAND.m); _v.y += 0.07 + vh;
+      if (!OV.onHand) OV.panelG.position.copy(_v); else OV.panelG.position.lerp(_v, 1 - Math.exp(-dt * 30));
+      if (HD.ok) OV.panelG.quaternion.setFromRotationMatrix(_m.lookAt(HD.p, OV.panelG.position, _Y));
+      OV.panelG.scale.setScalar(sc);
+      OV.panelG.visible = true; OV.onHand = true;
+    } else if (showPanel) {
+      OV.onHand = false; OV.panelG.scale.setScalar(1);
       let p = null;
       try { p = HOST.cur && HOST.cur.xrPose(); } catch (e) { /* not ready */ }
       OV.panelG.visible = !!p;
@@ -2228,6 +2268,7 @@
       else if (act === 'unfollow') unfollow();
       else if (act === 'remove') removeAsk(arg);
       else if (act === 'arrange') arrange({ x: 0, z: 0, yaw: 0 });
+      else if (act === 'lock') setLock(!layoutLocked());
       else if (act === 'add') { const k = $('#shAdd').value, id = add(k, freeSpot()); if (id) log('added', { st: id, story: k }); }
       else if (act === 'color') setMe({ color: arg });
       else if (act === 'copy') { try { navigator.clipboard.writeText(link()); b.textContent = 'Copied'; } catch (e) { /* no clipboard */ } }
@@ -2246,7 +2287,7 @@
       const [px, py] = at(ev), g = mapGrab(px, py), s = g && C.stById.get(g.id);
       if (!s || !MAP.tf) return;
       MAP.drag = { id: g.id, turn: g.turn, pid: ev.pointerId, px, py, moved: false, tf: MAP.tf, ox: s.x - MAP.tf.ix(px), oz: s.z - MAP.tf.iz(py),
-        from: { x: s.x, z: s.z, yaw: s.yaw }, pose: null, at: 0, sent: '' };
+        from: { x: s.x, z: s.z, yaw: s.yaw }, pose: null, at: 0, sent: '', locked: layoutLocked() };   // (locked: a click still follows)
       try { DLG.map.setPointerCapture(ev.pointerId); } catch (e) { /* a pointer the page made up */ }
       ev.preventDefault();
     });
@@ -2259,6 +2300,7 @@
       const r = DLG.map.getBoundingClientRect(), [qx, qy] = at(ev), px = Math.max(0, Math.min(r.width, qx)), py = Math.max(0, Math.min(r.height, qy));
       if (!D.moved && Math.hypot(px - D.px, py - D.py) < 4) return;
       D.moved = true;
+      if (D.locked) return;   // a drag, not a click, but nothing moves
       const x = D.tf.ix(px), z = D.tf.iz(py);
       D.pose = D.turn ? { x: s.x, z: s.z, yaw: Math.atan2(-(x - s.x), -(z - s.z)) } : { x: x + D.ox, z: z + D.oz, yaw: s.yaw };
       mapSend(D, false);
@@ -2314,8 +2356,10 @@
           ${on ? '<button class="btn" type="button" data-sh="unfollow">Stop following</button>' : `<button class="btn primary" type="button" data-sh="follow:${s.id}">Follow</button>`}
           <button class="btn rm${armed(s.id) ? ' armed' : ''}" type="button" data-sh="remove:${s.id}" aria-label="${armed(s.id) ? 'Remove the ' + esc(m.title) + ' station for everyone? Press again to remove it' : 'Remove the ' + esc(m.title) + ' station'}">${armed(s.id) ? 'Remove for everyone?' : 'Remove'}</button></li>`;
       }).join('') : '<li class="none">No stations yet. Arrange all puts the seven stories in two rows; a headset in the room can then move them.</li>';
-      const sel = $('#shAdd');
+      const sel = $('#shAdd'), lk = layoutLocked(), lb = $('[data-sh="lock"]');
       if (!sel.options.length) sel.innerHTML = HOST.list.map(m => `<option value="${m.key}">${esc(m.title)}</option>`).join('');
+      if (lb) { lb.textContent = lk ? 'Unlock layout' : 'Lock layout'; lb.setAttribute('aria-pressed', String(lk)); lb.classList.toggle('on', lk); }
+      for (const q of DLG.el.querySelectorAll('[data-sh="arrange"], [data-sh="add"], #shAdd, [data-sh^="remove:"]')) q.disabled = lk;
       $('.sh-people').innerHTML = C.members.map(m => {
         const P = m.id === C.id ? { st: C.follow } : C.pres.get(m.id), s = P && C.stById.get(P.st);
         return `<li><i style="background:${esc(m.color || '#888')}"></i><b>${esc(m.name || 'Someone')}${m.id === C.id ? ' (you)' : ''}</b><span>${
@@ -2437,6 +2481,7 @@
     val, now, publish: pairs => publish(pairs), fx, setRelay: s => setRelay(s, 'typed'), detect, list: listRooms, create, join, leave,
     arrange, add, move, remove, follow: id => choose(id, 'follow'), pick: id => choose(id, 'pick'), unfollow, me: setMe, setHere,
     mapView: () => MAP.tf,   // the room map's room <-> pixel transform (X, Y, ix, iz), once drawn
+    lock: on => setLock(on), get locked() { return layoutLocked(); },
     ray, press, effect, detach, hash, dialog, people: () => C.pres, log,
     panelOpen(on) { PNL.open = !!on; PNL.page = 'main'; },
     overlay: () => OV,   // for tests: the overlay's objects (panel, cards, rings, people)
