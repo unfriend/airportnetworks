@@ -183,7 +183,8 @@ the content floats 1.4 m ahead of the spot), with `st.<id>.play` (the clock:
 `collab.state()`), `st.<id>.panel` (the story panel: `{ x, y, z, yaw }` from the
 spot, y over the floor) and `st.<id>.place` (the scene: `{ x, y, z }` moved from
 where the story puts it, and `s` its size, a factor on the story's own; FORMAT
-networks-8). The plan is `docs/shared-space-plan.md`.
+networks-8), and per shared space `rf.<space id>` (the room's frame in it) and
+`rs.<space id>` (found split; FORMAT networks-9). The plan is `docs/shared-space-plan.md`.
 
 - `HOST.collab` keeps the room's keys (echo suppression by value, optimistic
   writes acknowledged by the relay, apply order stations > clock > state >
@@ -301,7 +302,19 @@ networks-8). The plan is `docs/shared-space-plan.md`.
   nobody published for it (`'shared'`); (4) else calibrate. A calibrated
   headset publishes its marks for its space anyway and reports how far the
   shared space puts another calibrated headset's marks from its own (`R.cmp`,
-  a line on the panel). People elsewhere (VR) use their own floor.
+  a line on the panel). More than 10 cm or 3 degrees for 5 s, and it tells the
+  room the space is split (`rs.<space id>` `{ uuid, bad, d, a, by, with, at }`,
+  `splitCheck`; within 5 cm and 2 degrees it says whole again): while both
+  headsets that measured it are in the room (`splitHere`), nobody takes a frame
+  through that space or publishes its own origin there; a headset without
+  marks keeps a frame it holds, or asks to calibrate ("Shared space not
+  usable"). Why: two Quest 3s on Quest Browser 152 with Physical space features
+  off were in two spaces 2.6 m and 11 degrees apart under one id, neither its
+  own floor, so nothing but the tape could tell. A headset whose session has
+  plane or mesh detection and has found no plane or mesh 10 s in says it has
+  no room scan (`scanCheck`, `R.noScan`: run Space Setup, Physical space
+  features on), since the shared space and anchors rest on that scan. People
+  elsewhere (VR) use their own floor.
 - The room's floor is under the marks, not under each headset: key `rm`
   `{ a, d, by, at }` is mark A's height over the floor of the first headset
   that calibrated (and the marks' distance: marks within 10 cm of it are the
@@ -850,7 +863,9 @@ a transform, a recentre without a reset (the anchors keep the frame), the
 anchors found next session, Forget calibration (two presses; also while those
 anchors are still being found), a new calibration replacing the old anchors,
 the shared space never overriding marks (a newer frame from someone else only
-reported, as a distance; not used at all by default), the room's floor from
+reported, as a distance; not used at all by default), a space found split by two
+calibrated headsets (the room told, whole again once they agree; a headset
+without marks takes nothing through it), no room scan said and taken back, the room's floor from
 the first calibration (a lower floor allowed for), no mark from a double
 pull, Forget taking the published frame, the shared space on by default
 (off: calibrate), a space that is just this headset's own floor while someone

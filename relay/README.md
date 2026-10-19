@@ -67,7 +67,10 @@ the app's files from the repository over HTTPS, and prints the address to open.
    Quest Browser open `chrome://flags`, set **WebXR experiments** to Enabled and restart the browser completely;
    turn on **Enhanced spatial services** in the headset's settings (privacy, device permissions); and **update
    Quest Browser on every headset to the same version** (the panel shows it beside the shared space's id: in our
-   test the headset with the older browser never joined the other's space). Open the same address everywhere,
+   test the headset with the older browser never joined the other's space). Leave **Physical space features** on
+   (developer settings) and run **Space Setup** in the room on every headset: the shared space rests on the
+   headset's scan of the room, and two headsets with that setting off were in two spaces 2.6 m apart under one id
+   (the panel says *No room scan here* when a headset has none). Open the same address everywhere,
    start AR on one headset, wait ten seconds, then the others. A headset whose panel says *your own floor* on
    the shared space line has not joined (unless it was the first). Leaving AR on one headset and entering it
    again can give it a new space under the same id: the panel then says *Not in the others' shared space*.
@@ -147,7 +150,14 @@ machine or public hosting.
   shared space*, press Re-align; if that does not help, leave AR on both headsets, close Quest Browser on both, and
   start them again one after the other (a headset that left AR and came back on its own got a new space under the
   same id in our logs). Tape calibration (Calibrate, on the same two marks on every headset) does not need the
-  shared space at all.
+  shared space at all, and once two headsets are calibrated the panel says how far apart the shared space puts
+  them; more than 10 cm, and the room stops using that space (*Shared space not usable*) until they agree again
+  or reload.
+- **Starting the shared space afresh**: on every headset, Settings > Privacy and safety > Device permissions:
+  *Clear* the physical space history (boundaries, Space Setup, stored anchors) and *Delete* the spatial data on
+  Meta's servers; in Quest Browser clear the site data of the relay's address (this also forgets the app's
+  calibration). Then restart the headsets, run Space Setup on each, check *Enhanced spatial services* and the
+  WebXR experiments flag, and start AR on one headset before the others.
 - **The headsets do not line up**: check the orange crosses on each headset (open the Shared panel). Crosses
   off the tape: calibrate that headset again, holding still at each mark. Crosses on the tape on both
   headsets but things still apart: please send the logs (below). The pointer rays of the others should start at

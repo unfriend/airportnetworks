@@ -1303,6 +1303,43 @@ try {
     JSON.stringify(ad1.mk) === JSON.stringify(P3.m) && /through the shared space/.test(ad1.line), JSON.stringify(ad1));
   await H.evaluate(() => window.__xr.end());
 
+  // ------------------------------------------ a shared space found split; no room scan --
+  // two calibrated headsets whose marks the shared space puts 60 cm apart (two spaces under one id, as two Quest 3s
+  // were): the room is told (rs.<id>), and told it is whole again once they agree; a headset without marks then takes
+  // nothing through that space and asks to calibrate. A headset with plane detection but no planes says it has no
+  // room scan (Space Setup not run, or Physical space features off), and stops once planes come
+  const rsKey = 'rs.U1', rsOf = async () => ((await roomInfo(code)).keys[rsKey] || {}).v || null;
+  await H.evaluate(installXR, Object.assign({}, xrOpts, { sharedId: 'U1', features: xrOpts.features.concat(['plane-detection']), head: [-6, 1.6, 6, 0] }));
+  await H.evaluate(() => { window.__xr.frame.detectedPlanes = new Set(); window.__xr.begin(); });
+  await frames(H, 300);
+  await recal();
+  await frames(H, 600);
+  const far = Object.assign(frameFor([markA[0] + 0.6, 0, markA[2], yawW], 'U1', aId, Date.now() + 9000), { g: 'marks', m: [0.7, 1.5, 0.72] });
+  await A.evaluate(([k, f]) => HOST.collab.publish([[k, f]]), [rfKey, far]);
+  for (let k = 0; k < 40 && !((await rsOf()) || {}).bad; k++) await frames(H, 250);
+  const sp1 = await rsOf(), hSp = await H.evaluate(() => HOST.collab.id);
+  await A.evaluate(([k, f]) => HOST.collab.publish([[k, f]]), [rfKey, Object.assign({}, far, frameFor([markA[0] + 0.01, 0, markA[2], yawW], 'U1', aId, Date.now() + 9500))]);
+  for (let k = 0; k < 20 && ((await rsOf()) || {}).bad; k++) await frames(H, 250);
+  const sp2 = await rsOf();
+  check('shared space split: two calibrated headsets 60 cm apart through it tell the room, and tell it again once they agree',
+    !!sp1 && sp1.bad === true && Math.abs(sp1.d - 0.6) < 0.02 && sp1.by === hSp && sp1.with === aId && !!sp2 && sp2.bad === false, JSON.stringify({ sp1, sp2 }));
+  await A.evaluate(([k, f]) => HOST.collab.publish([[k, f]]), [rfKey, Object.assign({}, far, { at: Date.now() + 10000 })]);
+  for (let k = 0; k < 40 && !((await rsOf()) || {}).bad; k++) await frames(H, 250);
+  await H.evaluate(() => HOST.room.forget());
+  await frames(H, 1500);
+  const sp3 = await H.evaluate(() => ({ src: HOST.room.src, frame: HOST.room.frame, state: HOST.room.state, line: HOST.room.sourceLine(),
+    note: window.__collabLog.some(e => e.ev === 'notice' && e.title === 'Shared space not usable') }));
+  check('shared space split: a headset without marks takes nothing through it and asks to calibrate, saying why',
+    !sp3.frame && sp3.state === 'calibrate' && /puts calibrated headsets here 60 cm apart/.test(sp3.line) && sp3.note, JSON.stringify(sp3));
+  const scan1 = await H.evaluate(() => { const R = HOST.room.internals(); return { none: R.noScan, n: R.scanN, note: window.__collabLog.some(e => e.ev === 'notice' && e.title === 'No room scan') }; });
+  await H.evaluate(() => { window.__xr.frame.detectedPlanes = new Set([{}]); });
+  await frames(H, 1500);
+  const scan2 = await H.evaluate(() => { const R = HOST.room.internals(); return { none: R.noScan, n: R.scanN }; });
+  check('no room scan: a headset with plane detection and no planes says so after 10 s, and stops once planes come',
+    scan1.none === true && scan1.n === 0 && scan1.note && scan2.none === false && scan2.n === 1, JSON.stringify({ scan1, scan2 }));
+  await H.evaluate(() => window.__xr.end());
+  await A.evaluate(([k, a]) => HOST.collab.publish([[k, { uuid: 'U1', bad: false, d: 0, a: 0, by: a, with: a, at: Date.now() }]]), [rsKey, aId]);
+
   // -------------------------------------------- a calibration without anchors --
   // a browser without anchors: the marks hold for the session until the origin moves (a reset, or the head
   // seeming to jump), then the headset asks to calibrate again; a mark is taken where the controller was held

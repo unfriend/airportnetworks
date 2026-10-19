@@ -17,6 +17,8 @@ what we do about it.
 5. Take the room's floor from the tape marks, not from each headset's floor.
 6. The persistent anchor store fills up. Delete unknown anchors, then ask again.
 7. Send each headset's log to a server. Nothing here could be seen from inside one headset.
+8. Leave Physical space features on and run Space Setup. Without a room scan, two headsets on the same version
+   and address were in two spaces 2.6 m apart under one id.
 
 ## 1. One browser version on every headset
 
@@ -54,6 +56,13 @@ what we do about it.
   browser on both headsets and start them one after the other, or calibrate both on tape.
 - An own-floor space drifts: up to 8 cm (its turn under half a degree) in our logs. A test at 2 cm flapped. We
   enter "own floor" within 2 cm and 1.5 degrees, and leave it only beyond 15 cm or 2 degrees.
+- **Physical space features off.** With that developer setting off (no boundary, and no scan of the room), two
+  Quest 3s on Quest Browser 152 at the same address got the same id and were in two spaces 2.6 m and 11 degrees
+  apart. Neither space was its own floor, so nothing in the poses could tell; only both calibrating on the same tape
+  showed it. Meta staff say turning the setting off may also turn off spatial anchors. What we do: a headset whose
+  session has plane detection but finds no plane or mesh says it has no room scan. Once two calibrated headsets find
+  the space puts their marks more than 10 cm or 3 degrees apart, the room marks that space as split and nobody takes
+  anything through it while both are there.
 - A switch that turns the shared space off should not be remembered. One headset had it left off and quietly ignored
   the space in every room of an evening.
 - The id stays the same across sessions and days, so a frame stored for it may be last time's. If its writer has
