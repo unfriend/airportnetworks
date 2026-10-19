@@ -477,6 +477,9 @@ body.xr #labels, body.xr #tip { display: none; }
 <script src="three.min.js"></script>
 <script>
 'use strict';
+// one address for the same page: Quest Browser keeps a shared space per page address, so a headset that opened
+// .../index.html and one that opened .../ might not share one (the folder is served as index.html, also offline)
+if (/\/index\.html$/.test(location.pathname)) history.replaceState(null, '', location.pathname.replace(/index\.html$/, '') + location.search + location.hash);
 // The app shell. Each story lives in stories/<name>.js and is loaded when it is
 // first picked. Stories share this page, its renderer and any running headset
 // session, so changing story never ends VR or AR.

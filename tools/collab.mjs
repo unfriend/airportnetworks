@@ -1184,7 +1184,11 @@ try {
   // a frame published there by someone who has left is last time's (the space was made again under its id): after
   // the wait the first headset in the space replaces it with its own; and a frame someone here publishes later for
   // that space is taken, though the first headset's space is its own floor
+  // (with another headset in the room since before this one, not yet in the space: this one, first in the space,
+  // still becomes the room; a rule that counted that headset as someone here stopped alignment on two Quest 3s)
   const rfKey1 = await H.evaluate(() => HOST.room.frameKey('U1'));
+  await B.evaluate(() => { const C = HOST.collab.internals(); C.ws.send(JSON.stringify({ t: 'hello', name: C.name, color: C.color, kind: 'ar', here: true })); });
+  await until(H, bid => HOST.collab.members.some(m => m.id === bid && m.kind === 'ar' && m.here), await B.evaluate(() => HOST.collab.id), 3000);
   await A.evaluate(([k, f]) => HOST.collab.publish([[k, f]]), [rfKey1, Object.assign(frameFor([ROOM[0] + 1, 0, ROOM[2], ROOM[3]], 'U1', 'left-long-ago', Date.now() - 3600e3), { g: 'shared' })]);
   await H.evaluate(installXR, Object.assign({}, xrOpts, { sharedId: 'U1', shared: FLOOR, head: [-6, 1.6, 6, 0] }));
   await H.evaluate(() => window.__xr.begin());
@@ -1194,7 +1198,8 @@ try {
   await frames(H, 600);
   const sU7 = await H.evaluate(() => ({ src: HOST.room.src, frame: HOST.room.frame, id: HOST.collab.id, first: HOST.room.internals().firstHere }));
   const pub7 = ((await roomInfo(code)).keys[rfKey1] || {}).v || null;
-  check('shared space: a frame there from someone who has left waits, then the first headset\'s own space replaces it', early7.src === '' && early7.state === 'shared-wait' &&
+  await B.evaluate(() => HOST.collab.me({}));   // (a page again)
+  check('shared space: a frame there from someone who has left waits, then the first headset\'s own space replaces it (another headset in the room since before)', early7.src === '' && early7.state === 'shared-wait' &&
     sU7.src === 'shared' && sU7.first === true && !!sU7.frame && near(sU7.frame.o, [0, 0, 0], 1e-3) && !!pub7 && pub7.by === sU7.id, JSON.stringify({ early7, sU7, pub7 }) + ' ' +
     await H.evaluate(() => JSON.stringify({ members: HOST.collab.members.map(m => [m.id, m.kind, m.here, m.since]), log: window.__collabLog.filter(e => /shared|first|frame|welcome|close|connect/.test(e.ev)).slice(-20) })));
   await A.evaluate(([k, f]) => HOST.collab.publish([[k, f]]), [rfKey1, frameFor(ROOM, 'U1', aId, Date.now())]);

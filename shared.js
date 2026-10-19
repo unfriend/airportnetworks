@@ -607,6 +607,7 @@
       let P = C.pres.get(id);
       if (!P) C.pres.set(id, (P = { id }));
       P.at = performance.now(); P.st = typeof v.st === 'string' ? v.st : '';
+      P.bv = typeof v.bv === 'string' ? v.bv.slice(0, 8) : '';   // its Quest Browser version (versionNote)
       P.head = Array.isArray(v.head) && v.head.length === 7 && v.head.every(Number.isFinite) ? v.head : null;
       P.hands = Array.isArray(v.hands) ? v.hands.filter(h => Array.isArray(h) && h.length === 7 && h.every(Number.isFinite)).slice(0, 2) : [];
     } else if (m.k === 'q.frame') { R.asked(m.v, m.by);   // someone's Re-align: the room's frame written into the space again
@@ -1360,7 +1361,7 @@
   function panelSig() {
     return J([C.code, C.status, C.note, PNL.open, PNL.page, OV.panel.hover, C.name, C.color, C.hereSet, here(), askHere(), R.status(), C.mine, C.live, armed(C.mine),
       C.st.map(s => s.id + s.story), C.members.map(m => m.id + m.name + m.color + m.kind + m.here), [...C.pres].map(([id, P]) => id + P.st),
-      C.code ? 0 : (C.rooms || []).map(r => r.code + r.members), C.roomsErr, C.relay, sharedLine(), sourceLine(), fullNote(), floorNote(), forgetArmed(), !!(R.saved || R.frame), R.sharedAlign, layoutLocked(),
+      C.code ? 0 : (C.rooms || []).map(r => r.code + r.members), C.roomsErr, C.relay, sharedLine(), sourceLine(), versionNote(), fullNote(), floorNote(), forgetArmed(), !!(R.saved || R.frame), R.sharedAlign, layoutLocked(),
       C.local, C.code ? 0 : localRooms().map(r => r.code + r.stations), !!R.again]);
   }
   function drawPanel() {
@@ -1449,7 +1450,7 @@
         y += 76;
         if (here()) {
           ctx.font = FONT(21); ctx.fillStyle = MUTED; ctx.fillText(fit(ctx, sharedLine(), w), x, y); y += 30;
-          const fl = fullNote() || floorNote(), src = fl || sourceLine();   // a floor that differs matters more than what the frame rests on
+          const fl = versionNote() || fullNote() || floorNote(), src = fl || sourceLine();   // a floor that differs matters more than what the frame rests on
           if (src) { ctx.fillStyle = fl || (R.cmp && (R.cmp.d > 0.05 || R.cmp.a > 2)) ? '#ffb43b' : MUTED; ctx.fillText(fit(ctx, src, w), x, y); y += 30; }
           y += 4;
           const fa = forgetArmed();
@@ -1487,7 +1488,8 @@
           ctx.font = FONT(24, m.id === C.id ? 700 : 400); ctx.fillStyle = INK;
           ctx.fillText(fit(ctx, (m.name || 'Someone') + (m.id === C.id ? ' (you)' : ''), 250), x + 36, y);
           ctx.font = FONT(21); ctx.fillStyle = MUTED;
-          ctx.fillText(fit(ctx, ({ ar: 'headset', vr: 'headset (VR)', desktop: 'screen' }[m.kind] || '') + (m.kind !== 'desktop' ? (m.here ? ', here' : ', elsewhere') : '') + (s ? ' · ' + meta(s.story).title : ''), w - 300), x + 300, y + 2);
+          const bv = m.id === C.id ? BROWSER : (P && P.bv) || '';   // (Quest Browser's version: the same on every headset, or no shared space)
+          ctx.fillText(fit(ctx, ({ ar: 'headset', vr: 'headset (VR)', desktop: 'screen' }[m.kind] || '') + (bv ? ' ' + bv : '') + (m.kind !== 'desktop' ? (m.here ? ', here' : ', elsewhere') : '') + (s ? ' · ' + meta(s.story).title : ''), w - 300), x + 300, y + 2);
           y += 38;
         }
         if (C.members.length > shown) { ctx.font = FONT(21); ctx.fillStyle = MUTED; ctx.fillText(`and ${C.members.length - shown} more`, x + 36, y + 2); y += 38; }
@@ -1679,7 +1681,7 @@
       _v.copy(h.o).applyMatrix4(R.mi); _v2.copy(h.d).transformDirection(R.mi);
       hands.push([r3(_v.x), r3(_v.y), r3(_v.z), r3(_v2.x), r3(_v2.y), r3(_v2.z), r3(len)]);
     }
-    fx('p.' + C.id, { st: C.mine || '', head, hands });
+    fx('p.' + C.id, { st: C.mine || '', head, hands, bv: BROWSER });
   }
   // the narration comes from the live station's content and fades with distance (nothing changes outside a room)
   const ZN = { p: [0, 0, 0], head: [0, 0, 0], f: [0, 0, 0], u: [0, 0, 0] }, _u = new THREE.Vector3();
@@ -1892,11 +1894,6 @@
     if (!tr) {
       log('reset', { space: 'local-floor', transform: false });
       if (R.wakeHold) R.blind = true;   // after waking: the frame held is no better than the space now (wakeOK)
-      else if (R.frame && !R.hiddenAt && (R.src === 'adopted' || R.src === 'shared')) {   // a wake the session did not report
-        const t = performance.now();
-        Object.assign(R, { wakeHold: t, visibleAt: t, stillSince: t, lastS: null, sleptRel: now(), blind: true, refresh: t });
-        log('reset holds', { src: R.src, blind: true });
-      }
       originMoved('reset'); return;
     }
     // Quest Browser's transform carries points from the old coordinates into the new ones (not the other way, as
@@ -1908,12 +1905,6 @@
     log('reset', { space: 'local-floor', transform: true, p: [e[12], e[13], e[14]].map(r3), yaw: r3(yaw) });
     const move = fr => { const o = _v.fromArray(fr.o).applyMatrix4(_m), x = _v2.fromArray(fr.x).transformDirection(_m).toArray(); fr.o = [o.x, fr.o[1], o.z]; fr.x = level(x) || fr.x; };
     if (R.frame) move(R.frame);
-    // a reset with no 'hidden' before it (a wake the session did not report): held as after waking
-    if (R.frame && !R.wakeHold && !R.hiddenAt && (R.src === 'adopted' || R.src === 'shared')) {
-      const t = performance.now();
-      Object.assign(R, { wakeHold: t, visibleAt: t, stillSince: t, lastS: null, sleptRel: now(), blind: false, refresh: t });
-      log('reset holds', { src: R.src });
-    }
     const lev = a => { const p = _v.set(a[0], 0, a[2]).applyMatrix4(_m); return [r3(p.x), a[1], r3(p.z)]; };
     if (R.saved) for (const k of ['a', 'b']) R.saved[k] = lev(R.saved[k]);
     if (R.calib && R.calib.a) R.calib.a.fromArray(lev(R.calib.a.toArray()));
@@ -1987,15 +1978,14 @@
   const notInIt = () => { const Q = val(kFrame(R.sharedId)); return !!(R.sharedOwn && R.firstHere === false && validFrame(Q) && Q.by !== C.id && member(Q.by)); };
   // was this headset the first in its space? Decided once its id is known and the room's keys are in: not when
   // someone here had already published for that id (null: not decided yet)
-  // (a page reloaded overnight comes back with a new id, its old frame's writer gone: another headset here since
-  // before it counts as someone here, so it does not make its own space the room under the others)
+  // (a frame from someone who has left counts as nobody's: last time's, from a page since reloaded. Counting other
+  // headsets here instead stopped alignment when a headset that joined the room later was first in the shared space)
   function firstCheck(t) {
     if (R.firstHere !== null || !R.sharedId || !C.welcomed || !(C.ws && C.ws.readyState === 1 && t - C.openAt > 1000)) return;
     const Q = val(kFrame(R.sharedId));
-    R.firstHere = !(validFrame(Q) && Q.by !== C.id && (member(Q.by) || othersHere()));
+    R.firstHere = !(validFrame(Q) && Q.by !== C.id && member(Q.by));
     log('shared first', { first: R.firstHere, id: R.sharedId });
   }
-  const othersHere = () => { const me = member(C.id); return C.members.some(m => m.id !== C.id && m.kind !== 'desktop' && m.here && me && m.since < me.since); };
   // someone pressed Re-align: if this headset wrote the room's frame for that space, it writes it again as it is now
   // (even through a space that is just its own floor: asked for), so the other takes the room as this headset shows it
   function asked(v, by) {
@@ -2262,7 +2252,7 @@
     // after connecting (the members may not be known yet)
     const other = validFrame(P0) && P0.by !== C.id, known = !!(C.ws && C.ws.readyState === 1 && t - C.openAt > 5000);
     const gone = other && known && !member(P0.by), mine = !!(other && R.sharedOwn);
-    const alone = mine && R.firstHere === false, stale = mine && R.firstHere === true && gone && !othersHere();
+    const alone = mine && R.firstHere === false, stale = mine && R.firstHere === true && gone;
     // Re-align (R.again): decided again as at the start, while the frame held so far stays until another is found.
     // A 'floor' frame (a room on this device, now on a relay) is kept only until the shared space gives a frame
     const fresh = !R.frame || !!R.again || (R.src === 'floor' && !C.local);
@@ -2314,7 +2304,7 @@
     if (R.refresh && !R.wakeHold && sp && settled() && !R.sharedOwn && R.src === 'shared' && validFrame(P0) && P0.by === C.id) { R.refresh = 0; R.pubAt = 0; publishFrame('shared'); }
     if (R.again && R.frame) {   // Re-align found nothing better: the frame stays as it was
       R.again = 0; changed();
-      if (notJoined) notice('Not in the shared space', 'The others are in a shared space this headset has not joined: take it off and put it on again, or calibrate on the tape marks.', 9000);
+      if (notJoined) notice('Not in the shared space', 'Check on every headset: the same Quest Browser version, the WebXR experiments flag, Enhanced spatial services, the same address. Or calibrate on the tape marks.', 9000);
       else notice('Nothing to re-align to', C.local ? 'No shared space here: the stations stay where they are. Calibrate on two tape marks to keep them in place.' : 'No frame came through the shared space: things stay where they are. Calibrate on the tape marks to line up with the others.', 9000);
       return;
     }
@@ -2324,7 +2314,7 @@
       // began) until it is calibrated, which keeps them in place next time
       if (C.local && R.lfOK) { R.mk = null; setFrame({ o: [0, 0, 0], x: [1, 0, 0] }, 'floor', 'On your floor', 'The stations stand where you put them, for this session. To keep them in place next time, calibrate on two tape marks (Shared panel).'); return; }
       setState('calibrate');
-      if (notJoined && R.noticed !== 'alone') { R.noticed = 'alone'; notice('Not in the shared space', 'The others are in a shared space this headset has not joined: take it off and put it on again, or calibrate on the tape marks.', 9000); }
+      if (notJoined && R.noticed !== 'alone') { R.noticed = 'alone'; notice('Not in the shared space', 'Check on every headset: the same Quest Browser version, the WebXR experiments flag, Enhanced spatial services, the same address. Or calibrate on the tape marks.', 9000); }
       else if (!notJoined && R.noticed !== 'calibrate') { R.noticed = 'calibrate'; notice('Calibrate the room', 'Open the Shared panel and press Calibrate: touch mark A, then mark B, with the tip of a controller. Tape crosses a metre or more apart work well.', 9000); }
     }
   }
@@ -2503,6 +2493,16 @@
     if (R.src === 'floor') return 'Your floor, as this session began: calibrate to keep the stations in place';
     return '';
   }
+  // two Quest 3s on different Quest Browser versions had the same shared space id and never one space (the relay's
+  // logs): said on the panel when another headset here runs another version than this one
+  function versionNote() {
+    if (!BROWSER || !here()) return '';
+    for (const [id, P] of C.pres) {
+      const m = member(id);
+      if (P.bv && P.bv !== BROWSER && m && m.kind !== 'desktop' && m.here) return `Quest Browser ${BROWSER} here, ${P.bv} on ${m.name || 'another headset'}: update both (one shared space needs one version)`;
+    }
+    return '';
+  }
   // how this headset's floor compares with the room's (the marks' height), for the panel
   const fullNote = () => (R.full && own() && R.frame ? 'Anchors not saved (the store is full): a restart asks to calibrate' : '');
   function floorNote() {
@@ -2585,6 +2585,8 @@
     if (R.notJoined) S.notJoined = true;
     if (R.hS !== null) S.hS = r3(R.hS);
     if (R.sharedHead) S.sharedHead = true;
+    const bvs = [...C.pres.values()].map(P => P.bv).filter(Boolean);
+    if (bvs.length) S.others = bvs;   // the other headsets' Quest Browser versions
     if (HD.ok && R.lfOK) { const p = _v.copy(HD.p).applyMatrix4(R.lfi); S.head = p.toArray().map(r3); }
     if (R.anchorP) { S.anchors = R.anchorP.map(p => p.map(r3)); S.anchorsAge = Math.round(t - R.anchorSeen); }
     if (R.saved) S.marks = { a: R.saved.a, b: R.saved.b, at: R.saved.at, kept: R.saved.anchors.length === 2 };
@@ -2838,9 +2840,9 @@
       if (lb) { lb.textContent = lk ? 'Unlock layout' : 'Lock layout'; lb.setAttribute('aria-pressed', String(lk)); lb.classList.toggle('on', lk); }
       for (const q of DLG.el.querySelectorAll('[data-sh="arrange"], [data-sh="add"], #shAdd, [data-sh^="remove:"]')) q.disabled = lk;
       $('.sh-people').innerHTML = C.local ? '<li class="none">Only you: others can join once the room is on a relay.</li>' : C.members.map(m => {
-        const P = m.id === C.id ? { st: C.follow } : C.pres.get(m.id), s = P && C.stById.get(P.st);
+        const P = m.id === C.id ? { st: C.follow } : C.pres.get(m.id), s = P && C.stById.get(P.st), bv = m.id === C.id ? BROWSER : (P && P.bv) || '';
         return `<li><i style="background:${esc(m.color || '#888')}"></i><b>${esc(m.name || 'Someone')}${m.id === C.id ? ' (you)' : ''}</b><span>${
-          { ar: 'headset', vr: 'headset (VR)', desktop: 'screen' }[m.kind] || ''}${m.kind && m.kind !== 'desktop' ? (m.here ? ', in the room' : ', elsewhere') : ''}${s ? ' · at ' + esc(meta(s.story).title) : ''}</span></li>`;
+          { ar: 'headset', vr: 'headset (VR)', desktop: 'screen' }[m.kind] || ''}${bv ? ' (Quest Browser ' + esc(bv) + ')' : ''}${m.kind && m.kind !== 'desktop' ? (m.here ? ', in the room' : ', elsewhere') : ''}${s ? ' · at ' + esc(meta(s.story).title) : ''}</span></li>`;
       }).join('');
       drawMap();
     }

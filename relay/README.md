@@ -135,6 +135,13 @@ machine or public hosting.
 - **No relay at all**: a room still works on one device (the panel says "this headset only"): its stations,
   their places and the lock are kept on the device, and the room moves to the relay once one answers (the app
   asks every 15 s, and at once when an address is entered), made there from the device's copy.
+- **The headsets do not line up through the shared space**: the Shared panel shows each headset's Quest Browser
+  version (people list) and warns when they differ: update both, one shared space needs one version. Then check on
+  every headset: the WebXR experiments flag (`chrome://flags`, then restart the browser; an update can reset it),
+  Enhanced spatial services on (Quest settings, privacy), the same address in the browser, and Space Setup done in
+  this room. Start one headset in AR first, wait until it says it found the shared space, then the other. If the panel
+  says *Not in the others' shared space*, take that headset off and on, or press Re-align. Tape calibration
+  (Calibrate, on the same two marks on every headset) does not need the shared space at all.
 - **The headsets do not line up**: check the orange crosses on each headset (open the Shared panel). Crosses
   off the tape: calibrate that headset again, holding still at each mark. Crosses on the tape on both
   headsets but things still apart: please send the logs (below). The pointer rays of the others should start at

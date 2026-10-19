@@ -333,6 +333,11 @@ networks-8). The plan is `docs/shared-space-plan.md`.
   published or compared through the space within 20 s of waking (`settled`). The panel names a space that is exactly this
   headset's own floor (`sharedOwn`: the default one, the first headset, or not
   joined) and shows the browser's version; the log has the page address.
+  Every headset sends its Quest Browser version with its presence (`bv`):
+  the people lists show it, and the panel warns when another headset here
+  runs another version (`versionNote`; two versions never shared a space).
+  The page drops `index.html` from its address on load, so every headset has
+  the same address for the same page (one shared space per page address).
   Such a space is the first headset's (its origin is the space's) or, when
   someone here had already published for its id as the id appeared
   (`R.firstHere` false), not joined: then nothing is taken or published
@@ -346,7 +351,7 @@ networks-8). The plan is `docs/shared-space-plan.md`.
 - Standby with the shared space in use (an adopted frame, or the space's own
   origin): one headset was offset after waking in a test, and one of two after
   a night's standby. The frame the floor's resets carried over holds
-  (`R.wakeHold`, also after a reset with no `hidden` before it) until the
+  (`R.wakeHold`, only after a wake the session reported) until the
   shared space agrees with it again (10 cm and 3 degrees along the floor, not
   in the first 3 s while the resets come in; `wakeOK`): right after waking the
   space gave the head's pose, and after a night it may come back made again
@@ -364,8 +369,11 @@ networks-8). The plan is `docs/shared-space-plan.md`.
   than 30 cm keeps the room's height), since the floor came back 12 to 17 cm
   off after waking. A session that begins before the room's members are known
   (a socket not yet back after a night) waits up to 8 s before taking someone's
-  frame, and another headset here since earlier counts as someone here (a
-  page reloaded overnight does not make its own space the room). Why: no logs
+  frame. (Two rules from this round were taken out again after two Quest 3s
+  could not align: a reset of the floor with no wake before it started a hold
+  too, and another headset in the room since earlier counted as someone here,
+  so a headset first in the shared space but later in the room never became
+  the room.) Why: no logs
   of the night; two independent readings of the code found that the headset
   that woke second would follow last night's frame through a space made again
   around the other, which matches what was seen.
