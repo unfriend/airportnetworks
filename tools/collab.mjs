@@ -1215,13 +1215,18 @@ try {
   // drifts a few cm (a judgement flapping at 2 cm took it)
   const hRe = await H.evaluate(() => HOST.collab.id);
   await A.evaluate(([k, f]) => HOST.collab.publish([[k, f]]), [rfKey1, Object.assign(frameFor([ROOM[0] + 1, 0, ROOM[2], ROOM[3]], 'U1', hRe, Date.now() - 600e3), { g: 'shared' })]);
-  await B.evaluate(() => {
+  // (page B plays a headset aligned in U1: one presence through the relay, then kept fresh on H, since a page in a
+  // background tab runs its timers about once a minute)
+  const bRe = await B.evaluate(() => {
     const C = HOST.collab.internals(), ws = C.ws, send = ws.send.bind(ws);
     ws.send = m => { if (!/"t":"fx","k":"p\./.test(m)) send(m); };   // (its own presence, a page's, held back)
     send(JSON.stringify({ t: 'hello', name: C.name, color: C.color, kind: 'ar', here: true }));
-    window.__fakeP = setInterval(() => send(JSON.stringify({ t: 'fx', k: 'p.' + C.id, v: { st: '', head: [0, 1.6, 0, 0, 0, 0, 1], hands: [], sp: 'U1', al: 'adopted' } })), 70);
+    send(JSON.stringify({ t: 'fx', k: 'p.' + C.id, v: { st: '', head: [0, 1.6, 0, 0, 0, 0, 1], hands: [], sp: 'U1', al: 'adopted' } }));
+    return C.id;
   });
-  await until(H, bid => HOST.collab.members.some(m => m.id === bid && m.kind === 'ar' && m.here), await B.evaluate(() => HOST.collab.id), 3000);
+  await until(H, bid => HOST.collab.members.some(m => m.id === bid && m.kind === 'ar' && m.here), bRe, 3000);
+  const preRe = await until(H, bid => { const P = HOST.collab.people().get(bid); return !!P && P.sp === 'U1' && P.al === 'adopted'; }, bRe, 3000);
+  await H.evaluate(bid => Object.defineProperty(HOST.collab.people().get(bid), 'at', { get: () => performance.now(), set() {}, configurable: true }), bRe);
   await H.evaluate(installXR, Object.assign({}, xrOpts, { sharedId: 'U1', shared: FLOOR, head: [-6, 1.6, 6, 0] }));
   await H.evaluate(() => window.__xr.begin());
   await frames(H, 2500);
@@ -1230,9 +1235,10 @@ try {
   const reIn = await H.evaluate(() => { const R = HOST.room.internals(); return { src: HOST.room.src, frame: HOST.room.frame, first: R.firstHere, own: R.sharedOwn, line: HOST.room.sourceLine(),
     log: window.__collabLog.filter(e => /^shared (first|own|not joined|joined)/.test(e.ev)).slice(-6) }; });
   const rePub = ((await roomInfo(code)).keys[rfKey1] || {}).v || null;
-  await B.evaluate(() => { clearInterval(window.__fakeP); delete HOST.collab.internals().ws.send; HOST.collab.me({}); });
+  await H.evaluate(bid => HOST.collab.people().delete(bid), bRe);
+  await B.evaluate(() => { delete HOST.collab.internals().ws.send; HOST.collab.me({}); });
   check('shared space: back in AR, its space now its own floor while another headset here is aligned in that id, a headset does not take its own frame from before through it (not joined; also with the space 6 cm off)',
-    !reIn.frame && reIn.first === false && reIn.own === true && /Not in the others/.test(reIn.line) && !!rePub && rePub.by === hRe && rePub.g === 'shared', JSON.stringify({ reIn, rePub }));
+    preRe && !reIn.frame && reIn.first === false && reIn.own === true && /Not in the others/.test(reIn.line) && !!rePub && rePub.by === hRe && rePub.g === 'shared', JSON.stringify({ preRe, reIn, rePub }));
   await H.evaluate(() => window.__xr.end());
   await A.evaluate(([k, f]) => HOST.collab.publish([[k, f]]), [rfKey1, frameFor(ROOM, 'U1', aId, Date.now() - 60000)]);
   await H.evaluate(() => HOST.room.sharedAlign(false));

@@ -1682,7 +1682,7 @@
       _v.copy(h.o).applyMatrix4(R.mi); _v2.copy(h.d).transformDirection(R.mi);
       hands.push([r3(_v.x), r3(_v.y), r3(_v.z), r3(_v2.x), r3(_v2.y), r3(_v2.z), r3(len)]);
     }
-    fx('p.' + C.id, { st: C.mine || '', head, hands, bv: BROWSER, sp: (R.sharedOK && R.sharedId) || '', al: R.aligned ? R.src : '' });
+    fx('p.' + C.id, { st: C.mine || '', head, hands, bv: BROWSER, sp: (R.sharedOK && R.sharedId) || '', al: R.aligned && !R.aloneAt ? R.src : '' });
   }
   // the narration comes from the live station's content and fades with distance (nothing changes outside a room)
   const ZN = { p: [0, 0, 0], head: [0, 0, 0], f: [0, 0, 0], u: [0, 0, 0] }, _u = new THREE.Vector3();
@@ -1783,7 +1783,7 @@
     full: false,   // the store of saved anchors refused their handles: the marks hold for this session only
     // after waking, a frame taken from the shared space holds until the space agrees with it again (wakeOK); its
     // height is kept in the shared space (hS); the space's pose in our floor last moved at stillSince
-    wakeHold: 0, wakeLog: 0, hS: null, stillSince: 0, lastS: null, aloneAt: 0, notJoined: false, firstHere: null,
+    wakeHold: 0, wakeLog: 0, hS: null, stillSince: 0, lastS: null, aloneAt: 0, notJoined: false, firstHere: null, firstFor: null, ownId: '',
     again: 0, againRel: 0,   // Re-align pressed (when; relay time): the frame is decided again as at the start, the old one kept until then
     reasked: 0,   // the wake (visibleAt) after which the shared space was asked for again
     sleptRel: 0, refresh: 0,   // when this headset went to sleep (relay time); a wake whose frame is still to be written again
@@ -1860,7 +1860,7 @@
     try { if (R.shared && R.shared.removeEventListener) R.shared.removeEventListener('reset', sharedReset); } catch (e) { /* gone */ }
     letGo();
     Object.assign(R, { begun: s, floor: null, noFloor: false, shared: null, sharedNo: false, sharedId: '', sharedAt: 0, sharedAsked: performance.now(), sharedOK: false,
-      sharedPose: false, sharedHead: false, sharedOwn: null, visibleAt: 0, wakeHold: 0, hS: null, stillSince: 0, lastS: null, aloneAt: 0, notJoined: false, firstHere: null, again: 0,
+      sharedPose: false, sharedHead: false, sharedOwn: null, ownId: '', visibleAt: 0, wakeHold: 0, hS: null, stillSince: 0, lastS: null, aloneAt: 0, notJoined: false, firstHere: null, firstFor: null, again: 0,
       frame: null, src: '', aligned: false, calib: null, anchorBusy: false, anchorTried: false, wantAnchors: null, noticed: '', mgen: R.mgen + 1,
       mk: null, cmp: null, prev: null, pubAt: 0, recAt: 0, full: false });
     if (R.oldAnchor && HOST.anchor.drop) { HOST.anchor.drop(R.oldAnchor); R.oldAnchor = ''; }   // an older version's anchor
@@ -1955,8 +1955,10 @@
   function ownFloorCheck(t) {
     // (along the floor only: a floor estimated again after waking, 12 to 17 cm, must not make a space this headset's
     // own floor look like the others')
-    // Once this headset's own floor, it stays so while within 15 cm and 2 degrees: such a space drifted up to 8 cm
-    // (its turn under half a degree) in the relay's logs, and a judgement flapping at 2 cm took the room through it
+    // Once this headset's own floor, a space stays so while within 15 cm and 2 degrees: such a space drifted up to 8 cm
+    // (its turn under half a degree) in the relay's logs, and a judgement flapping at 2 cm took the room through it.
+    // Judged again for another id (the default space gives way to the real one, which may be the others')
+    if (R.sharedId && R.sharedId !== R.ownId) { if (R.ownId) R.sharedOwn = null; R.ownId = R.sharedId; }
     const e = floorFromShared(_mo).elements, y = Math.atan2(-e[2], e[0]), d = Math.hypot(e[12], e[14]);
     const mine = R.sharedOwn ? d < 0.15 && Math.abs(y) < 0.035 : d < 0.02 && Math.abs(y) < 0.026;
     if (mine !== R.sharedOwn) { R.sharedOwn = mine; log('shared own floor', { own: mine }); changed(); }
@@ -1998,11 +2000,15 @@
   // was this headset the first in its space? Decided once its id is known and the room's keys are in: not when
   // someone here had already published for that id, or is aligned through it (null: not decided yet)
   // (a frame from someone who has left counts as nobody's: last time's, from a page since reloaded. Counting other
-  // headsets here instead stopped alignment when a headset that joined the room later was first in the shared space)
+  // headsets in the room instead stopped alignment when a headset that joined the room later was first in the space)
+  // Decided once a session for an id: asked again (Re-align, the space asked for again after waking) it stays as it
+  // was, since the first headset's space is its own floor too and the others are aligned through it by then
   function firstCheck(t) {
     if (R.firstHere !== null || !R.sharedId || !C.welcomed || !(C.ws && C.ws.readyState === 1 && t - C.openAt > 1000)) return;
+    if (R.firstFor && R.firstFor.id === R.sharedId) { R.firstHere = R.firstFor.first; return; }
     const Q = val(kFrame(R.sharedId)), al = alignedHere();
     R.firstHere = !((validFrame(Q) && Q.by !== C.id && member(Q.by)) || al);
+    R.firstFor = { id: R.sharedId, first: R.firstHere };
     log('shared first', { first: R.firstHere, id: R.sharedId, aligned: al });
   }
   // someone pressed Re-align: if this headset wrote the room's frame for that space, it writes it again as it is now
