@@ -49,8 +49,9 @@ what we do about it.
   did not apply, and it took its own old frame through the new space: the room stood somewhere else for it alone.
   What we do: every headset sends its space id and how it is aligned with its presence. A headset whose space is
   its own floor while another headset here is aligned through a space with that id has not joined, whoever
-  published the frame. To fix it, restart the browser on both headsets and start them one after the other, or
-  calibrate both on tape.
+  published the frame. We make that call once per session for each id, so asking for the space again later
+  never turns the true first headset (whose space is its own floor too) into "not joined". To fix it, restart the
+  browser on both headsets and start them one after the other, or calibrate both on tape.
 - An own-floor space drifts: up to 8 cm (its turn under half a degree) in our logs. A test at 2 cm flapped. We
   enter "own floor" within 2 cm and 1.5 degrees, and leave it only beyond 15 cm or 2 degrees.
 - A switch that turns the shared space off should not be remembered. One headset had it left off and quietly ignored

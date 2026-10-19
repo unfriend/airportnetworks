@@ -1235,11 +1235,32 @@ try {
   const reIn = await H.evaluate(() => { const R = HOST.room.internals(); return { src: HOST.room.src, frame: HOST.room.frame, first: R.firstHere, own: R.sharedOwn, line: HOST.room.sourceLine(),
     log: window.__collabLog.filter(e => /^shared (first|own|not joined|joined)/.test(e.ev)).slice(-6) }; });
   const rePub = ((await roomInfo(code)).keys[rfKey1] || {}).v || null;
-  await H.evaluate(bid => HOST.collab.people().delete(bid), bRe);
-  await B.evaluate(() => { delete HOST.collab.internals().ws.send; HOST.collab.me({}); });
   check('shared space: back in AR, its space now its own floor while another headset here is aligned in that id, a headset does not take its own frame from before through it (not joined; also with the space 6 cm off)',
     preRe && !reIn.frame && reIn.first === false && reIn.own === true && /Not in the others/.test(reIn.line) && !!rePub && rePub.by === hRe && rePub.g === 'shared', JSON.stringify({ preRe, reIn, rePub }));
   await H.evaluate(() => window.__xr.end());
+  // ...but the true first headset in a space (its space is its own floor too) stays first once the others are
+  // aligned through it: Re-align, and its id flicking to a default space and back, do not make it 'not joined'
+  await H.evaluate(bid => HOST.collab.people().delete(bid), bRe);
+  await H.evaluate(installXR, Object.assign({}, xrOpts, { sharedId: 'U1', shared: FLOOR, head: [-6, 1.6, 6, 0] }));
+  await H.evaluate(() => window.__xr.begin());
+  await frames(H, 2000);
+  const fst0 = await H.evaluate(() => ({ src: HOST.room.src, first: HOST.room.internals().firstHere }));
+  await B.evaluate(() => { const C = HOST.collab.internals(); WebSocket.prototype.send.call(C.ws, JSON.stringify({ t: 'fx', k: 'p.' + C.id, v: { st: '', head: [0, 1.6, 0, 0, 0, 0, 1], hands: [], sp: 'U1', al: 'adopted' } })); });
+  await until(H, bid => { const P = HOST.collab.people().get(bid); return !!P && P.sp === 'U1'; }, bRe, 3000);
+  await H.evaluate(bid => Object.defineProperty(HOST.collab.people().get(bid), 'at', { get: () => performance.now(), set() {}, configurable: true }), bRe);
+  await H.evaluate(() => HOST.room.realignNow());
+  await frames(H, 2500);
+  await H.evaluate(() => { window.__xr.spaces.shared.UUId = 'D1'; });
+  await frames(H, 600);
+  await H.evaluate(() => { window.__xr.spaces.shared.UUId = 'U1'; });
+  await frames(H, 2500);
+  const fst = await H.evaluate(() => { const R = HOST.room.internals(); return { src: HOST.room.src, frame: !!HOST.room.frame, first: R.firstHere, own: R.sharedOwn, nj: R.notJoined, aloneAt: R.aloneAt, id: R.sharedId,
+    log: window.__collabLog.filter(e => /^shared (first|own|not joined|joined|id)|realign/.test(e.ev)).slice(-8) }; });
+  check('shared space: the first headset in a space stays first with another headset aligned through it, after Re-align and an id flicking away and back',
+    (fst0.src === 'adopted' || fst0.src === 'shared') && fst0.first === true && fst.frame && fst.first === true && fst.own === true && !fst.nj && !fst.aloneAt && fst.id === 'U1', JSON.stringify({ fst0, fst }));
+  await H.evaluate(() => window.__xr.end());
+  await H.evaluate(bid => HOST.collab.people().delete(bid), bRe);
+  await B.evaluate(() => { delete HOST.collab.internals().ws.send; HOST.collab.me({}); });
   await A.evaluate(([k, f]) => HOST.collab.publish([[k, f]]), [rfKey1, frameFor(ROOM, 'U1', aId, Date.now() - 60000)]);
   await H.evaluate(() => HOST.room.sharedAlign(false));
   await H.evaluate(installXR, Object.assign({}, xrOpts, { sharedId: 'U1' }));

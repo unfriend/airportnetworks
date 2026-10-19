@@ -350,10 +350,18 @@ networks-8). The plan is `docs/shared-space-plan.md`.
   others' shared space"). Why: a Quest 3 that left AR and entered it again got
   its space back under the same id but as its own floor, while the other's
   stayed where it was; it took its own earlier frame through the new space and
-  stood the room elsewhere (both Quest Browser 152). Once judged its own floor
-  (within 2 cm and 1.5 degrees), a space stays so while within 15 cm and 2
-  degrees (such spaces drifted up to 8 cm; a judgement flapping at 2 cm let the
-  room through). A frame for the id from someone
+  stood the room elsewhere (both Quest Browser 152). Both judgements are made
+  once a session per space id (`R.firstFor`, `R.ownFor`): Re-align, the space
+  asked for again after waking, or an id flicking to a default space and back
+  never re-judge the first headset (its space is its own floor too, and the
+  others are aligned through it by then). Presence says `al` only while a
+  headset has joined. Once judged its own floor (within 2 cm and 1.5 degrees),
+  a space stays so while within 15 cm and 2 degrees (such spaces drifted up to
+  8 cm; a judgement flapping at 2 cm let the room through). Known limits: a
+  headset judged not joined stays so for the session even when the others
+  leave, and two headsets that both came back in spaces of their own are both
+  not joined; restarting both browsers (one after the other) or calibrating
+  both on tape is the way out, and the panel says so. A frame for the id from someone
   who has left may be last time's (the id stayed the same across sessions and
   days): every headset waits 8 s before taking it, and the first headset then
   replaces it with its own space. A frame someone here published for another
@@ -848,7 +856,9 @@ pull, Forget taking the published frame, the shared space on by default
 (off: calibrate), a space that is just this headset's own floor while someone
 here published (not joined: nothing taken), a headset back in AR whose space
 is its own floor while another here is aligned through that id (its own
-earlier frame not taken, also with the space drifting 6 cm), a frame from someone who has left
+earlier frame not taken, also with the space drifting 6 cm), the first headset
+in a space staying first with another aligned through it (Re-align, an id
+flicking away and back), a frame from someone who has left
 (waited for, then replaced by the first headset's own space), the first
 headset taking a frame someone here publishes later, standby with the shared space in use
 (a wrong space held off, then the room where it was and at the same height
