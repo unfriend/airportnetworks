@@ -287,8 +287,10 @@ networks-8). The plan is `docs/shared-space-plan.md`.
   with a controller (`'marks'`), or last time's found again by the two anchors
   made at them (`'anchor'`; `roomFrame` in `localStorage` keeps the marks and
   the anchors' handles, never coordinates alone); (2) unless switched off
-  (*Shared space: not used* on the panel, `collabSharedAlign` `'0'`; on by
-  default since two Quest 3s on one browser version lined up through it) the
+  (*Shared space: not used* on the panel, for this page only: remembered, it
+  left one headset unaligned in every room of an evening; on by default since
+  two Quest 3s on one browser version lined up through it; the panel says
+  when it is off) the
   frame published for its shared space (key `rf.<space id>`, `{ uuid, o, x, g,
   by, at, m }`, `g` `'marks'` or `'shared'`, `m` the marks for drawing) by a
   calibrated headset or the first one in the space (`'adopted'`, first on this
@@ -339,10 +341,19 @@ networks-8). The plan is `docs/shared-space-plan.md`.
   The page drops `index.html` from its address on load, so every headset has
   the same address for the same page (one shared space per page address).
   Such a space is the first headset's (its origin is the space's) or, when
-  someone here had already published for its id as the id appeared
+  someone here had already published for its id, or another headset here was
+  aligned through a space of that id (`alignedHere`: presence carries `sp`, the
+  space id, and `al`, `'adopted'` or `'shared'`), as the id appeared
   (`R.firstHere` false), not joined: then nothing is taken or published
-  through it (`notInIt`), a frame held so far stays, and after 2 s the panel
-  says so ("Not in the others' shared space"). A frame for the id from someone
+  through it (`notInIt`), not even this headset's own frame from before, a
+  frame held so far stays, and after 2 s the panel says so ("Not in the
+  others' shared space"). Why: a Quest 3 that left AR and entered it again got
+  its space back under the same id but as its own floor, while the other's
+  stayed where it was; it took its own earlier frame through the new space and
+  stood the room elsewhere (both Quest Browser 152). Once judged its own floor
+  (within 2 cm and 1.5 degrees), a space stays so while within 15 cm and 2
+  degrees (such spaces drifted up to 8 cm; a judgement flapping at 2 cm let the
+  room through). A frame for the id from someone
   who has left may be last time's (the id stayed the same across sessions and
   days): every headset waits 8 s before taking it, and the first headset then
   replaces it with its own space. A frame someone here published for another
@@ -835,7 +846,9 @@ reported, as a distance; not used at all by default), the room's floor from
 the first calibration (a lower floor allowed for), no mark from a double
 pull, Forget taking the published frame, the shared space on by default
 (off: calibrate), a space that is just this headset's own floor while someone
-here published (not joined: nothing taken), a frame from someone who has left
+here published (not joined: nothing taken), a headset back in AR whose space
+is its own floor while another here is aligned through that id (its own
+earlier frame not taken, also with the space drifting 6 cm), a frame from someone who has left
 (waited for, then replaced by the first headset's own space), the first
 headset taking a frame someone here publishes later, standby with the shared space in use
 (a wrong space held off, then the room where it was and at the same height

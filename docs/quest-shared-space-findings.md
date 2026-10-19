@@ -10,7 +10,8 @@ what we do about it.
 ## In short
 
 1. Give every headset the same Quest Browser version. The same shared-space id does not mean the same space.
-2. The first headset's space is exactly its own floor. Decide "first" or "not joined" when the id appears.
+2. The first headset's space is exactly its own floor. Decide "first" or "not joined" when the id appears, from
+   frames published for that id and from other headsets that say they are aligned through it.
 3. A `local-floor` reset transform maps old coordinates to new ones. Use only its turn and its move along the floor.
 4. After waking, the shared space gives the head's pose for up to 15 s. Ignore it, and hold the frame.
 5. Take the room's floor from the tape marks, not from each headset's floor.
@@ -42,6 +43,18 @@ what we do about it.
   it, and the panel says "Not in the others' shared space".
 - If someone here published for a different id, the others are elsewhere. This headset's own space then never
   becomes the room.
+- **Leaving AR and entering it again.** With both headsets on Quest Browser 152, one left AR and came back. Its
+  space came back under the same id but as its own floor, while the other headset's space stayed exactly where it
+  was: two spaces again. It had published the room's frame itself, so the rule above (a frame by someone else)
+  did not apply, and it took its own old frame through the new space: the room stood somewhere else for it alone.
+  What we do: every headset sends its space id and how it is aligned with its presence. A headset whose space is
+  its own floor while another headset here is aligned through a space with that id has not joined, whoever
+  published the frame. To fix it, restart the browser on both headsets and start them one after the other, or
+  calibrate both on tape.
+- An own-floor space drifts: up to 8 cm (its turn under half a degree) in our logs. A test at 2 cm flapped. We
+  enter "own floor" within 2 cm and 1.5 degrees, and leave it only beyond 15 cm or 2 degrees.
+- A switch that turns the shared space off should not be remembered. One headset had it left off and quietly ignored
+  the space in every room of an evening.
 - The id stays the same across sessions and days, so a frame stored for it may be last time's. If its writer has
   left, everyone waits 8 s, then the first headset replaces it with its own.
 
@@ -112,8 +125,8 @@ Comparing both headsets' logs afterwards found every item on this page.
 ## Still untested on headsets
 
 Whether headsets line up again after standby (and after a night) with these rules, whether asking for the shared
-space again joins the others' space, whether restored persistent anchors hold, and whether a recentre ever fires a
-reset.
+space again joins the others' space, whether restored persistent anchors hold, whether a recentre ever fires a
+reset, and whether a headset that left AR and came back is now told it has not joined.
 
 ## Sources
 

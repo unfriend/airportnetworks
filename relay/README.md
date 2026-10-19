@@ -69,7 +69,10 @@ the app's files from the repository over HTTPS, and prints the address to open.
    Quest Browser on every headset to the same version** (the panel shows it beside the shared space's id: in our
    test the headset with the older browser never joined the other's space). Open the same address everywhere,
    start AR on one headset, wait ten seconds, then the others. A headset whose panel says *your own floor* on
-   the shared space line has not joined (unless it was the first). See [docs/shared-spaces.md](../docs/shared-spaces.md).
+   the shared space line has not joined (unless it was the first). Leaving AR on one headset and entering it
+   again can give it a new space under the same id: the panel then says *Not in the others' shared space*.
+   Restart both headsets' browsers and start them one after the other again, or calibrate both on the same tape
+   marks (that never depends on the shared space). See [docs/shared-spaces.md](../docs/shared-spaces.md).
 4. Two marks for calibration: two crosses of tape on the floor or a table, a metre or more apart (at least
    50 cm; the further apart, the better the room lines up). Mark A is the room's origin.
 5. Floor space: Arrange all needs about 8 m wide and 5 m deep for all seven (two rows, starting just in front of
@@ -139,9 +142,12 @@ machine or public hosting.
   version (people list) and warns when they differ: update both, one shared space needs one version. Then check on
   every headset: the WebXR experiments flag (`chrome://flags`, then restart the browser; an update can reset it),
   Enhanced spatial services on (Quest settings, privacy), the same address in the browser, and Space Setup done in
-  this room. Start one headset in AR first, wait until it says it found the shared space, then the other. If the panel
-  says *Not in the others' shared space*, take that headset off and on, or press Re-align. Tape calibration
-  (Calibrate, on the same two marks on every headset) does not need the shared space at all.
+  this room, and *Shared space: used* on the Shared panel (it no longer stays off after a reload). Start one headset
+  in AR first, wait until it says it found the shared space, then the other. If the panel says *Not in the others'
+  shared space*, press Re-align; if that does not help, leave AR on both headsets, close Quest Browser on both, and
+  start them again one after the other (a headset that left AR and came back on its own got a new space under the
+  same id in our logs). Tape calibration (Calibrate, on the same two marks on every headset) does not need the
+  shared space at all.
 - **The headsets do not line up**: check the orange crosses on each headset (open the Shared panel). Crosses
   off the tape: calibrate that headset again, holding still at each mark. Crosses on the tape on both
   headsets but things still apart: please send the logs (below). The pointer rays of the others should start at

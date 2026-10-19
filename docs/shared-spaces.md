@@ -239,6 +239,18 @@ same page address, the relay on the same Wi-Fi; every 5 s each headset logged it
   after waking asks for it once more; and **Re-align** on the Shared panel lines a headset up again by hand (the
   shared space asked for again, the room's frame written again by whoever wrote it, then taken).
 
+- **19 October, two Quest 3s on Quest Browser 152, the same address** (logs `2026-10-19-*`): the evening
+  started aligned through the shared space. Then one headset left AR and entered it again: its space came back
+  under the same id, but as its own floor (the identity pose, drifting up to 3 cm), while the other's stayed
+  exactly where it was. That headset had published the room's frame itself, so it counted as first and took its
+  own old frame through its new space: offset from the other, though both said aligned. Re-align (pressed seven
+  times) asked for the same space again. Then *Shared space: not used* was pressed on it; that was remembered, so
+  every later room that evening on that headset ignored the shared space (calibrate, or its own floor). Now:
+  presence carries the space id and how each headset is aligned (`sp`, `al`), and a headset whose space is its
+  own floor while another here is aligned through that id has not joined (`alignedHere`); the own-floor test has
+  hysteresis (enter at 2 cm and 1.5 degrees, leave at 15 cm or 2 degrees); the switch is for the page only and
+  the panel says when it is off.
+
 So: tape marks on every headset, the room's height taken from the marks (the first calibration's height of
 mark A over its floor, others allowing for their own floor), anchors to follow origin jumps, and the shared
 space on by default (the same Quest Browser version on every headset) with its measured distance shown. A short
