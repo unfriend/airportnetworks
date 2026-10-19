@@ -308,10 +308,11 @@ networks-8), and per shared space `rf.<space id>` (the room's frame in it) and
   headsets that measured it are in the room (`splitHere`), nobody takes a frame
   through that space or publishes its own origin there; a headset without
   marks keeps a frame it holds, or asks to calibrate ("Shared space not
-  usable"). Why: two Quest 3s on Quest Browser 152 with Physical space features
+  usable"). Only the pair that measured it writes it again (every minute while
+  it still finds it so) or says whole again; older than 3 minutes, it lapses. Why: two Quest 3s on Quest Browser 152 with Physical space features
   off were in two spaces 2.6 m and 11 degrees apart under one id, neither its
   own floor, so nothing but the tape could tell. A headset whose session has
-  plane or mesh detection and has found no plane or mesh 10 s in says it has
+  plane or mesh detection and has found no plane or mesh 20 s in says it has
   no room scan (`scanCheck`, `R.noScan`: run Space Setup, Physical space
   features on), since the shared space and anchors rest on that scan. People
   elsewhere (VR) use their own floor.

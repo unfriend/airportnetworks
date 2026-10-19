@@ -1784,7 +1784,7 @@
     // after waking, a frame taken from the shared space holds until the space agrees with it again (wakeOK); its
     // height is kept in the shared space (hS); the space's pose in our floor last moved at stillSince
     wakeHold: 0, wakeLog: 0, hS: null, stillSince: 0, lastS: null, aloneAt: 0, notJoined: false, firstHere: null, firstFor: new Map(), ownId: '', ownFor: new Map(),
-    scanAt: 0, scanFrom: 0, scanSeen: false, scanN: -1, noScan: false, badSince: 0,
+    scanAt: 0, scanFrom: 0, scanSeen: false, scanN: -1, noScan: false, scanTold: false, badSince: 0,
     again: 0, againRel: 0,   // Re-align pressed (when; relay time): the frame is decided again as at the start, the old one kept until then
     reasked: 0,   // the wake (visibleAt) after which the shared space was asked for again
     sleptRel: 0, refresh: 0,   // when this headset went to sleep (relay time); a wake whose frame is still to be written again
@@ -1865,7 +1865,7 @@
       sharedPose: false, sharedHead: false, sharedOwn: null, ownId: '', ownFor: new Map(), visibleAt: 0, wakeHold: 0, hS: null, stillSince: 0, lastS: null, aloneAt: 0, notJoined: false, firstHere: null, firstFor: new Map(), again: 0,
       frame: null, src: '', aligned: false, calib: null, anchorBusy: false, anchorTried: false, wantAnchors: null, noticed: '', mgen: R.mgen + 1,
       mk: null, cmp: null, prev: null, pubAt: 0, recAt: 0, full: false,
-      scanAt: 0, scanFrom: performance.now(), scanSeen: false, scanN: -1, noScan: false, badSince: 0 });
+      scanAt: 0, scanFrom: performance.now(), scanSeen: false, scanN: -1, noScan: false, scanTold: false, badSince: 0 });
     if (R.oldAnchor && HOST.anchor.drop) { HOST.anchor.drop(R.oldAnchor); R.oldAnchor = ''; }   // an older version's anchor
     setState('waiting');
     const feats = s.enabledFeatures ? [...s.enabledFeatures] : null;
@@ -1975,11 +1975,13 @@
   }
   // A headset with no scan of the room (Space Setup not run, or Physical space features off in the developer
   // settings): the shared space and the anchors rest on that scan. Two Quest 3s running with it off were in two
-  // shared spaces 2.6 m apart under one id. Told by the detected planes and meshes: none 10 s into a session, and none
+  // shared spaces 2.6 m apart under one id. Told by the detected planes and meshes: none 20 s into a session, and none
   // since (only when the session has those features; otherwise this headset cannot tell)
   function scanCheck(f, t) {
-    if (t - R.scanAt < 1000 || R.scanSeen) return;
+    if (t - R.scanAt < 1000) return;
     R.scanAt = t;
+    if (R.noScan && !R.scanTold && C.code && here()) { R.scanTold = true; notice('No room scan', 'This headset has no scan of the room, and the shared space and the saved calibration need one. Run Space Setup in the headset\'s settings, and leave Physical space features on (developer settings).', 12000); }
+    if (R.scanSeen) return;
     const feats = R.session && R.session.enabledFeatures ? [...R.session.enabledFeatures] : [];
     if (!feats.includes('plane-detection') && !feats.includes('mesh-detection')) return;
     let n = 0;
@@ -1987,10 +1989,8 @@
     try { if (f.detectedMeshes) n += f.detectedMeshes.size || 0; } catch (e) { /* not now */ }
     R.scanN = n;
     if (n) R.scanSeen = true;
-    const none = !n && t - R.scanFrom > 10000;
-    if (none === R.noScan) return;
-    R.noScan = none; log('room scan', { found: n, none }); changed();
-    if (none && C.code && here()) notice('No room scan', 'This headset has no scan of the room, and the shared space and the saved calibration need one. Run Space Setup in the headset\'s settings, and leave Physical space features on (developer settings).', 12000);
+    const none = !n && t - R.scanFrom > 20000;
+    if (none !== R.noScan) { R.noScan = none; R.scanAt = 0; log('room scan', { found: n, none }); changed(); }
   }
   const sharedY = () => floorFromShared(_mo).elements[13];   // the space's origin over this headset's floor (both level)
   // a frame given in shared coordinates, in ours (floor)
@@ -2010,10 +2010,11 @@
   const notInIt = () => !!(R.sharedOwn && R.firstHere === false && (validFrame(val(kFrame(R.sharedId))) || alignedHere()));
   // two calibrated headsets here found that this space id puts their tape marks apart: two spaces under one id
   // (2.6 m and 11 degrees on two Quest 3s with Quest Browser 152, neither space its headset's own floor). Nothing is
-  // taken through it while both of them are in the room (a page reloaded is a new member: the next session measures again)
+  // taken through it while both of them are in the room and one of them still finds it so (written again every minute;
+  // older than 3 minutes, it lapses: a page reloaded is a new member, and a new session may be in one space)
   function splitHere() {
     const Q = R.sharedId ? val(kSplit(R.sharedId)) : null;
-    return !!(Q && Q.bad === true && Q.uuid === R.sharedId && Number.isFinite(Q.d) && member(Q.by) && member(Q.with));
+    return !!(Q && Q.bad === true && Q.uuid === R.sharedId && Number.isFinite(Q.d) && member(Q.by) && member(Q.with) && now() - (+Q.at || 0) < 180000);
   }
   // another headset here aligned through a shared space with this headset's id (it took the room from the space,
   // or is its origin), from its presence. In the relay's logs a Quest that left AR and entered it again got its
@@ -2078,9 +2079,9 @@
   // with marks of our own: how far the shared space puts another headset's calibration from ours
   function compare() {
     const P = R.sharedOK && R.sharedId && settled() && !notInIt() ? val(kFrame(R.sharedId)) : null;
-    if (!validFrame(P) || P.by === C.id || gradeOf(P) !== 'marks' || !R.frame) { R.cmp = null; return; }
+    if (!validFrame(P) || P.by === C.id || gradeOf(P) !== 'marks' || !R.frame) { R.cmp = null; R.badSince = 0; return; }
     const F = fromShared(P);
-    if (!level(F.x)) { R.cmp = null; return; }
+    if (!level(F.x)) { R.cmp = null; R.badSince = 0; return; }
     const [d, a] = apart(F, R.frame), was = R.cmp;
     R.cmp = { d: r3(d), a: Math.round(a * 1800 / Math.PI) / 10, by: P.by };
     if (!was || Math.abs(was.d - R.cmp.d) > 0.005 || Math.abs(was.a - R.cmp.a) > 0.2) { log('compare', R.cmp); changed(); }
@@ -2088,14 +2089,17 @@
   }
   // the comparison said to the room: marks more than 10 cm or 3 degrees apart for 5 s mark this space id as split (a
   // working space kept two calibrations on the same tape within 1 to 2 cm); within 5 cm and 2 degrees it is whole again
+  // (only the pair that measured it says it is whole again, or writes it again: a third calibrated headset may be
+  // in one space with one of them)
   function splitCheck(t) {
-    const c = R.cmp, Q = val(kSplit(R.sharedId)), split = !!(Q && Q.bad === true);
+    const c = R.cmp, Q = val(kSplit(R.sharedId)), split = !!(Q && Q.bad === true), ours = split && (Q.by === C.id || Q.with === C.id);
     const bad = !!c && (c.d > 0.1 || c.a > 3), good = !!c && c.d < 0.05 && c.a < 2;
     if (!bad) R.badSince = 0; else if (!R.badSince) R.badSince = t;
-    if (bad && t - R.badSince > 5000 && !(split && member(Q.by) && member(Q.with))) {
+    const live = split && member(Q.by) && member(Q.with) && now() - (+Q.at || 0) < 120000;
+    if (bad && t - R.badSince > 5000 && (!live || (ours && now() - (+Q.at || 0) > 60000))) {
       publish([[kSplit(R.sharedId), { uuid: R.sharedId, bad: true, d: c.d, a: c.a, by: C.id, with: c.by, at: Math.round(now()) }]]);
-      log('shared split', { d: c.d, a: c.a, with: c.by });
-    } else if (good && split) {
+      if (!live) log('shared split', { d: c.d, a: c.a, with: c.by });
+    } else if (good && ours) {
       publish([[kSplit(R.sharedId), { uuid: R.sharedId, bad: false, d: c.d, a: c.a, by: C.id, with: c.by, at: Math.round(now()) }]]);
       log('shared whole', { d: c.d, a: c.a, with: c.by });
     }

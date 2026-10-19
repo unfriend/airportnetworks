@@ -60,7 +60,7 @@ what we do about it.
   Quest 3s on Quest Browser 152 at the same address got the same id and were in two spaces 2.6 m and 11 degrees
   apart. Neither space was its own floor, so nothing in the poses could tell; only both calibrating on the same tape
   showed it. Meta staff say turning the setting off may also turn off spatial anchors. What we do: a headset whose
-  session has plane detection but finds no plane or mesh says it has no room scan. Once two calibrated headsets find
+  session has plane detection but finds no plane or mesh within 20 s says it has no room scan. Once two calibrated headsets find
   the space puts their marks more than 10 cm or 3 degrees apart, the room marks that space as split and nobody takes
   anything through it while both are there.
 - A switch that turns the shared space off should not be remembered. One headset had it left off and quietly ignored
