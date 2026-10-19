@@ -180,7 +180,10 @@ relay is not the page's own origin). A room holds **stations**: `st.<id>` =
 `{ story, x, z, yaw }` in room coordinates (metres, floor y = 0, yaw 0 faces -z;
 the content floats 1.4 m ahead of the spot), with `st.<id>.play` (the clock:
 `{ mode, t, playing, at }`, `at` in relay time), `st.<id>.x` (the story's
-`collab.state()`) and `st.<id>.panel`. The plan is `docs/shared-space-plan.md`.
+`collab.state()`), `st.<id>.panel` (the story panel: `{ x, y, z, yaw }` from the
+spot, y over the floor) and `st.<id>.place` (the scene: `{ x, y, z }` moved from
+where the story puts it, and `s` its size, a factor on the story's own; FORMAT
+networks-8). The plan is `docs/shared-space-plan.md`.
 
 - `HOST.collab` keeps the room's keys (echo suppression by value, optimistic
   writes acknowledged by the relay, apply order stations > clock > state >
@@ -246,18 +249,34 @@ the content floats 1.4 m ahead of the spot), with `st.<id>.play` (the clock:
 - The layout lock (key `lock`, `{ on, by, at }`, FORMAT networks-6): once the
   stations are in place anyone locks them (a button on the headset's Shared
   panel and in the page's Shared dialog) and anyone unlocks them. While on,
-  the grip on a station, the map drag, Arrange all, Add, Move here and Remove
-  are refused (`refused()`), a station being carried stops where it was last
-  sent, and the cards say so.
+  the grip on a station, a scene or a panel, the map drag, Arrange all, Add,
+  Move here and Remove are refused (`refused()`), a station, scene or panel
+  being carried stops where it was last sent, and the cards say so.
 - The headset's Shared panel rides on the left controller (`HAND`, from the
   left input source's grip or target ray each frame): above it, its lower edge
   7 cm over it, at 0.62 of its size, turned to your eyes and eased; without a
   left controller it hangs beside the story panel as before.
-- In a shared room nothing else moves: `HOST.anchor.locked(kind)` is true for
-  every kind while a headset is in a room (`HOST.room.inRoom()`), so the grip
-  moves no story panel and no scene, and everybody sees them alike (the explore
-  view at a station stays shared as before); the stories' panels then say so
-  (`HOST.room.gripHint`, and `sigMain` redraws when that changes).
+- At its station in a shared room a headset moves the scene and the panel for
+  everyone: the grip on the scene moves it (`XR.globeOff`), both grips on it
+  resize it (`xrResize`: the distance between the hands, a quarter to four times
+  the story's own size, `XR.size`, in story and explore mode alike) and move it
+  with their middle, the grip on the panel moves the panel. `placeSync` (every
+  frame, from the shell's tick) sends what is held out at most every 100 ms
+  (`xrPose().held`) and once more when let go, glides each to the room's value
+  otherwise (`collab.panel`, `collab.place`), and puts both there at once when
+  a station is reached. Both values carry the story they were written for, so
+  a late one from before the station changed story is refused by the relay. `HOST.anchor.locked(kind)` is
+  `HOST.room.gripLocked()` in a room: true away from the headset's station and
+  while the layout is locked (then nothing moves, and the panels say so:
+  `HOST.room.gripHint`, which `sigMain` includes, so the panel redraws). The
+  flock and the robots are life size (`life: true` in `HOST.list`): only their
+  panel moves. Outside a room both grips resize the scene too, for this device
+  only (kept with an anchored place, reset by Recenter).
+- At a station the story panel has no Stories button (in a room each station
+  keeps its story; another story is another station), and a Stories screen
+  still open when a headset reaches its station closes by itself (`xrBegin`).
+  Sound check (on the Stories screen) is then reached only before a headset
+  stands at a station, or from the page (`#soundcheck`).
 - In VR the shell's panel asks once per room "Are you in the same room as the
   others?" (In this room / Somewhere else, kept per room code in
   `localStorage` `collabHere`); passthrough counts as in the room.
@@ -419,11 +438,13 @@ the content floats 1.4 m ahead of the spot), with `st.<id>.play` (the clock:
 The hooks every story keeps (all seven, the same lines; the flock is the
 reference, `tools/flock/engine/`):
 
-- `collab: { APP, scene: () => GL.scene, state, apply, view, setView, effect, hover, panel }`
+- `collab: { APP, scene: () => GL.scene, state, apply, view, setView, effect, hover, panel, place }`
   in its returned object: `APP` is its own clock object, `effect(type, data)`
   plays a one-shot effect another person caused (without sending it again),
   `hover(i)` is how far controller i's ray reaches now (or 0), `panel(p, yaw)`
-  puts the story panel where another person moved it. `view()` is the scene's
+  puts the story panel where another person moved it, `place(o, s)` the scene
+  (`XR.globeOff` and `XR.size`); `xrPose()` also returns `s` (the size) and
+  `held` (what grips hold: `'globe'`, `'panel'`, joined by spaces). `view()` is the scene's
   view in explore mode (`orbit.cur`, rounded; the longitude or azimuth
   normalised), which in a headset turns and sizes the scene in the room, or
   null (story mode, or while it flies somewhere); `setView(v)` glides there in
@@ -437,11 +458,17 @@ reference, `tools/flock/engine/`):
   instead of them and of the scene. `xrPress`:
   `if (h.kind === 'shell') { HOST.collab.press(c.i); return; }`.
 - `xrGrab`: `if (XR.stories || HOST.anchor.locked(h.kind)) return;` (in a
-  shared room nothing moves; the shell's own things never move the scene, and
-  the grip on a station's preview moves that station, done by the shell).
-- `xrBegin`: `if (A.room) XR.globeOff.set(0, 0, 0);` after setting the rig from
-  `HOST.anchor.frame()`: at a station the scene is where the station puts it (a
-  grip offset from before does not carry over).
+  shared room only at its station and unless the layout is locked; the shell's
+  own things never move the scene, and the grip on a station's preview moves
+  that station, done by the shell); `carry` lets go when that turns locked, and
+  a controller that disappears lets go too.
+- `xrBegin`: `if (XR.stories && HOST.collab.mine() && HOST.room.placing()) xrLandingClose();`
+  after setting the rig from `HOST.anchor.frame()` (at a station the story is
+  the station's); the scene's offset and size there come from the room
+  (`placeSync`), not from before.
+- The panel footer: `if (!(HOST.room && HOST.room.placing())) hb('stories', ...)`;
+  `xrResize` and the two-hand branch at the top of `carry`; `XR.size` in
+  `xrPlace` (scene stories), `xrRecenter` and `xrAdopt`.
 - `'shared'` in the session's optional features.
 - `xrFreshStart`: `if (HOST.collab.mine()) { lastNow = 0; return; }`: a
   headset taken off at a station keeps its story and place (no Stories screen
@@ -494,6 +521,7 @@ offset after standby, and one of two after a night's standby (the rules for
 waking above). Not confirmed on headsets yet: whether they line up again after
 standby (and a night) now, whether asking for the shared space again (Re-align,
 or 15 s after waking) joins the others' space,
+moving and resizing scenes with the grips (comfort, how it looks for the others),
 persistent anchors restored (one headset's handles were refused; the log now
 says why), whether a recentre fires a reset, sound zones heard, comfort and
 frame rate with presence drawn, and whether the socket keeps running inside an
@@ -811,7 +839,11 @@ not tracked (the frame follows the reset at once, then the anchors found
 again by their handles), unknown saved anchors deleted at session start, a
 full anchor store (cleaned and asked again; still full: the marks hold and the
 panel says so), the mark taken where the
-controller was held still, VR elsewhere with its in-room question; Re-align
+controller was held still, VR elsewhere with its in-room question; at a
+station no Stories button and a Stories screen closing by itself, the grip on
+the scene and the panel unlocked there (locked by the layout lock), both grips
+resizing the scene and one hand carrying on, the place, size and panel going
+out to the room and gliding in from it; Re-align
 (an offset headset back on the room's frame, the shared space asked for again),
 and after a night: a headset still outside the space asking for it again, a
 follower holding against a space made again and following the room's frame

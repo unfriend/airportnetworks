@@ -505,11 +505,11 @@ const HOST = {
     { key: 'flock', kick: 'Collective motion', title: 'Flock', col: '#9db4ff',
       desc: '200 starlings at dusk, flying all around you. Each follows its seven nearest neighbours: a network that never stands still.',
       page: 'A flock of starlings, all around you', brand: 'Flock', sub: 'starlings at dusk',
-      aria: 'Interactive 3D flock of starlings flying around you at dusk', thing: 'flock', loading: 'Gathering the flock', len: 'Story 1:12 · then on and on' },
+      aria: 'Interactive 3D flock of starlings flying around you at dusk', thing: 'flock', loading: 'Gathering the flock', len: 'Story 1:12 · then on and on', life: true },
     { key: 'robots', kick: 'Swarm robotics', title: 'Robot gang', col: '#c3e85a',
       desc: 'A gang of robot vacuums in your room. In a headset they find your floor and walls, follow you about and bounce off the walls.',
       page: 'A gang of robot vacuums in your room', brand: 'Robot gang', sub: 'vacuums in your room',
-      aria: 'Interactive 3D room with a gang of robot vacuums that follow you about', thing: 'room', loading: 'Waking the robots', len: 'Story 1:24 · then free play' },
+      aria: 'Interactive 3D room with a gang of robot vacuums that follow you about', thing: 'room', loading: 'Waking the robots', len: 'Story 1:24 · then free play', life: true },
   ],
   factories: {}, loaded: {}, cur: null, curKey: null, busy: false, queued: '',
   renderer: null, session: null, mode: null, inputs: [], quiet: false,
@@ -1118,17 +1118,17 @@ HOST.anchor = (function () {
   const room = () => !!(HOST.room && HOST.room.placing());
   // gen counts placements: a request (restore, create) still running when the place is dropped, placed
   // again or the session changes finds a newer gen when it settles, and throws its result away
-  const N = { on: false, uuid: '', old: [], off: null, pp: null, pr: 0, session: null, anchor: null, want: '', busy: false,
+  const N = { on: false, uuid: '', old: [], off: null, s: 1, pp: null, pr: 0, session: null, anchor: null, want: '', busy: false,
     gen: 0, placed: false, restored: false, kind: '', note: '', last: null, since: 0, wait: 8000 };
   try {
     N.on = localStorage.getItem('xrAnchor') === '1';
     const s = JSON.parse(localStorage.getItem('xrPlace') || 'null');
-    if (s) Object.assign(N, { uuid: s.uuid || '', old: s.old || [], off: s.off || null, pp: s.pp || null, pr: +s.pr || 0 });
+    if (s) Object.assign(N, { uuid: s.uuid || '', old: s.old || [], off: s.off || null, s: +s.s || 1, pp: s.pp || null, pr: +s.pr || 0 });
   } catch (e) { /* storage blocked */ }
   function store() {
     try {
       localStorage.setItem('xrAnchor', N.on ? '1' : '0');
-      localStorage.setItem('xrPlace', JSON.stringify({ uuid: N.uuid, old: N.old, off: N.off, pp: N.pp, pr: N.pr }));
+      localStorage.setItem('xrPlace', JSON.stringify({ uuid: N.uuid, old: N.old, off: N.off, s: N.s, pp: N.pp, pr: N.pr }));
     } catch (e) { /* storage blocked */ }
   }
   // a saved handle we no longer need: delete it now, or at the start of the next headset session
@@ -1196,7 +1196,7 @@ HOST.anchor = (function () {
     let P = null;
     try { P = HOST.cur && HOST.cur.xrPose(); } catch (e) { /* story not ready */ }
     if (!P) { N.want = 'create'; return; }
-    N.off = P.off.toArray(); N.pp = P.pp.toArray(); N.pr = P.pr; N.placed = true; N.kind = 'session'; N.note = '';
+    N.off = P.off.toArray(); N.s = +P.s || 1; N.pp = P.pp.toArray(); N.pr = P.pr; N.placed = true; N.kind = 'session'; N.note = '';
     store();
     if (typeof f.createAnchor !== 'function' || typeof XRRigidTransform === 'undefined') return;
     N.busy = true;
@@ -1231,18 +1231,19 @@ HOST.anchor = (function () {
     // Place again: forget the place; the story puts everything in front of you, then it is anchored there
     again() {
       if (!N.on) return;
-      drop(); N.off = N.pp = null; N.pr = 0; N.note = ''; store();
+      drop(); N.off = N.pp = null; N.s = 1; N.pr = 0; N.note = ''; store();
       N.want = 'create';
     },
     // while true, a story must not re-place anything (headset taken off, recentring); also while it stands at
     // its station in a shared room (shared.js)
     held: () => (N.on && N.placed) || room(),
-    // while true, the grip moves nothing: anchored, and in a shared room (panels and scenes stay where the room
-    // puts them, alike for everyone); the shell's own things (kind 'shell': its panel, previews, marks) never move
-    // the scene behind them (the grip on a station's preview moves that station: shared.js)
-    locked: kind => kind === 'shell' || !!(HOST.room && HOST.room.inRoom && HOST.room.inRoom()) || N.on,
-    // the arrangement saved with the place: { off, pp, pr } in the frame, or null (at a station: its panel)
-    saved: () => (room() ? HOST.room.saved() : N.on && N.off && N.pp ? { off: N.off, pp: N.pp, pr: N.pr } : null),
+    // while true, the grip moves nothing: anchored; in a shared room away from its station or while the room's
+    // layout is locked (at its station what the grip moves goes out to the room, alike for everyone: shared.js); the
+    // shell's own things (kind 'shell': its panel, previews, marks) never move the scene behind them (the grip on a
+    // station's preview moves that station)
+    locked: kind => kind === 'shell' || (HOST.room && HOST.room.inRoom && HOST.room.inRoom() ? HOST.room.gripLocked() : N.on),
+    // the arrangement saved with the place: { off, s, pp, pr } in the frame, or null (at a station: as the room has it)
+    saved: () => (room() ? HOST.room.saved() : N.on && N.off && N.pp ? { off: N.off, s: N.s, pp: N.pp, pr: N.pr } : null),
     // once a frame from a story's headset loop, once the headset has a pose: the frame's pose in the room ({ p, yaw }), or null.
     // In a shared room with an aligned frame it is the story's station: its spot at eye height, facing its way.
     frame(f, ref) {

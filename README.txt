@@ -62,9 +62,11 @@ station. A station moves with the grip on its ring or card in a headset (point
 to swing it round, raise or lower to push or pull, twist to turn it), or by
 dragging its dot (or its square, to turn it) on the room map; everyone sees it
 move. Lock layout (Shared panel or dialog) then keeps them where they are,
-until someone unlocks it. In a room nobody can move the story panels or
-scenes, so they look the same for everyone. In a headset the Shared panel rides
-on the left controller. The flock's birds and the robots move separately on each device; their
+until someone unlocks it. At a station in a headset the grip moves the scene
+or the story panel and both grips resize the scene, during the story too, for
+everyone at once (unless the layout is locked); each station keeps its story,
+so the story panel has no Stories button there: another story is another
+station. In a headset the Shared panel rides on the left controller. The flock's birds and the robots move separately on each device; their
 controls, falcons and crumbs are shared. Others join a room through the relay
 (relay/, Node, no packages), which GitHub Pages cannot run: for now it runs on a
 machine on the same Wi-Fi as the headsets and serves the app itself (node

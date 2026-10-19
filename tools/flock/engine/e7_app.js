@@ -184,7 +184,7 @@ const initT = setTimeout(init, 40);
 // what the app shell needs to change story
 return {
   inputs: () => XR.ctrls.map(c => c.src),
-  xrPose: () => (XR.on ? { rp: GL.rig.position.clone(), rq: GL.rig.quaternion.clone(), off: XR.globeOff.clone(),
+  xrPose: () => (XR.on ? { rp: GL.rig.position.clone(), rq: GL.rig.quaternion.clone(), off: XR.globeOff.clone(), s: XR.size, held: XR.ctrls.map(c => (c.grab ? c.grab.target : '')).join(' '),
     pp: XR.panelGroup.position.clone(), pr: XR.panelGroup.rotation.y } : null),
   // shared rooms (shared.js): the clock is APP's, the shared state the explore controls, the falcon an effect
   collab: {
@@ -192,6 +192,7 @@ return {
     effect(type, d) { if (type === 'falcon' && GL.sets.flock.scatter((d && d.dir) || null)) renderScenes(); },
     hover: i => { const c = XR.ctrls[i]; return c && c.hover ? c.ray.scale.z : 0; },
     panel(p, yaw) { XR.panelGroup.position.fromArray(p); XR.panelGroup.rotation.set(0, yaw, 0); },
+    place(o, s) { XR.globeOff.fromArray(o); XR.size = s; },
   },
   // for tests and the browser console: HOST.cur.peek('NET.N')
   peek: src => eval(src),

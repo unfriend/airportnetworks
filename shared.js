@@ -22,7 +22,7 @@
 // (or #debug in a link) prints them as well.
 (function () {
   const PROTO = 1;
-  const FORMAT = 'networks-7';   // the shared state's format (keys, the stories' state()): bump when it changes shape
+  const FORMAT = 'networks-8';   // the shared state's format (keys, the stories' state()): bump when it changes shape
   const BROWSER = (/OculusBrowser\/(\d+)/.exec(navigator.userAgent) || [])[1] || '';   // Quest Browser's version (shared spaces differ by it)
   const EYE = 1.6;               // a standing eye height (m): a station's rig hangs this high over its spot
   const AHEAD = 1.4;             // a station's content floats this far in front of its spot
@@ -39,6 +39,7 @@
     'Niels', 'Paul', 'Rosalind', 'Tim', 'Vera'];
   const ST_RE = /^st\.([\w-]{1,32})$/;
   const kPlay = id => 'st.' + id + '.play', kX = id => 'st.' + id + '.x', kPanel = id => 'st.' + id + '.panel', kView = id => 'st.' + id + '.view';
+  const kPlace = id => 'st.' + id + '.place';   // where the station's scene floats ({ x, y, z } from where the story puts it) and its size (s)
 
   const get = k => { try { return localStorage.getItem(k); } catch (e) { return null; } };
   const put = (k, v) => { try { if (v == null || v === '') localStorage.removeItem(k); else localStorage.setItem(k, v); } catch (e) { /* storage blocked */ } };
@@ -76,7 +77,7 @@
     rooms: null, roomsErr: '', roomsAt: 0,
     st: [], stById: new Map(), mine: '', live: '', picked: false, follow: '', zone: '', cand: '', candAt: 0, going: new Map(), goAt: 0,
     pres: new Map(), rays: new Map(), hov: new Map(), presAt: 0, deskAt: 0,
-    cur: null, hook: null, ready: false, guard: 0, hush: false, pumpAt: 0, panelSeen: '', panelAt: 0, viewSeen: '',
+    cur: null, hook: null, ready: false, guard: 0, hush: false, pumpAt: 0, viewSeen: '',
   };
   // what is shown for a key: our own unacknowledged write, else the room's value
   const val = k => { const p = C.pending.get(k); if (p) return p.v; const e = C.keys.get(k); return e ? e.v : undefined; };
@@ -395,7 +396,6 @@
       // (not while our own clock write waits for its turn: it follows, and wins as an unacknowledged write would)
       if ((all || keys.includes(kPlay(L.id))) && !C.clockT) clockApply(true);
       if (all || keys.includes(kX(L.id))) stateApply(!all && !plain);
-      if (all || keys.includes(kPanel(L.id))) panelApply();
       if (all || keys.includes(kView(L.id))) viewSync();
     }
     if (!local && has(/^rf\./)) R.recAt = 0;   // a frame published for a shared space: checked on the next frame
@@ -675,7 +675,7 @@
     // following from a page shows the station: its Stories screen closes (while it shows, the pump stands still)
     if (how === 'follow') HOST.closePicker();
     if (HOST.curKey !== s.story) goTo(s);
-    else if (C.ready) { clockApply(true); stateApply(); panelApply(); }
+    else if (C.ready) { clockApply(true); stateApply(); PL.id = ''; }
     changed();
   }
   function unfollow() { log('unfollow', { st: C.follow }); C.follow = ''; C.mine = ''; C.live = ''; C.picked = false; changed(); }
@@ -843,7 +843,7 @@
     hang(sc);
     const L = liveSt();
     log('attach', { story: HOST.curKey, st: L ? L.id : '' });
-    if (L && L.story === HOST.curKey) { clockApply(true); stateApply(); panelApply(); }
+    if (L && L.story === HOST.curKey) { clockApply(true); stateApply(); PL.id = ''; }
   }
   // the shell calls this before a story is disposed: take the overlay out of its scene
   function detach() {
@@ -959,26 +959,67 @@
     try { s = C.hook.state(); } catch (e) { return; }
     if (s !== undefined) publish([[kX(L.id), s]]);
   }
-  // the station's panel (relative to its spot: x, y over the floor, z, yaw), moved here with the grip
-  function panelPoll() {
+  // The station's panel (relative to its spot: x, y over the floor, z, yaw) and its scene (moved from where the story
+  // puts it, x, y, z, and sized, s), moved here with the grip (both hands on the scene resize it): they go out to the
+  // room ten times a second while held and once more when let go, so the others see them move; otherwise they glide to
+  // the room's values (and are put there at once when a station is reached). Every frame, from the shell's tick.
+  const PL = { id: '', held: { panel: false, globe: false }, quiet: { panel: 0, globe: 0 }, at: 0 };
+  const PLACE0 = { x: 0, y: 0, z: 0, s: 1 };
+  const SIZE = [0.25, 4];   // a scene's size: a quarter to four times the story's own
+  const clampS = v => Math.min(SIZE[1], Math.max(SIZE[0], v));
+  const panelHome = () => ({ x: PANEL_HOME.p[0], y: PANEL_HOME.p[1] + EYE, z: PANEL_HOME.p[2], yaw: PANEL_HOME.yaw });
+  // (each value names its story: one written for the station's story before it changed is no longer taken)
+  const ofStory = (v, L) => !v.story || v.story === L.story;
+  const validPanel = (v, L) => !!(v && typeof v === 'object' && ['x', 'y', 'z', 'yaw'].every(k => Number.isFinite(v[k])) && ofStory(v, L));
+  const validPlace = (v, L) => !!(v && typeof v === 'object' && ['x', 'y', 'z', 's'].every(k => Number.isFinite(v[k])) && v.s > 0 && ofStory(v, L));
+  const roomPanel = L => { const v = val(kPanel(L.id)); return validPanel(v, L) ? v : panelHome(); };
+  const roomPlace = L => { const v = val(kPlace(L.id)); return validPlace(v, L) ? { x: v.x, y: v.y, z: v.z, s: clampS(v.s) } : PLACE0; };
+  function placeSync(dt, t) {
     const L = liveSt();
-    if (!synced(L) || !R.placing()) return;
+    if (!synced(L) || !R.placing() || HOST.picking || !C.hook.panel) { PL.id = ''; return; }
     let p = null;
     try { p = HOST.cur.xrPose(); } catch (e) { /* not in a headset */ }
     if (!p) return;
-    const v = { x: r3(p.pp.x), y: r3(p.pp.y + EYE), z: r3(p.pp.z), yaw: r3(p.pr) }, s = J(v), t = performance.now();
-    if (s !== C.panelSeen) { C.panelSeen = s; C.panelAt = t; return; }
-    if (t - C.panelAt < 300) return;   // still moving: publish once it rests
-    const o = val(kPanel(L.id)) || { x: PANEL_HOME.p[0], y: PANEL_HOME.p[1] + EYE, z: PANEL_HOME.p[2], yaw: PANEL_HOME.yaw };
-    if (Math.hypot(v.x - o.x, v.y - o.y, v.z - o.z) > 0.002 || Math.abs(v.yaw - o.yaw) > 0.004) publish([[kPanel(L.id), v]]);
-  }
-  function panelApply() {
-    const L = liveSt();
-    if (!synced(L) || !C.hook.panel || !R.placing()) return;
-    const v = val(kPanel(L.id));
-    if (!v || performance.now() - C.panelAt < 500) return;   // a panel moved here wins while it moves
-    try { C.hook.panel([v.x, v.y - EYE, v.z], v.yaw); } catch (e) { return; }
-    C.panelSeen = J({ x: v.x, y: v.y, z: v.z, yaw: v.yaw });
+    // (as they are here; rounded only when they go out, or easing would stall a few millimetres short)
+    const cur = { panel: { x: p.pp.x, y: p.pp.y + EYE, z: p.pp.z, yaw: p.pr }, globe: { x: p.off.x, y: p.off.y, z: p.off.z, s: clampS(+p.s || 1) } };
+    const room = { panel: roomPanel(L), globe: roomPlace(L) };
+    const put = (w, v) => {
+      try { if (w === 'panel') C.hook.panel([v.x, v.y - EYE, v.z], v.yaw); else if (C.hook.place) C.hook.place([v.x, v.y, v.z], v.s); } catch (e) { /* story not ready */ }
+    };
+    if (PL.id !== L.id) { PL.id = L.id; PL.held = { panel: false, globe: false }; put('panel', room.panel); put('globe', room.globe); return; }   // a station reached: as the room has it
+    const lk = layoutLocked(), hs = String(p.held || ''), out = [];   // held: what a grip holds there ('panel', 'globe')
+    for (const w of ['panel', 'globe']) {
+      const held = !lk && hs.includes(w), a = cur[w], b = room[w];
+      // held: out to the room ten times a second, and once more when let go (locked meanwhile: nothing more goes out,
+      // and it goes back to where the room has it); the other one, not held, goes on following the room
+      if (held || PL.held[w]) {
+        PL.held[w] = held;
+        if (!held) PL.quiet[w] = t + 400;   // (our last write on its way)
+        if ((held && t - PL.at < 100) || (!held && lk)) continue;
+        if (w === 'panel') {
+          const v = { x: r3(a.x), y: r3(a.y), z: r3(a.z), yaw: r3(a.yaw) };
+          if (Math.hypot(v.x - b.x, v.y - b.y, v.z - b.z) > 0.002 || Math.abs(v.yaw - b.yaw) > 0.004) out.push([kPanel(L.id), Object.assign(v, { story: L.story })]);
+        } else {
+          const v = { x: r3(a.x), y: r3(a.y), z: r3(a.z), s: r3(a.s) };
+          if (Math.hypot(v.x - b.x, v.y - b.y, v.z - b.z) > 0.002 || Math.abs(v.s - b.s) > 0.002) out.push([kPlace(L.id), Object.assign(v, { story: L.story })]);
+        }
+        continue;
+      }
+      if (t < PL.quiet[w]) continue;
+      // the room's value glides in (the last couple of millimetres at once)
+      const k = 1 - Math.exp(-dt * 12), d = Math.hypot(b.x - a.x, b.y - a.y, b.z - a.z);
+      if (w === 'panel') {
+        let y = (b.yaw - a.yaw) % (2 * Math.PI);
+        if (y > Math.PI) y -= 2 * Math.PI; else if (y < -Math.PI) y += 2 * Math.PI;
+        if (d < 1e-6 && Math.abs(y) < 1e-6) continue;
+        put(w, d < 0.002 && Math.abs(y) < 0.003 ? b : { x: a.x + (b.x - a.x) * k, y: a.y + (b.y - a.y) * k, z: a.z + (b.z - a.z) * k, yaw: a.yaw + y * k });
+      } else {
+        const ds = Math.abs(Math.log(b.s / a.s));
+        if (d < 1e-6 && ds < 1e-6) continue;
+        put(w, d < 0.002 && ds < 0.001 ? b : { x: a.x + (b.x - a.x) * k, y: a.y + (b.y - a.y) * k, z: a.z + (b.z - a.z) * k, s: a.s * Math.pow(b.s / a.s, k) });
+      }
+    }
+    if (out.length) { PL.at = t; publish(out); }
   }
 
   // the scene's view at a station in a headset (explore mode: how the story turns and sizes its scene, which is
@@ -1011,7 +1052,7 @@
       if (clock() - C.heard > 40000) { log('silent socket'); const ws = C.ws; C.ws = null; try { ws.close(); } catch (e) { /* gone */ } closed(1006, 'silent'); }
     }
     const L = liveSt();
-    if (synced(L) && !HOST.picking) { if (!C.clockT) clockApply(false); statePoll(); panelPoll(); viewSync(); }
+    if (synced(L) && !HOST.picking) { if (!C.clockT) clockApply(false); statePoll(); viewSync(); }
     // a switch the room asked for that got lost (a story still loading drops a second request): ask again
     else if (L && L.story !== HOST.curKey && (C.mine === L.id || C.follow === L.id) && !HOST.busy && t - C.goAt > 3000) goTo(L);
     for (const [id, P] of C.pres) if (t - P.at > (P.head ? 3000 : 8000)) C.pres.delete(id);
@@ -1596,6 +1637,7 @@
       notice('One question', 'Are you in the same room as the others? Answer on the Shared panel, ' + (HAND.ok ? 'above your left controller.' : 'left of the story panel.'), 9000);
     }
     if (MV.src && f) carryStation(f, t);
+    if (C.code) placeSync(dt, t);
     leftHand(f, local);
     easeStations(dt);
     drawOverlay(dt);
@@ -2578,17 +2620,18 @@
     return { p: [_v.x, _v.y, _v.z], yaw: R.yaw + S.yaw, room: true };
   }
   const placing = () => { const L = liveSt(); return !!(C.code && R.session && R.aligned && L && L.story === HOST.curKey); };
+  // the station's panel and scene as the room has them, in its story's rig (the station's spot at eye height)
   function panelPose(L) {
-    const v = L && val(kPanel(L.id));
-    return v ? { pp: [v.x, v.y - EYE, v.z], pr: v.yaw } : { pp: PANEL_HOME.p.slice(), pr: PANEL_HOME.yaw };
+    const v = L ? roomPanel(L) : panelHome(), q = L ? roomPlace(L) : PLACE0;
+    return { pp: [v.x, v.y - EYE, v.z], pr: v.yaw, off: [q.x, q.y, q.z], s: q.s };
   }
-  // for a story starting in a running session at a station (HOST.start): its rig and panel there
+  // for a story starting in a running session at a station (HOST.start): its rig, panel and scene there
   function adopt(key) {
     const L = liveSt();
     if (!C.code || !R.session || !R.aligned || !L || L.story !== key) return null;
     const P = panelPose(L);
     return { rp: new THREE.Vector3(L.x, EYE, L.z).applyMatrix4(R.m), rq: new THREE.Quaternion().setFromAxisAngle(_Y, R.yaw + L.yaw),
-      off: new THREE.Vector3(), pp: new THREE.Vector3().fromArray(P.pp), pr: P.pr };
+      off: new THREE.Vector3().fromArray(P.off), s: P.s, pp: new THREE.Vector3().fromArray(P.pp), pr: P.pr };
   }
   // the headset session started (or ended): the shell's own frame callback, the spaces, the lifecycle guard
   function watch(s) {
@@ -2633,14 +2676,22 @@
   HOST.room = {
     get state() { return R.state; }, get aligned() { return R.aligned; }, get frame() { return R.frame; }, get src() { return R.src; },
     watch, update: f => update(f), place, placing, adopt, calibrate, cancel, mark, status, forget: forgetMarks, sharedLine, sourceLine, realignNow,
-    inRoom: () => !!(C.code && R.session),   // a headset in a shared room: the grip moves no panel and no scene
-    gripHint: 'Trigger (or pinch): use buttons and point. A or X: play and pause. In a shared room panels and scenes stay put: hold the grip on a station\'s ring or card to move the station.',
+    inRoom: () => !!(C.code && R.session),   // a headset in a shared room (the stories show no Stories button then)
+    // in a shared room the grip moves a scene or a panel only at the headset's station, and not while the layout is
+    // locked: what it moves goes out to the room, so everybody sees it alike (placeSync)
+    gripLocked: () => !placing() || layoutLocked(),
+    get gripHint() {
+      // (the flock and the robots are life size: only their panel moves)
+      const m = meta(HOST.curKey) || {};
+      return 'Trigger (or pinch): use buttons. A or X: play and pause. ' + (!placing() ? 'Grip on a station\'s ring or card: move the station.' : layoutLocked() ?
+        'The layout is locked: unlock it on the Shared panel to move things.' : m.life ? 'Grip: move this panel for everyone.' : 'Grip: move the scene or this panel for everyone; both grips resize the scene.');
+    },
     get moving() { return MV.id; },
     sharedAlign(on) { if (on !== undefined) setSharedAlign(on); return R.sharedAlign; }, floorNote,
     handles: () => ((R.saved && R.saved.anchors) || []).concat(R.anchorIds || []).filter(Boolean),   // kept by HOST.anchor's tidy-up
     get marks() { return R.mk; }, get cmp() { return R.cmp; }, frameKey: kFrame,
     // the station's panel, for a story's xrRecenter while placed (off, pp, pr in its rig)
-    saved: () => { const L = liveSt(), P = panelPose(L); return placing() ? { off: [0, 0, 0], pp: P.pp, pr: P.pr } : null; },
+    saved: () => { const L = liveSt(), P = panelPose(L); return placing() ? { off: P.off, s: P.s, pp: P.pp, pr: P.pr } : null; },
     joined() { if (R.session) { begin(); loop(R.session); } },
     left() { R.begun = null; R.frame = null; R.src = ''; R.aligned = false; R.calib = null; setState('off'); },
     realign() { R.cmp = null; R.again = 0; if (R.src === 'own' || R.src === 'adopted' || R.src === 'shared' || (R.src === 'floor' && !C.local) || !here()) { R.frame = null; R.src = ''; R.aligned = false; R.recAt = 0; } },

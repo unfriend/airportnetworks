@@ -98,7 +98,7 @@ function sigMain() {
   if (XR.stories) return 'stories' + audioLabel();
   if (APP.mode === 'story') {
     const it = ST.items.find(x => x.ch === curCh);
-    let s = 's' + audioLabel() + (HOST.room && HOST.room.inRoom() ? 'r' : '') + (curCh ? curCh.key : '');
+    let s = 's' + audioLabel() + (HOST.room && HOST.room.inRoom() ? 'r' + HOST.room.gripHint : '') + (curCh ? curCh.key : '');
     if (it) {
       for (const e of it.els) s += Math.round(Math.max(0, e.o) * 3);
       for (const g of it.grow) s += Math.round(Math.max(0, g.s) * 6);
@@ -220,7 +220,8 @@ function drawMain(ctx, P) {
   hb('exit', 'Exit', () => { if (XR.session) XR.session.end(); }, 96);
   if (AUD && AUD.state !== 'none') hb('sound', audioLabel(), () => audioToggle(), 180, { on: AUD.on(), px: 23 });
   if (!HOST.anchor.on) hb('recenter', 'Recenter', () => { XR.needRecenter = true; }, 140); // anchored: nothing moves
-  hb('stories', 'Stories', () => { XR.stories = true; XR.kbd.open = false; APP.playing = false; }, 130);
+  // at a shared room's station each station keeps its story: another story is another station, so no Stories button
+  if (!(HOST.room && HOST.room.placing())) hb('stories', 'Stories', () => { XR.stories = true; XR.kbd.open = false; APP.playing = false; }, 130);
   if (!XR.stories) hb('mode', story ? 'Explore now' : 'Replay story', () => (story ? APP.enterExplore() : APP.enterStory(0)), 186, { primary: story });
   ctx.font = vfont(30, 700); ctx.fillStyle = VC.ink;
   ctx.fillText(fitText(ctx, 'Flock', x - 40), 40, 36);

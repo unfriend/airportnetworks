@@ -662,8 +662,8 @@ try {
   check('headset: taken off and put on again, it writes nothing and takes the station\'s clock again', q4 === q3 && modeBack === 'explore', `${q4 - q3} writes, mode ${modeBack}`);
   const onAgain = await H.evaluate(() => [HOST.curKey, HOST.cur.peek('XR.stories'), HOST.collab.mine()]);
   check('headset: and it stays in its story at its station (no Stories screen)', onAgain[0] === HEADSET_STORY && onAgain[1] === false && onAgain[2] === S1.id, JSON.stringify(onAgain));
-  check('headset: at the station, HOST.anchor holds the place, and in the room the grip moves no panel and no scene', await H.evaluate(() => HOST.anchor.held() &&
-    HOST.anchor.locked('globe') && HOST.anchor.locked('panel') && HOST.room.inRoom()));
+  check('headset: at the station, HOST.anchor holds the place; the grip may move the panel and the scene (for everyone), not the shell\'s things',
+    await H.evaluate(() => HOST.anchor.held() && !HOST.anchor.locked('globe') && !HOST.anchor.locked('panel') && HOST.anchor.locked('shell') && HOST.room.inRoom()));
   const since = e => (e.seq > q2 && e.seq <= qA) || e.seq > qB;   // (not the writes the standby tests made on purpose)
   const wrote = Object.entries((await roomInfo(code)).keys).filter(([, e]) => since(e)).map(([k, e]) => `${k} by ${e.by === hId0 ? 'the headset' : e.by}`);
   const wroteWhy = wrote.length ? ' ' + JSON.stringify(Object.entries((await roomInfo(code)).keys).filter(([, e]) => since(e)).map(([k, e]) => [k, e.seq, e.v])) + ' ' +
@@ -900,6 +900,83 @@ try {
   const pub2 = ((await roomInfo(code)).keys[kv] || {}).v;
   check(`headset: in explore mode at a station the scene's view is shared (${OTHER_STORY}: published, followed, a turn here goes out)`,
     !!v0 && JSON.stringify(pub0) === JSON.stringify(v0) && got1 && JSON.stringify(pub2) === JSON.stringify(v2), JSON.stringify({ v0, pub0, v1, got1, v2, pub2 }));
+  // at a station in a shared room the story panel has no Stories button, and a Stories screen left open closes by
+  // itself (the story goes on as the room has it)
+  const sb = await H.evaluate(async () => {
+    const X = window.__xr, ids = () => HOST.cur.peek('XR.main.regions.map(r => r.id)');
+    HOST.cur.peek('(XR.main.last = "", XR.main.t = -1e9, panelTick(XR.main, performance.now() + 1e6))');
+    const none = ids().length > 0 && !ids().includes('stories'), mode = HOST.cur.peek('APP.mode');
+    HOST.cur.peek('(XR.stories = true)');
+    for (let k = 0; k < 3; k++) { X.step(); await new Promise(r => setTimeout(r, 20)); }
+    return { none, closed: !HOST.cur.peek('XR.stories'), same: HOST.cur.peek('APP.mode') === mode, ids: ids() };
+  });
+  check('headset: at a station in a shared room no Stories button, and a Stories screen closes by itself (the story goes on)', sb.none && sb.closed && sb.same, JSON.stringify(sb));
+  // the scene and the panel at a station: both grips on the scene resize it (and move it with their middle), one grip
+  // on the panel moves it; it goes out to the room (st.<id>.place, st.<id>.panel) and comes back from it, gliding
+  const kPl = 'st.' + S2.id + '.place', kPn = 'st.' + S2.id + '.panel';
+  const pl = await H.evaluate(async () => {
+    const X = window.__xr, V = (x, y, z) => new THREE.Vector3(x, y, z), wait = () => new Promise(r => setTimeout(r, 30));
+    const at = (i, x, y, z) => X.aim(i, new THREE.Matrix4().makeTranslation(x, y, z));
+    const grab = (i, kind, on) => HOST.cur.peek(`(c => { if (${on}) c.hover = ${kind === 'panel' ? '{ kind: "panel", P: XR.main, x: 10, y: 10, point: XR.main.mesh.getWorldPosition(new THREE.Vector3()) }' : '{ kind: "globe", i: -1, point: c.o.clone() }'}; xrGrab(c, ${on}); })(XR.ctrls[${i}])`);
+    const R = HOST.cur.peek('GL.rig'), o = V(0, -0.2, -0.6).applyMatrix4(R.matrixWorld);
+    at(0, o.x - 0.1, o.y, o.z); at(1, o.x + 0.1, o.y, o.z);
+    X.step(); X.step();
+    const s0 = HOST.cur.peek('XR.size');
+    grab(0, 'globe', true); grab(1, 'globe', true);
+    for (let k = 0; k < 3; k++) { X.step(); await wait(); }
+    at(0, o.x - 0.2, o.y + 0.1, o.z); at(1, o.x + 0.2, o.y + 0.1, o.z);   // twice as far apart, 10 cm higher
+    for (let k = 0; k < 8; k++) { X.step(); await wait(); }
+    const mid = { size: HOST.cur.peek('XR.size'), off: HOST.cur.peek('XR.globeOff.toArray()'), held: HOST.cur.xrPose().held };
+    grab(1, 'globe', false);
+    for (let k = 0; k < 2; k++) { X.step(); await wait(); }
+    at(0, o.x - 0.2, o.y + 0.1, o.z - 0.3);   // the other hand carries on alone: 30 cm further
+    for (let k = 0; k < 6; k++) { X.step(); await wait(); }
+    grab(0, 'globe', false);
+    for (let k = 0; k < 4; k++) { X.step(); await wait(); }
+    const one = { size: HOST.cur.peek('XR.size'), off: HOST.cur.peek('XR.globeOff.toArray()') };
+    // the panel, with one grip
+    const p0 = HOST.cur.peek('XR.panelGroup.position.toArray()');
+    const pw = HOST.cur.peek('XR.main.mesh.getWorldPosition(new THREE.Vector3())');
+    at(0, pw.x, pw.y, pw.z + 0.3); X.step(); grab(0, 'panel', true);
+    at(0, pw.x + 0.25, pw.y, pw.z + 0.3);
+    for (let k = 0; k < 6; k++) { X.step(); await wait(); }
+    grab(0, 'panel', false);
+    for (let k = 0; k < 4; k++) { X.step(); await wait(); }
+    X.ctrl(0, null); X.ctrl(1, null);
+    return { s0, mid, one, p0, p1: HOST.cur.peek('XR.panelGroup.position.toArray()') };
+  });
+  for (let k = 0; k < 10 && !((await roomInfo(code)).keys[kPl] && (await roomInfo(code)).keys[kPn]); k++) await frames(H, 200);
+  const rk = (await roomInfo(code)).keys, rPl = rk[kPl] && rk[kPl].v, rPn = rk[kPn] && rk[kPn].v;
+  check('headset: both grips on the scene resize it (twice as far apart: twice the size) and move it with their middle; one hand carries on alone',
+    Math.abs(pl.mid.size - 2 * pl.s0) < 0.02 && pl.mid.held && Math.abs(pl.mid.off[1] - 0.1) < 0.01 && Math.abs(pl.one.size - pl.mid.size) < 1e-6 &&
+    Math.abs(Math.hypot(...pl.one.off.map((v, k) => v - pl.mid.off[k])) - 0.3) < 0.03, JSON.stringify(pl));
+  check('headset: the scene\'s place and size and the moved panel go out to the room', !!rPl && Math.abs(rPl.s - pl.one.size) < 0.002 &&
+    near([rPl.x, rPl.y, rPl.z], pl.one.off, 2e-3) && !!rPn && Math.abs(rPn.x - pl.p1[0]) < 2e-3 && Math.abs(rPn.y - 1.6 - pl.p1[1]) < 2e-3 &&
+    Math.hypot(...pl.p1.map((v, k) => v - pl.p0[k])) > 0.2, JSON.stringify({ rPl, rPn, pl }));
+  // someone else's: it glides in here
+  await A.evaluate(([a, b]) => HOST.collab.publish([[a, { x: 0.2, y: 0.1, z: -0.3, s: 0.5 }], [b, { x: -0.7, y: 1.5, z: -0.6, yaw: 0.4 }]]), [kPl, kPn]);
+  const pglide = await H.evaluate(async () => {
+    const X = window.__xr, seen = [];
+    const there = () => HOST.cur.peek('XR.size === 0.5 && XR.panelGroup.position.distanceTo(new THREE.Vector3(-0.7, -0.1, -0.6)) < 1e-6 && XR.globeOff.distanceTo(new THREE.Vector3(0.2, 0.1, -0.3)) < 1e-6');
+    for (let k = 0; k < 150 && !there(); k++) { X.step(); await new Promise(r => setTimeout(r, 16)); seen.push(HOST.cur.peek('XR.size')); }
+    return { size: HOST.cur.peek('XR.size'), off: HOST.cur.peek('XR.globeOff.toArray()'), pp: HOST.cur.peek('XR.panelGroup.position.toArray()'), pr: HOST.cur.peek('XR.panelGroup.rotation.y'),
+      between: seen.some(v => v > 0.52 && v < 1.9), frames: seen.length };
+  });
+  check('headset: a place, size and panel from someone else pglide in', Math.abs(pglide.size - 0.5) < 1e-3 && near(pglide.off, [0.2, 0.1, -0.3], 2e-3) &&
+    near(pglide.pp, [-0.7, -0.1, -0.6], 2e-3) && Math.abs(pglide.pr - 0.4) < 3e-3 && pglide.between, JSON.stringify(pglide));
+  // the layout lock stops the grip on scenes and panels too
+  await A.evaluate(() => HOST.collab.lock(true));
+  await until(H, () => HOST.collab.locked, null, 3000);
+  const lockG = await H.evaluate(() => {
+    const X = window.__xr;
+    X.aim(0, new THREE.Matrix4().makeTranslation(0, 1.4, -0.4)); X.step();
+    HOST.cur.peek('(c => { c.hover = { kind: "globe", i: -1, point: c.o.clone() }; xrGrab(c, true); })(XR.ctrls[0])');
+    const g = HOST.cur.peek('!!XR.ctrls[0].grab');
+    HOST.cur.peek('xrGrab(XR.ctrls[0], false)'); X.ctrl(0, null);
+    return { locked: HOST.anchor.locked('globe') && HOST.anchor.locked('panel'), grabbed: g, hint: HOST.room.gripHint };
+  });
+  await A.evaluate(() => HOST.collab.lock(false));
+  check('headset: while the layout is locked the grip moves no scene and no panel (and the panel says so)', lockG.locked && !lockG.grabbed && /locked/.test(lockG.hint), JSON.stringify(lockG));
   check('headset: and back again', await walk(H, S1, HEADSET_STORY, 0));
   // Remove on the headset panel asks first: the first press only arms it (for 3 s), the station stays
   await H.evaluate(() => HOST.collab.panelOpen(true));

@@ -9937,7 +9937,7 @@ function bindCanvas() {
 // A/X plays and pauses the story. Hand tracking: point and pinch.
 const XR = {
   on: false, mode: null, session: null, needRecenter: false, fov: false, fontOK: 0, clear: true,
-  head: new THREE.Vector3(), headQ: new THREE.Quaternion(), globeOff: new THREE.Vector3(), globeBase: new THREE.Vector3(), camLocal: new THREE.Vector3(0, 0, 5),
+  head: new THREE.Vector3(), headQ: new THREE.Quaternion(), globeOff: new THREE.Vector3(), size: 1, globeBase: new THREE.Vector3(), camLocal: new THREE.Vector3(0, 0, 5),
   baseR: 0.36, R: 0.36, viewH: 1600, hitR: 1, target: new THREE.Vector3(),
   ctrls: [], panels: [], main: null, foot: null, tip: null, tipI: -1, elInfo: null,
   kbd: { open: false, q: '' }, pf: -1, pt: -1, pick: 'from',
@@ -9954,7 +9954,7 @@ const _xX = new THREE.Vector3(1, 0, 0), _xY = new THREE.Vector3(0, 1, 0);
 function xrPlace(v) {
   const d = Math.max(v[2], 0.05);
   _xq.setFromAxisAngle(_xX, clamp(v[1], -85, 85) * D2R).multiply(_xq2.setFromAxisAngle(_xY, -v[0] * D2R));
-  XR.R = XR.baseR * clamp(Math.pow(3.6 / d, 0.85), 0.12, 10);
+  XR.R = XR.baseR * clamp(Math.pow(3.6 / d, 0.85), 0.12, 10) * XR.size;   // (times the size your hands or the room gave it)
   XR.hitR = 1.15 * d / 3.6;
   XR.target.set(v[3], v[4], v[5]);
   // a little right of centre and below eye level, leaving room for the panel on the left
@@ -9970,11 +9970,11 @@ function xrPlace(v) {
   GL.world.position.set(gx - _xb.x, gy - _xb.y, gz - _xb.z);
 }
 function xrRecenter() {
-  XR.globeOff.set(0, 0, 0);
+  XR.globeOff.set(0, 0, 0); XR.size = 1;
   if (XR.panelGroup) { XR.panelGroup.position.copy(XR.panelHome.p); XR.panelGroup.rotation.set(0, XR.panelHome.yaw, 0); }
   // anchored: the scene and the panel go back where they were saved with the place
   const s = HOST.anchor.saved();
-  if (s) { XR.globeOff.fromArray(s.off); if (XR.panelGroup) { XR.panelGroup.position.fromArray(s.pp); XR.panelGroup.rotation.set(0, s.pr, 0); } }
+  if (s) { XR.globeOff.fromArray(s.off); XR.size = s.s || 1; if (XR.panelGroup) { XR.panelGroup.position.fromArray(s.pp); XR.panelGroup.rotation.set(0, s.pr, 0); } }
   const yaw = new THREE.Euler().setFromQuaternion(XR.headQ, 'YXZ').y;
   GL.rig.position.copy(XR.head);
   GL.rig.quaternion.setFromAxisAngle(new THREE.Vector3(0, 1, 0), yaw);
@@ -10136,7 +10136,7 @@ function xrGrab(c, on) {
   c.grab = null;
   const h = c.hover;
   if (!on || !h) return;
-  if (XR.stories || HOST.anchor.locked(h.kind)) return; // the Stories screen stays put, and so does an anchored place (in a shared room nothing moves)
+  if (XR.stories || HOST.anchor.locked(h.kind)) return; // the Stories screen stays put, and so does an anchored place (in a shared room: only at its station, unless locked)
   // the scene is held by its placement point (where the view's target sits), so a still hand moves nothing
   const p0 = h.kind === 'panel' ? XR.panelGroup.getWorldPosition(new THREE.Vector3()) : GL.rig.localToWorld(XR.globeBase.clone().add(XR.globeOff));
   c.grab = { target: h.kind === 'panel' ? 'panel' : 'globe', q0: new THREE.Quaternion().setFromRotationMatrix(c.g.matrix).invert(),
@@ -10147,6 +10147,11 @@ const _gq = new THREE.Quaternion(), _gv = new THREE.Vector3(), _gh = new THREE.V
 // the grabbed object keeps its offset from the controller, so moving or turning your hand carries it
 function carry(c, dt) {
   const G = c.grab, gp = c.src.gamepad;
+  // both hands on the scene resize it (xrResize, once a frame); when one lets go, the other carries on from there
+  if (HOST.anchor.locked(G.target === 'panel' ? 'panel' : 'globe')) { c.grab = null; return; }   // locked meanwhile (a shared room's layout lock)
+  const o = G.target === 'globe' ? XR.ctrls.find(k => k !== c && k.grab && k.grab.target === 'globe' && k.src && k.g.visible) : null;
+  if (o) { if (c.i > o.i) xrResize(o, c); return; }
+  if (G.two) { G.two = null; G.q0.setFromRotationMatrix(c.g.matrix).invert(); G.o0.copy(c.o); G.p0.copy(GL.rig.localToWorld(XR.globeBase.clone().add(XR.globeOff))); G.reach = 1; }
   if (gp && gp.axes.length >= 4 && Math.abs(gp.axes[3]) > 0.2) G.reach = clamp(G.reach * Math.exp(gp.axes[3] * dt * 1.5), 0.15, 6);
   _gq.setFromRotationMatrix(c.g.matrix).multiply(G.q0);
   _gv.copy(G.p0).sub(G.o0).multiplyScalar(G.reach);
@@ -10161,9 +10166,19 @@ function carry(c, dt) {
     XR.panelGroup.rotation.set(0, Math.atan2(_gh.x - _gv.x, _gh.z - _gv.z), 0); // keep it upright, facing you
   }
 }
+// both hands on the scene: it grows and shrinks with the distance between them (a quarter to four times the
+// story's own size) and moves with their middle
+function xrResize(a, b) {
+  const d = a.o.distanceTo(b.o);
+  _gv.copy(a.o).add(b.o).multiplyScalar(0.5);
+  GL.rig.worldToLocal(_gv);
+  const T = a.grab.two || (a.grab.two = b.grab.two = { d0: Math.max(0.05, d), s0: XR.size, m0: _gv.clone(), off0: XR.globeOff.clone() });
+  XR.size = clamp(T.s0 * d / T.d0, 0.25, 4);
+  XR.globeOff.copy(T.off0).add(_gv).sub(T.m0);
+}
 function xrPoint(c, dt) {
   const g = c.g;
-  if (!c.src || !g.visible) { c.hover = null; c.dot.visible = false; return; }
+  if (!c.src || !g.visible) { c.hover = null; c.dot.visible = false; c.grab = null; return; }   // (a controller gone lets go)
   c.o.setFromMatrixPosition(g.matrix);
   c.d.set(0, 0, -1).transformDirection(g.matrix);
   let hit = null, dist = 2.5;
@@ -10230,7 +10245,9 @@ function xrBegin(frame, dt) {
     // anchored: the spot in the room carries the frame that holds the panels, the Stories screen and the scene
     // (asked only once the headset has a pose, so a new anchor goes where things really are)
     const A = HOST.anchor.frame(frame, ref);
-    if (A) { GL.rig.position.fromArray(A.p); GL.rig.quaternion.setFromAxisAngle(_xUp, A.yaw); if (A.room) XR.globeOff.set(0, 0, 0); }   // at a station: no grip offset from before
+    if (A) { GL.rig.position.fromArray(A.p); GL.rig.quaternion.setFromAxisAngle(_xUp, A.yaw); }
+    // at its station in a shared room a story is the station's: its Stories screen closes (the panel offers none there)
+    if (XR.stories && HOST.collab.mine() && HOST.room.placing()) xrLandingClose();
   }
   const bl = XR.session && XR.session.renderState.baseLayer;
   if (bl) {
@@ -10413,7 +10430,7 @@ function xrAdopt() {
   if (p) {
     XR.needRecenter = false;
     GL.rig.position.copy(p.rp); GL.rig.quaternion.copy(p.rq);
-    XR.globeOff.copy(p.off);
+    XR.globeOff.copy(p.off); XR.size = p.s || 1;
     XR.panelGroup.position.copy(p.pp); XR.panelGroup.rotation.set(0, p.pr, 0);
   }
   const ref = GL.renderer.xr.getReferenceSpace();
@@ -10570,7 +10587,7 @@ function sigMain() {
   if (XR.stories) return 'stories' + audioLabel();
   if (APP.mode === 'story') {
     const it = ST.items.find(x => x.ch === curCh);
-    let s = 's' + audioLabel() + (HOST.room && HOST.room.inRoom() ? 'r' : '') + (curCh ? curCh.key : '');
+    let s = 's' + audioLabel() + (HOST.room && HOST.room.inRoom() ? 'r' + HOST.room.gripHint : '') + (curCh ? curCh.key : '');
     if (it) {
       for (const e of it.els) s += Math.round(Math.max(0, e.o) * 3);
       for (const g of it.grow) s += Math.round(Math.max(0, g.s) * 6);
@@ -10693,7 +10710,8 @@ function drawMain(ctx, P) {
   hb('exit', 'Exit', () => { if (XR.session) XR.session.end(); }, 96);
   if (AUD && AUD.state !== 'none') hb('sound', audioLabel(), () => audioToggle(), 180, { on: AUD.on(), px: 23 });
   if (!HOST.anchor.on) hb('recenter', 'Recenter', () => { XR.needRecenter = true; }, 140); // anchored: nothing moves
-  hb('stories', 'Stories', () => { XR.stories = true; XR.kbd.open = false; APP.playing = false; }, 130);
+  // at a shared room's station each station keeps its story: another story is another station, so no Stories button
+  if (!(HOST.room && HOST.room.placing())) hb('stories', 'Stories', () => { XR.stories = true; XR.kbd.open = false; APP.playing = false; }, 130);
   if (!XR.stories) hb('mode', story ? 'Explore now' : 'Replay story', () => (story ? APP.enterExplore() : APP.enterStory(0)), 186, { primary: story });
   ctx.font = vfont(30, 700); ctx.fillStyle = VC.ink;
   ctx.fillText(fitText(ctx, 'LBI NetMed tour', x - 40), 40, 36);
@@ -10702,7 +10720,7 @@ function drawMain(ctx, P) {
   else if (story) {
     drawStoryPane(ctx, P, 44, 136, P.w - 88);
     ctx.fillStyle = VC.line; ctx.fillRect(36, P.h - 96, P.w - 72, 2);
-    textBlock(ctx, HOST.room && HOST.room.inRoom() ? HOST.room.gripHint : HOST.anchor.on ? 'Trigger (or pinch): use buttons. A or X: play and pause. Anchored: to move things, use Place again on the Stories screen.' : 'Trigger (or pinch): use buttons. Grip: move the scene or this panel. A or X: play and pause.', 44, P.h - 74, P.w - 88, 22, 30, VC.faint);
+    textBlock(ctx, HOST.room && HOST.room.inRoom() ? HOST.room.gripHint : HOST.anchor.on ? 'Trigger (or pinch): use buttons. A or X: play and pause. Anchored: to move things, use Place again on the Stories screen.' : 'Trigger (or pinch): use buttons. Grip: move the scene or this panel; both grips on the scene resize it. A or X: play and pause.', 44, P.h - 74, P.w - 88, 22, 30, VC.faint);
   } else drawExplorePane(ctx, P, 40, 120, P.w - 80);
 }
 
@@ -11241,13 +11259,14 @@ const initT = setTimeout(init, 40);
 // what the app shell needs to change story
 return {
   inputs: () => XR.ctrls.map(c => c.src),
-  xrPose: () => (XR.on ? { rp: GL.rig.position.clone(), rq: GL.rig.quaternion.clone(), off: XR.globeOff.clone(),
+  xrPose: () => (XR.on ? { rp: GL.rig.position.clone(), rq: GL.rig.quaternion.clone(), off: XR.globeOff.clone(), s: XR.size, held: XR.ctrls.map(c => (c.grab ? c.grab.target : '')).join(' '),
     pp: XR.panelGroup.position.clone(), pr: XR.panelGroup.rotation.y } : null),
   // shared rooms (shared.js): the clock is APP's, the shared state the scene, its controls and the proteins (no one-shot effects)
   collab: {
     APP, scene: () => GL.scene, state: collabState, apply: collabApply, view: collabView, setView: collabSetView,
     hover: i => { const c = XR.ctrls[i]; return c && c.hover ? c.ray.scale.z : 0; },
     panel(p, yaw) { XR.panelGroup.position.fromArray(p); XR.panelGroup.rotation.set(0, yaw, 0); },
+    place(o, s) { XR.globeOff.fromArray(o); XR.size = s; },
   },
   // for tests and the browser console: HOST.cur.peek('NET.N')
   peek: src => eval(src),
