@@ -1,0 +1,28 @@
+{"at":1792446172009,"kind":"ar","t":842,"n":1,"ev":"attach","story":"airports","st":""}
+{"at":1792446172009,"kind":"ar","t":2993,"n":2,"ev":"headset","visibility":"visible"}
+{"at":1792446172009,"kind":"ar","t":3143,"n":3,"ev":"relay","relay":"https://10.0.0.48:8787","why":"served"}
+{"at":1792446172009,"kind":"ar","t":3143,"n":4,"ev":"served","served":true}
+{"at":1792446172009,"kind":"ar","t":4287,"n":5,"ev":"panel","id":"open"}
+{"at":1792446172009,"kind":"ar","t":8401,"n":6,"ev":"panel","id":"join:DON"}
+{"at":1792446172009,"kind":"ar","t":8402,"n":7,"ev":"join","code":"DON","relay":"https://10.0.0.48:8787","local":false}
+{"at":1792446172009,"kind":"ar","t":8404,"n":8,"ev":"connect","code":"DON"}
+{"at":1792446172009,"kind":"ar","t":8404,"n":9,"ev":"align","state":"waiting"}
+{"at":1792446172009,"kind":"ar","t":8404,"n":10,"ev":"session","mode":"immersive-ar","features":["viewer","plane-detection","webxr","local-floor","local","anchors","shared","hand-tracking","mesh-detection"],"format":"networks-7","ua":"Mozilla/5.0 (X11; Linux x86_64; Quest 3) AppleWebKit/537.36 (KHTML, like Gecko) OculusBrowser/152.1.0.34.52.1079628208 Chrome/152.0.7977.83 VR Safari/537.36","browser":"152","page":"https://10.0.0.48:8787/","persisted":0}
+{"at":1792446172009,"kind":"ar","t":8405,"n":11,"ev":"anchors tidied","listed":0,"kept":0,"deleted":0,"failed":[],"left":0}
+{"at":1792446172009,"kind":"ar","t":8405,"n":12,"ev":"space","type":"local-floor"}
+{"at":1792446172009,"kind":"ar","t":8405,"n":13,"ev":"reset","space":"shared","id":"699c04b0-0fdc-79fb-4153-ec5df35db11b","transform":false}
+{"at":1792446172009,"kind":"ar","t":8406,"n":14,"ev":"space","type":"shared","id":"699c04b0-0fdc-79fb-4153-ec5df35db11b","props":["UUId","constructor"]}
+{"at":1792446172009,"kind":"ar","t":8413,"n":15,"ev":"shared own floor","own":false}
+{"at":1792446172009,"kind":"ar","t":8414,"n":16,"ev":"align","state":"shared-wait"}
+{"at":1792446172009,"kind":"ar","t":8415,"n":17,"ev":"sample","src":"","state":"shared-wait","sid":"699c04b0-0fdc-79fb-4153-ec5df35db11b","sharedOK":true,"here":true,"lf":{"p":[0,-1.799,0],"yaw":0},"shared":{"p":[0.507,-0.003,-2.436],"yaw":-2.165},"head":[-0.023,1.823,0.032],"sharedAlign":true}
+{"at":1792446172009,"kind":"ar","t":8455,"n":18,"ev":"open"}
+{"at":1792446172009,"kind":"ar","t":8457,"n":19,"ev":"welcome","seq":2,"keys":15,"members":2}
+{"at":1792446172009,"kind":"ar","t":9457,"n":20,"ev":"shared first","first":false,"id":"699c04b0-0fdc-79fb-4153-ec5df35db11b"}
+{"at":1792446182005,"kind":"ar","t":13413,"n":21,"ev":"sample","src":"","state":"shared-wait","sid":"699c04b0-0fdc-79fb-4153-ec5df35db11b","sharedOK":true,"here":true,"lf":{"p":[0,-1.799,0],"yaw":0},"shared":{"p":[0.508,-0.008,-2.436],"yaw":-2.165},"head":[0.023,1.821,-0.519],"sharedAlign":true,"pub":{"by":"wca0f4r51jt8","g":"shared","at":1792446128090}}
+{"at":1792446182005,"kind":"ar","t":13458,"n":22,"ev":"align","state":"adopted"}
+{"at":1792446182005,"kind":"ar","t":13458,"n":23,"ev":"frame","src":"adopted","o":[0.508,0,-2.436],"x":[-0.56,0,0.829]}
+{"at":1792446182005,"kind":"ar","t":13458,"n":24,"ev":"notice","title":"Aligned automatically"}
+{"at":1792446182005,"kind":"ar","t":13459,"n":25,"ev":"aligned","src":"adopted"}
+{"at":1792446182005,"kind":"ar","t":18423,"n":26,"ev":"sample","src":"adopted","state":"adopted","sid":"699c04b0-0fdc-79fb-4153-ec5df35db11b","sharedOK":true,"here":true,"frame":{"o":[0.508,0,-2.436],"x":[-0.56,0,0.829]},"lf":{"p":[0,-1.799,0],"yaw":0},"shared":{"p":[0.508,-0.006,-2.437],"yaw":-2.164},"hS":0.008,"head":[0.079,1.782,0.124],"sharedAlign":true,"pub":{"by":"wca0f4r51jt8","g":"shared","at":1792446128090}}
+{"at":1792446192031,"kind":"ar","t":23424,"n":27,"ev":"sample","src":"adopted","state":"adopted","sid":"699c04b0-0fdc-79fb-4153-ec5df35db11b","sharedOK":true,"here":true,"frame":{"o":[0.508,0,-2.436],"x":[-0.56,0,0.829]},"lf":{"p":[0,-1.799,0],"yaw":0},"shared":{"p":[0.508,-0.002,-2.438],"yaw":-2.164},"hS":0.008,"head":[0.147,1.768,-0.024],"sharedAlign":true,"pub":{"by":"wca0f4r51jt8","g":"shared","at":1792446128090}}
+{"at":1792446192031,"kind":"ar","t":28435,"n":28,"ev":"sample","src":"adopted","state":"adopted","sid":"699c04b0-0fdc-79fb-4153-ec5df35db11b","sharedOK":true,"here":true,"frame":{"o":[0.508,0,-2.436],"x":[-0.56,0,0.829]},"lf":{"p":[0,-1.799,0],"yaw":0},"shared":{"p":[0.508,-0.002,-2.438],"yaw":-2.164},"hS":0.008,"head":[0.116,1.728,-0.039],"sharedAlign":true,"pub":{"by":"wca0f4r51jt8","g":"shared","at":1792446128090}}

@@ -1,0 +1,17 @@
+{"at":1792344450032,"kind":"ar","t":905,"n":1,"ev":"attach","story":"airports","st":""}
+{"at":1792344450032,"kind":"ar","t":3259,"n":2,"ev":"headset","visibility":"visible"}
+{"at":1792344450032,"kind":"ar","t":3392,"n":3,"ev":"relay","relay":"https://10.0.0.48:8787","why":"served"}
+{"at":1792344450032,"kind":"ar","t":3392,"n":4,"ev":"served","served":true}
+{"at":1792344450032,"kind":"ar","t":5990,"n":5,"ev":"panel","id":"open"}
+{"at":1792344450032,"kind":"ar","t":11202,"n":6,"ev":"panel","id":"join:XDW"}
+{"at":1792344450032,"kind":"ar","t":11203,"n":7,"ev":"join","code":"XDW","relay":"https://10.0.0.48:8787","local":false}
+{"at":1792344450032,"kind":"ar","t":11204,"n":8,"ev":"connect","code":"XDW"}
+{"at":1792344450032,"kind":"ar","t":11205,"n":9,"ev":"align","state":"waiting"}
+{"at":1792344450032,"kind":"ar","t":11205,"n":10,"ev":"session","mode":"immersive-ar","features":["viewer","plane-detection","webxr","local-floor","local","anchors","shared","hand-tracking","mesh-detection"],"format":"networks-7","ua":"Mozilla/5.0 (X11; Linux x86_64; Quest 3) AppleWebKit/537.36 (KHTML, like Gecko) OculusBrowser/152.1.0.34.52.1079628208 Chrome/152.0.7977.83 VR Safari/537.36","browser":"152","page":"https://10.0.0.48:8787/","persisted":0}
+{"at":1792344450032,"kind":"ar","t":11206,"n":11,"ev":"anchors tidied","listed":0,"kept":0,"deleted":0,"failed":[],"left":0}
+{"at":1792344450032,"kind":"ar","t":11206,"n":12,"ev":"space","type":"local-floor"}
+{"at":1792344450032,"kind":"ar","t":11207,"n":13,"ev":"reset","space":"shared","id":"699c04b0-0fdc-79fb-4153-ec5df35db11b","transform":false}
+{"at":1792344450032,"kind":"ar","t":11207,"n":14,"ev":"space","type":"shared","id":"699c04b0-0fdc-79fb-4153-ec5df35db11b","props":["UUId","constructor"]}
+{"at":1792344450032,"kind":"ar","t":11213,"n":15,"ev":"shared own floor","own":false}
+{"at":1792344450032,"kind":"ar","t":11214,"n":16,"ev":"align","state":"shared-wait"}
+{"at":1792344450032,"kind":"ar","t":11215,"n":17,"ev":"sample","src":"","state":"shared-wait","sid":"699c04b0-0fdc-79fb-4153-ec5df35db11b","sharedOK":true,"here":true,"lf":{"p":[0,-2.196,0],"yaw":0},"shared":{"p":[5.78,-0.005,1.155],"yaw":2.815},"head":[-0.052,2.192,0.564],"sharedAlign":true}

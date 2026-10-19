@@ -1,0 +1,24 @@
+{"at":1792443943335,"kind":"ar","t":880,"n":1,"ev":"attach","story":"airports","st":""}
+{"at":1792443943335,"kind":"ar","t":8145,"n":2,"ev":"headset","visibility":"visible"}
+{"at":1792443943335,"kind":"ar","t":8318,"n":3,"ev":"relay","relay":"https://10.0.0.48:8787","why":"served"}
+{"at":1792443943335,"kind":"ar","t":8318,"n":4,"ev":"served","served":true}
+{"at":1792443943335,"kind":"ar","t":11602,"n":5,"ev":"panel","id":"open"}
+{"at":1792443943335,"kind":"ar","t":19502,"n":6,"ev":"panel","id":"open:NWA"}
+{"at":1792443943335,"kind":"ar","t":19502,"n":7,"ev":"join","code":"NWA","relay":"https://10.0.0.48:8787","local":true}
+{"at":1792443943335,"kind":"ar","t":19504,"n":8,"ev":"connect","code":"NWA"}
+{"at":1792443943335,"kind":"ar","t":19505,"n":9,"ev":"align","state":"waiting"}
+{"at":1792443943335,"kind":"ar","t":19505,"n":10,"ev":"session","mode":"immersive-ar","features":["viewer","plane-detection","webxr","local-floor","local","anchors","shared","hand-tracking","mesh-detection"],"format":"networks-8","ua":"Mozilla/5.0 (X11; Linux x86_64; Quest 3) AppleWebKit/537.36 (KHTML, like Gecko) OculusBrowser/152.1.0.34.52.1079628208 Chrome/152.0.7977.83 VR Safari/537.36","browser":"152","page":"https://10.0.0.48:8787/","persisted":0}
+{"at":1792443943335,"kind":"ar","t":19506,"n":11,"ev":"anchors tidied","listed":0,"kept":0,"deleted":0,"failed":[],"left":0}
+{"at":1792443943335,"kind":"ar","t":19506,"n":12,"ev":"space","type":"local-floor"}
+{"at":1792443943335,"kind":"ar","t":19506,"n":13,"ev":"reset","space":"shared","id":"699c04b0-0fdc-79fb-4153-ec5df35db11b","transform":false}
+{"at":1792443943335,"kind":"ar","t":19506,"n":14,"ev":"space","type":"shared","id":"699c04b0-0fdc-79fb-4153-ec5df35db11b","props":["UUId","constructor"]}
+{"at":1792443943335,"kind":"ar","t":19509,"n":15,"ev":"open"}
+{"at":1792443943335,"kind":"ar","t":19511,"n":16,"ev":"welcome","seq":17,"keys":16,"members":1}
+{"at":1792443943335,"kind":"ar","t":19514,"n":17,"ev":"shared own floor","own":true}
+{"at":1792443943335,"kind":"ar","t":19515,"n":18,"ev":"align","state":"floor"}
+{"at":1792443943335,"kind":"ar","t":19515,"n":19,"ev":"frame","src":"floor","o":[0,0,0],"x":[1,0,0]}
+{"at":1792443943335,"kind":"ar","t":19515,"n":20,"ev":"notice","title":"On your floor"}
+{"at":1792443943335,"kind":"ar","t":19516,"n":21,"ev":"aligned","src":"floor"}
+{"at":1792443943335,"kind":"ar","t":19516,"n":22,"ev":"sample","src":"floor","state":"floor","sid":"699c04b0-0fdc-79fb-4153-ec5df35db11b","sharedOK":true,"here":true,"frame":{"o":[0,0,0],"x":[1,0,0]},"lf":{"p":[0,-1.713,0],"yaw":0},"shared":{"p":[0.001,0,0],"yaw":0},"sharedOwn":true,"head":[5.587,1.718,-4.272],"sharedAlign":false}
+{"at":1792443943335,"kind":"ar","t":19708,"n":23,"ev":"relay back","code":"NWA","made":true}
+{"at":1792443943335,"kind":"ar","t":19709,"n":24,"ev":"connect","code":"NWA"}

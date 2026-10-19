@@ -1,0 +1,40 @@
+{"at":1792443561359,"kind":"ar","t":931,"n":1,"ev":"attach","story":"airports","st":""}
+{"at":1792443561359,"kind":"ar","t":4517,"n":2,"ev":"headset","visibility":"visible"}
+{"at":1792443561359,"kind":"ar","t":4555,"n":3,"ev":"relay","relay":"https://10.0.0.48:8787","why":"served"}
+{"at":1792443561359,"kind":"ar","t":4555,"n":4,"ev":"served","served":true}
+{"at":1792443561359,"kind":"ar","t":8444,"n":5,"ev":"panel","id":"open"}
+{"at":1792443561359,"kind":"ar","t":15488,"n":6,"ev":"panel","id":"join:ZPN"}
+{"at":1792443561359,"kind":"ar","t":15489,"n":7,"ev":"join","code":"ZPN","relay":"https://10.0.0.48:8787","local":false}
+{"at":1792443561359,"kind":"ar","t":15491,"n":8,"ev":"connect","code":"ZPN"}
+{"at":1792443561359,"kind":"ar","t":15491,"n":9,"ev":"align","state":"waiting"}
+{"at":1792443561359,"kind":"ar","t":15492,"n":10,"ev":"session","mode":"immersive-ar","features":["viewer","plane-detection","webxr","local-floor","local","anchors","shared","hand-tracking","mesh-detection"],"format":"networks-8","ua":"Mozilla/5.0 (X11; Linux x86_64; Quest 3) AppleWebKit/537.36 (KHTML, like Gecko) OculusBrowser/152.1.0.34.52.1079628208 Chrome/152.0.7977.83 VR Safari/537.36","browser":"152","page":"https://10.0.0.48:8787/","persisted":0}
+{"at":1792443561359,"kind":"ar","t":15492,"n":11,"ev":"anchors tidied","listed":0,"kept":0,"deleted":0,"failed":[],"left":0}
+{"at":1792443561359,"kind":"ar","t":15492,"n":12,"ev":"space","type":"local-floor"}
+{"at":1792443561359,"kind":"ar","t":15493,"n":13,"ev":"reset","space":"shared","id":"699c04b0-0fdc-79fb-4153-ec5df35db11b","transform":false}
+{"at":1792443561359,"kind":"ar","t":15493,"n":14,"ev":"space","type":"shared","id":"699c04b0-0fdc-79fb-4153-ec5df35db11b","props":["UUId","constructor"]}
+{"at":1792443561359,"kind":"ar","t":15500,"n":15,"ev":"shared own floor","own":true}
+{"at":1792443561359,"kind":"ar","t":15501,"n":16,"ev":"align","state":"calibrate"}
+{"at":1792443561359,"kind":"ar","t":15501,"n":17,"ev":"notice","title":"Calibrate the room"}
+{"at":1792443561359,"kind":"ar","t":15502,"n":18,"ev":"sample","src":"","state":"calibrate","sid":"699c04b0-0fdc-79fb-4153-ec5df35db11b","sharedOK":true,"here":true,"lf":{"p":[0,-1.675,0],"yaw":0},"shared":{"p":[0.007,0.005,0.003],"yaw":-0.001},"sharedOwn":true,"head":[-0.035,1.701,0.403],"sharedAlign":false}
+{"at":1792443571398,"kind":"ar","t":15547,"n":19,"ev":"open"}
+{"at":1792443571398,"kind":"ar","t":15548,"n":20,"ev":"welcome","seq":82,"keys":17,"members":2}
+{"at":1792443571398,"kind":"ar","t":16553,"n":21,"ev":"shared first","first":false,"id":"699c04b0-0fdc-79fb-4153-ec5df35db11b"}
+{"at":1792443571398,"kind":"ar","t":20500,"n":22,"ev":"sample","src":"","state":"calibrate","sid":"699c04b0-0fdc-79fb-4153-ec5df35db11b","sharedOK":true,"here":true,"lf":{"p":[0,-1.675,0],"yaw":0},"shared":{"p":[0.005,0.008,-0.001],"yaw":-0.001},"sharedOwn":true,"head":[-0.152,1.671,0.751],"sharedAlign":false,"pub":{"by":"xqujsdinbdvi","g":"shared","at":1792443478056}}
+{"at":1792443571398,"kind":"ar","t":25500,"n":23,"ev":"sample","src":"","state":"calibrate","sid":"699c04b0-0fdc-79fb-4153-ec5df35db11b","sharedOK":true,"here":true,"lf":{"p":[0,-1.675,0],"yaw":0},"shared":{"p":[0.005,0.009,-0.003],"yaw":-0.001},"sharedOwn":true,"head":[2.088,1.644,-0.45],"sharedAlign":false,"pub":{"by":"xqujsdinbdvi","g":"shared","at":1792443478056}}
+{"at":1792443581467,"kind":"ar","t":30508,"n":24,"ev":"sample","src":"","state":"calibrate","sid":"699c04b0-0fdc-79fb-4153-ec5df35db11b","sharedOK":true,"here":true,"lf":{"p":[0,-1.675,0],"yaw":0},"shared":{"p":[0.003,0.007,0.004],"yaw":-0.001},"sharedOwn":true,"head":[2.476,1.6,0.114],"sharedAlign":false,"pub":{"by":"xqujsdinbdvi","g":"shared","at":1792443478056}}
+{"at":1792443581467,"kind":"ar","t":35510,"n":25,"ev":"sample","src":"","state":"calibrate","sid":"699c04b0-0fdc-79fb-4153-ec5df35db11b","sharedOK":true,"here":true,"lf":{"p":[0,-1.675,0],"yaw":0},"shared":{"p":[0.005,0.006,0.006],"yaw":0},"sharedOwn":true,"head":[1.551,1.7,0.358],"sharedAlign":false,"pub":{"by":"xqujsdinbdvi","g":"shared","at":1792443478056}}
+{"at":1792443591398,"kind":"ar","t":39388,"n":26,"ev":"shared own floor","own":false}
+{"at":1792443591398,"kind":"ar","t":40511,"n":27,"ev":"sample","src":"","state":"calibrate","sid":"699c04b0-0fdc-79fb-4153-ec5df35db11b","sharedOK":true,"here":true,"lf":{"p":[0,-1.675,0],"yaw":0},"shared":{"p":[-0.082,0.075,-0.057],"yaw":-0.017},"head":[1.404,1.762,0.356],"sharedAlign":false,"pub":{"by":"xqujsdinbdvi","g":"shared","at":1792443478056}}
+{"at":1792443591398,"kind":"ar","t":45000,"n":28,"ev":"panel","id":"realign"}
+{"at":1792443591398,"kind":"ar","t":45001,"n":29,"ev":"realign","src":"","state":"calibrate","wakeHold":false,"notJoined":false,"own":false,"id":"699c04b0-0fdc-79fb-4153-ec5df35db11b"}
+{"at":1792443591398,"kind":"ar","t":45001,"n":30,"ev":"notice","title":"Re-aligning"}
+{"at":1792443591398,"kind":"ar","t":45002,"n":31,"ev":"reset","space":"shared","id":"699c04b0-0fdc-79fb-4153-ec5df35db11b","transform":false}
+{"at":1792443591398,"kind":"ar","t":45002,"n":32,"ev":"shared asked again","why":"realign","id":"699c04b0-0fdc-79fb-4153-ec5df35db11b","same":false}
+{"at":1792443591398,"kind":"ar","t":45009,"n":33,"ev":"shared own floor","own":false}
+{"at":1792443591398,"kind":"ar","t":45009,"n":34,"ev":"shared first","first":false,"id":"699c04b0-0fdc-79fb-4153-ec5df35db11b"}
+{"at":1792443591398,"kind":"ar","t":45009,"n":35,"ev":"notice","title":"Calibrate the room"}
+{"at":1792443591398,"kind":"ar","t":45020,"n":36,"ev":"recv","seq":83,"by":"xqujsdinbdvi","keys":["rf.699c04b0-0fdc-79fb-4153-ec5df35db11b"]}
+{"at":1792443601393,"kind":"ar","t":45522,"n":37,"ev":"sample","src":"","state":"calibrate","sid":"699c04b0-0fdc-79fb-4153-ec5df35db11b","sharedOK":true,"here":true,"lf":{"p":[0,-1.675,0],"yaw":0},"shared":{"p":[-0.084,0.076,-0.06],"yaw":-0.016},"head":[0.2,1.76,0.444],"sharedAlign":false,"pub":{"by":"xqujsdinbdvi","g":"shared","at":1792443590863}}
+{"at":1792443601393,"kind":"ar","t":50522,"n":38,"ev":"sample","src":"","state":"calibrate","sid":"699c04b0-0fdc-79fb-4153-ec5df35db11b","sharedOK":true,"here":true,"lf":{"p":[0,-1.675,0],"yaw":0},"shared":{"p":[-0.084,0.076,-0.058],"yaw":-0.02},"head":[0.217,1.68,0.466],"sharedAlign":false,"pub":{"by":"xqujsdinbdvi","g":"shared","at":1792443590863}}
+{"at":1792443611404,"kind":"ar","t":55532,"n":39,"ev":"sample","src":"","state":"calibrate","sid":"699c04b0-0fdc-79fb-4153-ec5df35db11b","sharedOK":true,"here":true,"lf":{"p":[0,-1.675,0],"yaw":0},"shared":{"p":[-0.087,0.077,-0.056],"yaw":-0.019},"head":[0.238,1.675,0.535],"sharedAlign":false,"pub":{"by":"xqujsdinbdvi","g":"shared","at":1792443590863}}
+{"at":1792443611404,"kind":"ar","t":60544,"n":40,"ev":"sample","src":"","state":"calibrate","sid":"699c04b0-0fdc-79fb-4153-ec5df35db11b","sharedOK":true,"here":true,"lf":{"p":[0,-1.675,0],"yaw":0},"shared":{"p":[-0.087,0.077,-0.056],"yaw":-0.019},"head":[0.13,1.76,0.453],"sharedAlign":false,"pub":{"by":"xqujsdinbdvi","g":"shared","at":1792443590863}}

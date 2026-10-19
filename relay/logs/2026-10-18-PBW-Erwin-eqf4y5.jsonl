@@ -1,0 +1,973 @@
+{"at":1792326162001,"kind":"desktop","t":238,"n":1,"ev":"boot","code":"PBW"}
+{"at":1792326162001,"kind":"desktop","t":254,"n":2,"ev":"relay","relay":"https://10.0.0.48:8787","why":"served"}
+{"at":1792326162001,"kind":"desktop","t":254,"n":3,"ev":"served","served":true}
+{"at":1792326162001,"kind":"desktop","t":255,"n":4,"ev":"join","code":"PBW","relay":"https://10.0.0.48:8787"}
+{"at":1792326162001,"kind":"desktop","t":256,"n":5,"ev":"connect","code":"PBW"}
+{"at":1792326162001,"kind":"desktop","t":369,"n":6,"ev":"open"}
+{"at":1792326162001,"kind":"desktop","t":373,"n":7,"ev":"welcome","seq":305,"keys":23,"members":2}
+{"at":1792326162001,"kind":"desktop","t":878,"n":8,"ev":"attach","story":"airports","st":""}
+{"at":1792326162001,"kind":"desktop","t":3258,"n":9,"ev":"headset","visibility":"visible"}
+{"at":1792326162001,"kind":"desktop","t":3373,"n":10,"ev":"align","state":"waiting"}
+{"at":1792326162001,"kind":"desktop","t":3373,"n":11,"ev":"session","mode":"immersive-ar","features":["viewer","plane-detection","webxr","local-floor","local","anchors","shared","hand-tracking","mesh-detection"],"format":"networks-6","ua":"Mozilla/5.0 (X11; Linux x86_64; Quest 3) AppleWebKit/537.36 (KHTML, like Gecko) OculusBrowser/152.1.0.34.52.1079628208 Chrome/152.0.7977.83 VR Safari/537.36","browser":"152","page":"https://10.0.0.48:8787/","persisted":0}
+{"at":1792326162001,"kind":"desktop","t":3373,"n":12,"ev":"anchors tidied","listed":0,"kept":0,"deleted":0,"failed":[],"left":0}
+{"at":1792326162001,"kind":"desktop","t":3374,"n":13,"ev":"space","type":"local-floor"}
+{"at":1792326162001,"kind":"desktop","t":3374,"n":14,"ev":"space","type":"shared","id":"","props":["UUId","constructor"]}
+{"at":1792326162001,"kind":"desktop","t":3385,"n":15,"ev":"reset","space":"shared","id":"c0f0a138-cab3-2825-32ae-17fdaa5e27e4","transform":false}
+{"at":1792326162001,"kind":"desktop","t":3385,"n":16,"ev":"shared own floor","own":true}
+{"at":1792326162001,"kind":"desktop","t":3385,"n":17,"ev":"shared first","first":true,"id":"c0f0a138-cab3-2825-32ae-17fdaa5e27e4"}
+{"at":1792326162001,"kind":"desktop","t":3385,"n":18,"ev":"shared not joined","away":true}
+{"at":1792326162001,"kind":"desktop","t":3385,"n":19,"ev":"align","state":"shared-wait"}
+{"at":1792326162001,"kind":"desktop","t":4343,"n":20,"ev":"reset","space":"shared","id":"a4f5d9f5-dada-5eff-c4d0-6ec0e3c27c73","transform":false}
+{"at":1792326162001,"kind":"desktop","t":4343,"n":21,"ev":"shared first","first":false,"id":"a4f5d9f5-dada-5eff-c4d0-6ec0e3c27c73"}
+{"at":1792326162001,"kind":"desktop","t":5008,"n":22,"ev":"sample","src":"","state":"shared-wait","sid":"a4f5d9f5-dada-5eff-c4d0-6ec0e3c27c73","sharedOK":true,"here":true,"lf":{"p":[0,-2.218,0],"yaw":0},"shared":{"p":[0.001,-0.001,-0.001],"yaw":0.001},"sharedOwn":true,"head":[-0.009,2.22,-0.055],"sharedAlign":true,"pub":{"by":"4mvb44w9d75q","g":"shared","at":1792288423355}}
+{"at":1792326162001,"kind":"desktop","t":7355,"n":23,"ev":"align","state":"off"}
+{"at":1792326171936,"kind":"ar","t":14702,"n":24,"ev":"headset","visibility":"visible"}
+{"at":1792326171936,"kind":"ar","t":14703,"n":25,"ev":"align","state":"waiting"}
+{"at":1792326171936,"kind":"ar","t":14703,"n":26,"ev":"session","mode":"immersive-ar","features":["viewer","plane-detection","webxr","local-floor","local","anchors","shared","hand-tracking","mesh-detection"],"format":"networks-6","ua":"Mozilla/5.0 (X11; Linux x86_64; Quest 3) AppleWebKit/537.36 (KHTML, like Gecko) OculusBrowser/152.1.0.34.52.1079628208 Chrome/152.0.7977.83 VR Safari/537.36","browser":"152","page":"https://10.0.0.48:8787/","persisted":0}
+{"at":1792326171936,"kind":"ar","t":14703,"n":27,"ev":"anchors tidied","listed":0,"kept":0,"deleted":0,"failed":[],"left":0}
+{"at":1792326171936,"kind":"ar","t":14703,"n":28,"ev":"space","type":"local-floor"}
+{"at":1792326171936,"kind":"ar","t":14703,"n":29,"ev":"space","type":"shared","id":"","props":["UUId","constructor"]}
+{"at":1792326171936,"kind":"ar","t":14709,"n":30,"ev":"reset","space":"shared","id":"94c35158-6fc6-09e1-b372-340845999fcd","transform":false}
+{"at":1792326171936,"kind":"ar","t":14709,"n":31,"ev":"shared own floor","own":true}
+{"at":1792326171936,"kind":"ar","t":14709,"n":32,"ev":"shared first","first":true,"id":"94c35158-6fc6-09e1-b372-340845999fcd"}
+{"at":1792326171936,"kind":"ar","t":14709,"n":33,"ev":"shared not joined","away":true}
+{"at":1792326171936,"kind":"ar","t":14709,"n":34,"ev":"align","state":"shared-wait"}
+{"at":1792326171936,"kind":"ar","t":14709,"n":35,"ev":"sample","src":"","state":"shared-wait","sid":"94c35158-6fc6-09e1-b372-340845999fcd","sharedOK":true,"here":true,"lf":{"p":[0,-2.272,0],"yaw":0},"shared":{"p":[0,0,0],"yaw":0.001},"sharedOwn":true,"head":[0.014,2.257,-0.014],"sharedAlign":true}
+{"at":1792326171936,"kind":"ar","t":15748,"n":36,"ev":"reset","space":"shared","id":"a4f5d9f5-dada-5eff-c4d0-6ec0e3c27c73","transform":false}
+{"at":1792326171936,"kind":"ar","t":15748,"n":37,"ev":"shared first","first":false,"id":"a4f5d9f5-dada-5eff-c4d0-6ec0e3c27c73"}
+{"at":1792326181949,"kind":"ar","t":19719,"n":38,"ev":"sample","src":"","state":"shared-wait","sid":"a4f5d9f5-dada-5eff-c4d0-6ec0e3c27c73","sharedOK":true,"here":true,"lf":{"p":[0,-2.272,0],"yaw":0},"shared":{"p":[-0.004,-0.002,0.003],"yaw":0.001},"sharedOwn":true,"notJoined":true,"head":[-0.242,2.179,-0.681],"sharedAlign":true,"pub":{"by":"4mvb44w9d75q","g":"shared","at":1792288423355}}
+{"at":1792326181949,"kind":"ar","t":23595,"n":39,"ev":"panel","id":"open"}
+{"at":1792326181949,"kind":"ar","t":23749,"n":40,"ev":"align","state":"calibrate"}
+{"at":1792326181949,"kind":"ar","t":23749,"n":41,"ev":"notice","title":"Not in the shared space"}
+{"at":1792326181949,"kind":"ar","t":24728,"n":42,"ev":"sample","src":"","state":"calibrate","sid":"a4f5d9f5-dada-5eff-c4d0-6ec0e3c27c73","sharedOK":true,"here":true,"lf":{"p":[0,-2.272,0],"yaw":0},"shared":{"p":[-0.003,-0.002,0.003],"yaw":0.001},"sharedOwn":true,"notJoined":true,"head":[-1.545,2.185,-2.202],"sharedAlign":true,"pub":{"by":"4mvb44w9d75q","g":"shared","at":1792288423355}}
+{"at":1792326181949,"kind":"ar","t":25229,"n":43,"ev":"panel","id":"sharedalign"}
+{"at":1792326181949,"kind":"ar","t":25229,"n":44,"ev":"shared align","on":false}
+{"at":1792326181949,"kind":"ar","t":25240,"n":45,"ev":"shared joined"}
+{"at":1792326181949,"kind":"ar","t":25240,"n":46,"ev":"notice","title":"Calibrate the room"}
+{"at":1792326181949,"kind":"ar","t":26018,"n":47,"ev":"panel","id":"sharedalign"}
+{"at":1792326181949,"kind":"ar","t":26018,"n":48,"ev":"shared align","on":true}
+{"at":1792326181949,"kind":"ar","t":26028,"n":49,"ev":"shared not joined","by":"4mvb44w9d75q","away":false}
+{"at":1792326181949,"kind":"ar","t":26028,"n":50,"ev":"align","state":"shared-wait"}
+{"at":1792326191954,"kind":"ar","t":29730,"n":51,"ev":"sample","src":"","state":"shared-wait","sid":"a4f5d9f5-dada-5eff-c4d0-6ec0e3c27c73","sharedOK":true,"here":true,"lf":{"p":[0,-2.272,0],"yaw":0},"shared":{"p":[-0.002,-0.007,0.009],"yaw":0.001},"sharedOwn":true,"notJoined":true,"head":[-3.566,2.162,-2.939],"sharedAlign":true,"pub":{"by":"4mvb44w9d75q","g":"shared","at":1792288423355}}
+{"at":1792326191954,"kind":"ar","t":34020,"n":52,"ev":"align","state":"calibrate"}
+{"at":1792326191954,"kind":"ar","t":34020,"n":53,"ev":"notice","title":"Not in the shared space"}
+{"at":1792326191954,"kind":"ar","t":34733,"n":54,"ev":"sample","src":"","state":"calibrate","sid":"a4f5d9f5-dada-5eff-c4d0-6ec0e3c27c73","sharedOK":true,"here":true,"lf":{"p":[0,-2.272,0],"yaw":0},"shared":{"p":[-0.003,-0.002,0.01],"yaw":0.001},"sharedOwn":true,"notJoined":true,"head":[-2.721,2.139,-2.737],"sharedAlign":true,"pub":{"by":"4mvb44w9d75q","g":"shared","at":1792288423355}}
+{"at":1792326202152,"kind":"ar","t":39734,"n":55,"ev":"sample","src":"","state":"calibrate","sid":"a4f5d9f5-dada-5eff-c4d0-6ec0e3c27c73","sharedOK":true,"here":true,"lf":{"p":[0,-2.272,0],"yaw":0},"shared":{"p":[-0.004,-0.002,0.009],"yaw":0.001},"sharedOwn":true,"notJoined":true,"head":[-0.362,2.129,-1.196],"sharedAlign":true,"pub":{"by":"4mvb44w9d75q","g":"shared","at":1792288423355}}
+{"at":1792326202152,"kind":"ar","t":44741,"n":56,"ev":"sample","src":"","state":"calibrate","sid":"a4f5d9f5-dada-5eff-c4d0-6ec0e3c27c73","sharedOK":true,"here":true,"lf":{"p":[0,-2.272,0],"yaw":0},"shared":{"p":[-0.001,0,0.008],"yaw":0.001},"sharedOwn":true,"notJoined":true,"head":[0.34,1.827,-1.694],"sharedAlign":true,"pub":{"by":"4mvb44w9d75q","g":"shared","at":1792288423355}}
+{"at":1792326202152,"kind":"ar","t":44823,"n":57,"ev":"headset","visibility":"visible-blurred"}
+{"at":1792326202152,"kind":"ar","t":44823,"n":58,"ev":"headset","visibility":"hidden"}
+{"at":1792326202152,"kind":"ar","t":47301,"n":59,"ev":"headset","visibility":"visible-blurred"}
+{"at":1792326202152,"kind":"ar","t":47301,"n":60,"ev":"woke","away":2478,"src":"","anchors":false}
+{"at":1792326202152,"kind":"ar","t":47302,"n":61,"ev":"shared at head"}
+{"at":1792326202152,"kind":"ar","t":47302,"n":62,"ev":"shared joined"}
+{"at":1792326202152,"kind":"ar","t":47302,"n":63,"ev":"notice","title":"Calibrate the room"}
+{"at":1792326202152,"kind":"ar","t":47329,"n":64,"ev":"headset","visibility":"visible"}
+{"at":1792326202152,"kind":"ar","t":47395,"n":65,"ev":"reset","space":"local-floor","transform":true,"p":[-1.755,0.474,0.019],"yaw":-1.395}
+{"at":1792326211967,"kind":"ar","t":47460,"n":66,"ev":"reset","space":"local-floor","transform":true,"p":[0.005,0.005,-0.009],"yaw":-0.072}
+{"at":1792326211967,"kind":"ar","t":49503,"n":67,"ev":"shared off head"}
+{"at":1792326211967,"kind":"ar","t":49503,"n":68,"ev":"shared own floor","own":false}
+{"at":1792326211967,"kind":"ar","t":49503,"n":69,"ev":"align","state":"adopted"}
+{"at":1792326211967,"kind":"ar","t":49503,"n":70,"ev":"frame","src":"adopted","o":[-1.747,0,-0.126],"x":[0.105,0,0.994]}
+{"at":1792326211967,"kind":"ar","t":49503,"n":71,"ev":"notice","title":"Aligned automatically"}
+{"at":1792326211967,"kind":"ar","t":49503,"n":72,"ev":"aligned","src":"adopted"}
+{"at":1792326211967,"kind":"ar","t":49504,"n":73,"ev":"origin moved","why":"jump","src":"adopted","anchors":false}
+{"at":1792326211967,"kind":"ar","t":49749,"n":74,"ev":"sample","src":"adopted","state":"adopted","sid":"a4f5d9f5-dada-5eff-c4d0-6ec0e3c27c73","sharedOK":true,"here":true,"frame":{"o":[-1.747,0,-0.126],"x":[0.105,0,0.994]},"lf":{"p":[0,-1.794,0],"yaw":0},"shared":{"p":[-1.752,0.009,-0.123],"yaw":-1.466},"hS":-0.01,"head":[-0.196,2.216,-0.179],"sharedAlign":true,"pub":{"by":"4mvb44w9d75q","g":"shared","at":1792288423355}}
+{"at":1792326211967,"kind":"ar","t":54751,"n":75,"ev":"sample","src":"adopted","state":"adopted","sid":"a4f5d9f5-dada-5eff-c4d0-6ec0e3c27c73","sharedOK":true,"here":true,"frame":{"o":[-1.747,0,-0.126],"x":[0.105,0,0.994]},"lf":{"p":[0,-1.794,0],"yaw":0},"shared":{"p":[-1.758,0.007,-0.11],"yaw":-1.465},"hS":-0.01,"head":[-0.059,2.177,-0.31],"sharedAlign":true,"pub":{"by":"4mvb44w9d75q","g":"shared","at":1792288423355}}
+{"at":1792326211967,"kind":"ar","t":55229,"n":76,"ev":"panel","id":"sharedalign"}
+{"at":1792326211967,"kind":"ar","t":55229,"n":77,"ev":"shared align","on":false}
+{"at":1792326211967,"kind":"ar","t":55240,"n":78,"ev":"align","state":"calibrate"}
+{"at":1792326211967,"kind":"ar","t":56353,"n":79,"ev":"panel","id":"sharedalign"}
+{"at":1792326211967,"kind":"ar","t":56353,"n":80,"ev":"shared align","on":true}
+{"at":1792326211967,"kind":"ar","t":56363,"n":81,"ev":"align","state":"adopted"}
+{"at":1792326211967,"kind":"ar","t":56363,"n":82,"ev":"frame","src":"adopted","o":[-1.753,-0.003,-0.111],"x":[0.106,0,0.994]}
+{"at":1792326211967,"kind":"ar","t":56363,"n":83,"ev":"notice","title":"Aligned automatically"}
+{"at":1792326211967,"kind":"ar","t":56363,"n":84,"ev":"aligned","src":"adopted"}
+{"at":1792326221996,"kind":"ar","t":59751,"n":85,"ev":"sample","src":"adopted","state":"adopted","sid":"a4f5d9f5-dada-5eff-c4d0-6ec0e3c27c73","sharedOK":true,"here":true,"frame":{"o":[-1.753,-0.003,-0.111],"x":[0.106,0,0.994]},"lf":{"p":[0,-1.794,0],"yaw":0},"shared":{"p":[-1.758,0.008,-0.109],"yaw":-1.465},"hS":-0.01,"head":[-0.202,2.176,-0.329],"sharedAlign":true,"pub":{"by":"4mvb44w9d75q","g":"shared","at":1792288423355}}
+{"at":1792326221996,"kind":"ar","t":61664,"n":86,"ev":"panel","id":"sharedalign"}
+{"at":1792326221996,"kind":"ar","t":61664,"n":87,"ev":"shared align","on":false}
+{"at":1792326221996,"kind":"ar","t":61674,"n":88,"ev":"align","state":"calibrate"}
+{"at":1792326221996,"kind":"ar","t":62710,"n":89,"ev":"panel","id":"sharedalign"}
+{"at":1792326221996,"kind":"ar","t":62710,"n":90,"ev":"shared align","on":true}
+{"at":1792326221996,"kind":"ar","t":62721,"n":91,"ev":"align","state":"adopted"}
+{"at":1792326221996,"kind":"ar","t":62721,"n":92,"ev":"frame","src":"adopted","o":[-1.751,0.001,-0.114],"x":[0.105,0,0.994]}
+{"at":1792326221996,"kind":"ar","t":62721,"n":93,"ev":"notice","title":"Aligned automatically"}
+{"at":1792326221996,"kind":"ar","t":62721,"n":94,"ev":"aligned","src":"adopted"}
+{"at":1792326221996,"kind":"ar","t":64751,"n":95,"ev":"sample","src":"adopted","state":"adopted","sid":"a4f5d9f5-dada-5eff-c4d0-6ec0e3c27c73","sharedOK":true,"here":true,"frame":{"o":[-1.751,0.001,-0.114],"x":[0.105,0,0.994]},"lf":{"p":[0,-1.794,0],"yaw":0},"shared":{"p":[-1.756,0.012,-0.112],"yaw":-1.465},"hS":-0.01,"head":[-0.531,2.197,-0.718],"sharedAlign":true,"pub":{"by":"4mvb44w9d75q","g":"shared","at":1792288423355}}
+{"at":1792343536213,"kind":"ar","t":68430,"n":96,"ev":"panel","id":"open"}
+{"at":1792343536213,"kind":"ar","t":69761,"n":97,"ev":"sample","src":"adopted","state":"adopted","sid":"a4f5d9f5-dada-5eff-c4d0-6ec0e3c27c73","sharedOK":true,"here":true,"frame":{"o":[-1.751,0.001,-0.114],"x":[0.105,0,0.994]},"lf":{"p":[0,-1.794,0],"yaw":0},"shared":{"p":[-1.755,0.013,-0.113],"yaw":-1.465},"hS":-0.01,"head":[-0.465,2.173,-0.659],"sharedAlign":true,"pub":{"by":"4mvb44w9d75q","g":"shared","at":1792288423355}}
+{"at":1792343536213,"kind":"ar","t":70909,"n":98,"ev":"headset","visibility":"visible-blurred"}
+{"at":1792343536213,"kind":"ar","t":70909,"n":99,"ev":"headset","visibility":"hidden"}
+{"at":1792343536213,"kind":"ar","t":635831,"n":100,"ev":"silent socket"}
+{"at":1792343536213,"kind":"ar","t":635834,"n":101,"ev":"close","code":1006,"reason":"silent"}
+{"at":1792343536213,"kind":"ar","t":636836,"n":102,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":636925,"n":103,"ev":"open"}
+{"at":1792343536213,"kind":"ar","t":636927,"n":104,"ev":"welcome","seq":305,"keys":23,"members":2}
+{"at":1792343536213,"kind":"ar","t":706431,"n":105,"ev":"silent socket"}
+{"at":1792343536213,"kind":"ar","t":706431,"n":106,"ev":"close","code":1006,"reason":"silent"}
+{"at":1792343536213,"kind":"ar","t":707431,"n":107,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":707509,"n":108,"ev":"open"}
+{"at":1792343536213,"kind":"ar","t":707510,"n":109,"ev":"welcome","seq":305,"keys":23,"members":2}
+{"at":1792343536213,"kind":"ar","t":738831,"n":110,"ev":"silent socket"}
+{"at":1792343536213,"kind":"ar","t":738831,"n":111,"ev":"close","code":1006,"reason":"silent"}
+{"at":1792343536213,"kind":"ar","t":739832,"n":112,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":739908,"n":113,"ev":"open"}
+{"at":1792343536213,"kind":"ar","t":739908,"n":114,"ev":"welcome","seq":305,"keys":23,"members":2}
+{"at":1792343536213,"kind":"ar","t":769772,"n":115,"ev":"silent socket"}
+{"at":1792343536213,"kind":"ar","t":769772,"n":116,"ev":"close","code":1006,"reason":"silent"}
+{"at":1792343536213,"kind":"ar","t":770773,"n":117,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":770842,"n":118,"ev":"open"}
+{"at":1792343536213,"kind":"ar","t":770844,"n":119,"ev":"welcome","seq":305,"keys":23,"members":2}
+{"at":1792343536213,"kind":"ar","t":781514,"n":120,"ev":"silent socket"}
+{"at":1792343536213,"kind":"ar","t":781514,"n":121,"ev":"close","code":1006,"reason":"silent"}
+{"at":1792343536213,"kind":"ar","t":782514,"n":122,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":782597,"n":123,"ev":"open"}
+{"at":1792343536213,"kind":"ar","t":782598,"n":124,"ev":"welcome","seq":305,"keys":23,"members":2}
+{"at":1792343536213,"kind":"ar","t":795594,"n":125,"ev":"silent socket"}
+{"at":1792343536213,"kind":"ar","t":795594,"n":126,"ev":"close","code":1006,"reason":"silent"}
+{"at":1792343536213,"kind":"ar","t":796595,"n":127,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":796669,"n":128,"ev":"open"}
+{"at":1792343536213,"kind":"ar","t":796671,"n":129,"ev":"welcome","seq":305,"keys":23,"members":2}
+{"at":1792343536213,"kind":"ar","t":815631,"n":130,"ev":"silent socket"}
+{"at":1792343536213,"kind":"ar","t":815631,"n":131,"ev":"close","code":1006,"reason":"silent"}
+{"at":1792343536213,"kind":"ar","t":816632,"n":132,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":816718,"n":133,"ev":"open"}
+{"at":1792343536213,"kind":"ar","t":816719,"n":134,"ev":"welcome","seq":305,"keys":23,"members":2}
+{"at":1792343536213,"kind":"ar","t":842431,"n":135,"ev":"silent socket"}
+{"at":1792343536213,"kind":"ar","t":842431,"n":136,"ev":"close","code":1006,"reason":"silent"}
+{"at":1792343536213,"kind":"ar","t":843432,"n":137,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":843501,"n":138,"ev":"open"}
+{"at":1792343536213,"kind":"ar","t":843503,"n":139,"ev":"welcome","seq":305,"keys":23,"members":2}
+{"at":1792343536213,"kind":"ar","t":860231,"n":140,"ev":"silent socket"}
+{"at":1792343536213,"kind":"ar","t":860231,"n":141,"ev":"close","code":1006,"reason":"silent"}
+{"at":1792343536213,"kind":"ar","t":861232,"n":142,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":861297,"n":143,"ev":"open"}
+{"at":1792343536213,"kind":"ar","t":861298,"n":144,"ev":"welcome","seq":305,"keys":23,"members":2}
+{"at":1792343536213,"kind":"ar","t":909638,"n":145,"ev":"close","code":1006,"reason":""}
+{"at":1792343536213,"kind":"ar","t":910639,"n":146,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":910721,"n":147,"ev":"open"}
+{"at":1792343536213,"kind":"ar","t":910722,"n":148,"ev":"welcome","seq":305,"keys":23,"members":2}
+{"at":1792343536213,"kind":"ar","t":918249,"n":149,"ev":"silent socket"}
+{"at":1792343536213,"kind":"ar","t":918249,"n":150,"ev":"close","code":1006,"reason":"silent"}
+{"at":1792343536213,"kind":"ar","t":919250,"n":151,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":919328,"n":152,"ev":"open"}
+{"at":1792343536213,"kind":"ar","t":919330,"n":153,"ev":"welcome","seq":305,"keys":23,"members":2}
+{"at":1792343536213,"kind":"ar","t":932345,"n":154,"ev":"silent socket"}
+{"at":1792343536213,"kind":"ar","t":932346,"n":155,"ev":"close","code":1006,"reason":"silent"}
+{"at":1792343536213,"kind":"ar","t":933346,"n":156,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":933415,"n":157,"ev":"open"}
+{"at":1792343536213,"kind":"ar","t":933416,"n":158,"ev":"welcome","seq":305,"keys":23,"members":2}
+{"at":1792343536213,"kind":"ar","t":956728,"n":159,"ev":"silent socket"}
+{"at":1792343536213,"kind":"ar","t":956728,"n":160,"ev":"close","code":1006,"reason":"silent"}
+{"at":1792343536213,"kind":"ar","t":957729,"n":161,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":957803,"n":162,"ev":"open"}
+{"at":1792343536213,"kind":"ar","t":957804,"n":163,"ev":"welcome","seq":305,"keys":23,"members":2}
+{"at":1792343536213,"kind":"ar","t":970726,"n":164,"ev":"silent socket"}
+{"at":1792343536213,"kind":"ar","t":970726,"n":165,"ev":"close","code":1006,"reason":"silent"}
+{"at":1792343536213,"kind":"ar","t":971727,"n":166,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":971803,"n":167,"ev":"open"}
+{"at":1792343536213,"kind":"ar","t":971806,"n":168,"ev":"welcome","seq":305,"keys":23,"members":2}
+{"at":1792343536213,"kind":"ar","t":989933,"n":169,"ev":"silent socket"}
+{"at":1792343536213,"kind":"ar","t":989933,"n":170,"ev":"close","code":1006,"reason":"silent"}
+{"at":1792343536213,"kind":"ar","t":990934,"n":171,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":991015,"n":172,"ev":"open"}
+{"at":1792343536213,"kind":"ar","t":991016,"n":173,"ev":"welcome","seq":305,"keys":23,"members":2}
+{"at":1792343536213,"kind":"ar","t":1008747,"n":174,"ev":"silent socket"}
+{"at":1792343536213,"kind":"ar","t":1008747,"n":175,"ev":"close","code":1006,"reason":"silent"}
+{"at":1792343536213,"kind":"ar","t":1009747,"n":176,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":1009818,"n":177,"ev":"open"}
+{"at":1792343536213,"kind":"ar","t":1009819,"n":178,"ev":"welcome","seq":305,"keys":23,"members":2}
+{"at":1792343536213,"kind":"ar","t":1021431,"n":179,"ev":"silent socket"}
+{"at":1792343536213,"kind":"ar","t":1021431,"n":180,"ev":"close","code":1006,"reason":"silent"}
+{"at":1792343536213,"kind":"ar","t":1022431,"n":181,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":1022513,"n":182,"ev":"open"}
+{"at":1792343536213,"kind":"ar","t":1022514,"n":183,"ev":"welcome","seq":305,"keys":23,"members":2}
+{"at":1792343536213,"kind":"ar","t":1081252,"n":184,"ev":"silent socket"}
+{"at":1792343536213,"kind":"ar","t":1081252,"n":185,"ev":"close","code":1006,"reason":"silent"}
+{"at":1792343536213,"kind":"ar","t":1082252,"n":186,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":1082299,"n":187,"ev":"open"}
+{"at":1792343536213,"kind":"ar","t":1082301,"n":188,"ev":"welcome","seq":305,"keys":23,"members":2}
+{"at":1792343536213,"kind":"ar","t":1101305,"n":189,"ev":"silent socket"}
+{"at":1792343536213,"kind":"ar","t":1101305,"n":190,"ev":"close","code":1006,"reason":"silent"}
+{"at":1792343536213,"kind":"ar","t":1102306,"n":191,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":1102385,"n":192,"ev":"open"}
+{"at":1792343536213,"kind":"ar","t":1102386,"n":193,"ev":"welcome","seq":305,"keys":23,"members":2}
+{"at":1792343536213,"kind":"ar","t":1127315,"n":194,"ev":"silent socket"}
+{"at":1792343536213,"kind":"ar","t":1127315,"n":195,"ev":"close","code":1006,"reason":"silent"}
+{"at":1792343536213,"kind":"ar","t":1128316,"n":196,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":1128370,"n":197,"ev":"open"}
+{"at":1792343536213,"kind":"ar","t":1128372,"n":198,"ev":"welcome","seq":305,"keys":23,"members":2}
+{"at":1792343536213,"kind":"ar","t":1161431,"n":199,"ev":"silent socket"}
+{"at":1792343536213,"kind":"ar","t":1161431,"n":200,"ev":"close","code":1006,"reason":"silent"}
+{"at":1792343536213,"kind":"ar","t":1162432,"n":201,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":1162520,"n":202,"ev":"open"}
+{"at":1792343536213,"kind":"ar","t":1162520,"n":203,"ev":"welcome","seq":305,"keys":23,"members":2}
+{"at":1792343536213,"kind":"ar","t":1172112,"n":204,"ev":"silent socket"}
+{"at":1792343536213,"kind":"ar","t":1172112,"n":205,"ev":"close","code":1006,"reason":"silent"}
+{"at":1792343536213,"kind":"ar","t":1173112,"n":206,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":1173186,"n":207,"ev":"open"}
+{"at":1792343536213,"kind":"ar","t":1173187,"n":208,"ev":"welcome","seq":305,"keys":23,"members":2}
+{"at":1792343536213,"kind":"ar","t":1191330,"n":209,"ev":"silent socket"}
+{"at":1792343536213,"kind":"ar","t":1191330,"n":210,"ev":"close","code":1006,"reason":"silent"}
+{"at":1792343536213,"kind":"ar","t":1192331,"n":211,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":1192413,"n":212,"ev":"open"}
+{"at":1792343536213,"kind":"ar","t":1192415,"n":213,"ev":"welcome","seq":305,"keys":23,"members":2}
+{"at":1792343536213,"kind":"ar","t":1207735,"n":214,"ev":"silent socket"}
+{"at":1792343536213,"kind":"ar","t":1207735,"n":215,"ev":"close","code":1006,"reason":"silent"}
+{"at":1792343536213,"kind":"ar","t":1208736,"n":216,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":1208812,"n":217,"ev":"open"}
+{"at":1792343536213,"kind":"ar","t":1208813,"n":218,"ev":"welcome","seq":305,"keys":23,"members":2}
+{"at":1792343536213,"kind":"ar","t":1233767,"n":219,"ev":"silent socket"}
+{"at":1792343536213,"kind":"ar","t":1233767,"n":220,"ev":"close","code":1006,"reason":"silent"}
+{"at":1792343536213,"kind":"ar","t":1234768,"n":221,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":1234842,"n":222,"ev":"open"}
+{"at":1792343536213,"kind":"ar","t":1234843,"n":223,"ev":"welcome","seq":305,"keys":23,"members":2}
+{"at":1792343536213,"kind":"ar","t":1248274,"n":224,"ev":"silent socket"}
+{"at":1792343536213,"kind":"ar","t":1248274,"n":225,"ev":"close","code":1006,"reason":"silent"}
+{"at":1792343536213,"kind":"ar","t":1249275,"n":226,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":1249340,"n":227,"ev":"open"}
+{"at":1792343536213,"kind":"ar","t":1249341,"n":228,"ev":"welcome","seq":305,"keys":23,"members":2}
+{"at":1792343536213,"kind":"ar","t":1267051,"n":229,"ev":"silent socket"}
+{"at":1792343536213,"kind":"ar","t":1267051,"n":230,"ev":"close","code":1006,"reason":"silent"}
+{"at":1792343536213,"kind":"ar","t":1268051,"n":231,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":1268135,"n":232,"ev":"open"}
+{"at":1792343536213,"kind":"ar","t":1268136,"n":233,"ev":"welcome","seq":305,"keys":23,"members":2}
+{"at":1792343536213,"kind":"ar","t":1309508,"n":234,"ev":"silent socket"}
+{"at":1792343536213,"kind":"ar","t":1309508,"n":235,"ev":"close","code":1006,"reason":"silent"}
+{"at":1792343536213,"kind":"ar","t":1310509,"n":236,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":1310573,"n":237,"ev":"open"}
+{"at":1792343536213,"kind":"ar","t":1310574,"n":238,"ev":"welcome","seq":305,"keys":23,"members":2}
+{"at":1792343536213,"kind":"ar","t":1356439,"n":239,"ev":"silent socket"}
+{"at":1792343536213,"kind":"ar","t":1356439,"n":240,"ev":"close","code":1006,"reason":"silent"}
+{"at":1792343536213,"kind":"ar","t":1357440,"n":241,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":1357507,"n":242,"ev":"open"}
+{"at":1792343536213,"kind":"ar","t":1357509,"n":243,"ev":"welcome","seq":305,"keys":23,"members":2}
+{"at":1792343536213,"kind":"ar","t":1429631,"n":244,"ev":"silent socket"}
+{"at":1792343536213,"kind":"ar","t":1429631,"n":245,"ev":"close","code":1006,"reason":"silent"}
+{"at":1792343536213,"kind":"ar","t":1430632,"n":246,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":1430699,"n":247,"ev":"open"}
+{"at":1792343536213,"kind":"ar","t":1430700,"n":248,"ev":"welcome","seq":305,"keys":23,"members":2}
+{"at":1792343536213,"kind":"ar","t":1457768,"n":249,"ev":"silent socket"}
+{"at":1792343536213,"kind":"ar","t":1457769,"n":250,"ev":"close","code":1006,"reason":"silent"}
+{"at":1792343536213,"kind":"ar","t":1458769,"n":251,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":1458851,"n":252,"ev":"open"}
+{"at":1792343536213,"kind":"ar","t":1458852,"n":253,"ev":"welcome","seq":305,"keys":23,"members":2}
+{"at":1792343536213,"kind":"ar","t":1483157,"n":254,"ev":"silent socket"}
+{"at":1792343536213,"kind":"ar","t":1483157,"n":255,"ev":"close","code":1006,"reason":"silent"}
+{"at":1792343536213,"kind":"ar","t":1484158,"n":256,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":1484225,"n":257,"ev":"open"}
+{"at":1792343536213,"kind":"ar","t":1484226,"n":258,"ev":"welcome","seq":305,"keys":23,"members":2}
+{"at":1792343536213,"kind":"ar","t":1510831,"n":259,"ev":"silent socket"}
+{"at":1792343536213,"kind":"ar","t":1510831,"n":260,"ev":"close","code":1006,"reason":"silent"}
+{"at":1792343536213,"kind":"ar","t":1511832,"n":261,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":1511908,"n":262,"ev":"open"}
+{"at":1792343536213,"kind":"ar","t":1511909,"n":263,"ev":"welcome","seq":305,"keys":23,"members":2}
+{"at":1792343536213,"kind":"ar","t":1529877,"n":264,"ev":"silent socket"}
+{"at":1792343536213,"kind":"ar","t":1529877,"n":265,"ev":"close","code":1006,"reason":"silent"}
+{"at":1792343536213,"kind":"ar","t":1530878,"n":266,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":1530938,"n":267,"ev":"open"}
+{"at":1792343536213,"kind":"ar","t":1530939,"n":268,"ev":"welcome","seq":305,"keys":23,"members":2}
+{"at":1792343536213,"kind":"ar","t":1569982,"n":269,"ev":"silent socket"}
+{"at":1792343536213,"kind":"ar","t":1569982,"n":270,"ev":"close","code":1006,"reason":"silent"}
+{"at":1792343536213,"kind":"ar","t":1570983,"n":271,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":1571057,"n":272,"ev":"open"}
+{"at":1792343536213,"kind":"ar","t":1571058,"n":273,"ev":"welcome","seq":305,"keys":23,"members":2}
+{"at":1792343536213,"kind":"ar","t":1591831,"n":274,"ev":"silent socket"}
+{"at":1792343536213,"kind":"ar","t":1591831,"n":275,"ev":"close","code":1006,"reason":"silent"}
+{"at":1792343536213,"kind":"ar","t":1592831,"n":276,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":1592896,"n":277,"ev":"open"}
+{"at":1792343536213,"kind":"ar","t":1592897,"n":278,"ev":"welcome","seq":305,"keys":23,"members":2}
+{"at":1792343536213,"kind":"ar","t":1627158,"n":279,"ev":"silent socket"}
+{"at":1792343536213,"kind":"ar","t":1627158,"n":280,"ev":"close","code":1006,"reason":"silent"}
+{"at":1792343536213,"kind":"ar","t":1628159,"n":281,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":1628235,"n":282,"ev":"open"}
+{"at":1792343536213,"kind":"ar","t":1628236,"n":283,"ev":"welcome","seq":305,"keys":23,"members":2}
+{"at":1792343536213,"kind":"ar","t":1674031,"n":284,"ev":"silent socket"}
+{"at":1792343536213,"kind":"ar","t":1674031,"n":285,"ev":"close","code":1006,"reason":"silent"}
+{"at":1792343536213,"kind":"ar","t":1675032,"n":286,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":1675102,"n":287,"ev":"open"}
+{"at":1792343536213,"kind":"ar","t":1675103,"n":288,"ev":"welcome","seq":305,"keys":23,"members":2}
+{"at":1792343536213,"kind":"ar","t":1688389,"n":289,"ev":"silent socket"}
+{"at":1792343536213,"kind":"ar","t":1688389,"n":290,"ev":"close","code":1006,"reason":"silent"}
+{"at":1792343536213,"kind":"ar","t":1689390,"n":291,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":1689468,"n":292,"ev":"open"}
+{"at":1792343536213,"kind":"ar","t":1689469,"n":293,"ev":"welcome","seq":305,"keys":23,"members":2}
+{"at":1792343536213,"kind":"ar","t":1710224,"n":294,"ev":"silent socket"}
+{"at":1792343536213,"kind":"ar","t":1710224,"n":295,"ev":"close","code":1006,"reason":"silent"}
+{"at":1792343536213,"kind":"ar","t":1711225,"n":296,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":1711286,"n":297,"ev":"open"}
+{"at":1792343536213,"kind":"ar","t":1711287,"n":298,"ev":"welcome","seq":305,"keys":23,"members":2}
+{"at":1792343536213,"kind":"ar","t":1727031,"n":299,"ev":"silent socket"}
+{"at":1792343536213,"kind":"ar","t":1727031,"n":300,"ev":"close","code":1006,"reason":"silent"}
+{"at":1792343536213,"kind":"ar","t":1728032,"n":301,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":1728104,"n":302,"ev":"open"}
+{"at":1792343536213,"kind":"ar","t":1728105,"n":303,"ev":"welcome","seq":305,"keys":23,"members":2}
+{"at":1792343536213,"kind":"ar","t":1751115,"n":304,"ev":"silent socket"}
+{"at":1792343536213,"kind":"ar","t":1751115,"n":305,"ev":"close","code":1006,"reason":"silent"}
+{"at":1792343536213,"kind":"ar","t":1752116,"n":306,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":1752183,"n":307,"ev":"open"}
+{"at":1792343536213,"kind":"ar","t":1752184,"n":308,"ev":"welcome","seq":305,"keys":23,"members":2}
+{"at":1792343536213,"kind":"ar","t":1760486,"n":309,"ev":"silent socket"}
+{"at":1792343536213,"kind":"ar","t":1760486,"n":310,"ev":"close","code":1006,"reason":"silent"}
+{"at":1792343536213,"kind":"ar","t":1761487,"n":311,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":1761568,"n":312,"ev":"open"}
+{"at":1792343536213,"kind":"ar","t":1761570,"n":313,"ev":"welcome","seq":305,"keys":23,"members":2}
+{"at":1792343536213,"kind":"ar","t":1775231,"n":314,"ev":"silent socket"}
+{"at":1792343536213,"kind":"ar","t":1775231,"n":315,"ev":"close","code":1006,"reason":"silent"}
+{"at":1792343536213,"kind":"ar","t":1776232,"n":316,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":1776293,"n":317,"ev":"open"}
+{"at":1792343536213,"kind":"ar","t":1776294,"n":318,"ev":"welcome","seq":305,"keys":23,"members":2}
+{"at":1792343536213,"kind":"ar","t":1793790,"n":319,"ev":"silent socket"}
+{"at":1792343536213,"kind":"ar","t":1793790,"n":320,"ev":"close","code":1006,"reason":"silent"}
+{"at":1792343536213,"kind":"ar","t":1794791,"n":321,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":1794877,"n":322,"ev":"open"}
+{"at":1792343536213,"kind":"ar","t":1794878,"n":323,"ev":"welcome","seq":305,"keys":23,"members":2}
+{"at":1792343536213,"kind":"ar","t":1807431,"n":324,"ev":"silent socket"}
+{"at":1792343536213,"kind":"ar","t":1807431,"n":325,"ev":"close","code":1006,"reason":"silent"}
+{"at":1792343536213,"kind":"ar","t":1808432,"n":326,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":1808503,"n":327,"ev":"open"}
+{"at":1792343536213,"kind":"ar","t":1808504,"n":328,"ev":"welcome","seq":305,"keys":23,"members":2}
+{"at":1792343536213,"kind":"ar","t":1819578,"n":329,"ev":"silent socket"}
+{"at":1792343536213,"kind":"ar","t":1819578,"n":330,"ev":"close","code":1006,"reason":"silent"}
+{"at":1792343536213,"kind":"ar","t":1820579,"n":331,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":1820655,"n":332,"ev":"open"}
+{"at":1792343536213,"kind":"ar","t":1820656,"n":333,"ev":"welcome","seq":305,"keys":23,"members":2}
+{"at":1792343536213,"kind":"ar","t":1852438,"n":334,"ev":"silent socket"}
+{"at":1792343536213,"kind":"ar","t":1852438,"n":335,"ev":"close","code":1006,"reason":"silent"}
+{"at":1792343536213,"kind":"ar","t":1853439,"n":336,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":1853506,"n":337,"ev":"open"}
+{"at":1792343536213,"kind":"ar","t":1853507,"n":338,"ev":"welcome","seq":305,"keys":23,"members":2}
+{"at":1792343536213,"kind":"ar","t":1882971,"n":339,"ev":"silent socket"}
+{"at":1792343536213,"kind":"ar","t":1882971,"n":340,"ev":"close","code":1006,"reason":"silent"}
+{"at":1792343536213,"kind":"ar","t":1883971,"n":341,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":1884050,"n":342,"ev":"open"}
+{"at":1792343536213,"kind":"ar","t":1884051,"n":343,"ev":"welcome","seq":305,"keys":23,"members":2}
+{"at":1792343536213,"kind":"ar","t":1923908,"n":344,"ev":"silent socket"}
+{"at":1792343536213,"kind":"ar","t":1923909,"n":345,"ev":"close","code":1006,"reason":"silent"}
+{"at":1792343536213,"kind":"ar","t":1924909,"n":346,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":1924981,"n":347,"ev":"open"}
+{"at":1792343536213,"kind":"ar","t":1924982,"n":348,"ev":"welcome","seq":305,"keys":23,"members":2}
+{"at":1792343536213,"kind":"ar","t":1937984,"n":349,"ev":"silent socket"}
+{"at":1792343536213,"kind":"ar","t":1937984,"n":350,"ev":"close","code":1006,"reason":"silent"}
+{"at":1792343536213,"kind":"ar","t":1938985,"n":351,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":1939059,"n":352,"ev":"open"}
+{"at":1792343536213,"kind":"ar","t":1939061,"n":353,"ev":"welcome","seq":305,"keys":23,"members":2}
+{"at":1792343536213,"kind":"ar","t":1992380,"n":354,"ev":"silent socket"}
+{"at":1792343536213,"kind":"ar","t":1992380,"n":355,"ev":"close","code":1006,"reason":"silent"}
+{"at":1792343536213,"kind":"ar","t":1993381,"n":356,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":1993456,"n":357,"ev":"open"}
+{"at":1792343536213,"kind":"ar","t":1993458,"n":358,"ev":"welcome","seq":305,"keys":23,"members":2}
+{"at":1792343536213,"kind":"ar","t":2001769,"n":359,"ev":"silent socket"}
+{"at":1792343536213,"kind":"ar","t":2001770,"n":360,"ev":"close","code":1006,"reason":"silent"}
+{"at":1792343536213,"kind":"ar","t":2002771,"n":361,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":2002841,"n":362,"ev":"open"}
+{"at":1792343536213,"kind":"ar","t":2002845,"n":363,"ev":"welcome","seq":305,"keys":23,"members":2}
+{"at":1792343536213,"kind":"ar","t":2018231,"n":364,"ev":"silent socket"}
+{"at":1792343536213,"kind":"ar","t":2018231,"n":365,"ev":"close","code":1006,"reason":"silent"}
+{"at":1792343536213,"kind":"ar","t":2019232,"n":366,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":2019312,"n":367,"ev":"open"}
+{"at":1792343536213,"kind":"ar","t":2019314,"n":368,"ev":"welcome","seq":305,"keys":23,"members":2}
+{"at":1792343536213,"kind":"ar","t":2097344,"n":369,"ev":"silent socket"}
+{"at":1792343536213,"kind":"ar","t":2097344,"n":370,"ev":"close","code":1006,"reason":"silent"}
+{"at":1792343536213,"kind":"ar","t":2098345,"n":371,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":2098420,"n":372,"ev":"open"}
+{"at":1792343536213,"kind":"ar","t":2098422,"n":373,"ev":"welcome","seq":305,"keys":23,"members":2}
+{"at":1792343536213,"kind":"ar","t":2113772,"n":374,"ev":"silent socket"}
+{"at":1792343536213,"kind":"ar","t":2113772,"n":375,"ev":"close","code":1006,"reason":"silent"}
+{"at":1792343536213,"kind":"ar","t":2114773,"n":376,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":2114837,"n":377,"ev":"open"}
+{"at":1792343536213,"kind":"ar","t":2114838,"n":378,"ev":"welcome","seq":305,"keys":23,"members":2}
+{"at":1792343536213,"kind":"ar","t":2157081,"n":379,"ev":"silent socket"}
+{"at":1792343536213,"kind":"ar","t":2157081,"n":380,"ev":"close","code":1006,"reason":"silent"}
+{"at":1792343536213,"kind":"ar","t":2158082,"n":381,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":2158156,"n":382,"ev":"open"}
+{"at":1792343536213,"kind":"ar","t":2158156,"n":383,"ev":"welcome","seq":305,"keys":23,"members":2}
+{"at":1792343536213,"kind":"ar","t":2178631,"n":384,"ev":"silent socket"}
+{"at":1792343536213,"kind":"ar","t":2178632,"n":385,"ev":"close","code":1006,"reason":"silent"}
+{"at":1792343536213,"kind":"ar","t":2179632,"n":386,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":2179707,"n":387,"ev":"open"}
+{"at":1792343536213,"kind":"ar","t":2179709,"n":388,"ev":"welcome","seq":305,"keys":23,"members":2}
+{"at":1792343536213,"kind":"ar","t":2203631,"n":389,"ev":"silent socket"}
+{"at":1792343536213,"kind":"ar","t":2203631,"n":390,"ev":"close","code":1006,"reason":"silent"}
+{"at":1792343536213,"kind":"ar","t":2204632,"n":391,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":2204707,"n":392,"ev":"open"}
+{"at":1792343536213,"kind":"ar","t":2204708,"n":393,"ev":"welcome","seq":305,"keys":23,"members":2}
+{"at":1792343536213,"kind":"ar","t":2222145,"n":394,"ev":"silent socket"}
+{"at":1792343536213,"kind":"ar","t":2222145,"n":395,"ev":"close","code":1006,"reason":"silent"}
+{"at":1792343536213,"kind":"ar","t":2223146,"n":396,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":2223210,"n":397,"ev":"open"}
+{"at":1792343536213,"kind":"ar","t":2223210,"n":398,"ev":"welcome","seq":305,"keys":23,"members":2}
+{"at":1792343536213,"kind":"ar","t":2255031,"n":399,"ev":"silent socket"}
+{"at":1792343536213,"kind":"ar","t":2255031,"n":400,"ev":"close","code":1006,"reason":"silent"}
+{"at":1792343536213,"kind":"ar","t":2256032,"n":401,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":2256109,"n":402,"ev":"open"}
+{"at":1792343536213,"kind":"ar","t":2256112,"n":403,"ev":"welcome","seq":305,"keys":23,"members":2}
+{"at":1792343536213,"kind":"ar","t":2266963,"n":404,"ev":"silent socket"}
+{"at":1792343536213,"kind":"ar","t":2266963,"n":405,"ev":"close","code":1006,"reason":"silent"}
+{"at":1792343536213,"kind":"ar","t":2267963,"n":406,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":2268036,"n":407,"ev":"open"}
+{"at":1792343536213,"kind":"ar","t":2268037,"n":408,"ev":"welcome","seq":305,"keys":23,"members":2}
+{"at":1792343536213,"kind":"ar","t":2290431,"n":409,"ev":"silent socket"}
+{"at":1792343536213,"kind":"ar","t":2290431,"n":410,"ev":"close","code":1006,"reason":"silent"}
+{"at":1792343536213,"kind":"ar","t":2291432,"n":411,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":2291513,"n":412,"ev":"open"}
+{"at":1792343536213,"kind":"ar","t":2291516,"n":413,"ev":"welcome","seq":305,"keys":23,"members":2}
+{"at":1792343536213,"kind":"ar","t":2333736,"n":414,"ev":"silent socket"}
+{"at":1792343536213,"kind":"ar","t":2333736,"n":415,"ev":"close","code":1006,"reason":"silent"}
+{"at":1792343536213,"kind":"ar","t":2334736,"n":416,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":2334808,"n":417,"ev":"open"}
+{"at":1792343536213,"kind":"ar","t":2334809,"n":418,"ev":"welcome","seq":305,"keys":23,"members":2}
+{"at":1792343536213,"kind":"ar","t":2352496,"n":419,"ev":"silent socket"}
+{"at":1792343536213,"kind":"ar","t":2352496,"n":420,"ev":"close","code":1006,"reason":"silent"}
+{"at":1792343536213,"kind":"ar","t":2353497,"n":421,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":2353570,"n":422,"ev":"open"}
+{"at":1792343536213,"kind":"ar","t":2353571,"n":423,"ev":"welcome","seq":305,"keys":23,"members":2}
+{"at":1792343536213,"kind":"ar","t":2366831,"n":424,"ev":"silent socket"}
+{"at":1792343536213,"kind":"ar","t":2366831,"n":425,"ev":"close","code":1006,"reason":"silent"}
+{"at":1792343536213,"kind":"ar","t":2367832,"n":426,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":2367901,"n":427,"ev":"open"}
+{"at":1792343536213,"kind":"ar","t":2367903,"n":428,"ev":"welcome","seq":305,"keys":23,"members":2}
+{"at":1792343536213,"kind":"ar","t":2380231,"n":429,"ev":"silent socket"}
+{"at":1792343536213,"kind":"ar","t":2380231,"n":430,"ev":"close","code":1006,"reason":"silent"}
+{"at":1792343536213,"kind":"ar","t":2381231,"n":431,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":2381304,"n":432,"ev":"open"}
+{"at":1792343536213,"kind":"ar","t":2381305,"n":433,"ev":"welcome","seq":305,"keys":23,"members":2}
+{"at":1792343536213,"kind":"ar","t":2423547,"n":434,"ev":"silent socket"}
+{"at":1792343536213,"kind":"ar","t":2423547,"n":435,"ev":"close","code":1006,"reason":"silent"}
+{"at":1792343536213,"kind":"ar","t":2424548,"n":436,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":2424622,"n":437,"ev":"open"}
+{"at":1792343536213,"kind":"ar","t":2424623,"n":438,"ev":"welcome","seq":305,"keys":23,"members":2}
+{"at":1792343536213,"kind":"ar","t":2435273,"n":439,"ev":"silent socket"}
+{"at":1792343536213,"kind":"ar","t":2435273,"n":440,"ev":"close","code":1006,"reason":"silent"}
+{"at":1792343536213,"kind":"ar","t":2436273,"n":441,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":2436332,"n":442,"ev":"open"}
+{"at":1792343536213,"kind":"ar","t":2436334,"n":443,"ev":"welcome","seq":305,"keys":23,"members":2}
+{"at":1792343536213,"kind":"ar","t":2459145,"n":444,"ev":"silent socket"}
+{"at":1792343536213,"kind":"ar","t":2459145,"n":445,"ev":"close","code":1006,"reason":"silent"}
+{"at":1792343536213,"kind":"ar","t":2460145,"n":446,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":2460220,"n":447,"ev":"open"}
+{"at":1792343536213,"kind":"ar","t":2460221,"n":448,"ev":"welcome","seq":305,"keys":23,"members":2}
+{"at":1792343536213,"kind":"ar","t":2479231,"n":449,"ev":"silent socket"}
+{"at":1792343536213,"kind":"ar","t":2479231,"n":450,"ev":"close","code":1006,"reason":"silent"}
+{"at":1792343536213,"kind":"ar","t":2480232,"n":451,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":2480314,"n":452,"ev":"open"}
+{"at":1792343536213,"kind":"ar","t":2480315,"n":453,"ev":"welcome","seq":305,"keys":23,"members":2}
+{"at":1792343536213,"kind":"ar","t":2491369,"n":454,"ev":"silent socket"}
+{"at":1792343536213,"kind":"ar","t":2491369,"n":455,"ev":"close","code":1006,"reason":"silent"}
+{"at":1792343536213,"kind":"ar","t":2492370,"n":456,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":2492455,"n":457,"ev":"open"}
+{"at":1792343536213,"kind":"ar","t":2492456,"n":458,"ev":"welcome","seq":305,"keys":23,"members":2}
+{"at":1792343536213,"kind":"ar","t":2517185,"n":459,"ev":"silent socket"}
+{"at":1792343536213,"kind":"ar","t":2517185,"n":460,"ev":"close","code":1006,"reason":"silent"}
+{"at":1792343536213,"kind":"ar","t":2518185,"n":461,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":2518257,"n":462,"ev":"open"}
+{"at":1792343536213,"kind":"ar","t":2518258,"n":463,"ev":"welcome","seq":305,"keys":23,"members":2}
+{"at":1792343536213,"kind":"ar","t":2553243,"n":464,"ev":"silent socket"}
+{"at":1792343536213,"kind":"ar","t":2553243,"n":465,"ev":"close","code":1006,"reason":"silent"}
+{"at":1792343536213,"kind":"ar","t":2554244,"n":466,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":2554306,"n":467,"ev":"open"}
+{"at":1792343536213,"kind":"ar","t":2554308,"n":468,"ev":"welcome","seq":305,"keys":23,"members":2}
+{"at":1792343536213,"kind":"ar","t":2575031,"n":469,"ev":"silent socket"}
+{"at":1792343536213,"kind":"ar","t":2575031,"n":470,"ev":"close","code":1006,"reason":"silent"}
+{"at":1792343536213,"kind":"ar","t":2576032,"n":471,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":2576101,"n":472,"ev":"open"}
+{"at":1792343536213,"kind":"ar","t":2576102,"n":473,"ev":"welcome","seq":305,"keys":23,"members":2}
+{"at":1792343536213,"kind":"ar","t":2611698,"n":474,"ev":"silent socket"}
+{"at":1792343536213,"kind":"ar","t":2611698,"n":475,"ev":"close","code":1006,"reason":"silent"}
+{"at":1792343536213,"kind":"ar","t":2612699,"n":476,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":2612764,"n":477,"ev":"open"}
+{"at":1792343536213,"kind":"ar","t":2612765,"n":478,"ev":"welcome","seq":305,"keys":23,"members":2}
+{"at":1792343536213,"kind":"ar","t":2645831,"n":479,"ev":"silent socket"}
+{"at":1792343536213,"kind":"ar","t":2645831,"n":480,"ev":"close","code":1006,"reason":"silent"}
+{"at":1792343536213,"kind":"ar","t":2646832,"n":481,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":2646899,"n":482,"ev":"open"}
+{"at":1792343536213,"kind":"ar","t":2646900,"n":483,"ev":"welcome","seq":305,"keys":23,"members":2}
+{"at":1792343536213,"kind":"ar","t":2671031,"n":484,"ev":"silent socket"}
+{"at":1792343536213,"kind":"ar","t":2671031,"n":485,"ev":"close","code":1006,"reason":"silent"}
+{"at":1792343536213,"kind":"ar","t":2672032,"n":486,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":2672093,"n":487,"ev":"open"}
+{"at":1792343536213,"kind":"ar","t":2672094,"n":488,"ev":"welcome","seq":305,"keys":23,"members":2}
+{"at":1792343536213,"kind":"ar","t":2742031,"n":489,"ev":"silent socket"}
+{"at":1792343536213,"kind":"ar","t":2742031,"n":490,"ev":"close","code":1006,"reason":"silent"}
+{"at":1792343536213,"kind":"ar","t":2743031,"n":491,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":2743101,"n":492,"ev":"open"}
+{"at":1792343536213,"kind":"ar","t":2743102,"n":493,"ev":"welcome","seq":305,"keys":23,"members":2}
+{"at":1792343536213,"kind":"ar","t":2759831,"n":494,"ev":"silent socket"}
+{"at":1792343536213,"kind":"ar","t":2759831,"n":495,"ev":"close","code":1006,"reason":"silent"}
+{"at":1792343536213,"kind":"ar","t":2760832,"n":496,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":2760893,"n":497,"ev":"open"}
+{"at":1792343536213,"kind":"ar","t":2760894,"n":498,"ev":"welcome","seq":305,"keys":23,"members":2}
+{"at":1792343536213,"kind":"ar","t":2768498,"n":499,"ev":"silent socket"}
+{"at":1792343536213,"kind":"ar","t":2768498,"n":500,"ev":"close","code":1006,"reason":"silent"}
+{"at":1792343536213,"kind":"ar","t":2769499,"n":501,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":2769568,"n":502,"ev":"open"}
+{"at":1792343536213,"kind":"ar","t":2769569,"n":503,"ev":"welcome","seq":305,"keys":23,"members":2}
+{"at":1792343536213,"kind":"ar","t":2784831,"n":504,"ev":"silent socket"}
+{"at":1792343536213,"kind":"ar","t":2784831,"n":505,"ev":"close","code":1006,"reason":"silent"}
+{"at":1792343536213,"kind":"ar","t":2785832,"n":506,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":2785882,"n":507,"ev":"open"}
+{"at":1792343536213,"kind":"ar","t":2785883,"n":508,"ev":"welcome","seq":305,"keys":23,"members":2}
+{"at":1792343536213,"kind":"ar","t":2794526,"n":509,"ev":"silent socket"}
+{"at":1792343536213,"kind":"ar","t":2794526,"n":510,"ev":"close","code":1006,"reason":"silent"}
+{"at":1792343536213,"kind":"ar","t":2795527,"n":511,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":2795600,"n":512,"ev":"open"}
+{"at":1792343536213,"kind":"ar","t":2795601,"n":513,"ev":"welcome","seq":305,"keys":23,"members":2}
+{"at":1792343536213,"kind":"ar","t":2808631,"n":514,"ev":"silent socket"}
+{"at":1792343536213,"kind":"ar","t":2808631,"n":515,"ev":"close","code":1006,"reason":"silent"}
+{"at":1792343536213,"kind":"ar","t":2809632,"n":516,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":2809692,"n":517,"ev":"open"}
+{"at":1792343536213,"kind":"ar","t":2809693,"n":518,"ev":"welcome","seq":305,"keys":23,"members":2}
+{"at":1792343536213,"kind":"ar","t":2860668,"n":519,"ev":"silent socket"}
+{"at":1792343536213,"kind":"ar","t":2860668,"n":520,"ev":"close","code":1006,"reason":"silent"}
+{"at":1792343536213,"kind":"ar","t":2861669,"n":521,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":2861747,"n":522,"ev":"open"}
+{"at":1792343536213,"kind":"ar","t":2861748,"n":523,"ev":"welcome","seq":305,"keys":23,"members":2}
+{"at":1792343536213,"kind":"ar","t":2892631,"n":524,"ev":"silent socket"}
+{"at":1792343536213,"kind":"ar","t":2892631,"n":525,"ev":"close","code":1006,"reason":"silent"}
+{"at":1792343536213,"kind":"ar","t":2893632,"n":526,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":2893690,"n":527,"ev":"open"}
+{"at":1792343536213,"kind":"ar","t":2893691,"n":528,"ev":"welcome","seq":305,"keys":23,"members":2}
+{"at":1792343536213,"kind":"ar","t":2913118,"n":529,"ev":"silent socket"}
+{"at":1792343536213,"kind":"ar","t":2913118,"n":530,"ev":"close","code":1006,"reason":"silent"}
+{"at":1792343536213,"kind":"ar","t":2914118,"n":531,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":2914201,"n":532,"ev":"open"}
+{"at":1792343536213,"kind":"ar","t":2914202,"n":533,"ev":"welcome","seq":305,"keys":23,"members":2}
+{"at":1792343536213,"kind":"ar","t":2933031,"n":534,"ev":"silent socket"}
+{"at":1792343536213,"kind":"ar","t":2933031,"n":535,"ev":"close","code":1006,"reason":"silent"}
+{"at":1792343536213,"kind":"ar","t":2934032,"n":536,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":2934102,"n":537,"ev":"open"}
+{"at":1792343536213,"kind":"ar","t":2934103,"n":538,"ev":"welcome","seq":305,"keys":23,"members":2}
+{"at":1792343536213,"kind":"ar","t":2961557,"n":539,"ev":"silent socket"}
+{"at":1792343536213,"kind":"ar","t":2961557,"n":540,"ev":"close","code":1006,"reason":"silent"}
+{"at":1792343536213,"kind":"ar","t":2962558,"n":541,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":2962614,"n":542,"ev":"open"}
+{"at":1792343536213,"kind":"ar","t":2962615,"n":543,"ev":"welcome","seq":305,"keys":23,"members":2}
+{"at":1792343536213,"kind":"ar","t":2997631,"n":544,"ev":"silent socket"}
+{"at":1792343536213,"kind":"ar","t":2997631,"n":545,"ev":"close","code":1006,"reason":"silent"}
+{"at":1792343536213,"kind":"ar","t":2998632,"n":546,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":2998690,"n":547,"ev":"open"}
+{"at":1792343536213,"kind":"ar","t":2998690,"n":548,"ev":"welcome","seq":305,"keys":23,"members":2}
+{"at":1792343536213,"kind":"ar","t":3029837,"n":549,"ev":"silent socket"}
+{"at":1792343536213,"kind":"ar","t":3029837,"n":550,"ev":"close","code":1006,"reason":"silent"}
+{"at":1792343536213,"kind":"ar","t":3030838,"n":551,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":3030906,"n":552,"ev":"open"}
+{"at":1792343536213,"kind":"ar","t":3030907,"n":553,"ev":"welcome","seq":305,"keys":23,"members":2}
+{"at":1792343536213,"kind":"ar","t":3059061,"n":554,"ev":"silent socket"}
+{"at":1792343536213,"kind":"ar","t":3059061,"n":555,"ev":"close","code":1006,"reason":"silent"}
+{"at":1792343536213,"kind":"ar","t":3060062,"n":556,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":3060131,"n":557,"ev":"open"}
+{"at":1792343536213,"kind":"ar","t":3060132,"n":558,"ev":"welcome","seq":305,"keys":23,"members":2}
+{"at":1792343536213,"kind":"ar","t":3096831,"n":559,"ev":"silent socket"}
+{"at":1792343536213,"kind":"ar","t":3096831,"n":560,"ev":"close","code":1006,"reason":"silent"}
+{"at":1792343536213,"kind":"ar","t":3097832,"n":561,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":3097902,"n":562,"ev":"open"}
+{"at":1792343536213,"kind":"ar","t":3097903,"n":563,"ev":"welcome","seq":305,"keys":23,"members":2}
+{"at":1792343536213,"kind":"ar","t":3114431,"n":564,"ev":"silent socket"}
+{"at":1792343536213,"kind":"ar","t":3114431,"n":565,"ev":"close","code":1006,"reason":"silent"}
+{"at":1792343536213,"kind":"ar","t":3115432,"n":566,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":3115488,"n":567,"ev":"open"}
+{"at":1792343536213,"kind":"ar","t":3115489,"n":568,"ev":"welcome","seq":305,"keys":23,"members":2}
+{"at":1792343536213,"kind":"ar","t":3186031,"n":569,"ev":"silent socket"}
+{"at":1792343536213,"kind":"ar","t":3186031,"n":570,"ev":"close","code":1006,"reason":"silent"}
+{"at":1792343536213,"kind":"ar","t":3187032,"n":571,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":3187101,"n":572,"ev":"open"}
+{"at":1792343536213,"kind":"ar","t":3187102,"n":573,"ev":"welcome","seq":305,"keys":23,"members":2}
+{"at":1792343536213,"kind":"ar","t":3206453,"n":574,"ev":"silent socket"}
+{"at":1792343536213,"kind":"ar","t":3206453,"n":575,"ev":"close","code":1006,"reason":"silent"}
+{"at":1792343536213,"kind":"ar","t":3207454,"n":576,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":3207520,"n":577,"ev":"open"}
+{"at":1792343536213,"kind":"ar","t":3207522,"n":578,"ev":"welcome","seq":305,"keys":23,"members":2}
+{"at":1792343536213,"kind":"ar","t":3271103,"n":579,"ev":"silent socket"}
+{"at":1792343536213,"kind":"ar","t":3271103,"n":580,"ev":"close","code":1006,"reason":"silent"}
+{"at":1792343536213,"kind":"ar","t":3272104,"n":581,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":3272180,"n":582,"ev":"open"}
+{"at":1792343536213,"kind":"ar","t":3272181,"n":583,"ev":"welcome","seq":305,"keys":23,"members":2}
+{"at":1792343536213,"kind":"ar","t":3287955,"n":584,"ev":"silent socket"}
+{"at":1792343536213,"kind":"ar","t":3287955,"n":585,"ev":"close","code":1006,"reason":"silent"}
+{"at":1792343536213,"kind":"ar","t":3288956,"n":586,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":3289019,"n":587,"ev":"open"}
+{"at":1792343536213,"kind":"ar","t":3289020,"n":588,"ev":"welcome","seq":305,"keys":23,"members":2}
+{"at":1792343536213,"kind":"ar","t":3299698,"n":589,"ev":"silent socket"}
+{"at":1792343536213,"kind":"ar","t":3299698,"n":590,"ev":"close","code":1006,"reason":"silent"}
+{"at":1792343536213,"kind":"ar","t":3300699,"n":591,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":3300755,"n":592,"ev":"open"}
+{"at":1792343536213,"kind":"ar","t":3300755,"n":593,"ev":"welcome","seq":305,"keys":23,"members":2}
+{"at":1792343536213,"kind":"ar","t":3316123,"n":594,"ev":"silent socket"}
+{"at":1792343536213,"kind":"ar","t":3316123,"n":595,"ev":"close","code":1006,"reason":"silent"}
+{"at":1792343536213,"kind":"ar","t":3317123,"n":596,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":3317187,"n":597,"ev":"open"}
+{"at":1792343536213,"kind":"ar","t":3317188,"n":598,"ev":"welcome","seq":305,"keys":23,"members":2}
+{"at":1792343536213,"kind":"ar","t":3337239,"n":599,"ev":"silent socket"}
+{"at":1792343536213,"kind":"ar","t":3337240,"n":600,"ev":"close","code":1006,"reason":"silent"}
+{"at":1792343536213,"kind":"ar","t":3338241,"n":601,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":3338303,"n":602,"ev":"open"}
+{"at":1792343536213,"kind":"ar","t":3338305,"n":603,"ev":"welcome","seq":305,"keys":23,"members":2}
+{"at":1792343536213,"kind":"ar","t":3382478,"n":604,"ev":"silent socket"}
+{"at":1792343536213,"kind":"ar","t":3382478,"n":605,"ev":"close","code":1006,"reason":"silent"}
+{"at":1792343536213,"kind":"ar","t":3383479,"n":606,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":3383607,"n":607,"ev":"open"}
+{"at":1792343536213,"kind":"ar","t":3383609,"n":608,"ev":"welcome","seq":305,"keys":23,"members":2}
+{"at":1792343536213,"kind":"ar","t":3399187,"n":609,"ev":"silent socket"}
+{"at":1792343536213,"kind":"ar","t":3399187,"n":610,"ev":"close","code":1006,"reason":"silent"}
+{"at":1792343536213,"kind":"ar","t":3400187,"n":611,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":3400254,"n":612,"ev":"open"}
+{"at":1792343536213,"kind":"ar","t":3400255,"n":613,"ev":"welcome","seq":305,"keys":23,"members":2}
+{"at":1792343536213,"kind":"ar","t":3419581,"n":614,"ev":"silent socket"}
+{"at":1792343536213,"kind":"ar","t":3419581,"n":615,"ev":"close","code":1006,"reason":"silent"}
+{"at":1792343536213,"kind":"ar","t":3420582,"n":616,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":3420646,"n":617,"ev":"open"}
+{"at":1792343536213,"kind":"ar","t":3420647,"n":618,"ev":"welcome","seq":305,"keys":23,"members":2}
+{"at":1792343536213,"kind":"ar","t":3433672,"n":619,"ev":"silent socket"}
+{"at":1792343536213,"kind":"ar","t":3433672,"n":620,"ev":"close","code":1006,"reason":"silent"}
+{"at":1792343536213,"kind":"ar","t":3434672,"n":621,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":3434742,"n":622,"ev":"open"}
+{"at":1792343536213,"kind":"ar","t":3434743,"n":623,"ev":"welcome","seq":305,"keys":23,"members":2}
+{"at":1792343536213,"kind":"ar","t":3448831,"n":624,"ev":"silent socket"}
+{"at":1792343536213,"kind":"ar","t":3448831,"n":625,"ev":"close","code":1006,"reason":"silent"}
+{"at":1792343536213,"kind":"ar","t":3449832,"n":626,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":3449896,"n":627,"ev":"open"}
+{"at":1792343536213,"kind":"ar","t":3449897,"n":628,"ev":"welcome","seq":305,"keys":23,"members":2}
+{"at":1792343536213,"kind":"ar","t":3468451,"n":629,"ev":"silent socket"}
+{"at":1792343536213,"kind":"ar","t":3468451,"n":630,"ev":"close","code":1006,"reason":"silent"}
+{"at":1792343536213,"kind":"ar","t":3469451,"n":631,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":3469534,"n":632,"ev":"open"}
+{"at":1792343536213,"kind":"ar","t":3469535,"n":633,"ev":"welcome","seq":305,"keys":23,"members":2}
+{"at":1792343536213,"kind":"ar","t":3480170,"n":634,"ev":"silent socket"}
+{"at":1792343536213,"kind":"ar","t":3480170,"n":635,"ev":"close","code":1006,"reason":"silent"}
+{"at":1792343536213,"kind":"ar","t":3481171,"n":636,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":3481232,"n":637,"ev":"open"}
+{"at":1792343536213,"kind":"ar","t":3481233,"n":638,"ev":"welcome","seq":305,"keys":23,"members":2}
+{"at":1792343536213,"kind":"ar","t":3495031,"n":639,"ev":"silent socket"}
+{"at":1792343536213,"kind":"ar","t":3495031,"n":640,"ev":"close","code":1006,"reason":"silent"}
+{"at":1792343536213,"kind":"ar","t":3496032,"n":641,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":3496102,"n":642,"ev":"open"}
+{"at":1792343536213,"kind":"ar","t":3496103,"n":643,"ev":"welcome","seq":305,"keys":23,"members":2}
+{"at":1792343536213,"kind":"ar","t":3515391,"n":644,"ev":"silent socket"}
+{"at":1792343536213,"kind":"ar","t":3515391,"n":645,"ev":"close","code":1006,"reason":"silent"}
+{"at":1792343536213,"kind":"ar","t":3516392,"n":646,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":3516449,"n":647,"ev":"open"}
+{"at":1792343536213,"kind":"ar","t":3516450,"n":648,"ev":"welcome","seq":305,"keys":23,"members":2}
+{"at":1792343536213,"kind":"ar","t":3527109,"n":649,"ev":"silent socket"}
+{"at":1792343536213,"kind":"ar","t":3527109,"n":650,"ev":"close","code":1006,"reason":"silent"}
+{"at":1792343536213,"kind":"ar","t":3528110,"n":651,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":3528175,"n":652,"ev":"open"}
+{"at":1792343536213,"kind":"ar","t":3528175,"n":653,"ev":"welcome","seq":305,"keys":23,"members":2}
+{"at":1792343536213,"kind":"ar","t":3541189,"n":654,"ev":"silent socket"}
+{"at":1792343536213,"kind":"ar","t":3541189,"n":655,"ev":"close","code":1006,"reason":"silent"}
+{"at":1792343536213,"kind":"ar","t":3542190,"n":656,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":3542255,"n":657,"ev":"open"}
+{"at":1792343536213,"kind":"ar","t":3542256,"n":658,"ev":"welcome","seq":305,"keys":23,"members":2}
+{"at":1792343536213,"kind":"ar","t":3564656,"n":659,"ev":"silent socket"}
+{"at":1792343536213,"kind":"ar","t":3564656,"n":660,"ev":"close","code":1006,"reason":"silent"}
+{"at":1792343536213,"kind":"ar","t":3565657,"n":661,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":3565731,"n":662,"ev":"open"}
+{"at":1792343536213,"kind":"ar","t":3565732,"n":663,"ev":"welcome","seq":305,"keys":23,"members":2}
+{"at":1792343536213,"kind":"ar","t":3585772,"n":664,"ev":"silent socket"}
+{"at":1792343536213,"kind":"ar","t":3585773,"n":665,"ev":"close","code":1006,"reason":"silent"}
+{"at":1792343536213,"kind":"ar","t":3586773,"n":666,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":3586837,"n":667,"ev":"open"}
+{"at":1792343536213,"kind":"ar","t":3586838,"n":668,"ev":"welcome","seq":305,"keys":23,"members":2}
+{"at":1792343536213,"kind":"ar","t":3614831,"n":669,"ev":"silent socket"}
+{"at":1792343536213,"kind":"ar","t":3614831,"n":670,"ev":"close","code":1006,"reason":"silent"}
+{"at":1792343536213,"kind":"ar","t":3615832,"n":671,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":3615908,"n":672,"ev":"open"}
+{"at":1792343536213,"kind":"ar","t":3615909,"n":673,"ev":"welcome","seq":305,"keys":23,"members":2}
+{"at":1792343536213,"kind":"ar","t":3687540,"n":674,"ev":"silent socket"}
+{"at":1792343536213,"kind":"ar","t":3687540,"n":675,"ev":"close","code":1006,"reason":"silent"}
+{"at":1792343536213,"kind":"ar","t":3688541,"n":676,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":3688600,"n":677,"ev":"open"}
+{"at":1792343536213,"kind":"ar","t":3688601,"n":678,"ev":"welcome","seq":305,"keys":23,"members":2}
+{"at":1792343536213,"kind":"ar","t":3697025,"n":679,"ev":"silent socket"}
+{"at":1792343536213,"kind":"ar","t":3697025,"n":680,"ev":"close","code":1006,"reason":"silent"}
+{"at":1792343536213,"kind":"ar","t":3698026,"n":681,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":3698104,"n":682,"ev":"open"}
+{"at":1792343536213,"kind":"ar","t":3698105,"n":683,"ev":"welcome","seq":305,"keys":23,"members":2}
+{"at":1792343536213,"kind":"ar","t":3758831,"n":684,"ev":"silent socket"}
+{"at":1792343536213,"kind":"ar","t":3758831,"n":685,"ev":"close","code":1006,"reason":"silent"}
+{"at":1792343536213,"kind":"ar","t":3759832,"n":686,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":3759882,"n":687,"ev":"open"}
+{"at":1792343536213,"kind":"ar","t":3759883,"n":688,"ev":"welcome","seq":305,"keys":23,"members":2}
+{"at":1792343536213,"kind":"ar","t":3771369,"n":689,"ev":"silent socket"}
+{"at":1792343536213,"kind":"ar","t":3771369,"n":690,"ev":"close","code":1006,"reason":"silent"}
+{"at":1792343536213,"kind":"ar","t":3772370,"n":691,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":3772444,"n":692,"ev":"open"}
+{"at":1792343536213,"kind":"ar","t":3772445,"n":693,"ev":"welcome","seq":305,"keys":23,"members":2}
+{"at":1792343536213,"kind":"ar","t":3811913,"n":694,"ev":"silent socket"}
+{"at":1792343536213,"kind":"ar","t":3811913,"n":695,"ev":"close","code":1006,"reason":"silent"}
+{"at":1792343536213,"kind":"ar","t":3812913,"n":696,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":3812974,"n":697,"ev":"open"}
+{"at":1792343536213,"kind":"ar","t":3812975,"n":698,"ev":"welcome","seq":305,"keys":23,"members":2}
+{"at":1792343536213,"kind":"ar","t":3824431,"n":699,"ev":"silent socket"}
+{"at":1792343536213,"kind":"ar","t":3824431,"n":700,"ev":"close","code":1006,"reason":"silent"}
+{"at":1792343536213,"kind":"ar","t":3825432,"n":701,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":3825493,"n":702,"ev":"open"}
+{"at":1792343536213,"kind":"ar","t":3825494,"n":703,"ev":"welcome","seq":305,"keys":23,"members":2}
+{"at":1792343536213,"kind":"ar","t":3857355,"n":704,"ev":"silent socket"}
+{"at":1792343536213,"kind":"ar","t":3857355,"n":705,"ev":"close","code":1006,"reason":"silent"}
+{"at":1792343536213,"kind":"ar","t":3858356,"n":706,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":3858416,"n":707,"ev":"open"}
+{"at":1792343536213,"kind":"ar","t":3858417,"n":708,"ev":"welcome","seq":305,"keys":23,"members":2}
+{"at":1792343536213,"kind":"ar","t":3884652,"n":709,"ev":"silent socket"}
+{"at":1792343536213,"kind":"ar","t":3884652,"n":710,"ev":"close","code":1006,"reason":"silent"}
+{"at":1792343536213,"kind":"ar","t":3885653,"n":711,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":3885725,"n":712,"ev":"open"}
+{"at":1792343536213,"kind":"ar","t":3885758,"n":713,"ev":"welcome","seq":305,"keys":23,"members":2}
+{"at":1792343536213,"kind":"ar","t":3907031,"n":714,"ev":"silent socket"}
+{"at":1792343536213,"kind":"ar","t":3907031,"n":715,"ev":"close","code":1006,"reason":"silent"}
+{"at":1792343536213,"kind":"ar","t":3908125,"n":716,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":3908183,"n":717,"ev":"open"}
+{"at":1792343536213,"kind":"ar","t":3908184,"n":718,"ev":"welcome","seq":305,"keys":23,"members":2}
+{"at":1792343536213,"kind":"ar","t":3943431,"n":719,"ev":"silent socket"}
+{"at":1792343536213,"kind":"ar","t":3943431,"n":720,"ev":"close","code":1006,"reason":"silent"}
+{"at":1792343536213,"kind":"ar","t":3944431,"n":721,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":3944506,"n":722,"ev":"open"}
+{"at":1792343536213,"kind":"ar","t":3944510,"n":723,"ev":"welcome","seq":305,"keys":23,"members":2}
+{"at":1792343536213,"kind":"ar","t":3971266,"n":724,"ev":"silent socket"}
+{"at":1792343536213,"kind":"ar","t":3971266,"n":725,"ev":"close","code":1006,"reason":"silent"}
+{"at":1792343536213,"kind":"ar","t":3972266,"n":726,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":3972329,"n":727,"ev":"open"}
+{"at":1792343536213,"kind":"ar","t":3972330,"n":728,"ev":"welcome","seq":305,"keys":23,"members":2}
+{"at":1792343536213,"kind":"ar","t":4001776,"n":729,"ev":"silent socket"}
+{"at":1792343536213,"kind":"ar","t":4001776,"n":730,"ev":"close","code":1006,"reason":"silent"}
+{"at":1792343536213,"kind":"ar","t":4002777,"n":731,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":4002856,"n":732,"ev":"open"}
+{"at":1792343536213,"kind":"ar","t":4002857,"n":733,"ev":"welcome","seq":305,"keys":23,"members":2}
+{"at":1792343536213,"kind":"ar","t":4021231,"n":734,"ev":"silent socket"}
+{"at":1792343536213,"kind":"ar","t":4021231,"n":735,"ev":"close","code":1006,"reason":"silent"}
+{"at":1792343536213,"kind":"ar","t":4022232,"n":736,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":4022292,"n":737,"ev":"open"}
+{"at":1792343536213,"kind":"ar","t":4022293,"n":738,"ev":"welcome","seq":305,"keys":23,"members":2}
+{"at":1792343536213,"kind":"ar","t":4089894,"n":739,"ev":"silent socket"}
+{"at":1792343536213,"kind":"ar","t":4089894,"n":740,"ev":"close","code":1006,"reason":"silent"}
+{"at":1792343536213,"kind":"ar","t":4090894,"n":741,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":4090968,"n":742,"ev":"open"}
+{"at":1792343536213,"kind":"ar","t":4090968,"n":743,"ev":"welcome","seq":305,"keys":23,"members":2}
+{"at":1792343536213,"kind":"ar","t":4101631,"n":744,"ev":"silent socket"}
+{"at":1792343536213,"kind":"ar","t":4101631,"n":745,"ev":"close","code":1006,"reason":"silent"}
+{"at":1792343536213,"kind":"ar","t":4102632,"n":746,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":4102699,"n":747,"ev":"open"}
+{"at":1792343536213,"kind":"ar","t":4102701,"n":748,"ev":"welcome","seq":305,"keys":23,"members":2}
+{"at":1792343536213,"kind":"ar","t":4154524,"n":749,"ev":"silent socket"}
+{"at":1792343536213,"kind":"ar","t":4154524,"n":750,"ev":"close","code":1006,"reason":"silent"}
+{"at":1792343536213,"kind":"ar","t":4155525,"n":751,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":4155598,"n":752,"ev":"open"}
+{"at":1792343536213,"kind":"ar","t":4155599,"n":753,"ev":"welcome","seq":305,"keys":23,"members":2}
+{"at":1792343536213,"kind":"ar","t":4185874,"n":754,"ev":"close","code":1006,"reason":""}
+{"at":1792343536213,"kind":"ar","t":4186874,"n":755,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":4186932,"n":756,"ev":"open"}
+{"at":1792343536213,"kind":"ar","t":4186933,"n":757,"ev":"welcome","seq":305,"keys":23,"members":2}
+{"at":1792343536213,"kind":"ar","t":4216169,"n":758,"ev":"silent socket"}
+{"at":1792343536213,"kind":"ar","t":4216169,"n":759,"ev":"close","code":1006,"reason":"silent"}
+{"at":1792343536213,"kind":"ar","t":4217170,"n":760,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":4217234,"n":761,"ev":"open"}
+{"at":1792343536213,"kind":"ar","t":4217235,"n":762,"ev":"welcome","seq":305,"keys":23,"members":2}
+{"at":1792343536213,"kind":"ar","t":4254566,"n":763,"ev":"silent socket"}
+{"at":1792343536213,"kind":"ar","t":4254566,"n":764,"ev":"close","code":1006,"reason":"silent"}
+{"at":1792343536213,"kind":"ar","t":4255567,"n":765,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":4255693,"n":766,"ev":"open"}
+{"at":1792343536213,"kind":"ar","t":4255694,"n":767,"ev":"welcome","seq":305,"keys":23,"members":2}
+{"at":1792343536213,"kind":"ar","t":4268649,"n":768,"ev":"silent socket"}
+{"at":1792343536213,"kind":"ar","t":4268649,"n":769,"ev":"close","code":1006,"reason":"silent"}
+{"at":1792343536213,"kind":"ar","t":4269649,"n":770,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":4269717,"n":771,"ev":"open"}
+{"at":1792343536213,"kind":"ar","t":4269717,"n":772,"ev":"welcome","seq":305,"keys":23,"members":2}
+{"at":1792343536213,"kind":"ar","t":4297239,"n":773,"ev":"silent socket"}
+{"at":1792343536213,"kind":"ar","t":4297239,"n":774,"ev":"close","code":1006,"reason":"silent"}
+{"at":1792343536213,"kind":"ar","t":4298239,"n":775,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":4298306,"n":776,"ev":"open"}
+{"at":1792343536213,"kind":"ar","t":4298309,"n":777,"ev":"welcome","seq":305,"keys":23,"members":2}
+{"at":1792343536213,"kind":"ar","t":4336231,"n":778,"ev":"silent socket"}
+{"at":1792343536213,"kind":"ar","t":4336231,"n":779,"ev":"close","code":1006,"reason":"silent"}
+{"at":1792343536213,"kind":"ar","t":4337232,"n":780,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":4337292,"n":781,"ev":"open"}
+{"at":1792343536213,"kind":"ar","t":4337293,"n":782,"ev":"welcome","seq":305,"keys":23,"members":2}
+{"at":1792343536213,"kind":"ar","t":4415031,"n":783,"ev":"silent socket"}
+{"at":1792343536213,"kind":"ar","t":4415031,"n":784,"ev":"close","code":1006,"reason":"silent"}
+{"at":1792343536213,"kind":"ar","t":4416032,"n":785,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":4416102,"n":786,"ev":"open"}
+{"at":1792343536213,"kind":"ar","t":4416103,"n":787,"ev":"welcome","seq":305,"keys":23,"members":2}
+{"at":1792343536213,"kind":"ar","t":4423497,"n":788,"ev":"close","code":1006,"reason":""}
+{"at":1792343536213,"kind":"ar","t":4424498,"n":789,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":4424501,"n":790,"ev":"close","code":1006,"reason":""}
+{"at":1792343536213,"kind":"ar","t":4426502,"n":791,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":4426506,"n":792,"ev":"close","code":1006,"reason":""}
+{"at":1792343536213,"kind":"ar","t":4430507,"n":793,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":4430511,"n":794,"ev":"close","code":1006,"reason":""}
+{"at":1792343536213,"kind":"ar","t":4438512,"n":795,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":4438517,"n":796,"ev":"close","code":1006,"reason":""}
+{"at":1792343536213,"kind":"ar","t":4453518,"n":797,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":4453522,"n":798,"ev":"close","code":1006,"reason":""}
+{"at":1792343536213,"kind":"ar","t":4468523,"n":799,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":4468528,"n":800,"ev":"close","code":1006,"reason":""}
+{"at":1792343536213,"kind":"ar","t":4483528,"n":801,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":4483533,"n":802,"ev":"close","code":1006,"reason":""}
+{"at":1792343536213,"kind":"ar","t":4498533,"n":803,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":4498538,"n":804,"ev":"close","code":1006,"reason":""}
+{"at":1792343536213,"kind":"ar","t":4513539,"n":805,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":4513545,"n":806,"ev":"close","code":1006,"reason":""}
+{"at":1792343536213,"kind":"ar","t":4528546,"n":807,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":4528551,"n":808,"ev":"close","code":1006,"reason":""}
+{"at":1792343536213,"kind":"ar","t":4543552,"n":809,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":4543558,"n":810,"ev":"close","code":1006,"reason":""}
+{"at":1792343536213,"kind":"ar","t":4558559,"n":811,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":4558566,"n":812,"ev":"close","code":1006,"reason":""}
+{"at":1792343536213,"kind":"ar","t":4573567,"n":813,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":4573580,"n":814,"ev":"close","code":1006,"reason":""}
+{"at":1792343536213,"kind":"ar","t":4588582,"n":815,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":4588594,"n":816,"ev":"close","code":1006,"reason":""}
+{"at":1792343536213,"kind":"ar","t":4603595,"n":817,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":4603600,"n":818,"ev":"close","code":1006,"reason":""}
+{"at":1792343536213,"kind":"ar","t":4618600,"n":819,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":4618608,"n":820,"ev":"close","code":1006,"reason":""}
+{"at":1792343536213,"kind":"ar","t":4633608,"n":821,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":4633613,"n":822,"ev":"close","code":1006,"reason":""}
+{"at":1792343536213,"kind":"ar","t":4648614,"n":823,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":4648619,"n":824,"ev":"close","code":1006,"reason":""}
+{"at":1792343536213,"kind":"ar","t":4663620,"n":825,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":4663627,"n":826,"ev":"close","code":1006,"reason":""}
+{"at":1792343536213,"kind":"ar","t":4678628,"n":827,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":4678635,"n":828,"ev":"close","code":1006,"reason":""}
+{"at":1792343536213,"kind":"ar","t":4693635,"n":829,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":4693646,"n":830,"ev":"close","code":1006,"reason":""}
+{"at":1792343536213,"kind":"ar","t":4708646,"n":831,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":4708666,"n":832,"ev":"close","code":1006,"reason":""}
+{"at":1792343536213,"kind":"ar","t":4723667,"n":833,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":4723672,"n":834,"ev":"close","code":1006,"reason":""}
+{"at":1792343536213,"kind":"ar","t":4738673,"n":835,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":4738678,"n":836,"ev":"close","code":1006,"reason":""}
+{"at":1792343536213,"kind":"ar","t":4753678,"n":837,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":4753683,"n":838,"ev":"close","code":1006,"reason":""}
+{"at":1792343536213,"kind":"ar","t":4768683,"n":839,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":4768688,"n":840,"ev":"close","code":1006,"reason":""}
+{"at":1792343536213,"kind":"ar","t":4783689,"n":841,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":4783696,"n":842,"ev":"close","code":1006,"reason":""}
+{"at":1792343536213,"kind":"ar","t":4798697,"n":843,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":4798703,"n":844,"ev":"close","code":1006,"reason":""}
+{"at":1792343536213,"kind":"ar","t":4813704,"n":845,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":4813712,"n":846,"ev":"close","code":1006,"reason":""}
+{"at":1792343536213,"kind":"ar","t":4828713,"n":847,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":4828729,"n":848,"ev":"close","code":1006,"reason":""}
+{"at":1792343536213,"kind":"ar","t":4843729,"n":849,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":4843734,"n":850,"ev":"close","code":1006,"reason":""}
+{"at":1792343536213,"kind":"ar","t":4858735,"n":851,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":4858739,"n":852,"ev":"close","code":1006,"reason":""}
+{"at":1792343536213,"kind":"ar","t":4873740,"n":853,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":4873745,"n":854,"ev":"close","code":1006,"reason":""}
+{"at":1792343536213,"kind":"ar","t":4888745,"n":855,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":4888750,"n":856,"ev":"close","code":1006,"reason":""}
+{"at":1792343536213,"kind":"ar","t":4903750,"n":857,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":4903755,"n":858,"ev":"close","code":1006,"reason":""}
+{"at":1792343536213,"kind":"ar","t":4918756,"n":859,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":4918766,"n":860,"ev":"close","code":1006,"reason":""}
+{"at":1792343536213,"kind":"ar","t":4933767,"n":861,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":4933781,"n":862,"ev":"close","code":1006,"reason":""}
+{"at":1792343536213,"kind":"ar","t":4948781,"n":863,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":4948792,"n":864,"ev":"close","code":1006,"reason":""}
+{"at":1792343536213,"kind":"ar","t":4963793,"n":865,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":4963797,"n":866,"ev":"close","code":1006,"reason":""}
+{"at":1792343536213,"kind":"ar","t":4978798,"n":867,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":4978803,"n":868,"ev":"close","code":1006,"reason":""}
+{"at":1792343536213,"kind":"ar","t":4993804,"n":869,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":4993808,"n":870,"ev":"close","code":1006,"reason":""}
+{"at":1792343536213,"kind":"ar","t":5008809,"n":871,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":5008813,"n":872,"ev":"close","code":1006,"reason":""}
+{"at":1792343536213,"kind":"ar","t":5023814,"n":873,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":5023820,"n":874,"ev":"close","code":1006,"reason":""}
+{"at":1792343536213,"kind":"ar","t":5038821,"n":875,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":5038828,"n":876,"ev":"close","code":1006,"reason":""}
+{"at":1792343536213,"kind":"ar","t":5053829,"n":877,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":5053835,"n":878,"ev":"close","code":1006,"reason":""}
+{"at":1792343536213,"kind":"ar","t":5068836,"n":879,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":5068850,"n":880,"ev":"close","code":1006,"reason":""}
+{"at":1792343536213,"kind":"ar","t":5083851,"n":881,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":5083855,"n":882,"ev":"close","code":1006,"reason":""}
+{"at":1792343536213,"kind":"ar","t":5098856,"n":883,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":5098862,"n":884,"ev":"close","code":1006,"reason":""}
+{"at":1792343536213,"kind":"ar","t":5113862,"n":885,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":5113867,"n":886,"ev":"close","code":1006,"reason":""}
+{"at":1792343536213,"kind":"ar","t":5128868,"n":887,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":5128872,"n":888,"ev":"close","code":1006,"reason":""}
+{"at":1792343536213,"kind":"ar","t":5143872,"n":889,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":5143878,"n":890,"ev":"close","code":1006,"reason":""}
+{"at":1792343536213,"kind":"ar","t":5158878,"n":891,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":5158886,"n":892,"ev":"close","code":1006,"reason":""}
+{"at":1792343536213,"kind":"ar","t":5173886,"n":893,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":5173899,"n":894,"ev":"close","code":1006,"reason":""}
+{"at":1792343536213,"kind":"ar","t":5188899,"n":895,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":5188918,"n":896,"ev":"close","code":1006,"reason":""}
+{"at":1792343536213,"kind":"ar","t":5203919,"n":897,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":5203923,"n":898,"ev":"close","code":1006,"reason":""}
+{"at":1792343536213,"kind":"ar","t":5218924,"n":899,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":5218929,"n":900,"ev":"close","code":1006,"reason":""}
+{"at":1792343536213,"kind":"ar","t":5233930,"n":901,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":5233934,"n":902,"ev":"close","code":1006,"reason":""}
+{"at":1792343536213,"kind":"ar","t":5248935,"n":903,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":5248939,"n":904,"ev":"close","code":1006,"reason":""}
+{"at":1792343536213,"kind":"ar","t":5263940,"n":905,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":5263948,"n":906,"ev":"close","code":1006,"reason":""}
+{"at":1792343536213,"kind":"ar","t":5278949,"n":907,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":5278954,"n":908,"ev":"close","code":1006,"reason":""}
+{"at":1792343536213,"kind":"ar","t":5293955,"n":909,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":5293969,"n":910,"ev":"close","code":1006,"reason":""}
+{"at":1792343536213,"kind":"ar","t":5308969,"n":911,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":5308978,"n":912,"ev":"close","code":1006,"reason":""}
+{"at":1792343536213,"kind":"ar","t":5323979,"n":913,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":5323983,"n":914,"ev":"close","code":1006,"reason":""}
+{"at":1792343536213,"kind":"ar","t":5338984,"n":915,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":5338988,"n":916,"ev":"close","code":1006,"reason":""}
+{"at":1792343536213,"kind":"ar","t":5353989,"n":917,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":5353994,"n":918,"ev":"close","code":1006,"reason":""}
+{"at":1792343536213,"kind":"ar","t":5368576,"n":919,"ev":"headset","visibility":"visible-blurred"}
+{"at":1792343536213,"kind":"ar","t":5368576,"n":920,"ev":"woke","away":5297667,"src":"adopted","anchors":false}
+{"at":1792343536213,"kind":"ar","t":5368580,"n":921,"ev":"shared after wake","agree":true,"d":0.005,"a":0,"after":3}
+{"at":1792343536213,"kind":"ar","t":5368580,"n":922,"ev":"reconcile","d":0.005,"a":0,"h":0.188,"by":"4mvb44w9d75q","g":"shared"}
+{"at":1792343536213,"kind":"ar","t":5368580,"n":923,"ev":"frame","src":"adopted","o":[-1.749,-0.187,-0.118],"x":[0.105,0,0.994]}
+{"at":1792343536213,"kind":"ar","t":5368580,"n":924,"ev":"sample","src":"adopted","state":"adopted","sid":"a4f5d9f5-dada-5eff-c4d0-6ec0e3c27c73","sharedOK":true,"here":true,"frame":{"o":[-1.749,-0.187,-0.118],"x":[0.105,0,0.994]},"lf":{"p":[0,-1.6,0],"yaw":0},"shared":{"p":[-1.754,-0.177,-0.117],"yaw":-1.465},"hS":-0.01,"head":[0,1.6,0],"sharedAlign":true,"pub":{"by":"4mvb44w9d75q","g":"shared","at":1792288423355}}
+{"at":1792343536213,"kind":"ar","t":5368599,"n":925,"ev":"headset","visibility":"visible"}
+{"at":1792343536213,"kind":"ar","t":5368600,"n":926,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":5368605,"n":927,"ev":"close","code":1006,"reason":""}
+{"at":1792343536213,"kind":"ar","t":5369088,"n":928,"ev":"reconcile","d":0,"a":0,"h":0.075,"by":"4mvb44w9d75q","g":"shared"}
+{"at":1792343536213,"kind":"ar","t":5369088,"n":929,"ev":"frame","src":"adopted","o":[-1.749,-0.112,-0.118],"x":[0.105,0,0.994]}
+{"at":1792343536213,"kind":"ar","t":5369605,"n":930,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":5369608,"n":931,"ev":"close","code":1006,"reason":""}
+{"at":1792343536213,"kind":"ar","t":5370063,"n":932,"ev":"reset","space":"local-floor","transform":true,"p":[-0.217,0.119,5.717],"yaw":0.212}
+{"at":1792343536213,"kind":"ar","t":5370063,"n":933,"ev":"shared at head"}
+{"at":1792343536213,"kind":"ar","t":5370859,"n":934,"ev":"connect","code":"PBW"}
+{"at":1792343536213,"kind":"ar","t":5370991,"n":935,"ev":"open"}
+{"at":1792343536213,"kind":"ar","t":5370991,"n":936,"ev":"welcome","seq":4,"keys":24,"members":2}
+{"at":1792343536213,"kind":"ar","t":5371573,"n":937,"ev":"origin moved","why":"jump","src":"adopted","anchors":false}
+{"at":1792343536213,"kind":"ar","t":5373586,"n":938,"ev":"sample","src":"adopted","state":"adopted","sid":"a4f5d9f5-dada-5eff-c4d0-6ec0e3c27c73","sharedOK":false,"here":true,"frame":{"o":[-1.952,-0.112,5.968],"x":[0.312,0,0.95]},"lf":{"p":[0,-1.675,0],"yaw":0},"shared":{"p":[1.013,2.159,0.445],"yaw":-1.499},"hS":-0.01,"sharedHead":true,"head":[1.013,2.159,0.445],"sharedAlign":true,"pub":{"by":"4mvb44w9d75q","g":"shared","at":1792288423355}}
+{"at":1792343536213,"kind":"ar","t":5377930,"n":939,"ev":"panel","id":"open"}
+{"at":1792343546420,"kind":"ar","t":5378594,"n":940,"ev":"sample","src":"adopted","state":"adopted","sid":"a4f5d9f5-dada-5eff-c4d0-6ec0e3c27c73","sharedOK":false,"here":true,"frame":{"o":[-1.952,-0.112,5.968],"x":[0.312,0,0.95]},"lf":{"p":[0,-1.675,0],"yaw":0},"shared":{"p":[0.383,2.185,1.445],"yaw":3.04},"hS":-0.01,"sharedHead":true,"head":[0.383,2.185,1.445],"sharedAlign":true,"pub":{"by":"4mvb44w9d75q","g":"shared","at":1792288423355}}
+{"at":1792343546420,"kind":"ar","t":5383597,"n":941,"ev":"sample","src":"adopted","state":"adopted","sid":"a4f5d9f5-dada-5eff-c4d0-6ec0e3c27c73","sharedOK":false,"here":true,"frame":{"o":[-1.952,-0.112,5.968],"x":[0.312,0,0.95]},"lf":{"p":[0,-1.675,0],"yaw":0},"shared":{"p":[0.353,2.151,1.447],"yaw":3.044},"hS":-0.01,"sharedHead":true,"head":[0.353,2.151,1.447],"sharedAlign":true,"pub":{"by":"4mvb44w9d75q","g":"shared","at":1792288423355}}
+{"at":1792343546420,"kind":"ar","t":5384354,"n":942,"ev":"panel","id":"sharedalign"}
+{"at":1792343546420,"kind":"ar","t":5384354,"n":943,"ev":"shared align","on":false}
+{"at":1792343546420,"kind":"ar","t":5384364,"n":944,"ev":"align","state":"calibrate"}
+{"at":1792343546420,"kind":"ar","t":5385132,"n":945,"ev":"panel","id":"sharedalign"}
+{"at":1792343546420,"kind":"ar","t":5385132,"n":946,"ev":"shared align","on":true}
+{"at":1792343546420,"kind":"ar","t":5385142,"n":947,"ev":"align","state":"shared-wait"}
+{"at":1792343556209,"kind":"ar","t":5388597,"n":948,"ev":"sample","src":"","state":"shared-wait","sid":"a4f5d9f5-dada-5eff-c4d0-6ec0e3c27c73","sharedOK":false,"here":true,"lf":{"p":[0,-1.675,0],"yaw":0},"shared":{"p":[-0.184,2.132,3.16],"yaw":-3.042},"hS":-0.01,"sharedHead":true,"head":[-0.184,2.132,3.16],"sharedAlign":true,"pub":{"by":"4mvb44w9d75q","g":"shared","at":1792288423355}}
+{"at":1792343556209,"kind":"ar","t":5393142,"n":949,"ev":"align","state":"calibrate"}
+{"at":1792343556209,"kind":"ar","t":5393598,"n":950,"ev":"sample","src":"","state":"calibrate","sid":"a4f5d9f5-dada-5eff-c4d0-6ec0e3c27c73","sharedOK":false,"here":true,"lf":{"p":[0,-1.675,0],"yaw":0},"shared":{"p":[0.375,2.174,0.742],"yaw":-1.545},"hS":-0.01,"sharedHead":true,"head":[0.375,2.174,0.742],"sharedAlign":true,"pub":{"by":"4mvb44w9d75q","g":"shared","at":1792288423355}}
+{"at":1792343556209,"kind":"ar","t":5396018,"n":951,"ev":"panel","id":"open"}
+{"at":1792343556209,"kind":"ar","t":5397772,"n":952,"ev":"headset","visibility":"visible-blurred"}
+{"at":1792343566238,"kind":"ar","t":5398604,"n":953,"ev":"sample","src":"","state":"calibrate","sid":"a4f5d9f5-dada-5eff-c4d0-6ec0e3c27c73","sharedOK":false,"here":true,"lf":{"p":[0,-1.675,0],"yaw":0},"shared":{"p":[-0.088,2.152,1.469],"yaw":-3.102},"hS":-0.01,"sharedHead":true,"head":[-0.088,2.152,1.469],"sharedAlign":true,"pub":{"by":"4mvb44w9d75q","g":"shared","at":1792288423355}}
+{"at":1792343566238,"kind":"ar","t":5399441,"n":954,"ev":"headset","visibility":"visible"}
+{"at":1792343566238,"kind":"ar","t":5400563,"n":955,"ev":"panel","id":"open"}
+{"at":1792343566238,"kind":"ar","t":5401530,"n":956,"ev":"panel","id":"cal"}
+{"at":1792343566238,"kind":"ar","t":5401531,"n":957,"ev":"align","state":"mark-a"}
+{"at":1792343566238,"kind":"ar","t":5401531,"n":958,"ev":"notice","title":"Calibrate the room"}
+{"at":1792343566238,"kind":"ar","t":5401531,"n":959,"ev":"calibrate"}
+{"at":1792343566238,"kind":"ar","t":5403608,"n":960,"ev":"sample","src":"","state":"mark-a","sid":"a4f5d9f5-dada-5eff-c4d0-6ec0e3c27c73","sharedOK":false,"here":true,"lf":{"p":[0,-1.675,0],"yaw":0},"shared":{"p":[-0.079,2.162,1.469],"yaw":-3.133},"hS":-0.01,"sharedHead":true,"head":[-0.079,2.162,1.469],"sharedAlign":true,"pub":{"by":"4mvb44w9d75q","g":"shared","at":1792288423355}}
+{"at":1792343566238,"kind":"ar","t":5405098,"n":961,"ev":"panel","id":"cal"}
+{"at":1792343566238,"kind":"ar","t":5405098,"n":962,"ev":"align","state":"calibrate"}
+{"at":1792343566238,"kind":"ar","t":5405098,"n":963,"ev":"calibrate cancelled"}
+{"at":1792343566238,"kind":"ar","t":5406365,"n":964,"ev":"panel","id":"sharedalign"}
+{"at":1792343566238,"kind":"ar","t":5406365,"n":965,"ev":"shared align","on":false}
+{"at":1792343566238,"kind":"ar","t":5406842,"n":966,"ev":"panel","id":"sharedalign"}
+{"at":1792343566238,"kind":"ar","t":5406842,"n":967,"ev":"shared align","on":true}
+{"at":1792343566238,"kind":"ar","t":5406853,"n":968,"ev":"align","state":"shared-wait"}
+{"at":1792343571246,"kind":"desktop","t":5408619,"n":969,"ev":"sample","src":"","state":"shared-wait","sid":"a4f5d9f5-dada-5eff-c4d0-6ec0e3c27c73","sharedOK":false,"here":true,"lf":{"p":[0,-1.675,0],"yaw":0},"shared":{"p":[-0.028,2.145,1.587],"yaw":3.132},"hS":-0.01,"sharedHead":true,"head":[-0.028,2.145,1.587],"sharedAlign":true,"pub":{"by":"4mvb44w9d75q","g":"shared","at":1792288423355}}
+{"at":1792343571246,"kind":"desktop","t":5409842,"n":970,"ev":"panel","id":"open"}
+{"at":1792343571246,"kind":"desktop","t":5411855,"n":971,"ev":"headset","visibility":"visible-blurred"}
+{"at":1792343571246,"kind":"desktop","t":5413293,"n":972,"ev":"headset","visibility":"hidden"}
+{"at":1792343571246,"kind":"desktop","t":5413501,"n":973,"ev":"align","state":"off"}

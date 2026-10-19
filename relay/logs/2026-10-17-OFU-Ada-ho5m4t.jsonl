@@ -1,0 +1,20 @@
+{"at":1792274855233,"kind":"ar","t":786,"n":1,"ev":"attach","story":"airports","st":""}
+{"at":1792274855233,"kind":"ar","t":3076,"n":2,"ev":"headset","visibility":"visible"}
+{"at":1792274855233,"kind":"ar","t":3206,"n":3,"ev":"relay","relay":"https://10.0.0.48:8787","why":"served"}
+{"at":1792274855233,"kind":"ar","t":3206,"n":4,"ev":"served","served":true}
+{"at":1792274855233,"kind":"ar","t":5522,"n":5,"ev":"panel","id":"open"}
+{"at":1792274855233,"kind":"ar","t":7077,"n":6,"ev":"panel","id":"start"}
+{"at":1792274855233,"kind":"ar","t":7088,"n":7,"ev":"created","code":"OFU"}
+{"at":1792274855233,"kind":"ar","t":7088,"n":8,"ev":"join","code":"OFU","relay":"https://10.0.0.48:8787"}
+{"at":1792274855233,"kind":"ar","t":7090,"n":9,"ev":"connect","code":"OFU"}
+{"at":1792274855233,"kind":"ar","t":7091,"n":10,"ev":"align","state":"waiting"}
+{"at":1792274855233,"kind":"ar","t":7091,"n":11,"ev":"session","mode":"immersive-ar","features":["viewer","plane-detection","webxr","local-floor","local","anchors","shared","hand-tracking","mesh-detection"],"format":"networks-5","ua":"Mozilla/5.0 (X11; Linux x86_64; Quest 3) AppleWebKit/537.36 (KHTML, like Gecko) OculusBrowser/150.0.0.39.30.1038228660 Chrome/150.0.7871.181 VR Safari/537.36","persisted":1}
+{"at":1792274855233,"kind":"ar","t":7091,"n":12,"ev":"anchors tidied","listed":1,"kept":0,"deleted":0,"failed":["InvalidStateError: Failed to execute 'deletePersistentAnchor' on 'XRSession': Device does not support feature anchors"],"left":1}
+{"at":1792274855233,"kind":"ar","t":7091,"n":13,"ev":"space","type":"local-floor"}
+{"at":1792274855233,"kind":"ar","t":7092,"n":14,"ev":"reset","space":"shared","id":"a4f5d9f5-dada-5eff-c4d0-6ec0e3c27c73","transform":false}
+{"at":1792274855233,"kind":"ar","t":7092,"n":15,"ev":"space","type":"shared","id":"a4f5d9f5-dada-5eff-c4d0-6ec0e3c27c73","props":["UUId","constructor"]}
+{"at":1792274855233,"kind":"ar","t":7093,"n":16,"ev":"align","state":"calibrate"}
+{"at":1792274855233,"kind":"ar","t":7093,"n":17,"ev":"notice","title":"Calibrate the room"}
+{"at":1792274855233,"kind":"ar","t":7094,"n":18,"ev":"sample","src":"","state":"calibrate","sid":"a4f5d9f5-dada-5eff-c4d0-6ec0e3c27c73","sharedOK":true,"here":true,"lf":{"p":[0,-1.656,0],"yaw":0},"shared":{"p":[0.272,-0.424,-0.182],"yaw":0.712},"head":[-0.071,1.651,0.041],"sharedAlign":false}
+{"at":1792274855233,"kind":"ar","t":7154,"n":19,"ev":"open"}
+{"at":1792274855233,"kind":"ar","t":7155,"n":20,"ev":"welcome","seq":0,"keys":0,"members":1}

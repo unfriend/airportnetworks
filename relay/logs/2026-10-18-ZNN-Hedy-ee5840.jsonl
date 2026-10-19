@@ -1,0 +1,31 @@
+{"at":1792287657731,"kind":"ar","t":1015,"n":1,"ev":"attach","story":"airports","st":""}
+{"at":1792287657731,"kind":"ar","t":3149,"n":2,"ev":"headset","visibility":"visible"}
+{"at":1792287657731,"kind":"ar","t":3286,"n":3,"ev":"relay","relay":"https://10.0.0.48:8787","why":"served"}
+{"at":1792287657731,"kind":"ar","t":3286,"n":4,"ev":"served","served":true}
+{"at":1792287657731,"kind":"ar","t":10309,"n":5,"ev":"panel","id":"open"}
+{"at":1792287657731,"kind":"ar","t":12586,"n":6,"ev":"panel","id":"join:ZNN"}
+{"at":1792287657731,"kind":"ar","t":12587,"n":7,"ev":"join","code":"ZNN","relay":"https://10.0.0.48:8787"}
+{"at":1792287657731,"kind":"ar","t":12589,"n":8,"ev":"connect","code":"ZNN"}
+{"at":1792287657731,"kind":"ar","t":12589,"n":9,"ev":"align","state":"waiting"}
+{"at":1792287657731,"kind":"ar","t":12589,"n":10,"ev":"session","mode":"immersive-ar","features":["viewer","plane-detection","webxr","local-floor","local","anchors","shared","hand-tracking","mesh-detection"],"format":"networks-6","ua":"Mozilla/5.0 (X11; Linux x86_64; Quest 3) AppleWebKit/537.36 (KHTML, like Gecko) OculusBrowser/152.1.0.34.52.1079628208 Chrome/152.0.7977.83 VR Safari/537.36","browser":"152","page":"https://10.0.0.48:8787/","persisted":0}
+{"at":1792287657731,"kind":"ar","t":12590,"n":11,"ev":"anchors tidied","listed":0,"kept":0,"deleted":0,"failed":[],"left":0}
+{"at":1792287657731,"kind":"ar","t":12590,"n":12,"ev":"space","type":"local-floor"}
+{"at":1792287657731,"kind":"ar","t":12591,"n":13,"ev":"reset","space":"shared","id":"a4f5d9f5-dada-5eff-c4d0-6ec0e3c27c73","transform":false}
+{"at":1792287657731,"kind":"ar","t":12591,"n":14,"ev":"space","type":"shared","id":"a4f5d9f5-dada-5eff-c4d0-6ec0e3c27c73","props":["UUId","constructor"]}
+{"at":1792287657731,"kind":"ar","t":12598,"n":15,"ev":"shared own floor","own":false}
+{"at":1792287657731,"kind":"ar","t":12599,"n":16,"ev":"align","state":"shared-wait"}
+{"at":1792287657731,"kind":"ar","t":12599,"n":17,"ev":"sample","src":"","state":"shared-wait","sid":"a4f5d9f5-dada-5eff-c4d0-6ec0e3c27c73","sharedOK":true,"here":true,"lf":{"p":[0,-1.757,0],"yaw":0},"shared":{"p":[-0.242,-0.441,0.134],"yaw":-0.152},"head":[-0.196,1.679,0.042],"sharedAlign":true}
+{"at":1792287667137,"kind":"desktop","t":12680,"n":18,"ev":"open"}
+{"at":1792287667137,"kind":"desktop","t":12682,"n":19,"ev":"welcome","seq":3,"keys":4,"members":2}
+{"at":1792287667137,"kind":"desktop","t":12684,"n":20,"ev":"align","state":"adopted"}
+{"at":1792287667137,"kind":"desktop","t":12684,"n":21,"ev":"frame","src":"adopted","o":[-0.241,0,0.135],"x":[0.988,0,0.151]}
+{"at":1792287667137,"kind":"desktop","t":12684,"n":22,"ev":"notice","title":"Aligned automatically"}
+{"at":1792287667137,"kind":"desktop","t":12684,"n":23,"ev":"aligned","src":"adopted"}
+{"at":1792287667137,"kind":"desktop","t":13685,"n":24,"ev":"shared first","first":false,"id":"a4f5d9f5-dada-5eff-c4d0-6ec0e3c27c73"}
+{"at":1792287667137,"kind":"desktop","t":13685,"n":25,"ev":"zone","st":"s6xaw"}
+{"at":1792287667137,"kind":"desktop","t":13685,"n":26,"ev":"station","st":"s6xaw","story":"airports","how":"walk"}
+{"at":1792287667137,"kind":"desktop","t":13686,"n":27,"ev":"state","st":"s6xaw"}
+{"at":1792287667137,"kind":"desktop","t":17607,"n":28,"ev":"sample","src":"adopted","state":"adopted","sid":"a4f5d9f5-dada-5eff-c4d0-6ec0e3c27c73","sharedOK":true,"here":true,"frame":{"o":[-0.241,0,0.135],"x":[0.988,0,0.151]},"lf":{"p":[0,-1.757,0],"yaw":0},"shared":{"p":[-0.242,-0.439,0.135],"yaw":-0.152},"hS":0.441,"head":[0.009,1.708,0.026],"sharedAlign":true,"pub":{"by":"84c6seocwfen","g":"shared","at":1792287613783}}
+{"at":1792287667137,"kind":"desktop","t":20235,"n":29,"ev":"headset","visibility":"visible-blurred"}
+{"at":1792287667137,"kind":"desktop","t":21428,"n":30,"ev":"headset","visibility":"visible"}
+{"at":1792287667137,"kind":"desktop","t":21921,"n":31,"ev":"align","state":"off"}

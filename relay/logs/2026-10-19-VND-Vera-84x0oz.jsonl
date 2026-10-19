@@ -1,0 +1,28 @@
+{"at":1792438399322,"kind":"ar","t":292,"n":1,"ev":"boot","code":"VND"}
+{"at":1792438399322,"kind":"ar","t":306,"n":2,"ev":"relay","relay":"https://10.0.0.48:8787","why":"served"}
+{"at":1792438399322,"kind":"ar","t":306,"n":3,"ev":"served","served":true}
+{"at":1792438399322,"kind":"ar","t":306,"n":4,"ev":"join","code":"VND","relay":"https://10.0.0.48:8787","local":false}
+{"at":1792438399322,"kind":"ar","t":308,"n":5,"ev":"connect","code":"VND"}
+{"at":1792438399322,"kind":"ar","t":390,"n":6,"ev":"open"}
+{"at":1792438399322,"kind":"ar","t":405,"n":7,"ev":"welcome","seq":4077,"keys":27,"members":2}
+{"at":1792438399322,"kind":"ar","t":930,"n":8,"ev":"attach","story":"airports","st":""}
+{"at":1792438399322,"kind":"ar","t":3223,"n":9,"ev":"headset","visibility":"visible"}
+{"at":1792438399322,"kind":"ar","t":3357,"n":10,"ev":"align","state":"waiting"}
+{"at":1792438399322,"kind":"ar","t":3357,"n":11,"ev":"session","mode":"immersive-ar","features":["viewer","plane-detection","webxr","local-floor","local","anchors","shared","hand-tracking","mesh-detection"],"format":"networks-7","ua":"Mozilla/5.0 (X11; Linux x86_64; Quest 3) AppleWebKit/537.36 (KHTML, like Gecko) OculusBrowser/152.1.0.34.52.1079628208 Chrome/152.0.7977.83 VR Safari/537.36","browser":"152","page":"https://10.0.0.48:8787/","persisted":0}
+{"at":1792438399322,"kind":"ar","t":3357,"n":12,"ev":"anchors tidied","listed":0,"kept":0,"deleted":0,"failed":[],"left":0}
+{"at":1792438399322,"kind":"ar","t":3358,"n":13,"ev":"space","type":"local-floor"}
+{"at":1792438399322,"kind":"ar","t":3358,"n":14,"ev":"space","type":"shared","id":"","props":["UUId","constructor"]}
+{"at":1792438399322,"kind":"ar","t":3374,"n":15,"ev":"reset","space":"shared","id":"5e5a8ffd-2620-0587-fff4-3757d2902424","transform":false}
+{"at":1792438399322,"kind":"ar","t":3375,"n":16,"ev":"shared own floor","own":true}
+{"at":1792438399322,"kind":"ar","t":3377,"n":17,"ev":"shared first","first":true,"id":"5e5a8ffd-2620-0587-fff4-3757d2902424"}
+{"at":1792438399322,"kind":"ar","t":3377,"n":18,"ev":"align","state":"calibrate"}
+{"at":1792438399322,"kind":"ar","t":3377,"n":19,"ev":"notice","title":"Calibrate the room"}
+{"at":1792438399322,"kind":"ar","t":4389,"n":20,"ev":"reset","space":"shared","id":"699c04b0-0fdc-79fb-4153-ec5df35db11b","transform":false}
+{"at":1792438399322,"kind":"ar","t":4389,"n":21,"ev":"shared first","first":false,"id":"699c04b0-0fdc-79fb-4153-ec5df35db11b"}
+{"at":1792438399322,"kind":"ar","t":5015,"n":22,"ev":"sample","src":"","state":"calibrate","sid":"699c04b0-0fdc-79fb-4153-ec5df35db11b","sharedOK":true,"here":true,"lf":{"p":[0,-2.199,0],"yaw":0},"shared":{"p":[0,0,0.002],"yaw":0},"sharedOwn":true,"head":[-0.061,2.189,0.003],"sharedAlign":false,"pub":{"by":"ax4twk5qwcv6","g":"shared","at":1792344650468}}
+{"at":1792438409354,"kind":"ar","t":10018,"n":23,"ev":"sample","src":"","state":"calibrate","sid":"699c04b0-0fdc-79fb-4153-ec5df35db11b","sharedOK":true,"here":true,"lf":{"p":[0,-2.199,0],"yaw":0},"shared":{"p":[0.002,-0.011,0.008],"yaw":0},"sharedOwn":true,"head":[-0.133,2.188,-2.992],"sharedAlign":false,"pub":{"by":"ax4twk5qwcv6","g":"shared","at":1792344650468}}
+{"at":1792438409354,"kind":"ar","t":15029,"n":24,"ev":"sample","src":"","state":"calibrate","sid":"699c04b0-0fdc-79fb-4153-ec5df35db11b","sharedOK":true,"here":true,"lf":{"p":[0,-2.199,0],"yaw":0},"shared":{"p":[-0.002,-0.018,0.008],"yaw":0},"sharedOwn":true,"head":[-0.478,2.124,-1.369],"sharedAlign":false,"pub":{"by":"ax4twk5qwcv6","g":"shared","at":1792344650468}}
+{"at":1792438413192,"kind":"desktop","t":20035,"n":25,"ev":"sample","src":"","state":"calibrate","sid":"699c04b0-0fdc-79fb-4153-ec5df35db11b","sharedOK":true,"here":true,"lf":{"p":[0,-2.199,0],"yaw":0},"shared":{"p":[-0.003,-0.018,0.008],"yaw":0},"sharedOwn":true,"head":[0.323,2.139,-3.074],"sharedAlign":false,"pub":{"by":"ax4twk5qwcv6","g":"shared","at":1792344650468}}
+{"at":1792438413192,"kind":"desktop","t":21906,"n":26,"ev":"headset","visibility":"visible-blurred"}
+{"at":1792438413192,"kind":"desktop","t":23570,"n":27,"ev":"headset","visibility":"hidden"}
+{"at":1792438413192,"kind":"desktop","t":23739,"n":28,"ev":"align","state":"off"}

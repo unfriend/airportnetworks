@@ -1,0 +1,71 @@
+{"at":1792287605919,"kind":"ar","t":896,"n":1,"ev":"attach","story":"airports","st":""}
+{"at":1792287605919,"kind":"ar","t":3524,"n":2,"ev":"headset","visibility":"visible"}
+{"at":1792287605919,"kind":"ar","t":3670,"n":3,"ev":"relay","relay":"https://10.0.0.48:8787","why":"served"}
+{"at":1792287605919,"kind":"ar","t":3670,"n":4,"ev":"served","served":true}
+{"at":1792287605919,"kind":"ar","t":6168,"n":5,"ev":"panel","id":"open"}
+{"at":1792287605919,"kind":"ar","t":9846,"n":6,"ev":"panel","id":"start"}
+{"at":1792287605919,"kind":"ar","t":9883,"n":7,"ev":"created","code":"ZNN"}
+{"at":1792287605919,"kind":"ar","t":9884,"n":8,"ev":"join","code":"ZNN","relay":"https://10.0.0.48:8787"}
+{"at":1792287605919,"kind":"ar","t":9885,"n":9,"ev":"connect","code":"ZNN"}
+{"at":1792287605919,"kind":"ar","t":9886,"n":10,"ev":"align","state":"waiting"}
+{"at":1792287605919,"kind":"ar","t":9886,"n":11,"ev":"session","mode":"immersive-ar","features":["viewer","plane-detection","webxr","local-floor","local","anchors","shared","hand-tracking","mesh-detection"],"format":"networks-6","ua":"Mozilla/5.0 (X11; Linux x86_64; Quest 3) AppleWebKit/537.36 (KHTML, like Gecko) OculusBrowser/152.1.0.34.52.1079628208 Chrome/152.0.7977.83 VR Safari/537.36","browser":"152","page":"https://10.0.0.48:8787/","persisted":0}
+{"at":1792287605919,"kind":"ar","t":9886,"n":12,"ev":"anchors tidied","listed":0,"kept":0,"deleted":0,"failed":[],"left":0}
+{"at":1792287605919,"kind":"ar","t":9886,"n":13,"ev":"space","type":"local-floor"}
+{"at":1792287605919,"kind":"ar","t":9886,"n":14,"ev":"reset","space":"shared","id":"a4f5d9f5-dada-5eff-c4d0-6ec0e3c27c73","transform":false}
+{"at":1792287605919,"kind":"ar","t":9886,"n":15,"ev":"space","type":"shared","id":"a4f5d9f5-dada-5eff-c4d0-6ec0e3c27c73","props":["UUId","constructor"]}
+{"at":1792287605919,"kind":"ar","t":9891,"n":16,"ev":"shared own floor","own":false}
+{"at":1792287605919,"kind":"ar","t":9891,"n":17,"ev":"align","state":"shared-wait"}
+{"at":1792287605919,"kind":"ar","t":9892,"n":18,"ev":"sample","src":"","state":"shared-wait","sid":"a4f5d9f5-dada-5eff-c4d0-6ec0e3c27c73","sharedOK":true,"here":true,"lf":{"p":[0,-1.644,0],"yaw":0},"shared":{"p":[0.189,-0.433,-0.219],"yaw":-0.026},"head":[-0.076,1.636,0.056],"sharedAlign":true}
+{"at":1792287605919,"kind":"ar","t":9957,"n":19,"ev":"open"}
+{"at":1792287605919,"kind":"ar","t":9958,"n":20,"ev":"welcome","seq":0,"keys":0,"members":1}
+{"at":1792287615960,"kind":"ar","t":10967,"n":21,"ev":"shared first","first":true,"id":"a4f5d9f5-dada-5eff-c4d0-6ec0e3c27c73"}
+{"at":1792287615960,"kind":"ar","t":14900,"n":22,"ev":"sample","src":"","state":"shared-wait","sid":"a4f5d9f5-dada-5eff-c4d0-6ec0e3c27c73","sharedOK":true,"here":true,"lf":{"p":[0,-1.644,0],"yaw":0},"shared":{"p":[0.189,-0.433,-0.219],"yaw":-0.026},"head":[-0.085,1.63,0.049],"sharedAlign":true}
+{"at":1792287615960,"kind":"ar","t":15523,"n":23,"ev":"panel","id":"addpage"}
+{"at":1792287615960,"kind":"ar","t":16457,"n":24,"ev":"panel","id":"add:airports"}
+{"at":1792287615960,"kind":"ar","t":16458,"n":25,"ev":"publish","cid":1,"keys":["st.s6xaw","st.s6xaw.play"],"sent":true}
+{"at":1792287615960,"kind":"ar","t":16474,"n":26,"ev":"recv","seq":1,"by":"84c6seocwfen","keys":["st.s6xaw","st.s6xaw.play"]}
+{"at":1792287615960,"kind":"ar","t":17890,"n":27,"ev":"align","state":"shared"}
+{"at":1792287615960,"kind":"ar","t":17890,"n":28,"ev":"frame","src":"shared","o":[0.187,0,-0.218],"x":[1,0,0.026]}
+{"at":1792287615960,"kind":"ar","t":17890,"n":29,"ev":"notice","title":"Shared space found"}
+{"at":1792287615960,"kind":"ar","t":17891,"n":30,"ev":"publish","cid":2,"keys":["rf.a4f5d9f5-dada-5eff-c4d0-6ec0e3c27c73"],"sent":true}
+{"at":1792287615960,"kind":"ar","t":17891,"n":31,"ev":"frame published","uuid":"a4f5d9f5-dada-5eff-c4d0-6ec0e3c27c73","g":"shared"}
+{"at":1792287615960,"kind":"ar","t":17891,"n":32,"ev":"aligned","src":"shared"}
+{"at":1792287615960,"kind":"ar","t":17920,"n":33,"ev":"recv","seq":2,"by":"84c6seocwfen","keys":["rf.a4f5d9f5-dada-5eff-c4d0-6ec0e3c27c73"]}
+{"at":1792287615960,"kind":"ar","t":18890,"n":34,"ev":"zone","st":"s6xaw"}
+{"at":1792287615960,"kind":"ar","t":18891,"n":35,"ev":"station","st":"s6xaw","story":"airports","how":"walk"}
+{"at":1792287615960,"kind":"ar","t":18990,"n":36,"ev":"publish","cid":3,"keys":["st.s6xaw.x"],"sent":true}
+{"at":1792287615960,"kind":"ar","t":18995,"n":37,"ev":"recv","seq":3,"by":"84c6seocwfen","keys":["st.s6xaw.x"]}
+{"at":1792287615960,"kind":"ar","t":19901,"n":38,"ev":"sample","src":"shared","state":"shared","sid":"a4f5d9f5-dada-5eff-c4d0-6ec0e3c27c73","sharedOK":true,"here":true,"frame":{"o":[0.187,0,-0.218],"x":[1,0,0.026]},"lf":{"p":[0,-1.644,0],"yaw":0},"shared":{"p":[0.187,-0.431,-0.222],"yaw":-0.027},"hS":0.432,"head":[0.07,1.728,-0.373],"sharedAlign":true,"pub":{"by":"84c6seocwfen","g":"shared","at":1792287613783}}
+{"at":1792287625941,"kind":"ar","t":24901,"n":39,"ev":"sample","src":"shared","state":"shared","sid":"a4f5d9f5-dada-5eff-c4d0-6ec0e3c27c73","sharedOK":true,"here":true,"frame":{"o":[0.187,0,-0.218],"x":[1,0,0.026]},"lf":{"p":[0,-1.644,0],"yaw":0},"shared":{"p":[0.189,-0.431,-0.223],"yaw":-0.026},"hS":0.432,"head":[0.117,1.693,-0.532],"sharedAlign":true,"pub":{"by":"84c6seocwfen","g":"shared","at":1792287613783}}
+{"at":1792287625941,"kind":"ar","t":29901,"n":40,"ev":"sample","src":"shared","state":"shared","sid":"a4f5d9f5-dada-5eff-c4d0-6ec0e3c27c73","sharedOK":true,"here":true,"frame":{"o":[0.187,0,-0.218],"x":[1,0,0.026]},"lf":{"p":[0,-1.644,0],"yaw":0},"shared":{"p":[0.189,-0.431,-0.224],"yaw":-0.026},"hS":0.432,"head":[0.197,1.233,-1.344],"sharedAlign":true,"pub":{"by":"84c6seocwfen","g":"shared","at":1792287613783}}
+{"at":1792287635939,"kind":"ar","t":34912,"n":41,"ev":"sample","src":"shared","state":"shared","sid":"a4f5d9f5-dada-5eff-c4d0-6ec0e3c27c73","sharedOK":true,"here":true,"frame":{"o":[0.187,0,-0.218],"x":[1,0,0.026]},"lf":{"p":[0,-1.644,0],"yaw":0},"shared":{"p":[0.189,-0.431,-0.224],"yaw":-0.026},"hS":0.432,"head":[0.197,1.233,-1.344],"sharedAlign":true,"pub":{"by":"84c6seocwfen","g":"shared","at":1792287613783}}
+{"at":1792287635939,"kind":"ar","t":39923,"n":42,"ev":"sample","src":"shared","state":"shared","sid":"a4f5d9f5-dada-5eff-c4d0-6ec0e3c27c73","sharedOK":true,"here":true,"frame":{"o":[0.187,0,-0.218],"x":[1,0,0.026]},"lf":{"p":[0,-1.644,0],"yaw":0},"shared":{"p":[0.189,-0.431,-0.224],"yaw":-0.026},"hS":0.432,"head":[0.197,1.233,-1.344],"sharedAlign":true,"pub":{"by":"84c6seocwfen","g":"shared","at":1792287613783}}
+{"at":1792287645955,"kind":"ar","t":44934,"n":43,"ev":"sample","src":"shared","state":"shared","sid":"a4f5d9f5-dada-5eff-c4d0-6ec0e3c27c73","sharedOK":true,"here":true,"frame":{"o":[0.187,0,-0.218],"x":[1,0,0.026]},"lf":{"p":[0,-1.644,0],"yaw":0},"shared":{"p":[0.189,-0.431,-0.224],"yaw":-0.026},"hS":0.432,"head":[0.197,1.233,-1.344],"sharedAlign":true,"pub":{"by":"84c6seocwfen","g":"shared","at":1792287613783}}
+{"at":1792287645955,"kind":"ar","t":49934,"n":44,"ev":"sample","src":"shared","state":"shared","sid":"a4f5d9f5-dada-5eff-c4d0-6ec0e3c27c73","sharedOK":true,"here":true,"frame":{"o":[0.187,0,-0.218],"x":[1,0,0.026]},"lf":{"p":[0,-1.644,0],"yaw":0},"shared":{"p":[0.189,-0.431,-0.224],"yaw":-0.026},"hS":0.432,"head":[0.196,1.233,-1.344],"sharedAlign":true,"pub":{"by":"84c6seocwfen","g":"shared","at":1792287613783}}
+{"at":1792287655969,"kind":"ar","t":54935,"n":45,"ev":"sample","src":"shared","state":"shared","sid":"a4f5d9f5-dada-5eff-c4d0-6ec0e3c27c73","sharedOK":true,"here":true,"frame":{"o":[0.187,0,-0.218],"x":[1,0,0.026]},"lf":{"p":[0,-1.644,0],"yaw":0},"shared":{"p":[0.189,-0.431,-0.224],"yaw":-0.026},"hS":0.432,"head":[0.196,1.233,-1.344],"sharedAlign":true,"pub":{"by":"84c6seocwfen","g":"shared","at":1792287613783}}
+{"at":1792287655969,"kind":"ar","t":59935,"n":46,"ev":"sample","src":"shared","state":"shared","sid":"a4f5d9f5-dada-5eff-c4d0-6ec0e3c27c73","sharedOK":true,"here":true,"frame":{"o":[0.187,0,-0.218],"x":[1,0,0.026]},"lf":{"p":[0,-1.644,0],"yaw":0},"shared":{"p":[0.189,-0.431,-0.224],"yaw":-0.026},"hS":0.432,"head":[0.197,1.233,-1.344],"sharedAlign":true,"pub":{"by":"84c6seocwfen","g":"shared","at":1792287613783}}
+{"at":1792287665970,"kind":"ar","t":64946,"n":47,"ev":"sample","src":"shared","state":"shared","sid":"a4f5d9f5-dada-5eff-c4d0-6ec0e3c27c73","sharedOK":true,"here":true,"frame":{"o":[0.187,0,-0.218],"x":[1,0,0.026]},"lf":{"p":[0,-1.644,0],"yaw":0},"shared":{"p":[0.189,-0.431,-0.224],"yaw":-0.026},"hS":0.432,"head":[0.196,1.233,-1.344],"sharedAlign":true,"pub":{"by":"84c6seocwfen","g":"shared","at":1792287613783}}
+{"at":1792287665970,"kind":"ar","t":69946,"n":48,"ev":"sample","src":"shared","state":"shared","sid":"a4f5d9f5-dada-5eff-c4d0-6ec0e3c27c73","sharedOK":true,"here":true,"frame":{"o":[0.187,0,-0.218],"x":[1,0,0.026]},"lf":{"p":[0,-1.644,0],"yaw":0},"shared":{"p":[0.189,-0.431,-0.224],"yaw":-0.026},"hS":0.432,"head":[0.196,1.233,-1.344],"sharedAlign":true,"pub":{"by":"84c6seocwfen","g":"shared","at":1792287613783}}
+{"at":1792287675984,"kind":"ar","t":74946,"n":49,"ev":"sample","src":"shared","state":"shared","sid":"a4f5d9f5-dada-5eff-c4d0-6ec0e3c27c73","sharedOK":true,"here":true,"frame":{"o":[0.187,0,-0.218],"x":[1,0,0.026]},"lf":{"p":[0,-1.644,0],"yaw":0},"shared":{"p":[0.189,-0.431,-0.224],"yaw":-0.026},"hS":0.432,"head":[0.197,1.233,-1.344],"sharedAlign":true,"pub":{"by":"84c6seocwfen","g":"shared","at":1792287613783}}
+{"at":1792287675984,"kind":"ar","t":79946,"n":50,"ev":"sample","src":"shared","state":"shared","sid":"a4f5d9f5-dada-5eff-c4d0-6ec0e3c27c73","sharedOK":true,"here":true,"frame":{"o":[0.187,0,-0.218],"x":[1,0,0.026]},"lf":{"p":[0,-1.644,0],"yaw":0},"shared":{"p":[0.19,-0.431,-0.224],"yaw":-0.026},"hS":0.432,"head":[0.127,1.229,-1.327],"sharedAlign":true,"pub":{"by":"84c6seocwfen","g":"shared","at":1792287613783}}
+{"at":1792288385318,"kind":"ar","t":81793,"n":51,"ev":"headset","visibility":"visible-blurred"}
+{"at":1792288385318,"kind":"ar","t":81794,"n":52,"ev":"headset","visibility":"hidden"}
+{"at":1792288385318,"kind":"ar","t":708718,"n":53,"ev":"close","code":1001,"reason":"relay stopping"}
+{"at":1792288385318,"kind":"ar","t":709720,"n":54,"ev":"connect","code":"ZNN"}
+{"at":1792288385318,"kind":"ar","t":713036,"n":55,"ev":"open"}
+{"at":1792288385318,"kind":"ar","t":713037,"n":56,"ev":"error","code":"room","text":"no room ZNN"}
+{"at":1792288385318,"kind":"ar","t":713041,"n":57,"ev":"close","code":4004,"reason":"room"}
+{"at":1792288385318,"kind":"ar","t":713117,"n":58,"ev":"revived","code":"ZNN","keys":4,"first":true}
+{"at":1792288385318,"kind":"ar","t":713117,"n":59,"ev":"connect","code":"ZNN"}
+{"at":1792288385318,"kind":"ar","t":713174,"n":60,"ev":"open"}
+{"at":1792288385318,"kind":"ar","t":713175,"n":61,"ev":"welcome","seq":0,"keys":0,"members":1}
+{"at":1792288385318,"kind":"ar","t":713176,"n":62,"ev":"publish","cid":4,"keys":["st.s6xaw","st.s6xaw.play","st.s6xaw.x","rf.a4f5d9f5-dada-5eff-c4d0-6ec0e3c27c73"],"sent":true}
+{"at":1792288385318,"kind":"ar","t":713178,"n":63,"ev":"refilled","keys":4}
+{"at":1792288385318,"kind":"ar","t":713187,"n":64,"ev":"state","st":"s6xaw"}
+{"at":1792288385318,"kind":"ar","t":713189,"n":65,"ev":"recv","seq":1,"by":"84c6seocwfen","keys":["st.s6xaw","st.s6xaw.play","st.s6xaw.x","rf.a4f5d9f5-dada-5eff-c4d0-6ec0e3c27c73"]}
+{"at":1792288385318,"kind":"ar","t":785072,"n":66,"ev":"headset","visibility":"visible-blurred"}
+{"at":1792288385318,"kind":"ar","t":785072,"n":67,"ev":"woke","away":703279,"src":"shared","anchors":false}
+{"at":1792288385318,"kind":"ar","t":785073,"n":68,"ev":"shared after wake","agree":true,"d":0.007,"a":0.001,"after":1}
+{"at":1792288385318,"kind":"ar","t":785073,"n":69,"ev":"reconcile","own":true,"d":0.007,"a":0.001,"h":0.042}
+{"at":1792288385318,"kind":"ar","t":785073,"n":70,"ev":"frame","src":"shared","o":[0.189,-0.042,-0.224],"x":[1,0,0.025]}
+{"at":1792288385318,"kind":"ar","t":785073,"n":71,"ev":"sample","src":"shared","state":"shared","sid":"a4f5d9f5-dada-5eff-c4d0-6ec0e3c27c73","sharedOK":true,"here":true,"frame":{"o":[0.189,-0.042,-0.224],"x":[1,0,0.025]},"lf":{"p":[0,-1.6,0],"yaw":0},"shared":{"p":[0.19,-0.475,-0.225],"yaw":-0.025},"hS":0.432,"head":[0,1.6,0],"sharedAlign":true,"pub":{"by":"84c6seocwfen","g":"shared","at":1792287613783}}
