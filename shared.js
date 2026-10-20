@@ -1393,10 +1393,12 @@
     const tab = !PNL.open, H = tab ? 112 : S.h;
     rr(ctx, 0, 0, W, H, 24); ctx.fillStyle = 'rgba(8,15,28,0.95)'; ctx.fill();
     ctx.lineWidth = 2; ctx.strokeStyle = C.code ? 'rgba(70,217,255,0.5)' : 'rgba(140,170,210,0.3)'; ctx.stroke();
-    ctx.font = FONT(32, 700); ctx.fillStyle = INK; ctx.fillText(fit(ctx, title, w - 170), x, 26);
+    ctx.font = FONT(32, 700); ctx.fillStyle = INK; ctx.fillText(fit(ctx, title, w - 264), x, 26);
     ctx.font = FONT(21); ctx.fillStyle = MUTED;
-    ctx.fillText(fit(ctx, C.code ? connLine() + (R.status() ? ' · ' + R.status() : '') : C.relay ? 'Join others in a room' : 'Place the stories in your room', w - 170), x, 70);
-    button(S, 'open', W - 34 - 150, 26, 150, 60, tab ? 'Open' : 'Close', () => { PNL.open = !PNL.open; PNL.page = 'main'; if (PNL.open && !C.code) listRooms(); });
+    ctx.fillText(fit(ctx, C.code ? connLine() + (R.status() ? ' · ' + R.status() : '') : C.relay ? 'Join others in a room' : 'Place the stories in your room', w - 264), x, 70);
+    // Exit (leave VR or AR) lives here, at hand on the left controller, not on the story panels
+    button(S, 'exit', W - 34 - 130 - 12 - 110, 26, 110, 60, 'Exit', () => { if (HOST.session && HOST.session.end) HOST.session.end(); });
+    button(S, 'open', W - 34 - 130, 26, 130, 60, tab ? 'Open' : 'Close', () => { PNL.open = !PNL.open; PNL.page = 'main'; if (PNL.open && !C.code) listRooms(); });
     showTop(S, H);
     if (tab) { S.tex.needsUpdate = true; return; }
     y = 118;

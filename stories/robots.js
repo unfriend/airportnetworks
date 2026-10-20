@@ -3885,7 +3885,7 @@ function drawMain(ctx, P) {
   const story = APP.mode === 'story';
   let x = P.w - 36;
   const hb = (id, label, fn, w, o) => { x -= w; vButton(ctx, P, id, x, 26, w, 54, label, fn, o); x -= 12; };
-  hb('exit', 'Exit', () => { if (XR.session) XR.session.end(); }, 96);
+  // (Exit is on the shell's Shared panel, at hand on the left controller)
   if (AUD && AUD.state !== 'none') hb('sound', audioLabel(), () => audioToggle(), 180, { on: AUD.on(), px: 23 });
   if (!HOST.anchor.on) hb('recenter', 'Recenter', () => { XR.needRecenter = true; }, 140); // anchored: nothing moves
   // at a shared room's station each station keeps its story: another story is another station, so no Stories button

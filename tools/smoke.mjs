@@ -35,6 +35,7 @@ for (const key of ['airports', 'proteins', 'spatial', 'lbi', 'nmd', 'flock', 'ro
     document.querySelectorAll('.tabs button').forEach(b => b.click());
     XR.on = true;
     for (const P of XR.panels) { P.last = ''; P.t = -1e9; panelTick(P, performance.now() + 1e6); }
+    if (XR.main.regions.some(r => r.id === 'exit')) throw new Error('Exit is on the story panel (it belongs on the Shared panel)');
     XR.stories = true;
     for (const P of XR.panels) { P.last = ''; P.t = -1e9; panelTick(P, performance.now() + 1e6); }
     XR.soundCheck = true; xrUpdate(storyState(0));

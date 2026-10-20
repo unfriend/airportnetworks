@@ -1501,6 +1501,17 @@ try {
   check('VR: the panel asks once whether you are in the room with the others (In this room: aligned with them; Say I am elsewhere: your own floor; kept for the room)',
     asked && inRoom[0] === true && inRoom[1] !== 'own' && sayAway && away[0] === false && away[1] === 'own' && away[2] === false && !again,
     JSON.stringify({ asked, inRoom, sayAway, away, again }));
+  // Exit (leaving VR or AR) is on the Shared panel, also while it is closed, and not on the story panel
+  await H.evaluate(() => HOST.collab.panelOpen(false));
+  await frames(H, 200);
+  const exitT = await H.evaluate(() => {
+    const s = HOST.session, e0 = s.end, P = HOST.collab.overlay().panel, r = P.regions.find(x => x.id === 'exit');
+    let n = 0; s.end = () => { n++; };
+    if (r) r.fn();
+    if (e0) s.end = e0; else delete s.end;
+    return { tab: P.vis < P.h, found: !!r, ended: n, story: HOST.cur.peek("XR.main.regions.some(r => r.id === 'exit')") };
+  });
+  check('Exit is on the Shared panel (closed too) and ends the session; the story panel has none', exitT.tab && exitT.found && exitT.ended === 1 && exitT.story === false, JSON.stringify(exitT));
 
   // ------------------------------------------- a fresh shared space --
   // Fresh shared space (two presses): every page in the room moves to the app under s/<n>/ (a new page address, so

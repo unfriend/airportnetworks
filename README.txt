@@ -70,7 +70,8 @@ until someone unlocks it. At a station in a headset the grip moves the scene
 or the story panel and both grips resize the scene, during the story too, for
 everyone at once (unless the layout is locked); each station keeps its story,
 so the story panel has no Stories button there: another story is another
-station. In a headset the Shared panel rides on the left controller. The flock's birds and the robots move separately on each device; their
+station. In a headset the Shared panel rides on the left controller; its Exit
+button leaves VR or AR (the story panels have none). The flock's birds and the robots move separately on each device; their
 controls, falcons and crumbs are shared. Others join a room through the relay
 (relay/, Node, no packages), which GitHub Pages cannot run: for now it runs on a
 machine on the same Wi-Fi as the headsets and serves the app itself (node

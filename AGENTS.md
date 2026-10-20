@@ -273,7 +273,10 @@ generation, `{ n, by, at }`; FORMAT networks-10). The plan is `docs/shared-space
 - The headset's Shared panel rides on the left controller (`HAND`, from the
   left input source's grip or target ray each frame): above it, its lower edge
   7 cm over it, at 0.62 of its size, turned to your eyes and eased; without a
-  left controller it hangs beside the story panel as before.
+  left controller it hangs beside the story panel as before. It shows in every
+  headset session, in a room or not, and its header (also while closed) holds
+  Exit, which ends the session: the story panels have no Exit (the headset
+  Stories screen keeps its own).
 - At its station in a shared room a headset moves the scene and the panel for
   everyone: the grip on the scene moves it (`XR.globeOff`), both grips on it
   resize it (`xrResize`: the distance between the hands, a quarter to four times
