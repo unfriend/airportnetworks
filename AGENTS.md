@@ -194,7 +194,9 @@ generation, `{ n, by, at }`; FORMAT networks-10). The plan is `docs/shared-space
   room back after a relay restart. Log: `window.__collabLog` (and `#debug`).
 - A room on this device: when no relay is known, or the relay cannot be
   reached as a room is joined (no answer within 6 s), the room works on the
-  device alone. `LocalSocket` in `shared.js` plays the relay's part in the page
+  device alone (starting a room first asks whether the page's own server is a
+  relay, 5 s at most: a room started before that was known stayed on the
+  device until the next probe, and links to it were refused). `LocalSocket` in `shared.js` plays the relay's part in the page
   (the same messages and the same rules for keys, a station's epoch and stale
   writes; presence and effects go nowhere, no log is sent). Its keys are kept
   in `localStorage` (`collabRoom.<code>`, the last 8 rooms), and a room joined

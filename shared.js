@@ -157,9 +157,13 @@
   const peopleIn = r => (r.members ? `${r.members} ${r.members === 1 ? 'person' : 'people'}${r.names && r.names.length ? ': ' + r.names.join(', ') : ''}` : 'empty');
   // a new room: on the relay, or on this device when no relay is known or the relay cannot be reached
   async function create() {
-    if (!C.relay) { join(freeCode(), true); return; }
+    // a page the relay serves may not know it yet (a quick click, or a test): asked first (5 s at most), else the
+    // room starts on this device and reaches the relay only with the next probe, and links to it are refused till then
     if (C.creating) return;
-    C.creating = true; C.note = 'Asking the relay for a room...'; changed();
+    C.creating = true;
+    if (!C.relay && C.served === null) await Promise.race([detect(), new Promise(r => setTimeout(r, 5000))]);
+    if (!C.relay) { C.creating = false; join(freeCode(), true); return; }
+    C.note = 'Asking the relay for a room...'; changed();
     let r = null;
     try { r = await api('rooms', { app: 'networks', version: FORMAT }, 5000); } catch (e) { log('create failed', { e: e.message }); C.creating = false; join(freeCode(), true); return; }
     C.creating = false; C.note = '';
