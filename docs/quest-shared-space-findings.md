@@ -69,6 +69,13 @@ what we do about it.
   its room scan in standby. So each headset kept its own copy of the site's shared space and reopened it; neither
   joined the other's again. The space is kept per page address, so we move a room to a new address (`/s/<n>/`,
   served by our relay) when that happens, and the headsets start one by one there.
+- **A new address gives a new id, not a new place.** Moved to `/s/1/` and `/s/2/`, the first headset got a new id
+  each time, but its tape marks sat at the same spot in every one, to the centimetre: the origin stayed where its
+  old space's was. The second headset first got its own old origin under a default id, then, 2.4 s later, the
+  first headset's id, so it joined by name. But through that pose the marks were 8 to 13 m and about 120 degrees
+  from where the first headset put them. Both headsets were on Quest Browser 152 with Physical space features off.
+  Both found the previous day's tape calibration from their saved anchors at start-up, so they lined up anyway; the
+  app flagged the space as split within 5 s and used nothing from it.
 - A switch that turns the shared space off should not be remembered. One headset had it left off and quietly ignored
   the space in every room of an evening.
 - The id stays the same across sessions and days, so a frame stored for it may be last time's. If its writer has

@@ -258,6 +258,13 @@ same page address, the relay on the same Wi-Fi; every 5 s each headset logged it
   so a room can now move to a fresh page address (*Fresh shared space*, `s/<n>/`), and anchors not found after
   waking are looked for again every 10 s (they were found once AR was entered again).
 
+- **20 October, room XRE, a fresh shared space**: *Fresh shared space* moved the pages to `/s/1/` and `/s/2/`. One
+  headset got a new id at each address (024894e1, 77bcbdf1) with its origin where its old space's was (the tape
+  marks at the same spot in all of them). The other first got its own old origin under a default id, then that
+  headset's id 77bcbdf1, but placed 8 to 13 m and about 120 degrees away (the app's compare: 7.6 m, 116 degrees;
+  flagged split after 5 s). Both lined up through the tape calibrations found again from their anchors after a
+  night ("Room calibration from last time").
+
 So: tape marks on every headset, the room's height taken from the marks (the first calibration's height of
 mark A over its floor, others allowing for their own floor), anchors to follow origin jumps, and the shared
 space on by default (the same Quest Browser version on every headset) with its measured distance shown. A short

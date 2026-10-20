@@ -579,7 +579,10 @@ shared space nor the calibration lined them up; the relay's logs of the second
 test led to the rules above (own marks win, the floor from the marks); with
 both on one Quest Browser version the shared space lined them up, but one was
 offset after standby, and one of two after a night's standby (the rules for
-waking above). Not confirmed on headsets yet: whether they line up again after
+waking above); later the two headsets each kept their own copy of the shared
+space, and even at a fresh address (`s/<n>/`) the second joined the first's id
+8 to 13 m off, while the tape calibrations, found again from their anchors
+after a night, lined them up. Not confirmed on headsets yet: whether they line up again after
 standby (and a night) now, whether asking for the shared space again (Re-align,
 or 15 s after waking) joins the others' space,
 moving and resizing scenes with the grips (comfort, how it looks for the others),
