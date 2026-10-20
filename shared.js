@@ -1959,7 +1959,7 @@
       // marks with saved anchors stay: a new AR session finds them again at once (after standby two Quest 3s did not
       // find them within the session for ten minutes, and did on entering AR again), so that is what is asked
       if (savedHandles()) {
-        if (!R.anchors && !R.anchorBusy) { R.anchorTried = false; R.retryAt = 0; R.retryFrom = 0; }   // looked for again now, and on the retries' schedule
+        if (!R.anchors && !R.anchorBusy && !R.retryAt) { R.anchorTried = false; R.retryFrom = 0; }   // looked for again now (unless tries are under way), then on the retries' schedule
         lostMarks(why); return;
       }
       R.frame = null; R.src = ''; R.aligned = false; R.mk = null; R.noticed = 'calibrate';
@@ -2210,6 +2210,8 @@
     if (!ok) {
       dropAnchors();
       if (S) { S.anchors = []; storeSaved(); }
+      if (R.reenter) { R.reenter = false; changed(); }   // no handles left: a new AR session would not find the marks either
+      R.afterSleep = false;
       return false;
     }
     R.anchorsOK = true;
