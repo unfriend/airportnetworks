@@ -393,7 +393,7 @@ SETS.tower = function (K) {
     PFLAG[i] = (sd ? 1 : 0) + (sh ? 2 : 0);
   }
   // links in pair mode: both modules squeezed into small discs, so each is drawn fainter
-  const PKF = Math.round(0.2 * clamp(Math.sqrt(2500 / Math.max(1, (MODL[PGL] || 0) + (MODL[PGR] || 0))), 0.3, 1) * 1000) / 1000;
+  const PKF = Math.round(0.55 * clamp(Math.sqrt(2500 / Math.max(1, (MODL[PGL] || 0) + (MODL[PGR] || 0))), 0.3, 1) * 1000) / 1000;
   const GLOW_KEYS = ['HP', 'coex_HRA', 'coex_HRV', 'ppi_skeletal_muscle'].filter(k => LI[k] !== undefined);
   const PAIR_GLOW = new Uint8Array(LN); for (const k of GLOW_KEYS) PAIR_GLOW[LI[k]] = 1;
 
@@ -650,10 +650,10 @@ void main() {
     look(g, ca, qa, xa, ma); look(o, cb, qb, xb, mb);
     float sel = mix(uSl0.x, uSl1.x, uX), pk = mix(uSl0.y, uSl1.y, uX), gn = mix(uSl0.z, uSl1.z, uX);
     // long links cross the whole disc: they are dimmed, the short ones (neighbourhoods) carry the picture
-    float len = distance(xa, xb), near = mix(1.0, 0.12, smoothstep(0.18, 0.8, len)), nearM = mix(1.0, 0.4, smoothstep(0.3, 1.1, len));
-    float ctx = step(rk, mix(0.2, 0.1, sel) * (1.0 - uPair) * (1.0 - 0.6 * pk)) * mix(0.06, 0.035, sel) * near;
+    float len = distance(xa, xb), near = mix(1.0, 0.16, smoothstep(0.18, 0.8, len)), nearM = mix(1.0, 0.6, smoothstep(0.3, 1.1, len));
+    float ctx = step(rk, mix(0.26, 0.13, sel) * (1.0 - uPair) * (1.0 - 0.6 * pk)) * mix(0.066, 0.045, sel) * near;
     float both = qa.y * qb.y, sb = qa.w * qb.w;
-    float mod_ = both * (0.16 * mix(uMK.x, uMK.y, uX) + 0.5 * sb * max(uSeeds, uSeedOnly * uPair)) * nearM * (1.0 - 0.5 * uWalk);
+    float mod_ = both * (0.55 * mix(uMK.x, uMK.y, uX) + 0.9 * sb * max(uSeeds, uSeedOnly * uPair)) * nearM * (1.0 - 0.5 * uWalk);
     float al = max(ctx, sel * mod_ * (1.0 - uPair) + uPair * both * ${f1(PKF)} * nearM);
     vec3 col = ca;
     // picked endotypes: links within one in its colour, links between two in amber
@@ -997,7 +997,7 @@ void main() { float d = length(gl_PointCoord - 0.5); float a = smoothstep(0.5, 0
       if (pg > 0) c = [lerp(c[0], 1, pg * 0.35), lerp(c[1], 1, pg * 0.35), lerp(c[2], 1, pg * 0.35)];
       let lw = lerp(1, hasZ > 0.5 ? (inf ? 0.55 + 0.45 * zn / 0.6 : 0.3) : 1, Z);
       lw *= 1 + pg * 0.8 - P * (1 - PAIR_GLOW[l]) * 0.15;
-      lw *= clamp(4 / Math.max(1, liveCat[LAY[l].cat] || 1), 0.12, 1);
+      lw *= clamp(4 / Math.max(1, liveCat[LAY[l].cat] || 1), 0.18, 1);
       // bars rise up the tower one after another
       const grow = smooth(clamp((Z * 1.4 - fb * 0.4) / 1.0, 0, 1)) * hasZ;
       const o = l * 4;
