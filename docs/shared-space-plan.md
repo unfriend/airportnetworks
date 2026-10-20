@@ -31,6 +31,9 @@ says what was built and where it differs from this plan.
    headset runs its own (same rules, same events, but birds and robots are not in the same places). Phase 2
    makes the first person at a station its simulation host, streaming positions (ephemeral, about 10 Hz) that
    the others ease towards. Robots also need one shared room description from that host.
+   Built for the flock (lighter than streaming every bird): every device at the station sends where its flock is
+   twice a second; the lowest member id leads, the others take its flight time and steer their whole flock to its
+   middle, and every falcon goes out as it starts (AGENTS.md, the flock's notes). The robots are not synced yet.
 3. Polish: relay persistence across restarts, station editing on the desktop map, remote VR teleport, presenter
    tools if wanted.
 
@@ -240,7 +243,7 @@ What each story shares (`collab.state()`) and its effects:
 | spatial | tab, colour, cell, routes, selection and its copy, path, community level, moves, bait and labelling radius | none |
 | lbi | tab, scene, that scene's controls, selected protein, route | none |
 | nmd | tab, scene, every scene's controls, group, gene, picked endotypes, layers knocked out, your genes, the walk and walkers, colour, grid, z-scores | none |
-| flock | birds, links, falcon | `falcon` |
+| flock | birds, links, falcon | `falcon`, `flock` (where the flock is, quiet) |
 | robots | rule, robots, trails, links | `crumbs` (at the same spot), `dust` |
 
 Differences from the plan:

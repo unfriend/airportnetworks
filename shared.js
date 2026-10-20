@@ -630,18 +630,19 @@
     } else if (m.k === 'q.frame') { R.asked(m.v, m.by);   // someone's Re-align: the room's frame written into the space again
     } else if (m.k.startsWith('e.')) {
       const L = liveSt(), v = m.v || {};
-      log('effect in', { st: m.k.slice(2), type: v.type, by: m.by });
+      if (!v.q) log('effect in', { st: m.k.slice(2), type: v.type, by: m.by });
       if (L && m.k === 'e.' + L.id && C.ready && L.story === HOST.curKey && C.hook && C.hook.effect) {
         try { C.hook.effect(v.type, v.data); } catch (e) { log('effect failed', { e: e.message }); }
       }
     }
   }
-  // a one-shot effect the story caused here (a falcon sent, crumbs spilled): the others at the station play it too
-  function effect(type, data) {
+  // a one-shot effect the story caused here (a falcon sent, crumbs spilled): the others at the station play it too.
+  // quiet: one sent often (where the flock is, twice a second), kept out of the log on both sides
+  function effect(type, data, quiet) {
     const L = liveSt();
     if (!L || L.story !== HOST.curKey || !C.code) return false;
-    log('effect out', { st: L.id, type });
-    return fx('e.' + L.id, { type, data: data === undefined ? null : data });
+    if (!quiet) log('effect out', { st: L.id, type });
+    return fx('e.' + L.id, Object.assign({ type, data: data === undefined ? null : data }, quiet ? { q: 1 } : {}));
   }
 
   // ------------------------------------------------------------ stations --

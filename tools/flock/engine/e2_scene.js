@@ -122,13 +122,14 @@ function followView(v, dt, keep) {
   return [FOL.vz, FOL.ve, v[2], v[3] + (FOL.tx - v[3]) * w, v[4] + (FOL.ty - v[4]) * w, v[5] + (FOL.tz - v[5]) * w];
 }
 // the flock steers clear of you: your head and hands, in the flock's own frame. On a screen you stand at the
-// middle of the field (not where the camera is: from afar the flock would follow the camera away)
+// middle of the field (not where the camera is: from afar the flock would follow the camera away). spot: at a
+// station in a shared room (flockSync), where the flock roosts round the station's spot instead of round you
 const _sv = new THREE.Vector3(), _sm = new THREE.Matrix4();
-function tellFlock(xr) {
+function tellFlock(xr, spot) {
   const s = GL.sets.flock;
   GL.world.updateMatrixWorld(true);
   _sm.copy(s.group.matrixWorld).invert();
   const head = xr ? _sv.copy(XR.head).applyMatrix4(_sm).toArray() : [0, 1.6, 0];
   const hands = xr ? XR.ctrls.filter(c => c.src && c.g.visible).map(c => _sv.copy(c.o).applyMatrix4(_sm).toArray()) : [];
-  s.see(head, hands);
+  s.see(head, hands, spot);
 }

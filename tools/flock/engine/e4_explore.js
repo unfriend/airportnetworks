@@ -49,12 +49,44 @@ function setCtl(k, key, v) {
   if (c) renderScenes();
 }
 // send a falcon (dir: where you point, in the flock's frame; none: from anywhere); in a shared room the others
-// at this station see it too (an effect); true if one went
+// at this station see the same falcon (the set's onLaunch, see flockSync); true if one went
 function sendFalcon(dir) {
   if (!GL.sets.flock.scatter(dir || null)) return false;
   renderScenes();
-  HOST.collab.effect('falcon', { dir: dir || null });
   return true;
+}
+// shared rooms: the flock belongs to the station. Everyone there says where their flock is, twice a second (a quiet
+// effect); the one with the lowest member id leads: the others take its flight time and steer their flock to it
+// (the set's follow), and only it sends falcons of its own (the story's, now and then); a falcon anyone sends goes
+// to everyone, exactly as it starts. Positions are in the set's frame, whose origin is the station's spot on every
+// device. True while at a station (the flock then roosts round its spot)
+const FSY = { heard: new Map(), sent: 0 };
+const r2 = a => a.map(x => Math.round(x * 100) / 100);
+function flockSync() {
+  const s = GL.sets.flock, L = HOST.collab.live(), on = !!(L && L.story === HOST.curKey && HOST.collab.joined);
+  s.onLaunch = f => HOST.collab.effect('falcon', f);
+  if (!on) { FSY.heard.clear(); if (s.following()) s.follow(null); return false; }
+  const pn = performance.now(), now = HOST.collab.now(), id = HOST.collab.id || '';
+  if (pn - FSY.sent > 500) {
+    FSY.sent = pn;
+    const f = s.flight();
+    HOST.collab.effect('flock', { id, at: Math.round(now), t: Math.round(f.t * 1000) / 1000, m: r2(f.m), v: r2(f.v) }, true);
+  }
+  let lead = null;
+  for (const [k, v] of FSY.heard) if (pn - v.got > 3000) FSY.heard.delete(k); else if (k < id && (!lead || k < lead.id)) lead = v;
+  if (lead) { const age = clamp((now - lead.at) / 1000, 0, 1.5); s.follow({ t: lead.t + age, m: lead.m.map((x, j) => x + lead.v[j] * age), v: lead.v }); }
+  else if (s.following()) s.follow(null);
+  return true;
+}
+// what another device at the station sent: where its flock is, or a falcon
+const v3ok = a => Array.isArray(a) && a.length === 3 && a.every(Number.isFinite);
+function flockEffect(type, d) {
+  if (!d || typeof d !== 'object') return;
+  if (type === 'flock' && typeof d.id === 'string' && d.id.length < 64 && Number.isFinite(d.at) && Number.isFinite(d.t) && v3ok(d.m) && v3ok(d.v)) {
+    FSY.heard.set(d.id, { id: d.id, at: d.at, t: d.t, m: d.m, v: d.v, got: performance.now() });
+  } else if (type === 'falcon' && v3ok(d.p) && v3ok(d.v) && (d.aim === null || v3ok(d.aim))) {
+    GL.sets.flock.falcon(d); renderScenes();
+  }
 }
 // shared rooms: the controls everyone at the station sees alike (the view is each person's own camera)
 const SHARED_CTL = ['birds', 'links', 'falcon'];

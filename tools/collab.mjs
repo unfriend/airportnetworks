@@ -23,7 +23,7 @@
 //                  again differently (both must change what collab.state() returns)
 //   effect (optional): quiet stops the story's own effects, idle is true when none is playing, send causes one
 //                  (calling HOST.collab.effect), seen is true on the other page once it plays there
-//   more (optional): async (A, B) => more checks of its own, after the effect (A changed things, B follows)
+//   more (optional): async (A, B, C) => more checks of its own, after the effect (A changed things, B and C follow)
 // The first entry starts on every page's Stories screen with its story already loaded (Follow must close it);
 // the last is the station page A follows last, so it is the pretend headset's (HEADSET_STORY).
 import { spawn } from 'child_process';
@@ -68,6 +68,20 @@ const STORIES = {
   flock: {
     change: "setCtl('flock', 'birds', '400')", back: "setCtl('flock', 'birds', '100')",
     effect: { quiet: "setCtl('flock', 'falcon', 'off')", idle: '!GL.sets.flock.falconOn()', send: 'sendFalcon(null)', seen: 'GL.sets.flock.falconOn()' },
+    // the flock belongs to the station: the same falcon everywhere; one page leads, the others take its flight time
+    // and fly with its flock (positions in the set's frame, the same on every page)
+    async more(A, B, C) {
+      const fal = p => peek(p, 'GL.sets.flock.falconOn() ? GL.sets.flock.state().falcon.p.slice() : null');
+      const [fa, fb] = await Promise.all([fal(A), fal(B)]);
+      check('flock: the falcon flies the same way on the others', !!fa && !!fb && Math.hypot(fa[0] - fb[0], fa[1] - fb[1], fa[2] - fb[2]) < 10, `A ${fa}, B ${fb}`);
+      await sleep(6000);
+      const fl = p => peek(p, '(() => { const s = GL.sets.flock, f = s.flight(); return { lead: !s.following(), t: f.t, m: f.m }; })()');
+      const f = await Promise.all([A, B, C].map(fl)), d = (a, b) => Math.hypot(a.m[0] - b.m[0], a.m[1] - b.m[1], a.m[2] - b.m[2]);
+      const show = JSON.stringify(f.map(x => ({ lead: x.lead, t: +x.t.toFixed(2), m: x.m.map(v => +v.toFixed(1)) })));
+      check('flock: one page at the station leads, the others follow it', f.filter(x => x.lead).length === 1, show);
+      check('flock: every page flies on the leader\'s flight time', Math.max(...f.map(x => x.t)) - Math.min(...f.map(x => x.t)) < 0.6, show);
+      check('flock: the flocks fly together (their middles within 5 m)', d(f[0], f[1]) < 5 && d(f[0], f[2]) < 5, show);
+    },
   },
 };
 // the stories a pretend headset walks between: its own (the last in STORIES, whose station has an explore clock and
@@ -384,7 +398,7 @@ try {
       await peek(A, E.send);
       check(`${key}: its effect plays at the others`, calm && await until(B, s => HOST.cur.peek(s), E.seen, 5000));
     }
-    if (T.more) await T.more(A, B);
+    if (T.more) await T.more(A, B, C);
     await peek(B, 'APP.enterStory(0)');
     check(`${key}: Replay story on another page reaches the first`, await until(A, () => HOST.cur.peek('APP.mode === "story" && APP.t < 2'), null, 5000));
     await peek(A, 'APP.enterExplore()');

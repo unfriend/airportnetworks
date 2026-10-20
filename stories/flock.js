@@ -392,6 +392,9 @@ void main() { vec3 d = normalize(vW - cameraPosition);
   };
   const RT = [[0, 0, 0], [0, 0, 0], [0, 0, 0]];
   let SW = 0;   // how far into a swoop
+  // in a shared room another device's flock may lead this one (follow): its flight time is taken (tOff, so the roost
+  // and the whim are the same) and the flock as a whole is steered to where that one is
+  let tOff = 0, FOL = null;
   const CEN = [0, 9, -14];   // the middle of the flock's main body (centre())
 
   // a grid of cells round the viewer for the neighbour search (birds beyond its edge share the edge cells)
@@ -441,9 +444,22 @@ void main() { vec3 d = normalize(vW - cameraPosition);
     neighbours();
     for (let k = 0; k < 3; k++) roost(k, t, RT[k]);
     const hx = ME.head[0], hy = ME.head[1], hz = ME.head[2];
-    let gcx = 0, gcy = 0, gcz = 0;
-    for (let i = 0; i < N; i++) { gcx += P[i * 3]; gcy += P[i * 3 + 1]; gcz += P[i * 3 + 2]; }
-    gcx /= N; gcy /= N; gcz /= N;
+    let gcx = 0, gcy = 0, gcz = 0, gvx = 0, gvy = 0, gvz = 0;
+    for (let i = 0; i < N; i++) { gcx += P[i * 3]; gcy += P[i * 3 + 1]; gcz += P[i * 3 + 2]; gvx += V[i * 3]; gvy += V[i * 3 + 1]; gvz += V[i * 3 + 2]; }
+    gcx /= N; gcy /= N; gcz /= N; gvx /= N; gvy /= N; gvz /= N;
+    // following: where the leading flock is now (sent with its velocity); far off (just joined) the flock moves
+    // there at once, else every bird gets the same pull (a spring on the middle, damped by the velocity)
+    let lx = 0, ly = 0, lz = 0;
+    if (FOL) {
+      const e = tSim - FOL.t0, ex = FOL.m[0] + FOL.v[0] * e - gcx, ey = FOL.m[1] + FOL.v[1] * e - gcy, ez = FOL.m[2] + FOL.v[2] * e - gcz;
+      if (Math.hypot(ex, ey, ez) > 12) {
+        for (let i = 0; i < MAXN; i++) { P[i * 3] += ex; P[i * 3 + 1] += ey; P[i * 3 + 2] += ez; V[i * 3] += FOL.v[0] - gvx; V[i * 3 + 1] += FOL.v[1] - gvy; V[i * 3 + 2] += FOL.v[2] - gvz; }
+        gcx += ex; gcy += ey; gcz += ez; CEN[0] += ex; CEN[1] += ey; CEN[2] += ez;
+      } else {
+        lx = ex * 0.5 + (FOL.v[0] - gvx) * 0.8; ly = ey * 0.5 + (FOL.v[1] - gvy) * 0.8; lz = ez * 0.5 + (FOL.v[2] - gvz) * 0.8;
+        const ll = Math.hypot(lx, ly, lz); if (ll > 10) { lx *= 10 / ll; ly *= 10 / ll; lz *= 10 / ll; }
+      }
+    }
     // the pull to the roost acts on the flock as a whole (on its middle), so the flock moves as one body
     const rpx = RT[0][0] - gcx, rpy = RT[0][1] - gcy, rpz = RT[0][2] - gcz, rpl = Math.hypot(rpx, rpy, rpz) + 1e-3, rpf = KR * (1 + 3 * SW) * Math.min(rpl, 30) / rpl, kh = KH * (1 - 0.8 * SW);   // in a swoop the roost wins
     const H = whim(t), hvx = H[0] * V0, hvy = H[1] * V0, hvz = H[2] * V0;
@@ -470,8 +486,8 @@ void main() { vec3 d = normalize(vW - cameraPosition);
       // the roost and the whim; and a few birds lean towards a satellite instead (the lean changing slowly)
       const w = (GR[i] + t * 0.013) % 1, k = w < 0.8 ? 0 : w < 0.9 ? 1 : 2, rk = RT[k];
       ax += rpx * rpf + (rk[0] - RT[0][0]) * 0.3 + (hvx - vx) * kh; ay += rpy * rpf + (rk[1] - RT[0][1]) * 0.3 + (hvy - vy) * kh; az += rpz * rpf + (rk[2] - RT[0][2]) * 0.3 + (hvz - vz) * kh;
-      // and the flock as a whole holds together
-      ax += (gcx - x) * 0.28; ay += (gcy - y) * 0.28; az += (gcz - z) * 0.28;
+      // and the flock as a whole holds together (and goes where the leading one is)
+      ax += (gcx - x) * 0.28 + lx; ay += (gcy - y) * 0.28 + ly; az += (gcz - z) * 0.28 + lz;
       // keep round the viewer: not too far, not too close, not too low
       const ox = x - ME.c[0], oz = z - ME.c[1], od = Math.hypot(ox, oz) + 1e-3;
       if (od > EDGE) { const f = (od - EDGE) * 1.2 / od; ax -= ox * f; az -= oz * f; }
@@ -524,9 +540,13 @@ void main() { vec3 d = normalize(vW - cameraPosition);
   }
   function launch(aim) {
     const a = R() * TAU, from = aim ? Math.atan2(aim[2] - ME.c[1], aim[0] - ME.c[0]) + Math.PI * (0.7 + R() * 0.6) : a;
-    FAL.p = [ME.c[0] + Math.cos(from) * 70, 30 + R() * 15, ME.c[1] + Math.sin(from) * 70];
-    FAL.v = [-Math.cos(from) * 20, -4, -Math.sin(from) * 20];
-    FAL.on = true; FAL.t = 0; FAL.pass = 0; FAL.aim = aim || null;
+    startFalcon({ p: [ME.c[0] + Math.cos(from) * 70, 30 + R() * 15, ME.c[1] + Math.sin(from) * 70], v: [-Math.cos(from) * 20, -4, -Math.sin(from) * 20], aim: aim || null });
+    if (set.onLaunch) set.onLaunch({ p: FAL.p.slice(), v: FAL.v.slice(), aim: FAL.aim });   // in a shared room: the others' falcon too
+  }
+  // a falcon from where it starts (p, v) and where it was sent (aim, or null: the flock): launched here, or by another
+  // device in a shared room (then exactly the same falcon)
+  function startFalcon(f) {
+    FAL.p = f.p.slice(); FAL.v = f.v.slice(); FAL.on = true; FAL.t = 0; FAL.pass = 0; FAL.aim = f.aim ? f.aim.slice() : null;
   }
 
   // drawing: one instanced batch of birds; a body and two pointed wings that flap and glide, banking with the bird
@@ -649,16 +669,16 @@ void main() {
     N = want;
     // the story (or a button) sends a falcon each time flock_hunt passes a whole number
     const h = Math.floor(S.flock_hunt + 1e-6);
-    if (h > hunts && !FAL.on) launch(null);
+    if (h > hunts && !FAL.on && !FOL) launch(null);   // following: the leading device sends its falcons
     hunts = h;
     let d = dt === undefined ? (tLast === null ? 0 : t - tLast) : dt;
     tLast = t;
     d = clamp(d, 0, 0.1);
     // now and then a falcon comes on its own
-    if (S.flock_falcon > 0.5 && !FAL.on) { FAL.next -= d; if (FAL.next < 0) { launch(null); FAL.next = 40 + R() * 40; } }
+    if (S.flock_falcon > 0.5 && !FAL.on && !FOL) { FAL.next -= d; if (FAL.next < 0) { launch(null); FAL.next = 40 + R() * 40; } }
     acc = Math.min(acc + d, 0.2);
     let stepped = false;
-    while (acc >= SIM) { acc -= SIM; tSim += SIM; step(SIM, tSim, S); stepped = true; }
+    while (acc >= SIM) { acc -= SIM; tSim += SIM; step(SIM, tSim + tOff, S); stepped = true; }
     if (stepped) draw(S);
     U.uLag.value = acc;
   }
@@ -693,18 +713,34 @@ void main() {
   function explore(c) {
     return { flock_birds: +c.birds || 200, flock_links: c.links === 'on' ? 1 : 0, flock_falcon: c.falcon === 'off' ? 0 : 1 };
   }
-  // the engine tells the flock where you are (head and hands, in this set's frame), and sends a falcon where you point
-  function see(head, hands) {
+  // the engine tells the flock where you are (head and hands, in this set's frame), and sends a falcon where you point.
+  // spot: at a station in a shared room the flock roosts round the station's spot (this frame's origin), the same
+  // for everyone there, not round each viewer
+  function see(head, hands, spot) {
     ME.head = head; ME.hands = hands || [];
-    ME.c[0] += (head[0] - ME.c[0]) * 0.02; ME.c[1] += (head[2] - ME.c[1]) * 0.02;
+    const cx = spot ? 0 : head[0], cz = spot ? 0 : head[2];
+    ME.c[0] += (cx - ME.c[0]) * 0.02; ME.c[1] += (cz - ME.c[1]) * 0.02;
+  }
+  // shared rooms: this flock's flight (its time, middle and velocity), and another's to follow ({ t, m, v } as of
+  // now, or null: this one leads)
+  function flight() {
+    const m = middle(); let x = 0, y = 0, z = 0;
+    for (let i = 0; i < N; i++) { x += V[i * 3]; y += V[i * 3 + 1]; z += V[i * 3 + 2]; }
+    return { t: tSim + tOff, m, v: [x / N, y / N, z / N] };
+  }
+  function follow(o) {
+    FOL = o ? { m: o.m, v: o.v, t0: tSim } : null;
+    if (!o) return;
+    const d = o.t - (tSim + tOff);
+    tOff += Math.abs(d) > 2 ? d : d * 0.05;   // another leader's time at once, a small drift eased away
   }
   function scatter(dir) {
     if (FAL.on) return false;
     launch(dir ? [ME.head[0] + dir[0] * 20, Math.max(6, ME.head[1] + dir[1] * 20), ME.head[2] + dir[2] * 20] : null);
     return true;
   }
-  return Object.assign(set, { params, update, anchors, labels, cam, controls, explore, see, scatter,
-    birds: () => N, falconOn: () => FAL.on, state: () => ({ P, V, AL, N, NB, NBC, me: ME, falcon: FAL }) });
+  return Object.assign(set, { params, update, anchors, labels, cam, controls, explore, see, scatter, falcon: startFalcon, flight, follow,
+    birds: () => N, falconOn: () => FAL.on, following: () => !!FOL, state: () => ({ P, V, AL, N, NB, NBC, me: ME, falcon: FAL }) });
 };
 
 
@@ -831,15 +867,16 @@ function followView(v, dt, keep) {
   return [FOL.vz, FOL.ve, v[2], v[3] + (FOL.tx - v[3]) * w, v[4] + (FOL.ty - v[4]) * w, v[5] + (FOL.tz - v[5]) * w];
 }
 // the flock steers clear of you: your head and hands, in the flock's own frame. On a screen you stand at the
-// middle of the field (not where the camera is: from afar the flock would follow the camera away)
+// middle of the field (not where the camera is: from afar the flock would follow the camera away). spot: at a
+// station in a shared room (flockSync), where the flock roosts round the station's spot instead of round you
 const _sv = new THREE.Vector3(), _sm = new THREE.Matrix4();
-function tellFlock(xr) {
+function tellFlock(xr, spot) {
   const s = GL.sets.flock;
   GL.world.updateMatrixWorld(true);
   _sm.copy(s.group.matrixWorld).invert();
   const head = xr ? _sv.copy(XR.head).applyMatrix4(_sm).toArray() : [0, 1.6, 0];
   const hands = xr ? XR.ctrls.filter(c => c.src && c.g.visible).map(c => _sv.copy(c.o).applyMatrix4(_sm).toArray()) : [];
-  s.see(head, hands);
+  s.see(head, hands, spot);
 }
 
 // ================================================================== STORY ==
@@ -1227,12 +1264,44 @@ function setCtl(k, key, v) {
   if (c) renderScenes();
 }
 // send a falcon (dir: where you point, in the flock's frame; none: from anywhere); in a shared room the others
-// at this station see it too (an effect); true if one went
+// at this station see the same falcon (the set's onLaunch, see flockSync); true if one went
 function sendFalcon(dir) {
   if (!GL.sets.flock.scatter(dir || null)) return false;
   renderScenes();
-  HOST.collab.effect('falcon', { dir: dir || null });
   return true;
+}
+// shared rooms: the flock belongs to the station. Everyone there says where their flock is, twice a second (a quiet
+// effect); the one with the lowest member id leads: the others take its flight time and steer their flock to it
+// (the set's follow), and only it sends falcons of its own (the story's, now and then); a falcon anyone sends goes
+// to everyone, exactly as it starts. Positions are in the set's frame, whose origin is the station's spot on every
+// device. True while at a station (the flock then roosts round its spot)
+const FSY = { heard: new Map(), sent: 0 };
+const r2 = a => a.map(x => Math.round(x * 100) / 100);
+function flockSync() {
+  const s = GL.sets.flock, L = HOST.collab.live(), on = !!(L && L.story === HOST.curKey && HOST.collab.joined);
+  s.onLaunch = f => HOST.collab.effect('falcon', f);
+  if (!on) { FSY.heard.clear(); if (s.following()) s.follow(null); return false; }
+  const pn = performance.now(), now = HOST.collab.now(), id = HOST.collab.id || '';
+  if (pn - FSY.sent > 500) {
+    FSY.sent = pn;
+    const f = s.flight();
+    HOST.collab.effect('flock', { id, at: Math.round(now), t: Math.round(f.t * 1000) / 1000, m: r2(f.m), v: r2(f.v) }, true);
+  }
+  let lead = null;
+  for (const [k, v] of FSY.heard) if (pn - v.got > 3000) FSY.heard.delete(k); else if (k < id && (!lead || k < lead.id)) lead = v;
+  if (lead) { const age = clamp((now - lead.at) / 1000, 0, 1.5); s.follow({ t: lead.t + age, m: lead.m.map((x, j) => x + lead.v[j] * age), v: lead.v }); }
+  else if (s.following()) s.follow(null);
+  return true;
+}
+// what another device at the station sent: where its flock is, or a falcon
+const v3ok = a => Array.isArray(a) && a.length === 3 && a.every(Number.isFinite);
+function flockEffect(type, d) {
+  if (!d || typeof d !== 'object') return;
+  if (type === 'flock' && typeof d.id === 'string' && d.id.length < 64 && Number.isFinite(d.at) && Number.isFinite(d.t) && v3ok(d.m) && v3ok(d.v)) {
+    FSY.heard.set(d.id, { id: d.id, at: d.at, t: d.t, m: d.m, v: d.v, got: performance.now() });
+  } else if (type === 'falcon' && v3ok(d.p) && v3ok(d.v) && (d.aim === null || v3ok(d.aim))) {
+    GL.sets.flock.falcon(d); renderScenes();
+  }
 }
 // shared rooms: the controls everyone at the station sees alike (the view is each person's own camera)
 const SHARED_CTL = ['birds', 'links', 'falcon'];
@@ -2335,7 +2404,7 @@ function frame(now, xrFrame) {
   GL.camera.updateMatrixWorld();
   updateLight(xr);
   if (XR.on && !XR.clear) S = Object.assign({}, S, { flock_sky: 0 });   // passthrough: the birds fly in your room
-  tellFlock(xr);
+  tellFlock(xr, flockSync());
   updateSets(S, tSet, dt, APP.mode === 'story');
   if (xr) xrUpdate(S);
   GL.renderer.render(GL.scene, GL.camera);
@@ -2410,10 +2479,11 @@ return {
   inputs: () => XR.ctrls.map(c => c.src),
   xrPose: () => (XR.on ? { rp: GL.rig.position.clone(), rq: GL.rig.quaternion.clone(), off: XR.globeOff.clone(), s: XR.size, held: XR.ctrls.map(c => (c.grab ? c.grab.target : '')).join(' '),
     pp: XR.panelGroup.position.clone(), pr: XR.panelGroup.rotation.y } : null),
-  // shared rooms (shared.js): the clock is APP's, the shared state the explore controls, the falcon an effect
+  // shared rooms (shared.js): the clock is APP's, the shared state the explore controls; the flock's flight and
+  // the falcon are effects (flockSync)
   collab: {
     APP, scene: () => GL.scene, state: collabState, apply: collabApply, view: collabView, setView: collabSetView,
-    effect(type, d) { if (type === 'falcon' && GL.sets.flock.scatter((d && d.dir) || null)) renderScenes(); },
+    effect: flockEffect,
     hover: i => { const c = XR.ctrls[i]; return c && c.hover ? c.ray.scale.z : 0; },
     panel(p, yaw) { XR.panelGroup.position.fromArray(p); XR.panelGroup.rotation.set(0, yaw, 0); },
     place(o, s) { XR.globeOff.fromArray(o); XR.size = s; },

@@ -560,7 +560,7 @@ What each story shares:
 | spatial | tab, colour, cell, routes, selection and its copy, path, community level, moves (a 0/1 string), bait and its labelling radius | none |
 | lbi | tab, scene, every control of that scene, selected protein, route | none |
 | nmd | tab, scene, every scene's controls, group, gene, picked endotypes, layers knocked out, your genes, the walk (its start and result, the same on every device), walkers, colour, grid, z-scores | none |
-| flock | birds, links, falcon | `falcon` (its direction in the set's frame) |
+| flock | birds, links, falcon | `falcon` (where it starts, its velocity and aim, in the set's frame), `flock` (quiet, twice a second: where the flock is, see the flock's notes) |
 | robots | rule, robots, trails, links | `crumbs` (a pile: in room coordinates in a headset with an aligned frame, else in the station's frame), `dust` |
 
 Rules that matter most (from `docs/multiplayer.md`):
@@ -581,8 +581,10 @@ Rules that matter most (from `docs/multiplayer.md`):
 - `dispose()` clears the story's timers: rooms make quick story changes
   likely, and a late timer that wrote into shared element ids once crashed
   the next story.
-- The live simulations (the flock's birds, the robots) still run separately on
-  each device; only their controls and effects are shared (phase 2 of the plan).
+- The live simulations run on each device. The robots are not synced (only
+  their controls and effects); the flock follows one device at the station
+  (see the flock's notes). `HOST.collab.effect(type, data, true)` sends a
+  quiet effect: one sent often, kept out of the log on both sides.
 
 Testing: `node relay/test.mjs` and `node tools/collab.mjs` (see Testing). A new
 story gets the hooks, then an entry in `STORIES` in `tools/collab.mjs`.
@@ -726,6 +728,19 @@ scene list).
   1.6 m above the middle of the field, so the flock never follows the camera),
   and `scatter(dir)` sends a falcon where you point (a click on the sky, or the
   trigger pointed at the sky).
+- In a shared room the flock belongs to the station (`flockSync` in
+  `engine/e4_explore.js`): the set's origin is the station's spot on every
+  device, and it roosts and swoops round that spot instead of round each viewer
+  (`see(head, hands, spot)`). Every device there sends where its flock is twice
+  a second (a quiet effect `flock`: its flight time, middle and velocity); the
+  one with the lowest member id heard in the last 3 s leads: the others take its
+  flight time (so the roost and the whim match), and every bird gets the same
+  pull towards the leader's middle (a damped spring; more than 12 m off, as on
+  joining, the flock moves there at once: the set's `follow`). Only the leader
+  sends falcons of its own (the story's and *Now and then*); every falcon,
+  also one someone points at the sky, goes out as it starts (`onLaunch`, the
+  effect `falcon`), so all see the same one. The birds still differ in detail;
+  the flock is roughly in the same place.
 - On a screen the camera stands where you do and turns to follow the flock
   (`followView`: a dead zone, eased turns of up to 50 degrees a second; from
   afar it aims at the flock instead and comes round to the view's side at up
@@ -876,7 +891,8 @@ seconds) and
 `--static .`, so no server is needed). For every story in its `STORIES` table,
 three pages in a room follow its station and check play, pause, jumps, mode
 changes and Replay (within 5 s), the relay's clock, the explore state both
-ways and the story's effect (for the robots also the pile's spot and dust).
+ways and the story's effect (for the robots also the pile's spot and dust; for the flock
+the same falcon, one page leading, the same flight time and the flocks together).
 Before that: Arrange all's rows, a code with no room, Remove asking first.
 After: a station moved and turned on the room map (and refused while the
 layout is locked),
