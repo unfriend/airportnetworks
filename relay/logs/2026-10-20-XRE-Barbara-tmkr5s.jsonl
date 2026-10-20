@@ -1,0 +1,39 @@
+{"at":1792496841465,"kind":"ar","t":975,"n":1,"ev":"attach","story":"airports","st":""}
+{"at":1792496841465,"kind":"ar","t":2682,"n":2,"ev":"relay","relay":"https://10.0.0.48:8787","why":"served"}
+{"at":1792496841465,"kind":"ar","t":2682,"n":3,"ev":"served","served":true}
+{"at":1792496841465,"kind":"ar","t":6445,"n":4,"ev":"headset","visibility":"visible"}
+{"at":1792496841465,"kind":"ar","t":8081,"n":5,"ev":"panel","id":"open"}
+{"at":1792496841465,"kind":"ar","t":12841,"n":6,"ev":"panel","id":"start"}
+{"at":1792496841465,"kind":"ar","t":12868,"n":7,"ev":"created","code":"XRE"}
+{"at":1792496841465,"kind":"ar","t":12868,"n":8,"ev":"join","code":"XRE","relay":"https://10.0.0.48:8787","local":false}
+{"at":1792496841465,"kind":"ar","t":12869,"n":9,"ev":"connect","code":"XRE"}
+{"at":1792496841465,"kind":"ar","t":12870,"n":10,"ev":"align","state":"waiting"}
+{"at":1792496841465,"kind":"ar","t":12870,"n":11,"ev":"session","mode":"immersive-ar","features":["viewer","plane-detection","webxr","local-floor","local","anchors","shared","hand-tracking","mesh-detection"],"format":"networks-10","ua":"Mozilla/5.0 (X11; Linux x86_64; Quest 3) AppleWebKit/537.36 (KHTML, like Gecko) OculusBrowser/152.1.0.34.52.1079628208 Chrome/152.0.7977.83 VR Safari/537.36","browser":"152","page":"https://10.0.0.48:8787/","search":"","sg":0,"persisted":4}
+{"at":1792496841465,"kind":"ar","t":12871,"n":12,"ev":"anchors tidied","listed":4,"kept":2,"deleted":2,"failed":[],"left":4}
+{"at":1792496841465,"kind":"ar","t":12871,"n":13,"ev":"space","type":"local-floor"}
+{"at":1792496841465,"kind":"ar","t":12871,"n":14,"ev":"reset","space":"shared","id":"699c04b0-0fdc-79fb-4153-ec5df35db11b","transform":false}
+{"at":1792496841465,"kind":"ar","t":12871,"n":15,"ev":"space","type":"shared","id":"699c04b0-0fdc-79fb-4153-ec5df35db11b","props":["UUId","constructor"]}
+{"at":1792496841465,"kind":"ar","t":12876,"n":16,"ev":"shared own floor","own":false}
+{"at":1792496841465,"kind":"ar","t":12878,"n":17,"ev":"align","state":"restoring"}
+{"at":1792496841465,"kind":"ar","t":12879,"n":18,"ev":"sample","src":"","state":"restoring","sid":"699c04b0-0fdc-79fb-4153-ec5df35db11b","sharedOK":true,"here":true,"lf":{"p":[0,-1.801,0],"yaw":0},"shared":{"p":[0.923,-0.005,-3.73],"yaw":-1.982},"scan":31,"head":[-0.036,1.798,-0.002],"marks":{"a":[-0.17,1.328,8.492],"b":[-1.132,1.361,7.948],"at":1792455183567,"kept":true},"sharedAlign":true}
+{"at":1792496851508,"kind":"ar","t":12902,"n":19,"ev":"anchors fit","made":false,"a":[2.107,1.34,-1.5],"b":[1.571,1.372,-0.533]}
+{"at":1792496851508,"kind":"ar","t":12903,"n":20,"ev":"publish","cid":1,"keys":["rm"],"sent":false}
+{"at":1792496851508,"kind":"ar","t":12903,"n":21,"ev":"floor claimed","a":1.34,"d":1.105,"was":""}
+{"at":1792496851508,"kind":"ar","t":12903,"n":22,"ev":"align","state":"anchor"}
+{"at":1792496851508,"kind":"ar","t":12903,"n":23,"ev":"frame","src":"anchor","o":[2.107,0,-1.5],"x":[-0.485,0,0.875]}
+{"at":1792496851508,"kind":"ar","t":12903,"n":24,"ev":"notice","title":"Room calibration from last time"}
+{"at":1792496851508,"kind":"ar","t":12904,"n":25,"ev":"aligned","src":"anchor"}
+{"at":1792496851508,"kind":"ar","t":12908,"n":26,"ev":"publish","cid":2,"keys":["rf.699c04b0-0fdc-79fb-4153-ec5df35db11b"],"sent":false}
+{"at":1792496851508,"kind":"ar","t":12908,"n":27,"ev":"frame published","uuid":"699c04b0-0fdc-79fb-4153-ec5df35db11b","g":"marks"}
+{"at":1792496851508,"kind":"ar","t":12908,"n":28,"ev":"publish","cid":3,"keys":["rm"],"sent":false}
+{"at":1792496851508,"kind":"ar","t":12908,"n":29,"ev":"floor claimed","a":1.34,"d":1.105,"was":"tmkr5sav4qia"}
+{"at":1792496851508,"kind":"ar","t":12947,"n":30,"ev":"open"}
+{"at":1792496851508,"kind":"ar","t":12948,"n":31,"ev":"welcome","seq":0,"keys":0,"members":1}
+{"at":1792496851508,"kind":"ar","t":12954,"n":32,"ev":"publish","cid":4,"keys":["rm"],"sent":true}
+{"at":1792496851508,"kind":"ar","t":12954,"n":33,"ev":"floor claimed","a":1.34,"d":1.105,"was":""}
+{"at":1792496851508,"kind":"ar","t":12961,"n":34,"ev":"recv","seq":1,"by":"tmkr5sav4qia","keys":["rm"]}
+{"at":1792496851508,"kind":"ar","t":13972,"n":35,"ev":"publish","cid":5,"keys":["rf.699c04b0-0fdc-79fb-4153-ec5df35db11b"],"sent":true}
+{"at":1792496851508,"kind":"ar","t":13972,"n":36,"ev":"frame published","uuid":"699c04b0-0fdc-79fb-4153-ec5df35db11b","g":"marks"}
+{"at":1792496851508,"kind":"ar","t":13979,"n":37,"ev":"recv","seq":2,"by":"tmkr5sav4qia","keys":["rf.699c04b0-0fdc-79fb-4153-ec5df35db11b"]}
+{"at":1792496851508,"kind":"ar","t":17886,"n":38,"ev":"sample","src":"anchor","state":"anchor","sid":"699c04b0-0fdc-79fb-4153-ec5df35db11b","sharedOK":true,"here":true,"frame":{"o":[2.107,0,-1.5],"x":[-0.485,0,0.875]},"lf":{"p":[0,-1.801,0],"yaw":0},"shared":{"p":[0.913,-0.014,-3.736],"yaw":-1.982},"scan":31,"head":[-0.026,1.689,-0.054],"anchors":[[2.106,1.337,-1.499],[1.571,1.369,-0.532]],"anchorsAge":378,"marks":{"a":[-0.17,1.328,8.492],"b":[-1.132,1.361,7.948],"at":1792455183567,"kept":true},"rm":{"a":1.34,"d":1.105,"by":"tmkr5sav4qia","at":1792496841530},"sharedAlign":true,"pub":{"by":"tmkr5sav4qia","g":"marks","at":1792455183567}}
+{"at":1792496851508,"kind":"ar","t":22886,"n":39,"ev":"sample","src":"anchor","state":"anchor","sid":"699c04b0-0fdc-79fb-4153-ec5df35db11b","sharedOK":true,"here":true,"frame":{"o":[2.107,0,-1.5],"x":[-0.485,0,0.875]},"lf":{"p":[0,-1.801,0],"yaw":0},"shared":{"p":[0.913,-0.016,-3.735],"yaw":-1.982},"scan":31,"head":[-0.163,1.754,-0.041],"anchors":[[2.106,1.334,-1.498],[1.57,1.366,-0.531]],"anchorsAge":321,"marks":{"a":[-0.17,1.328,8.492],"b":[-1.132,1.361,7.948],"at":1792455183567,"kept":true},"rm":{"a":1.34,"d":1.105,"by":"tmkr5sav4qia","at":1792496841530},"sharedAlign":true,"pub":{"by":"tmkr5sav4qia","g":"marks","at":1792455183567}}

@@ -1,0 +1,14 @@
+{"at":1792496951788,"kind":"desktop","t":172,"n":1,"ev":"boot","code":"XRE"}
+{"at":1792496951788,"kind":"desktop","t":184,"n":2,"ev":"relay","relay":"https://10.0.0.48:8787","why":"served"}
+{"at":1792496951788,"kind":"desktop","t":184,"n":3,"ev":"served","served":true}
+{"at":1792496951788,"kind":"desktop","t":184,"n":4,"ev":"join","code":"XRE","relay":"https://10.0.0.48:8787","local":false}
+{"at":1792496951788,"kind":"desktop","t":186,"n":5,"ev":"connect","code":"XRE"}
+{"at":1792496951788,"kind":"desktop","t":245,"n":6,"ev":"open"}
+{"at":1792496951788,"kind":"desktop","t":246,"n":7,"ev":"welcome","seq":3,"keys":3,"members":1}
+{"at":1792496951788,"kind":"desktop","t":504,"n":8,"ev":"attach","story":"airports","st":""}
+{"at":1792496951788,"kind":"desktop","t":75030,"n":9,"ev":"recv","seq":4,"by":"9wbpa6ohrpwt","keys":["rm"]}
+{"at":1792496951788,"kind":"desktop","t":75939,"n":10,"ev":"recv","seq":5,"by":"9wbpa6ohrpwt","keys":["rf.699c04b0-0fdc-79fb-4153-ec5df35db11b"]}
+{"at":1792496951788,"kind":"desktop","t":91824,"n":11,"ev":"recv","seq":6,"by":"adyrzib5ipwt","keys":["rm"]}
+{"at":1792496951788,"kind":"desktop","t":91825,"n":12,"ev":"recv","seq":7,"by":"adyrzib5ipwt","keys":["rf.024894e1-c97e-cb2c-ab5d-d236978193b6"]}
+{"at":1792496951788,"kind":"desktop","t":99451,"n":13,"ev":"recv","seq":8,"by":"adyrzib5ipwt","keys":["sg"]}
+{"at":1792496951788,"kind":"desktop","t":99492,"n":14,"ev":"fresh space","from":1,"to":2,"ok":true}
