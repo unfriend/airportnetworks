@@ -1388,7 +1388,7 @@
     const ctx = S.ctx, W = S.w, x = 34, w = W - 68;
     ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, W, S.h); ctx.textBaseline = 'top'; ctx.textAlign = 'left';
     S.regions = [];
-    const n = C.members.length, title = !C.code ? 'Shared space' : C.local ? `Room ${C.code} · this headset only` : `Shared: ${C.code} · ${n} ${n === 1 ? 'person' : 'people'}`;
+    const n = C.members.length, title = !C.code ? 'Shared space' : C.local ? `Room ${C.code} · this headset` : `Shared: ${C.code} · ${n} ${n === 1 ? 'person' : 'people'}`;
     let y = 0;
     const tab = !PNL.open, H = tab ? 112 : S.h;
     rr(ctx, 0, 0, W, H, 24); ctx.fillStyle = 'rgba(8,15,28,0.95)'; ctx.fill();
