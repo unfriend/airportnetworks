@@ -1172,7 +1172,7 @@ vec3 degRamp(float x) {
   return mix(c2, c3, (x - 0.78) / 0.22);
 }
 vec3 multiCol(float m) {
-  return m < 1.5 ? vec3(0.42, 0.50, 0.62) : m < 2.5 ? vec3(1.0, 0.74, 0.22) : vec3(1.0, 0.35, 0.86);
+  return m < 1.5 ? vec3(0.42, 0.50, 0.62) : m < 2.5 ? vec3(1.0, 0.74, 0.22) : vec3(0.22, 0.90, 0.78);
 }`;
 function nodeMaterial(uniforms) {
   return new THREE.ShaderMaterial({
@@ -1270,11 +1270,13 @@ void main() {
 }`,
   });
 }
-function highlightMaterial(color, stepped, spread) {
+// signals and paths: teal, and see-through (fade) so the cell shows through them
+const SIG = [0.22, 0.90, 0.78], SIG_A = 0.6, SIG_DOT = [0.36, 1.0, 0.88];
+function highlightMaterial(color, stepped, spread, fade) {
   return new THREE.ShaderMaterial({
     side: THREE.DoubleSide,
     uniforms: { uProg: { value: 0 }, uAlpha: { value: 0 }, uColor: { value: new THREE.Color(...color) },
-      uStepped: { value: stepped ? 1 : 0 }, uSpread: { value: spread || 0 } },
+      uStepped: { value: stepped ? 1 : 0 }, uSpread: { value: spread || 0 }, uK: { value: fade || 1 } },
     transparent: true, depthWrite: false,
     vertexShader: `
 attribute float aT, aHop, aRv;
@@ -1286,12 +1288,12 @@ void main() {
   gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
 }`,
     fragmentShader: `
-uniform float uAlpha; uniform vec3 uColor;
+uniform float uAlpha, uK; uniform vec3 uColor;
 varying float vT, vG;
 void main() {
   if (vT > vG + 0.0005) discard;
   float head = (1.0 - smoothstep(0.0, 0.05, vG - vT)) * step(vG, 0.999);
-  gl_FragColor = vec4(uColor * (1.0 + head * 1.4), uAlpha);
+  gl_FragColor = vec4(uColor * (1.0 + head * 1.4), uAlpha * mix(uK, 1.0, head));
 }`,
   });
 }
@@ -1636,7 +1638,7 @@ function setHighlight(key, pairs, color, opts = {}) {
   if (old) { GL.world.remove(old); old.geometry.dispose(); old.material.dispose(); delete GL.highlights[key]; }
   if (!pairs || !pairs.length) return null;
   const mesh = new THREE.Mesh(tubeGeometry(pairs, (opts.radius || 0.002) * (GL.hlScale || 1), opts.hops, opts.seed),
-    highlightMaterial(color, !!opts.hops, opts.spread));
+    highlightMaterial(color, !!opts.hops, opts.spread, opts.fade));
   mesh.renderOrder = 6;
   mesh.userData.args = [pairs, color, opts];
   GL.world.add(mesh);
@@ -1829,7 +1831,7 @@ function buildStory() {
   const pct = x => Math.round(x * 100);
   const legend = ORGS.map((n, k) => `<li data-at="${k ? 1.6 + 2 * (k - 1) : 0.9}"><span class="sw" style="background:${placeCss([1, 4, 5, 7, 8, 9, 10, 11, 12, 3][k])}"></span>${n}</li>`).join('');
   const html = {
-    title: `<svg class="route-mark" viewBox="0 0 360 44" aria-hidden="true"><path id="titleArc" d="M8 36 Q180 -16 352 36" fill="none" stroke="var(--magenta)" stroke-width="2.2" stroke-linecap="round" pathLength="1" stroke-dasharray="1" stroke-dashoffset="1"/><circle cx="8" cy="36" r="4.5" fill="var(--magenta)"/><circle cx="352" cy="36" r="4.5" fill="var(--magenta)" id="titleDot" opacity="0"/></svg>
+    title: `<svg class="route-mark" viewBox="0 0 360 44" aria-hidden="true"><path id="titleArc" d="M8 36 Q180 -16 352 36" fill="none" stroke="var(--teal)" stroke-width="2.2" stroke-linecap="round" pathLength="1" stroke-dasharray="1" stroke-dashoffset="1"/><circle cx="8" cy="36" r="4.5" fill="var(--teal)"/><circle cx="352" cy="36" r="4.5" fill="var(--teal)" id="titleDot" opacity="0"/></svg>
       <h1 data-at="1.2">Spatial interactome</h1>
       <p class="lede" data-at="2.4">where proteins meet inside a human cell</p>
       <p data-at="3.6">${fmt(P)} proteins in the compartments of a model cell, and the ${fmt(E)} interactions between them. Eight ideas about how location shapes the protein network, then the cell is yours to explore.</p>`,
@@ -1853,7 +1855,7 @@ function buildStory() {
       <p data-at="14.5">would lose touch if every protein stayed in its usual place. Proteins with several addresses tie the compartments together.</p>`,
     signal: `<h2 data-at="0.6">Signals cross the cell</h2>
       <p data-at="1.2">A growth signal outside the cell reaches the genes in the nucleus by passing from protein to protein.</p>
-      <div class="big magenta" data-at="5"><span id="steps">0</span><small id="stepsWord">steps</small></div>
+      <div class="big teal" data-at="5"><span id="steps">0</span><small id="stepsWord">steps</small></div>
       <p data-at="19">The EGF receptor carries the signal across the membrane, the RAS relay passes it through the cytoplasm, and ERK itself travels through a nuclear pore to switch on ELK1 and SRF: ${L} steps, one of them a move.</p>`,
     move: `<h2 data-at="0.6">Moving rewires the network</h2>
       <p data-at="1.2">In a resting cell the inflammation switch NF-κB waits in the cytoplasm, held by its inhibitor IκBα.</p>
@@ -1905,9 +1907,9 @@ function buildStory() {
   a = C.local.a; b = C.local.b;
   ramp('route_reveal', a + 3, a + 12, 0, 1);
   ramp('ex_prog', a + 10.5, a + 13, 0, 1); ramp('ex_alpha', b - 2, b, 1, 0);
-  label(CP('EGF'), '<b>EGF</b>outside', a + 10.5, b - 0.6, 'mag');
-  label(CP('EGFR@pm'), '<b>EGFR</b>in the membrane', a + 11.2, b - 0.6, 'mag');
-  label(CP('GRB2'), '<b>GRB2</b>just inside', a + 11.9, b - 0.6, 'mag');
+  label(CP('EGF'), '<b>EGF</b>outside', a + 10.5, b - 0.6, 'tl');
+  label(CP('EGFR@pm'), '<b>EGFR</b>in the membrane', a + 11.2, b - 0.6, 'tl');
+  label(CP('GRB2'), '<b>GRB2</b>just inside', a + 11.9, b - 0.6, 'tl');
   a = C.multi.a; b = C.multi.b;
   ramp('id_reveal', a + 2, a + 6, 0, 1);
   ramp('focus', a + 7, a + 8.5, 0, 1); ramp('focus', a + 12.5, a + 14, 1, 0);
@@ -1919,14 +1921,14 @@ function buildStory() {
     const dur = 11.5 / L, pause = 0.25;
     let t = a + 5.5;
     key('path_prog', t, 0);
-    label(path[0], `<b>EGF</b>growth signal`, a + 5, b - 1.2, 'mag');
+    label(path[0], `<b>EGF</b>growth signal`, a + 5, b - 1.2, 'tl');
     for (let k = 0; k < L; k++) {
       key('path_prog', t + dur - pause, k + 1);
       ST.hopEnds.push(t + dur - pause);
       const c = path[k + 1], moveStep = cProt[c] === cProt[path[k]];
       const tag = { 1: 'receptor', 4: 'RAS switch', 7: 'ERK', 8: 'ERK in the nucleus', 10: 'gene switch' }[k + 1];
-      if (tag) label(c, `<b>${sym[cProt[c]]}</b>${tag}`, t + dur - pause - 0.2, b - 1.2, 'mag');
-      if (moveStep) ST.travel.push({ from: path[k], to: c, t0: t, t1: t + dur - pause, a: b - 1.5, col: [1.0, 0.45, 0.88] });
+      if (tag) label(c, `<b>${sym[cProt[c]]}</b>${tag}`, t + dur - pause - 0.2, b - 1.2, 'tl');
+      if (moveStep) ST.travel.push({ from: path[k], to: c, t0: t, t1: t + dur - pause, a: b - 1.5, col: SIG_DOT });
       t += dur;
     }
   }
@@ -1937,7 +1939,7 @@ function buildStory() {
   nfk.travelers.forEach(([f, to], k) => ST.travel.push({ from: f, to, t0: a + 13 + 0.3 * k, t1: a + 17 + 0.3 * k, a: b - 2, col: [1.0, 0.82, 0.3] }));
   label(CP('RELA@cyto'), '<b>RELA</b>NF-κB, waiting', a + 1.6, a + 13.5, 'amb');
   label(CP('NFKBIA'), '<b>IκBα</b>its inhibitor', a + 2.2, a + 15, 'amb');
-  label(CP('TNF'), '<b>TNF</b>inflammation signal', a + 7, a + 12, 'mag');
+  label(CP('TNF'), '<b>TNF</b>inflammation signal', a + 7, a + 12, 'tl');
   label(CP('RELA@nuc'), '<b>RELA</b>in the nucleus', a + 17, b - 1.5, 'amb');
   nf.gained.forEach((p, k) => label(NET.pCopies[p][0], `<b>${sym[p]}</b>new partner`, a + 17.6 + 0.5 * k, b - 1.5, 'grn'));
   a = C.prox.a; b = C.prox.b;
@@ -1959,10 +1961,10 @@ function buildStory() {
   ST.focusSets = { multi: NET.pCopies[A('CTNNB1')], signal: path };
 
   // ------------------------------------------------------------ highlights
-  setHighlight('ex', [[CP('EGF'), CP('EGFR@pm')], [CP('EGFR@pm'), CP('GRB2')]], [1.0, 0.45, 0.86], { radius: 0.0045 });
+  setHighlight('ex', [[CP('EGF'), CP('EGFR@pm')], [CP('EGFR@pm'), CP('GRB2')]], SIG, { radius: 0.0045, fade: SIG_A });
   const cue = nfk.cueCopies;
-  setHighlight('cue', cue.slice(0, -1).map((c, k) => [c, cue[k + 1]]), [1.0, 0.45, 0.86], { radius: 0.004, hops: cue.slice(0, -1).map((_, k) => k + 1) });
-  setHighlight('path', path.slice(0, -1).map((c, k) => [c, path[k + 1]]), [1.0, 0.35, 0.86], { radius: 0.0055, hops: path.slice(0, -1).map((_, k) => k + 1) });
+  setHighlight('cue', cue.slice(0, -1).map((c, k) => [c, cue[k + 1]]), SIG, { radius: 0.004, fade: SIG_A, hops: cue.slice(0, -1).map((_, k) => k + 1) });
+  setHighlight('path', path.slice(0, -1).map((c, k) => [c, path[k + 1]]), SIG, { radius: 0.0055, fade: SIG_A, hops: path.slice(0, -1).map((_, k) => k + 1) });
   ST.cueLen = cue.length - 1;
 
 }
@@ -2239,7 +2241,7 @@ function exploreStep(dt, now) {
   if (cue !== X.cueOn) {
     X.cueOn = cue;
     const cc = cue >= 0 ? MOVES[cue].cueCopies : null;
-    setHighlight('xcue', cc ? cc.slice(0, -1).map((c, i) => [c, cc[i + 1]]) : null, [1.0, 0.45, 0.86], { radius: 0.004, hops: cc ? cc.slice(0, -1).map((_, i) => i + 1) : null });
+    setHighlight('xcue', cc ? cc.slice(0, -1).map((c, i) => [c, cc[i + 1]]) : null, SIG, { radius: 0.004, fade: SIG_A, hops: cc ? cc.slice(0, -1).map((_, i) => i + 1) : null });
   }
   if (cue >= 0) {
     const el = (now - X.moveT[cue]) / 1000;
@@ -2479,7 +2481,7 @@ function buildExplore() {
     <div class="grp"><span>Color</span>${seg('color', [['place', 'Place'], ['multi', 'Addresses'], ['deg', 'Partners'], ['plain', 'Plain']])}</div>
     <div class="grp"><span>Organelles</span>${seg('cell', [['on', 'On'], ['faint', 'Faint'], ['off', 'Off']])}</div>
     <div class="grp opt"><span>Interaction lines</span><input type="range" id="rta" min="0" max="1.6" step="0.05" value="${X.routes}" aria-label="Interaction line brightness"></div>`;
-  $('#viewctl [data-v="multi"]').title = 'Number of places a protein is found in: grey one, amber two, magenta three';
+  $('#viewctl [data-v="multi"]').title = 'Number of places a protein is found in: grey one, amber two, teal three';
   $('#viewctl').addEventListener('click', ev => {
     const b = ev.target.closest('[data-v]');
     if (!b) return;
@@ -2557,8 +2559,8 @@ function runPath(s, t, fly = true) {
   X.path = res ? res.path : null; X.count = res ? res.count : 0; X.pathEnds = [s, t];
   XS.path_prog = 0;
   setFocus(X.path, true);
-  setHighlight('xpath', X.path ? X.path.slice(0, -1).map((p, k) => [p, X.path[k + 1]]) : null, [1.0, 0.35, 0.86],
-    { radius: 0.0042, hops: X.path ? X.path.slice(0, -1).map((_, k) => k + 1) : null });
+  setHighlight('xpath', X.path ? X.path.slice(0, -1).map((p, k) => [p, X.path[k + 1]]) : null, SIG,
+    { radius: 0.0042, fade: SIG_A, hops: X.path ? X.path.slice(0, -1).map((_, k) => k + 1) : null });
   renderPathResult(); updateExtraLabels();
   if (X.path && fly) {
     const cen = X.path.reduce((a, c) => v3.add(a, cpos(c)), [0, 0, 0]), n = X.path.length, m = v3.mul(cen, 1 / n);
@@ -2583,10 +2585,10 @@ function renderPathResult() {
   if (!X.path) { el.innerHTML = '<p class="empty">Choose two proteins, or try one of the examples.</p>'; return; }
   const p = X.path, L = p.length - 1, steps = pathSteps(p), moves = steps.filter(s => s.move).length;
   const places = new Set(p.map(c => NET.cPlace[c]));
-  el.innerHTML = `<div class="result magenta">${L} ${L === 1 ? 'step' : 'steps'}</div>
+  el.innerHTML = `<div class="result teal">${L} ${L === 1 ? 'step' : 'steps'}</div>
     <p class="sub">${moves ? `${moves} of them ${moves === 1 ? 'a move' : 'moves'} between places. ` : ''}The path visits ${places.size} ${places.size === 1 ? 'place' : 'places'}.
     ${X.count > 1 ? `It is one of ${fmt(X.count)} equally short paths.` : 'It is the only path this short.'}</p>
-    <ol class="hops">${steps.map(s => `<li><div>${s.text}<br><span>${esc(s.sub)}</span></div><span></span></li>`).join('')}</ol>`;
+    <ol class="hops teal">${steps.map(s => `<li><div>${s.text}<br><span>${esc(s.sub)}</span></div><span></span></li>`).join('')}</ol>`;
 }
 function placeCounts() {
   if (X.pc) return X.pc;
@@ -2732,7 +2734,7 @@ function renderProx() {
   const b = X.bait, t = proxTagged(), part = t.filter(x => x.partner).length;
   el.innerHTML = `<div class="result green">${t.length}</div><p class="sub">proteins tagged around <b>${esc(NET.sym[NET.cProt[b]])}</b> in the ${esc(placeShort(NET.cPlace[b]))}. ${!t.length ? 'Make the radius larger.' : part === t.length ? (part === 1 ? 'It binds the bait directly.' : 'All of them bind it directly.') : part ? `${part} of them bind it directly; the others are neighbours.` : 'None of them binds it directly: they are neighbours.'}</p>
     <ul class="prox-list">${t.slice(0, 40).map(x => `<li class="${x.partner ? 'pt' : ''}"><b>${esc(NET.sym[NET.cProt[x.c]])}</b><span>${esc(placeShort(NET.cPlace[x.c]))}</span></li>`).join('')}</ul>
-    ${t.length > 40 ? `<p class="caption">and ${t.length - 40} more</p>` : ''}<p class="caption"><span class="magenta">Magenta</span>: direct partners of the bait.</p>`;
+    ${t.length > 40 ? `<p class="caption">and ${t.length - 40} more</p>` : ''}<p class="caption"><span class="teal">Teal</span>: direct partners of the bait.</p>`;
 }
 function updateExtraLabels() {
   LBL.extra.forEach(L => { L.el.remove(); dropSprite(L); });
@@ -2744,7 +2746,7 @@ function updateExtraLabels() {
     LBL.extra.push({ el, i, o: -1 });
   };
   const { sym, cProt, cPlace } = NET;
-  if (X.path && X.tab === 'path') X.path.forEach((c, k) => { if (k === 0 || cProt[c] !== cProt[X.path[k - 1]]) add(c, `<b>${sym[cProt[c]]}</b>${esc(placeShort(cPlace[c]))}`, 'mag'); });
+  if (X.path && X.tab === 'path') X.path.forEach((c, k) => { if (k === 0 || cProt[c] !== cProt[X.path[k - 1]]) add(c, `<b>${sym[cProt[c]]}</b>${esc(placeShort(cPlace[c]))}`, 'tl'); });
   if (X.tab === 'prox' && X.bait >= 0) add(X.bait, `<b>${sym[cProt[X.bait]]}</b>bait`, 'grn');
   if (X.sel >= 0 && !(X.path && X.tab === 'path' && X.path.some(c => cProt[c] === X.sel)))
     NET.pCopies[X.sel].forEach(c => { if (isThere(c)) add(c, `<b>${sym[X.sel]}</b>${esc(placeShort(cPlace[c]))}`, 'cyn'); });
@@ -2892,7 +2894,7 @@ function xrRecenter() {
 }
 
 // ---------------------------------------------------------------- labels --
-const LBL_STYLE = { '': ['#f2f6fc', null], mag: ['#ffd2f4', '#ff5ad9'], amb: ['#ffe2b0', '#ffb43b'],
+const LBL_STYLE = { '': ['#f2f6fc', null], tl: ['#cbfff3', '#38e6c7'], amb: ['#ffe2b0', '#ffb43b'],
   grn: ['#c9ffe3', '#3ee08f'], cyn: ['#d2f6ff', '#46d9ff'], tip: ['#e7eef8', '#46d9ff'] };
 function labelSprite(L) {
   if (L.sprite) return L.sprite;
@@ -2901,7 +2903,7 @@ function labelSprite(L) {
   else {
     const b = L.el.querySelector('b');
     bold = b ? b.textContent : ''; rest = L.el.textContent.slice(bold.length).trim();
-    cls = ['mag', 'amb', 'grn', 'cyn'].find(k => L.el.classList.contains(k)) || '';
+    cls = ['tl', 'amb', 'grn', 'cyn'].find(k => L.el.classList.contains(k)) || '';
   }
   const px = 34, H = 56, pad = 16, gap = bold && rest ? 10 : 0;
   const cv = document.createElement('canvas'), ctx = cv.getContext('2d');
@@ -3421,7 +3423,7 @@ function xrSetup() {
 // canvas texture. Each draw records clickable regions for the controller ray.
 const VC = { bg: 'rgba(8,15,28,0.95)', ink: '#e7eef8', muted: '#95a6bd', faint: '#6c7d94', line: 'rgba(149,166,189,0.22)',
   chip: 'rgba(149,166,189,0.13)', chipHi: 'rgba(149,166,189,0.30)', on: 'rgba(70,217,255,0.20)', cyan: '#46d9ff',
-  magenta: '#ff5ad9', amber: '#ffb43b', red: '#ff5a4b', green: '#3ee08f' };
+  magenta: '#ff5ad9', teal: '#38e6c7', amber: '#ffb43b', red: '#ff5a4b', green: '#3ee08f' };
 const vfont = (px, w) => `${w || 400} ${px}px B612, "Segoe UI", "Helvetica Neue", Arial, sans-serif`;
 const cssColor = s => { const m = /var\(--(\w+)\)/.exec(s || ''); return m ? VC[m[1]] || VC.ink : s || VC.ink; };
 function rr(ctx, x, y, w, h, r) {
@@ -3680,13 +3682,13 @@ function drawStoryEl(ctx, P, el, x, y, W, pa) {
     const dA = dot ? parseFloat(dot.getAttribute('opacity') || '0') : 1;
     const p0 = [x + 8 * k, y + 36 * k], c1 = [x + 180 * k, y - 16 * k], p1 = [x + 352 * k, y + 36 * k];
     const bz = (s, j) => (1 - s) * (1 - s) * p0[j] + 2 * (1 - s) * s * c1[j] + s * s * p1[j];
-    ctx.strokeStyle = VC.magenta; ctx.lineWidth = 3.3; ctx.lineCap = 'round';
+    ctx.strokeStyle = VC.teal; ctx.lineWidth = 3.3; ctx.lineCap = 'round';
     if (prog > 0.002) {
       ctx.beginPath(); ctx.moveTo(p0[0], p0[1]);
       for (let n = 1; n <= 48; n++) { const s = prog * n / 48; ctx.lineTo(bz(s, 0), bz(s, 1)); }
       ctx.stroke();
     }
-    ctx.fillStyle = VC.magenta;
+    ctx.fillStyle = VC.teal;
     ctx.beginPath(); ctx.arc(p0[0], p0[1], 4.5 * k, 0, 7); ctx.fill();
     ctx.globalAlpha = a * Math.round(dA * 4) / 4;
     ctx.beginPath(); ctx.arc(p1[0], p1[1], 4.5 * k, 0, 7); ctx.fill();
@@ -3702,11 +3704,11 @@ function drawStoryEl(ctx, P, el, x, y, W, pa) {
     } else {
       const s = cl.contains('lede') ? STY.lede : cl.contains('note') ? STY.note : cl.contains('caption') ? STY.caption
         : cl.contains('credits') ? STY.credits : cl.contains('step') ? STY.step : STY.p;
-      const col = ['amber', 'magenta', 'green', 'red', 'cyan'].find(c => cl.contains(c));
+      const col = ['amber', 'magenta', 'teal', 'green', 'red', 'cyan'].find(c => cl.contains(c));
       h = textBlock(ctx, el.textContent, x, y, W, s.px, s.lh, col ? VC[col] : VC[s.c], s.w) + s.mb;
     }
   } else if (cl.contains('big')) {
-    const col = ['magenta', 'cyan', 'green', 'amber', 'red'].find(c => cl.contains(c));
+    const col = ['magenta', 'teal', 'cyan', 'green', 'amber', 'red'].find(c => cl.contains(c));
     const small = el.querySelector('small'), all = el.textContent;
     const main = (small ? all.slice(0, all.length - small.textContent.length) : all).trim();
     ctx.font = vfont(96, 700); ctx.fillStyle = col ? VC[col] : VC.ink;
@@ -3875,7 +3877,7 @@ function drawPathPane(ctx, P, x, y, W, bottom) {
   if (X.pathErr) { textBlock(ctx, X.pathErr, x, y, W, 26, 38, VC.muted); return; }
   if (!X.path) { textBlock(ctx, 'Point at two proteins in the cell, or try one of the examples.', x, y, W, 26, 38, VC.muted); return; }
   const p = X.path, L = p.length - 1, steps = pathSteps(p), moves = steps.filter(s => s.move).length;
-  ctx.font = vfont(64, 700); ctx.fillStyle = VC.magenta;
+  ctx.font = vfont(64, 700); ctx.fillStyle = VC.teal;
   ctx.fillText(`${L} ${L === 1 ? 'step' : 'steps'}`, x, y);
   y += 82;
   y += textBlock(ctx, `${moves ? `${moves} of them ${moves === 1 ? 'a move' : 'moves'} between places. ` : ''}${X.count > 1 ? `One of ${fmt(X.count)} equally short paths.` : 'The only path this short.'}`, x, y, W, 23, 33, VC.muted) + 14;
@@ -3888,7 +3890,7 @@ function drawPathPane(ctx, P, x, y, W, bottom) {
     }
     const st = steps[k];
     ctx.fillStyle = VC.line; ctx.fillRect(x, y, W, 2);
-    ctx.font = vfont(24, 700); ctx.fillStyle = st.move ? VC.amber : VC.magenta; ctx.fillText(String(k + 1), x, y + 12);
+    ctx.font = vfont(24, 700); ctx.fillStyle = st.move ? VC.amber : VC.teal; ctx.fillText(String(k + 1), x, y + 12);
     ctx.fillStyle = VC.ink; ctx.fillText(fitText(ctx, strip(st.text), 380), x + 44, y + 12);
     ctx.font = vfont(21); ctx.fillStyle = VC.muted;
     ctx.fillText(fitText(ctx, st.sub, W - 450), x + 440, y + 15);
@@ -3959,10 +3961,10 @@ function drawProxPane(ctx, P, x, y, W, bottom) {
   const t = proxTagged(), part = t.filter(o => o.partner).length, b = X.bait;
   ctx.font = vfont(68, 700); ctx.fillStyle = VC.green; ctx.fillText(String(t.length), x, y);
   y += 80;
-  const how = !t.length ? 'Make the radius larger.' : part === t.length ? (part === 1 ? 'It binds the bait directly (magenta).' : 'All of them bind it directly (magenta).') : part ? `${part} of them bind it directly (magenta); the others are neighbours.` : 'None of them binds it directly: they are neighbours.';
+  const how = !t.length ? 'Make the radius larger.' : part === t.length ? (part === 1 ? 'It binds the bait directly (teal).' : 'All of them bind it directly (teal).') : part ? `${part} of them bind it directly (teal); the others are neighbours.` : 'None of them binds it directly: they are neighbours.';
   y += textBlock(ctx, `proteins tagged around ${NET.sym[NET.cProt[b]]} in the ${placeShort(NET.cPlace[b])}. ${how}`, x, y, W, 23, 33, VC.muted) + 12;
   chipFlow(ctx, P, t.map(o => o.c), x, y, W, bottom, c => NET.sym[NET.cProt[c]], c => selectProtein(NET.cProt[c], false, c), 'pt:',
-    c => (NET.partners[NET.cProt[b]].has(NET.cProt[c]) ? VC.magenta : placeCss(NET.cPlace[c])));
+    c => (NET.partners[NET.cProt[b]].has(NET.cProt[c]) ? VC.teal : placeCss(NET.cPlace[c])));
 }
 // on-panel keyboard for searching proteins
 const KROWS = ['QWERTYUIOP', 'ASDFGHJKL', 'ZXCVBNM'];
