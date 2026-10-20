@@ -1512,7 +1512,7 @@ try {
   await until(Fp1, () => !!HOST.collab.code && HOST.collab.status === 'open', null, 8000);
   const fcode = await Fp1.evaluate(() => HOST.collab.code);
   const Fp2 = await open('#s=' + fcode);
-  await until(Fp2, c => HOST.collab.code === c && HOST.collab.status === 'open' && HOST.collab.members.length === 2, fcode, 8000);
+  await until(Fp2, c => HOST.collab.code === c && HOST.collab.status === 'open' && HOST.collab.members.length === 2 && HOST.collab.internals().served === true, fcode, 8000);   // (Fresh needs to know the relay serves the page)
   const fOnce = await Fp2.evaluate(() => { HOST.collab.fresh(); return HOST.collab.val('sg'); });   // armed only
   await Fp2.evaluate(() => HOST.collab.fresh());
   const fMoved = await Promise.all([Fp1, Fp2].map(P => P.waitForURL(/\/s\/1\/(index\.html)?#/, { timeout: 15000 }).then(() => true, () => false)));
