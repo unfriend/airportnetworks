@@ -56,25 +56,31 @@ function sendFalcon(dir) {
   return true;
 }
 // shared rooms: the flock belongs to the station. Everyone there says where their flock is, twice a second (a quiet
-// effect); the one with the lowest member id leads: the others take its flight time and steer their flock to it
-// (the set's follow), and only it sends falcons of its own (the story's, now and then); a falcon anyone sends goes
-// to everyone, exactly as it starts. Positions are in the set's frame, whose origin is the station's spot on every
-// device. True while at a station (the flock then roosts round its spot)
-const FSY = { heard: new Map(), sent: 0 };
+// effect); the one there longest leads (since: when it came, in the relay's time; a page back from a pause, a hidden
+// tab, counts as new; ties by member id): the others take its flight time and steer their flock to it (the set's
+// follow), and only it sends falcons of its own (the story's, now and then; a page new there listens 1.5 s first);
+// a falcon anyone sends goes to everyone, exactly as it starts. Positions are in the set's frame, whose origin is the
+// station's spot on every device. True while at a station (the flock then roosts round its spot)
+const FSY = { heard: new Map(), sent: 0, last: 0, since: 0, from: 0 };
 const r2 = a => a.map(x => Math.round(x * 100) / 100);
+const earlier = (a, b) => a.since < b.since || (a.since === b.since && a.id < b.id);
 function flockSync() {
   const s = GL.sets.flock, L = HOST.collab.live(), on = !!(L && L.story === HOST.curKey && HOST.collab.joined);
+  const pn = performance.now(), gap = FSY.last ? pn - FSY.last : 0;
+  FSY.last = pn;
   s.onLaunch = f => HOST.collab.effect('falcon', f);
-  if (!on) { FSY.heard.clear(); if (s.following()) s.follow(null); return false; }
-  const pn = performance.now(), now = HOST.collab.now(), id = HOST.collab.id || '';
+  if (!on) { FSY.heard.clear(); FSY.since = 0; s.hush(false); if (s.following()) s.follow(null); return false; }
+  const now = HOST.collab.now(), me = { id: HOST.collab.id || '', since: FSY.since };
+  if (!FSY.since || gap > 1500) { FSY.since = me.since = Math.round(now); FSY.from = pn; }
   if (pn - FSY.sent > 500) {
     FSY.sent = pn;
     const f = s.flight();
-    HOST.collab.effect('flock', { id, at: Math.round(now), t: Math.round(f.t * 1000) / 1000, m: r2(f.m), v: r2(f.v) }, true);
+    HOST.collab.effect('flock', { id: me.id, since: me.since, at: Math.round(now), t: Math.round(f.t * 1000) / 1000, m: r2(f.m), v: r2(f.v) }, true);
   }
   let lead = null;
-  for (const [k, v] of FSY.heard) if (pn - v.got > 3000) FSY.heard.delete(k); else if (k < id && (!lead || k < lead.id)) lead = v;
-  if (lead) { const age = clamp((now - lead.at) / 1000, 0, 1.5); s.follow({ t: lead.t + age, m: lead.m.map((x, j) => x + lead.v[j] * age), v: lead.v }); }
+  for (const [k, v] of FSY.heard) if (pn - v.got > 2000) FSY.heard.delete(k); else if (earlier(v, me) && (!lead || earlier(v, lead))) lead = v;
+  s.hush(pn - FSY.from < 1500);
+  if (lead) { const age = clamp((now - lead.at) / 1000, 0, 2); s.follow({ t: lead.t + age, m: lead.m.map((x, j) => x + lead.v[j] * age), v: lead.v }, Math.min(gap, 1000) / 1000); }
   else if (s.following()) s.follow(null);
   return true;
 }
@@ -82,8 +88,8 @@ function flockSync() {
 const v3ok = a => Array.isArray(a) && a.length === 3 && a.every(Number.isFinite);
 function flockEffect(type, d) {
   if (!d || typeof d !== 'object') return;
-  if (type === 'flock' && typeof d.id === 'string' && d.id.length < 64 && Number.isFinite(d.at) && Number.isFinite(d.t) && v3ok(d.m) && v3ok(d.v)) {
-    FSY.heard.set(d.id, { id: d.id, at: d.at, t: d.t, m: d.m, v: d.v, got: performance.now() });
+  if (type === 'flock' && typeof d.id === 'string' && d.id.length < 64 && Number.isFinite(d.since) && Number.isFinite(d.at) && Number.isFinite(d.t) && v3ok(d.m) && v3ok(d.v)) {
+    FSY.heard.set(d.id, { id: d.id, since: d.since, at: d.at, t: d.t, m: d.m, v: d.v, got: performance.now() });
   } else if (type === 'falcon' && v3ok(d.p) && v3ok(d.v) && (d.aim === null || v3ok(d.aim))) {
     GL.sets.flock.falcon(d); renderScenes();
   }

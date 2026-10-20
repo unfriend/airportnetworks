@@ -732,12 +732,15 @@ scene list).
   `engine/e4_explore.js`): the set's origin is the station's spot on every
   device, and it roosts and swoops round that spot instead of round each viewer
   (`see(head, hands, spot)`). Every device there sends where its flock is twice
-  a second (a quiet effect `flock`: its flight time, middle and velocity); the
-  one with the lowest member id heard in the last 3 s leads: the others take its
+  a second (a quiet effect `flock`: its flight time, middle and velocity, and
+  since when it is there); the one there longest leads (heard in the last 2 s;
+  a page back from a pause or a hidden tab counts as new; ties by member id), so
+  a newcomer never pulls the others' flock to its own: the others take its
   flight time (so the roost and the whim match), and every bird gets the same
   pull towards the leader's middle (a damped spring; more than 12 m off, as on
   joining, the flock moves there at once: the set's `follow`). Only the leader
-  sends falcons of its own (the story's and *Now and then*); every falcon,
+  sends falcons of its own (the story's and *Now and then*; a page new at the
+  station listens 1.5 s first, the set's `hush`); every falcon,
   also one someone points at the sky, goes out as it starts (`onLaunch`, the
   effect `falcon`), so all see the same one. The birds still differ in detail;
   the flock is roughly in the same place.

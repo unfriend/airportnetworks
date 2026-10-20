@@ -32,7 +32,7 @@ says what was built and where it differs from this plan.
    makes the first person at a station its simulation host, streaming positions (ephemeral, about 10 Hz) that
    the others ease towards. Robots also need one shared room description from that host.
    Built for the flock (lighter than streaming every bird): every device at the station sends where its flock is
-   twice a second; the lowest member id leads, the others take its flight time and steer their whole flock to its
+   twice a second; the one there longest leads, the others take its flight time and steer their whole flock to its
    middle, and every falcon goes out as it starts (AGENTS.md, the flock's notes). The robots are not synced yet.
 3. Polish: relay persistence across restarts, station editing on the desktop map, remote VR teleport, presenter
    tools if wanted.

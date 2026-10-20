@@ -33,7 +33,8 @@ the params and the time.
 - **Shared rooms**: `see(head, hands, spot)` with `spot` true makes the flock roost round this frame's origin (the
   station's spot) instead of round the viewer. `flight()` gives `{ t, m, v }` (its flight time, middle and mean
   velocity); `follow({ t, m, v })` takes another flock's flight time and steers the whole flock to its middle (all
-  at once when more than 12 m off; `null`: lead again), and while following the set sends no falcons of its own.
+  at once when more than 12 m off; `null`: lead again; a second argument, the real time since the last call, eases
+  the time), and while following, or hushed (`hush(true)`: new at a station), the set sends no falcons of its own.
   `onLaunch(f)` (set by the engine) hears every falcon launched here as `{ p, v, aim }`; `falcon(f)` launches
   exactly that one (from another device).
 - **Network**: each bird's link to the seven it follows (cyan, additive; fainter with distance).

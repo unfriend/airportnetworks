@@ -74,7 +74,9 @@ const STORIES = {
       const fal = p => peek(p, 'GL.sets.flock.falconOn() ? GL.sets.flock.state().falcon.p.slice() : null');
       const [fa, fb] = await Promise.all([fal(A), fal(B)]);
       check('flock: the falcon flies the same way on the others', !!fa && !!fb && Math.hypot(fa[0] - fb[0], fa[1] - fb[1], fa[2] - fb[2]) < 10, `A ${fa}, B ${fb}`);
-      await sleep(6000);
+      await sleep(3000);
+      for (const p of [A, B, C]) await until(p, () => !HOST.cur.peek('GL.sets.flock.falconOn()'), null, 15000);   // scattered birds gather again
+      await sleep(3000);
       const fl = p => peek(p, '(() => { const s = GL.sets.flock, f = s.flight(); return { lead: !s.following(), t: f.t, m: f.m }; })()');
       const f = await Promise.all([A, B, C].map(fl)), d = (a, b) => Math.hypot(a.m[0] - b.m[0], a.m[1] - b.m[1], a.m[2] - b.m[2]);
       const show = JSON.stringify(f.map(x => ({ lead: x.lead, t: +x.t.toFixed(2), m: x.m.map(v => +v.toFixed(1)) })));

@@ -162,7 +162,7 @@ void main() { vec3 d = normalize(vW - cameraPosition);
   let SW = 0;   // how far into a swoop
   // in a shared room another device's flock may lead this one (follow): its flight time is taken (tOff, so the roost
   // and the whim are the same) and the flock as a whole is steered to where that one is
-  let tOff = 0, FOL = null;
+  let tOff = 0, FOL = null, HUSH = false;   // HUSH: new at a station, listening for a leader before sending falcons
   const CEN = [0, 9, -14];   // the middle of the flock's main body (centre())
 
   // a grid of cells round the viewer for the neighbour search (birds beyond its edge share the edge cells)
@@ -437,13 +437,13 @@ void main() {
     N = want;
     // the story (or a button) sends a falcon each time flock_hunt passes a whole number
     const h = Math.floor(S.flock_hunt + 1e-6);
-    if (h > hunts && !FAL.on && !FOL) launch(null);   // following: the leading device sends its falcons
+    if (h > hunts && !FAL.on && !FOL && !HUSH) launch(null);   // following: the leading device sends its falcons
     hunts = h;
     let d = dt === undefined ? (tLast === null ? 0 : t - tLast) : dt;
     tLast = t;
     d = clamp(d, 0, 0.1);
     // now and then a falcon comes on its own
-    if (S.flock_falcon > 0.5 && !FAL.on && !FOL) { FAL.next -= d; if (FAL.next < 0) { launch(null); FAL.next = 40 + R() * 40; } }
+    if (S.flock_falcon > 0.5 && !FAL.on && !FOL && !HUSH) { FAL.next -= d; if (FAL.next < 0) { launch(null); FAL.next = 40 + R() * 40; } }
     acc = Math.min(acc + d, 0.2);
     let stepped = false;
     while (acc >= SIM) { acc -= SIM; tSim += SIM; step(SIM, tSim + tOff, S); stepped = true; }
@@ -490,23 +490,25 @@ void main() {
     ME.c[0] += (cx - ME.c[0]) * 0.02; ME.c[1] += (cz - ME.c[1]) * 0.02;
   }
   // shared rooms: this flock's flight (its time, middle and velocity), and another's to follow ({ t, m, v } as of
-  // now, or null: this one leads)
+  // now, or null: this one leads; dt: the real time since the last call); hush: no falcons of its own for now
   function flight() {
     const m = middle(); let x = 0, y = 0, z = 0;
     for (let i = 0; i < N; i++) { x += V[i * 3]; y += V[i * 3 + 1]; z += V[i * 3 + 2]; }
     return { t: tSim + tOff, m, v: [x / N, y / N, z / N] };
   }
-  function follow(o) {
+  function follow(o, dt) {
     FOL = o ? { m: o.m, v: o.v, t0: tSim } : null;
     if (!o) return;
+    // another leader's time at once; a small drift eased away in real time (a slow device's steps fall behind)
     const d = o.t - (tSim + tOff);
-    tOff += Math.abs(d) > 2 ? d : d * 0.05;   // another leader's time at once, a small drift eased away
+    tOff += Math.abs(d) > 2 ? d : d * (1 - Math.exp(-(dt || 0) / 0.8));
   }
+  function hush(on) { HUSH = !!on; }
   function scatter(dir) {
     if (FAL.on) return false;
     launch(dir ? [ME.head[0] + dir[0] * 20, Math.max(6, ME.head[1] + dir[1] * 20), ME.head[2] + dir[2] * 20] : null);
     return true;
   }
-  return Object.assign(set, { params, update, anchors, labels, cam, controls, explore, see, scatter, falcon: startFalcon, flight, follow,
+  return Object.assign(set, { params, update, anchors, labels, cam, controls, explore, see, scatter, falcon: startFalcon, flight, follow, hush,
     birds: () => N, falconOn: () => FAL.on, following: () => !!FOL, state: () => ({ P, V, AL, N, NB, NBC, me: ME, falcon: FAL }) });
 };
