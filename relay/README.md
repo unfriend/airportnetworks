@@ -174,8 +174,9 @@ machine or public hosting.
   or touched one badly: calibrate again on the same tape.
 - **Off after a headset was switched off and on**: it moves the room as the headset says its origin moved,
   looks for its anchors again by their saved handles (they put it back on the marks) and shows the orange
-  crosses for 30 s ("Check the marks"). If they are not on the tape, press **Calibrate** and please send the
-  logs. Lined up through the shared space (no tape), it holds the room where the headset says it moved until the
+  crosses for 30 s ("Check the marks"). If the panel says **Leave AR and enter it again** (the headset does not
+  find its anchors in the same session after standby, `marks lost` in the log), do that: a new AR session finds
+  the marks at once. If the crosses are still not on the tape, press **Calibrate** and please send the logs. Lined up through the shared space (no tape), it holds the room where the headset says it moved until the
   shared space agrees again (a few seconds; one that disagrees is judged after 20 s: right after waking the space is
   wrong for up to 15 s, and after a night it may come back made again). If it stays off, press **Re-align** on that headset's Shared panel (it
   asks for the shared space again and takes the room's frame afresh, as the others show it); if nothing changes,

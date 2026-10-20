@@ -444,7 +444,14 @@ generation, `{ n, by, at }`; FORMAT networks-10). The plan is `docs/shared-space
   (`restore`, `retryDue`; "Marks found again"); a retry does not hold the room
   in 'restoring', and a calibration from last time not found at session start
   is looked for the same way. Waking never drops a calibration
-  (asking to calibrate after every wake was worse).
+  (asking to calibrate after every wake was worse). Not found after waking, the
+  panel asks to leave AR and enter it again (`lostMarks`, `R.reenter`, log
+  `marks lost`; in a test after a standby twenty tries over ten minutes failed
+  and a new AR session found them at once), and so does a reset without a
+  transform or a jump of the origin while the anchors are not held but their
+  handles are saved: the calibration is kept and its anchors looked for again
+  at once (only a calibration with no saved handles asks to calibrate again).
+  Found after all, the request goes.
 - The browser's store of saved anchors can be full ("Maximum number of
   anchors reached!": one Quest 3 refused every handle with 9 listed for the
   site, another saved with 11, so the limit is not simply per site). At
@@ -892,7 +899,9 @@ calibrated headsets (the room told, whole again once they agree; a headset
 without marks takes nothing through it), no room scan said and taken back, a fresh shared space (two presses move the
 room's pages to `s/1/`, where they join again; a headset there told to start
 one headset first; a page opened at the old address moved too), anchors not
-found by their handles after waking and found by a later try, the room's floor from
+found by their handles after waking and found by a later try (meanwhile the
+panel asks to leave AR and enter it again; a jump with their handles saved
+keeps the calibration), the room's floor from
 the first calibration (a lower floor allowed for), no mark from a double
 pull, Forget taking the published frame, the shared space on by default
 (off: calibrate), a space that is just this headset's own floor while someone

@@ -1464,7 +1464,7 @@
         if (here()) {
           ctx.font = FONT(21); ctx.fillStyle = MUTED; ctx.fillText(fit(ctx, sharedLine(), w), x, y); y += 30;
           const fl = versionNote() || scanNote() || fullNote() || floorNote(), src = fl || sourceLine();   // a floor that differs matters more than what the frame rests on
-          if (src) { ctx.fillStyle = fl || R.notJoined || (!own() && (!R.sharedAlign || splitHere())) || (R.cmp && (R.cmp.d > 0.05 || R.cmp.a > 2)) ? '#ffb43b' : MUTED; ctx.fillText(fit(ctx, src, w), x, y); y += 30; }
+          if (src) { ctx.fillStyle = fl || R.notJoined || (!own() && (!R.sharedAlign || splitHere())) || (own() && R.reenter) || (R.cmp && (R.cmp.d > 0.05 || R.cmp.a > 2)) ? '#ffb43b' : MUTED; ctx.fillText(fit(ctx, src, w), x, y); y += 30; }
           y += 4;
           // (with a relay that serves the page, a third: a fresh shared space for everyone, two presses)
           const fa = forgetArmed(), fr = canFresh(), fx = freshArmed(), c3 = fr ? (w - 32) / 3 : bw, px = fr ? 20 : 22;
@@ -1799,6 +1799,7 @@
     // height is kept in the shared space (hS); the space's pose in our floor last moved at stillSince
     wakeHold: 0, wakeLog: 0, hS: null, stillSince: 0, lastS: null, aloneAt: 0, notJoined: false, firstHere: null, firstFor: new Map(), ownId: '', ownFor: new Map(),
     scanAt: 0, scanFrom: 0, scanSeen: false, scanN: -1, noScan: false, scanTold: false, badSince: 0, tries: 0, retryAt: 0, retryFrom: 0,
+    reenter: false, afterSleep: false,
     again: 0, againRel: 0,   // Re-align pressed (when; relay time): the frame is decided again as at the start, the old one kept until then
     reasked: 0,   // the wake (visibleAt) after which the shared space was asked for again
     sleptRel: 0, refresh: 0,   // when this headset went to sleep (relay time); a wake whose frame is still to be written again
@@ -1879,7 +1880,8 @@
       sharedPose: false, sharedHead: false, sharedOwn: null, ownId: '', ownFor: new Map(), visibleAt: 0, wakeHold: 0, hS: null, stillSince: 0, lastS: null, aloneAt: 0, notJoined: false, firstHere: null, firstFor: new Map(), again: 0,
       frame: null, src: '', aligned: false, calib: null, anchorBusy: false, anchorTried: false, wantAnchors: null, noticed: '', mgen: R.mgen + 1,
       mk: null, cmp: null, prev: null, pubAt: 0, recAt: 0, full: false,
-      scanAt: 0, scanFrom: performance.now(), scanSeen: false, scanN: -1, noScan: false, scanTold: false, badSince: 0, tries: 0, retryAt: 0, retryFrom: 0 });
+      scanAt: 0, scanFrom: performance.now(), scanSeen: false, scanN: -1, noScan: false, scanTold: false, badSince: 0, tries: 0, retryAt: 0, retryFrom: 0,
+      reenter: false, afterSleep: false });
     if (R.oldAnchor && HOST.anchor.drop) { HOST.anchor.drop(R.oldAnchor); R.oldAnchor = ''; }   // an older version's anchor
     setState('waiting');
     const feats = s.enabledFeatures ? [...s.enabledFeatures] : null;
@@ -1954,10 +1956,26 @@
     }
     if (own() && R.anchors && R.anchorsOK && !R.woke) R.woke = performance.now();   // the anchors must answer again
     if (own() && !(R.anchors && R.anchorsOK)) {
+      // marks with saved anchors stay: a new AR session finds them again at once (after standby two Quest 3s did not
+      // find them within the session for ten minutes, and did on entering AR again), so that is what is asked
+      if (savedHandles()) {
+        if (!R.anchors && !R.anchorBusy) { R.anchorTried = false; R.retryAt = 0; R.retryFrom = 0; }   // looked for again now, and on the retries' schedule
+        lostMarks(why); return;
+      }
       R.frame = null; R.src = ''; R.aligned = false; R.mk = null; R.noticed = 'calibrate';
       setState('calibrate');
       notice('Calibrate again', 'The headset moved its origin (a recentre?) and has no anchors to find the marks by: touch mark A and mark B again.', 9000);
     }
+  }
+  const savedHandles = () => !!(R.saved && R.saved.anchors.length === 2);
+  // this headset's marks are not found in this session (after standby, or the origin moved with no anchors to
+  // follow): the frame held so far stays, the orange crosses show, and the panel asks to leave AR and enter it again
+  function lostMarks(why) {
+    R.showUntil = performance.now() + 30000;
+    if (R.reenter) return;
+    R.reenter = true; log('marks lost', { why });
+    notice('Leave AR and enter it again', 'Leave AR and enter it again: the headset finds your marks then (after standby it does not, in the same session). Until then things may stand off the tape marks.', 12000);
+    changed();
   }
   // floor <- shared, this frame (only inside the frame callback). This reading of getPose is right: it keeps a
   // headset's own marks in one place in the shared space across its resets, to 2 cm (the inverse, as Quest's
@@ -2195,6 +2213,8 @@
       return false;
     }
     R.anchorsOK = true;
+    if (R.reenter) { R.reenter = false; changed(); }   // found after all: nothing to leave AR for
+    R.afterSleep = false;
     if (R.anchorIds && R.anchorIds.every(Boolean)) { S.anchors = R.anchorIds.slice(); storeSaved(); }
     return true;
   }
@@ -2234,11 +2254,12 @@
       if (R.session === s && R.mgen === g && as.every(Boolean)) {
         R.anchors = as; R.anchorIds = null; R.anchorsOK = false; R.anchorSince = performance.now();
         if (R.tries) { log('anchors found again', { tries: R.tries }); notice('Marks found again', 'The headset found the tape marks again: things are back where they were calibrated.', 6000); }
-        R.tries = 0; R.retryAt = 0; R.retryFrom = 0;
+        R.tries = 0; R.retryAt = 0; R.retryFrom = 0; R.reenter = false; R.afterSleep = false;
       } else {
         for (const a of as) if (a) { try { a.delete(); } catch (e) { /* gone */ } }
         if (R.mgen === g) {
           log('anchors not found', { found: as.filter(Boolean).length, tries: R.tries });
+          if (R.afterSleep && own() && R.frame) lostMarks('wake');   // (looked for by their handles after waking)
           const now2 = performance.now();
           if (!R.retryFrom) R.retryFrom = now2;
           R.tries++;
@@ -2275,12 +2296,12 @@
   // their saved handles while the frame stays (the frame is never dropped here: a woken headset that asked to
   // calibrate every time was worse), and the orange crosses show for a while, so a frame off the tape is seen
   function afterWake(f, t) {
-    if (R.anchors && R.anchorsOK && anchorsAt(f)) { log('marks tracked again', { after: Math.round(t - R.woke) }); R.woke = 0; R.recAt = 0; return true; }
+    if (R.anchors && R.anchorsOK && anchorsAt(f)) { log('marks tracked again', { after: Math.round(t - R.woke) }); R.woke = 0; R.recAt = 0; R.reenter = false; return true; }
     if (t - R.woke < 5000) return true;
     const reset = R.resetAt >= R.sleptAt, anchors = !!R.anchors, ids = !!(R.saved && R.saved.anchors.length === 2);
     log('marks unanswered', { reset, anchors, handles: ids });
     R.woke = 0;
-    if (anchors && ids) { releaseAnchors(); R.anchorTried = false; }   // looked for again by their handles (align)
+    if (anchors && ids) { releaseAnchors(); R.anchorTried = false; R.afterSleep = true; }   // looked for again by their handles (align)
     if (!reset && !anchors) return true;   // nothing moved, as far as the headset says (the system menu)
     R.showUntil = t + 30000;
     notice('Check the marks', 'The headset was off: the orange crosses should sit on the tape marks. If they do not, calibrate again.', 8000);
@@ -2330,7 +2351,7 @@
       if (R.again) {   // Re-align: the marks found again by their anchors (the frame moves to them), or not
         if (R.anchors && R.anchorsOK) { R.again = 0; notice('Re-aligned', 'Found your marks again. Check: the orange crosses sit on the tape marks.', 6000); changed(); }
         else if (t - R.again > 10000 || (R.anchorTried && !R.anchorBusy && !R.anchors)) {
-          R.again = 0; notice('Marks not found', 'The headset did not find your marks again. If the orange crosses are off the tape marks, calibrate again.', 9000); changed();
+          R.again = 0; notice('Marks not found', 'The headset did not find your marks in this session. Leave AR and enter it again: they come back then. If the orange crosses are still off the tape marks, calibrate again.', 12000); changed();
         }
       }
       return;
@@ -2546,7 +2567,7 @@
     dropAnchors();
     R.saved = null; storeSaved();
     Object.assign(R, { frame: null, src: '', aligned: false, anchorBusy: false, anchorTried: false, wantAnchors: null, calib: null, noticed: '', recAt: 0,
-      mgen: R.mgen + 1, mk: null, cmp: null, tries: 0, retryAt: 0, retryFrom: 0 });
+      mgen: R.mgen + 1, mk: null, cmp: null, tries: 0, retryAt: 0, retryFrom: 0, reenter: false, afterSleep: false });
     const t = performance.now(); R.sharedAsked = t; if (R.sharedId) R.sharedAt = t;
     setState('waiting');
     notice('Calibration forgotten', 'This headset lines up again: from the frame the room holds for its shared space, else it asks you to calibrate.', 6000);
@@ -2612,6 +2633,7 @@
     if (!own() && R.sharedId && splitHere()) { const Q = val(kSplit(R.sharedId)); return `The shared space puts calibrated headsets here ${Math.round(Q.d * 100)} cm apart: calibrate on the tape marks`; }
     if (R.cmp) return `The shared space puts ${whose(R.cmp.by)} marks ${Math.round(R.cmp.d * 100)} cm, ${R.cmp.a}° from yours` + (R.sharedAlign ? '' : ' (not used)');
     if (R.src === 'adopted') { const P = R.sharedId && val(kFrame(R.sharedId)); return P && gradeOf(P) === 'marks' ? `From ${whose(P.by)} marks, through the shared space` : 'From the shared space\'s own origin'; }
+    if (own() && R.reenter) return 'Marks not found in this session: leave AR and enter it again';
     if (own()) return (R.anchors && R.anchorsOK ? 'Your own marks, held by two anchors' : R.anchors ? 'Your own marks (checking their anchors...)' : 'Your own marks (no anchors: calibrate after a recentre)');
     if (R.src === 'floor') return 'Your floor, as this session began: calibrate to keep the stations in place';
     return '';
@@ -2714,7 +2736,7 @@
     if (Math.hypot(dx, dz) < 0.5) { notice('Marks too close', 'Mark B must be at least 50 cm from mark A (a metre or more is better). Touch mark B again.', 0); return; }
     R.calib = null;
     dropAnchors();   // the old marks' anchors go now: they would pull the new frame back to the old marks
-    R.mgen++; R.anchorBusy = false; R.tries = 0; R.retryAt = 0; R.retryFrom = 0;
+    R.mgen++; R.anchorBusy = false; R.tries = 0; R.retryAt = 0; R.retryFrom = 0; R.reenter = false; R.afterSleep = false;
     R.saved = { v: 2, a: a.toArray().map(r3), b: p.toArray().map(r3), at: Math.round(now()), anchors: [] };
     storeSaved();   // kept once its anchors are made
     claimFloor(R.saved.a, R.saved.b);
@@ -2745,6 +2767,7 @@
     if (R.wakeHold) S.wakeHold = Math.round(t - R.wakeHold);
     if (R.blind) S.blind = true;
     if (R.notJoined) S.notJoined = true;
+    if (R.reenter) S.reenter = true;
     if (R.hS !== null) S.hS = r3(R.hS);
     if (R.sharedHead) S.sharedHead = true;
     if (R.scanN >= 0) S.scan = R.scanN;   // planes and meshes detected (scanCheck)

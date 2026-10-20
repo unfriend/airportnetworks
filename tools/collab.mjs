@@ -1128,6 +1128,11 @@ try {
   }, [Fr5, Lr5]);
   for (let k = 0; k < 60 && !(await sinceWake()).includes('anchors not found'); k++) await frames(H, 250);
   const nfr5 = (await sinceWake()).includes('anchors not found');
+  await frames(H, 100);
+  const lost5 = await H.evaluate(() => ({ reenter: HOST.room.internals().reenter, line: HOST.room.sourceLine(), state: HOST.room.state,
+    lost: window.__collabLog.filter(e => e.ev === 'marks lost').slice(-1)[0] || null, note: (window.__collabLog.filter(e => e.ev === 'notice').slice(-1)[0] || {}).title }));
+  check('off and on again, the marks not found in the session: the frame held, and the panel asks to leave AR and enter it again',
+    lost5.reenter === true && /leave AR and enter it again/.test(lost5.line) && !!lost5.lost && lost5.lost.why === 'wake' && lost5.state !== 'calibrate', JSON.stringify(lost5));
   await H.evaluate(() => { for (const [u, w] of window.__hidden) window.__xr.handles.set(u, w); });
   for (let k = 0; k < 90 && !(await sinceWake()).includes('anchors moved'); k++) await frames(H, 250);
   const far5 = unapply(Fr5, markA), fbr5 = unapply(Fr5, markB), cxr5 = unit([fbr5[0] - far5[0], 0, fbr5[2] - far5[2]]);
@@ -1137,6 +1142,34 @@ try {
   check('off and on again, the anchors not found by their handles at first: looked for again (every 10 s), the frame back on the marks once they come',
     hidN === 2 && nfr5 && rtw.log.includes('anchors found again') && ['marks', 'anchor'].includes(rtw.src) && !!rtw.frame && near(rtw.frame.o, [far5[0], 0, far5[2]], 3e-3) &&
     near(rtw.frame.x, cxr5, 3e-3) && !rtw.log.includes('calibrate'), JSON.stringify(Object.assign(rtw, { hidN, nfr5, want: [far5, cxr5] })));
+  const back5 = await H.evaluate(() => ({ reenter: HOST.room.internals().reenter, line: HOST.room.sourceLine() }));
+  check('the marks found after all: the panel no longer asks to leave AR', back5.reenter === false && !/leave AR/.test(back5.line), JSON.stringify(back5));
+  // a jump of the origin while the marks' anchors are not found (their tries over) but their handles are saved: the
+  // calibration is kept (a new AR session finds the marks), the panel asks to leave AR and enter it again, and the
+  // anchors are looked for again at once
+  const jmp = await H.evaluate(() => {
+    const X = window.__xr, R = HOST.room.internals(), ids = (R.saved && R.saved.anchors) || [];
+    window.__hidden = ids.map(u => [u, X.handles.get(u)]);
+    for (const u of ids) X.handles.delete(u);
+    for (const a of R.anchors || []) { try { a.delete(); } catch (e) { /* gone */ } }
+    Object.assign(R, { anchors: null, anchorIds: null, anchorsOK: false, anchorP: null, anchorTried: true, retryAt: 0, retryFrom: 0 });   // as when the tries ran out
+    window.__collabLog.push({ ev: 'test jump' });
+    const f0 = HOST.room.frame && HOST.room.frame.o.slice();
+    R.prev = { p: [9, 1.6, 9], q: [0, 0, 0, 1], t: performance.now() - 20 }; R.originCheck(performance.now());
+    return { f0, n: ids.length };
+  });
+  const sinceJump = () => H.evaluate(() => { const L = window.__collabLog, i = L.map(e => e.ev).lastIndexOf('test jump'); return L.slice(i + 1); });
+  for (let k = 0; k < 40 && !(await sinceJump()).some(e => e.ev === 'anchors not found'); k++) await frames(H, 250);
+  const jl = await H.evaluate(() => ({ state: HOST.room.state, frame: HOST.room.frame, reenter: HOST.room.internals().reenter, line: HOST.room.sourceLine(), saved: !!localStorage.getItem('roomFrame') }));
+  jl.log = (await sinceJump()).map(e => e.ev + (e.why ? ':' + e.why : ''));
+  check('a jump of the origin with saved anchors not found: the calibration kept, and the panel asks to leave AR and enter it again',
+    jmp.n === 2 && jl.state !== 'calibrate' && !!jl.frame && !!jmp.f0 && near(jl.frame.o, jmp.f0, 1e-3) && jl.reenter === true && /leave AR/.test(jl.line) && jl.saved &&
+    jl.log.includes('marks lost:jump') && jl.log.includes('anchors not found'), JSON.stringify(Object.assign(jl, { jmp })));
+  await H.evaluate(() => { for (const [u, w] of window.__hidden) window.__xr.handles.set(u, w); });
+  for (let k = 0; k < 90 && !(await sinceJump()).some(e => e.ev === 'anchors found again'); k++) await frames(H, 250);
+  const jb = await H.evaluate(() => ({ reenter: HOST.room.internals().reenter, src: HOST.room.src }));
+  jb.found = (await sinceJump()).some(e => e.ev === 'anchors found again');
+  check('...and found on the next try: the panel no longer asks to leave AR', jb.found && jb.reenter === false && ['marks', 'anchor'].includes(jb.src), JSON.stringify(jb));
   // next session (or a reload): the anchors at mark A and mark B bring the frame back; handles nobody knows go
   await H.evaluate(() => window.__xr.end());
   await H.evaluate(() => window.__handles.set('junk-left-over', new THREE.Matrix4()));

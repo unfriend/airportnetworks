@@ -47,7 +47,8 @@ People in the room calibrate every headset on the same two tape marks
 controller; orange crosses then show where the headset puts the marks, and two
 anchors keep the calibration for next time and after the headset was off; if
 the panel says the anchor store is full, clearing Quest Browser's site data may
-help, see relay/README.md). A headset's own calibration is
+help, see relay/README.md; if after standby it says to leave AR and enter it
+again, do that: the headset finds its marks again in a new AR session). A headset's own calibration is
 never overridden, and the room's floor comes from the marks, so a headset
 with a wrong floor still shows things at the same height. Headsets without
 marks line up through Quest Browser's experimental shared space (on unless
