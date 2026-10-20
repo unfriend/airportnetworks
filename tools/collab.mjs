@@ -1502,7 +1502,19 @@ try {
   const f3In = fp3 && await Fp3.waitForFunction(c => typeof HOST !== 'undefined' && HOST.collab && HOST.collab.code === c && HOST.collab.status === 'open', fcode, { timeout: 20000, polling: 100 }).then(() => true, () => false);
   check('fresh shared space: a headset there is told to start one headset first, its log has the whole address; a page opened at the old address is moved too (its query kept)',
     fXr.told && /\/s\/1\/$/.test(fXr.page || '') && fXr.sg === 1 && fXr.search === '' && fp3 && f3In, JSON.stringify({ fXr, fp3, f3In }));
-  await Promise.all([Fp1, Fp2, Fp3].map(P => P.context().close()));
+  // a page at a fresh address in a room with no generation (a relay restarted, a link to a new room) stays there and
+  // gives the room its generation, instead of going back to the old address
+  const Fp4 = await (await browser.newContext({ viewport: { width: 640, height: 400 } })).newPage();
+  Fp4.on('pageerror', e => errors.push(e.stack || e.message));
+  await Fp4.goto(base() + 's/1/index.html');
+  await Fp4.waitForFunction(() => typeof HOST !== 'undefined' && HOST.collab, null, { timeout: 30000 });
+  await Fp4.evaluate(() => HOST.collab.create());
+  const f4 = await until(Fp4, () => !!HOST.collab.code && HOST.collab.status === 'open' && !!HOST.collab.val('sg'), null, 10000);
+  await frames(Fp4, 1500);
+  const f4s = await Fp4.evaluate(() => ({ path: location.pathname, sg: HOST.collab.val('sg'), gen: HOST.collab.gen }));
+  check('fresh shared space: a page at s/1/ in a room with no generation stays there and gives the room generation 1',
+    f4 && /\/s\/1\/$/.test(f4s.path) && f4s.gen === 1 && !!f4s.sg && f4s.sg.n === 1, JSON.stringify({ f4, f4s }));
+  await Promise.all([Fp1, Fp2, Fp3, Fp4].map(P => P.context().close()));
 
   // ------------------------------------------- a room on this device --
   // no relay known (a copy on a plain web host): a room still works on the page alone, kept in its storage

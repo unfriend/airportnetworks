@@ -220,7 +220,8 @@ generation, `{ n, by, at }`; FORMAT networks-10). The plan is `docs/shared-space
   without the slash is moved there), so the room's generation goes up by one
   (key `sg`) and every page in it moves to `s/<n>/` (`spaceMove`: only when that
   address answers, keeping the query and the room in the hash; a page opened at
-  an older address later moves too). `SG` is the page's own generation and
+  an older address later moves too; a room with no `sg`, as after a relay
+  restart, moves nobody, and a page at `s/<n>/` gives it its generation). `SG` is the page's own generation and
   `appRoot()` the app's address, where the relay is (`detect`). The headsets
   leave AR as their pages move; the page and then the headset say to start AR on
   one headset first and the others after "Shared space found". Every headset's

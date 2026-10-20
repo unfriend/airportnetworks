@@ -2663,6 +2663,13 @@
     publish([['sg', { n, by: C.id, at: Math.round(now()) }]]);
   }
   function spaceMove() {
+    // a room with no generation yet (a relay restarted, a room made again from a page that kept no copy): the page
+    // stays where it is, and one at a fresh address gives the room its generation, so the others come there too
+    const G = val('sg');
+    if (!G || !Number.isInteger(G.n)) {
+      if (SG && C.code && !C.local && C.welcomed && C.genSent !== C.code) { C.genSent = C.code; publish([['sg', { n: SG, by: C.id, at: Math.round(now()) }]]); }
+      return;
+    }
     const n = roomGen();
     if (!C.code || C.local || n === SG || C.moving === n) return;
     if (C.served === null) { detect().then(() => spaceMove()); return; }
