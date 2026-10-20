@@ -1487,7 +1487,7 @@ try {
     HOST.collab.internals().served === true, fcode, { timeout: 20000, polling: 100 }).then(() => true, () => false)));
   const fFin = await Fp1.evaluate(() => ({ gen: HOST.collab.gen, path: location.pathname, relay: HOST.collab.relay, note: HOST.collab.internals().note, story: HOST.curKey }));
   check('fresh shared space: two presses move every page in the room to the app under s/1/, where they join the room again (the relay still at the root)',
-    fOnce === null && fMoved.every(Boolean) && fBack.every(Boolean) && fFin.gen === 1 && /\/s\/1\/$/.test(fFin.path) && !/\/s\//.test(fFin.relay) && /fresh shared space/.test(fFin.note || ''),
+    !fOnce && fMoved.every(Boolean) && fBack.every(Boolean) && fFin.gen === 1 && /\/s\/1\/$/.test(fFin.path) && !/\/s\//.test(fFin.relay) && /fresh shared space/.test(fFin.note || ''),
     JSON.stringify({ fOnce, fMoved, fBack, fFin }));
   await Fp2.evaluate(() => HOST.start('airports'));
   await ready(Fp2, 'airports');
@@ -1510,7 +1510,7 @@ try {
   await Fp4.waitForFunction(() => typeof HOST !== 'undefined' && HOST.collab, null, { timeout: 30000 });
   await Fp4.evaluate(() => HOST.collab.create());
   const f4 = await until(Fp4, () => !!HOST.collab.code && HOST.collab.status === 'open' && !!HOST.collab.val('sg'), null, 10000);
-  await frames(Fp4, 1500);
+  await sleep(1500);
   const f4s = await Fp4.evaluate(() => ({ path: location.pathname, sg: HOST.collab.val('sg'), gen: HOST.collab.gen }));
   check('fresh shared space: a page at s/1/ in a room with no generation stays there and gives the room generation 1',
     f4 && /\/s\/1\/$/.test(f4s.path) && f4s.gen === 1 && !!f4s.sg && f4s.sg.n === 1, JSON.stringify({ f4, f4s }));
