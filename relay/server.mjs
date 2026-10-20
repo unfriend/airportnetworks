@@ -474,6 +474,12 @@ async function serve(req, res, url) {
   const segs = p.split('/').filter(Boolean);
   // no way out of the folder and nothing hidden: no '..', no dot files (.git), no backslashes, no NUL
   if (p.includes('\0') || p.includes('\\') || segs.some(s => s.startsWith('.'))) return plain(res, 404, 'Not found');
+  // the app under s/<n>/ as well: a room's fresh shared space (Quest Browser keeps one shared space per page
+  // address, and two headsets had each kept their own copy of the old one; shared.js, SG)
+  if (segs[0] === 's' && /^\d{1,4}$/.test(segs[1] || '')) {
+    if (segs.length === 2 && !p.endsWith('/')) return plain(res, 301, 'Moved', { Location: url.pathname + '/' + url.search });
+    segs.splice(0, 2);
+  }
   if (!segs.length) segs.push('index.html');   // / is the app; no folder listings
   if (!appFile(segs)) return plain(res, 404, 'Not found');
   const file = path.join(REAL, ...segs);

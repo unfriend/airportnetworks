@@ -1109,6 +1109,34 @@ try {
   check('off and on again, the anchors not tracked: found again by their saved handles, the frame back on the marks', ['marks', 'anchor'].includes(wk.src) && !!wk.frame &&
     near(wk.frame.o, [fa4[0], 0, fa4[2]], 3e-3) && near(wk.frame.x, cx4, 3e-3) && wk.log.includes('marks unanswered') && !wk.log.includes('calibrate'),
     JSON.stringify(Object.assign(wk, { want: [fa4, cx4] })));
+  // ...and when the headset cannot find them by their handles at first (two Quest 3s did not, after 5 and 15 minutes
+  // asleep, and did once AR was entered again): it keeps looking every 10 s, and the frame goes back on the marks
+  // once they come
+  const Fr5 = [0.7, 0, 1.0, 2.2], Lr5 = [Fr5[0], 1.6, Fr5[2], Fr5[3]];
+  const hidN = await H.evaluate(([F, L]) => {
+    const X = window.__xr, V = (x, y, z) => new THREE.Vector3(x, y, z), R = HOST.room.internals();
+    const M = a => new THREE.Matrix4().compose(V(a[0], a[1], a[2]), new THREE.Quaternion().setFromAxisAngle(V(0, 1, 0), a[3]), V(1, 1, 1));
+    const stale = new Set(R.anchors || []), ids = (R.saved && R.saved.anchors) || [];
+    window.__hidden = ids.map(u => [u, X.handles.get(u)]);
+    for (const u of ids) X.handles.delete(u);   // the browser does not find them by their handles for now
+    X.visibility('hidden');
+    X.floorReset(F, -0.2, [0.03, 0, 0]); X.W.local = M(L);
+    X.frame.trackedAnchors = { has: a => !stale.has(a) };
+    X.visibility('visible');
+    window.__collabLog.push({ ev: 'test woke' });
+    return ids.length;
+  }, [Fr5, Lr5]);
+  for (let k = 0; k < 60 && !(await sinceWake()).includes('anchors not found'); k++) await frames(H, 250);
+  const nfr5 = (await sinceWake()).includes('anchors not found');
+  await H.evaluate(() => { for (const [u, w] of window.__hidden) window.__xr.handles.set(u, w); });
+  for (let k = 0; k < 90 && !(await sinceWake()).includes('anchors moved'); k++) await frames(H, 250);
+  const far5 = unapply(Fr5, markA), fbr5 = unapply(Fr5, markB), cxr5 = unit([fbr5[0] - far5[0], 0, fbr5[2] - far5[2]]);
+  const rtw = await H.evaluate(() => ({ src: HOST.room.src, frame: HOST.room.frame, state: HOST.room.state }));
+  rtw.log = await sinceWake();
+  await H.evaluate(() => { delete window.__xr.frame.trackedAnchors; });
+  check('off and on again, the anchors not found by their handles at first: looked for again (every 10 s), the frame back on the marks once they come',
+    hidN === 2 && nfr5 && rtw.log.includes('anchors found again') && ['marks', 'anchor'].includes(rtw.src) && !!rtw.frame && near(rtw.frame.o, [far5[0], 0, far5[2]], 3e-3) &&
+    near(rtw.frame.x, cxr5, 3e-3) && !rtw.log.includes('calibrate'), JSON.stringify(Object.assign(rtw, { hidN, nfr5, want: [far5, cxr5] })));
   // next session (or a reload): the anchors at mark A and mark B bring the frame back; handles nobody knows go
   await H.evaluate(() => window.__xr.end());
   await H.evaluate(() => window.__handles.set('junk-left-over', new THREE.Matrix4()));
@@ -1440,6 +1468,41 @@ try {
   check('VR: the panel asks once whether you are in the room with the others (In this room: aligned with them; Say I am elsewhere: your own floor; kept for the room)',
     asked && inRoom[0] === true && inRoom[1] !== 'own' && sayAway && away[0] === false && away[1] === 'own' && away[2] === false && !again,
     JSON.stringify({ asked, inRoom, sayAway, away, again }));
+
+  // ------------------------------------------- a fresh shared space --
+  // Fresh shared space (two presses): every page in the room moves to the app under s/<n>/ (a new page address, so
+  // Quest Browser gives the headsets a new shared space) and joins the room again there; a headset arriving there is
+  // told to start one headset first; a page opened at the old address later is moved too, and the log has the
+  // whole address. In a room of its own, so the other pages stay where they are
+  const Fp1 = await open('');
+  await Fp1.evaluate(() => HOST.collab.create());
+  await until(Fp1, () => !!HOST.collab.code && HOST.collab.status === 'open', null, 8000);
+  const fcode = await Fp1.evaluate(() => HOST.collab.code);
+  const Fp2 = await open('#s=' + fcode);
+  await until(Fp2, c => HOST.collab.code === c && HOST.collab.status === 'open' && HOST.collab.members.length === 2, fcode, 8000);
+  const fOnce = await Fp2.evaluate(() => { HOST.collab.fresh(); return HOST.collab.val('sg'); });   // armed only
+  await Fp2.evaluate(() => HOST.collab.fresh());
+  const fMoved = await Promise.all([Fp1, Fp2].map(P => P.waitForURL(/\/s\/1\/(index\.html)?#/, { timeout: 15000 }).then(() => true, () => false)));
+  const fBack = await Promise.all([Fp1, Fp2].map(P => P.waitForFunction(c => typeof HOST !== 'undefined' && HOST.collab && HOST.collab.code === c && HOST.collab.status === 'open' &&
+    HOST.collab.internals().served === true, fcode, { timeout: 20000, polling: 100 }).then(() => true, () => false)));
+  const fFin = await Fp1.evaluate(() => ({ gen: HOST.collab.gen, path: location.pathname, relay: HOST.collab.relay, note: HOST.collab.internals().note, story: HOST.curKey }));
+  check('fresh shared space: two presses move every page in the room to the app under s/1/, where they join the room again (the relay still at the root)',
+    fOnce === null && fMoved.every(Boolean) && fBack.every(Boolean) && fFin.gen === 1 && /\/s\/1\/$/.test(fFin.path) && !/\/s\//.test(fFin.relay) && /fresh shared space/.test(fFin.note || ''),
+    JSON.stringify({ fOnce, fMoved, fBack, fFin }));
+  await Fp2.evaluate(() => HOST.start('airports'));
+  await ready(Fp2, 'airports');
+  await Fp2.evaluate(installXR, Object.assign({}, xrOpts, { sharedId: 'U9', shared: SHARED }));
+  await Fp2.evaluate(() => window.__xr.begin());
+  await frames(Fp2, 1200);
+  const fXr = await Fp2.evaluate(() => { const L = window.__collabLog, s = L.filter(e => e.ev === 'session').pop() || {};
+    return { told: L.some(e => e.ev === 'notice' && e.title === 'A fresh shared space'), page: s.page, sg: s.sg, search: s.search }; });
+  await Fp2.evaluate(() => window.__xr.end());
+  const Fp3 = await open('?probe=1#s=' + fcode);
+  const fp3 = await Fp3.waitForURL(/\/s\/1\/\?probe=1#/, { timeout: 15000 }).then(() => true, () => false);
+  const f3In = fp3 && await Fp3.waitForFunction(c => typeof HOST !== 'undefined' && HOST.collab && HOST.collab.code === c && HOST.collab.status === 'open', fcode, { timeout: 20000, polling: 100 }).then(() => true, () => false);
+  check('fresh shared space: a headset there is told to start one headset first, its log has the whole address; a page opened at the old address is moved too (its query kept)',
+    fXr.told && /\/s\/1\/$/.test(fXr.page || '') && fXr.sg === 1 && fXr.search === '' && fp3 && f3In, JSON.stringify({ fXr, fp3, f3In }));
+  await Promise.all([Fp1, Fp2, Fp3].map(P => P.context().close()));
 
   // ------------------------------------------- a room on this device --
   // no relay known (a copy on a plain web host): a room still works on the page alone, kept in its storage

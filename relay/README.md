@@ -63,7 +63,7 @@ the app's files from the repository over HTTPS, and prints the address to open.
    connections on port 8787 (macOS and Windows ask the first time the relay starts: allow it on private
    networks).
 3. For Quest Browser's experimental shared space (used for alignment unless you switch it off on the Shared panel,
-   *Shared space: used*; with both headsets on one browser version it lined them up without tape): in
+   *Shared space: on*; with both headsets on one browser version it lined them up without tape): in
    Quest Browser open `chrome://flags`, set **WebXR experiments** to Enabled and restart the browser completely;
    turn on **Enhanced spatial services** in the headset's settings (privacy, device permissions); and **update
    Quest Browser on every headset to the same version** (the panel shows it beside the shared space's id: in our
@@ -145,7 +145,7 @@ machine or public hosting.
   version (people list) and warns when they differ: update both, one shared space needs one version. Then check on
   every headset: the WebXR experiments flag (`chrome://flags`, then restart the browser; an update can reset it),
   Enhanced spatial services on (Quest settings, privacy), the same address in the browser, and Space Setup done in
-  this room, and *Shared space: used* on the Shared panel (it no longer stays off after a reload). Start one headset
+  this room, and *Shared space: on* on the Shared panel (it no longer stays off after a reload). Start one headset
   in AR first, wait until it says it found the shared space, then the other. If the panel says *Not in the others'
   shared space*, press Re-align; if that does not help, leave AR on both headsets, close Quest Browser on both, and
   start them again one after the other (a headset that left AR and came back on its own got a new space under the
@@ -153,6 +153,11 @@ machine or public hosting.
   shared space at all, and once two headsets are calibrated the panel says how far apart the shared space puts
   them; more than 10 cm, and the room stops using that space (*Shared space not usable*) until they agree again
   or reload.
+- **A fresh shared space**: when the panel says the shared space is split (two calibrated headsets far apart
+  through it), press *Fresh shared space* twice on the Shared panel (or in the page's Shared dialog). Every page in
+  the room moves to the app under a new address (`/s/1/`, `/s/2/`, ...: the relay serves the app there too), where
+  the headsets make a new shared space: they leave AR, then start AR on one headset first and wait for *Shared
+  space found* before the others. The rooms, calibrations and anchors stay (they belong to the relay's address).
 - **Starting the shared space afresh**: on every headset, Settings > Privacy and safety > Device permissions:
   *Clear* the physical space history (boundaries, Space Setup, stored anchors) and *Delete* the spatial data on
   Meta's servers; in Quest Browser clear the site data of the relay's address (this also forgets the app's

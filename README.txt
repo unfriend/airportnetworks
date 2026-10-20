@@ -54,7 +54,10 @@ marks line up through Quest Browser's experimental shared space (on unless
 switched off on the Shared panel; every headset needs the same browser version
 and the WebXR experiments flag), and line up again after standby; if one is
 still off, press Re-align on its Shared panel (it lines that headset up again
-from the start). The relay keeps the headsets' logs in
+from the start). If two calibrated headsets find the shared space puts them
+far apart (each headset can keep its own copy of it), Fresh shared space on the
+Shared panel (twice) moves the whole room to a new address where the headsets
+make a new one: start AR on one headset first, then the others. The relay keeps the headsets' logs in
 relay/logs/ for checking alignment. People elsewhere and
 screens
 see the stations round their own spot. Screens get a room map and Follow a

@@ -63,6 +63,12 @@ what we do about it.
   session has plane detection but finds no plane or mesh within 20 s says it has no room scan. Once two calibrated headsets find
   the space puts their marks more than 10 cm or 3 degrees apart, the room marks that space as split and nobody takes
   anything through it while both are there.
+- **One copy per headset.** With the tape marks found again by anchors session after session, each headset put
+  the marks at the same place in its own shared space every time (to 3 to 7 cm over 1.5 hours), but the two
+  headsets' copies under one id were 2.6 m and 11 to 13 degrees apart, and 3.4 m and 6 degrees after one headset lost
+  its room scan in standby. So each headset kept its own copy of the site's shared space and reopened it; neither
+  joined the other's again. The space is kept per page address, so we move a room to a new address (`/s/<n>/`,
+  served by our relay) when that happens, and the headsets start one by one there.
 - A switch that turns the shared space off should not be remembered. One headset had it left off and quietly ignored
   the space in every room of an evening.
 - The id stays the same across sessions and days, so a frame stored for it may be last time's. If its writer has

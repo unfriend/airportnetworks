@@ -58,7 +58,7 @@ headsets up: the shared space overrode each fresh calibration, see below), first
    puts another calibrated headset's marks from its own (a line on the panel: the measure of the shared
    space's accuracy).
 2. **A frame published for this shared space** (key `rf.<id>`, grade `marks` or `shared`), **unless switched off**
-   (*Shared space: not used* on the panel; it was off by default after the measurements in section 9, and is on
+   (*Shared space: off* on the panel; it was off by default after the measurements in section 9, and is on
    again since two headsets on one browser version lined up through it): adopted by headsets without marks
    ("Aligned automatically"), first on the headset's own floor and then held at that height in the shared space,
    followed when it moves by more than **3 cm, 1 degree or 2 cm in height** ("Re-aligned"). An adopted frame is
@@ -250,6 +250,13 @@ same page address, the relay on the same Wi-Fi; every 5 s each headset logged it
   own floor while another here is aligned through that id has not joined (`alignedHere`); the own-floor test has
   hysteresis (enter at 2 cm and 1.5 degrees, leave at 15 cm or 2 degrees); the switch is for the page only and
   the panel says when it is off.
+
+- **20 October, rooms GLI, GSZ and OOO** (the same two Quest 3s, Quest Browser 152): each headset's tape marks, found
+  again by its anchors, sat at the same place in its own shared space in every session (to 3 to 7 cm), but the two
+  copies of space 699c04b0 were 2.6 m and 11 to 13 degrees apart, then 3.4 m and 6 degrees after one headset came out
+  of a 15-minute standby with no room scan and its anchors not found. Clearing nothing in the app could join them,
+  so a room can now move to a fresh page address (*Fresh shared space*, `s/<n>/`), and anchors not found after
+  waking are looked for again every 10 s (they were found once AR was entered again).
 
 So: tape marks on every headset, the room's height taken from the marks (the first calibration's height of
 mark A over its floor, others allowing for their own floor), anchors to follow origin jumps, and the shared

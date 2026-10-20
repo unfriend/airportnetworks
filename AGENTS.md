@@ -184,7 +184,8 @@ the content floats 1.4 m ahead of the spot), with `st.<id>.play` (the clock:
 spot, y over the floor) and `st.<id>.place` (the scene: `{ x, y, z }` moved from
 where the story puts it, and `s` its size, a factor on the story's own; FORMAT
 networks-8), and per shared space `rf.<space id>` (the room's frame in it) and
-`rs.<space id>` (found split; FORMAT networks-9). The plan is `docs/shared-space-plan.md`.
+`rs.<space id>` (found split; FORMAT networks-9), and `sg` (the room's shared-space
+generation, `{ n, by, at }`; FORMAT networks-10). The plan is `docs/shared-space-plan.md`.
 
 - `HOST.collab` keeps the room's keys (echo suppression by value, optimistic
   writes acknowledged by the relay, apply order stations > clock > state >
@@ -211,6 +212,19 @@ networks-8), and per shared space `rf.<space id>` (the room's frame in it) and
   panel says so). The placement stays as it moves; a `'floor'` frame then gives
   way once the shared space gives a frame. Another tab's writes to a room on
   this device are taken (the `storage` event).
+- A fresh shared space (*Fresh shared space* on the headset's Shared panel and in
+  the page's Shared dialog, two presses, only where the relay serves the page):
+  Quest Browser keeps one shared space per page address, and two Quest 3s each
+  kept their own copy of one, session after session (2.6 to 3.4 m apart by the
+  tape). The relay also serves the app under `s/<n>/` (`serve`; `/s/<n>`
+  without the slash is moved there), so the room's generation goes up by one
+  (key `sg`) and every page in it moves to `s/<n>/` (`spaceMove`: only when that
+  address answers, keeping the query and the room in the hash; a page opened at
+  an older address later moves too). `SG` is the page's own generation and
+  `appRoot()` the app's address, where the relay is (`detect`). The headsets
+  leave AR as their pages move; the page and then the headset say to start AR on
+  one headset first and the others after "Shared space found". Every headset's
+  log says its whole address (`search`, `sg` in `session`).
 - Re-align (a button on the headset's Shared panel, `HOST.room.realignNow()`):
   this headset lines up again from the start without leaving the session or
   forgetting its marks. The shared space is asked for again, what was held
@@ -288,7 +302,7 @@ networks-8), and per shared space `rf.<space id>` (the room's frame in it) and
   with a controller (`'marks'`), or last time's found again by the two anchors
   made at them (`'anchor'`; `roomFrame` in `localStorage` keeps the marks and
   the anchors' handles, never coordinates alone); (2) unless switched off
-  (*Shared space: not used* on the panel, for this page only: remembered, it
+  (*Shared space: off* on the panel, for this page only: remembered, it
   left one headset unaligned in every room of an evening; on by default since
   two Quest 3s on one browser version lined up through it; the panel says
   when it is off) the
@@ -423,7 +437,12 @@ networks-8), and per shared space `rf.<space id>` (the room's frame in it) and
   sleep: a woken calibrated headset keeps its frame (moved by the reset), waits
   up to 5 s for its anchors (`afterWake`), then looks for them again by their
   saved handles (they put the frame back on the marks) and shows the orange
-  crosses for 30 s ("Check the marks"). Waking never drops a calibration
+  crosses for 30 s ("Check the marks"). Not found (after 5 and 15 minutes
+  asleep two Quest 3s did not find them, and did once AR was entered again), it
+  looks again every 10 s for two minutes, then every minute up to ten
+  (`restore`, `retryDue`; "Marks found again"); a retry does not hold the room
+  in 'restoring', and a calibration from last time not found at session start
+  is looked for the same way. Waking never drops a calibration
   (asking to calibrate after every wake was worse).
 - The browser's store of saved anchors can be full ("Maximum number of
   anchors reached!": one Quest 3 refused every handle with 9 listed for the
@@ -866,7 +885,10 @@ anchors are still being found), a new calibration replacing the old anchors,
 the shared space never overriding marks (a newer frame from someone else only
 reported, as a distance; not used at all by default), a space found split by two
 calibrated headsets (the room told, whole again once they agree; a headset
-without marks takes nothing through it), no room scan said and taken back, the room's floor from
+without marks takes nothing through it), no room scan said and taken back, a fresh shared space (two presses move the
+room's pages to `s/1/`, where they join again; a headset there told to start
+one headset first; a page opened at the old address moved too), anchors not
+found by their handles after waking and found by a later try, the room's floor from
 the first calibration (a lower floor allowed for), no mark from a double
 pull, Forget taking the published frame, the shared space on by default
 (off: calibrate), a space that is just this headset's own floor while someone
