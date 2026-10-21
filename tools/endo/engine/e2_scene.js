@@ -2,7 +2,7 @@
 // ================================================================= SCENE ==
 const GL = {};
 // the sets, in the order they appear in the story
-const SET_ORDER = ['tower', 'motor', 'hpc'];
+const SET_ORDER = ['motor', 'syn', 'net', 'tree'];
 function buildScene(canvas) {
   const renderer = HOST.makeRenderer({ canvas, antialias: true, alpha: true, powerPreference: 'high-performance' });
   renderer.xr.enabled = true;
