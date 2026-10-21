@@ -27,6 +27,11 @@ The endotype story (#endo) looks for narration-endo.mp3. Its chapters start at
 change NARRATION_SYNC in tools/endo/engine/e3_story.js (then rebuild) if your
 recording differs.
 
+The PET story (#pet) looks for narration-pet.mp3. Its chapters start at 0:00,
+0:16, 0:52, 1:30, 2:08, 2:52, 3:38, 4:18 and 5:05, ending at 5:30; change
+NARRATION_SYNC in tools/pet/engine/e3_story.js (then rebuild) if your
+recording differs.
+
 The flock (#flock) looks for narration-flock.mp3. Its chapters start at 0:00,
 0:18, 0:40 and 1:02, ending at 1:12 (after that the flock flies on in explore
 mode); change NARRATION_SYNC in tools/flock/engine/e3_story.js (then rebuild)

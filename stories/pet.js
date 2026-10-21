@@ -4295,7 +4295,10 @@ void main() {
   person.frustumCulled = false; person.renderOrder = 8; gPop.add(person);
 
   // ---------------------------------------------------------------- the strip's and the map's frames, summaries
-  const pPill = pillSet(gPop, 12, 7, false), bgPill = pillSet(gPop, 5, 1, false);
+  const pPill = pillSet(gPop, 16, 7, false), bgPill = pillSet(gPop, 5, 1, false);
+  // the map's legend (the poster's): a swatch per group, its label beside it
+  const LEG = k => [MAPR.x1 - 0.6, MAPR.y1 - 0.01 - k * 0.1, 0.02];
+  GKEY.forEach((key, k) => { const p = LEG(k); pPill.put(12 + k, p[0] - 0.03, p[1], p[2], 0.016, 0.016, 0.016, 0.012, GCOL[k], 1); });
   const P_MAP = 0, P_STRIP = 1, P_SH0 = 2, P_SH1 = 3, P_HB = 4;
   bgPill.put(P_MAP, (MAPR.x0 + MAPR.x1) / 2, (MAPR.y0 + MAPR.y1) / 2, -0.12, (MAPR.x1 - MAPR.x0) / 2 + 0.13, (MAPR.y1 - MAPR.y0) / 2 + 0.12, 0.05, 0, PANEL, 0.6, 1, 0.0025);
   bgPill.put(P_STRIP, SX0 + SW / 2, 0.21, -0.12, SW / 2 + 0.08, 0.58, 0.05, 0, PANEL, 0.6, 1, 0.0025);
@@ -4346,9 +4349,9 @@ void main() {
     for (let k = 1; k < pts.length; k++) {
       const [m0, s0] = pts[k - 1], [m1, s1] = pts[k];
       if (Math.abs(s1 - s0) < 1e-4) { out.push([m1, s0]); continue; }
-      const n = Math.max(1, Math.round((m1 - m0) / 1.7));
+      const n = Math.max(1, Math.round((m1 - m0) / 2.5));
       for (let q = 1; q <= n; q++) {
-        const md = m0 + (m1 - m0) * (q - 0.85 + 0.7 * R()) / n, v0 = s0 + (s1 - s0) * (q - 1) / n, v1 = s0 + (s1 - s0) * q / n;
+        const md = m0 + (m1 - m0) * (q - 0.7 + 0.4 * R()) / n, v0 = s0 + (s1 - s0) * (q - 1) / n, v1 = s0 + (s1 - s0) * q / n;
         out.push([md, v0], [md, v1]);
       }
       out.push([m1, s1]);
@@ -4374,7 +4377,7 @@ varying vec3 vC; varying float vA, vV, vT, vR, vGl;
 void main() {
   if (vT > vR) discard;
   float e = abs(vV);
-  float a = vGl > 1.5 ? 0.17 : (vGl > 0.5 ? exp(-e * 2.6) * 0.32 : 1.0 - smoothstep(0.55, 1.0, e));
+  float a = vGl > 1.5 ? 0.17 : (vGl > 0.5 ? exp(-e * 3.0) * 0.22 : 1.0 - smoothstep(0.55, 1.0, e));
   a *= vA;
   if (a < 0.003) discard;
   gl_FragColor = vec4(mix(vC, vec3(1.0), vGl < 0.5 ? 0.25 * (1.0 - e) : 0.0), a);
@@ -4408,8 +4411,8 @@ void main() {
       for (let q = 1; q < st.length; q++) {
         const [m0, s0] = st[q - 1], [m1, s1] = st[q];
         if (Math.abs(m1 - m0) < 1e-6 && Math.abs(s1 - s0) < 1e-6) continue;
-        ribbon(m0, s0, m1, s1, 0.0055, THIRD[k], k, 0);
-        ribbon(m0, s0, m1, s1, 0.022, THIRD[k], k, 1);
+        ribbon(m0, s0, m1, s1, 0.005, THIRD[k], k, 0);
+        ribbon(m0, s0, m1, s1, 0.016, THIRD[k], k, 1);
       }
     });
     const geo = new THREE.BufferGeometry();
@@ -4420,8 +4423,9 @@ void main() {
     const mesh = new THREE.Mesh(geo, ribMat);
     mesh.frustumCulled = false; mesh.renderOrder = 4; mesh.visible = idx.length > 0; gKM.add(mesh);
   }
-  const kPill = pillSet(gKM, 1, 1, false);
+  const kPill = pillSet(gKM, 4, 1, false), KLEG = k => [kx(KMAX * 0.56), ky(0.95 - k * 0.085), 0.01];
   kPill.put(0, 0.04, 0.05, -0.02, 0.86, 0.66, 0.05, 0, PANEL, 0.78, 1, 0.0025);
+  [0, 1, 2].forEach(k => { const p = KLEG(k); kPill.put(1 + k, p[0] - 0.05, p[1], p[2], 0.035, 0.006, 0.006, 0.012, THIRD[k], 1); });
   const kLines = lineSet(gKM, 2, 2);
   kLines.seg([KX0, KY0, 0], [KX0 + KW, KY0, 0], INK, 0.7, 0).seg([KX0, KY0, 0], [KX0, KY0 + KH, 0], INK, 0.7, 0);
   for (let m = 0; m <= KMAX + 1e-6; m += 20) kLines.seg([kx(m), KY0, 0], [kx(m), KY0 - 0.018, 0], INK, 0.7, 0);
@@ -4429,23 +4433,23 @@ void main() {
   kLines.build();
   const kTex = textPlane(gKM, 0.04, 0.05, -0.008, 1.8, 1.8, 1024, 2, (c, X, Y, px) => {
     c.textBaseline = 'middle';
-    c.font = font(700, 0.052 * px); c.fillStyle = hexOf(INK); c.textAlign = 'left';
-    c.fillText('Survival by thirds of the index', X(KX0), Y(KY0 + KH + 0.12));
-    c.font = font(500, 0.033 * px); c.fillStyle = hexOf(MUTED);
-    c.fillText(`People with cancer${KC.length ? `, ${KC.reduce((a, x) => a + (+x.n || 0), 0)} in all` : ''}; the poster's curves and table`, X(KX0), Y(KY0 + KH + 0.065));
-    c.font = font(600, 0.036 * px); c.textAlign = 'center';
-    for (let m = 0; m <= KMAX + 1e-6; m += 20) c.fillText(String(m), X(kx(m)), Y(KY0 - 0.045));
+    c.font = font(700, 0.06 * px); c.fillStyle = hexOf(INK); c.textAlign = 'left';
+    c.fillText('Survival by thirds of the index', X(KX0), Y(KY0 + KH + 0.125));
+    c.font = font(500, 0.036 * px); c.fillStyle = hexOf(l3(MUTED, INK, 0.3));
+    c.fillText(`${KC.length ? KC.map(x => x.n).join(', ') + ' people' : 'People'} by the index's thirds: the poster's curves and table`, X(KX0), Y(KY0 + KH + 0.06));
+    c.font = font(600, 0.042 * px); c.textAlign = 'center';
+    for (let m = 0; m <= KMAX + 1e-6; m += 20) c.fillText(String(m), X(kx(m)), Y(KY0 - 0.048));
     c.textAlign = 'right';
     for (let s = 0; s <= 1.0001; s += 0.2) c.fillText(s.toFixed(1), X(KX0 - 0.03), Y(ky(s)));
-    c.font = font(600, 0.038 * px); c.fillStyle = hexOf(INK); c.textAlign = 'center';
-    c.fillText('Months', X(KX0 + KW / 2), Y(KY0 - 0.105));
+    c.font = font(600, 0.044 * px); c.fillStyle = hexOf(INK); c.textAlign = 'center';
+    c.fillText('Months', X(KX0 + KW / 2), Y(KY0 - 0.115));
     c.save(); c.translate(X(KX0 - 0.13), Y(KY0 + KH / 2)); c.rotate(-PI / 2); c.fillText('Survival', 0, 0); c.restore();
     // the poster's table, inside the chart's lower left
     if (KT.length) {
-      const x0 = KX0 + 0.035, cw = [0.22, 0.12, 0.12, 0.17], rh = 0.052, y0 = KY0 + 0.025 + rh * 4;
+      const x0 = KX0 + 0.035, cw = [0.25, 0.13, 0.13, 0.19], rh = 0.056, y0 = KY0 + 0.022 + rh * 4;
       const hdr = ['Third', 'Deaths', '1 year', 'Median'];
       c.fillStyle = 'rgba(4,9,18,0.82)'; c.fillRect(X(x0 - 0.01), Y(y0 + 0.008), (cw.reduce((a, b) => a + b, 0) + 0.02) * px, (rh * 4 + 0.016) * px);
-      const cell = (txt, k, row, w, col) => { let x = x0; for (let q = 0; q < k; q++) x += cw[q]; c.font = font(w, 0.03 * px); c.fillStyle = col; c.textAlign = k ? 'center' : 'left'; c.fillText(txt, X(k ? x + cw[k] / 2 : x + 0.035), Y(y0 - rh * (row + 0.5))); };
+      const cell = (txt, k, row, w, col) => { let x = x0; for (let q = 0; q < k; q++) x += cw[q]; c.font = font(w, 0.034 * px); c.fillStyle = col; c.textAlign = k ? 'center' : 'left'; c.fillText(txt, X(k ? x + cw[k] / 2 : x + 0.035), Y(y0 - rh * (row + 0.5))); };
       hdr.forEach((h, k) => cell(h, k, 0, 700, hexOf(MUTED)));
       KT.slice(0, 3).forEach((r, q) => {
         c.fillStyle = hexOf(THIRD[q]); c.globalAlpha = 0.16; c.fillRect(X(x0), Y(y0 - rh * (q + 1) - 0.002), (cw.reduce((a, b) => a + b, 0)) * px, (rh - 0.006) * px); c.globalAlpha = 1;
@@ -4459,7 +4463,7 @@ void main() {
   // ---------------------------------------------------------------- the immunotherapy test (poster's response strip and AUCs)
   const PG = PO.prognosis || {}, PST = PG.strip || {}, AUC = (PG.auc || []).slice(0, 6);
   const RAX = (Array.isArray(PST.axis) && PST.axis[1] > 0) ? PST.axis[1] : 6.85, RX0 = -0.42, RX1 = 0.8, rx = v => RX0 + v / RAX * (RX1 - RX0), RAY = 0.3;
-  const AA0 = 0.45, AA1 = 1.0, AX0 = -0.16, AX1 = 0.8, ax = v => AX0 + (v - AA0) / (AA1 - AA0) * (AX1 - AX0), AAY = -0.46;
+  const AA0 = 0.45, AA1 = 1.0, AX0 = -0.2, AX1 = 0.56, ax = v => AX0 + (v - AA0) / (AA1 - AA0) * (AX1 - AX0), AAY = -0.46;
   const aRowY = r => 0.05 - r * 0.083 - (r >= 3 ? 0.035 : 0);
   const isNet = a => a.group === 'network' || /index|heterogen|clearance/i.test(a.label);
   const aPill = pillSet(gAUC, 1 + 2 * 6 + 5, 3, false);
@@ -4490,24 +4494,24 @@ void main() {
   aLines.build();
   const aTex = textPlane(gAUC, 0, 0.08, -0.008, 1.84, 1.84, 1024, 2, (c, X, Y, px) => {
     c.textBaseline = 'middle';
-    c.font = font(700, 0.052 * px); c.fillStyle = hexOf(INK); c.textAlign = 'left';
-    c.fillText('Immunotherapy before surgery', X(-0.84), Y(0.72));
-    c.font = font(500, 0.033 * px); c.fillStyle = hexOf(MUTED);
+    c.font = font(700, 0.06 * px); c.fillStyle = hexOf(INK); c.textAlign = 'left';
+    c.fillText('Immunotherapy before surgery', X(-0.84), Y(0.715));
+    c.font = font(500, 0.036 * px); c.fillStyle = hexOf(l3(MUTED, INK, 0.3));
     c.fillText(`${PG.n ? PG.n + ' people' : 'People'} with lung cancer: a first test`, X(-0.84), Y(0.665));
-    c.font = font(600, 0.034 * px); c.textAlign = 'center';
-    for (let v = 0; v <= Math.floor(RAX); v++) c.fillText(String(v), X(rx(v)), Y(RAY - 0.042));
-    c.font = font(500, 0.03 * px);
+    c.font = font(600, 0.04 * px); c.textAlign = 'center'; c.fillStyle = hexOf(l3(MUTED, INK, 0.3));
+    for (let v = 0; v <= Math.floor(RAX); v++) c.fillText(String(v), X(rx(v)), Y(RAY - 0.045));
+    c.font = font(500, 0.033 * px);
     if (PST.label) c.fillText(cap(PST.label), X((RX0 + RX1) / 2), Y(RAY - 0.095));
-    c.font = font(600, 0.034 * px);
-    for (let v = 0.5; v <= AA1 + 1e-6; v += 0.1) c.fillText(v.toFixed(1), X(ax(v)), Y(AAY - 0.042));
-    c.font = font(500, 0.03 * px); c.fillText('AUC: telling good from poor responders (0.5 is chance)', X((AX0 + AX1) / 2 - 0.1), Y(AAY - 0.095));
+    c.font = font(600, 0.04 * px);
+    for (let v = 0.5; v <= AA1 + 1e-6; v += 0.1) c.fillText(v.toFixed(1), X(ax(v)), Y(AAY - 0.045));
+    c.font = font(500, 0.034 * px); c.fillText('AUC: good from poor responders (0.5 is chance)', X((AX0 + AX1) / 2 - 0.14), Y(AAY - 0.1));
     c.textAlign = 'right';
     AUC.forEach((a, r) => {
-      c.font = font(isNet(a) ? 700 : 500, 0.035 * px); c.fillStyle = hexOf(isNet(a) ? WARM : INK);
+      c.font = font(isNet(a) ? 700 : 600, 0.042 * px); c.fillStyle = hexOf(isNet(a) ? WARM : INK);
       const txt = a.label.replace(/^Metabolic displacement index$/i, 'Displacement index');
       c.fillText(txt, X(AX0 - 0.03), Y(aRowY(r)));
     });
-    c.font = font(600, 0.028 * px); c.textAlign = 'left';
+    c.font = font(700, 0.032 * px); c.textAlign = 'left';
     c.fillStyle = hexOf(WARM); c.fillText('network measures', X(-0.84), Y(aRowY(0) + 0.07));
     c.fillStyle = hexOf(CLIN); c.fillText('clinical measures', X(-0.84), Y(aRowY(3) + 0.065));
   });
@@ -4518,7 +4522,7 @@ void main() {
     top: new Float32Array(NL), hub: -1, person: [0, 0, 0], pRow: 3, ring: 1, ringT: 0 };
   const own = f => { const o = [0, 0, 0]; return () => f(o); };
   const cp = (o, p) => { o[0] = p[0]; o[1] = p[1]; o[2] = p[2]; return o; };
-  const kmAnchor = k => { const c = KC[k]; if (!c || !kmSt[k]) return [0, 0, 0]; const end = c.s[c.s.length - 1][0], m = k === 0 ? end : Math.min(end, 96); return tr(gKM, [kx(m) + 0.012, ky(stairAt(kmSt[k], m)) + 0.03, 0.01]); };
+  const kmAnchor = k => tr(gKM, KLEG(k));
   const groupAt = (k, o) => (cur.mdi > 0.5 ? tr(gPop, [SX(MG[k] && Number.isFinite(MG[k].centre) ? MG[k].centre : 5), ROWY[k], 0.08], o) : cp(o, [STATS[k].x, STATS[k].y, STATS[k].z]));
   const anchors = {
     one: own(o => tr(gRing, RC, o)),
@@ -4551,7 +4555,7 @@ void main() {
   });
   GKEY.forEach((k, q) => {
     anchors['g' + (q + 1)] = own(o => groupAt(q, o));
-    anchors['lab_g' + (q + 1)] = own(o => (cur.mdi > 0.5 ? cp(o, [SX(Math.min(AXMAX - 2.6, 8.0)), ROWY[q], 0.02]) : cp(o, [STATS[q].x + 0.04, STATS[q].y + 0.06, STATS[q].z])));
+    anchors['lab_g' + (q + 1)] = own(o => cp(o, l3(LEG(q), [SX(Math.min(AXMAX - 2.6, 8.0)), ROWY[q], 0.02], prog(cur.mdi, 0.2, 0.8))));
   });
   [0, 1, 2].forEach(k => { anchors['km' + (k + 1)] = own(o => cp(o, kmAnchor(k))); });
   AUC.forEach((a, r) => { anchors['auc' + (r + 1)] = tr(gAUC, [ax(a.auc) + 0.025, aRowY(r), 0.01]); });
@@ -4560,7 +4564,7 @@ void main() {
   const near = (x, k) => sat(1 - Math.abs(x - k) * 2.2);
   const S_ = (S, n) => sat(S[n]);
   const oneOff = S => 1 - S_(S, 'people_map');                                  // the one-scan part gives way to the people
-  const popQuiet = S => 1 - 0.85 * Math.max(S_(S, 'people_km'), S_(S, 'people_response'));
+  const popQuiet = S => 1 - prog(Math.max(S_(S, 'people_km'), S_(S, 'people_response')), 0, 0.5);
   const labels = [];
   ORG.forEach((o, i) => {
     labels.push({ text: [o.short || o.name, ''], at: 'bar_' + o.id, cls: '', alpha: S => S_(S, 'people_bars') * (1 - prog(S_(S, 'people_one'), 0.2, 0.5)) * (1 - S_(S, 'people_metrics')) * oneOff(S) });
@@ -4587,8 +4591,7 @@ void main() {
   labels.push({ text: ['This scan', ''], at: 'person', cls: 'amb', alpha: S => prog(S_(S, 'people_map'), 0.5, 0.9) * (1 - prog(S_(S, 'people_mdi'), 0, 0.5)) * (1 - S_(S, 'people_one')) });
   labels.push({ text: ['Metabolic displacement index', ''], at: 'axis', cls: '', alpha: S => prog(S_(S, 'people_mdi'), 0.5, 1) * S_(S, 'people_map') * popQuiet(S) });
   KC.forEach((c, k) => {
-    const t = KT[k] || {}, med = t.median === undefined ? '' : String(t.median) === 'NR' ? 'median not reached' : `median ${t.median} months`;
-    labels.push({ text: [thirdName(c, k), ` · n = ${c.n}${med ? ' · ' + med : ''}`], at: 'km' + (k + 1), cls: ['cyn', '', ''][k], alpha: S => prog(S_(S, 'people_km'), 0.55 + 0.1 * k, 0.85 + 0.1 * k) });
+    labels.push({ text: [thirdName(c, k), ` · n = ${c.n}`], at: 'km' + (k + 1), cls: ['cyn', '', ''][k], alpha: S => prog(S_(S, 'people_km'), 0.55 + 0.1 * k, 0.85 + 0.1 * k) });
   });
   if (RG) labels.push({ text: ['Good response', ` · n = ${RG.n}`], at: 'good', cls: 'cyn', alpha: S => prog(S_(S, 'people_response'), 0.05, 0.3) });
   if (RB) labels.push({ text: ['Poor response', ` · n = ${RB.n}`], at: 'poor', cls: '', alpha: S => prog(S_(S, 'people_response'), 0.1, 0.35) });
@@ -4720,6 +4723,7 @@ void main() {
     for (let k = 0; k < 4; k++) {
       const hi = sat(1 - Math.abs(sel - (k + 1))), f = lerp(1, 0.25 + 0.75 * hi, any) * (1 - 0.55 * fol);
       for (let q = 0; q < 3; q++) pPill.a(3 * k + q, prog(mdi, 0.55 + 0.05 * q, 0.95) * map * dim * f);
+      pPill.a(12 + k, prog(map, 0.6, 1) * (1 - prog(mdi, 0, 0.3)) * lerp(1, 0.3 + 0.7 * hi, any));
     }
     pPill.flush();
     pLines.g[0] = prog(map, 0.2, 0.6) * (1 - prog(mdi, 0, 0.4)); pLines.g[1] = stripA; pLines.g[2] = stripA; pLines.g[3] = prog(fol, 0, 0.3) * stripA;
@@ -4728,7 +4732,7 @@ void main() {
     // survival: the curves draw left to right, the bands with them
     const gaK = ribMat.uniforms.uGA.value, grK = ribMat.uniforms.uGR.value;
     for (let k = 0; k < 3; k++) { const rv = prog(km, 0.08 + 0.1 * k, 0.75 + 0.1 * k) * 1.02; gaK[k] = prog(km, 0, 0.2); gaK[3 + k] = prog(km, 0, 0.2); grK[k] = rv; grK[3 + k] = rv; }
-    kPill.a(0, prog(km, 0, 0.25)); kPill.flush();
+    kPill.a(0, prog(km, 0, 0.25)); for (let k = 0; k < 3; k++) kPill.a(1 + k, prog(km, 0.55 + 0.1 * k, 0.85 + 0.1 * k)); kPill.flush();
     kLines.g[0] = prog(km, 0, 0.3); kTex.k = prog(km, 0.1, 0.4);
     gKM.visible = km > 0.003;
 
@@ -4746,8 +4750,8 @@ void main() {
 
   // ---------------------------------------------------------------- views, controls, explore API
   const cam = {
-    default: [-10, 15, 3.95, -0.08, 0.08, 0.1],
-    one: [-10, 15, 3.95, -0.08, 0.08, 0.1],
+    default: [-4, 15, 4.0, -0.14, 0.08, 0.1],
+    one: [-4, 15, 4.0, -0.14, 0.08, 0.1],
     field: [-24, 34, 2.55, 0.0, -0.45, 0.3],
     metrics: [-24, 8, 2.9, 0.72, 0.3, 0.1],
     map: [0, 5, 3.4, 0.05, 0.28, 0],
