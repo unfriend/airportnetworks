@@ -12,12 +12,15 @@ small readout canvas.
 
 - **Bars** (`people_bars`): a dark panel as on the poster's panel 3: icon and name on the left, then a bar per organ on
   a track with an SUV scale 0 to 5 ("mean SUV"), in the organs' colours. The seven organs and their order are
-  `PET_DATA.single.organs`: liver, aorta, spleen, pancreas, kidneys, fat, muscle. At first the panel is in the middle;
-  as the network forms it moves to the left, turns a little and shrinks.
+  `PET_DATA.single.organs`: liver, aorta, spleen, pancreas, kidneys, fat, muscle. Label "Uptake · one scan,
+  illustrative values" (the healthy profile's proportions are the poster's example bars; the SUV scale and the other
+  profiles are illustrative). At first the panel is in the middle; as the network forms it moves to the left, turns a
+  little and shrinks.
 - **Ratio field** (`people_ratio`): a 7 x 7 floor of cells below the ring (rows: the numerator organ i, icons on the
   left edge; columns: the denominator j, icons on the front edge). Column (i, j) rises to `ln(u_i / u_j)` when positive
   (0.3 units per ln unit, at most 0.98): organ i outshines organ j. Nothing on the diagonal (a dim cell in the organ's
-  colour) or where negative. Columns rise in a wave from the back-left corner.
+  colour) or where negative: such a column is not drawn at all, so its floor cell stays dark. Columns rise in a wave
+  from the back-left corner.
 - **Threshold** (`people_thresh`): a cyan glass plane rises to `ln(theta)` (theta = `people_theta`, 2 by default).
   Columns above it light up (their tops glow, brighter the stronger the link), those below dim.
 - **The network** (`people_one`): the lit columns fly up as comets to a ring of seven nodes above the field (discs with
@@ -30,12 +33,14 @@ small readout canvas.
   of the ring:
   - **Clearance** (the kidneys' outgoing links): the kidneys' links brighten and thicken into a star, a pulsing halo
     on the kidneys, and a gauge 0 to 1 with the value (mean of e(kidneys -> j) over the other six);
-  - **Heterogeneity**: node sizes follow strength (sum of in and out weights); a hub (strength z-score above 1.7)
-    glows orange-yellow `#ffb020` and pulses; a gauge 0 to 0.6 with the Gini coefficient of the strengths;
+  - **Heterogeneity**: node sizes follow strength (sum of in and out weights); the node with the most links glows
+    orange-yellow `#ffb020` and pulses as its strength's z-score passes 1.7 (smoothly, between 1.55 and 1.85, so a
+    changing profile fades the glow and its label instead of switching them); a gauge 0 to 0.8 with the Gini
+    coefficient of the strengths (custom uptakes reach about 0.7 at theta 3; seven organs at most 6/7);
   - **the displacement index** on a 0 to 10 dial: `MDI = m + a C + b H` (`single.proj`), clamped to 0..10; the
     poster's dashed values (3.22 and 6.69) as dashed ticks with the ranges outside them shaded, and the four groups'
-    medians as coloured dots round the rim. Each readout (C, H to two decimals, the index to one) shows with its own
-    dial.
+    medians as coloured dots round the rim. Each readout (C, H to two decimals, the index to one) and each dial's end
+    values (0 and 1, 0 and 0.8, 0 and 10) show with their own dial. The dials give way as soon as the people rise.
 - **Profiles** (`people_profile` 0..3, fractional values blend the uptakes): healthy (the poster's example bars),
   cancer, cancer + dyslipidaemia, dyslipidaemia; or custom uptakes (`people_custom` 1 with `people_u0..6`, mean SUV,
   clamped 0.1 to 5). Bars, columns, plane, links, node sizes, hub, gauges and the index all follow at every frame.
@@ -45,14 +50,15 @@ The maths is exactly that of `tools/pet/data/gen_data.mjs` (`oneScan`): `api().m
 both 0.487 / 0.238 / 3.98, dys 0.664 / 0.173 / 5.04). The healthy profile at theta 2 has 10 links: all eight of the
 poster's example network (`poster.creation.example`: kidneys-fat, kidneys-muscle, liver-fat, aorta-kidneys, aorta-fat,
 liver-muscle, pancreas-fat, spleen-fat) plus spleen -> muscle and kidneys -> pancreas. Its hub is fat (on the poster
-fat is the orange node). Cancer: 5 links; both: 9; dyslipidaemia: 11.
+fat has the most links). Cancer: 5 links; both: 9; dyslipidaemia: 11. Fat has the most links (and the glow) in the
+first three profiles; in dyslipidaemia no node stands out (fat's z-score 1.64).
 
 **The population** (in the same place as the one-scan part, which gives way by itself as `people_map` rises):
 
 - **Map** (`people_map`): 593 stand-in dots (cancer 282, cancer + dyslipidaemia 187, dyslipidaemia 89, healthy 35: the
   poster's strip) rise out of the one-scan ring, which shrinks into this person's dot (a white-ringed dot in its
   profile's colour, label "This scan"). Clearance across, Heterogeneity up (axis titles on the frame, no numbers: the
-  stand-in measures have no units to show), the poster's legend at the top right. **Lines of equal index** (faint amber,
+  stand-in measures have no units to show), the poster's legend in the frame's empty upper right. **Lines of equal index** (faint amber,
   tilted) cross the map: the index weighs both measures, and the map is scaled so every line meets the bottom axis at
   its index. Each dot is a tiny glowing point; close up (a point over about 16 to 30 pixels, as in a headset) it turns
   into its person's 7-node mini network (the kidneys' spokes by Clearance, one node grown by Heterogeneity).
@@ -61,29 +67,37 @@ fat is the orange node). Cancer: 5 links; both: 9; dyslipidaemia: 11.
   only a little sideways: the strip just sorts the map into rows. Each row: its p10-p90 whisker, the interquartile bar
   (the poster's error bar) and the median as the big dot; the poster's dashed lines (3.22, 6.69) and shaded ranges
   outside them; the names with n glide from the legend to the rows' right ends. Axis label "Metabolic displacement
-  index". This person's dot goes to its profile's row at its own index.
+  index"; the stand-in note stays ("593 people · stand-in dots; the bars and medians are the poster's"). This person's
+  dot goes to its profile's row at its own index, a little above the row's middle (clear of the median dot), between
+  two rows while the profile blends, and keeps its label; it dims with its row when another group is picked.
 - **Groups** (`people_group` 1..4: cancer, cancer + dyslipidaemia, dyslipidaemia, healthy; 0 none): that group glows
-  (dots, summary, label), the others dim to about a fifth.
+  (dots, summary, label), the others dim to about a fifth (this scan's dot and label with its row).
 - **Survival** (`people_km`): a panel to the left, turned towards the middle: the three thirds of the index (near
   healthy `#38bdf8`, intermediate `#a78bfa`, remote `#d9dde6`) as stepped glowing ribbons drawn left to right over 0 to
   140 months with their translucent confidence bands, axes with ticks (0.2 steps, 20 months), the legend with n (137,
-  136, 137), and the poster's table inside the chart (deaths 38 %, 49 %, 68 %; 1-year survival 80 %, 84 %, 63 %; median
-  not reached, 79 and 27 months). The curves follow `poster.km` (read off the poster every 5 months); between two
-  readings a drop is drawn as a couple of small steps, the last drop as one step at the curve's end (near healthy ends
-  at 73 months, remote at 113, intermediate falls to 0 at 135). The strip dims meanwhile.
+  136, 137), and the poster's table under the chart, clear of the curves (deaths 38 %, 49 %, 68 %; 1-year survival
+  80 %, 84 %, 63 %; median survival not reached, 79 and 27 months). The curves follow `poster.km` (read off the poster
+  every 5 months); between two readings a drop is drawn as a couple of small steps, the last drop as one step at the
+  curve's end (near healthy ends at 73 months, remote at 113, intermediate falls to 0 at 135). Bands and glows add
+  up; each curve's core is drawn on top with normal blending, so the intermediate third stays purple where it crosses
+  the remote one. The strip dims meanwhile.
 - **Immunotherapy** (`people_response`): a panel to the right: the 19 people as two **summary bands** on the index axis
   (0 to 6.85 with the poster's dashed lines at 3.16 and 6.63): good response n = 14 (min to max 3.40 to 4.68, the
   quartiles 3.84 to 4.42, the median 4.11 marked) and poor response n = 5 (4.27 to 5.51, median 4.85): no single
   points. Below, the AUC bars from the top down: the three network measures in amber (index 0.914, Heterogeneity 0.771,
   Clearance 0.743), the clinical ones in grey (CRP 0.671, tumour stage 0.586, age 0.55), each with its AUC and P value
-  as a label, the axis 0.5 to 1.0 and the dashed chance line at 0.5.
-- **Follow-up** (`people_follow`, illustrative): the poster's three follow-up groups as rings on the row of the people
-  they come from: no intervention (47, on the healthy row: beside the healthy volunteers in the poster's table),
-  bariatric surgery (18, on the dyslipidaemia row: beside the people with obesity), immunotherapy before surgery (19,
-  on the cancer row: people with lung cancer). Their values are drawn from their row's summary (the poster gives no
-  follow-up values). Surgery and immunotherapy glide 70 % of the way towards a value from the healthy range, turning
-  healthy blue and leaving faint trails; no intervention stays. The healthy interquartile range lights up as a band
-  ("Healthy range"); the other dots dim; the row labels give way to the follow-up groups' labels.
+  as a label, the axis 0.5 to 1.0 and the dashed chance line at 0.5. The subtitle says "a first test, no P below
+  0.05" (from the data).
+- **Follow-up** (`people_follow`, illustrative, and labelled so: "Follow-up · illustrative: the poster gives only group
+  sizes"): the poster's three follow-up groups as rings on the row of the people they come from: no intervention (47,
+  on the healthy row: beside the healthy volunteers in the poster's table), bariatric surgery (18, on the
+  dyslipidaemia row: beside the people with obesity), immunotherapy before surgery (19, on the cancer row: people with
+  lung cancer; label "Immunotherapy"). Their first values come from their row's summary, the immunotherapy group's from
+  the poster's own summary of those 19 people (the response strip: 14 from the good band, 5 from the poor one, so
+  3.40 to 5.51, median about 4.3). Surgery moves 60 %, immunotherapy 50 % of the way towards a value in the healthy
+  interquartile range (the poster: the index moved towards the healthy range), taking on a hint of healthy blue (35 %)
+  and leaving faint trails; no intervention stays. The healthy interquartile range lights up as a band ("Healthy range
+  · middle half"); the other dots dim; the row labels give way to the follow-up groups' labels.
 
 ## Params
 
@@ -122,41 +136,50 @@ Suggested keyframes (the engine's chapters `one` 218-258 and `people` 258-305 al
 
 All in the set's frame; functions return the same array each call and follow what moves.
 
-- One scan: `one` (the ring's centre), `profile` (above the ring, left: the profile label), `bars` (the bar panel's top
-  left), `bar_<id>` (the end of each organ's bar track), `field` (the ratio floor's centre), `example` (the top of the
-  kidneys ÷ fat column), `plane` (the threshold plane's front corner, at its height), `metrics` (the dials' middle),
-  `clearance`, `hetero`, `dial` (the gauges' labels), `note` (under the index dial), and each of the seven organ ids
-  `liver aorta spleen pancreas kidneys fat muscle` (its node on the ring).
+- One scan: `one` (the ring's centre), `profile` (above the ring's upper left: the profile label), `bars` (the bar
+  panel's top left), `bar_<id>` (the end of each organ's bar track), `field` (the ratio floor's centre), `example` (the
+  top of the kidneys ÷ fat column), `plane` (the threshold plane's front corner, at its height), `metrics` (the dials'
+  middle), `clearance`, `hetero`, `dial` (the gauges' labels; `dial` left under the index dial), `note` (under `dial`).
+- The seven organs `liver aorta spleen pancreas kidneys fat muscle`: `node_<id>` is the organ's node on the ring (its
+  labels use it). `<id>` is where the organ is pointed at, for the engine's hover mark (`pickPos`): the spot `pick`
+  has just returned for it (that frame and the next), else its node while the ring shows, else its bar's end while
+  the bars show, else its row's header on the field.
 - People: `map` (the frame's centre), `mapNote` (above the frame, left), `iso` (the top of the line of index 2),
   `strip` (the strip's middle), `axis` (under the index axis), `person` (this scan's dot), `g1` .. `g4` (each group's
-  centre: on the map the mean of its dots, on the strip its median dot), `lab_g1` .. `lab_g4` (the groups' names:
+  centre: on the map the mean of its dots, on the strip its median dot, gliding between the two with `people_mdi`
+  0.15 to 0.85), `lab_g1` .. `lab_g4` (the groups' names:
   legend, then the rows' ends), `healthy` (the top of the healthy range band), `f1` .. `f3` (the follow-up groups'
   labels at their rows' ends).
 - Survival and immunotherapy: `km` (the chart's centre), `km1` .. `km3` (the legend's three lines), `auc` (the
   panel's centre), `good`, `poor` (the right ends of the two bands), `auc1` .. `auc6` (the end of each AUC bar, in
   `poster.prognosis.auc` order).
 
-## Labels (49 entries; at most eight show at once)
+## Labels (51 entries; at most eight show at once)
 
-- Organ names on the ring's nodes with `people_one` (six of them `minor`: they give way on narrow screens; the
-  kidneys' does not); with `people_metrics` only the kidneys' and the hub's ("Fat · the hub", amber) stay.
-- "Uptake · one scan" (bars), "Kidneys ÷ fat · one ratio" (amber, with the field), "Threshold" (cyan, at the plane).
+- Organ names on the ring's nodes (`node_<id>`) with `people_one` (six of them `minor`: they give way on narrow
+  screens; the kidneys' does not); with `people_metrics` only the kidneys' and that of the node with the most links
+  ("Fat · most links", amber, faded with the glow) stay.
+- "Uptake · one scan, illustrative values" (bars), "Kidneys ÷ fat · one ratio" (amber, with the field), "Threshold"
+  (cyan, at the plane).
 - The profile: "Healthy / Cancer / Cancer + dyslipidaemia / Dyslipidaemia · illustrative uptakes", or "Your uptakes".
 - "Clearance", "Heterogeneity", "Displacement index · 0 to 10" (amber), "Illustrative maths · formulas not yet
   published".
-- Groups with n ("Cancer · n = 282" ...), "593 people · stand-in dots, group summaries", "Lines of equal index",
-  "This scan", "Metabolic displacement index".
+- Groups with n ("Cancer · n = 282" ...), "593 people · stand-in dots, group summaries" (map), "593 people · stand-in
+  dots; the bars and medians are the poster's" (strip), "Lines of equal index", "This scan" (map and strip),
+  "Metabolic displacement index".
 - "Near healthy · n = 137", "Intermediate · n = 136", "Remote · n = 137".
 - "Good response · n = 14", "Poor response · n = 5", "AUC 0.914 · P = 0.061" ... "AUC 0.55 · P = 0.973" (amber for the
   network measures).
-- "No intervention · n = 47", "Bariatric surgery · n = 18", "Immunotherapy before surgery · n = 19", "Healthy range".
+- "Follow-up · illustrative: the poster gives only group sizes" (amber), "No intervention · n = 47", "Bariatric
+  surgery · n = 18", "Immunotherapy · n = 19", "Healthy range · middle half".
 
-Counted at the main states: bars 1, field 2, threshold 3, network 8, measures 7, map 7, strip 5, survival 3,
-immunotherapy 8, follow-up 5.
+Counted at the main states: bars 1, field 3, network 8, measures 7, map 7, strip 7, survival 3, immunotherapy 8,
+follow-up 6. A missing n leaves out its " · n = ..." part.
 
 Text drawn on objects (canvas textures, part of the charts): the bar panel's names and SUV scale; the dials'
-readouts; the map's axis titles; the strip's numbers; the survival chart's title, axes and the poster's table; the
-immunotherapy panel's title, axes, the measures' names and captions.
+readouts and end values; the map's axis titles; the strip's numbers; the survival chart's title, axes and the
+poster's table; the immunotherapy panel's title, axes, the measures' names and captions (captions at least 0.045
+units, about 9 px at 640 x 400 in their views).
 
 ## Cam views
 
@@ -164,14 +187,17 @@ Framed for the scene's share of a wide screen (about 1.3 : 1, the panel on the l
 
 | View | `[az, el, dist, tx, ty, tz]` | Shows |
 | --- | --- | --- |
-| `default` | `[-4, 14, 5.0, 0.1, 0.12, 0.1]` | the whole one-scan part: bars, ring, field and the dials |
+| `default` | `[-4, 14, 5.0, 0.36, 0.12, 0.1]` | the whole one-scan part: bars, ring, field and the dials |
 | `one` | `[-4, 15, 4.0, -0.36, 0.12, 0.1]` | bars, the ring of seven and the field |
-| `field` | `[-24, 34, 2.7, 0.05, -0.47, 0.3]` | the ratio columns and the threshold plane from above |
-| `metrics` | `[-20, 8, 3.1, 0.55, 0.3, 0.1]` | the ring and the three dials |
+| `field` | `[-23, 30, 3.65, 0.02, -0.1, 0.22]` | the ratio columns and the threshold plane, the whole bar panel behind them |
+| `metrics` | `[-20, 8, 3.1, 0.65, 0.3, 0.1]` | the ring and the three dials |
 | `map` | `[0, 5, 4.1, -0.03, 0.24, 0]` | the map (and the strip: the same frame) |
 | `strip` | `[0, 4, 4.1, -0.03, 0.2, 0]` | the strip plot, follow-up |
-| `km` | `[30, 4, 2.75, -2.36, 0.24, 0.5]` | the survival panel |
+| `km` | `[30, 4, 2.95, -2.36, 0.15, 0.5]` | the survival panel with its table |
 | `auc` | `[-30, 4, 2.95, 2.4, 0.2, 0.5]` | the immunotherapy panel |
+
+Checked in the harness at 640 x 400: in `default` and `metrics` the dial's label and the maths note end at the right
+edge, and the rows' labels on the strip just fit; at 1.3 : 1 the engine keeps labels on screen by moving them left.
 
 ## Controls (explore)
 
@@ -188,9 +214,12 @@ The engine sets `people_custom`, `people_u0..6`, `people_theta` and `people_grou
   maths the set draws (u in `organs` order; theta defaults to 2).
 - `organs`: the seven ids; `profiles`: `['healthy', 'cancer', 'both', 'dys']` (the order of `people_profile`);
   `groups`: `['cancer', 'both', 'dys', 'healthy']` (the order of `people_group` 1..4, as `poster.mdi.groups`).
-- `pick(raycaster)` -> `{ organ: id }` (a node on the ring, a bar row, a header of the field; only what is shown),
-  `{ group: 1..4 }` (on the map the nearest group centre within 0.3; on the strip the row), or null.
-- `current()` -> `{ u, theta, C, H, mdi, links (weights over 0.5), hub (id or null) }` of the last frame.
+- `pick(raycaster)` -> `{ organ: id, at: [x, y, z] }` (a node on the ring, a bar row anywhere along its name, icon and
+  track, a header of the field; only what is shown; `at` is the spot in the set's frame, which the organ's anchor
+  returns for that frame and the next), `{ group: 1..4 }` (on the map the nearest group centre within 0.3; on the
+  strip the row), or null.
+- `current()` -> `{ u, theta, C, H, mdi, links (weights over 0.5), hub (the node with the most links, its glow over
+  half; or null) }` of the last frame.
 - `dots` (593), `followUp` (84), `summary()` -> the stand-in dots' quantiles per group, their Clearance and
   Heterogeneity ranges and the follow-up rings' values (for checks).
 
@@ -235,15 +264,18 @@ prognosis removed, the quantiles removed and the profiles removed: no errors).
 
 ## Performance (headless Chromium, SwiftShader, 4 CPUs shared with other agents)
 
-- Build 25-70 ms. Draw calls 20-26 depending on the state (under 100); 10.3k-12.5k triangles; 1,471 points (the 593
-  dots and 84 rings in one draw, 756 comets in one, 28 icons in three, 8 halos, this person's dot); 249-314 line
-  segments.
+- Build 15-65 ms. `update` about 0.02 ms of JavaScript. Draw calls 8-19 depending on the state (parts at alpha 0 are
+  not drawn: the bars, field, ring, dials, people, survival and immunotherapy each hide as a group); 42 to 10.8k
+  triangles; 21 to 1,450 points (the 593 dots and 84 rings in one draw, 756 comets in one, 28 icons in three, 8
+  halos, this person's dot); 5 to 254 line segments.
 - Instanced: the 49 columns (one InstancedMesh), the rounded panels, bars and summary pills (instanced quads with an
-  SDF shader), the dots and rings (one Points draw, morphing map -> strip -> follow-up in the vertex shader). The 42
-  link tubes are one merged mesh (about 10k triangles) whose per-link weights are packed uniforms.
-- Per frame: 49 column colours and flight values, 49 instance matrices only when the uptakes or the field's rise
-  change, seven nodes, a few dozen pills, the lines of equal index only while they straighten, and a 1024-pixel
-  readout canvas only when a readout's text changes. No textures rebuilt otherwise.
+  SDF shader; only the attributes that changed are uploaded), the dots and rings (one Points draw, morphing map ->
+  strip -> follow-up in the vertex shader). The 42 link tubes are one merged mesh (about 10k triangles) whose per-link
+  weights are packed uniforms.
+- Per frame: no allocations in `update` (the maths into scratch arrays); 49 column colours and flight values while the
+  field shows, 49 instance matrices only when the uptakes or the field's rise change, seven nodes while the ring
+  shows, the pills that changed, the lines of equal index only while they straighten, and a 512 x 64 readout canvas
+  (no mipmaps) only when a readout's text changes. Columns write depth only when fully shown.
 
 ## Implementation notes
 
@@ -252,10 +284,15 @@ prognosis removed, the quantiles removed and the profiles removed: no errors).
   plane has a faint link.
 - The stand-in dots: each group's index values come from its quantiles (min, p10, p25, median, p75, p90, max; or a
   normal spread from its error bar when they are missing), stratified so the summary is met (generated quantiles
-  within about 0.1 of the poster's). Each dot's Heterogeneity follows a straight line through the four profiles
-  (falling as the index rises) with a spread (sd 0.06), and its Clearance then gives its index exactly. A few dots at
-  the ends of the index (below about 1.5 or above about 7) need a Clearance outside 0..1 under the stand-in formulas
-  (whose index cannot reach the poster's whole range); the map has no numbers, so this does not show.
+  within about 0.1 of the poster's). Each dot's Heterogeneity follows the trend through the four profiles (falling as
+  the index rises; a straight line there, levelling off beyond them, at most 0.12 from their mean) plus its group's
+  offset and a spread (sd 0.06); the few beyond the frame's 2nd to 98th percentile are drawn in softly towards its
+  edge (keeping their order and spread, no row along the edge); its Clearance then gives its index exactly, so every
+  dot lies on its line of equal index. The stand-in formulas cannot reach the poster's whole range (their index runs
+  from about 0.5 to 7.1 for Clearance 0..1 and a possible Heterogeneity), so the dots at the very ends (cancer's lowest,
+  the highest of the dyslipidaemia rows) have a Clearance a little outside 0..1 (-0.19 to 1.12): the index is kept
+  exact, since it is what the poster's summaries describe; the map has no numbers, and the close-up mini networks
+  clamp it.
 - The map's x is linear in Clearance, scaled so that a line of equal index meets the axis at that index; the strip's
   x is the index. So the map -> strip morph moves each dot mostly down into its row.
 - The survival bands and curves are stepped ribbons revealed by month in the fragment shader (drawn double-sided:

@@ -4043,20 +4043,24 @@ SETS.people = function (K) {
   // sigmoid((ln(u_i / u_j) - ln theta) / soft); Clearance = mean of the kidneys' outgoing links; Heterogeneity = Gini
   // coefficient of the strengths (in + out); index = m + a C + b H, between 0 and 10
   const sig = x => 1 / (1 + Math.exp(-x));
-  function measure(u, theta) {
-    const lt = Math.log(theta > 0 ? theta : THETA), uu = ONE.map((_, i) => Math.max(1e-3, +u[i] || 0));
-    const e = uu.map(() => new Array(N).fill(0)), s = new Array(N).fill(0);
+  function measure(u, theta, sc) {
+    const lt = Math.log(theta > 0 ? theta : THETA);
+    const uu = sc ? sc.uu : new Array(N), e = sc ? sc.e : ONE.map(() => new Array(N).fill(0)), s = sc ? sc.s : new Array(N);
+    for (let i = 0; i < N; i++) { uu[i] = Math.max(1e-3, +(u && u[i]) || 0); s[i] = 0; e[i][i] = 0; }
     for (let i = 0; i < N; i++) for (let j = 0; j < N; j++) if (i !== j) {
       const v = sig((Math.log(uu[i] / uu[j]) - lt) / SOFT);
       e[i][j] = v; s[i] += v; s[j] += v;
     }
-    const C = KID < 0 ? 0 : e[KID].reduce((a, v, j) => a + (j === KID ? 0 : v), 0) / (N - 1);
-    const m = s.reduce((a, v) => a + v, 0) / N;
-    let g = 0;
-    for (const a of s) for (const b of s) g += Math.abs(a - b);
-    const H = m > 0 ? g / (2 * N * N * m) : 0;
-    return { e, s, C, H, mdi: clamp(PROJ.m + PROJ.a * C + PROJ.b * H, 0, 10) };
+    let C = 0, m = 0, g = 0;
+    if (KID >= 0) { for (let j = 0; j < N; j++) if (j !== KID) C += e[KID][j]; C /= N - 1; }
+    for (let i = 0; i < N; i++) m += s[i] / N;
+    for (let i = 0; i < N; i++) for (let j = 0; j < N; j++) g += Math.abs(s[i] - s[j]);
+    const H = m > 0 ? g / (2 * N * N * m) : 0, o = sc ? sc.out : {};
+    o.e = e; o.s = s; o.C = C; o.H = H; o.mdi = clamp(PROJ.m + PROJ.a * C + PROJ.b * H, 0, 10);
+    return o;
   }
+  // update() measures into its own scratch arrays (no allocations per frame)
+  const MS = { uu: new Array(N).fill(1), e: ONE.map(() => new Array(N).fill(0)), s: new Array(N).fill(0), out: {} };
   // the uptakes on show: the profiles blended (people_profile 0..3), or the custom values
   function uptakes(S, out) {
     const p = clamp(Number.isFinite(S.people_profile) ? S.people_profile : 0, 0, 3), lo = Math.floor(p), hi = Math.min(3, lo + 1), f = p - lo;
@@ -4159,18 +4163,21 @@ void main() {
     const mesh = new THREE.Mesh(geo, m);
     mesh.frustumCulled = false; mesh.renderOrder = order; parent.add(mesh);
     const base0 = new Float32Array(n);   // each instance's resting alpha
+    let dAll = true, dC = false, dX = false;   // what changed since the last flush (only that is uploaded)
     return {
       mesh,
       put(k, x, y, z, hx, hy, rr, glow, col, a, fill = 1, stroke = 0) {
         iP[3 * k] = x; iP[3 * k + 1] = y; iP[3 * k + 2] = z;
         iS[4 * k] = hx; iS[4 * k + 1] = hy; iS[4 * k + 2] = rr; iS[4 * k + 3] = glow;
         iC[4 * k] = col[0]; iC[4 * k + 1] = col[1]; iC[4 * k + 2] = col[2]; iC[4 * k + 3] = 0; base0[k] = a;
-        iE[2 * k] = fill; iE[2 * k + 1] = stroke;
+        iE[2 * k] = fill; iE[2 * k + 1] = stroke; dAll = true;
       },
-      x(k, x, hx) { iP[3 * k] = x; iS[4 * k] = hx; },
-      col(k, c) { iC[4 * k] = c[0]; iC[4 * k + 1] = c[1]; iC[4 * k + 2] = c[2]; },
-      a(k, f) { iC[4 * k + 3] = base0[k] * f; },
-      flush() { for (const k in at) at[k].needsUpdate = true; },
+      x(k, x, hx) { if (iP[3 * k] !== x || iS[4 * k] !== hx) { iP[3 * k] = x; iS[4 * k] = hx; dX = true; } },
+      a(k, f) { const v = base0[k] * f; if (iC[4 * k + 3] !== v) { iC[4 * k + 3] = v; dC = true; } },
+      flush() {
+        if (dAll) { for (const k in at) at[k].needsUpdate = true; } else { if (dC) at.iC.needsUpdate = true; if (dX) { at.iP.needsUpdate = true; at.iS.needsUpdate = true; } }
+        dAll = dC = dX = false;
+      },
     };
   }
 
@@ -4544,18 +4551,38 @@ void main() {
     const mesh = new THREE.Mesh(new THREE.PlaneGeometry(2 * r * 1.15, 2 * r * 1.15), m);
     m.uniforms.uS.value = 1.15 / (r * 1.15);   // plane units -> dial units (the band's outer edge at 0.93)
     mesh.position.set(x, y, 0); mesh.renderOrder = 3; gMet.add(mesh);
+    m.mesh = mesh;
     return m;
   }
   const MD = PO.mdi || {}, MG = GKEY.map(k => (MD.groups || []).find(g => g.key === k) || null);
   const ZONE = Array.isArray(MD.dashed) && MD.dashed.length === 2 ? MD.dashed : null;
   const GA = { C: [-0.24, 0.4, 0.2], H: [0.24, 0.4, 0.2], X: [0, -0.2, 0.32] };
+  // the Heterogeneity gauge reads 0 to 0.8 (custom uptakes reach about 0.7 at theta 3; the most a Gini of seven can be
+  // is 6/7), Clearance 0 to 1, the index 0 to 10; each dial has its ends written on it
+  const HMAXG = 0.8;
   const gC = gauge(GA.C[0], GA.C[1], GA.C[2], 5, 10);
-  const gH = gauge(GA.H[0], GA.H[1], GA.H[2], 6, 12);
+  const gH = gauge(GA.H[0], GA.H[1], GA.H[2], 8, 16);
   const gX = gauge(GA.X[0], GA.X[1], GA.X[2], 10, 20, ZONE ? [ZONE[0] / 10, ZONE[1] / 10] : null,
     MG.map((g, k) => (g && Number.isFinite(g.centre) ? [g.centre / 10, GCOL[k]] : [-1, [0, 0, 0]])));
-  const HMAXG = 0.6;     // the Heterogeneity gauge reads 0 to 0.6
+  // the dials' end values (one static canvas; each dial's part shows with its dial)
+  const ENDS = textPlane(gMet, 0, 0.05, 0.003, 1.0, 1.0, 512, 4, (c, X, Y, px) => {
+    c.font = font(600, 0.042 * px); c.fillStyle = hexOf(l3(MUTED, INK, 0.35)); c.textBaseline = 'middle';
+    const end = (g, txt, f) => {
+      const a = (210 - 240 * f) * PI / 180, r = g[2] * 1.02;
+      c.textAlign = f < 0.5 ? 'right' : 'left';
+      c.fillText(txt, X(g[0] + Math.cos(a) * r + (f < 0.5 ? -0.012 : 0.012)), Y(g[1] + Math.sin(a) * r - 0.018));
+    };
+    end(GA.C, '0', 0); end(GA.C, '1', 1); end(GA.H, '0', 0); end(GA.H, String(HMAXG), 1); end(GA.X, '0', 0); end(GA.X, '10', 1);
+  });
+  ENDS.m.uniforms.uCK = { value: new THREE.Vector3() };
+  ENDS.m.vertexShader = 'varying vec2 vUv; varying vec2 vP; void main() { vUv = uv; vP = position.xy; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }';
+  ENDS.m.fragmentShader = `uniform sampler2D uMap; uniform float uA, uK; uniform vec3 uCK; varying vec2 vUv; varying vec2 vP;
+void main() { vec4 c = texture2D(uMap, vUv); float y = vP.y + ${(0.05).toFixed(3)}; float ck = y < 0.17 ? uCK.z : (vP.x < 0.0 ? uCK.x : uCK.y);
+  float a = c.a * uA * uK * ck; if (a < 0.003) discard; gl_FragColor = vec4(c.rgb, a); }`;
   // the readouts: one canvas, four cells (Clearance, Heterogeneity, index), redrawn when a value's text changes
-  const RO = textPlane(gMet, 0, 0, 0.004, 1, 0.125, 1024, 4, null);
+  // (small, no mipmaps: it is uploaded again whenever a readout's text changes)
+  const RO = textPlane(gMet, 0, 0, 0.004, 1, 0.125, 512, 4, null);
+  RO.tex.generateMipmaps = false; RO.tex.minFilter = THREE.LinearFilter;
   RO.mesh.visible = false;
   // each readout shows with its own gauge (uCK: the three cells' alphas)
   RO.m.uniforms.uCK = { value: new THREE.Vector3() };
@@ -4595,7 +4622,7 @@ void main() {
   const ORDERG = (Array.isArray(MD.order) && MD.order.length ? MD.order : ['dys', 'healthy', 'both', 'cancer']).filter(k => GKEY.includes(k));
   GKEY.forEach(k => { if (!ORDERG.includes(k)) ORDERG.push(k); });
   const ROWY = GKEY.map(k => 0.45 - ORDERG.indexOf(k) * 0.19);
-  const LABX = SX(Math.min(AXMAX - 2.6, 8.0));                          // where the rows' labels sit
+  const LABX = SX(Math.min(AXMAX - 2.9, 7.35));                         // where the rows' labels sit
   // ---------------------------------------------------------------- stand-in dots that follow the poster's summaries
   // each group's index values come from its quantiles (min, p10, p25, median, p75, p90, max; or a normal spread from
   // its error bar), stratified so the summary is met. Each dot's two measures are placed so that m + a C + b H gives
@@ -4619,49 +4646,67 @@ void main() {
   const shuffle = a => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(R() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
   const QF = MG.map(g => (g ? quantFn(g) : null));
   const AA = Math.abs(PROJ.a) > 1e-6 ? PROJ.a : 1, pv = p => PROJ.m + PROJ.a * p.C + PROJ.b * p.H;
-  let sH = 0;                                                           // Heterogeneity per index unit, through the profiles
+  // Heterogeneity's trend with the index, through the four profiles (a straight line there, levelling off beyond them,
+  // so the ends of the index do not need an impossible Heterogeneity)
+  let sH = 0, vC = 4, hC = 0.22;
   {
     const ps = PROF.map(k => SP[k]).filter(p => p && Number.isFinite(p.C) && Number.isFinite(p.H));
-    const mx = ps.reduce((s, p) => s + pv(p), 0) / (ps.length || 1), my = ps.reduce((s, p) => s + p.H, 0) / (ps.length || 1);
+    if (ps.length) { vC = ps.reduce((s, p) => s + pv(p), 0) / ps.length; hC = ps.reduce((s, p) => s + p.H, 0) / ps.length; }
     let sxy = 0, sxx = 0;
-    for (const p of ps) { sxy += (pv(p) - mx) * (p.H - my); sxx += (pv(p) - mx) * (pv(p) - mx); }
+    for (const p of ps) { sxy += (pv(p) - vC) * (p.H - hC); sxx += (pv(p) - vC) * (pv(p) - vC); }
     if (sxx > 1e-9) sH = sxy / sxx;
   }
+  const HDEV = 0.12, hTrend = v => hC + HDEV * Math.tanh(sH * (v - vC) / HDEV);
   const DOTS = [];
   GKEY.forEach((key, g) => {
     const s = MG[g]; if (!s || !(s.n > 0) || !QF[g]) return;
-    const n = Math.round(s.n), pc = SP[key] || P0, v0 = pv(pc);
+    const n = Math.round(s.n), pc = SP[key], dv = pc && Number.isFinite(pc.H) ? pc.H - hTrend(pv(pc)) : 0;   // the group's own offset
     const vals = shuffle(Array.from({ length: n }, (_, k) => QF[g](strat(n, k))));
-    for (const v of vals) {
-      const H = Math.max(0.01, pc.H + sH * (v - v0) + K.gauss(R) * 0.06);
-      DOTS.push({ g, v, C: (v - PROJ.m - PROJ.b * H) / AA, H, k: R(), jy: R() - 0.5, jz: R() - 0.5, mz: R() - 0.5 });
-    }
+    for (const v of vals) DOTS.push({ g, v, H: Math.max(0.01, hTrend(v) + dv + K.gauss(R) * 0.06), k: R(), jy: R() - 0.5, jz: R() - 0.5, mz: R() - 0.5 });
   });
   const NDOT = DOTS.length;
   // the map shares the strip's frame: Heterogeneity up, Clearance across, scaled so that every line of equal index
   // meets the axis at that index; the strip then only straightens those lines and sorts the people into their rows
   const Hs = DOTS.map(d => d.H).sort((a, b) => a - b), hq = q => Hs[Math.round(q * (Hs.length - 1))];
-  let h0 = Hs.length ? hq(0.01) : 0, h1 = Hs.length ? hq(0.99) : 0.5;
+  let h0 = Hs.length ? hq(0.02) : 0, h1 = Hs.length ? hq(0.98) : 0.5;
   if (!(h1 > h0 + 1e-6)) { h0 = 0; h1 = 0.5; }
-  const MY0 = AXY + 0.09, MY1 = 0.74, HAX = h0 - (MY0 - AXY) / (MY1 - MY0) * (h1 - h0);    // HAX: Heterogeneity at the axis
+  // the few beyond the frame's range (the ends of the index, which the stand-in formulas reach only with an extreme
+  // Heterogeneity) are drawn in softly towards its edge, keeping their order and spread; each dot's Clearance then
+  // gives its index exactly, so it stays on its line of equal index
+  const HPAD = (h1 - h0) * 0.12, soft = (x, e) => e + HPAD * Math.tanh((x - e) / HPAD);
+  for (const d of DOTS) {
+    if (d.H > h1) d.H = soft(d.H, h1); else if (d.H < h0) d.H = Math.max(0.005, soft(d.H, h0));
+    d.C = (d.v - PROJ.m - PROJ.b * d.H) / AA;
+  }
+  const MY0 = AXY + 0.11, MY1 = 0.72, HAX = h0 - (MY0 - AXY) / (MY1 - MY0) * (h1 - h0);    // HAX: Heterogeneity at the axis
   const MX = C => SX(PROJ.m + AA * C + PROJ.b * HAX), MY = H => MY0 + (H - h0) / (h1 - h0) * (MY1 - MY0);
   const isoX = (w, y) => SX(w - PROJ.b * (HAX + (y - AXY) / (MY1 - MY0) * (h1 - h0) - HAX));   // the line of index w at height y
-  const mapPt = (C, H, z) => [clamp(MX(C), SX0 - 0.03, SX0 + SW), clamp(MY(H), MY0 - 0.07, MY1 + 0.07), z];
+  const mapPt = (C, H, z, o) => { o = o || [0, 0, 0]; o[0] = clamp(MX(C), SX0 - 0.03, SX0 + SW); o[1] = clamp(MY(H), MY0 - 0.08, MY1 + 0.08); o[2] = z; return o; };
   // follow-up (illustrative: the poster gives the groups and their sizes, not their values): its three follow-up groups
   // as rings on the row of the people they come from (no intervention: people scanned again with nothing done in
   // between, beside the healthy volunteers in the poster's table, on the healthy row; bariatric surgery: beside the
   // people with obesity, on the dyslipidaemia row; immunotherapy before surgery: people with lung cancer, on the cancer
-  // row), drawn from their row's summary; surgery and immunotherapy move towards the healthy range, no intervention stays
+  // row). Their first values come from their row's summary, the immunotherapy group's from the poster's own summary of
+  // those 19 people (its response strip: 14 good, 5 poor). Surgery and immunotherapy move part of the way towards the
+  // healthy range (the poster: the index moved towards it), no intervention stays
   const PG = PO.prognosis || {}, PST = PG.strip || {};
   const RG = PST.good || null, RB = PST.bad || PST.poor || null, QH = QF[3] || (u => 4.5);
+  const fin = Number.isFinite;
+  const qOf = s => (s && fin(s.min) && fin(s.max) ? quantFn({ min: s.min, max: s.max, centre: fin(s.median) ? s.median : (s.min + s.max) / 2,
+    q: { p25: fin(s.q1) ? s.q1 : undefined, p75: fin(s.q3) ? s.q3 : undefined } }) : null);
+  const QRG = qOf(RG), QRB = qOf(RB);
   const FU = ((PO.cohort || {}).followup || []).map(f => {
     const s = `${f.group || ''} ${f.row_beside || ''}`, kind = /\bici\b|immun|checkpoint|lung/i.test(s) ? 'ici' : /bariatric|obes/i.test(s) ? 'bar' : 'none';
-    return { kind, row: kind === 'ici' ? 0 : kind === 'bar' ? 2 : 3, n: Math.round(+f.n || 0), name: kind === 'ici' ? 'Immunotherapy before surgery' : cap(String(f.group || '')) };
+    return { kind, row: kind === 'ici' ? 0 : kind === 'bar' ? 2 : 3, n: Math.round(+f.n || 0), name: kind === 'ici' ? 'Immunotherapy' : cap(String(f.group || '')) };
   }).filter(f => f.n > 0).slice(0, 3);
   const FDOTS = [];
   FU.forEach((f, k) => {
+    // the immunotherapy group: from the response strip's two summaries when their sizes add up to the group's
+    const resp = f.kind === 'ici' && QRG && QRB && Math.round(+RG.n) + Math.round(+RB.n) === f.n ? Math.round(+RG.n) : -1;
     for (let q = 0; q < f.n; q++) {
-      const qf = QF[f.row] || QH, v0 = qf(strat(f.n, q)), v1 = f.kind === 'none' ? v0 : lerp(v0, QH(0.15 + 0.7 * R()), 0.7);
+      const qf = resp >= 0 ? (q < resp ? QRG : QRB) : (QF[f.row] || QH);
+      const v0 = resp >= 0 ? (q < resp ? QRG(strat(resp, q)) : QRB(strat(f.n - resp, q - resp))) : qf(strat(f.n, q));
+      const v1 = f.kind === 'none' ? v0 : lerp(v0, QH(0.25 + 0.5 * R()), f.kind === 'ici' ? 0.5 : 0.6);
       FDOTS.push({ f: k, row: f.row, v0, v1, k: R(), jy: R() - 0.5, jz: R() - 0.5, col: f.kind === 'none' ? GCOL[3] : GCOL[f.row] });
     }
   });
@@ -4691,7 +4736,7 @@ void main() {
     float s = smoothstep(0.3 + 0.25 * k, 0.72 + 0.25 * k, uFol);
     pos = mix(aStr, aEnd, s);
     a = smoothstep(0.0, 0.25, uFol) * uMdi * uDim * gf;
-    vC = mix(aCol, uHealthy, s * step(0.001, distance(aEnd, aStr)));
+    vC = mix(aCol, uHealthy, 0.35 * s * step(0.001, distance(aEnd, aStr)));   // a hint of the healthy colour, no more
     vRing = 1.0; sz = 0.036;
   }
   vA = a * uA;
@@ -4761,7 +4806,7 @@ varying vec3 vC; varying float vA;
 void main() {
   float s = smoothstep(0.3 + 0.25 * aW.y, 0.72 + 0.25 * aW.y, uFol);
   vec3 p = mix(aStr, mix(aStr, aEnd, s), aW.x);
-  vC = mix(aCol, vec3(0.22, 0.74, 0.97), s * aW.x); vA = uA * uK * mix(0.08, 0.6, aW.x) * step(0.001, distance(aEnd, aStr)) * smoothstep(0.0, 0.1, s);
+  vC = mix(aCol, vec3(0.22, 0.74, 0.97), 0.35 * s * aW.x); vA = uA * uK * mix(0.08, 0.6, aW.x) * step(0.001, distance(aEnd, aStr)) * smoothstep(0.0, 0.1, s);
   gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0);
 }`,
     fragmentShader: 'varying vec3 vC; varying float vA; void main() { if (vA < 0.003) discard; gl_FragColor = vec4(vC, vA); }',
@@ -4786,7 +4831,7 @@ void main() {
   // ---------------------------------------------------------------- the frame (map and strip), summaries, lines of equal index
   const pPill = pillSet(gPop, 16, 7, false), bgPill = pillSet(gPop, 4, 1, false);
   // the map's legend (the poster's): a swatch per group, its label beside it
-  const LEG = k => [SX0 + SW - 0.6, MY1 - ORDERG.indexOf(GKEY[k]) * 0.1, 0.02];   // in the rows' order, so the names glide straight down
+  const LEG = k => [SX0 + SW - 1.05, MY1 + 0.02 - ORDERG.indexOf(GKEY[k]) * 0.1, 0.02];   // in the rows' order, so the names glide straight down
   GKEY.forEach((key, k) => { const p = LEG(k); pPill.put(12 + k, p[0] - 0.03, p[1], p[2], 0.016, 0.016, 0.016, 0.012, GCOL[k], 1); });
   const P_PANEL = 0, P_SH0 = 1, P_SH1 = 2, P_HB = 3, PNX = [SX0 - 0.15, SX0 + SW + 0.08], PNY = [AXY - 0.15, MY1 + 0.12];
   bgPill.put(P_PANEL, (PNX[0] + PNX[1]) / 2, (PNY[0] + PNY[1]) / 2, -0.12, (PNX[1] - PNX[0]) / 2, (PNY[1] - PNY[0]) / 2, 0.05, 0, PANEL, 0.62, 1, 0.0025);
@@ -4877,30 +4922,34 @@ void main() {
   }
   const stairAt = (st, m) => { let v = st[0][1]; for (const p of st) { if (p[0] > m) break; v = p[1]; } return v; };
   const kmSt = KC.map(c => (Array.isArray(c.s) && c.s.length > 1 ? stair(c.s) : null));
-  // ribbons (curves, with a soft glow) and bands, each vertex with its month (reveal) and its curve (alpha)
-  const ribMat = new THREE.ShaderMaterial({
-    uniforms: { uA: set.uA, uGA: { value: new Float32Array(8) }, uGR: { value: new Float32Array(8) } },
-    transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
-    vertexShader: `${PK}
+  // ribbons (curves, with a soft glow) and bands, each vertex with its month (reveal) and its curve (alpha). Two passes
+  // over one geometry: the bands and glows add up (uPass 0), the curves' cores lie on top with normal blending (uPass
+  // 1), so each third keeps its own colour where glow and band would add up to white
+  const RIB_V = `${PK}
 attribute vec3 aCol; attribute vec4 aD;   // across (-1..1), month (0..1), curve, glow
 uniform float uA; uniform vec4 uGA[2], uGR[2];
 varying vec3 vC; varying float vA, vV, vT, vR, vGl;
 void main() {
   vC = aCol; vV = aD.x; vT = aD.y; vGl = aD.w; vA = uA * GET(uGA, aD.z); vR = GET(uGR, aD.z);
   gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-}`,
-    fragmentShader: `
+}`;
+  const RIB_F = `
+uniform float uPass;
 varying vec3 vC; varying float vA, vV, vT, vR, vGl;
 void main() {
-  if (vT > vR) discard;
+  if (vT > vR || (uPass > 0.5) != (vGl < 0.5)) discard;
   float e = abs(vV);
-  float a = vGl > 1.5 ? 0.17 : (vGl > 0.5 ? exp(-e * 3.0) * 0.22 : 1.0 - smoothstep(0.55, 1.0, e));
+  float a = vGl > 1.5 ? 0.15 : (vGl > 0.5 ? exp(-e * 3.0) * 0.14 : 1.0 - smoothstep(0.6, 1.0, e));
   a *= vA;
   if (a < 0.003) discard;
-  gl_FragColor = vec4(mix(vC, vec3(1.0), vGl < 0.5 ? 0.1 * (1.0 - e) : 0.0), a);
-}`,
-  });
-  set.mats.push(ribMat);
+  gl_FragColor = vec4(mix(vC, vec3(1.0), vGl < 0.5 ? 0.06 * (1.0 - e) : 0.0), a);
+}`;
+  const ribU = { uA: set.uA, uGA: { value: new Float32Array(8) }, uGR: { value: new Float32Array(8) } };
+  const ribMat = new THREE.ShaderMaterial({ uniforms: Object.assign({ uPass: { value: 0 } }, ribU), vertexShader: RIB_V, fragmentShader: RIB_F,
+    transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide });
+  const ribCore = new THREE.ShaderMaterial({ uniforms: Object.assign({ uPass: { value: 1 } }, ribU), vertexShader: RIB_V, fragmentShader: RIB_F,
+    transparent: true, depthWrite: false, side: THREE.DoubleSide });
+  set.mats.push(ribMat, ribCore);
   {
     const P = [], C = [], A = [], idx = [];
     let nv = 0;
@@ -4937,11 +4986,12 @@ void main() {
     geo.setAttribute('aCol', new THREE.Float32BufferAttribute(C.length ? C : [0, 0, 0], 3));
     geo.setAttribute('aD', new THREE.Float32BufferAttribute(A.length ? A : [0, 0, 0, 0], 4));
     if (idx.length) geo.setIndex(idx);
-    const mesh = new THREE.Mesh(geo, ribMat);
+    const mesh = new THREE.Mesh(geo, ribMat), core = new THREE.Mesh(geo, ribCore);
     mesh.frustumCulled = false; mesh.renderOrder = 4; mesh.visible = idx.length > 0; gKM.add(mesh);
+    core.frustumCulled = false; core.renderOrder = 5; core.visible = idx.length > 0; gKM.add(core);
   }
   const kPill = pillSet(gKM, 4, 1, false), KLEG = k => [kx(KMAX * 0.56), ky(0.95 - k * 0.085), 0.01];
-  kPill.put(0, 0.04, 0.05, -0.02, 0.86, 0.66, 0.05, 0, PANEL, 0.78, 1, 0.0025);
+  kPill.put(0, 0.04, KT.length ? -0.05 : 0.05, -0.02, 0.86, KT.length ? 0.76 : 0.66, 0.05, 0, PANEL, 0.78, 1, 0.0025);   // the table under the chart
   [0, 1, 2].forEach(k => { const p = KLEG(k); kPill.put(1 + k, p[0] - 0.05, p[1], p[2], 0.035, 0.006, 0.006, 0.012, THIRD[k], 1); });
   const kLines = lineSet(gKM, 2, 2);
   kLines.seg([KX0, KY0, 0], [KX0 + KW, KY0, 0], INK, 0.7, 0).seg([KX0, KY0, 0], [KX0, KY0 + KH, 0], INK, 0.7, 0);
@@ -4952,9 +5002,9 @@ void main() {
     c.textBaseline = 'middle';
     c.font = font(700, 0.06 * px); c.fillStyle = hexOf(INK); c.textAlign = 'left';
     c.fillText('Survival by thirds of the index', X(KX0), Y(KY0 + KH + 0.125));
-    c.font = font(500, 0.036 * px); c.fillStyle = hexOf(l3(MUTED, INK, 0.3));
+    c.font = font(500, 0.046 * px); c.fillStyle = hexOf(l3(MUTED, INK, 0.3));
     const kn = KC.reduce((a, x) => a + (+x.n || 0), 0);
-    c.fillText(`${kn ? fmt(kn) + ' people' : 'People'} in thirds of the index: the poster's curves and table`, X(KX0), Y(KY0 + KH + 0.06));
+    c.fillText(`${kn ? fmt(kn) + ' people' : 'People'} in thirds of the index (the poster's)`, X(KX0), Y(KY0 + KH + 0.06));
     c.font = font(600, 0.042 * px); c.textAlign = 'center';
     for (let m = 0; m <= KMAX + 1e-6; m += 20) c.fillText(String(m), X(kx(m)), Y(KY0 - 0.048));
     c.textAlign = 'right';
@@ -4962,16 +5012,15 @@ void main() {
     c.font = font(600, 0.044 * px); c.fillStyle = hexOf(INK); c.textAlign = 'center';
     c.fillText('Months', X(KX0 + KW / 2), Y(KY0 - 0.115));
     c.save(); c.translate(X(KX0 - 0.13), Y(KY0 + KH / 2)); c.rotate(-PI / 2); c.fillText('Survival', 0, 0); c.restore();
-    // the poster's table, inside the chart's lower left
+    // the poster's table, under the chart (clear of the curves and their bands)
     if (KT.length) {
-      const x0 = KX0 + 0.035, cw = [0.25, 0.13, 0.13, 0.19], rh = 0.056, y0 = KY0 + 0.022 + rh * 4;
-      const hdr = ['Third', 'Deaths', '1 year', 'Median'];
-      c.fillStyle = 'rgba(4,9,18,0.82)'; c.fillRect(X(x0 - 0.01), Y(y0 + 0.008), (cw.reduce((a, b) => a + b, 0) + 0.02) * px, (rh * 4 + 0.016) * px);
-      const cell = (txt, k, row, w, col) => { let x = x0; for (let q = 0; q < k; q++) x += cw[q]; c.font = font(w, 0.034 * px); c.fillStyle = col; c.textAlign = k ? 'center' : 'left'; c.fillText(txt, X(k ? x + cw[k] / 2 : x + 0.035), Y(y0 - rh * (row + 0.5))); };
+      const x0 = KX0, cw = [0.42, 0.26, 0.26, 0.38], rh = 0.06, y0 = KY0 - 0.165;
+      const hdr = ['Third', 'Deaths', '1 year', 'Median survival'];
+      const cell = (txt, k, row, w, col) => { let x = x0; for (let q = 0; q < k; q++) x += cw[q]; c.font = font(w, 0.044 * px); c.fillStyle = col; c.textAlign = k ? 'center' : 'left'; c.fillText(txt, X(k ? x + cw[k] / 2 : x + 0.045), Y(y0 - rh * (row + 0.5))); };
       hdr.forEach((h, k) => cell(h, k, 0, 700, hexOf(MUTED)));
       KT.slice(0, 3).forEach((r, q) => {
         c.fillStyle = hexOf(THIRD[q]); c.globalAlpha = 0.16; c.fillRect(X(x0), Y(y0 - rh * (q + 1) - 0.002), (cw.reduce((a, b) => a + b, 0)) * px, (rh - 0.006) * px); c.globalAlpha = 1;
-        c.fillStyle = hexOf(THIRD[q]); c.fillRect(X(x0 + 0.004), Y(y0 - rh * (q + 1.5) + 0.012), 0.022 * px, 0.024 * px);
+        c.fillStyle = hexOf(THIRD[q]); c.fillRect(X(x0 + 0.006), Y(y0 - rh * (q + 1.5) + 0.014), 0.026 * px, 0.028 * px);
         const pct = s => String(s).replace(/\s*%$/, ' %'), med = String(r.median) === 'NR' ? 'not reached' : `${r.median} mo`;
         cell(thirdName(KC[q], q), 0, q + 1, 600, hexOf(INK)); cell(pct(r.deaths), 1, q + 1, 600, hexOf(INK)); cell(pct(r.oneYear), 2, q + 1, 600, hexOf(INK)); cell(med, 3, q + 1, 600, hexOf(INK));
       });
@@ -4979,12 +5028,12 @@ void main() {
   });
 
   // ---------------------------------------------------------------- the immunotherapy test (poster's response strip and AUCs)
-  const AUC = (PG.auc || []).slice(0, 6);
+  const AUC = (PG.auc || []).filter(a => a && Number.isFinite(+a.auc)).slice(0, 6).map(a => Object.assign({}, a, { auc: +a.auc, label: String(a.label || a.name || '') }));
   const RAX = (Array.isArray(PST.axis) && PST.axis[1] > 0) ? PST.axis[1] : 6.85, RX0 = -0.42, RX1 = 0.8, rx = v => RX0 + v / RAX * (RX1 - RX0), RAY = 0.3;
   const AA0 = 0.45, AA1 = 1.0, AX0 = -0.2, AX1 = 0.56, ax = v => AX0 + (v - AA0) / (AA1 - AA0) * (AX1 - AX0), AAY = -0.46;
   const aRowY = r => 0.05 - r * 0.083 - (r >= 3 ? 0.035 : 0);
   const isNet = a => a.group === 'network' || /index|heterogen|clearance/i.test(a.label);
-  const aPill = pillSet(gAUC, 1 + 2 * 6 + 5, 3, false);
+  const aPill = pillSet(gAUC, 1 + 2 * 6 + 6, 3, false);   // the panel, 6 tracks, 6 bars, two bands of up to 3 pills
   aPill.put(0, 0.0, 0.08, -0.02, 0.92, 0.7, 0.05, 0, PANEL, 0.78, 1, 0.0025);
   AUC.forEach((a, r) => {
     aPill.put(1 + r, (AX0 + AX1) / 2, aRowY(r), -0.004, (AX1 - AX0) / 2, 0.03, 0.006, 0, [0.14, 0.18, 0.26], 0.4);
@@ -4997,7 +5046,7 @@ void main() {
     if (!s || !Number.isFinite(s.min) || !Number.isFinite(s.max)) return;
     const q = Number.isFinite(s.q1) && Number.isFinite(s.q3);
     aPill.put(k, rx((s.min + s.max) / 2), y, 0.002, (s.max - s.min) / RAX * (RX1 - RX0) / 2, 0.012, 0.012, 0.01, col, 0.75);
-    if (q && k + 2 < 18) aPill.put(k + 1, rx((s.q1 + s.q3) / 2), y, 0.004, (s.q3 - s.q1) / RAX * (RX1 - RX0) / 2, 0.026, 0.006, 0.012, col, 0.95);
+    if (q) aPill.put(k + 1, rx((s.q1 + s.q3) / 2), y, 0.004, (s.q3 - s.q1) / RAX * (RX1 - RX0) / 2, 0.026, 0.006, 0.012, col, 0.95);
     if (Number.isFinite(s.median)) aPill.put(q ? k + 2 : k + 1, rx(s.median), y, 0.006, 0.007, 0.045, 0.006, 0.01, [1, 1, 1], 1, 1, 0);
   };
   band(13, RG, RGY, GOOD); band(16, RB, RBY, POOR);
@@ -5014,46 +5063,53 @@ void main() {
     c.textBaseline = 'middle';
     c.font = font(700, 0.06 * px); c.fillStyle = hexOf(INK); c.textAlign = 'left';
     c.fillText('Immunotherapy before surgery', X(-0.84), Y(0.715));
-    c.font = font(500, 0.036 * px); c.fillStyle = hexOf(l3(MUTED, INK, 0.3));
-    c.fillText(`${PG.n ? PG.n + ' people' : 'People'} with lung cancer: a first test`, X(-0.84), Y(0.665));
+    c.font = font(500, 0.046 * px); c.fillStyle = hexOf(l3(MUTED, INK, 0.3));
+    const noP = AUC.length && AUC.every(a => !(+a.p < 0.05));
+    c.fillText(`${PG.n ? PG.n + ' people' : 'People'} with lung cancer: a first test${noP ? ', no P below 0.05' : ''}`, X(-0.84), Y(0.655));
     c.font = font(600, 0.04 * px); c.textAlign = 'center'; c.fillStyle = hexOf(l3(MUTED, INK, 0.3));
     for (let v = 0; v <= Math.floor(RAX); v++) c.fillText(String(v), X(rx(v)), Y(RAY - 0.045));
-    c.font = font(500, 0.033 * px);
-    c.fillText('Displacement index: Clearance and Heterogeneity in one number', X((RX0 + RX1) / 2), Y(RAY - 0.095));
+    c.font = font(500, 0.045 * px);
+    c.fillText('Displacement index: Clearance and Heterogeneity in one number', X((RX0 + RX1) / 2), Y(RAY - 0.1));
     c.font = font(600, 0.04 * px);
     for (let v = 0.5; v <= AA1 + 1e-6; v += 0.1) c.fillText(v.toFixed(1), X(ax(v)), Y(AAY - 0.045));
-    c.font = font(500, 0.034 * px); c.fillText('AUC: how well each tells good from poor responders (0.5 is chance)', X((AX0 + AX1) / 2 - 0.14), Y(AAY - 0.1));
+    c.font = font(500, 0.045 * px); c.fillText('AUC: how well each tells good from poor responders (0.5 is chance)', X((AX0 + AX1) / 2 - 0.14), Y(AAY - 0.105));
     c.textAlign = 'right';
     AUC.forEach((a, r) => {
       c.font = font(isNet(a) ? 700 : 600, 0.042 * px); c.fillStyle = hexOf(isNet(a) ? WARM : INK);
       const txt = a.label.replace(/^Metabolic displacement index$/i, 'Displacement index');
       c.fillText(txt, X(AX0 - 0.03), Y(aRowY(r)));
     });
-    c.font = font(700, 0.032 * px); c.textAlign = 'left';
+    c.font = font(700, 0.045 * px); c.textAlign = 'left';
     c.fillStyle = hexOf(WARM); c.fillText('network measures', X(-0.84), Y(aRowY(0) + 0.07));
     c.fillStyle = hexOf(CLIN); c.fillText('clinical measures', X(-0.84), Y(aRowY(3) + 0.065));
   });
 
   // ---------------------------------------------------------------- state, anchors, labels
   const U = new Array(N).fill(1);
-  const cur = { bars: 0, ratio: 0, thr: 0, one: 0, met: 0, map: 0, mdi: 0, km: 0, resp: 0, fol: 0, theta: THETA, m: measure(PU[0], THETA), plane: FY, prof: 0,
-    top: new Float32Array(NL), hub: -1, person: [0, 0, 0], pRow: 3, ring: 1, ringT: 0 };
+  const cur = { map: 0, mdi: 0, theta: THETA, m: measure(PU[0], THETA), plane: FY, prof: 0, top: new Float32Array(NL), hub: -1, hubW: 0, pf: 1,
+    person: [0, 0, 0], barsV: 0, fieldV: 0, ringV: 0, frame: 0, pickId: null, pickF: -9, pickAt: [0, 0, 0] };
   const own = f => { const o = [0, 0, 0]; return () => f(o); };
   const cp = (o, p) => { o[0] = p[0]; o[1] = p[1]; o[2] = p[2]; return o; };
+  const set3 = (o, x, y, z) => { o[0] = x; o[1] = y; o[2] = z; return o; };
+  const mix3 = (o, a, b, f) => set3(o, lerp(a[0], b[0], f), lerp(a[1], b[1], f), lerp(a[2], b[2], f));
   const kmAnchor = k => tr(gKM, KLEG(k));
-  const groupAt = (k, o) => (cur.mdi > 0.5 ? tr(gPop, [SX(MG[k] && Number.isFinite(MG[k].centre) ? MG[k].centre : 5), ROWY[k], 0.08], o) : cp(o, [STATS[k].x, STATS[k].y, STATS[k].z]));
+  // a group's centre: on the map the mean of its dots, on the strip its median dot (gliding from one to the other)
+  const groupAt = (k, o) => {
+    const c = MG[k] && Number.isFinite(MG[k].centre) ? MG[k].centre : QF[k] ? QF[k](0.5) : 5, f = prog(cur.mdi, 0.15, 0.85), st = STATS[k];
+    return set3(o, lerp(st.x, SX(c), f), lerp(st.y, ROWY[k], f), lerp(st.z, 0.08, f));
+  };
   const anchors = {
     one: own(o => tr(gRing, RC, o)),
-    profile: own(o => tr(gRing, [RC[0] - 0.24, RC[1] + RR + 0.17, RC[2]], o)),
+    profile: own(o => tr(gRing, [RC[0] - RR - 0.2, RC[1] + RR + 0.12, RC[2]], o)),
     bars: own(o => tr(gBars, [BPX[0], BPY[1] + 0.05, 0], o)),
     field: [0, FY + 0.05, FZ],
-    example: own(o => { const i = ONE.indexOf('kidneys'), j = ONE.indexOf('fat'); return i < 0 || j < 0 ? cp(o, [0, FY, FZ]) : cp(o, [cellX(j), cur.top[i * N + j] + 0.04, cellZ(i)]); }),
-    plane: own(o => cp(o, [cellX(N - 1) + FP * 0.65, cur.plane + 0.01, cellZ(N - 1) + FP * 0.65])),
+    example: own(o => { const i = ONE.indexOf('kidneys'), j = ONE.indexOf('fat'); return i < 0 || j < 0 ? set3(o, 0, FY, FZ) : set3(o, cellX(j), cur.top[i * N + j] + 0.04, cellZ(i)); }),
+    plane: own(o => set3(o, cellX(N - 1) + FP * 0.65, cur.plane + 0.01, cellZ(N - 1) + FP * 0.65)),
     metrics: tr(gMet, [0, 0.1, 0]),
     clearance: tr(gMet, [GA.C[0] - 0.19, GA.C[1] + GA.C[2] + 0.08, 0]),
     hetero: tr(gMet, [GA.H[0] - 0.03, GA.H[1] + GA.H[2] + 0.08, 0]),
-    dial: tr(gMet, [GA.X[0] - 0.3, GA.X[1] - GA.X[2] - 0.07, 0]),
-    note: tr(gMet, [GA.X[0] - 0.3, GA.X[1] - GA.X[2] - 0.2, 0]),
+    dial: tr(gMet, [GA.X[0] - 0.5, GA.X[1] - GA.X[2] - 0.08, 0]),
+    note: tr(gMet, [GA.X[0] - 0.5, GA.X[1] - GA.X[2] - 0.2, 0]),
     map: [(PNX[0] + PNX[1]) / 2, (PNY[0] + PNY[1]) / 2, 0],
     mapNote: [PNX[0], PNY[1] + 0.07, 0],
     iso: [isoX(2, MY1 + 0.05), MY1 + 0.07, 0],
@@ -5066,13 +5122,21 @@ void main() {
     poor: tr(gAUC, [rx(RB && Number.isFinite(RB.max) ? RB.max : 5.5) + 0.03, RBY, 0.01]),
     healthy: [SX(HQ[1]) + 0.01, STOP + 0.1, 0],
   };
+  // each organ: node_<id> is its node on the ring (its labels); <id> is where the organ is pointed at: the spot a ray
+  // has just picked (a node, a bar or a header of the field), else its node while the ring shows, its bar while the
+  // bars show, its row's header on the field
   ONE.forEach((id, i) => {
-    anchors[id] = own(o => tr(gRing, [NODE[i][0], NODE[i][1] + 0.0, NODE[i][2] + 0.02], o));
+    const node = [NODE[i][0], NODE[i][1], NODE[i][2] + 0.02];
+    anchors['node_' + id] = own(o => tr(gRing, node, o));
+    anchors[id] = own(o => (cur.pickId === id && cur.frame - cur.pickF <= 1 ? cp(o, cur.pickAt)
+      : cur.ringV > 0.5 || !(cur.barsV > 0.5 || cur.fieldV > 0.5) ? tr(gRing, node, o)
+      : cur.barsV > 0.5 ? tr(gBars, [BX0 + BTRK + 0.02, BY(i), 0], o) : set3(o, cellX(0) - 0.13, FY + 0.05, cellZ(i))));
     anchors['bar_' + id] = own(o => tr(gBars, [BX0 + BTRK + 0.02, BY(i), 0], o));
   });
   GKEY.forEach((k, q) => {
     anchors['g' + (q + 1)] = own(o => groupAt(q, o));
-    anchors['lab_g' + (q + 1)] = own(o => cp(o, l3(LEG(q), [LABX, ROWY[q], 0.02], prog(cur.mdi, 0.2, 0.8))));
+    const row = [LABX, ROWY[q], 0.02];
+    anchors['lab_g' + (q + 1)] = own(o => mix3(o, LEG(q), row, prog(cur.mdi, 0.2, 0.8)));
   });
   [0, 1, 2].forEach(k => { anchors['km' + (k + 1)] = own(o => cp(o, kmAnchor(k))); });
   AUC.forEach((a, r) => { anchors['auc' + (r + 1)] = tr(gAUC, [ax(a.auc) + 0.025, aRowY(r), 0.01]); });
@@ -5084,14 +5148,14 @@ void main() {
   const popQuiet = S => 1 - prog(Math.max(S_(S, 'people_km'), S_(S, 'people_response')), 0, 0.5);
   const labels = [];
   // the organs' names: on the bars (in the panel itself), then on the ring's nodes; with the measures only the kidneys
-  // (Clearance) and the hub (Heterogeneity) keep theirs
+  // (Clearance) and the node with the most links (Heterogeneity: strength z-score above about 1.7) keep theirs
   const hubK = S => prog(S_(S, 'people_metrics'), 0.25, 0.7);
   ORG.forEach((o, i) => {
-    labels.push({ text: [o.short || o.name, ''], at: o.id, cls: '', minor: i !== KID,
-      alpha: S => prog(S_(S, 'people_one'), 0.55, 0.9) * (i === KID ? 1 : 1 - prog(S_(S, 'people_metrics'), 0, 0.35)) * (i === cur.hub ? 1 - hubK(S) : 1) * oneOff(S) });
-    labels.push({ text: [o.short || o.name, ' · the hub'], at: o.id, cls: 'amb', alpha: S => (i === cur.hub ? hubK(S) : 0) * prog(S_(S, 'people_one'), 0.55, 0.9) * oneOff(S) });
+    labels.push({ text: [o.short || o.name, ''], at: 'node_' + o.id, cls: '', minor: i !== KID,
+      alpha: S => prog(S_(S, 'people_one'), 0.55, 0.9) * (i === KID ? 1 : 1 - prog(S_(S, 'people_metrics'), 0, 0.35)) * (i === cur.hub ? 1 - hubK(S) * cur.hubW : 1) * oneOff(S) });
+    labels.push({ text: [o.short || o.name, ' · most links'], at: 'node_' + o.id, cls: 'amb', alpha: S => (i === cur.hub ? hubK(S) * cur.hubW : 0) * prog(S_(S, 'people_one'), 0.55, 0.9) * oneOff(S) });
   });
-  labels.push({ text: ['Uptake', ' · one scan'], at: 'bars', cls: '', alpha: S => S_(S, 'people_bars') * (1 - prog(S_(S, 'people_one'), 0.2, 0.5)) * oneOff(S) });
+  labels.push({ text: ['Uptake', ' · one scan, illustrative values'], at: 'bars', cls: '', alpha: S => S_(S, 'people_bars') * (1 - prog(S_(S, 'people_one'), 0.2, 0.5)) * oneOff(S) });
   labels.push({ text: ['Kidneys ÷ fat', ' · one ratio'], at: 'example', cls: 'amb', alpha: S => prog(S_(S, 'people_ratio'), 0.6, 0.95) * (1 - prog(S_(S, 'people_one'), 0, 0.3)) * oneOff(S) });
   labels.push({ text: ['Threshold', ''], at: 'plane', cls: 'cyn', alpha: S => prog(S_(S, 'people_thresh'), 0.3, 0.8) * (1 - prog(S_(S, 'people_one'), 0.5, 0.9)) * oneOff(S) });
   PROF.forEach((p, k) => labels.push({ text: [PROFN[p], ' · illustrative uptakes'], at: 'profile', cls: '', alpha: S => near(S.people_profile || 0, k) * (1 - S_(S, 'people_custom')) * S_(S, 'people_one') * oneOff(S) }));
@@ -5100,68 +5164,80 @@ void main() {
   labels.push({ text: ['Heterogeneity', ''], at: 'hetero', cls: 'amb', alpha: S => prog(S_(S, 'people_metrics'), 0.3, 0.65) * oneOff(S) });
   labels.push({ text: ['Displacement index', ' · 0 to 10'], at: 'dial', cls: 'amb', alpha: S => prog(S_(S, 'people_metrics'), 0.55, 0.9) * oneOff(S) });
   labels.push({ text: ['Illustrative maths', ' · formulas not yet published'], at: 'note', cls: '', alpha: S => prog(S_(S, 'people_metrics'), 0.6, 1) * oneOff(S) });
-  // the people: the groups (the map's legend, then the rows' names), giving way to the follow-up groups
+  // the people: the groups (the map's legend, then the rows' names), giving way to the follow-up groups; what is a
+  // stand-in is said on the map, on the strip and in follow-up alike
   const mapOnly = S => prog(S_(S, 'people_map'), 0.6, 1) * (1 - prog(S_(S, 'people_mdi'), 0, 0.4));
+  const folK = S => prog(S_(S, 'people_follow'), 0, 0.3);
   MG.forEach((g, k) => {
     if (!g) return;
-    labels.push({ text: [g.name || PROFN[GKEY[k]], ` · n = ${g.n}`], at: 'lab_g' + (k + 1), cls: { healthy: 'cyn', dys: 'mag' }[GKEY[k]] || '',
-      alpha: S => { const sel = clamp(S.people_group || 0, 0, 4), hi = sat(1 - Math.abs(sel - (k + 1))); return prog(S_(S, 'people_map'), 0.6, 1) * lerp(1, 0.35 + 0.65 * hi, sat(sel)) * popQuiet(S) * (1 - prog(S_(S, 'people_follow'), 0, 0.3)); } });
+    labels.push({ text: [g.name || PROFN[GKEY[k]], Number.isFinite(+g.n) ? ` · n = ${g.n}` : ''], at: 'lab_g' + (k + 1), cls: { healthy: 'cyn', dys: 'mag' }[GKEY[k]] || '',
+      alpha: S => { const sel = clamp(S.people_group || 0, 0, 4), hi = sat(1 - Math.abs(sel - (k + 1))); return prog(S_(S, 'people_map'), 0.6, 1) * lerp(1, 0.35 + 0.65 * hi, sat(sel)) * popQuiet(S) * (1 - folK(S)); } });
   });
   labels.push({ text: [`${fmt(NDOT)} people`, ' · stand-in dots, group summaries'], at: 'mapNote', cls: '', alpha: mapOnly });
+  labels.push({ text: [`${fmt(NDOT)} people`, ' · stand-in dots; the bars and medians are the poster\'s'], at: 'mapNote', cls: '',
+    alpha: S => prog(S_(S, 'people_mdi'), 0.4, 0.9) * S_(S, 'people_map') * popQuiet(S) * (1 - folK(S)) });
+  labels.push({ text: ['Follow-up', ' · illustrative: the poster gives only group sizes'], at: 'mapNote', cls: 'amb',
+    alpha: S => prog(S_(S, 'people_follow'), 0.15, 0.45) * S_(S, 'people_mdi') * S_(S, 'people_map') * popQuiet(S) });
   labels.push({ text: ['Lines of equal index', ''], at: 'iso', cls: 'amb', alpha: S => mapOnly(S) * prog(S_(S, 'people_map'), 0.8, 1) });
-  labels.push({ text: ['This scan', ''], at: 'person', cls: 'amb', alpha: S => prog(S_(S, 'people_map'), 0.6, 0.9) * (1 - prog(S_(S, 'people_mdi'), 0, 0.5)) });
+  labels.push({ text: ['This scan', ''], at: 'person', cls: 'amb', alpha: S => prog(S_(S, 'people_map'), 0.6, 0.9) * (1 - folK(S)) * popQuiet(S) * cur.pf });
   labels.push({ text: ['Metabolic displacement index', ''], at: 'axis', cls: '', alpha: S => prog(S_(S, 'people_mdi'), 0.5, 1) * S_(S, 'people_map') * popQuiet(S) });
   KC.forEach((c, k) => {
-    labels.push({ text: [thirdName(c, k), ` · n = ${c.n}`], at: 'km' + (k + 1), cls: ['cyn', '', ''][k], alpha: S => prog(S_(S, 'people_km'), 0.55 + 0.1 * k, 0.85 + 0.1 * k) });
+    labels.push({ text: [thirdName(c, k), Number.isFinite(+c.n) ? ` · n = ${c.n}` : ''], at: 'km' + (k + 1), cls: ['cyn', '', ''][k], alpha: S => prog(S_(S, 'people_km'), 0.55 + 0.1 * k, 0.85 + 0.1 * k) });
   });
-  if (RG) labels.push({ text: ['Good response', ` · n = ${RG.n}`], at: 'good', cls: 'cyn', alpha: S => prog(S_(S, 'people_response'), 0.05, 0.3) });
-  if (RB) labels.push({ text: ['Poor response', ` · n = ${RB.n}`], at: 'poor', cls: '', alpha: S => prog(S_(S, 'people_response'), 0.1, 0.35) });
-  AUC.forEach((a, r) => labels.push({ text: [`AUC ${a.auc}`, Number.isFinite(a.p) ? ` · P = ${a.p}` : ''], at: 'auc' + (r + 1), cls: isNet(a) ? 'amb' : '',
+  const nOf = s => (Number.isFinite(+s.n) ? ` · n = ${s.n}` : '');
+  if (RG) labels.push({ text: ['Good response', nOf(RG)], at: 'good', cls: 'cyn', alpha: S => prog(S_(S, 'people_response'), 0.05, 0.3) });
+  if (RB) labels.push({ text: ['Poor response', nOf(RB)], at: 'poor', cls: '', alpha: S => prog(S_(S, 'people_response'), 0.1, 0.35) });
+  AUC.forEach((a, r) => labels.push({ text: [`AUC ${a.auc}`, Number.isFinite(+a.p) ? ` · P = ${a.p}` : ''], at: 'auc' + (r + 1), cls: isNet(a) ? 'amb' : '',
     alpha: S => prog(S_(S, 'people_response'), 0.4 + 0.08 * r, 0.6 + 0.08 * r) }));
   const folA = S => prog(S_(S, 'people_follow'), 0.1, 0.4) * S_(S, 'people_mdi') * S_(S, 'people_map') * popQuiet(S);
   FU.forEach((f, k) => labels.push({ text: [f.name, ` · n = ${f.n}`], at: 'f' + (k + 1), cls: f.kind === 'none' ? '' : 'amb', alpha: folA }));
-  if (MG[3]) labels.push({ text: ['Healthy range', ''], at: 'healthy', cls: 'cyn', alpha: S => folA(S) * prog(S_(S, 'people_follow'), 0.2, 0.5) });
+  if (MG[3]) labels.push({ text: ['Healthy range', ' · middle half'], at: 'healthy', cls: 'cyn', alpha: S => folA(S) * prog(S_(S, 'people_follow'), 0.2, 0.5) });
 
   // ---------------------------------------------------------------- update
   const st0 = (i, j) => 0.42 * i / N + 0.06 * j / N;     // when a column's links fly up (people_one)
   const uE = partMat.uniforms.uE.value, uF = partMat.uniforms.uF.value, uH = partMat.uniforms.uH.value, uT = tubeMat.uniforms.uT.value, uB = tubeMat.uniforms.uB.value;
   const M4 = new THREE.Matrix4(), Q0 = new THREE.Quaternion(), P3 = new THREE.Vector3(), S3 = new THREE.Vector3();
-  let lastKey = '';
+  const LASTU = new Float32Array(N + 1).fill(NaN), HW = new Float32Array(N), PM = [0, 0, 0], TG = [0, 0, 0], SP3 = [0, 0, 0], PA = [0, 0, 0];
+  let lastFa = -1;
+  const ptA = perGeo.attributes;
+  ptA.aCol.array.set([1, 1, 1], 0); ptA.aSize.array[0] = 0.07; ptA.aSize.array[1] = 0.05;
   function update(S, t) {
+    cur.frame++;
     const bars = S_(S, 'people_bars'), ratio = S_(S, 'people_ratio'), thr = S_(S, 'people_thresh'), one = S_(S, 'people_one'), met = S_(S, 'people_metrics');
     const map = S_(S, 'people_map'), mdi = S_(S, 'people_mdi'), km = S_(S, 'people_km'), resp = S_(S, 'people_response'), fol = S_(S, 'people_follow');
     const theta = clamp(Number.isFinite(S.people_theta) ? S.people_theta : THETA, 1.01, 10);
     uptakes(S, U);
-    const M = measure(U, theta);
-    Object.assign(cur, { bars, ratio, thr, one, met, map, mdi, km, resp, fol, theta, m: M, prof: clamp(S.people_profile || 0, 0, 3) });
-    const lt = Math.log(theta);
-    cur.plane = FY + HS * lt * thr;
+    const M = measure(U, theta, MS);
+    cur.map = map; cur.mdi = mdi; cur.theta = theta; cur.m = M; cur.prof = clamp(Number.isFinite(S.people_profile) ? S.people_profile : 0, 0, 3);
+    cur.plane = FY + HS * Math.log(theta) * thr;
     // as the people rise, the one-scan part gives way by itself (keep), and the ring stays formed while it shrinks
     // into this person's dot (oneR), whatever people_one does meanwhile
     const keep = 1 - prog(map, 0, 0.5), oneR = Math.max(one, prog(map, 0, 0.15));
 
     // the bars: in the middle at first, then to the left as the network forms
-    const sl = prog(oneR, 0.05, 0.5);
+    const sl = prog(oneR, 0.05, 0.5), ba = bars * keep;
     gBars.position.set(lerp(-0.53, -1.56, sl), lerp(-0.02, 0.02, sl), lerp(0, 0.16, sl));
     gBars.rotation.y = 0.22 * sl; gBars.scale.setScalar(lerp(1, 0.86, sl)); gBars.updateMatrix();
-    const ba = bars * keep;
-    bgB.a(0, prog(ba, 0, 0.3)); bgB.flush(); bTex.k = prog(ba, 0.05, 0.35);
-    for (let i = 0; i < N; i++) {
-      const g = prog(ba, 0.1 + 0.06 * i, 0.55 + 0.06 * i), len = Math.max(0.002, Math.min(U[i], 5.2) * BK * g);
-      bPill.a(i, prog(ba, 0, 0.3));
-      bPill.x(N + i, BX0 + len / 2, len / 2); bPill.a(N + i, prog(ba, 0.05, 0.3));
-      bIco.attributes.aA.array[i] = prog(ba, 0, 0.3);
+    gBars.visible = ba > 0.003;
+    if (gBars.visible) {
+      bgB.a(0, prog(ba, 0, 0.3)); bgB.flush(); bTex.k = prog(ba, 0.05, 0.35);
+      for (let i = 0; i < N; i++) {
+        const g = prog(ba, 0.1 + 0.06 * i, 0.55 + 0.06 * i), len = Math.max(0.002, Math.min(U[i], 5.2) * BK * g);
+        bPill.a(i, prog(ba, 0, 0.3));
+        bPill.x(N + i, BX0 + len / 2, len / 2); bPill.a(N + i, prog(ba, 0.05, 0.3));
+        bIco.attributes.aA.array[i] = prog(ba, 0, 0.3);
+      }
+      bPill.flush(); bIco.attributes.aA.needsUpdate = true;
+      bLines.g[0] = prog(ba, 0, 0.4);
     }
-    bPill.flush(); bIco.attributes.aA.needsUpdate = true;
-    bLines.g[0] = prog(ba, 0, 0.4);
 
-    // the field: columns rise to ln(u_i / u_j); the plane rises to ln(theta); lit columns become links
-    const fa = prog(ratio, 0, 0.3) * keep;
-    for (let k = 0; k <= NL; k++) fPill.a(k, fa);
-    fPill.flush();
-    plPill.a(0, prog(thr, 0, 0.2) * keep); plPill.flush();
-    plPill.mesh.position.set(0, 0, cur.plane - FY);
-    const key = U.map(v => v.toFixed(4)).join(',') + '|' + ratio.toFixed(4);
+    // the field: columns rise to ln(u_i / u_j); the plane rises to ln(theta); lit columns become links. A column
+    // that does not rise (the diagonal, a negative ratio) is not drawn at all: its cell on the floor stays dark
+    const fa = prog(ratio, 0, 0.3) * keep, pla = prog(thr, 0, 0.2) * keep;
+    gField.visible = fa > 0.003 || pla > 0.003;
+    let changed = LASTU[N] !== ratio;
+    LASTU[N] = ratio;
+    for (let i = 0; i < N; i++) if (LASTU[i] !== U[i]) { LASTU[i] = U[i]; changed = true; }
     for (let i = 0; i < N; i++) for (let j = 0; j < N; j++) {
       const L = i * N + j, r = i === j ? 0 : Math.max(0, Math.log(U[i] / U[j]));
       const rise = prog(ratio, 0.12 + 0.4 * (i + j) / (2 * N - 2), 0.5 + 0.4 * (i + j) / (2 * N - 2));
@@ -5170,20 +5246,26 @@ void main() {
       const e = i === j ? 0 : M.e[i][j], F = i === j ? 0 : prog(oneR, st0(i, j), st0(i, j) + 0.5);
       iCol.array[4 * L + 3] = e; iF.array[L] = F;
       uH[L] = FY + h; uF[L] = F;
-      if (key !== lastKey) { M4.compose(P3.set(cellX(j), FY, cellZ(i)), Q0, S3.set(CW, Math.max(1e-4, h), CW)); cols.setMatrixAt(L, M4); }
+      if (changed) { M4.compose(P3.set(cellX(j), FY, cellZ(i)), Q0, h < 0.003 ? S3.set(0, 0, 0) : S3.set(CW, h, CW)); cols.setMatrixAt(L, M4); }
     }
-    if (key !== lastKey) { cols.instanceMatrix.needsUpdate = true; lastKey = key; }
-    iCol.needsUpdate = true; iF.needsUpdate = true;
+    if (changed) cols.instanceMatrix.needsUpdate = true;
+    if (gField.visible) {
+      if (fa !== lastFa) { for (let k = 0; k <= NL; k++) fPill.a(k, fa); fIco.attributes.aA.array.fill(fa); fIco.attributes.aA.needsUpdate = true; lastFa = fa; }
+      fPill.flush();
+      plPill.a(0, pla); plPill.flush();
+      plPill.mesh.position.set(0, 0, cur.plane - FY);
+      iCol.needsUpdate = true; iF.needsUpdate = true;
+    }
     colMat.uniforms.uK.value = fa; colMat.uniforms.uPlane.value = cur.plane + 1e-4; colMat.uniforms.uThr.value = prog(thr, 0.2, 0.8);
+    colMat.depthWrite = set.uA.value > 0.97 && fa > 0.97;   // a fading field never hides what is behind it
     cols.visible = fa > 0.003;
-    fIco.attributes.aA.array.fill(fa); fIco.attributes.aA.needsUpdate = true;
 
     // the ring: it shrinks into this person's dot as the people rise
     const rT = prog(map, 0, 0.6), sc = lerp(1, 0.06, rT), ringVis = 1 - prog(map, 0.45, 0.7);
-    const pm = mapPt(M.C, M.H, 0.06);
-    const tg = l3(RC, pm, rT);
-    gRing.position.set(tg[0] - RC[0] * sc, tg[1] - RC[1] * sc, tg[2] - RC[2] * sc); gRing.scale.setScalar(sc); gRing.updateMatrix();
-    cur.ring = ringVis; cur.ringT = rT;
+    mapPt(M.C, M.H, 0.06, PM);
+    mix3(TG, RC, PM, rT);
+    gRing.position.set(TG[0] - RC[0] * sc, TG[1] - RC[1] * sc, TG[2] - RC[2] * sc); gRing.scale.setScalar(sc); gRing.updateMatrix();
+    gRing.visible = oneR > 0.003 && ringVis > 0.003;
     const kd = prog(met, 0, 0.45), hk = prog(met, 0.25, 0.7);
     for (let i = 0; i < N; i++) for (let j = 0; j < N; j++) {
       const L = i * N + j;
@@ -5193,99 +5275,115 @@ void main() {
       uT[L] = e * arrive * ringVis;
       uB[L] = i === KID ? 1 + 0.9 * kd : 1 - 0.5 * kd;
     }
-    // node sizes by strength (Heterogeneity), hubs (strength z-score above 1.7) glow orange-yellow, the kidneys' halo
-    const na = prog(oneR, 0.05, 0.4) * ringVis, sm = M.s.reduce((a, v) => a + v, 0) / N;
-    const sd = Math.sqrt(M.s.reduce((a, v) => a + (v - sm) * (v - sm), 0) / N) || 1;
-    let hub = -1;
-    for (let i = 0; i < N; i++) {
-      const rel = sm > 0 ? M.s[i] / sm : 1, z = (M.s[i] - sm) / sd, isHub = z > 1.7 ? 1 : 0;
-      if (isHub && (hub < 0 || M.s[i] > M.s[hub])) hub = i;
-      const size = 0.13 * clamp(1 + hk * (rel - 1) * 0.55, 0.55, 1.9);
-      nIco.attributes.aA.array[i] = na; nIco.attributes.aSize.array[i] = size; nIco.attributes.aHub.array[i] = isHub * hk * (0.75 + 0.25 * Math.sin(t * 2.2));
-      haloGeo.attributes.aA.array[i] = na * (0.35 + 0.4 * hk);
-      haloGeo.attributes.aSize.array[i] = size * (1.7 + 0.5 * hk * rel);
-      haloGeo.attributes.aCol.array.set(isHub && hk > 0 ? l3(OCOL[i], HUBC, hk) : OCOL[i], 3 * i);
+    // node sizes by strength (Heterogeneity); the node with the most links glows orange-yellow as its strength's z-score
+    // passes about 1.7 (smoothly, between 1.55 and 1.85); the kidneys' halo
+    const na = prog(oneR, 0.05, 0.4) * ringVis;
+    let sm = 0, sv = 0, hub = -1;
+    for (let i = 0; i < N; i++) sm += M.s[i] / N;
+    for (let i = 0; i < N; i++) sv += (M.s[i] - sm) * (M.s[i] - sm) / N;
+    const sd = Math.sqrt(sv) || 1;
+    for (let i = 0; i < N; i++) { HW[i] = prog((M.s[i] - sm) / sd, 1.55, 1.85); if (HW[i] > 0 && (hub < 0 || M.s[i] > M.s[hub])) hub = i; }
+    cur.hub = hub; cur.hubW = hub >= 0 ? HW[hub] : 0;
+    if (gRing.visible) {
+      const hc = haloGeo.attributes.aCol.array;
+      for (let i = 0; i < N; i++) {
+        const rel = sm > 0 ? M.s[i] / sm : 1, w = i === hub ? HW[i] : 0;
+        const size = 0.13 * clamp(1 + hk * (rel - 1) * 0.55, 0.55, 1.9);
+        nIco.attributes.aA.array[i] = na; nIco.attributes.aSize.array[i] = size; nIco.attributes.aHub.array[i] = w * hk * (0.75 + 0.25 * Math.sin(t * 2.2));
+        haloGeo.attributes.aA.array[i] = na * (0.35 + 0.4 * hk);
+        haloGeo.attributes.aSize.array[i] = size * (1.7 + 0.5 * hk * rel);
+        for (let c = 0; c < 3; c++) hc[3 * i + c] = lerp(OCOL[i][c], HUBC[c], hk * w);
+      }
+      haloGeo.attributes.aA.array[N] = KID >= 0 ? na * kd * (0.55 + 0.25 * Math.sin(t * 3)) : 0;
+      haloGeo.attributes.aSize.array[N] = 0.42;
+      for (const n of ['aA', 'aSize', 'aCol']) haloGeo.attributes[n].needsUpdate = true;
+      for (const n of ['aA', 'aSize', 'aHub']) nIco.attributes[n].needsUpdate = true;
+      rLines.g[0] = na;
     }
-    cur.hub = hub;
-    haloGeo.attributes.aA.array[N] = KID >= 0 ? na * kd * (0.55 + 0.25 * Math.sin(t * 3)) : 0;
-    haloGeo.attributes.aSize.array[N] = 0.42;
-    for (const n of ['aA', 'aSize', 'aCol']) haloGeo.attributes[n].needsUpdate = true;
-    for (const n of ['aA', 'aSize', 'aHub']) nIco.attributes[n].needsUpdate = true;
-    rLines.g[0] = na;
     cur.barsV = ba; cur.fieldV = fa; cur.ringV = na;
 
-    // the gauges and the dial
-    const off = 1 - map;
-    const gk = [prog(met, 0, 0.45), prog(met, 0.25, 0.7), prog(met, 0.5, 0.95)];
-    gC.uniforms.uK.value = gk[0] * off; gC.uniforms.uVal.value = M.C; gC.uniforms.uFillK.value = gk[0];
-    gH.uniforms.uK.value = gk[1] * off; gH.uniforms.uVal.value = M.H / HMAXG; gH.uniforms.uFillK.value = gk[1];
-    gX.uniforms.uK.value = gk[2] * off; gX.uniforms.uVal.value = M.mdi / 10; gX.uniforms.uFillK.value = gk[2];
-    readout(0, M.C.toFixed(2)); readout(1, M.H.toFixed(2)); readout(2, M.mdi.toFixed(1));
-    RO.m.uniforms.uCK.value.set(gk[0], gk[1], gk[2]); RO.k = off;
+    // the gauges and the dial (they give way with the rest of the one-scan part)
+    const gk0 = prog(met, 0, 0.45), gk1 = prog(met, 0.25, 0.7), gk2 = prog(met, 0.5, 0.95);
+    gMet.visible = met * keep > 0.003;
+    gC.uniforms.uK.value = gk0 * keep; gC.uniforms.uVal.value = M.C; gC.uniforms.uFillK.value = gk0; gC.mesh.visible = gk0 * keep > 0.003;
+    gH.uniforms.uK.value = gk1 * keep; gH.uniforms.uVal.value = M.H / HMAXG; gH.uniforms.uFillK.value = gk1; gH.mesh.visible = gk1 * keep > 0.003;
+    gX.uniforms.uK.value = gk2 * keep; gX.uniforms.uVal.value = M.mdi / 10; gX.uniforms.uFillK.value = gk2; gX.mesh.visible = gk2 * keep > 0.003;
+    if (gMet.visible) { readout(0, M.C.toFixed(2)); readout(1, M.H.toFixed(2)); readout(2, M.mdi.toFixed(1)); }
+    RO.m.uniforms.uCK.value.set(gk0, gk1, gk2); RO.k = keep;
+    ENDS.m.uniforms.uCK.value.set(gk0, gk1, gk2); ENDS.k = keep;
 
     // the people
     const sel = clamp(S.people_group || 0, 0, 4), any = sat(sel), gf = dotMat.uniforms.uGF.value;
     for (let g = 0; g < 4; g++) { const hi = sat(1 - Math.abs(sel - (g + 1))); gf[g] = lerp(1, 0.16 + 1.04 * hi, any); }
     for (let g = 4; g < 8; g++) gf[g] = 1;
     const dim = 1 - 0.6 * Math.max(km, resp);
+    gPop.visible = map > 0.003;
     dotMat.uniforms.uMap.value = map; dotMat.uniforms.uMdi.value = mdi; dotMat.uniforms.uFol.value = fol; dotMat.uniforms.uDim.value = dim;
     trailMat.uniforms.uFol.value = fol; trailMat.uniforms.uK.value = mdi * dim;
-    // this person's dot: from the ring to the map, then onto its profile's row of the strip
-    const pRow = Math.round(cur.prof), gi = GKEY.indexOf(PROF[pRow]);
-    const sp = [SX(M.mdi), ROWY[gi >= 0 ? gi : 3], 0.12];
-    const pa = l3(l3(RC, pm, prog(map, 0.05, 0.6)), sp, prog(mdi, 0.2, 0.9));
-    cp(cur.person, pa);
-    const pal = prog(map, 0.4, 0.7) * (1 - 0.5 * fol) * dim;
-    perGeo.attributes.position.array.set(pa, 0); perGeo.attributes.position.array.set(pa, 3);
-    perGeo.attributes.aCol.array.set([1, 1, 1], 0); perGeo.attributes.aCol.array.set(GCOL[gi >= 0 ? gi : 3], 3);
-    perGeo.attributes.aSize.array[0] = 0.07; perGeo.attributes.aSize.array[1] = 0.05;
-    perGeo.attributes.aA.array[0] = pal; perGeo.attributes.aA.array[1] = pal;
-    for (const n of ['position', 'aCol', 'aA', 'aSize']) perGeo.attributes[n].needsUpdate = true;
-    // frames, summaries, shading
-    const stripA = map * prog(mdi, 0.3, 0.9) * dim;
-    bgPill.a(P_PANEL, prog(map, 0, 0.4) * lerp(1, 0.6, Math.max(km, resp)));
-    bgPill.a(P_SH0, stripA); bgPill.a(P_SH1, stripA); bgPill.a(P_HB, prog(fol, 0, 0.35) * stripA);
-    bgPill.flush();
-    for (let k = 0; k < 4; k++) {
-      const hi = sat(1 - Math.abs(sel - (k + 1))), f = lerp(1, 0.25 + 0.75 * hi, any) * (1 - 0.55 * fol);
-      for (let q = 0; q < 3; q++) pPill.a(3 * k + q, prog(mdi, 0.55 + 0.05 * q, 0.95) * map * dim * f);
-      pPill.a(12 + k, prog(map, 0.6, 1) * (1 - prog(mdi, 0, 0.3)) * lerp(1, 0.3 + 0.7 * hi, any));
+    // this person's dot: from the ring to the map, then onto its profile's row of the strip (between two rows while
+    // the profile blends), a little above the row's middle; it dims with its row when another group is picked
+    const pp = cur.prof, lo = Math.floor(pp), hi = Math.min(3, lo + 1), pf = pp - lo;
+    const ga = Math.max(0, GKEY.indexOf(PROF[lo])), gb = Math.max(0, GKEY.indexOf(PROF[hi]));
+    set3(SP3, SX(M.mdi), lerp(ROWY[ga], ROWY[gb], pf) + 0.05, 0.12);
+    mix3(PA, RC, PM, prog(map, 0.05, 0.6)); mix3(PA, PA, SP3, prog(mdi, 0.2, 0.9));
+    cp(cur.person, PA);
+    cur.pf = Math.min(1, lerp(gf[ga], gf[gb], pf));
+    if (gPop.visible) {
+      const pal = prog(map, 0.4, 0.7) * (1 - 0.5 * fol) * dim * cur.pf;
+      ptA.position.array.set(PA, 0); ptA.position.array.set(PA, 3);
+      for (let c = 0; c < 3; c++) ptA.aCol.array[3 + c] = lerp(GCOL[ga][c], GCOL[gb][c], pf);
+      ptA.aA.array[0] = pal; ptA.aA.array[1] = pal;
+      for (const n of ['position', 'aCol', 'aA']) ptA[n].needsUpdate = true;
+      // frames, summaries, shading
+      const stripA = map * prog(mdi, 0.3, 0.9) * dim;
+      bgPill.a(P_PANEL, prog(map, 0, 0.4) * lerp(1, 0.6, Math.max(km, resp)));
+      bgPill.a(P_SH0, stripA); bgPill.a(P_SH1, stripA); bgPill.a(P_HB, prog(fol, 0, 0.35) * stripA);
+      bgPill.flush();
+      for (let k = 0; k < 4; k++) {
+        const hi = sat(1 - Math.abs(sel - (k + 1))), f = lerp(1, 0.25 + 0.75 * hi, any) * (1 - 0.55 * fol);
+        for (let q = 0; q < 3; q++) pPill.a(3 * k + q, prog(mdi, 0.55 + 0.05 * q, 0.95) * map * dim * f);
+        pPill.a(12 + k, prog(map, 0.6, 1) * (1 - prog(mdi, 0, 0.3)) * lerp(1, 0.3 + 0.7 * hi, any));
+      }
+      pPill.flush();
+      const mapA = prog(map, 0.2, 0.6) * dim;
+      pLines.g[0] = mapA * (1 - prog(mdi, 0, 0.4)); pLines.g[1] = mapA; pLines.g[2] = stripA; pLines.g[3] = stripA;
+      sTex.k = stripA; mTex.k = mapA * (1 - prog(mdi, 0, 0.4));
+      isoSet(prog(mdi, 0.1, 0.7), prog(map, 0.3, 0.8) * lerp(1, 0.3, prog(mdi, 0.3, 0.9)) * dim);
     }
-    pPill.flush();
-    const mapA = prog(map, 0.2, 0.6) * dim;
-    pLines.g[0] = mapA * (1 - prog(mdi, 0, 0.4)); pLines.g[1] = mapA; pLines.g[2] = stripA; pLines.g[3] = stripA;
-    sTex.k = stripA; mTex.k = mapA * (1 - prog(mdi, 0, 0.4));
-    isoSet(prog(mdi, 0.1, 0.7), prog(map, 0.3, 0.8) * lerp(1, 0.3, prog(mdi, 0.3, 0.9)) * dim);
 
     // survival: the curves draw left to right, the bands with them
-    const gaK = ribMat.uniforms.uGA.value, grK = ribMat.uniforms.uGR.value;
-    for (let k = 0; k < 3; k++) { const rv = prog(km, 0.08 + 0.1 * k, 0.75 + 0.1 * k) * 1.02; gaK[k] = prog(km, 0, 0.2); gaK[3 + k] = prog(km, 0, 0.2); grK[k] = rv; grK[3 + k] = rv; }
-    kPill.a(0, prog(km, 0, 0.25)); for (let k = 0; k < 3; k++) kPill.a(1 + k, prog(km, 0.55 + 0.1 * k, 0.85 + 0.1 * k)); kPill.flush();
-    kLines.g[0] = prog(km, 0, 0.3); kTex.k = prog(km, 0.1, 0.4);
     gKM.visible = km > 0.003;
+    if (gKM.visible) {
+      const gaK = ribU.uGA.value, grK = ribU.uGR.value;
+      for (let k = 0; k < 3; k++) { const rv = prog(km, 0.08 + 0.1 * k, 0.75 + 0.1 * k) * 1.02; gaK[k] = prog(km, 0, 0.2); gaK[3 + k] = prog(km, 0, 0.2); grK[k] = rv; grK[3 + k] = rv; }
+      kPill.a(0, prog(km, 0, 0.25)); for (let k = 0; k < 3; k++) kPill.a(1 + k, prog(km, 0.55 + 0.1 * k, 0.85 + 0.1 * k)); kPill.flush();
+      kLines.g[0] = prog(km, 0, 0.3); kTex.k = prog(km, 0.1, 0.4);
+    }
 
     // the immunotherapy test: the two bands, then the AUC bars from the top down
-    aPill.a(0, prog(resp, 0, 0.25));
-    for (let k = 13; k < 18; k++) aPill.a(k, prog(resp, 0.05, 0.3));
-    AUC.forEach((a, r) => {
-      const g = prog(resp, 0.3 + 0.08 * r, 0.55 + 0.08 * r), len = Math.max(0.002, (ax(a.auc) - AX0) * g);
-      aPill.a(1 + r, prog(resp, 0.2, 0.4)); aPill.x(7 + r, AX0 + len / 2, len / 2); aPill.a(7 + r, prog(resp, 0.3 + 0.08 * r, 0.36 + 0.08 * r));
-    });
-    aPill.flush();
-    aLines.g[0] = prog(resp, 0, 0.3); aLines.g[1] = prog(resp, 0.25, 0.5); aTex.k = prog(resp, 0.05, 0.35);
     gAUC.visible = resp > 0.003;
+    if (gAUC.visible) {
+      aPill.a(0, prog(resp, 0, 0.25));
+      for (let k = 13; k < 19; k++) aPill.a(k, prog(resp, 0.05, 0.3));
+      AUC.forEach((a, r) => {
+        const g = prog(resp, 0.3 + 0.08 * r, 0.55 + 0.08 * r), len = Math.max(0.002, (ax(a.auc) - AX0) * g);
+        aPill.a(1 + r, prog(resp, 0.2, 0.4)); aPill.x(7 + r, AX0 + len / 2, len / 2); aPill.a(7 + r, prog(resp, 0.3 + 0.08 * r, 0.36 + 0.08 * r));
+      });
+      aPill.flush();
+      aLines.g[0] = prog(resp, 0, 0.3); aLines.g[1] = prog(resp, 0.25, 0.5); aTex.k = prog(resp, 0.05, 0.35);
+    }
   }
 
   // ---------------------------------------------------------------- views, controls, explore API
   // views (framed for the scene's share of a wide screen, about 1.3 : 1, labels included)
   const cam = {
-    default: [-4, 14, 5.0, 0.1, 0.12, 0.1],       // the whole one-scan part: bars, ring, field and the measures
+    default: [-4, 14, 5.0, 0.36, 0.12, 0.1],      // the whole one-scan part: bars, ring, field and the measures
     one: [-4, 15, 4.0, -0.36, 0.12, 0.1],         // bars, the ring of seven and the field
-    field: [-24, 34, 2.7, 0.05, -0.47, 0.3],      // the ratio columns and the threshold plane
-    metrics: [-20, 8, 3.1, 0.55, 0.3, 0.1],       // the ring and the gauges
+    field: [-23, 30, 3.65, 0.02, -0.1, 0.22],      // the ratio columns and the threshold plane, the bars behind them
+    metrics: [-20, 8, 3.1, 0.65, 0.3, 0.1],       // the ring and the gauges
     map: [0, 5, 4.1, -0.03, 0.24, 0],
     strip: [0, 4, 4.1, -0.03, 0.2, 0],
-    km: [30, 4, 2.75, -2.36, 0.24, 0.5],
+    km: [30, 4, 2.95, -2.36, 0.15, 0.5],          // the survival panel with its table under the chart
     auc: [-30, 4, 2.95, 2.4, 0.2, 0.5],
   };
 
@@ -5302,23 +5400,38 @@ void main() {
     if (pi >= 0) o.people_profile = pi;
     return o;
   }
-  // what a ray points at: an organ (a node, a bar, a header) or a group (its row on the strip, or its cloud on the map)
-  const _inv = new THREE.Matrix4(), _ray = new THREE.Ray(), _pl = new THREE.Plane(), _hit = new THREE.Vector3(), _w = new THREE.Vector3();
+  // what a ray points at: an organ (a node, a bar, a header) or a group (its row on the strip, or its cloud on the map).
+  // An organ comes with the spot it was picked at (`at`, in the set's frame), which its anchor then returns for this
+  // frame and the next, so a hover is marked where it is
+  const _inv = new THREE.Matrix4(), _ray = new THREE.Ray(), _rl = new THREE.Ray(), _pl = new THREE.Plane(), _hit = new THREE.Vector3(), _w = new THREE.Vector3();
   function pick(raycaster) {
     set.group.updateMatrixWorld();
     _ray.copy(raycaster.ray).applyMatrix4(_inv.copy(set.group.matrixWorld).invert());
     const o = _ray.origin, d = _ray.direction;
     let best = null, bt = Infinity;
+    const at = [0, 0, 0];
     const tryPt = (p, rad, res) => {
       const x = p[0] - o.x, y = p[1] - o.y, z = p[2] - o.z, along = x * d.x + y * d.y + z * d.z;
       if (along <= 0) return;
       const off = Math.sqrt(Math.max(0, x * x + y * y + z * z - along * along));
-      if (off < rad && along < bt) { bt = along; best = res; }
+      if (off < rad && along < bt) { bt = along; best = res; cp(at, p); }
     };
-    if (cur.ringV > 0.5) ONE.forEach((id, i) => tryPt(tr(gRing, NODE[i]), 0.075, { organ: id }));
-    if (cur.barsV > 0.5) ONE.forEach((id, i) => { for (let s = 0; s <= 8; s++) tryPt(tr(gBars, [s / 8 * (BX0 + BTRK + 0.02), BY(i), 0]), 0.05, { organ: id }); });
+    if (cur.ringV > 0.5) ONE.forEach((id, i) => tryPt(tr(gRing, NODE[i]), 0.075 * gRing.scale.x, { organ: id }));
+    // the bars: the ray meets the panel's plane; a row is hit anywhere along its name, icon and track
+    if (cur.barsV > 0.5) {
+      _rl.copy(_ray).applyMatrix4(_inv.copy(gBars.matrix).invert());
+      _pl.set(_w.set(0, 0, 1), 0);
+      if (_rl.intersectPlane(_pl, _hit) && _hit.x > BPX[0] && _hit.x < BPX[1]) {
+        const i = Math.round((BY(0) - _hit.y) / 0.1);
+        if (i >= 0 && i < N && Math.abs(_hit.y - BY(i)) < 0.05) {
+          const p = tr(gBars, [_hit.x, _hit.y, 0]), along = (p[0] - o.x) * d.x + (p[1] - o.y) * d.y + (p[2] - o.z) * d.z;
+          if (along > 0 && along < bt) { bt = along; best = { organ: ONE[i] }; cp(at, p); }
+        }
+      }
+    }
     if (cur.fieldV > 0.5) ONE.forEach((id, i) => { tryPt([cellX(0) - 0.13, FY + 0.05, cellZ(i)], 0.055, { organ: id }); tryPt([cellX(i), FY + 0.05, cellZ(N - 1) + 0.13], 0.055, { organ: id }); });
-    if (cur.map > 0.5 && !best) {
+    if (best) { best.at = at; cur.pickId = best.organ; cur.pickF = cur.frame; cp(cur.pickAt, at); return best; }
+    if (cur.map > 0.5) {
       _pl.set(_w.set(0, 0, 1), 0);
       if (_ray.intersectPlane(_pl, _hit)) {
         if (cur.mdi > 0.5) {
@@ -5333,7 +5446,7 @@ void main() {
   }
   const API = {
     measure, organs: ONE.slice(), pick, profiles: PROF.slice(), groups: GKEY.slice(),
-    current: () => ({ u: U.slice(), theta: cur.theta, C: cur.m.C, H: cur.m.H, mdi: cur.m.mdi, links: cur.m.e.reduce((a, r) => a + r.filter(v => v > 0.5).length, 0), hub: cur.hub >= 0 ? ONE[cur.hub] : null }),
+    current: () => ({ u: U.slice(), theta: cur.theta, C: cur.m.C, H: cur.m.H, mdi: cur.m.mdi, links: cur.m.e.reduce((a, r) => a + r.filter(v => v > 0.5).length, 0), hub: cur.hub >= 0 && cur.hubW > 0.5 ? ONE[cur.hub] : null }),
     dots: NDOT, followUp: NFD,
     // the stand-in dots' summaries per group (to check them against the poster's), and the follow-up rings'
     summary: () => {
@@ -5888,7 +6001,7 @@ function buildScene(canvas) {
   Object.assign(GL, { renderer, scene, camera, canvas });
   GL.rig = new THREE.Group(); GL.world = new THREE.Group();
   scene.add(GL.rig); GL.rig.add(GL.world);
-  // lit sets (the computer, the complex, buildings ...) share one sky light and a light from over your shoulder
+  // lit sets (the scanner, the tour's body, the organs' shells ...) share one sky light and a light from over your shoulder
   scene.add(new THREE.HemisphereLight(0xdde8ff, 0x1a2233, 0.85));
   GL.sun = new THREE.DirectionalLight(0xffffff, 0.85);
   scene.add(GL.sun); scene.add(GL.sun.target);
@@ -5935,8 +6048,10 @@ function viewDir(v, out) {
 // factor (NARROW in the story; 1 for most views), taken in full at half as wide as tall
 GL.nf = 1;
 const narrowK = () => (GL.wide || !(GL.nf > 1) ? 1 : 1 + (GL.nf - 1) * clamp((1 - (GL.aspect || 1)) / 0.5, 0, 1));
+// (v[7..9]: the target's shift clear of the side panel, FIT in the story; on a screen without a side panel it goes back)
 function applyCamera(v) {
-  viewDir(v, _vd); _vt.set(v[3], v[4], v[5]);
+  const u = GL.wide ? 0 : 1;
+  viewDir(v, _vd); _vt.set(v[3] - u * (v[7] || 0), v[4] - u * (v[8] || 0), v[5] - u * (v[9] || 0));
   GL.camera.position.copy(_vt).addScaledVector(_vd, v[2] * (GL.fit || 1) * narrowK());
   GL.camera.up.set(0, 1, 0); GL.camera.lookAt(_vt);
 }
@@ -5965,7 +6080,10 @@ function resize() {
   GL.wide = wide; GL.aspect = w / h;
   if (wide) camera.setViewOffset(w, h, -0.14 * w, 0, w, h);
   else camera.setViewOffset(w, h, 0, 0.21 * h, w, h);
-  GL.fit = wide ? Math.max(1, 1.55 / (w / h)) : Math.max(1.15, 1.5 / (w / h) * 0.62);
+  // (on a narrow screen held sideways the panel leaves only a strip above it, about 0.56 h - 122 px tall: the scene
+  // stands back far enough to fit that strip, in full from 1.2 : 1 on; upright screens keep their own framing)
+  const strip = Math.max(0.12, (0.56 * h - 122) / h);
+  GL.fit = wide ? Math.max(1, 1.55 / (w / h)) : Math.max(1.15, 1.5 / (w / h) * 0.62, 0.9 / strip * clamp((w / h - 0.6) / 0.6, 0, 1));
   camera.updateProjectionMatrix();
 }
 // the sun comes from over the viewer's left shoulder; point sizes follow the screen (and the world's scale in a headset)
@@ -6052,14 +6170,19 @@ const view = (k, name) => {
   if (f) for (let i = 0; i < f.length; i++) v[i] += f[i];
   return v;
 };
+// the part of a view's FIT that moves its target clear of the side panel: on a screen without one (a phone, a narrow
+// window) applyCamera takes it back, so the view stays centred there
+const fitShift = (k, name) => { const f = GL.sets[k].cam[name] && FIT[k] && FIT[k][name]; return f ? [f[3] || 0, f[4] || 0, f[5] || 0] : [0, 0, 0]; };
 // views whose parts reach under the side panel or off the right edge on a landscape screen: a little further back,
 // or their target moved, so they fit beside the panel (added to the set's own view, in story and explore mode alike)
-const FIT = { organs: { strength: [0, 0, 0.4, 0.05] },
-  people: { strip: [0, 0, 0.4, -0.35], auc: [6, 0, 0.45, -0.3], km: [0, 0, 0.3, 0, 0.04] } };
+// (measured at 1280 x 760: each view's parts between the panel's right edge and the screen's, above the timeline)
+const FIT = { scan: { vision: [0, 0, 3.3, -0.75] }, body: { default: [0, 0, 0.55] }, organs: { default: [0, 0, 0.55], strength: [0, 0, 0.9, -0.25] },
+  liver: { default: [0, 0, 0.15, -0.22] },
+  people: { default: [0, 0, 1.1, -0.75], one: [0, 0, 0.45, 0, -0.08], field: [0, 0, 0.5, -0.01, -0.05, 0.03], metrics: [0, 0, 0.75, -0.38], map: [0, 0, 1.6, -0.45], strip: [0, 0, 1.3, -0.3], auc: [6, 0, 0.8, -0.3], km: [0, 0, 0.45, -0.18, 0] } };
 // how much further back a view stands on a phone held upright (see narrowK): the wide ones, whose parts reach
 // across the screen (the vision row; the network with its chart; the one-scan scene with its gauges)
-const NARROW = { scan: { vision: 1.32 }, organs: { net: 1.3, strength: 1.45, matrix: 1.15, bars: 1.1 },
-  people: { default: 1.2, one: 1.2, metrics: 1.35, strip: 1.15, map: 1.1, km: 1.1, auc: 1.1 } };
+const NARROW = { scan: { vision: 1.32 }, body: { front: 1.1 }, organs: { net: 1.3, strength: 1.45, matrix: 1.15, bars: 1.1 },
+  people: { default: 1.2, one: 1.2, field: 1.15, metrics: 1.35, strip: 1.15, map: 1.1, km: 1.1, auc: 1.1 } };
 const narrowOf = (k, name) => (NARROW[k] && NARROW[k][name]) || 1;
 // a set's anchor point, in the set's own coordinates
 function anchorOf(k, at) {
@@ -6086,16 +6209,22 @@ const hubsOf = id => { const n = netOf(id); return n && Array.isArray(n.hubs) ? 
 const organName = id => (PD.byId[id] ? PD.byId[id].name : String(id));
 const organLow = id => { const s = organName(id); return /^[A-Z][a-z]/.test(s) ? s.charAt(0).toLowerCase() + s.slice(1) : s; };
 const organCol = id => (PD.byId[id] ? PD.byId[id].col : '#9aa3b5');
-// the networks the organs set can show (organs_which: an index into this list), with their short names
+// the networks the organs set can show (organs_which: an index into this list), with their short names: the eleven of
+// its Network control, then the robustness tests' (the vena cava as the reference, the three doses), which only the
+// Networks tab's rows show
 const NET_IDS = ['full', 'FDG_healthy', 'A_low', 'A_high', 'B_low', 'B_high', 'C_low', 'C_mid', 'C_high', 'HK2', 'GLUT'];
-const NET_SHORT = ['All scans', `FDG, ${((netOf('FDG_healthy') || {}).organs || []).length || 9} organs`, 'BMI low', 'BMI high', 'Tumour low', 'Tumour high', 'CRP low', 'CRP mid', 'CRP high', 'HK2', 'GLUT'];
-const netShort = id => NET_SHORT[NET_IDS.indexOf(id)] || String(id);
+const NET_EXTRA = ['vena', 'dose_standard', 'dose_ultralow', 'dose_virtual'];
+const NET_ALL = NET_IDS.concat(NET_EXTRA);
+const NET_SHORT = ['All scans', `FDG, ${((netOf('FDG_healthy') || {}).organs || []).length} organs`, 'BMI low', 'BMI high', 'Tumour low', 'Tumour high', 'CRP low', 'CRP mid', 'CRP high', 'HK2', 'GLUT',
+  'Vena cava', 'Standard dose', 'Ultra-low dose', 'Virtual low dose'];
+const netShort = id => NET_SHORT[NET_ALL.indexOf(id)] || String(id);
 // Table 2's comparisons whose groups the paper drew as networks (Figures 2A and 3): one network per group, or null.
 // (Figure 4's healthy FDG network uses only the organs GTEx has too, so it belongs with the protein networks, Table 3.)
 function rowNets(r) {
   if (!r) return [];
   const m = r.what === 'BMI' && /healthy/.test(r.cohort) ? ['A_low', 'A_high'] : r.what === 'Tumour load' ? ['B_low', 'B_high']
-    : r.what === 'CRP' && /thirds/.test(r.cohort) ? ['C_low', 'C_mid', 'C_high'] : r.what === 'Blood pool' ? ['full', null] : [];
+    : r.what === 'CRP' && /thirds/.test(r.cohort) ? ['C_low', 'C_mid', 'C_high'] : r.what === 'Blood pool' ? ['full', 'vena']
+    : r.what === 'Dose' ? ['dose_standard', 'dose_ultralow', 'dose_virtual'] : [];
   return r.groups.map((g, i) => m[i] || null);
 }
 const rowOfNet = id => PD.D.table2.findIndex(r => rowNets(r).includes(id));
@@ -6106,11 +6235,11 @@ const cmpOfNet = id => (id === 'full' ? -1 : rowOfNet(id));
 function netTitle(id) {
   const n = netOf(id), ri = rowOfNet(id), r = PD.D.table2[ri];
   if (!n) return '';
-  if (id === 'full') return `All ${fmt(PD.D.cohort.scans)} scans, every organ divided by the aorta (Figure 2A, printed)`;
-  if (r) { const g = r.groups[rowNets(r).indexOf(id)]; return `${r.what}, ${r.cohort.replace(/, split at the median.*$/, '')}: ${g.label} (${g.n} scans; Figure ${n.fig}, read off)`; }
-  if (id === 'FDG_healthy') return `FDG in the ${PD.D.cohort.healthy} healthy people, on the ${(n.organs || []).length} organs GTEx has too (Figure 4, read off)`;
+  if (id === 'full' || id === 'vena') return `All ${fmt(PD.D.cohort.scans)} scans, every organ divided by the ${id === 'vena' ? 'vena cava' : 'aorta'} (Figure 2A, printed)`;
+  if (r) { const g = r.groups[rowNets(r).indexOf(id)]; return `${r.what}, ${r.cohort.replace(/, split at the median.*$/, '')}: ${g.label} (${g.n} ${r.what === 'Dose' ? 'people' : 'scans'}; Figure ${n.fig}, read off, approximate)`; }
+  if (id === 'FDG_healthy') return `FDG in the ${PD.D.cohort.healthy} healthy people, on the ${(n.organs || []).length} organs GTEx has too (Figure 4, read off, approximate)`;
   const t3 = PD.D.table3.find(x => PROT_NET(x) === id);
-  return t3 ? `${t3.name}: from its gene's activity in the tissues of ${fmt(PD.D.cohort.gtex)} people (GTEx; Figure 4, read off)` : n.title || id;
+  return t3 ? `${t3.name}: from its gene's activity in the tissues of ${fmt(PD.D.cohort.gtex)} people (GTEx; Figure 4, read off, approximate)` : n.title || id;
 }
 // Table 3's protein networks drawn in Figure 4
 const PROT_NET = r => (r.kind === 'fdg' ? 'FDG_healthy' : /HK2/.test(r.name) ? 'HK2' : /GLUT/.test(r.name) ? 'GLUT' : null);
@@ -6118,36 +6247,31 @@ const PROT_NET = r => (r.kind === 'fdg' ? 'FDG_healthy' : /HK2/.test(r.name) ? '
 const PROFILES = [['healthy', 'Healthy'], ['cancer', 'Cancer'], ['both', 'Cancer + dyslipidaemia'], ['dys', 'Dyslipidaemia']];
 const GROUP_COL = { cancer: '#d9dde6', both: '#9b5de5', dys: '#ff4fd8', healthy: '#38bdf8' };
 const THIRD_COL = ['#38bdf8', '#a78bfa', '#d9dde6'];
-// The poster's numbers: its groups on the index, its cohort, survival by the index's thirds and the immunotherapy test.
-// Read generously (lists of { name or label or group, n, ... } or objects keyed by group), so a reading that arrives in
-// another shape, or not at all, leaves its sentence out instead of breaking the story.
+// The poster's numbers (PET_DATA.poster): its groups on the index, its cohort, survival by the index's thirds and the
+// immunotherapy test
 const POSTER = (() => {
-  const P = PET_DATA.poster || {};
-  const list = x => (Array.isArray(x) ? x : x && typeof x === 'object' ? Object.entries(x).map(([k, v]) => (v && typeof v === 'object' ? Object.assign({ key: k }, v) : { key: k, n: v })) : []);
-  const name = g => String(g.name || g.label || g.group || g.key || '');
+  const P = PET_DATA.poster || {}, mdi = P.mdi || {}, co = P.cohort || {}, km = P.km || {}, pr = P.prognosis || {};
   const sum = l => l.reduce((a, g) => a + (Number.isFinite(+g.n) ? +g.n : 0), 0);
-  const groups = ((P.mdi && P.mdi.groups) || []).map((g, i) => Object.assign({ i, col: GROUP_COL[g.key] || '#9aa3b5' }, g, { name: name(g) }));
-  const co = P.cohort || {}, base = list(co.baseline || co.base), follow = list(co.followup || co.followUp || co.follow);
-  // survival by the index's thirds: the curves (name, n) with the poster's table (median in months, NR: not reached;
+  const groups = (mdi.groups || []).map((g, i) => Object.assign({ i, col: GROUP_COL[g.key] || '#9aa3b5' }, g));
+  const base = co.baseline || [], follow = co.followup || [];
+  // survival by the index's thirds: the curves (label, n) with the poster's table (median in months, NR: not reached;
   // survival after one year)
-  const km = P.km || {}, table = list(km.table), curves = list(Array.isArray(km) ? km : km.curves || km.groups || km.thirds || km.tertiles);
-  const thirds = (curves.length ? curves : table).map((c, i) => {
-    const g = Object.assign({}, table[i] || {}, c);
-    const mk = ['median', 'medianMonths', 'med'].find(k => k in g), yk = ['oneYear', 'y1', 'surv1', 's1', 'year1'].find(k => k in g);
-    const md = mk ? g[mk] : undefined, y = yk ? parseFloat(g[yk]) : NaN;
-    return { name: name(c).replace(/^\d+(st|nd|rd|th)\s+(tertile|third)\s*/i, ''), n: +g.n || null, col: THIRD_COL[i] || '#9aa3b5',
-      median: md === undefined ? undefined : md === null || /^\s*(nr|n\.r\.|not)/i.test(String(md)) || !Number.isFinite(parseFloat(md)) ? null : parseFloat(md),
-      y1: Number.isFinite(y) ? Math.round(y <= 1 ? y * 100 : y) : null };
+  const thirds = (km.curves || []).map((c, i) => {
+    const r = (km.table || [])[i] || {}, md = parseFloat(r.median), y = parseFloat(r.oneYear);
+    const nm = String(c.label || '').replace(/^\d+(st|nd|rd|th)\s+(tertile|third)\s*/i, '');
+    return { name: nm.charAt(0).toUpperCase() + nm.slice(1), n: +c.n || null, col: THIRD_COL[i] || '#9aa3b5',
+      median: r.median === undefined ? undefined : Number.isFinite(md) ? md : null, y1: Number.isFinite(y) ? Math.round(y) : null };
   });
-  // the immunotherapy test: the AUC of each measure (the network's own: group 'network'), and how many people
-  const pr = P.prognosis || {}, resp = list(pr.groups || pr.response || pr.responders || (pr.strip ? { good: pr.strip.good, poor: pr.strip.bad || pr.strip.poor } : null));
-  const auc = list(pr.auc || pr.aucs || pr.measures).filter(a => Number.isFinite(+a.auc)).map(a => ({ name: name(a), auc: +a.auc,
-    p: a.p === undefined || a.p === null ? '' : /^p/i.test(String(a.p)) ? String(a.p) : `p = ${a.p}`,
-    net: a.group ? /net/i.test(a.group) : a.kind ? /net|metab|index|pet/i.test(a.kind) : /index|clearance|heterogen|network|displacement/i.test(name(a)) }));
-  const ici = follow.find(g => /immun|ici|checkpoint/i.test(name(g)));
-  const respN = +pr.n || sum(resp) || (ici ? +ici.n : 0) || null;
-  return { groups, mdiN: sum(groups), base, follow, baseN: +co.baselineTotal || sum(base), followN: +co.followupTotal || sum(follow), thirds, resp, respN, auc, name,
-    bestNet: auc.filter(a => a.net).sort((a, b) => b.auc - a.auc)[0] || null, bestClin: auc.filter(a => !a.net).sort((a, b) => b.auc - a.auc)[0] || null };
+  // the immunotherapy test: the AUC of each measure (the network's own: group 'network'), its p value, and how many people
+  const st = pr.strip || {};
+  const auc = (pr.auc || []).filter(a => Number.isFinite(+a.auc)).map(a => ({ name: String(a.label || ''), auc: +a.auc,
+    pv: typeof a.p === 'number' ? a.p : NaN, p: typeof a.p === 'number' ? `p = ${a.p}` : '', net: a.group === 'network' }));
+  const respN = +pr.n || sum([st.good, st.bad].filter(Boolean)) || null;
+  const best = l => l.slice().sort((a, b) => b.auc - a.auc)[0] || null;
+  return { groups, mdiN: sum(groups), base, follow, baseN: +co.baselineTotal || sum(base), followN: +co.followupTotal || sum(follow), thirds, respN, auc,
+    bestNet: best(auc.filter(a => a.net)), bestClin: best(auc.filter(a => !a.net)),
+    // none of the measures significant (every p over the story's threshold): said so wherever the AUCs are
+    noneSig: auc.length > 0 && auc.every(a => a.pv > PET_DATA.protocol.p) };
 })();
 
 // ------------------------------------------------------------------ facts --
@@ -6191,19 +6315,22 @@ function buildStory() {
   // values a set starts the story with (keyed at time 0, so a set's resting defaults never leak into the story)
   const start = vals => { for (const n in vals) if (n in DEF) key(n, 0, vals[n]); };
   const oi = id => (PD.byId[id] ? PD.byId[id].i + 1 : 0);   // organs_focus for an organ
-  const wi = id => NET_IDS.indexOf(id);                      // organs_which for a network
+  const wi = id => NET_ALL.indexOf(id);                      // organs_which for a network
   const gD = (r, i) => (r && r.groups[i] ? pct(r.groups[i].density) : '–'), gO = (r, i) => (r && r.groups[i] ? dis(r.groups[i].disorder) : '–');
   const step = (id, at, text) => `<li data-at="${at}" data-col="${organCol(id)}" style="border-left-color:${swCol(organCol(id))}"><b style="color:${inkCol(organCol(id))}">${esc(organName(id))}</b>${text}</li>`;
   const ones = (S1 && S1.organs) || [];
   const thirds = P.thirds.filter(g => g.median !== undefined || g.y1 !== null);
   const med = g => (g.median === null ? 'not reached' : `${g.median} months`);
-  const cap = t => t.charAt(0).toUpperCase() + t.slice(1), pOf = a => (a && a.p ? parseFloat(String(a.p).replace(/^[^0-9.]+/, '')) : NaN);
-  const bar = P.follow.find(g => /bariatric/i.test(P.name(g)));
+  const cap = t => t.charAt(0).toUpperCase() + t.slice(1);
+  const bar = P.follow.find(g => /bariatric/i.test(g.group || ''));
   // the explainer's pair linked only through other organs (the organs set finds it in the stand-in cohort; none: left out)
   const OP = setApi('organs') || {}, ind = (OP.pairs || []).find(p => p.indirect && Number.isFinite(p.r) && Number.isFinite(p.pr)) || null;
   // (said only while the poster's centres are in that order)
   const gc = k => { const g = P.groups.find(x => x.key === k); return g && Number.isFinite(+g.centre) ? +g.centre : NaN; };
   const order = gc('cancer') < gc('healthy') && gc('healthy') < gc('dys');
+  // (and the stand-in profiles' indices, said only while they are in the same order)
+  const pm = k => (prof(k) && Number.isFinite(prof(k).mdi) ? prof(k).mdi : NaN);
+  const porder = pm('cancer') < pm('healthy') && pm('healthy') < pm('dys');
   // ------------------------------------------------------------ panel copy
   // parts of a chapter that take turns in one place, each fading out (data-out) as the next comes: the headset's
   // panel cannot scroll, so no chapter shows more than fits at once
@@ -6215,28 +6342,28 @@ function buildStory() {
       <p data-at="4">From one PET scan to a network of organs: what it says about health, disease and survival.</p>
       <p class="note" data-at="9">After a paper in Med${F.year ? ` (${F.year})` : ''} and a poster from the Division of Nuclear Medicine, Medical University of Vienna, and the LBI for Network Medicine.</p>`,
     scanner: `<h2 data-at="0.6">Seeing sugar</h2>
-      ${turns(`<p data-at="1.2" data-out="10.5">A PET scan starts with a sugar. FDG (fluorodeoxyglucose) is glucose carrying radioactive fluorine-18.</p>
-        <p data-at="5" data-out="10.5">After at least ${F.fasting} hours without food, ${F.dose[0]} to ${F.dose[1]} MBq of FDG go into a vein. For about ${F.rest} minutes the person rests: cells take the sugar up like glucose, and hexokinase traps it inside.</p>`,
-      `<p data-at="11">Then the scan. Around the tunnel sits a ring of detectors.</p>
+      ${turns(`<p data-at="1.2" data-out="12.5">A PET scan starts with a sugar. FDG (fluorodeoxyglucose) is a glucose look-alike carrying radioactive fluorine-18.</p>
+        <p data-at="4.5" data-out="12.5">After at least ${F.fasting} hours without food, it goes into a vein. For about ${F.rest} minutes the person rests: cells take it up like glucose, and an enzyme, hexokinase, traps it inside.</p>`,
+      `<p data-at="13">Then the scan. Around the tunnel sits a ring of detectors.</p>
         <ul class="steps">
-          <li data-at="13"><b>A positron</b>fluorine-18 decays and sends one out; it travels about a millimetre</li>
-          <li data-at="17"><b>Two photons</b>it meets an electron: two gamma photons of 511 keV fly off in opposite directions</li>
-          <li data-at="21"><b>A coincidence</b>detectors opposite each other register both at once; the line between them passes through the sugar</li>
+          <li data-at="14.5"><b>A positron</b>fluorine-18 decays and sends one out (the electron's antimatter twin); it travels about a millimetre</li>
+          <li data-at="17.5"><b>Two photons</b>it meets an electron: two gamma photons of 511 keV fly off in opposite directions</li>
+          <li data-at="21"><b>A coincidence</b>detectors opposite each other register both at once; the line between them passes close to where the sugar is</li>
         </ul>`)}
       <p data-at="27" class="amber">Millions of such lines make the image: a map of where the body takes up sugar.</p>
-      <p class="credits" data-at="31">The uptake is measured as the SUV, the standardised uptake value. Protocol as in the paper.</p>`,
+      <p class="credits" data-at="31">The uptake is measured as the SUV, the standardised uptake value. Protocol as in the paper: ${F.dose[0]} to ${F.dose[1]} MBq (megabecquerels) of FDG.</p>`,
     body: `<h2 data-at="0.6">Where the sugar goes</h2>
       <p data-at="1.2">The tracer arrives with the blood, and within the hour it settles where cells use sugar.</p>
       <p data-at="10">The brain and the heart take up the most. The kidneys and the bladder glow too: FDG is filtered into the urine and not taken back, so it leaves the body that way.</p>
       <p data-at="20">A tumour shows as a hot spot. Usually that is all a scan is read for.</p>
       <p data-at="29" class="amber">Yet the scan holds every organ's metabolism at once.</p>`,
     organs: `<h2 data-at="0.6">Every organ, measured</h2>
-      ${turns(`<p data-at="1.2" data-out="22.5">An AI (${esc(segName(F.seg))}) outlines ${F.organs} organs in every scan, slice by slice, and a doctor checks them.</p>
+      ${turns(`<p data-at="1.2" data-out="22.5">An AI (${esc(segName(F.seg))}) outlines ${F.organs} organs in every scan, in 3D, and a doctor checks them.</p>
         <p data-at="14" data-out="22.5">Each organ's uptake is divided by that of the aorta: the blood pool, the same reference in every scan.</p>`,
       `<ul class="steps">
           ${step('brain', 23, `${esc(PD.byId.brain.measure)}: it lives on sugar`)}
           ${step('liver', 27, esc(PD.byId.liver.measure))}
-          ${step('muscle', 31, esc(PD.byId.muscle.measure))}
+          ${step('muscle', 31, `${esc(PD.byId.muscle.measure)}${/gluteus/i.test(PD.byId.muscle.measure) ? ' (the buttock muscle)' : ''}`)}
         </ul>`)}
       <p data-at="35" class="amber">One scan, one row of numbers.</p>
       <p class="credits" data-at="36">The organs' values shown here are typical uptakes, for illustration.</p>`,
@@ -6245,19 +6372,20 @@ function buildStory() {
         <div class="facts"><div data-at="7" data-out="14.5"><b>${fmt(F.scans)}</b><small>scans</small></div><div data-at="8.5" data-out="14.5"><b>${F.f2n}</b><small>organs in the network</small></div><div data-at="10" data-out="14.5"><b>${fmt(F.scans * F.f2n)}</b><small>values</small></div></div>`,
       F.pair ? `<p data-at="15" data-out="34.5">Which organs rise and fall together across people? Take the ${esc(organLow(F.pair.a))} and the ${esc(organLow(F.pair.b))}.</p>
         <p data-at="19" data-out="34.5">A plain correlation mixes direct links with links that only pass through other organs.</p>
-        <p data-at="22.5" data-out="34.5" class="amber">A partial correlation first takes out what all the other organs explain, then correlates what is left: here r = ${F.pair.r} becomes ${F.pair.pr} (the paper: ${F.pair.paper}).</p>
-        ${ind ? `<p data-at="29" data-out="34.5">The ${esc(organLow(ind.a))} and the ${esc(organLow(ind.b))}: r = ${ind.r}, but ${dis(ind.pr)} once the other organs are taken out.${ind.paper === null ? ' The paper draws no link between them.' : ''}</p>` : ''}` : '',
+        <p data-at="22.5" data-out="34.5" class="amber">A partial correlation first takes out what all the other organs explain, then correlates what is left: here r = ${dis(F.pair.r)} becomes ${dis(F.pair.pr)} (the paper: ${dis(F.pair.paper)}).</p>
+        ${ind ? `<p data-at="29" data-out="34.5">The ${esc(organLow(ind.a))} and the ${esc(organLow(ind.b))}: r = ${dis(ind.r)}, but ${dis(ind.pr)} once the other organs are taken out.${ind.paper === null ? ' The paper draws no link between them.' : ''}</p>` : ''}` : '',
       `<p data-at="35">Keep the significant ones (p &lt; ${F.p}) and draw them: blue where two organs rise together, red where one rises as the other falls.</p>
         <p data-at="39">The network of all ${fmt(F.scans)} scans: ${F.f2n} organs, ${F.links} links${Number.isFinite(+F.density) ? `, a density of ${pct(F.density)} (more on that next)` : ''}.</p>
         <p class="credits" data-at="41">Figure 2A of the paper. The people in the scatter plot are ${fmt(F.scans)} stand-ins with the paper's partial correlations.</p>`)}`,
     health: `<h2 data-at="0.6">From health to disease</h2>
       ${turns(`<p data-at="1.2" data-out="15.5">Split the scans into groups, and give each group its own network.${R.cancer ? ` Healthy people's is dense: ${gD(R.cancer, 0)} of the most possible, against ${gD(R.cancer, 1)} with cancer.` : ''}</p>
-        ${R.bmi ? `<p data-at="7" data-out="15.5">Body weight, in healthy people: ${gD(R.bmi, 0)} below the median BMI, ${gD(R.bmi, 1)} above it. The brain becomes a hub.</p>` : ''}`,
+        ${R.bmi ? `<p data-at="7" data-out="15.5">Body weight, in healthy people: a density of ${gD(R.bmi, 0)} below the median BMI (body mass index), ${gD(R.bmi, 1)} above it.</p>
+        ${hubsOf('A_high').includes('brain') ? '<p data-at="11" data-out="15.5">Above it, the brain becomes a hub.</p>' : ''}` : ''}`,
       `<p data-at="16" data-out="34.5">Two measures. Density: all links' strength together, as a share of the most possible. Disorder: how unevenly that strength is spread, from 0 (even) up (a few hubs).</p>
-        ${R.crp ? `<p data-at="21" data-out="34.5" class="amber">Inflammation (CRP, in thirds): density ${listOf(R.crp.groups.map(g => pct(g.density)))}; disorder ${listOf(R.crp.groups.map(g => dis(g.disorder)))}. As health erodes, muscle and subcutaneous fat take over as hubs.</p>` : ''}
+        ${R.crp ? `<p data-at="21" data-out="34.5" class="amber">Inflammation (CRP, a marker in the blood; in thirds): density ${listOf(R.crp.groups.map(g => pct(g.density)))}; disorder ${listOf(R.crp.groups.map(g => dis(g.disorder)))}. As health erodes, muscle and subcutaneous fat dominate the sparse networks${hubsOf('C_high').includes('muscle') ? '; here muscle becomes a hub' : ''}.</p>` : ''}
         ${R.norepi && R.tumour ? `<p data-at="31" data-out="34.5">Stress (norepinephrine: ${gD(R.norepi, 0)} against ${gD(R.norepi, 1)}) and tumour load (${gD(R.tumour, 0)} against ${gD(R.tumour, 1)}) thin it too.</p>` : ''}`,
-      `${F.robust.every(r => !r.sigD && !r.sigO) ? `<p data-at="35">And it holds: ${F.weeks ? `scans ${F.weeks} weeks apart, ` : ''}an ultra-low dose, another scanner, men and women, the aorta or the vena cava as the reference: no significant difference.</p>` : ''}
-        ${F.hk2 ? `<p data-at="39">Of ${F.tested} protein networks from the tissues of ${fmt(F.gtex)} people, only hexokinase 2, the enzyme that traps FDG, has a network like FDG's (r = ${F.hk2.r}).</p>` : ''}
+      `${F.robust.every(r => !r.sigD && !r.sigO) ? `<p data-at="35">And it holds: ${F.weeks ? `two scans within ${F.weeks} weeks, ` : ''}an ultra-low dose, another scanner, men and women, the aorta or the vena cava as the reference: no significant difference.</p>` : ''}
+        ${F.hk2 ? `<p data-at="39">Of ${F.tested} networks built from genes' activity in the tissues of ${fmt(F.gtex)} people, only that of hexokinase 2, the enzyme that traps FDG, resembles FDG's (r = ${F.hk2.r}).</p>` : ''}
         <p class="credits" data-at="42">Table 2 and Figures 3 and 4 of the paper; networks other than that of all scans read off its figures.${R.cancer ? ` Disorder: ${gO(R.cancer, 0)} healthy, ${gO(R.cancer, 1)} with cancer.` : ''} A hub: strength z-score above ${F.hubZ}.</p>`)}`,
     one: `<h2 data-at="0.6">One scan, one network</h2>
       ${turns(`<p data-at="1.2" data-out="23.5">So far, one network for a whole group. The next step: a network for every scan, from ${word(ones.length)} organs.</p>
@@ -6267,24 +6395,24 @@ function buildStory() {
           <li data-at="24"><b>Clearance</b>how the kidneys handle the tracer</li>
           <li data-at="27"><b>Heterogeneity</b>how unevenly the uptake is spread over the organs</li>
         </ul>
-        ${prof('healthy') && prof('cancer') && prof('dys') ? `<p data-at="30" class="amber">Together they give a metabolic displacement index. It moves with health: ${prof('healthy').mdi.toFixed(1)} for a healthy profile, ${prof('cancer').mdi.toFixed(1)} with cancer, ${prof('dys').mdi.toFixed(1)} with dyslipidaemia (unhealthy blood fats).</p>` : ''}
+        ${porder ? `<p data-at="30" class="amber">Together they give a metabolic displacement index: how far, and which way, a scan's metabolism has moved. Health sits in the middle: ${pm('healthy').toFixed(1)} for a healthy profile; cancer pulls it down (${pm('cancer').toFixed(1)}), dyslipidaemia (unhealthy blood fats) up (${pm('dys').toFixed(1)}).</p>` : ''}
         <p class="note" data-at="34">Illustrative maths: the poster names Clearance, Heterogeneity and the index, but its formulas are not published yet. These are stand-ins, and so are the profiles.</p>`)}`,
     people: `<h2 data-at="0.6">${P.mdiN ? `${fmt(P.mdiN)} people, one index` : 'People on one index'}</h2>
-      ${turns(`<p data-at="1.2" data-out="27.5">Every scan becomes one point, placed by its two measures.${P.groups.length ? ` In the poster's results: ${listOf(P.groups.map(g => `${esc(g.name.toLowerCase())} (${g.n})`))}.` : ''}</p>
-        ${order ? `<p data-at="9" data-out="27.5">On the index, cancer sits low and dyslipidaemia high, with healthy people in between.</p>` : ''}
-        ${P.groups.length ? `<div class="facts">${P.groups.map((g, j) => `<div data-at="${14 + 2.5 * j}" data-out="27.5"><b data-col="${g.col}" style="color:${inkCol(g.col)}">${g.centre}</b><small>${esc(g.name)}</small></div>`).join('')}</div>` : ''}`,
-      `<p data-at="28" data-out="35.5" class="amber">Split by the index into thirds, people with cancer near the healthy range lived longest.</p>
-        ${thirds.length ? `<ul class="steps">${thirds.map((g, j) => `<li data-at="${29.5 + j}" data-out="35.5" data-col="${g.col}" style="border-left-color:${swCol(g.col)}"><b style="color:${inkCol(g.col)}">${esc(cap(g.name))}${g.n ? ` (${g.n})` : ''}</b>median survival ${med(g)}${g.y1 !== null ? `; ${g.y1}% alive after a year` : ''}</li>`).join('')}</ul>` : ''}`,
-      `<p data-at="36">${P.respN ? `In ${P.respN}` : 'In a small group of'} people with lung cancer given immunotherapy before surgery, the index told good from poor responders better than CRP, tumour stage or age${P.bestNet && P.bestClin ? ` (AUC ${P.bestNet.auc} against ${P.bestClin.auc} at best)` : ''}. A first test, in few people${pOf(P.bestNet) > F.p ? ', and not yet significant' : ''}.</p>
-        <p data-at="42">After ${bar ? 'bariatric surgery' : 'surgery'} and immunotherapy, the index moved towards the healthy range.</p>
-        <p class="credits" data-at="45">The poster's results, as group summaries. The dots are stand-ins drawn to match them, not patients.</p>`)}`,
+      ${turns(`<p data-at="1.2" data-out="24">Every scan becomes one point, placed by its two measures.${P.groups.length ? ` In the poster's results: ${listOf(P.groups.map(g => `${esc(g.name.toLowerCase())} (${g.n})`))}.` : ''}</p>
+        ${order ? `<p data-at="9" data-out="24">On the index, cancer sits low and dyslipidaemia high, with healthy people in between.</p>` : ''}
+        ${P.groups.length ? `<div class="facts">${P.groups.map((g, j) => `<div data-at="${14 + 2 * j}" data-out="24"><b data-col="${g.col}" style="color:${inkCol(g.col)}">${Number.isFinite(+g.centre) ? (+g.centre).toFixed(1) : '–'}</b><small>${esc(g.name)}: median</small></div>`).join('')}</div>` : ''}`,
+      `<p data-at="24.5" data-out="36" class="amber">Split by the index into thirds: people with cancer furthest from the healthy range had the shortest survival.</p>
+        ${thirds.length ? `<ul class="steps">${thirds.map((g, j) => `<li data-at="${25.5 + j}" data-out="36" data-col="${g.col}" style="border-left-color:${swCol(g.col)}"><b style="color:${inkCol(g.col)}">${esc(cap(g.name))}${g.n ? ` (${g.n})` : ''}</b>median survival ${med(g)}${g.y1 !== null ? `; ${g.y1}% alive after a year` : ''}</li>`).join('')}</ul>` : ''}`,
+      `<p data-at="36.5">${P.respN ? `In ${P.respN}` : 'In a small group of'} people with lung cancer given immunotherapy before surgery, the index separated good from poor responders more clearly than CRP, tumour stage or age${P.bestNet && P.bestClin ? ` (AUC ${P.bestNet.auc} against ${P.bestClin.auc} at best; 1 is perfect, 0.5 is chance)` : ''}. A first test, in few people${P.bestNet && P.bestNet.pv > F.p ? ', and not yet significant' : ''}.</p>
+        <p data-at="42">After ${bar ? 'weight-loss (bariatric) surgery' : 'surgery'}, and after immunotherapy, the index moved towards the healthy range.</p>
+        <p class="credits" data-at="45">The poster's results, as group summaries. The dots are stand-ins drawn to match them, not patients, and how far the follow-up groups move is illustrative.</p>`)}`,
     vision: `<h2 data-at="0.6">One scan, one system</h2>
-      ${turns(`<p data-at="1.2" data-out="14.5">One routine scan could show how a whole body is doing: what lies ahead, and which medication might help.</p>
-        <p data-at="6" data-out="14.5">Organs like muscle and fat could become targets: the paper names GLP-1 drugs, metformin, statins and SGLT2 inhibitors.</p>
-        <p data-at="10" data-out="14.5" class="amber">A measure of health, not only of disease. It still has to be tested in larger studies.</p>`,
-      `<p data-at="15">Barbara K Geist, Alexander Grentner, Joel Fischer, Josef Yu, Dato Tsomaia, Adna Smajlovic, Stefan Grünert and Marcus Hacker: Division of Nuclear Medicine, Medical University of Vienna, and the LBI for Network Medicine.</p>
-        <p data-at="18"><button class="btn primary" id="btnGoExplore" type="button">Explore the networks</button></p>
-        <p class="credits" data-at="20">Geist et al., The metabolic organ connectome, Med${F.year ? ` (${F.year})` : ''}; poster: Shaping a New Era in Nuclear Medicine. Networks of all ${fmt(F.scans)} scans: printed in the paper; other networks read off its figures. One-scan maths, organ values and the population dots: illustrative stand-ins.</p>`)}`,
+      ${turns(`<p data-at="1.2" data-out="17">One routine scan could show how a whole body is doing: what lies ahead, and which medication might help.</p>
+        <p data-at="6" data-out="17">Organs like muscle and fat could become targets: the paper names drugs for blood sugar, weight and cholesterol (GLP-1 drugs, metformin, statins and SGLT2 inhibitors).</p>
+        <p data-at="12" data-out="17" class="amber">A measure of health, not only of disease. It still has to be tested in larger studies.</p>`,
+      `<p data-at="17.5">Barbara K Geist, Alexander Grentner, Joel Fischer, Josef Yu, Dato Tsomaia, Adna Smajlovic, Stefan Grünert and Marcus Hacker: Division of Nuclear Medicine, Medical University of Vienna, and the LBI for Network Medicine.</p>
+        <p data-at="20"><button class="btn primary" id="btnGoExplore" type="button">Explore the networks</button></p>
+        <p class="credits" data-at="22">Geist et al., The metabolic organ connectome, Med${F.year ? ` (${F.year})` : ''}; poster: Shaping a New Era in Nuclear Medicine. Networks of all ${fmt(F.scans)} scans: printed in the paper; other networks read off its figures. One-scan maths, organ values and the population dots: illustrative stand-ins.</p>`)}`,
   };
 
   const story = $('#story');
@@ -6304,7 +6432,7 @@ function buildStory() {
     const v = view(k, name);
     v[0] += spin || 0;
     if (nudge) for (let i = 0; i < nudge.length; i++) v[i] += nudge[i] || 0;
-    wp.push([t, ...v, ease, frameOf(k), narrowOf(k, name)]);
+    wp.push([t, ...v, ease, frameOf(k), narrowOf(k, name), fitShift(k, name)]);
   };
   start({ scan_vision: 1, scan_bed: 0, scan_pass: 0, scan_cut: 0, scan_events: 0, scan_lines: 0, scan_image: 0,
     body_pet: 0, body_net: 0, body_state: 0, body_blank: 0,
@@ -6314,12 +6442,10 @@ function buildStory() {
   let a, b;
   // Intro: the vision row (scanner, body, network, prognosis, medication), then it draws back into the scanner
   a = C.title.a; b = C.title.b;
-  // (the row is about 6 units wide: from this far, and a little to the right, it fits beside the panel)
-  const rowPad = [0, 0, Math.max(0, 11 - view('scan', 'vision')[2]), -0.45];
   show('scan', 0.2, 2.5, C.body.a + 0.3, C.body.a + 2.3);
   ramp('scan_vision', a + 10, a + 15, 1, 0);
-  cam(a, 'scan', 'vision', -8, null, rowPad);
-  cam(a + 9.5, 'scan', 'vision', 4, 'spin', rowPad);
+  cam(a, 'scan', 'vision', -8);
+  cam(a + 9.5, 'scan', 'vision', 4, 'spin');
   cam(b - 0.5, 'scan', 'default', -12);
   // Seeing sugar: the couch slides in, the skin opens on the ring, events, lines of response, then the image
   a = C.scanner.a; b = C.scanner.b;
@@ -6346,8 +6472,8 @@ function buildStory() {
   ramp('body_pet', a + 1.5, a + 10, 0, 1);
   show('organs', a + 18, a + 20, C.one.a, C.one.a + 2);
   ramp('organs_lesion', a + 19, a + 21, 0, 1);
-  cam(a + 0.5, 'body', 'front', -12, null, [0, 0, 0.4]);
-  cam(a + 9.5, 'body', 'front', 6, 'spin');
+  cam(a + 2.5, 'body', 'front', -12, null, [0, 0, 0.55]);   // (a slow turn from the scanner as it fades)
+  cam(a + 9.5, 'body', 'front', 6, 'spin', [0, 0, 0.55]);
   cam(a + 12, 'body', 'front', 10, null, [0, 0, -1.1, 0, 0.3, 0]);
   cam(a + 18, 'body', 'front', 18, 'spin', [0, 0, -1.1, 0, 0.3, 0]);
   cam(a + 21, 'organs', 'lesion');
@@ -6385,7 +6511,7 @@ function buildStory() {
   ramp('organs_net', a + 35, a + 43, 0, 1);
   ramp('organs_rows', a + 34, a + 36.5, 1, 0); ramp('organs_suv', a + 34, a + 36.5, 1, 0);
   // (the slab reaches left of the view's target: nudged clear of the panel)
-  cam(a + 1, 'organs', 'matrix', 0, null, [0, 0, 0.35, -0.25]);
+  cam(a + 3.5, 'organs', 'matrix', 0, null, [0, 0, 0.35, -0.25]);
   cam(a + 13, 'organs', 'matrix', 10, 'spin', [0, 0, 0.35, -0.25]);
   if (F.pair) { cam(a + 16, 'organs', 'scatter'); cam(a + 34, 'organs', 'scatter', 5, 'spin'); }
   cam(a + 37, 'organs', 'net');
@@ -6404,7 +6530,7 @@ function buildStory() {
     jump('organs_mix', t, 1, 0); key('organs_mix', t + 2, 1);
     w = n;
   };
-  goNet('A_low', a + 7); goNet('A_high', a + 12);
+  goNet('A_low', a + 7); goNet('A_high', a + 10);
   ramp('organs_strength', a + 16, a + 19, 0, 1);
   ramp('organs_strength', a + 35, a + 37, 1, 0);   // (robustness and hexokinase 2: the network alone)
   goNet('C_low', a + 21); goNet('C_mid', a + 25); goNet('C_high', a + 29);
@@ -6422,10 +6548,11 @@ function buildStory() {
   ramp('people_ratio', a + 7, a + 11, 0, 1);
   ramp('people_thresh', a + 12, a + 15, 0, 1);
   ramp('people_one', a + 17, a + 22, 0, 1);
+  ramp('people_bars', a + 18, a + 20.5, 1, 0);   // (as the network forms: the bars move aside, under the panel)
   ramp('people_metrics', a + 24, a + 28, 0, 1);
   key('people_profile', a + 31, 0); key('people_profile', a + 33, 1); key('people_profile', a + 35, 1); key('people_profile', a + 38, 3);
   // (the bars first: they stand above the field, about 1.2 wide, before the network pushes them aside)
-  const barsV = [-4, -9, -1.4, 0.36, 0.28, -0.1];
+  const barsV = [-4, -9, -1.85, 0.36, 0.36, -0.1];   // (on top of the view's own FIT)
   cam(a + 1, 'people', 'one', -10, null, barsV);
   cam(a + 6.5, 'people', 'one', 0, 'spin', barsV);
   cam(a + 10, 'people', 'field');
@@ -6436,25 +6563,25 @@ function buildStory() {
   // People: the population by its two measures, the index strip, the groups in turn, survival, immunotherapy, follow-up
   a = C.people.a; b = C.people.b;
   ramp('people_map', a + 1, a + 6, 0, 1);
-  for (const n of ['people_bars', 'people_ratio', 'people_thresh', 'people_one', 'people_metrics']) ramp(n, a + 2, a + 6, 1, 0);
+  for (const n of ['people_ratio', 'people_thresh', 'people_one', 'people_metrics']) ramp(n, a + 2, a + 6, 1, 0);
   ramp('people_mdi', a + 9, a + 14, 0, 1);
   // each group glows in turn as its number appears in the panel
-  P.groups.slice(0, 4).reduce((g0, g, j) => { jump('people_group', a + 14 + 2.5 * j, g0, j + 1); return j + 1; }, 0);
-  if (P.groups.length) jump('people_group', a + 25, Math.min(4, P.groups.length), 0);
-  ramp('people_km', a + 28, a + 32, 0, 1);
-  ramp('people_km', a + 35, a + 37, 1, 0);
-  ramp('people_response', a + 36, a + 40, 0, 1);
+  P.groups.slice(0, 4).reduce((g0, g, j) => { jump('people_group', a + 14 + 2 * j, g0, j + 1); return j + 1; }, 0);
+  if (P.groups.length) jump('people_group', a + 22.5, Math.min(4, P.groups.length), 0);
+  ramp('people_km', a + 24, a + 28, 0, 1);
+  ramp('people_km', a + 33.5, a + 35.5, 1, 0);
+  ramp('people_response', a + 35, a + 39, 0, 1);
   ramp('people_response', a + 41, a + 43, 1, 0);
   ramp('people_follow', a + 42, a + 46, 0, 1);
   cam(a + 2, 'people', 'map');
   cam(a + 8, 'people', 'map', 8, 'spin');
   cam(a + 10.5, 'people', 'strip');
-  cam(a + 26, 'people', 'strip', 5, 'spin');
-  cam(a + 29, 'people', 'km');
-  cam(a + 35, 'people', 'km', 4, 'spin');
-  cam(a + 37, 'people', 'auc');
-  cam(a + 41, 'people', 'auc', 4, 'spin');
-  cam(a + 43, 'people', 'strip');
+  cam(a + 23, 'people', 'strip', 5, 'spin');
+  cam(a + 26, 'people', 'km');
+  cam(a + 33.5, 'people', 'km', 4, 'spin');
+  cam(a + 37.5, 'people', 'auc');   // (4 s from one board to the other: no whip pan)
+  cam(a + 40.5, 'people', 'auc', 4, 'spin');
+  cam(a + 44, 'people', 'strip');
   cam(b - 0.5, 'people', 'strip', 6, 'spin');
   // One scan, one system: the vision row again
   a = C.vision.a; b = C.vision.b;
@@ -6464,8 +6591,8 @@ function buildStory() {
   jump('scan_pass', a, 0.6, 0);
   jump('scan_events', a, 0.4, 0);
   ramp('scan_vision', a + 1, a + 9, 0, 1);
-  cam(a + 1.5, 'scan', 'vision', -10, null, rowPad);
-  cam(b, 'scan', 'vision', 6, 'spin', rowPad);
+  cam(a + 1.5, 'scan', 'vision', -10);
+  cam(b, 'scan', 'vision', 6, 'spin');
   for (const n in TR) TR[n].sort((x, y) => x[0] - y[0]);
   buildCamera(wp);
 
@@ -6480,15 +6607,17 @@ function buildStory() {
   label('body', at('body', 'bladder'), '<b>Bladder</b>', a + 14.5, a + 18, 'amb');
   label('organs', 'lesion', '<b>A tumour</b>a hot spot', a + 21, a + 30, 'amb');
 }
-// camera waypoints: [t, az, el, dist, tx, ty, tz, ease, set, narrow factor]; 'spin' segments turn at a steady pace.
+// camera waypoints: [t, az, el, dist, tx, ty, tz, ease, set, narrow factor, FIT's target shift]; 'spin' segments turn at
+// a steady pace.
 // When the story hands over from one set to another, the new set is turned about its
 // vertical axis so that its first view starts where the camera already is: a crossfade
 // never swings the camera round. The set keeps that turn while it is on show (setYaw).
 function buildCamera(wp) {
   wp.sort((x, y) => x[0] - y[0]);
   const turn = (w, deg) => {
-    const r = deg * D2R, x = w[4], z = w[6];
+    const r = deg * D2R, x = w[4], z = w[6], f = w[10], fx = f[0], fz = f[2];
     w[1] += deg; w[4] = x * Math.cos(r) + z * Math.sin(r); w[6] = -x * Math.sin(r) + z * Math.cos(r);
+    f[0] = fx * Math.cos(r) + fz * Math.sin(r); f[2] = -fx * Math.sin(r) + fz * Math.cos(r);   // (the shift turns with it)
   };
   ST.yaw = [];
   let cur = null, prevAz = null;
@@ -6507,7 +6636,7 @@ function buildCamera(wp) {
     let az = w[1];
     if (prev !== null) az += 360 * Math.round((prev - az) / 360);
     prev = az;
-    return [w[0], az, w[2], w[3], w[4], w[5], w[6], w[7], w[9] || 1];
+    return [w[0], az, w[2], w[3], w[4], w[5], w[6], w[7], w[9] || 1, w[10]];
   });
 }
 // the turn a set has at story time t: that of its latest stay on show (it starts fading in a little before its first view)
@@ -6530,15 +6659,16 @@ function spinEase(t, D) {
   if (t > D - r) return 1 - v * (D - t) * (D - t) / (2 * r);
   return v * (t - r / 2);
 }
-// the story's view at time t: [az, el, dist, tx, ty, tz, narrow factor]
+// the story's view at time t: [az, el, dist, tx, ty, tz, narrow factor, and FIT's target shift x, y, z]
 function storyCam(t) {
-  const wp = ST.wp, end = w => [w[1], w[2], w[3], w[4], w[5], w[6], w[8]];
+  const wp = ST.wp, end = w => [w[1], w[2], w[3], w[4], w[5], w[6], w[8], ...w[9]];
   if (t <= wp[0][0]) return end(wp[0]);
   for (let i = 1; i < wp.length; i++) {
     if (t <= wp[i][0]) {
-      const p = wp[i - 1], q = wp[i], x = q[0] > p[0] ? (q[7] === 'spin' ? spinEase : smoothSeg)(t - p[0], q[0] - p[0]) : 1;
+      const p = wp[i - 1], q = wp[i], x = q[0] > p[0] ? (q[7] === 'spin' ? spinEase : smoothSeg)(t - p[0], q[0] - p[0]) : 1, f = p[9], g = q[9];
       return [p[1] + (q[1] - p[1]) * x, p[2] + (q[2] - p[2]) * x, Math.exp(Math.log(p[3]) + (Math.log(q[3]) - Math.log(p[3])) * x),
-        p[4] + (q[4] - p[4]) * x, p[5] + (q[5] - p[5]) * x, p[6] + (q[6] - p[6]) * x, p[8] + (q[8] - p[8]) * x];
+        p[4] + (q[4] - p[4]) * x, p[5] + (q[5] - p[5]) * x, p[6] + (q[6] - p[6]) * x, p[8] + (q[8] - p[8]) * x,
+        f[0] + (g[0] - f[0]) * x, f[1] + (g[1] - f[1]) * x, f[2] + (g[2] - f[2]) * x];
     }
   }
   return end(wp[wp.length - 1]);
@@ -6695,7 +6825,7 @@ function updateTimeline(t, playing) {
 const SCENES = [
   ['scan', 'Scanner', 'A PET/CT scanner, cut open: the ring of detectors, the events (a positron, two gamma photons, a line of response) and the image they build. Life size stands it in front of you.'],
   ['body', 'Body', 'A whole-body PET scan: the tracer arriving with the blood, settling where cells use sugar and leaving in the urine (the PET body of the tour).'],
-  ['organs', 'Organs', `The paper's organs in the scan: their outlines, their uptakes, the matrix of ${fmt(FACTS.scans)} scans, a partial correlation, the networks and how their strength is spread.`],
+  ['organs', 'Organs', `The paper's organs in the scan: their outlines, their uptakes, the matrix of ${fmt(FACTS.scans)} scans (stand-in values), a partial correlation, the networks and how their strength is spread.`],
   ['people', 'One scan and people', 'The poster\'s next step: one network per scan, its two measures and the index; then the people on it, survival and the immunotherapy test. Illustrative maths; the dots are stand-ins.'],
   ['liver', 'Liver', 'An organ is a network too: an illustrative liver in a few thousand patches, linked where their uptakes differ by more than a threshold; the best connected glow.'],
 ];
@@ -6704,7 +6834,7 @@ const TABS = [['networks', 'Networks'], ['organs', 'Organs'], ['one', 'One scan'
 const HIDE_CTL = { body: ['view', 'state'] };
 const ctlsOf = k => (GL.sets[k].controls || []).filter(c => !(HIDE_CTL[k] || []).includes(c.key));
 const S1 = PET_DATA.single, ONE_N = S1.organs.length;
-const X = { tab: 'networks', scene: 'organs', ctl: {}, t0: 0, turn: 'on', cmp: -1, net: 'full', organ: null, profile: 'healthy', u: null, theta: S1.theta, group: 0, life: false };
+const X = { tab: 'networks', scene: 'organs', ctl: {}, t0: 0, turn: 'on', cmp: -1, netX: null, organ: null, u: null, theta: S1.theta, group: 0, life: false };
 const XS = {};
 // params that pick something by number jump to their new value instead of easing through the ones in between; the
 // organs' network and its crossfade (organs_prev to organs_which by organs_mix) and the explainer's pair change smoothly
@@ -6726,17 +6856,11 @@ function camFor(k, v) {
   return null;
 }
 const viewCam = k => { const c = ctlOf(k, 'view'); return c ? camFor(k, ctlValue(k, c)) : null; };
-// the organs set's Network control and the people set's Profile control (found by key, or by their number of options)
-const netCtl = () => ctlOf('organs', 'net') || ctlOf('organs', 'network') || ctlOf('organs', 'which') || ctlsOf('organs').find(c => c.key !== 'view' && c.options.length === NET_IDS.length) || null;
-const profCtl = () => ctlOf('people', 'profile') || ctlsOf('people').find(c => c.key !== 'view' && c.options.length === PROFILES.length) || null;
-// option <-> network id, option <-> profile key: by value when the set uses the ids, else by position
-const netOfOpt = (c, v) => (NET_IDS.includes(v) ? v : NET_IDS[c.options.findIndex(o => o[0] === v)] || null);
-const optOfNet = (c, id) => c.options.find(o => o[0] === id) || c.options[NET_IDS.indexOf(id)] || null;
-const profOfOpt = (c, v) => (PROFILES.some(p => p[0] === v) ? v : (PROFILES[c.options.findIndex(o => o[0] === v)] || PROFILES[0])[0]);
-const optOfProf = (c, p) => c.options.find(o => o[0] === p) || c.options[PROFILES.findIndex(x => x[0] === p)] || null;
-// the network and the profile on show: the controls hold them (so the Scenes tab and the panes agree)
-const curNet = () => { const c = netCtl(); return c ? netOfOpt(c, ctlValue('organs', c)) : X.net; };
-const curProfile = () => { const c = profCtl(); return c ? profOfOpt(c, ctlValue('people', c)) : X.profile; };
+// the network and the profile on show: the organs set's Network control and the people set's Profile control hold them
+// (their options are the ids), so the Scenes tab and the panes agree; a robustness test's network, which that control
+// does not offer, is X.netX
+const curNet = () => X.netX || ctlValue('organs', ctlOf('organs', 'network'));
+const curProfile = () => ctlValue('people', ctlOf('people', 'profile'));
 // the people set's views: the one-scan network (and its ratios) or the population
 const viewIs = (k, re) => { const c = ctlOf(k, 'view'); if (!c) return false; const v = ctlValue(k, c), o = c.options.find(x => x[0] === v); return re.test(v) || (o && re.test(o[1])); };
 const oneView = () => viewIs('people', /one|ratio|field/i);
@@ -6748,21 +6872,9 @@ const round2 = v => Math.round(v * 100) / 100;
 const profU = p => { const q = S1.profiles[p] || S1.profiles.healthy; return q.u.slice(); };
 const curU = () => X.u || profU(curProfile());
 
-// the one-scan network's maths (the people set's own when it has it; the same stand-in formulas otherwise):
-// link i -> j = sigmoid((ln(u_i / u_j) - ln theta) / soft); Clearance = mean of the kidneys' outgoing links;
-// Heterogeneity = Gini coefficient of the strengths; index = m + a C + b H, between 0 and 10
-function measureOne(u, theta) {
-  const A = setApi('people');
-  if (A && A.measure) { try { const r = A.measure(u, theta); if (r && Number.isFinite(r.C) && Number.isFinite(r.H)) return r; } catch (e) { /* the engine's own copy below */ } }
-  const N = u.length, lt = Math.log(theta), e = u.map(() => new Array(N).fill(0)), s = new Array(N).fill(0);
-  for (let i = 0; i < N; i++) for (let j = 0; j < N; j++) if (i !== j) { e[i][j] = 1 / (1 + Math.exp(-(Math.log(u[i] / u[j]) - lt) / S1.soft)); s[i] += e[i][j]; s[j] += e[i][j]; }
-  const k = S1.organs.indexOf('kidneys'), C = k < 0 ? 0 : e[k].reduce((a, v, j) => a + (j === k ? 0 : v), 0) / (N - 1);
-  const m = s.reduce((a, v) => a + v, 0) / N;
-  let g = 0;
-  for (const a of s) for (const b of s) g += Math.abs(a - b);
-  const H = m > 0 ? g / (2 * N * N * m) : 0;
-  return { e, s, C, H, mdi: clamp(S1.proj.m + S1.proj.a * C + S1.proj.b * H, 0, 10) };
-}
+// the one-scan network's maths, the people set's own (link i -> j = sigmoid((ln(u_i / u_j) - ln theta) / soft);
+// Clearance = mean of the kidneys' outgoing links; Heterogeneity = Gini coefficient of the strengths; index = m + a C + b H)
+const measureOne = (u, theta) => setApi('people').measure(u, theta);
 const linksOf = r => r.e.reduce((a, row) => a + row.filter(v => v > 0.5).length, 0);
 
 // what the chosen scene and its controls ask for: that set fully in, every other set out; then what the panes pick
@@ -6773,11 +6885,10 @@ function exploreTargets(now = performance.now()) {
   tg[k + '_a'] = 1;
   const c = { t: (now - X.t0) / 1000 };
   for (const ct of s.controls || []) c[ct.key] = ctlValue(k, ct);
+  if (k === 'organs') c.network = curNet();   // (a robustness test's network too: the set crossfades to it from the one before)
   if (s.explore) Object.assign(tg, s.explore(c));
   tg.body_net = 0; tg.body_state = 0;   // never the tour's own network or disease scan
   if (k === 'organs') {
-    const w = NET_IDS.indexOf(curNet());
-    if (w >= 0) tg.organs_which = w;
     tg.organs_focus = X.organ && PD.byId[X.organ] ? PD.byId[X.organ].i + 1 : 0;
     // the body dims under the network, the matrix and the scatter plot
     if ((tg.organs_net || 0) > 0.5 || (tg.organs_rows || 0) > 0.5 || (tg.organs_pair || 0) > 0.5) tg.body_a = 0.55;
@@ -6809,6 +6920,7 @@ function openScene(k, fly = true) {
   if (!GL.sets[k]) return;
   const same = X.scene === k;
   X.scene = k; X.t0 = performance.now();
+  if (X.life && k !== 'scan') setLife(false);   // (life size is the scanner's)
   if (fly && !same) flyTo(view(k, X.life && k === 'scan' ? 'life' : viewCam(k) || 'default'));
   renderScenes();
   updateExtraLabels();
@@ -6818,7 +6930,8 @@ function setCtl(k, key, v) {
   if (!c || !c.options.some(o => o[0] === v)) return;
   (X.ctl[k] = X.ctl[k] || {})[key] = v;
   X.t0 = performance.now();
-  if (c === profCtl()) X.u = null;   // a profile picked: its own uptakes
+  if (k === 'people' && key === 'profile') X.u = null;   // a profile picked: its own uptakes
+  if (k === 'organs' && key === 'network') X.netX = null;   // a network of the control's own
   // a view has its own best camera
   if (key === 'view' && k === X.scene && !(X.life && k === 'scan')) { const n = camFor(k, v); flyTo(view(k, n || 'default')); }
   renderAll();
@@ -6845,19 +6958,18 @@ function flyNear(p, d) { if (p && !(X.life && X.scene === 'scan')) flyTo([orbit.
 // a comparison of Table 2 (-1 none): its first network, when the paper drew one
 function selectCmp(i, ui = true) {
   X.cmp = i;
-  if (ui && i >= 0) { const id = rowNets(PD.D.table2[i]).find(n => n && NET_IDS.includes(n)); if (id) showNet(id); }
+  if (ui && i >= 0) { const id = rowNets(PD.D.table2[i]).find(n => n && NET_ALL.includes(n)); if (id) showNet(id); }
   renderNets();
 }
-// the network on show in the organs set
+// the network on show in the organs set: one of its Network control's, or a robustness test's (X.netX)
 function setNet(id) {
-  if (!NET_IDS.includes(id)) return;
-  const c = netCtl();
-  if (c) { const o = optOfNet(c, id); if (o) (X.ctl.organs = X.ctl.organs || {})[c.key] = o[0]; } else X.net = id;
+  if (!NET_ALL.includes(id)) return;
+  if (NET_IDS.includes(id)) { (X.ctl.organs = X.ctl.organs || {}).network = id; X.netX = null; } else X.netX = id;
   X.t0 = performance.now();
   renderNets(); renderOrgans(); renderScenes();
 }
 // a network picked by hand (its chip, a link): the comparison it belongs to comes with it
-function pickNet(id) { if (!NET_IDS.includes(id)) return; X.cmp = cmpOfNet(id); showNet(id); }
+function pickNet(id) { if (!NET_ALL.includes(id)) return; X.cmp = cmpOfNet(id); showNet(id); }
 function showNet(id) {
   setNet(id);
   if (X.scene !== 'organs') openScene('organs');
@@ -6873,8 +6985,7 @@ function selectOrgan(id, ui = true) {
 // a profile of the one-scan network (its uptakes; custom ones are dropped)
 function selectProfile(p, ui = true) {
   if (!PROFILES.some(x => x[0] === p)) return;
-  const c = profCtl();
-  if (c) { const o = optOfProf(c, p); if (o) (X.ctl.people = X.ctl.people || {})[c.key] = o[0]; } else X.profile = p;
+  (X.ctl.people = X.ctl.people || {}).profile = p;
   X.u = null;
   if (ui) showOne();
   renderOne(); renderScenes();
@@ -6889,7 +7000,7 @@ function setU(i, v) { const u = curU(); u[i] = v; setUs(u); }
 function setTheta(v) { X.theta = round2(clamp(+v, 1.1, 3)); syncOne(); }
 // a group of the poster's population (0 none, 1..4): it glows, the others dim
 function selectGroup(g, ui = true) {
-  X.group = clamp(g | 0, 0, 4);
+  X.group = clamp(g | 0, 0, POSTER.groups.length);
   if (ui && X.group) { if (X.scene !== 'people') openScene('people'); if (oneView()) { const v = optKey('people', 'view', /index|strip/i) || optKey('people', 'view', /people|map/i); if (v) setCtl('people', 'view', v); } }
   renderPeople();
 }
@@ -6900,6 +7011,7 @@ function setLife(on) {
   X.life = on;
   if (XR.on) xrRoom(on);
   if (on && X.scene !== 'scan') openScene('scan', false);
+  if (on) showTab('scenes');   // (the Scenes tab holds the scanner's controls and the Life size button)
   if (X.scene === 'scan') flyTo(view('scan', on ? 'life' : viewCam('scan') || 'default'));
   document.querySelectorAll('[data-ctl="life"] button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.v === (on ? 'on' : 'off'))));
   renderScenes();
@@ -6936,7 +7048,7 @@ function collabApply(v) {
   if ((v.cmp === -1 || int(v.cmp, 0, PD.D.table2.length)) && v.cmp !== X.cmp) selectCmp(v.cmp, false);
   if ((v.organ === null || (typeof v.organ === 'string' && PD.byId[v.organ])) && v.organ !== X.organ) selectOrgan(v.organ, false);
   if (Number.isFinite(v.theta) && v.theta !== X.theta) setTheta(v.theta);
-  if (int(v.group, 0, 5) && v.group !== X.group) selectGroup(v.group, false);
+  if (int(v.group, 0, POSTER.groups.length + 1) && v.group !== X.group) selectGroup(v.group, false);
   // the scene and its controls; a view flies to its own camera as it does here
   if (SCENES.some(s => s[0] === v.scene) && v.scene !== X.scene) openScene(v.scene);
   for (const [k] of SCENES) for (const c of ctlsOf(k)) {
@@ -6946,7 +7058,7 @@ function collabApply(v) {
   }
   // then the network and the profile (also held by controls: should the two ever disagree, these win) and the custom
   // uptakes (a profile arriving drops them, as it does here: the room's own come back after it)
-  if (NET_IDS.includes(v.net) && v.net !== curNet()) setNet(v.net);
+  if (NET_ALL.includes(v.net) && v.net !== curNet()) setNet(v.net);
   if (PROFILES.some(p => p[0] === v.profile) && v.profile !== curProfile()) selectProfile(v.profile, false);
   if ((v.u === null || (Array.isArray(v.u) && v.u.length === ONE_N && v.u.every(Number.isFinite))) && JSON.stringify(v.u) !== JSON.stringify(X.u)) setUs(v.u);
   renderAll();
@@ -6990,7 +7102,7 @@ function strengths(id) {
   return Object.entries(s).filter(([k]) => PD.byId[k]).sort((a, b) => b[1] - a[1]);
 }
 const sigWord = (sig, p) => `${esc(p)}${sig ? ' (significant)' : ' (no significant difference)'}`;
-const rowName = r => `${r.what} · ${r.cohort.replace(/, split at the median.*$/, '').replace(/^full cohort$/, 'all scans')}`;
+const rowName = r => `${r.what} · ${r.cohort.replace(/, split at the median.*$/, '').replace(/, normalised to$/, '').replace(/^full cohort$/, 'all scans')}`;
 function buildExplore() {
   $('#explore').innerHTML = `
     <div class="tabs" role="tablist">${TABS.map(([k, n]) => `<button role="tab" type="button" data-tab="${k}" aria-selected="${k === X.tab}">${n}</button>`).join('')}</div>
@@ -7060,7 +7172,7 @@ function renderNets() {
   if (r) {
     const nets = rowNets(r);
     h += `<h3>${esc(r.what)}</h3><p class="sub">${esc(r.cohort)}</p>
-      <dl class="stats">${r.groups.map((g, i) => `<dt>${esc(g.label)}</dt><dd>${pct(g.density)}<small>density · disorder ${dis(g.disorder)} · ${g.n} scans${nets[i] && NET_IDS.includes(nets[i]) ? ` · <button type="button" data-act="cnet" data-v="${nets[i]}" style="border:0;background:none;padding:0;font:inherit;color:var(--cyan);text-decoration:underline;cursor:pointer">show its network</button>` : ''}</small></dd>`).join('')}</dl>
+      <dl class="stats">${r.groups.map((g, i) => `<dt>${esc(g.label)}</dt><dd>${pct(g.density)}<small>density · disorder ${dis(g.disorder)} · ${g.n} scans${nets[i] && NET_ALL.includes(nets[i]) ? ` · <button type="button" data-act="cnet" data-v="${nets[i]}" style="border:0;background:none;padding:0;font:inherit;color:var(--cyan);text-decoration:underline;cursor:pointer">${nets[i] === id && X.scene === 'organs' ? 'on show' : 'show its network'}</button>` : ''}</small></dd>`).join('')}</dl>
       <p class="sub">Density: ${sigWord(r.sigD, r.pD)}. Disorder: ${sigWord(r.sigO, r.pO)}.</p>`;
   }
   h += `<p class="grp-h">Networks drawn in the paper</p><div class="chips">${NET_IDS.map((n, i) => chip(`data-act="net" data-v="${n}"`, esc(NET_SHORT[i]) + (hasNet(n) ? '' : ' <small>(not read yet)</small>'), n === id && X.scene === 'organs')).join('')}</div>
@@ -7071,7 +7183,7 @@ function renderNets() {
     h += `<p class="grp-h">Strength of each organ: the sum of its links' weights</p><div class="bars">${st.map(([o, v]) => `<div class="bar${(ni.hubs || []).includes(o) ? ' hl' : ''}"><span class="v">${v.toFixed(1)}</span><div class="fill" style="height:${(100 * v / mx).toFixed(0)}%;background:${organCol(o)}${(ni.hubs || []).includes(o) ? ';box-shadow:0 0 0 2px #ffb020' : ''}"></div><span class="k" title="${esc(organName(o))}">${iconImg(o, 18).replace('margin-right:6px', 'margin:2px 0 0')}</span></div>`).join('')}</div>`;
   }
   h += `<p class="grp-h">Protein networks (Table 3: tissues of ${fmt(FACTS.gtex)} people)</p>
-    <dl class="stats">${PD.D.table3.filter(x => x.kind !== 'fdg').map(x => `<dt>${esc(x.name.replace(/ \(.*\)$/, ''))}</dt><dd>${pct(x.density)}<small>${x.r !== null ? `r = ${x.r} with FDG's · ` : ''}${esc(x.similar)}</small></dd>`).join('')}</dl>
+    <dl class="stats">${PD.D.table3.filter(x => x.kind !== 'fdg').map(x => `<dt>${esc(x.name.replace(/ \(.*\)$/, ''))}</dt><dd>${pct(x.density)}<small>${x.r !== null ? `r = ${x.r} with FDG's network · ` : ''}${esc(x.similar)}</small></dd>`).join('')}</dl>
     <div class="chips">${PD.D.table3.filter(PROT_NET).map(x => chip(`data-act="net" data-v="${PROT_NET(x)}"`, `${esc(netShort(PROT_NET(x)))} network`, PROT_NET(x) === id && X.scene === 'organs')).join('')}</div>`;
   pane.innerHTML = h;
 }
@@ -7083,27 +7195,29 @@ function renderOrgans() {
     <div class="chips">${PD.D.organs.map(o => chip(`data-act="organ" data-v="${o.id}"`, iconImg(o.id) + esc(o.name), id === o.id)).join('')}</div>`;
   if (O) {
     const inF2 = PD.D.f2.organs.includes(id), e = edgesOf('full').filter(x => x[0] === id || x[1] === id).sort((a, b) => Math.abs(b[2]) - Math.abs(a[2]));
-    const hubIn = NET_IDS.filter(n => hasNet(n) && hubsOf(n).includes(id));
+    const hubIn = NET_ALL.filter(n => hasNet(n) && hubsOf(n).includes(id));
     h += `<h3>${iconImg(id, 26)}${esc(O.name)}</h3>
       <dl class="stats"><dt>Measured</dt><dd style="font-size:15px">${esc(O.measure)}</dd>
       <dt>Typical uptake</dt><dd>${id === 'aorta' ? '1' : O.suv}<small>${id === 'aorta' ? 'the unit' : 'times the aorta\'s'} (illustrative)</small></dd>
       ${inF2 && strengths('full').length ? `<dt>Strength</dt><dd>${(strengths('full').find(s => s[0] === id) || [0, 0])[1].toFixed(2)}<small>in the network of all ${fmt(FACTS.scans)} scans</small></dd>` : ''}
-      <dt>Hub in</dt><dd style="font-size:15px">${hubIn.length ? esc(listOf(hubIn.map(netShort))) : 'no network drawn so far'}</dd></dl>`;
+      <dt>Hub in</dt><dd style="font-size:15px">${hubIn.length ? esc(listOf(hubIn.map(netShort))) : 'none of the networks drawn'}</dd></dl>`;
     h += inF2 ? `<p class="grp-h">Its links in the network of all ${fmt(FACTS.scans)} scans (Figure 2A; blue together, red opposite)</p>
       <div class="chips">${e.length ? e.map(x => { const o = x[0] === id ? x[1] : x[0]; return `<button type="button" data-act="organ" data-v="${o}">${iconImg(o)}${esc(organName(o))} <b style="color:${inkCol(x[2] > 0 ? '#4c7cff' : '#ff4d4d')}">${x[2] > 0 ? '+' : '−'}${Math.abs(x[2]).toFixed(2)}</b></button>`; }).join('') : '<span class="empty">none</span>'}</div>`
-      : `<p class="sub">${id === 'aorta' ? 'Not a node: the blood pool every organ is divided by.' : `Not in the network of all scans (Figure 2A has ${FACTS.f2n} organs); it appears in the networks of Figure 3.`}</p>`;
+      : `<p class="sub">${id === 'aorta' ? 'Not a node: the blood pool every organ is divided by.' : `Not in the network of all scans (Figure 2A has ${FACTS.f2n} organs); it appears in some of Figure 3's networks.`}</p>`;
   } else h += `<p class="empty">Colours and icons are the same in every scene. Point at an organ in the scan, a bar or a node to pick it there.</p>`;
   pane.innerHTML = h;
 }
 // the one-scan pane: built once per profile or custom change of structure; values change in place (syncOne)
+// the profiles' chips (and Custom, while the uptakes are your own)
+const profChips = () => PROFILES.map(([k, n]) => chip(`data-act="profile" data-v="${k}"`, esc(n), !X.u && curProfile() === k, GROUP_COL[k])).join('') + (X.u ? chip('data-act="one"', 'Custom', true) : '');
 function renderOne() {
   const pane = $('#pane-one');
   if (!pane) return;
-  const u = curU(), p = curProfile();
+  const u = curU();
   pane.innerHTML = `<p class="sub">The poster's next step: one network per scan, from ${word(ONE_N)} organs' uptakes (mean SUV). Pick a profile, or move the uptakes yourself.</p>
-    <div class="chips" id="oneProf">${PROFILES.map(([k, n]) => chip(`data-act="profile" data-v="${k}"`, esc(n), !X.u && p === k, GROUP_COL[k])).join('')}${X.u ? chip('data-act="one"', 'Custom', true) : ''}</div>
+    <div class="chips" id="oneProf">${profChips()}</div>
     ${S1.organs.map((o, i) => `<p class="grp-h">${iconImg(o, 16)}${esc(organName(o))} <b data-uv="${i}" style="margin-left:auto;color:var(--ink)">${u[i].toFixed(2)}</b></p><input type="range" data-u="${i}" min="0.1" max="5" step="0.05" value="${u[i]}" style="accent-color:${organCol(o)}" aria-label="Uptake of the ${esc(organLow(o))}">`).join('')}
-    <p class="grp-h">Threshold: one organ outshines another by <b id="thv" style="margin-left:auto;color:var(--ink)">${X.theta.toFixed(2)}</b></p><input type="range" id="theta" min="1.1" max="3" step="0.05" value="${X.theta}" aria-label="Threshold">
+    <p class="grp-h">Threshold: a link where one organ's uptake is this many times another's <b id="thv" style="margin-left:auto;color:var(--ink)">${X.theta.toFixed(2)}</b></p><input type="range" id="theta" min="1.1" max="3" step="0.05" value="${X.theta}" aria-label="Threshold">
     <dl class="stats" id="oneOut" style="margin-top:14px"></dl>
     <p class="note">${esc(S1.note)} The profiles are illustrative too.</p>`;
   syncOne(true);
@@ -7111,8 +7225,8 @@ function renderOne() {
 function syncOne(fresh) {
   const pane = $('#pane-one');
   if (!pane || !$('#oneOut')) return;
-  // a switch between a profile and custom uptakes changes the chips: draw the pane again
-  if (!fresh && !!pane.querySelector('#oneProf [data-act="one"]') !== !!X.u) { renderOne(); return; }
+  // a switch between a profile and custom uptakes changes only the chips (the sliders stay: one may be being dragged)
+  if (!fresh && !!pane.querySelector('#oneProf [data-act="one"]') !== !!X.u) $('#oneProf').innerHTML = profChips();
   const u = curU(), r = measureOne(u, X.theta);
   pane.querySelectorAll('input[data-u]').forEach(el => { const i = +el.dataset.u; if (document.activeElement !== el) el.value = u[i]; });
   pane.querySelectorAll('[data-uv]').forEach(el => { el.textContent = u[+el.dataset.uv].toFixed(2); });
@@ -7131,13 +7245,13 @@ function renderPeople() {
   let h = `<p class="sub">The poster's results: ${P.mdiN ? `${fmt(P.mdiN)} people` : 'people'} by their index. Pick a group.</p>
     <div class="chips">${P.groups.map((x, i) => chip(`data-act="group" data-v="${i + 1}"`, `${esc(x.name)} <small>${x.n}</small>`, X.group === i + 1, x.col)).join('')}</div>`;
   if (g) h += `<h3><span class="sw" style="display:inline-block;width:14px;height:14px;border-radius:3px;background:${swCol(g.col)};margin-right:8px"></span>${esc(g.name)}</h3>
-    <dl class="stats"><dt>People</dt><dd>${g.n}</dd><dt>Index</dt><dd>${g.centre}<small>${Array.isArray(g.err) ? `the poster's bar: ${g.err[0]} to ${g.err[1]}` : ''}</small></dd></dl>`;
+    <dl class="stats"><dt>People</dt><dd>${g.n}</dd><dt>Index (median)</dt><dd>${g.centre}<small>${Array.isArray(g.err) ? `middle half of the group: ${g.err[0]} to ${g.err[1]}` : ''}</small></dd></dl>`;
   if (views.length) h += `<p class="grp-h">View</p><div class="chips">${views.map(([k, n]) => chip(`data-act="pview" data-v="${k}"`, n, X.scene === 'people' && viewIs('people', new RegExp('^' + k + '$', 'i')))).join('')}</div>`;
   if (P.thirds.length) h += `<p class="grp-h">Survival with cancer, by the index's thirds</p>
     <dl class="stats">${P.thirds.map(t => `<dt><span class="sw" style="display:inline-block;width:9px;height:9px;border-radius:2px;background:${swCol(t.col)};margin-right:6px"></span>${esc(t.name)}${t.n ? ` (${t.n})` : ''}</dt><dd>${t.median === undefined ? '–' : t.median === null ? 'not reached' : t.median + ' months'}<small>median${t.y1 !== null ? ` · ${t.y1}% after one year` : ''}</small></dd>`).join('')}</dl>`;
   if (P.auc.length) h += `<p class="grp-h">The immunotherapy test${P.respN ? ` (${P.respN} people with lung cancer)` : ''}: good from poor responders</p>
     <dl class="stats">${P.auc.slice().sort((a, b) => b.auc - a.auc).map(a => `<dt>${esc(a.name)}</dt><dd style="color:${a.net ? 'var(--amber)' : 'var(--muted)'}">${a.auc}<small>AUC${a.p ? ' · ' + esc(a.p) : ''}${a.net ? ' · network measure' : ''}</small></dd>`).join('')}</dl>
-    <p class="sub">0.5 is chance. A first test, in few people.</p>`;
+    <p class="sub">${esc(aucNote())}</p>`;
   h += `<p class="note">Group summaries from the poster. The dots are stand-ins drawn to match them, not patients.</p>`;
   pane.innerHTML = h;
 }
@@ -7147,10 +7261,14 @@ function renderScenes() {
   const sc = SCENES.find(s => s[0] === X.scene);
   pane.innerHTML = `<div class="chips">${SCENES.map(([k, n]) => chip(`data-act="scene" data-v="${k}"`, esc(n), k === X.scene)).join('')}</div>
     <h3>${esc(sc[1])}</h3><p class="sub">${esc(sc[2])}</p>
-    ${ctlsOf(X.scene).map(c => `<p class="grp-h">${esc(c.label)}</p><div class="chips">${c.options.map(([v, n]) => chip(`data-act="ctl" data-ctl="${c.key}" data-v="${v}"`, esc(n), ctlValue(X.scene, c) === v)).join('')}</div>`).join('')}
+    ${ctlsOf(X.scene).map(c => `<p class="grp-h">${esc(c.label)}</p><div class="chips">${c.options.map(([v, n]) => chip(`data-act="ctl" data-ctl="${c.key}" data-v="${v}"`, esc(n), ctlLit(X.scene, c, v))).join('')}</div>`).join('')}
     ${X.scene === 'scan' ? `<div class="actions">${chip('data-act="life"', 'Life size', X.life)}</div>` : ''}
     ${X.scene === 'organs' && X.organ ? `<p class="sub" style="margin-top:10px">Also shown: ${esc(organName(X.organ))} (Organs tab).</p>` : ''}`;
 }
+// a control's option is lit when it holds that value (the Network control's none while a robustness test's network shows)
+const ctlLit = (k, c, v) => ctlValue(k, c) === v && !(k === 'organs' && c.key === 'network' && X.netX);
+// the immunotherapy test in a line: what the AUC means, and that none of it is significant yet
+const aucNote = () => `AUC: 1 tells every good responder from every poor one, 0.5 is chance. A first test in few people${POSTER.noneSig ? `: none of these is significant yet (all p > ${FACTS.p})` : ''}.`;
 // labels the panes add (the sets label their own picks)
 function updateExtraLabels() {
   LBL.extra.forEach(L => { L.el.remove(); dropSprite(L); });
@@ -7188,7 +7306,7 @@ function pickPos(p) {
   return q && Number.isFinite(q[0]) ? [q[0], q[1], q[2]] : null;
 }
 const pickText = p => (p.organ ? [organName(p.organ), p.organ === 'aorta' ? 'the reference' : PD.byId[p.organ].measure]
-  : [POSTER.groups[p.group - 1].name, `${POSTER.groups[p.group - 1].n} people, index ${POSTER.groups[p.group - 1].centre}`]);
+  : [POSTER.groups[p.group - 1].name, `${POSTER.groups[p.group - 1].n} people, median index ${POSTER.groups[p.group - 1].centre}`]);
 function choosePick(p) {
   if (!p) return;
   if (p.organ && X.scene === 'organs') { if (X.tab !== 'organs' && X.tab !== 'networks') showTab('organs'); selectOrgan(p.organ === X.organ ? null : p.organ, false); }
@@ -7361,7 +7479,7 @@ function placeLabelXR(L, alpha, S) {
   sp.visible = o > 0.01;
   sp.material.opacity = o;
   labelPos(L, sp.position);
-  const hm = (XR.room ? 0.036 : 0.021) / XR.R;   // (life size: the labels are further away)
+  const hm = (XR.room && APP.mode === 'explore' && X.scene === 'scan' ? 0.036 : 0.021) / XR.R;   // (life size: the labels are further away)
   sp.scale.set(hm * sp.userData.aspect, hm, 1);
 }
 // the organ or group a controller points at, labelled where the ray meets it
@@ -7642,16 +7760,9 @@ function xrClickPick(pk) {
 }
 // Life size: in the headset the scanner stands on your floor in front of you
 function xrRoom(on) { XR.room = on; }
-// where the scanner's floor is in its own frame (it exports floorY; the bore's centre is its origin)
-function scanFloorY() { const s = GL.sets.scan, A = setApi('scan'); return Number.isFinite(s.floorY) ? s.floorY : A && Number.isFinite(A.floorY) ? A.floorY : -1.05; }
-// in passthrough the room's own floor shows: the scanner's dark floor and its reflection are hidden (its param
-// scan_floor, set in frame(); or, for a set without it, its api's setFloor or its object named 'floor')
-function scanFloor(on) {
-  if ('scan_floor' in GL.sets.scan.params) return;
-  const A = setApi('scan');
-  if (A && A.setFloor) A.setFloor(on);
-  else { const f = GL.sets.scan.group.getObjectByName('floor'); if (f) f.visible = on; }
-}
+// where the scanner's floor is in its own frame (the bore's centre is its origin); in passthrough the scanner's floor
+// and its reflection are hidden by its param scan_floor (set in frame()), so the room's own floor shows
+const scanFloorY = () => GL.sets.scan.floorY;
 // how close the headset may zoom: as close as the scene's own closest view, else 0.9 (closer, the scene would surround your head)
 const xrMinD = () => (XR.room && X.scene === 'scan' ? 0.05 : Math.min(0.9, ...Object.values(GL.sets[X.scene].cam || {}).map(v => +v[2] || 9)));
 function xrZoom(f) {
@@ -7706,7 +7817,6 @@ function xrEnterScene() {
   for (const P of XR.panels) { P.mesh.visible = true; P.last = ''; }
   XR.kbd.open = false;
   XR.room = !!X.life;
-  scanFloor(XR.clear);
   for (const L of [...ST.labels, ...LBL.sets, ...LBL.extra]) L.o = -1;
   // every headset session starts the story from the top; entered from the start screen, it shows the Stories menu first
   const fromStart = HOST.picking || HOST.landingVR;
@@ -7777,7 +7887,6 @@ function xrEnded() {
   if (XR.tip) dropSprite(XR.tip);
   XR.tip = null; XR.tipI = -1;
   XR.clear = true;
-  scanFloor(true);
   GL.stars.visible = true; GL.stars.material.size = 1.3;
   GL.world.visible = true;
   for (const P of XR.land || []) P.mesh.visible = false;
@@ -7924,7 +8033,7 @@ function sigMain() {
     }
     return s;
   }
-  return ['x', audioLabel(), X.tab, X.scene, JSON.stringify(X.ctl), X.cmp, X.net, X.organ, X.u ? X.u.join(',') : '', X.theta, X.group, X.life].join('|');
+  return ['x', audioLabel(), X.tab, X.scene, JSON.stringify(X.ctl), X.cmp, X.netX, X.organ, X.u ? X.u.join(',') : '', X.theta, X.group, X.life].join('|');
 }
 const XR_HERE = 'pet';
 const XR_STORIES = HOST.list;
@@ -7940,8 +8049,9 @@ function xrLandingSetup() {
   XR.landGroup.add(head.mesh); XR.land.push(head);
   HOST.list.forEach((s, k) => {
     // cards 0.36 m wide on an arc: seven 0.31 rad apart at 1.25 m (neighbours 0.386 m apart, the outer ones 53° to the
-    // side), eight 0.272 rad apart at 1.4 m (0.379 m apart, the outer ones 55° to the side)
-    const n = HOST.list.length, a = (k - (n - 1) / 2) * (n > 7 ? 0.272 : 0.31), d = n > 7 ? 1.4 : 1.25;
+    // side), eight 0.272 rad apart at 1.4 m (0.379 m apart, the outer ones 55° to the side), nine 0.245 rad apart at
+    // 1.55 m (0.379 m apart, the outer ones 56° to the side)
+    const n = HOST.list.length, a = (k - (n - 1) / 2) * (n > 8 ? 0.245 : n > 7 ? 0.272 : 0.31), d = n > 8 ? 1.55 : n > 7 ? 1.4 : 1.25;
     const P = makePanel(640, 820, 0.36, (ctx, P) => drawLandCard(ctx, P, s), () => 'c' + XR.inStory + s.key);
     P.mesh.position.set(Math.sin(a) * d, -0.105, -Math.cos(a) * d);   // top edge 0.126 m up, under the header
     P.mesh.rotation.y = -a;
@@ -7963,7 +8073,7 @@ function xrLandingClose() {
   if (APP.mode === 'story') APP.playing = true;
 }
 function drawLandHead(ctx, P) {
-  ctx.font = vfont(58, 700); ctx.fillStyle = VC.ink; ctx.fillText(`Networks, in ${['one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten'][HOST.list.length - 1] || HOST.list.length} stories`, 48, 44);
+  ctx.font = vfont(58, 700); ctx.fillStyle = VC.ink; ctx.fillText(`Networks, in ${['one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine'][HOST.list.length - 1] || HOST.list.length} stories`, 48, 44);
   // anchored: where the place stands, in place of the hint
   const an = HOST.anchor.status();
   textBlock(ctx, an || 'The same ideas, very different networks. Point at a story and pull the trigger (or pinch).', 48, 128, 860, 27, 38, an ? VC.ink : VC.muted, 400, 2);
@@ -8250,11 +8360,20 @@ function drawStrength(ctx, x, y, W, id, hubs) {
 function drawNetsPane(ctx, P, x, y, W, bottom) {
   const T = PD.D.table2, r = T[X.cmp], id = curNet(), ni = netInfo(id);
   y += head(ctx, x, y, 'Table 2: groups of scans compared (amber: a significant difference)');
-  y += flow(ctx, P, T.map((t, i) => ({ id: 'cmp:' + i, label: rowName(t), col: t.sigD || t.sigO ? VC.amber : null, on: X.cmp === i, fn: () => selectCmp(X.cmp === i ? -1 : i) })), x, y, W, bottom - 470, { px: 18, h: 36 }) + 14;
+  for (const [part, name] of [['health', 'From health to disease'], ['test', 'Is it robust?']]) {
+    ctx.font = vfont(20, 700); ctx.fillStyle = VC.ink; ctx.fillText(name, x, y); y += 30;
+    y += flow(ctx, P, T.map((t, i) => [t, i]).filter(([t]) => t.part === part).map(([t, i]) => ({ id: 'cmp:' + i, label: rowName(t), col: t.sigD || t.sigO ? VC.amber : null, on: X.cmp === i, fn: () => selectCmp(X.cmp === i ? -1 : i) })), x, y, W, bottom - 430, { px: 18, h: 36 }) + 10;
+  }
+  y += 4;
   if (r) {
     const nets = rowNets(r);
     y += textBlock(ctx, `${r.what}: ${r.cohort}`, x, y, W, 25, 34, VC.ink, 700, 1) + 4;
-    r.groups.forEach((g, i) => { y += textBlock(ctx, `${g.label}: density ${pct(g.density)}, disorder ${dis(g.disorder)}, ${g.n} scans${nets[i] && NET_IDS.includes(nets[i]) ? ' (network below)' : ''}`, x, y, W, 22, 30, VC.muted, 400, 1); });
+    r.groups.forEach((g, i) => {
+      const n = nets[i] && NET_ALL.includes(nets[i]) ? nets[i] : null, on = n === id && X.scene === 'organs';
+      // a group the paper drew as a network: a button that shows it (as the HTML pane's link)
+      if (n) vButton(ctx, P, 'gnet:' + n, x + W - 130, y - 4, 130, 36, on ? 'On show' : 'Show', () => showNet(n), { on, r: 6, px: 19 });
+      y += textBlock(ctx, `${g.label}: density ${pct(g.density)}, disorder ${dis(g.disorder)}, ${g.n} scans`, x, y, n ? W - 140 : W, 22, 30, VC.muted, 400, 1) + (n ? 8 : 0);
+    });
     y += textBlock(ctx, `Density ${r.pD}${r.sigD ? ', significant' : ''}. Disorder ${r.pO}${r.sigO ? ', significant' : ''}.`, x, y, W, 22, 30, r.sigD || r.sigO ? VC.amber : VC.muted, 400, 1) + 12;
   }
   y += head(ctx, x, y, 'Networks drawn in the paper (· not read off the figure yet)');
@@ -8272,9 +8391,11 @@ function drawOrgansPane(ctx, P, x, y, W, bottom) {
   y += textBlock(ctx, O.name, x + 60, y + 2, W - 60, 38, 46, VC.ink, 700, 1) + 6;
   y += textBlock(ctx, `Measured: ${O.measure}.`, x, y, W, 24, 33, VC.muted, 400, 2) + 2;
   y += textBlock(ctx, id === 'aorta' ? 'The unit: every organ\'s uptake is divided by the aorta\'s.' : `Typical uptake: ${O.suv} times the aorta's (illustrative).`, x, y, W, 24, 33, VC.muted, 400, 2) + 2;
-  const hubIn = NET_IDS.filter(n => hasNet(n) && hubsOf(n).includes(id));
-  y += textBlock(ctx, `Hub in: ${hubIn.length ? listOf(hubIn.map(netShort)) : 'no network drawn so far'}.`, x, y, W, 24, 33, hubIn.length ? VC.amber : VC.muted, 400, 2) + 14;
-  if (!PD.D.f2.organs.includes(id)) { textBlock(ctx, id === 'aorta' ? 'Not a node: the blood pool.' : `Not in the network of all scans (Figure 2A has ${FACTS.f2n} organs); it appears in Figure 3's.`, x, y, W, 24, 33, VC.muted, 400, 2); return; }
+  const hubIn = NET_ALL.filter(n => hasNet(n) && hubsOf(n).includes(id));
+  const sv = PD.D.f2.organs.includes(id) && strengths('full').find(q => q[0] === id);
+  if (sv) y += textBlock(ctx, `Strength: ${sv[1].toFixed(2)} in the network of all ${fmt(FACTS.scans)} scans.`, x, y, W, 24, 33, VC.muted, 400, 1) + 2;
+  y += textBlock(ctx, `Hub in: ${hubIn.length ? listOf(hubIn.map(netShort)) : 'none of the networks drawn'}.`, x, y, W, 24, 33, hubIn.length ? VC.amber : VC.muted, 400, 2) + 14;
+  if (!PD.D.f2.organs.includes(id)) { textBlock(ctx, id === 'aorta' ? 'Not a node: the blood pool.' : `Not in the network of all scans (Figure 2A has ${FACTS.f2n} organs); it appears in some of Figure 3's networks.`, x, y, W, 24, 33, VC.muted, 400, 2); return; }
   const e = edgesOf('full').filter(q => q[0] === id || q[1] === id).sort((a, b) => Math.abs(b[2]) - Math.abs(a[2]));
   y += head(ctx, x, y, `Its links among all ${fmt(FACTS.scans)} scans (Figure 2A; blue together, red opposite)`);
   flow(ctx, P, e.map(q => { const o = q[0] === id ? q[1] : q[0]; return { id: 'ol:' + o, label: `${PD.byId[o].short} ${q[2] > 0 ? '+' : '−'}${Math.abs(q[2]).toFixed(2)}`, icon: o, col: q[2] > 0 ? '#4c7cff' : '#ff4d4d', fn: () => selectOrgan(o) }; }), x, y, W, bottom, { px: 21, h: 46 });
@@ -8306,7 +8427,7 @@ function drawPeoplePane(ctx, P, x, y, W, bottom) {
   const PO = POSTER, g = PO.groups[X.group - 1];
   y += textBlock(ctx, `The poster's results: ${PO.mdiN ? fmt(PO.mdiN) + ' people' : 'people'} by their index. Pick a group.`, x, y, W, 24, 33, VC.muted, 400, 2) + 10;
   y += flow(ctx, P, PO.groups.map((q, i) => ({ id: 'grp:' + (i + 1), label: `${q.name} · ${q.n}`, col: q.col, on: X.group === i + 1, fn: () => selectGroup(X.group === i + 1 ? 0 : i + 1) })), x, y, W, bottom, { px: 22, h: 48 }) + 14;
-  if (g) y += textBlock(ctx, `${g.name}: ${g.n} people, index ${g.centre}${Array.isArray(g.err) ? ` (the poster's bar: ${g.err[0]} to ${g.err[1]})` : ''}.`, x, y, W, 24, 33, VC.ink, 400, 2) + 12;
+  if (g) y += textBlock(ctx, `${g.name}: ${g.n} people, median index ${g.centre}${Array.isArray(g.err) ? ` (middle half of the group: ${g.err[0]} to ${g.err[1]})` : ''}.`, x, y, W, 24, 33, VC.ink, 400, 2) + 12;
   const views = [['people', 'People'], ['index', 'Index'], ['survival', 'Survival'], ['immunotherapy', 'Immunotherapy']].filter(([k]) => optKey('people', 'view', new RegExp('^' + k + '$', 'i')));
   if (views.length) { y += head(ctx, x, y, 'View'); y += flow(ctx, P, views.map(([k, n]) => ({ id: 'pv:' + k, label: n, on: X.scene === 'people' && viewIs('people', new RegExp('^' + k + '$', 'i')), fn: () => showPeople(new RegExp('^' + k + '$', 'i')) })), x, y, W, bottom, { px: 23, h: 52 }) + 16; }
   if (PO.thirds.length) {
@@ -8320,9 +8441,10 @@ function drawPeoplePane(ctx, P, x, y, W, bottom) {
   if (PO.auc.length && y + 80 < bottom) {
     y += head(ctx, x, y, `The immunotherapy test${PO.respN ? ` (${PO.respN} people)` : ''}: AUC, 0.5 is chance`);
     for (const a of PO.auc.slice().sort((p, q) => q.auc - p.auc)) {
-      if (y + 34 > bottom - 70) break;
+      if (y + 34 > bottom - 130) break;
       y += textBlock(ctx, `${a.name}: ${a.auc}${a.p ? ' · ' + a.p : ''}`, x, y, W, 23, 32, a.net ? VC.amber : VC.muted, a.net ? 700 : 400, 1) + 2;
     }
+    if (y + 64 < bottom - 60) y += textBlock(ctx, aucNote(), x, y + 6, W, 21, 29, VC.muted, 400, 2) + 8;
   }
   if (y + 40 < bottom) textBlock(ctx, 'Group summaries from the poster; the dots are stand-ins drawn to match them, not patients.', x, bottom - 60, W, 21, 29, VC.faint, 400, 2);
 }
@@ -8338,7 +8460,7 @@ function drawScenesPane(ctx, P, x, y, W, bottom) {
     if (y + 110 > bottom) break;
     ctx.font = vfont(23); ctx.fillStyle = VC.muted; ctx.fillText(c.label, x, y);
     y += 36;
-    y += flow(ctx, P, c.options.map(([v, n]) => ({ id: 'ctl:' + c.key + ':' + v, label: n, on: ctlValue(X.scene, c) === v, fn: () => setCtl(X.scene, c.key, v) })), x, y, W, bottom, { px: 24, h: 56 }) + 24;
+    y += flow(ctx, P, c.options.map(([v, n]) => ({ id: 'ctl:' + c.key + ':' + v, label: n, on: ctlLit(X.scene, c, v), fn: () => setCtl(X.scene, c.key, v) })), x, y, W, bottom, { px: 24, h: 56 }) + 24;
   }
   if (X.scene === 'scan' && y + 70 < bottom) vButton(ctx, P, 'life', x, y, 300, 60, 'Life size', () => setLife(!X.life), { on: X.life, px: 24 });
 }
@@ -8458,10 +8580,9 @@ const APP = {
     if (s.explore) { const c = { t: 1e3 }; for (const c2 of s.controls || []) c[c2.key] = ctlValue(best, c2); s.explore(c); s.explore(c); }
     // the story's network, organ, profile and group carry over to the panels (the controls hold the network and the
     // profile: the closest ones were picked above)
-    X.organ = null; X.u = null; X.group = 0; X.cmp = -1; X.theta = Number.isFinite(S.people_theta) ? round2(clamp(S.people_theta, 1.1, 3)) : S1.theta;
+    X.organ = null; X.u = null; X.group = 0; X.cmp = -1; X.netX = null; X.theta = Number.isFinite(S.people_theta) ? round2(clamp(S.people_theta, 1.1, 3)) : S1.theta;
     if (best === 'organs' && S.organs_focus > 0.5) X.organ = PD.ids[Math.round(S.organs_focus) - 1] || null;
-    if (best === 'organs' && S.organs_net > 0.5) { const w = NET_IDS[Math.round(S.organs_which)]; if (w) { if (!netCtl()) X.net = w; X.cmp = cmpOfNet(w); } }
-    if (best === 'people' && !netCtl()) X.profile = (PROFILES[Math.round(S.people_profile)] || PROFILES[0])[0];
+    if (best === 'organs' && S.organs_net > 0.5) { const w = NET_ALL[Math.round(S.organs_which)]; if (w) { if (NET_EXTRA.includes(w)) X.netX = w; X.cmp = cmpOfNet(w); } }
     if (best === 'people' && S.people_group > 0.5) X.group = clamp(Math.round(S.people_group), 0, POSTER.groups.length);
     X.tab = best === 'organs' ? (S.organs_net > 0.5 ? 'networks' : 'organs') : best === 'people' ? (S.people_map > 0.5 ? 'people' : 'one') : 'scenes';
     // from the last chapter (the story's end, or its Explore button): the networks of the paper
@@ -8493,6 +8614,7 @@ function openNetworks() {
 }
 
 let lastNow = 0;
+const EXV = [0, 0, 1, 0, 0, 0, 1, 0, 0, 0];   // explore's view for applyCamera: orbit.cur, then FIT's eased shift
 function frame(now, xrFrame) {
   const dt = lastNow ? Math.min(0.1, Math.max(0, (now - lastNow) / 1000)) : 0;
   lastNow = now;
@@ -8517,10 +8639,14 @@ function frame(now, xrFrame) {
   } else {
     const pn = performance.now();
     S = exploreStep(dt, pn); tSet = pn / 1000;
-    // (a wide view stands further back on a phone held upright: eased as the views change)
-    GL.nf += ((X.life && X.scene === 'scan' ? 1 : narrowOf(X.scene, viewCam(X.scene) || 'default')) - GL.nf) * (1 - Math.exp(-dt * 3));
+    // (a wide view stands further back on a phone held upright, and its target's shift clear of the side panel, FIT,
+    // goes back where there is none: both eased as the views change)
+    const vn = viewCam(X.scene) || 'default', life = X.life && X.scene === 'scan', fs = life ? [0, 0, 0] : fitShift(X.scene, vn), ke = 1 - Math.exp(-dt * 3);
+    GL.nf += ((life ? 1 : narrowOf(X.scene, vn)) - GL.nf) * ke;
+    for (let i = 0; i < 3; i++) EXV[7 + i] += (fs[i] - EXV[7 + i]) * ke;
     orbitStep(xr ? pn : now);
-    if (xr) xrPlace(orbit.cur); else { applyCamera(orbit.cur); keepCamera(S, null); }
+    for (let i = 0; i < 6; i++) EXV[i] = orbit.cur[i];
+    if (xr) xrPlace(orbit.cur); else { applyCamera(EXV); keepCamera(S, null); }
   }
   if (XR.on && !XR.clear && 'scan_floor' in S) S.scan_floor = 0;   // passthrough: the room's own floor, not the scanner's
   K.U.uTime.value = tSet;
@@ -8583,7 +8709,7 @@ function init() {
   if (hp.has('explore')) {
     APP.enterExplore();
     // #pet&explore&scene=scan&view=ring (any control of a scene by its key), &tab=networks|organs|one|people|scenes,
-    // &cmp=7 (a row of Table 2), &net=C_high, &organ=muscle, &profile=cancer, &theta=2, &u=2.2,1.7,... (custom
+    // &cmp=7 (a row of Table 2), &net=C_high (or vena, dose_ultralow ...), &organ=muscle, &profile=cancer, &theta=2, &u=2.2,1.7,... (custom
     // uptakes), &group=3, &life (the scanner life size)
     const sc = hp.get('scene');
     if (sc && GL.sets[sc]) { openScene(sc, false); showTab('scenes'); }
@@ -8592,18 +8718,18 @@ function init() {
     // controls after the default view, so a control's own view wins
     for (const c of ctlsOf(X.scene)) if (hp.get(c.key) && c.options.some(o => o[0] === hp.get(c.key))) setCtl(X.scene, c.key, hp.get(c.key));
     if (hp.get('cmp') !== null && hp.get('cmp') !== '') { const i = parseInt(hp.get('cmp'), 10); if (i >= 0 && i < PD.D.table2.length) { showTab('networks'); selectCmp(i); } }
-    if (NET_IDS.includes(hp.get('net'))) { showTab('networks'); pickNet(hp.get('net')); }
+    if (NET_ALL.includes(hp.get('net'))) { showTab('networks'); pickNet(hp.get('net')); }
     if (PD.byId[hp.get('organ')]) { showTab('organs'); selectOrgan(hp.get('organ')); }
     if (PROFILES.some(p => p[0] === hp.get('profile'))) { showTab('one'); selectProfile(hp.get('profile')); }
     if (hp.get('u')) { const u = hp.get('u').split(',').map(Number); if (u.length === ONE_N && u.every(Number.isFinite)) { showTab('one'); setUs(u); showOne(); } }
     if (hp.get('theta') && Number.isFinite(+hp.get('theta'))) { showTab('one'); setTheta(+hp.get('theta')); showOne(); }
     if (hp.get('group')) { const g = parseInt(hp.get('group'), 10); if (g >= 1 && g <= POSTER.groups.length) { showTab('people'); selectGroup(g); } }
+    if (hp.has('life')) setLife(true);   // (it opens the Scenes tab: a tab asked for comes after)
     if (hp.get('tab') && TABS.some(t => t[0] === hp.get('tab'))) {
       showTab(hp.get('tab'));
       if (hp.get('tab') === 'one') showOne();
-      if (hp.get('tab') === 'people' && X.scene !== 'people') showPeople(/^index$/i);
+      if (hp.get('tab') === 'people' && (X.scene !== 'people' || oneView())) showPeople(/^index$/i);
     }
-    if (hp.has('life')) { setLife(true); if (!hp.get('tab')) showTab('scenes'); }
     if (hp.has('now')) { Object.assign(XS, exploreTargets()); orbit.cur = orbit.to || orbit.cur; orbit.to = null; }
   }
   GL.renderer.setAnimationLoop(frame); // also drives the headset's frame loop

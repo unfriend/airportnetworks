@@ -110,7 +110,7 @@ function placeLabelXR(L, alpha, S) {
   sp.visible = o > 0.01;
   sp.material.opacity = o;
   labelPos(L, sp.position);
-  const hm = (XR.room ? 0.036 : 0.021) / XR.R;   // (life size: the labels are further away)
+  const hm = (XR.room && APP.mode === 'explore' && X.scene === 'scan' ? 0.036 : 0.021) / XR.R;   // (life size: the labels are further away)
   sp.scale.set(hm * sp.userData.aspect, hm, 1);
 }
 // the organ or group a controller points at, labelled where the ray meets it
@@ -391,16 +391,9 @@ function xrClickPick(pk) {
 }
 // Life size: in the headset the scanner stands on your floor in front of you
 function xrRoom(on) { XR.room = on; }
-// where the scanner's floor is in its own frame (it exports floorY; the bore's centre is its origin)
-function scanFloorY() { const s = GL.sets.scan, A = setApi('scan'); return Number.isFinite(s.floorY) ? s.floorY : A && Number.isFinite(A.floorY) ? A.floorY : -1.05; }
-// in passthrough the room's own floor shows: the scanner's dark floor and its reflection are hidden (its param
-// scan_floor, set in frame(); or, for a set without it, its api's setFloor or its object named 'floor')
-function scanFloor(on) {
-  if ('scan_floor' in GL.sets.scan.params) return;
-  const A = setApi('scan');
-  if (A && A.setFloor) A.setFloor(on);
-  else { const f = GL.sets.scan.group.getObjectByName('floor'); if (f) f.visible = on; }
-}
+// where the scanner's floor is in its own frame (the bore's centre is its origin); in passthrough the scanner's floor
+// and its reflection are hidden by its param scan_floor (set in frame()), so the room's own floor shows
+const scanFloorY = () => GL.sets.scan.floorY;
 // how close the headset may zoom: as close as the scene's own closest view, else 0.9 (closer, the scene would surround your head)
 const xrMinD = () => (XR.room && X.scene === 'scan' ? 0.05 : Math.min(0.9, ...Object.values(GL.sets[X.scene].cam || {}).map(v => +v[2] || 9)));
 function xrZoom(f) {
@@ -455,7 +448,6 @@ function xrEnterScene() {
   for (const P of XR.panels) { P.mesh.visible = true; P.last = ''; }
   XR.kbd.open = false;
   XR.room = !!X.life;
-  scanFloor(XR.clear);
   for (const L of [...ST.labels, ...LBL.sets, ...LBL.extra]) L.o = -1;
   // every headset session starts the story from the top; entered from the start screen, it shows the Stories menu first
   const fromStart = HOST.picking || HOST.landingVR;
@@ -526,7 +518,6 @@ function xrEnded() {
   if (XR.tip) dropSprite(XR.tip);
   XR.tip = null; XR.tipI = -1;
   XR.clear = true;
-  scanFloor(true);
   GL.stars.visible = true; GL.stars.material.size = 1.3;
   GL.world.visible = true;
   for (const P of XR.land || []) P.mesh.visible = false;

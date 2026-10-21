@@ -13,10 +13,7 @@ const ENGINE = ['e2_scene', 'e3_story', 'e4_explore', 'e5_xr', 'e6_panels', 'e7_
 let kit = read('../lbi/kit.js')
   .replace("if (typeof module !== 'undefined') module.exports = { makeKit };\n", '')
   .replace(/^(\/\/.*\n)+/, '// Shared helpers for the 3D sets (the tour\'s kit): makeKit(THREE) returns K.\n');
-// PET_STUBS=1 (for working on the engine before every set exists): a missing set comes from stubs/ instead; the real
-// build and --check never do this
-const stub = f => process.env.PET_STUBS && !process.argv.includes('--check') && !fs.existsSync(path.join(here, `${f}.js`)) ? f.replace('sets/', 'stubs/') : f;
-const sets = SET_FILES.map(f => read(`${stub(f)}.js`).trimEnd() + '\n\n').join('');
+const sets = SET_FILES.map(f => read(`${f}.js`).trimEnd() + '\n\n').join('');
 let out = read('engine/e1_head.js').replace('//@@KIT@@\n', () => kit).replace('//@@SETS@@\n', () => sets);
 for (const f of ENGINE) out += read(`engine/${f}.js`);
 const target = path.join(root, 'stories/pet.js');

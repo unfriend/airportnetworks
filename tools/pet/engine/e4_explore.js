@@ -5,7 +5,7 @@
 const SCENES = [
   ['scan', 'Scanner', 'A PET/CT scanner, cut open: the ring of detectors, the events (a positron, two gamma photons, a line of response) and the image they build. Life size stands it in front of you.'],
   ['body', 'Body', 'A whole-body PET scan: the tracer arriving with the blood, settling where cells use sugar and leaving in the urine (the PET body of the tour).'],
-  ['organs', 'Organs', `The paper's organs in the scan: their outlines, their uptakes, the matrix of ${fmt(FACTS.scans)} scans, a partial correlation, the networks and how their strength is spread.`],
+  ['organs', 'Organs', `The paper's organs in the scan: their outlines, their uptakes, the matrix of ${fmt(FACTS.scans)} scans (stand-in values), a partial correlation, the networks and how their strength is spread.`],
   ['people', 'One scan and people', 'The poster\'s next step: one network per scan, its two measures and the index; then the people on it, survival and the immunotherapy test. Illustrative maths; the dots are stand-ins.'],
   ['liver', 'Liver', 'An organ is a network too: an illustrative liver in a few thousand patches, linked where their uptakes differ by more than a threshold; the best connected glow.'],
 ];
@@ -14,7 +14,7 @@ const TABS = [['networks', 'Networks'], ['organs', 'Organs'], ['one', 'One scan'
 const HIDE_CTL = { body: ['view', 'state'] };
 const ctlsOf = k => (GL.sets[k].controls || []).filter(c => !(HIDE_CTL[k] || []).includes(c.key));
 const S1 = PET_DATA.single, ONE_N = S1.organs.length;
-const X = { tab: 'networks', scene: 'organs', ctl: {}, t0: 0, turn: 'on', cmp: -1, net: 'full', organ: null, profile: 'healthy', u: null, theta: S1.theta, group: 0, life: false };
+const X = { tab: 'networks', scene: 'organs', ctl: {}, t0: 0, turn: 'on', cmp: -1, netX: null, organ: null, u: null, theta: S1.theta, group: 0, life: false };
 const XS = {};
 // params that pick something by number jump to their new value instead of easing through the ones in between; the
 // organs' network and its crossfade (organs_prev to organs_which by organs_mix) and the explainer's pair change smoothly
@@ -36,17 +36,11 @@ function camFor(k, v) {
   return null;
 }
 const viewCam = k => { const c = ctlOf(k, 'view'); return c ? camFor(k, ctlValue(k, c)) : null; };
-// the organs set's Network control and the people set's Profile control (found by key, or by their number of options)
-const netCtl = () => ctlOf('organs', 'net') || ctlOf('organs', 'network') || ctlOf('organs', 'which') || ctlsOf('organs').find(c => c.key !== 'view' && c.options.length === NET_IDS.length) || null;
-const profCtl = () => ctlOf('people', 'profile') || ctlsOf('people').find(c => c.key !== 'view' && c.options.length === PROFILES.length) || null;
-// option <-> network id, option <-> profile key: by value when the set uses the ids, else by position
-const netOfOpt = (c, v) => (NET_IDS.includes(v) ? v : NET_IDS[c.options.findIndex(o => o[0] === v)] || null);
-const optOfNet = (c, id) => c.options.find(o => o[0] === id) || c.options[NET_IDS.indexOf(id)] || null;
-const profOfOpt = (c, v) => (PROFILES.some(p => p[0] === v) ? v : (PROFILES[c.options.findIndex(o => o[0] === v)] || PROFILES[0])[0]);
-const optOfProf = (c, p) => c.options.find(o => o[0] === p) || c.options[PROFILES.findIndex(x => x[0] === p)] || null;
-// the network and the profile on show: the controls hold them (so the Scenes tab and the panes agree)
-const curNet = () => { const c = netCtl(); return c ? netOfOpt(c, ctlValue('organs', c)) : X.net; };
-const curProfile = () => { const c = profCtl(); return c ? profOfOpt(c, ctlValue('people', c)) : X.profile; };
+// the network and the profile on show: the organs set's Network control and the people set's Profile control hold them
+// (their options are the ids), so the Scenes tab and the panes agree; a robustness test's network, which that control
+// does not offer, is X.netX
+const curNet = () => X.netX || ctlValue('organs', ctlOf('organs', 'network'));
+const curProfile = () => ctlValue('people', ctlOf('people', 'profile'));
 // the people set's views: the one-scan network (and its ratios) or the population
 const viewIs = (k, re) => { const c = ctlOf(k, 'view'); if (!c) return false; const v = ctlValue(k, c), o = c.options.find(x => x[0] === v); return re.test(v) || (o && re.test(o[1])); };
 const oneView = () => viewIs('people', /one|ratio|field/i);
@@ -58,21 +52,9 @@ const round2 = v => Math.round(v * 100) / 100;
 const profU = p => { const q = S1.profiles[p] || S1.profiles.healthy; return q.u.slice(); };
 const curU = () => X.u || profU(curProfile());
 
-// the one-scan network's maths (the people set's own when it has it; the same stand-in formulas otherwise):
-// link i -> j = sigmoid((ln(u_i / u_j) - ln theta) / soft); Clearance = mean of the kidneys' outgoing links;
-// Heterogeneity = Gini coefficient of the strengths; index = m + a C + b H, between 0 and 10
-function measureOne(u, theta) {
-  const A = setApi('people');
-  if (A && A.measure) { try { const r = A.measure(u, theta); if (r && Number.isFinite(r.C) && Number.isFinite(r.H)) return r; } catch (e) { /* the engine's own copy below */ } }
-  const N = u.length, lt = Math.log(theta), e = u.map(() => new Array(N).fill(0)), s = new Array(N).fill(0);
-  for (let i = 0; i < N; i++) for (let j = 0; j < N; j++) if (i !== j) { e[i][j] = 1 / (1 + Math.exp(-(Math.log(u[i] / u[j]) - lt) / S1.soft)); s[i] += e[i][j]; s[j] += e[i][j]; }
-  const k = S1.organs.indexOf('kidneys'), C = k < 0 ? 0 : e[k].reduce((a, v, j) => a + (j === k ? 0 : v), 0) / (N - 1);
-  const m = s.reduce((a, v) => a + v, 0) / N;
-  let g = 0;
-  for (const a of s) for (const b of s) g += Math.abs(a - b);
-  const H = m > 0 ? g / (2 * N * N * m) : 0;
-  return { e, s, C, H, mdi: clamp(S1.proj.m + S1.proj.a * C + S1.proj.b * H, 0, 10) };
-}
+// the one-scan network's maths, the people set's own (link i -> j = sigmoid((ln(u_i / u_j) - ln theta) / soft);
+// Clearance = mean of the kidneys' outgoing links; Heterogeneity = Gini coefficient of the strengths; index = m + a C + b H)
+const measureOne = (u, theta) => setApi('people').measure(u, theta);
 const linksOf = r => r.e.reduce((a, row) => a + row.filter(v => v > 0.5).length, 0);
 
 // what the chosen scene and its controls ask for: that set fully in, every other set out; then what the panes pick
@@ -83,11 +65,10 @@ function exploreTargets(now = performance.now()) {
   tg[k + '_a'] = 1;
   const c = { t: (now - X.t0) / 1000 };
   for (const ct of s.controls || []) c[ct.key] = ctlValue(k, ct);
+  if (k === 'organs') c.network = curNet();   // (a robustness test's network too: the set crossfades to it from the one before)
   if (s.explore) Object.assign(tg, s.explore(c));
   tg.body_net = 0; tg.body_state = 0;   // never the tour's own network or disease scan
   if (k === 'organs') {
-    const w = NET_IDS.indexOf(curNet());
-    if (w >= 0) tg.organs_which = w;
     tg.organs_focus = X.organ && PD.byId[X.organ] ? PD.byId[X.organ].i + 1 : 0;
     // the body dims under the network, the matrix and the scatter plot
     if ((tg.organs_net || 0) > 0.5 || (tg.organs_rows || 0) > 0.5 || (tg.organs_pair || 0) > 0.5) tg.body_a = 0.55;
@@ -119,6 +100,7 @@ function openScene(k, fly = true) {
   if (!GL.sets[k]) return;
   const same = X.scene === k;
   X.scene = k; X.t0 = performance.now();
+  if (X.life && k !== 'scan') setLife(false);   // (life size is the scanner's)
   if (fly && !same) flyTo(view(k, X.life && k === 'scan' ? 'life' : viewCam(k) || 'default'));
   renderScenes();
   updateExtraLabels();
@@ -128,7 +110,8 @@ function setCtl(k, key, v) {
   if (!c || !c.options.some(o => o[0] === v)) return;
   (X.ctl[k] = X.ctl[k] || {})[key] = v;
   X.t0 = performance.now();
-  if (c === profCtl()) X.u = null;   // a profile picked: its own uptakes
+  if (k === 'people' && key === 'profile') X.u = null;   // a profile picked: its own uptakes
+  if (k === 'organs' && key === 'network') X.netX = null;   // a network of the control's own
   // a view has its own best camera
   if (key === 'view' && k === X.scene && !(X.life && k === 'scan')) { const n = camFor(k, v); flyTo(view(k, n || 'default')); }
   renderAll();
@@ -155,19 +138,18 @@ function flyNear(p, d) { if (p && !(X.life && X.scene === 'scan')) flyTo([orbit.
 // a comparison of Table 2 (-1 none): its first network, when the paper drew one
 function selectCmp(i, ui = true) {
   X.cmp = i;
-  if (ui && i >= 0) { const id = rowNets(PD.D.table2[i]).find(n => n && NET_IDS.includes(n)); if (id) showNet(id); }
+  if (ui && i >= 0) { const id = rowNets(PD.D.table2[i]).find(n => n && NET_ALL.includes(n)); if (id) showNet(id); }
   renderNets();
 }
-// the network on show in the organs set
+// the network on show in the organs set: one of its Network control's, or a robustness test's (X.netX)
 function setNet(id) {
-  if (!NET_IDS.includes(id)) return;
-  const c = netCtl();
-  if (c) { const o = optOfNet(c, id); if (o) (X.ctl.organs = X.ctl.organs || {})[c.key] = o[0]; } else X.net = id;
+  if (!NET_ALL.includes(id)) return;
+  if (NET_IDS.includes(id)) { (X.ctl.organs = X.ctl.organs || {}).network = id; X.netX = null; } else X.netX = id;
   X.t0 = performance.now();
   renderNets(); renderOrgans(); renderScenes();
 }
 // a network picked by hand (its chip, a link): the comparison it belongs to comes with it
-function pickNet(id) { if (!NET_IDS.includes(id)) return; X.cmp = cmpOfNet(id); showNet(id); }
+function pickNet(id) { if (!NET_ALL.includes(id)) return; X.cmp = cmpOfNet(id); showNet(id); }
 function showNet(id) {
   setNet(id);
   if (X.scene !== 'organs') openScene('organs');
@@ -183,8 +165,7 @@ function selectOrgan(id, ui = true) {
 // a profile of the one-scan network (its uptakes; custom ones are dropped)
 function selectProfile(p, ui = true) {
   if (!PROFILES.some(x => x[0] === p)) return;
-  const c = profCtl();
-  if (c) { const o = optOfProf(c, p); if (o) (X.ctl.people = X.ctl.people || {})[c.key] = o[0]; } else X.profile = p;
+  (X.ctl.people = X.ctl.people || {}).profile = p;
   X.u = null;
   if (ui) showOne();
   renderOne(); renderScenes();
@@ -199,7 +180,7 @@ function setU(i, v) { const u = curU(); u[i] = v; setUs(u); }
 function setTheta(v) { X.theta = round2(clamp(+v, 1.1, 3)); syncOne(); }
 // a group of the poster's population (0 none, 1..4): it glows, the others dim
 function selectGroup(g, ui = true) {
-  X.group = clamp(g | 0, 0, 4);
+  X.group = clamp(g | 0, 0, POSTER.groups.length);
   if (ui && X.group) { if (X.scene !== 'people') openScene('people'); if (oneView()) { const v = optKey('people', 'view', /index|strip/i) || optKey('people', 'view', /people|map/i); if (v) setCtl('people', 'view', v); } }
   renderPeople();
 }
@@ -210,6 +191,7 @@ function setLife(on) {
   X.life = on;
   if (XR.on) xrRoom(on);
   if (on && X.scene !== 'scan') openScene('scan', false);
+  if (on) showTab('scenes');   // (the Scenes tab holds the scanner's controls and the Life size button)
   if (X.scene === 'scan') flyTo(view('scan', on ? 'life' : viewCam('scan') || 'default'));
   document.querySelectorAll('[data-ctl="life"] button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.v === (on ? 'on' : 'off'))));
   renderScenes();
@@ -246,7 +228,7 @@ function collabApply(v) {
   if ((v.cmp === -1 || int(v.cmp, 0, PD.D.table2.length)) && v.cmp !== X.cmp) selectCmp(v.cmp, false);
   if ((v.organ === null || (typeof v.organ === 'string' && PD.byId[v.organ])) && v.organ !== X.organ) selectOrgan(v.organ, false);
   if (Number.isFinite(v.theta) && v.theta !== X.theta) setTheta(v.theta);
-  if (int(v.group, 0, 5) && v.group !== X.group) selectGroup(v.group, false);
+  if (int(v.group, 0, POSTER.groups.length + 1) && v.group !== X.group) selectGroup(v.group, false);
   // the scene and its controls; a view flies to its own camera as it does here
   if (SCENES.some(s => s[0] === v.scene) && v.scene !== X.scene) openScene(v.scene);
   for (const [k] of SCENES) for (const c of ctlsOf(k)) {
@@ -256,7 +238,7 @@ function collabApply(v) {
   }
   // then the network and the profile (also held by controls: should the two ever disagree, these win) and the custom
   // uptakes (a profile arriving drops them, as it does here: the room's own come back after it)
-  if (NET_IDS.includes(v.net) && v.net !== curNet()) setNet(v.net);
+  if (NET_ALL.includes(v.net) && v.net !== curNet()) setNet(v.net);
   if (PROFILES.some(p => p[0] === v.profile) && v.profile !== curProfile()) selectProfile(v.profile, false);
   if ((v.u === null || (Array.isArray(v.u) && v.u.length === ONE_N && v.u.every(Number.isFinite))) && JSON.stringify(v.u) !== JSON.stringify(X.u)) setUs(v.u);
   renderAll();
@@ -300,7 +282,7 @@ function strengths(id) {
   return Object.entries(s).filter(([k]) => PD.byId[k]).sort((a, b) => b[1] - a[1]);
 }
 const sigWord = (sig, p) => `${esc(p)}${sig ? ' (significant)' : ' (no significant difference)'}`;
-const rowName = r => `${r.what} · ${r.cohort.replace(/, split at the median.*$/, '').replace(/^full cohort$/, 'all scans')}`;
+const rowName = r => `${r.what} · ${r.cohort.replace(/, split at the median.*$/, '').replace(/, normalised to$/, '').replace(/^full cohort$/, 'all scans')}`;
 function buildExplore() {
   $('#explore').innerHTML = `
     <div class="tabs" role="tablist">${TABS.map(([k, n]) => `<button role="tab" type="button" data-tab="${k}" aria-selected="${k === X.tab}">${n}</button>`).join('')}</div>
@@ -370,7 +352,7 @@ function renderNets() {
   if (r) {
     const nets = rowNets(r);
     h += `<h3>${esc(r.what)}</h3><p class="sub">${esc(r.cohort)}</p>
-      <dl class="stats">${r.groups.map((g, i) => `<dt>${esc(g.label)}</dt><dd>${pct(g.density)}<small>density · disorder ${dis(g.disorder)} · ${g.n} scans${nets[i] && NET_IDS.includes(nets[i]) ? ` · <button type="button" data-act="cnet" data-v="${nets[i]}" style="border:0;background:none;padding:0;font:inherit;color:var(--cyan);text-decoration:underline;cursor:pointer">show its network</button>` : ''}</small></dd>`).join('')}</dl>
+      <dl class="stats">${r.groups.map((g, i) => `<dt>${esc(g.label)}</dt><dd>${pct(g.density)}<small>density · disorder ${dis(g.disorder)} · ${g.n} scans${nets[i] && NET_ALL.includes(nets[i]) ? ` · <button type="button" data-act="cnet" data-v="${nets[i]}" style="border:0;background:none;padding:0;font:inherit;color:var(--cyan);text-decoration:underline;cursor:pointer">${nets[i] === id && X.scene === 'organs' ? 'on show' : 'show its network'}</button>` : ''}</small></dd>`).join('')}</dl>
       <p class="sub">Density: ${sigWord(r.sigD, r.pD)}. Disorder: ${sigWord(r.sigO, r.pO)}.</p>`;
   }
   h += `<p class="grp-h">Networks drawn in the paper</p><div class="chips">${NET_IDS.map((n, i) => chip(`data-act="net" data-v="${n}"`, esc(NET_SHORT[i]) + (hasNet(n) ? '' : ' <small>(not read yet)</small>'), n === id && X.scene === 'organs')).join('')}</div>
@@ -381,7 +363,7 @@ function renderNets() {
     h += `<p class="grp-h">Strength of each organ: the sum of its links' weights</p><div class="bars">${st.map(([o, v]) => `<div class="bar${(ni.hubs || []).includes(o) ? ' hl' : ''}"><span class="v">${v.toFixed(1)}</span><div class="fill" style="height:${(100 * v / mx).toFixed(0)}%;background:${organCol(o)}${(ni.hubs || []).includes(o) ? ';box-shadow:0 0 0 2px #ffb020' : ''}"></div><span class="k" title="${esc(organName(o))}">${iconImg(o, 18).replace('margin-right:6px', 'margin:2px 0 0')}</span></div>`).join('')}</div>`;
   }
   h += `<p class="grp-h">Protein networks (Table 3: tissues of ${fmt(FACTS.gtex)} people)</p>
-    <dl class="stats">${PD.D.table3.filter(x => x.kind !== 'fdg').map(x => `<dt>${esc(x.name.replace(/ \(.*\)$/, ''))}</dt><dd>${pct(x.density)}<small>${x.r !== null ? `r = ${x.r} with FDG's · ` : ''}${esc(x.similar)}</small></dd>`).join('')}</dl>
+    <dl class="stats">${PD.D.table3.filter(x => x.kind !== 'fdg').map(x => `<dt>${esc(x.name.replace(/ \(.*\)$/, ''))}</dt><dd>${pct(x.density)}<small>${x.r !== null ? `r = ${x.r} with FDG's network · ` : ''}${esc(x.similar)}</small></dd>`).join('')}</dl>
     <div class="chips">${PD.D.table3.filter(PROT_NET).map(x => chip(`data-act="net" data-v="${PROT_NET(x)}"`, `${esc(netShort(PROT_NET(x)))} network`, PROT_NET(x) === id && X.scene === 'organs')).join('')}</div>`;
   pane.innerHTML = h;
 }
@@ -393,27 +375,29 @@ function renderOrgans() {
     <div class="chips">${PD.D.organs.map(o => chip(`data-act="organ" data-v="${o.id}"`, iconImg(o.id) + esc(o.name), id === o.id)).join('')}</div>`;
   if (O) {
     const inF2 = PD.D.f2.organs.includes(id), e = edgesOf('full').filter(x => x[0] === id || x[1] === id).sort((a, b) => Math.abs(b[2]) - Math.abs(a[2]));
-    const hubIn = NET_IDS.filter(n => hasNet(n) && hubsOf(n).includes(id));
+    const hubIn = NET_ALL.filter(n => hasNet(n) && hubsOf(n).includes(id));
     h += `<h3>${iconImg(id, 26)}${esc(O.name)}</h3>
       <dl class="stats"><dt>Measured</dt><dd style="font-size:15px">${esc(O.measure)}</dd>
       <dt>Typical uptake</dt><dd>${id === 'aorta' ? '1' : O.suv}<small>${id === 'aorta' ? 'the unit' : 'times the aorta\'s'} (illustrative)</small></dd>
       ${inF2 && strengths('full').length ? `<dt>Strength</dt><dd>${(strengths('full').find(s => s[0] === id) || [0, 0])[1].toFixed(2)}<small>in the network of all ${fmt(FACTS.scans)} scans</small></dd>` : ''}
-      <dt>Hub in</dt><dd style="font-size:15px">${hubIn.length ? esc(listOf(hubIn.map(netShort))) : 'no network drawn so far'}</dd></dl>`;
+      <dt>Hub in</dt><dd style="font-size:15px">${hubIn.length ? esc(listOf(hubIn.map(netShort))) : 'none of the networks drawn'}</dd></dl>`;
     h += inF2 ? `<p class="grp-h">Its links in the network of all ${fmt(FACTS.scans)} scans (Figure 2A; blue together, red opposite)</p>
       <div class="chips">${e.length ? e.map(x => { const o = x[0] === id ? x[1] : x[0]; return `<button type="button" data-act="organ" data-v="${o}">${iconImg(o)}${esc(organName(o))} <b style="color:${inkCol(x[2] > 0 ? '#4c7cff' : '#ff4d4d')}">${x[2] > 0 ? '+' : '−'}${Math.abs(x[2]).toFixed(2)}</b></button>`; }).join('') : '<span class="empty">none</span>'}</div>`
-      : `<p class="sub">${id === 'aorta' ? 'Not a node: the blood pool every organ is divided by.' : `Not in the network of all scans (Figure 2A has ${FACTS.f2n} organs); it appears in the networks of Figure 3.`}</p>`;
+      : `<p class="sub">${id === 'aorta' ? 'Not a node: the blood pool every organ is divided by.' : `Not in the network of all scans (Figure 2A has ${FACTS.f2n} organs); it appears in some of Figure 3's networks.`}</p>`;
   } else h += `<p class="empty">Colours and icons are the same in every scene. Point at an organ in the scan, a bar or a node to pick it there.</p>`;
   pane.innerHTML = h;
 }
 // the one-scan pane: built once per profile or custom change of structure; values change in place (syncOne)
+// the profiles' chips (and Custom, while the uptakes are your own)
+const profChips = () => PROFILES.map(([k, n]) => chip(`data-act="profile" data-v="${k}"`, esc(n), !X.u && curProfile() === k, GROUP_COL[k])).join('') + (X.u ? chip('data-act="one"', 'Custom', true) : '');
 function renderOne() {
   const pane = $('#pane-one');
   if (!pane) return;
-  const u = curU(), p = curProfile();
+  const u = curU();
   pane.innerHTML = `<p class="sub">The poster's next step: one network per scan, from ${word(ONE_N)} organs' uptakes (mean SUV). Pick a profile, or move the uptakes yourself.</p>
-    <div class="chips" id="oneProf">${PROFILES.map(([k, n]) => chip(`data-act="profile" data-v="${k}"`, esc(n), !X.u && p === k, GROUP_COL[k])).join('')}${X.u ? chip('data-act="one"', 'Custom', true) : ''}</div>
+    <div class="chips" id="oneProf">${profChips()}</div>
     ${S1.organs.map((o, i) => `<p class="grp-h">${iconImg(o, 16)}${esc(organName(o))} <b data-uv="${i}" style="margin-left:auto;color:var(--ink)">${u[i].toFixed(2)}</b></p><input type="range" data-u="${i}" min="0.1" max="5" step="0.05" value="${u[i]}" style="accent-color:${organCol(o)}" aria-label="Uptake of the ${esc(organLow(o))}">`).join('')}
-    <p class="grp-h">Threshold: one organ outshines another by <b id="thv" style="margin-left:auto;color:var(--ink)">${X.theta.toFixed(2)}</b></p><input type="range" id="theta" min="1.1" max="3" step="0.05" value="${X.theta}" aria-label="Threshold">
+    <p class="grp-h">Threshold: a link where one organ's uptake is this many times another's <b id="thv" style="margin-left:auto;color:var(--ink)">${X.theta.toFixed(2)}</b></p><input type="range" id="theta" min="1.1" max="3" step="0.05" value="${X.theta}" aria-label="Threshold">
     <dl class="stats" id="oneOut" style="margin-top:14px"></dl>
     <p class="note">${esc(S1.note)} The profiles are illustrative too.</p>`;
   syncOne(true);
@@ -421,8 +405,8 @@ function renderOne() {
 function syncOne(fresh) {
   const pane = $('#pane-one');
   if (!pane || !$('#oneOut')) return;
-  // a switch between a profile and custom uptakes changes the chips: draw the pane again
-  if (!fresh && !!pane.querySelector('#oneProf [data-act="one"]') !== !!X.u) { renderOne(); return; }
+  // a switch between a profile and custom uptakes changes only the chips (the sliders stay: one may be being dragged)
+  if (!fresh && !!pane.querySelector('#oneProf [data-act="one"]') !== !!X.u) $('#oneProf').innerHTML = profChips();
   const u = curU(), r = measureOne(u, X.theta);
   pane.querySelectorAll('input[data-u]').forEach(el => { const i = +el.dataset.u; if (document.activeElement !== el) el.value = u[i]; });
   pane.querySelectorAll('[data-uv]').forEach(el => { el.textContent = u[+el.dataset.uv].toFixed(2); });
@@ -441,13 +425,13 @@ function renderPeople() {
   let h = `<p class="sub">The poster's results: ${P.mdiN ? `${fmt(P.mdiN)} people` : 'people'} by their index. Pick a group.</p>
     <div class="chips">${P.groups.map((x, i) => chip(`data-act="group" data-v="${i + 1}"`, `${esc(x.name)} <small>${x.n}</small>`, X.group === i + 1, x.col)).join('')}</div>`;
   if (g) h += `<h3><span class="sw" style="display:inline-block;width:14px;height:14px;border-radius:3px;background:${swCol(g.col)};margin-right:8px"></span>${esc(g.name)}</h3>
-    <dl class="stats"><dt>People</dt><dd>${g.n}</dd><dt>Index</dt><dd>${g.centre}<small>${Array.isArray(g.err) ? `the poster's bar: ${g.err[0]} to ${g.err[1]}` : ''}</small></dd></dl>`;
+    <dl class="stats"><dt>People</dt><dd>${g.n}</dd><dt>Index (median)</dt><dd>${g.centre}<small>${Array.isArray(g.err) ? `middle half of the group: ${g.err[0]} to ${g.err[1]}` : ''}</small></dd></dl>`;
   if (views.length) h += `<p class="grp-h">View</p><div class="chips">${views.map(([k, n]) => chip(`data-act="pview" data-v="${k}"`, n, X.scene === 'people' && viewIs('people', new RegExp('^' + k + '$', 'i')))).join('')}</div>`;
   if (P.thirds.length) h += `<p class="grp-h">Survival with cancer, by the index's thirds</p>
     <dl class="stats">${P.thirds.map(t => `<dt><span class="sw" style="display:inline-block;width:9px;height:9px;border-radius:2px;background:${swCol(t.col)};margin-right:6px"></span>${esc(t.name)}${t.n ? ` (${t.n})` : ''}</dt><dd>${t.median === undefined ? '–' : t.median === null ? 'not reached' : t.median + ' months'}<small>median${t.y1 !== null ? ` · ${t.y1}% after one year` : ''}</small></dd>`).join('')}</dl>`;
   if (P.auc.length) h += `<p class="grp-h">The immunotherapy test${P.respN ? ` (${P.respN} people with lung cancer)` : ''}: good from poor responders</p>
     <dl class="stats">${P.auc.slice().sort((a, b) => b.auc - a.auc).map(a => `<dt>${esc(a.name)}</dt><dd style="color:${a.net ? 'var(--amber)' : 'var(--muted)'}">${a.auc}<small>AUC${a.p ? ' · ' + esc(a.p) : ''}${a.net ? ' · network measure' : ''}</small></dd>`).join('')}</dl>
-    <p class="sub">0.5 is chance. A first test, in few people.</p>`;
+    <p class="sub">${esc(aucNote())}</p>`;
   h += `<p class="note">Group summaries from the poster. The dots are stand-ins drawn to match them, not patients.</p>`;
   pane.innerHTML = h;
 }
@@ -457,10 +441,14 @@ function renderScenes() {
   const sc = SCENES.find(s => s[0] === X.scene);
   pane.innerHTML = `<div class="chips">${SCENES.map(([k, n]) => chip(`data-act="scene" data-v="${k}"`, esc(n), k === X.scene)).join('')}</div>
     <h3>${esc(sc[1])}</h3><p class="sub">${esc(sc[2])}</p>
-    ${ctlsOf(X.scene).map(c => `<p class="grp-h">${esc(c.label)}</p><div class="chips">${c.options.map(([v, n]) => chip(`data-act="ctl" data-ctl="${c.key}" data-v="${v}"`, esc(n), ctlValue(X.scene, c) === v)).join('')}</div>`).join('')}
+    ${ctlsOf(X.scene).map(c => `<p class="grp-h">${esc(c.label)}</p><div class="chips">${c.options.map(([v, n]) => chip(`data-act="ctl" data-ctl="${c.key}" data-v="${v}"`, esc(n), ctlLit(X.scene, c, v))).join('')}</div>`).join('')}
     ${X.scene === 'scan' ? `<div class="actions">${chip('data-act="life"', 'Life size', X.life)}</div>` : ''}
     ${X.scene === 'organs' && X.organ ? `<p class="sub" style="margin-top:10px">Also shown: ${esc(organName(X.organ))} (Organs tab).</p>` : ''}`;
 }
+// a control's option is lit when it holds that value (the Network control's none while a robustness test's network shows)
+const ctlLit = (k, c, v) => ctlValue(k, c) === v && !(k === 'organs' && c.key === 'network' && X.netX);
+// the immunotherapy test in a line: what the AUC means, and that none of it is significant yet
+const aucNote = () => `AUC: 1 tells every good responder from every poor one, 0.5 is chance. A first test in few people${POSTER.noneSig ? `: none of these is significant yet (all p > ${FACTS.p})` : ''}.`;
 // labels the panes add (the sets label their own picks)
 function updateExtraLabels() {
   LBL.extra.forEach(L => { L.el.remove(); dropSprite(L); });
@@ -498,7 +486,7 @@ function pickPos(p) {
   return q && Number.isFinite(q[0]) ? [q[0], q[1], q[2]] : null;
 }
 const pickText = p => (p.organ ? [organName(p.organ), p.organ === 'aorta' ? 'the reference' : PD.byId[p.organ].measure]
-  : [POSTER.groups[p.group - 1].name, `${POSTER.groups[p.group - 1].n} people, index ${POSTER.groups[p.group - 1].centre}`]);
+  : [POSTER.groups[p.group - 1].name, `${POSTER.groups[p.group - 1].n} people, median index ${POSTER.groups[p.group - 1].centre}`]);
 function choosePick(p) {
   if (!p) return;
   if (p.organ && X.scene === 'organs') { if (X.tab !== 'organs' && X.tab !== 'networks') showTab('organs'); selectOrgan(p.organ === X.organ ? null : p.organ, false); }

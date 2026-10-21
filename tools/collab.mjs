@@ -55,6 +55,10 @@ const STORIES = {
     change: "selectEndo(2); showTab('method'); showStep(0); setK(8)",
     back: "showTab('genes'); selectGene(GL.sets.net.api().geneIndex('SNAP25')); setCtl('net', 'walkers', 'on'); setK(3)",
   },
+  pet: {
+    change: "selectProfile('cancer'); setTheta(2.5); selectGroup(2)",
+    back: "showNet('C_high'); selectOrgan('muscle'); setCtl('scan', 'view', 'ring')",
+  },
   robots: {
     change: "setCtl('robots', 'rule', 'chain'); setCtl('robots', 'robots', '12')", back: "setCtl('robots', 'trails', 'on'); setCtl('robots', 'links', 'on')",
     effect: { quiet: '0', idle: "(window.__c0 = GL.sets.robots.anchors.crumbs().join(), true)", send: 'spillCrumbs()', seen: "GL.sets.robots.anchors.crumbs().join() !== window.__c0" },

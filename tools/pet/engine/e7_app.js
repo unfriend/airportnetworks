@@ -73,10 +73,9 @@ const APP = {
     if (s.explore) { const c = { t: 1e3 }; for (const c2 of s.controls || []) c[c2.key] = ctlValue(best, c2); s.explore(c); s.explore(c); }
     // the story's network, organ, profile and group carry over to the panels (the controls hold the network and the
     // profile: the closest ones were picked above)
-    X.organ = null; X.u = null; X.group = 0; X.cmp = -1; X.theta = Number.isFinite(S.people_theta) ? round2(clamp(S.people_theta, 1.1, 3)) : S1.theta;
+    X.organ = null; X.u = null; X.group = 0; X.cmp = -1; X.netX = null; X.theta = Number.isFinite(S.people_theta) ? round2(clamp(S.people_theta, 1.1, 3)) : S1.theta;
     if (best === 'organs' && S.organs_focus > 0.5) X.organ = PD.ids[Math.round(S.organs_focus) - 1] || null;
-    if (best === 'organs' && S.organs_net > 0.5) { const w = NET_IDS[Math.round(S.organs_which)]; if (w) { if (!netCtl()) X.net = w; X.cmp = cmpOfNet(w); } }
-    if (best === 'people' && !netCtl()) X.profile = (PROFILES[Math.round(S.people_profile)] || PROFILES[0])[0];
+    if (best === 'organs' && S.organs_net > 0.5) { const w = NET_ALL[Math.round(S.organs_which)]; if (w) { if (NET_EXTRA.includes(w)) X.netX = w; X.cmp = cmpOfNet(w); } }
     if (best === 'people' && S.people_group > 0.5) X.group = clamp(Math.round(S.people_group), 0, POSTER.groups.length);
     X.tab = best === 'organs' ? (S.organs_net > 0.5 ? 'networks' : 'organs') : best === 'people' ? (S.people_map > 0.5 ? 'people' : 'one') : 'scenes';
     // from the last chapter (the story's end, or its Explore button): the networks of the paper
@@ -108,6 +107,7 @@ function openNetworks() {
 }
 
 let lastNow = 0;
+const EXV = [0, 0, 1, 0, 0, 0, 1, 0, 0, 0];   // explore's view for applyCamera: orbit.cur, then FIT's eased shift
 function frame(now, xrFrame) {
   const dt = lastNow ? Math.min(0.1, Math.max(0, (now - lastNow) / 1000)) : 0;
   lastNow = now;
@@ -132,10 +132,14 @@ function frame(now, xrFrame) {
   } else {
     const pn = performance.now();
     S = exploreStep(dt, pn); tSet = pn / 1000;
-    // (a wide view stands further back on a phone held upright: eased as the views change)
-    GL.nf += ((X.life && X.scene === 'scan' ? 1 : narrowOf(X.scene, viewCam(X.scene) || 'default')) - GL.nf) * (1 - Math.exp(-dt * 3));
+    // (a wide view stands further back on a phone held upright, and its target's shift clear of the side panel, FIT,
+    // goes back where there is none: both eased as the views change)
+    const vn = viewCam(X.scene) || 'default', life = X.life && X.scene === 'scan', fs = life ? [0, 0, 0] : fitShift(X.scene, vn), ke = 1 - Math.exp(-dt * 3);
+    GL.nf += ((life ? 1 : narrowOf(X.scene, vn)) - GL.nf) * ke;
+    for (let i = 0; i < 3; i++) EXV[7 + i] += (fs[i] - EXV[7 + i]) * ke;
     orbitStep(xr ? pn : now);
-    if (xr) xrPlace(orbit.cur); else { applyCamera(orbit.cur); keepCamera(S, null); }
+    for (let i = 0; i < 6; i++) EXV[i] = orbit.cur[i];
+    if (xr) xrPlace(orbit.cur); else { applyCamera(EXV); keepCamera(S, null); }
   }
   if (XR.on && !XR.clear && 'scan_floor' in S) S.scan_floor = 0;   // passthrough: the room's own floor, not the scanner's
   K.U.uTime.value = tSet;
@@ -198,7 +202,7 @@ function init() {
   if (hp.has('explore')) {
     APP.enterExplore();
     // #pet&explore&scene=scan&view=ring (any control of a scene by its key), &tab=networks|organs|one|people|scenes,
-    // &cmp=7 (a row of Table 2), &net=C_high, &organ=muscle, &profile=cancer, &theta=2, &u=2.2,1.7,... (custom
+    // &cmp=7 (a row of Table 2), &net=C_high (or vena, dose_ultralow ...), &organ=muscle, &profile=cancer, &theta=2, &u=2.2,1.7,... (custom
     // uptakes), &group=3, &life (the scanner life size)
     const sc = hp.get('scene');
     if (sc && GL.sets[sc]) { openScene(sc, false); showTab('scenes'); }
@@ -207,18 +211,18 @@ function init() {
     // controls after the default view, so a control's own view wins
     for (const c of ctlsOf(X.scene)) if (hp.get(c.key) && c.options.some(o => o[0] === hp.get(c.key))) setCtl(X.scene, c.key, hp.get(c.key));
     if (hp.get('cmp') !== null && hp.get('cmp') !== '') { const i = parseInt(hp.get('cmp'), 10); if (i >= 0 && i < PD.D.table2.length) { showTab('networks'); selectCmp(i); } }
-    if (NET_IDS.includes(hp.get('net'))) { showTab('networks'); pickNet(hp.get('net')); }
+    if (NET_ALL.includes(hp.get('net'))) { showTab('networks'); pickNet(hp.get('net')); }
     if (PD.byId[hp.get('organ')]) { showTab('organs'); selectOrgan(hp.get('organ')); }
     if (PROFILES.some(p => p[0] === hp.get('profile'))) { showTab('one'); selectProfile(hp.get('profile')); }
     if (hp.get('u')) { const u = hp.get('u').split(',').map(Number); if (u.length === ONE_N && u.every(Number.isFinite)) { showTab('one'); setUs(u); showOne(); } }
     if (hp.get('theta') && Number.isFinite(+hp.get('theta'))) { showTab('one'); setTheta(+hp.get('theta')); showOne(); }
     if (hp.get('group')) { const g = parseInt(hp.get('group'), 10); if (g >= 1 && g <= POSTER.groups.length) { showTab('people'); selectGroup(g); } }
+    if (hp.has('life')) setLife(true);   // (it opens the Scenes tab: a tab asked for comes after)
     if (hp.get('tab') && TABS.some(t => t[0] === hp.get('tab'))) {
       showTab(hp.get('tab'));
       if (hp.get('tab') === 'one') showOne();
-      if (hp.get('tab') === 'people' && X.scene !== 'people') showPeople(/^index$/i);
+      if (hp.get('tab') === 'people' && (X.scene !== 'people' || oneView())) showPeople(/^index$/i);
     }
-    if (hp.has('life')) { setLife(true); if (!hp.get('tab')) showTab('scenes'); }
     if (hp.has('now')) { Object.assign(XS, exploreTargets()); orbit.cur = orbit.to || orbit.cur; orbit.to = null; }
   }
   GL.renderer.setAnimationLoop(frame); // also drives the headset's frame loop

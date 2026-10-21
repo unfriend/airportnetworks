@@ -15,7 +15,7 @@ function buildScene(canvas) {
   Object.assign(GL, { renderer, scene, camera, canvas });
   GL.rig = new THREE.Group(); GL.world = new THREE.Group();
   scene.add(GL.rig); GL.rig.add(GL.world);
-  // lit sets (the computer, the complex, buildings ...) share one sky light and a light from over your shoulder
+  // lit sets (the scanner, the tour's body, the organs' shells ...) share one sky light and a light from over your shoulder
   scene.add(new THREE.HemisphereLight(0xdde8ff, 0x1a2233, 0.85));
   GL.sun = new THREE.DirectionalLight(0xffffff, 0.85);
   scene.add(GL.sun); scene.add(GL.sun.target);
@@ -62,8 +62,10 @@ function viewDir(v, out) {
 // factor (NARROW in the story; 1 for most views), taken in full at half as wide as tall
 GL.nf = 1;
 const narrowK = () => (GL.wide || !(GL.nf > 1) ? 1 : 1 + (GL.nf - 1) * clamp((1 - (GL.aspect || 1)) / 0.5, 0, 1));
+// (v[7..9]: the target's shift clear of the side panel, FIT in the story; on a screen without a side panel it goes back)
 function applyCamera(v) {
-  viewDir(v, _vd); _vt.set(v[3], v[4], v[5]);
+  const u = GL.wide ? 0 : 1;
+  viewDir(v, _vd); _vt.set(v[3] - u * (v[7] || 0), v[4] - u * (v[8] || 0), v[5] - u * (v[9] || 0));
   GL.camera.position.copy(_vt).addScaledVector(_vd, v[2] * (GL.fit || 1) * narrowK());
   GL.camera.up.set(0, 1, 0); GL.camera.lookAt(_vt);
 }
@@ -92,7 +94,10 @@ function resize() {
   GL.wide = wide; GL.aspect = w / h;
   if (wide) camera.setViewOffset(w, h, -0.14 * w, 0, w, h);
   else camera.setViewOffset(w, h, 0, 0.21 * h, w, h);
-  GL.fit = wide ? Math.max(1, 1.55 / (w / h)) : Math.max(1.15, 1.5 / (w / h) * 0.62);
+  // (on a narrow screen held sideways the panel leaves only a strip above it, about 0.56 h - 122 px tall: the scene
+  // stands back far enough to fit that strip, in full from 1.2 : 1 on; upright screens keep their own framing)
+  const strip = Math.max(0.12, (0.56 * h - 122) / h);
+  GL.fit = wide ? Math.max(1, 1.55 / (w / h)) : Math.max(1.15, 1.5 / (w / h) * 0.62, 0.9 / strip * clamp((w / h - 0.6) / 0.6, 0, 1));
   camera.updateProjectionMatrix();
 }
 // the sun comes from over the viewer's left shoulder; point sizes follow the screen (and the world's scale in a headset)

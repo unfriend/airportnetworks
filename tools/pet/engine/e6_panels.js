@@ -106,7 +106,7 @@ function sigMain() {
     }
     return s;
   }
-  return ['x', audioLabel(), X.tab, X.scene, JSON.stringify(X.ctl), X.cmp, X.net, X.organ, X.u ? X.u.join(',') : '', X.theta, X.group, X.life].join('|');
+  return ['x', audioLabel(), X.tab, X.scene, JSON.stringify(X.ctl), X.cmp, X.netX, X.organ, X.u ? X.u.join(',') : '', X.theta, X.group, X.life].join('|');
 }
 const XR_HERE = 'pet';
 const XR_STORIES = HOST.list;
@@ -122,8 +122,9 @@ function xrLandingSetup() {
   XR.landGroup.add(head.mesh); XR.land.push(head);
   HOST.list.forEach((s, k) => {
     // cards 0.36 m wide on an arc: seven 0.31 rad apart at 1.25 m (neighbours 0.386 m apart, the outer ones 53° to the
-    // side), eight 0.272 rad apart at 1.4 m (0.379 m apart, the outer ones 55° to the side)
-    const n = HOST.list.length, a = (k - (n - 1) / 2) * (n > 7 ? 0.272 : 0.31), d = n > 7 ? 1.4 : 1.25;
+    // side), eight 0.272 rad apart at 1.4 m (0.379 m apart, the outer ones 55° to the side), nine 0.245 rad apart at
+    // 1.55 m (0.379 m apart, the outer ones 56° to the side)
+    const n = HOST.list.length, a = (k - (n - 1) / 2) * (n > 8 ? 0.245 : n > 7 ? 0.272 : 0.31), d = n > 8 ? 1.55 : n > 7 ? 1.4 : 1.25;
     const P = makePanel(640, 820, 0.36, (ctx, P) => drawLandCard(ctx, P, s), () => 'c' + XR.inStory + s.key);
     P.mesh.position.set(Math.sin(a) * d, -0.105, -Math.cos(a) * d);   // top edge 0.126 m up, under the header
     P.mesh.rotation.y = -a;
@@ -145,7 +146,7 @@ function xrLandingClose() {
   if (APP.mode === 'story') APP.playing = true;
 }
 function drawLandHead(ctx, P) {
-  ctx.font = vfont(58, 700); ctx.fillStyle = VC.ink; ctx.fillText(`Networks, in ${['one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten'][HOST.list.length - 1] || HOST.list.length} stories`, 48, 44);
+  ctx.font = vfont(58, 700); ctx.fillStyle = VC.ink; ctx.fillText(`Networks, in ${['one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine'][HOST.list.length - 1] || HOST.list.length} stories`, 48, 44);
   // anchored: where the place stands, in place of the hint
   const an = HOST.anchor.status();
   textBlock(ctx, an || 'The same ideas, very different networks. Point at a story and pull the trigger (or pinch).', 48, 128, 860, 27, 38, an ? VC.ink : VC.muted, 400, 2);
@@ -432,11 +433,20 @@ function drawStrength(ctx, x, y, W, id, hubs) {
 function drawNetsPane(ctx, P, x, y, W, bottom) {
   const T = PD.D.table2, r = T[X.cmp], id = curNet(), ni = netInfo(id);
   y += head(ctx, x, y, 'Table 2: groups of scans compared (amber: a significant difference)');
-  y += flow(ctx, P, T.map((t, i) => ({ id: 'cmp:' + i, label: rowName(t), col: t.sigD || t.sigO ? VC.amber : null, on: X.cmp === i, fn: () => selectCmp(X.cmp === i ? -1 : i) })), x, y, W, bottom - 470, { px: 18, h: 36 }) + 14;
+  for (const [part, name] of [['health', 'From health to disease'], ['test', 'Is it robust?']]) {
+    ctx.font = vfont(20, 700); ctx.fillStyle = VC.ink; ctx.fillText(name, x, y); y += 30;
+    y += flow(ctx, P, T.map((t, i) => [t, i]).filter(([t]) => t.part === part).map(([t, i]) => ({ id: 'cmp:' + i, label: rowName(t), col: t.sigD || t.sigO ? VC.amber : null, on: X.cmp === i, fn: () => selectCmp(X.cmp === i ? -1 : i) })), x, y, W, bottom - 430, { px: 18, h: 36 }) + 10;
+  }
+  y += 4;
   if (r) {
     const nets = rowNets(r);
     y += textBlock(ctx, `${r.what}: ${r.cohort}`, x, y, W, 25, 34, VC.ink, 700, 1) + 4;
-    r.groups.forEach((g, i) => { y += textBlock(ctx, `${g.label}: density ${pct(g.density)}, disorder ${dis(g.disorder)}, ${g.n} scans${nets[i] && NET_IDS.includes(nets[i]) ? ' (network below)' : ''}`, x, y, W, 22, 30, VC.muted, 400, 1); });
+    r.groups.forEach((g, i) => {
+      const n = nets[i] && NET_ALL.includes(nets[i]) ? nets[i] : null, on = n === id && X.scene === 'organs';
+      // a group the paper drew as a network: a button that shows it (as the HTML pane's link)
+      if (n) vButton(ctx, P, 'gnet:' + n, x + W - 130, y - 4, 130, 36, on ? 'On show' : 'Show', () => showNet(n), { on, r: 6, px: 19 });
+      y += textBlock(ctx, `${g.label}: density ${pct(g.density)}, disorder ${dis(g.disorder)}, ${g.n} scans`, x, y, n ? W - 140 : W, 22, 30, VC.muted, 400, 1) + (n ? 8 : 0);
+    });
     y += textBlock(ctx, `Density ${r.pD}${r.sigD ? ', significant' : ''}. Disorder ${r.pO}${r.sigO ? ', significant' : ''}.`, x, y, W, 22, 30, r.sigD || r.sigO ? VC.amber : VC.muted, 400, 1) + 12;
   }
   y += head(ctx, x, y, 'Networks drawn in the paper (· not read off the figure yet)');
@@ -454,9 +464,11 @@ function drawOrgansPane(ctx, P, x, y, W, bottom) {
   y += textBlock(ctx, O.name, x + 60, y + 2, W - 60, 38, 46, VC.ink, 700, 1) + 6;
   y += textBlock(ctx, `Measured: ${O.measure}.`, x, y, W, 24, 33, VC.muted, 400, 2) + 2;
   y += textBlock(ctx, id === 'aorta' ? 'The unit: every organ\'s uptake is divided by the aorta\'s.' : `Typical uptake: ${O.suv} times the aorta's (illustrative).`, x, y, W, 24, 33, VC.muted, 400, 2) + 2;
-  const hubIn = NET_IDS.filter(n => hasNet(n) && hubsOf(n).includes(id));
-  y += textBlock(ctx, `Hub in: ${hubIn.length ? listOf(hubIn.map(netShort)) : 'no network drawn so far'}.`, x, y, W, 24, 33, hubIn.length ? VC.amber : VC.muted, 400, 2) + 14;
-  if (!PD.D.f2.organs.includes(id)) { textBlock(ctx, id === 'aorta' ? 'Not a node: the blood pool.' : `Not in the network of all scans (Figure 2A has ${FACTS.f2n} organs); it appears in Figure 3's.`, x, y, W, 24, 33, VC.muted, 400, 2); return; }
+  const hubIn = NET_ALL.filter(n => hasNet(n) && hubsOf(n).includes(id));
+  const sv = PD.D.f2.organs.includes(id) && strengths('full').find(q => q[0] === id);
+  if (sv) y += textBlock(ctx, `Strength: ${sv[1].toFixed(2)} in the network of all ${fmt(FACTS.scans)} scans.`, x, y, W, 24, 33, VC.muted, 400, 1) + 2;
+  y += textBlock(ctx, `Hub in: ${hubIn.length ? listOf(hubIn.map(netShort)) : 'none of the networks drawn'}.`, x, y, W, 24, 33, hubIn.length ? VC.amber : VC.muted, 400, 2) + 14;
+  if (!PD.D.f2.organs.includes(id)) { textBlock(ctx, id === 'aorta' ? 'Not a node: the blood pool.' : `Not in the network of all scans (Figure 2A has ${FACTS.f2n} organs); it appears in some of Figure 3's networks.`, x, y, W, 24, 33, VC.muted, 400, 2); return; }
   const e = edgesOf('full').filter(q => q[0] === id || q[1] === id).sort((a, b) => Math.abs(b[2]) - Math.abs(a[2]));
   y += head(ctx, x, y, `Its links among all ${fmt(FACTS.scans)} scans (Figure 2A; blue together, red opposite)`);
   flow(ctx, P, e.map(q => { const o = q[0] === id ? q[1] : q[0]; return { id: 'ol:' + o, label: `${PD.byId[o].short} ${q[2] > 0 ? '+' : '−'}${Math.abs(q[2]).toFixed(2)}`, icon: o, col: q[2] > 0 ? '#4c7cff' : '#ff4d4d', fn: () => selectOrgan(o) }; }), x, y, W, bottom, { px: 21, h: 46 });
@@ -488,7 +500,7 @@ function drawPeoplePane(ctx, P, x, y, W, bottom) {
   const PO = POSTER, g = PO.groups[X.group - 1];
   y += textBlock(ctx, `The poster's results: ${PO.mdiN ? fmt(PO.mdiN) + ' people' : 'people'} by their index. Pick a group.`, x, y, W, 24, 33, VC.muted, 400, 2) + 10;
   y += flow(ctx, P, PO.groups.map((q, i) => ({ id: 'grp:' + (i + 1), label: `${q.name} · ${q.n}`, col: q.col, on: X.group === i + 1, fn: () => selectGroup(X.group === i + 1 ? 0 : i + 1) })), x, y, W, bottom, { px: 22, h: 48 }) + 14;
-  if (g) y += textBlock(ctx, `${g.name}: ${g.n} people, index ${g.centre}${Array.isArray(g.err) ? ` (the poster's bar: ${g.err[0]} to ${g.err[1]})` : ''}.`, x, y, W, 24, 33, VC.ink, 400, 2) + 12;
+  if (g) y += textBlock(ctx, `${g.name}: ${g.n} people, median index ${g.centre}${Array.isArray(g.err) ? ` (middle half of the group: ${g.err[0]} to ${g.err[1]})` : ''}.`, x, y, W, 24, 33, VC.ink, 400, 2) + 12;
   const views = [['people', 'People'], ['index', 'Index'], ['survival', 'Survival'], ['immunotherapy', 'Immunotherapy']].filter(([k]) => optKey('people', 'view', new RegExp('^' + k + '$', 'i')));
   if (views.length) { y += head(ctx, x, y, 'View'); y += flow(ctx, P, views.map(([k, n]) => ({ id: 'pv:' + k, label: n, on: X.scene === 'people' && viewIs('people', new RegExp('^' + k + '$', 'i')), fn: () => showPeople(new RegExp('^' + k + '$', 'i')) })), x, y, W, bottom, { px: 23, h: 52 }) + 16; }
   if (PO.thirds.length) {
@@ -502,9 +514,10 @@ function drawPeoplePane(ctx, P, x, y, W, bottom) {
   if (PO.auc.length && y + 80 < bottom) {
     y += head(ctx, x, y, `The immunotherapy test${PO.respN ? ` (${PO.respN} people)` : ''}: AUC, 0.5 is chance`);
     for (const a of PO.auc.slice().sort((p, q) => q.auc - p.auc)) {
-      if (y + 34 > bottom - 70) break;
+      if (y + 34 > bottom - 130) break;
       y += textBlock(ctx, `${a.name}: ${a.auc}${a.p ? ' · ' + a.p : ''}`, x, y, W, 23, 32, a.net ? VC.amber : VC.muted, a.net ? 700 : 400, 1) + 2;
     }
+    if (y + 64 < bottom - 60) y += textBlock(ctx, aucNote(), x, y + 6, W, 21, 29, VC.muted, 400, 2) + 8;
   }
   if (y + 40 < bottom) textBlock(ctx, 'Group summaries from the poster; the dots are stand-ins drawn to match them, not patients.', x, bottom - 60, W, 21, 29, VC.faint, 400, 2);
 }
@@ -520,7 +533,7 @@ function drawScenesPane(ctx, P, x, y, W, bottom) {
     if (y + 110 > bottom) break;
     ctx.font = vfont(23); ctx.fillStyle = VC.muted; ctx.fillText(c.label, x, y);
     y += 36;
-    y += flow(ctx, P, c.options.map(([v, n]) => ({ id: 'ctl:' + c.key + ':' + v, label: n, on: ctlValue(X.scene, c) === v, fn: () => setCtl(X.scene, c.key, v) })), x, y, W, bottom, { px: 24, h: 56 }) + 24;
+    y += flow(ctx, P, c.options.map(([v, n]) => ({ id: 'ctl:' + c.key + ':' + v, label: n, on: ctlLit(X.scene, c, v), fn: () => setCtl(X.scene, c.key, v) })), x, y, W, bottom, { px: 24, h: 56 }) + 24;
   }
   if (X.scene === 'scan' && y + 70 < bottom) vButton(ctx, P, 'life', x, y, 300, 60, 'Life size', () => setLife(!X.life), { on: X.life, px: 24 });
 }
