@@ -27,10 +27,12 @@ function xrPlace(v) {
   // towards you; the thumbstick turns it on its spot
   if (XR.room && APP.mode === 'explore' && X.scene === 'scan') {
     const lv = view('scan', 'life'), d = clamp(lv[2], 1.8, 4);
-    XR.R = 1; XR.hitR = 1.4; XR.target.set(0, 0, 0);
+    XR.R = 1; XR.hitR = 1.4; XR.target.set(lv[3], lv[4], lv[5]);
     GL.world.quaternion.setFromAxisAngle(_xY, -(v[0] - lv[0]) * D2R);
     GL.world.scale.setScalar(1);
-    GL.world.position.set(0, -1.6 - scanFloorY(), -d);   // the rig is at your eyes
+    // the life view's target that far ahead of you; the rig is at your eyes
+    _xb.set(lv[3], 0, lv[5]).applyQuaternion(GL.world.quaternion);
+    GL.world.position.set(-_xb.x, -1.6 - scanFloorY(), -d - _xb.z);
     return;
   }
   const d = Math.max(v[2], 0.05);
@@ -391,8 +393,10 @@ function xrClickPick(pk) {
 function xrRoom(on) { XR.room = on; }
 // where the scanner's floor is in its own frame (it exports floorY; the bore's centre is its origin)
 function scanFloorY() { const s = GL.sets.scan, A = setApi('scan'); return Number.isFinite(s.floorY) ? s.floorY : A && Number.isFinite(A.floorY) ? A.floorY : -1.05; }
-// in passthrough the room's own floor shows: the scanner's dark floor and its reflection are hidden
+// in passthrough the room's own floor shows: the scanner's dark floor and its reflection are hidden (its param
+// scan_floor, set in frame(); or, for a set without it, its api's setFloor or its object named 'floor')
 function scanFloor(on) {
+  if ('scan_floor' in GL.sets.scan.params) return;
   const A = setApi('scan');
   if (A && A.setFloor) A.setFloor(on);
   else { const f = GL.sets.scan.group.getObjectByName('floor'); if (f) f.visible = on; }

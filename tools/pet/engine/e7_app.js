@@ -76,6 +76,8 @@ const APP = {
     if (best === 'people' && !netCtl()) X.profile = (PROFILES[Math.round(S.people_profile)] || PROFILES[0])[0];
     if (best === 'people' && S.people_group > 0.5) X.group = clamp(Math.round(S.people_group), 0, POSTER.groups.length);
     X.tab = best === 'organs' ? (S.organs_net > 0.5 ? 'networks' : 'organs') : best === 'people' ? (S.people_map > 0.5 ? 'people' : 'one') : 'scenes';
+    // from the last chapter (the story's end, or its Explore button): the networks of the paper
+    if (ts >= C.vision.a) openNetworks();
     ST.labels.forEach(L => { L.el.style.opacity = 0; L.o = 0; });
     showTab(X.tab); pushState(); renderAll();
     $('#panel').scrollTop = 0;
@@ -92,6 +94,15 @@ const APP = {
     this.t = t || 0; this.playing = true; curCh = null;
   },
 };
+
+// explore mode's start: the network of all scans with its strength, in the Networks tab
+function openNetworks() {
+  openScene('organs', false);
+  const v = optKey('organs', 'view', /strength/i) || optKey('organs', 'view', /net/i);
+  if (v) (X.ctl.organs = X.ctl.organs || {}).view = v;
+  setNet('full'); X.tab = 'networks'; showTab('networks');
+  orbit.cur = view('organs', viewCam('organs') || 'default'); orbit.to = null;
+}
 
 let lastNow = 0;
 function frame(now, xrFrame) {
@@ -119,6 +130,7 @@ function frame(now, xrFrame) {
     orbitStep(xr ? pn : now);
     if (xr) xrPlace(orbit.cur); else { applyCamera(orbit.cur); keepCamera(S, null); }
   }
+  if (XR.on && !XR.clear && 'scan_floor' in S) S.scan_floor = 0;   // passthrough: the room's own floor, not the scanner's
   K.U.uTime.value = tSet;
   GL.camera.updateMatrixWorld();
   updateLight(xr);
@@ -183,12 +195,7 @@ function init() {
     // uptakes), &group=3, &life (the scanner life size)
     const sc = hp.get('scene');
     if (sc && GL.sets[sc]) { openScene(sc, false); showTab('scenes'); }
-    else if (!hp.has('t')) {   // straight in: the network of all scans, with its strength
-      openScene('organs', false);
-      const v = optKey('organs', 'view', /strength/i) || optKey('organs', 'view', /net/i);
-      if (v) (X.ctl.organs = X.ctl.organs || {}).view = v;
-      setNet('full'); showTab('networks');
-    }
+    else if (!hp.has('t')) openNetworks();   // straight in: the network of all scans, with its strength
     orbit.cur = view(X.scene, viewCam(X.scene) || 'default'); orbit.to = null;
     // controls after the default view, so a control's own view wins
     for (const c of ctlsOf(X.scene)) if (hp.get(c.key) && c.options.some(o => o[0] === hp.get(c.key))) setCtl(X.scene, c.key, hp.get(c.key));

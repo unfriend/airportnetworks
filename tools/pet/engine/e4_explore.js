@@ -300,7 +300,7 @@ function buildExplore() {
     <div class="pane" id="pane-one" role="tabpanel"></div>
     <div class="pane" id="pane-people" role="tabpanel"></div>
     <div class="pane" id="pane-scenes" role="tabpanel"></div>`;
-  document.querySelectorAll('#explore .tabs button').forEach(b => b.addEventListener('click', () => showTab(b.dataset.tab)));
+  document.querySelectorAll('#explore .tabs button').forEach(b => b.addEventListener('click', () => pickTab(b.dataset.tab)));
   // one click handler per pane: buttons carry what they do in data attributes
   $('#explore').addEventListener('click', ev => {
     const b = ev.target.closest('[data-act]');
@@ -338,6 +338,14 @@ function showTab(k) {
   document.querySelectorAll('#explore .pane').forEach(p => p.classList.toggle('on', p.id === 'pane-' + k));
   updateExtraLabels();
 }
+// a tab picked by hand brings up the scene it talks about (a shared room's tab arriving does not: its scene comes with it)
+function pickTab(k) {
+  showTab(k);
+  if (k === 'networks' && (X.scene !== 'organs' || !netView())) showNet(curNet());
+  if (k === 'organs' && X.scene !== 'organs') openScene('organs');
+  if (k === 'one') showOne();
+  if (k === 'people' && (X.scene !== 'people' || oneView())) showPeople(/^index$/i);
+}
 function renderAll() { renderNets(); renderOrgans(); renderOne(); renderPeople(); renderScenes(); }
 function renderNets() {
   const pane = $('#pane-networks');
@@ -350,7 +358,7 @@ function renderNets() {
   if (r) {
     const nets = rowNets(r);
     h += `<h3>${esc(r.what)}</h3><p class="sub">${esc(r.cohort)}</p>
-      <dl class="stats">${r.groups.map((g, i) => `<dt>${esc(g.label)}</dt><dd>${pct(g.density)}<small>density · disorder ${dis(g.disorder)} · ${g.n} scans${nets[i] && NET_IDS.includes(nets[i]) ? ` · <a href="#" data-act="net" data-v="${nets[i]}">show its network</a>` : ''}</small></dd>`).join('')}</dl>
+      <dl class="stats">${r.groups.map((g, i) => `<dt>${esc(g.label)}</dt><dd>${pct(g.density)}<small>density · disorder ${dis(g.disorder)} · ${g.n} scans${nets[i] && NET_IDS.includes(nets[i]) ? ` · <button type="button" data-act="net" data-v="${nets[i]}" style="border:0;background:none;padding:0;font:inherit;color:var(--cyan);text-decoration:underline;cursor:pointer">show its network</button>` : ''}</small></dd>`).join('')}</dl>
       <p class="sub">Density: ${sigWord(r.sigD, r.pD)}. Disorder: ${sigWord(r.sigO, r.pO)}.</p>`;
   }
   h += `<p class="grp-h">Networks drawn in the paper</p><div class="chips">${NET_IDS.map((n, i) => chip(`data-act="net" data-v="${n}"`, esc(NET_SHORT[i]) + (hasNet(n) ? '' : ' <small>(not read yet)</small>'), n === id && X.scene === 'organs')).join('')}</div>
@@ -392,7 +400,7 @@ function renderOne() {
   const u = curU(), p = curProfile();
   pane.innerHTML = `<p class="sub">The poster's next step: one network per scan, from ${word(ONE_N)} organs' uptakes (mean SUV). Pick a profile, or move the uptakes yourself.</p>
     <div class="chips" id="oneProf">${PROFILES.map(([k, n]) => chip(`data-act="profile" data-v="${k}"`, esc(n), !X.u && p === k, GROUP_COL[k])).join('')}${X.u ? chip('data-act="one"', 'Custom', true) : ''}</div>
-    ${S1.organs.map((o, i) => `<p class="grp-h">${iconImg(o, 16)}${esc(organName(o))} <b data-uv="${i}" style="margin-left:auto;color:var(--ink)">${u[i].toFixed(2)}</b></p><input type="range" data-u="${i}" min="0.1" max="5" step="0.05" value="${u[i]}" aria-label="Uptake of the ${esc(organLow(o))}">`).join('')}
+    ${S1.organs.map((o, i) => `<p class="grp-h">${iconImg(o, 16)}${esc(organName(o))} <b data-uv="${i}" style="margin-left:auto;color:var(--ink)">${u[i].toFixed(2)}</b></p><input type="range" data-u="${i}" min="0.1" max="5" step="0.05" value="${u[i]}" style="accent-color:${organCol(o)}" aria-label="Uptake of the ${esc(organLow(o))}">`).join('')}
     <p class="grp-h">Threshold: one organ outshines another by <b id="thv" style="margin-left:auto;color:var(--ink)">${X.theta.toFixed(2)}</b></p><input type="range" id="theta" min="1.1" max="3" step="0.05" value="${X.theta}" aria-label="Threshold">
     <dl class="stats" id="oneOut" style="margin-top:14px"></dl>
     <p class="note">${esc(S1.note)} The profiles are illustrative too.</p>`;
@@ -426,7 +434,7 @@ function renderPeople() {
   if (P.thirds.length) h += `<p class="grp-h">Survival with cancer, by the index's thirds</p>
     <dl class="stats">${P.thirds.map(t => `<dt><span class="sw" style="display:inline-block;width:9px;height:9px;border-radius:2px;background:${t.col};margin-right:6px"></span>${esc(t.name)}${t.n ? ` (${t.n})` : ''}</dt><dd>${t.median === undefined ? '–' : t.median === null ? 'not reached' : t.median + ' months'}<small>median${t.y1 !== null ? ` · ${t.y1}% after one year` : ''}</small></dd>`).join('')}</dl>`;
   if (P.auc.length) h += `<p class="grp-h">The immunotherapy test${P.respN ? ` (${P.respN} people with lung cancer)` : ''}: good from poor responders</p>
-    <dl class="stats">${P.auc.slice().sort((a, b) => b.auc - a.auc).map(a => `<dt>${esc(a.name)}</dt><dd style="color:${a.net ? 'var(--amber)' : 'var(--muted)'}">${a.auc}<small>AUC${a.p ? ' · ' + esc(a.p) : ''}</small></dd>`).join('')}</dl>
+    <dl class="stats">${P.auc.slice().sort((a, b) => b.auc - a.auc).map(a => `<dt>${esc(a.name)}</dt><dd style="color:${a.net ? 'var(--amber)' : 'var(--muted)'}">${a.auc}<small>AUC${a.p ? ' · ' + esc(a.p) : ''}${a.net ? ' · network measure' : ''}</small></dd>`).join('')}</dl>
     <p class="sub">0.5 is chance. A first test, in few people.</p>`;
   h += `<p class="note">Group summaries from the poster. The dots are stand-ins drawn to match them, not patients.</p>`;
   pane.innerHTML = h;

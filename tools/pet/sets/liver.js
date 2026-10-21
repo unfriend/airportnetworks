@@ -4,15 +4,16 @@
 // ligament, the gallbladder in its bed underneath, the falciform ligament on the front) is filled with about 3,000
 // patches on a regular grid, each with a stand-in uptake (smooth noise, a cooler and a warmer patch, a little noise
 // per patch as in any scan). Two patches a few grid steps apart are linked when one outshines the other by more than
-// a threshold (the poster's rule for organs, applied to patches): about 20,000 links. The best-connected 5 % glow.
-// Everything is built once at load; update only sets uniforms, so the picture follows the params and the time alone.
+// a threshold (the poster's rule for organs, applied to patches): about 20,000 links. The best-connected 5 % stand out
+// (each keeps its own colour, in an amber ring). Everything is built once at load; update only sets uniforms (and hides
+// what is not drawn), so the picture follows the params and the time alone.
 // Frame: x the patient's left (so the right lobe is on your left when you face it), y up, z forward; about 1.6 wide.
 SETS.liver = function (K) {
   const { THREE, smooth, clamp, lerp, prog, v3 } = K;
   const set = K.newSet('liver');
   const R = K.rng(1606);
   const ORG = typeof PET_DATA !== 'undefined' && (PET_DATA.organs || []).find(o => o.id === 'liver');
-  const COL = K.rgb(ORG ? ORG.col : '#f97316'), HUBC = K.rgb('#ffb020'), LINKC = K.rgb('#3d6bff');
+  const COL = K.rgb(ORG ? ORG.col : '#f97316'), HUBC = K.rgb('#ffb020'), LINKC = K.rgb('#4c7cff'), FRONTC = K.rgb('#46d9ff');
   const smin = (a, b, k) => { const h = Math.max(k - Math.abs(a - b), 0) / k; return Math.min(a, b) - h * h * k * 0.25; };
   const smax = (a, b, k) => -smin(-a, -b, k);
   const sat = x => clamp(x, 0, 1);
@@ -77,7 +78,8 @@ SETS.liver = function (K) {
     }
   }
   // round cones (after Inigo Quilez's capsule) for the cuts and the gallbladder
-  const capsule = (a, b, r1, r2) => ({ a, b, r1, r2, ba: v3.sub(b, a), l2: v3.dot(v3.sub(b, a), v3.sub(b, a)) });
+  const capsule = (a, b, r1, r2) => ({ a, b, r1, r2, ba: v3.sub(b, a), l2: v3.dot(v3.sub(b, a), v3.sub(b, a)),
+    lo: a.map((v, i) => Math.min(v, b[i])), hi: a.map((v, i) => Math.max(v, b[i])), rm: Math.max(r1, r2) });
   function capD(c, x, y, z) {
     const px = x - c.a[0], py = y - c.a[1], pz = z - c.a[2], t = clamp((px * c.ba[0] + py * c.ba[1] + pz * c.ba[2]) / c.l2, 0, 1);
     const dx = px - c.ba[0] * t, dy = py - c.ba[1] * t, dz = pz - c.ba[2] * t;
@@ -99,11 +101,19 @@ SETS.liver = function (K) {
     cF = (FR[q] * a1 + FR[q + 1] * a) * b1 + (FR[q + NX] * a1 + FR[q + NX + 1] * a) * b;
     cB = (BK[q] * a1 + BK[q + 1] * a) * b1 + (BK[q + NX] * a1 + BK[q + NX + 1] * a) * b;
   }
+  // smax(f, s - capD, k) is exactly f where capD >= s + k - f; the distance to the segment's box less the largest
+  // radius never exceeds capD, so far from a cut (most of the organ) it is skipped
+  function carve(f, c, s, k, x, y, z) {
+    const m = s + k - f + c.rm;
+    if (m <= 0) return f;
+    const dx = Math.max(c.lo[0] - x, 0, x - c.hi[0]), dy = Math.max(c.lo[1] - y, 0, y - c.hi[1]), dz = Math.max(c.lo[2] - z, 0, z - c.hi[2]);
+    return dx * dx + dy * dy + dz * dz >= m * m ? f : smax(f, s - capD(c, x, y, z), k);
+  }
   function cut(f, x, y, z) {
     if (f > 0.06) return f;
-    f = smax(f, 0.008 - capD(GB, x, y, z), 0.035);
-    f = smax(f, -capD(TERES, x, y, z), 0.02);
-    return smax(f, -capD(IVC, x, y, z), 0.04);
+    f = carve(f, GB, 0.008, 0.035, x, y, z);
+    f = carve(f, TERES, 0, 0.02, x, y, z);
+    return carve(f, IVC, 0, 0.04, x, y, z);
   }
   function field(x, y, z) { column(x, y); return cut(Math.max(cD, z - cF, cB - z), x, y, z); }
   const grad = (p, e = 0.004) => [field(p[0] + e, p[1], p[2]) - field(p[0] - e, p[1], p[2]),
@@ -112,48 +122,57 @@ SETS.liver = function (K) {
   // the surface: surface nets on a grid, each vertex pulled onto the surface; smooth normals from the faces
   const surf = (function () {
     const h = 0.018, lo = [-0.93, -0.6, -0.52], n = [101, 64, 52], F = new Float32Array(n[0] * n[1] * n[2]);
-    const id = (i, j, k) => (i * n[1] + j) * n[2] + k;
+    const id = (i, j, k) => (i * n[1] + j) * n[2] + k, OC = new Uint8Array(n[0] * n[1]);   // OC: columns all outside
     for (let i = 0; i < n[0]; i++) for (let j = 0; j < n[1]; j++) {
       const x = lo[0] + i * h, y = lo[1] + j * h, o = id(i, j, 0);
       column(x, y);
-      if (cD > 0.06) { F.fill(cD, o, o + n[2]); continue; }
+      if (cD > 0.06) { F.fill(cD, o, o + n[2]); OC[i * n[1] + j] = 1; continue; }
       for (let k = 0; k < n[2]; k++) { const z = lo[2] + k * h; F[o + k] = cut(Math.max(cD, z - cF, cB - z), x, y, z); }
     }
     const VI = new Int32Array(n[0] * n[1] * n[2]).fill(-1), P = [], cv = new Float64Array(8);
     const EG = [0, 1, 2, 3, 4, 5, 6, 7, 0, 2, 1, 3, 4, 6, 5, 7, 0, 4, 1, 5, 2, 6, 3, 7], si = n[1] * n[2], sj = n[2];
     const CO = [0, si, sj, si + sj, 1, si + 1, sj + 1, si + sj + 1];   // the corners' offsets (bit 0 i, bit 1 j, bit 2 k)
-    for (let i = 0; i < n[0] - 1; i++) for (let j = 0; j < n[1] - 1; j++) for (let k = 0; k < n[2] - 1; k++) {
-      const o = id(i, j, k);
-      let neg = 0;
-      for (let c = 0; c < 8; c++) { const v = cv[c] = F[o + CO[c]]; if (v < 0) neg++; }
-      if (neg === 0 || neg === 8) continue;
-      let sx = 0, sy = 0, sz = 0, ne = 0;
-      for (let e = 0; e < 24; e += 2) {
-        const a = EG[e], b = EG[e + 1];
-        if ((cv[a] < 0) === (cv[b] < 0)) continue;
-        const t = cv[a] / (cv[a] - cv[b]);
-        sx += (a & 1) + ((b & 1) - (a & 1)) * t; sy += (a >> 1 & 1) + ((b >> 1 & 1) - (a >> 1 & 1)) * t; sz += (a >> 2 & 1) + ((b >> 2 & 1) - (a >> 2 & 1)) * t; ne++;
+    const oc = (i, j) => OC[i * n[1] + j];
+    for (let i = 0; i < n[0] - 1; i++) for (let j = 0; j < n[1] - 1; j++) {
+      if (oc(i, j) & oc(i + 1, j) & oc(i, j + 1) & oc(i + 1, j + 1)) continue;
+      for (let k = 0; k < n[2] - 1; k++) {
+        const o = id(i, j, k);
+        let neg = 0;
+        for (let c = 0; c < 8; c++) { const v = cv[c] = F[o + CO[c]]; if (v < 0) neg++; }
+        if (neg === 0 || neg === 8) continue;
+        let sx = 0, sy = 0, sz = 0, ne = 0;
+        for (let e = 0; e < 24; e += 2) {
+          const a = EG[e], b = EG[e + 1];
+          if ((cv[a] < 0) === (cv[b] < 0)) continue;
+          const t = cv[a] / (cv[a] - cv[b]);
+          sx += (a & 1) + ((b & 1) - (a & 1)) * t; sy += (a >> 1 & 1) + ((b >> 1 & 1) - (a >> 1 & 1)) * t; sz += (a >> 2 & 1) + ((b >> 2 & 1) - (a >> 2 & 1)) * t; ne++;
+        }
+        // one Newton step onto the surface, along the cell's own gradient
+        const gx = (cv[1] - cv[0] + cv[3] - cv[2] + cv[5] - cv[4] + cv[7] - cv[6]) / (4 * h);
+        const gy = (cv[2] - cv[0] + cv[3] - cv[1] + cv[6] - cv[4] + cv[7] - cv[5]) / (4 * h);
+        const gz = (cv[4] - cv[0] + cv[5] - cv[1] + cv[6] - cv[2] + cv[7] - cv[3]) / (4 * h);
+        const x = lo[0] + (i + sx / ne) * h, y = lo[1] + (j + sy / ne) * h, z = lo[2] + (k + sz / ne) * h;
+        const st = clamp(field(x, y, z) / (gx * gx + gy * gy + gz * gz || 1), -0.5 * h, 0.5 * h);
+        VI[o] = P.length / 3; P.push(x - gx * st, y - gy * st, z - gz * st);
       }
-      // one Newton step onto the surface, along the cell's own gradient
-      const gx = (cv[1] - cv[0] + cv[3] - cv[2] + cv[5] - cv[4] + cv[7] - cv[6]) / (4 * h);
-      const gy = (cv[2] - cv[0] + cv[3] - cv[1] + cv[6] - cv[4] + cv[7] - cv[5]) / (4 * h);
-      const gz = (cv[4] - cv[0] + cv[5] - cv[1] + cv[6] - cv[2] + cv[7] - cv[3]) / (4 * h);
-      const x = lo[0] + (i + sx / ne) * h, y = lo[1] + (j + sy / ne) * h, z = lo[2] + (k + sz / ne) * h;
-      const st = clamp(field(x, y, z) / (gx * gx + gy * gy + gz * gz || 1), -0.5 * h, 0.5 * h);
-      VI[o] = P.length / 3; P.push(x - gx * st, y - gy * st, z - gz * st);
     }
     const I3 = [], quad = (a, b, c, d, flip) => { if (a < 0 || b < 0 || c < 0 || d < 0) return; if (flip) I3.push(a, c, b, a, d, c); else I3.push(a, b, c, a, c, d); };
-    for (let i = 0; i < n[0] - 1; i++) for (let j = 0; j < n[1] - 1; j++) for (let k = 0; k < n[2] - 1; k++) {
-      const in0 = F[id(i, j, k)] < 0;
-      if (j > 0 && k > 0 && in0 !== F[id(i + 1, j, k)] < 0) quad(VI[id(i, j - 1, k - 1)], VI[id(i, j, k - 1)], VI[id(i, j, k)], VI[id(i, j - 1, k)], !in0);
-      if (i > 0 && k > 0 && in0 !== F[id(i, j + 1, k)] < 0) quad(VI[id(i - 1, j, k - 1)], VI[id(i - 1, j, k)], VI[id(i, j, k)], VI[id(i, j, k - 1)], !in0);
-      if (i > 0 && j > 0 && in0 !== F[id(i, j, k + 1)] < 0) quad(VI[id(i - 1, j - 1, k)], VI[id(i, j - 1, k)], VI[id(i, j, k)], VI[id(i - 1, j, k)], !in0);
+    for (let i = 0; i < n[0] - 1; i++) for (let j = 0; j < n[1] - 1; j++) {
+      if (oc(i, j) & oc(i + 1, j) & oc(i, j + 1)) continue;
+      for (let k = 0; k < n[2] - 1; k++) {
+        const in0 = F[id(i, j, k)] < 0;
+        if (j > 0 && k > 0 && in0 !== F[id(i + 1, j, k)] < 0) quad(VI[id(i, j - 1, k - 1)], VI[id(i, j, k - 1)], VI[id(i, j, k)], VI[id(i, j - 1, k)], !in0);
+        if (i > 0 && k > 0 && in0 !== F[id(i, j + 1, k)] < 0) quad(VI[id(i - 1, j, k - 1)], VI[id(i - 1, j, k)], VI[id(i, j, k)], VI[id(i, j, k - 1)], !in0);
+        if (i > 0 && j > 0 && in0 !== F[id(i, j, k + 1)] < 0) quad(VI[id(i - 1, j - 1, k)], VI[id(i, j - 1, k)], VI[id(i, j, k)], VI[id(i - 1, j, k)], !in0);
+      }
     }
     const g = new THREE.BufferGeometry();
     g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(P), 3));
-    g.setIndex(new THREE.BufferAttribute(new Uint32Array(I3), 1));
+    g.setIndex(I3);   // three.js picks 16-bit indices when they fit
     g.computeVertexNormals();
     g.computeBoundingBox();
+    let vin = 0; for (let q = 0; q < F.length; q++) if (F[q] < 0) vin++;
+    g.userData.vol = vin * h * h * h;   // the organ's volume, for the patches' first step
     return g;
   })();
   const BB = surf.boundingBox, C0 = [(BB.min.x + BB.max.x) / 2, (BB.min.y + BB.max.y) / 2, (BB.min.z + BB.max.z) / 2];
@@ -181,24 +200,30 @@ SETS.liver = function (K) {
     }
     return { hp, lo, hi, cells: out, fv };
   };
-  // the finest step that still leaves at least 3,000 inside; then the few nearest the surface go, so exactly 3,000 stay
+  // the coarsest step that still leaves at least 3,000 inside (from the volume, then corrected by the count's cube
+  // root; within 0.5 % above is enough); then the few nearest the surface go, so exactly 3,000 stay
   let LAT = null;
-  { let a = 0.04, b = 0.058;
-    for (let it = 0; it < 9; it++) {
-      const m = 0.5 * (a + b), L = lattice(m), n = L.cells.length / 3;
+  { let hp = Math.cbrt(surf.userData.vol / TARGET);
+    for (let it = 0; it < 12 && !(LAT && LAT.cells.length / 3 <= TARGET * 1.005); it++) {
+      const L = lattice(hp), n = L.cells.length / 3;
       if (n >= TARGET && (!LAT || n < LAT.cells.length / 3)) LAT = L;
-      if (n > TARGET) a = m; else b = m;
+      hp *= n >= TARGET ? Math.cbrt(n / TARGET) * 0.9995 : Math.min(Math.cbrt(n / TARGET), 0.998);
     }
+    while (!LAT) { hp *= 0.98; const L = lattice(hp); if (L.cells.length / 3 >= TARGET) LAT = L; }
     const keep = [...LAT.fv.keys()].sort((p, q) => LAT.fv[p] - LAT.fv[q]).slice(0, TARGET).sort((p, q) => p - q);
     LAT.cells = keep.flatMap(c => LAT.cells.slice(3 * c, 3 * c + 3)); }
   const HP = LAT.hp, N = LAT.cells.length / 3, PP = new Float32Array(3 * N);
   const DIMS = LAT.hi.map((v, c) => v - LAT.lo[c] + 1), IDX = new Int32Array(DIMS[0] * DIMS[1] * DIMS[2]).fill(-1);
   const lid = (i, j, k) => ((i - LAT.lo[0]) * DIMS[1] + (j - LAT.lo[1])) * DIMS[2] + (k - LAT.lo[2]);
   // each node is drawn somewhere inside its own grid cell, not at the grid point: one per cell keeps them evenly
-  // spread, and no rows of nodes line up from any side
+  // spread, and no rows of nodes line up from any side. Near the surface the shift is halved (up to three times,
+  // then none) until the node is as far inside as its grid point had to be
   for (let n = 0; n < N; n++) {
     const i = LAT.cells[3 * n], j = LAT.cells[3 * n + 1], k = LAT.cells[3 * n + 2];
-    PP.set(gp(i + 0.7 * (R() - 0.5), j + 0.7 * (R() - 0.5), k + 0.7 * (R() - 0.5), HP), 3 * n); IDX[lid(i, j, k)] = n;
+    const di = 0.7 * (R() - 0.5), dj = 0.7 * (R() - 0.5), dk = 0.7 * (R() - 0.5);
+    let p = null;
+    for (let s = 1; s >= 0.1 && !p; s *= 0.5) { const q = gp(i + s * di, j + s * dj, k + s * dk, HP); if (field(q[0], q[1], q[2]) < -0.3 * HP) p = q; }
+    PP.set(p || gp(i, j, k, HP), 3 * n); IDX[lid(i, j, k)] = n;
   }
   // stand-in uptake (log scale, 0 the liver's usual): smooth noise in three octaves, a warmer patch high in the right
   // lobe, a cooler one where the lobes meet, and a little noise per patch
@@ -269,9 +294,9 @@ SETS.liver = function (K) {
 
   // ------------------------------------------------------------------ materials
   const U = { uGrow: { value: 1 }, uLinks: { value: 1 }, uTop: { value: 0 }, uHubC: { value: new THREE.Color(...HUBC) },
-    uLinkC: { value: new THREE.Color(...LINKC) } };
+    uLinkC: { value: new THREE.Color(...LINKC) }, uFrontC: { value: new THREE.Color(...FRONTC) } };
   const LOOK = `
-uniform float uA, uGrow, uLinks, uTop; uniform vec3 uHubC, uLinkC;
+uniform float uA, uGrow, uLinks, uTop; uniform vec3 uHubC, uLinkC, uFrontC;
 // hot iron, as the body set draws the scan: black, dark red, red, orange, yellow, white
 vec3 hot(float x) { return vec3(pow(clamp(x * 2.0, 0.0, 1.0), 0.9), pow(clamp((x - 0.15) / 0.8, 0.0, 1.0), 1.5), clamp((x - 0.76) * 4.2, 0.0, 1.0) * 0.95); }
 // brighter in front of the set's middle, darker behind
@@ -291,7 +316,7 @@ float depthCue(vec4 mv) { vec4 o = modelViewMatrix * vec4(${C0.map(v => v.toFixe
     const m = new THREE.ShaderMaterial({
       uniforms: { uA: set.uA, uC: { value: new THREE.Color(...col) }, uK: { value: 1 }, uF: { value: o.face }, uR: { value: o.rim },
         uD: { value: o.dif }, uB: { value: o.band || 0 }, uY: { value: new THREE.Vector3(...(o.fade || [-9, -8, 1])) } },
-      transparent: true, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending,
+      transparent: true, depthWrite: false, side: o.side || THREE.DoubleSide, blending: THREE.AdditiveBlending,
       vertexShader: `varying vec3 vN, vV; varying float vY;
 void main() { vec4 mv = modelViewMatrix * vec4(position, 1.0); vN = normalize(normalMatrix * normal); vV = -mv.xyz; vY = position.y; gl_Position = projectionMatrix * mv; }`,
       fragmentShader: `uniform float uA, uK, uF, uR, uD, uB; uniform vec3 uC, uY; varying vec3 vN, vV; varying float vY;
@@ -311,11 +336,14 @@ void main() {
   };
 
   // ------------------------------------------------------------------ the organ
-  const shellMat = glass(COL, { face: 0.025, rim: 0.5, dif: 0.12, band: 0.05 });
-  const shell = new THREE.Mesh(surf, shellMat);
-  shell.renderOrder = 1;
-  body.add(shell);
+  // its near side, and its far side fainter (drawn double sided at one strength, from below it looked hollow)
+  const SHELL = { face: 0.025, rim: 0.5, dif: 0.12, band: 0.05 };
+  const shellMat = glass(COL, Object.assign({ side: THREE.FrontSide }, SHELL)), backMat = glass(COL, Object.assign({ side: THREE.BackSide }, SHELL));
+  const shell = new THREE.Mesh(surf, shellMat), back = new THREE.Mesh(surf, backMat);
+  shell.renderOrder = back.renderOrder = 1;
+  body.add(back, shell);
   // the gallbladder in its bed (bile green, faint): a pear from the fundus to the neck, and the cystic duct
+  const gbMat = glass(K.rgb('#9ad66a'), { face: 0.03, rim: 0.45, dif: 0.08, fade: [0.02, 0.16, 0.3] });   // its body and neck, up under the liver, stay faint
   {
     const prof = [];
     for (let s = 0; s <= 24; s++) {
@@ -324,7 +352,7 @@ void main() {
     }
     prof.push(new THREE.Vector2(0.012, v3.dist(GB_F, GB_N) + 0.03), new THREE.Vector2(0.011, v3.dist(GB_F, GB_N) + 0.09), new THREE.Vector2(0.0001, v3.dist(GB_F, GB_N) + 0.092));
     const g = new THREE.LatheGeometry(prof, 20);
-    const m = new THREE.Mesh(g, glass(K.rgb('#9ad66a'), { face: 0.03, rim: 0.45, dif: 0.08, fade: [0.02, 0.16, 0.3] }));   // its body and neck, up under the liver, stay faint
+    const m = new THREE.Mesh(g, gbMat);
     m.position.set(...GB_F);
     m.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), new THREE.Vector3(...v3.norm(v3.sub(GB_N, GB_F))));
     body.add(m);
@@ -355,30 +383,33 @@ void main() {
   const ptMat = mat(`
 attribute vec4 aI;
 uniform float uSz;
-varying vec3 vC; varying float vA, vHot;
+varying vec3 vC; varying float vA, vHub, vRing;
 void main() {
   vec4 mv = modelViewMatrix * vec4(position, 1.0);
   gl_Position = projectionMatrix * mv;
   float g = uGrow * 1.1, ap = smoothstep(aI.y, aI.y + 0.05, g), fl = uGrow < 0.999 ? exp(-pow((g - aI.y - 0.035) / 0.045, 2.0)) : 0.0;
-  float hub = aI.z * uTop, pulse = 0.8 + 0.2 * sin(uTime * 1.6 + aI.w * 6.2832);
+  float hub = aI.z * uTop, rest = uTop * (1.0 - aI.z), pulse = 0.75 + 0.25 * sin(uTime * 1.6 + aI.w * 6.2832);
   vec3 c = hot(aI.x) * (1.0 - 0.3 * uLinks) * (0.9 + 0.1 * sin(uTime * 1.1 + aI.w * 40.0));
-  c = mix(c, uHubC * 1.3 * pulse, hub);
-  c = mix(c, vec3(1.0, 0.93, 0.8), fl * 0.6);   // the growing front glows white
-  float br = mix(1.0, 0.28, uTop * (1.0 - aI.z)) * (1.0 + 2.2 * fl);
-  float sz = uSz * (1.0 + 1.0 * hub) * (1.0 - 0.3 * uTop * (1.0 - aI.z)) * (1.0 + 0.5 * fl) * ap;
+  // with the hubs shown the rest turn grey and dim; a hub keeps its own colour (its uptake) and gets an amber ring
+  c = mix(c, vec3(dot(c, vec3(0.3, 0.59, 0.11))), 0.7 * rest);
+  c = mix(c, uFrontC * 0.7, fl * 0.85);   // the growing front: cyan (not white), so it never reads as the hottest tissue
+  float br = mix(1.0, 0.28, rest) * (1.0 + 0.3 * hub) * (1.0 + 0.25 * fl);
+  float sz = uSz * (1.0 + 0.6 * hub) * (1.0 - 0.3 * rest) * (1.0 + 0.5 * fl) * ap;
   // up close (as in a headset) points shrink with distance and never grow beyond about two degrees
   float sc = length(modelViewMatrix[0].xyz), dl = -mv.z / sc;
-  gl_PointSize = min(pointPx(sz * clamp(dl / 1.4, 0.5, 1.0), mv), 0.035 * uPx * projectionMatrix[1][1] / sc);
-  vC = c * br * depthCue(mv); vHot = hub; vA = uA * ap;
+  gl_PointSize = min(pointPx(sz * clamp(dl / 1.4, 0.5, 1.0), mv), 0.035 * (1.0 + 0.6 * hub) * uPx * projectionMatrix[1][1] / sc);
+  vC = c * br * depthCue(mv); vHub = hub; vRing = hub * pulse; vA = uA * ap;
   if (vA < 0.004) gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
 }`, `
-varying vec3 vC; varying float vA, vHot;
+uniform vec3 uHubC;
+varying vec3 vC; varying float vA, vHub, vRing;
 void main() {
   float d = length(gl_PointCoord - 0.5) * 2.0;
   if (d > 1.0) discard;
-  float core = smoothstep(0.65, 0.1, d), halo = pow(1.0 - d, 2.0);
-  vec3 c = vC * (0.65 + 0.5 * core) + vec3(1.0, 0.95, 0.85) * vHot * smoothstep(0.4, 0.0, d) * 0.6;
-  gl_FragColor = vec4(c, vA * (core * 0.6 + halo * 0.35));
+  // a hub's disc is larger: its own colour fills the inner part (as large as any patch), the ring the outer part
+  float e = d * (1.0 + 0.6 * vHub), core = smoothstep(0.65, 0.1, e), halo = pow(max(1.0 - e, 0.0), 2.0);
+  float ring = vRing * smoothstep(0.58, 0.72, d) * smoothstep(1.0, 0.86, d);
+  gl_FragColor = vec4(vC * (0.65 + 0.5 * core) * (1.0 - ring) + uHubC * 1.2 * ring, vA * (core * 0.6 + halo * 0.35 + ring * 0.85));
 }`);
   ptMat.uniforms.uSz = { value: HP * 0.62 };
   const pts = new THREE.Points(ptGeo, ptMat);
@@ -415,8 +446,11 @@ void main() {
   vec3 c = mix(uLinkC, vec3(0.5, 0.72, 1.0), aL.y * 0.4);
   c = mix(c, uHubC, hl * 0.9);
   float br = (0.35 + 0.65 * aL.y) * mix(1.0, 0.16, uTop * (1.0 - hub)) * (1.0 + 0.7 * hl);
-  // up close each line covers fewer others, so it may be brighter
-  vC = c * br * depthCue(mv); vS = aL.x; vPh = ph; vA = uA * on * clamp(2.6 * length(modelViewMatrix[0].xyz) / -mv.z, 1.0, 2.5);
+  vC = c * br * depthCue(mv); vS = aL.x; vPh = ph; vA = uA * on;
+  if (vA < 0.004) gl_Position = vec4(2.0, 2.0, 2.0, 1.0);   // hidden: both ends share 'on', so the whole line goes
+  // up close each line covers fewer others: the strong ones grow brighter, the weak ones step back
+  float near = clamp((2.6 * length(modelViewMatrix[0].xyz) / -mv.z - 1.0) / 1.5, 0.0, 1.0);
+  vA *= mix(1.0, mix(0.7, 1.6, aL.y), near);
 }`, `
 uniform float uTime;
 varying vec3 vC; varying float vA, vS, vPh;
@@ -431,7 +465,9 @@ void main() {
 
   // ------------------------------------------------------------------ anchors, labels
   let ang = 0;
-  const at = p => () => { const x = p[0] - C0[0], y = p[1] - C0[1], z = p[2] - C0[2], c = Math.cos(ang), s = Math.sin(ang); return [x * c + z * s, y, -x * s + z * c]; };
+  // an anchor turns with the spin; it returns the same array each time (the engine copies it)
+  const at = p => { const x = p[0] - C0[0], z = p[2] - C0[2], o = [x, p[1] - C0[1], z];
+    return () => { const c = Math.cos(ang), s = Math.sin(ang); o[0] = x * c + z * s; o[2] = -x * s + z * c; return o; }; };
   // a point on the surface: from the inside point p outwards along d
   const surfAt = (p, d) => { let a = 0, b = 1; d = v3.norm(d);
     for (let it = 0; it < 30; it++) { const m = 0.5 * (a + b), q = v3.add(p, v3.mul(d, m)); if (field(q[0], q[1], q[2]) < 0) a = m; else b = m; }
@@ -446,33 +482,40 @@ void main() {
     notch: at(v3.add(GB_F, [0, -0.08, 0.02])),                     // the gallbladder's notch, its fundus below the edge
     teres: at(LIG[0]),                                               // the round ligament's notch
     warm: at(WARM), cool: at(COOL),
-    web: at(surfAt(WARM, [0.3, -0.5, 1])),                          // where the links crowd, on the front
+    web: at(surfAt(WARM, [0.1, -0.2, 1])),                          // where the links crowd, on the front
   };
   const labels = [
     { text: [fmt(N) + ' patches', ''], at: 'right', alpha: S => prog(S.liver_grow, 0.55, 0.85) * (1 - prog(S.liver_links, 0.1, 0.35)) },
     { text: ['Links:', 'uptake ratio above the threshold'], at: 'web', cls: 'cyn', alpha: S => prog(S.liver_links, 0.35, 0.65) * prog(S.liver_grow, 0.7, 0.95) * (1 - prog(S.liver_top, 0.1, 0.4)) },
     { text: ['Best connected', 'the top 5 % of patches'], at: 'top', cls: 'amb', alpha: S => prog(S.liver_top, 0.45, 0.8) * prog(S.liver_grow, 0.7, 0.95) },
   ];
+  const API = Object.freeze({ patches: N, links: NL, theta: THETA, hubs: NH, step: Math.round(HP * 1e5) / 1e5, pairs: NP,
+    meanLinks: Math.round(20 * NL / N) / 10, maxLinks: DEG[ORDER[0]] });
+  const num = (v, d) => (v === undefined ? d : v);
   return Object.assign(set, {
     params: { liver_a: 1, liver_grow: 1, liver_links: 1, liver_top: 0, liver_spin: 0 },
     update(S) {
-      const p = k => (S[k] === undefined ? set.params[k] : S[k]);
-      ang = p('liver_spin') * Math.PI * 2;
+      ang = num(S.liver_spin, 0) * Math.PI * 2;
       spin.rotation.y = ang;
-      U.uGrow.value = sat(p('liver_grow')); U.uLinks.value = sat(p('liver_links')); U.uTop.value = sat(p('liver_top'));
-      shellMat.uniforms.uK.value = 1 - 0.35 * U.uLinks.value - 0.25 * U.uTop.value;
+      const g = sat(num(S.liver_grow, 1)), l = sat(num(S.liver_links, 1)), tp = sat(num(S.liver_top, 0));
+      U.uGrow.value = g; U.uLinks.value = l; U.uTop.value = tp;
+      // the organ steps back for the links and the hubs, and stands out a little while it is empty
+      const k = (1 - 0.35 * l - 0.25 * tp) * (1 + 0.4 * (1 - g));
+      shellMat.uniforms.uK.value = k; backMat.uniforms.uK.value = 0.45 * k;
+      gbMat.uniforms.uK.value = ligMat.uniforms.uK.value = 1 - 0.5 * l - 0.3 * tp;
+      pts.visible = g > 0.001; lns.visible = g > 0.001 && l > 0.001;   // nothing to draw: no draw call
     },
     anchors,
     labels,
     cam: {
       default: [-16, 9, 3.1, 0, -0.02, 0],
       front: [0, 3, 3.1, 0, 0, 0],
-      close: [-34, 12, 1.5, ...at(WARM)()],
+      close: [-34, 12, 1.7, ...at(WARM)()],   // for liver_spin 0
       below: [-12, -52, 3.1, 0, -0.05, 0],
       side: [-90, 6, 3.0, 0, 0, 0],
     },
     controls: [{ key: 'view', label: 'View', options: [['patches', 'Patches'], ['links', 'Links'], ['hubs', 'Hubs']] }],
     explore(c) { return { liver_grow: 1, liver_links: c.view === 'patches' ? 0 : 1, liver_top: c.view === 'hubs' ? 1 : 0, liver_spin: 0 }; },
-    api() { return { patches: N, links: NL, theta: THETA, hubs: NH, step: HP, pairs: NP, meanLinks: 2 * NL / N, maxLinks: DEG[ORDER[0]] }; },
+    api() { return API; },
   });
 };

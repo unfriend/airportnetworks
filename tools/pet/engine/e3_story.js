@@ -113,29 +113,35 @@ const PROT_NET = r => (r.kind === 'fdg' ? 'FDG_healthy' : /HK2/.test(r.name) ? '
 const PROFILES = [['healthy', 'Healthy'], ['cancer', 'Cancer'], ['both', 'Cancer + dyslipidaemia'], ['dys', 'Dyslipidaemia']];
 const GROUP_COL = { cancer: '#d9dde6', both: '#9b5de5', dys: '#ff4fd8', healthy: '#38bdf8' };
 const THIRD_COL = ['#38bdf8', '#a78bfa', '#d9dde6'];
-// The poster's numbers. Its survival curves, the immunotherapy test and its cohort may arrive later, and in more than
-// one shape: lists of { name or label or key, n, ... } or objects keyed by group. Whatever is missing is left unsaid.
+// The poster's numbers: its groups on the index, its cohort, survival by the index's thirds and the immunotherapy test.
+// Read generously (lists of { name or label or group, n, ... } or objects keyed by group), so a reading that arrives in
+// another shape, or not at all, leaves its sentence out instead of breaking the story.
 const POSTER = (() => {
   const P = PET_DATA.poster || {};
   const list = x => (Array.isArray(x) ? x : x && typeof x === 'object' ? Object.entries(x).map(([k, v]) => (v && typeof v === 'object' ? Object.assign({ key: k }, v) : { key: k, n: v })) : []);
-  const name = g => String(g.name || g.label || g.key || '');
+  const name = g => String(g.name || g.label || g.group || g.key || '');
   const sum = l => l.reduce((a, g) => a + (Number.isFinite(+g.n) ? +g.n : 0), 0);
   const groups = ((P.mdi && P.mdi.groups) || []).map((g, i) => Object.assign({ i, col: GROUP_COL[g.key] || '#9aa3b5' }, g, { name: name(g) }));
   const co = P.cohort || {}, base = list(co.baseline || co.base), follow = list(co.followup || co.followUp || co.follow);
-  // survival by the index's thirds: median in months (null or a word: not reached) and survival after one year (a share)
-  const km = P.km || {}, thirds = list(Array.isArray(km) ? km : km.groups || km.thirds || km.tertiles).map((g, i) => {
-    const mk = ['median', 'medianMonths', 'med'].find(k => k in g), yk = ['y1', 'oneYear', 'surv1', 's1', 'year1'].find(k => k in g);
-    const md = mk ? g[mk] : undefined, y = yk ? +g[yk] : NaN;
-    return { name: name(g), n: +g.n || null, col: THIRD_COL[i] || '#9aa3b5', median: md === undefined ? undefined : Number.isFinite(+md) && md !== null ? +md : null,
+  // survival by the index's thirds: the curves (name, n) with the poster's table (median in months, NR: not reached;
+  // survival after one year)
+  const km = P.km || {}, table = list(km.table), curves = list(Array.isArray(km) ? km : km.curves || km.groups || km.thirds || km.tertiles);
+  const thirds = (curves.length ? curves : table).map((c, i) => {
+    const g = Object.assign({}, table[i] || {}, c);
+    const mk = ['median', 'medianMonths', 'med'].find(k => k in g), yk = ['oneYear', 'y1', 'surv1', 's1', 'year1'].find(k => k in g);
+    const md = mk ? g[mk] : undefined, y = yk ? parseFloat(g[yk]) : NaN;
+    return { name: name(c).replace(/^\d+(st|nd|rd|th)\s+(tertile|third)\s*/i, ''), n: +g.n || null, col: THIRD_COL[i] || '#9aa3b5',
+      median: md === undefined ? undefined : md === null || /^\s*(nr|n\.r\.|not)/i.test(String(md)) || !Number.isFinite(parseFloat(md)) ? null : parseFloat(md),
       y1: Number.isFinite(y) ? Math.round(y <= 1 ? y * 100 : y) : null };
   });
-  // the immunotherapy test: response groups and the AUC of each measure (the network's own in the set's colour)
-  const pr = P.prognosis || {}, resp = list(pr.groups || pr.response || pr.responders);
-  const auc = list(pr.auc || pr.aucs || pr.measures).filter(a => Number.isFinite(+a.auc)).map(a => ({ name: name(a), auc: +a.auc, p: a.p !== undefined ? String(a.p) : '',
-    net: a.kind ? /net|metab|index|pet/i.test(a.kind) : a.network !== undefined ? !!a.network : /index|clearance|heterogen|network|displacement/i.test(name(a)) }));
+  // the immunotherapy test: the AUC of each measure (the network's own: group 'network'), and how many people
+  const pr = P.prognosis || {}, resp = list(pr.groups || pr.response || pr.responders || (pr.strip ? { good: pr.strip.good, poor: pr.strip.bad || pr.strip.poor } : null));
+  const auc = list(pr.auc || pr.aucs || pr.measures).filter(a => Number.isFinite(+a.auc)).map(a => ({ name: name(a), auc: +a.auc,
+    p: a.p === undefined || a.p === null ? '' : /^p/i.test(String(a.p)) ? String(a.p) : `p = ${a.p}`,
+    net: a.group ? /net/i.test(a.group) : a.kind ? /net|metab|index|pet/i.test(a.kind) : /index|clearance|heterogen|network|displacement/i.test(name(a)) }));
   const ici = follow.find(g => /immun|ici|checkpoint/i.test(name(g)));
   const respN = +pr.n || sum(resp) || (ici ? +ici.n : 0) || null;
-  return { groups, mdiN: sum(groups), base, follow, baseN: sum(base), followN: sum(follow), thirds, resp, respN, auc, name,
+  return { groups, mdiN: sum(groups), base, follow, baseN: +co.baselineTotal || sum(base), followN: +co.followupTotal || sum(follow), thirds, resp, respN, auc, name,
     bestNet: auc.filter(a => a.net).sort((a, b) => b.auc - a.auc)[0] || null, bestClin: auc.filter(a => !a.net).sort((a, b) => b.auc - a.auc)[0] || null };
 })();
 
@@ -151,7 +157,7 @@ const FACTS = (() => {
     fasting: p.fasting, dose: p.dose, rest: p.rest, hubZ: p.hub, p: p.p, seg: p.segmentation,
     organs: D.organs.length - 1, f2n: D.f2.organs.length, density: full.density, disorder: full.disorder, links: full.edges.length,
     row: { cancer: row('Cancer'), bmi: row('BMI', /healthy/), crp: row('CRP', /thirds/), tumour: row('Tumour load'), norepi: row('Norepinephrine') },
-    weeks: retest ? num(retest.cohort) : null,
+    weeks: retest ? num((/(\d+)\s*weeks/.exec(retest.cohort) || [])[1]) : null,
     robust: D.table2.filter(r => r.part === 'test'), hk2: D.table3.find(r => /HK2/.test(r.name)) || null, tested: D.table3.filter(r => r.kind !== 'fdg').length,
     pair: (D.synth && D.synth.pairs && D.synth.pairs[0]) || null, single: D.single, poster: POSTER,
     year: num((/\((\d{4})\)/.exec(D.source.paper) || [])[1]),
@@ -176,10 +182,10 @@ function buildStory() {
   const wi = id => NET_IDS.indexOf(id);                      // organs_which for a network
   const gD = (r, i) => (r && r.groups[i] ? pct(r.groups[i].density) : '–'), gO = (r, i) => (r && r.groups[i] ? dis(r.groups[i].disorder) : '–');
   const step = (id, at, text) => `<li data-at="${at}" style="border-left-color:${organCol(id)}"><b style="color:${organCol(id)}">${esc(organName(id))}</b>${text}</li>`;
-  const ones = (S1 && S1.organs) || [], hub3 = hubsOf('C_high').filter(h => h !== 'aorta');
-  const hubName = hub3.length ? listOf(hub3.map(organName)) : '';
+  const ones = (S1 && S1.organs) || [];
   const thirds = P.thirds.filter(g => g.median !== undefined || g.y1 !== null);
   const med = g => (g.median === null ? 'not reached' : `${g.median} months`);
+  const cap = t => t.charAt(0).toUpperCase() + t.slice(1), pOf = a => (a && a.p ? parseFloat(String(a.p).replace(/^[^0-9.]+/, '')) : NaN);
   const bar = P.follow.find(g => /bariatric/i.test(P.name(g)));
   // ------------------------------------------------------------ panel copy
   // parts of a chapter that take turns in one place, each fading out (data-out) as the next comes: the headset's
@@ -246,12 +252,12 @@ function buildStory() {
         ${prof('healthy') && prof('cancer') && prof('dys') ? `<p data-at="30" class="amber">Together they give a metabolic displacement index. It moves with health: ${prof('healthy').mdi.toFixed(1)} for a healthy profile, ${prof('cancer').mdi.toFixed(1)} with cancer, ${prof('dys').mdi.toFixed(1)} with dyslipidaemia (unhealthy blood fats).</p>` : ''}
         <p class="note" data-at="34">Illustrative maths: the poster names Clearance, Heterogeneity and the index, but its formulas are not published yet. These are stand-ins, and so are the profiles.</p>`)}`,
     people: `<h2 data-at="0.6">${P.mdiN ? `${fmt(P.mdiN)} people, one index` : 'People on one index'}</h2>
-      ${turns(`<p data-at="1.2" data-out="27.5">Every scan becomes one point.${P.groups.length ? ` In the poster's results: ${listOf(P.groups.map(g => `${esc(g.name.toLowerCase())} (${g.n})`))}.` : ''}</p>
+      ${turns(`<p data-at="1.2" data-out="27.5">Every scan becomes one point, placed by its two measures.${P.groups.length ? ` In the poster's results: ${listOf(P.groups.map(g => `${esc(g.name.toLowerCase())} (${g.n})`))}.` : ''}</p>
         <p data-at="9" data-out="27.5">On the index, cancer sits low and dyslipidaemia high, with healthy people in between.</p>
         ${P.groups.length ? `<div class="facts">${P.groups.map((g, j) => `<div data-at="${14 + 2.5 * j}" data-out="27.5"><b style="color:${g.col}">${g.centre}</b><small>${esc(g.name)}</small></div>`).join('')}</div>` : ''}`,
       `<p data-at="28" data-out="35.5" class="amber">Split by the index into thirds, people with cancer near the healthy range lived longest.</p>
-        ${thirds.length ? `<ul class="steps">${thirds.map((g, j) => `<li data-at="${29.5 + j}" data-out="35.5" style="border-left-color:${g.col}"><b style="color:${g.col}">${esc(g.name)}${g.n ? ` (${g.n})` : ''}</b>median survival ${med(g)}${g.y1 !== null ? `; ${g.y1}% alive after a year` : ''}</li>`).join('')}</ul>` : ''}`,
-      `<p data-at="36">${P.respN ? `In ${P.respN}` : 'In a small group of'} people with lung cancer given immunotherapy before surgery, the index told good from poor responders better than CRP, tumour stage or age${P.bestNet && P.bestClin ? ` (AUC ${P.bestNet.auc} against ${P.bestClin.auc} at best)` : ''}. A first test, in few people.</p>
+        ${thirds.length ? `<ul class="steps">${thirds.map((g, j) => `<li data-at="${29.5 + j}" data-out="35.5" style="border-left-color:${g.col}"><b style="color:${g.col}">${esc(cap(g.name))}${g.n ? ` (${g.n})` : ''}</b>median survival ${med(g)}${g.y1 !== null ? `; ${g.y1}% alive after a year` : ''}</li>`).join('')}</ul>` : ''}`,
+      `<p data-at="36">${P.respN ? `In ${P.respN}` : 'In a small group of'} people with lung cancer given immunotherapy before surgery, the index told good from poor responders better than CRP, tumour stage or age${P.bestNet && P.bestClin ? ` (AUC ${P.bestNet.auc} against ${P.bestClin.auc} at best)` : ''}. A first test, in few people${pOf(P.bestNet) > F.p ? ', and not yet significant' : ''}.</p>
         <p data-at="42">After ${bar ? 'bariatric surgery' : 'surgery'} and immunotherapy, the index moved towards the healthy range.</p>
         <p class="credits" data-at="45">The poster's results, as group summaries. The dots are stand-ins drawn to match them, not patients.</p>`)}`,
     vision: `<h2 data-at="0.6">One scan, one system</h2>
@@ -282,7 +288,7 @@ function buildStory() {
     if (nudge) for (let i = 0; i < nudge.length; i++) v[i] += nudge[i] || 0;
     wp.push([t, ...v, ease, frameOf(k)]);
   };
-  start({ scan_vision: 1, scan_bed: 0, scan_cut: 0, scan_events: 0, scan_lines: 0, scan_image: 0,
+  start({ scan_vision: 1, scan_bed: 0, scan_pass: 0, scan_cut: 0, scan_events: 0, scan_lines: 0, scan_image: 0,
     body_pet: 0, body_net: 0, body_state: 0, body_blank: 0,
     organs_seg: 0, organs_suv: 0, organs_focus: 0, organs_lesion: 0, organs_rows: 0, organs_pair: 0, organs_partial: 0, organs_net: 0, organs_which: 0, organs_strength: 0,
     people_bars: 0, people_ratio: 0, people_thresh: 0, people_one: 0, people_metrics: 0, people_profile: 0, people_custom: 0, people_map: 0, people_mdi: 0,
@@ -290,10 +296,12 @@ function buildStory() {
   let a, b;
   // Intro: the vision row (scanner, body, network, prognosis, medication), then it draws back into the scanner
   a = C.title.a; b = C.title.b;
+  // (the row is about 6 units wide: from this far it fits beside the panel)
+  const rowPad = [0, 0, Math.max(0, 10.4 - view('scan', 'vision')[2])];
   show('scan', 0.2, 2.5, C.body.a + 0.3, C.body.a + 2.3);
   ramp('scan_vision', a + 10, a + 15, 1, 0);
-  cam(a, 'scan', 'vision', -8, null, [0, 0, 0.8]);
-  cam(a + 9.5, 'scan', 'vision', 4, 'spin');
+  cam(a, 'scan', 'vision', -8, null, rowPad);
+  cam(a + 9.5, 'scan', 'vision', 4, 'spin', rowPad);
   cam(b - 0.5, 'scan', 'default', -12);
   // Seeing sugar: the couch slides in, the skin opens on the ring, events, lines of response, then the image
   a = C.scanner.a; b = C.scanner.b;
@@ -301,6 +309,7 @@ function buildStory() {
   ramp('scan_cut', a + 9, a + 12, 0, 1);
   ramp('scan_events', a + 12, a + 13.5, 0, 0.3); ramp('scan_events', a + 21, a + 24, 0.3, 1);
   ramp('scan_lines', a + 16, a + 27, 0, 1);
+  ramp('scan_pass', a + 14, a + 32, 0, 0.6);   // the couch moves on through the ring as the counts come in
   ramp('scan_image', a + 27, a + 33, 0, 1);
   ramp('scan_events', a + 30, a + 34, 1, 0.4);
   cam(a + 1, 'scan', 'default', -4);
@@ -308,8 +317,9 @@ function buildStory() {
   cam(a + 11.5, 'scan', 'ring');
   cam(a + 20, 'scan', 'ring', 14, 'spin');
   cam(a + 24, 'scan', 'front');
-  cam(a + 28, 'scan', 'side');
-  cam(b - 0.5, 'scan', 'side', 14, 'spin');
+  cam(a + 28, 'scan', 'ring', 35);
+  cam(a + 32.5, 'scan', 'inside');
+  cam(b - 0.5, 'scan', 'inside', 8, 'spin');
   // Where the sugar goes: the standing body, the tracer arriving, the hot organs, then a tumour
   a = C.body.a; b = C.body.b;
   show('body', a + 0.3, a + 2.3);
@@ -343,8 +353,9 @@ function buildStory() {
   if (F.pair) { jump('organs_pair', a + 15, 0, 1); ramp('organs_partial', a + 23, a + 29, 0, 1); jump('organs_pair', a + 33, 1, 0); }
   ramp('organs_net', a + 32, a + 41, 0, 1);
   ramp('organs_rows', a + 31, a + 34, 1, 0); ramp('organs_suv', a + 31, a + 34, 1, 0);
-  cam(a + 1, 'organs', 'matrix');
-  cam(a + 13, 'organs', 'matrix', 10, 'spin');
+  // (the slab reaches left of the view's target: nudged clear of the panel)
+  cam(a + 1, 'organs', 'matrix', 0, null, [0, 0, 0.35, -0.25]);
+  cam(a + 13, 'organs', 'matrix', 10, 'spin', [0, 0, 0.35, -0.25]);
   if (F.pair) { cam(a + 16, 'organs', 'scatter'); cam(a + 30, 'organs', 'scatter', 4, 'spin'); }
   cam(a + 34, 'organs', 'net');
   cam(b - 0.5, 'organs', 'net', 18, 'spin');
@@ -406,16 +417,17 @@ function buildStory() {
   show('scan', a + 0.5, a + 2.5);
   // (the scanner comes back as it was at the start: couch out, closed, no events)
   for (const n of ['scan_bed', 'scan_cut', 'scan_lines', 'scan_image']) jump(n, a, 1, 0);
+  jump('scan_pass', a, 0.6, 0);
   jump('scan_events', a, 0.4, 0);
   ramp('scan_vision', a + 1, a + 9, 0, 1);
-  cam(a + 1.5, 'scan', 'vision', -10, null, [0, 0, 0.8]);
-  cam(b, 'scan', 'vision', 6, 'spin');
+  cam(a + 1.5, 'scan', 'vision', -10, null, rowPad);
+  cam(b, 'scan', 'vision', 6, 'spin', rowPad);
   for (const n in TR) TR[n].sort((x, y) => x[0] - y[0]);
   buildCamera(wp);
 
   // --------------------------------------------------------- story labels
-  // (the sets label their own parts; the story adds what the scene alone does not say; the body set labels its
-  // organs only with its own network, so its anchors are passed as points)
+  // (the sets label their own parts, the hubs among them; the story adds what the scene alone does not say; the body
+  // set labels its organs only with its own network, so its anchors are passed as points)
   const at = (k, n) => () => anchorOf(k, n);
   a = C.body.a;
   label('body', at('body', 'brain'), '<b>Brain</b>the most sugar', a + 11, a + 18, 'amb');
@@ -423,8 +435,6 @@ function buildStory() {
   label('body', at('body', 'kidneys'), '<b>Kidneys</b>into the urine', a + 13.5, a + 18, 'amb');
   label('body', at('body', 'bladder'), '<b>Bladder</b>', a + 14.5, a + 18, 'amb');
   label('organs', 'lesion', '<b>A tumour</b>a hot spot', a + 21, a + 30, 'amb');
-  a = C.health.a;
-  if (hubName && hasNet('C_high')) label('organs', 'hub', `<b>${esc(hubName)}</b>${hub3.length > 1 ? 'hubs' : 'a hub'} at high CRP`, a + 31, a + 36, 'amb');
 }
 // camera waypoints: [t, az, el, dist, tx, ty, tz, ease, set]; 'spin' segments turn at a steady pace.
 // When the story hands over from one set to another, the new set is turned about its

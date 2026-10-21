@@ -11,6 +11,7 @@ SETS.organs = function (K) {
   const D = PET_DATA, ORG = D.organs, NO = ORG.length, PI = Math.PI;
   const OI = {}; ORG.forEach((o, i) => { OI[o.id] = i; });
   const COL = ORG.map(o => K.rgb(o.col)), HUBC = K.rgb('#ffb020'), POSC = K.rgb('#4c7cff'), NEGC = K.rgb('#ff4d4d');
+  const SHELLK = { fat: 0.5, marrow: 0.55, intestine: 0.85 };   // how strongly each shell glows (the wrapping band less)
   const XS = 0.9;   // the body set models its figure a little broad, then slims x by 0.9: the shells do the same
   const AORTA = OI.aorta === undefined ? -1 : OI.aorta;
   const num = (x, d) => (x < 0 ? '−' : '') + Math.abs(x).toFixed(d === undefined ? 2 : d);
@@ -47,40 +48,6 @@ SETS.organs = function (K) {
     h = h < 0 ? 0 : h > 1 ? 1 : h;
     const dx = px - c[3] * h, dy = py - c[4] * h, dz = pz - c[5] * h;
     return Math.sqrt(dx * dx + dy * dy + dz * dz) - (c[7] + (c[8] - c[7]) * h);
-  }
-  // a smooth curve through points (centripetal, by arc length, as the body set's tubes), n + 1 samples
-  const curvePts = (pts, n) => {
-    const c = new THREE.CatmullRomCurve3(pts.map(p => new THREE.Vector3(p[0], p[1], p[2])), false, 'centripetal'), out = [];
-    for (let i = 0; i <= n; i++) { const q = c.getPointAt(i / n); out.push([q.x, q.y, q.z]); }
-    return out;
-  };
-  const chain = (pts, rad, out) => {
-    for (let i = 0; i < pts.length - 1; i++) out.push(mkCone(pts[i], pts[i + 1], rad(i / (pts.length - 1)), rad((i + 1) / (pts.length - 1))));
-    return out;
-  };
-  // many capsules joined smoothly; binned, so a point only meets the ones near it
-  function capsules(list, k) {
-    const B = 0.03, lo = [Infinity, Infinity, Infinity], hi = [-Infinity, -Infinity, -Infinity], box = [];
-    for (const c of list) {
-      const m = Math.max(c[7], c[8]) + k + 0.02, a = [c[0], c[1], c[2]], b = [c[0] + c[3], c[1] + c[4], c[2] + c[5]];
-      const l = [0, 1, 2].map(i => Math.min(a[i], b[i]) - m), h = [0, 1, 2].map(i => Math.max(a[i], b[i]) + m);
-      box.push([l, h]);
-      for (let i = 0; i < 3; i++) { lo[i] = Math.min(lo[i], l[i]); hi[i] = Math.max(hi[i], h[i]); }
-    }
-    const n = [0, 1, 2].map(i => Math.max(1, Math.ceil((hi[i] - lo[i]) / B))), bins = new Array(n[0] * n[1] * n[2]);
-    box.forEach(([l, h], ci) => {
-      const a = [0, 1, 2].map(i => Math.floor((l[i] - lo[i]) / B)), b = [0, 1, 2].map(i => Math.min(n[i] - 1, Math.floor((h[i] - lo[i]) / B)));
-      for (let i = a[0]; i <= b[0]; i++) for (let j = a[1]; j <= b[1]; j++) for (let q = a[2]; q <= b[2]; q++) (bins[(i * n[1] + j) * n[2] + q] = bins[(i * n[1] + j) * n[2] + q] || []).push(ci);
-    });
-    return (x, y, z) => {
-      const i = Math.floor((x - lo[0]) / B), j = Math.floor((y - lo[1]) / B), q = Math.floor((z - lo[2]) / B);
-      if (i < 0 || j < 0 || q < 0 || i >= n[0] || j >= n[1] || q >= n[2]) return 0.03;
-      const L = bins[(i * n[1] + j) * n[2] + q];
-      if (!L) return 0.03;
-      let d = 0.03;
-      for (let s = 0; s < L.length; s++) d = smin(d, cone(x, y, z, list[L[s]]), k);
-      return d;
-    };
   }
   // the body set's trunk and thighs (to keep muscle and fat under the skin)
   const RINGS = [[-0.135, 0.145, 0.092, -0.012], [-0.08, 0.158, 0.104, -0.012], [-0.01, 0.160, 0.102, -0.002], [0.08, 0.142, 0.097, 0.008],
@@ -120,22 +87,22 @@ SETS.organs = function (K) {
     brain: () => {
       const a = ell([0, 0.738, -0.008], inf([0.066, 0.06, 0.084])), b = ell([0, 0.668, -0.058], inf([0.05, 0.027, 0.032]));
       // the cerebellum below, and the cleft between the hemispheres on top
-      return [[(x, y, z) => smin(a(x, y, z), b(x, y, z), 0.02) + 0.008 * Math.exp(-x * x / 0.00005) * smooth((y - 0.69) / 0.07), [-0.085, 0.62, -0.105], [0.085, 0.815, 0.095], 0.0045]];
+      return [[(x, y, z) => smin(a(x, y, z), b(x, y, z), 0.02) + 0.008 * Math.exp(-x * x / 0.00005) * smooth((y - 0.69) / 0.07), [-0.085, 0.62, -0.105], [0.085, 0.815, 0.095], 0.0062]];
     },
     thyroid: () => {
       const L = ell([-0.017, 0.548, 0.042], [0.011, 0.021, 0.011]), R = ell([0.017, 0.548, 0.042], [0.011, 0.021, 0.011]);
       const I = mkCone([-0.014, 0.538, 0.05], [0.014, 0.538, 0.05], 0.006, 0.006);   // the isthmus in front of the windpipe
-      return [[(x, y, z) => smin(Math.min(L(x, y, z), R(x, y, z)), cone(x, y, z, I), 0.008), [-0.037, 0.517, 0.022], [0.037, 0.578, 0.066], 0.0022]];
+      return [[(x, y, z) => smin(Math.min(L(x, y, z), R(x, y, z)), cone(x, y, z, I), 0.008), [-0.037, 0.517, 0.022], [0.037, 0.578, 0.066], 0.003]];
     },
     lungs: () => {
       const hrt = ell(LV.c, LV.r.map(x => x + 0.012), LV.ax), L = LUNG.map(l => ell([l[0], l[1], l[2]], inf([l[3], l[4], l[5]])));
       // the heart makes its notch in the left lung
-      return [[(x, y, z) => smax(Math.min(L[0](x, y, z), L[1](x, y, z)), -hrt(x, y, z), 0.02), [-0.172, 0.215, -0.112], [0.162, 0.515, 0.09], 0.0055]];
+      return [[(x, y, z) => smax(Math.min(L[0](x, y, z), L[1](x, y, z)), -hrt(x, y, z), 0.02), [-0.172, 0.215, -0.112], [0.162, 0.515, 0.09], 0.0078]];
     },
     heart: () => {
       const lv = ell(LV.c, inf(LV.r), LV.ax), rv = ell(RV.c, inf(RV.r), RV.ax);
       const ra = ell([-0.036, 0.315, 0.03], inf([0.026, 0.03, 0.024])), la = ell([0.018, 0.335, -0.002], inf([0.026, 0.022, 0.02]));
-      return [[(x, y, z) => smin(smin(lv(x, y, z), rv(x, y, z), 0.015), smin(ra(x, y, z), la(x, y, z), 0.012), 0.016), [-0.078, 0.212, -0.035], [0.12, 0.372, 0.13], 0.0045]];
+      return [[(x, y, z) => smin(smin(lv(x, y, z), rv(x, y, z), 0.015), smin(ra(x, y, z), la(x, y, z), 0.012), 0.016), [-0.078, 0.212, -0.035], [0.12, 0.372, 0.13], 0.0058]];
     },
     liver: () => {
       // the body set keeps a[1] >= o + g a[0] (a: the point in the ellipsoid's unit coordinates): a plane cut on each lobe
@@ -143,25 +110,56 @@ SETS.organs = function (K) {
         const r = inf(l.r), E = ell(l.c, r), gx = l.g / l.r[0], gy = -1 / l.r[1], gl = Math.hypot(gx, gy);
         return (x, y, z) => smax(E(x, y, z), (l.o + gx * (x - l.c[0]) + gy * (y - l.c[1])) / gl - IN, 0.012);
       });
-      return [[(x, y, z) => smin(P[0](x, y, z), P[1](x, y, z), 0.025), [-0.178, 0.104, -0.086], [0.092, 0.306, 0.108], 0.0055]];
+      return [[(x, y, z) => smin(P[0](x, y, z), P[1](x, y, z), 0.025), [-0.178, 0.104, -0.086], [0.092, 0.306, 0.108], 0.0072]];
     },
-    spleen: () => [[ell(SPL.c, inf(SPL.r), SPL.ax), [0.058, 0.128, -0.122], [0.182, 0.272, 0.012], 0.004]],
-    pancreas: () => {
-      const f = capsules(chain(curvePts(PANC, 14), s => 0.016 - 0.006 * s + 0.003, []), 0.006);
-      return [[f, [-0.065, 0.084, -0.07], [0.132, 0.196, 0.052], 0.004]];
-    },
+    spleen: () => [[ell(SPL.c, inf(SPL.r), SPL.ax), [0.058, 0.128, -0.122], [0.182, 0.272, 0.012], 0.0052]],
     kidneys: () => [1, -1].map(s => {
       const { c, ax } = KID(s), k = ell(c, inf([0.026, 0.052, 0.022]), ax), hc = [c[0] - 0.03 * s, c[1] - 0.004, c[2] + 0.004];
       // the hilum: the dent on the inner side where the vessels and the ureter leave
       return [(x, y, z) => smax(k(x, y, z), 0.013 - Math.sqrt((x - hc[0]) * (x - hc[0]) + (y - hc[1]) * (y - hc[1]) + (z - hc[2]) * (z - hc[2])), 0.008),
-        [c[0] - 0.05, c[1] - 0.075, c[2] - 0.045], [c[0] + 0.05, c[1] + 0.075, c[2] + 0.045], 0.004];
+        [c[0] - 0.05, c[1] - 0.075, c[2] - 0.045], [c[0] + 0.05, c[1] + 0.075, c[2] + 0.045], 0.0052];
     }),
     adrenal: () => [1, -1].map(s => {
       const { c, ax } = KID(s), k = ell(c, [0.028, 0.054, 0.024], ax), top = v3.add(c, v3.mul(ax[1], 0.054));
       const cc = v3.add(top, [-0.006 * s, 0.004, 0.002]), a = ell(cc, [0.016, 0.011, 0.012], ax);
-      return [(x, y, z) => smax(a(x, y, z), -k(x, y, z), 0.004), v3.sub(cc, [0.03, 0.03, 0.03]), v3.add(cc, [0.03, 0.03, 0.03]), 0.0022];   // a cap on the kidney
+      return [(x, y, z) => smax(a(x, y, z), -k(x, y, z), 0.004), v3.sub(cc, [0.03, 0.03, 0.03]), v3.add(cc, [0.03, 0.03, 0.03]), 0.0029];   // a cap on the kidney
     }),
-    intestine: () => {
+    muscle: () => {
+      const g = [1, -1].map(s => { const q = GLUT(s); return ell(q.c, q.r, q.ax); });
+      return [[(x, y, z) => smax(Math.min(g[0](x, y, z), g[1](x, y, z)), lower(x, y, z) + 0.007, 0.012), [-0.168, -0.232, -0.13], [0.168, 0.0, 0.0], 0.0068]];
+    },
+  };
+  // tubes, drums and a band: built directly (smooth unions add nothing to them)
+  function mesh(P, N, I, oi) {
+    const b = NV;
+    for (let v = 0; v < P.length / 3; v++) vert(oi, P[3 * v], P[3 * v + 1], P[3 * v + 2], N[3 * v], N[3 * v + 1], N[3 * v + 2]);
+    for (let q = 0; q < I.length; q += 3) tri(b + I[q], b + I[q + 1], b + I[q + 2]);
+  }
+  // a closed tube along a smooth curve (as the body set's), its radius rad(u) changing along it, the ends rounded
+  function taper(pts, rad, n, m, oi) {
+    const c = new THREE.CatmullRomCurve3(pts.map(p => new THREE.Vector3(p[0], p[1], p[2])), false, 'centripetal'), fr = c.computeFrenetFrames(n, false);
+    const P = [], N = [], I = [], q = new THREE.Vector3(), rings = [];
+    const ring = (p, t, nn, bn, r, ca, sa) => {   // a ring of radius r * ca, pushed sa * r along the tangent; normals tilt with it
+      rings.push(P.length / 3);
+      for (let j = 0; j <= m; j++) {
+        const th = j / m * 2 * PI, d = [nn.x * Math.cos(th) + bn.x * Math.sin(th), nn.y * Math.cos(th) + bn.y * Math.sin(th), nn.z * Math.cos(th) + bn.z * Math.sin(th)];
+        P.push(p.x + d[0] * r * ca + t.x * r * sa, p.y + d[1] * r * ca + t.y * r * sa, p.z + d[2] * r * ca + t.z * r * sa);
+        N.push(d[0] * ca + t.x * sa, d[1] * ca + t.y * sa, d[2] * ca + t.z * sa);
+      }
+    };
+    const cap = (i, sg, rev) => {   // quarter circles of rings from the tip (sg: which way it points) to the full ring, or back
+      const p = c.getPointAt(i / n, q.clone()), r = rad(i / n), t = fr.tangents[i].clone().multiplyScalar(sg);
+      for (let k = rev ? 1 : 4; rev ? k <= 4 : k >= 1; k += rev ? 1 : -1) { const a = k / 4 * PI / 2; ring(p, t, fr.normals[i], fr.binormals[i], r, Math.cos(a), Math.sin(a)); }
+    };
+    cap(0, -1, false);
+    for (let i = 0; i <= n; i++) ring(c.getPointAt(i / n, q.clone()), fr.tangents[i], fr.normals[i], fr.binormals[i], rad(i / n), 1, 0);
+    cap(n, 1, true);
+    for (let k = 0; k < rings.length - 1; k++) for (let j = 0; j < m; j++) { const a = rings[k] + j, b = rings[k + 1] + j; I.push(a, b, a + 1, a + 1, b, b + 1); }
+    mesh(P, N, I, oi);
+  }
+  const BUILD = {
+    pancreas: oi => taper(PANC, u => 0.0195 - 0.0065 * u, 36, 14, oi),   // the head (by the duodenum) thicker than the tail (by the spleen)
+    intestine: oi => {
       // the small intestine coiled exactly as the body set draws it (the same seeded walk), the colon framing it
       const pts = [], r = K.rng(5);
       let p = [0, 0.03, 0.03], dir = [1, 0, 0];
@@ -172,39 +170,41 @@ SETS.organs = function (K) {
       }
       const colon = [[-0.104, -0.065, 0.024], [-0.11, 0.04, 0.004], [-0.098, 0.13, 0.02], [-0.03, 0.104, 0.074], [0.04, 0.104, 0.074],
         [0.11, 0.152, 0.004], [0.116, 0.05, -0.012], [0.104, -0.04, 0.004], [0.06, -0.085, 0.034], [0.0, -0.08, -0.03], [0.0, -0.13, -0.064]];
-      const segs = chain(curvePts(pts, 150), () => 0.0128, []);
-      chain(curvePts(colon, 56), () => 0.0215, segs);
-      return [[capsules(segs, 0.008), [-0.146, -0.162, -0.096], [0.146, 0.186, 0.112], 0.005]];
+      addGeo(K.tube(pts, 0.0128, 230, 8), oi);
+      addGeo(K.tube(colon, 0.0215, 96, 10), oi);
     },
-    muscle: () => {
-      const g = [1, -1].map(s => { const q = GLUT(s); return ell(q.c, q.r, q.ax); });
-      return [[(x, y, z) => smax(Math.min(g[0](x, y, z), g[1](x, y, z)), lower(x, y, z) + 0.007, 0.012), [-0.168, -0.232, -0.13], [0.168, 0.0, 0.0], 0.005]];
-    },
-    marrow: () => {
-      // the vertebral bodies L1 to L5 as rounded drums, with the discs between them left as waists
-      const f = (x, y, z) => {
-        let d = 1;
-        for (const v of LUMBAR) {
-          const rx = v.r * 1.15 + 0.002, rz = v.r + 0.002, a = (x - v.c[0]) / rx, b = (z - v.c[2]) / rz;
-          const dr = (Math.sqrt(a * a + b * b) - 1) * rz, dy = Math.abs(y - v.c[1]) - v.h - 0.001, rr = 0.003;
-          d = Math.min(d, Math.min(Math.max(dr + rr, dy + rr), 0) + Math.hypot(Math.max(dr + rr, 0), Math.max(dy + rr, 0)) - rr);
-        }
-        return d;
-      };
-      const ys = LUMBAR.map(v => v.c[1]), zs = LUMBAR.map(v => v.c[2]);
-      return [[f, [-0.04, Math.min(...ys) - 0.03, Math.min(...zs) - 0.035], [0.04, Math.max(...ys) + 0.03, Math.max(...zs) + 0.035], 0.0025]];
-    },
-    fat: () => {
-      // a band just under the skin of the belly, flanks and back, between L1 and L5
-      const ys = LUMBAR.map(v => v.c[1]), yc = (Math.min(...ys) + Math.max(...ys)) / 2, hy = (Math.max(...ys) - Math.min(...ys)) / 2 + 0.014;
-      return [[(x, y, z) => smax(Math.abs(torso(x, y, z) + 0.0105) - 0.0055, Math.abs(y - yc) - hy, 0.008), [-0.182, yc - hy - 0.022, -0.125], [0.182, yc + hy + 0.022, 0.13], 0.0045]];
-    },
-    aorta: () => {
+    aorta: oi => {
       // from the heart up over the arch and down the back to where it splits into the two iliac arteries
-      const segs = chain(curvePts([[0.03, 0.31, 0.04], [0.015, 0.4, 0.035], [0.0, 0.43, 0.0], [0.016, 0.4, -0.04], [0.016, 0.25, -0.04],
-        [0.01, 0.1, -0.022], [0.0, -0.01, -0.016]], 44), s => 0.0118 - 0.0025 * s, []);
-      for (const s of [1, -1]) chain(curvePts([[0.0, -0.004, -0.016], [0.022 * s, -0.04, -0.004], [0.045 * s, -0.07, 0.01]], 6), () => 0.0072, segs);
-      return [[capsules(segs, 0.006), [-0.066, -0.09, -0.068], [0.066, 0.456, 0.066], 0.004]];
+      addGeo(K.tube([[0.03, 0.31, 0.04], [0.015, 0.4, 0.035], [0.0, 0.43, 0.0], [0.016, 0.4, -0.04], [0.016, 0.25, -0.04], [0.01, 0.1, -0.022],
+        [0.0, -0.01, -0.016]], 0.0115, 90, 10), oi);
+      for (const s of [1, -1]) addGeo(K.tube([[0.0, -0.002, -0.016], [0.022 * s, -0.04, -0.004], [0.045 * s, -0.07, 0.01]], 0.0072, 14, 8), oi);
+    },
+    marrow: oi => {
+      // the vertebral bodies L1 to L5 as rounded drums (the discs between them stay dark)
+      for (const v of LUMBAR) {
+        const R = v.r + 0.002, H = v.h + 0.0008, rr = Math.min(0.003, H * 0.6), pr = [new THREE.Vector2(0, -H)];
+        for (let k = 0; k <= 4; k++) { const a = -PI / 2 + k / 4 * PI / 2; pr.push(new THREE.Vector2(R - rr + rr * Math.cos(a), -H + rr + rr * Math.sin(a))); }
+        for (let k = 0; k <= 4; k++) { const a = k / 4 * PI / 2; pr.push(new THREE.Vector2(R - rr + rr * Math.cos(a), H - rr + rr * Math.sin(a))); }
+        pr.push(new THREE.Vector2(0, H));
+        addGeo(new THREE.LatheGeometry(pr, 28), oi, v.c, [1.15, 1, 1]);
+      }
+    },
+    fat: oi => {
+      // a band just under the skin of the belly, flanks and back, between L1 and L5: outer and inner surface, rims
+      const ys = LUMBAR.map(v => v.c[1]), y0 = Math.min(...ys) - 0.016, y1 = Math.max(...ys) + 0.016, NY = 10, NT = 72, D0 = 0.005, D1 = 0.017;
+      const P = [], N = [], I = [];
+      const pt = (y, t, dep) => {
+        const [w, d, zc] = ring(y), th = t / NT * 2 * PI, c = Math.cos(th), s = Math.sin(th), nl = Math.hypot(c / w, s / d), nx = c / w / nl, nz = s / d / nl;
+        return [w * c - nx * dep, zc + d * s - nz * dep, nx, nz];
+      };
+      const grid = (rows, f) => {   // rows x (NT + 1) vertices from f(j, t) -> [x, y, z, nx, ny, nz]
+        const b = P.length / 3;
+        for (let j = 0; j <= rows; j++) for (let t = 0; t <= NT; t++) { const q = f(j, t); P.push(q[0], q[1], q[2]); N.push(q[3], q[4], q[5]); }
+        for (let j = 0; j < rows; j++) for (let t = 0; t < NT; t++) { const a = b + j * (NT + 1) + t, c = a + NT + 1; I.push(a, c, a + 1, a + 1, c, c + 1); }
+      };
+      for (const [dep, sg] of [[D0, 1], [D1, -1]]) grid(NY, (j, t) => { const y = lerp(y0, y1, j / NY), q = pt(y, t, dep); return [q[0], y, q[1], q[2] * sg, 0, q[3] * sg]; });
+      for (const [y, sg] of [[y0, -1], [y1, 1]]) grid(1, (j, t) => { const q = pt(y, t, j ? D1 : D0); return [q[0], y, q[1], 0, sg, 0]; });
+      mesh(P, N, I, oi);
     },
   };
   // picking: rough ellipsoids per organ [centre, radii, axes] (modelling coordinates)
@@ -221,85 +221,113 @@ SETS.organs = function (K) {
   // Sample the field on a grid (blocks of 4 cells far from the surface are filled from their centre alone) and place
   // one vertex per cell the surface crosses; its normal is the field's gradient, from the grid (central differences at
   // the cell's corners, blended), so no extra evaluations are needed.
-  const SP = [], SN = [], SCL = [], SO = [], SI = [];
+  // output buffers, grown as needed: positions, normals, colours, organ index; triangle indices
+  let CAPV = 40000, CAPI = 240000, NV = 0, NI3 = 0;
+  let SP = new Float32Array(CAPV * 3), SN = new Float32Array(CAPV * 3), SCL = new Float32Array(CAPV * 3), SO = new Float32Array(CAPV), SI = new Uint32Array(CAPI);
+  const grow = (a, n) => { const b = new a.constructor(n); b.set(a); return b; };
+  const tri = (a, b, c) => { if (NI3 + 3 > CAPI) { CAPI *= 2; SI = grow(SI, CAPI); } SI[NI3++] = a; SI[NI3++] = b; SI[NI3++] = c; };
   const YR = ORG.map(() => [Infinity, -Infinity]);   // each shell's height range (for the sweep's labels)
-  const EG = [[0, 1], [2, 3], [4, 5], [6, 7], [0, 2], [1, 3], [4, 6], [5, 7], [0, 4], [1, 5], [2, 6], [3, 7]];
-  const vert = (oi, x, y, z, nx, ny, nz) => {   // one vertex in modelling coordinates: slim it (and carry its normal)
-    const nX = nx / XS, nl = Math.sqrt(nX * nX + ny * ny + nz * nz) || 1, col = COL[oi], yr = YR[oi];
-    SP.push(x * XS, y, z); SN.push(nX / nl, ny / nl, nz / nl); SCL.push(col[0], col[1], col[2]); SO.push(oi);
+  const EGF = new Int8Array([0, 1, 2, 3, 4, 5, 6, 7, 0, 2, 1, 3, 4, 6, 5, 7, 0, 4, 1, 5, 2, 6, 3, 7]);
+  function vert(oi, x, y, z, nx, ny, nz) {   // one vertex in modelling coordinates: slim it (and carry its normal)
+    if (NV >= CAPV) { CAPV *= 2; SP = grow(SP, CAPV * 3); SN = grow(SN, CAPV * 3); SCL = grow(SCL, CAPV * 3); SO = grow(SO, CAPV); }
+    const nX = nx / XS, nl = Math.sqrt(nX * nX + ny * ny + nz * nz) || 1, col = COL[oi], yr = YR[oi], q = 3 * NV, g = SHELLK[ORG[oi].id] || 1;
+    SP[q] = x * XS; SP[q + 1] = y; SP[q + 2] = z; SN[q] = nX / nl; SN[q + 1] = ny / nl; SN[q + 2] = nz / nl;
+    SCL[q] = col[0] * g; SCL[q + 1] = col[1] * g; SCL[q + 2] = col[2] * g; SO[NV] = oi;
     if (y < yr[0]) yr[0] = y;
     if (y > yr[1]) yr[1] = y;
-  };
-  function polygonise(f, lo, hi, h, oi) {
-    const nx = Math.ceil((hi[0] - lo[0]) / h) + 1, ny = Math.ceil((hi[1] - lo[1]) / h) + 1, nz = Math.ceil((hi[2] - lo[2]) / h) + 1;
-    const F = new Float32Array(nx * ny * nz), done = new Uint8Array(nx * ny * nz), id = (i, j, k) => (i * ny + j) * nz + k;
+    return NV++;
+  }
+  const JB = { until: Infinity }, late = () => performance.now() > JB.until;
+  function* polygonise(f, lo, hi, h, oi) {
+    const nx = Math.ceil((hi[0] - lo[0]) / h) + 1, ny = Math.ceil((hi[1] - lo[1]) / h) + 1, nz = Math.ceil((hi[2] - lo[2]) / h) + 1, sy = nz, sx = ny * nz;
+    const F = new Float32Array(nx * ny * nz), done = new Uint8Array(nx * ny * nz);
     const B = 4, far = 1.8 * 0.87 * B * h;
     for (let I = 0; I < nx - 1; I += B) for (let J = 0; J < ny - 1; J += B) for (let L = 0; L < nz - 1; L += B) {
+      if (L === 0 && late()) yield;
       const i1 = Math.min(I + B, nx - 1), j1 = Math.min(J + B, ny - 1), k1 = Math.min(L + B, nz - 1);
       const fc = f(lo[0] + (I + i1) * 0.5 * h, lo[1] + (J + j1) * 0.5 * h, lo[2] + (L + k1) * 0.5 * h), out = Math.abs(fc) > far;
-      for (let i = I; i <= i1; i++) for (let j = J; j <= j1; j++) for (let k = L; k <= k1; k++) {
-        const q = id(i, j, k);
-        if (done[q]) continue;
-        if (out) F[q] = fc; else { F[q] = f(lo[0] + i * h, lo[1] + j * h, lo[2] + k * h); done[q] = 1; }
+      for (let i = I; i <= i1; i++) for (let j = J; j <= j1; j++) {
+        const x = lo[0] + i * h, y = lo[1] + j * h;
+        for (let k = L, q = i * sx + j * sy + L; k <= k1; k++, q++) {
+          if (done[q]) continue;
+          if (out) F[q] = fc; else { F[q] = f(x, y, lo[2] + k * h); done[q] = 1; }
+        }
       }
     }
-    const ny1 = ny - 1, nz1 = nz - 1, VI = new Int32Array((nx - 1) * ny1 * nz1).fill(-1), cid = (i, j, k) => (i * ny1 + j) * nz1 + k;
-    const cv = new Float32Array(8), G = new Float32Array(24);
-    const at = (i, j, k) => F[id(i < 0 ? 0 : i >= nx ? nx - 1 : i, j < 0 ? 0 : j >= ny ? ny - 1 : j, k < 0 ? 0 : k >= nz ? nz - 1 : k)];
+    const ny1 = ny - 1, nz1 = nz - 1, VI = new Int32Array((nx - 1) * ny1 * nz1).fill(-1), cy = nz1, cx = ny1 * nz1;
+    const cv = new Float32Array(8), G = new Float32Array(24), OFF = [0, sx, sy, sx + sy, 1, sx + 1, sy + 1, sx + sy + 1];
+    const at = (i, j, k) => F[(i < 0 ? 0 : i >= nx ? nx - 1 : i) * sx + (j < 0 ? 0 : j >= ny ? ny - 1 : j) * sy + (k < 0 ? 0 : k >= nz ? nz - 1 : k)];
     for (let i = 0; i < nx - 1; i++) for (let j = 0; j < ny1; j++) for (let k = 0; k < nz1; k++) {
+      if (k === 0 && j === 0 && late()) yield;
+      const q0 = i * sx + j * sy + k;
       let neg = 0;
-      for (let c = 0; c < 8; c++) { cv[c] = F[id(i + (c & 1), j + (c >> 1 & 1), k + (c >> 2 & 1))]; if (cv[c] < 0) neg++; }
+      for (let c = 0; c < 8; c++) { const v = F[q0 + OFF[c]]; cv[c] = v; if (v < 0) neg++; }
       if (neg === 0 || neg === 8) continue;
-      let sx = 0, sy = 0, sz = 0, ne = 0;
-      for (const [a, b] of EG) {
+      let ux = 0, uy = 0, uz = 0, ne = 0;
+      for (let e = 0; e < 24; e += 2) {
+        const a = EGF[e], b = EGF[e + 1];
         if ((cv[a] < 0) === (cv[b] < 0)) continue;
         const t = cv[a] / (cv[a] - cv[b]);
-        sx += (a & 1) + ((b & 1) - (a & 1)) * t; sy += (a >> 1 & 1) + ((b >> 1 & 1) - (a >> 1 & 1)) * t; sz += (a >> 2 & 1) + ((b >> 2 & 1) - (a >> 2 & 1)) * t; ne++;
+        ux += (a & 1) + ((b & 1) - (a & 1)) * t; uy += (a >> 1 & 1) + ((b >> 1 & 1) - (a >> 1 & 1)) * t; uz += (a >> 2 & 1) + ((b >> 2 & 1) - (a >> 2 & 1)) * t; ne++;
       }
-      const u = sx / ne, v = sy / ne, w = sz / ne;
-      for (let c = 0; c < 8; c++) {
-        const a = i + (c & 1), b = j + (c >> 1 & 1), d = k + (c >> 2 & 1);
-        G[3 * c] = at(a + 1, b, d) - at(a - 1, b, d); G[3 * c + 1] = at(a, b + 1, d) - at(a, b - 1, d); G[3 * c + 2] = at(a, b, d + 1) - at(a, b, d - 1);
-      }
+      const u = ux / ne, v = uy / ne, w = uz / ne;
       let gx = 0, gy = 0, gz = 0;
-      for (let c = 0; c < 8; c++) { const wt = (c & 1 ? u : 1 - u) * (c & 2 ? v : 1 - v) * (c & 4 ? w : 1 - w); gx += G[3 * c] * wt; gy += G[3 * c + 1] * wt; gz += G[3 * c + 2] * wt; }
-      VI[cid(i, j, k)] = SP.length / 3;
-      vert(oi, lo[0] + (i + u) * h, lo[1] + (j + v) * h, lo[2] + (k + w) * h, gx, gy, gz);
+      for (let c = 0; c < 8; c++) {
+        const a = i + (c & 1), b = j + (c >> 1 & 1), d = k + (c >> 2 & 1), wt = (c & 1 ? u : 1 - u) * (c & 2 ? v : 1 - v) * (c & 4 ? w : 1 - w);
+        gx += (at(a + 1, b, d) - at(a - 1, b, d)) * wt; gy += (at(a, b + 1, d) - at(a, b - 1, d)) * wt; gz += (at(a, b, d + 1) - at(a, b, d - 1)) * wt;
+      }
+      VI[i * cx + j * cy + k] = vert(oi, lo[0] + (i + u) * h, lo[1] + (j + v) * h, lo[2] + (k + w) * h, gx, gy, gz);
     }
-    const quad = (a, b, c, d, flip) => { if (a < 0 || b < 0 || c < 0 || d < 0) return; if (flip) SI.push(a, c, b, a, d, c); else SI.push(a, b, c, a, c, d); };
+    const quad = (a, b, c, d, flip) => { if (a < 0 || b < 0 || c < 0 || d < 0) return; if (flip) { tri(a, c, b); tri(a, d, c); } else { tri(a, b, c); tri(a, c, d); } };
     for (let i = 0; i < nx - 1; i++) for (let j = 0; j < ny1; j++) for (let k = 0; k < nz1; k++) {
-      const v0 = F[id(i, j, k)] < 0;
-      if (j > 0 && k > 0 && v0 !== F[id(i + 1, j, k)] < 0) quad(VI[cid(i, j - 1, k - 1)], VI[cid(i, j, k - 1)], VI[cid(i, j, k)], VI[cid(i, j - 1, k)], !v0);
-      if (i > 0 && k > 0 && v0 !== F[id(i, j + 1, k)] < 0) quad(VI[cid(i - 1, j, k - 1)], VI[cid(i - 1, j, k)], VI[cid(i, j, k)], VI[cid(i, j, k - 1)], !v0);
-      if (i > 0 && j > 0 && v0 !== F[id(i, j, k + 1)] < 0) quad(VI[cid(i - 1, j - 1, k)], VI[cid(i, j - 1, k)], VI[cid(i, j, k)], VI[cid(i - 1, j, k)], !v0);
+      if (k === 0 && j === 0 && late()) yield;
+      const q = i * sx + j * sy + k, v0 = F[q] < 0, c = i * cx + j * cy + k;
+      if (j > 0 && k > 0 && v0 !== F[q + sx] < 0) quad(VI[c - cy - 1], VI[c - 1], VI[c], VI[c - cy], !v0);
+      if (i > 0 && k > 0 && v0 !== F[q + sy] < 0) quad(VI[c - cx - 1], VI[c - cx], VI[c], VI[c - 1], !v0);
+      if (i > 0 && j > 0 && v0 !== F[q + 1] < 0) quad(VI[c - cx - cy], VI[c - cy], VI[c], VI[c - cx], !v0);
     }
   }
   // a ready-made geometry (tubes, lathes, bands) in modelling coordinates, optionally scaled per axis about a centre
   function addGeo(g, oi, c, sc) {
-    const P = g.attributes.position.array, N = g.attributes.normal.array, base = SP.length / 3, s = sc || [1, 1, 1], o = c || [0, 0, 0];
-    for (let v = 0; v < P.length / 3; v++) vert(oi, o[0] + P[3 * v] * s[0], o[1] + P[3 * v + 1] * s[1], o[2] + P[3 * v + 2] * s[2], N[3 * v] / s[0], N[3 * v + 1] / s[1], N[3 * v + 2] / s[2]);
-    if (g.index) for (const q of g.index.array) SI.push(base + q);
-    else for (let v = 0; v < P.length / 3; v++) SI.push(base + v);
+    const P = g.attributes.position.array, N = g.attributes.normal.array, base = NV, s = sc || [1, 1, 1], o = c || [0, 0, 0], n = P.length / 3;
+    for (let v = 0; v < n; v++) vert(oi, o[0] + P[3 * v] * s[0], o[1] + P[3 * v + 1] * s[1], o[2] + P[3 * v + 2] * s[2], N[3 * v] / s[0], N[3 * v + 1] / s[1], N[3 * v + 2] / s[2]);
+    const X = g.index ? g.index.array : null;
+    if (X) for (let q = 0; q < X.length; q += 3) tri(base + X[q], base + X[q + 1], base + X[q + 2]);
+    else for (let v = 0; v < n; v += 3) tri(base + v, base + v + 1, base + v + 2);
     g.dispose();
   }
-  const T0 = performance.now();
-  const PER = {};
-  ORG.forEach((o, oi) => {
-    if (!SHAPES[o.id]) return;
-    const t0 = performance.now(), v0 = SP.length / 3;
-    for (const [f, lo, hi, h] of SHAPES[o.id]()) polygonise(f, lo, hi, h, oi);
-    PER[o.id] = [Math.round(performance.now() - t0), SP.length / 3 - v0];
-  });
-  const shellMs = performance.now() - T0;
+  // The shells are a job: run in short slices between frames while the set is hidden (idle), in longer ones once it is
+  // wanted (update), or at once (finish: the harness and tests). Load costs nothing; the shells show once built.
+  const PER = {}, shellGeo = new THREE.BufferGeometry();
+  let jobMs = 0;
+  function* shellJob() {
+    for (let oi = 0; oi < NO; oi++) {
+      const o = ORG[oi];
+      if (!SHAPES[o.id] && !BUILD[o.id]) continue;
+      const v0 = NV;
+      if (BUILD[o.id]) BUILD[o.id](oi);
+      else for (const [f, lo, hi, h] of SHAPES[o.id]()) yield* polygonise(f, lo, hi, h, oi);
+      PER[o.id] = NV - v0;
+      yield;
+    }
+    shellGeo.setAttribute('position', new THREE.BufferAttribute(SP.slice(0, 3 * NV), 3));
+    shellGeo.setAttribute('normal', new THREE.BufferAttribute(SN.slice(0, 3 * NV), 3));
+    shellGeo.setAttribute('aCol', new THREE.BufferAttribute(SCL.slice(0, 3 * NV), 3));
+    shellGeo.setAttribute('aOrg', new THREE.BufferAttribute(SO.slice(0, NV), 1));
+    shellGeo.setIndex(new THREE.BufferAttribute(SI.slice(0, NI3), 1));
+    shellGeo.computeBoundingSphere();
+    SP = SN = SCL = SO = SI = null;   // the working buffers go
+  }
+  let job = shellJob();
+  function jobStep(ms) {
+    if (!job) return;
+    const t0 = performance.now();
+    JB.until = t0 + ms;
+    while (job && performance.now() <= JB.until) if (job.next().done) job = null;
+    JB.until = Infinity;
+    jobMs += performance.now() - t0;
+  }
 
-  // ---------------------------------------------------------------- the shells
-  const shellGeo = new THREE.BufferGeometry();
-  shellGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(SP), 3));
-  shellGeo.setAttribute('normal', new THREE.BufferAttribute(new Float32Array(SN), 3));
-  shellGeo.setAttribute('aCol', new THREE.BufferAttribute(new Float32Array(SCL), 3));
-  shellGeo.setAttribute('aOrg', new THREE.BufferAttribute(new Float32Array(SO), 1));
-  shellGeo.setIndex(SI);
-  shellGeo.computeBoundingSphere();
   const shellMat = new THREE.ShaderMaterial({
     uniforms: { uA: set.uA, uPlane: { value: 10 }, uCut: { value: 0 }, uK: { value: 1 }, uFoc: { value: new Array(NO).fill(0) }, uDim: { value: 0 } },
     transparent: true, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending,
@@ -335,6 +363,7 @@ void main() {
   });
   set.mats.push(shellMat);
   const shells = new THREE.Mesh(shellGeo, shellMat);
+  shells.visible = false;
   shells.renderOrder = 1;
   set.group.add(shells);
 
@@ -391,15 +420,16 @@ void main() {
   }
 
   // ---------------------------------------------------------------- layout beside and in front of the body
-  const BAR = { x0: 0.4, xb: 0.445, k: 0.15, top: 0.8, dy: 0.083, z: 0.06, r: 0.0165 };
+  const BAR = { x0: 0.4, xb: 0.448, k: 0.15, top: 0.8, dy: 0.083, z: 0.06, r: 0.02 };
   const F2 = D.synth.organs || (D.f2 && D.f2.organs) || [], NF = F2.length;
   const MAT = { x0: 0.47, cw: 0.06, y: 0.1, z0: 0.17, d0: 0.03, rd: 0.0016 };   // the slab: f2's columns, people going back
   const SCP = { x0: 0.46, y0: 0.24, s: 0.62, z: 0.2 };                          // the partial-correlation panel
-  const CHT = { x0: 0.82, y0: -0.2, w: 0.6, h: 0.56, z: 0.3 };                   // the strength distribution
+  const CHT = { x0: 0.88, y0: -0.24, w: 0.68, h: 0.64, z: 0.3 };                   // the strength distribution
   const NETZ = 0.46, NETY = 0.27;
-  const LAY = { brain: [0, 0.84], thyroid: [0.26, 0.66], lungs: [-0.3, 0.5], heart: [0.16, 0.42], liver: [-0.44, 0.25], spleen: [0.46, 0.27],
-    adrenal: [-0.17, 0.2], pancreas: [0.22, 0.15], kidneys: [-0.34, 0.02], marrow: [0.04, 0.02], fat: [0.42, -0.06], intestine: [-0.12, -0.14],
-    muscle: [0.18, -0.3] };
+  // where each organ's node sits on the dome (x, y): near its organ's height, apart enough for labels on their right
+  const LAY = { brain: [0, 0.85], thyroid: [0.3, 0.68], lungs: [-0.4, 0.56], heart: [0.17, 0.46], liver: [-0.52, 0.3], spleen: [0.5, 0.3],
+    adrenal: [-0.12, 0.2], pancreas: [0.24, 0.17], kidneys: [-0.44, 0.03], marrow: [0.1, 0.01], fat: [0.46, -0.1], intestine: [-0.18, -0.16],
+    muscle: [0.16, -0.32] };
   const domeZ = (x, y) => NETZ - 0.3 * (x * x + (y - NETY) * (y - NETY));
 
   // organ points: the anchor (the data's home point), and for leaders the left one of a pair (nearer the bars)
@@ -538,8 +568,12 @@ void main() { if (vS < 0.01) discard; gl_FragColor = vec4(vC * vL, vS * uA * uK)
   set.group.add(fitLine);
 
   // ---------------------------------------------------------------- the networks
-  const NET_IDS = ['full', 'FDG_healthy', 'A_low', 'A_high', 'B_low', 'B_high', 'C_low', 'C_mid', 'C_high', 'HK2', 'GLUT', 'vena'];
-  const NET_SHORT = ['All scans', 'Healthy', 'BMI low', 'BMI high', 'Tumour low', 'Tumour high', 'CRP low', 'CRP mid', 'CRP high', 'HK2', 'GLUT', 'Vena cava'];
+  // the eleven of the story and the controls, then extras the explore tabs may show: the vena cava and the three doses
+  const NET_IDS = ['full', 'FDG_healthy', 'A_low', 'A_high', 'B_low', 'B_high', 'C_low', 'C_mid', 'C_high', 'HK2', 'GLUT', 'vena', 'dose_standard', 'dose_ultralow', 'dose_virtual'];
+  const NET_SHORT = ['All scans', 'Healthy', 'BMI low', 'BMI high', 'Tumour low', 'Tumour high', 'CRP low', 'CRP mid', 'CRP high', 'HK2', 'GLUT', 'Vena cava', 'Standard dose', 'Ultra-low dose', 'Virtual dose'];
+  const NET_TITLE = { full: 'All {n} scans', vena: 'All {n} scans', FDG_healthy: 'FDG, healthy people', A_low: 'Healthy, lower BMI', A_high: 'Healthy, higher BMI',
+    B_low: 'Low tumour load', B_high: 'High tumour load', C_low: 'CRP, lowest third', C_mid: 'CRP, middle third', C_high: 'CRP, highest third',
+    HK2: 'Hexokinase 2 (GTEx)', GLUT: 'GLUT1 to 4 (GTEx)', dose_standard: 'Standard dose', dose_ultralow: 'Ultra-low dose', dose_virtual: 'Virtual ultra-low dose' };
   const NN = ORG.map((o, i) => i).filter(i => LAY[ORG[i].id]);   // the organs that can be nodes (not the aorta)
   const NPOS = ORG.map(o => { const l = LAY[o.id]; return l ? [l[0], l[1], domeZ(l[0], l[1])] : null; });
   const RORD = NN.slice().sort((a, b) => HOME[b][1] - HOME[a][1]), RRANK = new Array(NO).fill(0);
@@ -563,18 +597,21 @@ void main() { if (vS < 0.01) discard; gl_FragColor = vec4(vC * vL, vS * uA * uK)
     return { density: v.reduce((x, y) => x + y, 0) / (N * (N - 1) || 1), disorder: best[1], fitA: best[2], strength: s, hubs: ids.filter(i => (s[i] - m) / sd > 1.7) };
   }
   // the disorder of each group as printed in Table 2, for networks whose own record lacks it
-  const T2 = { A_low: ['BMI', 'healthy', 0], A_high: ['BMI', 'healthy', 1], B_low: ['Tumour load', '', 0], B_high: ['Tumour load', '', 1],
-    C_low: ['CRP', 'thirds', 0], C_mid: ['CRP', 'thirds', 1], C_high: ['CRP', 'thirds', 2] };
-  const t2dis = id => { const q = T2[id]; if (!q) return null; const r = (D.table2 || []).find(x => x.what === q[0] && x.cohort.indexOf(q[1]) >= 0); const g = r && r.groups[q[2]]; return g && typeof g.disorder === 'number' ? g.disorder : null; };
+  const T2 = { full: ['Blood pool', 'aorta', 0], vena: ['Blood pool', 'vena', 1], A_low: ['BMI', 'healthy', 0], A_high: ['BMI', 'healthy', 1],
+    B_low: ['Tumour load', '', 0], B_high: ['Tumour load', '', 1], C_low: ['CRP', 'thirds', 0], C_mid: ['CRP', 'thirds', 1], C_high: ['CRP', 'thirds', 2],
+    dose_standard: ['Dose', '', 0], dose_ultralow: ['Dose', '', 1], dose_virtual: ['Dose', '', 2] };
+  const t2g = id => { const q = T2[id]; if (!q) return null; const r = (D.table2 || []).find(x => x.what === q[0] && (x.cohort + ' ' + x.groups.map(g => g.label).join(' ')).indexOf(q[1]) >= 0); return (r && r.groups[q[2]]) || null; };
   const NETS = NET_IDS.map((id, k) => {
     const n = (D.nets || []).find(x => x.id === id) || null;
     const ids = n && n.organs && n.organs.length ? n.organs.filter(o => OI[o] !== undefined && LAY[o]) : NN.map(i => ORG[i].id);
     const edges = n ? (n.edges || []).filter(e => OI[e[0]] !== undefined && OI[e[1]] !== undefined && LIDX.has(OI[e[0]] * NO + OI[e[1]])) : [];
-    const cmp = n && n.computed && n.computed.strength ? n.computed : measures(ids, edges);
+    const cmp = n && n.computed && n.computed.strength ? n.computed : edges.length ? measures(ids, edges) : { strength: {}, hubs: [], fitA: 0, disorder: 0 };
     const W = new Float32Array(NL), pres = new Float32Array(NO), str = new Float32Array(NO), hub = new Float32Array(NO);
     for (const [a, b, w] of edges) W[LIDX.get(OI[a] * NO + OI[b])] = w;
     for (const o of ids) { pres[OI[o]] = 1; str[OI[o]] = (cmp.strength && cmp.strength[o]) || 0; }
-    const hubs = n && n.hubs && n.hubs.length ? n.hubs : edges.length ? (cmp.hubs || []) : [];
+    // hubs: as the figure marks them; the printed matrices of Figure 2A (exact) mark none, so there the paper's rule
+    // (strength z-score above 1.7) is applied to their printed weights
+    const hubs = !n || !edges.length ? [] : n.exact ? (cmp.hubs || []) : (n.hubs || []);
     for (const o of hubs) if (OI[o] !== undefined) hub[OI[o]] = 1;
     // sorted strengths (for the chart) and which nodes carry a label: hubs, then the strongest, eight at most
     const order = ids.map(o => OI[o]).sort((a, b) => str[b] - str[a] || RRANK[a] - RRANK[b]), rank = new Float32Array(NO).fill(-1);
@@ -582,10 +619,11 @@ void main() { if (vS < 0.01) discard; gl_FragColor = vec4(vC * vL, vS * uA * uK)
     const lab = new Float32Array(NO);
     let nl = 0;
     for (const i of order) if (hub[i] && nl < 8) { lab[i] = 1; nl++; }
-    for (const i of order) if (!lab[i] && nl < 7 && (str[i] > 0 || !edges.length)) { lab[i] = 1; nl++; }
-    const dis = n && typeof n.disorder === 'number' ? n.disorder : t2dis(id);
+    for (const i of order) if (!lab[i] && nl < 6 && (str[i] > 0 || !edges.length)) { lab[i] = 1; nl++; }
+    const g2 = t2g(id), dis = n && typeof n.disorder === 'number' ? n.disorder : g2 && typeof g2.disorder === 'number' ? g2.disorder : null;
+    const title = (NET_TITLE[id] || (n && n.title) || NET_SHORT[k]).replace('{n}', n && n.n ? n.n : ''), sub = id === 'vena' ? 'normalised to the vena cava' : id === 'full' ? 'normalised to the aorta' : g2 ? g2.label : n && n.n ? `n = ${n.n}` : '';
     return { id, n, has: !!(n && edges.length), W, pres, str, hub, order, rank, lab, N: ids.length, A: cmp.fitA || 0, b: cmp.disorder || 0,
-      title: n && n.title ? n.title.split(' (')[0] : NET_SHORT[k], size: n && n.n ? n.n : null, density: n && n.density !== undefined ? n.density : null,
+      title, sub, density: n && n.density !== undefined ? n.density : null,
       disorder: dis !== null ? num(dis) : edges.length ? '≈ ' + num(cmp.disorder || 0) : null };
   });
   const NNET = NETS.length;
@@ -637,7 +675,7 @@ void main() {
   float w = abs(L.x), t = L.w > 0.5 ? 1.0 - aT : aT;
   // drawn on from the organ that appears first; the growing end tapers
   float on = step(t, L.y + 0.0001), tip = L.y > 0.999 ? 1.0 : smoothstep(L.y, L.y - 0.15, t);
-  float r = (0.0024 + 0.0115 * w) * smoothstep(0.0, 0.04, w) * on * mix(0.3, 1.0, tip);
+  float r = (0.0022 + 0.012 * w) * smoothstep(0.0, 0.04, w) * on * mix(0.3, 1.0, tip);
   vS = L.x; vB = L.z * on;
   vN = normalize(mat3(modelMatrix) * aNrm);
   vec4 wp = modelMatrix * vec4(position + aNrm * r, 1.0); vW = wp.xyz;
@@ -650,8 +688,8 @@ void main() {
   if (vB < 0.003) discard;
   vec3 n = normalize(vN), v = normalize(cameraPosition - vW);
   float c = abs(dot(n, v)), w = abs(vS);
-  vec3 col = (vS > 0.0 ? uPos : uNeg) * (0.4 + 0.9 * c) + vec3(1.0) * 0.35 * pow(c, 5.0);
-  gl_FragColor = vec4(col, (0.35 + 0.65 * smoothstep(0.0, 0.45, w)) * (0.4 + 0.6 * c) * vB * uA);
+  vec3 col = (vS > 0.0 ? uPos : uNeg) * (0.5 + 0.8 * c) + vec3(1.0) * 0.12 * pow(c, 6.0) * smoothstep(0.2, 0.6, w);
+  gl_FragColor = vec4(col, (0.22 + 0.68 * smoothstep(0.05, 0.5, w)) * (0.35 + 0.65 * c) * vB * uA);
 }`,
   });
   set.mats.push(linkMat);
@@ -827,7 +865,7 @@ void main() {
   const GHOST_S = { body_a: 1, body_pet: 1, body_net: 0, body_state: 0, body_blank: 0 };
 
   // ---------------------------------------------------------------- update
-  const cur = { net: 0, w: 0, lo: 0, hi: 0, f: 0, plane: 10, fw: new Float32Array(NO), apiW: new Float32Array(NO), dim: 0,
+  const cur = { net: 0, plane: 10, fw: new Float32Array(NO), apiW: new Float32Array(NO), dim: 0,
     node: ORG.map(() => [0, 0, 0]), nodeA: new Float32Array(NO), nodeS: new Float32Array(NO), hubW: new Float32Array(NO), labW: new Float32Array(NO),
     pres: new Float32Array(NO), barLen: new Float32Array(NO), barA: new Float32Array(NO), pairW: [0, 0, 0, 0], fitEnd: [0, 0, 0], hub: -1,
     chartX: new Float32Array(NO), segA: new Float32Array(NO) };
@@ -843,7 +881,7 @@ void main() {
     const seg = clamp(S.organs_seg, 0, 1), suv = clamp(S.organs_suv, 0, 1), rows = clamp(S.organs_rows, 0, 1), net = clamp(S.organs_net, 0, 1);
     const pairP = clamp(S.organs_pair, 0, NPR), part = clamp(S.organs_partial, 0, 1), strg = clamp(S.organs_strength, 0, 1), les = clamp(S.organs_lesion, 0, 1);
     const which = clamp(S.organs_which, 0, NNET - 1), lo = Math.floor(which), hi = Math.min(NNET - 1, lo + 1), f = which - lo;
-    cur.net = net; cur.w = which; cur.lo = lo; cur.hi = hi; cur.f = f;
+    cur.net = net;
     const netOut = 1 - prog(net, 0, 0.35);   // bars, slab and panel make way for the network
 
     // focus: from the param (fractional values pass from one organ to the next), or from the explore API (eased)
@@ -864,11 +902,15 @@ void main() {
     const pk = prog(seg, 0, 0.04) * (1 - prog(seg, 0.9, 1));
     shellMat.uniforms.uCut.value = pk;
     shellMat.uniforms.uK.value = 1 - 0.5 * prog(net, 0, 0.5);
+    if (job) jobStep(12);   // wanted now: build in longer slices (they show when done)
+    shells.visible = !job;
     plane.visible = pk > 0.003;
     if (plane.visible) { plane.position.y = py; planeMat.uniforms.uK.value = pk; section(py, planeMat.uniforms.uE.value); }
     for (let i = 0; i < NO; i++) {
       const yr = YR[i];
-      cur.segA[i] = yr[0] < yr[1] && pk > 0 ? prog(py, yr[1] + 0.05, yr[1] - 0.005) * (1 - prog(py, yr[0] + 0.01, yr[0] - 0.05)) * pk : 0;
+      // a name shows for a short stretch once the plane reaches the organ's top (so a few at a time, not all at once)
+      const win = Math.min(yr[1] - yr[0], 0.05);
+      cur.segA[i] = yr[0] < yr[1] && pk > 0 ? prog(py, yr[1] + 0.03, yr[1] - 0.005) * (1 - prog(py, yr[1] - win, yr[1] - win - 0.04)) * pk : 0;
     }
 
     // uptake bars, then their collapse into the slab's first row
@@ -940,7 +982,7 @@ void main() {
       const u = NPOS[i] ? lift(i, net) : 0, p = nodeAt(i, net, cur.node[i]);
       cur.pres[i] = pres; cur.hubW[i] = hub; cur.labW[i] = lerp(A.lab[i], Bn.lab[i], f);
       cur.nodeA[i] = NPOS[i] ? pres * smooth(u * 3) * (1 - 0.7 * dim * (1 - fw)) : 0;
-      cur.nodeS[i] = 0.07 + 0.055 * Math.sqrt(Math.min(1, str / 3));
+      cur.nodeS[i] = 0.088 + 0.06 * Math.sqrt(Math.min(1, str / 3));
       if (hub * pres > 0.5 && str > bs) { bs = str; best = i; }
       hp[3 * i] = p[0]; hp[3 * i + 1] = p[1]; hp[3 * i + 2] = p[2] - 0.004;
       const pul = 0.8 + 0.2 * Math.sin(t * 1.6 + i);
@@ -991,13 +1033,13 @@ void main() {
     for (let i = 0; i < NO; i++) {
       const r = BRANK[i], c = F2COL[i], fw = cur.fw[i], foc = 1 - 0.6 * dim * (1 - fw);
       const ai = prog(suv, 0.03 * r, 0.03 * r + 0.12) * netOut * foc;
-      let x = BAR.x0, y = barY(r), z = BAR.z + 0.002, a = ai * (c >= 0 ? 1 : 1 - coll), s = 0.056;
-      if (c >= 0) { x = lerp(x, cellX(c), coll); y = lerp(y, MAT.y + 0.075, coll); z = lerp(z, MAT.z0 + 0.03, coll); s = lerp(s, 0.05, coll); a = lerp(a, headA * foc, coll); }
+      let x = BAR.x0, y = barY(r), z = BAR.z + 0.002, a = ai * (c >= 0 ? 1 : 1 - coll), s = 0.066;
+      if (c >= 0) { x = lerp(x, cellX(c), coll); y = lerp(y, MAT.y + 0.075, coll); z = lerp(z, MAT.z0 + 0.03, coll); s = lerp(s, 0.054, coll); a = lerp(a, headA * foc, coll); }
       ip[3 * i] = x; ip[3 * i + 1] = y; ip[3 * i + 2] = z; ia[i] = a; is[i] = s * (1 + 0.3 * fw); ih[i] = 0;
       const k = IN0 + i, p = cur.node[i];
       ip[3 * k] = p[0]; ip[3 * k + 1] = p[1]; ip[3 * k + 2] = p[2]; ia[k] = cur.nodeA[i]; is[k] = cur.nodeS[i] * (1 + 0.25 * fw); ih[k] = cur.hubW[i] * prog(net, 0.5, 0.8);
       const q = IC + i;
-      ip[3 * q] = cur.chartX[i]; ip[3 * q + 1] = CHT.y0 - 0.036; ip[3 * q + 2] = CHT.z + 0.01; ia[q] = cur.pres[i] * chA * foc; is[q] = 0.044; ih[q] = 0; id[q] = 0;
+      ip[3 * q] = cur.chartX[i]; ip[3 * q + 1] = CHT.y0 - 0.04; ip[3 * q + 2] = CHT.z + 0.01; ia[q] = cur.pres[i] * chA * foc; is[q] = 0.05; ih[q] = 0; id[q] = 0;
     }
     PAIRS.forEach((p, k) => {
       const a = IX + 2 * k, b = a + 1, al = pw[k] * prog(pairIn, 0.4, 0.9) * netOut;
@@ -1048,32 +1090,28 @@ void main() {
     axisY: [SCP.x0 + 0.03, SCP.y0 + SCP.s + 0.045, SCP.z],
     fit: own(o => set3(o, cur.fitEnd[0] + 0.01, cur.fitEnd[1] + 0.02, cur.fitEnd[2])),
     net: [0, NETY, NETZ],
-    title: [-0.5, 1.0, NETZ - 0.1],
+    title: [-0.48, 0.97, NETZ - 0.12],
     strength: [CHT.x0 - 0.03, CHT.y0 + CHT.h + 0.075, CHT.z],
     lesion: LES.slice(),
     plane: own(o => set3(o, PLW / 2, cur.plane, 0)),
     hub: own(o => (cur.hub >= 0 ? set3(o, cur.node[cur.hub][0], cur.node[cur.hub][1], cur.node[cur.hub][2]) : set3(o, 0, NETY, NETZ))),
   };
   ORG.forEach((og, i) => {
-    anchors[og.id] = own(o => nodeAt(i, cur.net, o));
+    anchors[og.id] = own(o => { nodeAt(i, cur.net, o); if (NPOS[i]) o[0] += 0.5 * cur.nodeS[i] * lift(i, cur.net); return o; });
     anchors['bar_' + og.id] = own(o => set3(o, BAR.xb + Math.max(cur.barLen[i], 0.01) + 0.012, barY(BRANK[i]) + 0.004, BAR.z));
   });
   // names at the bars: the longest, the shortest and a few between (and a focused organ)
-  const BAR_LBL = { brain: 1, heart: 1, kidneys: 1, liver: 1, lungs: 1, muscle: 1, fat: 1 };
+  const BAR_LBL = { brain: 1, heart: 1, kidneys: 1, liver: 1, muscle: 1, fat: 1, aorta: 1 };
   const netOn = S => prog(clamp(S.organs_net, 0, 1), 0.5, 0.8);
-  const quietRight = S => 1 - Math.max(prog(clamp(S.organs_net, 0, 1), 0, 0.3), 0);
+  const quietRight = S => 1 - prog(clamp(S.organs_net, 0, 1), 0, 0.3);   // the right-hand panels make way for the network
   const near = (S, k) => { const w = clamp(S.organs_which, 0, NNET - 1); return clamp(1 - Math.abs(w - k) * 2.2, 0, 1); };
   const labels = [];
   ORG.forEach((og, i) => {
-    const name = og.name, isNode = !!NPOS[i];
-    // on the organ while the plane outlines it (or focused); on its node in the network
-    labels.push({ text: [name, ''], at: og.id, cls: '', alpha: S => {
-      const n = netOn(S), su = clamp(S.organs_suv, 0, 1);
-      const onOrgan = Math.max(cur.segA[i], cur.fw[i] * (1 - su)) * (1 - n) * (1 - prog(clamp(S.organs_rows, 0, 1), 0, 0.2));
-      const onNode = isNode ? n * cur.pres[i] * Math.max(cur.labW[i], cur.fw[i]) * (1 - cur.hubW[i]) : 0;
-      return Math.max(onOrgan, onNode);
-    } });
-    if (isNode) labels.push({ text: [name, '· hub'], at: og.id, cls: 'amb', alpha: S => netOn(S) * cur.pres[i] * cur.hubW[i] });
+    const name = og.name, isNode = !!NPOS[i], short = og.short || name;
+    // on the organ while the plane outlines it (or focused); on its node (short name) in the network
+    labels.push({ text: [name, ''], at: og.id, cls: '', minor: og.id === 'adrenal' || og.id === 'pancreas', alpha: S => Math.max(cur.segA[i], cur.fw[i] * (1 - clamp(S.organs_suv, 0, 1))) * (1 - netOn(S)) * (1 - prog(clamp(S.organs_rows, 0, 1), 0, 0.2)) });
+    if (isNode) labels.push({ text: [short, ''], at: og.id, cls: '', alpha: S => netOn(S) * cur.pres[i] * Math.max(cur.labW[i], cur.fw[i]) * (1 - cur.hubW[i]) });
+    if (isNode) labels.push({ text: [short, '· hub'], at: og.id, cls: 'amb', alpha: S => netOn(S) * cur.pres[i] * cur.hubW[i] });
     labels.push({ text: [og.short || name, ''], at: 'bar_' + og.id, cls: '', minor: !BAR_LBL[og.id], alpha: S => {
       const k = cur.barA[i] * prog(clamp(S.organs_suv, 0, 1), 0.3, 0.7) * (1 - prog(clamp(S.organs_rows, 0, 1), 0, 0.15));
       return k * Math.max(BAR_LBL[og.id] ? 1 - cur.dim * (1 - cur.fw[i]) : 0, cur.fw[i]);
@@ -1093,17 +1131,17 @@ void main() {
     labels.push({ text: [`partial r = ${num(p.pr)}`, ` (paper: ${num(p.paper)})`], at: 'fit', cls: 'amb', alpha: S => w(S) * prog(part(S), 0.6, 0.95) });
   });
   NETS.forEach((q, k) => {
-    labels.push({ text: [q.title, q.size ? ` · n = ${q.size}` : ''], at: 'title', cls: '', alpha: S => netOn(S) * near(S, k) });
+    labels.push({ text: [q.title, q.sub ? ` · ${q.sub}` : ''], at: 'title', cls: '', alpha: S => netOn(S) * near(S, k) });
     if (q.density !== null) labels.push({ text: [`density ${q.density} %`, q.disorder ? ` · disorder ${q.disorder}` : ''], at: 'strength', cls: 'amb', alpha: S => prog(clamp(S.organs_strength, 0, 1), 0.4, 0.8) * near(S, k) });
   });
   const cam = {
     default: [0, 4, 3.75, 0, 0, 0],
-    seg: [16, 8, 2.3, 0, 0.3, 0],
+    seg: [18, 16, 2.4, 0, 0.28, 0],
     bars: [-6, 4, 3.0, 0.42, 0.24, 0],
     matrix: [32, 30, 2.5, 0.76, 0.1, -0.32],
     scatter: [8, 6, 2.1, 0.76, 0.52, 0.2],
-    net: [10, 6, 3.2, 0.02, 0.27, 0.35],
-    strength: [-4, 4, 3.3, 0.48, 0.25, 0.32],
+    net: [8, 6, 2.6, 0.06, 0.28, 0.4],
+    strength: [-6, 4, 3.3, 0.5, 0.26, 0.36],
     lesion: [-24, 8, 1.15, LES[0], LES[1], LES[2]],
   };
   const VIEWS = [['organs', 'Organs'], ['uptake', 'Uptake'], ['matrix', 'Matrix'], ['partial', 'Partial'], ['network', 'Network'], ['strength', 'Strength']];
@@ -1175,13 +1213,16 @@ void main() {
   }
   const API = {
     netIds: NET_IDS.slice(0, 11),
+    extraNetIds: NET_IDS.slice(11),          // organs_which 11.. shows these (vena cava, the three doses)
     pick,
     setFocus: id => { apiFocus = id && OI[id] !== undefined ? OI[id] + 1 : 0; },
-    stats: { shellMs, verts: SP.length / 3, tris: SI.length / 3, per: PER },
+    stats: () => ({ built: !job, jobMs: Math.round(jobMs), verts: NV, tris: NI3 / 3, per: PER }),
   };
   return Object.assign(set, {
     params: { organs_a: 1, organs_seg: 1, organs_suv: 0, organs_focus: 0, organs_lesion: 0, organs_rows: 0, organs_pair: 0, organs_partial: 0,
       organs_net: 0, organs_which: 0, organs_strength: 0, organs_ghost: 0 },
     update, anchors, labels, cam, controls, explore, api: () => API,
+    idle: () => jobStep(4),            // while the set is hidden, the shells go on building
+    finish: () => jobStep(Infinity),   // for screenshots and tests: build them now
   });
 };
