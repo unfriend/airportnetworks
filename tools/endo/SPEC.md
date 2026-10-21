@@ -56,7 +56,7 @@ labels, controls, camera views, performance budget, harness, palette), with thes
 | 3 | 26 | Golgi | golgi | CHRNE, DPAGT1, ALG14 |
 | 4 | 12 | No shared place | - | SLC18A3 |
 | 5 | 35 | Ion channels | channels | CHRNB1, CHRND, SCN4A, TOR1AIP1 |
-| 6 | 13 | ER membrane | er | VAMP1 |
+| 6 | 13 | Organelle membranes | er (drawn at the ER: its next terms are ER membrane) | VAMP1 |
 | 7 | 17 | No shared place | - | CHRNA1 |
 | 8 | 15 | Endosomes | endosome | - |
 | 9 | 25 | Vesicles | vesicles | SYT2, MUSK, ALG2, SNAP25, RPH3A |

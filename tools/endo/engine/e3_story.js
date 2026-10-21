@@ -159,7 +159,7 @@ function buildStory() {
     title: `<svg class="route-mark" viewBox="0 0 360 44" aria-hidden="true"><path id="titleArc" d="M8 36 Q180 -16 352 36" fill="none" stroke="var(--red)" stroke-width="2.2" stroke-linecap="round" pathLength="1" stroke-dasharray="1" stroke-dashoffset="1"/><circle cx="8" cy="36" r="4.5" fill="var(--red)"/><circle cx="352" cy="36" r="4.5" fill="var(--red)" id="titleDot" opacity="0"/></svg>
       <h1 data-at="1.2">Endotypes</h1>
       <p class="lede" data-at="2.4">one disease, many mechanisms</p>
-      <p data-at="4">${F.seeds} genes cause one rare disease of the junction between nerve and muscle. How many mechanisms hide behind them?</p>
+      <p data-at="4">${F.seeds} genes cause a group of rare diseases of the junction between nerve and muscle. How many mechanisms hide behind them?</p>
       <p class="note" data-at="9">A story of congenital myasthenic syndromes, and of EndotypY, a Python package that finds the endotypes of a disease in a network of proteins.</p>`,
     tired: `<h2 data-at="0.6">Muscles that tire</h2>
       <p data-at="1.2">Every movement starts with a nerve cell telling muscle fibres to contract. Each fibre meets the nerve at one point: the neuromuscular junction.</p>
@@ -178,40 +178,40 @@ function buildStory() {
       <p class="credits" data-at="27">Gene Table of Neuromuscular Disorders; places after UniProt (the junction is illustrative). Severity: Núñez-Carpintero et al., Nature Communications (2024).</p>`,
     cloud: `<h2 data-at="0.6">${fmt(F.genes)} proteins</h2>
       <div style="display:grid">
-        <p data-at="1.2" data-out="8.5" style="grid-area:1/1">Which human proteins bind each other makes a network: ${fmt(F.genes)} proteins, ${fmt(F.links)} links. The ${F.seeds} CMS genes are its seeds.</p>
+        <p data-at="1.2" data-out="8.5" style="grid-area:1/1">Proteins that interact make a network: ${fmt(F.genes)} proteins, ${fmt(F.links)} links. The ${F.seeds} CMS genes are its seeds.</p>
         <p data-at="9" class="amber" style="grid-area:1/1">Do the seeds share mechanisms? Endotypes are subtypes of a disease defined by its molecules: groups of disease genes that hang together, in the network and in what they do.</p>
       </div>
       <p data-at="17">First, one group or several? Give each seed a neighbourhood of its k closest proteins. Seeds whose neighbourhoods meet form a group.</p>
       <div class="facts">${ks.map((k, j) => `<div data-at="${[19, 23, 25, 28][j]}"><b>${F.groupsAt(k)}</b><small>${F.groupsAt(k) === 1 ? 'group' : 'groups'} at k = ${k}</small></div>`).join('')}</div>
-      <p data-at="31" class="amber">${F.oneK ? `From k = ${F.oneK} on, all ${F.seeds} seeds share one neighbourhood: one module, to split from the inside.` : 'The seeds stay in several groups.'}</p>
-      <p class="credits" data-at="33">Step 1 of EndotypY (optional): seed groups.${F.firstShare.length ? ` Even at k = 1, ${listOf(F.firstShare)} share one.` : ''} The protein network is the authors'.</p>`,
+      <p data-at="31" class="amber">${F.oneK ? `From k = ${F.oneK} on, all ${F.seeds} seeds share one neighbourhood: one module, which the next steps split.` : 'The seeds stay in several groups.'}</p>
+      <p class="credits" data-at="33">Step 1 of EndotypY (optional): seed groups.${F.firstShare.length ? ` Even at k = 1, ${listOf(F.firstShare)} share one.` : ''} The protein network is the one the authors used.</p>`,
     walk: `<h2 data-at="0.6">A walker that keeps coming home</h2>
       <p data-at="1.2">To find the rest of the module, EndotypY sends random walkers out from the seeds. At every step a walker hops to a random neighbour, or, ${word(F.tenths)} times in ten, jumps back to a seed.</p>
       <p data-at="11">Proteins the walkers visit again and again are close to the seeds, by many paths at once.</p>
-      <p data-at="22" class="amber">The most visited join the seeds, one by one, until the module holds together.</p>
+      <p data-at="22" class="amber">The most visited join the seeds, one by one, until the module holds together. In the authors' run:</p>
       <div class="facts"><div data-at="26"><b>${F.seeds}</b><small>seeds</small></div><div data-at="27.5"><b>+ ${F.found}</b><small>found by the walk</small></div><div data-at="29"><b>${F.module}</b><small>genes in the module</small></div></div>
-      <p class="credits" data-at="32">Step 2 of EndotypY: network expansion by random walk with restart (restart probability ${F.r}).</p>`,
+      <p class="credits" data-at="32">Step 2 of EndotypY: network expansion by random walk with restart (restart probability ${F.r}, the package's default). The walkers and their heat are a re-run with the package's defaults; the module is the authors'.</p>`,
     hood: `<h2 data-at="0.6">Every gene's neighbourhood</h2>
       <p data-at="1.2">What does each gene do? Its neighbours tell more than the gene alone. Take ${esc(gsym)}, which anchors acetylcholinesterase in the gap: a walk from ${esc(gsym)} alone marks its neighbourhood, the top ${F.pct}% of the network (${F.hood} proteins).</p>
       <p data-at="11">The parts of the cell that come up among them more often than chance (Gene Ontology terms), with ${esc(gsym)}'s own, become ${esc(gsym)}'s row of marks. Every gene gets one.</p>
       <div class="facts"><div data-at="22"><b>${F.module}</b><small>genes</small></div><div data-at="23"><b>${F.terms}</b><small>cell parts</small></div><div data-at="24"><b>${fmt(F.ones)}</b><small>marks</small></div></div>
-      <p data-at="28" class="amber">Genes with similar rows work in similar places.</p>
+      <p data-at="28" class="amber">Genes with similar rows sit among similar parts of the cell.</p>
       <p class="credits" data-at="30">Step 3 of EndotypY: functional neighbourhood annotation (gene-set enrichment with GSEApy and Enrichr libraries; here ${esc(F.featLib.replace(/_/g, ' '))}).</p>`,
     split: `<h2 data-at="0.6">A tree that splits only when it must</h2>
       <p data-at="1.2">Genes with similar rows are joined, pair by pair, into a tree.</p>
       <p data-at="8">Where to cut it? Not at a fixed height. Tree2BreakSpace tests every split from the root down: do the two sides use the cell's parts differently? A split stays only when the data say so.</p>
-      <p data-at="19" class="amber">Of the tree's ${F.merges} splits, ${F.cuts} pass the test: ${F.endotypes} endotypes.</p>
-      <p data-at="28">Laid out by their distances in the tree, the endotypes stand apart.</p>
+      <p data-at="19" class="amber">Only ${F.cuts} splits are kept: ${F.endotypes} endotypes.</p>
+      <p data-at="28">Laid out by their distances in the tree: genes close in the tree land close together.</p>
       <p class="credits" data-at="32">Step 4 of EndotypY: statistically filtered hierarchical clustering (Tree2BreakSpace, Sakalli et al., in progress).</p>`,
     endotypes: `<h2 data-at="0.6">${F.endotypes} endotypes</h2>
       <p data-at="1.2">Each endotype is a group of genes tied together in the network and in what they do: one bubble each, with grey bands for the links between them. In the authors' analysis:</p>
       <div style="display:grid">
         ${E[1] ? step(1, 8, 17.5, `${listOf(inEndo(1, ['SLC25A1']))} exports citrate from the nerve ending's mitochondria; from it comes acetyl-CoA, needed to make acetylcholine.`) : ''}
-        ${E[9] ? step(9, 18, 27.5, `forming and releasing synaptic vesicles (${inEndo(9, ['SYT1', 'SYT2', 'SNAP25', 'STX19', 'RPH3A']).join(', ')}). Givinostat, a treatment for Duchenne muscular dystrophy, perturbs several of them: a lead for repurposing.`) : ''}
+        ${E[9] ? step(9, 18, 27.5, `forming and releasing synaptic vesicles (${inEndo(9, ['SYT1', 'SYT2', 'SNAP25', 'STX19', 'RPH3A']).join(', ')}). Givinostat, a treatment for Duchenne muscular dystrophy, perturbs several of this endotype's genes: a lead for repurposing, not a treatment for CMS.`) : ''}
         ${E[5] ? step(5, 28, 37.5, `receptor subunits (${inEndo(5, ['CHRNB1', 'CHRND']).join(', ')}) that start the muscle's signal, and sodium channels (${inEndo(5, ['SCN4A', 'SCN8A', 'SCN1B']).join(', ')}) that carry it on.`) : ''}
-        ${E[2] ? step(2, 38, 0, `the matrix in the gap (${inEndo(2, ['COLQ', 'AGRN', 'LAMB2', 'LAMA5', 'COL13A1']).join(', ')}): it holds the junction together and anchors acetylcholinesterase.`) : ''}
+        ${E[2] ? step(2, 38, 45.5, `the matrix in the gap (${inEndo(2, ['COLQ', 'AGRN', 'LAMB2', 'LAMA5', 'COL13A1']).join(', ')}): it holds the junction together and anchors acetylcholinesterase.`) : ''}
       </div>
-      <p data-at="46" class="amber">Back in the junction, every endotype finds its place.</p>
+      <p data-at="46" class="amber">Back in the junction, the endotypes with a shared place settle at it.</p>
       <p class="note" data-at="52">${Word(F.clear)} endotypes share a clear place in the cell, ${word(F.weak)} a weak one; ${word(F.none)} (${F.noPlace.join(', ')}) share none and hover loose.</p>`,
     next: `<h2 data-at="0.6">What endotypes are for</h2>
       <ul class="steps">
@@ -219,7 +219,7 @@ function buildStory() {
         <li data-at="3.5"><b>Drugs</b>pathways to target, and drugs to repurpose</li>
         <li data-at="6"><b>Rare and common</b>the links between rare and common forms of a disease</li>
       </ul>
-      <p data-at="9">EndotypY is open source, a Python package installed with pip: github.com/menchelab/EndotypY.</p>
+      <p data-at="9">EndotypY is open source: a Python package you install from github.com/menchelab/EndotypY.</p>
       <p data-at="13">Chloé Bûcheron, Iker Núñez-Carpintero, Enes Sakalli, Mathilde Meyenberg, Julia Guthrie and Jörg Menche: Ludwig Boltzmann Institute for Network Medicine, University of Vienna.</p>
       <p data-at="17"><button class="btn primary" id="btnGoExplore" type="button">Explore the endotypes</button></p>
       <p class="credits" data-at="19">Endotypes: the authors' result. The steps before them: re-run with the package's defaults to show the method. ISMB 2026 poster. Rare and common autoimmunity: Guthrie et al., Science Advances (2023).</p>`,
@@ -259,7 +259,7 @@ function buildStory() {
   cam(a + 1, 'motor', 'default', 10);
   cam(a + 5.5, 'motor', 'junction');
   cam(a + 8.6, 'motor', 'junction', 0, null, [0, 0, -0.28]);
-  show('syn', a + 8.7, a + 10.5, C.cloud.a - 0.5, C.cloud.a + 1.5);
+  show('syn', a + 8.6, a + 9.4, C.cloud.a - 0.5, C.cloud.a + 1.5);
   ramp('syn_build', a + 8.7, a + 12, 0, 1);
   ramp('syn_fire', a + 11, a + 12.5, 0, 1);
   ramp('syn_tired', a + 17, a + 22, 0, 1);

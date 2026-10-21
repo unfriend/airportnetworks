@@ -4,7 +4,7 @@
 // synapse, the protein network or the tree; or any scene with its own controls.
 const SCENES = [
   ['syn', 'Synapse', 'The neuromuscular junction, cut open: the nerve ending, the gap with its basement membrane, the folded muscle membrane and the fibre. With the seed genes where they act, and each endotype in its place.'],
-  ['net', 'Network', `The authors' protein network: ${fmt(FACTS.genes)} proteins and their links, the ${FACTS.seeds} seeds, the walk with restart and the module of ${FACTS.module} genes.`],
+  ['net', 'Network', `The protein network the authors used: ${fmt(FACTS.genes)} proteins and their links, the ${FACTS.seeds} seeds, the walk with restart and the module of ${FACTS.module} genes. Positions are a drawing: linked genes sit close, and in the module each endotype is pulled towards its own region.`],
   ['tree', 'Tree', `The module's genes by the cell parts around them: the ${FACTS.module} × ${FACTS.terms} matrix, the tree that splits only when the data say so, the genes by tree distance and the endotype network.`],
   ['motor', 'Motor unit', 'From nerve to muscle: the motor neuron, its axon, the neuromuscular junctions and the muscle fibres they drive.'],
 ];
@@ -138,6 +138,7 @@ function showStep(i, quiet) {
     if (st[0] === 'groups' || st[0] === 'hood') { const v = optKey('net', 'view', /net|cloud/i); if (v && ctlValue('net', ctlOf('net', 'view')) !== v) setCtl('net', 'view', v); }
     if (st[0] === 'tree') { const v = optKey('tree', 'view', /^tree$/i); if (v && ctlValue('tree', ctlOf('tree', 'view')) !== v) setCtl('tree', 'view', v); else X.t0 = performance.now(); }
     if (st[0] === 'endo') { const v = optKey('tree', 'view', /meta|endo/i); if (v && ctlValue('tree', ctlOf('tree', 'view')) !== v) setCtl('tree', 'view', v); }
+    if (st[0] === 'walk') { const v = optKey('net', 'walkers', /^on$/i); if (v && ctlValue('net', ctlOf('net', 'walkers')) !== v) setCtl('net', 'walkers', v); }
     if (st[0] === 'hood' && X.scene === 'net') afterUpdate(flyToGene);
   }
   renderMethod(); updateExtraLabels();
@@ -327,8 +328,8 @@ function renderEndo() {
     const mem = ED.members[id], seeds = mem.filter(i => ED.genes[i].seed >= 0), L = linksIn(id);
     h += `<h3><span class="sw" style="background:${E.col}"></span>${esc(endoName(id))}</h3>
       <dl class="stats"><dt>Genes</dt><dd>${mem.length}<small>${seeds.length ? `${seeds.length} of them ${seeds.length === 1 ? 'a seed' : 'seeds'}` : 'no seed: all found by the walk'}</small></dd>
-      <dt>Strongest term</dt><dd style="font-size:15px">${esc(E.term)}<small>${STRONG[E.strong]} (adjusted p ${fmtP(E.p)})</small></dd>
-      <dt>Place</dt><dd style="font-size:15px">${E.place ? esc(PLACE[E.place] || E.place) : 'no shared place'}</dd>
+      <dt>Strongest term</dt><dd style="font-size:15px">${esc(E.term)}<small>${STRONG[E.strong]} (adjusted p ${fmtP(E.p)}): the cell part its genes share most, from the COMPARTMENTS database; clear means p under 0.01</small></dd>
+      <dt>Drawn at</dt><dd style="font-size:15px">${E.place ? esc(PLACE[E.place] || E.place) : 'no shared place'}</dd>
       <dt>Links inside</dt><dd>${L}<small>${L ? 'among its own genes, in the protein network' : 'none among its own genes: a loose cloud'}</small></dd></dl>
       <div class="chips">${SHOW_IN.map(([k, n]) => chip(`data-act="show" data-v="${k}"`, n, X.scene === k)).join('')}</div>
       <p class="grp-h">Its genes (seeds in bold)</p>
@@ -346,7 +347,7 @@ function renderGene(i, q) {
   }
   const G = ED.genes[i], E = ED.endo[G.endo], S = G.seed >= 0 ? ED.seeds[G.seed] : null;
   const hood = ED.hoodOf(i), inMod = hood.filter(j => j < ED.M).length;
-  pane.innerHTML = `<h3>${esc(G.sym)}</h3><p class="sub">${S ? `${esc(S[1])}. Seed: a CMS gene (Gene Table item ${esc(S[2])}).` : 'Found by the walk: not a known CMS gene, but close to the seeds.'}</p>
+  pane.innerHTML = `<h3>${esc(G.sym)}</h3><p class="sub">${S ? `${esc(S[1])}. Seed: a CMS gene (Gene Table item ${esc(S[2])}).` : 'Found by the walk: not one of the ' + FACTS.seeds + ' Gene Table seeds, but close to them.'}</p>
     <div class="chips">${chip(`data-act="endo" data-v="${G.endo}"`, `Endotype ${esc(endoName(G.endo))}`, X.endo === G.endo, E.col)}</div>
     <dl class="stats" style="margin-top:12px"><dt>Cell parts</dt><dd>${G.terms.length}<small>in its row of the matrix</small></dd>
     <dt>Links</dt><dd>${G.nb.length}<small>to other genes of the module</small></dd>
@@ -361,9 +362,9 @@ function methodText(st) {
   const F = FACTS;
   return {
     groups: `Each seed gets a neighbourhood, its k closest proteins in the network. Seeds whose neighbourhoods meet form a group: ${ED.groups[0].n} groups at k = ${ED.groups[0].k}${F.oneK ? `, one from k = ${F.oneK} on` : ''}.`,
-    walk: `Walkers start at the seeds. At every step one jumps back to a seed with probability ${F.r}, otherwise it hops to a random neighbour. The most visited genes join the ${F.seeds} seeds until the module holds together: ${F.found} found, ${F.module} in all.`,
+    walk: `Walkers start at the seeds. At every step one jumps back to a seed with probability ${F.r}, otherwise it hops to a random neighbour. The most visited genes join the ${F.seeds} seeds until the module holds together. In the authors' run: ${F.found} found, ${F.module} in all (the walkers here are a re-run).`,
     hood: `A walk from one gene alone marks its neighbourhood, the top ${F.pct}% of the network (${F.hood} proteins). The cell parts enriched there, with the gene's own, are its row of the matrix.`,
-    tree: `Genes with similar rows join into a tree. Tree2BreakSpace tests each split from the root down and keeps it only when the two sides differ: ${F.cuts} of ${F.merges} splits.`,
+    tree: `Genes with similar rows join into a tree. Tree2BreakSpace tests each split from the root down and keeps it only when the two sides differ: only ${F.cuts} are kept.`,
     endo: `The kept splits leave ${F.endotypes} endotypes: one bubble each, with bands as wide as the links between them. Pick one in Endotypes to bring it forward.`,
   }[st];
 }

@@ -8,7 +8,7 @@
 # The endotypes are the authors' result. The steps before them (seed groups, the module's walk, each gene's
 # neighbourhood, its annotation, the tree) are re-run here with the package's defaults on the same network, to
 # illustrate the method: the authors' own settings are not known, so the tree is drawn to agree with their endotypes.
-import sys, os, types, pickle, importlib, json, math, base64
+import sys, os, types, pickle, importlib, json, math, base64, zlib
 import numpy as np, scipy.sparse as sp, networkx as nx
 for name in ('kl_clustering_analysis', 'kl_clustering_analysis.tree', 'kl_clustering_analysis.tree.poset_tree'):
     sys.modules[name] = types.ModuleType(name)
@@ -27,7 +27,7 @@ FEAT_LIB, NAME_LIB = 'GO_Cellular_Component_2026', 'Jensen_COMPARTMENTS'
 # strongest COMPARTMENTS term (computed below and kept in `term`); 0, 4 and 7 share no place (nothing significant)
 LOOK = {0: ('No shared place', '#9aa3b5', ''), 1: ('Mitochondria', '#a98bea', 'mito'), 2: ('Basement membrane', '#3cc4e6', 'lamina'),
         3: ('Golgi', '#34d1a8', 'golgi'), 4: ('No shared place', '#c7d65a', ''), 5: ('Ion channels', '#e3a03c', 'channels'),
-        6: ('ER membrane', '#e2557a', 'er'), 7: ('No shared place', '#8f9bb0', ''), 8: ('Endosomes', '#58d06a', 'endosome'),
+        6: ('Organelle membranes', '#e2557a', 'er'), 7: ('No shared place', '#8f9bb0', ''), 8: ('Endosomes', '#58d06a', 'endosome'),
         9: ('Vesicles', '#5d86f0', 'vesicles'), 10: ('Muscle scaffold', '#f07b5a', 'scaffold'), 11: ('The junction', '#e070d0', 'junction')}
 
 class _Obj: pass
@@ -125,11 +125,13 @@ def main(pkl, xlsx):
     mg = [mgenes[i] for i in perm]; Xo = X[perm]
     remap = lambda v: pos_of[v] if v < len(mgenes) else v
     Zo = [[remap(int(a)), remap(int(b)), h, c] for a, b, h, c in Z]
+    n = len(mg)
     # 6. the cloud: the module first (tree order), then the most visited genes to CORE, then everyone else
     core = list(mg) + [g for g in rank if g not in lab][:CORE - len(mg)]
     cset = set(core); rest = [g for g in wk.nodes if g not in cset]
-    H = G.subgraph(core)
-    init = {g: np.random.default_rng(abs(hash(g)) % 2**32).normal(size=3) * (0.3 if g in lab else 1.0) for g in core}
+    H = nx.Graph(); H.add_nodes_from(core)   # in a fixed order (a subgraph view iterates a set: its order changes per run)
+    H.add_edges_from((a, b) for a, b in G.edges(core) if a in cset and b in cset)
+    init = {g: np.random.default_rng(zlib.crc32(g.encode())).normal(size=3) * (0.3 if g in lab else 1.0) for g in core}
     lay = nx.spring_layout(H, dim=3, pos=init, iterations=80, seed=7)
     cp = np.array([lay[g] for g in core]); cp -= cp[:len(mg)].mean(0); cp /= np.percentile(np.linalg.norm(cp, axis=1), 95)
     ci = {g: i for i, g in enumerate(core)}; rng = np.random.default_rng(11)
