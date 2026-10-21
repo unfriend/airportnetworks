@@ -353,7 +353,8 @@ function buildStory() {
   buildCamera(wp);
 
   // --------------------------------------------------------- story labels
-  label('motor', 'junction', '<b>Neuromuscular junction</b>where nerve meets muscle', C.tired.a + 2, C.tired.a + 8.5, 'cyn');
+  // (the sets label their own parts; the story adds what the scene alone does not say)
+  label('syn', () => anchorOf('syn', 'scaffold'), '<b>Fatigable weakness</b>each twitch weaker', C.tired.a + 18, C.tired.b - 0.5, 'amb');
 }
 // camera waypoints: [t, az, el, dist, tx, ty, tz, ease, set]; 'spin' segments turn at a steady pace.
 // When the story hands over from one set to another, the new set is turned about its

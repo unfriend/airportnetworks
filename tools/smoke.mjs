@@ -258,6 +258,29 @@ for (const key of ['airports', 'proteins', 'spatial', 'lbi', 'nmd', 'endo', 'flo
     await sleep(300);
     if (bad.length) throw new Error(bad.join('; '));
   }));
+  if (key === 'endo') await step('endo: every explore tool, on the page and in the headset', () => page.evaluate(async () => {
+    const sleep = ms => new Promise(r => setTimeout(r, ms));
+    const bad = HOST.cur.peek(`(() => {
+      const out = [], N = GL.sets.net.api();
+      for (const e of [0, 2, 7, 11]) { selectEndo(e); if (X.endo !== e) out.push('endotype ' + e + ' not selected'); }
+      runQuery('COLQ'); if (X.gene !== N.geneIndex('COLQ')) out.push('gene search did not select COLQ');
+      showHood(); showInTree(X.gene);
+      for (let i = 0; i < 5; i++) showStep(i);
+      for (let j = 0; j < 13; j++) setK(j);
+      replayTests(); setGap(true); setGap(false);
+      for (const s of ['syn', 'net', 'tree', 'motor']) { openScene(s); for (const c of GL.sets[s].controls || []) for (const [v] of c.options) setCtl(s, c.key, v); }
+      const rc = new THREE.Raycaster(new THREE.Vector3(0, 0, 8), new THREE.Vector3(0, 0, -1));
+      for (const s of ['net', 'tree']) { const r = GL.sets[s].api().pick(rc); if (r === undefined) out.push(s + ' pick returned nothing'); }
+      XR.on = true;
+      for (const [k] of TABS) { showTab(k); for (const P of XR.panels) { P.last = ''; P.t = -1e9; panelTick(P, performance.now() + 1e6); } }
+      XR.kbd.open = true; showTab('genes'); XR.kbd.q = 'SNA'; for (const P of XR.panels) { P.last = ''; P.t = -1e9; panelTick(P, performance.now() + 1e6); }
+      XR.kbd.open = false; XR.on = false;
+      selectGene(-1); selectEndo(-1); showTab('endo');
+      return out;
+    })()`);
+    await sleep(300);
+    if (bad.length) throw new Error(bad.join('; '));
+  }));
   await page.click('#btnOther');
 }
 // Repeat on the Stories screen: one story again and again, or all of them in turn (the last leads to the first)

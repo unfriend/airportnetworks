@@ -398,6 +398,7 @@ function flow(ctx, P, items, x, y, W, maxY, o = {}) {
   let cx = x, cy = y;
   ctx.font = vfont(px);
   for (const it of items) {
+    ctx.font = vfont(px, it.on ? 700 : 400);   // (a lit chip's bold label is wider)
     const sw = it.col ? 22 : 0, w = Math.min(W, ctx.measureText(it.label).width + 26 + sw);
     if (cx + w > x + W) { cx = x; cy += h + gap; }
     if (cy + h > maxY) break;

@@ -189,7 +189,7 @@ spot, y over the floor) and `st.<id>.place` (the scene: `{ x, y, z }` moved from
 where the story puts it, and `s` its size, a factor on the story's own; FORMAT
 networks-8), and per shared space `rf.<space id>` (the room's frame in it) and
 `rs.<space id>` (found split; FORMAT networks-9), and `sg` (the room's shared-space
-generation, `{ n, by, at }`; FORMAT networks-10). The plan is `docs/shared-space-plan.md`.
+generation, `{ n, by, at }`; FORMAT networks-10; networks-11 when the eighth story came). The plan is `docs/shared-space-plan.md`.
 
 - `HOST.collab` keeps the room's keys (echo suppression by value, optimistic
   writes acknowledged by the relay, apply order stations > clock > state >
@@ -564,6 +564,7 @@ What each story shares:
 | spatial | tab, colour, cell, routes, selection and its copy, path, community level, moves (a 0/1 string), bait and its labelling radius | none |
 | lbi | tab, scene, every control of that scene, selected protein, route | none |
 | nmd | tab, scene, every scene's controls, group, gene, picked endotypes, layers knocked out, your genes, the walk (its start and result, the same on every device), walkers, colour, grid, z-scores | none |
+| endo | tab, scene, every scene's controls (synapse, network, tree, motor unit), endotype, gene, k (the seed-group step), method step (standing in the gap stays per device) | none |
 | flock | birds, links, falcon | `falcon` (where it starts, its velocity and aim, in the set's frame), `flock` (quiet, twice a second: where the flock is, see the flock's notes) |
 | robots | rule, robots, trails, links | `crumbs` (a pile: in room coordinates in a headset with an aligned frame, else in the station's frame), `dust` |
 
@@ -703,6 +704,28 @@ and `hpc` (the supercomputer and the stress test).
   engine's `keepCamera` applies them every frame outside a headset. The
   supercomputer uses them to keep the camera out of its racks; the story's
   aisle shot stays on the aisle's centre line by design.
+
+## The endotype story (`stories/endo.js`) is built the same way
+
+`stories/endo.js` is generated from `tools/endo/` (`node tools/endo/build.mjs`, `--check` as for the tour):
+the tour's kit, three sets (`syn`, the neuromuscular junction close up; `net`, the protein network, seeds and
+walkers; `tree`, the gene x term matrix, the tree and the endotypes; each with a manifest), the muscle story's
+`motor` set (the build gives it the muscle story's disease groups, all it reads of `NMD_DATA`) and engine parts
+adapted from the muscle story's. `tools/endo/SPEC.md` is the contract.
+
+- The data: `tools/endo/data/gen_data.py` (Python with EndotypY installed) reads the authors' saved run (their
+  protein network, the 35 seed genes, their 12 endotypes) and the Gene Table's CMS genes, and writes
+  `tools/endo/sets/data.js` (`ENDO_DATA`, documented in its header). The authors' files stay out of the
+  repository: only these numbers are kept. The endotypes are the authors'; the steps before them (seed groups,
+  the walk, neighbourhoods, the annotation, the tree) are re-run with the package's defaults on the same network
+  to show the method, and the tree is drawn to agree with their endotypes. The story says so (explore's Method
+  tab, the last chapter's small print). Its random walk is the package's, solved by iteration instead of a dense
+  inverse (the same numbers on a test graph). A pickle can run code: the generator unpickles only the expected
+  classes.
+- Explore: Endotypes, Genes (the 393 module genes only), Method (the five steps) and Scenes tabs; *Stand in the
+  gap* puts you in the synaptic cleft (in a headset life size around you, the cleft at chest height).
+- The `net` and `tree` sets export `api()` (picking, gene names, focus); `net`'s walkers keep state between
+  frames but follow paths planned from `t`, so seeking works.
 
 ## The flock (`stories/flock.js`) is built the same way
 
@@ -853,7 +876,7 @@ is the contract between them.
 
 There is no unit-test suite. Before committing, serve the folder and run the
 smoke test, which loads every story, scrubs through it, exercises explore
-mode and the headset panels (for the muscle story every explore tool too; for
+mode and the headset panels (for the muscle and endotype stories every explore tool too; for
 the robot gang every rule, a click to walk, crumbs, a big open floor and one
 with no area, and a pretend headset room from detected planes),
 switches stories, runs anchored placement in each
@@ -970,8 +993,8 @@ and `more`); the headset's story (`HEADSET_STORY`) stays the last entry.
 For the tour, test a changed set on its own in the set harness first
 (`tools/lbi/shot.mjs`, much cheaper than the whole story), then the story at a
 few seconds (`tools/lbi/sweep.mjs`), then the smoke test. The muscle story has
-the same tools in `tools/nmd/` (`shot.mjs`, `sweep.mjs`), and so has the robot
-gang in `tools/robots/`.
+the same tools in `tools/nmd/` (`shot.mjs`, `sweep.mjs`), and so have the
+endotype story in `tools/endo/` and the robot gang in `tools/robots/`.
 
 Useful URL hashes: `#spatial&t=95` (open at a story second, paused),
 `#proteins&explore&q=TP53` (explore mode with a search),
@@ -979,7 +1002,8 @@ Useful URL hashes: `#spatial&t=95` (open at a story second, paused),
 second), `#lbi&explore&scene=atp&view=network&now=1` (a scene with its controls),
 `#lbi&explore&route=TP53,BRCA1`, `#nmd&explore&group=Cardiomyopathies`,
 `#nmd&explore&pick=5:13,11:7` (endotypes, group:number), `#nmd&explore&walk=5` or
-`&walk=TTN,DES`, `#nmd&explore&inside`, `#flock&explore&view=afar&links=on&birds=400`
+`&walk=TTN,DES`, `#nmd&explore&inside`, `#endo&explore&endo=2`, `#endo&explore&gene=COLQ`,
+`#endo&explore&tab=method&step=1&k=20`, `#endo&explore&scene=syn&view=cleft`, `#endo&explore&inside`, `#flock&explore&view=afar&links=on&birds=400`
 (`&hunt` sends a falcon), `#robots&explore&rule=chain&robots=12&trails=on&links=on&view=low`
 (`&crumbs` spills a pile, `&walk=1.5,1.2` walks you there), `#airports&repeat=all` (a kiosk that plays
 every story in turn), `#anchor=on` (anchored headset placement). In the console,

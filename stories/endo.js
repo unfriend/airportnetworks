@@ -3901,7 +3901,7 @@ function applyCamera(v) {
   GL.camera.position.copy(_vt).addScaledVector(_vd, v[2] * (GL.fit || 1));
   GL.camera.up.set(0, 1, 0); GL.camera.lookAt(_vt);
 }
-// sets on show may keep the camera out of their solid parts (the supercomputer's racks): keepOut takes the camera's
+// sets on show may keep the camera out of their solid parts (as the muscle story's supercomputer does): keepOut takes the camera's
 // position in the set's own frame (t: story time, for the set's turn; null in explore mode) and returns it, moved if
 // need be; still(p) says explore mode should stop swaying the view (GL.still, read next frame)
 const _yA = new THREE.Vector3(0, 1, 0), _kp = new THREE.Vector3();
@@ -4292,7 +4292,8 @@ function buildStory() {
   buildCamera(wp);
 
   // --------------------------------------------------------- story labels
-  label('motor', 'junction', '<b>Neuromuscular junction</b>where nerve meets muscle', C.tired.a + 2, C.tired.a + 8.5, 'cyn');
+  // (the sets label their own parts; the story adds what the scene alone does not say)
+  label('syn', () => anchorOf('syn', 'scaffold'), '<b>Fatigable weakness</b>each twitch weaker', C.tired.a + 18, C.tired.b - 0.5, 'amb');
 }
 // camera waypoints: [t, az, el, dist, tx, ty, tz, ease, set]; 'spin' segments turn at a steady pace.
 // When the story hands over from one set to another, the new set is turned about its
@@ -5390,12 +5391,13 @@ function xrPickSuggestion(i) {
 }
 // Stand in the gap: in the headset the synapse is shown around you, the cleft at your chest
 function xrRoom(on) { XR.room = on; }
-// the gap's scale (metres per unit): the nerve ending's vesicles about 0.8 m above the cleft (over your head) and the
-// receptor-covered folds about 0.45 m below it (at your hips), so the muscle is under them
+// the gap's scale (metres per unit): with the cleft's middle at your chest, the nerve ending's vesicles about 0.85 m
+// above it (over your head) and the receptor-covered crests of the folds 0.25 m below it (at your hips); the folds
+// go down from there and the muscle is under your feet (about 4 m to the unit)
 function gapScale() {
   if (XR.gapR) return XR.gapR;
-  const g = anchorOf('syn', 'gap')[1], up = anchorOf('syn', 'vesicles')[1] - g, down = g - anchorOf('syn', 'folds')[1];
-  const k = [up > 0.01 ? 0.8 / up : 0, down > 0.01 ? 0.45 / down : 0].filter(x => x > 0);
+  const g = anchorOf('syn', 'gap')[1], up = anchorOf('syn', 'vesicles')[1] - g, down = g - anchorOf('syn', 'receptors')[1];
+  const k = [up > 0.01 ? 0.85 / up : 0, down > 0.01 ? 0.25 / down : 0].filter(x => x > 0);
   return (XR.gapR = k.length ? k.reduce((a, x) => a + x, 0) / k.length : 2);
 }
 // how close the headset may zoom: as close as the scene's own closest view, else 0.9 (closer, the scene would surround your head)
@@ -5960,6 +5962,7 @@ function flow(ctx, P, items, x, y, W, maxY, o = {}) {
   let cx = x, cy = y;
   ctx.font = vfont(px);
   for (const it of items) {
+    ctx.font = vfont(px, it.on ? 700 : 400);   // (a lit chip's bold label is wider)
     const sw = it.col ? 22 : 0, w = Math.min(W, ctx.measureText(it.label).width + 26 + sw);
     if (cx + w > x + W) { cx = x; cy += h + gap; }
     if (cy + h > maxY) break;

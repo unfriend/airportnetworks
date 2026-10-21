@@ -392,12 +392,13 @@ function xrPickSuggestion(i) {
 }
 // Stand in the gap: in the headset the synapse is shown around you, the cleft at your chest
 function xrRoom(on) { XR.room = on; }
-// the gap's scale (metres per unit): the nerve ending's vesicles about 0.8 m above the cleft (over your head) and the
-// receptor-covered folds about 0.45 m below it (at your hips), so the muscle is under them
+// the gap's scale (metres per unit): with the cleft's middle at your chest, the nerve ending's vesicles about 0.85 m
+// above it (over your head) and the receptor-covered crests of the folds 0.25 m below it (at your hips); the folds
+// go down from there and the muscle is under your feet (about 4 m to the unit)
 function gapScale() {
   if (XR.gapR) return XR.gapR;
-  const g = anchorOf('syn', 'gap')[1], up = anchorOf('syn', 'vesicles')[1] - g, down = g - anchorOf('syn', 'folds')[1];
-  const k = [up > 0.01 ? 0.8 / up : 0, down > 0.01 ? 0.45 / down : 0].filter(x => x > 0);
+  const g = anchorOf('syn', 'gap')[1], up = anchorOf('syn', 'vesicles')[1] - g, down = g - anchorOf('syn', 'receptors')[1];
+  const k = [up > 0.01 ? 0.85 / up : 0, down > 0.01 ? 0.25 / down : 0].filter(x => x > 0);
   return (XR.gapR = k.length ? k.reduce((a, x) => a + x, 0) / k.length : 2);
 }
 // how close the headset may zoom: as close as the scene's own closest view, else 0.9 (closer, the scene would surround your head)

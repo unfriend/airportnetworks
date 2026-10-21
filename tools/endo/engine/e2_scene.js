@@ -60,7 +60,7 @@ function applyCamera(v) {
   GL.camera.position.copy(_vt).addScaledVector(_vd, v[2] * (GL.fit || 1));
   GL.camera.up.set(0, 1, 0); GL.camera.lookAt(_vt);
 }
-// sets on show may keep the camera out of their solid parts (the supercomputer's racks): keepOut takes the camera's
+// sets on show may keep the camera out of their solid parts (as the muscle story's supercomputer does): keepOut takes the camera's
 // position in the set's own frame (t: story time, for the set's turn; null in explore mode) and returns it, moved if
 // need be; still(p) says explore mode should stop swaying the view (GL.still, read next frame)
 const _yA = new THREE.Vector3(0, 1, 0), _kp = new THREE.Vector3();
