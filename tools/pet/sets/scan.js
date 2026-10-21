@@ -18,17 +18,25 @@ SETS.scan = function (K) {
   // right, sky and floor, a clear coat reflecting a studio (a softbox overhead, strip lights), fresnel and a cool rim.
   // Vertex attributes: color, aM (gloss, glow, cut flag, ambient occlusion), aE (vision element: 0 the scanner).
   // The cut: surfaces flagged for it vanish above uCut (scanner frame) with a glowing edge; their insides (back
-  // faces) show as the dark inside of the housing. uMir draws the mirrored copy (the floor's reflection).
+  // faces) show as the dark inside of the housing. uMir draws the mirrored copy (the floor's reflection). o.cry: the
+// crystals, each with its own glow (aG, per instance: a crystal struck by a photon flashes). While the set fades,
+// back faces are dropped: the dark inside showed through the housing itself (a muddy charcoal ghost).
   const SU = { uCut: { value: 9 }, uWin: { value: 0 }, uDim: { value: 1 }, uFloor: { value: FLOOR }, uE: { value: new THREE.Vector4(1, 1, 1, 1) } };
   function studio(o = {}) {
     const m = new THREE.ShaderMaterial({
-      uniforms: Object.assign({ uA: set.uA, uMir: { value: o.mir ? 1 : 0 }, uK: { value: 1 } }, SU),
+      uniforms: Object.assign({ uA: set.uA, uMir: { value: o.mir ? 1 : 0 }, uK: { value: 1 } }, SU), defines: o.cry ? { CRY: '' } : {},
       transparent: true, depthWrite: !o.mir && !o.vis, side: THREE.DoubleSide, extensions: { derivatives: true },
       vertexShader: `
 attribute vec3 color; attribute vec4 aM; attribute float aE;
 uniform vec4 uE;
 varying vec3 vC, vN, vW, vL, vLN; varying vec4 vM; varying float vE;
+#ifdef CRY
+attribute float aG; varying float vG;
+#endif
 void main() {
+#ifdef CRY
+  vG = aG;
+#endif
   vec4 p = vec4(position, 1.0); vec3 n = normal;
 #ifdef USE_INSTANCING
   p = instanceMatrix * p; n = mat3(instanceMatrix) * n;
@@ -42,6 +50,9 @@ void main() {
       fragmentShader: `
 uniform float uA, uCut, uWin, uDim, uMir, uFloor, uK;
 varying vec3 vC, vN, vW, vL, vLN; varying vec4 vM; varying float vE;
+#ifdef CRY
+varying float vG;
+#endif
 vec3 env(vec3 r) {
   float top = smoothstep(0.2, 0.92, r.y) * 1.15;
   float hor = exp(-pow((r.y - 0.06) / 0.2, 2.0)) * 0.2;
@@ -52,8 +63,12 @@ vec3 env(vec3 r) {
 void main() {
   if (vM.z > 0.5 && vL.y > uCut) discard;
   if (vM.z > 1.5 && abs(vL.z) < uWin) discard;   // the bore's cover opens over the detector ring
-  vec3 n = normalize(vN), v = normalize(cameraPosition - vW);
   bool inside = !gl_FrontFacing;
+  if (inside && uA < 0.97) discard;
+  float a = uA * vE * uK;
+  // the reflection fades with the height above the floor (and costs nothing where it has gone)
+  if (uMir > 0.5) { a *= 0.32 * exp(-max(vL.y - uFloor, 0.0) * 3.0); if (a < 0.004) discard; }
+  vec3 n = normalize(vN), v = normalize(cameraPosition - vW);
   if (inside) n = -n;
   if (uMir > 0.5) { n.y = -n.y; v.y = -v.y; }
   vec3 L = normalize((vec4(-0.45, 0.65, 0.75, 0.0) * viewMatrix).xyz), F = normalize((vec4(0.9, 0.1, 0.45, 0.0) * viewMatrix).xyz);
@@ -71,17 +86,18 @@ void main() {
   col *= uDim;
   if (inside) col = vec3(0.075, 0.09, 0.12) * (0.55 + 0.45 * wr) * mix(1.0, uDim, 0.5);
   col += vC * vM.y;
-  float a = uA * vE * uK;
-  if (vM.z > 0.5) col += vec3(0.4, 0.82, 1.0) * (1.0 - smoothstep(0.0, 0.011, uCut - vL.y)) * 1.5;
-  if (vM.z > 1.5 && uWin > 0.0) col += vec3(0.4, 0.82, 1.0) * (1.0 - smoothstep(0.0, 0.008, abs(vL.z) - uWin)) * 1.2;
-  if (uMir > 0.5) a *= 0.32 * exp(-max(vL.y - uFloor, 0.0) * 3.0);
+  // a glowing edge where the cut goes through the housing (softer on the bore's cover, which runs through the bore)
+  if (vM.z > 0.5) col += vec3(0.4, 0.82, 1.0) * (1.0 - smoothstep(0.0, 0.011, uCut - vL.y)) * (vM.z > 1.5 ? 0.5 : 1.5);
+#ifdef CRY
+  col += vec3(0.45, 0.85, 1.0) * vG * 2.6;
+#endif
   gl_FragColor = vec4(col, a);
 }`,
     });
     set.mats.push(m);
     return m;
   }
-  const solidMat = studio(), mirMat = studio({ mir: true }), visMat = studio({ vis: true });
+  const solidMat = studio(), mirMat = studio({ mir: true }), visMat = studio({ vis: true }), cryMat = studio({ cry: true });
 
   // ------------------------------------------------------------------ geometry builder --
   // Everything the studio material lights goes through a builder (one indexed geometry per mesh).
@@ -260,7 +276,7 @@ void main() {
     const x = 0.735 * sx, at = (y, z) => basis([1, 0, 0], [0, 1, 0], [0, 0, 1], [x, y, z]);
     slab(outer, rrect(0, 0, 0.034, 0.135, 0.03, 6), 0.024, 0.012, cutL([0.74, 0.77, 0.82], 0.7), at(0, 0.786));
     slab(outer, rrect(0, 0, 0.018, 0.013, 0.003, 2), 0.006, 0.003, cutL([0.04, 0.06, 0.09], 0.9, 0.06), at(0.062, 0.79));
-    for (let k = 0; k < 6; k++) slab(outer, rrect(0, 0, 0.002, 0.002, 0.002, 3), 0.005, 0.004, cutL([0.95, 0.96, 0.97], 0.6), at(-0.0 - 0.032 * (k >> 1), 0.79).multiply(new THREE.Matrix4().makeTranslation((k & 1 ? 0.014 : -0.014), 0, 0)));
+    for (let k = 0; k < 6; k++) slab(outer, rrect(0, 0, 0.002, 0.002, 0.002, 3), 0.005, 0.004, cutL([0.95, 0.96, 0.97], 0.6), at(-0.032 * (k >> 1), 0.79).multiply(new THREE.Matrix4().makeTranslation((k & 1 ? 0.014 : -0.014), 0, 0)));
     slab(outer, rrect(0, 0, 0.002, 0.002, 0.002, 3), 0.005, 0.004, cutL([1.0, 0.25, 0.12], 0.5, 0.9), at(0.112, 0.79));
   }
   {
@@ -310,26 +326,29 @@ void main() {
     slab(inner, rrect(0, 0.4725, 0.0225, 0.03, 0.008, 3), 2 * ZH, 0.008, { col: [0.13, 0.15, 0.19], m: [0.6, 0, 1, 1] }, basis([-s, c, 0], [c, s, 0], [0, 0, -1], [0, 0, ZH]));
   }
   const innerGeo = inner.geo();
-  // the crystals: 192 around x 24 deep (48 blocks of 4 x 4 around, 6 blocks deep), dark glass, their faces to the bore
+  // the crystals: 192 around x 24 deep (48 blocks of 4 x 4 around, 6 blocks deep), dark glass, their faces to the bore;
+  // each can flash (aG, set for the few struck crystals). Face and sides close in tone and only moderately glossy, so
+  // the band does not shimmer into a moire from afar
   const cryPitchA = TAU / NA, cryPitchZ = 2 * ZH / NZ;
   const cryZ = k => -ZH + (k + 0.5) * cryPitchZ, cryA = k => (k + 0.5) * cryPitchA;
   const cg = new THREE.BoxGeometry(RDET * cryPitchA * 0.86, cryPitchZ * 0.86, RC1 - RC0);
+  const CG = new Float32Array(NA * NZ);
   {
     const nv = cg.attributes.position.count, nrm = cg.attributes.normal.array, C = new Float32Array(nv * 3), M = new Float32Array(nv * 4);
     for (let v = 0; v < nv; v++) {
       const face = nrm[3 * v + 2] < -0.5;   // the face towards the axis
-      C.set(face ? [0.2, 0.44, 0.6] : [0.09, 0.17, 0.25], 3 * v); M.set([0.95, face ? 0.25 : 0.12, 0, 1], 4 * v);
+      C.set(face ? [0.17, 0.36, 0.5] : [0.12, 0.26, 0.37], 3 * v); M.set([0.7, face ? 0.18 : 0.13, 0, 1], 4 * v);
     }
     cg.setAttribute('color', new THREE.BufferAttribute(C, 3)); cg.setAttribute('aM', new THREE.BufferAttribute(M, 4));
     cg.setAttribute('aE', new THREE.BufferAttribute(new Float32Array(nv), 1));
+    cg.setAttribute('aG', new THREE.InstancedBufferAttribute(CG, 1));
   }
-  const crystals = new THREE.InstancedMesh(cg, solidMat, NA * NZ);
+  const crystals = new THREE.InstancedMesh(cg, cryMat, NA * NZ);
   for (let ia = 0; ia < NA; ia++) for (let iz = 0; iz < NZ; iz++) {
     const a = cryA(ia), c = Math.cos(a), s = Math.sin(a);
     crystals.setMatrixAt(ia * NZ + iz, basis([-s, c, 0], [0, 0, 1], [c, s, 0], [RDET * c, RDET * s, cryZ(iz)]));
   }
   crystals.instanceMatrix.needsUpdate = true;
-  const cryPos = (ia, iz) => { const a = cryA(ia); return [RDET * Math.cos(a), RDET * Math.sin(a), cryZ(iz)]; };
 
   // ------------------------------------------------------------------ floor --
   // a glossy dark floor: a soft pool with contact shadows under the gantry and the couch (the reflection is drawn on it)
@@ -417,19 +436,19 @@ void main() {
     const f = (x, y, z) => bodySDF(x, y, z) - SHELL, F = new Float32Array(nx * ny * nz), id = (i, j, k) => (i * ny + j) * nz + k;
     // blocks of 4 cells: only those the surface can reach (judged from the field at the block's centre) are sampled;
     // the others take the centre's sign, and the cells are visited only in sampled blocks
-    const BS = 4, rb = 1.05 * Math.sqrt(3) * BS * h / 2, done = new Uint8Array(nx * ny * nz), near = [], far = [];
-    for (let I = 0; I < nx - 1; I += BS) for (let J = 0; J < ny - 1; J += BS) for (let L = 0; L < nz - 1; L += BS) {
-      const b = [I, J, L, Math.min(I + BS, nx - 1), Math.min(J + BS, ny - 1), Math.min(L + BS, nz - 1)];
+    const BK = 4, rb = 1.05 * Math.sqrt(3) * BK * h / 2, done = new Uint8Array(nx * ny * nz), near = [], far = [];
+    for (let bi = 0; bi < nx - 1; bi += BK) for (let bj = 0; bj < ny - 1; bj += BK) for (let bl = 0; bl < nz - 1; bl += BK) {
+      const b = [bi, bj, bl, Math.min(bi + BK, nx - 1), Math.min(bj + BK, ny - 1), Math.min(bl + BK, nz - 1)];
       const fc = f(lo[0] + (b[0] + b[3]) / 2 * h, lo[1] + (b[1] + b[4]) / 2 * h, lo[2] + (b[2] + b[5]) / 2 * h);
       if (Math.abs(fc) > rb) { b.push(fc > 0 ? 1 : -1); far.push(b); } else near.push(b);
     }
-    for (const [I, J, L, i1, j1, k1] of near) for (let i = I; i <= i1; i++) for (let j = J; j <= j1; j++) for (let k = L; k <= k1; k++) {
+    for (const [bi, bj, bl, i1, j1, k1] of near) for (let i = bi; i <= i1; i++) for (let j = bj; j <= j1; j++) for (let k = bl; k <= k1; k++) {
       const q = id(i, j, k); if (!done[q]) { F[q] = f(lo[0] + i * h, lo[1] + j * h, lo[2] + k * h); done[q] = 1; }
     }
-    for (const [I, J, L, i1, j1, k1, sg] of far) for (let i = I; i <= i1; i++) for (let j = J; j <= j1; j++) for (let k = L; k <= k1; k++) { const q = id(i, j, k); if (!done[q]) F[q] = sg; }
+    for (const [bi, bj, bl, i1, j1, k1, sg] of far) for (let i = bi; i <= i1; i++) for (let j = bj; j <= j1; j++) for (let k = bl; k <= k1; k++) { const q = id(i, j, k); if (!done[q]) F[q] = sg; }
     const VI = new Int32Array(nx * ny * nz).fill(-1), P = [], N = [], cv = new Float64Array(8);
     const EG = [[0, 1], [2, 3], [4, 5], [6, 7], [0, 2], [1, 3], [4, 6], [5, 7], [0, 4], [1, 5], [2, 6], [3, 7]];
-    for (const [I, J, L] of near) for (let i = I; i < Math.min(I + BS, nx - 1); i++) for (let j = J; j < Math.min(J + BS, ny - 1); j++) for (let k = L; k < Math.min(L + BS, nz - 1); k++) {
+    for (const [bi, bj, bl] of near) for (let i = bi; i < Math.min(bi + BK, nx - 1); i++) for (let j = bj; j < Math.min(bj + BK, ny - 1); j++) for (let k = bl; k < Math.min(bl + BK, nz - 1); k++) {
       let neg = 0;
       for (let c = 0; c < 8; c++) { cv[c] = F[id(i + (c & 1), j + (c >> 1 & 1), k + (c >> 2 & 1))]; if (cv[c] < 0) neg++; }
       if (neg === 0 || neg === 8) continue;
@@ -447,7 +466,7 @@ void main() {
     }
     const I = [];
     const quad = (a, b, c, d, flip) => { if (a < 0 || b < 0 || c < 0 || d < 0) return; if (flip) I.push(a, c, b, a, d, c); else I.push(a, b, c, a, c, d); };
-    for (const [I0, J0, L0] of near) for (let i = I0; i < Math.min(I0 + BS, nx - 1); i++) for (let j = J0; j < Math.min(J0 + BS, ny - 1); j++) for (let k = L0; k < Math.min(L0 + BS, nz - 1); k++) {
+    for (const [bi, bj, bl] of near) for (let i = bi; i < Math.min(bi + BK, nx - 1); i++) for (let j = bj; j < Math.min(bj + BK, ny - 1); j++) for (let k = bl; k < Math.min(bl + BK, nz - 1); k++) {
       const v0 = F[id(i, j, k)] < 0;
       if (j > 0 && k > 0 && v0 !== F[id(i + 1, j, k)] < 0) quad(VI[id(i, j - 1, k - 1)], VI[id(i, j, k - 1)], VI[id(i, j, k)], VI[id(i, j - 1, k)], !v0);
       if (i > 0 && k > 0 && v0 !== F[id(i, j + 1, k)] < 0) quad(VI[id(i - 1, j, k - 1)], VI[id(i - 1, j, k)], VI[id(i, j, k)], VI[id(i, j, k - 1)], !v0);
@@ -489,7 +508,7 @@ void main() {
   shellD.renderOrder = 1; shellR.renderOrder = 3; shellD.frustumCulled = shellR.frustumCulled = false;
   patientG.add(shellD, shellR);
   const body = SETS.body ? SETS.body(K) : null;
-  const BS = body ? Object.assign({}, body.params, { body_pet: 1, body_net: 0, body_state: 0, body_blank: 0 }) : null;
+  const BP = body ? Object.assign({}, body.params, { body_pet: 1, body_net: 0, body_state: 0, body_blank: 0 }) : null;
   if (body) {
     body.group.traverse(o => { if (o.isPoints) o.renderOrder = 2; });
     patientG.add(body.group);
@@ -506,7 +525,7 @@ void main() {
     [atX([0, -0.112, 0.045]), [0.036, 0.028, 0.03], 7, 1.0], [TUMOUR, [0.013, 0.013, 0.013], 3.2, 1.0],
     [atX([-0.08, 0.205, 0.012]), [0.06, 0.06, 0.06], 5, 0.45],
   ];
-  const POOL = 4096, PX = new Float32Array(POOL), PY = new Float32Array(POOL), PZ = new Float32Array(POOL), PI_ = new Float32Array(POOL);
+  const POOL = 4096, PX = new Float32Array(POOL), PY = new Float32Array(POOL), PZ = new Float32Array(POOL), PU = new Float32Array(POOL);
   {
     const R = rng(511), wsum = SRC.reduce((s, q) => s + q[2], 0) + 70, tmp = [];
     for (const [c, r, w, I] of SRC) {
@@ -519,25 +538,25 @@ void main() {
     }
     tmp.length = POOL;
     tmp.sort((a, b) => a[1] - b[1]);
-    tmp.forEach((q, k) => { PX[k] = q[0]; PY[k] = q[1]; PZ[k] = q[2]; PI_[k] = q[3]; });
+    tmp.forEach((q, k) => { PX[k] = q[0]; PY[k] = q[1]; PZ[k] = q[2]; PU[k] = q[3]; });
   }
-  const lowerY = y => { let lo = 0, hi = POOL; while (lo < hi) { const m = (lo + hi) >> 1; if (PY[m] < y) lo = m + 1; else hi = m; } return lo; };
 
-  // the counts: as the image forms, the pool's points light up one by one in hot iron (a grainy first image), then
-  // give way to the smooth image; a tumour glows in the right lung (the body set has none)
+  // the counts: as the image forms, the pool's points light up one by one in hot iron (a grainy first image), only
+  // where the patient has passed through the ring (body height above the ring's trailing edge, uLow), then give way
+  // to the smooth image; a tumour glows in the right lung (the body set has none)
   const hotC = x => [Math.pow(clamp(x * 2, 0, 1), 0.9), Math.pow(clamp((x - 0.15) / 0.8, 0, 1), 1.5), clamp((x - 0.76) * 4.2, 0, 1) * 0.95];
   const dotG = K.pointsGeo(POOL + 260);
   {
     const p = dotG.attributes.position.array, c = dotG.attributes.aCol.array, s = dotG.attributes.aSize.array, sd = new Float32Array(POOL + 260), R = rng(7);
-    for (let k = 0; k < POOL; k++) { p.set([PX[k], PY[k], PZ[k]], 3 * k); c.set(hotC(PI_[k] * (0.7 + 0.4 * hash(k))), 3 * k); s[k] = 0.011; sd[k] = hash(k + 99); }
+    for (let k = 0; k < POOL; k++) { p.set([PX[k], PY[k], PZ[k]], 3 * k); c.set(hotC(PU[k] * (0.7 + 0.4 * hash(k))), 3 * k); s[k] = 0.011; sd[k] = hash(k + 99); }
     for (let k = POOL; k < POOL + 260; k++) { const q = v3.mul(K.unit(R), 0.012 * Math.cbrt(R())); p.set(v3.add(TUMOUR, q), 3 * k); c.set(hotC(0.75 + 0.25 * R()), 3 * k); s[k] = 0.012; sd[k] = -1; }
     dotG.setAttribute('aSeed', new THREE.BufferAttribute(sd, 1));
   }
   // up close (in a headset, or the inside view) sprites shrink with distance, so they stay grains, not discs
   const CLOSE = ' gl_PointSize *= clamp(-mv.z / length(modelViewMatrix[0].xyz) / 1.6, 0.35, 1.0);';
-  const dotU = { uImg: { value: 0 } };
-  const dotMat = K.points(set, { uniforms: dotU, head: 'attribute float aSeed; uniform float uImg;',
-    vertex: 'vA *= aSeed < 0.0 ? smoothstep(0.45, 0.8, uImg) : smoothstep(aSeed * 0.55, aSeed * 0.55 + 0.04, uImg) * (1.0 - smoothstep(0.62, 0.95, uImg));' + CLOSE });
+  const dotU = { uImg: { value: 0 }, uLow: { value: -9 } };
+  const dotMat = K.points(set, { uniforms: dotU, head: 'attribute float aSeed; uniform float uImg, uLow;',
+    vertex: 'vA *= (aSeed < 0.0 ? smoothstep(0.45, 0.8, uImg) : smoothstep(aSeed * 0.55, aSeed * 0.55 + 0.04, uImg) * (1.0 - smoothstep(0.62, 0.95, uImg))) * smoothstep(uLow - 0.004, uLow + 0.012, position.y);' + CLOSE });
   const dots = new THREE.Points(dotG, dotMat);
   dots.renderOrder = 4; dots.frustumCulled = false;
   patientG.add(dots);
@@ -546,69 +565,232 @@ void main() {
   // A positron travels about a millimetre (drawn larger), meets an electron: both turn into two 511 keV photons flying
   // apart in exactly opposite directions; each hits a crystal, which flashes; the coincidence gives a line of response
   // between the two crystals, through the point where the sugar was. Animated events come at 25 a second (each shown
-  // when its hash is below scan_events); the web of lines comes from a faster stream (200 a second), as a real scan
-  // records millions. Everything is a function of the event's index and of where the couch is now.
-  const EV_RATE = 25, WEB_RATE = 200, WEB_N = 3000, V_PH = 2.2, TP = 0.24;
-  const pose = { ty: TOP + 0.116 * 0.97, tz: 0.3, s: 0.97 };   // the body's frame in the scanner's: x' = s x, y' = ty + s z, z' = tz - s y
-  const toScan = (x, y, z) => [pose.s * x, pose.ty + pose.s * z, pose.tz - pose.s * y];
-  let rangeLo = 0, rangeHi = 0;
-  const ev = {};   // reused: e (emission), p (annihilation), d, A, B, sA, sB, hit
-  function event(i, rate, out, path, feat) {
-    const det = rangeHi > rangeLo, h0 = hk(i, 0 + rate);
-    const k = det ? rangeLo + Math.min(rangeHi - rangeLo - 1, Math.floor(h0 * (rangeHi - rangeLo))) : Math.floor(h0 * POOL);
-    const e = toScan(PX[k], PY[k], PZ[k]);
-    let p = e;
-    if (path) {
-      path[0] = e;
-      for (let s = 1; s <= 6; s++) { const u = [hk(i, 10 + s) - 0.5, hk(i, 20 + s) - 0.5, hk(i, 30 + s) - 0.5]; p = v3.add(p, v3.mul(v3.norm(u), 0.0065)); path[s] = p; }
+  // when its hash is below a level set by scan_events); the web of lines comes from a faster stream (200 a second), as
+  // a real scan records millions, and every 8th line of the web is one of the animated events (the same event), so a
+  // line you saw drawn stays in the web. Everything is a function of the event's index and of where the couch is now
+  // (seeking works). An event's annihilation point is fixed in the body's frame, so its line moves with the patient;
+  // only points inside the ring's slice give events. The featured events (one every 2 s, which the labels follow)
+  // come from the hottest source inside the slice, fly slowly and roughly sideways, rising a little to the right.
+  const EV_RATE = 25, WEB_RATE = 200, WEB_N = 3000, COPY = WEB_RATE / EV_RATE, V_PH = 2.2, V_F = 1.1, TP = 0.24, WIN = 2.7;
+  const NC = 20, ZE = ZH - 0.006, FEAT = 50, S0 = 0.97;
+  const pose = { ty: TOP + 0.116 * S0, tz: 0.3, s: S0 };   // the body's frame in the scanner's: x' = s x, y' = ty + s z, z' = tz - s y
+  const mod = (a, n) => ((a % n) + n) % n;
+  const inSlice = yb => Math.abs(pose.tz - pose.s * yb) < ZE;   // a body-frame height inside the ring's slice
+  const SRC_BY_W = SRC.map((q, k) => k).sort((a, b) => SRC[b][2] - SRC[a][2]);
+  let featSrc = -1;
+  // an event's fixed part, from its index: direction, the positron's path (6 steps, scanner frame) and its sum
+  const SP = { dx: 0, dy: 0, dz: 0, ox: 0, oy: 0, oz: 0, feat: false }, STEP = new Float64Array(18);
+  function spec(n, anim) {
+    const feat = anim && mod(n, FEAT) === 0, kd = anim ? 0 : 1000;
+    const phi = feat ? 0.04 + 0.16 * hk(n, 3) : hk(n, 3 + kd) * TAU, dz = feat ? (hk(n, 4) - 0.5) * 0.1 : (hk(n, 4 + kd) - 0.5) * 0.3, l = Math.sqrt(1 + dz * dz);
+    SP.dx = Math.cos(phi) / l; SP.dy = Math.sin(phi) / l; SP.dz = dz / l; SP.feat = feat;
+    SP.ox = SP.oy = SP.oz = 0;
+    if (anim) for (let s = 0; s < 6; s++) {
+      const ux = hk(n, 11 + s) - 0.5, uy = hk(n, 21 + s) - 0.5, uz = (hk(n, 31 + s) - 0.5) * 0.5, ul = 0.0065 / (Math.sqrt(ux * ux + uy * uy + uz * uz) || 1);
+      STEP[3 * s] = ux * ul; STEP[3 * s + 1] = uy * ul; STEP[3 * s + 2] = uz * ul;
+      SP.ox += ux * ul; SP.oy += uy * ul; SP.oz += uz * ul;
     }
-    if (det) p = [p[0], p[1], clamp(p[2], -ZH + 0.006, ZH - 0.006)];
-    // a featured event (the one the labels follow) flies roughly sideways, so both photons cross open space
-    const phi = feat ? (hk(i, 5) < 0.5 ? 0 : PI) + (hk(i, 3) - 0.5) * 1.1 : hk(i, 3) * TAU;
-    let d = v3.norm([Math.cos(phi), Math.sin(phi), (hk(i, 4) - 0.5) * 0.3]);
-    const hit = (dd) => {
-      const a = dd[0] * dd[0] + dd[1] * dd[1], b = 2 * (p[0] * dd[0] + p[1] * dd[1]), c = p[0] * p[0] + p[1] * p[1] - RDET * RDET, q = Math.sqrt(Math.max(b * b - 4 * a * c, 0));
-      return [(-b + q) / (2 * a), (-b - q) / (2 * a)];
-    };
-    let [s1, s2] = hit(d);
-    if (Math.abs(p[2] + d[2] * s1) > ZH || Math.abs(p[2] + d[2] * s2) > ZH) { d = [Math.cos(phi), Math.sin(phi), 0]; [s1, s2] = hit(d); }
-    const snap = q => { const ia = ((Math.floor(Math.atan2(q[1], q[0]) / cryPitchA) % NA) + NA) % NA, iz = clamp(Math.floor((q[2] + ZH) / cryPitchZ), 0, NZ - 1); return cryPos(ia, iz); };
-    out.e = e; out.p = p; out.d = d; out.hit = det;
-    out.sA = s1; out.sB = -s2;
-    out.A = det ? snap(v3.add(p, v3.mul(d, s1))) : null; out.B = det ? snap(v3.add(p, v3.mul(d, s2))) : null;
-    return out;
+    return SP;
   }
-  // the web: one buffer of 3000 reusable slots (slot = index mod 3000); the shader fades lines by age and by how
-  // many may stay (scan_lines), so a frame only writes the newest lines
+  // where event n's annihilation is (body frame, into CHP): a featured one at its source (jittered by a centimetre),
+  // else the first of NC pool points (by hash) that, moved by the positron's path, lies inside the slice. Returns a
+  // code (the candidate r, NC + the source, or -1: none)
+  const CHP = [0, 0, 0];
+  function choose(n, anim, feat, obx, oby, obz) {
+    if (feat && featSrc >= 0) {
+      const c = SRC[featSrc][0];
+      CHP[0] = c[0] + (hk(n, 60) - 0.5) * 0.016; CHP[1] = c[1] + (hk(n, 61) - 0.5) * 0.016; CHP[2] = c[2] + (hk(n, 62) - 0.5) * 0.016;
+      return NC + featSrc;
+    }
+    const kb = anim ? 7000 : 100;
+    for (let r = 0; r < NC; r++) {
+      const c = (hk(n, kb + r) * POOL) | 0;
+      if (inSlice(PY[c] + oby)) { CHP[0] = PX[c] + obx; CHP[1] = PY[c] + oby; CHP[2] = PZ[c] + obz; return r; }
+    }
+    return -1;
+  }
+  // the positive distance along (dx, dy) from (px, py) to the circle of radius R about the axis
+  const ringS = (px, py, dx, dy, R) => { const a = dx * dx + dy * dy, b = 2 * (px * dx + py * dy), c = px * px + py * py - R * R; return (-b + Math.sqrt(Math.max(b * b - 4 * a * c, 0))) / (2 * a); };
+  // An animated event, worked out in full (no allocation): EV holds its annihilation point P and emission point in
+  // the scanner's frame, its direction, both crystals (centres, instance index), how far each photon flies before it
+  // shows its hit (the crystal's face where the bore's cover is open, else the cover) and the flash points there.
+  const EV = { px: 0, py: 0, pz: 0, ex: 0, ey: 0, ez: 0, dx: 0, dy: 0, dz: 0, A: [0, 0, 0], B: [0, 0, 0], FA: [0, 0, 0], FB: [0, 0, 0], iA: 0, iB: 0, tA: 0, tB: 0, feat: false, V: V_PH };
+  // a line's end on the ring: snapped to its crystal's centre round the ring, but not along the axis, so a line
+  // glides with the couch instead of stepping from one row of crystals to the next
+  function crystalAt(qx, qy, qz, out, fo, rf) {
+    const ia = mod(Math.floor(Math.atan2(qy, qx) / cryPitchA), NA), iz = clamp(Math.floor((qz + ZH) / cryPitchZ), 0, NZ - 1), an = cryA(ia), c = Math.cos(an), s = Math.sin(an);
+    out[0] = RDET * c; out[1] = RDET * s; out[2] = qz;
+    fo[0] = rf * c; fo[1] = rf * s; fo[2] = qz;
+    return ia * NZ + iz;
+  }
+  function place(j) {
+    spec(j, true);
+    const s = pose.s, code = choose(j, true, SP.feat, SP.ox / s, -SP.oz / s, SP.oy / s);
+    if (code < 0) return false;
+    const px = s * CHP[0], py = pose.ty + s * CHP[2], pz = pose.tz - s * CHP[1];
+    EV.px = px; EV.py = py; EV.pz = pz; EV.ex = px - SP.ox; EV.ey = py - SP.oy; EV.ez = pz - SP.oz; EV.feat = SP.feat; EV.V = SP.feat ? V_F : V_PH;
+    // both photons must reach the ring inside its length; if not, the event flies flat (as the web's shader does)
+    let dx = SP.dx, dy = SP.dy, dz = SP.dz, s1 = ringS(px, py, dx, dy, RDET), s2 = ringS(px, py, -dx, -dy, RDET);
+    if (Math.abs(pz + dz * s1) > ZH || Math.abs(pz - dz * s2) > ZH) { const l = Math.hypot(dx, dy); dx /= l; dy /= l; dz = 0; s1 = ringS(px, py, dx, dy, RDET); s2 = ringS(px, py, -dx, -dy, RDET); }
+    EV.dx = dx; EV.dy = dy; EV.dz = dz;
+    // the cover over the ring is gone above the cut and inside the opened window
+    const cy = SU.uCut.value, cw = SU.uWin.value;
+    for (let e = 0; e < 2; e++) {
+      const sg = e ? -1 : 1, sd = e ? s2 : s1, qx = px + sg * dx * sd, qy = py + sg * dy * sd, qz = pz + sg * dz * sd;
+      // (a point sprite has one depth: the flash stands 2 cm in front of the face, or the crystals beside it cut it)
+      const open = qy > cy || Math.abs(qz) < cw, rs = open ? RC0 - 0.004 : RB - 0.004, rf = open ? RC0 - 0.02 : RB - 0.01;
+      const idx = crystalAt(qx, qy, qz, e ? EV.B : EV.A, e ? EV.FB : EV.FA, rf), st = ringS(px, py, sg * dx, sg * dy, rs);
+      if (e) { EV.iB = idx; EV.tB = st; } else { EV.iA = idx; EV.tA = st; }
+    }
+    return true;
+  }
+  // the featured events' state for the labels: the latest one's annihilation point and how far it has got, and the
+  // left-hand end of the latest featured line of response
+  const featured = { on: false, p: [0, 0, 0], lor: [0, 0, 0], env: 0, lorOn: 0 };
+  function featState(t) {
+    featured.on = false; featured.env = 0; featured.lorOn = 0;
+    let jf = Math.floor(t * EV_RATE / FEAT) * FEAT;
+    if ((jf + 0.8 * hk(jf, 50)) / EV_RATE > t) jf -= FEAT;
+    let got = false;
+    for (let q = 0; q < 2; q++) {
+      const j = jf - q * FEAT, age = t - (j + 0.8 * hk(j, 50)) / EV_RATE;
+      if (!place(j)) continue;
+      const tc = TP + Math.max(EV.tA, EV.tB) / EV.V;
+      if (j === jf) {
+        featured.on = true;
+        featured.p[0] = EV.px; featured.p[1] = EV.py + 0.15; featured.p[2] = EV.pz;
+        featured.env = smooth(age / 0.15) * (1 - smooth((age - tc - 0.6) / 0.4));
+      }
+      if (!got && age >= tc && age < tc + 2.05) {
+        got = true; featured.on = true; featured.lorOn = 1;
+        const L = EV.A[0] < EV.B[0] ? EV.A : EV.B;
+        featured.lor[0] = L[0] + 0.03; featured.lor[1] = L[1] - 0.08; featured.lor[2] = L[2];
+      }
+    }
+    if (!got && featured.on) { featured.lor[0] = featured.p[0] - 0.39; featured.lor[1] = featured.p[1] - 0.2; featured.lor[2] = featured.p[2]; }
+  }
+
+  // The web: one buffer of 3000 reusable slots (slot = index mod 3000). A slot keeps its event's annihilation point
+  // in the body's frame (position) and direction (aD: + at one end, - at the other); the shader puts the line in
+  // the scanner from the couch's pose (uPose), meets the ring and snaps both ends to crystals round the ring, so a moving
+  // couch only changes a uniform. The CPU picks each slot's point (the first of its candidates inside the slice),
+  // and rewrites only the slots whose pick changes, plus the few newest each frame.
   const webG = K.linesGeo(WEB_N);
+  webG.setAttribute('aD', new THREE.BufferAttribute(new Float32Array(WEB_N * 6), 3));
   webG.setAttribute('aIdx', new THREE.BufferAttribute(new Float32Array(WEB_N * 2).fill(-1e9), 1));
   webG.setAttribute('aTim', new THREE.BufferAttribute(new Float32Array(WEB_N * 2).fill(-1e9), 1));
   {
-    const c = webG.attributes.aCol.array;
-    for (let k = 0; k < WEB_N; k++) { const v = 0.8 + 0.2 * hash(k + 7), col = [1.0 * v, 0.42 * v, 0.12 * v]; c.set(col, 6 * k); c.set(col, 6 * k + 3); }
+    const c = webG.attributes.aCol.array, p = webG.attributes.position.array;
+    for (let k = 0; k < WEB_N; k++) { const v = 0.8 + 0.2 * hash(k + 7); c.set([1.0 * v, 0.42 * v, 0.12 * v, 1.0 * v, 0.42 * v, 0.12 * v], 6 * k); p[6 * k + 1] = p[6 * k + 4] = 99; }
   }
-  const webU = { uHead: { value: 0 }, uCap: { value: 0 }, uNow: { value: 0 }, uLin: { value: 0 } };
-  const webMat = K.lines(set, { uniforms: webU, head: 'attribute float aIdx, aTim; uniform float uHead, uCap, uNow, uLin;',
-    vertex: 'float kk = uHead - aIdx, age = uNow - aTim; vA *= uLin * smoothstep(0.0, 0.3, age) * step(-0.5, kk) * (1.0 - smoothstep(uCap * 0.7, uCap + 0.5, kk));' });
+  const f6 = x => x.toFixed(6);
+  const webU = { uHead: { value: 0 }, uCap: { value: 0 }, uNow: { value: 0 }, uLin: { value: 0 }, uPose: { value: new THREE.Vector3(pose.ty, pose.tz, pose.s) } };
+  const webMat = K.lines(set, { uniforms: webU,
+    head: `attribute float aIdx, aTim; attribute vec3 aD; uniform float uHead, uCap, uNow, uLin; uniform vec3 uPose;
+const float RD = ${f6(RDET)}, ZH_ = ${f6(ZH)}, ZE_ = ${f6(ZE)}, PA = ${f6(cryPitchA)};
+float ringS(vec2 p, vec2 d) { float a = dot(d, d), b = 2.0 * dot(p, d), c = dot(p, p) - RD * RD; return (-b + sqrt(max(b * b - 4.0 * a * c, 0.0))) / (2.0 * a); }`,
+    vertex: `
+  float kk = uHead - aIdx, age = uNow - aTim;
+  vA *= uLin * smoothstep(0.0, 0.3, age) * step(-0.5, kk) * (1.0 - smoothstep(uCap * 0.7, uCap + 0.5, kk));
+  vec3 P = vec3(uPose.z * position.x, uPose.x + uPose.z * position.z, uPose.y - uPose.z * position.y), d = aD;
+  vA *= 1.0 - smoothstep(ZE_ - 0.02, ZE_, abs(P.z));   // fainter at the slice's edges (as a ring's sensitivity is)
+  float s1 = ringS(P.xy, d.xy), s2 = ringS(P.xy, -d.xy);
+  if (abs(P.z + d.z * s1) > ZH_ || abs(P.z - d.z * s2) > ZH_) { d = vec3(normalize(d.xy), 0.0); s1 = ringS(P.xy, d.xy); }
+  vec3 q = P + d * s1;
+  float an = (floor(atan(q.y, q.x) / PA) + 0.5) * PA;
+  gl_Position = projectionMatrix * modelViewMatrix * vec4(RD * cos(an), RD * sin(an), q.z, 1.0);` });
   const web = new THREE.LineSegments(webG, webMat);
   web.renderOrder = 5; web.frustumCulled = false; scanG.add(web);
-  const slotIdx = new Float64Array(WEB_N).fill(NaN);
-  let webKey = null;
-  // the animated events: positron paths, photon streaks and their lines (lines), flashes (points); packed each frame
-  const FXL = 900, FXP = 260;
+  // per slot: its event's index, candidates (pool index and body height), the positron's offset (body frame),
+  // whether featured, its current pick, and the pose version it was picked for
+  const slotIdx = new Float64Array(WEB_N).fill(NaN), CI = new Int32Array(WEB_N * NC), CY = new Float32Array(WEB_N * NC);
+  const OB = new Float32Array(WEB_N * 3), FJ = new Float32Array(WEB_N * 3), WF = new Uint8Array(WEB_N), pick = new Int16Array(WEB_N).fill(-2), stamp = new Int32Array(WEB_N).fill(-1);
+  let poseVer = 0, lastTz = NaN, lastSrc = -2;
+  function writeSlot(slot, i) {
+    const anim = mod(i, COPY) === 0, n = anim ? i / COPY : i, A = webG.attributes;
+    spec(n, anim);
+    const obx = SP.ox / S0, oby = -SP.oz / S0, obz = SP.oy / S0, kb = anim ? 7000 : 100, b = slot * NC;
+    OB[3 * slot] = obx; OB[3 * slot + 1] = oby; OB[3 * slot + 2] = obz; WF[slot] = SP.feat ? 1 : 0;
+    if (SP.feat) { FJ[3 * slot] = (hk(n, 60) - 0.5) * 0.016; FJ[3 * slot + 1] = (hk(n, 61) - 0.5) * 0.016; FJ[3 * slot + 2] = (hk(n, 62) - 0.5) * 0.016; }
+    for (let r = 0; r < NC; r++) { const c = (hk(n, kb + r) * POOL) | 0; CI[b + r] = c; CY[b + r] = PY[c] + oby; }
+    const D = A.aD.array;
+    D[6 * slot] = SP.dx; D[6 * slot + 1] = SP.dy; D[6 * slot + 2] = SP.dz; D[6 * slot + 3] = -SP.dx; D[6 * slot + 4] = -SP.dy; D[6 * slot + 5] = -SP.dz;
+    A.aIdx.array[2 * slot] = A.aIdx.array[2 * slot + 1] = i;
+    // an animated event's line joins the web as its coincidence comes (about when the second photon arrives)
+    A.aTim.array[2 * slot] = A.aTim.array[2 * slot + 1] = anim ? (n + 0.8 * hk(n, 50)) / EV_RATE + TP + 0.42 / (SP.feat ? V_F : V_PH) : i / WEB_RATE;
+    pick[slot] = -2; stamp[slot] = -1;
+  }
+  function pickSlot(slot) {
+    let code = -1;
+    const b = slot * NC;
+    if (WF[slot] && featSrc >= 0) code = NC + featSrc;
+    else for (let r = 0; r < NC; r++) if (Math.abs(pose.tz - pose.s * CY[b + r]) < ZE) { code = r; break; }
+    if (code === pick[slot]) return false;
+    pick[slot] = code;
+    let x = 0, y = 99, z = 0;
+    if (code >= NC) { const c = SRC[code - NC][0]; x = c[0] + FJ[3 * slot]; y = c[1] + FJ[3 * slot + 1]; z = c[2] + FJ[3 * slot + 2]; }
+    else if (code >= 0) { const c = CI[b + code]; x = PX[c] + OB[3 * slot]; y = PY[c] + OB[3 * slot + 1]; z = PZ[c] + OB[3 * slot + 2]; }
+    const p = webG.attributes.position.array;
+    p[6 * slot] = p[6 * slot + 3] = x; p[6 * slot + 1] = p[6 * slot + 4] = y; p[6 * slot + 2] = p[6 * slot + 5] = z;
+    return true;
+  }
+  const upload = (at, lo, hi, per) => {
+    if (hi < lo) return;
+    const full = hi - lo > 1200;
+    at.updateRange.offset = full ? 0 : lo * per; at.updateRange.count = full ? -1 : (hi - lo + 1) * per; at.needsUpdate = true;
+  };
+  function webStep(cap, head) {
+    if (pose.tz !== lastTz || featSrc !== lastSrc) { poseVer++; lastTz = pose.tz; lastSrc = featSrc; }
+    let loM = WEB_N, hiM = -1, loP = WEB_N, hiP = -1;
+    for (let k = 0; k < cap; k++) {
+      const i = head - k, slot = mod(i, WEB_N);
+      if (slotIdx[slot] !== i) { slotIdx[slot] = i; writeSlot(slot, i); if (slot < loM) loM = slot; if (slot > hiM) hiM = slot; }
+      if (stamp[slot] !== poseVer) { stamp[slot] = poseVer; if (pickSlot(slot)) { if (slot < loP) loP = slot; if (slot > hiP) hiP = slot; } }
+    }
+    const A = webG.attributes;
+    upload(A.aD, loM, hiM, 6); upload(A.aIdx, loM, hiM, 2); upload(A.aTim, loM, hiM, 2); upload(A.position, loP, hiP, 6);
+  }
+
+  // the animated events: positron paths, photon streaks and lines of response (lines), flashes, photons' comets and
+  // heads (points), the featured line of response as a soft glowing beam (two quads at most), crystals' glow
+  const FXL = 1000, FXP = 640;
   const fxG = K.linesGeo(FXL), fxPG = K.pointsGeo(FXP);
   const fxL = new THREE.LineSegments(fxG, K.lines(set)), fxP = new THREE.Points(fxPG, K.points(set, { vertex: CLOSE }));
   fxL.renderOrder = 6; fxP.renderOrder = 7; fxL.frustumCulled = fxP.frustumCulled = false;
   scanG.add(fxL, fxP);
-  const PATH = [];
-  const featured = { p: [0, 0, 0], lor: [0, 0.42, 0], on: false };
+  const beamG = new THREE.BufferGeometry();
+  {
+    const at = (k, n) => beamG.setAttribute(k, new THREE.BufferAttribute(new Float32Array(8 * n), n));
+    at('position', 3); at('aB', 3); at('aS', 1); at('aF', 1); at('aA', 1);
+    for (let q = 0; q < 2; q++) [[-1, 1], [1, 1], [1, -1], [-1, -1]].forEach(([sd, f], v) => { beamG.attributes.aS.array[4 * q + v] = sd; beamG.attributes.aF.array[4 * q + v] = f; });
+    beamG.setIndex([0, 1, 2, 0, 2, 3, 4, 5, 6, 4, 6, 7]);
+  }
+  const beamMat = new THREE.ShaderMaterial({
+    uniforms: { uA: set.uA, uW: { value: 0.009 }, uC: { value: new THREE.Color(1.0, 0.62, 0.3) } },
+    transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
+    vertexShader: `attribute vec3 aB; attribute float aS, aF, aA; uniform float uA, uW; varying float vS, vA;
+void main() {
+  vec4 a = modelViewMatrix * vec4(position, 1.0); vec3 b = (modelViewMatrix * vec4(aB, 1.0)).xyz;
+  vec3 sd = normalize(cross(b - a.xyz, a.xyz));   // across the line, square to the view
+  a.xyz += sd * aS * aF * uW * length(modelViewMatrix[0].xyz);
+  vS = aS; vA = aA * uA;
+  gl_Position = projectionMatrix * a;
+}`,
+    fragmentShader: `uniform vec3 uC; varying float vS, vA;
+void main() { float f = 1.0 - abs(vS); gl_FragColor = vec4((uC * 0.6 * f * f + vec3(1.0, 0.9, 0.75) * 0.75 * pow(f, 10.0)) * vA, 1.0); }`,
+  });
+  set.mats.push(beamMat);
+  const beam = new THREE.Mesh(beamG, beamMat);
+  beam.renderOrder = 6; beam.frustumCulled = false; scanG.add(beam);
+  const LIT = new Int32Array(256);
+  let nLit = 0;
 
   // ------------------------------------------------------------------ the vision row --
   // the scanner moves to the left; to its right, linked by big soft arrows: the glowing body standing (the same
   // body, risen from the couch), a neon network of organs, and prognosis (three bars) above medication (a bar chart)
   const visG = new THREE.Group();
   set.group.add(visG);
-  const VX = { body: -0.62, net: 0.68, prog: 2.36 }, CHEV = [-1.22, -0.06, 1.46];
+  const VX = { body: -0.62, net: 0.68, prog: 2.36 }, CHEV = [-1.15, -0.06, 1.46];
   const vis = Builder();
   CHEV.forEach((cx, k) => {
     const poly = [[-0.17, -0.085], [0.0, -0.085], [0.0, -0.17], [0.17, 0.0], [0.0, 0.17], [0.0, 0.085], [-0.17, 0.085]];
@@ -621,17 +803,18 @@ void main() {
   // the neon organs (icons from PET_ICONS, drawn glowing in each organ's colour on one canvas)
   const NET_ORG = [['brain', '#a78bfa', [0.06, 0.47, 0.04], 0.36], ['lungs', '#60a5fa', [0.0, 0.08, -0.05], 0.36], ['heart', '#f43f5e', [-0.37, -0.22, 0.1], 0.3],
     ['liver', '#f97316', [0.37, -0.2, 0.08], 0.31], ['kidneys', '#fb7185', [0.02, -0.56, 0.0], 0.27]];
+  // the other organs once each, and three more nodes in a neutral white (as on the slide, more than the organs drawn)
   const NET_NODE = [['thyroid', [-0.43, 0.43, -0.1]], ['muscle', [-0.6, 0.12, 0.12]], ['adrenal', [-0.2, 0.26, 0.18]], ['spleen', [0.3, 0.3, -0.12]],
     ['pancreas', [0.58, 0.1, 0.1]], ['intestine', [0.6, -0.46, -0.06]], ['fat', [-0.52, -0.52, -0.12]], ['marrow', [0.32, -0.66, 0.12]], ['aorta', [-0.13, -0.36, -0.15]],
-    ['brain', [-0.22, 0.64, 0.0]], ['spleen', [0.42, 0.6, 0.06]], ['heart', [-0.66, -0.2, -0.05]]];
+    [null, [-0.22, 0.64, 0.0]], [null, [0.42, 0.6, 0.06]], [null, [-0.66, -0.2, -0.05]]];
   let iconTex = null;
   {
     const S = 256, cv = typeof document !== 'undefined' ? document.createElement('canvas') : null;
     if (cv) {
-      cv.width = S * NET_ORG.length; cv.height = S;
+      cv.width = 4 * S; cv.height = 2 * S;   // four icons to a row (a power of two: no resizing on WebGL1)
       const ctx = cv.getContext('2d');
       NET_ORG.forEach(([id, f], k) => {
-        const col = (D && (D.organs.find(o => o.id === id) || {}).col) || f, cx = (k + 0.5) * S, cy = S / 2;
+        const col = (D && (D.organs.find(o => o.id === id) || {}).col) || f, cx = (k % 4 + 0.5) * S, cy = ((k >> 2) + 0.5) * S;
         if (typeof PET_ICONS !== 'undefined') {
           ctx.globalAlpha = 0.22; PET_ICONS.draw(ctx, id, cx, cy, S * 0.8, { color: col, width: S * 0.09 });
           ctx.globalAlpha = 1; PET_ICONS.draw(ctx, id, cx, cy, S * 0.8, { color: col, width: S * 0.03, glow: true });
@@ -654,19 +837,19 @@ void main() {
   {
     const quads = NET_ORG.map(([id, f, p, s], k) => {
       const g = new THREE.PlaneGeometry(s, s), uv = g.attributes.uv.array;
-      for (let v = 0; v < uv.length; v += 2) uv[v] = (k + uv[v]) / NET_ORG.length;
+      for (let v = 0; v < uv.length; v += 2) { uv[v] = (k % 4 + uv[v]) / 4; uv[v + 1] = 1 - ((k >> 2) + 1 - uv[v + 1]) / 2; }
       return g.translate(netC[0] + p[0], netC[1] + p[1], p[2]);
     });
     const icons = new THREE.Mesh(K.merge(quads), iconMat);
     icons.renderOrder = 9; icons.frustumCulled = false; visG.add(icons);
   }
   // the network's nodes (the other organs, small coloured discs) and glowing links (each in its two nodes' colours)
-  const NODES = [...NET_ORG.map(([id, f, p]) => ({ p: v3.add(netC, p), c: ocol(id, f), big: true })), ...NET_NODE.map(([id, p]) => ({ p: v3.add(netC, p), c: ocol(id, '#99aaaa'), big: false }))];
+  const NODES = [...NET_ORG.map(([id, f, p]) => ({ p: v3.add(netC, p), c: ocol(id, f), big: true })), ...NET_NODE.map(([id, p]) => ({ p: v3.add(netC, p), c: id ? ocol(id, '#99aaaa') : [0.84, 0.88, 0.95], big: false }))];
   const LINKS = [];
   {
     const seen = new Set();
     NODES.forEach((a, i) => {
-      const near = NODES.map((b, j) => [v3.dist(a.p, b.p), j]).filter(q => q[1] !== i).sort((x, y) => x[0] - y[0]).slice(0, a.big ? 3 : 3);
+      const near = NODES.map((b, j) => [v3.dist(a.p, b.p), j]).filter(q => q[1] !== i).sort((x, y) => x[0] - y[0]).slice(0, 3);
       for (const [, j] of near) { const key = Math.min(i, j) + ',' + Math.max(i, j); if (!seen.has(key)) { seen.add(key); LINKS.push([i, j]); } }
     });
   }
@@ -733,7 +916,7 @@ void main() {
   set.mats.push(neonMat);
   {
     const R = [];   // [cx, cy, hx, hy, radius, mode, delay or fraction, width, c0, c1, element]
-    const PB = [[0.64, 0.8, '#ff6a1a', '#ffc27a', 1], [0.42, 0.4, '#e0103c', '#ff7a94', 2], [0.2, 0.9, '#ffb000', '#fff08a', 3]];
+    const PB = [[0.64, 0.8, '#ff6a1a', '#ffc27a', 1], [0.42, 0.4, '#e0103c', '#ff3a50', 2], [0.2, 0.9, '#ffb000', '#fff08a', 3]];
     for (const [y, f, c0, c1, e] of PB) {
       R.push([VX.prog, y, 0.55, 0.068, 0.066, 0, 0.0, 0.006, [0.92, 0.94, 1.0], [0.1, 0.11, 0.14], e]);
       R.push([VX.prog, y, 0.53, 0.05, 0.05, 1, 0.0, f, K.rgb(c0), K.rgb(c1), e]);
@@ -764,33 +947,43 @@ void main() {
   }
 
   // ------------------------------------------------------------------ update --
-  const mS = new THREE.Matrix4(), mL = new THREE.Matrix4(), mT = new THREE.Matrix4(), qa = new THREE.Quaternion(), qb = new THREE.Quaternion();
+  const mS = new THREE.Matrix4(), mL = new THREE.Matrix4(), qa = new THREE.Quaternion(), qb = new THREE.Quaternion();
   const pa = new THREE.Vector3(), pb = new THREE.Vector3(), sa = new THREE.Vector3(), sb = new THREE.Vector3();
   const LIE = new THREE.Matrix4().makeRotationX(-PI / 2), STAND = new THREE.Vector3(VX.body, 0.0, 0), SSTAND = 0.8;
   const BED_IN = 1.15, PASS = 0.85, TZ0 = 0.85;   // the table's head end at bed 0; its travel in; the travel of the pass
   let tableZ = TZ0;
   const live = { vis: 0, img: 0, ev: 0 };
   const sp = p => xp(scanG.matrix, p), pp = p => xp(patientG.matrix, p);
-  function writeLine(geo, k, a, b, col, al) {
-    const A = geo.attributes;
-    A.position.array.set(a, 6 * k); A.position.array.set(b, 6 * k + 3);
-    A.aCol.array.set(col, 6 * k); A.aCol.array.set(col, 6 * k + 3);
-    A.aA.array[2 * k] = al; A.aA.array[2 * k + 1] = al;
+  function writeLine(k, ax, ay, az, bx, by, bz, col, al) {
+    const A = fxG.attributes, P = A.position.array, C = A.aCol.array, k6 = 6 * k;
+    P[k6] = ax; P[k6 + 1] = ay; P[k6 + 2] = az; P[k6 + 3] = bx; P[k6 + 4] = by; P[k6 + 5] = bz;
+    C[k6] = C[k6 + 3] = col[0]; C[k6 + 1] = C[k6 + 4] = col[1]; C[k6 + 2] = C[k6 + 5] = col[2];
+    A.aA.array[2 * k] = A.aA.array[2 * k + 1] = al;
   }
-  function writePoint(geo, k, p, col, size, al) {
-    const A = geo.attributes;
-    A.position.array.set(p, 3 * k); A.aCol.array.set(col, 3 * k); A.aSize.array[k] = size; A.aA.array[k] = al;
+  function writePoint(k, x, y, z, col, size, al) {
+    const A = fxPG.attributes, P = A.position.array, C = A.aCol.array, k3 = 3 * k;
+    P[k3] = x; P[k3 + 1] = y; P[k3 + 2] = z; C[k3] = col[0]; C[k3 + 1] = col[1]; C[k3 + 2] = col[2]; A.aSize.array[k] = size; A.aA.array[k] = al;
   }
-  const C_POS = [1.0, 0.36, 0.86], C_PH = [1.0, 0.9, 0.6], C_FL = [1.0, 0.96, 0.85], C_CR = [0.55, 0.9, 1.0], C_LOR = [1.0, 0.68, 0.36];
+  function writeBeam(q, a, b, al) {
+    const A = beamG.attributes, P = A.position.array, B = A.aB.array;
+    for (let v = 0; v < 4; v++) {
+      const o = 3 * (4 * q + v), s = v < 2 ? a : b, e = v < 2 ? b : a;
+      P[o] = s[0]; P[o + 1] = s[1]; P[o + 2] = s[2]; B[o] = e[0]; B[o + 1] = e[1]; B[o + 2] = e[2]; A.aA.array[4 * q + v] = al;
+    }
+  }
+  const lightCrystal = (idx, g) => { if (CG[idx] === 0 && nLit < LIT.length) LIT[nLit++] = idx; if (g > CG[idx]) CG[idx] = g; };
+  const C_POS = [1.0, 0.36, 0.86], C_PH = [1.0, 0.9, 0.6], C_FL = [1.0, 0.96, 0.85], C_CR = [0.55, 0.9, 1.0], C_LOR = [1.0, 0.68, 0.36], C_WH = [1, 1, 1];
 
   function update(S, t) {
     const g = k => clamp(S[k] || 0, 0, 1);
-    const vision = g('scan_vision'), bed = g('scan_bed'), pass = g('scan_pass'), cut = g('scan_cut') * (1 - prog(vision, 0, 0.3)), evs = g('scan_events'), lin = g('scan_lines'), img = g('scan_image');
+    const vision = g('scan_vision'), bed = g('scan_bed'), cut = g('scan_cut') * (1 - prog(vision, 0, 0.3)), evs = g('scan_events'), lin = g('scan_lines'), img = g('scan_image');
+    // as the image forms, the couch carries the patient on through the ring to the thighs (the counts come in behind it)
+    const pass = g('scan_pass') + (1 - g('scan_pass')) * prog(img, 0, 0.6);
     const flo = S.scan_floor === undefined ? 1 : g('scan_floor');
     live.vis = vision; live.img = img; live.ev = evs;
     // the scanner moves to the left, shrinks a little and turns to show its side (as on the slide)
     const fs = smooth(prog(vision, 0, 0.45));
-    scanG.position.set(lerp(0, -2.08, fs), lerp(0, -0.1, fs), lerp(0, -0.6, fs));
+    scanG.position.set(lerp(0, -2.12, fs), lerp(0, -0.1, fs), lerp(0, -0.6, fs));
     scanG.rotation.y = lerp(0, -0.55, fs);
     scanG.scale.setScalar(lerp(1, 0.55, fs));
     scanG.updateMatrix(); scanG.matrixWorldNeedsUpdate = true;
@@ -816,119 +1009,107 @@ void main() {
     innerMesh.visible = crystals.visible = cut > 0.002;   // hidden by the housing until it opens
     SU.uDim.value = 1 - 0.38 * smooth(Math.max(cut, evs)) * (1 - vision);
     const a = set.uA.value, solid = a > 0.97;
-    solidMat.depthWrite = solid;
+    solidMat.depthWrite = cryMat.depthWrite = solid;
     floorMesh.visible = outerRefl.visible = tableRefl.visible = flo > 0.003;
     floorMat.uniforms.uF.value = flo * (1 - 0.4 * fs);
-    // the image: the counts light up, then the smooth image (the body set at steady state) glows inside the shell
-    const standA = prog(vision, 0.1, 0.42), imgA = smooth(prog(img, 0.3, 0.92));
+    // the image: the counts light up behind the ring as the patient passes through it, then the smooth image (the
+    // body set at steady state) glows inside the shell once the pass is done
+    const standA = prog(vision, 0.1, 0.42), imgA = smooth(prog(img, 0.5, 0.95));
     const bodyA = Math.max(imgA * (1 - fb), standA);
     if (body) {
       body.setAlpha(a * bodyA);
-      if (bodyA > 0.003) body.update(BS, t);
+      if (bodyA > 0.003) body.update(BP, t);
     }
     dotU.uImg.value = img * (1 - fb);
+    dotU.uLow.value = (pose.tz - ZH) / pose.s;
     dots.visible = img > 0.003 && fb < 1;
     const dark = Math.max(smooth(prog(img, 0, 0.5)), 0.55 * smooth(Math.max(cut, evs)));
-    // standing in the row, the shell turns into the slide's warm glow under the image (the image blends by maximum)
-    shellU.uSC.value.setRGB(lerp(lerp(0.36, 0.02, dark), 0.42, fb), lerp(lerp(0.45, 0.03, dark), 0.09, fb), lerp(lerp(0.58, 0.05, dark), 0.01, fb));
+    // standing in the row, the shell turns into the slide's warm orange glow under the image (the image blends by
+    // maximum, so its hot organs still show above it), with a bright rim round its outline
+    shellU.uSC.value.setRGB(lerp(lerp(0.36, 0.02, dark), 0.85, fb), lerp(lerp(0.45, 0.03, dark), 0.25, fb), lerp(lerp(0.58, 0.05, dark), 0.04, fb));
     shellU.uSA.value = lerp(0.45, 0.84, dark) * (1 - smooth(prog(vision, 0.04, 0.25))) + 0.9 * standA * fb;
-    // standing in the row, the body keeps a warm glow round its outline (the slide's glowing body)
-    shellU.uSR.value = lerp(1 - 0.35 * dark, 0.85, fb);
-    shellU.uRC.value.setRGB(lerp(0.5, 1.0, fb), lerp(0.7, 0.42, fb), lerp(0.95, 0.12, fb));
+    shellU.uSR.value = lerp(1 - 0.35 * dark, 1.2, fb);
+    shellU.uRC.value.setRGB(lerp(0.5, 1.0, fb), lerp(0.7, 0.55, fb), lerp(0.95, 0.2, fb));
     shellD.visible = shellU.uSA.value > 0.003; shellR.visible = shellU.uSR.value * standA + (1 - fb) > 0.003;
-    // which slice of the patient is inside the ring (events come only from there)
-    rangeLo = lowerY((pose.tz - ZH) / pose.s); rangeHi = lowerY((pose.tz + ZH) / pose.s);
+    // the hottest source inside the ring's slice gives the featured events
+    featSrc = -1;
+    for (const k of SRC_BY_W) if (Math.abs(pose.tz - pose.s * SRC[k][0][1]) < ZH - 0.025) { featSrc = k; break; }
     // the web of lines
     const cap = Math.round(lin * WEB_N), head = Math.floor(t * WEB_RATE);
-    webU.uHead.value = head; webU.uCap.value = cap; webU.uNow.value = t;
+    webU.uHead.value = head; webU.uCap.value = cap; webU.uNow.value = t; webU.uPose.value.set(pose.ty, pose.tz, pose.s);
     webU.uLin.value = (0.022 + 0.05 * (1 - lin)) * (1 - smooth(prog(img, 0.05, 0.55))) * (1 - fs);
     web.visible = cap > 0 && webU.uLin.value > 0.001;
-    if (web.visible) {
-      const key = rangeLo + ':' + rangeHi + ':' + Math.round(pose.tz * 100);
-      if (key !== webKey) { webKey = key; slotIdx.fill(NaN); }
-      const A = webG.attributes;
-      let lo = WEB_N, hi = -1, nw = 0;
-      for (let k = 0; k < cap; k++) {
-        const i = head - k, slot = ((i % WEB_N) + WEB_N) % WEB_N;
-        if (slotIdx[slot] === i) continue;
-        slotIdx[slot] = i; nw++;
-        event(i, 1, ev, null);
-        if (ev.hit) { A.position.array.set(ev.A, 6 * slot); A.position.array.set(ev.B, 6 * slot + 3); }
-        else { A.position.array.fill(0, 6 * slot, 6 * slot + 6); }
-        A.aIdx.array[2 * slot] = A.aIdx.array[2 * slot + 1] = ev.hit ? i : -1e9;
-        A.aTim.array[2 * slot] = A.aTim.array[2 * slot + 1] = i / WEB_RATE;
-        lo = Math.min(lo, slot); hi = Math.max(hi, slot);
-      }
-      if (nw) {
-        const full = nw > 400 || hi - lo > 400;
-        for (const [k, s] of [['position', 6], ['aIdx', 2], ['aTim', 2]]) {
-          const at = A[k];
-          at.updateRange.offset = full ? 0 : lo * s; at.updateRange.count = full ? -1 : (hi - lo + 1) * s; at.needsUpdate = true;
-        }
-      }
-    }
+    if (web.visible) webStep(cap, head);
     // the animated events
-    let nl = 0, np = 0;
-    featured.on = false;
+    let nl = 0, np = 0, nb = 0;
+    for (let k = 0; k < nLit; k++) CG[LIT[k]] = 0;
+    const litBefore = nLit;
+    nLit = 0;
     const fxA = (1 - smooth(prog(img, 0.1, 0.5))) * (1 - fs);
+    if (evs > 0.001 && fxA > 0.002) featState(t); else featured.on = false;
     if (evs > 0.001 && fxA > 0.002) {
-      const j0 = Math.floor((t - 2.4) * EV_RATE), j1 = Math.floor(t * EV_RATE), jf = Math.floor(t * EV_RATE / 50) * 50;
+      // beyond the featured events, the share of events shown grows with the square of scan_events (a few at 0.3)
+      const q = evs > 0.08 ? Math.pow((evs - 0.08) / 0.92, 2) : -1;
+      const j0 = Math.floor((t - WIN) * EV_RATE), j1 = Math.floor(t * EV_RATE);
       for (let j = j0; j <= j1; j++) {
         const tj = (j + 0.8 * hk(j, 50)) / EV_RATE, age = t - tj;
         if (age < 0) continue;
-        // the featured events (one every 2 s, which the labels follow) show from the lowest scan_events; the rest above 0.08
-        const w = (j === jf || j === jf - 50 ? clamp(evs * 30, 0, 1) : clamp((evs - 0.08 - 0.92 * hk(j, 51)) * 8, 0, 1)) * fxA;
-        if (w <= 0.002) continue;
-        event(j, 7, ev, PATH, j === jf || j === jf - 50);
-        const p = ev.p, big = j === jf || j === jf - 50 ? 1.5 : 1;
-        if (j === jf || (j === jf - 50 && !featured.on)) {
-          // labels: the photons' just above the annihilation, the line's on the line near its left-hand crystal
-          featured.on = true; featured.p = v3.add(p, [0, 0.05, 0]);
-          const L = ev.hit ? (ev.A[0] < ev.B[0] ? ev.A : ev.B) : v3.add(p, v3.mul(ev.d, 0.3));
-          featured.lor = v3.add(v3.lerp(L, p, 0.3), [0, -0.035, 0]);
-        }
+        const feat = mod(j, FEAT) === 0, w = (feat ? clamp(evs * 30, 0, 1) : clamp((q - hk(j, 51)) * 8, 0, 1)) * fxA;
+        if (w <= 0.002 || nl > FXL - 12 || np > FXP - 24) continue;
+        if (!place(j)) continue;
+        const V = EV.V, big = feat ? 1.5 : 1;
         // the positron's short zigzag, then the flash where it meets an electron
-        if (age < TP + 0.3 && nl < FXL - 10) {
+        if (age < TP + 0.3) {
           const f = clamp(age / TP, 0, 1) * 6, fa = w * (1 - clamp((age - TP) / 0.3, 0, 1));
+          let x = EV.ex, y = EV.ey, z = EV.ez;
           for (let s = 0; s < 6 && s < f; s++) {
-            const b = s + 1 <= f ? PATH[s + 1] : v3.lerp(PATH[s], PATH[s + 1], f - s);
-            writeLine(fxG, nl++, PATH[s], b, C_POS, 0.95 * fa);
+            const u = Math.min(1, f - s), nx = x + STEP[3 * s] * u, ny = y + STEP[3 * s + 1] * u, nz = z + STEP[3 * s + 2] * u;
+            writeLine(nl++, x, y, z, nx, ny, nz, C_POS, 0.95 * fa);
+            x = nx; y = ny; z = nz;
           }
-          if (age < TP) writePoint(fxPG, np++, v3.lerp(PATH[Math.min(5, Math.floor(f))], PATH[Math.min(6, Math.floor(f) + 1)], f - Math.floor(f)), C_POS, 0.022, w);
+          if (age < TP) writePoint(np++, x, y, z, C_POS, 0.022 * big, w);
         }
-        if (age >= TP && age < TP + 0.32 && np < FXP - 4) { const x = (age - TP) / 0.32; writePoint(fxPG, np++, p, C_FL, big * (0.03 + 0.04 * Math.sqrt(x)), w * (1 - x) * (1 - x)); }
-        // the two photons, back to back at a visible speed
-        if (age >= TP) {
-          const run = (age - TP) * V_PH;
-          for (const [sgn, dist, C] of [[1, ev.sA, ev.A], [-1, ev.sB, ev.B]]) {
-            const lim = ev.hit ? dist : 0.75;
-            if (run < lim && nl < FXL - 2) {
-              const hd = v3.add(p, v3.mul(ev.d, sgn * run)), tail = v3.add(p, v3.mul(ev.d, sgn * Math.max(0, run - 0.075)));
-              const fadeOut = ev.hit ? 1 : 1 - run / 0.75;
-              writeLine(fxG, nl++, tail, hd, C_PH, w * fadeOut);
-              if (np < FXP - 2) writePoint(fxPG, np++, hd, C_PH, 0.02 * big, w * fadeOut);
-            } else if (ev.hit && np < FXP - 2) {
-              const x = (run - lim) / (0.45 * V_PH);
-              if (x < 1) { writePoint(fxPG, np++, C, C_CR, big * (0.022 + 0.022 * (1 - x)), w * Math.pow(1 - x, 1.5)); if (x < 0.4 && np < FXP - 1) writePoint(fxPG, np++, C, [1, 1, 1], 0.014, w * (1 - x / 0.4)); }
+        if (age >= TP && age < TP + 0.32) { const x = (age - TP) / 0.32; writePoint(np++, EV.px, EV.py, EV.pz, C_FL, big * (0.03 + 0.04 * Math.sqrt(x)), w * (1 - x) * (1 - x)); }
+        if (age < TP) continue;
+        // the two photons, back to back at a visible speed (the featured ones slower, as comets)
+        const run = (age - TP) * V;
+        for (let e = 0; e < 2; e++) {
+          const sg = e ? -1 : 1, lim = e ? EV.tB : EV.tA, dx = sg * EV.dx, dy = sg * EV.dy, dz = sg * EV.dz;
+          if (run < lim) {
+            if (feat) {
+              for (let c = 0; c < 7; c++) {
+                const r = run - c * 0.025;
+                if (r < 0) break;
+                writePoint(np++, EV.px + dx * r, EV.py + dy * r, EV.pz + dz * r, C_PH, 0.036 - 0.0042 * c, w * Math.pow(1 - c / 7, 1.3));
+              }
+            }
+            const r0 = Math.max(0, run - 0.075);
+            writeLine(nl++, EV.px + dx * r0, EV.py + dy * r0, EV.pz + dz * r0, EV.px + dx * run, EV.py + dy * run, EV.pz + dz * run, C_PH, w);
+            if (!feat) writePoint(np++, EV.px + dx * run, EV.py + dy * run, EV.pz + dz * run, C_PH, 0.02, w);
+          } else {
+            // scintillation: the struck crystal glows, and a flash on its face (or on the bore's cover over it)
+            const x = (run - lim) / (0.45 * V), F = e ? EV.FB : EV.FA;
+            if (x < 1) {
+              lightCrystal(e ? EV.iB : EV.iA, w * Math.pow(1 - x, 1.5) * (feat ? 1 : 0.75));
+              writePoint(np++, F[0], F[1], F[2], C_CR, big * (0.024 + 0.024 * (1 - x)), w * Math.pow(1 - x, 1.5));
+              if (x < 0.4) writePoint(np++, F[0], F[1], F[2], C_WH, 0.015 * big, w * (1 - x / 0.4));
             }
           }
-          // the coincidence: a line of response joins the two crystals, then fades to a faint trace
-          const tc = TP + Math.max(ev.sA, ev.sB) / V_PH;
-          if (ev.hit && age >= tc && age < tc + 1.8 && nl < FXL - 3) {
-            const x = age - tc, la = w * (0.1 + (big > 1 ? 0.8 : 0.5) * Math.exp(-x * 2.6)) * (1 - smoothstep01((x - 1.3) / 0.5));
-            writeLine(fxG, nl++, ev.A, ev.B, C_LOR, la);
-            // the featured line is drawn thicker (three strands)
-            if (big > 1) for (const o of [[0, 0.0025, 0.0015], [0, -0.0025, -0.0015]]) writeLine(fxG, nl++, v3.add(ev.A, o), v3.add(ev.B, o), C_LOR, la * 0.8);
-          }
+        }
+        // the coincidence: a line of response joins the two crystals, then fades (the web keeps it while lines stay);
+        // a featured line stays faintly until the next featured one is drawn
+        const tc = TP + Math.max(EV.tA, EV.tB) / V, lt = feat ? 2.05 : 1.8;
+        if (age >= tc && age < tc + lt) {
+          const x = age - tc, la = w * (feat ? 0.16 + 0.8 * Math.exp(-x * 2.6) : 0.1 + 0.5 * Math.exp(-x * 2.6)) * (1 - smooth((x - lt + 0.4) / 0.4));
+          writeLine(nl++, EV.A[0], EV.A[1], EV.A[2], EV.B[0], EV.B[1], EV.B[2], C_LOR, la);
+          if (feat && nb < 2) writeBeam(nb++, EV.A, EV.B, la * 1.1);
         }
       }
     }
-    fxL.visible = nl > 0; fxP.visible = np > 0;
-    fxG.setDrawRange(0, nl * 2); fxPG.setDrawRange(0, np);
-    for (const [geo, n, sz] of [[fxG, nl * 2, { position: 3, aCol: 3, aA: 1 }], [fxPG, np, { position: 3, aCol: 3, aSize: 1, aA: 1 }]]) {
-      if (!n) continue;
-      for (const k in sz) { const at = geo.attributes[k]; at.updateRange.offset = 0; at.updateRange.count = n * sz[k]; at.needsUpdate = true; }
-    }
+    fxL.visible = nl > 0; fxP.visible = np > 0; beam.visible = nb > 0;
+    fxG.setDrawRange(0, nl * 2); fxPG.setDrawRange(0, np); beamG.setDrawRange(0, nb * 6);
+    send(fxG, nl * 2, FXL_AT); send(fxPG, np, FXP_AT); send(beamG, nb * 4, BEAM_AT);
+    if (nLit || litBefore) cg.attributes.aG.needsUpdate = true;
     // the vision row fades in left to right
     const e = k => smooth(prog(vision, k, k + 0.2));
     SU.uE.value.set(e(0.12), e(0.36), e(0.62), 0);
@@ -936,18 +1117,24 @@ void main() {
     netU.uF.value = e(0.44); iconU.uF.value = e(0.48);
     neonU.uG.value.set(prog(vision, 0.7, 0.86), prog(vision, 0.74, 0.9), prog(vision, 0.78, 0.94), prog(vision, 0.8, 1.0));
   }
-  const smoothstep01 = x => smooth(clamp(x, 0, 1));
+  const FXL_AT = { position: 3, aCol: 3, aA: 1 }, FXP_AT = { position: 3, aCol: 3, aSize: 1, aA: 1 }, BEAM_AT = { position: 3, aB: 3, aA: 1 };
+  // upload only the part of a packed buffer that is drawn
+  function send(geo, n, sz) {
+    if (!n) return;
+    for (const k in sz) { const at = geo.attributes[k]; at.updateRange.offset = 0; at.updateRange.count = n * sz[k]; at.needsUpdate = true; }
+  }
 
   // ------------------------------------------------------------------ exports --
   const anchors = {
     centre: () => sp([0, 0, 0]), bore: () => sp([0, 0, 0.8]), ring: () => sp([0, RC1 + 0.12, 0]), gantry: () => sp([0.62, 0.98, 0.55]),
     couch: () => sp([0.27, TOP - 0.03, tableZ + 1.95]), patient: () => pp([0, 0.32, 0.1]), head: () => pp([0, 0.76, 0.08]),
-    tumour: () => pp(TUMOUR), event: () => (featured.on ? sp(featured.p) : sp([0, -0.05, 0])), lor: () => (featured.on ? sp(featured.lor) : sp([0.25, 0.25, 0])),
+    tumour: () => pp(TUMOUR), event: () => (featured.on ? sp(featured.p) : sp([0, 0.1, 0])), lor: () => (featured.on ? sp(featured.lor) : sp([-0.36, -0.2, 0])),
     floor: () => sp([0, FLOOR, 0]), vision_scan: () => sp([-0.2, 1.12, 0.2]), vision_body: [VX.body - 0.15, 0.84, 0], vision_net: [VX.net - 0.3, 0.84, 0],
     vision_prog: [VX.prog - 0.55, 0.8, 0], vision_med: [VX.prog - 0.55, 0.0, 0],
   };
   const rowA = (S, k) => prog(S.scan_vision || 0, k, k + 0.15);
   const notRow = S => 1 - prog(S.scan_vision || 0, 0, 0.2);
+  const evLab = S => notRow(S) * (1 - prog(S.scan_image || 0, 0, 0.3)) * (featured.on ? 1 : 0);
   return Object.assign(set, {
     params: { scan_a: 1, scan_bed: 0, scan_pass: 0, scan_cut: 0, scan_events: 0, scan_lines: 0, scan_image: 0, scan_vision: 0, scan_floor: 1 },
     floorY: FLOOR,
@@ -956,9 +1143,10 @@ void main() {
     labels: [
       { text: ['PET/CT scanner', ''], at: 'gantry', cls: 'cyn', alpha: S => notRow(S) * (1 - prog(S.scan_cut || 0, 0, 0.4)) * (1 - prog(S.scan_image || 0, 0, 0.3)) },
       { text: ['Detector ring', ''], at: 'ring', cls: 'cyn', alpha: S => notRow(S) * prog(S.scan_cut || 0, 0.6, 1) * (1 - prog(S.scan_image || 0, 0, 0.3)) },
-      { text: ['Two gamma photons', ', 511 keV'], at: 'event', cls: 'amb', alpha: S => notRow(S) * prog(S.scan_events || 0, 0.005, 0.04) * (1 - prog(S.scan_lines || 0, 0.3, 0.6)) * (1 - prog(S.scan_image || 0, 0, 0.3)) },
-      { text: ['Line of response', ''], at: 'lor', cls: 'amb', alpha: S => notRow(S) * prog(S.scan_events || 0, 0.01, 0.05) * (1 - prog(S.scan_lines || 0, 0.4, 0.7)) * (1 - prog(S.scan_image || 0, 0, 0.3)) },
-      { text: ['FDG', ' in the patient'], at: 'patient', cls: 'amb', alpha: S => notRow(S) * prog(S.scan_image || 0, 0.5, 0.9) },
+      // the featured event's labels: the photons' brighter while they fly, the line's once a line has been drawn
+      { text: ['Two gamma photons', '· 511 keV each'], at: 'event', cls: 'amb', alpha: S => evLab(S) * prog(S.scan_events || 0, 0.005, 0.04) * (1 - prog(S.scan_lines || 0, 0.3, 0.6)) * (0.45 + 0.55 * featured.env) },
+      { text: ['Line of response', ''], at: 'lor', cls: 'amb', alpha: S => evLab(S) * featured.lorOn * prog(S.scan_events || 0, 0.01, 0.05) * (1 - prog(S.scan_lines || 0, 0.4, 0.7)) },
+      { text: ['FDG', 'in the patient'], at: 'patient', cls: 'amb', alpha: S => notRow(S) * prog(S.scan_image || 0, 0.5, 0.9) },
       { text: ['PET scan', ''], at: 'vision_scan', alpha: S => rowA(S, 0.3) },
       { text: ['One body', ''], at: 'vision_body', alpha: S => rowA(S, 0.4) },
       { text: ['One network', ''], at: 'vision_net', alpha: S => rowA(S, 0.6) },
@@ -967,17 +1155,19 @@ void main() {
     ],
     cam: {
       default: [34, 13, 7.2, 0, -0.25, 0.95], front: [0, 4, 6.4, 0, -0.1, 0.4], ring: [28, 22, 2.4, 0, -0.02, 0], side: [90, 6, 7.6, 0, -0.25, 0.9],
-      inside: [0, 7, 1.3, 0, -0.06, -0.3], vision: [0, 3, 7.7, 0, -0.02, 0], life: [20, 12.4, 2.56, 0, 0, 0.8],
+      inside: [0, 18, 1.1, 0, -0.08, -0.35], vision: [0, 3, 8.2, 0, -0.02, 0], life: [20, 12.4, 2.56, 0, 0, 0.8],
     },
     controls: [
       { key: 'view', label: 'View', options: [['scanner', 'Scanner'], ['ring', 'Ring'], ['inside', 'Inside'], ['vision', 'Vision']] },
       { key: 'events', label: 'Events', options: [['off', 'Off'], ['on', 'On']] },
       { key: 'image', label: 'Image', options: [['lines', 'Lines'], ['image', 'Image']] },
     ],
+    // every view but Vision: the couch in with the chest in the ring (switching views never moves it); the housing
+    // opens in Ring, and in Scanner while events or the image show (closed, it hid them)
     explore(c) {
       const row = c.view === 'vision', on = c.events === 'on' && !row, im = c.image === 'image' && !row;
       return {
-        scan_bed: row ? 0 : 1, scan_pass: row ? 0 : 0.4, scan_cut: c.view === 'ring' ? 1 : 0, scan_vision: row ? 1 : 0,
+        scan_bed: row ? 0 : 1, scan_pass: row ? 0 : 0.4, scan_cut: c.view === 'ring' || (c.view === 'scanner' && (on || im)) ? 1 : 0, scan_vision: row ? 1 : 0,
         scan_events: on ? 1 : 0, scan_lines: on && !im ? 1 : 0, scan_image: im ? 1 : 0,
       };
     },

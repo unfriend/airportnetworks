@@ -49,7 +49,7 @@ const APP = {
     for (const k of SET_ORDER) if (S[k + '_a'] > ba + 0.01) { ba = S[k + '_a']; best = k; }
     if (best === 'body' && S.organs_a > 0.3) best = 'organs';   // (the organs lie in the body)
     // the story's view, taken back into the set's own frame (explore shows sets unturned)
-    const v = storyCam(ts).slice(), r = -setYaw(best, ts) * D2R, x = v[3], z = v[5];
+    const v = storyCam(ts).slice(0, 6), r = -setYaw(best, ts) * D2R, x = v[3], z = v[5];
     v[0] += r / D2R; v[3] = x * Math.cos(r) + z * Math.sin(r); v[5] = -x * Math.sin(r) + z * Math.cos(r);
     orbit.cur = v; orbit.to = null;
     X.scene = best; X.t0 = performance.now();
@@ -68,11 +68,14 @@ const APP = {
       }
       X.ctl[best][ct.key] = bo;
     }
+    // (the search tried every option on the set: a set that remembers what it showed last, as the organs do for their
+    // network's crossfade, is told the chosen ones, long settled, twice)
+    if (s.explore) { const c = { t: 1e3 }; for (const c2 of s.controls || []) c[c2.key] = ctlValue(best, c2); s.explore(c); s.explore(c); }
     // the story's network, organ, profile and group carry over to the panels (the controls hold the network and the
     // profile: the closest ones were picked above)
     X.organ = null; X.u = null; X.group = 0; X.cmp = -1; X.theta = Number.isFinite(S.people_theta) ? round2(clamp(S.people_theta, 1.1, 3)) : S1.theta;
     if (best === 'organs' && S.organs_focus > 0.5) X.organ = PD.ids[Math.round(S.organs_focus) - 1] || null;
-    if (best === 'organs' && S.organs_net > 0.5) { const w = NET_IDS[Math.round(S.organs_which)]; if (w) { if (!netCtl()) X.net = w; X.cmp = rowOfNet(w); } }
+    if (best === 'organs' && S.organs_net > 0.5) { const w = NET_IDS[Math.round(S.organs_which)]; if (w) { if (!netCtl()) X.net = w; X.cmp = cmpOfNet(w); } }
     if (best === 'people' && !netCtl()) X.profile = (PROFILES[Math.round(S.people_profile)] || PROFILES[0])[0];
     if (best === 'people' && S.people_group > 0.5) X.group = clamp(Math.round(S.people_group), 0, POSTER.groups.length);
     X.tab = best === 'organs' ? (S.organs_net > 0.5 ? 'networks' : 'organs') : best === 'people' ? (S.people_map > 0.5 ? 'people' : 'one') : 'scenes';
@@ -121,12 +124,16 @@ function frame(now, xrFrame) {
   const ts = storyT(APP.t); // original story time for this point in the narration
   if (APP.mode === 'story') {
     S = storyState(ts); tSet = ts;
-    if (xr) xrPlace(storyCam(ts)); else { applyCamera(storyCam(ts)); keepCamera(S, ts); }
+    const v = storyCam(ts);
+    GL.nf = v[6];
+    if (xr) xrPlace(v); else { applyCamera(v); keepCamera(S, ts); }
     updateStoryDOM(ts);
     updateTimeline(APP.t, APP.playing);
   } else {
     const pn = performance.now();
     S = exploreStep(dt, pn); tSet = pn / 1000;
+    // (a wide view stands further back on a phone held upright: eased as the views change)
+    GL.nf += ((X.life && X.scene === 'scan' ? 1 : narrowOf(X.scene, viewCam(X.scene) || 'default')) - GL.nf) * (1 - Math.exp(-dt * 3));
     orbitStep(xr ? pn : now);
     if (xr) xrPlace(orbit.cur); else { applyCamera(orbit.cur); keepCamera(S, null); }
   }
@@ -200,7 +207,7 @@ function init() {
     // controls after the default view, so a control's own view wins
     for (const c of ctlsOf(X.scene)) if (hp.get(c.key) && c.options.some(o => o[0] === hp.get(c.key))) setCtl(X.scene, c.key, hp.get(c.key));
     if (hp.get('cmp') !== null && hp.get('cmp') !== '') { const i = parseInt(hp.get('cmp'), 10); if (i >= 0 && i < PD.D.table2.length) { showTab('networks'); selectCmp(i); } }
-    if (NET_IDS.includes(hp.get('net'))) { showTab('networks'); showNet(hp.get('net')); }
+    if (NET_IDS.includes(hp.get('net'))) { showTab('networks'); pickNet(hp.get('net')); }
     if (PD.byId[hp.get('organ')]) { showTab('organs'); selectOrgan(hp.get('organ')); }
     if (PROFILES.some(p => p[0] === hp.get('profile'))) { showTab('one'); selectProfile(hp.get('profile')); }
     if (hp.get('u')) { const u = hp.get('u').split(',').map(Number); if (u.length === ONE_N && u.every(Number.isFinite)) { showTab('one'); setUs(u); showOne(); } }

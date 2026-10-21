@@ -58,9 +58,13 @@ function viewDir(v, out) {
   const A = v[0] * D2R, E = clamp(v[1], -85, 85) * D2R;
   return out.set(Math.cos(E) * Math.sin(A), Math.sin(E), Math.cos(E) * Math.cos(A));
 }
+// on a screen narrower than square (a phone held upright) a wide view stands further back: GL.nf is the view's own
+// factor (NARROW in the story; 1 for most views), taken in full at half as wide as tall
+GL.nf = 1;
+const narrowK = () => (GL.wide || !(GL.nf > 1) ? 1 : 1 + (GL.nf - 1) * clamp((1 - (GL.aspect || 1)) / 0.5, 0, 1));
 function applyCamera(v) {
   viewDir(v, _vd); _vt.set(v[3], v[4], v[5]);
-  GL.camera.position.copy(_vt).addScaledVector(_vd, v[2] * (GL.fit || 1));
+  GL.camera.position.copy(_vt).addScaledVector(_vd, v[2] * (GL.fit || 1) * narrowK());
   GL.camera.up.set(0, 1, 0); GL.camera.lookAt(_vt);
 }
 // sets on show may keep the camera out of their solid parts (as the muscle story's supercomputer does): keepOut takes the camera's
@@ -85,7 +89,7 @@ function resize() {
   renderer.setSize(w, h, false);
   camera.aspect = w / h;
   const wide = w >= 900;
-  GL.wide = wide;
+  GL.wide = wide; GL.aspect = w / h;
   if (wide) camera.setViewOffset(w, h, -0.14 * w, 0, w, h);
   else camera.setViewOffset(w, h, 0, 0.21 * h, w, h);
   GL.fit = wide ? Math.max(1, 1.55 / (w / h)) : Math.max(1.15, 1.5 / (w / h) * 0.62);

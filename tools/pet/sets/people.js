@@ -2,8 +2,9 @@
 // person's organ uptakes (bars), the 7 x 7 field of their pairwise log ratios (glowing columns), a glass threshold
 // plane, the lit columns flying up to become this person's directed network on a ring, its two measures (Clearance,
 // Heterogeneity) on gauges and the metabolic displacement index on a dial. Then the poster's results, as group
-// summaries only: 593 stand-in dots on a map of the two measures that slide onto the index axis (the strip plot),
-// survival by the index's thirds, the immunotherapy test (two summary bands and the AUC bars) and follow-up.
+// summaries only: 593 stand-in dots on a map of the two measures (with lines of equal index) that drop into the four
+// rows of the poster's strip plot, survival by the index's thirds, the immunotherapy test (two summary bands and the
+// AUC bars) and follow-up (illustrative).
 // The one-scan maths is the stand-in of tools/pet/data/gen_data.mjs (the poster names the measures; its formulas are not
 // published). The dots are drawn (seeded) to follow each group's summary, never real patients. Everything is built
 // once; update() sets uniforms, a few dozen instances and, when a value changes, the gauges' small readout.
@@ -172,8 +173,8 @@ void main() {
     };
   }
 
-  // a canvas texture on a plane (square power-of-two canvas, so mipmaps work everywhere): draw(ctx, X, Y, px)
-  // gets x and y in the plane's local units; the plane's alpha is set with .k
+  // a canvas texture on a plane (a canvas of the plane's shape, size pixels wide; WebGL 2 mipmaps any size):
+  // draw(ctx, X, Y, px) gets x and y in the plane's local units; the plane's alpha is set with .k
   const FONT = 'system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif';
   const font = (w, px) => `${w} ${Math.round(px)}px ${FONT}`;
   function textPlane(parent, cx, cy, z, w, h, size, order, draw) {
@@ -254,9 +255,11 @@ void main() {
 
   // ================================================================ ONE SCAN
   // ---------------------------------------------------------------- the bars (poster's panel 3)
-  const BY = k => 0.66 - k * 0.1, BX0 = 0.075, BK = 0.16, BTRK = 5 * BK;    // rows, the track's start, units per SUV
-  const bPill = pillSet(gBars, 2 * N + 1, 3, false);
-  bPill.put(2 * N, 0.46, BY((N - 1) / 2), -0.02, 0.56, 0.38, 0.05, 0, PANEL, 0.55, 1, 0.0025);
+  // as on the poster: the organs' names on the left, the bars on a track to the right (here with an SUV scale)
+  const BY = k => 0.66 - k * 0.1, BX0 = 0.35, BK = 0.15, BTRK = 5 * BK;    // rows, the track's start, units per SUV
+  const BPX = [-0.075, BX0 + BTRK + 0.045], BPY = [BY(N - 1) - 0.135, BY(0) + 0.07];   // the panel's extent
+  const bgB = pillSet(gBars, 1, 1, false), bPill = pillSet(gBars, 2 * N, 3, false);
+  bgB.put(0, (BPX[0] + BPX[1]) / 2, (BPY[0] + BPY[1]) / 2, -0.02, (BPX[1] - BPX[0]) / 2, (BPY[1] - BPY[0]) / 2, 0.05, 0, PANEL, 0.72, 1, 0.0025);
   for (let i = 0; i < N; i++) {
     bPill.put(i, BX0 + BTRK / 2, BY(i), -0.004, BTRK / 2, 0.021, 0.021, 0, [0.16, 0.2, 0.28], 0.55);
     bPill.put(N + i, BX0, BY(i), 0, 0.001, 0.021, 0.021, 0.022, OCOL[i], 1);
@@ -265,6 +268,13 @@ void main() {
   const bLines = lineSet(gBars, 4, 2);
   for (let v = 1; v <= 5; v++) bLines.seg([BX0 + v * BK, BY(N - 1) - 0.05, -0.006], [BX0 + v * BK, BY(0) + 0.045, -0.006], MUTED, v % 2 ? 0.12 : 0.2, 0);
   bLines.build();
+  const bTex = textPlane(gBars, (BPX[0] + BPX[1]) / 2, (BPY[0] + BPY[1]) / 2, -0.01, BPX[1] - BPX[0], BPY[1] - BPY[0], 1024, 4, (c, X, Y, px) => {
+    c.textBaseline = 'middle'; c.textAlign = 'left';
+    ORG.forEach((o, i) => { c.font = font(600, 0.058 * px); c.fillStyle = hexOf(l3(OCOL[i], INK, 0.55)); c.fillText(o.short || o.name, X(0.058), Y(BY(i))); });
+    c.font = font(600, 0.036 * px); c.fillStyle = hexOf(l3(MUTED, INK, 0.25)); c.textAlign = 'center';
+    for (let v = 0; v <= 5; v++) c.fillText(String(v), X(BX0 + v * BK), Y(BY(N - 1) - 0.075));
+    c.textAlign = 'left'; c.fillText('mean SUV', X(0.058), Y(BY(N - 1) - 0.075));
+  });
 
   // ---------------------------------------------------------------- the ratio field, the threshold plane
   const FY = -0.62, FZ = 0.3, FP = 0.155, HS = 0.3, HMAX = 0.98, CW = 0.104;   // floor, centre z, pitch, height per ln unit
@@ -546,6 +556,9 @@ void main() {
   // the readouts: one canvas, four cells (Clearance, Heterogeneity, index), redrawn when a value's text changes
   const RO = textPlane(gMet, 0, 0, 0.004, 1, 0.125, 1024, 4, null);
   RO.mesh.visible = false;
+  // each readout shows with its own gauge (uCK: the three cells' alphas)
+  RO.m.uniforms.uCK = { value: new THREE.Vector3() };
+  RO.m.fragmentShader = 'uniform sampler2D uMap; uniform float uA, uK; uniform vec3 uCK; varying vec2 vUv; void main() { vec4 c = texture2D(uMap, vUv); float ck = vUv.x < 0.25 ? uCK.x : (vUv.x < 0.5 ? uCK.y : uCK.z); float a = c.a * uA * uK * ck; if (a < 0.003) discard; gl_FragColor = vec4(c.rgb, a); }';
   RO.mesh.geometry.dispose();
   {
     const cells = [[GA.C[0], GA.C[1] - 0.115, 0.15], [GA.H[0], GA.H[1] - 0.115, 0.15], [GA.X[0], GA.X[1] - 0.175, 0.2]];
@@ -575,10 +588,18 @@ void main() {
   }
 
   // ================================================================ THE POPULATION
+  // ---------------------------------------------------------------- the strip: the index axis and the poster's four rows
+  const AXMAX = (Array.isArray(MD.axis) && MD.axis[1] > 1) ? MD.axis[1] : 10.7, SX0 = -1.32, SW = 2.64, SK = SW / AXMAX, AXY = -0.3, STOP = 0.56;
+  const SX = v => SX0 + v * SK;
+  const ORDERG = (Array.isArray(MD.order) && MD.order.length ? MD.order : ['dys', 'healthy', 'both', 'cancer']).filter(k => GKEY.includes(k));
+  GKEY.forEach(k => { if (!ORDERG.includes(k)) ORDERG.push(k); });
+  const ROWY = GKEY.map(k => 0.45 - ORDERG.indexOf(k) * 0.19);
+  const LABX = SX(Math.min(AXMAX - 2.6, 8.0));                          // where the rows' labels sit
   // ---------------------------------------------------------------- stand-in dots that follow the poster's summaries
   // each group's index values come from its quantiles (min, p10, p25, median, p75, p90, max; or a normal spread from
-  // its error bar), stratified so the summary is met; each dot's two measures are placed so that m + a C + b H gives
-  // its value: along the index's gradient from the group's illustrative profile, with a spread along the iso-line
+  // its error bar), stratified so the summary is met. Each dot's two measures are placed so that m + a C + b H gives
+  // its value exactly: Heterogeneity falls as the index rises (as it does through the four illustrative profiles),
+  // with a spread, and Clearance makes up the rest
   const probit = p => { p = clamp(p, 1e-4, 1 - 1e-4); const q = p < 0.5 ? p : 1 - p, t = Math.sqrt(-2 * Math.log(q)); const x = t - (2.515517 + 0.802853 * t + 0.010328 * t * t) / (1 + 1.432788 * t + 0.189269 * t * t + 0.001308 * t * t * t); return p < 0.5 ? -x : x; };
   function quantFn(g) {
     const q = g.q || {}, err = Array.isArray(g.err) ? g.err : null, kn = [];
@@ -595,46 +616,56 @@ void main() {
   }
   const strat = (n, k) => (n === 1 ? 0.5 : k === 0 ? 0 : k === n - 1 ? 1 : (k + R()) / n);
   const shuffle = a => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(R() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
-  const GAa = PROJ.a, GBb = PROJ.b, G2 = GAa * GAa + GBb * GBb || 1, GLn = Math.sqrt(G2), ISO = [-GBb / GLn, GAa / GLn], SPREAD = 0.06;
   const QF = MG.map(g => (g ? quantFn(g) : null));
+  const AA = Math.abs(PROJ.a) > 1e-6 ? PROJ.a : 1, pv = p => PROJ.m + PROJ.a * p.C + PROJ.b * p.H;
+  let sH = 0;                                                           // Heterogeneity per index unit, through the profiles
+  {
+    const ps = PROF.map(k => SP[k]).filter(p => p && Number.isFinite(p.C) && Number.isFinite(p.H));
+    const mx = ps.reduce((s, p) => s + pv(p), 0) / (ps.length || 1), my = ps.reduce((s, p) => s + p.H, 0) / (ps.length || 1);
+    let sxy = 0, sxx = 0;
+    for (const p of ps) { sxy += (pv(p) - mx) * (p.H - my); sxx += (pv(p) - mx) * (pv(p) - mx); }
+    if (sxx > 1e-9) sH = sxy / sxx;
+  }
   const DOTS = [];
   GKEY.forEach((key, g) => {
-    const s = MG[g]; if (!s || !(s.n > 0)) return;
-    const n = Math.round(s.n), pc = SP[key] || P0, m0 = PROJ.m + GAa * pc.C + GBb * pc.H;
+    const s = MG[g]; if (!s || !(s.n > 0) || !QF[g]) return;
+    const n = Math.round(s.n), pc = SP[key] || P0, v0 = pv(pc);
     const vals = shuffle(Array.from({ length: n }, (_, k) => QF[g](strat(n, k))));
     for (const v of vals) {
-      const t = (v - m0) / G2, b = K.gauss(R) * SPREAD;
-      DOTS.push({ g, v, C: pc.C + GAa * t + ISO[0] * b, H: pc.H + GBb * t + ISO[1] * b, k: R(), jy: R() - 0.5, jz: R() - 0.5, mz: R() - 0.5 });
+      const H = Math.max(0.01, pc.H + sH * (v - v0) + K.gauss(R) * 0.06);
+      DOTS.push({ g, v, C: (v - PROJ.m - PROJ.b * H) / AA, H, k: R(), jy: R() - 0.5, jz: R() - 0.5, mz: R() - 0.5 });
     }
   });
   const NDOT = DOTS.length;
-  // the map: Clearance across, Heterogeneity up, scaled to the dots (the stand-ins have no units to show)
-  let c0 = Infinity, c1 = -Infinity, h0 = Infinity, h1 = -Infinity;
-  for (const d of DOTS) { c0 = Math.min(c0, d.C); c1 = Math.max(c1, d.C); h0 = Math.min(h0, d.H); h1 = Math.max(h1, d.H); }
-  if (!(c1 > c0)) { c0 = 0; c1 = 1; } if (!(h1 > h0)) { h0 = 0; h1 = 0.5; }
-  const MAPR = { x0: -1.0, x1: 1.0, y0: -0.28, y1: 0.86 };
-  const MX = C => lerp(MAPR.x0, MAPR.x1, (C - c0) / (c1 - c0)), MY = H => lerp(MAPR.y0, MAPR.y1, (H - h0) / (h1 - h0));
-  // the strip: the index axis (0 to the poster's 10.7) and four rows, the poster's order from the top
-  const AXMAX = (Array.isArray(MD.axis) && MD.axis[1] > 1) ? MD.axis[1] : 10.7, SX0 = -1.32, SW = 2.64, SK = SW / AXMAX, AXY = -0.3;
-  const SX = v => SX0 + v * SK;
-  const ORDERG = (Array.isArray(MD.order) && MD.order.length ? MD.order : ['dys', 'healthy', 'both', 'cancer']).filter(k => GKEY.includes(k));
-  GKEY.forEach(k => { if (!ORDERG.includes(k)) ORDERG.push(k); });
-  const ROWY = GKEY.map(k => 0.45 - ORDERG.indexOf(k) * 0.19);
-  // follow-up (illustrative): the poster's follow-up groups; surgery and immunotherapy move towards the healthy range
-  const FU = ((PO.cohort || {}).followup || []).map(f => ({ name: cap(String(f.group || '')).replace(/^Neoadjuvant ICI$/i, 'Immunotherapy before surgery'), n: Math.round(+f.n || 0),
-    from: /bariatric|obes/i.test(f.group) ? 2 : /ici|immuno|lung/i.test(f.group) ? 0 : -1 })).filter(f => f.n > 0).slice(0, 3);
-  const FUY = FU.map((f, k) => 0.9 - k * 0.12);
-  const POOL = DOTS.map(d => d.v).sort((a, b) => a - b);
-  const QH = QF[3] || (u => 4.5);
+  // the map shares the strip's frame: Heterogeneity up, Clearance across, scaled so that every line of equal index
+  // meets the axis at that index; the strip then only straightens those lines and sorts the people into their rows
+  const Hs = DOTS.map(d => d.H).sort((a, b) => a - b), hq = q => Hs[Math.round(q * (Hs.length - 1))];
+  let h0 = Hs.length ? hq(0.01) : 0, h1 = Hs.length ? hq(0.99) : 0.5;
+  if (!(h1 > h0 + 1e-6)) { h0 = 0; h1 = 0.5; }
+  const MY0 = AXY + 0.09, MY1 = 0.74, HAX = h0 - (MY0 - AXY) / (MY1 - MY0) * (h1 - h0);    // HAX: Heterogeneity at the axis
+  const MX = C => SX(PROJ.m + AA * C + PROJ.b * HAX), MY = H => MY0 + (H - h0) / (h1 - h0) * (MY1 - MY0);
+  const isoX = (w, y) => SX(w - PROJ.b * (HAX + (y - AXY) / (MY1 - MY0) * (h1 - h0) - HAX));   // the line of index w at height y
+  const mapPt = (C, H, z) => [clamp(MX(C), SX0 - 0.03, SX0 + SW), clamp(MY(H), MY0 - 0.07, MY1 + 0.07), z];
+  // follow-up (illustrative: the poster gives the groups and their sizes, not their values): its three follow-up groups
+  // as rings on the row of the people they come from (no intervention: people scanned again with nothing done in
+  // between, beside the healthy volunteers in the poster's table, on the healthy row; bariatric surgery: beside the
+  // people with obesity, on the dyslipidaemia row; immunotherapy before surgery: people with lung cancer, on the cancer
+  // row), drawn from their row's summary; surgery and immunotherapy move towards the healthy range, no intervention stays
+  const PG = PO.prognosis || {}, PST = PG.strip || {};
+  const RG = PST.good || null, RB = PST.bad || PST.poor || null, QH = QF[3] || (u => 4.5);
+  const FU = ((PO.cohort || {}).followup || []).map(f => {
+    const s = `${f.group || ''} ${f.row_beside || ''}`, kind = /\bici\b|immun|checkpoint|lung/i.test(s) ? 'ici' : /bariatric|obes/i.test(s) ? 'bar' : 'none';
+    return { kind, row: kind === 'ici' ? 0 : kind === 'bar' ? 2 : 3, n: Math.round(+f.n || 0), name: kind === 'ici' ? 'Immunotherapy before surgery' : cap(String(f.group || '')) };
+  }).filter(f => f.n > 0).slice(0, 3);
   const FDOTS = [];
   FU.forEach((f, k) => {
     for (let q = 0; q < f.n; q++) {
-      const u = strat(f.n, q), v0 = f.from >= 0 && QF[f.from] ? QF[f.from](u) : POOL.length ? POOL[Math.min(POOL.length - 1, Math.floor(u * POOL.length))] : 4.5;
-      const v1 = f.from >= 0 ? lerp(v0, QH(0.15 + 0.7 * R()), 0.75) : v0;
-      FDOTS.push({ f: k, v0, v1, k: R(), jy: R() - 0.5, jz: R() - 0.5, col: f.from >= 0 ? GCOL[f.from] : MUTED });
+      const qf = QF[f.row] || QH, v0 = qf(strat(f.n, q)), v1 = f.kind === 'none' ? v0 : lerp(v0, QH(0.15 + 0.7 * R()), 0.7);
+      FDOTS.push({ f: k, row: f.row, v0, v1, k: R(), jy: R() - 0.5, jz: R() - 0.5, col: f.kind === 'none' ? GCOL[3] : GCOL[f.row] });
     }
   });
   const NFD = FDOTS.length;
+  const fuPos = (d, v) => [SX(v), ROWY[d.row] + d.jy * 0.1, 0.05 + d.jz * 0.04];
 
   // ---------------------------------------------------------------- the dots (one draw: map, strip, follow-up rings)
   const dotMat = new THREE.ShaderMaterial({
@@ -660,7 +691,7 @@ void main() {
     pos = mix(aStr, aEnd, s);
     a = smoothstep(0.0, 0.25, uFol) * uMdi * uDim * gf;
     vC = mix(aCol, uHealthy, s * step(0.001, distance(aEnd, aStr)));
-    vRing = 1.0; sz = 0.034;
+    vRing = 1.0; sz = 0.036;
   }
   vA = a * uA;
   vec4 mv = modelViewMatrix * vec4(pos, 1.0);
@@ -698,19 +729,19 @@ void main() {
 }`,
   });
   set.mats.push(dotMat);
-  const DMAP = [], DSTR = [], STATS = GKEY.map(() => ({ n: 0, x: 0, y: 0, z: 0 }));
+  const STATS = GKEY.map(() => ({ n: 0, x: 0, y: 0, z: 0 }));
   {
     const n = NDOT + NFD, geo = new THREE.BufferGeometry(), A = { position: new Float32Array(3 * n), aMap: new Float32Array(3 * n), aStr: new Float32Array(3 * n), aEnd: new Float32Array(3 * n), aCol: new Float32Array(3 * n), aD: new Float32Array(4 * n) };
     DOTS.forEach((d, q) => {
-      const mp = [MX(d.C), MY(d.H), d.mz * 0.08], sp = [SX(d.v), ROWY[d.g] + d.jy * 0.13, d.jz * 0.12];
-      DMAP.push(mp); DSTR.push(sp);
+      const mp = mapPt(d.C, d.H, d.mz * 0.08), sp = [SX(d.v), ROWY[d.g] + d.jy * 0.13, d.jz * 0.12];
       const st = STATS[d.g]; st.n++; st.x += mp[0]; st.y += mp[1]; st.z += mp[2];
       A.aMap.set(mp, 3 * q); A.aStr.set(sp, 3 * q); A.aEnd.set(sp, 3 * q); A.aCol.set(GCOL[d.g], 3 * q);
-      A.aD.set([d.g, d.k, clamp((d.C - c0) / (c1 - c0), 0, 1), clamp((d.H - h0) / (h1 - h0), 0, 1)], 4 * q);
+      // the mini network's shape: the kidneys' spokes by Clearance, one node by Heterogeneity
+      A.aD.set([d.g, d.k, clamp(d.C, 0, 1), clamp((d.H - h0) / (h1 - h0), 0, 1)], 4 * q);
     });
     FDOTS.forEach((d, q0) => {
-      const q = NDOT + q0, y = FUY[d.f] + d.jy * 0.07, z = d.jz * 0.08;
-      A.aStr.set([SX(d.v0), y, z], 3 * q); A.aEnd.set([SX(d.v1), y, z], 3 * q); A.aMap.set([SX(d.v0), y, z], 3 * q);
+      const q = NDOT + q0, s = fuPos(d, d.v0);
+      A.aStr.set(s, 3 * q); A.aEnd.set(fuPos(d, d.v1), 3 * q); A.aMap.set(s, 3 * q);
       A.aCol.set(d.col, 3 * q); A.aD.set([4 + d.f, d.k, 0, 0], 4 * q);
     });
     for (const k in A) geo.setAttribute(k, new THREE.BufferAttribute(A[k], k === 'aD' ? 4 : 3));
@@ -729,7 +760,7 @@ varying vec3 vC; varying float vA;
 void main() {
   float s = smoothstep(0.3 + 0.25 * aW.y, 0.72 + 0.25 * aW.y, uFol);
   vec3 p = mix(aStr, mix(aStr, aEnd, s), aW.x);
-  vC = mix(aCol, vec3(0.22, 0.74, 0.97), s * aW.x); vA = uA * uK * mix(0.06, 0.5, aW.x) * step(0.001, distance(aEnd, aStr)) * smoothstep(0.0, 0.1, s);
+  vC = mix(aCol, vec3(0.22, 0.74, 0.97), s * aW.x); vA = uA * uK * mix(0.08, 0.6, aW.x) * step(0.001, distance(aEnd, aStr)) * smoothstep(0.0, 0.1, s);
   gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0);
 }`,
     fragmentShader: 'varying vec3 vC; varying float vA; void main() { if (vA < 0.003) discard; gl_FragColor = vec4(vC, vA); }',
@@ -738,7 +769,7 @@ void main() {
   if (NFD) {
     const geo = new THREE.BufferGeometry(), A = { position: new Float32Array(6 * NFD), aStr: new Float32Array(6 * NFD), aEnd: new Float32Array(6 * NFD), aCol: new Float32Array(6 * NFD), aW: new Float32Array(4 * NFD) };
     FDOTS.forEach((d, q) => {
-      const y = FUY[d.f] + d.jy * 0.07, z = d.jz * 0.08, s = [SX(d.v0), y, z], e = [SX(d.v1), y, z];
+      const s = fuPos(d, d.v0), e = fuPos(d, d.v1);
       for (let w = 0; w < 2; w++) { A.aStr.set(s, 6 * q + 3 * w); A.aEnd.set(e, 6 * q + 3 * w); A.aCol.set(d.col, 6 * q + 3 * w); A.aW.set([w, d.k], 4 * q + 2 * w); }
     });
     for (const k in A) geo.setAttribute(k, new THREE.BufferAttribute(A[k], k === 'aW' ? 2 : 3));
@@ -751,47 +782,73 @@ void main() {
   const person = new THREE.Points(perGeo, K.points(set, { additive: false, hard: true }));
   person.frustumCulled = false; person.renderOrder = 8; gPop.add(person);
 
-  // ---------------------------------------------------------------- the strip's and the map's frames, summaries
-  const pPill = pillSet(gPop, 16, 7, false), bgPill = pillSet(gPop, 5, 1, false);
+  // ---------------------------------------------------------------- the frame (map and strip), summaries, lines of equal index
+  const pPill = pillSet(gPop, 16, 7, false), bgPill = pillSet(gPop, 4, 1, false);
   // the map's legend (the poster's): a swatch per group, its label beside it
-  const LEG = k => [MAPR.x1 - 0.6, MAPR.y1 - 0.01 - k * 0.1, 0.02];
+  const LEG = k => [SX0 + SW - 0.6, MY1 - ORDERG.indexOf(GKEY[k]) * 0.1, 0.02];   // in the rows' order, so the names glide straight down
   GKEY.forEach((key, k) => { const p = LEG(k); pPill.put(12 + k, p[0] - 0.03, p[1], p[2], 0.016, 0.016, 0.016, 0.012, GCOL[k], 1); });
-  const P_MAP = 0, P_STRIP = 1, P_SH0 = 2, P_SH1 = 3, P_HB = 4;
-  bgPill.put(P_MAP, (MAPR.x0 + MAPR.x1) / 2, (MAPR.y0 + MAPR.y1) / 2, -0.12, (MAPR.x1 - MAPR.x0) / 2 + 0.13, (MAPR.y1 - MAPR.y0) / 2 + 0.12, 0.05, 0, PANEL, 0.6, 1, 0.0025);
-  bgPill.put(P_STRIP, SX0 + SW / 2, 0.21, -0.12, SW / 2 + 0.08, 0.58, 0.05, 0, PANEL, 0.6, 1, 0.0025);
+  const P_PANEL = 0, P_SH0 = 1, P_SH1 = 2, P_HB = 3, PNX = [SX0 - 0.15, SX0 + SW + 0.08], PNY = [AXY - 0.15, MY1 + 0.12];
+  bgPill.put(P_PANEL, (PNX[0] + PNX[1]) / 2, (PNY[0] + PNY[1]) / 2, -0.12, (PNX[1] - PNX[0]) / 2, (PNY[1] - PNY[0]) / 2, 0.05, 0, PANEL, 0.62, 1, 0.0025);
   const shaded = Array.isArray(MD.shaded) ? MD.shaded : [];
   [P_SH0, P_SH1].forEach((k, q) => {
     const r = shaded[q];
-    if (r) bgPill.put(k, SX((r[0] + r[1]) / 2), (AXY + 0.56) / 2, -0.1, (r[1] - r[0]) * SK / 2, (0.56 - AXY) / 2, 0.003, 0, [0.42, 0.46, 0.54], 0.1);
+    if (r) bgPill.put(k, SX((r[0] + r[1]) / 2), (AXY + STOP) / 2, -0.1, (r[1] - r[0]) * SK / 2, (STOP - AXY) / 2, 0.003, 0, [0.42, 0.46, 0.54], 0.13);
   });
   const HQ = MG[3] ? (Array.isArray(MG[3].err) ? MG[3].err : [QH(0.25), QH(0.75)]) : [4.1, 5];
-  bgPill.put(P_HB, SX((HQ[0] + HQ[1]) / 2), (AXY + 0.98) / 2, -0.09, (HQ[1] - HQ[0]) * SK / 2, (0.98 - AXY) / 2, 0.012, 0, GCOL[3], 0.12, 1, 0.003);
+  bgPill.put(P_HB, SX((HQ[0] + HQ[1]) / 2), (AXY + STOP + 0.1) / 2, -0.09, (HQ[1] - HQ[0]) * SK / 2, (STOP + 0.1 - AXY) / 2, 0.012, 0, GCOL[3], 0.13, 1, 0.003);
   // each group: the p10-p90 whisker, the interquartile bar (the poster's error bar) and the median (its big dot)
   MG.forEach((g, k) => {
-    if (!g) return;
+    if (!g || !QF[k]) return;
     const y = ROWY[k], z = 0.08, q = g.q || {}, e = Array.isArray(g.err) ? g.err : [QF[k](0.25), QF[k](0.75)];
     const w0 = Number.isFinite(q.p10) ? q.p10 : QF[k](0.1), w1 = Number.isFinite(q.p90) ? q.p90 : QF[k](0.9);
     pPill.put(3 * k, SX((w0 + w1) / 2), y, z, (w1 - w0) * SK / 2, 0.0045, 0.0045, 0, GCOL[k], 0.7);
     pPill.put(3 * k + 1, SX((e[0] + e[1]) / 2), y, z + 0.002, (e[1] - e[0]) * SK / 2, 0.019, 0.019, 0.014, GCOL[k], 0.95);
     pPill.put(3 * k + 2, SX(Number.isFinite(g.centre) ? g.centre : QF[k](0.5)), y, z + 0.004, 0.04, 0.04, 0.04, 0.022, GCOL[k], 1, 1, 0.007);
   });
-  // lines: map axes (group 0), strip axis and ticks (1), dashed lines (2), follow-up row guides (3)
+  // lines: the map's Heterogeneity axis and arrows (group 0), the shared axis line (1), the index's ticks (2), the
+  // poster's dashed lines (3)
   const pLines = lineSet(gPop, 4, 2);
   {
-    const x0 = MAPR.x0 - 0.06, y0 = MAPR.y0 - 0.06;
-    pLines.seg([x0, y0, -0.1], [MAPR.x1 + 0.05, y0, -0.1], INK, 0.6, 0).seg([x0, y0, -0.1], [x0, MAPR.y1 + 0.05, -0.1], INK, 0.6, 0);
-    pLines.seg([MAPR.x1 + 0.05, y0, -0.1], [MAPR.x1 + 0.02, y0 + 0.015, -0.1], INK, 0.6, 0).seg([MAPR.x1 + 0.05, y0, -0.1], [MAPR.x1 + 0.02, y0 - 0.015, -0.1], INK, 0.6, 0);
-    pLines.seg([x0, MAPR.y1 + 0.05, -0.1], [x0 - 0.015, MAPR.y1 + 0.02, -0.1], INK, 0.6, 0).seg([x0, MAPR.y1 + 0.05, -0.1], [x0 + 0.015, MAPR.y1 + 0.02, -0.1], INK, 0.6, 0);
-    pLines.seg([SX0, AXY, -0.08], [SX0 + SW, AXY, -0.08], INK, 0.7, 1);
-    for (let v = 0; v <= Math.floor(AXMAX); v++) pLines.seg([SX(v), AXY, -0.08], [SX(v), AXY - 0.025, -0.08], INK, 0.7, 1);
-    for (let v = 0.5; v < AXMAX; v += 1) pLines.seg([SX(v), AXY, -0.08], [SX(v), AXY - 0.012, -0.08], INK, 0.4, 1);
-    (Array.isArray(MD.dashed) ? MD.dashed : []).forEach(v => pLines.dash([SX(v), AXY, -0.09], [SX(v), 0.56, -0.09], 18, INK, 0.45, 2));
-    FUY.forEach(y => pLines.seg([SX0, y - 0.055, -0.1], [SX0 + SW, y - 0.055, -0.1], MUTED, 0.12, 3));
+    const x0 = SX0 - 0.04, xr = SX0 + SW + 0.03;
+    pLines.seg([x0, AXY, -0.08], [xr, AXY, -0.08], INK, 0.7, 1);
+    pLines.seg([xr, AXY, -0.08], [xr - 0.03, AXY + 0.015, -0.08], INK, 0.6, 0).seg([xr, AXY, -0.08], [xr - 0.03, AXY - 0.015, -0.08], INK, 0.6, 0);
+    pLines.seg([x0, AXY, -0.08], [x0, MY1 + 0.08, -0.08], INK, 0.6, 0);
+    pLines.seg([x0, MY1 + 0.08, -0.08], [x0 - 0.015, MY1 + 0.05, -0.08], INK, 0.6, 0).seg([x0, MY1 + 0.08, -0.08], [x0 + 0.015, MY1 + 0.05, -0.08], INK, 0.6, 0);
+    for (let v = 0; v <= Math.floor(AXMAX); v++) pLines.seg([SX(v), AXY, -0.08], [SX(v), AXY - 0.025, -0.08], INK, 0.7, 2);
+    for (let v = 0.5; v < AXMAX; v += 1) pLines.seg([SX(v), AXY, -0.08], [SX(v), AXY - 0.012, -0.08], INK, 0.4, 2);
+    (Array.isArray(MD.dashed) ? MD.dashed : []).forEach(v => pLines.dash([SX(v), AXY, -0.09], [SX(v), STOP, -0.09], 18, INK, 0.45, 3));
   }
   pLines.build();
+  // the lines of equal index: tilted on the map (the index weighs both measures), upright on the strip
+  const ISO = [];
+  for (let w = 1; w <= Math.floor(AXMAX); w++) ISO.push(w);
+  const isoGeo = K.linesGeo(ISO.length), isoMat = K.lines(set, {});
+  isoGeo.attributes.position.setUsage(THREE.DynamicDrawUsage); isoGeo.attributes.aA.setUsage(THREE.DynamicDrawUsage);
+  ISO.forEach((w, k) => { isoGeo.attributes.aCol.array.set(WARM, 6 * k); isoGeo.attributes.aCol.array.set(l3(WARM, INK, 0.3), 6 * k + 3); });
+  const isoLines = new THREE.LineSegments(isoGeo, isoMat);
+  isoLines.frustumCulled = false; isoLines.renderOrder = 2; gPop.add(isoLines);
+  let isoKey = -1;
+  function isoSet(q, al) {
+    const key = Math.round(q * 1000) + 1001 * Math.round(al * 1000);
+    if (key === isoKey) return;
+    isoKey = key;
+    const P = isoGeo.attributes.position.array, A = isoGeo.attributes.aA.array, yT = lerp(MY1 + 0.05, STOP, q);
+    ISO.forEach((w, k) => {
+      P.set([SX(w), AXY, -0.085, lerp(isoX(w, MY1 + 0.05), SX(w), q), yT, -0.085], 6 * k);
+      A[2 * k] = al * 0.7; A[2 * k + 1] = al * 0.15;
+    });
+    isoGeo.attributes.position.needsUpdate = true; isoGeo.attributes.aA.needsUpdate = true;
+    isoLines.visible = al > 0.003;
+  }
   const sTex = textPlane(gPop, SX0 + SW / 2, AXY - 0.06, -0.08, SW + 0.24, (SW + 0.24) / 16, 1024, 3, (c, X, Y, px) => {
     c.font = font(600, 0.085 * px); c.fillStyle = hexOf(l3(MUTED, INK, 0.4)); c.textAlign = 'center'; c.textBaseline = 'middle';
     for (let v = 0; v <= Math.floor(AXMAX); v++) c.fillText(String(v), X(SX(v)), Y(AXY - 0.068));
+  });
+  // the map's axis titles
+  const mTex = textPlane(gPop, (PNX[0] + PNX[1]) / 2, (PNY[0] + PNY[1]) / 2, -0.07, PNX[1] - PNX[0], PNY[1] - PNY[0], 1024, 3, (c, X, Y, px) => {
+    c.textBaseline = 'middle'; c.font = font(700, 0.05 * px); c.fillStyle = hexOf(INK);
+    c.textAlign = 'right'; c.fillText('Clearance', X(SX0 + SW - 0.02), Y(AXY - 0.065));
+    c.save(); c.translate(X(SX0 - 0.09), Y(MY1 + 0.07)); c.rotate(-PI / 2); c.textAlign = 'right'; c.fillText('Heterogeneity', 0, 0); c.restore();
   });
 
   // ---------------------------------------------------------------- survival by the index's thirds (poster's Kaplan-Meier)
@@ -800,12 +857,14 @@ void main() {
   const KX0 = -0.6, KW = 1.32, KY0 = -0.38, KH = 0.86;
   const kx = m => KX0 + m / KMAX * KW, ky = s => KY0 + clamp(s, 0, 1) * KH;
   const thirdName = (c, k) => { const s = String((c && c.label) || ''); return /near healthy/i.test(s) ? 'Near healthy' : /intermediate/i.test(s) ? 'Intermediate' : /remote/i.test(s) ? 'Remote' : ['Near healthy', 'Intermediate', 'Remote'][k]; };
-  // a staircase through the read-off points: the value holds, then drops in small steps between two readings
+  // a staircase through the read-off points: the value holds, then drops in small steps between two readings; the
+  // last drop is one step at the curve's end (as on the poster: the intermediate third falls to 0 at 135 months)
   function stair(pts) {
     const out = [[pts[0][0], pts[0][1]]];
     for (let k = 1; k < pts.length; k++) {
       const [m0, s0] = pts[k - 1], [m1, s1] = pts[k];
       if (Math.abs(s1 - s0) < 1e-4) { out.push([m1, s0]); continue; }
+      if (k === pts.length - 1) { out.push([m1, s0], [m1, s1]); continue; }
       const n = Math.max(1, Math.round((m1 - m0) / 2.5));
       for (let q = 1; q <= n; q++) {
         const md = m0 + (m1 - m0) * (q - 0.7 + 0.4 * R()) / n, v0 = s0 + (s1 - s0) * (q - 1) / n, v1 = s0 + (s1 - s0) * q / n;
@@ -820,7 +879,7 @@ void main() {
   // ribbons (curves, with a soft glow) and bands, each vertex with its month (reveal) and its curve (alpha)
   const ribMat = new THREE.ShaderMaterial({
     uniforms: { uA: set.uA, uGA: { value: new Float32Array(8) }, uGR: { value: new Float32Array(8) } },
-    transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+    transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
     vertexShader: `${PK}
 attribute vec3 aCol; attribute vec4 aD;   // across (-1..1), month (0..1), curve, glow
 uniform float uA; uniform vec4 uGA[2], uGR[2];
@@ -837,7 +896,7 @@ void main() {
   float a = vGl > 1.5 ? 0.17 : (vGl > 0.5 ? exp(-e * 3.0) * 0.22 : 1.0 - smoothstep(0.55, 1.0, e));
   a *= vA;
   if (a < 0.003) discard;
-  gl_FragColor = vec4(mix(vC, vec3(1.0), vGl < 0.5 ? 0.25 * (1.0 - e) : 0.0), a);
+  gl_FragColor = vec4(mix(vC, vec3(1.0), vGl < 0.5 ? 0.1 * (1.0 - e) : 0.0), a);
 }`,
   });
   set.mats.push(ribMat);
@@ -893,7 +952,8 @@ void main() {
     c.font = font(700, 0.06 * px); c.fillStyle = hexOf(INK); c.textAlign = 'left';
     c.fillText('Survival by thirds of the index', X(KX0), Y(KY0 + KH + 0.125));
     c.font = font(500, 0.036 * px); c.fillStyle = hexOf(l3(MUTED, INK, 0.3));
-    c.fillText(`${KC.length ? KC.map(x => x.n).join(', ') + ' people' : 'People'} by the index's thirds: the poster's curves and table`, X(KX0), Y(KY0 + KH + 0.06));
+    const kn = KC.reduce((a, x) => a + (+x.n || 0), 0);
+    c.fillText(`${kn ? fmt(kn) + ' people' : 'People'} in thirds of the index: the poster's curves and table`, X(KX0), Y(KY0 + KH + 0.06));
     c.font = font(600, 0.042 * px); c.textAlign = 'center';
     for (let m = 0; m <= KMAX + 1e-6; m += 20) c.fillText(String(m), X(kx(m)), Y(KY0 - 0.048));
     c.textAlign = 'right';
@@ -918,7 +978,7 @@ void main() {
   });
 
   // ---------------------------------------------------------------- the immunotherapy test (poster's response strip and AUCs)
-  const PG = PO.prognosis || {}, PST = PG.strip || {}, AUC = (PG.auc || []).slice(0, 6);
+  const AUC = (PG.auc || []).slice(0, 6);
   const RAX = (Array.isArray(PST.axis) && PST.axis[1] > 0) ? PST.axis[1] : 6.85, RX0 = -0.42, RX1 = 0.8, rx = v => RX0 + v / RAX * (RX1 - RX0), RAY = 0.3;
   const AA0 = 0.45, AA1 = 1.0, AX0 = -0.2, AX1 = 0.56, ax = v => AX0 + (v - AA0) / (AA1 - AA0) * (AX1 - AX0), AAY = -0.46;
   const aRowY = r => 0.05 - r * 0.083 - (r >= 3 ? 0.035 : 0);
@@ -930,7 +990,7 @@ void main() {
     aPill.put(7 + r, AX0, aRowY(r), 0, 0.001, 0.03, 0.006, 0.02, isNet(a) ? WARM : CLIN, 1);
   });
   // the two summary bands: good response (min to max, the quartiles, the median), poor response (min to max, median)
-  const RG = PST.good || null, RB = PST.bad || PST.poor || null, RGY = 0.5, RBY = 0.4;
+  const RGY = 0.5, RBY = 0.4;
   // pills k (min to max), k + 1 (the quartiles, when given) and the last (the median)
   const band = (k, s, y, col) => {
     if (!s || !Number.isFinite(s.min) || !Number.isFinite(s.max)) return;
@@ -943,13 +1003,13 @@ void main() {
   const aLines = lineSet(gAUC, 2, 2);
   aLines.seg([RX0, RAY, 0], [RX1, RAY, 0], INK, 0.7, 0);
   for (let v = 0; v <= Math.floor(RAX); v++) aLines.seg([rx(v), RAY, 0], [rx(v), RAY - 0.018, 0], INK, 0.7, 0);
-  (Array.isArray(PST.dashed) ? PST.dashed : []).forEach(v => aLines.dash([rx(v), RAY, -0.002], [rx(v), 0.58, -0.002], 12, GOOD, 0.5, 0));
+  (Array.isArray(PST.dashed) ? PST.dashed : []).forEach(v => aLines.dash([rx(v), RAY, -0.002], [rx(v), 0.58, -0.002], 12, GOOD, 0.85, 0));
   aLines.seg([AX0, AAY, 0], [AX1, AAY, 0], INK, 0.7, 1);
   for (let v = 0.5; v <= AA1 + 1e-6; v += 0.1) aLines.seg([ax(v), AAY, 0], [ax(v), AAY - 0.018, 0], INK, 0.7, 1);
   const CH = Number.isFinite(PG.chance) ? PG.chance : 0.5;
   aLines.dash([ax(CH), AAY, 0.008], [ax(CH), aRowY(0) + 0.06, 0.008], 16, INK, 0.55, 1);
   aLines.build();
-  const aTex = textPlane(gAUC, 0, 0.08, -0.008, 1.84, 1.84, 1024, 2, (c, X, Y, px) => {
+  const aTex = textPlane(gAUC, 0, 0.08, -0.008, 1.84, 1.84, 1024, 4, (c, X, Y, px) => {
     c.textBaseline = 'middle';
     c.font = font(700, 0.06 * px); c.fillStyle = hexOf(INK); c.textAlign = 'left';
     c.fillText('Immunotherapy before surgery', X(-0.84), Y(0.715));
@@ -958,10 +1018,10 @@ void main() {
     c.font = font(600, 0.04 * px); c.textAlign = 'center'; c.fillStyle = hexOf(l3(MUTED, INK, 0.3));
     for (let v = 0; v <= Math.floor(RAX); v++) c.fillText(String(v), X(rx(v)), Y(RAY - 0.045));
     c.font = font(500, 0.033 * px);
-    if (PST.label) c.fillText(cap(PST.label), X((RX0 + RX1) / 2), Y(RAY - 0.095));
+    c.fillText('Displacement index: Clearance and Heterogeneity in one number', X((RX0 + RX1) / 2), Y(RAY - 0.095));
     c.font = font(600, 0.04 * px);
     for (let v = 0.5; v <= AA1 + 1e-6; v += 0.1) c.fillText(v.toFixed(1), X(ax(v)), Y(AAY - 0.045));
-    c.font = font(500, 0.034 * px); c.fillText('AUC: good from poor responders (0.5 is chance)', X((AX0 + AX1) / 2 - 0.14), Y(AAY - 0.1));
+    c.font = font(500, 0.034 * px); c.fillText('AUC: how well each tells good from poor responders (0.5 is chance)', X((AX0 + AX1) / 2 - 0.14), Y(AAY - 0.1));
     c.textAlign = 'right';
     AUC.forEach((a, r) => {
       c.font = font(isNet(a) ? 700 : 600, 0.042 * px); c.fillStyle = hexOf(isNet(a) ? WARM : INK);
@@ -984,19 +1044,18 @@ void main() {
   const anchors = {
     one: own(o => tr(gRing, RC, o)),
     profile: own(o => tr(gRing, [RC[0] - 0.24, RC[1] + RR + 0.17, RC[2]], o)),
-    bars: own(o => tr(gBars, [0, BY(0) + 0.08, 0], o)),
+    bars: own(o => tr(gBars, [BPX[0], BPY[1] + 0.05, 0], o)),
     field: [0, FY + 0.05, FZ],
     example: own(o => { const i = ONE.indexOf('kidneys'), j = ONE.indexOf('fat'); return i < 0 || j < 0 ? cp(o, [0, FY, FZ]) : cp(o, [cellX(j), cur.top[i * N + j] + 0.04, cellZ(i)]); }),
     plane: own(o => cp(o, [cellX(N - 1) + FP * 0.65, cur.plane + 0.01, cellZ(N - 1) + FP * 0.65])),
     metrics: tr(gMet, [0, 0.1, 0]),
     clearance: tr(gMet, [GA.C[0] - 0.19, GA.C[1] + GA.C[2] + 0.08, 0]),
-    hetero: tr(gMet, [GA.H[0] - 0.19, GA.H[1] + GA.H[2] + 0.08, 0]),
+    hetero: tr(gMet, [GA.H[0] - 0.03, GA.H[1] + GA.H[2] + 0.08, 0]),
     dial: tr(gMet, [GA.X[0] - 0.3, GA.X[1] - GA.X[2] - 0.07, 0]),
     note: tr(gMet, [GA.X[0] - 0.3, GA.X[1] - GA.X[2] - 0.2, 0]),
-    map: [(MAPR.x0 + MAPR.x1) / 2, (MAPR.y0 + MAPR.y1) / 2, 0],
-    mapNote: [MAPR.x0 - 0.04, MAPR.y1 + 0.13, 0],
-    mapX: [MAPR.x1 - 0.32, MAPR.y0 - 0.12, 0],
-    mapY: [MAPR.x0 - 0.04, MAPR.y1 + 0.05, 0],
+    map: [(PNX[0] + PNX[1]) / 2, (PNY[0] + PNY[1]) / 2, 0],
+    mapNote: [PNX[0], PNY[1] + 0.07, 0],
+    iso: [isoX(2, MY1 + 0.05), MY1 + 0.07, 0],
     strip: [SX0 + SW / 2, 0.15, 0],
     axis: [SX(AXMAX / 2) - 0.45, AXY - 0.16, 0],
     person: own(o => cp(o, cur.person)),
@@ -1004,7 +1063,7 @@ void main() {
     auc: tr(gAUC, [0, 0.08, 0]),
     good: tr(gAUC, [rx(RG && Number.isFinite(RG.max) ? RG.max : 4.7) + 0.03, RGY, 0.01]),
     poor: tr(gAUC, [rx(RB && Number.isFinite(RB.max) ? RB.max : 5.5) + 0.03, RBY, 0.01]),
-    healthy: [SX(HQ[1]), 0.98, 0],
+    healthy: [SX(HQ[1]) + 0.01, STOP + 0.1, 0],
   };
   ONE.forEach((id, i) => {
     anchors[id] = own(o => tr(gRing, [NODE[i][0], NODE[i][1] + 0.0, NODE[i][2] + 0.02], o));
@@ -1012,22 +1071,26 @@ void main() {
   });
   GKEY.forEach((k, q) => {
     anchors['g' + (q + 1)] = own(o => groupAt(q, o));
-    anchors['lab_g' + (q + 1)] = own(o => cp(o, l3(LEG(q), [SX(Math.min(AXMAX - 2.6, 8.0)), ROWY[q], 0.02], prog(cur.mdi, 0.2, 0.8))));
+    anchors['lab_g' + (q + 1)] = own(o => cp(o, l3(LEG(q), [LABX, ROWY[q], 0.02], prog(cur.mdi, 0.2, 0.8))));
   });
   [0, 1, 2].forEach(k => { anchors['km' + (k + 1)] = own(o => cp(o, kmAnchor(k))); });
   AUC.forEach((a, r) => { anchors['auc' + (r + 1)] = tr(gAUC, [ax(a.auc) + 0.025, aRowY(r), 0.01]); });
-  FU.forEach((f, k) => { anchors['f' + (k + 1)] = [SX(Math.min(AXMAX - 2.6, 8.0)), FUY[k], 0.02]; });
+  FU.forEach((f, k) => { anchors['f' + (k + 1)] = [LABX, ROWY[f.row], 0.02]; });
 
   const near = (x, k) => sat(1 - Math.abs(x - k) * 2.2);
   const S_ = (S, n) => sat(S[n]);
-  const oneOff = S => 1 - S_(S, 'people_map');                                  // the one-scan part gives way to the people
+  const oneOff = S => 1 - prog(S_(S, 'people_map'), 0, 0.4);                    // the one-scan part gives way to the people
   const popQuiet = S => 1 - prog(Math.max(S_(S, 'people_km'), S_(S, 'people_response')), 0, 0.5);
   const labels = [];
+  // the organs' names: on the bars (in the panel itself), then on the ring's nodes; with the measures only the kidneys
+  // (Clearance) and the hub (Heterogeneity) keep theirs
+  const hubK = S => prog(S_(S, 'people_metrics'), 0.25, 0.7);
   ORG.forEach((o, i) => {
-    labels.push({ text: [o.short || o.name, ''], at: 'bar_' + o.id, cls: '', alpha: S => S_(S, 'people_bars') * (1 - prog(S_(S, 'people_one'), 0.2, 0.5)) * (1 - S_(S, 'people_metrics')) * oneOff(S) });
-    labels.push({ text: [o.short || o.name, ''], at: o.id, cls: '', minor: o.id !== 'kidneys', alpha: S => prog(S_(S, 'people_one'), 0.55, 0.9) * (1 - prog(S_(S, 'people_metrics'), 0, 0.35)) * oneOff(S) });
+    labels.push({ text: [o.short || o.name, ''], at: o.id, cls: '', minor: i !== KID,
+      alpha: S => prog(S_(S, 'people_one'), 0.55, 0.9) * (i === KID ? 1 : 1 - prog(S_(S, 'people_metrics'), 0, 0.35)) * (i === cur.hub ? 1 - hubK(S) : 1) * oneOff(S) });
+    labels.push({ text: [o.short || o.name, ' · the hub'], at: o.id, cls: 'amb', alpha: S => (i === cur.hub ? hubK(S) : 0) * prog(S_(S, 'people_one'), 0.55, 0.9) * oneOff(S) });
   });
-  labels.push({ text: ['Uptake', ' · mean SUV, one scan'], at: 'bars', cls: '', alpha: S => S_(S, 'people_bars') * (1 - prog(S_(S, 'people_one'), 0.2, 0.5)) * oneOff(S) });
+  labels.push({ text: ['Uptake', ' · one scan'], at: 'bars', cls: '', alpha: S => S_(S, 'people_bars') * (1 - prog(S_(S, 'people_one'), 0.2, 0.5)) * oneOff(S) });
   labels.push({ text: ['Kidneys ÷ fat', ' · one ratio'], at: 'example', cls: 'amb', alpha: S => prog(S_(S, 'people_ratio'), 0.6, 0.95) * (1 - prog(S_(S, 'people_one'), 0, 0.3)) * oneOff(S) });
   labels.push({ text: ['Threshold', ''], at: 'plane', cls: 'cyn', alpha: S => prog(S_(S, 'people_thresh'), 0.3, 0.8) * (1 - prog(S_(S, 'people_one'), 0.5, 0.9)) * oneOff(S) });
   PROF.forEach((p, k) => labels.push({ text: [PROFN[p], ' · illustrative uptakes'], at: 'profile', cls: '', alpha: S => near(S.people_profile || 0, k) * (1 - S_(S, 'people_custom')) * S_(S, 'people_one') * oneOff(S) }));
@@ -1036,16 +1099,16 @@ void main() {
   labels.push({ text: ['Heterogeneity', ''], at: 'hetero', cls: 'amb', alpha: S => prog(S_(S, 'people_metrics'), 0.3, 0.65) * oneOff(S) });
   labels.push({ text: ['Displacement index', ' · 0 to 10'], at: 'dial', cls: 'amb', alpha: S => prog(S_(S, 'people_metrics'), 0.55, 0.9) * oneOff(S) });
   labels.push({ text: ['Illustrative maths', ' · formulas not yet published'], at: 'note', cls: '', alpha: S => prog(S_(S, 'people_metrics'), 0.6, 1) * oneOff(S) });
-  // the people
+  // the people: the groups (the map's legend, then the rows' names), giving way to the follow-up groups
+  const mapOnly = S => prog(S_(S, 'people_map'), 0.6, 1) * (1 - prog(S_(S, 'people_mdi'), 0, 0.4));
   MG.forEach((g, k) => {
     if (!g) return;
     labels.push({ text: [g.name || PROFN[GKEY[k]], ` · n = ${g.n}`], at: 'lab_g' + (k + 1), cls: { healthy: 'cyn', dys: 'mag' }[GKEY[k]] || '',
-      alpha: S => { const sel = clamp(S.people_group || 0, 0, 4), hi = sat(1 - Math.abs(sel - (k + 1))); return prog(S_(S, 'people_map'), 0.6, 1) * lerp(1, 0.35 + 0.65 * hi, sat(sel)) * popQuiet(S) * (1 - 0.4 * S_(S, 'people_follow')); } });
+      alpha: S => { const sel = clamp(S.people_group || 0, 0, 4), hi = sat(1 - Math.abs(sel - (k + 1))); return prog(S_(S, 'people_map'), 0.6, 1) * lerp(1, 0.35 + 0.65 * hi, sat(sel)) * popQuiet(S) * (1 - prog(S_(S, 'people_follow'), 0, 0.3)); } });
   });
-  labels.push({ text: ['Clearance', ' →'], at: 'mapX', cls: '', alpha: S => prog(S_(S, 'people_map'), 0.6, 1) * (1 - prog(S_(S, 'people_mdi'), 0, 0.4)) });
-  labels.push({ text: ['Heterogeneity', ' ↑'], at: 'mapY', cls: '', alpha: S => prog(S_(S, 'people_map'), 0.6, 1) * (1 - prog(S_(S, 'people_mdi'), 0, 0.4)) });
-  labels.push({ text: [`${fmt(NDOT)} people`, ' · stand-in dots, group summaries'], at: 'mapNote', cls: '', alpha: S => prog(S_(S, 'people_map'), 0.6, 1) * (1 - prog(S_(S, 'people_mdi'), 0, 0.4)) });
-  labels.push({ text: ['This scan', ''], at: 'person', cls: 'amb', alpha: S => prog(S_(S, 'people_map'), 0.5, 0.9) * (1 - prog(S_(S, 'people_mdi'), 0, 0.5)) * (1 - S_(S, 'people_one')) });
+  labels.push({ text: [`${fmt(NDOT)} people`, ' · stand-in dots, group summaries'], at: 'mapNote', cls: '', alpha: mapOnly });
+  labels.push({ text: ['Lines of equal index', ''], at: 'iso', cls: 'amb', alpha: S => mapOnly(S) * prog(S_(S, 'people_map'), 0.8, 1) });
+  labels.push({ text: ['This scan', ''], at: 'person', cls: 'amb', alpha: S => prog(S_(S, 'people_map'), 0.6, 0.9) * (1 - prog(S_(S, 'people_mdi'), 0, 0.5)) });
   labels.push({ text: ['Metabolic displacement index', ''], at: 'axis', cls: '', alpha: S => prog(S_(S, 'people_mdi'), 0.5, 1) * S_(S, 'people_map') * popQuiet(S) });
   KC.forEach((c, k) => {
     labels.push({ text: [thirdName(c, k), ` · n = ${c.n}`], at: 'km' + (k + 1), cls: ['cyn', '', ''][k], alpha: S => prog(S_(S, 'people_km'), 0.55 + 0.1 * k, 0.85 + 0.1 * k) });
@@ -1054,7 +1117,9 @@ void main() {
   if (RB) labels.push({ text: ['Poor response', ` · n = ${RB.n}`], at: 'poor', cls: '', alpha: S => prog(S_(S, 'people_response'), 0.1, 0.35) });
   AUC.forEach((a, r) => labels.push({ text: [`AUC ${a.auc}`, Number.isFinite(a.p) ? ` · P = ${a.p}` : ''], at: 'auc' + (r + 1), cls: isNet(a) ? 'amb' : '',
     alpha: S => prog(S_(S, 'people_response'), 0.4 + 0.08 * r, 0.6 + 0.08 * r) }));
-  FU.forEach((f, k) => labels.push({ text: [f.name, ` · n = ${f.n}`], at: 'f' + (k + 1), cls: f.from >= 0 ? 'amb' : '', alpha: S => prog(S_(S, 'people_follow'), 0.1, 0.4) * S_(S, 'people_mdi') }));
+  const folA = S => prog(S_(S, 'people_follow'), 0.1, 0.4) * S_(S, 'people_mdi') * S_(S, 'people_map') * popQuiet(S);
+  FU.forEach((f, k) => labels.push({ text: [f.name, ` · n = ${f.n}`], at: 'f' + (k + 1), cls: f.kind === 'none' ? '' : 'amb', alpha: folA }));
+  if (MG[3]) labels.push({ text: ['Healthy range', ''], at: 'healthy', cls: 'cyn', alpha: S => folA(S) * prog(S_(S, 'people_follow'), 0.2, 0.5) });
 
   // ---------------------------------------------------------------- update
   const st0 = (i, j) => 0.42 * i / N + 0.06 * j / N;     // when a column's links fly up (people_one)
@@ -1070,13 +1135,16 @@ void main() {
     Object.assign(cur, { bars, ratio, thr, one, met, map, mdi, km, resp, fol, theta, m: M, prof: clamp(S.people_profile || 0, 0, 3) });
     const lt = Math.log(theta);
     cur.plane = FY + HS * lt * thr;
+    // as the people rise, the one-scan part gives way by itself (keep), and the ring stays formed while it shrinks
+    // into this person's dot (oneR), whatever people_one does meanwhile
+    const keep = 1 - prog(map, 0, 0.5), oneR = Math.max(one, prog(map, 0, 0.15));
 
     // the bars: in the middle at first, then to the left as the network forms
-    const sl = prog(one, 0.05, 0.5);
-    gBars.position.set(lerp(-0.47, -1.6, sl), lerp(-0.02, 0.02, sl), lerp(0, 0.16, sl));
-    gBars.rotation.y = 0.22 * sl; gBars.scale.setScalar(lerp(1, 0.94, sl)); gBars.updateMatrix();
-    const ba = bars;
-    bPill.a(2 * N, prog(ba, 0, 0.3));
+    const sl = prog(oneR, 0.05, 0.5);
+    gBars.position.set(lerp(-0.53, -1.56, sl), lerp(-0.02, 0.02, sl), lerp(0, 0.16, sl));
+    gBars.rotation.y = 0.22 * sl; gBars.scale.setScalar(lerp(1, 0.86, sl)); gBars.updateMatrix();
+    const ba = bars * keep;
+    bgB.a(0, prog(ba, 0, 0.3)); bgB.flush(); bTex.k = prog(ba, 0.05, 0.35);
     for (let i = 0; i < N; i++) {
       const g = prog(ba, 0.1 + 0.06 * i, 0.55 + 0.06 * i), len = Math.max(0.002, Math.min(U[i], 5.2) * BK * g);
       bPill.a(i, prog(ba, 0, 0.3));
@@ -1087,10 +1155,10 @@ void main() {
     bLines.g[0] = prog(ba, 0, 0.4);
 
     // the field: columns rise to ln(u_i / u_j); the plane rises to ln(theta); lit columns become links
-    const fa = prog(ratio, 0, 0.3);
+    const fa = prog(ratio, 0, 0.3) * keep;
     for (let k = 0; k <= NL; k++) fPill.a(k, fa);
     fPill.flush();
-    plPill.a(0, prog(thr, 0, 0.2)); plPill.flush();
+    plPill.a(0, prog(thr, 0, 0.2) * keep); plPill.flush();
     plPill.mesh.position.set(0, 0, cur.plane - FY);
     const key = U.map(v => v.toFixed(4)).join(',') + '|' + ratio.toFixed(4);
     for (let i = 0; i < N; i++) for (let j = 0; j < N; j++) {
@@ -1098,7 +1166,7 @@ void main() {
       const rise = prog(ratio, 0.12 + 0.4 * (i + j) / (2 * N - 2), 0.5 + 0.4 * (i + j) / (2 * N - 2));
       const h = Math.min(HMAX, HS * r) * rise;
       cur.top[L] = FY + h;
-      const e = i === j ? 0 : M.e[i][j], F = i === j ? 0 : prog(one, st0(i, j), st0(i, j) + 0.5);
+      const e = i === j ? 0 : M.e[i][j], F = i === j ? 0 : prog(oneR, st0(i, j), st0(i, j) + 0.5);
       iCol.array[4 * L + 3] = e; iF.array[L] = F;
       uH[L] = FY + h; uF[L] = F;
       if (key !== lastKey) { M4.compose(P3.set(cellX(j), FY, cellZ(i)), Q0, S3.set(CW, Math.max(1e-4, h), CW)); cols.setMatrixAt(L, M4); }
@@ -1111,7 +1179,7 @@ void main() {
 
     // the ring: it shrinks into this person's dot as the people rise
     const rT = prog(map, 0, 0.6), sc = lerp(1, 0.06, rT), ringVis = 1 - prog(map, 0.45, 0.7);
-    const pm = [clamp(MX(M.C), MAPR.x0 - 0.08, MAPR.x1 + 0.08), clamp(MY(M.H), MAPR.y0 - 0.08, MAPR.y1 + 0.08), 0.06];
+    const pm = mapPt(M.C, M.H, 0.06);
     const tg = l3(RC, pm, rT);
     gRing.position.set(tg[0] - RC[0] * sc, tg[1] - RC[1] * sc, tg[2] - RC[2] * sc); gRing.scale.setScalar(sc); gRing.updateMatrix();
     cur.ring = ringVis; cur.ringT = rT;
@@ -1119,13 +1187,13 @@ void main() {
     for (let i = 0; i < N; i++) for (let j = 0; j < N; j++) {
       const L = i * N + j;
       if (i === j) { uE[L] = 0; uT[L] = 0; uB[L] = 0; continue; }
-      const e = M.e[i][j], arrive = prog(one, st0(i, j) + 0.3, st0(i, j) + 0.55);
+      const e = M.e[i][j], arrive = prog(oneR, st0(i, j) + 0.3, st0(i, j) + 0.55);
       uE[L] = e * ringVis * prog(ratio, 0.3, 0.6);
       uT[L] = e * arrive * ringVis;
       uB[L] = i === KID ? 1 + 0.9 * kd : 1 - 0.5 * kd;
     }
     // node sizes by strength (Heterogeneity), hubs (strength z-score above 1.7) glow orange-yellow, the kidneys' halo
-    const na = prog(one, 0.05, 0.4) * ringVis, sm = M.s.reduce((a, v) => a + v, 0) / N;
+    const na = prog(oneR, 0.05, 0.4) * ringVis, sm = M.s.reduce((a, v) => a + v, 0) / N;
     const sd = Math.sqrt(M.s.reduce((a, v) => a + (v - sm) * (v - sm), 0) / N) || 1;
     let hub = -1;
     for (let i = 0; i < N; i++) {
@@ -1143,6 +1211,7 @@ void main() {
     for (const n of ['aA', 'aSize', 'aCol']) haloGeo.attributes[n].needsUpdate = true;
     for (const n of ['aA', 'aSize', 'aHub']) nIco.attributes[n].needsUpdate = true;
     rLines.g[0] = na;
+    cur.barsV = ba; cur.fieldV = fa; cur.ringV = na;
 
     // the gauges and the dial
     const off = 1 - map;
@@ -1151,7 +1220,7 @@ void main() {
     gH.uniforms.uK.value = gk[1] * off; gH.uniforms.uVal.value = M.H / HMAXG; gH.uniforms.uFillK.value = gk[1];
     gX.uniforms.uK.value = gk[2] * off; gX.uniforms.uVal.value = M.mdi / 10; gX.uniforms.uFillK.value = gk[2];
     readout(0, M.C.toFixed(2)); readout(1, M.H.toFixed(2)); readout(2, M.mdi.toFixed(1));
-    RO.k = met * off;
+    RO.m.uniforms.uCK.value.set(gk[0], gk[1], gk[2]); RO.k = off;
 
     // the people
     const sel = clamp(S.people_group || 0, 0, 4), any = sat(sel), gf = dotMat.uniforms.uGF.value;
@@ -1165,7 +1234,7 @@ void main() {
     const sp = [SX(M.mdi), ROWY[gi >= 0 ? gi : 3], 0.12];
     const pa = l3(l3(RC, pm, prog(map, 0.05, 0.6)), sp, prog(mdi, 0.2, 0.9));
     cp(cur.person, pa);
-    const pal = prog(map, 0.15, 0.5) * (1 - 0.5 * fol) * dim * (1 - 0.6 * one);
+    const pal = prog(map, 0.4, 0.7) * (1 - 0.5 * fol) * dim;
     perGeo.attributes.position.array.set(pa, 0); perGeo.attributes.position.array.set(pa, 3);
     perGeo.attributes.aCol.array.set([1, 1, 1], 0); perGeo.attributes.aCol.array.set(GCOL[gi >= 0 ? gi : 3], 3);
     perGeo.attributes.aSize.array[0] = 0.07; perGeo.attributes.aSize.array[1] = 0.05;
@@ -1173,8 +1242,7 @@ void main() {
     for (const n of ['position', 'aCol', 'aA', 'aSize']) perGeo.attributes[n].needsUpdate = true;
     // frames, summaries, shading
     const stripA = map * prog(mdi, 0.3, 0.9) * dim;
-    bgPill.a(P_MAP, prog(map, 0, 0.4) * (1 - prog(mdi, 0.2, 0.8)));
-    bgPill.a(P_STRIP, prog(mdi, 0.2, 0.8) * map);
+    bgPill.a(P_PANEL, prog(map, 0, 0.4) * lerp(1, 0.6, Math.max(km, resp)));
     bgPill.a(P_SH0, stripA); bgPill.a(P_SH1, stripA); bgPill.a(P_HB, prog(fol, 0, 0.35) * stripA);
     bgPill.flush();
     for (let k = 0; k < 4; k++) {
@@ -1183,8 +1251,10 @@ void main() {
       pPill.a(12 + k, prog(map, 0.6, 1) * (1 - prog(mdi, 0, 0.3)) * lerp(1, 0.3 + 0.7 * hi, any));
     }
     pPill.flush();
-    pLines.g[0] = prog(map, 0.2, 0.6) * (1 - prog(mdi, 0, 0.4)); pLines.g[1] = stripA; pLines.g[2] = stripA; pLines.g[3] = prog(fol, 0, 0.3) * stripA;
-    sTex.k = stripA;
+    const mapA = prog(map, 0.2, 0.6) * dim;
+    pLines.g[0] = mapA * (1 - prog(mdi, 0, 0.4)); pLines.g[1] = mapA; pLines.g[2] = stripA; pLines.g[3] = stripA;
+    sTex.k = stripA; mTex.k = mapA * (1 - prog(mdi, 0, 0.4));
+    isoSet(prog(mdi, 0.1, 0.7), prog(map, 0.3, 0.8) * lerp(1, 0.3, prog(mdi, 0.3, 0.9)) * dim);
 
     // survival: the curves draw left to right, the bands with them
     const gaK = ribMat.uniforms.uGA.value, grK = ribMat.uniforms.uGR.value;
@@ -1206,16 +1276,18 @@ void main() {
   }
 
   // ---------------------------------------------------------------- views, controls, explore API
+  // views (framed for the scene's share of a wide screen, about 1.3 : 1, labels included)
   const cam = {
-    default: [-4, 15, 4.0, -0.14, 0.08, 0.1],
-    one: [-4, 15, 4.0, -0.14, 0.08, 0.1],
-    field: [-24, 34, 2.55, 0.0, -0.45, 0.3],
-    metrics: [-24, 8, 2.9, 0.72, 0.3, 0.1],
-    map: [0, 5, 3.4, 0.05, 0.28, 0],
-    strip: [0, 4, 3.5, 0.12, 0.22, 0],
-    km: [30, 4, 2.75, -2.38 + 0.02, 0.24, 0.5],
-    auc: [-30, 4, 2.8, 2.38, 0.2, 0.5],
+    default: [-4, 14, 5.0, 0.1, 0.12, 0.1],       // the whole one-scan part: bars, ring, field and the measures
+    one: [-4, 15, 4.0, -0.36, 0.12, 0.1],         // bars, the ring of seven and the field
+    field: [-24, 34, 2.7, 0.05, -0.47, 0.3],      // the ratio columns and the threshold plane
+    metrics: [-20, 8, 3.1, 0.55, 0.3, 0.1],       // the ring and the gauges
+    map: [0, 5, 4.1, -0.03, 0.24, 0],
+    strip: [0, 4, 4.1, -0.03, 0.2, 0],
+    km: [30, 4, 2.75, -2.36, 0.24, 0.5],
+    auc: [-30, 4, 2.95, 2.4, 0.2, 0.5],
   };
+
   const controls = [
     { key: 'view', label: 'View', options: [['one', 'One scan'], ['field', 'Ratios'], ['map', 'People'], ['strip', 'Index'], ['km', 'Survival'], ['auc', 'Immunotherapy']] },
     { key: 'profile', label: 'Profile', options: PROF.map(p => [p, PROFN[p]]) },
@@ -1242,9 +1314,9 @@ void main() {
       const off = Math.sqrt(Math.max(0, x * x + y * y + z * z - along * along));
       if (off < rad && along < bt) { bt = along; best = res; }
     };
-    if (cur.one > 0.5 && cur.ring > 0.5) ONE.forEach((id, i) => tryPt(tr(gRing, NODE[i]), 0.075, { organ: id }));
-    if (cur.bars > 0.5) ONE.forEach((id, i) => { for (let s = 0; s <= 4; s++) tryPt(tr(gBars, [s * 0.2, BY(i), 0]), 0.05, { organ: id }); });
-    if (cur.ratio > 0.5) ONE.forEach((id, i) => { tryPt([cellX(0) - 0.13, FY + 0.05, cellZ(i)], 0.055, { organ: id }); tryPt([cellX(i), FY + 0.05, cellZ(N - 1) + 0.13], 0.055, { organ: id }); });
+    if (cur.ringV > 0.5) ONE.forEach((id, i) => tryPt(tr(gRing, NODE[i]), 0.075, { organ: id }));
+    if (cur.barsV > 0.5) ONE.forEach((id, i) => { for (let s = 0; s <= 8; s++) tryPt(tr(gBars, [s / 8 * (BX0 + BTRK + 0.02), BY(i), 0]), 0.05, { organ: id }); });
+    if (cur.fieldV > 0.5) ONE.forEach((id, i) => { tryPt([cellX(0) - 0.13, FY + 0.05, cellZ(i)], 0.055, { organ: id }); tryPt([cellX(i), FY + 0.05, cellZ(N - 1) + 0.13], 0.055, { organ: id }); });
     if (cur.map > 0.5 && !best) {
       _pl.set(_w.set(0, 0, 1), 0);
       if (_ray.intersectPlane(_pl, _hit)) {
@@ -1262,6 +1334,13 @@ void main() {
     measure, organs: ONE.slice(), pick, profiles: PROF.slice(), groups: GKEY.slice(),
     current: () => ({ u: U.slice(), theta: cur.theta, C: cur.m.C, H: cur.m.H, mdi: cur.m.mdi, links: cur.m.e.reduce((a, r) => a + r.filter(v => v > 0.5).length, 0), hub: cur.hub >= 0 ? ONE[cur.hub] : null }),
     dots: NDOT, followUp: NFD,
+    // the stand-in dots' summaries per group (to check them against the poster's), and the follow-up rings'
+    summary: () => {
+      const st = a => { a = a.slice().sort((p, q) => p - q); const at = f => a[Math.round(f * (a.length - 1))]; return a.length ? { n: a.length, min: a[0], p10: at(0.1), p25: at(0.25), p50: at(0.5), p75: at(0.75), p90: at(0.9), max: a[a.length - 1] } : { n: 0 }; };
+      return { groups: GKEY.map((k, g) => Object.assign({ key: k }, st(DOTS.filter(d => d.g === g).map(d => d.v)))),
+        clearance: [Math.min(...DOTS.map(d => d.C)), Math.max(...DOTS.map(d => d.C))], heterogeneity: [Math.min(...DOTS.map(d => d.H)), Math.max(...DOTS.map(d => d.H))],
+        followUp: FU.map((f, k) => ({ name: f.name, n: f.n, row: GKEY[f.row], from: st(FDOTS.filter(d => d.f === k).map(d => d.v0)), to: st(FDOTS.filter(d => d.f === k).map(d => d.v1)) })) };
+    },
   };
   const params = { people_a: 1, people_bars: 1, people_ratio: 1, people_thresh: 1, people_one: 1, people_metrics: 1, people_profile: 0, people_custom: 0, people_theta: THETA,
     people_map: 0, people_mdi: 0, people_group: 0, people_km: 0, people_response: 0, people_follow: 0 };
