@@ -1,0 +1,3325 @@
+{
+ "atlas": [
+  {
+   "tissue": "Small intestine",
+   "scaleBar": "1 cm",
+   "shape": "curved crescent / bean-shaped strip, a little over 2:1; the segmentation map looks cut off along its flat left side; bands run parallel to the curved outer edge",
+   "domains": [
+    {
+     "name": "Peyer's pathches",
+     "colour": "#1a78b6",
+     "share": 0.22
+    },
+    {
+     "name": "mucosa",
+     "colour": "#f58020",
+     "share": 0.15
+    },
+    {
+     "name": "muscularis",
+     "colour": "#2ca249",
+     "share": 0.37
+    },
+    {
+     "name": "submucosa",
+     "colour": "#d82a2a",
+     "share": 0.26
+    }
+   ]
+  },
+  {
+   "tissue": "Stomach",
+   "scaleBar": "2 cm",
+   "shape": "tall ragged-edged rectangle (about 1:2); layers run lengthways: orange gastric glands on the left, wavy red submucosa strip in the middle, big green muscularis on the right, blue foveolae as a thin rim",
+   "domains": [
+    {
+     "name": "gastric foveolae",
+     "colour": "#1a78b6",
+     "share": 0.13
+    },
+    {
+     "name": "gastric glands",
+     "colour": "#f58020",
+     "share": 0.21
+    },
+    {
+     "name": "muscularis",
+     "colour": "#2ca249",
+     "share": 0.5
+    },
+    {
+     "name": "submucosa",
+     "colour": "#d82a2a",
+     "share": 0.16
+    }
+   ]
+  },
+  {
+   "tissue": "Ovary",
+   "scaleBar": "1 cm",
+   "shape": "half dome / rounded wedge with a flat base; thin purple edge line, green cortex rim along the curve, blue corpus albicans core with red stroma patches and a few orange flecks",
+   "domains": [
+    {
+     "name": "corpus albicans",
+     "colour": "#1a78b6",
+     "share": 0.44
+    },
+    {
+     "name": "fibrovascular tissue",
+     "colour": "#f58020",
+     "share": 0.03
+    },
+    {
+     "name": "ovarian cortex",
+     "colour": "#2ca249",
+     "share": 0.27
+    },
+    {
+     "name": "ovarian stroma",
+     "colour": "#d82a2a",
+     "share": 0.2
+    },
+    {
+     "name": "tissue edge",
+     "colour": "#9268ad",
+     "share": 0.07
+    }
+   ]
+  },
+  {
+   "tissue": "Pancreas",
+   "scaleBar": "1 dm",
+   "shape": "irregular triangular patchwork: big orange lobules separated by branching blue connective-tissue bands",
+   "domains": [
+    {
+     "name": "connective tissue",
+     "colour": "#1a78b6",
+     "share": 0.25
+    },
+    {
+     "name": "pancreatic parenchyma",
+     "colour": "#f58020",
+     "share": 0.75
+    }
+   ]
+  },
+  {
+   "tissue": "Skeletal muscle",
+   "scaleBar": "1 cm",
+   "shape": "irregular hooked blob with holes and folds; orange muscle with blue fibroadipose seams",
+   "domains": [
+    {
+     "name": "fibroadipose tissue",
+     "colour": "#1a78b6",
+     "share": 0.31
+    },
+    {
+     "name": "skeletal muscle",
+     "colour": "#f58020",
+     "share": 0.69
+    }
+   ]
+  },
+  {
+   "tissue": "Kidney Medulla",
+   "scaleBar": "2 cm",
+   "shape": "roughly square slab; large brown tubule mass in the lower/centre part, pink glomeruli band across the top and down the sides, red connective rim, a few purple medulla specks",
+   "domains": [
+    {
+     "name": "connective tissue",
+     "colour": "#d82a2a",
+     "share": 0.12
+    },
+    {
+     "name": "medula",
+     "colour": "#9268ad",
+     "share": 0.05
+    },
+    {
+     "name": "medula kidney tubules",
+     "colour": "#8c574c",
+     "share": 0.59
+    },
+    {
+     "name": "renal glomeruli",
+     "colour": "#d87ab2",
+     "share": 0.24
+    }
+   ]
+  },
+  {
+   "tissue": "Vagina",
+   "scaleBar": "2 cm",
+   "shape": "tall teardrop / oval (about 1:1.6); thin red epithelium on the left rim, orange lamina propria band, green muscularis in the lower right bulk, blue connective rim",
+   "domains": [
+    {
+     "name": "connective tissue",
+     "colour": "#1a78b6",
+     "share": 0.08
+    },
+    {
+     "name": "lamina propria",
+     "colour": "#f58020",
+     "share": 0.41
+    },
+    {
+     "name": "muscularis",
+     "colour": "#2ca249",
+     "share": 0.42
+    },
+    {
+     "name": "squamous epithelium",
+     "colour": "#d82a2a",
+     "share": 0.09
+    }
+   ]
+  },
+  {
+   "tissue": "Prostate",
+   "scaleBar": "1 cm",
+   "shape": "roughly square slab; blue fibromuscular matrix with orange acini patches (checkerboard-like) and an orange rim",
+   "domains": [
+    {
+     "name": "fibromuscular tissue",
+     "colour": "#1a78b6",
+     "share": 0.57
+    },
+    {
+     "name": "prostatic acini",
+     "colour": "#f58020",
+     "share": 0.43
+    }
+   ]
+  },
+  {
+   "tissue": "Liver",
+   "scaleBar": "2 cm",
+   "shape": "squarish quadrilateral; orange parenchyma, scattered green portal-vein specks, blue connective tissue at the rim and in patches",
+   "domains": [
+    {
+     "name": "connective tissue",
+     "colour": "#1a78b6",
+     "share": 0.17
+    },
+    {
+     "name": "liver parenchyma",
+     "colour": "#f58020",
+     "share": 0.74
+    },
+    {
+     "name": "portal vein",
+     "colour": "#2ca249",
+     "share": 0.09
+    }
+   ]
+  },
+  {
+   "tissue": "Aorta",
+   "scaleBar": "2 cm",
+   "shape": "long straight (slightly curved) band, about 6:1, in three layers: thin orange intima on the top edge, thick green media, thin blue adventitia underneath",
+   "domains": [
+    {
+     "name": "tunica intima",
+     "colour": "#f58020",
+     "share": 0.13
+    },
+    {
+     "name": "tunica media",
+     "colour": "#2ca249",
+     "share": 0.74
+    },
+    {
+     "name": "tunica adventitia",
+     "colour": "#1a78b6",
+     "share": 0.12
+    }
+   ]
+  },
+  {
+   "tissue": "Tibial nerve",
+   "scaleBar": "1 cm",
+   "shape": "cluster of 5 to 6 round fascicles joined together; orange nerve fibres in each, blue epineurium between and around them",
+   "domains": [
+    {
+     "name": "epineurium",
+     "colour": "#1a78b6",
+     "share": 0.52
+    },
+    {
+     "name": "nerve fibers",
+     "colour": "#f58020",
+     "share": 0.48
+    }
+   ]
+  },
+  {
+   "tissue": "Adrenal gland",
+   "scaleBar": "1 cm",
+   "shape": "small bean / oval; green fibroadipose core, blue adrenal cortex layer along the lower and right edge, thin orange tissue edge",
+   "domains": [
+    {
+     "name": "adrenal cortex",
+     "colour": "#1a78b6",
+     "share": 0.33
+    },
+    {
+     "name": "fibroadipose tissue",
+     "colour": "#2ca249",
+     "share": 0.53
+    },
+    {
+     "name": "tissue edge",
+     "colour": "#f58020",
+     "share": 0.14
+    }
+   ]
+  },
+  {
+   "tissue": "Brain cortex",
+   "scaleBar": "2 cm",
+   "shape": "folded two-lobed gyrus shape; purple white matter core, green grey-matter cortex round it, thin red edge",
+   "domains": [
+    {
+     "name": "gray matter",
+     "colour": "#2ca249",
+     "share": 0.37
+    },
+    {
+     "name": "tissue edge",
+     "colour": "#d82a2a",
+     "share": 0.1
+    },
+    {
+     "name": "white matter",
+     "colour": "#9268ad",
+     "share": 0.52
+    }
+   ]
+  },
+  {
+   "tissue": "Pituitary",
+   "scaleBar": "5 mm",
+   "shape": "rounded blob with a small lobe at the lower right; mostly blue adenohypophysis, green neurohypophysis lobe at the lower right, thin orange rim",
+   "domains": [
+    {
+     "name": "adenohypophysis",
+     "colour": "#1a78b6",
+     "share": 0.83
+    },
+    {
+     "name": "fibromuscular tissue",
+     "colour": "#f58020",
+     "share": 0.06
+    },
+    {
+     "name": "neurohypophysis",
+     "colour": "#2ca249",
+     "share": 0.12
+    }
+   ]
+  },
+  {
+   "tissue": "Artery coronary",
+   "scaleBar": "1 cm",
+   "shape": "ring (annulus) with an open oval lumen; orange intima inside, green media, blue adventitia outside",
+   "domains": [
+    {
+     "name": "tunica adventitia",
+     "colour": "#1a78b6",
+     "share": 0.24
+    },
+    {
+     "name": "tunica intima",
+     "colour": "#f58020",
+     "share": 0.38
+    },
+    {
+     "name": "tunica media",
+     "colour": "#2ca249",
+     "share": 0.38
+    }
+   ]
+  },
+  {
+   "tissue": "Thyroid",
+   "scaleBar": "1 cm",
+   "shape": "oval / bean blob; green follicles inside, blue connective tissue rim and septa (cyst, orange, is in the legend but hardly drawn)",
+   "domains": [
+    {
+     "name": "connective tissue",
+     "colour": "#1a78b6",
+     "share": 0.37
+    },
+    {
+     "name": "cyst",
+     "colour": "#f58020",
+     "share": 0.0
+    },
+    {
+     "name": "thyroid follicles",
+     "colour": "#2ca249",
+     "share": 0.63
+    }
+   ]
+  },
+  {
+   "tissue": "Bladder",
+   "scaleBar": "1 cm",
+   "shape": "narrow tall strip, slightly curved (about 1:2.5); red muscularis bulk, orange adventitia / subserosa on the left, thin green mucosa on the right edge",
+   "domains": [
+    {
+     "name": "mucosa",
+     "colour": "#2ca249",
+     "share": 0.09
+    },
+    {
+     "name": "muscularis",
+     "colour": "#d82a2a",
+     "share": 0.63
+    },
+    {
+     "name": "adventita subserosa",
+     "colour": "#f58020",
+     "share": 0.28
+    }
+   ]
+  },
+  {
+   "tissue": "Skin",
+   "scaleBar": "2 cm",
+   "shape": "narrow vertical oval strip (about 1:3); thin blue epidermis on the outer edge, orange papillary dermis, green reticular dermis core, red subdermis",
+   "domains": [
+    {
+     "name": "epidermis",
+     "colour": "#1a78b6",
+     "share": 0.09
+    },
+    {
+     "name": "papillary dermis",
+     "colour": "#f58020",
+     "share": 0.27
+    },
+    {
+     "name": "reticular dermis",
+     "colour": "#2ca249",
+     "share": 0.38
+    },
+    {
+     "name": "subdermis",
+     "colour": "#d82a2a",
+     "share": 0.27
+    }
+   ]
+  },
+  {
+   "tissue": "Heart",
+   "scaleBar": "1 cm",
+   "shape": "irregular triangular chunk with a large white hole (cavity); almost all blue cardiac muscle, orange connective rim, a few green flecks",
+   "domains": [
+    {
+     "name": "cardiac muscle",
+     "colour": "#1a78b6",
+     "share": 0.91
+    },
+    {
+     "name": "connective tissue",
+     "colour": "#f58020",
+     "share": 0.08
+    },
+    {
+     "name": "fibroadipose tissue",
+     "colour": "#2ca249",
+     "share": 0.0
+    }
+   ]
+  },
+  {
+   "tissue": "Adipose - Visceral",
+   "scaleBar": "2 cm",
+   "shape": "ragged net of orange fragments with many holes; a green lymph-node streak lower right, a few blue vessel specks",
+   "domains": [
+    {
+     "name": "connective tissue",
+     "colour": "#f58020",
+     "share": 0.87
+    },
+    {
+     "name": "lymph node",
+     "colour": "#2ca249",
+     "share": 0.13
+    },
+    {
+     "name": "blood vessels /hemorrhage",
+     "colour": "#1a78b6",
+     "share": 0.01
+    }
+   ]
+  },
+  {
+   "tissue": "Spleen",
+   "scaleBar": "2 cm",
+   "shape": "tall rounded rectangle (about 1:1.5); uniform green stroma with blue connective flecks and a thin red edge",
+   "domains": [
+    {
+     "name": "connective tissue",
+     "colour": "#1a78b6",
+     "share": 0.1
+    },
+    {
+     "name": "stroma",
+     "colour": "#2ca249",
+     "share": 0.85
+    },
+    {
+     "name": "tissue edge",
+     "colour": "#d82a2a",
+     "share": 0.05
+    }
+   ]
+  },
+  {
+   "tissue": "Breast",
+   "scaleBar": "1 cm",
+   "shape": "small ragged crescent; orange connective tissue with red fibromuscular and green ductal patches; blue adipose bits at the edges",
+   "domains": [
+    {
+     "name": "adipose tissue",
+     "colour": "#1a78b6",
+     "share": 0.04
+    },
+    {
+     "name": "connective tissue",
+     "colour": "#f58020",
+     "share": 0.62
+    },
+    {
+     "name": "ductal tissue",
+     "colour": "#2ca249",
+     "share": 0.08
+    },
+    {
+     "name": "fibromuscular tissue",
+     "colour": "#d82a2a",
+     "share": 0.26
+    }
+   ]
+  },
+  {
+   "tissue": "Fallopian tube",
+   "scaleBar": "1 cm",
+   "shape": "round cross-section (disc with a ring): green mucosa in the middle with a white lumen, red muscularis ring, orange fibromuscular outer ring",
+   "domains": [
+    {
+     "name": "fibromuscular tissue",
+     "colour": "#f58020",
+     "share": 0.27
+    },
+    {
+     "name": "mucosa",
+     "colour": "#2ca249",
+     "share": 0.32
+    },
+    {
+     "name": "muscularis",
+     "colour": "#d82a2a",
+     "share": 0.42
+    }
+   ]
+  },
+  {
+   "tissue": "Testis",
+   "scaleBar": "1 cm",
+   "shape": "roughly round lump with ragged edge; orange seminiferous tubules, blue connective tissue patches (mostly lower centre)",
+   "domains": [
+    {
+     "name": "connective tissue",
+     "colour": "#1a78b6",
+     "share": 0.38
+    },
+    {
+     "name": "seminiferous tubules",
+     "colour": "#f58020",
+     "share": 0.62
+    }
+   ]
+  },
+  {
+   "tissue": "Uterus",
+   "scaleBar": "2 cm",
+   "shape": "wide irregular quadrilateral with an oval hole (cavity) in the middle; red myometrium dominates, green endometrium lines the hole, thin orange connective rim",
+   "domains": [
+    {
+     "name": "connective tissue",
+     "colour": "#f58020",
+     "share": 0.08
+    },
+    {
+     "name": "endometrium",
+     "colour": "#2ca249",
+     "share": 0.14
+    },
+    {
+     "name": "myometrium",
+     "colour": "#d82a2a",
+     "share": 0.77
+    }
+   ]
+  },
+  {
+   "tissue": "Ectocervix",
+   "scaleBar": "5 cm",
+   "shape": "tall wedge / comma, pointed at the bottom; purple cervical stroma, pink squamous epithelium on the right edge, grey tissue-edge pixels on the left and bottom, brown specks (fibromuscular tissue) almost absent",
+   "domains": [
+    {
+     "name": "cervical stroma",
+     "colour": "#9268ad",
+     "share": 0.8
+    },
+    {
+     "name": "fibromuscular tissue",
+     "colour": "#8c574c",
+     "share": 0.0
+    },
+    {
+     "name": "squamous epithelium",
+     "colour": "#d87ab2",
+     "share": 0.09
+    },
+    {
+     "name": "tissue edge",
+     "colour": "#939598",
+     "share": 0.11
+    }
+   ]
+  },
+  {
+   "tissue": "Minor salivary gland",
+   "scaleBar": "2 cm",
+   "shape": "elongated vertical drop (about 1:2.3), patchy: green fibroadipose tissue, red glandular and ductal lobules, pink submucosa, purple mucosa on the right edge, brown muscularis blob at the top",
+   "domains": [
+    {
+     "name": "fibroadipose tissue",
+     "colour": "#2ca249",
+     "share": 0.32
+    },
+    {
+     "name": "mucosa",
+     "colour": "#9268ad",
+     "share": 0.08
+    },
+    {
+     "name": "muscularis",
+     "colour": "#8c574c",
+     "share": 0.09
+    },
+    {
+     "name": "submucosa",
+     "colour": "#d87ab2",
+     "share": 0.23
+    },
+    {
+     "name": "glandular and ductal elements",
+     "colour": "#d82a2a",
+     "share": 0.28
+    }
+   ]
+  },
+  {
+   "tissue": "Colon",
+   "scaleBar": "2 cm",
+   "shape": "narrow winding strip: finger-like folded mucosa at the top and bottom, and a thicker orange muscularis block in the lower left; blue mucosa on the outside, green submucosa inside",
+   "domains": [
+    {
+     "name": "mucosa",
+     "colour": "#1a78b6",
+     "share": 0.41
+    },
+    {
+     "name": "muscularis",
+     "colour": "#f58020",
+     "share": 0.22
+    },
+    {
+     "name": "submucosa",
+     "colour": "#2ca249",
+     "share": 0.36
+    }
+   ]
+  },
+  {
+   "tissue": "Cerebellum",
+   "scaleBar": "2 cm",
+   "shape": "fan / triangle with a short stalk at the bottom; branching foliage pattern: red molecular layer and green granular layer in alternating bands, branching orange medulla tree",
+   "domains": [
+    {
+     "name": "cerebral medulla",
+     "colour": "#f58020",
+     "share": 0.12
+    },
+    {
+     "name": "granular layer",
+     "colour": "#2ca249",
+     "share": 0.37
+    },
+    {
+     "name": "molecular layer",
+     "colour": "#d82a2a",
+     "share": 0.51
+    }
+   ]
+  }
+ ],
+ "volcano": {
+  "xLabel": "Abundance change (% per decade)",
+  "yLabel": "-log(P-value-adj)",
+  "xTicks": [
+   -3,
+   -2,
+   -1,
+   0,
+   1,
+   2,
+   3
+  ],
+  "yTicks": [
+   0,
+   2.5,
+   5,
+   7.5,
+   10,
+   12.5,
+   15,
+   17.5,
+   20
+  ],
+  "threshold": {
+   "y": 3.0,
+   "x": 0,
+   "note": "horizontal grey dashed line at y = 3.0 (= -ln 0.05) and vertical at x = 0; points above the horizontal line are the significant ones"
+  },
+  "yScaleNote": "The y axis is labelled -log but matches the NATURAL log: panel f p = 4.8e-07 gives -ln p = 14.55 (dot at 14.54), panel g 1.1e-07 gives 16.0 (16.0), h: 7.4e-07 gives 14.1 (14.09), 0.0132 gives 4.33 (4.35), 0.0013 gives 6.65 (6.61), 4.6e-05 gives 9.99 (9.97).",
+  "encoding": "Dot colour = signed abundance change on a diverging blue-grey-red scale (legend -1, 0, 1, 2, 3); dot diameter grows with |change| (legend 1.0 to 3.5).",
+  "points": [
+   {
+    "domain": "tunica adventitia",
+    "tissue": "Artery - Aorta",
+    "x": -1.21,
+    "y": 16.29,
+    "significant": true,
+    "colour": "#acc2e5"
+   },
+   {
+    "domain": "submucosa",
+    "tissue": "Colon - Transverse",
+    "x": -0.99,
+    "y": 14.54,
+    "significant": true,
+    "colour": "#b5cbe9"
+   },
+   {
+    "domain": "submucosa",
+    "tissue": "Colon - Sigmoid",
+    "x": -1.13,
+    "y": 12.52,
+    "significant": true,
+    "colour": "#afc6e7"
+   },
+   {
+    "domain": "nerve fibers",
+    "tissue": "Nerve - Tibial",
+    "x": -0.83,
+    "y": 10.65,
+    "significant": true,
+    "colour": "#bdcfeb"
+   },
+   {
+    "domain": "squamous epithelium",
+    "tissue": "Vagina",
+    "x": -1.04,
+    "y": 9.97,
+    "significant": true,
+    "colour": "#b4c8e8"
+   },
+   {
+    "domain": "ovarian stroma",
+    "tissue": "Ovary",
+    "x": -1.84,
+    "y": 7.46,
+    "significant": true,
+    "colour": "#90a9d8"
+   },
+   {
+    "domain": "adenohypophysis",
+    "tissue": "Pituitary",
+    "x": -1.71,
+    "y": 6.61,
+    "significant": true,
+    "colour": "#96afdb"
+   },
+   {
+    "domain": "ovarian cortex",
+    "tissue": "Ovary",
+    "x": -1.24,
+    "y": 6.32,
+    "significant": true,
+    "colour": "#abc2e5"
+   },
+   {
+    "domain": "reticular dermis",
+    "tissue": "Skin - Not Sun Exposed",
+    "x": -1.48,
+    "y": 5.69,
+    "significant": true,
+    "colour": "#a0b9e0"
+   },
+   {
+    "domain": "tunica adventitia",
+    "tissue": "Artery - Coronary",
+    "x": -1.28,
+    "y": 4.91,
+    "significant": true,
+    "colour": "#aac1e4"
+   },
+   {
+    "domain": "tunica media",
+    "tissue": "Artery - Tibial",
+    "x": -0.54,
+    "y": 5.23,
+    "significant": true,
+    "colour": "#c8d8ef"
+   },
+   {
+    "domain": "seminiferous tubules",
+    "tissue": "Testis",
+    "x": -0.92,
+    "y": 4.35,
+    "significant": true,
+    "colour": "#b9ccea"
+   },
+   {
+    "domain": "pia matter and white matter",
+    "tissue": "Brain - Cortex",
+    "x": -0.9,
+    "y": 3.77,
+    "significant": true,
+    "colour": "#baceea"
+   },
+   {
+    "domain": "submucosa",
+    "tissue": "Stomach",
+    "x": -0.54,
+    "y": 3.29,
+    "significant": true,
+    "colour": "#c8d8ef"
+   },
+   {
+    "domain": "subdermis",
+    "tissue": "Skin - Not Sun Exposed",
+    "x": 2.17,
+    "y": 19.72,
+    "significant": true,
+    "colour": "#ed7f64"
+   },
+   {
+    "domain": "corpus albicans",
+    "tissue": "Ovary",
+    "x": 3.51,
+    "y": 15.98,
+    "significant": true,
+    "colour": "#b31f2a"
+   },
+   {
+    "domain": "connective tissue",
+    "tissue": "Testis",
+    "x": 1.48,
+    "y": 14.09,
+    "significant": true,
+    "colour": "#f9a989"
+   },
+   {
+    "domain": "connective tissue",
+    "tissue": null,
+    "x": 1.26,
+    "y": 11.11,
+    "significant": true,
+    "colour": "#f7b497",
+    "tissueNote": "tissue colour in panel e is light purple, not in the legend: not identified"
+   },
+   {
+    "domain": "calcified plaques",
+    "tissue": "Artery - Tibial",
+    "x": 0.72,
+    "y": 10.79,
+    "significant": true,
+    "colour": "#f4cbb6"
+   },
+   {
+    "domain": "calcified plaques",
+    "tissue": "Artery - Coronary",
+    "x": 1.08,
+    "y": 9.52,
+    "significant": true,
+    "colour": "#f8bca1"
+   },
+   {
+    "domain": "endometrium",
+    "tissue": "Uterus",
+    "x": 1.42,
+    "y": 8.21,
+    "significant": true,
+    "colour": "#f8ad8e",
+    "tissueNote": "inferred: panel e colour (dark blue) not in its legend; the atlas lists endometrium only under Uterus"
+   },
+   {
+    "domain": "connective tissue",
+    "tissue": "Vagina",
+    "x": 1.47,
+    "y": 5.58,
+    "significant": true,
+    "colour": "#f8aa8b",
+    "tissueNote": "from panel e: small red dot inside the Testis dot (Vagina in its legend)"
+   },
+   {
+    "domain": "fibromuscular tissue",
+    "tissue": "Pituitary",
+    "x": 1.48,
+    "y": 4.99,
+    "significant": true,
+    "colour": "#f9a989"
+   },
+   {
+    "domain": "papillary dermis",
+    "tissue": "Skin - Not Sun Exposed",
+    "x": 0.57,
+    "y": 4.2,
+    "significant": true,
+    "colour": "#f1d0bf"
+   },
+   {
+    "domain": "fibroadipose tissue",
+    "tissue": "Lung",
+    "x": 0.58,
+    "y": 3.93,
+    "significant": true,
+    "colour": "#f1cfbe"
+   },
+   {
+    "domain": "neurohypophysis",
+    "tissue": "Pituitary",
+    "x": 1.13,
+    "y": 3.08,
+    "significant": true,
+    "colour": "#f7b99e",
+    "note": "just above the threshold, overlaps white matter"
+   },
+   {
+    "domain": "white matter",
+    "tissue": "Brain - Cortex",
+    "x": 1.17,
+    "y": 3.07,
+    "significant": true,
+    "colour": "#f7b99e",
+    "note": "just above the threshold, overlaps neurohypophysis"
+   }
+  ],
+  "unlabelledSignificant": {
+   "count": 4,
+   "colour": "light grey (change about +0.4 to +0.5, too small to colour)",
+   "points": [
+    {
+     "x": 0.46,
+     "y": 4.44
+    },
+    {
+     "x": 0.46,
+     "y": 3.51,
+     "note": "may be two overlapping dots"
+    },
+    {
+     "x": 0.36,
+     "y": 3.36
+    },
+    {
+     "x": 0.45,
+     "y": 3.19
+    }
+   ],
+   "note": "Panel e lists 4 domains that are not labelled in panel a: adrenal medulla (+0.47), epidermis (+0.46), epineurium (+0.45) and a second connective tissue (+0.36, pale olive, probably Pituitary). Their x values match these four grey dots, but which dot is which is not readable."
+  },
+  "unlabelledNotSignificant": {
+   "countVisible": "about 50",
+   "note": "light grey dots below y = 3, most of them within |x| < 1; many overlap near x = 0, y < 1.5, so the real number is larger. Largest ones: (2.51, 0.77), (1.76, 1.13), (1.54, 0.3), (-1.18, 1.02); some blobs near (1.07, 1.55) and (-0.74, 0.78) are several merged dots. One grey dot sits just under the line at (-0.56, 2.95)."
+  },
+  "significantTotal": 31,
+  "bySystem": {
+   "value": "Mean combined score (as printed above the axis, 0.00 to 1.75+; the figure does not define it)",
+   "bars": [
+    {
+     "system": "Integumentary",
+     "value": 1.89
+    },
+    {
+     "system": "Reproductive",
+     "value": 1.45
+    },
+    {
+     "system": "Cardiovascular",
+     "value": 0.64
+    },
+    {
+     "system": "Endocrine",
+     "value": 0.53
+    },
+    {
+     "system": "Digestive",
+     "value": 0.48
+    },
+    {
+     "system": "Urinary",
+     "value": 0.39
+    },
+    {
+     "system": "Nervous",
+     "value": 0.34
+    },
+    {
+     "system": "Respiratory",
+     "value": 0.31
+    },
+    {
+     "system": "Lymphatic",
+     "value": 0.3
+    },
+    {
+     "system": "Muscular",
+     "value": 0.18
+    }
+   ]
+  },
+  "byType": {
+   "value": "Mean combined score (0.0 to 1.2+ axis; bar ends measured against the printed ticks)",
+   "bars": [
+    {
+     "type": "connective tissue",
+     "value": 1.28
+    },
+    {
+     "type": "pathology",
+     "value": 0.69
+    },
+    {
+     "type": "lining epithelium",
+     "value": 0.62
+    },
+    {
+     "type": "glandular tissue",
+     "value": 0.44
+    },
+    {
+     "type": "vascular tissue",
+     "value": 0.39
+    },
+    {
+     "type": "neuronal tissue",
+     "value": 0.35
+    },
+    {
+     "type": "cardiac muscle",
+     "value": 0.35
+    },
+    {
+     "type": "skeletal muscle",
+     "value": 0.25
+    },
+    {
+     "type": "smooth muscle",
+     "value": 0.22
+    },
+    {
+     "type": "adipose tissue",
+     "value": 0.14
+    },
+    {
+     "type": "lymphoid structure",
+     "value": 0.01
+    }
+   ]
+  },
+  "panelDandE": {
+   "note": "Panels d (negative changes) and e (positive changes) list the same significant domains by name with the tissue as a dot colour; I used them to name the tissue of each volcano dot. Panel d x values: tunica media -0.54 (Artery - Tibial), submucosa -1.12 (Colon - Sigmoid), -0.98 (Colon - Transverse), -0.54 (Stomach), nerve fibers -0.82, pia and white matter -0.90, seminiferous tubules -0.92, squamous epithelium -1.04, tunica adventitia -1.21 (Aorta) and -1.28 (Coronary), ovarian cortex -1.24, reticular dermis -1.48, adenohypophysis -1.71, ovarian stroma -1.84. Panel e x values: corpus albicans 3.51, subdermis 2.17, fibromuscular tissue 1.48, connective tissue 1.48, 1.46, 1.26, 0.36, endometrium 1.42, white matter 1.17, neurohypophysis 1.13, calcified plaques 1.08 and 0.72, fibroadipose tissue 0.55, papillary dermis 0.57, adrenal medulla 0.47, epidermis 0.46, epineurium 0.45."
+  }
+ },
+ "trajectories": [
+  {
+   "source": "image18 panel f",
+   "title": "submucosa (Colon - Transverse)",
+   "tissue": "Colon - Transverse",
+   "domain": "submucosa",
+   "x": "age (20 to 70)",
+   "y": "Domain abundance per slide (fraction, 0 to 0.6)",
+   "points": [
+    [
+     20,
+     0.431
+    ],
+    [
+     30,
+     0.416
+    ],
+    [
+     40,
+     0.401
+    ],
+    [
+     50,
+     0.386
+    ],
+    [
+     60,
+     0.371
+    ],
+    [
+     70,
+     0.356
+    ]
+   ],
+   "band": [
+    [
+     20,
+     0.419,
+     0.442
+    ],
+    [
+     30,
+     0.411,
+     0.424
+    ],
+    [
+     40,
+     0.396,
+     0.406
+    ],
+    [
+     50,
+     0.381,
+     0.391
+    ],
+    [
+     60,
+     0.366,
+     0.376
+    ],
+    [
+     70,
+     0.351,
+     0.361
+    ]
+   ],
+   "label": {
+    "p": "4.8e-07",
+    "slope": "-0.98%/decade"
+   },
+   "note": "The drawn straight regression line falls about 0.015 per decade (-1.5 points), more than the printed -0.98%/decade. Line values are the drawn line; about 600 slide dots (grey) are not read. Companion H&E sections 20-29 and 60-69 y.o. with mucosa (blue), muscularis (orange), submucosa (green)."
+  },
+  {
+   "source": "image18 panel g",
+   "title": "corpus albicans (Ovary)",
+   "tissue": "Ovary",
+   "domain": "corpus albicans",
+   "x": "age (20 to 70)",
+   "y": "Domain abundance per slide (fraction, 0 to 0.6)",
+   "points": [
+    [
+     20,
+     null
+    ],
+    [
+     30,
+     0.019
+    ],
+    [
+     40,
+     0.052
+    ],
+    [
+     50,
+     0.085
+    ],
+    [
+     60,
+     0.118
+    ],
+    [
+     70,
+     0.151
+    ]
+   ],
+   "band": [
+    [
+     30,
+     0.012,
+     0.03
+    ],
+    [
+     40,
+     0.044,
+     0.059
+    ],
+    [
+     50,
+     0.075,
+     0.09
+    ],
+    [
+     60,
+     0.103,
+     0.136
+    ],
+    [
+     70,
+     0.128,
+     0.176
+    ]
+   ],
+   "label": {
+    "p": "1.1e-07",
+    "slope": "3.51%/decade"
+   },
+   "note": "The line is cut at the bottom axis: it starts at value 0 at about age 25 (the straight line would be slightly negative at 20). Drawn slope about +0.033 per decade. Most slides below 20 y.o. sit at 0; scatter widens strongly with age. Companion sections: corpus albicans (green here), ovarian cortex (red), ovarian stroma (purple): different colours from the atlas."
+  },
+  {
+   "source": "image18 panel h",
+   "title": "seminiferous tubules (Testis)",
+   "tissue": "Testis",
+   "domain": "seminiferous tubules",
+   "x": "age (20 to 70)",
+   "y": "Domain abundance per slide (fraction, 0 to 0.6)",
+   "points": [
+    [
+     20,
+     0.361
+    ],
+    [
+     30,
+     0.348
+    ],
+    [
+     40,
+     0.335
+    ],
+    [
+     50,
+     0.323
+    ],
+    [
+     60,
+     0.31
+    ],
+    [
+     70,
+     0.297
+    ]
+   ],
+   "band": [
+    [
+     20,
+     0.35,
+     0.369
+    ],
+    [
+     30,
+     0.341,
+     0.354
+    ],
+    [
+     40,
+     0.329,
+     0.341
+    ],
+    [
+     50,
+     0.316,
+     0.328
+    ],
+    [
+     60,
+     0.304,
+     0.315
+    ],
+    [
+     70,
+     0.29,
+     0.303
+    ]
+   ],
+   "label": {
+    "p": "0.0132",
+    "slope": "-0.91%/decade"
+   }
+  },
+  {
+   "source": "image18 panel h",
+   "title": "connective tissue (Testis)",
+   "tissue": "Testis",
+   "domain": "connective tissue",
+   "x": "age (20 to 70)",
+   "y": "Domain abundance per slide (fraction, 0 to 0.6)",
+   "points": [
+    [
+     20,
+     0.272
+    ],
+    [
+     30,
+     0.296
+    ],
+    [
+     40,
+     0.319
+    ],
+    [
+     50,
+     0.343
+    ],
+    [
+     60,
+     0.366
+    ],
+    [
+     70,
+     0.389
+    ]
+   ],
+   "band": [
+    [
+     20,
+     0.259,
+     0.285
+    ],
+    [
+     30,
+     0.285,
+     0.303
+    ],
+    [
+     40,
+     0.313,
+     0.325
+    ],
+    [
+     50,
+     0.337,
+     0.349
+    ],
+    [
+     60,
+     0.359,
+     0.372
+    ],
+    [
+     70,
+     0.379,
+     0.399
+    ]
+   ],
+   "label": {
+    "p": "7.4e-07",
+    "slope": "1.48%/decade"
+   }
+  },
+  {
+   "source": "image18 panel h",
+   "title": "adenohypophysis (Pituitary)",
+   "tissue": "Pituitary",
+   "domain": "adenohypophysis",
+   "x": "age (20 to 70)",
+   "y": "Domain abundance per slide (fraction, 0 to 0.6)",
+   "points": [
+    [
+     20,
+     0.4
+    ],
+    [
+     30,
+     0.386
+    ],
+    [
+     40,
+     0.371
+    ],
+    [
+     50,
+     0.357
+    ],
+    [
+     60,
+     0.342
+    ],
+    [
+     70,
+     0.328
+    ]
+   ],
+   "band": [
+    [
+     20,
+     0.377,
+     0.422
+    ],
+    [
+     30,
+     0.369,
+     0.403
+    ],
+    [
+     40,
+     0.359,
+     0.382
+    ],
+    [
+     50,
+     0.349,
+     0.363
+    ],
+    [
+     60,
+     0.337,
+     0.349
+    ],
+    [
+     70,
+     0.318,
+     0.338
+    ]
+   ],
+   "label": {
+    "p": "0.0013",
+    "slope": "-1.71%/decade"
+   },
+   "note": "The talk quotes 82.6% to 67.9% (-3.42%/decade) for this domain: that is about twice what this panel draws (0.40 to 0.33) and twice its printed slope (-1.71). The atlas section has 83% adenohypophysis by area. So this panel is probably per slide area and the talk numbers per tissue area (my guess, not stated)."
+  },
+  {
+   "source": "image18 panel h",
+   "title": "squamous epithelium (Vagina)",
+   "tissue": "Vagina",
+   "domain": "squamous epithelium",
+   "x": "age (20 to 70)",
+   "y": "Domain abundance per slide (fraction, 0 to 0.6)",
+   "points": [
+    [
+     20,
+     0.116
+    ],
+    [
+     30,
+     0.102
+    ],
+    [
+     40,
+     0.088
+    ],
+    [
+     50,
+     0.074
+    ],
+    [
+     60,
+     0.06
+    ],
+    [
+     70,
+     0.047
+    ]
+   ],
+   "band": [
+    [
+     20,
+     0.109,
+     0.12
+    ],
+    [
+     30,
+     0.093,
+     0.113
+    ],
+    [
+     40,
+     0.082,
+     0.094
+    ],
+    [
+     50,
+     0.068,
+     0.081
+    ],
+    [
+     60,
+     0.054,
+     0.066
+    ],
+    [
+     70,
+     0.04,
+     0.053
+    ]
+   ],
+   "label": {
+    "p": "4.6e-05",
+    "slope": "-1.04%/decade"
+   },
+   "note": "line starts at about age 20.5"
+  },
+  {
+   "source": "image18 panel i (top left)",
+   "title": "Colon - Transverse (cell density in the domain)",
+   "tissue": "Colon - Transverse",
+   "domain": "submucosa (assumed from the neighbouring panels; the panel title says only the tissue)",
+   "x": "age (20 to 70)",
+   "y": "Density_domain (axis 0 to 22; unit not given)",
+   "series": {
+    "Connective": [
+     [
+      20,
+      6.33
+     ],
+     [
+      30,
+      6.72
+     ],
+     [
+      40,
+      7.16
+     ],
+     [
+      50,
+      7.36
+     ],
+     [
+      60,
+      7.35
+     ],
+     [
+      70,
+      7.08
+     ]
+    ],
+    "Inflammatory": [
+     [
+      20,
+      1.29
+     ],
+     [
+      30,
+      1.29
+     ],
+     [
+      40,
+      1.35
+     ],
+     [
+      50,
+      1.41
+     ],
+     [
+      60,
+      1.44
+     ],
+     [
+      70,
+      1.38
+     ]
+    ],
+    "Neoplastic": "about 0 (a red line along the bottom, hidden by dots)",
+    "Dead": "about 0 (purple line along the bottom, starts at about age 22)",
+    "Epithelial": "not visible (orange, at or under 0)"
+   },
+   "points": [
+    [
+     20,
+     6.33
+    ],
+    [
+     30,
+     6.72
+    ],
+    [
+     40,
+     7.16
+    ],
+    [
+     50,
+     7.36
+    ],
+    [
+     60,
+     7.35
+    ],
+    [
+     70,
+     7.08
+    ]
+   ],
+   "note": "smoothed curve (rises to a plateau at 45-60, dips after 60), series colours as legend: Connective blue, Epithelial orange, Inflammatory green, Neoplastic red, Dead purple; no band drawn"
+  },
+  {
+   "source": "image18 panel i (top right)",
+   "title": "Colon - Transverse (cell-type proportion)",
+   "tissue": "Colon - Transverse",
+   "x": "age (20 to 70)",
+   "y": "Proportion (axis 0 to 0.55)",
+   "series": {
+    "Connective": [
+     [
+      20,
+      0.102
+     ],
+     [
+      30,
+      0.11
+     ],
+     [
+      40,
+      0.114
+     ],
+     [
+      50,
+      0.121
+     ],
+     [
+      60,
+      0.134
+     ],
+     [
+      70,
+      0.139
+     ]
+    ],
+    "Inflammatory": [
+     [
+      20,
+      0.021
+     ],
+     [
+      30,
+      0.021
+     ],
+     [
+      40,
+      0.022
+     ],
+     [
+      50,
+      0.024
+     ],
+     [
+      60,
+      0.027
+     ],
+     [
+      70,
+      0.028
+     ]
+    ],
+    "Neoplastic": "about 0",
+    "Dead": "about 0",
+    "Epithelial": "not visible"
+   },
+   "points": [
+    [
+     20,
+     0.102
+    ],
+    [
+     30,
+     0.11
+    ],
+    [
+     40,
+     0.114
+    ],
+    [
+     50,
+     0.121
+    ],
+    [
+     60,
+     0.134
+    ],
+    [
+     70,
+     0.139
+    ]
+   ]
+  },
+  {
+   "source": "image18 panel i (bottom left)",
+   "title": "submucosa, Stomach (cell density)",
+   "tissue": "Stomach",
+   "domain": "submucosa",
+   "x": "age (20 to 70)",
+   "y": "Density_domain (axis 0 to 15; unit not given)",
+   "series": {
+    "Connective": [
+     [
+      20,
+      4.58
+     ],
+     [
+      30,
+      4.76
+     ],
+     [
+      40,
+      4.93
+     ],
+     [
+      50,
+      5.17
+     ],
+     [
+      60,
+      5.11
+     ],
+     [
+      70,
+      4.95
+     ]
+    ],
+    "Inflammatory": [
+     [
+      20,
+      0.96
+     ],
+     [
+      30,
+      0.99
+     ],
+     [
+      40,
+      0.98
+     ],
+     [
+      50,
+      0.99
+     ],
+     [
+      60,
+      0.98
+     ],
+     [
+      70,
+      1.01
+     ]
+    ],
+    "Neoplastic": "about 0",
+    "Dead": "about 0, line only from age 35",
+    "Epithelial": "not visible"
+   },
+   "points": [
+    [
+     20,
+     4.58
+    ],
+    [
+     30,
+     4.76
+    ],
+    [
+     40,
+     4.93
+    ],
+    [
+     50,
+     5.17
+    ],
+    [
+     60,
+     5.11
+    ],
+    [
+     70,
+     4.95
+    ]
+   ]
+  },
+  {
+   "source": "image18 panel i (bottom right)",
+   "title": "submucosa, Stomach (cell-type proportion)",
+   "tissue": "Stomach",
+   "domain": "submucosa",
+   "x": "age (20 to 70)",
+   "y": "Proportion (axis 0 to 0.23)",
+   "series": {
+    "Connective": [
+     [
+      20,
+      0.053
+     ],
+     [
+      30,
+      0.053
+     ],
+     [
+      40,
+      0.053
+     ],
+     [
+      50,
+      0.054
+     ],
+     [
+      60,
+      0.056
+     ],
+     [
+      70,
+      0.058
+     ]
+    ],
+    "Inflammatory": [
+     [
+      20,
+      0.011
+     ],
+     [
+      30,
+      0.011
+     ],
+     [
+      40,
+      0.01
+     ],
+     [
+      50,
+      0.01
+     ],
+     [
+      60,
+      0.01
+     ],
+     [
+      70,
+      0.011
+     ]
+    ],
+    "Neoplastic": "about 0",
+    "Dead": "about 0, line only from age 35",
+    "Epithelial": "not visible"
+   },
+   "points": [
+    [
+     20,
+     0.053
+    ],
+    [
+     30,
+     0.053
+    ],
+    [
+     40,
+     0.053
+    ],
+    [
+     50,
+     0.054
+    ],
+    [
+     60,
+     0.056
+    ],
+    [
+     70,
+     0.058
+    ]
+   ]
+  },
+  {
+   "source": "image19 panel b",
+   "title": "calcified plaques",
+   "tissue": "not named in the panel (the schematic in panel a is a vessel cross-section and the pathologies, calcified plaques and atherosis, suggest arteries: inferred)",
+   "x": "age (20 to 70)",
+   "y": "Domain abundance (%) (axis units as printed)",
+   "points": [
+    [
+     20,
+     0.833
+    ],
+    [
+     30,
+     0.6
+    ],
+    [
+     40,
+     0.744
+    ],
+    [
+     50,
+     1.819
+    ],
+    [
+     60,
+     2.928
+    ],
+    [
+     70,
+     4.14
+    ]
+   ],
+   "pointsMid": [
+    [
+     25,
+     0.735
+    ],
+    [
+     35,
+     0.529
+    ],
+    [
+     45,
+     1.299
+    ],
+    [
+     55,
+     2.319
+    ],
+    [
+     65,
+     3.609
+    ]
+   ],
+   "band": [
+    [
+     20,
+     -0.148,
+     1.823
+    ],
+    [
+     30,
+     0.108,
+     1.093
+    ],
+    [
+     40,
+     0.054,
+     1.447
+    ],
+    [
+     50,
+     0.717,
+     2.917
+    ],
+    [
+     60,
+     1.841,
+     4.023
+    ],
+    [
+     70,
+     2.935,
+     5.344
+    ]
+   ],
+   "bandMid": [
+    [
+     25,
+     -0.018,
+     1.496
+    ],
+    [
+     35,
+     0.134,
+     0.932
+    ],
+    [
+     45,
+     0.254,
+     2.348
+    ],
+    [
+     55,
+     1.263,
+     3.374
+    ],
+    [
+     65,
+     2.451,
+     4.772
+    ]
+   ],
+   "note": "smoothed curve with a shaded band (about a 95% interval, not stated); the band is clipped at the plot edge and dips below 0"
+  },
+  {
+   "source": "image19 panel b",
+   "title": "atherosis",
+   "tissue": "not named in the panel (the schematic in panel a is a vessel cross-section and the pathologies, calcified plaques and atherosis, suggest arteries: inferred)",
+   "x": "age (20 to 70)",
+   "y": "Domain abundance (%) (axis units as printed)",
+   "points": [
+    [
+     20,
+     0.015
+    ],
+    [
+     30,
+     0.042
+    ],
+    [
+     40,
+     0.083
+    ],
+    [
+     50,
+     0.21
+    ],
+    [
+     60,
+     0.4
+    ],
+    [
+     70,
+     0.38
+    ]
+   ],
+   "pointsMid": [
+    [
+     25,
+     0.032
+    ],
+    [
+     35,
+     0.039
+    ],
+    [
+     45,
+     0.157
+    ],
+    [
+     55,
+     0.292
+    ],
+    [
+     65,
+     0.394
+    ]
+   ],
+   "band": [
+    [
+     20,
+     -0.011,
+     0.042
+    ],
+    [
+     30,
+     0.03,
+     0.056
+    ],
+    [
+     40,
+     -0.024,
+     0.194
+    ],
+    [
+     50,
+     -0.007,
+     0.427
+    ],
+    [
+     60,
+     0.115,
+     0.686
+    ],
+    [
+     70,
+     0.133,
+     0.628
+    ]
+   ],
+   "bandMid": [
+    [
+     25,
+     0.011,
+     0.054
+    ],
+    [
+     35,
+     0.019,
+     0.058
+    ],
+    [
+     45,
+     -0.045,
+     0.36
+    ],
+    [
+     55,
+     0.063,
+     0.526
+    ],
+    [
+     65,
+     0.122,
+     0.665
+    ]
+   ],
+   "note": "smoothed curve with a shaded band (about a 95% interval, not stated); the band is clipped at the plot edge and dips below 0"
+  },
+  {
+   "source": "image19 panel b",
+   "title": "infarct tissue",
+   "tissue": "not named in the panel (the schematic in panel a is a vessel cross-section and the pathologies, calcified plaques and atherosis, suggest arteries: inferred)",
+   "x": "age (20 to 70)",
+   "y": "Domain abundance (%) (axis units as printed)",
+   "points": [
+    [
+     20,
+     0.021
+    ],
+    [
+     30,
+     0.002
+    ],
+    [
+     40,
+     0.017
+    ],
+    [
+     50,
+     0.03
+    ],
+    [
+     60,
+     0.112
+    ],
+    [
+     70,
+     0.299
+    ]
+   ],
+   "pointsMid": [
+    [
+     25,
+     0.01
+    ],
+    [
+     35,
+     0.006
+    ],
+    [
+     45,
+     0.027
+    ],
+    [
+     55,
+     0.051
+    ],
+    [
+     65,
+     0.216
+    ]
+   ],
+   "band": [
+    [
+     20,
+     -0.016,
+     0.059
+    ],
+    [
+     30,
+     -0.006,
+     0.011
+    ],
+    [
+     40,
+     -0.011,
+     0.046
+    ],
+    [
+     50,
+     -0.014,
+     0.072
+    ],
+    [
+     60,
+     -0.059,
+     0.288
+    ],
+    [
+     70,
+     -0.143,
+     0.744
+    ]
+   ],
+   "bandMid": [
+    [
+     25,
+     -0.011,
+     0.032
+    ],
+    [
+     35,
+     -0.008,
+     0.019
+    ],
+    [
+     45,
+     -0.014,
+     0.069
+    ],
+    [
+     55,
+     -0.022,
+     0.126
+    ],
+    [
+     65,
+     -0.105,
+     0.542
+    ]
+   ],
+   "note": "smoothed curve with a shaded band (about a 95% interval, not stated); the band is clipped at the plot edge and dips below 0"
+  },
+  {
+   "source": "image19 panel b",
+   "title": "inflammatory aggregates and hemorrhage",
+   "tissue": "not named in the panel (the schematic in panel a is a vessel cross-section and the pathologies, calcified plaques and atherosis, suggest arteries: inferred)",
+   "x": "age (20 to 70)",
+   "y": "Domain abundance (%) (axis units as printed)",
+   "points": [
+    [
+     20,
+     0.009
+    ],
+    [
+     30,
+     0.017
+    ],
+    [
+     40,
+     0.079
+    ],
+    [
+     50,
+     0.285
+    ],
+    [
+     60,
+     0.589
+    ],
+    [
+     70,
+     0.567
+    ]
+   ],
+   "pointsMid": [
+    [
+     25,
+     0.013
+    ],
+    [
+     35,
+     0.021
+    ],
+    [
+     45,
+     0.159
+    ],
+    [
+     55,
+     0.502
+    ],
+    [
+     65,
+     0.58
+    ]
+   ],
+   "band": [
+    [
+     20,
+     -0.004,
+     0.022
+    ],
+    [
+     30,
+     -0.001,
+     0.033
+    ],
+    [
+     40,
+     -0.03,
+     0.19
+    ],
+    [
+     50,
+     -0.044,
+     0.624
+    ],
+    [
+     60,
+     0.108,
+     1.07
+    ],
+    [
+     70,
+     0.183,
+     0.952
+    ]
+   ],
+   "bandMid": [
+    [
+     25,
+     0.0,
+     0.026
+    ],
+    [
+     35,
+     -0.015,
+     0.057
+    ],
+    [
+     45,
+     -0.059,
+     0.382
+    ],
+    [
+     55,
+     0.052,
+     0.954
+    ],
+    [
+     65,
+     0.156,
+     1.006
+    ]
+   ],
+   "note": "smoothed curve with a shaded band (about a 95% interval, not stated); the band is clipped at the plot edge and dips below 0"
+  },
+  {
+   "source": "image20 panel f",
+   "title": "mucosa-muscularis, Fallopian Tube",
+   "tissue": "Fallopian Tube",
+   "x": "Age (21 to 69)",
+   "y": "Percentage of touching points (axis 0 to 100)",
+   "points": [
+    [
+     20,
+     84.3
+    ],
+    [
+     30,
+     76.7
+    ],
+    [
+     40,
+     69.1
+    ],
+    [
+     50,
+     61.5
+    ],
+    [
+     60,
+     54.0
+    ],
+    [
+     70,
+     46.4
+    ]
+   ],
+   "band": [
+    [
+     20,
+     71.5,
+     93.6
+    ],
+    [
+     30,
+     67.4,
+     85.1
+    ],
+    [
+     40,
+     61.8,
+     75.6
+    ],
+    [
+     50,
+     54.3,
+     68.5
+    ],
+    [
+     60,
+     45.1,
+     63.2
+    ],
+    [
+     70,
+     36.8,
+     59.5
+    ]
+   ],
+   "note": "straight regression line (-7.6 per decade, matches panel e -7.57), about 45 slide dots (grey-blue). Line spans age 21 to 69, so the 20 and 70 values are extrapolated by under one year."
+  },
+  {
+   "source": "image20 panel g",
+   "title": "mucosa-fibromuscular tissue, Fallopian Tube",
+   "tissue": "Fallopian Tube",
+   "x": "Age (21 to 69)",
+   "y": "Percentage of touching points (axis 0 to 100)",
+   "points": [
+    [
+     20,
+     19.8
+    ],
+    [
+     30,
+     29.1
+    ],
+    [
+     40,
+     38.3
+    ],
+    [
+     50,
+     47.6
+    ],
+    [
+     60,
+     56.8
+    ],
+    [
+     70,
+     66.1
+    ]
+   ],
+   "band": [
+    [
+     20,
+     11.5,
+     32.8
+    ],
+    [
+     30,
+     21.5,
+     38.4
+    ],
+    [
+     40,
+     31.3,
+     46.0
+    ],
+    [
+     50,
+     40.1,
+     55.3
+    ],
+    [
+     60,
+     47.4,
+     66.3
+    ],
+    [
+     70,
+     52.6,
+     76.8
+    ]
+   ],
+   "note": "straight regression line (+9.25 per decade, matches panel e +9.25). Line spans age 21 to 69."
+  }
+ ],
+ "interactions": [
+  {
+   "organ": "Artery - Coronary",
+   "age": "20-29",
+   "nodes": [
+    "adipose tissue",
+    "smooth muscle",
+    "connective tissue",
+    "cardiac muscle"
+   ],
+   "edges": [
+    [
+     "adipose tissue",
+     "smooth muscle",
+     0.21
+    ],
+    [
+     "adipose tissue",
+     "cardiac muscle",
+     0.11
+    ],
+    [
+     "smooth muscle",
+     "connective tissue",
+     1.0
+    ],
+    [
+     "smooth muscle",
+     "cardiac muscle",
+     0.11
+    ]
+   ],
+   "edgeWidthPx": {
+    "adipose tissue - smooth muscle": 2.64,
+    "adipose tissue - connective tissue": 0,
+    "adipose tissue - cardiac muscle": 1.41,
+    "smooth muscle - connective tissue": 12.5,
+    "smooth muscle - cardiac muscle": 1.33,
+    "connective tissue - cardiac muscle": 0
+   },
+   "weightNote": "weight = line width / width of the thickest edge in that panel (smooth muscle - connective tissue, about 12.5 to 13.4 px at the figure scale, the same in all five panels). An edge with weight 0 is not drawn. Node colours: adipose pale blue, smooth muscle green, connective tissue light green, cardiac muscle dark blue (tissue-type legend of panel b/c). Nodes are tissue types here, not domains."
+  },
+  {
+   "organ": "Artery - Coronary",
+   "age": "30-39",
+   "nodes": [
+    "adipose tissue",
+    "smooth muscle",
+    "connective tissue",
+    "cardiac muscle"
+   ],
+   "edges": [
+    [
+     "adipose tissue",
+     "connective tissue",
+     0.17
+    ],
+    [
+     "adipose tissue",
+     "cardiac muscle",
+     0.19
+    ],
+    [
+     "smooth muscle",
+     "connective tissue",
+     1.0
+    ],
+    [
+     "smooth muscle",
+     "cardiac muscle",
+     0.24
+    ],
+    [
+     "connective tissue",
+     "cardiac muscle",
+     0.18
+    ]
+   ],
+   "edgeWidthPx": {
+    "adipose tissue - smooth muscle": 0,
+    "adipose tissue - connective tissue": 2.15,
+    "adipose tissue - cardiac muscle": 2.37,
+    "smooth muscle - connective tissue": 12.7,
+    "smooth muscle - cardiac muscle": 3.09,
+    "connective tissue - cardiac muscle": 2.3
+   }
+  },
+  {
+   "organ": "Artery - Coronary",
+   "age": "40-49",
+   "nodes": [
+    "adipose tissue",
+    "smooth muscle",
+    "connective tissue",
+    "cardiac muscle"
+   ],
+   "edges": [
+    [
+     "adipose tissue",
+     "smooth muscle",
+     0.21
+    ],
+    [
+     "adipose tissue",
+     "connective tissue",
+     0.23
+    ],
+    [
+     "adipose tissue",
+     "cardiac muscle",
+     0.12
+    ],
+    [
+     "smooth muscle",
+     "connective tissue",
+     1.0
+    ],
+    [
+     "smooth muscle",
+     "cardiac muscle",
+     0.2
+    ],
+    [
+     "connective tissue",
+     "cardiac muscle",
+     0.14
+    ]
+   ],
+   "edgeWidthPx": {
+    "adipose tissue - smooth muscle": 2.64,
+    "adipose tissue - connective tissue": 2.99,
+    "adipose tissue - cardiac muscle": 1.58,
+    "smooth muscle - connective tissue": 12.8,
+    "smooth muscle - cardiac muscle": 2.59,
+    "connective tissue - cardiac muscle": 1.8
+   }
+  },
+  {
+   "organ": "Artery - Coronary",
+   "age": "50-59",
+   "nodes": [
+    "adipose tissue",
+    "smooth muscle",
+    "connective tissue",
+    "cardiac muscle"
+   ],
+   "edges": [
+    [
+     "adipose tissue",
+     "smooth muscle",
+     0.27
+    ],
+    [
+     "adipose tissue",
+     "connective tissue",
+     0.27
+    ],
+    [
+     "smooth muscle",
+     "connective tissue",
+     1.0
+    ],
+    [
+     "smooth muscle",
+     "cardiac muscle",
+     0.15
+    ],
+    [
+     "connective tissue",
+     "cardiac muscle",
+     0.08
+    ]
+   ],
+   "edgeWidthPx": {
+    "adipose tissue - smooth muscle": 3.64,
+    "adipose tissue - connective tissue": 3.67,
+    "adipose tissue - cardiac muscle": 0,
+    "smooth muscle - connective tissue": 13.4,
+    "smooth muscle - cardiac muscle": 2.07,
+    "connective tissue - cardiac muscle": 1.04
+   }
+  },
+  {
+   "organ": "Artery - Coronary",
+   "age": "60-69",
+   "nodes": [
+    "adipose tissue",
+    "smooth muscle",
+    "connective tissue",
+    "cardiac muscle"
+   ],
+   "edges": [
+    [
+     "adipose tissue",
+     "smooth muscle",
+     0.29
+    ],
+    [
+     "adipose tissue",
+     "connective tissue",
+     0.3
+    ],
+    [
+     "smooth muscle",
+     "connective tissue",
+     1.0
+    ],
+    [
+     "smooth muscle",
+     "cardiac muscle",
+     0.12
+    ],
+    [
+     "connective tissue",
+     "cardiac muscle",
+     0.1
+    ]
+   ],
+   "edgeWidthPx": {
+    "adipose tissue - smooth muscle": 3.92,
+    "adipose tissue - connective tissue": 3.94,
+    "adipose tissue - cardiac muscle": 0,
+    "smooth muscle - connective tissue": 13.3,
+    "smooth muscle - cardiac muscle": 1.58,
+    "connective tissue - cardiac muscle": 1.29
+   }
+  },
+  {
+   "organ": "Stomach",
+   "age": "all ages (not age-stratified)",
+   "nodes": [
+    "connective tissue",
+    "smooth muscle",
+    "lining epithelium"
+   ],
+   "edges": [
+    [
+     "connective tissue",
+     "smooth muscle",
+     null
+    ],
+    [
+     "connective tissue",
+     "lining epithelium",
+     null
+    ],
+    [
+     "smooth muscle",
+     "lining epithelium",
+     null
+    ]
+   ],
+   "note": "panel b: tissue-type adjacency of one organ; all lines have the same thin width (about 1.6 to 1.9 px), so the figure shows presence only, no weights"
+  },
+  {
+   "organ": "Small intestine (terminal ileum)",
+   "age": "all ages (not age-stratified)",
+   "nodes": [
+    "lymphoid structure",
+    "lining epithelium",
+    "connective tissue",
+    "smooth muscle"
+   ],
+   "edges": [
+    [
+     "lymphoid structure",
+     "lining epithelium",
+     null
+    ],
+    [
+     "lining epithelium",
+     "connective tissue",
+     null
+    ],
+    [
+     "lining epithelium",
+     "smooth muscle",
+     null
+    ],
+    [
+     "connective tissue",
+     "smooth muscle",
+     null
+    ]
+   ],
+   "note": "panel b: tissue-type adjacency of one organ; all lines have the same thin width (about 1.6 to 1.9 px), so the figure shows presence only, no weights"
+  },
+  {
+   "organ": "Breast (mammary tissue)",
+   "age": "all ages (not age-stratified)",
+   "nodes": [
+    "adipose tissue",
+    "connective tissue",
+    "glandular tissue"
+   ],
+   "edges": [
+    [
+     "adipose tissue",
+     "connective tissue",
+     null
+    ],
+    [
+     "adipose tissue",
+     "glandular tissue",
+     null
+    ],
+    [
+     "connective tissue",
+     "glandular tissue",
+     null
+    ]
+   ],
+   "note": "panel b: tissue-type adjacency of one organ; all lines have the same thin width (about 1.6 to 1.9 px), so the figure shows presence only, no weights"
+  },
+  {
+   "organ": "Minor salivary gland",
+   "age": "all ages (not age-stratified)",
+   "nodes": [
+    "smooth muscle",
+    "connective tissue",
+    "glandular tissue",
+    "lining epithelium"
+   ],
+   "edges": [
+    [
+     "smooth muscle",
+     "connective tissue",
+     null
+    ],
+    [
+     "smooth muscle",
+     "glandular tissue",
+     null
+    ],
+    [
+     "connective tissue",
+     "glandular tissue",
+     null
+    ],
+    [
+     "connective tissue",
+     "lining epithelium",
+     null
+    ],
+    [
+     "glandular tissue",
+     "lining epithelium",
+     null
+    ]
+   ],
+   "note": "panel b: tissue-type adjacency of one organ; all lines have the same thin width (about 1.6 to 1.9 px), so the figure shows presence only, no weights"
+  }
+ ],
+ "borderContactAndMotifs": {
+  "borderContactChangePerDecade": {
+   "source": "image20 panel e",
+   "xLabel": "Change in border contact per decade (units as printed; same units as the percentage of touching points in f and g)",
+   "sizeLegend": "-log10(pval) 2.5 to 15.0; sizes below are my estimate from the marker area (square of the diameter is linear in the legend)",
+   "rows": [
+    [
+     "mucosa-fibromuscular tissue",
+     "Fallopian Tube",
+     9.25,
+     2.5
+    ],
+    [
+     "myometrium-endometrium",
+     "Uterus",
+     5.98,
+     8.9
+    ],
+    [
+     "adipose tissue-tunica media",
+     "Artery - Coronary",
+     5.54,
+     4.1
+    ],
+    [
+     "Anatomical_cluster_4-fibromuscular tissue",
+     "Fallopian Tube",
+     5.4,
+     null
+    ],
+    [
+     "adipose tissue-tunica intima",
+     "Artery - Coronary",
+     5.37,
+     4.1
+    ],
+    [
+     "ovarian stroma-corpus albicans",
+     "Ovary",
+     4.51,
+     9.4
+    ],
+    [
+     "squamous epithelium-tissue edge",
+     "Cervix - Ectocervix",
+     3.42,
+     null
+    ],
+    [
+     "mucosa epithelium-muscularis",
+     "Small Intestine - Terminal Ileum",
+     3.29,
+     10.9
+    ],
+    [
+     "muscularis-fibromuscular tissue",
+     "Fallopian Tube",
+     3.26,
+     null
+    ],
+    [
+     "pancreatic parenchyma-pancreatic parenchyma autolysed",
+     "Pancreas",
+     3.07,
+     4.1
+    ],
+    [
+     "endometrium-Anatomical_cluster_3",
+     "Uterus",
+     -2.92,
+     2.7
+    ],
+    [
+     "Anatomical_cluster_5-renal glomeruli",
+     "Kidney - Medulla",
+     -3.05,
+     null
+    ],
+    [
+     "muscularis-submucosa",
+     "Small Intestine - Terminal Ileum",
+     -3.08,
+     7.5
+    ],
+    [
+     "mucosa-connective tissue and adipose tissue",
+     "Minor Salivary Gland",
+     -3.19,
+     null
+    ],
+    [
+     "muscularis-mucosa",
+     "Fallopian Tube",
+     -3.33,
+     null
+    ],
+    [
+     "mucosa epithelium-lymphoid Peyer pathches",
+     "Small Intestine - Terminal Ileum",
+     -3.37,
+     4.8
+    ],
+    [
+     "fibromuscular tissue-muscularis",
+     "Fallopian Tube",
+     -3.91,
+     null
+    ],
+    [
+     "ovarian stroma-ovarian cortex",
+     "Ovary",
+     -4.58,
+     5.2
+    ],
+    [
+     "myometrium-Anatomical_cluster_3",
+     "Uterus",
+     -5.98,
+     10.9
+    ],
+    [
+     "mucosa-muscularis",
+     "Fallopian Tube",
+     -7.57,
+     2.0
+    ]
+   ],
+   "rowFormat": "[domain pair, tissue, change in border contact per decade, approx -log10 p or null when the marker is below the legend minimum]",
+   "reading": "Contacts that rise with age: Fallopian tube mucosa - fibromuscular tissue (+9.3), uterus myometrium - endometrium (+6.0), coronary artery adipose tissue with tunica media (+5.5) and with tunica intima (+5.4), ovary stroma - corpus albicans (+4.5), small intestine mucosa epithelium - muscularis (+3.3). Contacts that fall: Fallopian tube mucosa - muscularis (-7.6) and fibromuscular tissue - muscularis (-3.9), uterus myometrium - anatomical cluster 3 (-6.0), ovary stroma - cortex (-4.6), small intestine mucosa epithelium - lymphoid Peyer patches (-3.4) and muscularis - submucosa (-3.1)."
+  },
+  "motifCounts": {
+   "source": "image20 panel c",
+   "x": "Motif count across tissues",
+   "rows": [
+    {
+     "motif": [
+      "connective tissue",
+      "lining epithelium"
+     ],
+     "count": 13
+    },
+    {
+     "motif": [
+      "connective tissue",
+      "smooth muscle"
+     ],
+     "count": 12
+    },
+    {
+     "motif": [
+      "connective tissue",
+      "glandular tissue"
+     ],
+     "count": 10
+    },
+    {
+     "motif": [
+      "lining epithelium",
+      "smooth muscle"
+     ],
+     "count": 9
+    },
+    {
+     "motif": [
+      "connective tissue",
+      "lining epithelium",
+      "smooth muscle"
+     ],
+     "note": "three-node motif (triangle)",
+     "count": 9
+    },
+    {
+     "motif": [
+      "cardiac muscle",
+      "connective tissue"
+     ],
+     "count": 3
+    },
+    {
+     "motif": [
+      "adipose tissue",
+      "connective tissue"
+     ],
+     "count": 2
+    }
+   ]
+  },
+  "borderProportionExample": {
+   "source": "image20 panel d",
+   "what": "The \"proportion of touching border\" is directed: of a domain pair in a small-intestine section (submucosa, lymphoid aggregate) 27% on the arrow pointing up to submucosa and 4% on the arrow pointing down to lymphoid. Which direction is which follows the arrowheads: the lymphoid aggregate has about 27% of its border against submucosa; submucosa has about 4% of its border against the aggregate.",
+   "values": {
+    "lymphoid->submucosa": 0.27,
+    "submucosa->lymphoid": 0.04
+   }
+  },
+  "fallopianTubeDomainMix": {
+   "source": "image20 panel h (pixel share of the three drawn colours in each section map)",
+   "legend": {
+    "fibromuscular tissue": "#1878b6",
+    "mucosa": "#29a249",
+    "muscularis": "#f57e20"
+   },
+   "ages": {
+    "20-29": {
+     "fibromuscular tissue": 0.2,
+     "mucosa": 0.4,
+     "muscularis": 0.4
+    },
+    "40-49": {
+     "fibromuscular tissue": 0.43,
+     "mucosa": 0.42,
+     "muscularis": 0.15
+    },
+    "60-69": {
+     "fibromuscular tissue": 0.65,
+     "mucosa": 0.13,
+     "muscularis": 0.21,
+     "other (red specks)": 0.02
+    }
+   },
+   "shape": "a round tube cross-section: young: green mucosa core, orange muscularis ring, thin blue rim; old: the blue fibromuscular tissue fills most of the section, green mucosa shrinks to a small patch",
+   "note": "single sections, one each, not averages"
+  },
+  "hierarchyNetwork": {
+   "source": "image20 panel a",
+   "description": "Four-level graph: organs (dark green nodes, 29 of them: Muscle, Adipose, Skin, Uterus, Ovary, Fallopian Tube, Cervix, Vagina, Breast, Artery, Heart, Kidney, Spleen, Bladder, Prostate, Testis, Liver, Pancreas, Thyroid, Adrenal Gland, Lung, Minor Salivary Gland, Stomach, Esophagus, Colon, Small Intestine, Pituitary, Nerve, Brain) joined to their tissues (light green, e.g. Heart - Left Ventricle, Colon - Sigmoid, Skin - Not Sun Exposed), and to ten tissue-type hubs (pink-red: connective tissue (by far the biggest hub), lining epithelium, vascular tissue, adipose tissue, lymphoid structure, glandular tissue, neuronal tissue, cardiac muscle, skeletal muscle, smooth muscle) which carry the domains (light blue discs, sized by an unstated quantity; roughly 90 to 100 of them, not counted exactly, e.g. mucosa epithelium, tunica intima, ovarian stroma, seminiferous tubules). Edge weights are not readable (thin grey curves) and which hub each organ line ends at is only approximately readable."
+  }
+ },
+ "pathology": {
+  "source": "image19 panels c, e, f (not asked for explicitly; read because they compare age and pathology)",
+  "c": {
+   "xLabel": "Abundance change",
+   "yLabel": "Morphological change",
+   "xClip": "values beyond +-0.4 are drawn at +-0.4 (four dots sit exactly at x = 0.4, one at -0.4)",
+   "guides": "light dashed lines at x = -0.2 and +0.2 and at y = 70; solid grey dashed at x = 0",
+   "legend": {
+    "grey": "stable with pathology",
+    "red": "morphology and abundance changes",
+    "purple": "abundance changes",
+    "green": "morphology changes"
+   },
+   "greyCount": "about 100 (85 separable blobs, many overlapping near (0, 20))",
+   "labelled": [
+    [
+     "connective tissue (Testis, atrophy)",
+     "red",
+     0.284,
+     141
+    ],
+    [
+     "fibroadipose tissue (Muscle, atrophy)",
+     "red",
+     0.4,
+     123
+    ],
+    [
+     "seminiferous tubules (Testis, atrophy)",
+     "red",
+     -0.294,
+     103
+    ],
+    [
+     "connective tissue (Liver, cirrhosis)",
+     "red",
+     0.263,
+     93
+    ],
+    [
+     "portal vein (Liver, congestion)",
+     "red",
+     -0.4,
+     75
+    ],
+    [
+     "connective tissue (Thyroid, hashimoto)",
+     "green",
+     0.184,
+     145
+    ],
+    [
+     "skeletal muscle (Muscle, atrophy)",
+     "green",
+     -0.159,
+     101
+    ],
+    [
+     "stroma (Spleen, congestion)",
+     "green",
+     -0.061,
+     98
+    ],
+    [
+     "connective tissue (Testis, fibrosis)",
+     "green",
+     0.132,
+     90
+    ],
+    [
+     "pancreatic parenchyma (Pancreas, saponification)",
+     "green",
+     -0.048,
+     77
+    ],
+    [
+     "portal vein (Liver, cirrhosis)",
+     "purple",
+     0.273,
+     69
+    ],
+    [
+     "liver parenchyma (Liver, cirrhosis)",
+     "purple",
+     -0.233,
+     57
+    ],
+    [
+     "liver parenchyma (Liver, steatosis)",
+     "purple",
+     -0.308,
+     50
+    ],
+    [
+     "fibromuscular tissue (Breast, gynecomastoid)",
+     "purple",
+     0.4,
+     48
+    ],
+    [
+     "thyroid follicles (Thyroid, hashimoto)",
+     "purple",
+     -0.265,
+     47
+    ],
+    [
+     "connective tissue (Lung, fibrosis)",
+     "purple",
+     0.222,
+     34
+    ],
+    [
+     "portal vein (Liver, steatosis)",
+     "purple",
+     0.4,
+     31
+    ],
+    [
+     "fibromuscular tissue (Breast, hyperplasia)",
+     "purple",
+     0.226,
+     29
+    ],
+    [
+     "portal vein (Liver, fibrosis)",
+     "purple",
+     0.4,
+     28.5
+    ],
+    [
+     "connective tissue (Pancreas, atrophy)",
+     "purple",
+     0.351,
+     20
+    ],
+    [
+     "ductal tissue (Breast, atrophy)",
+     "purple",
+     0.274,
+     13.6
+    ],
+    [
+     "adipose tissue (Breast, fibrosis)",
+     "purple",
+     -0.215,
+     9.3
+    ]
+   ],
+   "unlabelledPurple": [
+    [
+     0.217,
+     16.9
+    ],
+    [
+     0.211,
+     13.9
+    ]
+   ],
+   "rowFormat": "[label, colour class, abundance change, morphological change]"
+  },
+  "f": {
+   "xLabel": "Correlation score (Age vs. Pathology effect)",
+   "bars": [
+    [
+     "calcification",
+     0.97
+    ],
+    [
+     "sclerotic",
+     0.67
+    ],
+    [
+     "atherosclerosis",
+     0.54
+    ],
+    [
+     "atherosis",
+     0.18
+    ],
+    [
+     "gastritis",
+     0.02
+    ],
+    [
+     "atrophy",
+     0.04
+    ],
+    [
+     "fibrosis",
+     0.0
+    ],
+    [
+     "congestion",
+     0.0
+    ],
+    [
+     "cyst",
+     0.0
+    ],
+    [
+     "esophagitis",
+     0.0
+    ],
+    [
+     "desquamation",
+     0.0
+    ],
+    [
+     "hyperplasia",
+     -0.09
+    ],
+    [
+     "inflammation",
+     -0.27
+    ]
+   ],
+   "note": "bar ends measured against the printed ticks (-0.2 to 1.0); zeros are bars too short to see"
+  },
+  "e": {
+   "xLabel": "Effect of Age on Domain Abundance (Slope, delta abundance per decade)",
+   "yLabel": "Effect of Pathology on Domain Abundance (Coefficient from GLM)",
+   "guides": "dashed lines at x = 0, +-0.5 and y = 0, +-0.5",
+   "legend": {
+    "grey": "Stable",
+    "red": "Pathology-only",
+    "blue": "Age-only",
+    "green": "Both age & pathology"
+   },
+   "clip": "x clipped at 3.5 (two ovary corpus albicans dots: atrophy at y +0.08, cyst at y -0.48)",
+   "counts": "about 23 red, 13 green detected; blue and grey dots are too many and overlap (many tens to a few hundred); labels overlap heavily so only a few are matched to dots",
+   "examples": [
+    [
+     "connective tissue (Muscle, atrophy)",
+     "red",
+     0.23,
+     2.72
+    ],
+    [
+     "portal vein (Liver, steatosis)",
+     "red",
+     -0.24,
+     2.19
+    ],
+    [
+     "calcified plaques (Artery, calcification)",
+     "green",
+     1.08,
+     2.22
+    ],
+    [
+     "calcified plaques (Artery, calcification)",
+     "green",
+     0.71,
+     1.73
+    ],
+    [
+     "calcified plaques (Artery, sclerotic)",
+     "green",
+     0.71,
+     1.64
+    ],
+    [
+     "calcified plaques (Artery, monckeberg)",
+     "green",
+     0.7,
+     1.35
+    ],
+    [
+     "calcified plaques (Artery, atherosclerosis)",
+     "green",
+     0.71,
+     1.15
+    ],
+    [
+     "muscle (Thyroid, goiter)",
+     "red",
+     -0.38,
+     -3.98
+    ],
+    [
+     "muscle (Thyroid, nodularity)",
+     "red",
+     -0.38,
+     -3.53
+    ],
+    [
+     "myocardium (Artery, fibrosis)",
+     "green",
+     -0.55,
+     -3.83
+    ],
+    [
+     "fibrotic myocard (Heart, infarction)",
+     "red",
+     0.01,
+     -3.86
+    ]
+   ],
+   "rowFormat": "[label, colour class, age effect (slope), pathology effect (GLM coefficient)]"
+  }
+ },
+ "notes": [
+  "Atlas: shares are pixel shares of each segmentation map by legend colour (palette match within a small tolerance, my boxes drawn by eye), so rounded to 0.01, and they include thin outline pixels; a share of 0 means a legend entry that is hardly drawn (thyroid cyst, heart fibroadipose tissue, ectocervix fibromuscular tissue, adipose blood vessels). The small-intestine map looks cut off along its left edge in the figure itself.",
+  "Atlas colours differ from section to section (each tissue reuses a tab10-like palette: blue #1a78b6, orange #f58020, green #2ca249, red #d82a2a, purple #9268ad, brown #8c574c, pink #d87ab2, grey #939598); the same colour means different domains in different tissues. Legend spellings kept as printed (Peyer's pathches, medula, adventita subserosa, Anatomical_cluster).",
+  "Check on the brief: the atlas pituitary map is 83% adenohypophysis (blue), matching the 82.6% in the talk, so atlas shares look right.",
+  "Volcano: all 27 labelled dots and 4 unlabelled significant dots were located by pixel analysis against the axis ticks (x +-0.01, y +-0.05). The y axis is a natural log although labelled -log (see yScaleNote). Tissue names come from panels d/e dot colours and their legend; four dots have uncertain tissue (connective tissue +1.26 light purple, endometrium inferred, and the four unlabelled ones). 31 significant dots in total; the number of non-significant dots is only an estimate.",
+  "The drawn regression lines in 18f-h do not have the slopes printed in the same panels (four are 35 to 60% steeper than the printed slope (f, both Testis panels, Vagina), two are 6% and 15% shallower (g, adenohypophysis)), the label slope is probably from a model with covariates. The line values are what is drawn; use the printed slope as the paper number. Panel f line: 43.1% to 35.6%, near the talk numbers 42.9 to 34.5 for the GI submucosa.",
+  "The talk numbers for the ovary (1.4% to 11.89%) are not what panel g draws (0 at 25 y.o. to 0.15 at 70); the straight line reaches 0.151 at 70, and the individual slides spread to 0.6. The pituitary numbers differ by a factor of 2 (see its trajectory note). I cannot say which is \"right\"; I only report the figure.",
+  "Image19 b curves: read in 5-year steps (points = every 10 years as asked, pointsMid = 25, 35, ... 65); band edges are the drawn shaded band, which dips below 0. The tissue is not named in the panel (the schematic is a vessel); y is \"Domain abundance (%)\" with axes 0 to 5 (calcified plaques), 0 to 0.6+ (atherosis), 0 to 0.6+ (infarct tissue), 0 to 1.0+ (inflammatory aggregates and hemorrhage).",
+  "Image20 coronary-artery networks (panel i): edge widths measured by pixel analysis along each node pair (grey #939598 lines, node centres from the coloured discs). The smooth muscle - connective tissue edge is very thick and short (the nodes overlap and the text covers part of it), so its width (12 to 14 px) is the least certain; it is the thickest edge in every panel and I used it as weight 1.0. Other edges 1 to 4 px (+-0.5). Edges can hide behind nodes: lines from connective tissue to adipose tissue or cardiac muscle pass through the smooth-muscle disc, so I tested each node pair for a line along the whole centre-to-centre path (an edge counted only if it is visible beside the discs). Widths may be normalised per panel (the thickest is always the same), so only the relative ranking inside a panel is safe, not the absolute change of one edge between ages.",
+  "Panel i reading: adipose tissue contacts with smooth muscle and with connective tissue thicken with age (about 0.21 to 0.29 and absent to 0.30 of the thickest edge) and adipose tissue - cardiac muscle goes 0.11, 0.19, 0.12 and is absent from 50-59 on; the cardiac muscle links with smooth muscle and connective tissue peak at 30-39 and fall after. This agrees in sign with panel e (coronary artery adipose tissue with tunica media and intima +5.5 and +5.4 per decade), but panel e uses domain names, not tissue types.",
+  "Not in image20: no stomach-versus-uterus pair of networks and no organ-clustering dendrogram. Panel b shows Stomach, Small intestine (terminal ileum), Breast and Minor salivary gland; the uterus appears only in panel e (domain pairs) and its colour legend. If stomach vs uterus is on another slide it is in a figure I was not given.",
+  "Not read: individual slide dots in the trajectory scatter plots; the mean-combined-score definition; image17; node sizes in image20 panel a; the H&E images themselves. Image18 panel i has no unit for Density_domain and its domain is not printed (title says Colon - Transverse, or submucosa Stomach).",
+  "Panel e of image20: -log10 p values are estimated from marker sizes only; markers below the legend minimum (2.5) are given as null. The x axis of that panel is clipped at 10 (label cut off) and the units of border contact are as printed (no unit word)."
+ ]
+}

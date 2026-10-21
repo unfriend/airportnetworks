@@ -10,7 +10,7 @@ const XR = {
   head: new THREE.Vector3(), headQ: new THREE.Quaternion(), globeOff: new THREE.Vector3(), size: 1, globeBase: new THREE.Vector3(), camLocal: new THREE.Vector3(0, 0, 5),
   baseR: 0.36, R: 0.36, viewH: 1600, hitR: 1, target: new THREE.Vector3(),
   ctrls: [], panels: [], main: null, foot: null, tip: null, tipI: -1, elInfo: null,
-  kbd: { open: false, q: '' }, room: false,
+  kbd: { open: false, q: '' },
 };
 const _xd = new THREE.Vector3(), _xp = new THREE.Vector3(), _xq = new THREE.Quaternion();
 const _xq2 = new THREE.Quaternion(), _xm = new THREE.Matrix4(), _xinv = new THREE.Matrix4();
@@ -22,19 +22,6 @@ const _xa = new THREE.Vector3(), _xb = new THREE.Vector3(), _xc = new THREE.Vect
 // target sits in front of you, and closer views make the scene bigger.
 const _xX = new THREE.Vector3(1, 0, 0), _xY = new THREE.Vector3(0, 1, 0);
 function xrPlace(v) {
-  // life size: the scanner (1 unit = 1 m) standing on your floor, its floor 1.6 m below your eyes (the reference space
-  // is 'local': the floor is unknown, as for the flock's land), the bore as far ahead as the set's life view, the couch
-  // towards you; the thumbstick turns it on its spot
-  if (XR.room && APP.mode === 'explore' && X.scene === 'scan') {
-    const lv = view('scan', 'life'), d = clamp(lv[2], 1.8, 4);
-    XR.R = 1; XR.hitR = 1.4; XR.target.set(lv[3], lv[4], lv[5]);
-    GL.world.quaternion.setFromAxisAngle(_xY, -(v[0] - lv[0]) * D2R);
-    GL.world.scale.setScalar(1);
-    // the life view's target that far ahead of you; the rig is at your eyes
-    _xb.set(lv[3], 0, lv[5]).applyQuaternion(GL.world.quaternion);
-    GL.world.position.set(-_xb.x, -1.6 - scanFloorY(), -d - _xb.z);
-    return;
-  }
   const d = Math.max(v[2], 0.05);
   _xq.setFromAxisAngle(_xX, clamp(v[1], -85, 85) * D2R).multiply(_xq2.setFromAxisAngle(_xY, -v[0] * D2R));
   XR.R = XR.baseR * clamp(Math.pow(3.6 / d, 0.85), 0.12, 10) * XR.size;   // (times the size your hands or the room gave it)
@@ -110,14 +97,14 @@ function placeLabelXR(L, alpha, S) {
   sp.visible = o > 0.01;
   sp.material.opacity = o;
   labelPos(L, sp.position);
-  const hm = (XR.room && APP.mode === 'explore' && X.scene === 'scan' ? 0.036 : 0.021) / XR.R;   // (life size: the labels are further away)
+  const hm = 0.021 / XR.R;
   sp.scale.set(hm * sp.userData.aspect, hm, 1);
 }
-// the organ or group a controller points at, labelled where the ray meets it
+// the organ, tissue or domain a controller points at, labelled where the ray meets it
 function xrTip(S) {
   let h = null;
   if (APP.mode === 'explore') for (const c of XR.ctrls) if (c.hover && c.hover.kind === 'globe' && c.hover.pk) { h = c.hover; break; }
-  const id = h ? (h.pk.organ ? 'o' + h.pk.organ : 'g' + h.pk.group) + X.scene : '';
+  const id = h ? JSON.stringify(h.pk) + X.scene : '';
   if (id !== XR.tipI) {
     XR.tipI = id;
     if (XR.tip) dropSprite(XR.tip);
@@ -127,10 +114,10 @@ function xrTip(S) {
 }
 
 // ---------------------------------------------------- picking an organ --
-// The organ or group a ray points at (explore mode, the organs or the people on show): { organ } or { group }, or null
+// The organ, tissue or domain a ray points at in explore mode (see pickWith), or null
 const _prc = new THREE.Raycaster();
 function pickRay(o, d) {
-  if (APP.mode !== 'explore' || !(X.scene === 'organs' || X.scene === 'people')) return null;
+  if (APP.mode !== 'explore') return null;
   _prc.set(o, d);
   return pickWith(_prc);
 }
@@ -221,7 +208,6 @@ function xrGrab(c, on) {
   const h = c.hover;
   if (!on || !h) return;
   if (XR.stories || HOST.anchor.locked(h.kind)) return; // the Stories screen stays put, and so does an anchored place (in a shared room: only at its station, unless locked)
-  if (h.kind !== 'panel' && XR.room && APP.mode === 'explore' && X.scene === 'scan') return;   // life size: the scanner stands on your floor
   // the scene is held by its placement point (where the view's target sits), so a still hand moves nothing
   const p0 = h.kind === 'panel' ? XR.panelGroup.getWorldPosition(new THREE.Vector3()) : GL.rig.localToWorld(XR.globeBase.clone().add(XR.globeOff));
   c.grab = { target: h.kind === 'panel' ? 'panel' : 'globe', q0: new THREE.Quaternion().setFromRotationMatrix(c.g.matrix).invert(),
@@ -278,14 +264,14 @@ function xrPoint(c, dt) {
     hit = { kind: 'panel', P, x: h.uv.x * P.w, y: (1 - h.uv.y) * P.h, point: h.point };
     dist = h.distance;
   } else if (!XR.stories) {
-    // the scene counts as a ball around the view's target; an organ or a group counts if the ray passes close
+    // the scene counts as a ball around the view's target; an organ or a domain counts if the ray passes close
     const oL = _xa.copy(c.o).applyMatrix4(_xinv), dL = _xb.copy(c.d).transformDirection(_xinv);
     _xc.copy(oL).sub(XR.target);
     const b = _xc.dot(dL), disc = b * b - (_xc.lengthSq() - XR.hitR * XR.hitR);
     const t = disc > 0 ? -b - Math.sqrt(disc) : -1;
     const pk = pickRay(c.o, c.d);
     if (t > 0 || pk) {
-      // an organ or a group is marked where it is; else the ball's surface
+      // an organ's point is marked where it is; else the ball's surface
       const q = pk ? pickPos(pk) : null;
       if (q) _xp.set(q[0], q[1], q[2]).applyMatrix4(GL.sets[X.scene].group.matrixWorld);
       else _xp.copy(dL).multiplyScalar(t > 0 ? t : Math.max(0, _xc.copy(XR.target).sub(oL).dot(dL))).add(oL).applyMatrix4(GL.world.matrixWorld);
@@ -389,13 +375,8 @@ function xrClickPick(pk) {
   XR.kbd.open = false;
   choosePick(pk);
 }
-// Life size: in the headset the scanner stands on your floor in front of you
-function xrRoom(on) { XR.room = on; }
-// where the scanner's floor is in its own frame (the bore's centre is its origin); in passthrough the scanner's floor
-// and its reflection are hidden by its param scan_floor (set in frame()), so the room's own floor shows
-const scanFloorY = () => GL.sets.scan.floorY;
 // how close the headset may zoom: as close as the scene's own closest view, else 0.9 (closer, the scene would surround your head)
-const xrMinD = () => (XR.room && X.scene === 'scan' ? 0.05 : Math.min(0.9, ...Object.values(GL.sets[X.scene].cam || {}).map(v => +v[2] || 9)));
+const xrMinD = () => Math.min(0.9, ...Object.values(GL.sets[X.scene].cam || {}).map(v => +v[2] || 9));
 function xrZoom(f) {
   const c = orbit.cur;
   orbit.from = c.slice();
@@ -447,7 +428,6 @@ function xrEnterScene() {
   GL.stars.material.size = 2.2;
   for (const P of XR.panels) { P.mesh.visible = true; P.last = ''; }
   XR.kbd.open = false;
-  XR.room = !!X.life;
   for (const L of [...ST.labels, ...LBL.sets, ...LBL.extra]) L.o = -1;
   // every headset session starts the story from the top; entered from the start screen, it shows the Stories menu first
   const fromStart = HOST.picking || HOST.landingVR;
@@ -494,7 +474,7 @@ function xrAdopt() {
   XR.session.addEventListener('visibilitychange', xrVisibility);
   XR.ctrls.forEach((c, i) => { const s = HOST.inputs[i]; if (s) { c.src = s; c.ray.visible = s.targetRayMode !== 'screen'; } });
   xrEnterScene();
-  // keep the cell and the panel where they were in the story before
+  // keep the scene and the panel where they were in the story before
   const p = HOST.xrPose;
   if (p) {
     XR.needRecenter = false;

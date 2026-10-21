@@ -1,14 +1,15 @@
-// One scan, one system: the body as a metabolic network. A PET scanner and how it sees sugar, the organs of 658
-// whole-body FDG-PET scans and their partial-correlation network, how it thins and tips towards a few hubs from health
-// to disease, and the next step: one network per scan, and an index that may tell how a body is doing. After Geist
-// et al., "The metabolic organ connectome: A novel approach to measure allostatic load during health-to-disease
-// transition", Med (2025) (CC BY 4.0), and the poster "Shaping a New Era in Nuclear Medicine" by Barbara K Geist,
-// Alexander Grentner, Joel Fischer, Josef Yu, Dato Tsomaia, Adna Smajlovic, Stefan Grünert and Marcus Hacker (Division
-// of Nuclear Medicine, Medical University of Vienna; LBI for Network Medicine).
+// Tissue and time: how the body's organs are built from small working units, and how they change as we age. One H&E
+// slide and what it shows, 24,945 slides of GTEx, the authors' method (H&E-UTAG: tiles, features, neighbours, domains),
+// an atlas of 218 microanatomical domains, the network of organ architecture, what changes with age and with disease,
+// and the contacts between domains. After Buljan I, Bago-Horvath Z, Rendeiro AF, "Systematic mapping of human tissue
+// microanatomy reveals age-associated remodeling and resilience", bioRxiv 2025, doi 10.1101/2025.10.13.682110
+// (CC BY-NC), the poster "Microanatomical organization of the human body and its changes with age" and the talk
+// "Microanatomical principles of tissue organization and their change with age" (Iva Buljan, Rendeiro group; LBI for
+// Network Medicine, CeMM, Medical University of Vienna), with Iva Buljan's network of organ architecture.
 // Runs inside index.html, which owns the page, the renderer and the headset session.
-// Built by tools/pet/build.mjs from the tour's kit, the tour's PET body set and the data, organ icons, sets and engine
-// parts in tools/pet: edit those, not this file.
-HOST.register('pet', function (HOST) {
+// Built by tools/micro/build.mjs from the tour's kit, the tour's PET body and tissue sets, the PET story's organ icons
+// and the data, sets and engine parts in tools/micro: edit those, not this file.
+HOST.register('micro', function (HOST) {
 'use strict';
 const D2R = Math.PI / 180;
 const $ = s => document.querySelector(s);
@@ -24,7 +25,7 @@ const { smooth, clamp } = K;
 // ================================================================== SETS ==
 // Each set is one 3D scene of the story, centred on the origin. The story fades
 // sets in and out and drives them through their params (see SETS.x.params).
-// PET_DATA (the paper's and the poster's numbers, tools/pet/sets/data.js) comes first, then the organ icons (PET_ICONS);
-// the tour's PET body set (SETS.body) is used unchanged.
+// MICRO_DATA (the preprint's numbers and the network of organ architecture, tools/micro/sets/data.js) comes first, then
+// the PET story's organ icons (PET_ICONS); the tour's PET body and tissue sets (SETS.body, SETS.tissue) are used unchanged.
 const SETS = {};
 //@@SETS@@

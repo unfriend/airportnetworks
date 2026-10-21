@@ -2,9 +2,10 @@
 // ================================================================= SCENE ==
 const GL = {};
 // the sets, in the order they appear in the story
-const SET_ORDER = ['scan', 'body', 'organs', 'people', 'liver'];
-// sets drawn in another set's frame: the organs lie in the PET body, so the two always turn together
-const FRAME = { body: 'organs' };
+const SET_ORDER = ['body', 'tissue', 'slide', 'atlas', 'hier'];
+// sets drawn in another set's frame: the slide's tiles and domains lie on the tour's tissue section, so the two always
+// turn together (and show together)
+const FRAME = { slide: 'tissue' };
 const frameOf = k => FRAME[k] || k;
 function buildScene(canvas) {
   const renderer = HOST.makeRenderer({ canvas, antialias: true, alpha: true, powerPreference: 'high-performance' });
@@ -15,7 +16,7 @@ function buildScene(canvas) {
   Object.assign(GL, { renderer, scene, camera, canvas });
   GL.rig = new THREE.Group(); GL.world = new THREE.Group();
   scene.add(GL.rig); GL.rig.add(GL.world);
-  // lit sets (the scanner, the tour's body, the organs' shells ...) share one sky light and a light from over your shoulder
+  // lit sets share one sky light and a light from over your shoulder
   scene.add(new THREE.HemisphereLight(0xdde8ff, 0x1a2233, 0.85));
   GL.sun = new THREE.DirectionalLight(0xffffff, 0.85);
   scene.add(GL.sun); scene.add(GL.sun.target);
@@ -37,6 +38,38 @@ function buildScene(canvas) {
     GL.world.add(s.group);
     s.setAlpha(0);
   }
+  // the 29 organs of GTEx as points of light in the tour's body (the engine's own, in the body set's frame)
+  GL.dots = makeDots();
+  GL.sets.body.group.add(GL.dots.group);
+}
+// The organs' points: MICRO_DATA.organs' home points in the body, under the params dots (0..1, as far as the body shows)
+// and dots_pick (an organ's index + 1, 0 none: it grows and glows white, the others dim a little). They twinkle gently.
+const DOT_COL = '#ff9ec4';
+function makeDots() {
+  const set = K.newSet('dots'), O = MICRO_DATA.organs, n = O.length, g = K.pointsGeo(n);
+  const P = g.attributes.position.array, C = g.attributes.aCol.array, Z = g.attributes.aSize.array, A = g.attributes.aA.array;
+  O.forEach((o, i) => { P.set(o.pos, 3 * i); C.set(K.rgb(DOT_COL), 3 * i); Z[i] = 0.05; });
+  const pts = new THREE.Points(g, K.points(set, { vertex: 'gl_PointSize *= 1.0 + 0.18 * sin(uTime * 2.3 + position.x * 53.0 + position.y * 31.0);' }));
+  pts.renderOrder = 4;
+  set.group.add(pts);
+  let last = -1;
+  const _p = new THREE.Vector3();
+  return Object.assign(set, {
+    update(S) {
+      const k = Math.round(S.dots_pick || 0);
+      if (k === last) return;
+      last = k;
+      O.forEach((o, i) => { const on = k === i + 1; Z[i] = on ? 0.11 : 0.05; A[i] = !k || on ? 1 : 0.45; C.set(K.rgb(on ? '#ffffff' : DOT_COL), 3 * i); });
+      g.attributes.aSize.needsUpdate = g.attributes.aA.needsUpdate = g.attributes.aCol.needsUpdate = true;
+    },
+    // the organ a ray passes closest to (within about 0.045 of its point, in the body's units), or -1
+    pick(rc) {
+      let best = -1, bd = 0.045 * GL.sets.body.group.matrixWorld.getMaxScaleOnAxis() * GL.world.matrixWorld.getMaxScaleOnAxis();
+      pts.updateMatrixWorld();
+      O.forEach((o, i) => { _p.fromArray(o.pos).applyMatrix4(pts.matrixWorld); const d = rc.ray.distanceToPoint(_p); if (d < bd) { bd = d; best = i; } });
+      return best;
+    },
+  });
 }
 // show each set as far as S fades it in, and let the visible ones update (the hidden ones idle); in the story a set
 // may be turned to meet the camera (see buildCamera)
@@ -48,6 +81,9 @@ function updateSets(S, t, dt, story) {
     if (a > 0.003) s.update(S, t, dt);
     else if (s.idle) s.idle(dt);   // a hidden set may build in slices
   }
+  const da = (S.body_a || 0) * (S.dots || 0);
+  GL.dots.setAlpha(da);
+  if (da > 0.003) GL.dots.update(S, t);
 }
 
 // ---------------------------------------------------------------- camera --

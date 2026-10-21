@@ -1,93 +1,86 @@
 
 // ================================================================ EXPLORE ==
-// Explore mode: the paper's comparisons and networks, its organs, the poster's one-scan network with your own uptakes
-// and the people on its index; or any scene with its own controls.
+// Explore mode: the organs and their tissues, the domains and their tissue types, what changes with age, the method in
+// four steps; or any scene with its own controls.
 const SCENES = [
-  ['scan', 'Scanner', 'A PET/CT scanner, cut open: the ring of detectors, the events (a positron, two gamma photons, a line of response) and the image they build. Life size stands it in front of you.'],
-  ['body', 'Body', 'A whole-body PET scan: the tracer arriving with the blood, settling where cells use sugar and leaving in the urine (the PET body of the tour).'],
-  ['organs', 'Organs', `The paper's organs in the scan: their outlines, their uptakes, the matrix of ${fmt(FACTS.scans)} scans (stand-in values), a partial correlation, the networks and how their strength is spread.`],
-  ['people', 'One scan and people', 'The poster\'s next step: one network per scan, its two measures and the index; then the people on it, survival and the immunotherapy test. Illustrative maths; the dots are stand-ins.'],
-  ['liver', 'Liver', 'An organ is a network too: an illustrative liver in a few thousand patches, linked where one patch\'s uptake is more than a set number of times another\'s (the poster\'s rule); the best connected glow.'],
+  ['body', 'Body', `The ${FACTS.organs} organs whose tissue GTEx collected, as points of light in a whole-body PET scan (the tour's body).`],
+  ['slide', 'Section', 'One H&E-stained section of stomach wall (the tour\'s tissue, drawn), with the method\'s tiles, features and neighbours, and its domains at 20 and at 70.'],
+  ['atlas', 'Library and atlas', `The slide library (${fmt(FACTS.slides)} slides), a section per tissue with its domains, the tiles in one map, what changes with age and the pathology curves.`],
+  ['hier', 'Network', 'Iva Buljan\'s network of organ architecture: organs, tissues, tissue types and domains; and one organ\'s domain contacts at 20 and at 70.'],
 ];
-const TABS = [['networks', 'Networks'], ['organs', 'Organs'], ['one', 'One scan'], ['people', 'People'], ['scenes', 'Scenes']];
-// the tour's body set: its network and its disease scan are the tour's illustration, so this story leaves them out
+const SCENE_SHORT = { atlas: 'Atlas' };
+const TABS = [['organs', 'Organs'], ['domains', 'Domains'], ['age', 'Age'], ['method', 'Method'], ['scenes', 'Scenes']];
+// the tour's body set: its network and its disease scan are the tour's illustration, so this story leaves them out;
+// the sets' own Age controls give way to the story's age slider (X.age), which drives them all
 const HIDE_CTL = { body: ['view', 'state'] };
-const ctlsOf = k => (GL.sets[k].controls || []).filter(c => !(HIDE_CTL[k] || []).includes(c.key));
+const isAge = c => /^age$/i.test(c.key) || /^age$/i.test(c.label || '');
+const ctlsOf = k => (GL.sets[k].controls || []).filter(c => !(HIDE_CTL[k] || []).includes(c.key) && !isAge(c));
 // a control the panes offer now: a set may say when one applies (when(values)), so none sits there doing nothing; the
 // shared state keeps every control (ctlsOf) all the same
-const ctlShown = (k, c) => !c.when || c.when(Object.fromEntries(ctlsOf(k).map(x => [x.key, ctlValue(k, x)])));
-const S1 = PET_DATA.single, ONE_N = S1.organs.length;
-const X = { tab: 'networks', scene: 'organs', ctl: {}, t0: 0, turn: 'on', cmp: -1, netX: null, organ: null, u: null, theta: S1.theta, group: 0, life: false };
+const ctlShown = (k, c) => !c.when || c.when(Object.fromEntries((GL.sets[k].controls || []).map(x => [x.key, isAge(x) ? ageOpt(x) : ctlValue(k, x)])));
+const AGE0 = FACTS.ages[0], AGE1 = FACTS.ages[1];
+const X = { tab: 'organs', scene: 'atlas', ctl: {}, t0: 0, turn: 'on', organ: null, domain: null, age: AGE0, step: 1, kind: null };
 const XS = {};
-// params that pick something by number jump to their new value instead of easing through the ones in between; the
-// organs' network and its crossfade (organs_prev to organs_which by organs_mix) and the explainer's pair change smoothly
-// in the set's own time (explore(c)), so they pass unchanged
-const STEP = new Set(['organs_focus', 'organs_pair', 'organs_which', 'organs_prev', 'organs_mix', 'people_group']);
+// params that pick something by number jump to their new value instead of easing through the ones in between
+const STEP = new Set(['slide_focus', 'atlas_focus', 'hier_focus', 'hier_organ', 'dots_pick']);
 const orbit = { cur: [0, 12, 3.6, 0, 0, 0], from: null, to: null, t0: 0, dur: 1.6 };
 const ctlValue = (k, c) => (X.ctl[k] && X.ctl[k][c.key] !== undefined ? X.ctl[k][c.key] : c.options[0][0]);
 const ctlOf = (k, key) => ctlsOf(k).find(c => c.key === key);
 // a control's option whose key or name matches re (the sets name their own options)
 const optKey = (k, key, re) => { const c = ctlOf(k, key), o = c && c.options.find(([v, n]) => re.test(v) || re.test(n)); return o ? o[0] : null; };
-const setApi = k => (GL.sets[k] && GL.sets[k].api ? GL.sets[k].api() : null);
+// the age slider as a set's own Age option (the one nearest X.age)
+const ageOpt = c => { let b = c.options[0][0], bd = Infinity; for (const [v, n] of c.options) { const a = parseFloat(n) || parseFloat(v), d = Math.abs(a - X.age); if (d < bd) { bd = d; b = v; } } return b; };
+const ageF = () => clamp((X.age - AGE0) / (AGE1 - AGE0), 0, 1);
 // a view option's camera: the cam view of the same name, or the one its name stands for
-// (One scan shows the whole one-scan scene, its gauges too: the panes change all of it)
-const CAM_ALIAS = { organs: { organs: 'default', uptake: 'bars', partial: 'scatter', network: 'net' }, scan: { scanner: 'default' },
-  people: { one: 'default', 'one scan': 'default', ratios: 'field', people: 'map', index: 'strip', survival: 'km', immunotherapy: 'auc' } };
+const CAM_ALIAS = { atlas: { tiles: 'umap', age: 'volcano', pathology: 'curves' }, slide: { section: 'default', features: 'matrix', neighbours: 'close', age: 'domains' },
+  hier: { network: 'net' } };
 function camFor(k, v) {
   const c = GL.sets[k].cam || {}, al = CAM_ALIAS[k] || {}, vc = ctlOf(k, 'view'), o = vc && vc.options.find(x => x[0] === v), n = o ? String(o[1]).toLowerCase() : '';
   for (const x of [al[v], v, al[n], n]) if (x && c[x]) return x;
   return null;
 }
 const viewCam = k => { const c = ctlOf(k, 'view'); return c ? camFor(k, ctlValue(k, c)) : null; };
-// the network and the profile on show: the organs set's Network control and the people set's Profile control hold them
-// (their options are the ids), so the Scenes tab and the panes agree; a robustness test's network, which that control
-// does not offer, is X.netX
-const curNet = () => X.netX || ctlValue('organs', ctlOf('organs', 'network'));
-const curProfile = () => ctlValue('people', ctlOf('people', 'profile'));
-// the people set's views: the one-scan network (and its ratios) or the population
-const viewIs = (k, re) => { const c = ctlOf(k, 'view'); if (!c) return false; const v = ctlValue(k, c), o = c.options.find(x => x[0] === v); return re.test(v) || (o && re.test(o[1])); };
-const oneView = () => viewIs('people', /one|ratio|field/i);
-const netView = () => viewIs('organs', /net|strength/i);
+// the view on show in a set, by its key or its name
+const viewIs = (k, re) => { const c = ctlOf(k, 'view'); if (!c) return false; const v = ctlValue(k, c), o = c.options.find(x => x[0] === v); return re.test(v) || !!(o && re.test(o[1])); };
+// the views the panes ask for, by what they show
+const VIEW = { lib: /lib/i, map: /^atlas$/i, umap: /tile|umap/i, volcano: /volcano|^age$/i, curves: /patho|curve/i, net: /net/i, contacts: /contact/i,
+  section: /section/i, sAge: /^age$/i };
+// the method's four steps and the slide's views that show them
+const STEPS = [
+  ['Tiles', /tile/i, () => `Each slide is cut into small squares: ${FACTS.tilesM} million tiles in all.`],
+  ['Features', /feat/i, () => 'A deep-learning vision model describes each tile with a list of numbers, its features.'],
+  ['Neighbours', /neigh/i, () => 'Each tile mixes in the features of the tiles around it (message passing), so it knows its surroundings.'],
+  ['Domains', /domain/i, () => 'Tiles with similar mixed features are grouped, across all slides. A pathologist then names each group: a domain.'],
+];
 // work for the next frame, once the sets have drawn what was just picked (their anchors follow their params)
 const NEXT = [];
 const afterUpdate = f => { NEXT.push(f); };
-const round2 = v => Math.round(v * 100) / 100;
-const profU = p => { const q = S1.profiles[p] || S1.profiles.healthy; return q.u.slice(); };
-const curU = () => X.u || profU(curProfile());
-
-// the one-scan network's maths, the people set's own (link i -> j = sigmoid((ln(u_i / u_j) - ln theta) / soft);
-// Clearance = mean of the kidneys' outgoing links; Heterogeneity = Gini coefficient of the strengths; index = m + a C + b H)
-const measureOne = (u, theta) => setApi('people').measure(u, theta);
-const linksOf = r => r.e.reduce((a, row) => a + row.filter(v => v > 0.5).length, 0);
+// the organ picked (X.organ: an organ's name, or one of its GTEx tissues'), and the worked examples' organs
+const organOf = v => (v ? MD.organ(v) || tissueOrgan(v) : null);
+const exOrgan = i => { const x = FACTS.ex[i]; return x && atlasIdx(x.tissue) ? x.tissue : null; };
+// the worked example on show (-1 none): its section in the atlas with the age slider, or the gut's on the slide
+const exOn = () => FACTS.ex.findIndex((x, i) => (exOrgan(i) ? X.scene === 'atlas' && X.organ === exOrgan(i) && viewIs('atlas', VIEW.map)
+  : X.scene === 'slide' && viewIs('slide', VIEW.sAge) && X.domain === x.domain));
 
 // what the chosen scene and its controls ask for: that set fully in, every other set out; then what the panes pick
 function exploreTargets(now = performance.now()) {
   const k = X.scene, s = GL.sets[k], tg = Object.assign({}, s.params);
-  // the organs lie in the PET body: wherever they show, the body shows too, its tracer settled
-  if (k === 'organs') Object.assign(tg, GL.sets.body.params, { body_a: 1, body_pet: 1 });
+  // the slide's tiles and domains lie on the tour's tissue section: wherever the slide shows, the section shows too
+  if (k === 'slide') Object.assign(tg, GL.sets.tissue.params, { tissue_a: 1 });
   tg[k + '_a'] = 1;
   const c = { t: (now - X.t0) / 1000 };
-  for (const ct of s.controls || []) c[ct.key] = ctlValue(k, ct);
-  if (k === 'organs') c.network = curNet();   // (a robustness test's network too: the set crossfades to it from the one before)
+  for (const ct of s.controls || []) c[ct.key] = isAge(ct) ? ageOpt(ct) : ctlValue(k, ct);
   if (s.explore) Object.assign(tg, s.explore(c));
-  tg.body_net = 0; tg.body_state = 0;   // never the tour's own network or disease scan
-  // (a comparison with no network of its own: the network last shown dims, with the set's labels, and the strength chart goes)
-  if (k === 'organs' && noNet()) { tg.organs_a = 0.5; tg.organs_strength = 0; }
-  if (k === 'organs') {
-    tg.organs_focus = X.organ && PD.byId[X.organ] ? PD.byId[X.organ].i + 1 : 0;
-    // the body dims under the network, the matrix and the scatter plot
-    if ((tg.organs_net || 0) > 0.5 || (tg.organs_rows || 0) > 0.5 || (tg.organs_pair || 0) > 0.5) tg.body_a = 0.55;
+  const ag = ageF(), O = organOf(X.organ);
+  tg.dots = 0; tg.dots_pick = 0;
+  if (k === 'body') { tg.body_net = 0; tg.body_state = 0; tg.dots = 1; tg.dots_pick = O ? O.i + 1 : 0; }   // never the tour's own network or disease scan
+  if (k === 'slide') { if (viewIs('slide', /age|domain/i)) tg.slide_age = ag; tg.slide_focus = X.domain ? slideIdx(X.domain) : 0; }
+  if (k === 'atlas') { tg.atlas_focus = X.organ ? atlasIdx(X.organ) : 0; tg.atlas_age = ag; }
+  if (k === 'hier') {
+    const d = X.domain ? hierIdx(X.domain, 3) : -1, t = O && X.organ !== O.name ? hierIdx(X.organ, 1) : -1;
+    tg.hier_focus = d >= 0 ? d : t >= 0 ? t : O ? hierIdx(O.name, 0) : X.kind ? hierIdx(X.kind, 2) : -1;
+    tg.hier_age = ag;
   }
-  if (k === 'people') {
-    const p = curProfile(), u = curU();
-    tg.people_profile = Math.max(0, PROFILES.findIndex(x => x[0] === p));
-    tg.people_custom = X.u ? 1 : 0;
-    for (let i = 0; i < ONE_N; i++) tg['people_u' + i] = u[i];
-    tg.people_theta = X.theta;
-    tg.people_group = X.group;
-  }
-  // life size: the scanner at work, the couch in, no vision row
-  if (k === 'scan' && X.life) Object.assign(tg, { scan_vision: 0, scan_bed: 1, scan_events: Math.max(tg.scan_events || 0, 0.7), scan_lines: Math.max(tg.scan_lines || 0, 0.6) });
   const out = {};
   for (const n in DEF) out[n] = n in tg ? tg[n] : n.endsWith('_a') ? 0 : XS[n];
   return out;
@@ -95,32 +88,33 @@ function exploreTargets(now = performance.now()) {
 function exploreStep(dt, now) {
   const tg = exploreTargets(now), k = 1 - Math.exp(-dt * 3.5);
   for (const n in DEF) XS[n] = STEP.has(n) ? tg[n] : XS[n] + (tg[n] - XS[n]) * k;
-  // a gently swaying scene, unless you are steering it, standing by the scanner life size, or a set asks for stillness
-  if (X.turn === 'on' && !(X.life && X.scene === 'scan') && !orbit.to && !orbit.held && !GL.still && !HOST.room.placing()) { X.sway = (X.sway || 0) + dt; orbit.cur[0] += dt * 6 * Math.cos(X.sway * 0.25); }
+  // a gently swaying scene, unless you are steering it or a set asks for stillness
+  if (X.turn === 'on' && !orbit.to && !orbit.held && !GL.still && !HOST.room.placing()) { X.sway = (X.sway || 0) + dt; orbit.cur[0] += dt * 6 * Math.cos(X.sway * 0.25); }
   return XS;
 }
 // what the panes pick reaches the sets through their params (exploreTargets); here only the labels follow
 function pushState() { updateExtraLabels(); }
 function openScene(k, fly = true) {
-  if (!GL.sets[k]) return;
+  if (k === 'tissue') k = 'slide';   // (the section is shown with the slide)
+  if (!GL.sets[k] || !SCENES.some(s => s[0] === k)) return;
   const same = X.scene === k;
   X.scene = k; X.t0 = performance.now();
-  if (X.life && k !== 'scan') setLife(false);   // (life size is the scanner's)
-  if (fly && !same) flyTo(view(k, X.life && k === 'scan' ? 'life' : viewCam(k) || 'default'));
-  lifeCtl();
-  renderScenes(); renderNets(); updateExtraLabels();
+  if (fly && !same) flyTo(view(k, viewCam(k) || 'default'));
+  renderAll();
 }
 function setCtl(k, key, v) {
   const c = ctlOf(k, key);
   if (!c || !c.options.some(o => o[0] === v)) return;
   (X.ctl[k] = X.ctl[k] || {})[key] = v;
   X.t0 = performance.now();
-  if (k === 'people' && key === 'profile') X.u = null;   // a profile picked: its own uptakes
-  if (k === 'organs' && key === 'network') X.netX = null;   // a network of the control's own
+  // a view of one of the method's steps is that step
+  if (k === 'slide' && key === 'view') { const i = STEPS.findIndex(s => viewIs('slide', s[1])); if (i >= 0) X.step = i + 1; }
   // a view has its own best camera
-  if (key === 'view' && k === X.scene && !(X.life && k === 'scan')) { const n = camFor(k, v); flyTo(view(k, n || 'default')); }
+  if (key === 'view' && k === X.scene) { const n = camFor(k, v); flyTo(view(k, n || 'default')); }
   renderAll();
 }
+// a view of a set by what it shows (VIEW), its scene brought up
+function showView(k, re) { if (X.scene !== k) openScene(k); const v = optKey(k, 'view', re); if (v && ctlValue(k, ctlOf(k, 'view')) !== v) setCtl(k, 'view', v); }
 function flyTo(v) {
   const c = orbit.cur;
   orbit.from = c.slice();
@@ -135,77 +129,60 @@ function orbitStep(now) {
   if (x >= 1) { orbit.to = null; orbit.fast = false; }
 }
 // fly to a point of the scene on show, keeping the direction you look from
-function flyNear(p, d) { if (p && !(X.life && X.scene === 'scan')) flyTo([orbit.cur[0], orbit.cur[1], d, p[0], p[1], p[2]]); }
+function flyNear(p, d) { if (p) flyTo([orbit.cur[0], orbit.cur[1], d, p[0], p[1], p[2]]); }
 
 // --------------------------------------------------------------- actions --
 // Each setter changes its own field only when called with ui false (a shared room's state arriving); picked by
 // hand (ui true) it also brings up the scene and the view that show it.
-// a comparison of Table 2 (-1 none): its first network, when the paper drew one
-function selectCmp(i, ui = true) {
-  X.cmp = i;
-  if (ui && i >= 0) { const id = rowNets(PD.D.table2[i]).find(n => n && NET_ALL.includes(n)); if (id) showNet(id); }
-  renderNets();
+// an organ, or one of its tissues (null none): its section comes forward in the atlas, it lights up in the network
+// and in the body
+function selectOrgan(v, ui = true) {
+  const O = organOf(v);
+  X.organ = O ? (MD.organ(v) ? O.name : (O.tissues.find(t => t.toLowerCase() === String(v).toLowerCase()) || O.name)) : null;
+  if (X.organ) X.domain = null;
+  if (ui && X.organ) {
+    if (X.scene === 'body') afterUpdate(() => { if (X.organ && organOf(X.organ) === O) flyNear(O.pos, Math.min(orbit.cur[2], 1.6)); });
+    else if (X.scene !== 'hier' || !viewIs('hier', VIEW.net)) { if (atlasIdx(X.organ)) { showView('atlas', VIEW.map); flyTo(view('atlas', camFor('atlas', 'focus') || 'focus')); } }
+  }
+  pushState(); renderAll();
 }
-// the network on show in the organs set: one of its Network control's, or a robustness test's (X.netX)
-function setNet(id) {
-  if (!NET_ALL.includes(id)) return;
-  if (NET_IDS.includes(id)) { (X.ctl.organs = X.ctl.organs || {}).network = id; X.netX = null; } else X.netX = id;
-  X.t0 = performance.now();
-  renderNets(); renderOrgans(); renderScenes();
+// a domain of the network (null none): it lights up in the network, and on the section if it is one of its domains
+function selectDomain(v, ui = true) {
+  const d = v ? MD.domain(v) : -1;
+  X.domain = d >= 0 ? nodeName(d) : null;
+  if (X.domain) { X.organ = null; X.kind = nodeName(MD.typeOfDomain(d)) || X.kind; }
+  if (ui && X.domain && !(X.scene === 'slide' && slideIdx(X.domain))) showView('hier', VIEW.net);
+  pushState(); renderAll();
 }
-// a network picked by hand (its chip, a link): the comparison it belongs to comes with it
-function pickNet(id) { if (!NET_ALL.includes(id)) return; X.cmp = cmpOfNet(id); showNet(id); }
-function showNet(id) {
-  setNet(id);
-  if (X.scene !== 'organs') openScene('organs');
-  if (!netView()) { const v = optKey('organs', 'view', /strength/i) || optKey('organs', 'view', /net/i); if (v) setCtl('organs', 'view', v); }
+// a tissue type: the Domains panes list its domains (this device's own choice, not shared)
+function pickKind(v) { X.kind = MD.type(v) >= 0 ? nodeName(MD.type(v)) : null; renderAll(); }
+// the age (20 to 70): the sections, the domains on the slide and the contacts follow it
+function setAge(v, ui = false) {
+  X.age = Math.round(clamp(+v, AGE0, AGE1));
+  // (moved by hand where nothing shows the age: the gut's example on the slide)
+  if (ui && !(X.scene === 'slide' && viewIs('slide', /age|domain/i)) && !(X.scene === 'atlas' && X.organ && viewIs('atlas', VIEW.map)) && !(X.scene === 'hier' && viewIs('hier', VIEW.contacts))) showExample(FACTS.ex.findIndex((x, i) => !exOrgan(i)), false);
+  syncAge();
 }
-// an organ (null none): it glows in the organs set, its bar and links brighter
-function selectOrgan(id, ui = true) {
-  X.organ = id && PD.byId[id] ? id : null;
-  if (ui && X.organ && X.scene !== 'organs') openScene('organs');
-  if (ui && X.organ && X.scene === 'organs' && !viewIs('organs', /net|strength|matrix|partial|scatter/i)) afterUpdate(() => { if (X.organ === id) flyNear(anchorOf('organs', id), Math.min(orbit.cur[2], 2.6)); });
-  pushState(); renderOrgans(); renderNets();
+// one of the method's four steps (1 to 4): the section with that step's view
+function setStep(n, ui = true) {
+  X.step = clamp(n | 0, 1, STEPS.length);
+  if (ui) showView('slide', STEPS[X.step - 1][1]);
+  renderAll();
 }
-// a profile of the one-scan network (its uptakes; custom ones are dropped)
-function selectProfile(p, ui = true) {
-  if (!PROFILES.some(x => x[0] === p)) return;
-  (X.ctl.people = X.ctl.people || {}).profile = p;
-  X.u = null;
-  if (ui) showOne();
-  renderOne(); renderScenes();
-}
-function showOne() {
-  if (X.scene !== 'people') openScene('people');
-  if (!oneView()) { const v = optKey('people', 'view', /one/i); if (v) setCtl('people', 'view', v); }
-}
-// the seven uptakes (null: the profile's own); one moved by hand makes them custom
-function setUs(u) { X.u = u ? u.map(v => round2(clamp(+v, 0.1, 5))) : null; syncOne(); }
-function setU(i, v) { const u = curU(); u[i] = v; setUs(u); }
-function setTheta(v) { X.theta = round2(clamp(+v, 1.1, 3)); syncOne(); }
-// a group of the poster's population (0 none, 1..4): it glows, the others dim
-function selectGroup(g, ui = true) {
-  X.group = clamp(g | 0, 0, POSTER.groups.length);
-  if (ui && X.group) { if (X.scene !== 'people') openScene('people'); if (oneView()) { const v = optKey('people', 'view', /index|strip/i) || optKey('people', 'view', /people|map/i); if (v) setCtl('people', 'view', v); } }
-  renderPeople();
-}
-// a view of the people set (People, Index, Survival, Immunotherapy)
-function showPeople(re) { if (X.scene !== 'people') openScene('people'); const v = optKey('people', 'view', re); if (v) setCtl('people', 'view', v); }
-// Life size: on screen the scanner from a couple of metres at eye height; in the headset life size on your floor
-function setLife(on) {
-  X.life = on;
-  if (XR.on) xrRoom(on);
-  if (on && X.scene !== 'scan') openScene('scan', false);
-  if (on) showTab('scenes');   // (the Scenes tab holds the scanner's controls and the Life size button)
-  if (X.scene === 'scan') flyTo(view('scan', on ? 'life' : viewCam('scan') || 'default'));
-  document.querySelectorAll('[data-ctl="life"] button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.v === (on ? 'on' : 'off'))));
-  renderScenes();
+// a worked example of change with age: its section in the atlas (or on the slide), at 70 unless asked otherwise
+function showExample(i, to70 = true) {
+  const x = FACTS.ex[i];
+  if (!x) return;
+  if (exOrgan(i)) { X.domain = null; X.organ = exOrgan(i); showView('atlas', VIEW.map); flyTo(view('atlas', camFor('atlas', 'focus') || 'focus')); }
+  else { X.organ = null; const d = MD.domain(x.domain); X.domain = d >= 0 ? nodeName(d) : null; showView('slide', VIEW.sAge); }
+  if (to70) X.age = AGE1;
+  pushState(); renderAll();
 }
 
 // ------------------------------------------------------- shared rooms --
-// What everyone at a station sees alike in explore mode: the tab, the scene and every scene's controls (they hold the
-// network and the profile on show), the comparison, the organ, the custom uptakes, the threshold and the group.
-// Turning and standing by the scanner life size are each person's own view.
+// What everyone at a station sees alike in explore mode: the tab, the scene and every scene's controls, the organ (or
+// tissue), the domain, the age and the method's step. The tissue type listed in the Domains panes, the search and the
+// camera are each person's own.
 // shared rooms: the scene's view in a headset at a station (explore mode), which turns and sizes it in the room:
 // shared (HOST.collab), so everyone there sees it alike; null while it flies somewhere (a pick, a view arriving)
 function collabView() {
@@ -222,18 +199,13 @@ function collabSetView(v) {
 function collabState() {
   const ctl = {};
   for (const [k] of SCENES) ctl[k] = Object.fromEntries(ctlsOf(k).map(c => [c.key, ctlValue(k, c)]));
-  return { tab: X.tab, scene: X.scene, ctl, cmp: X.cmp, net: curNet(), organ: X.organ, profile: curProfile(), u: X.u ? X.u.slice() : null, theta: X.theta, group: X.group };
+  return { tab: X.tab, scene: X.scene, ctl, organ: X.organ, domain: X.domain, age: X.age, step: X.step };
 }
 // show another person's state with the story's own setters (so both panels follow); every field is checked, and
 // the camera stays where this person has it
 function collabApply(v) {
   if (!v || typeof v !== 'object') return;
-  const int = (n, lo, hi) => Number.isInteger(n) && n >= lo && n < hi;
   if (TABS.some(t => t[0] === v.tab) && v.tab !== X.tab) showTab(v.tab);
-  if ((v.cmp === -1 || int(v.cmp, 0, PD.D.table2.length)) && v.cmp !== X.cmp) selectCmp(v.cmp, false);
-  if ((v.organ === null || (typeof v.organ === 'string' && PD.byId[v.organ])) && v.organ !== X.organ) selectOrgan(v.organ, false);
-  if (Number.isFinite(v.theta) && v.theta !== X.theta) setTheta(v.theta);
-  if (int(v.group, 0, POSTER.groups.length + 1) && v.group !== X.group) selectGroup(v.group, false);
   // the scene and its controls; a view flies to its own camera as it does here
   if (SCENES.some(s => s[0] === v.scene) && v.scene !== X.scene) openScene(v.scene);
   for (const [k] of SCENES) for (const c of ctlsOf(k)) {
@@ -241,68 +213,41 @@ function collabApply(v) {
     if (!c.options.some(o => o[0] === x) || ctlValue(k, c) === x) continue;
     if (k === X.scene) setCtl(k, c.key, x); else (X.ctl[k] = X.ctl[k] || {})[c.key] = x;
   }
-  // then the network and the profile (also held by controls: should the two ever disagree, these win) and the custom
-  // uptakes (a profile arriving drops them, as it does here: the room's own come back after it)
-  if (NET_ALL.includes(v.net) && v.net !== curNet()) setNet(v.net);
-  if (PROFILES.some(p => p[0] === v.profile) && v.profile !== curProfile()) selectProfile(v.profile, false);
-  if ((v.u === null || (Array.isArray(v.u) && v.u.length === ONE_N && v.u.every(Number.isFinite))) && JSON.stringify(v.u) !== JSON.stringify(X.u)) setUs(v.u);
+  // then the picks (after the views, which may set the step: the room's step wins)
+  if ((v.organ === null || (typeof v.organ === 'string' && organOf(v.organ))) && v.organ !== X.organ) selectOrgan(v.organ, false);
+  if ((v.domain === null || (typeof v.domain === 'string' && MD.domain(v.domain) >= 0)) && v.domain !== X.domain) selectDomain(v.domain, false);
+  if (Number.isInteger(v.age) && v.age >= AGE0 && v.age <= AGE1 && v.age !== X.age) setAge(v.age);
+  if (Number.isInteger(v.step) && v.step >= 1 && v.step <= STEPS.length && v.step !== X.step) setStep(v.step, false);
   renderAll();
 }
 
 // ------------------------------------------------------------------ panes --
 // (a lit chip as the shell's primary button: its text in the panel's colour, readable in either theme)
 const chip = (attrs, label, on, col) => `<button type="button" ${attrs} aria-pressed="${!!on}"${on ? ' style="background:var(--cyan);color:var(--panel-solid)"' : ''}>${col ? `<span class="sw" style="background:${swCol(col)}"></span>` : ''}${label}</button>`;
-// the organ icons (PET_ICONS) as small pictures for the HTML panes: in the organ's colour on a dark disc, as the
-// network's nodes are (light organ colours would vanish on the light theme's panel); drawn at 64 px, shown at 18 to 26
+// the PET story's organ icons (PET_ICONS) as small pictures for the HTML panes, for the organs that have one: on a
+// dark disc in the story's colour; drawn at 64 px, shown at 18 to 26
 const ICON = {};
 function iconUrl(id) {
+  if (!id) return '';
   if (ICON[id] === undefined) {
     try {
       const cv = document.createElement('canvas'), ctx = cv.getContext('2d');
       cv.width = cv.height = 64;
       ctx.beginPath(); ctx.arc(32, 32, 31, 0, 7); ctx.fillStyle = '#0a1322'; ctx.fill();
-      ctx.lineWidth = 2.5; ctx.strokeStyle = organCol(id); ctx.globalAlpha = 0.55; ctx.stroke(); ctx.globalAlpha = 1;
-      PET_ICONS.draw(ctx, id, 32, 32, 42, { color: organCol(id), width: 42 * 0.085, detail: false });
+      ctx.lineWidth = 2.5; ctx.strokeStyle = DOT_COL; ctx.globalAlpha = 0.55; ctx.stroke(); ctx.globalAlpha = 1;
+      PET_ICONS.draw(ctx, id, 32, 32, 42, { color: DOT_COL, width: 42 * 0.085, detail: false });
       ICON[id] = cv.toDataURL();
     } catch (e) { ICON[id] = ''; }
   }
   return ICON[id];
 }
-const iconImg = (id, px) => (iconUrl(id) ? `<img src="${iconUrl(id)}" alt="" width="${px || 20}" height="${px || 20}" style="vertical-align:-5px;margin-right:6px">` : '');
-// a network in words: organs, links, density and disorder (as printed), hubs (printed, or computed from its links)
-function netInfo(id) {
-  const n = netOf(id), e = edgesOf(id), h = hubsOf(id).filter(x => x !== 'aorta');
-  if (!n) return { ok: false, text: 'This network is not in the data yet.' };
-  const d = Number.isFinite(+n.density) ? `density ${pct(n.density)}` : '', o = Number.isFinite(+n.disorder) ? `disorder ${dis(n.disorder)}` : '';
-  return { ok: e.length > 0, n, e, hubs: h,
-    text: e.length ? `${(n.organs || []).length} organs, ${e.length} links${d || o ? `; ${[d, o].filter(Boolean).join(', ')} as printed` : ''}.` : 'Its links are not read off the figure yet: only its organs show.',
-    hubText: !e.length ? '' : h.length ? `${h.length > 1 ? 'Hubs' : 'Hub'} marked in the paper: ${listOf(h.map(organLow))}.` : 'No hub marked in the paper.' };
-}
-// a network's strength per organ, sorted from high to low (as printed in the data, else summed from its links)
-function strengths(id) {
-  const n = netOf(id);
-  if (!n) return [];
-  let s = n.computed && n.computed.strength;
-  if (!s) { s = {}; for (const [a, b, w] of edgesOf(id)) { s[a] = (s[a] || 0) + Math.abs(w); s[b] = (s[b] || 0) + Math.abs(w); } }
-  return Object.entries(s).filter(([k]) => PD.byId[k]).sort((a, b) => b[1] - a[1]);
-}
-// what a comparison measured, in plain words (Table 2's names)
-const WHAT_GLOSS = { Leukocytes: 'white blood cells', CRP: 'C-reactive protein, a marker of inflammation', Norepinephrine: 'a stress hormone',
-  'Tumour load': 'TLG, total tumour glycolysis: the tumours\' volume times their uptake', BMI: 'body mass index: weight for height' };
-// a comparison the paper drew no network for, picked while a network shows: that network dims (exploreTargets) and the
-// scene and the panes say so, so the picture never seems to show the comparison
-const noNet = () => { const r = PD.D.table2[X.cmp]; return !!r && X.scene === 'organs' && netView() && !rowNets(r).some(n => n && NET_ALL.includes(n)); };
-const NO_NET = 'The paper drew no network for this comparison: the network last shown is dimmed.';
-const sigWord = (sig, p) => `${esc(p)}${sig ? ' (significant)' : ' (no significant difference)'}`;
-const rowName = r => `${r.what} · ${r.cohort.replace(/, split at the median.*$/, '').replace(/, normalised to$/, '').replace(/^full cohort$/, 'all scans')}`;
+const iconImg = (o, px) => (o && iconUrl(o.icon) ? `<img src="${iconUrl(o.icon)}" alt="" width="${px || 20}" height="${px || 20}" style="vertical-align:-5px;margin-right:6px">` : '');
+const link = (act, v, text) => `<button type="button" data-act="${act}" data-v="${esc(v)}" style="border:0;background:none;padding:0;font:inherit;color:var(--cyan);text-decoration:underline;cursor:pointer">${text}</button>`;
+let DQ = '';   // the Domains pane's search (this page's own)
 function buildExplore() {
   $('#explore').innerHTML = `
     <div class="tabs" role="tablist">${TABS.map(([k, n]) => `<button role="tab" type="button" data-tab="${k}" aria-selected="${k === X.tab}">${n}</button>`).join('')}</div>
-    <div class="pane" id="pane-networks" role="tabpanel"></div>
-    <div class="pane" id="pane-organs" role="tabpanel"></div>
-    <div class="pane" id="pane-one" role="tabpanel"></div>
-    <div class="pane" id="pane-people" role="tabpanel"></div>
-    <div class="pane" id="pane-scenes" role="tabpanel"></div>`;
+    ${TABS.map(([k]) => `<div class="pane" id="pane-${k}" role="tabpanel"></div>`).join('')}`;
   document.querySelectorAll('#explore .tabs button').forEach(b => b.addEventListener('click', () => pickTab(b.dataset.tab)));
   // one click handler per pane: buttons carry what they do in data attributes
   $('#explore').addEventListener('click', ev => {
@@ -310,30 +255,26 @@ function buildExplore() {
     if (!b) return;
     const v = b.dataset.v, n = v !== undefined && v !== '' && !isNaN(+v) ? +v : v;
     ({
-      cmp: () => selectCmp(n === X.cmp ? -1 : n), net: () => pickNet(v), cnet: () => showNet(v), organ: () => selectOrgan(v === X.organ ? null : v),
-      profile: () => selectProfile(v), group: () => selectGroup(n === X.group ? 0 : n), pview: () => showPeople(new RegExp('^' + v + '$', 'i')),
-      one: showOne, scene: () => openScene(v), ctl: () => setCtl(b.dataset.scene || X.scene, b.dataset.ctl, v), life: () => setLife(!X.life),
+      organ: () => selectOrgan(organOf(v) && organOf(v) === organOf(X.organ) && MD.organ(v) ? null : v), tis: () => selectOrgan(v),
+      domain: () => selectDomain(v === X.domain ? null : v), kind: () => { pickKind(v); if (X.tab !== 'domains') showTab('domains'); },
+      ex: () => showExample(n), view: () => { const [k, r] = v.split(':'); showView(k, VIEW[r]); }, step: () => setStep(n),
+      scene: () => openScene(v), ctl: () => setCtl(b.dataset.scene || X.scene, b.dataset.ctl, v),
     }[b.dataset.act] || (() => {}))();
   });
-  // the sliders of the one-scan network: values change in place, so a drag is not cut short by a redraw
+  // the age slider and the domains' search change in place, so a drag or typing is not cut short by a redraw
   $('#explore').addEventListener('input', ev => {
     const el = ev.target;
-    if (el.dataset.u !== undefined) { setU(+el.dataset.u, +el.value); if (X.scene !== 'people' || !oneView()) showOne(); }
-    else if (el.id === 'theta') { setTheta(+el.value); if (X.scene !== 'people' || !oneView()) showOne(); }
+    if (el.dataset.age !== undefined) setAge(+el.value, true);
+    else if (el.id === 'domq') { DQ = el.value; filterDomains(); }
   });
   renderAll();
-  $('#viewctl').innerHTML = `<div class="grp"><span>Turn</span><div class="seg" data-ctl="turn" role="group" aria-label="Turn">${[['on', 'On'], ['off', 'Off']].map(([v, n]) => `<button type="button" data-v="${v}" aria-pressed="${X.turn === v}">${n}</button>`).join('')}</div></div>
-    <div class="grp"><span>Life size</span><div class="seg" data-ctl="life" role="group" aria-label="The scanner life size">${[['off', 'Off'], ['on', 'On']].map(([v, n]) => `<button type="button" data-v="${v}" aria-pressed="${(X.life ? 'on' : 'off') === v}">${n}</button>`).join('')}</div></div>`;
+  $('#viewctl').innerHTML = `<div class="grp"><span>Turn</span><div class="seg" data-ctl="turn" role="group" aria-label="Turn">${[['on', 'On'], ['off', 'Off']].map(([v, n]) => `<button type="button" data-v="${v}" aria-pressed="${X.turn === v}">${n}</button>`).join('')}</div></div>`;
   $('#viewctl').addEventListener('click', ev => {
     const b = ev.target.closest('[data-v]'), seg = b && b.closest('[data-ctl]');
-    if (!seg) return;
-    if (seg.dataset.ctl === 'turn') setTurn(b.dataset.v); else setLife(b.dataset.v === 'on');
+    if (seg && seg.dataset.ctl === 'turn') setTurn(b.dataset.v);
   });
-  lifeCtl();
   showTab(X.tab);
 }
-// the bottom bar's Life size: the scanner's only
-function lifeCtl() { const g = document.querySelector('#viewctl [data-ctl="life"]'); if (g && g.closest('.grp')) g.closest('.grp').style.display = X.scene === 'scan' ? '' : 'none'; }
 function setTurn(v) {
   X.turn = v;
   document.querySelectorAll('[data-ctl="turn"] button').forEach(b => b.setAttribute('aria-pressed', b.dataset.v === v));
@@ -350,106 +291,86 @@ function showTab(k) {
 // a tab picked by hand brings up the scene it talks about (a shared room's tab arriving does not: its scene comes with it)
 function pickTab(k) {
   showTab(k);
-  if (k === 'networks' && (X.scene !== 'organs' || !netView())) showNet(curNet());
-  if (k === 'organs' && X.scene !== 'organs') openScene('organs');
-  if (k === 'one') showOne();
-  if (k === 'people' && (X.scene !== 'people' || oneView())) showPeople(/^index$/i);
+  if (k === 'organs' && X.scene === 'slide') { if (X.organ && atlasIdx(X.organ)) showView('atlas', VIEW.map); else openScene('body'); }
+  if (k === 'domains' && X.scene !== 'hier' && !(X.scene === 'slide' && X.domain && slideIdx(X.domain))) showView('hier', VIEW.net);
+  if (k === 'age' && !(exOn() >= 0 || (X.scene === 'atlas' && (viewIs('atlas', VIEW.volcano) || viewIs('atlas', VIEW.curves))) || (X.scene === 'hier' && viewIs('hier', VIEW.contacts)))) showView('atlas', VIEW.volcano);
+  if (k === 'method') setStep(X.step);
 }
-function renderAll() { renderNets(); renderOrgans(); renderOne(); renderPeople(); renderScenes(); }
-function renderNets() {
-  const pane = $('#pane-networks');
-  if (!pane) return;
-  const T = PD.D.table2, r = T[X.cmp], id = curNet(), ni = netInfo(id);
-  const rows = part => T.map((x, i) => [x, i]).filter(([x]) => x.part === part).map(([x, i]) => chip(`data-act="cmp" data-v="${i}"`, esc(rowName(x)), X.cmp === i, x.sigD || x.sigO ? '#ffb43b' : null)).join('');
-  let h = `<p class="sub">The paper compared the networks of groups of scans (Table 2; amber: a significant difference). Pick a comparison.</p>
-    <p class="grp-h">From health to disease</p><div class="chips">${rows('health')}</div>
-    <p class="grp-h">Is it robust?</p><div class="chips">${rows('test')}</div>`;
-  if (r) {
-    const nets = rowNets(r);
-    h += `<h3>${esc(r.what)}${WHAT_GLOSS[r.what] ? ` <small style="font-weight:400;font-size:15px;color:var(--muted)">${esc(WHAT_GLOSS[r.what])}</small>` : ''}</h3><p class="sub">${esc(r.cohort)}</p>
-      <dl class="stats">${r.groups.map((g, i) => `<dt>${esc(g.label)}</dt><dd>${pct(g.density)}<small>density · disorder ${dis(g.disorder)} · ${g.n} scans${nets[i] && NET_ALL.includes(nets[i]) ? ` · <button type="button" data-act="cnet" data-v="${nets[i]}" style="border:0;background:none;padding:0;font:inherit;color:var(--cyan);text-decoration:underline;cursor:pointer">${nets[i] === id && X.scene === 'organs' ? 'on show' : 'show its network'}</button>` : ''}</small></dd>`).join('')}</dl>
-      <p class="sub">Density: ${sigWord(r.sigD, r.pD)}. Disorder: ${sigWord(r.sigO, r.pO)}.</p>${r.note ? `<p class="note">${esc(r.note)}</p>` : ''}${noNet() ? `<p class="note">${esc(NO_NET)}</p>` : ''}`;
-  }
-  h += `<p class="grp-h">Networks drawn in the paper</p><div class="chips">${NET_IDS.map((n, i) => chip(`data-act="net" data-v="${n}"`, esc(NET_SHORT[i]) + (hasNet(n) ? '' : ' <small>(not read yet)</small>'), n === id && X.scene === 'organs')).join('')}</div>
-    <h3 style="font-size:20px">${esc(netShort(id))}</h3><p class="sub">${esc(netTitle(id))}. ${esc(ni.text)} ${esc(ni.hubText || '')}</p>`;
-  const st = strengths(id);
-  if (ni.ok && st.length) {
-    const mx = st[0][1] || 1;
-    h += `<p class="grp-h">Strength of each organ: the sum of its links' weights</p><div class="bars">${st.map(([o, v]) => `<div class="bar${(ni.hubs || []).includes(o) ? ' hl' : ''}"><span class="v">${v.toFixed(1)}</span><div class="fill" style="height:${(100 * v / mx).toFixed(0)}%;background:${organCol(o)}${(ni.hubs || []).includes(o) ? ';box-shadow:0 0 0 2px #ffb020' : ''}"></div><span class="k" title="${esc(organName(o))}">${iconImg(o, 18).replace('margin-right:6px', 'margin:2px 0 0')}</span></div>`).join('')}</div>`;
-  }
-  h += `<p class="grp-h">Gene-activity networks (Table 3, GTEx: tissues of ${fmt(FACTS.gtex)} people)</p>
-    <dl class="stats">${PD.D.table3.filter(x => x.kind !== 'fdg').map(x => `<dt>${esc(x.name.replace(/ \(.*\)$/, ''))}</dt><dd>${pct(x.density)}<small>${x.r !== null ? `r = ${x.r} with FDG's network · ` : ''}${esc(x.similar)}</small></dd>`).join('')}</dl>
-    <div class="chips">${PD.D.table3.filter(PROT_NET).map(x => chip(`data-act="net" data-v="${PROT_NET(x)}"`, `${esc(netShort(PROT_NET(x)))} network`, PROT_NET(x) === id && X.scene === 'organs')).join('')}</div>`;
-  pane.innerHTML = h;
-  updateExtraLabels();
-}
+function renderAll() { renderOrgans(); renderDomains(); renderAge(); renderMethod(); renderScenes(); updateExtraLabels(); }
 function renderOrgans() {
   const pane = $('#pane-organs');
   if (!pane) return;
-  const id = X.organ, O = PD.byId[id];
-  let h = `<p class="sub">The ${FACTS.organs} organs of the paper and the aorta, the reference every organ is divided by. Pick one.</p>
-    <div class="chips">${PD.D.organs.map(o => chip(`data-act="organ" data-v="${o.id}"`, iconImg(o.id) + esc(o.name), id === o.id)).join('')}</div>`;
+  const O = organOf(X.organ);
+  let h = `<p class="sub">The ${FACTS.organs} organs whose tissue GTEx collected. Pick one: its section, its tissues and its place in the network.</p>
+    <div class="chips">${MD.organs.map(o => chip(`data-act="organ" data-v="${esc(o.name)}"`, iconImg(o) + esc(o.name), O === o)).join('')}</div>`;
   if (O) {
-    const inF2 = PD.D.f2.organs.includes(id), e = edgesOf('full').filter(x => x[0] === id || x[1] === id).sort((a, b) => Math.abs(b[2]) - Math.abs(a[2]));
-    const hubIn = NET_ALL.filter(n => hasNet(n) && hubsOf(n).includes(id));
-    h += `<h3>${iconImg(id, 26)}${esc(O.name)}</h3>
-      <dl class="stats"><dt>Measured</dt><dd style="font-size:15px">${esc(O.measure)}</dd>
-      <dt>Typical uptake</dt><dd>${id === 'aorta' ? '1' : O.suv}<small>${id === 'aorta' ? 'the unit' : 'times the aorta\'s'} (illustrative)</small></dd>
-      ${inF2 && strengths('full').length ? `<dt>Strength</dt><dd>${(strengths('full').find(s => s[0] === id) || [0, 0])[1].toFixed(2)}<small>in the network of all ${fmt(FACTS.scans)} scans</small></dd>` : ''}
-      <dt>Hub in</dt><dd style="font-size:15px">${hubIn.length ? esc(listOf(hubIn.map(netShort))) : 'none of the networks drawn'}</dd></dl>`;
-    h += inF2 ? `<p class="grp-h">Its links in the network of all ${fmt(FACTS.scans)} scans (Figure 2A; blue together, red opposite)</p>
-      <div class="chips">${e.length ? e.map(x => { const o = x[0] === id ? x[1] : x[0]; return `<button type="button" data-act="organ" data-v="${o}">${iconImg(o)}${esc(organName(o))} <b style="color:${inkCol(x[2] > 0 ? '#4c7cff' : '#ff4d4d')}">${x[2] > 0 ? '+' : '−'}${Math.abs(x[2]).toFixed(2)}</b></button>`; }).join('') : '<span class="empty">none</span>'}</div>`
-      : `<p class="sub">${id === 'aorta' ? 'Not a node: the blood pool every organ is divided by.' : `Not in the network of all scans (Figure 2A has ${FACTS.f2n} organs); it appears in some of Figure 3's networks.`}</p>`;
-  } else h += `<p class="empty">Colours and icons are the same in every scene. Point at an organ in the scan, a bar or a node to pick it there.</p>`;
+    const tis = O.tissues.length ? O.tissues : [O.name], fd = [...new Set(tis.flatMap(figDomains))];
+    h += `<h3>${iconImg(O, 26)}${esc(O.name)}</h3>
+      <p class="grp-h">${tis.length > 1 ? `Its ${word(tis.length)} tissues in GTEx: pick one to see its section` : 'One tissue in GTEx'}</p>
+      <div class="chips">${tis.map(t => chip(`data-act="tis" data-v="${esc(t)}"`, esc(tisShort(t, O.name)), X.organ === t || (tis.length > 1 && X.organ === O.name && t === tis[0]), LEVEL_COL[1])).join('')}</div>
+      <p class="grp-h">Its tissue types in the network</p>
+      <div class="chips">${O.types.map(t => chip(`data-act="kind" data-v="${esc(nodeName(t))}"`, `${esc(cap(nodeName(t)))} <small>${MD.typeDomains(t).length}</small>`, false, LEVEL_COL[2])).join('')}</div>
+      <p class="sub">The number is how many domain types hang on that tissue type in the network (shared with other organs). Pick a type to see them.</p>
+      ${fd.length ? `<p class="grp-h">Its domains in the talk's figures</p><div class="chips">${fd.map(d => (MD.domain(d) >= 0 ? chip(`data-act="domain" data-v="${esc(nodeName(MD.domain(d)))}"`, esc(cap(d)), false, domCol(d)) : `<span class="empty">${esc(cap(d))}</span>`)).join('')}</div>` : ''}
+      <p class="grp-h">Show it</p><div class="chips">${chip('data-act="view" data-v="atlas:map"', 'Its section', X.scene === 'atlas' && viewIs('atlas', VIEW.map))}${chip('data-act="view" data-v="hier:net"', 'In the network', X.scene === 'hier' && viewIs('hier', VIEW.net))}${chip('data-act="scene" data-v="body"', 'In the body', X.scene === 'body')}</div>`;
+  } else h += '<p class="empty">Point at an organ\'s light in the body, a section in the atlas or a node of the network to pick it there.</p>';
   pane.innerHTML = h;
 }
-// the one-scan pane: built once per profile or custom change of structure; values change in place (syncOne)
-// the profiles' chips (and Custom, while the uptakes are your own)
-const profChips = () => PROFILES.map(([k, n]) => chip(`data-act="profile" data-v="${k}"`, esc(n), !X.u && curProfile() === k, GROUP_COL[k])).join('') + (X.u ? chip('data-act="one"', 'Custom', true) : '');
-function renderOne() {
-  const pane = $('#pane-one');
+function renderDomains() {
+  const pane = $('#pane-domains');
   if (!pane) return;
-  const u = curU();
-  pane.innerHTML = `<p class="sub">The poster's next step: one network per scan, from the uptakes (mean SUV) of ${word(S1.organs.filter(o => o !== 'aorta').length)} organs${S1.organs.includes('aorta') ? ' and the aorta' : ''}. Pick a profile, or move the uptakes yourself.</p>
-    <div class="chips" id="oneProf">${profChips()}</div>
-    ${S1.organs.map((o, i) => `<p class="grp-h">${iconImg(o, 16)}${esc(organName(o))} <b data-uv="${i}" style="margin-left:auto;color:var(--ink)">${u[i].toFixed(2)}</b></p><input type="range" data-u="${i}" min="0.1" max="5" step="0.05" value="${u[i]}" style="accent-color:${organCol(o)}" aria-label="Uptake of the ${esc(organLow(o))}">`).join('')}
-    <p class="grp-h">Threshold: a link where one organ's uptake is this many times another's <b id="thv" style="margin-left:auto;color:var(--ink)">${X.theta.toFixed(2)}</b></p><input type="range" id="theta" min="1.1" max="3" step="0.05" value="${X.theta}" aria-label="Threshold">
-    <dl class="stats" id="oneOut" style="margin-top:14px"></dl>
-    <p class="note">${esc(S1.note)} The profiles are illustrative too.</p>`;
-  syncOne(true);
-}
-function syncOne(fresh) {
-  const pane = $('#pane-one');
-  if (!pane || !$('#oneOut')) return;
-  // a switch between a profile and custom uptakes changes only the chips (the sliders stay: one may be being dragged)
-  if (!fresh && !!pane.querySelector('#oneProf [data-act="one"]') !== !!X.u) $('#oneProf').innerHTML = profChips();
-  const u = curU(), r = measureOne(u, X.theta);
-  pane.querySelectorAll('input[data-u]').forEach(el => { const i = +el.dataset.u; if (document.activeElement !== el) el.value = u[i]; });
-  pane.querySelectorAll('[data-uv]').forEach(el => { el.textContent = u[+el.dataset.uv].toFixed(2); });
-  const th = $('#theta'); if (th && document.activeElement !== th) th.value = X.theta;
-  $('#thv').textContent = X.theta.toFixed(2);
-  $('#oneOut').innerHTML = `<dt>Links</dt><dd>${linksOf(r)}<small>of ${ONE_N * (ONE_N - 1)} possible</small></dd>
-    <dt>Clearance</dt><dd>${r.C.toFixed(2)}<small>the kidneys' links out</small></dd>
-    <dt>Heterogeneity</dt><dd>${r.H.toFixed(2)}<small>0 even, higher: one organ dominates</small></dd>
-    <dt>Index</dt><dd style="color:var(--amber)">${r.mdi.toFixed(1)}<small>metabolic displacement, 0 to 10</small></dd>`;
-}
-function renderPeople() {
-  const pane = $('#pane-people');
-  if (!pane) return;
-  const P = POSTER, g = P.groups[X.group - 1];
-  const views = [['people', 'People'], ['index', 'Index'], ['survival', 'Survival'], ['immunotherapy', 'Immunotherapy']].filter(([k]) => optKey('people', 'view', new RegExp('^' + k + '$', 'i')));
-  let h = `<p class="sub">The poster's results: ${P.mdiN ? `${fmt(P.mdiN)} people` : 'people'} by their index. Pick a group.</p>
-    <div class="chips">${P.groups.map((x, i) => chip(`data-act="group" data-v="${i + 1}"`, `${esc(x.name)} <small>${x.n}</small>`, X.group === i + 1, x.col)).join('')}</div>`;
-  if (g) h += `<h3><span class="sw" style="display:inline-block;width:14px;height:14px;border-radius:3px;background:${swCol(g.col)};margin-right:8px"></span>${esc(g.name)}</h3>
-    <dl class="stats"><dt>People</dt><dd>${g.n}</dd><dt>Index (median)</dt><dd>${g.centre}<small>${Array.isArray(g.err) ? `middle half of the group: ${g.err[0]} to ${g.err[1]}` : ''}</small></dd></dl>`;
-  if (views.length) h += `<p class="grp-h">View</p><div class="chips">${views.map(([k, n]) => chip(`data-act="pview" data-v="${k}"`, n, X.scene === 'people' && viewIs('people', new RegExp('^' + k + '$', 'i')))).join('')}</div>`;
-  if (P.thirds.length) h += `<p class="grp-h">Survival with cancer, by the index's thirds</p>
-    <dl class="stats">${P.thirds.map(t => `<dt><span class="sw" style="display:inline-block;width:9px;height:9px;border-radius:2px;background:${swCol(t.col)};margin-right:6px"></span>${esc(t.name)}${t.n ? ` (${t.n})` : ''}</dt><dd>${t.median === undefined ? '–' : t.median === null ? 'not reached' : t.median + ' months'}<small>median${t.y1 !== null ? ` · ${t.y1}% after one year` : ''}</small></dd>`).join('')}</dl>`;
-  if (P.auc.length) h += `<p class="grp-h">The immunotherapy test${P.respN ? ` (${P.respN} people with lung cancer)` : ''}: good from poor responders</p>
-    <dl class="stats">${P.auc.slice().sort((a, b) => b.auc - a.auc).map(a => `<dt>${esc(a.name)}</dt><dd style="color:${a.net ? 'var(--amber)' : 'var(--muted)'}">${a.auc}<small>AUC${a.p ? ' · ' + esc(a.p) : ''}${a.net ? ' · network measure' : ''}</small></dd>`).join('')}</dl>
-    <p class="sub">${esc(aucNote())}</p>`;
-  h += `<p class="note">Group summaries from the poster. The dots are stand-ins drawn to match them, not patients.</p>`;
+  const d = X.domain ? MD.domain(X.domain) : -1, t = d >= 0 ? MD.typeOfDomain(d) : -1;
+  let h = `<p class="sub">The network's ${MD.domains.length} domain types, by the tissue type they belong to. Pick one, or search.</p>`;
+  if (d >= 0) {
+    const org = t >= 0 ? MD.typeOrgans(t) : [], si = slideIdx(X.domain);
+    h += `<h3><span class="sw" style="display:inline-block;width:14px;height:14px;border-radius:3px;background:${domCol(X.domain)};margin-right:8px"></span>${esc(cap(X.domain))}</h3>
+      <dl class="stats"><dt>Tissue type</dt><dd style="font-size:16px">${t >= 0 ? link('kind', nodeName(t), esc(cap(nodeName(t)))) : '–'}</dd>
+      <dt>Organs with it</dt><dd>${org.length}<small>organs have ${t >= 0 ? esc(nodeName(t)) : 'its tissue type'}; the network does not say which of them have this domain</small></dd></dl>
+      <div class="chips">${org.map(o => chip(`data-act="organ" data-v="${esc(o.name)}"`, iconImg(o) + esc(o.name), false)).join('')}</div>
+      <p class="grp-h">Show it</p><div class="chips">${chip('data-act="view" data-v="hier:net"', 'In the network', X.scene === 'hier')}${si ? chip('data-act="view" data-v="slide:sAge"', 'On the section', X.scene === 'slide') : ''}</div>`;
+  }
+  h += `<input type="search" id="domq" placeholder="Search the domains" aria-label="Search the domains" value="${esc(DQ)}" style="width:100%;margin:12px 0 4px;padding:8px 10px;border-radius:8px;border:1px solid var(--line);background:transparent;color:var(--ink);font:inherit">
+    <div id="domList">${MD.types.filter(x => MD.typeDomains(x).length).map(x => `<div data-grp><p class="grp-h"${X.kind === nodeName(x) ? ' style="color:var(--ink)"' : ''}><span class="sw" style="display:inline-block;width:10px;height:10px;border-radius:2px;background:${LEVEL_COL[2]};margin-right:6px"></span>${esc(cap(nodeName(x)))}</p>
+      <div class="chips">${MD.typeDomains(x).map(y => chip(`data-act="domain" data-v="${esc(nodeName(y))}" data-name="${esc(nodeName(y).toLowerCase())}"`, esc(cap(nodeName(y))), y === d, domCol(nodeName(y)))).join('')}</div></div>`).join('')}</div>
+    <p class="note">Domain colours are the same in every scene. Point at a domain on the section or a node of the network to pick it there.</p>`;
   pane.innerHTML = h;
+  filterDomains();
+}
+// the search: domains whose name holds it (and the groups that still hold any)
+function filterDomains() {
+  const q = DQ.trim().toLowerCase();
+  document.querySelectorAll('#domList [data-grp]').forEach(g => {
+    let any = false;
+    g.querySelectorAll('[data-name]').forEach(b => { const on = !q || b.dataset.name.includes(q); b.style.display = on ? '' : 'none'; any = any || on; });
+    g.style.display = any ? '' : 'none';
+  });
+}
+function renderAge() {
+  const pane = $('#pane-age');
+  if (!pane) return;
+  const F = FACTS, e = exOn(), exCol = ['#ff9ec4', '#ffd166', '#c77dff'];
+  pane.innerHTML = `<p class="sub">Age is the strongest of ${F.donorVars} things known about the donors. ${pct(F.ageChange)} of domains change with it, mostly by less than ${pct(F.mostUnder)} per decade. Pick an example, or move the age.</p>
+    <p class="grp-h">Worked examples</p><div class="chips">${F.ex.map((x, i) => chip(`data-act="ex" data-v="${i}"`, esc(exName(x)), e === i, exCol[i])).join('')}</div>
+    ${e >= 0 ? `<p class="sub">${esc(cap(exText(F.ex[e])))}.</p>` : ''}
+    <p class="grp-h">Age <b data-agev style="margin-left:auto;color:var(--ink)">${X.age}</b></p><input type="range" data-age min="${AGE0}" max="${AGE1}" step="1" value="${X.age}" aria-label="Age">
+    <p class="grp-h">Across the body</p><div class="chips">${chip('data-act="view" data-v="atlas:volcano"', 'What changes', X.scene === 'atlas' && viewIs('atlas', VIEW.volcano))}${chip('data-act="view" data-v="atlas:curves"', 'Pathology', X.scene === 'atlas' && viewIs('atlas', VIEW.curves))}${chip('data-act="view" data-v="hier:contacts"', 'Contacts', X.scene === 'hier' && viewIs('hier', VIEW.contacts))}</div>
+    <p class="note">${esc(F.connective)} ${esc(F.most)}${F.plaque ? ` Calcified plaques in arteries ${esc(F.plaque.note)}` : ''}${F.infarct ? `; infarct tissue in the heart ${esc(F.infarct.note)}` : ''}.</p>`;
+}
+// the age's readouts and slider, in place (a drag is not cut short)
+function syncAge() {
+  document.querySelectorAll('[data-agev]').forEach(el => { el.textContent = X.age; });
+  document.querySelectorAll('input[data-age]').forEach(el => { if (document.activeElement !== el) el.value = X.age; });
+}
+function renderMethod() {
+  const pane = $('#pane-method');
+  if (!pane) return;
+  const F = FACTS, s = STEPS[X.step - 1];
+  pane.innerHTML = `<p class="sub">How ${esc(F.method)} finds domains in ${fmt(F.slides)} slides without being told what to look for, in four steps.</p>
+    <div class="chips">${STEPS.map(([n], i) => chip(`data-act="step" data-v="${i + 1}"`, `${i + 1} · ${n}`, X.step === i + 1 && X.scene === 'slide')).join('')}</div>
+    <h3>${X.step} · ${s[0]}</h3><p>${esc(s[2]())}</p>
+    <div class="actions">${X.step > 1 ? chip(`data-act="step" data-v="${X.step - 1}"`, 'Back', false) : ''}${X.step < STEPS.length ? chip(`data-act="step" data-v="${X.step + 1}"`, 'Next', false) : ''}</div>
+    <p class="grp-h">Then</p><div class="chips">${chip('data-act="view" data-v="atlas:umap"', 'The tiles in one map', X.scene === 'atlas' && viewIs('atlas', VIEW.umap))}${chip('data-act="view" data-v="atlas:map"', 'The atlas', X.scene === 'atlas' && viewIs('atlas', VIEW.map))}</div>
+    <p class="note">It agrees with pathologists' notes: salivary gland r = ${F.bench.salivary.r}, stomach mucosa r = ${F.bench.stomach.r} (1 would be perfect). The result: ${F.domains} domains of ${F.types} types.</p>`;
 }
 function renderScenes() {
   const pane = $('#pane-scenes');
@@ -457,40 +378,51 @@ function renderScenes() {
   const sc = SCENES.find(s => s[0] === X.scene);
   pane.innerHTML = `<div class="chips">${SCENES.map(([k, n]) => chip(`data-act="scene" data-v="${k}"`, esc(n), k === X.scene)).join('')}</div>
     <h3>${esc(sc[1])}</h3><p class="sub">${esc(sc[2])}</p>
-    ${ctlsOf(X.scene).filter(c => ctlShown(X.scene, c)).map(c => `<p class="grp-h">${esc(c.label)}</p><div class="chips">${c.options.map(([v, n]) => chip(`data-act="ctl" data-ctl="${c.key}" data-v="${v}"`, esc(n), ctlLit(X.scene, c, v))).join('')}</div>`).join('')}
-    ${X.scene === 'scan' ? `<div class="actions">${chip('data-act="life"', 'Life size', X.life)}</div>` : ''}
-    ${X.scene === 'organs' && X.organ ? `<p class="sub" style="margin-top:10px">Also shown: ${esc(organName(X.organ))} (Organs tab).</p>` : ''}`;
+    ${ctlsOf(X.scene).filter(c => ctlShown(X.scene, c)).map(c => `<p class="grp-h">${esc(c.label)}</p><div class="chips">${c.options.map(([v, n]) => chip(`data-act="ctl" data-ctl="${c.key}" data-v="${v}"`, esc(n), ctlValue(X.scene, c) === v)).join('')}</div>`).join('')}
+    ${ageHere() ? `<p class="grp-h">Age <b data-agev style="margin-left:auto;color:var(--ink)">${X.age}</b></p><input type="range" data-age min="${AGE0}" max="${AGE1}" step="1" value="${X.age}" aria-label="Age">` : ''}
+    ${X.organ && X.scene !== 'slide' ? `<p class="sub" style="margin-top:10px">Also shown: ${esc(X.organ)} (Organs tab).</p>` : X.domain ? `<p class="sub" style="margin-top:10px">Also shown: ${esc(cap(X.domain))} (Domains tab).</p>` : ''}`;
 }
-// a control's option is lit when it holds that value (the Network control's none while a robustness test's network shows)
-const ctlLit = (k, c, v) => ctlValue(k, c) === v && !(k === 'organs' && c.key === 'network' && X.netX);
-// the immunotherapy test in a line: what the AUC means, and that none of it is significant yet
-const aucNote = () => `AUC: 1 tells every good responder from every poor one, 0.5 is chance. A first test in few people${POSTER.noneSig ? `: none of these is significant (all p > ${FACTS.p}), so their order may be chance` : ''}.`;
+// the scene on show changes with the age (the slider belongs with it)
+const ageHere = () => (X.scene === 'slide' && viewIs('slide', /age|domain/i)) || (X.scene === 'atlas' && !!X.organ && viewIs('atlas', VIEW.map)) || (X.scene === 'hier' && viewIs('hier', VIEW.contacts));
 // labels the panes add (the sets label their own picks)
+let XL = null;
 function updateExtraLabels() {
+  const s = GL.sets[X.scene], O = organOf(X.organ), own = at => (s.labels || []).some(L => L.at === at);
+  const sig = [APP.mode, X.scene, X.organ, X.domain, viewIs('atlas', VIEW.map), viewIs('hier', VIEW.net)].join('|');
+  if (sig === XL) return;
+  XL = sig;
   LBL.extra.forEach(L => { L.el.remove(); dropSprite(L); });
   LBL.extra = [];
-  const s = GL.sets[X.scene], id = X.organ;
-  if (X.scene === 'organs' && id && s.anchors[id] && !(s.labels || []).some(L => L.at === id)) {
-    LBL.extra.push({ kind: 'extra', el: labelEl(`<b>${esc(organName(id))}</b>`, 'cyn'), set: 'organs', at: id, o: -1, txt: [organName(id), '', 'cyn'] });
-  }
-  // a comparison the paper drew no network for: its densities where the network's title would be
-  if (noNet()) {
-    const r = PD.D.table2[X.cmp], b = rowName(r), rest = `density ${r.groups.map(g => pct(g.density)).join(' against ')} · no network drawn in the paper`;
-    LBL.extra.push({ kind: 'extra', el: labelEl(`<b>${esc(b)}</b>${esc(rest)}`, 'amb'), set: 'organs', at: 'title', o: -1, txt: [b, rest, 'amb'] });
-  }
+  if (APP.mode !== 'explore') return;
+  const add = (set, at, b, r, cls) => LBL.extra.push({ kind: 'extra', el: labelEl(`<b>${esc(b)}</b>${esc(r)}`, cls), set, at, o: -1, txt: [b, r, cls] });
+  if (X.scene === 'body' && O) add('body', O.pos.slice(), O.name, '', 'mag');
+  if (X.scene === 'atlas' && X.organ && atlasIdx(X.organ) && s.anchors.focus && !own('focus') && viewIs('atlas', VIEW.map)) add('atlas', 'focus', X.organ, '', 'mag');
+  if (X.scene === 'hier' && (X.domain || O) && s.anchors.focus && !own('focus') && viewIs('hier', VIEW.net)) add('hier', 'focus', X.domain ? cap(X.domain) : X.organ, '', 'cyn');
 }
 
 // ----------------------------------------------------------- canvas input --
 const _rc = new THREE.Raycaster(), _m2 = new THREE.Vector2();
-// what a ray (a THREE.Raycaster in world coordinates) points at in the scene on show: { organ } or { group }, or null
+// what a ray (a THREE.Raycaster in world coordinates) points at in the scene on show: { organ } (an organ or one of its
+// tissues), { domain }, { kind } (a tissue type) or { sdom } (a domain of the section not in the network), or null
 function pickWith(rc) {
-  if (APP.mode !== 'explore' || !(X.scene === 'organs' || X.scene === 'people')) return null;
-  const A = setApi(X.scene);
-  if (!A || !A.pick) return null;
-  const r = A.pick(rc);
-  if (typeof r === 'string') return PD.byId[r] ? { organ: r } : null;
-  if (r && r.organ && PD.byId[r.organ]) return { organ: r.organ };
-  return r && r.group >= 1 && r.group <= POSTER.groups.length ? { group: r.group } : null;
+  if (APP.mode !== 'explore') return null;
+  const k = X.scene;
+  if (k === 'body') { const i = GL.dots.pick(rc); return i >= 0 ? { organ: MD.organs[i].name } : null; }
+  const A = api(k);
+  if (!A.pick) return null;
+  let r = -1;
+  try { r = A.pick(rc); } catch (e) { return null; }
+  if (!(r >= 0)) return null;
+  if (k === 'atlas') { const t = (A.tissues || [])[r]; return t && organOf(t) ? { organ: t } : null; }
+  if (k === 'hier') {
+    const n = (A.nodes || [])[r];
+    if (!n) return null;
+    if (n.level === 3) { const d = MD.domain(n.name); return d >= 0 ? { domain: nodeName(d) } : null; }
+    if (n.level === 2) return MD.type(n.name) >= 0 ? { kind: nodeName(MD.type(n.name)) } : null;
+    return organOf(n.name) ? { organ: n.name } : null;
+  }
+  if (k === 'slide') { const d = slideDomain(r); return d ? { domain: d } : (A.domains || [])[r] ? { sdom: A.domains[r] } : null; }
+  return null;
 }
 // what is under the mouse, in explore mode
 function pickAt(mx, my) {
@@ -498,21 +430,18 @@ function pickAt(mx, my) {
   _rc.setFromCamera(_m2, GL.camera);
   return pickWith(_rc);
 }
-// where a pick is, in its set's own frame (for the headset's ray and tip), or null
+// where a pick is, in its set's own frame (for the headset's ray and tip), or null (then where the ray meets the scene)
 function pickPos(p) {
-  if (!p) return null;
-  const s = GL.sets[X.scene], at = p.organ ? p.organ : 'g' + p.group;
-  if (!s.anchors || !s.anchors[at]) return null;
-  const q = anchorOf(X.scene, at);
-  return q && Number.isFinite(q[0]) ? [q[0], q[1], q[2]] : null;
+  if (p && p.organ && X.scene === 'body') { const O = organOf(p.organ); return O ? O.pos.slice() : null; }
+  return null;
 }
-const pickText = p => (p.organ ? [organName(p.organ), p.organ === 'aorta' ? 'the reference' : PD.byId[p.organ].measure]
-  : [POSTER.groups[p.group - 1].name, `${POSTER.groups[p.group - 1].n} people, median index ${POSTER.groups[p.group - 1].centre}`]);
+const pickText = p => (p.organ ? (MD.organ(p.organ) ? [p.organ, 'organ'] : [tisShort(p.organ, organOf(p.organ).name), `tissue of the ${organOf(p.organ).name.toLowerCase()}`])
+  : p.domain ? [cap(p.domain), nodeName(MD.typeOfDomain(MD.domain(p.domain))) || 'domain'] : p.kind ? [cap(p.kind), 'tissue type'] : [cap(p.sdom), 'on this section']);
 function choosePick(p) {
   if (!p) return;
-  if (p.organ && X.scene === 'organs') { if (X.tab !== 'organs' && X.tab !== 'networks') showTab('organs'); selectOrgan(p.organ === X.organ ? null : p.organ, false); }
-  else if (p.organ) showTab('one');   // an organ of the one-scan network: its slider
-  else { showTab('people'); selectGroup(p.group === X.group ? 0 : p.group, false); }
+  if (p.organ) { if (X.tab !== 'organs') showTab('organs'); selectOrgan(p.organ === X.organ ? null : p.organ, false); }
+  else if (p.domain) { if (X.tab !== 'domains') showTab('domains'); selectDomain(p.domain === X.domain ? null : p.domain, false); }
+  else if (p.kind) { showTab('domains'); pickKind(p.kind); }
 }
 function bindCanvas() {
   const cv = GL.canvas, tip = $('#tip'), pts = new Map();
@@ -544,7 +473,7 @@ function bindCanvas() {
     }
     if (!explore || ev.pointerType === 'touch') { tip.style.opacity = 0; return; }
     const p = pickAt(ev.clientX, ev.clientY);
-    cv.style.cursor = p ? 'pointer' : 'grab';
+    cv.style.cursor = p && !p.sdom ? 'pointer' : 'grab';
     if (p) {
       const [b, r] = pickText(p);
       tip.innerHTML = `<b>${esc(b)}</b>${esc(r)}`;

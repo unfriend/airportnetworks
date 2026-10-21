@@ -4,7 +4,7 @@
 // animation is stretched or squeezed between these points so each cue lands
 // on the matching sentence. Edit here if you record a narration.
 const NARRATION_SYNC = [
-  [0, 0], [330, 330],
+  [0, 0], [305, 305],
 ];
 // recording time -> original story time
 function storyT(t) {
@@ -25,15 +25,15 @@ function narrT(o) {
 }
 let T_END = NARRATION_SYNC[NARRATION_SYNC.length - 1][0];
 const CH = [
-  { key: 'title', name: 'Intro', a: 0, b: 16 },
-  { key: 'scanner', name: 'Scanner', a: 16, b: 52 },
-  { key: 'body', name: 'Sugar', a: 52, b: 90 },
-  { key: 'organs', name: 'Organs', a: 90, b: 128 },
-  { key: 'cohort', name: 'Network', a: 128, b: 172 },
-  { key: 'health', name: 'Health', a: 172, b: 218 },
-  { key: 'one', name: 'One scan', a: 218, b: 258 },
-  { key: 'people', name: 'People', a: 258, b: 305 },
-  { key: 'vision', name: 'Vision', a: 305, b: 330 },
+  { key: 'title', name: 'Intro', a: 0, b: 14 },
+  { key: 'slide', name: 'Slide', a: 14, b: 50 },
+  { key: 'library', name: 'Library', a: 50, b: 85 },
+  { key: 'method', name: 'Method', a: 85, b: 130 },
+  { key: 'atlas', name: 'Atlas', a: 130, b: 170 },
+  { key: 'age', name: 'Age', a: 170, b: 215 },
+  { key: 'pathology', name: 'Disease', a: 215, b: 250 },
+  { key: 'contacts', name: 'Contacts', a: 250, b: 285 },
+  { key: 'next', name: 'Next', a: 285, b: 305 },
 ];
 CH.forEach(c => { c.na = narrT(c.a); c.nb = narrT(c.b); }); // chapter times on the recording's clock
 const C = Object.fromEntries(CH.map(c => [c.key, c]));
@@ -43,6 +43,7 @@ const DEF = {};
 function buildDefaults() {
   for (const k of SET_ORDER) Object.assign(DEF, GL.sets[k].params);
   for (const k of SET_ORDER) DEF[k + '_a'] = 0;
+  DEF.dots = 0; DEF.dots_pick = 0;   // the engine's own organ points in the body (makeDots)
 }
 const TR = {};
 const key = (n, t, v) => { (TR[n] = TR[n] || []).push([t, v]); };
@@ -80,13 +81,11 @@ const fitShift = (k, name) => { const f = GL.sets[k].cam[name] && FIT[k] && FIT[
 // views whose parts reach under the side panel or off the right edge on a landscape screen: a little further back,
 // or their target moved, so they fit beside the panel (added to the set's own view, in story and explore mode alike)
 // (measured at 1280 x 760: each view's parts between the panel's right edge and the screen's, above the timeline)
-const FIT = { scan: { vision: [0, 0, 3.3, -0.75] }, body: { default: [0, 0, 0.55] }, organs: { default: [0, 0, 0.55], strength: [0, 0, 0.9, -0.25] },
-  liver: { default: [0, 0, 0.15, -0.22] },
-  people: { default: [0, 0, 1.1, -0.75], one: [0, 0, 0.45, 0, -0.08], field: [0, 0, 0.5, -0.01, -0.05, 0.03], metrics: [0, 0, 0.75, -0.38], map: [0, 0, 1.6, -0.45], strip: [0, 0, 1.3, -0.3], auc: [6, 0, 0.8, -0.3], km: [0, 0, 0.45, -0.18, 0] } };
+const FIT = { body: { default: [0, 0, 0.55], front: [0, 0, 0.55] } };
 // how much further back a view stands on a phone held upright (see narrowK): the wide ones, whose parts reach
-// across the screen (the vision row; the network with its chart; the one-scan scene with its gauges)
-const NARROW = { scan: { vision: 1.32 }, body: { front: 1.1 }, organs: { net: 1.3, strength: 1.45, matrix: 1.15, bars: 1.1 },
-  people: { default: 1.2, one: 1.2, field: 1.15, metrics: 1.35, strip: 1.15, map: 1.1, km: 1.1, auc: 1.1 } };
+// across the screen
+const NARROW = { tissue: { section: 1.2, default: 1.2 }, slide: { default: 1.2, domains: 1.2, matrix: 1.3 }, atlas: { library: 1.25, default: 1.25, atlas: 1.2, volcano: 1.15, curves: 1.15 },
+  hier: { net: 1.2, default: 1.2 } };
 const narrowOf = (k, name) => (NARROW[k] && NARROW[k][name]) || 1;
 // a set's anchor point, in the set's own coordinates
 function anchorOf(k, at) {
@@ -97,226 +96,207 @@ function anchorOf(k, at) {
 }
 
 // ------------------------------------------------------------------- data --
-// The paper's and the poster's numbers (PET_DATA), looked up once for the story and the panels. The networks read off
-// the figures may still be empty (no links yet): everything here works with any subset of organs and any number of links.
-const PD = (() => {
-  const D = PET_DATA, byId = {};
-  D.organs.forEach((o, i) => { byId[o.id] = Object.assign({ i }, o); });
-  return { D, byId, ids: D.organs.map(o => o.id), nets: Object.fromEntries((D.nets || []).map(n => [n.id, n])) };
-})();
-const netOf = id => PD.nets[id] || null;
-const edgesOf = id => { const n = netOf(id); return n && Array.isArray(n.edges) ? n.edges : []; };
-const hasNet = id => edgesOf(id).length > 0;
-// a network's hubs, as the organs set draws them: only those the paper marks (its orange nodes); never ones computed
-// from the links (they differ: the paper marks none in the network of all scans)
-const hubsOf = id => { const n = netOf(id); return n && Array.isArray(n.hubs) ? n.hubs : []; };
-const organName = id => (PD.byId[id] ? PD.byId[id].name : String(id));
-const organLow = id => { const s = organName(id); return /^[A-Z][a-z]/.test(s) ? s.charAt(0).toLowerCase() + s.slice(1) : s; };
-const organCol = id => (PD.byId[id] ? PD.byId[id].col : '#9aa3b5');
-// the networks the organs set can show (organs_which: an index into this list), with their short names: the eleven of
-// its Network control, then the robustness tests' (the vena cava as the reference, the three doses), which only the
-// Networks tab's rows show
-const NET_IDS = ['full', 'FDG_healthy', 'A_low', 'A_high', 'B_low', 'B_high', 'C_low', 'C_mid', 'C_high', 'HK2', 'GLUT'];
-const NET_EXTRA = ['vena', 'dose_standard', 'dose_ultralow', 'dose_virtual'];
-const NET_ALL = NET_IDS.concat(NET_EXTRA);
-const NET_SHORT = ['All scans', `FDG, ${((netOf('FDG_healthy') || {}).organs || []).length} organs`, 'BMI low', 'BMI high', 'Tumour low', 'Tumour high', 'CRP low', 'CRP mid', 'CRP high', 'HK2', 'GLUT',
-  'Vena cava', 'Standard dose', 'Ultra-low dose', 'Virtual low dose'];
-const netShort = id => NET_SHORT[NET_ALL.indexOf(id)] || String(id);
-// Table 2's comparisons whose groups the paper drew as networks (Figures 2A and 3): one network per group, or null.
-// (Figure 4's healthy FDG network uses only the organs GTEx has too, so it belongs with the protein networks, Table 3.)
-function rowNets(r) {
-  if (!r) return [];
-  const m = r.what === 'BMI' && /healthy/.test(r.cohort) ? ['A_low', 'A_high'] : r.what === 'Tumour load' ? ['B_low', 'B_high']
-    : r.what === 'CRP' && /thirds/.test(r.cohort) ? ['C_low', 'C_mid', 'C_high'] : r.what === 'Blood pool' ? ['full', 'vena']
-    : r.what === 'Dose' ? ['dose_standard', 'dose_ultralow', 'dose_virtual'] : [];
-  return r.groups.map((g, i) => m[i] || null);
-}
-const rowOfNet = id => PD.D.table2.findIndex(r => rowNets(r).includes(id));
-// the comparison a network stands for (none for the network of all scans: it is no comparison, only the reference of the
-// blood-pool test)
-const cmpOfNet = id => (id === 'full' ? -1 : rowOfNet(id));
-// a network in a line: its group of Table 2, or what Figure 4 drew
-function netTitle(id) {
-  const n = netOf(id), ri = rowOfNet(id), r = PD.D.table2[ri];
-  if (!n) return '';
-  if (id === 'full' || id === 'vena') return `All ${fmt(PD.D.cohort.scans)} scans, every organ divided by the ${id === 'vena' ? 'vena cava' : 'aorta'} (Figure 2A, printed)`;
-  if (r) { const g = r.groups[rowNets(r).indexOf(id)]; return `${r.what}, ${r.cohort.replace(/, split at the median.*$/, '')}: ${g.label} (${g.n} ${r.what === 'Dose' ? 'people' : 'scans'}; Figure ${n.fig}, read off, approximate)`; }
-  if (id === 'FDG_healthy') return `FDG in the ${PD.D.cohort.healthy} scans of healthy volunteers, on the ${(n.organs || []).length} organs GTEx has too (Figure 4, read off, approximate)`;
-  const t3 = PD.D.table3.find(x => PROT_NET(x) === id);
-  return t3 ? `${t3.name}: from its gene's activity in the tissues of ${fmt(PD.D.cohort.gtex)} people (GTEx; Figure 4, read off, approximate)` : n.title || id;
-}
-// Table 3's protein networks drawn in Figure 4
-const PROT_NET = r => (r.kind === 'fdg' ? 'FDG_healthy' : /HK2/.test(r.name) ? 'HK2' : /GLUT/.test(r.name) ? 'GLUT' : null);
-// the four profiles of the one-scan network, in the order of people_profile, and the poster's groups' colours
-const PROFILES = [['healthy', 'Healthy'], ['cancer', 'Cancer'], ['both', 'Cancer + dyslipidaemia'], ['dys', 'Dyslipidaemia']];
-const GROUP_COL = { cancer: '#d9dde6', both: '#9b5de5', dys: '#ff4fd8', healthy: '#38bdf8' };
-const THIRD_COL = ['#38bdf8', '#a78bfa', '#d9dde6'];
-// The poster's numbers (PET_DATA.poster): its groups on the index, its cohort, survival by the index's thirds and the
-// immunotherapy test
-const POSTER = (() => {
-  const P = PET_DATA.poster || {}, mdi = P.mdi || {}, co = P.cohort || {}, km = P.km || {}, pr = P.prognosis || {};
-  const sum = l => l.reduce((a, g) => a + (Number.isFinite(+g.n) ? +g.n : 0), 0);
-  const groups = (mdi.groups || []).map((g, i) => Object.assign({ i, col: GROUP_COL[g.key] || '#9aa3b5' }, g));
-  const base = co.baseline || [], follow = co.followup || [];
-  // survival by the index's thirds: the curves (label, n) with the poster's table (median in months, NR: not reached;
-  // survival after one year)
-  const thirds = (km.curves || []).map((c, i) => {
-    const r = (km.table || [])[i] || {}, md = parseFloat(r.median), y = parseFloat(r.oneYear);
-    const nm = String(c.label || '').replace(/^\d+(st|nd|rd|th)\s+(tertile|third)\s*/i, '');
-    return { name: nm.charAt(0).toUpperCase() + nm.slice(1), n: +c.n || null, col: THIRD_COL[i] || '#9aa3b5',
-      median: r.median === undefined ? undefined : Number.isFinite(md) ? md : null, y1: Number.isFinite(y) ? Math.round(y) : null };
+// The preprint's numbers and Iva Buljan's network of organ architecture (MICRO_DATA), looked up once for the story and
+// the panes. In the network, domains hang on tissue types (not on organs): an organ reaches its domains only through
+// the tissue types it has, which other organs share.
+const MD = (() => {
+  const D = MICRO_DATA, N = D.graph.nodes, adj = N.map(() => new Set());
+  for (const [a, b] of D.graph.edges) if (a !== b) { adj[a].add(b); adj[b].add(a); }
+  const byName = (i, j) => N[i][0].localeCompare(N[j][0]);
+  const nb = (i, level) => [...adj[i]].filter(j => N[j][1] === level).sort(byName);
+  const atLevel = level => N.map((n, i) => i).filter(i => N[i][1] === level).sort(byName);
+  const types = atLevel(2), domains = atLevel(3);
+  const organs = D.organs.map((o, i) => {
+    const node = N.findIndex(n => n[1] === 0 && n[0] === o.name), tis = node >= 0 ? nb(node, 1) : [];
+    const ty = new Set(node >= 0 ? nb(node, 2) : []);
+    tis.forEach(t => nb(t, 2).forEach(x => ty.add(x)));
+    return Object.assign({ i, node, tissues: tis.map(t => N[t][0]), types: [...ty].sort(byName) }, o);
   });
-  // the immunotherapy test: the AUC of each measure (the network's own: group 'network'), its p value, and how many people
-  const st = pr.strip || {};
-  const auc = (pr.auc || []).filter(a => Number.isFinite(+a.auc)).map(a => ({ name: String(a.label || ''), auc: +a.auc,
-    pv: typeof a.p === 'number' ? a.p : NaN, p: typeof a.p === 'number' ? `p = ${a.p}` : '', net: a.group === 'network' }));
-  const respN = +pr.n || sum([st.good, st.bad].filter(Boolean)) || null;
-  const best = l => l.slice().sort((a, b) => b.auc - a.auc)[0] || null;
-  return { groups, mdiN: sum(groups), base, follow, baseN: +co.baselineTotal || sum(base), followN: +co.followupTotal || sum(follow), thirds, respN, auc,
-    bestNet: best(auc.filter(a => a.net)), bestClin: best(auc.filter(a => !a.net)),
-    // none of the measures significant (every p over the story's threshold): said so wherever the AUCs are
-    noneSig: auc.length > 0 && auc.every(a => a.pv > PET_DATA.protocol.p) };
+  // a tissue type's domains, and the organs that have it (directly or through one of their tissues)
+  const typeDomains = t => nb(t, 3);
+  const typeOrgans = t => organs.filter(o => o.types.includes(t));
+  const typeOfDomain = d => nb(d, 2)[0] ?? -1;
+  return { D, N, adj, organs, types, domains, typeDomains, typeOrgans, typeOfDomain,
+    organ: name => organs.find(o => o.name.toLowerCase() === String(name || '').toLowerCase()) || null,
+    domain: name => domains.find(d => N[d][0].toLowerCase() === String(name || '').toLowerCase()) ?? -1,
+    type: name => types.find(t => N[t][0].toLowerCase() === String(name || '').toLowerCase()) ?? -1 };
 })();
+const nodeName = i => (MD.N[i] ? MD.N[i][0] : '');
+const cap = s => (s ? String(s).charAt(0).toUpperCase() + String(s).slice(1) : '');
+// a GTEx tissue's own part, for a list under its organ ('Adipose - Subcutaneous' under Adipose: 'Subcutaneous')
+const tisShort = (t, organ) => (t.startsWith(organ + ' - ') ? t.slice(organ.length + 3) : t);
+// the network's four levels and their colours (as in the talk's Figure 5)
+const LEVEL_COL = ['#1f8a4c', '#7ccf7e', '#ef8f7a', '#5aa9ff'];
+const levelName = l => (MICRO_DATA.levels || ['organ', 'tissue', 'tissue type', 'domain'])[l];
+// what the sets know (their api()): the atlas's 40 tissues, the slide's domains, the network's nodes and contact organs
+const setApi = k => (GL.sets[k] && GL.sets[k].api ? GL.sets[k].api() : null);
+const API = {};
+const api = k => API[k] || (API[k] = setApi(k) || {});
+// a domain's colour, the same in every set (the atlas set's palette; else the slide's; else a fixed one by name)
+const PAL = ['#ff9ec4', '#ffd166', '#4d94ff', '#3ee08f', '#c77dff', '#ff8a5b', '#46d9ff', '#f4a6ff', '#b8e05a', '#ff5a7a'];
+function domCol(name) {
+  for (const k of ['atlas', 'slide']) { const f = api(k).domainColour; if (f) { try { const c = f(name); if (c) return c; } catch (e) { /* the next */ } } }
+  let h = 0; for (const ch of String(name)) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  return PAL[h % PAL.length];
+}
+// an organ's section in the atlas (atlas_focus: a tissue's index + 1; 0 none): its own tissue, or its first
+const atlasIdx = name => {
+  const T = api('atlas').tissues || [], n = String(name || '').toLowerCase();
+  const i = T.findIndex(t => t.toLowerCase() === n), j = i >= 0 ? i : T.findIndex(t => t.toLowerCase().startsWith(n + ' - '));
+  return j + 1;
+};
+// the organ a tissue of the atlas belongs to
+const tissueOrgan = t => { const s = String(t || ''); return MD.organs.find(o => s === o.name || s.startsWith(o.name + ' - ') || o.tissues.includes(s)) || null; };
+// a node of the network set by name and level (hier_focus), or -1
+const hierIdx = (name, level) => { const L = api('hier').nodes || []; const n = String(name || '').toLowerCase(); return L.findIndex(x => x.level === level && String(x.name).toLowerCase() === n); };
+// a domain of the network on the slide (slide_focus: its index + 1; 0 none): the same name, or one that starts alike
+// ('muscularis' and 'muscularis inner', 'lymphoid Peyer patches' and 'lymphoid')
+function slideIdx(name) {
+  const L = (api('slide').domains || []).map(x => String(x).toLowerCase()), n = String(name || '').toLowerCase();
+  if (!n) return 0;
+  let i = L.indexOf(n);
+  if (i < 0) i = L.findIndex(x => x.startsWith(n + ' ') || n.startsWith(x + ' '));
+  if (i < 0) i = L.findIndex(x => x.split(' ')[0] === n.split(' ')[0]);
+  return i + 1;
+}
+// the network's domain a slide domain stands for (its name, or the one that starts alike), or ''
+function slideDomain(k) {
+  const s = String((api('slide').domains || [])[k] || '').toLowerCase();
+  if (!s) return '';
+  const D = MD.domains.map(d => nodeName(d));
+  return D.find(n => n.toLowerCase() === s) || D.find(n => s.startsWith(n.toLowerCase() + ' ') || n.toLowerCase().startsWith(s + ' '))
+    || D.find(n => n.toLowerCase().split(' ')[0] === s.split(' ')[0]) || '';
+}
+// the contact networks' organs (hier_organ: an index into them) and the preprint's findings for one of them
+const contactIdx = re => Math.max(0, (api('hier').contactOrgans || []).findIndex(o => re.test(o)));
+// the talk's figures, when read: the domains drawn for a tissue (any of a few shapes), else none
+function figDomains(tissue) {
+  const A = (MICRO_DATA.figures || {}).atlas;
+  if (!A) return [];
+  const e = Array.isArray(A) ? A.find(x => x && (x.tissue === tissue || x.name === tissue)) : A[tissue];
+  const L = e && (Array.isArray(e) ? e : e.domains);
+  return Array.isArray(L) ? L.map(x => (typeof x === 'string' ? x : x && x.name)).filter(Boolean) : [];
+}
 
 // ------------------------------------------------------------------ facts --
-// Numbers the story quotes, all from PET_DATA (a comparison or a reading not there yet leaves its sentence out)
+// Numbers and findings the story quotes, all from MICRO_DATA (a finding not there leaves its sentence out)
 const FACTS = (() => {
-  const D = PET_DATA, c = D.cohort, p = D.protocol, full = netOf('full') || { edges: [], density: 0, disorder: 0 };
-  const row = (what, re) => D.table2.find(r => r.what === what && (!re || re.test(r.cohort))) || null;
-  const num = s => { const m = /(\d+(?:\.\d+)?)/.exec(s || ''); return m ? +m[1] : null; };
-  const retest = row('Test-retest');
-  return {
-    scans: c.scans, subjects: c.subjects, healthy: c.healthy, cancer: c.cancer, lung: c.lung, hnscc: c.hnscc, gtex: c.gtex,
-    fasting: p.fasting, dose: p.dose, rest: p.rest, hubZ: p.hub, p: p.p, seg: p.segmentation,
-    organs: D.organs.length - 1, f2n: D.f2.organs.length, density: full.density, disorder: full.disorder, links: full.edges.length,
-    row: { cancer: row('Cancer'), bmi: row('BMI', /healthy/), crp: row('CRP', /thirds/), tumour: row('Tumour load'), norepi: row('Norepinephrine') },
-    weeks: retest ? num((/(\d+)\s*weeks/.exec(retest.cohort) || [])[1]) : null,
-    robust: D.table2.filter(r => r.part === 'test'), hk2: D.table3.find(r => /HK2/.test(r.name)) || null, tested: D.table3.filter(r => r.kind !== 'fdg').length,
-    pair: (D.synth && D.synth.pairs && D.synth.pairs[0]) || null, single: D.single, poster: POSTER,
-    year: num((/\((\d{4})\)/.exec(D.source.paper) || [])[1]),
-  };
+  const D = MICRO_DATA, F = D.facts, fd = D.findings || {}, path = fd.pathology || [], inter = fd.interactions || [];
+  const lv = [0, 0, 0, 0];
+  D.graph.nodes.forEach(n => { lv[n[1]]++; });
+  // the tissue type shared most widely: the one most organs have
+  const wide = MD.types.map(t => ({ name: nodeName(t), organs: MD.typeOrgans(t).length })).sort((a, b) => b.organs - a.organs)[0] || null;
+  const yr = /bioRxiv (\d{4})/.exec(D.source.preprint || '');
+  return Object.assign({}, F, {
+    tilesM: Math.round(F.tiles / 1e6), levels: lv, wide, year: yr ? +yr[1] : null,
+    plaque: path.find(p => /plaque/i.test(p.kind)) || null, infarct: path.find(p => /infarct/i.test(p.kind)) || null,
+    remodel: path.filter(p => !/plaque|infarct/i.test(p.kind)),
+    colon: inter.find(x => /colon/i.test(x.organ) && x.a) || null, artery: inter.find(x => /arter/i.test(x.organ) && x.a) || null, inter,
+    ex: D.examples || [], most: fd.most || '', connective: fd.connective || '', stable: fd.stable || '',
+    figs: Object.keys(D.figures || {}),
+  });
 })();
 const listOf = a => (a.length < 2 ? a.join('') : a.slice(0, -1).join(', ') + ' and ' + a[a.length - 1]);
-const word = n => ['no', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve', 'thirteen', 'fourteen'][n] || String(n);
-const Word = n => { const w = word(n); return w.charAt(0).toUpperCase() + w.slice(1); };
-const dis = v => (Number.isFinite(+v) ? (+v).toFixed(2) : '–');
-// 'MOOSE (nnU-Net)' -> 'MOOSE, an nnU-Net model'
-const segName = s => { const m = /^(.*?)\s*\((.*)\)\s*$/.exec(s || ''); return m ? `${m[1]}, an ${m[2]} model` : String(s || ''); };
-// colours as text on the HTML panel, which is light in the light theme: an organ's or a group's colour mixed with the
-// panel's ink (darker on a light panel, lighter on a dark one); the poster's light grey (its black, on our dark ground)
-// is the ink itself. The headset's panel is dark: its canvas twin takes the colour itself (data-col).
-const inkCol = c => (/^#d9dde6$/i.test(c) ? 'var(--ink)' : `color-mix(in srgb, ${c} 55%, var(--ink))`);
-const swCol = c => (/^#d9dde6$/i.test(c) ? 'var(--ink)' : c);   // a swatch or a bar in the same colour
+const word = n => ['no', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve'][n] || String(n);
 const pct = v => (Number.isFinite(+v) ? `${+v}%` : '–');
+const signed = v => (v > 0 ? '+' : v < 0 ? '−' : '') + Math.abs(v);
+// colours as text on the HTML panel, which is light in the light theme: a colour mixed with the panel's ink (darker on a
+// light panel, lighter on a dark one). The headset's panel is dark: its canvas twin takes the colour itself (data-col).
+const inkCol = c => `color-mix(in srgb, ${c} 55%, var(--ink))`;
+const swCol = c => c;   // a swatch or a bar in the same colour
+// a worked example of change with age in a line: what it is, its share at both ages and per decade
+const exText = x => `${x.note}: ${pct(x.from)} of the section at ${FACTS.ages[0]}, ${pct(x.to)} at ${FACTS.ages[1]} (${signed(x.perDecade)}% per decade)`;
+const exName = x => `${cap(x.tissue)} · ${x.domain}`;
+// a change in the contacts between two domains, in words
+const where = x => (x.note && /arter/i.test(x.note) ? x.note : `the ${String(x.organ).toLowerCase()}`);
+const meet = x => (x.a ? `${cap(x.a)} and ${x.b} meet ${x.dir > 0 ? 'more' : 'less'} with age in ${where(x)}` : `In ${where(x)}, ${x.note}`);
 
-// the story's own networks, in the order it shows them (one that has no links yet is skipped: the network stays)
 function buildStory() {
-  const F = FACTS, R = F.row, P = F.poster, S1 = F.single, prof = k => (S1 && S1.profiles && S1.profiles[k]) || null;
-  // fade a set in over [t0, t1] and out over [t2, t3]
-  const show = (k, t0, t1, t2, t3) => { ramp(k + '_a', t0, t1, 0, 1); if (t2 !== undefined) ramp(k + '_a', t2, t3, 1, 0); };
-  // jump an index param (an organ, a pair, a group) at time t
+  const F = FACTS;
+  // fade a set in over [t0, t1] and out over [t2, t3]; the slide always comes with the tissue section it lies on
+  const show = (k, t0, t1, t2, t3) => {
+    for (const s of k === 'slide' ? ['tissue', 'slide'] : [k]) { ramp(s + '_a', t0, t1, 0, 1); if (t2 !== undefined) ramp(s + '_a', t2, t3, 1, 0); }
+  };
+  const hide = (k, t0, t1) => { for (const s of k === 'slide' ? ['tissue', 'slide'] : [k]) ramp(s + '_a', t0, t1, 1, 0); };
+  // jump an index param (a domain, a tissue, an organ) at time t
   const jump = (n, t, v0, v1) => { key(n, t - 0.01, v0); key(n, t, v1); };
   // values a set starts the story with (keyed at time 0, so a set's resting defaults never leak into the story)
   const start = vals => { for (const n in vals) if (n in DEF) key(n, 0, vals[n]); };
-  const oi = id => (PD.byId[id] ? PD.byId[id].i + 1 : 0);   // organs_focus for an organ
-  const wi = id => NET_ALL.indexOf(id);                      // organs_which for a network
-  const gD = (r, i) => (r && r.groups[i] ? pct(r.groups[i].density) : '–'), gO = (r, i) => (r && r.groups[i] ? dis(r.groups[i].disorder) : '–');
-  const step = (id, at, text) => `<li data-at="${at}" data-col="${organCol(id)}" style="border-left-color:${swCol(organCol(id))}"><b style="color:${inkCol(organCol(id))}">${esc(organName(id))}</b>${text}</li>`;
-  const ones = (S1 && S1.organs) || [], onesN = ones.filter(o => o !== 'aorta').length;   // (the aorta is no organ)
-  const thirds = P.thirds.filter(g => g.median !== undefined || g.y1 !== null);
-  const med = g => (g.median === null ? 'not reached' : `${g.median} months`);
-  const cap = t => t.charAt(0).toUpperCase() + t.slice(1);
-  const bar = P.follow.find(g => /bariatric/i.test(g.group || ''));
-  // the explainer's pair linked only through other organs (the organs set finds it in the stand-in cohort; none: left out)
-  const OP = setApi('organs') || {}, ind = (OP.pairs || []).find(p => p.indirect && Number.isFinite(p.r) && Number.isFinite(p.pr)) || null;
-  // (said only while the poster's centres are in that order)
-  const gc = k => { const g = P.groups.find(x => x.key === k); return g && Number.isFinite(+g.centre) ? +g.centre : NaN; };
-  const order = gc('cancer') < gc('healthy') && gc('healthy') < gc('dys');
-  // (and the stand-in profiles' indices, said only while they are in the same order)
-  const pm = k => (prof(k) && Number.isFinite(prof(k).mdi) ? prof(k).mdi : NaN);
-  const porder = pm('cancer') < pm('healthy') && pm('healthy') < pm('dys');
+  const sd = name => slideIdx(name);   // slide_focus for a domain of the section
+  const exI = F.ex.map(x => atlasIdx(x.tissue));   // atlas_focus for each worked example (0: the gut's is on the slide)
+  const step = (at, out, col, b, text) => `<li data-at="${at}"${out ? ` data-out="${out}"` : ''} data-col="${col}" style="border-left-color:${swCol(col)}"><b style="color:${inkCol(col)}">${esc(b)}</b>${text}</li>`;
+  const exCol = ['#ff9ec4', '#ffd166', '#c77dff'];
   // ------------------------------------------------------------ panel copy
   // parts of a chapter that take turns in one place, each fading out (data-out) as the next comes: the headset's
   // panel cannot scroll, so no chapter shows more than fits at once
   const turns = (...parts) => `<div style="display:grid">${parts.map(p => `<div style="grid-area:1/1">${p}</div>`).join('')}</div>`;
+  const others = F.inter.filter(x => x !== F.colon && x !== F.artery).map(x => (x.a ? `${x.a} and ${x.b} meet ${x.dir > 0 ? 'more' : 'less'} in ${where(x)}` : `in ${where(x)}, ${x.note}`));
   const html = {
     title: `<svg class="route-mark" viewBox="0 0 360 44" aria-hidden="true"><path id="titleArc" d="M8 36 Q180 -16 352 36" fill="none" stroke="var(--red)" stroke-width="2.2" stroke-linecap="round" pathLength="1" stroke-dasharray="1" stroke-dashoffset="1"/><circle cx="8" cy="36" r="4.5" fill="var(--red)"/><circle cx="352" cy="36" r="4.5" fill="var(--red)" id="titleDot" opacity="0"/></svg>
-      <h1 data-at="1.2">One scan, one system</h1>
-      <p class="lede" data-at="2.4">the body as a metabolic network</p>
-      <p data-at="4">From one PET scan to a network of organs: what it says about health, disease and survival.</p>
-      <p class="note" data-at="9">After a paper in Med${F.year ? ` (${F.year})` : ''} and a poster from the Division of Nuclear Medicine, Medical University of Vienna, and the LBI for Network Medicine.</p>`,
-    scanner: `<h2 data-at="0.6">Seeing sugar</h2>
-      ${turns(`<p data-at="1.2" data-out="12.5">A PET scan (positron emission tomography) starts with a sugar. FDG (fluorodeoxyglucose) is a glucose look-alike carrying radioactive fluorine-18.</p>
-        <p data-at="4.5" data-out="12.5">After at least ${F.fasting} hours without food, it goes into a vein. For about ${F.rest} minutes the person rests: cells take it up like glucose, and an enzyme, hexokinase, traps it inside.</p>`,
-      `<p data-at="13">Then the scan. Around the tunnel sits a ring of detectors.</p>
-        <ul class="steps">
-          <li data-at="14.5"><b>A positron</b>fluorine-18 decays and sends one out (the electron's antimatter twin); it travels about a millimetre (drawn larger here)</li>
-          <li data-at="17.5"><b>Two photons</b>it meets an electron and both vanish: two gamma photons of 511 keV (kiloelectronvolts) fly off in opposite directions</li>
-          <li data-at="21"><b>A coincidence</b>two detectors on opposite sides of the ring register both within a few billionths of a second; the line between them, the line of response, passes close to where the sugar is</li>
-        </ul>`)}
-      <p data-at="27" class="amber">Millions of such lines make the image: a map of where the body takes up sugar.</p>
-      <p class="credits" data-at="31">The uptake is measured as the SUV, the standardised uptake value: the tracer in a tissue divided by the dose per kilogram of body weight (1 would be an even spread). Protocol as in the paper: ${F.dose[0]} to ${F.dose[1]} MBq (megabecquerels) of FDG.</p>`,
-    body: `<h2 data-at="0.6">Where the sugar goes</h2>
-      <p data-at="1.2">The tracer arrives with the blood, and within the hour it settles where cells use sugar.</p>
-      <p data-at="10">The brain takes up the most, and the heart often does too (how much varies from person to person). The kidneys and the bladder glow too: FDG is filtered into the urine and not taken back, so it leaves the body that way.</p>
-      <p data-at="20">A tumour shows as a hot spot. Such spots are mostly what a scan is read for.</p>
-      <p data-at="29" class="amber">Yet the scan holds every organ's metabolism at once.</p>`,
-    organs: `<h2 data-at="0.6">Every organ, measured</h2>
-      ${turns(`<p data-at="1.2" data-out="22.5">An AI (${esc(segName(F.seg))}) outlines up to ${F.organs} organs in each scan, in 3D, and a doctor checks them (not every organ is in every scan).</p>
-        <p data-at="14" data-out="22.5">Each organ's uptake is divided by that of the aorta: the blood pool, the same reference in every scan.</p>`,
+      <h1 data-at="1.2">Tissue and time</h1>
+      <p class="lede" data-at="2.4">how organs are built, and how they age</p>
+      <p data-at="4">How the body's organs are built from small working units, and how they change as we age.</p>
+      <p data-at="7">Each point of light is one of the ${F.organs} organs whose tissue GTEx collected from ${fmt(F.donors)} people.</p>
+      <p class="note" data-at="10">After a preprint${F.year ? ` (bioRxiv, ${F.year})` : ''}, a poster and a talk from the Rendeiro group: CeMM, the LBI for Network Medicine and the Medical University of Vienna.</p>`,
+    slide: `<h2 data-at="0.6">One slide</h2>
+      ${turns(`<p data-at="1.2" data-out="21.5">Take a thin slice of an organ, here the wall of the stomach, and stain it. This is H&amp;E (haematoxylin and eosin), the standard stain of pathology.</p>
+        <p data-at="6.5" data-out="21.5">Haematoxylin colours the cells' nuclei purple-blue; eosin colours their cytoplasm and the fibres between them pink. White is fat, or empty space.</p>
+        <p data-at="13" data-out="21.5">Close up, it is all cells. Yet they are not scattered at random: they are arranged in units that each do a job.</p>`,
       `<ul class="steps">
-          ${step('brain', 23, `${esc(PD.byId.brain.measure)}: it lives on sugar`)}
-          ${step('liver', 27, esc(PD.byId.liver.measure))}
-          ${step('muscle', 31, `${esc(PD.byId.muscle.measure)}${/gluteus/i.test(PD.byId.muscle.measure) ? ' (the buttock muscle)' : ''}`)}
-        </ul>`)}
-      <p data-at="35" class="amber">One scan, one row of numbers.</p>
-      <p class="credits" data-at="36">The organs' values shown here are typical uptakes, for illustration.</p>`,
-    cohort: `<h2 data-at="0.6">${fmt(F.scans)} scans</h2>
-      ${turns(`<p data-at="1.2" data-out="14.5">The paper used ${fmt(F.scans)} scans of ${fmt(F.subjects)} people: ${F.healthy} of healthy volunteers and ${F.cancer} of people with cancer (${F.lung} lung, ${F.hnscc} head and neck).</p>
-        <div class="facts"><div data-at="7" data-out="14.5"><b>${fmt(F.scans)}</b><small>scans</small></div><div data-at="8.5" data-out="14.5"><b>${F.f2n}</b><small>organs in the network</small></div><div data-at="10" data-out="14.5"><b>${fmt(F.scans * F.f2n)}</b><small>values at most</small></div></div>`,
-      F.pair ? `<p data-at="15" data-out="34.5">Which organs rise and fall together across people? Take the ${esc(organLow(F.pair.a))} and the ${esc(organLow(F.pair.b))}.</p>
-        <p data-at="19" data-out="34.5">A plain correlation mixes direct links with links that only pass through other organs.</p>
-        <p data-at="22.5" data-out="34.5" class="amber">A partial correlation first takes out what all the other organs explain, then correlates what is left: in the stand-in data, r = ${dis(F.pair.r)} becomes ${dis(F.pair.pr)} (the paper's partial correlation: ${dis(F.pair.paper)}).</p>
-        ${ind ? `<p data-at="29" data-out="34.5">The ${esc(organLow(ind.a))} and the ${esc(organLow(ind.b))}: r = ${dis(ind.r)}, but ${dis(ind.pr)} once the other organs are taken out.${ind.paper === null ? ' The paper draws no link between them.' : ''}</p>` : ''}` : '',
-      `<p data-at="35">Keep the significant ones (unlikely to be chance: p &lt; ${F.p}) and draw them: blue where two organs rise together, red where one rises as the other falls.</p>
-        <p data-at="39">The network of all ${fmt(F.scans)} scans: ${F.f2n} organs, ${F.links} links${Number.isFinite(+F.density) ? `, a density of ${pct(F.density)} (more on that next)` : ''}.</p>
-        <p class="credits" data-at="41">Figure 2A of the paper. The people in the scatter plot are ${fmt(F.scans)} stand-ins with the paper's partial correlations.</p>`)}`,
-    health: `<h2 data-at="0.6">From health to disease</h2>
-      ${turns(`<p data-at="1.2" data-out="15.5">Split the scans into groups, and give each group its own network.${R.cancer ? ` Healthy people's is dense: ${gD(R.cancer, 0)} of the most possible, against ${gD(R.cancer, 1)} with cancer.` : ''}</p>
-        ${R.bmi ? `<p data-at="7" data-out="15.5">Weight, in healthy people: a density of ${gD(R.bmi, 0)} below the median BMI (body mass index: weight for height), ${gD(R.bmi, 1)} above it.</p>
-        ${hubsOf('A_high').includes('brain') ? '<p data-at="11" data-out="15.5">Above it, the brain becomes a hub: an organ with far stronger links than the rest.</p>' : ''}` : ''}`,
-      `<p data-at="16" data-out="34.5">Two measures. Density: all links' strength together, as a share of the most possible. Disorder: how unevenly that strength is spread, from 0 (even) up (a few hubs).</p>
-        ${R.crp ? `<p data-at="21" data-out="34.5" class="amber">Inflammation (CRP, C-reactive protein, a marker of it in the blood; in thirds): density ${listOf(R.crp.groups.map(g => pct(g.density)))}; disorder ${listOf(R.crp.groups.map(g => dis(g.disorder)))}. In the sparse networks of the less healthy groups, muscle and subcutaneous fat dominate${hubsOf('C_high').includes('muscle') ? '; here muscle becomes a hub' : ''}.</p>` : ''}
-        ${R.norepi && R.tumour ? `<p data-at="31" data-out="34.5">Stress (norepinephrine, a stress hormone, in ${R.norepi.groups.reduce((s, g) => s + g.n, 0)} healthy people: ${gD(R.norepi, 0)} against ${gD(R.norepi, 1)}) and tumour load (${gD(R.tumour, 0)} against ${gD(R.tumour, 1)}) thin it too.</p>` : ''}`,
-      `${F.robust.every(r => !r.sigD && !r.sigO) ? `<p data-at="35">And it holds: ${F.weeks ? `two scans within ${F.weeks} weeks, ` : ''}an ultra-low dose, another scanner, men and women, the aorta or the vena cava as the reference: none made a significant difference, though some groups were small (${Math.min(...F.robust.flatMap(r => r.groups.map(g => g.n)))} people).</p>` : ''}
-        ${F.hk2 ? `<p data-at="39">Of ${F.tested} networks built from genes' activity in the tissues of ${fmt(F.gtex)} people, only that of hexokinase 2, an enzyme that traps FDG, resembles FDG's (r = ${F.hk2.r}).</p>` : ''}
-        <p class="credits" data-at="42">Table 2 and Figures 3 and 4 of the paper; networks other than that of all scans read off its figures.${R.cancer ? ` Disorder: ${gO(R.cancer, 0)} healthy, ${gO(R.cancer, 1)} with cancer.` : ''} A hub: an organ whose strength is more than ${F.hubZ} standard deviations above the network's average (z-score).</p>`)}`,
-    one: `<h2 data-at="0.6">One scan, one network</h2>
-      ${turns(`<p data-at="1.2" data-out="23.5">So far, one network for a whole group. The next step: a network for every scan, from ${word(onesN)} organs${ones.includes('aorta') ? ' and the aorta' : ''}.</p>
-        <p data-at="6" data-out="23.5">Compare every organ with every other: how much more sugar does it take up?</p>
-        <p data-at="12" data-out="23.5">Where one outshines another by more than a threshold, draw a link. The links make this person's network.</p>`,
-      `<ul class="steps">
-          <li data-at="24"><b>Clearance</b>how the kidneys handle the tracer</li>
-          <li data-at="27"><b>Heterogeneity</b>how unevenly the links are spread: evenly, or one organ dominating</li>
+          ${step(22.5, 0, domCol('mucosa'), 'Mucosa', 'the lining: glands that make mucus and acid')}
+          ${step(24.5, 0, domCol('submucosa'), 'Submucosa', 'loose tissue with blood vessels')}
+          ${step(26.5, 0, domCol('muscularis'), 'Muscularis', 'layers of muscle that move food along')}
+          ${step(28.5, 0, domCol('lymphoid'), 'Lymphoid patch', 'a cluster of immune cells')}
         </ul>
-        ${porder ? `<p data-at="30" class="amber">Together they give a metabolic displacement index: how far, and which way, a scan's metabolism has moved. In these illustrative profiles health sits in the middle (${pm('healthy').toFixed(1)}); cancer pulls it down (${pm('cancer').toFixed(1)}), dyslipidaemia (unhealthy blood fats) up (${pm('dys').toFixed(1)}).</p>` : ''}
-        <p class="note" data-at="34">Illustrative maths: the poster names Clearance, Heterogeneity and the index, but its formulas are not published yet. These are stand-ins, and so are the profiles.</p>`)}`,
-    people: `<h2 data-at="0.6">${P.mdiN ? `${fmt(P.mdiN)} people, one index` : 'People on one index'}</h2>
-      ${turns(`<p data-at="1.2" data-out="24">Every scan becomes one point, placed by its two measures.${P.groups.length ? ` In the poster's results: ${listOf(P.groups.map(g => `${esc(g.name.toLowerCase())} (${g.n})`))}.` : ''}</p>
-        ${order ? `<p data-at="9" data-out="24">On the index, cancer sits low and dyslipidaemia high, with healthy people in between. These are medians: the groups overlap widely.</p>` : ''}
-        ${P.groups.length ? `<div class="facts" style="flex-wrap:wrap;row-gap:8px">${P.groups.map((g, j) => `<div data-at="${14 + 2 * j}" data-out="24" style="flex:1 1 40%"><b data-col="${g.col}" style="color:${inkCol(g.col)}">${Number.isFinite(+g.centre) ? (+g.centre).toFixed(1) : '–'}</b><small>${esc(g.name)}: median</small></div>`).join('')}</div>` : ''}`,
-      `<p data-at="24.5" data-out="36" class="amber">Split by the index into thirds: people with cancer furthest from the healthy range had the shortest survival.</p>
-        ${thirds.length ? `<ul class="steps">${thirds.map((g, j) => `<li data-at="${25.5 + j}" data-out="36" data-col="${g.col}" style="border-left-color:${swCol(g.col)}"><b style="color:${inkCol(g.col)}">${esc(cap(g.name))}${g.n ? ` (${g.n})` : ''}</b>median survival ${med(g)}${g.y1 !== null ? `; ${g.y1}% alive after a year` : ''}</li>`).join('')}</ul>` : ''}`,
-      `<p data-at="36.5">${P.respN ? `In ${P.respN}` : 'In a small group of'} people with lung cancer given immunotherapy before surgery, the index scored higher than CRP, tumour stage or age at telling good from poor responders apart${P.bestNet && P.bestClin ? ` (AUC ${P.bestNet.auc.toFixed(2)} against ${P.bestClin.auc.toFixed(2)} at best; AUC scores how well a measure tells two groups apart: 1 is perfect, 0.5 is chance)` : ''}. A first hint from few people${P.noneSig ? ': none of these results is significant' : P.bestNet && P.bestNet.pv > F.p ? ': the index\'s result is not significant' : ''}.</p>
-        <p data-at="42">The poster also reports that after ${bar ? `weight-loss (bariatric) surgery${Number.isFinite(+bar.n) ? ` (${bar.n} people)` : ''}` : 'surgery'}, and after immunotherapy, the index moved towards the healthy range.</p>
-        <p class="credits" data-at="45">The poster's results, as group summaries. The dots are stand-ins drawn to match them, not patients, and how far the follow-up groups move is illustrative.</p>`)}`,
-    vision: `<h2 data-at="0.6">One scan, one system</h2>
-      ${turns(`<p data-at="1.2" data-out="17">One day, one routine scan might show how a whole body is doing: what lies ahead, and which medication might help.</p>
-        <p data-at="6" data-out="17">Muscle and fat could become targets for treatment (they respond to GLP-1 drugs, for blood sugar and weight), and the networks a way to follow how drugs such as metformin, statins and SGLT2 inhibitors act on metabolism.</p>
-        <p data-at="12" data-out="17" class="amber">A measure of health, not only of disease. It still has to be proven in larger studies that follow people over time.</p>`,
-      `<p data-at="17.5">Poster: Barbara K Geist, Alexander Grentner, Joel Fischer, Josef Yu, Dato Tsomaia, Adna Smajlovic, Stefan Grünert and Marcus Hacker: Division of Nuclear Medicine, Medical University of Vienna, and the LBI for Network Medicine.</p>
-        <p data-at="20"><button class="btn primary" id="btnGoExplore" type="button">Explore the networks</button></p>
-        <p class="credits" data-at="22">Geist et al., The metabolic organ connectome, Med${F.year ? ` (${F.year})` : ''}; poster: Shaping a New Era in Nuclear Medicine. Networks of all ${fmt(F.scans)} scans: printed in the paper; other networks read off its figures. One-scan maths, organ values, the ${fmt(F.scans)} scans in the matrix and scatter plot, and the population dots: illustrative stand-ins.</p>`)}`,
+        <p data-at="30.5" class="amber">Such recurring arrangements are microanatomical domains: the units between cells and organs.</p>
+        <p class="credits" data-at="33">Slides like this are cheap, plentiful and show a wide field. This section is drawn, not a real slide.</p>`)}`,
+    library: `<h2 data-at="0.6">${fmt(F.slides)} slides</h2>
+      <p data-at="1.2">GTEx (the Genotype-Tissue Expression project) collected tissue from ${fmt(F.donors)} people who died aged ${F.ages[0]} to ${F.ages[1]}.</p>
+      <div class="facts"><div data-at="5"><b>${fmt(F.donors)}</b><small>people</small></div><div data-at="6.5"><b>${F.tissues}</b><small>tissues</small></div><div data-at="8"><b>${F.organs}</b><small>organs</small></div><div data-at="9.5"><b>${fmt(F.slides)}</b><small>slides</small></div></div>
+      <p data-at="13">Each slide is one tissue of one person. Here each column is a tissue, and each row an age, the youngest at the bottom.</p>
+      <p data-at="21" class="amber">Enough to compare how organs are built, and to see how that changes with age.</p>
+      <p class="credits" data-at="27">${fmt(F.donorsAnalysed)} people's slides were analysed: median age ${F.medianAge}, ${pct(F.male)} men. The slides here are drawn, not the GTEx images.</p>`,
+    method: `<h2 data-at="0.6">Finding the domains</h2>
+      ${turns(`<ul class="steps">
+          ${step(1.5, 35.5, '#46d9ff', '1 · Tiles', `each slide is cut into small squares: ${F.tilesM} million tiles in all`)}
+          ${step(9.5, 35.5, '#46d9ff', '2 · Features', 'a deep-learning vision model describes each tile with a list of numbers')}
+          ${step(18.5, 35.5, '#46d9ff', '3 · Neighbours', 'each tile mixes in the descriptions of the tiles around it (message passing)')}
+          ${step(27.5, 35.5, '#46d9ff', '4 · Domains', 'tiles whose mixed descriptions are alike are grouped, across all slides: each group is a domain')}
+        </ul>`,
+      `<p data-at="36">No labels needed: a pathologist named the domains afterwards. The method, ${esc(F.method)}, agrees with pathologists' notes (salivary gland r = ${F.bench.salivary.r}, stomach mucosa r = ${F.bench.stomach.r}; r = 1 would be perfect).</p>
+        <p data-at="40" class="amber">A sample of the tiles in one map: alike tiles lie close together, coloured by domain.</p>`)}`,
+    atlas: `<h2 data-at="0.6">An atlas of the body</h2>
+      ${turns(`<p data-at="1.2" data-out="19.5">Across the ${F.tissues} tissues: ${F.domains} domains of ${F.types} types, in ${F.superclasses} classes.</p>
+        <div class="facts"><div data-at="5" data-out="19.5"><b>${F.types}</b><small>types of domain</small></div><div data-at="6.5" data-out="19.5"><b>${pct(F.shared3)}</b><small>in three or more tissues</small></div><div data-at="8" data-out="19.5"><b>${pct(F.specific)}</b><small>in one tissue only</small></div></div>
+        <p data-at="11" data-out="19.5">A few kinds recur almost everywhere, such as connective tissue and blood vessels. Most belong to one tissue.</p>`,
+      `<p data-at="20">Iva Buljan's network of organ architecture puts it together in four levels:</p>
+        <ul class="legend">${[`${F.levels[0]} organs`, `their tissues, where an organ has several (${F.levels[1]})`, `${F.levels[2]} tissue types`, `${F.levels[3]} domain types`].map((t, l) => `<li data-at="${21 + 2 * l}"><span class="sw" style="background:${LEVEL_COL[l]}"></span>${t}</li>`).join('')}</ul>
+        ${F.wide ? `<p data-at="30" class="amber">${esc(cap(F.wide.name))} is the tissue type shared most widely: ${F.wide.organs} of the ${F.organs} organs have it.</p>` : ''}
+        <p class="credits" data-at="33">The network as in the talk's Figure 5: domains hang on tissue types, and tissue types on organs and their tissues.</p>`)}`,
+    age: `<h2 data-at="0.6">Age</h2>
+      ${turns(`<p data-at="1.2" data-out="13.5">Of ${F.donorVars} things known about the donors, such as sex, health and how they died, age explains most of how their domains differ.</p>
+        <p data-at="6" data-out="13.5" class="amber">${pct(F.ageChange)} of domains change with age (${F.agePairs[0]} of ${F.agePairs[1]} pairs of a domain and a tissue, where the domain covers more than ${pct(F.agePairsMin)}), mostly by less than ${pct(F.mostUnder)} per decade.</p>
+        <p class="credits" data-at="9.5" data-out="13.5">Each bubble is a domain in a tissue: right, it grows with age; left, it shrinks; higher, the change is surer.</p>`,
+      `<ul class="steps">${F.ex.map((x, i) => step(14 + 10 * i, 0, exCol[i], exName(x), esc(exText(x)))).join('')}</ul>
+        <p data-at="42">${esc(F.connective)} ${esc(F.most)}</p>`)}`,
+    pathology: `<h2 data-at="0.6">Disease</h2>
+      ${turns(`<p data-at="1.2" data-out="15.5">GTEx's pathologists noted what they saw on each slide: ${fmt(F.pathology.instances)} notes of ${F.pathology.kinds} kinds.</p>
+        <ul class="steps">${[F.plaque, F.infarct].filter(Boolean).map((p, i) => step(5 + 4 * i, 15.5, i ? '#ff5a4b' : '#ffb43b', cap(p.kind), `${esc(p.organ)}: ${esc(p.note)}`)).join('')}</ul>`,
+      `<p data-at="16" class="amber">Disease and healthy ageing often remodel different parts of a tissue: how much of a domain there is, its shape, or both.</p>
+        ${F.remodel.length ? `<p data-at="22">For example: ${esc(F.remodel.map(p => `${p.kind} ${p.note}`).join('; '))}.</p>` : ''}
+        <p class="credits" data-at="29">${F.figs.includes('trajectories') ? 'Curves read off the talk\'s figures.' : 'Curves drawn after the preprint\'s descriptions, not its data points.'}</p>`)}`,
+    contacts: `<h2 data-at="0.6">Neighbours</h2>
+      ${turns(`<p data-at="1.2" data-out="16.5">Domains touch. Which ones meet, and how much, makes a network of contacts in each organ.</p>
+        ${F.colon ? `<p data-at="6" data-out="16.5">${esc(meet(F.colon))}.</p>` : ''}`,
+      `${F.artery ? `<p data-at="17">${esc(meet(F.artery))}.</p>` : ''}
+        ${F.stable ? `<p data-at="23" class="amber">${esc(F.stable)}</p>` : ''}
+        ${others.length ? `<p class="credits" data-at="28">Also: ${esc(others.join('; '))}. Contact networks drawn after the preprint's findings.</p>` : ''}`)}`,
+    next: `<h2 data-at="0.6">Tissue and time</h2>
+      ${turns(`<p data-at="1.2" data-out="10.5">A map of how the body is built, from cells to domains to organs, and of how it changes with age.</p>
+        <p data-at="4.5" data-out="10.5" class="amber">It may help to study ageing itself, to spot early signs of disease in routine slides, and to compare organs on one scale.</p>`,
+      `<p data-at="11">Preprint: Iva Buljan, Zsuzsanna Bagó-Horváth and André F. Rendeiro${F.year ? ` (bioRxiv, ${F.year})` : ''}. Poster and talk: Iva Buljan, Rendeiro group: CeMM (Research Center for Molecular Medicine of the Austrian Academy of Sciences), the LBI for Network Medicine and the Medical University of Vienna. Slides: ${esc(F.gtex)}.</p>
+        <p data-at="13.5"><button class="btn primary" id="btnGoExplore" type="button">Explore the atlas</button></p>
+        <p class="credits" data-at="15">Slides, sections and tiles are drawn, not the GTEx images; the domain maps, the volcano's other points and the contact networks are illustrative where the figures give no numbers.</p>`)}`,
   };
 
   const story = $('#story');
@@ -331,195 +311,156 @@ function buildStory() {
   // ------------------------------------------------------------ timeline keys
   const wp = [];
   // a camera waypoint at time t: a set's named view, turned by spin degrees, optionally nudged
-  // (body and organs share one frame, so their waypoints turn them together)
+  // (the tissue and the slide share one frame, so their waypoints turn them together)
   const cam = (t, k, name, spin, ease, nudge) => {
     const v = view(k, name);
     v[0] += spin || 0;
     if (nudge) for (let i = 0; i < nudge.length; i++) v[i] += nudge[i] || 0;
     wp.push([t, ...v, ease, frameOf(k), narrowOf(k, name), fitShift(k, name)]);
   };
-  start({ scan_vision: 1, scan_bed: 0, scan_pass: 0, scan_cut: 0, scan_events: 0, scan_lines: 0, scan_image: 0,
-    body_pet: 0, body_net: 0, body_state: 0, body_blank: 0,
-    organs_seg: 0, organs_suv: 0, organs_focus: 0, organs_lesion: 0, organs_rows: 0, organs_pair: 0, organs_partial: 0, organs_net: 0, organs_which: 0, organs_prev: 0, organs_mix: 1, organs_strength: 0,
-    people_bars: 0, people_ratio: 0, people_thresh: 0, people_one: 0, people_metrics: 0, people_profile: 0, people_skip: 0, people_custom: 0, people_map: 0, people_mdi: 0,
-    people_group: 0, people_km: 0, people_response: 0, people_follow: 0 });
+  start({ body_pet: 1, body_net: 0, body_state: 0, body_blank: 0, dots: 0, dots_pick: 0, tissue_graph: 0, tissue_mark: 0, tissue_embed: 0,
+    slide_tiles: 0, slide_feat: 0, slide_adj: 0, slide_domain: 0, slide_age: 0, slide_focus: 0,
+    atlas_lib: 0, atlas_map: 0, atlas_umap: 0, atlas_focus: 0, atlas_age: 0, atlas_volcano: 0, atlas_curves: 0,
+    hier_grow: 0, hier_focus: -1, hier_contacts: 0, hier_organ: 0, hier_age: 0 });
+  const stomach = MD.organs.findIndex(o => /stomach/i.test(o.name)) + 1;
   let a, b;
-  // Intro: the vision row (scanner, body, network, prognosis, medication), then it draws back into the scanner
+  // Intro: the tour's PET body, the organs' points lighting up one by one
   a = C.title.a; b = C.title.b;
-  show('scan', 0.2, 2.5, C.body.a + 0.3, C.body.a + 2.3);
-  ramp('scan_vision', a + 10, a + 15, 1, 0);
-  cam(a, 'scan', 'vision', -8);
-  cam(a + 9.5, 'scan', 'vision', 4, 'spin');
-  cam(b - 0.5, 'scan', 'default', -12);
-  // Seeing sugar: the couch slides in, the skin opens on the ring, events, lines of response, then the image
-  a = C.scanner.a; b = C.scanner.b;
-  ramp('scan_bed', a + 1, a + 7, 0, 1);
-  ramp('scan_cut', a + 9, a + 12, 0, 1);
-  ramp('scan_events', a + 12, a + 13.5, 0, 0.3); ramp('scan_events', a + 21, a + 24, 0.3, 1);
-  ramp('scan_lines', a + 16, a + 27, 0, 1);
-  ramp('scan_pass', a + 14, a + 32, 0, 0.6);   // the couch moves on through the ring as the counts come in
-  ramp('scan_image', a + 27, a + 33, 0, 1);
-  ramp('scan_events', a + 30, a + 34, 1, 0.4);
-  cam(a + 1, 'scan', 'default', -4);
-  cam(a + 8, 'scan', 'default', 10, 'spin');
-  cam(a + 12.5, 'scan', 'ring');   // (once the skin is off: the ring view is inside the housing)
-  cam(a + 20, 'scan', 'ring', 14, 'spin');
-  cam(a + 24, 'scan', 'front', 0, null, [0, 4, -2.6]);
-  cam(a + 28, 'scan', 'ring', 35);
-  // (the image from above the couch: from inside the bore the body set's image is coarse)
-  cam(a + 32, 'scan', 'ring', 2, null, [0, 6, 0.8, 0, -0.08, 0.4]);
-  cam(b - 0.5, 'scan', 'ring', 14, 'spin', [0, 6, 0.8, 0, -0.08, 0.4]);
-  // Where the sugar goes: the standing body, the tracer arriving, the hot organs, then a tumour
-  a = C.body.a; b = C.body.b;
-  show('body', a + 0.3, a + 2.3);
-  ramp('body_a', C.one.a, C.one.a + 2, 0.55, 0);   // (dimmed under the organs from their chapter on)
-  ramp('body_pet', a + 1.5, a + 10, 0, 1);
-  show('organs', a + 18, a + 20, C.one.a, C.one.a + 2);
-  ramp('organs_lesion', a + 19, a + 21, 0, 1);
-  cam(a + 2.5, 'body', 'front', -12, null, [0, 0, 0.55]);   // (a slow turn from the scanner as it fades)
-  cam(a + 9.5, 'body', 'front', 6, 'spin', [0, 0, 0.55]);
-  cam(a + 12, 'body', 'front', 10, null, [0, 0, -0.55, 0, 0.22, 0]);   // (not so close that the arms reach the top bar)
-  cam(a + 18, 'body', 'front', 18, 'spin', [0, 0, -0.55, 0, 0.22, 0]);
-  cam(a + 21, 'organs', 'lesion');
-  cam(a + 28, 'organs', 'lesion', 10, 'spin');
-  cam(b - 1, 'organs', 'default', -6);
-  ramp('organs_lesion', b - 3, b, 1, 0);
-  // Every organ, measured: the AI's outlines, slice by slice; each organ's uptake as a bar; three organs in turn
-  a = C.organs.a; b = C.organs.b;
-  ramp('body_a', a + 1, a + 4, 1, 0.55);
-  ramp('organs_seg', a + 1, a + 12, 0, 1);
-  ramp('organs_suv', a + 15, a + 21, 0, 1);
-  // (the aorta glows, named, while the text divides every organ by it)
-  jump('organs_focus', a + 14, 0, oi('aorta')); jump('organs_focus', a + 22, oi('aorta'), 0);
-  [['brain', 23], ['liver', 27], ['muscle', 31]].reduce((f0, [id, t]) => { jump('organs_focus', a + t, f0, oi(id)); return oi(id); }, 0);
-  jump('organs_focus', a + 35, oi('muscle'), 0);
-  cam(a + 1, 'organs', 'seg');
-  cam(a + 12, 'organs', 'seg', 12, 'spin');
-  cam(a + 15, 'organs', 'bars');
-  cam(a + 22, 'organs', 'bars', 6, 'spin');
-  cam(b - 0.5, 'organs', 'bars', -6, 'spin');
-  // 658 scans: one row, then all of them; the partial correlation of two organs; the network of all scans
-  a = C.cohort.a; b = C.cohort.b;
-  // (the body steps out while the slab and the scatter plot have the stage, and back under the network)
-  ramp('body_a', a + 0.5, a + 2.5, 0.55, 0); ramp('body_a', a + 35, a + 38, 0, 0.55);
-  key('organs_rows', a + 1, 0); key('organs_rows', a + 5, 0.35); key('organs_rows', a + 7, 0.35); key('organs_rows', a + 12, 1);
-  if (F.pair) {
-    ramp('organs_pair', a + 15, a + 18, 0, 1);   // (the dots rise out of the slab)
-    ramp('organs_partial', a + 22, a + 27, 0, 1);
-    // then a pair linked only through other organs: back to its raw values, on to it, its partial correlation
-    // (organs_pair NPR + 1 is pair 1 again: from there the last pair is a neighbour, the ones between never show)
-    if (ind) {
-      const np = OP.pairs.length, ii = OP.pairs.indexOf(ind) + 1, from = ii === np ? np + 1 : 1;
-      if (from !== 1) jump('organs_pair', a + 28.5, 1, from);
-      ramp('organs_partial', a + 28.5, a + 29.5, 1, 0); ramp('organs_pair', a + 28.5, a + 30, from, ii);
-      ramp('organs_partial', a + 30.5, a + 34, 0, 1);
-      jump('organs_pair', C.health.a, ii, 0);   // (unseen: the network has hidden the panel by then)
-    } else jump('organs_pair', C.health.a, 1, 0);
-  }
-  ramp('organs_net', a + 34.5, a + 37.5, 0, 1);   // (the scatter plot makes way by a + 35.6, as the text turns to the network)
-  ramp('organs_suv', a + 32.5, a + 34, 1, 0); ramp('organs_rows', a + 34, a + 36.5, 1, 0);   // (no bar comes back as the slab goes)
-  // (the slab reaches left of the view's target: nudged clear of the panel)
-  cam(a + 3.5, 'organs', 'matrix', 0, null, [0, 0, 0.35, -0.25]);
-  cam(a + 13, 'organs', 'matrix', 10, 'spin', [0, 0, 0.35, -0.25]);
-  if (F.pair) { cam(a + 16, 'organs', 'scatter'); cam(a + 34, 'organs', 'scatter', 5, 'spin'); }
-  cam(a + 37, 'organs', 'net');
-  cam(b - 0.5, 'organs', 'net', 18, 'spin');
-  // From health to disease: BMI, the strength distribution, CRP thirds; robust; hexokinase 2 like FDG
-  a = C.health.a; b = C.health.b;
-  // the networks in turn, each from the one before (a network not read off its figure yet is skipped)
-  let w = wi('full');
-  // (a direct crossfade over 2 s from the network before, organs_prev, to the new one: easing organs_which would pass
-  // through the networks between them in the list)
-  const goNet = (id, t) => {
-    if (!hasNet(id)) return;
-    const n = wi(id);
-    key('organs_prev', t - 0.01, w); key('organs_prev', t + 2.05, w);
-    jump('organs_which', t, w, n);
-    jump('organs_mix', t, 1, 0); key('organs_mix', t + 2, 1);
-    w = n;
-  };
-  goNet('A_low', a + 7); goNet('A_high', a + 10);
-  ramp('organs_strength', a + 16, a + 19, 0, 1);
-  ramp('organs_strength', a + 35, a + 37, 1, 0);   // (robustness and hexokinase 2: the network alone)
-  goNet('C_low', a + 21); goNet('C_mid', a + 25); goNet('C_high', a + 29);
-  goNet('FDG_healthy', a + 36); goNet('HK2', a + 41.5);
-  cam(a + 1, 'organs', 'net', 18);
-  cam(a + 14, 'organs', 'net', 34, 'spin');
-  cam(a + 17, 'organs', 'strength');
-  cam(a + 34, 'organs', 'strength', 10, 'spin');
-  cam(a + 37, 'organs', 'net', 20);
-  cam(b - 0.5, 'organs', 'net', 34, 'spin');
-  // One scan, one network: bars, ratios, the threshold, the network, the two measures, three profiles in turn
-  a = C.one.a; b = C.one.b;
-  show('people', a + 0.5, a + 2.5, C.vision.a, C.vision.a + 1.5);
-  ramp('people_bars', a + 2, a + 5, 0, 1);
-  ramp('people_ratio', a + 7, a + 11, 0, 1);
-  ramp('people_thresh', a + 12, a + 15, 0, 1);
-  ramp('people_one', a + 17, a + 22, 0, 1);
-  ramp('people_bars', a + 18, a + 20.5, 1, 0);   // (as the network forms: the bars move aside, under the panel)
-  ramp('people_metrics', a + 24, a + 28, 0, 1);
-  key('people_profile', a + 31, 0); key('people_profile', a + 33, 1); key('people_profile', a + 35, 1); key('people_profile', a + 38, 3);
-  jump('people_skip', a + 34, 0, 1); jump('people_skip', a + 38.5, 1, 0);   // (cancer straight to dyslipidaemia: never via the two together)
-  // (the bars first: they stand above the field, about 1.2 wide, before the network pushes them aside)
-  const barsV = [-4, -9, -1.85, 0.36, 0.36, -0.1];   // (on top of the view's own FIT)
-  cam(a + 1, 'people', 'one', -10, null, barsV);
-  cam(a + 6.5, 'people', 'one', 0, 'spin', barsV);
-  cam(a + 10, 'people', 'field');
-  cam(a + 15, 'people', 'field', 12, 'spin');
-  cam(a + 18, 'people', 'one');
-  // (lifted a little: the ratio field below the ring stays above the timeline)
-  cam(a + 24, 'people', 'metrics', 0, null, [0, 0, 0, 0, -0.1, 0]);
-  cam(b - 0.5, 'people', 'metrics', 8, 'spin', [0, 0, 0, 0, -0.1, 0]);
-  // People: the population by its two measures, the index strip, the groups in turn, survival, immunotherapy, follow-up
-  a = C.people.a; b = C.people.b;
-  ramp('people_map', a + 1, a + 6, 0, 1);
-  for (const n of ['people_ratio', 'people_thresh', 'people_one', 'people_metrics']) ramp(n, a + 2, a + 6, 1, 0);
-  ramp('people_mdi', a + 9, a + 14, 0, 1);
-  // each group glows in turn as its number appears in the panel
-  P.groups.slice(0, 4).reduce((g0, g, j) => { jump('people_group', a + 14 + 2 * j, g0, j + 1); return j + 1; }, 0);
-  if (P.groups.length) jump('people_group', a + 22.5, Math.min(4, P.groups.length), 0);
-  ramp('people_km', a + 24, a + 28, 0, 1);
-  ramp('people_km', a + 33.5, a + 35.5, 1, 0);
-  ramp('people_response', a + 35, a + 39, 0, 1);
-  ramp('people_response', a + 41, a + 43, 1, 0);
-  ramp('people_follow', a + 42, a + 46, 0, 1);
-  cam(a + 2, 'people', 'map');
-  cam(a + 8, 'people', 'map', 8, 'spin');
-  cam(a + 10.5, 'people', 'strip');
-  cam(a + 23, 'people', 'strip', 5, 'spin');
-  cam(a + 26, 'people', 'km');
-  cam(a + 33.5, 'people', 'km', 4, 'spin');
-  cam(a + 37.5, 'people', 'auc');   // (4 s from one board to the other: no whip pan)
-  cam(a + 40.5, 'people', 'auc', 4, 'spin');
-  cam(a + 44, 'people', 'strip');
-  cam(b - 0.5, 'people', 'strip', 6, 'spin');
-  // One scan, one system: the vision row again
-  a = C.vision.a; b = C.vision.b;
-  show('scan', a + 1.3, a + 3.3);
-  // (the scanner comes back as it was at the start: couch out, closed, no events; and as the row, after the index strip
-  // has gone: a big scanner fading in through it showed its insides)
-  for (const n of ['scan_bed', 'scan_cut', 'scan_lines', 'scan_image']) jump(n, a, 1, 0);
-  jump('scan_pass', a, 0.6, 0);
-  jump('scan_events', a, 0.4, 0);
-  jump('scan_vision', a, 0, 1);
-  cam(a + 1.5, 'scan', 'vision', -10);
-  cam(b, 'scan', 'vision', 6, 'spin');
+  show('body', 0.2, 2);
+  ramp('dots', a + 3, a + 7, 0, 1);
+  cam(a, 'body', 'front', -14);
+  cam(b - 2.5, 'body', 'front', 8, 'spin');
+  // One slide: into the stomach (its point glows), the section, close up, then its domains wash in, one by one
+  a = C.slide.a; b = C.slide.b;
+  jump('dots_pick', a - 2.5, 0, stomach);
+  const st = (MD.organs[stomach - 1] || { pos: [0, 0, 0] }).pos;
+  cam(a + 1.5, 'body', 'front', 4, null, [0, 0, -2.6, st[0], st[1], st[2]]);
+  hide('body', a + 1.2, a + 3);
+  show('slide', a + 1.8, a + 4);
+  cam(a + 4, 'tissue', 'section', -8);
+  cam(a + 11, 'tissue', 'section', 6, 'spin');
+  cam(a + 15, 'tissue', 'zoom');
+  cam(a + 20, 'tissue', 'zoom', 10, 'spin');
+  cam(a + 23.5, 'slide', 'domains', -6);
+  cam(b - 0.5, 'slide', 'domains', 6, 'spin');
+  ramp('slide_domain', a + 22, a + 27, 0, 1);
+  [['mucosa', 22.5], ['submucosa', 24.5], ['muscularis', 26.5], ['lymphoid', 28.5]].reduce((f0, [d, t]) => { jump('slide_focus', a + t, f0, sd(d)); return sd(d); }, 0);
+  jump('slide_focus', a + 30.5, sd('lymphoid'), 0);
+  // 24,945 slides: the library, column by tissue, row by age
+  a = C.library.a; b = C.library.b;
+  hide('slide', a, a + 2);
+  show('atlas', a + 0.5, a + 2.5);
+  ramp('atlas_lib', a + 1, a + 14, 0, 1);
+  cam(a + 1, 'atlas', 'library', -12);
+  cam(a + 16, 'atlas', 'library', 6, 'spin');
+  cam(b - 0.5, 'atlas', 'library', 14, 'spin');
+  // Finding the domains: back at the section, the four steps; then the tile cloud
+  a = C.method.a; b = C.method.b;
+  hide('atlas', a, a + 2);
+  jump('slide_domain', a, 1, 0);
+  show('slide', a + 0.5, a + 2.5, a + 35, a + 37);
+  ramp('slide_tiles', a + 2, a + 8, 0, 1);
+  ramp('slide_feat', a + 10, a + 17, 0, 1); ramp('slide_feat', a + 19, a + 21, 1, 0);
+  ramp('slide_adj', a + 19, a + 26, 0, 1);
+  ramp('slide_domain', a + 28, a + 33, 0, 1);
+  cam(a + 2, 'slide', 'tiles', -8);
+  cam(a + 8.5, 'slide', 'tiles', 4, 'spin');
+  cam(a + 11, 'slide', 'matrix');
+  cam(a + 17, 'slide', 'matrix', 6, 'spin');
+  cam(a + 20, 'slide', 'close');
+  cam(a + 26, 'slide', 'close', 8, 'spin');
+  cam(a + 29, 'slide', 'domains');
+  cam(a + 34.5, 'slide', 'domains', 5, 'spin');
+  jump('atlas_lib', a + 2.5, 1, 0);
+  show('atlas', a + 35.5, a + 37.5);
+  ramp('atlas_umap', a + 36, a + 42, 0, 1);
+  cam(a + 37, 'atlas', 'umap', -10);
+  cam(b - 0.5, 'atlas', 'umap', 25, 'spin');
+  // An atlas of the body: a section per tissue; then the network of organ architecture growing level by level
+  a = C.atlas.a; b = C.atlas.b;
+  ramp('atlas_umap', a + 1, a + 4, 1, 0);
+  ramp('atlas_map', a + 1, a + 6, 0, 1);
+  cam(a + 2.5, 'atlas', 'atlas', -6);
+  cam(a + 18, 'atlas', 'atlas', 8, 'spin');
+  hide('atlas', a + 19, a + 21);
+  show('hier', a + 19.5, a + 21.5);
+  ramp('hier_grow', a + 21, a + 29, 0, 1);
+  // (the tissue type shared most widely lights up with its line)
+  const wideN = F.wide ? hierIdx(F.wide.name, 2) : -1;
+  if (wideN >= 0) { jump('hier_focus', a + 30, -1, wideN); jump('hier_focus', b - 0.5, wideN, -1); }
+  cam(a + 20.5, 'hier', 'net', -15);
+  cam(b - 0.5, 'hier', 'net', 25, 'spin');
+  // Age: the volcano; then the three examples in turn (the ovary, the gut on the slide, the pituitary)
+  a = C.age.a; b = C.age.b;
+  hide('hier', a, a + 2);
+  jump('atlas_map', a, 1, 0);
+  show('atlas', a + 0.5, a + 2.5, a + 24, a + 26);
+  ramp('atlas_volcano', a + 2, a + 8, 0, 1);
+  cam(a + 2, 'atlas', 'volcano', -8);
+  cam(a + 13, 'atlas', 'volcano', 6, 'spin');
+  ramp('atlas_volcano', a + 14, a + 16, 1, 0);
+  ramp('atlas_map', a + 14, a + 16, 0, 1);
+  if (exI[0]) jump('atlas_focus', a + 14, 0, exI[0]);
+  ramp('atlas_age', a + 17, a + 23, 0, 1);
+  cam(a + 15.5, 'atlas', 'focus');
+  cam(a + 23.5, 'atlas', 'focus', 8, 'spin');
+  // (the gut's submucosa on the section: its share falls as the age goes from 20 to 70)
+  jump('slide_tiles', a, 1, 0); jump('slide_adj', a, 1, 0);
+  show('slide', a + 24.5, a + 26.5, a + 34, a + 36);
+  jump('slide_focus', a + 24, 0, sd('submucosa'));
+  ramp('slide_age', a + 27, a + 33, 0, 1);
+  cam(a + 25, 'slide', 'domains', -6);
+  cam(a + 33.5, 'slide', 'domains', 6, 'spin');
+  show('atlas', a + 34, a + 36);
+  if (exI[0] || exI[2]) jump('atlas_focus', a + 30, exI[0], exI[2]);
+  jump('atlas_age', a + 30, 1, 0);
+  ramp('atlas_age', a + 37, a + 42, 0, 1);
+  cam(a + 35, 'atlas', 'focus', -6);
+  cam(b - 0.5, 'atlas', 'focus', 8, 'spin');
+  // Disease: the trajectories over age
+  a = C.pathology.a; b = C.pathology.b;
+  ramp('atlas_map', a + 0.5, a + 2.5, 1, 0);
+  ramp('atlas_curves', a + 1.5, a + 7, 0, 1);
+  jump('atlas_focus', a + 2.6, exI[2], 0); jump('atlas_age', a + 2.6, 1, 0);
+  cam(a + 2, 'atlas', 'curves', -6);
+  cam(b - 0.5, 'atlas', 'curves', 8, 'spin');
+  // Neighbours: the colon's domain contacts, then the coronary artery's, each from age 20 to 70
+  a = C.contacts.a; b = C.contacts.b;
+  hide('atlas', a, a + 2);
+  jump('hier_contacts', a, 0, 1);
+  jump('hier_organ', a, 0, contactIdx(/colon/i));
+  show('hier', a + 0.5, a + 2.5);
+  ramp('hier_age', a + 7, a + 14, 0, 1);
+  // (the switch to the artery behind a short fade)
+  ramp('hier_a', a + 15.5, a + 16.8, 1, 0); ramp('hier_a', a + 17.2, a + 18.6, 0, 1);
+  jump('hier_organ', a + 17, contactIdx(/colon/i), contactIdx(/coronary|arter/i));
+  jump('hier_age', a + 17, 1, 0);
+  ramp('hier_age', a + 19, a + 26, 0, 1);
+  cam(a + 2, 'hier', 'contacts', -10);
+  cam(a + 16, 'hier', 'contacts', 6, 'spin');
+  cam(a + 18, 'hier', 'contacts', -6);
+  cam(b - 0.5, 'hier', 'contacts', 8, 'spin');
+  // Tissue and time: the body and its organs again
+  a = C.next.a; b = C.next.b;
+  hide('hier', a, a + 2);
+  show('body', a + 0.5, a + 2.5);
+  jump('dots_pick', a, stomach, 0);
+  cam(a + 1, 'body', 'front', -16);
+  cam(b, 'body', 'front', 10, 'spin');
   for (const n in TR) TR[n].sort((x, y) => x[0] - y[0]);
   buildCamera(wp);
 
   // --------------------------------------------------------- story labels
-  // (the sets label their own parts, the hubs among them; the story adds what the scene alone does not say; the body
-  // set labels its organs only with its own network, so its anchors are passed as points)
+  // (the sets label their own parts; the story adds what the scene alone does not say)
   const at = (k, n) => () => anchorOf(k, n);
-  a = C.body.a;
-  label('body', at('body', 'brain'), '<b>Brain</b>the most sugar', a + 11, a + 18, 'amb');
-  label('body', at('body', 'heart'), '<b>Heart</b>', a + 12, a + 18, 'amb');
-  label('body', at('body', 'kidneys'), '<b>Kidneys</b>into the urine', a + 13.5, a + 18, 'amb');
-  label('body', at('body', 'bladder'), '<b>Bladder</b>', a + 14.5, a + 18, 'amb');
-  label('organs', 'lesion', '<b>A tumour</b>a hot spot', a + 21, a + 30, 'amb');
-  // (the health chapter opens on the network of all scans: the paper drew none for healthy against cancer, so the two
-  // densities the text quotes stand by its title)
-  if (R.cancer) label('organs', at('organs', 'title'), `<b>Healthy ${gD(R.cancer, 0)} · cancer ${gD(R.cancer, 1)}</b>density; no network drawn for them`, C.health.a + 1.5, C.health.a + 7, 'amb');
+  const dotAt = name => (MD.organ(name) || { pos: [0, 0, 0] }).pos;
+  a = C.title.a;
+  label('body', dotAt('Brain'), `<b>${F.organs} organs</b>`, a + 7, C.slide.a - 3, 'mag');
+  label('body', st, '<b>Stomach</b>', C.slide.a - 2.5, C.slide.a + 1.6, 'mag');
+  a = C.slide.a;
+  label('tissue', at('tissue', 'mucosa'), '<b>Nuclei</b>purple-blue: haematoxylin', a + 7, a + 13, 'amb');
+  label('tissue', at('tissue', 'submucosa'), '<b>Fibres</b>pink: eosin', a + 8, a + 13, 'amb');
+  label('tissue', at('tissue', 'vessel'), '<b>A blood vessel</b>', a + 9.5, a + 13, 'amb');
 }
 // camera waypoints: [t, az, el, dist, tx, ty, tz, ease, set, narrow factor, FIT's target shift]; 'spin' segments turn at
 // a steady pace.
@@ -554,7 +495,7 @@ function buildCamera(wp) {
   });
 }
 // the turn a set has at story time t: that of its latest stay on show (it starts fading in a little before its first view)
-// (body and organs share the organs' turn: one frame)
+// (the tissue and the slide share one turn: one frame)
 function setYaw(k, t) {
   let c = 0;
   const f = frameOf(k);

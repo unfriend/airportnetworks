@@ -68,6 +68,13 @@ Card: kick "Tissue microanatomy", title **Tissue and time**, tagline "how organs
 - Organ architecture as a network of four levels: 29 organs, their tissues, 10 tissue types, domains (in
   `MICRO_DATA.graph`); connective tissue is the tissue type shared most widely.
 
+Note on the figures' readings (`MICRO_DATA.figures`, read off the talk's slides): the atlas's sections, colours and
+shares, the volcano's labelled points (its y axis is a natural log of the adjusted p; threshold 3.0), 16 trajectories,
+the coronary artery's contact network at five ages, and the fallopian tube's contacts. Some example panels are drawn in
+other units than the preprint's text (the pituitary panel goes 0.40 to 0.33, the ovary panel 0 to 0.15): whenever the
+story or a label states the three examples, use the preprint's numbers (`MICRO_DATA.examples`); use the panels only for
+shapes. The talk shows no stomach-versus-uterus network.
+
 ## Palette and look
 
 The tour's dark look. H&E colours for slides: haematoxylin `#4b3b8f` to `#7d6bc4` (nuclei), eosin `#e88bb0` to
