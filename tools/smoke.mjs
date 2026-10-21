@@ -286,8 +286,8 @@ for (const key of ['airports', 'proteins', 'spatial', 'lbi', 'nmd', 'endo', 'pet
     const bad = HOST.cur.peek(`(() => {
       const out = [];
       for (const id of NET_ALL) { showNet(id); if (curNet() !== id) out.push('network ' + id + ' not shown'); }
-      for (let i = 0; i < PD.table2.length; i++) { selectCmp(i); if (X.cmp !== i) out.push('comparison ' + i + ' not selected'); }
-      for (const o of PD.organs) { selectOrgan(o.id); if (X.organ !== o.id) out.push('organ ' + o.id + ' not selected'); }
+      for (let i = 0; i < PET_DATA.table2.length; i++) { selectCmp(i); if (X.cmp !== i) out.push('comparison ' + i + ' not selected'); }
+      for (const o of PET_DATA.organs) { selectOrgan(o.id); if (X.organ !== o.id) out.push('organ ' + o.id + ' not selected'); }
       for (const p of ['healthy', 'cancer', 'both', 'dys']) { selectProfile(p); if (curProfile() !== p) out.push('profile ' + p + ' not chosen'); }
       setU(1, 2); if (!X.u || X.u[1] !== 2) out.push('uptake slider did not set a custom value');
       setUs(null); setTheta(2.5); setTheta(2);
