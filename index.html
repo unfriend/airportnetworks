@@ -3,11 +3,11 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Networks, in eight stories</title>
-<meta name="description" content="Network science in eight short interactive stories: the world's airports on a globe, proteins and disease in a cell, where proteins meet in a model human cell, a 3D tour of network medicine from protein machines to the whole body, rare muscle diseases in a 71-layer network, the hidden mechanisms (endotypes) of one rare disease at the junction between nerve and muscle, a flock of starlings flying all around you, and a gang of robot vacuums that follow you about your room. Works on phones, desktops and in VR and AR headsets.">
+<title>Networks, in nine stories</title>
+<meta name="description" content="Network science in nine short interactive stories: the world's airports on a globe, proteins and disease in a cell, where proteins meet in a model human cell, a 3D tour of network medicine from protein machines to the whole body, rare muscle diseases in a 71-layer network, the hidden mechanisms (endotypes) of one rare disease at the junction between nerve and muscle, the body's organs as a metabolic network seen by a PET scanner, a flock of starlings flying all around you, and a gang of robot vacuums that follow you about your room. Works on phones, desktops and in VR and AR headsets.">
 <meta property="og:type" content="website">
-<meta property="og:title" content="Networks, in eight stories">
-<meta property="og:description" content="Network science in eight short interactive stories: airports on a globe, proteins and disease in a cell, where proteins meet in a model human cell, a 3D tour of network medicine, rare muscle diseases in a 71-layer network, the endotypes of one rare disease, a flock of starlings around you, and a gang of robot vacuums in your room. Works in VR and AR too.">
+<meta property="og:title" content="Networks, in nine stories">
+<meta property="og:description" content="Network science in nine short interactive stories: airports on a globe, proteins and disease in a cell, where proteins meet in a model human cell, a 3D tour of network medicine, rare muscle diseases in a 71-layer network, the endotypes of one rare disease, the body's organs as a network in a PET scan, a flock of starlings around you, and a gang of robot vacuums in your room. Works in VR and AR too.">
 <meta property="og:image" content="icons/icon-512.png">
 <meta name="twitter:card" content="summary">
 <link rel="manifest" href="manifest.webmanifest">
@@ -284,9 +284,9 @@ body.picking #panel, body.picking #bar { visibility: hidden; }
 #picker .wrap { max-width: 1040px; width: 100%; }
 #picker h1 { margin: 0 0 6px; font-size: clamp(26px, 4vw, 38px); color: #f2f6fc; font-weight: 700; letter-spacing: -0.01em; }
 #picker .lede { margin: 0 0 22px; color: #a9b8cc; font-size: 15px; }
-/* rows of four, two, one; a last row that is not full is centred (eight stories: 4 + 4, or 2 + 2 + 2 + 2) */
+/* rows of three, two, one; a last row that is not full is centred (nine stories: 3 + 3 + 3, or 2 + 2 + 2 + 2 + 1) */
 #picker .cards { display: flex; flex-wrap: wrap; justify-content: center; gap: 14px; }
-#picker .cards .card { flex: 0 0 calc((100% - 42px) / 4); }
+#picker .cards .card { flex: 0 0 calc((100% - 28px) / 3); }
 @media (min-width: 1021px) { #picker .wrap { max-width: 1180px; } }
 @media (max-width: 1020px) { #picker .cards .card { flex-basis: calc((100% - 14px) / 2); } }
 @media (max-width: 560px) { #picker .cards .card { flex-basis: 100%; } }
@@ -398,7 +398,7 @@ body.xr #labels, body.xr #tip { display: none; }
 <div id="tip" role="status"></div>
 <div id="xrmsg" role="status"></div>
 <header id="top">
-  <div class="brand">Networks<span>in eight stories</span></div>
+  <div class="brand">Networks<span>in nine stories</span></div>
   <button class="btn" id="btnOther" type="button" title="Choose another story">Stories</button>
   <button class="btn" id="btnShared" type="button" data-open-shared aria-expanded="false" aria-controls="shared" title="Shared rooms: several headsets and screens see the same stories">Shared</button>
   <div class="spacer"></div>
@@ -420,7 +420,7 @@ body.xr #labels, body.xr #tip { display: none; }
 </footer>
 <div id="picker" hidden role="dialog" aria-labelledby="pickTitle">
   <div class="wrap">
-    <h1 id="pickTitle">Networks, in eight stories</h1>
+    <h1 id="pickTitle">Networks, in nine stories</h1>
     <p class="lede">The same ideas, very different networks. Each story takes a few minutes, then it is yours to explore.</p>
     <div class="cards"></div>
     <div class="repeat" role="group" aria-label="Repeat">
@@ -512,6 +512,10 @@ const HOST = {
       desc: 'A group of rare diseases of the junction between nerve and muscle, 35 genes and 12 endotypes: how a random walk and a tree that splits only when the data say so find them.',
       page: 'Endotypes: one disease, many mechanisms', brand: 'Endotypes', sub: 'one disease, many mechanisms',
       aria: 'Interactive 3D story of how disease endotypes are found, from a nerve-muscle junction to a protein network', thing: 'synapse', loading: 'Opening the synapse', len: 'Story 5:10 · 3D synapse' },
+    { key: 'pet', kick: 'Whole-body PET', title: 'One scan, one system', col: '#ffe066',
+      desc: 'A PET scan sees every organ\'s sugar use at once. 658 scans make a network of organs that thins and tips towards a few hubs as health erodes; one scan may soon tell how a body is doing.',
+      page: 'One scan, one system: the body as a metabolic network', brand: 'One scan, one system', sub: 'the body as a metabolic network',
+      aria: 'Interactive 3D story of whole-body PET scans and the network of the organs\' metabolism', thing: 'scanner', loading: 'Warming up the scanner', len: 'Story 5:30 · 3D scanner' },
     { key: 'flock', kick: 'Collective motion', title: 'Flock', col: '#9db4ff',
       desc: '200 starlings at dusk, flying all around you. Each follows its seven nearest neighbours: a network that never stands still.',
       page: 'A flock of starlings, all around you', brand: 'Flock', sub: 'starlings at dusk',
@@ -1398,8 +1402,8 @@ HOST.setUrl = function (stories) {
 // the title in the tab and the top bar: the app on the Stories screen, the story inside a story
 HOST.chrome = function (stories) {
   const meta = this.list.find(s => s.key === this.curKey), app = stories || !meta;
-  document.title = app ? 'Networks, in eight stories' : meta.page;
-  document.querySelector('#top .brand').innerHTML = app ? 'Networks<span>in eight stories</span>' : `${meta.brand}<span>${meta.sub}</span>`;
+  document.title = app ? 'Networks, in nine stories' : meta.page;
+  document.querySelector('#top .brand').innerHTML = app ? 'Networks<span>in nine stories</span>' : `${meta.brand}<span>${meta.sub}</span>`;
 };
 // Sound check on the page's Stories screen (the headset has its own panel): what the sound
 // system is doing, refreshed twice a second while open; #soundcheck in a link opens it
