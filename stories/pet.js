@@ -273,12 +273,13 @@ const PET_DATA = {"source":{"paper":"Geist BK, Guthrie J, Kertesz H, Kiefer FW, 
 
 // Organ icons for the PET story: a clean single-weight line icon per organ in the style of the legend of the paper's
 // Figure 2 (Geist et al., Med 2025), neon on request (the vision slide's organ network). Vector paths on a 2D canvas.
-// PET_ICONS.ids, PET_ICONS.draw(ctx, id, cx, cy, size, opts), PET_ICONS.atlas(THREE, px) -> { texture, canvas, uv(id) }
+// PET_ICONS.ids, PET_ICONS.draw(ctx, id, cx, cy, size, opts), PET_ICONS.atlas(THREE, px, opts) -> { texture, canvas, uv(id) }
 // Every icon is drawn in a 100 x 100 box (y down); see icons.md.
 const PET_ICONS = (function () {
-  const ids = PET_DATA.organs.map(o => o.id), short = Object.fromEntries(PET_DATA.organs.map(o => [o.id, o.short || o.id]));
+  const ids = PET_DATA.organs.map(o => o.id), short = new Map(PET_DATA.organs.map(o => [o.id, o.short || o.id]));
+  const own = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
   const clamp = (x, a, b) => (x < a ? a : x > b ? b : x), r2 = v => Math.round(v * 100) / 100;
-  const pt = p => r2(p[0]) + ' ' + r2(p[1]);
+  const pt = p => r2(p[0]) + ' ' + r2(p[1]), nums = d => d.match(/-?\d*\.?\d+/g).map(Number);
 
   // mirror an absolute SVG path (M L C Q A H V Z) about x = 50
   function mir(d) {
@@ -293,20 +294,53 @@ const PET_ICONS = (function () {
     }).join(' ');
   }
   const both = d => d + ' ' + mir(d);
-  const ell = (x, y, rx, ry) => `M ${r2(x - rx)} ${r2(y)} A ${rx} ${ry} 0 1 0 ${r2(x + rx)} ${r2(y)} A ${rx} ${ry} 0 1 0 ${r2(x - rx)} ${r2(y)} Z`;
-
-  // a tube along a chain of cubic Béziers c = [x0, y0, (c1x, c1y, c2x, c2y, x, y)...] (or 'M x y C ...'); w its width,
-  // or a function (u 0..1 along it, side +1 / -1) -> width; caps 'round', 'flat' or 'cut' (a cut vessel: an ellipse).
-  // Returns { shape, rim, L, R, P } (outline, cut rims, both edges and the centre line as points).
-  function tube(c, w, cap0, cap1) {
-    if (typeof c === 'string') c = c.match(/-?\d*\.?\d+/g).map(Number);
-    const P = [], N = 20, wf = typeof w === 'function' ? w : () => w;
-    for (let b = 0; b + 7 < c.length; b += 6) {
-      for (let s = b ? 1 : 0; s <= N; s++) {
-        const u = s / N, v = 1 - u, A = v * v * v, B = 3 * v * v * u, C = 3 * v * u * u, D = u * u * u;
-        P.push([A * c[b] + B * c[b + 2] + C * c[b + 4] + D * c[b + 6], A * c[b + 1] + B * c[b + 3] + C * c[b + 5] + D * c[b + 7]]);
-      }
+  // a symmetric closed outline from its left half: 'M x y C ...' (cubics only) from a point on x = 50 to another
+  function sym(d) {
+    const c = nums(d); let out = d;
+    for (let b = c.length - 8; b >= 0; b -= 6) out += ` C ${pt([100 - c[b + 4], c[b + 5]])} ${pt([100 - c[b + 2], c[b + 3]])} ${pt([100 - c[b], c[b + 1]])}`;
+    return out + ' Z';
+  }
+  // turn a path of M L C Q commands by deg (clockwise on screen) about (cx, cy), then move it by (dx, dy)
+  function rot(d, deg, cx, cy, dx, dy) {
+    const a = deg * Math.PI / 180, c = Math.cos(a), s = Math.sin(a), tk = d.match(/[A-Za-z]|-?\d*\.?\d+/g), out = [];
+    for (let i = 0; i < tk.length; i++) {
+      if (/[A-Za-z]/.test(tk[i])) { out.push(tk[i]); continue; }
+      const x = +tk[i] - cx, y = +tk[++i] - cy;
+      out.push(pt([cx + x * c - y * s + (dx || 0), cy + x * s + y * c + (dy || 0)]));
     }
+    return out.join(' ');
+  }
+  const ell = (x, y, rx, ry) => `M ${r2(x - rx)} ${r2(y)} A ${rx} ${ry} 0 1 0 ${r2(x + rx)} ${r2(y)} A ${rx} ${ry} 0 1 0 ${r2(x - rx)} ${r2(y)} Z`;
+  // points along a chain of cubic Béziers c = [x0, y0, (c1x, c1y, c2x, c2y, x, y)...] (or 'M x y C ...'), 20 per curve
+  function bez(c) {
+    if (typeof c === 'string') c = nums(c);
+    const P = [];
+    for (let b = 0; b + 7 < c.length; b += 6) for (let s = b ? 1 : 0; s <= 20; s++) {
+      const u = s / 20, v = 1 - u, A = v * v * v, B = 3 * v * v * u, C = 3 * v * u * u, D = u * u * u;
+      P.push([A * c[b] + B * c[b + 2] + C * c[b + 4] + D * c[b + 6], A * c[b + 1] + B * c[b + 3] + C * c[b + 5] + D * c[b + 7]]);
+    }
+    return P;
+  }
+  // the polyline P (from its first point on) redrawn as small lobes about step long and amp deep, bulging to the side
+  // (-ty, tx) of the way it runs when sg = 1 (the other side when -1)
+  function wave(P, step, amp, sg) {
+    let len = 0; const S = [0];
+    for (let k = 1; k < P.length; k++) S.push(len += Math.hypot(P[k][0] - P[k - 1][0], P[k][1] - P[k - 1][1]));
+    const n = Math.max(1, Math.round(len / step)), Q = [];
+    for (let i = 0, k = 0; i <= n; i++) { while (k < P.length - 1 && S[k] < len * i / n) k++; Q.push(P[k]); }
+    let out = '';
+    for (let i = 1; i < Q.length; i++) {
+      const a = Q[i - 1], b = Q[i], l = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1;
+      out += ` Q ${pt([(a[0] + b[0]) / 2 - sg * (b[1] - a[1]) / l * amp * 2, (a[1] + b[1]) / 2 + sg * (b[0] - a[0]) / l * amp * 2])} ${pt(b)}`;
+    }
+    return out;
+  }
+
+  // a tube along a chain of cubic Béziers (as for bez); w its width, or a function (u 0..1 along it, side +1 / -1) ->
+  // width; caps 'round', 'flat' or 'cut' (a cut vessel: an ellipse); bump [step, amp] makes both sides lumpy (scallop).
+  // Returns { shape, open, rim, L, R, P } (outline, the outline left open at a flat start, cut rims, both edges, centre).
+  function tube(c, w, cap0, cap1, bump) {
+    const P = bez(c), wf = typeof w === 'function' ? w : () => w;
     const S = [0];
     for (let k = 1; k < P.length; k++) S.push(S[k - 1] + Math.hypot(P[k][0] - P[k - 1][0], P[k][1] - P[k - 1][1]));
     const L = [], R = [], T = [];
@@ -327,29 +361,16 @@ const PET_ICONS = (function () {
       }
       return s;
     };
-    const n = P.length - 1;
-    let d = 'M ' + L.map(pt).join(' L ');
-    d += cap(P[n], T[n], L[n], cap1 || 'round') + ' L ' + R.slice().reverse().map(pt).join(' L ');
-    d += cap(P[0], [-T[0][0], -T[0][1]], R[0], cap0 || 'round') + ' Z';
-    return { shape: d, rim, L, R, P };
+    const n = P.length - 1, Rr = R.slice().reverse();
+    const edge = E => (bump ? pt(E[0]) + wave(E, bump[0], bump[1], 1) : E.map(pt).join(' L '));
+    const open = 'M ' + edge(L) + cap(P[n], T[n], L[n], cap1 || 'round') + ' L ' + edge(Rr) + cap(P[0], [-T[0][0], -T[0][1]], R[0], cap0 || 'round');
+    return { shape: open + ' Z', open, rim, L, R, P };
   }
   // a closed cubic outline ('M x y C ...') redrawn as small outward lobes about step long, amp deep
   function scallop(d, step, amp) {
-    const c = d.match(/-?\d*\.?\d+/g).map(Number), P = [];
-    for (let b = 0; b + 7 < c.length; b += 6) for (let s = b ? 1 : 0; s <= 20; s++) {
-      const u = s / 20, v = 1 - u;
-      P.push([v * v * v * c[b] + 3 * v * v * u * c[b + 2] + 3 * v * u * u * c[b + 4] + u * u * u * c[b + 6], v * v * v * c[b + 1] + 3 * v * v * u * c[b + 3] + 3 * v * u * u * c[b + 5] + u * u * u * c[b + 7]]);
-    }
-    let A = 0, len = 0; const S = [0];
-    for (let k = 1; k < P.length; k++) { A += P[k - 1][0] * P[k][1] - P[k][0] * P[k - 1][1]; S.push(len += Math.hypot(P[k][0] - P[k - 1][0], P[k][1] - P[k - 1][1])); }
-    const n = Math.max(3, Math.round(len / step)), Q = [];
-    for (let i = 0, k = 0; i <= n; i++) { while (k < P.length - 1 && S[k] < len * i / n) k++; Q.push(P[k]); }
-    let out = 'M ' + pt(Q[0]); const sg = A > 0 ? 1 : -1;
-    for (let i = 1; i < Q.length; i++) {
-      const a = Q[i - 1], b = Q[i], l = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1, tx = (b[0] - a[0]) / l, ty = (b[1] - a[1]) / l;
-      out += ` Q ${pt([(a[0] + b[0]) / 2 + sg * ty * amp * 2, (a[1] + b[1]) / 2 - sg * tx * amp * 2])} ${pt(b)}`;
-    }
-    return out + ' Z';
+    const P = bez(d); let A = 0;
+    for (let k = 1; k < P.length; k++) A += P[k - 1][0] * P[k][1] - P[k][0] * P[k - 1][1];
+    return 'M ' + pt(P[0]) + wave(P, step, amp, A > 0 ? -1 : 1) + ' Z';
   }
 
   // a kidney bean centred at (x, y), h tall, w wide, its hilum facing side (+1 right, -1 left)
@@ -361,11 +382,13 @@ const PET_ICONS = (function () {
     for (let i = 1; i < q.length; i += 3) d += ` C ${q[i]} ${q[i + 1]} ${q[i + 2]}`;
     return d + ' Z';
   }
-  // the renal pelvis and its calyces inside a bean, opening into the hilum
+  // the renal pelvis inside a bean: a funnel from the hilum (where the ureter leaves) widening into the kidney, its wide
+  // end a hollow between two calyces (a closed, crescent-like wedge)
   function pelvis(x, y, w, h, side) {
     const p = (a, b) => pt([x + a * w * side, y + b * h]);
-    return `M ${p(0.25, 0.02)} C ${p(0.14, 0.02)} ${p(0.08, 0)} ${p(0.02, -0.04)} M ${p(0.02, -0.04)} L ${p(-0.2, -0.24)} M ${p(0.02, -0.04)} L ${p(-0.24, 0)}` +
-      ` M ${p(0.02, -0.04)} C ${p(-0.06, 0.06)} ${p(-0.12, 0.14)} ${p(-0.2, 0.22)}`;
+    return `M ${p(0.21, -0.035)} C ${p(0.08, -0.05)} ${p(-0.04, -0.12)} ${p(-0.11, -0.21)} C ${p(-0.14, -0.25)} ${p(-0.2, -0.22)} ${p(-0.17, -0.16)}` +
+      ` C ${p(-0.1, -0.06)} ${p(-0.1, 0.08)} ${p(-0.17, 0.19)} C ${p(-0.2, 0.25)} ${p(-0.14, 0.28)} ${p(-0.11, 0.24)}` +
+      ` C ${p(-0.04, 0.15)} ${p(0.08, 0.06)} ${p(0.21, 0.045)}`;
   }
   // a cobblestone of irregular cells (a honeycomb whose shared corners are nudged by a hash of where they are), to be clipped
   function comb(x0, y0, x1, y1, R) {
@@ -381,8 +404,8 @@ const PET_ICONS = (function () {
   }
   // The icons. Each returns a list of parts: { s: path } a closed outline (stroked; filled with opts.fill), { l: path } a
   // line, { a: path } a fill-only area (fade: [y0, y1] fades it in downwards), { f: path, o: alpha } a solid fill in every
-  // style; hi: true (only with detail: from 40 device pixels up; a number: from that many) or lo: true (only below 40),
-  // w (line width factor), clip (a path the part is clipped to).
+  // style; hi: true (only with detail: from 40 pixels up; a number: from that many) or lo: true (only below 40; a
+  // number: below that many), w (line width factor), clip (a path the part is clipped to).
   const DEF = {
     brain() {
       // the left hemisphere: a scalloped outline from the top of the midline round to its bottom, then up the midline
@@ -399,18 +422,21 @@ const PET_ICONS = (function () {
       return [{ s: both(d) }, { l: both(g), hi: true }, { l: both('M 22 48 C 27 47, 31 51, 30 56 M 31 26 C 35 27, 38 31, 37 35'), lo: true }];
     },
     thyroid() {
-      const d = 'M 50 47 C 45 47, 42.5 42, 41.5 35 C 40.5 27, 38 15, 33 13 C 26 11, 20 22, 16.5 34 C 12.5 47, 11 63, 15 75 C 18.5 85, 29 90, 37 86' +
-        ' C 42 83.5, 45 78, 50 78 C 55 78, 58 83.5, 63 86 C 71 90, 81.5 85, 85 75 C 89 63, 87.5 47, 83.5 34 C 80 22, 74 11, 67 13' +
-        ' C 62 15, 59.5 27, 58.5 35 C 57.5 42, 55 47, 50 47 Z';
-      return [{ s: d }, { l: comb(10, 12, 90, 92, 5.6), hi: 56, w: 0.45, clip: d }, { l: 'M 24 42 C 22 52, 22 62, 25 70 M 76 42 C 78 52, 78 62, 75 70', lo: true }];
+      // the butterfly (bow tie): two lobes tapering to their upper poles, joined low down by a narrow isthmus
+      const d = sym('M 50 64 C 46 64, 43 60, 41.5 52 C 40 42, 37 24, 32 12 C 30.5 8.5, 27.5 9, 26 12.5 C 20 25, 12.5 44, 12.5 62' +
+        ' C 12.5 76, 18 88, 29 89 C 37 89.5, 42 82, 45 77 C 46.5 75, 48 74.5, 50 74.5');
+      return [{ s: d }, { l: comb(10, 8, 90, 92, 5.6), hi: 56, w: 0.45, clip: d }, { l: comb(4, 16, 96, 92, 12), lo: 56, w: 0.55, clip: d }];
     },
     lungs() {
       const lung = 'M 39 22 C 30 22, 22 32, 18 45 C 14 57, 12 70, 12.5 80 C 13 87, 18 89, 24 86.5 C 30 84, 37 82.5, 42 84.5 C 44.5 85.5, 45.5 83, 45.5 79 L 45.5 36 C 45.5 27, 43 22, 39 22 Z';
       const right = 'M 61 22 C 70 22, 78 32, 82 45 C 86 57, 88 70, 87.5 80 C 87 87, 82 89, 76 86.5 C 70 84, 63 82.5, 58 84.5 C 55.5 85.5, 54.5 83, 54.5 79' +
         ' L 54.5 71 C 60 68, 61 60, 54.5 56 L 54.5 36 C 54.5 27, 57 22, 61 22 Z';
-      const tree = 'M 50 6 L 50 36 M 50 36 C 48 39, 44 41, 40 44 M 50 36 C 52 39, 56 41, 60 44';
+      // the windpipe: a narrow tube with its cartilage rings (a single line when small), the main bronchi from its foot
+      const pipe = 'M 46.5 33 L 46.5 6 L 53.5 6 L 53.5 33', bron = 'M 46.5 33 C 45 37, 43 40, 40 44 M 53.5 33 C 55 37, 57 40, 60 44';
+      const rings = 'M 46.5 12 Q 50 14.5, 53.5 12 M 46.5 19 Q 50 21.5, 53.5 19 M 46.5 26 Q 50 28.5, 53.5 26';
       const fine = both('M 40 44 C 35 48, 32 54, 30 62 M 36 49 C 32 47, 28 46, 25 47 M 32 56 C 34 61, 36 65, 37 70 M 30 62 C 27 66, 24 70, 22 75');
-      return [{ s: lung }, { s: right }, { l: tree }, { l: fine, hi: true, w: 0.8 }, { l: 'M 46 12 L 54 12 M 46 19 L 54 19 M 46 26 L 54 26', hi: true, w: 0.55 }];
+      return [{ s: lung }, { s: right }, { l: 'M 50 6 L 50 36 M 50 36 C 48 39, 44 41, 40 44 M 50 36 C 52 39, 56 41, 60 44', lo: true },
+        { l: pipe + ' ' + bron, hi: true }, { l: rings, hi: true, w: 0.55 }, { l: fine, hi: true, w: 0.8 }];
     },
     heart() {
       const d = 'M 50 87 C 34 76, 10 60, 10 37 C 10 22, 20 13, 32 13 C 41 13, 47 18.5, 50 25 C 53 18.5, 59 13, 68 13 C 80 13, 90 22, 90 37 C 90 60, 66 76, 50 87 Z';
@@ -419,16 +445,20 @@ const PET_ICONS = (function () {
     liver() {
       const d = 'M 11 33 C 17 22, 38 19, 60 20 C 75 21, 87 24, 93 30 C 91 36, 78 43, 64 50.5 C 59 53.5, 56.5 57, 53 61 C 45 69.5, 34 79, 24 82' +
         ' C 16 84, 11.5 78, 10 67 C 8.5 55, 8 42, 11 33 Z';
-      const ivc = tube('M 44 20.5 C 44 16, 44 12, 44 7', 9, 'flat', 'cut');
-      const gall = 'M 46.5 67.4 C 44 73, 45 80.5, 50 80.5 C 55 80.5, 56 73.5, 50.5 63.6';
-      return [{ s: d }, { l: 'M 63 20.5 C 61 31, 59 41, 57 54' }, { s: ivc.shape, hi: true }, { l: ivc.rim, hi: true }, { l: gall, hi: true }];
+      // the vena cava passing through the top (its walls run on into the liver); the gall bladder tucked under the lower
+      // edge, only its tip showing
+      const ivc = tube('M 42 28 C 42 21, 42 15, 42 10', 8, 'flat', 'cut');
+      const gall = 'M 47.9 66.2 C 51 69, 52 73.5, 49 75 C 46 76.5, 42.5 74, 42.2 71.2';
+      return [{ s: d }, { l: 'M 63 20.5 C 61 31, 59 41, 57 54' }, { l: ivc.open, hi: true }, { l: ivc.rim, hi: true }, { l: gall, hi: true }];
     },
     spleen() {
-      // the visceral face: convex outer border, the hilum with its vessels, a notch in the upper border
-      const d = 'M 53 10 C 75 11, 91 33, 87 57 C 83 79, 65 92, 47 90 C 37 89, 32.5 82, 36 76.5 C 39 72, 45 68.5, 45 60 C 45 52, 38 47, 32 43' +
-        ' C 26 39, 22.5 32, 24.5 25 C 27.5 25.5, 31 24.5, 32.5 22 C 31 19, 28.5 17.5, 27.5 16.5 C 32 11.5, 42 9.5, 53 10 Z';
-      const v = 'M 11 67 C 17 65, 23 62, 28 61 M 28 61 C 32 64, 35 68, 37.5 73 M 28 61 L 44.6 60.5 M 28 61 C 31 57, 34 53, 37.5 48';
-      return [{ s: d }, { l: v }, { l: 'M 58 18 C 71 22, 79 34, 80 50', hi: true, w: 0.8 }];
+      // an upright bean leaning to the midline: the convex outer border, the hilum a hollow in the inner face with the
+      // splenic vessels coming in from the left and branching up into it
+      const d = 'M 53 8 C 71 8, 82 28, 82 51 C 82 75, 70 92, 52 92 C 37 92, 28 84, 28 75 C 28 67, 35 64, 39 57 C 43 49, 32 43, 32 31' +
+        ' C 32 17, 40 8, 53 8 Z';
+      const T = s => rot(s, -12, 55, 50, -4.5, 0);
+      return [{ s: T(d) }, { l: T('M 28 66 C 32 63.5, 36 61, 41 59 M 41 59 C 44 53, 46 46, 46 38 M 41 59 C 46 55.5, 51 53, 57 52'), w: 0.85 },
+        { l: T('M 44 56.5 C 49 58, 53 60.5, 56 64.5 M 44.5 50.5 C 47 48, 49 46.5, 52 45.5'), hi: true, w: 0.75 }, { l: T('M 63 15 C 72 20, 76 31, 77 43'), hi: true, w: 0.8 }];
     },
     pancreas() {
       // head on the left (in the curve of the duodenum), body and tail rising to the right; lobulated when detailed
@@ -443,49 +473,53 @@ const PET_ICONS = (function () {
     },
     adrenal() {
       // a kidney with the adrenal gland on its upper pole (cortex filled, the medulla as an inner line)
-      const k = bean(45, 64, 38, 56, 1);
-      const capD = 'M 26 46.5 C 23.5 35, 31.5 21, 45 18.5 C 58.5 16.5, 69 29, 68 41.5 C 61.5 35.5, 55 32.5, 47 32.5 C 38 32.5, 30.5 37.5, 26 46.5 Z', lump = scallop(capD, 7.2, 1.25);
-      return [{ s: k }, { s: capD, lo: true }, { s: lump, hi: true }, { f: capD, o: 0.7, lo: true }, { f: lump, o: 0.4, hi: true }, { l: 'M 53 66 C 61 72, 64 82, 64 95' },
-        { l: pelvis(45, 64, 38, 56, 1), hi: true, w: 0.8 }];
+      // (drawn about (45, 64), moved by (4, -4) to sit in the middle of its square)
+      const M = s => rot(s, 0, 0, 0, 4, -4), k = bean(49, 60, 38, 56, 1);
+      const capD = M('M 26 46.5 C 23.5 35, 31.5 21, 45 18.5 C 58.5 16.5, 69 29, 68 41.5 C 61.5 35.5, 55 32.5, 47 32.5 C 38 32.5, 30.5 37.5, 26 46.5 Z'), lump = scallop(capD, 7.2, 1.25);
+      return [{ s: k }, { s: capD, lo: true }, { s: lump, hi: true }, { f: capD, o: 0.7, lo: true }, { f: lump, o: 0.4, hi: true }, { l: M('M 53 66 C 61 72, 64 82, 64 95') },
+        { l: pelvis(49, 60, 38, 56, 1), hi: true, w: 0.8 }];
     },
     intestine() {
-      const c = tube([23, 83, 23, 62, 23, 44, 23, 30, 23, 24, 25.5, 21, 31, 21, 45, 21, 57, 21, 70, 21, 75, 21, 78, 24, 78, 30,
-        78, 42, 78, 54, 78, 64, 78, 74, 73, 78.5, 65, 80.5, 58, 82, 55.5, 86, 55.5, 94], 13, 'round', 'cut');
-      // the small intestine: a meander inside the frame, joining the colon low on the left
+      // the colon as a lumpy frame (its haustra), cut at the rectum; inside, the small intestine winding
+      const fr = [23, 84, 23, 66, 23, 48, 23, 31, 23, 25, 27, 21, 32, 21, 46, 21, 56, 21, 69, 21, 74, 21, 78, 25, 78, 30,
+        78, 44, 78, 58, 78, 70, 78, 77, 74, 80, 66, 81.5, 59, 83, 55.5, 86, 55.5, 93];
+      const c = tube(fr, 13, 'round', 'cut', [8.5, 1.4]);
       const s = 'M 36 34 C 42 31, 46 37, 52 34 C 58 31, 62 37, 66 34 C 70 32, 71 41, 66 42.5 C 61 44, 57 39, 51 42 C 45 45, 41 39, 36.5 43' +
         ' C 32 46.5, 35 52, 39 51 C 45 49.5, 48 55, 54 52 C 60 49, 64 54, 66 53 C 71 52, 71 61, 66 62.5 C 61 64, 57 59, 51 62' +
         ' C 45 65, 42 59, 37.5 63 C 33.5 66.5, 34 71, 29.5 72';
-      let hau = '';
-      for (let k = 6; k < c.L.length - 4; k += 9) {
-        const a = c.L[k], b = c.R[k];
-        hau += ` M ${pt(a)} L ${pt([a[0] + (b[0] - a[0]) * 0.28, a[1] + (b[1] - a[1]) * 0.28])} M ${pt(b)} L ${pt([b[0] + (a[0] - b[0]) * 0.28, b[1] + (a[1] - b[1]) * 0.28])}`;
-      }
-      return [{ s: c.shape }, { l: c.rim, hi: true }, { l: s, lo: true }, { s: tube(s, 5.2, 'round', 'flat').shape, hi: true, w: 0.8 }, { l: hau, hi: 48, w: 0.7 }];
+      // small: three bold upright runs (horizontal ones read as lines of text)
+      const sl = 'M 40 69 L 40 40 C 40 33, 51 33, 51 40 L 51 61 C 51 68, 62 68, 62 61 L 62 33';
+      return [{ s: c.shape }, { l: c.rim, hi: true }, { l: sl, lo: true }, { s: tube(s, 5.2, 'round', 'flat').shape, hi: true, w: 0.8 }];
     },
     muscle() {
-      // a flexed arm as in the paper's legend: elbow on the left, the forearm rising to a small fist, the biceps, the shoulder
-      const d = 'M 6.5 63 C 9 49, 22 28, 37 17.5 C 36.5 10, 41 4.5, 48.5 4.5 L 54 4.5 C 59.5 4.5, 63 7.5, 62 11.5 C 65.5 13, 65.5 18.5, 62.5 20' +
-        ' C 64.5 23, 62 28, 57 28.5 L 52.5 29 C 48.5 35.5, 43 44, 39.5 53.5 C 45 44, 57 35.5, 69.5 36 C 82 36.5, 91 45, 92.5 56' +
-        ' C 94 67, 89.5 77, 80 81.5 C 64 88.5, 38 88, 20 84 C 10 81.5, 5.5 74, 6.5 63 Z';
-      const fine = 'M 41 19.5 C 45.5 21.5, 51 21.5, 56 19.5 M 39.5 53.5 C 41 60, 45 64.5, 51 67';
-      return [{ s: d }, { l: fine, hi: true, w: 0.8 }, { l: 'M 39.5 53.5 C 41 60, 45 64.5, 51 67', lo: true }];
+      // a flexed arm as in the paper's legend: the fist on top, the forearm a band down to the elbow on the left, the
+      // upper arm along the bottom to the shoulder, the biceps bulging above it
+      const d = 'M 30 27 L 15 66 C 11 76, 14 86, 25 86.5 C 42 87.5, 66 89, 83 86.5 C 92 85, 95 74, 94 62 C 93 47, 83 35, 69.5 35' +
+        ' C 56.5 35, 47.5 45, 43.5 58 L 52.5 32.5 C 58.5 32, 63 28, 62 22.5 C 65 18.5, 64 11, 58 8.5 C 52 6, 41 5.5, 35 8.5 C 28.5 12, 26.5 21, 30 27 Z';
+      const curl = 'M 45 13 C 51 10.5, 57.5 12.5, 57.5 17.5 C 57.5 22, 52 24, 47.5 21.5';
+      return [{ s: d }, { l: curl, hi: true, w: 0.8 }, { l: 'M 43.5 58 C 44 64, 48 68, 54 69.5', hi: true, w: 0.8 }];
     },
     marrow() {
-      const d = 'M 38 41 C 29 37.5, 20.5 30, 24 19.5 C 27.5 9.5, 42 8.5, 50 15.5 C 58 8.5, 72.5 9.5, 76 19.5 C 79.5 30, 71 37.5, 62 41 L 62 86 A 12 4.2 0 0 1 38 86 Z';
+      const d = 'M 38 41 C 29 37.5, 20.5 30, 24 19.5 C 27.5 9.5, 43 8.5, 50 17 C 57 8.5, 72.5 9.5, 76 19.5 C 79.5 30, 71 37.5, 62 41 L 62 86 A 12 4.2 0 0 1 38 86 Z';
       const cav = 'M 44 44 L 44 84 M 56 44 L 56 84';
       return [{ s: d }, { l: 'M 38 86 A 12 4.2 0 0 1 62 86' }, { f: ell(50, 86, 6.5, 2.2), o: 1 },
+        { f: 'M 45 44 L 55 44 L 55 84 L 45 84 Z', o: 0.5, lo: true },
         { l: cav, hi: true, w: 0.7 }, { l: comb(42, 42, 58, 86, 3.4), hi: 64, w: 0.45, clip: 'M 44 44 L 56 44 L 56 84 L 44 84 Z' },
         { l: 'M 34 22 C 36 18, 40 16, 44 17', hi: true, w: 0.7 }];
     },
     fat() {
-      const side = 'M 27 6 C 27 18, 22.5 24, 18.5 32 C 13 43, 13.5 55, 20 61 C 24 65, 24.5 71, 22 78';
-      const brief = 'M 22 78 C 34 80, 44 84.5, 50 92 C 56 84.5, 66 80, 78 78';
-      const area = side + ' C 34 80, 44 84.5, 50 92 C 56 84.5, 66 80, 78 78 C 75.5 71, 76 65, 80 61 C 86.5 55, 87 43, 81.5 32 C 77.5 24, 73 18, 73 6 Z';
-      return [{ a: area, fade: [8, 36] }, { l: both(side) + ' ' + brief }, { l: ell(50, 50, 2.2, 3.4) }, { l: 'M 31 67 C 40 73, 60 73, 69 67' }];
+      // a belly: the waist, the belly bulging out below the navel, the waistband of the briefs and the legs below
+      const side = 'M 28 6 C 28 16, 24.5 23, 22 31 C 19.5 39, 13.5 48, 13.5 60 C 13.5 68, 18 71, 20 75 C 21.5 79, 20.5 87, 19.5 95';
+      const brief = 'M 20 74 C 34 77, 66 77, 80 74 M 20.5 79 C 33 82, 43 86, 46 93 L 54 93 C 57 86, 67 82, 79.5 79';
+      const area = 'M 28 6 C 28 16, 24.5 23, 22 31 C 19.5 39, 13.5 48, 13.5 60 C 13.5 68, 18 71, 20 74 C 34 77, 66 77, 80 74' +
+        ' C 82 71, 86.5 68, 86.5 60 C 86.5 48, 80.5 39, 78 31 C 75.5 23, 72 16, 72 6 Z';
+      return [{ a: area, fade: [8, 40] }, { l: both(side) + ' ' + brief }, { f: ell(50, 53, 2.6, 3.6), o: 1, lo: true }, { l: ell(50, 53, 2.2, 3.4), hi: true }];
     },
     aorta() {
-      // the arch as a cut vessel rising from the heart and descending behind it, its three branches on top
-      const c = tube('M 33 86 C 33 66, 29 42, 39 31 C 48 21, 64 21, 68 35 C 69.5 43, 69 52, 69 60 C 69 72, 69 84, 69 96', 14, 'cut', 'cut');
+      // the arch as a cut vessel: the ascending aorta rising from its bulging root, the descending aorta running on
+      // down; the three branches on top
+      const root = u => 14 + 4 * Math.exp(-Math.pow((u - 0.04) / 0.035, 2));
+      const c = tube('M 33 72 C 33 58, 29 42, 39 31 C 48 21, 64 21, 68 35 C 69.5 43, 69 52, 69 60 C 69 70, 69 82, 69 94', root, 'cut', 'cut');
       const out = [{ s: c.shape }, { l: c.rim }];
       [[42, -0.45], [51, 0.04], [59.5, 0.42]].forEach(([x, lean]) => {
         let b = c.R[0];
@@ -498,17 +532,44 @@ const PET_ICONS = (function () {
     },
   };
 
-  const cache = {};
-  function parts(id) {
-    if (id in cache) return cache[id];
-    if (!DEF[id] || typeof Path2D === 'undefined') return (cache[id] = null);
-    return (cache[id] = DEF[id]().map(p => Object.assign({}, p, {
-      s: p.s && new Path2D(p.s), l: p.l && new Path2D(p.l), a: p.a && new Path2D(p.a),
-      f: p.f && new Path2D(p.f), clip: p.clip && new Path2D(p.clip),
-    })));
+  // per id: { parts (paths built once, on first use), th (the pixel thresholds of its parts), memo (parts in use) }
+  const cache = new Map();
+  function icon(id) {
+    if (cache.has(id)) return cache.get(id);
+    if (!own(DEF, id) || typeof Path2D === 'undefined') { cache.set(id, null); return null; }
+    const th = new Set(), parts = DEF[id]().map(p => {
+      const q = Object.assign({}, p, {
+        s: p.s && new Path2D(p.s), l: p.l && new Path2D(p.l), a: p.a && new Path2D(p.a),
+        f: p.f && new Path2D(p.f), clip: p.clip && new Path2D(p.clip),
+        hi: p.hi === true ? 40 : p.hi || 0, lo: p.lo === true ? 40 : p.lo || 0,
+      });
+      if (q.hi) th.add(q.hi); if (q.lo) th.add(q.lo);
+      return q;
+    });
+    const I = { parts, th: [...th].sort((a, b) => a - b), memo: {} };
+    cache.set(id, I);
+    return I;
+  }
+  // the parts shown for a forced detail (true / false) or at vis pixels
+  function pick(I, det, vis) {
+    const key = det != null ? (det ? 'T' : 'F') : I.th.filter(t => vis >= t).length;
+    if (I.memo[key]) return I.memo[key];
+    const on = t => (det != null ? !!det : vis >= t);
+    return (I.memo[key] = I.parts.filter(p => (p.lo ? !on(p.lo) : !p.hi || on(p.hi))));
   }
   const hex = c => { const m = /^#?([0-9a-f]{6}|[0-9a-f]{3})$/i.exec(String(c).trim()); if (!m) return null; let h = m[1]; if (h.length === 3) h = h.replace(/./g, x => x + x); const n = parseInt(h, 16); return [n >> 16 & 255, n >> 8 & 255, n & 255]; };
   const rgba = (c, a) => `rgba(${c[0]},${c[1]},${c[2]},${a})`;
+  // a colour's rgb (hex colours only) and its neon core (70 % towards white), kept per colour
+  const cols = new Map();
+  function colour(col) {
+    let v = cols.get(col);
+    if (v) return v;
+    const c3 = hex(col);
+    v = { c3, core: c3 ? rgba(c3.map(x => Math.round(x + (255 - x) * 0.7)), 1) : '#ffffff' };
+    if (cols.size > 64) cols.clear();
+    cols.set(col, v);
+    return v;
+  }
 
   // the stand-in for an id without an icon: a circle with its initials
   function stub(ctx, id, cx, cy, size, o) {
@@ -518,36 +579,36 @@ const PET_ICONS = (function () {
     if (o.glow) { ctx.shadowColor = o.color || '#ffffff'; ctx.shadowBlur = size * 0.12; }
     ctx.beginPath(); ctx.arc(cx, cy, size * 0.42, 0, Math.PI * 2); ctx.stroke();
     ctx.font = `600 ${Math.round(size * 0.26)}px sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillText((short[id] || String(id)).slice(0, 2), cx, cy);
+    ctx.fillText((short.get(id) || String(id)).slice(0, 2), cx, cy);
     ctx.restore();
+  }
+  function strokes(ctx, use, lw, style, alpha) {
+    ctx.strokeStyle = style; ctx.globalAlpha = alpha;
+    for (const p of use) {
+      const path = p.s || p.l; if (!path) continue;
+      if (p.clip) { ctx.save(); ctx.clip(p.clip); }
+      ctx.lineWidth = lw * (p.w || 1);
+      ctx.stroke(path);
+      if (p.clip) ctx.restore();
+    }
   }
 
   // draw one icon centred at (cx, cy) in a square of side size (in the context's units). opts: color (CSS colour,
   // white), width (line width in the context's units; by default bolder at small sizes), glow (neon: a coloured blur,
-  // a translucent fill and a light core), fill (0..1 alpha of the outlines' fill; 0, or 0.28 with glow),
-  // detail (true/false: inner lines; by default from 40 device pixels up), alpha (0..1).
+  // a translucent fill and a light core), fill (0..1 alpha of the outlines' fill; 0, or 0.4 with glow),
+  // detail (true/false: inner lines; by default from 40 pixels up), alpha (0..1). Sizes in pixels count a device
+  // pixel ratio of up to 1.25 (an icon small on a phone's screen stays simple), the thinnest line is 1.15 device pixels.
   function draw(ctx, id, cx, cy, size, opts) {
-    const o = opts || {}, list = parts(id);
-    if (!list) return stub(ctx, id, cx, cy, size, o);
-    const m = ctx.getTransform ? ctx.getTransform() : null, dpr = m ? Math.hypot(m.a, m.b) || 1 : 1, px = size * dpr;
-    const hi = o.detail != null ? !!o.detail : px >= 40, k = size / 100;
-    const w = (o.width || Math.max(1.15 / dpr, size * (0.068 - 0.028 * clamp((px - 24) / 56, 0, 1)))) / k;
-    const col = o.color || '#ffffff', c3 = hex(col), fill = o.fill != null ? o.fill : o.glow ? 0.28 : 0;
-    const a0 = ctx.globalAlpha * (o.alpha != null ? o.alpha : 1);
-    const use = list.filter(p => (p.lo ? !hi : !p.hi || (o.detail != null ? !!o.detail : px >= (p.hi === true ? 40 : p.hi))));
+    const o = opts || {}, I = icon(id);
+    if (!I) return stub(ctx, id, cx, cy, size, o);
+    const m = ctx.getTransform ? ctx.getTransform() : null, dpr = m ? Math.hypot(m.a, m.b) || 1 : 1;
+    const px = size * dpr, vis = size * Math.min(dpr, 1.25), k = size / 100;
+    const w = (o.width || Math.max(1.15 / dpr, size * (0.068 - 0.028 * clamp((vis - 24) / 56, 0, 1)))) / k;
+    const col = o.color || '#ffffff', C = colour(col), c3 = C.c3, fill = o.fill != null ? o.fill : o.glow ? 0.4 : 0;
+    const a0 = ctx.globalAlpha * (o.alpha != null ? o.alpha : 1), use = pick(I, o.detail, vis);
     ctx.save();
     ctx.translate(cx - size / 2, cy - size / 2); ctx.scale(k, k);
     ctx.lineCap = ctx.lineJoin = 'round';
-    const strokes = (lw, style, alpha) => {
-      ctx.strokeStyle = style; ctx.globalAlpha = a0 * alpha;
-      for (const p of use) {
-        const path = p.s || p.l; if (!path) continue;
-        if (p.clip) { ctx.save(); ctx.clip(p.clip); }
-        ctx.lineWidth = lw * (p.w || 1);
-        ctx.stroke(path);
-        if (p.clip) ctx.restore();
-      }
-    };
     // translucent fill of the outlines (a soft top-to-bottom gradient) and the parts that are always filled
     if (fill > 0) {
       const g = c3 ? ctx.createLinearGradient(0, 0, 0, 100) : null;
@@ -564,29 +625,34 @@ const PET_ICONS = (function () {
     for (const p of use) if (p.f) { ctx.globalAlpha = a0 * p.o * (o.glow ? 0.85 : 1); ctx.fill(p.f); }
     if (o.glow) {
       ctx.shadowColor = col;
-      ctx.shadowBlur = px * 0.16; strokes(w * 1.5, col, 0.55);
-      ctx.shadowBlur = px * 0.05; strokes(w, col, 1);
+      ctx.shadowBlur = px * 0.16; strokes(ctx, use, w * 1.5, col, a0 * 0.55);
+      ctx.shadowBlur = px * 0.05; strokes(ctx, use, w, col, a0);
       ctx.shadowBlur = 0; ctx.shadowColor = 'transparent';
-      strokes(w * 0.42, c3 ? rgba(c3.map(v => Math.round(v + (255 - v) * 0.7)), 1) : '#ffffff', 0.9);
-    } else strokes(w, col, 1);
+      strokes(ctx, use, w * 0.42, C.core, a0 * 0.9);
+    } else strokes(ctx, use, w, col, a0);
     ctx.restore();
   }
 
   // all icons white on transparent in one CanvasTexture, a 4 x 4 grid of px-pixel cells (tint them in the shader);
-  // px is rounded to a power of two (mipmaps on WebGL 1 too), the icons fill 86 % of a cell, the last cell stays empty
-  const atlases = {};
-  function atlas(THREE, px) {
-    const s = Math.pow(2, Math.round(Math.log2(clamp(px || 128, 16, 1024))));
-    if (atlases[s]) return atlases[s];
+  // px is rounded to a power of two from 16 to 512 (mipmaps on WebGL 1 too), the icons fill 86 % of a cell, the last
+  // cell stays empty. Made for small sprites by default: bold lines (opts.width, a fraction of the icon: 0.075), the
+  // simple shapes (opts.detail: false); { detail: true } bakes the inner lines with thin lines (0.04) for close views.
+  const atlases = new Map();
+  function atlas(THREE, px, opts) {
+    const o = opts || {}, s = Math.pow(2, Math.round(Math.log2(clamp(px || 128, 16, 512))));
+    const det = !!o.detail, wf = o.width > 0 ? o.width : det ? 0.04 : 0.075, key = s + ' ' + det + ' ' + wf;
+    if (atlases.has(key)) return atlases.get(key);
     const G = ids.length < 16 ? 4 : Math.pow(2, Math.ceil(Math.log2(Math.sqrt(ids.length + 1)))), cv = document.createElement('canvas');
     cv.width = cv.height = s * G;
     const ctx = cv.getContext('2d');
-    ids.forEach((id, i) => draw(ctx, id, (i % G + 0.5) * s, (Math.floor(i / G) + 0.5) * s, s * 0.86));
+    ids.forEach((id, i) => draw(ctx, id, (i % G + 0.5) * s, (Math.floor(i / G) + 0.5) * s, s * 0.86, { detail: det, width: s * 0.86 * wf }));
     const texture = new THREE.CanvasTexture(cv);
     texture.anisotropy = 4;
     // unknown ids get the last (empty) cell
     const uv = id => { let i = ids.indexOf(id); if (i < 0) i = G * G - 1; const x = i % G, y = Math.floor(i / G); return [x / G, 1 - (y + 1) / G, (x + 1) / G, 1 - y / G]; };
-    return (atlases[s] = { texture, canvas: cv, uv });
+    const A = { texture, canvas: cv, uv };
+    atlases.set(key, A);
+    return A;
   }
   return { ids, draw, atlas };
 })();
@@ -612,7 +678,7 @@ SETS.scan = function (K) {
   // Vertex attributes: color, aM (gloss, glow, cut flag, ambient occlusion), aE (vision element: 0 the scanner).
   // The cut: surfaces flagged for it vanish above uCut (scanner frame) with a glowing edge; their insides (back
   // faces) show as the dark inside of the housing. uMir draws the mirrored copy (the floor's reflection).
-  const SU = { uCut: { value: 9 }, uDim: { value: 1 }, uFloor: { value: FLOOR }, uE: { value: new THREE.Vector4(1, 1, 1, 1) } };
+  const SU = { uCut: { value: 9 }, uWin: { value: 0 }, uDim: { value: 1 }, uFloor: { value: FLOOR }, uE: { value: new THREE.Vector4(1, 1, 1, 1) } };
   function studio(o = {}) {
     const m = new THREE.ShaderMaterial({
       uniforms: Object.assign({ uA: set.uA, uMir: { value: o.mir ? 1 : 0 }, uK: { value: 1 } }, SU),
@@ -633,7 +699,7 @@ void main() {
   gl_Position = projectionMatrix * viewMatrix * w;
 }`,
       fragmentShader: `
-uniform float uA, uCut, uDim, uMir, uFloor, uK;
+uniform float uA, uCut, uWin, uDim, uMir, uFloor, uK;
 varying vec3 vC, vN, vW, vL, vLN; varying vec4 vM; varying float vE;
 vec3 env(vec3 r) {
   float top = smoothstep(0.2, 0.92, r.y) * 1.15;
@@ -644,13 +710,14 @@ vec3 env(vec3 r) {
 }
 void main() {
   if (vM.z > 0.5 && vL.y > uCut) discard;
+  if (vM.z > 1.5 && abs(vL.z) < uWin) discard;   // the bore's cover opens over the detector ring
   vec3 n = normalize(vN), v = normalize(cameraPosition - vW);
   bool inside = !gl_FrontFacing;
   if (inside) n = -n;
   if (uMir > 0.5) { n.y = -n.y; v.y = -v.y; }
   vec3 L = normalize((vec4(-0.45, 0.65, 0.75, 0.0) * viewMatrix).xyz), F = normalize((vec4(0.9, 0.1, 0.45, 0.0) * viewMatrix).xyz);
   float wr = clamp((dot(n, L) + 0.25) / 1.25, 0.0, 1.0), nv = max(dot(n, v), 0.0), g = vM.x;
-  vec3 col = vC * (0.27 + 0.2 * (0.5 + 0.5 * n.y) + 0.55 * wr * wr + 0.2 * max(dot(n, F), 0.0)) * vM.w;
+  vec3 col = vC * (0.31 + 0.2 * (0.5 + 0.5 * n.y) + 0.55 * wr * wr + 0.22 * max(dot(n, F), 0.0)) * vM.w;
   float fr = 0.04 + 0.96 * pow(1.0 - nv, 5.0);
   col += env(reflect(-v, n)) * g * mix(0.07, 0.9, fr) * mix(0.5, 1.0, vM.w);
   col += pow(max(dot(n, normalize(L + v)), 0.0), mix(18.0, 150.0, g)) * g * 0.45;
@@ -665,6 +732,7 @@ void main() {
   col += vC * vM.y;
   float a = uA * vE * uK;
   if (vM.z > 0.5) col += vec3(0.4, 0.82, 1.0) * (1.0 - smoothstep(0.0, 0.011, uCut - vL.y)) * 1.5;
+  if (vM.z > 1.5 && uWin > 0.0) col += vec3(0.4, 0.82, 1.0) * (1.0 - smoothstep(0.0, 0.008, abs(vL.z) - uWin)) * 1.2;
   if (uMir > 0.5) a *= 0.32 * exp(-max(vL.y - uFloor, 0.0) * 3.0);
   gl_FragColor = vec4(col, a);
 }`,
@@ -791,6 +859,13 @@ void main() {
     if (y < GYB) { const b = (GYB - y) / (GYB - GBo); return Math.pow(Math.pow(ax, 7) + Math.pow(b, 7), 1 / 7); }
     return ax;
   }
+  // the rear housing (the PET part) is a little larger and boxier than the front cover
+  function gIn2(x, y) {
+    const ax = Math.abs(x) / (GA + 0.03);
+    if (y > 0.2) { const b = (y - 0.2) / (GT + 0.035 - 0.2); return Math.pow(Math.pow(ax, 3.6) + Math.pow(b, 3.6), 1 / 3.6); }
+    if (y < GYB) { const b = (GYB - y) / (GYB - GBo); return Math.pow(Math.pow(ax, 7) + Math.pow(b, 7), 1 / 7); }
+    return ax;
+  }
   const along = (f, a, lo, hi) => { const c = Math.cos(a), s = Math.sin(a); for (let k = 0; k < 36; k++) { const m = (lo + hi) / 2; if (f(c * m, s * m)) lo = m; else hi = m; } return lo; };
   // the blue band's outline: the ring smoothly joined to two lens-shaped pods at its sides
   const smin2 = (a, b, k) => { const h = Math.max(k - Math.abs(a - b), 0) / k; return Math.min(a, b) - h * h * k * 0.25; };
@@ -799,10 +874,12 @@ void main() {
   for (let j = 0; j < NT; j++) {
     const a = j / NT * TAU, c = Math.cos(a), s = Math.sin(a), rho = along((x, y) => gIn(x, y) < 1, a, 0, 2), x = c * rho, y = s * rho, e = 1e-4;
     const gx = gIn(x + e, y) - gIn(x - e, y), gy = gIn(x, y + e) - gIn(x, y - e), gl = Math.hypot(gx, gy) || 1;
-    COL.push({ c, s, rho, nx: gx / gl, ny: gy / gl, rb: along((x, y) => blueSD(x, y) < 0, a, 0.4, 1.2) });
+    const rho2 = along((x, y) => gIn2(x, y) < 1, a, 0, 2), x2 = c * rho2, y2 = s * rho2;
+    const hx = gIn2(x2 + e, y2) - gIn2(x2 - e, y2), hy = gIn2(x2, y2 + e) - gIn2(x2, y2 - e), hl = Math.hypot(hx, hy) || 1;
+    COL.push({ c, s, rho, nx: gx / gl, ny: gy / gl, rho2, nx2: hx / hl, ny2: hy / hl, rb: along((x, y) => blueSD(x, y) < 0, a, 0.4, 1.2) });
   }
   const ROWS = [];
-  const Rr = (r, z, tag) => ROWS.push({ k: 'r', r, z, tag }), Rs = (off, z, tag) => ROWS.push({ k: 's', off, z, tag });
+  const Rr = (r, z, tag) => ROWS.push({ k: 'r', r, z, tag }), Rs = (off, z, tag) => ROWS.push({ k: 's', off, z, tag }), R2 = (off, z, tag) => ROWS.push({ k: 's2', off, z, tag });
   for (let k = 0; k <= 14; k++) Rr(RB, -0.7 + 1.415 * k / 14, 'tunnel');
   for (let k = 1; k <= 6; k++) { const a = k / 6 * PI / 2; Rr(RB + 0.06 * (1 - Math.cos(a)), 0.715 + 0.06 * Math.sin(a), 'lip'); }
   Rr(0.462, 0.775, 'lip');
@@ -813,13 +890,13 @@ void main() {
   for (let k = 1; k <= 7; k++) { const a = k / 7 * PI / 2; Rs(RF * Math.sin(a), 0.8 - RF * (1 - Math.cos(a)), 'skin'); }
   Rs(RF, 0.48, 'skin'); Rs(RF, 0.29, 'skin');
   Rs(RF - 0.005, 0.27, 'seam'); Rs(RF - 0.014, 0.256, 'seam'); Rs(RF - 0.004, 0.242, 'seam');
-  Rs(RF + 0.012, 0.226, 'skin');
-  for (let k = 0; k <= 4; k++) Rs(RF + 0.012, 0.2 - (0.2 - (-0.8 + RF2)) * k / 4, 'skin');
-  for (let k = 1; k <= 7; k++) { const a = PI / 2 + k / 7 * PI / 2; Rs(RF + 0.012 - RF2 + RF2 * Math.sin(a), -0.8 + RF2 + RF2 * Math.cos(a), 'skin'); }
+  R2(RF - 0.03, 0.238, 'seam'); R2(RF - 0.012, 0.234, 'skin'); R2(RF - 0.003, 0.226, 'skin');
+  for (let k = 0; k <= 4; k++) R2(RF, 0.214 - (0.214 - (-0.8 + RF2)) * k / 4, 'skin');
+  for (let k = 1; k <= 7; k++) { const a = PI / 2 + k / 7 * PI / 2; R2(RF - RF2 + RF2 * Math.sin(a), -0.8 + RF2 + RF2 * Math.cos(a), 'skin'); }
   for (let k = 1; k <= 5; k++) ROWS.push({ k: 'b', s: k / 5, z: -0.8, tag: 'back' });
   for (let k = 1; k <= 5; k++) { const a = PI / 2 - k / 6 * PI / 2; Rr(RB + 0.1 * (1 - Math.cos(a)), -0.7 - 0.1 * Math.sin(a), 'lip'); }
   const LOOK = {
-    tunnel: (p) => [[0.8, 0.82, 0.86], [0.45, 0, 1, 1 - 0.5 * (1 - K.smooth((Math.abs(p[2]) - 0.05) / 0.6))]],
+    tunnel: (p) => [[0.8, 0.82, 0.86], [0.45, 0, 2, 1 - 0.5 * (1 - K.smooth((Math.abs(p[2]) - 0.05) / 0.6))]],
     lip: (p) => [WHITE, [0.85, 0, 1, 1]], blue: (p) => [BLUE, [0.42, 0.13, 1, 1]], face: (p) => [WHITE, [0.85, 0, 1, floorAO(p[1])]],
     skin: (p) => [WHITE, [0.85, 0, 1, floorAO(p[1])]], seam: (p) => [[0.55, 0.58, 0.62], [0.3, 0, 1, 0.7 * floorAO(p[1])]],
     back: (p) => [[0.86, 0.87, 0.89], [0.7, 0, 1, floorAO(p[1])]],
@@ -831,7 +908,8 @@ void main() {
       const R = ROWS[i], c = COL[j];
       if (R.k === 'r') { const r = typeof R.r === 'function' ? R.r(c) : R.r; return [c.c * r, c.s * r, R.z]; }
       if (R.k === 's') return [c.c * c.rho + c.nx * R.off, c.s * c.rho + c.ny * R.off, R.z];
-      const q0 = [c.c * c.rho + c.nx * (RF + 0.012 - RF2), c.s * c.rho + c.ny * (RF + 0.012 - RF2)];
+      if (R.k === 's2') return [c.c * c.rho2 + c.nx2 * R.off, c.s * c.rho2 + c.ny2 * R.off, R.z];
+      const q0 = [c.c * c.rho2 + c.nx2 * (RF - RF2), c.s * c.rho2 + c.ny2 * (RF - RF2)];
       return [lerp(q0[0], c.c * 0.49, R.s), lerp(q0[1], c.s * 0.49, R.s), R.z];
     }, { col: (p, n, i) => (tag = LOOK[ROWS[i].tag](p))[0], m: () => tag[1] }, { wrapI: true, wrapJ: true });
   }
@@ -862,7 +940,7 @@ void main() {
     const cr = (y) => { let k = 0; while (k < KEY.length - 2 && y > KEY[k + 1][0]) k++; const f = smooth((y - KEY[k][0]) / (KEY[k + 1][0] - KEY[k][0])); return [lerp(KEY[k][1], KEY[k + 1][1], f), lerp(KEY[k][2], KEY[k + 1][2], f)]; };
     const NR = 14, sec = [];
     for (let i = 0; i <= NR; i++) { const y = lerp(-0.96, -0.45, i / NR), [hx, hz] = cr(y); sec.push(rrect(0, -1.82, hx, hz, Math.min(0.12, hx * 0.8), 7).map(q => [q[0], y, -q[1]])); }
-    grid(outer, sec.length, sec[0].length, (i, j) => sec[i][j], { col: [0.8, 0.82, 0.85], m: p => [0.75, 0, 0, 0.7 + 0.3 * K.smooth((p[1] + 0.95) / 0.45)] }, { wrapJ: true, flip: true });
+    grid(outer, sec.length, sec[0].length, (i, j) => sec[i][j], { col: [0.86, 0.88, 0.9], m: p => [0.75, 0, 0, 0.7 + 0.3 * K.smooth((p[1] + 0.95) / 0.45)] }, { wrapJ: true, flip: true });
   }
   flat(outer, rrect(0, -1.81, 0.22, 0.86, 0.1, 6), -0.345, 0.11, 0.04, { col: [0.8, 0.82, 0.86], m: [0.8, 0, 0, 0.9] });
   const outerGeo = outer.geo();
@@ -885,10 +963,10 @@ void main() {
   const inner = Builder();
   lathe(inner, rprof(0.43, 0.72, 0.4, 0.64, 0.02), 120, { col: [0.5, 0.53, 0.58], m: [0.75, 0, 1, 1] });
   rbox(inner, [0, 0.8, 0.52], [0.14, 0.075, 0.1], 0.03, { col: [0.25, 0.27, 0.31], m: [0.7, 0, 1, 1] });
-  for (const z of [-ZH - 0.005, ZH + 0.03]) lathe(inner, rprof(0.445, 0.6, z - 0.025, z, 0.008), 120, { col: [0.62, 0.65, 0.7], m: [0.8, 0, 0, 1] });
+  for (const z of [-ZH - 0.004, ZH + 0.02]) lathe(inner, rprof(0.445, 0.53, z - 0.016, z, 0.006), 120, { col: [0.62, 0.65, 0.7], m: [0.8, 0, 0, 1] });
   for (let b = 0; b < 48; b++) {
     const a = (b + 0.5) / 48 * TAU, c = Math.cos(a), s = Math.sin(a);
-    slab(inner, rrect(0, 0.4725, 0.0225, 0.03, 0.008, 3), 2 * ZH, 0.008, { col: [0.13, 0.15, 0.19], m: [0.6, 0, 0, 1] }, basis([-s, c, 0], [c, s, 0], [0, 0, -1], [0, 0, ZH]));
+    slab(inner, rrect(0, 0.4725, 0.0225, 0.03, 0.008, 3), 2 * ZH, 0.008, { col: [0.13, 0.15, 0.19], m: [0.6, 0, 1, 1] }, basis([-s, c, 0], [c, s, 0], [0, 0, -1], [0, 0, ZH]));
   }
   const innerGeo = inner.geo();
   // the crystals: 192 around x 24 deep (48 blocks of 4 x 4 around, 6 blocks deep), dark glass, their faces to the bore
@@ -899,7 +977,7 @@ void main() {
     const nv = cg.attributes.position.count, nrm = cg.attributes.normal.array, C = new Float32Array(nv * 3), M = new Float32Array(nv * 4);
     for (let v = 0; v < nv; v++) {
       const face = nrm[3 * v + 2] < -0.5;   // the face towards the axis
-      C.set(face ? [0.16, 0.34, 0.48] : [0.05, 0.08, 0.12], 3 * v); M.set([0.95, face ? 0.22 : 0.05, 0, 1], 4 * v);
+      C.set(face ? [0.2, 0.44, 0.6] : [0.09, 0.17, 0.25], 3 * v); M.set([0.95, face ? 0.25 : 0.12, 0, 1], 4 * v);
     }
     cg.setAttribute('color', new THREE.BufferAttribute(C, 3)); cg.setAttribute('aM', new THREE.BufferAttribute(M, 4));
     cg.setAttribute('aE', new THREE.BufferAttribute(new Float32Array(nv), 1));
@@ -1089,7 +1167,7 @@ void main() {
   ];
   const POOL = 4096, PX = new Float32Array(POOL), PY = new Float32Array(POOL), PZ = new Float32Array(POOL), PI_ = new Float32Array(POOL);
   {
-    const R = rng(511), wsum = SRC.reduce((s, q) => s + q[2], 0) + 30, tmp = [];
+    const R = rng(511), wsum = SRC.reduce((s, q) => s + q[2], 0) + 70, tmp = [];
     for (const [c, r, w, I] of SRC) {
       const n = Math.round(POOL * w / wsum);
       for (let k = 0; k < n; k++) { let p; do { p = [K.gauss(R) * 0.6, K.gauss(R) * 0.6, K.gauss(R) * 0.6]; } while (v3.len(p) > 1.2); tmp.push([c[0] + p[0] * r[0], c[1] + p[1] * r[1], c[2] + p[2] * r[2], I * (0.85 + 0.15 * R())]); }
@@ -1114,9 +1192,11 @@ void main() {
     for (let k = POOL; k < POOL + 260; k++) { const q = v3.mul(K.unit(R), 0.012 * Math.cbrt(R())); p.set(v3.add(TUMOUR, q), 3 * k); c.set(hotC(0.75 + 0.25 * R()), 3 * k); s[k] = 0.012; sd[k] = -1; }
     dotG.setAttribute('aSeed', new THREE.BufferAttribute(sd, 1));
   }
+  // up close (in a headset, or the inside view) sprites shrink with distance, so they stay grains, not discs
+  const CLOSE = ' gl_PointSize *= clamp(-mv.z / length(modelViewMatrix[0].xyz) / 1.6, 0.35, 1.0);';
   const dotU = { uImg: { value: 0 } };
   const dotMat = K.points(set, { uniforms: dotU, head: 'attribute float aSeed; uniform float uImg;',
-    vertex: 'vA *= aSeed < 0.0 ? smoothstep(0.45, 0.8, uImg) : smoothstep(aSeed * 0.55, aSeed * 0.55 + 0.04, uImg) * (1.0 - smoothstep(0.62, 0.95, uImg));' });
+    vertex: 'vA *= aSeed < 0.0 ? smoothstep(0.45, 0.8, uImg) : smoothstep(aSeed * 0.55, aSeed * 0.55 + 0.04, uImg) * (1.0 - smoothstep(0.62, 0.95, uImg));' + CLOSE });
   const dots = new THREE.Points(dotG, dotMat);
   dots.renderOrder = 4; dots.frustumCulled = false;
   patientG.add(dots);
@@ -1132,7 +1212,7 @@ void main() {
   const toScan = (x, y, z) => [pose.s * x, pose.ty + pose.s * z, pose.tz - pose.s * y];
   let rangeLo = 0, rangeHi = 0;
   const ev = {};   // reused: e (emission), p (annihilation), d, A, B, sA, sB, hit
-  function event(i, rate, out, path) {
+  function event(i, rate, out, path, feat) {
     const det = rangeHi > rangeLo, h0 = hk(i, 0 + rate);
     const k = det ? rangeLo + Math.min(rangeHi - rangeLo - 1, Math.floor(h0 * (rangeHi - rangeLo))) : Math.floor(h0 * POOL);
     const e = toScan(PX[k], PY[k], PZ[k]);
@@ -1142,7 +1222,8 @@ void main() {
       for (let s = 1; s <= 6; s++) { const u = [hk(i, 10 + s) - 0.5, hk(i, 20 + s) - 0.5, hk(i, 30 + s) - 0.5]; p = v3.add(p, v3.mul(v3.norm(u), 0.0065)); path[s] = p; }
     }
     if (det) p = [p[0], p[1], clamp(p[2], -ZH + 0.006, ZH - 0.006)];
-    const phi = hk(i, 3) * TAU;
+    // a featured event (the one the labels follow) flies roughly sideways, so both photons cross open space
+    const phi = feat ? (hk(i, 5) < 0.5 ? 0 : PI) + (hk(i, 3) - 0.5) * 1.1 : hk(i, 3) * TAU;
     let d = v3.norm([Math.cos(phi), Math.sin(phi), (hk(i, 4) - 0.5) * 0.3]);
     const hit = (dd) => {
       const a = dd[0] * dd[0] + dd[1] * dd[1], b = 2 * (p[0] * dd[0] + p[1] * dd[1]), c = p[0] * p[0] + p[1] * p[1] - RDET * RDET, q = Math.sqrt(Math.max(b * b - 4 * a * c, 0));
@@ -1175,7 +1256,7 @@ void main() {
   // the animated events: positron paths, photon streaks and their lines (lines), flashes (points); packed each frame
   const FXL = 900, FXP = 260;
   const fxG = K.linesGeo(FXL), fxPG = K.pointsGeo(FXP);
-  const fxL = new THREE.LineSegments(fxG, K.lines(set)), fxP = new THREE.Points(fxPG, K.points(set));
+  const fxL = new THREE.LineSegments(fxG, K.lines(set)), fxP = new THREE.Points(fxPG, K.points(set, { vertex: CLOSE }));
   fxL.renderOrder = 6; fxP.renderOrder = 7; fxL.frustumCulled = fxP.frustumCulled = false;
   scanG.add(fxL, fxP);
   const PATH = [];
@@ -1346,7 +1427,7 @@ void main() {
   const pa = new THREE.Vector3(), pb = new THREE.Vector3(), sa = new THREE.Vector3(), sb = new THREE.Vector3();
   const LIE = new THREE.Matrix4().makeRotationX(-PI / 2), STAND = new THREE.Vector3(VX.body, 0.0, 0), SSTAND = 0.8;
   const BED_IN = 1.15, PASS = 0.85, TZ0 = 0.85;   // the table's head end at bed 0; its travel in; the travel of the pass
-  let tableZ = TZ0, lastT = 0;
+  let tableZ = TZ0;
   const live = { vis: 0, img: 0, ev: 0 };
   const sp = p => xp(scanG.matrix, p), pp = p => xp(patientG.matrix, p);
   function writeLine(geo, k, a, b, col, al) {
@@ -1363,9 +1444,9 @@ void main() {
 
   function update(S, t) {
     const g = k => clamp(S[k] || 0, 0, 1);
-    const vision = g('scan_vision'), bed = g('scan_bed'), pass = g('scan_pass'), cut = g('scan_cut'), evs = g('scan_events'), lin = g('scan_lines'), img = g('scan_image');
+    const vision = g('scan_vision'), bed = g('scan_bed'), pass = g('scan_pass'), cut = g('scan_cut') * (1 - prog(vision, 0, 0.3)), evs = g('scan_events'), lin = g('scan_lines'), img = g('scan_image');
     const flo = S.scan_floor === undefined ? 1 : g('scan_floor');
-    live.vis = vision; live.img = img; live.ev = evs; lastT = t;
+    live.vis = vision; live.img = img; live.ev = evs;
     // the scanner moves to the left, shrinks a little and turns to show its side (as on the slide)
     const fs = smooth(prog(vision, 0, 0.45));
     scanG.position.set(lerp(0, -2.08, fs), lerp(0, -0.1, fs), lerp(0, -0.6, fs));
@@ -1390,6 +1471,8 @@ void main() {
     patientG.matrixWorldNeedsUpdate = true;
     // the cut: the housing's upper half goes (a plane sweeping down to just above the bore's centre); lights down
     SU.uCut.value = lerp(1.12, 0.015, smooth(cut));
+    SU.uWin.value = (ZH + 0.012) * smooth(prog(cut, 0.5, 1));
+    innerMesh.visible = crystals.visible = cut > 0.002;   // hidden by the housing until it opens
     SU.uDim.value = 1 - 0.38 * smooth(Math.max(cut, evs)) * (1 - vision);
     const a = set.uA.value, solid = a > 0.97;
     solidMat.depthWrite = solid;
@@ -1446,19 +1529,22 @@ void main() {
     // the animated events
     let nl = 0, np = 0;
     featured.on = false;
-    const fxA = evs * (1 - smooth(prog(img, 0.1, 0.5))) * (1 - fs);
-    if (fxA > 0.002) {
-      const j0 = Math.floor((t - 3.2) * EV_RATE), j1 = Math.floor(t * EV_RATE), jf = Math.floor(t * EV_RATE / 50) * 50;
+    const fxA = (1 - smooth(prog(img, 0.1, 0.5))) * (1 - fs);
+    if (evs > 0.001 && fxA > 0.002) {
+      const j0 = Math.floor((t - 2.4) * EV_RATE), j1 = Math.floor(t * EV_RATE), jf = Math.floor(t * EV_RATE / 50) * 50;
       for (let j = j0; j <= j1; j++) {
         const tj = (j + 0.8 * hk(j, 50)) / EV_RATE, age = t - tj;
         if (age < 0) continue;
-        const w = (j === jf || j === jf - 50 ? 1 : clamp((evs - hk(j, 51)) * 8, 0, 1)) * fxA;
+        // the featured events (one every 2 s, which the labels follow) show from the lowest scan_events; the rest above 0.08
+        const w = (j === jf || j === jf - 50 ? clamp(evs * 30, 0, 1) : clamp((evs - 0.08 - 0.92 * hk(j, 51)) * 8, 0, 1)) * fxA;
         if (w <= 0.002) continue;
-        event(j, 7, ev, PATH);
-        const p = ev.p;
+        event(j, 7, ev, PATH, j === jf || j === jf - 50);
+        const p = ev.p, big = j === jf || j === jf - 50 ? 1.5 : 1;
         if (j === jf || (j === jf - 50 && !featured.on)) {
-          featured.on = true; featured.p = p;
-          featured.lor = ev.hit ? v3.lerp(ev.A, p, 0.35) : v3.add(p, v3.mul(ev.d, 0.3));
+          // labels: the photons' just above the annihilation, the line's on the line near its left-hand crystal
+          featured.on = true; featured.p = v3.add(p, [0, 0.05, 0]);
+          const L = ev.hit ? (ev.A[0] < ev.B[0] ? ev.A : ev.B) : v3.add(p, v3.mul(ev.d, 0.3));
+          featured.lor = v3.add(v3.lerp(L, p, 0.3), [0, -0.035, 0]);
         }
         // the positron's short zigzag, then the flash where it meets an electron
         if (age < TP + 0.3 && nl < FXL - 10) {
@@ -1469,7 +1555,7 @@ void main() {
           }
           if (age < TP) writePoint(fxPG, np++, v3.lerp(PATH[Math.min(5, Math.floor(f))], PATH[Math.min(6, Math.floor(f) + 1)], f - Math.floor(f)), C_POS, 0.022, w);
         }
-        if (age >= TP && age < TP + 0.28 && np < FXP - 4) { const x = (age - TP) / 0.28; writePoint(fxPG, np++, p, C_FL, 0.03 + 0.04 * Math.sqrt(x), w * (1 - x) * (1 - x)); }
+        if (age >= TP && age < TP + 0.32 && np < FXP - 4) { const x = (age - TP) / 0.32; writePoint(fxPG, np++, p, C_FL, big * (0.03 + 0.04 * Math.sqrt(x)), w * (1 - x) * (1 - x)); }
         // the two photons, back to back at a visible speed
         if (age >= TP) {
           const run = (age - TP) * V_PH;
@@ -1479,17 +1565,19 @@ void main() {
               const hd = v3.add(p, v3.mul(ev.d, sgn * run)), tail = v3.add(p, v3.mul(ev.d, sgn * Math.max(0, run - 0.075)));
               const fadeOut = ev.hit ? 1 : 1 - run / 0.75;
               writeLine(fxG, nl++, tail, hd, C_PH, w * fadeOut);
-              if (np < FXP - 2) writePoint(fxPG, np++, hd, C_PH, 0.02, w * fadeOut);
+              if (np < FXP - 2) writePoint(fxPG, np++, hd, C_PH, 0.02 * big, w * fadeOut);
             } else if (ev.hit && np < FXP - 2) {
               const x = (run - lim) / (0.45 * V_PH);
-              if (x < 1) { writePoint(fxPG, np++, C, C_CR, 0.022 + 0.022 * (1 - x), w * Math.pow(1 - x, 1.5)); if (x < 0.4 && np < FXP - 1) writePoint(fxPG, np++, C, [1, 1, 1], 0.014, w * (1 - x / 0.4)); }
+              if (x < 1) { writePoint(fxPG, np++, C, C_CR, big * (0.022 + 0.022 * (1 - x)), w * Math.pow(1 - x, 1.5)); if (x < 0.4 && np < FXP - 1) writePoint(fxPG, np++, C, [1, 1, 1], 0.014, w * (1 - x / 0.4)); }
             }
           }
           // the coincidence: a line of response joins the two crystals, then fades to a faint trace
           const tc = TP + Math.max(ev.sA, ev.sB) / V_PH;
-          if (ev.hit && age >= tc && age < tc + 2.8 && nl < FXL - 1) {
-            const x = age - tc;
-            writeLine(fxG, nl++, ev.A, ev.B, C_LOR, w * (0.1 + 0.8 * Math.exp(-x * 2.2)) * (1 - smoothstep01((x - 2.1) / 0.7)));
+          if (ev.hit && age >= tc && age < tc + 1.8 && nl < FXL - 3) {
+            const x = age - tc, la = w * (0.1 + (big > 1 ? 0.8 : 0.5) * Math.exp(-x * 2.6)) * (1 - smoothstep01((x - 1.3) / 0.5));
+            writeLine(fxG, nl++, ev.A, ev.B, C_LOR, la);
+            // the featured line is drawn thicker (three strands)
+            if (big > 1) for (const o of [[0, 0.0025, 0.0015], [0, -0.0025, -0.0015]]) writeLine(fxG, nl++, v3.add(ev.A, o), v3.add(ev.B, o), C_LOR, la * 0.8);
           }
         }
       }
@@ -1527,8 +1615,8 @@ void main() {
     labels: [
       { text: ['PET/CT scanner', ''], at: 'gantry', cls: 'cyn', alpha: S => notRow(S) * (1 - prog(S.scan_cut || 0, 0, 0.4)) * (1 - prog(S.scan_image || 0, 0, 0.3)) },
       { text: ['Detector ring', ''], at: 'ring', cls: 'cyn', alpha: S => notRow(S) * prog(S.scan_cut || 0, 0.6, 1) * (1 - prog(S.scan_image || 0, 0, 0.3)) },
-      { text: ['Two gamma photons', ', 511 keV'], at: 'event', cls: 'amb', alpha: S => notRow(S) * prog(S.scan_events || 0, 0.1, 0.4) * (1 - prog(S.scan_lines || 0, 0.3, 0.6)) * (1 - prog(S.scan_image || 0, 0, 0.3)) },
-      { text: ['Line of response', ''], at: 'lor', cls: 'amb', alpha: S => notRow(S) * prog(S.scan_events || 0, 0.2, 0.5) * (1 - prog(S.scan_lines || 0, 0.4, 0.7)) * (1 - prog(S.scan_image || 0, 0, 0.3)) },
+      { text: ['Two gamma photons', ', 511 keV'], at: 'event', cls: 'amb', alpha: S => notRow(S) * prog(S.scan_events || 0, 0.005, 0.04) * (1 - prog(S.scan_lines || 0, 0.3, 0.6)) * (1 - prog(S.scan_image || 0, 0, 0.3)) },
+      { text: ['Line of response', ''], at: 'lor', cls: 'amb', alpha: S => notRow(S) * prog(S.scan_events || 0, 0.01, 0.05) * (1 - prog(S.scan_lines || 0, 0.4, 0.7)) * (1 - prog(S.scan_image || 0, 0, 0.3)) },
       { text: ['FDG', ' in the patient'], at: 'patient', cls: 'amb', alpha: S => notRow(S) * prog(S.scan_image || 0, 0.5, 0.9) },
       { text: ['PET scan', ''], at: 'vision_scan', alpha: S => rowA(S, 0.3) },
       { text: ['One body', ''], at: 'vision_body', alpha: S => rowA(S, 0.4) },
@@ -1537,8 +1625,8 @@ void main() {
       { text: ['Medication', ''], at: 'vision_med', alpha: S => rowA(S, 0.8) },
     ],
     cam: {
-      default: [38, 14, 8.2, 0, -0.3, 0.9], front: [0, 4, 6.4, 0, -0.1, 0.4], ring: [22, 42, 2.5, 0, -0.02, 0.05], side: [90, 6, 7.6, 0, -0.25, 0.9],
-      inside: [0, 10, 0.95, 0, -0.07, -0.25], vision: [0, 3, 7.7, 0, -0.02, 0], life: [22, 10.5, 3.0, 0, 0, 0.5],
+      default: [34, 13, 7.2, 0, -0.25, 0.95], front: [0, 4, 6.4, 0, -0.1, 0.4], ring: [28, 22, 2.4, 0, -0.02, 0], side: [90, 6, 7.6, 0, -0.25, 0.9],
+      inside: [0, 7, 1.3, 0, -0.06, -0.3], vision: [0, 3, 7.7, 0, -0.02, 0], life: [20, 12.4, 2.56, 0, 0, 0.8],
     },
     controls: [
       { key: 'view', label: 'View', options: [['scanner', 'Scanner'], ['ring', 'Ring'], ['inside', 'Inside'], ['vision', 'Vision']] },
@@ -2356,7 +2444,11 @@ SETS.organs = function (K) {
     },
   };
   // tubes, drums and a band: built directly (smooth unions add nothing to them)
-  function mesh(P, N, I, oi) { const b = NV; for (let v = 0; v < P.length / 3; v++) vert(oi, P[3 * v], P[3 * v + 1], P[3 * v + 2], N[3 * v], N[3 * v + 1], N[3 * v + 2]); for (let q = 0; q < I.length; q += 3) tri(b + I[q], b + I[q + 1], b + I[q + 2]); }
+  function mesh(P, N, I, oi) {
+    const b = NV;
+    for (let v = 0; v < P.length / 3; v++) vert(oi, P[3 * v], P[3 * v + 1], P[3 * v + 2], N[3 * v], N[3 * v + 1], N[3 * v + 2]);
+    for (let q = 0; q < I.length; q += 3) tri(b + I[q], b + I[q + 1], b + I[q + 2]);
+  }
   // a closed tube along a smooth curve (as the body set's), its radius rad(u) changing along it, the ends rounded
   function taper(pts, rad, n, m, oi) {
     const c = new THREE.CatmullRomCurve3(pts.map(p => new THREE.Vector3(p[0], p[1], p[2])), false, 'centripetal'), fr = c.computeFrenetFrames(n, false);
@@ -2369,7 +2461,10 @@ SETS.organs = function (K) {
         N.push(d[0] * ca + t.x * sa, d[1] * ca + t.y * sa, d[2] * ca + t.z * sa);
       }
     };
-    const cap = (i, sg, rev) => { const p = c.getPointAt(i / n, q.clone()), r = rad(i / n); for (let k = rev ? 1 : 4; rev ? k <= 4 : k >= 1; k += rev ? 1 : -1) { const a = k / 4 * PI / 2; ring(p, fr.tangents[i].clone().multiplyScalar(sg), fr.normals[i], fr.binormals[i], r, Math.cos(a), Math.sin(a)); } };
+    const cap = (i, sg, rev) => {   // quarter circles of rings from the tip (sg: which way it points) to the full ring, or back
+      const p = c.getPointAt(i / n, q.clone()), r = rad(i / n), t = fr.tangents[i].clone().multiplyScalar(sg);
+      for (let k = rev ? 1 : 4; rev ? k <= 4 : k >= 1; k += rev ? 1 : -1) { const a = k / 4 * PI / 2; ring(p, t, fr.normals[i], fr.binormals[i], r, Math.cos(a), Math.sin(a)); }
+    };
     cap(0, -1, false);
     for (let i = 0; i <= n; i++) ring(c.getPointAt(i / n, q.clone()), fr.tangents[i], fr.normals[i], fr.binormals[i], rad(i / n), 1, 0);
     cap(n, 1, true);
@@ -2646,7 +2741,7 @@ void main() {
   const CHT = { x0: 0.88, y0: -0.24, w: 0.68, h: 0.64, z: 0.3 };                   // the strength distribution
   const NETZ = 0.46, NETY = 0.27;
   // where each organ's node sits on the dome (x, y): near its organ's height, apart enough for labels on their right
-  const LAY = { brain: [0, 0.85], thyroid: [0.3, 0.68], lungs: [-0.34, 0.52], heart: [0.12, 0.5], liver: [-0.52, 0.3], spleen: [0.5, 0.3],
+  const LAY = { brain: [0, 0.85], thyroid: [0.3, 0.68], lungs: [-0.4, 0.56], heart: [0.17, 0.46], liver: [-0.52, 0.3], spleen: [0.5, 0.3],
     adrenal: [-0.12, 0.2], pancreas: [0.24, 0.17], kidneys: [-0.44, 0.03], marrow: [0.1, 0.01], fat: [0.46, -0.1], intestine: [-0.18, -0.16],
     muscle: [0.16, -0.32] };
   const domeZ = (x, y) => NETZ - 0.3 * (x * x + (y - NETY) * (y - NETY));
@@ -3084,7 +3179,7 @@ void main() {
   const GHOST_S = { body_a: 1, body_pet: 1, body_net: 0, body_state: 0, body_blank: 0 };
 
   // ---------------------------------------------------------------- update
-  const cur = { net: 0, w: 0, lo: 0, hi: 0, f: 0, plane: 10, fw: new Float32Array(NO), apiW: new Float32Array(NO), dim: 0,
+  const cur = { net: 0, plane: 10, fw: new Float32Array(NO), apiW: new Float32Array(NO), dim: 0,
     node: ORG.map(() => [0, 0, 0]), nodeA: new Float32Array(NO), nodeS: new Float32Array(NO), hubW: new Float32Array(NO), labW: new Float32Array(NO),
     pres: new Float32Array(NO), barLen: new Float32Array(NO), barA: new Float32Array(NO), pairW: [0, 0, 0, 0], fitEnd: [0, 0, 0], hub: -1,
     chartX: new Float32Array(NO), segA: new Float32Array(NO) };
@@ -3100,7 +3195,7 @@ void main() {
     const seg = clamp(S.organs_seg, 0, 1), suv = clamp(S.organs_suv, 0, 1), rows = clamp(S.organs_rows, 0, 1), net = clamp(S.organs_net, 0, 1);
     const pairP = clamp(S.organs_pair, 0, NPR), part = clamp(S.organs_partial, 0, 1), strg = clamp(S.organs_strength, 0, 1), les = clamp(S.organs_lesion, 0, 1);
     const which = clamp(S.organs_which, 0, NNET - 1), lo = Math.floor(which), hi = Math.min(NNET - 1, lo + 1), f = which - lo;
-    cur.net = net; cur.w = which; cur.lo = lo; cur.hi = hi; cur.f = f;
+    cur.net = net;
     const netOut = 1 - prog(net, 0, 0.35);   // bars, slab and panel make way for the network
 
     // focus: from the param (fractional values pass from one organ to the next), or from the explore API (eased)
@@ -3128,7 +3223,7 @@ void main() {
     for (let i = 0; i < NO; i++) {
       const yr = YR[i];
       // a name shows for a short stretch once the plane reaches the organ's top (so a few at a time, not all at once)
-      const win = Math.min(yr[1] - yr[0], 0.07);
+      const win = Math.min(yr[1] - yr[0], 0.05);
       cur.segA[i] = yr[0] < yr[1] && pk > 0 ? prog(py, yr[1] + 0.03, yr[1] - 0.005) * (1 - prog(py, yr[1] - win, yr[1] - win - 0.04)) * pk : 0;
     }
 
@@ -3320,15 +3415,15 @@ void main() {
     anchors['bar_' + og.id] = own(o => set3(o, BAR.xb + Math.max(cur.barLen[i], 0.01) + 0.012, barY(BRANK[i]) + 0.004, BAR.z));
   });
   // names at the bars: the longest, the shortest and a few between (and a focused organ)
-  const BAR_LBL = { brain: 1, heart: 1, kidneys: 1, liver: 1, lungs: 1, muscle: 1, fat: 1 };
+  const BAR_LBL = { brain: 1, heart: 1, kidneys: 1, liver: 1, muscle: 1, fat: 1, aorta: 1 };
   const netOn = S => prog(clamp(S.organs_net, 0, 1), 0.5, 0.8);
-  const quietRight = S => 1 - Math.max(prog(clamp(S.organs_net, 0, 1), 0, 0.3), 0);
+  const quietRight = S => 1 - prog(clamp(S.organs_net, 0, 1), 0, 0.3);   // the right-hand panels make way for the network
   const near = (S, k) => { const w = clamp(S.organs_which, 0, NNET - 1); return clamp(1 - Math.abs(w - k) * 2.2, 0, 1); };
   const labels = [];
   ORG.forEach((og, i) => {
     const name = og.name, isNode = !!NPOS[i], short = og.short || name;
     // on the organ while the plane outlines it (or focused); on its node (short name) in the network
-    labels.push({ text: [name, ''], at: og.id, cls: '', alpha: S => Math.max(cur.segA[i], cur.fw[i] * (1 - clamp(S.organs_suv, 0, 1))) * (1 - netOn(S)) * (1 - prog(clamp(S.organs_rows, 0, 1), 0, 0.2)) });
+    labels.push({ text: [name, ''], at: og.id, cls: '', minor: og.id === 'adrenal' || og.id === 'pancreas', alpha: S => Math.max(cur.segA[i], cur.fw[i] * (1 - clamp(S.organs_suv, 0, 1))) * (1 - netOn(S)) * (1 - prog(clamp(S.organs_rows, 0, 1), 0, 0.2)) });
     if (isNode) labels.push({ text: [short, ''], at: og.id, cls: '', alpha: S => netOn(S) * cur.pres[i] * Math.max(cur.labW[i], cur.fw[i]) * (1 - cur.hubW[i]) });
     if (isNode) labels.push({ text: [short, '· hub'], at: og.id, cls: 'amb', alpha: S => netOn(S) * cur.pres[i] * cur.hubW[i] });
     labels.push({ text: [og.short || name, ''], at: 'bar_' + og.id, cls: '', minor: !BAR_LBL[og.id], alpha: S => {
@@ -3355,7 +3450,7 @@ void main() {
   });
   const cam = {
     default: [0, 4, 3.75, 0, 0, 0],
-    seg: [16, 8, 2.3, 0, 0.3, 0],
+    seg: [18, 16, 2.4, 0, 0.28, 0],
     bars: [-6, 4, 3.0, 0.42, 0.24, 0],
     matrix: [32, 30, 2.5, 0.76, 0.1, -0.32],
     scatter: [8, 6, 2.1, 0.76, 0.52, 0.2],
@@ -3446,88 +3541,1271 @@ void main() {
   });
 };
 
-// STUB of the people set (tools/pet/SPEC.md), for engine work before the real set exists: the spec's params, anchors,
-// labels, cam views, controls and api (with the same stand-in maths), drawn with plain meshes and points.
+// `people`: one scan, one network; then the people on its index (the PET story). The poster's panels 3 and 4: one
+// person's organ uptakes (bars), the 7 x 7 field of their pairwise log ratios (glowing columns), a glass threshold
+// plane, the lit columns flying up to become this person's directed network on a ring, its two measures (Clearance,
+// Heterogeneity) on gauges and the metabolic displacement index on a dial. Then the poster's results, as group
+// summaries only: 593 stand-in dots on a map of the two measures that slide onto the index axis (the strip plot),
+// survival by the index's thirds, the immunotherapy test (two summary bands and the AUC bars) and follow-up.
+// The one-scan maths is the stand-in of tools/pet/data/gen_data.mjs (the poster names the measures; its formulas are not
+// published). The dots are drawn (seeded) to follow each group's summary, never real patients. Everything is built
+// once; update() sets uniforms, a few dozen instances and, when a value changes, the gauges' small readout.
+// Frame: y up, the viewer at +z. One scan around the origin (bars left, ring of seven above the field, gauges right);
+// the population in the same place (map, then strip), survival on a panel to the left, immunotherapy to the right.
 SETS.people = function (K) {
-  const { THREE } = K, set = K.newSet('people'), S1 = PET_DATA.single, ON = S1.organs, N = ON.length, PK = ['healthy', 'cancer', 'both', 'dys'];
-  const G = (PET_DATA.poster && PET_DATA.poster.mdi && PET_DATA.poster.mdi.groups) || [], GC = { cancer: '#d9dde6', both: '#9b5de5', dys: '#ff4fd8', healthy: '#38bdf8' };
-  const col = id => (PET_DATA.organs.find(o => o.id === id) || { col: '#ffffff' }).col;
+  const { THREE, clamp, lerp, prog, rgb } = K;
+  const set = K.newSet('people');
+  const D = PET_DATA, S1 = D.single || {}, PO = D.poster || {}, PI = Math.PI, TAU = 2 * PI;
+  const ICONS = typeof PET_ICONS !== 'undefined' ? PET_ICONS : null;
+  const R = K.rng(5930);
+  const sat = x => clamp(Number.isFinite(x) ? x : 0, 0, 1);
+  const hexOf = c => '#' + c.map(v => Math.round(clamp(v, 0, 1) * 255).toString(16).padStart(2, '0')).join('');
+  const fmt = n => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  const cap = s => String(s).charAt(0).toUpperCase() + String(s).slice(1);
+
+  // ---------------------------------------------------------------- the organs, the profiles, the maths
+  const ONE = (S1.organs || ['liver', 'aorta', 'spleen', 'pancreas', 'kidneys', 'fat', 'muscle']).slice(), N = ONE.length;
+  const ORG = ONE.map(id => (D.organs || []).find(o => o.id === id) || { id, name: id, short: cap(id), col: '#9aa3b5' });
+  const OCOL = ORG.map(o => rgb(o.col));
+  const KID = ONE.indexOf('kidneys');
+  const PROF = ['healthy', 'cancer', 'both', 'dys'];
+  const PROFN = { healthy: 'Healthy', cancer: 'Cancer', both: 'Cancer + dyslipidaemia', dys: 'Dyslipidaemia' };
+  const SP = S1.profiles || {}, P0 = SP.healthy || { u: ONE.map(() => 1), C: 0, H: 0 };
+  const PU = PROF.map(k => (SP[k] || P0).u.slice());
+  const PROJ = S1.proj || { m: 0, a: 1, b: 0 }, SOFT = S1.soft || 0.08, THETA = S1.theta || 2;
+  const GKEY = ['cancer', 'both', 'dys', 'healthy'];                    // people_group 1..4
+  const GHEX = { cancer: '#d9dde6', both: '#9b5de5', dys: '#ff4fd8', healthy: '#38bdf8' };
+  const GCOL = GKEY.map(k => rgb(GHEX[k]));
+  const THIRD = ['#38bdf8', '#a78bfa', '#d9dde6'].map(rgb);
+  const WARM = rgb('#ffb43b'), HUBC = rgb('#ffb020'), CYAN = rgb('#46d9ff'), INK = rgb('#e7eef8'), MUTED = rgb('#95a6bd'), CLIN = rgb('#8d97aa');
+  const GOOD = rgb('#38bdf8'), POOR = rgb('#d9dde6'), PANEL = [0.022, 0.04, 0.075];
+
+  // the poster's one-scan network with the stand-in maths of gen_data.mjs (exactly): link i -> j weighs
+  // sigmoid((ln(u_i / u_j) - ln theta) / soft); Clearance = mean of the kidneys' outgoing links; Heterogeneity = Gini
+  // coefficient of the strengths (in + out); index = m + a C + b H, between 0 and 10
+  const sig = x => 1 / (1 + Math.exp(-x));
   function measure(u, theta) {
-    const lt = Math.log(theta), e = u.map(() => new Array(N).fill(0)), s = new Array(N).fill(0);
-    for (let i = 0; i < N; i++) for (let j = 0; j < N; j++) if (i !== j) { e[i][j] = 1 / (1 + Math.exp(-(Math.log(u[i] / u[j]) - lt) / S1.soft)); s[i] += e[i][j]; s[j] += e[i][j]; }
-    const k = ON.indexOf('kidneys'), C = e[k].reduce((a, v, j) => a + (j === k ? 0 : v), 0) / (N - 1), m = s.reduce((a, v) => a + v, 0) / N;
-    let g = 0; for (const a of s) for (const b of s) g += Math.abs(a - b);
+    const lt = Math.log(theta > 0 ? theta : THETA), uu = ONE.map((_, i) => Math.max(1e-3, +u[i] || 0));
+    const e = uu.map(() => new Array(N).fill(0)), s = new Array(N).fill(0);
+    for (let i = 0; i < N; i++) for (let j = 0; j < N; j++) if (i !== j) {
+      const v = sig((Math.log(uu[i] / uu[j]) - lt) / SOFT);
+      e[i][j] = v; s[i] += v; s[j] += v;
+    }
+    const C = KID < 0 ? 0 : e[KID].reduce((a, v, j) => a + (j === KID ? 0 : v), 0) / (N - 1);
+    const m = s.reduce((a, v) => a + v, 0) / N;
+    let g = 0;
+    for (const a of s) for (const b of s) g += Math.abs(a - b);
     const H = m > 0 ? g / (2 * N * N * m) : 0;
-    return { e, s, C, H, mdi: Math.max(0, Math.min(10, S1.proj.m + S1.proj.a * C + S1.proj.b * H)) };
+    return { e, s, C, H, mdi: clamp(PROJ.m + PROJ.a * C + PROJ.b * H, 0, 10) };
   }
-  const ring = ON.map((o, i) => { const a = i / N * Math.PI * 2; return [Math.sin(a) * 0.55, 0.75 + Math.cos(a) * 0.3, Math.cos(a) * 0.2]; });
-  const nodes = ON.map((o, i) => { const m = new THREE.Mesh(new THREE.SphereGeometry(0.05, 16, 12), K.fade(set, new THREE.MeshBasicMaterial({ color: col(o) }), 1)); m.position.set(...ring[i]); m.userData.organ = o; set.group.add(m); return m; });
-  const bars = ON.map((o, i) => { const m = new THREE.Mesh(new THREE.BoxGeometry(1, 0.05, 0.03), K.fade(set, new THREE.MeshBasicMaterial({ color: col(o) }), 1)); set.group.add(m); return m; });
-  const field = new THREE.InstancedMesh(new THREE.BoxGeometry(0.08, 1, 0.08), K.fade(set, new THREE.MeshBasicMaterial({ color: 0xffb43b }), 0.9), N * N); set.group.add(field);
-  const plane = new THREE.Mesh(new THREE.PlaneGeometry(0.9, 0.9), K.fade(set, new THREE.MeshBasicMaterial({ color: 0x9fe8ff, side: THREE.DoubleSide }), 0.25)); plane.rotation.x = -Math.PI / 2; set.group.add(plane);
-  const lg = K.linesGeo(N * N), links = new THREE.LineSegments(lg, K.lines(set)); set.group.add(links);
-  const gauge = new THREE.Mesh(new THREE.BoxGeometry(0.06, 1, 0.06), K.fade(set, new THREE.MeshBasicMaterial({ color: 0xffb43b }), 1)); set.group.add(gauge);
-  // the population: dots by group (stand-ins), and the group centres
-  const NP = G.reduce((a, g) => a + g.n, 0), pg = K.pointsGeo(NP || 1), PP = pg.attributes.position.array, r = K.rng(5), grp = [], mx = [];
-  G.forEach((g, gi) => { const c = K.rgb(GC[g.key] || '#ffffff'); for (let k = 0; k < g.n; k++) { const i = grp.length; grp.push(gi); mx.push(g.centre + K.gauss(r) * (g.err[1] - g.err[0]) * 0.6); pg.attributes.aCol.array.set(c, 3 * i); pg.attributes.aSize.array[i] = 0.018; } });
-  const dots = new THREE.Points(pg, K.points(set)); set.group.add(dots);
-  const cent = G.map((g, gi) => { const m = new THREE.Mesh(new THREE.SphereGeometry(0.04, 16, 12), K.fade(set, new THREE.MeshBasicMaterial({ color: GC[g.key] || '#fff' }), 1)); m.userData.group = gi + 1; set.group.add(m); return m; });
-  const km = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.8, 0.02), K.fade(set, new THREE.MeshBasicMaterial({ color: 0x38bdf8 }), 0.3)); km.position.set(0, -1.4, 0); set.group.add(km);
-  const auc = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.6, 0.02), K.fade(set, new THREE.MeshBasicMaterial({ color: 0xffb43b }), 0.3)); auc.position.set(1.8, -1.4, 0); set.group.add(auc);
-  let S0 = {};
-  const uOf = S => { if (S.people_custom > 0.5) return ON.map((o, i) => S['people_u' + i]); const p = S.people_profile, a = Math.floor(p), b = Math.min(3, a + 1), f = p - a; return S1.profiles[PK[a]].u.map((v, i) => K.lerp(v, S1.profiles[PK[b]].u[i], f)); };
-  const strip = gi => [(G[gi] ? G[gi].centre : 5) * 0.2 - 1, -0.45 - gi * 0.12, 0];
-  const A = { one: [0, 0.75, 0], bars: [-1.1, 0.4, 0], field: [0, 0, 0], plane: () => [0, 0.05 + Math.log(S0.people_theta || 1.5) * 0.5, 0], metrics: [0.9, 0.5, 0],
-    map: [0, -0.6, 0], strip: [0, -0.6, 0], km: [0, -1.4, 0], auc: [1.8, -1.4, 0] };
-  ON.forEach((o, i) => { A[o] = ring[i]; });
-  G.forEach((g, gi) => { A['g' + (gi + 1)] = () => cent[gi].position.toArray(); });
-  const params = { people_a: 1, people_bars: 0, people_ratio: 0, people_thresh: 0, people_one: 0, people_metrics: 0, people_profile: 0, people_custom: 0, people_theta: S1.theta,
-    people_map: 0, people_mdi: 0, people_group: 0, people_km: 0, people_response: 0, people_follow: 0 };
-  ON.forEach((o, i) => { params['people_u' + i] = S1.profiles.healthy.u[i]; });
-  const _m = new THREE.Matrix4();
-  return Object.assign(set, {
-    params,
-    update(S, t) {
-      S0 = S;
-      const u = uOf(S), th = S.people_theta, R = measure(u, th), lt = Math.log(th);
-      bars.forEach((b, i) => { b.visible = S.people_bars > 0.02; b.scale.x = Math.max(1e-3, u[i] * 0.15 * S.people_bars); b.position.set(-1.4 + b.scale.x / 2, 0.75 - i * 0.08, 0); });
-      for (let i = 0; i < N; i++) for (let j = 0; j < N; j++) { const v = i === j ? 0 : Math.max(0, Math.log(u[i] / u[j])) * S.people_ratio; _m.makeScale(1, Math.max(1e-3, v * 0.5), 1).setPosition((j - 3) * 0.12, v * 0.25, (i - 3) * 0.12); field.setMatrixAt(i * N + j, _m); }
-      field.instanceMatrix.needsUpdate = true; field.visible = S.people_ratio > 0.02;
-      plane.visible = S.people_thresh > 0.02; plane.position.y = lt * 0.5 * S.people_thresh;
-      const P = lg.attributes.position.array, Al = lg.attributes.aA.array, Cl = lg.attributes.aCol.array;
-      for (let i = 0; i < N; i++) for (let j = 0; j < N; j++) { const k = i * N + j; P.set([...ring[i], ...ring[j]], 6 * k); Cl.set([1, 0.7, 0.3, 0.3, 0.6, 1], 6 * k); Al[2 * k] = Al[2 * k + 1] = R.e[i][j] * S.people_one; }
-      lg.attributes.position.needsUpdate = lg.attributes.aA.needsUpdate = lg.attributes.aCol.needsUpdate = true; links.visible = S.people_one > 0.02;
-      nodes.forEach((n, i) => { n.visible = S.people_one > 0.02 || S.people_bars > 0.5; n.scale.setScalar(0.6 + R.s[i] * 0.15 * (S.people_metrics > 0.5 ? 1 : 0.4)); });
-      gauge.visible = S.people_metrics > 0.02; gauge.scale.y = Math.max(1e-3, R.mdi / 10); gauge.position.set(0.9, 0.3 + gauge.scale.y / 2, 0);
-      dots.visible = S.people_map > 0.02;
-      const g0 = Math.round(S.people_group);
-      for (let i = 0; i < NP; i++) {
-        const gi = grp[i], m = [(((i * 0.618) % 1) - 0.5) * 1.6, -0.6 + (((i * 0.377) % 1) - 0.5) * 0.6, 0], s = [mx[i] * 0.2 - 1, strip(gi)[1] + (((i * 0.21) % 1) - 0.5) * 0.06, 0];
-        PP.set(K.v3.lerp(m, s, S.people_mdi), 3 * i); pg.attributes.aA.array[i] = S.people_map * (g0 && g0 !== gi + 1 ? 0.2 : 1);
-      }
-      pg.attributes.position.needsUpdate = pg.attributes.aA.needsUpdate = true;
-      cent.forEach((c, gi) => { c.visible = S.people_mdi > 0.3; c.position.set(...strip(gi)); c.scale.setScalar(g0 === gi + 1 ? 1.6 : 1); });
-      km.visible = S.people_km > 0.02; auc.visible = S.people_response > 0.02;
-    },
-    anchors: A,
-    labels: ON.map((o, i) => ({ text: [PET_DATA.organs.find(x => x.id === o).short, ''], at: o, alpha: S => K.prog(S.people_one, 0.5, 1) * (1 - S.people_map) }))
-      .concat([{ text: ['threshold', ''], at: 'plane', cls: 'cyn', alpha: S => K.prog(S.people_thresh, 0.5, 1) * (1 - S.people_one) },
-        { text: ['displacement index', 'illustrative maths'], at: 'metrics', cls: 'amb', alpha: S => K.prog(S.people_metrics, 0.5, 1) * (1 - S.people_map) }],
-      G.map((g, gi) => ({ text: [g.name, 'n = ' + g.n], at: 'g' + (gi + 1), alpha: S => K.prog(S.people_mdi, 0.6, 1) * (1 - S.people_km) }))),
-    cam: { default: [0, 10, 3.6, 0, 0.4, 0], one: [-10, 12, 3.0, -0.3, 0.6, 0], field: [20, 35, 2.2, 0, 0.1, 0], metrics: [0, 8, 3.0, 0.2, 0.55, 0],
-      map: [0, 4, 3.0, 0, -0.6, 0], strip: [0, 2, 2.8, 0, -0.65, 0], km: [0, 0, 2.4, 0, -1.4, 0], auc: [0, 0, 2.2, 1.8, -1.4, 0] },
-    controls: [{ key: 'view', label: 'View', options: [['one', 'One scan'], ['ratios', 'Ratios'], ['people', 'People'], ['index', 'Index'], ['survival', 'Survival'], ['immunotherapy', 'Immunotherapy']] },
-      { key: 'profile', label: 'Profile', options: [['healthy', 'Healthy'], ['cancer', 'Cancer'], ['both', 'Cancer + dyslipidaemia'], ['dys', 'Dyslipidaemia']] }],
-    explore(c) {
-      const v = c.view, one = v === 'one' || v === 'ratios';
-      return { people_bars: v === 'one' ? 1 : 0, people_ratio: v === 'ratios' ? 1 : 0, people_thresh: one ? 1 : 0, people_one: v === 'one' ? 1 : 0, people_metrics: v === 'one' ? 1 : 0,
-        people_profile: Math.max(0, PK.indexOf(c.profile)), people_map: one ? 0 : 1, people_mdi: v === 'index' ? 1 : 0, people_km: v === 'survival' ? 1 : 0, people_response: v === 'immunotherapy' ? 1 : 0 };
-    },
-    api() {
-      return { measure, organs: ON,
-        pick(rc) { const hit = rc.intersectObjects(nodes.concat(cent).filter(m => m.visible), false)[0]; return !hit ? null : hit.object.userData.organ ? { organ: hit.object.userData.organ } : { group: hit.object.userData.group }; } };
-    },
+  // the uptakes on show: the profiles blended (people_profile 0..3), or the custom values
+  function uptakes(S, out) {
+    const p = clamp(Number.isFinite(S.people_profile) ? S.people_profile : 0, 0, 3), lo = Math.floor(p), hi = Math.min(3, lo + 1), f = p - lo;
+    const c = sat(S.people_custom);
+    for (let i = 0; i < N; i++) {
+      let v = lerp(PU[lo][i], PU[hi][i], f);
+      const cu = S['people_u' + i];
+      if (c > 0 && Number.isFinite(cu)) v = lerp(v, clamp(cu, 0.1, 5), c);
+      out[i] = v;
+    }
+    return out;
+  }
+
+  // ---------------------------------------------------------------- shared GLSL and builders
+  // per-link values (49 of them) and group alphas travel as packed vec4 arrays (few uniform registers)
+  const PK = `
+float pk(vec4 v, float r) { return r < 0.5 ? v.x : (r < 1.5 ? v.y : (r < 2.5 ? v.z : v.w)); }
+#define GET(A, I) pk(A[int((I) * 0.25 + 0.01)], (I) - 4.0 * floor((I) * 0.25 + 0.01))
+`;
+  const NL = N * N, NB = Math.ceil(NL / 4);
+  const packed = n => new Float32Array(4 * Math.ceil(n / 4));
+  const V = new THREE.Vector3();
+  const tr = (obj, p, out) => { V.set(p[0], p[1], p[2]).applyMatrix4(obj.matrix); out = out || [0, 0, 0]; out[0] = V.x; out[1] = V.y; out[2] = V.z; return out; };
+  const l3 = (a, b, f) => [lerp(a[0], b[0], f), lerp(a[1], b[1], f), lerp(a[2], b[2], f)];
+  const sub3 = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
+  const nrm3 = a => { const l = Math.hypot(a[0], a[1], a[2]) || 1; return [a[0] / l, a[1] / l, a[2] / l]; };
+  const crs3 = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+  const sub = (parent, x, y, z, yaw) => { const g = new THREE.Group(); g.position.set(x, y, z); g.rotation.y = yaw || 0; g.updateMatrix(); parent.add(g); return g; };
+
+  // lines whose alpha is set per group (aG) each frame
+  function lineSet(parent, ng, order, additive = true) {
+    const P = [], C = [], A = [], G = [], nb = Math.ceil(ng / 4);
+    const api = {
+      seg(a, b, c, al, g) { P.push(a[0], a[1], a[2], b[0], b[1], b[2]); C.push(...c, ...c); A.push(al, al); G.push(g, g); return api; },
+      dash(a, b, n, c, al, g) { for (let k = 0; k < n; k++) api.seg(l3(a, b, k / n), l3(a, b, (k + 0.55) / n), c, al, g); return api; },
+      build() {
+        const geo = new THREE.BufferGeometry();
+        geo.setAttribute('position', new THREE.Float32BufferAttribute(P, 3));
+        geo.setAttribute('aCol', new THREE.Float32BufferAttribute(C, 3));
+        geo.setAttribute('aA', new THREE.Float32BufferAttribute(A, 1));
+        geo.setAttribute('aG', new THREE.Float32BufferAttribute(G, 1));
+        const m = new THREE.ShaderMaterial({
+          uniforms: { uA: set.uA, uG: { value: new Float32Array(nb * 4) } },
+          transparent: true, depthWrite: false, blending: additive ? THREE.AdditiveBlending : THREE.NormalBlending,
+          vertexShader: `${PK}
+attribute vec3 aCol; attribute float aA, aG;
+uniform float uA; uniform vec4 uG[${nb}];
+varying vec3 vC; varying float vA;
+void main() { vC = aCol; vA = aA * uA * GET(uG, aG); gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+          fragmentShader: 'varying vec3 vC; varying float vA; void main() { if (vA < 0.003) discard; gl_FragColor = vec4(vC, vA); }',
+        });
+        set.mats.push(m);
+        const ls = new THREE.LineSegments(geo, m);
+        ls.frustumCulled = false; ls.renderOrder = order; parent.add(ls);
+        api.g = m.uniforms.uG.value;
+        return api;
+      },
+    };
+    return api;
+  }
+
+  // rounded rectangles, pills and dots (instanced quads in their parent's x-y plane): centre, half extents, corner
+  // radius, glow; colour and alpha; fill (0..1) and stroke width
+  const PILL_V = `
+attribute vec3 iP; attribute vec4 iS, iC; attribute vec2 iE;
+varying vec2 vQ; varying vec4 vS, vC; varying vec2 vE;
+void main() {
+  vec2 h = iS.xy + iS.w;
+  vQ = position.xy * 2.0 * h; vS = iS; vC = iC; vE = iE;
+  gl_Position = projectionMatrix * modelViewMatrix * vec4(iP + vec3(vQ, 0.0), 1.0);
+  if (iC.a < 0.003) gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
+}`;
+  const PILL_F = `
+uniform float uA;
+varying vec2 vQ; varying vec4 vS, vC; varying vec2 vE;
+void main() {
+  float rr = min(vS.z, min(vS.x, vS.y));
+  vec2 q = abs(vQ) - (vS.xy - rr);
+  float d = length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - rr;
+  float aa = max(fwidth(d), 1e-5);
+  float inside = 1.0 - smoothstep(-aa, aa, d);
+  float stroke = vE.y > 0.0 ? 1.0 - smoothstep(vE.y - aa, vE.y + aa, abs(d)) : 0.0;
+  float glow = vS.w > 0.0 ? exp(-max(d, 0.0) / (0.38 * vS.w)) * (1.0 - inside) * 0.5 : 0.0;
+  float core = 1.0 - smoothstep(0.0, vS.y, abs(vQ.y));
+  vec3 col = mix(vC.rgb, vec3(1.0), 0.16 * core * inside * vE.x + 0.35 * stroke);
+  float a = max(max(inside * vE.x, stroke), glow) * vC.a * uA;
+  if (a < 0.003) discard;
+  gl_FragColor = vec4(col, a);
+}`;
+  function pillSet(parent, n, order, additive) {
+    const base = new THREE.PlaneGeometry(1, 1), geo = new THREE.InstancedBufferGeometry();
+    geo.index = base.index; geo.setAttribute('position', base.attributes.position);
+    const iP = new Float32Array(3 * n), iS = new Float32Array(4 * n), iC = new Float32Array(4 * n), iE = new Float32Array(2 * n);
+    const at = { iP: new THREE.InstancedBufferAttribute(iP, 3), iS: new THREE.InstancedBufferAttribute(iS, 4), iC: new THREE.InstancedBufferAttribute(iC, 4), iE: new THREE.InstancedBufferAttribute(iE, 2) };
+    for (const k in at) { at[k].setUsage(THREE.DynamicDrawUsage); geo.setAttribute(k, at[k]); }
+    geo.instanceCount = n;
+    const m = new THREE.ShaderMaterial({ uniforms: { uA: set.uA }, vertexShader: PILL_V, fragmentShader: PILL_F, transparent: true, depthWrite: false,
+      blending: additive ? THREE.AdditiveBlending : THREE.NormalBlending, extensions: { derivatives: true } });
+    set.mats.push(m);
+    const mesh = new THREE.Mesh(geo, m);
+    mesh.frustumCulled = false; mesh.renderOrder = order; parent.add(mesh);
+    const base0 = new Float32Array(n);   // each instance's resting alpha
+    return {
+      mesh,
+      put(k, x, y, z, hx, hy, rr, glow, col, a, fill = 1, stroke = 0) {
+        iP[3 * k] = x; iP[3 * k + 1] = y; iP[3 * k + 2] = z;
+        iS[4 * k] = hx; iS[4 * k + 1] = hy; iS[4 * k + 2] = rr; iS[4 * k + 3] = glow;
+        iC[4 * k] = col[0]; iC[4 * k + 1] = col[1]; iC[4 * k + 2] = col[2]; iC[4 * k + 3] = 0; base0[k] = a;
+        iE[2 * k] = fill; iE[2 * k + 1] = stroke;
+      },
+      x(k, x, hx) { iP[3 * k] = x; iS[4 * k] = hx; },
+      col(k, c) { iC[4 * k] = c[0]; iC[4 * k + 1] = c[1]; iC[4 * k + 2] = c[2]; },
+      a(k, f) { iC[4 * k + 3] = base0[k] * f; },
+      flush() { for (const k in at) at[k].needsUpdate = true; },
+    };
+  }
+
+  // a canvas texture on a plane (square power-of-two canvas, so mipmaps work everywhere): draw(ctx, X, Y, px)
+  // gets x and y in the plane's local units; the plane's alpha is set with .k
+  const FONT = 'system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif';
+  const font = (w, px) => `${w} ${Math.round(px)}px ${FONT}`;
+  function textPlane(parent, cx, cy, z, w, h, size, order, draw) {
+    const cv = document.createElement('canvas'); cv.width = size; cv.height = Math.round(size * h / w);
+    const ctx = cv.getContext('2d'), px = size / w;
+    if (draw) draw(ctx, x => (x - (cx - w / 2)) * px, y => (cy + h / 2 - y) * px, px);
+    const tex = new THREE.CanvasTexture(cv);
+    tex.anisotropy = 4;
+    const m = new THREE.ShaderMaterial({
+      uniforms: { uA: set.uA, uK: { value: 0 }, uMap: { value: tex } }, transparent: true, depthWrite: false,
+      vertexShader: 'varying vec2 vUv; void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+      fragmentShader: 'uniform sampler2D uMap; uniform float uA, uK; varying vec2 vUv; void main() { vec4 c = texture2D(uMap, vUv); float a = c.a * uA * uK; if (a < 0.003) discard; gl_FragColor = vec4(c.rgb, a); }',
+    });
+    set.mats.push(m);
+    const mesh = new THREE.Mesh(new THREE.PlaneGeometry(w, h), m);
+    mesh.position.set(cx, cy, z); mesh.renderOrder = order; mesh.frustumCulled = false;
+    parent.add(mesh);
+    return { mesh, m, ctx, cv, tex, px, set k(v) { m.uniforms.uK.value = v; mesh.visible = v > 0.003; } };
+  }
+
+  // ---------------------------------------------------------------- sub-frames
+  const gBars = sub(set.group, 0, 0, 0), gRing = sub(set.group, 0, 0, 0), gField = sub(set.group, 0, 0, 0);
+  const gMet = sub(set.group, 1.08, 0.33, 0.14, -0.24), gPop = sub(set.group, 0, 0, 0);
+  const gKM = sub(set.group, -2.38, 0.2, 0.5, 0.52), gAUC = sub(set.group, 2.38, 0.2, 0.5, -0.52);
+  const gFloor = new THREE.Group(); gFloor.rotation.x = -PI / 2; gField.add(gFloor);   // local (x, y, z) -> (x, z, -y)
+
+  // ---------------------------------------------------------------- icons: node discs, bar icons, the field's headers
+  const ATL = ICONS ? ICONS.atlas(THREE, 128) : null;
+  const icoMat = new THREE.ShaderMaterial({
+    uniforms: { uA: set.uA, uPx: K.U.uPx, uMap: { value: ATL ? ATL.texture : null }, uHas: { value: ATL ? 1 : 0 }, uHub: { value: new THREE.Color(...HUBC) } },
+    transparent: true, depthWrite: false,
+    vertexShader: K.GLSL + `
+attribute vec3 aCol; attribute float aSize, aA, aHub, aDisc; attribute vec4 aUV;
+uniform float uA;
+varying vec3 vC; varying float vA, vHub, vDisc; varying vec4 vUV;
+void main() {
+  vC = aCol; vA = aA * uA; vHub = aHub; vDisc = aDisc; vUV = aUV;
+  vec4 mv = modelViewMatrix * vec4(position, 1.0);
+  gl_Position = projectionMatrix * mv;
+  gl_PointSize = pointPx(aSize, mv);
+  if (vA < 0.004) gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
+}`,
+    fragmentShader: `
+uniform sampler2D uMap; uniform vec3 uHub; uniform float uHas;
+varying vec3 vC; varying float vA, vHub, vDisc; varying vec4 vUV;
+void main() {
+  vec2 pc = gl_PointCoord; float d = length(pc - 0.5) * 2.0;
+  if (d > 1.0) discard;
+  vec2 q = (pc - 0.5) / mix(0.92, 0.66, vDisc) + 0.5;
+  float ic = 0.0;
+  if (uHas > 0.5 && q.x > 0.0 && q.x < 1.0 && q.y > 0.0 && q.y < 1.0) ic = texture2D(uMap, vec2(mix(vUV.x, vUV.z, q.x), mix(vUV.w, vUV.y, q.y))).a;
+  float ring = (smoothstep(0.74, 0.8, d) - smoothstep(0.93, 1.0, d)) * vDisc;
+  float disc = (1.0 - smoothstep(0.94, 1.0, d)) * vDisc;
+  vec3 fill = mix(vec3(0.025, 0.045, 0.085), uHub, vHub * 0.85);
+  vec3 ink = mix(mix(vec3(0.95, 0.97, 1.0), vC, 0.3 + 0.5 * (1.0 - vDisc)), vec3(0.16, 0.08, 0.0), vHub);
+  vec3 col = mix(mix(fill, ink, ic), mix(vC, vec3(1.0, 0.86, 0.5), vHub * 0.7), ring);
+  gl_FragColor = vec4(col, max(disc * 0.92, max(ic, ring)) * vA);
+}`,
   });
+  set.mats.push(icoMat);
+  function iconPoints(parent, list, order) {   // list: [{ p, oi, size, disc }]
+    const geo = K.pointsGeo(list.length);
+    geo.setAttribute('aUV', new THREE.BufferAttribute(new Float32Array(4 * list.length), 4));
+    geo.setAttribute('aHub', new THREE.BufferAttribute(new Float32Array(list.length), 1));
+    geo.setAttribute('aDisc', new THREE.BufferAttribute(new Float32Array(list.length).fill(1), 1));
+    list.forEach((L, k) => {
+      geo.attributes.position.array.set(L.p, 3 * k);
+      geo.attributes.aCol.array.set(OCOL[L.oi], 3 * k);
+      geo.attributes.aSize.array[k] = L.size;
+      geo.attributes.aDisc.array[k] = L.disc === undefined ? 1 : L.disc;
+      if (ATL) geo.attributes.aUV.array.set(ATL.uv(ONE[L.oi]), 4 * k);
+    });
+    for (const n of ['aA', 'aSize', 'aHub']) geo.attributes[n].setUsage(THREE.DynamicDrawUsage);
+    const pts = new THREE.Points(geo, icoMat);
+    pts.frustumCulled = false; pts.renderOrder = order; parent.add(pts);
+    return geo;
+  }
+
+  // ================================================================ ONE SCAN
+  // ---------------------------------------------------------------- the bars (poster's panel 3)
+  const BY = k => 0.66 - k * 0.1, BX0 = 0.075, BK = 0.16, BTRK = 5 * BK;    // rows, the track's start, units per SUV
+  const bPill = pillSet(gBars, 2 * N + 1, 3, false);
+  bPill.put(2 * N, 0.46, BY((N - 1) / 2), -0.02, 0.56, 0.38, 0.05, 0, PANEL, 0.55, 1, 0.0025);
+  for (let i = 0; i < N; i++) {
+    bPill.put(i, BX0 + BTRK / 2, BY(i), -0.004, BTRK / 2, 0.021, 0.021, 0, [0.16, 0.2, 0.28], 0.55);
+    bPill.put(N + i, BX0, BY(i), 0, 0.001, 0.021, 0.021, 0.022, OCOL[i], 1);
+  }
+  const bIco = iconPoints(gBars, ONE.map((id, i) => ({ p: [0, BY(i), 0.004], oi: i, size: 0.078, disc: 0 })), 6);
+  const bLines = lineSet(gBars, 4, 2);
+  for (let v = 1; v <= 5; v++) bLines.seg([BX0 + v * BK, BY(N - 1) - 0.05, -0.006], [BX0 + v * BK, BY(0) + 0.045, -0.006], MUTED, v % 2 ? 0.12 : 0.2, 0);
+  bLines.build();
+
+  // ---------------------------------------------------------------- the ratio field, the threshold plane
+  const FY = -0.62, FZ = 0.3, FP = 0.155, HS = 0.3, HMAX = 0.98, CW = 0.104;   // floor, centre z, pitch, height per ln unit
+  const cellX = j => (j - (N - 1) / 2) * FP, cellZ = i => FZ + (i - (N - 1) / 2) * FP;
+  const fPill = pillSet(gFloor, NL + 1, 1, false);
+  fPill.put(NL, 0, -FZ, FY - 0.002, (N * FP) / 2 + 0.05, (N * FP) / 2 + 0.05, 0.05, 0, PANEL, 0.82, 1, 0.003);
+  for (let i = 0; i < N; i++) for (let j = 0; j < N; j++) {
+    const k = i * N + j;
+    fPill.put(k, cellX(j), -cellZ(i), FY, FP * 0.44, FP * 0.44, 0.016, 0, i === j ? OCOL[i].map(v => v * 0.35) : [0.07, 0.1, 0.16], i === j ? 0.9 : 0.75);
+  }
+  const plPill = pillSet(gFloor, 1, 4, false);
+  plPill.put(0, 0, -FZ, FY, (N * FP) / 2 + 0.07, (N * FP) / 2 + 0.07, 0.04, 0.03, CYAN, 0.16, 1, 0.004);
+  // the columns: one box each, its base on the floor; the part above the plane glows
+  const colGeo = new THREE.BoxGeometry(1, 1, 1); colGeo.translate(0, 0.5, 0);
+  const colMat = new THREE.ShaderMaterial({
+    uniforms: { uA: set.uA, uK: { value: 0 }, uPlane: { value: FY }, uThr: { value: 0 } },
+    transparent: true, depthWrite: true,
+    vertexShader: `
+attribute vec4 iCol; attribute float iF;
+varying vec3 vC, vN; varying float vY, vE, vF; varying vec2 vUv;
+void main() {
+  vec4 p = vec4(position, 1.0);
+#ifdef USE_INSTANCING
+  p = instanceMatrix * p;
+#endif
+  vY = p.y; vC = iCol.rgb; vE = iCol.a; vF = iF; vUv = uv; vN = normal;
+  gl_Position = projectionMatrix * modelViewMatrix * p;
+}`,
+    fragmentShader: `
+uniform float uA, uK, uPlane, uThr;
+varying vec3 vC, vN; varying float vY, vE, vF; varying vec2 vUv;
+void main() {
+  float above = smoothstep(uPlane - 0.004, uPlane + 0.004, vY);
+  float sh = 0.5 + 0.5 * clamp(dot(normalize(vN), normalize(vec3(-0.35, 0.85, 0.45))), 0.0, 1.0);
+  vec2 e2 = abs(vUv - 0.5); float edge = smoothstep(0.34, 0.5, max(e2.x, e2.y));
+  float lit = mix(0.85, mix(0.3, 0.55 + 1.05 * vE * (1.0 - 0.45 * vF), above), uThr);
+  vec3 col = vC * lit * (sh + 0.55 * edge) + vec3(1.0, 0.95, 0.85) * step(0.5, vN.y) * above * uThr * vE * 0.35 * (1.0 - 0.5 * vF);
+  gl_FragColor = vec4(col, uA * uK * mix(0.9, 0.97, above));
+}`,
+  });
+  set.mats.push(colMat);
+  const cols = new THREE.InstancedMesh(colGeo, colMat, NL);
+  const iCol = new THREE.InstancedBufferAttribute(new Float32Array(4 * NL), 4), iF = new THREE.InstancedBufferAttribute(new Float32Array(NL), 1);
+  iCol.setUsage(THREE.DynamicDrawUsage); iF.setUsage(THREE.DynamicDrawUsage);
+  colGeo.setAttribute('iCol', iCol); colGeo.setAttribute('iF', iF);
+  cols.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+  cols.frustumCulled = false; cols.renderOrder = 2;
+  gField.add(cols);
+  for (let i = 0; i < N; i++) for (let j = 0; j < N; j++) iCol.array.set(OCOL[i], 4 * (i * N + j));
+  // the headers: row i (the numerator) on the left edge, column j (the denominator) on the front edge
+  const fIco = iconPoints(gField, [
+    ...ONE.map((id, i) => ({ p: [cellX(0) - 0.13, FY + 0.05, cellZ(i)], oi: i, size: 0.092 })),
+    ...ONE.map((id, j) => ({ p: [cellX(j), FY + 0.05, cellZ(N - 1) + 0.13], oi: j, size: 0.092 })),
+  ], 6);
+
+  // ---------------------------------------------------------------- the ring of seven and the directed links
+  const RC = [0, 0.43, -0.05], RR = 0.42, TILT = 12 * PI / 180, RN = [0, Math.sin(TILT), Math.cos(TILT)];
+  // the poster's example network, read round: kidneys right, aorta and pancreas over them, liver and spleen left,
+  // fat and muscle below
+  const RING = ['kidneys', 'aorta', 'pancreas', 'liver', 'spleen', 'fat', 'muscle'];
+  const ORDER = RING.filter(id => ONE.includes(id)).concat(ONE.filter(id => !RING.includes(id)));
+  const NODE = ONE.map(id => {
+    const a = ORDER.indexOf(id) / N * TAU;
+    return [RC[0] + RR * Math.cos(a), RC[1] + RR * Math.sin(a) * Math.cos(TILT), RC[2] - RR * Math.sin(a) * Math.sin(TILT)];
+  });
+  // each ordered pair i -> j: a quadratic curve bowed towards the viewer and to its own side (i -> j and j -> i apart)
+  const BZ = [];
+  for (let i = 0; i < N; i++) for (let j = 0; j < N; j++) {
+    if (i === j) { BZ.push(null); continue; }
+    const a = NODE[i], b = NODE[j], c = sub3(b, a), L = Math.hypot(c[0], c[1], c[2]), side = nrm3(crs3(RN, c)), mid = l3(a, b, 0.5);
+    BZ.push([a, [mid[0] + RN[0] * (0.05 + 0.2 * L) + side[0] * 0.08 * L, mid[1] + RN[1] * (0.05 + 0.2 * L) + side[1] * 0.08 * L, mid[2] + RN[2] * (0.05 + 0.2 * L) + side[2] * 0.08 * L], b]);
+  }
+  const bez = (z, s) => { const u = 1 - s; return [u * u * z[0][0] + 2 * u * s * z[1][0] + s * s * z[2][0], u * u * z[0][1] + 2 * u * s * z[1][1] + s * s * z[2][1], u * u * z[0][2] + 2 * u * s * z[1][2] + s * s * z[2][2]]; };
+  // links as glowing tubes whose width and brightness follow the weight (uT) and the Clearance highlight (uB)
+  const LIGHT = [1, 0.93, 0.8];
+  let tubeMat;
+  {
+    const NS = 24, NRAD = 5, pos = [], off = [], col = [], ls = [], idx = [];
+    let v0 = 0;
+    for (let L = 0; L < NL; L++) {
+      const z = BZ[L]; if (!z) continue;
+      const i = Math.floor(L / N);
+      for (let q = 0; q <= NS; q++) {
+        const s = q / NS, c = bez(z, s), c2 = bez(z, Math.min(1, s + 0.01)), c1 = bez(z, Math.max(0, s - 0.01));
+        const T = nrm3(sub3(c2, c1)), n1 = nrm3(crs3(T, RN)), n2 = crs3(T, n1), cc = l3(OCOL[i], LIGHT, 0.25 + 0.55 * s);
+        for (let r = 0; r < NRAD; r++) {
+          const th = r / NRAD * TAU, o = [Math.cos(th) * n1[0] + Math.sin(th) * n2[0], Math.cos(th) * n1[1] + Math.sin(th) * n2[1], Math.cos(th) * n1[2] + Math.sin(th) * n2[2]];
+          pos.push(...c); off.push(...o); col.push(...cc); ls.push(L, s);
+        }
+      }
+      for (let q = 0; q < NS; q++) for (let r = 0; r < NRAD; r++) {
+        const a = v0 + q * NRAD + r, b = v0 + q * NRAD + (r + 1) % NRAD, c = a + NRAD, d = b + NRAD;
+        idx.push(a, c, b, b, c, d);
+      }
+      v0 += (NS + 1) * NRAD;
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    geo.setAttribute('aOff', new THREE.Float32BufferAttribute(off, 3));
+    geo.setAttribute('aCol', new THREE.Float32BufferAttribute(col, 3));
+    geo.setAttribute('aLS', new THREE.Float32BufferAttribute(ls, 2));
+    geo.setIndex(idx);
+    tubeMat = new THREE.ShaderMaterial({
+      uniforms: { uA: set.uA, uTime: K.U.uTime, uR0: { value: 0.0085 }, uT: { value: packed(NL) }, uB: { value: packed(NL) } },
+      transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+      vertexShader: `${PK}
+attribute vec3 aOff, aCol; attribute vec2 aLS;
+uniform float uA, uR0, uTime; uniform vec4 uT[${NB}], uB[${NB}];
+varying vec3 vC, vN, vW; varying float vA;
+void main() {
+  float T = GET(uT, aLS.x), B = GET(uB, aLS.x);
+  vec3 p = position + aOff * uR0 * (0.35 + 0.65 * min(T, 1.0)) * (0.8 + 0.5 * B);
+  float flow = 0.62 + 0.38 * sin(6.2832 * (aLS.y * 2.0 - uTime * 0.85));
+  vC = aCol * (0.55 + 0.6 * B); vA = uA * min(T, 1.0) * flow * min(B, 1.6);
+  vec4 w = modelMatrix * vec4(p, 1.0); vW = w.xyz; vN = normalize(mat3(modelMatrix) * aOff);
+  gl_Position = projectionMatrix * viewMatrix * w;
+  if (T < 0.004) gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
+}`,
+      fragmentShader: `
+varying vec3 vC, vN, vW; varying float vA;
+void main() {
+  float f = abs(dot(normalize(vN), normalize(cameraPosition - vW)));
+  float core = pow(f, 1.3);
+  gl_FragColor = vec4(vC * (0.55 + 0.9 * core), vA * (0.2 + 0.8 * core));
+}`,
+    });
+    set.mats.push(tubeMat);
+    const mesh = new THREE.Mesh(geo, tubeMat);
+    mesh.frustumCulled = false; mesh.renderOrder = 4; gRing.add(mesh);
+  }
+  // flowing particles: three comets on each link (a head and five fading behind it); while the network forms they
+  // fly up from their column in the field
+  const NPK = 3, NTR = 6, NPP = NPK * NTR;
+  const partMat = new THREE.ShaderMaterial({
+    uniforms: { uA: set.uA, uPx: K.U.uPx, uTime: K.U.uTime, uPlane: { value: FY }, uE: { value: packed(NL) }, uF: { value: packed(NL) }, uH: { value: packed(NL) } },
+    transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+    vertexShader: K.GLSL + PK + `
+attribute vec3 aP0, aP1, aP2, aSt, aCol; attribute vec3 aD;
+uniform float uA, uPlane; uniform vec4 uE[${NB}], uF[${NB}], uH[${NB}];
+varying vec3 vC; varying float vA;
+void main() {
+  float E = GET(uE, aD.x), F = GET(uF, aD.x), top = GET(uH, aD.x);
+  float s = clamp(fract(aD.y + uTime * 0.23) - aD.z * 0.017, 0.0, 1.0), u = 1.0 - s;
+  vec3 lp = u * u * aP0 + 2.0 * u * s * aP1 + s * s * aP2;
+  vec3 st = vec3(aSt.x, mix(uPlane, max(uPlane, top), aSt.z), aSt.y);
+  float f = smoothstep(0.0, 1.0, F);
+  vec3 pos = mix(st, lp, f); pos.y += sin(f * 3.14159) * 0.22;
+  float head = 1.0 - aD.z / ${NTR}.0;
+  vC = mix(aCol, vec3(1.0), 0.45 * head);
+  vA = uA * E * smoothstep(0.0, 0.06, F) * head * mix(1.0, smoothstep(0.0, 0.05, s) * smoothstep(1.0, 0.9, s), f);
+  vec4 mv = modelViewMatrix * vec4(pos, 1.0);
+  gl_Position = projectionMatrix * mv;
+  gl_PointSize = pointPx(0.03 * (0.45 + 0.55 * head), mv);
+  if (vA < 0.004) gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
+}`,
+    fragmentShader: `
+varying vec3 vC; varying float vA;
+void main() {
+  vec2 c = gl_PointCoord - 0.5; float d = length(c);
+  if (d > 0.5) discard;
+  float a = max(smoothstep(0.5, 0.15, d) * 0.9, pow(1.0 - d * 2.0, 1.5) * 0.6);
+  gl_FragColor = vec4(vC, a * vA);
+}`,
+  });
+  set.mats.push(partMat);
+  {
+    const n = (NL - N) * NPP, geo = new THREE.BufferGeometry(), A = {};
+    for (const [k, w] of [['position', 3], ['aP0', 3], ['aP1', 3], ['aP2', 3], ['aSt', 3], ['aCol', 3], ['aD', 3]]) A[k] = new Float32Array(n * w);
+    let q = 0;
+    for (let L = 0; L < NL; L++) {
+      const z = BZ[L]; if (!z) continue;
+      const i = Math.floor(L / N), j = L % N;
+      for (let pkt = 0; pkt < NPK; pkt++) {
+        const ph = (pkt + R() * 0.6) / NPK, yf = 0.2 + 0.8 * R(), jx = (R() - 0.5) * CW * 0.6, jz = (R() - 0.5) * CW * 0.6;
+        for (let tr = 0; tr < NTR; tr++, q++) {
+          A.aP0.set(z[0], 3 * q); A.aP1.set(z[1], 3 * q); A.aP2.set(z[2], 3 * q);
+          A.aSt.set([cellX(j) + jx, cellZ(i) + jz, yf], 3 * q);
+          A.aCol.set(l3(OCOL[i], LIGHT, 0.3), 3 * q);
+          A.aD.set([L, ph, tr], 3 * q);
+        }
+      }
+    }
+    for (const k in A) geo.setAttribute(k, new THREE.BufferAttribute(A[k], 3));
+    const pts = new THREE.Points(geo, partMat);
+    pts.frustumCulled = false; pts.renderOrder = 5; gRing.add(pts);
+  }
+  // the nodes: a halo (strength, hubs, the kidneys' star) under a disc with the organ's icon
+  const haloGeo = K.pointsGeo(N + 1);
+  NODE.forEach((p, i) => { haloGeo.attributes.position.array.set(p, 3 * i); haloGeo.attributes.aCol.array.set(OCOL[i], 3 * i); });
+  if (KID >= 0) { haloGeo.attributes.position.array.set(NODE[KID], 3 * N); haloGeo.attributes.aCol.array.set(OCOL[KID], 3 * N); }
+  for (const n of ['aA', 'aSize', 'aCol']) haloGeo.attributes[n].setUsage(THREE.DynamicDrawUsage);
+  const halos = new THREE.Points(haloGeo, K.points(set, {}));
+  halos.frustumCulled = false; halos.renderOrder = 6; gRing.add(halos);
+  const nIco = iconPoints(gRing, ONE.map((id, i) => ({ p: [NODE[i][0], NODE[i][1], NODE[i][2] + 0.01], oi: i, size: 0.13 })), 7);
+  const rLines = lineSet(gRing, 4, 3);
+  for (let k = 0; k < 96; k++) {
+    const a0 = k / 96 * TAU, a1 = (k + 0.6) / 96 * TAU;
+    const p = a => [RC[0] + RR * Math.cos(a), RC[1] + RR * Math.sin(a) * Math.cos(TILT), RC[2] - RR * Math.sin(a) * Math.sin(TILT) - 0.004];
+    rLines.seg(p(a0), p(a1), CYAN, 0.16, 0);
+  }
+  rLines.build();
+
+  // ---------------------------------------------------------------- the two measures and the index (poster's panel 4)
+  const GAUGE_V = 'varying vec2 vP; uniform float uS; void main() { vP = position.xy * uS; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }';
+  const GAUGE_F = `
+uniform float uA, uK, uVal, uFillK, uTicks, uMinor; uniform vec3 uZ; uniform vec4 uMkF; uniform vec3 uMkC[4]; uniform vec3 uFill;
+varying vec2 vP;
+const float PI = 3.14159265;
+float sweepOf(vec2 p) { float a = degrees(atan(p.y, p.x)); if (a < -90.0) a += 360.0; return (210.0 - a) / 240.0; }
+void main() {
+  vec2 p = vP; float r = length(p);
+  if (r > 1.13) discard;
+  float f = sweepOf(p), inS = step(0.0, f) * step(f, 1.0), aa = max(fwidth(r), 1e-4) * 1.2;
+  vec3 col = vec3(0.0); float al = 0.0;
+  // the dial's face: a dark disc
+  float face = 1.0 - smoothstep(0.99 - aa, 0.99 + aa, r);
+  col = vec3(0.022, 0.04, 0.075); al = face * 0.7;
+  // the band: track, shaded zones (the index dial), the value's fill
+  float band = smoothstep(0.78 - aa, 0.78 + aa, r) * (1.0 - smoothstep(0.93 - aa, 0.93 + aa, r)) * inS;
+  float zone = uZ.z * (step(f, uZ.x) + step(uZ.y, f));
+  vec3 track = mix(vec3(0.12, 0.17, 0.26), vec3(0.3, 0.32, 0.36), zone);
+  float filled = step(f, uVal * uFillK);
+  vec3 fill = uFill * (0.6 + 0.65 * f);
+  col = mix(col, mix(track, fill, filled), band); al = max(al, band * mix(0.85, 1.0, filled));
+  // ticks
+  float ft = floor(f * uTicks + 0.5) / uTicks, dT = abs(f - ft) * 4.18879 * r;
+  float tick = (1.0 - smoothstep(0.012 - aa, 0.012 + aa, dT)) * smoothstep(0.64 - aa, 0.64 + aa, r) * (1.0 - smoothstep(0.74 - aa, 0.74 + aa, r)) * inS;
+  float fm = floor(f * uMinor + 0.5) / uMinor, dM = abs(f - fm) * 4.18879 * r;
+  tick = max(tick, 0.5 * (1.0 - smoothstep(0.007 - aa, 0.007 + aa, dM)) * smoothstep(0.69 - aa, 0.69 + aa, r) * (1.0 - smoothstep(0.74 - aa, 0.74 + aa, r)) * inS);
+  col = mix(col, vec3(0.82, 0.88, 0.96), tick * 0.85); al = max(al, tick);
+  // the dashed range of the index dial
+  if (uZ.z > 0.5) for (int i = 0; i < 2; i++) {
+    float fz = i == 0 ? uZ.x : uZ.y, dz = abs(f - fz) * 4.18879 * r;
+    float dash = (1.0 - smoothstep(0.006 - aa, 0.006 + aa, dz)) * step(0.5, fract(r * 14.0)) * step(0.12, r) * (1.0 - smoothstep(0.93, 0.93 + aa, r));
+    col = mix(col, vec3(0.9), dash * 0.7); al = max(al, dash * 0.7);
+  }
+  // the groups' medians round the dial
+  for (int i = 0; i < 4; i++) {
+    float fg = i == 0 ? uMkF.x : (i == 1 ? uMkF.y : (i == 2 ? uMkF.z : uMkF.w));
+    if (fg < 0.0) continue;
+    float ag = radians(210.0 - 240.0 * fg); vec2 pg = vec2(cos(ag), sin(ag)) * 1.035;
+    float m = 1.0 - smoothstep(0.05 - aa, 0.05 + aa, length(p - pg));
+    col = mix(col, uMkC[i], m); al = max(al, m);
+  }
+  // the needle and its hub
+  float an = radians(210.0 - 240.0 * clamp(uVal, 0.0, 1.0)); vec2 nd = vec2(cos(an), sin(an));
+  float tN = clamp(dot(p, nd), 0.0, 0.86), wN = mix(0.05, 0.012, tN / 0.86);
+  float needle = (1.0 - smoothstep(wN - aa, wN + aa, length(p - nd * tN))) * uFillK;
+  col = mix(col, vec3(1.0, 0.96, 0.88), needle); al = max(al, needle);
+  float hub = 1.0 - smoothstep(0.085 - aa, 0.085 + aa, r), hubR = hub * (1.0 - smoothstep(0.05 - aa, 0.05 + aa, r));
+  col = mix(col, mix(uFill, vec3(0.05, 0.06, 0.08), hubR), hub); al = max(al, hub);
+  float a = al * uA * uK;
+  if (a < 0.003) discard;
+  gl_FragColor = vec4(col, a);
+}`;
+  function gauge(x, y, r, ticks, minor, zones, marks) {
+    const mk = [-1, -1, -1, -1], mc = [0, 1, 2, 3].map(() => new THREE.Vector3());
+    (marks || []).slice(0, 4).forEach((m, k) => { mk[k] = m[0]; mc[k].set(...m[1]); });
+    const m = new THREE.ShaderMaterial({
+      uniforms: { uA: set.uA, uK: { value: 0 }, uS: { value: 1.15 }, uVal: { value: 0 }, uFillK: { value: 0 }, uTicks: { value: ticks }, uMinor: { value: minor },
+        uZ: { value: new THREE.Vector3(zones ? zones[0] : 0, zones ? zones[1] : 1, zones ? 1 : 0) }, uMkF: { value: new THREE.Vector4(...mk) }, uMkC: { value: mc },
+        uFill: { value: new THREE.Vector3(...WARM) } },
+      vertexShader: GAUGE_V, fragmentShader: GAUGE_F, transparent: true, depthWrite: false, extensions: { derivatives: true },
+    });
+    set.mats.push(m);
+    const mesh = new THREE.Mesh(new THREE.PlaneGeometry(2 * r * 1.15, 2 * r * 1.15), m);
+    m.uniforms.uS.value = 1.15 / (r * 1.15);   // plane units -> dial units (the band's outer edge at 0.93)
+    mesh.position.set(x, y, 0); mesh.renderOrder = 3; gMet.add(mesh);
+    return m;
+  }
+  const MD = PO.mdi || {}, MG = GKEY.map(k => (MD.groups || []).find(g => g.key === k) || null);
+  const ZONE = Array.isArray(MD.dashed) && MD.dashed.length === 2 ? MD.dashed : null;
+  const GA = { C: [-0.24, 0.4, 0.2], H: [0.24, 0.4, 0.2], X: [0, -0.2, 0.32] };
+  const gC = gauge(GA.C[0], GA.C[1], GA.C[2], 5, 10);
+  const gH = gauge(GA.H[0], GA.H[1], GA.H[2], 6, 12);
+  const gX = gauge(GA.X[0], GA.X[1], GA.X[2], 10, 20, ZONE ? [ZONE[0] / 10, ZONE[1] / 10] : null,
+    MG.map((g, k) => (g && Number.isFinite(g.centre) ? [g.centre / 10, GCOL[k]] : [-1, [0, 0, 0]])));
+  const HMAXG = 0.6;     // the Heterogeneity gauge reads 0 to 0.6
+  // the readouts: one canvas, four cells (Clearance, Heterogeneity, index), redrawn when a value's text changes
+  const RO = textPlane(gMet, 0, 0, 0.004, 1, 0.125, 1024, 4, null);
+  RO.mesh.visible = false;
+  RO.mesh.geometry.dispose();
+  {
+    const cells = [[GA.C[0], GA.C[1] - 0.115, 0.15], [GA.H[0], GA.H[1] - 0.115, 0.15], [GA.X[0], GA.X[1] - 0.175, 0.2]];
+    const pos = [], uv = [], idx = [];
+    cells.forEach(([x, y, w], k) => {
+      const h = w / 2, u0 = k / 4, u1 = (k + 1) / 4;
+      pos.push(x - w / 2, y - h / 2, 0, x + w / 2, y - h / 2, 0, x + w / 2, y + h / 2, 0, x - w / 2, y + h / 2, 0);
+      uv.push(u0, 0, u1, 0, u1, 1, u0, 1);
+      idx.push(4 * k, 4 * k + 1, 4 * k + 2, 4 * k, 4 * k + 2, 4 * k + 3);
+    });
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    geo.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+    geo.setIndex(idx);
+    RO.mesh.geometry = geo; RO.mesh.position.set(0, 0, 0.004);
+  }
+  const roText = ['', '', ''];
+  function readout(k, txt) {
+    if (roText[k] === txt) return;
+    roText[k] = txt;
+    const c = RO.ctx, w = RO.cv.width / 4, h = RO.cv.height;
+    c.clearRect(k * w, 0, w, h);
+    c.font = font(700, h * 0.72); c.textAlign = 'center'; c.textBaseline = 'middle';
+    c.fillStyle = k === 2 ? hexOf(WARM) : hexOf(INK);
+    c.fillText(txt, k * w + w / 2, h * 0.54);
+    RO.tex.needsUpdate = true;
+  }
+
+  // ================================================================ THE POPULATION
+  // ---------------------------------------------------------------- stand-in dots that follow the poster's summaries
+  // each group's index values come from its quantiles (min, p10, p25, median, p75, p90, max; or a normal spread from
+  // its error bar), stratified so the summary is met; each dot's two measures are placed so that m + a C + b H gives
+  // its value: along the index's gradient from the group's illustrative profile, with a spread along the iso-line
+  const probit = p => { p = clamp(p, 1e-4, 1 - 1e-4); const q = p < 0.5 ? p : 1 - p, t = Math.sqrt(-2 * Math.log(q)); const x = t - (2.515517 + 0.802853 * t + 0.010328 * t * t) / (1 + 1.432788 * t + 0.189269 * t * t + 0.001308 * t * t * t); return p < 0.5 ? -x : x; };
+  function quantFn(g) {
+    const q = g.q || {}, err = Array.isArray(g.err) ? g.err : null, kn = [];
+    const add = (u, v) => { if (Number.isFinite(v)) kn.push([u, v]); };
+    add(0, g.min); add(0.1, q.p10); add(0.25, Number.isFinite(q.p25) ? q.p25 : err && err[0]); add(0.5, Number.isFinite(q.p50) ? q.p50 : g.centre);
+    add(0.75, Number.isFinite(q.p75) ? q.p75 : err && err[1]); add(0.9, q.p90); add(1, g.max);
+    for (let i = 1; i < kn.length; i++) kn[i][1] = Math.max(kn[i][1], kn[i - 1][1]);
+    if (kn.length >= 3 && kn[0][0] === 0 && kn[kn.length - 1][0] === 1) return u => {
+      for (let i = 1; i < kn.length; i++) if (u <= kn[i][0]) return lerp(kn[i - 1][1], kn[i][1], (u - kn[i - 1][0]) / (kn[i][0] - kn[i - 1][0]));
+      return kn[kn.length - 1][1];
+    };
+    const c = Number.isFinite(g.centre) ? g.centre : 5, sd = err ? Math.max(0.05, (err[1] - err[0]) / 1.349) : 0.8;
+    return u => clamp(c + sd * probit(u), 0, 10);
+  }
+  const strat = (n, k) => (n === 1 ? 0.5 : k === 0 ? 0 : k === n - 1 ? 1 : (k + R()) / n);
+  const shuffle = a => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(R() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+  const GAa = PROJ.a, GBb = PROJ.b, G2 = GAa * GAa + GBb * GBb || 1, GLn = Math.sqrt(G2), ISO = [-GBb / GLn, GAa / GLn], SPREAD = 0.06;
+  const QF = MG.map(g => (g ? quantFn(g) : null));
+  const DOTS = [];
+  GKEY.forEach((key, g) => {
+    const s = MG[g]; if (!s || !(s.n > 0)) return;
+    const n = Math.round(s.n), pc = SP[key] || P0, m0 = PROJ.m + GAa * pc.C + GBb * pc.H;
+    const vals = shuffle(Array.from({ length: n }, (_, k) => QF[g](strat(n, k))));
+    for (const v of vals) {
+      const t = (v - m0) / G2, b = K.gauss(R) * SPREAD;
+      DOTS.push({ g, v, C: pc.C + GAa * t + ISO[0] * b, H: pc.H + GBb * t + ISO[1] * b, k: R(), jy: R() - 0.5, jz: R() - 0.5, mz: R() - 0.5 });
+    }
+  });
+  const NDOT = DOTS.length;
+  // the map: Clearance across, Heterogeneity up, scaled to the dots (the stand-ins have no units to show)
+  let c0 = Infinity, c1 = -Infinity, h0 = Infinity, h1 = -Infinity;
+  for (const d of DOTS) { c0 = Math.min(c0, d.C); c1 = Math.max(c1, d.C); h0 = Math.min(h0, d.H); h1 = Math.max(h1, d.H); }
+  if (!(c1 > c0)) { c0 = 0; c1 = 1; } if (!(h1 > h0)) { h0 = 0; h1 = 0.5; }
+  const MAPR = { x0: -1.0, x1: 1.0, y0: -0.28, y1: 0.86 };
+  const MX = C => lerp(MAPR.x0, MAPR.x1, (C - c0) / (c1 - c0)), MY = H => lerp(MAPR.y0, MAPR.y1, (H - h0) / (h1 - h0));
+  // the strip: the index axis (0 to the poster's 10.7) and four rows, the poster's order from the top
+  const AXMAX = (Array.isArray(MD.axis) && MD.axis[1] > 1) ? MD.axis[1] : 10.7, SX0 = -1.32, SW = 2.64, SK = SW / AXMAX, AXY = -0.3;
+  const SX = v => SX0 + v * SK;
+  const ORDERG = (Array.isArray(MD.order) && MD.order.length ? MD.order : ['dys', 'healthy', 'both', 'cancer']).filter(k => GKEY.includes(k));
+  GKEY.forEach(k => { if (!ORDERG.includes(k)) ORDERG.push(k); });
+  const ROWY = GKEY.map(k => 0.45 - ORDERG.indexOf(k) * 0.19);
+  // follow-up (illustrative): the poster's follow-up groups; surgery and immunotherapy move towards the healthy range
+  const FU = ((PO.cohort || {}).followup || []).map(f => ({ name: cap(String(f.group || '')).replace(/^Neoadjuvant ICI$/i, 'Immunotherapy before surgery'), n: Math.round(+f.n || 0),
+    from: /bariatric|obes/i.test(f.group) ? 2 : /ici|immuno|lung/i.test(f.group) ? 0 : -1 })).filter(f => f.n > 0).slice(0, 3);
+  const FUY = FU.map((f, k) => 0.9 - k * 0.12);
+  const POOL = DOTS.map(d => d.v).sort((a, b) => a - b);
+  const QH = QF[3] || (u => 4.5);
+  const FDOTS = [];
+  FU.forEach((f, k) => {
+    for (let q = 0; q < f.n; q++) {
+      const u = strat(f.n, q), v0 = f.from >= 0 && QF[f.from] ? QF[f.from](u) : POOL.length ? POOL[Math.min(POOL.length - 1, Math.floor(u * POOL.length))] : 4.5;
+      const v1 = f.from >= 0 ? lerp(v0, QH(0.15 + 0.7 * R()), 0.75) : v0;
+      FDOTS.push({ f: k, v0, v1, k: R(), jy: R() - 0.5, jz: R() - 0.5, col: f.from >= 0 ? GCOL[f.from] : MUTED });
+    }
+  });
+  const NFD = FDOTS.length;
+
+  // ---------------------------------------------------------------- the dots (one draw: map, strip, follow-up rings)
+  const dotMat = new THREE.ShaderMaterial({
+    uniforms: { uA: set.uA, uPx: K.U.uPx, uMap: { value: 0 }, uMdi: { value: 0 }, uFol: { value: 0 }, uDim: { value: 1 }, uGF: { value: new Float32Array(8) },
+      uOrig: { value: new THREE.Vector3(...RC) }, uHealthy: { value: new THREE.Vector3(...GCOL[3]) } },
+    transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+    vertexShader: K.GLSL + PK + `
+attribute vec3 aMap, aStr, aEnd, aCol; attribute vec4 aD;
+uniform float uA, uMap, uMdi, uFol, uDim; uniform vec4 uGF[2]; uniform vec3 uOrig, uHealthy;
+varying vec3 vC; varying float vA, vPx, vRing; varying vec2 vCH;
+void main() {
+  float g = aD.x, k = aD.y, gf = GET(uGF, g), sz = 0.024, a;
+  vec3 pos; vC = aCol; vRing = 0.0; vCH = aD.zw;
+  if (g < 3.5) {
+    float r = smoothstep(k * 0.45, k * 0.45 + 0.55, uMap);
+    pos = mix(uOrig, aMap, r); pos.z += sin(3.14159 * r) * 0.3;
+    float q = smoothstep(k * 0.35, k * 0.35 + 0.65, uMdi);
+    pos = mix(pos, aStr, q); pos.z += sin(3.14159 * q) * 0.12;
+    a = smoothstep(0.0, 0.2, r) * min(gf, 1.0) * uDim * (1.0 - 0.62 * uFol);
+    sz *= 0.75 + 0.35 * gf;
+  } else {
+    float s = smoothstep(0.3 + 0.25 * k, 0.72 + 0.25 * k, uFol);
+    pos = mix(aStr, aEnd, s);
+    a = smoothstep(0.0, 0.25, uFol) * uMdi * uDim * gf;
+    vC = mix(aCol, uHealthy, s * step(0.001, distance(aEnd, aStr)));
+    vRing = 1.0; sz = 0.034;
+  }
+  vA = a * uA;
+  vec4 mv = modelViewMatrix * vec4(pos, 1.0);
+  gl_Position = projectionMatrix * mv;
+  gl_PointSize = pointPx(sz, mv); vPx = gl_PointSize;
+  if (vA < 0.004) gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
+}`,
+    fragmentShader: `
+varying vec3 vC; varying float vA, vPx, vRing; varying vec2 vCH;
+float seg(vec2 p, vec2 a, vec2 b) { vec2 pa = p - a, ba = b - a; float h = clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0); return length(pa - ba * h); }
+void main() {
+  vec2 c = gl_PointCoord - 0.5; c.y = -c.y; float d = length(c);
+  if (d > 0.5) discard;
+  float glow = pow(max(0.0, 1.0 - d * 2.0), 1.6), core = smoothstep(0.5, 0.18, d);
+  float a = max(core * 0.85, glow * 0.6);
+  vec3 col = mix(vC, vec3(1.0), smoothstep(0.22, 0.0, d) * 0.35);
+  if (vRing > 0.5) { a = smoothstep(0.5, 0.42, d) * smoothstep(0.25, 0.32, d) + glow * 0.25; col = vC; }
+  // close up (a big point: a headset near the strip) a dot becomes its person's mini network: seven nodes on a ring,
+  // the kidneys' spokes by Clearance, one node grown by Heterogeneity
+  float net = smoothstep(16.0, 30.0, vPx) * (1.0 - vRing);
+  if (net > 0.0) {
+    float m = 0.0, px = 1.6 / vPx, spokes = floor(vCH.x * 6.0 + 0.5);
+    vec2 n0 = vec2(0.0, 0.33);
+    for (int i = 0; i < 7; i++) {
+      float an = 1.5708 + 6.2832 * float(i) / 7.0;
+      vec2 p = 0.33 * vec2(cos(an), sin(an)), q = 0.33 * vec2(cos(an + 0.8976), sin(an + 0.8976));
+      float rad = i == 4 ? 0.045 + 0.2 * vCH.y : 0.045;
+      m = max(m, smoothstep(rad + px, rad - px, length(c - p)));
+      if (i > 0 && float(i) <= spokes) m = max(m, 0.8 * smoothstep(0.018 + px, 0.018 - px, seg(c, n0, p)));
+      m = max(m, 0.3 * smoothstep(0.01 + px, 0.01 - px, seg(c, p, q)));
+    }
+    a = mix(a, m + 0.12 * glow, net); col = mix(col, mix(vC, vec3(1.0), 0.25), net);
+  }
+  gl_FragColor = vec4(col, a * vA);
+}`,
+  });
+  set.mats.push(dotMat);
+  const DMAP = [], DSTR = [], STATS = GKEY.map(() => ({ n: 0, x: 0, y: 0, z: 0 }));
+  {
+    const n = NDOT + NFD, geo = new THREE.BufferGeometry(), A = { position: new Float32Array(3 * n), aMap: new Float32Array(3 * n), aStr: new Float32Array(3 * n), aEnd: new Float32Array(3 * n), aCol: new Float32Array(3 * n), aD: new Float32Array(4 * n) };
+    DOTS.forEach((d, q) => {
+      const mp = [MX(d.C), MY(d.H), d.mz * 0.08], sp = [SX(d.v), ROWY[d.g] + d.jy * 0.13, d.jz * 0.12];
+      DMAP.push(mp); DSTR.push(sp);
+      const st = STATS[d.g]; st.n++; st.x += mp[0]; st.y += mp[1]; st.z += mp[2];
+      A.aMap.set(mp, 3 * q); A.aStr.set(sp, 3 * q); A.aEnd.set(sp, 3 * q); A.aCol.set(GCOL[d.g], 3 * q);
+      A.aD.set([d.g, d.k, clamp((d.C - c0) / (c1 - c0), 0, 1), clamp((d.H - h0) / (h1 - h0), 0, 1)], 4 * q);
+    });
+    FDOTS.forEach((d, q0) => {
+      const q = NDOT + q0, y = FUY[d.f] + d.jy * 0.07, z = d.jz * 0.08;
+      A.aStr.set([SX(d.v0), y, z], 3 * q); A.aEnd.set([SX(d.v1), y, z], 3 * q); A.aMap.set([SX(d.v0), y, z], 3 * q);
+      A.aCol.set(d.col, 3 * q); A.aD.set([4 + d.f, d.k, 0, 0], 4 * q);
+    });
+    for (const k in A) geo.setAttribute(k, new THREE.BufferAttribute(A[k], k === 'aD' ? 4 : 3));
+    const pts = new THREE.Points(geo, dotMat);
+    pts.frustumCulled = false; pts.renderOrder = 5; gPop.add(pts);
+  }
+  STATS.forEach(s => { if (s.n) { s.x /= s.n; s.y /= s.n; s.z /= s.n; } });
+  // follow-up trails: from where each ring started to where it is
+  const trailMat = new THREE.ShaderMaterial({
+    uniforms: { uA: set.uA, uFol: { value: 0 }, uK: { value: 0 } },
+    transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+    vertexShader: `
+attribute vec3 aStr, aEnd, aCol; attribute vec2 aW;
+uniform float uA, uFol, uK;
+varying vec3 vC; varying float vA;
+void main() {
+  float s = smoothstep(0.3 + 0.25 * aW.y, 0.72 + 0.25 * aW.y, uFol);
+  vec3 p = mix(aStr, mix(aStr, aEnd, s), aW.x);
+  vC = mix(aCol, vec3(0.22, 0.74, 0.97), s * aW.x); vA = uA * uK * mix(0.06, 0.5, aW.x) * step(0.001, distance(aEnd, aStr)) * smoothstep(0.0, 0.1, s);
+  gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0);
+}`,
+    fragmentShader: 'varying vec3 vC; varying float vA; void main() { if (vA < 0.003) discard; gl_FragColor = vec4(vC, vA); }',
+  });
+  set.mats.push(trailMat);
+  if (NFD) {
+    const geo = new THREE.BufferGeometry(), A = { position: new Float32Array(6 * NFD), aStr: new Float32Array(6 * NFD), aEnd: new Float32Array(6 * NFD), aCol: new Float32Array(6 * NFD), aW: new Float32Array(4 * NFD) };
+    FDOTS.forEach((d, q) => {
+      const y = FUY[d.f] + d.jy * 0.07, z = d.jz * 0.08, s = [SX(d.v0), y, z], e = [SX(d.v1), y, z];
+      for (let w = 0; w < 2; w++) { A.aStr.set(s, 6 * q + 3 * w); A.aEnd.set(e, 6 * q + 3 * w); A.aCol.set(d.col, 6 * q + 3 * w); A.aW.set([w, d.k], 4 * q + 2 * w); }
+    });
+    for (const k in A) geo.setAttribute(k, new THREE.BufferAttribute(A[k], k === 'aW' ? 2 : 3));
+    const ls = new THREE.LineSegments(geo, trailMat);
+    ls.frustumCulled = false; ls.renderOrder = 4; gPop.add(ls);
+  }
+  // the person shown in the one-scan network: a white-ringed dot among the others
+  const perGeo = K.pointsGeo(2);
+  for (const n of ['position', 'aCol', 'aA', 'aSize']) perGeo.attributes[n].setUsage(THREE.DynamicDrawUsage);
+  const person = new THREE.Points(perGeo, K.points(set, { additive: false, hard: true }));
+  person.frustumCulled = false; person.renderOrder = 8; gPop.add(person);
+
+  // ---------------------------------------------------------------- the strip's and the map's frames, summaries
+  const pPill = pillSet(gPop, 12, 7, false), bgPill = pillSet(gPop, 5, 1, false);
+  const P_MAP = 0, P_STRIP = 1, P_SH0 = 2, P_SH1 = 3, P_HB = 4;
+  bgPill.put(P_MAP, (MAPR.x0 + MAPR.x1) / 2, (MAPR.y0 + MAPR.y1) / 2, -0.12, (MAPR.x1 - MAPR.x0) / 2 + 0.13, (MAPR.y1 - MAPR.y0) / 2 + 0.12, 0.05, 0, PANEL, 0.6, 1, 0.0025);
+  bgPill.put(P_STRIP, SX0 + SW / 2, 0.21, -0.12, SW / 2 + 0.08, 0.58, 0.05, 0, PANEL, 0.6, 1, 0.0025);
+  const shaded = Array.isArray(MD.shaded) ? MD.shaded : [];
+  [P_SH0, P_SH1].forEach((k, q) => {
+    const r = shaded[q];
+    if (r) bgPill.put(k, SX((r[0] + r[1]) / 2), (AXY + 0.56) / 2, -0.1, (r[1] - r[0]) * SK / 2, (0.56 - AXY) / 2, 0.003, 0, [0.42, 0.46, 0.54], 0.1);
+  });
+  const HQ = MG[3] ? (Array.isArray(MG[3].err) ? MG[3].err : [QH(0.25), QH(0.75)]) : [4.1, 5];
+  bgPill.put(P_HB, SX((HQ[0] + HQ[1]) / 2), (AXY + 0.98) / 2, -0.09, (HQ[1] - HQ[0]) * SK / 2, (0.98 - AXY) / 2, 0.012, 0, GCOL[3], 0.12, 1, 0.003);
+  // each group: the p10-p90 whisker, the interquartile bar (the poster's error bar) and the median (its big dot)
+  MG.forEach((g, k) => {
+    if (!g) return;
+    const y = ROWY[k], z = 0.08, q = g.q || {}, e = Array.isArray(g.err) ? g.err : [QF[k](0.25), QF[k](0.75)];
+    const w0 = Number.isFinite(q.p10) ? q.p10 : QF[k](0.1), w1 = Number.isFinite(q.p90) ? q.p90 : QF[k](0.9);
+    pPill.put(3 * k, SX((w0 + w1) / 2), y, z, (w1 - w0) * SK / 2, 0.0045, 0.0045, 0, GCOL[k], 0.7);
+    pPill.put(3 * k + 1, SX((e[0] + e[1]) / 2), y, z + 0.002, (e[1] - e[0]) * SK / 2, 0.019, 0.019, 0.014, GCOL[k], 0.95);
+    pPill.put(3 * k + 2, SX(Number.isFinite(g.centre) ? g.centre : QF[k](0.5)), y, z + 0.004, 0.04, 0.04, 0.04, 0.022, GCOL[k], 1, 1, 0.007);
+  });
+  // lines: map axes (group 0), strip axis and ticks (1), dashed lines (2), follow-up row guides (3)
+  const pLines = lineSet(gPop, 4, 2);
+  {
+    const x0 = MAPR.x0 - 0.06, y0 = MAPR.y0 - 0.06;
+    pLines.seg([x0, y0, -0.1], [MAPR.x1 + 0.05, y0, -0.1], INK, 0.6, 0).seg([x0, y0, -0.1], [x0, MAPR.y1 + 0.05, -0.1], INK, 0.6, 0);
+    pLines.seg([MAPR.x1 + 0.05, y0, -0.1], [MAPR.x1 + 0.02, y0 + 0.015, -0.1], INK, 0.6, 0).seg([MAPR.x1 + 0.05, y0, -0.1], [MAPR.x1 + 0.02, y0 - 0.015, -0.1], INK, 0.6, 0);
+    pLines.seg([x0, MAPR.y1 + 0.05, -0.1], [x0 - 0.015, MAPR.y1 + 0.02, -0.1], INK, 0.6, 0).seg([x0, MAPR.y1 + 0.05, -0.1], [x0 + 0.015, MAPR.y1 + 0.02, -0.1], INK, 0.6, 0);
+    pLines.seg([SX0, AXY, -0.08], [SX0 + SW, AXY, -0.08], INK, 0.7, 1);
+    for (let v = 0; v <= Math.floor(AXMAX); v++) pLines.seg([SX(v), AXY, -0.08], [SX(v), AXY - 0.025, -0.08], INK, 0.7, 1);
+    for (let v = 0.5; v < AXMAX; v += 1) pLines.seg([SX(v), AXY, -0.08], [SX(v), AXY - 0.012, -0.08], INK, 0.4, 1);
+    (Array.isArray(MD.dashed) ? MD.dashed : []).forEach(v => pLines.dash([SX(v), AXY, -0.09], [SX(v), 0.56, -0.09], 18, INK, 0.45, 2));
+    FUY.forEach(y => pLines.seg([SX0, y - 0.055, -0.1], [SX0 + SW, y - 0.055, -0.1], MUTED, 0.12, 3));
+  }
+  pLines.build();
+  const sTex = textPlane(gPop, SX0 + SW / 2, AXY - 0.06, -0.08, SW + 0.24, (SW + 0.24) / 16, 1024, 3, (c, X, Y, px) => {
+    c.font = font(600, 0.085 * px); c.fillStyle = hexOf(l3(MUTED, INK, 0.4)); c.textAlign = 'center'; c.textBaseline = 'middle';
+    for (let v = 0; v <= Math.floor(AXMAX); v++) c.fillText(String(v), X(SX(v)), Y(AXY - 0.068));
+  });
+
+  // ---------------------------------------------------------------- survival by the index's thirds (poster's Kaplan-Meier)
+  const KMD = PO.km || {}, KC = (KMD.curves || []).slice(0, 3), KT = KMD.table || [];
+  const KMAX = (Array.isArray(KMD.months) && KMD.months[1] > 0) ? KMD.months[1] : 140;
+  const KX0 = -0.6, KW = 1.32, KY0 = -0.38, KH = 0.86;
+  const kx = m => KX0 + m / KMAX * KW, ky = s => KY0 + clamp(s, 0, 1) * KH;
+  const thirdName = (c, k) => { const s = String((c && c.label) || ''); return /near healthy/i.test(s) ? 'Near healthy' : /intermediate/i.test(s) ? 'Intermediate' : /remote/i.test(s) ? 'Remote' : ['Near healthy', 'Intermediate', 'Remote'][k]; };
+  // a staircase through the read-off points: the value holds, then drops in small steps between two readings
+  function stair(pts) {
+    const out = [[pts[0][0], pts[0][1]]];
+    for (let k = 1; k < pts.length; k++) {
+      const [m0, s0] = pts[k - 1], [m1, s1] = pts[k];
+      if (Math.abs(s1 - s0) < 1e-4) { out.push([m1, s0]); continue; }
+      const n = Math.max(1, Math.round((m1 - m0) / 1.7));
+      for (let q = 1; q <= n; q++) {
+        const md = m0 + (m1 - m0) * (q - 0.85 + 0.7 * R()) / n, v0 = s0 + (s1 - s0) * (q - 1) / n, v1 = s0 + (s1 - s0) * q / n;
+        out.push([md, v0], [md, v1]);
+      }
+      out.push([m1, s1]);
+    }
+    return out;
+  }
+  const stairAt = (st, m) => { let v = st[0][1]; for (const p of st) { if (p[0] > m) break; v = p[1]; } return v; };
+  const kmSt = KC.map(c => (Array.isArray(c.s) && c.s.length > 1 ? stair(c.s) : null));
+  // ribbons (curves, with a soft glow) and bands, each vertex with its month (reveal) and its curve (alpha)
+  const ribMat = new THREE.ShaderMaterial({
+    uniforms: { uA: set.uA, uGA: { value: new Float32Array(8) }, uGR: { value: new Float32Array(8) } },
+    transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+    vertexShader: `${PK}
+attribute vec3 aCol; attribute vec4 aD;   // across (-1..1), month (0..1), curve, glow
+uniform float uA; uniform vec4 uGA[2], uGR[2];
+varying vec3 vC; varying float vA, vV, vT, vR, vGl;
+void main() {
+  vC = aCol; vV = aD.x; vT = aD.y; vGl = aD.w; vA = uA * GET(uGA, aD.z); vR = GET(uGR, aD.z);
+  gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+}`,
+    fragmentShader: `
+varying vec3 vC; varying float vA, vV, vT, vR, vGl;
+void main() {
+  if (vT > vR) discard;
+  float e = abs(vV);
+  float a = vGl > 1.5 ? 0.17 : (vGl > 0.5 ? exp(-e * 2.6) * 0.32 : 1.0 - smoothstep(0.55, 1.0, e));
+  a *= vA;
+  if (a < 0.003) discard;
+  gl_FragColor = vec4(mix(vC, vec3(1.0), vGl < 0.5 ? 0.25 * (1.0 - e) : 0.0), a);
+}`,
+  });
+  set.mats.push(ribMat);
+  {
+    const P = [], C = [], A = [], idx = [];
+    let nv = 0;
+    const quad = (a, b, c, d, col, across, t, g, gl) => {
+      [a, b, c, d].forEach((p, q) => { P.push(p[0], p[1], p[2]); C.push(...col); A.push(across[q], t[q], g, gl); });
+      idx.push(nv, nv + 1, nv + 2, nv, nv + 2, nv + 3); nv += 4;
+    };
+    // a ribbon along one straight piece (horizontal or vertical), square ends so the corners meet
+    const ribbon = (m0, s0, m1, s1, w, col, g, gl) => {
+      const x0 = kx(m0), y0 = ky(s0), x1 = kx(m1), y1 = ky(s1), z = gl ? 0.002 : 0.006;
+      const t0 = m0 / KMAX, t1 = m1 / KMAX;
+      if (Math.abs(y1 - y0) < 1e-6) quad([x0 - w, y0 - w, z], [x1 + w, y0 - w, z], [x1 + w, y0 + w, z], [x0 - w, y0 + w, z], col, [-1, -1, 1, 1], [t0, t1, t1, t0], g, gl);
+      else quad([x0 - w, y0 + w, z], [x0 + w, y0 + w, z], [x0 + w, y1 - w, z], [x0 - w, y1 - w, z], col, [-1, 1, 1, -1], [t0, t0, t0, t0], g, gl);
+    };
+    KC.forEach((c, k) => {
+      const st = kmSt[k]; if (!st) return;
+      // the band between the lower and upper limits, in half-month slices
+      if (Array.isArray(c.lo) && Array.isArray(c.hi) && c.lo.length > 1 && c.hi.length > 1) {
+        const lo = stair(c.lo), hi = stair(c.hi), mEnd = Math.min(c.lo[c.lo.length - 1][0], c.hi[c.hi.length - 1][0]);
+        for (let m = 0; m < mEnd; m += 0.5) {
+          const m2 = Math.min(mEnd, m + 0.5), a = stairAt(lo, m + 0.25), b = stairAt(hi, m + 0.25);
+          quad([kx(m), ky(a), 0], [kx(m2), ky(a), 0], [kx(m2), ky(b), 0], [kx(m), ky(b), 0], THIRD[k], [0, 0, 0, 0], [m / KMAX, m2 / KMAX, m2 / KMAX, m / KMAX], 3 + k, 2);
+        }
+      }
+      for (let q = 1; q < st.length; q++) {
+        const [m0, s0] = st[q - 1], [m1, s1] = st[q];
+        if (Math.abs(m1 - m0) < 1e-6 && Math.abs(s1 - s0) < 1e-6) continue;
+        ribbon(m0, s0, m1, s1, 0.0055, THIRD[k], k, 0);
+        ribbon(m0, s0, m1, s1, 0.022, THIRD[k], k, 1);
+      }
+    });
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(P.length ? P : [0, 0, 0], 3));
+    geo.setAttribute('aCol', new THREE.Float32BufferAttribute(C.length ? C : [0, 0, 0], 3));
+    geo.setAttribute('aD', new THREE.Float32BufferAttribute(A.length ? A : [0, 0, 0, 0], 4));
+    if (idx.length) geo.setIndex(idx);
+    const mesh = new THREE.Mesh(geo, ribMat);
+    mesh.frustumCulled = false; mesh.renderOrder = 4; mesh.visible = idx.length > 0; gKM.add(mesh);
+  }
+  const kPill = pillSet(gKM, 1, 1, false);
+  kPill.put(0, 0.04, 0.05, -0.02, 0.86, 0.66, 0.05, 0, PANEL, 0.78, 1, 0.0025);
+  const kLines = lineSet(gKM, 2, 2);
+  kLines.seg([KX0, KY0, 0], [KX0 + KW, KY0, 0], INK, 0.7, 0).seg([KX0, KY0, 0], [KX0, KY0 + KH, 0], INK, 0.7, 0);
+  for (let m = 0; m <= KMAX + 1e-6; m += 20) kLines.seg([kx(m), KY0, 0], [kx(m), KY0 - 0.018, 0], INK, 0.7, 0);
+  for (let s = 0.2; s <= 1.0001; s += 0.2) { kLines.seg([KX0, ky(s), 0], [KX0 - 0.018, ky(s), 0], INK, 0.7, 0); kLines.seg([KX0, ky(s), -0.002], [KX0 + KW, ky(s), -0.002], MUTED, 0.1, 0); }
+  kLines.build();
+  const kTex = textPlane(gKM, 0.04, 0.05, -0.008, 1.8, 1.8, 1024, 2, (c, X, Y, px) => {
+    c.textBaseline = 'middle';
+    c.font = font(700, 0.052 * px); c.fillStyle = hexOf(INK); c.textAlign = 'left';
+    c.fillText('Survival by thirds of the index', X(KX0), Y(KY0 + KH + 0.12));
+    c.font = font(500, 0.033 * px); c.fillStyle = hexOf(MUTED);
+    c.fillText(`People with cancer${KC.length ? `, ${KC.reduce((a, x) => a + (+x.n || 0), 0)} in all` : ''}; the poster's curves and table`, X(KX0), Y(KY0 + KH + 0.065));
+    c.font = font(600, 0.036 * px); c.textAlign = 'center';
+    for (let m = 0; m <= KMAX + 1e-6; m += 20) c.fillText(String(m), X(kx(m)), Y(KY0 - 0.045));
+    c.textAlign = 'right';
+    for (let s = 0; s <= 1.0001; s += 0.2) c.fillText(s.toFixed(1), X(KX0 - 0.03), Y(ky(s)));
+    c.font = font(600, 0.038 * px); c.fillStyle = hexOf(INK); c.textAlign = 'center';
+    c.fillText('Months', X(KX0 + KW / 2), Y(KY0 - 0.105));
+    c.save(); c.translate(X(KX0 - 0.13), Y(KY0 + KH / 2)); c.rotate(-PI / 2); c.fillText('Survival', 0, 0); c.restore();
+    // the poster's table, inside the chart's lower left
+    if (KT.length) {
+      const x0 = KX0 + 0.035, cw = [0.22, 0.12, 0.12, 0.17], rh = 0.052, y0 = KY0 + 0.025 + rh * 4;
+      const hdr = ['Third', 'Deaths', '1 year', 'Median'];
+      c.fillStyle = 'rgba(4,9,18,0.82)'; c.fillRect(X(x0 - 0.01), Y(y0 + 0.008), (cw.reduce((a, b) => a + b, 0) + 0.02) * px, (rh * 4 + 0.016) * px);
+      const cell = (txt, k, row, w, col) => { let x = x0; for (let q = 0; q < k; q++) x += cw[q]; c.font = font(w, 0.03 * px); c.fillStyle = col; c.textAlign = k ? 'center' : 'left'; c.fillText(txt, X(k ? x + cw[k] / 2 : x + 0.035), Y(y0 - rh * (row + 0.5))); };
+      hdr.forEach((h, k) => cell(h, k, 0, 700, hexOf(MUTED)));
+      KT.slice(0, 3).forEach((r, q) => {
+        c.fillStyle = hexOf(THIRD[q]); c.globalAlpha = 0.16; c.fillRect(X(x0), Y(y0 - rh * (q + 1) - 0.002), (cw.reduce((a, b) => a + b, 0)) * px, (rh - 0.006) * px); c.globalAlpha = 1;
+        c.fillStyle = hexOf(THIRD[q]); c.fillRect(X(x0 + 0.004), Y(y0 - rh * (q + 1.5) + 0.012), 0.022 * px, 0.024 * px);
+        const pct = s => String(s).replace(/\s*%$/, ' %'), med = String(r.median) === 'NR' ? 'not reached' : `${r.median} mo`;
+        cell(thirdName(KC[q], q), 0, q + 1, 600, hexOf(INK)); cell(pct(r.deaths), 1, q + 1, 600, hexOf(INK)); cell(pct(r.oneYear), 2, q + 1, 600, hexOf(INK)); cell(med, 3, q + 1, 600, hexOf(INK));
+      });
+    }
+  });
+
+  // ---------------------------------------------------------------- the immunotherapy test (poster's response strip and AUCs)
+  const PG = PO.prognosis || {}, PST = PG.strip || {}, AUC = (PG.auc || []).slice(0, 6);
+  const RAX = (Array.isArray(PST.axis) && PST.axis[1] > 0) ? PST.axis[1] : 6.85, RX0 = -0.42, RX1 = 0.8, rx = v => RX0 + v / RAX * (RX1 - RX0), RAY = 0.3;
+  const AA0 = 0.45, AA1 = 1.0, AX0 = -0.16, AX1 = 0.8, ax = v => AX0 + (v - AA0) / (AA1 - AA0) * (AX1 - AX0), AAY = -0.46;
+  const aRowY = r => 0.05 - r * 0.083 - (r >= 3 ? 0.035 : 0);
+  const isNet = a => a.group === 'network' || /index|heterogen|clearance/i.test(a.label);
+  const aPill = pillSet(gAUC, 1 + 2 * 6 + 5, 3, false);
+  aPill.put(0, 0.0, 0.08, -0.02, 0.92, 0.7, 0.05, 0, PANEL, 0.78, 1, 0.0025);
+  AUC.forEach((a, r) => {
+    aPill.put(1 + r, (AX0 + AX1) / 2, aRowY(r), -0.004, (AX1 - AX0) / 2, 0.03, 0.006, 0, [0.14, 0.18, 0.26], 0.4);
+    aPill.put(7 + r, AX0, aRowY(r), 0, 0.001, 0.03, 0.006, 0.02, isNet(a) ? WARM : CLIN, 1);
+  });
+  // the two summary bands: good response (min to max, the quartiles, the median), poor response (min to max, median)
+  const RG = PST.good || null, RB = PST.bad || PST.poor || null, RGY = 0.5, RBY = 0.4;
+  // pills k (min to max), k + 1 (the quartiles, when given) and the last (the median)
+  const band = (k, s, y, col) => {
+    if (!s || !Number.isFinite(s.min) || !Number.isFinite(s.max)) return;
+    const q = Number.isFinite(s.q1) && Number.isFinite(s.q3);
+    aPill.put(k, rx((s.min + s.max) / 2), y, 0.002, (s.max - s.min) / RAX * (RX1 - RX0) / 2, 0.012, 0.012, 0.01, col, 0.75);
+    if (q && k + 2 < 18) aPill.put(k + 1, rx((s.q1 + s.q3) / 2), y, 0.004, (s.q3 - s.q1) / RAX * (RX1 - RX0) / 2, 0.026, 0.006, 0.012, col, 0.95);
+    if (Number.isFinite(s.median)) aPill.put(q ? k + 2 : k + 1, rx(s.median), y, 0.006, 0.007, 0.045, 0.006, 0.01, [1, 1, 1], 1, 1, 0);
+  };
+  band(13, RG, RGY, GOOD); band(16, RB, RBY, POOR);
+  const aLines = lineSet(gAUC, 2, 2);
+  aLines.seg([RX0, RAY, 0], [RX1, RAY, 0], INK, 0.7, 0);
+  for (let v = 0; v <= Math.floor(RAX); v++) aLines.seg([rx(v), RAY, 0], [rx(v), RAY - 0.018, 0], INK, 0.7, 0);
+  (Array.isArray(PST.dashed) ? PST.dashed : []).forEach(v => aLines.dash([rx(v), RAY, -0.002], [rx(v), 0.58, -0.002], 12, GOOD, 0.5, 0));
+  aLines.seg([AX0, AAY, 0], [AX1, AAY, 0], INK, 0.7, 1);
+  for (let v = 0.5; v <= AA1 + 1e-6; v += 0.1) aLines.seg([ax(v), AAY, 0], [ax(v), AAY - 0.018, 0], INK, 0.7, 1);
+  const CH = Number.isFinite(PG.chance) ? PG.chance : 0.5;
+  aLines.dash([ax(CH), AAY, 0.008], [ax(CH), aRowY(0) + 0.06, 0.008], 16, INK, 0.55, 1);
+  aLines.build();
+  const aTex = textPlane(gAUC, 0, 0.08, -0.008, 1.84, 1.84, 1024, 2, (c, X, Y, px) => {
+    c.textBaseline = 'middle';
+    c.font = font(700, 0.052 * px); c.fillStyle = hexOf(INK); c.textAlign = 'left';
+    c.fillText('Immunotherapy before surgery', X(-0.84), Y(0.72));
+    c.font = font(500, 0.033 * px); c.fillStyle = hexOf(MUTED);
+    c.fillText(`${PG.n ? PG.n + ' people' : 'People'} with lung cancer: a first test`, X(-0.84), Y(0.665));
+    c.font = font(600, 0.034 * px); c.textAlign = 'center';
+    for (let v = 0; v <= Math.floor(RAX); v++) c.fillText(String(v), X(rx(v)), Y(RAY - 0.042));
+    c.font = font(500, 0.03 * px);
+    if (PST.label) c.fillText(cap(PST.label), X((RX0 + RX1) / 2), Y(RAY - 0.095));
+    c.font = font(600, 0.034 * px);
+    for (let v = 0.5; v <= AA1 + 1e-6; v += 0.1) c.fillText(v.toFixed(1), X(ax(v)), Y(AAY - 0.042));
+    c.font = font(500, 0.03 * px); c.fillText('AUC: telling good from poor responders (0.5 is chance)', X((AX0 + AX1) / 2 - 0.1), Y(AAY - 0.095));
+    c.textAlign = 'right';
+    AUC.forEach((a, r) => {
+      c.font = font(isNet(a) ? 700 : 500, 0.035 * px); c.fillStyle = hexOf(isNet(a) ? WARM : INK);
+      const txt = a.label.replace(/^Metabolic displacement index$/i, 'Displacement index');
+      c.fillText(txt, X(AX0 - 0.03), Y(aRowY(r)));
+    });
+    c.font = font(600, 0.028 * px); c.textAlign = 'left';
+    c.fillStyle = hexOf(WARM); c.fillText('network measures', X(-0.84), Y(aRowY(0) + 0.07));
+    c.fillStyle = hexOf(CLIN); c.fillText('clinical measures', X(-0.84), Y(aRowY(3) + 0.065));
+  });
+
+  // ---------------------------------------------------------------- state, anchors, labels
+  const U = new Array(N).fill(1);
+  const cur = { bars: 0, ratio: 0, thr: 0, one: 0, met: 0, map: 0, mdi: 0, km: 0, resp: 0, fol: 0, theta: THETA, m: measure(PU[0], THETA), plane: FY, prof: 0,
+    top: new Float32Array(NL), hub: -1, person: [0, 0, 0], pRow: 3, ring: 1, ringT: 0 };
+  const own = f => { const o = [0, 0, 0]; return () => f(o); };
+  const cp = (o, p) => { o[0] = p[0]; o[1] = p[1]; o[2] = p[2]; return o; };
+  const kmAnchor = k => { const c = KC[k]; if (!c || !kmSt[k]) return [0, 0, 0]; const end = c.s[c.s.length - 1][0], m = k === 0 ? end : Math.min(end, 96); return tr(gKM, [kx(m) + 0.012, ky(stairAt(kmSt[k], m)) + 0.03, 0.01]); };
+  const groupAt = (k, o) => (cur.mdi > 0.5 ? tr(gPop, [SX(MG[k] && Number.isFinite(MG[k].centre) ? MG[k].centre : 5), ROWY[k], 0.08], o) : cp(o, [STATS[k].x, STATS[k].y, STATS[k].z]));
+  const anchors = {
+    one: own(o => tr(gRing, RC, o)),
+    profile: own(o => tr(gRing, [RC[0] - 0.24, RC[1] + RR + 0.17, RC[2]], o)),
+    bars: own(o => tr(gBars, [0, BY(0) + 0.08, 0], o)),
+    field: [0, FY + 0.05, FZ],
+    example: own(o => { const i = ONE.indexOf('kidneys'), j = ONE.indexOf('fat'); return i < 0 || j < 0 ? cp(o, [0, FY, FZ]) : cp(o, [cellX(j), cur.top[i * N + j] + 0.04, cellZ(i)]); }),
+    plane: own(o => cp(o, [cellX(N - 1) + FP * 0.65, cur.plane + 0.01, cellZ(N - 1) + FP * 0.65])),
+    metrics: tr(gMet, [0, 0.1, 0]),
+    clearance: tr(gMet, [GA.C[0] - 0.19, GA.C[1] + GA.C[2] + 0.08, 0]),
+    hetero: tr(gMet, [GA.H[0] - 0.19, GA.H[1] + GA.H[2] + 0.08, 0]),
+    dial: tr(gMet, [GA.X[0] - 0.3, GA.X[1] - GA.X[2] - 0.07, 0]),
+    note: tr(gMet, [GA.X[0] - 0.3, GA.X[1] - GA.X[2] - 0.2, 0]),
+    map: [(MAPR.x0 + MAPR.x1) / 2, (MAPR.y0 + MAPR.y1) / 2, 0],
+    mapNote: [MAPR.x0 - 0.04, MAPR.y1 + 0.13, 0],
+    mapX: [MAPR.x1 - 0.32, MAPR.y0 - 0.12, 0],
+    mapY: [MAPR.x0 - 0.04, MAPR.y1 + 0.05, 0],
+    strip: [SX0 + SW / 2, 0.15, 0],
+    axis: [SX(AXMAX / 2) - 0.45, AXY - 0.16, 0],
+    person: own(o => cp(o, cur.person)),
+    km: tr(gKM, [KX0 + KW / 2, KY0 + KH / 2, 0]),
+    auc: tr(gAUC, [0, 0.08, 0]),
+    good: tr(gAUC, [rx(RG && Number.isFinite(RG.max) ? RG.max : 4.7) + 0.03, RGY, 0.01]),
+    poor: tr(gAUC, [rx(RB && Number.isFinite(RB.max) ? RB.max : 5.5) + 0.03, RBY, 0.01]),
+    healthy: [SX(HQ[1]), 0.98, 0],
+  };
+  ONE.forEach((id, i) => {
+    anchors[id] = own(o => tr(gRing, [NODE[i][0], NODE[i][1] + 0.0, NODE[i][2] + 0.02], o));
+    anchors['bar_' + id] = own(o => tr(gBars, [BX0 + BTRK + 0.02, BY(i), 0], o));
+  });
+  GKEY.forEach((k, q) => {
+    anchors['g' + (q + 1)] = own(o => groupAt(q, o));
+    anchors['lab_g' + (q + 1)] = own(o => (cur.mdi > 0.5 ? cp(o, [SX(Math.min(AXMAX - 2.6, 8.0)), ROWY[q], 0.02]) : cp(o, [STATS[q].x + 0.04, STATS[q].y + 0.06, STATS[q].z])));
+  });
+  [0, 1, 2].forEach(k => { anchors['km' + (k + 1)] = own(o => cp(o, kmAnchor(k))); });
+  AUC.forEach((a, r) => { anchors['auc' + (r + 1)] = tr(gAUC, [ax(a.auc) + 0.025, aRowY(r), 0.01]); });
+  FU.forEach((f, k) => { anchors['f' + (k + 1)] = [SX(Math.min(AXMAX - 2.6, 8.0)), FUY[k], 0.02]; });
+
+  const near = (x, k) => sat(1 - Math.abs(x - k) * 2.2);
+  const S_ = (S, n) => sat(S[n]);
+  const oneOff = S => 1 - S_(S, 'people_map');                                  // the one-scan part gives way to the people
+  const popQuiet = S => 1 - 0.85 * Math.max(S_(S, 'people_km'), S_(S, 'people_response'));
+  const labels = [];
+  ORG.forEach((o, i) => {
+    labels.push({ text: [o.short || o.name, ''], at: 'bar_' + o.id, cls: '', alpha: S => S_(S, 'people_bars') * (1 - prog(S_(S, 'people_one'), 0.2, 0.5)) * (1 - S_(S, 'people_metrics')) * oneOff(S) });
+    labels.push({ text: [o.short || o.name, ''], at: o.id, cls: '', minor: o.id !== 'kidneys', alpha: S => prog(S_(S, 'people_one'), 0.55, 0.9) * (1 - prog(S_(S, 'people_metrics'), 0, 0.35)) * oneOff(S) });
+  });
+  labels.push({ text: ['Uptake', ' · mean SUV, one scan'], at: 'bars', cls: '', alpha: S => S_(S, 'people_bars') * (1 - prog(S_(S, 'people_one'), 0.2, 0.5)) * oneOff(S) });
+  labels.push({ text: ['Kidneys ÷ fat', ' · one ratio'], at: 'example', cls: 'amb', alpha: S => prog(S_(S, 'people_ratio'), 0.6, 0.95) * (1 - prog(S_(S, 'people_one'), 0, 0.3)) * oneOff(S) });
+  labels.push({ text: ['Threshold', ''], at: 'plane', cls: 'cyn', alpha: S => prog(S_(S, 'people_thresh'), 0.3, 0.8) * (1 - prog(S_(S, 'people_one'), 0.5, 0.9)) * oneOff(S) });
+  PROF.forEach((p, k) => labels.push({ text: [PROFN[p], ' · illustrative uptakes'], at: 'profile', cls: '', alpha: S => near(S.people_profile || 0, k) * (1 - S_(S, 'people_custom')) * S_(S, 'people_one') * oneOff(S) }));
+  labels.push({ text: ['Your uptakes', ''], at: 'profile', cls: 'amb', alpha: S => S_(S, 'people_custom') * S_(S, 'people_one') * oneOff(S) });
+  labels.push({ text: ['Clearance', ''], at: 'clearance', cls: 'amb', alpha: S => prog(S_(S, 'people_metrics'), 0.05, 0.4) * oneOff(S) });
+  labels.push({ text: ['Heterogeneity', ''], at: 'hetero', cls: 'amb', alpha: S => prog(S_(S, 'people_metrics'), 0.3, 0.65) * oneOff(S) });
+  labels.push({ text: ['Displacement index', ' · 0 to 10'], at: 'dial', cls: 'amb', alpha: S => prog(S_(S, 'people_metrics'), 0.55, 0.9) * oneOff(S) });
+  labels.push({ text: ['Illustrative maths', ' · formulas not yet published'], at: 'note', cls: '', alpha: S => prog(S_(S, 'people_metrics'), 0.6, 1) * oneOff(S) });
+  // the people
+  MG.forEach((g, k) => {
+    if (!g) return;
+    labels.push({ text: [g.name || PROFN[GKEY[k]], ` · n = ${g.n}`], at: 'lab_g' + (k + 1), cls: { healthy: 'cyn', dys: 'mag' }[GKEY[k]] || '',
+      alpha: S => { const sel = clamp(S.people_group || 0, 0, 4), hi = sat(1 - Math.abs(sel - (k + 1))); return prog(S_(S, 'people_map'), 0.6, 1) * lerp(1, 0.35 + 0.65 * hi, sat(sel)) * popQuiet(S) * (1 - 0.4 * S_(S, 'people_follow')); } });
+  });
+  labels.push({ text: ['Clearance', ' →'], at: 'mapX', cls: '', alpha: S => prog(S_(S, 'people_map'), 0.6, 1) * (1 - prog(S_(S, 'people_mdi'), 0, 0.4)) });
+  labels.push({ text: ['Heterogeneity', ' ↑'], at: 'mapY', cls: '', alpha: S => prog(S_(S, 'people_map'), 0.6, 1) * (1 - prog(S_(S, 'people_mdi'), 0, 0.4)) });
+  labels.push({ text: [`${fmt(NDOT)} people`, ' · stand-in dots, group summaries'], at: 'mapNote', cls: '', alpha: S => prog(S_(S, 'people_map'), 0.6, 1) * (1 - prog(S_(S, 'people_mdi'), 0, 0.4)) });
+  labels.push({ text: ['This scan', ''], at: 'person', cls: 'amb', alpha: S => prog(S_(S, 'people_map'), 0.5, 0.9) * (1 - prog(S_(S, 'people_mdi'), 0, 0.5)) * (1 - S_(S, 'people_one')) });
+  labels.push({ text: ['Metabolic displacement index', ''], at: 'axis', cls: '', alpha: S => prog(S_(S, 'people_mdi'), 0.5, 1) * S_(S, 'people_map') * popQuiet(S) });
+  KC.forEach((c, k) => {
+    const t = KT[k] || {}, med = t.median === undefined ? '' : String(t.median) === 'NR' ? 'median not reached' : `median ${t.median} months`;
+    labels.push({ text: [thirdName(c, k), ` · n = ${c.n}${med ? ' · ' + med : ''}`], at: 'km' + (k + 1), cls: ['cyn', '', ''][k], alpha: S => prog(S_(S, 'people_km'), 0.55 + 0.1 * k, 0.85 + 0.1 * k) });
+  });
+  if (RG) labels.push({ text: ['Good response', ` · n = ${RG.n}`], at: 'good', cls: 'cyn', alpha: S => prog(S_(S, 'people_response'), 0.05, 0.3) });
+  if (RB) labels.push({ text: ['Poor response', ` · n = ${RB.n}`], at: 'poor', cls: '', alpha: S => prog(S_(S, 'people_response'), 0.1, 0.35) });
+  AUC.forEach((a, r) => labels.push({ text: [`AUC ${a.auc}`, Number.isFinite(a.p) ? ` · P = ${a.p}` : ''], at: 'auc' + (r + 1), cls: isNet(a) ? 'amb' : '',
+    alpha: S => prog(S_(S, 'people_response'), 0.4 + 0.08 * r, 0.6 + 0.08 * r) }));
+  FU.forEach((f, k) => labels.push({ text: [f.name, ` · n = ${f.n}`], at: 'f' + (k + 1), cls: f.from >= 0 ? 'amb' : '', alpha: S => prog(S_(S, 'people_follow'), 0.1, 0.4) * S_(S, 'people_mdi') }));
+
+  // ---------------------------------------------------------------- update
+  const st0 = (i, j) => 0.42 * i / N + 0.06 * j / N;     // when a column's links fly up (people_one)
+  const uE = partMat.uniforms.uE.value, uF = partMat.uniforms.uF.value, uH = partMat.uniforms.uH.value, uT = tubeMat.uniforms.uT.value, uB = tubeMat.uniforms.uB.value;
+  const M4 = new THREE.Matrix4(), Q0 = new THREE.Quaternion(), P3 = new THREE.Vector3(), S3 = new THREE.Vector3();
+  let lastKey = '';
+  function update(S, t) {
+    const bars = S_(S, 'people_bars'), ratio = S_(S, 'people_ratio'), thr = S_(S, 'people_thresh'), one = S_(S, 'people_one'), met = S_(S, 'people_metrics');
+    const map = S_(S, 'people_map'), mdi = S_(S, 'people_mdi'), km = S_(S, 'people_km'), resp = S_(S, 'people_response'), fol = S_(S, 'people_follow');
+    const theta = clamp(Number.isFinite(S.people_theta) ? S.people_theta : THETA, 1.01, 10);
+    uptakes(S, U);
+    const M = measure(U, theta);
+    Object.assign(cur, { bars, ratio, thr, one, met, map, mdi, km, resp, fol, theta, m: M, prof: clamp(S.people_profile || 0, 0, 3) });
+    const lt = Math.log(theta);
+    cur.plane = FY + HS * lt * thr;
+
+    // the bars: in the middle at first, then to the left as the network forms
+    const sl = prog(one, 0.05, 0.5);
+    gBars.position.set(lerp(-0.47, -1.6, sl), lerp(-0.02, 0.02, sl), lerp(0, 0.16, sl));
+    gBars.rotation.y = 0.22 * sl; gBars.scale.setScalar(lerp(1, 0.94, sl)); gBars.updateMatrix();
+    const ba = bars;
+    bPill.a(2 * N, prog(ba, 0, 0.3));
+    for (let i = 0; i < N; i++) {
+      const g = prog(ba, 0.1 + 0.06 * i, 0.55 + 0.06 * i), len = Math.max(0.002, Math.min(U[i], 5.2) * BK * g);
+      bPill.a(i, prog(ba, 0, 0.3));
+      bPill.x(N + i, BX0 + len / 2, len / 2); bPill.a(N + i, prog(ba, 0.05, 0.3));
+      bIco.attributes.aA.array[i] = prog(ba, 0, 0.3);
+    }
+    bPill.flush(); bIco.attributes.aA.needsUpdate = true;
+    bLines.g[0] = prog(ba, 0, 0.4);
+
+    // the field: columns rise to ln(u_i / u_j); the plane rises to ln(theta); lit columns become links
+    const fa = prog(ratio, 0, 0.3);
+    for (let k = 0; k <= NL; k++) fPill.a(k, fa);
+    fPill.flush();
+    plPill.a(0, prog(thr, 0, 0.2)); plPill.flush();
+    plPill.mesh.position.set(0, 0, cur.plane - FY);
+    const key = U.map(v => v.toFixed(4)).join(',') + '|' + ratio.toFixed(4);
+    for (let i = 0; i < N; i++) for (let j = 0; j < N; j++) {
+      const L = i * N + j, r = i === j ? 0 : Math.max(0, Math.log(U[i] / U[j]));
+      const rise = prog(ratio, 0.12 + 0.4 * (i + j) / (2 * N - 2), 0.5 + 0.4 * (i + j) / (2 * N - 2));
+      const h = Math.min(HMAX, HS * r) * rise;
+      cur.top[L] = FY + h;
+      const e = i === j ? 0 : M.e[i][j], F = i === j ? 0 : prog(one, st0(i, j), st0(i, j) + 0.5);
+      iCol.array[4 * L + 3] = e; iF.array[L] = F;
+      uH[L] = FY + h; uF[L] = F;
+      if (key !== lastKey) { M4.compose(P3.set(cellX(j), FY, cellZ(i)), Q0, S3.set(CW, Math.max(1e-4, h), CW)); cols.setMatrixAt(L, M4); }
+    }
+    if (key !== lastKey) { cols.instanceMatrix.needsUpdate = true; lastKey = key; }
+    iCol.needsUpdate = true; iF.needsUpdate = true;
+    colMat.uniforms.uK.value = fa; colMat.uniforms.uPlane.value = cur.plane + 1e-4; colMat.uniforms.uThr.value = prog(thr, 0.2, 0.8);
+    cols.visible = fa > 0.003;
+    fIco.attributes.aA.array.fill(fa); fIco.attributes.aA.needsUpdate = true;
+
+    // the ring: it shrinks into this person's dot as the people rise
+    const rT = prog(map, 0, 0.6), sc = lerp(1, 0.06, rT), ringVis = 1 - prog(map, 0.45, 0.7);
+    const pm = [clamp(MX(M.C), MAPR.x0 - 0.08, MAPR.x1 + 0.08), clamp(MY(M.H), MAPR.y0 - 0.08, MAPR.y1 + 0.08), 0.06];
+    const tg = l3(RC, pm, rT);
+    gRing.position.set(tg[0] - RC[0] * sc, tg[1] - RC[1] * sc, tg[2] - RC[2] * sc); gRing.scale.setScalar(sc); gRing.updateMatrix();
+    cur.ring = ringVis; cur.ringT = rT;
+    const kd = prog(met, 0, 0.45), hk = prog(met, 0.25, 0.7);
+    for (let i = 0; i < N; i++) for (let j = 0; j < N; j++) {
+      const L = i * N + j;
+      if (i === j) { uE[L] = 0; uT[L] = 0; uB[L] = 0; continue; }
+      const e = M.e[i][j], arrive = prog(one, st0(i, j) + 0.3, st0(i, j) + 0.55);
+      uE[L] = e * ringVis * prog(ratio, 0.3, 0.6);
+      uT[L] = e * arrive * ringVis;
+      uB[L] = i === KID ? 1 + 0.9 * kd : 1 - 0.5 * kd;
+    }
+    // node sizes by strength (Heterogeneity), hubs (strength z-score above 1.7) glow orange-yellow, the kidneys' halo
+    const na = prog(one, 0.05, 0.4) * ringVis, sm = M.s.reduce((a, v) => a + v, 0) / N;
+    const sd = Math.sqrt(M.s.reduce((a, v) => a + (v - sm) * (v - sm), 0) / N) || 1;
+    let hub = -1;
+    for (let i = 0; i < N; i++) {
+      const rel = sm > 0 ? M.s[i] / sm : 1, z = (M.s[i] - sm) / sd, isHub = z > 1.7 ? 1 : 0;
+      if (isHub && (hub < 0 || M.s[i] > M.s[hub])) hub = i;
+      const size = 0.13 * clamp(1 + hk * (rel - 1) * 0.55, 0.55, 1.9);
+      nIco.attributes.aA.array[i] = na; nIco.attributes.aSize.array[i] = size; nIco.attributes.aHub.array[i] = isHub * hk * (0.75 + 0.25 * Math.sin(t * 2.2));
+      haloGeo.attributes.aA.array[i] = na * (0.35 + 0.4 * hk);
+      haloGeo.attributes.aSize.array[i] = size * (1.7 + 0.5 * hk * rel);
+      haloGeo.attributes.aCol.array.set(isHub && hk > 0 ? l3(OCOL[i], HUBC, hk) : OCOL[i], 3 * i);
+    }
+    cur.hub = hub;
+    haloGeo.attributes.aA.array[N] = KID >= 0 ? na * kd * (0.55 + 0.25 * Math.sin(t * 3)) : 0;
+    haloGeo.attributes.aSize.array[N] = 0.42;
+    for (const n of ['aA', 'aSize', 'aCol']) haloGeo.attributes[n].needsUpdate = true;
+    for (const n of ['aA', 'aSize', 'aHub']) nIco.attributes[n].needsUpdate = true;
+    rLines.g[0] = na;
+
+    // the gauges and the dial
+    const off = 1 - map;
+    const gk = [prog(met, 0, 0.45), prog(met, 0.25, 0.7), prog(met, 0.5, 0.95)];
+    gC.uniforms.uK.value = gk[0] * off; gC.uniforms.uVal.value = M.C; gC.uniforms.uFillK.value = gk[0];
+    gH.uniforms.uK.value = gk[1] * off; gH.uniforms.uVal.value = M.H / HMAXG; gH.uniforms.uFillK.value = gk[1];
+    gX.uniforms.uK.value = gk[2] * off; gX.uniforms.uVal.value = M.mdi / 10; gX.uniforms.uFillK.value = gk[2];
+    readout(0, M.C.toFixed(2)); readout(1, M.H.toFixed(2)); readout(2, M.mdi.toFixed(1));
+    RO.k = met * off;
+
+    // the people
+    const sel = clamp(S.people_group || 0, 0, 4), any = sat(sel), gf = dotMat.uniforms.uGF.value;
+    for (let g = 0; g < 4; g++) { const hi = sat(1 - Math.abs(sel - (g + 1))); gf[g] = lerp(1, 0.16 + 1.04 * hi, any); }
+    for (let g = 4; g < 8; g++) gf[g] = 1;
+    const dim = 1 - 0.6 * Math.max(km, resp);
+    dotMat.uniforms.uMap.value = map; dotMat.uniforms.uMdi.value = mdi; dotMat.uniforms.uFol.value = fol; dotMat.uniforms.uDim.value = dim;
+    trailMat.uniforms.uFol.value = fol; trailMat.uniforms.uK.value = mdi * dim;
+    // this person's dot: from the ring to the map, then onto its profile's row of the strip
+    const pRow = Math.round(cur.prof), gi = GKEY.indexOf(PROF[pRow]);
+    const sp = [SX(M.mdi), ROWY[gi >= 0 ? gi : 3], 0.12];
+    const pa = l3(l3(RC, pm, prog(map, 0.05, 0.6)), sp, prog(mdi, 0.2, 0.9));
+    cp(cur.person, pa);
+    const pal = prog(map, 0.15, 0.5) * (1 - 0.5 * fol) * dim * (1 - 0.6 * one);
+    perGeo.attributes.position.array.set(pa, 0); perGeo.attributes.position.array.set(pa, 3);
+    perGeo.attributes.aCol.array.set([1, 1, 1], 0); perGeo.attributes.aCol.array.set(GCOL[gi >= 0 ? gi : 3], 3);
+    perGeo.attributes.aSize.array[0] = 0.07; perGeo.attributes.aSize.array[1] = 0.05;
+    perGeo.attributes.aA.array[0] = pal; perGeo.attributes.aA.array[1] = pal;
+    for (const n of ['position', 'aCol', 'aA', 'aSize']) perGeo.attributes[n].needsUpdate = true;
+    // frames, summaries, shading
+    const stripA = map * prog(mdi, 0.3, 0.9) * dim;
+    bgPill.a(P_MAP, prog(map, 0, 0.4) * (1 - prog(mdi, 0.2, 0.8)));
+    bgPill.a(P_STRIP, prog(mdi, 0.2, 0.8) * map);
+    bgPill.a(P_SH0, stripA); bgPill.a(P_SH1, stripA); bgPill.a(P_HB, prog(fol, 0, 0.35) * stripA);
+    bgPill.flush();
+    for (let k = 0; k < 4; k++) {
+      const hi = sat(1 - Math.abs(sel - (k + 1))), f = lerp(1, 0.25 + 0.75 * hi, any) * (1 - 0.55 * fol);
+      for (let q = 0; q < 3; q++) pPill.a(3 * k + q, prog(mdi, 0.55 + 0.05 * q, 0.95) * map * dim * f);
+    }
+    pPill.flush();
+    pLines.g[0] = prog(map, 0.2, 0.6) * (1 - prog(mdi, 0, 0.4)); pLines.g[1] = stripA; pLines.g[2] = stripA; pLines.g[3] = prog(fol, 0, 0.3) * stripA;
+    sTex.k = stripA;
+
+    // survival: the curves draw left to right, the bands with them
+    const gaK = ribMat.uniforms.uGA.value, grK = ribMat.uniforms.uGR.value;
+    for (let k = 0; k < 3; k++) { const rv = prog(km, 0.08 + 0.1 * k, 0.75 + 0.1 * k) * 1.02; gaK[k] = prog(km, 0, 0.2); gaK[3 + k] = prog(km, 0, 0.2); grK[k] = rv; grK[3 + k] = rv; }
+    kPill.a(0, prog(km, 0, 0.25)); kPill.flush();
+    kLines.g[0] = prog(km, 0, 0.3); kTex.k = prog(km, 0.1, 0.4);
+    gKM.visible = km > 0.003;
+
+    // the immunotherapy test: the two bands, then the AUC bars from the top down
+    aPill.a(0, prog(resp, 0, 0.25));
+    for (let k = 13; k < 18; k++) aPill.a(k, prog(resp, 0.05, 0.3));
+    AUC.forEach((a, r) => {
+      const g = prog(resp, 0.3 + 0.08 * r, 0.55 + 0.08 * r), len = Math.max(0.002, (ax(a.auc) - AX0) * g);
+      aPill.a(1 + r, prog(resp, 0.2, 0.4)); aPill.x(7 + r, AX0 + len / 2, len / 2); aPill.a(7 + r, prog(resp, 0.3 + 0.08 * r, 0.36 + 0.08 * r));
+    });
+    aPill.flush();
+    aLines.g[0] = prog(resp, 0, 0.3); aLines.g[1] = prog(resp, 0.25, 0.5); aTex.k = prog(resp, 0.05, 0.35);
+    gAUC.visible = resp > 0.003;
+  }
+
+  // ---------------------------------------------------------------- views, controls, explore API
+  const cam = {
+    default: [-10, 15, 3.95, -0.08, 0.08, 0.1],
+    one: [-10, 15, 3.95, -0.08, 0.08, 0.1],
+    field: [-24, 34, 2.55, 0.0, -0.45, 0.3],
+    metrics: [-24, 8, 2.9, 0.72, 0.3, 0.1],
+    map: [0, 5, 3.4, 0.05, 0.28, 0],
+    strip: [0, 4, 3.5, 0.12, 0.22, 0],
+    km: [30, 4, 2.75, -2.38 + 0.02, 0.24, 0.5],
+    auc: [-30, 4, 2.8, 2.38, 0.2, 0.5],
+  };
+  const controls = [
+    { key: 'view', label: 'View', options: [['one', 'One scan'], ['field', 'Ratios'], ['map', 'People'], ['strip', 'Index'], ['km', 'Survival'], ['auc', 'Immunotherapy']] },
+    { key: 'profile', label: 'Profile', options: PROF.map(p => [p, PROFN[p]]) },
+  ];
+  function explore(c) {
+    const v = c.view || 'one', pop = !(v === 'one' || v === 'field'), o = {
+      people_bars: pop ? 0 : 1, people_ratio: pop ? 0 : 1, people_thresh: pop ? 0 : 1, people_one: v === 'one' ? 1 : 0, people_metrics: v === 'one' ? 1 : 0,
+      people_map: pop ? 1 : 0, people_mdi: pop && v !== 'map' ? 1 : 0, people_km: v === 'km' ? 1 : 0, people_response: v === 'auc' ? 1 : 0, people_follow: 0,
+    };
+    const pi = PROF.indexOf(c.profile);
+    if (pi >= 0) o.people_profile = pi;
+    return o;
+  }
+  // what a ray points at: an organ (a node, a bar, a header) or a group (its row on the strip, or its cloud on the map)
+  const _inv = new THREE.Matrix4(), _ray = new THREE.Ray(), _pl = new THREE.Plane(), _hit = new THREE.Vector3(), _w = new THREE.Vector3();
+  function pick(raycaster) {
+    set.group.updateMatrixWorld();
+    _ray.copy(raycaster.ray).applyMatrix4(_inv.copy(set.group.matrixWorld).invert());
+    const o = _ray.origin, d = _ray.direction;
+    let best = null, bt = Infinity;
+    const tryPt = (p, rad, res) => {
+      const x = p[0] - o.x, y = p[1] - o.y, z = p[2] - o.z, along = x * d.x + y * d.y + z * d.z;
+      if (along <= 0) return;
+      const off = Math.sqrt(Math.max(0, x * x + y * y + z * z - along * along));
+      if (off < rad && along < bt) { bt = along; best = res; }
+    };
+    if (cur.one > 0.5 && cur.ring > 0.5) ONE.forEach((id, i) => tryPt(tr(gRing, NODE[i]), 0.075, { organ: id }));
+    if (cur.bars > 0.5) ONE.forEach((id, i) => { for (let s = 0; s <= 4; s++) tryPt(tr(gBars, [s * 0.2, BY(i), 0]), 0.05, { organ: id }); });
+    if (cur.ratio > 0.5) ONE.forEach((id, i) => { tryPt([cellX(0) - 0.13, FY + 0.05, cellZ(i)], 0.055, { organ: id }); tryPt([cellX(i), FY + 0.05, cellZ(N - 1) + 0.13], 0.055, { organ: id }); });
+    if (cur.map > 0.5 && !best) {
+      _pl.set(_w.set(0, 0, 1), 0);
+      if (_ray.intersectPlane(_pl, _hit)) {
+        if (cur.mdi > 0.5) {
+          if (_hit.x > SX0 - 0.05 && _hit.x < SX0 + SW + 0.05) GKEY.forEach((k, q) => { if (Math.abs(_hit.y - ROWY[q]) < 0.09) best = { group: q + 1 }; });
+        } else {
+          let bd = 0.3;
+          STATS.forEach((s, q) => { if (!s.n) return; const dd = Math.hypot(_hit.x - s.x, _hit.y - s.y); if (dd < bd) { bd = dd; best = { group: q + 1 }; } });
+        }
+      }
+    }
+    return best;
+  }
+  const API = {
+    measure, organs: ONE.slice(), pick, profiles: PROF.slice(), groups: GKEY.slice(),
+    current: () => ({ u: U.slice(), theta: cur.theta, C: cur.m.C, H: cur.m.H, mdi: cur.m.mdi, links: cur.m.e.reduce((a, r) => a + r.filter(v => v > 0.5).length, 0), hub: cur.hub >= 0 ? ONE[cur.hub] : null }),
+    dots: NDOT, followUp: NFD,
+  };
+  const params = { people_a: 1, people_bars: 1, people_ratio: 1, people_thresh: 1, people_one: 1, people_metrics: 1, people_profile: 0, people_custom: 0, people_theta: THETA,
+    people_map: 0, people_mdi: 0, people_group: 0, people_km: 0, people_response: 0, people_follow: 0 };
+  ONE.forEach((id, i) => { params['people_u' + i] = PU[0][i]; });
+  return Object.assign(set, { params, update, anchors, labels, cam, controls, explore, api: () => API });
 };
 
 // `liver`: an organ is a network too (the PET story). The authors' VR viewer also shows one organ as a network of
@@ -3536,15 +4814,16 @@ SETS.people = function (K) {
 // ligament, the gallbladder in its bed underneath, the falciform ligament on the front) is filled with about 3,000
 // patches on a regular grid, each with a stand-in uptake (smooth noise, a cooler and a warmer patch, a little noise
 // per patch as in any scan). Two patches a few grid steps apart are linked when one outshines the other by more than
-// a threshold (the poster's rule for organs, applied to patches): about 20,000 links. The best-connected 5 % glow.
-// Everything is built once at load; update only sets uniforms, so the picture follows the params and the time alone.
+// a threshold (the poster's rule for organs, applied to patches): about 20,000 links. The best-connected 5 % stand out
+// (each keeps its own colour, in an amber ring). Everything is built once at load; update only sets uniforms (and hides
+// what is not drawn), so the picture follows the params and the time alone.
 // Frame: x the patient's left (so the right lobe is on your left when you face it), y up, z forward; about 1.6 wide.
 SETS.liver = function (K) {
   const { THREE, smooth, clamp, lerp, prog, v3 } = K;
   const set = K.newSet('liver');
   const R = K.rng(1606);
   const ORG = typeof PET_DATA !== 'undefined' && (PET_DATA.organs || []).find(o => o.id === 'liver');
-  const COL = K.rgb(ORG ? ORG.col : '#f97316'), HUBC = K.rgb('#ffb020'), LINKC = K.rgb('#3d6bff');
+  const COL = K.rgb(ORG ? ORG.col : '#f97316'), HUBC = K.rgb('#ffb020'), LINKC = K.rgb('#4c7cff'), FRONTC = K.rgb('#46d9ff');
   const smin = (a, b, k) => { const h = Math.max(k - Math.abs(a - b), 0) / k; return Math.min(a, b) - h * h * k * 0.25; };
   const smax = (a, b, k) => -smin(-a, -b, k);
   const sat = x => clamp(x, 0, 1);
@@ -3609,7 +4888,8 @@ SETS.liver = function (K) {
     }
   }
   // round cones (after Inigo Quilez's capsule) for the cuts and the gallbladder
-  const capsule = (a, b, r1, r2) => ({ a, b, r1, r2, ba: v3.sub(b, a), l2: v3.dot(v3.sub(b, a), v3.sub(b, a)) });
+  const capsule = (a, b, r1, r2) => ({ a, b, r1, r2, ba: v3.sub(b, a), l2: v3.dot(v3.sub(b, a), v3.sub(b, a)),
+    lo: a.map((v, i) => Math.min(v, b[i])), hi: a.map((v, i) => Math.max(v, b[i])), rm: Math.max(r1, r2) });
   function capD(c, x, y, z) {
     const px = x - c.a[0], py = y - c.a[1], pz = z - c.a[2], t = clamp((px * c.ba[0] + py * c.ba[1] + pz * c.ba[2]) / c.l2, 0, 1);
     const dx = px - c.ba[0] * t, dy = py - c.ba[1] * t, dz = pz - c.ba[2] * t;
@@ -3631,11 +4911,19 @@ SETS.liver = function (K) {
     cF = (FR[q] * a1 + FR[q + 1] * a) * b1 + (FR[q + NX] * a1 + FR[q + NX + 1] * a) * b;
     cB = (BK[q] * a1 + BK[q + 1] * a) * b1 + (BK[q + NX] * a1 + BK[q + NX + 1] * a) * b;
   }
+  // smax(f, s - capD, k) is exactly f where capD >= s + k - f; the distance to the segment's box less the largest
+  // radius never exceeds capD, so far from a cut (most of the organ) it is skipped
+  function carve(f, c, s, k, x, y, z) {
+    const m = s + k - f + c.rm;
+    if (m <= 0) return f;
+    const dx = Math.max(c.lo[0] - x, 0, x - c.hi[0]), dy = Math.max(c.lo[1] - y, 0, y - c.hi[1]), dz = Math.max(c.lo[2] - z, 0, z - c.hi[2]);
+    return dx * dx + dy * dy + dz * dz >= m * m ? f : smax(f, s - capD(c, x, y, z), k);
+  }
   function cut(f, x, y, z) {
     if (f > 0.06) return f;
-    f = smax(f, 0.008 - capD(GB, x, y, z), 0.035);
-    f = smax(f, -capD(TERES, x, y, z), 0.02);
-    return smax(f, -capD(IVC, x, y, z), 0.04);
+    f = carve(f, GB, 0.008, 0.035, x, y, z);
+    f = carve(f, TERES, 0, 0.02, x, y, z);
+    return carve(f, IVC, 0, 0.04, x, y, z);
   }
   function field(x, y, z) { column(x, y); return cut(Math.max(cD, z - cF, cB - z), x, y, z); }
   const grad = (p, e = 0.004) => [field(p[0] + e, p[1], p[2]) - field(p[0] - e, p[1], p[2]),
@@ -3644,48 +4932,57 @@ SETS.liver = function (K) {
   // the surface: surface nets on a grid, each vertex pulled onto the surface; smooth normals from the faces
   const surf = (function () {
     const h = 0.018, lo = [-0.93, -0.6, -0.52], n = [101, 64, 52], F = new Float32Array(n[0] * n[1] * n[2]);
-    const id = (i, j, k) => (i * n[1] + j) * n[2] + k;
+    const id = (i, j, k) => (i * n[1] + j) * n[2] + k, OC = new Uint8Array(n[0] * n[1]);   // OC: columns all outside
     for (let i = 0; i < n[0]; i++) for (let j = 0; j < n[1]; j++) {
       const x = lo[0] + i * h, y = lo[1] + j * h, o = id(i, j, 0);
       column(x, y);
-      if (cD > 0.06) { F.fill(cD, o, o + n[2]); continue; }
+      if (cD > 0.06) { F.fill(cD, o, o + n[2]); OC[i * n[1] + j] = 1; continue; }
       for (let k = 0; k < n[2]; k++) { const z = lo[2] + k * h; F[o + k] = cut(Math.max(cD, z - cF, cB - z), x, y, z); }
     }
     const VI = new Int32Array(n[0] * n[1] * n[2]).fill(-1), P = [], cv = new Float64Array(8);
     const EG = [0, 1, 2, 3, 4, 5, 6, 7, 0, 2, 1, 3, 4, 6, 5, 7, 0, 4, 1, 5, 2, 6, 3, 7], si = n[1] * n[2], sj = n[2];
     const CO = [0, si, sj, si + sj, 1, si + 1, sj + 1, si + sj + 1];   // the corners' offsets (bit 0 i, bit 1 j, bit 2 k)
-    for (let i = 0; i < n[0] - 1; i++) for (let j = 0; j < n[1] - 1; j++) for (let k = 0; k < n[2] - 1; k++) {
-      const o = id(i, j, k);
-      let neg = 0;
-      for (let c = 0; c < 8; c++) { const v = cv[c] = F[o + CO[c]]; if (v < 0) neg++; }
-      if (neg === 0 || neg === 8) continue;
-      let sx = 0, sy = 0, sz = 0, ne = 0;
-      for (let e = 0; e < 24; e += 2) {
-        const a = EG[e], b = EG[e + 1];
-        if ((cv[a] < 0) === (cv[b] < 0)) continue;
-        const t = cv[a] / (cv[a] - cv[b]);
-        sx += (a & 1) + ((b & 1) - (a & 1)) * t; sy += (a >> 1 & 1) + ((b >> 1 & 1) - (a >> 1 & 1)) * t; sz += (a >> 2 & 1) + ((b >> 2 & 1) - (a >> 2 & 1)) * t; ne++;
+    const oc = (i, j) => OC[i * n[1] + j];
+    for (let i = 0; i < n[0] - 1; i++) for (let j = 0; j < n[1] - 1; j++) {
+      if (oc(i, j) & oc(i + 1, j) & oc(i, j + 1) & oc(i + 1, j + 1)) continue;
+      for (let k = 0; k < n[2] - 1; k++) {
+        const o = id(i, j, k);
+        let neg = 0;
+        for (let c = 0; c < 8; c++) { const v = cv[c] = F[o + CO[c]]; if (v < 0) neg++; }
+        if (neg === 0 || neg === 8) continue;
+        let sx = 0, sy = 0, sz = 0, ne = 0;
+        for (let e = 0; e < 24; e += 2) {
+          const a = EG[e], b = EG[e + 1];
+          if ((cv[a] < 0) === (cv[b] < 0)) continue;
+          const t = cv[a] / (cv[a] - cv[b]);
+          sx += (a & 1) + ((b & 1) - (a & 1)) * t; sy += (a >> 1 & 1) + ((b >> 1 & 1) - (a >> 1 & 1)) * t; sz += (a >> 2 & 1) + ((b >> 2 & 1) - (a >> 2 & 1)) * t; ne++;
+        }
+        // one Newton step onto the surface, along the cell's own gradient
+        const gx = (cv[1] - cv[0] + cv[3] - cv[2] + cv[5] - cv[4] + cv[7] - cv[6]) / (4 * h);
+        const gy = (cv[2] - cv[0] + cv[3] - cv[1] + cv[6] - cv[4] + cv[7] - cv[5]) / (4 * h);
+        const gz = (cv[4] - cv[0] + cv[5] - cv[1] + cv[6] - cv[2] + cv[7] - cv[3]) / (4 * h);
+        const x = lo[0] + (i + sx / ne) * h, y = lo[1] + (j + sy / ne) * h, z = lo[2] + (k + sz / ne) * h;
+        const st = clamp(field(x, y, z) / (gx * gx + gy * gy + gz * gz || 1), -0.5 * h, 0.5 * h);
+        VI[o] = P.length / 3; P.push(x - gx * st, y - gy * st, z - gz * st);
       }
-      // one Newton step onto the surface, along the cell's own gradient
-      const gx = (cv[1] - cv[0] + cv[3] - cv[2] + cv[5] - cv[4] + cv[7] - cv[6]) / (4 * h);
-      const gy = (cv[2] - cv[0] + cv[3] - cv[1] + cv[6] - cv[4] + cv[7] - cv[5]) / (4 * h);
-      const gz = (cv[4] - cv[0] + cv[5] - cv[1] + cv[6] - cv[2] + cv[7] - cv[3]) / (4 * h);
-      const x = lo[0] + (i + sx / ne) * h, y = lo[1] + (j + sy / ne) * h, z = lo[2] + (k + sz / ne) * h;
-      const st = clamp(field(x, y, z) / (gx * gx + gy * gy + gz * gz || 1), -0.5 * h, 0.5 * h);
-      VI[o] = P.length / 3; P.push(x - gx * st, y - gy * st, z - gz * st);
     }
     const I3 = [], quad = (a, b, c, d, flip) => { if (a < 0 || b < 0 || c < 0 || d < 0) return; if (flip) I3.push(a, c, b, a, d, c); else I3.push(a, b, c, a, c, d); };
-    for (let i = 0; i < n[0] - 1; i++) for (let j = 0; j < n[1] - 1; j++) for (let k = 0; k < n[2] - 1; k++) {
-      const in0 = F[id(i, j, k)] < 0;
-      if (j > 0 && k > 0 && in0 !== F[id(i + 1, j, k)] < 0) quad(VI[id(i, j - 1, k - 1)], VI[id(i, j, k - 1)], VI[id(i, j, k)], VI[id(i, j - 1, k)], !in0);
-      if (i > 0 && k > 0 && in0 !== F[id(i, j + 1, k)] < 0) quad(VI[id(i - 1, j, k - 1)], VI[id(i - 1, j, k)], VI[id(i, j, k)], VI[id(i, j, k - 1)], !in0);
-      if (i > 0 && j > 0 && in0 !== F[id(i, j, k + 1)] < 0) quad(VI[id(i - 1, j - 1, k)], VI[id(i, j - 1, k)], VI[id(i, j, k)], VI[id(i - 1, j, k)], !in0);
+    for (let i = 0; i < n[0] - 1; i++) for (let j = 0; j < n[1] - 1; j++) {
+      if (oc(i, j) & oc(i + 1, j) & oc(i, j + 1)) continue;
+      for (let k = 0; k < n[2] - 1; k++) {
+        const in0 = F[id(i, j, k)] < 0;
+        if (j > 0 && k > 0 && in0 !== F[id(i + 1, j, k)] < 0) quad(VI[id(i, j - 1, k - 1)], VI[id(i, j, k - 1)], VI[id(i, j, k)], VI[id(i, j - 1, k)], !in0);
+        if (i > 0 && k > 0 && in0 !== F[id(i, j + 1, k)] < 0) quad(VI[id(i - 1, j, k - 1)], VI[id(i - 1, j, k)], VI[id(i, j, k)], VI[id(i, j, k - 1)], !in0);
+        if (i > 0 && j > 0 && in0 !== F[id(i, j, k + 1)] < 0) quad(VI[id(i - 1, j - 1, k)], VI[id(i, j - 1, k)], VI[id(i, j, k)], VI[id(i - 1, j, k)], !in0);
+      }
     }
     const g = new THREE.BufferGeometry();
     g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(P), 3));
-    g.setIndex(new THREE.BufferAttribute(new Uint32Array(I3), 1));
+    g.setIndex(I3);   // three.js picks 16-bit indices when they fit
     g.computeVertexNormals();
     g.computeBoundingBox();
+    let vin = 0; for (let q = 0; q < F.length; q++) if (F[q] < 0) vin++;
+    g.userData.vol = vin * h * h * h;   // the organ's volume, for the patches' first step
     return g;
   })();
   const BB = surf.boundingBox, C0 = [(BB.min.x + BB.max.x) / 2, (BB.min.y + BB.max.y) / 2, (BB.min.z + BB.max.z) / 2];
@@ -3713,24 +5010,30 @@ SETS.liver = function (K) {
     }
     return { hp, lo, hi, cells: out, fv };
   };
-  // the finest step that still leaves at least 3,000 inside; then the few nearest the surface go, so exactly 3,000 stay
+  // the coarsest step that still leaves at least 3,000 inside (from the volume, then corrected by the count's cube
+  // root; within 0.5 % above is enough); then the few nearest the surface go, so exactly 3,000 stay
   let LAT = null;
-  { let a = 0.04, b = 0.058;
-    for (let it = 0; it < 9; it++) {
-      const m = 0.5 * (a + b), L = lattice(m), n = L.cells.length / 3;
+  { let hp = Math.cbrt(surf.userData.vol / TARGET);
+    for (let it = 0; it < 12 && !(LAT && LAT.cells.length / 3 <= TARGET * 1.005); it++) {
+      const L = lattice(hp), n = L.cells.length / 3;
       if (n >= TARGET && (!LAT || n < LAT.cells.length / 3)) LAT = L;
-      if (n > TARGET) a = m; else b = m;
+      hp *= n >= TARGET ? Math.cbrt(n / TARGET) * 0.9995 : Math.min(Math.cbrt(n / TARGET), 0.998);
     }
+    while (!LAT) { hp *= 0.98; const L = lattice(hp); if (L.cells.length / 3 >= TARGET) LAT = L; }
     const keep = [...LAT.fv.keys()].sort((p, q) => LAT.fv[p] - LAT.fv[q]).slice(0, TARGET).sort((p, q) => p - q);
     LAT.cells = keep.flatMap(c => LAT.cells.slice(3 * c, 3 * c + 3)); }
   const HP = LAT.hp, N = LAT.cells.length / 3, PP = new Float32Array(3 * N);
   const DIMS = LAT.hi.map((v, c) => v - LAT.lo[c] + 1), IDX = new Int32Array(DIMS[0] * DIMS[1] * DIMS[2]).fill(-1);
   const lid = (i, j, k) => ((i - LAT.lo[0]) * DIMS[1] + (j - LAT.lo[1])) * DIMS[2] + (k - LAT.lo[2]);
   // each node is drawn somewhere inside its own grid cell, not at the grid point: one per cell keeps them evenly
-  // spread, and no rows of nodes line up from any side
+  // spread, and no rows of nodes line up from any side. Near the surface the shift is halved (up to three times,
+  // then none) until the node is as far inside as its grid point had to be
   for (let n = 0; n < N; n++) {
     const i = LAT.cells[3 * n], j = LAT.cells[3 * n + 1], k = LAT.cells[3 * n + 2];
-    PP.set(gp(i + 0.7 * (R() - 0.5), j + 0.7 * (R() - 0.5), k + 0.7 * (R() - 0.5), HP), 3 * n); IDX[lid(i, j, k)] = n;
+    const di = 0.7 * (R() - 0.5), dj = 0.7 * (R() - 0.5), dk = 0.7 * (R() - 0.5);
+    let p = null;
+    for (let s = 1; s >= 0.1 && !p; s *= 0.5) { const q = gp(i + s * di, j + s * dj, k + s * dk, HP); if (field(q[0], q[1], q[2]) < -0.3 * HP) p = q; }
+    PP.set(p || gp(i, j, k, HP), 3 * n); IDX[lid(i, j, k)] = n;
   }
   // stand-in uptake (log scale, 0 the liver's usual): smooth noise in three octaves, a warmer patch high in the right
   // lobe, a cooler one where the lobes meet, and a little noise per patch
@@ -3801,9 +5104,9 @@ SETS.liver = function (K) {
 
   // ------------------------------------------------------------------ materials
   const U = { uGrow: { value: 1 }, uLinks: { value: 1 }, uTop: { value: 0 }, uHubC: { value: new THREE.Color(...HUBC) },
-    uLinkC: { value: new THREE.Color(...LINKC) } };
+    uLinkC: { value: new THREE.Color(...LINKC) }, uFrontC: { value: new THREE.Color(...FRONTC) } };
   const LOOK = `
-uniform float uA, uGrow, uLinks, uTop; uniform vec3 uHubC, uLinkC;
+uniform float uA, uGrow, uLinks, uTop; uniform vec3 uHubC, uLinkC, uFrontC;
 // hot iron, as the body set draws the scan: black, dark red, red, orange, yellow, white
 vec3 hot(float x) { return vec3(pow(clamp(x * 2.0, 0.0, 1.0), 0.9), pow(clamp((x - 0.15) / 0.8, 0.0, 1.0), 1.5), clamp((x - 0.76) * 4.2, 0.0, 1.0) * 0.95); }
 // brighter in front of the set's middle, darker behind
@@ -3823,7 +5126,7 @@ float depthCue(vec4 mv) { vec4 o = modelViewMatrix * vec4(${C0.map(v => v.toFixe
     const m = new THREE.ShaderMaterial({
       uniforms: { uA: set.uA, uC: { value: new THREE.Color(...col) }, uK: { value: 1 }, uF: { value: o.face }, uR: { value: o.rim },
         uD: { value: o.dif }, uB: { value: o.band || 0 }, uY: { value: new THREE.Vector3(...(o.fade || [-9, -8, 1])) } },
-      transparent: true, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending,
+      transparent: true, depthWrite: false, side: o.side || THREE.DoubleSide, blending: THREE.AdditiveBlending,
       vertexShader: `varying vec3 vN, vV; varying float vY;
 void main() { vec4 mv = modelViewMatrix * vec4(position, 1.0); vN = normalize(normalMatrix * normal); vV = -mv.xyz; vY = position.y; gl_Position = projectionMatrix * mv; }`,
       fragmentShader: `uniform float uA, uK, uF, uR, uD, uB; uniform vec3 uC, uY; varying vec3 vN, vV; varying float vY;
@@ -3843,11 +5146,14 @@ void main() {
   };
 
   // ------------------------------------------------------------------ the organ
-  const shellMat = glass(COL, { face: 0.025, rim: 0.5, dif: 0.12, band: 0.05 });
-  const shell = new THREE.Mesh(surf, shellMat);
-  shell.renderOrder = 1;
-  body.add(shell);
+  // its near side, and its far side fainter (drawn double sided at one strength, from below it looked hollow)
+  const SHELL = { face: 0.025, rim: 0.5, dif: 0.12, band: 0.05 };
+  const shellMat = glass(COL, Object.assign({ side: THREE.FrontSide }, SHELL)), backMat = glass(COL, Object.assign({ side: THREE.BackSide }, SHELL));
+  const shell = new THREE.Mesh(surf, shellMat), back = new THREE.Mesh(surf, backMat);
+  shell.renderOrder = back.renderOrder = 1;
+  body.add(back, shell);
   // the gallbladder in its bed (bile green, faint): a pear from the fundus to the neck, and the cystic duct
+  const gbMat = glass(K.rgb('#9ad66a'), { face: 0.03, rim: 0.45, dif: 0.08, fade: [0.02, 0.16, 0.3] });   // its body and neck, up under the liver, stay faint
   {
     const prof = [];
     for (let s = 0; s <= 24; s++) {
@@ -3856,7 +5162,7 @@ void main() {
     }
     prof.push(new THREE.Vector2(0.012, v3.dist(GB_F, GB_N) + 0.03), new THREE.Vector2(0.011, v3.dist(GB_F, GB_N) + 0.09), new THREE.Vector2(0.0001, v3.dist(GB_F, GB_N) + 0.092));
     const g = new THREE.LatheGeometry(prof, 20);
-    const m = new THREE.Mesh(g, glass(K.rgb('#9ad66a'), { face: 0.03, rim: 0.45, dif: 0.08, fade: [0.02, 0.16, 0.3] }));   // its body and neck, up under the liver, stay faint
+    const m = new THREE.Mesh(g, gbMat);
     m.position.set(...GB_F);
     m.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), new THREE.Vector3(...v3.norm(v3.sub(GB_N, GB_F))));
     body.add(m);
@@ -3887,30 +5193,33 @@ void main() {
   const ptMat = mat(`
 attribute vec4 aI;
 uniform float uSz;
-varying vec3 vC; varying float vA, vHot;
+varying vec3 vC; varying float vA, vHub, vRing;
 void main() {
   vec4 mv = modelViewMatrix * vec4(position, 1.0);
   gl_Position = projectionMatrix * mv;
   float g = uGrow * 1.1, ap = smoothstep(aI.y, aI.y + 0.05, g), fl = uGrow < 0.999 ? exp(-pow((g - aI.y - 0.035) / 0.045, 2.0)) : 0.0;
-  float hub = aI.z * uTop, pulse = 0.8 + 0.2 * sin(uTime * 1.6 + aI.w * 6.2832);
+  float hub = aI.z * uTop, rest = uTop * (1.0 - aI.z), pulse = 0.75 + 0.25 * sin(uTime * 1.6 + aI.w * 6.2832);
   vec3 c = hot(aI.x) * (1.0 - 0.3 * uLinks) * (0.9 + 0.1 * sin(uTime * 1.1 + aI.w * 40.0));
-  c = mix(c, uHubC * 1.3 * pulse, hub);
-  c = mix(c, vec3(1.0, 0.93, 0.8), fl * 0.6);   // the growing front glows white
-  float br = mix(1.0, 0.28, uTop * (1.0 - aI.z)) * (1.0 + 2.2 * fl);
-  float sz = uSz * (1.0 + 1.0 * hub) * (1.0 - 0.3 * uTop * (1.0 - aI.z)) * (1.0 + 0.5 * fl) * ap;
+  // with the hubs shown the rest turn grey and dim; a hub keeps its own colour (its uptake) and gets an amber ring
+  c = mix(c, vec3(dot(c, vec3(0.3, 0.59, 0.11))), 0.7 * rest);
+  c = mix(c, uFrontC * 0.7, fl * 0.85);   // the growing front: cyan (not white), so it never reads as the hottest tissue
+  float br = mix(1.0, 0.28, rest) * (1.0 + 0.3 * hub) * (1.0 + 0.25 * fl);
+  float sz = uSz * (1.0 + 0.6 * hub) * (1.0 - 0.3 * rest) * (1.0 + 0.5 * fl) * ap;
   // up close (as in a headset) points shrink with distance and never grow beyond about two degrees
   float sc = length(modelViewMatrix[0].xyz), dl = -mv.z / sc;
-  gl_PointSize = min(pointPx(sz * clamp(dl / 1.4, 0.5, 1.0), mv), 0.035 * uPx * projectionMatrix[1][1] / sc);
-  vC = c * br * depthCue(mv); vHot = hub; vA = uA * ap;
+  gl_PointSize = min(pointPx(sz * clamp(dl / 1.4, 0.5, 1.0), mv), 0.035 * (1.0 + 0.6 * hub) * uPx * projectionMatrix[1][1] / sc);
+  vC = c * br * depthCue(mv); vHub = hub; vRing = hub * pulse; vA = uA * ap;
   if (vA < 0.004) gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
 }`, `
-varying vec3 vC; varying float vA, vHot;
+uniform vec3 uHubC;
+varying vec3 vC; varying float vA, vHub, vRing;
 void main() {
   float d = length(gl_PointCoord - 0.5) * 2.0;
   if (d > 1.0) discard;
-  float core = smoothstep(0.65, 0.1, d), halo = pow(1.0 - d, 2.0);
-  vec3 c = vC * (0.65 + 0.5 * core) + vec3(1.0, 0.95, 0.85) * vHot * smoothstep(0.4, 0.0, d) * 0.6;
-  gl_FragColor = vec4(c, vA * (core * 0.6 + halo * 0.35));
+  // a hub's disc is larger: its own colour fills the inner part (as large as any patch), the ring the outer part
+  float e = d * (1.0 + 0.6 * vHub), core = smoothstep(0.65, 0.1, e), halo = pow(max(1.0 - e, 0.0), 2.0);
+  float ring = vRing * smoothstep(0.58, 0.72, d) * smoothstep(1.0, 0.86, d);
+  gl_FragColor = vec4(vC * (0.65 + 0.5 * core) * (1.0 - ring) + uHubC * 1.2 * ring, vA * (core * 0.6 + halo * 0.35 + ring * 0.85));
 }`);
   ptMat.uniforms.uSz = { value: HP * 0.62 };
   const pts = new THREE.Points(ptGeo, ptMat);
@@ -3947,8 +5256,11 @@ void main() {
   vec3 c = mix(uLinkC, vec3(0.5, 0.72, 1.0), aL.y * 0.4);
   c = mix(c, uHubC, hl * 0.9);
   float br = (0.35 + 0.65 * aL.y) * mix(1.0, 0.16, uTop * (1.0 - hub)) * (1.0 + 0.7 * hl);
-  // up close each line covers fewer others, so it may be brighter
-  vC = c * br * depthCue(mv); vS = aL.x; vPh = ph; vA = uA * on * clamp(2.6 * length(modelViewMatrix[0].xyz) / -mv.z, 1.0, 2.5);
+  vC = c * br * depthCue(mv); vS = aL.x; vPh = ph; vA = uA * on;
+  if (vA < 0.004) gl_Position = vec4(2.0, 2.0, 2.0, 1.0);   // hidden: both ends share 'on', so the whole line goes
+  // up close each line covers fewer others: the strong ones grow brighter, the weak ones step back
+  float near = clamp((2.6 * length(modelViewMatrix[0].xyz) / -mv.z - 1.0) / 1.5, 0.0, 1.0);
+  vA *= mix(1.0, mix(0.7, 1.6, aL.y), near);
 }`, `
 uniform float uTime;
 varying vec3 vC; varying float vA, vS, vPh;
@@ -3963,7 +5275,9 @@ void main() {
 
   // ------------------------------------------------------------------ anchors, labels
   let ang = 0;
-  const at = p => () => { const x = p[0] - C0[0], y = p[1] - C0[1], z = p[2] - C0[2], c = Math.cos(ang), s = Math.sin(ang); return [x * c + z * s, y, -x * s + z * c]; };
+  // an anchor turns with the spin; it returns the same array each time (the engine copies it)
+  const at = p => { const x = p[0] - C0[0], z = p[2] - C0[2], o = [x, p[1] - C0[1], z];
+    return () => { const c = Math.cos(ang), s = Math.sin(ang); o[0] = x * c + z * s; o[2] = -x * s + z * c; return o; }; };
   // a point on the surface: from the inside point p outwards along d
   const surfAt = (p, d) => { let a = 0, b = 1; d = v3.norm(d);
     for (let it = 0; it < 30; it++) { const m = 0.5 * (a + b), q = v3.add(p, v3.mul(d, m)); if (field(q[0], q[1], q[2]) < 0) a = m; else b = m; }
@@ -3978,34 +5292,41 @@ void main() {
     notch: at(v3.add(GB_F, [0, -0.08, 0.02])),                     // the gallbladder's notch, its fundus below the edge
     teres: at(LIG[0]),                                               // the round ligament's notch
     warm: at(WARM), cool: at(COOL),
-    web: at(surfAt(WARM, [0.3, -0.5, 1])),                          // where the links crowd, on the front
+    web: at(surfAt(WARM, [0.1, -0.2, 1])),                          // where the links crowd, on the front
   };
   const labels = [
     { text: [fmt(N) + ' patches', ''], at: 'right', alpha: S => prog(S.liver_grow, 0.55, 0.85) * (1 - prog(S.liver_links, 0.1, 0.35)) },
     { text: ['Links:', 'uptake ratio above the threshold'], at: 'web', cls: 'cyn', alpha: S => prog(S.liver_links, 0.35, 0.65) * prog(S.liver_grow, 0.7, 0.95) * (1 - prog(S.liver_top, 0.1, 0.4)) },
     { text: ['Best connected', 'the top 5 % of patches'], at: 'top', cls: 'amb', alpha: S => prog(S.liver_top, 0.45, 0.8) * prog(S.liver_grow, 0.7, 0.95) },
   ];
+  const API = Object.freeze({ patches: N, links: NL, theta: THETA, hubs: NH, step: Math.round(HP * 1e5) / 1e5, pairs: NP,
+    meanLinks: Math.round(20 * NL / N) / 10, maxLinks: DEG[ORDER[0]] });
+  const num = (v, d) => (v === undefined ? d : v);
   return Object.assign(set, {
     params: { liver_a: 1, liver_grow: 1, liver_links: 1, liver_top: 0, liver_spin: 0 },
     update(S) {
-      const p = k => (S[k] === undefined ? set.params[k] : S[k]);
-      ang = p('liver_spin') * Math.PI * 2;
+      ang = num(S.liver_spin, 0) * Math.PI * 2;
       spin.rotation.y = ang;
-      U.uGrow.value = sat(p('liver_grow')); U.uLinks.value = sat(p('liver_links')); U.uTop.value = sat(p('liver_top'));
-      shellMat.uniforms.uK.value = 1 - 0.35 * U.uLinks.value - 0.25 * U.uTop.value;
+      const g = sat(num(S.liver_grow, 1)), l = sat(num(S.liver_links, 1)), tp = sat(num(S.liver_top, 0));
+      U.uGrow.value = g; U.uLinks.value = l; U.uTop.value = tp;
+      // the organ steps back for the links and the hubs, and stands out a little while it is empty
+      const k = (1 - 0.35 * l - 0.25 * tp) * (1 + 0.4 * (1 - g));
+      shellMat.uniforms.uK.value = k; backMat.uniforms.uK.value = 0.45 * k;
+      gbMat.uniforms.uK.value = ligMat.uniforms.uK.value = 1 - 0.5 * l - 0.3 * tp;
+      pts.visible = g > 0.001; lns.visible = g > 0.001 && l > 0.001;   // nothing to draw: no draw call
     },
     anchors,
     labels,
     cam: {
       default: [-16, 9, 3.1, 0, -0.02, 0],
       front: [0, 3, 3.1, 0, 0, 0],
-      close: [-34, 12, 1.5, ...at(WARM)()],
+      close: [-34, 12, 1.7, ...at(WARM)()],   // for liver_spin 0
       below: [-12, -52, 3.1, 0, -0.05, 0],
       side: [-90, 6, 3.0, 0, 0, 0],
     },
     controls: [{ key: 'view', label: 'View', options: [['patches', 'Patches'], ['links', 'Links'], ['hubs', 'Hubs']] }],
     explore(c) { return { liver_grow: 1, liver_links: c.view === 'patches' ? 0 : 1, liver_top: c.view === 'hubs' ? 1 : 0, liver_spin: 0 }; },
-    api() { return { patches: N, links: NL, theta: THETA, hubs: NH, step: HP, pairs: NP, meanLinks: 2 * NL / N, maxLinks: DEG[ORDER[0]] }; },
+    api() { return API; },
   });
 };
 
