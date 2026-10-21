@@ -1,7 +1,7 @@
 # airportnetworks
 
-**Networks, in nine stories**: an installable web app that teaches network
-science through nine short, animated stories. Each story takes a few minutes
+**Networks, in ten stories**: an installable web app that teaches network
+science through ten short, animated stories. Each story takes a few minutes
 (the tour about eight) and ends in an explore mode where the network is yours
 to play with.
 It runs in any modern browser, on phones, and in VR and AR headsets (built for
@@ -15,6 +15,7 @@ Meta Quest Browser).
 | **Muscle and heart** (rare muscle diseases) | 1,182 genes of 13 groups of neuromuscular disorders in a tower of 71 layers, after the ISMB 2026 talk by Iker Núñez-Carpintero and Philipp Friedrich (LBI Network Medicine), on their data | the motor unit from nerve to sarcomere, a multiplex network, a random walk with restart, disease modules, endotypes, the overlap of congenital myopathies and cardiomyopathies, a stress test on a supercomputer; explore: pick a group, search a gene, run your own walk, knock out layers, pick endotypes, stand inside the tower |
 | **Endotypes** (disease endotypes) | one junction between nerve and muscle close up, the 35 genes of congenital myasthenic syndromes, their protein network of 18,306 proteins and 12 endotypes, after the ISMB 2026 EndotypY poster by Chloé Bûcheron, Iker Núñez-Carpintero, Enes Sakalli, Mathilde Meyenberg, Julia Guthrie and Jörg Menche (LBI Network Medicine), on their run | fatigable weakness, seed genes, a random walk with restart, a disease module, functional neighbourhoods, a tree whose splits are tested, endotypes and where they act in the synapse; explore: every endotype and gene, the method step by step, stand in the gap |
 | **One scan, one system** (whole-body PET) | a PET/CT scanner and how it sees, the tour's glowing PET body, its organs outlined and measured, and the networks of the organs' metabolism from 658 whole-body scans, after the paper by Barbara K Geist and colleagues (Med, 2025) and their poster "Shaping a New Era in Nuclear Medicine" (Medical University of Vienna and LBI Network Medicine) | positrons and coincidences, uptake, partial correlations, network density and disorder, hubs, health eroding into disease, one network per scan, an index that predicts survival |
+| **Tissue and time** (tissue microanatomy) | an H&E-stained section and the working units (microanatomical domains) a method finds in it, a library of 24,945 slides of 40 tissues, an atlas of their domains, the network of how organs are built, after the preprint by Iva Buljan, Zsuzsanna Bago-Horvath and André Rendeiro (bioRxiv, 2025) | tiles, features, message passing and clustering without labels; domains shared and specific; which change with age; pathology; contacts between domains that stay or change |
 | **Flock** (collective motion) | 200 starlings at dusk flying all around you (in a headset, life size), over a field by a lake | no leader: each bird follows its seven nearest neighbours, so the flock is a network that changes from moment to moment; a falcon sets off a wave that runs through the whole flock; explore: as many birds as you like (100 to 400), who follows whom, send a falcon; then it flies on for as long as you stay |
 | **Robot gang** (swarm robotics) | a gang of 6 to 24 robot vacuums in a model living room; in a headset, in your own room (its floor, walls and furniture from the headset's room setup) | bump and turn: no map, yet the floor gets clean; then one rule, follow, on two networks of who follows whom: a star (all follow you) and a chain (a conga line). Click the floor to walk; in a headset the trigger on the floor spills crumbs |
 | **The future** (LBI Network Medicine) | a 3D tour in ten scenes, after the Ludwig Boltzmann Institute for Network Medicine's welcome talk | the whole is more than its parts, networks everywhere, genes and protein shapes, a protein machine (ATP synthase) assembling and running, the interactome as a city map, rare diseases and inborn errors of immunity, network propagation for diagnosis, networks across scales, the institute's research groups, whole-body PET and organ networks, tissue as a network of cells |
@@ -204,6 +205,13 @@ Chapter timings and how to re-sync a new recording
   are not published). The scanner, the body and the liver's patches are
   illustrative.
 
+- **Tissue and time** (`stories/micro.js`), after the preprint "Systematic mapping of human tissue microanatomy
+  reveals age-associated remodeling and resilience" (Iva Buljan, Zsuzsanna Bago-Horvath, André F. Rendeiro;
+  bioRxiv 2025, doi 10.1101/2025.10.13.682110, CC BY-NC), its poster and talk, and Iva Buljan's network of organ
+  architecture (only the numbers the story needs are in the repository, `tools/micro/sets/data.js`, made by
+  `tools/micro/data/gen_data.mjs`). The slides, sections and tiles are drawn, not the GTEx images; values read off
+  the talk's figures are in `tools/micro/data/figures.json`, and stand-ins are said to be so.
+
 - **Flock** (`stories/flock.js`): a live simulation, not data. Each bird
   matches the heading of its seven nearest neighbours (topological interaction,
   after Ballerini et al., PNAS 2008) and keeps its distance; the flock as a
@@ -231,7 +239,7 @@ The protein data is meant for teaching, not research.
 | Path | What it is |
 | --- | --- |
 | `index.html` | the app: Stories screen, shared page layout, loads and swaps the stories |
-| `stories/airports.js`, `stories/proteins.js`, `stories/spatial.js`, `stories/lbi.js`, `stories/nmd.js`, `stories/endo.js`, `stories/pet.js`, `stories/flock.js`, `stories/robots.js` | the nine stories, with their data, explore modes and headset panels |
+| `stories/airports.js`, `stories/proteins.js`, `stories/spatial.js`, `stories/lbi.js`, `stories/nmd.js`, `stories/endo.js`, `stories/pet.js`, `stories/micro.js`, `stories/flock.js`, `stories/robots.js` | the ten stories, with their data, explore modes and headset panels |
 | `proteins.html`, `spatial.html` | forward old links to the app |
 | `sw.js`, `manifest.webmanifest`, `icons/` | offline cache and app install |
 | `audio/` | optional narrations |

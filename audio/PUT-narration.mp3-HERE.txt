@@ -32,6 +32,11 @@ The PET story (#pet) looks for narration-pet.mp3. Its chapters start at 0:00,
 NARRATION_SYNC in tools/pet/engine/e3_story.js (then rebuild) if your
 recording differs.
 
+The microanatomy story (#micro) looks for narration-micro.mp3. Its chapters start
+at 0:00, 0:14, 0:50, 1:25, 2:10, 2:50, 3:35, 4:10 and 4:45, ending at 5:05;
+change NARRATION_SYNC in tools/micro/engine/e3_story.js (then rebuild) if your
+recording differs.
+
 The flock (#flock) looks for narration-flock.mp3. Its chapters start at 0:00,
 0:18, 0:40 and 1:02, ending at 1:12 (after that the flock flies on in explore
 mode); change NARRATION_SYNC in tools/flock/engine/e3_story.js (then rebuild)

@@ -10613,8 +10613,9 @@ function xrLandingSetup() {
   HOST.list.forEach((s, k) => {
     // cards 0.36 m wide on an arc: seven 0.31 rad apart at 1.25 m (neighbours 0.386 m apart, the outer ones 53° to the
     // side), eight 0.272 rad apart at 1.4 m (0.379 m apart, the outer ones 55° to the side), nine 0.245 rad apart at
-    // 1.55 m (0.379 m apart, the outer ones 56° to the side)
-    const n = HOST.list.length, a = (k - (n - 1) / 2) * (n > 8 ? 0.245 : n > 7 ? 0.272 : 0.31), d = n > 8 ? 1.55 : n > 7 ? 1.4 : 1.25;
+    // 1.55 m (0.379 m apart, the outer ones 56° to the side), ten 0.225 rad
+    // apart at 1.7 m (0.382 m apart, the outer ones 58° to the side)
+    const n = HOST.list.length, a = (k - (n - 1) / 2) * (n > 9 ? 0.225 : n > 8 ? 0.245 : n > 7 ? 0.272 : 0.31), d = n > 9 ? 1.7 : n > 8 ? 1.55 : n > 7 ? 1.4 : 1.25;
     const P = makePanel(640, 820, 0.36, (ctx, P) => drawLandCard(ctx, P, s), () => 'c' + XR.inStory + s.key);
     P.mesh.position.set(Math.sin(a) * d, -0.105, -Math.cos(a) * d);   // top edge 0.126 m up, under the header
     P.mesh.rotation.y = -a;
@@ -10636,7 +10637,7 @@ function xrLandingClose() {
   if (APP.mode === 'story') APP.playing = true;
 }
 function drawLandHead(ctx, P) {
-  ctx.font = vfont(58, 700); ctx.fillStyle = VC.ink; ctx.fillText(`Networks, in ${['one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine'][HOST.list.length - 1] || HOST.list.length} stories`, 48, 44);
+  ctx.font = vfont(58, 700); ctx.fillStyle = VC.ink; ctx.fillText(`Networks, in ${['one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten'][HOST.list.length - 1] || HOST.list.length} stories`, 48, 44);
   // anchored: where the place stands, in place of the hint
   const an = HOST.anchor.status();
   textBlock(ctx, an || 'The same ideas, very different networks. Point at a story and pull the trigger (or pinch).', 48, 128, 860, 27, 38, an ? VC.ink : VC.muted, 400, 2);

@@ -1,4 +1,4 @@
-Networks, in nine stories - installable web app
+Networks, in ten stories - installable web app
   1. Network theory, told with the world's airports  (stories/airports.js)
   2. Network medicine, told with the proteins in a cell  (stories/proteins.js)
   3. Spatial interactome, where proteins meet in a cell  (stories/spatial.js)
@@ -12,9 +12,12 @@ Networks, in nine stories - installable web app
   7. One scan, one system: a PET scanner, the body's organs and the network of
      their metabolism from 658 scans, after Barbara K Geist and colleagues
      (stories/pet.js)
-  8. Flock: 200 starlings at dusk flying all around you, each following its
+  8. Tissue and time: the small working units organs are built from, in 24,945
+     slides, and how they change with age, after Iva Buljan and colleagues
+     (stories/micro.js)
+  9. Flock: 200 starlings at dusk flying all around you, each following its
      seven nearest neighbours  (stories/flock.js)
-  9. Robot gang: robot vacuums in your room that bump and turn, follow you
+  10. Robot gang: robot vacuums in your room that bump and turn, follow you
      about or form a conga line; in a headset they find your floor and walls
      (stories/robots.js)
 
@@ -178,6 +181,12 @@ Typical organ uptakes, the explainer's synthetic cohort, the population's dots
 and the one-scan formulas are illustrative stand-ins (the poster's formulas are
 not published). node tools/pet/data/gen_data.mjs writes tools/pet/sets/data.js.
 
+Microanatomy story data (stories/micro.js): the preprint by Buljan, Bago-Horvath
+and Rendeiro (bioRxiv 2025, CC BY-NC), its poster and talk, and Iva Buljan's
+network of organ architecture (kept out of the repository; only the numbers
+are in tools/micro/sets/data.js, from node tools/micro/data/gen_data.mjs). The
+slides and sections are drawn, not the GTEx images.
+
 Flock (stories/flock.js): a live simulation, not data. Each bird follows its
 seven nearest neighbours (Ballerini et al. 2008) and keeps its distance; the
 flock as a whole wheels about in front of you and now and then swoops round you;
@@ -192,7 +201,7 @@ it). Without a room setup they get a virtual room round you, and the panel
 offers Set up your room. Point at the floor and pull the trigger to spill
 crumbs. Speeds and cleaning times are tuned to look right, not measured.
 
-Files: index.html (the app), stories/ (the nine stories), proteins.html and
+Files: index.html (the app), stories/ (the ten stories), proteins.html and
 spatial.html (forward to the app), manifest.webmanifest, sw.js (offline cache), audio/,
 shared.js (shared rooms), relay/ (the shared rooms' server), docs/ (the shared rooms' plan),
 AGENTS.md and CLAUDE.md (notes for AI coding agents), tools/smoke.mjs (headless test),
@@ -201,7 +210,8 @@ tools/lbi/ (sources of the tour; node tools/lbi/build.mjs writes stories/lbi.js)
 tools/nmd/ and ikerdata/ (sources and data of the muscle story; node tools/nmd/build.mjs
 writes stories/nmd.js), tools/endo/ (sources of the endotype story; node
 tools/endo/build.mjs writes stories/endo.js), tools/pet/ (sources of the PET story; node
-tools/pet/build.mjs writes stories/pet.js), tools/flock/ (sources of the flock; node tools/flock/build.mjs
+tools/pet/build.mjs writes stories/pet.js), tools/micro/ (sources of the microanatomy story; node
+tools/micro/build.mjs writes stories/micro.js), tools/flock/ (sources of the flock; node tools/flock/build.mjs
 writes stories/flock.js), tools/robots/ (sources of the robot gang;
 node tools/robots/build.mjs writes stories/robots.js),
 icons/, three.min.js (three.js r128, MIT licence, see three.LICENSE.txt).

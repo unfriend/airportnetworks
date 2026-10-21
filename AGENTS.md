@@ -4,9 +4,9 @@ Guidance for AI coding agents (and humans) working on this repository.
 
 ## What this is
 
-An installable web app that teaches network science in nine narrated stories
+An installable web app that teaches network science in ten narrated stories
 (about four minutes each, the tour about eight, the muscle story about seven, the endotype story about five, the PET
-story about five and a half, the
+story about five and a half, the microanatomy story about five, the
 flock just over one, the robot gang about one and a half), each
 followed by an explore mode. Everything works on desktop, phones and in VR/AR headsets (built for Meta
 Quest Browser, WebXR).
@@ -20,6 +20,7 @@ Quest Browser, WebXR).
 | Rare muscle diseases | `stories/nmd.js` | 1,182 genes of 13 neuromuscular disease groups in a tower of 71 layers (real data in `ikerdata/`), the motor unit, a supercomputer |
 | Disease endotypes | `stories/endo.js` | one neuromuscular junction close up; the 35 genes of congenital myasthenic syndromes in the authors' protein network (18,306 proteins), their module of 393 genes and 12 endotypes (EndotypY), the motor unit |
 | Whole-body PET | `stories/pet.js` | a PET/CT scanner and how it sees; the organs of the paper's 658 whole-body scans (Geist et al., Med 2025) and their partial correlation networks (printed and read off its figures), from health to disease; the poster's one-scan network and its index (stand-in maths), survival and immunotherapy; the tour's PET body |
+| Tissue microanatomy | `stories/micro.js` | the tour's H&E section and the domains a method finds in it; 24,945 GTEx slides of 40 tissues (Buljan, Bago-Horvath, Rendeiro, bioRxiv 2025); the network of organ architecture (29 organs, tissues, 10 tissue types, 70 domains, Iva Buljan's file); which domains change with age, pathology, and the contacts between domains |
 | Flock | `stories/flock.js` | 200 starlings (a live simulation) flying all around you at dusk, each following its seven nearest neighbours |
 | Robot gang | `stories/robots.js` | 6 to 24 robot vacuums (a live simulation) in a model living room, or in a headset your own room; who follows whom (you, or the one ahead) is the network |
 
@@ -72,6 +73,9 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
 - `tools/pet/` - the sources of `stories/pet.js` (data generator and the figures' readings, data block, organ
   icons, sets, engine parts adapted from the endotype story's, build script, set harness; it uses `tools/lbi/kit.js`
   and the tour's body set); see its `README.md` and `SPEC.md`.
+- `tools/micro/` - the sources of `stories/micro.js` (data generator, data block, sets, engine parts adapted from the
+  PET story's, build script, set harness; it uses `tools/lbi/kit.js`, the tour's body and tissue sets and the PET
+  story's organ icons); see its `README.md` and `SPEC.md`.
 - `tools/lbi/` - the sources of `stories/lbi.js` (kit, sets, engine parts,
   build script, set harness, data generators); see its `README.md`.
 - `tools/flock/` - the sources of `stories/flock.js` (the flock set, engine parts
@@ -194,7 +198,7 @@ spot, y over the floor) and `st.<id>.place` (the scene: `{ x, y, z }` moved from
 where the story puts it, and `s` its size, a factor on the story's own; FORMAT
 networks-8), and per shared space `rf.<space id>` (the room's frame in it) and
 `rs.<space id>` (found split; FORMAT networks-9), and `sg` (the room's shared-space
-generation, `{ n, by, at }`; FORMAT networks-10; networks-11 when the eighth story came, networks-12 the ninth). The plan is `docs/shared-space-plan.md`.
+generation, `{ n, by, at }`; FORMAT networks-10; networks-11 when the eighth story came, networks-12 the ninth, networks-13 the tenth). The plan is `docs/shared-space-plan.md`.
 
 - `HOST.collab` keeps the room's keys (echo suppression by value, optimistic
   writes acknowledged by the relay, apply order stations > clock > state >
@@ -252,7 +256,7 @@ generation, `{ n, by, at }`; FORMAT networks-10; networks-11 when the eighth sto
   from the Shared dialog. A story the person starts themselves leaves the
   station (no longer following, not pulled back).
 - Arrange all: two rows in front of you, half the stories (rounded up: five of
-  nine) 1.2 m ahead and the rest in the gaps 2.6 m further on, 2.4 m apart, every
+  ten) 1.2 m ahead and the rest in the gaps 2.6 m further on, 2.4 m apart, every
   station facing away from you (its content floats 1.4 m beyond its spot); it
   needs about 9.6 m x 4 m of floor from 1.2 m in front of you. Remove asks first ("Remove for
   everyone?", 3 s), on the page and in the headset.
@@ -517,7 +521,7 @@ generation, `{ n, by, at }`; FORMAT networks-10; networks-11 when the eighth sto
   A page following a station (Follow) leaves its Stories screen: while that
   shows, nothing syncs.
 
-The hooks every story keeps (all nine, the same lines; the flock is the
+The hooks every story keeps (all ten, the same lines; the flock is the
 reference, `tools/flock/engine/`):
 
 - `collab: { APP, scene: () => GL.scene, state, apply, view, setView, effect, hover, panel, place }`
@@ -571,6 +575,7 @@ What each story shares:
 | nmd | tab, scene, every scene's controls, group, gene, picked endotypes, layers knocked out, your genes, the walk (its start and result, the same on every device), walkers, colour, grid, z-scores | none |
 | endo | tab, scene, every scene's controls (synapse, network, tree, motor unit), endotype, gene, k (the seed-group step), method step (standing in the gap stays per device) | none |
 | pet | tab, scene, every scene's controls (scanner, body, organs, people, liver), the comparison (a Table 2 row), network, organ, profile, custom uptakes, threshold, group (life size stays per device) | none |
+| micro | tab, scene, every scene's controls (body, section, atlas, network), organ, domain, age, method step | none |
 | flock | birds, links, falcon | `falcon` (where it starts, its velocity and aim, in the set's frame), `flock` (quiet, twice a second: where the flock is, see the flock's notes) |
 | robots | rule, robots, trails, links | `crumbs` (a pile: in room coordinates in a headset with an aligned frame, else in the station's frame), `dust` |
 
@@ -616,7 +621,7 @@ says why), whether a recentre fires a reset, sound zones heard, comfort and
 frame rate with presence drawn, and whether the socket keeps running inside an
 immersive session.
 
-## Inside a story (all nine follow the same pattern)
+## Inside a story (all ten follow the same pattern)
 
 - Data at the top (airports and proteins: precomputed constants; spatial: the
   editable `PLACES`, `PROTEINS`, `LINKS`, `TOGETHER`, `MOVES` lists, laid out
@@ -750,6 +755,21 @@ contract.
   explainer), the one-scan formulas (the poster names Clearance, Heterogeneity and the index; their formulas are not
   published) and the population dots. The authors' VR viewer (with a patient's scan) is not used: no patient data.
 - `body` and `organs` share one frame and are shown together.
+
+## The microanatomy story (`stories/micro.js`) is built the same way
+
+`stories/micro.js` is generated from `tools/micro/` (`node tools/micro/build.mjs`, `--check` as for the tour): the
+tour's kit, body and tissue sets (unchanged), the PET story's organ icons (the data block carries the small `PET_DATA`
+shim they read), three sets (`slide`, tiles, features, neighbours and domains over the tissue section, drawn in its
+frame; `atlas`, the slide library, the atlas of sections, the tile cloud, the volcano and the trajectories; `hier`,
+the network of organ architecture and the domain contacts; each with a manifest) and engine parts adapted from the
+PET story's. `tools/micro/SPEC.md` is the contract.
+
+- The data: `tools/micro/data/gen_data.mjs <graphml>` reads Iva Buljan's network of organ architecture (the file stays
+  out of the repository) and writes `tools/micro/sets/data.js` (`MICRO_DATA`, documented in its header) with the
+  preprint's numbers (typed in) and `tools/micro/data/figures.json` (values read off the talk's figures). The slides,
+  sections and tiles are drawn, never the GTEx images.
+- `tissue` and `slide` share one frame and are shown together.
 
 ## The flock (`stories/flock.js`) is built the same way
 
@@ -889,7 +909,8 @@ is the contract between them.
   `VERSION`). Likewise `tools/endo/` and `stories/endo.js` (and after changing
   `tools/nmd/sets/motor.js`, which the endotype story uses too), `tools/flock/` and
   `stories/flock.js`, `tools/robots/` and `stories/robots.js`, and `tools/pet/` and `stories/pet.js` (and after
-  changing `tools/lbi/sets/body.js`, which the PET story uses too).
+  changing `tools/lbi/sets/body.js`, which the PET story uses too), and `tools/micro/` and `stories/micro.js` (and after
+  changing `tools/lbi/sets/body.js`, `tools/lbi/sets/tissue.js` or `tools/pet/sets/icons.js`, which it uses).
 - Keep `README.txt` (user-facing notes) in sync with structural changes.
 - Shared rooms: bump `FORMAT` in `shared.js` when the keys or a story's
   `collab.state()` change shape (a room refuses another format). A story's
@@ -901,7 +922,7 @@ is the contract between them.
 
 There is no unit-test suite. Before committing, serve the folder and run the
 smoke test, which loads every story, scrubs through it, exercises explore
-mode and the headset panels (for the muscle, endotype and PET stories every explore tool too; for
+mode and the headset panels (for the muscle, endotype, PET and microanatomy stories every explore tool too; for
 the robot gang every rule, a click to walk, crumbs, a big open floor and one
 with no area, and a pretend headset room from detected planes),
 switches stories, runs anchored placement in each
@@ -1019,7 +1040,7 @@ For the tour, test a changed set on its own in the set harness first
 (`tools/lbi/shot.mjs`, much cheaper than the whole story), then the story at a
 few seconds (`tools/lbi/sweep.mjs`), then the smoke test. The muscle story has
 the same tools in `tools/nmd/` (`shot.mjs`, `sweep.mjs`), and so have the
-endotype story in `tools/endo/`, the PET story in `tools/pet/` and the robot gang in `tools/robots/`.
+endotype story in `tools/endo/`, the PET story in `tools/pet/`, the microanatomy story in `tools/micro/` and the robot gang in `tools/robots/`.
 
 Useful URL hashes: `#spatial&t=95` (open at a story second, paused),
 `#proteins&explore&q=TP53` (explore mode with a search),
@@ -1029,7 +1050,8 @@ second), `#lbi&explore&scene=atp&view=network&now=1` (a scene with its controls)
 `#nmd&explore&pick=5:13,11:7` (endotypes, group:number), `#nmd&explore&walk=5` or
 `&walk=TTN,DES`, `#nmd&explore&inside`, `#endo&explore&endo=2`, `#endo&explore&gene=COLQ`,
 `#endo&explore&tab=method&step=1&k=20`, `#endo&explore&scene=syn&view=cleft`, `#endo&explore&inside`, `#pet&t=40`, `#pet&explore&tab=networks&net=C_high`, `#pet&explore&organ=muscle`,
-`#pet&explore&tab=one&profile=cancer&theta=2`, `#pet&explore&scene=scan&view=ring`, `#pet&explore&life`, `#flock&explore&view=afar&links=on&birds=400`
+`#pet&explore&tab=one&profile=cancer&theta=2`, `#pet&explore&scene=scan&view=ring`, `#pet&explore&life`, `#micro&t=100`,
+`#micro&explore&organ=Ovary`, `#micro&explore&tab=age&age=70`, `#micro&explore&scene=atlas&view=volcano`, `#flock&explore&view=afar&links=on&birds=400`
 (`&hunt` sends a falcon), `#robots&explore&rule=chain&robots=12&trails=on&links=on&view=low`
 (`&crumbs` spills a pile, `&walk=1.5,1.2` walks you there), `#airports&repeat=all` (a kiosk that plays
 every story in turn), `#anchor=on` (anchored headset placement). In the console,
