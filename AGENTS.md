@@ -901,7 +901,7 @@ is the contract between them.
 
 There is no unit-test suite. Before committing, serve the folder and run the
 smoke test, which loads every story, scrubs through it, exercises explore
-mode and the headset panels (for the muscle and endotype stories every explore tool too; for
+mode and the headset panels (for the muscle, endotype and PET stories every explore tool too; for
 the robot gang every rule, a click to walk, crumbs, a big open floor and one
 with no area, and a pretend headset room from detected planes),
 switches stories, runs anchored placement in each
