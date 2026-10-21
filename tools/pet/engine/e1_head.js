@@ -1,13 +1,14 @@
-// Endotypes: one disease, many mechanisms. Congenital myasthenic syndromes, from the junction between nerve and
-// muscle to the protein network: seed genes, a random walk with restart, each gene's neighbourhood, a tree that
-// splits only when the data say so, and the 12 endotypes it finds. After the ISMB 2026 poster "Introducing
-// EndotypY: a Python package for network-based disease endotyping" by Chloé Bûcheron, Iker Núñez-Carpintero, Enes
-// Sakalli, Mathilde Meyenberg, Julia Guthrie and Jörg Menche (LBI Network Medicine, University of Vienna), on their
-// run of EndotypY (github.com/menchelab/EndotypY).
+// One scan, one system: the body as a metabolic network. A PET scanner and how it sees sugar, the organs of 658
+// whole-body FDG-PET scans and their partial-correlation network, how it thins and tips towards a few hubs from health
+// to disease, and the next step: one network per scan, and an index that may tell how a body is doing. After Geist
+// et al., "The metabolic organ connectome: A novel approach to measure allostatic load during health-to-disease
+// transition", Med (2025) (CC BY 4.0), and the poster "Shaping a New Era in Nuclear Medicine" by Barbara K Geist,
+// Alexander Grentner, Joel Fischer, Josef Yu, Dato Tsomaia, Adna Smajlovic, Stefan Grünert and Marcus Hacker (Division
+// of Nuclear Medicine, Medical University of Vienna; LBI for Network Medicine).
 // Runs inside index.html, which owns the page, the renderer and the headset session.
-// Built by tools/endo/build.mjs from the tour's kit, the muscle story's motor set and the data, sets and engine parts
-// in tools/endo: edit those, not this file.
-HOST.register('endo', function (HOST) {
+// Built by tools/pet/build.mjs from the tour's kit, the tour's PET body set and the data, organ icons, sets and engine
+// parts in tools/pet: edit those, not this file.
+HOST.register('pet', function (HOST) {
 'use strict';
 const D2R = Math.PI / 180;
 const $ = s => document.querySelector(s);
@@ -23,7 +24,7 @@ const { smooth, clamp } = K;
 // ================================================================== SETS ==
 // Each set is one 3D scene of the story, centred on the origin. The story fades
 // sets in and out and drives them through their params (see SETS.x.params).
-// ENDO_DATA (the analysis data, tools/endo/sets/data.js) comes first, then the muscle story's disease groups
-// (NMD_DATA, only for its motor set).
+// PET_DATA (the paper's and the poster's numbers, tools/pet/sets/data.js) comes first, then the organ icons (PET_ICONS);
+// the tour's PET body set (SETS.body) is used unchanged.
 const SETS = {};
 //@@SETS@@

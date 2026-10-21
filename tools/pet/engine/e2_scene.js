@@ -2,7 +2,10 @@
 // ================================================================= SCENE ==
 const GL = {};
 // the sets, in the order they appear in the story
-const SET_ORDER = ['motor', 'syn', 'net', 'tree'];
+const SET_ORDER = ['scan', 'body', 'organs', 'people', 'liver'];
+// sets drawn in another set's frame: the organs lie in the PET body, so the two always turn together
+const FRAME = { body: 'organs' };
+const frameOf = k => FRAME[k] || k;
 function buildScene(canvas) {
   const renderer = HOST.makeRenderer({ canvas, antialias: true, alpha: true, powerPreference: 'high-performance' });
   renderer.xr.enabled = true;

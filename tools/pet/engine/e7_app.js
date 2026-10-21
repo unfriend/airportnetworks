@@ -1,5 +1,5 @@
 // ------------------------------------------------------------- narration --
-// Optional voice-over: put an MP3 at audio/narration-endo.mp3.
+// Optional voice-over: put an MP3 at audio/narration-pet.mp3.
 // Second 0 of the recording plays at second 0 of the story; the story clock
 // follows the audio, so seeking, pausing and chapter jumps stay in sync.
 // Without the file the story runs silently. The sound engine is the shell's
@@ -7,7 +7,7 @@
 // and kept running across stories and headset sessions.
 let AUD = null;
 function audioInit() {
-  AUD = HOST.audio.narration('audio/narration-endo.mp3', {
+  AUD = HOST.audio.narration('audio/narration-pet.mp3', {
     // a recording longer than the story stretches the timeline
     ready(d) {
       if (d + 1 <= T_END) return;
@@ -45,8 +45,9 @@ const APP = {
     // carry on from what the story shows: its look, its camera, its scene
     const ts = storyT(this.t), S = storyState(ts);
     for (const n in DEF) XS[n] = S[n];
-    let best = 'tree', ba = 0;
+    let best = 'organs', ba = 0;
     for (const k of SET_ORDER) if (S[k + '_a'] > ba + 0.01) { ba = S[k + '_a']; best = k; }
+    if (best === 'body' && S.organs_a > 0.3) best = 'organs';   // (the organs lie in the body)
     // the story's view, taken back into the set's own frame (explore shows sets unturned)
     const v = storyCam(ts).slice(), r = -setYaw(best, ts) * D2R, x = v[3], z = v[5];
     v[0] += r / D2R; v[3] = x * Math.cos(r) + z * Math.sin(r); v[5] = -x * Math.sin(r) + z * Math.cos(r);
@@ -55,11 +56,11 @@ const APP = {
     // and pick the scene's controls that come closest to what the story was showing
     const s = GL.sets[best];
     X.ctl[best] = {};
-    for (const ct of s.controls || []) {
+    for (const ct of ctlsOf(best)) {
       let bo = ct.options[0][0], bd = Infinity;
       for (const [v] of ct.options) {
         const c = { t: 1e3 };
-        for (const c2 of s.controls) c[c2.key] = c2 === ct ? v : ctlValue(best, c2);
+        for (const c2 of s.controls || []) c[c2.key] = c2 === ct ? v : ctlValue(best, c2);
         const tg = s.explore ? s.explore(c) : {};
         let d = 0;
         for (const n in tg) if (n in S && !n.endsWith('_a')) d += (tg[n] - S[n]) ** 2;
@@ -67,25 +68,25 @@ const APP = {
       }
       X.ctl[best][ct.key] = bo;
     }
-    // the story's endotype or gene carries over to the panels
-    X.endo = -1; X.gene = -1;
-    if (best === 'tree' && S.tree_focus > 0.5) X.endo = Math.round(S.tree_focus) - 1;
-    if (best === 'syn' && S.syn_place > 0.5) X.endo = Math.round(S.syn_place) - 1;
-    if (best === 'net' && S.net_gene >= 0 && S.net_hood > 0.5) X.gene = Math.round(S.net_gene);
-    if (X.endo >= ED.endo.length) X.endo = -1;
-    if (X.gene >= ED.M) X.gene = -1;
+    // the story's network, organ, profile and group carry over to the panels (the controls hold the network and the
+    // profile: the closest ones were picked above)
+    X.organ = null; X.u = null; X.group = 0; X.cmp = -1; X.theta = Number.isFinite(S.people_theta) ? round2(clamp(S.people_theta, 1.1, 3)) : S1.theta;
+    if (best === 'organs' && S.organs_focus > 0.5) X.organ = PD.ids[Math.round(S.organs_focus) - 1] || null;
+    if (best === 'organs' && S.organs_net > 0.5) { const w = NET_IDS[Math.round(S.organs_which)]; if (w) { if (!netCtl()) X.net = w; X.cmp = rowOfNet(w); } }
+    if (best === 'people' && !netCtl()) X.profile = (PROFILES[Math.round(S.people_profile)] || PROFILES[0])[0];
+    if (best === 'people' && S.people_group > 0.5) X.group = clamp(Math.round(S.people_group), 0, POSTER.groups.length);
+    X.tab = best === 'organs' ? (S.organs_net > 0.5 ? 'networks' : 'organs') : best === 'people' ? (S.people_map > 0.5 ? 'people' : 'one') : 'scenes';
     ST.labels.forEach(L => { L.el.style.opacity = 0; L.o = 0; });
-    if (X.gene >= 0) $('#q').value = ED.genes[X.gene].sym;
-    pushState(); renderAll();
+    showTab(X.tab); pushState(); renderAll();
     $('#panel').scrollTop = 0;
   },
   enterStory(t) {
     this.mode = 'story';
     document.body.classList.remove('exploring');
     $('#btnMode').textContent = 'Explore now';
-    // the story shows its scenes as it tells them: no picked endotype or gene, nobody standing in the gap
-    if (X.gap) setGap(false);
-    X.endo = -1; X.gene = -1; NEXT.length = 0; pushState();
+    // the story shows its scenes as it tells them: no picked organ or group, the scanner not life size
+    if (X.life) setLife(false);
+    X.organ = null; X.group = 0; NEXT.length = 0; pushState();
     LBL.extra.forEach(L => { L.el.remove(); dropSprite(L); }); LBL.extra = [];
     $('#tip').style.opacity = 0;
     this.t = t || 0; this.playing = true; curCh = null;
@@ -122,7 +123,7 @@ function frame(now, xrFrame) {
   GL.camera.updateMatrixWorld();
   updateLight(xr);
   updateSets(S, tSet, dt, APP.mode === 'story');
-  // what explore mode asked to do once the sets show its pick (a flight to a gene)
+  // what explore mode asked to do once the sets show its pick (a flight to an organ)
   if (NEXT.length) { const fs = NEXT.splice(0); if (APP.mode === 'explore') for (const f of fs) f(); }
   if (xr) xrUpdate(S);
   GL.renderer.render(GL.scene, GL.camera);
@@ -167,7 +168,6 @@ function init() {
   document.addEventListener('keydown', ev => {
     if (ev.target.closest('input, textarea')) return;
     if (ev.key === ' ' && APP.mode === 'story' && !ev.target.closest('button')) { APP.togglePlay(); ev.preventDefault(); }
-    if (ev.key === '/' && APP.mode === 'explore') { showTab('genes'); $('#q').focus(); ev.preventDefault(); }
   });
   APP.playing = !matchMedia('(prefers-reduced-motion: reduce)').matches;
   // the start screen pauses the story; picking this story again starts it from the top
@@ -178,31 +178,33 @@ function init() {
   if (hp.has('t')) { APP.t = clamp(parseFloat(hp.get('t')) || 0, 0, T_END - 0.01); APP.playing = false; }
   if (hp.has('explore')) {
     APP.enterExplore();
-    // #endo&explore&scene=syn&view=cleft (any control of a scene by its key), &endo=2, &gene=COLQ (or &q=...),
-    // &k=20 (the Method tab's seed groups at that k), &step=1..5 or a step's name, &tab=genes, &inside (stand in the gap)
-    const tv = optKey('tree', 'view', /meta|endo/i);
-    if (hp.get('scene')) openScene(hp.get('scene'), false);
-    else if (!hp.has('t')) { openScene('tree', false); if (tv) (X.ctl.tree = X.ctl.tree || {}).view = tv; }   // straight in: the endotype network
-    orbit.cur = view(X.scene, 'default'); orbit.to = null;
+    // #pet&explore&scene=scan&view=ring (any control of a scene by its key), &tab=networks|organs|one|people|scenes,
+    // &cmp=7 (a row of Table 2), &net=C_high, &organ=muscle, &profile=cancer, &theta=2, &u=2.2,1.7,... (custom
+    // uptakes), &group=3, &life (the scanner life size)
+    const sc = hp.get('scene');
+    if (sc && GL.sets[sc]) openScene(sc, false);
+    else if (!hp.has('t')) {   // straight in: the network of all scans, with its strength
+      openScene('organs', false);
+      const v = optKey('organs', 'view', /strength/i) || optKey('organs', 'view', /net/i);
+      if (v) (X.ctl.organs = X.ctl.organs || {}).view = v;
+      setNet('full'); showTab('networks');
+    }
+    orbit.cur = view(X.scene, viewCam(X.scene) || 'default'); orbit.to = null;
     // controls after the default view, so a control's own view wins
-    const s = GL.sets[X.scene];
-    for (const c of s.controls || []) if (hp.get(c.key)) setCtl(X.scene, c.key, hp.get(c.key));
-    if (!hp.get('scene') && !hp.has('t') && tv && camFor('tree', tv)) { orbit.cur = view('tree', camFor('tree', tv)); orbit.to = null; }
-    // (the story's own key is the hash's first word, also 'endo': the endotype is the 'endo' with a value)
-    const ev = hp.getAll('endo').filter(Boolean).pop();
-    if (ev) {
-      const v = ev, n = parseInt(v, 10), id = !isNaN(n) ? n : ED.endo.findIndex(e => e.name.toLowerCase().startsWith(v.toLowerCase()));
-      if (id >= 0 && id < ED.endo.length) { showTab('endo'); selectEndo(id, false); flyToEndo(); }
+    for (const c of ctlsOf(X.scene)) if (hp.get(c.key) && c.options.some(o => o[0] === hp.get(c.key))) setCtl(X.scene, c.key, hp.get(c.key));
+    if (hp.get('cmp') !== null && hp.get('cmp') !== '') { const i = parseInt(hp.get('cmp'), 10); if (i >= 0 && i < PD.D.table2.length) { showTab('networks'); selectCmp(i); } }
+    if (NET_IDS.includes(hp.get('net'))) { showTab('networks'); showNet(hp.get('net')); }
+    if (PD.byId[hp.get('organ')]) { showTab('organs'); selectOrgan(hp.get('organ')); }
+    if (PROFILES.some(p => p[0] === hp.get('profile'))) { showTab('one'); selectProfile(hp.get('profile')); }
+    if (hp.get('u')) { const u = hp.get('u').split(',').map(Number); if (u.length === ONE_N && u.every(Number.isFinite)) { showTab('one'); setUs(u); showOne(); } }
+    if (hp.get('theta') && Number.isFinite(+hp.get('theta'))) { showTab('one'); setTheta(+hp.get('theta')); showOne(); }
+    if (hp.get('group')) { const g = parseInt(hp.get('group'), 10); if (g >= 1 && g <= POSTER.groups.length) { showTab('people'); selectGroup(g); } }
+    if (hp.get('tab') && TABS.some(t => t[0] === hp.get('tab'))) {
+      showTab(hp.get('tab'));
+      if (hp.get('tab') === 'one') showOne();
+      if (hp.get('tab') === 'people' && X.scene !== 'people') showPeople(/^index$/i);
     }
-    if (hp.get('gene')) { const i = findGene(hp.get('gene')); if (i >= 0) { showTab('genes'); $('#q').value = ED.genes[i].sym; selectGene(i); } }
-    if (hp.get('k')) { const j = ED.groups.findIndex(g => g.k === parseInt(hp.get('k'), 10)); if (j >= 0) { setK(j); X.step = 0; showTab('method'); showStep(0); } }
-    if (hp.get('step')) {
-      const v = hp.get('step'), n = parseInt(v, 10), j = !isNaN(n) ? n - 1 : METHOD.findIndex(m => m[0] === v.toLowerCase() || m[1].toLowerCase() === v.toLowerCase());
-      if (j >= 0 && j < METHOD.length) { X.step = j; showTab('method'); showStep(j); }
-    }
-    if (hp.get('tab') && TABS.some(t => t[0] === hp.get('tab'))) showTab(hp.get('tab'));
-    if (hp.get('q')) { $('#q').value = hp.get('q'); runQuery(hp.get('q')); }
-    if (hp.has('inside')) setGap(true);
+    if (hp.has('life')) setLife(true);
     if (hp.has('now')) { Object.assign(XS, exploreTargets()); orbit.cur = orbit.to || orbit.cur; orbit.to = null; }
   }
   GL.renderer.setAnimationLoop(frame); // also drives the headset's frame loop

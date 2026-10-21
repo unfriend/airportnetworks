@@ -106,9 +106,9 @@ function sigMain() {
     }
     return s;
   }
-  return ['x', audioLabel(), X.tab, X.scene, JSON.stringify(X.ctl), X.endo, X.gene, X.k, X.step, X.gap, XR.kbd.open, XR.kbd.q].join('|');
+  return ['x', audioLabel(), X.tab, X.scene, JSON.stringify(X.ctl), X.cmp, X.net, X.organ, X.u ? X.u.join(',') : '', X.theta, X.group, X.life].join('|');
 }
-const XR_HERE = 'endo';
+const XR_HERE = 'pet';
 const XR_STORIES = HOST.list;
 // ------------------------------------------------------- headset landing --
 // The Stories screen in the headset: a title panel and one card per story,
@@ -145,7 +145,7 @@ function xrLandingClose() {
   if (APP.mode === 'story') APP.playing = true;
 }
 function drawLandHead(ctx, P) {
-  ctx.font = vfont(58, 700); ctx.fillStyle = VC.ink; ctx.fillText(`Networks, in ${['one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight'][HOST.list.length - 1] || HOST.list.length} stories`, 48, 44);
+  ctx.font = vfont(58, 700); ctx.fillStyle = VC.ink; ctx.fillText(`Networks, in ${['one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten'][HOST.list.length - 1] || HOST.list.length} stories`, 48, 44);
   // anchored: where the place stands, in place of the hint
   const an = HOST.anchor.status();
   textBlock(ctx, an || 'The same ideas, very different networks. Point at a story and pull the trigger (or pinch).', 48, 128, 860, 27, 38, an ? VC.ink : VC.muted, 400, 2);
@@ -225,7 +225,7 @@ function drawMain(ctx, P) {
   if (!(HOST.room && HOST.room.placing())) hb('stories', 'Stories', () => { XR.stories = true; XR.kbd.open = false; APP.playing = false; }, 130);
   if (!XR.stories) hb('mode', story ? 'Explore now' : 'Replay story', () => (story ? APP.enterExplore() : APP.enterStory(0)), 186, { primary: story });
   ctx.font = vfont(30, 700); ctx.fillStyle = VC.ink;
-  ctx.fillText(fitText(ctx, 'Endotypes', x - 40), 40, 36);
+  ctx.fillText(fitText(ctx, 'One scan, one system', x - 40), 40, 36);
   ctx.fillStyle = VC.line; ctx.fillRect(36, 104, P.w - 72, 2);
   if (XR.stories) drawStoriesPane(ctx, P, 44, 136, P.w - 88);
   else if (story) {
@@ -328,7 +328,7 @@ function drawStoryEl(ctx, P, el, x, y, W, pa) {
     cells.forEach((c, k) => {
       ctx.globalAlpha = a * storyOpacity(c);
       const b = c.querySelector('b'), sm = c.querySelector('small');
-      ctx.font = vfont(50, 700); ctx.fillStyle = VC.amber; ctx.fillText(fitText(ctx, b ? b.textContent : '', cw - 16), x + k * cw, y);
+      ctx.font = vfont(50, 700); ctx.fillStyle = b && b.style.color ? b.style.color : VC.amber; ctx.fillText(fitText(ctx, b ? b.textContent : '', cw - 16), x + k * cw, y);
       if (sm) textBlock(ctx, sm.textContent, x + k * cw, y + 68, cw - 16, 25, 32, VC.muted, 400, 2);
     });
     h = 68 + 64 + 18;
@@ -338,7 +338,7 @@ function drawStoryEl(ctx, P, el, x, y, W, pa) {
     for (const li of el.children) {
       ctx.globalAlpha = a * storyOpacity(li);
       const b = li.querySelector('b'), bold = b ? b.textContent : '', rest = li.textContent.slice(bold.length).trim();
-      const col = li.style.borderLeftColor || VC.amber;   // an endotype's point in its own colour
+      const col = li.style.borderLeftColor || VC.amber;   // an organ's point in its own colour
       const hh = 36 + textBlock(ctx, rest, x + 22, yy + 40, W - 22, 28, 38, VC.ink, 400, 4);
       ctx.fillStyle = col; ctx.fillRect(x, yy + 4, 5, hh);
       ctx.font = vfont(30, 700); ctx.fillStyle = col; ctx.fillText(bold, x + 22, yy);
@@ -378,157 +378,145 @@ function drawExplorePane(ctx, P, x, y, W) {
     ctx.font = vfont(24, on ? 700 : 400); ctx.fillStyle = on ? VC.ink : VC.muted;
     ctx.textAlign = 'center'; ctx.fillText(n, tx + tw / 2, y + 18); ctx.textAlign = 'left';
     if (on) { ctx.fillStyle = VC.cyan; ctx.fillRect(tx + 10, y + 58, tw - 20, 4); }
-    P.regions.push({ id: 'tab:' + k, x: tx, y, w: tw, h: 64, fn: () => { XR.kbd.open = false; showTab(k); } });
+    P.regions.push({ id: 'tab:' + k, x: tx, y, w: tw, h: 64, fn: () => showTab(k) });
   });
   ctx.fillStyle = VC.line; ctx.fillRect(x, y + 62, W, 2);
   y += 88;
   const bottom = P.h - 34;
-  if (XR.kbd.open && X.tab === 'genes') return drawKeyboard(ctx, P, x, y, W);
-  ({ endo: drawEndoPane, genes: drawGenePane, method: drawMethodPane, scenes: drawScenesPane }[X.tab] || drawScenesPane)(ctx, P, x, y, W, bottom);
+  ({ networks: drawNetsPane, organs: drawOrgansPane, one: drawOnePane, people: drawPeoplePane, scenes: drawScenesPane }[X.tab] || drawScenesPane)(ctx, P, x, y, W, bottom);
 }
-function searchField(ctx, P, x, y, W, text) {
-  vButton(ctx, P, 'search', x, y, W, 66, '', () => { XR.kbd.open = true; XR.kbd.q = ''; }, { r: 10 });
-  ctx.strokeStyle = VC.muted; ctx.lineWidth = 3;
-  ctx.beginPath(); ctx.arc(x + 32, y + 30, 11, 0, 7); ctx.moveTo(x + 40, y + 38); ctx.lineTo(x + 49, y + 47); ctx.stroke();
-  ctx.font = vfont(25); ctx.fillStyle = VC.faint; ctx.fillText(text, x + 66, y + 20);
-}
-// buttons that wrap like the HTML chips: items -> { id, label, on, col, fn }
+// buttons that wrap like the HTML chips: items -> { id, label, on, col, icon (an organ id), fn }
 function flow(ctx, P, items, x, y, W, maxY, o = {}) {
   const px = o.px || 22, h = o.h || 44, gap = 8;
   let cx = x, cy = y;
   ctx.font = vfont(px);
   for (const it of items) {
     ctx.font = vfont(px, it.on ? 700 : 400);   // (a lit chip's bold label is wider)
-    const sw = it.col ? 22 : 0, w = Math.min(W, ctx.measureText(it.label).width + 26 + sw);
+    const sw = it.icon ? h - 10 : it.col ? 22 : 0, w = Math.min(W, ctx.measureText(it.label).width + 26 + sw);
     if (cx + w > x + W) { cx = x; cy += h + gap; }
     if (cy + h > maxY) break;
     vButton(ctx, P, it.id, cx, cy, w, h, '', it.fn, { r: 6, on: it.on });
-    if (it.col) swatch(ctx, cx + 12, cy + h / 2 - 7, 14, it.col);
-    ctx.font = vfont(px, it.on ? 700 : 400); ctx.fillStyle = VC.ink; ctx.textBaseline = 'middle';
+    if (it.icon) PET_ICONS.draw(ctx, it.icon, cx + 8 + (h - 16) / 2, cy + h / 2, h - 14, { color: it.col || VC.ink, width: 2 });
+    else if (it.col) swatch(ctx, cx + 12, cy + h / 2 - 7, 14, it.col);
+    ctx.font = vfont(px, it.on ? 700 : 400); ctx.fillStyle = it.ink || VC.ink; ctx.textBaseline = 'middle';
     ctx.fillText(fitText(ctx, it.label, w - 26 - sw), cx + 13 + sw, cy + h / 2 + 1); ctx.textBaseline = 'top';
     cx += w + gap;
   }
   return cy + h - y;
 }
 const head = (ctx, x, y, t) => { ctx.font = vfont(22); ctx.fillStyle = VC.muted; ctx.fillText(t, x, y); return 34; };
-function drawEndoPane(ctx, P, x, y, W, bottom) {
-  y += flow(ctx, P, ED.endo.map(e => ({ id: 'en:' + e.id, label: `${e.id} · ${e.name}`, col: e.col, on: X.endo === e.id, fn: () => selectEndo(X.endo === e.id ? -1 : e.id) })), x, y, W, bottom, { px: 21, h: 44 }) + 18;
-  const id = X.endo, E = ED.endo[id];
-  if (!E) { textBlock(ctx, `Pick one of the ${ED.endo.length} endotypes the authors found among the ${ED.M} genes of the CMS module, to see its genes and where it works.`, x, y, W, 26, 38, VC.muted); return; }
-  const mem = ED.members[id], seeds = mem.filter(i => ED.genes[i].seed >= 0), L = linksIn(id);
-  swatch(ctx, x, y + 9, 26, E.col);
-  y += textBlock(ctx, endoName(id), x + 40, y, W - 40, 36, 44, VC.ink, 700, 1) + 6;
-  y += textBlock(ctx, `${mem.length} genes, ${seeds.length ? `${seeds.length} of them ${seeds.length === 1 ? 'a seed' : 'seeds'}` : 'no seed'}. ${L ? `${L} links among them.` : 'No links among them: a loose cloud.'}`, x, y, W, 24, 34, VC.muted, 400, 2) + 4;
-  y += textBlock(ctx, `Strongest term: ${E.term} (${STRONG[E.strong]}, adjusted p ${fmtP(E.p)}; clear means p under 0.01).`, x, y, W, 24, 34, VC.muted, 400, 2) + 4;
-  y += textBlock(ctx, `Drawn at: ${E.place ? PLACE[E.place] || E.place : 'no shared place'}.`, x, y, W, 24, 34, VC.muted, 400, 2) + 14;
-  y += flow(ctx, P, SHOW_IN.map(([k, n]) => ({ id: 'show:' + k, label: n, on: X.scene === k, fn: () => showEndoIn(k) })), x, y, W, bottom, { px: 23, h: 52 }) + 16;
-  y += head(ctx, x, y, 'Its genes (seeds marked ●)');
-  flow(ctx, P, seeds.concat(mem.filter(i => ED.genes[i].seed < 0)).map(i => ({ id: 'eg:' + i, label: (ED.genes[i].seed >= 0 ? '● ' : '') + ED.genes[i].sym, fn: () => { showTab('genes'); selectGene(i); } })), x, y, W, bottom, { px: 20, h: 38 });
+// a slider: a track from lo to hi, its knob at v; dragging it calls set(value)
+function vSlider(ctx, P, id, x, y, w, v, lo, hi, col, set) {
+  const f = clamp((v - lo) / (hi - lo), 0, 1);
+  rr(ctx, x, y + 21, w, 6, 3); ctx.fillStyle = 'rgba(160,178,202,0.3)'; ctx.fill();
+  rr(ctx, x, y + 21, w * f, 6, 3); ctx.fillStyle = col; ctx.fill();
+  ctx.beginPath(); ctx.arc(x + w * f, y + 24, P.hover === id ? 16 : 13, 0, 7); ctx.fillStyle = col; ctx.fill();
+  P.regions.push({ id, x: x - 16, y, w: w + 32, h: 48, drag: px => set(lo + clamp((px - x) / w, 0, 1) * (hi - lo)) });
 }
-function drawGenePane(ctx, P, x, y, W, bottom) {
-  searchField(ctx, P, x, y, W, 'Search a gene of the module');
-  y += 90;
-  const i = X.gene;
-  if (i < 0) {
-    y += textBlock(ctx, `Point at a gene in the network or the tree and pull the trigger (or pinch). The ${ED.M} genes are those of the CMS module: ${FACTS.seeds} seeds and ${FACTS.found} the walk found.`, x, y, W, 26, 38, VC.muted) + 20;
-    flow(ctx, P, QUICK.map(geneIdx).filter(k => k >= 0).map(k => ({ id: 'qk:' + k, label: ED.genes[k].sym, col: endoCol(ED.genes[k].endo), fn: () => selectGene(k) })), x, y, W, bottom, { px: 24, h: 52 });
-    return;
-  }
-  const G = ED.genes[i], S = G.seed >= 0 ? ED.seeds[G.seed] : null, hood = ED.hoodOf(i), inMod = hood.filter(j => j < ED.M).length;
-  y += textBlock(ctx, G.sym, x, y, W, 42, 48, VC.ink, 700, 1) + 2;
-  y += textBlock(ctx, S ? `${S[1]}. A seed: Gene Table item ${S[2]}.` : 'Found by the walk: not one of the ' + FACTS.seeds + ' Gene Table seeds, but close to them.', x, y, W, 23, 32, VC.muted, 400, 2) + 12;
-  y += flow(ctx, P, [{ id: 'gen:' + G.endo, label: 'Endotype ' + endoName(G.endo), col: endoCol(G.endo), on: X.endo === G.endo, fn: () => selectEndo(X.endo === G.endo ? -1 : G.endo) }], x, y, W, bottom, { px: 23, h: 50 }) + 12;
-  y += textBlock(ctx, `${G.terms.length} cell parts in its row of the matrix; ${G.nb.length} links to genes of the module; ${hood.length} neighbours, ${inMod} of them in the module.`, x, y, W, 24, 34, VC.muted, 400, 3) + 10;
-  vButton(ctx, P, 'ghood', x, y, 380, 56, 'Show its neighbourhood', showHood, { px: 23, on: X.scene === 'net' });
-  vButton(ctx, P, 'gtree', x + 396, y, 320, 56, 'Show it in the tree', () => showInTree(i), { px: 23, on: X.scene === 'tree' });
-  y += 76;
-  if (G.terms.length) { y += head(ctx, x, y, 'Cell parts in its row'); y += textBlock(ctx, G.terms.map(t => ED.terms[t]).join(', '), x, y, W, 22, 30, VC.ink, 400, 4) + 12; }
-  if (G.nb.length && y + 80 < bottom) {
-    y += head(ctx, x, y, 'Linked genes in the module');
-    flow(ctx, P, G.nb.map(j => ({ id: 'nb:' + j, label: ED.genes[j].sym, col: endoCol(ED.genes[j].endo), fn: () => selectGene(j) })), x, y, W, bottom, { px: 21, h: 40 });
-  }
+// a network's strength per organ as bars, sorted from high to low, the hubs marked
+function drawStrength(ctx, x, y, W, id, hubs) {
+  const st = strengths(id), n = st.length, gap = 6, bw = (W - gap * (n - 1)) / Math.max(1, n), bh = 110, mx = n ? st[0][1] || 1 : 1;
+  st.forEach(([o, v], k) => {
+    const bx = x + k * (bw + gap), hgt = bh * v / mx;
+    ctx.fillStyle = organCol(o); ctx.fillRect(bx, y + bh - hgt, bw, hgt);
+    if (hubs.includes(o)) { ctx.strokeStyle = '#ffb020'; ctx.lineWidth = 3; ctx.strokeRect(bx - 1.5, y + bh - hgt - 1.5, bw + 3, hgt + 3); }
+    PET_ICONS.draw(ctx, o, bx + bw / 2, y + bh + 22, Math.min(36, bw), { color: hubs.includes(o) ? '#ffb020' : VC.muted, width: 2 });
+  });
+  return bh + 48;
 }
-// the method's steps, one at a time, each with its control
-function drawMethodPane(ctx, P, x, y, W, bottom) {
-  y += flow(ctx, P, METHOD.map(([k, n], j) => ({ id: 'st:' + j, label: `${j + 1} · ${n}`, on: X.step === j, fn: () => showStep(j) })), x, y, W, bottom, { px: 23, h: 52 }) + 18;
-  const st = METHOD[X.step][0];
-  y += textBlock(ctx, methodText(st), x, y, W, 26, 37, VC.ink, 400, 5) + 18;
-  const ctlRow = (k, key) => {
-    const c = ctlOf(k, key);
-    if (!c) return;
-    y += head(ctx, x, y, c.label);
-    y += flow(ctx, P, c.options.map(([v, n]) => ({ id: 'mc:' + k + ':' + key + ':' + v, label: n, on: ctlValue(k, c) === v, fn: () => setCtl(k, key, v) })), x, y, W, bottom, { px: 23, h: 52 }) + 14;
-  };
-  if (st === 'groups') {
-    y += head(ctx, x, y, 'Neighbourhood size k · groups');
-    y += flow(ctx, P, ED.groups.map((g, j) => ({ id: 'k:' + j, label: `k = ${g.k} · ${g.n}`, on: X.k === j, fn: () => setK(j) })), x, y, W, bottom, { px: 21, h: 46 }) + 14;
+function drawNetsPane(ctx, P, x, y, W, bottom) {
+  const T = PD.D.table2, r = T[X.cmp], id = curNet(), ni = netInfo(id);
+  y += head(ctx, x, y, 'Table 2: groups of scans compared (amber: a significant difference)');
+  y += flow(ctx, P, T.map((t, i) => ({ id: 'cmp:' + i, label: rowName(t), col: t.sigD || t.sigO ? VC.amber : null, on: X.cmp === i, fn: () => selectCmp(X.cmp === i ? -1 : i) })), x, y, W, bottom - 470, { px: 18, h: 36 }) + 14;
+  if (r) {
+    const nets = rowNets(r);
+    y += textBlock(ctx, `${r.what}: ${r.cohort}`, x, y, W, 25, 34, VC.ink, 700, 1) + 4;
+    r.groups.forEach((g, i) => { y += textBlock(ctx, `${g.label}: density ${pct(g.density)}, disorder ${dis(g.disorder)}, ${g.n} scans${nets[i] && NET_IDS.includes(nets[i]) ? ' (network below)' : ''}`, x, y, W, 22, 30, VC.muted, 400, 1); });
+    y += textBlock(ctx, `Density ${r.pD}${r.sigD ? ', significant' : ''}. Disorder ${r.pO}${r.sigO ? ', significant' : ''}.`, x, y, W, 22, 30, r.sigD || r.sigO ? VC.amber : VC.muted, 400, 1) + 12;
   }
-  if (st === 'walk') { ctlRow('net', 'walkers'); ctlRow('net', 'view'); }
-  if (st === 'hood') {
-    const cur = X.gene >= 0 ? X.gene : STORY_IDX(), list = [...new Set([cur, ...HOOD_GENES()])].filter(i => i >= 0);
-    y += head(ctx, x, y, 'A gene (or search any in Genes)');
-    y += flow(ctx, P, list.map(i => ({ id: 'hg:' + i, label: ED.genes[i].sym, col: endoCol(ED.genes[i].endo), on: i === cur, fn: () => { selectGene(i, false); showStep(2); } })), x, y, W, bottom, { px: 22, h: 46 }) + 14;
-  }
-  if (st === 'tree') { ctlRow('tree', 'view'); vButton(ctx, P, 'replay', x, y, 340, 60, 'Replay the tests', replayTests, { primary: true, px: 24 }); y += 80; }
-  if (st === 'endo') y += flow(ctx, P, SHOW_IN.slice(0, 2).map(([k, n]) => ({ id: 'ms:' + k, label: n, on: X.scene === k, fn: () => showEndoIn(k) })), x, y, W, bottom, { px: 23, h: 52 }) + 14;
-  // the illustrative note, at the foot of the pane
-  const nh = 4 * 30;
-  if (y + 10 < bottom - nh) textBlock(ctx, NOTE, x, bottom - nh, W, 21, 30, VC.faint, 400, 4);
+  y += head(ctx, x, y, 'Networks drawn in the paper (· not read off the figure yet)');
+  y += flow(ctx, P, NET_IDS.map((n, i) => ({ id: 'net:' + n, label: NET_SHORT[i] + (hasNet(n) ? '' : ' ·'), on: n === id && X.scene === 'organs', fn: () => showNet(n) })), x, y, W, bottom, { px: 20, h: 40 }) + 12;
+  y += textBlock(ctx, `${netShort(id)}: ${ni.text} ${ni.hubText || ''}`, x, y, W, 22, 30, VC.muted, 400, 3) + 10;
+  if (ni.ok && y + 170 < bottom - 64) y += drawStrength(ctx, x, y, W, id, ni.hubs || []) + 6;
+  if (FACTS.hk2 && y + 64 < bottom) textBlock(ctx, `Protein networks (Table 3): of ${FACTS.tested} proteins, only hexokinase 2's network resembles FDG's (r = ${FACTS.hk2.r}): the HK2 and GLUT networks above.`, x, y, W, 21, 29, VC.faint, 400, 2);
 }
-// the four scenes, and the chosen scene's own controls
+function drawOrgansPane(ctx, P, x, y, W, bottom) {
+  y += flow(ctx, P, PD.D.organs.map(o => ({ id: 'org:' + o.id, label: o.short, icon: o.id, col: o.col, on: X.organ === o.id, fn: () => selectOrgan(X.organ === o.id ? null : o.id) })), x, y, W, bottom, { px: 21, h: 48 }) + 18;
+  const id = X.organ, O = PD.byId[id];
+  if (!O) { textBlock(ctx, `The ${FACTS.organs} organs of the paper and the aorta, the reference every organ is divided by. Pick one, or point at an organ, a bar or a node and pull the trigger (or pinch).`, x, y, W, 26, 38, VC.muted); return; }
+  PET_ICONS.draw(ctx, id, x + 22, y + 22, 44, { color: O.col, width: 3, glow: true });
+  y += textBlock(ctx, O.name, x + 60, y + 2, W - 60, 38, 46, VC.ink, 700, 1) + 6;
+  y += textBlock(ctx, `Measured: ${O.measure}.`, x, y, W, 24, 33, VC.muted, 400, 2) + 2;
+  y += textBlock(ctx, id === 'aorta' ? 'The unit: every organ\'s uptake is divided by the aorta\'s.' : `Typical uptake: ${O.suv} times the aorta's (illustrative).`, x, y, W, 24, 33, VC.muted, 400, 2) + 2;
+  const hubIn = NET_IDS.filter(n => hasNet(n) && hubsOf(n).includes(id));
+  y += textBlock(ctx, `Hub in: ${hubIn.length ? listOf(hubIn.map(netShort)) : 'no network drawn so far'}.`, x, y, W, 24, 33, hubIn.length ? VC.amber : VC.muted, 400, 2) + 14;
+  if (!PD.D.f2.organs.includes(id)) { textBlock(ctx, id === 'aorta' ? 'Not a node: the blood pool.' : `Not in the network of all scans (Figure 2A has ${FACTS.f2n} organs); it appears in Figure 3's.`, x, y, W, 24, 33, VC.muted, 400, 2); return; }
+  const e = edgesOf('full').filter(q => q[0] === id || q[1] === id).sort((a, b) => Math.abs(b[2]) - Math.abs(a[2]));
+  y += head(ctx, x, y, `Its links among all ${fmt(FACTS.scans)} scans (Figure 2A; blue together, red opposite)`);
+  flow(ctx, P, e.map(q => { const o = q[0] === id ? q[1] : q[0]; return { id: 'ol:' + o, label: `${PD.byId[o].short} ${q[2] > 0 ? '+' : '−'}${Math.abs(q[2]).toFixed(2)}`, icon: o, col: q[2] > 0 ? '#4c7cff' : '#ff4d4d', fn: () => selectOrgan(o) }; }), x, y, W, bottom, { px: 21, h: 46 });
+}
+function drawOnePane(ctx, P, x, y, W, bottom) {
+  const p = curProfile(), u = curU(), r = measureOne(u, X.theta);
+  y += flow(ctx, P, PROFILES.map(([k, n]) => ({ id: 'prof:' + k, label: n, col: GROUP_COL[k], on: !X.u && p === k, fn: () => selectProfile(k) })).concat(X.u ? [{ id: 'prof:custom', label: 'Custom', on: true, fn: showOne }] : []), x, y, W, bottom, { px: 22, h: 48 }) + 16;
+  const lw = 250, vw = 90, sx = x + lw, sw = W - lw - vw - 20;
+  S1.organs.forEach((o, i) => {
+    PET_ICONS.draw(ctx, o, x + 16, y + 24, 30, { color: organCol(o), width: 2 });
+    ctx.font = vfont(23); ctx.fillStyle = VC.ink; ctx.textBaseline = 'middle'; ctx.fillText(fitText(ctx, organName(o).replace(/ \(.*\)$/, ''), lw - 50), x + 42, y + 25);
+    ctx.textAlign = 'right'; ctx.fillText(u[i].toFixed(2), x + W, y + 25); ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+    vSlider(ctx, P, 'u:' + i, sx, y, sw, u[i], 0.1, 5, organCol(o), v => { setU(i, v); if (X.scene !== 'people' || !oneView()) showOne(); });
+    y += 54;
+  });
+  ctx.font = vfont(23); ctx.fillStyle = VC.ink; ctx.textBaseline = 'middle'; ctx.fillText('Threshold', x + 4, y + 25);
+  ctx.textAlign = 'right'; ctx.fillText(X.theta.toFixed(2), x + W, y + 25); ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+  vSlider(ctx, P, 'theta', sx, y, sw, X.theta, 1.1, 3, VC.cyan, v => { setTheta(v); if (X.scene !== 'people' || !oneView()) showOne(); });
+  y += 70;
+  const cells = [['Links', String(linksOf(r))], ['Clearance', r.C.toFixed(2)], ['Heterogeneity', r.H.toFixed(2)], ['Index', r.mdi.toFixed(1)]], cw = W / 4;
+  cells.forEach(([k, v], j) => {
+    ctx.font = vfont(52, 700); ctx.fillStyle = j === 3 ? VC.amber : VC.ink; ctx.fillText(v, x + j * cw, y);
+    ctx.font = vfont(22); ctx.fillStyle = VC.muted; ctx.fillText(k, x + j * cw, y + 62);
+  });
+  y += 110;
+  if (y + 90 < bottom) textBlock(ctx, `${S1.note} The profiles are illustrative too.`, x, y, W, 21, 29, VC.faint, 400, 3);
+}
+function drawPeoplePane(ctx, P, x, y, W, bottom) {
+  const PO = POSTER, g = PO.groups[X.group - 1];
+  y += textBlock(ctx, `The poster's results: ${PO.mdiN ? fmt(PO.mdiN) + ' people' : 'people'} by their index. Pick a group.`, x, y, W, 24, 33, VC.muted, 400, 2) + 10;
+  y += flow(ctx, P, PO.groups.map((q, i) => ({ id: 'grp:' + (i + 1), label: `${q.name} · ${q.n}`, col: q.col, on: X.group === i + 1, fn: () => selectGroup(X.group === i + 1 ? 0 : i + 1) })), x, y, W, bottom, { px: 22, h: 48 }) + 14;
+  if (g) y += textBlock(ctx, `${g.name}: ${g.n} people, index ${g.centre}${Array.isArray(g.err) ? ` (the poster's bar: ${g.err[0]} to ${g.err[1]})` : ''}.`, x, y, W, 24, 33, VC.ink, 400, 2) + 12;
+  const views = [['people', 'People'], ['index', 'Index'], ['survival', 'Survival'], ['immunotherapy', 'Immunotherapy']].filter(([k]) => optKey('people', 'view', new RegExp('^' + k + '$', 'i')));
+  if (views.length) { y += head(ctx, x, y, 'View'); y += flow(ctx, P, views.map(([k, n]) => ({ id: 'pv:' + k, label: n, on: X.scene === 'people' && viewIs('people', new RegExp('^' + k + '$', 'i')), fn: () => showPeople(new RegExp('^' + k + '$', 'i')) })), x, y, W, bottom, { px: 23, h: 52 }) + 16; }
+  if (PO.thirds.length) {
+    y += head(ctx, x, y, 'Survival with cancer, by the index\'s thirds (median; after one year)');
+    for (const t of PO.thirds) {
+      swatch(ctx, x, y + 6, 18, t.col);
+      y += textBlock(ctx, `${t.name}${t.n ? ` (${t.n})` : ''}: ${t.median === undefined ? '–' : t.median === null ? 'not reached' : t.median + ' months'}${t.y1 !== null ? `; ${t.y1}%` : ''}`, x + 30, y, W - 30, 23, 32, VC.ink, 400, 1) + 2;
+    }
+    y += 12;
+  }
+  if (PO.auc.length && y + 80 < bottom) {
+    y += head(ctx, x, y, `The immunotherapy test${PO.respN ? ` (${PO.respN} people)` : ''}: AUC, 0.5 is chance`);
+    for (const a of PO.auc.slice().sort((p, q) => q.auc - p.auc)) {
+      if (y + 34 > bottom - 70) break;
+      y += textBlock(ctx, `${a.name}: ${a.auc}${a.p ? ' · ' + a.p : ''}`, x, y, W, 23, 32, a.net ? VC.amber : VC.muted, a.net ? 700 : 400, 1) + 2;
+    }
+  }
+  if (y + 40 < bottom) textBlock(ctx, 'Group summaries from the poster; the dots are stand-ins drawn to match them, not patients.', x, bottom - 60, W, 21, 29, VC.faint, 400, 2);
+}
+// the five scenes, and the chosen scene's own controls
+const SCENE_SHORT = { people: 'People' };
 function drawScenesPane(ctx, P, x, y, W, bottom) {
   const cw = (W - 12 * (SCENES.length - 1)) / SCENES.length;
-  SCENES.forEach(([k, n], j) => vButton(ctx, P, 'scene:' + k, x + j * (cw + 12), y, cw, 56, n, () => openScene(k), { on: X.scene === k, px: 22 }));
+  SCENES.forEach(([k, n], j) => vButton(ctx, P, 'scene:' + k, x + j * (cw + 12), y, cw, 56, SCENE_SHORT[k] || n, () => openScene(k), { on: X.scene === k, px: 22 }));
   y += 76;
-  const sc = SCENES.find(s => s[0] === X.scene), s = GL.sets[X.scene];
+  const sc = SCENES.find(s => s[0] === X.scene);
   y += textBlock(ctx, sc[2], x, y, W, 25, 35, VC.muted, 400, 4) + 18;
-  for (const c of s.controls || []) {
+  for (const c of ctlsOf(X.scene)) {
     if (y + 110 > bottom) break;
     ctx.font = vfont(23); ctx.fillStyle = VC.muted; ctx.fillText(c.label, x, y);
     y += 36;
     y += flow(ctx, P, c.options.map(([v, n]) => ({ id: 'ctl:' + c.key + ':' + v, label: n, on: ctlValue(X.scene, c) === v, fn: () => setCtl(X.scene, c.key, v) })), x, y, W, bottom, { px: 24, h: 56 }) + 24;
   }
-  if (X.scene === 'syn' && y + 70 < bottom) vButton(ctx, P, 'gap', x, y, 360, 60, 'Stand in the gap', () => setGap(!X.gap), { on: X.gap, px: 24 });
-}
-// on-panel keyboard for searching genes
-const KROWS = ['QWERTYUIOP', 'ASDFGHJKL', 'ZXCVBNM'];
-function drawKeyboard(ctx, P, x, y, W) {
-  const kb = XR.kbd;
-  ctx.font = vfont(22); ctx.fillStyle = VC.muted;
-  ctx.fillText('Search a gene of the module by its symbol, or a cell part like SYNAPSE', x, y);
-  y += 36;
-  rr(ctx, x, y, W, 70, 10); ctx.fillStyle = 'rgba(149,166,189,0.10)'; ctx.fill();
-  ctx.lineWidth = 2; ctx.strokeStyle = VC.cyan; ctx.stroke();
-  ctx.font = vfont(32); ctx.fillStyle = kb.q ? VC.ink : VC.faint;
-  ctx.fillText(kb.q || 'Type with the keys below', x + 20, y + 18);
-  if (kb.q) { const w = ctx.measureText(kb.q).width; ctx.fillStyle = VC.cyan; ctx.fillRect(x + 24 + w, y + 16, 3, 38); }
-  y += 88;
-  const sug = matches(kb.q, 5);
-  if (kb.q && !sug.length) textBlock(ctx, `No gene matches “${kb.q}”.`, x, y, W, 25, 36, VC.muted);
-  sug.forEach((i, k) => {
-    const yy = y + k * 60;
-    vButton(ctx, P, 'sug:' + i, x, yy, W, 54, '', () => xrPickSuggestion(i), { r: 8 });
-    const g = ED.genes[i];
-    ctx.font = vfont(25, 700); ctx.fillStyle = VC.ink; ctx.fillText(g.sym, x + 16, yy + 14);
-    ctx.font = vfont(22); ctx.fillStyle = VC.muted; ctx.fillText(fitText(ctx, g.seed >= 0 ? ED.seeds[g.seed][1] : 'found by the walk', W - 470), x + 170, yy + 15);
-    ctx.fillStyle = endoCol(g.endo); ctx.textAlign = 'right'; ctx.fillText(fitText(ctx, endoName(g.endo), 270), x + W - 16, yy + 15); ctx.textAlign = 'left';
-  });
-  const kw = 84, kh = 70, g = 9, ky0 = P.h - 34 - 4 * kh - 3 * g;
-  KROWS.forEach((row, r) => {
-    const rw = row.length * kw + (row.length - 1) * g, rx = x + (W - rw) / 2 - (r === 2 ? 50 : 0);
-    [...row].forEach((ch, k) => vButton(ctx, P, 'key:' + ch, rx + k * (kw + g), ky0 + r * (kh + g), kw, kh, ch,
-      () => { kb.q = (kb.q + ch).slice(0, 24); }, { px: 28 }));
-    if (r === 2) vButton(ctx, P, 'key:back', rx + rw + g, ky0 + r * (kh + g), 2 * kw, kh, '⌫ Delete', () => { kb.q = kb.q.slice(0, -1); }, { px: 24 });
-  });
-  // gene symbols have digits (SNAP25, LAMA5): a row of them above the letters
-  const rw0 = 10 * kw + 9 * g, rx0 = x + (W - rw0) / 2;
-  [...'1234567890'].forEach((ch, k) => vButton(ctx, P, 'key:' + ch, rx0 + k * (kw + g), ky0 - kh - g, kw, kh, ch, () => { kb.q = (kb.q + ch).slice(0, 24); }, { px: 28 }));
-  const by = ky0 + 3 * (kh + g);
-  vButton(ctx, P, 'key:dash', x + 40, by, 380, kh, '- (dash)', () => { kb.q = (kb.q + '-').slice(0, 24); }, { px: 24 });
-  vButton(ctx, P, 'key:clear', x + 432, by, 170, kh, 'Clear', () => { kb.q = ''; }, { px: 24 });
-  vButton(ctx, P, 'key:done', x + 614, by, 290, kh, sug.length ? 'Choose ' + ED.genes[sug[0]].sym : 'Close', () => {
-    if (sug.length) xrPickSuggestion(sug[0]); else kb.open = false;
-  }, { px: 24, primary: !!sug.length });
+  if (X.scene === 'scan' && y + 70 < bottom) vButton(ctx, P, 'life', x, y, 300, 60, 'Life size', () => setLife(!X.life), { on: X.life, px: 24 });
 }
 
 // ----------------------------------------------------------- footer panel --

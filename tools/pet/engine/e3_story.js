@@ -4,7 +4,7 @@
 // animation is stretched or squeezed between these points so each cue lands
 // on the matching sentence. Edit here if you record a narration.
 const NARRATION_SYNC = [
-  [0, 0], [310, 310],
+  [0, 0], [330, 330],
 ];
 // recording time -> original story time
 function storyT(t) {
@@ -25,15 +25,15 @@ function narrT(o) {
 }
 let T_END = NARRATION_SYNC[NARRATION_SYNC.length - 1][0];
 const CH = [
-  { key: 'title', name: 'Intro', a: 0, b: 14 },
-  { key: 'tired', name: 'Tired', a: 14, b: 40 },
-  { key: 'genes', name: 'Genes', a: 40, b: 70 },
-  { key: 'cloud', name: 'Network', a: 70, b: 108 },
-  { key: 'walk', name: 'Walk', a: 108, b: 148 },
-  { key: 'hood', name: 'Neighbours', a: 148, b: 185 },
-  { key: 'split', name: 'Tree', a: 185, b: 225 },
-  { key: 'endotypes', name: 'Endotypes', a: 225, b: 285 },
-  { key: 'next', name: 'What for', a: 285, b: 310 },
+  { key: 'title', name: 'Intro', a: 0, b: 16 },
+  { key: 'scanner', name: 'Scanner', a: 16, b: 52 },
+  { key: 'body', name: 'Sugar', a: 52, b: 90 },
+  { key: 'organs', name: 'Organs', a: 90, b: 128 },
+  { key: 'cohort', name: 'Network', a: 128, b: 172 },
+  { key: 'health', name: 'Health', a: 172, b: 218 },
+  { key: 'one', name: 'One scan', a: 218, b: 258 },
+  { key: 'people', name: 'People', a: 258, b: 305 },
+  { key: 'vision', name: 'Vision', a: 305, b: 330 },
 ];
 CH.forEach(c => { c.na = narrT(c.a); c.nb = narrT(c.b); }); // chapter times on the recording's clock
 const C = Object.fromEntries(CH.map(c => [c.key, c]));
@@ -78,151 +78,185 @@ function anchorOf(k, at) {
 }
 
 // ------------------------------------------------------------------- data --
-// The analysis data (ENDO_DATA), decoded once for the story and the panels (each set decodes its own copy for
-// drawing). Module genes are the first ED.M nodes, in tree order, so each endotype is a run of indices.
-const ED = (() => {
-  const D = ENDO_DATA, b64 = s => Uint8Array.from(atob(s), c => c.charCodeAt(0));
-  const u16 = s => { const b = b64(s); return new Uint16Array(b.buffer, 0, b.length >> 1); };
-  const M = D.mod, names = D.names.split('|'), S = D.seeds.length;
-  const gene = b64(D.gene), seedOf = b64(D.seedOf), featN = u16(D.featN), featI = u16(D.featI), links = u16(D.links), g = b64(D.groups.g);
-  const nb = Array.from({ length: M }, () => []);
-  for (let k = 0; k < D.modLinks; k++) { const a = links[2 * k], b = links[2 * k + 1]; if (a < M && b < M) { nb[a].push(b); nb[b].push(a); } }
-  let o = 0;
-  const genes = names.slice(0, M).map((sym, i) => {
-    const terms = Array.from(featI.subarray(o, o + featN[i])); o += featN[i];
-    return { sym, endo: gene[i], seed: seedOf[i] - 1, terms, nb: nb[i] };
-  });
-  const bySym = new Map(genes.map((x, i) => [x.sym.toUpperCase(), i]));
-  // the seeds' groups at each neighbourhood size k: each seed's group (0 the largest) and how many groups there are
-  const groups = D.groups.k.map((k, j) => { const of = Array.from(g.subarray(j * S, j * S + S)); return { k, of, n: new Set(of).size }; });
-  const members = D.endo.map(e => genes.map((x, i) => i).filter(i => gene[i] === e.id));
-  // a gene's neighbourhood (node indices of the whole network), decoded when asked for
-  let hood = null;
-  const hoodOf = i => { hood = hood || u16(D.hood); return hood.subarray(i * D.facts.hood, (i + 1) * D.facts.hood); };
-  const cut = b64(D.tree.cut);
-  return { D, M, genes, bySym, groups, members, hoodOf, cut, endo: D.endo, seeds: D.seeds, terms: D.terms };
+// The paper's and the poster's numbers (PET_DATA), looked up once for the story and the panels. The networks read off
+// the figures may still be empty (no links yet): everything here works with any subset of organs and any number of links.
+const PD = (() => {
+  const D = PET_DATA, byId = {};
+  D.organs.forEach((o, i) => { byId[o.id] = Object.assign({ i }, o); });
+  return { D, byId, ids: D.organs.map(o => o.id), nets: Object.fromEntries((D.nets || []).map(n => [n.id, n])) };
 })();
-const geneIdx = s => { const i = ED.bySym.get(String(s || '').trim().toUpperCase()); return i === undefined ? -1 : i; };
-// where each seed gene acts in the junction (UniProt; see tools/endo/SPEC.md), for the story's count by region
-const SEED_SITE = {
-  nerve: ['CHAT', 'SLC5A7', 'SLC18A3', 'SYT2', 'VAMP1', 'SNAP25', 'UNC13A', 'RPH3A', 'PREPL', 'MYO9A', 'SLC25A1'],
-  cleft: ['COLQ', 'AGRN', 'LAMB2', 'LAMA5', 'COL13A1'],
-  membrane: ['CHRNA1', 'CHRNB1', 'CHRND', 'CHRNE', 'CHRNG', 'RAPSN', 'LRP4', 'MUSK', 'DOK7', 'SCN4A'],
-  fibre: ['DPAGT1', 'ALG2', 'ALG14', 'GFPT1', 'GMPPB', 'PLEC', 'DES', 'TOR1AIP1', 'CHD8'],
-};
-// what an endotype's place in the synapse is called
-const PLACE = { mito: 'the nerve ending\'s mitochondria', lamina: 'the basement membrane in the gap', golgi: 'the Golgi of the muscle fibre',
-  channels: 'the ion channels of the muscle membrane', er: 'the muscle fibre\'s endoplasmic reticulum', endosome: 'the nerve ending\'s endosomes',
-  vesicles: 'the nerve ending\'s synaptic vesicles', scaffold: 'the muscle fibre\'s scaffold', junction: 'the junction as a whole' };
-const STRONG = ['nothing shared', 'weak', 'clear'];
+const netOf = id => PD.nets[id] || null;
+const edgesOf = id => { const n = netOf(id); return n && Array.isArray(n.edges) ? n.edges : []; };
+const hasNet = id => edgesOf(id).length > 0;
+// a network's hubs: as printed (the paper's orange nodes), else computed from its links (strength z-score above 1.7)
+const hubsPrinted = id => { const n = netOf(id); return !!(n && n.hubs && n.hubs.length); };
+const hubsOf = id => { const n = netOf(id); return !n ? [] : hubsPrinted(id) ? n.hubs : (n.computed && n.computed.hubs) || []; };
+const organName = id => (PD.byId[id] ? PD.byId[id].name : String(id));
+const organLow = id => { const s = organName(id); return /^[A-Z][a-z]/.test(s) ? s.charAt(0).toLowerCase() + s.slice(1) : s; };
+const organCol = id => (PD.byId[id] ? PD.byId[id].col : '#9aa3b5');
+// the networks the organs set can show (organs_which: an index into this list), with their short names
+const NET_IDS = ['full', 'FDG_healthy', 'A_low', 'A_high', 'B_low', 'B_high', 'C_low', 'C_mid', 'C_high', 'HK2', 'GLUT'];
+const NET_SHORT = ['All scans', 'Healthy', 'BMI low', 'BMI high', 'Tumour low', 'Tumour high', 'CRP low', 'CRP mid', 'CRP high', 'HK2', 'GLUT'];
+const netShort = id => NET_SHORT[NET_IDS.indexOf(id)] || String(id);
+// Table 2's comparisons whose groups the paper drew as networks (Figures 2A and 3): one network per group, or null.
+// (Figure 4's healthy FDG network uses only the organs GTEx has too, so it belongs with the protein networks, Table 3.)
+function rowNets(r) {
+  if (!r) return [];
+  const m = r.what === 'BMI' && /healthy/.test(r.cohort) ? ['A_low', 'A_high'] : r.what === 'Tumour load' ? ['B_low', 'B_high']
+    : r.what === 'CRP' && /thirds/.test(r.cohort) ? ['C_low', 'C_mid', 'C_high'] : r.what === 'Blood pool' ? ['full', null] : [];
+  return r.groups.map((g, i) => m[i] || null);
+}
+const rowOfNet = id => PD.D.table2.findIndex(r => rowNets(r).includes(id));
+// Table 3's protein networks drawn in Figure 4
+const PROT_NET = r => (r.kind === 'fdg' ? 'FDG_healthy' : /HK2/.test(r.name) ? 'HK2' : /GLUT/.test(r.name) ? 'GLUT' : null);
+// the four profiles of the one-scan network, in the order of people_profile, and the poster's groups' colours
+const PROFILES = [['healthy', 'Healthy'], ['cancer', 'Cancer'], ['both', 'Cancer + dyslipidaemia'], ['dys', 'Dyslipidaemia']];
+const GROUP_COL = { cancer: '#d9dde6', both: '#9b5de5', dys: '#ff4fd8', healthy: '#38bdf8' };
+const THIRD_COL = ['#38bdf8', '#a78bfa', '#d9dde6'];
+// The poster's numbers. Its survival curves, the immunotherapy test and its cohort may arrive later, and in more than
+// one shape: lists of { name or label or key, n, ... } or objects keyed by group. Whatever is missing is left unsaid.
+const POSTER = (() => {
+  const P = PET_DATA.poster || {};
+  const list = x => (Array.isArray(x) ? x : x && typeof x === 'object' ? Object.entries(x).map(([k, v]) => (v && typeof v === 'object' ? Object.assign({ key: k }, v) : { key: k, n: v })) : []);
+  const name = g => String(g.name || g.label || g.key || '');
+  const sum = l => l.reduce((a, g) => a + (Number.isFinite(+g.n) ? +g.n : 0), 0);
+  const groups = ((P.mdi && P.mdi.groups) || []).map((g, i) => Object.assign({ i, col: GROUP_COL[g.key] || '#9aa3b5' }, g, { name: name(g) }));
+  const co = P.cohort || {}, base = list(co.baseline || co.base), follow = list(co.followup || co.followUp || co.follow);
+  // survival by the index's thirds: median in months (null or a word: not reached) and survival after one year (a share)
+  const km = P.km || {}, thirds = list(Array.isArray(km) ? km : km.groups || km.thirds || km.tertiles).map((g, i) => {
+    const mk = ['median', 'medianMonths', 'med'].find(k => k in g), yk = ['y1', 'oneYear', 'surv1', 's1', 'year1'].find(k => k in g);
+    const md = mk ? g[mk] : undefined, y = yk ? +g[yk] : NaN;
+    return { name: name(g), n: +g.n || null, col: THIRD_COL[i] || '#9aa3b5', median: md === undefined ? undefined : Number.isFinite(+md) && md !== null ? +md : null,
+      y1: Number.isFinite(y) ? Math.round(y <= 1 ? y * 100 : y) : null };
+  });
+  // the immunotherapy test: response groups and the AUC of each measure (the network's own in the set's colour)
+  const pr = P.prognosis || {}, resp = list(pr.groups || pr.response || pr.responders);
+  const auc = list(pr.auc || pr.aucs || pr.measures).filter(a => Number.isFinite(+a.auc)).map(a => ({ name: name(a), auc: +a.auc, p: a.p !== undefined ? String(a.p) : '',
+    net: a.kind ? /net|metab|index|pet/i.test(a.kind) : a.network !== undefined ? !!a.network : /index|clearance|heterogen|network|displacement/i.test(name(a)) }));
+  const ici = follow.find(g => /immun|ici|checkpoint/i.test(name(g)));
+  const respN = +pr.n || sum(resp) || (ici ? +ici.n : 0) || null;
+  return { groups, mdiN: sum(groups), base, follow, baseN: sum(base), followN: sum(follow), thirds, resp, respN, auc, name,
+    bestNet: auc.filter(a => a.net).sort((a, b) => b.auc - a.auc)[0] || null, bestClin: auc.filter(a => !a.net).sort((a, b) => b.auc - a.auc)[0] || null };
+})();
 
 // ------------------------------------------------------------------ facts --
-// Numbers the story quotes, counted from the analysis data (ENDO_DATA) when the story loads
+// Numbers the story quotes, all from PET_DATA (a comparison or a reading not there yet leaves its sentence out)
 const FACTS = (() => {
-  const D = ENDO_DATA, F = D.facts, seedSet = new Set(D.seeds.map(s => s[0]));
-  const at = k => ED.groups.find(x => x.k === k) || { n: 0 };
-  const one = ED.groups.find(x => x.n === 1);
-  // seeds that already share a neighbourhood at the smallest k
-  const g0 = ED.groups[0], first = D.seeds.filter((s, j) => g0.of[j] === 0 && g0.of.filter(x => x === 0).length > 1).map(s => s[0]);
-  const sites = Object.fromEntries(Object.entries(SEED_SITE).map(([k, l]) => [k, l.filter(s => seedSet.has(s)).length]));
-  return Object.assign({}, F, {
-    ones: ED.genes.reduce((a, x) => a + x.terms.length, 0), modLinks: D.modLinks, merges: D.mod - 1,
-    cuts: ED.cut.reduce((a, x) => a + x, 0), groupsAt: k => at(k).n, oneK: one ? one.k : null, firstShare: first, sites,
-    clear: D.endo.filter(e => e.strong === 2).length, weak: D.endo.filter(e => e.strong === 1).length, none: D.endo.filter(e => e.strong === 0).length,
-    noPlace: D.endo.filter(e => !e.place).map(e => e.id), tenths: Math.round(F.r * 10),
-  });
+  const D = PET_DATA, c = D.cohort, p = D.protocol, full = netOf('full') || { edges: [], density: 0, disorder: 0 };
+  const row = (what, re) => D.table2.find(r => r.what === what && (!re || re.test(r.cohort))) || null;
+  const num = s => { const m = /(\d+(?:\.\d+)?)/.exec(s || ''); return m ? +m[1] : null; };
+  const retest = row('Test-retest');
+  return {
+    scans: c.scans, subjects: c.subjects, healthy: c.healthy, cancer: c.cancer, lung: c.lung, hnscc: c.hnscc, gtex: c.gtex,
+    fasting: p.fasting, dose: p.dose, rest: p.rest, hubZ: p.hub, p: p.p, seg: p.segmentation,
+    organs: D.organs.length - 1, f2n: D.f2.organs.length, density: full.density, disorder: full.disorder, links: full.edges.length,
+    row: { cancer: row('Cancer'), bmi: row('BMI', /healthy/), crp: row('CRP', /thirds/), tumour: row('Tumour load'), norepi: row('Norepinephrine') },
+    weeks: retest ? num(retest.cohort) : null,
+    robust: D.table2.filter(r => r.part === 'test'), hk2: D.table3.find(r => /HK2/.test(r.name)) || null, tested: D.table3.filter(r => r.kind !== 'fdg').length,
+    pair: (D.synth && D.synth.pairs && D.synth.pairs[0]) || null, single: D.single, poster: POSTER,
+    year: num((/\((\d{4})\)/.exec(D.source.paper) || [])[1]),
+  };
 })();
-// ' · '-joined symbols of those genes that are in endotype id (so the text only names what the data has)
-const inEndo = (id, syms) => syms.filter(s => { const i = geneIdx(s); return i >= 0 && ED.genes[i].endo === id; });
 const listOf = a => (a.length < 2 ? a.join('') : a.slice(0, -1).join(', ') + ' and ' + a[a.length - 1]);
-const endoCol = id => (ED.endo[id] ? ED.endo[id].col : '#9aa3b5');
+const word = n => ['no', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve', 'thirteen', 'fourteen'][n] || String(n);
+const Word = n => { const w = word(n); return w.charAt(0).toUpperCase() + w.slice(1); };
+const dis = v => (Number.isFinite(+v) ? (+v).toFixed(2) : '–');
+const pct = v => (Number.isFinite(+v) ? `${+v}%` : '–');
 
-// the story's gene for the neighbourhoods: COLQ (in the basement membrane endotype)
-const STORY_GENE = 'COLQ';
+// the story's own networks, in the order it shows them (one that has no links yet is skipped: the network stays)
 function buildStory() {
-  const F = FACTS, E = ED.endo;
-  const gi = geneIdx(STORY_GENE), gsym = gi >= 0 ? ED.genes[gi].sym : STORY_GENE;
-  const word = n => ['no', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten'][n] || String(n);
-  const Word = n => { const w = word(n); return w.charAt(0).toUpperCase() + w.slice(1); };
+  const F = FACTS, R = F.row, P = F.poster, S1 = F.single, prof = k => (S1 && S1.profiles && S1.profiles[k]) || null;
   // fade a set in over [t0, t1] and out over [t2, t3]
   const show = (k, t0, t1, t2, t3) => { ramp(k + '_a', t0, t1, 0, 1); if (t2 !== undefined) ramp(k + '_a', t2, t3, 1, 0); };
-  // jump an index param (a site, a gene, an endotype) at time t
+  // jump an index param (an organ, a pair, a group) at time t
   const jump = (n, t, v0, v1) => { key(n, t - 0.01, v0); key(n, t, v1); };
-  const kAt = k => Math.max(0, ED.groups.findIndex(x => x.k === k));   // net_k for a neighbourhood size
-  const ks = [1, 10, 20, 50].filter(k => ED.groups.some(x => x.k === k));
-  // the poster's four endotypes, in the order the story tells them
-  const four = [1, 9, 5, 2].filter(id => E[id]);
-  // one endotype's point, in its colour; they take turns in one place (a grid cell), each fading out as the next comes
-  const step = (id, at, out, text) => `<ul class="steps" data-at="${at}"${out ? ` data-out="${out}"` : ''} style="grid-area:1/1"><li style="border-left-color:${endoCol(id)}"><b style="color:${endoCol(id)}">${id} · ${esc(E[id].name)}</b>${text}</li></ul>`;
+  // values a set starts the story with (keyed at time 0, so a set's resting defaults never leak into the story)
+  const start = vals => { for (const n in vals) if (n in DEF) key(n, 0, vals[n]); };
+  const oi = id => (PD.byId[id] ? PD.byId[id].i + 1 : 0);   // organs_focus for an organ
+  const wi = id => NET_IDS.indexOf(id);                      // organs_which for a network
+  const gD = (r, i) => (r && r.groups[i] ? pct(r.groups[i].density) : '–'), gO = (r, i) => (r && r.groups[i] ? dis(r.groups[i].disorder) : '–');
+  const step = (id, at, text) => `<li data-at="${at}" style="border-left-color:${organCol(id)}"><b style="color:${organCol(id)}">${esc(organName(id))}</b>${text}</li>`;
+  const ones = (S1 && S1.organs) || [], hub3 = hubsOf('C_high').filter(h => h !== 'aorta');
+  const hubName = hub3.length ? listOf(hub3.map(organName)) : '';
+  const thirds = P.thirds.filter(g => g.median !== undefined || g.y1 !== null);
+  const med = g => (g.median === null ? 'not reached' : `${g.median} months`);
+  const bar = P.follow.find(g => /bariatric/i.test(P.name(g)));
   // ------------------------------------------------------------ panel copy
   const html = {
     title: `<svg class="route-mark" viewBox="0 0 360 44" aria-hidden="true"><path id="titleArc" d="M8 36 Q180 -16 352 36" fill="none" stroke="var(--red)" stroke-width="2.2" stroke-linecap="round" pathLength="1" stroke-dasharray="1" stroke-dashoffset="1"/><circle cx="8" cy="36" r="4.5" fill="var(--red)"/><circle cx="352" cy="36" r="4.5" fill="var(--red)" id="titleDot" opacity="0"/></svg>
-      <h1 data-at="1.2">Endotypes</h1>
-      <p class="lede" data-at="2.4">one disease, many mechanisms</p>
-      <p data-at="4">${F.seeds} genes cause a group of rare diseases of the junction between nerve and muscle. How many mechanisms hide behind them?</p>
-      <p class="note" data-at="9">A story of congenital myasthenic syndromes, and of EndotypY, a Python package that finds the endotypes of a disease in a network of proteins.</p>`,
-    tired: `<h2 data-at="0.6">Muscles that tire</h2>
-      <p data-at="1.2">Every movement starts with a nerve cell telling muscle fibres to contract. Each fibre meets the nerve at one point: the neuromuscular junction.</p>
-      <p data-at="10">Up close, the nerve ending releases acetylcholine. It crosses a narrow gap and opens receptors on the muscle, and the fibre twitches.</p>
-      <p data-at="17" class="amber">In congenital myasthenic syndromes (CMS) the signal runs down: muscles tire as they work, and weakness grows with effort.</p>
-      <p data-at="22">CMS are rare and inherited, most often from both parents. Some patients only tire with exercise; others struggle to walk, or to breathe.</p>`,
-    genes: `<h2 data-at="0.6">${F.seeds} genes, one junction</h2>
-      <p data-at="1.2">The Gene Table of Neuromuscular Disorders lists ${F.seeds} genes for CMS. Each works somewhere in the junction.</p>
+      <h1 data-at="1.2">One scan, one system</h1>
+      <p class="lede" data-at="2.4">the body as a metabolic network</p>
+      <p data-at="4">From one PET scan to a network of organs: what it says about health, disease and survival.</p>
+      <p class="note" data-at="9">After a paper in Med${F.year ? ` (${F.year})` : ''} and a poster from the Division of Nuclear Medicine, Medical University of Vienna, and the LBI for Network Medicine.</p>`,
+    scanner: `<h2 data-at="0.6">Seeing sugar</h2>
+      <p data-at="1.2">A PET scan starts with a sugar. FDG (fluorodeoxyglucose) is glucose carrying radioactive fluorine-18.</p>
+      <p data-at="5">After at least ${F.fasting} hours without food, ${F.dose[0]} to ${F.dose[1]} MBq of FDG go into a vein. For about ${F.rest} minutes the person rests, and cells take the sugar up as if it were glucose: hexokinase traps it inside.</p>
+      <p data-at="11">Then the scan. Around the tunnel sits a ring of detectors.</p>
       <ul class="steps">
-        <li data-at="6"><b>Nerve ending · ${F.sites.nerve}</b>making, loading and releasing acetylcholine</li>
-        <li data-at="11"><b>The gap · ${F.sites.cleft}</b>the basement membrane that holds it together</li>
-        <li data-at="15"><b>Muscle membrane · ${F.sites.membrane}</b>the receptor, the proteins that cluster it, sodium channels</li>
-        <li data-at="20"><b>Inside the fibre · ${F.sites.fibre}</b>sugar chains for receptors, the scaffold, the nuclei</li>
+        <li data-at="13"><b>A positron</b>fluorine-18 decays and sends one out; it travels about a millimetre</li>
+        <li data-at="17"><b>Two photons</b>it meets an electron, and both turn into two gamma photons of 511 keV, flying off in opposite directions</li>
+        <li data-at="21"><b>A coincidence</b>two detectors on opposite sides register them at once: the line between them passes through where the sugar was</li>
       </ul>
-      <p data-at="25" class="amber">Yet one mutation can be mild in one patient and severe in another. Genes alone do not explain the range; other genes in their networks are thought to shape it.</p>
-      <p class="credits" data-at="27">Gene Table of Neuromuscular Disorders; places after UniProt (the junction is illustrative). Severity: Núñez-Carpintero et al., Nature Communications (2024).</p>`,
-    cloud: `<h2 data-at="0.6">${fmt(F.genes)} proteins</h2>
-      <div style="display:grid">
-        <p data-at="1.2" data-out="8.5" style="grid-area:1/1">Proteins that interact make a network: ${fmt(F.genes)} proteins, ${fmt(F.links)} links. The ${F.seeds} CMS genes are its seeds.</p>
-        <p data-at="9" class="amber" style="grid-area:1/1">Do the seeds share mechanisms? Endotypes are subtypes of a disease defined by its molecules: groups of disease genes that hang together, in the network and in what they do.</p>
-      </div>
-      <p data-at="17">First, one group or several? Give each seed a neighbourhood of its k closest proteins. Seeds whose neighbourhoods meet form a group.</p>
-      <div class="facts">${ks.map((k, j) => `<div data-at="${[19, 23, 25, 28][j]}"><b>${F.groupsAt(k)}</b><small>${F.groupsAt(k) === 1 ? 'group' : 'groups'} at k = ${k}</small></div>`).join('')}</div>
-      <p data-at="31" class="amber">${F.oneK ? `From k = ${F.oneK} on, all ${F.seeds} seeds share one neighbourhood: one module, which the next steps split.` : 'The seeds stay in several groups.'}</p>
-      <p class="credits" data-at="33">Step 1 of EndotypY (optional): seed groups.${F.firstShare.length ? ` Even at k = 1, ${listOf(F.firstShare)} share one.` : ''} The protein network is the one the authors used.</p>`,
-    walk: `<h2 data-at="0.6">A walker that keeps coming home</h2>
-      <p data-at="1.2">To find the rest of the module, EndotypY sends random walkers out from the seeds. At every step a walker hops to a random neighbour, or, ${word(F.tenths)} times in ten, jumps back to a seed.</p>
-      <p data-at="11">Proteins the walkers visit again and again are close to the seeds, by many paths at once.</p>
-      <p data-at="22" class="amber">The most visited join the seeds, one by one, until the module holds together. In the authors' run:</p>
-      <div class="facts"><div data-at="26"><b>${F.seeds}</b><small>seeds</small></div><div data-at="27.5"><b>+ ${F.found}</b><small>found by the walk</small></div><div data-at="29"><b>${F.module}</b><small>genes in the module</small></div></div>
-      <p class="credits" data-at="32">Step 2 of EndotypY: network expansion by random walk with restart (restart probability ${F.r}, the package's default). The walkers and their heat are a re-run with the package's defaults; the module is the authors'.</p>`,
-    hood: `<h2 data-at="0.6">Every gene's neighbourhood</h2>
-      <p data-at="1.2">What does each gene do? Its neighbours tell more than the gene alone. Take ${esc(gsym)}, which anchors acetylcholinesterase in the gap: a walk from ${esc(gsym)} alone marks its neighbourhood, the top ${F.pct}% of the network (${F.hood} proteins).</p>
-      <p data-at="11">The parts of the cell that come up among them more often than chance (Gene Ontology terms), with ${esc(gsym)}'s own, become ${esc(gsym)}'s row of marks. Every gene gets one.</p>
-      <div class="facts"><div data-at="22"><b>${F.module}</b><small>genes</small></div><div data-at="23"><b>${F.terms}</b><small>cell parts</small></div><div data-at="24"><b>${fmt(F.ones)}</b><small>marks</small></div></div>
-      <p data-at="28" class="amber">Genes with similar rows sit among similar parts of the cell.</p>
-      <p class="credits" data-at="30">Step 3 of EndotypY: functional neighbourhood annotation (gene-set enrichment with GSEApy and Enrichr libraries; here ${esc(F.featLib.replace(/_/g, ' '))}).</p>`,
-    split: `<h2 data-at="0.6">A tree that splits only when it must</h2>
-      <p data-at="1.2">Genes with similar rows are joined, pair by pair, into a tree.</p>
-      <p data-at="8">Where to cut it? Not at a fixed height. Tree2BreakSpace tests every split from the root down: do the two sides use the cell's parts differently? A split stays only when the data say so.</p>
-      <p data-at="19" class="amber">Only ${F.cuts} splits are kept: ${F.endotypes} endotypes.</p>
-      <p data-at="28">Laid out by their distances in the tree: genes close in the tree land close together.</p>
-      <p class="credits" data-at="32">Step 4 of EndotypY: statistically filtered hierarchical clustering (Tree2BreakSpace, Sakalli et al., in progress).</p>`,
-    endotypes: `<h2 data-at="0.6">${F.endotypes} endotypes</h2>
-      <p data-at="1.2">Each endotype is a group of genes tied together in the network and in what they do: one bubble each, with grey bands for the links between them. In the authors' analysis:</p>
-      <div style="display:grid">
-        ${E[1] ? step(1, 8, 17.5, `${listOf(inEndo(1, ['SLC25A1']))} exports citrate from the nerve ending's mitochondria; from it comes acetyl-CoA, needed to make acetylcholine.`) : ''}
-        ${E[9] ? step(9, 18, 27.5, `forming and releasing synaptic vesicles (${inEndo(9, ['SYT1', 'SYT2', 'SNAP25', 'STX19', 'RPH3A']).join(', ')}). Givinostat, a treatment for Duchenne muscular dystrophy, perturbs several of this endotype's genes: a lead for repurposing, not a treatment for CMS.`) : ''}
-        ${E[5] ? step(5, 28, 37.5, `receptor subunits (${inEndo(5, ['CHRNB1', 'CHRND']).join(', ')}) that start the muscle's signal, and sodium channels (${inEndo(5, ['SCN4A', 'SCN8A', 'SCN1B']).join(', ')}) that carry it on.`) : ''}
-        ${E[2] ? step(2, 38, 45.5, `the matrix in the gap (${inEndo(2, ['COLQ', 'AGRN', 'LAMB2', 'LAMA5', 'COL13A1']).join(', ')}): it holds the junction together and anchors acetylcholinesterase.`) : ''}
-      </div>
-      <p data-at="46" class="amber">Back in the junction, the endotypes with a shared place settle at it.</p>
-      <p class="note" data-at="52">${Word(F.clear)} endotypes share a clear place in the cell, ${word(F.weak)} a weak one; ${word(F.none)} (${F.noPlace.join(', ')}) share none and hover loose.</p>`,
-    next: `<h2 data-at="0.6">What endotypes are for</h2>
+      <p data-at="27" class="amber">Millions of such lines make the image: a map of where the body takes up sugar.</p>
+      <p class="credits" data-at="31">The uptake is measured as the SUV, the standardised uptake value. Protocol as in the paper.</p>`,
+    body: `<h2 data-at="0.6">Where the sugar goes</h2>
+      <p data-at="1.2">The tracer arrives with the blood, and within the hour it settles where cells use sugar.</p>
+      <p data-at="10">The brain and the heart take up the most. The kidneys and the bladder glow too: FDG is filtered into the urine and not taken back, so it leaves the body that way.</p>
+      <p data-at="20">A tumour shows as a hot spot. Usually that is all a scan is read for.</p>
+      <p data-at="29" class="amber">Yet the scan holds every organ's metabolism at once.</p>`,
+    organs: `<h2 data-at="0.6">Every organ, measured</h2>
+      <p data-at="1.2">An AI (${esc(F.seg)}) outlines ${F.organs} organs in every scan, slice by slice, and a doctor checks them.</p>
+      <p data-at="14">Each organ's uptake is divided by that of the aorta: the blood pool, the same reference in every scan.</p>
       <ul class="steps">
-        <li data-at="1.2"><b>Patients</b>grouped by mechanism, not by broad symptoms</li>
-        <li data-at="3.5"><b>Drugs</b>pathways to target, and drugs to repurpose</li>
-        <li data-at="6"><b>Rare and common</b>the links between rare and common forms of a disease</li>
+        ${step('brain', 23, `${esc(PD.byId.brain.measure)}: it lives on sugar`)}
+        ${step('liver', 27, esc(PD.byId.liver.measure))}
+        ${step('muscle', 31, esc(PD.byId.muscle.measure))}
       </ul>
-      <p data-at="9">EndotypY is open source: a Python package you install from github.com/menchelab/EndotypY.</p>
-      <p data-at="13">Chloé Bûcheron, Iker Núñez-Carpintero, Enes Sakalli, Mathilde Meyenberg, Julia Guthrie and Jörg Menche: Ludwig Boltzmann Institute for Network Medicine, University of Vienna.</p>
-      <p data-at="17"><button class="btn primary" id="btnGoExplore" type="button">Explore the endotypes</button></p>
-      <p class="credits" data-at="19">Endotypes: the authors' result. The steps before them: re-run with the package's defaults to show the method. ISMB 2026 poster. Rare and common autoimmunity: Guthrie et al., Science Advances (2023).</p>`,
+      <p data-at="35" class="amber">One scan, one row of numbers.</p>
+      <p class="credits" data-at="36">The organs' values shown here are typical uptakes, for illustration.</p>`,
+    cohort: `<h2 data-at="0.6">${fmt(F.scans)} scans</h2>
+      <p data-at="1.2">The paper took ${fmt(F.scans)} scans of ${fmt(F.subjects)} people: ${F.healthy} of healthy volunteers and ${F.cancer} of people with cancer (${F.lung} lung, ${F.hnscc} head and neck).</p>
+      <div class="facts"><div data-at="7"><b>${fmt(F.scans)}</b><small>scans</small></div><div data-at="8.5"><b>${F.f2n}</b><small>organs in the network</small></div><div data-at="10"><b>${fmt(F.scans * F.f2n)}</b><small>values</small></div></div>
+      ${F.pair ? `<p data-at="15">Which organs rise and fall together across people? Take the ${esc(organLow(F.pair.a))} and the ${esc(organLow(F.pair.b))}.</p>
+      <p data-at="19">A plain correlation mixes direct links with links that only pass through other organs.</p>
+      <p data-at="23" class="amber">A partial correlation first takes out what all the other organs explain, then correlates what is left: here r = ${F.pair.r} becomes ${F.pair.pr} (the paper: ${F.pair.paper}).</p>` : ''}
+      <p data-at="31">Keep the significant ones (p &lt; ${F.p}) and draw them: blue where two organs rise together, red where one rises as the other falls.</p>
+      <p data-at="36">The network of all ${fmt(F.scans)} scans: ${F.f2n} organs, ${F.links} links.</p>
+      <p class="credits" data-at="39">Figure 2A of the paper. The people in the scatter plot are ${fmt(F.scans)} stand-ins with the paper's partial correlations.</p>`,
+    health: `<h2 data-at="0.6">From health to disease</h2>
+      <p data-at="1.2">Split the scans into groups, and give each group its own network.${R.cancer ? ` Healthy people's is dense: ${gD(R.cancer, 0)} of the most possible, against ${gD(R.cancer, 1)} with cancer.` : ''}</p>
+      ${R.bmi ? `<p data-at="7">Body weight, in healthy people: ${gD(R.bmi, 0)} below the median BMI, ${gD(R.bmi, 1)} above it. The brain becomes a hub.</p>` : ''}
+      <p data-at="16">Two measures. Density: all links' strength together, as a share of the most possible. Disorder: how unevenly that strength is spread, from 0 (even) up (a few hubs).</p>
+      ${R.crp ? `<p data-at="21" class="amber">Inflammation (CRP, in thirds): density ${listOf(R.crp.groups.map(g => pct(g.density)))}; disorder ${listOf(R.crp.groups.map(g => dis(g.disorder)))}. As health erodes, muscle and subcutaneous fat take over as hubs.</p>` : ''}
+      ${R.norepi && R.tumour ? `<p data-at="31">Stress (norepinephrine, ${gD(R.norepi, 0)} against ${gD(R.norepi, 1)}) and tumour load (${gD(R.tumour, 0)} against ${gD(R.tumour, 1)}) thin it too.</p>` : ''}
+      <p data-at="35">${F.robust.every(r => !r.sigD && !r.sigO) ? `And it holds: ${F.weeks ? `scans ${F.weeks} weeks apart, ` : ''}an ultra-low dose, another scanner, men and women, the aorta or the vena cava as the reference: no significant difference.` : ''}</p>
+      ${F.hk2 ? `<p data-at="39">Of ${F.tested} proteins whose networks came from the tissues of ${fmt(F.gtex)} people, only hexokinase 2, the enzyme that traps FDG, has a network like FDG's (r = ${F.hk2.r}).</p>` : ''}
+      <p class="credits" data-at="42">Table 2 and Figures 3 and 4 of the paper (networks other than the full cohort's read off its figures). Disorder: ${R.cancer ? `${gO(R.cancer, 0)} healthy, ${gO(R.cancer, 1)} with cancer; ` : ''}a hub has a strength z-score above ${F.hubZ}.</p>`,
+    one: `<h2 data-at="0.6">One scan, one network</h2>
+      <p data-at="1.2">So far, one network for a whole group. The next step: a network for every scan, from ${word(ones.length)} organs.</p>
+      <p data-at="6">Compare every organ with every other: how much more sugar does it take up?</p>
+      <p data-at="12">Where one outshines another by more than a threshold, draw a link. The links make this person's network.</p>
+      <ul class="steps">
+        <li data-at="24"><b>Clearance</b>how the kidneys handle the tracer</li>
+        <li data-at="27"><b>Heterogeneity</b>how unevenly the uptake is spread over the organs</li>
+      </ul>
+      ${prof('healthy') && prof('cancer') && prof('dys') ? `<p data-at="30" class="amber">Together they give a metabolic displacement index. It moves with health: ${prof('healthy').mdi.toFixed(1)} for a healthy profile, ${prof('cancer').mdi.toFixed(1)} with cancer, ${prof('dys').mdi.toFixed(1)} with dyslipidaemia (unhealthy blood fats).</p>` : ''}
+      <p class="note" data-at="34">Illustrative maths: the poster names Clearance, Heterogeneity and the index, but its formulas are not published yet. These are stand-ins, and so are the profiles.</p>`,
+    people: `<h2 data-at="0.6">${P.mdiN ? `${fmt(P.mdiN)} people, one index` : 'People on one index'}</h2>
+      <p data-at="1.2">Every scan becomes one point.${P.groups.length ? ` In the poster's results: ${listOf(P.groups.map(g => `${esc(g.name.toLowerCase())} (${g.n})`))}.` : ''}</p>
+      <p data-at="9">On the index, cancer sits low and dyslipidaemia high, with healthy people in between.</p>
+      ${P.groups.length ? `<div class="facts">${P.groups.map((g, j) => `<div data-at="${14 + 2.5 * j}"><b style="color:${g.col}">${g.centre}</b><small>${esc(g.name)}</small></div>`).join('')}</div>` : ''}
+      ${thirds.length ? `<p data-at="28" class="amber">Split by the index into thirds, people with cancer${thirds.length === 3 ? ' near the healthy range lived longest' : ''}: median survival ${listOf(thirds.map(g => `${med(g)} (${esc(g.name)})`))}${thirds.every(g => g.y1 !== null) ? `; after one year ${listOf(thirds.map(g => g.y1 + '%'))} were alive` : ''}.</p>` : '<p data-at="28" class="amber">Split by the index into thirds, people with cancer near the healthy range lived longest.</p>'}
+      <p data-at="36">${P.respN ? `In ${P.respN}` : 'In a small group of'} people with lung cancer given immunotherapy before surgery, the index told good from poor responders better than CRP, tumour stage or age${P.bestNet && P.bestClin ? ` (AUC ${P.bestNet.auc} against ${P.bestClin.auc} at best)` : ''}. A first test, in few people.</p>
+      <p data-at="42">After ${bar ? 'bariatric surgery' : 'surgery'} and immunotherapy, the index moved towards the healthy range${P.follow.length ? `: ${P.followN} follow-up scans` : ''}.</p>
+      <p class="credits" data-at="45">The poster's results, as group summaries. The dots are stand-ins drawn to match them, not patients.</p>`,
+    vision: `<h2 data-at="0.6">One scan, one system</h2>
+      <p data-at="1.2">One routine scan could show how a whole body is doing: what lies ahead, and which medication might help.</p>
+      <p data-at="7">Organs like muscle and fat could become targets: the paper names GLP-1 drugs, metformin, statins and SGLT2 inhibitors.</p>
+      <p data-at="12" class="amber">A measure of health, not only of disease. It still has to be tested in larger studies.</p>
+      <p data-at="15">Barbara K Geist, Alexander Grentner, Joel Fischer, Josef Yu, Dato Tsomaia, Adna Smajlovic, Stefan Grünert and Marcus Hacker: Division of Nuclear Medicine, Medical University of Vienna, and the LBI for Network Medicine.</p>
+      <p data-at="18"><button class="btn primary" id="btnGoExplore" type="button">Explore the networks</button></p>
+      <p class="credits" data-at="20">Geist et al., The metabolic organ connectome, Med${F.year ? ` (${F.year})` : ''}; poster: Shaping a New Era in Nuclear Medicine. Networks of all ${fmt(F.scans)} scans: printed in the paper; other networks read off its figures. One-scan maths, organ values and the population dots: illustrative stand-ins.</p>`,
   };
   const story = $('#story');
   story.innerHTML = CH.map(c => `<section class="ch" data-ch="${c.key}">${html[c.key]}</section>`).join('');
@@ -236,125 +270,156 @@ function buildStory() {
   // ------------------------------------------------------------ timeline keys
   const wp = [];
   // a camera waypoint at time t: a set's named view, turned by spin degrees, optionally nudged
+  // (body and organs share one frame, so their waypoints turn them together)
   const cam = (t, k, name, spin, ease, nudge) => {
     const v = view(k, name);
     v[0] += spin || 0;
     if (nudge) for (let i = 0; i < nudge.length; i++) v[i] += nudge[i] || 0;
-    wp.push([t, ...v, ease, k]);
+    wp.push([t, ...v, ease, frameOf(k)]);
   };
+  start({ scan_vision: 1, scan_bed: 0, scan_cut: 0, scan_events: 0, scan_lines: 0, scan_image: 0,
+    body_pet: 0, body_net: 0, body_state: 0, body_blank: 0,
+    organs_seg: 0, organs_suv: 0, organs_focus: 0, organs_lesion: 0, organs_rows: 0, organs_pair: 0, organs_partial: 0, organs_net: 0, organs_which: 0, organs_strength: 0,
+    people_bars: 0, people_ratio: 0, people_thresh: 0, people_one: 0, people_metrics: 0, people_profile: 0, people_custom: 0, people_map: 0, people_mdi: 0,
+    people_group: 0, people_km: 0, people_response: 0, people_follow: 0 });
   let a, b;
-  // Intro: the motor unit builds, its impulses running
+  // Intro: the vision row (scanner, body, network, prognosis, medication), then it draws back into the scanner
   a = C.title.a; b = C.title.b;
-  show('motor', 0.2, 2.5);
-  ramp('motor_build', 0.5, 8, 0, 1);
-  ramp('motor_signal', 5, 7, 0, 1);
-  cam(a, 'motor', 'default', -35, null, [0, -4, 0.6]);
-  cam(b - 1, 'motor', 'default', 5, 'spin');
-  // Muscles that tire: the junctions glow, the camera dives into one, and the junction close up fires, then tires
-  a = C.tired.a; b = C.tired.b;
-  ramp('motor_groups', a, a + 2, 0, 1);
-  jump('motor_site', a + 1, 0, 3);
-  // the dive: into one end plate as the motor unit fades out, then the junction close up comes in
-  ramp('motor_a', a + 7, a + 8.6, 1, 0);
-  cam(a + 1, 'motor', 'default', 10);
-  cam(a + 5.5, 'motor', 'junction');
-  cam(a + 8.6, 'motor', 'junction', 0, null, [0, 0, -0.28]);
-  show('syn', a + 8.6, a + 9.4, C.cloud.a - 0.5, C.cloud.a + 1.5);
-  ramp('syn_build', a + 8.7, a + 12, 0, 1);
-  ramp('syn_fire', a + 11, a + 12.5, 0, 1);
-  ramp('syn_tired', a + 17, a + 22, 0, 1);
-  cam(a + 8.7, 'syn', 'wide');
-  cam(a + 14, 'syn', 'default');
-  cam(b - 0.5, 'syn', 'default', 20, 'spin');
-  // The genes: each seed lights where it acts, the camera visiting the nerve ending, the gap, the receptors, the fibre
-  a = C.genes.a; b = C.genes.b;
-  ramp('syn_tired', a, a + 2, 1, 0);
-  ramp('syn_fire', a + 1, a + 3, 1, 0);
-  // the gene groups light one after another (nerve ending, gap, muscle membrane, inside) as the camera reaches them
-  [[4, 0], [10, 0.3], [13, 0.45], [17, 0.62], [22, 0.86], [24, 1]].forEach(([t, v]) => key('syn_genes', a + t, v));
-  cam(a + 2, 'syn', 'default', 10);
-  cam(a + 7, 'syn', 'terminal');
-  cam(a + 12, 'syn', 'cleft');
-  cam(a + 16, 'syn', 'receptors');
-  cam(a + 21, 'syn', 'nucleus');
-  cam(a + 26, 'syn', 'default', -10);
-  cam(b - 1, 'syn', 'default', 15, 'spin');
-  ramp('syn_genes', b - 1.5, b + 0.5, 1, 0);
-  // The network: the cloud of proteins, the seeds, and their groups as the neighbourhoods grow
-  a = C.cloud.a; b = C.cloud.b;
-  show('net', a - 0.5, a + 1.5, C.hood.a + 16, C.hood.a + 18);
-  ramp('net_cloud', a, a + 6, 0, 1);
-  ramp('net_seeds', a + 9, a + 11, 0, 1);
-  // k = 1, then the neighbourhoods grow, holding where the text names the number of groups
-  // (k = 1 shows its label a little past 0; groups at k = 1 and 2 are the same here)
-  [[19, 1], [23, 10], [25, 20], [28, 50], [31, F.oneK || 75]].reduce((k0, [t, k]) => { const v = j => kAt(j) + (j === 1 ? 0.25 : 0); ramp('net_k', a + t - 2, a + t, k0 === null ? 0 : v(k0), v(k)); return k; }, null);
-  cam(a + 1.5, 'net', 'default', -30, null, [0, 0, 1.2]);
-  cam(a + 8, 'net', 'default', -5, 'spin');
-  cam(a + 13, 'net', 'core');
-  cam(b - 1, 'net', 'core', 50, 'spin');
-  // The walk: walkers with restart, the heat they leave, then the module pulls together
-  a = C.walk.a; b = C.walk.b;
-  ramp('net_k', a, a + 2, kAt(F.oneK || 75), ED.groups.length - 1);
-  ramp('net_walk', a + 2, a + 4, 0, 1); ramp('net_walk', a + 27, a + 29, 1, 0);
-  ramp('net_heat', a + 10, a + 20, 0, 1);
-  ramp('net_module', a + 23, a + 31, 0, 1);
-  cam(a + 1, 'net', 'core', 50);
-  cam(a + 21, 'net', 'core', 80, 'spin');
-  cam(a + 27, 'net', 'module');
-  cam(b - 1, 'net', 'module', 30, 'spin');
-  // Neighbourhoods: the module goes back into the cloud, one gene lights its neighbourhood; then the matrix fills
-  a = C.hood.a; b = C.hood.b;
-  ramp('net_module', a, a + 3, 1, 0);
-  ramp('net_heat', a + 1, a + 4, 1, 0);
-  ramp('net_seeds', a + 1, a + 4, 1, 0.4);
-  if (gi >= 0) { jump('net_gene', a + 2, -1, gi); ramp('net_hood', a + 4, a + 8, 0, 1); }
-  cam(a + 1, 'net', 'default', 30);
-  // close to the gene, in the cloud (the module back in it), from outside
-  const NA = GL.sets.net.api ? GL.sets.net.api() : null, gv = gi >= 0 && NA && NA.geneView ? NA.geneView(gi) : view('net', 'core');
-  wp.push([a + 6, ...gv, null, 'net']);
-  wp.push([a + 15, gv[0] + 30, ...gv.slice(1), 'spin', 'net']);
-  show('tree', a + 16, a + 18, C.endotypes.a + 45, C.endotypes.a + 47);
-  ramp('tree_matrix', a + 18, a + 30, 0, 1);
-  cam(a + 17.5, 'tree', 'matrix');
-  cam(b - 1, 'tree', 'matrix', 15, 'spin');
-  // The tree: grown from the leaves, tested from the root, then the genes by their tree distances
-  a = C.split.a; b = C.split.b;
-  ramp('tree_tree', a + 1, a + 9, 0, 1);
-  ramp('tree_test', a + 10, a + 22, 0, 1);
-  ramp('tree_mds', a + 28, a + 33, 0, 1);
-  cam(a + 1, 'tree', 'tree');
-  cam(a + 10, 'tree', 'default');
-  cam(a + 22, 'tree', 'default', 15, 'spin');
-  cam(a + 29, 'tree', 'mds');
-  cam(b - 1, 'tree', 'mds', 40, 'spin');
-  // Endotypes: the poster's endotype network, the four endotypes in turn, then each endotype flies to its place
-  a = C.endotypes.a; b = C.endotypes.b;
-  ramp('tree_mds', a, a + 3, 1, 0);
-  ramp('tree_meta', a + 1, a + 5, 0, 1);
-  four.reduce((f0, id, j) => { jump('tree_focus', a + 9 + 10 * j - (j === 3 ? 1 : 0), f0, id + 1); return id + 1; }, 0);
-  jump('tree_focus', a + 45, four.length ? four[four.length - 1] + 1 : 0, 0);
-  cam(a + 2, 'tree', 'meta');
-  cam(a + 8, 'tree', 'meta', 10, 'spin');
-  // each endotype from its own view (the set's cam e<id>), turning a little while it is told
-  four.forEach((id, j) => { const t = a + 9.5 + 10 * j - (j === 3 ? 1 : 0); cam(t + 1, 'tree', 'e' + id); cam(t + 7.5, 'tree', 'e' + id, 6, 'spin'); });
-  cam(a + 44, 'tree', 'meta');
-  show('syn', a + 45, a + 47);
-  ramp('syn_endo', a + 47, a + 53, 0, 1);
-  four.reduce((p0, id, j) => { jump('syn_place', a + 50 + 2.6 * j, p0, id + 1); return id + 1; }, 0);
-  cam(a + 46.5, 'syn', 'wide');
-  cam(a + 50, 'syn', 'default');
-  cam(b, 'syn', 'default', 25, 'spin');
-  // What for: the junction with every endotype in its place
-  a = C.next.a; b = C.next.b;
-  jump('syn_place', a + 3, four.length ? four[four.length - 1] + 1 : 0, 0);
-  cam(a + 5, 'syn', 'wide', 20);
-  cam(b, 'syn', 'wide', 60, 'spin');
+  show('scan', 0.2, 2.5, C.body.a + 0.3, C.body.a + 2.3);
+  ramp('scan_vision', a + 10, a + 15, 1, 0);
+  cam(a, 'scan', 'vision', -8, null, [0, 0, 0.8]);
+  cam(a + 9.5, 'scan', 'vision', 4, 'spin');
+  cam(b - 0.5, 'scan', 'default', -12);
+  // Seeing sugar: the couch slides in, the skin opens on the ring, events, lines of response, then the image
+  a = C.scanner.a; b = C.scanner.b;
+  ramp('scan_bed', a + 1, a + 7, 0, 1);
+  ramp('scan_cut', a + 9, a + 12, 0, 1);
+  ramp('scan_events', a + 12, a + 13.5, 0, 0.3); ramp('scan_events', a + 21, a + 24, 0.3, 1);
+  ramp('scan_lines', a + 16, a + 27, 0, 1);
+  ramp('scan_image', a + 27, a + 33, 0, 1);
+  ramp('scan_events', a + 30, a + 34, 1, 0.4);
+  cam(a + 1, 'scan', 'default', -4);
+  cam(a + 8, 'scan', 'default', 10, 'spin');
+  cam(a + 11.5, 'scan', 'ring');
+  cam(a + 20, 'scan', 'ring', 14, 'spin');
+  cam(a + 24, 'scan', 'front');
+  cam(a + 28, 'scan', 'side');
+  cam(b - 0.5, 'scan', 'side', 14, 'spin');
+  // Where the sugar goes: the standing body, the tracer arriving, the hot organs, then a tumour
+  a = C.body.a; b = C.body.b;
+  show('body', a + 0.3, a + 2.3);
+  ramp('body_a', C.one.a, C.one.a + 2, 0.55, 0);   // (dimmed under the organs from their chapter on)
+  ramp('body_pet', a + 1.5, a + 10, 0, 1);
+  show('organs', a + 18, a + 20, C.one.a, C.one.a + 2);
+  ramp('organs_lesion', a + 19, a + 21, 0, 1);
+  cam(a + 0.5, 'body', 'front', -12, null, [0, 0, 0.4]);
+  cam(a + 9.5, 'body', 'front', 6, 'spin');
+  cam(a + 12, 'body', 'front', 10, null, [0, 0, -1.1, 0, 0.3, 0]);
+  cam(a + 18, 'body', 'front', 18, 'spin', [0, 0, -1.1, 0, 0.3, 0]);
+  cam(a + 21, 'organs', 'lesion');
+  cam(a + 28, 'organs', 'lesion', 10, 'spin');
+  cam(b - 1, 'organs', 'default', -6);
+  ramp('organs_lesion', b - 3, b, 1, 0);
+  // Every organ, measured: the AI's outlines, slice by slice; each organ's uptake as a bar; three organs in turn
+  a = C.organs.a; b = C.organs.b;
+  ramp('body_a', a + 1, a + 4, 1, 0.55);
+  ramp('organs_seg', a + 1, a + 12, 0, 1);
+  ramp('organs_suv', a + 15, a + 21, 0, 1);
+  [['brain', 23], ['liver', 27], ['muscle', 31]].reduce((f0, [id, t]) => { jump('organs_focus', a + t, f0, oi(id)); return oi(id); }, 0);
+  jump('organs_focus', a + 35, oi('muscle'), 0);
+  cam(a + 1, 'organs', 'seg');
+  cam(a + 12, 'organs', 'seg', 12, 'spin');
+  cam(a + 15, 'organs', 'bars');
+  cam(a + 22, 'organs', 'bars', 6, 'spin');
+  cam(b - 0.5, 'organs', 'bars', -6, 'spin');
+  // 658 scans: one row, then all of them; the partial correlation of two organs; the network of all scans
+  a = C.cohort.a; b = C.cohort.b;
+  key('organs_rows', a + 1, 0); key('organs_rows', a + 5, 0.35); key('organs_rows', a + 7, 0.35); key('organs_rows', a + 12, 1);
+  if (F.pair) { jump('organs_pair', a + 15, 0, 1); ramp('organs_partial', a + 23, a + 29, 0, 1); jump('organs_pair', a + 33, 1, 0); }
+  ramp('organs_net', a + 32, a + 41, 0, 1);
+  ramp('organs_rows', a + 31, a + 34, 1, 0); ramp('organs_suv', a + 31, a + 34, 1, 0);
+  cam(a + 1, 'organs', 'matrix');
+  cam(a + 13, 'organs', 'matrix', 10, 'spin');
+  if (F.pair) { cam(a + 16, 'organs', 'scatter'); cam(a + 30, 'organs', 'scatter', 4, 'spin'); }
+  cam(a + 34, 'organs', 'net');
+  cam(b - 0.5, 'organs', 'net', 18, 'spin');
+  // From health to disease: BMI, the strength distribution, CRP thirds; robust; hexokinase 2 like FDG
+  a = C.health.a; b = C.health.b;
+  // the networks in turn, each from the one before (a network not read off its figure yet is skipped)
+  let w = wi('full');
+  const goNet = (id, t) => { if (!hasNet(id)) return; ramp('organs_which', t, t + 2, w, wi(id)); w = wi(id); };
+  goNet('A_low', a + 7); goNet('A_high', a + 12);
+  ramp('organs_strength', a + 16, a + 19, 0, 1);
+  goNet('C_low', a + 21); goNet('C_mid', a + 25); goNet('C_high', a + 29);
+  goNet('FDG_healthy', a + 38); goNet('HK2', a + 41);
+  cam(a + 1, 'organs', 'net', 18);
+  cam(a + 14, 'organs', 'net', 34, 'spin');
+  cam(a + 17, 'organs', 'strength');
+  cam(a + 34, 'organs', 'strength', 10, 'spin');
+  cam(a + 37, 'organs', 'net', 20);
+  cam(b - 0.5, 'organs', 'net', 34, 'spin');
+  // One scan, one network: bars, ratios, the threshold, the network, the two measures, three profiles in turn
+  a = C.one.a; b = C.one.b;
+  show('people', a + 0.5, a + 2.5, C.vision.a, C.vision.a + 2);
+  ramp('people_bars', a + 2, a + 5, 0, 1);
+  ramp('people_ratio', a + 7, a + 11, 0, 1);
+  ramp('people_thresh', a + 12, a + 15, 0, 1);
+  ramp('people_one', a + 17, a + 22, 0, 1);
+  ramp('people_metrics', a + 24, a + 28, 0, 1);
+  key('people_profile', a + 31, 0); key('people_profile', a + 33, 1); key('people_profile', a + 35, 1); key('people_profile', a + 38, 3);
+  cam(a + 1, 'people', 'one', -14);
+  cam(a + 7, 'people', 'field');
+  cam(a + 15, 'people', 'field', 12, 'spin');
+  cam(a + 18, 'people', 'one');
+  cam(a + 24, 'people', 'metrics');
+  cam(b - 0.5, 'people', 'metrics', 8, 'spin');
+  // People: the population by its two measures, the index strip, the groups in turn, survival, immunotherapy, follow-up
+  a = C.people.a; b = C.people.b;
+  ramp('people_map', a + 1, a + 6, 0, 1);
+  for (const n of ['people_bars', 'people_ratio', 'people_thresh', 'people_one', 'people_metrics']) ramp(n, a + 2, a + 6, 1, 0);
+  ramp('people_mdi', a + 9, a + 14, 0, 1);
+  // each group glows in turn as its number appears in the panel
+  P.groups.slice(0, 4).reduce((g0, g, j) => { jump('people_group', a + 14 + 2.5 * j, g0, j + 1); return j + 1; }, 0);
+  if (P.groups.length) jump('people_group', a + 25, Math.min(4, P.groups.length), 0);
+  ramp('people_km', a + 28, a + 32, 0, 1);
+  ramp('people_km', a + 35, a + 37, 1, 0);
+  ramp('people_response', a + 36, a + 40, 0, 1);
+  ramp('people_response', a + 41, a + 43, 1, 0);
+  ramp('people_follow', a + 42, a + 46, 0, 1);
+  cam(a + 2, 'people', 'map');
+  cam(a + 8, 'people', 'map', 8, 'spin');
+  cam(a + 10.5, 'people', 'strip');
+  cam(a + 26, 'people', 'strip', 5, 'spin');
+  cam(a + 29, 'people', 'km');
+  cam(a + 35, 'people', 'km', 4, 'spin');
+  cam(a + 37, 'people', 'auc');
+  cam(a + 41, 'people', 'auc', 4, 'spin');
+  cam(a + 43, 'people', 'strip');
+  cam(b - 0.5, 'people', 'strip', 6, 'spin');
+  // One scan, one system: the vision row again
+  a = C.vision.a; b = C.vision.b;
+  show('scan', a + 0.5, a + 2.5);
+  // (the scanner comes back as it was at the start: couch out, closed, no events)
+  for (const n of ['scan_bed', 'scan_cut', 'scan_lines', 'scan_image']) jump(n, a, 1, 0);
+  jump('scan_events', a, 0.4, 0);
+  ramp('scan_vision', a + 1, a + 9, 0, 1);
+  cam(a + 1.5, 'scan', 'vision', -10, null, [0, 0, 0.8]);
+  cam(b, 'scan', 'vision', 6, 'spin');
   for (const n in TR) TR[n].sort((x, y) => x[0] - y[0]);
   buildCamera(wp);
 
   // --------------------------------------------------------- story labels
-  // (the sets label their own parts; the story adds what the scene alone does not say)
-  label('syn', () => anchorOf('syn', 'scaffold'), '<b>Fatigable weakness</b>each twitch weaker', C.tired.a + 18, C.tired.b - 0.5, 'amb');
+  // (the sets label their own parts; the story adds what the scene alone does not say; the body set labels its
+  // organs only with its own network, so its anchors are passed as points)
+  const at = (k, n) => () => anchorOf(k, n);
+  a = C.body.a;
+  label('body', at('body', 'brain'), '<b>Brain</b>the most sugar', a + 11, a + 18, 'amb');
+  label('body', at('body', 'heart'), '<b>Heart</b>', a + 12, a + 18, 'amb');
+  label('body', at('body', 'kidneys'), '<b>Kidneys</b>into the urine', a + 13.5, a + 18, 'amb');
+  label('body', at('body', 'bladder'), '<b>Bladder</b>', a + 14.5, a + 18, 'amb');
+  label('organs', 'lesion', '<b>A tumour</b>a hot spot', a + 21, a + 30, 'amb');
+  a = C.health.a;
+  if (hubName && hasNet('C_high')) label('organs', 'hub', `<b>${esc(hubName)}</b>${hub3.length > 1 ? 'hubs' : 'a hub'} at high CRP`, a + 31, a + 36, 'amb');
 }
 // camera waypoints: [t, az, el, dist, tx, ty, tz, ease, set]; 'spin' segments turn at a steady pace.
 // When the story hands over from one set to another, the new set is turned about its
@@ -387,9 +452,11 @@ function buildCamera(wp) {
   });
 }
 // the turn a set has at story time t: that of its latest stay on show (it starts fading in a little before its first view)
+// (body and organs share the organs' turn: one frame)
 function setYaw(k, t) {
   let c = 0;
-  for (const y of ST.yaw) if (y.k === k && y.t0 - 6 <= t) c = y.c;
+  const f = frameOf(k);
+  for (const y of ST.yaw) if (y.k === f && y.t0 - 6 <= t) c = y.c;
   return c;
 }
 // 0..1 progress over a segment of length D: smoothstep, or for 'spin' segments a steady
