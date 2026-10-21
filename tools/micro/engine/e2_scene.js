@@ -38,6 +38,9 @@ function buildScene(canvas) {
     GL.world.add(s.group);
     s.setAlpha(0);
   }
+  // one colour per domain in every set: the atlas set's (from the talk's figures), handed to the sets that take it
+  const dc = GL.sets.atlas.api && GL.sets.atlas.api().domainColour;
+  if (dc) for (const k of SET_ORDER) { const A = GL.sets[k].api && GL.sets[k].api(), f = A && (A.useColours || A.recolour); if (f && k !== 'atlas') f(dc); }
   // the 29 organs of GTEx as points of light in the tour's body (the engine's own, in the body set's frame)
   GL.dots = makeDots();
   GL.sets.body.group.add(GL.dots.group);
@@ -64,8 +67,8 @@ function makeDots() {
     },
     // the organ a ray passes closest to (within about 0.045 of its point, in the body's units), or -1
     pick(rc) {
-      let best = -1, bd = 0.045 * GL.sets.body.group.matrixWorld.getMaxScaleOnAxis() * GL.world.matrixWorld.getMaxScaleOnAxis();
       pts.updateMatrixWorld();
+      let best = -1, bd = 0.045 * pts.matrixWorld.getMaxScaleOnAxis();
       O.forEach((o, i) => { _p.fromArray(o.pos).applyMatrix4(pts.matrixWorld); const d = rc.ray.distanceToPoint(_p); if (d < bd) { bd = d; best = i; } });
       return best;
     },

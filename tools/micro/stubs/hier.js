@@ -56,7 +56,7 @@ SETS.hier = function (K) {
     ],
     explore(c) { const ct = c.view === 'contacts'; return { hier_grow: 1, hier_contacts: ct ? 1 : 0, hier_organ: +c.organ || 0, hier_age: c.age === '70' ? 1 : 0 }; },
     api: () => ({
-      nodes: N.map(n => ({ name: n[0], level: n[1] })), contactOrgans: CO.slice(),
+      nodes: N.map(n => ({ name: n[0], level: n[1] })), contactOrgans: CO.map(name => ({ name })),
       pick(rc) {
         let best = -1, bd = 0.05;
         const v = new THREE.Vector3();

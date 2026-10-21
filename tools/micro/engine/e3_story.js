@@ -81,7 +81,11 @@ const fitShift = (k, name) => { const f = GL.sets[k].cam[name] && FIT[k] && FIT[
 // views whose parts reach under the side panel or off the right edge on a landscape screen: a little further back,
 // or their target moved, so they fit beside the panel (added to the set's own view, in story and explore mode alike)
 // (measured at 1280 x 760: each view's parts between the panel's right edge and the screen's, above the timeline)
-const FIT = { body: { default: [0, 0, 0.55], front: [0, 0, 0.55] } };
+// (the section, 2.1 long, needs about 4 units' distance to fit right of the panel: further back, and moved right)
+const SEC = [0, 0, 0.6, -0.22];
+const FIT = { atlas: { default: [0, 0, 1.1, -0.42], library: [0, 0, 1.1, -0.42], atlas: [0, 0, 0.8, -0.35], focus: [0, 0, 0.35, -0.05, 0.03], volcano: [0, 0, 0.45, -0.2],
+  curves: [0, 0, 0.5, -0.25], age: [0, 0, 0.45, -0.2] },
+  body: { default: [0, 0, 0.55], front: [0, 0, 0.55] }, tissue: { default: SEC, section: SEC }, slide: { default: SEC, section: SEC, domains: SEC, age: SEC, tiles: [0, 0, 0.35, -0.25], matrix: [0, 0, 0.2, -0.2] } };
 // how much further back a view stands on a phone held upright (see narrowK): the wide ones, whose parts reach
 // across the screen
 const NARROW = { tissue: { section: 1.2, default: 1.2 }, slide: { default: 1.2, domains: 1.2, matrix: 1.3 }, atlas: { library: 1.25, default: 1.25, atlas: 1.2, volcano: 1.15, curves: 1.15 },
@@ -168,14 +172,19 @@ function slideDomain(k) {
     || D.find(n => n.toLowerCase().split(' ')[0] === s.split(' ')[0]) || '';
 }
 // the contact networks' organs (hier_organ: an index into them) and the preprint's findings for one of them
-const contactIdx = re => Math.max(0, (api('hier').contactOrgans || []).findIndex(o => re.test(o)));
-// the talk's figures, when read: the domains drawn for a tissue (any of a few shapes), else none
+const contactIdx = re => Math.max(0, (api('hier').contactOrgans || []).findIndex(o => re.test((o && o.name) || o)));
+// the talk's figures, when read: the domains drawn for a tissue ({ name, share }), else none. The figures name tissues
+// their own way ('Artery coronary', 'Tibial nerve', 'Aorta'): a reading fits a GTEx tissue when all its words are in it
+const words = s => String(s || '').toLowerCase().replace(/\(.*?\)/g, '').split(/[^a-z]+/).filter(Boolean);
+const tidyDom = s => String(s).replace(/pathches/g, 'patches').replace(/adventita/g, 'adventitia').replace(/\bmedula\b/g, 'medulla').replace(/\s*\/\s*/g, ' and ');
+// (a reading named only by its organ, 'Colon' or 'Heart', fits no tissue of an organ sampled at two sites: which one the
+// talk shows is not said)
 function figDomains(tissue) {
-  const A = (MICRO_DATA.figures || {}).atlas;
-  if (!A) return [];
-  const e = Array.isArray(A) ? A.find(x => x && (x.tissue === tissue || x.name === tissue)) : A[tissue];
-  const L = e && (Array.isArray(e) ? e : e.domains);
-  return Array.isArray(L) ? L.map(x => (typeof x === 'string' ? x : x && x.name)).filter(Boolean) : [];
+  const A = (MICRO_DATA.figures || {}).atlas, w = words(tissue), O = tissueOrgan(tissue);
+  if (!Array.isArray(A) || !w.length) return [];
+  const only = x => O && O.tissues.length > 1 && words(x).join() === words(O.name).join();
+  const e = A.find(x => x && words(x.tissue).join() === w.join()) || A.find(x => x && words(x.tissue).length && !only(x.tissue) && words(x.tissue).every(q => w.includes(q)));
+  return e && Array.isArray(e.domains) ? e.domains.filter(d => d && d.name && !/tissue edge/i.test(d.name)).map(d => ({ name: tidyDom(d.name), share: +d.share || 0 })) : [];
 }
 
 // ------------------------------------------------------------------ facts --
@@ -205,9 +214,11 @@ const signed = v => (v > 0 ? '+' : v < 0 ? '−' : '') + Math.abs(v);
 const inkCol = c => `color-mix(in srgb, ${c} 55%, var(--ink))`;
 const swCol = c => c;   // a swatch or a bar in the same colour
 // a worked example of change with age in a line: what it is, its share at both ages and per decade
-const exText = x => `${x.note}: ${pct(x.from)} of the section at ${FACTS.ages[0]}, ${pct(x.to)} at ${FACTS.ages[1]} (${signed(x.perDecade)}% per decade)`;
+const exText = x => `${x.note}; ${pct(x.from)} of the section at ${FACTS.ages[0]}, ${pct(x.to)} at ${FACTS.ages[1]} (${signed(x.perDecade)}% per decade)`;
 const exName = x => `${cap(x.tissue)} · ${x.domain}`;
 // a change in the contacts between two domains, in words
+// where a finding is ('in arteries', 'in the heart')
+const inOrgan = o => (/^arter/i.test(o) ? 'in arteries' : `in the ${String(o).toLowerCase()}`);
 const where = x => (x.note && /arter/i.test(x.note) ? x.note : `the ${String(x.organ).toLowerCase()}`);
 const meet = x => (x.a ? `${cap(x.a)} and ${x.b} meet ${x.dir > 0 ? 'more' : 'less'} with age in ${where(x)}` : `In ${where(x)}, ${x.note}`);
 
@@ -222,8 +233,9 @@ function buildStory() {
   const jump = (n, t, v0, v1) => { key(n, t - 0.01, v0); key(n, t, v1); };
   // values a set starts the story with (keyed at time 0, so a set's resting defaults never leak into the story)
   const start = vals => { for (const n in vals) if (n in DEF) key(n, 0, vals[n]); };
-  const sd = name => slideIdx(name);   // slide_focus for a domain of the section
-  const exI = F.ex.map(x => atlasIdx(x.tissue));   // atlas_focus for each worked example (0: the gut's is on the slide)
+  const sd = (...names) => names.reduce((f, n) => f || slideIdx(n), 0);   // slide_focus for a domain of the section (the first name it has)
+  // atlas_focus for each worked example (the atlas set's own choice, else by name; the gut's is shown on the slide)
+  const exI = F.ex.map((x, i) => (Array.isArray(api('atlas').examples) && api('atlas').examples[i] >= 0 ? api('atlas').examples[i] + 1 : atlasIdx(x.tissue)));
   const step = (at, out, col, b, text) => `<li data-at="${at}"${out ? ` data-out="${out}"` : ''} data-col="${col}" style="border-left-color:${swCol(col)}"><b style="color:${inkCol(col)}">${esc(b)}</b>${text}</li>`;
   const exCol = ['#ff9ec4', '#ffd166', '#c77dff'];
   // ------------------------------------------------------------ panel copy
@@ -245,8 +257,8 @@ function buildStory() {
       `<ul class="steps">
           ${step(22.5, 0, domCol('mucosa'), 'Mucosa', 'the lining: glands that make mucus and acid')}
           ${step(24.5, 0, domCol('submucosa'), 'Submucosa', 'loose tissue with blood vessels')}
-          ${step(26.5, 0, domCol('muscularis'), 'Muscularis', 'layers of muscle that move food along')}
-          ${step(28.5, 0, domCol('lymphoid'), 'Lymphoid patch', 'a cluster of immune cells')}
+          ${step(26.5, 0, domCol('inner circular smooth muscle'), 'Muscularis', 'two layers of muscle, one around and one along, that move food on')}
+          ${step(28.5, 0, domCol('lymphoid tissue'), 'Lymphoid patch', 'a cluster of immune cells')}
         </ul>
         <p data-at="30.5" class="amber">Such recurring arrangements are microanatomical domains: the units between cells and organs.</p>
         <p class="credits" data-at="33">Slides like this are cheap, plentiful and show a wide field. This section is drawn, not a real slide.</p>`)}`,
@@ -258,7 +270,7 @@ function buildStory() {
       <p class="credits" data-at="27">${fmt(F.donorsAnalysed)} people's slides were analysed: median age ${F.medianAge}, ${pct(F.male)} men. The slides here are drawn, not the GTEx images.</p>`,
     method: `<h2 data-at="0.6">Finding the domains</h2>
       ${turns(`<ul class="steps">
-          ${step(1.5, 35.5, '#46d9ff', '1 · Tiles', `each slide is cut into small squares: ${F.tilesM} million tiles in all`)}
+          ${step(1.5, 35.5, '#46d9ff', '1 · Tiles', `each slide is cut into small squares (far smaller than drawn here): ${F.tilesM} million tiles in all`)}
           ${step(9.5, 35.5, '#46d9ff', '2 · Features', 'a deep-learning vision model describes each tile with a list of numbers')}
           ${step(18.5, 35.5, '#46d9ff', '3 · Neighbours', 'each tile mixes in the descriptions of the tiles around it (message passing)')}
           ${step(27.5, 35.5, '#46d9ff', '4 · Domains', 'tiles whose mixed descriptions are alike are grouped, across all slides: each group is a domain')}
@@ -270,7 +282,7 @@ function buildStory() {
         <div class="facts"><div data-at="5" data-out="19.5"><b>${F.types}</b><small>types of domain</small></div><div data-at="6.5" data-out="19.5"><b>${pct(F.shared3)}</b><small>in three or more tissues</small></div><div data-at="8" data-out="19.5"><b>${pct(F.specific)}</b><small>in one tissue only</small></div></div>
         <p data-at="11" data-out="19.5">A few kinds recur almost everywhere, such as connective tissue and blood vessels. Most belong to one tissue.</p>`,
       `<p data-at="20">Iva Buljan's network of organ architecture puts it together in four levels:</p>
-        <ul class="legend">${[`${F.levels[0]} organs`, `their tissues, where an organ has several (${F.levels[1]})`, `${F.levels[2]} tissue types`, `${F.levels[3]} domain types`].map((t, l) => `<li data-at="${21 + 2 * l}"><span class="sw" style="background:${LEVEL_COL[l]}"></span>${t}</li>`).join('')}</ul>
+        <ul class="legend">${[`${F.levels[0]} organs`, `their tissues, where an organ has several (${F.levels[1]})`, `${F.levels[2]} tissue types`, `${F.levels[3]} domains, as named in this map`].map((t, l) => `<li data-at="${21 + 2 * l}"><span class="sw" style="background:${LEVEL_COL[l]}"></span>${t}</li>`).join('')}</ul>
         ${F.wide ? `<p data-at="30" class="amber">${esc(cap(F.wide.name))} is the tissue type shared most widely: ${F.wide.organs} of the ${F.organs} organs have it.</p>` : ''}
         <p class="credits" data-at="33">The network as in the talk's Figure 5: domains hang on tissue types, and tissue types on organs and their tissues.</p>`)}`,
     age: `<h2 data-at="0.6">Age</h2>
@@ -281,7 +293,7 @@ function buildStory() {
         <p data-at="42">${esc(F.connective)} ${esc(F.most)}</p>`)}`,
     pathology: `<h2 data-at="0.6">Disease</h2>
       ${turns(`<p data-at="1.2" data-out="15.5">GTEx's pathologists noted what they saw on each slide: ${fmt(F.pathology.instances)} notes of ${F.pathology.kinds} kinds.</p>
-        <ul class="steps">${[F.plaque, F.infarct].filter(Boolean).map((p, i) => step(5 + 4 * i, 15.5, i ? '#ff5a4b' : '#ffb43b', cap(p.kind), `${esc(p.organ)}: ${esc(p.note)}`)).join('')}</ul>`,
+        <ul class="steps">${[F.plaque, F.infarct].filter(Boolean).map((p, i) => step(5 + 4 * i, 15.5, i ? '#ff5a4b' : '#ffb43b', cap(p.kind), `${esc(inOrgan(p.organ))}: ${esc(p.note)}`)).join('')}</ul>`,
       `<p data-at="16" class="amber">Disease and healthy ageing often remodel different parts of a tissue: how much of a domain there is, its shape, or both.</p>
         ${F.remodel.length ? `<p data-at="22">For example: ${esc(F.remodel.map(p => `${p.kind} ${p.note}`).join('; '))}.</p>` : ''}
         <p class="credits" data-at="29">${F.figs.includes('trajectories') ? 'Curves read off the talk\'s figures.' : 'Curves drawn after the preprint\'s descriptions, not its data points.'}</p>`)}`,
@@ -294,7 +306,7 @@ function buildStory() {
     next: `<h2 data-at="0.6">Tissue and time</h2>
       ${turns(`<p data-at="1.2" data-out="10.5">A map of how the body is built, from cells to domains to organs, and of how it changes with age.</p>
         <p data-at="4.5" data-out="10.5" class="amber">It may help to study ageing itself, to spot early signs of disease in routine slides, and to compare organs on one scale.</p>`,
-      `<p data-at="11">Preprint: Iva Buljan, Zsuzsanna Bagó-Horváth and André F. Rendeiro${F.year ? ` (bioRxiv, ${F.year})` : ''}. Poster and talk: Iva Buljan, Rendeiro group: CeMM (Research Center for Molecular Medicine of the Austrian Academy of Sciences), the LBI for Network Medicine and the Medical University of Vienna. Slides: ${esc(F.gtex)}.</p>
+      `<p data-at="11">Preprint: Iva Buljan, Zsuzsanna Bagó-Horváth and André F. Rendeiro${F.year ? ` (bioRxiv, ${F.year})` : ''}. Poster and talk: Iva Buljan, of the Rendeiro group at CeMM (Research Center for Molecular Medicine of the Austrian Academy of Sciences), the LBI for Network Medicine and the Medical University of Vienna. Slides: ${esc(F.gtex)}.</p>
         <p data-at="13.5"><button class="btn primary" id="btnGoExplore" type="button">Explore the atlas</button></p>
         <p class="credits" data-at="15">Slides, sections and tiles are drawn, not the GTEx images; the domain maps, the volcano's other points and the contact networks are illustrative where the figures give no numbers.</p>`)}`,
   };
@@ -344,8 +356,10 @@ function buildStory() {
   cam(a + 23.5, 'slide', 'domains', -6);
   cam(b - 0.5, 'slide', 'domains', 6, 'spin');
   ramp('slide_domain', a + 22, a + 27, 0, 1);
-  [['mucosa', 22.5], ['submucosa', 24.5], ['muscularis', 26.5], ['lymphoid', 28.5]].reduce((f0, [d, t]) => { jump('slide_focus', a + t, f0, sd(d)); return sd(d); }, 0);
-  jump('slide_focus', a + 30.5, sd('lymphoid'), 0);
+  // (each glows as its line appears; one the section does not have is skipped; then all of them again)
+  let f0 = 0;
+  for (const [f, t] of [[sd('mucosa'), 22.5], [sd('submucosa'), 24.5], [sd('inner circular smooth muscle', 'muscularis'), 26.5], [sd('outer longitudinal smooth muscle'), 27.5],
+    [sd('lymphoid tissue', 'lymphoid'), 28.5], [-1, 30.5]]) if (f && f !== f0) { const v = Math.max(0, f); jump('slide_focus', a + t, f0, v); f0 = v; }
   // 24,945 slides: the library, column by tissue, row by age
   a = C.library.a; b = C.library.b;
   hide('slide', a, a + 2);
@@ -371,15 +385,15 @@ function buildStory() {
   cam(a + 26, 'slide', 'close', 8, 'spin');
   cam(a + 29, 'slide', 'domains');
   cam(a + 34.5, 'slide', 'domains', 5, 'spin');
-  jump('atlas_lib', a + 2.5, 1, 0);
+  // (the sections come forward from the library's wall, and the tiles rise out of them)
   show('atlas', a + 35.5, a + 37.5);
-  ramp('atlas_umap', a + 36, a + 42, 0, 1);
+  ramp('atlas_map', a + 35.5, a + 38, 0, 1);
+  ramp('atlas_umap', a + 38, a + 43, 0, 1);
   cam(a + 37, 'atlas', 'umap', -10);
   cam(b - 0.5, 'atlas', 'umap', 25, 'spin');
   // An atlas of the body: a section per tissue; then the network of organ architecture growing level by level
   a = C.atlas.a; b = C.atlas.b;
   ramp('atlas_umap', a + 1, a + 4, 1, 0);
-  ramp('atlas_map', a + 1, a + 6, 0, 1);
   cam(a + 2.5, 'atlas', 'atlas', -6);
   cam(a + 18, 'atlas', 'atlas', 8, 'spin');
   hide('atlas', a + 19, a + 21);
@@ -393,13 +407,11 @@ function buildStory() {
   // Age: the volcano; then the three examples in turn (the ovary, the gut on the slide, the pituitary)
   a = C.age.a; b = C.age.b;
   hide('hier', a, a + 2);
-  jump('atlas_map', a, 1, 0);
   show('atlas', a + 0.5, a + 2.5, a + 24, a + 26);
   ramp('atlas_volcano', a + 2, a + 8, 0, 1);
   cam(a + 2, 'atlas', 'volcano', -8);
   cam(a + 13, 'atlas', 'volcano', 6, 'spin');
   ramp('atlas_volcano', a + 14, a + 16, 1, 0);
-  ramp('atlas_map', a + 14, a + 16, 0, 1);
   if (exI[0]) jump('atlas_focus', a + 14, 0, exI[0]);
   ramp('atlas_age', a + 17, a + 23, 0, 1);
   cam(a + 15.5, 'atlas', 'focus');
@@ -409,8 +421,8 @@ function buildStory() {
   show('slide', a + 24.5, a + 26.5, a + 34, a + 36);
   jump('slide_focus', a + 24, 0, sd('submucosa'));
   ramp('slide_age', a + 27, a + 33, 0, 1);
-  cam(a + 25, 'slide', 'domains', -6);
-  cam(a + 33.5, 'slide', 'domains', 6, 'spin');
+  cam(a + 25, 'slide', 'age', -6);
+  cam(a + 33.5, 'slide', 'age', 6, 'spin');
   show('atlas', a + 34, a + 36);
   if (exI[0] || exI[2]) jump('atlas_focus', a + 30, exI[0], exI[2]);
   jump('atlas_age', a + 30, 1, 0);
@@ -419,7 +431,6 @@ function buildStory() {
   cam(b - 0.5, 'atlas', 'focus', 8, 'spin');
   // Disease: the trajectories over age
   a = C.pathology.a; b = C.pathology.b;
-  ramp('atlas_map', a + 0.5, a + 2.5, 1, 0);
   ramp('atlas_curves', a + 1.5, a + 7, 0, 1);
   jump('atlas_focus', a + 2.6, exI[2], 0); jump('atlas_age', a + 2.6, 1, 0);
   cam(a + 2, 'atlas', 'curves', -6);

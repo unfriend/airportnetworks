@@ -9,7 +9,7 @@ SETS.atlas = function (K) {
   for (const [a, b] of G.edges) if (N[a][1] === 0 && N[b][1] === 1) hasT.add(a);
   const TIS = N.map((n, i) => (n[1] === 1 || (n[1] === 0 && !hasT.has(i)) ? n[0] : null)).filter(Boolean).sort();
   const hue = s => { let h = 0; for (const c of String(s)) h = (h * 31 + c.charCodeAt(0)) >>> 0; return h; };
-  const domainColour = n => new THREE.Color().setHSL((hue(n) % 360) / 360, 0.65, 0.6).getStyle();
+  const domainColour = n => '#' + new THREE.Color().setHSL((hue(n) % 360) / 360, 0.65, 0.6).getHexString();
   // the library: one point per slide column and age row
   const lib = K.pointsGeo(40 * 12), lp = lib.attributes.position.array, lc = lib.attributes.aCol.array, ls = lib.attributes.aSize.array;
   for (let i = 0; i < 40 * 12; i++) { const c = i % 40, r = Math.floor(i / 40), a = (c / 39 - 0.5) * 1.6; lp.set([2 * Math.sin(a), -0.6 + r * 0.11, 2 - 2 * Math.cos(a)], 3 * i); lc.set([0.95, 0.6, 0.75], 3 * i); ls[i] = 0.05; }

@@ -45,8 +45,10 @@ const APP = {
     // carry on from what the story shows: its look, its camera, its scene
     const ts = storyT(this.t), S = storyState(ts);
     for (const n in DEF) XS[n] = S[n];
+    // (the set on show, or the one about to come: a short fade between two of the same set's views shows none)
+    const S2 = storyState(Math.min(ts + 1.5, T_END));
     let best = 'atlas', ba = 0;
-    for (const k of SET_ORDER) if (S[k + '_a'] > ba + 0.01) { ba = S[k + '_a']; best = k; }
+    for (const k of SET_ORDER) { const a = Math.max(S[k + '_a'], 0.9 * S2[k + '_a']); if (a > ba + 0.01) { ba = a; best = k; } }
     if (best === 'tissue') best = 'slide';   // (the section is shown with the slide)
     // the story's view, taken back into the set's own frame (explore shows sets unturned)
     const v = storyCam(ts).slice(0, 6), r = -setYaw(best, ts) * D2R, x = v[3], z = v[5];
@@ -77,6 +79,8 @@ const APP = {
     if (best === 'atlas' && S.atlas_focus > 0.5 && S.atlas_map > 0.5) { const t = (api('atlas').tissues || [])[Math.round(S.atlas_focus) - 1]; if (t && organOf(t)) X.organ = t; }
     if (best === 'slide' && S.slide_focus > 0.5) { const d = slideDomain(Math.round(S.slide_focus) - 1); if (d) X.domain = d; }
     if (best === 'hier' && S.hier_focus > -0.5) { const n = (api('hier').nodes || [])[Math.round(S.hier_focus)]; if (n && n.level === 2) X.kind = n.name; }
+    // (the section's domains as the story showed them: at an age, or by themselves)
+    if (best === 'slide' && S.slide_domain > 0.5) { const v = optKey('slide', 'view', S.slide_age > 0.02 ? VIEW.sAge : /domain/i); if (v) X.ctl.slide.view = v; }
     if (best === 'slide') { const i = STEPS.findIndex(q => viewIs('slide', q[1])); if (i >= 0) X.step = i + 1; }
     X.tab = best === 'slide' ? (viewIs('slide', /age/i) ? 'age' : viewIs('slide', /domain/i) ? 'domains' : 'method')
       : best === 'atlas' ? (X.organ && exOn() >= 0 || viewIs('atlas', VIEW.volcano) || viewIs('atlas', VIEW.curves) ? 'age' : viewIs('atlas', VIEW.umap) ? 'method' : 'organs')

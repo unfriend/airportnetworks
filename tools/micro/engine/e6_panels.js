@@ -436,7 +436,7 @@ function drawOrgansPane(ctx, P, x, y, W, bottom) {
   const tis = O.tissues.length ? O.tissues : [O.name];
   y += head(ctx, x, y, tis.length > 1 ? `Its ${word(tis.length)} tissues in GTEx: pick one to see its section` : 'One tissue in GTEx');
   y += flow(ctx, P, tis.map(t => ({ id: 'tis:' + t, label: tisShort(t, O.name), col: LEVEL_COL[1], on: X.organ === t || (tis.length > 1 && X.organ === O.name && t === tis[0]), fn: () => selectOrgan(t) })), x, y, W, bottom, { px: 21, h: 44 }) + 14;
-  y += head(ctx, x, y, 'Its tissue types in the network (domain types on each)');
+  y += head(ctx, x, y, 'Its tissue types in the network (domains on each)');
   y += flow(ctx, P, O.types.map(t => ({ id: 'kind:' + t, label: `${cap(nodeName(t))} · ${MD.typeDomains(t).length}`, col: LEVEL_COL[2], fn: () => { pickKind(nodeName(t)); showTab('domains'); } })), x, y, W, bottom, { px: 21, h: 44 }) + 14;
   if (y + 100 > bottom) return;
   y += head(ctx, x, y, 'Show it');
@@ -450,7 +450,7 @@ function drawDomainsPane(ctx, P, x, y, W, bottom) {
   const kinds = MD.types.filter(t => MD.typeDomains(t).length), kt = X.kind && MD.type(X.kind) >= 0 ? MD.type(X.kind) : td >= 0 ? td : kinds[0];
   y += head(ctx, x, y, 'Tissue types: pick one, then a domain');
   y += flow(ctx, P, kinds.map(t => ({ id: 'kind:' + t, label: cap(nodeName(t)), col: LEVEL_COL[2], on: t === kt, fn: () => pickKind(nodeName(t)) })), x, y, W, bottom, { px: 20, h: 42 }) + 16;
-  y += head(ctx, x, y, `${cap(nodeName(kt))}: its ${MD.typeDomains(kt).length} domain types`);
+  y += head(ctx, x, y, `${cap(nodeName(kt))}: its ${MD.typeDomains(kt).length} domains in this map`);
   y += flow(ctx, P, MD.typeDomains(kt).map(j => ({ id: 'dom:' + j, label: cap(nodeName(j)), col: domCol(nodeName(j)), on: j === d, fn: () => selectDomain(j === d ? null : nodeName(j)) })), x, y, W, bottom - 220, { px: 20, h: 42 }) + 18;
   if (d < 0) { textBlock(ctx, 'Or point at a domain on the section or a node of the network and pull the trigger (or pinch).', x, y, W, 24, 34, VC.muted, 400, 2); return; }
   ctx.fillStyle = VC.line; ctx.fillRect(x, y, W, 2); y += 14;

@@ -1,7 +1,7 @@
 // The hier set of the microanatomy story: organ architecture as a network of four levels (organs, tissues, tissue
 // types, domains: MICRO_DATA.graph, Iva Buljan's network, the talk's Figure 5a in 3D) and one organ's network of
-// contacts between its domains, changing with age (the preprint's findings; MICRO_DATA.figures.interactions when it
-// holds readings). The levels are stacked rings, wide at the top (organs), narrow at the tissue types and wide again
+// contacts between its domains, changing with age (the preprint's findings; by how much from the talk's Figure 5e-g,
+// read into MICRO_DATA.figures, where present). The levels are stacked rings, wide at the top (organs), narrow at the tissue types and wide again
 // at the domains, so the tissue types sit at the waist of an hourglass; links hang between the rings as soft threads.
 // Everything follows the params; only the switch from one focused node or organ to the next eases in its own time
 // (a jump to another index crossfades for 0.3 s; a seek or the first frame shows the new one at once).
@@ -34,6 +34,22 @@ SETS.hier = function (K) {
   // the organs a tissue type is found in (directly or through one of the organ's tissues)
   const ORGS = ids.map(i => (LEV[i] !== 2 ? [] : [...new Set(UP[i].flatMap(u => (LEV[u] === 1 ? UP[u] : [u])))].filter(o => LEV[o] === 0)));
   const CONN = (j => (j >= 0 ? j : byLev[2].reduce((m, t) => (ORGS[t].length > ORGS[m].length ? t : m), byLev[2][0])))(find('connective tissue'));
+  // the organs a domain is found in: the graph does not say (domains hang only from tissue types), the talk's atlas of
+  // segmentation maps does (MICRO_DATA.figures.atlas: one map per organ, its domains named), where it names the domain
+  const OAL = { aorta: 'artery', 'artery coronary': 'artery', 'tibial nerve': 'nerve', 'skeletal muscle': 'muscle', ectocervix: 'cervix',
+    cerebellum: 'brain', 'brain cortex': 'brain', 'kidney medulla': 'kidney', 'adipose - visceral': 'adipose' };
+  const DAL = { 'adipose tissue': 'fat', "peyer's pathches": 'lymphoid peyer patches', 'adventita subserosa': 'adventitia subserosa',
+    medula: 'medulla', 'medula kidney tubules': 'medulla kidney tubules', 'blood vessels /hemorrhage': 'blood vessels and hemorrhage' };   // (as the figure spells them)
+  const FOUND = ids.map(() => []);
+  for (const m of (D.figures && Array.isArray(D.figures.atlas) ? D.figures.atlas : [])) {
+    const q = String((m && m.tissue) || '').trim().toLowerCase(), on = OAL[q] || q;
+    const o = byLev[0].find(i => NAME[i].toLowerCase() === on);
+    if (o === undefined) continue;
+    for (const d of (m.domains || [])) {
+      const q = String((d && d.name) || '').trim().toLowerCase(), i = find(DAL[q] || q);
+      if (i >= 0 && LEV[i] === 3 && !FOUND[i].includes(o)) FOUND[i].push(o);
+    }
+  }
 
   // ---------------------------------------------------------------- layout: four rings, ordered so threads hang short
   const ANG = new Float64Array(NN), RAW = new Float64Array(NN);
@@ -74,7 +90,7 @@ SETS.hier = function (K) {
     const rot = -ANG[CONN];
     for (const i of ids) ANG[i] = norm(ANG[i] + rot);
   }
-  const RING = [[0.9, 0.66], [0.7, 0.28], [0.4, -0.1], [1.02, -0.62]];   // [radius, height] per level
+  const RING = [[0.9, 0.66], [0.7, 0.28], [0.4, -0.1], [0.9, -0.62]];   // [radius, height] per level
   const GS = [0, 0.22, 0.44, 0.66];   // when each level starts to grow (hier_grow)
   const POS = ids.map(i => { const [R, y] = RING[LEV[i]], a = ANG[i]; return [R * Math.sin(a), y, R * Math.cos(a)]; });
   const RAD = ids.map(i => (LEV[i] === 3 ? 0.013 + 0.0026 * Math.sqrt(AB[i]) : LEV[i] === 2 ? 0.028 + 0.0075 * Math.sqrt(DEG[i]) : 0.024 + 0.007 * Math.sqrt(DEG[i])));
@@ -99,25 +115,28 @@ SETS.hier = function (K) {
     { name: 'Fallopian tube', organ: 'Fallopian Tube', re: /fallopian/i, axis: [0, 2],
       dom: ['mucosa', 'muscularis', 'fibromuscular tissue', 'blood vessels', 'fat'],
       con: [[0, 1, 0.7], [1, 2, 0.6], [0, 2, 0.22], [2, 3, 0.35], [2, 4, 0.35], [1, 3, 0.2]] },
-    { name: 'Uterus', organ: 'Uterus', re: /uter/i, axis: [0, 2], shift: ['endometrium', 'connective tissue and adipose tissue'],
+    { name: 'Uterus', organ: 'Uterus', re: /uter/i, axis: [0, 1], shift: ['endometrium', 'connective tissue and adipose tissue'],
       dom: ['endometrium', 'myometrium', 'connective tissue and adipose tissue', 'vessels and connective tissue', 'blood vessels'],
-      con: [[0, 1, 0.75], [1, 2, 0.45], [1, 3, 0.4], [0, 2, 0.15], [3, 4, 0.35], [1, 4, 0.2]] },
+      con: [[0, 1, 0.5], [1, 2, 0.45], [1, 3, 0.4], [0, 2, 0.15], [3, 4, 0.35], [1, 4, 0.2]] },
     { name: 'Coronary artery', organ: 'Artery', tissue: 'Artery - Coronary', re: /coronary/i, axis: [0, 3],
       dom: ['tunica intima', 'tunica media', 'tunica adventitia', 'fat', 'myocardium', 'calcified plaque'],
       con: [[0, 1, 0.85], [1, 2, 0.75], [2, 3, 0.55], [2, 4, 0.2], [3, 4, 0.15], [5, 0, 0.06], [5, 1, 0.05]] },
   ].map(o => Object.assign(o, { dom: o.dom.slice(), con: o.con.map(c => c.slice()), ch: [] }));
   const NCO = CO.length;
   // a change: [a, b, dir (1 more contacts with age, -1 fewer), d (share gained by age 70), from figures?]
-  function addChange(co, a, b, dir, d, fig) {
+  const ALIAS = { 'adipose tissue': 'fat' };   // the figures' name for the fat of a vessel's wall; the graph's domain is 'fat'
+  function addChange(co, a, b, dir, d, fig, base) {
     const di = n => {
-      let j = co.dom.findIndex(x => x.toLowerCase() === String(n).trim().toLowerCase());
-      if (j < 0 && co.dom.length < 8 && find(n) >= 0 && LEV[find(n)] === 3) { co.dom.push(NAME[find(n)]); j = co.dom.length - 1; }
+      const q = String(n).trim().toLowerCase(), nm = ALIAS[q] || q;
+      let j = co.dom.findIndex(x => x.toLowerCase() === nm);
+      if (j < 0 && co.dom.length < 8 && find(nm) >= 0 && LEV[find(nm)] === 3) { co.dom.push(NAME[find(nm)]); j = co.dom.length - 1; }
       return j;
     };
     const ia = di(a), ib = di(b);
     if (ia < 0 || ib < 0 || ia === ib || !dir) return;
     let c = co.con.find(x => (x[0] === ia && x[1] === ib) || (x[0] === ib && x[1] === ia));
-    if (!c) { c = [ia, ib, 0.3]; co.con.push(c); }
+    if (!c) { c = [ia, ib, dir > 0 ? 0.08 : 0.35]; co.con.push(c); }
+    if (base !== null && base !== undefined) c[2] = clamp(base, 0.03, 0.98);
     const old = co.ch.find(x => x.c === c);
     if (old && !fig) return;
     const ch = old || { c, a: co.dom[ia], b: co.dom[ib] };
@@ -129,30 +148,37 @@ SETS.hier = function (K) {
     if (!co) continue;
     let a = f.a, b = f.b, dir = f.dir;
     if ((!a || !b) && co.shift && /connective/i.test(f.note || '')) { [a, b] = co.shift; dir = 1; }   // "the endometrium turns towards connective tissue"
-    if (a && b) addChange(co, a, b, dir, null, false);
+    if (a && b) addChange(co, a, b, dir, null, false, null);
   }
-  // readings of the talk's figure of contact changes, if any: rows { organ or tissue, a and b or pair 'a-b', change per
-  // decade (percentage points of border contact), or from and to (% at 20 and 70) }
+  // readings of the talk's figures (MICRO_DATA.figures), where present: the changes in border contact per decade
+  // (Figure 5e: [pair 'a-b', tissue, change per decade in percentage points, -log10 p]; a pair read both ways is
+  // averaged, as a band has no direction; under 1 point per decade is left out) and the trajectories of contacts over
+  // age (Figure 5f, g: 'a-b, tissue' with points [age, % of touching points], which give the shares at 20 and 70)
   {
-    const FI = D.figures && D.figures.interactions;
-    const rows = Array.isArray(FI) ? FI : FI && typeof FI === 'object'
-      ? (['points', 'rows', 'pairs', 'data'].map(k => FI[k]).find(Array.isArray)
-        || Object.entries(FI).flatMap(([org, v]) => (Array.isArray(v) ? v.map(r => Object.assign({ organ: org }, r)) : [])))
-      : [];
-    const num = x => (typeof x === 'number' && isFinite(x) ? x : null);
-    for (const r of rows) {
-      if (!r || typeof r !== 'object') continue;
-      const org = String(r.organ || r.tissue || r.group || ''), co = CO.find(o => o.re.test(org));
-      if (!co) continue;
-      let a = r.a, b = r.b;
-      if (!a || !b) { const p = String(r.pair || r.name || r.label || '').split('-'); if (p.length === 2) [a, b] = p; }
-      if (!a || !b) continue;
-      const pd = num(r.perDecade) ?? num(r.change) ?? num(r.slope) ?? num(r.delta) ?? num(r.x);
-      const fr = num(r.from), to = num(r.to);
-      const d = fr !== null && to !== null ? (to - fr) / 100 : pd !== null ? pd * 5 / 100 : null;
-      if (d === null || !d) continue;
-      addChange(co, a, b, Math.sign(d), d, true);
-      if (fr !== null) { const ch = co.ch[co.ch.length - 1]; if (ch) ch.c[2] = clamp(fr / 100, 0.03, 0.98); }
+    const F = D.figures || {}, acc = new Map();
+    const key = (co, a, b) => { const x = [a, b].map(n => (ALIAS[n.trim().toLowerCase()] || n.trim().toLowerCase())).sort(); return CO.indexOf(co) + '|' + x.join('|'); };
+    const entry = (org, pair) => {
+      const co = CO.find(o => o.re.test(String(org || ''))), ab = String(pair || '').split('-');
+      if (!co || ab.length !== 2) return null;
+      const k = key(co, ab[0], ab[1]);
+      if (!acc.has(k)) acc.set(k, { co, a: ab[0].trim(), b: ab[1].trim(), pd: [], tr: null });
+      return acc.get(k);
+    };
+    const rows = ((F.borderContactAndMotifs || {}).borderContactChangePerDecade || {}).rows || [];
+    for (const r of rows) if (Array.isArray(r) && typeof r[2] === 'number') { const e = entry(r[1], r[0]); if (e) e.pd.push(r[2]); }
+    for (const tr of Array.isArray(F.trajectories) ? F.trajectories : []) {
+      const m = /^(.*?),\s*(.*)$/.exec(String((tr && tr.title) || '')), pts = tr && Array.isArray(tr.points) ? tr.points : [];
+      if (!m || pts.length < 2) continue;
+      const e = entry(tr.tissue || m[2], m[1]);
+      const at = age => (pts.find(p => p[0] === age) || (age < 45 ? pts[0] : pts[pts.length - 1]))[1];
+      if (e) e.tr = [at(20), at(70)];
+    }
+    for (const e of acc.values()) {
+      if (e.tr) addChange(e.co, e.a, e.b, e.tr[1] - e.tr[0], (e.tr[1] - e.tr[0]) / 100, true, e.tr[0] / 100);
+      else if (e.pd.length) {
+        const pd = e.pd.reduce((s, x) => s + x, 0) / e.pd.length;
+        if (Math.abs(pd) >= 1) addChange(e.co, e.a, e.b, pd, pd * 5 / 100, true, null);
+      }
     }
   }
   // the preprint's examples of change with age, for the nodes' sizes (corpus albicans, the gut's submucosa ...)
@@ -171,19 +197,20 @@ SETS.hier = function (K) {
     return c.map(x => clamp(x * k, 0, 1));
   }
   let domainColour = typeof K.domainColour === 'function' ? n => rgb(K.domainColour(n)) : ownColour;
-  // a small force layout per organ, in the plane facing you, the surface layer on top, a little depth for parallax
-  const CEN = [0, 0.02, 0.45], CR = 0.5;
+  // a small force layout per organ, in the plane facing you, the surface layer on top, a little depth for parallax; it
+  // stands left of the middle, so a column of notes on its right (the changes, the core, the age) has room
+  const CEN = [0, 0.02, 0.45], CR = 0.5, GAP = 0.085, AGEY = CEN[1] - CR * 0.85 - 0.08;   // (the age under the lowest node's row)
   for (const [k, co] of CO.entries()) {
     const n = co.dom.length, r = K.rng(31 + 7 * k);
     let P = co.dom.map((_, i) => [Math.cos(TAU * i / n) * 0.5, Math.sin(TAU * i / n) * 0.5]);
     for (let it = 0; it < 500; it++) {
       const F = P.map(() => [0, 0]), st = 0.06 * (1 - it / 560);
       for (let i = 0; i < n; i++) for (let j = i + 1; j < n; j++) {
-        const dx = P[j][0] - P[i][0], dy = P[j][1] - P[i][1], d2 = Math.max(1e-4, dx * dx + dy * dy), f = 0.03 / d2, d = Math.sqrt(d2);
+        const dx = P[j][0] - P[i][0], dy = P[j][1] - P[i][1], d2 = Math.max(1e-4, dx * dx + dy * dy), f = 0.08 / d2, d = Math.sqrt(d2);
         F[i][0] -= f * dx / d; F[i][1] -= f * dy / d; F[j][0] += f * dx / d; F[j][1] += f * dy / d;
       }
       for (const [a, b, w] of co.con) {
-        const dx = P[b][0] - P[a][0], dy = P[b][1] - P[a][1], d = Math.max(1e-3, Math.hypot(dx, dy)), f = 0.6 * (d - (0.62 - 0.3 * w));
+        const dx = P[b][0] - P[a][0], dy = P[b][1] - P[a][1], d = Math.max(1e-3, Math.hypot(dx, dy)), f = 0.6 * (d - (0.66 - 0.3 * w));
         F[a][0] += f * dx / d; F[a][1] += f * dy / d; F[b][0] -= f * dx / d; F[b][1] -= f * dy / d;
       }
       P = P.map((p, i) => [p[0] + clamp(F[i][0] - 0.05 * p[0], -1, 1) * st, p[1] + clamp(F[i][1] - 0.05 * p[1], -1, 1) * st]);
@@ -191,8 +218,11 @@ SETS.hier = function (K) {
     // turn so the surface layer is on top and the deepest at the bottom; centre and size
     const [s0, s1] = co.axis, ax = [P[s0][0] - P[s1][0], P[s0][1] - P[s1][1]], th = PI / 2 - Math.atan2(ax[1], ax[0]);
     P = P.map(([x, y]) => [x * Math.cos(th) - y * Math.sin(th), x * Math.sin(th) + y * Math.cos(th)]);
+    // a layered organ lays out as a tall chain: widen it so the side domains stand clear
+    { const w = Math.max(...P.map(p => p[0])) - Math.min(...P.map(p => p[0])), h = Math.max(...P.map(p => p[1])) - Math.min(...P.map(p => p[1])), k = clamp(0.8 * h / Math.max(1e-3, w), 1, 2.4);
+      P = P.map(([x, y]) => [x * k, y]); }
     const xs = P.map(p => p[0]), ys = P.map(p => p[1]), x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
-    const sc = Math.min(2 * CR * 1.15 / Math.max(1e-3, x1 - x0), 2 * CR * 0.85 / Math.max(1e-3, y1 - y0), 2.5);
+    const sc = Math.min(2 * CR * 0.95 / Math.max(1e-3, x1 - x0), 2 * CR * 0.85 / Math.max(1e-3, y1 - y0), 2.5);
     co.P = P.map(p => [CEN[0] + (p[0] - (x0 + x1) / 2) * sc, CEN[1] + (p[1] - (y0 + y1) / 2) * sc, CEN[2] + (r() - 0.5) * 0.22]);
     co.top = CEN[1] + (y1 - y0) / 2 * sc;
     co.gi = co.dom.map(find).map(i => (i >= 0 && LEV[i] === 3 ? i : -1));
@@ -212,6 +242,16 @@ SETS.hier = function (K) {
     const core = co.bands.filter(b => !b.ch).sort((x, y) => y.c[2] - x.c[2])[0] || co.bands[0];
     co.core = core.mid;
     co.change = (co.bands.find(b => b.ch) || core).mid;
+    // the notes' column: right of the network, each note at its band's height, spread to stay apart (a leader line joins
+    // them); the column's top row holds the note that the drawing is illustrative, its foot the age
+    co.colX = Math.max(...co.P.map((p, j) => p[0] + co.rad[j])) + 0.07;
+    const hi = co.top + 0.13 - GAP, lo = AGEY + GAP, items = co.bands.filter(b => b.ch).concat(core.ch ? [] : [core]);
+    items.sort((x, y) => y.mid[1] - x.mid[1]);
+    let yy = hi + GAP;
+    for (const b of items) { yy = Math.min(b.mid[1], hi, yy - GAP); b.lab = [co.colX, yy, CEN[2] + 0.06]; }
+    const under = lo - Math.min(lo, yy);
+    for (const b of items) b.lab[1] += under;
+    co.items = items; co.coreBand = core;
   }
   const NCN = CO.reduce((s, o) => s + o.dom.length, 0);
   CO.reduce((o0, co) => { co.o = o0; return o0 + co.dom.length; }, 0);
@@ -452,24 +492,42 @@ void main() {
   const bands = new THREE.Mesh(bandGeo, bandMat);
   bands.frustumCulled = false; bands.renderOrder = 2;
   set.group.add(bands);
+  // leader lines from a band to its note in the column
+  const NLD = CO.reduce((s, o) => s + o.items.length, 0), ldGeo = K.linesGeo(NLD);
+  {
+    const P = ldGeo.attributes.position.array, Cc = ldGeo.attributes.aCol.array;
+    let s = 0;
+    for (const co of CO) for (const b of co.items) {
+      const col = rgb(!b.ch ? '#b9add6' : b.ch.dir > 0 ? '#ffb43b' : '#46d9ff'), e = [co.colX - 0.012, b.lab[1], b.lab[2]];
+      P.set(b.mid, 6 * s); P.set(e, 6 * s + 3); Cc.set(col, 6 * s); Cc.set(col, 6 * s + 3);
+      b.li = s++;
+    }
+  }
+  ldGeo.attributes.aA.setUsage(THREE.DynamicDrawUsage);
+  const leaders = new THREE.LineSegments(ldGeo, K.lines(set));
+  leaders.frustumCulled = false; leaders.renderOrder = 3;
+  set.group.add(leaders);
 
   // ---------------------------------------------------------------- focus: what lights up with a node
   // 1 for the node and its direct links, 0.6 two steps, 0.35 three, up and down the levels (not sideways); an edge
-  // lights as far as the walk that reached its lower or upper end went along it
+  // lights as far as the walk that reached its lower or upper end went along it. From a domain the atlas names, the walk
+  // up reaches only the organs (and their tissues) whose maps show it
   const REL = new Map();
   function relOf(k) {
     if (REL.has(k)) return REL.get(k);
-    const wt = [1, 1, 0.6, 0.35], walk = nb => {
+    const F = LEV[k] === 3 && FOUND[k].length ? FOUND[k] : null;
+    const ok = v => !F || LEV[v] > 1 || (LEV[v] === 0 ? F.includes(v) : UP[v].some(o => F.includes(o)));
+    const wt = [1, 1, 0.6, 0.35], walk = (nb, up) => {
       const w = new Float32Array(NN); w[k] = 1;
       let front = [k];
       for (let s = 1; s <= 3 && front.length; s++) {
         const nx = [];
-        for (const u of front) for (const v of nb[u]) if (!w[v]) { w[v] = wt[s]; nx.push(v); }
+        for (const u of front) for (const v of nb[u]) if (!w[v] && (!up || ok(v))) { w[v] = wt[s]; nx.push(v); }
         front = nx;
       }
       return w;
     };
-    const wu = walk(UP), wd = walk(DN), w = new Float32Array(NN), e = new Float32Array(NE);
+    const wu = walk(UP, true), wd = walk(DN, false), w = new Float32Array(NN), e = new Float32Array(NE);
     for (const i of ids) w[i] = Math.max(wu[i], wd[i]);
     EU.forEach(([u, v], j) => { e[j] = Math.max(wd[u] && wd[v] ? Math.min(wd[u], wd[v]) : 0, wu[u] && wu[v] ? Math.min(wu[u], wu[v]) : 0); });
     const r = { w, e };
@@ -477,12 +535,13 @@ void main() {
     return r;
   }
   // up to six nodes named round a focused one: its direct links (none when it has more than 8), then for an organ the
-  // tissue types of its tissues
+  // tissue types of its tissues; for a domain its tissue type and the organs whose atlas maps show it
   const LABN = new Map();
   function labFor(k) {
     if (LABN.has(k)) return LABN.get(k);
     const out = [], direct = [...UP[k], ...DN[k]];
-    if (direct.length <= 8) {
+    if (LEV[k] === 3) { for (const j of [...UP[k], ...FOUND[k]]) if (out.length < 6) out.push(j); }
+    else if (direct.length <= 8) {
       for (const j of direct.slice().sort((a, b) => LEV[a] - LEV[b] || DEG[b] - DEG[a])) if (out.length < 6) out.push(j);
       if (LEV[k] === 0) for (const ti of DN[k]) if (LEV[ti] === 1) for (const t of DN[ti]) if (!out.includes(t) && out.length < 6) out.push(t);
     }
@@ -501,7 +560,7 @@ void main() {
   const wOf = (st, k) => (st.b === k ? smooth(st.m) : 0) + (st.a === k ? 1 - smooth(st.m) : 0);
 
   // ---------------------------------------------------------------- per frame
-  const cur = { c: 0, cl: 0, fon: 0, age: 0, hz: 0, hs: 1, hy: 0, fw: new Float32Array(NN), nl: new Float32Array(NN), vis: new Float32Array(NN),
+  const cur = { c: 0, cl: 0, fon: 0, age: 0, hz: 0, hs: 1, hy: 0, fw: new Float32Array(NN), nl: new Float32Array(NN), vis: new Float32Array(NN), ga: new Float32Array(NN),
     cw: new Float32Array(NCO), cp: CO.map(o => o.P.map(p => p.slice())), dom: 0, sig: '' };
   const posOf = i => [POS[i][0] * cur.hs, POS[i][1] * cur.hs + cur.hy, POS[i][2] * cur.hs + cur.hz];
   const hw = new Float32Array(NN), eh = new Float32Array(NE);
@@ -513,8 +572,13 @@ void main() {
     HA.aP.array.set(p, 3 * k); HA.aCol.array.set(col, 3 * k); HA.aSize.array[k] = s; HA.aA.array[k] = a * halo; HA.aRing.array[k] = ring;
   }
   const _c = [0, 0, 0];
+  let lastT = null;
   function update(S, t, dt) {
     const g = clamp(S.hier_grow === undefined ? 1 : S.hier_grow, 0, 1), c = smooth(clamp(S.hier_contacts || 0, 0, 1)), age = clamp(S.hier_age || 0, 0, 1);
+    // a seek (time going back, or on by much more than the frame's dt; also the first frame after the set was hidden)
+    // shows the new focus and organ at once, so a seek is exact whatever dt the engine passes
+    if (lastT === null || t < lastT - 1e-4 || t - lastT > Math.max(0.3, 2.5 * (dt || 0) + 0.05)) FS.fresh = OS.fresh = true;
+    lastT = t;
     stepSel(FS, S.hier_focus === undefined ? -1 : S.hier_focus, dt, -1, NN - 1);
     stepSel(OS, S.hier_organ || 0, dt, 0, NCO - 1);
     const fon = 1 - wOf(FS, -1);
@@ -557,7 +621,7 @@ void main() {
       const lit = 1 - 0.8 * fon * (1 - Math.min(1, hw[i]));
       let vis = ga * lit * (1 - gone);
       vis *= lerp(1, 0.12 + 0.75 * og, c);
-      cur.vis[i] = vis;
+      cur.vis[i] = vis; cur.ga[i] = ga;
       const br = (0.5 + 0.5 * lit) * (1 + 0.3 * cur.fw[i]) * lerp(1, 0.6 + 0.6 * og, c);
       for (let q = 0; q < 3; q++) _c[q] = Math.min(1, LCOL[L][q] * br);
       const s = RAD[i] * (0.25 + 0.75 * ga) * (1 + 0.5 * cur.fw[i]) * (1 + 0.4 * og * c) * cur.hs;
@@ -575,7 +639,7 @@ void main() {
         const p = v3.lerp(st, co.P[j], f);
         p[1] += 0.12 * Math.sin(PI * f);
         cur.cp[k][j] = p;
-        const ex = co.ex[j], grow = ex ? Math.cbrt(lerp(ex.from, ex.to, age) / ex.from) : 1;
+        const ex = co.ex[j], grow = ex ? Math.pow(lerp(ex.from, ex.to, age) / Math.sqrt(ex.from * ex.to), 0.25) : 1;
         const s = lerp(gi >= 0 ? RAD[gi] * cur.hs : 0.02, co.rad[j] * grow, f);
         const col = v3.lerp(LCOL[3], co.col[j], f);
         setInst(ii, p, s, col, w * prog(c, 0, 0.12), 0.8, 0);
@@ -583,9 +647,13 @@ void main() {
       const rv = prog(clamp(S.hier_contacts || 0, 0, 1), 0.55, 0.95);
       for (const b of co.bands) {
         const ch = b.ch, sh = ch ? clamp(b.c[2] + ch.d * age, 0.03, 0.98) : b.c[2];
-        UB[bi++].set(0.003 + 0.042 * sh, ch ? ch.dir * (0.35 + 0.65 * age) : 0, w * (c > 0 ? 1 : 0), rv);
+        // (a changing band is only just tinted at 20, so its colour is the change)
+        UB[bi++].set(0.003 + 0.042 * sh, ch ? ch.dir * (0.15 + 0.85 * age) : 0, w * (c > 0 ? 1 : 0), rv);
       }
+      const la = ldGeo.attributes.aA.array;
+      for (const b of co.items) la[2 * b.li] = la[2 * b.li + 1] = 0.5 * w * cur.cl * (b.ch ? 1 : prog(age, 0.05, 0.4));
     }
+    ldGeo.attributes.aA.needsUpdate = true;
     nodes.instanceMatrix.needsUpdate = true; nCol.needsUpdate = true; nA.needsUpdate = true;
     for (const k in HA) HA[k].needsUpdate = true;
     nodeMat.depthWrite = set.uA.value > 0.9;
@@ -596,50 +664,64 @@ void main() {
   const anchors = {
     top: () => [0, (RING[0][1] + 0.06) * cur.hs + cur.hy, cur.hz],
     bottom: () => [0, (RING[3][1] - 0.04) * cur.hs + cur.hy, cur.hz],
-    connective: () => posOf(CONN),
+    // (below and right of the node, clear of it and of the tissue types' label beside the waist)
+    connective: () => { const p = posOf(CONN), r = RAD[CONN] * cur.hs; p[0] += 0.7 * r; p[1] -= 1.2 * r; return p; },
     focus: () => { const k = FS.m >= 0.5 ? FS.b : FS.a; return k >= 0 ? posOf(k) : [0, 0, 0]; },
-    contacts: () => [CEN[0] - 0.14, dco().top + 0.13, CEN[2]],
+    contacts: () => [CEN[0] - 0.48, dco().top + 0.13, CEN[2]],
     change: () => dco().change,
     core: () => dco().core,
-    age: [CEN[0] - CR - 0.12, CEN[1] - CR * 0.85, CEN[2]],
+    age: () => [dco().colX, AGEY, CEN[2] + 0.06],
   };
+  // the level labels beside each ring's right-hand edge (no ring is wider than the organs', so they have room)
   for (let L = 0; L < 4; L++) anchors['lv' + L] = () => [(RING[L][0] + 0.05) * cur.hs, RING[L][1] * cur.hs + cur.hy, cur.hz];
   const CLS = ['grn', 'grn', 'amb', 'cyn'];
-  const lvOn = (S, L) => prog(clamp(S.hier_grow === undefined ? 1 : S.hier_grow, 0, 1), GS[L] + 0.04, GS[L] + 0.14) * (1 - cur.fon) * (1 - cur.c);
+  const lvOn = (S, L) => prog(clamp(S.hier_grow === undefined ? 1 : S.hier_grow, 0, 1), GS[L] + 0.04, GS[L] + 0.14) * (1 - cur.fon) * (1 - prog(cur.c, 0, 0.3));
   const nTis = i => DN[i].filter(j => LEV[j] === 1).length;
   const nTyp = i => new Set(DN[i].flatMap(j => (LEV[j] === 1 ? DN[j] : [j])).filter(j => LEV[j] === 2)).size;
   const cap = s => s.replace(/^./, x => x.toUpperCase());
+  // (a change's name stays short: the organ is in the title)
+  const brief = s => s.replace(/^(tunica|calcified|ovarian) /, '').replace(/ and adipose tissue$/, '').replace(/^vessels and connective tissue$/, 'vessels');
   const pl = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;
   const rest = i => (LEV[i] === 0 ? (nTis(i) ? ` · ${pl(nTis(i), 'tissue')}, ${pl(nTyp(i), 'type')}` : ` · ${pl(nTyp(i), 'tissue type')}`)
     : LEV[i] === 1 ? ` · ${pl(nTyp(i), 'tissue type')}`
     : LEV[i] === 2 ? ` · ${ORGS[i].length} organs, ${pl(DN[i].length, 'domain')}`
-    : UP[i].length ? ` · ${NAME[UP[i][0]]}` : '');
+    : (UP[i].length ? ` · ${NAME[UP[i][0]]}` : '') + (FOUND[i].length ? `, in ${pl(FOUND[i].length, 'organ')} of the atlas` : ''));
+  const right = (p, r) => { p[0] += r; return p; };   // a node's label starts at its edge, not on it
   const labels = [
     { text: ['Organs', ` · ${byLev[0].length}`], at: 'lv0', cls: 'grn', alpha: S => lvOn(S, 0) },
     { text: ['Tissues', ` · ${byLev[1].length} in this map`], at: 'lv1', cls: 'grn', alpha: S => lvOn(S, 1) },
     { text: ['Tissue types', ` · ${byLev[2].length}`], at: 'lv2', cls: 'amb', alpha: S => lvOn(S, 2) },
-    { text: ['Domains', ` · ${byLev[3].length} in this map`], at: 'lv3', cls: 'cyn', alpha: S => lvOn(S, 3) },
+    { text: ['Domains', ` · ${byLev[3].length}`], at: 'lv3', cls: 'cyn', alpha: S => lvOn(S, 3) },
     { text: [cap(NAME[CONN]), ` · in ${ORGS[CONN].length} of ${byLev[0].length} organs`], at: 'connective', cls: 'amb',
-      alpha: S => prog(clamp(S.hier_grow === undefined ? 1 : S.hier_grow, 0, 1), 0.8, 0.95) * (1 - cur.fon) * (1 - cur.c) },
+      alpha: S => prog(clamp(S.hier_grow === undefined ? 1 : S.hier_grow, 0, 1), 0.84, 0.96) * (1 - cur.fon) * (1 - prog(cur.c, 0, 0.3)) },
   ];
   for (const i of ids) {
-    labels.push({ text: [cap(short(NAME[i])), rest(i)], at: () => posOf(i), cls: CLS[LEV[i]], alpha: () => cur.fw[i] * (1 - cur.c) });
-    labels.push({ text: [cap(short(NAME[i])), ''], at: () => posOf(i), cls: '', minor: true, alpha: () => clamp(cur.nl[i], 0, 1) * cur.vis[i] * (1 - cur.c) });
+    const at = () => right(posOf(i), 0.9 * RAD[i] * cur.hs * (1 + 0.5 * cur.fw[i]));
+    labels.push({ text: [cap(short(NAME[i])), rest(i)], at, cls: CLS[LEV[i]], alpha: () => cur.fw[i] * cur.ga[i] * (1 - cur.c) });
+    labels.push({ text: [cap(short(NAME[i])), ''], at, cls: '', minor: true, alpha: () => clamp(cur.nl[i], 0, 1) * cur.vis[i] * (1 - cur.c) });
   }
   CO.forEach((co, k) => {
     const on = () => cur.cw[k] * cur.cl;
     labels.push({ text: [co.name, ' · domain contacts'], at: 'contacts', cls: '', alpha: on });
-    co.dom.forEach((nm, j) => labels.push({ text: [nm, ''], at: () => cur.cp[k][j], cls: '', minor: true, alpha: on }));
-    co.bands.filter(b => b.ch).forEach(b => labels.push({ text: [`${cap(b.ch.a)}–${b.ch.b}`, b.ch.dir > 0 ? ' · more with age' : ' · fewer with age'],
-      at: b.mid, cls: b.ch.dir > 0 ? 'amb' : 'cyn', alpha: on }));
+    // (what is drawn to illustrate and what is the study's: said on screen, not only here)
+    labels.push({ text: ['Illustrative', ' · trends from the study'], at: [co.colX, co.top + 0.13, CEN[2] + 0.06], cls: '', alpha: on });
+    co.dom.forEach((nm, j) => labels.push({ text: [nm, ''], at: () => right(cur.cp[k][j].slice(), 0.8 * co.rad[j]), cls: '', minor: true, alpha: on }));
+    // the notes' column: the changes (the first two, the findings' first, stay on narrow screens) and the core; with a
+    // long name in it, an organ's notes say only "more" or "fewer" (the age is at the column's foot)
+    const nm = ch => `${cap(brief(ch.a))}–${brief(ch.b)}`, terse = co.ch.some(ch => nm(ch).length > 20);
+    for (const b of co.items) {
+      if (!b.ch) { labels.push({ text: ['The core stays', ''], at: b.lab, cls: '', alpha: () => on() * prog(cur.age, 0.05, 0.4) }); continue; }
+      const way = (b.ch.dir > 0 ? ' · more' : ' · fewer') + (terse ? '' : ' with age');
+      labels.push({ text: [nm(b.ch), way], at: b.lab, cls: b.ch.dir > 0 ? 'amb' : 'cyn', minor: co.ch.indexOf(b.ch) >= 2, alpha: on });
+    }
   });
-  labels.push({ text: ['The core stays', ''], at: 'core', cls: 'grn', alpha: () => cur.cl * prog(cur.age, 0.05, 0.4) });
   for (let d = 0; d <= 5; d++) labels.push({ text: [`${20 + 10 * d} years`, ''], at: 'age', cls: '', minor: true, alpha: () => cur.cl * clamp(1 - Math.abs(cur.age * 5 - d) * 2, 0, 1) });
 
   const cam = {
     default: [0, 12, 4.15, 0, -0.03, 0],
-    net: [28, 38, 4.3, 0, -0.1, 0],
-    contacts: [0, 6, 2.3, CEN[0], CEN[1] + 0.03, CEN[2]],
+    net: [28, 38, 4.6, 0, -0.2, 0],
+    // (the target right of the network's middle: the notes' column on its right is in the picture)
+    contacts: [0, 6, 2.8, CEN[0] + 0.28, CEN[1] + 0.03, CEN[2]],
   };
   const controls = [
     { key: 'view', label: 'View', options: [['network', 'Network'], ['contacts', 'Contacts']] },
@@ -673,6 +755,7 @@ void main() {
     find,
     linked: i => ({ up: UP[i] ? UP[i].slice() : [], down: DN[i] ? DN[i].slice() : [] }),
     organsOfType: i => (ORGS[i] || []).slice(),
+    organsOfDomain: i => (FOUND[i] || []).slice(),
     contactOrgans: CO.map(co => ({ name: co.name, organ: co.gOrgan, tissue: co.gTissue, domains: co.dom.slice(),
       changes: co.ch.map(ch => ({ a: ch.a, b: ch.b, dir: ch.dir, from: ch.c[2], to: clamp(ch.c[2] + ch.d, 0.03, 0.98), fig: ch.fig })) })),
     levelColour: L => '#' + new THREE.Color(...LCOL[L]).getHexString(),

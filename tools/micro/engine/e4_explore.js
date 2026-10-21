@@ -32,11 +32,13 @@ const optKey = (k, key, re) => { const c = ctlOf(k, key), o = c && c.options.fin
 const ageOpt = c => { let b = c.options[0][0], bd = Infinity; for (const [v, n] of c.options) { const a = parseFloat(n) || parseFloat(v), d = Math.abs(a - X.age); if (d < bd) { bd = d; b = v; } } return b; };
 const ageF = () => clamp((X.age - AGE0) / (AGE1 - AGE0), 0, 1);
 // a view option's camera: the cam view of the same name, or the one its name stands for
-const CAM_ALIAS = { atlas: { tiles: 'umap', age: 'volcano', pathology: 'curves' }, slide: { section: 'default', features: 'matrix', neighbours: 'close', age: 'domains' },
+const CAM_ALIAS = { atlas: { tiles: 'umap', age: 'volcano', pathology: 'curves', section: 'focus' }, slide: { section: 'default', features: 'matrix', neighbours: 'close', age: 'domains' },
   hier: { network: 'net' } };
 function camFor(k, v) {
   const c = GL.sets[k].cam || {}, al = CAM_ALIAS[k] || {}, vc = ctlOf(k, 'view'), o = vc && vc.options.find(x => x[0] === v), n = o ? String(o[1]).toLowerCase() : '';
-  for (const x of [al[v], v, al[n], n]) if (x && c[x]) return x;
+  // the atlas with a section brought forward: the section alone, or beside the volcano or the curves
+  if (k === 'atlas' && X.organ && atlasIdx(X.organ)) { if (VIEW.map.test(v) && c.focus) return 'focus'; if ((VIEW.volcano.test(v) || VIEW.curves.test(v)) && c.age) return 'age'; }
+  for (const x of [v, al[v], n, al[n]]) if (x && c[x]) return x;
   return null;
 }
 const viewCam = k => { const c = ctlOf(k, 'view'); return c ? camFor(k, ctlValue(k, c)) : null; };
@@ -57,7 +59,7 @@ const NEXT = [];
 const afterUpdate = f => { NEXT.push(f); };
 // the organ picked (X.organ: an organ's name, or one of its GTEx tissues'), and the worked examples' organs
 const organOf = v => (v ? MD.organ(v) || tissueOrgan(v) : null);
-const exOrgan = i => { const x = FACTS.ex[i]; return x && atlasIdx(x.tissue) ? x.tissue : null; };
+const exOrgan = i => { const x = FACTS.ex[i]; return x && atlasIdx(x.tissue) ? (api('atlas').tissues || [])[atlasIdx(x.tissue) - 1] : null; };
 // the worked example on show (-1 none): its section in the atlas with the age slider, or the gut's on the slide
 const exOn = () => FACTS.ex.findIndex((x, i) => (exOrgan(i) ? X.scene === 'atlas' && X.organ === exOrgan(i) && viewIs('atlas', VIEW.map)
   : X.scene === 'slide' && viewIs('slide', VIEW.sAge) && X.domain === x.domain));
@@ -142,8 +144,9 @@ function selectOrgan(v, ui = true) {
   if (X.organ) X.domain = null;
   if (ui && X.organ) {
     if (X.scene === 'body') afterUpdate(() => { if (X.organ && organOf(X.organ) === O) flyNear(O.pos, Math.min(orbit.cur[2], 1.6)); });
-    else if (X.scene !== 'hier' || !viewIs('hier', VIEW.net)) { if (atlasIdx(X.organ)) { showView('atlas', VIEW.map); flyTo(view('atlas', camFor('atlas', 'focus') || 'focus')); } }
+    else if (X.scene !== 'hier' || !viewIs('hier', VIEW.net)) { if (atlasIdx(X.organ)) { if (!(X.scene === 'atlas' && (viewIs('atlas', VIEW.volcano) || viewIs('atlas', VIEW.curves)))) showView('atlas', VIEW.map); flyTo(view('atlas', viewCam('atlas') || 'focus')); } }
   }
+  if (ui && !X.organ && X.scene === 'atlas') flyTo(view('atlas', viewCam('atlas') || 'default'));   // (back from the section)
   pushState(); renderAll();
 }
 // a domain of the network (null none): it lights up in the network, and on the section if it is one of its domains
@@ -173,7 +176,7 @@ function setStep(n, ui = true) {
 function showExample(i, to70 = true) {
   const x = FACTS.ex[i];
   if (!x) return;
-  if (exOrgan(i)) { X.domain = null; X.organ = exOrgan(i); showView('atlas', VIEW.map); flyTo(view('atlas', camFor('atlas', 'focus') || 'focus')); }
+  if (exOrgan(i)) { X.domain = null; X.organ = exOrgan(i); showView('atlas', VIEW.map); flyTo(view('atlas', viewCam('atlas') || 'focus')); }
   else { X.organ = null; const d = MD.domain(x.domain); X.domain = d >= 0 ? nodeName(d) : null; showView('slide', VIEW.sAge); }
   if (to70) X.age = AGE1;
   pushState(); renderAll();
@@ -304,14 +307,15 @@ function renderOrgans() {
   let h = `<p class="sub">The ${FACTS.organs} organs whose tissue GTEx collected. Pick one: its section, its tissues and its place in the network.</p>
     <div class="chips">${MD.organs.map(o => chip(`data-act="organ" data-v="${esc(o.name)}"`, iconImg(o) + esc(o.name), O === o)).join('')}</div>`;
   if (O) {
-    const tis = O.tissues.length ? O.tissues : [O.name], fd = [...new Set(tis.flatMap(figDomains))];
+    const tis = O.tissues.length ? O.tissues : [O.name], fd = figDomains(X.organ !== O.name ? X.organ : tis[0]);
     h += `<h3>${iconImg(O, 26)}${esc(O.name)}</h3>
       <p class="grp-h">${tis.length > 1 ? `Its ${word(tis.length)} tissues in GTEx: pick one to see its section` : 'One tissue in GTEx'}</p>
       <div class="chips">${tis.map(t => chip(`data-act="tis" data-v="${esc(t)}"`, esc(tisShort(t, O.name)), X.organ === t || (tis.length > 1 && X.organ === O.name && t === tis[0]), LEVEL_COL[1])).join('')}</div>
       <p class="grp-h">Its tissue types in the network</p>
       <div class="chips">${O.types.map(t => chip(`data-act="kind" data-v="${esc(nodeName(t))}"`, `${esc(cap(nodeName(t)))} <small>${MD.typeDomains(t).length}</small>`, false, LEVEL_COL[2])).join('')}</div>
-      <p class="sub">The number is how many domain types hang on that tissue type in the network (shared with other organs). Pick a type to see them.</p>
-      ${fd.length ? `<p class="grp-h">Its domains in the talk's figures</p><div class="chips">${fd.map(d => (MD.domain(d) >= 0 ? chip(`data-act="domain" data-v="${esc(nodeName(MD.domain(d)))}"`, esc(cap(d)), false, domCol(d)) : `<span class="empty">${esc(cap(d))}</span>`)).join('')}</div>` : ''}
+      <p class="sub">The number is how many domains hang on that tissue type in the network (shared with other organs). Pick a type to see them.</p>
+      ${fd.length ? `<p class="grp-h">Domains of ${esc(tisShort(X.organ !== O.name ? X.organ : tis[0], O.name))} in the talk's atlas (share of the section)</p><div class="chips">${fd.map(d => (MD.domain(d.name) >= 0 ? chip(`data-act="domain" data-v="${esc(nodeName(MD.domain(d.name)))}"`, `${esc(cap(d.name))} <small>${Math.round(d.share * 100)}%</small>`, false, domCol(d.name))
+        : `<span class="empty" style="display:inline-flex;align-items:center;padding:6px 8px"><span class="sw" style="background:${swCol(domCol(d.name))};margin-right:6px"></span>${esc(cap(d.name))}&nbsp;<small>${Math.round(d.share * 100)}%</small></span>`)).join('')}</div>` : ''}
       <p class="grp-h">Show it</p><div class="chips">${chip('data-act="view" data-v="atlas:map"', 'Its section', X.scene === 'atlas' && viewIs('atlas', VIEW.map))}${chip('data-act="view" data-v="hier:net"', 'In the network', X.scene === 'hier' && viewIs('hier', VIEW.net))}${chip('data-act="scene" data-v="body"', 'In the body', X.scene === 'body')}</div>`;
   } else h += '<p class="empty">Point at an organ\'s light in the body, a section in the atlas or a node of the network to pick it there.</p>';
   pane.innerHTML = h;
@@ -320,7 +324,7 @@ function renderDomains() {
   const pane = $('#pane-domains');
   if (!pane) return;
   const d = X.domain ? MD.domain(X.domain) : -1, t = d >= 0 ? MD.typeOfDomain(d) : -1;
-  let h = `<p class="sub">The network's ${MD.domains.length} domain types, by the tissue type they belong to. Pick one, or search.</p>`;
+  let h = `<p class="sub">The network's ${MD.domains.length} domains (as named in this map), by the tissue type they belong to. Pick one, or search.</p>`;
   if (d >= 0) {
     const org = t >= 0 ? MD.typeOrgans(t) : [], si = slideIdx(X.domain);
     h += `<h3><span class="sw" style="display:inline-block;width:14px;height:14px;border-radius:3px;background:${domCol(X.domain)};margin-right:8px"></span>${esc(cap(X.domain))}</h3>
@@ -352,9 +356,9 @@ function renderAge() {
   pane.innerHTML = `<p class="sub">Age is the strongest of ${F.donorVars} things known about the donors. ${pct(F.ageChange)} of domains change with it, mostly by less than ${pct(F.mostUnder)} per decade. Pick an example, or move the age.</p>
     <p class="grp-h">Worked examples</p><div class="chips">${F.ex.map((x, i) => chip(`data-act="ex" data-v="${i}"`, esc(exName(x)), e === i, exCol[i])).join('')}</div>
     ${e >= 0 ? `<p class="sub">${esc(cap(exText(F.ex[e])))}.</p>` : ''}
-    <p class="grp-h">Age <b data-agev style="margin-left:auto;color:var(--ink)">${X.age}</b></p><input type="range" data-age min="${AGE0}" max="${AGE1}" step="1" value="${X.age}" aria-label="Age">
+    <p class="grp-h">Age <b data-agev style="margin-left:auto;color:var(--ink)">${X.age}</b></p><input type="range" data-age min="${AGE0}" max="${AGE1}" step="1" value="${X.age}" aria-label="Age" style="accent-color:#ffb43b">
     <p class="grp-h">Across the body</p><div class="chips">${chip('data-act="view" data-v="atlas:volcano"', 'What changes', X.scene === 'atlas' && viewIs('atlas', VIEW.volcano))}${chip('data-act="view" data-v="atlas:curves"', 'Pathology', X.scene === 'atlas' && viewIs('atlas', VIEW.curves))}${chip('data-act="view" data-v="hier:contacts"', 'Contacts', X.scene === 'hier' && viewIs('hier', VIEW.contacts))}</div>
-    <p class="note">${esc(F.connective)} ${esc(F.most)}${F.plaque ? ` Calcified plaques in arteries ${esc(F.plaque.note)}` : ''}${F.infarct ? `; infarct tissue in the heart ${esc(F.infarct.note)}` : ''}.</p>`;
+    <p class="note">${esc(F.connective)} ${esc(F.most)}${F.plaque ? ` ${esc(cap(F.plaque.kind))} ${esc(inOrgan(F.plaque.organ))} ${esc(F.plaque.note)}` : ''}${F.infarct ? `; ${esc(F.infarct.kind)} ${esc(inOrgan(F.infarct.organ))} ${esc(F.infarct.note)}` : ''}.</p>`;
 }
 // the age's readouts and slider, in place (a drag is not cut short)
 function syncAge() {
@@ -379,25 +383,22 @@ function renderScenes() {
   pane.innerHTML = `<div class="chips">${SCENES.map(([k, n]) => chip(`data-act="scene" data-v="${k}"`, esc(n), k === X.scene)).join('')}</div>
     <h3>${esc(sc[1])}</h3><p class="sub">${esc(sc[2])}</p>
     ${ctlsOf(X.scene).filter(c => ctlShown(X.scene, c)).map(c => `<p class="grp-h">${esc(c.label)}</p><div class="chips">${c.options.map(([v, n]) => chip(`data-act="ctl" data-ctl="${c.key}" data-v="${v}"`, esc(n), ctlValue(X.scene, c) === v)).join('')}</div>`).join('')}
-    ${ageHere() ? `<p class="grp-h">Age <b data-agev style="margin-left:auto;color:var(--ink)">${X.age}</b></p><input type="range" data-age min="${AGE0}" max="${AGE1}" step="1" value="${X.age}" aria-label="Age">` : ''}
+    ${ageHere() ? `<p class="grp-h">Age <b data-agev style="margin-left:auto;color:var(--ink)">${X.age}</b></p><input type="range" data-age min="${AGE0}" max="${AGE1}" step="1" value="${X.age}" aria-label="Age" style="accent-color:#ffb43b">` : ''}
     ${X.organ && X.scene !== 'slide' ? `<p class="sub" style="margin-top:10px">Also shown: ${esc(X.organ)} (Organs tab).</p>` : X.domain ? `<p class="sub" style="margin-top:10px">Also shown: ${esc(cap(X.domain))} (Domains tab).</p>` : ''}`;
 }
 // the scene on show changes with the age (the slider belongs with it)
 const ageHere = () => (X.scene === 'slide' && viewIs('slide', /age|domain/i)) || (X.scene === 'atlas' && !!X.organ && viewIs('atlas', VIEW.map)) || (X.scene === 'hier' && viewIs('hier', VIEW.contacts));
-// labels the panes add (the sets label their own picks)
+// labels the panes add (the sets label their own picks: the atlas names its focused section, the network its focused node)
 let XL = null;
 function updateExtraLabels() {
-  const s = GL.sets[X.scene], O = organOf(X.organ), own = at => (s.labels || []).some(L => L.at === at);
-  const sig = [APP.mode, X.scene, X.organ, X.domain, viewIs('atlas', VIEW.map), viewIs('hier', VIEW.net)].join('|');
+  const O = organOf(X.organ), sig = [APP.mode, X.scene, X.organ].join('|');
   if (sig === XL) return;
   XL = sig;
   LBL.extra.forEach(L => { L.el.remove(); dropSprite(L); });
   LBL.extra = [];
   if (APP.mode !== 'explore') return;
-  const add = (set, at, b, r, cls) => LBL.extra.push({ kind: 'extra', el: labelEl(`<b>${esc(b)}</b>${esc(r)}`, cls), set, at, o: -1, txt: [b, r, cls] });
-  if (X.scene === 'body' && O) add('body', O.pos.slice(), O.name, '', 'mag');
-  if (X.scene === 'atlas' && X.organ && atlasIdx(X.organ) && s.anchors.focus && !own('focus') && viewIs('atlas', VIEW.map)) add('atlas', 'focus', X.organ, '', 'mag');
-  if (X.scene === 'hier' && (X.domain || O) && s.anchors.focus && !own('focus') && viewIs('hier', VIEW.net)) add('hier', 'focus', X.domain ? cap(X.domain) : X.organ, '', 'cyn');
+  // the organ picked, at its point in the body
+  if (X.scene === 'body' && O) LBL.extra.push({ kind: 'extra', el: labelEl(`<b>${esc(O.name)}</b>`, 'mag'), set: 'body', at: O.pos.slice(), o: -1, txt: [O.name, '', 'mag'] });
 }
 
 // ----------------------------------------------------------- canvas input --
