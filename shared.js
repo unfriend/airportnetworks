@@ -22,7 +22,7 @@
 // (or #debug in a link) prints them as well.
 (function () {
   const PROTO = 1;
-  const FORMAT = 'networks-10';   // the shared state's format (keys, the stories' state()): bump when it changes shape
+  const FORMAT = 'networks-11';   // the shared state's format (keys, the stories' state()): bump when it changes shape
   const BROWSER = (/OculusBrowser\/(\d+)/.exec(navigator.userAgent) || [])[1] || '';   // Quest Browser's version (shared spaces differ by it)
   const EYE = 1.6;               // a standing eye height (m): a station's rig hangs this high over its spot
   const AHEAD = 1.4;             // a station's content floats this far in front of its spot
@@ -30,7 +30,7 @@
   // so two stations never compete for one person
   const NEAR = 1.1, FAR = 1.5, DWELL = 1000;
   const DRIFT = 0.25;            // a story further than this from its station's clock jumps
-  // Arrange all: two rows in front of you (4, then 3 in the gaps), spots 2.4 m apart, the first row 1.2 m ahead,
+  // Arrange all: two rows in front of you (eight stories: 4 and 4 behind them), spots 2.4 m apart, the first row 1.2 m ahead,
   // the second 2.6 m behind it; every station faces away from you, so its content floats beyond its spot
   const ROW = { gap: 2.4, ahead: 1.2, back: 2.6 };
   const PANEL_HOME = { p: [-0.56, 0.04, -0.86], yaw: Math.atan2(0.56, 0.86) };   // where every story hangs its panel
@@ -811,7 +811,7 @@
     changed();
   }
   const refused = what => { if (!layoutLocked()) return false; log('layout locked', { what }); return true; };
-  // Arrange all: the seven stories in two rows in front of you (4, then 3 in the gaps behind), spots 2.4 m apart,
+  // Arrange all: every story in two rows in front of you (half, rounded up, in front), spots 2.4 m apart,
   // every station facing away from you, so its content floats beyond its spot and faces your side; a story that
   // already has a station keeps it (moved, its state kept)
   function arrange(b) {
@@ -1486,7 +1486,7 @@
       label('Stations');
       const mine = C.stById.get(C.mine), arm = mine && armed(mine.id);
       ctx.font = FONT(24); ctx.fillStyle = INK;
-      ctx.fillText(fit(ctx, mine ? 'Yours: ' + meta(mine.story).title : C.st.length ? 'Walk up to one, or point at its card' : 'None yet: Arrange all puts the seven stories in front of you', w), x, y); y += 40;
+      ctx.fillText(fit(ctx, mine ? 'Yours: ' + meta(mine.story).title : C.st.length ? 'Walk up to one, or point at its card' : 'None yet: Arrange all puts every story in front of you', w), x, y); y += 40;
       const lk = layoutLocked();
       button(S, 'move', x, y, bw, 60, 'Move here', mine && !lk ? () => move(mine.id) : null);
       button(S, 'addpage', x + bw + 16, y, bw, 60, 'Add here', lk ? null : () => { PNL.page = 'add'; });
@@ -3034,7 +3034,7 @@
         return `<li class="${on ? 'on' : ''}"><i style="background:${m.col}"></i><b>${esc(m.title)}</b><span>${esc(stationLine(s))}${who.length ? ' · ' + esc(who.join(', ')) : ''}</span>
           ${on ? '<button class="btn" type="button" data-sh="unfollow">Stop following</button>' : `<button class="btn primary" type="button" data-sh="follow:${s.id}">Follow</button>`}
           <button class="btn rm${armed(s.id) ? ' armed' : ''}" type="button" data-sh="remove:${s.id}" aria-label="${armed(s.id) ? 'Remove the ' + esc(m.title) + ' station for everyone? Press again to remove it' : 'Remove the ' + esc(m.title) + ' station'}">${armed(s.id) ? 'Remove for everyone?' : 'Remove'}</button></li>`;
-      }).join('') : '<li class="none">No stations yet. Arrange all puts the seven stories in two rows; a headset in the room can then move them.</li>';
+      }).join('') : '<li class="none">No stations yet. Arrange all puts every story in two rows; a headset in the room can then move them.</li>';
       const sel = $('#shAdd'), lk = layoutLocked(), lb = $('[data-sh="lock"]');
       if (!sel.options.length) sel.innerHTML = HOST.list.map(m => `<option value="${m.key}">${esc(m.title)}</option>`).join('');
       if (lb) { lb.textContent = lk ? 'Unlock layout' : 'Lock layout'; lb.setAttribute('aria-pressed', String(lk)); lb.classList.toggle('on', lk); }

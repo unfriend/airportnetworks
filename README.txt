@@ -1,4 +1,4 @@
-Networks, in seven stories - installable web app
+Networks, in eight stories - installable web app
   1. Network theory, told with the world's airports  (stories/airports.js)
   2. Network medicine, told with the proteins in a cell  (stories/proteins.js)
   3. Spatial interactome, where proteins meet in a cell  (stories/spatial.js)
@@ -6,9 +6,12 @@ Networks, in seven stories - installable web app
      Boltzmann Institute for Network Medicine  (stories/lbi.js)
   5. Muscle and heart: rare diseases of nerves and muscles in a 71-layer
      network, after Iker Núñez-Carpintero and Philipp Friedrich  (stories/nmd.js)
-  6. Flock: 200 starlings at dusk flying all around you, each following its
+  6. Endotypes: one rare disease of the junction between nerve and muscle, 35
+     genes and 12 hidden mechanisms, after the EndotypY poster by Chloé Bûcheron
+     and colleagues  (stories/endo.js)
+  7. Flock: 200 starlings at dusk flying all around you, each following its
      seven nearest neighbours  (stories/flock.js)
-  7. Robot gang: robot vacuums in your room that bump and turn, follow you
+  8. Robot gang: robot vacuums in your room that bump and turn, follow you
      about or form a conga line; in a headset they find your floor and walls
      (stories/robots.js)
 
@@ -153,6 +156,16 @@ visits are computed in this map on the protein layers; endotype names are the
 most typical GO process of their genes. The motor unit and the supercomputer
 are illustrative.
 
+Endotype story data (stories/endo.js): the authors' EndotypY run on congenital
+myasthenic syndromes (no patient data): the 35 genes of the Gene Table of
+Neuromuscular Disorders, their protein network (18,306 proteins, 316,613
+links) and their 12 endotypes of 393 genes. Only the numbers the story needs
+are in the repository (tools/endo/sets/data.js), not the authors' files. The
+steps before the endotypes (seed groups, the walk, neighbourhoods, the GO
+annotation, the tree) are re-run with the package's default settings to show
+the method; the tree is drawn to agree with the authors' endotypes. Endotype
+names follow their strongest COMPARTMENTS term. The synapse is illustrative.
+
 Flock (stories/flock.js): a live simulation, not data. Each bird follows its
 seven nearest neighbours (Ballerini et al. 2008) and keeps its distance; the
 flock as a whole wheels about in front of you and now and then swoops round you;
@@ -167,14 +180,15 @@ it). Without a room setup they get a virtual room round you, and the panel
 offers Set up your room. Point at the floor and pull the trigger to spill
 crumbs. Speeds and cleaning times are tuned to look right, not measured.
 
-Files: index.html (the app), stories/ (the seven stories), proteins.html and
+Files: index.html (the app), stories/ (the eight stories), proteins.html and
 spatial.html (forward to the app), manifest.webmanifest, sw.js (offline cache), audio/,
 shared.js (shared rooms), relay/ (the shared rooms' server), docs/ (the shared rooms' plan),
 AGENTS.md and CLAUDE.md (notes for AI coding agents), tools/smoke.mjs (headless test),
 tools/collab.mjs (headless test of shared rooms; node relay/test.mjs tests the relay),
 tools/lbi/ (sources of the tour; node tools/lbi/build.mjs writes stories/lbi.js),
 tools/nmd/ and ikerdata/ (sources and data of the muscle story; node tools/nmd/build.mjs
-writes stories/nmd.js), tools/flock/ (sources of the flock; node tools/flock/build.mjs
+writes stories/nmd.js), tools/endo/ (sources of the endotype story; node
+tools/endo/build.mjs writes stories/endo.js), tools/flock/ (sources of the flock; node tools/flock/build.mjs
 writes stories/flock.js), tools/robots/ (sources of the robot gang;
 node tools/robots/build.mjs writes stories/robots.js),
 icons/, three.min.js (three.js r128, MIT licence, see three.LICENSE.txt).

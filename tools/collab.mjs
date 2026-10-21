@@ -268,7 +268,7 @@ async function walk(page, s, story, yaw) {
   return ok && !early;
 }
 
-let code = '';
+let code = '', NST = 0;   // the room's code; how many stories (one station each after Arrange all)
 try {
   await startRelay(relayPort);
   // ------------------------------------------------------------ rooms --
@@ -278,22 +278,23 @@ try {
   check('a page starts a room', await until(A, () => HOST.collab.status === 'open' && /^#s=[A-Z]{3}$/.test(location.hash), null, 10000));
   code = await A.evaluate(() => HOST.collab.code);
   await A.evaluate(() => HOST.collab.arrange({ x: 0, z: 0, yaw: 0 }));
-  check('Arrange all makes the seven stations', await until(A, () => HOST.collab.stations().length === 7 && !HOST.collab.internals().pending.size, null, 3000));
+  check('Arrange all makes a station for every story', await until(A, () => HOST.collab.stations().length === HOST.list.length && !HOST.collab.internals().pending.size, null, 3000));
   const B = await open('#s=' + code), C = await open('#s=' + code);
-  const st7 = p => until(p, () => HOST.collab.status === 'open' && HOST.collab.stations().length === 7, null, 20000);
+  const st7 = p => until(p, () => HOST.collab.status === 'open' && HOST.collab.stations().length === HOST.list.length, null, 20000);
   await st7(B); await st7(C);
   const sts = p => p.evaluate(() => JSON.stringify(HOST.collab.stations()));
   const sa = await sts(A);
   check('three pages in the room see the same stations', sa === await sts(B) && sa === await sts(C));
   const others = [B, C];
-  // Arrange all (from the room's origin, facing -z): a row of 4 spots 1.2 m ahead and 3 in the gaps 2.6 m behind,
+  // Arrange all (from the room's origin, facing -z): a row of half the stories (rounded up) 1.2 m ahead and the rest 2.6 m behind,
   // 2.4 m apart, all facing away (so a station's own 1.1 m zone never touches another's)
   const arranged = JSON.parse(sa), keys = await A.evaluate(() => HOST.list.map(m => m.key));
-  const wantSpot = i => (i < 4 ? [(i - 1.5) * 2.4, -1.2] : [(i - 5) * 2.4, -3.8]);
+  NST = keys.length;
+  const front = Math.ceil(NST / 2), wantSpot = i => (i < front ? [(i - (front - 1) / 2) * 2.4, -1.2] : [(i - front - (NST - front - 1) / 2) * 2.4, -3.8]);
   const spotsOk = keys.every((k, i) => { const s = arranged.find(x => x.story === k); return s && near([s.x, s.z], wantSpot(i), 1e-3) && Math.abs(s.yaw) < 1e-3; });
   let closest = Infinity;
   for (const a of arranged) for (const b of arranged) if (a !== b) closest = Math.min(closest, Math.hypot(a.x - b.x, a.z - b.z));
-  check('Arrange all: two rows (4 + 3), spots 2.4 m apart, the rows 2.6 m apart, all facing away from you', spotsOk && closest > 2.2 - 1e-6,
+  check(`Arrange all: two rows (${Math.ceil(NST / 2)} + ${Math.floor(NST / 2)}), spots 2.4 m apart, the rows 2.6 m apart, all facing away from you`, spotsOk && closest > 2.2 - 1e-6,
     arranged.map(s => `${s.story} ${s.x},${s.z} ${s.yaw}`).join('; '));
   // a mistyped code (or an old link) makes no room: the page says so and stays out
   const E = await open('#stories');
@@ -482,11 +483,11 @@ try {
   await stopRelay();
   await sleep(400);
   await startRelay(keep);
-  const back = p => until(p, () => HOST.collab.status === 'open' && HOST.collab.stations().length === 7, null, 25000);
+  const back = p => until(p, () => HOST.collab.status === 'open' && HOST.collab.stations().length === HOST.list.length, null, 25000);
   const allBack = (await Promise.all([A, ...others].map(back))).every(Boolean);
   const after = await roomInfo(code).catch(() => ({ keys: {} }));
   const kx = 'st.' + id0 + '.x';
-  check('a relay restart is survived: the room comes back with its stations and state', allBack && Object.keys(after.keys || {}).filter(k => /^st\.[\w-]+$/.test(k)).length === 7 &&
+  check('a relay restart is survived: the room comes back with its stations and state', allBack && Object.keys(after.keys || {}).filter(k => /^st\.[\w-]+$/.test(k)).length === NST &&
     JSON.stringify(after.keys[kx] && after.keys[kx].v) === JSON.stringify(before.keys[kx].v), JSON.stringify(after.keys && after.keys[kx]));
   await peek(A, STORIES[key0].change);
   const sR = await stateOf(A);
@@ -1588,15 +1589,15 @@ try {
   const lj = await until(Lp, () => HOST.collab.code === 'LCL' && HOST.collab.local && HOST.collab.status === 'open', null, 8000);
   check('no relay known: a link opens its room on this device', lj, JSON.stringify(await Lp.evaluate(() => [HOST.collab.code, HOST.collab.local, HOST.collab.status, HOST.collab.relay])));
   await Lp.evaluate(() => { HOST.collab.arrange({ x: 0, z: 0, yaw: 0 }); });
-  await until(Lp, () => HOST.collab.stations().length === 7 && !HOST.collab.internals().pending.size, null, 3000);
+  await until(Lp, () => HOST.collab.stations().length === HOST.list.length && !HOST.collab.internals().pending.size, null, 3000);
   const lsid = await stationOf(Lp, OTHER_STORY);
   await Lp.evaluate(id => { HOST.collab.move(id, { x: 0.5, z: -3, yaw: 0.2 }); HOST.collab.lock(true); }, lsid);
-  check('a room on this device: Arrange all, moving a station and the lock work alone', await until(Lp, () => HOST.collab.stations().length === 7 && HOST.collab.locked &&
+  check('a room on this device: Arrange all, moving a station and the lock work alone', await until(Lp, () => HOST.collab.stations().length === HOST.list.length && HOST.collab.locked &&
     !HOST.collab.internals().pending.size, null, 3000));
   await sleep(700);   // kept at most 0.4 s after a change
   await Lp.reload(); await lopen();
-  const lk = await until(Lp, id => HOST.collab.code === 'LCL' && HOST.collab.local && HOST.collab.stations().length === 7 && HOST.collab.locked &&
-    HOST.collab.station(id) && HOST.collab.station(id).z === -3 && HOST.collab.kept().some(r => r.code === 'LCL' && r.stations === 7), lsid, 8000);
+  const lk = await until(Lp, id => HOST.collab.code === 'LCL' && HOST.collab.local && HOST.collab.stations().length === HOST.list.length && HOST.collab.locked &&
+    HOST.collab.station(id) && HOST.collab.station(id).z === -3 && HOST.collab.kept().some(r => r.code === 'LCL' && r.stations === HOST.list.length), lsid, 8000);
   check('a room on this device: kept across a reload (stations, places, the lock)', lk, JSON.stringify(await Lp.evaluate(() => [HOST.collab.code, HOST.collab.local, HOST.collab.stations().length, HOST.collab.locked, HOST.collab.kept()])));
   await Lp.evaluate(() => HOST.collab.lock(false));
   await ready(Lp, 'airports');
@@ -1636,7 +1637,7 @@ try {
   await Lp.evaluate(() => window.__xr.end());
   const linfo = lback ? await until(Lp, () => !HOST.collab.internals().pending.size, null, 5000) && await roomInfo('LCL') : null;
   const ist = linfo ? Object.keys(linfo.keys).filter(k => /^st\.[\w-]+$/.test(k)).length : 0;
-  check('a room on this device goes to a relay once one answers, with its stations', lback && ist === 7 && linfo.keys['st.' + lsid].v.z === -3, JSON.stringify({ lback, ist }));
+  check('a room on this device goes to a relay once one answers, with its stations', lback && ist === NST && linfo.keys['st.' + lsid].v.z === -3, JSON.stringify({ lback, ist }));
   const Lo = await open('#s=LCL');
   check('and another device joins it there', await st7(Lo));
   await Lo.context().close();

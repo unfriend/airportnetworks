@@ -3,6 +3,7 @@ tools/lbi/shots/
 tools/lbi/data/*.json
 tools/lbi/data/airports_*
 tools/nmd/shots/
+tools/endo/shots/
 tools/flock/shots/
 tools/robots/shots/
 relay/.lan/

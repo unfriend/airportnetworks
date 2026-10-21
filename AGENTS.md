@@ -4,9 +4,9 @@ Guidance for AI coding agents (and humans) working on this repository.
 
 ## What this is
 
-An installable web app that teaches network science in seven narrated stories
-(about four minutes each, the tour about eight, the muscle story about seven, the flock just over one, the
-robot gang about one and a half), each
+An installable web app that teaches network science in eight narrated stories
+(about four minutes each, the tour about eight, the muscle story about seven, the endotype story about five, the
+flock just over one, the robot gang about one and a half), each
 followed by an explore mode. Everything works on desktop, phones and in VR/AR headsets (built for Meta
 Quest Browser, WebXR).
 
@@ -17,6 +17,7 @@ Quest Browser, WebXR).
 | Spatial interactome | `stories/spatial.js` | 249 proteins in 13 compartments of a model cell |
 | LBI Network Medicine tour | `stories/lbi.js` | ten 3D scenes, from a protein machine and an illustrative interactome to organs and tissue |
 | Rare muscle diseases | `stories/nmd.js` | 1,182 genes of 13 neuromuscular disease groups in a tower of 71 layers (real data in `ikerdata/`), the motor unit, a supercomputer |
+| Disease endotypes | `stories/endo.js` | one neuromuscular junction close up; the 35 genes of congenital myasthenic syndromes in the authors' protein network (18,306 proteins), their module of 393 genes and 12 endotypes (EndotypY), the motor unit |
 | Flock | `stories/flock.js` | 200 starlings (a live simulation) flying all around you at dusk, each following its seven nearest neighbours |
 | Robot gang | `stories/robots.js` | 6 to 24 robot vacuums (a live simulation) in a model living room, or in a headset your own room; who follows whom (you, or the one ahead) is the network |
 
@@ -63,6 +64,9 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
 - `tools/nmd/` - the sources of `stories/nmd.js` (data generator, data block, sets,
   engine parts, build script, set harness; it uses `tools/lbi/kit.js`); see its
   `README.md`. `ikerdata/` holds the authors' analysis files it reads.
+- `tools/endo/` - the sources of `stories/endo.js` (data generator, data block, sets,
+  engine parts adapted from the muscle story's, build script, set harness; it uses
+  `tools/lbi/kit.js` and the muscle story's motor set); see its `README.md` and `SPEC.md`.
 - `tools/lbi/` - the sources of `stories/lbi.js` (kit, sets, engine parts,
   build script, set harness, data generators); see its `README.md`.
 - `tools/flock/` - the sources of `stories/flock.js` (the flock set, engine parts
@@ -508,7 +512,7 @@ generation, `{ n, by, at }`; FORMAT networks-10). The plan is `docs/shared-space
   A page following a station (Follow) leaves its Stories screen: while that
   shows, nothing syncs.
 
-The hooks every story keeps (all seven, the same lines; the flock is the
+The hooks every story keeps (all eight, the same lines; the flock is the
 reference, `tools/flock/engine/`):
 
 - `collab: { APP, scene: () => GL.scene, state, apply, view, setView, effect, hover, panel, place }`
@@ -605,7 +609,7 @@ says why), whether a recentre fires a reset, sound zones heard, comfort and
 frame rate with presence drawn, and whether the socket keeps running inside an
 immersive session.
 
-## Inside a story (all seven follow the same pattern)
+## Inside a story (all eight follow the same pattern)
 
 - Data at the top (airports and proteins: precomputed constants; spatial: the
   editable `PLACES`, `PROTEINS`, `LINKS`, `TOGETHER`, `MOVES` lists, laid out
@@ -835,8 +839,9 @@ is the contract between them.
   `node tools/nmd/data/gen_data.mjs`), rebuild `stories/nmd.js` with
   `node tools/nmd/build.mjs` (and bump `VERSION`).
 - After changing anything in `tools/lbi/`, rebuild `stories/lbi.js` (and bump
-  `VERSION`). Likewise `tools/flock/` and `stories/flock.js`, and `tools/robots/`
-  and `stories/robots.js`.
+  `VERSION`). Likewise `tools/endo/` and `stories/endo.js` (and after changing
+  `tools/nmd/sets/motor.js`, which the endotype story uses too), `tools/flock/` and
+  `stories/flock.js`, and `tools/robots/` and `stories/robots.js`.
 - Keep `README.txt` (user-facing notes) in sync with structural changes.
 - Shared rooms: bump `FORMAT` in `shared.js` when the keys or a story's
   `collab.state()` change shape (a room refuses another format). A story's
