@@ -4,7 +4,7 @@
 // animation is stretched or squeezed between these points so each cue lands
 // on the matching sentence. Edit here if you record a narration.
 const NARRATION_SYNC = [
-  [0, 0], [410, 410],
+  [0, 0], [310, 310],
 ];
 // recording time -> original story time
 function storyT(t) {
@@ -25,16 +25,15 @@ function narrT(o) {
 }
 let T_END = NARRATION_SYNC[NARRATION_SYNC.length - 1][0];
 const CH = [
-  { key: 'title', name: 'Intro', a: 0, b: 20 },
-  { key: 'motor', name: 'Motor unit', a: 20, b: 72 },
-  { key: 'why', name: 'Causes', a: 72, b: 96 },
-  { key: 'tower', name: 'Layers', a: 96, b: 142 },
-  { key: 'walk', name: 'Walker', a: 142, b: 195 },
-  { key: 'layers', name: 'Contexts', a: 195, b: 232 },
-  { key: 'endo', name: 'Endotypes', a: 232, b: 278 },
-  { key: 'overlap', name: 'Heart and muscle', a: 278, b: 340 },
-  { key: 'stress', name: 'Stress test', a: 340, b: 375 },
-  { key: 'next', name: 'Next', a: 375, b: 410 },
+  { key: 'title', name: 'Intro', a: 0, b: 14 },
+  { key: 'tired', name: 'Tired', a: 14, b: 40 },
+  { key: 'genes', name: 'Genes', a: 40, b: 70 },
+  { key: 'cloud', name: 'Network', a: 70, b: 108 },
+  { key: 'walk', name: 'Walk', a: 108, b: 148 },
+  { key: 'hood', name: 'Neighbours', a: 148, b: 185 },
+  { key: 'split', name: 'Tree', a: 185, b: 225 },
+  { key: 'endotypes', name: 'Endotypes', a: 225, b: 285 },
+  { key: 'next', name: 'What for', a: 285, b: 310 },
 ];
 CH.forEach(c => { c.na = narrT(c.a); c.nb = narrT(c.b); }); // chapter times on the recording's clock
 const C = Object.fromEntries(CH.map(c => [c.key, c]));
@@ -78,116 +77,152 @@ function anchorOf(k, at) {
   return p || [0, 0, 0];
 }
 
-// ------------------------------------------------------------------ facts --
-// Numbers the story quotes, counted from the analysis data (NMD_DATA) when the story loads
-const FACTS = (() => {
-  const D = NMD_DATA, genes = D.genes.map(r => r.split('|')), G = D.groups.length;
-  const inG = (r, g) => ((+r[2] | +r[3]) >> g & 1) === 1, isSeed = (r, g) => (+r[2] >> g & 1) === 1;
-  const bin = s => Uint8Array.from(atob(s), c => c.charCodeAt(0));
-  const E = new Uint32Array(bin(D.edges).buffer);
-  const links = test => { let n = 0; for (let k = 0; k < E.length; k += 2) if (test(genes[E[k] >>> 16], genes[E[k] & 65535])) n++; return n; };
-  const CM = 5, HC = 11;
-  const both = genes.filter(r => inG(r, CM) && inG(r, HC));
-  // pairs of endotypes (one of each group) that share genes, most shared first
-  const share = new Map();
-  for (const r of both) { const e = r[1].split('.'); const k = e[CM] + '-' + e[HC]; share.set(k, (share.get(k) || 0) + 1); }
-  const pairs = [...share].sort((a, b) => b[1] - a[1]).map(([k, n]) => { const [c1, c2] = k.split('-').map(Number); return { c1, c2, n }; });
-  const endoName = (g, c) => { const e = D.groups[g].endo.find(x => x.c === c); return e ? e.name : ''; };
-  const topLayer = g => { let b = 0; D.groups[g].z.forEach((z, p) => { if (z > D.groups[g].z[b]) b = p; }); return D.layers[D.ppi[b]].name; };
-  const cats = {}; for (const l of D.layers) cats[l.cat] = (cats[l.cat] || 0) + 1;
-  return {
-    genes: genes.length, links: E.length / 2, layers: D.layers.length, cats, groups: G,
-    endotypes: D.groups.reduce((a, g) => a + g.endo.length, 0),
-    cm: { seeds: D.groups[CM].seeds, added: D.groups[CM].added, n: genes.filter(r => inG(r, CM)).length, endo: D.groups[CM].endo.length },
-    hc: { n: genes.filter(r => inG(r, HC)).length }, shared: both.length, pairs, endoName, topLayer,
-    seedLinks: links((a, b) => (isSeed(a, CM) || isSeed(a, HC)) && (isSeed(b, CM) || isSeed(b, HC))),
-    moduleLinks: links((a, b) => (inG(a, CM) || inG(a, HC)) && (inG(b, CM) || inG(b, HC))),
-  };
+// ------------------------------------------------------------------- data --
+// The analysis data (ENDO_DATA), decoded once for the story and the panels (each set decodes its own copy for
+// drawing). Module genes are the first ED.M nodes, in tree order, so each endotype is a run of indices.
+const ED = (() => {
+  const D = ENDO_DATA, b64 = s => Uint8Array.from(atob(s), c => c.charCodeAt(0));
+  const u16 = s => { const b = b64(s); return new Uint16Array(b.buffer, 0, b.length >> 1); };
+  const M = D.mod, names = D.names.split('|'), S = D.seeds.length;
+  const gene = b64(D.gene), seedOf = b64(D.seedOf), featN = u16(D.featN), featI = u16(D.featI), links = u16(D.links), g = b64(D.groups.g);
+  const nb = Array.from({ length: M }, () => []);
+  for (let k = 0; k < D.modLinks; k++) { const a = links[2 * k], b = links[2 * k + 1]; if (a < M && b < M) { nb[a].push(b); nb[b].push(a); } }
+  let o = 0;
+  const genes = names.slice(0, M).map((sym, i) => {
+    const terms = Array.from(featI.subarray(o, o + featN[i])); o += featN[i];
+    return { sym, endo: gene[i], seed: seedOf[i] - 1, terms, nb: nb[i] };
+  });
+  const bySym = new Map(genes.map((x, i) => [x.sym.toUpperCase(), i]));
+  // the seeds' groups at each neighbourhood size k: each seed's group (0 the largest) and how many groups there are
+  const groups = D.groups.k.map((k, j) => { const of = Array.from(g.subarray(j * S, j * S + S)); return { k, of, n: new Set(of).size }; });
+  const members = D.endo.map(e => genes.map((x, i) => i).filter(i => gene[i] === e.id));
+  // a gene's neighbourhood (node indices of the whole network), decoded when asked for
+  let hood = null;
+  const hoodOf = i => { hood = hood || u16(D.hood); return hood.subarray(i * D.facts.hood, (i + 1) * D.facts.hood); };
+  const cut = b64(D.tree.cut);
+  return { D, M, genes, bySym, groups, members, hoodOf, cut, endo: D.endo, seeds: D.seeds, terms: D.terms };
 })();
+const geneIdx = s => { const i = ED.bySym.get(String(s || '').trim().toUpperCase()); return i === undefined ? -1 : i; };
+// where each seed gene acts in the junction (UniProt; see tools/endo/SPEC.md), for the story's count by region
+const SEED_SITE = {
+  nerve: ['CHAT', 'SLC5A7', 'SLC18A3', 'SYT2', 'VAMP1', 'SNAP25', 'UNC13A', 'RPH3A', 'PREPL', 'MYO9A', 'SLC25A1'],
+  cleft: ['COLQ', 'AGRN', 'LAMB2', 'LAMA5', 'COL13A1'],
+  membrane: ['CHRNA1', 'CHRNB1', 'CHRND', 'CHRNE', 'CHRNG', 'RAPSN', 'LRP4', 'MUSK', 'DOK7', 'SCN4A'],
+  fibre: ['DPAGT1', 'ALG2', 'ALG14', 'GFPT1', 'GMPPB', 'PLEC', 'DES', 'TOR1AIP1', 'CHD8'],
+};
+// what an endotype's place in the synapse is called
+const PLACE = { mito: 'the nerve ending\'s mitochondria', lamina: 'the basement membrane in the gap', golgi: 'the Golgi of the muscle fibre',
+  channels: 'the ion channels of the muscle membrane', er: 'the muscle fibre\'s endoplasmic reticulum', endosome: 'the nerve ending\'s endosomes',
+  vesicles: 'the nerve ending\'s synaptic vesicles', scaffold: 'the muscle fibre\'s scaffold', junction: 'the junction as a whole' };
+const STRONG = ['nothing shared', 'weak', 'clear'];
 
+// ------------------------------------------------------------------ facts --
+// Numbers the story quotes, counted from the analysis data (ENDO_DATA) when the story loads
+const FACTS = (() => {
+  const D = ENDO_DATA, F = D.facts, seedSet = new Set(D.seeds.map(s => s[0]));
+  const at = k => ED.groups.find(x => x.k === k) || { n: 0 };
+  const one = ED.groups.find(x => x.n === 1);
+  // seeds that already share a neighbourhood at the smallest k
+  const g0 = ED.groups[0], first = D.seeds.filter((s, j) => g0.of[j] === 0 && g0.of.filter(x => x === 0).length > 1).map(s => s[0]);
+  const sites = Object.fromEntries(Object.entries(SEED_SITE).map(([k, l]) => [k, l.filter(s => seedSet.has(s)).length]));
+  return Object.assign({}, F, {
+    ones: ED.genes.reduce((a, x) => a + x.terms.length, 0), modLinks: D.modLinks, merges: D.mod - 1,
+    cuts: ED.cut.reduce((a, x) => a + x, 0), groupsAt: k => at(k).n, oneK: one ? one.k : null, firstShare: first, sites,
+    clear: D.endo.filter(e => e.strong === 2).length, weak: D.endo.filter(e => e.strong === 1).length, none: D.endo.filter(e => e.strong === 0).length,
+    noPlace: D.endo.filter(e => !e.place).map(e => e.id), tenths: Math.round(F.r * 10),
+  });
+})();
+// ' · '-joined symbols of those genes that are in endotype id (so the text only names what the data has)
+const inEndo = (id, syms) => syms.filter(s => { const i = geneIdx(s); return i >= 0 && ED.genes[i].endo === id; });
+const listOf = a => (a.length < 2 ? a.join('') : a.slice(0, -1).join(', ') + ' and ' + a[a.length - 1]);
+const endoCol = id => (ED.endo[id] ? ED.endo[id].col : '#9aa3b5');
+
+// the story's gene for the neighbourhoods: COLQ (in the basement membrane endotype)
+const STORY_GENE = 'COLQ';
 function buildStory() {
-  const F = FACTS, D = NMD_DATA, T = GL.sets.tower;
-  const lc = s => s.charAt(0).toLowerCase() + s.slice(1);
-  // the biggest endotypes of congenital myopathies, by name, for the text
-  const named = D.groups[5].endo.filter(e => e.name).sort((a, b) => b.n - a.n);
-  const muscle = named.filter(e => /muscle|sarcomere|myofibril|contraction|actin|myosin/i.test(e.name) && e.name.length <= 45);
-  const cmEndo = (muscle.length >= 2 ? muscle : named).slice(0, 3).map(e => `${e.c}, ${lc(e.name)}`);
-  const shared = F.pairs.slice(0, 2).map(p => `endotype ${p.c1} of congenital myopathies (${lc(F.endoName(5, p.c1) || 'unnamed')}) and ${p.c2} of cardiomyopathies (${lc(F.endoName(11, p.c2) || 'unnamed')}), ${p.n} genes`);
-  const capped = F.cm.added >= 200;
+  const F = FACTS, E = ED.endo;
+  const gi = geneIdx(STORY_GENE), gsym = gi >= 0 ? ED.genes[gi].sym : STORY_GENE;
+  const word = n => ['no', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten'][n] || String(n);
+  const Word = n => { const w = word(n); return w.charAt(0).toUpperCase() + w.slice(1); };
   // fade a set in over [t0, t1] and out over [t2, t3]
   const show = (k, t0, t1, t2, t3) => { ramp(k + '_a', t0, t1, 0, 1); if (t2 !== undefined) ramp(k + '_a', t2, t3, 1, 0); };
-  // jump an index param (a disease group, a site) at time t
+  // jump an index param (a site, a gene, an endotype) at time t
   const jump = (n, t, v0, v1) => { key(n, t - 0.01, v0); key(n, t, v1); };
+  const kAt = k => Math.max(0, ED.groups.findIndex(x => x.k === k));   // net_k for a neighbourhood size
+  const ks = [1, 10, 20, 50].filter(k => ED.groups.some(x => x.k === k));
+  // the poster's four endotypes, in the order the story tells them
+  const four = [1, 9, 5, 2].filter(id => E[id]);
+  // one endotype's point, in its colour; they take turns in one place (a grid cell), each fading out as the next comes
+  const step = (id, at, out, text) => `<ul class="steps" data-at="${at}"${out ? ` data-out="${out}"` : ''} style="grid-area:1/1"><li style="border-left-color:${endoCol(id)}"><b style="color:${endoCol(id)}">${id} · ${esc(E[id].name)}</b>${text}</li></ul>`;
   // ------------------------------------------------------------ panel copy
   const html = {
     title: `<svg class="route-mark" viewBox="0 0 360 44" aria-hidden="true"><path id="titleArc" d="M8 36 Q180 -16 352 36" fill="none" stroke="var(--red)" stroke-width="2.2" stroke-linecap="round" pathLength="1" stroke-dasharray="1" stroke-dashoffset="1"/><circle cx="8" cy="36" r="4.5" fill="var(--red)"/><circle cx="352" cy="36" r="4.5" fill="var(--red)" id="titleDot" opacity="0"/></svg>
-      <h1 data-at="1.2">Hidden connections</h1>
-      <p class="lede" data-at="2.4">in rare diseases of nerves and muscles</p>
-      <p data-at="4">${F.layers} layers of data, one network: how rare muscle diseases share their machinery, and what muscle and heart have in common.</p>
-      <p class="note" data-at="11">Each dot is a gene, the same gene on every level. Each level links the genes by a different kind of evidence.</p>`,
-    motor: `<h2 data-at="0.6">From nerve to muscle</h2>
-      <p data-at="1.2">Every movement starts in a motor neuron in the spinal cord. Its long axon, wrapped in myelin, carries the signal to the muscle.</p>
-      <p data-at="12">At the neuromuscular junction the nerve passes the signal to the muscle fibre. Inside, chains of sarcomeres pull: thin actin filaments slide along thick myosin filaments.</p>
-      <p data-at="30" class="amber">Neuromuscular disorders are rare genetic diseases of this motor unit.</p>
-      <div class="facts"><div data-at="31"><b>16</b><small>disease groups</small></div><div data-at="32"><b>1,200+</b><small>diseases</small></div><div data-at="33"><b>~700</b><small>causal genes</small></div><div data-at="34"><b>3.7-4.99</b><small>in 10,000 people</small></div></div>
-      <p data-at="36">They strike the nerve cells, the nerves, the junction or the muscle, with weakness and low muscle tone.</p>
-      <p data-at="40">The heart muscle is built from the same sarcomeres: inherited cardiomyopathies belong here too.</p>
-      <p class="credits" data-at="44">Gene Table of Neuromuscular Disorders (2024). Motor unit illustrative.</p>`,
-    why: `<h2 data-at="0.6">Same weakness, different causes</h2>
-      <p data-at="1.2">Patients share weakness, but the causes are many: about 700 genes. There are no molecular subtypes for these diseases yet.</p>
-      <p data-at="9">A shared mechanism is called an endotype. Diseases that share one may share a treatment: a drug for one could be repurposed for another.</p>
+      <h1 data-at="1.2">Endotypes</h1>
+      <p class="lede" data-at="2.4">one disease, many mechanisms</p>
+      <p data-at="4">${F.seeds} genes cause one rare disease of the junction between nerve and muscle. How many mechanisms hide behind them?</p>
+      <p class="note" data-at="9">A story of congenital myasthenic syndromes, and of EndotypY, a Python package that finds the endotypes of a disease in a network of proteins.</p>`,
+    tired: `<h2 data-at="0.6">Muscles that tire</h2>
+      <p data-at="1.2">Every movement starts with a nerve cell telling muscle fibres to contract. Each fibre meets the nerve at one point: the neuromuscular junction.</p>
+      <p data-at="10">Up close, the nerve ending releases acetylcholine. It crosses a narrow gap and opens receptors on the muscle, and the fibre twitches.</p>
+      <p data-at="17" class="amber">In congenital myasthenic syndromes (CMS) the signal runs down: muscles tire as they work, and weakness grows with effort.</p>
+      <p data-at="22">CMS are rare and inherited, most often from both parents. Some patients only tire with exercise; others struggle to walk, or to breathe.</p>`,
+    genes: `<h2 data-at="0.6">${F.seeds} genes, one junction</h2>
+      <p data-at="1.2">The Gene Table of Neuromuscular Disorders lists ${F.seeds} genes for CMS. Each works somewhere in the junction.</p>
       <ul class="steps">
-        <li data-at="15"><b>Define</b>the endotypes of each disease group</li>
-        <li data-at="17"><b>Overlap</b>find the endotypes different diseases share</li>
-        <li data-at="19"><b>Point</b>to genes and drugs worth a closer look</li>
-      </ul>`,
-    tower: `<h2 data-at="0.6">${F.layers} layers, one network</h2>
-      <p data-at="1.2">To see mechanisms, look at the genes from every side at once. The multiplex network stacks ${F.layers} layers; in each, the same genes are linked by a different kind of evidence.</p>
-      <ul class="steps">
-        <li data-at="8"><b>Proteins</b>that bind each other: a core of links found in more than 24 tissues, and ${F.cats.ppi - 1} tissue layers with their own links (IID)</li>
-        <li data-at="14"><b>Genes</b>switched on together, in ${F.cats.coex - 1} tissues and a core (GTEx)</li>
-        <li data-at="20"><b>Symptoms</b>shared in people and in mice (HPO, MPO)</li>
-        <li data-at="25"><b>Pathways, drugs</b>shared pathways (Reactome) and drug targets (NeDRex)</li>
-        <li data-at="30"><b>Essential</b>genes that cells need together (CRISPR screens)</li>
+        <li data-at="6"><b>Nerve ending · ${F.sites.nerve}</b>making, loading and releasing acetylcholine</li>
+        <li data-at="11"><b>The gap · ${F.sites.cleft}</b>the basement membrane that holds it together</li>
+        <li data-at="15"><b>Muscle membrane · ${F.sites.membrane}</b>the receptor, the proteins that cluster it, sodium channels</li>
+        <li data-at="20"><b>Inside the fibre · ${F.sites.fibre}</b>sugar chains for receptors, the scaffold, the nuclei</li>
       </ul>
-      <p class="note" data-at="35">In this map: ${fmt(F.genes)} genes (the known genes of the ${F.groups} disease groups and the genes the walk added) and ${fmt(F.links)} protein links. The Gene Table's 16 groups, small ones joined to their closest. Layers still waiting for their data show as dotted rims.</p>
-      <p class="credits" data-at="38">Kotlyar et al. (IID); GTEx, with the co-expression core of Buphamalai et al., Nature Communications (2021); HPO; MPO; Reactome; NeDRex.</p>`,
+      <p data-at="25" class="amber">Yet one mutation can be mild in one patient and severe in another. Genes alone do not explain the range; other genes in their networks are thought to shape it.</p>
+      <p class="credits" data-at="27">Gene Table of Neuromuscular Disorders; places after UniProt (the junction is illustrative). Severity: Núñez-Carpintero et al., Nature Communications (2024).</p>`,
+    cloud: `<h2 data-at="0.6">${fmt(F.genes)} proteins</h2>
+      <div style="display:grid">
+        <p data-at="1.2" data-out="8.5" style="grid-area:1/1">Which human proteins bind each other makes a network: ${fmt(F.genes)} proteins, ${fmt(F.links)} links. The ${F.seeds} CMS genes are its seeds.</p>
+        <p data-at="9" class="amber" style="grid-area:1/1">Do the seeds share mechanisms? Endotypes are subtypes of a disease defined by its molecules: groups of disease genes that hang together, in the network and in what they do.</p>
+      </div>
+      <p data-at="17">First, one group or several? Give each seed a neighbourhood of its k closest proteins. Seeds whose neighbourhoods meet form a group.</p>
+      <div class="facts">${ks.map((k, j) => `<div data-at="${[19, 23, 25, 28][j]}"><b>${F.groupsAt(k)}</b><small>${F.groupsAt(k) === 1 ? 'group' : 'groups'} at k = ${k}</small></div>`).join('')}</div>
+      <p data-at="31" class="amber">${F.oneK ? `From k = ${F.oneK} on, all ${F.seeds} seeds share one neighbourhood: one module, to split from the inside.` : 'The seeds stay in several groups.'}</p>
+      <p class="credits" data-at="33">Step 1 of EndotypY (optional): seed groups.${F.firstShare.length ? ` Even at k = 1, ${listOf(F.firstShare)} share one.` : ''} The protein network is the authors'.</p>`,
     walk: `<h2 data-at="0.6">A walker that keeps coming home</h2>
-      <p data-at="1.2">Start from the genes known to cause one group of diseases: here the ${F.cm.seeds} genes of congenital myopathies in the Gene Table.</p>
-      <p data-at="8">A random walker sets off from them. At every step it jumps back to a known gene seven times in ten; otherwise it follows a link. At a gene found in several layers it changes layer half the time, preferring the layers where the disease's genes cluster most.</p>
-      <p data-at="24" class="amber">Genes the walker visits again and again are close to the disease, from many sides at once.</p>
-      <p data-at="34">The most visited join the disease module one by one, until the module holds together, or 200 genes have joined. ${capped ? 'For congenital myopathies the walk stopped at the limit of 200.' : `For congenital myopathies, ${F.cm.added} joined.`} Other groups held together sooner: for some a single gene was enough.</p>
-      <p class="credits" data-at="44">Random walk with restart on the multiplex: restart 0.7, layer switch 0.5, layers weighted by z-score. After Buphamalai et al. (2021).</p>`,
-    layers: `<h2 data-at="0.6">Different diseases, different layers</h2>
-      <p data-at="1.2">Not every layer matters for every disease. A protein layer counts when a group's known genes link up in it more than chance would allow (a z-score of at least 1.645).</p>
+      <p data-at="1.2">To find the rest of the module, EndotypY sends random walkers out from the seeds. At every step a walker hops to a random neighbour, or, ${word(F.tenths)} times in ten, jumps back to a seed.</p>
+      <p data-at="11">Proteins the walkers visit again and again are close to the seeds, by many paths at once.</p>
+      <p data-at="22" class="amber">The most visited join the seeds, one by one, until the module holds together.</p>
+      <div class="facts"><div data-at="26"><b>${F.seeds}</b><small>seeds</small></div><div data-at="27.5"><b>+ ${F.found}</b><small>found by the walk</small></div><div data-at="29"><b>${F.module}</b><small>genes in the module</small></div></div>
+      <p class="credits" data-at="32">Step 2 of EndotypY: network expansion by random walk with restart (restart probability ${F.r}).</p>`,
+    hood: `<h2 data-at="0.6">Every gene's neighbourhood</h2>
+      <p data-at="1.2">What does each gene do? Its neighbours tell more than the gene alone. Take ${esc(gsym)}, which anchors acetylcholinesterase in the gap: a walk from ${esc(gsym)} alone marks its neighbourhood, the top ${F.pct}% of the network (${F.hood} proteins).</p>
+      <p data-at="11">The parts of the cell that come up among them more often than chance (Gene Ontology terms), with ${esc(gsym)}'s own, become ${esc(gsym)}'s row of marks. Every gene gets one.</p>
+      <div class="facts"><div data-at="22"><b>${F.module}</b><small>genes</small></div><div data-at="23"><b>${F.terms}</b><small>cell parts</small></div><div data-at="24"><b>${fmt(F.ones)}</b><small>marks</small></div></div>
+      <p data-at="28" class="amber">Genes with similar rows work in similar places.</p>
+      <p class="credits" data-at="30">Step 3 of EndotypY: functional neighbourhood annotation (gene-set enrichment with GSEApy and Enrichr libraries; here ${esc(F.featLib.replace(/_/g, ' '))}).</p>`,
+    split: `<h2 data-at="0.6">A tree that splits only when it must</h2>
+      <p data-at="1.2">Genes with similar rows are joined, pair by pair, into a tree.</p>
+      <p data-at="8">Where to cut it? Not at a fixed height. Tree2BreakSpace tests every split from the root down: do the two sides use the cell's parts differently? A split stays only when the data say so.</p>
+      <p data-at="19" class="amber">Of the tree's ${F.merges} splits, ${F.cuts} pass the test: ${F.endotypes} endotypes.</p>
+      <p data-at="28">Laid out by their distances in the tree, the endotypes stand apart.</p>
+      <p class="credits" data-at="32">Step 4 of EndotypY: statistically filtered hierarchical clustering (Tree2BreakSpace, Sakalli et al., in progress).</p>`,
+    endotypes: `<h2 data-at="0.6">${F.endotypes} endotypes</h2>
+      <p data-at="1.2">Each endotype is a group of genes tied together in the network and in what they do: one bubble each, with grey bands for the links between them. In the authors' analysis:</p>
+      <div style="display:grid">
+        ${E[1] ? step(1, 8, 17.5, `${listOf(inEndo(1, ['SLC25A1']))} exports citrate from the nerve ending's mitochondria; from it comes acetyl-CoA, needed to make acetylcholine.`) : ''}
+        ${E[9] ? step(9, 18, 27.5, `forming and releasing synaptic vesicles (${inEndo(9, ['SYT1', 'SYT2', 'SNAP25', 'STX19', 'RPH3A']).join(', ')}). Givinostat, a treatment for Duchenne muscular dystrophy, perturbs several of them: a lead for repurposing.`) : ''}
+        ${E[5] ? step(5, 28, 37.5, `receptor subunits (${inEndo(5, ['CHRNB1', 'CHRND']).join(', ')}) that start the muscle's signal, and sodium channels (${inEndo(5, ['SCN4A', 'SCN8A', 'SCN1B']).join(', ')}) that carry it on.`) : ''}
+        ${E[2] ? step(2, 38, 0, `the matrix in the gap (${inEndo(2, ['COLQ', 'AGRN', 'LAMB2', 'LAMA5', 'COL13A1']).join(', ')}): it holds the junction together and anchors acetylcholinesterase.`) : ''}
+      </div>
+      <p data-at="46" class="amber">Back in the junction, every endotype finds its place.</p>
+      <p class="note" data-at="52">${Word(F.clear)} endotypes share a clear place in the cell, ${word(F.weak)} a weak one; ${word(F.none)} (${F.noPlace.join(', ')}) share none and hover loose.</p>`,
+    next: `<h2 data-at="0.6">What endotypes are for</h2>
       <ul class="steps">
-        <li data-at="7"><b>Motor and sensory neuropathies</b>strongest in the ${lc(F.topLayer(1))} protein layer</li>
-        <li data-at="16"><b>Myasthenic syndromes</b>strongest in the ${lc(F.topLayer(4))} protein layer</li>
-        <li data-at="25"><b>Muscular dystrophies</b>strongest in the ${lc(F.topLayer(9))} protein layer</li>
+        <li data-at="1.2"><b>Patients</b>grouped by mechanism, not by broad symptoms</li>
+        <li data-at="3.5"><b>Drugs</b>pathways to target, and drugs to repurpose</li>
+        <li data-at="6"><b>Rare and common</b>the links between rare and common forms of a disease</li>
       </ul>
-      <p class="credits" data-at="30">Z-scores computed in this map over the protein layers: the largest linked group of a disease's known genes against ${fmt(D.walk.runs)} random gene sets with the same numbers of links.</p>`,
-    endo: `<h2 data-at="0.6">Endotypes</h2>
-      <p data-at="1.2">Inside a module, genes that do the same job sit together. Grouping them by the functions around them (Gene Ontology terms) splits each module into endotypes.</p>
-      <p data-at="12">Congenital myopathies fall into ${F.cm.endo} endotypes, among them ${cmEndo.join('; ')}.</p>
-      <p data-at="26" class="amber">Across the ${F.groups} groups: ${F.endotypes} endotypes, candidates for shared mechanisms.</p>
-      <p class="note" data-at="32">Endotypes are numbered within each group; names are the most typical GO process of their genes.</p>`,
-    overlap: `<h2 data-at="0.6">Heart and muscle</h2>
-      <p data-at="1.2">Congenital myopathies and inherited cardiomyopathies often come together. Do they share machinery?</p>
-      <p data-at="8">Side by side: ${F.cm.n} genes for congenital myopathies, ${F.hc.n} for cardiomyopathies, ${F.shared} in both. The endotypes that share the most genes: ${shared.join('; ')}.</p>
-      <p data-at="22">The overlap shows in shared symptoms, in the co-expression of heart atrium and ventricle, and in the proteins of skeletal muscle.</p>
-      <p data-at="34" class="amber">Their known genes alone share ${fmt(F.seedLinks)} protein links in this map. With the genes the walk found, ${fmt(F.moduleLinks)} links tie them together: without the walk, much of what they share is missed.</p>
-      <p class="credits" data-at="46">Congenital myopathies (endotypes CM 1-${F.cm.endo}) and hereditary cardiomyopathies (HC); layers after netviz-iactive by Philipp Friedrich.</p>`,
-    stress: `<h2 data-at="0.6">A stress test</h2>
-      <p data-at="1.2">How much does the result hang on any one layer? Layers were removed at random, again and again: 10,000 networks for every number of removed layers, 680,000 in all.</p>
-      <p data-at="14">About 45 hours on MareNostrum 5 at the Barcelona Supercomputing Center, in jobs of 25 nodes with 112 cores each.</p>
-      <p data-at="22" class="amber">The modules keep their originally detected genes until most layers are gone; with fewer layers the walk has to search wider. The full multiplex finds the smallest sets of genes that define the disease modules (the authors' result; the picture is illustrative).</p>
-      <p class="credits" data-at="28">With Alfonso Valencia and Davide Cirillo, Barcelona Supercomputing Center.</p>`,
-    next: `<h2 data-at="0.6">What comes next</h2>
-      <p data-at="1.2">Genes shared by the endotypes of different diseases are candidates: for diagnosis, and for drugs that might be repurposed from one disease to another.</p>
-      <p data-at="9">The same approach now turns to inborn errors of immunity (Pauline Staiber).</p>
-      <p data-at="14">Iker Núñez-Carpintero and Philipp Friedrich, with Julia Guthrie and Jörg Menche: Guthrie Lab and Menche Lab, Ludwig Boltzmann Institute for Network Medicine, Vienna.</p>
-      <p data-at="20"><button class="btn primary" id="btnGoExplore" type="button">Explore the network</button></p>
-      <p class="credits" data-at="22">ISMB 2026 (NetBio). Earlier multilayer work: Núñez-Carpintero et al., Nature Communications (2024). Data: Gene Table of Neuromuscular Disorders 2024, IID, GTEx, HPO, MPO, Reactome, NeDRex.</p>`,
+      <p data-at="9">EndotypY is open source, a Python package installed with pip: github.com/menchelab/EndotypY.</p>
+      <p data-at="13">Chloé Bûcheron, Iker Núñez-Carpintero, Enes Sakalli, Mathilde Meyenberg, Julia Guthrie and Jörg Menche: Ludwig Boltzmann Institute for Network Medicine, University of Vienna.</p>
+      <p data-at="17"><button class="btn primary" id="btnGoExplore" type="button">Explore the endotypes</button></p>
+      <p class="credits" data-at="19">Endotypes: the authors' result. The steps before them: re-run with the package's defaults to show the method. ISMB 2026 poster. Rare and common autoimmunity: Guthrie et al., Science Advances (2023).</p>`,
   };
   const story = $('#story');
   story.innerHTML = CH.map(c => `<section class="ch" data-ch="${c.key}">${html[c.key]}</section>`).join('');
@@ -207,127 +242,117 @@ function buildStory() {
     if (nudge) for (let i = 0; i < nudge.length; i++) v[i] += nudge[i] || 0;
     wp.push([t, ...v, ease, k]);
   };
-  const CMg = 6, HCg = 12; // tower_group values: group index + 1
   let a, b;
-  // Intro: the tower rises, layer by layer, every disease group in its colour
+  // Intro: the motor unit builds, its impulses running
   a = C.title.a; b = C.title.b;
-  show('tower', 0.2, 2.5, b - 1.5, b + 0.5);
-  ramp('tower_rise', 0.5, 10, 0, 1);
-  cam(a, 'tower', 'default', -40, null, [0, -6, 0.8]);
-  cam(b - 1, 'tower', 'default', 25, 'spin');
-  // The motor unit: nerve, junction, muscle, sarcomere, and the diseases on it
-  a = C.motor.a; b = C.motor.b;
-  show('motor', a - 0.5, a + 1.5, b - 1.5, b + 0.5);
-  ramp('motor_build', a, a + 6, 0, 1);
-  ramp('motor_signal', a + 7, a + 9, 0, 1); ramp('motor_signal', a + 30, a + 32, 1, 0);
-  ramp('motor_open', a + 17, a + 21, 0, 1);
-  ramp('motor_contract', a + 23, a + 26, 0, 1); ramp('motor_contract', a + 30, a + 32, 1, 0);
-  ramp('motor_groups', a + 31, a + 34, 0, 1);
-  // the heart lights as the camera reaches it
-  [[a + 37, 1], [a + 39, 2], [a + 40.5, 3], [a + 42, 4], [a + 44, 5]].reduce((v0, [t, v]) => { jump('motor_site', t, v0, v); return v; }, 0);
-  jump('motor_site', b - 3, 5, 0);
-  ramp('motor_heart', a + 40, a + 44, 0, 1);
-  cam(a + 1, 'motor', 'default', -20);
-  cam(a + 6, 'motor', 'cord');
-  cam(a + 11, 'motor', 'junction');
-  cam(a + 16, 'motor', 'fibre');
-  // the magnified sarcomere from just outside its lattice: down the filaments, then from the side
-  cam(a + 22, 'motor', 'sarcomere', 0, null, [0, 8.66, 0.49]);
-  cam(a + 29, 'motor', 'sarcomere', 22, 'spin', [0, 16.66, 0.24]);
-  cam(a + 34, 'motor', 'default', -10);
-  cam(a + 44, 'motor', 'heart');
-  cam(b - 1, 'motor', 'default', 15, 'spin');
-  // Same weakness, different causes: the genes of all groups, seen from above
-  a = C.why.a; b = C.why.b;
-  show('tower', a - 0.5, a + 2);
-  cam(a + 1, 'tower', 'top', -10);
-  cam(b, 'tower', 'top', 30, 'spin');
-  // The layers: the categories come up, the camera rises along the tower
-  a = C.tower.a; b = C.tower.b;
-  ramp('tower_cats', a + 2, a + 5, 0.4, 1);
-  cam(a + 3, 'tower', 'side', -20);
-  cam(a + 14, 'tower', 'ppi', 0, 'spin');
-  cam(a + 24, 'tower', 'side', 15, 'spin', [0, 0, 0, 0, 0.5]);
-  cam(b - 1, 'tower', 'default', 30, 'spin');
-  ramp('tower_cats', b - 3, b, 1, 0.4);
-  // The walker: seeds of congenital myopathies, walkers, heat, the module grows
+  show('motor', 0.2, 2.5);
+  ramp('motor_build', 0.5, 8, 0, 1);
+  ramp('motor_signal', 5, 7, 0, 1);
+  cam(a, 'motor', 'default', -35, null, [0, -4, 0.6]);
+  cam(b - 1, 'motor', 'default', 5, 'spin');
+  // Muscles that tire: the junctions glow, the camera dives into one, and the junction close up fires, then tires
+  a = C.tired.a; b = C.tired.b;
+  ramp('motor_groups', a, a + 2, 0, 1);
+  jump('motor_site', a + 1, 0, 3);
+  // the dive: into one end plate as the motor unit fades out, then the junction close up comes in
+  ramp('motor_a', a + 7, a + 8.6, 1, 0);
+  cam(a + 1, 'motor', 'default', 10);
+  cam(a + 5.5, 'motor', 'junction');
+  cam(a + 8.6, 'motor', 'junction', 0, null, [0, 0, -0.28]);
+  show('syn', a + 8.7, a + 10.5, C.cloud.a - 0.5, C.cloud.a + 1.5);
+  ramp('syn_build', a + 8.7, a + 12, 0, 1);
+  ramp('syn_fire', a + 11, a + 12.5, 0, 1);
+  ramp('syn_tired', a + 17, a + 22, 0, 1);
+  cam(a + 8.7, 'syn', 'wide');
+  cam(a + 14, 'syn', 'default');
+  cam(b - 0.5, 'syn', 'default', 20, 'spin');
+  // The genes: each seed lights where it acts, the camera visiting the nerve ending, the gap, the receptors, the fibre
+  a = C.genes.a; b = C.genes.b;
+  ramp('syn_tired', a, a + 2, 1, 0);
+  ramp('syn_fire', a + 1, a + 3, 1, 0);
+  ramp('syn_genes', a + 2, a + 5, 0, 1);
+  cam(a + 2, 'syn', 'default', 10);
+  cam(a + 7, 'syn', 'terminal');
+  cam(a + 12, 'syn', 'cleft');
+  cam(a + 16, 'syn', 'receptors');
+  cam(a + 21, 'syn', 'nucleus');
+  cam(a + 26, 'syn', 'default', -10);
+  cam(b - 1, 'syn', 'default', 15, 'spin');
+  ramp('syn_genes', b - 1.5, b + 0.5, 1, 0);
+  // The network: the cloud of proteins, the seeds, and their groups as the neighbourhoods grow
+  a = C.cloud.a; b = C.cloud.b;
+  show('net', a - 0.5, a + 1.5, C.hood.a + 16, C.hood.a + 18);
+  ramp('net_cloud', a, a + 6, 0, 1);
+  ramp('net_seeds', a + 9, a + 11, 0, 1);
+  // k = 1, then the neighbourhoods grow, holding where the text names the number of groups
+  // (k = 1 shows its label a little past 0; groups at k = 1 and 2 are the same here)
+  [[19, 1], [23, 10], [25, 20], [28, 50], [31, F.oneK || 75]].reduce((k0, [t, k]) => { const v = j => kAt(j) + (j === 1 ? 0.25 : 0); ramp('net_k', a + t - 2, a + t, k0 === null ? 0 : v(k0), v(k)); return k; }, null);
+  cam(a + 1.5, 'net', 'default', -30, null, [0, 0, 1.2]);
+  cam(a + 8, 'net', 'default', -5, 'spin');
+  cam(a + 13, 'net', 'core');
+  cam(b - 1, 'net', 'core', 50, 'spin');
+  // The walk: walkers with restart, the heat they leave, then the module pulls together
   a = C.walk.a; b = C.walk.b;
-  jump('tower_group', a, 0, CMg);
-  ramp('tower_seeds', a + 1, a + 3, 0, 1);
-  ramp('tower_walk', a + 8, a + 10, 0, 1); ramp('tower_walk', a + 36, a + 38, 1, 0);
-  ramp('tower_heat', a + 18, a + 30, 0, 1);
-  ramp('tower_module', a + 34, a + 46, 0, 1);
-  ramp('tower_heat', a + 44, a + 47, 1, 0);
-  cam(a + 1, 'tower', 'ppi', -25);
-  cam(a + 18, 'tower', 'ppi', 10, 'spin');
-  cam(a + 34, 'tower', 'default', 25);
-  cam(b - 1, 'tower', 'default', 45, 'spin');
-  // Different layers: each group's z-scores as bars up the tower
-  a = C.layers.a; b = C.layers.b;
-  ramp('tower_seeds', a, a + 2, 1, 0); ramp('tower_module', a, a + 2, 1, 0);
-  ramp('tower_z', a + 2, a + 4, 0, 1);
-  jump('tower_group', a + 3, CMg, 2); jump('tower_group', a + 15, 2, 5); jump('tower_group', a + 24, 5, 10);
-  ramp('tower_z', b - 2, b, 1, 0);
-  cam(a + 2, 'tower', 'ppi', 40);
-  cam(b - 1, 'tower', 'ppi', 80, 'spin');
-  // Endotypes: congenital myopathies in colour, then gathered on a grid
-  a = C.endo.a; b = C.endo.b;
-  jump('tower_group', a, 10, CMg);
-  ramp('tower_seeds', a + 1, a + 2, 0, 1); ramp('tower_module', a + 1, a + 3, 0, 1);
-  ramp('tower_endo', a + 2, a + 6, 0, 1);
-  ramp('tower_grid', a + 12, a + 18, 0, 1);
-  ramp('tower_grid', b - 3, b, 1, 0);
-  cam(a + 2, 'tower', 'default', 60);
-  cam(a + 12, 'tower', 'default', 75, 'spin');
-  cam(a + 18, 'tower', 'grid', 0);
-  cam(b - 1, 'tower', 'grid', 25, 'spin');
-  // Heart and muscle: two towers and what they share; seeds alone, then the module again
-  a = C.overlap.a; b = C.overlap.b;
-  ramp('tower_endo', a, a + 2, 1, 0);
-  ramp('tower_pair', a + 2, a + 7, 0, 1);
-  ramp('tower_seedonly', a + 34, a + 37, 0, 1); ramp('tower_seedonly', a + 44, a + 47, 1, 0);
-  ramp('tower_pair', b - 3, b, 1, 0);
-  cam(a + 3, 'tower', 'default', 0);
-  cam(a + 8, 'tower', 'pair', 0);
-  cam(a + 22, 'tower', 'pair', 20, 'spin');
-  cam(a + 34, 'tower', 'pair', -10);
-  cam(b - 1, 'tower', 'pair', 10, 'spin');
-  // A stress test: layers fall away, the module holds; then the supercomputer and its sea of towers
-  a = C.stress.a; b = C.stress.b;
-  ramp('tower_drop', a + 1, a + 12, 0, 0.85);
-  show('hpc', a + 12.5, a + 14.5, b - 1.5, b + 0.5);
-  ramp('tower_a', a + 12, a + 14, 1, 0);
-  ramp('hpc_racks', a + 13, a + 15, 0, 1);
-  ramp('hpc_field', a + 18, a + 23, 0, 1);
-  ramp('hpc_remove', a + 23, b - 2, 0, 0.9);
-  for (const n of ['tower_drop', 'tower_seeds', 'tower_module']) ramp(n, a + 14.5, a + 15.5, n === 'tower_drop' ? 0.85 : 1, 0);
-  jump('tower_group', a + 15, CMg, 0);
-  cam(a + 1, 'tower', 'default', 15);
-  cam(a + 12, 'tower', 'default', 45, 'spin');
-  // over the hall, then in along the cold aisle's centre line (so the camera never meets a rack), a slow walk down
-  // it, back out the same way, and up and out over the sea of towers
-  cam(a + 14, 'hpc', 'default');
-  cam(a + 16.5, 'hpc', 'aisle');
-  cam(a + 18, 'hpc', 'racks');
-  cam(a + 21, 'hpc', 'racks', 0, 'spin', [0, 0, 0, 0, 0, -0.24]);
-  cam(a + 23, 'hpc', 'aisle');
-  cam(a + 25.5, 'hpc', 'default', 20);
-  cam(a + 28, 'hpc', 'field');
-  cam(b - 1, 'hpc', 'field', 15, 'spin');
-  // What comes next: the whole tower once more, opened up around the viewer
+  ramp('net_k', a, a + 2, kAt(F.oneK || 75), ED.groups.length - 1);
+  ramp('net_walk', a + 2, a + 4, 0, 1); ramp('net_walk', a + 27, a + 29, 1, 0);
+  ramp('net_heat', a + 10, a + 20, 0, 1);
+  ramp('net_module', a + 23, a + 31, 0, 1);
+  cam(a + 1, 'net', 'core', 50);
+  cam(a + 21, 'net', 'core', 80, 'spin');
+  cam(a + 27, 'net', 'module');
+  cam(b - 1, 'net', 'module', 30, 'spin');
+  // Neighbourhoods: the module goes back into the cloud, one gene lights its neighbourhood; then the matrix fills
+  a = C.hood.a; b = C.hood.b;
+  ramp('net_module', a, a + 3, 1, 0);
+  ramp('net_heat', a + 1, a + 4, 1, 0);
+  ramp('net_seeds', a + 1, a + 4, 1, 0.4);
+  if (gi >= 0) { jump('net_gene', a + 2, -1, gi); ramp('net_hood', a + 4, a + 8, 0, 1); }
+  cam(a + 1, 'net', 'default', 30);
+  // close to the gene, in the cloud (the module back in it), from outside
+  const NA = GL.sets.net.api ? GL.sets.net.api() : null, gv = gi >= 0 && NA && NA.geneView ? NA.geneView(gi) : view('net', 'core');
+  wp.push([a + 6, ...gv, null, 'net']);
+  wp.push([a + 15, gv[0] + 30, ...gv.slice(1), 'spin', 'net']);
+  show('tree', a + 16, a + 18, C.endotypes.a + 45, C.endotypes.a + 47);
+  ramp('tree_matrix', a + 18, a + 30, 0, 1);
+  cam(a + 17.5, 'tree', 'matrix');
+  cam(b - 1, 'tree', 'matrix', 15, 'spin');
+  // The tree: grown from the leaves, tested from the root, then the genes by their tree distances
+  a = C.split.a; b = C.split.b;
+  ramp('tree_tree', a + 1, a + 9, 0, 1);
+  ramp('tree_test', a + 10, a + 22, 0, 1);
+  ramp('tree_mds', a + 28, a + 33, 0, 1);
+  cam(a + 1, 'tree', 'tree');
+  cam(a + 10, 'tree', 'default');
+  cam(a + 22, 'tree', 'default', 15, 'spin');
+  cam(a + 29, 'tree', 'mds');
+  cam(b - 1, 'tree', 'mds', 40, 'spin');
+  // Endotypes: the poster's endotype network, the four endotypes in turn, then each endotype flies to its place
+  a = C.endotypes.a; b = C.endotypes.b;
+  ramp('tree_mds', a, a + 3, 1, 0);
+  ramp('tree_meta', a + 1, a + 5, 0, 1);
+  four.reduce((f0, id, j) => { jump('tree_focus', a + 9 + 10 * j - (j === 3 ? 1 : 0), f0, id + 1); return id + 1; }, 0);
+  jump('tree_focus', a + 45, four.length ? four[four.length - 1] + 1 : 0, 0);
+  cam(a + 2, 'tree', 'meta');
+  cam(a + 8, 'tree', 'meta', 10, 'spin');
+  // each endotype from its own view (the set's cam e<id>), turning a little while it is told
+  four.forEach((id, j) => { const t = a + 9.5 + 10 * j - (j === 3 ? 1 : 0); cam(t + 1, 'tree', 'e' + id); cam(t + 7.5, 'tree', 'e' + id, 6, 'spin'); });
+  cam(a + 44, 'tree', 'meta');
+  show('syn', a + 45, a + 47);
+  ramp('syn_endo', a + 47, a + 53, 0, 1);
+  four.reduce((p0, id, j) => { jump('syn_place', a + 50 + 2.6 * j, p0, id + 1); return id + 1; }, 0);
+  cam(a + 46.5, 'syn', 'wide');
+  cam(a + 50, 'syn', 'default');
+  cam(b, 'syn', 'default', 25, 'spin');
+  // What for: the junction with every endotype in its place
   a = C.next.a; b = C.next.b;
-  ramp('tower_a', a - 1, a + 1, 0, 1);
-  ramp('tower_room', a + 2, a + 8, 0, 1);
-  ramp('tower_cats', a + 2, a + 6, 0.4, 1);
-  cam(a, 'tower', 'default', 10, null, [0, 0, 0.6]);
-  cam(a + 10, 'tower', 'default', 60, 'spin', [0, 0, 0.3]);
-  cam(b, 'tower', 'default', 140, 'spin', [0, 0, 0.3]);
+  jump('syn_place', a + 3, four.length ? four[four.length - 1] + 1 : 0, 0);
+  cam(a + 5, 'syn', 'wide', 20);
+  cam(b, 'syn', 'wide', 60, 'spin');
   for (const n in TR) TR[n].sort((x, y) => x[0] - y[0]);
   buildCamera(wp);
 
   // --------------------------------------------------------- story labels
-  label('tower', () => T.anchors.group(5), `<b>Congenital myopathies</b>${F.cm.seeds} known genes`, C.walk.a + 2, C.walk.a + 16, 'cyn');
-  label('tower', 'pairMid', `<b>In both</b>${F.shared} genes`, C.overlap.a + 10, C.overlap.a + 30, 'amb');
+  label('motor', 'junction', '<b>Neuromuscular junction</b>where nerve meets muscle', C.tired.a + 2, C.tired.a + 8.5, 'cyn');
 }
 // camera waypoints: [t, az, el, dist, tx, ty, tz, ease, set]; 'spin' segments turn at a steady pace.
 // When the story hands over from one set to another, the new set is turned about its

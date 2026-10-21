@@ -22,12 +22,14 @@ const _xa = new THREE.Vector3(), _xb = new THREE.Vector3(), _xc = new THREE.Vect
 // target sits in front of you, and closer views make the scene bigger.
 const _xX = new THREE.Vector3(1, 0, 0), _xY = new THREE.Vector3(0, 1, 0);
 function xrPlace(v) {
-  // standing inside the tower: life size, its middle where you stand, turned by the thumbstick
-  if (XR.room && APP.mode === 'explore' && X.scene === 'tower') {
-    XR.R = 1; XR.hitR = 1.3; XR.target.set(0, 0, 0);
+  // standing in the gap: the synapse life size around you (gapScale), the cleft at your chest, turned by the thumbstick
+  if (XR.room && APP.mode === 'explore' && X.scene === 'syn') {
+    const g = anchorOf('syn', 'gap');
+    XR.R = gapScale(); XR.hitR = 1.2 / XR.R; XR.target.set(g[0], g[1], g[2]);
     GL.world.quaternion.setFromAxisAngle(_xY, -v[0] * D2R);
-    GL.world.scale.setScalar(1);
-    GL.world.position.set(0, -0.2, 0);
+    GL.world.scale.setScalar(XR.R);
+    _xb.copy(XR.target).applyQuaternion(GL.world.quaternion).multiplyScalar(XR.R);
+    GL.world.position.set(-_xb.x, -0.35 - _xb.y, -_xb.z);   // the rig is at your eyes: the cleft 35 cm below them
     return;
   }
   const d = Math.max(v[2], 0.05);
@@ -108,25 +110,26 @@ function placeLabelXR(L, alpha, S) {
   const hm = 0.021 / XR.R;
   sp.scale.set(hm * sp.userData.aspect, hm, 1);
 }
+// the gene or endotype a controller points at, labelled where the ray meets it
 function xrTip(S) {
-  let i = -1;
-  if (APP.mode === 'explore') for (const c of XR.ctrls) if (c.hover && c.hover.kind === 'globe' && c.hover.i >= 0) { i = c.hover.i; break; }
-  if (i !== XR.tipI) {
-    XR.tipI = i;
+  let h = null;
+  if (APP.mode === 'explore') for (const c of XR.ctrls) if (c.hover && c.hover.kind === 'globe' && c.hover.pk) { h = c.hover; break; }
+  const id = h ? (h.pk.gene >= 0 ? 'g' + h.pk.gene : 'e' + h.pk.endo) + X.scene : '';
+  if (id !== XR.tipI) {
+    XR.tipI = id;
     if (XR.tip) dropSprite(XR.tip);
-    const g = i >= 0 ? ND.genes[i] : null;
-    XR.tip = g ? { set: 'tower', at: () => TW().anchors.gene(i), txt: [g.sym, groupsOf(i).map(k => ND.groups[k].short).slice(0, 2).join(', '), 'tip'] } : null;
+    XR.tip = h ? { set: X.scene, at: [0, 0, 0], txt: [...pickText(h.pk), 'tip'] } : null;
   }
-  if (XR.tip) placeLabelXR(XR.tip, 1, S);
+  if (XR.tip) { GL.sets[XR.tip.set].group.worldToLocal(_xp.copy(h.point)); XR.tip.at = [_xp.x, _xp.y, _xp.z]; placeLabelXR(XR.tip, 1, S); }
 }
 
 // ------------------------------------------------------ picking a gene --
-// The gene nearest a ray given in the world's own coordinates (explore mode, tower on show)
-const _pinv = new THREE.Matrix4(), _po = new THREE.Vector3(), _pd = new THREE.Vector3();
+// The gene or endotype a ray points at (explore mode, the network or the tree on show): { gene } or { endo }, or null
+const _prc = new THREE.Raycaster();
 function pickRay(o, d) {
-  if (APP.mode !== 'explore' || X.scene !== 'tower' || !TW().pick) return -1;
-  _pinv.copy(TW().group.matrix).invert();
-  return TW().pick(_po.copy(o).applyMatrix4(_pinv), _pd.copy(d).transformDirection(_pinv));
+  if (APP.mode !== 'explore' || !(X.scene === 'net' || X.scene === 'tree')) return null;
+  _prc.set(o, d);
+  return pickWith(_prc);
 }
 
 // ----------------------------------------------------------- controllers --
@@ -194,7 +197,7 @@ function xrPress(c) {
     if (!r) return;
     c.press = { kind: 'panel', P: h.P, id: r.id, r };
     if (r.drag) { r.drag(h.x, h.y); buzz(c, 0.2, 12); }
-  } else { c.press = Object.assign(startDrag(c), { kind: 'globe', i: h.i }); orbit.held = true; }
+  } else { c.press = Object.assign(startDrag(c), { kind: 'globe', i: h.i, pk: h.pk }); orbit.held = true; }
 }
 function xrRelease(c) {
   const p = c.press;
@@ -208,14 +211,14 @@ function xrRelease(c) {
       const r = h.P.at(h.x, h.y);
       if (r && r.id === p.id && r.fn) { buzz(c); r.fn(); }
     }
-  } else if (!p.moved && p.i >= 0) { buzz(c); xrClickGene(p.i); }
+  } else if (!p.moved && p.pk) { buzz(c); xrClickPick(p.pk); }
 }
 function xrGrab(c, on) {
   c.grab = null;
   const h = c.hover;
   if (!on || !h) return;
   if (XR.stories || HOST.anchor.locked(h.kind)) return; // the Stories screen stays put, and so does an anchored place (in a shared room: only at its station, unless locked)
-  if (h.kind !== 'panel' && XR.room && APP.mode === 'explore' && X.scene === 'tower') return;   // standing inside the tower: life size round you
+  if (h.kind !== 'panel' && XR.room && APP.mode === 'explore' && X.scene === 'syn') return;   // standing in the gap: life size round you
   // the scene is held by its placement point (where the view's target sits), so a still hand moves nothing
   const p0 = h.kind === 'panel' ? XR.panelGroup.getWorldPosition(new THREE.Vector3()) : GL.rig.localToWorld(XR.globeBase.clone().add(XR.globeOff));
   c.grab = { target: h.kind === 'panel' ? 'panel' : 'globe', q0: new THREE.Quaternion().setFromRotationMatrix(c.g.matrix).invert(),
@@ -277,12 +280,13 @@ function xrPoint(c, dt) {
     _xc.copy(oL).sub(XR.target);
     const b = _xc.dot(dL), disc = b * b - (_xc.lengthSq() - XR.hitR * XR.hitR);
     const t = disc > 0 ? -b - Math.sqrt(disc) : -1;
-    const i = pickRay(oL, dL);
-    if (t > 0 || i >= 0) {
-      if (i >= 0) { const q = TW().anchors.gene(i); _xp.set(q[0], q[1], q[2]).applyMatrix4(TW().group.matrix); }
-      else _xp.copy(dL).multiplyScalar(t).add(oL);
-      _xp.applyMatrix4(GL.world.matrixWorld);
-      hit = { kind: 'globe', i, point: _xp.clone() };
+    const pk = pickRay(c.o, c.d);
+    if (t > 0 || pk) {
+      // a gene or endotype is marked where it is; else the ball's surface
+      const q = pk ? pickPos(pk) : null;
+      if (q) _xp.set(q[0], q[1], q[2]).applyMatrix4(GL.sets[X.scene].group.matrixWorld);
+      else _xp.copy(dL).multiplyScalar(t > 0 ? t : Math.max(0, _xc.copy(XR.target).sub(oL).dot(dL))).add(oL).applyMatrix4(GL.world.matrixWorld);
+      hit = { kind: 'globe', i: pk && pk.gene >= 0 ? pk.gene : -1, pk, point: _xp.clone() };
       dist = c.o.distanceTo(_xp);
     }
   }
@@ -377,19 +381,27 @@ function xrUpdate(S) {
 }
 
 // ---------------------------------------------------------- explore glue --
-function xrClickGene(i) {
+function xrClickPick(pk) {
   if (APP.mode !== 'explore') return;
   XR.kbd.open = false;
-  $('#q').value = ND.genes[i].sym; showTab('genes'); selectGene(i, false);
+  choosePick(pk);
 }
 function xrPickSuggestion(i) {
   XR.kbd.open = false; XR.kbd.q = '';
-  $('#q').value = ND.genes[i].sym; showTab('genes'); selectGene(i);
+  $('#q').value = ED.genes[i].sym; showTab('genes'); selectGene(i);
 }
-// Stand inside: in the headset the tower is shown at about life size around you, centred where you stand
+// Stand in the gap: in the headset the synapse is shown around you, the cleft at your chest
 function xrRoom(on) { XR.room = on; }
+// the gap's scale (metres per unit): the nerve ending's vesicles about 0.8 m above the cleft (over your head) and the
+// receptor-covered folds about 0.45 m below it (at your hips), so the muscle is under them
+function gapScale() {
+  if (XR.gapR) return XR.gapR;
+  const g = anchorOf('syn', 'gap')[1], up = anchorOf('syn', 'vesicles')[1] - g, down = g - anchorOf('syn', 'folds')[1];
+  const k = [up > 0.01 ? 0.8 / up : 0, down > 0.01 ? 0.45 / down : 0].filter(x => x > 0);
+  return (XR.gapR = k.length ? k.reduce((a, x) => a + x, 0) / k.length : 2);
+}
 // how close the headset may zoom: as close as the scene's own closest view, else 0.9 (closer, the scene would surround your head)
-const xrMinD = () => (XR.room ? 0.05 : Math.min(0.9, ...Object.values(GL.sets[X.scene].cam || {}).map(v => +v[2] || 9)));
+const xrMinD = () => (XR.room && X.scene === 'syn' ? 0.05 : Math.min(0.9, ...Object.values(GL.sets[X.scene].cam || {}).map(v => +v[2] || 9)));
 function xrZoom(f) {
   const c = orbit.cur;
   orbit.from = c.slice();
@@ -441,7 +453,7 @@ function xrEnterScene() {
   GL.stars.material.size = 2.2;
   for (const P of XR.panels) { P.mesh.visible = true; P.last = ''; }
   XR.kbd.open = false;
-  XR.room = !!X.room;
+  XR.room = !!X.gap;
   for (const L of [...ST.labels, ...LBL.sets, ...LBL.extra]) L.o = -1;
   // every headset session starts the story from the top; entered from the start screen, it shows the Stories menu first
   const fromStart = HOST.picking || HOST.landingVR;

@@ -1,5 +1,5 @@
 // ------------------------------------------------------------- narration --
-// Optional voice-over: put an MP3 at audio/narration-nmd.mp3.
+// Optional voice-over: put an MP3 at audio/narration-endo.mp3.
 // Second 0 of the recording plays at second 0 of the story; the story clock
 // follows the audio, so seeking, pausing and chapter jumps stay in sync.
 // Without the file the story runs silently. The sound engine is the shell's
@@ -7,7 +7,7 @@
 // and kept running across stories and headset sessions.
 let AUD = null;
 function audioInit() {
-  AUD = HOST.audio.narration('audio/narration-nmd.mp3', {
+  AUD = HOST.audio.narration('audio/narration-endo.mp3', {
     // a recording longer than the story stretches the timeline
     ready(d) {
       if (d + 1 <= T_END) return;
@@ -45,7 +45,7 @@ const APP = {
     // carry on from what the story shows: its look, its camera, its scene
     const ts = storyT(this.t), S = storyState(ts);
     for (const n in DEF) XS[n] = S[n];
-    let best = 'tower', ba = 0;
+    let best = 'tree', ba = 0;
     for (const k of SET_ORDER) if (S[k + '_a'] > ba + 0.01) { ba = S[k + '_a']; best = k; }
     // the story's view, taken back into the set's own frame (explore shows sets unturned)
     const v = storyCam(ts).slice(), r = -setYaw(best, ts) * D2R, x = v[3], z = v[5];
@@ -67,9 +67,15 @@ const APP = {
       }
       X.ctl[best][ct.key] = bo;
     }
-    // the story's disease group carries over to the panels
-    if (best === 'tower') { X.group = Math.round(S.tower_group || 0) - 1; X.colour = S.tower_endo > 0.5 ? 'endo' : 'group'; X.grid = S.tower_grid > 0.5; }
+    // the story's endotype or gene carries over to the panels
+    X.endo = -1; X.gene = -1;
+    if (best === 'tree' && S.tree_focus > 0.5) X.endo = Math.round(S.tree_focus) - 1;
+    if (best === 'syn' && S.syn_place > 0.5) X.endo = Math.round(S.syn_place) - 1;
+    if (best === 'net' && S.net_gene >= 0 && S.net_hood > 0.5) X.gene = Math.round(S.net_gene);
+    if (X.endo >= ED.endo.length) X.endo = -1;
+    if (X.gene >= ED.M) X.gene = -1;
     ST.labels.forEach(L => { L.el.style.opacity = 0; L.o = 0; });
+    if (X.gene >= 0) $('#q').value = ED.genes[X.gene].sym;
     pushState(); renderAll();
     $('#panel').scrollTop = 0;
   },
@@ -77,9 +83,9 @@ const APP = {
     this.mode = 'story';
     document.body.classList.remove('exploring');
     $('#btnMode').textContent = 'Explore now';
-    // the story shows the tower as it tells it: no picked gene, endotypes, knocked-out layers or walks
-    if (X.room) setRoom(false);
-    X.group = -1; X.gene = -1; X.pick = []; X.off = new Set(); X.walk = null; X.err = ''; X.showZ = false; pushState();
+    // the story shows its scenes as it tells them: no picked endotype or gene, nobody standing in the gap
+    if (X.gap) setGap(false);
+    X.endo = -1; X.gene = -1; NEXT.length = 0; pushState();
     LBL.extra.forEach(L => { L.el.remove(); dropSprite(L); }); LBL.extra = [];
     $('#tip').style.opacity = 0;
     this.t = t || 0; this.playing = true; curCh = null;
@@ -116,6 +122,8 @@ function frame(now, xrFrame) {
   GL.camera.updateMatrixWorld();
   updateLight(xr);
   updateSets(S, tSet, dt, APP.mode === 'story');
+  // what explore mode asked to do once the sets show its pick (a flight to a gene)
+  if (NEXT.length) { const fs = NEXT.splice(0); if (APP.mode === 'explore') for (const f of fs) f(); }
   if (xr) xrUpdate(S);
   GL.renderer.render(GL.scene, GL.camera);
   if (!xr) {
@@ -170,25 +178,31 @@ function init() {
   if (hp.has('t')) { APP.t = clamp(parseFloat(hp.get('t')) || 0, 0, T_END - 0.01); APP.playing = false; }
   if (hp.has('explore')) {
     APP.enterExplore();
-    // #nmd&explore&scene=motor&view=heart (any control of a scene by its key), &group=5 or &group=Cardiomyopathies,
-    // &q=TTN, &pick=5:13,11:7 (group:endotype), &walk=5 (a group, or genes: &walk=TTN,DES), &off=10 (layers knocked out)
+    // #endo&explore&scene=syn&view=cleft (any control of a scene by its key), &endo=2, &gene=COLQ (or &q=...),
+    // &k=20 (the Method tab's seed groups at that k), &step=1..5 or a step's name, &tab=genes, &inside (stand in the gap)
+    const tv = optKey('tree', 'view', /meta|endo/i);
     if (hp.get('scene')) openScene(hp.get('scene'), false);
+    else if (!hp.has('t')) { openScene('tree', false); if (tv) (X.ctl.tree = X.ctl.tree || {}).view = tv; }   // straight in: the endotype network
     orbit.cur = view(X.scene, 'default'); orbit.to = null;
     // controls after the default view, so a control's own view wins
     const s = GL.sets[X.scene];
     for (const c of s.controls || []) if (hp.get(c.key)) setCtl(X.scene, c.key, hp.get(c.key));
-    const grp = v => { const n = parseInt(v, 10); if (!isNaN(n)) return n >= 0 && n < ND.groups.length ? n : -1; return ND.groups.findIndex(G => [G.name, G.short].some(x => x.toLowerCase().startsWith(String(v).toLowerCase()))); };
-    if (hp.get('group') && grp(hp.get('group')) >= 0) selectGroup(grp(hp.get('group')));
-    if (hp.get('pick')) { for (const pc of hp.get('pick').split(',')) { const [g, c] = pc.split(':').map(Number); if (ND.groups[g] && endoOf(g, c).n) togglePick(g, c); } showTab('endo'); }
-    if (hp.get('off')) knockRandom(parseInt(hp.get('off'), 10) || 0);
-    if (hp.get('walk')) {
-      const w = hp.get('walk'), g = grp(w);
-      if (/,/.test(w) || g < 0) { X.mine = w.split(',').map(findGene).filter(i => i >= 0); X.walkFrom = 'mine'; runWalk('mine'); } else { X.walkFrom = g; runWalk(g); }
-      showTab('walk');
+    if (!hp.get('scene') && !hp.has('t') && tv && camFor('tree', tv)) { orbit.cur = view('tree', camFor('tree', tv)); orbit.to = null; }
+    // (the story's own key is the hash's first word, also 'endo': the endotype is the 'endo' with a value)
+    const ev = hp.getAll('endo').filter(Boolean).pop();
+    if (ev) {
+      const v = ev, n = parseInt(v, 10), id = !isNaN(n) ? n : ED.endo.findIndex(e => e.name.toLowerCase().startsWith(v.toLowerCase()));
+      if (id >= 0 && id < ED.endo.length) { showTab('endo'); selectEndo(id, false); flyToEndo(); }
     }
-    if (hp.get('tab')) showTab(hp.get('tab'));
+    if (hp.get('gene')) { const i = findGene(hp.get('gene')); if (i >= 0) { showTab('genes'); $('#q').value = ED.genes[i].sym; selectGene(i); } }
+    if (hp.get('k')) { const j = ED.groups.findIndex(g => g.k === parseInt(hp.get('k'), 10)); if (j >= 0) { setK(j); X.step = 0; showTab('method'); showStep(0); } }
+    if (hp.get('step')) {
+      const v = hp.get('step'), n = parseInt(v, 10), j = !isNaN(n) ? n - 1 : METHOD.findIndex(m => m[0] === v.toLowerCase() || m[1].toLowerCase() === v.toLowerCase());
+      if (j >= 0 && j < METHOD.length) { X.step = j; showTab('method'); showStep(j); }
+    }
+    if (hp.get('tab') && TABS.some(t => t[0] === hp.get('tab'))) showTab(hp.get('tab'));
     if (hp.get('q')) { $('#q').value = hp.get('q'); runQuery(hp.get('q')); }
-    if (hp.has('inside')) { needTower(); setRoom(true); }
+    if (hp.has('inside')) setGap(true);
     if (hp.has('now')) { Object.assign(XS, exploreTargets()); orbit.cur = orbit.to || orbit.cur; orbit.to = null; }
   }
   GL.renderer.setAnimationLoop(frame); // also drives the headset's frame loop
@@ -202,8 +216,7 @@ return {
   inputs: () => XR.ctrls.map(c => c.src),
   xrPose: () => (XR.on ? { rp: GL.rig.position.clone(), rq: GL.rig.quaternion.clone(), off: XR.globeOff.clone(), s: XR.size, held: XR.ctrls.map(c => (c.grab ? c.grab.target : '')).join(' '),
     pp: XR.panelGroup.position.clone(), pr: XR.panelGroup.rotation.y } : null),
-  // shared rooms (shared.js): the clock is APP's, the shared state the explore panes (a walk is state: it comes out
-  // the same everywhere), so there are no effects
+  // shared rooms (shared.js): the clock is APP's, the shared state the explore panes, and there are no effects
   collab: {
     APP, scene: () => GL.scene, state: collabState, apply: collabApply, view: collabView, setView: collabSetView,
     hover: i => { const c = XR.ctrls[i]; return c && c.hover ? c.ray.scale.z : 0; },
