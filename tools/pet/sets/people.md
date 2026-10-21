@@ -108,8 +108,9 @@ first three profiles; in dyslipidaemia no node stands out (fat's z-score 1.64).
 | `people_ratio` | 0..1, 1 | the ratio columns rise (a wave from the back-left corner) |
 | `people_thresh` | 0..1, 1 | the threshold plane rises to ln(theta); columns above it light up |
 | `people_one` | 0..1, 1 | lit columns fly up and become the ring's directed links; the bars move to the left |
-| `people_metrics` | 0..1, 1 | Clearance (0 to 0.45), Heterogeneity (0.25 to 0.7), the index (0.5 to 0.95) in turn |
+| `people_metrics` | 0..1, 1 | Clearance (0 to 0.45), Heterogeneity (0.25 to 0.7), the index (0.5 to 0.95) in turn; the field dims to 0.3 meanwhile |
 | `people_profile` | 0..3, 0 | 0 healthy, 1 cancer, 2 cancer + dyslipidaemia, 3 dyslipidaemia; fractions blend uptakes |
+| `people_skip` | 0/1, 0 | 1: a `people_profile` between 1 and 3 crossfades cancer and dyslipidaemia directly, never via 2 (the story's step) |
 | `people_custom` | 0..1, 0 | 1: the custom uptakes below instead of the profile (blends in between) |
 | `people_u0` .. `people_u6` | 0.1..5, the healthy profile | custom mean SUVs in `single.organs` order |
 | `people_theta` | 1.01..10, 2 | the threshold ratio (explore offers 1.1 to 3) |
@@ -125,7 +126,7 @@ With every param at its default the set shows the whole one-scan part (healthy p
 Suggested keyframes (the engine's chapters `one` 218-258 and `people` 258-305 already do this):
 - one: `people_bars` 0 -> 1 over 3 s; `people_ratio` 0 -> 1 over 4 s; `people_thresh` 0 -> 1 over 3 s; `people_one`
   0 -> 1 over 5 s; `people_metrics` 0 -> 1 over 4 s; then `people_profile` 0, 1, 1, 3 (healthy -> cancer ->
-  dyslipidaemia, through cancer + dyslipidaemia) so the gauges and the index move. Cams `one` -> `field` -> `one` ->
+  dyslipidaemia, with `people_skip` 1 so it never passes cancer + dyslipidaemia) so the gauges and the index move. Cams `one` -> `field` -> `one` ->
   `metrics`.
 - people: `people_map` 0 -> 1 over 5 s (the one-scan params may ramp to 0 meanwhile or stay: either works);
   `people_mdi` 0 -> 1 over 5 s; `people_group` 1, 2, 3, 4 in turn (2 to 3 s each), back to 0; `people_km` 0 -> 1 over
@@ -204,7 +205,8 @@ edge, and the rows' labels on the strip just fit; at 1.3 : 1 the engine keeps la
 - View: One scan (`one`), Ratios (`field`), People (`map`), Index (`strip`), Survival (`km`), Immunotherapy (`auc`).
   One scan: everything of the one-scan part on; Ratios: bars, field and plane, no network or dials; People: the map;
   Index: the strip; Survival and Immunotherapy: the strip with that panel. `people_follow` stays 0 in explore.
-- Profile: Healthy, Cancer, Cancer + dyslipidaemia, Dyslipidaemia (`people_profile` 0..3).
+- Profile: Healthy, Cancer, Cancer + dyslipidaemia, Dyslipidaemia (`people_profile` 0..3); offered in One scan and Ratios
+  only (`when`: the other views show no profile).
 
 The engine sets `people_custom`, `people_u0..6`, `people_theta` and `people_group` from its One scan and People tabs.
 

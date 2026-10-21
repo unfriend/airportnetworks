@@ -7,12 +7,15 @@ const SCENES = [
   ['body', 'Body', 'A whole-body PET scan: the tracer arriving with the blood, settling where cells use sugar and leaving in the urine (the PET body of the tour).'],
   ['organs', 'Organs', `The paper's organs in the scan: their outlines, their uptakes, the matrix of ${fmt(FACTS.scans)} scans (stand-in values), a partial correlation, the networks and how their strength is spread.`],
   ['people', 'One scan and people', 'The poster\'s next step: one network per scan, its two measures and the index; then the people on it, survival and the immunotherapy test. Illustrative maths; the dots are stand-ins.'],
-  ['liver', 'Liver', 'An organ is a network too: an illustrative liver in a few thousand patches, linked where their uptakes differ by more than a threshold; the best connected glow.'],
+  ['liver', 'Liver', 'An organ is a network too: an illustrative liver in a few thousand patches, linked where one patch\'s uptake is more than a set number of times another\'s (the poster\'s rule); the best connected glow.'],
 ];
 const TABS = [['networks', 'Networks'], ['organs', 'Organs'], ['one', 'One scan'], ['people', 'People'], ['scenes', 'Scenes']];
 // the tour's body set: its network and its disease scan are the tour's illustration, so this story leaves them out
 const HIDE_CTL = { body: ['view', 'state'] };
 const ctlsOf = k => (GL.sets[k].controls || []).filter(c => !(HIDE_CTL[k] || []).includes(c.key));
+// a control the panes offer now: a set may say when one applies (when(values)), so none sits there doing nothing; the
+// shared state keeps every control (ctlsOf) all the same
+const ctlShown = (k, c) => !c.when || c.when(Object.fromEntries(ctlsOf(k).map(x => [x.key, ctlValue(k, x)])));
 const S1 = PET_DATA.single, ONE_N = S1.organs.length;
 const X = { tab: 'networks', scene: 'organs', ctl: {}, t0: 0, turn: 'on', cmp: -1, netX: null, organ: null, u: null, theta: S1.theta, group: 0, life: false };
 const XS = {};
@@ -68,6 +71,8 @@ function exploreTargets(now = performance.now()) {
   if (k === 'organs') c.network = curNet();   // (a robustness test's network too: the set crossfades to it from the one before)
   if (s.explore) Object.assign(tg, s.explore(c));
   tg.body_net = 0; tg.body_state = 0;   // never the tour's own network or disease scan
+  // (a comparison with no network of its own: the network last shown dims, with the set's labels, and the strength chart goes)
+  if (k === 'organs' && noNet()) { tg.organs_a = 0.5; tg.organs_strength = 0; }
   if (k === 'organs') {
     tg.organs_focus = X.organ && PD.byId[X.organ] ? PD.byId[X.organ].i + 1 : 0;
     // the body dims under the network, the matrix and the scatter plot
@@ -102,8 +107,8 @@ function openScene(k, fly = true) {
   X.scene = k; X.t0 = performance.now();
   if (X.life && k !== 'scan') setLife(false);   // (life size is the scanner's)
   if (fly && !same) flyTo(view(k, X.life && k === 'scan' ? 'life' : viewCam(k) || 'default'));
-  renderScenes();
-  updateExtraLabels();
+  lifeCtl();
+  renderScenes(); renderNets(); updateExtraLabels();
 }
 function setCtl(k, key, v) {
   const c = ctlOf(k, key);
@@ -281,6 +286,13 @@ function strengths(id) {
   if (!s) { s = {}; for (const [a, b, w] of edgesOf(id)) { s[a] = (s[a] || 0) + Math.abs(w); s[b] = (s[b] || 0) + Math.abs(w); } }
   return Object.entries(s).filter(([k]) => PD.byId[k]).sort((a, b) => b[1] - a[1]);
 }
+// what a comparison measured, in plain words (Table 2's names)
+const WHAT_GLOSS = { Leukocytes: 'white blood cells', CRP: 'C-reactive protein, a marker of inflammation', Norepinephrine: 'a stress hormone',
+  'Tumour load': 'TLG, total tumour glycolysis: the tumours\' volume times their uptake', BMI: 'body mass index: weight for height' };
+// a comparison the paper drew no network for, picked while a network shows: that network dims (exploreTargets) and the
+// scene and the panes say so, so the picture never seems to show the comparison
+const noNet = () => { const r = PD.D.table2[X.cmp]; return !!r && X.scene === 'organs' && netView() && !rowNets(r).some(n => n && NET_ALL.includes(n)); };
+const NO_NET = 'The paper drew no network for this comparison: the network last shown is dimmed.';
 const sigWord = (sig, p) => `${esc(p)}${sig ? ' (significant)' : ' (no significant difference)'}`;
 const rowName = r => `${r.what} · ${r.cohort.replace(/, split at the median.*$/, '').replace(/, normalised to$/, '').replace(/^full cohort$/, 'all scans')}`;
 function buildExplore() {
@@ -317,8 +329,11 @@ function buildExplore() {
     if (!seg) return;
     if (seg.dataset.ctl === 'turn') setTurn(b.dataset.v); else setLife(b.dataset.v === 'on');
   });
+  lifeCtl();
   showTab(X.tab);
 }
+// the bottom bar's Life size: the scanner's only
+function lifeCtl() { const g = document.querySelector('#viewctl [data-ctl="life"]'); if (g && g.closest('.grp')) g.closest('.grp').style.display = X.scene === 'scan' ? '' : 'none'; }
 function setTurn(v) {
   X.turn = v;
   document.querySelectorAll('[data-ctl="turn"] button').forEach(b => b.setAttribute('aria-pressed', b.dataset.v === v));
@@ -351,9 +366,9 @@ function renderNets() {
     <p class="grp-h">Is it robust?</p><div class="chips">${rows('test')}</div>`;
   if (r) {
     const nets = rowNets(r);
-    h += `<h3>${esc(r.what)}</h3><p class="sub">${esc(r.cohort)}</p>
+    h += `<h3>${esc(r.what)}${WHAT_GLOSS[r.what] ? ` <small style="font-weight:400;font-size:15px;color:var(--muted)">${esc(WHAT_GLOSS[r.what])}</small>` : ''}</h3><p class="sub">${esc(r.cohort)}</p>
       <dl class="stats">${r.groups.map((g, i) => `<dt>${esc(g.label)}</dt><dd>${pct(g.density)}<small>density · disorder ${dis(g.disorder)} · ${g.n} scans${nets[i] && NET_ALL.includes(nets[i]) ? ` · <button type="button" data-act="cnet" data-v="${nets[i]}" style="border:0;background:none;padding:0;font:inherit;color:var(--cyan);text-decoration:underline;cursor:pointer">${nets[i] === id && X.scene === 'organs' ? 'on show' : 'show its network'}</button>` : ''}</small></dd>`).join('')}</dl>
-      <p class="sub">Density: ${sigWord(r.sigD, r.pD)}. Disorder: ${sigWord(r.sigO, r.pO)}.</p>`;
+      <p class="sub">Density: ${sigWord(r.sigD, r.pD)}. Disorder: ${sigWord(r.sigO, r.pO)}.</p>${r.note ? `<p class="note">${esc(r.note)}</p>` : ''}${noNet() ? `<p class="note">${esc(NO_NET)}</p>` : ''}`;
   }
   h += `<p class="grp-h">Networks drawn in the paper</p><div class="chips">${NET_IDS.map((n, i) => chip(`data-act="net" data-v="${n}"`, esc(NET_SHORT[i]) + (hasNet(n) ? '' : ' <small>(not read yet)</small>'), n === id && X.scene === 'organs')).join('')}</div>
     <h3 style="font-size:20px">${esc(netShort(id))}</h3><p class="sub">${esc(netTitle(id))}. ${esc(ni.text)} ${esc(ni.hubText || '')}</p>`;
@@ -362,10 +377,11 @@ function renderNets() {
     const mx = st[0][1] || 1;
     h += `<p class="grp-h">Strength of each organ: the sum of its links' weights</p><div class="bars">${st.map(([o, v]) => `<div class="bar${(ni.hubs || []).includes(o) ? ' hl' : ''}"><span class="v">${v.toFixed(1)}</span><div class="fill" style="height:${(100 * v / mx).toFixed(0)}%;background:${organCol(o)}${(ni.hubs || []).includes(o) ? ';box-shadow:0 0 0 2px #ffb020' : ''}"></div><span class="k" title="${esc(organName(o))}">${iconImg(o, 18).replace('margin-right:6px', 'margin:2px 0 0')}</span></div>`).join('')}</div>`;
   }
-  h += `<p class="grp-h">Protein networks (Table 3: tissues of ${fmt(FACTS.gtex)} people)</p>
+  h += `<p class="grp-h">Gene-activity networks (Table 3, GTEx: tissues of ${fmt(FACTS.gtex)} people)</p>
     <dl class="stats">${PD.D.table3.filter(x => x.kind !== 'fdg').map(x => `<dt>${esc(x.name.replace(/ \(.*\)$/, ''))}</dt><dd>${pct(x.density)}<small>${x.r !== null ? `r = ${x.r} with FDG's network · ` : ''}${esc(x.similar)}</small></dd>`).join('')}</dl>
     <div class="chips">${PD.D.table3.filter(PROT_NET).map(x => chip(`data-act="net" data-v="${PROT_NET(x)}"`, `${esc(netShort(PROT_NET(x)))} network`, PROT_NET(x) === id && X.scene === 'organs')).join('')}</div>`;
   pane.innerHTML = h;
+  updateExtraLabels();
 }
 function renderOrgans() {
   const pane = $('#pane-organs');
@@ -394,7 +410,7 @@ function renderOne() {
   const pane = $('#pane-one');
   if (!pane) return;
   const u = curU();
-  pane.innerHTML = `<p class="sub">The poster's next step: one network per scan, from ${word(ONE_N)} organs' uptakes (mean SUV). Pick a profile, or move the uptakes yourself.</p>
+  pane.innerHTML = `<p class="sub">The poster's next step: one network per scan, from the uptakes (mean SUV) of ${word(S1.organs.filter(o => o !== 'aorta').length)} organs${S1.organs.includes('aorta') ? ' and the aorta' : ''}. Pick a profile, or move the uptakes yourself.</p>
     <div class="chips" id="oneProf">${profChips()}</div>
     ${S1.organs.map((o, i) => `<p class="grp-h">${iconImg(o, 16)}${esc(organName(o))} <b data-uv="${i}" style="margin-left:auto;color:var(--ink)">${u[i].toFixed(2)}</b></p><input type="range" data-u="${i}" min="0.1" max="5" step="0.05" value="${u[i]}" style="accent-color:${organCol(o)}" aria-label="Uptake of the ${esc(organLow(o))}">`).join('')}
     <p class="grp-h">Threshold: a link where one organ's uptake is this many times another's <b id="thv" style="margin-left:auto;color:var(--ink)">${X.theta.toFixed(2)}</b></p><input type="range" id="theta" min="1.1" max="3" step="0.05" value="${X.theta}" aria-label="Threshold">
@@ -441,14 +457,14 @@ function renderScenes() {
   const sc = SCENES.find(s => s[0] === X.scene);
   pane.innerHTML = `<div class="chips">${SCENES.map(([k, n]) => chip(`data-act="scene" data-v="${k}"`, esc(n), k === X.scene)).join('')}</div>
     <h3>${esc(sc[1])}</h3><p class="sub">${esc(sc[2])}</p>
-    ${ctlsOf(X.scene).map(c => `<p class="grp-h">${esc(c.label)}</p><div class="chips">${c.options.map(([v, n]) => chip(`data-act="ctl" data-ctl="${c.key}" data-v="${v}"`, esc(n), ctlLit(X.scene, c, v))).join('')}</div>`).join('')}
+    ${ctlsOf(X.scene).filter(c => ctlShown(X.scene, c)).map(c => `<p class="grp-h">${esc(c.label)}</p><div class="chips">${c.options.map(([v, n]) => chip(`data-act="ctl" data-ctl="${c.key}" data-v="${v}"`, esc(n), ctlLit(X.scene, c, v))).join('')}</div>`).join('')}
     ${X.scene === 'scan' ? `<div class="actions">${chip('data-act="life"', 'Life size', X.life)}</div>` : ''}
     ${X.scene === 'organs' && X.organ ? `<p class="sub" style="margin-top:10px">Also shown: ${esc(organName(X.organ))} (Organs tab).</p>` : ''}`;
 }
 // a control's option is lit when it holds that value (the Network control's none while a robustness test's network shows)
 const ctlLit = (k, c, v) => ctlValue(k, c) === v && !(k === 'organs' && c.key === 'network' && X.netX);
 // the immunotherapy test in a line: what the AUC means, and that none of it is significant yet
-const aucNote = () => `AUC: 1 tells every good responder from every poor one, 0.5 is chance. A first test in few people${POSTER.noneSig ? `: none of these is significant yet (all p > ${FACTS.p})` : ''}.`;
+const aucNote = () => `AUC: 1 tells every good responder from every poor one, 0.5 is chance. A first test in few people${POSTER.noneSig ? `: none of these is significant (all p > ${FACTS.p}), so their order may be chance` : ''}.`;
 // labels the panes add (the sets label their own picks)
 function updateExtraLabels() {
   LBL.extra.forEach(L => { L.el.remove(); dropSprite(L); });
@@ -456,6 +472,11 @@ function updateExtraLabels() {
   const s = GL.sets[X.scene], id = X.organ;
   if (X.scene === 'organs' && id && s.anchors[id] && !(s.labels || []).some(L => L.at === id)) {
     LBL.extra.push({ kind: 'extra', el: labelEl(`<b>${esc(organName(id))}</b>`, 'cyn'), set: 'organs', at: id, o: -1, txt: [organName(id), '', 'cyn'] });
+  }
+  // a comparison the paper drew no network for: its densities where the network's title would be
+  if (noNet()) {
+    const r = PD.D.table2[X.cmp], b = rowName(r), rest = `density ${r.groups.map(g => pct(g.density)).join(' against ')} · no network drawn in the paper`;
+    LBL.extra.push({ kind: 'extra', el: labelEl(`<b>${esc(b)}</b>${esc(rest)}`, 'amb'), set: 'organs', at: 'title', o: -1, txt: [b, rest, 'amb'] });
   }
 }
 

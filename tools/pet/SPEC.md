@@ -54,7 +54,7 @@ labels, controls, camera views, performance budget, harness, palette), with thes
   / `C_high` (CRP thirds, 11 % / 7 % / 3 %), `FDG_healthy`, `HK2`, `GLUT` (Figure 4). Edges `[a, b, w]`: w the signed
   partial correlation (positive blue, negative red). The nets read off figures may arrive later (empty edges until
   then): code must work with any subset of organs and any number of edges, including none.
-- `table2`: every comparison of the paper's Table 2 (groups with n, density %, disorder; p values); `table3` the
+- `table2`: every comparison of the paper's Table 2 (groups with n, density %, disorder; p values; a `note` where the printed row needs a word); `table3` the
   protein networks; `strength`: Figure 3D's strength distributions; `synth`: a stand-in cohort of 658 people with
   Figure 2A's partial correlations (`rows`, and `pairs` for the partial-correlation explainer).
 - `single`: the poster's one-scan network with stand-in maths (seven organs: liver, aorta, spleen, pancreas, kidneys,
@@ -127,7 +127,9 @@ Until the real icons arrive, a stub draws a circle with the organ's initials; th
 ## The sets
 
 All sets: the tour's contract (`K.newSet(key)`, params `<key>_...`, pure `update(S, t)`, anchors, labels, cam,
-controls, `explore(c)`), and a function `api()` on the set object where the engine needs more.
+controls, `explore(c)`), and a function `api()` on the set object where the engine needs more. A control may carry
+`when(values)` (the scene's control values by key): the panes offer it only while that is true, so no control sits there
+doing nothing; the shared state keeps every control all the same.
 
 ### `scan` - the scanner and how PET sees (file `sets/scan.js`) - the hero of the opening
 
@@ -272,7 +274,7 @@ Performance: under 150 draw calls; shells merged per organ; the matrix as one in
   one dominating node is high); and the **displacement index** on a 0..10 dial: `MDI = m + a C + b H` (`single.proj`),
   clamped. Mark these "illustrative maths" in a small label.
 - `people_profile` 0..3 (fractional values blend the uptakes): 0 healthy, 1 cancer, 2 cancer + dyslipidaemia
-  (`both`), 3 dyslipidaemia (`dys`); `people_custom` 0/1 with `people_u0` .. `people_u6`: custom uptakes (mean SUV,
+  (`both`), 3 dyslipidaemia (`dys`); `people_skip` 1 crossfades 1 and 3 directly (the story's step); `people_custom` 0/1 with `people_u0` .. `people_u6`: custom uptakes (mean SUV,
   0.1 to 5) used instead of the profile when 1. Everything above follows the current uptakes at every frame.
 
 **The population** (the poster's results; group summaries only):
@@ -343,7 +345,7 @@ transform), with `body_pet` at 1 unless the story says otherwise.
    every organ's metabolism at once."
 4. `organs` 90-128: `organs_seg` (an AI outlines 13 organs, a doctor checks), `organs_suv` (each organ's uptake divided
    by the aorta's), a moment of focus on two or three organs (brain, liver, muscle).
-5. `cohort` 128-172: `organs_rows` (one person's row, then 658: 241 healthy, 417 cancer), the explainer
+5. `cohort` 128-172: `organs_rows` (one person's row, then 658 scans: 241 of healthy volunteers, 417 with cancer), the explainer
    (`organs_pair` 1 = liver and spleen, `organs_partial` 0 -> 1: what a partial correlation is), then `organs_net` with
    `organs_which` 0: the network of all 658 scans (11 organs, density 12 %).
 6. `health` 172-218: `organs_which` to 1 (healthy, if read; else stay) then the comparisons: BMI (2 -> 3: 27 % to 7 %,

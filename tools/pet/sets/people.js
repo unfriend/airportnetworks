@@ -61,8 +61,19 @@ SETS.people = function (K) {
   // update() measures into its own scratch arrays (no allocations per frame)
   const MS = { uu: new Array(N).fill(1), e: ONE.map(() => new Array(N).fill(0)), s: new Array(N).fill(0), out: {} };
   // the uptakes on show: the profiles blended (people_profile 0..3), or the custom values
+  // the two profiles blended and how far (people_profile 0..3 between neighbours; with people_skip on, the story's step
+  // from cancer, 1, to dyslipidaemia, 3, crossfades the two directly, never passing the profile between them)
+  const PB = [0, 1, 0];
+  function profBlend(S) {
+    const p = clamp(Number.isFinite(S.people_profile) ? S.people_profile : 0, 0, 3);
+    if ((S.people_skip || 0) > 0.5 && p > 1 && p < 3) { PB[0] = 1; PB[1] = 3; PB[2] = (p - 1) / 2; return PB; }
+    PB[0] = Math.floor(p); PB[1] = Math.min(3, PB[0] + 1); PB[2] = p - PB[0];
+    return PB;
+  }
+  // a profile's weight in that blend, as a label's alpha (1 alone, none from a little past halfway)
+  const profNear = (S, k) => { const [lo, hi, f] = profBlend(S); return sat(1 - (1 - (k === lo ? 1 - f : 0) - (k === hi && hi !== lo ? f : 0)) * 2.2); };
   function uptakes(S, out) {
-    const p = clamp(Number.isFinite(S.people_profile) ? S.people_profile : 0, 0, 3), lo = Math.floor(p), hi = Math.min(3, lo + 1), f = p - lo;
+    const [lo, hi, f] = profBlend(S);
     const c = sat(S.people_custom);
     for (let i = 0; i < N; i++) {
       let v = lerp(PU[lo][i], PU[hi][i], f);
@@ -1003,7 +1014,7 @@ void main() {
     c.fillText('Survival by thirds of the index', X(KX0), Y(KY0 + KH + 0.125));
     c.font = font(500, 0.046 * px); c.fillStyle = hexOf(l3(MUTED, INK, 0.3));
     const kn = KC.reduce((a, x) => a + (+x.n || 0), 0);
-    c.fillText(`${kn ? fmt(kn) + ' people' : 'People'} in thirds of the index (the poster's)`, X(KX0), Y(KY0 + KH + 0.06));
+    c.fillText(`${kn ? fmt(kn) + ' people with cancer' : 'People with cancer'}, in thirds of the index (poster)`, X(KX0), Y(KY0 + KH + 0.06));
     c.font = font(600, 0.042 * px); c.textAlign = 'center';
     for (let m = 0; m <= KMAX + 1e-6; m += 20) c.fillText(String(m), X(kx(m)), Y(KY0 - 0.048));
     c.textAlign = 'right';
@@ -1064,7 +1075,7 @@ void main() {
     c.fillText('Immunotherapy before surgery', X(-0.84), Y(0.715));
     c.font = font(500, 0.046 * px); c.fillStyle = hexOf(l3(MUTED, INK, 0.3));
     const noP = AUC.length && AUC.every(a => !(+a.p < 0.05));
-    c.fillText(`${PG.n ? PG.n + ' people' : 'People'} with lung cancer: a first test${noP ? ', no P below 0.05' : ''}`, X(-0.84), Y(0.655));
+    c.fillText(`${PG.n ? PG.n + ' people' : 'People'} with lung cancer: a first test${noP ? ', no p below 0.05' : ''}`, X(-0.84), Y(0.655));
     c.font = font(600, 0.04 * px); c.textAlign = 'center'; c.fillStyle = hexOf(l3(MUTED, INK, 0.3));
     for (let v = 0; v <= Math.floor(RAX); v++) c.fillText(String(v), X(rx(v)), Y(RAY - 0.045));
     c.font = font(500, 0.045 * px);
@@ -1157,12 +1168,13 @@ void main() {
   labels.push({ text: ['Uptake', ' · one scan, illustrative values'], at: 'bars', cls: '', alpha: S => S_(S, 'people_bars') * (1 - prog(S_(S, 'people_one'), 0.2, 0.5)) * oneOff(S) });
   labels.push({ text: ['Kidneys ÷ fat', ' · one ratio'], at: 'example', cls: 'amb', alpha: S => prog(S_(S, 'people_ratio'), 0.6, 0.95) * (1 - prog(S_(S, 'people_one'), 0, 0.3)) * oneOff(S) });
   labels.push({ text: ['Threshold', ''], at: 'plane', cls: 'cyn', alpha: S => prog(S_(S, 'people_thresh'), 0.3, 0.8) * (1 - prog(S_(S, 'people_one'), 0.5, 0.9)) * oneOff(S) });
-  PROF.forEach((p, k) => labels.push({ text: [PROFN[p], ' · illustrative uptakes'], at: 'profile', cls: '', alpha: S => near(S.people_profile || 0, k) * (1 - S_(S, 'people_custom')) * S_(S, 'people_one') * oneOff(S) }));
+  PROF.forEach((p, k) => labels.push({ text: [PROFN[p], ' · illustrative uptakes'], at: 'profile', cls: '', alpha: S => profNear(S, k) * (1 - S_(S, 'people_custom')) * S_(S, 'people_one') * oneOff(S) }));
   labels.push({ text: ['Your uptakes', ''], at: 'profile', cls: 'amb', alpha: S => S_(S, 'people_custom') * S_(S, 'people_one') * oneOff(S) });
-  labels.push({ text: ['Clearance', ''], at: 'clearance', cls: 'amb', alpha: S => prog(S_(S, 'people_metrics'), 0.05, 0.4) * oneOff(S) });
-  labels.push({ text: ['Heterogeneity', ''], at: 'hetero', cls: 'amb', alpha: S => prog(S_(S, 'people_metrics'), 0.3, 0.65) * oneOff(S) });
-  labels.push({ text: ['Displacement index', ' · 0 to 10'], at: 'dial', cls: 'amb', alpha: S => prog(S_(S, 'people_metrics'), 0.55, 0.9) * oneOff(S) });
-  labels.push({ text: ['Illustrative maths', ' · formulas not yet published'], at: 'note', cls: '', alpha: S => prog(S_(S, 'people_metrics'), 0.6, 1) * oneOff(S) });
+  // (the gauges' and the note's captions give way on narrow screens, where they covered the gauges: the panel names them)
+  labels.push({ text: ['Clearance', ''], at: 'clearance', cls: 'amb', minor: true, alpha: S => prog(S_(S, 'people_metrics'), 0.05, 0.4) * oneOff(S) });
+  labels.push({ text: ['Heterogeneity', ''], at: 'hetero', cls: 'amb', minor: true, alpha: S => prog(S_(S, 'people_metrics'), 0.3, 0.65) * oneOff(S) });
+  labels.push({ text: ['Displacement index', ' · 0 to 10'], at: 'dial', cls: 'amb', minor: true, alpha: S => prog(S_(S, 'people_metrics'), 0.55, 0.9) * oneOff(S) });
+  labels.push({ text: ['Illustrative maths', ' · formulas not yet published'], at: 'note', cls: '', minor: true, alpha: S => prog(S_(S, 'people_metrics'), 0.6, 1) * oneOff(S) });
   // the people: the groups (the map's legend, then the rows' names), giving way to the follow-up groups; what is a
   // stand-in is said on the map, on the strip and in follow-up alike
   const mapOnly = S => prog(S_(S, 'people_map'), 0.6, 1) * (1 - prog(S_(S, 'people_mdi'), 0, 0.4));
@@ -1186,8 +1198,8 @@ void main() {
   const nOf = s => (Number.isFinite(+s.n) ? ` · n = ${s.n}` : '');
   if (RG) labels.push({ text: ['Good response', nOf(RG)], at: 'good', cls: 'cyn', alpha: S => prog(S_(S, 'people_response'), 0.05, 0.3) });
   if (RB) labels.push({ text: ['Poor response', nOf(RB)], at: 'poor', cls: '', alpha: S => prog(S_(S, 'people_response'), 0.1, 0.35) });
-  AUC.forEach((a, r) => labels.push({ text: [`AUC ${a.auc}`, Number.isFinite(+a.p) ? ` · P = ${a.p}` : ''], at: 'auc' + (r + 1), cls: isNet(a) ? 'amb' : '',
-    alpha: S => prog(S_(S, 'people_response'), 0.4 + 0.08 * r, 0.6 + 0.08 * r) }));
+  AUC.forEach((a, r) => labels.push({ text: [`AUC ${a.auc}`, Number.isFinite(+a.p) ? ` · p = ${a.p}` : ''], at: 'auc' + (r + 1), cls: isNet(a) ? 'amb' : '',
+    alpha: S => prog(S_(S, 'people_response'), 0.4 + 0.05 * r, 0.55 + 0.05 * r) }));   // (the last, Age, fully in a while before the board goes)
   const folA = S => prog(S_(S, 'people_follow'), 0.1, 0.4) * S_(S, 'people_mdi') * S_(S, 'people_map') * popQuiet(S);
   FU.forEach((f, k) => labels.push({ text: [f.name, ` · n = ${f.n}`], at: 'f' + (k + 1), cls: f.kind === 'none' ? '' : 'amb', alpha: folA }));
   if (MG[3]) labels.push({ text: ['Healthy range', ' · middle half'], at: 'healthy', cls: 'cyn', alpha: S => folA(S) * prog(S_(S, 'people_follow'), 0.2, 0.5) });
@@ -1207,7 +1219,7 @@ void main() {
     const theta = clamp(Number.isFinite(S.people_theta) ? S.people_theta : THETA, 1.01, 10);
     uptakes(S, U);
     const M = measure(U, theta, MS);
-    cur.map = map; cur.mdi = mdi; cur.theta = theta; cur.m = M; cur.prof = clamp(Number.isFinite(S.people_profile) ? S.people_profile : 0, 0, 3);
+    cur.map = map; cur.mdi = mdi; cur.theta = theta; cur.m = M; cur.prof = profBlend(S).slice();
     cur.plane = FY + HS * Math.log(theta) * thr;
     // as the people rise, the one-scan part gives way by itself (keep), and the ring stays formed while it shrinks
     // into this person's dot (oneR), whatever people_one does meanwhile
@@ -1232,7 +1244,8 @@ void main() {
 
     // the field: columns rise to ln(u_i / u_j); the plane rises to ln(theta); lit columns become links. A column
     // that does not rise (the diagonal, a negative ratio) is not drawn at all: its cell on the floor stays dark
-    const fa = prog(ratio, 0, 0.3) * keep, pla = prog(thr, 0, 0.2) * keep;
+    // (and it steps back, dimmed, once the gauges are up: it explained the links, which the network now holds)
+    const fDim = 1 - 0.7 * prog(met, 0, 0.6), fa = prog(ratio, 0, 0.3) * keep * fDim, pla = prog(thr, 0, 0.2) * keep * fDim;
     gField.visible = fa > 0.003 || pla > 0.003;
     let changed = LASTU[N] !== ratio;
     LASTU[N] = ratio;
@@ -1321,7 +1334,7 @@ void main() {
     trailMat.uniforms.uFol.value = fol; trailMat.uniforms.uK.value = mdi * dim;
     // this person's dot: from the ring to the map, then onto its profile's row of the strip (between two rows while
     // the profile blends), a little above the row's middle; it dims with its row when another group is picked
-    const pp = cur.prof, lo = Math.floor(pp), hi = Math.min(3, lo + 1), pf = pp - lo;
+    const [lo, hi, pf] = cur.prof;
     const ga = Math.max(0, GKEY.indexOf(PROF[lo])), gb = Math.max(0, GKEY.indexOf(PROF[hi]));
     set3(SP3, SX(M.mdi), lerp(ROWY[ga], ROWY[gb], pf) + 0.05, 0.12);
     mix3(PA, RC, PM, prog(map, 0.05, 0.6)); mix3(PA, PA, SP3, prog(mdi, 0.2, 0.9));
@@ -1388,7 +1401,8 @@ void main() {
 
   const controls = [
     { key: 'view', label: 'View', options: [['one', 'One scan'], ['field', 'Ratios'], ['map', 'People'], ['strip', 'Index'], ['km', 'Survival'], ['auc', 'Immunotherapy']] },
-    { key: 'profile', label: 'Profile', options: PROF.map(p => [p, PROFN[p]]) },
+    // (a profile shows in the one-scan views only: when says so)
+    { key: 'profile', label: 'Profile', options: PROF.map(p => [p, PROFN[p]]), when: c => c.view === 'one' || c.view === 'field' },
   ];
   function explore(c) {
     const v = c.view || 'one', pop = !(v === 'one' || v === 'field'), o = {
@@ -1397,6 +1411,7 @@ void main() {
     };
     const pi = PROF.indexOf(c.profile);
     if (pi >= 0) o.people_profile = pi;
+    o.people_skip = 0;
     return o;
   }
   // what a ray points at: an organ (a node, a bar, a header) or a group (its row on the strip, or its cloud on the map).
@@ -1455,7 +1470,7 @@ void main() {
         followUp: FU.map((f, k) => ({ name: f.name, n: f.n, row: GKEY[f.row], from: st(FDOTS.filter(d => d.f === k).map(d => d.v0)), to: st(FDOTS.filter(d => d.f === k).map(d => d.v1)) })) };
     },
   };
-  const params = { people_a: 1, people_bars: 1, people_ratio: 1, people_thresh: 1, people_one: 1, people_metrics: 1, people_profile: 0, people_custom: 0, people_theta: THETA,
+  const params = { people_a: 1, people_bars: 1, people_ratio: 1, people_thresh: 1, people_one: 1, people_metrics: 1, people_profile: 0, people_skip: 0, people_custom: 0, people_theta: THETA,
     people_map: 0, people_mdi: 0, people_group: 0, people_km: 0, people_response: 0, people_follow: 0 };
   ONE.forEach((id, i) => { params['people_u' + i] = PU[0][i]; });
   return Object.assign(set, { params, update, anchors, labels, cam, controls, explore, api: () => API });

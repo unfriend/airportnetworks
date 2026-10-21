@@ -125,7 +125,7 @@ slimmed across by the body set's `XS` = 0.9. Show `body` (same transform) under 
   names in all), and a focused one. A node shows its plain name or its hub name, never both.
 - The title with a subtitle: "All 658 scans · normalised to the aorta", "Healthy, higher BMI · BMI 24.4 or more",
   "High tumour load · tumour uptake above the median", "Inflammation, highest third · CRP 0.74 to 40.1 mg/dL",
-  "FDG, 9 organs · Figure 4 · 241 healthy people", "Hexokinase 2 · tissue of 946 people (GTEx)".
+  "FDG, 9 organs · Figure 4 · 241 scans of healthy volunteers", "Hexokinase 2 · tissue of 946 people (GTEx)".
 - With the chart: "density 27 % · disorder 0.13" (density as printed, `nets[i].density`; disorder as printed, the
   net's own or its Table 2 group's; none for FDG, HK2 and GLUT, which Table 3 gives density only), and
   "Strength (axis to 4.5) · sorted".
@@ -181,7 +181,7 @@ the distance.
   - the dome layout of the nodes: ours; the paper lays out each network differently.
 - Links of Figures 3 and 4 and the dose networks are **read off the figures** (approximate weights). Only `full` and
   `vena` are printed (Figure 2A).
-- `FDG_healthy` (index 1) is Figure 4's FDG network of the 241 healthy people on the **9 organs matched to GTEx
+- `FDG_healthy` (index 1) is Figure 4's FDG network of the 241 scans of healthy volunteers on the **9 organs matched to GTEx
   tissues** (no brain, heart, kidneys or marrow). Its density is 9 %. Do not call it the healthy network of Table 2
   (30 % vs 7 % for cancer): that comparison has no drawn network. The control and title say "FDG, 9 organs".
 - The chart's curve uses the printed disorder as its rate. For FDG, HK2 and GLUT (no printed disorder) it is fitted

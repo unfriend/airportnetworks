@@ -447,14 +447,17 @@ function drawNetsPane(ctx, P, x, y, W, bottom) {
       if (n) vButton(ctx, P, 'gnet:' + n, x + W - 130, y - 4, 130, 36, on ? 'On show' : 'Show', () => showNet(n), { on, r: 6, px: 19 });
       y += textBlock(ctx, `${g.label}: density ${pct(g.density)}, disorder ${dis(g.disorder)}, ${g.n} scans`, x, y, n ? W - 140 : W, 22, 30, VC.muted, 400, 1) + (n ? 8 : 0);
     });
-    y += textBlock(ctx, `Density ${r.pD}${r.sigD ? ', significant' : ''}. Disorder ${r.pO}${r.sigO ? ', significant' : ''}.`, x, y, W, 22, 30, r.sigD || r.sigO ? VC.amber : VC.muted, 400, 1) + 12;
+    y += textBlock(ctx, `Density ${r.pD}${r.sigD ? ', significant' : ''}. Disorder ${r.pO}${r.sigO ? ', significant' : ''}.`, x, y, W, 22, 30, r.sigD || r.sigO ? VC.amber : VC.muted, 400, 1) + 4;
+    // (what was measured in plain words, the row's own note, and a comparison with no network of its own)
+    const nb = [WHAT_GLOSS[r.what] ? `${r.what}: ${WHAT_GLOSS[r.what]}.` : '', r.note, noNet() ? NO_NET : ''].filter(Boolean).join(' ');
+    y += (nb ? textBlock(ctx, nb, x, y, W, 20, 27, VC.faint, 400, 3) : 0) + 8;
   }
   y += head(ctx, x, y, 'Networks drawn in the paper (· not read off the figure yet)');
   y += flow(ctx, P, NET_IDS.map((n, i) => ({ id: 'net:' + n, label: NET_SHORT[i] + (hasNet(n) ? '' : ' ·'), on: n === id && X.scene === 'organs', fn: () => pickNet(n) })), x, y, W, bottom, { px: 20, h: 40 }) + 12;
   y += textBlock(ctx, `${netShort(id)}: ${netTitle(id)}.`, x, y, W, 22, 30, VC.ink, 400, 2);
   y += textBlock(ctx, `${ni.text} ${ni.hubText || ''}`, x, y, W, 22, 30, VC.muted, 400, 3) + 10;
   if (ni.ok && y + 170 < bottom - 64) y += drawStrength(ctx, x, y, W, id, ni.hubs || []) + 6;
-  if (FACTS.hk2 && y + 64 < bottom) textBlock(ctx, `Protein networks (Table 3): of ${FACTS.tested} proteins, only hexokinase 2's network resembles FDG's (r = ${FACTS.hk2.r}): the HK2 and GLUT networks above.`, x, y, W, 21, 29, VC.faint, 400, 2);
+  if (FACTS.hk2 && y + 64 < bottom) textBlock(ctx, `Gene-activity networks (Table 3): of ${FACTS.tested}, only hexokinase 2's network resembles FDG's (r = ${FACTS.hk2.r}): the HK2 and GLUT networks above.`, x, y, W, 21, 29, VC.faint, 400, 2);
 }
 function drawOrgansPane(ctx, P, x, y, W, bottom) {
   y += flow(ctx, P, PD.D.organs.map(o => ({ id: 'org:' + o.id, label: o.short, icon: o.id, col: o.col, on: X.organ === o.id, fn: () => selectOrgan(X.organ === o.id ? null : o.id) })), x, y, W, bottom, { px: 21, h: 48 }) + 18;
@@ -529,7 +532,7 @@ function drawScenesPane(ctx, P, x, y, W, bottom) {
   y += 76;
   const sc = SCENES.find(s => s[0] === X.scene);
   y += textBlock(ctx, sc[2], x, y, W, 25, 35, VC.muted, 400, 4) + 18;
-  for (const c of ctlsOf(X.scene)) {
+  for (const c of ctlsOf(X.scene).filter(c => ctlShown(X.scene, c))) {
     if (y + 110 > bottom) break;
     ctx.font = vfont(23); ctx.fillStyle = VC.muted; ctx.fillText(c.label, x, y);
     y += 36;

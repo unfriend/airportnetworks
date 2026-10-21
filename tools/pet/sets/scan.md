@@ -130,7 +130,7 @@ and "Line of response" (amb; from `scan_events` 0.01, once a featured line is dr
 - View: Scanner / Ring / Inside / Vision (cams: default, `ring`, `inside`, `vision`). Every view but Vision: bed 1,
   pass 0.4 (the chest in the ring), so switching views never moves the couch; Ring opens the cut, and so does Scanner
   while Events or Image is on (closed, the housing hid them); Vision shows the row (bed 0, all else off).
-- Events: Off / On (`scan_events` 0 / 1).
+- Events: Off / On (`scan_events` 0 / 1). Events and Image are offered in every view but Vision (`when`).
 - Image: Lines / Image (with Events on, Lines grows the web; Image forms the image and hides lines and events; the
   couch rides on to the thighs as it forms).
 

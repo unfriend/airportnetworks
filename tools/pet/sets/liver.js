@@ -508,7 +508,7 @@ void main() {
     anchors,
     labels,
     cam: {
-      default: [-16, 9, 3.1, 0, -0.02, 0],
+      default: [-16, 9, 3.4, 0, -0.02, 0],   // (back a little: the right lobe reached the screen's edge)
       front: [0, 3, 3.1, 0, 0, 0],
       close: [-34, 12, 1.7, ...at(WARM)()],   // for liver_spin 0
       below: [-12, -52, 3.1, 0, -0.05, 0],

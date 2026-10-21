@@ -681,7 +681,7 @@ void main() { if (vS < 0.01) discard; gl_FragColor = vec4(vC * vL, vS * uA * uK)
     A_high: 'Healthy, higher BMI', B_low: 'Low tumour load', B_high: 'High tumour load', C_low: 'Inflammation, lowest third',
     C_mid: 'Inflammation, middle third', C_high: 'Inflammation, highest third', HK2: 'Hexokinase 2', GLUT: 'GLUT1 to 4',
     dose_standard: 'Standard dose', dose_ultralow: 'Ultra-low dose', dose_virtual: 'Virtual ultra-low dose' };
-  const NET_SUB = { full: 'normalised to the aorta', vena: 'normalised to the vena cava', FDG_healthy: 'Figure 4 · {n} healthy people',
+  const NET_SUB = { full: 'normalised to the aorta', vena: 'normalised to the vena cava', FDG_healthy: 'Figure 4 · {n} scans of healthy volunteers',
     B_low: 'tumour uptake below the median', B_high: 'tumour uptake above the median',
     HK2: 'tissue of {n} people (GTEx)', GLUT: 'tissue of {n} people (GTEx)', dose_standard: '{n} people · Figure 2B, read off',
     dose_ultralow: '{n} people · Figure 2B, read off', dose_virtual: '{n} people · Figure 2B, read off' };
@@ -1156,7 +1156,7 @@ void main() {
     }
     dotMat.uniforms.uSX.value = sx; dotMat.uniforms.uSh.value.set(shx, shy);
     dots.visible = scA > 0.003 && NPR > 0;
-    backMat.opacity = 0.62 * prog(pairIn, 0, 0.4) * netOut * set.uA.value;
+    backMat.opacity = 0.62 * prog(pairIn, 0.25, 0.7) * netOut * set.uA.value;   // (with the dots, not before them: an empty box)
     scBack.visible = backMat.opacity > 0.003;
     {
       const ang = Math.atan(slope), shm = 1 + ((shx + shy) / 2 - 1) * p1 * (1 - p2), fa = prog(pairIn, 0.55, 1) * netOut;
@@ -1271,7 +1271,7 @@ void main() {
 
     // lines
     const sa = slGeo.attributes.aA.array, ga = SLG;
-    ga[0] = suv * netOut * (1 - coll); ga[1] = prog(pairIn, 0, 0.5) * netOut; ga[2] = chA; ga[3] = prog(rows, 0.35, 0.6) * netOut;
+    ga[0] = suv * netOut * (1 - coll); ga[1] = prog(pairIn, 0.25, 0.75) * netOut; ga[2] = chA; ga[3] = prog(rows, 0.35, 0.6) * netOut;
     for (let v = 0; v < sa.length; v++) sa[v] = slBase[v] * ga[slGrp[v]];
     slGeo.attributes.aA.needsUpdate = true;
     const mp = mlGeo.attributes.position.array, ma = mlGeo.attributes.aA.array;
@@ -1332,7 +1332,7 @@ void main() {
       at ? at[1] : HOME[i][2]));
   });
   // names at the bars: the longest, the shortest and a few between, never two neighbours (and a focused organ)
-  const BAR_LBL = { brain: 1, heart: 1, kidneys: 1, muscle: 1, fat: 1, aorta: 1 };
+  const BAR_LBL = { brain: 1, heart: 1, liver: 1, kidneys: 1, muscle: 1, fat: 1, aorta: 1 };   // (the three the text names, among them)
   const netOn = S => prog(clamp(S.organs_net, 0, 1), 0.5, 0.8);
   const quietRight = S => 1 - prog(clamp(S.organs_net, 0, 1), 0, 0.3);   // the right-hand panels make way for the network
   const rowsOff = S => 1 - prog(clamp(S.organs_rows, 0, 1), 0, 0.2);
@@ -1342,13 +1342,14 @@ void main() {
   const labels = [];
   ORG.forEach((og, i) => {
     const name = og.name, isNode = !!NPOS[i], short = og.short || name, focus = S => cur.fw[i] * (1 - clamp(S.organs_suv, 0, 1));
-    // the sweep names each organ as the plane outlines it; a focused organ is named on it
-    labels.push({ text: [name, ''], at: 'seg_' + og.id, cls: '', minor: og.id === 'adrenal' || og.id === 'pancreas',
+    // the sweep names each organ as the plane outlines it (not the aorta: it lay on the heart's name, and the story names
+    // it as the text comes to it, focused); a focused organ is named on it
+    if (og.id !== 'aorta') labels.push({ text: [name, ''], at: 'seg_' + og.id, cls: '', minor: og.id === 'adrenal' || og.id === 'pancreas',
       alpha: S => cur.segA[i] * (1 - focus(S)) * (1 - netOn(S)) * rowsOff(S) });
     labels.push({ text: [name, ''], at: og.id, cls: '', alpha: S => focus(S) * (1 - netOn(S)) * rowsOff(S) });
     // on its node (short name) in the network; a hub says so (one label or the other, never both)
     if (isNode) {
-      labels.push({ text: [short, ''], at: og.id, cls: '',
+      labels.push({ text: [short, ''], at: og.id, cls: '', minor: true,   // (on a narrow screen only the hubs are named)
         alpha: S => netOn(S) * cur.pres[i] * Math.max(cur.labW[i], cur.fw[i]) * clamp(1 - 2 * cur.hubW[i], 0, 1) });
     }
     if (isNode) labels.push({ text: [short, ' · hub'], at: og.id, cls: 'amb', alpha: S => netOn(S) * cur.pres[i] * clamp(2 * cur.hubW[i] - 1, 0, 1) });
@@ -1382,7 +1383,7 @@ void main() {
         alpha: S => prog(clamp(S.organs_strength, 0, 1), 0.4, 0.8) * near(S, k) });
     }
   });
-  labels.push({ text: ['Strength', ` (axis to ${SMAX}) · sorted`], at: 'chartAxis', cls: '',
+  labels.push({ text: ['Strength', ' · the same scale in every network'], at: 'chartAxis', cls: '', minor: true,
     alpha: S => prog(clamp(S.organs_strength, 0, 1), 0.3, 0.7) });
   const cam = {
     default: [0, 4, 3.75, 0, 0, 0],

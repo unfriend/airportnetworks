@@ -1144,14 +1144,17 @@ void main() {
       { text: ['PET/CT scanner', ''], at: 'gantry', cls: 'cyn', alpha: S => notRow(S) * (1 - prog(S.scan_cut || 0, 0, 0.4)) * (1 - prog(S.scan_image || 0, 0, 0.3)) },
       { text: ['Detector ring', ''], at: 'ring', cls: 'cyn', alpha: S => notRow(S) * prog(S.scan_cut || 0, 0.6, 1) * (1 - prog(S.scan_image || 0, 0, 0.3)) },
       // the featured event's labels: the photons' brighter while they fly, the line's once a line has been drawn
-      { text: ['Two gamma photons', '· 511 keV each'], at: 'event', cls: 'amb', alpha: S => evLab(S) * prog(S.scan_events || 0, 0.005, 0.04) * (1 - prog(S.scan_lines || 0, 0.3, 0.6)) * (0.45 + 0.55 * featured.env) },
-      { text: ['Line of response', ''], at: 'lor', cls: 'amb', alpha: S => evLab(S) * featured.lorOn * prog(S.scan_events || 0, 0.01, 0.05) * (1 - prog(S.scan_lines || 0, 0.4, 0.7)) },
+      // (in the story each comes as the panel's text names it: the photons once the lines begin, the line of response
+      // once they are under way; with the events on in explore, scan_events is 1 and both show at once)
+      { text: ['Two gamma photons', '· 511 keV each'], at: 'event', cls: 'amb', alpha: S => evLab(S) * prog(S.scan_events || 0, 0.005, 0.04) * Math.max(prog(S.scan_lines || 0, 0.04, 0.06), prog(S.scan_events || 0, 0.9, 1)) * (1 - prog(S.scan_lines || 0, 0.45, 0.65)) * (0.45 + 0.55 * featured.env) },
+      { text: ['Line of response', ''], at: 'lor', cls: 'amb', alpha: S => evLab(S) * featured.lorOn * prog(S.scan_events || 0, 0.01, 0.05) * Math.max(prog(S.scan_lines || 0, 0.41, 0.45), prog(S.scan_events || 0, 0.9, 1)) * (1 - prog(S.scan_lines || 0, 0.72, 0.9)) },
       { text: ['FDG', 'in the patient'], at: 'patient', cls: 'amb', alpha: S => notRow(S) * prog(S.scan_image || 0, 0.5, 0.9) },
-      { text: ['PET scan', ''], at: 'vision_scan', alpha: S => rowA(S, 0.3) },
-      { text: ['One body', ''], at: 'vision_body', alpha: S => rowA(S, 0.4) },
-      { text: ['One network', ''], at: 'vision_net', alpha: S => rowA(S, 0.6) },
-      { text: ['Prognosis', ''], at: 'vision_prog', alpha: S => rowA(S, 0.74) },
-      { text: ['Medication', ''], at: 'vision_med', alpha: S => rowA(S, 0.8) },
+      // (the row's names give way on narrow screens, where they covered the pictures: minor)
+      { text: ['PET scan', ''], at: 'vision_scan', minor: true, alpha: S => rowA(S, 0.3) },
+      { text: ['One body', ''], at: 'vision_body', minor: true, alpha: S => rowA(S, 0.4) },
+      { text: ['One network', ''], at: 'vision_net', minor: true, alpha: S => rowA(S, 0.6) },
+      { text: ['Prognosis', ''], at: 'vision_prog', minor: true, alpha: S => rowA(S, 0.74) },
+      { text: ['Medication', ''], at: 'vision_med', minor: true, alpha: S => rowA(S, 0.8) },
     ],
     cam: {
       default: [34, 13, 7.2, 0, -0.25, 0.95], front: [0, 4, 6.4, 0, -0.1, 0.4], ring: [28, 22, 2.4, 0, -0.02, 0], side: [90, 6, 7.6, 0, -0.25, 0.9],
@@ -1159,8 +1162,9 @@ void main() {
     },
     controls: [
       { key: 'view', label: 'View', options: [['scanner', 'Scanner'], ['ring', 'Ring'], ['inside', 'Inside'], ['vision', 'Vision']] },
-      { key: 'events', label: 'Events', options: [['off', 'Off'], ['on', 'On']] },
-      { key: 'image', label: 'Image', options: [['lines', 'Lines'], ['image', 'Image']] },
+      // (the vision row shows neither: when says which views they apply to)
+      { key: 'events', label: 'Events', options: [['off', 'Off'], ['on', 'On']], when: c => c.view !== 'vision' },
+      { key: 'image', label: 'Image', options: [['lines', 'Lines'], ['image', 'Image']], when: c => c.view !== 'vision' },
     ],
     // every view but Vision: the couch in with the chest in the ring (switching views never moves it); the housing
     // opens in Ring, and in Scanner while events or the image show (closed, it hid them)
