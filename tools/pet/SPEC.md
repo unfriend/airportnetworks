@@ -254,12 +254,14 @@ Performance: under 150 draw calls; shells merged per organ; the matrix as one in
 
 **One scan** (the poster's panels 3 and 4): seven organs (`single.organs`), their uptakes `u` (from
 `people_profile`, or the custom values, below), shown as:
-- `people_bars` 0..1: seven horizontal uptake bars with icons and names, as on the poster's panel 3.
+- `people_bars` 0..1: seven horizontal uptake bars with icons and names, as on the poster's panel 3 (the healthy
+  profile is the poster's own example, `poster.creation.uptake`; its example network, `poster.creation.example`, is
+  what the healthy profile's links at theta 2 reproduce, plus two weak ones).
 - `people_ratio` 0..1: a 7 x 7 field of glowing columns on a dark floor, rows and columns labelled with icons:
   column (i, j) rises to `ln(u_i / u_j)` when positive (organ i outshines j), nothing on the diagonal or where
   negative.
 - `people_thresh` 0..1: a glass plane rises to the threshold's height `ln(theta)` (theta = `people_theta`, default
-  `single.theta` = 1.5); columns above it light up (they become links), those below dim. Label "threshold".
+  `single.theta` = 2); columns above it light up (they become links), those below dim. Label "threshold".
 - `people_one` 0..1: the lit columns fly up and become directed links (glowing arrows or flowing particles from i to
   j) between seven nodes on a ring above the field (icons in discs): this person's network. Link weight
   `e = sigmoid((ln(u_i/u_j) - ln theta) / soft)` (soft from `single.soft`), so everything changes smoothly.

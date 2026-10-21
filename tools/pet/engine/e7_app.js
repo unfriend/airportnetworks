@@ -182,7 +182,7 @@ function init() {
     // &cmp=7 (a row of Table 2), &net=C_high, &organ=muscle, &profile=cancer, &theta=2, &u=2.2,1.7,... (custom
     // uptakes), &group=3, &life (the scanner life size)
     const sc = hp.get('scene');
-    if (sc && GL.sets[sc]) openScene(sc, false);
+    if (sc && GL.sets[sc]) { openScene(sc, false); showTab('scenes'); }
     else if (!hp.has('t')) {   // straight in: the network of all scans, with its strength
       openScene('organs', false);
       const v = optKey('organs', 'view', /strength/i) || optKey('organs', 'view', /net/i);
@@ -204,7 +204,7 @@ function init() {
       if (hp.get('tab') === 'one') showOne();
       if (hp.get('tab') === 'people' && X.scene !== 'people') showPeople(/^index$/i);
     }
-    if (hp.has('life')) setLife(true);
+    if (hp.has('life')) { setLife(true); if (!hp.get('tab')) showTab('scenes'); }
     if (hp.has('now')) { Object.assign(XS, exploreTargets()); orbit.cur = orbit.to || orbit.cur; orbit.to = null; }
   }
   GL.renderer.setAnimationLoop(frame); // also drives the headset's frame loop

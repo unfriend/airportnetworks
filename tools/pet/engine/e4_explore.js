@@ -239,20 +239,20 @@ function collabApply(v) {
   const int = (n, lo, hi) => Number.isInteger(n) && n >= lo && n < hi;
   if (TABS.some(t => t[0] === v.tab) && v.tab !== X.tab) showTab(v.tab);
   if ((v.cmp === -1 || int(v.cmp, 0, PD.D.table2.length)) && v.cmp !== X.cmp) selectCmp(v.cmp, false);
-  if (NET_IDS.includes(v.net) && v.net !== curNet()) setNet(v.net);
   if ((v.organ === null || (typeof v.organ === 'string' && PD.byId[v.organ])) && v.organ !== X.organ) selectOrgan(v.organ, false);
-  if (PROFILES.some(p => p[0] === v.profile) && v.profile !== curProfile()) selectProfile(v.profile, false);
-  if ((v.u === null || (Array.isArray(v.u) && v.u.length === ONE_N && v.u.every(Number.isFinite))) && JSON.stringify(v.u) !== JSON.stringify(X.u)) setUs(v.u);
   if (Number.isFinite(v.theta) && v.theta !== X.theta) setTheta(v.theta);
   if (int(v.group, 0, 5) && v.group !== X.group) selectGroup(v.group, false);
-  // the scene and its controls last; a view flies to its own camera as it does here
+  // the scene and its controls; a view flies to its own camera as it does here
   if (SCENES.some(s => s[0] === v.scene) && v.scene !== X.scene) openScene(v.scene);
   for (const [k] of SCENES) for (const c of ctlsOf(k)) {
     const x = v.ctl && v.ctl[k] && v.ctl[k][c.key];
     if (!c.options.some(o => o[0] === x) || ctlValue(k, c) === x) continue;
     if (k === X.scene) setCtl(k, c.key, x); else (X.ctl[k] = X.ctl[k] || {})[c.key] = x;
   }
-  // (a profile control arriving drops custom uptakes, as it does here: the room's own come back with them)
+  // then the network and the profile (also held by controls: should the two ever disagree, these win) and the custom
+  // uptakes (a profile arriving drops them, as it does here: the room's own come back after it)
+  if (NET_IDS.includes(v.net) && v.net !== curNet()) setNet(v.net);
+  if (PROFILES.some(p => p[0] === v.profile) && v.profile !== curProfile()) selectProfile(v.profile, false);
   if ((v.u === null || (Array.isArray(v.u) && v.u.length === ONE_N && v.u.every(Number.isFinite))) && JSON.stringify(v.u) !== JSON.stringify(X.u)) setUs(v.u);
   renderAll();
 }

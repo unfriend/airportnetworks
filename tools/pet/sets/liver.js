@@ -9,7 +9,7 @@
 // Frame: x the patient's left (so the right lobe is on your left when you face it), y up, z forward; about 1.6 wide.
 SETS.liver = function (K) {
   const { THREE, smooth, clamp, lerp, prog, v3 } = K;
-  const set = K.newSet('liver'); const T0 = performance.now(), TT = [];
+  const set = K.newSet('liver');
   const R = K.rng(1606);
   const ORG = typeof PET_DATA !== 'undefined' && (PET_DATA.organs || []).find(o => o.id === 'liver');
   const COL = K.rgb(ORG ? ORG.col : '#f97316'), HUBC = K.rgb('#ffb020'), LINKC = K.rgb('#3d6bff');
@@ -53,17 +53,22 @@ SETS.liver = function (K) {
   const zB0 = x => -0.44 + 0.30 * smooth((x + 0.3) / 0.9);
   const G = 0.012, X0 = -0.96, Y0 = -0.62, NX = 156, NY = 99;
   const D2 = new Float32Array(NX * NY), FR = new Float32Array(NX * NY), BK = new Float32Array(NX * NY);
-  for (let i = 0; i < NX; i++) {
-    const x = X0 + i * G;
-    let yb = Infinity, yt = -Infinity;   // the column's extent in the smooth outline
+  // each column's extent in the smooth outline (held constant beyond the right border's middle and the left lobe's
+  // tip, where a column's extent shrinks to nothing), lightly smoothed along x
+  const ext = x => { let yb = Infinity, yt = -Infinity;
     for (let a = 0, b = SMOOTH.length - 1; a < SMOOTH.length; b = a++) {
       const p = SMOOTH[a], q = SMOOTH[b];
       if ((p[0] <= x) !== (q[0] <= x)) { const y = p[1] + (q[1] - p[1]) * (x - p[0]) / (q[0] - p[0]); yb = Math.min(yb, y); yt = Math.max(yt, y); }
     }
+    return [yb, yt]; };
+  const EXT = [];
+  for (let i = 0; i < NX; i++) { const e = [0, 0]; for (let w = -3; w <= 3; w++) { const r = ext(clamp(X0 + (i + w) * G, -0.74, 0.7)); e[0] += r[0] / 7; e[1] += r[1] / 7; } EXT.push(e); }
+  for (let i = 0; i < NX; i++) {
+    const x = X0 + i * G, yb = EXT[i][0], yt = EXT[i][1];
     const zf0 = zF0(x), zb0 = zB0(x), vs = lerp(0.4, 0.62, smooth((x + 0.55) / 0.6));
     for (let j = 0; j < NY; j++) {
       const y = Y0 + j * G, q = j * NX + i, d = sdPoly(POLY, x, y);
-      const v = yt > yb ? sat((y - yb) / (yt - yb)) : 0.5;
+      const v = sat((y - yb) / (yt - yb));
       const zf = zf0 + 0.035 * (1 - (2 * v - 1) * (2 * v - 1)) * (1 - 0.6 * smooth((x + 0.1) / 0.8));
       const zb = lerp(zf - 0.085, zb0, smooth(v / vs)), zc = 0.5 * (zf + zb);
       const wf = lerp(0.045, 0.26, smooth(v / 0.55)), wb = lerp(0.09, 0.26, smooth(v / 0.55));
@@ -104,7 +109,6 @@ SETS.liver = function (K) {
   const grad = (p, e = 0.004) => [field(p[0] + e, p[1], p[2]) - field(p[0] - e, p[1], p[2]),
     field(p[0], p[1] + e, p[2]) - field(p[0], p[1] - e, p[2]), field(p[0], p[1], p[2] + e) - field(p[0], p[1], p[2] - e)].map(g => g / (2 * e));
 
-  TT.push(['table', performance.now() - T0]);
   // the surface: surface nets on a grid, each vertex pulled onto the surface; smooth normals from the faces
   const surf = (function () {
     const h = 0.018, lo = [-0.93, -0.6, -0.52], n = [101, 64, 52], F = new Float32Array(n[0] * n[1] * n[2]);
@@ -115,7 +119,6 @@ SETS.liver = function (K) {
       if (cD > 0.06) { F.fill(cD, o, o + n[2]); continue; }
       for (let k = 0; k < n[2]; k++) { const z = lo[2] + k * h; F[o + k] = cut(Math.max(cD, z - cF, cB - z), x, y, z); }
     }
-    TT.push(['sample', performance.now() - T0]);
     const VI = new Int32Array(n[0] * n[1] * n[2]).fill(-1), P = [], cv = new Float64Array(8);
     const EG = [0, 1, 2, 3, 4, 5, 6, 7, 0, 2, 1, 3, 4, 6, 5, 7, 0, 4, 1, 5, 2, 6, 3, 7], si = n[1] * n[2], sj = n[2];
     const CO = [0, si, sj, si + sj, 1, si + 1, sj + 1, si + sj + 1];   // the corners' offsets (bit 0 i, bit 1 j, bit 2 k)
@@ -139,7 +142,6 @@ SETS.liver = function (K) {
       const st = clamp(field(x, y, z) / (gx * gx + gy * gy + gz * gz || 1), -0.5 * h, 0.5 * h);
       VI[o] = P.length / 3; P.push(x - gx * st, y - gy * st, z - gz * st);
     }
-    TT.push(['verts', performance.now() - T0]);
     const I3 = [], quad = (a, b, c, d, flip) => { if (a < 0 || b < 0 || c < 0 || d < 0) return; if (flip) I3.push(a, c, b, a, d, c); else I3.push(a, b, c, a, c, d); };
     for (let i = 0; i < n[0] - 1; i++) for (let j = 0; j < n[1] - 1; j++) for (let k = 0; k < n[2] - 1; k++) {
       const in0 = F[id(i, j, k)] < 0;
@@ -147,7 +149,6 @@ SETS.liver = function (K) {
       if (i > 0 && k > 0 && in0 !== F[id(i, j + 1, k)] < 0) quad(VI[id(i - 1, j, k - 1)], VI[id(i - 1, j, k)], VI[id(i, j, k)], VI[id(i, j, k - 1)], !in0);
       if (i > 0 && j > 0 && in0 !== F[id(i, j, k + 1)] < 0) quad(VI[id(i - 1, j - 1, k)], VI[id(i, j - 1, k)], VI[id(i, j, k)], VI[id(i - 1, j, k)], !in0);
     }
-    TT.push(['quads', performance.now() - T0]);
     const g = new THREE.BufferGeometry();
     g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(P), 3));
     g.setIndex(new THREE.BufferAttribute(new Uint32Array(I3), 1));
@@ -155,7 +156,6 @@ SETS.liver = function (K) {
     g.computeBoundingBox();
     return g;
   })();
-  TT.push(['surf', performance.now() - T0]);
   const BB = surf.boundingBox, C0 = [(BB.min.x + BB.max.x) / 2, (BB.min.y + BB.max.y) / 2, (BB.min.z + BB.max.z) / 2];
   const spin = new THREE.Group(), body = new THREE.Group();
   set.group.add(spin); spin.add(body);
@@ -191,14 +191,14 @@ SETS.liver = function (K) {
     }
     const keep = [...LAT.fv.keys()].sort((p, q) => LAT.fv[p] - LAT.fv[q]).slice(0, TARGET).sort((p, q) => p - q);
     LAT.cells = keep.flatMap(c => LAT.cells.slice(3 * c, 3 * c + 3)); }
-  TT.push(['lattice', performance.now() - T0]);
   const HP = LAT.hp, N = LAT.cells.length / 3, PP = new Float32Array(3 * N);
   const DIMS = LAT.hi.map((v, c) => v - LAT.lo[c] + 1), IDX = new Int32Array(DIMS[0] * DIMS[1] * DIMS[2]).fill(-1);
   const lid = (i, j, k) => ((i - LAT.lo[0]) * DIMS[1] + (j - LAT.lo[1])) * DIMS[2] + (k - LAT.lo[2]);
-  // each node sits at its patch's own centre, a little off the grid point (so no rows of nodes line up in a view)
+  // each node is drawn somewhere inside its own grid cell, not at the grid point: one per cell keeps them evenly
+  // spread, and no rows of nodes line up from any side
   for (let n = 0; n < N; n++) {
     const i = LAT.cells[3 * n], j = LAT.cells[3 * n + 1], k = LAT.cells[3 * n + 2];
-    PP.set(gp(i + 0.44 * (R() - 0.5), j + 0.44 * (R() - 0.5), k + 0.44 * (R() - 0.5), HP), 3 * n); IDX[lid(i, j, k)] = n;
+    PP.set(gp(i + 0.7 * (R() - 0.5), j + 0.7 * (R() - 0.5), k + 0.7 * (R() - 0.5), HP), 3 * n); IDX[lid(i, j, k)] = n;
   }
   // stand-in uptake (log scale, 0 the liver's usual): smooth noise in three octaves, a warmer patch high in the right
   // lobe, a cooler one where the lobes meet, and a little noise per patch
@@ -212,7 +212,7 @@ SETS.liver = function (K) {
     let L = 0;
     for (const [d, k, a, ph] of WAVES) L += a * Math.sin(k * v3.dot(d, p) + ph);
     const dw = v3.dist(p, WARM), dc = v3.dist(p, COOL);
-    L += 0.36 * Math.exp(-dw * dw / (2 * 0.15 * 0.15)) - 0.28 * Math.exp(-dc * dc / (2 * 0.13 * 0.13)) + 0.034 * K.gauss(RU);
+    L += 0.36 * Math.exp(-dw * dw / (2 * 0.15 * 0.15)) - 0.28 * Math.exp(-dc * dc / (2 * 0.13 * 0.13)) + 0.038 * K.gauss(RU);
     LU[n] = L;
   }
   // links: every pair within 2.45 grid steps whose uptake ratio exceeds the threshold, from the brighter to the
@@ -222,24 +222,29 @@ SETS.liver = function (K) {
     const r2 = a * a + b * b + c * c;
     if (r2 > 0 && r2 <= 6 && (a > 0 || (a === 0 && (b > 0 || (b === 0 && c > 0))))) OFF.push([a, b, c]);
   }
-  const PA = [], PB = [], PD = [];
+  const PA = new Int32Array(N * OFF.length), PB = new Int32Array(N * OFF.length), PD = new Float32Array(N * OFF.length);
+  let NP = 0;
   for (let n = 0; n < N; n++) {
     const i = LAT.cells[3 * n], j = LAT.cells[3 * n + 1], k = LAT.cells[3 * n + 2];
-    for (const o of OFF) {
-      const ii = i + o[0], jj = j + o[1], kk = k + o[2];
+    for (let q = 0; q < OFF.length; q++) {
+      const o = OFF[q], ii = i + o[0], jj = j + o[1], kk = k + o[2];
       if (ii > LAT.hi[0] || jj < LAT.lo[1] || jj > LAT.hi[1] || kk < LAT.lo[2] || kk > LAT.hi[2]) continue;
       const m = IDX[lid(ii, jj, kk)];
-      if (m >= 0) { PA.push(n); PB.push(m); PD.push(LU[n] - LU[m]); }
+      if (m >= 0) { PA[NP] = n; PB[NP] = m; PD[NP++] = LU[n] - LU[m]; }
     }
   }
-  const LINKS_WANTED = 20000;
-  const sorted = Float32Array.from(PD, Math.abs).sort();
-  const THETA = Math.round(Math.exp(sorted[Math.max(0, sorted.length - LINKS_WANTED)]) * 100) / 100, LT = Math.log(THETA);
+  const LINKS_WANTED = 20000, SD = new Float32Array(NP);
+  for (let e = 0; e < NP; e++) SD[e] = Math.abs(PD[e]);
+  SD.sort();
+  const above = th => { const l = Math.log(th); let a = 0, b = NP; while (a < b) { const m = (a + b) >> 1; if (SD[m] <= l) a = m + 1; else b = m; } return NP - a; };
+  const q0 = Math.exp(SD[Math.max(0, NP - LINKS_WANTED)]) * 100;
+  const THETA = [Math.floor(q0) / 100, Math.ceil(q0) / 100].sort((a, b) => Math.abs(above(a) - LINKS_WANTED) - Math.abs(above(b) - LINKS_WANTED))[0], LT = Math.log(THETA);
   const EA = [], EB = [], EW = [];
-  for (let e = 0; e < PD.length; e++) {
-    if (Math.abs(PD[e]) <= LT) continue;
+  for (let e = 0; e < NP; e++) {
+    const d = PD[e] < 0 ? -PD[e] : PD[e];
+    if (d <= LT) continue;
     const hot = PD[e] > 0;
-    EA.push(hot ? PA[e] : PB[e]); EB.push(hot ? PB[e] : PA[e]); EW.push(Math.abs(PD[e]) - LT);
+    EA.push(hot ? PA[e] : PB[e]); EB.push(hot ? PB[e] : PA[e]); EW.push(d - LT);
   }
   const NL = EA.length, DEG = new Int32Array(N);
   for (let e = 0; e < NL; e++) { DEG[EA[e]]++; DEG[EB[e]]++; }
@@ -252,7 +257,7 @@ SETS.liver = function (K) {
   { let best = -1;
     for (let r = 0; r < NH; r++) {
       const a = ORDER[r]; let c = 0;
-      for (let s = 0; s < NH; s++) { const b = ORDER[s]; if (Math.hypot(PP[3 * a] - PP[3 * b], PP[3 * a + 1] - PP[3 * b + 1], PP[3 * a + 2] - PP[3 * b + 2]) < 0.15) c++; }
+      for (let s = 0; s < NH; s++) { const b = ORDER[s], dx = PP[3 * a] - PP[3 * b], dy = PP[3 * a + 1] - PP[3 * b + 1], dz = PP[3 * a + 2] - PP[3 * b + 2]; if (dx * dx + dy * dy + dz * dz < 0.0225) c++; }
       if (c > best) { best = c; TOP = [PP[3 * a], PP[3 * a + 1], PP[3 * a + 2]]; }
     } }
   // patches appear from the middle out (by distance from their centroid)
@@ -262,7 +267,6 @@ SETS.liver = function (K) {
   { let m = 0; for (let n = 0; n < N; n++) { RV[n] = Math.hypot(PP[3 * n] - CEN[0], PP[3 * n + 1] - CEN[1], PP[3 * n + 2] - CEN[2]); m = Math.max(m, RV[n]); }
     for (let n = 0; n < N; n++) RV[n] /= m; }
 
-  TT.push(['links', performance.now() - T0]);
   // ------------------------------------------------------------------ materials
   const U = { uGrow: { value: 1 }, uLinks: { value: 1 }, uTop: { value: 0 }, uHubC: { value: new THREE.Color(...HUBC) },
     uLinkC: { value: new THREE.Color(...LINKC) } };
@@ -315,7 +319,7 @@ void main() {
   {
     const prof = [];
     for (let s = 0; s <= 24; s++) {
-      const u = s / 24, r = u < 0.25 ? 0.074 * Math.sin(Math.acos(1 - u / 0.25 * 1)) : lerp(0.074, 0.036, smooth((u - 0.25) / 0.75));
+      const u = s / 24, r = u < 0.25 ? 0.074 * Math.sin(Math.acos(1 - u / 0.25)) : lerp(0.074, 0.036, smooth((u - 0.25) / 0.75));
       prof.push(new THREE.Vector2(Math.max(r, 0.0001), -0.074 + u * (v3.dist(GB_F, GB_N) + 0.074)));
     }
     prof.push(new THREE.Vector2(0.012, v3.dist(GB_F, GB_N) + 0.03), new THREE.Vector2(0.011, v3.dist(GB_F, GB_N) + 0.09), new THREE.Vector2(0.0001, v3.dist(GB_F, GB_N) + 0.092));
@@ -325,8 +329,8 @@ void main() {
     m.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), new THREE.Vector3(...v3.norm(v3.sub(GB_N, GB_F))));
     body.add(m);
   }
-  // the falciform ligament: over the front from the round ligament's notch, across the dome towards the back,
-  // traced on the surface in a plane that leans a little to the right; the round ligament leaves the notch below
+  // the falciform ligament: up the front from the round ligament's notch and over the dome, where it fades; traced on
+  // the surface in a plane that leans a little to the right (the patient's right)
   const LIG = [];
   {
     const cx = y => 0.055 - 0.07 * sat((y + 0.24) / 0.6), C = [0, -0.02, -0.08];
@@ -357,7 +361,7 @@ void main() {
   gl_Position = projectionMatrix * mv;
   float g = uGrow * 1.1, ap = smoothstep(aI.y, aI.y + 0.05, g), fl = uGrow < 0.999 ? exp(-pow((g - aI.y - 0.035) / 0.045, 2.0)) : 0.0;
   float hub = aI.z * uTop, pulse = 0.8 + 0.2 * sin(uTime * 1.6 + aI.w * 6.2832);
-  vec3 c = hot(aI.x) * (1.0 - 0.25 * uLinks) * (0.9 + 0.1 * sin(uTime * 1.1 + aI.w * 40.0));
+  vec3 c = hot(aI.x) * (1.0 - 0.3 * uLinks) * (0.9 + 0.1 * sin(uTime * 1.1 + aI.w * 40.0));
   c = mix(c, uHubC * 1.3 * pulse, hub);
   c = mix(c, vec3(1.0, 0.93, 0.8), fl * 0.6);   // the growing front glows white
   float br = mix(1.0, 0.28, uTop * (1.0 - aI.z)) * (1.0 + 2.2 * fl);
@@ -411,7 +415,8 @@ void main() {
   vec3 c = mix(uLinkC, vec3(0.5, 0.72, 1.0), aL.y * 0.4);
   c = mix(c, uHubC, hl * 0.9);
   float br = (0.35 + 0.65 * aL.y) * mix(1.0, 0.16, uTop * (1.0 - hub)) * (1.0 + 0.7 * hl);
-  vC = c * br * depthCue(mv); vS = aL.x; vPh = ph; vA = uA * on;
+  // up close each line covers fewer others, so it may be brighter
+  vC = c * br * depthCue(mv); vS = aL.x; vPh = ph; vA = uA * on * clamp(2.6 * length(modelViewMatrix[0].xyz) / -mv.z, 1.0, 2.5);
 }`, `
 uniform float uTime;
 varying vec3 vC; varying float vA, vS, vPh;
@@ -432,7 +437,8 @@ void main() {
     for (let it = 0; it < 30; it++) { const m = 0.5 * (a + b), q = v3.add(p, v3.mul(d, m)); if (field(q[0], q[1], q[2]) < 0) a = m; else b = m; }
     return v3.add(p, v3.mul(d, a)); };
   const anchors = {
-    centre: at(CEN),
+    centre: [0, 0, 0],                                               // the middle of the organ (of its box)
+    core: at(CEN),                                                   // the middle of its patches, where they start to grow
     top: at(TOP),
     right: at(surfAt([-0.45, 0.05, -0.05], [-0.55, 0.6, 0.6])),   // the right lobe, its upper outer front
     left: at(surfAt([0.5, 0.1, 0.0], [0.3, 0.25, 1])),            // the left lobe
@@ -444,23 +450,22 @@ void main() {
   };
   const labels = [
     { text: [fmt(N) + ' patches', ''], at: 'right', alpha: S => prog(S.liver_grow, 0.55, 0.85) * (1 - prog(S.liver_links, 0.1, 0.35)) },
-    { text: ['Links:', 'uptake ratio above the threshold'], at: 'web', cls: 'cyn', alpha: S => prog(S.liver_links, 0.35, 0.65) * (1 - prog(S.liver_top, 0.1, 0.4)) },
-    { text: ['Best connected', 'the top 5 % of patches'], at: 'top', cls: 'amb', alpha: S => prog(S.liver_top, 0.45, 0.8) },
+    { text: ['Links:', 'uptake ratio above the threshold'], at: 'web', cls: 'cyn', alpha: S => prog(S.liver_links, 0.35, 0.65) * prog(S.liver_grow, 0.7, 0.95) * (1 - prog(S.liver_top, 0.1, 0.4)) },
+    { text: ['Best connected', 'the top 5 % of patches'], at: 'top', cls: 'amb', alpha: S => prog(S.liver_top, 0.45, 0.8) * prog(S.liver_grow, 0.7, 0.95) },
   ];
-
-  TT.push(['all', performance.now() - T0]); console.warn('liver timing ' + JSON.stringify(TT.map(([k, v]) => k + ' ' + v.toFixed(0))) + ' N ' + N + ' NL ' + NL + ' theta ' + THETA + ' hp ' + HP.toFixed(4));
   return Object.assign(set, {
     params: { liver_a: 1, liver_grow: 1, liver_links: 1, liver_top: 0, liver_spin: 0 },
     update(S) {
-      ang = (S.liver_spin || 0) * Math.PI * 2;
+      const p = k => (S[k] === undefined ? set.params[k] : S[k]);
+      ang = p('liver_spin') * Math.PI * 2;
       spin.rotation.y = ang;
-      U.uGrow.value = sat(S.liver_grow); U.uLinks.value = sat(S.liver_links); U.uTop.value = sat(S.liver_top);
+      U.uGrow.value = sat(p('liver_grow')); U.uLinks.value = sat(p('liver_links')); U.uTop.value = sat(p('liver_top'));
       shellMat.uniforms.uK.value = 1 - 0.35 * U.uLinks.value - 0.25 * U.uTop.value;
     },
     anchors,
     labels,
     cam: {
-      default: [-16, 9, 3.3, 0, -0.02, 0],
+      default: [-16, 9, 3.1, 0, -0.02, 0],
       front: [0, 3, 3.1, 0, 0, 0],
       close: [-34, 12, 1.5, ...at(WARM)()],
       below: [-12, -52, 3.1, 0, -0.05, 0],
@@ -468,7 +473,6 @@ void main() {
     },
     controls: [{ key: 'view', label: 'View', options: [['patches', 'Patches'], ['links', 'Links'], ['hubs', 'Hubs']] }],
     explore(c) { return { liver_grow: 1, liver_links: c.view === 'patches' ? 0 : 1, liver_top: c.view === 'hubs' ? 1 : 0, liver_spin: 0 }; },
-    _dbg: () => ({ PP, LU, EA, EB, DEG, HUB, N, NL, HP, WARM, COOL, MR }),
-    api() { return { patches: N, links: NL, theta: THETA, hubs: NH, step: HP, meanLinks: 2 * NL / N, maxLinks: DEG[ORDER[0]] }; },
+    api() { return { patches: N, links: NL, theta: THETA, hubs: NH, step: HP, pairs: NP, meanLinks: 2 * NL / N, maxLinks: DEG[ORDER[0]] }; },
   });
 };

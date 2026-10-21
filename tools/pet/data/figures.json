@@ -1,16 +1,3913 @@
 {
-  "note": "PLACEHOLDER: replaced by the reconciled readings",
-  "fig2": {
-    "aorta": [[0,0,-0.19,0,0,0,0.30,0,0,0,0],[0,0,-0.19,0.37,0,0,0.15,0,0,0,0],[-0.19,-0.19,0,0.27,0.23,0.31,0.73,0.17,0.22,-0.16,0],[0,0.37,0.27,0,-0.19,0,-0.31,0.23,0,0,0],[0,0,0.23,-0.19,0,0,-0.21,0,0.15,0.20,0],[0,0,0.31,0,0,0,-0.42,0.17,0,0.42,0],[0.30,0.15,0.73,-0.31,-0.21,-0.42,0,0,-0.16,0.20,0.25],[0,0,0.17,0.23,0,0.17,0,0,0,0.18,0],[0,0,0.22,0,0.15,0,-0.16,0,0,0,0],[0,0,-0.16,0,0.20,0.42,0.20,0.18,0,0,0],[0,0,0,0,0,0,0.25,0,0,0,0]],
-    "vena": [[0,0,-0.20,0,0,0,0.35,0.15,0,0,0],[0,0,0,0.28,-0.16,0,0,0,0.19,0,0],[-0.20,0,0,0.28,0.24,0,0.69,0.15,0,-0.20,-0.22],[0,0.28,0.28,0,-0.21,0,-0.36,0.24,0,0.17,0.19],[0,-0.16,0.24,-0.21,0,0.30,-0.27,0,0.28,0.19,0],[0,0,0,0,0.30,0,0,0,0,0.45,0],[0.35,0,0.69,-0.36,-0.27,0,0,0,0,0.27,0.38],[0.15,0,0.15,0.24,0,0,0,0,0,0,0],[0,0.19,0,0,0.28,0,0,0,0,0,0],[0,0,-0.20,0.17,0.19,0.45,0.27,0,0,0,0],[0,0,-0.22,0.19,0,0,0.38,0,0,0,0]]
+ "note": "Values read off the figures of Geist et al., Med 6, 100881 (2025, CC BY 4.0) and of the poster \"Shaping a New Era in Nuclear Medicine\", each read twice independently and reconciled; Figure 2A is printed (exact). The poster's patients only as group summaries.",
+ "fig2": {
+  "organs": [
+   "adrenal",
+   "marrow",
+   "heart",
+   "intestine",
+   "kidneys",
+   "liver",
+   "lungs",
+   "muscle",
+   "pancreas",
+   "spleen",
+   "thyroid"
+  ],
+  "aorta": [
+   [
+    0,
+    0,
+    -0.19,
+    0,
+    0,
+    0,
+    0.3,
+    0,
+    0,
+    0,
+    0
+   ],
+   [
+    0,
+    0,
+    -0.19,
+    0.37,
+    0,
+    0,
+    0.15,
+    0,
+    0,
+    0,
+    0
+   ],
+   [
+    -0.19,
+    -0.19,
+    0,
+    0.27,
+    0.23,
+    0.31,
+    0.73,
+    0.17,
+    0.22,
+    -0.16,
+    0
+   ],
+   [
+    0,
+    0.37,
+    0.27,
+    0,
+    -0.19,
+    0,
+    -0.31,
+    0.23,
+    0,
+    0,
+    0
+   ],
+   [
+    0,
+    0,
+    0.23,
+    -0.19,
+    0,
+    0,
+    -0.21,
+    0,
+    0.15,
+    0.2,
+    0
+   ],
+   [
+    0,
+    0,
+    0.31,
+    0,
+    0,
+    0,
+    -0.42,
+    0.17,
+    0,
+    0.42,
+    0
+   ],
+   [
+    0.3,
+    0.15,
+    0.73,
+    -0.31,
+    -0.21,
+    -0.42,
+    0,
+    0,
+    -0.16,
+    0.2,
+    0.25
+   ],
+   [
+    0,
+    0,
+    0.17,
+    0.23,
+    0,
+    0.17,
+    0,
+    0,
+    0,
+    0.18,
+    0
+   ],
+   [
+    0,
+    0,
+    0.22,
+    0,
+    0.15,
+    0,
+    -0.16,
+    0,
+    0,
+    0,
+    0
+   ],
+   [
+    0,
+    0,
+    -0.16,
+    0,
+    0.2,
+    0.42,
+    0.2,
+    0.18,
+    0,
+    0,
+    0
+   ],
+   [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0.25,
+    0,
+    0,
+    0,
+    0
+   ]
+  ],
+  "vena": [
+   [
+    0,
+    0,
+    -0.2,
+    0,
+    0,
+    0,
+    0.35,
+    0.15,
+    0,
+    0,
+    0
+   ],
+   [
+    0,
+    0,
+    0,
+    0.28,
+    -0.16,
+    0,
+    0,
+    0,
+    0.19,
+    0,
+    0
+   ],
+   [
+    -0.2,
+    0,
+    0,
+    0.28,
+    0.24,
+    0,
+    0.69,
+    0.15,
+    0,
+    -0.2,
+    -0.22
+   ],
+   [
+    0,
+    0.28,
+    0.28,
+    0,
+    -0.21,
+    0,
+    -0.36,
+    0.24,
+    0,
+    0.17,
+    0.19
+   ],
+   [
+    0,
+    -0.16,
+    0.24,
+    -0.21,
+    0,
+    0.3,
+    -0.27,
+    0,
+    0.28,
+    0.19,
+    0
+   ],
+   [
+    0,
+    0,
+    0,
+    0,
+    0.3,
+    0,
+    0,
+    0,
+    0,
+    0.45,
+    0
+   ],
+   [
+    0.35,
+    0,
+    0.69,
+    -0.36,
+    -0.27,
+    0,
+    0,
+    0,
+    0,
+    0.27,
+    0.38
+   ],
+   [
+    0.15,
+    0,
+    0.15,
+    0.24,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   [
+    0,
+    0.19,
+    0,
+    0,
+    0.28,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   [
+    0,
+    0,
+    -0.2,
+    0.17,
+    0.19,
+    0.45,
+    0.27,
+    0,
+    0,
+    0,
+    0
+   ],
+   [
+    0,
+    0,
+    -0.22,
+    0.19,
+    0,
+    0,
+    0.38,
+    0,
+    0,
+    0,
+    0
+   ]
+  ],
+  "layout": {
+   "full": {
+    "marrow": [
+     0.187,
+     0.128
+    ],
+    "kidneys": [
+     0.579,
+     0.173
+    ],
+    "pancreas": [
+     0.925,
+     0.059
+    ],
+    "intestine": [
+     0.248,
+     0.373
+    ],
+    "heart": [
+     0.493,
+     0.397
+    ],
+    "spleen": [
+     0.941,
+     0.421
+    ],
+    "lungs": [
+     0.424,
+     0.512
+    ],
+    "liver": [
+     0.827,
+     0.56
+    ],
+    "thyroid": [
+     0.059,
+     0.605
+    ],
+    "adrenal": [
+     0.344,
+     0.837
+    ],
+    "muscle": [
+     0.728,
+     0.92
+    ]
+   },
+   "vena": {
+    "marrow": [
+     0.187,
+     0.131
+    ],
+    "kidneys": [
+     0.579,
+     0.173
+    ],
+    "pancreas": [
+     0.925,
+     0.059
+    ],
+    "intestine": [
+     0.248,
+     0.373
+    ],
+    "heart": [
+     0.491,
+     0.397
+    ],
+    "spleen": [
+     0.941,
+     0.421
+    ],
+    "lungs": [
+     0.421,
+     0.512
+    ],
+    "liver": [
+     0.824,
+     0.56
+    ],
+    "thyroid": [
+     0.059,
+     0.605
+    ],
+    "adrenal": [
+     0.344,
+     0.837
+    ],
+    "muscle": [
+     0.728,
+     0.928
+    ]
+   }
   },
-  "fig3": [],
-  "fig4": [],
-  "poster": {
-    "mdi": { "axis": [0, 10], "groups": [
-      { "key": "cancer", "name": "Cancer", "n": 282, "centre": 3.2, "err": [2.6, 4.0] },
-      { "key": "both", "name": "Cancer + dyslipidaemia", "n": 187, "centre": 3.9, "err": [3.3, 4.7] },
-      { "key": "dys", "name": "Dyslipidaemia", "n": 89, "centre": 5.2, "err": [4.4, 6.0] },
-      { "key": "healthy", "name": "Healthy", "n": 35, "centre": 4.7, "err": [4.3, 5.0] } ] }
+  "dose": [
+   {
+    "id": "standard",
+    "title": "standard dose",
+    "n": 21,
+    "density": 20,
+    "organs": [
+     "heart",
+     "spleen",
+     "pancreas",
+     "kidneys",
+     "brain",
+     "adrenal",
+     "liver",
+     "thyroid"
+    ],
+    "layout": {
+     "heart": [
+      0.333,
+      0.059
+     ],
+     "spleen": [
+      0.753,
+      0.111
+     ],
+     "pancreas": [
+      0.371,
+      0.371
+     ],
+     "kidneys": [
+      0.669,
+      0.525
+     ],
+     "brain": [
+      0.059,
+      0.64
+     ],
+     "adrenal": [
+      0.445,
+      0.703
+     ],
+     "liver": [
+      0.941,
+      0.755
+     ],
+     "thyroid": [
+      0.707,
+      0.941
+     ]
+    },
+    "edges": [
+     {
+      "a": "heart",
+      "b": "pancreas",
+      "sign": -1,
+      "w": 0.225,
+      "rel": 0.37
+     },
+     {
+      "a": "heart",
+      "b": "kidneys",
+      "sign": 1,
+      "w": 0.21,
+      "rel": 0.34
+     },
+     {
+      "a": "heart",
+      "b": "adrenal",
+      "sign": 1,
+      "w": 0.22,
+      "rel": 0.355
+     },
+     {
+      "a": "spleen",
+      "b": "pancreas",
+      "sign": 1,
+      "w": 0.475,
+      "rel": 0.78
+     },
+     {
+      "a": "spleen",
+      "b": "kidneys",
+      "sign": 1,
+      "w": 0.47,
+      "rel": 0.765
+     },
+     {
+      "a": "spleen",
+      "b": "adrenal",
+      "sign": -1,
+      "w": 0.41,
+      "rel": 0.665
+     },
+     {
+      "a": "pancreas",
+      "b": "adrenal",
+      "sign": 1,
+      "w": 0.615,
+      "rel": 1.0
+     },
+     {
+      "a": "pancreas",
+      "b": "thyroid",
+      "sign": -1,
+      "w": 0.205,
+      "rel": 0.335
+     },
+     {
+      "a": "pancreas",
+      "b": "liver",
+      "sign": -1,
+      "w": 0.24,
+      "rel": 0.4
+     },
+     {
+      "a": "kidneys",
+      "b": "brain",
+      "sign": 1,
+      "w": 0.41,
+      "rel": 0.675
+     },
+     {
+      "a": "kidneys",
+      "b": "adrenal",
+      "sign": 1,
+      "w": 0.21,
+      "rel": 0.34
+     },
+     {
+      "a": "kidneys",
+      "b": "liver",
+      "sign": 1,
+      "w": 0.365,
+      "rel": 0.59
+     },
+     {
+      "a": "kidneys",
+      "b": "thyroid",
+      "sign": 1,
+      "w": 0.375,
+      "rel": 0.61
+     },
+     {
+      "a": "adrenal",
+      "b": "liver",
+      "sign": 1,
+      "w": 0.295,
+      "rel": 0.48
+     },
+     {
+      "a": "adrenal",
+      "b": "thyroid",
+      "sign": 1,
+      "w": 0.34,
+      "rel": 0.555
+     },
+     {
+      "a": "liver",
+      "b": "thyroid",
+      "sign": -1,
+      "w": 0.555,
+      "rel": 0.91
+     }
+    ]
+   },
+   {
+    "id": "ultralow",
+    "title": "ultra low dose",
+    "n": 21,
+    "density": 24,
+    "organs": [
+     "heart",
+     "spleen",
+     "pancreas",
+     "kidneys",
+     "brain",
+     "adrenal",
+     "liver",
+     "thyroid"
+    ],
+    "layout": {
+     "heart": [
+      0.333,
+      0.059
+     ],
+     "spleen": [
+      0.753,
+      0.111
+     ],
+     "pancreas": [
+      0.371,
+      0.371
+     ],
+     "kidneys": [
+      0.669,
+      0.525
+     ],
+     "brain": [
+      0.059,
+      0.64
+     ],
+     "adrenal": [
+      0.445,
+      0.703
+     ],
+     "liver": [
+      0.941,
+      0.755
+     ],
+     "thyroid": [
+      0.707,
+      0.941
+     ]
+    },
+    "edges": [
+     {
+      "a": "heart",
+      "b": "spleen",
+      "sign": 1,
+      "w": 0.4,
+      "rel": 0.765
+     },
+     {
+      "a": "heart",
+      "b": "pancreas",
+      "sign": -1,
+      "w": 0.43,
+      "rel": 0.82
+     },
+     {
+      "a": "heart",
+      "b": "kidneys",
+      "sign": 1,
+      "w": 0.485,
+      "rel": 0.93
+     },
+     {
+      "a": "heart",
+      "b": "adrenal",
+      "sign": 1,
+      "w": 0.51,
+      "rel": 0.97
+     },
+     {
+      "a": "heart",
+      "b": "liver",
+      "sign": -1,
+      "w": 0.22,
+      "rel": 0.425
+     },
+     {
+      "a": "spleen",
+      "b": "pancreas",
+      "sign": 1,
+      "w": 0.35,
+      "rel": 0.675
+     },
+     {
+      "a": "spleen",
+      "b": "kidneys",
+      "sign": -1,
+      "w": 0.3,
+      "rel": 0.57
+     },
+     {
+      "a": "spleen",
+      "b": "liver",
+      "sign": 1,
+      "w": 0.21,
+      "rel": 0.405
+     },
+     {
+      "a": "pancreas",
+      "b": "brain",
+      "sign": 1,
+      "w": 0.47,
+      "rel": 0.895
+     },
+     {
+      "a": "pancreas",
+      "b": "adrenal",
+      "sign": 1,
+      "w": 0.525,
+      "rel": 1.0
+     },
+     {
+      "a": "kidneys",
+      "b": "brain",
+      "sign": 1,
+      "w": 0.34,
+      "rel": 0.655
+     },
+     {
+      "a": "kidneys",
+      "b": "liver",
+      "sign": 1,
+      "w": 0.29,
+      "rel": 0.55
+     },
+     {
+      "a": "kidneys",
+      "b": "thyroid",
+      "sign": 1,
+      "w": 0.355,
+      "rel": 0.68
+     },
+     {
+      "a": "brain",
+      "b": "adrenal",
+      "sign": -1,
+      "w": 0.435,
+      "rel": 0.825
+     },
+     {
+      "a": "adrenal",
+      "b": "liver",
+      "sign": 1,
+      "w": 0.465,
+      "rel": 0.895
+     },
+     {
+      "a": "adrenal",
+      "b": "thyroid",
+      "sign": 1,
+      "w": 0.445,
+      "rel": 0.86
+     },
+     {
+      "a": "liver",
+      "b": "thyroid",
+      "sign": -1,
+      "w": 0.48,
+      "rel": 0.915
+     }
+    ]
+   },
+   {
+    "id": "virtual",
+    "title": "virtual ultra low dose",
+    "n": 21,
+    "density": 23,
+    "organs": [
+     "heart",
+     "spleen",
+     "pancreas",
+     "kidneys",
+     "brain",
+     "adrenal",
+     "liver",
+     "thyroid"
+    ],
+    "layout": {
+     "heart": [
+      0.333,
+      0.059
+     ],
+     "spleen": [
+      0.753,
+      0.111
+     ],
+     "pancreas": [
+      0.371,
+      0.371
+     ],
+     "kidneys": [
+      0.669,
+      0.525
+     ],
+     "brain": [
+      0.059,
+      0.64
+     ],
+     "adrenal": [
+      0.445,
+      0.703
+     ],
+     "liver": [
+      0.941,
+      0.755
+     ],
+     "thyroid": [
+      0.707,
+      0.941
+     ]
+    },
+    "edges": [
+     {
+      "a": "heart",
+      "b": "spleen",
+      "sign": 1,
+      "w": 0.36,
+      "rel": 0.65
+     },
+     {
+      "a": "heart",
+      "b": "pancreas",
+      "sign": -1,
+      "w": 0.27,
+      "rel": 0.485
+     },
+     {
+      "a": "heart",
+      "b": "brain",
+      "sign": 1,
+      "w": 0.355,
+      "rel": 0.64
+     },
+     {
+      "a": "spleen",
+      "b": "pancreas",
+      "sign": 1,
+      "w": 0.365,
+      "rel": 0.66
+     },
+     {
+      "a": "spleen",
+      "b": "kidneys",
+      "sign": 1,
+      "w": 0.24,
+      "rel": 0.435
+     },
+     {
+      "a": "spleen",
+      "b": "thyroid",
+      "sign": -1,
+      "w": 0.26,
+      "rel": 0.465
+     },
+     {
+      "a": "pancreas",
+      "b": "kidneys",
+      "sign": 1,
+      "w": 0.275,
+      "rel": 0.495
+     },
+     {
+      "a": "pancreas",
+      "b": "brain",
+      "sign": 1,
+      "w": 0.245,
+      "rel": 0.445
+     },
+     {
+      "a": "pancreas",
+      "b": "adrenal",
+      "sign": 1,
+      "w": 0.5,
+      "rel": 0.9
+     },
+     {
+      "a": "pancreas",
+      "b": "thyroid",
+      "sign": -1,
+      "w": 0.27,
+      "rel": 0.48
+     },
+     {
+      "a": "pancreas",
+      "b": "liver",
+      "sign": -1,
+      "w": 0.205,
+      "rel": 0.365
+     },
+     {
+      "a": "kidneys",
+      "b": "brain",
+      "sign": 1,
+      "w": 0.355,
+      "rel": 0.645
+     },
+     {
+      "a": "kidneys",
+      "b": "adrenal",
+      "sign": -1,
+      "w": 0.24,
+      "rel": 0.425
+     },
+     {
+      "a": "kidneys",
+      "b": "liver",
+      "sign": 1,
+      "w": 0.395,
+      "rel": 0.715
+     },
+     {
+      "a": "kidneys",
+      "b": "thyroid",
+      "sign": 1,
+      "w": 0.555,
+      "rel": 1.0
+     },
+     {
+      "a": "brain",
+      "b": "adrenal",
+      "sign": -1,
+      "w": 0.235,
+      "rel": 0.425
+     },
+     {
+      "a": "adrenal",
+      "b": "liver",
+      "sign": 1,
+      "w": 0.39,
+      "rel": 0.705
+     },
+     {
+      "a": "adrenal",
+      "b": "thyroid",
+      "sign": 1,
+      "w": 0.475,
+      "rel": 0.85
+     },
+     {
+      "a": "liver",
+      "b": "thyroid",
+      "sign": -1,
+      "w": 0.45,
+      "rel": 0.81
+     }
+    ]
+   }
+  ]
+ },
+ "fig3D": {
+  "high": {
+   "disorder": 0.09,
+   "bars": [
+    {
+     "organ": "fat",
+     "value": 3.58
+    },
+    {
+     "organ": "adrenal",
+     "value": 2.88
+    },
+    {
+     "organ": "muscle",
+     "value": 2.8
+    },
+    {
+     "organ": "pancreas",
+     "value": 2.73
+    },
+    {
+     "organ": "brain",
+     "value": 2.58
+    },
+    {
+     "organ": "marrow",
+     "value": 2.54
+    },
+    {
+     "organ": "thyroid",
+     "value": 2.32
+    },
+    {
+     "organ": "intestine",
+     "value": 2.27
+    },
+    {
+     "organ": "heart",
+     "value": 2.2
+    },
+    {
+     "organ": "kidneys",
+     "value": 1.46
+    },
+    {
+     "organ": "liver",
+     "value": 1.39
+    },
+    {
+     "organ": "spleen",
+     "value": 0.99
+    }
+   ],
+   "fitFirst": 3.65,
+   "fitLast": 1.31
+  },
+  "low": {
+   "disorder": 0.22,
+   "bars": [
+    {
+     "organ": "muscle",
+     "value": 1.5
+    },
+    {
+     "organ": "fat",
+     "value": 1.48
+    },
+    {
+     "organ": "brain",
+     "value": 1.06
+    },
+    {
+     "organ": "kidneys",
+     "value": 0.884
+    },
+    {
+     "organ": "liver",
+     "value": 0.84
+    },
+    {
+     "organ": "spleen",
+     "value": 0.833
+    },
+    {
+     "organ": "pancreas",
+     "value": 0.51
+    },
+    {
+     "organ": "intestine",
+     "value": 0.38
+    },
+    {
+     "organ": "heart",
+     "value": 0.35
+    },
+    {
+     "organ": "adrenal",
+     "value": 0.33
+    },
+    {
+     "organ": "marrow",
+     "value": 0.17
+    },
+    {
+     "organ": "thyroid",
+     "value": 0.13
+    }
+   ],
+   "fitFirst": 1.8,
+   "fitLast": 0.167
+  },
+  "retest_a": {
+   "disorder": 0.04,
+   "values": [
+    1.77,
+    1.75,
+    1.6,
+    1.46,
+    1.395,
+    1.36,
+    1.35,
+    1.33,
+    1.29,
+    1.284,
+    1.06
+   ],
+   "fitFirst": 1.74,
+   "fitLast": 1.14
+  },
+  "retest_b": {
+   "disorder": 0.06,
+   "values": [
+    2.24,
+    2.16,
+    2.05,
+    1.61,
+    1.58,
+    1.56,
+    1.44,
+    1.42,
+    1.38,
+    1.3,
+    1.17
+   ],
+   "fitFirst": 2.17,
+   "fitLast": 1.17
   }
+ },
+ "fig3": [
+  {
+   "id": "A_low",
+   "title": "BMI healthy <= 24.4 kg/m2",
+   "n": 241,
+   "density": 27,
+   "organs_shown": [
+    "muscle",
+    "thyroid",
+    "fat",
+    "pancreas",
+    "adrenal",
+    "brain",
+    "kidneys",
+    "liver",
+    "spleen",
+    "intestine",
+    "marrow"
+   ],
+   "isolated": [],
+   "hubs": [],
+   "edges": [
+    {
+     "a": "muscle",
+     "b": "thyroid",
+     "sign": 1,
+     "w": 0.33,
+     "conf": 0.95
+    },
+    {
+     "a": "muscle",
+     "b": "fat",
+     "sign": 1,
+     "w": 0.3,
+     "conf": 0.9
+    },
+    {
+     "a": "muscle",
+     "b": "adrenal",
+     "sign": 1,
+     "w": 0.34,
+     "conf": 0.8
+    },
+    {
+     "a": "muscle",
+     "b": "kidneys",
+     "sign": -1,
+     "w": 0.26,
+     "conf": 0.85
+    },
+    {
+     "a": "thyroid",
+     "b": "fat",
+     "sign": -1,
+     "w": 0.36,
+     "conf": 0.9
+    },
+    {
+     "a": "thyroid",
+     "b": "pancreas",
+     "sign": 1,
+     "w": 0.38,
+     "conf": 0.85
+    },
+    {
+     "a": "thyroid",
+     "b": "kidneys",
+     "sign": 1,
+     "w": 0.33,
+     "conf": 0.9
+    },
+    {
+     "a": "fat",
+     "b": "pancreas",
+     "sign": 1,
+     "w": 0.75,
+     "conf": 0.95
+    },
+    {
+     "a": "fat",
+     "b": "adrenal",
+     "sign": -1,
+     "w": 0.7,
+     "conf": 0.95
+    },
+    {
+     "a": "fat",
+     "b": "brain",
+     "sign": -1,
+     "w": 0.58,
+     "conf": 0.9
+    },
+    {
+     "a": "fat",
+     "b": "kidneys",
+     "sign": 1,
+     "w": 0.52,
+     "conf": 0.9
+    },
+    {
+     "a": "fat",
+     "b": "liver",
+     "sign": 1,
+     "w": 0.3,
+     "conf": 0.9
+    },
+    {
+     "a": "fat",
+     "b": "intestine",
+     "sign": 1,
+     "w": 0.53,
+     "conf": 0.65
+    },
+    {
+     "a": "pancreas",
+     "b": "adrenal",
+     "sign": 1,
+     "w": 0.62,
+     "conf": 0.9
+    },
+    {
+     "a": "pancreas",
+     "b": "intestine",
+     "sign": -1,
+     "w": 0.59,
+     "conf": 0.95
+    },
+    {
+     "a": "pancreas",
+     "b": "brain",
+     "sign": 1,
+     "w": 0.5,
+     "conf": 0.85
+    },
+    {
+     "a": "pancreas",
+     "b": "kidneys",
+     "sign": -1,
+     "w": 0.34,
+     "conf": 0.8
+    },
+    {
+     "a": "adrenal",
+     "b": "brain",
+     "sign": -1,
+     "w": 0.61,
+     "conf": 0.95
+    },
+    {
+     "a": "adrenal",
+     "b": "intestine",
+     "sign": 1,
+     "w": 0.4,
+     "conf": 0.9
+    },
+    {
+     "a": "adrenal",
+     "b": "liver",
+     "sign": 1,
+     "w": 0.41,
+     "conf": 0.85
+    },
+    {
+     "a": "adrenal",
+     "b": "kidneys",
+     "sign": 1,
+     "w": 0.51,
+     "conf": 0.9
+    },
+    {
+     "a": "adrenal",
+     "b": "marrow",
+     "sign": 1,
+     "w": 0.29,
+     "conf": 0.85
+    },
+    {
+     "a": "brain",
+     "b": "kidneys",
+     "sign": 1,
+     "w": 0.59,
+     "conf": 0.95
+    },
+    {
+     "a": "brain",
+     "b": "liver",
+     "sign": 1,
+     "w": 0.46,
+     "conf": 0.9
+    },
+    {
+     "a": "brain",
+     "b": "intestine",
+     "sign": 1,
+     "w": 0.52,
+     "conf": 0.9
+    },
+    {
+     "a": "brain",
+     "b": "marrow",
+     "sign": 1,
+     "w": 0.39,
+     "conf": 0.9
+    },
+    {
+     "a": "kidneys",
+     "b": "liver",
+     "sign": -1,
+     "w": 0.35,
+     "conf": 0.9
+    },
+    {
+     "a": "kidneys",
+     "b": "marrow",
+     "sign": -1,
+     "w": 0.38,
+     "conf": 0.9
+    },
+    {
+     "a": "kidneys",
+     "b": "intestine",
+     "sign": -1,
+     "w": 0.33,
+     "conf": 0.9
+    },
+    {
+     "a": "liver",
+     "b": "spleen",
+     "sign": 1,
+     "w": 0.45,
+     "conf": 0.95
+    },
+    {
+     "a": "liver",
+     "b": "intestine",
+     "sign": -1,
+     "w": 0.32,
+     "conf": 0.85
+    },
+    {
+     "a": "spleen",
+     "b": "marrow",
+     "sign": 1,
+     "w": 0.38,
+     "conf": 0.95
+    },
+    {
+     "a": "spleen",
+     "b": "intestine",
+     "sign": -1,
+     "w": 0.29,
+     "conf": 0.9
+    },
+    {
+     "a": "intestine",
+     "b": "marrow",
+     "sign": 1,
+     "w": 0.36,
+     "conf": 0.9
+    }
+   ],
+   "layout": [
+    {
+     "organ": "muscle",
+     "x": 0.311,
+     "y": 0.081
+    },
+    {
+     "organ": "thyroid",
+     "x": 0.786,
+     "y": 0.147
+    },
+    {
+     "organ": "fat",
+     "x": 0.392,
+     "y": 0.328
+    },
+    {
+     "organ": "pancreas",
+     "x": 0.142,
+     "y": 0.403
+    },
+    {
+     "organ": "adrenal",
+     "x": 0.079,
+     "y": 0.54
+    },
+    {
+     "organ": "brain",
+     "x": 0.317,
+     "y": 0.511
+    },
+    {
+     "organ": "kidneys",
+     "x": 0.53,
+     "y": 0.618
+    },
+    {
+     "organ": "liver",
+     "x": 0.865,
+     "y": 0.542
+    },
+    {
+     "organ": "spleen",
+     "x": 0.921,
+     "y": 0.74
+    },
+    {
+     "organ": "intestine",
+     "x": 0.234,
+     "y": 0.769
+    },
+    {
+     "organ": "marrow",
+     "x": 0.459,
+     "y": 0.919
+    }
+   ],
+   "layout_box_px": 378,
+   "disorder_paper": 0.13,
+   "check": {
+    "strength": {
+     "muscle": 1.23,
+     "thyroid": 1.4,
+     "fat": 4.04,
+     "pancreas": 3.18,
+     "adrenal": 3.88,
+     "brain": 3.65,
+     "kidneys": 3.61,
+     "liver": 2.29,
+     "spleen": 1.12,
+     "intestine": 3.34,
+     "marrow": 1.8
+    },
+    "top": "fat",
+    "top_z": 1.19,
+    "disorder_from_these_weights_nls": 0.115,
+    "sum_w": 14.77,
+    "density_from_these_weights": 26.9
+   },
+   "notes": "No heart, no lungs. Muscle's thin blue line ends at adrenal and passes through pancreas (an aim test settled it). fat-intestine is mostly hidden under the red fat-brain line and overlaps brain-intestine below brain, so both w are rough. These lines pass behind another node; each was traced end to end: thyroid-pancreas and muscle-kidneys behind fat, pancreas-kidneys and adrenal-liver behind brain, liver-intestine at the edge of kidneys, adrenal-marrow at the edge of intestine."
+  },
+  {
+   "id": "A_high",
+   "title": "BMI healthy > 24.4 kg/m2",
+   "n": 241,
+   "density": 7,
+   "organs_shown": [
+    "muscle",
+    "thyroid",
+    "fat",
+    "pancreas",
+    "adrenal",
+    "brain",
+    "kidneys",
+    "liver",
+    "spleen",
+    "intestine",
+    "marrow"
+   ],
+   "isolated": [
+    "thyroid"
+   ],
+   "hubs": [
+    "brain"
+   ],
+   "edges": [
+    {
+     "a": "muscle",
+     "b": "fat",
+     "sign": 1,
+     "w": 0.28,
+     "conf": 0.95
+    },
+    {
+     "a": "muscle",
+     "b": "brain",
+     "sign": -1,
+     "w": 0.34,
+     "conf": 0.95
+    },
+    {
+     "a": "pancreas",
+     "b": "adrenal",
+     "sign": 1,
+     "w": 0.52,
+     "conf": 0.95
+    },
+    {
+     "a": "pancreas",
+     "b": "brain",
+     "sign": 1,
+     "w": 0.55,
+     "conf": 0.95
+    },
+    {
+     "a": "adrenal",
+     "b": "brain",
+     "sign": -1,
+     "w": 0.43,
+     "conf": 0.95
+    },
+    {
+     "a": "brain",
+     "b": "kidneys",
+     "sign": 1,
+     "w": 0.28,
+     "conf": 0.95
+    },
+    {
+     "a": "pancreas",
+     "b": "spleen",
+     "sign": 1,
+     "w": 0.25,
+     "conf": 0.85
+    },
+    {
+     "a": "kidneys",
+     "b": "marrow",
+     "sign": -1,
+     "w": 0.26,
+     "conf": 0.95
+    },
+    {
+     "a": "intestine",
+     "b": "marrow",
+     "sign": 1,
+     "w": 0.43,
+     "conf": 0.95
+    },
+    {
+     "a": "liver",
+     "b": "spleen",
+     "sign": 1,
+     "w": 0.48,
+     "conf": 0.95
+    }
+   ],
+   "layout": [
+    {
+     "organ": "muscle",
+     "x": 0.311,
+     "y": 0.081
+    },
+    {
+     "organ": "thyroid",
+     "x": 0.786,
+     "y": 0.147
+    },
+    {
+     "organ": "fat",
+     "x": 0.392,
+     "y": 0.328
+    },
+    {
+     "organ": "pancreas",
+     "x": 0.142,
+     "y": 0.403
+    },
+    {
+     "organ": "adrenal",
+     "x": 0.079,
+     "y": 0.54
+    },
+    {
+     "organ": "brain",
+     "x": 0.317,
+     "y": 0.511
+    },
+    {
+     "organ": "kidneys",
+     "x": 0.53,
+     "y": 0.618
+    },
+    {
+     "organ": "liver",
+     "x": 0.865,
+     "y": 0.542
+    },
+    {
+     "organ": "spleen",
+     "x": 0.921,
+     "y": 0.74
+    },
+    {
+     "organ": "intestine",
+     "x": 0.234,
+     "y": 0.769
+    },
+    {
+     "organ": "marrow",
+     "x": 0.459,
+     "y": 0.919
+    }
+   ],
+   "layout_box_px": 378,
+   "disorder_paper": 0.17,
+   "hub_z_paper": {
+    "brain": 2.0
+   },
+   "check": {
+    "strength": {
+     "muscle": 0.62,
+     "thyroid": 0.0,
+     "fat": 0.28,
+     "pancreas": 1.32,
+     "adrenal": 0.95,
+     "brain": 1.6,
+     "kidneys": 0.54,
+     "liver": 0.48,
+     "spleen": 0.73,
+     "intestine": 0.43,
+     "marrow": 0.69
+    },
+    "top": "brain",
+    "top_z": 1.99,
+    "disorder_from_these_weights_nls": 0.2,
+    "sum_w": 3.82,
+    "density_from_these_weights": 6.9
+   },
+   "notes": "Same layout as A_low. Thyroid is isolated. Brain is the yellow hub (paper: Z = 2.0; with these weights z = 1.99). The thin blue pancreas-spleen line clips the edges of brain and kidneys. brain-kidneys is confirmed: its line passes 0.35 px from where brain's lines meet and 10.6 px from pancreas's."
+  },
+  {
+   "id": "B_low",
+   "title": "low tumor load",
+   "n": 417,
+   "density": 18,
+   "organs_shown": [
+    "spleen",
+    "liver",
+    "thyroid",
+    "fat",
+    "pancreas",
+    "kidneys",
+    "muscle",
+    "heart",
+    "brain",
+    "adrenal",
+    "intestine"
+   ],
+   "isolated": [],
+   "hubs": [],
+   "edges": [
+    {
+     "a": "spleen",
+     "b": "intestine",
+     "sign": 1,
+     "w": 0.22,
+     "conf": 0.95
+    },
+    {
+     "a": "spleen",
+     "b": "kidneys",
+     "sign": 1,
+     "w": 0.24,
+     "conf": 0.85
+    },
+    {
+     "a": "liver",
+     "b": "thyroid",
+     "sign": 1,
+     "w": 0.45,
+     "conf": 0.95
+    },
+    {
+     "a": "liver",
+     "b": "fat",
+     "sign": 1,
+     "w": 0.27,
+     "conf": 0.9
+    },
+    {
+     "a": "liver",
+     "b": "brain",
+     "sign": 1,
+     "w": 0.29,
+     "conf": 0.9
+    },
+    {
+     "a": "liver",
+     "b": "heart",
+     "sign": -1,
+     "w": 0.27,
+     "conf": 0.9
+    },
+    {
+     "a": "liver",
+     "b": "kidneys",
+     "sign": -1,
+     "w": 0.23,
+     "conf": 0.85
+    },
+    {
+     "a": "thyroid",
+     "b": "fat",
+     "sign": -1,
+     "w": 0.43,
+     "conf": 0.95
+    },
+    {
+     "a": "thyroid",
+     "b": "kidneys",
+     "sign": 1,
+     "w": 0.3,
+     "conf": 0.9
+    },
+    {
+     "a": "thyroid",
+     "b": "muscle",
+     "sign": 1,
+     "w": 0.3,
+     "conf": 0.9
+    },
+    {
+     "a": "thyroid",
+     "b": "heart",
+     "sign": 1,
+     "w": 0.42,
+     "conf": 0.95
+    },
+    {
+     "a": "thyroid",
+     "b": "brain",
+     "sign": -1,
+     "w": 0.23,
+     "conf": 0.8
+    },
+    {
+     "a": "fat",
+     "b": "pancreas",
+     "sign": 1,
+     "w": 0.4,
+     "conf": 0.95
+    },
+    {
+     "a": "fat",
+     "b": "kidneys",
+     "sign": 1,
+     "w": 0.27,
+     "conf": 0.9
+    },
+    {
+     "a": "fat",
+     "b": "heart",
+     "sign": 1,
+     "w": 0.24,
+     "conf": 0.85
+    },
+    {
+     "a": "fat",
+     "b": "muscle",
+     "sign": 1,
+     "w": 0.44,
+     "conf": 0.8
+    },
+    {
+     "a": "fat",
+     "b": "brain",
+     "sign": -1,
+     "w": 0.41,
+     "conf": 0.85
+    },
+    {
+     "a": "pancreas",
+     "b": "intestine",
+     "sign": 1,
+     "w": 0.27,
+     "conf": 0.95
+    },
+    {
+     "a": "kidneys",
+     "b": "heart",
+     "sign": -1,
+     "w": 0.34,
+     "conf": 0.9
+    },
+    {
+     "a": "kidneys",
+     "b": "brain",
+     "sign": 1,
+     "w": 0.44,
+     "conf": 0.95
+    },
+    {
+     "a": "kidneys",
+     "b": "muscle",
+     "sign": -1,
+     "w": 0.24,
+     "conf": 0.85
+    },
+    {
+     "a": "kidneys",
+     "b": "adrenal",
+     "sign": -1,
+     "w": 0.24,
+     "conf": 0.85
+    },
+    {
+     "a": "muscle",
+     "b": "brain",
+     "sign": 1,
+     "w": 0.42,
+     "conf": 0.9
+    },
+    {
+     "a": "muscle",
+     "b": "intestine",
+     "sign": 1,
+     "w": 0.21,
+     "conf": 0.9
+    },
+    {
+     "a": "muscle",
+     "b": "adrenal",
+     "sign": -1,
+     "w": 0.21,
+     "conf": 0.85
+    },
+    {
+     "a": "heart",
+     "b": "brain",
+     "sign": 1,
+     "w": 0.47,
+     "conf": 0.95
+    },
+    {
+     "a": "heart",
+     "b": "adrenal",
+     "sign": -1,
+     "w": 0.35,
+     "conf": 0.95
+    },
+    {
+     "a": "heart",
+     "b": "intestine",
+     "sign": 1,
+     "w": 0.27,
+     "conf": 0.9
+    },
+    {
+     "a": "brain",
+     "b": "adrenal",
+     "sign": 1,
+     "w": 0.53,
+     "conf": 0.95
+    },
+    {
+     "a": "brain",
+     "b": "intestine",
+     "sign": -1,
+     "w": 0.25,
+     "conf": 0.9
+    },
+    {
+     "a": "adrenal",
+     "b": "intestine",
+     "sign": 1,
+     "w": 0.32,
+     "conf": 0.95
+    }
+   ],
+   "layout": [
+    {
+     "organ": "spleen",
+     "x": 0.709,
+     "y": 0.085
+    },
+    {
+     "organ": "liver",
+     "x": 0.333,
+     "y": 0.242
+    },
+    {
+     "organ": "thyroid",
+     "x": 0.084,
+     "y": 0.311
+    },
+    {
+     "organ": "fat",
+     "x": 0.54,
+     "y": 0.386
+    },
+    {
+     "organ": "pancreas",
+     "x": 0.916,
+     "y": 0.439
+    },
+    {
+     "organ": "kidneys",
+     "x": 0.281,
+     "y": 0.486
+    },
+    {
+     "organ": "muscle",
+     "x": 0.495,
+     "y": 0.514
+    },
+    {
+     "organ": "heart",
+     "x": 0.104,
+     "y": 0.652
+    },
+    {
+     "organ": "brain",
+     "x": 0.378,
+     "y": 0.646
+    },
+    {
+     "organ": "adrenal",
+     "x": 0.344,
+     "y": 0.915
+    },
+    {
+     "organ": "intestine",
+     "x": 0.726,
+     "y": 0.841
+    }
+   ],
+   "layout_box_px": 356,
+   "disorder_paper": 0.17,
+   "check": {
+    "strength": {
+     "spleen": 0.46,
+     "liver": 1.51,
+     "thyroid": 2.13,
+     "fat": 2.46,
+     "pancreas": 0.67,
+     "kidneys": 2.3,
+     "muscle": 1.82,
+     "heart": 2.36,
+     "brain": 3.04,
+     "adrenal": 1.65,
+     "intestine": 1.54
+    },
+    "top": "brain",
+    "top_z": 1.6,
+    "disorder_from_these_weights_nls": 0.116,
+    "sum_w": 9.97,
+    "density_from_these_weights": 18.1
+   },
+   "notes": "No bone marrow, no lungs. fat-muscle is a short thick blue link beside the red fat-brain line. Fat, muscle and adrenal are collinear, so the red muscle-adrenal line could instead be fat-adrenal. R1 ruled out spleen-heart, liver-intestine and an extra fat-adrenal link."
+  },
+  {
+   "id": "B_high",
+   "title": "high tumor load",
+   "n": 417,
+   "density": 8,
+   "organs_shown": [
+    "spleen",
+    "liver",
+    "thyroid",
+    "fat",
+    "pancreas",
+    "kidneys",
+    "muscle",
+    "heart",
+    "brain",
+    "adrenal",
+    "intestine"
+   ],
+   "isolated": [
+    "thyroid"
+   ],
+   "hubs": [
+    "muscle"
+   ],
+   "edges": [
+    {
+     "a": "spleen",
+     "b": "liver",
+     "sign": 1,
+     "w": 0.3,
+     "conf": 0.95
+    },
+    {
+     "a": "spleen",
+     "b": "muscle",
+     "sign": 1,
+     "w": 0.26,
+     "conf": 0.8
+    },
+    {
+     "a": "spleen",
+     "b": "fat",
+     "sign": -1,
+     "w": 0.18,
+     "conf": 0.7
+    },
+    {
+     "a": "liver",
+     "b": "fat",
+     "sign": -1,
+     "w": 0.3,
+     "conf": 0.95
+    },
+    {
+     "a": "liver",
+     "b": "kidneys",
+     "sign": 1,
+     "w": 0.32,
+     "conf": 0.95
+    },
+    {
+     "a": "liver",
+     "b": "muscle",
+     "sign": 1,
+     "w": 0.36,
+     "conf": 0.95
+    },
+    {
+     "a": "fat",
+     "b": "pancreas",
+     "sign": 1,
+     "w": 0.21,
+     "conf": 0.95
+    },
+    {
+     "a": "fat",
+     "b": "muscle",
+     "sign": 1,
+     "w": 0.46,
+     "conf": 0.85
+    },
+    {
+     "a": "fat",
+     "b": "brain",
+     "sign": -1,
+     "w": 0.24,
+     "conf": 0.7
+    },
+    {
+     "a": "pancreas",
+     "b": "kidneys",
+     "sign": 1,
+     "w": 0.22,
+     "conf": 0.85
+    },
+    {
+     "a": "kidneys",
+     "b": "muscle",
+     "sign": -1,
+     "w": 0.23,
+     "conf": 0.9
+    },
+    {
+     "a": "kidneys",
+     "b": "heart",
+     "sign": 1,
+     "w": 0.21,
+     "conf": 0.95
+    },
+    {
+     "a": "kidneys",
+     "b": "brain",
+     "sign": 1,
+     "w": 0.29,
+     "conf": 0.9
+    },
+    {
+     "a": "kidneys",
+     "b": "intestine",
+     "sign": 1,
+     "w": 0.2,
+     "conf": 0.95
+    },
+    {
+     "a": "muscle",
+     "b": "brain",
+     "sign": 1,
+     "w": 0.35,
+     "conf": 0.9
+    },
+    {
+     "a": "muscle",
+     "b": "adrenal",
+     "sign": 1,
+     "w": 0.23,
+     "conf": 0.65
+    }
+   ],
+   "layout": [
+    {
+     "organ": "spleen",
+     "x": 0.709,
+     "y": 0.085
+    },
+    {
+     "organ": "liver",
+     "x": 0.333,
+     "y": 0.242
+    },
+    {
+     "organ": "thyroid",
+     "x": 0.084,
+     "y": 0.311
+    },
+    {
+     "organ": "fat",
+     "x": 0.54,
+     "y": 0.386
+    },
+    {
+     "organ": "pancreas",
+     "x": 0.916,
+     "y": 0.439
+    },
+    {
+     "organ": "kidneys",
+     "x": 0.281,
+     "y": 0.486
+    },
+    {
+     "organ": "muscle",
+     "x": 0.495,
+     "y": 0.514
+    },
+    {
+     "organ": "heart",
+     "x": 0.104,
+     "y": 0.652
+    },
+    {
+     "organ": "brain",
+     "x": 0.378,
+     "y": 0.646
+    },
+    {
+     "organ": "adrenal",
+     "x": 0.344,
+     "y": 0.915
+    },
+    {
+     "organ": "intestine",
+     "x": 0.726,
+     "y": 0.841
+    }
+   ],
+   "layout_box_px": 356,
+   "disorder_paper": 0.3,
+   "hub_z_paper": {
+    "muscle": 1.8
+   },
+   "check": {
+    "strength": {
+     "spleen": 0.74,
+     "liver": 1.28,
+     "thyroid": 0.0,
+     "fat": 1.39,
+     "pancreas": 0.43,
+     "kidneys": 1.47,
+     "muscle": 1.89,
+     "heart": 0.21,
+     "brain": 0.88,
+     "adrenal": 0.23,
+     "intestine": 0.2
+    },
+    "top": "muscle",
+    "top_z": 1.73,
+    "disorder_from_these_weights_nls": 0.228,
+    "sum_w": 4.36,
+    "density_from_these_weights": 7.9
+   },
+   "notes": "Same layout as B_low. Thyroid is isolated. Muscle is the yellow hub (the paper's text says 'orange node', Z = 1.8; with these weights z = 1.73). spleen-fat and fat-brain (both red) could be one spleen-brain line. muscle-adrenal could be fat-adrenal (collinear). spleen-muscle passes about 6.5 px from the fat centre."
+  },
+  {
+   "id": "C_low",
+   "title": "Lower Tertile: CRP < 0.11 mg/dl",
+   "n": 658,
+   "density": 11,
+   "organs_shown": [
+    "liver",
+    "spleen",
+    "kidneys",
+    "heart",
+    "muscle",
+    "thyroid",
+    "adrenal",
+    "fat",
+    "pancreas",
+    "marrow",
+    "intestine"
+   ],
+   "isolated": [],
+   "hubs": [],
+   "edges": [
+    {
+     "a": "liver",
+     "b": "spleen",
+     "sign": 1,
+     "w": 0.37,
+     "conf": 0.95
+    },
+    {
+     "a": "liver",
+     "b": "kidneys",
+     "sign": 1,
+     "w": 0.36,
+     "conf": 0.95
+    },
+    {
+     "a": "liver",
+     "b": "heart",
+     "sign": -1,
+     "w": 0.28,
+     "conf": 0.95
+    },
+    {
+     "a": "kidneys",
+     "b": "heart",
+     "sign": 1,
+     "w": 0.32,
+     "conf": 0.95
+    },
+    {
+     "a": "heart",
+     "b": "thyroid",
+     "sign": 1,
+     "w": 0.4,
+     "conf": 0.95
+    },
+    {
+     "a": "kidneys",
+     "b": "muscle",
+     "sign": -1,
+     "w": 0.29,
+     "conf": 0.9
+    },
+    {
+     "a": "muscle",
+     "b": "thyroid",
+     "sign": 1,
+     "w": 0.4,
+     "conf": 0.95
+    },
+    {
+     "a": "muscle",
+     "b": "adrenal",
+     "sign": 1,
+     "w": 0.27,
+     "conf": 0.9
+    },
+    {
+     "a": "muscle",
+     "b": "fat",
+     "sign": 1,
+     "w": 0.27,
+     "conf": 0.85
+    },
+    {
+     "a": "kidneys",
+     "b": "fat",
+     "sign": 1,
+     "w": 0.29,
+     "conf": 0.9
+    },
+    {
+     "a": "kidneys",
+     "b": "marrow",
+     "sign": -1,
+     "w": 0.27,
+     "conf": 0.9
+    },
+    {
+     "a": "spleen",
+     "b": "pancreas",
+     "sign": 1,
+     "w": 0.28,
+     "conf": 0.9
+    },
+    {
+     "a": "spleen",
+     "b": "marrow",
+     "sign": 1,
+     "w": 0.25,
+     "conf": 0.9
+    },
+    {
+     "a": "adrenal",
+     "b": "fat",
+     "sign": -1,
+     "w": 0.37,
+     "conf": 0.95
+    },
+    {
+     "a": "thyroid",
+     "b": "fat",
+     "sign": -1,
+     "w": 0.42,
+     "conf": 0.95
+    },
+    {
+     "a": "adrenal",
+     "b": "pancreas",
+     "sign": 1,
+     "w": 0.33,
+     "conf": 0.95
+    },
+    {
+     "a": "fat",
+     "b": "pancreas",
+     "sign": 1,
+     "w": 0.51,
+     "conf": 0.95
+    },
+    {
+     "a": "marrow",
+     "b": "intestine",
+     "sign": 1,
+     "w": 0.41,
+     "conf": 0.95
+    }
+   ],
+   "layout": [
+    {
+     "organ": "liver",
+     "x": 0.375,
+     "y": 0.101
+    },
+    {
+     "organ": "spleen",
+     "x": 0.228,
+     "y": 0.216
+    },
+    {
+     "organ": "kidneys",
+     "x": 0.636,
+     "y": 0.249
+    },
+    {
+     "organ": "heart",
+     "x": 0.902,
+     "y": 0.196
+    },
+    {
+     "organ": "muscle",
+     "x": 0.452,
+     "y": 0.385
+    },
+    {
+     "organ": "thyroid",
+     "x": 0.781,
+     "y": 0.52
+    },
+    {
+     "organ": "adrenal",
+     "x": 0.098,
+     "y": 0.608
+    },
+    {
+     "organ": "fat",
+     "x": 0.497,
+     "y": 0.61
+    },
+    {
+     "organ": "pancreas",
+     "x": 0.32,
+     "y": 0.726
+    },
+    {
+     "organ": "marrow",
+     "x": 0.557,
+     "y": 0.899
+    },
+    {
+     "organ": "intestine",
+     "x": 0.776,
+     "y": 0.861
+    }
+   ],
+   "layout_box_px": 305,
+   "disorder_paper": 0.1,
+   "check": {
+    "strength": {
+     "liver": 1.01,
+     "spleen": 0.9,
+     "kidneys": 1.53,
+     "heart": 1.0,
+     "muscle": 1.23,
+     "thyroid": 1.22,
+     "adrenal": 0.97,
+     "fat": 1.86,
+     "pancreas": 1.12,
+     "marrow": 0.93,
+     "intestine": 0.41
+    },
+    "top": "fat",
+    "top_z": 2.03,
+    "disorder_from_these_weights_nls": 0.096,
+    "sum_w": 6.09,
+    "density_from_these_weights": 11.1
+   },
+   "notes": "No brain, no lungs; all three C panels share one layout. A clear panel: all 18 links can be followed end to end. Line ends sit about 4 px above the icon centres here. Fat has the largest strength (z about 2.0 with these weights) but is not coloured as a hub."
+  },
+  {
+   "id": "C_mid",
+   "title": "Middle Tertile: CRP 0.11 - 0.74 mg/dl",
+   "n": 658,
+   "density": 7,
+   "organs_shown": [
+    "liver",
+    "spleen",
+    "kidneys",
+    "heart",
+    "muscle",
+    "thyroid",
+    "adrenal",
+    "fat",
+    "pancreas",
+    "marrow",
+    "intestine"
+   ],
+   "isolated": [
+    "heart",
+    "adrenal"
+   ],
+   "hubs": [],
+   "edges": [
+    {
+     "a": "liver",
+     "b": "spleen",
+     "sign": 1,
+     "w": 0.58,
+     "conf": 0.95
+    },
+    {
+     "a": "liver",
+     "b": "fat",
+     "sign": -1,
+     "w": 0.33,
+     "conf": 0.6
+    },
+    {
+     "a": "kidneys",
+     "b": "pancreas",
+     "sign": 1,
+     "w": 0.34,
+     "conf": 0.9
+    },
+    {
+     "a": "kidneys",
+     "b": "fat",
+     "sign": 1,
+     "w": 0.28,
+     "conf": 0.85
+    },
+    {
+     "a": "muscle",
+     "b": "thyroid",
+     "sign": 1,
+     "w": 0.28,
+     "conf": 0.9
+    },
+    {
+     "a": "thyroid",
+     "b": "fat",
+     "sign": -1,
+     "w": 0.41,
+     "conf": 0.95
+    },
+    {
+     "a": "fat",
+     "b": "pancreas",
+     "sign": 1,
+     "w": 0.4,
+     "conf": 0.9
+    },
+    {
+     "a": "fat",
+     "b": "intestine",
+     "sign": 1,
+     "w": 0.46,
+     "conf": 0.95
+    },
+    {
+     "a": "marrow",
+     "b": "intestine",
+     "sign": 1,
+     "w": 0.48,
+     "conf": 0.95
+    },
+    {
+     "a": "muscle",
+     "b": "marrow",
+     "sign": 1,
+     "w": 0.31,
+     "conf": 0.6
+    }
+   ],
+   "layout": [
+    {
+     "organ": "liver",
+     "x": 0.375,
+     "y": 0.101
+    },
+    {
+     "organ": "spleen",
+     "x": 0.228,
+     "y": 0.216
+    },
+    {
+     "organ": "kidneys",
+     "x": 0.636,
+     "y": 0.249
+    },
+    {
+     "organ": "heart",
+     "x": 0.902,
+     "y": 0.196
+    },
+    {
+     "organ": "muscle",
+     "x": 0.452,
+     "y": 0.385
+    },
+    {
+     "organ": "thyroid",
+     "x": 0.781,
+     "y": 0.52
+    },
+    {
+     "organ": "adrenal",
+     "x": 0.098,
+     "y": 0.608
+    },
+    {
+     "organ": "fat",
+     "x": 0.497,
+     "y": 0.61
+    },
+    {
+     "organ": "pancreas",
+     "x": 0.32,
+     "y": 0.726
+    },
+    {
+     "organ": "marrow",
+     "x": 0.557,
+     "y": 0.899
+    },
+    {
+     "organ": "intestine",
+     "x": 0.776,
+     "y": 0.861
+    }
+   ],
+   "layout_box_px": 305,
+   "disorder_paper": 0.17,
+   "check": {
+    "strength": {
+     "liver": 0.91,
+     "spleen": 0.58,
+     "kidneys": 0.62,
+     "heart": 0.0,
+     "muscle": 0.59,
+     "thyroid": 0.69,
+     "adrenal": 0.0,
+     "fat": 1.88,
+     "pancreas": 0.74,
+     "marrow": 0.79,
+     "intestine": 0.94
+    },
+    "top": "fat",
+    "top_z": 2.34,
+    "disorder_from_these_weights_nls": 0.2,
+    "sum_w": 3.87,
+    "density_from_these_weights": 7.0
+   },
+   "notes": "Heart and adrenal are isolated. Liver, muscle, fat and marrow lie on one line. Red runs from liver through muscle to fat, as one straight line (same slope and saturation on both sides of muscle), read as liver-fat. Blue runs from fat to marrow, and a blue fringe shows along the left edge of the red line between muscle and fat, read as muscle-marrow passing behind fat. Alternatives are in 'uncertain'."
+  },
+  {
+   "id": "C_high",
+   "title": "Upper Tertile: CRP 0.74 - 40.1 mg/dl",
+   "n": 658,
+   "density": 3,
+   "organs_shown": [
+    "liver",
+    "spleen",
+    "kidneys",
+    "heart",
+    "muscle",
+    "thyroid",
+    "adrenal",
+    "fat",
+    "pancreas",
+    "marrow",
+    "intestine"
+   ],
+   "isolated": [
+    "kidneys",
+    "heart",
+    "thyroid",
+    "adrenal",
+    "intestine"
+   ],
+   "hubs": [
+    "muscle"
+   ],
+   "edges": [
+    {
+     "a": "liver",
+     "b": "spleen",
+     "sign": 1,
+     "w": 0.34,
+     "conf": 0.95
+    },
+    {
+     "a": "liver",
+     "b": "muscle",
+     "sign": 1,
+     "w": 0.33,
+     "conf": 0.95
+    },
+    {
+     "a": "spleen",
+     "b": "muscle",
+     "sign": 1,
+     "w": 0.28,
+     "conf": 0.95
+    },
+    {
+     "a": "muscle",
+     "b": "fat",
+     "sign": 1,
+     "w": 0.27,
+     "conf": 0.95
+    },
+    {
+     "a": "fat",
+     "b": "pancreas",
+     "sign": 1,
+     "w": 0.21,
+     "conf": 0.95
+    },
+    {
+     "a": "pancreas",
+     "b": "marrow",
+     "sign": 1,
+     "w": 0.21,
+     "conf": 0.95
+    }
+   ],
+   "layout": [
+    {
+     "organ": "liver",
+     "x": 0.375,
+     "y": 0.101
+    },
+    {
+     "organ": "spleen",
+     "x": 0.228,
+     "y": 0.216
+    },
+    {
+     "organ": "kidneys",
+     "x": 0.636,
+     "y": 0.249
+    },
+    {
+     "organ": "heart",
+     "x": 0.902,
+     "y": 0.196
+    },
+    {
+     "organ": "muscle",
+     "x": 0.452,
+     "y": 0.385
+    },
+    {
+     "organ": "thyroid",
+     "x": 0.781,
+     "y": 0.52
+    },
+    {
+     "organ": "adrenal",
+     "x": 0.098,
+     "y": 0.608
+    },
+    {
+     "organ": "fat",
+     "x": 0.497,
+     "y": 0.61
+    },
+    {
+     "organ": "pancreas",
+     "x": 0.32,
+     "y": 0.726
+    },
+    {
+     "organ": "marrow",
+     "x": 0.557,
+     "y": 0.899
+    },
+    {
+     "organ": "intestine",
+     "x": 0.776,
+     "y": 0.861
+    }
+   ],
+   "layout_box_px": 305,
+   "disorder_paper": 0.27,
+   "check": {
+    "strength": {
+     "liver": 0.67,
+     "spleen": 0.62,
+     "kidneys": 0.0,
+     "heart": 0.0,
+     "muscle": 0.88,
+     "thyroid": 0.0,
+     "adrenal": 0.0,
+     "fat": 0.48,
+     "pancreas": 0.42,
+     "marrow": 0.21,
+     "intestine": 0.0
+    },
+    "top": "muscle",
+    "top_z": 1.77,
+    "disorder_from_these_weights_nls": 0.3,
+    "sum_w": 1.64,
+    "density_from_these_weights": 3.0
+   },
+   "notes": "Five nodes are isolated. All 6 links are blue. Muscle is the yellow hub. liver-muscle and muscle-fat differ in saturation and width, so they are two links, not one liver-fat line. The scale is uncertain by about 17%, because 3% is a rounded value."
+  }
+ ],
+ "fig4": [],
+ "poster": {
+  "cohort": {
+   "baseline": [
+    {
+     "group": "Healthy",
+     "n": 80
+    },
+    {
+     "group": "Obese",
+     "n": 36
+    },
+    {
+     "group": "Post-MI",
+     "n": 45
+    },
+    {
+     "group": "Lung cancer",
+     "n": 162
+    },
+    {
+     "group": "HNSCC",
+     "n": 250
+    },
+    {
+     "group": "Prostate cancer",
+     "n": 57
+    }
+   ],
+   "baselineTotal": 630,
+   "followup": [
+    {
+     "group": "No intervention",
+     "n": 47,
+     "row_beside": "Healthy"
+    },
+    {
+     "group": "bariatric surgery",
+     "n": 18,
+     "row_beside": "Obese"
+    },
+    {
+     "group": "neoadjuvant ICI",
+     "n": 19,
+     "row_beside": "Lung cancer"
+    }
+   ],
+   "followupTotal": 84
+  },
+  "creation": {
+   "uptake": [
+    {
+     "organ": "liver",
+     "frac": 0.727
+    },
+    {
+     "organ": "aorta",
+     "frac": 0.478
+    },
+    {
+     "organ": "spleen",
+     "frac": 0.607
+    },
+    {
+     "organ": "pancreas",
+     "frac": 0.435
+    },
+    {
+     "organ": "kidneys",
+     "frac": 1.0
+    },
+    {
+     "organ": "fat",
+     "frac": 0.175
+    },
+    {
+     "organ": "muscle",
+     "frac": 0.272
+    }
+   ],
+   "example": {
+    "nodes": [
+     "liver",
+     "spleen",
+     "pancreas",
+     "fat",
+     "aorta",
+     "kidneys",
+     "muscle"
+    ],
+    "layout": {
+     "liver": [
+      0.172,
+      0.175
+     ],
+     "spleen": [
+      0.096,
+      0.487
+     ],
+     "pancreas": [
+      0.458,
+      0.432
+     ],
+     "fat": [
+      0.282,
+      0.823
+     ],
+     "aorta": [
+      0.81,
+      0.144
+     ],
+     "kidneys": [
+      0.908,
+      0.494
+     ],
+     "muscle": [
+      0.711,
+      0.823
+     ]
+    },
+    "edges": [
+     {
+      "a": "kidneys",
+      "b": "fat",
+      "rel": 1.0
+     },
+     {
+      "a": "kidneys",
+      "b": "muscle",
+      "rel": 0.69
+     },
+     {
+      "a": "liver",
+      "b": "fat",
+      "rel": 0.47
+     },
+     {
+      "a": "aorta",
+      "b": "kidneys",
+      "rel": 0.37
+     },
+     {
+      "a": "aorta",
+      "b": "fat",
+      "rel": 0.31
+     },
+     {
+      "a": "liver",
+      "b": "muscle",
+      "rel": 0.24
+     },
+     {
+      "a": "pancreas",
+      "b": "fat",
+      "rel": 0.16
+     },
+     {
+      "a": "spleen",
+      "b": "fat",
+      "rel": 0.094
+     }
+    ]
+   },
+   "heterogeneity": {
+    "low": "Labelled 'low'. Six identical mid-grey discs (#949494, radius about 27 px, no outline) on a regular hexagon with flat top and bottom edges and vertices at left and right: poster centres (4421,4468), (4611,4468), (4708,4632), (4611,4792), (4421,4792), (4324,4632) (side about 190 px). Six equal links (about 7.6 px, #a0a0a0) join them in a ring; every node has degree 2. No highlighted node.",
+    "high": "Labelled 'high'. Nine nodes, nine links of very unequal weight. Hub H: a larger orange filled disc (#e88b43, radius about 45 px, about 1.6 x the others' 27-29 px) slightly left of the drawing's centre. From H: two thick near-black links (about 16.5 px, #434343) to the dark nodes A (upper left) and G (lower right), forming one near-straight diagonal through the hub; a thick orange link (about 16 px, #e68239, the highlighted one) to the dark node C on the right, a little above the hub; a medium grey link (about 8.3 px, #959595) to the light node E at the left, below the hub; a thin grey link (about 5 px, #9e9e9e) to the light node F below and slightly left. Around the edge: A to the light node B at the top (about 4 px, #bdbdbd); B to C, medium (about 9.4 px, #8b8b8b); C to the very light node D at far right, lower (about 3.4 px, #c2c2c2); G to the very light node I at the bottom (about 3.3 px, #a6a6a6). Node shade follows the strength of its links: A #727171, C #787878, G #777575 dark; E and F #a6a6a6 mid-light; B #ababab light; D #c1c1c1 and I #bcbbbb very light."
+   },
+   "clearance": "A hub-and-spoke star under the bold title 'clearance'. Centre: a large white circle with a thick black ring (about 9 px; outer radius about 136 px across, 128 px up and down, so very slightly wider than tall), centre at poster (4850, 3815). Inside it a light grey (#cbcbcb) pair of kidney-bean shapes side by side, mirror images, with a bold black capital 'K' over them (K for kidneys: renal tracer handling, which the poster calls Clearance). Six plain mid-grey filled discs (#afabab, no outline, radius about 52 px, 0.38-0.41 of the centre's) about 253-276 px from the centre (about twice its radius), at about 0 (right), 63 (upper right), 126 (upper left), 180 (left), 243 (lower left) and 312 (lower right) degrees counter-clockwise from +x. Each is joined to the centre by one thin light grey line (about 6-7 px, #afabab-#aaaaaa), all equal. No links between satellites."
+  },
+  "mdi": {
+   "axis": [
+    0,
+    10.7
+   ],
+   "dashed": [
+    3.22,
+    6.69
+   ],
+   "shaded": [
+    [
+     0,
+     3.22
+    ],
+    [
+     6.69,
+     10.7
+    ]
+   ],
+   "order": [
+    "dys",
+    "healthy",
+    "both",
+    "cancer"
+   ],
+   "groups": [
+    {
+     "key": "cancer",
+     "name": "Cancer",
+     "n": 282,
+     "centre": 3.29,
+     "err": [
+      2.52,
+      4.04
+     ],
+     "q": {
+      "p10": 1.88,
+      "p25": 2.5,
+      "p50": 3.26,
+      "p75": 4.04,
+      "p90": 4.75
+     },
+     "min": 0.0,
+     "max": 6.52
+    },
+    {
+     "key": "both",
+     "name": "Cancer + dyslipidaemia",
+     "n": 187,
+     "centre": 3.92,
+     "err": [
+      3.25,
+      4.68
+     ],
+     "q": {
+      "p10": 2.84,
+      "p25": 3.25,
+      "p50": 3.9,
+      "p75": 4.69,
+      "p90": 5.41
+     },
+     "min": 2.2,
+     "max": 7.63
+    },
+    {
+     "key": "dys",
+     "name": "Dyslipidaemia",
+     "n": 89,
+     "centre": 5.16,
+     "err": [
+      4.47,
+      5.87
+     ],
+     "q": {
+      "p10": 3.9,
+      "p25": 4.47,
+      "p50": 5.16,
+      "p75": 5.85,
+      "p90": 6.58
+     },
+     "min": 3.27,
+     "max": 7.52
+    },
+    {
+     "key": "healthy",
+     "name": "Healthy",
+     "n": 35,
+     "centre": 4.51,
+     "err": [
+      4.09,
+      4.98
+     ],
+     "q": {
+      "p10": 3.62,
+      "p25": 4.07,
+      "p50": 4.5,
+      "p75": 4.98,
+      "p90": 6.46
+     },
+     "min": 3.08,
+     "max": 7.06
+    }
+   ],
+   "note": "The big dot read as the median and the bar as the interquartile range (they match the dots' quartiles); the dashed lines are not explained on the poster."
+  },
+  "km": {
+   "months": [
+    0,
+    140
+   ],
+   "curves": [
+    {
+     "tertile": 1,
+     "label": "1st tertile near healthy",
+     "n": 137,
+     "end": 73,
+     "s": [
+      [
+       0,
+       1
+      ],
+      [
+       5,
+       0.92
+      ],
+      [
+       10,
+       0.854
+      ],
+      [
+       15,
+       0.788
+      ],
+      [
+       20,
+       0.733
+      ],
+      [
+       25,
+       0.678
+      ],
+      [
+       30,
+       0.678
+      ],
+      [
+       35,
+       0.647
+      ],
+      [
+       40,
+       0.647
+      ],
+      [
+       45,
+       0.633
+      ],
+      [
+       50,
+       0.59
+      ],
+      [
+       55,
+       0.573
+      ],
+      [
+       60,
+       0.573
+      ],
+      [
+       65,
+       0.573
+      ],
+      [
+       70,
+       0.573
+      ],
+      [
+       73,
+       0.552
+      ]
+     ],
+     "lo": [
+      [
+       0,
+       1
+      ],
+      [
+       5,
+       0.873
+      ],
+      [
+       10,
+       0.794
+      ],
+      [
+       15,
+       0.718
+      ],
+      [
+       20,
+       0.66
+      ],
+      [
+       25,
+       0.599
+      ],
+      [
+       30,
+       0.599
+      ],
+      [
+       35,
+       0.563
+      ],
+      [
+       40,
+       0.562
+      ],
+      [
+       45,
+       0.547
+      ],
+      [
+       50,
+       0.498
+      ],
+      [
+       55,
+       0.478
+      ],
+      [
+       60,
+       0.478
+      ],
+      [
+       65,
+       0.477
+      ],
+      [
+       70,
+       0.477
+      ],
+      [
+       73,
+       0.449
+      ]
+     ],
+     "hi": [
+      [
+       0,
+       1
+      ],
+      [
+       5,
+       0.966
+      ],
+      [
+       10,
+       0.914
+      ],
+      [
+       15,
+       0.857
+      ],
+      [
+       20,
+       0.809
+      ],
+      [
+       25,
+       0.758
+      ],
+      [
+       30,
+       0.758
+      ],
+      [
+       35,
+       0.731
+      ],
+      [
+       40,
+       0.73
+      ],
+      [
+       45,
+       0.719
+      ],
+      [
+       50,
+       0.683
+      ],
+      [
+       55,
+       0.67
+      ],
+      [
+       60,
+       0.67
+      ],
+      [
+       65,
+       0.67
+      ],
+      [
+       70,
+       0.67
+      ],
+      [
+       73,
+       0.669
+      ]
+     ]
+    },
+    {
+     "tertile": 2,
+     "label": "2nd tertile intermediate",
+     "n": 136,
+     "end": 135,
+     "s": [
+      [
+       0,
+       1
+      ],
+      [
+       5,
+       0.942
+      ],
+      [
+       10,
+       0.89
+      ],
+      [
+       15,
+       0.814
+      ],
+      [
+       20,
+       0.769
+      ],
+      [
+       25,
+       0.715
+      ],
+      [
+       30,
+       0.699
+      ],
+      [
+       35,
+       0.649
+      ],
+      [
+       40,
+       0.631
+      ],
+      [
+       45,
+       0.585
+      ],
+      [
+       50,
+       0.585
+      ],
+      [
+       55,
+       0.574
+      ],
+      [
+       60,
+       0.574
+      ],
+      [
+       65,
+       0.539
+      ],
+      [
+       70,
+       0.525
+      ],
+      [
+       75,
+       0.525
+      ],
+      [
+       80,
+       0.486
+      ],
+      [
+       85,
+       0.466
+      ],
+      [
+       90,
+       0.439
+      ],
+      [
+       95,
+       0.402
+      ],
+      [
+       100,
+       0.402
+      ],
+      [
+       105,
+       0.352
+      ],
+      [
+       110,
+       0.352
+      ],
+      [
+       115,
+       0.264
+      ],
+      [
+       120,
+       0.264
+      ],
+      [
+       125,
+       0.264
+      ],
+      [
+       130,
+       0.264
+      ],
+      [
+       135,
+       0
+      ]
+     ],
+     "lo": [
+      [
+       0,
+       1
+      ],
+      [
+       5,
+       0.901
+      ],
+      [
+       10,
+       0.836
+      ],
+      [
+       15,
+       0.749
+      ],
+      [
+       20,
+       0.697
+      ],
+      [
+       25,
+       0.637
+      ],
+      [
+       30,
+       0.621
+      ],
+      [
+       35,
+       0.566
+      ],
+      [
+       40,
+       0.548
+      ],
+      [
+       45,
+       0.498
+      ],
+      [
+       50,
+       0.498
+      ],
+      [
+       55,
+       0.486
+      ],
+      [
+       60,
+       0.486
+      ],
+      [
+       65,
+       0.446
+      ],
+      [
+       70,
+       0.433
+      ],
+      [
+       75,
+       0.433
+      ],
+      [
+       80,
+       0.385
+      ],
+      [
+       85,
+       0.362
+      ],
+      [
+       90,
+       0.328
+      ],
+      [
+       95,
+       0.279
+      ],
+      [
+       100,
+       0.279
+      ],
+      [
+       105,
+       0.21
+      ],
+      [
+       110,
+       0.21
+      ],
+      [
+       114,
+       0.08
+      ]
+     ],
+     "hi": [
+      [
+       0,
+       1
+      ],
+      [
+       5,
+       0.981
+      ],
+      [
+       10,
+       0.943
+      ],
+      [
+       15,
+       0.88
+      ],
+      [
+       20,
+       0.84
+      ],
+      [
+       25,
+       0.791
+      ],
+      [
+       30,
+       0.777
+      ],
+      [
+       35,
+       0.732
+      ],
+      [
+       40,
+       0.715
+      ],
+      [
+       45,
+       0.671
+      ],
+      [
+       50,
+       0.671
+      ],
+      [
+       55,
+       0.663
+      ],
+      [
+       60,
+       0.663
+      ],
+      [
+       65,
+       0.63
+      ],
+      [
+       70,
+       0.618
+      ],
+      [
+       75,
+       0.618
+      ],
+      [
+       80,
+       0.586
+      ],
+      [
+       85,
+       0.569
+      ],
+      [
+       90,
+       0.549
+      ],
+      [
+       95,
+       0.524
+      ],
+      [
+       100,
+       0.524
+      ],
+      [
+       105,
+       0.493
+      ],
+      [
+       110,
+       0.493
+      ],
+      [
+       114,
+       0.493
+      ]
+     ]
+    },
+    {
+     "tertile": 3,
+     "label": "3rd tertile remote",
+     "n": 137,
+     "end": 113,
+     "s": [
+      [
+       0,
+       1
+      ],
+      [
+       0.1,
+       0.986
+      ],
+      [
+       5,
+       0.861
+      ],
+      [
+       10,
+       0.693
+      ],
+      [
+       15,
+       0.597
+      ],
+      [
+       20,
+       0.545
+      ],
+      [
+       25,
+       0.516
+      ],
+      [
+       30,
+       0.484
+      ],
+      [
+       35,
+       0.444
+      ],
+      [
+       40,
+       0.42
+      ],
+      [
+       45,
+       0.394
+      ],
+      [
+       50,
+       0.386
+      ],
+      [
+       55,
+       0.386
+      ],
+      [
+       60,
+       0.375
+      ],
+      [
+       65,
+       0.375
+      ],
+      [
+       70,
+       0.361
+      ],
+      [
+       75,
+       0.331
+      ],
+      [
+       80,
+       0.315
+      ],
+      [
+       85,
+       0.315
+      ],
+      [
+       90,
+       0.292
+      ],
+      [
+       95,
+       0.267
+      ],
+      [
+       100,
+       0.238
+      ],
+      [
+       105,
+       0.238
+      ],
+      [
+       110,
+       0.159
+      ],
+      [
+       113,
+       0.119
+      ]
+     ],
+     "lo": [
+      [
+       0,
+       1
+      ],
+      [
+       0.1,
+       0.965
+      ],
+      [
+       5,
+       0.802
+      ],
+      [
+       10,
+       0.614
+      ],
+      [
+       15,
+       0.513
+      ],
+      [
+       20,
+       0.46
+      ],
+      [
+       25,
+       0.43
+      ],
+      [
+       30,
+       0.399
+      ],
+      [
+       35,
+       0.36
+      ],
+      [
+       40,
+       0.335
+      ],
+      [
+       45,
+       0.309
+      ],
+      [
+       50,
+       0.301
+      ],
+      [
+       55,
+       0.301
+      ],
+      [
+       60,
+       0.29
+      ],
+      [
+       65,
+       0.29
+      ],
+      [
+       70,
+       0.276
+      ],
+      [
+       75,
+       0.243
+      ],
+      [
+       80,
+       0.225
+      ],
+      [
+       85,
+       0.225
+      ],
+      [
+       90,
+       0.199
+      ],
+      [
+       95,
+       0.171
+      ],
+      [
+       100,
+       0.136
+      ],
+      [
+       105,
+       0.136
+      ],
+      [
+       110,
+       0.045
+      ],
+      [
+       113,
+       0.011
+      ]
+     ],
+     "hi": [
+      [
+       0,
+       1
+      ],
+      [
+       0.1,
+       0.997
+      ],
+      [
+       5,
+       0.916
+      ],
+      [
+       10,
+       0.77
+      ],
+      [
+       15,
+       0.679
+      ],
+      [
+       20,
+       0.627
+      ],
+      [
+       25,
+       0.598
+      ],
+      [
+       30,
+       0.568
+      ],
+      [
+       35,
+       0.528
+      ],
+      [
+       40,
+       0.504
+      ],
+      [
+       45,
+       0.478
+      ],
+      [
+       50,
+       0.47
+      ],
+      [
+       55,
+       0.47
+      ],
+      [
+       60,
+       0.459
+      ],
+      [
+       65,
+       0.459
+      ],
+      [
+       70,
+       0.446
+      ],
+      [
+       75,
+       0.419
+      ],
+      [
+       80,
+       0.403
+      ],
+      [
+       85,
+       0.403
+      ],
+      [
+       90,
+       0.385
+      ],
+      [
+       95,
+       0.364
+      ],
+      [
+       100,
+       0.34
+      ],
+      [
+       105,
+       0.34
+      ],
+      [
+       110,
+       0.271
+      ],
+      [
+       113,
+       0.271
+      ]
+     ]
+    }
+   ],
+   "table": [
+    {
+     "tertile": "1st",
+     "deaths": "38%",
+     "oneYear": "80%",
+     "median": "NR"
+    },
+    {
+     "tertile": "2nd",
+     "deaths": "49%",
+     "oneYear": "84%",
+     "median": "79"
+    },
+    {
+     "tertile": "3rd",
+     "deaths": "68%",
+     "oneYear": "63%",
+     "median": "27"
+    }
+   ],
+   "arrows": [
+    {
+     "label": "cancer",
+     "tip": {
+      "month": 23.1,
+      "S": 0.556
+     }
+    },
+    {
+     "label": "dyslipidemia",
+     "tip": {
+      "month": 55.0,
+      "S": 0.615
+     }
+    }
+   ]
+  },
+  "prognosis": {
+   "n": 19,
+   "strip": {
+    "axis": [
+     0,
+     6.85
+    ],
+    "label": "1D projection of excretion dominance and network heterogeneity",
+    "dashed": [
+     3.16,
+     6.63
+    ],
+    "good": {
+     "n": 14,
+     "min": 3.4,
+     "median": 4.11,
+     "max": 4.68,
+     "q1": 3.84,
+     "q3": 4.42
+    },
+    "bad": {
+     "n": 5,
+     "min": 4.27,
+     "median": 4.85,
+     "max": 5.51
+    }
+   },
+   "auc": [
+    {
+     "label": "Metabolic displacement index",
+     "auc": 0.914,
+     "p": 0.061,
+     "group": "network"
+    },
+    {
+     "label": "Heterogeneity",
+     "auc": 0.771,
+     "p": 0.051,
+     "group": "network"
+    },
+    {
+     "label": "Clearance",
+     "auc": 0.743,
+     "p": 0.098,
+     "group": "network"
+    },
+    {
+     "label": "C-reactive protein (CRP)",
+     "auc": 0.671,
+     "p": 0.323,
+     "group": "clinical"
+    },
+    {
+     "label": "Tumour stage",
+     "auc": 0.586,
+     "p": 0.459,
+     "group": "clinical"
+    },
+    {
+     "label": "Age",
+     "auc": 0.55,
+     "p": 0.973,
+     "group": "clinical"
+    }
+   ],
+   "chance": 0.5
+  }
+ }
 }
