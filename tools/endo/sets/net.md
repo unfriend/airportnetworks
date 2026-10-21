@@ -20,9 +20,11 @@ and one gene's 184-gene neighbourhood. Everything comes from `ENDO_DATA`; nothin
   outwards, with light running along them).
 - **Group colours follow lineages**: the groups only merge as k grows, so from the single group (amber) down to k = 1
   the biggest part of each group keeps its colour and the others take new ones from a palette. Amber is group 0 from
-  k = 20 on, and below that it is the lineage that becomes group 0 (the largest group at k = 5 and 10 is another
-  lineage, which joins amber at k = 30). So colours never jump between lineages; between integer `net_k` they
-  crossfade.
+  k = 20 on; below that it is the seed whose group becomes group 0 (CHRNA1, alone up to k = 10). Group 0 at k = 1-5
+  (SLC5A7 and SLC18A3, the pink pair with one arc) and at k = 10 (AGRN, COL13A1, LAMB2, LAMA5) are other lineages,
+  which join amber at k = 30. So the amber neighbourhood only ever grows and no seed changes colour except by joining
+  another group; between integer `net_k` colours crossfade. (Colouring group 0 amber at every k instead would move
+  amber from one set of seeds to another at k = 10 and k = 20; it is one block in the code if wanted.)
 - **Module layout**: a quick force layout of the 393 genes on their 710 links, started from their places in the cloud
   (so each keeps its bearing as it moves), with a weak pull towards its endotype's middle so endotypes read as regions.
   About 1.3 across (RMS radius 0.4). It is a drawing: distances in it mean nothing beyond "linked genes sit close".

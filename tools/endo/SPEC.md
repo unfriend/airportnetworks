@@ -43,8 +43,7 @@ labels, controls, camera views, performance budget, harness, palette), with thes
   enriched in its neighbourhood: 393 genes x 457 terms, 4,717 ones (GO Cellular Component 2026; 389 genes have at
   least one term).
 - **Tree** (`tree`): 392 merges over the 393 genes in scipy linkage order; `cut` marks the 11 merges that join two
-  endotypes (the splits the test accepts); the merges inside an endotype are splits the test refuses. `mds`: the
-  genes in 3D by their tree distances (the poster's "tree-distance MDS").
+  endotypes (the splits the test accepts); the merges inside an endotype are splits the test refuses.
 - **12 endotypes** (`endo`, ids 0..11, as the authors numbered them): name, size, strongest COMPARTMENTS term and
   its adjusted p, `strong` (2 clear, 1 weak, 0 nothing shared), colour (use it everywhere the endotype appears),
   `place` in the synapse, its seeds:
@@ -211,8 +210,8 @@ the 15,000 core links as faint additive lines; the module genes a little larger.
   among them); a walker at a gene with no stored link restarts.
 - `net_heat` 0..1: colour every node by `heat` (cool to warm), seeds hottest.
 - `net_module` 0..1: the module (the first 393 nodes) pulls together and forward: its genes move from the cloud to a
-  compact module layout (compute it at load with a quick force layout of the 393 genes and their 710 links, or use
-  `mds`, scaled to about 1.2 units), their links brighten, the rest of the cloud fades to a faint haze. Seeds stay
+  compact module layout (compute it at load with a quick force layout of the 393 genes and their 710 links, scaled
+  to about 1.2 units), their links brighten, the rest of the cloud fades to a faint haze. Seeds stay
   white; the 358 found genes take a warm colour.
 - `net_endo` 0..1: module genes take their endotype colours.
 - `net_gene` -1..392 (an index into the module, -1 none) with `net_hood` 0..1: that gene's 184-gene neighbourhood
@@ -236,8 +235,8 @@ module's names in order), `pick(raycaster)` -> module index or -1.
 - **The tests**: `tree_test` 0..1: a pulse runs from the root down the branches; at each merge with `cut` 1 a bright
   check (the split is kept) and the two sides part a little; at merges inside an endotype the pulse fades (refused:
   a small dim cross). As it passes, each endotype's subtree and rows take its colour.
-- **Tree distances**: `tree_mds` 0..1: the genes fly from their rows to their `mds` positions (a 3D scatter, about
-  1.6 across), coloured by endotype.
+- **Tree distances**: `tree_mds` 0..1: the genes fly from their rows to positions laid out by their tree distances (a
+  3D scatter, about 1.6 across, computed at load), coloured by endotype.
 - **The endotype network** (the poster's metagraph): `tree_meta` 0..1: each endotype becomes a translucent soft
   bubble (a blob or rounded hull) with its genes as dots inside and its own links among them (the module's links,
   from `links`), arranged on a ring (as on the poster: biggest, 11, at the top); grey bands between endotypes, as
