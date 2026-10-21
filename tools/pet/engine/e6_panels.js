@@ -356,11 +356,16 @@ function drawStoryEl(ctx, P, el, x, y, W, pa) {
       cx += w + 9;
     }
     h = cy - y + 46 + 26;
-  } else if (tag === 'DIV') {
-    // a grid of overlapping paragraphs (one fades out as the next fades in)
+  } else if (tag === 'DIV' && el.style.display === 'grid') {
+    // a grid of overlapping parts (one fades out as the next fades in)
     let mh = 0;
     for (const c of el.children) mh = Math.max(mh, drawStoryEl(ctx, P, c, x, y, W, a) - y);
     h = mh;
+  } else if (tag === 'DIV') {
+    // one part of such a grid: its paragraphs one under another
+    let yy = y;
+    for (const c of el.children) yy = drawStoryEl(ctx, P, c, x, yy, W, a);
+    h = yy - y;
   } else if (el.textContent.trim()) {
     h = textBlock(ctx, el.textContent, x, y, W, 26, 38, VC.ink) + 14;
   }

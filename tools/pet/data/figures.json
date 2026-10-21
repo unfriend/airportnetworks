@@ -2692,7 +2692,572 @@
    "notes": "Five nodes are isolated. All 6 links are blue. Muscle is the yellow hub. liver-muscle and muscle-fat differ in saturation and width, so they are two links, not one liver-fat line. The scale is uncertain by about 17%, because 3% is a rounded value."
   }
  ],
- "fig4": [],
+ "fig4": [
+  {
+   "id": "FDG_healthy",
+   "title": "FDG (N = 241)",
+   "density": 9,
+   "n": 241,
+   "organs_shown": [
+    "adrenal",
+    "fat",
+    "intestine",
+    "liver",
+    "lungs",
+    "muscle",
+    "pancreas",
+    "spleen",
+    "thyroid"
+   ],
+   "isolated": [],
+   "hubs": [],
+   "edges": [
+    {
+     "a": "liver",
+     "b": "spleen",
+     "sign": 1,
+     "w": 0.471,
+     "conf": 0.95
+    },
+    {
+     "a": "fat",
+     "b": "pancreas",
+     "sign": 1,
+     "w": 0.441,
+     "conf": 0.95
+    },
+    {
+     "a": "fat",
+     "b": "muscle",
+     "sign": 1,
+     "w": 0.28,
+     "conf": 0.95
+    },
+    {
+     "a": "fat",
+     "b": "thyroid",
+     "sign": -1,
+     "w": 0.28,
+     "conf": 0.95
+    },
+    {
+     "a": "adrenal",
+     "b": "pancreas",
+     "sign": 1,
+     "w": 0.27,
+     "conf": 0.9
+    },
+    {
+     "a": "intestine",
+     "b": "liver",
+     "sign": -1,
+     "w": 0.27,
+     "conf": 0.95
+    },
+    {
+     "a": "liver",
+     "b": "lungs",
+     "sign": -1,
+     "w": 0.266,
+     "conf": 0.95
+    },
+    {
+     "a": "pancreas",
+     "b": "thyroid",
+     "sign": 1,
+     "w": 0.26,
+     "conf": 0.95
+    },
+    {
+     "a": "lungs",
+     "b": "muscle",
+     "sign": 1,
+     "w": 0.25,
+     "conf": 0.95
+    },
+    {
+     "a": "muscle",
+     "b": "thyroid",
+     "sign": 1,
+     "w": 0.23,
+     "conf": 0.95
+    },
+    {
+     "a": "fat",
+     "b": "spleen",
+     "sign": 1,
+     "w": 0.22,
+     "conf": 0.9
+    }
+   ],
+   "layout": [
+    {
+     "organ": "intestine",
+     "x": 0.342,
+     "y": 0.086
+    },
+    {
+     "organ": "fat",
+     "x": 0.737,
+     "y": 0.143
+    },
+    {
+     "organ": "lungs",
+     "x": 0.085,
+     "y": 0.277
+    },
+    {
+     "organ": "adrenal",
+     "x": 0.469,
+     "y": 0.311
+    },
+    {
+     "organ": "spleen",
+     "x": 0.2,
+     "y": 0.574
+    },
+    {
+     "organ": "liver",
+     "x": 0.517,
+     "y": 0.596
+    },
+    {
+     "organ": "muscle",
+     "x": 0.915,
+     "y": 0.565
+    },
+    {
+     "organ": "pancreas",
+     "x": 0.244,
+     "y": 0.884
+    },
+    {
+     "organ": "thyroid",
+     "x": 0.531,
+     "y": 0.914
+    }
+   ],
+   "notes": "Panel A, printed 'FDG (N = 241)' and '9 %'. n is the cohort N from the title; the network has 9 nodes. 11 links: 8 blue, 3 red (intestine-liver, liver-lungs, fat-thyroid). All 9 organs are linked; adrenal only to pancreas. No node is orange or yellow, so no hubs. Both readers found the same links and signs. Line width and colour are scaled to this panel's strongest link (liver-spleen), so w = relative strength x 0.471, the scale that makes the density exactly 9 % (sum |w| = 3.24 for N = 9; 8.5-9.5 % gives 0.444-0.497). Consensus relative strengths: liver-spleen 1.00, fat-pancreas 0.94, fat-muscle 0.60, fat-thyroid -0.60, adrenal-pancreas 0.57, intestine-liver -0.57, liver-lungs -0.56, pancreas-thyroid 0.55, lungs-muscle 0.53, muscle-thyroid 0.49, fat-spleen 0.47. The light-blue fat-spleen line runs behind the lower edge of the adrenal node (20-25 px from its centre), so it is not fat-adrenal or adrenal-spleen. Strength z-scores from these weights: fat 1.54, liver 0.88, pancreas 0.77, adrenal and intestine -1.38; none above 1.7, consistent with no hub colouring. Pixel centres in f-006.png (1768 x 769): intestine 187.5,143; fat 421,177; lungs 36,256; adrenal 263,276; spleen 104,431; liver 291,444; muscle 526,426; pancreas 130,614; thyroid 299,632 (node radius about 30 px)."
+  },
+  {
+   "id": "HK2",
+   "title": "Hexokinase 2 (N = 946)",
+   "density": 7,
+   "n": 946,
+   "organs_shown": [
+    "adrenal",
+    "fat",
+    "intestine",
+    "liver",
+    "lungs",
+    "muscle",
+    "pancreas",
+    "spleen",
+    "thyroid"
+   ],
+   "isolated": [],
+   "hubs": [],
+   "edges": [
+    {
+     "a": "intestine",
+     "b": "muscle",
+     "sign": 1,
+     "w": 0.199,
+     "conf": 0.95
+    },
+    {
+     "a": "liver",
+     "b": "spleen",
+     "sign": 1,
+     "w": 0.174,
+     "conf": 0.9
+    },
+    {
+     "a": "intestine",
+     "b": "lungs",
+     "sign": 1,
+     "w": 0.174,
+     "conf": 0.95
+    },
+    {
+     "a": "spleen",
+     "b": "thyroid",
+     "sign": 1,
+     "w": 0.169,
+     "conf": 0.9
+    },
+    {
+     "a": "fat",
+     "b": "liver",
+     "sign": 1,
+     "w": 0.169,
+     "conf": 0.9
+    },
+    {
+     "a": "fat",
+     "b": "pancreas",
+     "sign": 1,
+     "w": 0.169,
+     "conf": 0.9
+    },
+    {
+     "a": "adrenal",
+     "b": "pancreas",
+     "sign": 1,
+     "w": 0.159,
+     "conf": 0.9
+    },
+    {
+     "a": "adrenal",
+     "b": "muscle",
+     "sign": 1,
+     "w": 0.159,
+     "conf": 0.9
+    },
+    {
+     "a": "adrenal",
+     "b": "liver",
+     "sign": 1,
+     "w": 0.149,
+     "conf": 0.85
+    },
+    {
+     "a": "pancreas",
+     "b": "thyroid",
+     "sign": 1,
+     "w": 0.134,
+     "conf": 0.95
+    },
+    {
+     "a": "intestine",
+     "b": "liver",
+     "sign": -1,
+     "w": 0.129,
+     "conf": 0.9
+    },
+    {
+     "a": "liver",
+     "b": "thyroid",
+     "sign": -1,
+     "w": 0.129,
+     "conf": 0.9
+    },
+    {
+     "a": "lungs",
+     "b": "thyroid",
+     "sign": 1,
+     "w": 0.129,
+     "conf": 0.9
+    },
+    {
+     "a": "adrenal",
+     "b": "intestine",
+     "sign": 1,
+     "w": 0.125,
+     "conf": 0.9
+    },
+    {
+     "a": "fat",
+     "b": "muscle",
+     "sign": 1,
+     "w": 0.12,
+     "conf": 0.95
+    },
+    {
+     "a": "muscle",
+     "b": "spleen",
+     "sign": 1,
+     "w": 0.12,
+     "conf": 0.8
+    },
+    {
+     "a": "intestine",
+     "b": "thyroid",
+     "sign": -1,
+     "w": 0.11,
+     "conf": 0.9
+    }
+   ],
+   "layout": [
+    {
+     "organ": "intestine",
+     "x": 0.342,
+     "y": 0.086
+    },
+    {
+     "organ": "fat",
+     "x": 0.737,
+     "y": 0.143
+    },
+    {
+     "organ": "lungs",
+     "x": 0.085,
+     "y": 0.277
+    },
+    {
+     "organ": "adrenal",
+     "x": 0.469,
+     "y": 0.311
+    },
+    {
+     "organ": "spleen",
+     "x": 0.2,
+     "y": 0.574
+    },
+    {
+     "organ": "liver",
+     "x": 0.517,
+     "y": 0.596
+    },
+    {
+     "organ": "muscle",
+     "x": 0.915,
+     "y": 0.565
+    },
+    {
+     "organ": "pancreas",
+     "x": 0.244,
+     "y": 0.884
+    },
+    {
+     "organ": "thyroid",
+     "x": 0.531,
+     "y": 0.914
+    }
+   ],
+   "notes": "Panel B, GTEx hexokinase 2 expression, printed 'Hexokinase 2 (N = 946)' and '7 %'. 17 links: 14 blue, 3 red (intestine-liver, intestine-thyroid, liver-thyroid). All 9 organs are linked. No hub colouring. Both readers found the same links and signs. The lines look thick only because they are scaled to this panel's own strongest link (intestine-muscle, the only one at full colour). Reading them on an absolute colour scale would give a density of about 36 %, not 7 %. w = relative strength x 0.199, which makes the density exactly 7 % (6.5-7.5 % gives 0.185-0.213), so every HK2 partial correlation is about 0.11-0.20. Consensus relative strengths: intestine-muscle 1.00, liver-spleen 0.88, intestine-lungs 0.88, spleen-thyroid 0.85, fat-liver 0.85, fat-pancreas 0.85, adrenal-pancreas 0.80, adrenal-muscle 0.80, adrenal-liver 0.75, pancreas-thyroid 0.68, intestine-liver -0.65, liver-thyroid -0.65, lungs-thyroid 0.65, adrenal-intestine 0.62, fat-muscle 0.60, muscle-spleen 0.60, intestine-thyroid -0.55. Geometry, as both readers found: the thin blue line right of the liver is spleen-muscle, passing behind the upper part of the liver node about 15 px above its centre (y 426.5 at x = 1000; spleen-muscle predicts 427.5, liver-muscle 435.5), so there is no liver-muscle link. Two red lines leave the intestine: the darker ends at the liver, the paler passes left of the liver to the thyroid; liver-thyroid is a separate red link. Adrenal-intestine and adrenal-liver are two separate blue links. There is no adrenal-thyroid link. Strength z-scores: liver 1.28, intestine 1.19, lungs -1.72; none above 1.7. The layout is identical to A: pixel centres are A's plus 598 px in x."
+  },
+  {
+   "id": "GLUT",
+   "title": "Cumulated GLUT1 – GLUT4 (N = 946)",
+   "density": 16,
+   "n": 946,
+   "organs_shown": [
+    "adrenal",
+    "fat",
+    "intestine",
+    "liver",
+    "lungs",
+    "muscle",
+    "pancreas",
+    "spleen",
+    "thyroid"
+   ],
+   "isolated": [],
+   "hubs": [],
+   "edges": [
+    {
+     "a": "spleen",
+     "b": "thyroid",
+     "sign": 1,
+     "w": 0.613,
+     "conf": 0.95
+    },
+    {
+     "a": "fat",
+     "b": "pancreas",
+     "sign": 1,
+     "w": 0.407,
+     "conf": 0.9
+    },
+    {
+     "a": "intestine",
+     "b": "lungs",
+     "sign": 1,
+     "w": 0.402,
+     "conf": 0.95
+    },
+    {
+     "a": "adrenal",
+     "b": "thyroid",
+     "sign": 1,
+     "w": 0.377,
+     "conf": 0.8
+    },
+    {
+     "a": "fat",
+     "b": "intestine",
+     "sign": 1,
+     "w": 0.347,
+     "conf": 0.95
+    },
+    {
+     "a": "liver",
+     "b": "thyroid",
+     "sign": 1,
+     "w": 0.325,
+     "conf": 0.75
+    },
+    {
+     "a": "liver",
+     "b": "spleen",
+     "sign": -1,
+     "w": 0.301,
+     "conf": 0.9
+    },
+    {
+     "a": "lungs",
+     "b": "pancreas",
+     "sign": 1,
+     "w": 0.271,
+     "conf": 0.85
+    },
+    {
+     "a": "fat",
+     "b": "lungs",
+     "sign": -1,
+     "w": 0.226,
+     "conf": 0.9
+    },
+    {
+     "a": "adrenal",
+     "b": "lungs",
+     "sign": 1,
+     "w": 0.211,
+     "conf": 0.9
+    },
+    {
+     "a": "lungs",
+     "b": "spleen",
+     "sign": -1,
+     "w": 0.211,
+     "conf": 0.9
+    },
+    {
+     "a": "fat",
+     "b": "spleen",
+     "sign": -1,
+     "w": 0.206,
+     "conf": 0.9
+    },
+    {
+     "a": "lungs",
+     "b": "thyroid",
+     "sign": 1,
+     "w": 0.206,
+     "conf": 0.9
+    },
+    {
+     "a": "intestine",
+     "b": "pancreas",
+     "sign": -1,
+     "w": 0.201,
+     "conf": 0.9
+    },
+    {
+     "a": "liver",
+     "b": "muscle",
+     "sign": -1,
+     "w": 0.201,
+     "conf": 0.9
+    },
+    {
+     "a": "intestine",
+     "b": "spleen",
+     "sign": 1,
+     "w": 0.196,
+     "conf": 0.9
+    },
+    {
+     "a": "liver",
+     "b": "pancreas",
+     "sign": -1,
+     "w": 0.196,
+     "conf": 0.9
+    },
+    {
+     "a": "fat",
+     "b": "thyroid",
+     "sign": 1,
+     "w": 0.176,
+     "conf": 0.9
+    },
+    {
+     "a": "adrenal",
+     "b": "spleen",
+     "sign": -1,
+     "w": 0.171,
+     "conf": 0.8
+    },
+    {
+     "a": "adrenal",
+     "b": "fat",
+     "sign": 1,
+     "w": 0.166,
+     "conf": 0.85
+    },
+    {
+     "a": "intestine",
+     "b": "liver",
+     "sign": -1,
+     "w": 0.136,
+     "conf": 0.8
+    },
+    {
+     "a": "pancreas",
+     "b": "spleen",
+     "sign": 1,
+     "w": 0.116,
+     "conf": 0.8
+    },
+    {
+     "a": "adrenal",
+     "b": "pancreas",
+     "sign": -1,
+     "w": 0.1,
+     "conf": 0.8
+    }
+   ],
+   "layout": [
+    {
+     "organ": "intestine",
+     "x": 0.342,
+     "y": 0.086
+    },
+    {
+     "organ": "fat",
+     "x": 0.737,
+     "y": 0.143
+    },
+    {
+     "organ": "lungs",
+     "x": 0.085,
+     "y": 0.277
+    },
+    {
+     "organ": "adrenal",
+     "x": 0.469,
+     "y": 0.311
+    },
+    {
+     "organ": "spleen",
+     "x": 0.2,
+     "y": 0.574
+    },
+    {
+     "organ": "liver",
+     "x": 0.517,
+     "y": 0.596
+    },
+    {
+     "organ": "muscle",
+     "x": 0.915,
+     "y": 0.565
+    },
+    {
+     "organ": "pancreas",
+     "x": 0.244,
+     "y": 0.884
+    },
+    {
+     "organ": "thyroid",
+     "x": 0.531,
+     "y": 0.914
+    }
+   ],
+   "notes": "Panel C, GTEx cumulated GLUT1-4 expression, printed 'Cumulated GLUT1 – GLUT4 (N = 946)' and '16 %'. 23 links: 13 blue, 10 red. All 9 organs are linked; muscle only to liver (red). No hub colouring. Both readers found the same links and signs. w = relative strength x 0.613, which makes the density exactly 16 % (15.5-16.5 % gives 0.593-0.632). Consensus relative strengths: spleen-thyroid 1.00, fat-pancreas 0.66, intestine-lungs 0.66, adrenal-thyroid 0.61, fat-intestine 0.57, liver-thyroid 0.53, liver-spleen -0.49, lungs-pancreas 0.44, fat-lungs -0.37, adrenal-lungs 0.34, lungs-spleen -0.34, fat-spleen -0.34, lungs-thyroid 0.34, intestine-pancreas -0.33, liver-muscle -0.33, intestine-spleen 0.32, liver-pancreas -0.32, fat-thyroid 0.29, adrenal-spleen -0.28, adrenal-fat 0.27, intestine-liver -0.22, pancreas-spleen 0.19, adrenal-pancreas -0.16. Hardest part: the vertical blue band from the adrenal through the liver to the thyroid. Above the liver it is one 9 px line, centred at x about 1478 at y = 380, on the adrenal-thyroid path (predicted 1479; adrenal-liver would be 1485). Below the liver, the band's left edge follows the adrenal-thyroid slope (0.10) and its right edge the liver-thyroid slope (0.05). The paler strip at its right is the part of liver-thyroid not covered by adrenal-thyroid, which is drawn on top. So the reading is adrenal-thyroid plus liver-thyroid, with no adrenal-liver link. The faint red line to the muscle is liver-muscle, not spleen-muscle (centre y 444.5 at x = 1600; liver-muscle predicts 445.1, spleen-muscle 436.6). The faintest lines (adrenal-pancreas red, pancreas-spleen lavender, intestine-liver pink) are thin but present at full resolution. Strength z-scores: spleen 1.12, thyroid 0.87, muscle -2.26; none above 1.7. The layout is identical to A, shifted by +1206.5 px in x and +8.5 px in y (the same for every node within 1 px, so not stretched)."
+  }
+ ],
  "poster": {
   "cohort": {
    "baseline": [

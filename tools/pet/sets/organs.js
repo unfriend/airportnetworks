@@ -218,15 +218,22 @@ SETS.organs = function (K) {
   };
 
   // ---------------------------------------------------------------- surface nets
-  // Sample the field on a grid (blocks of 4 cells far from the surface are filled from their centre alone), place one
-  // vertex per cell the surface crosses, pull it onto the surface along the field's gradient, which is its normal.
+  // Sample the field on a grid (blocks of 4 cells far from the surface are filled from their centre alone) and place
+  // one vertex per cell the surface crosses; its normal is the field's gradient, from the grid (central differences at
+  // the cell's corners, blended), so no extra evaluations are needed.
   const SP = [], SN = [], SCL = [], SO = [], SI = [];
   const YR = ORG.map(() => [Infinity, -Infinity]);   // each shell's height range (for the sweep's labels)
   const EG = [[0, 1], [2, 3], [4, 5], [6, 7], [0, 2], [1, 3], [4, 6], [5, 7], [0, 4], [1, 5], [2, 6], [3, 7]];
+  const vert = (oi, x, y, z, nx, ny, nz) => {   // one vertex in modelling coordinates: slim it (and carry its normal)
+    const nX = nx / XS, nl = Math.sqrt(nX * nX + ny * ny + nz * nz) || 1, col = COL[oi], yr = YR[oi];
+    SP.push(x * XS, y, z); SN.push(nX / nl, ny / nl, nz / nl); SCL.push(col[0], col[1], col[2]); SO.push(oi);
+    if (y < yr[0]) yr[0] = y;
+    if (y > yr[1]) yr[1] = y;
+  };
   function polygonise(f, lo, hi, h, oi) {
     const nx = Math.ceil((hi[0] - lo[0]) / h) + 1, ny = Math.ceil((hi[1] - lo[1]) / h) + 1, nz = Math.ceil((hi[2] - lo[2]) / h) + 1;
     const F = new Float32Array(nx * ny * nz), done = new Uint8Array(nx * ny * nz), id = (i, j, k) => (i * ny + j) * nz + k;
-    const B = 4, far = 1.6 * 0.87 * B * h;
+    const B = 4, far = 1.8 * 0.87 * B * h;
     for (let I = 0; I < nx - 1; I += B) for (let J = 0; J < ny - 1; J += B) for (let L = 0; L < nz - 1; L += B) {
       const i1 = Math.min(I + B, nx - 1), j1 = Math.min(J + B, ny - 1), k1 = Math.min(L + B, nz - 1);
       const fc = f(lo[0] + (I + i1) * 0.5 * h, lo[1] + (J + j1) * 0.5 * h, lo[2] + (L + k1) * 0.5 * h), out = Math.abs(fc) > far;
@@ -237,7 +244,8 @@ SETS.organs = function (K) {
       }
     }
     const ny1 = ny - 1, nz1 = nz - 1, VI = new Int32Array((nx - 1) * ny1 * nz1).fill(-1), cid = (i, j, k) => (i * ny1 + j) * nz1 + k;
-    const cv = new Float32Array(8), col = COL[oi], e = h * 0.3, yr = YR[oi];
+    const cv = new Float32Array(8), G = new Float32Array(24);
+    const at = (i, j, k) => F[id(i < 0 ? 0 : i >= nx ? nx - 1 : i, j < 0 ? 0 : j >= ny ? ny - 1 : j, k < 0 ? 0 : k >= nz ? nz - 1 : k)];
     for (let i = 0; i < nx - 1; i++) for (let j = 0; j < ny1; j++) for (let k = 0; k < nz1; k++) {
       let neg = 0;
       for (let c = 0; c < 8; c++) { cv[c] = F[id(i + (c & 1), j + (c >> 1 & 1), k + (c >> 2 & 1))]; if (cv[c] < 0) neg++; }
@@ -248,14 +256,15 @@ SETS.organs = function (K) {
         const t = cv[a] / (cv[a] - cv[b]);
         sx += (a & 1) + ((b & 1) - (a & 1)) * t; sy += (a >> 1 & 1) + ((b >> 1 & 1) - (a >> 1 & 1)) * t; sz += (a >> 2 & 1) + ((b >> 2 & 1) - (a >> 2 & 1)) * t; ne++;
       }
-      const x = lo[0] + (i + sx / ne) * h, y = lo[1] + (j + sy / ne) * h, z = lo[2] + (k + sz / ne) * h;
-      const d = f(x, y, z), gx = (f(x + e, y, z) - d) / e, gy = (f(x, y + e, z) - d) / e, gz = (f(x, y, z + e) - d) / e;
-      const g2 = gx * gx + gy * gy + gz * gz || 1, s = clamp(d / g2, -h, h);
-      const px = x - gx * s, py = y - gy * s, pz = z - gz * s, nX = gx / XS, nl = Math.sqrt(nX * nX + gy * gy + gz * gz) || 1;
+      const u = sx / ne, v = sy / ne, w = sz / ne;
+      for (let c = 0; c < 8; c++) {
+        const a = i + (c & 1), b = j + (c >> 1 & 1), d = k + (c >> 2 & 1);
+        G[3 * c] = at(a + 1, b, d) - at(a - 1, b, d); G[3 * c + 1] = at(a, b + 1, d) - at(a, b - 1, d); G[3 * c + 2] = at(a, b, d + 1) - at(a, b, d - 1);
+      }
+      let gx = 0, gy = 0, gz = 0;
+      for (let c = 0; c < 8; c++) { const wt = (c & 1 ? u : 1 - u) * (c & 2 ? v : 1 - v) * (c & 4 ? w : 1 - w); gx += G[3 * c] * wt; gy += G[3 * c + 1] * wt; gz += G[3 * c + 2] * wt; }
       VI[cid(i, j, k)] = SP.length / 3;
-      SP.push(px * XS, py, pz); SN.push(nX / nl, gy / nl, gz / nl); SCL.push(col[0], col[1], col[2]); SO.push(oi);
-      if (py < yr[0]) yr[0] = py;
-      if (py > yr[1]) yr[1] = py;
+      vert(oi, lo[0] + (i + u) * h, lo[1] + (j + v) * h, lo[2] + (k + w) * h, gx, gy, gz);
     }
     const quad = (a, b, c, d, flip) => { if (a < 0 || b < 0 || c < 0 || d < 0) return; if (flip) SI.push(a, c, b, a, d, c); else SI.push(a, b, c, a, c, d); };
     for (let i = 0; i < nx - 1; i++) for (let j = 0; j < ny1; j++) for (let k = 0; k < nz1; k++) {
@@ -265,8 +274,22 @@ SETS.organs = function (K) {
       if (i > 0 && j > 0 && v0 !== F[id(i, j, k + 1)] < 0) quad(VI[cid(i - 1, j - 1, k)], VI[cid(i, j - 1, k)], VI[cid(i, j, k)], VI[cid(i - 1, j, k)], !v0);
     }
   }
+  // a ready-made geometry (tubes, lathes, bands) in modelling coordinates, optionally scaled per axis about a centre
+  function addGeo(g, oi, c, sc) {
+    const P = g.attributes.position.array, N = g.attributes.normal.array, base = SP.length / 3, s = sc || [1, 1, 1], o = c || [0, 0, 0];
+    for (let v = 0; v < P.length / 3; v++) vert(oi, o[0] + P[3 * v] * s[0], o[1] + P[3 * v + 1] * s[1], o[2] + P[3 * v + 2] * s[2], N[3 * v] / s[0], N[3 * v + 1] / s[1], N[3 * v + 2] / s[2]);
+    if (g.index) for (const q of g.index.array) SI.push(base + q);
+    else for (let v = 0; v < P.length / 3; v++) SI.push(base + v);
+    g.dispose();
+  }
   const T0 = performance.now();
-  ORG.forEach((o, oi) => { if (SHAPES[o.id]) for (const [f, lo, hi, h] of SHAPES[o.id]()) polygonise(f, lo, hi, h, oi); });
+  const PER = {};
+  ORG.forEach((o, oi) => {
+    if (!SHAPES[o.id]) return;
+    const t0 = performance.now(), v0 = SP.length / 3;
+    for (const [f, lo, hi, h] of SHAPES[o.id]()) polygonise(f, lo, hi, h, oi);
+    PER[o.id] = [Math.round(performance.now() - t0), SP.length / 3 - v0];
+  });
   const shellMs = performance.now() - T0;
 
   // ---------------------------------------------------------------- the shells
@@ -1154,7 +1177,7 @@ void main() {
     netIds: NET_IDS.slice(0, 11),
     pick,
     setFocus: id => { apiFocus = id && OI[id] !== undefined ? OI[id] + 1 : 0; },
-    stats: { shellMs, verts: SP.length / 3, tris: SI.length / 3 },
+    stats: { shellMs, verts: SP.length / 3, tris: SI.length / 3, per: PER },
   };
   return Object.assign(set, {
     params: { organs_a: 1, organs_seg: 1, organs_suv: 0, organs_focus: 0, organs_lesion: 0, organs_rows: 0, organs_pair: 0, organs_partial: 0,

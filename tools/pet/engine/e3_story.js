@@ -182,6 +182,9 @@ function buildStory() {
   const med = g => (g.median === null ? 'not reached' : `${g.median} months`);
   const bar = P.follow.find(g => /bariatric/i.test(P.name(g)));
   // ------------------------------------------------------------ panel copy
+  // parts of a chapter that take turns in one place, each fading out (data-out) as the next comes: the headset's
+  // panel cannot scroll, so no chapter shows more than fits at once
+  const turns = (...parts) => `<div style="display:grid">${parts.map(p => `<div style="grid-area:1/1">${p}</div>`).join('')}</div>`;
   const html = {
     title: `<svg class="route-mark" viewBox="0 0 360 44" aria-hidden="true"><path id="titleArc" d="M8 36 Q180 -16 352 36" fill="none" stroke="var(--red)" stroke-width="2.2" stroke-linecap="round" pathLength="1" stroke-dasharray="1" stroke-dashoffset="1"/><circle cx="8" cy="36" r="4.5" fill="var(--red)"/><circle cx="352" cy="36" r="4.5" fill="var(--red)" id="titleDot" opacity="0"/></svg>
       <h1 data-at="1.2">One scan, one system</h1>
@@ -189,14 +192,14 @@ function buildStory() {
       <p data-at="4">From one PET scan to a network of organs: what it says about health, disease and survival.</p>
       <p class="note" data-at="9">After a paper in Med${F.year ? ` (${F.year})` : ''} and a poster from the Division of Nuclear Medicine, Medical University of Vienna, and the LBI for Network Medicine.</p>`,
     scanner: `<h2 data-at="0.6">Seeing sugar</h2>
-      <p data-at="1.2">A PET scan starts with a sugar. FDG (fluorodeoxyglucose) is glucose carrying radioactive fluorine-18.</p>
-      <p data-at="5">After at least ${F.fasting} hours without food, ${F.dose[0]} to ${F.dose[1]} MBq of FDG go into a vein. For about ${F.rest} minutes the person rests, and cells take the sugar up as if it were glucose: hexokinase traps it inside.</p>
-      <p data-at="11">Then the scan. Around the tunnel sits a ring of detectors.</p>
-      <ul class="steps">
-        <li data-at="13"><b>A positron</b>fluorine-18 decays and sends one out; it travels about a millimetre</li>
-        <li data-at="17"><b>Two photons</b>it meets an electron, and both turn into two gamma photons of 511 keV, flying off in opposite directions</li>
-        <li data-at="21"><b>A coincidence</b>two detectors on opposite sides register them at once: the line between them passes through where the sugar was</li>
-      </ul>
+      ${turns(`<p data-at="1.2" data-out="10.5">A PET scan starts with a sugar. FDG (fluorodeoxyglucose) is glucose carrying radioactive fluorine-18.</p>
+        <p data-at="5" data-out="10.5">After at least ${F.fasting} hours without food, ${F.dose[0]} to ${F.dose[1]} MBq of FDG go into a vein. For about ${F.rest} minutes the person rests: cells take the sugar up like glucose, and hexokinase traps it inside.</p>`,
+      `<p data-at="11">Then the scan. Around the tunnel sits a ring of detectors.</p>
+        <ul class="steps">
+          <li data-at="13"><b>A positron</b>fluorine-18 decays and sends one out; it travels about a millimetre</li>
+          <li data-at="17"><b>Two photons</b>it meets an electron: two gamma photons of 511 keV fly off in opposite directions</li>
+          <li data-at="21"><b>A coincidence</b>detectors opposite each other register both at once; the line between them passes through the sugar</li>
+        </ul>`)}
       <p data-at="27" class="amber">Millions of such lines make the image: a map of where the body takes up sugar.</p>
       <p class="credits" data-at="31">The uptake is measured as the SUV, the standardised uptake value. Protocol as in the paper.</p>`,
     body: `<h2 data-at="0.6">Where the sugar goes</h2>
@@ -205,59 +208,61 @@ function buildStory() {
       <p data-at="20">A tumour shows as a hot spot. Usually that is all a scan is read for.</p>
       <p data-at="29" class="amber">Yet the scan holds every organ's metabolism at once.</p>`,
     organs: `<h2 data-at="0.6">Every organ, measured</h2>
-      <p data-at="1.2">An AI (${esc(F.seg)}) outlines ${F.organs} organs in every scan, slice by slice, and a doctor checks them.</p>
-      <p data-at="14">Each organ's uptake is divided by that of the aorta: the blood pool, the same reference in every scan.</p>
-      <ul class="steps">
-        ${step('brain', 23, `${esc(PD.byId.brain.measure)}: it lives on sugar`)}
-        ${step('liver', 27, esc(PD.byId.liver.measure))}
-        ${step('muscle', 31, esc(PD.byId.muscle.measure))}
-      </ul>
+      ${turns(`<p data-at="1.2" data-out="22.5">An AI (${esc(F.seg)}) outlines ${F.organs} organs in every scan, slice by slice, and a doctor checks them.</p>
+        <p data-at="14" data-out="22.5">Each organ's uptake is divided by that of the aorta: the blood pool, the same reference in every scan.</p>`,
+      `<ul class="steps">
+          ${step('brain', 23, `${esc(PD.byId.brain.measure)}: it lives on sugar`)}
+          ${step('liver', 27, esc(PD.byId.liver.measure))}
+          ${step('muscle', 31, esc(PD.byId.muscle.measure))}
+        </ul>`)}
       <p data-at="35" class="amber">One scan, one row of numbers.</p>
       <p class="credits" data-at="36">The organs' values shown here are typical uptakes, for illustration.</p>`,
     cohort: `<h2 data-at="0.6">${fmt(F.scans)} scans</h2>
-      <p data-at="1.2">The paper took ${fmt(F.scans)} scans of ${fmt(F.subjects)} people: ${F.healthy} of healthy volunteers and ${F.cancer} of people with cancer (${F.lung} lung, ${F.hnscc} head and neck).</p>
-      <div class="facts"><div data-at="7"><b>${fmt(F.scans)}</b><small>scans</small></div><div data-at="8.5"><b>${F.f2n}</b><small>organs in the network</small></div><div data-at="10"><b>${fmt(F.scans * F.f2n)}</b><small>values</small></div></div>
-      ${F.pair ? `<p data-at="15">Which organs rise and fall together across people? Take the ${esc(organLow(F.pair.a))} and the ${esc(organLow(F.pair.b))}.</p>
-      <p data-at="19">A plain correlation mixes direct links with links that only pass through other organs.</p>
-      <p data-at="23" class="amber">A partial correlation first takes out what all the other organs explain, then correlates what is left: here r = ${F.pair.r} becomes ${F.pair.pr} (the paper: ${F.pair.paper}).</p>` : ''}
-      <p data-at="31">Keep the significant ones (p &lt; ${F.p}) and draw them: blue where two organs rise together, red where one rises as the other falls.</p>
-      <p data-at="36">The network of all ${fmt(F.scans)} scans: ${F.f2n} organs, ${F.links} links.</p>
-      <p class="credits" data-at="39">Figure 2A of the paper. The people in the scatter plot are ${fmt(F.scans)} stand-ins with the paper's partial correlations.</p>`,
+      ${turns(`<p data-at="1.2" data-out="14.5">The paper took ${fmt(F.scans)} scans of ${fmt(F.subjects)} people: ${F.healthy} of healthy volunteers and ${F.cancer} of people with cancer (${F.lung} lung, ${F.hnscc} head and neck).</p>
+        <div class="facts"><div data-at="7" data-out="14.5"><b>${fmt(F.scans)}</b><small>scans</small></div><div data-at="8.5" data-out="14.5"><b>${F.f2n}</b><small>organs in the network</small></div><div data-at="10" data-out="14.5"><b>${fmt(F.scans * F.f2n)}</b><small>values</small></div></div>`,
+      F.pair ? `<p data-at="15" data-out="30.5">Which organs rise and fall together across people? Take the ${esc(organLow(F.pair.a))} and the ${esc(organLow(F.pair.b))}.</p>
+        <p data-at="19" data-out="30.5">A plain correlation mixes direct links with links that only pass through other organs.</p>
+        <p data-at="23" data-out="30.5" class="amber">A partial correlation first takes out what all the other organs explain, then correlates what is left: here r = ${F.pair.r} becomes ${F.pair.pr} (the paper: ${F.pair.paper}).</p>` : '',
+      `<p data-at="31">Keep the significant ones (p &lt; ${F.p}) and draw them: blue where two organs rise together, red where one rises as the other falls.</p>
+        <p data-at="36">The network of all ${fmt(F.scans)} scans: ${F.f2n} organs, ${F.links} links.</p>
+        <p class="credits" data-at="39">Figure 2A of the paper. The people in the scatter plot are ${fmt(F.scans)} stand-ins with the paper's partial correlations.</p>`)}`,
     health: `<h2 data-at="0.6">From health to disease</h2>
-      <p data-at="1.2">Split the scans into groups, and give each group its own network.${R.cancer ? ` Healthy people's is dense: ${gD(R.cancer, 0)} of the most possible, against ${gD(R.cancer, 1)} with cancer.` : ''}</p>
-      ${R.bmi ? `<p data-at="7">Body weight, in healthy people: ${gD(R.bmi, 0)} below the median BMI, ${gD(R.bmi, 1)} above it. The brain becomes a hub.</p>` : ''}
-      <p data-at="16">Two measures. Density: all links' strength together, as a share of the most possible. Disorder: how unevenly that strength is spread, from 0 (even) up (a few hubs).</p>
-      ${R.crp ? `<p data-at="21" class="amber">Inflammation (CRP, in thirds): density ${listOf(R.crp.groups.map(g => pct(g.density)))}; disorder ${listOf(R.crp.groups.map(g => dis(g.disorder)))}. As health erodes, muscle and subcutaneous fat take over as hubs.</p>` : ''}
-      ${R.norepi && R.tumour ? `<p data-at="31">Stress (norepinephrine, ${gD(R.norepi, 0)} against ${gD(R.norepi, 1)}) and tumour load (${gD(R.tumour, 0)} against ${gD(R.tumour, 1)}) thin it too.</p>` : ''}
-      <p data-at="35">${F.robust.every(r => !r.sigD && !r.sigO) ? `And it holds: ${F.weeks ? `scans ${F.weeks} weeks apart, ` : ''}an ultra-low dose, another scanner, men and women, the aorta or the vena cava as the reference: no significant difference.` : ''}</p>
-      ${F.hk2 ? `<p data-at="39">Of ${F.tested} proteins whose networks came from the tissues of ${fmt(F.gtex)} people, only hexokinase 2, the enzyme that traps FDG, has a network like FDG's (r = ${F.hk2.r}).</p>` : ''}
-      <p class="credits" data-at="42">Table 2 and Figures 3 and 4 of the paper (networks other than the full cohort's read off its figures). Disorder: ${R.cancer ? `${gO(R.cancer, 0)} healthy, ${gO(R.cancer, 1)} with cancer; ` : ''}a hub has a strength z-score above ${F.hubZ}.</p>`,
+      ${turns(`<p data-at="1.2" data-out="15.5">Split the scans into groups, and give each group its own network.${R.cancer ? ` Healthy people's is dense: ${gD(R.cancer, 0)} of the most possible, against ${gD(R.cancer, 1)} with cancer.` : ''}</p>
+        ${R.bmi ? `<p data-at="7" data-out="15.5">Body weight, in healthy people: ${gD(R.bmi, 0)} below the median BMI, ${gD(R.bmi, 1)} above it. The brain becomes a hub.</p>` : ''}`,
+      `<p data-at="16" data-out="34.5">Two measures. Density: all links' strength together, as a share of the most possible. Disorder: how unevenly that strength is spread, from 0 (even) up (a few hubs).</p>
+        ${R.crp ? `<p data-at="21" data-out="34.5" class="amber">Inflammation (CRP, in thirds): density ${listOf(R.crp.groups.map(g => pct(g.density)))}; disorder ${listOf(R.crp.groups.map(g => dis(g.disorder)))}. As health erodes, muscle and subcutaneous fat take over as hubs.</p>` : ''}
+        ${R.norepi && R.tumour ? `<p data-at="31" data-out="34.5">Stress (norepinephrine: ${gD(R.norepi, 0)} against ${gD(R.norepi, 1)}) and tumour load (${gD(R.tumour, 0)} against ${gD(R.tumour, 1)}) thin it too.</p>` : ''}`,
+      `${F.robust.every(r => !r.sigD && !r.sigO) ? `<p data-at="35">And it holds: ${F.weeks ? `scans ${F.weeks} weeks apart, ` : ''}an ultra-low dose, another scanner, men and women, the aorta or the vena cava as the reference: no significant difference.</p>` : ''}
+        ${F.hk2 ? `<p data-at="39">Of ${F.tested} proteins whose networks came from the tissues of ${fmt(F.gtex)} people, only hexokinase 2, the enzyme that traps FDG, has a network like FDG's (r = ${F.hk2.r}).</p>` : ''}
+        <p class="credits" data-at="42">Table 2 and Figures 3 and 4 of the paper; networks other than that of all scans read off its figures.${R.cancer ? ` Disorder: ${gO(R.cancer, 0)} healthy, ${gO(R.cancer, 1)} with cancer.` : ''} A hub: strength z-score above ${F.hubZ}.</p>`)}`,
     one: `<h2 data-at="0.6">One scan, one network</h2>
-      <p data-at="1.2">So far, one network for a whole group. The next step: a network for every scan, from ${word(ones.length)} organs.</p>
-      <p data-at="6">Compare every organ with every other: how much more sugar does it take up?</p>
-      <p data-at="12">Where one outshines another by more than a threshold, draw a link. The links make this person's network.</p>
-      <ul class="steps">
-        <li data-at="24"><b>Clearance</b>how the kidneys handle the tracer</li>
-        <li data-at="27"><b>Heterogeneity</b>how unevenly the uptake is spread over the organs</li>
-      </ul>
-      ${prof('healthy') && prof('cancer') && prof('dys') ? `<p data-at="30" class="amber">Together they give a metabolic displacement index. It moves with health: ${prof('healthy').mdi.toFixed(1)} for a healthy profile, ${prof('cancer').mdi.toFixed(1)} with cancer, ${prof('dys').mdi.toFixed(1)} with dyslipidaemia (unhealthy blood fats).</p>` : ''}
-      <p class="note" data-at="34">Illustrative maths: the poster names Clearance, Heterogeneity and the index, but its formulas are not published yet. These are stand-ins, and so are the profiles.</p>`,
+      ${turns(`<p data-at="1.2" data-out="23.5">So far, one network for a whole group. The next step: a network for every scan, from ${word(ones.length)} organs.</p>
+        <p data-at="6" data-out="23.5">Compare every organ with every other: how much more sugar does it take up?</p>
+        <p data-at="12" data-out="23.5">Where one outshines another by more than a threshold, draw a link. The links make this person's network.</p>`,
+      `<ul class="steps">
+          <li data-at="24"><b>Clearance</b>how the kidneys handle the tracer</li>
+          <li data-at="27"><b>Heterogeneity</b>how unevenly the uptake is spread over the organs</li>
+        </ul>
+        ${prof('healthy') && prof('cancer') && prof('dys') ? `<p data-at="30" class="amber">Together they give a metabolic displacement index. It moves with health: ${prof('healthy').mdi.toFixed(1)} for a healthy profile, ${prof('cancer').mdi.toFixed(1)} with cancer, ${prof('dys').mdi.toFixed(1)} with dyslipidaemia (unhealthy blood fats).</p>` : ''}
+        <p class="note" data-at="34">Illustrative maths: the poster names Clearance, Heterogeneity and the index, but its formulas are not published yet. These are stand-ins, and so are the profiles.</p>`)}`,
     people: `<h2 data-at="0.6">${P.mdiN ? `${fmt(P.mdiN)} people, one index` : 'People on one index'}</h2>
-      <p data-at="1.2">Every scan becomes one point.${P.groups.length ? ` In the poster's results: ${listOf(P.groups.map(g => `${esc(g.name.toLowerCase())} (${g.n})`))}.` : ''}</p>
-      <p data-at="9">On the index, cancer sits low and dyslipidaemia high, with healthy people in between.</p>
-      ${P.groups.length ? `<div class="facts">${P.groups.map((g, j) => `<div data-at="${14 + 2.5 * j}"><b style="color:${g.col}">${g.centre}</b><small>${esc(g.name)}</small></div>`).join('')}</div>` : ''}
-      ${thirds.length ? `<p data-at="28" class="amber">Split by the index into thirds, people with cancer${thirds.length === 3 ? ' near the healthy range lived longest' : ''}: median survival ${listOf(thirds.map(g => `${med(g)} (${esc(g.name)})`))}${thirds.every(g => g.y1 !== null) ? `; after one year ${listOf(thirds.map(g => g.y1 + '%'))} were alive` : ''}.</p>` : '<p data-at="28" class="amber">Split by the index into thirds, people with cancer near the healthy range lived longest.</p>'}
-      <p data-at="36">${P.respN ? `In ${P.respN}` : 'In a small group of'} people with lung cancer given immunotherapy before surgery, the index told good from poor responders better than CRP, tumour stage or age${P.bestNet && P.bestClin ? ` (AUC ${P.bestNet.auc} against ${P.bestClin.auc} at best)` : ''}. A first test, in few people.</p>
-      <p data-at="42">After ${bar ? 'bariatric surgery' : 'surgery'} and immunotherapy, the index moved towards the healthy range${P.follow.length ? `: ${P.followN} follow-up scans` : ''}.</p>
-      <p class="credits" data-at="45">The poster's results, as group summaries. The dots are stand-ins drawn to match them, not patients.</p>`,
+      ${turns(`<p data-at="1.2" data-out="27.5">Every scan becomes one point.${P.groups.length ? ` In the poster's results: ${listOf(P.groups.map(g => `${esc(g.name.toLowerCase())} (${g.n})`))}.` : ''}</p>
+        <p data-at="9" data-out="27.5">On the index, cancer sits low and dyslipidaemia high, with healthy people in between.</p>
+        ${P.groups.length ? `<div class="facts">${P.groups.map((g, j) => `<div data-at="${14 + 2.5 * j}" data-out="27.5"><b style="color:${g.col}">${g.centre}</b><small>${esc(g.name)}</small></div>`).join('')}</div>` : ''}`,
+      `<p data-at="28" data-out="35.5" class="amber">Split by the index into thirds, people with cancer near the healthy range lived longest.</p>
+        ${thirds.length ? `<ul class="steps">${thirds.map((g, j) => `<li data-at="${29.5 + j}" data-out="35.5" style="border-left-color:${g.col}"><b style="color:${g.col}">${esc(g.name)}${g.n ? ` (${g.n})` : ''}</b>median survival ${med(g)}${g.y1 !== null ? `; ${g.y1}% alive after a year` : ''}</li>`).join('')}</ul>` : ''}`,
+      `<p data-at="36">${P.respN ? `In ${P.respN}` : 'In a small group of'} people with lung cancer given immunotherapy before surgery, the index told good from poor responders better than CRP, tumour stage or age${P.bestNet && P.bestClin ? ` (AUC ${P.bestNet.auc} against ${P.bestClin.auc} at best)` : ''}. A first test, in few people.</p>
+        <p data-at="42">After ${bar ? 'bariatric surgery' : 'surgery'} and immunotherapy, the index moved towards the healthy range.</p>
+        <p class="credits" data-at="45">The poster's results, as group summaries. The dots are stand-ins drawn to match them, not patients.</p>`)}`,
     vision: `<h2 data-at="0.6">One scan, one system</h2>
-      <p data-at="1.2">One routine scan could show how a whole body is doing: what lies ahead, and which medication might help.</p>
-      <p data-at="7">Organs like muscle and fat could become targets: the paper names GLP-1 drugs, metformin, statins and SGLT2 inhibitors.</p>
-      <p data-at="12" class="amber">A measure of health, not only of disease. It still has to be tested in larger studies.</p>
-      <p data-at="15">Barbara K Geist, Alexander Grentner, Joel Fischer, Josef Yu, Dato Tsomaia, Adna Smajlovic, Stefan Grünert and Marcus Hacker: Division of Nuclear Medicine, Medical University of Vienna, and the LBI for Network Medicine.</p>
-      <p data-at="18"><button class="btn primary" id="btnGoExplore" type="button">Explore the networks</button></p>
-      <p class="credits" data-at="20">Geist et al., The metabolic organ connectome, Med${F.year ? ` (${F.year})` : ''}; poster: Shaping a New Era in Nuclear Medicine. Networks of all ${fmt(F.scans)} scans: printed in the paper; other networks read off its figures. One-scan maths, organ values and the population dots: illustrative stand-ins.</p>`,
+      ${turns(`<p data-at="1.2" data-out="14.5">One routine scan could show how a whole body is doing: what lies ahead, and which medication might help.</p>
+        <p data-at="6" data-out="14.5">Organs like muscle and fat could become targets: the paper names GLP-1 drugs, metformin, statins and SGLT2 inhibitors.</p>
+        <p data-at="10" data-out="14.5" class="amber">A measure of health, not only of disease. It still has to be tested in larger studies.</p>`,
+      `<p data-at="15">Barbara K Geist, Alexander Grentner, Joel Fischer, Josef Yu, Dato Tsomaia, Adna Smajlovic, Stefan Grünert and Marcus Hacker: Division of Nuclear Medicine, Medical University of Vienna, and the LBI for Network Medicine.</p>
+        <p data-at="18"><button class="btn primary" id="btnGoExplore" type="button">Explore the networks</button></p>
+        <p class="credits" data-at="20">Geist et al., The metabolic organ connectome, Med${F.year ? ` (${F.year})` : ''}; poster: Shaping a New Era in Nuclear Medicine. Networks of all ${fmt(F.scans)} scans: printed in the paper; other networks read off its figures. One-scan maths, organ values and the population dots: illustrative stand-ins.</p>`)}`,
   };
+
   const story = $('#story');
   story.innerHTML = CH.map(c => `<section class="ch" data-ch="${c.key}">${html[c.key]}</section>`).join('');
   CH.forEach(c => {

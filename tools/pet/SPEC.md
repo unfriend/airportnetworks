@@ -231,7 +231,8 @@ and match them), so the engine shows `body` and `organs` together, one over the 
 - `organs_which` 0..10: which network, an index into this list (fractional values crossfade: links of the one grow
   while the other's shrink, node sizes follow): 0 `full`, 1 `FDG_healthy`, 2 `A_low`, 3 `A_high`, 4 `B_low`,
   5 `B_high`, 6 `C_low`, 7 `C_mid`, 8 `C_high`, 9 `HK2`, 10 `GLUT`. A network that is missing or has no edges yet
-  shows its nodes only. Hubs (the network's `hubs`, or computed z > 1.7) glow orange-yellow and pulse slowly.
+  shows its nodes only. Hubs (only the network's `hubs`: those the paper colours; never computed ones, which differ: the paper draws no hub in
+  the network of all scans) glow orange-yellow and pulse slowly.
 - **Strength and disorder** (`organs_strength` 0..1): below or beside the network, the current network's strength
   distribution: bars sorted from high to low with organ icons under them and the exponential fit as a glowing curve
   (`computed.fitA`, `computed.disorder`), and the printed density and disorder as labels ("density 12 %", "disorder
