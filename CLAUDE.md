@@ -10,7 +10,7 @@
 - The story files are large (`stories/airports.js` is ~640 KB because of its
   embedded data). Search with Grep and read line ranges; never read them whole.
 - Prefer small, exact edits. When a change touches the headset code, apply it
-  to all eight stories: their XR, panel and landing-screen code is meant to
+  to all nine stories: their XR, panel and landing-screen code is meant to
   stay identical apart from story-specific panes.
 - Verify visual changes by serving the folder and taking headless Chromium
   screenshots (hashes such as `#spatial&t=60` jump straight to a moment), and
@@ -30,7 +30,7 @@
   `HOST.anchor.locked(kind)` before letting the grip move anything. Real anchors
   only exist on a headset: report their behaviour as untested.
 - Shared rooms (`shared.js`, `relay/`, see "Shared rooms" in `AGENTS.md`): keep
-  the shared hooks in all eight stories, the same lines in each (the `collab`
+  the shared hooks in all nine stories, the same lines in each (the `collab`
   object, the ray and press lines, the grip line, `'shared'` in the optional
   features, the `HOST.collab.mine()` lines in `xrFreshStart` and
   `xrLandingClose`). `state()` never holds the camera, hover or anything per
@@ -49,6 +49,10 @@
   `stories/endo.js` likewise from `tools/endo/` (`node tools/endo/build.mjs`; data
   from the authors' files via `tools/endo/data/gen_data.py`, which are not in the
   repository); it includes `tools/nmd/sets/motor.js`, so rebuild it after changing that.
+  `stories/pet.js` likewise from `tools/pet/` (`node tools/pet/build.mjs`; data from the paper's tables and the
+  figures' readings in `tools/pet/data/figures.json` via `node tools/pet/data/gen_data.mjs`); it includes
+  `tools/lbi/sets/body.js`, so rebuild it after changing that. No patient data in it (the authors' VR viewer holds a
+  patient's scan: never use its data).
 
 ## Keeping token use down
 
