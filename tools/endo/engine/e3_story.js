@@ -270,7 +270,8 @@ function buildStory() {
   a = C.genes.a; b = C.genes.b;
   ramp('syn_tired', a, a + 2, 1, 0);
   ramp('syn_fire', a + 1, a + 3, 1, 0);
-  ramp('syn_genes', a + 2, a + 5, 0, 1);
+  // the gene groups light one after another (nerve ending, gap, muscle membrane, inside) as the camera reaches them
+  [[4, 0], [10, 0.3], [13, 0.45], [17, 0.62], [22, 0.86], [24, 1]].forEach(([t, v]) => key('syn_genes', a + t, v));
   cam(a + 2, 'syn', 'default', 10);
   cam(a + 7, 'syn', 'terminal');
   cam(a + 12, 'syn', 'cleft');

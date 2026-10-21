@@ -141,7 +141,7 @@ cleft 50 to 80 nm, folds 0.5 to 1 micrometre deep); exaggerate small things enou
 - **Nerve ending** (upper half): a smooth translucent bouton (cut open along z so its inside shows; glassy membrane
   with a soft rim light), with its axon arriving from above-left and a thin **Schwann cell** cap draped over it.
   Inside: about 150 **synaptic vesicles** (instanced spheres), clustered over 3 to 5 **active zones** (dense bars
-  on the membrane facing the cleft, each opposite a fold crest), a few docked at the membrane; 3 to 4
+  on the membrane facing the cleft, each opposite the mouth of a fold, as in textbooks), a few docked at the membrane; 3 to 4
   **mitochondria** (elongated capsules with visible cristae through a cut); 2 to 3 **endosomes** (larger, irregular,
   slightly darker vesicles); a faint actin mesh.
 - **Synaptic cleft**: a gap between the nerve and the muscle; the **basement membrane** runs through it and dips into

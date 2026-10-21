@@ -119,7 +119,7 @@ function flyToEndo() {
   const meta = (X.tab === 'method' && METHOD[X.step][0] === 'endo') || (tv && ctlValue('tree', tv) === optKey('tree', 'view', /meta|endo/i));
   if (X.scene === 'tree' && meta && s.cam['e' + id]) flyTo(view('tree', 'e' + id));
   else if (X.scene === 'tree' && 'focus' in s.cam) afterUpdate(() => { if (X.scene === 'tree' && X.endo === id) flyTo(view('tree', 'focus')); });   // (the set's focus view follows its focus)
-  else if (X.scene === 'syn' && ED.endo[id].place && s.anchors[ED.endo[id].place]) flyNear(anchorOf('syn', ED.endo[id].place), 0.8 * view('syn', 'default')[2]);
+  else if (X.scene === 'syn' && (s.anchors['e' + id] || s.anchors[ED.endo[id].place])) flyNear(anchorOf('syn', s.anchors['e' + id] ? 'e' + id : ED.endo[id].place), 0.45 * view('syn', 'default')[2]);   // where its cloud settles
   else if (X.scene === 'net' && s.cam.module) flyTo(view('net', 'module'));   // the module pulls together, the endotype bright in it
 }
 // pick a gene of the module (-1 none); picked from a list (fly), its neighbourhood shows in the network
