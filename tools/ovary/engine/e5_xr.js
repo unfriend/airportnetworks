@@ -100,7 +100,7 @@ function placeLabelXR(L, alpha, S) {
   const hm = 0.021 / XR.R;
   sp.scale.set(hm * sp.userData.aspect, hm, 1);
 }
-// the organ, tissue or domain a controller points at, labelled where the ray meets it
+// the object a controller points at on the section, labeled where the ray meets it
 function xrTip(S) {
   let h = null;
   if (APP.mode === 'explore') for (const c of XR.ctrls) if (c.hover && c.hover.kind === 'globe' && c.hover.pk) { h = c.hover; break; }
@@ -113,8 +113,8 @@ function xrTip(S) {
   if (XR.tip) { GL.sets[XR.tip.set].group.worldToLocal(_xp.copy(h.point)); XR.tip.at = [_xp.x, _xp.y, _xp.z]; placeLabelXR(XR.tip, 1, S); }
 }
 
-// ---------------------------------------------------- picking an organ --
-// The organ, tissue or domain a ray points at in explore mode (see pickWith), or null
+// --------------------------------------------------- picking an object --
+// The object a ray points at in explore mode (see pickWith), or null
 const _prc = new THREE.Raycaster();
 function pickRay(o, d) {
   if (APP.mode !== 'explore') return null;
@@ -264,14 +264,14 @@ function xrPoint(c, dt) {
     hit = { kind: 'panel', P, x: h.uv.x * P.w, y: (1 - h.uv.y) * P.h, point: h.point };
     dist = h.distance;
   } else if (!XR.stories) {
-    // the scene counts as a ball around the view's target; an organ or a domain counts if the ray passes close
+    // the scene counts as a ball around the view's target; an object on the section counts if the ray meets it
     const oL = _xa.copy(c.o).applyMatrix4(_xinv), dL = _xb.copy(c.d).transformDirection(_xinv);
     _xc.copy(oL).sub(XR.target);
     const b = _xc.dot(dL), disc = b * b - (_xc.lengthSq() - XR.hitR * XR.hitR);
     const t = disc > 0 ? -b - Math.sqrt(disc) : -1;
     const pk = pickRay(c.o, c.d);
     if (t > 0 || pk) {
-      // an organ's point is marked where it is; else the ball's surface
+      // a pick with a point of its own is marked there; else the ball's surface
       const q = pk ? pickPos(pk) : null;
       if (q) _xp.set(q[0], q[1], q[2]).applyMatrix4(GL.sets[X.scene].group.matrixWorld);
       else _xp.copy(dL).multiplyScalar(t > 0 ? t : Math.max(0, _xc.copy(XR.target).sub(oL).dot(dL))).add(oL).applyMatrix4(GL.world.matrixWorld);

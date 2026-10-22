@@ -1,5 +1,5 @@
-// Assembles stories/ovary.js from the tour's kit (tools/lbi/kit.js), the data and shared look, the microanatomy story's
-// organ models and the tour's body set (both unchanged), the sets and the engine parts in this folder.
+// Assembles stories/ovary.js from the tour's kit (tools/lbi/kit.js), the data and shared look, the tour's body set
+// (unchanged), the sets and the engine parts in this folder.
 // usage (from the repository root): node tools/ovary/build.mjs        -> writes stories/ovary.js
 //                                   node tools/ovary/build.mjs --check -> exits 1 if stories/ovary.js is out of date
 // After changing the figures' readings or the generator, first run node tools/ovary/data/gen_data.mjs (it writes
@@ -8,9 +8,8 @@ import fs from 'fs';
 import path from 'path';
 const here = path.dirname(new URL(import.meta.url).pathname), root = path.join(here, '../..');
 const read = f => fs.readFileSync(path.join(here, f), 'utf8');
-// the data, the shared look (OVARY_TREND, OVARY_LOOK) and the organ models first, then the sets in the order the story
-// uses them
-const SET_FILES = ['sets/data', 'sets/look', '../micro/sets/organs', '../lbi/sets/body', 'sets/organ', 'sets/section', 'sets/charts'];
+// the data and the shared look (OVARY_TREND, OVARY_LOOK) first, then the sets in the order the story uses them
+const SET_FILES = ['sets/data', 'sets/look', '../lbi/sets/body', 'sets/organ', 'sets/section', 'sets/charts'];
 const ENGINE = ['e2_scene', 'e3_story', 'e4_explore', 'e5_xr', 'e6_panels', 'e7_app'];
 let kit = read('../lbi/kit.js')
   .replace("if (typeof module !== 'undefined') module.exports = { makeKit };\n", '')
