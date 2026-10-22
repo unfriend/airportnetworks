@@ -450,7 +450,7 @@ function drawBricksPane(ctx, P, x, y, W, bottom) {
   const L = cubeBits(), A = curAn(), alg = cubeAlg(), k = brickK(X.brick, L);
   const one = (nm, gal, w) => { const kk = Q.parse(nm, L), out = kk > 0 && !inAlg(kk, L, alg);
     return { id: `b:${gal}:${nm}`, label: sub(nm) + (w !== undefined ? ' ' + f2(w) : ''), col: kk === 0 ? null : out ? GRAY : PURPLE, ink: out ? VC.muted : VC.ink,
-      on: X.brick === nm && X.gal === gal, fn: () => selectBrick(X.brick === nm && X.gal === gal ? null : nm, gal) }; };
+      on: X.brick === nm, fn: () => selectBrick(X.brick === nm ? null : nm, gal) }; };
   y += textBlock(ctx, 'Pauli strings, the building blocks of any traffic table between cells. Pick one to see it on the cube, or add the largest up.', x, y, W, 23, 32, VC.muted, 400, 2) + 10;
   y += head(ctx, x, y, 'The kinds of brick (the reference figure)');
   y += flow(ctx, P, kindsAt(L).map(nm => one(nm, 'kinds')), x, y, W, bottom, { px: 22, h: 46 }) + 10;

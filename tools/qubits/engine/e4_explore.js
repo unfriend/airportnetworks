@@ -116,8 +116,10 @@ function selectBrick(nm, gal, ui = true) {
   X.brick = isBrick(nm) ? nm : null;
   if (gal === 'kinds' || gal === 'largest') X.gal = gal;
   if (ui) {
+    // (picked without its gallery: the network's largest if it is one of them, else the kinds)
+    if (X.brick && !gal) X.gal = largestAt(curAn()).includes(X.brick) ? 'largest' : 'kinds';
     if (X.brick) X.sum = 0;
-    if (X.scene !== 'cube' || viewIs('cube', 'genes') || viewIs('cube', 'cut')) showView('cube', 'bricks');
+    if (!(X.scene === 'cube' && (viewIs('cube', 'bricks') || viewIs('cube', 'toolbox')))) showView('cube', 'bricks');
   }
   renderAll();
 }
@@ -206,7 +208,7 @@ function buildExplore() {
     if (!b) return;
     const v = b.dataset.v;
     ({
-      brick: () => selectBrick(v === X.brick && X.gal === b.dataset.gal ? null : v, b.dataset.gal), gal: () => setGal(v),
+      brick: () => selectBrick(v === X.brick ? null : v, b.dataset.gal), gal: () => setGal(v),
       view: () => { const [k, w] = v.split(':'); showView(k, w); }, scene: () => openScene(v),
       ctl: () => sceneCtl(b.dataset.scene || X.scene, b.dataset.ctl, v),
     }[b.dataset.act] || (() => {}))();
@@ -266,7 +268,7 @@ function renderBricks() {
   if (!pane) return;
   const L = cubeBits(), A = curAn(), alg = cubeAlg(), k = brickK(X.brick, L);
   const one = (nm, gal, w) => { const kk = Q.parse(nm, L), out = kk > 0 && !inAlg(kk, L, alg);
-    return chip(`data-act="brick" data-gal="${gal}" data-v="${nm}"`, `${sub(nm)}${w !== undefined ? ` <small>${f2(w)}</small>` : ''}`, X.brick === nm && X.gal === gal, kk === 0 ? null : out ? GRAY : PURPLE); };
+    return chip(`data-act="brick" data-gal="${gal}" data-v="${nm}"`, `${sub(nm)}${w !== undefined ? ` <small>${f2(w)}</small>` : ''}`, X.brick === nm, kk === 0 ? null : out ? GRAY : PURPLE); };
   pane.innerHTML = `<p class="sub">Pauli strings, the building blocks of any traffic table between cells. Pick one to see it on the cube, or add the largest up.</p>
     <p class="grp-h">The kinds of brick (the reference figure)</p><div class="chips">${kindsAt(L).map(nm => one(nm, 'kinds')).join('')}</div>
     <p class="grp-h">This network's ${word(NB())} largest, with their weights</p><div class="chips">${largestAt(A).map(nm => one(nm, 'largest', A.c.re[Q.parse(nm, L)])).join('')}</div>
@@ -281,7 +283,7 @@ function renderBricks() {
     <p class="note">Purple: inside the toolbox; gray: outside, dropped; I, the trace part, is kept. Solid +, dashed −; corners red for +1, blue for −1. ${algLabel('tfim', L)} is the TFIM chain (X on each qubit, ZZ on neighbors); ${algLabel('odd', L)} adds Z on q${L - 1}.</p>`;
 }
 // the error left after the strings added up so far
-const errText = A => `Error left: ${f2(A.errors[Math.min(X.sum, A.errors.length - 1)])} (1 with none added)`;
+const errText = A => (X.sum ? `Error left: ${f2(A.errors[Math.min(X.sum, A.errors.length - 1)])} (1 with none added)` : 'Error left: 1, with none added yet');
 // the sum's readouts and slider, in place (a drag is not cut short)
 function syncSum() {
   const A = curAn();

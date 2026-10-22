@@ -2112,10 +2112,14 @@ const fitShift = (k, name) => { const f = GL.sets[k].cam[name] && FIT[k] && FIT[
 // views whose parts reach under the side panel or off the right edge on a landscape screen: a little further back,
 // or their target moved, so they fit beside the panel (added to the set's own view, in story and explore mode alike)
 // (measured at 1280 x 760: each view's parts between the panel's right edge and the screen's, above the timeline)
-const FIT = {};
+// (the grid of pairs, about 2.1 tall, fills the height between the top bar and the timeline; the gallery, from the big
+// cube to its fifth column about 4.3 across, needs about 7.5 units' distance beside the panel, its middle left of the
+// view's target)
+const FIT = { pairs: { grid: [0, 0, 1.3, 0, 0.05], hoods: [0, 0, 0.5, 0.1], chip: [0, 0, 0.4, 0.05] },
+  cube: { default: [0, 0, 0.6], cube: [0, 0, 1.2], genes: [0, 0, 0.3], bricks: [0, 0, 1.9, -0.35], gallery: [0, 0, 0.5] }, chart: { default: [0, 0, 0.7, -0.05], chart: [0, 0, 0.7, -0.05] } };
 // how much further back a view stands on a phone held upright (see narrowK): the wide ones, whose parts reach
 // across the screen
-const NARROW = {};
+const NARROW = { pairs: { grid: 1.1, hoods: 1.15, chip: 1.1 }, cube: { genes: 1.1, bricks: 1.2, gallery: 1.1 }, chart: { default: 1.1, chart: 1.1 } };
 const narrowOf = (k, name) => (NARROW[k] && NARROW[k][name]) || 1;
 // a set's anchor point, in the set's own coordinates
 function anchorOf(k, at) {
@@ -2747,8 +2751,10 @@ function selectBrick(nm, gal, ui = true) {
   X.brick = isBrick(nm) ? nm : null;
   if (gal === 'kinds' || gal === 'largest') X.gal = gal;
   if (ui) {
+    // (picked without its gallery: the network's largest if it is one of them, else the kinds)
+    if (X.brick && !gal) X.gal = largestAt(curAn()).includes(X.brick) ? 'largest' : 'kinds';
     if (X.brick) X.sum = 0;
-    if (X.scene !== 'cube' || viewIs('cube', 'genes') || viewIs('cube', 'cut')) showView('cube', 'bricks');
+    if (!(X.scene === 'cube' && (viewIs('cube', 'bricks') || viewIs('cube', 'toolbox')))) showView('cube', 'bricks');
   }
   renderAll();
 }
@@ -2837,7 +2843,7 @@ function buildExplore() {
     if (!b) return;
     const v = b.dataset.v;
     ({
-      brick: () => selectBrick(v === X.brick && X.gal === b.dataset.gal ? null : v, b.dataset.gal), gal: () => setGal(v),
+      brick: () => selectBrick(v === X.brick ? null : v, b.dataset.gal), gal: () => setGal(v),
       view: () => { const [k, w] = v.split(':'); showView(k, w); }, scene: () => openScene(v),
       ctl: () => sceneCtl(b.dataset.scene || X.scene, b.dataset.ctl, v),
     }[b.dataset.act] || (() => {}))();
@@ -2897,7 +2903,7 @@ function renderBricks() {
   if (!pane) return;
   const L = cubeBits(), A = curAn(), alg = cubeAlg(), k = brickK(X.brick, L);
   const one = (nm, gal, w) => { const kk = Q.parse(nm, L), out = kk > 0 && !inAlg(kk, L, alg);
-    return chip(`data-act="brick" data-gal="${gal}" data-v="${nm}"`, `${sub(nm)}${w !== undefined ? ` <small>${f2(w)}</small>` : ''}`, X.brick === nm && X.gal === gal, kk === 0 ? null : out ? GRAY : PURPLE); };
+    return chip(`data-act="brick" data-gal="${gal}" data-v="${nm}"`, `${sub(nm)}${w !== undefined ? ` <small>${f2(w)}</small>` : ''}`, X.brick === nm, kk === 0 ? null : out ? GRAY : PURPLE); };
   pane.innerHTML = `<p class="sub">Pauli strings, the building blocks of any traffic table between cells. Pick one to see it on the cube, or add the largest up.</p>
     <p class="grp-h">The kinds of brick (the reference figure)</p><div class="chips">${kindsAt(L).map(nm => one(nm, 'kinds')).join('')}</div>
     <p class="grp-h">This network's ${word(NB())} largest, with their weights</p><div class="chips">${largestAt(A).map(nm => one(nm, 'largest', A.c.re[Q.parse(nm, L)])).join('')}</div>
@@ -2912,7 +2918,7 @@ function renderBricks() {
     <p class="note">Purple: inside the toolbox; gray: outside, dropped; I, the trace part, is kept. Solid +, dashed −; corners red for +1, blue for −1. ${algLabel('tfim', L)} is the TFIM chain (X on each qubit, ZZ on neighbors); ${algLabel('odd', L)} adds Z on q${L - 1}.</p>`;
 }
 // the error left after the strings added up so far
-const errText = A => `Error left: ${f2(A.errors[Math.min(X.sum, A.errors.length - 1)])} (1 with none added)`;
+const errText = A => (X.sum ? `Error left: ${f2(A.errors[Math.min(X.sum, A.errors.length - 1)])} (1 with none added)` : 'Error left: 1, with none added yet');
 // the sum's readouts and slider, in place (a drag is not cut short)
 function syncSum() {
   const A = curAn();
@@ -4021,7 +4027,7 @@ function drawBricksPane(ctx, P, x, y, W, bottom) {
   const L = cubeBits(), A = curAn(), alg = cubeAlg(), k = brickK(X.brick, L);
   const one = (nm, gal, w) => { const kk = Q.parse(nm, L), out = kk > 0 && !inAlg(kk, L, alg);
     return { id: `b:${gal}:${nm}`, label: sub(nm) + (w !== undefined ? ' ' + f2(w) : ''), col: kk === 0 ? null : out ? GRAY : PURPLE, ink: out ? VC.muted : VC.ink,
-      on: X.brick === nm && X.gal === gal, fn: () => selectBrick(X.brick === nm && X.gal === gal ? null : nm, gal) }; };
+      on: X.brick === nm, fn: () => selectBrick(X.brick === nm ? null : nm, gal) }; };
   y += textBlock(ctx, 'Pauli strings, the building blocks of any traffic table between cells. Pick one to see it on the cube, or add the largest up.', x, y, W, 23, 32, VC.muted, 400, 2) + 10;
   y += head(ctx, x, y, 'The kinds of brick (the reference figure)');
   y += flow(ctx, P, kindsAt(L).map(nm => one(nm, 'kinds')), x, y, W, bottom, { px: 22, h: 46 }) + 10;
