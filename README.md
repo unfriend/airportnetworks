@@ -1,7 +1,7 @@
 # airportnetworks
 
-**Networks, in eleven stories**: an installable web app that teaches network
-science through eleven short, animated stories. Each story takes a few minutes
+**Networks, in twelve stories**: an installable web app that teaches network
+science through twelve short, animated stories. Each story takes a few minutes
 (the tour about eight) and ends in an explore mode where the network is yours
 to play with.
 It runs in any modern browser, on phones, and in VR and AR headsets (built for
@@ -24,6 +24,7 @@ Meta Quest Browser).
 | **One scan, one system** (whole-body PET) | a PET/CT scanner and how it sees, the tour's glowing PET body, its organs outlined and measured, and the networks of the organs' metabolism from 658 whole-body scans, after the paper by Barbara K Geist and colleagues (Med, 2025) and their poster "Shaping a New Era in Nuclear Medicine" (Medical University of Vienna and LBI Network Medicine) | positrons and coincidences, uptake, partial correlations, network density and disorder, hubs, health eroding into disease, one network per scan, an index that predicts survival |
 | **Tissue and time** (tissue microanatomy) | an H&E-stained section and the working units (microanatomical domains) a method finds in it, a library of 24,945 slides of 40 tissues, an atlas of their domains, the network of how organs are built, after the preprint by Iva Buljan, Zsuzsanna Bago-Horvath and André Rendeiro (bioRxiv, 2025) | tiles, features, message passing and clustering without labels; domains shared and specific; which change with age; pathology; contacts between domains that stay or change |
 | **Three qubits** (quantum network compression) | example gene networks cut into eight cells on three qubits, the coarse operator on a cube, its building blocks (Pauli strings) and the toolbox a quantum computer runs well, after the method and figures of Joel Hancock; the real run's summary numbers on STRING | why pairs of genes, two walkers on a map, bisections and bit codes, the coarse operator A_c, Pauli strings, a Lie algebra and the residual it leaves, the honest result by depth, a Trotter step as a circuit; explore: four example networks, found or random cuts, 1 to 3 bits, every brick, add them up, so(6) or so(7) |
+| **Pass it on** (networks for everyone; in English and German) | a school of fish all around you (in a headset, life size; in passthrough, in your room), the airports story's globe with an outbreak on its routes, and the cell map story's cell, for the Ludwig Boltzmann Institute for Network Medicine's outreach (about 12 and up) | no fish is in charge: each watches a few neighbours, and a warning races through the school faster than the shark; one neighbour each and the school falls apart; an infection travels along the flight routes, slowly, then through the hubs everywhere at once (a simple model, not a forecast); a signal passes hand to hand in a cell, and a protein in the wrong place stops it; explore: be the shark, change who watches whom, start an outbreak in any city and change how it spreads, the cell's proteins and moves |
 | **Flock** (collective motion) | 200 starlings at dusk flying all around you (in a headset, life size), over a field by a lake | no leader: each bird follows its seven nearest neighbours, so the flock is a network that changes from moment to moment; a falcon sets off a wave that runs through the whole flock; explore: as many birds as you like (100 to 400), who follows whom, send a falcon; then it flies on for as long as you stay |
 | **Robot gang** (swarm robotics) | a gang of 6 to 24 robot vacuums in a model living room; in a headset, in your own room (its floor, walls and furniture from the headset's room setup) | bump and turn: no map, yet the floor gets clean; then one rule, follow, on two networks of who follows whom: a star (all follow you) and a chain (a conga line). Click the floor to walk; in a headset the trigger on the floor spills crumbs |
 | **The future** (LBI Network Medicine) | a 3D tour in ten scenes, after the Ludwig Boltzmann Institute for Network Medicine's welcome talk | the whole is more than its parts, networks everywhere, genes and protein shapes, a protein machine (ATP synthase) assembling and running, the interactome as a city map, rare diseases and inborn errors of immunity, network propagation for diagnosis, networks across scales, the institute's research groups, whole-body PET and organ networks, tissue as a network of cells |
@@ -78,7 +79,7 @@ Meta Quest Browser).
   unconfirmed, is in `docs/quest-shared-space-findings.md`.
 - The address shows where you are, so you can share it: `#stories` on the
   Stories screen (on the page or in the headset), `#airports`, `#proteins`,
-  `#spatial`, `#lbi`, `#nmd`, `#endo`, `#pet`, `#micro`, `#qubits`, `#flock` or `#robots`
+  `#spatial`, `#lbi`, `#nmd`, `#endo`, `#pet`, `#micro`, `#qubits`, `#pass`, `#flock` or `#robots`
   in a story. A story link opens that story directly; a link without
   a hash lands on the Stories screen. Old links to `proteins.html` and
   `spatial.html` still work.
@@ -120,7 +121,7 @@ the next time you are on the Stories screen.
 Optional voice-overs go in `audio/`: `narration.mp3` (airports),
 `narration-proteins.mp3`, `narration-spatial.mp3`, `narration-lbi.mp3`, `narration-nmd.mp3`,
 `narration-endo.mp3`, `narration-pet.mp3`, `narration-micro.mp3`,
-`narration-qubits.mp3`, `narration-flock.mp3` and `narration-robots.mp3`. Only the airports story has
+`narration-qubits.mp3`, `narration-pass.mp3`, `narration-flock.mp3` and `narration-robots.mp3`. Only the airports story has
 a recording so far; the others run silently. A narration plays in sync
 with its story, follows pausing, seeking and chapter jumps, and gets a *Sound*
 button in the top bar and the headset panel. Browsers only start sound after a
@@ -238,6 +239,14 @@ writes it from the words (run it again after the text changes).
   network"; the cut stands in for the authors' beam search, and the walkers' valleys are illustrative. This story
   alone uses American spelling, as its author asked.
 
+- **Pass it on** (`stories/pass.js`), an outreach story of the Ludwig Boltzmann Institute for Network Medicine
+  (LBI-NetMed), in English and German. Its globe is the airports story's (OpenFlights.org routes, 2014 snapshot, Open
+  Database License; Natural Earth coastlines) and its cell the cell map story's (Human Protein Atlas and UniProt
+  places; ideas from Thul et al. 2017, Go et al. 2021, Cho et al. 2022, Qin et al. 2021, Lundberg & Borner 2019),
+  taken unchanged from those stories when it is built. The fish are a live simulation after the flock's (schooling:
+  Rosenthal et al. 2015, Handegard et al. 2012), and the outbreak a seeded S/E/I/R model on the real route network,
+  said to be a simple model, not a forecast.
+
 - **Flock** (`stories/flock.js`): a live simulation, not data. Each bird
   matches the heading of its seven nearest neighbours (topological interaction,
   after Ballerini et al., PNAS 2008) and keeps its distance; the flock as a
@@ -265,7 +274,7 @@ The protein data is meant for teaching, not research.
 | Path | What it is |
 | --- | --- |
 | `index.html` | the app: Stories screen, shared page layout, loads and swaps the stories |
-| `stories/airports.js`, `stories/proteins.js`, `stories/spatial.js`, `stories/lbi.js`, `stories/nmd.js`, `stories/endo.js`, `stories/pet.js`, `stories/micro.js`, `stories/qubits.js`, `stories/flock.js`, `stories/robots.js` | the eleven stories, with their data, explore modes and headset panels |
+| `stories/airports.js`, `stories/proteins.js`, `stories/spatial.js`, `stories/lbi.js`, `stories/nmd.js`, `stories/endo.js`, `stories/pet.js`, `stories/micro.js`, `stories/qubits.js`, `stories/pass.js`, `stories/flock.js`, `stories/robots.js` | the twelve stories, with their data, explore modes and headset panels |
 | `proteins.html`, `spatial.html` | forward old links to the app |
 | `sw.js`, `manifest.webmanifest`, `icons/` | offline cache and app install |
 | `audio/` | optional narrations |
@@ -286,6 +295,7 @@ The protein data is meant for teaching, not research.
 | `tools/pet/` | sources of the PET story (`node tools/pet/data/gen_data.mjs`, then `node tools/pet/build.mjs` writes `stories/pet.js`) |
 | `tools/micro/` | sources of the microanatomy story (`node tools/micro/build.mjs` writes `stories/micro.js`; data from `tools/micro/data/gen_data.mjs` and Iva Buljan's network file, which is not in the repository) |
 | `tools/qubits/` | sources of the qubits story (`node tools/qubits/build.mjs` writes `stories/qubits.js`; `node tools/qubits/test-qmath.mjs` checks its maths) |
+| `tools/pass/` | sources of the pass story (`node tools/pass/build.mjs` writes `stories/pass.js`, cutting its globe and cell out of `stories/airports.js` and `stories/spatial.js`; `node tools/pass/test-sets.mjs` checks its sets) |
 | `tools/flock/` | sources of the flock (`node tools/flock/build.mjs` writes `stories/flock.js`) |
 | `tools/robots/` | sources of the robot gang (`node tools/robots/build.mjs` writes `stories/robots.js`) |
 | `AGENTS.md`, `CLAUDE.md` | notes on the architecture and conventions for AI coding agents (and people) |
@@ -310,7 +320,8 @@ The muscle story (`stories/nmd.js`) is generated the same way from `tools/nmd/`
 (see `tools/nmd/README.md`), the endotype story (`stories/endo.js`) from
 `tools/endo/`, the PET story (`stories/pet.js`) from `tools/pet/`, the
 microanatomy story (`stories/micro.js`) from `tools/micro/`, the qubits story (`stories/qubits.js`) from
-`tools/qubits/`, the flock
+`tools/qubits/`, the pass story (`stories/pass.js`) from `tools/pass/` (with the airports' globe and the cell map's
+cell taken from their stories at build time), the flock
 (`stories/flock.js`) from `tools/flock/` and the robot gang
 (`stories/robots.js`) from `tools/robots/`, each with `node tools/<key>/build.mjs`
 (`--check` says whether the built file is out of step).

@@ -22,6 +22,7 @@ MP3 at the file named under each story; if your chapters start at other times, c
 | Whole-body PET: One scan, one system | `audio/narration-pet.mp3` | not yet | 10:24 |
 | Tissue microanatomy: Tissue and time | `audio/narration-micro.mp3` | not yet | 7:36 |
 | Quantum network compression: Three qubits | `audio/narration-qubits.mp3` | not yet | 9:04 |
+| Networks for everyone: Pass it on | `audio/narration-pass.mp3` | not yet | 6:53 |
 | Collective motion: Flock | `audio/narration-flock.mp3` | not yet | 1:57 |
 | Swarm robotics: Robot gang | `audio/narration-robots.mp3` | not yet | 2:01 |
 
@@ -904,6 +905,162 @@ File: `audio/narration-qubits.mp3` (not recorded yet). Chapters: 0:00 Pairs, 0:5
 - **8:39** Next: more qubits need larger toolboxes or better cuts, and then the patients' data, V, go in.
 - **8:46** Method and figures: Joel Hancock.
 - **8:49** The networks shown are examples, computed here; numbers marked "real network" are from the authors' run on STRING v12.5. The cuts here stand in for their beam search, and the valleys are illustrative.
+
+## Networks for everyone: Pass it on (`#pass`)
+
+File: `audio/narration-pass.mp3` (not recorded yet). Chapters: 0:00 The school, 0:44 Who watches whom, 1:53 Other links, 2:43 The sky, 4:18 The cell, 5:46 Medicine; it ends at 6:53.
+
+In 2 languages (en, de): the recording follows the first; the others are what readers see in theirs (the pace gives each line the time of its longer text).
+
+### 0:00 The school
+
+- **0:01** Pass it on
+- **0:02** how warnings, viruses and signals spread
+- **0:05** Hundreds of fish swim all around you. They turn together, as if they were one big animal.
+- **0:14** No fish is in charge, and none of them can see the whole school.
+- **0:22** So how do they stay together?
+- **0:29** In a headset the school swims all around you, and in passthrough right through your room.
+- **0:36** A story for everyone from the Ludwig Boltzmann Institute for Network Medicine (LBI-NetMed) in Vienna.
+
+DE: Der Schwarm
+
+- **0:01** Weitersagen!
+- **0:02** wie sich Warnungen, Viren und Signale ausbreiten
+- **0:05** Hunderte Fische schwimmen um dich herum. Sie drehen alle zugleich ab, als wären sie ein einziges großes Tier.
+- **0:14** Kein Fisch hat das Sagen, und keiner von ihnen sieht den ganzen Schwarm.
+- **0:22** Wie bleiben sie dann zusammen?
+- **0:29** Mit einer VR-Brille schwimmt der Schwarm rund um dich herum, im Durchsicht-Modus sogar mitten durch dein Zimmer.
+- **0:36** Eine Geschichte für alle vom Ludwig Boltzmann Institut für Netzwerkmedizin (LBI-NetMed) in Wien.
+
+### 0:44 Who watches whom
+
+- **0:45** Who watches whom
+- **0:46** Each fish watches just a few of its nearest neighbours and does what they do: it turns when they turn and stays close, but not too close.
+- **0:58** Draw a line from each fish to the neighbours it watches, and the school becomes a network.
+- **1:05** A network is just dots and the links between them. Here the dots are fish, and a link means “I am watching you”.
+- **1:14** Now a shark comes.
+- **1:19** The fish nearest to it turn away first. Their neighbours see them turn and turn too, and so on, from fish to fish.
+- **1:28** The warning races through the school faster than the shark can swim.
+- **1:36** A school is a network that passes on a warning.
+- **1:42** Real schools of fish pass on an attack like this (Rosenthal et al. 2015, Handegard et al. 2012). Ours is a simulation: in our school each fish watches seven neighbours.
+
+DE: Wer wen beobachtet
+
+- **0:45** Wer wen beobachtet
+- **0:46** Jeder Fisch beobachtet nur ein paar Nachbarn ganz in seiner Nähe und macht, was sie machen: Er dreht, wenn sie drehen, und bleibt nah bei ihnen, aber nicht zu nah.
+- **0:58** Zieh eine Linie von jedem Fisch zu den Nachbarn, die er beobachtet, und der Schwarm wird zu einem Netzwerk.
+- **1:05** Ein Netzwerk besteht nur aus Punkten und Verbindungen dazwischen. Hier sind die Punkte Fische, und eine Verbindung heißt: „Ich beobachte dich.“
+- **1:14** Jetzt kommt ein Hai.
+- **1:19** Die Fische, die ihm am nächsten sind, drehen zuerst ab. Ihre Nachbarn sehen das und drehen auch ab, und so weiter, von Fisch zu Fisch.
+- **1:28** Die Warnung rast schneller durch den Schwarm, als der Hai schwimmen kann.
+- **1:36** Ein Schwarm ist ein Netzwerk, das eine Warnung weitergibt.
+- **1:42** Echte Fischschwärme geben einen Angriff genau so weiter (Rosenthal und andere 2015, Handegard und andere 2012). Unserer ist eine Simulation: Hier beobachtet jeder Fisch sieben Nachbarn.
+
+### 1:53 Other links
+
+- **1:53** Change the links
+- **1:54** What if each fish watched only one neighbour?
+- **2:00** Now the lines join only pairs. Pairs follow pairs, and nothing holds the group together.
+- **2:07** The school falls apart.
+- **2:19** Back to seven neighbours each: the links knit the fish together, and the school forms again.
+- **2:29** The same fish, other links. The shape of the network decides what the group can do.
+
+DE: Andere Verbindungen
+
+- **1:53** Andere Verbindungen
+- **1:54** Was wäre, wenn jeder Fisch nur einen einzigen Nachbarn beobachten würde?
+- **2:00** Jetzt verbinden die Linien nur noch Paare. Paare folgen Paaren, und nichts hält die Gruppe mehr zusammen.
+- **2:07** Der Schwarm fällt auseinander.
+- **2:19** Wieder sieben Nachbarn für jeden: Die Verbindungen knüpfen die Fische zusammen, und der Schwarm bildet sich neu.
+- **2:29** Dieselben Fische, andere Verbindungen. Die Form des Netzwerks bestimmt, was die Gruppe kann.
+
+### 2:43 The sky
+
+- **2:43** From the sea to the sky
+- **2:46** Rise out of the water, higher and higher, until you see the whole Earth.
+- **2:53** Here is another network: airports, joined by the routes that planes fly.
+- **2:58** 3,214: airports
+- **2:59** 18,858: routes
+- **3:06** An infection starts in Vienna. Each day it can travel along a route, from a city where people are ill to a city they fly to.
+- **3:16** At first it spreads slowly: 20 cities in the first week.
+- **3:21** 47: cities reached, day 10
+- **3:29** 676: cities reached, day 20
+- **3:38** 1,673: cities reached, day 30
+- **3:40** Then it reaches the hubs, the airports with the most routes, and from there everywhere at once.
+- **3:49** Like the warning in the school, it passes from neighbour to neighbour, only now across the whole planet.
+- **3:56** A simple model on the real route network, not a forecast: every route counts the same, an airport stands for its city, and no real disease is copied. A city reached is exposed for 5 days (amber), infectious for 7 (red), then recovered (grey).
+- **4:12** Routes: OpenFlights.org (Open Database License), 2014 snapshot, as in the airports story. Coastlines: Natural Earth.
+
+DE: Der Himmel
+
+- **2:43** Vom Meer in den Himmel
+- **2:46** Steig aus dem Wasser auf, immer höher, bis du die ganze Erde siehst.
+- **2:53** Hier ist ein anderes Netzwerk: Flughäfen, verbunden durch die Strecken, die Flugzeuge fliegen.
+- **2:58** 3.214: Flughäfen
+- **2:59** 18.858: Flugrouten
+- **3:06** In Wien beginnt eine Ansteckung. Jeden Tag kann sie über eine Flugroute reisen, von einer Stadt, in der Menschen krank sind, in eine Stadt, in die sie fliegen.
+- **3:16** Zuerst breitet sie sich langsam aus: 20 Städte in der ersten Woche.
+- **3:21** 47: Städte erreicht, Tag 10
+- **3:29** 676: Städte erreicht, Tag 20
+- **3:38** 1.673: Städte erreicht, Tag 30
+- **3:40** Dann erreicht sie die Drehkreuze, die Flughäfen mit den meisten Flugrouten, und von dort aus alle anderen auf einmal.
+- **3:49** Wie die Warnung im Schwarm geht sie von Nachbar zu Nachbar, nur jetzt über den ganzen Planeten.
+- **3:56** Ein einfaches Modell auf dem echten Flugnetz, keine Vorhersage: Jede Route zählt gleich viel, ein Flughafen steht für seine Stadt, und keine echte Krankheit wird nachgemacht. Eine erreichte Stadt ist 5 Tage angesteckt (orange), dann 7 Tage ansteckend (rot), dann wieder gesund (grau).
+- **4:12** Flugrouten: OpenFlights.org (Open Database License), Stand 2014, wie in der Geschichte über Flughäfen. Küsten: Natural Earth.
+
+### 4:18 The cell
+
+- **4:19** Into the cell
+- **4:21** Now zoom from the planet into one single cell of your body. It is a network too.
+- **4:27** Inside it are rooms with walls of their own: the nucleus, which keeps the genes, and its factories and power stations.
+- **4:35** The dots are proteins, the cell’s tiny machines: 249 of them in this map, each in the places where it works.
+- **4:43** A protein can only meet a partner in the same place. Here a growth signal from outside meets its receptor on the cell’s surface.
+- **4:52** Signals cross the cell hand to hand, from protein to protein, like the warning in the school.
+- **4:59** An inflammation signal arrives at the surface. Inside, the protein NF-κB waits, held by its brake.
+- **5:06** The message is passed on until the brake lets go. Then NF-κB moves into the nucleus and switches genes on.
+- **5:14** But what if a protein ends up in the wrong place?
+- **5:20** In cystic fibrosis the protein CFTR gets stuck on its way to the surface. It never arrives where it should work.
+- **5:28** Its links are lost, and the message stops: a disease.
+- **5:33** The cell map story’s own cell: 249 well-studied human proteins in 13 places, a small illustrative selection (a real cell makes about 20,000 kinds). Places follow the Human Protein Atlas and UniProt.
+
+DE: Die Zelle
+
+- **4:19** In die Zelle hinein
+- **4:21** Jetzt geht es vom Planeten in eine einzige Zelle deines Körpers. Auch sie ist ein Netzwerk.
+- **4:27** In ihr gibt es Räume mit eigenen Wänden: den Zellkern, in dem die Gene liegen, dazu Fabriken und Kraftwerke.
+- **4:35** Die Punkte sind Proteine, die winzigen Maschinen der Zelle: 249 sind es in dieser Karte, jedes an den Orten, an denen es arbeitet.
+- **4:43** Ein Protein kann einen Partner nur am selben Ort treffen. Hier trifft ein Wachstumssignal von draußen seinen Empfänger an der Oberfläche der Zelle.
+- **4:52** Signale wandern von Hand zu Hand durch die Zelle, von Protein zu Protein, wie die Warnung im Schwarm.
+- **4:59** Ein Entzündungssignal kommt an der Oberfläche an. Drinnen wartet das Protein NF-κB, festgehalten von seiner Bremse.
+- **5:06** Die Nachricht wird weitergegeben, bis die Bremse loslässt. Dann wandert NF-κB in den Zellkern und schaltet dort Gene an.
+- **5:14** Aber was ist, wenn ein Protein am falschen Ort landet?
+- **5:20** Bei Mukoviszidose bleibt das Protein CFTR auf dem Weg zur Oberfläche stecken. Es kommt nie dort an, wo es arbeiten soll.
+- **5:28** Seine Verbindungen gehen verloren, und die Nachricht kommt nicht mehr an: eine Krankheit.
+- **5:33** Die Zelle aus der Geschichte „Cell map“: 249 gut erforschte menschliche Proteine an 13 Orten, eine kleine Auswahl zum Zeigen (eine echte Zelle macht etwa 20.000 Sorten). Die Orte stammen aus dem Human Protein Atlas und aus UniProt.
+
+### 5:46 Medicine
+
+- **5:47** Network medicine
+- **5:47** Fish, flights and proteins: three very different networks, and the same maths for all of them.
+- **5:53** The school: who watches whom: a warning
+- **5:56** The planet: which city flies to which: an infection
+- **5:59** The cell: which protein works with which: a signal
+- **6:03** Network medicine looks for the links that break in a disease, and for the places where a medicine could help.
+- **6:11** That is what we work on at the Ludwig Boltzmann Institute for Network Medicine in Vienna.
+- **6:17** Now it is your turn: be the shark, start an outbreak anywhere on Earth, or send a protein to the wrong place.
+- **6:27** An outreach story of the Ludwig Boltzmann Institute for Network Medicine (LBI-NetMed). Flight routes: OpenFlights.org (2014, Open Database License); coastlines: Natural Earth. The cell: the cell map story’s proteins and places (Human Protein Atlas, UniProt; ideas from Thul et al. 2017, Go et al. 2021, Cho et al. 2022, Qin et al. 2021, Lundberg & Borner 2019). Fish schools: Rosenthal et al. 2015, Handegard et al. 2012. The fish and the outbreak are simulations, not measurements or forecasts.
+
+DE: Medizin
+
+- **5:47** Netzwerkmedizin
+- **5:47** Fische, Flüge und Proteine: drei ganz verschiedene Netzwerke, und für alle dieselbe Mathematik.
+- **5:53** Der Schwarm: wer wen beobachtet: eine Warnung
+- **5:56** Der Planet: welche Stadt wohin fliegt: eine Ansteckung
+- **5:59** Die Zelle: welches Protein mit welchem arbeitet: ein Signal
+- **6:03** Die Netzwerkmedizin sucht nach den Verbindungen, die bei einer Krankheit kaputtgehen, und nach den Stellen, an denen ein Medikament helfen könnte.
+- **6:11** Genau daran arbeiten wir am Ludwig Boltzmann Institut für Netzwerkmedizin in Wien.
+- **6:17** Jetzt bist du dran: Sei der Hai, starte einen Ausbruch irgendwo auf der Erde oder schick ein Protein an den falschen Ort.
+- **6:27** Eine Geschichte für alle vom Ludwig Boltzmann Institut für Netzwerkmedizin (LBI-NetMed). Flugrouten: OpenFlights.org (2014, Open Database License); Küsten: Natural Earth. Die Zelle: Proteine und Orte aus der Geschichte „Cell map“ (Human Protein Atlas, UniProt; Ideen aus Thul und andere 2017, Go und andere 2021, Cho und andere 2022, Qin und andere 2021, Lundberg & Borner 2019). Fischschwärme: Rosenthal und andere 2015, Handegard und andere 2012. Die Fische und der Ausbruch sind Simulationen, keine Messungen und keine Vorhersagen.
 
 ## Collective motion: Flock (`#flock`)
 

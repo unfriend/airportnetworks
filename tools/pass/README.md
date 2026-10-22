@@ -20,7 +20,7 @@ node tools/pass/test-sets.mjs      # the sets without a browser: the outbreak, t
 | `sets/globe.js` | the airports' globe behind the set contract, and a seeded S/E/I/R outbreak on its route network |
 | `sets/cell.js` | the cell map's cell behind the set contract: its organelles, proteins, links, moves, signals and wrong places as params, its explore tools as an API |
 | `sets/<name>.md` | each set's manifest: params, suggested keys, API, anchors, labels, views, controls, what may be said |
-| `engine/e1_head.js` ... `e7_app.js` | the story engine: copied from the qubits story's as a start (the pass story's own engine is part 2 of the build) |
+| `engine/e1_head.js` ... `e7_app.js` | the story engine, adapted from the qubits story's (the life-size fish from the flock's): `e2_text.js` holds every word of the story in English and German (`STR`, `T()`); `e3_story.js` the six chapters, their keys, camera and labels; `e4_explore.js` the Fish, Outbreak, Cell and Scenes tabs and the shared-room hooks; `e6_panels.js` their headset twins |
 | `SPEC.md` | the contract between the sets and the engine: how the originals are taken, the language, placement, the chapter plan, explore mode, shared rooms |
 | `harness.html`, `shot.mjs`, `sweep.mjs` | one set alone (`harness.html?set=globe&p=globe_out:1,globe_day:20&cam=start&lang=de&call=set.api.start('LHR')`; `fov`, `follow`, `warm`, `steer` for the fish), its screenshots, and screenshots of the whole story (`SHOTS=<dir>`, `PORT=<port>`) |
 | `test-sets.mjs` | the sets' checks in Node (three.js builds without a page; nothing is drawn) |

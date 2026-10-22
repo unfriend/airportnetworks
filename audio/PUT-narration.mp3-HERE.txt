@@ -52,6 +52,12 @@ at 0:00, 0:51, 1:50, 2:32, 4:02, 5:02, 6:32 and 7:53, ending at 9:04; change
 NARRATION_SYNC in tools/qubits/engine/e3_story.js (then rebuild) if your
 recording differs.
 
+The pass story (#pass) looks for narration-pass.mp3 (one recording, in English:
+the German reads its own words, docs/narration.md lists both). Its chapters
+start at 0:00, 0:44, 1:53, 2:43, 4:18 and 5:46, ending at 6:53 (paced from the
+longer of its two languages); change NARRATION_SYNC in
+tools/pass/engine/e3_story.js (then rebuild) if your recording differs.
+
 The flock (#flock) looks for narration-flock.mp3. Its chapters start at 0:00,
 0:24, 1:02 and 1:39, ending at 1:57 (after that the flock flies on in explore
 mode); change NARRATION_SYNC in tools/flock/engine/e3_story.js (then rebuild)
@@ -75,7 +81,7 @@ So far only the airports story has one (narration.mp3).
    stories, rebuild with node tools/<story>/build.mjs. A recorded story's
    table follows the recording: tools/pace.mjs leaves it alone from then on.
 4. Bump VERSION in sw.js. sw.js lists the narration files it caches in AUDIO
-   (all eleven names are there already).
+   (all twelve names are there already).
 5. Serve the folder and run node tools/smoke.mjs and node tools/audio.mjs
    (both take the address, e.g. http://127.0.0.1:8123/). Whether it is heard
    in a headset can only be checked there (Sound check on the Stories screen).

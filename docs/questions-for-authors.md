@@ -96,3 +96,16 @@ authors (first author Chloé Bûcheron). Contact person: **TO FILL (owner)**.
 | E2 | The endotypes' names and places: are the story's acceptable, or do the authors have their own? | the poster's figure (the colours follow it) | The story's own short names after each endotype's strongest Jensen COMPARTMENTS term (for example "Mitochondria", "Basement membrane", "Golgi"); three endotypes with no significant term are called "No shared place"; each is placed where it acts in the drawn synapse. `LOOK` in `tools/endo/data/gen_data.py`. | open |
 
 E2 follows from the story's own choices in the generator rather than from a reading of the poster.
+
+## Pass it on (`pass`)
+
+The lab's own outreach story, so the questions are for the owner and whoever checks it for the institute, not for
+outside authors. Its globe and cell are the airports and cell map stories' own (their sources are theirs); the fish and
+the outbreak are simulations. Contact person: **TO FILL (owner)**.
+
+| # | Item | Where | What the story shows now | Status |
+| --- | --- | --- | --- | --- |
+| P1 | The German text: written for a 12-year-old ("du"), not a word-for-word translation. Should a German speaker at the institute read it through? | `STR` in `tools/pass/engine/e2_text.js`; the sets' own words (`tools/pass/sets/*.js`) | every word in both languages | open |
+| P2 | In German, the cell's 249 protein names and roles and the airports' city and country names stay as in their stories (English; scientific and OpenFlights names); about 35 well-known cities are given in German (Wien, München, Peking ...). Translate the rest, or keep them? | `CITY_DE` in `tools/pass/sets/globe.js`; the cell map's `PROTEINS` | English names, said so in the Cell tab's note | open |
+| P3 | The credit line: "An outreach story of the Ludwig Boltzmann Institute for Network Medicine (LBI-NetMed)". Is that how the institute wants to be named, and should a person be named? | the first and last chapters' small print | as written | open |
+| P4 | The outbreak's numbers (spread chances 0.025 / 0.06 / 0.14 a day, incubation 5 and infectious 7 days in the story) are chosen to look right, not taken from any disease; the story says "a simple model, not a forecast". Enough? | `tools/pass/sets/globe.js` | from Vienna: 47 cities by day 10, 676 by day 20, 1,673 by day 30 | open |

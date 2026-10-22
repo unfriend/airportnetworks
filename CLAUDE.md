@@ -10,7 +10,7 @@
 - The story files are large (`stories/airports.js` is ~640 KB because of its
   embedded data). Search with Grep and read line ranges; never read them whole.
 - Prefer small, exact edits. When a change touches the headset code, apply it
-  to all eleven stories: their XR, panel and landing-screen code is meant to
+  to all twelve stories: their XR, panel and landing-screen code is meant to
   stay identical apart from story-specific panes.
 - Verify visual changes by serving the folder and taking headless Chromium
   screenshots (hashes such as `#spatial&t=60` jump straight to a moment), and
@@ -30,7 +30,7 @@
   `HOST.anchor.locked(kind)` before letting the grip move anything. Real anchors
   only exist on a headset: report their behaviour as untested.
 - Shared rooms (`shared.js`, `relay/`, see "Shared rooms" in `AGENTS.md`): keep
-  the shared hooks in all eleven stories, the same lines in each (the `collab`
+  the shared hooks in all twelve stories, the same lines in each (the `collab`
   object, the ray and press lines, the grip line, `'shared'` in the optional
   features, the `HOST.collab.mine()` lines in `xrFreshStart` and
   `xrLandingClose`). `state()` never holds the camera, hover or anything per
@@ -61,6 +61,11 @@
   `node tools/qubits/test-qmath.mjs`; example networks only, computed live, and the real run's numbers typed in from
   Joel Hancock's brief in `tools/qubits/sets/data.js`, shown only as "in the real network"). It alone uses American
   spelling (color, gray, neighborhood), as its author asked; keep it so there and British everywhere else.
+  `stories/pass.js` likewise from `tools/pass/` (`node tools/pass/build.mjs`; its sets checked by
+  `node tools/pass/test-sets.mjs`). Its globe and cell are cut, unchanged, out of `stories/airports.js` and
+  `stories/spatial.js` at build time, so rebuild it after changing either. It is in English and German: every word in
+  both (`STR` in `tools/pass/engine/e2_text.js`, the sets' own `setLang`), German plain and natural for a 12-year-old;
+  the language is per device and never in `collab.state()`.
 
 ## Keeping token use down
 

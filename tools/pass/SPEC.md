@@ -136,13 +136,24 @@ cities by day 5, 47 by day 10, 676 by day 20, 1,673 by day 30), `cell.api.counts
 - Cell: the selected protein (symbol), the moves on (keys), the colour and organelles.
 - Never the language, the camera or the steered shark's point.
 
-## The engine (part 2)
+## The engine
 
-`engine/` is the qubits story's engine copied as a start (the build works and the file parses; it still refers to
-`QMATH`, `QUBITS_DATA` and the qubits sets and does not run as it is). To adapt: the chapters and their text in both
-languages, the language switch, the Fish, Outbreak, Cell and Scenes tabs; from the flock's engine `see`, `followView`,
-life-size `xrPlace` for the fish, passthrough `fish_water` 0, `flockSync` for the fish; tabletop placement for the
-globe and the cell.
+Adapted from the qubits story's engine, with the flock's life-size parts. As built:
+
+- `e2_text.js`: the language (`LANG`, `LANGS`, `setLang` in `e7_app.js`) and every word of the story, `STR`:
+  `[English, German]` by key, read through `T(key, ...values)` (`{0}` ... filled in), `num()` for numbers as each
+  language writes them. The panel (`storyHTML`, made again on a switch), the timeline's chapter names (`CH[i].name` is
+  a getter), the story's labels (`relabel`), the explore panes and the headset's panels all read it.
+- `e2_scene.js`: the lens (`setLens`, from the `lens` track: 58 degrees among the fish, 32 for the globe and the cell),
+  the fish's holder (`GL.life`, `placeLife`: in a headset it undoes `GL.world`'s pose, so the school is life size round
+  you), the flock's `followView` aimed at the school (`schoolAt`), `tellFish` (`see(head, hands, spot)` every frame).
+- `e3_story.js`: the six chapters (keys as above; story time 305 s, paced to 6:53 from the longer language), `LIN`
+  tracks (the outbreak's days and the cell's travelling proteins run evenly), `STORY_OUT` (the story's outbreak, from
+  Vienna; explore's comes back with explore).
+- `e4_explore.js`: the tabs (Fish, Outbreak, Cell, Scenes), `collabState`/`collabApply`, `fishSync`/`fishEffect`.
+- `e5_xr.js`: the sea as the ray's target among the fish (`kind: 'sea'`; the trigger is the shark in explore mode,
+  `steerRay`; a tracked hand's index fingertip leads it, `xrFingertip`), label sprites sized by distance.
+- `e6_panels.js`: the headset's twins of the panes, and the language switch at the foot of the main panel (`drawLang`).
 
 ## Tested, untested, open
 
@@ -155,6 +166,8 @@ globe and the cell.
   fish).
 - Untested (headset): life size and comfort of the school round you, the passthrough school, the globe's and cell's
   light and dot sizes in a headset (the probe's XR branch), the rise in a headset, frame rate with 600 fish and links.
+- Part 2 tested: the smoke test's pass step (both languages and the switch, every explore tool, picks with a ray,
+  `apply(state())` giving the same state, the headset panels in every tab), `build.mjs --check`.
 - Open: the protein names and roles (249) and airport city and country names stay as in the originals (English;
   scientific names and OpenFlights names; the globe says about 35 well-known cities in German, `CITY_DE`) in the German story: translate them or keep them; the explore panes' text,
   chart and credits are part 2's.
