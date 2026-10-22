@@ -30,7 +30,8 @@ Nothing is random between loads.
     (within one in its colour, between two in amber), the ringed gene's links, the walk's hottest links and, in the
     pair view, both groups (with seeds alone, the seeds' links, each brighter as they are fewer). The walk's hottest
     links are those between genes it visits most (at most 1,500 that reach beyond the start genes, plus the links
-    between start genes), in the heat's colours: during the story's walk and in the Walk tab they show where the
+    between start genes), in the heat's colours (with the heat on, every link takes them from a third of the way up:
+    the darkest blue would be darker than the context): during the story's walk and in the Walk tab they show where the
     walkers go, above the context. A highlighted link that is also a context link is drawn once, by its highlighted
     entry: in its own colours and at least as bright as the context (so a big module's links, each faint, never turn
     blue-grey).
