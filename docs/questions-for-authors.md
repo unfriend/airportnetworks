@@ -1,6 +1,6 @@
 # Questions for the authors
 
-Open items found while building the five stories that rest on colleagues' work: places where the sources disagree,
+Open items found while building the six stories that rest on colleagues' work: places where the sources disagree,
 and stand-ins waiting for the authors' own values. Each item says where it is in the source, what the story shows now
 and where that is in the code or data. Whether the authors agreed to their material being shown at all is a separate
 matter: see [data-and-permissions.md](data-and-permissions.md).
@@ -51,6 +51,25 @@ network) and the Rendeiro group. Contact person: **TO FILL (owner)**.
 | M7 | No stomach-versus-uterus network in the talk: its contact-network figure shows the stomach, small intestine, breast and minor salivary gland; the uterus appears only among the domain pairs. Is there one, and where? | the talk (`figures.json`, its `notes`); `tools/micro/SPEC.md` | No such comparison. Contact networks of the colon, skin, ovary, fallopian tube, uterus and coronary artery (`tools/micro/sets/hier.js`). | open |
 | M8 | The co-authors' first names are unconfirmed, and so is the spelling with or without accents. | the bylines of the preprint and the poster | Story credits: "Iva Buljan, Z. Bagó-Horváth and A. F. Rendeiro" (`tools/micro/engine/e3_story.js`). Citations in the data: "Bago-Horvath Z" (preprint) and "Bagó-Horváth Z" (poster) (`tools/micro/data/gen_data.mjs`). `README.md` and `tools/micro/README.md` write the first names out ("Zsuzsanna", "André F."): unconfirmed too. | open |
 | M9 | "10 classes": are the preprint's 10 classes of domain types the 10 tissue types of Iva Buljan's network? | preprint; the network (GraphML) | "218 domains of 74 types, in 10 classes" (`FACTS.superclasses`); the network shows 10 tissue types (adipose tissue, cardiac muscle, connective tissue, glandular tissue, lining epithelium, lymphoid structure, neuronal tissue, skeletal muscle, smooth muscle, vascular tissue). | open |
+
+## Ovarian aging: The aging ovary (`ovary`)
+
+Source: the poster "Mapping the histological landscape of human ovarian aging" by Parijat Chakraborty (1), Samir Moustafa
+(2, 3) and André Rendeiro (1, 3): (1) Ludwig Boltzmann Institute for Network Medicine at the University of Vienna, (2)
+CeMM Research Center for Molecular Medicine of the Austrian Academy of Sciences, (3) Faculty of Computer Science,
+University of Vienna; data GTEx. The story types in the poster's numbers (`tools/ovary/data/gen_data.mjs`) and reads its
+charts' lines off the figures (`tools/ovary/data/figures.json`); the charts' dots are illustrative. Who to ask: Parijat
+Chakraborty (first author) and the Rendeiro group. Contact person: **TO FILL (owner)**.
+
+| # | Item | Where in the source | What the story shows now | Status |
+| --- | --- | --- | --- | --- |
+| O1 | Is r Pearson's or Spearman's? | the trend and comparison charts | The printed r and p, and no word on which (`OVARY_DATA.kinds[].trend`, `.compare`). The illustrative dots are tuned to give the printed r as Pearson's r on counts, which comes closest with the bands as read (ranks give follicle r near −0.7; `OVARY_DATA.cohort.r`). | open |
+| O2 | The trend charts' y axis: it reads as log10 of the count, with 0 drawn as a row at the place of 0.5 (ticks 0, 2, 10, 50, 200, 1000). Is that the scale? | the trend charts | That scale (`OVARY_TREND.Y` in `tools/ovary/sets/look.js`; `axes` in `figures.json`). | open |
+| O3 | The fitted lines read as straight lines in counts (curving on the log axis; the follicle lines reach 0 at about 58.5 and 59). Are they linear fits of count on age? | the trend charts | Straight lines in counts, as read (`trends` in `figures.json`); "toward none by about 60" in the story. | open |
+| O4 | Blood vessel F1: 0.86 is printed, but its precision (0.81) and recall (0.88) give 0.84. | the random forest performance table | The printed 0.86; the Objects pane notes the 0.84 (`OVARY_DATA.checks.f1`). | open |
+| O5 | How many donors does the follicle comparison have? r = 0.94 with p = 1.4×10⁻¹³ suggests about 30, not 255. | the method comparison, follicle panel | The printed r and p; the illustrative dots use all 255 donors. | open |
+| O6 | What counts as a cyst (only the segmentation has it, IoU 0.15)? | the SegFormer scores | "Fluid-filled sacs. Only the segmentation looks for them"; two drawn cysts on the section that stay with age (`tools/ovary/sets/section.js`). | open |
+| O7 | Could per-decade counts (or the donors' counts without identifiers) be shared, to replace the illustrative dots? | the trend and comparison charts | Dots drawn to follow the read lines, bands and shares at zero, said to be illustrative (`OVARY_DATA.cohort`). | open |
 
 ## Qubits: Three qubits (`qubits`)
 

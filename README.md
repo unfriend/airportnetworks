@@ -1,7 +1,7 @@
 # airportnetworks
 
-**Networks, in twelve stories**: an installable web app that teaches network
-science through twelve short, animated stories. Each story takes a few minutes
+**Networks, in thirteen stories**: an installable web app that teaches network
+science through thirteen short, animated stories. Each story takes a few minutes
 (the tour about eight) and ends in an explore mode where the network is yours
 to play with.
 It runs in any modern browser, on phones, and in VR and AR headsets (built for
@@ -23,6 +23,7 @@ Meta Quest Browser).
 | **Endotypes** (disease endotypes) | one junction between nerve and muscle close up, the 35 genes of congenital myasthenic syndromes, their protein network of 18,306 proteins and 12 endotypes, after the ISMB 2026 EndotypY poster by Chloé Bûcheron, Iker Núñez-Carpintero, Enes Sakalli, Mathilde Meyenberg, Julia Guthrie and Jörg Menche (LBI Network Medicine), on their run | fatigable weakness, seed genes, a random walk with restart, a disease module, functional neighbourhoods, a tree whose splits are tested, endotypes and where they act in the synapse; explore: every endotype and gene, the method step by step, stand in the gap |
 | **One scan, one system** (whole-body PET) | a PET/CT scanner and how it sees, the tour's glowing PET body, its organs outlined and measured, and the networks of the organs' metabolism from 658 whole-body scans, after the paper by Barbara K Geist and colleagues (Med, 2025) and their poster "Shaping a New Era in Nuclear Medicine" (Medical University of Vienna and LBI Network Medicine) | positrons and coincidences, uptake, partial correlations, network density and disorder, hubs, health eroding into disease, one network per scan, an index that predicts survival |
 | **Tissue and time** (tissue microanatomy) | an H&E-stained section and the working units (microanatomical domains) a method finds in it, a library of 24,945 slides of 40 tissues, an atlas of their domains, the network of how organs are built, after the preprint by Iva Buljan, Zsuzsanna Bago-Horvath and André Rendeiro (bioRxiv, 2025) | tiles, features, message passing and clustering without labels; domains shared and specific; which change with age; pathology; contacts between domains that stay or change |
+| **The aging ovary** (ovarian aging) | the tour's body and a drawn cut-away ovary that ages, 255 donors aged 20 to 70 (GTEx), a drawn H&E section with blood vessels, macrophages, corpora albicantia and follicles, after the poster by Parijat Chakraborty, Samir Moustafa and André Rendeiro (LBI Network Medicine, CeMM, University of Vienna) | the reserve of follicles that is never refilled, what a section shows, two methods (tiles with UNI2 features and a random forest; SegFormer's masks) and their scores, the trends with age (follicles toward none by about 60, fewer vessels, more scars), whether the methods agree, and a spatial neighbor network as the next step; explore: pick a kind of object, move the age, compare the methods. American spelling |
 | **Three qubits** (quantum network compression) | example gene networks cut into eight cells on three qubits, the coarse operator on a cube, its building blocks (Pauli strings) and the toolbox a quantum computer runs well, after the method and figures of Joel Hancock; the real run's summary numbers on STRING | why pairs of genes, two walkers on a map, bisections and bit codes, the coarse operator A_c, Pauli strings, a Lie algebra and the residual it leaves, the honest result by depth, a Trotter step as a circuit; explore: four example networks, found or random cuts, 1 to 3 bits, every brick, add them up, so(6) or so(7) |
 | **Pass it on** (networks for everyone; in English and German) | a school of fish all around you (in a headset, life size; in passthrough, in your room), the airports story's globe with an outbreak on its routes, and the cell map story's cell, for the Ludwig Boltzmann Institute for Network Medicine's outreach (about 12 and up) | no fish is in charge: each watches a few neighbours, and a warning races through the school faster than the shark; one neighbour each and the school falls apart; an infection travels along the flight routes, slowly, then through the hubs everywhere at once (a simple model, not a forecast); a signal passes hand to hand in a cell, and a protein in the wrong place stops it; explore: be the shark, change who watches whom, start an outbreak in any city and change how it spreads, the cell's proteins and moves |
 | **Flock** (collective motion) | 200 starlings at dusk flying all around you (in a headset, life size), over a field by a lake | no leader: each bird follows its seven nearest neighbours, so the flock is a network that changes from moment to moment; a falcon sets off a wave that runs through the whole flock; explore: as many birds as you like (100 to 400), who follows whom, send a falcon; then it flies on for as long as you stay |
@@ -79,7 +80,7 @@ Meta Quest Browser).
   unconfirmed, is in `docs/quest-shared-space-findings.md`.
 - The address shows where you are, so you can share it: `#stories` on the
   Stories screen (on the page or in the headset), `#airports`, `#proteins`,
-  `#spatial`, `#lbi`, `#nmd`, `#endo`, `#pet`, `#micro`, `#qubits`, `#pass`, `#flock` or `#robots`
+  `#spatial`, `#lbi`, `#nmd`, `#endo`, `#pet`, `#micro`, `#ovary`, `#qubits`, `#pass`, `#flock` or `#robots`
   in a story. A story link opens that story directly; a link without
   a hash lands on the Stories screen. Old links to `proteins.html` and
   `spatial.html` still work.
@@ -120,7 +121,7 @@ the next time you are on the Stories screen.
 
 Optional voice-overs go in `audio/`: `narration.mp3` (airports),
 `narration-proteins.mp3`, `narration-spatial.mp3`, `narration-lbi.mp3`, `narration-nmd.mp3`,
-`narration-endo.mp3`, `narration-pet.mp3`, `narration-micro.mp3`,
+`narration-endo.mp3`, `narration-pet.mp3`, `narration-micro.mp3`, `narration-ovary.mp3`,
 `narration-qubits.mp3`, `narration-pass.mp3`, `narration-flock.mp3` and `narration-robots.mp3`. Only the airports story has
 a recording so far; the others run silently. A narration plays in sync
 with its story, follows pausing, seeking and chapter jumps, and gets a *Sound*
@@ -232,6 +233,13 @@ writes it from the words (run it again after the text changes).
   `tools/micro/data/gen_data.mjs`). The slides, sections and tiles are drawn, not the GTEx images; values read off
   the talk's figures are in `tools/micro/data/figures.json`, and stand-ins are said to be so.
 
+- **The aging ovary** (`stories/ovary.js`), after the poster "Mapping the histological landscape of human ovarian aging"
+  (Parijat Chakraborty, Samir Moustafa, André Rendeiro; LBI Network Medicine, CeMM, Faculty of Computer Science of the
+  University of Vienna; supported by CeMM and the ERC; data GTEx), public, used with the owner's OK. Its numbers are
+  typed in (`tools/ovary/sets/data.js`, made by `tools/ovary/data/gen_data.mjs`), values read off its figures are in
+  `tools/ovary/data/figures.json`; the dots of the charts and the neighbor network are illustrative, and the ovary,
+  slides and sections are drawn, not GTEx images.
+
 - **Three qubits** (`stories/qubits.js`), after the method and figures of Joel Hancock (network compression onto
   qubits and the Pauli decomposition). The networks shown are examples made up for the story and computed in the
   page (`tools/qubits/sets/qmath.js`): no STRING data, gene names or patient data. The real run's summary numbers
@@ -274,7 +282,7 @@ The protein data is meant for teaching, not research.
 | Path | What it is |
 | --- | --- |
 | `index.html` | the app: Stories screen, shared page layout, loads and swaps the stories |
-| `stories/airports.js`, `stories/proteins.js`, `stories/spatial.js`, `stories/lbi.js`, `stories/nmd.js`, `stories/endo.js`, `stories/pet.js`, `stories/micro.js`, `stories/qubits.js`, `stories/pass.js`, `stories/flock.js`, `stories/robots.js` | the twelve stories, with their data, explore modes and headset panels |
+| `stories/airports.js`, `stories/proteins.js`, `stories/spatial.js`, `stories/lbi.js`, `stories/nmd.js`, `stories/endo.js`, `stories/pet.js`, `stories/micro.js`, `stories/ovary.js`, `stories/qubits.js`, `stories/pass.js`, `stories/flock.js`, `stories/robots.js` | the thirteen stories, with their data, explore modes and headset panels |
 | `proteins.html`, `spatial.html` | forward old links to the app |
 | `sw.js`, `manifest.webmanifest`, `icons/` | offline cache and app install |
 | `audio/` | optional narrations |
@@ -294,6 +302,7 @@ The protein data is meant for teaching, not research.
 | `tools/endo/` | sources of the endotype story (`node tools/endo/build.mjs` writes `stories/endo.js`; data from `tools/endo/data/gen_data.py` and the authors' files, which are not in the repository) |
 | `tools/pet/` | sources of the PET story (`node tools/pet/data/gen_data.mjs`, then `node tools/pet/build.mjs` writes `stories/pet.js`) |
 | `tools/micro/` | sources of the microanatomy story (`node tools/micro/build.mjs` writes `stories/micro.js`; data from `tools/micro/data/gen_data.mjs` and Iva Buljan's network file, which is not in the repository) |
+| `tools/ovary/` | sources of the aging ovary story (`node tools/ovary/data/gen_data.mjs`, then `node tools/ovary/build.mjs` writes `stories/ovary.js`) |
 | `tools/qubits/` | sources of the qubits story (`node tools/qubits/build.mjs` writes `stories/qubits.js`; `node tools/qubits/test-qmath.mjs` checks its maths) |
 | `tools/pass/` | sources of the pass story (`node tools/pass/build.mjs` writes `stories/pass.js`, cutting its globe and cell out of `stories/airports.js` and `stories/spatial.js`; `node tools/pass/test-sets.mjs` checks its sets) |
 | `tools/flock/` | sources of the flock (`node tools/flock/build.mjs` writes `stories/flock.js`) |
@@ -319,7 +328,8 @@ there and rebuild with `node tools/lbi/build.mjs` (see `tools/lbi/README.md`).
 The muscle story (`stories/nmd.js`) is generated the same way from `tools/nmd/`
 (see `tools/nmd/README.md`), the endotype story (`stories/endo.js`) from
 `tools/endo/`, the PET story (`stories/pet.js`) from `tools/pet/`, the
-microanatomy story (`stories/micro.js`) from `tools/micro/`, the qubits story (`stories/qubits.js`) from
+microanatomy story (`stories/micro.js`) from `tools/micro/`, the aging ovary story (`stories/ovary.js`) from
+`tools/ovary/`, the qubits story (`stories/qubits.js`) from
 `tools/qubits/`, the pass story (`stories/pass.js`) from `tools/pass/` (with the airports' globe and the cell map's
 cell taken from their stories at build time), the flock
 (`stories/flock.js`) from `tools/flock/` and the robot gang

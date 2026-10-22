@@ -1,6 +1,6 @@
 # Start here: handing over Networks
 
-An installable web app that teaches network science in twelve narrated 3D stories, each followed by an explore mode,
+An installable web app that teaches network science in thirteen narrated 3D stories, each followed by an explore mode,
 on desktops, phones and VR/AR headsets (built for Meta Quest Browser). Several headsets can share one room. There is
 no build step and no framework: plain HTML and JavaScript with a vendored three.js, deployed by copying the folder to
 any HTTPS host. This page is for the colleagues taking it over: what there is, what state it is in, what is still open,
@@ -16,7 +16,7 @@ and where to read on.
 | change the code | this page, then [docs/setup-and-release.md](docs/setup-and-release.md) and [AGENTS.md](AGENTS.md) (the full guide: structure, conventions, every shared-room rule, testing) |
 | work with an AI coding agent | [CLAUDE.md](CLAUDE.md) and [AGENTS.md](AGENTS.md) are written for agents too; see "Working with AI agents" below |
 
-## The twelve stories
+## The thirteen stories
 
 | Story | Key | Source | Narration | Data |
 | --- | --- | --- | --- | --- |
@@ -28,6 +28,7 @@ and where to read on.
 | Disease endotypes: Endotypes | `endo` | `tools/endo/` (built) | not yet | the authors' EndotypY run (kept out of the repository) |
 | Whole-body PET: One scan, one system | `pet` | `tools/pet/` (built) | not yet | the paper's tables and figures, some stand-ins |
 | Tissue microanatomy: Tissue and time | `micro` | `tools/micro/` (built) | not yet | the preprint's numbers, Iva Buljan's network (kept out) |
+| Ovarian aging: The aging ovary | `ovary` | `tools/ovary/` (built) | not yet | the poster's numbers typed in and values read off its figures; the charts' dots and the neighbor network illustrative |
 | Quantum network compression: Three qubits | `qubits` | `tools/qubits/` (built) | not yet | example networks computed live; the real run's summary numbers from Joel Hancock's brief (his method and figures) |
 | Networks for everyone: Pass it on | `pass` | `tools/pass/` (built; its globe and cell cut out of `stories/airports.js` and `stories/spatial.js` at build time) | not yet | the airports' routes and the cell map's proteins as in those stories; the fish and the outbreak are simulations; English and German |
 | Collective motion: Flock | `flock` | `tools/flock/` (built) | not yet | a live simulation |
@@ -44,7 +45,7 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
   shared-room test (three pages and a pretend headset in a room). All pass on main.
 - **Tried on real headsets:** the stories and their sound on Quest; shared rooms on two Quest 3 headsets in several
   rounds (what happened is in [docs/quest-shared-space-findings.md](docs/quest-shared-space-findings.md) and AGENTS.md
-  "Shared rooms"). **TO FILL (owner):** which stories have been looked at on a headset (the PET, microanatomy, qubits and
+  "Shared rooms"). **TO FILL (owner):** which stories have been looked at on a headset (the PET, microanatomy, ovary, qubits and
   pass stories were not, during development).
 - **Untested on a device:** lining headsets up again after standby or a night; moving and resizing scenes with the
   grips; persistent anchors restored after a restart; sound zones; comfort and frame rate with other people drawn;
@@ -93,8 +94,8 @@ Before handing over (or making anything more public), someone has to decide thes
 
 ## Adding a thirteenth story
 
-The twelfth story (`pass`) is the most recent example: `git show --stat` on its commits shows every file it touched
-(it also shows how a story reuses another's models unchanged, and a story in two languages). Start from the closest
+The thirteenth story (`ovary`) is the most recent example: `git show --stat` on its commits shows every file it touched
+(the twelfth, `pass`, shows how a story reuses another's models unchanged, and a story in two languages). Start from the closest
 existing story (`tools/qubits/` or `tools/micro/` for a data story, `tools/flock/` for a live simulation).
 
 1. `tools/<key>/`: `SPEC.md` (the contract), `README.md`, the sets (each with a manifest `sets/<name>.md`), the engine
@@ -103,7 +104,7 @@ existing story (`tools/qubits/` or `tools/micro/` for a data story, `tools/flock
 2. `index.html`: an entry in `HOST.list` (key, kick, title, colour, loading text, length: pace the story first with
    `node tools/pace.mjs <url> --write <key>`, which prints it), the count in the start
    screen's text and meta description, and the card rows' CSS if the rows change.
-3. The headset Stories screen in **every** story: the arc's spacing for n cards and the number word ("twelve") in each
+3. The headset Stories screen in **every** story: the arc's spacing for n cards and the number word ("thirteen") in each
    story's panel code (`stories/airports.js`, `proteins.js`, `spatial.js`, and `tools/*/engine/e6_panels.js`, then
    rebuild those).
 4. `shared.js`: bump `FORMAT`; the Arrange all comment (two rows of n/2). `sw.js`: bump `VERSION`, add
