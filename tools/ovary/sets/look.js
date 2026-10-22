@@ -84,39 +84,50 @@ vec3 litC(vec3 c, vec3 n, vec3 v, vec3 up, float gloss) {
   // others dim (uDim).
   function builder() {
     const P = [], N = [], Cl = [], Ce = [], O = [], E = [];
-    const v = new (THREE.Vector3)(), nm = new (THREE.Matrix3)();
     // add a geometry; o: { m (Matrix4), col ([r, g, b] or (x, y, z) -> [r, g, b], at the placed vertex), cen ([x, y, z],
-    // default: the placed geometry's middle), obj ([appear, vanish, kind, spare]), edge (per vertex 0..1, or a function
-    // of the vertex in the geometry's own frame) }
+    // default: the placed geometry's middle), obj ([appear, vanish, kind, mode]), edge (0..1 for all its vertices, or a
+    // function of the vertex in the geometry's own frame; default: the shape's userData.edge, else 0) }
     function add(geo, o = {}) {
-      const g = geo.index ? geo.toNonIndexed() : geo, p = g.attributes.position, n = g.attributes.normal, cnt = p.count;
-      if (o.m) nm.getNormalMatrix(o.m);
+      // (an indexed shape is unrolled once and kept: most shapes are added many times)
+      const g = geo.index ? (geo.userData.flat || (geo.userData.flat = geo.toNonIndexed())) : geo;
+      const p = g.attributes.position.array, n = g.attributes.normal ? g.attributes.normal.array : null, cnt = p.length / 3;
+      // (a shape may carry its own edge values per vertex: userData.edge, as blob() gives)
+      const E0 = geo.userData.edge, ix = geo.index, ef = typeof o.edge === 'function' ? o.edge : null, ec = typeof o.edge === 'number' ? o.edge : null;
+      const m = o.m ? o.m.elements : null;
+      // the normal matrix: the inverse transpose of m's 3 x 3 part (for the uniform and axis scalings used here, m's
+      // columns divided by their squared lengths)
+      let q = null;
+      if (m) { const sx = m[0] * m[0] + m[1] * m[1] + m[2] * m[2], sy = m[4] * m[4] + m[5] * m[5] + m[6] * m[6], sz = m[8] * m[8] + m[9] * m[9] + m[10] * m[10]; q = [m[0] / sx, m[1] / sx, m[2] / sx, m[4] / sy, m[5] / sy, m[6] / sy, m[8] / sz, m[9] / sz, m[10] / sz]; }
       const s = P.length;
+      let mx = 0, my = 0, mz = 0;
       for (let i = 0; i < cnt; i++) {
-        v.set(p.getX(i), p.getY(i), p.getZ(i));
-        const e = typeof o.edge === 'function' ? o.edge(v.x, v.y, v.z) : (o.edge || 0);
-        if (o.m) v.applyMatrix4(o.m);
-        P.push(v.x, v.y, v.z); E.push(e);
-        if (n) { v.set(n.getX(i), n.getY(i), n.getZ(i)); if (o.m) v.applyMatrix3(nm).normalize(); N.push(v.x, v.y, v.z); } else N.push(0, 0, 1);
+        const x = p[3 * i], y = p[3 * i + 1], z = p[3 * i + 2];
+        E.push(ef ? ef(x, y, z) : ec !== null ? ec : E0 ? E0[ix ? ix.getX(i) : i] : 0);
+        let X = x, Y = y, Z = z;
+        if (m) { X = m[0] * x + m[4] * y + m[8] * z + m[12]; Y = m[1] * x + m[5] * y + m[9] * z + m[13]; Z = m[2] * x + m[6] * y + m[10] * z + m[14]; }
+        P.push(X, Y, Z); mx += X; my += Y; mz += Z;
+        if (n) {
+          let a = n[3 * i], b = n[3 * i + 1], c = n[3 * i + 2];
+          if (q) { const A = q[0] * a + q[3] * b + q[6] * c, B2 = q[1] * a + q[4] * b + q[7] * c, C2 = q[2] * a + q[5] * b + q[8] * c, l = Math.sqrt(A * A + B2 * B2 + C2 * C2) || 1; a = A / l; b = B2 / l; c = C2 / l; }
+          N.push(a, b, c);
+        } else N.push(0, 0, 1);
       }
-      let cen = o.cen;
-      if (!cen) { let x = 0, y = 0, z = 0; for (let i = s; i < P.length; i += 3) { x += P[i]; y += P[i + 1]; z += P[i + 2]; } const k = 3 / (P.length - s); cen = [x * k, y * k, z * k]; }
-      const obj = o.obj || [-99, 999, -1, 0];
+      const cen = o.cen || [mx / cnt, my / cnt, mz / cnt];
+      const obj = o.obj || [-99, 999, -1, 0], cf = typeof o.col === 'function' ? o.col : null, cc = cf ? null : (o.col || [1, 1, 1]);
       for (let i = s; i < P.length; i += 3) {
-        const c = typeof o.col === 'function' ? o.col(P[i], P[i + 1], P[i + 2]) : (o.col || [1, 1, 1]);
+        const c = cf ? cf(P[i], P[i + 1], P[i + 2]) : cc;
         Cl.push(c[0], c[1], c[2]); Ce.push(cen[0], cen[1], cen[2]); O.push(obj[0], obj[1], obj[2], obj[3]);
       }
-      if (g !== geo) g.dispose();
       return cen;
     }
     function geometry() {
       const g = new THREE.BufferGeometry();
-      g.setAttribute('position', new THREE.Float32BufferAttribute(P, 3));
-      g.setAttribute('normal', new THREE.Float32BufferAttribute(N, 3));
-      g.setAttribute('aCol', new THREE.Float32BufferAttribute(Cl, 3));
-      g.setAttribute('aCen', new THREE.Float32BufferAttribute(Ce, 3));
-      g.setAttribute('aObj', new THREE.Float32BufferAttribute(O, 4));
-      g.setAttribute('aEdge', new THREE.Float32BufferAttribute(E, 1));
+      g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(P), 3));
+      g.setAttribute('normal', new THREE.BufferAttribute(new Float32Array(N), 3));
+      g.setAttribute('aCol', new THREE.BufferAttribute(new Float32Array(Cl), 3));
+      g.setAttribute('aCen', new THREE.BufferAttribute(new Float32Array(Ce), 3));
+      g.setAttribute('aObj', new THREE.BufferAttribute(new Float32Array(O), 4));
+      g.setAttribute('aEdge', new THREE.BufferAttribute(new Float32Array(E), 1));
       g.computeBoundingSphere();
       return g;
     }
