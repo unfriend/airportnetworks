@@ -735,7 +735,7 @@ void main() {
   let orgMesh = null;
   function buildOrgans() {
     if (orgMesh || !O3 || !O3.ready()) return;
-    const M = O3.merged(ORGAN.map(o => O3.idOf(o) || 'stomach')), g = new THREE.BufferGeometry();
+    const M = O3.merged(ORGAN.map(o => O3.idOf(o) || 'stomach'), { lite: true }), g = new THREE.BufferGeometry();   // (small on screen: the lighter copies)
     g.setAttribute('position', new THREE.BufferAttribute(M.pos, 3)); g.setAttribute('normal', new THREE.BufferAttribute(M.nrm, 3));
     g.setAttribute('aCol', new THREE.BufferAttribute(M.col, 3)); g.setAttribute('aSlot', new THREE.BufferAttribute(M.slot, 1)); g.setIndex(new THREE.BufferAttribute(M.idx, 1));
     const sh = O3.shader(NT);

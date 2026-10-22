@@ -9,8 +9,10 @@ small lit cubes in the cloud, the volcano's bubbles as lit spheres over a glass 
 trajectories as lit ribbons on glass lanes, and each section's organ as a small 3D model (`ORGAN3D`, `sets/organs.md`).
 
 Build in headless Chromium about as before (0.75 to 1.9 s on a machine with a load average of about 15, the same as the
-version before it in the same runs; 250 to 300 ms unloaded then); at most 13 draw calls, about 150,000 triangles for
-the library, 200,000 for the atlas of sections (264,000 with the organs' models), 222,000 beside a plot; no per-frame
+version before it in the same runs; 250 to 300 ms unloaded then); at most 13 draw calls; whole frames at 1100 x 650
+measured 154,000 triangles for the library (slides 150,000, rack 4,800), 220,000 for the atlas of sections (its
+tiles 149,000, the dimmed wall 50,000, the organs' lighter models 16,500), 224,000 with a focused section, 215,000
+beside a plot (more only while the network fades in over it); no per-frame
 buffer uploads beyond 40 x 2 uniforms (40 x 2 more for the organs), 5 head points and the 8-segment age gauge.
 
 - **A box as the three faces the camera sees**: a slide or a tile is a box drawn as three quads (its broad face, a side,
@@ -23,7 +25,7 @@ buffer uploads beyond 40 x 2 uniforms (40 x 2 more for the organs), 5 head point
   the glass beside it. Each slide stands a little askew in its place (up to about 10 degrees each way), so the light
   glints off the glass here and there. Behind the sections and plots the wall draws only the slides' faces, and none
   once it is all but gone.
-- The rack the slides stand in (one draw, about 3,000 triangles): a dark blue back panel with a soft light pooled in
+- The rack the slides stand in (one draw, about 4,800 triangles): a dark blue back panel with a soft light pooled in
   its middle, a shelf at every decade of age (16 rows each; the rows are spaced for them, `rowY`) with a bright lip
   where the light catches it, and a post between tissues (darker), 0.036 deep. From afar, where a slide is a pixel or
   two, the wall reads as a curved cabinet in depth; up close (`shelf`) the slides stand in its compartments. It stands
@@ -43,8 +45,9 @@ buffer uploads beyond 40 x 2 uniforms (40 x 2 more for the organs), 5 head point
   three faces like the tiles; the captions are faces only, and not drawn from behind (they would read mirrored).
 - The organs: one merged geometry of the 40 sections' organs' models (with duplicates: three arteries, two brains ...),
   each floating at its plate's top left corner, turning slowly; gone as the tiles fly to the cloud and beside a plot.
-  They build between frames (the network set builds them while it is hidden; here a 3 ms slice a frame while they are
-  missing).
+  They are the lighter copies (`ORGAN3D.lite`, about a quarter of the triangles: 16,500 for the 40 instead of 66,000),
+  as they are small on screen (20 to 40 pixels; the focused section's about 70). They build between frames (in the
+  story the engine builds them from the start; in the harness here a 3 ms slice a frame while they are missing).
 
 ## Params
 

@@ -48,7 +48,8 @@ story keeps); an organ's model is found by its name (`idOf`), the only link betw
 | `step(ms)` | build ahead for at most ms milliseconds; true once models and pictures are done |
 | `version()` | goes up as each model and picture is done (the panes redraw on it) |
 | `driven` | set by the engine: it steps the queue itself every frame (the sets then do not) |
-| `merged(ids)` | one geometry of several models (duplicates allowed): `{ pos, nrm, col, slot, idx, tris }`; `aSlot` is the index in the list |
+| `lite(id)` | a lighter copy of the model, for where it is small on screen: its vertices merged on a grid twice as coarse as it was built on (vertex clustering; collapsed triangles dropped), about a quarter of the triangles (11,600 for all 29), made on first use from the built model |
+| `merged(ids, { lite })` | one geometry of several models (duplicates allowed; `lite`: the lighter copies): `{ pos, nrm, col, slot, idx, tris }`; `aSlot` is the index in the list |
 | `shader(n)` | GLSL for a lit material over a merged geometry: `uP[n]` place and size, `uQ[n]` alpha, glow, turn about y, and how far the model takes the colour `uTint` |
 | `canvas(id, px)`, `url(id, px)` | the picture, as a canvas or a data URL (cached; drawn now if need be) |
 | `pic(id)`, `picUrl(id)` | the 64 px picture (canvas, data URL) if the queue has drawn it, else null or '' (never draws) |
@@ -58,7 +59,8 @@ story keeps); an organ's model is found by its name (`idOf`), the only link betw
 - The network set's organ ring (`hier`): each organ node is its model (radius 0.062 + 0.005 √degree), turning slowly,
   in a glow of the level's dark green; spheres until the models are ready (in the story, long before the network shows).
 - The atlas's plates: each section's organ floats at its plate's top left corner (hidden as the tiles fly to the cloud
-  and beside a plot); the focused section's is larger (at most 0.075).
+  and beside a plot); the focused section's is larger (at most 0.075). They are the lighter copies (`lite`): 40
+  models at 20 to 70 pixels, 16,500 triangles instead of 66,000.
 - The body (the engine's `makeDots`): the picked organ's model grows out in front of the body beside its point (the
   intro's dive into the stomach; explore's organ picks). Only that model is drawn: its geometry is swapped in when the
   pick changes (as soon as the model is built; one that comes late grows from then).
@@ -70,7 +72,8 @@ story keeps); an organ's model is found by its name (`idOf`), the only link betw
 ## Harness
 
 `harness.html?set=organs` shows all 29 in a grid (`organs_spin:1` turns them, `organs_tint:1` takes the level colour,
-`organs_pics:1` lays the pictures over the page on a light and a dark ground). `SETS.organs` is only the harness's
+`organs_pics:1` lays the pictures over the page on a light and a dark ground, `organs_lite:1` shows the lighter
+copies instead). `SETS.organs` is only the harness's
 gallery: the story builds it into `stories/micro.js` but never makes it.
 
 ## For the narrator

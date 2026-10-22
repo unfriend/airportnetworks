@@ -4,8 +4,8 @@
 // PET story's flat line icons: as real meshes in the scenes (the network's organ ring), and as small pictures in the
 // HTML chips and the headset's canvas panels (each model drawn once onto a 2D canvas, lazily, by a tiny painter's
 // renderer, so no WebGL context or render target is needed, also inside a headset session).
-// ORGAN3D: ids, idOf(name), geo(id) (the mesh, built on first use), merged(ids, opts) (one BufferGeometry, aSlot per
-// model), shader(n) (a lit material's GLSL with per-model place and look), canvas(id, px), url(id), step(ms) (build
+// ORGAN3D: ids, idOf(name), geo(id) (the mesh, built on first use), lite(id) (a lighter copy, for small on screen),
+// merged(ids, opts) (one BufferGeometry, aSlot per model; opts.lite: the lighter copies), shader(n) (a lit material's GLSL with per-model place and look), canvas(id, px), url(id), step(ms) (build
 // models and pictures ahead between frames, one organ after another), want(id) (that one next), mesh(id), pic(id) and
 // picUrl(id) (without waiting: null until built), version(), ready(). Manifest: organs.md. SETS.organs is the
 // harness's gallery (not part of the story).
@@ -319,10 +319,45 @@ const ORGAN3D = (() => {
   const ready = () => ids.every(id => MESH[id]);
   const built = () => ids.filter(id => MESH[id]).length;
 
+  // ------------------------------------------------------------ a lighter copy, for where a model is small on screen
+  // (the atlas's 40 plates): its vertices merged on a grid twice as coarse as it was built on (vertex clustering: the
+  // mean place, colour and normal of each cell's vertices; triangles that collapse are dropped), about a third of its
+  // triangles. Made once, on first use, from the built model (no new field evaluations)
+  const LITE = {};
+  function lite(id) {
+    if (LITE[id]) return LITE[id];
+    const g = geo(id);
+    if (!g) return null;
+    const cs = 4 / ((ORG[id] && ORG[id].res) || 24), nv = g.pos.length / 3, to = new Int32Array(nv), cell = new Map(), P = [], N = [], C = [], W = [];
+    const ix = v => Math.floor((v + 1.5) / cs);
+    for (let v = 0; v < nv; v++) {
+      const k = ix(g.pos[3 * v]) + 64 * (ix(g.pos[3 * v + 1]) + 64 * ix(g.pos[3 * v + 2]));
+      let j = cell.get(k);
+      if (j === undefined) { j = W.length; cell.set(k, j); P.push(0, 0, 0); N.push(0, 0, 0); C.push(0, 0, 0); W.push(0); }
+      for (let q = 0; q < 3; q++) { P[3 * j + q] += g.pos[3 * v + q]; N[3 * j + q] += g.nrm[3 * v + q]; C[3 * j + q] += g.col[3 * v + q]; }
+      W[j]++; to[v] = j;
+    }
+    for (let j = 0; j < W.length; j++) {
+      const nl = hyp(N[3 * j], N[3 * j + 1], N[3 * j + 2]) || 1;
+      for (let q = 0; q < 3; q++) { P[3 * j + q] /= W[j]; C[3 * j + q] /= W[j]; N[3 * j + q] /= nl; }
+    }
+    const I = [], seen = new Set();
+    for (let i = 0; i < g.idx.length; i += 3) {
+      const a = to[g.idx[i]], b = to[g.idx[i + 1]], c = to[g.idx[i + 2]];
+      if (a === b || b === c || a === c) continue;
+      const key = [a, b, c].sort((x, y) => x - y).join(',');
+      if (seen.has(key)) continue;
+      seen.add(key); I.push(a, b, c);
+    }
+    return (LITE[id] = { pos: new Float32Array(P), nrm: new Float32Array(N), col: new Float32Array(C), idx: W.length > 65535 ? new Uint32Array(I) : new Uint16Array(I), view: g.view });
+  }
+
   // ------------------------------------------------------------ one geometry for several models
-  // aSlot: which model (its index in the list); the material places, turns and lights each (shader(n))
-  function merged(list) {
-    const G = list.map(id => geo(id) || geo('stomach'));
+  // aSlot: which model (its index in the list); the material places, turns and lights each (shader(n)); opts.lite: the
+  // lighter copies
+  function merged(list, opts = {}) {
+    const one = opts.lite ? lite : geo;
+    const G = list.map(id => one(id) || one('stomach'));
     const nv = G.reduce((s, g) => s + g.pos.length / 3, 0), ni = G.reduce((s, g) => s + g.idx.length, 0);
     const pos = new Float32Array(nv * 3), nrm = new Float32Array(nv * 3), col = new Float32Array(nv * 3), slot = new Float32Array(nv), idx = nv > 65535 ? new Uint32Array(ni) : new Uint16Array(ni);
     let v0 = 0, i0 = 0;
@@ -427,7 +462,7 @@ void main() {
   const mesh = id => (MESH[id] || (want(id), null));
   // version(): goes up as each model and picture is done (the panes redraw on it); driven: the engine steps the queue
   // itself every frame (the sets then leave it alone; in the harness they step it)
-  return { ids, idOf, geo, merged, shader, canvas, url, pic, picUrl, mesh, want, step, ready, built, has: id => !!MESH[id], version: () => ver,
+  return { ids, idOf, geo, lite, merged, shader, canvas, url, pic, picUrl, mesh, want, step, ready, built, has: id => !!MESH[id], version: () => ver,
     driven: false, names: BYNAME };
 })();
 
@@ -444,10 +479,16 @@ SETS.organs = function (K) {
     vertexShader: sh.vertex, fragmentShader: sh.fragment, transparent: true });
   set.mats.push(mat);
   const mesh = new THREE.Mesh(g, mat); mesh.frustumCulled = false; set.group.add(mesh);
+  // (organs_lite: the lighter copies the atlas's plates use, in the same places)
+  const L = ORGAN3D.merged(ids, { lite: true }), gl = new THREE.BufferGeometry();
+  gl.setAttribute('position', new THREE.BufferAttribute(L.pos, 3)); gl.setAttribute('normal', new THREE.BufferAttribute(L.nrm, 3));
+  gl.setAttribute('aCol', new THREE.BufferAttribute(L.col, 3)); gl.setAttribute('aSlot', new THREE.BufferAttribute(L.slot, 1)); gl.setIndex(new THREE.BufferAttribute(L.idx, 1));
+  const meshL = new THREE.Mesh(gl, mat); meshL.frustumCulled = false; meshL.visible = false; set.group.add(meshL);
   let pics = null;
   return Object.assign(set, {
-    params: { organs_a: 1, organs_spin: 0, organs_tint: 0, organs_pics: 0 },
+    params: { organs_a: 1, organs_spin: 0, organs_tint: 0, organs_pics: 0, organs_lite: 0 },
     update(S, t) {
+      meshL.visible = !!S.organs_lite; mesh.visible = !S.organs_lite;
       ids.forEach((id, i) => uQ[i].set(1, 0, (S.organs_spin || 0) * t * 0.6, S.organs_tint || 0));
       // organs_pics: the pictures the panels use, laid over the page (harness only)
       if (S.organs_pics && !pics && typeof document !== 'undefined') {
@@ -466,6 +507,6 @@ SETS.organs = function (K) {
       }
     },
     anchors: {}, labels: ids.map((id, i) => ({ text: [id, ''], at: [uP[i].x - 0.1, uP[i].y - 0.17, 0], cls: '' })),
-    cam: { default: [0, 0, 3.4, 0, 0.0, 0] }, tris: M.tris,
+    cam: { default: [0, 0, 3.4, 0, 0.0, 0] }, tris: M.tris, trisLite: L.tris,
   });
 };
