@@ -1,12 +1,13 @@
 // One H&E section, the method and the domains (the microanatomy story; Buljan, Bago-Horvath & Rendeiro, bioRxiv 2025),
-// drawn over the tour's tissue set (tools/lbi/sets/tissue.js) in its frame: the section is cut into tiles; five tiles
-// are described by numbers (features) that fly to a feature matrix; each tile mixes in its neighbours' descriptions
-// (message passing); tiles with similar mixed descriptions form the domains (the layers of the gut wall); and the
-// domain map changes from age 20 to 70 as in the preprint's gut submucosa example.
-// Everything on the section is drawn by two shaders over one mesh that follows the slab: the tiles' outlines, colours
-// and borders (one draw call) and the network of neighbouring tiles a little in front of it (another). The domains
-// wash in tile by tile, but their borders follow the tissue set's layers, the patch and the vessels to the pixel (the
-// real tiles are far smaller than these).
+// drawn over the tour's tissue set (tools/lbi/sets/tissue.js) in its frame, in the tour's visual language for its cell
+// network: the section is cut into tiles; every tile grows a little skyline of 16 bars, its description (features);
+// a network floats over the tiles, each joined to its neighbours, with light running along the links (message
+// passing) while the skylines and colours mix; the nodes lift off into a 3D map of their mixed descriptions where
+// alike tiles gather (the groups), take their group's colour and fly back down to colour the section: the domains
+// (the layers of the gut wall). Then the domain map changes from age 20 to 70 as in the preprint's gut submucosa
+// example. The tiles' outlines, colours and borders are one shader over a mesh that follows the slab; the domains wash
+// in tile by tile, but their borders follow the tissue set's layers, the patch and the vessels to the pixel (the real
+// tiles are far smaller than these).
 SETS.slide = function (K) {
   const { THREE, v3, smooth, clamp, prog, lerp } = K;
   const set = K.newSet('slide');
@@ -165,13 +166,14 @@ SETS.slide = function (K) {
     const tot = Math.max(1, inside), W = [1, 1, 1, 1, 2.4, 2.4];
     let dom = 0;
     for (let k = 1; k < 6; k++) if (fr[k] * W[k] > fr[dom] * W[dom]) dom = k;
-    tiles.push({ i, j, keep: inside >= 0.3 * SUB * SUB, fr: fr.map(x => x / tot), dom, slot: -1 });
+    tiles.push({ i, j, keep: inside >= 0.3 * SUB * SUB, fr: fr.map(x => x / tot), dom });
   }
   const kept = tiles.filter(t => t.keep);
   const nb4 = t => [T(t.i - 1, t.j), T(t.i + 1, t.j), T(t.i, t.j - 1), T(t.i, t.j + 1)].filter(n => n && n.keep);
 
   // features: each tile is described by 16 numbers, from what it holds (its mix of domains) and some noise; message
-  // passing mixes in its neighbours' (two rounds, half its own each time)
+  // passing mixes in its neighbours' (two rounds, half its own each time; the network drawn has eight neighbours a
+  // tile, the mixing uses the four that share an edge)
   const NF = 16, HI = [[0, 3, 7, 12], [2, 5, 10, 13], [6, 8, 11, 14], [6, 8, 9, 15], [1, 3, 9, 14], [4, 5, 11, 15]];
   const proto = HI.map(h => Array.from({ length: NF }, (_, f) => (h.includes(f) ? rr(0.72, 0.95) : rr(0.08, 0.26))));
   const featOf = fr => proto[0].map((_, f) => clamp(fr.reduce((a, w, k) => a + w * proto[k][f], 0) + 0.13 * K.gauss(R), 0, 1));
@@ -197,14 +199,20 @@ SETS.slide = function (K) {
     t.dord = clamp(0.35 * (t.i / NX) + 0.65 * R(), 0, 1);                          // and take their domain colours
   }
 
-  // the five tiles lifted for their features: one per main domain, spread along the section, purest first
-  const pickTile = (dom, ci) => kept.filter(t => t.dom === dom).sort((a, b) => (b.fr[dom] - a.fr[dom]) * 4 + (Math.abs(a.i - ci) - Math.abs(b.i - ci)) * 0.05)[0];
-  const LIFT = [pickTile(0, 5), pickTile(4, 11), pickTile(1, 18), pickTile(2, 27), pickTile(3, 33)].filter(Boolean);
-  LIFT.forEach((t, k) => { t.slot = k; });
   const tileC = t => [(t.i + 0.5) * TS, D0 + (t.j + 0.5) * TS];
+  // the close-up: a tile on the mucosa / submucosa border; every step spreads outwards from it, as the tour's cell
+  // network draws outwards from its zoom patch
+  const CL = T(16, 3), CLc = tileC(CL);
+  const dCL = t => Math.hypot((t.i - CL.i) / NX * 2.4, (t.j - CL.j) / NY * 0.7);
+  { const mx = Math.max(...kept.map(dCL)); for (const t of kept) t.wave = clamp(0.62 * dCL(t) / mx + 0.08 * R(), 0, 0.7); }
+  // each kept tile's place on the slab: centre, the slab's normal, unit tangents along the section and in depth
+  for (const t of kept) {
+    const [s, d] = tileC(t), p = P3(s, d);
+    t.p = p; t.ts = v3.norm(v3.sub(P3(s + 0.01, d), P3(s - 0.01, d))); t.td = v3.norm(v3.sub(P3(s, d + 0.01), P3(s, d - 0.01)));
+  }
 
   // ------------------------------------------------------- the tile texture
-  // NP pages of NX x NY texels: 0 own tint + kept, 1 mixed tint + domain order, 2 draw-on order, the lifted slot
+  // NP pages of NX x NY texels: 0 own tint + kept, 1 mixed tint + domain order, 2 draw-on order
   const TT = new Uint8Array(NX * NY * NP * 4);
   const texT = new THREE.DataTexture(TT, NX, NY * NP, THREE.RGBAFormat);
   texT.magFilter = texT.minFilter = THREE.NearestFilter; texT.generateMipmaps = false;
@@ -213,7 +221,7 @@ SETS.slide = function (K) {
     const put = (p, r, g, b, a) => { const o = 4 * (t.i + NX * (p * NY + t.j)); TT[o] = b8(r); TT[o + 1] = b8(g); TT[o + 2] = b8(b); TT[o + 3] = b8(a); };
     if (!t.keep) { for (let p = 0; p < NP; p++) put(p, 0, 0, 0, 0); continue; }
     put(0, ...t.tint, 1); put(1, ...t.tintM, t.dord);
-    put(2, t.ord, 0, t.slot < 0 ? 0 : (t.slot + 1) / 8, 1);
+    put(2, t.ord, 0, 0, 1);
   }
   texT.needsUpdate = true;
 
@@ -233,19 +241,23 @@ SETS.slide = function (K) {
 
   // premultiplied blending: one material can both lay a translucent colour over the slide and add glow
   const pm = m => { m.blending = THREE.CustomBlending; m.blendSrc = THREE.OneFactor; m.blendDst = THREE.OneMinusSrcAlphaFactor; m.blendEquation = THREE.AddEquation; set.mats.push(m); return m; };
-  const HEAT = `
-vec3 heat(float v) {
-  vec3 c = mix(vec3(0.05, 0.03, 0.16), vec3(0.42, 0.07, 0.52), smoothstep(0.0, 0.35, v));
-  c = mix(c, vec3(0.96, 0.3, 0.58), smoothstep(0.3, 0.65, v));
-  c = mix(c, vec3(1.0, 0.72, 0.28), smoothstep(0.6, 0.85, v));
-  return mix(c, vec3(1.0, 0.96, 0.82), smoothstep(0.85, 1.0, v));
-}
-vec4 over(vec4 acc, vec3 c, float a) { return vec4(c * a + acc.rgb * (1.0 - a), a + acc.a * (1.0 - a)); }`;
+  const OVER = 'vec4 over(vec4 acc, vec3 c, float a) { return vec4(c * a + acc.rgb * (1.0 - a), a + acc.a * (1.0 - a)); }';
+  // a feature's value as a colour (the usual even scale for numbers: indigo for low, through teal, to yellow for
+  // high), bright enough to glow on the darkened slide
+  const ICE = `
+vec3 ice(float v) {
+  vec3 c = mix(vec3(0.3, 0.2, 0.72), vec3(0.12, 0.62, 0.78), smoothstep(0.05, 0.5, v));
+  c = mix(c, vec3(0.35, 0.86, 0.45), smoothstep(0.45, 0.75, v));
+  return mix(c, vec3(1.0, 0.9, 0.28), smoothstep(0.7, 1.0, v));
+}`;
   const TILEGL = `
 uniform sampler2D tT;
 const float NX = ${NX}.0, NY = ${NY}.0, NP = ${NP}.0;
-vec4 tt(vec2 ij, float p) { vec2 c = clamp(ij, vec2(0.0), vec2(NX - 1.0, NY - 1.0)); return texture2D(tT, vec2((c.x + 0.5) / NX, (p * NY + c.y + 0.5) / (NP * NY))); }
-float kept(vec2 ij) { return step(0.0, ij.x) * step(ij.x, NX - 1.0) * step(0.0, ij.y) * step(ij.y, NY - 1.0) * step(0.5, tt(ij, 0.0).a); }`;
+vec4 tt(vec2 ij, float p) { vec2 c = clamp(ij, vec2(0.0), vec2(NX - 1.0, NY - 1.0)); return texture2D(tT, vec2((c.x + 0.5) / NX, (p * NY + c.y + 0.5) / (NP * NY))); }`;
+  // which face of the slab the camera sees (+1 front, -1 back), at a point of the slab: things stand on that face
+  const SIDE = `
+float slabSide(vec3 p) { vec3 n = normalize(vec3(-2.0 * uBK * p.x, 0.0, 1.0)); return dot(normalMatrix * n, -(modelViewMatrix * vec4(p, 1.0)).xyz) >= 0.0 ? 1.0 : -1.0; }
+vec3 slabN(vec3 p) { return normalize(vec3(-2.0 * uBK * p.x, 0.0, 1.0)); }`;
 
   // ------------------------------------------------- the mesh over the slab
   // a grid in (s, d) that follows the strip (4 x 5 quads per tile, only under kept tiles), drawn on whichever face
@@ -275,29 +287,26 @@ float kept(vec2 ij) { return step(0.0, ij.x) * step(ij.x, NX - 1.0) * step(0.0, 
   gridGeo.setAttribute('uv', new THREE.BufferAttribute(gUv, 2));
   gridGeo.setIndex(gIdx);
   gridGeo.computeBoundingSphere();
-  const GRIDV = off => `
-uniform float uBK;
-attribute vec2 aG, aTB; attribute vec4 aL;
-varying vec2 vG, vTB; varying vec4 vL;
-void main() {
-  vG = aG; vTB = aTB; vL = aL;
-  vec3 n = normalize(vec3(-2.0 * uBK * position.x, 0.0, 1.0));
-  vec4 mv0 = modelViewMatrix * vec4(position, 1.0);
-  float side = dot(normalMatrix * n, -mv0.xyz) >= 0.0 ? 1.0 : -1.0;
-  gl_Position = projectionMatrix * modelViewMatrix * vec4(position + n * side * ${(TH / 2 + off).toFixed(4)}, 1.0);
-}`;
-  const U = { uA: set.uA, uTime: K.U.uTime, tT: { value: texT }, uBK: { value: BK }, uTiles: { value: 0 }, uFeat: { value: 0 }, uSink: { value: 1 },
-    uAdj: { value: 0 }, uDom: { value: 0 }, uAge: { value: 0 }, uFoc: { value: 0 }, uG: { value: 0 },
+  const U = { uA: set.uA, uTime: K.U.uTime, tT: { value: texT }, uBK: { value: BK }, uTiles: { value: 0 }, uAdj: { value: 0 }, uDom: { value: 0 }, uAge: { value: 0 },
+    uFoc: { value: 0 }, uNet: { value: 0 }, uDim: { value: 0 }, uFeat: { value: 0 }, uGrp: { value: 0 }, uLand: { value: 0 }, uOut: { value: 1 },
     // the domains: colours, how much the submucosa thins by 70, the patch and the vessels (centre and half axes in tile
     // units; a vessel's turn as cos, sin)
     uCol: { value: uCol }, uFS: { value: FS }, uAGe: { value: new THREE.Vector4(AG.s / TS, (AG.d - D0) / TS, AG.A / TS, AG.B / TS) },
     uVe: { value: VES.map(v => new THREE.Vector4(v.s / TS, (v.d - D0) / TS, v.A / TS, v.B / TS)) }, uVr: { value: VES.map(v => new THREE.Vector2(v.c, v.sn)) } };
   const washMat = pm(new THREE.ShaderMaterial({
     uniforms: U, transparent: true, depthWrite: false, side: THREE.DoubleSide, extensions: { derivatives: true },
-    vertexShader: GRIDV(0.0016),
-    fragmentShader: TILEGL + HEAT + `
+    vertexShader: `
+uniform float uBK;
+attribute vec2 aG, aTB; attribute vec4 aL;
+varying vec2 vG, vTB; varying vec4 vL;
+${SIDE}
+void main() {
+  vG = aG; vTB = aTB; vL = aL;
+  gl_Position = projectionMatrix * modelViewMatrix * vec4(position + slabN(position) * slabSide(position) * ${(TH / 2 + 0.0016).toFixed(4)}, 1.0);
+}`,
+    fragmentShader: TILEGL + OVER + `
 const float TSZ = ${TS.toFixed(6)}, DARK = ${DARK.toFixed(3)}, WA = ${WA.toFixed(3)};
-uniform float uA, uTime, uTiles, uFeat, uSink, uAdj, uDom, uAge, uFoc, uFS;
+uniform float uA, uTime, uTiles, uAdj, uDom, uAge, uFoc, uFS, uDim, uFeat;
 uniform vec3 uCol[6]; uniform vec4 uAGe, uVe[2]; uniform vec2 uVr[2];
 varying vec2 vG, vTB; varying vec4 vL;
 float dpr(float o) { return smoothstep(0.0, 1.0, clamp((uDom - 0.55 * o) / 0.45, 0.0, 1.0)); }
@@ -329,21 +338,18 @@ void main() {
   float fsel = (w0 * sel(0.0) + w1 * sel(1.0) + w2 * sel(2.0) + w3 * sel(3.0) + wa * sel(4.0) + wv * sel(5.0)) * foc;
   // the wash stays on the tissue; the outlines are whole squares
   float inT = smoothstep(vTB.x - fw.y, vTB.x + fw.y, vG.y) * (1.0 - smoothstep(vTB.y - fw.y, vTB.y + fw.y, vG.y));
-  float slot = floor(p2.b * 8.0 + 0.5) - 1.0, isL = step(0.0, slot);
-  float lk = isL * smoothstep(0.0, 1.0, clamp((uFeat - 0.03 * slot) / 0.15, 0.0, 1.0)) * uSink;
   vec4 acc = vec4(0.0);
   // the tile's description as a colour (its own, then mixed with its neighbours'), then the domains' colours, which
   // wash in tile by tile; under them the slide darkens a little, so they read as themselves on its pink (the small
-  // patch and vessels a little stronger)
+  // patch and vessels a little stronger). While the network floats over it, the slide dims, so its light reads.
   float dp = dpr(p1.a), fa = max(dp, fsel);
   vec3 tint = mix(p0.rgb, p1.rgb, smoothstep(0.25, 0.85, uAdj));
-  float ta = 0.42 * smoothstep(0.0, 0.25, uAdj);
+  float ta = 0.3 * smoothstep(0.0, 0.25, uAdj);
+  acc = over(acc, vec3(0.012, 0.02, 0.045), max(0.45 * uDim, 0.42 * uFeat) * (1.0 - fa) * inT);
   acc = over(acc, vec3(0.0), DARK * fa * inT);
   acc = over(acc, mix(tint, dc, fa), mix(ta, WA + 0.16 * (wa + wv) + 0.12 * fsel, fa) * (1.0 - 0.5 * (foc - fsel)) * inT);
   // focus: the other domains dim
   acc = over(acc, vec3(0.01, 0.018, 0.035), 0.6 * (foc - fsel) * inT);
-  // a lifted tile leaves a dark gap
-  acc = over(acc, vec3(0.01, 0.02, 0.04), 0.7 * lk * inT);
   // the outline draws on round the tile, tiles one after another
   float tp = clamp((uTiles * 1.3 - p2.r) / 0.3, 0.0, 1.0);
   float m = max(abs(c.x), abs(c.y));
@@ -355,9 +361,7 @@ void main() {
   float near = smoothstep(14.0, 70.0, 1.0 / px);
   float inO = smoothstep(vTB.x - 0.04 - fw.y, vTB.x - 0.04, vG.y) * (1.0 - smoothstep(vTB.y + 0.04, vTB.y + 0.04 + fw.y, vG.y));
   float ln = (1.0 - smoothstep(0.15 + 0.2 * near, 0.95 + 0.2 * near, e)) * show * inO * (0.42 + 0.3 * near) * (1.0 - 0.5 * smoothstep(0.0, 0.3, uAdj));
-  float hl = isL * smoothstep(0.0, 0.1, uFeat) * uSink;   // the lifted tiles' places stay marked in amber
-  vec3 oc = mix(vec3(0.55, 0.9, 1.0), vec3(1.0, 0.72, 0.25), hl);
-  acc.rgb += oc * ln * (0.55 + 1.3 * head) * (1.0 - 0.82 * fa + 0.9 * hl);
+  acc.rgb += vec3(0.55, 0.9, 1.0) * ln * (0.55 + 1.3 * head) * (1.0 - 0.82 * fa);
   acc.rgb += vec3(0.2, 0.45, 0.6) * 0.28 * sin(3.14159 * tp) * inT;
   // clean light borders where two domains meet (the layers' lines stop at the patch and the vessels)
   if (uDom + uFoc > 0.001) {
@@ -375,263 +379,285 @@ void main() {
   wash.renderOrder = 5;
   set.group.add(wash);
 
-  // the network of neighbouring tiles (spatial adjacency), a little in front of the tiles: a node per tile in its
-  // tint, links to the four neighbours, and messages running both ways along every link
-  const graphMat = pm(new THREE.ShaderMaterial({
-    uniforms: U, transparent: true, depthWrite: false, side: THREE.DoubleSide, extensions: { derivatives: true },
-    vertexShader: GRIDV(0.011),
-    fragmentShader: TILEGL + HEAT + `
-uniform float uA, uTime, uAdj, uG;
-varying vec2 vG, vTB;
-float hash(vec2 p) { return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
-void main() {
-  vec2 ij = floor(vG), f = vG - ij, c = f - 0.5;
-  if (tt(ij, 0.0).a < 0.5) discard;
-  vec2 fw = max(fwidth(vG), vec2(1e-5)); float px = max(fw.x, fw.y);
-  vec3 tint = mix(tt(ij, 0.0).rgb, tt(ij, 1.0).rgb, smoothstep(0.25, 0.85, uAdj));
-  float kx = c.x > 0.0 ? kept(ij + vec2(1.0, 0.0)) : kept(ij - vec2(1.0, 0.0));
-  float ky = c.y > 0.0 ? kept(ij + vec2(0.0, 1.0)) : kept(ij - vec2(0.0, 1.0));
-  float dx = abs(c.y) / fw.y, dy = abs(c.x) / fw.x, lw = max(0.3, 0.005 / px);
-  float lh = kx * (1.0 - smoothstep(lw, lw + 1.0, dx)), lv = ky * (1.0 - smoothstep(lw, lw + 1.0, dy));
-  // u: 0 at the left (upper) tile's centre, 1 at the right (lower) one's
-  float uh = c.x > 0.0 ? c.x : c.x + 1.0, uv = c.y > 0.0 ? c.y : c.y + 1.0;
-  vec2 hid = c.x > 0.0 ? ij : ij - vec2(1.0, 0.0), vid = c.y > 0.0 ? ij : ij - vec2(0.0, 1.0);
-  float sp = 0.32, pw = 0.075;
-  float h1 = fract(uTime * sp + hash(hid)), h2 = fract(uTime * sp + hash(hid + 7.1));
-  float v1 = fract(uTime * sp + hash(vid + 3.3)), v2 = fract(uTime * sp + hash(vid + 9.7));
-  float ph = exp(-pow((uh - h1) / pw, 2.0)) + exp(-pow((1.0 - uh - h2) / pw, 2.0));
-  float pv = exp(-pow((uv - v1) / pw, 2.0)) + exp(-pow((1.0 - uv - v2) / pw, 2.0));
-  float gw = max(1.0, 0.016 / px);
-  float gl = kx * ph * exp(-pow(dx / gw, 2.0)) + ky * pv * exp(-pow(dy / gw, 2.0));
-  float rn = max(0.085, 1.5 * px), dn = length(c);
-  float node = 1.0 - smoothstep(rn - px * 0.7, rn + px * 0.7, dn);
-  float ring = (1.0 - smoothstep(rn + px * 0.6, rn + px * 2.0, dn)) * (1.0 - node);
-  vec4 acc = vec4(0.0);
-  // dark links and bright messages read on a pale slide as on a dark one
-  acc = over(acc, vec3(0.04, 0.1, 0.2), 0.7 * max(lh, lv));
-  acc = over(acc, vec3(0.15, 0.85, 1.0), clamp(gl * 1.2, 0.0, 0.95));
-  acc.rgb += vec3(0.3, 0.6, 0.7) * 0.35 * gl;
-  acc = over(acc, vec3(0.01, 0.02, 0.04), 0.75 * ring);
-  acc = over(acc, mix(tint, vec3(1.0), 0.2), node);
-  gl_FragColor = acc * uA * uG;
-}`,
-  }));
-  const graph = new THREE.Mesh(gridGeo, graphMat);
-  graph.renderOrder = 6;
-  set.group.add(graph);
-
-  // ------------------------------------------------- the five lifted tiles
-  // a small H&E picture of what each holds (drawn, as the section is), lifted towards the viewer in an amber frame
-  const LQ = [[-0.5, -0.5], [0.5, -0.5], [0.5, 0.5], [-0.5, 0.5]];
-  const lGeo = new THREE.BufferGeometry(), lN = LIFT.length * 4;
-  const la = { position: new Float32Array(lN * 3), aN: new Float32Array(lN * 3), aT: new Float32Array(lN * 3), aB: new Float32Array(lN * 3), aQ: new Float32Array(lN * 2), aK: new Float32Array(lN), aDom: new Float32Array(lN) };
-  const LC = LIFT.map(t => {
-    const [s, d] = tileC(t), p = P3(s, d), n = nrm(p[0]);
-    return { s, d, p, n, ts: v3.norm(v3.sub(P3(s + 0.01, d), P3(s - 0.01, d))), td: v3.norm(v3.sub(P3(s, d + 0.01), P3(s, d - 0.01))) };
-  });
-  const lIdx = [];
-  LIFT.forEach((t, k) => {
-    const c = LC[k];
-    for (let q = 0; q < 4; q++) {
-      const o = 4 * k + q;
-      la.position.set(c.p, 3 * o); la.aN.set(c.n, 3 * o); la.aT.set(c.ts, 3 * o); la.aB.set(c.td, 3 * o);
-      la.aQ.set(LQ[q], 2 * o); la.aK[o] = k; la.aDom[o] = t.dom;
-    }
-    lIdx.push(4 * k, 4 * k + 1, 4 * k + 2, 4 * k, 4 * k + 2, 4 * k + 3);
-  });
-  for (const k of Object.keys(la)) lGeo.setAttribute(k, new THREE.BufferAttribute(la[k], k === 'aQ' ? 2 : k === 'aK' || k === 'aDom' ? 1 : 3));
-  lGeo.setIndex(lIdx);
-  lGeo.boundingSphere = new THREE.Sphere(new THREE.Vector3(), 1.3);
-  const LIFTH = 0.14, LIFTS = 1.2;   // how far a tile lifts off the slab, and how much it grows
-  const liftMat = pm(new THREE.ShaderMaterial({
-    uniforms: Object.assign({ uTS: { value: TS }, uTH: { value: TH }, uLH: { value: LIFTH }, uLS: { value: LIFTS } }, U), transparent: true, depthWrite: false, side: THREE.DoubleSide,
+  // ------------------------------------------------------- features: 16 glowing blocks on every tile
+  // (a 4 x 4 mosaic of low blocks on the tile, each as bright and as tall as one of its numbers, as the tour's cells
+  // light up in its fluorescence view: the slide darkens, and the mosaics light up in a wave from the close-up tile;
+  // as the tiles listen to their neighbours they settle to the mixed numbers, so neighbouring mosaics grow alike)
+  const NB = kept.length * NF, HB = 0.016, H0 = 0.0012;
+  const boxGeo = new THREE.InstancedBufferGeometry();
+  {
+    // a box without its floor: x, y across (-0.5..0.5), z up (0..1), with flat normals
+    const P = [], N = [], I = [];
+    const face = (o, u, v, n) => { const b = P.length / 3; for (const [a, c] of [[0, 0], [1, 0], [1, 1], [0, 1]]) { P.push(o[0] + u[0] * a + v[0] * c, o[1] + u[1] * a + v[1] * c, o[2] + u[2] * a + v[2] * c); N.push(...n); } I.push(b, b + 1, b + 2, b, b + 2, b + 3); };
+    face([-0.5, -0.5, 1], [1, 0, 0], [0, 1, 0], [0, 0, 1]);
+    face([-0.5, -0.5, 0], [1, 0, 0], [0, 0, 1], [0, -1, 0]); face([0.5, 0.5, 0], [-1, 0, 0], [0, 0, 1], [0, 1, 0]);
+    face([0.5, -0.5, 0], [0, 1, 0], [0, 0, 1], [1, 0, 0]); face([-0.5, 0.5, 0], [0, -1, 0], [0, 0, 1], [-1, 0, 0]);
+    boxGeo.setAttribute('position', new THREE.Float32BufferAttribute(P, 3)); boxGeo.setAttribute('normal', new THREE.Float32BufferAttribute(N, 3)); boxGeo.setIndex(I);
+    const aC = new Float32Array(NB * 3), aS = new Float32Array(NB * 3), aD = new Float32Array(NB * 3), aI = new Float32Array(NB * 4);
+    kept.forEach((t, k) => {
+      for (let b = 0; b < NF; b++) {
+        const o = k * NF + b;
+        aC.set(t.p, 3 * o); aS.set(t.ts, 3 * o); aD.set(t.td, 3 * o);
+        aI.set([b, t.f[b], t.m[b], t.wave + 0.012 * b], 4 * o);
+      }
+    });
+    for (const [n, a, w] of [['aC', aC, 3], ['aS', aS, 3], ['aD', aD, 3], ['aI', aI, 4]]) boxGeo.setAttribute(n, new THREE.InstancedBufferAttribute(a, w));
+    boxGeo.instanceCount = NB;
+    boxGeo.boundingSphere = new THREE.Sphere(new THREE.Vector3(), 1.4);
+  }
+  const barMat = new THREE.ShaderMaterial({
+    uniforms: Object.assign({ uTS: { value: TS }, uTH: { value: TH } }, U), transparent: true, depthWrite: true,
     vertexShader: `
-uniform float uFeat, uSink, uTS, uTH, uLH, uLS;
-attribute vec3 aN, aT, aB; attribute vec2 aQ; attribute float aK, aDom;
-varying vec2 vQ; varying float vDom, vL;
+uniform float uBK, uTS, uTH, uFeat, uAdj, uOut;
+attribute vec3 aC, aS, aD; attribute vec4 aI;
+varying vec3 vN, vV, vC; varying float vAl, vTop;
+${SIDE}
+${ICE}
 void main() {
-  float lk = smoothstep(0.0, 1.0, clamp((uFeat - 0.03 * aK) / 0.15, 0.0, 1.0)) * uSink;
-  vL = lk; vQ = aQ + 0.5; vDom = aDom;
-  vec3 p = position + aN * (uTH * 0.5 + 0.003 + uLH * lk) + (aT * aQ.x + aB * aQ.y) * uTS * (1.0 + uLS * lk);
-  gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0);
-  if (lk < 0.002) gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
+  float sd = slabSide(aC); vec3 n = slabN(aC) * sd;
+  float g = smoothstep(0.0, 1.0, clamp((uFeat * 1.45 - aI.w) / 0.45, 0.0, 1.0));
+  float v = mix(aI.y, aI.z, smoothstep(0.2, 0.85, uAdj));
+  float h = (${H0.toFixed(4)} + ${HB.toFixed(4)} * pow(v, 1.6)) * g * uOut * (1.0 - 0.45 * smoothstep(0.0, 0.5, uAdj));
+  float bx = mod(aI.x, 4.0), by = floor(aI.x / 4.0), bw = uTS * 0.25 * 0.66 * (1.0 - 0.3 * smoothstep(0.0, 0.6, uAdj));
+  vec3 o = aC + n * (uTH * 0.5 + 0.0018) + aS * ((bx + 0.5) * 0.25 - 0.5) * uTS * 0.86 + aD * ((by + 0.5) * 0.25 - 0.5) * uTS * 0.86;
+  vec3 p = o + aS * position.x * bw - aD * position.y * bw * sd + n * position.z * h;   // (aS, -aD, n) is right-handed: the faces wind outwards
+  vec4 mv = modelViewMatrix * vec4(p, 1.0);
+  vN = normalize(normalMatrix * (aS * normal.x - aD * normal.y * sd + n * normal.z)); vV = -mv.xyz;
+  vC = ice(v) * (0.75 + 0.5 * v); vAl = step(0.0005, h); vTop = position.z;
+  gl_Position = projectionMatrix * mv;
+  if (vAl < 0.5) gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
 }`,
     fragmentShader: `
 uniform float uA;
-varying vec2 vQ; varying float vDom, vL;
-vec3 he(float H, float E) { return exp(-(H * vec3(1.31, 1.37, 0.62) + E * vec3(0.16, 1.05, 0.6))); }
-vec2 h2(vec2 p) { return fract(sin(vec2(dot(p, vec2(127.1, 311.7)), dot(p, vec2(269.5, 183.3)))) * 43758.5453); }
-// distance to the nearest of a jittered grid of points (n per unit); st stretches the metric (spindles)
-float near(vec2 q, float n, vec2 st) {
-  vec2 g = q * n, b = floor(g); float best = 9.0;
-  for (int y = -1; y <= 1; y++) for (int x = -1; x <= 1; x++) {
-    vec2 o = b + vec2(float(x), float(y)), dd = (g - o - 0.15 - 0.7 * h2(o)) * st;
-    best = min(best, dot(dd, dd));
-  }
-  return sqrt(best) / n;
-}
+varying vec3 vN, vV, vC; varying float vAl, vTop;
 void main() {
-  vec2 q = vQ;
-  int k = int(vDom + 0.5);
-  vec3 col = he(0.06, 0.34), nuc = he(1.3, 0.35);
-  float nu = 0.0, wh = 0.0;
-  if (k == 0) {          // mucosa: gland cells round small lumens
-    col = he(0.62, 0.44); wh = 1.0 - smoothstep(0.03, 0.04, near(q, 3.2, vec2(1.0)));
-    nu = 1.0 - smoothstep(0.016, 0.022, near(q + 0.31, 13.0, vec2(1.0)));
-  } else if (k == 1) {   // submucosa: loose wavy collagen with clefts, a few spindle cells
-    col = he(0.06, 0.34); wh = smoothstep(0.78, 0.92, sin(q.y * 46.0 + 4.0 * sin(q.x * 7.0 + q.y * 3.0)));
-    nu = 1.0 - smoothstep(0.01, 0.016, near(q, 6.0, vec2(0.45, 2.2)));
-  } else if (k == 2) {   // inner muscle, cut across: round nuclei in polygonal bundles
-    col = he(0.04, 0.92); wh = 0.6 * smoothstep(0.9, 0.97, sin(q.x * 19.0 + 2.0 * sin(q.y * 9.0)));
-    nu = 1.0 - smoothstep(0.012, 0.018, near(q, 11.0, vec2(1.0)));
-  } else if (k == 3) {   // outer muscle, cut along: long nuclei
-    col = he(0.04, 0.9); wh = 0.6 * smoothstep(0.92, 0.98, sin(q.y * 17.0 + 1.5 * sin(q.x * 6.0)));
-    nu = 1.0 - smoothstep(0.012, 0.017, near(q, 8.0, vec2(0.28, 1.7)));
-  } else if (k == 4) {   // lymphoid: lymphocytes packed tight
-    col = he(0.34, 0.3); nu = 1.0 - smoothstep(0.016, 0.021, near(q, 21.0, vec2(1.0)));
-  } else {               // a vessel: a pink wall round a pale lumen
-    float r = length(q - vec2(0.45, 0.55));
-    col = mix(he(0.06, 0.4), he(0.05, 1.05), smoothstep(0.32, 0.29, r)); wh = smoothstep(0.19, 0.17, r);
-    nu = 1.0 - smoothstep(0.012, 0.018, near(q, 9.0, vec2(1.0)));
-  }
-  col = mix(col, vec3(0.97, 0.95, 0.97), wh);
-  col = mix(col, nuc, nu * (1.0 - wh));
-  float e = min(min(q.x, 1.0 - q.x), min(q.y, 1.0 - q.y));
-  col = mix(col, vec3(1.0, 0.74, 0.3), 1.0 - smoothstep(0.02, 0.05, e));
-  float a = vL * uA;
-  gl_FragColor = vec4(col * a, a);
+  vec3 n = normalize(vN), v = normalize(vV), l = normalize(vec3(-0.45, 0.6, 0.65));
+  float df = max(dot(n, l), 0.0), fr = pow(1.0 - max(dot(n, v), 0.0), 3.0);
+  vec3 col = vC * (0.5 + 0.7 * df) * mix(0.5, 1.15, vTop) + mix(vC, vec3(1.0), 0.5) * fr * 0.25;
+  gl_FragColor = vec4(col, uA);
 }`,
-  }));
-  const lifted = new THREE.Mesh(lGeo, liftMat);
-  lifted.renderOrder = 7; lifted.frustumCulled = false;
-  set.group.add(lifted);
-
-  // ------------------------------------------------------- the feature matrix
-  // tiles (columns) x features (rows), above the section, turned a little towards a viewer above it; the five lifted
-  // tiles' columns land in it, the others fill in (sorted by domain: similar tiles have similar descriptions). Every
-  // column is another tile (the matrix stands for tiles of many slides): where this section has too few of a kind (the
-  // patch, the vessels), a tile of that kind from elsewhere, described as its kind is plus noise
-  const MC = 32, CS = 0.025, MW = MC * CS, MH = NF * CS, MCEN = [0.1, 0.7, 0.12], MROT = -0.12;
-  const BLOCK = [[0, 7], [4, 3], [1, 8], [5, 2], [2, 6], [3, 6]];   // [domain, columns] in order
-  const cols = [], slotCol = [];
-  for (const [dom, n] of BLOCK) {
-    const pool = kept.filter(t => t.dom === dom && t.slot < 0), mid = Math.floor(n / 2), own = LIFT.find(t => t.dom === dom);
-    for (let c = 0; c < n; c++) {
-      if (own && c === mid) { slotCol[own.slot] = cols.length; cols.push({ t: own, slot: true }); continue; }
-      const t = pool.length ? pool.splice(Math.floor(R() * pool.length), 1)[0] : { f: featOf([0, 1, 2, 3, 4, 5].map(k => (k === dom ? 0.8 : k === 1 ? 0.2 : 0))) };
-      cols.push({ t, slot: false });
-    }
-  }
-  const MV = new Uint8Array(MC * NF * 4);
-  cols.forEach((c, x) => {
-    const near = Math.min(...slotCol.map(s => Math.abs(s - x)));
-    for (let f = 0; f < NF; f++) { const o = 4 * (x + MC * (NF - 1 - f)); MV[o] = b8(c.t.f[f]); MV[o + 1] = b8(near / 8); MV[o + 2] = c.slot ? 255 : 0; MV[o + 3] = 255; }
   });
-  const texV = new THREE.DataTexture(MV, MC, NF, THREE.RGBAFormat);
-  texV.magFilter = texV.minFilter = THREE.NearestFilter; texV.generateMipmaps = false; texV.needsUpdate = true;
-  const MARG = 0.04;
-  const matU = Object.assign({ tV: { value: texV }, uIn: { value: 0 }, uOut: { value: 1 } }, U);
-  const matMat = pm(new THREE.ShaderMaterial({
-    uniforms: matU, transparent: true, depthWrite: false, side: THREE.DoubleSide, extensions: { derivatives: true },
-    vertexShader: 'varying vec2 vUv; void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
-    fragmentShader: HEAT + `
-uniform sampler2D tV; uniform float uA, uFeat, uIn, uOut;
-varying vec2 vUv;
-const float MC = ${MC}.0, NF = ${NF}.0, M = ${(MARG / (MW + 2 * MARG)).toFixed(4)}, MV = ${(MARG / (MH + 2 * MARG)).toFixed(4)};
-void main() {
-  vec2 r = (vUv - vec2(M, MV)) / (1.0 - 2.0 * vec2(M, MV));
-  vec2 g = r * vec2(MC, NF), b = floor(g), f = g - b;
-  vec2 fw = max(fwidth(g), vec2(1e-5));
-  float inM = step(0.0, r.x) * step(r.x, 1.0) * step(0.0, r.y) * step(r.y, 1.0);
-  vec4 t = texture2D(tV, (clamp(b, vec2(0.0), vec2(MC - 1.0, NF - 1.0)) + 0.5) / vec2(MC, NF));
-  float rev = clamp((uFeat - 0.68 - 0.24 * t.g * 8.0 / 6.0) / 0.08, 0.0, 1.0) * (1.0 - step(0.5, t.b)) * inM;
-  float e = min(min(f.x, 1.0 - f.x), min(f.y, 1.0 - f.y));
-  float cell = smoothstep(0.05, 0.11, e);
-  // the frame of the matrix and of the five landing columns
-  vec2 ed = min(r, 1.0 - r) * vec2(MC, NF) / fw;
-  float fr = (1.0 - smoothstep(0.6, 1.6, abs(min(ed.x, ed.y)))) * step(-0.02, min(r.x, r.y)) * step(max(r.x, r.y), 1.02);
-  float sl = step(0.5, t.b) * inM * (1.0 - smoothstep(0.5, 1.5, min(f.x, 1.0 - f.x) / fw.x));
-  vec4 acc = vec4(0.0);
-  acc = over(acc, vec3(0.015, 0.03, 0.06), 0.6);
-  acc.rgb += heat(t.r) * 1.05 * cell * rev + vec3(0.45, 0.8, 1.0) * 0.5 * fr + vec3(1.0, 0.72, 0.28) * 0.6 * sl;
-  gl_FragColor = acc * uA * uIn * uOut;
-}`,
-  }));
-  const matrix = new THREE.Mesh(new THREE.PlaneGeometry(MW + 2 * MARG, MH + 2 * MARG), matMat);
-  matrix.position.set(...MCEN); matrix.rotation.x = MROT; matrix.renderOrder = 7;
-  set.group.add(matrix);
-  matrix.updateMatrix();
-  const mR = new THREE.Vector3(1, 0, 0).applyQuaternion(matrix.quaternion), mU = new THREE.Vector3(0, 1, 0).applyQuaternion(matrix.quaternion);
-  const M0 = new THREE.Vector3(...MCEN).addScaledVector(mR, -MW / 2).addScaledVector(mU, -MH / 2);
-
-  // the feature bars: a column of 16 per lifted tile (a little bar code: length and brightness are the numbers),
-  // which flies up into the matrix and becomes its column there
-  const bN = LIFT.length * NF, bGeo = new THREE.BufferGeometry();
-  const ba = { position: new Float32Array(bN * 12), aQ: new Float32Array(bN * 8), aK: new Float32Array(bN * 4), aF: new Float32Array(bN * 4), aV: new Float32Array(bN * 4) };
-  const bIdx = [];
-  LIFT.forEach((t, k) => {
-    for (let f = 0; f < NF; f++) {
-      const o = k * NF + f;
-      for (let q = 0; q < 4; q++) {
-        const w = 4 * o + q;
-        ba.aQ.set([q === 1 || q === 2 ? 1 : 0, q >= 2 ? 1 : 0], 2 * w); ba.aK[w] = k; ba.aF[w] = f; ba.aV[w] = t.f[f];
-      }
-      bIdx.push(4 * o, 4 * o + 1, 4 * o + 2, 4 * o, 4 * o + 2, 4 * o + 3);
-    }
-  });
-  for (const k of Object.keys(ba)) bGeo.setAttribute(k, new THREE.BufferAttribute(ba[k], k === 'position' ? 3 : k === 'aQ' ? 2 : 1));
-  bGeo.setIndex(bIdx);
-  const uS = LIFT.map(() => new THREE.Vector3()), uE = LIFT.map((t, k) => M0.clone().addScaledVector(mR, (slotCol[k] + 0.08) * CS).addScaledVector(mU, (NF - 1 + 0.08) * CS));
-  const barU = Object.assign({ uS: { value: uS }, uE: { value: uE }, uMR: { value: mR }, uMU: { value: mU }, uCS: { value: CS }, uOut: matU.uOut }, U);
-  const barMat = pm(new THREE.ShaderMaterial({
-    uniforms: barU, transparent: true, depthWrite: false, side: THREE.DoubleSide,
-    vertexShader: `
-uniform float uA, uFeat, uOut, uCS; uniform vec3 uS[${LIFT.length}], uE[${LIFT.length}], uMR, uMU;
-attribute vec2 aQ; attribute float aK, aF, aV;
-varying vec2 vQ; varying float vV, vG, vAl;
-void main() {
-  int k = int(aK + 0.5);
-  vec3 S = uS[k] + vec3(0.0, (15.0 - aF) * 0.015, 0.0), E = uE[k] - uMU * (aF * uCS);
-  float g = smoothstep(0.0, 1.0, clamp((uFeat - 0.42 - 0.05 * aK - 0.005 * aF) / 0.2, 0.0, 1.0));
-  float grow = clamp((uFeat - 0.15 - 0.03 * aK - 0.008 * (15.0 - aF)) / 0.05, 0.0, 1.0);
-  vec3 C = 0.5 * (S + E) + vec3(0.0, 0.05, 0.22);
-  vec3 P = (1.0 - g) * (1.0 - g) * S + 2.0 * (1.0 - g) * g * C + g * g * E;
-  float w = mix(0.01 + 0.075 * aV, uCS * 0.84, g) * grow, h = mix(0.012, uCS * 0.84, g);
-  vec3 R = normalize(mix(vec3(1.0, 0.0, 0.0), uMR, g)), U = normalize(mix(vec3(0.0, 1.0, 0.0), uMU, g));
-  P += R * (aQ.x * w) + U * (aQ.y * h);
-  vQ = aQ; vV = aV; vG = g; vAl = uA * uOut * step(0.001, grow);
-  gl_Position = projectionMatrix * modelViewMatrix * vec4(P, 1.0);
-  if (vAl < 0.003) gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
-}`,
-    fragmentShader: HEAT + `
-varying vec2 vQ; varying float vV, vG, vAl;
-void main() {
-  vec3 bar = mix(vec3(0.25, 0.7, 1.0), vec3(0.9, 1.0, 1.0), vV) * (0.5 + 0.9 * vV);
-  vec3 col = mix(bar, heat(vV) * 1.05, vG);
-  float e = min(min(vQ.x, 1.0 - vQ.x), min(vQ.y, 1.0 - vQ.y));
-  gl_FragColor = vec4(col * smoothstep(0.0, mix(0.2, 0.1, vG), e) * vAl, 0.0);
-}`,
-  }));
-  const bars = new THREE.Mesh(bGeo, barMat);
-  bars.renderOrder = 8; bars.frustumCulled = false;
+  set.mats.push(barMat);
+  const bars = new THREE.Mesh(boxGeo, barMat);
+  bars.frustumCulled = false; bars.renderOrder = 6;
   set.group.add(bars);
+
+  // ------------------------------------------------------- the network of neighbouring tiles
+  // A node floats over each tile (a lit sphere in the tile's colour: its description, its own and then mixed), joined
+  // to its eight neighbours by glowing tubes; light runs both ways along them (the messages), and the colours mix.
+  // Then the nodes lift off into a 3D map of their mixed descriptions (the first three principal components), where
+  // alike tiles gather; there they take their group's colour (a domain), and fly back down to colour the section.
+  const HN = 0.05;   // how high the network floats over the slab (above the tallest bars)
+  // the map: principal components of the mixed descriptions (power iteration, deflated), scaled to a ball
+  const ECEN = [0.04, 0.68, 0.3], ER = 0.58;
+  {
+    const n = kept.length, mu = new Array(NF).fill(0);
+    for (const t of kept) for (let f = 0; f < NF; f++) mu[f] += t.m[f] / n;
+    const Cv = Array.from({ length: NF }, () => new Array(NF).fill(0));
+    for (const t of kept) for (let a = 0; a < NF; a++) for (let b = 0; b < NF; b++) Cv[a][b] += (t.m[a] - mu[a]) * (t.m[b] - mu[b]) / n;
+    const PC = [];
+    for (let k = 0; k < 3; k++) {
+      let w = Array.from({ length: NF }, (_, i) => Math.sin(i * 1.7 + k));
+      for (let it = 0; it < 60; it++) {
+        const x = Cv.map(r => r.reduce((s, c, j) => s + c * w[j], 0));
+        for (const p of PC) { const d = x.reduce((s, c, j) => s + c * p.w[j], 0); for (let j = 0; j < NF; j++) x[j] -= d * p.w[j]; }
+        const l = Math.hypot(...x) || 1; w = x.map(c => c / l);
+      }
+      const lam = Cv.map(r => r.reduce((s, c, j) => s + c * w[j], 0)).reduce((s, c, j) => s + c * w[j], 0);
+      PC.push({ w, lam });
+    }
+    const Z = kept.map(t => PC.map(p => t.m.reduce((s, v, f) => s + (v - mu[f]) * p.w[f], 0) / Math.sqrt(Math.max(p.lam, 1e-9))));
+    const rad = Z.map(z => Math.hypot(...z)).sort((a, b) => a - b)[Math.floor(n * 0.95)] || 1;
+    // (each drawn 60 % of the way towards its own kind's middle, the middles a little apart, so the groups read as
+    // groups: illustrative, the method clusters in the full description)
+    const mid = DOM.map((_, d) => { const m = [0, 0, 0]; let c = 0; kept.forEach((t, k) => { if (t.dom === d) { for (let q = 0; q < 3; q++) m[q] += Z[k][q]; c++; } }); return m.map(v => 1.2 * v / Math.max(1, c)); });
+    kept.forEach((t, k) => { const z = Z[k].map((v, q) => v + 0.6 * (mid[t.dom][q] - v)); t.e = [ECEN[0] + z[0] / rad * ER * 1.2, ECEN[1] + z[1] / rad * ER * 0.8, ECEN[2] + z[2] / rad * ER * 0.7]; t.ph = R() * 6.28; t.gw = 0.5 * R(); });
+  }
+  // each group's middle in the map (for its label), and how many tiles it has
+  const GC = DOM.map((_, d) => { const m = [0, 0, 0]; let c = 0; for (const t of kept) if (t.dom === d) { for (let q = 0; q < 3; q++) m[q] += t.e[q]; c++; } return { p: m.map(v => v / Math.max(1, c)), n: c }; });
+  // nodes (instanced lit spheres) and their halos (instanced quads facing the camera)
+  const NK = kept.length;
+  const nodeGeo = new THREE.InstancedBufferGeometry();
+  {
+    const s = new THREE.IcosahedronGeometry(1, 1);
+    nodeGeo.setAttribute('position', s.attributes.position); nodeGeo.setAttribute('normal', s.attributes.normal);
+    if (s.index) nodeGeo.setIndex(s.index);
+  }
+  const haloGeo = new THREE.InstancedBufferGeometry();
+  haloGeo.setIndex([0, 1, 2, 0, 2, 3]);
+  haloGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array([-1, -1, 0, 1, -1, 0, 1, 1, 0, -1, 1, 0]), 3));
+  const NA = { aC: 3, aE: 3, aT0: 3, aT1: 3, aDc: 3, aW: 4 }, nAttr = {};
+  for (const k in NA) nAttr[k] = new THREE.InstancedBufferAttribute(new Float32Array(NK * NA[k]), NA[k]);
+  function fillNodes() {
+    kept.forEach((t, k) => {
+      nAttr.aC.array.set(t.p, 3 * k); nAttr.aE.array.set(t.e, 3 * k); nAttr.aT0.array.set(t.tint, 3 * k); nAttr.aT1.array.set(t.tintM, 3 * k);
+      nAttr.aDc.array.set([uCol[t.dom].x, uCol[t.dom].y, uCol[t.dom].z].map(x => clamp(x * 1.15, 0, 1)), 3 * k);
+      nAttr.aW.array.set([t.wave, 0.45 * dCL(t) / 1.4 + t.gw * 0.35, t.ph, t.dord], 4 * k);
+    });
+    for (const k in nAttr) nAttr[k].needsUpdate = true;
+  }
+  fillNodes();
+  for (const k in NA) { nodeGeo.setAttribute(k, nAttr[k]); haloGeo.setAttribute(k, nAttr[k]); }
+  nodeGeo.instanceCount = haloGeo.instanceCount = NK;
+  nodeGeo.boundingSphere = haloGeo.boundingSphere = new THREE.Sphere(new THREE.Vector3(), 1.6);
+  // where a node is (in the vertex shaders): over its tile, in flight, in the map, or back down; its colour and size
+  const NODEGL = `
+uniform float uBK, uTH, uAdj, uNet, uGrp, uLand, uTime;
+attribute vec3 aC, aE, aT0, aT1, aDc; attribute vec4 aW;
+${SIDE}
+vec3 nodeAt(out vec3 col, out float vis) {
+  float sd = slabSide(aC); vec3 n = slabN(aC) * sd, home = aC + n * (uTH * 0.5 + ${HN.toFixed(3)});
+  // appears in a wave from the close-up tile; lifts (staggered), arcs out towards you and up into the map, drifts there
+  float on = smoothstep(0.0, 1.0, clamp((uNet * 1.5 - aW.x) / 0.5, 0.0, 1.0));
+  float g = smoothstep(0.0, 1.0, clamp((uGrp * 1.6 - aW.y) / 0.6, 0.0, 1.0)), ld = smoothstep(0.0, 1.0, clamp((uLand * 1.6 - aW.y) / 0.6, 0.0, 1.0));
+  vec3 e = aE + 0.012 * vec3(sin(uTime * 0.7 + aW.z), sin(uTime * 0.55 + aW.z * 1.3), cos(uTime * 0.6 + aW.z));
+  vec3 mid = mix(home, e, 0.5) + vec3(0.0, 0.06, 0.18);
+  float u = g * (1.0 - ld);
+  vec3 p = mix(mix(home, mid, u), mix(mid, e, u), u);
+  // its colour: its own description, then the mixed one; in the map its group's colour; down again, it melts into the wash
+  col = mix(mix(aT0, aT1, smoothstep(0.25, 0.85, uAdj)), aDc, smoothstep(0.35, 0.9, g));
+  vis = max(on, step(0.001, uGrp) * 1.0) * (1.0 - smoothstep(0.7, 1.0, ld));
+  return p;
+}`;
+  const nodeMat = new THREE.ShaderMaterial({
+    uniforms: Object.assign({ uR: { value: 0.0062 } }, U), transparent: true, depthWrite: true,
+    vertexShader: NODEGL + `
+uniform float uR;
+varying vec3 vN, vV, vC; varying float vA;
+void main() {
+  vec3 col; float vis;
+  vec3 p = nodeAt(col, vis);
+  vec4 mv = modelViewMatrix * vec4(p + position * uR * (0.4 + 0.6 * vis) * (1.0 + 1.5 * smoothstep(0.3, 1.0, uGrp) * (1.0 - uLand)), 1.0);
+  vN = normalize(normalMatrix * normal); vV = -mv.xyz; vC = col; vA = vis;
+  gl_Position = projectionMatrix * mv;
+  if (vis < 0.01) gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
+}`,
+    fragmentShader: `
+uniform float uA;
+varying vec3 vN, vV, vC; varying float vA;
+void main() {
+  vec3 n = normalize(vN), v = normalize(vV), l = normalize(vec3(-0.45, 0.6, 0.65));
+  float df = max(dot(n, l), 0.0), fr = pow(1.0 - max(dot(n, v), 0.0), 2.2), sp = pow(max(dot(reflect(-l, n), v), 0.0), 24.0);
+  vec3 col = vC * (0.45 + 0.75 * df) + mix(vC, vec3(1.0), 0.5) * fr * 0.6 + vec3(sp * 0.35);
+  gl_FragColor = vec4(col, uA * vA);
+}`,
+  });
+  set.mats.push(nodeMat);
+  const nodes = new THREE.Mesh(nodeGeo, nodeMat);
+  nodes.frustumCulled = false; nodes.renderOrder = 8;
+  set.group.add(nodes);
+  const haloMat = new THREE.ShaderMaterial({
+    uniforms: Object.assign({ uR: { value: 0.0062 } }, U), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+    vertexShader: NODEGL + `
+uniform float uR;
+varying vec3 vC; varying float vA; varying vec2 vQ;
+void main() {
+  vec3 col; float vis;
+  vec3 p = nodeAt(col, vis);
+  vec4 mv = modelViewMatrix * vec4(p, 1.0);
+  mv.xy += position.xy * uR * 3.6 * (1.0 + 1.5 * smoothstep(0.3, 1.0, uGrp) * (1.0 - uLand)) * length(modelViewMatrix[0].xyz);
+  vC = col; vA = vis; vQ = position.xy;
+  gl_Position = projectionMatrix * mv;
+  if (vis < 0.01) gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
+}`,
+    fragmentShader: `
+uniform float uA;
+varying vec3 vC; varying float vA; varying vec2 vQ;
+void main() {
+  float d = length(vQ);
+  if (d > 1.0) discard;
+  float g = exp(-max(d * 3.6 - 0.9, 0.0) * 1.5) * smoothstep(1.0, 0.55, d);
+  gl_FragColor = vec4(mix(vC, vec3(1.0), 0.2) * g * 0.7, g * 0.6 * vA * uA);
+}`,
+  });
+  set.mats.push(haloMat);
+  const halos = new THREE.Mesh(haloGeo, haloMat);
+  halos.frustumCulled = false; halos.renderOrder = 9;
+  set.group.add(halos);
+
+  // the links: a ribbon per pair of neighbours (eight around a tile), turned to face the camera and shaded as a round
+  // tube, its colour running from one end's tile to the other's; messages are bright pulses running both ways
+  const LK = [];
+  for (const t of kept) for (const [di, dj] of [[1, 0], [0, 1], [1, 1], [1, -1]]) { const u = T(t.i + di, t.j + dj); if (u && u.keep) LK.push([t, u, di && dj ? 1 : 0]); }
+  const linkGeo = new THREE.InstancedBufferGeometry();
+  linkGeo.setIndex([0, 1, 2, 0, 2, 3]);
+  linkGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array([0, -1, 0, 1, -1, 0, 1, 1, 0, 0, 1, 0]), 3));
+  {
+    const n = LK.length, at = {};
+    for (const k of ['aA', 'aB', 'aA0', 'aA1', 'aB0', 'aB1']) at[k] = new Float32Array(n * 3);
+    at.aW = new Float32Array(n * 4);
+    LK.forEach(([a, b, dg], k) => {
+      at.aA.set(a.p, 3 * k); at.aB.set(b.p, 3 * k); at.aA0.set(a.tint, 3 * k); at.aA1.set(a.tintM, 3 * k); at.aB0.set(b.tint, 3 * k); at.aB1.set(b.tintM, 3 * k);
+      at.aW.set([Math.min(a.wave, b.wave), R(), R(), dg], 4 * k);
+    });
+    for (const k in at) linkGeo.setAttribute(k, new THREE.InstancedBufferAttribute(at[k], k === 'aW' ? 4 : 3));
+    linkGeo.instanceCount = n;
+    linkGeo.boundingSphere = new THREE.Sphere(new THREE.Vector3(), 1.4);
+  }
+  const linkMat = new THREE.ShaderMaterial({
+    uniforms: Object.assign({ uW: { value: 0.0029 } }, U), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+    vertexShader: `
+uniform float uBK, uTH, uNet, uAdj, uGrp, uW;
+attribute vec3 aA, aB, aA0, aA1, aB0, aB1; attribute vec4 aW;
+varying vec3 vCA, vCB; varying vec2 vQ; varying float vVis, vPh, vSp, vLen;
+${SIDE}
+void main() {
+  float sa = slabSide(aA), sb = slabSide(aB);
+  vec3 A = aA + slabN(aA) * sa * (uTH * 0.5 + ${HN.toFixed(3)}), B = aB + slabN(aB) * sb * (uTH * 0.5 + ${HN.toFixed(3)});
+  float on = smoothstep(0.0, 1.0, clamp((uNet * 1.5 - aW.x - 0.06) / 0.5, 0.0, 1.0)) * (1.0 - smoothstep(0.0, 0.25, uGrp));
+  vec4 a = modelViewMatrix * vec4(A, 1.0), b = modelViewMatrix * vec4(B, 1.0);
+  vec3 dir = b.xyz - a.xyz, mid = mix(a.xyz, b.xyz, position.x);
+  vec3 sideV = normalize(cross(dir, mid));
+  vec4 mv = vec4(mid + sideV * position.y * uW * (aW.w > 0.5 ? 0.75 : 1.0) * length(modelViewMatrix[0].xyz), 1.0);
+  float m = smoothstep(0.25, 0.85, uAdj);
+  vCA = mix(aA0, aA1, m); vCB = mix(aB0, aB1, m);
+  vQ = position.xy; vVis = on * (aW.w > 0.5 ? 0.6 : 1.0); vPh = aW.y; vSp = aW.z; vLen = length(dir);
+  gl_Position = projectionMatrix * mv;
+  if (vVis < 0.01) gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
+}`,
+    fragmentShader: `
+uniform float uA, uTime, uAdj;
+varying vec3 vCA, vCB; varying vec2 vQ; varying float vVis, vPh, vSp, vLen;
+void main() {
+  float r = abs(vQ.y), core = 1.0 - r * r;
+  // messages: two pulses on each link, one each way, while the tiles listen to their neighbours
+  float t1 = fract(uTime * (0.32 + 0.12 * vSp) + vPh), t2 = fract(uTime * (0.32 + 0.12 * vSp) + vPh + 0.5);
+  float msg = (exp(-pow((vQ.x - t1) / 0.08, 2.0)) + exp(-pow((1.0 - vQ.x - t2) / 0.08, 2.0))) * smoothstep(0.0, 0.3, uAdj) * (1.0 - smoothstep(0.85, 1.0, uAdj) * 0.6);
+  vec3 c = mix(vCA, vCB, smoothstep(0.15, 0.85, vQ.x));
+  vec3 col = mix(c, vec3(1.0), 0.25 + 0.5 * pow(core, 4.0)) * (0.5 + 2.4 * msg);
+  float a = pow(core, 1.5) * vVis * (0.45 + 0.55 * msg);
+  gl_FragColor = vec4(col * a, a) * uA;
+}`,
+  });
+  set.mats.push(linkMat);
+  const links = new THREE.Mesh(linkGeo, linkMat);
+  links.frustumCulled = false; links.renderOrder = 7;
+  set.group.add(links);
 
   // ------------------------------------------------------------- the gauge
   // the submucosa's share of the gut's slides in the preprint (its example; not of this drawn section, whose submucosa
-  // thins by the same fraction) and the age, on a small panel above the section
-  const GW = 0.68, GH = 0.26, GCEN = [-0.5, 0.57, 0.06];
+  // thins by the same fraction) and the age, on a small slab of dark glass above the section (its face drawn on a
+  // canvas, its edges lit)
+  const GW = 0.68, GH = 0.26, GD = 0.022, GCEN = [-0.5, 0.57, 0.06];
   const gCan = document.createElement('canvas'); gCan.width = 512; gCan.height = 196;
   const gTex = new THREE.CanvasTexture(gCan);
   gTex.minFilter = THREE.LinearFilter; gTex.generateMipmaps = false;
   const gaugeU = { uA: set.uA, uK: { value: 0 }, tMap: { value: gTex } };
   const gaugeMat = new THREE.ShaderMaterial({
-    uniforms: gaugeU, transparent: true, depthWrite: false, side: THREE.DoubleSide,
-    vertexShader: 'varying vec2 vUv; void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
-    fragmentShader: 'uniform sampler2D tMap; uniform float uA, uK; varying vec2 vUv; void main() { vec4 c = texture2D(tMap, vUv); gl_FragColor = vec4(c.rgb, c.a * uA * uK); }',
+    uniforms: gaugeU, transparent: true, depthWrite: false,
+    vertexShader: 'varying vec2 vUv; varying vec3 vN, vV; void main() { vUv = uv; vN = normalize(normalMatrix * normal); vec4 mv = modelViewMatrix * vec4(position, 1.0); vV = -mv.xyz; gl_Position = projectionMatrix * mv; }',
+    fragmentShader: `
+uniform sampler2D tMap; uniform float uA, uK; varying vec2 vUv; varying vec3 vN, vV;
+void main() {
+  vec3 n = normalize(vN), v = normalize(vV);
+  float fr = pow(1.0 - abs(dot(n, v)), 2.0), df = max(dot(n, normalize(vec3(-0.45, 0.6, 0.65))), 0.0);
+  vec4 c = abs(n.z) > 0.9 && gl_FrontFacing ? texture2D(tMap, vUv) : vec4(vec3(0.06, 0.1, 0.18) * (0.6 + 0.8 * df) + vec3(0.5, 0.65, 0.9) * fr, 0.92);
+  gl_FragColor = vec4(c.rgb, c.a * uA * uK);
+}`,
   });
   set.mats.push(gaugeMat);
-  const gauge = new THREE.Mesh(new THREE.PlaneGeometry(GW, GH), gaugeMat);
-  gauge.position.set(...GCEN); gauge.rotation.x = -0.1; gauge.renderOrder = 9;
+  const gauge = new THREE.Mesh(new THREE.BoxGeometry(GW, GH, GD), gaugeMat);
+  gauge.position.set(...GCEN); gauge.rotation.x = -0.1; gauge.renderOrder = 10;
   set.group.add(gauge);
   const fmt = x => x.toFixed(1);
   let gKey = '';
@@ -642,7 +668,8 @@ void main() {
     const g = gCan.getContext('2d'), W = gCan.width, H = gCan.height, col = DOM[1].css;
     g.clearRect(0, 0, W, H);
     const rnd = (x, y, w, h, r) => { g.beginPath(); g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r); g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath(); };
-    rnd(3, 3, W - 6, H - 6, 18); g.fillStyle = 'rgba(4,9,18,0.86)'; g.fill(); g.lineWidth = 3; g.strokeStyle = col; g.globalAlpha = 0.75; g.stroke(); g.globalAlpha = 1;
+    g.fillStyle = 'rgba(4,9,18,0.94)'; g.fillRect(0, 0, W, H);
+    rnd(3, 3, W - 6, H - 6, 14); g.lineWidth = 3; g.strokeStyle = col; g.globalAlpha = 0.75; g.stroke(); g.globalAlpha = 1;
     g.textBaseline = 'alphabetic';
     g.fillStyle = '#e7eef8'; g.font = 'bold 38px sans-serif'; g.textAlign = 'left'; g.fillText('Submucosa', 24, 56);
     g.fillStyle = col; g.font = 'bold 50px sans-serif'; g.textAlign = 'right'; g.fillText(fmt(share) + ' %', W - 24, 60);
@@ -664,28 +691,25 @@ void main() {
   const ghostS = { tissue_a: 1, tissue_graph: 0, tissue_mark: 0, tissue_embed: 0 };
 
   // ------------------------------------------------------ anchors and views
-  const LA = { mucosa: 0.22, submucosa: 0.2, inner: 0.6, outer: 1.34, group: 1.15 };   // where along the section
+  const LA = { mucosa: 0.22, submucosa: 0.2, inner: 0.6, outer: 1.34 };   // where along the section
   // the domains' labels: each at the middle of its layer (at 20) where it is clear of the others' in the domains and
   // age views (the mucosa, submucosa and inner muscle stacked on the left, the patch, the vessels and the outer
   // muscle along the section)
   const bandMid = (s, k) => { const ly = layers(s), e = [ly.top, ly.b1, ly.b2, ly.bm, ly.bot]; return front(s, (e[k] + e[k + 1]) / 2); };
   const DA = [bandMid(LA.mucosa, 0), bandMid(LA.submucosa, 1), bandMid(LA.inner, 2), bandMid(LA.outer, 3),
     front(AG.s + AG.A * 0.6, AG.d), front(VES[0].s + 0.01, VES[0].d)];
-  const liftNow = LIFT.map(() => 0);
-  const liftPos = k => { const c = LC[k]; return v3.add(c.p, v3.mul(c.n, TH / 2 + 0.003 + LIFTH * liftNow[k])); };
-  const CL = T(16, 3), clS = (CL.i + 0.5) * TS, clD = D0 + (CL.j + 0.5) * TS;   // the close-up: a tile on the mucosa / submucosa border
+  const above = (t, h, ds) => v3.add(v3.add(t.p, v3.mul(nrm(t.p[0]), TH / 2 + h)), v3.mul(t.ts, ds || 0));
   const anchors = {
     tiles: front(5.5 * TS, D0 + 0.004),
-    matrix: [MCEN[0] + MW / 2 + 0.02, MCEN[1] + MH / 2 - 0.02, MCEN[2] + 0.03],
+    feat: above(CL, HB + 0.012, TS * 0.55), listen: above(CL, HN), close: above(CL, 0.012),
+    cloud: [ECEN[0] - ER * 0.3, ECEN[1] + ER * 0.95, ECEN[2]], cloudC: ECEN.slice(),
     mucosa: DA[0], submucosa: DA[1], inner: DA[2], outer: DA[3], lymphoid: DA[4], vessels: DA[5],
     muscularis: front(1.05, (layers(1.05).b2 + layers(1.05).bot) / 2),
     gauge: [GCEN[0] + GW / 2 + 0.01, GCEN[1] + 0.04, GCEN[2]],
-    listen: front(clS, clD, 0.011), close: front(CL.i * TS, D0 + CL.j * TS, 0.006),
-    group: front(LA.group, layers(LA.group).top + 0.01),
   };
-  LIFT.forEach((t, k) => { anchors['feat' + k] = () => liftPos(k); });
+  GC.forEach((g, k) => { anchors['grp' + k] = [g.p[0] + 0.03, g.p[1] + 0.05, g.p[2]]; });
   const azAt = p => { const n = nrm(p[0]); return Math.atan2(n[0], n[2]) * 180 / PI; };
-  const Cc = anchors.close, Tc = front(0.72, 0.2);
+  const Tc = front(0.72, 0.2), Fc = above(CL, 0.016), Nc = above(CL, 0.03, TS * 0.5);
 
   const DK = ['mucosa', 'submucosa', 'inner', 'outer', 'lymphoid', 'vessels'];
   const gaugeOn = S => Math.max(S.slide_gauge || 0, prog(S.slide_age, 0, 0.05));
@@ -694,28 +718,25 @@ void main() {
     return Math.max(prog(S.slide_domain, 0.62, 0.95), clamp(f, 0, 1)) * sel * (k >= 4 ? 1 - gaugeOn(S) : 1);
   };
   let lastAge = 0;
-  const _o = [0, 0, 0];
+  const VIEWS = ['section', 'tiles', 'matrix', 'close', 'group', 'domains', 'age'];
 
   return Object.assign(set, {
-    params: { slide_a: 1, slide_tiles: 0, slide_feat: 0, slide_adj: 0, slide_domain: 0, slide_age: 0, slide_focus: 0, slide_gauge: 0, slide_ghost: 0 },
+    params: { slide_a: 1, slide_tiles: 0, slide_feat: 0, slide_adj: 0, slide_group: 0, slide_domain: 0, slide_age: 0, slide_focus: 0, slide_gauge: 0, slide_ghost: 0 },
     update(S, t, dt) {
-      const tl = S.slide_tiles, ft = S.slide_feat, ad = S.slide_adj, dm = S.slide_domain, ag = S.slide_age, fc = S.slide_focus;
-      const later = Math.max(ad, dm), sink = 1 - prog(later, 0, 0.25);
-      U.uTiles.value = tl; U.uFeat.value = ft; U.uSink.value = sink; U.uAdj.value = ad; U.uDom.value = dm; U.uAge.value = ag; U.uFoc.value = fc;
-      U.uG.value = prog(ad, 0, 0.25) * (1 - prog(dm, 0.1, 0.45));
-      matU.uIn.value = prog(ft, 0.35, 0.55); matU.uOut.value = 1 - prog(later, 0.1, 0.45);
+      const tl = S.slide_tiles, ft = S.slide_feat, ad = S.slide_adj, gr = clamp(S.slide_group || 0, 0, 2), dm = S.slide_domain, ag = S.slide_age, fc = S.slide_focus;
+      U.uTiles.value = tl; U.uAdj.value = ad; U.uDom.value = dm; U.uAge.value = ag; U.uFoc.value = fc;
+      U.uGrp.value = clamp(gr, 0, 1); U.uLand.value = clamp(gr - 1, 0, 1);
+      // the network shows with the neighbours (and while the nodes are in the map); the bars from the features on, until
+      // the tiles group
+      U.uNet.value = Math.max(ad, gr > 0 && gr < 2 ? 1 : 0);
+      U.uFeat.value = ft * (1 - prog(gr, 0, 0.3));
+      U.uOut.value = 1 - prog(gr, 0, 0.25);
+      U.uDim.value = Math.max(ad * (1 - prog(gr, 0, 0.3)), 0.85 * prog(gr, 0.1, 0.5) * (1 - prog(gr, 1, 1.4)));   // (the slide dims under the map)
       // hidden parts are not drawn at all
       wash.visible = tl + ft + ad + dm + fc > 0.001;
-      graph.visible = U.uG.value > 0.003;
-      lifted.visible = ft > 0.001 && sink > 0.001;
-      matrix.visible = matU.uIn.value * matU.uOut.value > 0.003;
-      bars.visible = ft > 0.15 && matU.uOut.value > 0.003;
-      for (let k = 0; k < LIFT.length; k++) {
-        liftNow[k] = smooth(clamp((ft - 0.03 * k) / 0.15, 0, 1)) * sink;
-        const c = LC[k], sc = TS * (1 + LIFTS * liftNow[k]) / 2, h = TH / 2 + 0.003 + LIFTH * liftNow[k];
-        for (let i = 0; i < 3; i++) _o[i] = c.p[i] + c.n[i] * h;
-        uS[k].set(_o[0] - sc, _o[1] + sc + 0.012, _o[2]);
-      }
+      bars.visible = ft > 0.001 && U.uOut.value > 0.003;
+      links.visible = ad > 0.001 && gr < 0.25;
+      nodes.visible = halos.visible = (ad > 0.001 || gr > 0.001) && gr < 1.999;
       const gv = gaugeOn(S);
       gaugeU.uK.value = gv; gauge.visible = gv > 0.003;
       if (gauge.visible) drawGauge(lerp(EX.from, EX.to, ag), lerp(AGES[0], AGES[1], ag));
@@ -727,10 +748,12 @@ void main() {
     anchors,
     labels: [
       { text: ['Tiles', ''], at: 'tiles', cls: 'cyn', alpha: S => prog(S.slide_tiles, 0.15, 0.45) * (1 - prog(S.slide_feat, 0.05, 0.25)) * (1 - prog(Math.max(S.slide_adj, S.slide_domain), 0, 0.2)) },
-      { text: ['Features', 'from a vision model'], at: 'matrix', cls: 'amb', alpha: S => prog(S.slide_feat, 0.6, 0.85) * (1 - prog(Math.max(S.slide_adj, S.slide_domain), 0.05, 0.3)) },
-      { text: ['Each tile', 'listens to its neighbours'], at: 'listen', cls: 'cyn', alpha: S => prog(S.slide_adj, 0.3, 0.6) * (1 - prog(S.slide_domain, 0.1, 0.3)) },
-      // the method's last step (only after the steps before it: on its own the wash is just the domains)
-      { text: ['Similar tiles', 'group into domains'], at: 'group', cls: 'cyn', alpha: S => prog(S.slide_domain, 0.12, 0.35) * (1 - prog(S.slide_domain, 0.5, 0.64)) * prog(S.slide_tiles, 0.5, 1) * (1 - clamp(S.slide_focus, 0, 1)) },
+      { text: ['Features', 'a list of numbers a tile'], at: 'feat', cls: 'cyn', alpha: S => prog(S.slide_feat, 0.45, 0.75) * (1 - prog(Math.max(S.slide_adj, S.slide_group || 0, S.slide_domain), 0.05, 0.3)) },
+      { text: ['Each tile', 'listens to its neighbours'], at: 'listen', cls: 'cyn', alpha: S => prog(S.slide_adj, 0.3, 0.6) * (1 - prog(Math.max(S.slide_group || 0, S.slide_domain), 0.02, 0.2)) },
+      // the method's last step: alike tiles gather in the map of their descriptions
+      { text: ['Alike tiles', 'gather: a domain each'], at: 'cloud', cls: 'cyn', alpha: S => prog(S.slide_group || 0, 0.6, 0.9) * (1 - prog(S.slide_group || 0, 1.05, 1.35)) * (1 - clamp(S.slide_focus, 0, 1)) },
+      // (each group in the map named as the domain it becomes; groups of a handful of tiles too small to name)
+      ...DOM.map((d, k) => ({ text: d.label, at: 'grp' + k, cls: d.cls, alpha: S => (GC[k].n >= 8 ? 1 : 0) * prog(S.slide_group || 0, 0.75, 0.95) * (1 - prog(S.slide_group || 0, 1.02, 1.25)) * (1 - clamp(S.slide_focus, 0, 1)) })),
       ...DOM.map((d, k) => ({ text: d.label, at: DK[k], cls: d.cls, alpha: S => domA(k, S) })),
       // (the numbers are on the gauge)
       { text: ['Gut submucosa', 'thins with age'], at: 'gauge', cls: 'mag', alpha: S => gaugeOn(S) },
@@ -738,20 +761,23 @@ void main() {
     cam: {
       default: [0, 6, 3.2, 0, 0, 0], section: [0, 6, 3.2, 0, 0, 0],
       tiles: [azAt(Tc) - 24, 12, 1.7, ...Tc],
-      matrix: [4, 9, 3.9, 0.06, 0.28, 0.05],
-      close: [azAt(Cc) - 12, 9, 0.42, ...Cc],
+      // (the features and the network from a slant, so the bars and the floating network stand out of the slide)
+      matrix: [azAt(Fc) - 22, 20, 0.56, ...Fc],
+      close: [azAt(Nc) - 14, 26, 0.8, ...Nc],
+      // (the map and the whole section under it)
+      group: [-12, 12, 3.0, ECEN[0] + 0.04, ECEN[1] * 0.5, ECEN[2] * 0.45],
       domains: [5, 5, 2.85, 0.02, -0.02, 0],
       age: [0, 8, 3.25, -0.06, 0.12, 0],
     },
     controls: [
-      { key: 'view', label: 'View', options: [['section', 'Section'], ['tiles', 'Tiles'], ['matrix', 'Features'], ['close', 'Neighbours'], ['domains', 'Domains'], ['age', 'Age']] },
+      { key: 'view', label: 'View', options: [['section', 'Section'], ['tiles', 'Tiles'], ['matrix', 'Features'], ['close', 'Neighbours'], ['group', 'Groups'], ['domains', 'Domains'], ['age', 'Age']] },
       { key: 'age', label: 'Age', options: [['20', '20'], ['70', '70']] },
     ],
     explore(c) {
-      const v = c.view, i = ['section', 'tiles', 'matrix', 'close', 'domains', 'age'].indexOf(v);
+      const i = VIEWS.indexOf(c.view);
       return {
-        slide_tiles: i >= 1 ? 1 : 0, slide_feat: i === 2 ? 1 : 0, slide_adj: i >= 3 ? 1 : 0, slide_domain: i >= 4 ? 1 : 0,
-        slide_age: i >= 4 && c.age === '70' ? 1 : 0, slide_gauge: i === 5 ? 1 : 0,
+        slide_tiles: i >= 1 ? 1 : 0, slide_feat: i === 2 || i === 3 ? 1 : 0, slide_adj: i >= 3 ? 1 : 0, slide_group: i === 4 ? 1 : i >= 5 ? 2 : 0,
+        slide_domain: i >= 4 ? 1 : 0, slide_age: i >= 5 && c.age === '70' ? 1 : 0, slide_gauge: i === 6 ? 1 : 0,
       };
     },
     api() {
@@ -777,12 +803,12 @@ void main() {
         // take another set's palette (fn(name) -> '#rrggbb' or [r, g, b])
         recolour(fn) {
           DOM.forEach(d => { const c = fn(d.name); if (c) d.css = Array.isArray(c) ? '#' + c.map(x => b8(x).toString(16).padStart(2, '0')).join('') : c; });
-          fillCols(); gKey = '';
+          fillCols(); fillNodes(); gKey = '';
         },
       };
     },
-    textures: [texT, texV, gTex],
-    dispose() { if (ghost) ghost.dispose(); K.dispose(set); texT.dispose(); texV.dispose(); gTex.dispose(); },
-    tileCount: kept.length,
+    textures: [texT, gTex],
+    dispose() { if (ghost) ghost.dispose(); K.dispose(set); texT.dispose(); gTex.dispose(); },
+    tileCount: kept.length, linkCount: LK.length,
   });
 };

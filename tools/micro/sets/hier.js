@@ -5,6 +5,9 @@
 // at the domains, so the tissue types sit at the waist of an hourglass; links hang between the rings as soft threads.
 // Everything follows the params; only the switch from one focused node or organ to the next eases in its own time
 // (a jump to another index crossfades for 0.3 s; a seek or the first frame shows the new one at once).
+// The look matches the other stories' networks: lit nodes with soft halos, links as glowing tubes with a colour
+// gradient and a light running along them, each level a glowing plate's rim; the organs are small 3D models
+// (ORGAN3D, sets/organs.js), built between frames while the set is hidden, spheres until they are ready.
 SETS.hier = function (K) {
   const { THREE, clamp, lerp, prog, smooth, v3, rgb } = K;
   const set = K.newSet('hier');
@@ -95,6 +98,8 @@ SETS.hier = function (K) {
   const POS = ids.map(i => { const [R, y] = RING[LEV[i]], a = ANG[i]; return [R * Math.sin(a), y, R * Math.cos(a)]; });
   const RAD = ids.map(i => (LEV[i] === 3 ? 0.013 + 0.0026 * Math.sqrt(AB[i]) : LEV[i] === 2 ? 0.028 + 0.0075 * Math.sqrt(DEG[i]) : 0.024 + 0.007 * Math.sqrt(DEG[i])));
   const SW = ids.map(i => 0.08 * norm(ANG[i] + PI) / TAU);   // each ring grows round from the back
+  // an organ's model is larger than a sphere node (its shape must read), the others as before
+  const ORAD = ids.map(i => (LEV[i] === 0 ? 0.062 + 0.005 * Math.sqrt(DEG[i]) : RAD[i]));
 
   // ---------------------------------------------------------------- the domain-contact networks
   // Organs with contact findings. Their domains (names as in the graph; calcified plaque is not a domain of the graph)
@@ -259,7 +264,7 @@ SETS.hier = function (K) {
   // ---------------------------------------------------------------- the network's threads (tubes, in the hierarchy's group)
   const hg = new THREE.Group();   // the four-level network: moves back and shrinks as a contact network comes forward
   set.group.add(hg);
-  const TS = 18, TR = 4, EV = (TS + 1) * TR;
+  const TS = 18, TR = 6, EV = (TS + 1) * TR;
   const thrGeo = new THREE.BufferGeometry();
   const aH = new Float32Array(NE * EV);
   {
@@ -305,44 +310,74 @@ SETS.hier = function (K) {
     vertexShader: `
 attribute vec3 aNrm; attribute float aT, aS, aL0, aL1, aPh, aH;
 uniform float uGrow, uF, uK; uniform vec3 uLC[4];
-varying vec3 vC; varying float vA, vT, vPh, vH;
+varying vec3 vC, vN, vV; varying float vA, vT, vPh, vH;
 void main() {
   // drawn from the upper node down to the lower one as the lower level grows; the growing end tapers
   float g = clamp((uGrow - aS) / 0.12, 0.0, 1.0), on = step(aT, g + 0.0001), tip = g > 0.999 ? 1.0 : smoothstep(g, g - 0.15, aT);
+  // (thick enough to read as tubes from afar; the rest stay in view, a little dimmer, while a node is focused)
   float h = aH * uF;
-  float r = 0.0026 * (1.0 + 0.9 * h) * on * mix(0.3, 1.0, tip);
+  float r = 0.0095 * (1.0 + 0.4 * h) * on * mix(0.3, 1.0, tip);
   vC = mix(uLC[int(aL0 + 0.5)], uLC[int(aL1 + 0.5)], aT); vT = aT; vPh = aPh; vH = h;
-  vA = on * uK * (0.34 * (1.0 - 0.82 * uF) + 0.8 * h);
+  vA = on * uK * (0.6 * (1.0 - 0.45 * uF) + 0.55 * h);
   vec4 mv = modelViewMatrix * vec4(position + aNrm * r, 1.0);
+  vN = normalMatrix * aNrm; vV = -mv.xyz;
   gl_Position = projectionMatrix * mv;
 }`,
     fragmentShader: `
 uniform float uA, uTime;
-varying vec3 vC; varying float vA, vT, vPh, vH;
+varying vec3 vC, vN, vV; varying float vA, vT, vPh, vH;
 void main() {
   if (vA < 0.003) discard;
-  // a light runs down each thread now and then (organ to domain)
+  // a soft glowing tube in its levels' colours (from the upper level's to the lower one's): lit across, bright along
+  // its middle, fading to its edges; a light runs down it now and then (organ to domain)
+  float c = abs(dot(normalize(vN), normalize(vV)));
   float run = pow(0.5 + 0.5 * sin(vT * 7.0 - uTime * 1.4 + vPh), 12.0);
-  vec3 col = mix(vC, vec3(1.0), 0.18 + 0.25 * vH) * (0.75 + 0.9 * run);
-  gl_FragColor = vec4(col, vA * uA);
+  vec3 col = mix(vC, vec3(1.0), 0.12) * (0.5 + 0.85 * c) * (0.8 + 0.9 * run) + vec3(1.0) * (0.08 * pow(c, 6.0) + 0.22 * vH * pow(c, 3.0) + 0.18 * run);
+  gl_FragColor = vec4(col, vA * uA * (0.25 + 0.75 * c) * (1.0 + 0.5 * run));
 }`,
   });
   set.mats.push(thrMat);
   const threads = new THREE.Mesh(thrGeo, thrMat);
   threads.frustumCulled = false; threads.renderOrder = 2;
   hg.add(threads);
-  // the four rings, drawn round as their level grows
-  const RS = 120, ringGeo = K.linesGeo(4 * RS);
+  // the four levels: each a faint glowing plate whose rim is a soft bright line, drawn round as its level grows (from the
+  // back); the plate's sheen fades inwards, so the stack reads as four floors in depth
+  const RS = 160, ringGeo = new THREE.BufferGeometry();
   {
-    const P = ringGeo.attributes.position.array, Cc = ringGeo.attributes.aCol.array, A = ringGeo.attributes.aA.array, Tt = ringGeo.attributes.aT.array;
-    for (let L = 0; L < 4; L++) for (let s = 0; s < RS; s++) for (let e = 0; e < 2; e++) {
-      const k = (L * RS + s) * 2 + e, a = TAU * (s + e) / RS + PI, [R, y] = RING[L];
-      P.set([R * Math.sin(a), y, R * Math.cos(a)], 3 * k); Cc.set(LCOL[L].map(x => Math.min(1, x * 1.3 + 0.05)), 3 * k);
-      A[k] = 0.32; Tt[k] = GS[L] + 0.16 * (s + e) / RS;
+    const P = [], A = [], idx = [];
+    for (let L = 0; L < 4; L++) {
+      const [R, y] = RING[L], r0 = R - 0.16, r1 = R + 0.035, v0 = P.length / 3;
+      for (let s = 0; s <= RS; s++) {
+        const a = TAU * s / RS + PI, tt = GS[L] + 0.16 * s / RS;
+        for (const r of [r0, r1]) { P.push(r * Math.sin(a), y, r * Math.cos(a)); A.push(L, tt, R); }
+      }
+      for (let s = 0; s < RS; s++) { const a = v0 + 2 * s; idx.push(a, a + 1, a + 3, a, a + 3, a + 2); }
     }
+    ringGeo.setAttribute('position', new THREE.Float32BufferAttribute(P, 3));
+    ringGeo.setAttribute('aL', new THREE.Float32BufferAttribute(A, 3));
+    ringGeo.setIndex(idx);
   }
-  const ringMat = K.lines(set, { uniforms: { uK: { value: 1 } }, head: 'uniform float uK;', vertex: 'vA *= uK;' });
-  const rings = new THREE.LineSegments(ringGeo, ringMat);
+  const ringMat = new THREE.ShaderMaterial({
+    uniforms: { uA: set.uA, uReveal: { value: 1 }, uK: { value: 1 }, uLC: { value: LCOL.map(c => new THREE.Color(...c)) } },
+    transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, extensions: { derivatives: true },
+    vertexShader: `
+attribute vec3 aL;
+varying vec3 vP; varying float vL, vT, vR;
+void main() { vP = position; vL = aL.x; vT = aL.y; vR = aL.z; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+    fragmentShader: `
+uniform float uA, uReveal, uK; uniform vec3 uLC[4];
+varying vec3 vP; varying float vL, vT, vR;
+void main() {
+  if (vT > uReveal + 0.0001) discard;
+  float r = length(vP.xz), d = r - vR, fw = max(fwidth(r), 1e-5);
+  float line = 1.0 - smoothstep(0.6, 1.8, abs(d) / fw);
+  float glow = exp(-pow(d / 0.012, 2.0)), sheen = smoothstep(-0.16, 0.0, d) * step(d, 0.0);
+  vec3 c = mix(uLC[int(vL + 0.5)], vec3(1.0), 0.3);
+  gl_FragColor = vec4(c, (0.55 * line + 0.3 * glow + 0.05 * sheen * sheen) * uK * uA);
+}`,
+  });
+  set.mats.push(ringMat);
+  const rings = new THREE.Mesh(ringGeo, ringMat);
   rings.frustumCulled = false; rings.renderOrder = 1;
   hg.add(rings);
 
@@ -414,10 +449,10 @@ void main() {
   float d = length(vQ);
   if (d > 1.0) discard;
   float rr = d * 3.2;   // in node radii
-  float glow = exp(-max(rr - 0.95, 0.0) * 1.8) * smoothstep(1.0, 0.7, d);
+  float glow = exp(-max(rr - 0.95, 0.0) * 1.6) * smoothstep(1.0, 0.6, d);
   float ring = vR * smoothstep(0.14, 0.0, abs(rr - 1.75 - 0.12 * sin(uTime * 3.0)));
-  vec3 col = vC * glow * 0.6 + mix(vC, vec3(1.0), 0.45) * ring;
-  gl_FragColor = vec4(col, vA * max(glow * 0.55, ring));
+  vec3 col = mix(vC, vec3(1.0), 0.15) * glow * 0.75 + mix(vC, vec3(1.0), 0.45) * ring;
+  gl_FragColor = vec4(col, vA * max(glow * 0.6, ring));
 }`,
   });
   set.mats.push(haloMat);
@@ -425,6 +460,30 @@ void main() {
   halos.frustumCulled = false; halos.renderOrder = 4;
   halos.raycast = () => {};
   set.group.add(halos);
+
+  // ---------------------------------------------------------------- the organs: small 3D models (ORGAN3D)
+  // built between frames while the set is hidden (idle), or a slice a frame while it shows; until they are all ready the
+  // organs are spheres like the other nodes. Each turns slowly, so its shape reads from any side
+  const ORGN = byLev[0], OSL = ids.map(() => -1);
+  ORGN.forEach((i, k) => { OSL[i] = k; });
+  const O3 = typeof ORGAN3D !== 'undefined' ? ORGAN3D : null;
+  const oP = ORGN.map(() => new THREE.Vector4()), oQ = ORGN.map(() => new THREE.Vector4()), oPh = ORGN.map((_, k) => K.rng(80 + k)() * TAU);
+  let orgMesh = null;
+  function buildOrgans() {
+    if (orgMesh || !O3 || !O3.ready()) return;
+    const M = O3.merged(ORGN.map(i => O3.idOf(NAME[i]) || 'stomach')), g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.BufferAttribute(M.pos, 3)); g.setAttribute('normal', new THREE.BufferAttribute(M.nrm, 3));
+    g.setAttribute('aCol', new THREE.BufferAttribute(M.col, 3)); g.setAttribute('aSlot', new THREE.BufferAttribute(M.slot, 1));
+    g.setIndex(new THREE.BufferAttribute(M.idx, 1));
+    const sh = O3.shader(ORGN.length);
+    const m = new THREE.ShaderMaterial({ uniforms: { uA: set.uA, uP: { value: oP }, uQ: { value: oQ }, uTint: { value: new THREE.Color(...LCOL[0]) } },
+      vertexShader: sh.vertex, fragmentShader: sh.fragment, transparent: true });
+    set.mats.push(m);
+    orgMesh = new THREE.Mesh(g, m);
+    orgMesh.frustumCulled = false; orgMesh.renderOrder = 3; orgMesh.raycast = () => {};
+    set.group.add(orgMesh);
+  }
+  const orgStep = ms => { if (!orgMesh && O3) { if (!O3.driven) O3.step(ms); buildOrgans(); } };   // (the engine steps them itself)
 
   // ---------------------------------------------------------------- the contact bands (tubes; width and colour per frame)
   const BS = 22, BR = 6, NBD = CO.reduce((s, o) => s + o.bands.length, 0);
@@ -454,18 +513,32 @@ void main() {
     bandGeo.setAttribute('aNrm', new THREE.BufferAttribute(Nr, 3));
     bandGeo.setAttribute('aT', new THREE.BufferAttribute(T, 1));
     bandGeo.setAttribute('aB', new THREE.BufferAttribute(Bi, 1));
+    bandGeo.setAttribute('aCA', new THREE.BufferAttribute(new Float32Array(nv * 3), 3));
+    bandGeo.setAttribute('aCB', new THREE.BufferAttribute(new Float32Array(nv * 3), 3));
     bandGeo.setIndex(idx);
   }
+  // each band's two ends in their domains' colours (a gradient along it), again when the colours change
+  function bandCols() {
+    const A = bandGeo.attributes.aCA.array, B = bandGeo.attributes.aCB.array, per = (BS + 1) * BR;
+    let bi = 0;
+    for (const co of CO) for (const b of co.bands) {
+      for (let v = bi * per; v < (bi + 1) * per; v++) { A.set(co.col[b.c[0]], 3 * v); B.set(co.col[b.c[1]], 3 * v); }
+      bi++;
+    }
+    bandGeo.attributes.aCA.needsUpdate = bandGeo.attributes.aCB.needsUpdate = true;
+  }
+  bandCols();
   const UB = Array.from({ length: NBD }, () => new THREE.Vector4());   // x radius, y warmth (-1 cool .. 1 warm), z alpha, w reveal
   const bandMat = new THREE.ShaderMaterial({
     uniforms: { uA: set.uA, uTime: K.U.uTime, uB: { value: UB }, uCore: { value: new THREE.Color(...rgb('#eadff5')) },
       uWarm: { value: new THREE.Color(...rgb('#ffb43b')) }, uCool: { value: new THREE.Color(...rgb('#46d9ff')) } },
     transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
     vertexShader: `
-attribute vec3 aNrm; attribute float aT, aB;
+attribute vec3 aNrm, aCA, aCB; attribute float aT, aB;
 uniform vec4 uB[${NBD}];
-varying vec3 vN, vW; varying float vT, vY, vZ;
+varying vec3 vN, vW, vG; varying float vT, vY, vZ;
 void main() {
+  vG = mix(aCA, aCB, smoothstep(0.1, 0.9, aT));
   vec4 B = uB[int(aB + 0.5)];
   // drawn from both ends to the middle
   float m = min(aT, 1.0 - aT) * 2.0, on = step(m, B.w + 0.0001);
@@ -477,15 +550,16 @@ void main() {
 }`,
     fragmentShader: `
 uniform float uA, uTime; uniform vec3 uCore, uWarm, uCool;
-varying vec3 vN, vW; varying float vT, vY, vZ;
+varying vec3 vN, vW, vG; varying float vT, vY, vZ;
 void main() {
   if (vZ < 0.003) discard;
   vec3 n = normalize(vN), v = normalize(cameraPosition - vW);
   float c = abs(dot(n, v));
-  vec3 base = mix(uCore, vY > 0.0 ? uWarm : uCool, min(1.0, abs(vY)));
-  float flow = 0.85 + 0.3 * sin(vT * 16.0 - uTime * 2.2);   // contacts as a quiet flow along the band
-  vec3 col = base * (0.45 + 0.75 * c) * flow + vec3(1.0) * 0.12 * pow(c, 6.0);
-  gl_FragColor = vec4(col, (0.3 + 0.6 * c) * vZ * uA);
+  // the core: pale, tinted towards the two domains it joins; a changing contact: warm (more) or cool (fewer)
+  vec3 base = mix(mix(uCore, vG, 0.45), vY > 0.0 ? uWarm : uCool, min(1.0, abs(vY)));
+  float flow = 0.8 + 0.45 * pow(0.5 + 0.5 * sin(vT * 14.0 - uTime * 2.2), 3.0);   // contacts as a quiet flow along the band
+  vec3 col = base * (0.4 + 0.8 * c) * flow + vec3(1.0) * 0.18 * pow(c, 8.0);
+  gl_FragColor = vec4(col, (0.2 + 0.75 * c * c) * vZ * uA);
 }`,
   });
   set.mats.push(bandMat);
@@ -574,6 +648,7 @@ void main() {
   const _c = [0, 0, 0];
   let lastT = null;
   function update(S, t, dt) {
+    orgStep(4);
     const g = clamp(S.hier_grow === undefined ? 1 : S.hier_grow, 0, 1), c = smooth(clamp(S.hier_contacts || 0, 0, 1)), age = clamp(S.hier_age || 0, 0, 1);
     // a seek (time going back, or on by much more than the frame's dt; also the first frame after the set was hidden)
     // shows the new focus and organ at once, so a seek is exact whatever dt the engine passes
@@ -624,8 +699,14 @@ void main() {
       cur.vis[i] = vis; cur.ga[i] = ga;
       const br = (0.5 + 0.5 * lit) * (1 + 0.3 * cur.fw[i]) * lerp(1, 0.6 + 0.6 * og, c);
       for (let q = 0; q < 3; q++) _c[q] = Math.min(1, LCOL[L][q] * br);
-      const s = RAD[i] * (0.25 + 0.75 * ga) * (1 + 0.5 * cur.fw[i]) * (1 + 0.4 * og * c) * cur.hs;
-      setInst(i, posOf(i), s, _c, vis, 0.55 + 0.45 * Math.min(1, hw[i]) * fon, cur.fw[i] * (1 - c));
+      const grow = (0.25 + 0.75 * ga) * (1 + 0.5 * cur.fw[i]) * (1 + 0.4 * og * c) * cur.hs, s = RAD[i] * grow, p = posOf(i);
+      setInst(i, p, s, _c, vis, 0.55 + 0.45 * Math.min(1, hw[i]) * fon, cur.fw[i] * (1 - c));
+      // an organ: its model instead of the sphere, sitting in a glow of its level's colour
+      if (orgMesh && OSL[i] >= 0) {
+        const k = OSL[i], so = ORAD[i] * grow * (1 - 0.15 * cur.fw[i]);
+        nA.array[i] = 0; HA.aSize.array[i] = so * 0.8;
+        oP[k].set(p[0], p[1], p[2], so); oQ[k].set(vis, 0.6 * cur.fw[i] + 0.25 * Math.min(1, hw[i]) * fon, t * 0.35 + oPh[k], 0.6 * (1 - lit));
+      }
     }
     // the contact networks
     let bi = 0;
@@ -696,7 +777,7 @@ void main() {
       alpha: S => prog(clamp(S.hier_grow === undefined ? 1 : S.hier_grow, 0, 1), 0.84, 0.96) * (1 - cur.fon) * (1 - prog(cur.c, 0, 0.3)) },
   ];
   for (const i of ids) {
-    const at = () => right(posOf(i), 0.9 * RAD[i] * cur.hs * (1 + 0.5 * cur.fw[i]));
+    const at = () => right(posOf(i), 0.9 * (orgMesh ? ORAD[i] : RAD[i]) * cur.hs * (1 + 0.5 * cur.fw[i]));
     labels.push({ text: [cap(short(NAME[i])), rest(i)], at, cls: CLS[LEV[i]], alpha: () => cur.fw[i] * cur.ga[i] * (1 - cur.c) });
     labels.push({ text: [cap(short(NAME[i])), ''], at, cls: '', minor: true, alpha: () => clamp(cur.nl[i], 0, 1) * cur.vis[i] * (1 - cur.c) });
   }
@@ -745,7 +826,7 @@ void main() {
       if (tt > 0 && tt < bt && ray.distanceSqToPoint(_p) < rr * rr) { bt = tt; best = id; }
     };
     if (cur.c > 0.5) { const co = dco(); co.dom.forEach((_, j) => test(cur.cp[cur.dom][j], co.rad[j], co.gi[j])); }
-    else for (let i = 0; i < NN; i++) if (cur.vis[i] > 0.15) test(posOf(i), RAD[i], i);
+    else for (let i = 0; i < NN; i++) if (cur.vis[i] > 0.15) test(posOf(i), orgMesh ? ORAD[i] : RAD[i], i);
     return best;
   }
   const API = {
@@ -759,12 +840,15 @@ void main() {
     contactOrgans: CO.map(co => ({ name: co.name, organ: co.gOrgan, tissue: co.gTissue, domains: co.dom.slice(),
       changes: co.ch.map(ch => ({ a: ch.a, b: ch.b, dir: ch.dir, from: ch.c[2], to: clamp(ch.c[2] + ch.d, 0.03, 0.98), fig: ch.fig })) })),
     levelColour: L => '#' + new THREE.Color(...LCOL[L]).getHexString(),
-    useColours(fn) { if (typeof fn !== 'function') return; domainColour = n => rgb(fn(n)); for (const co of CO) co.col = co.dom.map(domainColour); },
+    useColours(fn) { if (typeof fn !== 'function') return; domainColour = n => rgb(fn(n)); for (const co of CO) co.col = co.dom.map(domainColour); bandCols(); },
   };
 
   return Object.assign(set, {
     params: { hier_a: 1, hier_grow: 1, hier_focus: -1, hier_contacts: 0, hier_organ: 0, hier_age: 0 },
     update, anchors, labels, cam, controls, explore,
+    // (the organ models build between frames while the set is hidden; the harness and the sweeps build them at once)
+    idle() { orgStep(3); },
+    finish() { if (O3) O3.step(Infinity); buildOrgans(); },
     api: () => API,
   });
 };

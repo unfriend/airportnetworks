@@ -8,9 +8,13 @@ Two pictures in one set, centred on the origin, facing +z.
   types (10, y -0.1, radius 0.4, salmon `#ef8f7a`) at the waist, domains (70, y -0.62, radius 0.9, blue `#5aa9ff`; no
   ring is wider than the organs', so the level labels on the right have room).
   Nodes are lit spheres with a soft additive halo, sized by degree (domains, which all have one link, by the graph's
-  abundance). Links hang between the rings as thin glowing threads (cylindrical curves that leave each node vertically),
-  coloured from the upper level's colour to the lower one's, with a light running down them now and then. A faint
-  circle marks each ring. The order round each ring is computed so that threads stay short (tissue types ordered by the
+  abundance); each organ is its small 3D model (`ORGAN3D`, `sets/organs.md`; radius 0.062 + 0.005 √degree), turning
+  slowly in a glow of the level's dark green, built between frames from the story's start (spheres until then). Links
+  hang between the rings as soft glowing tubes (radius 0.0095, six-sided, curves that leave each node vertically,
+  lit across, bright along their middle and fading to their edges), in a gradient from the upper level's colour to the
+  lower one's, with a light running down them now and then. While a node is focused its links grow a little, brighten
+  and whiten at their core; the others stay in view as coloured tubes at 55 % (never hairlines). Each level is the glowing rim of a faint plate (a soft bright line at the
+  ring's radius with a sheen fading inwards over 0.16), so the stack reads as four floors in depth from any side. The order round each ring is computed so that threads stay short (tissue types ordered by the
   organs they share, organs and tissues pulled towards their rare tissue types, domains in arcs under their tissue type);
   the whole is turned so that connective tissue, the biggest hub, faces you. The graph's five tissue type-tissue type
   links are loops of a type to itself and are left out (199 links drawn).
@@ -24,7 +28,8 @@ Two pictures in one set, centred on the origin, facing +z.
   and the organ's domains fly out of the domain ring into the contact network (a domain not in the graph, calcified
   plaque, flies from the organ's tissue node). As `hier_age` goes from 20 to 70 years, the contacts that change grow or
   shrink and glow warm (amber, more contacts) or cool (cyan, fewer; only just tinted at 20, fully at 70); the rest, the
-  core, stays as it is, in pale lilac. The bands carry a quiet flow of light.
+  core, stays as it is, in pale lilac tinted towards the two domains it joins (a gradient along the band). The bands are
+  soft-edged tubes with a bright core and carry a quiet flow of light.
 
 ## Params
 
@@ -139,5 +144,8 @@ Age (20 years / 70 years; only with Contacts). `explore(c)` returns `hier_grow` 
 
 ## Cost
 
-6 draw calls (threads, rings, nodes, halos, bands, leader lines), about 83k triangles, 498 line segments, no points;
-built in 45-65 ms in headless Chromium.
+7 draw calls (threads, rings, nodes, halos, organs, bands, leader lines), about 98,000 triangles (threads 41,000,
+rings 1,300, nodes, halos and bands) plus the organs' models (46,000), 18 line segments, no points. Built in 85-100 ms
+in headless Chromium on a machine with a load average of about 15 (the version before it took the same in the same
+runs, 45-65 ms unloaded); the organs' models build separately, between frames (`idle` steps them 3 ms a frame while the
+set is hidden, `update` 4 ms while it shows; `finish` builds them at once for the harness and the sweeps).

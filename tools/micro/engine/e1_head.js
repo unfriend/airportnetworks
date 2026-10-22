@@ -7,8 +7,8 @@
 // "Microanatomical principles of tissue organization and their change with age" (Iva Buljan, Rendeiro group; LBI for
 // Network Medicine, CeMM, Medical University of Vienna), with Iva Buljan's network of organ architecture.
 // Runs inside index.html, which owns the page, the renderer and the headset session.
-// Built by tools/micro/build.mjs from the tour's kit, the tour's PET body and tissue sets, the PET story's organ icons
-// and the data, sets and engine parts in tools/micro: edit those, not this file.
+// Built by tools/micro/build.mjs from the tour's kit, the tour's PET body and tissue sets and the data, organ models,
+// sets and engine parts in tools/micro: edit those, not this file.
 HOST.register('micro', function (HOST) {
 'use strict';
 const D2R = Math.PI / 180;
@@ -26,6 +26,7 @@ const { smooth, clamp } = K;
 // Each set is one 3D scene of the story, centred on the origin. The story fades
 // sets in and out and drives them through their params (see SETS.x.params).
 // MICRO_DATA (the preprint's numbers and the network of organ architecture, tools/micro/sets/data.js) comes first, then
-// the PET story's organ icons (PET_ICONS); the tour's PET body and tissue sets (SETS.body, SETS.tissue) are used unchanged.
+// the organs' small 3D models (ORGAN3D, tools/micro/sets/organs.js; SETS.organs there is the harness's gallery, not
+// part of the story); the tour's PET body and tissue sets (SETS.body, SETS.tissue) are used unchanged.
 const SETS = {};
 //@@SETS@@

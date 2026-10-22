@@ -80,9 +80,9 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
 - `tools/pet/` - the sources of `stories/pet.js` (data generator and the figures' readings, data block, organ
   icons, sets, engine parts adapted from the endotype story's, build script, set harness; it uses `tools/lbi/kit.js`
   and the tour's body set); see its `README.md` and `SPEC.md`.
-- `tools/micro/` - the sources of `stories/micro.js` (data generator, data block, sets, engine parts adapted from the
-  PET story's, build script, set harness; it uses `tools/lbi/kit.js`, the tour's body and tissue sets and the PET
-  story's organ icons); see its `README.md` and `SPEC.md`.
+- `tools/micro/` - the sources of `stories/micro.js` (data generator, data block, small 3D organ models, sets, engine
+  parts adapted from the PET story's, build script, set harness; it uses `tools/lbi/kit.js` and the tour's body and
+  tissue sets); see its `README.md` and `SPEC.md`.
 - `tools/lbi/` - the sources of `stories/lbi.js` (kit, sets, engine parts,
   build script, set harness, data generators); see its `README.md`.
 - `tools/flock/` - the sources of `stories/flock.js` (the flock set, engine parts
@@ -768,11 +768,15 @@ contract.
 ## The microanatomy story (`stories/micro.js`) is built the same way
 
 `stories/micro.js` is generated from `tools/micro/` (`node tools/micro/build.mjs`, `--check` as for the tour): the
-tour's kit, body and tissue sets (unchanged), the PET story's organ icons (the data block carries the small `PET_DATA`
-shim they read), three sets (`slide`, tiles, features, neighbours and domains over the tissue section, drawn in its
-frame; `atlas`, the slide library, the atlas of sections, the tile cloud, the volcano and the trajectories; `hier`,
-the network of organ architecture and the domain contacts; each with a manifest) and engine parts adapted from the
-PET story's. `tools/micro/SPEC.md` is the contract.
+tour's kit, body and tissue sets (unchanged), small 3D models of the 29 organs (`sets/organs.js`, `ORGAN3D`: signed
+distance fields polygonised by surface nets, built between frames from the start, one organ after another, the one on
+show first; drawn as meshes on the body, the atlas's plates and the network's organ ring, and as pictures in the
+panes, each going in as it is drawn), three sets (`slide`, the method in the tour's visual language over the tissue
+section, drawn in its frame: tiles, their features as glowing blocks, a network of neighbours with messages, the lift
+into a map where alike tiles gather, and the domains; `atlas`, the slide library of glass slides, in a lit rack, the
+atlas of sections as slabs in relief, the tile cloud, the volcano and the trajectories; `hier`, the network of organ
+architecture and the domain contacts; each with a manifest) and engine parts adapted from the PET story's.
+`tools/micro/SPEC.md` is the contract.
 
 - The data: `tools/micro/data/gen_data.mjs <graphml>` reads Iva Buljan's network of organ architecture (the file stays
   out of the repository) and writes `tools/micro/sets/data.js` (`MICRO_DATA`, documented in its header) with the
@@ -919,7 +923,7 @@ is the contract between them.
   `tools/nmd/sets/motor.js`, which the endotype story uses too), `tools/flock/` and
   `stories/flock.js`, `tools/robots/` and `stories/robots.js`, and `tools/pet/` and `stories/pet.js` (and after
   changing `tools/lbi/sets/body.js`, which the PET story uses too), and `tools/micro/` and `stories/micro.js` (and after
-  changing `tools/lbi/sets/body.js`, `tools/lbi/sets/tissue.js` or `tools/pet/sets/icons.js`, which it uses).
+  changing `tools/lbi/sets/body.js` or `tools/lbi/sets/tissue.js`, which it uses).
 - Keep `README.txt` (user-facing notes) in sync with structural changes.
 - Shared rooms: bump `FORMAT` in `shared.js` when the keys or a story's
   `collab.state()` change shape (a room refuses another format). A story's

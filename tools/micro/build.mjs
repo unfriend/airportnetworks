@@ -1,5 +1,5 @@
-// Assembles stories/micro.js from the tour's kit (tools/lbi/kit.js), the tour's body and tissue sets, the PET story's
-// organ icons and the data, sets and engine parts in this folder.
+// Assembles stories/micro.js from the tour's kit (tools/lbi/kit.js), the tour's body and tissue sets and the data, the
+// organ models, sets and engine parts in this folder.
 // usage (from the repository root): node tools/micro/build.mjs        -> writes stories/micro.js
 //                                   node tools/micro/build.mjs --check -> exits 1 if stories/micro.js is out of date
 // After changing the figures' readings or the generator, first run node tools/micro/data/gen_data.mjs <graphml> (it writes
@@ -8,8 +8,8 @@ import fs from 'fs';
 import path from 'path';
 const here = path.dirname(new URL(import.meta.url).pathname), root = path.join(here, '../..');
 const read = f => fs.readFileSync(path.join(here, f), 'utf8');
-// the data (with a shim the PET story's icons read) and the icons first, then the sets in the order the story uses them
-const SET_FILES = ['sets/data', '../pet/sets/icons', '../lbi/sets/body', '../lbi/sets/tissue', 'sets/slide', 'sets/atlas', 'sets/hier'];
+// the data and the organ models first, then the sets in the order the story uses them
+const SET_FILES = ['sets/data', 'sets/organs', '../lbi/sets/body', '../lbi/sets/tissue', 'sets/slide', 'sets/atlas', 'sets/hier'];
 const ENGINE = ['e2_scene', 'e3_story', 'e4_explore', 'e5_xr', 'e6_panels', 'e7_app'];
 let kit = read('../lbi/kit.js')
   .replace("if (typeof module !== 'undefined') module.exports = { makeKit };\n", '')

@@ -20,18 +20,25 @@ Card: kick "Tissue microanatomy", title **Tissue and time**, tagline "how organs
 
 - Set files live in `tools/micro/sets/`, the harness is `tools/micro/harness.html` (same query syntax) and the
   screenshot tool `tools/micro/shot.mjs` (run it from `tools/micro`; shots go to `tools/micro/shots/`, ignored by
-  git). The server on port 8123 serves the repository root (check with `curl -sI http://127.0.0.1:8123/ | head -1`;
+  git, or to the folder in `SHOTS`; `cam=` takes a view of the set by name too). The server on port 8123 (or `PORT`)
+  serves the repository root (check with `curl -sI http://127.0.0.1:8123/ | head -1`;
   if it is down: `setsid nohup python3 -m http.server 8123 --bind 127.0.0.1 --directory /home/user/airportnetworks
   >/dev/null 2>&1 < /dev/null &`).
 - The data is the global `MICRO_DATA` (`tools/micro/sets/data.js`, made by `tools/micro/data/gen_data.mjs`; never
   edit by hand; its header documents every field; it may be regenerated with the figures' readings, same shape).
 - Reused unchanged (never edit them): the tour's **tissue** set (`tools/lbi/sets/tissue.js`, manifest
   `tools/lbi/sets/tissue.md`: an H&E-stained section of stomach wall of about 18,600 cells, with mucosa, submucosa
-  and muscle, a cell network, multiplexed colours and a 3D embedding), the tour's **body** set (the PET body:
-  `tools/lbi/sets/body.md`), and the PET story's organ icons `PET_ICONS` (`tools/pet/sets/icons.md`; ids brain,
-  thyroid, lungs, heart, liver, spleen, pancreas, kidneys, adrenal, intestine, muscle, marrow, fat, aorta;
-  `MICRO_DATA.organs[i].icon` maps an organ to one, or null). The harness always loads them (`set=tissue` or
-  `set=body` shows one alone), and a set may make its own instance (`SETS.tissue(K)`).
+  and muscle, a cell network, multiplexed colours and a 3D embedding) and the tour's **body** set (the PET body:
+  `tools/lbi/sets/body.md`). The harness always loads them (`set=tissue` or `set=body` shows one alone), and a set may
+  make its own instance (`SETS.tissue(K)`).
+- **The organs in 3D** (`sets/organs.js`, manifest `sets/organs.md`; it replaced the PET story's flat line icons, which
+  this story no longer uses; an organ's model is found by its name, `ORGAN3D.idOf`): a small
+  lit procedural model of each of the 29 organs (`ORGAN3D`: a signed distance field of a few blended primitives,
+  polygonised by surface nets, about 1,000 to 3,000 triangles each, built between frames from the start, one organ
+  after another, model then picture, the one a pane or the body shows first). The sets draw them as meshes
+  (the network's organ ring, the atlas's plates; the engine on the body, beside the picked organ's point) and the
+  panes as pictures drawn once onto a 2D canvas (no WebGL, so also inside a headset session). The harness always
+  loads them; `set=organs` shows them all (`organs_pics:1`: the pictures).
 - No patient data: the slides shown are drawn (procedural), never the GTEx images; the numbers are the preprint's
   and values read off the talk's figures (summaries).
 
@@ -78,7 +85,9 @@ shapes. The talk shows no stomach-versus-uterus network.
 
 ## Palette and look
 
-The tour's dark look. H&E colours for slides: haematoxylin `#4b3b8f` to `#7d6bc4` (nuclei), eosin `#e88bb0` to
+The tour's dark look; everything a lit 3D object (no flat cards or 1-pixel drawings as the main picture). Features
+(numbers) in an even colour scale: indigo `#4d33b8` (low), teal `#1f9ec7`, green `#59db73`, yellow `#ffe647` (high). H&E
+colours for slides: haematoxylin `#4b3b8f` to `#7d6bc4` (nuclei), eosin `#e88bb0` to
 `#f6c4d6` (cytoplasm, fibres), white `#fbf4f7` (fat, lumen). Domain colours: as in the talk's figures (from
 `MICRO_DATA.figures.atlas` when present), otherwise a fixed categorical palette per domain name, the same in every
 set (export the function `domainColour(name)` from the atlas set's API so the others can use it; the engine copies
@@ -92,13 +101,23 @@ domains `#5aa9ff` (blue), as in the talk's Figure 5.
 Drawn in **the tour's tissue set's frame** (a slab about 2.1 long, up to 0.6 deep, facing +z, mucosa on top,
 muscle below; read `tools/lbi/sets/tissue.js` and `tissue.md` for where its layers are and copy what you need: do not
 edit it). The engine shows `tissue` and `slide` together.
+The method is drawn in the tour's visual language for its tissue (its cell network on the section, the colours that
+light up cell by cell, the lift into a 3D embedding), on the tour's own tissue set: tiles as nodes joined to their
+spatial neighbours on the tissue, the features shown per tile, the message passing as light running along the links,
+the mixed descriptions gathering in a 3D map, and the groups colouring the tissue as domains.
 - `slide_tiles` 0..1: a grid of square tiles (about 40 x 12 over the slab, following its curve, a hair in front of
   it) draws on, tile by tile, as thin bright outlines; "Tiles" label.
-- `slide_feat` 0..1: five chosen tiles lift a little and each sends out a column of glowing feature bars (its
-  description: 16 numbers as a little bar code); the columns fly to a feature matrix beside the slab (tiles x
-  features, a glowing heatmap). Label "Features from a vision model".
-- `slide_adj` 0..1: links between neighbouring tiles (spatial adjacency) appear; pulses run along them (message
-  passing) and the tiles' tints blend with their neighbours'. Label "Each tile listens to its neighbours".
+- `slide_feat` 0..1: the slide darkens and every tile lights up with a 4 x 4 mosaic of glowing blocks, each as bright and
+  as tall as one of its 16 numbers (an even colour scale, indigo to teal to yellow), in a wave from the close-up tile.
+  Label "Features · a list of numbers a tile".
+- `slide_adj` 0..1: a network floats over the tiles: a lit node over each tile (in the tile's colour: its description),
+  glowing tubes to its eight neighbours (spatial adjacency), light pulses running both ways along them (message
+  passing); the nodes' colours and the mosaics settle to the mixed descriptions. Label "Each tile listens to its
+  neighbours".
+- `slide_group` 0..2: 0 to 1 the nodes lift off, arc towards you and gather in a 3D map of their mixed descriptions
+  above the section (the first three principal components), where alike tiles form groups and take their group's
+  (domain's) colour; 1 to 2 they fly back down onto their tiles and melt into the wash. Label "Alike tiles · gather: a
+  domain each".
 - `slide_domain` 0..1: tiles take their domain colours (mucosa, submucosa, muscularis inner and outer, lymphoid,
   blood vessels; from where the tissue set's layers are), as a translucent wash over the H&E, with clean borders
   between domains; labels with the domain names.
@@ -106,18 +125,21 @@ edit it). The engine shows `tissue` and `slide` together.
   goes from 42.9 % to 34.5 % (the others take up the rest) and the muscle and connective parts thicken a little; a
   small gauge "Submucosa 42.9 % -> 34.5 %" and an age readout "20 years" to "70 years".
 - `slide_focus` 0..6 (domain index + 1, 0 none): one domain glows, the rest dim.
-Anchors: `tiles`, `matrix`, `feat0`..`feat4` (the lifted tiles), `mucosa`, `submucosa`, `muscularis`, `lymphoid`,
+Anchors: `tiles`, `feat`, `listen`, `close`, `cloud`, `cloudC`, `mucosa`, `submucosa`, `muscularis`, `lymphoid`,
 `vessels`, `gauge`. Labels as above (at most about six at once). Cam: `default` (the whole slab, like the tissue
-set's `section`), `tiles`, `matrix`, `close` (a few tiles with their links), `domains`. Controls: View (Section /
-Tiles / Features / Neighbours / Domains / Age), Age (20 / 70). Explore API `api()`: `domains` (names in order),
-`pick(raycaster)` -> domain index or -1, `domainColour(name)` (or use the atlas set's).
+set's `section`), `tiles`, `matrix` (the features, a slant close-up), `close` (the network over a few tiles), `group`
+(the section and the map above it), `domains`, `age`. Controls: View (Section / Tiles / Features / Neighbours /
+Groups / Domains / Age), Age (20 / 70). Explore API `api()`: `domains` (names in order), `pick(raycaster)` -> domain
+index or -1, `domainColour(name)` (or use the atlas set's).
 
 ### `atlas` - the slide library, the atlas, ageing and pathology (file `sets/atlas.js`)
 
-- `atlas_lib` 0..1: **the slide library**: 24,945 glass slides (instanced: a thin glass quad with a tissue blob on
+- `atlas_lib` 0..1: **the slide library**: 24,945 glass slides (instanced: a thin glass box with a tissue blob on
   it, tinted in H&E colours, its shape and colours from its tissue; the same few procedural textures in an atlas)
   in a great curved wall or a slow helix: columns by tissue (40), rows by donor age from 20 at the bottom to 70 at
   the top; they fly in in waves; faint glints; labels "24,945 slides", "40 tissues", "983 people, aged 20 to 70".
+  They stand in a lit rack (a back panel, a shelf at every decade, a post between tissues), so the wall reads in
+  depth from afar, where a slide is a pixel or two.
 - `atlas_map` 0..1: **the atlas**: one larger procedural section per tissue (40; their shapes and domains from
   `MICRO_DATA.figures.atlas` when present, else from `MICRO_DATA.graph`'s domains of that tissue's organ, with
   plausible shapes: a folded strip for gut, a ring for artery, round for ovary, lobed for gland), each a disc of
@@ -143,9 +165,10 @@ Explore API `api()`: `tissues` (names in order), `pick(raycaster)` -> tissue ind
 
 ### `hier` - organ architecture and domain contacts (file `sets/hier.js`)
 
-- `hier_grow` 0..1: **the four-level network** from `MICRO_DATA.graph` (the talk's Figure 5a, in 3D): organs on top,
-  then tissues, tissue types and domains below, as stacked rings or layers (each level a ring; links between levels
-  as soft curves), nodes coloured by level (palette above), sized by degree; grows top to bottom.
+- `hier_grow` 0..1: **the four-level network** from `MICRO_DATA.graph` (the talk's Figure 5a, in 3D): organs on top
+  (each as its small 3D model), then tissues, tissue types and domains below, as stacked rings (each level the glowing
+  rim of a faint plate; links between levels as soft glowing tubes with a colour gradient and a light running down
+  them), nodes coloured by level (palette above), sized by degree; grows top to bottom.
 - `hier_focus` -1..N-1 (a node index; -1 none): that node and everything linked to it (up and down the levels)
   light up; the rest dims; its name and its links' names as labels.
 - `hier_contacts` 0..1 with `hier_organ` (0..k-1: an index into the organs with contact data: colon, skin, ovary,
@@ -173,8 +196,9 @@ or explore shows `slide`, show `tissue` too (same transform).
    shows), cells arranged into working units; `slide_domain` washes the mucosa, submucosa, muscle and lymphoid patch
    in: microanatomical domains.
 3. `library` 50-85: `atlas_lib`: GTEx: 983 people aged 20 to 70, 40 tissues of 29 organs, 24,945 slides.
-4. `method` 85-130: back at the section: `slide_tiles`, `slide_feat`, `slide_adj`, `slide_domain` (H&E-UTAG in four
-   steps; 162 million tiles; no labels needed, named afterwards; agrees with pathologists); then `atlas_umap`.
+4. `method` 85-130: back at the section: `slide_tiles`, `slide_feat`, `slide_adj`, `slide_group` and `slide_domain`
+   (H&E-UTAG in four steps, built as the tour builds its cell network; 162 million tiles; no labels needed, named
+   afterwards; agrees with pathologists); then `atlas_umap`.
 5. `atlas` 130-170: `atlas_map` (218 domains in 74 types; 16 % shared by 3 or more tissues, 69 % in one), then `hier`
    (`hier_grow`: organs, tissues, tissue types, domains; connective tissue everywhere).
 6. `age` 170-215: age is the strongest driver (of 111 variables); 28 % change; `atlas_volcano`; the three examples
@@ -198,7 +222,8 @@ content clear of the panel (the PET story's `FIT`).
 - **Domains**: search the domains; one shows its tissue type, the organs it is found in, and lights it in the network.
 - **Age**: the three examples (each shows its section and the age morph), an age slider (20 to 70, drives
   `atlas_age`, `slide_age`, `hier_age`), the volcano and the pathology curves.
-- **Method**: the four steps as a stepper (Tiles, Features, Neighbours, Domains) with one sentence each.
+- **Method**: the four steps as a stepper (Tiles, Features, Neighbours, Domains: the slide's views Tiles, Features,
+  Neighbours and Groups) with one sentence each.
 - **Scenes**: Body, Section (`tissue` with `slide`), Library and atlas (`atlas`), Network (`hier`), with their controls.
 URL hashes: `#micro&t=120`, `#micro&explore&organ=Ovary`, `&domain=submucosa`, `&tab=age&age=70`, `&tab=method&step=2`,
 `&scene=atlas&view=volcano`. `collab.state()`: `{ tab, scene, ctl, organ, domain, age, step }`.
