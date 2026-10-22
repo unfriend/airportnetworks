@@ -1,0 +1,936 @@
+{
+  "source": "read off the poster figures by two independent readers and reconciled (geometric mean for counts, mean otherwise); where they disagreed, a third reading by pixel measurement on the crops decided (see \"resolved\")",
+  "trends": [
+    {
+      "object": "vessel",
+      "method": "rf",
+      "line": [
+        {
+          "age": 21,
+          "count": 1000
+        },
+        {
+          "age": 25,
+          "count": 967
+        },
+        {
+          "age": 30,
+          "count": 927.5
+        },
+        {
+          "age": 35,
+          "count": 889
+        },
+        {
+          "age": 40,
+          "count": 852.5
+        },
+        {
+          "age": 45,
+          "count": 817.5
+        },
+        {
+          "age": 50,
+          "count": 783.99
+        },
+        {
+          "age": 55,
+          "count": 751.49
+        },
+        {
+          "age": 60,
+          "count": 720.49
+        },
+        {
+          "age": 65,
+          "count": 690.99
+        },
+        {
+          "age": 70,
+          "count": 663.49
+        }
+      ],
+      "zeroAge": null,
+      "band": [
+        {
+          "decade": "20s",
+          "lo": 324.04,
+          "mid": 800,
+          "hi": 1697.06
+        },
+        {
+          "decade": "30s",
+          "lo": 334.66,
+          "mid": 750,
+          "hi": 1396.42
+        },
+        {
+          "decade": "40s",
+          "lo": 400,
+          "mid": 700,
+          "hi": 1300
+        },
+        {
+          "decade": "50s",
+          "lo": 256.9,
+          "mid": 624.5,
+          "hi": 1000
+        },
+        {
+          "decade": "60s",
+          "lo": 324.04,
+          "mid": 700,
+          "hi": 1100
+        }
+      ],
+      "zeroShare": [
+        {
+          "decade": "20s",
+          "share": 0
+        },
+        {
+          "decade": "30s",
+          "share": 0
+        },
+        {
+          "decade": "40s",
+          "share": 0
+        },
+        {
+          "decade": "50s",
+          "share": 0
+        },
+        {
+          "decade": "60s",
+          "share": 0
+        }
+      ]
+    },
+    {
+      "object": "vessel",
+      "method": "seg",
+      "line": [
+        {
+          "age": 21,
+          "count": 1094.99
+        },
+        {
+          "age": 25,
+          "count": 1035.99
+        },
+        {
+          "age": 30,
+          "count": 967.5
+        },
+        {
+          "age": 35,
+          "count": 904
+        },
+        {
+          "age": 40,
+          "count": 843
+        },
+        {
+          "age": 45,
+          "count": 788
+        },
+        {
+          "age": 50,
+          "count": 735.5
+        },
+        {
+          "age": 55,
+          "count": 687
+        },
+        {
+          "age": 60,
+          "count": 641.5
+        },
+        {
+          "age": 65,
+          "count": 599
+        },
+        {
+          "age": 70,
+          "count": 560
+        }
+      ],
+      "zeroAge": null,
+      "band": [
+        {
+          "decade": "20s",
+          "lo": 256.9,
+          "mid": 800,
+          "hi": 1749.29
+        },
+        {
+          "decade": "30s",
+          "lo": 223.61,
+          "mid": 724.57,
+          "hi": 1396.42
+        },
+        {
+          "decade": "40s",
+          "lo": 339.85,
+          "mid": 721.11,
+          "hi": 1300
+        },
+        {
+          "decade": "50s",
+          "lo": 234.52,
+          "mid": 574.46,
+          "hi": 948.68
+        },
+        {
+          "decade": "60s",
+          "lo": 223.61,
+          "mid": 464.76,
+          "hi": 800
+        }
+      ],
+      "zeroShare": [
+        {
+          "decade": "20s",
+          "share": 0
+        },
+        {
+          "decade": "30s",
+          "share": 0
+        },
+        {
+          "decade": "40s",
+          "share": 0
+        },
+        {
+          "decade": "50s",
+          "share": 0
+        },
+        {
+          "decade": "60s",
+          "share": 0
+        }
+      ]
+    },
+    {
+      "object": "albicans",
+      "method": "rf",
+      "line": [
+        {
+          "age": 21,
+          "count": 74.83
+        },
+        {
+          "age": 25,
+          "count": 92.39
+        },
+        {
+          "age": 30,
+          "count": 122.98
+        },
+        {
+          "age": 35,
+          "count": 147.43
+        },
+        {
+          "age": 40,
+          "count": 171.97
+        },
+        {
+          "age": 45,
+          "count": 207.48
+        },
+        {
+          "age": 50,
+          "count": 235
+        },
+        {
+          "age": 55,
+          "count": 258.48
+        },
+        {
+          "age": 60,
+          "count": 277.49
+        },
+        {
+          "age": 65,
+          "count": 300
+        },
+        {
+          "age": 70,
+          "count": 322.49
+        }
+      ],
+      "zeroAge": null,
+      "band": [
+        {
+          "decade": "20s",
+          "lo": 41.83,
+          "mid": 92,
+          "hi": 200
+        },
+        {
+          "decade": "30s",
+          "lo": 55,
+          "mid": 124.9,
+          "hi": 200
+        },
+        {
+          "decade": "40s",
+          "lo": 69.28,
+          "mid": 200,
+          "hi": 314.64
+        },
+        {
+          "decade": "50s",
+          "lo": 56.12,
+          "mid": 214.48,
+          "hi": 380
+        },
+        {
+          "decade": "60s",
+          "lo": 89.44,
+          "mid": 230,
+          "hi": 424.26
+        }
+      ],
+      "zeroShare": [
+        {
+          "decade": "20s",
+          "share": 0
+        },
+        {
+          "decade": "30s",
+          "share": 0.01
+        },
+        {
+          "decade": "40s",
+          "share": 0.01
+        },
+        {
+          "decade": "50s",
+          "share": 0
+        },
+        {
+          "decade": "60s",
+          "share": 0
+        }
+      ]
+    },
+    {
+      "object": "albicans",
+      "method": "seg",
+      "line": [
+        {
+          "age": 21,
+          "count": 16
+        },
+        {
+          "age": 25,
+          "count": 17.75
+        },
+        {
+          "age": 30,
+          "count": 20.24
+        },
+        {
+          "age": 35,
+          "count": 22.45
+        },
+        {
+          "age": 40,
+          "count": 24.92
+        },
+        {
+          "age": 45,
+          "count": 27.93
+        },
+        {
+          "age": 50,
+          "count": 30.94
+        },
+        {
+          "age": 55,
+          "count": 32.94
+        },
+        {
+          "age": 60,
+          "count": 35.47
+        },
+        {
+          "age": 65,
+          "count": 37.99
+        },
+        {
+          "age": 70,
+          "count": 39.99
+        }
+      ],
+      "zeroAge": null,
+      "band": [
+        {
+          "decade": "20s",
+          "lo": 2.45,
+          "mid": 11.83,
+          "hi": 40
+        },
+        {
+          "decade": "30s",
+          "lo": 4.47,
+          "mid": 15,
+          "hi": 39.69
+        },
+        {
+          "decade": "40s",
+          "lo": 3.46,
+          "mid": 20,
+          "hi": 54.77
+        },
+        {
+          "decade": "50s",
+          "lo": 3,
+          "mid": 23.45,
+          "hi": 64.81
+        },
+        {
+          "decade": "60s",
+          "lo": 5,
+          "mid": 26.46,
+          "hi": 62.05
+        }
+      ],
+      "zeroShare": [
+        {
+          "decade": "20s",
+          "share": 0
+        },
+        {
+          "decade": "30s",
+          "share": 0
+        },
+        {
+          "decade": "40s",
+          "share": 0.05
+        },
+        {
+          "decade": "50s",
+          "share": 0.04
+        },
+        {
+          "decade": "60s",
+          "share": 0.08
+        }
+      ]
+    },
+    {
+      "object": "follicle",
+      "method": "rf",
+      "line": [
+        {
+          "age": 21,
+          "count": 31.5
+        },
+        {
+          "age": 25,
+          "count": 28.5
+        },
+        {
+          "age": 30,
+          "count": 23.98
+        },
+        {
+          "age": 35,
+          "count": 18.89
+        },
+        {
+          "age": 40,
+          "count": 16.43
+        },
+        {
+          "age": 45,
+          "count": 12.19
+        },
+        {
+          "age": 50,
+          "count": 7.6
+        },
+        {
+          "age": 55,
+          "count": 3.45
+        },
+        {
+          "age": 60,
+          "count": null
+        },
+        {
+          "age": 65,
+          "count": null
+        },
+        {
+          "age": 70,
+          "count": null
+        }
+      ],
+      "zeroAge": 58.55,
+      "band": [
+        {
+          "decade": "20s",
+          "lo": 8,
+          "mid": 27.39,
+          "hi": 66.33
+        },
+        {
+          "decade": "30s",
+          "lo": 3,
+          "mid": 9,
+          "hi": 44.72
+        },
+        {
+          "decade": "40s",
+          "lo": 0.5,
+          "mid": 3,
+          "hi": 18
+        },
+        {
+          "decade": "50s",
+          "lo": 0,
+          "mid": 0,
+          "hi": 2
+        },
+        {
+          "decade": "60s",
+          "lo": 0,
+          "mid": 0,
+          "hi": 1
+        }
+      ],
+      "zeroShare": [
+        {
+          "decade": "20s",
+          "share": 0.04
+        },
+        {
+          "decade": "30s",
+          "share": 0.05
+        },
+        {
+          "decade": "40s",
+          "share": 0.2
+        },
+        {
+          "decade": "50s",
+          "share": 0.63
+        },
+        {
+          "decade": "60s",
+          "share": 0.8
+        }
+      ]
+    },
+    {
+      "object": "follicle",
+      "method": "seg",
+      "line": [
+        {
+          "age": 21,
+          "count": 42.5
+        },
+        {
+          "age": 25,
+          "count": 36.5
+        },
+        {
+          "age": 30,
+          "count": 30.67
+        },
+        {
+          "age": 35,
+          "count": 25.26
+        },
+        {
+          "age": 40,
+          "count": 21.07
+        },
+        {
+          "age": 45,
+          "count": 15.87
+        },
+        {
+          "age": 50,
+          "count": 10.6
+        },
+        {
+          "age": 55,
+          "count": 5.24
+        },
+        {
+          "age": 60,
+          "count": null
+        },
+        {
+          "age": 65,
+          "count": null
+        },
+        {
+          "age": 70,
+          "count": null
+        }
+      ],
+      "zeroAge": 59,
+      "band": [
+        {
+          "decade": "20s",
+          "lo": 7.48,
+          "mid": 32.4,
+          "hi": 79.37
+        },
+        {
+          "decade": "30s",
+          "lo": 4.47,
+          "mid": 10.95,
+          "hi": 54.77
+        },
+        {
+          "decade": "40s",
+          "lo": 0,
+          "mid": 3.87,
+          "hi": 24.49
+        },
+        {
+          "decade": "50s",
+          "lo": 0,
+          "mid": 0,
+          "hi": 3.87
+        },
+        {
+          "decade": "60s",
+          "lo": 0,
+          "mid": 0,
+          "hi": 3
+        }
+      ],
+      "zeroShare": [
+        {
+          "decade": "20s",
+          "share": 0.03
+        },
+        {
+          "decade": "30s",
+          "share": 0.05
+        },
+        {
+          "decade": "40s",
+          "share": 0.23
+        },
+        {
+          "decade": "50s",
+          "share": 0.6
+        },
+        {
+          "decade": "60s",
+          "share": 0.78
+        }
+      ]
+    },
+    {
+      "object": "macrophage",
+      "method": "rf",
+      "line": [
+        {
+          "age": 21,
+          "count": 63.99
+        },
+        {
+          "age": 25,
+          "count": 65.5
+        },
+        {
+          "age": 30,
+          "count": 67.5
+        },
+        {
+          "age": 35,
+          "count": 69
+        },
+        {
+          "age": 40,
+          "count": 70
+        },
+        {
+          "age": 45,
+          "count": 71
+        },
+        {
+          "age": 50,
+          "count": 72
+        },
+        {
+          "age": 55,
+          "count": 73.5
+        },
+        {
+          "age": 60,
+          "count": 74.5
+        },
+        {
+          "age": 65,
+          "count": 74.99
+        },
+        {
+          "age": 70,
+          "count": 75.99
+        }
+      ],
+      "zeroAge": null,
+      "band": [
+        {
+          "decade": "20s",
+          "lo": 7,
+          "mid": 37.42,
+          "hi": 139.64
+        },
+        {
+          "decade": "30s",
+          "lo": 5.48,
+          "mid": 18,
+          "hi": 130
+        },
+        {
+          "decade": "40s",
+          "lo": 9.8,
+          "mid": 47.43,
+          "hi": 142.83
+        },
+        {
+          "decade": "50s",
+          "lo": 6.93,
+          "mid": 42.43,
+          "hi": 129.61
+        },
+        {
+          "decade": "60s",
+          "lo": 5,
+          "mid": 42.43,
+          "hi": 130
+        }
+      ],
+      "zeroShare": [
+        {
+          "decade": "20s",
+          "share": 0
+        },
+        {
+          "decade": "30s",
+          "share": 0
+        },
+        {
+          "decade": "40s",
+          "share": 0
+        },
+        {
+          "decade": "50s",
+          "share": 0
+        },
+        {
+          "decade": "60s",
+          "share": 0.01
+        }
+      ]
+    },
+    {
+      "object": "macrophage",
+      "method": "seg",
+      "line": [
+        {
+          "age": 21,
+          "count": 47
+        },
+        {
+          "age": 25,
+          "count": 42.47
+        },
+        {
+          "age": 30,
+          "count": 37.95
+        },
+        {
+          "age": 35,
+          "count": 33.47
+        },
+        {
+          "age": 40,
+          "count": 28.5
+        },
+        {
+          "age": 45,
+          "count": 24.98
+        },
+        {
+          "age": 50,
+          "count": 19.49
+        },
+        {
+          "age": 55,
+          "count": 16.16
+        },
+        {
+          "age": 60,
+          "count": 11.4
+        },
+        {
+          "age": 65,
+          "count": 7.1
+        },
+        {
+          "age": 70,
+          "count": 2.15
+        }
+      ],
+      "zeroAge": null,
+      "band": [
+        {
+          "decade": "20s",
+          "lo": 0,
+          "mid": 16.43,
+          "hi": 48.99
+        },
+        {
+          "decade": "30s",
+          "lo": 0,
+          "mid": 10,
+          "hi": 37.42
+        },
+        {
+          "decade": "40s",
+          "lo": 0,
+          "mid": 15,
+          "hi": 90
+        },
+        {
+          "decade": "50s",
+          "lo": 0,
+          "mid": 2,
+          "hi": 22
+        },
+        {
+          "decade": "60s",
+          "lo": 0,
+          "mid": 0.5,
+          "hi": 6
+        }
+      ],
+      "zeroShare": [
+        {
+          "decade": "20s",
+          "share": 0.18
+        },
+        {
+          "decade": "30s",
+          "share": 0.09
+        },
+        {
+          "decade": "40s",
+          "share": 0.18
+        },
+        {
+          "decade": "50s",
+          "share": 0.4
+        },
+        {
+          "decade": "60s",
+          "share": 0.57
+        }
+      ]
+    }
+  ],
+  "compare": [
+    {
+      "object": "vessel",
+      "slope": 0.77,
+      "intercept": 75.87,
+      "xMax": 2210,
+      "yMax": 2350,
+      "notes": [
+        "fit below the diagonal at high counts (seg lower than rf); slope about 0.77",
+        "x axis is follicle-labelled crop but panel is blood vessel; axes linear, ticks 500-2000; slope about 0.77"
+      ]
+    },
+    {
+      "object": "albicans",
+      "slope": 0.05,
+      "intercept": 19.73,
+      "xMax": 822.5,
+      "yMax": 812.5,
+      "notes": [
+        "nearly flat; seg far below the diagonal (about 5 to 8 percent of rf); y axis ticks 100, 300, 500, 700",
+        "fitted line nearly flat against the dashed diagonal; slope about 0.05"
+      ]
+    },
+    {
+      "object": "follicle",
+      "slope": 1.26,
+      "intercept": 0.49,
+      "xMax": 167,
+      "yMax": 180,
+      "notes": [
+        "fit above the diagonal (seg higher than rf), slope about 1.25; y ticks 20, 60, 100, 140",
+        "line sits above the diagonal; slope about 1.25"
+      ]
+    },
+    {
+      "object": "macrophage",
+      "slope": 0.27,
+      "intercept": 5.33,
+      "xMax": 355,
+      "yMax": 350.5,
+      "notes": [
+        "fit well below the diagonal, slope about 0.27; many points at seg near 0",
+        "slope about 0.27; many points at low seg count"
+      ]
+    }
+  ],
+  "axis": [
+    "Trend charts' y axis is roughly logarithmic: ticks are not evenly spaced in value but evenly spaced per decade (about 216 px per decade for vessels, about 137 for albicans, about 165 for follicle, about 155 for macrophage). Counts 0 and 1 sit in compressed rows at the bottom (0 is a separate row below 1 or 2, like a pseudo-log). x axis is age 20 to 70 and linear.",
+    "Trends chart's y axis is logarithmic (about log10) for counts of 1 and above, with ticks such as 2, 5, 10, 20, 50, 100, 200, 500, 1000, 2000. The 0 tick sits about half a log step below 1, so zeros are plotted at about 0.5. Read values with 10^(interpolated log position). The x axis is age 20 to 70, linear. The comparison charts use linear axes."
+  ],
+  "notes": [
+    "All values are eyeballed interpolations. Vessel lines are straight on the log scale (rf about -3.6e-3 log10 per year, seg about -6e-3). Follicle lines curve down and end steeply near age 58.6 (rf) and 59 (seg); the lines ending reflect a log-transform fit, so ages 60 and up are null. Macrophage seg line stays above 0 but falls to about 2 at 70. Albicans seg line is a mild rise from 16 to 39. Percentile bands are rough, especially in the sparse 30s (few donors) and where dots overlap; the zero share is estimated from the visible 0-row dots (lighter dots may hide overlap). Comparison panels: vessel, albicans and follicle crops contain parts of neighboring panels, only the titled panel was read; the cmp axes were read from tick pixel spacing, so maxima are approximate (the macrophage y max is about 350, the top tick).",
+    "All numbers are visual estimates from pixel positions, good to about 10 to 20 percent. The follicle lines curve down steeply and end at about age 58.5 for rf and 59 for seg, so those lines are null from age 60. Band values and zero shares are rough, because overlapping dots hide each other and zeros of one method can sit under the other's dots. The macrophage seg line is still about 2 at age 70, so zeroAge is null. The albicans rf line and seg line are reported as smooth curves read at a few pixel positions. Vessel y axis has no 0 tick. Seg zero shares for macrophage are from counting the zero row of dots; rf has none at 0.",
+    "Third reading (resolving the disagreements): tick rows and the lines measured to the pixel on the crops (follicle: 165 px per decade, 0 at log10 0.5; macrophage: 156 px per decade; albicans: 137 px per decade); bands as the 10th, 50th and 90th percentiles of the dots of each decade, counted by eye on 2x enlargements. Zeros of one method hide under the other's dots, so zero shares stay rough. The trend lines read as straight lines in raw counts drawn on the log axis (the follicle lines reach 0 at about 58.5 and 59, the macrophage Seg line at about 72), so they are interpolated linearly in counts."
+  ],
+  "disagreements": [
+    "band albicans rf 20s mid: 120 vs 80",
+    "band albicans seg 60s lo: 2 vs 5",
+    "band follicle rf 30s mid: 8 vs 12",
+    "band follicle rf 40s mid: 5 vs 2",
+    "band follicle rf 40s hi: 30 vs 15",
+    "zeroShare follicle rf 60s: 0.8 vs 0.6",
+    "trend follicle seg line at 50: 8.9 vs 12",
+    "band macrophage rf 30s mid: 60 vs 35",
+    "band macrophage rf 60s lo: 5 vs 10",
+    "trend macrophage seg line at 60: 14.5 vs 10",
+    "band macrophage seg 30s mid: 15 vs 10",
+    "band macrophage seg 40s mid: 18 vs 10",
+    "band macrophage seg 40s hi: 80 vs 40",
+    "band macrophage seg 50s mid: 5 vs 2",
+    "band macrophage seg 50s hi: 35 vs 20",
+    "band macrophage seg 60s hi: 15 vs 6"
+  ],
+  "resolved": [
+    "band albicans rf 20s mid: 97.98 -> 92 (median of the 25 RF dots of the 20s, each read off the log axis)",
+    "band albicans seg 60s lo: 3.16 -> 5 (the lowest tenth of the Seg dots of the 60s lies at about 4 to 9; only two dots at 0 are visible)",
+    "band follicle rf 30s mid: 9.8 -> 9 (median of the 13 RF dots of the 30s)",
+    "band follicle rf 40s mid: 3.16 -> 3 (median of about 26 RF dots of the 40s, counting the dark dots where both methods overlap)",
+    "band follicle rf 40s hi: 21.21 -> 18 (the top tenth of the same dots lies at about 13 to 21)",
+    "zeroShare follicle rf 60s: 0.7 -> 0.8 (at most 6 RF dots of the 60s are visible above 0 and at most 10 more can hide under Seg dots, of about 80 donors)",
+    "line follicle seg at 50: 10.33 -> 10.6 (the line measured at its pixel row against the axis ticks)",
+    "band macrophage rf 30s mid: 45.83 -> 18 (median of the 16 RF dots of the 30s (many lie low, 2 to 18))",
+    "band macrophage rf 60s lo: 7.07 -> 5 (the lowest tenth of about 45 RF dots of the 60s lies at about 4 to 5)",
+    "line macrophage seg at 60: 12.04 -> 11.4 (the line measured at its pixel row against the axis ticks)",
+    "band macrophage seg 30s mid: 12.25 -> 10 (median of the 16 Seg dots of the 30s)",
+    "band macrophage seg 40s mid: 13.42 -> 15 (median of about 46 Seg dots of the 40s, about 10 of them at 0)",
+    "band macrophage seg 40s hi: 56.57 -> 90 (the top tenth of the same dots lies at about 80 to 125)",
+    "band macrophage seg 50s mid: 3.16 -> 2 (median of about 72 Seg dots of the 50s, about 30 of them at 0)",
+    "band macrophage seg 50s hi: 26.46 -> 22 (the top tenth of the same dots lies at about 20 to 24)",
+    "band macrophage seg 60s hi: 9.49 -> 6 (only about 8 of about 85 Seg dots of the 60s lie above 4)"
+  ]
+}
