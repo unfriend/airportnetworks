@@ -4203,8 +4203,10 @@ function slideStep(t0) {
 // chapter's words end; a sound already past them stops there, and keeps quiet until the story is back there
 function slideTail(i, t) {
   const p = AUD && AUD.pos ? AUD.pos() : null, e = slideVoice(i);
-  if (p !== null) t = p;
-  SLIDE.tail = e > t || p !== null ? { s: slideStop(i), v: Math.max(e, t), t, at: performance.now() } : null;
+  // (only a sound that is with the story: right after a jump it still says where it was before)
+  const near = p !== null && Math.abs(p - t) < 1.5;
+  if (near) t = p;
+  SLIDE.tail = e > t || near ? { s: slideStop(i), v: Math.max(e, t), t, at: performance.now() } : null;
 }
 // what the narration plays (audioSync): the story's clock while it plays; while a voice finishes its chapter, its own
 // clock up to the chapter's voice end, then nothing until the story, gone on from the stop, is back there. So nothing
