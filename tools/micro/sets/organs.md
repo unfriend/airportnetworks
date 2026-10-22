@@ -21,13 +21,15 @@ story keeps); `MICRO_DATA.organs[i].icon` and the data block's `PET_DATA` shim a
 - Built between frames, one organ after another, its model and then its picture (so pictures come one by one from the
   start, not all at the end): `step(ms)` runs the queue as resumable jobs (a slice of the grid, or 300 triangles of a
   picture, at a time) for at most `ms` milliseconds. In the story the engine steps it every frame from the first
-  (`ORGAN3D.driven`; 3 ms a frame in a headset, elsewhere an eighth of the frame's time, 3 to 24 ms, since a slow frame
-  stutters anyway); the sets then leave it alone (in the harness they step it themselves: the network set 3 ms a frame
+  (`ORGAN3D.driven`; 3 ms a frame in a headset, elsewhere a quarter of the frame's time, 4 to 40 ms, since a slow
+  frame stutters anyway); the sets then leave it alone (in the harness they step it themselves: the network set 3 ms a frame
   while hidden, 4 while shown, the atlas set 3 while its models are missing). `want(id)` puts an organ at the front:
   the engine wants the stomach first (the first model the story shows), and a pane or the body wants the organ it
   shows. `geo(id)` builds one at once if needed; the harness and the sweeps build all at once (`finish`). All 29 models
   take 0.4 to 0.6 s of CPU in Node unloaded (1.1 to 2 s on a machine with a load average of 16; several times longer
-  on a Quest, about 15 s at 3 ms a frame), the pictures about a tenth of that.
+  on a Quest, about 15 s at 3 ms a frame), and the pictures a little more. In headless Chromium under that load, with
+  frames of about 3 s, `#micro&explore&organ=Ovary` showed the ovary's picture (chip and heading) on the second
+  build step and the other 28 one by one, all within about 100 frames, without errors.
 - Pictures: `canvas(id, px)` draws a model once onto a 2D canvas, lit the same way, with a painter's algorithm (flat
   triangles sorted far to near, each filled and stroked against seams), at twice the size and scaled down. No WebGL, so
   no render target and nothing to do with a headset session. The panes ask with `pic(id)` and `picUrl(id)`, which

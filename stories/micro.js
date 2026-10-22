@@ -5363,12 +5363,12 @@ function updateSets(S, t, dt, story) {
     else if (s.idle) s.idle(dt);   // a hidden set may build in slices
   }
   // the organs' 3D models and their pictures build between frames from the start, one organ after another (the one a
-  // pane or the body wants first): a short slice a frame in a headset, up to an eighth of a slow frame elsewhere (a
+  // pane or the body wants first): a short slice a frame in a headset, a quarter of the frame elsewhere (4 to 40 ms: a
   // slow frame's stutter is there anyway). Each picture goes into the HTML chips waiting for it as it is done, and the
   // headset's panels redraw on GL.orgV (at most twice a second while they come)
   if (!GL.orgDone) {
     ORGAN3D.driven = true;
-    GL.orgDone = ORGAN3D.step(GL.renderer.xr.isPresenting ? 3 : clamp((dt || 0) * 125, 3, 24));
+    GL.orgDone = ORGAN3D.step(GL.renderer.xr.isPresenting ? 3 : clamp((dt || 0) * 250, 4, 40));
     const v = ORGAN3D.version();
     if (v !== GL.orgSeen) { GL.orgSeen = v; fillOrganPics(); }
     const now = performance.now();
@@ -5523,8 +5523,8 @@ const fitShift = (k, name) => { const f = GL.sets[k].cam[name] && FIT[k] && FIT[
 // (the section, 2.1 long, needs about 4 units' distance to fit right of the panel: further back, and moved right)
 const SEC = [0, 0, 0.6, -0.22];
 const FIT = { atlas: { default: [0, 0, 1.1, -0.22], library: [0, 0, 1.1, -0.22], atlas: [0, 0, 0.8, -0.35], focus: [0, 0, 0.55, -0.05, 0.0], volcano: [0, 0, 0.45, -0.2],
-  curves: [0, 0, 0.9, -0.12], age: [0, 0, 0.45, -0.2] },
-  body: { default: [0, 0, 0.55], front: [0, 0, 0.55] }, hier: { net: [0, 0, 0.35, 0, 0.05], default: [0, 0, 0.25, 0, 0.03] }, tissue: { default: SEC, section: SEC }, slide: { default: SEC, section: SEC, domains: SEC, age: SEC, tiles: [0, 0, 0.35, -0.25], group: [0, 0, 0.75, -0.12] } };
+  curves: [0, 0, 1.1, -0.32], age: [0, 0, 0.45, -0.2] },
+  body: { default: [0, 0, 0.55], front: [0, 0, 0.55] }, hier: { net: [0, 0, 0.35, 0, 0.05], default: [0, 0, 0.25, 0, 0.03] }, tissue: { default: SEC, section: SEC }, slide: { default: SEC, section: SEC, domains: SEC, age: SEC, tiles: [0, 0, 0.35, -0.25], close: [0, 0, 0.25, -0.05], group: [0, 0, 0.75, -0.12] } };
 // how much further back a view stands on a phone held upright (see narrowK): the wide ones, whose parts reach
 // across the screen
 const NARROW = { tissue: { section: 1.2, default: 1.2 }, slide: { default: 1.2, domains: 1.2, group: 1.25 }, atlas: { library: 1.1, default: 1.1, atlas: 1.2, volcano: 1.15, curves: 1.15 },
