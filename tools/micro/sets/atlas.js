@@ -1054,9 +1054,9 @@ void main() {
     { text: [`${AGES[1]}`, ' years'], at: 'libAge70', cls: '', minor: true, alpha: libLab },
     { text: [`${AGES[0]}`, ' years'], at: 'libAge20', cls: '', minor: true, alpha: libLab },
     { text: [`${F.domains || 218} domains`, ` in ${F.types || 74} types`], at: 'atlasTop', cls: 'cyn',
-      alpha: S => prog(S.atlas_map, 0.7, 1) * (1 - prog(S.atlas_umap, 0, 0.3)) * (1 - prog(vcS(S), 0, 0.3)) * (1 - anyF(S)) },
+      alpha: S => prog(S.atlas_map, 0.7, 1) * (1 - prog(S.atlas_umap, 0, 0.3)) * (1 - prog(vcS(S), 0, 0.1)) * (1 - anyF(S)) },   // (gone with the sections behind a plot)
     { text: [`${Math.round((F.tiles || 162e6) / 1e6)} million tiles`, `, ${F.domains || 218} domains`], at: 'umapTop', cls: 'cyn',
-      alpha: S => prog(S.atlas_umap, 0.6, 0.95) * (1 - prog(vcS(S), 0, 0.3)) * (1 - anyF(S)) },
+      alpha: S => prog(S.atlas_umap, 0.6, 0.95) * (1 - prog(vcS(S), 0, 0.1)) * (1 - anyF(S)) },
     { text: [`${F.ageChange || 28} %`, ' of domains change with age'], at: 'volcanoTop', cls: 'amb', alpha: S => prog(S.atlas_volcano, 0.7, 1) },
     { text: ['Falls', ' with age'], at: 'vLeft', cls: 'cyn', alpha: S => prog(S.atlas_volcano, 0.75, 1) * (1 - anyF(S)) },
     { text: ['Rises', ' with age'], at: 'vRight', cls: 'mag', alpha: S => prog(S.atlas_volcano, 0.75, 1) * (1 - anyF(S)) },
