@@ -204,7 +204,7 @@ void main() {
     if (dot) for (let c = 0; c < N; c++) balls.add(P[c], dot, [0.75, 0.73, 0.95], alpha);
     return P;
   }
-  // one Pauli string drawn on a cube centred at cen (half size h): hops as tubes, loops as rings, signs solid/dashed
+  // one Pauli string drawn on a cube centered at cen (half size h): hops as tubes, loops as rings, signs solid/dashed
   function drawString(k, L, cen, h, alpha, gray, bright) {
     const N = 1 << L, P = frame(cen, h, L, alpha * 0.8, 0.012 * h / 0.12), sc = h / H;
     const col = LK.mix(LK.PURPLE, LK.GRAY, gray), x = k >> L;

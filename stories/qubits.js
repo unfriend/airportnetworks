@@ -394,7 +394,7 @@ const QMATH = (() => {
       for (let i = 0; i < n; i++) { cnt[lab[i]]++; for (let j = 0; j < d; j++) C[lab[i] * d + j] += X[i * d + j]; }
       for (let c = 0; c < k; c++) for (let j = 0; j < d; j++) C[c * d + j] /= cnt[c] || 1;
     };
-    // plain Lloyd steps first, so the centres find the groups
+    // plain Lloyd steps first, so the centers find the groups
     for (let it = 0; it < 30; it++) {
       let moved = false;
       for (let i = 0; i < n; i++) { let bc = 0, bd = Infinity; for (let c = 0; c < k; c++) { const t = dist(i, c); if (t < bd) { bd = t; bc = c; } } if (lab[i] !== bc) { lab[i] = bc; moved = true; } }
@@ -726,7 +726,7 @@ const QMATH = (() => {
       }
       temp *= 0.95;
     }
-    // centred and scaled to radius 1 (the 98th percentile)
+    // centered and scaled to radius 1 (the 98th percentile)
     const cen = [0, 0, 0];
     for (let i = 0; i < n; i++) for (let d = 0; d < 3; d++) cen[d] += P[3 * i + d] / n;
     const rr = [];
@@ -1510,7 +1510,7 @@ void main() {
     if (dot) for (let c = 0; c < N; c++) balls.add(P[c], dot, [0.75, 0.73, 0.95], alpha);
     return P;
   }
-  // one Pauli string drawn on a cube centred at cen (half size h): hops as tubes, loops as rings, signs solid/dashed
+  // one Pauli string drawn on a cube centered at cen (half size h): hops as tubes, loops as rings, signs solid/dashed
   function drawString(k, L, cen, h, alpha, gray, bright) {
     const N = 1 << L, P = frame(cen, h, L, alpha * 0.8, 0.012 * h / 0.12), sc = h / H;
     const col = LK.mix(LK.PURPLE, LK.GRAY, gray), x = k >> L;
