@@ -702,7 +702,7 @@ vec4 ribbon(vec3 a, vec3 b, float end, float side, float w, float wMin, float wM
   // across the ribbon: full in the middle, soft at the edges
   const RIBBON_FRAG = `varying vec3 vC; varying float vA, vS;
 void main() { float a = vA * (1.0 - abs(vS * vS * vS)); if (a < 0.0015) discard; gl_FragColor = vec4(vC, a); }`;
-  const LK = { ctx: 0.11, busy: 1.0, sel: 0.85, down: 0.4, mod: 0.36, seed: 0.6, pair: 0.6, hot: 0.25, within: 0.5, betw: 0.42, gene: 0.5,
+  const LK = { ctx: 0.11, busy: 1.0, sel: 0.85, down: 0.4, mod: 0.36, seed: 0.6, pair: 0.6, hot: 0.35, within: 0.5, betw: 0.42, gene: 0.5,
     wCtx: 0.0062, wHi: 0.0105, wMin: 1.1, wMaxC: 2.2, wMaxH: 3.6 };
   const lnMat = new THREE.ShaderMaterial({
     uniforms: uni(), transparent: true, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending,
