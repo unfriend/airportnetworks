@@ -2654,9 +2654,624 @@ return { PLACES, CONTACTS, MOVES, NET, A, CP, CELL, LAYOUT, POS, cpos, latLonOf,
 
 SETS.fish = function (K) { const set = K.newSet('fish'); return Object.assign(set, { params: { fish_a: 1 }, update() {}, anchors: {}, labels: [], cam: { default: [0, 10, 3.6, 0, 0, 0] } }); };
 
-SETS.globe = function (K) { const set = K.newSet('globe'); return Object.assign(set, { params: { globe_a: 1 }, update() {}, anchors: {}, labels: [], cam: { default: [0, 10, 3.6, 0, 0, 0] } }); };
+// The airports story's globe (stories/airports.js: its land, 3,214 airports, 18,858 routes, pillars and look, cut out
+// of that story at build time as PASS_AIRPORTS and built by its own buildScene, unchanged) behind the set contract,
+// and an outbreak on its route network: a seeded discrete-time model in which every city (airport) is susceptible,
+// exposed, infectious or recovered (S, E, I, R). Each day a susceptible city is reached over a route from each of its
+// infectious neighbours with a chance set by the spread and the share of flights kept; it is exposed for its
+// incubation time, infectious for a while, then recovered. The same start and settings always give the same
+// outbreak (every chance comes from a hash of the seed, the city and the day). A simple model, not a forecast.
+// Radius 1, centred on the origin, as in the airports story (y up, lon 0 towards +x, lon 90 E towards -z).
+SETS.globe = function (K) {
+  const { THREE, clamp, smooth } = K;
+  const set = K.newSet('globe');
+  let LANG = 'en';
+  const T = (en, de) => (LANG === 'de' ? de : en);
 
-SETS.cell = function (K) { const set = K.newSet('cell'); return Object.assign(set, { params: { cell_a: 1 }, update() {}, anchors: {}, labels: [], cam: { default: [0, 10, 3.6, 0, 0, 0] } }); };
+  // ---------------------------------------------------------------- the original, built as in its own story
+  // (its renderer stands in for the engine's, which owns the canvas: the original only asks it how big a land texture
+  // the GPU takes; its stars go into a scene of their own that is never drawn, the engine has its own)
+  const caps = K.renderer ? K.renderer.capabilities : { maxTextureSize: 4096, getMaxAnisotropy: () => 4 };
+  const O = PASS_AIRPORTS({ makeRenderer: () => ({ xr: {}, setPixelRatio() {}, capabilities: caps }) });
+  O.buildScene(null);
+  const G = O.GL, NET = O.NET, { N, P, deg, maxDeg, adjS, adj } = NET;
+  set.group.add(G.world);
+  // every shader of the original fades with the set: its alpha times the set's fade, appended to its fragment shader
+  // before it is first compiled (the original's own code stays as it is)
+  const faded = new WeakSet();
+  function fadeMat(m) {
+    if (!m || !m.isShaderMaterial || faded.has(m)) return;
+    faded.add(m);
+    m.uniforms.uSetA = set.uA;
+    m.fragmentShader = 'uniform float uSetA;\n' + m.fragmentShader.replace(/\}\s*$/, '  gl_FragColor.a *= uSetA;\n}\n');
+    m.transparent = true;   // (the globe itself was opaque: now it fades too, drawn first of the set's see-through parts)
+  }
+  G.world.traverse(o => fadeMat(o.material));
+  const highlight = (key, pairs, color, opts) => { const m = O.setHighlight(key, pairs, color, opts); if (m) fadeMat(m.material); return m; };
+
+  // the original's updateLight, for this set: the light from over the viewer's left shoulder (on a screen it turns
+  // with the camera; in a headset it stays put in the room, with the rig), and the dots' size (on a screen it follows
+  // the camera's distance; in a headset they keep their size on the globe). Run just before the set is drawn, for
+  // each eye, so it needs nothing from the engine.
+  const LV = new THREE.Vector3(), _q = new THREE.Quaternion(), _c = new THREE.Vector3(), _s = new THREE.Vector3(), _m = new THREE.Matrix4();
+  function look(renderer, cam) {
+    const xr = !!(renderer.xr && renderer.xr.isPresenting), mw = G.world.matrixWorld, s = _s.setFromMatrixScale(mw).x;
+    G.atmMat.uniforms.uCenter.value.setFromMatrixPosition(mw);
+    G.atmMat.uniforms.uRadius.value = s;
+    const rig = set.group.parent && set.group.parent.parent;   // (the engine's GL.rig > GL.world > this set)
+    if (xr && rig) rig.getWorldQuaternion(_q); else cam.getWorldQuaternion(_q);
+    LV.set(-0.55, 0.42, 1.0).normalize().applyQuaternion(_q);
+    G.globeMat.uniforms.uL.value.copy(LV);
+    if (xr) { G.U.uScale.value = 1; G.U.uPx.value = 0.0028 * K.U.uPx.value * set.group.scale.x; return; }
+    G.U.uPx.value = 0;
+    _c.setFromMatrixPosition(cam.matrixWorld).applyMatrix4(_m.copy(mw).invert());
+    G.U.uScale.value = renderer.getPixelRatio() * clamp(3.6 / Math.max(_c.length(), 1e-3), 0.75, 2.4);
+  }
+  const probe = new THREE.Mesh(new THREE.BufferGeometry().setAttribute('position', new THREE.BufferAttribute(new Float32Array(9), 3)),
+    new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: false }));
+  probe.frustumCulled = false; probe.renderOrder = -100;
+  probe.onBeforeRender = (renderer, scene, cam) => look(renderer, cam);
+  set.group.add(probe);
+
+  // ---------------------------------------------------------------- the outbreak
+  const NEVER = 1e6, MAXDAY = 730;
+  const tE = new Float32Array(N), tI = new Float32Array(N), tR = new Float32Array(N), src = new Int32Array(N);
+  const OB = { start: -1, inc: 5, inf: 7, spread: 'medium', kept: 1, seed: 1, end: 0, series: null, key: '' };
+  const SPREAD = { low: 0.025, medium: 0.06, high: 0.14 };   // chance per day that an infectious city passes it to one neighbour
+  // a number in [0, 1) for (a, b, c), the same on every device
+  const hash = (a, b, c) => {
+    let h = Math.imul(a ^ 0x9e3779b9, 0x85ebca6b) ^ Math.imul(b + 0x632be5ab, 0xc2b2ae35) ^ Math.imul(c + 0x1b873593, 0x27d4eb2f);
+    h ^= h >>> 15; h = Math.imul(h, 0x2c1b3c6d); h ^= h >>> 12; h = Math.imul(h, 0x297a2d39); h ^= h >>> 15;
+    return (h >>> 0) / 4294967296;
+  };
+  function run() {
+    tE.fill(NEVER); tI.fill(NEVER); tR.fill(NEVER); src.fill(-1);
+    OB.end = 0;
+    const s0 = OB.start;
+    if (s0 < 0) { OB.series = { S: [N], E: [0], I: [0], R: [0] }; return; }
+    const p = SPREAD[OB.spread] * clamp(OB.kept, 0, 1), sd = OB.seed | 0;
+    const dur = (j, base, k) => Math.max(1, Math.round(base * (0.7 + 0.6 * hash(sd, j, k))));   // a little different in every city
+    const expose = (j, d, from) => { tE[j] = d; tI[j] = d + dur(j, OB.inc, 1); tR[j] = tI[j] + dur(j, OB.inf, 2); src[j] = from; };
+    expose(s0, 0, -1);
+    const cnt = new Int32Array(N), best = new Float32Array(N), bestFrom = new Int32Array(N), touched = [];
+    let active = [s0];   // exposed or infectious
+    for (let d = 0; d < MAXDAY && active.length; d++) {
+      // every infectious city tries each susceptible neighbour (one draw per city and day for all its infectious neighbours)
+      for (const i of active) {
+        if (!(tI[i] <= d && d < tR[i])) continue;
+        for (let k = adjS[i]; k < adjS[i + 1]; k++) {
+          const j = adj[k];
+          if (tE[j] !== NEVER) continue;
+          if (!cnt[j]) { touched.push(j); best[j] = -1; }
+          cnt[j]++;
+          const w = hash(sd, i * 7919 + j, d);   // which neighbour it came from, if it comes
+          if (w > best[j]) { best[j] = w; bestFrom[j] = i; }
+        }
+      }
+      for (const j of touched) {
+        if (hash(sd + 101, j, d) < 1 - Math.pow(1 - p, cnt[j])) { expose(j, d + 1, bestFrom[j]); active.push(j); }
+        cnt[j] = 0;
+      }
+      touched.length = 0;
+      active = active.filter(i => tR[i] > d + 1);
+      OB.end = d + 1;
+    }
+    for (let i = 0; i < N; i++) if (tR[i] < NEVER) OB.end = Math.max(OB.end, tR[i]);
+    // the chart's series: cities in each state, day by day
+    const S = [], E = [], I = [], R = [];
+    for (let d = 0; d <= OB.end; d++) {
+      let e = 0, ii = 0, r = 0;
+      for (let j = 0; j < N; j++) { if (tE[j] > d) continue; if (tI[j] > d) e++; else if (tR[j] > d) ii++; else r++; }
+      S.push(N - e - ii - r); E.push(e); I.push(ii); R.push(r);
+    }
+    OB.series = { S, E, I, R };
+  }
+
+  // drawn on the airports: exposed amber, infectious red (with a flash as they turn), recovered grey; susceptible ones
+  // show the original's own dots. Sizes and the pillars' heights follow the original's (its uniforms are shared).
+  const og = new THREE.BufferGeometry(), op = new Float32Array(N * 3);
+  for (let i = 0; i < 3 * N; i++) op[i] = P[i] * (1 + O.LIFT + 0.0016);
+  og.setAttribute('position', new THREE.BufferAttribute(op, 3));
+  const aE = new THREE.BufferAttribute(tE, 1), aI = new THREE.BufferAttribute(tI, 1), aR = new THREE.BufferAttribute(tR, 1);
+  og.setAttribute('aE', aE); og.setAttribute('aI', aI); og.setAttribute('aR', aR);
+  og.setAttribute('aSize', new THREE.BufferAttribute(G.attr.aSize, 1)); og.setAttribute('aHDeg', new THREE.BufferAttribute(G.attr.aHDeg, 1));
+  og.setAttribute('aIdx', new THREE.BufferAttribute(G.attr.aIdx, 1));
+  const OU = { uDay: { value: 0 }, uOut: { value: 0 }, uSel: { value: -1 } };
+  const outMat = new THREE.ShaderMaterial({
+    uniforms: Object.assign({ uA: set.uA, uTime: K.U.uTime, uScale: G.U.uScale, uPx: G.U.uPx, uDegH: G.U.uDegH }, OU),
+    transparent: true, depthWrite: false,
+    vertexShader: `attribute float aE, aI, aR, aSize, aHDeg, aIdx;
+uniform float uDay, uOut, uScale, uPx, uDegH, uA, uTime, uSel;
+varying vec3 vCol; varying float vA, vRing, vE;
+void main() {
+  vec4 mv = modelViewMatrix * vec4(position * (1.0 + aHDeg * uDegH), 1.0);
+  gl_Position = projectionMatrix * mv;
+  float e = smoothstep(aE, aE + 0.6, uDay), i = smoothstep(aI, aI + 0.4, uDay), r = smoothstep(aR, aR + 3.0, uDay);
+  vec3 col = mix(mix(vec3(1.0, 0.71, 0.23), vec3(1.0, 0.27, 0.2), i), vec3(0.5, 0.55, 0.63), r);
+  float flash = i * (1.0 - smoothstep(aI + 0.4, aI + 2.5, uDay));       // a flash as a city turns infectious
+  float pulse = i * (1.0 - r) * (0.5 + 0.5 * sin(uTime * 5.0 + aIdx));
+  vCol = col * (1.0 + 0.9 * flash);
+  vRing = 1.0 - step(0.5, abs(aIdx - uSel)); vE = e;
+  vA = uOut * uA * max(e * (1.0 - 0.4 * r), vRing);
+  float att = uPx > 0.0 ? uPx * projectionMatrix[1][1] / max(-mv.z, 0.05) : 1.0;
+  float sz = (aSize * (1.15 + 0.35 * pulse + 1.2 * flash) * (1.0 - 0.3 * r) + 1.5) * (1.0 + vRing * 1.4);
+  gl_PointSize = max(sz * uScale * att, uPx > 0.0 ? 1.6 : 0.0);
+  if (vA < 0.004) gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
+}`,
+    fragmentShader: `varying vec3 vCol; varying float vA, vRing, vE;
+void main() {
+  vec2 c = gl_PointCoord - 0.5; float d = length(c);
+  if (d > 0.5) discard;
+  float core = smoothstep(0.5, 0.30, d) * step(0.001, vE);   // (a selected city not reached yet: only its ring)
+  float ring = vRing * smoothstep(0.5, 0.44, d) * (1.0 - smoothstep(0.38, 0.30, d));
+  gl_FragColor = vec4(mix(vCol, vec3(0.6, 0.95, 1.0) * 1.6, ring), vA * max(core, ring));
+}`,
+  });
+  set.mats.push(outMat);
+  const outDots = new THREE.Points(og, outMat);
+  outDots.renderOrder = 3; outDots.frustumCulled = false;
+  set.group.add(outDots);
+
+  // and on the routes as it travels: from the city it came from, over the day before it arrives; a faint trace stays
+  const arcMat = new THREE.ShaderMaterial({
+    uniforms: Object.assign({ uA: set.uA }, OU), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+    vertexShader: `attribute float aT, aD0;
+uniform float uDay, uOut, uA;
+varying float vA, vH;
+void main() {
+  gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+  float g = (uDay - aD0) / 1.2;                                   // (a flight takes about a day)
+  float head = (1.0 - smoothstep(0.0, 0.2, g - aT)) * step(g, 1.25);
+  float trail = 0.3 * exp(-max(0.0, uDay - aD0 - 1.2) * 0.22);
+  vH = head;
+  vA = uOut * uA * step(0.0, g) * step(aT, g) * clamp(head + trail, 0.0, 1.0);
+}`,
+    fragmentShader: `varying float vA, vH;
+void main() { if (vA < 0.004) discard; gl_FragColor = vec4(mix(vec3(1.0, 0.42, 0.22), vec3(1.0, 0.86, 0.55), vH), vA); }`,
+  });
+  set.mats.push(arcMat);
+  const arcs = new THREE.LineSegments(new THREE.BufferGeometry(), arcMat);
+  arcs.renderOrder = 4; arcs.frustumCulled = false;
+  set.group.add(arcs);
+  function buildArcs() {
+    const list = [];
+    let tot = 0, segs = 0;
+    for (let j = 0; j < N; j++) if (src[j] >= 0) { const a = O.arcPoints(src[j], j, 2.5, 0.0008); list.push([j, a]); tot += a.length / 3; segs += a.length / 3 - 1; }
+    const pos = new Float32Array(tot * 3), at = new Float32Array(tot), d0 = new Float32Array(tot), idx = new Uint32Array(segs * 2);
+    let o = 0, io = 0;
+    for (const [j, a] of list) {
+      const m = a.length / 3;
+      pos.set(a, o * 3);
+      for (let k = 0; k < m; k++) { at[o + k] = k / (m - 1); d0[o + k] = tE[j] - 1.2; if (k < m - 1) { idx[io++] = o + k; idx[io++] = o + k + 1; } }
+      o += m;
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    g.setAttribute('aT', new THREE.BufferAttribute(at, 1)); g.setAttribute('aD0', new THREE.BufferAttribute(d0, 1));
+    g.setIndex(new THREE.BufferAttribute(idx, 1));
+    arcs.geometry.dispose(); arcs.geometry = g;
+  }
+  // the way it took to the selected city, as a glowing tube that grows day by day (the original's highlight)
+  let SEL = -1, CHAIN = null;
+  function chainTo(i) {
+    if (i < 0 || tE[i] === NEVER) return null;
+    const c = [i];
+    while (src[c[c.length - 1]] >= 0) c.push(src[c[c.length - 1]]);
+    return c.reverse();
+  }
+  function setChain() {
+    CHAIN = chainTo(SEL);
+    highlight('chain', CHAIN && CHAIN.length > 1 ? CHAIN.slice(0, -1).map((c, k) => [c, CHAIN[k + 1]]) : null, [1.0, 0.78, 0.36],
+      { radius: 0.0022, hops: CHAIN ? CHAIN.slice(1).map((_, k) => k + 1) : null });
+  }
+  function setup(o) {
+    const nx = Object.assign({}, OB, o || {});
+    nx.inc = clamp(Math.round(nx.inc), 1, 21); nx.inf = clamp(Math.round(nx.inf), 1, 30); nx.kept = clamp(nx.kept, 0, 1);
+    if (!SPREAD[nx.spread]) nx.spread = 'medium';
+    const k = [nx.start, nx.inc, nx.inf, nx.spread, nx.kept.toFixed(3), nx.seed].join('|');
+    Object.assign(OB, nx);
+    if (k === OB.key) return summary();
+    OB.key = k;
+    run();
+    aE.needsUpdate = aI.needsUpdate = aR.needsUpdate = true;
+    buildArcs(); setChain();
+    return summary();
+  }
+  const reached = () => { let n = 0; for (let j = 0; j < N; j++) if (tE[j] < NEVER) n++; return n; };
+  const summary = () => ({ start: OB.start, end: OB.end, reached: reached(), peak: OB.series.I.reduce((b, v, d) => (v > OB.series.I[b] ? d : b), 0) });
+  const countAt = d => { const s = OB.series, k = clamp(Math.floor(d), 0, s.S.length - 1); return { S: s.S[k], E: s.E[k], I: s.I[k], R: s.R[k] }; };
+
+  // ---------------------------------------------------------------- picking, places
+  const lift = i => 1 + O.LIFT + G.attr.aHDeg[i] * G.U.uDegH.value;
+  const pos = (i, up) => { const r = lift(i) + (up || 0); return [P[3 * i] * r, P[3 * i + 1] * r, P[3 * i + 2] * r]; };
+  // the airport nearest a ray (a THREE.Raycaster, in world coordinates): the original's pickAirportRay, in this set's frame
+  const _o = new THREE.Vector3(), _d = new THREE.Vector3(), _inv = new THREE.Matrix4();
+  function pick(ray) {
+    set.group.updateWorldMatrix(true, true);
+    _inv.copy(G.world.matrixWorld).invert();
+    const o = _o.copy(ray.ray.origin).applyMatrix4(_inv), d = _d.copy(ray.ray.direction).transformDirection(_inv);
+    let best = -1, bs = Infinity;
+    for (let i = 0; i < N; i++) {
+      const px = P[3 * i], py = P[3 * i + 1], pz = P[3 * i + 2];
+      if (px * o.x + py * o.y + pz * o.z < 1.0) continue;   // the far side
+      const r = lift(i), vx = px * r - o.x, vy = py * r - o.y, vz = pz * r - o.z, t = vx * d.x + vy * d.y + vz * d.z;
+      if (t <= 0) continue;
+      const ang = Math.sqrt(Math.max(0, vx * vx + vy * vy + vz * vz - t * t)) / t;
+      if (ang > 0.026) continue;
+      const sc = ang - 0.008 * Math.sqrt(deg[i] / maxDeg);
+      if (sc < bs) { bs = sc; best = i; }
+    }
+    return best;
+  }
+  const find = code => { const i = O.A(String(code || '').toUpperCase()); return i === undefined ? -1 : i; };
+  const info = i => (i < 0 ? null : { i, code: NET.code[i], city: NET.city[i], country: NET.country[i], name: NET.name[i], routes: deg[i],
+    lat: NET.lat[i], lon: NET.lon[i], exposed: tE[i] < NEVER ? tE[i] : null, infectious: tI[i] < NEVER ? tI[i] : null, recovered: tR[i] < NEVER ? tR[i] : null,
+    from: src[i] >= 0 ? src[i] : null });
+  // a view [az, el, dist, 0, 0, 0] that faces the point at (lat, lon)
+  const viewOf = (lat, lon, dist, dlat, dlon) => [90 + lon + (dlon || 0), clamp(lat + (dlat || 0), -70, 75), dist, 0, 0, 0];
+
+  // ---------------------------------------------------------------- params, update
+  const params = { globe_a: 1, globe_reveal: 1, globe_routes: 1, globe_hubs: 0, globe_pillars: 0, globe_dim: 0, globe_out: 0, globe_day: 0 };
+  function update(S) {
+    const U = G.U, RU = G.RU, rv = clamp(S.globe_reveal, 0, 1), dim = clamp(S.globe_dim, 0, 1);
+    U.uReveal.value = rv; RU.uReveal.value = rv;
+    U.uWDeg.value = clamp(S.globe_hubs, 0, 1); U.uDegH.value = clamp(S.globe_pillars, 0, 1);
+    U.uAlpha.value = 1 - 0.55 * dim;
+    RU.uAlpha.value = 0.2 * clamp(S.globe_routes, 0, 1) * (1 - 0.7 * dim);
+    U.uSel.value = SEL;
+    G.pillars.visible = S.globe_pillars > 0.002;
+    const out = clamp(S.globe_out, 0, 1), day = Math.max(0, S.globe_day);
+    OU.uOut.value = OB.start >= 0 ? out : 0; OU.uDay.value = day; OU.uSel.value = SEL;
+    outDots.visible = arcs.visible = OU.uOut.value > 0.003;
+    const ch = G.highlights.chain;
+    if (ch) {
+      let n = 0; if (CHAIN) for (let k = 1; k < CHAIN.length; k++) if (tE[CHAIN[k]] <= day) n = k;
+      ch.material.uniforms.uProg.value = n + (CHAIN && n < CHAIN.length - 1 ? clamp((day - (tE[CHAIN[n + 1]] - 1.2)) / 1.2, 0, 1) : 0);
+      ch.material.uniforms.uAlpha.value = 0.9 * OU.uOut.value; ch.visible = OU.uOut.value > 0.003 && ch.material.uniforms.uProg.value > 0.001;
+    }
+    DAY = day;
+  }
+  let DAY = 0;
+
+  // ---------------------------------------------------------------- anchors, labels, views, controls
+  const HUBS = ['VIE', 'LHR', 'FRA', 'CDG', 'IST', 'DXB', 'JFK', 'ATL', 'PEK', 'SIN', 'JNB', 'GRU', 'SYD'];
+  const anchors = { top: [0, 1.22, 0], start: () => (OB.start >= 0 ? pos(OB.start, 0.02) : [0, 1.1, 0]), sel: () => (SEL >= 0 ? pos(SEL, 0.02) : [0, 1.1, 0]) };
+  for (const c of HUBS) { const i = find(c); if (i >= 0) anchors[c] = pos(i, 0.02); }
+  const num = n => Math.round(n).toLocaleString(LANG === 'de' ? 'de-AT' : 'en-GB');
+  const dayText = () => {
+    const c = countAt(DAY), r = c.E + c.I + c.R;
+    return [T('Day ', 'Tag ') + Math.floor(DAY), T(`${num(r)} of ${num(N)} cities reached`, `${num(r)} von ${num(N)} Städten erreicht`)];
+  };
+  const labels = [
+    { text: dayText, at: 'top', cls: 'red', alpha: S => (OB.start >= 0 ? K.prog(S.globe_out, 0.5, 1) : 0) },
+    { text: () => [OB.start >= 0 ? NET.city[OB.start] : '', T('it starts here', 'hier fängt es an')], at: 'start', cls: 'amb',
+      alpha: S => (OB.start >= 0 ? K.prog(S.globe_out, 0.5, 1) * (1 - K.prog(S.globe_day, 8, 12)) : 0) },
+    { text: () => { const i = SEL; if (i < 0) return ['', '']; const d = tE[i]; return [NET.city[i], d === NEVER ? T('never reached', 'nie erreicht') : d <= DAY ? T(`reached on day ${d}`, `erreicht an Tag ${d}`) : T('not yet', 'noch nicht')]; },
+      at: 'sel', cls: 'cyn', alpha: S => (SEL >= 0 && SEL !== OB.start ? K.prog(S.globe_out, 0.5, 1) : 0) },
+  ];
+  const cam = {
+    default: viewOf(28, 12, 3.6),          // Europe, Africa and Asia in view
+    europe: viewOf(46, 14, 2.3),
+    world: [60, 18, 4.2, 0, 0, 0],
+    atlantic: viewOf(32, -35, 3.4),
+    asia: viewOf(28, 100, 3.4),
+    start: viewOf(28, 12, 2.6),            // (turned to the start city by start())
+  };
+  const setStartView = () => { if (OB.start >= 0) cam.start.splice(0, 6, ...viewOf(NET.lat[OB.start] * 0.85, NET.lon[OB.start], 2.6)); };
+  const CTL = {
+    en: [
+      { key: 'view', label: 'View', options: [['default', 'Europe and Asia'], ['atlantic', 'The Atlantic'], ['asia', 'Asia'], ['world', 'From afar']] },
+      { key: 'color', label: 'Colour', options: [['plain', 'Plain'], ['hubs', 'Hubs']] },
+      { key: 'pillars', label: 'Pillars', options: [['off', 'Off'], ['on', 'Routes per airport']] },
+      { key: 'out', label: 'Outbreak', options: [['off', 'Off'], ['on', 'Play']] },
+    ],
+    de: [
+      { key: 'view', label: 'Ansicht', options: [['default', 'Europa und Asien'], ['atlantic', 'Der Atlantik'], ['asia', 'Asien'], ['world', 'Von weit weg']] },
+      { key: 'color', label: 'Farbe', options: [['plain', 'Einfach'], ['hubs', 'Drehkreuze']] },
+      { key: 'pillars', label: 'Säulen', options: [['off', 'Aus'], ['on', 'Flugrouten je Flughafen']] },
+      { key: 'out', label: 'Ausbruch', options: [['off', 'Aus'], ['on', 'Abspielen']] },
+    ],
+  };
+  // (in the Scenes tab the outbreak plays from wherever it was started, four days a second, and starts again)
+  function explore(c) {
+    const on = c.out === 'on' && OB.start >= 0;
+    return { globe_hubs: c.color === 'hubs' ? 1 : 0, globe_pillars: c.pillars === 'on' ? 1 : 0, globe_out: on ? 1 : 0, globe_dim: on ? 1 : 0,
+      globe_day: on ? ((c.t || 0) * 4) % (OB.end + 12) : 0 };
+  }
+  setup({ start: find('VIE') });   // a calm default: Vienna, medium spread (the story and explore set their own)
+  setStartView();
+
+  const api = {
+    setup: o => { const s = setup(o); setStartView(); return s; },
+    start: i => api.setup({ start: typeof i === 'string' ? find(i) : i }),
+    settings: () => ({ start: OB.start, inc: OB.inc, inf: OB.inf, spread: OB.spread, kept: OB.kept, seed: OB.seed }),
+    end: () => OB.end, series: () => OB.series, count: countAt, summary,
+    arrivalDay: i => (i >= 0 && tE[i] < NEVER ? tE[i] : null), chain: i => chainTo(i),
+    select: i => { SEL = i >= 0 ? i : -1; setChain(); }, selected: () => SEL,
+    pick, find, info, pos, viewOf, deg: i => deg[i], n: () => N, routes: () => NET.E,
+    original: O,   // (the cut-out airports story itself: NET, GL, bestPath, km, STATS ...)
+  };
+  const out = Object.assign(set, { params, update, anchors, labels, cam, explore, api, setLang: l => { LANG = l === 'de' ? 'de' : 'en'; } });
+  Object.defineProperty(out, 'controls', { get: () => CTL[LANG], enumerable: true });
+  return out;
+};
+
+// The cell map story's cell (stories/spatial.js: its compartments, 249 proteins in their places, their links, the
+// dotted links between copies of one protein, its moves and signals and the wrong-place cases, cut out of that story at
+// build time as PASS_SPATIAL and built by its own buildScene, unchanged) behind the set contract. What the cell map's
+// story and explore mode drive (applyUniforms, exploreStep's travelling proteins, updateLight) is redone here from
+// params, in that story's own words where it can be. Radius 1 (a cell about 20 micrometres across), centred on the
+// origin, as in the cell map story.
+SETS.cell = function (K) {
+  const { THREE, clamp, smooth } = K;
+  const set = K.newSet('cell');
+  let LANG = 'en';
+  const T = (en, de) => (LANG === 'de' ? de : en);
+
+  // ---------------------------------------------------------------- the original, built as in its own story
+  const O = PASS_SPATIAL({ makeRenderer: () => ({ xr: {}, setPixelRatio() {} }) });
+  O.buildScene(null);
+  const G = O.GL, NET = O.NET, MOVES = O.MOVES, POS = O.POS, CP = O.CP, A = O.A;
+  set.group.add(G.world);
+  // every shader of the original fades with the set (its alpha times the set's fade, appended to its fragment shader
+  // before it is first compiled); the cytoskeleton's lines fade by their opacity
+  const faded = new WeakSet();
+  function fadeMat(m) {
+    if (!m || !m.isShaderMaterial || faded.has(m)) return;
+    faded.add(m);
+    m.uniforms.uSetA = set.uA;
+    m.fragmentShader = 'uniform float uSetA;\n' + m.fragmentShader.replace(/\}\s*$/, '  gl_FragColor.a *= uSetA;\n}\n');
+  }
+  G.world.traverse(o => fadeMat(o.material));
+  const highlight = (key, pairs, color, opts) => { const m = O.setHighlight(key, pairs, color, opts); if (m) fadeMat(m.material); return m; };
+  const pairsOf = list => list.slice(0, -1).map((c, k) => [c, list[k + 1]]), hopsOf = list => list.slice(0, -1).map((_, k) => k + 1);
+
+  // the story's highlights, as the cell map story makes them: two proteins meeting (EGF, its receptor and GRB2), the
+  // growth signal from EGF outside the cell to SRF in the nucleus, and the relay TNF starts towards NF-kB
+  const MV = Object.fromEntries(MOVES.map((m, k) => [m.key, k]));
+  const PATH = ['EGF', 'EGFR@pm', 'GRB2', 'SOS1', 'KRAS', 'RAF1', 'MAP2K1', 'MAPK1@cyto', 'MAPK1@nuc', 'ELK1', 'SRF'].map(CP);
+  const CUE = MOVES[MV.nfkb].cueCopies;
+  highlight('ex', [[CP('EGF'), CP('EGFR@pm')], [CP('EGFR@pm'), CP('GRB2')]], O.SIG, { radius: 0.0045, fade: O.SIG_A });
+  highlight('cue', pairsOf(CUE), O.SIG, { radius: 0.004, fade: O.SIG_A, hops: hopsOf(CUE) });
+  highlight('path', pairsOf(PATH), O.SIG, { radius: 0.0055, fade: O.SIG_A, hops: hopsOf(PATH) });
+
+  // the original's updateLight, for this set: the organelles lit from over the viewer's left shoulder (turning with
+  // the camera on a screen, fixed in the room in a headset), and the proteins' size (on a screen it follows the
+  // camera's distance; in a headset they keep their size in the cell). Run just before the set is drawn.
+  const LV = new THREE.Vector3(), _q = new THREE.Quaternion(), _c = new THREE.Vector3(), _m = new THREE.Matrix4();
+  function look(renderer, cam) {
+    const xr = !!(renderer.xr && renderer.xr.isPresenting), rig = set.group.parent && set.group.parent.parent;
+    if (xr && rig) rig.getWorldQuaternion(_q); else cam.getWorldQuaternion(_q);
+    LV.set(-0.55, 0.42, 1.0).normalize().applyQuaternion(_q);
+    for (const mats of G.orgMats) for (const m of mats) if (m.uniforms) m.uniforms.uL.value.copy(LV);
+    const U = G.U, AU = G.actorMat.uniforms;
+    if (xr) { U.uScale.value = AU.uScale.value = 1; U.uPx.value = AU.uPx.value = 0.0028 * K.U.uPx.value * set.group.scale.x; return; }
+    U.uPx.value = AU.uPx.value = 0;
+    _c.setFromMatrixPosition(cam.matrixWorld).applyMatrix4(_m.copy(G.world.matrixWorld).invert());
+    U.uScale.value = AU.uScale.value = renderer.getPixelRatio() * clamp(3.6 / Math.max(_c.length(), 1e-3), 0.75, 2.4);
+  }
+  const probe = new THREE.Mesh(new THREE.BufferGeometry().setAttribute('position', new THREE.BufferAttribute(new Float32Array(9), 3)),
+    new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: false }));
+  probe.frustumCulled = false; probe.renderOrder = -100;
+  probe.onBeforeRender = (renderer, scene, cam) => look(renderer, cam);
+  set.group.add(probe);
+
+  // ---------------------------------------------------------------- German (the original's names are English)
+  const PLACE_DE = { ext: ['Außerhalb der Zelle', 'außerhalb der Zelle'], pm: ['Zellmembran', 'Membran'], cyto: ['Zellplasma', 'Zellplasma'],
+    cytosk: ['Zellskelett', 'Zellskelett'], nuc: ['Zellkern', 'Zellkern'], nucl: ['Kernkörperchen', 'Kernkörperchen'], ne: ['Kernhülle', 'Kernhülle'],
+    er: ['Endoplasmatisches Retikulum', 'ER'], golgi: ['Golgi-Apparat', 'Golgi-Apparat'], mito: ['Mitochondrien', 'Mitochondrien'],
+    lyso: ['Lysosomen', 'Lysosom'], endo: ['Endosomen und Bläschen', 'Bläschen'], perox: ['Peroxisomen', 'Peroxisom'] };
+  const ORGS_DE = ['Zellmembran', 'Zellkern', 'Kernkörperchen', 'Endoplasmatisches Retikulum', 'Golgi-Apparat', 'Mitochondrien', 'Lysosomen',
+    'Endosomen und Bläschen', 'Peroxisomen', 'Zellskelett'];
+  const MOVES_DE = {
+    nfkb: ['Entzündung', 'TNF schickt NF-κB in den Zellkern', 'TNF draußen vor der Zelle startet eine Staffel bis zu den IKK-Kinasen. Sie markieren IκBα, und IκBα wird abgebaut. Befreit wandert NF-κB in den Zellkern und schaltet Gene für eine Entzündung an.'],
+    apop: ['Zelltod', 'Mitochondrien lassen Todessignale frei', 'BAX wandert auf die Mitochondrien und macht mit BAK Löcher in ihre äußere Hülle. Cytochrom c und SMAC entkommen: Cytochrom c baut mit APAF1 das Apoptosom, SMAC schaltet XIAP aus, und Caspasen bauen die Zelle ab.'],
+    tfeb: ['Hunger', 'TFEB verlässt das Lysosom', 'Solange es Nährstoffe gibt, sitzt mTORC1 auf den Lysosomen und hält TFEB aus dem Zellkern fern. Geht das Futter aus, lässt mTORC1 los: TFEB wandert in den Zellkern und schaltet Gene für neue Lysosomen und fürs Recycling an.'],
+    glut4: ['Insulin', 'GLUT4 geht an die Oberfläche', 'Insulin schaltet AKT2 an, und AKT2 löst die Bremse AS160. Bläschen mit dem Zuckerkanal GLUT4 verschmelzen mit der Membran, und Muskel- und Fettzellen holen sich Zucker aus dem Blut.'],
+    nrf2: ['Oxidativer Stress', 'NRF2 entkommt KEAP1', 'Normalerweise gibt KEAP1 NRF2 zum Abbau weiter. Oxidantien schalten KEAP1 aus: NRF2 sammelt sich an, wandert in den Zellkern und schaltet mit MafG Gene an, die die Zelle vor Oxidantien schützen.'],
+    als: ['ALS', 'TDP-43 verlässt den Zellkern', 'Bei fast allen Menschen mit ALS verschwindet TDP-43 aus dem Zellkern der Nervenzellen, die Muskeln steuern, und verklumpt im Zellplasma. Seine Partner beim Spleißen verlieren es; dafür binden p62, Ubiquilin und Proteine aus Stressgranula daran.'],
+    cf: ['Mukoviszidose', 'CFTR bleibt im ER hängen', 'Die häufigste Mutation bei Mukoviszidose, F508del, lässt CFTR falsch falten. Die Qualitätskontrolle im ER (Calnexin, HSC70, CHIP, RNF5) fängt es ab und schickt es zum Abbau: An der Membran kommt es nie an.'],
+  };
+  const placeName = k => (LANG === 'de' ? PLACE_DE[NET.PK[k]][0] : O.placeName(k));
+  const placeShort = k => (LANG === 'de' ? PLACE_DE[NET.PK[k]][1] : O.placeShort(k));
+  const orgName = k => (LANG === 'de' ? ORGS_DE[k] : O.ORGS[k]);
+  const moveText = m => { const d = MOVES_DE[m.key]; return LANG === 'de' && d ? { name: d[0], title: d[1], text: d[2] } : { name: m.name, title: m.title, text: m.text }; };
+
+  // ---------------------------------------------------------------- params, update
+  // cell_<move>: how far each of the cell map's moves has gone (its s0 ... s6), keyed by the move's key
+  const MKEYS = MOVES.map(m => 'cell_' + m.key);
+  const params = { cell_a: 1, cell_org: O.ORGS.length, cell_shell: 1, cell_reveal: 1, cell_links: 1, cell_ids: 1, cell_multi: 0, cell_focus: 0,
+    cell_ex: 0, cell_cue: 0, cell_cue_a: 1, cell_path: 0, cell_path_a: 1, cell_names: 0 };
+  for (const k of MKEYS) params[k] = 0;
+  let SEL = -1, selProg = 0, ISO = -1, FOCUS = null, MOVED = new Array(8).fill(0);
+  const setFocus = (list, stepped) => { FOCUS = list; O.setFocus(list, stepped); };
+  setFocus(PATH, true);
+  function update(S, t, dt) {
+    const U = G.U, RU = G.RU, IU = G.IU, multi = clamp(S.cell_multi, 0, 1);
+    // (the cell map's applyUniforms, from this set's params)
+    U.uReveal.value = S.cell_reveal; U.uWPlace.value = 1 - multi; U.uWMulti.value = multi; U.uWDeg.value = 0;
+    U.uFocus.value = S.cell_focus; U.uPathProg.value = S.cell_path;
+    MOVES.forEach((m, k) => { const s = clamp(S[MKEYS[k]], 0, 1); U.uScen.value[k] = s; MOVED[k] = s; O.SCEN[k] = s; });
+    U.uIso.value = ISO; U.uSel.value = SEL; U.uProxOn.value = 0;
+    RU.uReveal.value = S.cell_reveal; RU.uAlpha.value = 0.55 * S.cell_links; RU.uWPlace.value = 1 - multi;
+    RU.uIso.value = ISO; RU.uFocus.value = S.cell_focus; RU.uProxOn.value = 0;
+    IU.uReveal.value = S.cell_ids; IU.uAlpha.value = 0.75 * clamp(S.cell_ids, 0, 1); IU.uIso.value = ISO; IU.uSel.value = SEL; IU.uFocus.value = S.cell_focus * 0.6;
+    const isoOrg = ISO >= 0 ? O.ORG_OF_PLACE[NET.PK[ISO]] : -2;
+    G.orgMats.forEach((mats, k) => {
+      let a = clamp(S.cell_org - k, 0, 1) * clamp(S.cell_shell, 0, 1);
+      if (isoOrg > -2) a *= k === isoOrg || k === 0 ? 1 : 0.25;
+      for (const m of mats) {
+        if (m.uniforms) m.uniforms.uA.value = a;
+        else { m.opacity = m.userData.base * a * set.uA.value; m.visible = a * set.uA.value > 0.01; }
+      }
+    });
+    G.bubble.visible = false;
+    const H = G.highlights;
+    const hl = (k, p, a) => { const m = H[k]; if (!m) return; m.material.uniforms.uProg.value = p; m.material.uniforms.uAlpha.value = a; m.visible = a > 0.003 && p > 0.001; };
+    hl('ex', S.cell_ex, 1);
+    hl('cue', S.cell_cue * (CUE.length - 1), S.cell_cue_a);
+    hl('path', S.cell_path, S.cell_path_a);
+    if (SEL >= 0) selProg = Math.min(1, selProg + (dt || 0) * 0.7);
+    hl('sel', selProg, SEL >= 0 ? 0.9 : 0);
+    // travelling proteins (the cell map's exploreStep): while a move is under way its proteins travel, and one that
+    // fails (CFTR) turns red and stops; and ERK on the growth signal's way into the nucleus
+    const list = [];
+    MOVES.forEach((m, j) => {
+      const s = MOVED[j];
+      if (s <= 0.002 || s >= 0.998) return;
+      const a = Math.min(smooth(s / 0.08), smooth((1 - s) / 0.08));
+      m.travelers.forEach(([f, to]) => list.push({ from: f, to, x: s, a, col: [1.0, 0.82, 0.3] }));
+      m.fails.forEach(([f, to]) => list.push({ from: f, to, x: s, a: 1, col: [1.0, 0.82, 0.3], fail: true }));
+    });
+    for (let k = 0; k < PATH.length - 1; k++) {
+      if (NET.cProt[PATH[k]] !== NET.cProt[PATH[k + 1]]) continue;
+      const x = clamp(S.cell_path - k, 0, 1);
+      if (x > 0.001 && x < 0.999 && S.cell_path_a > 0.01) list.push({ from: PATH[k], to: PATH[k + 1], x, a: S.cell_path_a, col: O.SIG_DOT });
+    }
+    O.setActors(list);
+  }
+
+  // ---------------------------------------------------------------- anchors, labels, views
+  const cpos = c => [POS[3 * c], POS[3 * c + 1], POS[3 * c + 2]];
+  const anchors = {};
+  const ORG_KEYS = ['pm', 'nuc', 'nucl', 'er', 'golgi', 'mito', 'lyso', 'endo', 'perox', 'cytosk'];
+  ORG_KEYS.forEach((k, i) => { anchors['org_' + k] = G.orgAnchor[i]; });
+  // every protein's copies by 'SYMBOL@place', and 'SYMBOL' for its usual place
+  for (let c = 0; c < NET.NC; c++) { const s = NET.sym[NET.cProt[c]]; anchors[s + '@' + NET.PK[NET.cPlace[c]]] = cpos(c); if (!anchors[s]) anchors[s] = cpos(c); }
+  // the travelling protein of a move, where it is now (for a label that rides along)
+  const lab = (at, cls, en, de, alpha, bold) => ({ text: () => [bold || at.split('@')[0], T(en, de)], at, cls, alpha });
+  const mv = (S, k) => S['cell_' + k];
+  const labels = [
+    // the organelles, as they appear
+    ...ORG_KEYS.map((k, i) => ({ text: () => [orgName(i), ''], at: 'org_' + k, cls: '', alpha: S => K.prog(S.cell_org - i, 0.4, 1) * K.prog(S.cell_names, 0.5, 1) })),
+    // two proteins meet, and the growth signal passes from hand to hand into the nucleus
+    lab('EGF', 'tl', 'growth signal', 'Wachstumssignal', S => Math.max(K.prog(S.cell_ex, 0.2, 0.6), K.prog(S.cell_path, 0.05, 0.4) * S.cell_path_a)),
+    lab('EGFR@pm', 'tl', 'receptor', 'Rezeptor', S => Math.max(K.prog(S.cell_ex, 0.5, 0.9), K.prog(S.cell_path, 0.8, 1) * S.cell_path_a), 'EGFR'),
+    lab('MAPK1@nuc', 'tl', 'in the nucleus', 'im Zellkern', S => K.prog(S.cell_path, 7.8, 8) * S.cell_path_a, 'ERK'),
+    lab('SRF', 'tl', 'gene switch', 'Genschalter', S => K.prog(S.cell_path, 9.8, 10) * S.cell_path_a),
+    // NF-kB: the signal from outside, the protein waiting, its brake, and where it goes
+    lab('TNF', 'tl', 'inflammation signal', 'Entzündungssignal', S => K.prog(S.cell_cue, 0.02, 0.15) * S.cell_cue_a),
+    lab('RELA@cyto', 'amb', 'NF-κB, waiting', 'NF-κB wartet', S => K.prog(S.cell_cue, 0.02, 0.2) * S.cell_cue_a * (1 - K.prog(mv(S, 'nfkb'), 0.05, 0.3)), 'RELA'),
+    lab('NFKBIA', 'amb', 'its brake', 'seine Bremse', S => K.prog(S.cell_cue, 0.6, 0.9) * S.cell_cue_a * (1 - K.prog(mv(S, 'nfkb'), 0.3, 0.6)), 'IκBα'),
+    lab('RELA@nuc', 'amb', 'in the nucleus', 'im Zellkern', S => K.prog(mv(S, 'nfkb'), 0.85, 1), 'RELA'),
+    // the wrong places: CFTR never reaches the membrane; TDP-43 leaves the nucleus
+    lab('CFTR@er', 'red', 'caught in the ER', 'im ER hängen geblieben', S => K.prog(mv(S, 'cf'), 0.25, 0.5), 'CFTR'),
+    lab('CFTR@pm', 'red', 'never arrives', 'kommt nie an', S => K.prog(mv(S, 'cf'), 0.5, 0.8), 'CFTR'),
+    lab('TARDBP@nuc', 'red', 'leaves the nucleus', 'verlässt den Zellkern', S => K.prog(mv(S, 'als'), 0.05, 0.25) * (1 - K.prog(mv(S, 'als'), 0.85, 1)), 'TDP-43'),
+    lab('TARDBP@cyto', 'red', 'clumps in the cytoplasm', 'verklumpt im Zellplasma', S => K.prog(mv(S, 'als'), 0.85, 1), 'TDP-43'),
+    // a protein picked in explore mode
+    { text: () => (SEL >= 0 ? [NET.sym[SEL], NET.name[SEL] !== NET.sym[SEL] ? NET.name[SEL] : ''] : ['', '']), at: () => (SEL >= 0 ? cpos(SELC) : [0, 0, 0]), cls: 'cyn', alpha: () => (SEL >= 0 ? 1 : 0) },
+  ];
+  let SELC = -1;
+  // views [az, el, dist, tx, ty, tz]: the whole cell, the nucleus, and each signal or move seen from the side, so its
+  // way across the cell runs across the picture (from the side of the cell it is nearer to, a little from above)
+  const v3 = O.v3, mean = cs => cs.reduce((s, c) => v3.add(s, cpos(c)), [0, 0, 0]).map(x => x / cs.length);
+  function sideView(cs, dist) {
+    const p = mean(cs), ax = v3.sub(cpos(cs[cs.length - 1]), cpos(cs[0]));
+    let d = v3.norm(v3.cross(ax, [0, 1, 0]));
+    if (v3.dot(d, p) < 0) d = v3.mul(d, -1);
+    d = v3.norm(v3.add(d, [0, 0.3, 0]));
+    return [Math.atan2(d[0], d[2]) / Math.PI * 180, Math.asin(d[1]) / Math.PI * 180, dist, p[0], p[1], p[2]];
+  }
+  const cam = {
+    default: [108, 18, 3.9, 0, 0, 0],                                    // the cell map's explore view, a little closer
+    nucleus: [70, 20, 1.9, ...O.CELL.nuc.c],
+    signal: sideView(PATH, 2.7),                                         // the growth signal, from the surface in
+    nfkb: sideView(CUE.concat([CP('RELA@nuc')]), 2.6),
+    cf: sideView([CP('CFTR@er'), CP('CFTR@pm')], 2.2),
+    als: sideView([CP('TARDBP@nuc'), CP('TARDBP@cyto')], 2.0),
+  };
+  const CTL = {
+    en: [
+      { key: 'view', label: 'View', options: [['default', 'Whole cell'], ['nucleus', 'Nucleus'], ['signal', 'From the surface']] },
+      { key: 'shell', label: 'Organelles', options: [['on', 'On'], ['faint', 'Faint'], ['off', 'Off']] },
+      { key: 'color', label: 'Colour', options: [['place', 'By place'], ['multi', 'Number of places']] },
+      { key: 'move', label: 'Move', options: [['none', 'None'], ['nfkb', 'Inflammation'], ['cf', 'Cystic fibrosis'], ['als', 'ALS']] },
+    ],
+    de: [
+      { key: 'view', label: 'Ansicht', options: [['default', 'Ganze Zelle'], ['nucleus', 'Zellkern'], ['signal', 'Von der Oberfläche']] },
+      { key: 'shell', label: 'Organellen', options: [['on', 'An'], ['faint', 'Schwach'], ['off', 'Aus']] },
+      { key: 'color', label: 'Farbe', options: [['place', 'Nach Ort'], ['multi', 'Zahl der Orte']] },
+      { key: 'move', label: 'Bewegung', options: [['none', 'Keine'], ['nfkb', 'Entzündung'], ['cf', 'Mukoviszidose'], ['als', 'ALS']] },
+    ],
+  };
+  // (a move plays out over three seconds from the moment it is picked: c.t counts from when the scene was opened)
+  function explore(c) {
+    const tg = { cell_shell: c.shell === 'off' ? 0 : c.shell === 'faint' ? 0.35 : 1, cell_multi: c.color === 'multi' ? 1 : 0 };
+    for (const m of MOVES) tg['cell_' + m.key] = c.move === m.key ? 1 : 0;
+    if (c.move === 'nfkb') tg.cell_cue = 1;
+    return tg;
+  }
+
+  // ---------------------------------------------------------------- explore: picking, a protein, moves
+  const _o = new THREE.Vector3(), _d = new THREE.Vector3(), _inv = new THREE.Matrix4();
+  // the protein copy nearest a ray (a THREE.Raycaster, world coordinates): the cell map's pickCopyRay, in this frame
+  function pick(ray) {
+    set.group.updateWorldMatrix(true, true);
+    _inv.copy(G.world.matrixWorld).invert();
+    const o = _o.copy(ray.ray.origin).applyMatrix4(_inv), d = _d.copy(ray.ray.direction).transformDirection(_inv);
+    const { NC, cDeg, maxCDeg } = NET;
+    let best = -1, bs = Infinity;
+    for (let c = 0; c < NC; c++) {
+      if (!O.isThere(c) || (ISO >= 0 && NET.cPlace[c] !== ISO)) continue;
+      const vx = POS[3 * c] - o.x, vy = POS[3 * c + 1] - o.y, vz = POS[3 * c + 2] - o.z, t = vx * d.x + vy * d.y + vz * d.z;
+      if (t <= 0) continue;
+      const ang = Math.sqrt(Math.max(0, vx * vx + vy * vy + vz * vz - t * t)) / t;
+      if (ang > 0.026) continue;
+      const sc = ang - 0.008 * Math.sqrt(cDeg[c] / maxCDeg) + t * 0.004;
+      if (sc < bs) { bs = sc; best = c; }
+    }
+    return best;
+  }
+  // a protein's partners before and after a move (the cell map's delta), by protein index
+  function partnersOf(p, scen) {
+    const out = new Set();
+    for (const c of NET.pCopies[p]) {
+      if (!O.present(c, scen)) continue;
+      for (let k = NET.adjS[c]; k < NET.adjS[c + 1]; k++) if (NET.adjT[k] === 0 && O.present(NET.adj[k], scen)) out.add(NET.cProt[NET.adj[k]]);
+    }
+    return out;
+  }
+  function moveDelta(key) {
+    const k = MV[key], m = MOVES[k], rest = new Array(8).fill(0), on = rest.slice(); on[k] = 1;
+    const prots = [...new Set([...m.travelers, ...m.fails].map(([f]) => NET.cProt[f]))];
+    return prots.map(p => { const a = partnersOf(p, rest), b = partnersOf(p, on); return { p, sym: NET.sym[p], lost: [...a].filter(x => !b.has(x)), gained: [...b].filter(x => !a.has(x)) }; });
+  }
+  function info(p) {
+    if (p < 0) return null;
+    const by = O.partnersByPlace(p), partners = [];
+    by.forEach((list, k) => partners.push({ place: k, name: placeName(k), list: list.map(x => ({ p: x.p, sym: NET.sym[x.p], here: x.here, across: x.across >= 0 ? placeName(x.across) : null })) }));
+    return { p, sym: NET.sym[p], name: NET.name[p], role: NET.role[p], places: NET.pPlaces[p].map(k => ({ k, name: placeName(k) })), partners, degree: NET.pDeg[p],
+      moves: MOVES.filter(m => [...m.travelers.flat(), ...m.fails.flat()].some(c => NET.cProt[c] === p)).map(m => m.key) };
+  }
+  function select(p, copy) {
+    SEL = p >= 0 ? p : -1; selProg = 0;
+    if (SEL < 0) { SELC = -1; highlight('sel', null); return; }
+    const cs = NET.pCopies[SEL];
+    SELC = copy !== undefined && copy >= 0 ? copy : (cs.find(O.isThere) ?? cs[0]);
+    const pairs = [];
+    for (const c of cs) for (let k = NET.adjS[c]; k < NET.adjS[c + 1]; k++) if (NET.adjT[k] === 0) pairs.push([c, NET.adj[k]]);
+    highlight('sel', pairs, [0.30, 0.88, 1.0], { radius: 0.0016, spread: 0.5, seed: SEL + 1 });
+  }
+  const api = {
+    pick, info, select, selected: () => SEL, moveDelta,
+    protein: s => (typeof s === 'number' ? s : (A(String(s).toUpperCase()) ?? O.findProtein(String(s)))),
+    copyOf: s => CP(s), proteinOf: c => NET.cProt[c], pos: c => cpos(c),
+    search: (q, n) => O.matches(q, n || 8),
+    moves: () => MOVES.map(m => Object.assign({ key: m.key, disease: !!m.disease }, moveText(m))),
+    move: key => { const m = MOVES[MV[key]]; return m ? Object.assign({ key: m.key, disease: !!m.disease }, moveText(m)) : null; },
+    path: (a, b) => O.bestPath(a, b),          // (over the copies there now: the moves as far as they have gone)
+    highlight, setFocus,
+    isolate: k => { ISO = k === undefined || k === null ? -1 : k; },
+    placeName, placeShort, orgName, places: () => NET.PK.map((k, i) => ({ k, i, name: placeName(i) })),
+    growthPath: () => PATH.slice(), relay: () => CUE.slice(),
+    counts: () => ({ proteins: NET.P, copies: NET.NC, links: NET.E, places: NET.PK.length, organelles: O.ORGS.length }),
+    original: O,   // (the cut-out cell map story itself: NET, CELL, MOVES, bestPath, reachInfo, placeStats ...)
+  };
+  const out = Object.assign(set, { params, update, anchors, labels, cam, explore, api, setLang: l => { LANG = l === 'de' ? 'de' : 'en'; } });
+  Object.defineProperty(out, 'controls', { get: () => CTL[LANG], enumerable: true });
+  return out;
+};
 
 
 // ================================================================= SCENE ==
