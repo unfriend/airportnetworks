@@ -1079,7 +1079,10 @@
     if (!HOST.session && t - C.deskAt > 2000) { C.deskAt = t; fx('p.' + C.id, { st: C.follow || '' }); }
     if (DLG.open) drawMap();
   }
+  // from a timer and from the page's frames: a page whose frames take long (software WebGL, a slow phone) can starve
+  // its timers for seconds while it draws, and a page following a station then fell behind its clock
   setInterval(pump, 200);
+  (function frame() { pump(); requestAnimationFrame(frame); })();
 
   // ------------------------------------------------------------ the overlay --
   // One group hung in the story's scene (scene coordinates are the story's local reference space): the room
