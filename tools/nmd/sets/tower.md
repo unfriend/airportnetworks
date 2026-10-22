@@ -20,17 +20,20 @@ Nothing is random between loads.
   - *Context links*, chosen once at load: in each layer about 400 (protein layers) or 700 (other layers) of its links,
     the same gene pairs in every layer (so a block of stacked layers shows one web, not a fog), short links before long
     ones, pairs of hubs less often (each gene keeps about the square root of its links) and fewer where genes crowd, so
-    the middle of the layout does not burn out. 14,734 in all. At rest they take their genes' colours (a gradient along the link);
-    while a group, a walk, picked endotypes or the pair view is on they turn blue-grey and a seeded rank thins them a
-    little (to 85 % with a group). They are weighted by the square root of the live layers in their block, and looking
-    down the tower (where a pair's copies in the stacked layers fall on one line) they dim to 40 %.
+    the middle of the layout does not burn out. 14,734 in all. At rest they take their genes' colours (a gradient
+    along the link); while a group, a walk, picked endotypes or the pair view is on they turn a light blue-grey, keep
+    their weight, and a seeded rank thins them a little (to 85 % with a group). In the pair view only those within the
+    two towers show (everyone else waits on the rim). They are weighted by the square root of the live layers in their
+    block, and looking down the tower (where a pair's copies in the stacked layers fall on one line) they dim to 40 %.
   - *Highlighted links*, listed again only when the selection changes (and once its 0.7 s cross-fade is over, when the
     pair view comes or goes, or the heat comes or goes): the module (its seeds' links brighter), picked endotypes
     (within one in its colour, between two in amber), the ringed gene's links, the walk's hottest links and, in the
-    pair view, both groups. The walk's hottest links are those between genes it visits most (at most 1,500 that reach
-    beyond the start genes, plus the links between start genes), in the heat's colours: during the story's walk and in
-    the Walk tab they show where the walkers go, above the context. Where a link has both entries they add up to the
-    brighter of its two looks.
+    pair view, both groups (with seeds alone, the seeds' links, each brighter as they are fewer). The walk's hottest
+    links are those between genes it visits most (at most 1,500 that reach beyond the start genes, plus the links
+    between start genes), in the heat's colours: during the story's walk and in the Walk tab they show where the
+    walkers go, above the context. A highlighted link that is also a context link is drawn once, by its highlighted
+    entry: in its own colours and at least as bright as the context (so a big module's links, each faint, never turn
+    blue-grey).
   Visibility and colour are decided in the shader from a per-gene texture (written only when the selection changes)
   and a 71-texel layer texture. Highlighted links are weighted by the number of live layers in their block, so the 27
   stacked protein layers never burn out, and the few layers left at the end of the drop shine brighter; looking down
@@ -62,7 +65,7 @@ Nothing is random between loads.
 | `tower_endo` | the selected group's genes take endotype colours (20-hue palette, `endoColour(c)`) | 0 → 1 |
 | `tower_grid` | the endotype grid: the group's genes gather into one block per endotype (block size by gene count, hottest genes in the middle), at the same place in every layer; the others slide to a faint ring at the rim. The stack squashes to a tenth of its height around the protein block (rims and fills dim to match), so from above the blocks read as a grid and not as long columns splayed into a funnel | 0 → 1 with `tower_endo` 1, camera to `grid` |
 | `tower_pair` | Congenital Myopathies (left) and Hereditary Cardiomyopathies (right) as two towers; the 29 genes in both in a narrow middle column; links between the sides are the bridges; genes of shared endotypes in amber; the overlap's other layers' links show; HP, coex_HRA, coex_HRV and ppi_skeletal_muscle glow | 0 → 1, camera to `pair` |
-| `tower_seedonly` | in pair mode only seeds and their links stay; the walk's genes fade ("without the walk, the shared architecture is missed") | 0 → 1 → 0 |
+| `tower_seedonly` | in pair mode only seeds and their links stay highlighted (each link brighter, as they are fewer); the walk's genes fade, their links left among the faint context ("without the walk, the shared architecture is missed") | 0 → 1 → 0 |
 | `tower_drop` | robustness: layers fall a little and fade one by one in a fixed random order (the last five are protein layers); at 1 five remain; the selected module stays lit with its threads intact | 0 → 1 over 10-15 s, with a group selected |
 | `tower_room` | the layout moves out into an annulus (inner radius 0.45), with an inner rim, so a person can stand in the middle | 0 → 1, camera `inside` |
 
