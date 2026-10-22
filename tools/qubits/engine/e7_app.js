@@ -1,5 +1,5 @@
 // ------------------------------------------------------------- narration --
-// Optional voice-over: put an MP3 at audio/narration-micro.mp3.
+// Optional voice-over: put an MP3 at audio/narration-qubits.mp3.
 // Second 0 of the recording plays at second 0 of the story; the story clock
 // follows the audio, so seeking, pausing and chapter jumps stay in sync.
 // Without the file the story runs silently. The sound engine is the shell's
@@ -7,7 +7,7 @@
 // and kept running across stories and headset sessions.
 let AUD = null;
 function audioInit() {
-  AUD = HOST.audio.narration('audio/narration-micro.mp3', {
+  AUD = HOST.audio.narration('audio/narration-qubits.mp3', {
     // a recording longer than the story stretches the timeline
     ready(d) {
       if (d + 1 <= T_END) return;
@@ -123,9 +123,8 @@ const APP = {
     for (const n in DEF) XS[n] = S[n];
     // (the set on show, or the one about to come: a short fade between two of the same set's views shows none)
     const S2 = storyState(Math.min(ts + 1.5, T_END));
-    let best = 'atlas', ba = 0;
+    let best = 'cube', ba = 0;
     for (const k of SET_ORDER) { const a = Math.max(S[k + '_a'], 0.9 * S2[k + '_a']); if (a > ba + 0.01) { ba = a; best = k; } }
-    if (best === 'tissue') best = 'slide';   // (the section is shown with the slide)
     // the story's view, taken back into the set's own frame (explore shows sets unturned)
     const v = storyCam(ts).slice(0, 6), r = -setYaw(best, ts) * D2R, x = v[3], z = v[5];
     v[0] += r / D2R; v[3] = x * Math.cos(r) + z * Math.sin(r); v[5] = -x * Math.sin(r) + z * Math.cos(r);
@@ -138,31 +137,25 @@ const APP = {
       let bo = ct.options[0][0], bd = Infinity;
       for (const [v] of ct.options) {
         const c = { t: 1e3 };
-        for (const c2 of s.controls || []) c[c2.key] = c2 === ct ? v : isAge(c2) ? ageOpt(c2) : ctlValue(best, c2);
+        for (const c2 of s.controls || []) c[c2.key] = c2 === ct ? v : ctlValue(best, c2);
         const tg = s.explore ? s.explore(c) : {};
         let d = 0;
-        for (const n in tg) if (n in S && !n.endsWith('_a') && !/_age$|_focus$/.test(n)) d += (tg[n] - S[n]) ** 2;
+        for (const n in tg) if (n in S && !n.endsWith('_a') && !/_focus$|_code$/.test(n)) d += (tg[n] - S[n]) ** 2;
         if (d < bd) { bd = d; bo = v; }
       }
       X.ctl[best][ct.key] = bo;
     }
-    // (a set that remembers what it showed last is told the chosen controls, long settled, twice)
-    if (s.explore) { const c = { t: 1e3 }; for (const c2 of s.controls || []) c[c2.key] = isAge(c2) ? ageOpt(c2) : ctlValue(best, c2); s.explore(c); s.explore(c); }
-    // the story's picks carry over to the panes: the section's domain, the atlas's tissue, the age
-    X.organ = null; X.domain = null; X.kind = null;
-    const ag = best === 'atlas' ? S.atlas_age : best === 'slide' ? S.slide_age : best === 'hier' ? S.hier_age : 0;
-    X.age = Math.round(AGE0 + clamp(ag || 0, 0, 1) * (AGE1 - AGE0));
-    if (best === 'atlas' && S.atlas_focus > 0.5 && S.atlas_map > 0.5) { const t = (api('atlas').tissues || [])[Math.round(S.atlas_focus) - 1]; if (t && organOf(t)) X.organ = t; }
-    if (best === 'slide' && S.slide_focus > 0.5) { const d = slideDomain(Math.round(S.slide_focus) - 1); if (d) X.domain = d; }
-    if (best === 'hier' && S.hier_focus > -0.5) { const n = (api('hier').nodes || [])[Math.round(S.hier_focus)]; if (n && n.level === 2) X.kind = n.name; }
-    // (the section's domains as the story showed them: at an age, or by themselves)
-    if (best === 'slide' && S.slide_domain > 0.5) { const v = optKey('slide', 'view', S.slide_age > 0.02 ? VIEW.sAge : /domain/i); if (v) X.ctl.slide.view = v; }
-    if (best === 'slide') { const i = STEPS.findIndex(q => viewIs('slide', q[1])); if (i >= 0) X.step = i + 1; }
-    X.tab = best === 'slide' ? (viewIs('slide', /age/i) ? 'age' : viewIs('slide', /domain/i) ? 'domains' : 'method')
-      : best === 'atlas' ? (X.organ && exOn() >= 0 || viewIs('atlas', VIEW.volcano) || viewIs('atlas', VIEW.curves) ? 'age' : viewIs('atlas', VIEW.umap) ? 'method' : 'organs')
-      : best === 'hier' ? (viewIs('hier', VIEW.contacts) ? 'age' : 'domains') : 'organs';
-    // from the last chapter (the story's end, or its Explore button): the atlas, in the Organs tab
-    if (ts >= C.next.a) openStart();
+    // the story's picks carry over to the panes: the string on the big cube, the gallery, the strings added up
+    X.brick = null; X.sum = 0; X.gal = 'largest';
+    if (best === 'cube') {
+      const L = clamp(Math.round(S.cube_bits), 1, 3), f = Math.round(S.cube_focus);
+      if (f >= 0 && f < 1 << (2 * L)) X.brick = Q.name(f, L);
+      if (S.cube_lesson > 0.5) X.gal = 'kinds';
+      else if (S.cube_build > 0.5) X.sum = clamp(Math.round(S.cube_sum), 0, NB());
+    }
+    X.tab = best === 'chart' ? 'depth' : best === 'pairs' ? 'scenes' : viewIs('cube', 'bricks') || viewIs('cube', 'toolbox') ? 'bricks' : 'network';
+    // from the last chapter (the story's end, or its Explore button): the cube, in the Network tab
+    if (ts >= C.circuit.a) openStart();
     ST.labels.forEach(L => { L.el.style.opacity = 0; L.o = 0; });
     showTab(X.tab); pushState(); renderAll();
     $('#panel').scrollTop = 0;
@@ -171,20 +164,20 @@ const APP = {
     this.mode = 'story';
     document.body.classList.remove('exploring');
     $('#btnMode').textContent = 'Explore now';
-    // the story shows its scenes as it tells them: no picked organ or domain
-    X.organ = null; X.domain = null; NEXT.length = 0; pushState();
+    // the story shows its scenes as it tells them: no picked string
+    X.brick = null; X.sum = 0; NEXT.length = 0; pushState();
     $('#tip').style.opacity = 0;
     this.t = t || 0; this.playing = true; curCh = null;
   },
 };
 
-// explore mode's start: the atlas, a section per tissue, in the Organs tab
+// explore mode's start: the story's network on the cube, in the Network tab
 function openStart() {
-  openScene('atlas', false);
-  const v = optKey('atlas', 'view', VIEW.map);
-  if (v) (X.ctl.atlas = X.ctl.atlas || {}).view = v;
-  X.tab = 'organs'; showTab('organs');
-  orbit.cur = view('atlas', viewCam('atlas') || 'default'); orbit.to = null;
+  openScene('cube', false);
+  X.ctl.cube = Object.assign(X.ctl.cube || {}, { view: 'cube', net: String(NETI), cut: '0', bits: '3' });
+  X.brick = null; X.sum = 0; X.gal = 'largest';
+  X.tab = 'network'; showTab('network');
+  orbit.cur = view('cube', viewCam('cube') || 'default'); orbit.to = null;
   renderAll();
 }
 
@@ -229,7 +222,7 @@ function frame(now, xrFrame) {
   GL.camera.updateMatrixWorld();
   updateLight(xr);
   updateSets(S, tSet, dt, APP.mode === 'story');
-  // what explore mode asked to do once the sets show its pick (a flight to an organ's point)
+  // what explore mode asked to do once the sets show its pick
   if (NEXT.length) { const fs = NEXT.splice(0); if (APP.mode === 'explore') for (const f of fs) f(); }
   if (xr) xrUpdate(S);
   GL.renderer.render(GL.scene, GL.camera);
@@ -284,25 +277,31 @@ function init() {
   if (hp.has('t')) { APP.t = clamp(parseFloat(hp.get('t')) || 0, 0, T_END - 0.01); APP.playing = false; }
   if (hp.has('explore')) {
     APP.enterExplore();
-    // #micro&explore&scene=atlas&view=volcano (any control of a scene by its key, or an option by its name or camera),
-    // &tab=organs|domains|age|method|scenes, &organ=Ovary (an organ or one of its GTEx tissues), &domain=submucosa,
-    // &age=70, &step=2 (the method's step), &example=0 (a worked example of change with age)
+    // #qubits&explore&scene=cube&view=bricks (any control of a scene by its key, or an option by its name or camera),
+    // &tab=network|bricks|depth|scenes, &net=blurred (an example network by key or name, or its number), &cut=random,
+    // &bits=2, &alg=so7 or so6 (or odd, tfim), &brick=X2X1, &sum=10 (strings added up), &gal=kinds, &ex=on, &src=ex
     const sc = hp.get('scene');
     if (sc && GL.sets[sc]) { openScene(sc, false); showTab('scenes'); }
-    else if (!hp.has('t')) openStart();   // straight in: the atlas
+    else if (!hp.has('t')) openStart();   // straight in: the cube
     orbit.cur = view(X.scene, viewCam(X.scene) || 'default'); orbit.to = null;
     // controls after the default view, so a control's own view wins
     for (const c of ctlsOf(X.scene)) {
       const q = String(hp.get(c.key) || '').toLowerCase(), o = q && c.options.find(([v, n]) => v.toLowerCase() === q || String(n).toLowerCase() === q || camFor(X.scene, v) === q || (CAM_ALIAS[X.scene] || {})[v] === q);
       if (o) setCtl(X.scene, c.key, o[0]);
     }
-    if (organOf(hp.get('organ'))) { showTab('organs'); selectOrgan(hp.get('organ')); }
-    if (hp.get('domain') && MD.domain(hp.get('domain')) >= 0) { showTab('domains'); selectDomain(hp.get('domain')); }
-    if (hp.get('example') !== null && FACTS.ex[+hp.get('example')]) { showTab('age'); showExample(+hp.get('example')); }
-    if (hp.get('age') && Number.isFinite(+hp.get('age'))) setAge(+hp.get('age'));
-    if (hp.get('step') && Number.isFinite(+hp.get('step'))) { showTab('method'); setStep(+hp.get('step')); }
+    // the cube's network, cut, bits and algebra from any tab
+    const nq = String(hp.get('net') || '').toLowerCase(), ni = Q.NETS.findIndex((n, i) => n.key === nq || n.name.toLowerCase() === nq || String(i) === nq);
+    if (ni >= 0) setCtl('cube', 'net', String(ni));
+    if (hp.get('cut')) setCtl('cube', 'cut', /^(1|random)/i.test(hp.get('cut')) ? '1' : '0');
+    if (hp.get('bits')) setCtl('cube', 'bits', String(clamp(parseInt(hp.get('bits'), 10) || 3, 1, 3)));
+    if (hp.get('alg')) setCtl('cube', 'alg', /^(0|tfim|so6|so\(6\)|so\(2l\))$/i.test(hp.get('alg')) ? '0' : '1');
+    if (hp.get('ex')) setCtl('chart', 'ex', /^(1|on)$/i.test(hp.get('ex')) ? 'on' : 'off');
+    if (hp.get('src')) setCtl('chart', 'src', /^(1|ex)/i.test(hp.get('src')) ? 'ex' : 'real');
+    if (hp.get('gal')) setGal(hp.get('gal') === 'kinds' ? 'kinds' : 'largest', false);
+    if (isBrick(hp.get('brick'))) { showTab('bricks'); selectBrick(hp.get('brick'), hp.get('gal') === 'kinds' ? 'kinds' : null); }
+    if (hp.get('sum') && Number.isFinite(+hp.get('sum'))) { showTab('bricks'); setSum(+hp.get('sum')); }
     if (hp.get('tab') && TABS.some(t => t[0] === hp.get('tab'))) {
-      if (sc || hp.get('organ') || hp.get('domain') || hp.get('step')) showTab(hp.get('tab')); else pickTab(hp.get('tab'));
+      if (sc || hp.get('brick') || hp.get('sum')) showTab(hp.get('tab')); else pickTab(hp.get('tab'));
     }
     if (hp.has('now')) { Object.assign(XS, exploreTargets()); orbit.cur = orbit.to || orbit.cur; orbit.to = null; }
     renderAll();

@@ -1,15 +1,15 @@
-// Tissue and time: how the body's organs are built from small working units, and how they change as we age. One H&E
-// slide and what it shows, 24,945 slides of GTEx, the authors' method (H&E-UTAG: tiles, features, neighbours, domains),
-// an atlas of 218 microanatomical domains, the network of organ architecture, what changes with age and with disease,
-// and the contacts between domains. After Buljan I, Bago-Horvath Z, Rendeiro AF, "Systematic mapping of human tissue
-// microanatomy reveals age-associated remodeling and resilience", bioRxiv 2025, doi 10.1101/2025.10.13.682110
-// (CC BY-NC), the poster "Microanatomical organization of the human body and its changes with age" and the talk
-// "Microanatomical principles of tissue organization and their change with age" (Iva Buljan, Rendeiro group; LBI for
-// Network Medicine, CeMM, Medical University of Vienna), with Iva Buljan's network of organ architecture.
+// Three qubits: how a gene network fits on a tiny quantum computer. Why pairs of genes, two walkers on the network as
+// on a map, why the map must shrink, the bisections that give each gene a code of bits, the coarse operator A_c on a
+// cube, its building blocks (Pauli strings), the toolbox a quantum computer runs well (a Lie algebra) and what falls
+// outside it (the residual), and the recipe as a short circuit. After the method and the figures of Joel Hancock (his
+// brief for this visualization, "Prompt: visualize network compression and the Pauli decomposition", 21 Oct 2026, his
+// figure of Pauli strings on a cube and his 3-qubit card). The networks shown are examples, computed here (QMATH); the
+// real run's numbers (QUBITS_DATA, on STRING) appear only where the story says "in the real network". American
+// spelling in this story only, as the brief asks.
 // Runs inside index.html, which owns the page, the renderer and the headset session.
-// Built by tools/micro/build.mjs from the tour's kit, the tour's PET body and tissue sets and the data, organ models,
-// sets and engine parts in tools/micro: edit those, not this file.
-HOST.register('micro', function (HOST) {
+// Built by tools/qubits/build.mjs from the tour's kit and the maths, data, look, sets and engine parts in tools/qubits:
+// edit those, not this file.
+HOST.register('qubits', function (HOST) {
 'use strict';
 const D2R = Math.PI / 180;
 const $ = s => document.querySelector(s);
@@ -23,10 +23,9 @@ const K = makeKit(THREE);
 const { smooth, clamp } = K;
 
 // ================================================================== SETS ==
-// Each set is one 3D scene of the story, centred on the origin. The story fades
+// Each set is one 3D scene of the story, centered on the origin. The story fades
 // sets in and out and drives them through their params (see SETS.x.params).
-// MICRO_DATA (the preprint's numbers and the network of organ architecture, tools/micro/sets/data.js) comes first, then
-// the organs' small 3D models (ORGAN3D, tools/micro/sets/organs.js; SETS.organs there is the harness's gallery, not
-// part of the story); the tour's PET body and tissue sets (SETS.body, SETS.tissue) are used unchanged.
+// QMATH (the maths, computed live from example networks), QUBITS_DATA (the real run's numbers, typed in) and QLOOK (the
+// story's lit tubes, rings, balls and halos) come first, then the sets: pairs, cube, chart.
 const SETS = {};
 //@@SETS@@
