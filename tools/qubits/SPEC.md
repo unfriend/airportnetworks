@@ -39,8 +39,8 @@ Decisions (the owner's and Joel's):
 - **Step params** (integers: never eased, put them in the engine's `STEP` set): `cube_net`, `cube_cut`,
   `cube_algebra`, `cube_focus`, `chart_src`, `pairs_code`. The sets ease their own switches where it matters (the
   cube's values, 0.35 s; a seek or the first frame shows the new state at once).
-- The cube set builds its other example networks between frames (`idle()`, called while it is hidden) or at once
-  (`finish()`: the harness and `sweep.mjs` call it), as the motor set's heart does.
+- The cube set builds its default network at load and the others when first asked for (explore), or all at once with
+  `finish()` (the harness and `sweep.mjs` call it).
 
 ## Look
 
@@ -154,7 +154,7 @@ Rename everything: `HOST.register('qubits', ...)`, the header comment (Joel Hanc
 networks), `audio/narration-qubits.mp3`, `SET_ORDER = ['pairs', 'cube', 'chart']`; remove the body, tissue and organ
 code (`dots`, `ORGAN3D`, `MICRO_DATA`, `domainColour`); `FACTS` from `QUBITS_DATA` and `QMATH`. Keep the shared-room
 hooks unchanged (see "Shared rooms" in AGENTS.md), the headset code unchanged (no life-size or room mode in this story).
-Support labels whose `text` is a function, the step params above, and `idle()`/`finish()` (as for the micro sets).
+Support labels whose `text` is a function, the step params above, and `finish()` (as for the micro sets).
 
 **Chapters** (about 4:50 of story time before pacing; `CH` keys and times). Every chapter: one or two plain sentences
 first, then the technical layer in smaller print (formulas only there). Numbers from `FACTS`, none hard-coded.

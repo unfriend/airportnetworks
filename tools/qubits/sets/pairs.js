@@ -206,7 +206,7 @@ void main() { vec2 c = gl_PointCoord - 0.5; float d = length(c); if (d > 0.5) di
     chip.add(mk(K.merge(pads), '#d9b45a', { metalness: 0.85, roughness: 0.3 }));
     const crosses = [];
     for (let q = 0; q < 3; q++) {
-      const x = 0.09 - q * 0.09;   // q0 right, q2 left, as the cube's corners read
+      const x = 0.09 - q * 0.09;   // q2 left, q0 right, as a code's digits read
       const a = new THREE.BoxGeometry(0.075, 0.007, 0.02), b = new THREE.BoxGeometry(0.02, 0.007, 0.075);
       a.translate(x, 0.034, 0); b.translate(x, 0.034, 0); crosses.push(a, b);
       const c = new THREE.BoxGeometry(0.05, 0.004, 0.008); c.translate(x - 0.045, 0.033, 0); if (q < 2) crosses.push(c);

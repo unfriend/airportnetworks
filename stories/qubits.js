@@ -1186,7 +1186,7 @@ void main() { vec2 c = gl_PointCoord - 0.5; float d = length(c); if (d > 0.5) di
     chip.add(mk(K.merge(pads), '#d9b45a', { metalness: 0.85, roughness: 0.3 }));
     const crosses = [];
     for (let q = 0; q < 3; q++) {
-      const x = 0.09 - q * 0.09;   // q0 right, q2 left, as the cube's corners read
+      const x = 0.09 - q * 0.09;   // q2 left, q0 right, as a code's digits read
       const a = new THREE.BoxGeometry(0.075, 0.007, 0.02), b = new THREE.BoxGeometry(0.02, 0.007, 0.075);
       a.translate(x, 0.034, 0); b.translate(x, 0.034, 0); crosses.push(a, b);
       const c = new THREE.BoxGeometry(0.05, 0.004, 0.008); c.translate(x - 0.045, 0.033, 0); if (q < 2) crosses.push(c);
@@ -1333,7 +1333,7 @@ SETS.cube = function (K) {
   const cellCol = (c, L) => LK.CELL[c << (3 - L)];
 
   // ---------------------------------------------------------------- the gene-level network (one per example network,
-  // built on first use or between frames)
+  // built on first use)
   const GLSL = `
 uniform float uBits, uGather, uH, uCut;
 uniform vec3 uM0, uM1[2], uM2[4], uM3[8], uCol[8];
@@ -1766,13 +1766,12 @@ void main() {
     pick,
     NB,
   };
-  // build the other networks between frames (one per call), or all at once for screenshots
-  let nextBuild = 0;
+  // the other networks are built when first asked for (a short pause in explore: the story uses only the default
+  // one), or all at once for screenshots
   return Object.assign(set, {
     params: { cube_a: 1, cube_net: DEF, cube_cut: 0, cube_genes: 0, cube_bits: 3, cube_ac: 1, cube_bricks: 0, cube_lesson: 0, cube_build: 0, cube_sum: 0,
       cube_alg: 0, cube_keep: 0, cube_algebra: 1, cube_focus: -1 },
     update, anchors, labels, cam, controls, explore,
-    idle() { while (nextBuild < NETS.length && NET[nextBuild]) nextBuild++; if (nextBuild < NETS.length) buildNet(nextBuild); },
     finish() { NETS.forEach((_, i) => buildNet(i)); },
     api: () => API,
   });

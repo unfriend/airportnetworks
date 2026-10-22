@@ -64,9 +64,9 @@ for Genes), Algebra (so(2L+1) / so(2L), Toolbox only). The Bricks tab of the eng
 - `algebra()`: the algebra shown (`QMATH.algebra`: gens, basis, dim, label 'so(7)');
 - `corner(c, L)`, `pick(raycaster)` -> { kind: 'brick', slot, k, name } | { kind: 'corner', code } | null, `NB` (10).
 
-Building: the default network is built at load (about 130 ms in Node: its cut, 3D layout and geometry); the others
-between frames while the set is hidden (`idle()`, one per call) or at once (`finish()`, the harness and the sweeps).
-A network asked for before it is built is built then (a short pause in explore).
+Building: the default network is built at load (about 130 ms in Node: its cut, 3D layout and geometry); another is
+built when first asked for (a pause of a tenth of a second or so in explore; not between frames, which would stutter
+in a headset), or all at once by `finish()` (the harness and the sweeps).
 
 ## For the narrator
 

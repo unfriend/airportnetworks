@@ -27,7 +27,7 @@ The resting look (defaults): the map with walkers and valleys.
 
 `tri` (the grid's center), `genes0` (its first gene), `corner` (above its top-left corner: the count label), `map`
 (the map's center, y = -0.3), `walker0`, `walker1` (functions), `valley0`, `valley1`, `chip`, `q2`, `q1`, `q0` (the
-qubits; q2 left, q0 right as on the cube), `hood0` .. `hood7` (beside each neighborhood, by code).
+qubits; q2 left, q0 right, as a code's digits read), `hood0` .. `hood7` (beside each neighborhood, by code).
 
 ## Labels
 
