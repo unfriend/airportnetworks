@@ -544,13 +544,14 @@ void main() {
     CEN[0] = c[0]; CEN[1] = c[1]; CEN[2] = c[2];
   }
   const params = { fish_a: 1, fish_n: 300, fish_k: 7, fish_links: 0, fish_water: 1, fish_shark: 0, fish_hunt: 0, fish_scale: 1 };
-  let tLast = null, hunts = 0, tSim = 0, acc = 0;
+  let tLast = null, hunts = 0, tSim = 0, acc = 0, SCL = 1;
   const SIM = 1 / 30;   // the school moves in steps of a thirtieth of a second; between them the fish glide on (uLag)
   function update(S, t, dt) {
     const water = U.uWater.value = clamp(S.fish_water, 0, 1);
     for (const m of ENV) m.visible = water > 0.003;
     // without the water (passthrough) the school swims in your room, at a third of life size
-    set.group.scale.setScalar((water > 0.5 ? 1 : 0.34) * Math.max(1e-4, S.fish_scale === undefined ? 1 : S.fish_scale));
+    SCL = Math.max(1e-4, S.fish_scale === undefined ? 1 : S.fish_scale);
+    set.group.scale.setScalar((water > 0.5 ? 1 : 0.34) * SCL);
     // more or fewer fish: new ones join beside a fish already swimming
     const want = clamp(Math.round(S.fish_n), 30, MAXN);
     if (want > N) for (let i = N; i < want; i++) { const j = Math.floor(R() * N) * 3; spawn(i, [P[j], P[j + 1], P[j + 2]], 0.4); V[i * 3] = V[j]; V[i * 3 + 1] = V[j + 1]; V[i * 3 + 2] = V[j + 2]; }
@@ -583,7 +584,7 @@ void main() {
   const anchors = { school: () => [CEN[0], CEN[1] + 0.6, CEN[2]],
     shark: () => (SH.on ? [SH.p[0], SH.p[1] + 0.9, SH.p[2]] : [0, -100, 0]) };
   const labels = [
-    { text: () => [T('Shark', 'Hai'), ''], at: 'shark', cls: 'red', alpha: () => (SH.on && !SH.steer && SH.t < 7 ? 1 : 0) },
+    { text: () => [T('Shark', 'Hai'), ''], at: 'shark', cls: 'amb', alpha: () => (SH.on && !SH.steer && SH.t < 7 ? 1 : 0) },
   ];
   // views: [az, el, dist, tx, ty, tz]: floating where you are, looking ahead (the target is just in front of your eyes,
   // so the camera stands where you do; the engine turns it to the school), looking up to the light, and from outside
@@ -615,6 +616,7 @@ void main() {
   // room the school stays round the station's spot (this frame's origin), the same for everyone there
   function see(head, hands, spot) {
     ME.head = head; ME.hands = hands || [];
+    if (SCL < 0.5) return;   // (the sea shrinking as the camera rises: the school stays where it is)
     const cx = spot ? 0 : head[0], cz = spot ? 0 : head[2];
     ME.c[0] += (cx - ME.c[0]) * 0.02; ME.c[1] += (cz - ME.c[1]) * 0.02;
   }

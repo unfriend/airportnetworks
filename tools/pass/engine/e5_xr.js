@@ -52,7 +52,7 @@ function xrRecenter() {
 
 // ---------------------------------------------------------------- labels --
 const LBL_STYLE = { '': ['#f2f6fc', null], mag: ['#ffd2f4', '#ff5ad9'], amb: ['#ffe2b0', '#ffb43b'],
-  grn: ['#c9ffe3', '#3ee08f'], cyn: ['#d2f6ff', '#46d9ff'], tip: ['#e7eef8', '#46d9ff'] };
+  grn: ['#c9ffe3', '#3ee08f'], cyn: ['#d2f6ff', '#46d9ff'], tl: ['#cbfff3', '#38e6c7'], tip: ['#e7eef8', '#46d9ff'] };   // (tl: the cell map's teal signals)
 function labelSprite(L) {
   if (L.sprite) return L.sprite;
   let bold, rest, cls;

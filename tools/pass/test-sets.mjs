@@ -55,6 +55,7 @@ if (want('globe')) {
   ok(half(slow) < 0 || half(slow) > half(fast), `fewer flights slow it down (half the cities by day ${half(fast)}, with 30 % of flights: ${half(slow) < 0 ? 'never' : 'day ' + half(slow)})`);
   // the chain to a city runs back to the start, each step a route, each arrival later than the one before
   A.setup(base);
+  ok(A.search('wien')[0] === A.find('VIE') && A.search('VIE')[0] === A.find('VIE'), 'search finds Vienna by its code and as Wien');
   const ch = A.chain(A.find('SYD'));
   ok(ch && ch[0] === base.start && ch.every((c, k) => !k || (A.arrivalDay(c) > A.arrivalDay(ch[k - 1]))), `the way it took to Sydney: ${ch ? ch.map(i => A.info(i).code).join(' > ') : 'none'}`);
   // small towns: how the hubs carry it ("slowly, then everywhere at once")

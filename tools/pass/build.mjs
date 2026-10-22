@@ -23,9 +23,9 @@ const ORIGINALS = [
       ['const NET_B64=', '// Narration timing'],                     // the routes, the land and the lakes; D2R, LIFT
       ['const COMM_NAMES', '// ------------------------------------------------------------------ camera --'],   // network, maths, geometry, shaders, scene
     ],
-    names: [],
+    names: ['matches', 'findAirport'],
     glue: '',
-    out: 'NET, A, GL, buildScene, setHighlight, setPathAttribute, arcPoints, tubeGeometry, mulberry, bfs, bestPath, connectivity, km, LIFT, D2R, STATS, HOP_DIST, COMM_NAMES, COMM_COLORS, INTER_COLOR, PATH_COL, PATH_A' },
+    out: 'NET, A, GL, buildScene, matches, findAirport, setHighlight, setPathAttribute, arcPoints, tubeGeometry, mulberry, bfs, bestPath, connectivity, km, LIFT, D2R, STATS, HOP_DIST, COMM_NAMES, COMM_COLORS, INTER_COLOR, PATH_COL, PATH_A' },
   { name: 'PASS_SPATIAL', file: 'stories/spatial.js', what: "the cell map story's cell: its places, proteins, links, moves, layout, shaders and scene",
     sections: [
       ['// Spatial interactome data', '// ------------------------------------------------------------------ camera --'],   // data, network, cell, layout, curves, shaders, scene

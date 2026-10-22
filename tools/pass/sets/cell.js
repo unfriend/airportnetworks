@@ -157,10 +157,10 @@ SETS.cell = function (K) {
     lab('NFKBIA', 'amb', 'its brake', 'seine Bremse', S => K.prog(S.cell_cue, 0.6, 0.9) * S.cell_cue_a * (1 - K.prog(mv(S, 'nfkb'), 0.3, 0.6)), 'IκBα'),
     lab('RELA@nuc', 'amb', 'in the nucleus', 'im Zellkern', S => K.prog(mv(S, 'nfkb'), 0.85, 1), 'RELA'),
     // the wrong places: CFTR never reaches the membrane; TDP-43 leaves the nucleus
-    lab('CFTR@er', 'red', 'caught in the ER', 'im ER hängen geblieben', S => K.prog(mv(S, 'cf'), 0.25, 0.5), 'CFTR'),
-    lab('CFTR@pm', 'red', 'never arrives', 'kommt nie an', S => K.prog(mv(S, 'cf'), 0.5, 0.8), 'CFTR'),
-    lab('TARDBP@nuc', 'red', 'leaves the nucleus', 'verlässt den Zellkern', S => K.prog(mv(S, 'als'), 0.05, 0.25) * (1 - K.prog(mv(S, 'als'), 0.85, 1)), 'TDP-43'),
-    lab('TARDBP@cyto', 'red', 'clumps in the cytoplasm', 'verklumpt im Zellplasma', S => K.prog(mv(S, 'als'), 0.85, 1), 'TDP-43'),
+    lab('CFTR@er', 'amb', 'caught in the ER', 'im ER hängen geblieben', S => K.prog(mv(S, 'cf'), 0.25, 0.5), 'CFTR'),
+    lab('CFTR@pm', 'amb', 'never arrives', 'kommt nie an', S => K.prog(mv(S, 'cf'), 0.5, 0.8), 'CFTR'),
+    lab('TARDBP@nuc', 'amb', 'leaves the nucleus', 'verlässt den Zellkern', S => K.prog(mv(S, 'als'), 0.05, 0.25) * (1 - K.prog(mv(S, 'als'), 0.85, 1)), 'TDP-43'),
+    lab('TARDBP@cyto', 'amb', 'clumps in the cytoplasm', 'verklumpt im Zellplasma', S => K.prog(mv(S, 'als'), 0.85, 1), 'TDP-43'),
     // a protein picked in explore mode
     { text: () => (SEL >= 0 ? [NET.sym[SEL], NET.name[SEL] !== NET.sym[SEL] ? NET.name[SEL] : ''] : ['', '']), at: () => (SEL >= 0 ? cpos(SELC) : [0, 0, 0]), cls: 'cyn', alpha: () => (SEL >= 0 ? 1 : 0) },
   ];

@@ -248,7 +248,7 @@ void main() { if (vA < 0.004) discard; gl_FragColor = vec4(mix(vec3(1.0, 0.42, 0
     return best;
   }
   const find = code => { const i = O.A(String(code || '').toUpperCase()); return i === undefined ? -1 : i; };
-  const info = i => (i < 0 ? null : { i, code: NET.code[i], city: NET.city[i], country: NET.country[i], name: NET.name[i], routes: deg[i],
+  const info = i => (i < 0 ? null : { i, code: NET.code[i], city: city(i), country: NET.country[i], name: NET.name[i], routes: deg[i],
     lat: NET.lat[i], lon: NET.lon[i], exposed: tE[i] < NEVER ? tE[i] : null, infectious: tI[i] < NEVER ? tI[i] : null, recovered: tR[i] < NEVER ? tR[i] : null,
     from: src[i] >= 0 ? src[i] : null });
   // a view [az, el, dist, 0, 0, 0] that faces the point at (lat, lon)
@@ -279,18 +279,30 @@ void main() { if (vA < 0.004) discard; gl_FragColor = vec4(mix(vec3(1.0, 0.42, 0
 
   // ---------------------------------------------------------------- anchors, labels, views, controls
   const HUBS = ['VIE', 'LHR', 'FRA', 'CDG', 'IST', 'DXB', 'JFK', 'ATL', 'PEK', 'SIN', 'JNB', 'GRU', 'SYD'];
-  const anchors = { top: [0, 1.22, 0], start: () => (OB.start >= 0 ? pos(OB.start, 0.02) : [0, 1.1, 0]), sel: () => (SEL >= 0 ? pos(SEL, 0.02) : [0, 1.1, 0]) };
+  // (top: north of the start city, a little off the globe, for the day counter: above it in a view that faces it;
+  // start, sel: on the cities themselves)
+  const north = i => { const la = Math.min(80, NET.lat[i] + 13) * Math.PI / 180, lo = NET.lon[i] * Math.PI / 180, r = 1.08;
+    return [Math.cos(la) * Math.cos(lo) * r, Math.sin(la) * r, -Math.cos(la) * Math.sin(lo) * r]; };
+  const anchors = { top: () => (OB.start >= 0 ? north(OB.start) : [0, 1.25, 0]), start: () => (OB.start >= 0 ? pos(OB.start, 0.02) : [0, 1.1, 0]), sel: () => (SEL >= 0 ? pos(SEL, 0.02) : [0, 1.1, 0]) };
   for (const c of HUBS) { const i = find(c); if (i >= 0) anchors[c] = pos(i, 0.02); }
-  const num = n => Math.round(n).toLocaleString(LANG === 'de' ? 'de-AT' : 'en-GB');
+  const num = n => Math.round(n).toLocaleString(LANG === 'de' ? 'de-DE' : 'en-GB');
+  // city names as German says them, for the cities a story or a class is most likely to pick (the data's are English)
+  const CITY_DE = { Vienna: 'Wien', Munich: 'München', Cologne: 'Köln', Rome: 'Rom', Milan: 'Mailand', Prague: 'Prag', Warsaw: 'Warschau',
+    Moscow: 'Moskau', Brussels: 'Brüssel', Copenhagen: 'Kopenhagen', Lisbon: 'Lissabon', Athens: 'Athen', Venice: 'Venedig', Naples: 'Neapel',
+    Belgrade: 'Belgrad', Bucharest: 'Bukarest', Kiev: 'Kiew', Beijing: 'Peking', Cairo: 'Kairo', Tokyo: 'Tokio', Geneva: 'Genf', Zurich: 'Zürich',
+    Florence: 'Florenz', 'Mexico City': 'Mexiko-Stadt', Singapore: 'Singapur', 'Cape Town': 'Kapstadt', Krakow: 'Krakau', 'St. Petersburg': 'Sankt Petersburg',
+    Delhi: 'Delhi', Bangkok: 'Bangkok', Havana: 'Havanna', Tunis: 'Tunis', Tehran: 'Teheran', Bratislava: 'Bratislava', Ljubljana: 'Ljubljana' };
+  const city = i => (LANG === 'de' && CITY_DE[NET.city[i]]) || NET.city[i];
+
   const dayText = () => {
     const c = countAt(DAY), r = c.E + c.I + c.R;
     return [T('Day ', 'Tag ') + Math.floor(DAY), T(`${num(r)} of ${num(N)} cities reached`, `${num(r)} von ${num(N)} Städten erreicht`)];
   };
   const labels = [
-    { text: dayText, at: 'top', cls: 'red', alpha: S => (OB.start >= 0 ? K.prog(S.globe_out, 0.5, 1) : 0) },
-    { text: () => [OB.start >= 0 ? NET.city[OB.start] : '', T('it starts here', 'hier fängt es an')], at: 'start', cls: 'amb',
+    { text: dayText, at: 'top', cls: 'amb', alpha: S => (OB.start >= 0 ? K.prog(S.globe_out, 0.5, 1) : 0) },
+    { text: () => [OB.start >= 0 ? city(OB.start) : '', T('it starts here', 'hier fängt es an')], at: 'start', cls: 'amb',
       alpha: S => (OB.start >= 0 ? K.prog(S.globe_out, 0.5, 1) * (1 - K.prog(S.globe_day, 8, 12)) : 0) },
-    { text: () => { const i = SEL; if (i < 0) return ['', '']; const d = tE[i]; return [NET.city[i], d === NEVER ? T('never reached', 'nie erreicht') : d <= DAY ? T(`reached on day ${d}`, `erreicht an Tag ${d}`) : T('not yet', 'noch nicht')]; },
+    { text: () => { const i = SEL; if (i < 0) return ['', '']; const d = tE[i]; return [city(i), d === NEVER ? T('never reached', 'nie erreicht') : d <= DAY ? T(`reached on day ${d}`, `erreicht an Tag ${d}`) : T('not yet', 'noch nicht')]; },
       at: 'sel', cls: 'cyn', alpha: S => (SEL >= 0 && SEL !== OB.start ? K.prog(S.globe_out, 0.5, 1) : 0) },
   ];
   const cam = {
@@ -332,7 +344,14 @@ void main() { if (vA < 0.004) discard; gl_FragColor = vec4(mix(vec3(1.0, 0.42, 0
     end: () => OB.end, series: () => OB.series, count: countAt, summary,
     arrivalDay: i => (i >= 0 && tE[i] < NEVER ? tE[i] : null), chain: i => chainTo(i),
     select: i => { SEL = i >= 0 ? i : -1; setChain(); }, selected: () => SEL,
-    pick, find, info, pos, viewOf, deg: i => deg[i], n: () => N, routes: () => NET.E,
+    pick, find, info, pos, viewOf,
+    // airports by code, city, name or country (the airports story's search), and by a city's German name too
+    search: (q, n) => {
+      const lq = String(q || '').trim().toLowerCase(), out = [];
+      if (lq) for (const en in CITY_DE) if (CITY_DE[en].toLowerCase().startsWith(lq)) out.push(...O.matches(en, n || 8));
+      for (const i of O.matches(q, n || 8)) if (!out.includes(i)) out.push(i);
+      return out.slice(0, n || 8);
+    }, deg: i => deg[i], n: () => N, routes: () => NET.E,
     original: O,   // (the cut-out airports story itself: NET, GL, bestPath, km, STATS ...)
   };
   const out = Object.assign(set, { params, update, anchors, labels, cam, explore, api, setLang: l => { LANG = l === 'de' ? 'de' : 'en'; } });
