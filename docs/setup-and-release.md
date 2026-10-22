@@ -102,8 +102,10 @@ tests use headless Chromium, which draws in software here and is slow, so run th
 | A whole story | `cd tools/<key> && node sweep.mjs <prefix> "t1,t2,..." [width height]` | server | after changing a built story's text, timing or camera | one page load | as for one set |
 
 Worked examples of `shot.mjs` and `sweep.mjs` are in [tools/lbi/README.md](../tools/lbi/README.md) ("Changing
-something"). After changing a story's text, also run `node tools/narration.mjs http://127.0.0.1:8123/`. It is not a
-test: it writes [narration.md](narration.md) again from the running stories.
+something"). After changing a story's text, also run `node tools/pace.mjs http://127.0.0.1:8123/ --write <key>` (a
+story without a recording: its pace follows its words; update its length in `HOST.list` from what it prints) and then
+`node tools/narration.mjs http://127.0.0.1:8123/`. Neither is a test: they write the story's `NARRATION_SYNC` and
+[narration.md](narration.md) again from the running stories.
 
 **Timing checks.** Some checks in the shared-room test are timed: play has to reach a following page within 5 s, and
 a playing station has to keep to the relay's clock. Under software WebGL, long frames sometimes kept the page's timers

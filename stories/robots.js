@@ -2425,9 +2425,16 @@ function tellRobots(xr) {
 // ================================================================== STORY ==
 // Narration timing: [time in your recording, original story cue]. The story's
 // animation is stretched or squeezed between these points so each cue lands
-// on the matching sentence. Edit here if you record a narration.
+// on the matching sentence. Until a narration is recorded, the table sets the
+// pace: node tools/pace.mjs writes it from the words on the panel (each stretch
+// between two cues lasts long enough to read what appeared at its start; run
+// it again after the text changes). A recording replaces it with its own times.
 const NARRATION_SYNC = [
-  [0, 0], [84, 84],
+  [0, 0], [5.3, 4.6], [18.7, 9],                      // Robot gang
+  [25.5, 14], [26.2, 14.6], [27.6, 15.2], [38.9, 21], [46.7, 27],  // Bump and turn
+  [54.7, 34], [55.4, 34.6], [56.3, 35.2], [64.5, 41],  // Follow me
+  [79.4, 54], [80.1, 54.6], [81.9, 55.2], [89.7, 61], [96.6, 67],  // Follow the one ahead
+  [110.7, 74], [111.4, 74.6], [112.3, 75.2], [116.4, 77], [129.1, 84],  // Your gang
 ];
 // recording time -> original story time
 function storyT(t) {

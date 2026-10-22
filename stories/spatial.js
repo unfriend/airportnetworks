@@ -1687,9 +1687,21 @@ function resize() {
 // ================================================================== STORY ==
 // Narration timing: [time in your recording, original story cue]. The story's
 // animation is stretched or squeezed between these points so each cue lands
-// on the matching sentence. Edit here if you record a narration.
+// on the matching sentence. Until a narration is recorded, the table sets the
+// pace: node tools/pace.mjs writes it from the words on the panel (each stretch
+// between two cues lasts long enough to read what appeared at its start; run
+// it again after the text changes). A recording replaces it with its own times.
 const NARRATION_SYNC = [
-  [0, 0], [220, 220],
+  [0, 0], [3.5, 3], [5.9, 3.6],                       // Intro
+  [19.1, 12], [20.1, 12.88], [21.6, 12.9], [22.5, 13.2], [23, 13.58], [30.7, 13.6],  // Compartments
+  [56.5, 36], [57.2, 36.6], [59.4, 37.2], [67.6, 43], [78.5, 49],  // Addresses
+  [86.6, 56], [87.3, 56.6], [89.5, 57.2], [100, 63], [103.5, 66], [118, 73],  // Meeting
+  [127.1, 80], [127.8, 80.6], [129.6, 81.2], [142.8, 87], [151.4, 93], [153.2, 94.5],  // Many places
+  [164.2, 104], [164.8, 104.6], [166.7, 105.2], [174.8, 109], [190.9, 123],  // Signals
+  [207.8, 132], [208.5, 132.6], [210.3, 133.2], [218, 139], [224.9, 145], [234.9, 151],  // Moving
+  [243, 158], [243.6, 158.6], [245, 159.2], [257.7, 165], [261.2, 168], [272.1, 173],  // Proximity
+  [280.1, 180], [280.8, 180.6], [283.1, 181.2], [283.8, 181.8], [290.4, 184], [301.7, 192],  // Wrong place
+  [317.8, 206], [321.5, 209.2], [329.5, 209.4], [331.1, 210.8], [356.8, 220],  // Recap
 ];
 // recording time -> original story time
 function storyT(t) {

@@ -97,7 +97,8 @@ Start from the closest existing story (`tools/micro/` for a data story, `tools/f
 1. `tools/<key>/`: `SPEC.md` (the contract), `README.md`, the sets (each with a manifest `sets/<name>.md`), the engine
    (`engine/e1_head.js` to `e7_app.js`), `build.mjs`, `harness.html`, `shot.mjs`, `sweep.mjs`, a data generator if it has
    data. Build `stories/<key>.js` and check it with `--check`. Add `tools/<key>/shots/` to `.gitignore`.
-2. `index.html`: an entry in `HOST.list` (key, kick, title, colour, loading text, length), the count in the start
+2. `index.html`: an entry in `HOST.list` (key, kick, title, colour, loading text, length: pace the story first with
+   `node tools/pace.mjs <url> --write <key>`, which prints it), the count in the start
    screen's text and meta description, and the card rows' CSS if the rows change.
 3. The headset Stories screen in **every** story: the arc's spacing for n cards and the number word ("ten") in each
    story's panel code (`stories/airports.js`, `proteins.js`, `spatial.js`, and `tools/*/engine/e6_panels.js`, then

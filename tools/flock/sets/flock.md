@@ -18,7 +18,7 @@ the params and the time.
   flock as a whole. Two pulls act on the flock as one body: a weak one towards a roost in front of the viewer
   (towards the sunset, 13-19 m out and 6-12 m up, wandering slowly left and right) and the flock's whim, a heading
   that turns now left, now right; so the flock wheels and doubles back instead of circling the viewer. Every 88 s
-  (first at 72 s of flight, the story's last chapter) the roost comes in low and close for about ten seconds and
+  (first at 115 s of flight, the middle of the story's last chapter at its pace) the roost comes in low and close for about ten seconds and
   wins over the whim: the flock flies round the viewer. Two satellite points near the roost pull a few birds aside,
   so the flock stretches and folds. Birds keep within 24 m of the viewer and above 3.5 m, give the viewer's head
   (2.6 m) and hands (2.2 m) a wide berth, and bank into turns. Measured over two minutes from where you stand: the

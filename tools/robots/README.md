@@ -1,6 +1,6 @@
 # The robot gang (`stories/robots.js`)
 
-A gang of robot vacuums in a room with you: a short story (about 1:24), then free play for as long as you stay. On a
+A gang of robot vacuums in a room with you: a short story (about two minutes), then free play for as long as you stay. On a
 screen you stand in a model living room and click the floor to walk; in a headset the room is your own, read from the
 headset's room setup (WebXR plane and mesh detection), and the gang drives on your floor. Built like the flock: edit
 the sources here, then

@@ -10,9 +10,23 @@ const D2R = Math.PI / 180;
 const LIFT = 0.0015;
 // Narration timing: [time in your recording, original story cue]. The story's
 // animation is stretched or squeezed between these points so each cue lands
-// on the matching sentence. Edit here if you re-record.
+// on the matching sentence. Until a narration is recorded, the table sets the
+// pace: node tools/pace.mjs writes it from the words on the panel (each stretch
+// between two cues lasts long enough to read what appeared at its start; run
+// it again after the text changes). A recording replaces it with its own times.
 const NARRATION_SYNC = [
-  [0, 0], [212, 212],
+  [0, 0], [3.5, 3], [6.4, 3.6],                       // Intro
+  [20, 12], [20.7, 12.6], [22.1, 13.2], [22.8, 13.8], [38.9, 20],  // Proteins
+  [48.1, 28], [48.8, 28.6], [50.2, 29.2], [61.1, 38], [66.8, 43],  // Interactions
+  [76.4, 48], [78.4, 49.8], [86.8, 51],               // Hubs
+  [108.7, 70], [109.4, 70.6], [110.3, 71.2], [115.7, 75], [125.3, 81],  // Essential
+  [137.6, 90], [139.6, 91.8], [149.8, 94.8], [150.1, 95.02], [151.7, 95.04], [154.4, 95.52],
+  [156.2, 96], [156.7, 96.24], [158, 96.48], [158.9, 96.72], [160.3, 96.96],  // Modules
+  [179.9, 114], [180.6, 114.6], [181.5, 115.2], [182.2, 115.8], [191, 119],  // Disease modules
+  [215.2, 140], [215.9, 140.6], [217.2, 141.2], [217.9, 141.8], [225.9, 144], [234.5, 149],
+  [246, 159],                                         // Drug targets
+  [258.7, 168], [260.8, 169.8], [269.7, 171.2], [297.7, 195.6],  // Robustness
+  [307.9, 198], [311.6, 201.2], [320.5, 201.4], [321.4, 202.2], [337.3, 212],  // Recap
 ];
 // recording time -> original story time
 function storyT(t) {

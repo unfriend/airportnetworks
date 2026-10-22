@@ -2,9 +2,23 @@
 // ================================================================== STORY ==
 // Narration timing: [time in your recording, original story cue]. The story's
 // animation is stretched or squeezed between these points so each cue lands
-// on the matching sentence. Edit here if you record a narration.
+// on the matching sentence. Until a narration is recorded, the table sets the
+// pace: node tools/pace.mjs writes it from the words on the panel (each stretch
+// between two cues lasts long enough to read what appeared at its start; run
+// it again after the text changes). A recording replaces it with its own times.
 const NARRATION_SYNC = [
-  [0, 0], [410, 410],
+  [0, 0], [2.8, 2.4], [5.9, 4], [15, 11],             // Intro
+  [25.4, 20], [26.1, 20.6], [27.9, 21.2], [61, 50], [65.6, 51], [71.3, 56], [79.5, 60], [85.9, 64],  // Motor unit
+  [95.1, 72], [95.7, 72.6], [97.6, 73.2], [106.5, 81], [117.4, 87], [122.9, 91],  // Causes
+  [128.6, 96], [129.3, 96.6], [130.7, 97.2], [144.3, 104], [153.9, 110], [178.7, 131.6],
+  [196.2, 134],                                       // Layers
+  [205.4, 142], [206.1, 142.6], [208.8, 143.2], [218.4, 150], [240.2, 166], [251.7, 176],
+  [270.3, 186],                                       // Walker
+  [280.7, 195], [281.4, 195.6], [283.2, 196.2], [283.9, 196.8], [296.8, 202], [323.3, 225],  // Contexts
+  [336, 232],                                         // Endotypes
+  [388.9, 278], [389.6, 278.6], [391, 279.2], [398.8, 286], [417.9, 300],  // Heart and muscle
+  [463.9, 340], [464.6, 340.6], [465.9, 341.2], [490.5, 362.6], [508.9, 368],  // Stress test
+  [517, 375], [517.7, 375.6], [519, 376.2], [529.9, 384], [535.7, 389], [546.1, 395], [563.4, 410],  // Next
 ];
 // recording time -> original story time
 function storyT(t) {
