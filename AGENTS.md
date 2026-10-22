@@ -145,12 +145,24 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
   stop is `APP.playing = false; APP.seek(stop)` and Next is `APP.togglePlay()`,
   so in a shared room they go out through the shell's wrapper as the station's
   clock, like a pause and a play by hand, at the same `t` on every device. A
-  story paused up to 0.25 s before a stop (a room's pause lands within the
-  shell's 0.25 s drift) waits at it; a stop just gone on from stays passed while
-  the clock is within 1 s of it (the narration can pull the clock back a hair).
-  Next shows at the foot of the page's panel (`#slides`, with the story's switch,
-  scrolled into sight) and in the headset's foot panel in place of the chapter
-  arrows (the switch beside the clock).
+  story paused just now while playing up to 0.25 s before a stop (a room's pause
+  lands within the shell's 0.25 s drift) waits at it too, but a clock put near a
+  stop while paused (a scrub) stays where it was put unless it is right on the
+  stop; a stop just gone on from stays passed while the clock is within 1 s of
+  it. The voice: a chapter's last words often run on past its stop (the
+  airports' recording by up to 2.4 s, so a plain pause cut them). A story with a
+  recording lists where each chapter's words end in it (`NARRATION_ENDS`, seconds
+  by chapter key, measured from the file; only `stories/airports.js` has one, and
+  it is independent of `NARRATION_SYNC`): at a stop the narration plays on, on
+  its own clock, to that point (`slideTail`, `slideSound`, which `audioSync`
+  plays), and after Next it stays quiet, the story not following it
+  (`audioFollow`), until the story is back there, so nothing is cut or said
+  twice. Re-measure the list when re-recording (ffmpeg's `silencedetect`, then
+  check by ear). Next shows at the foot of the page's panel (`#slides`, with the
+  story's switch, scrolled into sight only as far as the chapter's top stays in
+  view), on a phone (under 900 px) beside Play in the bar instead
+  (`#btnNextBar`), and in the headset's foot panel in place of the chapter's
+  name (the chapter arrows stay; the switch beside the clock).
 - Placement in the headset: each story hangs its Stories screen, story panel
   and the scene's placement point (`XR.globeBase + XR.globeOff`) on one frame,
   `GL.rig`. Normally the rig is set from your head (`xrRecenter`) when a
@@ -959,8 +971,10 @@ is the contract between them.
 
 There is no unit-test suite. Before committing, serve the folder and run the
 smoke test, which loads every story, scrubs through it, plays it as a slideshow
-(a stop exactly at a chapter's end and at the last one, Next on the page and the
-headset panel, Next going on), exercises explore
+(a paused scrub near a stop holding, a stop exactly at a chapter's end and at the
+last one, the voice finishing the chapter there where a story has a recording,
+Next on the page, in the bar and on the headset panel beside the chapter arrows,
+Next going on), exercises explore
 mode and the headset panels (for the muscle, endotype, PET and microanatomy stories every explore tool too; for
 the robot gang every rule, a click to walk, crumbs, a big open floor and one
 with no area, and a pretend headset room from detected planes),

@@ -43,15 +43,31 @@ for (const key of ['airports', 'proteins', 'spatial', 'lbi', 'nmd', 'endo', 'pet
       const last = peek('CH.length - 1'), frames = n => until(((f0) => () => window.__frames >= f0 + n)(window.__frames), 30000);
       // (headless frames can be slow: the clock is put a frame before each stop, and the checks wait for frames)
       for (const i of [Math.min(1, last), last]) {
-        const s = peek(`slideStop(${i})`);
-        peek(`(APP.mode === 'story' || APP.enterStory(0), APP.seek(${s} - 0.05), APP.playing = true)`);
+        const s = peek(`slideStop(${i})`), v = peek(`slideVoice(${i})`);
+        // a scrub while paused, just before the stop, stays where it was put (no stop, no Next)
+        peek(`(APP.mode === 'story' || APP.enterStory(0), APP.playing = false)`); await frames(2);
+        peek(`APP.seek(${s} - 0.2)`); await frames(2);
+        if (Math.abs(peek('APP.t') - (s - 0.2)) > 1e-6 || peek('SLIDE.at') >= 0) out.push(`chapter ${i + 1}: a paused scrub 0.2 s before the stop was moved to it (t ${peek('APP.t')}, stop ${s})`);
+        peek(`(APP.seek(${s} - 0.05), APP.playing = true)`);
         if (!await until(() => !peek('APP.playing'), 30000) || peek('APP.t') !== s || peek('APP.mode') !== 'story') { out.push(`did not wait at the end of chapter ${i + 1} (t ${peek('APP.t')}, stop ${s}, ${peek('APP.mode')})`); continue; }
+        // a story with a recording: the voice finishes the chapter while the story waits, then the narration is quiet
+        const tail = v > s;
+        if (tail && !(peek('SLIDE.tail') && peek('SLIDE.tail.v') === v && peek('slideSound()[0]'))) out.push(`chapter ${i + 1}: the voice does not finish its chapter at the stop (${JSON.stringify(peek('SLIDE.tail'))}, ${peek('slideSound()')})`);
+        if (!tail && (peek('SLIDE.tail') || peek('slideSound()[0]'))) out.push(`chapter ${i + 1}: the narration plays on at a stop with no voice to finish`);
         await frames(2);
-        const nb = document.getElementById('btnNext');
+        const nb = document.getElementById('btnNext'), bar = document.getElementById('btnNextBar');
         if (!nb || nb.hidden || !nb.offsetParent) out.push(`chapter ${i + 1}: no Next on the page`);
-        if (!foot().includes('slideNext')) out.push(`chapter ${i + 1}: no Next on the headset panel`);
+        if (!bar || bar.hidden) out.push(`chapter ${i + 1}: no Next in the bar (shown there on a phone)`);
+        if (!foot().includes('slideNext') || !foot().includes('prev') || !foot().includes('next')) out.push(`chapter ${i + 1}: no Next, or no chapter arrows, on the headset panel at the stop (${foot()})`);
+        if (tail) {
+          await until(() => !peek('slideSound()[0]'), 30000);
+          if (peek('slideSound()[0]') || peek('APP.playing') || peek('APP.t') !== s) out.push(`chapter ${i + 1}: the voice did not stop at the chapter's end while the story waits (${peek('slideSound()')}, t ${peek('APP.t')})`);
+        }
         nb.click();
         if (!await until(() => peek('APP.playing') && peek('APP.t') > s, 30000)) out.push(`Next did not go on (playing ${peek('APP.playing')}, t ${peek('APP.t')})`);
+        if (tail && peek('APP.t') < v - 0.2 && peek('slideSound()[0]')) out.push(`chapter ${i + 1}: after Next the narration says the chapter's end again (t ${peek('APP.t')}, voice ended ${v})`);
+        if (tail && !await until(() => !peek('SLIDE.tail') && peek('APP.t') >= v, 30000)) out.push(`chapter ${i + 1}: the narration does not follow the story again past the voice's end (t ${peek('APP.t')})`);
+        if (bar && !bar.hidden && peek('APP.mode') === 'story') out.push('Next still in the bar once playing');
         if (foot().includes('slideNext')) out.push('Next still on the headset panel once playing');
         // past the last stop the story ends as before (explore mode, Repeat being off)
         if (i === last) { peek('APP.seek(T_END - 0.05)'); if (!await until(() => peek('APP.mode') === 'explore', 30000)) out.push('the story did not end after the last stop'); }

@@ -37,9 +37,12 @@ without end, Repeat one plays the story you pick again and again. Press the lit
 button to turn it off. It is remembered on the device; a link ending in
 #airports&repeat=all (or repeat=one) sets it.
 Slideshow: a story stops at the end of each chapter, with all its text shown,
-until you press Next (or Play, or A or X in a headset). Turn it on for one story
+until you press Next (or Play, or A or X in a headset). The narration finishes
+the chapter's last words before it waits. Next is at the foot of the story
+panel (on a phone, beside Play), and in a headset under the panel where the
+chapter's name was. Turn it on for one story
 with "Slideshow: off/on" at the foot of the story panel (in a headset, beside
-the clock under the panel, where Next also appears), or for every story with
+the clock under the panel), or for every story with
 Slideshow on the Stories screen (in a headset, in the menu on the left hand).
 It is remembered on the device; #slides=on (or #slides=off) in a link sets it
 for every story. In a shared room a stop pauses the station for everyone there,
