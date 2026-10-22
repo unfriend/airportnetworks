@@ -943,7 +943,7 @@ from the microanatomy story's. `tools/qubits/SPEC.md` is the contract.
   the headset's sprite).
 - Step params (never eased): `cube_net`, `cube_cut`, `cube_algebra`, `cube_focus`, `chart_src`, `pairs_code`. The
   cube builds its default network at load and the others when first asked for in explore (a short pause).
-- **American spelling in this story only** (color, gray, neighborhood, normalized, center), as the brief asks: keep
+- **American spelling in this story** (color, gray, neighborhood, normalized, center; the aging ovary story too), as the brief asks: keep
   it in `tools/qubits/` and its card; the rest of the app stays British.
 
 ## The pass story (`stories/pass.js`) is built the same way
