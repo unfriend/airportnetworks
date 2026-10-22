@@ -28,8 +28,8 @@ const STR = {
   'title': ['Pass it on', 'Weitersagen!'],
   'lede': ['how warnings, viruses and signals spread', 'wie sich Warnungen, Viren und Signale ausbreiten'],
   'ch.fish': ['The school', 'Der Schwarm'],
-  'ch.watch': ['Who watches whom', 'Wer wen beobachtet'],
-  'ch.links': ['Other links', 'Andere Verbindungen'],
+  'ch.watch': ['Who watches whom', 'Wer sieht wen'],   // (timeline names: short, so the German ones fit the bar)
+  'ch.links': ['Other links', 'Andere Links'],
   'ch.sky': ['The sky', 'Der Himmel'],
   'ch.cell': ['The cell', 'Die Zelle'],
   'ch.med': ['Medicine', 'Medizin'],
