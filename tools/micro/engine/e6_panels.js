@@ -457,7 +457,7 @@ function drawDomainsPane(ctx, P, x, y, W, bottom) {
   swatch(ctx, x, y + 10, 26, domCol(X.domain));
   y += textBlock(ctx, cap(X.domain), x + 40, y + 2, W - 40, 34, 42, VC.ink, 700, 1) + 6;
   const org = td >= 0 ? MD.typeOrgans(td) : [];
-  y += textBlock(ctx, `Tissue type: ${td >= 0 ? nodeName(td) : '–'}. ${org.length} organs have it: ${listOf(org.map(o => o.name))}.`, x, y, W, 22, 30, VC.muted, 400, 3) + 10;
+  y += textBlock(ctx, td >= 0 ? `Tissue type: ${nodeName(td)}. ${org.length} organs have ${nodeName(td)}; the network does not say which of them have this domain: ${listOf(org.map(o => o.name))}.` : 'Tissue type: –.', x, y, W, 22, 30, VC.muted, 400, clamp(Math.floor((bottom - y - 70) / 30), 3, 5)) + 10;   // (the organs' list as far as there is room)
   const si = slideIdx(X.domain);
   flow(ctx, P, [{ id: 'sh:net', label: 'In the network', on: X.scene === 'hier', fn: () => showView('hier', VIEW.net) }].concat(si ? [{ id: 'sh:slide', label: 'On the section', on: X.scene === 'slide', fn: () => showView('slide', VIEW.sAge) }] : []), x, y, W, bottom, { px: 22, h: 50 });
 }

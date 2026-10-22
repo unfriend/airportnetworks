@@ -59,6 +59,10 @@ const STORIES = {
     change: "selectProfile('cancer'); setTheta(2.5); selectGroup(2)",
     back: "showNet('C_high'); selectOrgan('muscle'); setCtl('scan', 'view', 'ring')",
   },
+  micro: {
+    change: "selectOrgan('Ovary'); setAge(70); setStep(3)",
+    back: "selectDomain('submucosa'); showTab('domains'); setCtl('hier', 'view', 'contacts')",
+  },
   robots: {
     change: "setCtl('robots', 'rule', 'chain'); setCtl('robots', 'robots', '12')", back: "setCtl('robots', 'trails', 'on'); setCtl('robots', 'links', 'on')",
     effect: { quiet: '0', idle: "(window.__c0 = GL.sets.robots.anchors.crumbs().join(), true)", send: 'spillCrumbs()', seen: "GL.sets.robots.anchors.crumbs().join() !== window.__c0" },

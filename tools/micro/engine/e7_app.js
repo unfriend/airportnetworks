@@ -215,7 +215,7 @@ function init() {
     orbit.cur = view(X.scene, viewCam(X.scene) || 'default'); orbit.to = null;
     // controls after the default view, so a control's own view wins
     for (const c of ctlsOf(X.scene)) {
-      const q = String(hp.get(c.key) || '').toLowerCase(), o = q && c.options.find(([v, n]) => v.toLowerCase() === q || String(n).toLowerCase() === q || camFor(X.scene, v) === q);
+      const q = String(hp.get(c.key) || '').toLowerCase(), o = q && c.options.find(([v, n]) => v.toLowerCase() === q || String(n).toLowerCase() === q || camFor(X.scene, v) === q || (CAM_ALIAS[X.scene] || {})[v] === q);
       if (o) setCtl(X.scene, c.key, o[0]);
     }
     if (organOf(hp.get('organ'))) { showTab('organs'); selectOrgan(hp.get('organ')); }

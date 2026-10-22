@@ -1,4 +1,4 @@
-// Headless smoke test for the nine stories.
+// Headless smoke test for the ten stories.
 //   node tools/smoke.mjs [base-url]     (default http://127.0.0.1:8123/)
 // Serve the folder first (npx http-server -p 8123 -c-1 .). Needs Playwright;
 // set PLAYWRIGHT_MODULE to its path if it is installed globally, and
@@ -20,7 +20,7 @@ await page.waitForTimeout(4000);
 await step('start screen is the landing page', async () => {
   if (!await page.evaluate(() => HOST.picking)) errors.push('start screen not shown on load');
 });
-for (const key of ['airports', 'proteins', 'spatial', 'lbi', 'nmd', 'endo', 'pet', 'flock', 'robots']) {
+for (const key of ['airports', 'proteins', 'spatial', 'lbi', 'nmd', 'endo', 'pet', 'micro', 'flock', 'robots']) {
   await step(`load ${key}`, async () => {
     await page.click(`#picker [data-story="${key}"]`).catch(async () => { await page.click('#btnOther'); await page.click(`#picker [data-story="${key}"]`); });
     await page.waitForFunction(k => HOST.curKey === k && HOST.cur && HOST.cur.peek('typeof ST !== "undefined" && ST.items.length > 0'), key, { timeout: 30000 });
@@ -305,6 +305,27 @@ for (const key of ['airports', 'proteins', 'spatial', 'lbi', 'nmd', 'endo', 'pet
     await sleep(300);
     if (bad.length) throw new Error(bad.join('; '));
   }));
+  if (key === 'micro') await step('micro: every explore tool, on the page and in the headset', () => page.evaluate(async () => {
+    const sleep = ms => new Promise(r => setTimeout(r, ms));
+    const bad = HOST.cur.peek(`(() => {
+      const out = [];
+      for (const o of MICRO_DATA.organs) { selectOrgan(o.name); if (X.organ !== o.name) out.push('organ ' + o.name + ' not selected'); }
+      for (const d of ['submucosa', 'corpus albicans', 'adenohypophysis', 'connective tissue']) selectDomain(d);
+      for (let i = 0; i < MICRO_DATA.examples.length; i++) showExample(i);
+      for (const a of [20, 45, 70]) { setAge(a); if (X.age !== a) out.push('age ' + a + ' not set'); }
+      for (let s = 1; s <= 4; s++) { setStep(s); if (X.step !== s) out.push('step ' + s + ' not set'); }
+      for (const s of ['body', 'slide', 'atlas', 'hier']) { openScene(s); for (const c of ctlsOf(s)) for (const [v] of c.options) setCtl(s, c.key, v); }
+      const rc = new THREE.Raycaster(new THREE.Vector3(0, 0.2, 6), new THREE.Vector3(0, 0, -1));
+      try { pickWith(rc); } catch (e) { out.push('pick threw: ' + e.message); }
+      XR.on = true;
+      for (const [k] of TABS) { showTab(k); for (const P of XR.panels) { P.last = ''; P.t = -1e9; panelTick(P, performance.now() + 1e6); } }
+      XR.on = false;
+      selectOrgan(null); setAge(20); setStep(1); showTab('organs');
+      return out;
+    })()`);
+    await sleep(300);
+    if (bad.length) throw new Error(bad.join('; '));
+  }));
   await page.click('#btnOther');
 }
 // Repeat on the Stories screen: one story again and again, or all of them in turn (the last leads to the first)
@@ -329,7 +350,7 @@ await step('Repeat one and Repeat all', async () => {
 });
 // Anchored mode with a pretend headset: a room whose tracking origin can jump (recentring) and
 // anchors that keep their place in it, saved under a handle (Quest's persistent anchors)
-for (const key of ['airports', 'proteins', 'spatial', 'lbi', 'nmd', 'endo', 'pet', 'flock', 'robots']) await step(`${key}: anchored placement`, async () => {
+for (const key of ['airports', 'proteins', 'spatial', 'lbi', 'nmd', 'endo', 'pet', 'micro', 'flock', 'robots']) await step(`${key}: anchored placement`, async () => {
   await page.evaluate(k => HOST.start(k), key);
   await page.waitForFunction(k => HOST.curKey === k && HOST.cur && HOST.cur.peek('typeof ST !== "undefined" && ST.items.length > 0'), key, { timeout: 30000 });
   const bad = await page.evaluate(async () => {

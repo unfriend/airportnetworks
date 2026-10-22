@@ -3,7 +3,7 @@
 // Explore mode: the organs and their tissues, the domains and their tissue types, what changes with age, the method in
 // four steps; or any scene with its own controls.
 const SCENES = [
-  ['body', 'Body', `The ${FACTS.organs} organs whose tissue GTEx collected, as points of light in a whole-body PET scan (the tour's body).`],
+  ['body', 'Body', `The ${FACTS.organs} organs whose tissue GTEx collected, as points of light on a body drawn from a PET scan (the tour's body).`],
   ['slide', 'Section', 'One H&E-stained section of stomach wall (the tour\'s tissue, drawn), with the method\'s tiles, features and neighbours, and its domains at 20 and at 70.'],
   ['atlas', 'Library and atlas', `The slide library (${fmt(FACTS.slides)} slides), a section per tissue with its domains, the tiles in one map, what changes with age and the pathology curves.`],
   ['hier', 'Network', 'Iva Buljan\'s network of organ architecture: organs, tissues, tissue types and domains; and one organ\'s domain contacts at 20 and at 70.'],
@@ -12,7 +12,7 @@ const SCENE_SHORT = { atlas: 'Atlas' };
 const TABS = [['organs', 'Organs'], ['domains', 'Domains'], ['age', 'Age'], ['method', 'Method'], ['scenes', 'Scenes']];
 // the tour's body set: its network and its disease scan are the tour's illustration, so this story leaves them out;
 // the sets' own Age controls give way to the story's age slider (X.age), which drives them all
-const HIDE_CTL = { body: ['view', 'state'] };
+const HIDE_CTL = { body: ['view', 'state', 'tracer'] };
 const isAge = c => /^age$/i.test(c.key) || /^age$/i.test(c.label || '');
 const ctlsOf = k => (GL.sets[k].controls || []).filter(c => !(HIDE_CTL[k] || []).includes(c.key) && !isAge(c));
 // a control the panes offer now: a set may say when one applies (when(values)), so none sits there doing nothing; the
@@ -38,6 +38,8 @@ function camFor(k, v) {
   const c = GL.sets[k].cam || {}, al = CAM_ALIAS[k] || {}, vc = ctlOf(k, 'view'), o = vc && vc.options.find(x => x[0] === v), n = o ? String(o[1]).toLowerCase() : '';
   // the atlas with a section brought forward: the section alone, or beside the volcano or the curves
   if (k === 'atlas' && X.organ && atlasIdx(X.organ)) { if (VIEW.map.test(v) && c.focus) return 'focus'; if ((VIEW.volcano.test(v) || VIEW.curves.test(v)) && c.age) return 'age'; }
+  // (the atlas's age camera is for the volcano beside a section; the volcano alone has its own)
+  if (k === 'atlas' && v === 'age' && c.volcano) return 'volcano';
   for (const x of [v, al[v], n, al[n]]) if (x && c[x]) return x;
   return null;
 }
@@ -314,8 +316,8 @@ function renderOrgans() {
       <p class="grp-h">Its tissue types in the network</p>
       <div class="chips">${O.types.map(t => chip(`data-act="kind" data-v="${esc(nodeName(t))}"`, `${esc(cap(nodeName(t)))} <small>${MD.typeDomains(t).length}</small>`, false, LEVEL_COL[2])).join('')}</div>
       <p class="sub">The number is how many domains hang on that tissue type in the network (shared with other organs). Pick a type to see them.</p>
-      ${fd.length ? `<p class="grp-h">Domains of ${esc(tisShort(X.organ !== O.name ? X.organ : tis[0], O.name))} in the talk's atlas (share of the section)</p><div class="chips">${fd.map(d => (MD.domain(d.name) >= 0 ? chip(`data-act="domain" data-v="${esc(nodeName(MD.domain(d.name)))}"`, `${esc(cap(d.name))} <small>${Math.round(d.share * 100)}%</small>`, false, domCol(d.name))
-        : `<span class="empty" style="display:inline-flex;align-items:center;padding:6px 8px"><span class="sw" style="background:${swCol(domCol(d.name))};margin-right:6px"></span>${esc(cap(d.name))}&nbsp;<small>${Math.round(d.share * 100)}%</small></span>`)).join('')}</div>` : ''}
+      ${fd.length ? `<p class="grp-h">Domains of ${esc(tisShort(X.organ !== O.name ? X.organ : tis[0], O.name))} in the talk's atlas (approximate share, read off the talk's figure)</p><div class="chips">${fd.map(d => (MD.domain(d.name) >= 0 ? chip(`data-act="domain" data-v="${esc(nodeName(MD.domain(d.name)))}"`, `${esc(cap(d.name))} <small>${shareTxt(d.share)}</small>`, false, domCol(d.name))
+        : `<span class="empty" style="display:inline-flex;align-items:center;padding:6px 8px"><span class="sw" style="background:${swCol(domCol(d.name))};margin-right:6px"></span>${esc(cap(d.name))}&nbsp;<small>${shareTxt(d.share)}</small></span>`)).join('')}</div>` : ''}
       <p class="grp-h">Show it</p><div class="chips">${chip('data-act="view" data-v="atlas:map"', 'Its section', X.scene === 'atlas' && viewIs('atlas', VIEW.map))}${chip('data-act="view" data-v="hier:net"', 'In the network', X.scene === 'hier' && viewIs('hier', VIEW.net))}${chip('data-act="scene" data-v="body"', 'In the body', X.scene === 'body')}</div>`;
   } else h += '<p class="empty">Point at an organ\'s light in the body, a section in the atlas or a node of the network to pick it there.</p>';
   pane.innerHTML = h;
@@ -384,8 +386,12 @@ function renderScenes() {
     <h3>${esc(sc[1])}</h3><p class="sub">${esc(sc[2])}</p>
     ${ctlsOf(X.scene).filter(c => ctlShown(X.scene, c)).map(c => `<p class="grp-h">${esc(c.label)}</p><div class="chips">${c.options.map(([v, n]) => chip(`data-act="ctl" data-ctl="${c.key}" data-v="${v}"`, esc(n), ctlValue(X.scene, c) === v)).join('')}</div>`).join('')}
     ${ageHere() ? `<p class="grp-h">Age <b data-agev style="margin-left:auto;color:var(--ink)">${X.age}</b></p><input type="range" data-age min="${AGE0}" max="${AGE1}" step="1" value="${X.age}" aria-label="Age" style="accent-color:#ffb43b">` : ''}
-    ${X.organ && X.scene !== 'slide' ? `<p class="sub" style="margin-top:10px">Also shown: ${esc(X.organ)} (Organs tab).</p>` : X.domain ? `<p class="sub" style="margin-top:10px">Also shown: ${esc(cap(X.domain))} (Domains tab).</p>` : ''}`;
+    ${X.organ && X.scene !== 'slide' && !contactsOn() ? `<p class="sub" style="margin-top:10px">Also shown: ${esc(X.organ)} (Organs tab).</p>` : X.domain && !contactsOn() ? `<p class="sub" style="margin-top:10px">Also shown: ${esc(cap(X.domain))} (Domains tab).</p>` : ''}`;
 }
+// a share read off the talk's figure, by eye: under half a percent is shown as <1%
+const shareTxt = f => (f * 100 < 0.5 ? '&lt;1%' : Math.round(f * 100) + '%');
+// the network's contacts: one organ's own contact network (the hier set's Organ control), not the organ or domain picked
+const contactsOn = () => X.scene === 'hier' && viewIs('hier', VIEW.contacts);
 // the scene on show changes with the age (the slider belongs with it)
 const ageHere = () => (X.scene === 'slide' && viewIs('slide', /age|domain/i)) || (X.scene === 'atlas' && !!X.organ && viewIs('atlas', VIEW.map)) || (X.scene === 'hier' && viewIs('hier', VIEW.contacts));
 // labels the panes add (the sets label their own picks: the atlas names its focused section, the network its focused node)
