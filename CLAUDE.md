@@ -55,7 +55,8 @@
   patient's scan: never use its data).
   `stories/micro.js` likewise from `tools/micro/` (`node tools/micro/build.mjs`; data from Iva Buljan's GraphML, kept out of
   the repository, and the preprint's numbers via `node tools/micro/data/gen_data.mjs <graphml>`); it includes the tour's
-  body and tissue sets and the PET story's icons, so rebuild it after changing those.
+  body and tissue sets (its organs are its own 3D models, `tools/micro/sets/organs.js`), so rebuild it after changing
+  those.
 
 ## Keeping token use down
 
