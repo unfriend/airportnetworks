@@ -137,7 +137,10 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
   the same lines (`slideStep` and its helpers next to the narration code):
   chapter i stops at `slideStop(i)` = `narrT(CH[i].b - 0.7)` (just before its
   text starts to fade out), found as a crossing in `frame()` (the clock before
-  and after the frame), so a jump into chapter k stops at its end, and the last
+  and after the frame; at a station also since the last frame when the clock
+  moved no further than the time that passed plus 0.35 s, as when the shell
+  catches a slow page up with the station's clock, but not a jump), so a jump
+  into chapter k stops at its end, and the last
   chapter stops too before the end (Repeat and explore mode follow Next). The
   stop is `APP.playing = false; APP.seek(stop)` and Next is `APP.togglePlay()`,
   so in a shared room they go out through the shell's wrapper as the station's
@@ -1006,7 +1009,9 @@ seconds) and
 three pages in a room follow its station and check play, pause, jumps, mode
 changes and Replay (within 5 s), the relay's clock, the explore state both
 ways and the story's effect (for the robots also the pile's spot and dust; for the flock
-the same falcon, one page leading, the same flight time and the flocks together).
+the same falcon, one page leading, the same flight time and the flocks together);
+on the first story followed, also a slideshow stop on one page pausing the
+station for the others at the chapter's end, and its Next playing it again.
 Before that: Arrange all's rows, a code with no room, Remove asking first.
 After: a station moved and turned on the room map (and refused while the
 layout is locked),

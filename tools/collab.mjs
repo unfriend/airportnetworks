@@ -281,6 +281,7 @@ async function walk(page, s, story, yaw) {
 }
 
 let code = '', NST = 0;   // the room's code; how many stories (one station each after Arrange all)
+let slidesSeen = false;   // the slideshow's stop and Next in a room: checked on the first story followed
 try {
   await startRelay(relayPort);
   // ------------------------------------------------------------ rooms --
@@ -395,6 +396,22 @@ try {
     check(`${key}: pause reaches it, at the same moment, and it stays there`, paused && Math.abs(ca[2] - cb[2]) < 0.3 && Math.abs(cb2[2] - cb[2]) < 0.02, `A ${ca}, B ${cb}, then ${cb2}`);
     await peek(A, 'APP.seek(20)');
     check(`${key}: a jump reaches it`, await until(B, () => Math.abs(HOST.cur.peek('APP.t') - 20) < 0.3, null, 5000));
+    // slideshow on page A only (a setting per device): its stop at a chapter's end pauses the station for the others
+    // at that t, and its Next plays it again (once, on the first story followed here)
+    if (!slidesSeen) {
+      slidesSeen = true;
+      await A.evaluate(k => HOST.slides.set(k, true), key);
+      const s = await peek(A, 'slideStop(1)');
+      await peek(A, `(APP.seek(${s} - 2), APP.playing || APP.togglePlay())`);
+      const stopped = await until(A, s => !HOST.cur.peek('APP.playing') && HOST.cur.peek('APP.t') === s, s, 20000) && await until(B, () => !HOST.cur.peek('APP.playing'), null, 5000);
+      const [ca, cb] = [await clockOf(A), await clockOf(B)];
+      check(`${key}: a slideshow stop on one page pauses the station at the end of the chapter`, stopped && Math.abs(cb[2] - s) < 0.3, `stop ${s}, A ${ca}, B ${cb}`);
+      await A.evaluate(() => document.getElementById('btnNext').click());
+      check(`${key}: Next on that page plays the station again`, await until(B, s => HOST.cur.peek('APP.playing') && HOST.cur.peek('APP.t') > s - 0.3, s, 5000), JSON.stringify(await clockOf(B)));
+      await A.evaluate(() => HOST.slides.setGlobal(false));
+      await peek(A, 'APP.togglePlay()');
+      await until(B, () => !HOST.cur.peek('APP.playing'), null, 5000);
+    }
     await peek(A, 'APP.enterExplore()');
     check(`${key}: explore mode reaches it`, await until(B, () => HOST.cur.peek('APP.mode') === 'explore', null, 5000));
     await sleep(500);
