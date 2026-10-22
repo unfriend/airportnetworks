@@ -13,6 +13,9 @@ shared rooms need the relay. Public hosting (Coolify) stays possible later: see 
 
 **No accounts, no passwords: the room code is the secret.** Rooms live in memory: a restart empties them.
 
+**Running a session with headsets:** the checklist is [docs/event-runbook.md](../docs/event-runbook.md); this file
+is the reference for the relay itself.
+
 ## Running it
 
 ```sh
@@ -78,8 +81,9 @@ the app's files from the repository over HTTPS, and prints the address to open.
    marks (that never depends on the shared space). See [docs/shared-spaces.md](../docs/shared-spaces.md).
 4. Two marks for calibration: two crosses of tape on the floor or a table, a metre or more apart (at least
    50 cm; the further apart, the better the room lines up). Mark A is the room's origin.
-5. Floor space: Arrange all needs about 8 m wide and 5 m deep for all seven (two rows, starting just in front of
-   where you stand); in a smaller room add 2-4 stations with **Add here** (headset) or **Add a station** (page).
+5. Floor space: Arrange all needs about 9.6 m wide and 4 m deep for all ten (two rows of five, starting 1.2 m in
+   front of where you stand); in a smaller room add 2-4 stations with **Add here** (headset) or **Add a station**
+   (page).
 
 **Each session**
 
@@ -91,7 +95,7 @@ the app's files from the repository over HTTPS, and prints the address to open.
    choose to continue (it is this machine's own certificate).
 3. Open **Shared**: on the page, the **Shared** button in the top bar or on the Stories screen; in the headset,
    the **Open** tab on the **Shared space** panel above your left controller (beside the story panel without one). The first person: **Start a room**,
-   then **Arrange all** puts the seven stories as stations in two rows in front of you (or one story where you
+   then **Arrange all** puts the ten stories as stations in two rows of five in front of you (or one story where you
    stand: **Add here** in the headset, **Add a station** on the page). Arrange all from a page, without a
    headset, puts the rows round the room's origin (mark A). Everyone else: **Shared**, then pick the room under
    **Open rooms**. To move a station, point at its ring or card in the headset and hold the grip: point to swing
@@ -203,9 +207,10 @@ the desktop page only (no VR or AR there). The relay prints these addresses when
 
 **Logs.** With `--lan` (or `--logs <dir>`) every headset in a room sends its log every 10 s: what its room
 frame rests on, the shared space, its anchors and its head, sampled every 5 s. They are kept as
-`relay/logs/<day>-<room>-<name>-<id>.jsonl` (the relay prints each new file). To have alignment looked at,
-send those files, for example: `git checkout -b logs-$(date +%F) && git add -f relay/logs && git commit -m "Headset
-logs" && git push -u origin HEAD`. They hold no more than names, the room code and positions in the room.
+`relay/logs/<day>-<room>-<name>-<id>.jsonl` (the relay prints each new file). They hold each person's name in the room
+(often their own first name), the room code and positions in the room. To have alignment looked at, send the folder
+privately to whoever analyses it (zipped, not in a public place), and never push the logs to a public repository
+(`relay/logs/` is git-ignored: keep it so).
 
 **Caveats.** The self-signed HTTPS and `wss://` path (`--lan`) works on Quest 3 headsets. A page with a self-signed certificate gets no service worker (no offline copy;
 nothing else changes). The app on GitHub Pages cannot use a relay with a self-signed certificate (the `wss://`

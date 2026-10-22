@@ -1,0 +1,82 @@
+# Questions for the authors
+
+Open items found while building the four stories that rest on colleagues' work: places where the sources disagree,
+and stand-ins waiting for the authors' own values. Each item says where it is in the source, what the story shows now
+and where that is in the code or data. Whether the authors agreed to their material being shown at all is a separate
+matter: see [data-and-permissions.md](data-and-permissions.md).
+
+**Until an author answers, the story keeps what it shows now.** Do not "fix" a number in the code on your own: the PET
+story deliberately shows the paper's printed values, and the microanatomy story the preprint's. When an answer comes:
+
+1. change the generator (`tools/<story>/data/gen_data.*`) or the figures' readings (`tools/<story>/data/figures.json`),
+   never `sets/data.js` by hand;
+2. regenerate the data, rebuild with `node tools/<story>/build.mjs` (then `--check`), bump `VERSION` in `sw.js` and run
+   the smoke test ([AGENTS.md](../AGENTS.md), "Testing");
+3. set the item's status here to `answered`, with the date and the answer in a few words.
+
+## PET: One scan, one system (`pet`)
+
+Sources: Geist et al., "The metabolic organ connectome: A novel approach to measure allostatic load during
+health-to-disease transition", Med 6, 100881 (2025), doi 10.1016/j.medj.2025.100881; the poster "Shaping a New Era in
+Nuclear Medicine". Who to ask: the paper's authors (first author Barbara Katharina Geist, last author Marcus Hacker).
+Contact person: **TO FILL (owner)**.
+
+| # | Item | Where in the source | What the story shows now | Status |
+| --- | --- | --- | --- | --- |
+| P1 | The survival row reads inverted: the shorter survivors' network is the denser one (density 23 % against 7 %, disorder 0.14 against 0.23), unlike the paper's other results, and the text does not discuss it. | Table 2, "Survival" (people with cancer, split at the median of 34 months) | The row as printed, with a note saying so, in explore mode only (Networks tab); the narration does not use it. `T2` in `tools/pet/data/gen_data.mjs`; shown by `tools/pet/engine/e4_explore.js` and `e6_panels.js`. | open |
+| P2 | Leukocytes, full cohort split at the median: p = 0.12 in Table 2, p = 0.012 in the text. | Table 2, "Leukocytes"; the paper's text | p = 0.12 as printed (not significant), with a note giving the text's value; explore mode only. Same places as P1. | open |
+| P3 | Hexokinase 2: p = 0.1 in the text, p = 0.01 in the figure and the table (**TO FILL (owner):** the repository has only Table 3's p = 0.01; where the text's p = 0.1 comes from, and whether Figure 4 shows it). | the paper's text; Table 3 (Figure 4: unchecked) | "similar (p = 0.01)" and r = 0.42 with FDG's network (explore mode, Networks tab); the narration says only that HK2's network resembles FDG's (r = 0.42). `T3` in `tools/pet/data/gen_data.mjs`; `tools/pet/engine/e3_story.js`. | open |
+| P4 | The one-scan network's formulas: the poster names Clearance, Heterogeneity and the metabolic displacement index, but their formulas are not published. | the poster | Stand-in maths, said so in the story and in explore mode; the profiles are illustrative too. `single` in `tools/pet/data/gen_data.mjs`. | open |
+
+P4 comes from the generator's own note rather than from a reading of the paper; ask for the formulas once they are
+published.
+
+## Microanatomy: Tissue and time (`micro`)
+
+Sources: Buljan I, Bago-Horvath Z, Rendeiro AF, "Systematic mapping of human tissue microanatomy reveals
+age-associated remodeling and resilience", bioRxiv 2025, doi 10.1101/2025.10.13.682110; the poster "Microanatomical
+organization of the human body and its changes with age"; the talk "Microanatomical principles of tissue organization
+and their change with age"; Iva Buljan's network of organ architecture. Where the sources differ, the story uses the
+preprint's numbers (`tools/micro/SPEC.md`, "Shared facts"). Who to ask: Iva Buljan (first author, the talk and the
+network) and the Rendeiro group. Contact person: **TO FILL (owner)**.
+
+| # | Item | Where in the source | What the story shows now | Status |
+| --- | --- | --- | --- | --- |
+| M1 | Donors: 983 in the abstract, 971 analysed. | preprint: abstract and results | Both: "GTEx collected tissue from 983 people" and, in the small print, "971 people's slides were analysed". `FACTS.donors`, `FACTS.donorsAnalysed` in `tools/micro/data/gen_data.mjs`; `tools/micro/engine/e3_story.js`. | open |
+| M2 | Ages 20 to 70 (preprint) against 20 to 80 (talk). | preprint; talk | 20 to 70 (`FACTS.ages`). | open |
+| M3 | Slides: 24,945 (preprint) against 25,713 (talk). | preprint; talk | 24,945 (`FACTS.slides`). | open |
+| M4 | Domains that change with age: 28 % (preprint) against 27 %. | preprint; **TO FILL (owner):** which source says 27 %, and where | 28 %, "37 of 128 pairs of a domain and a tissue" over 1 % abundance (`FACTS.ageChange`, `FACTS.agePairs`). | open |
+| M5 | Two trajectory panels are drawn in other units than the text: adenohypophysis (pituitary) 0.40 to 0.33 against 82.6 % to 67.9 % (-3.42 % per decade); corpus albicans (ovary) 0 to 0.15 against 1.4 % to 11.89 % (3.51 % per decade). Our reader's guess, not stated anywhere: per slide area against per tissue area. | the talk's trajectory panels (`tools/micro/data/figures.json`, trajectories "adenohypophysis (Pituitary)" and "corpus albicans (Ovary)"); the text | The text's numbers (called the preprint's in `tools/micro/SPEC.md`; `figures.json` calls them the talk's) wherever a number is stated (`EXAMPLES` in `tools/micro/data/gen_data.mjs`); the panels only for the curves' shapes. | open |
+| M6 | The drawn regression lines do not have the slopes printed beside them: four are 35 to 60 % steeper (submucosa of the transverse colon, both testis panels, vagina), two are 6 % and 15 % shallower (corpus albicans, adenohypophysis). Perhaps the printed slope comes from a model with covariates. | the talk's trajectory panels (`figures.json`, its `notes`) | The printed slopes as the numbers; the drawn lines only for shapes. | open |
+| M7 | No stomach-versus-uterus network in the talk: its contact-network figure shows the stomach, small intestine, breast and minor salivary gland; the uterus appears only among the domain pairs. Is there one, and where? | the talk (`figures.json`, its `notes`); `tools/micro/SPEC.md` | No such comparison. Contact networks of the colon, skin, ovary, fallopian tube, uterus and coronary artery (`tools/micro/sets/hier.js`). | open |
+| M8 | The co-authors' first names are unconfirmed, and so is the spelling with or without accents. | the bylines of the preprint and the poster | Story credits: "Iva Buljan, Z. Bagó-Horváth and A. F. Rendeiro" (`tools/micro/engine/e3_story.js`). Citations in the data: "Bago-Horvath Z" (preprint) and "Bagó-Horváth Z" (poster) (`tools/micro/data/gen_data.mjs`). `README.md` and `tools/micro/README.md` write the first names out ("Zsuzsanna", "André F."): unconfirmed too. | open |
+| M9 | "10 classes": are the preprint's 10 classes of domain types the 10 tissue types of Iva Buljan's network? | preprint; the network (GraphML) | "218 domains of 74 types, in 10 classes" (`FACTS.superclasses`); the network shows 10 tissue types (adipose tissue, cardiac muscle, connective tissue, glandular tissue, lining epithelium, lymphoid structure, neuronal tissue, skeletal muscle, smooth muscle, vascular tissue). | open |
+
+## Muscle and heart (`nmd`)
+
+Sources: the ISMB 2026 talk "Deep integrative multiplex network-based analysis of rare neuromuscular disorders reveals
+overlapping multiscale endotypes involved in cardiac and skeletal muscle myopathies" (Iker Núñez-Carpintero, Philipp
+Friedrich, Julia Guthrie, Jörg Menche) and their analysis files in `ikerdata/`. Who to ask: Iker Núñez-Carpintero and
+Philipp Friedrich. Contact person: **TO FILL (owner)**. What to do when new files arrive: [tools/nmd/README.md](../tools/nmd/README.md).
+
+| # | Item | Where in the source | What the story shows now | Status |
+| --- | --- | --- | --- | --- |
+| N1 | The authors' own layer z-scores. | their analysis (not in `ikerdata/`) | Stand-ins computed here, in this map, on the protein layers only: the largest connected group of a disease's known genes against 1,000 random gene sets with the same numbers of links (`tools/nmd/data/gen_data.mjs`; the story's small print says so). | open |
+| N2 | The authors' random walk: its settings and visits. | their analysis | Computed here: restart 0.7, layer switch 0.5, layers weighted by the z-scores ("After Buphamalai et al. (2021)" in the small print). `heat` in `tools/nmd/sets/data.js`, from `gen_data.mjs`. | open |
+| N3 | The authors' names for the endotypes. | their analysis | Each endotype is named after the most typical GO process of its genes (`gen_data.mjs`); the story says so. | open |
+| N4 | The links of the other layers: 33 of the 71 layers have none yet, and 11 have links only for the overlap of congenital myopathies and cardiomyopathies. | their analysis | Those layers are drawn empty (`data: ''` in `layers`); they fill in without code changes once the files are in `ikerdata/` and `gen_data.mjs` reads them. | open |
+| N5 | May the files in `ikerdata/` stay public? They are committed in full and served by the public site. | — | See [data-and-permissions.md](data-and-permissions.md), "Before the repository or the site is public". | open |
+
+## Endotypes (`endo`)
+
+Sources: the ISMB 2026 poster "Introducing EndotypY: a Python package for network-based disease endotyping" (Chloé
+Bûcheron, Iker Núñez-Carpintero, Enes Sakalli, Mathilde Meyenberg, Julia Guthrie, Jörg Menche), EndotypY
+(github.com/menchelab/EndotypY) and the authors' saved run on congenital myasthenic syndromes. Who to ask: the poster's
+authors (first author Chloé Bûcheron). Contact person: **TO FILL (owner)**.
+
+| # | Item | Where in the source | What the story shows now | Status |
+| --- | --- | --- | --- | --- |
+| E1 | The authors' settings for the steps before the endotypes: the seed groups, the walk, each gene's neighbourhood, its annotation and the tree. | their run (the saved run holds the network, seeds and endotypes, not these settings) | Re-run with the package's defaults: restart probability 0.8, a neighbourhood of the top 1 % of the network, GO cellular-component terms (`GO_Cellular_Component_2026`); the tree is drawn to agree with the authors' endotypes. Said so in the small print and in explore mode's Method tab. `R`, `PCT`, `KS`, `FEAT_LIB` in `tools/endo/data/gen_data.py`; `ENDO_DATA.facts`. | open |
+| E2 | The endotypes' names and places: are the story's acceptable, or do the authors have their own? | the poster's figure (the colours follow it) | The story's own short names after each endotype's strongest Jensen COMPARTMENTS term (for example "Mitochondria", "Basement membrane", "Golgi"); three endotypes with no significant term are called "No shared place"; each is placed where it acts in the drawn synapse. `LOOK` in `tools/endo/data/gen_data.py`. | open |
+
+E2 follows from the story's own choices in the generator rather than from a reading of the poster.

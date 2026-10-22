@@ -49,7 +49,8 @@ Card: kick "Tissue microanatomy", title **Tissue and time**, tagline "how organs
   (message passing over the tiles' spatial adjacency); tiles with similar mixed descriptions are clustered, across
   all slides. The clusters are the domains, named afterwards by a pathologist. It agrees with pathologists' notes
   (salivary gland r = 0.91, stomach mucosa r = 0.76).
-- 218 domains in 74 types (and 10 classes); 16 % of domain types are shared by 3 or more tissues, 69 % belong to one
+- 218 domains in 74 types (and 10 classes; whether these are the network's 10 tissue types is unconfirmed, see
+  `docs/questions-for-authors.md`); 16 % of domain types are shared by 3 or more tissues, 69 % belong to one
   tissue.
 - Age is the strongest of 111 donor variables in explaining how domains vary. 28 % of domains change with age (37 of
   128 domain-tissue pairs with more than 1 % abundance), mostly by less than 3 % per decade. Examples: in the ovary

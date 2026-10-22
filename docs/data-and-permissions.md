@@ -1,0 +1,145 @@
+# Data and permissions
+
+What each story shows, where it comes from, what may not go into the app or the repository, and what still has to be
+agreed before anything is shown more widely. The stories' own credits are in [README.md](../README.md) ("Data") and in
+each `tools/<story>/README.md`; the open questions on the sources are in
+[questions-for-authors.md](questions-for-authors.md). Blanks the owner has to fill are marked **TO FILL (owner)**.
+
+## Rules
+
+They hold for every story, and for anything added later. Ask before you add data or a figure: **TO FILL (owner):** who
+decides on data and privacy questions.
+
+| Rule | Why | Written down in |
+| --- | --- | --- |
+| No patient data and no genetic variants, in any story. | They are personal health data and can identify a person. The app is public and keeps an offline copy on every device that opens it, so nothing shown can be taken back. (The tour's "patient" and its rare variants are invented.) | `AGENTS.md`, `tools/nmd/SPEC.md`, `tools/endo/SPEC.md`, `tools/pet/SPEC.md`, `tools/micro/SPEC.md`, `tools/lbi/SPEC.md` |
+| Nothing about zebrafish (muscle and endotype stories). | **TO FILL (owner):** the reason; it is not written down anywhere. | `AGENTS.md`, `tools/nmd/README.md`, `tools/nmd/SPEC.md`, `tools/endo/SPEC.md` |
+| Never use the PET authors' `Network_VR` repository or anything from it: never fetch, copy, publish or commit it. | It holds a real patient's CT surface and PET/CT volume. Its ideas (organs as a network in the body, an organ as a network of patches) were redrawn from scratch. | `tools/pet/README.md` |
+| The PET poster's patients only as group summaries. | Single points are single patients. The population dots are drawn to match the summaries. | `tools/pet/SPEC.md`, `tools/pet/data/figures.json` |
+| Never the GTEx slide images: slides, sections and tiles are drawn. | They are images of real donors' tissue; the story needs only the preprint's numbers. | `tools/micro/SPEC.md`, `tools/micro/README.md` |
+| Inputs kept out of the repository stay out; only the numbers a story needs go in (`tools/<story>/sets/data.js`). | They are the authors' unpublished work, shared for this app. A pickle (the endotype run) can run code, so its generator only unpickles the classes it expects. | headers of `tools/endo/data/gen_data.py` and `tools/micro/data/gen_data.mjs` |
+| Say "in this map" for statistics computed on the curated sets. | The sets are small and chosen by hand: their statistics are not facts about the whole interactome. | `AGENTS.md` ("Conventions") |
+| Only well-documented interactions and locations (complexes, textbook pathways, Human Protein Atlas / UniProt). | The content is illustrative but must be correct. | `AGENTS.md` ("Conventions") |
+| A stand-in is called a stand-in in the story itself. | So that nobody quotes it as a result. | each story's `SPEC.md` and `README.md` |
+| Headset logs (`relay/logs/`) never go into the repository. | File names and contents hold people's first names and room codes. | `.gitignore`, [relay/README.md](../relay/README.md) ("Logs") |
+
+## Story by story
+
+### What each story shows
+
+| Story | Shows | Source, as the repository cites it | Real, read off a figure, or stand-in |
+| --- | --- | --- | --- |
+| Airports (`airports`) | 3,214 airports, 18,858 routes on a globe | OpenFlights.org routes, 2014 snapshot; Natural Earth coastlines (credit line in `stories/airports.js`) | real; statistics computed with NetworkX on the full graph |
+| Proteins (`proteins`) | 254 proteins, 375 interactions | hand-curated from the literature (complexes, pathways); essential genes after DepMap common essentials; NetworkX (Louvain modules, betweenness) | curated, illustrative subnetwork ("in this map") |
+| Cell map (`spatial`) | 249 proteins in 13 compartments (282 copies), 252 interactions, seven moves | places after the Human Protein Atlas and UniProt; interactions from the literature | curated; the cell model and the layout are illustrative, built at load time |
+| Tour (`lbi`) | ten 3D scenes after the LBI's welcome talk | the proteins story's 254 proteins; the airports story's airport positions; Guthrie et al., Science Advances 2023 (the Sankey's totals); further credits in each scene's panel (`tools/lbi/engine/e3_story.js`) | mostly illustrative: the other proteins of the interactome, the friendship ties, disease modules, the patient, the organ network, the stomach section |
+| Muscle and heart (`nmd`) | 13 disease groups, 1,182 genes, 71 layers, 15,246 protein links | ISMB 2026 talk (Iker Núñez-Carpintero, Philipp Friedrich, Julia Guthrie, Jörg Menche) and their analysis files in `ikerdata/`: the 2024 Gene Table of Neuromuscular Disorders, IID interactions, GO, HPO and KEGG terms | real: groups, genes, endotypes, links. Stand-ins until the authors send theirs: layer z-scores, walk visits, endotype names. 33 layers have no links yet. Motor unit and supercomputer illustrative |
+| Endotypes (`endo`) | 35 genes of congenital myasthenic syndromes in a network of 18,306 proteins (316,613 links), a module of 393 genes, 12 endotypes | ISMB 2026 poster "Introducing EndotypY" (Chloé Bûcheron, Iker Núñez-Carpintero, Enes Sakalli, Mathilde Meyenberg, Julia Guthrie, Jörg Menche) and their EndotypY run | real: network, seeds, module, endotypes. Re-run with the package's defaults: the steps before the endotypes; the tree is drawn to agree. Endotype names are the story's own. The synapse is illustrative |
+| PET (`pet`) | the organs and networks of 658 whole-body scans; one scan's network; survival and immunotherapy | Geist et al., Med 6, 100881 (2025); poster "Shaping a New Era in Nuclear Medicine"; vision slide "One Scan, One System" | printed: Tables 1 to 3 and Figure 2A's matrices (typed in). Read off: Figures 3 and 4 and the poster's plots (`tools/pet/data/figures.json`, each read twice). Stand-ins, said so: typical organ uptakes, a synthetic cohort, the one-scan formulas, the population dots. Scanner, body and liver illustrative |
+| Microanatomy (`micro`) | GTEx slides of 40 tissues, 218 domains, how they change with age; the network of organ architecture | preprint Buljan, Bago-Horvath, Rendeiro, bioRxiv 2025, doi 10.1101/2025.10.13.682110; its poster and talk; Iva Buljan's network | typed in: the preprint's numbers. Read off: the talk's figures (`tools/micro/data/figures.json`). Real: the network (29 organs, 24 tissues, 10 tissue types, 70 domains). Drawn: slides, sections, tiles. Pictures without numbers behind them are illustrative |
+| Flock (`flock`) | 200 starlings | after Ballerini et al., PNAS 2008; Procaccini et al., Animal Behaviour 2011; Cavagna et al., PNAS 2010 | a live simulation, not data |
+| Robot gang (`robots`) | 6 to 24 robot vacuums | after Olfati-Saber, Fax and Murray, Proceedings of the IEEE 2007 | a live simulation, not data; speeds tuned to look right |
+
+### Rebuilding and rights
+
+After regenerating a story's data, rebuild it (`node tools/<story>/build.mjs`, then `--check`), bump `VERSION` in
+`sw.js` and run the smoke test ([AGENTS.md](../AGENTS.md), "Testing"). Never edit a `sets/data.js` by hand.
+
+| Story | Regenerate the data | Inputs not in the repository | Licence or terms, where the repository states one | Permission to show publicly |
+| --- | --- | --- | --- | --- |
+| `airports` | not possible: the data is embedded in `stories/airports.js` (`NET_B64`) and its generator is not in the repository (`tools/lbi/data/extract_airports.mjs` only reads it back out) | the OpenFlights files and the conversion script | routes: Open Database License (ODbL); coastlines: public domain | by those licences, with their conditions (see "Licence"); the narration recording: see the record below |
+| `proteins` | not possible: hand-edited data block `PPI` in `stories/proteins.js` | the curation notes, if any | none stated | see the record below |
+| `spatial` | edit `PLACES`, `PROTEINS`, `LINKS`, `TOGETHER`, `MOVES` in `stories/spatial.js`; the layout is made at load | the curation notes, if any | none stated (Human Protein Atlas, UniProt) | see the record below |
+| `lbi` | `node tools/lbi/data/extract_proteins.mjs`, then `node tools/lbi/data/gen_int.mjs` | the welcome talk | the airport lights: ODbL, as above | see the record below |
+| `nmd` | `node tools/nmd/data/gen_data.mjs` (reads `ikerdata/`, about a minute) | the talk's slides (`ikerdata/` itself is committed) | none stated | see the record below |
+| `endo` | `python -I tools/endo/data/gen_data.py run.pkl seeds.xlsx` (Python 3.11+ with EndotypY; downloads Enrichr libraries) | `run.pkl`, `seeds.xlsx`, the poster | EndotypY package: MIT (`tools/endo/SPEC.md`); the run: none stated | see the record below |
+| `pet` | `node tools/pet/data/gen_data.mjs` | the poster, the vision slide (and `Network_VR`, never to be used) | paper: CC BY 4.0 (credited in the story); poster: none stated | see the record below |
+| `micro` | `node tools/micro/data/gen_data.mjs <graphml>` | the GraphML, the poster, the talk | preprint: CC BY-NC; poster, talk, network: none stated | see the record below |
+| `flock` | nothing to regenerate | none | the project's own code | no third-party data |
+| `robots` | nothing to regenerate | none | the project's own code | no third-party data |
+
+### Record of permissions
+
+**TO FILL (owner):** one row per source: who agreed (name, role), when and how (meeting, message), whether public
+hosting is allowed, any embargo or condition, and the scientific contact for questions. Nothing about this is
+written down in the repository yet.
+
+| Story | Material | Agreed by | When, how | Public hosting | Conditions, embargo | Scientific contact |
+| --- | --- | --- | --- | --- | --- | --- |
+| `airports` | the narration recording (`audio/narration.mp3`): the speaker | | | | | |
+| `proteins`, `spatial` | the project's own curation of published facts: is anyone's agreement needed? | | | | | |
+| `lbi` | the LBI welcome talk | | | | | |
+| `nmd` | the ISMB 2026 talk; the files in `ikerdata/` (public in the repository already) | | | | | |
+| `endo` | the ISMB 2026 poster; the numbers from the authors' EndotypY run | | | | | |
+| `pet` | the poster and the vision slide (the paper is CC BY 4.0) | | | | | |
+| `micro` | the poster, the talk, Iva Buljan's network (the preprint is CC BY-NC) | | | | | |
+
+## Inputs not in the repository
+
+| Input | Story | Read by | Held by | Kept where | Without it |
+| --- | --- | --- | --- | --- | --- |
+| `network_with_tissue_types_hierarchical.graphml` (Iva Buljan's network of organ architecture) | `micro` | `tools/micro/data/gen_data.mjs <graphml>` | Iva Buljan | **TO FILL (owner)** | The story still builds from the committed `tools/micro/sets/data.js`, but nothing in it can be regenerated: the generator needs this file even to apply a change to the typed-in numbers or to `figures.json`. |
+| `run.pkl` (the authors' saved EndotypY run: network, 35 seeds, 12 endotypes) | `endo` | `tools/endo/data/gen_data.py` | the endotype poster's authors | **TO FILL (owner)** | The story still builds; `ENDO_DATA` cannot be regenerated. |
+| `seeds.xlsx` (the Gene Table's genes of congenital myasthenic syndromes) | `endo` | `tools/endo/data/gen_data.py` | the endotype poster's authors | **TO FILL (owner)** | As above. |
+| Enrichr libraries `GO_Cellular_Component_2026`, `Jensen_COMPARTMENTS` | `endo` | `tools/endo/data/gen_data.py` downloads them | public (Enrichr) | downloaded at each run | The generator needs a network connection; a newer library may give other numbers. |
+| `Network_VR` (the PET authors' VR viewer, with a patient's scan) | `pet` | nothing, ever | the PET authors | not needed: never fetch or copy it | Nothing: it is not used. |
+| The posters, talks and slides behind the stories (muscle talk, endotype poster, PET poster and vision slide, microanatomy poster and talk, the LBI welcome talk) | `nmd`, `endo`, `pet`, `micro`, `lbi` | read by hand; the readings are in `tools/*/data/figures.json` and the story specs | their authors | Google Drive folders the owner shared: ask the owner for the link | The stories are unaffected; you cannot re-check a reading or answer a question about a figure. |
+| The OpenFlights 2014 files and the script that made `NET_B64` | `airports`, `lbi` | not in the repository | OpenFlights (public); script: **TO FILL (owner):** whether it still exists and where | | The routes cannot be updated or rebuilt. |
+| Curation notes for the proteins and the cell map (which paper backs each interaction and place) | `proteins`, `spatial`, `lbi` | not in the repository | **TO FILL (owner):** whether such notes exist, and who has them | | An interaction cannot be traced to its source except by searching the literature again. |
+
+The two published sources need nothing private: the PET paper (doi 10.1016/j.medj.2025.100881) and the microanatomy
+preprint (doi 10.1101/2025.10.13.682110).
+
+## Before the repository or the site is public
+
+**Both are public already.** Checked on 22 October 2026: GitHub reports `unfriend/airportnetworks` as public, and
+GitHub Pages serves it at `https://unfriend.github.io/airportnetworks/` with the same version as `main`
+(`networks-v64`; nine stories, the microanatomy story is not on `main` yet). GitHub Pages serves every file of the
+branch, not only the app: a file of `ikerdata/` downloads from the site. (The relay serves only the app's own files,
+see `APP_FILES` in `relay/server.mjs`; the Docker image leaves out `ikerdata/`, `tools/`, `docs/` and the logs, see
+`.dockerignore`.) So check these now; each is the owner's decision. Deleting branches or rewriting history cannot be
+undone for clones and forks made before (GitHub showed no forks on 22 October 2026).
+
+- [ ] **Log branches.** `logs-2026-10-17`, `logs-2026-10-19`, `logs-2026-10-20`, `logs-2026-10-20-new`,
+  `logs-2026-10-20-new2`, `logs-2026-10-20-new3` and `logs-2026-10-20-new4` hold `relay/logs/*.jsonl`. Their file
+  names and contents include people's first names and room codes. Keep a copy where the team keeps such logs
+  (**TO FILL (owner):** where), then delete the branches on GitHub. [relay/README.md](../relay/README.md) ("Logs")
+  already says never to push logs to a public repository: keep to that.
+- [ ] **`ikerdata/`.** 17 TSV files, 88 MB, the muscle story's authors' analysis files, committed in full (commit
+  `4d7aacc`, 16 October 2026) and downloadable from the site. Get the authors' agreement (record above), or remove
+  the folder from the published branch and from the history. The generator reads it at `ikerdata/`, so whoever
+  regenerates the muscle story needs a copy there.
+- [ ] **Screenshots in the history.** `tools/micro/shots/*.png` were committed in `d7c7862`, `e548fa0` and `e3f6b4f`
+  and removed in `bdc8a8e`. They show drawn content only. Decide whether to leave them.
+- [ ] **Ignored folders stay ignored**: `relay/logs/` (names, room codes) and `relay/.lan/` (the relay's certificate
+  and private key) in `.gitignore` and `.dockerignore`; `tools/*/shots/` in `.gitignore`.
+- [ ] **No kept-out input in any branch.** On 22 October 2026 no GraphML, `.pkl`, `.xlsx` or `Network_VR` file was in
+  the history of any branch. To check again (reads only):
+  `git log --all --name-only --format= | grep -i -E 'graphml|\.pkl$|\.xlsx$|network_vr' | sort -u`
+- [ ] **The microanatomy story** goes onto the site when `main` is next moved forward; its sources are already public
+  on the work branch. Have its authors' agreement first.
+- [ ] **The authors' permissions** recorded for `lbi`, `nmd`, `endo`, `pet` and `micro` (record above).
+- [ ] **The narration's speaker** agreed to `audio/narration.mp3` being published (record above).
+- [ ] **A project licence** (below).
+- [ ] **The web font.** `index.html` loads B612 from Google Fonts, so every visitor's browser contacts Google's
+  servers. Decide whether that is acceptable for an Institute site, or serve the font with the app.
+
+## Licence
+
+**The project has no licence.** There is no `LICENSE` file, and GitHub reports none, so nobody else has a clear right
+to reuse, copy or change the code. **TO FILL (owner):** choose a licence (with the Institute if it owns the work), add
+`LICENSE` at the root and mention it in `README.md` and `README.txt`. The data in the stories keeps its own terms
+whatever licence the code gets, so the content may need a different licence from the code.
+
+Third-party material:
+
+| What | Where | Licence or terms |
+| --- | --- | --- |
+| three.js r128 | `three.min.js` | MIT; the notice is `three.LICENSE.txt` and must ship with it |
+| B612 font | loaded from Google Fonts (`index.html`), cached by `sw.js` | Google Fonts lists it under the SIL Open Font License; the repository does not say so |
+| App icons | `icons/` | **TO FILL (owner):** who made them, and on what terms |
+| OpenFlights routes, 2014 | embedded in `stories/airports.js`; positions reused in `stories/lbi.js` | ODbL: credit OpenFlights (the story does), and a database adapted from it and used in public, such as the embedded routes, has to be offered under the ODbL too. Check how this fits the project licence |
+| Natural Earth coastlines | `stories/airports.js` | public domain |
+| Geist et al., Med 2025 | `tools/pet/` | CC BY 4.0: credit the authors (the story does) |
+| Buljan et al., bioRxiv 2025 | `tools/micro/` | CC BY-NC: credit, and no commercial use |
+| EndotypY | used by `tools/endo/data/gen_data.py` only, not shipped | MIT |

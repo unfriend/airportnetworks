@@ -64,8 +64,9 @@ examples' bubbles), `exDom0`..`exDom2` (where the example's domain lies in its f
 
 ## Labels (at most six at once)
 
-- Library (`atlas_lib` near 1, nothing else on): "24,945 slides", "40 tissues of 29 organs", "983 people, aged 20 to 70",
-  and the rows' direction at the wall's left edge: "70 years" (top) and "20 years" (bottom; both `minor`).
+- Library (`atlas_lib` near 1, nothing else on): "24,945 slides", "40 tissues of 29 organs", "983 people, aged 20 to 70"
+  (971 analysed), and the rows' direction at the wall's left edge: "70 years" (top) and "20 years" (bottom; both
+  `minor`).
 - Atlas: "218 domains in 74 types". Cloud: "162 million tiles, 218 domains".
 - Volcano: "28 % of domains change with age", the three examples by name and place ("Corpus albicans ovary",
   "Submucosa gut", "Adenohypophysis pituitary"; no numbers there, see below; an example's own label goes while its
@@ -112,8 +113,8 @@ ovarian stroma purple), connective tissue gold; the rest picked so that no two d
 
 ## Where the numbers come from (what is real, what is drawn)
 
-- Real: 24,945 slides, 40 tissues of 29 organs, 983 people aged 20 to 70, 162 million tiles, 218 domains in 74 types,
-  28 % (`MICRO_DATA.facts`); the three examples' from and to (`MICRO_DATA.examples`, the preprint's); the domains and
+- Real: 24,945 slides, 40 tissues of 29 organs, 983 people (971 analysed) aged 20 to 70, 162 million tiles, 218
+  domains in 74 types, 28 % (`MICRO_DATA.facts`); the three examples' from and to (`MICRO_DATA.examples`, the preprint's); the domains and
   their shares in 29 sections (`MICRO_DATA.figures.atlas`, pixel shares of one section each in the talk); the volcano's
   31 significant points (27 labelled and 4 unlabelled, read off the talk); the calcified-plaque and infarct curves (read
   off the talk, 5-year steps).

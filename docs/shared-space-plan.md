@@ -1,5 +1,10 @@
 # Shared space: plan and build spec
 
+> **This is the plan as of phase 0 (October 2026), kept as the record of why things are as they are.** The current
+> behaviour is in the "Shared rooms" section of [`AGENTS.md`](../AGENTS.md), and what two Quest 3 headsets did is in
+> [quest-shared-space-findings.md](quest-shared-space-findings.md). Story counts elsewhere in the plan are from
+> then (seven stories; there are ten now).
+
 The stories become **stations** in a room: several people with headsets (mostly Quest 3 in one room, in
 passthrough; sometimes people elsewhere in VR, and remote desktop operators) see the same stations in the same
 places, each station playing its own story, in sync on every headset. Each station has its own panel and its own
@@ -11,9 +16,9 @@ Decisions (2026-10-17, from the owner): a **new relay in this repository** (Node
 **stations, nearby ones live**; **everyone equal** (anyone can play, pause, jump, change controls; last action
 wins); participants mostly Quest 3 in one room, sometimes **remote VR** people and **remote desktop operators**.
 
-**Status (2026-10-17):** phase 0 is built: the relay, the client in the shell and the hooks in all seven stories,
-tested headlessly (`relay/test.mjs`, `tools/collab.mjs` with pretend headsets) but not yet on headsets. Section 10
-says what was built and where it differs from this plan.
+**Status (2026-10-17):** phase 0 is built: the relay, the client in the shell and the hooks in all seven stories
+(all ten now), tested headlessly (`relay/test.mjs`, `tools/collab.mjs` with pretend headsets) but not yet on
+headsets. Section 10 says what was built and where it differs from this plan.
 
 ## 1. Phases
 
@@ -117,9 +122,9 @@ All poses are in **room coordinates** (metres, y up, the floor at y = 0; see the
 | `rf.<space id>` | `{ uuid, o, x, g, by, at, m }` (shared-spaces.md): a room frame in a shared space's coordinates, `g` `marks` or `shared`, `m` the marks to draw | the alignment |
 
 Station ids are short random strings. A new room has no stations; the headset panel and the desktop dialog offer
-**Arrange all** (the seven stories in two rows in front of the person: four spots 1.2 m ahead, three in the gaps
-2.6 m further on, 2.4 m apart, every station facing away from the person so its content floats 1.4 m beyond its
-spot and faces the person's side; spots and content cover 7.2 m x 4 m, from 1.2 m to 5.2 m ahead) and **Add a
+**Arrange all** (the ten stories in two rows in front of the person: five spots 1.2 m ahead, five 2.6 m further
+on, 2.4 m apart, every station facing away from the person so its content floats 1.4 m beyond its
+spot and faces the person's side; spots and content cover 9.6 m x 4 m, from 1.2 m to 5.2 m ahead) and **Add a
 station here** (one story, at your feet, facing where you face), **Move here**, **Remove** (it asks first:
 "Remove for everyone?" for 3 s, a second press removes).
 
@@ -233,7 +238,8 @@ address while joined, so a reload rejoins.
 Built as planned: the relay (`relay/server.mjs`, `relay/test.mjs`, `relay/Dockerfile`, `relay/README.md` with a
 step-by-step guide for a session on one Wi-Fi), the client (`shared.js`: rooms, stations, the clock, the room frame
 and calibration, stations on a headset, previews, presence, sound zones, the Shared dialog with the room map, the
-headset panel), and the hooks in all seven stories. `tools/collab.mjs` covers section 9 for every story.
+headset panel), and the hooks in all seven stories (all ten now). `tools/collab.mjs` covers section 9 for every
+story.
 
 What each story shares (`collab.state()`) and its effects:
 

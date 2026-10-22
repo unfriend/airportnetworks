@@ -7,6 +7,13 @@ to play with.
 It runs in any modern browser, on phones, and in VR and AR headsets (built for
 Meta Quest Browser).
 
+**Taking it over? Start here:** [`HANDOVER.md`](HANDOVER.md), then
+[`docs/setup-and-release.md`](docs/setup-and-release.md),
+[`docs/data-and-permissions.md`](docs/data-and-permissions.md),
+[`docs/questions-for-authors.md`](docs/questions-for-authors.md),
+[`docs/event-runbook.md`](docs/event-runbook.md) and
+[`docs/narration.md`](docs/narration.md).
+
 | Story | What you see | Ideas |
 | --- | --- | --- |
 | **Airports** (network theory) | 3,214 airports and 18,858 routes on a globe | nodes and edges, degree and hubs, shortest paths, betweenness, communities, robustness when airports close |
@@ -52,7 +59,8 @@ Meta Quest Browser).
   place); where a headset has none, the place holds until you leave VR. A link
   with `#anchor=on` (or `#anchor=off`) sets it, for a kiosk.
 - **Shared rooms** (the *Shared* button in the top bar and on the Stories
-  screen; in a headset a small *Shared* panel beside the story panel): several
+  screen; in a headset a small *Shared* panel above the left controller, or
+  beside the story panel without one): several
   headsets and screens join one room and see the same **stations**, each a
   story at a spot in the room, in step on every device. Anyone can play,
   pause, jump or change a control; the last action wins. A headset runs the
@@ -64,11 +72,13 @@ Meta Quest Browser).
   screens see the stations round their own spot. Screens get a room map and
   *Follow* a station. The flock's birds and the robots move separately on each
   device; their controls, falcons and crumbs are shared. `#s=XYZ` in a link
-  joins room XYZ. Nothing changes for anyone not in a room. Not yet tried on
-  headsets.
+  joins room XYZ. Nothing changes for anyone not in a room. Tried on two Quest
+  3 headsets in one room several times; what they did, and what is still
+  unconfirmed, is in `docs/quest-shared-space-findings.md`.
 - The address shows where you are, so you can share it: `#stories` on the
   Stories screen (on the page or in the headset), `#airports`, `#proteins`,
-  `#spatial`, `#lbi`, `#nmd`, `#flock` or `#robots` in a story. A story link opens that story directly; a link without
+  `#spatial`, `#lbi`, `#nmd`, `#endo`, `#pet`, `#micro`, `#flock` or `#robots`
+  in a story. A story link opens that story directly; a link without
   a hash lands on the Stories screen. Old links to `proteins.html` and
   `spatial.html` still work.
 
@@ -108,7 +118,9 @@ the next time you are on the Stories screen.
 
 Optional voice-overs go in `audio/`: `narration.mp3` (airports),
 `narration-proteins.mp3`, `narration-spatial.mp3`, `narration-lbi.mp3`, `narration-nmd.mp3`,
-`narration-flock.mp3` and `narration-robots.mp3`. A narration plays in sync
+`narration-endo.mp3`, `narration-pet.mp3`, `narration-micro.mp3`,
+`narration-flock.mp3` and `narration-robots.mp3`. Only the airports story has
+a recording so far; the others run silently. A narration plays in sync
 with its story, follows pausing, seeking and chapter jumps, and gets a *Sound*
 button in the top bar and the headset panel. Browsers only start sound after a
 tap or click; the first one anywhere in the app (Enter VR counts) turns sound on
@@ -122,8 +134,12 @@ element), and lets you choose the one you hear; *Reset* clears the saved
 choices. The app also switches to the audio element by itself when Web Audio
 fails. A link ending in `#soundcheck` opens it directly.
 
-Chapter timings and how to re-sync a new recording
-(`NARRATION_SYNC` in each story file) are in `audio/PUT-narration.mp3-HERE.txt`.
+Chapter timings and how to record and re-sync a new recording are in
+`audio/PUT-narration.mp3-HERE.txt`. `NARRATION_SYNC` is in
+`tools/<story>/engine/e3_story.js` for the seven built stories (rebuild after
+changing it) and in `stories/<story>.js` for airports, proteins and spatial.
+The words to record, chapter by chapter with times, are in `docs/narration.md`
+(made by `node tools/narration.mjs`).
 
 ## Data
 
@@ -246,13 +262,18 @@ The protein data is meant for teaching, not research.
 | `three.min.js` | three.js r128 (MIT licence, see `three.LICENSE.txt`) |
 | `shared.js` | shared rooms: the client (rooms, stations, the clock, the room frame in a headset, presence, the Shared dialog and headset panel) |
 | `relay/` | the shared rooms' server (`server.mjs`, no packages), its test, Dockerfile and guide (`README.md`) |
-| `docs/` | the shared rooms' plan (`shared-space-plan.md`) and the lessons it applies (`multiplayer.md`, `shared-spaces.md`) |
+| `HANDOVER.md` | start here when taking the project over |
+| `docs/` | the shared rooms' plan (`shared-space-plan.md`), the lessons it applies (`multiplayer.md`, `shared-spaces.md`) and what two Quest 3s did (`quest-shared-space-findings.md`); for the handover: data sources and permissions (`data-and-permissions.md`), open questions for the authors (`questions-for-authors.md`), setup, tests and release (`setup-and-release.md`), running a session with headsets (`event-runbook.md`) and the narration scripts (`narration.md`) |
 | `tools/smoke.mjs` | headless test: loads every story and fails on page errors |
 | `tools/collab.mjs` | headless test of shared rooms: a relay and several pages, and a pretend headset, in one room |
 | `tools/update.mjs` | update test: an older version installed, then this one deployed (see `AGENTS.md`) |
 | `tools/audio.mjs` | narration test under the headset browsers' sound rule, with faults that make the fallback take over (needs `audio/narration.mp3`) |
+| `tools/narration.mjs` | writes `docs/narration.md` from the running stories (serve the folder first) |
 | `tools/lbi/` | sources of the tour: its 3D sets, engine parts and build script (`node tools/lbi/build.mjs` writes `stories/lbi.js`) |
 | `tools/nmd/`, `ikerdata/` | sources of the muscle story and the authors' data (`node tools/nmd/data/gen_data.mjs`, then `node tools/nmd/build.mjs` writes `stories/nmd.js`) |
+| `tools/endo/` | sources of the endotype story (`node tools/endo/build.mjs` writes `stories/endo.js`; data from `tools/endo/data/gen_data.py` and the authors' files, which are not in the repository) |
+| `tools/pet/` | sources of the PET story (`node tools/pet/data/gen_data.mjs`, then `node tools/pet/build.mjs` writes `stories/pet.js`) |
+| `tools/micro/` | sources of the microanatomy story (`node tools/micro/build.mjs` writes `stories/micro.js`; data from `tools/micro/data/gen_data.mjs` and Iva Buljan's network file, which is not in the repository) |
 | `tools/flock/` | sources of the flock (`node tools/flock/build.mjs` writes `stories/flock.js`) |
 | `tools/robots/` | sources of the robot gang (`node tools/robots/build.mjs` writes `stories/robots.js`) |
 | `AGENTS.md`, `CLAUDE.md` | notes on the architecture and conventions for AI coding agents (and people) |
@@ -273,8 +294,12 @@ node tools/smoke.mjs http://127.0.0.1:8123/
 The tour (`stories/lbi.js`) is generated from `tools/lbi/`; edit the sources
 there and rebuild with `node tools/lbi/build.mjs` (see `tools/lbi/README.md`).
 The muscle story (`stories/nmd.js`) is generated the same way from `tools/nmd/`
-(see `tools/nmd/README.md`), the flock (`stories/flock.js`) from `tools/flock/`
-and the robot gang (`stories/robots.js`) from `tools/robots/`.
+(see `tools/nmd/README.md`), the endotype story (`stories/endo.js`) from
+`tools/endo/`, the PET story (`stories/pet.js`) from `tools/pet/`, the
+microanatomy story (`stories/micro.js`) from `tools/micro/`, the flock
+(`stories/flock.js`) from `tools/flock/` and the robot gang
+(`stories/robots.js`) from `tools/robots/`, each with `node tools/<key>/build.mjs`
+(`--check` says whether the built file is out of step).
 `AGENTS.md` also has advice on working economically with AI coding agents.
 
 After changing shared rooms (`shared.js`, `relay/` or a story's shared-room

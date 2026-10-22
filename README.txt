@@ -28,7 +28,7 @@ AR from the start screen opens a Stories screen in the headset (one panel per
 story); entering from inside a story resumes it where you were.
 The start screen is the landing page (no hash, or #stories). The address
 follows you: #stories on the Stories screen (page or headset), #airports,
-#proteins, #spatial, #lbi, #nmd, #flock or #robots in a story, so links can be shared and open that story
+#proteins, #spatial, #lbi, #nmd, #endo, #pet, #micro, #flock or #robots in a story, so links can be shared and open that story
 directly (proteins.html and spatial.html forward there). Taking the headset off and on returns to the Stories menu
 (and, unless Anchor is on, places everything in front of the next wearer).
 Repeat all and Repeat one on the Stories screen (page and headset) keep the app
@@ -92,7 +92,9 @@ room XYZ. Without a relay (none known, or none answers) a room still works on
 the device alone: Start a room here on the Shared panel places the stories in
 your room (Arrange all, moving them, Lock layout, calibrating); the room is kept
 on the device, and once a relay answers it moves there and others can join it.
-Nothing changes for anyone not in a room. Not yet tried on headsets.
+Nothing changes for anyone not in a room. Tried on two Quest 3 headsets in one
+room several times; what they did, and what is still unconfirmed, is in
+docs/quest-shared-space-findings.md.
 
 Upload the whole folder to any HTTPS web server (GitHub Pages, Netlify,
 your university web space ...). Installing and VR both need https://.
@@ -108,7 +110,10 @@ Install:
 Narration: put your recordings at audio/narration.mp3 (airports),
 audio/narration-proteins.mp3 (proteins), audio/narration-spatial.mp3
 (cell map), audio/narration-lbi.mp3 (the tour), audio/narration-nmd.mp3,
-audio/narration-flock.mp3 and audio/narration-robots.mp3; see the note in the audio folder for chapter timings. It plays in
+audio/narration-endo.mp3, audio/narration-pet.mp3, audio/narration-micro.mp3,
+audio/narration-flock.mp3 and audio/narration-robots.mp3 (only the airports
+one is recorded so far); see the note in the audio folder for chapter timings
+and how to record one, and docs/narration.md for the words. It plays in
 sync with the story, follows pause, seeking and chapter jumps, and has a Sound
 on/off button (top bar and VR panel). Browsers only start sound after a tap or
 click: the first one in the app (Enter VR counts) turns sound on for every
