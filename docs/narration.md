@@ -21,7 +21,7 @@ MP3 at the file named under each story; if your chapters start at other times, c
 | Disease endotypes: Endotypes | `audio/narration-endo.mp3` | not yet | 7:12 |
 | Whole-body PET: One scan, one system | `audio/narration-pet.mp3` | not yet | 10:24 |
 | Tissue microanatomy: Tissue and time | `audio/narration-micro.mp3` | not yet | 7:36 |
-| Ovarian aging: The aging ovary | `audio/narration-ovary.mp3` | not yet | 6:53 |
+| Ovarian aging: The aging ovary | `audio/narration-ovary.mp3` | not yet | 6:56 |
 | Quantum network compression: Three qubits | `audio/narration-qubits.mp3` | not yet | 9:04 |
 | Networks for everyone: Pass it on | `audio/narration-pass.mp3` | not yet | 6:53 |
 | Collective motion: Flock | `audio/narration-flock.mp3` | not yet | 1:57 |
@@ -817,7 +817,7 @@ File: `audio/narration-micro.mp3` (not recorded yet). Chapters: 0:00 Intro, 0:29
 
 ## Ovarian aging: The aging ovary (`#ovary`)
 
-File: `audio/narration-ovary.mp3` (not recorded yet). Chapters: 0:00 Reserve, 0:52 Donors, 1:35 Section, 2:32 Methods, 3:49 Age, 5:07 Agree?, 5:47 Next; it ends at 6:53.
+File: `audio/narration-ovary.mp3` (not recorded yet). Chapters: 0:00 Reserve, 0:53 Donors, 1:36 Section, 2:33 Methods, 3:51 Age, 5:08 Agree?, 5:48 Next; it ends at 6:56.
 
 ### 0:00 Reserve
 
@@ -828,74 +828,73 @@ File: `audio/narration-ovary.mp3` (not recorded yet). Chapters: 0:00 Reserve, 0:
 - **0:14** About 1 to 2 million follicles at birth, about 300,000 to 400,000 at puberty and about 1,000 at menopause (on average around 51).
 - **0:22** Cut open: the outer layer (the cortex) holds the follicles, from tiny resting ones to large ones filled with fluid. The inner part (the medulla) carries the blood vessels.
 - **0:32** About once a month a follicle releases its egg. What is left becomes a corpus luteum, which shrinks to a pale scar: a corpus albicans. Scars pile up over the years.
-- **0:42** The reserve cannot be measured directly. The hormones AMH and FSH are used as indirect markers, but they cannot show the true reserve of follicles.
+- **0:43** The reserve cannot be measured directly. The hormones AMH and FSH are used as indirect markers, but they cannot show the true reserve of follicles.
 
-### 0:52 Donors
+### 0:53 Donors
 
 - **0:53** 255 donors
 - **0:54** The ovaries come from GTEx (the Genotype-Tissue Expression project), which collected tissue from people who had died.
 - **1:00** 255: donors
-- **1:01** 20–70: years old
-- **1:03** 20: bars of 2.45 years
+- **1:02** 20–70: years old
 - **1:06** For each donor: a slide of ovary stained with H&E (hematoxylin and eosin: nuclei purple, the rest pink), the activity of its genes (bulk RNA-seq), and clinical and demographic information.
-- **1:16** Each slide stacks on its donor's age. Most donors were older: at least 204 of the 255 were over 40.
-- **1:24** The poster's age histogram. The slides are drawn, not the GTEx images.
+- **1:17** Each slide stacks on its donor's age. Most donors were older: at least 204 of the 255 were over 40.
+- **1:25** The poster's age histogram. The slides are drawn, not the GTEx images.
 
-### 1:35 Section
+### 1:36 Section
 
-- **1:35** What's in a section
-- **1:37** A thin slice of ovary, drawn. To teach a computer what to find, people marked 14,941 objects of four kinds by hand:
-- **1:44** Blood vessels · 8,706: tubes that carry blood, here cut across
-- **1:51** Macrophages · 5,540: immune cells that clear away debris
-- **1:57** Corpora albicantia · 421: pale scars, each left by a corpus luteum
-- **2:04** Follicles · 274: an egg in a ring of cells; large ones hold fluid
-- **2:16** A younger ovary beside an older one. In the older: large pale scars, and almost no follicles left.
-- **2:22** The numbers are the objects marked by hand (the training labels). Scale bars as on the poster: 1.58 mm and 791 µm. Both sections are drawn, not GTEx images.
+- **1:36** What's in a section
+- **1:38** A thin slice of ovary, drawn. To teach a computer what to find, people marked 14,941 objects of four kinds by hand:
+- **1:45** Blood vessels · 8,706: tubes that carry blood, here cut across
+- **1:52** Macrophages · 5,540: immune cells that clear away debris
+- **1:58** Corpora albicantia · 421: pale scars, each left by a corpus luteum
+- **2:05** Follicles · 274: an egg in a ring of cells; large ones hold fluid
+- **2:17** A younger ovary beside an older one. In the older: large pale scars, and almost no follicles left.
+- **2:24** The numbers are the objects marked by hand (the training labels). Scale bars as on the poster: 1.58 mm and 791 µm. Both sections are drawn, not GTEx images.
 
-### 2:32 Methods
+### 2:33 Methods
 
-- **2:32** Two ways to find them
-- **2:34** 1 · Tiles: the section is cut into small squares, each labeled with what it shows
-- **2:41** Features: UNI2, a pathology foundation model (a large model trained on pathology images), turns each tile into a list of numbers
-- **2:49** A random forest: many decision trees each ask a few questions of those numbers and vote; the most votes name the tile
-- **3:08** Prediction: every tile gets a label: tile-level classification
-- **3:15** 2 · Masks: SegFormer, a semantic segmentation model, paints a mask over each object it finds, pixel by pixel
-- **3:26** How good are they? Precision: of the tiles called follicle, how many are one. Recall: of the follicles, how many were found. F1: the two in one number. IoU: how far a predicted mask and the true one overlap. 1 is perfect.
-- **3:40** Random forest F1: blood vessels 0.86, macrophages 0.87, corpora albicantia 0.88, follicles 0.83. SegFormer IoU: blood vessels 0.84, macrophages 0.95, corpora albicantia 0.97, follicles 0.70; cysts, which only the segmentation finds, just 0.15: hard.
+- **2:34** Two ways to find them
+- **2:36** 1 · Tiles: the section is cut into small squares, each labeled with what it shows
+- **2:42** Features: UNI2, a pathology foundation model (a large model trained on pathology images), turns each tile into a list of numbers
+- **2:51** A random forest: many decision trees each ask a few questions of those numbers and vote; the most votes name the tile
+- **3:10** Prediction: every tile gets a label: tile-level classification
+- **3:16** 2 · Masks: SegFormer, a semantic segmentation model, paints a mask over each object it finds, pixel by pixel
+- **3:27** How good are they? Precision: of the tiles called follicle, how many are one. Recall: of the follicles, how many were found. F1: the two in one number. IoU: how far a predicted mask and the true one overlap. 1 is perfect.
+- **3:42** Random forest F1: blood vessels 0.86, macrophages 0.87, corpora albicantia 0.88, follicles 0.83. SegFormer IoU: blood vessels 0.84, macrophages 0.95, corpora albicantia 0.97, follicles 0.70; cysts, which only the segmentation finds, just 0.15: hard.
 
-### 3:49 Age
+### 3:51 Age
 
-- **3:49** Trends with age
-- **3:50** Count each kind in every donor's section and set the counts against age. On the left, the ovary ages along.
-- **4:00** Follicles fall: toward none by about 60 · r −0.48 and −0.48
-- **4:09** Blood vessels fall: r −0.24 and −0.43
-- **4:18** Corpora albicantia rise: the scars pile up · r +0.40 and +0.25
-- **4:26** Macrophages: flat by the random forest (r +0.05), falling by segmentation (r −0.29)
-- **4:41** Follicles up close: both lines reach none by about 60. The band holds most of the dots.
-- **4:46** r runs from −1 to +1: below 0, fewer with age; above 0, more; near 0, no trend. A small p means a trend this strong would rarely come about by chance.
-- **4:56** The lines, r and p are the poster's (RF: random forest; Seg: segmentation). The dots are drawn to match the poster's trends, not the donors' values. The ovary's counts follow the lines.
+- **3:51** Trends with age
+- **3:53** Count each kind in every donor's section by both methods (RF: random forest; Seg: segmentation) and set the counts against age. On the left, the ovary ages along.
+- **4:03** Follicles fall: toward none by about 60 · RF r −0.48, Seg r −0.48
+- **4:11** Blood vessels fall: RF r −0.24, Seg r −0.43
+- **4:20** Corpora albicantia rise: the scars pile up · RF r +0.40, Seg r +0.25
+- **4:29** Macrophages: flat by the random forest (r +0.05), falling by segmentation (r −0.29)
+- **4:43** Follicles up close: both lines reach none by about 60. The band holds most of the dots.
+- **4:49** r runs from −1 to +1: below 0, fewer with age; above 0, more; near 0, no trend. A small p means a trend this strong would rarely come about by chance.
+- **4:59** The lines, r and p are the poster's. The dots are drawn to match the poster's trends, not the donors' values. The ovary's counts follow the lines.
 
-### 5:07 Agree?
+### 5:08 Agree?
 
-- **5:07** Do the methods agree?
-- **5:09** Now each donor is one dot: the random forest's count across, the segmentation's up. On the dashed diagonal both would count the same.
-- **5:19** Follicles · r +0.94: agree well
-- **5:22** Blood vessels · r +0.78: agree well
-- **5:26** Corpora albicantia · r +0.41: agree less: the segmentation finds far fewer
-- **5:30** Macrophages · r +0.51: agree less: the segmentation finds fewer
-- **5:34** Two methods, one picture of aging: fewer follicles and vessels, more scars.
-- **5:39** r and p as on the poster (p from 1.2×10⁻¹⁰ down to 2.2×10⁻⁴⁷). The dots are drawn to match, not the donors' values.
+- **5:09** Do the methods agree?
+- **5:10** Now each donor is one dot: the random forest's count across, the segmentation's up. On the dashed diagonal both would count the same.
+- **5:20** Follicles · r +0.94: agree well
+- **5:23** Blood vessels · r +0.78: agree well
+- **5:28** Corpora albicantia · r +0.41: agree less: the segmentation finds far fewer
+- **5:31** Macrophages · r +0.51: agree less: the segmentation finds fewer
+- **5:36** Two methods, one picture of aging: fewer follicles and vessels, more scars.
+- **5:40** r and p as on the poster (p from 1.2×10⁻¹⁰ down to 2.2×10⁻⁴⁷). The dots are drawn to match, not the donors' values.
 
-### 5:47 Next
+### 5:48 Next
 
-- **5:47** Next: a network
-- **5:48** Where things lie matters too. Make each object a node, and link objects that lie close together: a spatial neighbor network.
-- **5:57** As the ovary ages, the network changes: follicles' nodes go, scars' nodes come.
-- **6:01** Drawn as an illustration of the poster's next step, not its result.
-- **6:07** Next, the authors plan to study the spatial relationships between ovarian features, monitor how age affects the positional distribution of the microanatomical domains and validate in independent cohorts.
-- **6:17** This is where network medicine comes in: as in Tissue and time, a tissue becomes a network of neighbors.
-- **6:23** Poster: "Mapping the histological landscape of human ovarian aging" by Parijat Chakraborty (1), Samir Moustafa (2, 3) and André Rendeiro (1, 3). (1) Ludwig Boltzmann Institute for Network Medicine at the University of Vienna; (2) CeMM Research Center for Molecular Medicine of the Austrian Academy of Sciences; (3) Faculty of Computer Science, University of Vienna. Supported by CeMM and the European Research Council (ERC). Data: GTEx (the Genotype-Tissue Expression project).
-- **6:46** Drawn, not GTEx images: the ovary, the slides and the sections. Illustrative: the dots of the charts and the network.
+- **5:49** Next: a network
+- **5:50** Where things lie matters too. Make each object a node, and link objects that lie close together: a spatial neighbor network.
+- **5:58** As the ovary ages, the network changes: follicles' nodes go, scars' nodes come.
+- **6:03** Drawn as an illustration of the poster's next step, not its result.
+- **6:09** Next, the authors plan to study the spatial relationships between ovarian features, monitor how age affects the positional distribution of the microanatomical domains and validate in independent cohorts.
+- **6:19** This is where network medicine comes in: as in Tissue and time, a tissue becomes a network of neighbors.
+- **6:25** Poster: "Mapping the histological landscape of human ovarian aging" by Parijat Chakraborty (1), Samir Moustafa (2, 3) and André Rendeiro (1, 3). (1) Ludwig Boltzmann Institute for Network Medicine at the University of Vienna; (2) CeMM Research Center for Molecular Medicine of the Austrian Academy of Sciences; (3) Faculty of Computer Science, University of Vienna. Supported by CeMM and the European Research Council (ERC). Data: GTEx (the Genotype-Tissue Expression project).
+- **6:49** Drawn, not GTEx images: the ovary, the slides and the sections. Illustrative: the dots of the charts and the network.
 
 ## Quantum network compression: Three qubits (`#qubits`)
 

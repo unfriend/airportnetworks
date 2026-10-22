@@ -281,6 +281,7 @@ function init() {
   if (hp.has('t')) { APP.t = clamp(parseFloat(hp.get('t')) || 0, 0, T_END - 0.01); APP.playing = false; }
   if (hp.has('explore')) {
     APP.enterExplore();
+    if (!hp.has('t')) { X.ctl = {}; X.age = 30; }   // (straight in: every scene's own defaults, not the story's first shot)
     // #ovary&explore&scene=section&view=forest (any control of a scene by its key, or an option by its name or camera),
     // &tab=objects|age|methods|scenes, &kind=follicle (or vessel, macrophage, albicans, cyst), &age=60, &method=rf|seg
     const sc = hp.get('scene');

@@ -48,7 +48,7 @@ start at 0:00, 0:29, 1:26, 2:06, 3:05, 3:58, 5:03, 5:47 and 6:43, ending at
 your recording differs.
 
 The aging ovary story (#ovary) looks for narration-ovary.mp3. Its chapters
-start at 0:00, 0:52, 1:35, 2:32, 3:49, 5:07 and 5:47, ending at 6:53; change
+start at 0:00, 0:53, 1:36, 2:33, 3:51, 5:08 and 5:48, ending at 6:56; change
 NARRATION_SYNC in tools/ovary/engine/e3_story.js (then rebuild) if your
 recording differs. Its words use American spelling (as the qubits story's do).
 

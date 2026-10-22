@@ -7,15 +7,15 @@
 // between two cues lasts long enough to read what appeared at its start; run
 // it again after the text changes). A recording replaces it with its own times.
 const NARRATION_SYNC = [
-  [0, 0], [22, 20], [32.1, 28], [42.9, 36],           // Reserve
-  [52.8, 45], [54.1, 46.2], [60, 49], [66.1, 54.5], [76.5, 63],  // Donors
-  [95.2, 80], [96.5, 81.18], [97.2, 81.2], [104.5, 86], [136.4, 115], [142.7, 120],  // Section
-  [152.1, 125], [152.8, 125.6], [154.5, 127], [206.9, 174.6], [220.5, 178],  // Methods
-  [229.1, 185], [229.8, 185.6], [230.9, 186.2], [281.2, 232], [286.8, 236], [287.5, 236.6],
-  [296.2, 240], [296.8, 240.6],                       // Age
-  [307.3, 245], [308.6, 246.18], [309.4, 246.2], [326.7, 262], [330.2, 265], [339, 273],  // Agree?
-  [347, 280], [347.7, 280.6], [348.7, 281.2], [357.3, 289], [361.8, 292.5], [367.3, 297.5],
-  [377.1, 302], [383.7, 306], [384.3, 306.6], [405.2, 309], [406.9, 310.5], [413.9, 315],  // Next
+  [0, 0], [2.6, 2.4], [4.4, 4], [9.4, 8.5], [22.1, 20], [32.4, 28], [43.4, 36],  // Reserve
+  [53.3, 45], [54.6, 46.2], [60.7, 49], [66.7, 54.5], [77.4, 63],  // Donors
+  [96.1, 80], [97.4, 81.18], [98.2, 81.2], [105.7, 86], [137.6, 115], [144, 120],  // Section
+  [153.6, 125], [154.3, 125.6], [156.1, 127], [208.4, 174.6], [222.4, 178],  // Methods
+  [231.3, 185], [231.9, 185.6], [233, 186.2], [243, 195], [283.7, 232], [289.4, 236], [290, 236.6],
+  [299, 240],                                         // Age
+  [308.6, 245], [309.9, 246.18], [310.7, 246.2], [328.1, 262], [331.6, 265], [340.4, 273],  // Agree?
+  [348.6, 280], [349.3, 280.6], [350.3, 281.2], [358.9, 289], [363.6, 292.5], [369.7, 298.1],
+  [379, 302], [385.8, 306], [386.5, 306.6], [407.9, 309], [409.5, 310.5], [416.7, 315],  // Next
 ];
 // recording time -> original story time
 function storyT(t) {
@@ -94,7 +94,7 @@ const fitShift = (k, name) => { const f = GL.sets[k].cam[name] && FIT[k] && FIT[
 const SEC = [0, 0, 0.6, -0.22];
 const FIT = { organ: { default: [0, 0, 0.5, -0.2], face: [0, 0, 1.0, -0.5], open: [0, 0, 0.5, -0.2], whole: [0, 0, 0.4, -0.15] },
   section: { default: SEC, pair: [0, 0, 1.05, -0.25], tiles: SEC, mask: SEC, net: [0, 0, 0.9, -0.2], forest: [0, 0, 1.0, -0.2] },
-  charts: { default: [0, 0, 0.5, -0.2], trends: [0, 0, 0.5, -0.2], hist: [0, 0, 0.5, -0.2], fan: [0, 0, 0.5, -0.2], scores: [0, 0, 0.5, -0.25], side: [0, 0, 1.0, -0.2], focus: [0, 0, 1.2, -0.58] } };
+  charts: { default: [0, 0, 0.5, -0.2], trends: [0, 0, 0.5, -0.2], hist: [0, 0, 0.5, -0.2], fan: [0, 0, 0.5, -0.2], scores: [0, 0, 0.5, -0.25], side: [0, 0, 1.0, -0.2], focus: [0, 0, 1.2, -0.45] } };
 // how much further back a view stands on a phone held upright (see narrowK): the wide ones, whose parts reach
 // across the screen
 const NARROW = { organ: { default: 1.15, face: 1.15, open: 1.15 }, section: { default: 1.2, pair: 1.3, tiles: 1.2, mask: 1.2, net: 1.2, forest: 1.3 },
@@ -147,7 +147,6 @@ const FACTS = (() => {
   };
 })();
 const listOf = a => (a.length < 2 ? a.join('') : a.slice(0, -1).join(', ') + ' and ' + a[a.length - 1]);
-const word = n => ['no', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve'][n] || String(n);
 const mil = n => (n >= 1e6 ? `${n / 1e6}` : fmt(n));
 // the textbook numbers of follicles, said with "about"
 const reserveText = F => `About ${mil(F.birth[0])} to ${mil(F.birth[1])} million follicles at birth, about ${fmt(F.puberty[0])} to ${fmt(F.puberty[1])} at puberty and about ${fmt(F.menopause)} at menopause (on average around ${F.menoAge}).`;
@@ -156,8 +155,6 @@ const creditText = () => {
   const S = OD.source;
   return `Poster: "${S.title}" by ${listOf(S.authors.map(a => `${a.name} (${a.aff.join(', ')})`))}. ${S.affiliations.map((x, i) => `(${i + 1}) ${x}`).join('; ')}. Supported by ${listOf(S.support)}. Data: ${S.data}.`;
 };
-// the trend of a kind in words, with the poster's r for both methods
-const trendR = key => `random forest r ${rT(KD[key].trend.rf.r)}, segmentation r ${rT(KD[key].trend.seg.r)}`;
 // colors as text on the HTML panel, which is light in the light theme: a color mixed with the panel's ink (darker on a
 // light panel, lighter on a dark one). The headset's panel is dark: its canvas twin takes the color itself (data-col).
 const inkCol = c => `color-mix(in srgb, ${c} 55%, var(--ink))`;
@@ -190,7 +187,7 @@ function buildStory() {
         <p class="note" data-at="36">The reserve cannot be measured directly. The hormones AMH and FSH are used as indirect markers, but they cannot show the true reserve of follicles.</p>`)}`,
     donors: `<h2 data-at="0.6">${F.donors} donors</h2>
       <p data-at="1.2">The ovaries come from GTEx (the Genotype-Tissue Expression project), which collected tissue from people who had died.</p>
-      <div class="facts"><div data-at="4"><b>${F.donors}</b><small>donors</small></div><div data-at="5.5"><b>${F.ages[0]}–${F.ages[1]}</b><small>years old</small></div><div data-at="7"><b>${F.bars}</b><small>bars of ${F.width} years</small></div></div>
+      <div class="facts"><div data-at="4"><b>${F.donors}</b><small>donors</small></div><div data-at="5.5"><b>${F.ages[0]}–${F.ages[1]}</b><small>years old</small></div></div>
       <p data-at="9.5">For each donor: a slide of ovary stained with H&amp;E (hematoxylin and eosin: nuclei purple, the rest pink), the activity of its genes (bulk RNA-seq), and clinical and demographic information.</p>
       <p data-at="18" class="amber">Each slide stacks on its donor's age. Most donors were older: at least ${F.over40} of the ${F.donors} were over 40.</p>
       <p class="credits" data-at="25">The poster's age histogram. The slides are drawn, not the GTEx images.</p>`,
@@ -215,16 +212,16 @@ function buildStory() {
         <p data-at="49">How good are they? Precision: of the tiles called follicle, how many are one. Recall: of the follicles, how many were found. F1: the two in one number. IoU: how far a predicted mask and the true one overlap. 1 is perfect.</p>
         <p class="note" data-at="53">Random forest F1: ${KINDS4.map(k => `${plural(k)} ${sc2(KD[k].rf.f1)}`).join(', ')}. SegFormer IoU: ${KINDS4.map(k => `${plural(k)} ${sc2(KD[k].iou)}`).join(', ')}; cysts, which only the segmentation finds, just ${sc2(cyst.iou)}: hard.</p>`)}`,
     trends: `<h2 data-at="0.6">Trends with age</h2>
-      ${turns(`<p data-at="1.2" data-out="46.5">Count each kind in every donor's section and set the counts against age. On the left, the ovary ages along.</p>
+      ${turns(`<p data-at="1.2" data-out="46.5">Count each kind in every donor's section by both methods (RF: random forest; Seg: segmentation) and set the counts against age. On the left, the ovary ages along.</p>
         <ul class="steps">
-          ${step(10, 46.5, KCOL.follicle, `${Plural('follicle')} fall`, `toward none by about ${F.zeroAt} · r ${rT(fol.trend.rf.r)} and ${rT(fol.trend.seg.r)}`)}
-          ${step(18, 46.5, KCOL.vessel, `${Plural('vessel')} fall`, `r ${rT(ves.trend.rf.r)} and ${rT(ves.trend.seg.r)}`)}
-          ${step(26, 46.5, KCOL.albicans, `${Plural('albicans')} rise`, `the scars pile up · r ${rT(alb.trend.rf.r)} and ${rT(alb.trend.seg.r)}`)}
+          ${step(10, 46.5, KCOL.follicle, `${Plural('follicle')} fall`, `toward none by about ${F.zeroAt} · RF r ${rT(fol.trend.rf.r)}, Seg r ${rT(fol.trend.seg.r)}`)}
+          ${step(18, 46.5, KCOL.vessel, `${Plural('vessel')} fall`, `RF r ${rT(ves.trend.rf.r)}, Seg r ${rT(ves.trend.seg.r)}`)}
+          ${step(26, 46.5, KCOL.albicans, `${Plural('albicans')} rise`, `the scars pile up · RF r ${rT(alb.trend.rf.r)}, Seg r ${rT(alb.trend.seg.r)}`)}
           ${step(34, 46.5, KCOL.macrophage, Plural('macrophage'), `flat by the random forest (r ${rT(mac.trend.rf.r)}), falling by segmentation (r ${rT(mac.trend.seg.r)})`)}
         </ul>`,
       `<p data-at="47">${Plural('follicle')} up close: both lines reach none by about ${F.zeroAt}. The band holds most of the dots.</p>
         <p class="note" data-at="51">r runs from −1 to +1: below 0, fewer with age; above 0, more; near 0, no trend. A small p means a trend this strong would rarely come about by chance.</p>
-        <p class="credits" data-at="55">The lines, r and p are the poster's (RF: random forest; Seg: segmentation). The dots are drawn to match the poster's trends, not the donors' values. The ovary's counts follow the lines.</p>`)}`,
+        <p class="credits" data-at="55">The lines, r and p are the poster's. The dots are drawn to match the poster's trends, not the donors' values. The ovary's counts follow the lines.</p>`)}`,
     agree: `<h2 data-at="0.6">Do the methods agree?</h2>
       <p data-at="1.2">Now each donor is one dot: the random forest's count across, the segmentation's up. On the dashed diagonal both would count the same.</p>
       <ul class="steps">
