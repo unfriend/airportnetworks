@@ -138,7 +138,7 @@ Scores), Object (All, Vessels, Scars, Follicles, Macrophages), Method (Both, Ran
   poster's colors lifted for the dark scene, `KINDS4`, `CHART`, `onLine(kind, method, age)`); `FIT` and `NARROW` frame
   each view beside the panel; in the trends chapter the ovary takes the charts' turn (`ST.side`, `setYaw`); labels
   whose text is a function are read again while they show (`labelText`, the qubits story's).
-- `NARRATION_SYNC` is written by `node tools/pace.mjs <url> --write ovary` (6:56 now); run it again after the text
+- `NARRATION_SYNC` is written by `node tools/pace.mjs <url> --write ovary` (7:01 now); run it again after the text
   changes, then the length in `HOST.list`, `audio/PUT-narration.mp3-HERE.txt` and `docs/narration.md`.
 - Explore (`e4_explore.js`, canvas twins in `e6_panels.js`): `X = { tab, scene, ctl, kind, age, method }`; setters
   `selectKind(key | null, ui)` (by hand it also sets the section's and the ovary's Pick out / Show and the charts'
