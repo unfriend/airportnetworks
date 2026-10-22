@@ -97,10 +97,10 @@ const fitShift = (k, name) => { const f = GL.sets[k].cam[name] && FIT[k] && FIT[
 // or their target moved, so they fit beside the panel (added to the set's own view, in story and explore mode alike)
 // (measured at 1280 x 760: each view's parts between the panel's right edge and the screen's, above the timeline)
 // (the grid of pairs, about 2.1 tall, fills the height between the top bar and the timeline; the gallery, from the big
-// cube to its fifth column about 4.3 across, needs about 7.5 units' distance beside the panel, its middle left of the
+// cube to its fifth column about 4.3 across, needs about 7.9 units' distance beside the panel, its middle left of the
 // view's target)
 const FIT = { pairs: { grid: [0, 0, 1.3, 0, 0.05], hoods: [0, 0, 0.5, 0.1], chip: [0, 0, 0.4, 0.05] },
-  cube: { default: [0, 0, 0.6], cube: [0, 0, 1.2], genes: [0, 0, 0.3], bricks: [0, 0, 1.9, -0.35], gallery: [0, 0, 0.5] }, chart: { default: [0, 0, 0.7, -0.05], chart: [0, 0, 0.7, -0.05] } };
+  cube: { default: [0, 0, 0.6], cube: [0, 0, 1.7], genes: [0, 0, 0.3], bricks: [0, 0, 2.3, -0.42], gallery: [0, 0, 0.5] }, chart: { default: [0, 0, 0.7, -0.05], chart: [0, 0, 0.7, -0.05] } };
 // how much further back a view stands on a phone held upright (see narrowK): the wide ones, whose parts reach
 // across the screen
 const NARROW = { pairs: { grid: 1.1, hoods: 1.15, chip: 1.1 }, cube: { genes: 1.1, bricks: 1.2, gallery: 1.1 }, chart: { default: 1.1, chart: 1.1 } };
