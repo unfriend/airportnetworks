@@ -316,9 +316,9 @@ void main() {
   float g = clamp((uGrow - aS) / 0.12, 0.0, 1.0), on = step(aT, g + 0.0001), tip = g > 0.999 ? 1.0 : smoothstep(g, g - 0.15, aT);
   // (thick enough to read as tubes from afar; the rest stay in view, a little dimmer, while a node is focused)
   float h = aH * uF;
-  float r = 0.0074 * (1.0 + 0.45 * h) * on * mix(0.3, 1.0, tip);
+  float r = 0.0095 * (1.0 + 0.4 * h) * on * mix(0.3, 1.0, tip);
   vC = mix(uLC[int(aL0 + 0.5)], uLC[int(aL1 + 0.5)], aT); vT = aT; vPh = aPh; vH = h;
-  vA = on * uK * (0.6 * (1.0 - 0.6 * uF) + 0.6 * h);
+  vA = on * uK * (0.6 * (1.0 - 0.45 * uF) + 0.55 * h);
   vec4 mv = modelViewMatrix * vec4(position + aNrm * r, 1.0);
   vN = normalMatrix * aNrm; vV = -mv.xyz;
   gl_Position = projectionMatrix * mv;
@@ -332,7 +332,7 @@ void main() {
   // its middle, fading to its edges; a light runs down it now and then (organ to domain)
   float c = abs(dot(normalize(vN), normalize(vV)));
   float run = pow(0.5 + 0.5 * sin(vT * 7.0 - uTime * 1.4 + vPh), 12.0);
-  vec3 col = vC * (0.45 + 0.8 * c) * (0.8 + 0.9 * run) + vec3(1.0) * (0.08 * pow(c, 6.0) + 0.22 * vH * pow(c, 3.0) + 0.18 * run);
+  vec3 col = mix(vC, vec3(1.0), 0.12) * (0.5 + 0.85 * c) * (0.8 + 0.9 * run) + vec3(1.0) * (0.08 * pow(c, 6.0) + 0.22 * vH * pow(c, 3.0) + 0.18 * run);
   gl_FragColor = vec4(col, vA * uA * (0.25 + 0.75 * c) * (1.0 + 0.5 * run));
 }`,
   });

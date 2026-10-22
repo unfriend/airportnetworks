@@ -38,7 +38,7 @@ buffer uploads beyond 40 x 2 uniforms (40 x 2 more for the organs), 5 head point
   relief reads. A focused section stands in 3.4 times deeper relief (a terrain of its domains). The tiles write depth,
   except while a plot or a focused section dims the others; the focused section is then drawn again on its own,
   writing depth, so its relief is right from every side (one more draw of its few hundred tiles: a small geometry of
-  views into the main arrays, made the first time a section is focused).
+  views into the main arrays, made again when another section is focused).
 - The plates: each a slab of dark glass (0.075 of the plate deep) with a lit edge in its rim's colour, a box drawn as
   three faces like the tiles; the captions are faces only, and not drawn from behind (they would read mirrored).
 - The organs: one merged geometry of the 40 sections' organs' models (with duplicates: three arteries, two brains ...),

@@ -654,21 +654,20 @@ void main() {
   const tiles = new THREE.Mesh(tileGeo, tileMat); tiles.frustumCulled = false; tiles.renderOrder = 3; set.group.add(tiles);
   // the focused section drawn again on its own, writing depth, so its relief is right from every side (the main draw
   // writes none while a section is focused or a plot shows: the dimmed sections must not hide what is in front of them,
-  // and leaves the focused one out). One small geometry per section, made the first time it is focused: views into the
-  // main arrays (its tiles are contiguous)
+  // and leaves the focused one out). A small geometry of views into the main arrays (a section's tiles are contiguous),
+  // made again when another section is focused (the old one freed)
   const heroMat = new THREE.ShaderMaterial({ uniforms: tileMat.uniforms, vertexShader: tileMat.vertexShader, fragmentShader: tileMat.fragmentShader,
     defines: { HERO: 1 }, transparent: true, depthWrite: true, side: THREE.DoubleSide,
     blending: THREE.CustomBlending, blendSrc: THREE.OneFactor, blendDst: THREE.OneMinusSrcAlphaFactor });
   set.mats.push(heroMat);
   const T0 = []; { let o = 0; SEC.forEach(q => { T0.push(o); o += q.N; }); }
-  const HG = [];
   const heroGeo = ti => {
-    if (HG[ti]) return HG[ti];
     const g = boxGeo(new THREE.InstancedBufferGeometry()), o = T0[ti], n = SEC[ti].N;
     for (const k of ['aT', 'aU', 'aCA', 'aCB', 'aH', 'aM', 'aRH']) { const at = tileGeo.attributes[k], w = at.itemSize; g.setAttribute(k, new THREE.InstancedBufferAttribute(at.array.subarray(o * w, (o + n) * w), w)); }
     g.instanceCount = n; g.boundingSphere = tileGeo.boundingSphere;
-    return (HG[ti] = g);
+    return g;
   };
+  let heroI = 0;
   const hero = new THREE.Mesh(heroGeo(0), heroMat); hero.frustumCulled = false; hero.renderOrder = 3; hero.visible = false; set.group.add(hero);
 
   // plates behind the sections and their captions (one instanced draw: 40 plates, 40 captions)
@@ -984,7 +983,7 @@ void main() {
     tiles.visible = anySec > 0.003 || um > 0.002;
     const hi = fmax > 0.02 && fi >= 0 ? fi : -1;
     tileMat.uniforms.uHero.value = hi; hero.visible = hi >= 0 && tiles.visible;
-    if (hi >= 0) hero.geometry = heroGeo(hi);
+    if (hi >= 0 && hi !== heroI) { hero.geometry.dispose(); hero.geometry = heroGeo(hi); heroI = hi; }
     // the sections' organs (gone as the tiles fly to the cloud)
     if (!orgMesh && O3) { if (!O3.driven) O3.step(3); buildOrgans(); }   // (the engine steps them itself)
     if (orgMesh) {

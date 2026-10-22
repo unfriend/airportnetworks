@@ -10,10 +10,10 @@ Two pictures in one set, centred on the origin, facing +z.
   Nodes are lit spheres with a soft additive halo, sized by degree (domains, which all have one link, by the graph's
   abundance); each organ is its small 3D model (`ORGAN3D`, `sets/organs.md`; radius 0.062 + 0.005 √degree), turning
   slowly in a glow of the level's dark green, built between frames from the story's start (spheres until then). Links
-  hang between the rings as soft glowing tubes (radius 0.0074, six-sided, curves that leave each node vertically,
+  hang between the rings as soft glowing tubes (radius 0.0095, six-sided, curves that leave each node vertically,
   lit across, bright along their middle and fading to their edges), in a gradient from the upper level's colour to the
   lower one's, with a light running down them now and then. While a node is focused its links grow a little, brighten
-  and whiten at their core; the others stay in view as coloured tubes at 40 % (never hairlines). Each level is the glowing rim of a faint plate (a soft bright line at the
+  and whiten at their core; the others stay in view as coloured tubes at 55 % (never hairlines). Each level is the glowing rim of a faint plate (a soft bright line at the
   ring's radius with a sheen fading inwards over 0.16), so the stack reads as four floors in depth from any side. The order round each ring is computed so that threads stay short (tissue types ordered by the
   organs they share, organs and tissues pulled towards their rare tissue types, domains in arcs under their tissue type);
   the whole is turned so that connective tissue, the biggest hub, faces you. The graph's five tissue type-tissue type

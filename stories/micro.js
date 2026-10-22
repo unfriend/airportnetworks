@@ -3912,21 +3912,20 @@ void main() {
   const tiles = new THREE.Mesh(tileGeo, tileMat); tiles.frustumCulled = false; tiles.renderOrder = 3; set.group.add(tiles);
   // the focused section drawn again on its own, writing depth, so its relief is right from every side (the main draw
   // writes none while a section is focused or a plot shows: the dimmed sections must not hide what is in front of them,
-  // and leaves the focused one out). One small geometry per section, made the first time it is focused: views into the
-  // main arrays (its tiles are contiguous)
+  // and leaves the focused one out). A small geometry of views into the main arrays (a section's tiles are contiguous),
+  // made again when another section is focused (the old one freed)
   const heroMat = new THREE.ShaderMaterial({ uniforms: tileMat.uniforms, vertexShader: tileMat.vertexShader, fragmentShader: tileMat.fragmentShader,
     defines: { HERO: 1 }, transparent: true, depthWrite: true, side: THREE.DoubleSide,
     blending: THREE.CustomBlending, blendSrc: THREE.OneFactor, blendDst: THREE.OneMinusSrcAlphaFactor });
   set.mats.push(heroMat);
   const T0 = []; { let o = 0; SEC.forEach(q => { T0.push(o); o += q.N; }); }
-  const HG = [];
   const heroGeo = ti => {
-    if (HG[ti]) return HG[ti];
     const g = boxGeo(new THREE.InstancedBufferGeometry()), o = T0[ti], n = SEC[ti].N;
     for (const k of ['aT', 'aU', 'aCA', 'aCB', 'aH', 'aM', 'aRH']) { const at = tileGeo.attributes[k], w = at.itemSize; g.setAttribute(k, new THREE.InstancedBufferAttribute(at.array.subarray(o * w, (o + n) * w), w)); }
     g.instanceCount = n; g.boundingSphere = tileGeo.boundingSphere;
-    return (HG[ti] = g);
+    return g;
   };
+  let heroI = 0;
   const hero = new THREE.Mesh(heroGeo(0), heroMat); hero.frustumCulled = false; hero.renderOrder = 3; hero.visible = false; set.group.add(hero);
 
   // plates behind the sections and their captions (one instanced draw: 40 plates, 40 captions)
@@ -4242,7 +4241,7 @@ void main() {
     tiles.visible = anySec > 0.003 || um > 0.002;
     const hi = fmax > 0.02 && fi >= 0 ? fi : -1;
     tileMat.uniforms.uHero.value = hi; hero.visible = hi >= 0 && tiles.visible;
-    if (hi >= 0) hero.geometry = heroGeo(hi);
+    if (hi >= 0 && hi !== heroI) { hero.geometry.dispose(); hero.geometry = heroGeo(hi); heroI = hi; }
     // the sections' organs (gone as the tiles fly to the cloud)
     if (!orgMesh && O3) { if (!O3.driven) O3.step(3); buildOrgans(); }   // (the engine steps them itself)
     if (orgMesh) {
@@ -4705,9 +4704,9 @@ void main() {
   float g = clamp((uGrow - aS) / 0.12, 0.0, 1.0), on = step(aT, g + 0.0001), tip = g > 0.999 ? 1.0 : smoothstep(g, g - 0.15, aT);
   // (thick enough to read as tubes from afar; the rest stay in view, a little dimmer, while a node is focused)
   float h = aH * uF;
-  float r = 0.0074 * (1.0 + 0.45 * h) * on * mix(0.3, 1.0, tip);
+  float r = 0.0095 * (1.0 + 0.4 * h) * on * mix(0.3, 1.0, tip);
   vC = mix(uLC[int(aL0 + 0.5)], uLC[int(aL1 + 0.5)], aT); vT = aT; vPh = aPh; vH = h;
-  vA = on * uK * (0.6 * (1.0 - 0.6 * uF) + 0.6 * h);
+  vA = on * uK * (0.6 * (1.0 - 0.45 * uF) + 0.55 * h);
   vec4 mv = modelViewMatrix * vec4(position + aNrm * r, 1.0);
   vN = normalMatrix * aNrm; vV = -mv.xyz;
   gl_Position = projectionMatrix * mv;
@@ -4721,7 +4720,7 @@ void main() {
   // its middle, fading to its edges; a light runs down it now and then (organ to domain)
   float c = abs(dot(normalize(vN), normalize(vV)));
   float run = pow(0.5 + 0.5 * sin(vT * 7.0 - uTime * 1.4 + vPh), 12.0);
-  vec3 col = vC * (0.45 + 0.8 * c) * (0.8 + 0.9 * run) + vec3(1.0) * (0.08 * pow(c, 6.0) + 0.22 * vH * pow(c, 3.0) + 0.18 * run);
+  vec3 col = mix(vC, vec3(1.0), 0.12) * (0.5 + 0.85 * c) * (0.8 + 0.9 * run) + vec3(1.0) * (0.08 * pow(c, 6.0) + 0.22 * vH * pow(c, 3.0) + 0.18 * run);
   gl_FragColor = vec4(col, vA * uA * (0.25 + 0.75 * c) * (1.0 + 0.5 * run));
 }`,
   });
@@ -5523,7 +5522,7 @@ const fitShift = (k, name) => { const f = GL.sets[k].cam[name] && FIT[k] && FIT[
 // (measured at 1280 x 760: each view's parts between the panel's right edge and the screen's, above the timeline)
 // (the section, 2.1 long, needs about 4 units' distance to fit right of the panel: further back, and moved right)
 const SEC = [0, 0, 0.6, -0.22];
-const FIT = { atlas: { default: [0, 0, 1.1, -0.22], library: [0, 0, 1.1, -0.22], atlas: [0, 0, 0.8, -0.35], focus: [0, 0, 0.35, -0.05, 0.03], volcano: [0, 0, 0.45, -0.2],
+const FIT = { atlas: { default: [0, 0, 1.1, -0.22], library: [0, 0, 1.1, -0.22], atlas: [0, 0, 0.8, -0.35], focus: [0, 0, 0.55, -0.05, 0.0], volcano: [0, 0, 0.45, -0.2],
   curves: [0, 0, 0.9, -0.12], age: [0, 0, 0.45, -0.2] },
   body: { default: [0, 0, 0.55], front: [0, 0, 0.55] }, hier: { net: [0, 0, 0.35, 0, 0.05], default: [0, 0, 0.25, 0, 0.03] }, tissue: { default: SEC, section: SEC }, slide: { default: SEC, section: SEC, domains: SEC, age: SEC, tiles: [0, 0, 0.35, -0.25], group: [0, 0, 0.75, -0.12] } };
 // how much further back a view stands on a phone held upright (see narrowK): the wide ones, whose parts reach
