@@ -155,6 +155,15 @@ button { cursor: pointer; }
 .steps { list-style: none; padding: 0; margin: 4px 0 16px; }
 .steps li { border-left: 3px solid var(--amber); padding: 1px 0 1px 12px; margin-bottom: 10px; font-size: 15px; }
 .steps li b { display: block; color: var(--amber); font-size: 16px; }
+/* slideshow (story mode): Next while the story waits at the end of a chapter, and the story's own switch */
+#slides { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 20px; padding-top: 14px; border-top: 1px solid var(--line); }
+#slides[hidden], body.exploring #slides { display: none; }
+#btnNext { font-size: 16px; padding: 9px 26px; }
+/* on a phone the panel is short: Next goes beside Play in the bar instead, always in sight */
+#btnNextBar { display: none; flex: none; font-size: 15px; padding: 9px 18px; }
+@media (max-width: 899px) { #slides #btnNext { display: none; } body:not(.exploring) #btnNextBar:not([hidden]) { display: block; } }
+#btnSlides { margin-left: auto; font-size: 13px; padding: 6px 12px; color: var(--muted); }
+#btnSlides[aria-pressed="true"] { border-color: var(--cyan); color: var(--cyan); }
 
 /* explore */
 #explore { display: none; }
@@ -413,10 +422,12 @@ body.xr #labels, body.xr #tip { display: none; }
 </header>
 <aside id="panel">
   <div id="story" aria-live="polite"></div>
+  <div id="slides" hidden><button class="btn primary" id="btnNext" type="button" hidden>Next</button><button class="btn" id="btnSlides" type="button" aria-pressed="false" title="Stop at the end of each chapter of this story until you press Next">Slideshow: off</button></div>
   <div id="explore"></div>
 </aside>
 <footer id="bar">
   <button id="play" type="button" aria-label="Pause"></button>
+  <button class="btn primary" id="btnNextBar" type="button" hidden>Next</button>
   <div id="track" role="slider" aria-label="Story position" tabindex="0" aria-valuemin="0" aria-valuemax="232" aria-valuenow="0"></div>
   <div id="clock">0:00 / 3:51</div>
   <div id="viewctl"></div>
@@ -429,6 +440,7 @@ body.xr #labels, body.xr #tip { display: none; }
     <div class="repeat" role="group" aria-label="Repeat">
       <button class="rep" type="button" data-repeat="all" aria-pressed="false">Repeat all</button>
       <button class="rep" type="button" data-repeat="one" aria-pressed="false">Repeat one</button>
+      <button class="rep" type="button" id="btnSlidesAll" aria-pressed="false" title="Every story stops at the end of each chapter until you press Next">Slideshow</button>
       <span class="hint"></span>
       <button class="rep" type="button" id="btnSndCheck" aria-expanded="false" aria-controls="sndcheck">Sound check</button>
       <button class="rep" type="button" id="btnSharedPick" data-open-shared aria-expanded="false" aria-controls="shared">Shared</button>
@@ -1447,6 +1459,37 @@ HOST.setRepeat = function (mode) {
 };
 // the buttons: pressing the lit one turns Repeat off
 HOST.toggleRepeat = function (mode) { this.setRepeat(this.repeat === mode ? 'off' : mode); };
+// Slideshow: a story waits at the end of each chapter, all its text shown, until Next goes on. On or off for every
+// story (the Stories screen, the headset's menu: setGlobal, which also clears each story's own choice) or for one
+// (its story panel, page and headset: set). Stories read on(key) every frame and put sig() in their panels'
+// signatures; nothing is sent to them. Remembered on this device and never shared in a room (each person reads at
+// their own pace; a stop still pauses a station for everyone at it, like a pause by hand).
+// #slides=on or #slides=off in a link sets it for every story.
+HOST.slides = (function () {
+  let all = false, per = {}, sig = '';
+  try {
+    all = localStorage.getItem('slideshow') === 'on';
+    const p = JSON.parse(localStorage.getItem('slideshowStories') || '{}');
+    for (const s of HOST.list) if (p && typeof p[s.key] === 'boolean') per[s.key] = p[s.key];
+  } catch (e) { /* storage blocked, or a bad value */ }
+  const shown = () => {
+    sig = (all ? 'A' : 'a') + Object.keys(per).sort().map(k => k + (per[k] ? 1 : 0)).join(',');
+    const b = document.getElementById('btnSlidesAll');
+    if (b) b.setAttribute('aria-pressed', all ? 'true' : 'false');
+  };
+  const save = () => {
+    try { localStorage.setItem('slideshow', all ? 'on' : 'off'); localStorage.setItem('slideshowStories', JSON.stringify(per)); } catch (e) { /* storage blocked */ }
+    shown();
+  };
+  shown();
+  return {
+    global: () => all,
+    setGlobal(on) { all = !!on; per = {}; save(); },
+    on: key => (typeof per[key] === 'boolean' ? per[key] : all),
+    set(key, on) { per[key] = !!on; save(); },
+    sig: () => sig,
+  };
+})();
 // a story calls this when it reaches its end; true means Repeat takes over (after a moment on
 // the last picture) and the story should just stop, false that it opens explore mode as usual
 HOST.ended = function () {
@@ -1491,6 +1534,7 @@ HOST.closePicker = function () {
     if (ev.target.closest('[data-open-shared]')) { HOST.collab.dialog(true); return; }
     const r = ev.target.closest('[data-repeat]');
     if (r) { HOST.toggleRepeat(r.dataset.repeat); return; }
+    if (ev.target.closest('#btnSlidesAll')) { HOST.slides.setGlobal(!HOST.slides.global()); return; }
     if (ev.target.closest('#btnSndCheck')) { HOST.soundCheck(document.getElementById('sndcheck').hidden); return; }
     const sc = ev.target.closest('[data-snd]');
     if (sc) {
@@ -1518,6 +1562,7 @@ HOST.closePicker = function () {
   // which story to load first: #airports, #proteins or #spatial (old links to proteins.html and spatial.html forward here)
   const hp = new URLSearchParams(location.hash.slice(1));
   HOST.setRepeat(hp.get('repeat') || HOST.repeat);
+  if (hp.has('slides')) HOST.slides.setGlobal(hp.get('slides') !== 'off');
   if (hp.has('anchor')) HOST.anchor.set(hp.get('anchor') !== 'off');
   if (hp.has('soundcheck')) HOST.soundCheck(true);
   HOST.collab.boot(hp); // #s=XYZ joins a shared room

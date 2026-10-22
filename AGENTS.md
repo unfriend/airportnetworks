@@ -124,6 +124,45 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
   a moment the shell starts the next story (`all`, wrapping round) or sends
   `storyrestart` (`one`); otherwise the story opens explore mode. Remembered in
   `localStorage`; `#repeat=all` or `#repeat=one` in a link sets it.
+- Slideshow (`HOST.slides` in `index.html`): a story waits at the end of each
+  chapter, all its text shown, until Next (or Play) goes on. `global()` and
+  `setGlobal(on)` (every story; it clears the stories' own choices: the
+  Slideshow button on the Stories screen, the headset's left-hand menu),
+  `on(key)` and `set(key, on)` (one story: the switch on its panel, page and
+  headset), `sig()` for panel signatures; remembered in `localStorage`
+  (`slideshow`, `slideshowStories`), per device, never in `collab.state()`;
+  `#slides=on` or `#slides=off` in a link sets it for every story. The shell
+  sends stories nothing: each reads it every frame (guarded by `HOST.slides &&`,
+  so a story and a shell of different versions do not break). In every story
+  the same lines (`slideStep` and its helpers next to the narration code):
+  chapter i stops at `slideStop(i)` = `narrT(CH[i].b - 0.7)` (just before its
+  text starts to fade out), found as a crossing in `frame()` (the clock before
+  and after the frame; at a station also since the last frame when the clock
+  moved no further than the time that passed plus 0.35 s, as when the shell
+  catches a slow page up with the station's clock, but not a jump), so a jump
+  into chapter k stops at its end, and the last
+  chapter stops too before the end (Repeat and explore mode follow Next). The
+  stop is `APP.playing = false; APP.seek(stop)` and Next is `APP.togglePlay()`,
+  so in a shared room they go out through the shell's wrapper as the station's
+  clock, like a pause and a play by hand, at the same `t` on every device. A
+  story paused just now while playing up to 0.25 s before a stop (a room's pause
+  lands within the shell's 0.25 s drift) waits at it too, but a clock put near a
+  stop while paused (a scrub) stays where it was put unless it is right on the
+  stop; a stop just gone on from stays passed while the clock is within 1 s of
+  it. The voice: a chapter's last words often run on past its stop (the
+  airports' recording by up to 2.4 s, so a plain pause cut them). A story with a
+  recording lists where each chapter's words end in it (`NARRATION_ENDS`, seconds
+  by chapter key, measured from the file; only `stories/airports.js` has one, and
+  it is independent of `NARRATION_SYNC`): at a stop the narration plays on, on
+  its own clock, to that point (`slideTail`, `slideSound`, which `audioSync`
+  plays), and after Next it stays quiet, the story not following it
+  (`audioFollow`), until the story is back there, so nothing is cut or said
+  twice. Re-measure the list when re-recording (ffmpeg's `silencedetect`, then
+  check by ear). Next shows at the foot of the page's panel (`#slides`, with the
+  story's switch, scrolled into sight only as far as the chapter's top stays in
+  view), on a phone (under 900 px) beside Play in the bar instead
+  (`#btnNextBar`), and in the headset's foot panel in place of the chapter's
+  name (the chapter arrows stay; the switch beside the clock).
 - Placement in the headset: each story hangs its Stories screen, story panel
   and the scene's placement point (`XR.globeBase + XR.globeOff`) on one frame,
   `GL.rig`. Normally the rig is set from your head (`xrRecenter`) when a
@@ -663,7 +702,8 @@ immersive session.
   interpolates camera waypoints.
 - `NARRATION_SYNC` maps recording time to story time; the narration (if
   present) drives the clock (`audioInit`, `audioSync`, `audioFollow`, thin
-  wrappers around `HOST.audio`).
+  wrappers around `HOST.audio`). `slideStep` (slideshow, see above) runs in
+  `frame()` after the clock moves and before the end check.
 - Explore mode: the `X` state object, `exploreStep()`, tab renderers
   (`render*`), and the canvas/pointer handling in `bindCanvas()`.
 - WebXR: the `XR` object, controllers (`xrController`, `xrPoint`), canvas-drawn
@@ -956,7 +996,11 @@ is the contract between them.
 ## Testing
 
 There is no unit-test suite. Before committing, serve the folder and run the
-smoke test, which loads every story, scrubs through it, exercises explore
+smoke test, which loads every story, scrubs through it, plays it as a slideshow
+(a paused scrub near a stop holding, a stop exactly at a chapter's end and at the
+last one, the voice finishing the chapter there where a story has a recording,
+Next on the page, in the bar and on the headset panel beside the chapter arrows,
+Next going on), exercises explore
 mode and the headset panels (for the muscle, endotype, PET and microanatomy stories every explore tool too; for
 the robot gang every rule, a click to walk, crumbs, a big open floor and one
 with no area, and a pretend headset room from detected planes),
@@ -1005,7 +1049,9 @@ seconds) and
 three pages in a room follow its station and check play, pause, jumps, mode
 changes and Replay (within 5 s), the relay's clock, the explore state both
 ways and the story's effect (for the robots also the pile's spot and dust; for the flock
-the same falcon, one page leading, the same flight time and the flocks together).
+the same falcon, one page leading, the same flight time and the flocks together);
+on the first story followed, also a slideshow stop on one page pausing the
+station for the others at the chapter's end, and its Next playing it again.
 Before that: Arrange all's rows, a code with no room, Remove asking first.
 After: a station moved and turned on the room map (and refused while the
 layout is locked),
@@ -1095,7 +1141,7 @@ second), `#lbi&explore&scene=atp&view=network&now=1` (a scene with its controls)
 `#micro&explore&organ=Ovary`, `#micro&explore&tab=age&age=70`, `#micro&explore&scene=atlas&view=volcano`, `#flock&explore&view=afar&links=on&birds=400`
 (`&hunt` sends a falcon), `#robots&explore&rule=chain&robots=12&trails=on&links=on&view=low`
 (`&crumbs` spills a pile, `&walk=1.5,1.2` walks you there), `#airports&repeat=all` (a kiosk that plays
-every story in turn), `#anchor=on` (anchored headset placement). In the console,
+every story in turn), `#airports&slides=on` (every story as a slideshow), `#anchor=on` (anchored headset placement). In the console,
 `HOST.cur.peek('expression')` evaluates inside the current story
 (e.g. `HOST.cur.peek('NET.P')`).
 
