@@ -582,7 +582,7 @@ try {
   await frames(H, 800);
   check('headset: woken again on the first floor, the room is back on it', near(await H.evaluate(() => HOST.room.frame.o), [wantO[0], 0, wantO[2]], 2e-3),
     fmt(await H.evaluate(() => HOST.room.frame.o)));
-  // Re-align by hand (the Shared panel): a headset left offset (as one was after a long standby) goes back to the
+  // Re-align by hand (in the menu): a headset left offset (as one was after a long standby) goes back to the
   // room's frame through the shared space, which is asked for again
   const qA = (await roomInfo(code)).seq;   // (the room's frame is written on purpose from here to qB)
   const ra = await H.evaluate(async () => {
