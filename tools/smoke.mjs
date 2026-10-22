@@ -37,6 +37,7 @@ for (const key of ['airports', 'proteins', 'spatial', 'lbi', 'nmd', 'endo', 'pet
       const sleep = ms => new Promise(r => setTimeout(r, ms)), peek = src => HOST.cur.peek(src), out = [];
       const until = async (f, ms) => { for (let n = 0; n < ms / 50 && !f(); n++) await sleep(50); return f(); };
       const foot = () => peek(`(() => { XR.on = true; for (const P of XR.panels) { P.last = ''; P.t = -1e9; panelTick(P, performance.now() + 1e6); } XR.on = false; return XR.foot.regions.map(r => r.id); })()`);
+      const back = peek('APP.t');   // where the story was: the steps after this one start from there, as before
       HOST.slides.set(k, true);
       if (!HOST.slides.on(k) || HOST.slides.on(k === 'airports' ? 'proteins' : 'airports')) out.push('the story\'s own switch is not its own');
       const last = peek('CH.length - 1'), frames = n => until(((f0) => () => window.__frames >= f0 + n)(window.__frames), 30000);
@@ -55,10 +56,11 @@ for (const key of ['airports', 'proteins', 'spatial', 'lbi', 'nmd', 'endo', 'pet
         // past the last stop the story ends as before (explore mode, Repeat being off)
         if (i === last) { peek('APP.seek(T_END - 0.05)'); if (!await until(() => peek('APP.mode') === 'explore', 30000)) out.push('the story did not end after the last stop'); }
       }
-      peek('APP.enterStory(0)');
+      peek('(APP.enterStory(0), APP.playing = false)');
       document.getElementById('btnSlides').click();   // the page's switch: off again for this story
       if (HOST.slides.on(k) || !await until(() => document.getElementById('btnSlides').textContent === 'Slideshow: off', 30000)) out.push('the Slideshow switch did not turn it off');
       HOST.slides.setGlobal(false);
+      peek(`APP.enterStory(${back})`);
       return out;
     }, key);
     if (bad.length) errors.push(...bad.map(b => `${key}: ${b}`));
