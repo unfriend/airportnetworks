@@ -1,4 +1,4 @@
-// Headless smoke test for the eleven stories.
+// Headless smoke test for the twelve stories.
 //   node tools/smoke.mjs [base-url]     (default http://127.0.0.1:8123/)
 // Serve the folder first (npx http-server -p 8123 -c-1 .). Needs Playwright;
 // set PLAYWRIGHT_MODULE to its path if it is installed globally, and
@@ -20,7 +20,7 @@ await page.waitForTimeout(4000);
 await step('start screen is the landing page', async () => {
   if (!await page.evaluate(() => HOST.picking)) errors.push('start screen not shown on load');
 });
-for (const key of ['airports', 'proteins', 'spatial', 'lbi', 'nmd', 'endo', 'pet', 'micro', 'qubits', 'flock', 'robots']) {
+for (const key of ['airports', 'proteins', 'spatial', 'lbi', 'nmd', 'endo', 'pet', 'micro', 'qubits', 'pass', 'flock', 'robots']) {
   await step(`load ${key}`, async () => {
     await page.click(`#picker [data-story="${key}"]`).catch(async () => { await page.click('#btnOther'); await page.click(`#picker [data-story="${key}"]`); });
     await page.waitForFunction(k => HOST.curKey === k && HOST.cur && HOST.cur.peek('typeof ST !== "undefined" && ST.items.length > 0'), key, { timeout: 30000 });
@@ -408,6 +408,63 @@ for (const key of ['airports', 'proteins', 'spatial', 'lbi', 'nmd', 'endo', 'pet
     await sleep(300);
     if (bad.length) throw new Error(bad.join('; '));
   }));
+  if (key === 'pass') await step('pass: both languages and their switch, every explore tool, on the page and in the headset', () => page.evaluate(async () => {
+    const sleep = ms => new Promise(r => setTimeout(r, ms)), peek = src => HOST.cur.peek(src), out = [];
+    const panels = () => peek(`(() => { XR.on = true; for (const P of XR.panels) { P.last = ''; P.t = -1e9; panelTick(P, performance.now() + 1e6); } XR.on = false; return XR.main.regions.map(r => r.id); })()`);
+    // every string of the story in both languages
+    out.push(...peek(`Object.entries(STR).filter(([k, v]) => !Array.isArray(v) || v.length !== 2 || !v[0] || !v[1]).map(([k]) => 'the string ' + k + ' lacks a language')`));
+    // the switch on the story panel (page and headset), and its words everywhere
+    peek('(APP.enterStory(narrT(20)), APP.playing = false)'); await sleep(200);
+    for (const l of ['de', 'en']) {
+      const b = document.querySelector(`#story button[data-lang="${l}"]`);
+      if (!b) { out.push('no language switch on the story panel'); break; }
+      b.click(); await sleep(100);
+      const h1 = document.querySelector('#story h1').textContent, ch = document.querySelector('#track .name').textContent;
+      if (peek('LANG') !== l || h1 !== (l === 'de' ? 'Weitersagen!' : 'Pass it on')) out.push(`the switch did not show ${l} (${h1})`);
+      if (ch !== peek('CH[1].name') || localStorage.getItem('passLang') !== l) out.push(`the timeline or the remembered language did not follow ${l}`);
+      if (!panels().includes('lang:' + (l === 'de' ? 'en' : 'de'))) out.push('no language switch on the headset panel');
+    }
+    // explore mode: every tool, in both languages, on the page and the headset's panels
+    for (const l of ['de', 'en']) out.push(...peek(`(() => {
+      const out = [];
+      setLang('${l}');
+      APP.enterExplore();
+      if (!document.querySelector('#explore button[data-lang="${l}"][aria-pressed="true"]')) out.push('no language switch above the explore tabs');
+      pickTab('fish');
+      for (const k of [1, 2, 3, 7, 12]) { setFishK(k); if (fishK() !== k) out.push('neighbours ' + k + ' not set'); }
+      setFishN(600); setFishN(100); setFishN(300);
+      setShark(true); GL.sets.fish.steer([0, 1.6, -4]); if (!GL.sets.fish.sharkOn()) out.push('being the shark brought no shark'); setShark(false);
+      for (const c of ctlsOf('fish')) for (const [v] of c.options) setCtl('fish', c.key, v);
+      setCtl('fish', 'view', 'default'); setFishK(7);
+      pickTab('outbreak');
+      for (const c of QUICK_START) { setStart(c); if (X.out.start !== c) out.push('start ' + c + ' not set'); }
+      setStart('VIE');
+      for (const [k, v] of [['inc', 1], ['inc', 21], ['inf', 2], ['inf', 30], ['spread', 'low'], ['spread', 'high'], ['cut', 90], ['cut', 0], ['inc', 5], ['inf', 7], ['spread', 'medium']]) setOut(k, v);
+      X.out.click = 'look'; selectCity('SYD'); setDay(20); playOut(true); playOut(false);
+      if (api('globe').arrivalDay(outIndex('SYD')) === null) out.push('the outbreak from Vienna never reached Sydney');
+      searchList('out', '${l === 'de' ? 'Wien' : 'Vienna'}');
+      if (!document.querySelector('[data-res="out"] [data-v="VIE"]')) out.push('the airport search did not find Vienna');
+      pickTab('cell');
+      for (const s of QUICK_PROT) selectProtein(s);
+      for (const m of ['none'].concat(MOVE_KEYS())) { setMove(m); if (ctlVal('cell', 'move') !== m) out.push('move ' + m + ' not set'); }
+      searchList('cell', 'CFTR');
+      for (const [k] of SCENES) { openScene(k); for (const c of ctlsOf(k)) for (const [v] of c.options) setCtl(k, c.key, v); }
+      // picks with a ray: an airport, a protein
+      for (const k of ['globe', 'cell']) { openScene(k, false); orbit.cur = view(k, 'default'); orbit.to = null; applyCamera(orbit.cur); GL.camera.updateMatrixWorld(); GL.world.updateMatrixWorld(true);
+        let p = null; for (let y = 0.3; y < 0.7 && !p; y += 0.05) p = pickAt(innerWidth * 0.62, innerHeight * y);
+        if (!p) out.push('no pick on the ' + k); else { pickText(p); choosePick(p); } }
+      const st = JSON.stringify(collabState()); collabApply(JSON.parse(st));
+      if (JSON.stringify(collabState()) !== st) out.push('apply(state()) changed the state');
+      if ('lang' in collabState() || /"(de|en)"/.test(st)) out.push('the language is in the shared state');
+      XR.on = true;
+      for (const [k] of TABS) { pickTab(k); for (const P of XR.panels) { P.last = ''; P.t = -1e9; panelTick(P, performance.now() + 1e6); } }
+      XR.on = false;
+      selectProtein(-1); selectCity(''); setMove('none'); pickTab('fish');
+      return out.map(o => '${l}: ' + o);
+    })()`));
+    await sleep(300);
+    if (out.length) throw new Error(out.join('; '));
+  }));
   await page.click('#btnOther');
 }
 // Repeat on the Stories screen: one story again and again, or all of them in turn (the last leads to the first)
@@ -432,7 +489,7 @@ await step('Repeat one and Repeat all', async () => {
 });
 // Anchored mode with a pretend headset: a room whose tracking origin can jump (recentring) and
 // anchors that keep their place in it, saved under a handle (Quest's persistent anchors)
-for (const key of ['airports', 'proteins', 'spatial', 'lbi', 'nmd', 'endo', 'pet', 'micro', 'qubits', 'flock', 'robots']) await step(`${key}: anchored placement`, async () => {
+for (const key of ['airports', 'proteins', 'spatial', 'lbi', 'nmd', 'endo', 'pet', 'micro', 'qubits', 'pass', 'flock', 'robots']) await step(`${key}: anchored placement`, async () => {
   await page.evaluate(k => HOST.start(k), key);
   await page.waitForFunction(k => HOST.curKey === k && HOST.cur && HOST.cur.peek('typeof ST !== "undefined" && ST.items.length > 0'), key, { timeout: 30000 });
   const bad = await page.evaluate(async () => {

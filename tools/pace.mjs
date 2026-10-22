@@ -6,6 +6,8 @@
 // of numbers alone, are read at a glance), with the rate chosen per story so that the whole story reads at the airports'
 // pace, 2.1 such words a second as its recording runs. Story time stays as it is, so nothing else changes.
 // A story with a recorded narration (its MP3 in audio/) is left alone: its table follows the recording instead.
+// A story in more than one language (it lists them in LANGS and switches with setLang(l, false), as the pass story
+// does) is read in each, and every stretch takes the reading time of its longer text.
 // Usage: serve the folder, then node tools/pace.mjs http://127.0.0.1:8123/ [--write] [story keys]
 //   prints the tables; --write puts them into the sources (tools/<story>/engine/e3_story.js, or stories/<story>.js for
 //   the airports, proteins and spatial stories) and rebuilds the built stories. Run it again after a story's text
@@ -38,7 +40,7 @@ for (const key of list) {
   await page.waitForFunction(k => HOST.curKey === k && HOST.cur && !HOST.busy && document.querySelector('section.ch'), key, { timeout: 60000 });
   // the panel's words by cue, read as tools/narration.mjs reads them: each run of text under the same nearest data-at
   // element is one line, shown at the chapter's start plus its data-at
-  const d = await page.evaluate(() => {
+  const read = () => page.evaluate(() => {
     const CH = HOST.cur.peek('CH').map(c => ({ key: c.key, name: c.name, a: c.a, b: c.b }));
     const sync = HOST.cur.peek('NARRATION_SYNC'), lines = [], ats = [];
     for (const sec of document.querySelectorAll('section.ch')) {
@@ -58,18 +60,34 @@ for (const key of list) {
     }
     return { CH, sync, ats, lines: lines.map(l => ({ ch: l.ch, at: l.at, text: l.text.trim() })) };
   });
+  // (a story in two languages: its panel read in each, then put back as it was)
+  const langs = await page.evaluate(() => HOST.cur.peek('typeof LANGS !== "undefined" ? LANGS : null'));
+  let d;
+  if (!langs) d = await read();
+  else {
+    const was = await page.evaluate(() => HOST.cur.peek('LANG')), all = [];
+    for (const l of langs) { await page.evaluate(l => HOST.cur.peek(`setLang('${l}', false)`), l); all.push(await read()); }
+    await page.evaluate(l => HOST.cur.peek(`setLang('${l}', false)`), was);
+    d = Object.assign(all[0], { langs: all });
+  }
   const { CH } = d, end = CH[CH.length - 1].b;
   const words = new Map(), cues = new Set(CH.flatMap(c => [c.a, c.b]));
   let total = 0;
   for (const a of d.ats) { const c = CH.find(c => c.key === a.ch); if (r2(a.at) < c.b - 0.05) cues.add(r2(a.at)); }
-  for (const l of d.lines) {
-    const c = CH.find(c => c.key === l.ch), at = r2(l.at);
-    if (at >= c.b - 0.05) { console.warn(`${key}: "${l.text.slice(0, 40)}" at ${at} is after its chapter's end; not counted`); continue; }
-    // words with letters in them, as the airports' 2.1 words a second were counted: a number (and so a line of numbers
-    // alone, a big figure) is taken in at a glance
-    const w = l.text.split(/\s+/).filter(s => /[A-Za-z]/.test(s)).length;
-    words.set(at, (words.get(at) || 0) + w); cues.add(at); total += w;
+  for (const dl of d.langs || [d]) {
+    const wl = new Map();
+    for (const l of dl.lines) {
+      const c = CH.find(c => c.key === l.ch), at = r2(l.at);
+      if (at >= c.b - 0.05) { console.warn(`${key}: "${l.text.slice(0, 40)}" at ${at} is after its chapter's end; not counted`); continue; }
+      // words with letters in them, as the airports' 2.1 words a second were counted: a number (and so a line of numbers
+      // alone, a big figure) is taken in at a glance
+      const w = l.text.split(/\s+/).filter(s => /[A-Za-zÀ-ÿ]/.test(s)).length;
+      wl.set(at, (wl.get(at) || 0) + w); cues.add(at);
+    }
+    // (in two languages each stretch reads as long as its longer text)
+    for (const [at, w] of wl) words.set(at, Math.max(words.get(at) || 0, w));
   }
+  for (const w of words.values()) total += w;
   const S = [...cues].sort((a, b) => a - b);
   // the table for a reading rate (words a second): P are points [story time, recording time], the knots the table's rows
   const tableFor = RATE => {

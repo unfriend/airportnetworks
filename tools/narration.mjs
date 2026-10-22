@@ -19,7 +19,7 @@ const docs = [];
 for (const s of list) {
   await page.evaluate(k => HOST.start(k), s.key);
   await page.waitForFunction(k => HOST.curKey === k && HOST.cur && !HOST.busy && document.querySelector('section.ch'), s.key, { timeout: 60000 });
-  const d = await page.evaluate(() => {
+  const read = () => page.evaluate(() => {
     const CH = HOST.cur.peek('CH').map(c => ({ key: c.key, name: c.name, a: c.a, b: c.b }));
     let sync = null;
     try { sync = HOST.cur.peek('NARRATION_SYNC'); } catch (e) { /* none */ }
@@ -45,6 +45,20 @@ for (const s of list) {
     }
     return { CH, sync, file, lines };
   });
+  // a story in two languages (LANGS, setLang): its words in each, the first as the script, the others beside it
+  const langs = await page.evaluate(() => HOST.cur.peek('typeof LANGS !== "undefined" ? LANGS : null'));
+  const d = await read();
+  if (langs) {
+    const was = await page.evaluate(() => HOST.cur.peek('LANG'));
+    d.other = {};
+    for (const l of langs) {
+      await page.evaluate(l => HOST.cur.peek(`setLang('${l}', false)`), l);
+      const dl = await read();
+      if (l === langs[0]) Object.assign(d, { CH: dl.CH, lines: dl.lines }); else d.other[l] = dl;
+    }
+    await page.evaluate(l => HOST.cur.peek(`setLang('${l}', false)`), was);
+    d.langs = langs;
+  }
   docs.push(Object.assign(s, d));
   console.log('read', s.key, d.CH.length, 'chapters');
 }
@@ -79,9 +93,15 @@ for (const d of docs) md += `| ${d.kick}: ${d.title} | \`${fileOf(d.key)}\` | ${
 for (const d of docs) {
   md += `\n## ${d.kick}: ${d.title} (\`#${d.key}\`)\n\nFile: \`${fileOf(d.key)}\`${fs.existsSync(fileOf(d.key)) ? ' (recorded)' : ' (not recorded yet)'}. ` +
     `Chapters: ${d.CH.map(c => `${mmss(toRec(d.sync, c.a))} ${c.name}`).join(', ')}; it ends at ${mmss(toRec(d.sync, d.CH[d.CH.length - 1].b))}.\n`;
+  if (d.langs) md += `\nIn ${d.langs.length} languages (${d.langs.join(', ')}): the recording follows the first; the others are what readers see in theirs (the pace gives each line the time of its longer text).\n`;
   for (const c of d.CH) {
     md += `\n### ${mmss(toRec(d.sync, c.a))} ${c.name}\n\n`;
     for (const l of d.lines[c.key] || []) md += `- **${mmss(toRec(d.sync, c.a + l.at))}** ${l.text}\n`;
+    for (const [l, o] of Object.entries(d.other || {})) {
+      const oc = o.CH.find(x => x.key === c.key);
+      md += `\n${l.toUpperCase()}: ${oc ? oc.name : ''}\n\n`;
+      for (const x of o.lines[c.key] || []) md += `- **${mmss(toRec(d.sync, c.a + x.at))}** ${x.text}\n`;
+    }
   }
 }
 fs.writeFileSync(out, md);

@@ -22,7 +22,7 @@
 // (or #debug in a link) prints them as well.
 (function () {
   const PROTO = 1;
-  const FORMAT = 'networks-14';   // the shared state's format (keys, the stories' state()): bump when it changes shape
+  const FORMAT = 'networks-15';   // the shared state's format (keys, the stories' state()): bump when it changes shape
   const BROWSER = (/OculusBrowser\/(\d+)/.exec(navigator.userAgent) || [])[1] || '';   // Quest Browser's version (shared spaces differ by it)
   const EYE = 1.6;               // a standing eye height (m): a station's rig hangs this high over its spot
   const AHEAD = 1.4;             // a station's content floats this far in front of its spot
@@ -30,7 +30,7 @@
   // so two stations never compete for one person
   const NEAR = 1.1, FAR = 1.5, DWELL = 1000;
   const DRIFT = 0.25;            // a story further than this from its station's clock jumps
-  // Arrange all: two rows in front of you (eleven stories: 6, and 5 behind them in the gaps), spots 2.4 m apart, the first row 1.2 m ahead,
+  // Arrange all: two rows in front of you (twelve stories: 6, and 6 behind them), spots 2.4 m apart, the first row 1.2 m ahead,
   // the second 2.6 m behind it; every station faces away from you, so its content floats beyond its spot
   const ROW = { gap: 2.4, ahead: 1.2, back: 2.6 };
   const PANEL_HOME = { p: [-0.56, 0.04, -0.86], yaw: Math.atan2(0.56, 0.86) };   // where every story hangs its panel
