@@ -64,7 +64,7 @@ function xrPlace(v, dt) {
 // junction's cut-away does): keepClear(o) returns a test (x, y, z, i) => drawn, for a point of the object and a vertex
 // of its triangle, or nothing.
 const XR_NEAR = 0.35, XR_VOX = 0.035;
-const _xsm = new WeakMap(), _xh = new THREE.Vector3(), _xu = new THREE.Vector3(), _xw = new THREE.Matrix4(), _xo = new THREE.Matrix4(), _xr = new THREE.Matrix4();
+const _xsm = new WeakMap(), _xh = new THREE.Vector3(), _xu = new THREE.Vector3(), _xw = new THREE.Matrix4(), _xo = new THREE.Matrix4(), _xr = new THREE.Matrix4(), _xs = new THREE.Matrix4();
 const xrKey = o => (o.isInstancedMesh ? o : o.geometry);
 const xrDrawn = o => (o.isMesh || o.isPoints || o.isLine) && !!o.geometry && !!o.geometry.attributes.position;
 // the sampler of one object, in slices (a generator: each step a few thousand points)
@@ -73,7 +73,7 @@ function* xrSampler(o, set) {
   const drawn = typeof set.keepClear === 'function' ? set.keepClear(o) : null;
   // the voxel in the object's own units, so every part of a set is sampled alike whatever its scale
   group.updateWorldMatrix(true, false); o.updateWorldMatrix(true, false);
-  const e = _xo.copy(group.matrixWorld).invert().multiply(o.matrixWorld).elements;
+  const e = _xs.copy(group.matrixWorld).invert().multiply(o.matrixWorld).elements;   // (its own matrix: xrClear holds _xo's)
   const v = XR_VOX / Math.sqrt(Math.max(e[0] * e[0] + e[1] * e[1] + e[2] * e[2], e[4] * e[4] + e[5] * e[5] + e[6] * e[6], e[8] * e[8] + e[9] * e[9] + e[10] * e[10])), rv = 0.5 * v;
   const cells = new Map(), pts = [];   // pts: x, y, z, radius
   let w = 0;   // work since the last slice
@@ -148,15 +148,17 @@ let _xjob = null, _xdone = false;
 function xrPrep(ms) {
   if (_xdone && !_xjob) return;
   const t0 = performance.now();
-  while (performance.now() - t0 < ms) {
-    if (!_xjob) {
-      let o = null, g = null;   // (g: its set)
-      for (const k of SET_ORDER) if (GL.sets[k].keepClear && !o) GL.sets[k].group.traverse(c => { if (!o && xrDrawn(c) && !_xsm.has(xrKey(c))) { o = c; g = GL.sets[k]; } });
-      if (!o) { _xdone = true; return; }
-      _xjob = xrSampler(o, g);
+  try {
+    while (performance.now() - t0 < ms) {
+      if (!_xjob) {
+        let o = null, g = null;   // (g: its set)
+        for (const k of SET_ORDER) if (GL.sets[k].keepClear && !o) GL.sets[k].group.traverse(c => { if (!o && xrDrawn(c) && !_xsm.has(xrKey(c))) { o = c; g = GL.sets[k]; } });
+        if (!o) { _xdone = true; return; }
+        _xjob = xrSampler(o, g);
+      }
+      if (_xjob.next().done) _xjob = null;
     }
-    if (_xjob.next().done) _xjob = null;
-  }
+  } catch (err) { console.warn('headset guard: sampling stopped', err); _xdone = true; _xjob = null; }   // never every frame
 }
 // the largest scale up to Rmax at which nothing of the sets that keep clear comes within XR_NEAR of your head, with the
 // view's target at (gx, gy, gz) in the rig's frame and the scene turned by GL.world.quaternion (the parts where they

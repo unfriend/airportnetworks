@@ -7,11 +7,11 @@
 // between two cues lasts long enough to read what appeared at its start; run
 // it again after the text changes). A recording replaces it with its own times.
 const NARRATION_SYNC = [
-  [0, 0], [5.3, 4.6], [18.7, 9],                      // Robot gang
-  [25.5, 14], [26.2, 14.6], [27.6, 15.2], [38.9, 21], [46.7, 27],  // Bump and turn
-  [54.7, 34], [55.4, 34.6], [56.3, 35.2], [64.5, 41],  // Follow me
-  [79.4, 54], [80.1, 54.6], [81.9, 55.2], [89.7, 61], [96.6, 67],  // Follow the one ahead
-  [110.7, 74], [111.4, 74.6], [112.3, 75.2], [116.4, 77], [129.1, 84],  // Your gang
+  [0, 0], [5.1, 4.6], [17.6, 9],                      // Robot gang
+  [23.9, 14], [24.6, 14.6], [25.9, 15.2], [36.5, 21], [43.7, 27],  // Bump and turn
+  [51.4, 34], [52.1, 34.6], [52.9, 35.2], [60.6, 41],  // Follow me
+  [74.9, 54], [76.2, 55.18], [77.2, 55.2], [84.5, 61], [91.1, 67],  // Follow the one ahead
+  [104.2, 74], [104.9, 74.6], [105.7, 75.2], [109.6, 77], [121.4, 84],  // Your gang
 ];
 // recording time -> original story time
 function storyT(t) {

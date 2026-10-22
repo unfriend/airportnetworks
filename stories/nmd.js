@@ -704,7 +704,7 @@ vec4 ribbon(vec3 a, vec3 b, float end, float side, float w, float wMin, float wM
   // across the ribbon: full in the middle, soft at the edges
   const RIBBON_FRAG = `varying vec3 vC; varying float vA, vS;
 void main() { float a = vA * (1.0 - abs(vS * vS * vS)); if (a < 0.0015) discard; gl_FragColor = vec4(vC, a); }`;
-  const LK = { ctx: 0.11, busy: 1.0, sel: 0.85, down: 0.4, mod: 0.36, seed: 0.6, pair: 0.6, hot: 0.35, within: 0.5, betw: 0.42, gene: 0.5,
+  const LK = { ctx: 0.11, busy: 0.8, sel: 0.85, down: 0.4, mod: 0.36, seed: 0.6, pair: 0.6, hot: 0.6, within: 0.5, betw: 0.42, gene: 0.5,
     wCtx: 0.0062, wHi: 0.0105, wMin: 1.1, wMaxC: 2.2, wMaxH: 3.6 };
   const lnMat = new THREE.ShaderMaterial({
     uniforms: uni(), transparent: true, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending,
@@ -735,7 +735,7 @@ void main() {
     vec3 na = mix(ca, vec3(0.47, 0.61, 0.88), busy), nb = mix(cb, vec3(0.47, 0.61, 0.88), busy);
     // highlighted: the module (its seeds' links brighter), the pair view's two groups
     float both = qa.y * qb.y, sb = qa.w * qb.w;
-    float mod_ = both * (${f1(LK.mod)} * mix(uMK.x, uMK.y, uX) + ${f1(LK.seed)} * sb * uSeeds) * nearM * (1.0 - 0.55 * uWalk);
+    float mod_ = both * (${f1(LK.mod)} * mix(uMK.x, uMK.y, uX) + ${f1(LK.seed)} * sb * uSeeds) * nearM * (1.0 - 0.2 * uWalk);   // (the walk's own links outshine the module's anyway)
     float hiA = sel * mod_ * (1.0 - uPair) + uPair * both * mix(${f1(PKF)}, ${f1(PKS)}, uSeedOnly) * ${f1(LK.pair)} * nearM;
     // the walk: the links between the genes it visits most, in the heat's colours (those between start genes less: the
     // walk found the others)
@@ -3124,18 +3124,16 @@ function updateLight(xr) {
 // between two cues lasts long enough to read what appeared at its start; run
 // it again after the text changes). A recording replaces it with its own times.
 const NARRATION_SYNC = [
-  [0, 0], [2.8, 2.4], [5.9, 4], [15, 11],             // Intro
-  [25.4, 20], [26.1, 20.6], [27.9, 21.2], [61, 50], [65.6, 51], [71.3, 56], [79.5, 60], [85.9, 64],  // Motor unit
-  [95.1, 72], [95.7, 72.6], [97.6, 73.2], [106.5, 81], [117.4, 87], [122.9, 91],  // Causes
-  [128.6, 96], [129.3, 96.6], [130.7, 97.2], [144.3, 104], [153.9, 110], [178.7, 131.6],
-  [196.2, 134],                                       // Layers
-  [205.4, 142], [206.1, 142.6], [208.8, 143.2], [218.4, 150], [240.2, 166], [251.7, 176],
-  [270.3, 186],                                       // Walker
-  [280.7, 195], [281.4, 195.6], [283.2, 196.2], [283.9, 196.8], [296.8, 202], [323.3, 225],  // Contexts
-  [336, 232],                                         // Endotypes
-  [388.9, 278], [389.6, 278.6], [391, 279.2], [398.8, 286], [417.9, 300],  // Heart and muscle
-  [463.9, 340], [464.6, 340.6], [465.9, 341.2], [490.5, 362.6], [508.9, 368],  // Stress test
-  [517, 375], [517.7, 375.6], [519, 376.2], [529.9, 384], [535.7, 389], [546.1, 395], [563.4, 410],  // Next
+  [0, 0], [2.6, 2.4], [4.4, 4],                       // Intro
+  [22, 20], [22.7, 20.6], [23.7, 21.2], [56, 50.6], [57.9, 51], [63.4, 56], [68, 60],  // Motor unit
+  [81.2, 72], [81.8, 72.6], [82.8, 73.2],             // Causes
+  [107.9, 96], [108.6, 96.6], [109.3, 97.2], [116.9, 104], [147.3, 131.6], [156.8, 134],  // Layers
+  [165.6, 142], [166.9, 143.18], [167.8, 143.2],      // Walker
+  [224.7, 195], [225.4, 195.6], [226.4, 196.2], [234, 202],  // Contexts
+  [267, 232],                                         // Endotypes
+  [317.6, 278], [318.3, 278.6], [319, 279.2],         // Heart and muscle
+  [385.9, 340], [386.6, 340.6], [387.3, 341.2], [410.2, 362], [420.8, 368],  // Stress test
+  [428.5, 375], [429.2, 375.6], [430, 376.2], [467.1, 410],  // Next
 ];
 // recording time -> original story time
 function storyT(t) {
@@ -4303,7 +4301,7 @@ function xrPlace(v, dt) {
 // junction's cut-away does): keepClear(o) returns a test (x, y, z, i) => drawn, for a point of the object and a vertex
 // of its triangle, or nothing.
 const XR_NEAR = 0.35, XR_VOX = 0.035;
-const _xsm = new WeakMap(), _xh = new THREE.Vector3(), _xu = new THREE.Vector3(), _xw = new THREE.Matrix4(), _xo = new THREE.Matrix4(), _xr = new THREE.Matrix4();
+const _xsm = new WeakMap(), _xh = new THREE.Vector3(), _xu = new THREE.Vector3(), _xw = new THREE.Matrix4(), _xo = new THREE.Matrix4(), _xr = new THREE.Matrix4(), _xs = new THREE.Matrix4();
 const xrKey = o => (o.isInstancedMesh ? o : o.geometry);
 const xrDrawn = o => (o.isMesh || o.isPoints || o.isLine) && !!o.geometry && !!o.geometry.attributes.position;
 // the sampler of one object, in slices (a generator: each step a few thousand points)
@@ -4312,7 +4310,7 @@ function* xrSampler(o, set) {
   const drawn = typeof set.keepClear === 'function' ? set.keepClear(o) : null;
   // the voxel in the object's own units, so every part of a set is sampled alike whatever its scale
   group.updateWorldMatrix(true, false); o.updateWorldMatrix(true, false);
-  const e = _xo.copy(group.matrixWorld).invert().multiply(o.matrixWorld).elements;
+  const e = _xs.copy(group.matrixWorld).invert().multiply(o.matrixWorld).elements;   // (its own matrix: xrClear holds _xo's)
   const v = XR_VOX / Math.sqrt(Math.max(e[0] * e[0] + e[1] * e[1] + e[2] * e[2], e[4] * e[4] + e[5] * e[5] + e[6] * e[6], e[8] * e[8] + e[9] * e[9] + e[10] * e[10])), rv = 0.5 * v;
   const cells = new Map(), pts = [];   // pts: x, y, z, radius
   let w = 0;   // work since the last slice
@@ -4387,15 +4385,17 @@ let _xjob = null, _xdone = false;
 function xrPrep(ms) {
   if (_xdone && !_xjob) return;
   const t0 = performance.now();
-  while (performance.now() - t0 < ms) {
-    if (!_xjob) {
-      let o = null, g = null;   // (g: its set)
-      for (const k of SET_ORDER) if (GL.sets[k].keepClear && !o) GL.sets[k].group.traverse(c => { if (!o && xrDrawn(c) && !_xsm.has(xrKey(c))) { o = c; g = GL.sets[k]; } });
-      if (!o) { _xdone = true; return; }
-      _xjob = xrSampler(o, g);
+  try {
+    while (performance.now() - t0 < ms) {
+      if (!_xjob) {
+        let o = null, g = null;   // (g: its set)
+        for (const k of SET_ORDER) if (GL.sets[k].keepClear && !o) GL.sets[k].group.traverse(c => { if (!o && xrDrawn(c) && !_xsm.has(xrKey(c))) { o = c; g = GL.sets[k]; } });
+        if (!o) { _xdone = true; return; }
+        _xjob = xrSampler(o, g);
+      }
+      if (_xjob.next().done) _xjob = null;
     }
-    if (_xjob.next().done) _xjob = null;
-  }
+  } catch (err) { console.warn('headset guard: sampling stopped', err); _xdone = true; _xjob = null; }   // never every frame
 }
 // the largest scale up to Rmax at which nothing of the sets that keep clear comes within XR_NEAR of your head, with the
 // view's target at (gx, gy, gz) in the rig's frame and the scene turned by GL.world.quaternion (the parts where they

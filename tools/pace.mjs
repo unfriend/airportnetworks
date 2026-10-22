@@ -2,9 +2,9 @@
 // Without a recording, NARRATION_SYNC sets a story's pace: it maps the clock (APP.t, the timeline) to story time, the
 // time the chapters, data-at cues, camera and animation are written in. This stretches every stretch of the story
 // between two cues (each data-at element, each chapter's start and end) so that the words that appear at its start can
-// be read: it lasts max(1.15 x its story time, words / 2.2) seconds (words with letters in them: numbers, and so a line
-// of numbers alone, are read at a glance; the airports' recording runs at 2.1 such words a second). Story time stays as
-// it is, so nothing else changes.
+// be read: it lasts max(1.1 x its story time, words / rate) seconds (words with letters in them: numbers, and so a line
+// of numbers alone, are read at a glance), with the rate chosen per story so that the whole story reads at the airports'
+// pace, 2.1 such words a second as its recording runs. Story time stays as it is, so nothing else changes.
 // A story with a recorded narration (its MP3 in audio/) is left alone: its table follows the recording instead.
 // Usage: serve the folder, then node tools/pace.mjs http://127.0.0.1:8123/ [--write] [story keys]
 //   prints the tables; --write puts them into the sources (tools/<story>/engine/e3_story.js, or stories/<story>.js for
@@ -17,7 +17,7 @@ import { execFileSync } from 'node:child_process';
 const args = process.argv.slice(2), write = args.includes('--write');
 const base = args.find(a => /^https?:/.test(a)) || 'http://127.0.0.1:8123/';
 const only = args.filter(a => !a.startsWith('-') && !/^https?:/.test(a));
-const RATE = 2.2, SLOW = 1.15, FADE = 0.6; // words a second to read by; the least a stretch slows down; a line's fade-in
+const PACE = 2.1, SLOW = 1.1, FADE = 0.6; // the airports' words a second; the least a stretch slows down; a line's fade-in
 const { chromium } = await import(process.env.PLAYWRIGHT_MODULE || 'playwright');
 const browser = await chromium.launch({
   executablePath: process.env.CHROMIUM_PATH || undefined,
@@ -70,27 +70,36 @@ for (const key of list) {
     const w = l.text.split(/\s+/).filter(s => /[A-Za-z]/.test(s)).length;
     words.set(at, (words.get(at) || 0) + w); cues.add(at); total += w;
   }
-  const S = [...cues].sort((a, b) => a - b), P = [];   // P: points [story time, recording time]
-  let r = 0;
-  for (let i = 0; i + 1 < S.length; i++) {
-    const ds = S[i + 1] - S[i], dr = Math.max(SLOW * ds, (words.get(S[i]) || 0) / RATE);
-    P.push([S[i], r]);
-    // a line fades in over 0.6 s of story time, so in a stretch slowed down for reading it would take seconds: there it
-    // runs at the light pace (a further knot) and the rest of the stretch takes the extra time, so the text is there to
-    // read at once. Only where the scene does not stop for it: when the rest is at least as long as the fade, or the
-    // scene runs at a sixth of its speed or less anyway
-    const f = Math.min(FADE, ds - 0.02);
-    if (dr > 2 * SLOW * ds && f > 0.05 && (ds >= 2 * FADE || dr >= 6 * ds)) P.push([S[i] + f, r + SLOW * f]);
-    r += dr;
-  }
-  P.push([end, r]);
-  // knots: every chapter boundary, and every point where the pace changes; recording times to 0.1 s, strictly rising
-  const starts = new Set(CH.map(c => c.a).concat(end)), knots = [];
-  const sl = i => (P[i + 1][1] - P[i][1]) / (P[i + 1][0] - P[i][0]);
-  P.forEach(([s, t], i) => {
-    if (i && i < P.length - 1 && !starts.has(s) && Math.abs(sl(i - 1) - sl(i)) < 1e-9) return;
-    knots.push([Math.max(r1(t), knots.length ? r1(knots[knots.length - 1][0] + 0.1) : 0), r2(s)]);
-  });
+  const S = [...cues].sort((a, b) => a - b);
+  // the table for a reading rate (words a second): P are points [story time, recording time], the knots the table's rows
+  const tableFor = RATE => {
+    const P = [];
+    let r = 0;
+    for (let i = 0; i + 1 < S.length; i++) {
+      const ds = S[i + 1] - S[i], dr = Math.max(SLOW * ds, (words.get(S[i]) || 0) / RATE);
+      P.push([S[i], r]);
+      // a line fades in over 0.6 s of story time, so in a stretch slowed down for reading it would take seconds: there
+      // it runs at the light pace (a further knot) and the rest of the stretch takes the extra time, so the text is
+      // there to read at once (also a heading in a short stretch: the scene waits a moment for it)
+      const f = Math.min(FADE, ds - 0.02);
+      if (dr > 2 * SLOW * ds && f > 0.05) P.push([S[i] + f, r + SLOW * f]);
+      r += dr;
+    }
+    P.push([end, r]);
+    // knots: every chapter boundary, and every point where the pace changes; recording times to 0.1 s, strictly rising
+    const starts = new Set(CH.map(c => c.a).concat(end)), knots = [];
+    const sl = i => (P[i + 1][1] - P[i][1]) / (P[i + 1][0] - P[i][0]);
+    P.forEach(([s, t], i) => {
+      if (i && i < P.length - 1 && !starts.has(s) && Math.abs(sl(i - 1) - sl(i)) < 1e-9) return;
+      knots.push([Math.max(r1(t), knots.length ? r1(knots[knots.length - 1][0] + 0.1) : 0), r2(s)]);
+    });
+    return knots;
+  };
+  // the reading rate that gives the whole story the airports' pace (PACE words a second, as its recording reads):
+  // text-heavy stretches slow down most, light ones keep near their speed
+  let lo = 1.5, hi = 5;
+  for (let k = 0; k < 30; k++) { const m = (lo + hi) / 2, kn = tableFor(m); if (total / kn[kn.length - 1][0] > PACE) hi = m; else lo = m; }
+  const rate = (lo + hi) / 2, knots = tableFor(rate);
   // one line (or a few) per chapter, as in the airports' table
   const rows = [];
   for (const c of CH) {
@@ -111,7 +120,7 @@ for (const key of list) {
   const nT = o => { for (let i = 1; i < knots.length; i++) if (o <= knots[i][1]) { const [n0, o0] = knots[i - 1], [n1, o1] = knots[i]; return n0 + (n1 - n0) * (o - o0) / (o1 - o0); } return newEnd; };
   const fades = [...words].filter(([, w]) => w).map(([s]) => [nT(s + 0.6 * FADE) - nT(s), s]).sort((a, b) => a[0] - b[0]);
   const fm = fades[fades.length >> 1][0], fw = fades.slice(-3).reverse().map(([f, s]) => `${f.toFixed(1)} s at ${mmss(nT(s))}`).join(', ');
-  console.log(`\n// ${key}: ${total} words, ${mmss(oldEnd)} -> ${mmss(newEnd)} (${info.oldRate.toFixed(2)} -> ${info.newRate.toFixed(2)} words a second)\n// lines readable after ${fm.toFixed(1)} s (median); slowest ${fw}\n${table}`);
+  console.log(`\n// ${key}: ${total} words, ${mmss(oldEnd)} -> ${mmss(newEnd)} (${info.oldRate.toFixed(2)} -> ${info.newRate.toFixed(2)} words a second; stretches read at ${rate.toFixed(2)})\n// lines readable after ${fm.toFixed(1)} s (median); slowest ${fw}\n${table}`);
   if (write) {
     const f = srcOf(key), src = fs.readFileSync(f, 'utf8'), re = /const NARRATION_SYNC = \[\n[\s\S]*?\n\];/;
     if (!re.test(src)) throw new Error(`${f}: no NARRATION_SYNC table found`);

@@ -115,6 +115,8 @@ for (const key of ['airports', 'proteins', 'spatial', 'lbi', 'nmd', 'endo', 'pet
       peek(`setCtl('flock', '${c.key}', '${v}')`); await sleep(150);
       peek(`(() => { XR.on = true; for (const P of XR.panels) { P.last = ''; P.t = -1e9; panelTick(P, performance.now() + 1e6); } XR.on = false; })()`);
     }
+    // (the count follows on the next frames: a busy machine draws slowly, so wait up to 3 s)
+    for (let k = 0; k < 30 && peek('GL.sets.flock.birds()') !== 400; k++) await sleep(100);
     if (peek('GL.sets.flock.birds()') !== 400) throw new Error('the bird count did not follow its control');
     peek('sendFalcon([0, 0.3, -1])'); await sleep(100);
     if (!peek('GL.sets.flock.falconOn()')) throw new Error('a click on the sky sent no falcon');

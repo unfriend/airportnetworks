@@ -3960,18 +3960,17 @@ function updateLight(xr) {
 // between two cues lasts long enough to read what appeared at its start; run
 // it again after the text changes). A recording replaces it with its own times.
 const NARRATION_SYNC = [
-  [0, 0], [4.6, 4], [13.7, 9],                        // Intro
-  [24.6, 14], [25.3, 14.6], [26.7, 15.2], [37.1, 24], [47.1, 31], [55.7, 36], [56.4, 36.6],  // Tired
-  [66.2, 40], [66.9, 40.6], [68.3, 41.2], [75.5, 46], [98.1, 65.6], [111, 67], [111.7, 67.6],  // Genes
-  [119.2, 70], [129.5, 79], [143.2, 87], [143.9, 87.6], [153.2, 89], [167.7, 101.6], [173.8, 103],  // Network
-  [184.3, 108], [184.9, 108.6], [187.7, 109.2], [203.6, 119], [216.2, 130], [224.4, 134],
-  [226.1, 135.5], [228, 137], [231.4, 140],           // Walk
-  [245.9, 148], [246.6, 148.6], [248, 149.2], [263.9, 159], [277.1, 170], [284.7, 176.6], [289, 178],  // Neighbours
-  [297, 185], [298.4, 186.18], [301.4, 186.2], [309.2, 193], [325.1, 204], [335.4, 213],
-  [342.7, 217],                                       // Tree
-  [351.9, 225], [353.3, 226.2], [367.8, 233], [379.3, 243], [393.9, 253],  // Endotypes
-  [430.7, 285], [431.4, 285.6], [433.2, 286.2], [436.4, 288.5], [439.6, 291], [445, 294], [450, 298],
-  [450.7, 298.6], [460, 302], [462.3, 304], [475, 310],  // What for
+  [0, 0], [4.4, 4], [12.4, 9],                        // Intro
+  [22.1, 14], [22.7, 14.6], [23.9, 15.2], [33.6, 24], [42.5, 31], [50.1, 36], [50.7, 36.6],  // Tired
+  [59.3, 40], [60, 40.6], [61.2, 41.2], [67.6, 46], [89.2, 65.6], [100.6, 67], [101.2, 67.6],  // Genes
+  [107.8, 70], [117.7, 79], [129.7, 87], [130.4, 87.6], [138.6, 89], [152.4, 101.6], [157.8, 103],  // Network
+  [167, 108], [168.3, 109.18], [170.1, 109.2], [184.2, 119], [196.3, 130], [203.5, 134],
+  [210.1, 140],                                       // Walk
+  [222.9, 148], [223.6, 148.6], [224.8, 149.2], [238.9, 159], [258.2, 176.6], [262, 178],  // Neighbours
+  [269.7, 185], [271, 186.18], [273.6, 186.2], [281, 193], [295.1, 204], [305, 213], [311.4, 217],  // Tree
+  [320.2, 225], [321.5, 226.2], [334.4, 233], [345.4, 243], [358.2, 253],  // Endotypes
+  [393.4, 285], [394.7, 286.18], [395.7, 286.2], [398.5, 288.5], [401.3, 291], [406.2, 294],
+  [410.6, 298], [411.2, 298.6], [419.4, 302], [421.6, 304], [432.9, 310],  // What for
 ];
 // recording time -> original story time
 function storyT(t) {
@@ -5100,7 +5099,7 @@ function xrPlace(v, dt) {
 // junction's cut-away does): keepClear(o) returns a test (x, y, z, i) => drawn, for a point of the object and a vertex
 // of its triangle, or nothing.
 const XR_NEAR = 0.35, XR_VOX = 0.035;
-const _xsm = new WeakMap(), _xh = new THREE.Vector3(), _xu = new THREE.Vector3(), _xw = new THREE.Matrix4(), _xo = new THREE.Matrix4(), _xr = new THREE.Matrix4();
+const _xsm = new WeakMap(), _xh = new THREE.Vector3(), _xu = new THREE.Vector3(), _xw = new THREE.Matrix4(), _xo = new THREE.Matrix4(), _xr = new THREE.Matrix4(), _xs = new THREE.Matrix4();
 const xrKey = o => (o.isInstancedMesh ? o : o.geometry);
 const xrDrawn = o => (o.isMesh || o.isPoints || o.isLine) && !!o.geometry && !!o.geometry.attributes.position;
 // the sampler of one object, in slices (a generator: each step a few thousand points)
@@ -5109,7 +5108,7 @@ function* xrSampler(o, set) {
   const drawn = typeof set.keepClear === 'function' ? set.keepClear(o) : null;
   // the voxel in the object's own units, so every part of a set is sampled alike whatever its scale
   group.updateWorldMatrix(true, false); o.updateWorldMatrix(true, false);
-  const e = _xo.copy(group.matrixWorld).invert().multiply(o.matrixWorld).elements;
+  const e = _xs.copy(group.matrixWorld).invert().multiply(o.matrixWorld).elements;   // (its own matrix: xrClear holds _xo's)
   const v = XR_VOX / Math.sqrt(Math.max(e[0] * e[0] + e[1] * e[1] + e[2] * e[2], e[4] * e[4] + e[5] * e[5] + e[6] * e[6], e[8] * e[8] + e[9] * e[9] + e[10] * e[10])), rv = 0.5 * v;
   const cells = new Map(), pts = [];   // pts: x, y, z, radius
   let w = 0;   // work since the last slice
@@ -5184,15 +5183,17 @@ let _xjob = null, _xdone = false;
 function xrPrep(ms) {
   if (_xdone && !_xjob) return;
   const t0 = performance.now();
-  while (performance.now() - t0 < ms) {
-    if (!_xjob) {
-      let o = null, g = null;   // (g: its set)
-      for (const k of SET_ORDER) if (GL.sets[k].keepClear && !o) GL.sets[k].group.traverse(c => { if (!o && xrDrawn(c) && !_xsm.has(xrKey(c))) { o = c; g = GL.sets[k]; } });
-      if (!o) { _xdone = true; return; }
-      _xjob = xrSampler(o, g);
+  try {
+    while (performance.now() - t0 < ms) {
+      if (!_xjob) {
+        let o = null, g = null;   // (g: its set)
+        for (const k of SET_ORDER) if (GL.sets[k].keepClear && !o) GL.sets[k].group.traverse(c => { if (!o && xrDrawn(c) && !_xsm.has(xrKey(c))) { o = c; g = GL.sets[k]; } });
+        if (!o) { _xdone = true; return; }
+        _xjob = xrSampler(o, g);
+      }
+      if (_xjob.next().done) _xjob = null;
     }
-    if (_xjob.next().done) _xjob = null;
-  }
+  } catch (err) { console.warn('headset guard: sampling stopped', err); _xdone = true; _xjob = null; }   // never every frame
 }
 // the largest scale up to Rmax at which nothing of the sets that keep clear comes within XR_NEAR of your head, with the
 // view's target at (gx, gy, gz) in the rig's frame and the scene turned by GL.world.quaternion (the parts where they
