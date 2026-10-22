@@ -1150,7 +1150,7 @@
     OV.room = new THREE.Group(); OV.room.matrixAutoUpdate = false;
     OV.root.add(OV.room);
     OV.panelG = new THREE.Group();
-    OV.panel = sheet(720, 1200, 0.42, 53);
+    OV.panel = sheet(720, 1320, 0.42, 53);   // (the tallest it gets: a room on this headset with a three-line note, 1281 px)
     OV.panelG.add(OV.panel.mesh); OV.root.add(OV.panelG);
     OV.panel.mesh.userData.shell = { kind: 'panel' };
     // the menu's clock: the group's origin is the face's middle
@@ -1413,6 +1413,7 @@
     if (sig === S.sig) return;
     S.sig = sig;
     const ctx = S.ctx, W = S.w, x = 34, w = W - 68, bw = (w - 16) / 2;
+    const YOU = 36 + 70 + 46 + 28;   // the You section at the bottom (its label, name, colours and margin): kept free
     ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, W, S.h); ctx.textBaseline = 'top'; ctx.textAlign = 'left';
     S.regions = [];
     // the header: Menu, how it closes again, and Close
@@ -1525,10 +1526,10 @@
         ctx.font = FONT(22); ctx.fillStyle = MUTED;
         y += wrapText(ctx, 'Kept on this headset. Once a relay answers, the room moves there and others can join.', x, y, w, 30, 2) + 14;
         line();
-      } else if (S.h - y - 152 - 26 - 36 >= 38) {   // (as many people as fit above You; none when nothing fits: the title counts them)
+      } else if (S.h - y - YOU - 26 - 36 >= 38) {   // (as many people as fit above You; none when nothing fits: the title counts them)
         label('People');
-        // as many as fit above "You" (152 px); the rest as a count
-        const fitN = Math.max(1, Math.floor((S.h - y - 152 - 26 - 36) / 38)), shown = C.members.length > fitN ? fitN - 1 : fitN;
+        // as many as fit above "You"; the rest as a count
+        const fitN = Math.max(1, Math.floor((S.h - y - YOU - 26 - 36) / 38)), shown = C.members.length > fitN ? fitN - 1 : fitN;
         for (const m of C.members.slice(0, Math.max(0, shown))) {
           const P = m.id === C.id ? { st: C.mine } : C.pres.get(m.id), s = P && C.stById.get(P.st);
           ctx.fillStyle = m.color || INK; rr(ctx, x, y + 4, 22, 22, 6); ctx.fill();
@@ -1673,15 +1674,26 @@
     const h = hovOf(i);
     if (!h) return;
     if (h.target.kind === 'mark') { R.mark(i); return; }   // calibrating (the panel's Stop calibrating still works)
-    if (h.target.kind === 'clock') { toggleMenu('trigger'); return; }
-    if (h.target.kind === 'panel') { const r = OV.panel.at(h.x, h.y); if (r && r.fn) { log('panel', { id: r.id }); r.fn(); OV.panel.sig = ''; } }
+    if (h.target.kind === 'clock') {
+      // the tip touching the clock as the trigger is pulled: the touch has opened (or closed) it already, or must not now
+      if (TCH.near) { if (!TCH.armed) return; TCH.armed = false; }
+      toggleMenu('trigger'); return;
+    }
+    if (h.target.kind === 'panel') { const r = OV.panel.at(h.x, h.y); if (r && r.fn && !twice(r.id, 'ray')) { log('panel', { id: r.id }); r.fn(); OV.panel.sig = ''; } }
     else if (h.target.kind === 'station' && !h.target.live && !MV.src) choose(h.target.id, 'pick');   // not while carrying one
   }
   // touching the clock opens and closes the menu: the right controller's tip (the first 4 cm of its ray) or the right
   // index fingertip within 4 cm of the clock's middle; it takes another touch only once moved 7 cm away. A fingertip
-  // also presses the open menu's buttons: within 1.5 cm of the panel over one, again once pulled back 3 cm
-  const TCH = { armed: false, near: false }, POKE = { armed: true, hov: null, ok: false, tip: new THREE.Vector3() };
+  // also presses the open menu's buttons: within 1.5 cm of the panel over one, again once pulled back 3 cm; a pinch
+  // on the ray at the button the fingertip has just pressed (or the other way round, within 0.7 s) counts once
+  const TCH = { armed: false, near: false }, POKE = { armed: true, hov: null, ok: false, tip: new THREE.Vector3() }, LASTP = { id: '', by: '', at: 0 };
   const _to = new THREE.Vector3(), _td = new THREE.Vector3(), _tm = new THREE.Matrix4();
+  function twice(id, by) {
+    const t = performance.now();
+    if (LASTP.id === id && LASTP.by !== by && t - LASTP.at < 700) return true;
+    Object.assign(LASTP, { id, by, at: t });
+    return false;
+  }
   function touch(f, local) {
     let src = null, d = Infinity;
     POKE.ok = false;
@@ -1703,8 +1715,13 @@
       }
     }
     const sc = OV.clockG ? OV.clockG.scale.x : 1;   // (beside the story panel the clock is twice the size)
+    // not while that hand is busy: its grip held (carrying a station, the scene or a panel; both grips resizing the
+    // scene bring the hands together) or calibrating (its tip goes to the tape marks); a touch begun busy waits
+    // until the hand has moved away
+    const gp = src && src.gamepad, busy = !!(R.calib || (src && MV.src === src) || (gp && gp.buttons && gp.buttons[1] && gp.buttons[1].pressed));
     TCH.near = d < 0.07 * sc;
     if (!TCH.near) TCH.armed = true;
+    else if (busy) TCH.armed = false;
     else if (TCH.armed && d < 0.04 * sc) { TCH.armed = false; pulse(src, 0.4, 25); toggleMenu(src.hand ? 'finger' : 'touch'); }
     poke();
   }
@@ -1715,7 +1732,7 @@
     const on = u >= 0 && u <= 1 && v >= 0 && v <= 1, r = on && dz > -0.03 && dz < 0.05 ? S.at(u * S.w, v * S.vis) : null;
     POKE.hov = r ? r.id : null;
     if (dz > 0.03 || (!on && dz > 0)) POKE.armed = true;   // (pulled back, or beside it in front: not from behind)
-    else if (POKE.armed && dz < 0.015 && r && r.fn) { POKE.armed = false; log('panel', { id: r.id, by: 'finger' }); r.fn(); S.sig = ''; }
+    else if (POKE.armed && dz < 0.015 && r && r.fn) { POKE.armed = false; if (!twice(r.id, 'finger')) { log('panel', { id: r.id, by: 'finger' }); r.fn(); S.sig = ''; } }
   }
 
   // ---------------------------------------------------------- every frame --
