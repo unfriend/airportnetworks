@@ -1,5 +1,5 @@
 // ------------------------------------------------------------- narration --
-// Optional voice-over: put an MP3 at audio/narration-qubits.mp3.
+// Optional voice-over: put an MP3 at audio/narration-pass.mp3 (one recording, in English: the German reader reads).
 // Second 0 of the recording plays at second 0 of the story; the story clock
 // follows the audio, so seeking, pausing and chapter jumps stay in sync.
 // Without the file the story runs silently. The sound engine is the shell's
@@ -7,7 +7,7 @@
 // and kept running across stories and headset sessions.
 let AUD = null;
 function audioInit() {
-  AUD = HOST.audio.narration('audio/narration-qubits.mp3', {
+  AUD = HOST.audio.narration('audio/narration-pass.mp3', {
     // a recording longer than the story stretches the timeline
     ready(d) {
       if (d + 1 <= T_END) return;
@@ -123,12 +123,12 @@ const APP = {
     for (const n in DEF) XS[n] = S[n];
     // (the set on show, or the one about to come: a short fade between two of the same set's views shows none)
     const S2 = storyState(Math.min(ts + 1.5, T_END));
-    let best = 'cube', ba = 0;
+    let best = 'fish', ba = 0;
     for (const k of SET_ORDER) { const a = Math.max(S[k + '_a'], 0.9 * S2[k + '_a']); if (a > ba + 0.01) { ba = a; best = k; } }
     // the story's view, taken back into the set's own frame (explore shows sets unturned)
     const v = storyCam(ts).slice(0, 6), r = -setYaw(best, ts) * D2R, x = v[3], z = v[5];
     v[0] += r / D2R; v[3] = x * Math.cos(r) + z * Math.sin(r); v[5] = -x * Math.sin(r) + z * Math.cos(r);
-    orbit.cur = v; orbit.to = null;
+    orbit.cur = best === 'fish' ? followView(v, 0, true).slice(0, 6) : v; orbit.to = null;
     X.scene = best; X.t0 = performance.now();
     // and pick the scene's controls that come closest to what the story was showing
     const s = GL.sets[best];
@@ -140,45 +140,55 @@ const APP = {
         for (const c2 of s.controls || []) c[c2.key] = c2 === ct ? v : ctlValue(best, c2);
         const tg = s.explore ? s.explore(c) : {};
         let d = 0;
-        for (const n in tg) if (n in S && !n.endsWith('_a') && !/_focus$|_code$/.test(n)) d += (tg[n] - S[n]) ** 2;
+        for (const n in tg) if (n in S && !n.endsWith('_a') && n !== 'globe_day') d += (tg[n] - S[n]) ** 2;
         if (d < bd) { bd = d; bo = v; }
       }
       X.ctl[best][ct.key] = bo;
     }
-    // the story's picks carry over to the panes: the string on the big cube, the gallery, the strings added up
-    X.brick = null; X.sum = 0; X.gal = 'largest';
-    if (best === 'cube') {
-      const L = clamp(Math.round(S.cube_bits), 1, 3), f = Math.round(S.cube_focus);
-      if (f >= 0 && f < 1 << (2 * L)) X.brick = Q.name(f, L);
-      if (S.cube_lesson > 0.5) X.gal = 'kinds';
-      else if (S.cube_build > 0.5) X.sum = clamp(Math.round(S.cube_sum), 0, NB());
-    }
-    X.tab = best === 'chart' ? 'depth' : best === 'pairs' ? 'scenes' : viewIs('cube', 'bricks') || viewIs('cube', 'toolbox') ? 'bricks' : 'network';
-    // from the last chapter (the story's end, or its Explore button): the cube, in the Network tab
-    if (ts >= C.circuit.a) openStart();
+    // the story's school carries over as it is (its neighbours, its size), and the story's outbreak (on, at its day)
+    setFishK(Math.round(S.fish_k), false); X.n = clamp(Math.round(S.fish_n / 50) * 50, 100, 600);
+    if (best === 'fish') X.ctl.fish.view = 'default';
+    if (best === 'globe' && S.globe_out > 0.5) { X.ctl.globe.out = 'on'; X.out.day = Math.min(S.globe_day, 1e9); X.out.playing = false; }
+    X.tab = best === 'globe' ? 'outbreak' : best;
+    outApply();
+    // from the last chapter (the story's end, or its Explore button): the cell, in the Cell tab, CFTR picked
+    if (ts >= C.med.a) openStart();
     ST.labels.forEach(L => { L.el.style.opacity = 0; L.o = 0; });
-    showTab(X.tab); pushState(); renderAll();
+    exploreHTML(); pushState();
     $('#panel').scrollTop = 0;
   },
   enterStory(t) {
     this.mode = 'story';
     document.body.classList.remove('exploring');
     $('#btnMode').textContent = 'Explore now';
-    // the story shows its scenes as it tells them: no picked string
-    X.brick = null; X.sum = 0; NEXT.length = 0; pushState();
+    // the story shows its own outbreak and picks none (explore's come back with explore)
+    NEXT.length = 0; pushState();
+    if (GL.sets) { outSetup(STORY_OUT); api('globe').select(-1); api('cell').select(-1); api('cell').isolate(null); GL.sets.fish.steer(null); }
     $('#tip').style.opacity = 0;
     this.t = t || 0; this.playing = true; curCh = null;
   },
 };
 
-// explore mode's start: the story's network on the cube, in the Network tab
+// explore mode's start from the story's end: the cell, in the Cell tab, with CFTR (the story's wrong place) picked
 function openStart() {
-  openScene('cube', false);
-  X.ctl.cube = Object.assign(X.ctl.cube || {}, { view: 'cube', net: String(NETI), cut: '0', bits: '3' });
-  X.brick = null; X.sum = 0; X.gal = 'largest';
-  X.tab = 'network'; showTab('network');
-  orbit.cur = view('cube', viewCam('cube') || 'default'); orbit.to = null;
-  renderAll();
+  openScene('cell', false);
+  X.ctl.cell = Object.assign(X.ctl.cell || {}, { view: 'default', move: 'cf' });
+  X.tab = 'cell';
+  selectProtein('CFTR', undefined, false);
+  orbit.cur = view('cell', viewCam('cell') || 'default'); orbit.to = null;
+}
+
+// the language: every word of the story, its labels and panes, at once (the sets' too); kept on this device
+function setLang(l, keep = true) {
+  if (!LANGS.includes(l)) return;
+  LANG = l;
+  if (keep) { try { localStorage.setItem('passLang', l); } catch (e) { /* private mode */ } }
+  for (const k of SET_ORDER) if (GL.sets[k].setLang) GL.sets[k].setLang(l);
+  buildStoryDOM(); relabel(); trackHTML();
+  for (const L of LBL.sets) { L.tx = ''; labelText(L); }
+  if (XR.tip) { dropSprite(XR.tip); XR.tip = null; XR.tipI = -1; }
+  exploreHTML();
+  if (APP.mode === 'story') updateStoryDOM(storyT(APP.t));
 }
 
 let lastNow = 0;
@@ -199,11 +209,13 @@ function frame(now, xrFrame) {
   if (APP.mode === 'story' && APP.playing && APP.t >= T_END) { APP.t = T_END; if (HOST.ended()) APP.playing = false; else APP.enterExplore(); }
   audioSync();
   const ts = storyT(APP.t); // original story time for this point in the narration
+  // (among the fish, on a screen, the camera turns to keep the school in view, unless you look around yourself)
+  const fol = (Sx, v) => ((Sx.fish_a || 0) >= 0.5 && following() ? followView(v, dt) : v);
   if (APP.mode === 'story') {
     S = storyState(ts); tSet = ts;
     const v = storyCam(ts);
     GL.nf = v[6];
-    if (xr) xrPlace(v); else { applyCamera(v); keepCamera(S, ts); }
+    if (xr) xrPlace(v); else { applyCamera(fol(S, v)); keepCamera(S, ts); }
     updateStoryDOM(ts);
     updateTimeline(APP.t, APP.playing);
   } else {
@@ -216,11 +228,18 @@ function frame(now, xrFrame) {
     for (let i = 0; i < 3; i++) EXV[7 + i] += (fs[i] - EXV[7 + i]) * ke;
     orbitStep(xr ? pn : now);
     for (let i = 0; i < 6; i++) EXV[i] = orbit.cur[i];
-    if (xr) xrPlace(orbit.cur); else { applyCamera(EXV); keepCamera(S, null); }
+    if (xr) xrPlace(orbit.cur); else { applyCamera(fol(S, EXV)); keepCamera(S, null); }
   }
+  // the fish: life size round you in a headset (their holder), the sea hidden in passthrough (the school swims in your
+  // room) and never shrunk there (in a headset the rise to the globe only fades: the viewer never moves)
+  GL.lifeOn = (S.fish_a || 0) >= 0.5;
+  placeLife(xr);
+  if (XR.on && (!XR.clear || xr)) S = Object.assign({}, S, XR.clear ? { fish_scale: 1 } : { fish_water: 0, fish_scale: 1 });
+  if (!xr) setLens(S.lens);
   K.U.uTime.value = tSet;
   GL.camera.updateMatrixWorld();
   updateLight(xr);
+  tellFish(xr, fishSync());
   updateSets(S, tSet, dt, APP.mode === 'story');
   // what explore mode asked to do once the sets show its pick
   if (NEXT.length) { const fs = NEXT.splice(0); if (APP.mode === 'explore') for (const f of fs) f(); }
@@ -264,6 +283,8 @@ function init() {
   (GL.mo = new MutationObserver(applyTheme)).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
   $('#btnMode').addEventListener('click', () => (APP.mode === 'story' ? APP.enterExplore() : APP.enterStory(0)));
   document.addEventListener('click', ev => { if (ev.target.id === 'btnGoExplore') APP.enterExplore(); });
+  // the language switch, on the story panel and above the explore tabs
+  $('#panel').addEventListener('click', ev => { const b = ev.target.closest('button[data-lang]'); if (b && LANGS.includes(b.dataset.lang)) setLang(b.dataset.lang); });
   document.addEventListener('keydown', ev => {
     if (ev.target.closest('input, textarea')) return;
     if (ev.key === ' ' && APP.mode === 'story' && !ev.target.closest('button')) { APP.togglePlay(); ev.preventDefault(); }
@@ -277,33 +298,35 @@ function init() {
   if (hp.has('t')) { APP.t = clamp(parseFloat(hp.get('t')) || 0, 0, T_END - 0.01); APP.playing = false; }
   if (hp.has('explore')) {
     APP.enterExplore();
-    // #qubits&explore&scene=cube&view=bricks (any control of a scene by its key, or an option by its name or camera),
-    // &tab=network|bricks|depth|scenes, &net=blurred (an example network by key or name, or its number), &cut=random,
-    // &bits=2, &alg=so7 or so6 (or odd, tfim), &brick=X2X1, &sum=10 (strings added up), &gal=kinds, &ex=on, &src=ex
-    const sc = hp.get('scene');
+    // #pass&explore&tab=fish|outbreak|cell|scenes; &scene=fish|globe|cell and any of its controls by key (&view=afar);
+    // the fish: &k=1..12, &n=100..600, &links=on, &shark (be the shark), &hunt (send one); the outbreak: &start=LHR,
+    // &inc=3, &inf=10, &spread=high, &cut=50, &day=20, &play, &city=SYD, &click=look; the cell: &protein=CFTR,
+    // &move=nfkb; &lang=de (see the language); &now (no glide)
+    const sc = hp.get('scene'), tab = hp.get('tab');
     if (sc && GL.sets[sc]) { openScene(sc, false); showTab('scenes'); }
-    else if (!hp.has('t')) openStart();   // straight in: the cube
+    else if (TABS.some(t => t[0] === tab)) { showTab(tab); if (TAB_SCENE[tab]) openScene(TAB_SCENE[tab], false); }
+    else if (!hp.has('t')) openStart();   // straight in: the cell, as at the story's end
+    if (tab && TABS.some(t => t[0] === tab)) showTab(tab);
     orbit.cur = view(X.scene, viewCam(X.scene) || 'default'); orbit.to = null;
     // controls after the default view, so a control's own view wins
     for (const c of ctlsOf(X.scene)) {
-      const q = String(hp.get(c.key) || '').toLowerCase(), o = q && c.options.find(([v, n]) => v.toLowerCase() === q || String(n).toLowerCase() === q || camFor(X.scene, v) === q || (CAM_ALIAS[X.scene] || {})[v] === q);
-      if (o) setCtl(X.scene, c.key, o[0]);
+      const q = String(hp.get(c.key) || '').toLowerCase(), o = q && c.options.find(([v, n]) => v.toLowerCase() === q || String(n).toLowerCase() === q);
+      if (o) setCtl(X.scene, c.key, o[0], false);
     }
-    // the cube's network, cut, bits and algebra from any tab
-    const nq = String(hp.get('net') || '').toLowerCase(), ni = Q.NETS.findIndex((n, i) => n.key === nq || n.name.toLowerCase() === nq || String(i) === nq);
-    if (ni >= 0) setCtl('cube', 'net', String(ni));
-    if (hp.get('cut')) setCtl('cube', 'cut', /^(1|random)/i.test(hp.get('cut')) ? '1' : '0');
-    if (hp.get('bits')) setCtl('cube', 'bits', String(clamp(parseInt(hp.get('bits'), 10) || 3, 1, 3)));
-    if (hp.get('alg')) setCtl('cube', 'alg', /^(0|tfim|so6|so\(6\)|so\(2l\))$/i.test(hp.get('alg')) ? '0' : '1');
-    if (hp.get('ex')) setCtl('chart', 'ex', /^(1|on)$/i.test(hp.get('ex')) ? 'on' : 'off');
-    if (hp.get('src')) setCtl('chart', 'src', /^(1|ex)/i.test(hp.get('src')) ? 'ex' : 'real');
-    if (hp.get('gal')) setGal(hp.get('gal') === 'kinds' ? 'kinds' : 'largest', false);
-    if (isBrick(hp.get('brick'))) { showTab('bricks'); selectBrick(hp.get('brick'), hp.get('gal') === 'kinds' ? 'kinds' : null); }
-    if (hp.get('sum') && Number.isFinite(+hp.get('sum'))) { showTab('bricks'); setSum(+hp.get('sum')); }
-    if (hp.get('tab') && TABS.some(t => t[0] === hp.get('tab'))) {
-      if (sc || hp.get('brick') || hp.get('sum')) showTab(hp.get('tab')); else pickTab(hp.get('tab'));
-    }
-    if (hp.has('now')) { Object.assign(XS, exploreTargets()); orbit.cur = orbit.to || orbit.cur; orbit.to = null; }
+    if (hp.get('k')) setFishK(hp.get('k'), false);
+    if (hp.get('n')) setFishN(hp.get('n'), false);
+    if (hp.has('shark')) setShark(true);
+    if (hp.has('hunt')) sendShark(null);
+    for (const k of ['inc', 'inf', 'cut', 'spread']) if (hp.get(k)) setOut(k, hp.get(k), false);
+    if (hp.get('start')) setStart(String(hp.get('start')).toUpperCase(), false);
+    if (hp.get('city')) selectCity(String(hp.get('city')).toUpperCase(), false);
+    if (hp.get('click') === 'look' || hp.get('click') === 'start') X.out.click = hp.get('click');
+    if (hp.has('start') || hp.has('day') || hp.has('play') || tab === 'outbreak') { showOutbreak(); if (!tab) showTab('outbreak'); }
+    if (hp.get('day')) setDay(hp.get('day'));
+    if (hp.has('play')) playOut(true);
+    if (hp.get('protein')) { selectProtein(hp.get('protein'), undefined, false); if (!sc && !tab) showTab('cell'); }
+    if (hp.get('move')) setMove(hp.get('move'), false);
+    if (hp.has('now')) { Object.assign(XS, exploreTargets()); for (const n of MOVE_P) XS[n] = exploreTargets()[n]; orbit.cur = orbit.to || orbit.cur; orbit.to = null; }
     renderAll();
   }
   GL.renderer.setAnimationLoop(frame); // also drives the headset's frame loop
@@ -317,9 +340,11 @@ return {
   inputs: () => XR.ctrls.map(c => c.src),
   xrPose: () => (XR.on ? { rp: GL.rig.position.clone(), rq: GL.rig.quaternion.clone(), off: XR.globeOff.clone(), s: XR.size, held: XR.ctrls.map(c => (c.grab ? c.grab.target : '')).join(' '),
     pp: XR.panelGroup.position.clone(), pr: XR.panelGroup.rotation.y } : null),
-  // shared rooms (shared.js): the clock is APP's, the shared state the explore panes, and there are no effects
+  // shared rooms (shared.js): the clock is APP's, the shared state the explore panes; the school's swim and the
+  // sharks are effects (fishSync)
   collab: {
     APP, scene: () => GL.scene, state: collabState, apply: collabApply, view: collabView, setView: collabSetView,
+    effect: fishEffect,
     hover: i => { const c = XR.ctrls[i]; return c && c.hover ? c.ray.scale.z : 0; },
     panel(p, yaw) { XR.panelGroup.position.fromArray(p); XR.panelGroup.rotation.set(0, yaw, 0); },
     place(o, s) { XR.globeOff.fromArray(o); XR.size = s; },
@@ -331,6 +356,8 @@ return {
     clearTimeout(initT); clearTimeout(xrMsg.t);
     if (GL.mo) GL.mo.disconnect();
     if (XR.session) XR.session.removeEventListener('visibilitychange', xrVisibility);
+    // (the shell's panel speaks the next story's language)
+    for (const el of [$('#story'), $('#explore')]) if (el) el.removeAttribute('lang');
     if (GL.scene) GL.scene.traverse(o => {
       if (o.geometry) o.geometry.dispose();
       if (o.material) [].concat(o.material).forEach(m => { if (m.map) m.map.dispose(); if (m.uniforms) for (const u of Object.values(m.uniforms)) if (u.value && u.value.isTexture) u.value.dispose(); m.dispose(); });

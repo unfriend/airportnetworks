@@ -96,19 +96,19 @@ function panelTick(P, now) {
 // ------------------------------------------------------------ main panel --
 function sigMain() {
   if (XR.stories) return 'stories' + audioLabel();
-  if (APP.mode === 'story') {
+  if (APP.mode !== 'story') return ['x', LANG, audioLabel(), X.tab, X.scene, JSON.stringify(X.ctl), X.n, X.shark, GL.sets.fish.sharkOn(), JSON.stringify(X.out), Math.floor(X.out.day), X.city, X.prot].join('|');
+  {
     const it = ST.items.find(x => x.ch === curCh);
-    let s = 's' + audioLabel() + (HOST.room && HOST.room.inRoom() ? 'r' + HOST.room.gripHint : '') + (curCh ? curCh.key : '');
+    let s = 's' + LANG + audioLabel() + (HOST.room && HOST.room.inRoom() ? 'r' + HOST.room.gripHint : '') + (curCh ? curCh.key : '');
     if (it) {
       for (const e of it.els) s += Math.round(Math.max(0, e.o) * 3);
       for (const g of it.grow) s += Math.round(Math.max(0, g.s) * 6);
-      if (curCh.key === 'title') s += $('#titleArc').getAttribute('stroke-dashoffset').slice(0, 3) + $('#titleDot').getAttribute('opacity').slice(0, 3);
+      if (curCh.key === 'fish') s += $('#titleArc').getAttribute('stroke-dashoffset').slice(0, 3) + $('#titleDot').getAttribute('opacity').slice(0, 3);
     }
     return s;
   }
-  return ['x', audioLabel(), X.tab, X.scene, JSON.stringify(X.ctl), X.brick, X.sum, X.gal].join('|');
 }
-const XR_HERE = 'qubits';
+const XR_HERE = 'pass';
 const XR_STORIES = HOST.list;
 // ------------------------------------------------------- headset landing --
 // The Stories screen in the headset: a title panel and one card per story,
@@ -125,8 +125,8 @@ function xrLandingSetup() {
     // side), eight 0.272 rad apart at 1.4 m (0.379 m apart, the outer ones 55° to the side), nine 0.245 rad apart at
     // 1.55 m (0.379 m apart, the outer ones 56° to the side), ten 0.225 rad
     // apart at 1.7 m (0.382 m apart, the outer ones 58° to the side), eleven 0.206 rad apart at 1.85 m (0.381 m apart,
-    // the outer ones 59° to the side)
-    const n = HOST.list.length, a = (k - (n - 1) / 2) * (n > 10 ? 0.206 : n > 9 ? 0.225 : n > 8 ? 0.245 : n > 7 ? 0.272 : 0.31), d = n > 10 ? 1.85 : n > 9 ? 1.7 : n > 8 ? 1.55 : n > 7 ? 1.4 : 1.25;
+    // the outer ones 59° to the side), twelve 0.19 rad apart at 2 m (0.38 m apart, the outer ones 60° to the side)
+    const n = HOST.list.length, a = (k - (n - 1) / 2) * (n > 11 ? 0.19 : n > 10 ? 0.206 : n > 9 ? 0.225 : n > 8 ? 0.245 : n > 7 ? 0.272 : 0.31), d = n > 11 ? 2 : n > 10 ? 1.85 : n > 9 ? 1.7 : n > 8 ? 1.55 : n > 7 ? 1.4 : 1.25;
     const P = makePanel(640, 820, 0.36, (ctx, P) => drawLandCard(ctx, P, s), () => 'c' + XR.inStory + s.key);
     P.mesh.position.set(Math.sin(a) * d, -0.105, -Math.cos(a) * d);   // top edge 0.126 m up, under the header
     P.mesh.rotation.y = -a;
@@ -148,7 +148,7 @@ function xrLandingClose() {
   if (APP.mode === 'story') APP.playing = true;
 }
 function drawLandHead(ctx, P) {
-  ctx.font = vfont(58, 700); ctx.fillStyle = VC.ink; ctx.fillText(`Networks, in ${['one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven'][HOST.list.length - 1] || HOST.list.length} stories`, 48, 44);
+  ctx.font = vfont(58, 700); ctx.fillStyle = VC.ink; ctx.fillText(`Networks, in ${['one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve'][HOST.list.length - 1] || HOST.list.length} stories`, 48, 44);
   // anchored: where the place stands, in place of the hint
   const an = HOST.anchor.status();
   textBlock(ctx, an || 'The same ideas, very different networks. Point at a story and pull the trigger (or pinch).', 48, 128, 860, 27, 38, an ? VC.ink : VC.muted, 400, 2);
@@ -228,14 +228,15 @@ function drawMain(ctx, P) {
   if (!(HOST.room && HOST.room.placing())) hb('stories', 'Stories', () => { XR.stories = true; XR.kbd.open = false; APP.playing = false; }, 130);
   if (!XR.stories) hb('mode', story ? 'Explore now' : 'Replay story', () => (story ? APP.enterExplore() : APP.enterStory(0)), 186, { primary: story });
   ctx.font = vfont(30, 700); ctx.fillStyle = VC.ink;
-  ctx.fillText(fitText(ctx, 'Three qubits', x - 40), 40, 36);
+  ctx.fillText(fitText(ctx, T('title'), x - 40), 40, 36);
   ctx.fillStyle = VC.line; ctx.fillRect(36, 104, P.w - 72, 2);
   if (XR.stories) drawStoriesPane(ctx, P, 44, 136, P.w - 88);
   else if (story) {
     drawStoryPane(ctx, P, 44, 136, P.w - 88);
     ctx.fillStyle = VC.line; ctx.fillRect(36, P.h - 96, P.w - 72, 2);
-    textBlock(ctx, HOST.room && HOST.room.inRoom() ? HOST.room.gripHint : HOST.anchor.on ? 'Trigger (or pinch): use buttons. A or X: play and pause. Anchored: to move things, use Place again on the Stories screen.' : 'Trigger (or pinch): use buttons. Grip: move the scene or this panel; both grips on the scene resize it. A or X: play and pause.', 44, P.h - 74, P.w - 88, 22, 30, VC.faint);
-  } else drawExplorePane(ctx, P, 40, 120, P.w - 80);
+    textBlock(ctx, HOST.room && HOST.room.inRoom() ? HOST.room.gripHint : HOST.anchor.on ? T('xr.hint.anchor') : T('xr.hint'), 44, P.h - 80, P.w - 88 - 320, 21, 28, VC.faint, 400, 3);
+  } else { drawExplorePane(ctx, P, 40, 120, P.w - 80); ctx.fillStyle = VC.line; ctx.fillRect(36, P.h - 96, P.w - 72, 2); }
+  if (!XR.stories) drawLang(ctx, P, P.w - 44, P.h - 82);
 }
 
 // story: draw the current chapter straight from its HTML, with the same timing
@@ -377,21 +378,27 @@ function drawStoryEl(ctx, P, el, x, y, W, pa) {
 }
 
 
-// explore: tabs and panes mirroring the HTML ones
+// explore: the language, tabs and panes mirroring the HTML ones
 function drawExplorePane(ctx, P, x, y, W) {
   const tw = W / TABS.length;
   TABS.forEach(([k, n], j) => {
     const on = X.tab === k, tx = x + j * tw, hov = P.hover === 'tab:' + k;
     if (hov && !on) { rr(ctx, tx + 4, y, tw - 8, 62, 8); ctx.fillStyle = VC.chip; ctx.fill(); }
     ctx.font = vfont(24, on ? 700 : 400); ctx.fillStyle = on ? VC.ink : VC.muted;
-    ctx.textAlign = 'center'; ctx.fillText(n, tx + tw / 2, y + 18); ctx.textAlign = 'left';
+    ctx.textAlign = 'center'; ctx.fillText(T(n), tx + tw / 2, y + 18); ctx.textAlign = 'left';
     if (on) { ctx.fillStyle = VC.cyan; ctx.fillRect(tx + 10, y + 58, tw - 20, 4); }
     P.regions.push({ id: 'tab:' + k, x: tx, y, w: tw, h: 64, fn: () => pickTab(k) });
   });
   ctx.fillStyle = VC.line; ctx.fillRect(x, y + 62, W, 2);
   y += 88;
-  const bottom = P.h - 34;
-  ({ network: drawNetworkPane, bricks: drawBricksPane, depth: drawDepthPane, scenes: drawScenesPane }[X.tab] || drawScenesPane)(ctx, P, x, y, W, bottom);
+  const bottom = P.h - 108;   // (the language switch below)
+  ({ fish: drawFishPane, outbreak: drawOutbreakPane, cell: drawCellPane, scenes: drawScenesPane }[X.tab] || drawScenesPane)(ctx, P, x, y, W, bottom);
+}
+// the language switch at the foot of the main panel (story and explore alike)
+function drawLang(ctx, P, x1, y) {
+  ctx.font = vfont(22); ctx.fillStyle = VC.muted; ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+  ctx.fillText(T('lang'), x1 - 2 * 86 - 14, y + 28); ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+  LANGS.forEach((l, i) => vButton(ctx, P, 'lang:' + l, x1 - (2 - i) * 86, y, 78, 56, l.toUpperCase(), () => setLang(l), { on: LANG === l, px: 24 }));
 }
 // buttons that wrap like the HTML chips: items -> { id, label, on, col, ink, fn } (no fn: a plain chip)
 function flow(ctx, P, items, x, y, W, maxY, o = {}) {
@@ -430,84 +437,129 @@ function stats(ctx, x, y, W, rows) {
   }
   return yy - y;
 }
-function drawNetworkPane(ctx, P, x, y, W, bottom) {
-  const ni = cubeNet(), N = Q.NETS[ni], L = cubeBits(), A = curAn(), p3 = anOf(ni, cubeCut(), 3).purity, hw = (W - 24) / 2;
-  y += head(ctx, x, y, 'Example network (made up for this story)');
-  y += flow(ctx, P, Q.NETS.map((n, i) => ({ id: 'net:' + i, label: n.name, on: i === ni, fn: () => sceneCtl('cube', 'net', String(i)) })), x, y, W, bottom, { px: 22, h: 50 }) + 8;
-  y += textBlock(ctx, cap(N.note) + '.', x, y, W, 21, 29, VC.muted, 400, 2) + 14;
-  head(ctx, x, y, 'Cut'); head(ctx, x + hw + 24, y, 'Bits (cuts)');
-  y += 34;
-  flow(ctx, P, [['0', 'Found'], ['1', 'Random halvings']].map(([v, n]) => ({ id: 'cut:' + v, label: n, on: (v === '1') === (cubeCut() === 'random'), fn: () => sceneCtl('cube', 'cut', v) })), x, y, hw, bottom, { px: 22, h: 50 });
-  y += flow(ctx, P, ['1', '2', '3'].map(v => ({ id: 'bits:' + v, label: v, on: +v === L, fn: () => sceneCtl('cube', 'bits', v) })), x + hw + 24, y, hw, bottom, { px: 22, h: 50 }) + 14;
-  y += head(ctx, x, y, 'Show');
-  y += flow(ctx, P, [['genes', 'Genes'], ['cut', 'The cuts'], ['cube', 'The cube (A_c)']].map(([v, n]) => ({ id: 'v:' + v, label: n, on: X.scene === 'cube' && viewIs('cube', v), fn: () => showView('cube', v) })), x, y, W, bottom, { px: 22, h: 50 }) + 16;
-  y += stats(ctx, x, y, W, [['Cells', cellsText(A)], ['Hidden groups', p3 === null ? 'none' : pct(p3), p3 === null ? 'no groups in it' : 'of genes with their group, at 3 bits'],
-    ['Links cut', pct(A.cutShare), 'of links run between cells'], ['On cube edges', pct(A.cubeShare), 'of the traffic between cells'],
-    ['Residual', `${f2(A.fits.odd.residual)} ${algLabel('odd', L)} · ${f2(A.fits.tfim.residual)} ${algLabel('tfim', L)}`]]) + 10;
-  y += flow(ctx, P, A.sizes.map((s, c) => ({ id: 'cell:' + c, label: `${codeStr(c, L)} · ${s}`, col: cellCol(c, L) })), x, y, W, bottom, { px: 21, h: 44 }) + 16;
-  if (y + 60 < bottom) textBlock(ctx, 'The residual is the share of A_c the toolbox drops: 0 nothing lost, 1 everything; at 1 bit always 0. The cut stands in for the authors\' beam search. After the method and figures of Joel Hancock.', x, y, W, 21, 29, VC.faint, 400, Math.max(1, Math.min(3, Math.floor((bottom - y) / 29))));
+// a name and its value on one line (the value bold, at the right)
+function headVal(ctx, x, y, w, k, v) {
+  ctx.font = vfont(22); ctx.fillStyle = VC.muted; ctx.fillText(fitText(ctx, k, w - 120), x, y);
+  if (v !== undefined) { ctx.font = vfont(24, 700); ctx.fillStyle = VC.ink; ctx.textAlign = 'right'; ctx.fillText(String(v), x + w, y - 2); ctx.textAlign = 'left'; }
+  return 34;
 }
-function drawBricksPane(ctx, P, x, y, W, bottom) {
-  const L = cubeBits(), A = curAn(), alg = cubeAlg(), k = brickK(X.brick, L);
-  const one = (nm, gal, w) => { const kk = Q.parse(nm, L), out = kk > 0 && !inAlg(kk, L, alg);
-    return { id: `b:${gal}:${nm}`, label: sub(nm) + (w !== undefined ? ' ' + f2(w) : ''), col: kk === 0 ? null : out ? GRAY : PURPLE, ink: out ? VC.muted : VC.ink,
-      on: X.brick === nm, fn: () => selectBrick(X.brick === nm ? null : nm, gal) }; };
-  y += textBlock(ctx, 'Pauli strings, the building blocks of any traffic table between cells. Pick one to see it on the cube, or add the largest up.', x, y, W, 23, 32, VC.muted, 400, 2) + 10;
-  y += head(ctx, x, y, 'The kinds of brick (the reference figure)');
-  y += flow(ctx, P, kindsAt(L).map(nm => one(nm, 'kinds')), x, y, W, bottom, { px: 22, h: 46 }) + 10;
-  y += head(ctx, x, y, `This network's ${word(NB())} largest, with their weights`);
-  y += flow(ctx, P, largestAt(A).map(nm => one(nm, 'largest', A.c.re[Q.parse(nm, L)])), x, y, W, bottom, { px: 21, h: 46 }) + 12;
-  if (k >= 0) {
-    y += textBlock(ctx, `${sub(X.brick)} · ${f2(A.c.re[k])}`, x, y, W, 32, 40, VC.ink, 700, 1) + 4;
-    y += textBlock(ctx, `${cap(brickWhat(k, L))}. ${k === 0 ? 'The trace part: kept.' : inAlg(k, L, alg) ? `Inside ${algLabel(alg, L)}: kept.` : `Outside ${algLabel(alg, L)}: dropped.`}`, x, y, W, 23, 31, VC.ink, 400, 2) + 12;
-  } else if (X.brick) y += textBlock(ctx, `${sub(X.brick)} needs more bits than the ${L} shown.`, x, y, W, 23, 31, VC.muted, 400, 1) + 12;
-  ctx.font = vfont(23); ctx.fillStyle = VC.ink; ctx.textBaseline = 'middle'; ctx.fillText('Add up', x, y + 25);
-  ctx.font = vfont(26, 700); ctx.textAlign = 'right'; ctx.fillText(String(X.sum), x + W, y + 25); ctx.textAlign = 'left'; ctx.textBaseline = 'top';
-  vSlider(ctx, P, 'sum', x + 110, y, W - 170, X.sum, 0, NB(), PURPLE, v => setSum(v, true));
+// the fish: be the shark, neighbours watched, the network, the school's size, the view
+function drawFishPane(ctx, P, x, y, W, bottom) {
+  const busy = GL.sets.fish.sharkOn(), k = fishK(), vc = ctlOf('fish', 'view'), lc = ctlOf('fish', 'links');
+  y += textBlock(ctx, T('f.sub'), x, y, W, 24, 33, VC.muted, 400, 2) + 14;
+  y += head(ctx, x, y, T('f.shark'));
+  y += flow(ctx, P, [['off', T('off')], ['on', T('on')]].map(([v, n]) => ({ id: 'shark:' + v, label: n, on: X.shark === (v === 'on'), fn: () => setShark(v === 'on') }))
+    .concat([{ id: 'send', label: busy ? T('f.busy') : T('f.send'), on: busy, fn: busy ? null : () => sendShark(null) }]), x, y, W, bottom, { px: 23, h: 54 }) + 10;
+  if (X.shark) y += textBlock(ctx, T('f.shark.how'), x, y, W, 22, 30, VC.faint, 400, 3) + 10;
+  y += headVal(ctx, x, y, W, T('f.k'), k);
+  vSlider(ctx, P, 'fk', x + 16, y, W - 32, k, 1, 12, VC.cyan, v => setFishK(v));
   y += 54;
-  y += textBlock(ctx, errText(A), x, y, W, 22, 30, VC.muted, 400, 1) + 14;
-  y += head(ctx, x, y, 'The toolbox (a Lie algebra)');
-  y += flow(ctx, P, [['1', 'odd'], ['0', 'tfim']].map(([v, a]) => ({ id: 'alg:' + v, label: `${algLabel(a, L)} · ${Q.algebra(a, L).dim} strings`, on: alg === a, fn: () => sceneCtl('cube', 'alg', v) }))
-    .concat([['bricks', 'Every brick'], ['toolbox', 'Only the toolbox']].map(([v, n]) => ({ id: 'v:' + v, label: n, on: X.scene === 'cube' && viewIs('cube', v), fn: () => showView('cube', v) }))), x, y, W, bottom, { px: 22, h: 50 }) + 12;
-  if (y + 60 < bottom) y += textBlock(ctx, `Residual: ${f2(A.fits[alg].residual)} of the table falls outside ${algLabel(alg, L)} and is dropped.`, x, y, W, 23, 31, VC.ink, 400, 2) + 10;
-  if (y + 60 < bottom) textBlock(ctx, `Purple: inside the toolbox; gray: outside. Solid +, dashed −. ${algLabel('tfim', L)}: X on each qubit, ZZ on neighbors; ${algLabel('odd', L)} adds Z on q${L - 1}.`, x, y, W, 21, 29, VC.faint, 400, Math.max(1, Math.min(3, Math.floor((bottom - y) / 29))));
+  y += textBlock(ctx, kText(k), x, y, W, 23, 31, k === 1 ? VC.amber : VC.ink, 400, 2) + 14;
+  y += head(ctx, x, y, T('f.links'));
+  y += flow(ctx, P, lc.options.map(([v, n]) => ({ id: 'links:' + v, label: n, on: ctlValue('fish', lc) === v, fn: () => sceneCtl('fish', 'links', v) })), x, y, W, bottom, { px: 23, h: 54 }) + 14;
+  y += headVal(ctx, x, y, W, T('f.n'), X.n);
+  vSlider(ctx, P, 'fn', x + 16, y, W - 32, X.n, 100, 600, VC.cyan, v => setFishN(v));
+  y += 58;
+  y += head(ctx, x, y, vc.label);
+  y += flow(ctx, P, vc.options.map(([v, n]) => ({ id: 'fv:' + v, label: n, on: ctlValue('fish', vc) === v, fn: () => sceneCtl('fish', 'view', v) })), x, y, W, bottom, { px: 23, h: 54 }) + 14;
+  if (y + 60 < bottom) textBlock(ctx, T('f.note'), x, y, W, 21, 29, VC.faint, 400, Math.max(1, Math.min(4, Math.floor((bottom - y) / 29))));
 }
-function drawDepthPane(ctx, P, x, y, W, bottom) {
-  const R = FACTS.real.R, ex = FACTS.ex.res, circ = viewIs('chart', 'circuit'), src = chartSrc(), G = (api('chart').gates || [])[src] || [];
-  y += textBlock(ctx, 'In the real network: how much of A_c the best toolbox drops at each depth, our cuts against random ones. 0 means nothing lost.', x, y, W, 23, 32, VC.muted, 400, 2) + 12;
-  // the table: bits across, our cuts, random cuts and the example network's
-  const cw = (W - 150) / R.bits.length, rowT = (name, vals, col, bold) => {
-    ctx.font = vfont(22); ctx.fillStyle = col; ctx.fillText(name, x, y + 4);
-    ctx.font = vfont(22, bold ? 700 : 400); ctx.fillStyle = bold ? VC.ink : VC.ink; ctx.textAlign = 'right';
-    vals.forEach((v, i) => { if (v !== null) ctx.fillText(typeof v === 'number' && !bold ? f2(v) : String(v), x + 150 + (i + 1) * cw - 6, y + 4); });
-    ctx.textAlign = 'left'; y += 36;
-  };
-  rowT('Bits', R.bits, VC.muted, true); rowT('Our cuts', R.ours, VC.cyan); rowT('Random', R.random, GRAY); rowT('Example', R.bits.map((b, i) => (i < ex.length ? ex[i] : null)), VC.amber);
-  y += 8;
-  y += textBlock(ctx, `Good at 2 to 4 bits, worse with every bit: at 8 bits ours lose ${f2(FACTS.real.ours(8))} (the best variant ${f2(R.best8)}), random cuts ${f2(FACTS.real.rand(8))}.`, x, y, W, 23, 31, VC.ink, 400, 2) + 14;
-  y += head(ctx, x, y, 'Show');
-  y += flow(ctx, P, [['chart', 'The chart'], ['circuit', 'The circuit']].map(([v, n]) => ({ id: 'v:' + v, label: n, on: X.scene === 'chart' && viewIs('chart', v), fn: () => showView('chart', v) }))
-    .concat(circ ? [['real', 'Real angles'], ['ex', 'Example angles']].map(([v, n]) => ({ id: 'src:' + v, label: n, on: (v === 'ex') === !!src, fn: () => sceneCtl('chart', 'src', v) }))
-      : [['off', 'Example: off'], ['on', 'Example: on']].map(([v, n]) => ({ id: 'ex:' + v, label: n, on: ctlValue('chart', ctlOf('chart', 'ex')) === v, fn: () => sceneCtl('chart', 'ex', v) }))), x, y, W, bottom, { px: 22, h: 50 }) + 14;
-  y += head(ctx, x, y, `One Trotter step at 3 bits in ${FACTS.alg.odd.label} (${src ? 'example network' : 'real network'})`);
-  // the gates in two columns, red for X-type and blue for Z-type
-  const gw = (W - 20) / 2;
-  G.forEach((g, i) => {
-    const gx = x + (i % 2) * (gw + 20), gy = y + Math.floor(i / 2) * 40, col = GATE_COL[g.type];
-    ctx.fillStyle = col; ctx.fillRect(gx, gy + 2, 5, 30);
-    ctx.font = vfont(23, 700); ctx.fillStyle = col; ctx.fillText(`${g.type} ${g.qubits.map(q => 'q' + q).join(' ')}`, gx + 16, gy + 4);
-    ctx.font = vfont(23); ctx.fillStyle = VC.ink; ctx.fillText(`θ ${f3s(g.theta)}`, gx + 16 + 170, gy + 4);
+// the outbreak's chart, as the HTML one: cities in each state by day, stacked, and the day on show
+function drawChart(ctx, x, y, w, h, n) {
+  ctx.fillStyle = 'rgba(160,178,202,0.35)'; ctx.fillRect(x, y + h, w, 2);
+  for (const [k, pts] of chartPaths(n, w, h)) {
+    ctx.beginPath(); pts.forEach(([px, py], i) => (i ? ctx.lineTo(x + px, y + py) : ctx.moveTo(x + px, y + py))); ctx.closePath();
+    ctx.globalAlpha = 0.85; ctx.fillStyle = OUT_COL[k]; ctx.fill(); ctx.globalAlpha = 1;
+  }
+  const dx = x + (n.d / Math.max(1, n.end)) * w;
+  ctx.fillStyle = VC.ink; ctx.fillRect(dx - 1.5, y - 6, 3, h + 6);
+  ctx.font = vfont(19); ctx.fillStyle = VC.muted; ctx.fillText(num(n.total), x, y - 28);
+  ctx.textAlign = 'right'; ctx.fillText(T('o.day', n.end), x + w, y + h + 8); ctx.textAlign = 'left'; ctx.fillText(T('o.day', 0), x, y + h + 8);
+  // the legend, at the top right
+  let lx = x + w;
+  ctx.textAlign = 'right';
+  for (const k of ['R', 'I', 'E']) { const t = T('o.' + k); ctx.fillText(t, lx, y - 28); lx -= ctx.measureText(t).width + 8; swatch(ctx, lx - 16, y - 26, 16, OUT_COL[k]); lx -= 34; }
+  ctx.textAlign = 'left';
+}
+// the outbreak: where it starts, what a click does, play, the day, the chart, how far it has come, the city looked
+// up, and the settings, two by two
+function drawOutbreakPane(ctx, P, x, y, W, bottom) {
+  const O = X.out, n = outNow(), st = outIndex(O.start), sf = st >= 0 ? api('globe').info(st) : null, hw = (W - 32) / 2;
+  y += textBlock(ctx, T('o.sub'), x, y, W, 25, 32, VC.amber, 700, 1) + 10;
+  y += headVal(ctx, x, y, W, T('o.start'), sf ? `${sf.city} (${sf.code})` : O.start);
+  y += flow(ctx, P, QUICK_START.filter(c => outIndex(c) >= 0).map(c => ({ id: 'st:' + c, label: cityOf(c), on: c === O.start, fn: () => setStart(c) })), x, y, W, y + 50, { px: 22, h: 48 }) + 12;
+  ctx.font = vfont(22); ctx.fillStyle = VC.muted; const cw = ctx.measureText(T('o.click')).width + 18; ctx.fillText(T('o.click'), x, y + 15);
+  y += flow(ctx, P, [['start', T('o.click.start')], ['look', T('o.click.look')]].map(([v, l]) => ({ id: 'ck:' + v, label: l, on: O.click === v, fn: () => { X.out.click = v; renderOutbreak(); } })), x + cw, y, W - cw, bottom, { px: 22, h: 48 }) + 12;
+  vButton(ctx, P, 'oplay', x, y, 200, 56, O.playing ? T('o.pause') : T('o.play'), () => playOut(!X.out.playing), { primary: true, px: 25 });
+  vButton(ctx, P, 'oagain', x + 214, y, 200, 56, T('o.again'), () => { X.out.day = 0; playOut(true); }, { px: 23 });
+  ctx.font = vfont(30, 700); ctx.fillStyle = VC.ink; ctx.textAlign = 'right'; ctx.fillText(T('o.day', n.d), x + W, y + 12); ctx.textAlign = 'left';
+  y += 66;
+  vSlider(ctx, P, 'oday', x + 16, y, W - 32, n.d, 0, Math.max(1, n.end), VC.ink, v => setDay(Math.round(v)));
+  y += 84;
+  drawChart(ctx, x, y, W, 130, n);
+  y += 130 + 42;
+  // (rows of a name and its value, the values lined up after the longest name)
+  ctx.font = vfont(22);
+  const rows = [[T('o.reached'), T('o.reachedv', num(n.reached), num(FACTS.airports))], [T('o.peak'), T('o.peakv', num(n.peak), n.peakDay)], [T('o.over'), T('o.overv', n.end)]];
+  const lw = Math.max(...rows.map(r => ctx.measureText(r[0]).width)) + 18;
+  rows.slice(0, 2).forEach(([k, v], i) => {
+    ctx.font = vfont(22); ctx.fillStyle = VC.muted; ctx.fillText(k, x, y + 3);
+    ctx.font = vfont(25, 700); ctx.fillStyle = VC.ink; ctx.fillText(v, x + lw, y);
+    if (i === 1) { ctx.font = vfont(21); ctx.fillStyle = VC.muted; ctx.textAlign = 'right'; ctx.fillText(`${rows[2][0]} ${rows[2][1]}`, x + W, y + 4); ctx.textAlign = 'left'; }
+    y += 38;
   });
-  y += Math.ceil(G.length / 2) * 40 + 14;
-  if (y + 60 < bottom) textBlock(ctx, `θ = −2ct, c = tr(P A_c)/8, R_P(θ) = exp(−iθP/2), t = 1. Real network, 3 bits: ${FACTS.alg.odd.label}'s generators carry ${FACTS.real.so7.gens}% of A_c's traceless weight, the whole algebra ${FACTS.real.so7.whole}% (the authors' run, Joel Hancock).`, x, y, W, 21, 29, VC.faint, 400, Math.max(1, Math.min(4, Math.floor((bottom - y) / 29))));
+  y += 4;
+  const [ca, cb] = cityText();
+  if (ca) { y += textBlock(ctx, ca, x, y, W, 23, 30, VC.cyan, 700, 1); if (cb) y += textBlock(ctx, cb, x, y, W, 21, 28, VC.muted, 400, 1); y += 10; }
+  // the settings, two by two
+  const pair = (l, r) => { l(x, y); r(x + hw + 32, y); y += 92; };
+  pair((cx, cy) => { headVal(ctx, cx, cy, hw, T('o.inc'), T('o.days', O.inc)); vSlider(ctx, P, 'oinc', cx + 14, cy + 34, hw - 28, O.inc, 1, 21, VC.amber, v => setOut('inc', v)); },
+    (cx, cy) => { headVal(ctx, cx, cy, hw, T('o.inf'), T('o.days', O.inf)); vSlider(ctx, P, 'oinf', cx + 14, cy + 34, hw - 28, O.inf, 2, 30, VC.red, v => setOut('inf', v)); });
+  if (y + 90 > bottom + 40) return;
+  pair((cx, cy) => { head(ctx, cx, cy, T('o.spread')); flow(ctx, P, ['low', 'medium', 'high'].map(v => ({ id: 'sp:' + v, label: T('o.' + v), on: O.spread === v, fn: () => setOut('spread', v) })), cx, cy + 34, hw, cy + 34 + 52, { px: 21, h: 48 }); },
+    (cx, cy) => { headVal(ctx, cx, cy, hw, T('o.cut'), `${O.cut} %`); vSlider(ctx, P, 'ocut', cx + 14, cy + 34, hw - 28, O.cut, 0, 90, VC.cyan, v => setOut('cut', v)); });
+}
+// the cell: a protein picked, its places and partners there, and the moves
+function drawCellPane(ctx, P, x, y, W, bottom) {
+  const A = api('cell'), f = protInfo(), mv = ctlVal('cell', 'move'), m = mv !== 'none' ? A.move(mv) : null;
+  y += textBlock(ctx, T('c.sub'), x, y, W, 23, 31, VC.muted, 400, 3) + 12;
+  const quick = QUICK_PROT.filter(sy => { const p = A.protein(sy); return Number.isInteger(p) && p >= 0; }).map(sy => A.info(A.protein(sy)).sym);
+  y += flow(ctx, P, quick.map(sy => ({ id: 'pr:' + sy, label: sy, on: X.prot === sy, fn: () => selectProtein(X.prot === sy ? -1 : sy) })), x, y, W, bottom, { px: 22, h: 48 }) + 14;
+  if (f) {
+    y += textBlock(ctx, f.sym, x, y, W, 34, 42, VC.cyan, 700, 1);
+    y += textBlock(ctx, (f.name !== f.sym ? f.name + ' · ' : '') + (f.role || ''), x, y, W, 22, 29, VC.muted, 400, 2) + 8;
+    y += flow(ctx, P, f.places.map(pl => ({ id: 'pl:' + pl.k, label: pl.name, col: placeCol(pl.k) })), x, y, W, bottom, { px: 21, h: 44 }) + 10;
+    for (const pp of f.partners.slice(0, 4)) {
+      const t = pp.list.length ? pp.list.slice(0, 7).map(q => q.sym).join(', ') + (pp.list.length > 7 ? ' ' + T('c.more', pp.list.length - 7) : '') : T('c.alone');
+      ctx.font = vfont(22, 700); ctx.fillStyle = placeCol(pp.place); const nm = pp.name + ': ', nw = Math.min(ctx.measureText(nm).width, W * 0.45);
+      ctx.fillText(fitText(ctx, nm, W * 0.45), x, y);
+      ctx.font = vfont(22); ctx.fillStyle = VC.ink; ctx.fillText(fitText(ctx, t, W - nw - 4), x + nw + 4, y);
+      y += 31;
+    }
+    y += 8;
+  } else y += textBlock(ctx, T('c.none'), x, y, W, 23, 31, VC.faint, 400, 1) + 10;
+  y += head(ctx, x, y, T('c.moves'));
+  y += flow(ctx, P, [{ id: 'mv:none', label: T('c.nomove'), on: mv === 'none', fn: () => setMove('none') }]
+    .concat(A.moves().map(q => ({ id: 'mv:' + q.key, label: q.name, col: q.disease ? VC.red : TEAL, on: mv === q.key, fn: () => setMove(mv === q.key ? 'none' : q.key) }))), x, y, W, bottom, { px: 21, h: 46 }) + 12;
+  if (m && y + 80 < bottom) {
+    y += textBlock(ctx, m.title, x, y, W, 26, 34, VC.ink, 700, 1) + 2;
+    y += textBlock(ctx, m.text, x, y, W, 21, 28, VC.muted, 400, Math.max(1, Math.min(3, Math.floor((bottom - y - 60) / 28)))) + 8;
+    for (const d of A.moveDelta(mv).filter(q => q.lost.length || q.gained.length).slice(0, 3)) {
+      if (y + 30 > bottom) break;
+      const syms = l => l.slice(0, 4).map(p => A.info(p).sym).join(', ');
+      ctx.font = vfont(22, 700); ctx.fillStyle = d.lost.length ? VC.red : TEAL; ctx.fillText(d.sym, x, y); const sw2 = ctx.measureText(d.sym + '  ').width;
+      ctx.font = vfont(21); ctx.fillStyle = VC.ink;
+      ctx.fillText(fitText(ctx, [d.lost.length ? T('c.lost', syms(d.lost)) : '', d.gained.length ? T('c.gained', syms(d.gained)) : ''].filter(Boolean).join('; '), W - sw2), x + sw2, y + 1);
+      y += 30;
+    }
+  }
 }
 // the three scenes, and the chosen scene's own controls
 function drawScenesPane(ctx, P, x, y, W, bottom) {
   const cw = (W - 12 * (SCENES.length - 1)) / SCENES.length;
-  SCENES.forEach(([k, n], j) => vButton(ctx, P, 'scene:' + k, x + j * (cw + 12), y, cw, 56, SCENE_SHORT[k] || n, () => openScene(k), { on: X.scene === k, px: 22 }));
+  SCENES.forEach(([k], j) => vButton(ctx, P, 'scene:' + k, x + j * (cw + 12), y, cw, 56, sceneName(k), () => openScene(k), { on: X.scene === k, px: 22 }));
   y += 76;
-  const sc = SCENES.find(s => s[0] === X.scene);
-  y += textBlock(ctx, sc[2], x, y, W, 25, 35, VC.muted, 400, 4) + 18;
+  y += textBlock(ctx, sceneDesc(X.scene), x, y, W, 25, 35, VC.muted, 400, 4) + 18;
   for (const c of ctlsOf(X.scene).filter(c => ctlShown(X.scene, c))) {
     if (y + 110 > bottom) break;
     ctx.font = vfont(23); ctx.fillStyle = VC.muted; ctx.fillText(c.label, x, y);
@@ -518,7 +570,7 @@ function drawScenesPane(ctx, P, x, y, W, bottom) {
 
 // ----------------------------------------------------------- footer panel --
 function sigFoot() {
-  return APP.mode === 'story' ? 's' + Math.round(APP.t * 4) + APP.playing + (curCh ? curCh.key : '') + slideSig() : 'x' + X.turn;
+  return APP.mode === 'story' ? 's' + LANG + Math.round(APP.t * 4) + APP.playing + (curCh ? curCh.key : '') + slideSig() : 'x' + LANG + X.turn + X.scene;
 }
 function drawFoot(ctx, P) {
   if (APP.mode === 'story') {
@@ -550,13 +602,15 @@ function drawFoot(ctx, P) {
     P.regions.push({ id: 'track', x: x0 - 10, y: 66, w: x1 - x0 + 20, h: 80, drag: px => APP.seek(clamp((px - x0) / (x1 - x0), 0, 1) * T_END) });
     return;
   }
-  ctx.font = vfont(22); ctx.fillStyle = VC.muted; ctx.fillText('Turn', 28, 58);
-  vButton(ctx, P, 'turn:on', 100, 40, 90, 56, 'On', () => setTurn('on'), { on: X.turn === 'on', px: 22 });
-  vButton(ctx, P, 'turn:off', 198, 40, 90, 56, 'Off', () => setTurn('off'), { on: X.turn === 'off', px: 22 });
-  ctx.fillText('Zoom', 330, 58);
-  vButton(ctx, P, 'z-', 404, 40, 56, 56, '−', () => xrZoom(1.3), { px: 28 });
-  vButton(ctx, P, 'z+', 466, 40, 56, 56, '+', () => xrZoom(1 / 1.3), { px: 28 });
-  vButton(ctx, P, 'home', 560, 40, 230, 56, 'Whole scene', () => flyTo(view(X.scene, 'default')), { px: 22 });
+  // (the fish are life size round you: nothing to turn or zoom)
+  if (X.scene === 'fish') return;
+  ctx.font = vfont(22); ctx.fillStyle = VC.muted; ctx.fillText(T('turn'), 28, 58);
+  vButton(ctx, P, 'turn:on', 116, 40, 90, 56, T('on'), () => setTurn('on'), { on: X.turn === 'on', px: 22 });
+  vButton(ctx, P, 'turn:off', 214, 40, 90, 56, T('off'), () => setTurn('off'), { on: X.turn === 'off', px: 22 });
+  ctx.fillText(T('xr.zoom'), 340, 58);
+  vButton(ctx, P, 'z-', 414, 40, 56, 56, '−', () => xrZoom(1.3), { px: 28 });
+  vButton(ctx, P, 'z+', 476, 40, 56, 56, '+', () => xrZoom(1 / 1.3), { px: 28 });
+  vButton(ctx, P, 'home', 570, 40, 260, 56, T('xr.whole'), () => flyTo(view(X.scene, 'default')), { px: 22 });
 }
 
 

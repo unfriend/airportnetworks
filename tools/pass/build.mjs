@@ -9,7 +9,7 @@ import path from 'path';
 const here = path.dirname(new URL(import.meta.url).pathname), root = path.join(here, '../..');
 const read = f => fs.readFileSync(path.join(here, f), 'utf8');
 const SET_FILES = ['fish', 'globe', 'cell'];
-const ENGINE = ['e2_scene', 'e3_story', 'e4_explore', 'e5_xr', 'e6_panels', 'e7_app'];
+const ENGINE = ['e2_scene', 'e2_text', 'e3_story', 'e4_explore', 'e5_xr', 'e6_panels', 'e7_app'];
 
 // ---------------------------------------------------------------- the originals
 // Each original story is cut into whole sections (from a line that starts with `from` up to the line that starts with

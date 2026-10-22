@@ -1,0 +1,201 @@
+
+// ============================================================= LANGUAGE ==
+// This story speaks English and German: every word it shows (the panel, the headset's panels, the labels in 3D, the
+// explore panes, notes and credits) comes from STR, [English, German] by key, read through T(key, ...values) ({0},
+// {1} ... are filled in). The sets keep their own words the same way (their setLang). The language is per device:
+// German when the device's language is, else English; a choice on the switch (EN | DE, on the story panel and in the
+// explore panes, page and headset) is kept in localStorage (passLang); #pass&lang=de or &lang=en in a link sets it.
+// It is never shared in a room: each person reads their own. The shell's own words (top bar, Stories screen, menu)
+// stay English. British English; German plain and natural for a 12-year-old ("du").
+const LANGS = ['en', 'de'];
+let LANG = (() => {
+  const h = new URLSearchParams(location.hash.slice(1)).get('lang');
+  if (h === 'en' || h === 'de') { try { localStorage.setItem('passLang', h); } catch (e) { /* private mode */ } return h; }
+  try { const s = localStorage.getItem('passLang'); if (s === 'en' || s === 'de') return s; } catch (e) { /* private mode */ }
+  return /^de\b/i.test(navigator.language || '') ? 'de' : 'en';
+})();
+const de = () => LANG === 'de';
+// numbers as each language writes them: 3,214 and 3.214
+const num = n => Math.round(n).toLocaleString(de() ? 'de-DE' : 'en-GB');
+function T(k, ...a) {
+  const s = STR[k];
+  if (!s) return k;
+  const t = s[de() ? 1 : 0];
+  return a.length ? t.replace(/\{(\d)\}/g, (m, i) => a[+i]) : t;
+}
+const STR = {
+  // ------------------------------------------------------------------ the story's name and its chapters
+  'title': ['Pass it on', 'Weitersagen!'],
+  'lede': ['how warnings, viruses and signals spread', 'wie sich Warnungen, Viren und Signale ausbreiten'],
+  'ch.fish': ['The school', 'Der Schwarm'],
+  'ch.watch': ['Who watches whom', 'Wer wen beobachtet'],
+  'ch.links': ['Other links', 'Andere Verbindungen'],
+  'ch.sky': ['The sky', 'Der Himmel'],
+  'ch.cell': ['The cell', 'Die Zelle'],
+  'ch.med': ['Medicine', 'Medizin'],
+  // 1. A school of fish
+  'fish.1': ['Hundreds of fish swim all around you. They turn together, as if they were one big animal.',
+    'Hunderte Fische schwimmen um dich herum. Sie drehen alle zugleich ab, als wären sie ein einziges großes Tier.'],
+  'fish.2': ['No fish is in charge, and none of them can see the whole school.',
+    'Kein Fisch hat das Sagen, und keiner von ihnen sieht den ganzen Schwarm.'],
+  'fish.3': ['So how do they stay together?', 'Wie bleiben sie dann zusammen?'],
+  'fish.note': ['In a headset the school swims all around you, and in passthrough right through your room.',
+    'Mit einer VR-Brille schwimmt der Schwarm rund um dich herum, im Durchsicht-Modus sogar mitten durch dein Zimmer.'],
+  'fish.credit': ['A story for everyone from the Ludwig Boltzmann Institute for Network Medicine (LBI-NetMed) in Vienna.',
+    'Eine Geschichte für alle vom Ludwig Boltzmann Institut für Netzwerkmedizin (LBI-NetMed) in Wien.'],
+  'lbl.school': ['The school', 'Der Schwarm'], 'lbl.school.r': ['no fish in charge', 'kein Fisch hat das Sagen'],
+  // 2. Who watches whom
+  'watch.h': ['Who watches whom', 'Wer wen beobachtet'],
+  'watch.1': ['Each fish watches just a few of its nearest neighbours and does what they do: it turns when they turn and stays close, but not too close.',
+    'Jeder Fisch beobachtet nur ein paar Nachbarn ganz in seiner Nähe und macht, was sie machen: Er dreht, wenn sie drehen, und bleibt nah bei ihnen, aber nicht zu nah.'],
+  'watch.2': ['Draw a line from each fish to the neighbours it watches, and the school becomes a network.',
+    'Zieh eine Linie von jedem Fisch zu den Nachbarn, die er beobachtet, und der Schwarm wird zu einem Netzwerk.'],
+  'watch.3': ['A network is just dots and the links between them. Here the dots are fish, and a link means “I am watching you”.',
+    'Ein Netzwerk besteht nur aus Punkten und Verbindungen dazwischen. Hier sind die Punkte Fische, und eine Verbindung heißt: „Ich beobachte dich.“'],
+  'watch.4': ['Now a shark comes.', 'Jetzt kommt ein Hai.'],
+  'watch.5': ['The fish nearest to it turn away first. Their neighbours see them turn and turn too, and so on, from fish to fish.',
+    'Die Fische, die ihm am nächsten sind, drehen zuerst ab. Ihre Nachbarn sehen das und drehen auch ab, und so weiter, von Fisch zu Fisch.'],
+  'watch.6': ['The warning races through the school faster than the shark can swim.',
+    'Die Warnung rast schneller durch den Schwarm, als der Hai schwimmen kann.'],
+  'watch.7': ['A school is a network that passes on a warning.', 'Ein Schwarm ist ein Netzwerk, das eine Warnung weitergibt.'],
+  'watch.note': ['Real schools of fish pass on an attack like this (Rosenthal et al. 2015, Handegard et al. 2012). Ours is a simulation: in our school each fish watches seven neighbours.',
+    'Echte Fischschwärme geben einen Angriff genau so weiter (Rosenthal und andere 2015, Handegard und andere 2012). Unserer ist eine Simulation: Hier beobachtet jeder Fisch sieben Nachbarn.'],
+  // 3. Change the links
+  'links.h': ['Change the links', 'Andere Verbindungen'],
+  'links.1': ['What if each fish watched only one neighbour?', 'Was wäre, wenn jeder Fisch nur einen einzigen Nachbarn beobachten würde?'],
+  'links.2': ['Now the lines join only pairs. Pairs follow pairs, and nothing holds the group together.',
+    'Jetzt verbinden die Linien nur noch Paare. Paare folgen Paaren, und nichts hält die Gruppe mehr zusammen.'],
+  'links.3': ['The school falls apart.', 'Der Schwarm fällt auseinander.'],
+  'links.4': ['Back to seven neighbours each: the links knit the fish together, and the school forms again.',
+    'Wieder sieben Nachbarn für jeden: Die Verbindungen knüpfen die Fische zusammen, und der Schwarm bildet sich neu.'],
+  'links.5': ['The same fish, other links. The shape of the network decides what the group can do.',
+    'Dieselben Fische, andere Verbindungen. Die Form des Netzwerks bestimmt, was die Gruppe kann.'],
+  // 4. From the sea to the sky
+  'sky.h': ['From the sea to the sky', 'Vom Meer in den Himmel'],
+  'sky.1': ['Rise out of the water, higher and higher, until you see the whole Earth.',
+    'Steig aus dem Wasser auf, immer höher, bis du die ganze Erde siehst.'],
+  'sky.2': ['Here is another network: airports, joined by the routes that planes fly.',
+    'Hier ist ein anderes Netzwerk: Flughäfen, verbunden durch die Strecken, die Flugzeuge fliegen.'],
+  'sky.f1': ['airports', 'Flughäfen'], 'sky.f2': ['routes', 'Flugrouten'],
+  'sky.3': ['An infection starts in {0}. Each day it can travel along a route, from a city where people are ill to a city they fly to.',
+    'In {0} beginnt eine Ansteckung. Jeden Tag kann sie über eine Flugroute reisen, von einer Stadt, in der Menschen krank sind, in eine Stadt, in die sie fliegen.'],
+  'sky.4': ['At first it spreads slowly: {0} cities in the first week.', 'Zuerst breitet sie sich langsam aus: {0} Städte in der ersten Woche.'],
+  'sky.day': ['day {0}', 'Tag {0}'], 'sky.cities': ['cities reached', 'Städte erreicht'],
+  'sky.5': ['Then it reaches the hubs, the airports with the most routes, and from there everywhere at once.',
+    'Dann erreicht sie die Drehkreuze, die Flughäfen mit den meisten Flugrouten, und von dort aus alle anderen auf einmal.'],
+  'sky.6': ['Like the warning in the school, it passes from neighbour to neighbour, only now across the whole planet.',
+    'Wie die Warnung im Schwarm geht sie von Nachbar zu Nachbar, nur jetzt über den ganzen Planeten.'],
+  'sky.note': ['A simple model on the real route network, not a forecast: every route counts the same, an airport stands for its city, and no real disease is copied. A city reached is exposed for {0} days (amber), infectious for {1} (red), then recovered (grey).',
+    'Ein einfaches Modell auf dem echten Flugnetz, keine Vorhersage: Jede Route zählt gleich viel, ein Flughafen steht für seine Stadt, und keine echte Krankheit wird nachgemacht. Eine erreichte Stadt ist {0} Tage angesteckt (orange), dann {1} Tage ansteckend (rot), dann wieder gesund (grau).'],
+  'sky.credit': ['Routes: OpenFlights.org (Open Database License), 2014 snapshot, as in the airports story. Coastlines: Natural Earth.',
+    'Flugrouten: OpenFlights.org (Open Database License), Stand 2014, wie in der Geschichte über Flughäfen. Küsten: Natural Earth.'],
+  // 5. Into the cell
+  'cell.h': ['Into the cell', 'In die Zelle hinein'],
+  'cell.1': ['Now zoom from the planet into one single cell of your body. It is a network too.',
+    'Jetzt geht es vom Planeten in eine einzige Zelle deines Körpers. Auch sie ist ein Netzwerk.'],
+  'cell.2': ['Inside it are rooms with walls of their own: the nucleus, which keeps the genes, and its factories and power stations.',
+    'In ihr gibt es Räume mit eigenen Wänden: den Zellkern, in dem die Gene liegen, dazu Fabriken und Kraftwerke.'],
+  'cell.3': ['The dots are proteins, the cell’s tiny machines: {0} of them in this map, each in the places where it works.',
+    'Die Punkte sind Proteine, die winzigen Maschinen der Zelle: {0} sind es in dieser Karte, jedes an den Orten, an denen es arbeitet.'],
+  'cell.4': ['A protein can only meet a partner in the same place. Here a growth signal from outside meets its receptor on the cell’s surface.',
+    'Ein Protein kann einen Partner nur am selben Ort treffen. Hier trifft ein Wachstumssignal von draußen seinen Empfänger an der Oberfläche der Zelle.'],
+  'cell.5': ['Signals cross the cell hand to hand, from protein to protein, like the warning in the school.',
+    'Signale wandern von Hand zu Hand durch die Zelle, von Protein zu Protein, wie die Warnung im Schwarm.'],
+  'cell.6': ['An inflammation signal arrives at the surface. Inside, the protein NF-κB waits, held by its brake.',
+    'Ein Entzündungssignal kommt an der Oberfläche an. Drinnen wartet das Protein NF-κB, festgehalten von seiner Bremse.'],
+  'cell.7': ['The message is passed on until the brake lets go. Then NF-κB moves into the nucleus and switches genes on.',
+    'Die Nachricht wird weitergegeben, bis die Bremse loslässt. Dann wandert NF-κB in den Zellkern und schaltet dort Gene an.'],
+  'cell.8': ['But what if a protein ends up in the wrong place?', 'Aber was ist, wenn ein Protein am falschen Ort landet?'],
+  'cell.9': ['In cystic fibrosis the protein CFTR gets stuck on its way to the surface. It never arrives where it should work.',
+    'Bei Mukoviszidose bleibt das Protein CFTR auf dem Weg zur Oberfläche stecken. Es kommt nie dort an, wo es arbeiten soll.'],
+  'cell.10': ['Its links are lost, and the message stops: a disease.', 'Seine Verbindungen gehen verloren, und die Nachricht kommt nicht mehr an: eine Krankheit.'],
+  'cell.note': ['The cell map story’s own cell: {0} well-studied human proteins in {1} places, a small illustrative selection (a real cell makes about 20,000 kinds). Places follow the Human Protein Atlas and UniProt.',
+    'Die Zelle aus der Geschichte „Cell map“: {0} gut erforschte menschliche Proteine an {1} Orten, eine kleine Auswahl zum Zeigen (eine echte Zelle macht etwa 20.000 Sorten). Die Orte stammen aus dem Human Protein Atlas und aus UniProt.'],
+  // 6. Network medicine
+  'med.h': ['Network medicine', 'Netzwerkmedizin'],
+  'med.1': ['Fish, flights and proteins: three very different networks, and the same maths for all of them.',
+    'Fische, Flüge und Proteine: drei ganz verschiedene Netzwerke, und für alle dieselbe Mathematik.'],
+  'med.s1': ['The school', 'Der Schwarm'], 'med.s1t': ['who watches whom: a warning', 'wer wen beobachtet: eine Warnung'],
+  'med.s2': ['The planet', 'Der Planet'], 'med.s2t': ['which city flies to which: an infection', 'welche Stadt wohin fliegt: eine Ansteckung'],
+  'med.s3': ['The cell', 'Die Zelle'], 'med.s3t': ['which protein works with which: a signal', 'welches Protein mit welchem arbeitet: ein Signal'],
+  'med.2': ['Network medicine looks for the links that break in a disease, and for the places where a medicine could help.',
+    'Die Netzwerkmedizin sucht nach den Verbindungen, die bei einer Krankheit kaputtgehen, und nach den Stellen, an denen ein Medikament helfen könnte.'],
+  'med.3': ['That is what we work on at the Ludwig Boltzmann Institute for Network Medicine in Vienna.',
+    'Genau daran arbeiten wir am Ludwig Boltzmann Institut für Netzwerkmedizin in Wien.'],
+  'med.4': ['Now it is your turn: be the shark, start an outbreak anywhere on Earth, or send a protein to the wrong place.',
+    'Jetzt bist du dran: Sei der Hai, starte einen Ausbruch irgendwo auf der Erde oder schick ein Protein an den falschen Ort.'],
+  'med.go': ['Explore it yourself', 'Selbst ausprobieren'],
+  'med.credit': ['An outreach story of the Ludwig Boltzmann Institute for Network Medicine (LBI-NetMed). Flight routes: OpenFlights.org (2014, Open Database License); coastlines: Natural Earth. The cell: the cell map story’s proteins and places (Human Protein Atlas, UniProt; ideas from Thul et al. 2017, Go et al. 2021, Cho et al. 2022, Qin et al. 2021, Lundberg & Borner 2019). Fish schools: Rosenthal et al. 2015, Handegard et al. 2012. The fish and the outbreak are simulations, not measurements or forecasts.',
+    'Eine Geschichte für alle vom Ludwig Boltzmann Institut für Netzwerkmedizin (LBI-NetMed). Flugrouten: OpenFlights.org (2014, Open Database License); Küsten: Natural Earth. Die Zelle: Proteine und Orte aus der Geschichte „Cell map“ (Human Protein Atlas, UniProt; Ideen aus Thul und andere 2017, Go und andere 2021, Cho und andere 2022, Qin und andere 2021, Lundberg & Borner 2019). Fischschwärme: Rosenthal und andere 2015, Handegard und andere 2012. Die Fische und der Ausbruch sind Simulationen, keine Messungen und keine Vorhersagen.'],
+
+  // ------------------------------------------------------------------ explore mode
+  'lang': ['Language', 'Sprache'],
+  'tab.fish': ['Fish', 'Fische'], 'tab.out': ['Outbreak', 'Ausbruch'], 'tab.cell': ['Cell', 'Zelle'], 'tab.scenes': ['Scenes', 'Szenen'],
+  'sc.fish': ['The school', 'Der Schwarm'], 'sc.globe': ['The globe', 'Der Globus'], 'sc.cell': ['The cell', 'Die Zelle'],
+  'sc.fish.d': ['Hundreds of fish all around you, each watching a few neighbours; now and then a shark.',
+    'Hunderte Fische rund um dich, jeder beobachtet ein paar Nachbarn; ab und zu kommt ein Hai.'],
+  'sc.globe.d': ['The airports story’s globe: {0} airports and {1} routes, and an outbreak on them.',
+    'Der Globus aus der Geschichte über Flughäfen: {0} Flughäfen und {1} Flugrouten, und ein Ausbruch darauf.'],
+  'sc.cell.d': ['The cell map story’s cell: its rooms, its proteins and their links, and the moves proteins make.',
+    'Die Zelle aus der Geschichte „Cell map“: ihre Räume, ihre Proteine und deren Verbindungen, und wie Proteine wandern.'],
+  'turn': ['Turn', 'Drehen'], 'on': ['On', 'An'], 'off': ['Off', 'Aus'],
+  // Fish
+  'f.sub': ['Every fish watches a few neighbours. Change the network and see what the school does.',
+    'Jeder Fisch beobachtet ein paar Nachbarn. Ändere das Netzwerk und schau, was der Schwarm macht.'],
+  'f.shark': ['Be the shark', 'Sei der Hai'],
+  'f.shark.how': ['Move the pointer over the water (drag on a touch screen). In a headset, point and hold the trigger, or move your fingertip.',
+    'Fahr mit dem Zeiger übers Wasser (auf einem Touchscreen: ziehen). Mit VR-Brille: zeigen und den Abzug halten, oder den Zeigefinger bewegen.'],
+  'f.send': ['Send a shark', 'Hai losschicken'], 'f.busy': ['A shark is coming', 'Ein Hai kommt'],
+  'f.k': ['Neighbours each fish watches', 'Nachbarn, die jeder Fisch beobachtet'],
+  'f.k1': ['One neighbour each: pairs follow pairs, and the school falls apart.', 'Nur ein Nachbar: Paare folgen Paaren, und der Schwarm fällt auseinander.'],
+  'f.k2': ['Two neighbours each: small groups hold, but the school splits up.', 'Zwei Nachbarn: Kleine Gruppen halten, aber der Schwarm zerfällt.'],
+  'f.k3': ['{0} neighbours each: the links hold the school together.', '{0} Nachbarn für jeden: Die Verbindungen halten den Schwarm zusammen.'],
+  'f.links': ['Lines: who watches whom', 'Linien: wer wen beobachtet'],
+  'f.n': ['Fish in the school', 'Fische im Schwarm'],
+  'f.view': ['View', 'Ansicht'],
+  'f.note': ['A simulation: each fish swims the way the fish it watches swim, keeps a little apart and flees the shark, and a warning passes from neighbour to neighbour. Its numbers are not measured on real fish.',
+    'Eine Simulation: Jeder Fisch schwimmt wie die Fische, die er beobachtet, hält etwas Abstand und flieht vor dem Hai, und eine Warnung geht von Nachbar zu Nachbar. Ihre Zahlen sind nicht an echten Fischen gemessen.'],
+  // Outbreak
+  'o.sub': ['A simple model, not a forecast.', 'Ein einfaches Modell, keine Vorhersage.'],
+  'o.start': ['Starts in', 'Beginnt in'],
+  'o.click': ['A click on the globe', 'Ein Klick auf den Globus'],
+  'o.click.start': ['starts it there', 'startet ihn dort'], 'o.click.look': ['shows a city', 'zeigt eine Stadt'],
+  'o.search': ['Find an airport or a city', 'Flughafen oder Stadt suchen'],
+  'o.play': ['Play', 'Abspielen'], 'o.pause': ['Pause', 'Anhalten'], 'o.again': ['From day 0', 'Ab Tag 0'],
+  'o.day': ['Day {0}', 'Tag {0}'],
+  'o.E': ['exposed', 'angesteckt'], 'o.I': ['infectious', 'ansteckend'], 'o.R': ['recovered', 'wieder gesund'],
+  'o.reached': ['Cities reached', 'Erreichte Städte'], 'o.reachedv': ['{0} of {1}', '{0} von {1}'],
+  'o.peak': ['Most infectious at once', 'Am meisten ansteckend'], 'o.peakv': ['{0} cities, day {1}', '{0} Städte, Tag {1}'],
+  'o.over': ['Over by', 'Vorbei an'], 'o.overv': ['day {0}', 'Tag {0}'],
+  'o.inc': ['Days until a city is infectious', 'Tage bis ansteckend'],
+  'o.inf': ['Days a city stays infectious', 'Tage ansteckend'],
+  'o.spread': ['How easily it spreads along a route', 'Wie leicht es sich über eine Route ausbreitet'],
+  'o.low': ['Low', 'Wenig'], 'o.medium': ['Medium', 'Mittel'], 'o.high': ['High', 'Stark'],
+  'o.cut': ['Fewer flights', 'Weniger Flüge'],
+  'o.days': ['{0} days', '{0} Tage'],
+  'o.sel.on': ['{0}: reached on day {1}', '{0}: erreicht an Tag {1}'], 'o.sel.yet': ['{0}: reached on day {1} (not yet)', '{0}: erreicht an Tag {1} (noch nicht)'],
+  'o.sel.never': ['{0}: never reached', '{0}: nie erreicht'], 'o.sel.start': ['{0}: it starts here', '{0}: hier fängt es an'],
+  'o.way': ['The way it came: {0}', 'So kam es dorthin: {0}'],
+  'o.note': ['Each day an infectious city passes it on over each of its routes with a small chance, smaller with fewer flights. Every route counts the same (the data has no passenger numbers), and an airport stands for its city. The same start and settings always give the same outbreak.',
+    'Jeden Tag gibt eine ansteckende Stadt es über jede ihrer Routen mit einer kleinen Chance weiter, mit weniger Flügen seltener. Jede Route zählt gleich viel (die Daten kennen keine Fluggastzahlen), und ein Flughafen steht für seine Stadt. Derselbe Start und dieselben Einstellungen ergeben immer denselben Ausbruch.'],
+  'o.data': ['Routes: OpenFlights.org (2014).', 'Flugrouten: OpenFlights.org (2014).'],
+  // Cell
+  'c.sub': ['Click a protein (in a headset, point and pull the trigger) to see where it works and whom it meets there. Or send proteins on a move.',
+    'Klick auf ein Protein (mit VR-Brille: zeigen und Abzug drücken), dann siehst du, wo es arbeitet und wen es dort trifft. Oder schick Proteine auf Wanderschaft.'],
+  'c.search': ['Find a protein', 'Protein suchen'],
+  'c.none': ['No protein picked yet.', 'Noch kein Protein ausgewählt.'],
+  'c.places': ['Works in', 'Arbeitet in'], 'c.partners': ['Meets there', 'Trifft dort'],
+  'c.more': ['and {0} more', 'und {0} weitere'], 'c.alone': ['no partners here', 'keine Partner hier'],
+  'c.moves': ['Moves', 'Wanderungen'], 'c.nomove': ['None', 'Keine'], 'c.disease': ['a disease', 'eine Krankheit'],
+  'c.lost': ['loses {0}', 'verliert {0}'], 'c.gained': ['meets {0}', 'trifft {0}'],
+  'c.nochange': ['no partners change', 'keine Partner ändern sich'],
+  'c.note': ['The cell map story’s cell, as it is: an illustrative set of well-studied human proteins in a model cell (Human Protein Atlas, UniProt). Protein names and roles are the scientific ones, in English.',
+    'Die Zelle aus der Geschichte „Cell map“, so wie sie ist: eine Auswahl gut erforschter menschlicher Proteine in einer Modellzelle (Human Protein Atlas, UniProt). Die Namen und Aufgaben der Proteine sind die wissenschaftlichen, auf Englisch.'],
+  // the headset's panels and tips
+  'xr.hint': ['Trigger (or pinch): use buttons. Grip: move the scene or this panel; both grips on the scene resize it. A or X: play and pause.',
+    'Abzug (oder Finger zusammen): Knöpfe drücken. Greifen: Szene oder Tafel verschieben, mit beiden Händen größer oder kleiner machen. A oder X: Abspielen und Anhalten.'],
+  'xr.hint.anchor': ['Trigger (or pinch): use buttons. A or X: play and pause. Anchored: to move things, use Place again on the Stories screen.',
+    'Abzug (oder Finger zusammen): Knöpfe drücken. A oder X: Abspielen und Anhalten. Verankert: Verschieben geht mit „Place again“ im Stories-Bildschirm.'],
+  'xr.zoom': ['Zoom', 'Zoom'], 'xr.whole': ['Whole scene', 'Ganze Szene'],
+  'tip.city': ['{0} · {1} routes', '{0} · {1} Flugrouten'],
+};

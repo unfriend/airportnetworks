@@ -20,6 +20,7 @@ const _xa = new THREE.Vector3(), _xb = new THREE.Vector3(), _xc = new THREE.Vect
 // Turn a story/orbit view [az, el, dist, tx, ty, tz] into a pose for the
 // floating scene: the side the camera looks from faces you, "up" stays up, the
 // target sits in front of you, and closer views make the scene bigger.
+// (the globe and the cell; the fish are life size round you whatever the view: their holder undoes this, placeLife)
 const _xX = new THREE.Vector3(1, 0, 0), _xY = new THREE.Vector3(0, 1, 0);
 function xrPlace(v) {
   const d = Math.max(v[2], 0.05);
@@ -60,7 +61,7 @@ function labelSprite(L) {
   else {
     const b = L.el.querySelector('b');
     bold = b ? b.textContent : ''; rest = L.el.textContent.slice(bold.length).trim();
-    cls = ['mag', 'amb', 'grn', 'cyn'].find(k => L.el.classList.contains(k)) || '';
+    cls = ['mag', 'amb', 'grn', 'cyn', 'tl'].find(k => L.el.classList.contains(k)) || '';
   }
   const px = 34, H = 56, pad = 16, gap = bold && rest ? 10 : 0;
   const cv = document.createElement('canvas'), ctx = cv.getContext('2d');
@@ -97,10 +98,11 @@ function placeLabelXR(L, alpha, S) {
   sp.visible = o > 0.01;
   sp.material.opacity = o;
   labelPos(L, sp.position);
-  const hm = 0.021 / XR.R;
+  // (2.1 cm tall at arm's length, the same size to the eye further off: the school's labels may be metres away)
+  const hm = 0.021 * Math.max(1, sp.position.distanceTo(XR.camLocal) * XR.R) / XR.R;
   sp.scale.set(hm * sp.userData.aspect, hm, 1);
 }
-// the brick or the cell a controller points at, labelled where the ray meets it
+// the airport or the protein a controller points at, labelled where the ray meets it
 function xrTip(S) {
   let h = null;
   if (APP.mode === 'explore') for (const c of XR.ctrls) if (c.hover && c.hover.kind === 'globe' && c.hover.pk) { h = c.hover; break; }
@@ -113,8 +115,8 @@ function xrTip(S) {
   if (XR.tip) { GL.sets[XR.tip.set].group.worldToLocal(_xp.copy(h.point)); XR.tip.at = [_xp.x, _xp.y, _xp.z]; placeLabelXR(XR.tip, 1, S); }
 }
 
-// ---------------------------------------------------- picking a brick --
-// The brick or the cell a ray points at in explore mode (see pickWith), or null
+// --------------------------------------------- picking a city or a protein --
+// The airport or the protein a ray points at in explore mode (see pickWith), or null
 const _prc = new THREE.Raycaster();
 function pickRay(o, d) {
   if (APP.mode !== 'explore') return null;
@@ -187,13 +189,26 @@ function xrPress(c) {
     if (!r) return;
     c.press = { kind: 'panel', P: h.P, id: r.id, r };
     if (r.drag) { r.drag(h.x, h.y); buzz(c, 0.2, 12); }
+  } else if (h.kind === 'sea') {
+    // among the fish in explore mode the trigger is the shark: held, it leads the shark where you point (Be the
+    // shark); else a pull sends one that way
+    if (APP.mode !== 'explore' || X.scene !== 'fish' || XR.stories) return;
+    if (X.shark) { c.press = { kind: 'sea', steer: true }; steerRay(c); buzz(c, 0.3, 20); }
+    else { _sm.copy(GL.sets.fish.group.matrixWorld).invert(); if (sendShark(_xb.copy(c.d).transformDirection(_sm).toArray())) buzz(c, 0.5, 40); }
   } else { c.press = Object.assign(startDrag(c), { kind: 'globe', i: h.i, pk: h.pk }); orbit.held = true; }
+}
+// the point on a controller's ray as far from it as the school is: where the shark goes
+const _xs = new THREE.Vector3();
+function steerRay(c) {
+  const p = schoolAt(), w = _xs.set(p[0], p[1], p[2]).applyMatrix4(GL.world.matrixWorld), d = clamp(c.o.distanceTo(w), 1, 12);
+  GL.sets.fish.steer(inFish(_xs.copy(c.d).multiplyScalar(d).add(c.o)));
 }
 function xrRelease(c) {
   const p = c.press;
   c.press = null;
   if (!p) return;
   if (p.kind === 'globe') orbit.held = false;
+  if (p.kind === 'sea') { GL.sets.fish.steer(null); return; }
   if (p.kind === 'panel') {
     if (p.r.drag) return;
     const h = c.hover;
@@ -208,6 +223,7 @@ function xrGrab(c, on) {
   const h = c.hover;
   if (!on || !h) return;
   if (XR.stories || HOST.anchor.locked(h.kind)) return; // the Stories screen stays put, and so does an anchored place (in a shared room: only at its station, unless locked)
+  if (h.kind === 'sea') return;   // the sea is life size round you: it stays where it is
   // the scene is held by its placement point (where the view's target sits), so a still hand moves nothing
   const p0 = h.kind === 'panel' ? XR.panelGroup.getWorldPosition(new THREE.Vector3()) : GL.rig.localToWorld(XR.globeBase.clone().add(XR.globeOff));
   c.grab = { target: h.kind === 'panel' ? 'panel' : 'globe', q0: new THREE.Quaternion().setFromRotationMatrix(c.g.matrix).invert(),
@@ -263,8 +279,12 @@ function xrPoint(c, dt) {
     const h = hs[0], P = XR.panels.find(q => q.mesh === h.object);
     hit = { kind: 'panel', P, x: h.uv.x * P.w, y: (1 - h.uv.y) * P.h, point: h.point };
     dist = h.distance;
+  } else if (!XR.stories && GL.lifeOn) {
+    // among the fish, anywhere else is the sea (the dot sits out along the ray)
+    hit = { kind: 'sea', point: _xp.copy(c.d).multiplyScalar(4).add(c.o).clone() };
+    dist = 4;
   } else if (!XR.stories) {
-    // the scene counts as a ball around the view's target; a brick or a corner counts if the ray passes close
+    // the scene counts as a ball around the view's target; an airport or a protein counts if the ray passes close
     const oL = _xa.copy(c.o).applyMatrix4(_xinv), dL = _xb.copy(c.d).transformDirection(_xinv);
     _xc.copy(oL).sub(XR.target);
     const b = _xc.dot(dL), disc = b * b - (_xc.lengthSq() - XR.hitR * XR.hitR);
@@ -282,13 +302,14 @@ function xrPoint(c, dt) {
   c.hover = hit;
   if (c.wantPress) { c.wantPress = false; xrPress(c); }
   if (c.press && c.press.kind === 'globe') dragGlobe(c, c.press);
+  if (c.press && c.press.kind === 'sea') { if (sharking()) steerRay(c); else { c.press = null; GL.sets.fish.steer(null); } }
   if (c.grab) carry(c, dt);
   if (c.press && c.press.kind === 'panel' && c.press.r.drag && hit && hit.kind === 'panel' && hit.P === c.press.P) c.press.r.drag(hit.x, hit.y);
   // thumbstick: spin and zoom the globe; A/X: play or pause the story
   const gp = c.src.gamepad;
   if (gp) {
     const ax = gp.axes.length >= 4 ? gp.axes[2] : 0, ay = gp.axes.length >= 4 ? gp.axes[3] : 0;
-    if (APP.mode === 'explore' && !c.press && !c.grab) {
+    if (APP.mode === 'explore' && !c.press && !c.grab && X.scene !== 'fish') {
       if (Math.abs(ay) > 0.2) { orbit.to = null; orbit.cur[2] = clamp(orbit.cur[2] * Math.exp(ay * dt * 1.5), xrMinD(), 40); }
       if (Math.abs(ax) > 0.2) { orbit.to = null; orbit.cur[0] -= ax * dt * 60; }
     }
@@ -332,6 +353,7 @@ function xrBegin(frame, dt) {
   GL.rig.updateMatrixWorld(true);
   _xinv.copy(GL.world.matrixWorld).invert();
   for (const c of XR.ctrls) xrPoint(c, dt);
+  xrFingertip(frame, ref);
   for (const P of XR.panels) {
     let hv = null;
     for (const c of XR.ctrls) {
@@ -367,6 +389,23 @@ function xrUpdate(S) {
   xrTip(S);
   const now = performance.now();
   for (const P of XR.panels) panelTick(P, now);
+}
+
+// Be the shark with a tracked hand: the shark follows your index fingertip (the trigger held on the sea does the same
+// for a controller)
+function xrFingertip(frame, ref) {
+  if (!sharking() || !frame || !ref || !frame.getJointPose || XR.ctrls.some(c => c.press && c.press.kind === 'sea')) { if (XR.tipSteer) { XR.tipSteer = false; GL.sets.fish.steer(null); } return; }
+  let tip = null;
+  try {
+    for (const src of (XR.session && XR.session.inputSources) || []) {
+      const j = src.hand && src.hand.get && src.hand.get('index-finger-tip'), pose = j && frame.getJointPose(j, ref);
+      if (pose) { tip = pose.transform.position; if (src.handedness === 'right') break; }
+    }
+  } catch (e) { tip = null; }
+  if (!tip) { if (XR.tipSteer) { XR.tipSteer = false; GL.sets.fish.steer(null); } return; }
+  // (the reference space is the rig's parent's frame: the scene's own)
+  XR.tipSteer = true;
+  GL.sets.fish.steer(inFish(_xs.set(tip.x, tip.y, tip.z)));
 }
 
 // ---------------------------------------------------------- explore glue --

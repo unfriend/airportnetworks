@@ -3973,7 +3973,9 @@ function buildScene(canvas) {
   renderer.xr.enabled = true;
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
   const scene = new THREE.Scene();
-  const camera = new THREE.PerspectiveCamera(32, 1, 0.01, 400);
+  // (the globe and the cell are seen through a long lens, as in their own stories; among the fish the lens is wide, as
+  // the flock's: GL.lens, from the story's or explore's lens track, blends the two)
+  const camera = new THREE.PerspectiveCamera(32, 1, 0.02, 400);
   Object.assign(GL, { renderer, scene, camera, canvas });
   K.renderer = renderer;   // (the globe sizes its land texture by what the GPU allows, as the airports story does)
   GL.rig = new THREE.Group(); GL.world = new THREE.Group();
@@ -3991,19 +3993,27 @@ function buildScene(canvas) {
   const sg = new THREE.BufferGeometry();
   sg.setAttribute('position', new THREE.BufferAttribute(sp, 3)); sg.setAttribute('color', new THREE.BufferAttribute(sc, 3));
   GL.stars = new THREE.Points(sg, new THREE.PointsMaterial({ size: 1.3, sizeAttenuation: false, vertexColors: true }));
+  GL.stars.material.transparent = true;
   scene.add(GL.stars);
-  // the sets themselves, all hidden until the story fades them in
+  // the sets themselves, all hidden until the story fades them in. The fish are life size: in a headset their holder
+  // undoes the scale and turn xrPlace gives GL.world for the globe and the cell (placeLife), so the school stays round
+  // you while the other sets float in front of you; on a screen it changes nothing
   GL.sets = {};
+  GL.life = new THREE.Group(); GL.world.add(GL.life);
   for (const k of SET_ORDER) {
     const s = SETS[k](K);
     GL.sets[k] = s;
-    GL.world.add(s.group);
+    (k === 'fish' ? GL.life : GL.world).add(s.group);
     s.setAlpha(0);
+    if (s.setLang) s.setLang(LANG);
   }
 }
 // show each set as far as S fades it in, and let the visible ones update (the hidden ones idle); in the story a set
 // may be turned to meet the camera (see buildCamera)
 function updateSets(S, t, dt, story) {
+  // (no stars under water: they come out as the sea shrinks away below you)
+  const st = 1 - clamp(S.fish_a || 0, 0, 1) * clamp((S.fish_scale === undefined ? 1 : S.fish_scale) * 1.5, 0, 1);
+  GL.stars.material.opacity = st; GL.stars.visible = st > 0.01 && (!XR.on || XR.clear);
   for (const k of SET_ORDER) {
     const s = GL.sets[k], a = S[k + '_a'] || 0;
     s.group.rotation.y = story ? setYaw(k, t) * D2R : 0;
@@ -4072,6 +4082,290 @@ function updateLight(xr) {
   else K.U.uPx.value = GL.renderer.getDrawingBufferSize(_v2).y * 0.5;
 }
 
+// the lens: 32 degrees for the globe and the cell (their stories' own), 58 among the fish (the flock's), blended by
+// the lens track (1 among the fish)
+function setLens(w) {
+  const fov = 32 + 26 * clamp(w, 0, 1);
+  if (Math.abs(fov - GL.camera.fov) > 0.01) { GL.camera.fov = fov; GL.camera.updateProjectionMatrix(); }
+}
+// the fish's holder: nothing on a screen; in a headset it undoes GL.world's pose, so the school's frame hangs a standing
+// eye height below the rig, life size, wherever xrPlace puts the globe and the cell
+const _lm = new THREE.Matrix4(), _lt = new THREE.Matrix4();
+function placeLife(xr) {
+  const h = GL.life;
+  if (!xr) { h.position.set(0, 0, 0); h.quaternion.identity(); h.scale.setScalar(1); }
+  else {
+    GL.world.updateMatrix();
+    _lm.copy(GL.world.matrix).invert().multiply(_lt.makeTranslation(0, -1.6, 0));
+    _lm.decompose(h.position, h.quaternion, h.scale);
+  }
+  h.updateMatrix();
+}
+
+// ------------------------------------------------------------ the school --
+// Among the fish, on a screen, the camera stands where you float and turns to keep the school in view as you would
+// turn your head (the flock's followView: it lets the school wander a little first, and eases into and out of each
+// turn, at up to 50 degrees a second); from afar it keeps the school in the middle, and flying out to a far view or
+// back it comes round to the view's own side at up to 60 degrees a second. keep: return the followed view as it is
+// now (when you take over the camera).
+const FOL = { az: null, el: -20, wa: 0, we: 0, tx: 0, ty: 1.6, tz: -5, vz: null, ve: 0 };
+const lazy = (d, dz) => Math.sign(d) * Math.max(0, Math.abs(d) - dz);
+// turn o[x] towards g: the speed it wants grows with the error beyond the dead zone; its speed o[w] eases there
+function track(o, x, w, g, dz, gain, top, dt) {
+  const want = clamp(lazy(g - o[x], dz) * gain, -top, top);
+  o[w] += (want - o[w]) * (1 - Math.exp(-dt * 4));
+  o[x] += o[w] * dt;
+}
+// the school's middle, in the world's frame (the set may be shrinking or turned)
+const _sc = new THREE.Vector3();
+function schoolAt() {
+  const s = GL.sets.fish, c = s.anchors.school();
+  s.group.updateMatrix();
+  return _sc.set(c[0], c[1] - 0.6, c[2]).applyMatrix4(s.group.matrix).applyMatrix4(GL.life.matrix).toArray();
+}
+function followView(v, dt, keep) {
+  dt = keep ? 0 : dt || 0;
+  const c = schoolAt(), k = 1 - Math.exp(-dt * 1.2);
+  const dx = c[0] - v[3], dy = c[1] - v[4], dz = c[2] - v[5], h = Math.hypot(dx, dz) + 1e-6;
+  // the camera looks along -dir(az, el): it faces the school at az = atan2(-dx, -dz), el = -atan(dy / h)
+  let az = Math.atan2(-dx, -dz) / D2R;
+  const el = clamp(-Math.atan2(dy, h) / D2R, -60, 60);
+  if (FOL.az === null) { FOL.az = az; FOL.el = el; FOL.wa = FOL.we = 0; FOL.tx = c[0]; FOL.ty = c[1]; FOL.tz = c[2]; }
+  az += 360 * Math.round((FOL.az - az) / 360);
+  // the dead zone: about half the way to the edge of the picture (narrow on a phone held upright)
+  const hw = Math.atan(Math.tan(GL.camera.fov * D2R / 2) * GL.camera.aspect) / D2R;
+  // below the picture's middle the side panel covers a narrow screen: there the school is held a little higher
+  track(FOL, 'az', 'wa', az, clamp(hw * 0.45, 6, 22), 2.5, 50, dt); track(FOL, 'el', 'we', el + (GL.wide ? 0 : 5), 6, 2.5, 30, dt);
+  FOL.tx += (c[0] - FOL.tx) * k; FOL.ty += (c[1] - FOL.ty) * k; FOL.tz += (c[2] - FOL.tz) * k;
+  // FOL.az winds on as the school circles: blend from the turn nearest the view's own, or the camera whirls
+  const fa = FOL.az + 360 * Math.round((v[0] - FOL.az) / 360);
+  const w = smooth((v[2] - 0.6) / 2.4);   // 0 close up (turn to the school), 1 from afar (aim at it)
+  let va = fa + (v[0] - fa) * w;
+  const ve = FOL.el + (v[1] - FOL.el) * w;
+  if (keep || FOL.vz === null) { FOL.vz = va; FOL.ve = ve; }
+  else {
+    va += 360 * Math.round((FOL.vz - va) / 360);
+    FOL.vz += clamp(va - FOL.vz, -60 * dt, 60 * dt); FOL.ve += clamp(ve - FOL.ve, -40 * dt, 40 * dt);
+  }
+  const out = v.slice();
+  out[0] = FOL.vz; out[1] = FOL.ve; out[3] = v[3] + (FOL.tx - v[3]) * w; out[4] = v[4] + (FOL.ty - v[4]) * w; out[5] = v[5] + (FOL.tz - v[5]) * w;
+  return out;
+}
+// the school keeps clear of you: your head and hands, in its own frame. On a screen you float at the middle of the
+// sea (not where the camera is: from afar the school would follow the camera away). spot: at a station in a shared
+// room (fishSync), where the school stays round the station's spot instead of round you
+const _sv = new THREE.Vector3(), _sm = new THREE.Matrix4();
+function tellFish(xr, spot) {
+  const s = GL.sets.fish;
+  GL.world.updateMatrixWorld(true);
+  _sm.copy(s.group.matrixWorld).invert();
+  const head = xr ? _sv.copy(XR.head).applyMatrix4(_sm).toArray() : [0, 1.6, 0];
+  const hands = xr ? XR.ctrls.filter(c => c.src && c.g.visible).map(c => _sv.copy(c.o).applyMatrix4(_sm).toArray()) : [];
+  s.see(head, hands, spot);
+}
+// a point of the world (THREE.Vector3, world coordinates) in the school's frame
+function inFish(p) { GL.world.updateMatrixWorld(true); return p.clone().applyMatrix4(_sm.copy(GL.sets.fish.group.matrixWorld).invert()).toArray(); }
+
+// ============================================================= LANGUAGE ==
+// This story speaks English and German: every word it shows (the panel, the headset's panels, the labels in 3D, the
+// explore panes, notes and credits) comes from STR, [English, German] by key, read through T(key, ...values) ({0},
+// {1} ... are filled in). The sets keep their own words the same way (their setLang). The language is per device:
+// German when the device's language is, else English; a choice on the switch (EN | DE, on the story panel and in the
+// explore panes, page and headset) is kept in localStorage (passLang); #pass&lang=de or &lang=en in a link sets it.
+// It is never shared in a room: each person reads their own. The shell's own words (top bar, Stories screen, menu)
+// stay English. British English; German plain and natural for a 12-year-old ("du").
+const LANGS = ['en', 'de'];
+let LANG = (() => {
+  const h = new URLSearchParams(location.hash.slice(1)).get('lang');
+  if (h === 'en' || h === 'de') { try { localStorage.setItem('passLang', h); } catch (e) { /* private mode */ } return h; }
+  try { const s = localStorage.getItem('passLang'); if (s === 'en' || s === 'de') return s; } catch (e) { /* private mode */ }
+  return /^de\b/i.test(navigator.language || '') ? 'de' : 'en';
+})();
+const de = () => LANG === 'de';
+// numbers as each language writes them: 3,214 and 3.214
+const num = n => Math.round(n).toLocaleString(de() ? 'de-DE' : 'en-GB');
+function T(k, ...a) {
+  const s = STR[k];
+  if (!s) return k;
+  const t = s[de() ? 1 : 0];
+  return a.length ? t.replace(/\{(\d)\}/g, (m, i) => a[+i]) : t;
+}
+const STR = {
+  // ------------------------------------------------------------------ the story's name and its chapters
+  'title': ['Pass it on', 'Weitersagen!'],
+  'lede': ['how warnings, viruses and signals spread', 'wie sich Warnungen, Viren und Signale ausbreiten'],
+  'ch.fish': ['The school', 'Der Schwarm'],
+  'ch.watch': ['Who watches whom', 'Wer wen beobachtet'],
+  'ch.links': ['Other links', 'Andere Verbindungen'],
+  'ch.sky': ['The sky', 'Der Himmel'],
+  'ch.cell': ['The cell', 'Die Zelle'],
+  'ch.med': ['Medicine', 'Medizin'],
+  // 1. A school of fish
+  'fish.1': ['Hundreds of fish swim all around you. They turn together, as if they were one big animal.',
+    'Hunderte Fische schwimmen um dich herum. Sie drehen alle zugleich ab, als wären sie ein einziges großes Tier.'],
+  'fish.2': ['No fish is in charge, and none of them can see the whole school.',
+    'Kein Fisch hat das Sagen, und keiner von ihnen sieht den ganzen Schwarm.'],
+  'fish.3': ['So how do they stay together?', 'Wie bleiben sie dann zusammen?'],
+  'fish.note': ['In a headset the school swims all around you, and in passthrough right through your room.',
+    'Mit einer VR-Brille schwimmt der Schwarm rund um dich herum, im Durchsicht-Modus sogar mitten durch dein Zimmer.'],
+  'fish.credit': ['A story for everyone from the Ludwig Boltzmann Institute for Network Medicine (LBI-NetMed) in Vienna.',
+    'Eine Geschichte für alle vom Ludwig Boltzmann Institut für Netzwerkmedizin (LBI-NetMed) in Wien.'],
+  'lbl.school': ['The school', 'Der Schwarm'], 'lbl.school.r': ['no fish in charge', 'kein Fisch hat das Sagen'],
+  // 2. Who watches whom
+  'watch.h': ['Who watches whom', 'Wer wen beobachtet'],
+  'watch.1': ['Each fish watches just a few of its nearest neighbours and does what they do: it turns when they turn and stays close, but not too close.',
+    'Jeder Fisch beobachtet nur ein paar Nachbarn ganz in seiner Nähe und macht, was sie machen: Er dreht, wenn sie drehen, und bleibt nah bei ihnen, aber nicht zu nah.'],
+  'watch.2': ['Draw a line from each fish to the neighbours it watches, and the school becomes a network.',
+    'Zieh eine Linie von jedem Fisch zu den Nachbarn, die er beobachtet, und der Schwarm wird zu einem Netzwerk.'],
+  'watch.3': ['A network is just dots and the links between them. Here the dots are fish, and a link means “I am watching you”.',
+    'Ein Netzwerk besteht nur aus Punkten und Verbindungen dazwischen. Hier sind die Punkte Fische, und eine Verbindung heißt: „Ich beobachte dich.“'],
+  'watch.4': ['Now a shark comes.', 'Jetzt kommt ein Hai.'],
+  'watch.5': ['The fish nearest to it turn away first. Their neighbours see them turn and turn too, and so on, from fish to fish.',
+    'Die Fische, die ihm am nächsten sind, drehen zuerst ab. Ihre Nachbarn sehen das und drehen auch ab, und so weiter, von Fisch zu Fisch.'],
+  'watch.6': ['The warning races through the school faster than the shark can swim.',
+    'Die Warnung rast schneller durch den Schwarm, als der Hai schwimmen kann.'],
+  'watch.7': ['A school is a network that passes on a warning.', 'Ein Schwarm ist ein Netzwerk, das eine Warnung weitergibt.'],
+  'watch.note': ['Real schools of fish pass on an attack like this (Rosenthal et al. 2015, Handegard et al. 2012). Ours is a simulation: in our school each fish watches seven neighbours.',
+    'Echte Fischschwärme geben einen Angriff genau so weiter (Rosenthal und andere 2015, Handegard und andere 2012). Unserer ist eine Simulation: Hier beobachtet jeder Fisch sieben Nachbarn.'],
+  // 3. Change the links
+  'links.h': ['Change the links', 'Andere Verbindungen'],
+  'links.1': ['What if each fish watched only one neighbour?', 'Was wäre, wenn jeder Fisch nur einen einzigen Nachbarn beobachten würde?'],
+  'links.2': ['Now the lines join only pairs. Pairs follow pairs, and nothing holds the group together.',
+    'Jetzt verbinden die Linien nur noch Paare. Paare folgen Paaren, und nichts hält die Gruppe mehr zusammen.'],
+  'links.3': ['The school falls apart.', 'Der Schwarm fällt auseinander.'],
+  'links.4': ['Back to seven neighbours each: the links knit the fish together, and the school forms again.',
+    'Wieder sieben Nachbarn für jeden: Die Verbindungen knüpfen die Fische zusammen, und der Schwarm bildet sich neu.'],
+  'links.5': ['The same fish, other links. The shape of the network decides what the group can do.',
+    'Dieselben Fische, andere Verbindungen. Die Form des Netzwerks bestimmt, was die Gruppe kann.'],
+  // 4. From the sea to the sky
+  'sky.h': ['From the sea to the sky', 'Vom Meer in den Himmel'],
+  'sky.1': ['Rise out of the water, higher and higher, until you see the whole Earth.',
+    'Steig aus dem Wasser auf, immer höher, bis du die ganze Erde siehst.'],
+  'sky.2': ['Here is another network: airports, joined by the routes that planes fly.',
+    'Hier ist ein anderes Netzwerk: Flughäfen, verbunden durch die Strecken, die Flugzeuge fliegen.'],
+  'sky.f1': ['airports', 'Flughäfen'], 'sky.f2': ['routes', 'Flugrouten'],
+  'sky.3': ['An infection starts in {0}. Each day it can travel along a route, from a city where people are ill to a city they fly to.',
+    'In {0} beginnt eine Ansteckung. Jeden Tag kann sie über eine Flugroute reisen, von einer Stadt, in der Menschen krank sind, in eine Stadt, in die sie fliegen.'],
+  'sky.4': ['At first it spreads slowly: {0} cities in the first week.', 'Zuerst breitet sie sich langsam aus: {0} Städte in der ersten Woche.'],
+  'sky.day': ['day {0}', 'Tag {0}'], 'sky.cities': ['cities reached', 'Städte erreicht'],
+  'sky.5': ['Then it reaches the hubs, the airports with the most routes, and from there everywhere at once.',
+    'Dann erreicht sie die Drehkreuze, die Flughäfen mit den meisten Flugrouten, und von dort aus alle anderen auf einmal.'],
+  'sky.6': ['Like the warning in the school, it passes from neighbour to neighbour, only now across the whole planet.',
+    'Wie die Warnung im Schwarm geht sie von Nachbar zu Nachbar, nur jetzt über den ganzen Planeten.'],
+  'sky.note': ['A simple model on the real route network, not a forecast: every route counts the same, an airport stands for its city, and no real disease is copied. A city reached is exposed for {0} days (amber), infectious for {1} (red), then recovered (grey).',
+    'Ein einfaches Modell auf dem echten Flugnetz, keine Vorhersage: Jede Route zählt gleich viel, ein Flughafen steht für seine Stadt, und keine echte Krankheit wird nachgemacht. Eine erreichte Stadt ist {0} Tage angesteckt (orange), dann {1} Tage ansteckend (rot), dann wieder gesund (grau).'],
+  'sky.credit': ['Routes: OpenFlights.org (Open Database License), 2014 snapshot, as in the airports story. Coastlines: Natural Earth.',
+    'Flugrouten: OpenFlights.org (Open Database License), Stand 2014, wie in der Geschichte über Flughäfen. Küsten: Natural Earth.'],
+  // 5. Into the cell
+  'cell.h': ['Into the cell', 'In die Zelle hinein'],
+  'cell.1': ['Now zoom from the planet into one single cell of your body. It is a network too.',
+    'Jetzt geht es vom Planeten in eine einzige Zelle deines Körpers. Auch sie ist ein Netzwerk.'],
+  'cell.2': ['Inside it are rooms with walls of their own: the nucleus, which keeps the genes, and its factories and power stations.',
+    'In ihr gibt es Räume mit eigenen Wänden: den Zellkern, in dem die Gene liegen, dazu Fabriken und Kraftwerke.'],
+  'cell.3': ['The dots are proteins, the cell’s tiny machines: {0} of them in this map, each in the places where it works.',
+    'Die Punkte sind Proteine, die winzigen Maschinen der Zelle: {0} sind es in dieser Karte, jedes an den Orten, an denen es arbeitet.'],
+  'cell.4': ['A protein can only meet a partner in the same place. Here a growth signal from outside meets its receptor on the cell’s surface.',
+    'Ein Protein kann einen Partner nur am selben Ort treffen. Hier trifft ein Wachstumssignal von draußen seinen Empfänger an der Oberfläche der Zelle.'],
+  'cell.5': ['Signals cross the cell hand to hand, from protein to protein, like the warning in the school.',
+    'Signale wandern von Hand zu Hand durch die Zelle, von Protein zu Protein, wie die Warnung im Schwarm.'],
+  'cell.6': ['An inflammation signal arrives at the surface. Inside, the protein NF-κB waits, held by its brake.',
+    'Ein Entzündungssignal kommt an der Oberfläche an. Drinnen wartet das Protein NF-κB, festgehalten von seiner Bremse.'],
+  'cell.7': ['The message is passed on until the brake lets go. Then NF-κB moves into the nucleus and switches genes on.',
+    'Die Nachricht wird weitergegeben, bis die Bremse loslässt. Dann wandert NF-κB in den Zellkern und schaltet dort Gene an.'],
+  'cell.8': ['But what if a protein ends up in the wrong place?', 'Aber was ist, wenn ein Protein am falschen Ort landet?'],
+  'cell.9': ['In cystic fibrosis the protein CFTR gets stuck on its way to the surface. It never arrives where it should work.',
+    'Bei Mukoviszidose bleibt das Protein CFTR auf dem Weg zur Oberfläche stecken. Es kommt nie dort an, wo es arbeiten soll.'],
+  'cell.10': ['Its links are lost, and the message stops: a disease.', 'Seine Verbindungen gehen verloren, und die Nachricht kommt nicht mehr an: eine Krankheit.'],
+  'cell.note': ['The cell map story’s own cell: {0} well-studied human proteins in {1} places, a small illustrative selection (a real cell makes about 20,000 kinds). Places follow the Human Protein Atlas and UniProt.',
+    'Die Zelle aus der Geschichte „Cell map“: {0} gut erforschte menschliche Proteine an {1} Orten, eine kleine Auswahl zum Zeigen (eine echte Zelle macht etwa 20.000 Sorten). Die Orte stammen aus dem Human Protein Atlas und aus UniProt.'],
+  // 6. Network medicine
+  'med.h': ['Network medicine', 'Netzwerkmedizin'],
+  'med.1': ['Fish, flights and proteins: three very different networks, and the same maths for all of them.',
+    'Fische, Flüge und Proteine: drei ganz verschiedene Netzwerke, und für alle dieselbe Mathematik.'],
+  'med.s1': ['The school', 'Der Schwarm'], 'med.s1t': ['who watches whom: a warning', 'wer wen beobachtet: eine Warnung'],
+  'med.s2': ['The planet', 'Der Planet'], 'med.s2t': ['which city flies to which: an infection', 'welche Stadt wohin fliegt: eine Ansteckung'],
+  'med.s3': ['The cell', 'Die Zelle'], 'med.s3t': ['which protein works with which: a signal', 'welches Protein mit welchem arbeitet: ein Signal'],
+  'med.2': ['Network medicine looks for the links that break in a disease, and for the places where a medicine could help.',
+    'Die Netzwerkmedizin sucht nach den Verbindungen, die bei einer Krankheit kaputtgehen, und nach den Stellen, an denen ein Medikament helfen könnte.'],
+  'med.3': ['That is what we work on at the Ludwig Boltzmann Institute for Network Medicine in Vienna.',
+    'Genau daran arbeiten wir am Ludwig Boltzmann Institut für Netzwerkmedizin in Wien.'],
+  'med.4': ['Now it is your turn: be the shark, start an outbreak anywhere on Earth, or send a protein to the wrong place.',
+    'Jetzt bist du dran: Sei der Hai, starte einen Ausbruch irgendwo auf der Erde oder schick ein Protein an den falschen Ort.'],
+  'med.go': ['Explore it yourself', 'Selbst ausprobieren'],
+  'med.credit': ['An outreach story of the Ludwig Boltzmann Institute for Network Medicine (LBI-NetMed). Flight routes: OpenFlights.org (2014, Open Database License); coastlines: Natural Earth. The cell: the cell map story’s proteins and places (Human Protein Atlas, UniProt; ideas from Thul et al. 2017, Go et al. 2021, Cho et al. 2022, Qin et al. 2021, Lundberg & Borner 2019). Fish schools: Rosenthal et al. 2015, Handegard et al. 2012. The fish and the outbreak are simulations, not measurements or forecasts.',
+    'Eine Geschichte für alle vom Ludwig Boltzmann Institut für Netzwerkmedizin (LBI-NetMed). Flugrouten: OpenFlights.org (2014, Open Database License); Küsten: Natural Earth. Die Zelle: Proteine und Orte aus der Geschichte „Cell map“ (Human Protein Atlas, UniProt; Ideen aus Thul und andere 2017, Go und andere 2021, Cho und andere 2022, Qin und andere 2021, Lundberg & Borner 2019). Fischschwärme: Rosenthal und andere 2015, Handegard und andere 2012. Die Fische und der Ausbruch sind Simulationen, keine Messungen und keine Vorhersagen.'],
+
+  // ------------------------------------------------------------------ explore mode
+  'lang': ['Language', 'Sprache'],
+  'tab.fish': ['Fish', 'Fische'], 'tab.out': ['Outbreak', 'Ausbruch'], 'tab.cell': ['Cell', 'Zelle'], 'tab.scenes': ['Scenes', 'Szenen'],
+  'sc.fish': ['The school', 'Der Schwarm'], 'sc.globe': ['The globe', 'Der Globus'], 'sc.cell': ['The cell', 'Die Zelle'],
+  'sc.fish.d': ['Hundreds of fish all around you, each watching a few neighbours; now and then a shark.',
+    'Hunderte Fische rund um dich, jeder beobachtet ein paar Nachbarn; ab und zu kommt ein Hai.'],
+  'sc.globe.d': ['The airports story’s globe: {0} airports and {1} routes, and an outbreak on them.',
+    'Der Globus aus der Geschichte über Flughäfen: {0} Flughäfen und {1} Flugrouten, und ein Ausbruch darauf.'],
+  'sc.cell.d': ['The cell map story’s cell: its rooms, its proteins and their links, and the moves proteins make.',
+    'Die Zelle aus der Geschichte „Cell map“: ihre Räume, ihre Proteine und deren Verbindungen, und wie Proteine wandern.'],
+  'turn': ['Turn', 'Drehen'], 'on': ['On', 'An'], 'off': ['Off', 'Aus'],
+  // Fish
+  'f.sub': ['Every fish watches a few neighbours. Change the network and see what the school does.',
+    'Jeder Fisch beobachtet ein paar Nachbarn. Ändere das Netzwerk und schau, was der Schwarm macht.'],
+  'f.shark': ['Be the shark', 'Sei der Hai'],
+  'f.shark.how': ['Move the pointer over the water (drag on a touch screen). In a headset, point and hold the trigger, or move your fingertip.',
+    'Fahr mit dem Zeiger übers Wasser (auf einem Touchscreen: ziehen). Mit VR-Brille: zeigen und den Abzug halten, oder den Zeigefinger bewegen.'],
+  'f.send': ['Send a shark', 'Hai losschicken'], 'f.busy': ['A shark is coming', 'Ein Hai kommt'],
+  'f.k': ['Neighbours each fish watches', 'Nachbarn, die jeder Fisch beobachtet'],
+  'f.k1': ['One neighbour each: pairs follow pairs, and the school falls apart.', 'Nur ein Nachbar: Paare folgen Paaren, und der Schwarm fällt auseinander.'],
+  'f.k2': ['Two neighbours each: small groups hold, but the school splits up.', 'Zwei Nachbarn: Kleine Gruppen halten, aber der Schwarm zerfällt.'],
+  'f.k3': ['{0} neighbours each: the links hold the school together.', '{0} Nachbarn für jeden: Die Verbindungen halten den Schwarm zusammen.'],
+  'f.links': ['Lines: who watches whom', 'Linien: wer wen beobachtet'],
+  'f.n': ['Fish in the school', 'Fische im Schwarm'],
+  'f.view': ['View', 'Ansicht'],
+  'f.note': ['A simulation: each fish swims the way the fish it watches swim, keeps a little apart and flees the shark, and a warning passes from neighbour to neighbour. Its numbers are not measured on real fish.',
+    'Eine Simulation: Jeder Fisch schwimmt wie die Fische, die er beobachtet, hält etwas Abstand und flieht vor dem Hai, und eine Warnung geht von Nachbar zu Nachbar. Ihre Zahlen sind nicht an echten Fischen gemessen.'],
+  // Outbreak
+  'o.sub': ['A simple model, not a forecast.', 'Ein einfaches Modell, keine Vorhersage.'],
+  'o.start': ['Starts in', 'Beginnt in'],
+  'o.click': ['A click on the globe', 'Ein Klick auf den Globus'],
+  'o.click.start': ['starts it there', 'startet ihn dort'], 'o.click.look': ['shows a city', 'zeigt eine Stadt'],
+  'o.search': ['Find an airport or a city', 'Flughafen oder Stadt suchen'],
+  'o.play': ['Play', 'Abspielen'], 'o.pause': ['Pause', 'Anhalten'], 'o.again': ['From day 0', 'Ab Tag 0'],
+  'o.day': ['Day {0}', 'Tag {0}'],
+  'o.E': ['exposed', 'angesteckt'], 'o.I': ['infectious', 'ansteckend'], 'o.R': ['recovered', 'wieder gesund'],
+  'o.reached': ['Cities reached', 'Erreichte Städte'], 'o.reachedv': ['{0} of {1}', '{0} von {1}'],
+  'o.peak': ['Most infectious at once', 'Am meisten ansteckend'], 'o.peakv': ['{0} cities, day {1}', '{0} Städte, Tag {1}'],
+  'o.over': ['Over by', 'Vorbei an'], 'o.overv': ['day {0}', 'Tag {0}'],
+  'o.inc': ['Days until a city is infectious', 'Tage bis ansteckend'],
+  'o.inf': ['Days a city stays infectious', 'Tage ansteckend'],
+  'o.spread': ['How easily it spreads along a route', 'Wie leicht es sich über eine Route ausbreitet'],
+  'o.low': ['Low', 'Wenig'], 'o.medium': ['Medium', 'Mittel'], 'o.high': ['High', 'Stark'],
+  'o.cut': ['Fewer flights', 'Weniger Flüge'],
+  'o.days': ['{0} days', '{0} Tage'],
+  'o.sel.on': ['{0}: reached on day {1}', '{0}: erreicht an Tag {1}'], 'o.sel.yet': ['{0}: reached on day {1} (not yet)', '{0}: erreicht an Tag {1} (noch nicht)'],
+  'o.sel.never': ['{0}: never reached', '{0}: nie erreicht'], 'o.sel.start': ['{0}: it starts here', '{0}: hier fängt es an'],
+  'o.way': ['The way it came: {0}', 'So kam es dorthin: {0}'],
+  'o.note': ['Each day an infectious city passes it on over each of its routes with a small chance, smaller with fewer flights. Every route counts the same (the data has no passenger numbers), and an airport stands for its city. The same start and settings always give the same outbreak.',
+    'Jeden Tag gibt eine ansteckende Stadt es über jede ihrer Routen mit einer kleinen Chance weiter, mit weniger Flügen seltener. Jede Route zählt gleich viel (die Daten kennen keine Fluggastzahlen), und ein Flughafen steht für seine Stadt. Derselbe Start und dieselben Einstellungen ergeben immer denselben Ausbruch.'],
+  'o.data': ['Routes: OpenFlights.org (2014).', 'Flugrouten: OpenFlights.org (2014).'],
+  // Cell
+  'c.sub': ['Click a protein (in a headset, point and pull the trigger) to see where it works and whom it meets there. Or send proteins on a move.',
+    'Klick auf ein Protein (mit VR-Brille: zeigen und Abzug drücken), dann siehst du, wo es arbeitet und wen es dort trifft. Oder schick Proteine auf Wanderschaft.'],
+  'c.search': ['Find a protein', 'Protein suchen'],
+  'c.none': ['No protein picked yet.', 'Noch kein Protein ausgewählt.'],
+  'c.places': ['Works in', 'Arbeitet in'], 'c.partners': ['Meets there', 'Trifft dort'],
+  'c.more': ['and {0} more', 'und {0} weitere'], 'c.alone': ['no partners here', 'keine Partner hier'],
+  'c.moves': ['Moves', 'Wanderungen'], 'c.nomove': ['None', 'Keine'], 'c.disease': ['a disease', 'eine Krankheit'],
+  'c.lost': ['loses {0}', 'verliert {0}'], 'c.gained': ['meets {0}', 'trifft {0}'],
+  'c.nochange': ['no partners change', 'keine Partner ändern sich'],
+  'c.note': ['The cell map story’s cell, as it is: an illustrative set of well-studied human proteins in a model cell (Human Protein Atlas, UniProt). Protein names and roles are the scientific ones, in English.',
+    'Die Zelle aus der Geschichte „Cell map“, so wie sie ist: eine Auswahl gut erforschter menschlicher Proteine in einer Modellzelle (Human Protein Atlas, UniProt). Die Namen und Aufgaben der Proteine sind die wissenschaftlichen, auf Englisch.'],
+  // the headset's panels and tips
+  'xr.hint': ['Trigger (or pinch): use buttons. Grip: move the scene or this panel; both grips on the scene resize it. A or X: play and pause.',
+    'Abzug (oder Finger zusammen): Knöpfe drücken. Greifen: Szene oder Tafel verschieben, mit beiden Händen größer oder kleiner machen. A oder X: Abspielen und Anhalten.'],
+  'xr.hint.anchor': ['Trigger (or pinch): use buttons. A or X: play and pause. Anchored: to move things, use Place again on the Stories screen.',
+    'Abzug (oder Finger zusammen): Knöpfe drücken. A oder X: Abspielen und Anhalten. Verankert: Verschieben geht mit „Place again“ im Stories-Bildschirm.'],
+  'xr.zoom': ['Zoom', 'Zoom'], 'xr.whole': ['Whole scene', 'Ganze Szene'],
+  'tip.city': ['{0} · {1} routes', '{0} · {1} Flugrouten'],
+};
 // ================================================================== STORY ==
 // Narration timing: [time in your recording, original story cue]. The story's
 // animation is stretched or squeezed between these points so each cue lands
@@ -4079,22 +4373,9 @@ function updateLight(xr) {
 // pace: node tools/pace.mjs writes it from the words on the panel (each stretch
 // between two cues lasts long enough to read what appeared at its start; run
 // it again after the text changes). A recording replaces it with its own times.
+// (This story is in two languages: pace.mjs gives each line the reading time of the longer of the two, LANGS.)
 const NARRATION_SYNC = [
-  [0, 0], [3.3, 3], [7, 4], [7.7, 4.6], [12.7, 6.5], [22.4, 12], [24.6, 13.5], [34.6, 22.6],
-  [44.5, 26],                                         // Pairs
-  [51, 30], [52.3, 31.18], [53.9, 31.2], [54.6, 31.8], [63.1, 35], [84.7, 54.6], [105.5, 58],  // Walkers
-  [110.3, 62], [111.6, 63.18], [112.7, 63.2], [119.8, 67], [125.9, 72], [135.4, 80.6], [142.6, 83],  // Shrink
-  [152.7, 90], [153.4, 90.6], [154.7, 91.2], [165.2, 98], [194.5, 124.6], [205.2, 126],
-  [205.9, 126.6], [221, 128], [221.7, 128.6],         // Cuts
-  [242.1, 130], [242.7, 130.6], [244, 131.2], [253.3, 137], [264.7, 143], [276.1, 150],
-  [276.7, 150.6], [296.7, 155],                       // Coarse
-  [302.8, 160], [303.5, 160.6], [304.4, 161.2], [305, 161.8], [313.1, 165], [316.7, 168],
-  [326.6, 177], [331.4, 180], [341.3, 189], [349.6, 193], [360.6, 200], [361.2, 200.6], [382.1, 206],  // Bricks
-  [392, 215], [392.6, 215.6], [393.5, 216.2], [398.8, 219], [406.7, 224], [413.7, 230],
-  [414.4, 230.6], [439.2, 238], [444.7, 243], [456.9, 253], [463.1, 256],  // Toolbox
-  [473.2, 262], [474.5, 263.18], [476, 263.2], [476.7, 263.8], [483.5, 266], [490.9, 270],
-  [509.4, 279], [510, 279.6], [519, 282], [519.7, 282.6], [526.5, 285], [528.7, 286], [530.4, 287.6],
-  [544.2, 290],                                       // Circuit
+  [0, 0], [305, 305],
 ];
 // recording time -> original story time
 function storyT(t) {
@@ -4114,36 +4395,39 @@ function narrT(o) {
   return W[W.length - 1][0] + (o - W[W.length - 1][1]);
 }
 let T_END = NARRATION_SYNC[NARRATION_SYNC.length - 1][0];
+// (a chapter's name is in the language on show)
 const CH = [
-  { key: 'title', name: 'Pairs', a: 0, b: 30 },
-  { key: 'walkers', name: 'Walkers', a: 30, b: 62 },
-  { key: 'shrink', name: 'Shrink', a: 62, b: 90 },
-  { key: 'cut', name: 'Cuts', a: 90, b: 130 },
-  { key: 'coarse', name: 'Coarse', a: 130, b: 160 },
-  { key: 'bricks', name: 'Bricks', a: 160, b: 215 },
-  { key: 'toolbox', name: 'Toolbox', a: 215, b: 262 },
-  { key: 'circuit', name: 'Circuit', a: 262, b: 290 },
+  { key: 'fish', a: 0, b: 40 },
+  { key: 'watch', a: 40, b: 95 },
+  { key: 'links', a: 95, b: 140 },
+  { key: 'sky', a: 140, b: 210 },
+  { key: 'cell', a: 210, b: 270 },
+  { key: 'med', a: 270, b: 305 },
 ];
-CH.forEach(c => { c.na = narrT(c.a); c.nb = narrT(c.b); }); // chapter times on the recording's clock
+CH.forEach(c => { Object.defineProperty(c, 'name', { get: () => T('ch.' + c.key), enumerable: true }); c.na = narrT(c.a); c.nb = narrT(c.b); });
 const C = Object.fromEntries(CH.map(c => [c.key, c]));
 
-// every param of every set, at rest; the sets themselves start hidden
+// every param of every set, at rest; the sets themselves start hidden. lens: the camera's lens (1 among the fish, a
+// wide one; 0 for the globe and the cell, the long one of their stories)
 const DEF = {};
 function buildDefaults() {
   for (const k of SET_ORDER) Object.assign(DEF, GL.sets[k].params);
   for (const k of SET_ORDER) DEF[k + '_a'] = 0;
+  DEF.lens = 0;
 }
 const TR = {};
 const key = (n, t, v) => { (TR[n] = TR[n] || []).push([t, v]); };
 const ramp = (n, t0, t1, v0, v1) => { key(n, t0, v0); key(n, t1, v1); };
+// tracks that run at an even pace (the outbreak's days; a protein travelling its way): no easing in and out
+const LIN = new Set(['globe_day', 'cell_cue', 'cell_nfkb', 'cell_cf']);
 function evalTrack(n, t) {
   const ks = TR[n];
   if (!ks) return DEF[n];
   if (t <= ks[0][0]) return ks[0][1];
   for (let i = 1; i < ks.length; i++) {
     if (t <= ks[i][0]) {
-      const [t0, v0] = ks[i - 1], [t1, v1] = ks[i];
-      return t1 <= t0 ? v1 : v0 + (v1 - v0) * smooth((t - t0) / (t1 - t0));
+      const [t0, v0] = ks[i - 1], [t1, v1] = ks[i], x = (t - t0) / (t1 - t0);
+      return t1 <= t0 ? v1 : v0 + (v1 - v0) * (LIN.has(n) ? x : smooth(x));
     }
   }
   return ks[ks.length - 1][1];
@@ -4166,17 +4450,12 @@ const view = (k, name) => {
 // the part of a view's FIT that moves its target clear of the side panel: on a screen without one (a phone, a narrow
 // window) applyCamera takes it back, so the view stays centred there
 const fitShift = (k, name) => { const f = GL.sets[k].cam[name] && FIT[k] && FIT[k][name]; return f ? [f[3] || 0, f[4] || 0, f[5] || 0] : [0, 0, 0]; };
-// views whose parts reach under the side panel or off the right edge on a landscape screen: a little further back,
-// or their target moved, so they fit beside the panel (added to the set's own view, in story and explore mode alike)
-// (measured at 1280 x 760: each view's parts between the panel's right edge and the screen's, above the timeline)
-// (the grid of pairs, about 2.1 tall, fills the height between the top bar and the timeline; the gallery, from the big
-// cube to its fifth column about 4.3 across, needs about 7.9 units' distance beside the panel, its middle left of the
-// view's target)
-const FIT = { pairs: { grid: [0, 0, 1.3, 0, 0.05], hoods: [0, 0, 0.5, 0.1], chip: [0, 0, 0.4, 0.05] },
-  cube: { default: [0, 0, 0.6], cube: [0, 0, 1.7], genes: [0, 0, 0.3], bricks: [0, 0, 2.3, -0.42], gallery: [0, 0, 0.5] }, chart: { default: [0, 0, 0.7, -0.05], chart: [0, 0, 0.7, -0.05] } };
-// how much further back a view stands on a phone held upright (see narrowK): the wide ones, whose parts reach
-// across the screen
-const NARROW = { pairs: { grid: 1.1, hoods: 1.15, chip: 1.1 }, cube: { genes: 1.1, bricks: 1.2, gallery: 1.1 }, chart: { default: 1.1, chart: 1.1 } };
+// views whose parts reach under the side panel on a landscape screen: a little further back (added to the set's own
+// view, in story and explore mode alike; the fish are all round you and need none)
+const FIT = { globe: { default: [0, 0, 0.3], start: [0, 0, 0.2], europe: [0, 0, 0.2], atlantic: [0, 0, 0.3], asia: [0, 0, 0.3] },
+  cell: { default: [0, 0, 0.3], nfkb: [0, 0, 0.2], cf: [0, 0, 0.2], als: [0, 0, 0.2], signal: [0, 0, 0.2] } };
+// how much further back a view stands on a phone held upright (see narrowK): the whole globe and the whole cell
+const NARROW = { globe: { default: 1.15, world: 1.1, start: 1.1 }, cell: { default: 1.15, nfkb: 1.1, cf: 1.1 } };
 const narrowOf = (k, name) => (NARROW[k] && NARROW[k][name]) || 1;
 // a set's anchor point, in the set's own coordinates
 function anchorOf(k, at) {
@@ -4186,168 +4465,94 @@ function anchorOf(k, at) {
   return p || [0, 0, 0];
 }
 
-// ------------------------------------------------------------------- data --
-// The maths (QMATH) on the story's example network, and the real run's numbers (QUBITS_DATA), looked up once for the
-// story and the panes. The example's numbers are computed here, never typed in; the real run's are used only where
-// the text says "in the real network".
-const Q = QMATH, QD = QUBITS_DATA;
-const NETI = Math.max(0, Q.NETS.findIndex(n => n.key === Q.DEFAULT));   // the story's network (cube_net)
-const SUBS = '₀₁₂₃₄₅₆₇₈₉';
-const sub = nm => String(nm).replace(/\d/g, d => SUBS[d]);   // 'X2X1' -> 'X₂X₁'
-const f2 = v => (v < 0 ? '−' : '') + Math.abs(v).toFixed(2);
-const f3s = v => (v < 0 ? '−' : '+') + Math.abs(v).toFixed(3);   // an angle with its sign
-const pct = v => (Number.isFinite(+v) ? `${Math.round(100 * v)}%` : '–');
-const word = n => ['no', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve'][n] || String(n);
-const listOf = a => (a.length < 2 ? a.join('') : a.slice(0, -1).join(', ') + ' and ' + a[a.length - 1]);
-const codeStr = (c, L) => c.toString(2).padStart(L, '0');
-// the better of the two algebras (the real run reports the best algebra of its panel; the chart set does the same)
-const bestRes = A => Math.min(A.fits.tfim.residual, A.fits.odd.residual);
-// the analysis of any example network, cut and depth (cached by QMATH)
-const anOf = (ni, cut, L) => Q.analyze(Q.NETS[clamp(ni | 0, 0, Q.NETS.length - 1)].key, { L: clamp(L | 0, 1, 3), cut: cut === 'random' ? 'random' : 'found' });
-// a string's index at L bits from its name ('X2X1'), or -1 when it acts on a qubit beyond L or is no string
-const isBrick = nm => typeof nm === 'string' && (nm === 'I' || (/^([XYZ][0-2]){1,3}$/.test(nm) && Q.name(Q.parse(nm, 3), 3) === nm));
-const brickK = (nm, L) => (!isBrick(nm) || (nm !== 'I' && Math.max(...nm.match(/\d/g).map(Number)) >= L) ? -1 : Q.parse(nm, L));
-// what a string does on the cube, in words
-function brickWhat(k, L) {
-  const p = Q.parts(k, L), x = k >> L, nx = Q.pop(x);
-  if (!p.length) return 'do nothing: the same loop on every corner';
-  if (!x) return p.length === 1 ? 'a sign by one digit: loops of +1 and −1' : 'a sign by digits: loops of +1 and −1';
-  if (p.length === 1) return p[0].p === 'X' ? 'flip one digit: hops along the cube’s edges' : 'flip one digit, with a sign';
-  if (nx === 1) return 'hops with signs';
-  return nx === 2 ? 'flip two digits: face diagonals' : 'flip three digits: body diagonals';
-}
-
 // ------------------------------------------------------------------ facts --
-// Numbers the story quotes: the example network's computed here, the real run's from QUBITS_DATA
-const FACTS = (() => {
-  const net = Q.network(Q.DEFAULT), a = L => anOf(NETI, 'found', L), r = L => anOf(NETI, 'random', L), a3 = a(3), sz = a3.sizes;
-  const R = QD.residual, at = b => R.bits.indexOf(b);
-  return {
-    genes: QD.network.genes, pairs: Q.pairs(QD.network.genes), pairsM: Math.round(Q.pairs(QD.network.genes) / 1e6),
-    source: QD.network.source, score: QD.network.score, run: QD.run,
-    real: {
-      cube: QD.cubeShare, so7: QD.so7, R, best8: R.best8,
-      ours: b => R.ours[at(b)], rand: b => R.random[at(b)],
-      weights: QD.weights3.map(([n, w]) => `${sub(n)} ${w.toFixed(2)}`), outside: QD.outside3.map(sub),
-      gates: QD.circuit.gates,
-    },
-    ex: {
-      name: Q.NETS[NETI].name, n: net.n, m: net.m, cells: sz.length, cellMin: Math.min(...sz), cellMax: Math.max(...sz),
-      cube: a3.cubeShare, purity: a3.purity, err10: a3.errors[Math.min(10, a3.errors.length - 1)],
-      top: a3.order.slice(0, 5).map(k => `${Q.name(k, 3, { sub: true })} ${f2(a3.c.re[k])}`),
-      res: [1, 2, 3].map(L => bestRes(a(L))), rand: [1, 2, 3].map(L => bestRes(r(L))), res7: a3.fits.odd.residual, res6: a3.fits.tfim.residual,
-    },
-    alg: { odd: Q.algebra('odd', 3), tfim: Q.algebra('tfim', 3) },
-  };
-})();
-// the circuit's gates in words: 'RX on q0, q1 and q2 (θ = ...)'
-const gatesText = G => {
-  const q = g => g.qubits.map(i => 'q' + i), rx = G.filter(g => g.type === 'RX'), zz = G.filter(g => g.type === 'RZZ'), z = G.filter(g => g.type === 'RZ');
-  return [rx.length ? `RX on ${listOf(rx.map(g => q(g)[0]))} (θ = ${rx.map(g => f3s(g.theta)).join(', ')})` : '',
-    zz.length ? `RZZ on ${listOf(zz.map(g => `(${q(g).join(', ')}) at ${f3s(g.theta)}`))}` : '',
-    z.length ? `RZ on ${listOf(z.map(g => `${q(g)[0]} at ${f3s(g.theta)}`))}` : ''].filter(Boolean).join(', ');
-};
-// colors as text on the HTML panel, which is light in the light theme: a color mixed with the panel's ink (darker on a
-// light panel, lighter on a dark one). The headset's panel is dark: its canvas twin takes the color itself (data-col).
+// The numbers the story quotes, from the sets: the airports and routes (the airports story's data), the story's
+// outbreak (from Vienna, as the globe's model computes it) and the cell map's proteins and places
+const STORY_OUT = { start: 'VIE', inc: 5, inf: 7, spread: 'medium', kept: 1 };
+const outSetup = o => GL.sets.globe.api.setup({ start: GL.sets.globe.api.find(o.start), inc: o.inc, inf: o.inf, spread: o.spread, kept: o.kept });
+let FACTS = null;
+function facts() {
+  const g = GL.sets.globe.api, c = GL.sets.cell.api.counts();
+  outSetup(STORY_OUT);
+  const reachedBy = d => { const n = g.count(d); return n.E + n.I + n.R; };
+  return { airports: g.n(), routes: g.routes(), start: g.find(STORY_OUT.start), week: reachedBy(7), d10: reachedBy(10), d20: reachedBy(20), d30: reachedBy(30),
+    proteins: c.proteins, places: c.places };
+}
+// colours as text on the HTML panel, which is light in the light theme: a colour mixed with the panel's ink (darker on a
+// light panel, lighter on a dark one). The headset's panel is dark: its canvas twin takes the colour itself (data-col).
 const inkCol = c => `color-mix(in srgb, ${c} 55%, var(--ink))`;
-const swCol = c => c;   // a swatch or a bar in the same color
-const PURPLE = '#9a90ff', RED = '#ff5a4b', BLUE = '#4d94ff', GRAY = '#8e98ab';
+const swCol = c => c;   // a swatch or a bar in the same colour
+const AMBER = '#ffb43b', RED = '#ff5a4b', GREY = '#8e98ab', CYAN = '#46d9ff', TEAL = '#38e6c7';
 
-function buildStory() {
-  const F = FACTS, E = F.ex, RL = F.real;
-  // fade a set in over [t0, t1] and out over [t2, t3]
-  const show = (k, t0, t1, t2, t3) => { ramp(k + '_a', t0, t1, 0, 1); if (t2 !== undefined) ramp(k + '_a', t2, t3, 1, 0); };
-  const hide = (k, t0, t1) => ramp(k + '_a', t0, t1, 1, 0);
-  // jump an index param (a string, a code) at time t
-  const jump = (n, t, v0, v1) => { key(n, t - 0.01, v0); key(n, t, v1); };
-  // values a set starts the story with (keyed at time 0, so a set's resting defaults never leak into the story)
-  const start = vals => { for (const n in vals) if (n in DEF) key(n, 0, vals[n]); };
-  const step = (at, out, col, b, text) => `<li data-at="${at}"${out ? ` data-out="${out}"` : ''} data-col="${col}" style="border-left-color:${swCol(col)}"><b style="color:${inkCol(col)}">${esc(b)}</b>${text}</li>`;
-  // ------------------------------------------------------------ panel copy
+// the panel's words, in the language on show (made again when it changes: setLang)
+function storyHTML() {
+  const F = FACTS, city = GL.sets.globe.api.info(F.start).city;
+  const step = (at, col, b, text) => `<li data-at="${at}" data-col="${col}" style="border-left-color:${swCol(col)}"><b style="color:${inkCol(col)}">${esc(b)}</b>${esc(text)}</li>`;
   // parts of a chapter that take turns in one place, each fading out (data-out) as the next comes: the headset's
   // panel cannot scroll, so no chapter shows more than fits at once
   const turns = (...parts) => `<div style="display:grid">${parts.map(p => `<div style="grid-area:1/1">${p}</div>`).join('')}</div>`;
-  const ex = E.res.map(f2), rd = E.rand.map(f2);
-  const html = {
-    title: `<svg class="route-mark" viewBox="0 0 360 44" aria-hidden="true"><path id="titleArc" d="M8 36 Q180 -16 352 36" fill="none" stroke="var(--red)" stroke-width="2.2" stroke-linecap="round" pathLength="1" stroke-dasharray="1" stroke-dashoffset="1"/><circle cx="8" cy="36" r="4.5" fill="var(--red)"/><circle cx="352" cy="36" r="4.5" fill="var(--red)" id="titleDot" opacity="0"/></svg>
-      <h1 data-at="1.2">Three qubits</h1>
-      <p class="lede" data-at="2.4">how a gene network fits on a tiny quantum computer</p>
-      ${turns(`<p data-at="4" data-out="21.5">Some diseases only appear when two genes are broken at the same time.</p>
-        <p data-at="6.5" data-out="21.5">The dots on the diagonal are genes, and every dot above them a pair. Add genes, and the pairs grow much faster.</p>
-        <div class="facts"><div data-at="12" data-out="21.5"><b>${fmt(F.genes)}</b><small>genes in the real network</small></div><div data-at="13.5" data-out="21.5"><b>${F.pairsM} million</b><small>pairs of them</small></div></div>
-        <p data-at="16" data-out="21.5" class="amber">Far too many to test one by one.</p>`,
-      `<p class="note" data-at="22">n genes make n(n − 1)/2 pairs: ${fmt(F.genes)} × ${fmt(F.genes - 1)} / 2 = ${fmt(F.pairs)}. The real network: ${esc(F.source)}, physical protein interactions with a combined score of ${F.score} or more, its largest connected component.</p>
-        <p class="credits" data-at="26">After the method and figures of Joel Hancock. The networks drawn are examples, computed here.</p>`)}`,
-    walkers: `<h2 data-at="0.6">Two walkers on a map</h2>
-      ${turns(`<p data-at="1.2" data-out="20.5">Think of the network as a map. Each gene is a place, and a street joins two genes whose proteins touch.</p>
-        <p data-at="5" data-out="20.5">Two walkers wander it, one for each gene of a pair.</p>
-        <p data-at="14" data-out="20.5" class="amber">They are drawn to pairs that are broken together in patients more often than in healthy people.</p>`,
-      `<p data-at="21" class="amber">Where they settle is where to look.</p>
-        <p class="note" data-at="24">In symbols, the walkers' energy is H = K + c V + ρ R. K = I − A_c lets them move along the network (A_c comes later); V rewards the pairs that patients' data point to; R, the exchange operator, swaps the two walkers, so the search is for pairs, not single genes.</p>
-        <p class="credits" data-at="28">The valleys here are illustrative: this story uses no patients' data.</p>`)}`,
-    shrink: `<h2 data-at="0.6">Why shrink the map?</h2>
-      ${turns(`<p data-at="1.2" data-out="17.5">A quantum computer could explore all the walkers' routes at once. But today's machines are tiny.</p>
-        <p data-at="5" data-out="17.5" class="amber">3 qubits can only tell 8 places apart. So the map has to be shrunk first.</p>
-        <p data-at="10" data-out="17.5">It is folded into 8 neighborhoods, and each gets a 3-digit code, like a postal code: 000 to 111.</p>`,
-      `<p data-at="18">Each digit is one qubit: q2, q1 and q0, read left to right. A bright qubit is a 1.</p>
-        <p class="note" data-at="21">A qubit is a quantum bit. L qubits address 2^L places, one per basis state: 3 qubits give 2 × 2 × 2 = 8. Each walker needs its own 3 qubits.</p>`)}`,
-    cut: `<h2 data-at="0.6">Cutting the map</h2>
-      ${turns(`<p data-at="1.2" data-out="33.5">Here is an example network, made up for this story: ${fmt(E.n)} genes and ${fmt(E.m)} links, with ${word(E.cells)} groups hidden in it. Its genes are never named.</p>
-        <ul class="steps">
-          ${step(8, 33.5, PURPLE, '1 · First cut', 'split the genes in two, keeping linked genes together: two halves, one digit')}
-          ${step(18, 33.5, PURPLE, '2 · Second cut', 'split each half again: four cells, two digits (a square)')}
-          ${step(28, 33.5, PURPLE, '3 · Third cut', 'and again: eight cells, three digits (a cube)')}
-        </ul>`,
-      `<p data-at="34" class="amber">A gene's code is the side it fell on at each cut. Genes that share a code form a cell, at one corner of the cube.</p>
-        <p class="note" data-at="36">Each cut is a bisection. The first is the most significant digit (q2), so cells nest: each new cut splits every cell in two. The real run used ${F.run.bits} cuts: ${fmt(F.run.cells)} cells of about ${F.run.genesPerCell} genes; the picture uses 3.</p>
-        <p class="credits" data-at="38">The cuts here stand in for the authors' search (a beam search that also favors the toolbox of chapter 7): the network's slowest patterns grouped into ${word(E.cells)} equal cells, then the codes that keep the most links on the cube's edges.${E.purity !== null ? ` It puts ${pct(E.purity)} of genes with their hidden group.` : ''}</p>`)}`,
-    coarse: `<h2 data-at="0.6">The coarse operator</h2>
-      ${turns(`<p data-at="1.2" data-out="19.5">Now each corner is a cell, and the shrunk map says how much traffic flows between cells: the coarse operator, A_c.</p>
-        <p data-at="7" data-out="19.5">A loop at each corner is the traffic that stays inside its cell. An edge joins every two corners, as wide as the traffic between them.</p>
-        <p data-at="13" data-out="19.5" class="amber">Cube edges join cells one digit apart. Here they carry ${pct(E.cube)} of the traffic between cells; face and body diagonals, two or three digits apart, the rest.</p>`,
-      `<p class="note" data-at="20">A_c = P A Pᵀ: A is the network's adjacency matrix, and P the normalized cell indicators, so A_c is an 8 × 8 table. It is balanced over cells (Sinkhorn), so every row adds up to 1. The walkers move by K = I − A_c: what holds for A_c holds for K.</p>
-        <p class="credits" data-at="25">In the real network, at 3 bits, cube edges carry ${RL.cube}% of the coupling between cells.</p>`)}`,
-    bricks: `<h2 data-at="0.6">Building blocks</h2>
-      ${turns(`<p data-at="1.2" data-out="28.5">Any traffic table can be built from a few kinds of simple moves: Lego bricks of movement, called Pauli strings.</p>
-        <ul class="steps">
-          ${step(5, 28.5, PURPLE, 'I', 'do nothing: the same loop on every corner')}
-          ${step(8, 28.5, PURPLE, 'X₀, X₁, X₂', 'flip one digit: hops along the cube’s edges in one direction')}
-          ${step(17, 28.5, RED, 'Z₂', 'a sign by digit: loops of +1 (solid, red) and −1 (dashed, blue)')}
-          ${step(20, 28.5, PURPLE, 'Z₂X₁', 'hops with signs')}
-          ${step(23, 28.5, PURPLE, 'X₂X₁, Y₂Y₁', 'flip two digits at once: face diagonals (Y with signs)')}
-        </ul>`,
-      `<p data-at="29">Any traffic table is a recipe of these bricks, the way a sound is a mix of pure tones.</p>
-        <p data-at="33" class="amber">Here they are added largest first, and the rebuilt cube comes close to the true one: after ten bricks the error left is ${f2(E.err10)}, down from 1.</p>
-        <p class="note" data-at="40">A Pauli string puts one Pauli matrix on each qubit: I (do nothing), X (flip the bit), Z (+1 on 0, −1 on 1) or Y (flip with a sign). Subscripts are qubits; q2 is the first cut. Any 8 × 8 table is one weighted sum of the 64 strings. Here: ${esc(E.top.join(', '))} …</p>
-        <p class="credits" data-at="46">In the real network the largest weights are ${esc(RL.weights.join(', '))}, and a tail.</p>`)}`,
-    toolbox: `<h2 data-at="0.6">The toolbox</h2>
-      ${turns(`<p data-at="1.2" data-out="22.5">A quantum computer runs some moves quickly and others hardly at all.</p>
-        <p data-at="4" data-out="22.5" class="amber">Keep only the bricks in its quick toolbox, a Lie algebra; the rest goes gray and is dropped.</p>
-        <p data-at="9" data-out="22.5">What is dropped is the residual: 0 means nothing lost, 1 everything. Here it is ${f2(E.res7)} with three qubits.</p>
-        <p class="note" data-at="15" data-out="22.5">The toolbox: the TFIM chain's moves (X on each qubit, ZZ on neighbors) close to ${F.alg.tfim.label}, ${F.alg.tfim.dim} strings at 3 qubits; Z on q2 as well gives ${F.alg.odd.label}, ${F.alg.odd.dim} strings. Closed means the commutators of its strings stay inside, so its operators run as short circuits. Residual = ‖A₀ − ΠA₀‖ / ‖A₀‖, with A₀ the traceless part and Π the projection onto the algebra.</p>`,
-      `<p data-at="23">In the real network, every extra bit makes the fit worse.</p>
-        <p data-at="28" class="amber">Our cuts lose ${f2(RL.ours(2))} at 2 bits, ${f2(RL.ours(3))} at 3 and ${f2(RL.ours(4))} at 4, where random cuts lose ${f2(RL.rand(2))}, ${f2(RL.rand(3))} and ${f2(RL.rand(4))}. At 8 bits ours lose ${f2(RL.ours(8))} (the best variant ${f2(RL.best8)}): most of the operator falls outside the toolbox.</p>
-        <p data-at="38">The example network, computed here: ${ex[0]} at 1 bit, ${ex[1]} at 2 and ${ex[2]} at 3 (random cuts: ${rd[1]} at 2, ${rd[2]} at 3).</p>
-        <p class="note" data-at="41">At 1 bit every cut loses nothing. In the real network at 3 bits, ${F.alg.odd.label}'s generators carry ${RL.so7.gens}% of A_c's traceless weight, and the whole algebra ${RL.so7.whole}%.</p>`)}`,
-    circuit: `<h2 data-at="0.6">The recipe as a circuit</h2>
-      ${turns(`<p data-at="1.2" data-out="16.5">What is kept runs as a short circuit: six gates on three qubits, each a small turn.</p>
-        <p data-at="4" data-out="16.5" class="amber">Red gates flip (X), blue gates add signs (Z); the deeper the color, the larger the turn.</p>
-        <p class="note" data-at="8" data-out="16.5">One Trotter step of e^(−iKt) at 3 bits in ${F.alg.odd.label}, with the real network's angles: ${esc(gatesText(RL.gates))}. θ = −2ct, with c = tr(P A_c)/8 and R_P(θ) = exp(−iθP/2), t = 1.</p>`,
-      `<p data-at="17">From thousands of genes to 8 cells on 3 qubits, and from a traffic table to a few bricks a quantum computer runs well.</p>
-        <p data-at="20" class="amber">Next: more qubits need larger toolboxes or better cuts, and then the patients' data, V, go in.</p>
-        <p data-at="23">Method and figures: Joel Hancock.</p>
-        <p data-at="24"><button class="btn primary" id="btnGoExplore" type="button">Explore the cube</button></p>
-        <p class="credits" data-at="25">The networks shown are examples, computed here; numbers marked "real network" are from the authors' run on ${esc(F.source)}. The cuts here stand in for their beam search, and the valleys are illustrative.</p>`)}`,
+  const p = (at, k, cls, out, ...a) => `<p data-at="${at}"${out ? ` data-out="${out}"` : ''}${cls ? ` class="${cls}"` : ''}>${esc(T(k, ...a))}</p>`;
+  const fact = (at, out, b, s, col) => `<div data-at="${at}" data-out="${out}"><b${col ? ` data-col="${col}" style="color:${inkCol(col)}"` : ''}>${b}</b><small>${esc(s)}</small></div>`;
+  return {
+    fish: `<svg class="route-mark" viewBox="0 0 360 44" aria-hidden="true"><path id="titleArc" d="M8 36 Q180 -16 352 36" fill="none" stroke="var(--red)" stroke-width="2.2" stroke-linecap="round" pathLength="1" stroke-dasharray="1" stroke-dashoffset="1"/><circle cx="8" cy="36" r="4.5" fill="var(--red)"/><circle cx="352" cy="36" r="4.5" fill="var(--red)" id="titleDot" opacity="0"/></svg>
+      <h1 data-at="1.2">${esc(T('title'))}</h1>
+      <p class="lede" data-at="2.4">${esc(T('lede'))}</p>
+      ${p(5, 'fish.1')}${p(13, 'fish.2')}${p(20, 'fish.3', 'amber')}${p(27, 'fish.note', 'note')}
+      <p class="credits" data-at="32">${esc(T('fish.credit'))}</p>`,
+    watch: `<h2 data-at="0.6">${esc(T('watch.h'))}</h2>
+      ${turns(`${p(1.2, 'watch.1', '', 19.5)}${p(6, 'watch.2', '', 19.5)}${p(12, 'watch.3', 'amber', 19.5)}`,
+      `${p(20, 'watch.4')}${p(25, 'watch.5')}${p(33, 'watch.6', 'amber')}<p data-at="40"><b>${esc(T('watch.7'))}</b></p>${p(45, 'watch.note', 'note')}`)}`,
+    links: `<h2 data-at="0.6">${esc(T('links.h'))}</h2>
+      ${turns(`${p(1.2, 'links.1', '', 23.5)}${p(6, 'links.2', '', 23.5)}${p(13, 'links.3', 'amber', 23.5)}`,
+      `${p(24, 'links.4')}<p data-at="33" class="amber"><b>${esc(T('links.5'))}</b></p>`)}`,
+    sky: `<h2 data-at="0.6">${esc(T('sky.h'))}</h2>
+      ${turns(`${p(1.2, 'sky.1', '', 17.5)}${p(8, 'sky.2', '', 17.5)}
+        <div class="facts">${fact(11, 17.5, num(F.airports), T('sky.f1'))}${fact(12.5, 17.5, num(F.routes), T('sky.f2'))}</div>`,
+      `${p(18, 'sky.3', '', 45.5, city)}${p(24, 'sky.4', 'amber', 45.5, num(F.week))}
+        <div class="facts">${[[28, 10, F.d10], [36, 20, F.d20], [44, 30, F.d30]].map(([at, d, n]) => fact(at, 45.5, num(n), `${T('sky.cities')}, ${T('sky.day', d)}`, RED)).join('')}</div>`,
+      `${p(46, 'sky.5')}${p(54, 'sky.6', 'amber')}${p(59, 'sky.note', 'note', 0, STORY_OUT.inc, STORY_OUT.inf)}
+        <p class="credits" data-at="64">${esc(T('sky.credit'))}</p>`)}`,
+    cell: `<h2 data-at="0.6">${esc(T('cell.h'))}</h2>
+      ${turns(`${p(1.2, 'cell.1', '', 19.5)}${p(6, 'cell.2', '', 19.5)}${p(10, 'cell.3', '', 19.5, num(F.proteins))}${p(15, 'cell.4', 'amber', 19.5)}`,
+      `${p(20, 'cell.5', '', 36.5)}${p(23, 'cell.6', '', 36.5)}${p(29, 'cell.7', 'amber', 36.5)}`,
+      `${p(37, 'cell.8')}${p(42, 'cell.9')}${p(48, 'cell.10', 'amber')}${p(52, 'cell.note', 'note', 0, num(F.proteins), num(F.places))}`)}`,
+    med: `<h2 data-at="0.6">${esc(T('med.h'))}</h2>
+      ${turns(`${p(1.2, 'med.1', '', 17.5)}
+        <ul class="steps">${step(4, CYAN, T('med.s1'), T('med.s1t'))}${step(6, RED, T('med.s2'), T('med.s2t'))}${step(8, TEAL, T('med.s3'), T('med.s3t'))}</ul>
+        ${p(12, 'med.2', 'amber', 17.5)}`,
+      `${p(18, 'med.3')}${p(21, 'med.4')}
+        <p data-at="23"><button class="btn primary" id="btnGoExplore" type="button">${esc(T('med.go'))}</button></p>
+        <p class="credits" data-at="25">${esc(T('med.credit'))}</p>`)}`,
   };
-
-  const story = $('#story');
-  story.innerHTML = CH.map(c => `<section class="ch" data-ch="${c.key}">${html[c.key]}</section>`).join('');
+}
+// the panel: the language switch, then a section per chapter (its items fade in as the story goes)
+function buildStoryDOM() {
+  const html = storyHTML(), story = $('#story');
+  story.lang = LANG;
+  story.innerHTML = langSwitch() + CH.map(c => `<section class="ch" data-ch="${c.key}">${html[c.key]}</section>`).join('');
+  ST.items = [];
   CH.forEach(c => {
     const sec = story.querySelector(`[data-ch="${c.key}"]`);
     ST.items.push({ sec, ch: c, els: Array.from(sec.querySelectorAll('[data-at]')).map(el => ({
       el, at: c.a + parseFloat(el.dataset.at), out: el.dataset.out ? c.a + parseFloat(el.dataset.out) : c === CH[CH.length - 1] ? Infinity : c.b - 0.05, o: -1 })),
       grow: [] });
   });
+  curCh = null; XR.elInfo = null;
+}
+// the switch between the two languages (on the story panel and above the explore tabs)
+const langSwitch = () => `<div class="seg" data-lang role="group" aria-label="Language / Sprache" style="float:right;margin:2px 0 6px 10px">${LANGS.map(l =>
+  `<button type="button" data-lang="${l}" lang="${l}" aria-pressed="${l === LANG}">${l.toUpperCase()}</button>`).join('')}</div>`;
+
+function buildStory() {
+  FACTS = facts();
+  buildStoryDOM();
+  // fade a set in over [t0, t1] and out over [t2, t3]
+  const show = (k, t0, t1, t2, t3) => { ramp(k + '_a', t0, t1, 0, 1); if (t2 !== undefined) ramp(k + '_a', t2, t3, 1, 0); };
+  const hide = (k, t0, t1) => ramp(k + '_a', t0, t1, 1, 0);
+  // jump a count (neighbours, a shark) at time t
+  const jump = (n, t, v0, v1) => { key(n, t - 0.01, v0); key(n, t, v1); };
+  // values a set starts the story with (keyed at time 0, so a set's resting defaults never leak into the story)
+  const start = vals => { for (const n in vals) if (n in DEF) key(n, 0, vals[n]); };
 
   // ------------------------------------------------------------ timeline keys
   const wp = [];
@@ -4358,99 +4563,73 @@ function buildStory() {
     if (nudge) for (let i = 0; i < nudge.length; i++) v[i] += nudge[i] || 0;
     wp.push([t, ...v, ease, frameOf(k), narrowOf(k, name), fitShift(k, name)]);
   };
-  start({ pairs_genes: 0, pairs_grid: 0, pairs_map: 0, pairs_walk: 0, pairs_valley: 0, pairs_settle: 0, pairs_chip: 0, pairs_fold: 0, pairs_code: 0,
-    cube_net: NETI, cube_cut: 0, cube_genes: 0, cube_bits: 0, cube_ac: 0, cube_bricks: 0, cube_lesson: 0, cube_build: 0, cube_sum: 0, cube_alg: 0,
-    cube_keep: 0, cube_algebra: 1, cube_focus: -1,
-    chart_plot: 1, chart_grow: 0, chart_rand: 1, chart_best: 1, chart_ex: 0, chart_circuit: 0, chart_gates: 0, chart_run: 1, chart_src: 0 });
+  start({ fish_n: 300, fish_k: 7, fish_links: 0, fish_water: 1, fish_shark: 0, fish_hunt: 0, fish_scale: 1,
+    globe_reveal: 0, globe_routes: 1, globe_hubs: 0, globe_pillars: 0, globe_dim: 0, globe_out: 0, globe_day: 0,
+    cell_org: 0, cell_shell: 1, cell_names: 0, cell_reveal: 1, cell_links: 1, cell_ids: 1, cell_multi: 0, cell_focus: 0, cell_ex: 0,
+    cell_path: 0, cell_path_a: 1, cell_cue: 0, cell_cue_a: 1, cell_nfkb: 0, cell_apop: 0, cell_tfeb: 0, cell_glut4: 0, cell_nrf2: 0, cell_als: 0, cell_cf: 0 });
+  key('lens', 0, 1);
   let a, b;
-  // Looking for pairs: a few genes, then the grid of all their pairs growing until it fills the view
-  a = C.title.a; b = C.title.b;
-  show('pairs', 0.2, 2);
-  ramp('pairs_genes', a + 1, a + 3, 0, 1);
-  ramp('pairs_grid', a + 6, a + 24, 0, 1);
-  cam(a, 'pairs', 'grid', -10);
-  cam(b - 1, 'pairs', 'grid', 8, 'spin');
-  // Two walkers on a map: the example network as a city map, two walkers, the valleys (illustrative), where they settle
-  a = C.walkers.a; b = C.walkers.b;
-  ramp('pairs_map', a, a + 4, 0, 1);
-  ramp('pairs_walk', a + 5, a + 7, 0, 1);
-  ramp('pairs_valley', a + 14, a + 18, 0, 1);
-  ramp('pairs_settle', a + 22, a + 28, 0, 1);
-  cam(a + 1.5, 'pairs', 'map', -8);
-  cam(a + 13, 'pairs', 'map', 6, 'spin');
-  cam(a + 19, 'pairs', 'walkers', -4);
-  cam(b - 0.5, 'pairs', 'walkers', 8, 'spin');
-  // Why shrink the map?: the chip with three qubits; the map folds into eight neighborhoods, each one's code on the chip
-  a = C.shrink.a; b = C.shrink.b;
-  ramp('pairs_walk', a, a + 3, 1, 0); ramp('pairs_valley', a, a + 3, 1, 0); ramp('pairs_settle', a, a + 1, 1, 0);
-  ramp('pairs_chip', a + 2, a + 6, 0, 1);
-  ramp('pairs_fold', a + 10, a + 18, 0, 1);
-  for (let c = 0; c < 8; c++) jump('pairs_code', a + 18 + 1.1 * c, c, c + 1);
-  jump('pairs_code', a + 27, 8, 0);
-  cam(a + 1.5, 'pairs', 'chip', -6);
-  cam(a + 9, 'pairs', 'chip', 6, 'spin');
-  cam(a + 13, 'pairs', 'hoods', -4);
-  cam(b - 0.5, 'pairs', 'hoods', 6, 'spin');
-  // Cutting the map: the example network in 3D, cut in two, four and eight (each gene flies to its corner)
-  a = C.cut.a; b = C.cut.b;
-  hide('pairs', a, a + 3);
-  show('cube', a + 0.5, a + 3);
-  jump('cube_genes', a, 0, 1);
-  ramp('cube_bits', a + 8, a + 14, 0, 1);
-  ramp('cube_bits', a + 18, a + 24, 1, 2);
-  ramp('cube_bits', a + 28, a + 34, 2, 3);
-  cam(a + 1, 'cube', 'genes', -14);
-  cam(b - 0.5, 'cube', 'genes', 24, 'spin');
-  // The coarse operator: the genes gather into their corners and A_c grows on the cube
-  a = C.coarse.a; b = C.coarse.b;
-  ramp('cube_ac', a, a + 8, 0, 1);
-  cam(a + 3, 'cube', 'default', -8);
-  cam(a + 12, 'cube', 'cube', -2);
-  cam(b - 0.5, 'cube', 'cube', 10, 'spin');
-  // Building blocks: the gallery of the reference figure's strings, each shown on the big cube in turn; then the
-  // network's ten largest, added one by one while the error left shrinks
-  a = C.bricks.a; b = C.bricks.b;
-  jump('cube_lesson', a, 0, 1);
-  ramp('cube_bricks', a, a + 4, 0, 1);
-  let f0 = -1;
-  ['I', 'X0', 'X1', 'X2', 'Z2', 'Z2X1', 'X2X1', 'Y2Y1'].forEach((nm, i) => { const k = Q.parse(nm, 3); jump('cube_focus', a + 5 + 3 * i, f0, k); f0 = k; });
-  jump('cube_focus', a + 29, f0, -1);
-  ramp('cube_lesson', a + 29, a + 31, 1, 0);
-  ramp('cube_build', a + 32, a + 33, 0, 1);
-  ramp('cube_sum', a + 34, a + 50, 0, 10);
-  cam(a + 1.5, 'cube', 'bricks', -4);
-  cam(a + 27, 'cube', 'bricks', 3, 'spin');
-  cam(a + 31, 'cube', 'bricks', -3);
-  cam(b - 0.5, 'cube', 'bricks', 3, 'spin');
-  // The toolbox: strings outside the algebra go gray, the cube keeps only those inside (the residual); then the real
-  // run's residual by depth, ours against random, and the example network's
-  a = C.toolbox.a; b = C.toolbox.b;
-  ramp('cube_alg', a + 2, a + 5, 0, 1);
-  ramp('cube_keep', a + 9, a + 15, 0, 1);
-  hide('cube', a + 21.5, a + 23.5);   // gone before the camera reaches the chart's view (seen from there it crowded the view)
-  show('chart', a + 23, a + 26);
-  ramp('chart_grow', a + 27, a + 37, 0, 1);
-  ramp('chart_ex', a + 38, a + 40, 0, 1);
-  cam(a + 1, 'cube', 'bricks', -3);
-  cam(a + 21, 'cube', 'bricks', 4, 'spin');
-  cam(a + 25, 'chart', 'chart', -8);
-  cam(b - 0.5, 'chart', 'chart', 6, 'spin');
-  // The recipe as a circuit: six gates on three wires, in time order
-  a = C.circuit.a; b = C.circuit.b;
-  ramp('chart_plot', a, a + 2, 1, 0);
-  ramp('chart_circuit', a, a + 3, 0, 1);
-  ramp('chart_gates', a + 3, a + 13, 0, 6);
-  cam(a + 2, 'chart', 'circuit', -4);
-  cam(b, 'chart', 'circuit', 8, 'spin');
+  // A school of fish: all round you (on a screen the camera turns to keep the school in view: followView)
+  a = C.fish.a; b = C.fish.b;
+  key('fish_a', 0, 1);
+  cam(a, 'fish', 'default');
+  cam(b - 1, 'fish', 'default', 0, 'spin');
+  label('fish', 'school', () => `<b>${esc(T('lbl.school'))}</b>${sfxSpan(T('lbl.school.r'))}`, a + 6, a + 26, 'cyn');
+  // Who watches whom: the links light up; from afar, a shark, and the warning racing through the school
+  a = C.watch.a; b = C.watch.b;
+  ramp('fish_links', a + 4, a + 7, 0, 1);
+  cam(a + 8, 'fish', 'default');
+  cam(a + 14, 'fish', 'afar');
+  cam(b, 'fish', 'afar', 40, 'spin');
+  jump('fish_hunt', a + 20, 0, 1);
+  // Change the links: one neighbour each, the school falls apart; seven again, it comes together
+  a = C.links.a; b = C.links.b;
+  jump('fish_k', a + 5, 7, 1);
+  jump('fish_k', a + 24, 1, 7);
+  cam(b, 'fish', 'afar', 80, 'spin');
+  // From the sea to the sky: the camera rises out of the water while the sea shrinks to a dot (in a headset it only
+  // fades: the viewer never moves), the globe comes in, and the outbreak starts in Vienna; then the hubs
+  a = C.sky.a; b = C.sky.b;
+  ramp('fish_links', a + 2, a + 5, 1, 0);
+  ramp('fish_scale', a + 2, a + 9, 1, 0.002);
+  hide('fish', a + 7, a + 10);
+  ramp('lens', a + 7, a + 12, 1, 0);
+  cam(a + 1, 'fish', 'afar', 80);
+  cam(a + 7, 'fish', 'above', 80, null, [0, 0, 0, 0, -1.6, 4]);   // (looking down at the shrinking sea's middle)
+  show('globe', a + 7, a + 11);
+  ramp('globe_reveal', a + 8, a + 14, 0, 1);
+  cam(a + 12, 'globe', 'world');
+  cam(a + 17, 'globe', 'start');
+  ramp('globe_out', a + 18, a + 20, 0, 1); ramp('globe_dim', a + 18, a + 20, 0, 1);
+  key('globe_day', a + 20, 0); key('globe_day', a + 52, 40);   // (1.25 days a second, evenly: LIN)
+  cam(a + 30, 'globe', 'start', 6, 'spin');
+  cam(a + 42, 'globe', 'default');
+  ramp('globe_pillars', a + 44, a + 47, 0, 1); ramp('globe_pillars', a + 58, a + 61, 1, 0);
+  cam(b, 'globe', 'default', 25, 'spin');
+  // Into the cell: its organelles one by one, two proteins meeting, the relay to NF-kB, and CFTR stuck on its way
+  a = C.cell.a; b = C.cell.b;
+  hide('globe', a, a + 4);
+  show('cell', a + 2, a + 6);
+  ramp('cell_org', a + 3, a + 15, 0, 10);
+  ramp('cell_names', a + 3, a + 4, 0, 1); ramp('cell_names', a + 18, a + 19, 1, 0);
+  ramp('cell_ex', a + 15, a + 18, 0, 1); ramp('cell_ex', a + 20, a + 22, 1, 0);
+  cam(a + 2, 'cell', 'default');
+  cam(a + 15, 'cell', 'default', 25, 'spin');
+  cam(a + 21, 'cell', 'nfkb');
+  ramp('cell_cue', a + 23, a + 29, 0, 1);
+  ramp('cell_nfkb', a + 29, a + 33, 0, 1);
+  cam(a + 35, 'cell', 'nfkb', 8, 'spin');
+  ramp('cell_cue_a', a + 36, a + 38, 1, 0);
+  cam(a + 39, 'cell', 'cf');
+  ramp('cell_cf', a + 42, a + 46, 0, 1);
+  cam(b, 'cell', 'cf', 10, 'spin');
+  // Network medicine: the cell's network stands out, CFTR's links lost; slowly round
+  a = C.med.a; b = C.med.b;
+  ramp('cell_shell', a, a + 3, 1, 0.35);
+  cam(a + 3, 'cell', 'default');
+  cam(b, 'cell', 'default', 40, 'spin');
   for (const n in TR) TR[n].sort((x, y) => x[0] - y[0]);
   buildCamera(wp);
-
-  // --------------------------------------------------------- story labels
-  // (the sets label their own parts; the story adds what the scene alone does not say)
-  a = C.walkers.a;
-  label('pairs', 'map', '<b>The example network</b> · as a map', a + 1.5, a + 12, 'cyn');
-  a = C.coarse.a;
-  label('cube', [0.12, 0.8, 0], '<b>A_c</b> · the traffic between cells', a + 6, C.coarse.b - 0.5, 'cyn');
 }
 // camera waypoints: [t, az, el, dist, tx, ty, tz, ease, set, narrow factor, FIT's target shift]; 'spin' segments turn at
 // a steady pace.
@@ -4485,7 +4664,6 @@ function buildCamera(wp) {
   });
 }
 // the turn a set has at story time t: that of its latest stay on show (it starts fading in a little before its first view)
-// (the tissue and the slide share one turn: one frame)
 function setYaw(k, t) {
   let c = 0;
   const f = frameOf(k);
@@ -4522,6 +4700,7 @@ function storyCam(t) {
 // ---------------------------------------------------------------- labels --
 // Story labels are pinned to a set's anchor for a stretch of story time; each
 // set also brings its own labels, shown whenever its params call for them.
+// (a story label's text is a function, read again when the language changes: relabel)
 const LBL = { story: ST.labels, sets: [], extra: [] };
 function labelEl(html, cls) {
   const el = document.createElement('div');
@@ -4531,22 +4710,22 @@ function labelEl(html, cls) {
   $('#labels').appendChild(el);
   return el;
 }
-function label(set, at, html, tIn, tOut, cls) {
+function label(set, at, fn, tIn, tOut, cls) {
   if (typeof at === 'string' && (GL.sets[set].labels || []).some(L => L.at === at)) return; // the set labels this point itself
-  ST.labels.push({ kind: 'story', el: labelEl(html, cls), set, at, tIn, tOut, o: -1 });
+  ST.labels.push({ kind: 'story', el: labelEl(fn(), cls), fn: null, html: fn, set, at, tIn, tOut, o: -1 });
 }
 // a label's rest after its bold part; a long one (more than a mark such as ' · hub' or ' · 1.2×') gives way on narrow
 // screens (placeLabels)
 const sfxSpan = r => (!r ? '' : String(r).length > 8 ? `<span class="sx">${esc(r)}</span>` : esc(r));
 function buildSetLabels() {
   for (const k of SET_ORDER) for (const L of GL.sets[k].labels || []) {
-    // (a label's text may be a function: it follows what the set shows, see labelText)
+    // (a label's text may be a function: it follows what the set shows and its language, see labelText)
     const fn = typeof L.text === 'function' ? L.text : null, [b, r] = fn ? fn() : L.text;
     LBL.sets.push({ kind: 'set', el: labelEl(`<b>${esc(b)}</b>${sfxSpan(r)}`, L.cls), set: k, at: L.at, alpha: L.alpha, minor: !!L.minor, o: -1,
-      fn, tx: fn ? b + '|' + r : '', none: !b && !r });
+      fn, tx: fn ? b + '|' + r : '', none: !b && !r, cls: L.cls });
   }
 }
-// a label whose text is a function (the gallery's weights, the grid's count, the gate angles) is read again while it
+// a label whose text is a function (the day, the start city, the selected protein ...) is read again while it
 // shows and redrawn when it changes: the HTML label, and the headset's sprite (dropped, so it is made again)
 function labelText(L) {
   if (!L.fn) return;
@@ -4556,20 +4735,26 @@ function labelText(L) {
   L.el.innerHTML = `<b>${esc(b)}</b>${sfxSpan(r)}`;
   L.w = 0; L.nar = undefined; dropSprite(L);
 }
+// the story's own labels in the language on show (the sets' follow by themselves: labelText)
+function relabel() {
+  for (const L of ST.labels) { L.el.innerHTML = L.html(); L.w = 0; L.nar = undefined; dropSprite(L); }
+}
 // a set label shows as far as its set is in and its own rule allows
 // (labels a set marks as minor give way on narrow screens)
 const setLabelAlpha = (L, S) => {
   const a = S[L.set + '_a'] || 0;
   if (a < 0.5 || (L.minor && !GL.wide && !XR.on)) return 0;
+  if (L.set === 'fish' && (S.fish_scale === undefined ? 1 : S.fish_scale) < 0.95) return 0;   // (none while the sea shrinks away)
   const v = (2 * a - 1) * clamp(L.alpha ? L.alpha(S) : 1, 0, 1);
   if (v > 0) labelText(L);
   return L.none ? 0 : v;
 };
-// where a label points, in the world's own coordinates
+// where a label points, in the world's own coordinates (the fish through their holder, GL.life)
 const _v = new THREE.Vector3();
 function labelPos(L, out) {
-  const p = anchorOf(L.set, L.at);
-  return out.set(p[0], p[1], p[2]).applyMatrix4(GL.sets[L.set].group.matrix);
+  const p = anchorOf(L.set, L.at), g = GL.sets[L.set].group;
+  out.set(p[0], p[1], p[2]).applyMatrix4(g.matrix);
+  return g.parent === GL.life ? out.applyMatrix4(GL.life.matrix) : out;
 }
 // labels on screen: pinned next to their point, nudged down where they would overlap, and
 // kept clear of the side panel, the timeline and the edge of the screen
@@ -4641,18 +4826,24 @@ function updateStoryDOM(t) {
       p.scrollTo({ top: p.scrollTop + over + (hr && hr.top < edge && hr.bottom > edge ? hr.bottom - edge + 4 : 0), behavior: 'smooth' });
     }
   }
-  if (c.key === 'title') {
+  if (c.key === 'fish') {
     const arc = $('#titleArc');
     if (arc) { arc.setAttribute('stroke-dashoffset', (1 - smooth((t - 0.5) / 2.2)).toFixed(3)); $('#titleDot').setAttribute('opacity', smooth((t - 2.5) / 0.4)); }
   }
 }
 
 // ------------------------------------------------------------- timeline UI --
-function buildTimeline() {
+// (the chapters' names in the language on show: made again when it changes)
+function trackHTML() {
   const tr = $('#track');
   tr.innerHTML = '<div class="rail"></div><div class="done"></div>' + CH.slice(1).map(c =>
-    `<div class="tick" data-k="${c.key}" style="left:${(100 * c.na / T_END).toFixed(2)}%"></div><div class="name" data-k="${c.key}" style="left:${(100 * c.na / T_END).toFixed(2)}%">${c.name}</div>`).join('') + '<div class="knob"></div>';
+    `<div class="tick" data-k="${c.key}" style="left:${(100 * c.na / T_END).toFixed(2)}%"></div><div class="name" data-k="${c.key}" style="left:${(100 * c.na / T_END).toFixed(2)}%">${esc(c.name)}</div>`).join('') + '<div class="knob"></div>';
   tr.setAttribute('aria-valuemax', Math.round(T_END));
+  lastTick = -1;
+}
+function buildTimeline() {
+  const tr = $('#track');
+  trackHTML();
   const seekAt = ev => {
     const r = tr.getBoundingClientRect();
     APP.seek(clamp((ev.clientX - r.left) / r.width, 0, 1) * T_END);
@@ -4691,98 +4882,104 @@ function updateTimeline(t, playing) {
   slideDOM();
 }
 // ================================================================ EXPLORE ==
-// Explore mode: the example networks and their cuts (Network), the building blocks and the toolbox (Bricks), the real
-// run's residual by depth and the circuit (Depth); or any scene with its own controls (Scenes).
-const SCENES = [
-  ['pairs', 'Pairs and map', 'The grid of all pairs of genes, the example network as a map with two walkers in its valleys (illustrative), the chip with three qubits and the eight neighborhoods.'],
-  ['cube', 'Cube', 'An example network cut in two, four and eight; its coarse operator A_c on the cube; its building blocks (Pauli strings), added up; and the toolbox, with what falls outside it.'],
-  ['chart', 'Chart', 'The real network\'s residual at each depth, our cuts against random ones, with the example network\'s; and the recipe as a circuit of six gates.'],
-];
-const SCENE_SHORT = { pairs: 'Pairs' };
-const TABS = [['network', 'Network'], ['bricks', 'Bricks'], ['depth', 'Depth'], ['scenes', 'Scenes']];
+// Explore mode: be the shark among the fish and change who watches whom (Fish); start an outbreak in any city on the
+// airports' globe, play it day by day and change how it spreads (Outbreak); the cell map's cell, its proteins, their
+// places and partners, and its moves (Cell); or any scene with its own controls (Scenes).
+const SCENES = [['fish'], ['globe'], ['cell']];
+const sceneName = k => T('sc.' + k);
+const sceneDesc = k => (k === 'globe' ? T('sc.globe.d', num(FACTS.airports), num(FACTS.routes)) : T('sc.' + k + '.d'));
+const TABS = [['fish', 'tab.fish'], ['outbreak', 'tab.out'], ['cell', 'tab.cell'], ['scenes', 'tab.scenes']];
+const TAB_SCENE = { fish: 'fish', outbreak: 'globe', cell: 'cell' };
 const ctlsOf = k => GL.sets[k].controls || [];
-// a control the panes offer now: a set may say when one applies (when(values)), so none sits there doing nothing; the
-// shared state keeps every control (ctlsOf) all the same
+// a control the panes offer now (a set may say when one applies); the shared state keeps every control all the same
 const ctlShown = (k, c) => !c.when || c.when(Object.fromEntries(ctlsOf(k).map(x => [x.key, ctlValue(k, x)])));
-// (explore opens on the story's own network, at its cube)
-const X = { tab: 'network', scene: 'cube', ctl: { cube: { view: 'cube', net: String(NETI) } }, t0: 0, turn: 'on', brick: null, sum: 0, gal: 'largest' };
+// what explore shows: the tab, the scene and its controls; the school's size; the outbreak's start and settings (and,
+// per device, its day and whether it plays, and what a click on the globe does); the city looked up; the protein picked
+const X = { tab: 'fish', scene: 'fish', ctl: {}, t0: 0, turn: 'on', shark: false, n: 300, city: '', prot: '',
+  out: { start: 'VIE', inc: 5, inf: 7, spread: 'medium', cut: 0, day: 0, playing: false, click: 'start' } };
 const XS = {};
-// params that pick something by number jump to their new value instead of easing through the ones in between
-const STEP = new Set(['cube_net', 'cube_cut', 'cube_algebra', 'cube_focus', 'chart_src', 'pairs_code']);
-const orbit = { cur: [0, 12, 3.6, 0, 0, 0], from: null, to: null, t0: 0, dur: 1.6 };
+// params that count or are driven here jump to their new value instead of easing through the ones in between; the
+// cell's moves travel at an even pace (three seconds; NF-kB's relay first, in 1.6 s, as the cell map does)
+const STEP = new Set(['fish_n', 'fish_k', 'fish_hunt', 'globe_day']);
+const MOVE_P = new Set(['cell_cue', 'cell_nfkb', 'cell_apop', 'cell_tfeb', 'cell_glut4', 'cell_nrf2', 'cell_als', 'cell_cf']);
+const orbit = { cur: [0, -6, 0.25, 0, 1.6, 0], from: null, to: null, t0: 0, dur: 1.6 };
 const ctlValue = (k, c) => (X.ctl[k] && X.ctl[k][c.key] !== undefined ? X.ctl[k][c.key] : c.options[0][0]);
 const ctlOf = (k, key) => ctlsOf(k).find(c => c.key === key);
-// a view option's camera: the cam view of the same name, or the one it stands for
-const CAM_ALIAS = { pairs: { pairs: 'grid' }, cube: { cut: 'genes', toolbox: 'bricks' } };
-function camFor(k, v) {
-  const c = GL.sets[k].cam || {}, al = CAM_ALIAS[k] || {};
-  for (const x of [v, al[v]]) if (x && c[x]) return x;
-  return null;
-}
-const viewCam = k => { const c = ctlOf(k, 'view'); return c ? camFor(k, ctlValue(k, c)) : null; };
-// the view on show in a set
-const viewIs = (k, v) => { const c = ctlOf(k, 'view'); return !!c && ctlValue(k, c) === v; };
-// what the sets know (their api()): the cube's analysis, gallery and picking; the chart's series and gates
-const API = {};
-const api = k => API[k] || (API[k] = (GL.sets[k] && GL.sets[k].api ? GL.sets[k].api() : null) || {});
-const NB = () => api('cube').NB || 10;
+const ctlVal = (k, key) => { const c = ctlOf(k, key); return c ? ctlValue(k, c) : ''; };
+// a view option's camera: the cam view of the same name
+function camFor(k, v) { const c = GL.sets[k].cam || {}; return v && c[v] ? v : null; }
+const viewCam = k => camFor(k, ctlVal(k, 'view'));
+const viewIs = (k, v) => ctlVal(k, 'view') === v;
+// on a screen the camera follows the school unless you look around yourself
+const following = () => APP.mode === 'story' || ctlVal('fish', 'view') !== 'free';
+// what the sets know
+const api = k => GL.sets[k].api || {};
 // work for the next frame, once the sets have drawn what was just picked
 const NEXT = [];
-// what the cube shows: its network, cut, bits and algebra (its own controls), and their analysis (computed here)
-const cubeNet = () => clamp(parseInt(ctlValue('cube', ctlOf('cube', 'net')), 10) || 0, 0, Q.NETS.length - 1);
-const cubeCut = () => (ctlValue('cube', ctlOf('cube', 'cut')) === '1' ? 'random' : 'found');
-const cubeBits = () => clamp(parseInt(ctlValue('cube', ctlOf('cube', 'bits')), 10) || 3, 1, 3);
-const cubeAlg = () => (ctlValue('cube', ctlOf('cube', 'alg')) === '0' ? 'tfim' : 'odd');
-const curAn = () => anOf(cubeNet(), cubeCut(), cubeBits());
-const inAlg = (k, L, alg) => k > 0 && Q.algebra(alg || cubeAlg(), L).set.has(k);
-const chartSrc = () => (ctlValue('chart', ctlOf('chart', 'src')) === 'ex' ? 1 : 0);
+// the fish: neighbours each one watches (1 to 12) and how many there are
+const fishK = () => clamp(parseInt(ctlVal('fish', 'k'), 10) || 7, 1, 12);
+const MOVE_KEYS = () => api('cell').moves().map(m => m.key);
 
-// what the chosen scene and its controls ask for: that set fully in, every other set out; then what the panes pick
-// (the brick on the big cube, the gallery shown, the strings added up)
+// what the chosen scene and its controls ask for: that set fully in, every other set out
 function exploreTargets(now = performance.now()) {
   const k = X.scene, s = GL.sets[k], tg = Object.assign({}, s.params);
   tg[k + '_a'] = 1;
   const c = { t: (now - X.t0) / 1000 };
-  for (const ct of s.controls || []) c[ct.key] = ctlValue(k, ct);
+  for (const ct of ctlsOf(k)) c[ct.key] = ctlValue(k, ct);
   if (s.explore) Object.assign(tg, s.explore(c));
-  if (k === 'cube' && c.view !== 'genes' && c.view !== 'cut') {
-    tg.cube_focus = brickK(X.brick, cubeBits());
-    if (c.view === 'bricks' || c.view === 'toolbox') {
-      tg.cube_lesson = X.gal === 'kinds' ? 1 : 0;
-      if (c.view === 'bricks' && X.sum > 0 && X.gal !== 'kinds') { tg.cube_build = 1; tg.cube_sum = X.sum; }
-    }
-  }
+  tg.lens = k === 'fish' ? 1 : 0;
+  if (k === 'fish') Object.assign(tg, { fish_n: X.n, fish_k: fishK() });
+  // (the outbreak is played here, day by day: the Outbreak tab's day, not the set's own clock)
+  if (k === 'globe' && c.out === 'on') Object.assign(tg, { globe_out: 1, globe_dim: 1, globe_day: X.out.day });
+  // (NF-kB moves once its relay has reached it)
+  if (k === 'cell' && c.move === 'nfkb' && (XS.cell_cue || 0) < 0.999) tg.cell_nfkb = 0;
   const out = {};
   for (const n in DEF) out[n] = n in tg ? tg[n] : n.endsWith('_a') ? 0 : XS[n];
   return out;
 }
 function exploreStep(dt, now) {
+  // the outbreak plays four days a second, to its end
+  const O = X.out;
+  if (O.playing) { O.day = Math.min(O.day + dt * 4, api('globe').end()); if (O.day >= api('globe').end()) O.playing = false; }
+  const sd = Math.floor(O.day) + (O.playing ? 'p' : '');
+  if (sd !== X.sd) { X.sd = sd; syncOut(); }   // (the readouts and the chart once a day)
   const tg = exploreTargets(now), k = 1 - Math.exp(-dt * 3.5);
-  for (const n in DEF) XS[n] = STEP.has(n) ? tg[n] : XS[n] + (tg[n] - XS[n]) * k;
-  // a gently swaying scene, unless you are steering it or a set asks for stillness
-  if (X.turn === 'on' && !orbit.to && !orbit.held && !GL.still && !HOST.room.placing()) { X.sway = (X.sway || 0) + dt; orbit.cur[0] += dt * 6 * Math.cos(X.sway * 0.25); }
+  for (const n in DEF) {
+    if (STEP.has(n)) XS[n] = tg[n];
+    else if (MOVE_P.has(n)) { const r = dt / (n === 'cell_cue' ? 1.6 : 3); XS[n] += clamp(tg[n] - XS[n], -r, r); }
+    else XS[n] += (tg[n] - XS[n]) * k;
+  }
+  // the shark's button follows the shark
+  const so = GL.sets.fish.sharkOn();
+  if (so !== X.so) { X.so = so; renderFish(); }
+  // a gently swaying scene, unless you are steering it, it is life size, or a headset at its station stands still
+  if (X.turn === 'on' && X.scene !== 'fish' && !orbit.to && !orbit.held && !GL.still && !HOST.room.placing()) { X.sway = (X.sway || 0) + dt; orbit.cur[0] += dt * 6 * Math.cos(X.sway * 0.25); }
   return XS;
 }
-// what the panes pick reaches the sets through their params (exploreTargets)
 function pushState() { updateExtraLabels(); }
 function openScene(k, fly = true) {
   if (!GL.sets[k] || !SCENES.some(s => s[0] === k)) return;
   const same = X.scene === k;
   X.scene = k; X.t0 = performance.now();
+  if (k === 'fish' && !same) FOL.az = null;   // (the camera finds the school afresh)
   if (fly && !same) flyTo(view(k, viewCam(k) || 'default'));
+  if (k === 'globe') outApply();
   renderAll();
 }
-function setCtl(k, key, v) {
+function setCtl(k, key, v, ui = true) {
   const c = ctlOf(k, key);
   if (!c || !c.options.some(o => o[0] === v)) return;
   (X.ctl[k] = X.ctl[k] || {})[key] = v;
   X.t0 = performance.now();
   // a view has its own best camera
-  if (key === 'view' && k === X.scene) { const n = camFor(k, v); flyTo(view(k, n || 'default')); }
+  if (key === 'view' && k === X.scene) { const n = camFor(k, v); if (n) flyTo(view(k, n)); else if (k === 'fish') FOL.az = null; }
+  // the globe's outbreak switched on from the Scenes tab plays from day 0
+  if (k === 'globe' && key === 'out' && ui) { if (v === 'on') { X.out.day = 0; X.out.playing = true; } else X.out.playing = false; }
   renderAll();
 }
 // a view of a set, its scene brought up
 function showView(k, v) { if (X.scene !== k) openScene(k); if (!viewIs(k, v)) setCtl(k, 'view', v); }
+function sceneCtl(k, key, v) { if (X.scene !== k) openScene(k); setCtl(k, key, v); }
 function flyTo(v) {
   const c = orbit.cur;
   orbit.from = c.slice();
@@ -4801,119 +4998,245 @@ function flyNear(p, d) { if (p) flyTo([orbit.cur[0], orbit.cur[1], d, p[0], p[1]
 
 // --------------------------------------------------------------- actions --
 // Each setter changes its own field only when called with ui false (a shared room's state arriving); picked by
-// hand (ui true) it also brings up the scene and the view that show it.
-// a brick (a Pauli string by name, 'X2X1'; null none), shown on the big cube; gal: the gallery it was picked from (the
-// kinds of the reference figure, or this network's largest)
-function selectBrick(nm, gal, ui = true) {
-  X.brick = isBrick(nm) ? nm : null;
-  if (gal === 'kinds' || gal === 'largest') X.gal = gal;
+// hand (ui true) it also brings up the scene that shows it.
+// the fish: neighbours watched (1 to 12), the school's size (100 to 600), being the shark, a shark sent
+function setFishK(n, ui = true) {
+  (X.ctl.fish = X.ctl.fish || {}).k = String(clamp(Math.round(+n) || 7, 1, 12));
+  if (ui && X.scene !== 'fish') openScene('fish');
+  syncFish();
+}
+function setFishN(n, ui = true) {
+  X.n = clamp(Math.round((+n || 300) / 50) * 50, 100, 600);
+  if (ui && X.scene !== 'fish') openScene('fish');
+  syncFish();
+}
+function setShark(on) {
+  X.shark = !!on;
+  if (!X.shark) GL.sets.fish.steer(null);
+  if (X.shark && X.scene !== 'fish') openScene('fish');
+  renderFish();
+}
+// a shark from anywhere, or where you point (dir, in the school's frame); in a shared room the others at this station
+// see the same one (the set's onLaunch, see fishSync); true if one went
+function sendShark(dir) {
+  if (!GL.sets.fish.scatter(dir || null)) return false;
+  renderFish();
+  return true;
+}
+// the outbreak: its start (an airport's code), its settings, and the city looked up
+const outIndex = code => api('globe').find(code);
+function outApply() {
+  const O = X.out, g = api('globe');
+  g.setup({ start: outIndex(O.start), inc: O.inc, inf: O.inf, spread: O.spread, kept: 1 - O.cut / 100 });
+  O.day = Math.min(O.day, g.end());
+  g.select(X.city ? outIndex(X.city) : -1);
+}
+function setStart(code, ui = true) {
+  if (outIndex(code) < 0) return;
+  X.out.start = code;
   if (ui) {
-    // (picked without its gallery: the network's largest if it is one of them, else the kinds)
-    if (X.brick && !gal) X.gal = largestAt(curAn()).includes(X.brick) ? 'largest' : 'kinds';
-    if (X.brick) X.sum = 0;
-    if (!(X.scene === 'cube' && (viewIs('cube', 'bricks') || viewIs('cube', 'toolbox')))) showView('cube', 'bricks');
+    X.out.day = 0; X.out.playing = true; X.out.click = 'look';   // (picked by hand: it plays, and the next click looks a city up)
+    showOutbreak();
   }
+  outApply(); renderOutbreak();
+}
+function selectCity(code, ui = true) {
+  X.city = code && outIndex(code) >= 0 ? code : '';
+  if (ui) showOutbreak();
+  api('globe').select(X.city ? outIndex(X.city) : -1);
+  renderOutbreak();
+}
+// a setting: inc and inf in days, spread 'low' | 'medium' | 'high', cut the share of flights cut (0 to 90 %)
+function setOut(k, v, ui = true) {
+  const O = X.out;
+  if (k === 'inc') O.inc = clamp(Math.round(+v) || 5, 1, 21);
+  else if (k === 'inf') O.inf = clamp(Math.round(+v) || 7, 2, 30);
+  else if (k === 'cut') O.cut = clamp(Math.round((+v || 0) / 10) * 10, 0, 90);
+  else if (k === 'spread' && ['low', 'medium', 'high'].includes(v)) O.spread = v;
+  else return;
+  if (ui) showOutbreak();
+  outApply();
+  if (k === 'spread') renderOutbreak(); else syncOut();
+}
+function playOut(on) {
+  const O = X.out, end = api('globe').end();
+  if (on && O.day >= end) O.day = 0;
+  O.playing = !!on;
+  if (O.playing) showOutbreak();
+  syncOut();
+}
+function setDay(d) { X.out.day = clamp(+d || 0, 0, api('globe').end()); X.out.playing = false; showOutbreak(); syncOut(); }
+// the globe brought up with its outbreak on (by hand)
+function showOutbreak() {
+  if (X.scene !== 'globe') openScene('globe');
+  if (ctlVal('globe', 'out') !== 'on') (X.ctl.globe = X.ctl.globe || {}).out = 'on';
+}
+// the cell: a protein picked (by its index, and the copy clicked), a move
+function selectProtein(p, copy, ui = true) {
+  const A = api('cell');
+  p = typeof p === 'string' ? A.protein(p) : p;
+  if (!(Number.isInteger(p) && p >= 0)) p = -1;
+  X.prot = p >= 0 ? A.info(p).sym : '';
+  A.select(p, copy);
+  if (ui && X.scene !== 'cell') openScene('cell');
+  renderCell(); updateExtraLabels();
+}
+function setMove(key, ui = true) {
+  if (key !== 'none' && !MOVE_KEYS().includes(key)) return;
+  (X.ctl.cell = X.ctl.cell || {}).move = key;
+  if (ui && X.scene !== 'cell') openScene('cell');
   renderAll();
 }
-// how many of the network's largest strings are added up (0 to 10): the big cube rebuilt from them, and the error left
-function setSum(n, ui = true) {
-  X.sum = clamp(Math.round(+n) || 0, 0, NB());
-  if (ui) {
-    X.brick = null; X.gal = 'largest';
-    if (!(X.scene === 'cube' && viewIs('cube', 'bricks'))) { showView('cube', 'bricks'); renderAll(); }
-  }
-  syncSum();
-}
-// the gallery beside the big cube: the kinds of brick (the reference figure) or this network's ten largest
-function setGal(g, ui = true) {
-  if (g !== 'kinds' && g !== 'largest') return;
-  X.gal = g;
-  if (ui) { if (g === 'kinds') X.sum = 0; if (X.scene !== 'cube' || !(viewIs('cube', 'bricks') || viewIs('cube', 'toolbox'))) showView('cube', 'bricks'); }
-  renderAll();
-}
-// a control of the cube or the chart picked from a tab: its scene brought up
-function sceneCtl(k, key, v) { if (X.scene !== k) openScene(k); setCtl(k, key, v); }
 
 // ------------------------------------------------------- shared rooms --
-// What everyone at a station sees alike in explore mode: the tab, the scene and every scene's controls (the cube's
-// network, cut, bits and algebra among them), the brick shown, how many strings are added up and the gallery. The
-// camera is each person's own.
+// What everyone at a station sees alike in explore mode: the tab, the scene, every scene's controls (not the fish's
+// view: on a screen it is each person's camera), the school's size, the outbreak's start and settings, the city looked
+// up and the protein picked. The camera, the outbreak's day (each plays it themselves), the language and a steered
+// shark stay each person's own.
 // shared rooms: the scene's view in a headset at a station (explore mode), which turns and sizes it in the room:
-// shared (HOST.collab), so everyone there sees it alike; null while it flies somewhere (a pick, a view arriving)
+// shared (HOST.collab), so everyone there sees it alike; null while it flies somewhere, and among the life-size fish
 function collabView() {
-  if (APP.mode !== 'explore' || orbit.to) return null;
+  if (APP.mode !== 'explore' || orbit.to || X.scene === 'fish') return null;
   const c = orbit.cur, r = (x, k) => Math.round(x * k) / k;
   return [r((((c[0] + 180) % 360) + 360) % 360 - 180, 10), r(c[1], 10), r(c[2], 100), r(c[3], 100), r(c[4], 100), r(c[5], 100)];
 }
 function collabSetView(v) {
-  if (APP.mode !== 'explore' || !Array.isArray(v) || v.length !== 6 || !v.every(Number.isFinite)) return;
+  if (APP.mode !== 'explore' || X.scene === 'fish' || !Array.isArray(v) || v.length !== 6 || !v.every(Number.isFinite)) return;
   const c = orbit.cur, to = v.slice();
   to[0] += 360 * Math.round((c[0] - to[0]) / 360);
   Object.assign(orbit, { from: c.slice(), to, t0: performance.now(), fast: true });   // a short glide there
 }
+const SHARED_SKIP = { fish: ['view'] };
 function collabState() {
   const ctl = {};
-  for (const [k] of SCENES) ctl[k] = Object.fromEntries(ctlsOf(k).map(c => [c.key, ctlValue(k, c)]));
-  return { tab: X.tab, scene: X.scene, ctl, brick: X.brick, sum: X.sum, gal: X.gal };
+  for (const [k] of SCENES) ctl[k] = Object.fromEntries(ctlsOf(k).filter(c => !(SHARED_SKIP[k] || []).includes(c.key)).map(c => [c.key, ctlValue(k, c)]));
+  const O = X.out;
+  return { tab: X.tab, scene: X.scene, ctl, n: X.n, out: { start: O.start, inc: O.inc, inf: O.inf, spread: O.spread, cut: O.cut }, city: X.city, prot: X.prot };
 }
 // show another person's state with the story's own setters (so both panels follow); every field is checked, and
 // the camera stays where this person has it
 function collabApply(v) {
   if (!v || typeof v !== 'object') return;
   if (TABS.some(t => t[0] === v.tab) && v.tab !== X.tab) showTab(v.tab);
-  // the scene and its controls; a view flies to its own camera as it does here
   if (SCENES.some(s => s[0] === v.scene) && v.scene !== X.scene) openScene(v.scene);
   for (const [k] of SCENES) for (const c of ctlsOf(k)) {
     const x = v.ctl && v.ctl[k] && v.ctl[k][c.key];
-    if (!c.options.some(o => o[0] === x) || ctlValue(k, c) === x) continue;
-    if (k === X.scene) setCtl(k, c.key, x); else (X.ctl[k] = X.ctl[k] || {})[c.key] = x;
+    if ((SHARED_SKIP[k] || []).includes(c.key) || typeof x !== 'string' || ctlValue(k, c) === x) continue;
+    if (k === 'fish' && c.key === 'k') { if (/^([1-9]|1[0-2])$/.test(x)) setFishK(+x, false); continue; }   // (any of 1 to 12)
+    if (k === 'cell' && c.key === 'move') { setMove(x, false); continue; }   // (any of the cell's moves)
+    if (!c.options.some(o => o[0] === x)) continue;
+    if (k === X.scene) setCtl(k, c.key, x, false); else (X.ctl[k] = X.ctl[k] || {})[c.key] = x;
   }
-  // then the picks
-  if ((v.brick === null || isBrick(v.brick)) && v.brick !== X.brick) selectBrick(v.brick, null, false);
-  if ((v.gal === 'kinds' || v.gal === 'largest') && v.gal !== X.gal) setGal(v.gal, false);
-  if (Number.isInteger(v.sum) && v.sum >= 0 && v.sum <= NB() && v.sum !== X.sum) setSum(v.sum, false);
+  if (Number.isInteger(v.n) && v.n >= 100 && v.n <= 600 && v.n % 50 === 0 && v.n !== X.n) setFishN(v.n, false);
+  const o = v.out, O = X.out;
+  if (o && typeof o === 'object') {
+    if (Number.isInteger(o.inc) && o.inc >= 1 && o.inc <= 21 && o.inc !== O.inc) setOut('inc', o.inc, false);
+    if (Number.isInteger(o.inf) && o.inf >= 2 && o.inf <= 30 && o.inf !== O.inf) setOut('inf', o.inf, false);
+    if (Number.isInteger(o.cut) && o.cut >= 0 && o.cut <= 90 && o.cut % 10 === 0 && o.cut !== O.cut) setOut('cut', o.cut, false);
+    if (['low', 'medium', 'high'].includes(o.spread) && o.spread !== O.spread) setOut('spread', o.spread, false);
+    if (typeof o.start === 'string' && o.start !== O.start && outIndex(o.start) >= 0) setStart(o.start, false);
+  }
+  if (typeof v.city === 'string' && v.city !== X.city && (!v.city || outIndex(v.city) >= 0)) selectCity(v.city, false);
+  if (typeof v.prot === 'string' && v.prot !== X.prot) { const p = v.prot ? api('cell').protein(v.prot) : -1; if (!v.prot || (Number.isInteger(p) && p >= 0)) selectProtein(p, undefined, false); }
   renderAll();
+}
+// shared rooms: the school belongs to the station, as the flock does. Everyone there says where their school is, twice
+// a second (a quiet effect); the one there longest leads (since: when it came, in the relay's time; a page back from a
+// pause, a hidden tab, counts as new; ties by member id): the others take its swimming time and steer their school to
+// it (the set's follow), and only it sends sharks of its own (the story's, now and then; a page new there listens
+// 1.5 s first); a shark anyone sends goes to everyone, exactly as it starts. Positions are in the set's frame, whose
+// origin is the station's spot on every device. True while at a station (the school then stays round its spot)
+const FSY = { heard: new Map(), sent: 0, last: 0, since: 0, from: 0 };
+const r2 = a => a.map(x => Math.round(x * 100) / 100);
+const earlier = (a, b) => a.since < b.since || (a.since === b.since && a.id < b.id);
+function fishSync() {
+  const s = GL.sets.fish, L = HOST.collab.live(), on = !!(L && L.story === HOST.curKey && HOST.collab.joined);
+  const pn = performance.now(), gap = FSY.last ? pn - FSY.last : 0;
+  FSY.last = pn;
+  s.onLaunch = f => HOST.collab.effect('shark', f);
+  if (!on) { FSY.heard.clear(); FSY.since = 0; s.hush(false); if (s.following()) s.follow(null); return false; }
+  const now = HOST.collab.now(), me = { id: HOST.collab.id || '', since: FSY.since };
+  if (!FSY.since || gap > 1500) { FSY.since = me.since = Math.round(now); FSY.from = pn; }
+  if (pn - FSY.sent > 500) {
+    FSY.sent = pn;
+    const f = s.flight();
+    HOST.collab.effect('school', { id: me.id, since: me.since, at: Math.round(now), t: Math.round(f.t * 1000) / 1000, m: r2(f.m), v: r2(f.v) }, true);
+  }
+  let lead = null;
+  for (const [k, v] of FSY.heard) if (pn - v.got > 2000) FSY.heard.delete(k); else if (earlier(v, me) && (!lead || earlier(v, lead))) lead = v;
+  s.hush(pn - FSY.from < 1500);
+  if (lead) { const age = clamp((now - lead.at) / 1000, 0, 2); s.follow({ t: lead.t + age, m: lead.m.map((x, j) => x + lead.v[j] * age), v: lead.v }, Math.min(gap, 1000) / 1000); }
+  else if (s.following()) s.follow(null);
+  return true;
+}
+// what another device at the station sent: where its school is, or a shark
+const v3ok = a => Array.isArray(a) && a.length === 3 && a.every(Number.isFinite);
+function fishEffect(type, d) {
+  if (!d || typeof d !== 'object') return;
+  if (type === 'school' && typeof d.id === 'string' && d.id.length < 64 && Number.isFinite(d.since) && Number.isFinite(d.at) && Number.isFinite(d.t) && v3ok(d.m) && v3ok(d.v)) {
+    FSY.heard.set(d.id, { id: d.id, since: d.since, at: d.at, t: d.t, m: d.m, v: d.v, got: performance.now() });
+  } else if (type === 'shark' && v3ok(d.p) && v3ok(d.v) && (d.aim === null || v3ok(d.aim))) {
+    GL.sets.fish.shark(d); renderFish();
+  }
 }
 
 // ------------------------------------------------------------------ panes --
 // (a lit chip as the shell's primary button: its text in the panel's colour, readable in either theme)
 const chip = (attrs, label, on, col) => `<button type="button" ${attrs} aria-pressed="${!!on}"${on ? ' style="background:var(--cyan);color:var(--panel-solid)"' : ''}>${col ? `<span class="sw" style="background:${swCol(col)}"></span>` : ''}${label}</button>`;
-const link = (act, v, text) => `<button type="button" data-act="${act}" data-v="${esc(v)}" style="border:0;background:none;padding:0;font:inherit;color:var(--cyan);text-decoration:underline;cursor:pointer">${text}</button>`;
-const cap = s => (s ? String(s).charAt(0).toUpperCase() + String(s).slice(1) : '');
-// a cell's color (by its code at 3 bits: a cell at fewer bits takes its first corner's), as in the sets
-const cellCol = (c, L) => Q.CELL_COLORS[c << (3 - L)];
-// the cells of an analysis, in a line: '8 of 40 genes', or '8, of 21 to 62 genes'
-const cellsText = A => { const lo = Math.min(...A.sizes), hi = Math.max(...A.sizes); return lo === hi ? `${A.sizes.length} of ${lo} genes` : `${A.sizes.length}, of ${lo} to ${hi} genes`; };
-const algLabel = (alg, L) => Q.algebra(alg, L).label;
-// the strings of the gallery now: the kinds of the reference figure at the bits shown, or this network's largest
-const kindsAt = L => (api('cube').lesson ? api('cube').lesson(L) : []);
-const largestAt = A => A.order.slice(0, NB()).map(k => Q.name(k, A.L));
-const GATE_COL = { RX: RED, RZZ: BLUE, RZ: BLUE };
-function buildExplore() {
-  $('#explore').innerHTML = `
-    <div class="tabs" role="tablist">${TABS.map(([k, n]) => `<button role="tab" type="button" data-tab="${k}" aria-selected="${k === X.tab}">${n}</button>`).join('')}</div>
+const slider = (sl, min, max, step, v, label, col) => `<input type="range" data-sl="${sl}" min="${min}" max="${max}" step="${step}" value="${v}" aria-label="${esc(label)}" style="width:100%;accent-color:${col || CYAN}">`;
+const grpH = (label, val, attr) => `<p class="grp-h">${esc(label)}${val !== undefined ? ` <b ${attr || ''} style="margin-left:auto;color:var(--ink)">${esc(val)}</b>` : ''}</p>`;
+// the airports a class is likely to start from (all of them can be picked on the globe or found by name)
+const QUICK_START = ['VIE', 'LHR', 'JFK', 'PEK', 'SYD', 'GRU', 'JNB', 'DEL'];
+// proteins worth a look in the cell: a receptor, the moves' travellers and the wrong places
+const QUICK_PROT = ['EGFR', 'RELA', 'CFTR', 'TARDBP', 'SLC2A4', 'NFE2L2', 'TFEB', 'TP53'];
+const cityOf = code => { const i = outIndex(code), f = i >= 0 ? api('globe').info(i) : null; return f ? f.city : code; };
+// the panes' frame: the language switch, the tabs and a pane for each (made again when the language changes)
+function exploreHTML() {
+  const ex = $('#explore');
+  ex.lang = LANG;
+  ex.innerHTML = `<div style="display:flex;justify-content:flex-end">${langSwitch()}</div>
+    <div class="tabs" role="tablist">${TABS.map(([k, n]) => `<button role="tab" type="button" data-tab="${k}" aria-selected="${k === X.tab}">${esc(T(n))}</button>`).join('')}</div>
     ${TABS.map(([k]) => `<div class="pane" id="pane-${k}" role="tabpanel"></div>`).join('')}`;
-  document.querySelectorAll('#explore .tabs button').forEach(b => b.addEventListener('click', () => pickTab(b.dataset.tab)));
-  // one click handler per pane: buttons carry what they do in data attributes
-  $('#explore').addEventListener('click', ev => {
-    const b = ev.target.closest('[data-act]');
-    if (!b) return;
-    const v = b.dataset.v;
-    ({
-      brick: () => selectBrick(v === X.brick ? null : v, b.dataset.gal), gal: () => setGal(v),
-      view: () => { const [k, w] = v.split(':'); showView(k, w); }, scene: () => openScene(v),
-      ctl: () => sceneCtl(b.dataset.scene || X.scene, b.dataset.ctl, v),
-    }[b.dataset.act] || (() => {}))();
-  });
-  // the sum's slider changes in place, so a drag is not cut short by a redraw
-  $('#explore').addEventListener('input', ev => { if (ev.target.dataset.sum !== undefined) setSum(+ev.target.value, true); });
   renderAll();
-  $('#viewctl').innerHTML = `<div class="grp"><span>Turn</span><div class="seg" data-ctl="turn" role="group" aria-label="Turn">${[['on', 'On'], ['off', 'Off']].map(([v, n]) => `<button type="button" data-v="${v}" aria-pressed="${X.turn === v}">${n}</button>`).join('')}</div></div>`;
+  buildViewCtl();
+  showTab(X.tab);
+}
+function buildExplore() {
+  const ex = $('#explore');
+  {
+    ex.addEventListener('click', ev => {
+      const t = ev.target.closest('[data-tab]');
+      if (t) { pickTab(t.dataset.tab); return; }
+      const b = ev.target.closest('[data-act]');
+      if (!b) return;
+      const v = b.dataset.v;
+      ({
+        view: () => { const [k, w] = v.split(':'); showView(k, w); }, scene: () => openScene(v),
+        ctl: () => sceneCtl(b.dataset.scene || X.scene, b.dataset.ctl, v),
+        shark: () => setShark(v === 'on'), send: () => sendShark(null),
+        start: () => setStart(v), city: () => selectCity(v === X.city ? '' : v), click: () => { X.out.click = v; renderOutbreak(); },
+        play: () => playOut(!X.out.playing), again: () => { X.out.day = 0; playOut(true); }, spread: () => setOut('spread', v),
+        prot: () => selectProtein(v === X.prot ? -1 : v), move: () => setMove(v === ctlVal('cell', 'move') ? 'none' : v),
+      }[b.dataset.act] || (() => {}))();
+    });
+    // sliders change in place, so a drag is not cut short by a redraw; searches list what they find
+    ex.addEventListener('input', ev => {
+      const e = ev.target, sl = e.dataset.sl;
+      if (sl) ({ fk: () => setFishK(e.value), fn: () => setFishN(e.value), day: () => setDay(e.value),
+        inc: () => setOut('inc', e.value), inf: () => setOut('inf', e.value), cut: () => setOut('cut', e.value) }[sl] || (() => {}))();
+      if (e.dataset.q) searchList(e.dataset.q, e.value);
+    });
+  }
   $('#viewctl').addEventListener('click', ev => {
     const b = ev.target.closest('[data-v]'), seg = b && b.closest('[data-ctl]');
     if (seg && seg.dataset.ctl === 'turn') setTurn(b.dataset.v);
   });
-  showTab(X.tab);
+  exploreHTML();
+}
+// the bar under the scene in explore mode: the scene's sway
+function buildViewCtl() {
+  const vc = $('#viewctl');
+  vc.innerHTML = `<div class="grp"><span>${esc(T('turn'))}</span><div class="seg" data-ctl="turn" role="group" aria-label="${esc(T('turn'))}">${[['on', T('on')], ['off', T('off')]].map(([v, n]) => `<button type="button" data-v="${v}" aria-pressed="${X.turn === v}">${esc(n)}</button>`).join('')}</div></div>`;
 }
 function setTurn(v) {
   X.turn = v;
@@ -4922,7 +5245,6 @@ function setTurn(v) {
 function showTab(k) {
   X.tab = k;
   document.querySelectorAll('#explore .tabs button').forEach(b => b.setAttribute('aria-selected', b.dataset.tab === k));
-  // (five tabs overflow a phone's panel: the row scrolls so the chosen one shows)
   const tb = $('#explore .tabs'), on = tb && tb.querySelector(`[data-tab="${k}"]`);
   if (on) { const r = on.getBoundingClientRect(), q = tb.getBoundingClientRect(); if (r.width && (r.left < q.left || r.right > q.right)) tb.scrollLeft += r.left - q.left - 8; }
   document.querySelectorAll('#explore .pane').forEach(p => p.classList.toggle('on', p.id === 'pane-' + k));
@@ -4931,99 +5253,171 @@ function showTab(k) {
 // a tab picked by hand brings up the scene it talks about (a shared room's tab arriving does not: its scene comes with it)
 function pickTab(k) {
   showTab(k);
-  if (k === 'network' && !(X.scene === 'cube' && ['genes', 'cut', 'cube'].some(v => viewIs('cube', v)))) showView('cube', 'cube');
-  if (k === 'bricks' && !(X.scene === 'cube' && (viewIs('cube', 'bricks') || viewIs('cube', 'toolbox')))) showView('cube', 'bricks');
-  if (k === 'depth' && X.scene !== 'chart') openScene('chart');
+  if (TAB_SCENE[k] && X.scene !== TAB_SCENE[k]) openScene(TAB_SCENE[k]);
+  if (k === 'outbreak' && ctlVal('globe', 'out') !== 'on') { (X.ctl.globe = X.ctl.globe || {}).out = 'on'; renderAll(); }
 }
-function renderAll() { renderNetwork(); renderBricks(); renderDepth(); renderScenes(); updateExtraLabels(); }
-function renderNetwork() {
-  const pane = $('#pane-network');
+function renderAll() { renderFish(); renderOutbreak(); renderCell(); renderScenes(); updateExtraLabels(); }
+// a search's results, as chips under its box (the airports by code, city, name or country, also German city names; the
+// proteins by symbol or name)
+function searchList(q, s) {
+  const box = $(`[data-res="${q}"]`);
+  if (!box) return;
+  const hits = s.trim() ? (q === 'out' ? api('globe').search(s, 6) : api('cell').search(s, 6)) : [];
+  box.innerHTML = hits.map(i => {
+    if (q === 'out') { const f = api('globe').info(i); return chip(`data-act="start" data-v="${esc(f.code)}"`, `${esc(f.city)} <small>${esc(f.code)}</small>`, f.code === X.out.start); }
+    const f = api('cell').info(i); return chip(`data-act="prot" data-v="${esc(f.sym)}"`, esc(f.sym), f.sym === X.prot);
+  }).join('');
+}
+// the fish's words for how many neighbours they watch
+const kText = k => (k === 1 ? T('f.k1') : k === 2 ? T('f.k2') : T('f.k3', k));
+function renderFish() {
+  const pane = $('#pane-fish');
   if (!pane) return;
-  const ni = cubeNet(), N = Q.NETS[ni], L = cubeBits(), A = curAn(), p3 = anOf(ni, cubeCut(), 3).purity;
-  const ch = (key, opts, on) => opts.map(([v, n]) => chip(`data-act="ctl" data-scene="cube" data-ctl="${key}" data-v="${v}"`, esc(n), on(v))).join('');
-  pane.innerHTML = `<p class="sub">Four example networks of ${Q.network(N.key).n} genes, made up for this story. Pick one, cut it, and see how much of it the toolbox keeps. Every number here is computed as you choose.</p>
-    <p class="grp-h">Network</p><div class="chips">${ch('net', Q.NETS.map((n, i) => [String(i), n.name]), v => +v === ni)}</div>
-    <p class="sub">${esc(cap(N.note))}.</p>
-    <p class="grp-h">Cut</p><div class="chips">${ch('cut', [['0', 'Found'], ['1', 'Random halvings']], v => (v === '1') === (cubeCut() === 'random'))}</div>
-    <p class="grp-h">Bits (cuts)</p><div class="chips">${ch('bits', [['1', '1'], ['2', '2'], ['3', '3']], v => +v === L)}</div>
-    <p class="grp-h">Show</p><div class="chips">${[['genes', 'Genes'], ['cut', 'The cuts'], ['cube', 'The cube (A_c)']].map(([v, n]) => chip(`data-act="view" data-v="cube:${v}"`, n, X.scene === 'cube' && viewIs('cube', v))).join('')}</div>
-    <dl class="stats"><dt>Cells</dt><dd>${cellsText(A)}</dd>
-      <dt>Hidden groups</dt><dd>${p3 === null ? 'none' : pct(p3)}<small>${p3 === null ? 'this network has no groups' : 'of genes with their group, at 3 bits'}</small></dd>
-      <dt>Links cut</dt><dd>${pct(A.cutShare)}<small>of links run between cells</small></dd>
-      <dt>On cube edges</dt><dd>${pct(A.cubeShare)}<small>of the traffic between cells</small></dd>
-      <dt>Residual</dt><dd>${f2(A.fits.odd.residual)}<small>${algLabel('odd', L)}</small> &nbsp;${f2(A.fits.tfim.residual)}<small>${algLabel('tfim', L)}</small></dd></dl>
-    <div class="chips">${A.sizes.map((s, c) => chip('disabled', `${codeStr(c, L)} · ${s}`, false, cellCol(c, L))).join('')}</div>
-    <p class="note">The residual is the share of A_c the toolbox drops: 0 nothing lost, 1 everything. At 1 bit it is always 0. The cut stands in for the authors' beam search. After the method and figures of Joel Hancock.</p>`;
+  const busy = GL.sets.fish.sharkOn(), k = fishK(), vc = ctlOf('fish', 'view'), lc = ctlOf('fish', 'links');
+  pane.innerHTML = `<p class="sub">${esc(T('f.sub'))}</p>
+    ${grpH(T('f.shark'))}<div class="chips">${[['off', T('off')], ['on', T('on')]].map(([v, n]) => chip(`data-act="shark" data-v="${v}"`, esc(n), X.shark === (v === 'on'))).join('')}
+      <button type="button" data-act="send"${busy ? ' disabled' : ''}>${esc(busy ? T('f.busy') : T('f.send'))}</button></div>
+    ${X.shark ? `<p class="sub">${esc(T('f.shark.how'))}</p>` : ''}
+    ${grpH(T('f.k'), k, 'data-kv')}${slider('fk', 1, 12, 1, k, T('f.k'))}
+    <p class="sub" data-kt>${esc(kText(k))}</p>
+    ${grpH(T('f.links'))}<div class="chips">${lc.options.map(([v, n]) => chip(`data-act="ctl" data-scene="fish" data-ctl="links" data-v="${v}"`, esc(n), ctlValue('fish', lc) === v)).join('')}</div>
+    ${grpH(T('f.n'), X.n, 'data-nv')}${slider('fn', 100, 600, 50, X.n, T('f.n'))}
+    ${grpH(vc.label)}<div class="chips">${vc.options.map(([v, n]) => chip(`data-act="ctl" data-scene="fish" data-ctl="view" data-v="${v}"`, esc(n), ctlValue('fish', vc) === v)).join('')}</div>
+    <p class="note">${esc(T('f.note'))}</p>`;
 }
-function renderBricks() {
-  const pane = $('#pane-bricks');
+// the fish's readouts and sliders, in place (a drag is not cut short)
+function syncFish() {
+  const k = fishK();
+  document.querySelectorAll('[data-kv]').forEach(el => { el.textContent = k; });
+  document.querySelectorAll('[data-kt]').forEach(el => { el.textContent = kText(k); });
+  document.querySelectorAll('[data-nv]').forEach(el => { el.textContent = X.n; });
+  for (const [sl, v] of [['fk', k], ['fn', X.n]]) document.querySelectorAll(`input[data-sl="${sl}"]`).forEach(el => { if (document.activeElement !== el) el.value = v; });
+}
+// the outbreak's numbers now: the series, the day, how far it has come, the city looked up
+function outNow() {
+  const g = api('globe'), sr = g.series(), end = g.end(), d = Math.floor(X.out.day), c = g.count(d), sm = g.summary();
+  return { g, sr, end, d, c, reached: c.E + c.I + c.R, total: sm.reached, peakDay: sm.peak, peak: sr.I[sm.peak] };
+}
+// what the city looked up shows: when it was reached, and the way it came
+function cityText() {
+  if (!X.city) return ['', ''];
+  const g = api('globe'), i = outIndex(X.city), f = g.info(i), a = g.arrivalDay(i);
+  const head = X.city === X.out.start ? T('o.sel.start', f.city) : a === null ? T('o.sel.never', f.city) : a <= X.out.day ? T('o.sel.on', f.city, a) : T('o.sel.yet', f.city, a);
+  const ch = a !== null && X.city !== X.out.start ? g.chain(i).map(j => g.info(j).city) : [];
+  return [head, ch.length > 1 ? T('o.way', ch.join(' → ')) : ''];
+}
+// the chart: cities in each state by day, stacked (recovered, infectious, exposed: their top is the cities reached),
+// with the day on show; as an SVG on the page and drawn the same on the headset's panel (drawChart)
+const OUT_COL = { E: AMBER, I: RED, R: GREY };
+function chartPaths(n, W, H) {
+  const { sr, end } = n, max = Math.max(1, n.total), xs = d => (d / Math.max(1, end)) * W, ys = v => H - (v / max) * H;
+  const band = (lo, hi) => {
+    const top = [], bot = [];
+    for (let d = 0; d <= end; d++) { top.push([xs(d), ys(hi(d))]); bot.push([xs(d), ys(lo(d))]); }
+    return top.concat(bot.reverse());
+  };
+  return [['R', band(() => 0, d => sr.R[d])], ['I', band(d => sr.R[d], d => sr.R[d] + sr.I[d])], ['E', band(d => sr.R[d] + sr.I[d], d => sr.R[d] + sr.I[d] + sr.E[d])]];
+}
+function chartSVG(n) {
+  const W = 300, H = 96, pts = a => a.map(p => p[0].toFixed(1) + ',' + p[1].toFixed(1)).join(' '), x = (n.d / Math.max(1, n.end)) * W;
+  return `<svg viewBox="-2 -12 ${W + 4} ${H + 28}" role="img" aria-label="${esc(T('o.reached'))}" style="width:100%;display:block;margin:6px 0 2px">
+    <line x1="0" y1="${H}" x2="${W}" y2="${H}" stroke="var(--line)"/>
+    ${chartPaths(n, W, H).map(([k, p]) => `<polygon points="${pts(p)}" fill="${OUT_COL[k]}" fill-opacity="0.85"/>`).join('')}
+    <line x1="${x.toFixed(1)}" y1="-4" x2="${x.toFixed(1)}" y2="${H}" stroke="var(--ink)" stroke-width="1.5"/>
+    <text x="0" y="-3" font-size="10" fill="var(--muted)">${esc(num(n.total))}</text>
+    <text x="${W}" y="${H + 13}" font-size="10" fill="var(--muted)" text-anchor="end">${esc(T('o.day', n.end))}</text>
+    <text x="0" y="${H + 13}" font-size="10" fill="var(--muted)">${esc(T('o.day', 0))}</text></svg>
+    <p class="sub" style="margin:0 0 8px">${['E', 'I', 'R'].map(k => `<span class="sw" style="display:inline-block;width:9px;height:9px;border-radius:2px;margin:0 5px 0 0;background:${OUT_COL[k]}"></span>${esc(T('o.' + k))}`).join(' &nbsp;')}</p>`;
+}
+function renderOutbreak() {
+  const pane = $('#pane-outbreak');
   if (!pane) return;
-  const L = cubeBits(), A = curAn(), alg = cubeAlg(), k = brickK(X.brick, L);
-  const one = (nm, gal, w) => { const kk = Q.parse(nm, L), out = kk > 0 && !inAlg(kk, L, alg);
-    return chip(`data-act="brick" data-gal="${gal}" data-v="${nm}"`, `${sub(nm)}${w !== undefined ? ` <small>${f2(w)}</small>` : ''}`, X.brick === nm, kk === 0 ? null : out ? GRAY : PURPLE); };
-  pane.innerHTML = `<p class="sub">Pauli strings, the building blocks of any traffic table between cells. Pick one to see it on the cube, or add the largest up.</p>
-    <p class="grp-h">The kinds of brick (the reference figure)</p><div class="chips">${kindsAt(L).map(nm => one(nm, 'kinds')).join('')}</div>
-    <p class="grp-h">This network's ${word(NB())} largest, with their weights</p><div class="chips">${largestAt(A).map(nm => one(nm, 'largest', A.c.re[Q.parse(nm, L)])).join('')}</div>
-    ${k >= 0 ? `<h3>${esc(sub(X.brick))}</h3><p>${esc(cap(brickWhat(k, L)))}. Its weight here: ${f2(A.c.re[k])}. ${k === 0 ? 'The trace part: the same everywhere, kept.' : inAlg(k, L, alg) ? `Inside the toolbox, ${algLabel(alg, L)}: kept.` : `Outside the toolbox, ${algLabel(alg, L)}: dropped.`}</p>`
-      : X.brick ? `<p class="sub">${esc(sub(X.brick))} needs more bits than the ${L} shown.</p>` : ''}
-    <p class="grp-h">Add them up, largest first <b data-sumv style="margin-left:auto;color:var(--ink)">${X.sum}</b></p>
-    <input type="range" data-sum min="0" max="${NB()}" step="1" value="${X.sum}" aria-label="Strings added up" style="accent-color:${PURPLE}">
-    <p class="sub" data-errv>${errText(A)}</p>
-    <p class="grp-h">The toolbox (a Lie algebra)</p><div class="chips">${[['1', 'odd'], ['0', 'tfim']].map(([v, a]) => chip(`data-act="ctl" data-scene="cube" data-ctl="alg" data-v="${v}"`, `${algLabel(a, L)} · ${Q.algebra(a, L).dim} strings`, alg === a)).join('')}</div>
-    <div class="chips">${[['bricks', 'Every brick'], ['toolbox', 'Only the toolbox']].map(([v, n]) => chip(`data-act="view" data-v="cube:${v}"`, n, X.scene === 'cube' && viewIs('cube', v))).join('')}</div>
-    <p class="sub">Residual: ${f2(A.fits[alg].residual)} of the table falls outside ${algLabel(alg, L)} and is dropped (its generators alone hold ${pct(A.fits[alg].gens)} of the traceless weight).</p>
-    <p class="note">Purple: inside the toolbox; gray: outside, dropped; I, the trace part, is kept. Solid +, dashed −; corners red for +1, blue for −1. ${algLabel('tfim', L)} is the TFIM chain (X on each qubit, ZZ on neighbors); ${algLabel('odd', L)} adds Z on q${L - 1}.</p>`;
+  const O = X.out, n = outNow(), st = outIndex(O.start), sf = st >= 0 ? api('globe').info(st) : null;
+  pane.innerHTML = `<p class="sub amber"><b>${esc(T('o.sub'))}</b></p>
+    ${grpH(T('o.start'), sf ? `${sf.city} (${sf.code})` : O.start)}
+    <div class="chips">${QUICK_START.filter(c => outIndex(c) >= 0).map(c => chip(`data-act="start" data-v="${c}"`, esc(cityOf(c)), c === O.start)).join('')}</div>
+    <input type="search" data-q="out" placeholder="${esc(T('o.search'))}" aria-label="${esc(T('o.search'))}" style="width:100%">
+    <div class="chips" data-res="out"></div>
+    ${grpH(T('o.click'))}<div class="chips">${[['start', T('o.click.start')], ['look', T('o.click.look')]].map(([v, l]) => chip(`data-act="click" data-v="${v}"`, esc(l), O.click === v)).join('')}</div>
+    <div class="chips"><button type="button" class="btn primary" data-act="play" data-play>${esc(O.playing ? T('o.pause') : T('o.play'))}</button>
+      <button type="button" data-act="again">${esc(T('o.again'))}</button>
+      <b data-day style="margin-left:auto;align-self:center;font-size:18px">${esc(T('o.day', n.d))}</b></div>
+    ${slider('day', 0, n.end, 1, n.d, T('o.day', ''))}
+    <div data-chart>${chartSVG(n)}</div>
+    <dl class="stats" data-ostats>${outStats(n)}</dl>
+    <p data-city>${cityHTML()}</p>
+    ${grpH(T('o.inc'), T('o.days', O.inc), 'data-incv')}${slider('inc', 1, 21, 1, O.inc, T('o.inc'), AMBER)}
+    ${grpH(T('o.inf'), T('o.days', O.inf), 'data-infv')}${slider('inf', 2, 30, 1, O.inf, T('o.inf'), RED)}
+    ${grpH(T('o.spread'))}<div class="chips">${['low', 'medium', 'high'].map(v => chip(`data-act="spread" data-v="${v}"`, esc(T('o.' + v)), O.spread === v)).join('')}</div>
+    ${grpH(T('o.cut'), `${O.cut} %`, 'data-cutv')}${slider('cut', 0, 90, 10, O.cut, T('o.cut'))}
+    <p class="note">${esc(T('o.note'))} ${esc(T('o.data'))}</p>`;
 }
-// the error left after the strings added up so far
-const errText = A => (X.sum ? `Error left: ${f2(A.errors[Math.min(X.sum, A.errors.length - 1)])} (1 with none added)` : 'Error left: 1, with none added yet');
-// the sum's readouts and slider, in place (a drag is not cut short)
-function syncSum() {
-  const A = curAn();
-  document.querySelectorAll('[data-sumv]').forEach(el => { el.textContent = X.sum; });
-  document.querySelectorAll('[data-errv]').forEach(el => { el.textContent = errText(A); });
-  document.querySelectorAll('input[data-sum]').forEach(el => { if (document.activeElement !== el) el.value = X.sum; });
+const outStats = n => `<dt>${esc(T('o.reached'))}</dt><dd>${esc(T('o.reachedv', num(n.reached), num(FACTS.airports)))}</dd>
+  <dt>${esc(T('o.peak'))}</dt><dd>${esc(T('o.peakv', num(n.peak), n.peakDay))}</dd><dt>${esc(T('o.over'))}</dt><dd>${esc(T('o.overv', n.end))}</dd>`;
+const cityHTML = () => { const [a, b] = cityText(); return a ? `<b>${esc(a)}</b>${b ? `<br><small>${esc(b)}</small>` : ''}` : ''; };
+// the outbreak's readouts, chart and sliders, in place (a drag is not cut short); a new end changes the day slider
+function syncOut() {
+  if (!$('#pane-outbreak')) return;
+  const O = X.out, n = outNow();
+  const set = (sel, f) => document.querySelectorAll(sel).forEach(f);
+  set('[data-day]', el => { el.textContent = T('o.day', n.d); });
+  set('[data-play]', el => { el.textContent = O.playing ? T('o.pause') : T('o.play'); });
+  set('[data-chart]', el => { el.innerHTML = chartSVG(n); });
+  set('[data-ostats]', el => { el.innerHTML = outStats(n); });
+  set('[data-city]', el => { el.innerHTML = cityHTML(); });
+  set('[data-incv]', el => { el.textContent = T('o.days', O.inc); });
+  set('[data-infv]', el => { el.textContent = T('o.days', O.inf); });
+  set('[data-cutv]', el => { el.textContent = `${O.cut} %`; });
+  for (const [sl, v, max] of [['day', n.d, n.end], ['inc', O.inc], ['inf', O.inf], ['cut', O.cut]]) set(`input[data-sl="${sl}"]`, el => { if (max !== undefined) el.max = max; if (document.activeElement !== el) el.value = v; });
 }
-function renderDepth() {
-  const pane = $('#pane-depth');
+// the protein picked: its places, and its partners in each
+function protInfo() {
+  if (!X.prot) return null;
+  const A = api('cell'), p = A.protein(X.prot);
+  return Number.isInteger(p) && p >= 0 ? A.info(p) : null;
+}
+const placeCol = k => api('cell').original.placeCss(k);
+function renderCell() {
+  const pane = $('#pane-cell');
   if (!pane) return;
-  const R = FACTS.real.R, ex = FACTS.ex.res, circ = viewIs('chart', 'circuit'), src = chartSrc(), G = (api('chart').gates || [])[src] || [];
-  const td = (v, b) => `<td style="text-align:right;padding:3px 4px${b ? ';font-weight:700' : ''}">${v}</td>`;
-  const row = (name, vals, col) => `<tr><th style="text-align:left;font-weight:400;padding:3px 6px 3px 0;color:${inkCol(col)}">${name}</th>${vals.map(v => td(v === null ? '' : f2(v))).join('')}</tr>`;
-  pane.innerHTML = `<p class="sub">In the real network: how much of A_c the best toolbox drops at each depth, our cuts against random ones. 0 means nothing lost.</p>
-    <table style="width:100%;border-collapse:collapse;font-size:13px;font-variant-numeric:tabular-nums;margin:0 0 10px">
-      <tr><th style="text-align:left;font-weight:400;color:var(--muted)">Bits</th>${R.bits.map(b => td(b, true)).join('')}</tr>
-      ${row('Our cuts', R.ours, '#46d9ff')}${row('Random', R.random, GRAY)}${row('Example', R.bits.map((b, i) => (i < ex.length ? ex[i] : null)), '#ffb43b')}</table>
-    <p class="sub">Good at 2 to 4 bits, worse with every bit: at 8 bits ours lose ${f2(FACTS.real.ours(8))} (the best variant ${f2(R.best8)}) and random cuts ${f2(FACTS.real.rand(8))}. The example network's row is computed here.</p>
-    <p class="grp-h">Show</p><div class="chips">${[['chart', 'The chart'], ['circuit', 'The circuit']].map(([v, n]) => chip(`data-act="view" data-v="chart:${v}"`, n, X.scene === 'chart' && viewIs('chart', v))).join('')}</div>
-    ${circ ? `<p class="grp-h">Angles</p><div class="chips">${[['real', 'Real network'], ['ex', 'Example network']].map(([v, n]) => chip(`data-act="ctl" data-scene="chart" data-ctl="src" data-v="${v}"`, n, (v === 'ex') === !!src)).join('')}</div>`
-      : `<p class="grp-h">Example network</p><div class="chips">${[['off', 'Off'], ['on', 'On']].map(([v, n]) => chip(`data-act="ctl" data-scene="chart" data-ctl="ex" data-v="${v}"`, n, ctlValue('chart', ctlOf('chart', 'ex')) === v)).join('')}</div>`}
-    <p class="grp-h">One Trotter step at 3 bits in ${FACTS.alg.odd.label} (${src ? 'the example network, computed here' : 'the real network'})</p>
-    <ul class="steps">${G.map(g => `<li data-col="${GATE_COL[g.type]}" style="border-left-color:${GATE_COL[g.type]}"><b style="color:${inkCol(GATE_COL[g.type])}">${g.type} on ${g.qubits.map(q => 'q' + q).join(', ')}</b>θ = ${f3s(g.theta)}</li>`).join('')}</ul>
-    <p class="note">θ = −2ct, with c = tr(P A_c)/8 and R_P(θ) = exp(−iθP/2), t = 1. Red for X-type gates, blue for Z-type. In the real network at 3 bits, ${FACTS.alg.odd.label}'s generators carry ${FACTS.real.so7.gens}% of A_c's traceless weight and the whole algebra ${FACTS.real.so7.whole}%. Real numbers: the authors' run (Joel Hancock) on ${esc(FACTS.source)}.</p>`;
+  const A = api('cell'), f = protInfo(), mv = ctlVal('cell', 'move'), m = mv !== 'none' ? A.move(mv) : null;
+  const quick = QUICK_PROT.filter(s => { const p = A.protein(s); return Number.isInteger(p) && p >= 0; });
+  const delta = m ? A.moveDelta(mv).filter(d => d.lost.length || d.gained.length).slice(0, 4) : [];
+  const syms = l => l.map(p => A.info(p).sym);
+  pane.innerHTML = `<p class="sub">${esc(T('c.sub'))}</p>
+    <input type="search" data-q="cell" placeholder="${esc(T('c.search'))}" aria-label="${esc(T('c.search'))}" style="width:100%">
+    <div class="chips" data-res="cell"></div>
+    <div class="chips">${quick.map(s => chip(`data-act="prot" data-v="${s}"`, esc(A.info(A.protein(s)).sym), X.prot === A.info(A.protein(s)).sym)).join('')}</div>
+    ${f ? `<h3>${esc(f.sym)}</h3><p class="sub">${esc(f.name !== f.sym ? f.name + ' · ' : '')}${esc(f.role || '')}</p>
+      ${grpH(T('c.places'))}<div class="chips">${f.places.map(pl => chip('disabled', esc(pl.name), false, placeCol(pl.k))).join('')}</div>
+      ${grpH(T('c.partners'))}${f.partners.map(pp => `<p class="sub" style="margin:0 0 6px"><b style="color:${inkCol(placeCol(pp.place))}">${esc(pp.name)}:</b> ${pp.list.length ? esc(pp.list.slice(0, 8).map(x => x.sym).join(', ')) + (pp.list.length > 8 ? ' ' + esc(T('c.more', pp.list.length - 8)) : '') : esc(T('c.alone'))}</p>`).join('')}`
+      : `<p class="sub">${esc(T('c.none'))}</p>`}
+    ${grpH(T('c.moves'))}<div class="chips">${chip('data-act="move" data-v="none"', esc(T('c.nomove')), mv === 'none')}${A.moves().map(x => chip(`data-act="move" data-v="${x.key}"`, esc(x.name), mv === x.key, x.disease ? RED : TEAL)).join('')}</div>
+    ${m ? `<h3>${esc(m.title)}</h3><p class="sub">${esc(m.text)}${m.disease ? ` <b style="color:${inkCol(RED)}">(${esc(T('c.disease'))})</b>` : ''}</p>
+      ${delta.length ? `<ul class="steps">${delta.map(d => `<li data-col="${d.lost.length ? RED : TEAL}" style="border-left-color:${d.lost.length ? RED : TEAL}"><b style="color:${inkCol(d.lost.length ? RED : TEAL)}">${esc(d.sym)}</b>${esc([d.lost.length ? T('c.lost', syms(d.lost).slice(0, 5).join(', ')) : '', d.gained.length ? T('c.gained', syms(d.gained).slice(0, 5).join(', ')) : ''].filter(Boolean).join('; '))}</li>`).join('')}</ul>` : `<p class="sub">${esc(T('c.nochange'))}</p>`}` : ''}
+    <p class="note">${esc(T('c.note'))}</p>`;
 }
 function renderScenes() {
   const pane = $('#pane-scenes');
   if (!pane) return;
-  const sc = SCENES.find(s => s[0] === X.scene);
-  pane.innerHTML = `<div class="chips">${SCENES.map(([k, n]) => chip(`data-act="scene" data-v="${k}"`, esc(n), k === X.scene)).join('')}</div>
-    <h3>${esc(sc[1])}</h3><p class="sub">${esc(sc[2])}</p>
-    ${ctlsOf(X.scene).filter(c => ctlShown(X.scene, c)).map(c => `<p class="grp-h">${esc(c.label)}</p><div class="chips">${c.options.map(([v, n]) => chip(`data-act="ctl" data-ctl="${c.key}" data-v="${v}"`, esc(n), ctlValue(X.scene, c) === v)).join('')}</div>`).join('')}
-    ${X.scene === 'cube' && X.brick ? `<p class="sub" style="margin-top:10px">Also shown: ${esc(sub(X.brick))} (Bricks tab).</p>` : ''}`;
+  pane.innerHTML = `<div class="chips">${SCENES.map(([k]) => chip(`data-act="scene" data-v="${k}"`, esc(sceneName(k)), k === X.scene)).join('')}</div>
+    <h3>${esc(sceneName(X.scene))}</h3><p class="sub">${esc(sceneDesc(X.scene))}</p>
+    ${ctlsOf(X.scene).filter(c => ctlShown(X.scene, c)).map(c => `<p class="grp-h">${esc(c.label)}</p><div class="chips">${c.options.map(([v, n]) => chip(`data-act="ctl" data-ctl="${c.key}" data-v="${v}"`, esc(n), ctlValue(X.scene, c) === v)).join('')}</div>`).join('')}`;
 }
-// labels the panes add (none: the sets label their own picks, the cube its focused string)
+// labels the panes add (none: the sets label their own picks: the city looked up, the protein picked)
 function updateExtraLabels() {}
 
 // ----------------------------------------------------------- canvas input --
-const _rc = new THREE.Raycaster(), _m2 = new THREE.Vector2();
-// what a ray (a THREE.Raycaster in world coordinates) points at in the scene on show: { brick } (a string of the
-// gallery) or { cell } (a corner of the big cube, by its code), or null
+const _rc = new THREE.Raycaster(), _m2 = new THREE.Vector2(), _rp = new THREE.Vector3();
+// what a ray (a THREE.Raycaster in world coordinates) points at in the scene on show: { city } (an airport) or { copy }
+// (a protein in one of its places), or null
 function pickWith(rc) {
-  if (APP.mode !== 'explore' || X.scene !== 'cube') return null;
-  const A = api('cube');
-  if (!A.pick) return null;
-  let r = null;
-  try { r = A.pick(rc); } catch (e) { return null; }
-  return !r ? null : r.kind === 'brick' && isBrick(r.name) ? { brick: r.name } : r.kind === 'corner' ? { cell: r.code } : null;
+  if (APP.mode !== 'explore') return null;
+  try {
+    if (X.scene === 'globe') { const i = api('globe').pick(rc); return i >= 0 ? { city: i } : null; }
+    if (X.scene === 'cell') { const c = api('cell').pick(rc); return c >= 0 ? { copy: c } : null; }
+  } catch (e) { return null; }
+  return null;
 }
 // what is under the mouse, in explore mode
 function pickAt(mx, my) {
@@ -5032,14 +5426,35 @@ function pickAt(mx, my) {
   return pickWith(_rc);
 }
 // where a pick is, in its set's own frame (for the headset's ray and tip), or null (then where the ray meets the scene)
-function pickPos(p) { return null; }
-const pickText = p => (p.brick ? [sub(p.brick), brickWhat(Q.parse(p.brick, cubeBits()), cubeBits())]
-  : [`Cell ${p.cell}`, `${curAn().sizes[parseInt(p.cell, 2)] || 0} genes`]);
-function choosePick(p) {
-  if (!p || !p.brick) return;
-  if (X.tab !== 'bricks') showTab('bricks');
-  selectBrick(p.brick === X.brick ? null : p.brick, null, false);
+function pickPos(p) { return p.city !== undefined ? api('globe').pos(p.city, 0.02) : p.copy !== undefined ? api('cell').pos(p.copy) : null; }
+function pickText(p) {
+  if (p.city !== undefined) {
+    const g = api('globe'), f = g.info(p.city), a = g.arrivalDay(p.city), on = ctlVal('globe', 'out') === 'on';
+    return [f.city, on && a !== null ? `${f.code} · ${T('sky.day', a)}` : T('tip.city', f.code, num(f.routes))];
+  }
+  const A = api('cell'), p0 = A.proteinOf(p.copy);
+  return [A.info(p0).sym, A.placeName(A.original.NET.cPlace[p.copy])];
 }
+function choosePick(p) {
+  if (!p) return;
+  if (p.city !== undefined) {
+    const code = api('globe').info(p.city).code;
+    if (X.tab !== 'outbreak') showTab('outbreak');
+    if (X.out.click === 'start') setStart(code); else selectCity(code === X.city ? '' : code);
+  } else if (p.copy !== undefined) {
+    if (X.tab !== 'cell') showTab('cell');
+    const A = api('cell'), q = A.proteinOf(p.copy);
+    selectProtein(A.info(q).sym === X.prot ? -1 : q, p.copy);
+  }
+}
+// be the shark: the point on the pointer's ray as far from the camera as the school is (in the school's frame)
+function steerAt(mx, my) {
+  _m2.set(mx / window.innerWidth * 2 - 1, -(my / window.innerHeight) * 2 + 1);
+  _rc.setFromCamera(_m2, GL.camera);
+  const c = schoolAt(), d = clamp(GL.camera.position.distanceTo(_rp.set(c[0], c[1], c[2])), 1.5, 14);
+  GL.sets.fish.steer(inFish(_rp.copy(_rc.ray.direction).multiplyScalar(d).add(_rc.ray.origin)));
+}
+const sharking = () => APP.mode === 'explore' && X.shark && X.scene === 'fish';
 function bindCanvas() {
   const cv = GL.canvas, tip = $('#tip'), pts = new Map();
   let down = null, pinch = 0;
@@ -5049,28 +5464,37 @@ function bindCanvas() {
     down = { x: ev.clientX, y: ev.clientY, moved: false };
     orbit.held = true;
     if (pts.size === 2) { const [a, b] = [...pts.values()]; pinch = Math.hypot(a[0] - b[0], a[1] - b[1]); }
+    if (sharking() && ev.pointerType === 'touch') steerAt(ev.clientX, ev.clientY);
   });
   cv.addEventListener('pointermove', ev => {
     const explore = APP.mode === 'explore';
+    // being the shark: the pointer leads it (a touch drags it), and the camera stays with the school
+    if (sharking() && (ev.pointerType !== 'touch' || pts.has(ev.pointerId))) { steerAt(ev.clientX, ev.clientY); if (pts.has(ev.pointerId)) pts.set(ev.pointerId, [ev.clientX, ev.clientY]); tip.style.opacity = 0; return; }
     if (pts.has(ev.pointerId) && explore) {
       const p = pts.get(ev.pointerId), dx = ev.clientX - p[0], dy = ev.clientY - p[1];
       pts.set(ev.pointerId, [ev.clientX, ev.clientY]);
       if (pts.size === 2) {
         const [a, b] = [...pts.values()], d = Math.hypot(a[0] - b[0], a[1] - b[1]);
-        if (pinch > 0) orbit.cur[2] = clamp(orbit.cur[2] * pinch / d, 0.05, 40);
+        if (pinch > 0) orbit.cur[2] = clamp(orbit.cur[2] * pinch / d, X.scene === 'fish' ? 0.2 : 0.05, 60);
         pinch = d; down.moved = true; return;
       }
       if (down && Math.hypot(ev.clientX - down.x, ev.clientY - down.y) > 4) down.moved = true;
       if (down && down.moved) {
         orbit.to = null;
-        orbit.cur[0] -= dx * 0.25; orbit.cur[1] = clamp(orbit.cur[1] + dy * 0.25, -80, 80);
+        if (X.scene === 'fish') {
+          // dragging takes the camera from the school: from then on you look around yourself; close up you stand still
+          // and turn your head (drag the water along), from afar you circle the school
+          if (following()) { orbit.cur = followView(orbit.cur, 0, true).slice(0, 6); setCtl('fish', 'view', 'free'); }
+          const near = orbit.cur[2] < 1, s = near ? -0.18 : 0.25;
+          orbit.cur[0] += dx * (near ? 0.18 : -0.25); orbit.cur[1] = clamp(orbit.cur[1] + dy * s, -80, 80);
+        } else { orbit.cur[0] -= dx * 0.25; orbit.cur[1] = clamp(orbit.cur[1] + dy * 0.25, -80, 80); }
       }
       tip.style.opacity = 0;
       return;
     }
     if (!explore || ev.pointerType === 'touch') { tip.style.opacity = 0; return; }
     const p = pickAt(ev.clientX, ev.clientY);
-    cv.style.cursor = p && !p.sdom ? 'pointer' : 'grab';
+    cv.style.cursor = p ? 'pointer' : 'grab';
     if (p) {
       const [b, r] = pickText(p);
       tip.innerHTML = `<b>${esc(b)}</b>${esc(r)}`;
@@ -5081,17 +5505,22 @@ function bindCanvas() {
   const end = ev => {
     pts.delete(ev.pointerId);
     if (pts.size < 2) pinch = 0;
-    if (APP.mode === 'explore' && down && !down.moved && ev.type === 'pointerup') choosePick(pickAt(ev.clientX, ev.clientY));
+    if (sharking() && ev.pointerType === 'touch' && !pts.size) GL.sets.fish.steer(null);
+    else if (APP.mode === 'explore' && down && !down.moved && ev.type === 'pointerup') {
+      // a click on the water sends a shark that way; on the globe or the cell it picks
+      if (X.scene === 'fish') { if (!sharking()) { _m2.set(ev.clientX / window.innerWidth * 2 - 1, -(ev.clientY / window.innerHeight) * 2 + 1); _rc.setFromCamera(_m2, GL.camera); GL.world.updateMatrixWorld(true); sendShark(_rp.copy(_rc.ray.direction).transformDirection(_sm.copy(GL.sets.fish.group.matrixWorld).invert()).toArray()); } }
+      else choosePick(pickAt(ev.clientX, ev.clientY));
+    }
     if (!pts.size) { down = null; orbit.held = false; }
   };
   cv.addEventListener('pointerup', end);
   cv.addEventListener('pointercancel', end);
-  cv.addEventListener('pointerleave', () => { tip.style.opacity = 0; });
+  cv.addEventListener('pointerleave', () => { tip.style.opacity = 0; if (sharking()) GL.sets.fish.steer(null); });
   cv.addEventListener('wheel', ev => {
     if (APP.mode !== 'explore') return;
     ev.preventDefault();
     orbit.to = null;
-    orbit.cur[2] = clamp(orbit.cur[2] * Math.exp(ev.deltaY * 0.0012), 0.05, 40);
+    orbit.cur[2] = clamp(orbit.cur[2] * Math.exp(ev.deltaY * 0.0012), X.scene === 'fish' ? 0.2 : 0.05, 60);
   }, { passive: false });
 }
 // ================================================================= WEBXR ==
@@ -5116,6 +5545,7 @@ const _xa = new THREE.Vector3(), _xb = new THREE.Vector3(), _xc = new THREE.Vect
 // Turn a story/orbit view [az, el, dist, tx, ty, tz] into a pose for the
 // floating scene: the side the camera looks from faces you, "up" stays up, the
 // target sits in front of you, and closer views make the scene bigger.
+// (the globe and the cell; the fish are life size round you whatever the view: their holder undoes this, placeLife)
 const _xX = new THREE.Vector3(1, 0, 0), _xY = new THREE.Vector3(0, 1, 0);
 function xrPlace(v) {
   const d = Math.max(v[2], 0.05);
@@ -5156,7 +5586,7 @@ function labelSprite(L) {
   else {
     const b = L.el.querySelector('b');
     bold = b ? b.textContent : ''; rest = L.el.textContent.slice(bold.length).trim();
-    cls = ['mag', 'amb', 'grn', 'cyn'].find(k => L.el.classList.contains(k)) || '';
+    cls = ['mag', 'amb', 'grn', 'cyn', 'tl'].find(k => L.el.classList.contains(k)) || '';
   }
   const px = 34, H = 56, pad = 16, gap = bold && rest ? 10 : 0;
   const cv = document.createElement('canvas'), ctx = cv.getContext('2d');
@@ -5193,10 +5623,11 @@ function placeLabelXR(L, alpha, S) {
   sp.visible = o > 0.01;
   sp.material.opacity = o;
   labelPos(L, sp.position);
-  const hm = 0.021 / XR.R;
+  // (2.1 cm tall at arm's length, the same size to the eye further off: the school's labels may be metres away)
+  const hm = 0.021 * Math.max(1, sp.position.distanceTo(XR.camLocal) * XR.R) / XR.R;
   sp.scale.set(hm * sp.userData.aspect, hm, 1);
 }
-// the brick or the cell a controller points at, labelled where the ray meets it
+// the airport or the protein a controller points at, labelled where the ray meets it
 function xrTip(S) {
   let h = null;
   if (APP.mode === 'explore') for (const c of XR.ctrls) if (c.hover && c.hover.kind === 'globe' && c.hover.pk) { h = c.hover; break; }
@@ -5209,8 +5640,8 @@ function xrTip(S) {
   if (XR.tip) { GL.sets[XR.tip.set].group.worldToLocal(_xp.copy(h.point)); XR.tip.at = [_xp.x, _xp.y, _xp.z]; placeLabelXR(XR.tip, 1, S); }
 }
 
-// ---------------------------------------------------- picking a brick --
-// The brick or the cell a ray points at in explore mode (see pickWith), or null
+// --------------------------------------------- picking a city or a protein --
+// The airport or the protein a ray points at in explore mode (see pickWith), or null
 const _prc = new THREE.Raycaster();
 function pickRay(o, d) {
   if (APP.mode !== 'explore') return null;
@@ -5283,13 +5714,26 @@ function xrPress(c) {
     if (!r) return;
     c.press = { kind: 'panel', P: h.P, id: r.id, r };
     if (r.drag) { r.drag(h.x, h.y); buzz(c, 0.2, 12); }
+  } else if (h.kind === 'sea') {
+    // among the fish in explore mode the trigger is the shark: held, it leads the shark where you point (Be the
+    // shark); else a pull sends one that way
+    if (APP.mode !== 'explore' || X.scene !== 'fish' || XR.stories) return;
+    if (X.shark) { c.press = { kind: 'sea', steer: true }; steerRay(c); buzz(c, 0.3, 20); }
+    else { _sm.copy(GL.sets.fish.group.matrixWorld).invert(); if (sendShark(_xb.copy(c.d).transformDirection(_sm).toArray())) buzz(c, 0.5, 40); }
   } else { c.press = Object.assign(startDrag(c), { kind: 'globe', i: h.i, pk: h.pk }); orbit.held = true; }
+}
+// the point on a controller's ray as far from it as the school is: where the shark goes
+const _xs = new THREE.Vector3();
+function steerRay(c) {
+  const p = schoolAt(), w = _xs.set(p[0], p[1], p[2]).applyMatrix4(GL.world.matrixWorld), d = clamp(c.o.distanceTo(w), 1, 12);
+  GL.sets.fish.steer(inFish(_xs.copy(c.d).multiplyScalar(d).add(c.o)));
 }
 function xrRelease(c) {
   const p = c.press;
   c.press = null;
   if (!p) return;
   if (p.kind === 'globe') orbit.held = false;
+  if (p.kind === 'sea') { GL.sets.fish.steer(null); return; }
   if (p.kind === 'panel') {
     if (p.r.drag) return;
     const h = c.hover;
@@ -5304,6 +5748,7 @@ function xrGrab(c, on) {
   const h = c.hover;
   if (!on || !h) return;
   if (XR.stories || HOST.anchor.locked(h.kind)) return; // the Stories screen stays put, and so does an anchored place (in a shared room: only at its station, unless locked)
+  if (h.kind === 'sea') return;   // the sea is life size round you: it stays where it is
   // the scene is held by its placement point (where the view's target sits), so a still hand moves nothing
   const p0 = h.kind === 'panel' ? XR.panelGroup.getWorldPosition(new THREE.Vector3()) : GL.rig.localToWorld(XR.globeBase.clone().add(XR.globeOff));
   c.grab = { target: h.kind === 'panel' ? 'panel' : 'globe', q0: new THREE.Quaternion().setFromRotationMatrix(c.g.matrix).invert(),
@@ -5359,8 +5804,12 @@ function xrPoint(c, dt) {
     const h = hs[0], P = XR.panels.find(q => q.mesh === h.object);
     hit = { kind: 'panel', P, x: h.uv.x * P.w, y: (1 - h.uv.y) * P.h, point: h.point };
     dist = h.distance;
+  } else if (!XR.stories && GL.lifeOn) {
+    // among the fish, anywhere else is the sea (the dot sits out along the ray)
+    hit = { kind: 'sea', point: _xp.copy(c.d).multiplyScalar(4).add(c.o).clone() };
+    dist = 4;
   } else if (!XR.stories) {
-    // the scene counts as a ball around the view's target; a brick or a corner counts if the ray passes close
+    // the scene counts as a ball around the view's target; an airport or a protein counts if the ray passes close
     const oL = _xa.copy(c.o).applyMatrix4(_xinv), dL = _xb.copy(c.d).transformDirection(_xinv);
     _xc.copy(oL).sub(XR.target);
     const b = _xc.dot(dL), disc = b * b - (_xc.lengthSq() - XR.hitR * XR.hitR);
@@ -5378,13 +5827,14 @@ function xrPoint(c, dt) {
   c.hover = hit;
   if (c.wantPress) { c.wantPress = false; xrPress(c); }
   if (c.press && c.press.kind === 'globe') dragGlobe(c, c.press);
+  if (c.press && c.press.kind === 'sea') { if (sharking()) steerRay(c); else { c.press = null; GL.sets.fish.steer(null); } }
   if (c.grab) carry(c, dt);
   if (c.press && c.press.kind === 'panel' && c.press.r.drag && hit && hit.kind === 'panel' && hit.P === c.press.P) c.press.r.drag(hit.x, hit.y);
   // thumbstick: spin and zoom the globe; A/X: play or pause the story
   const gp = c.src.gamepad;
   if (gp) {
     const ax = gp.axes.length >= 4 ? gp.axes[2] : 0, ay = gp.axes.length >= 4 ? gp.axes[3] : 0;
-    if (APP.mode === 'explore' && !c.press && !c.grab) {
+    if (APP.mode === 'explore' && !c.press && !c.grab && X.scene !== 'fish') {
       if (Math.abs(ay) > 0.2) { orbit.to = null; orbit.cur[2] = clamp(orbit.cur[2] * Math.exp(ay * dt * 1.5), xrMinD(), 40); }
       if (Math.abs(ax) > 0.2) { orbit.to = null; orbit.cur[0] -= ax * dt * 60; }
     }
@@ -5428,6 +5878,7 @@ function xrBegin(frame, dt) {
   GL.rig.updateMatrixWorld(true);
   _xinv.copy(GL.world.matrixWorld).invert();
   for (const c of XR.ctrls) xrPoint(c, dt);
+  xrFingertip(frame, ref);
   for (const P of XR.panels) {
     let hv = null;
     for (const c of XR.ctrls) {
@@ -5463,6 +5914,23 @@ function xrUpdate(S) {
   xrTip(S);
   const now = performance.now();
   for (const P of XR.panels) panelTick(P, now);
+}
+
+// Be the shark with a tracked hand: the shark follows your index fingertip (the trigger held on the sea does the same
+// for a controller)
+function xrFingertip(frame, ref) {
+  if (!sharking() || !frame || !ref || !frame.getJointPose || XR.ctrls.some(c => c.press && c.press.kind === 'sea')) { if (XR.tipSteer) { XR.tipSteer = false; GL.sets.fish.steer(null); } return; }
+  let tip = null;
+  try {
+    for (const src of (XR.session && XR.session.inputSources) || []) {
+      const j = src.hand && src.hand.get && src.hand.get('index-finger-tip'), pose = j && frame.getJointPose(j, ref);
+      if (pose) { tip = pose.transform.position; if (src.handedness === 'right') break; }
+    }
+  } catch (e) { tip = null; }
+  if (!tip) { if (XR.tipSteer) { XR.tipSteer = false; GL.sets.fish.steer(null); } return; }
+  // (the reference space is the rig's parent's frame: the scene's own)
+  XR.tipSteer = true;
+  GL.sets.fish.steer(inFish(_xs.set(tip.x, tip.y, tip.z)));
 }
 
 // ---------------------------------------------------------- explore glue --
@@ -5730,19 +6198,19 @@ function panelTick(P, now) {
 // ------------------------------------------------------------ main panel --
 function sigMain() {
   if (XR.stories) return 'stories' + audioLabel();
-  if (APP.mode === 'story') {
+  if (APP.mode !== 'story') return ['x', LANG, audioLabel(), X.tab, X.scene, JSON.stringify(X.ctl), X.n, X.shark, GL.sets.fish.sharkOn(), JSON.stringify(X.out), Math.floor(X.out.day), X.city, X.prot].join('|');
+  {
     const it = ST.items.find(x => x.ch === curCh);
-    let s = 's' + audioLabel() + (HOST.room && HOST.room.inRoom() ? 'r' + HOST.room.gripHint : '') + (curCh ? curCh.key : '');
+    let s = 's' + LANG + audioLabel() + (HOST.room && HOST.room.inRoom() ? 'r' + HOST.room.gripHint : '') + (curCh ? curCh.key : '');
     if (it) {
       for (const e of it.els) s += Math.round(Math.max(0, e.o) * 3);
       for (const g of it.grow) s += Math.round(Math.max(0, g.s) * 6);
-      if (curCh.key === 'title') s += $('#titleArc').getAttribute('stroke-dashoffset').slice(0, 3) + $('#titleDot').getAttribute('opacity').slice(0, 3);
+      if (curCh.key === 'fish') s += $('#titleArc').getAttribute('stroke-dashoffset').slice(0, 3) + $('#titleDot').getAttribute('opacity').slice(0, 3);
     }
     return s;
   }
-  return ['x', audioLabel(), X.tab, X.scene, JSON.stringify(X.ctl), X.brick, X.sum, X.gal].join('|');
 }
-const XR_HERE = 'qubits';
+const XR_HERE = 'pass';
 const XR_STORIES = HOST.list;
 // ------------------------------------------------------- headset landing --
 // The Stories screen in the headset: a title panel and one card per story,
@@ -5759,8 +6227,8 @@ function xrLandingSetup() {
     // side), eight 0.272 rad apart at 1.4 m (0.379 m apart, the outer ones 55° to the side), nine 0.245 rad apart at
     // 1.55 m (0.379 m apart, the outer ones 56° to the side), ten 0.225 rad
     // apart at 1.7 m (0.382 m apart, the outer ones 58° to the side), eleven 0.206 rad apart at 1.85 m (0.381 m apart,
-    // the outer ones 59° to the side)
-    const n = HOST.list.length, a = (k - (n - 1) / 2) * (n > 10 ? 0.206 : n > 9 ? 0.225 : n > 8 ? 0.245 : n > 7 ? 0.272 : 0.31), d = n > 10 ? 1.85 : n > 9 ? 1.7 : n > 8 ? 1.55 : n > 7 ? 1.4 : 1.25;
+    // the outer ones 59° to the side), twelve 0.19 rad apart at 2 m (0.38 m apart, the outer ones 60° to the side)
+    const n = HOST.list.length, a = (k - (n - 1) / 2) * (n > 11 ? 0.19 : n > 10 ? 0.206 : n > 9 ? 0.225 : n > 8 ? 0.245 : n > 7 ? 0.272 : 0.31), d = n > 11 ? 2 : n > 10 ? 1.85 : n > 9 ? 1.7 : n > 8 ? 1.55 : n > 7 ? 1.4 : 1.25;
     const P = makePanel(640, 820, 0.36, (ctx, P) => drawLandCard(ctx, P, s), () => 'c' + XR.inStory + s.key);
     P.mesh.position.set(Math.sin(a) * d, -0.105, -Math.cos(a) * d);   // top edge 0.126 m up, under the header
     P.mesh.rotation.y = -a;
@@ -5782,7 +6250,7 @@ function xrLandingClose() {
   if (APP.mode === 'story') APP.playing = true;
 }
 function drawLandHead(ctx, P) {
-  ctx.font = vfont(58, 700); ctx.fillStyle = VC.ink; ctx.fillText(`Networks, in ${['one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven'][HOST.list.length - 1] || HOST.list.length} stories`, 48, 44);
+  ctx.font = vfont(58, 700); ctx.fillStyle = VC.ink; ctx.fillText(`Networks, in ${['one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve'][HOST.list.length - 1] || HOST.list.length} stories`, 48, 44);
   // anchored: where the place stands, in place of the hint
   const an = HOST.anchor.status();
   textBlock(ctx, an || 'The same ideas, very different networks. Point at a story and pull the trigger (or pinch).', 48, 128, 860, 27, 38, an ? VC.ink : VC.muted, 400, 2);
@@ -5862,14 +6330,15 @@ function drawMain(ctx, P) {
   if (!(HOST.room && HOST.room.placing())) hb('stories', 'Stories', () => { XR.stories = true; XR.kbd.open = false; APP.playing = false; }, 130);
   if (!XR.stories) hb('mode', story ? 'Explore now' : 'Replay story', () => (story ? APP.enterExplore() : APP.enterStory(0)), 186, { primary: story });
   ctx.font = vfont(30, 700); ctx.fillStyle = VC.ink;
-  ctx.fillText(fitText(ctx, 'Three qubits', x - 40), 40, 36);
+  ctx.fillText(fitText(ctx, T('title'), x - 40), 40, 36);
   ctx.fillStyle = VC.line; ctx.fillRect(36, 104, P.w - 72, 2);
   if (XR.stories) drawStoriesPane(ctx, P, 44, 136, P.w - 88);
   else if (story) {
     drawStoryPane(ctx, P, 44, 136, P.w - 88);
     ctx.fillStyle = VC.line; ctx.fillRect(36, P.h - 96, P.w - 72, 2);
-    textBlock(ctx, HOST.room && HOST.room.inRoom() ? HOST.room.gripHint : HOST.anchor.on ? 'Trigger (or pinch): use buttons. A or X: play and pause. Anchored: to move things, use Place again on the Stories screen.' : 'Trigger (or pinch): use buttons. Grip: move the scene or this panel; both grips on the scene resize it. A or X: play and pause.', 44, P.h - 74, P.w - 88, 22, 30, VC.faint);
-  } else drawExplorePane(ctx, P, 40, 120, P.w - 80);
+    textBlock(ctx, HOST.room && HOST.room.inRoom() ? HOST.room.gripHint : HOST.anchor.on ? T('xr.hint.anchor') : T('xr.hint'), 44, P.h - 80, P.w - 88 - 320, 21, 28, VC.faint, 400, 3);
+  } else { drawExplorePane(ctx, P, 40, 120, P.w - 80); ctx.fillStyle = VC.line; ctx.fillRect(36, P.h - 96, P.w - 72, 2); }
+  if (!XR.stories) drawLang(ctx, P, P.w - 44, P.h - 82);
 }
 
 // story: draw the current chapter straight from its HTML, with the same timing
@@ -6011,21 +6480,27 @@ function drawStoryEl(ctx, P, el, x, y, W, pa) {
 }
 
 
-// explore: tabs and panes mirroring the HTML ones
+// explore: the language, tabs and panes mirroring the HTML ones
 function drawExplorePane(ctx, P, x, y, W) {
   const tw = W / TABS.length;
   TABS.forEach(([k, n], j) => {
     const on = X.tab === k, tx = x + j * tw, hov = P.hover === 'tab:' + k;
     if (hov && !on) { rr(ctx, tx + 4, y, tw - 8, 62, 8); ctx.fillStyle = VC.chip; ctx.fill(); }
     ctx.font = vfont(24, on ? 700 : 400); ctx.fillStyle = on ? VC.ink : VC.muted;
-    ctx.textAlign = 'center'; ctx.fillText(n, tx + tw / 2, y + 18); ctx.textAlign = 'left';
+    ctx.textAlign = 'center'; ctx.fillText(T(n), tx + tw / 2, y + 18); ctx.textAlign = 'left';
     if (on) { ctx.fillStyle = VC.cyan; ctx.fillRect(tx + 10, y + 58, tw - 20, 4); }
     P.regions.push({ id: 'tab:' + k, x: tx, y, w: tw, h: 64, fn: () => pickTab(k) });
   });
   ctx.fillStyle = VC.line; ctx.fillRect(x, y + 62, W, 2);
   y += 88;
-  const bottom = P.h - 34;
-  ({ network: drawNetworkPane, bricks: drawBricksPane, depth: drawDepthPane, scenes: drawScenesPane }[X.tab] || drawScenesPane)(ctx, P, x, y, W, bottom);
+  const bottom = P.h - 108;   // (the language switch below)
+  ({ fish: drawFishPane, outbreak: drawOutbreakPane, cell: drawCellPane, scenes: drawScenesPane }[X.tab] || drawScenesPane)(ctx, P, x, y, W, bottom);
+}
+// the language switch at the foot of the main panel (story and explore alike)
+function drawLang(ctx, P, x1, y) {
+  ctx.font = vfont(22); ctx.fillStyle = VC.muted; ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+  ctx.fillText(T('lang'), x1 - 2 * 86 - 14, y + 28); ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+  LANGS.forEach((l, i) => vButton(ctx, P, 'lang:' + l, x1 - (2 - i) * 86, y, 78, 56, l.toUpperCase(), () => setLang(l), { on: LANG === l, px: 24 }));
 }
 // buttons that wrap like the HTML chips: items -> { id, label, on, col, ink, fn } (no fn: a plain chip)
 function flow(ctx, P, items, x, y, W, maxY, o = {}) {
@@ -6064,84 +6539,129 @@ function stats(ctx, x, y, W, rows) {
   }
   return yy - y;
 }
-function drawNetworkPane(ctx, P, x, y, W, bottom) {
-  const ni = cubeNet(), N = Q.NETS[ni], L = cubeBits(), A = curAn(), p3 = anOf(ni, cubeCut(), 3).purity, hw = (W - 24) / 2;
-  y += head(ctx, x, y, 'Example network (made up for this story)');
-  y += flow(ctx, P, Q.NETS.map((n, i) => ({ id: 'net:' + i, label: n.name, on: i === ni, fn: () => sceneCtl('cube', 'net', String(i)) })), x, y, W, bottom, { px: 22, h: 50 }) + 8;
-  y += textBlock(ctx, cap(N.note) + '.', x, y, W, 21, 29, VC.muted, 400, 2) + 14;
-  head(ctx, x, y, 'Cut'); head(ctx, x + hw + 24, y, 'Bits (cuts)');
-  y += 34;
-  flow(ctx, P, [['0', 'Found'], ['1', 'Random halvings']].map(([v, n]) => ({ id: 'cut:' + v, label: n, on: (v === '1') === (cubeCut() === 'random'), fn: () => sceneCtl('cube', 'cut', v) })), x, y, hw, bottom, { px: 22, h: 50 });
-  y += flow(ctx, P, ['1', '2', '3'].map(v => ({ id: 'bits:' + v, label: v, on: +v === L, fn: () => sceneCtl('cube', 'bits', v) })), x + hw + 24, y, hw, bottom, { px: 22, h: 50 }) + 14;
-  y += head(ctx, x, y, 'Show');
-  y += flow(ctx, P, [['genes', 'Genes'], ['cut', 'The cuts'], ['cube', 'The cube (A_c)']].map(([v, n]) => ({ id: 'v:' + v, label: n, on: X.scene === 'cube' && viewIs('cube', v), fn: () => showView('cube', v) })), x, y, W, bottom, { px: 22, h: 50 }) + 16;
-  y += stats(ctx, x, y, W, [['Cells', cellsText(A)], ['Hidden groups', p3 === null ? 'none' : pct(p3), p3 === null ? 'no groups in it' : 'of genes with their group, at 3 bits'],
-    ['Links cut', pct(A.cutShare), 'of links run between cells'], ['On cube edges', pct(A.cubeShare), 'of the traffic between cells'],
-    ['Residual', `${f2(A.fits.odd.residual)} ${algLabel('odd', L)} · ${f2(A.fits.tfim.residual)} ${algLabel('tfim', L)}`]]) + 10;
-  y += flow(ctx, P, A.sizes.map((s, c) => ({ id: 'cell:' + c, label: `${codeStr(c, L)} · ${s}`, col: cellCol(c, L) })), x, y, W, bottom, { px: 21, h: 44 }) + 16;
-  if (y + 60 < bottom) textBlock(ctx, 'The residual is the share of A_c the toolbox drops: 0 nothing lost, 1 everything; at 1 bit always 0. The cut stands in for the authors\' beam search. After the method and figures of Joel Hancock.', x, y, W, 21, 29, VC.faint, 400, Math.max(1, Math.min(3, Math.floor((bottom - y) / 29))));
+// a name and its value on one line (the value bold, at the right)
+function headVal(ctx, x, y, w, k, v) {
+  ctx.font = vfont(22); ctx.fillStyle = VC.muted; ctx.fillText(fitText(ctx, k, w - 120), x, y);
+  if (v !== undefined) { ctx.font = vfont(24, 700); ctx.fillStyle = VC.ink; ctx.textAlign = 'right'; ctx.fillText(String(v), x + w, y - 2); ctx.textAlign = 'left'; }
+  return 34;
 }
-function drawBricksPane(ctx, P, x, y, W, bottom) {
-  const L = cubeBits(), A = curAn(), alg = cubeAlg(), k = brickK(X.brick, L);
-  const one = (nm, gal, w) => { const kk = Q.parse(nm, L), out = kk > 0 && !inAlg(kk, L, alg);
-    return { id: `b:${gal}:${nm}`, label: sub(nm) + (w !== undefined ? ' ' + f2(w) : ''), col: kk === 0 ? null : out ? GRAY : PURPLE, ink: out ? VC.muted : VC.ink,
-      on: X.brick === nm, fn: () => selectBrick(X.brick === nm ? null : nm, gal) }; };
-  y += textBlock(ctx, 'Pauli strings, the building blocks of any traffic table between cells. Pick one to see it on the cube, or add the largest up.', x, y, W, 23, 32, VC.muted, 400, 2) + 10;
-  y += head(ctx, x, y, 'The kinds of brick (the reference figure)');
-  y += flow(ctx, P, kindsAt(L).map(nm => one(nm, 'kinds')), x, y, W, bottom, { px: 22, h: 46 }) + 10;
-  y += head(ctx, x, y, `This network's ${word(NB())} largest, with their weights`);
-  y += flow(ctx, P, largestAt(A).map(nm => one(nm, 'largest', A.c.re[Q.parse(nm, L)])), x, y, W, bottom, { px: 21, h: 46 }) + 12;
-  if (k >= 0) {
-    y += textBlock(ctx, `${sub(X.brick)} · ${f2(A.c.re[k])}`, x, y, W, 32, 40, VC.ink, 700, 1) + 4;
-    y += textBlock(ctx, `${cap(brickWhat(k, L))}. ${k === 0 ? 'The trace part: kept.' : inAlg(k, L, alg) ? `Inside ${algLabel(alg, L)}: kept.` : `Outside ${algLabel(alg, L)}: dropped.`}`, x, y, W, 23, 31, VC.ink, 400, 2) + 12;
-  } else if (X.brick) y += textBlock(ctx, `${sub(X.brick)} needs more bits than the ${L} shown.`, x, y, W, 23, 31, VC.muted, 400, 1) + 12;
-  ctx.font = vfont(23); ctx.fillStyle = VC.ink; ctx.textBaseline = 'middle'; ctx.fillText('Add up', x, y + 25);
-  ctx.font = vfont(26, 700); ctx.textAlign = 'right'; ctx.fillText(String(X.sum), x + W, y + 25); ctx.textAlign = 'left'; ctx.textBaseline = 'top';
-  vSlider(ctx, P, 'sum', x + 110, y, W - 170, X.sum, 0, NB(), PURPLE, v => setSum(v, true));
+// the fish: be the shark, neighbours watched, the network, the school's size, the view
+function drawFishPane(ctx, P, x, y, W, bottom) {
+  const busy = GL.sets.fish.sharkOn(), k = fishK(), vc = ctlOf('fish', 'view'), lc = ctlOf('fish', 'links');
+  y += textBlock(ctx, T('f.sub'), x, y, W, 24, 33, VC.muted, 400, 2) + 14;
+  y += head(ctx, x, y, T('f.shark'));
+  y += flow(ctx, P, [['off', T('off')], ['on', T('on')]].map(([v, n]) => ({ id: 'shark:' + v, label: n, on: X.shark === (v === 'on'), fn: () => setShark(v === 'on') }))
+    .concat([{ id: 'send', label: busy ? T('f.busy') : T('f.send'), on: busy, fn: busy ? null : () => sendShark(null) }]), x, y, W, bottom, { px: 23, h: 54 }) + 10;
+  if (X.shark) y += textBlock(ctx, T('f.shark.how'), x, y, W, 22, 30, VC.faint, 400, 3) + 10;
+  y += headVal(ctx, x, y, W, T('f.k'), k);
+  vSlider(ctx, P, 'fk', x + 16, y, W - 32, k, 1, 12, VC.cyan, v => setFishK(v));
   y += 54;
-  y += textBlock(ctx, errText(A), x, y, W, 22, 30, VC.muted, 400, 1) + 14;
-  y += head(ctx, x, y, 'The toolbox (a Lie algebra)');
-  y += flow(ctx, P, [['1', 'odd'], ['0', 'tfim']].map(([v, a]) => ({ id: 'alg:' + v, label: `${algLabel(a, L)} · ${Q.algebra(a, L).dim} strings`, on: alg === a, fn: () => sceneCtl('cube', 'alg', v) }))
-    .concat([['bricks', 'Every brick'], ['toolbox', 'Only the toolbox']].map(([v, n]) => ({ id: 'v:' + v, label: n, on: X.scene === 'cube' && viewIs('cube', v), fn: () => showView('cube', v) }))), x, y, W, bottom, { px: 22, h: 50 }) + 12;
-  if (y + 60 < bottom) y += textBlock(ctx, `Residual: ${f2(A.fits[alg].residual)} of the table falls outside ${algLabel(alg, L)} and is dropped.`, x, y, W, 23, 31, VC.ink, 400, 2) + 10;
-  if (y + 60 < bottom) textBlock(ctx, `Purple: inside the toolbox; gray: outside. Solid +, dashed −. ${algLabel('tfim', L)}: X on each qubit, ZZ on neighbors; ${algLabel('odd', L)} adds Z on q${L - 1}.`, x, y, W, 21, 29, VC.faint, 400, Math.max(1, Math.min(3, Math.floor((bottom - y) / 29))));
+  y += textBlock(ctx, kText(k), x, y, W, 23, 31, k === 1 ? VC.amber : VC.ink, 400, 2) + 14;
+  y += head(ctx, x, y, T('f.links'));
+  y += flow(ctx, P, lc.options.map(([v, n]) => ({ id: 'links:' + v, label: n, on: ctlValue('fish', lc) === v, fn: () => sceneCtl('fish', 'links', v) })), x, y, W, bottom, { px: 23, h: 54 }) + 14;
+  y += headVal(ctx, x, y, W, T('f.n'), X.n);
+  vSlider(ctx, P, 'fn', x + 16, y, W - 32, X.n, 100, 600, VC.cyan, v => setFishN(v));
+  y += 58;
+  y += head(ctx, x, y, vc.label);
+  y += flow(ctx, P, vc.options.map(([v, n]) => ({ id: 'fv:' + v, label: n, on: ctlValue('fish', vc) === v, fn: () => sceneCtl('fish', 'view', v) })), x, y, W, bottom, { px: 23, h: 54 }) + 14;
+  if (y + 60 < bottom) textBlock(ctx, T('f.note'), x, y, W, 21, 29, VC.faint, 400, Math.max(1, Math.min(4, Math.floor((bottom - y) / 29))));
 }
-function drawDepthPane(ctx, P, x, y, W, bottom) {
-  const R = FACTS.real.R, ex = FACTS.ex.res, circ = viewIs('chart', 'circuit'), src = chartSrc(), G = (api('chart').gates || [])[src] || [];
-  y += textBlock(ctx, 'In the real network: how much of A_c the best toolbox drops at each depth, our cuts against random ones. 0 means nothing lost.', x, y, W, 23, 32, VC.muted, 400, 2) + 12;
-  // the table: bits across, our cuts, random cuts and the example network's
-  const cw = (W - 150) / R.bits.length, rowT = (name, vals, col, bold) => {
-    ctx.font = vfont(22); ctx.fillStyle = col; ctx.fillText(name, x, y + 4);
-    ctx.font = vfont(22, bold ? 700 : 400); ctx.fillStyle = bold ? VC.ink : VC.ink; ctx.textAlign = 'right';
-    vals.forEach((v, i) => { if (v !== null) ctx.fillText(typeof v === 'number' && !bold ? f2(v) : String(v), x + 150 + (i + 1) * cw - 6, y + 4); });
-    ctx.textAlign = 'left'; y += 36;
-  };
-  rowT('Bits', R.bits, VC.muted, true); rowT('Our cuts', R.ours, VC.cyan); rowT('Random', R.random, GRAY); rowT('Example', R.bits.map((b, i) => (i < ex.length ? ex[i] : null)), VC.amber);
-  y += 8;
-  y += textBlock(ctx, `Good at 2 to 4 bits, worse with every bit: at 8 bits ours lose ${f2(FACTS.real.ours(8))} (the best variant ${f2(R.best8)}), random cuts ${f2(FACTS.real.rand(8))}.`, x, y, W, 23, 31, VC.ink, 400, 2) + 14;
-  y += head(ctx, x, y, 'Show');
-  y += flow(ctx, P, [['chart', 'The chart'], ['circuit', 'The circuit']].map(([v, n]) => ({ id: 'v:' + v, label: n, on: X.scene === 'chart' && viewIs('chart', v), fn: () => showView('chart', v) }))
-    .concat(circ ? [['real', 'Real angles'], ['ex', 'Example angles']].map(([v, n]) => ({ id: 'src:' + v, label: n, on: (v === 'ex') === !!src, fn: () => sceneCtl('chart', 'src', v) }))
-      : [['off', 'Example: off'], ['on', 'Example: on']].map(([v, n]) => ({ id: 'ex:' + v, label: n, on: ctlValue('chart', ctlOf('chart', 'ex')) === v, fn: () => sceneCtl('chart', 'ex', v) }))), x, y, W, bottom, { px: 22, h: 50 }) + 14;
-  y += head(ctx, x, y, `One Trotter step at 3 bits in ${FACTS.alg.odd.label} (${src ? 'example network' : 'real network'})`);
-  // the gates in two columns, red for X-type and blue for Z-type
-  const gw = (W - 20) / 2;
-  G.forEach((g, i) => {
-    const gx = x + (i % 2) * (gw + 20), gy = y + Math.floor(i / 2) * 40, col = GATE_COL[g.type];
-    ctx.fillStyle = col; ctx.fillRect(gx, gy + 2, 5, 30);
-    ctx.font = vfont(23, 700); ctx.fillStyle = col; ctx.fillText(`${g.type} ${g.qubits.map(q => 'q' + q).join(' ')}`, gx + 16, gy + 4);
-    ctx.font = vfont(23); ctx.fillStyle = VC.ink; ctx.fillText(`θ ${f3s(g.theta)}`, gx + 16 + 170, gy + 4);
+// the outbreak's chart, as the HTML one: cities in each state by day, stacked, and the day on show
+function drawChart(ctx, x, y, w, h, n) {
+  ctx.fillStyle = 'rgba(160,178,202,0.35)'; ctx.fillRect(x, y + h, w, 2);
+  for (const [k, pts] of chartPaths(n, w, h)) {
+    ctx.beginPath(); pts.forEach(([px, py], i) => (i ? ctx.lineTo(x + px, y + py) : ctx.moveTo(x + px, y + py))); ctx.closePath();
+    ctx.globalAlpha = 0.85; ctx.fillStyle = OUT_COL[k]; ctx.fill(); ctx.globalAlpha = 1;
+  }
+  const dx = x + (n.d / Math.max(1, n.end)) * w;
+  ctx.fillStyle = VC.ink; ctx.fillRect(dx - 1.5, y - 6, 3, h + 6);
+  ctx.font = vfont(19); ctx.fillStyle = VC.muted; ctx.fillText(num(n.total), x, y - 28);
+  ctx.textAlign = 'right'; ctx.fillText(T('o.day', n.end), x + w, y + h + 8); ctx.textAlign = 'left'; ctx.fillText(T('o.day', 0), x, y + h + 8);
+  // the legend, at the top right
+  let lx = x + w;
+  ctx.textAlign = 'right';
+  for (const k of ['R', 'I', 'E']) { const t = T('o.' + k); ctx.fillText(t, lx, y - 28); lx -= ctx.measureText(t).width + 8; swatch(ctx, lx - 16, y - 26, 16, OUT_COL[k]); lx -= 34; }
+  ctx.textAlign = 'left';
+}
+// the outbreak: where it starts, what a click does, play, the day, the chart, how far it has come, the city looked
+// up, and the settings, two by two
+function drawOutbreakPane(ctx, P, x, y, W, bottom) {
+  const O = X.out, n = outNow(), st = outIndex(O.start), sf = st >= 0 ? api('globe').info(st) : null, hw = (W - 32) / 2;
+  y += textBlock(ctx, T('o.sub'), x, y, W, 25, 32, VC.amber, 700, 1) + 10;
+  y += headVal(ctx, x, y, W, T('o.start'), sf ? `${sf.city} (${sf.code})` : O.start);
+  y += flow(ctx, P, QUICK_START.filter(c => outIndex(c) >= 0).map(c => ({ id: 'st:' + c, label: cityOf(c), on: c === O.start, fn: () => setStart(c) })), x, y, W, y + 50, { px: 22, h: 48 }) + 12;
+  ctx.font = vfont(22); ctx.fillStyle = VC.muted; const cw = ctx.measureText(T('o.click')).width + 18; ctx.fillText(T('o.click'), x, y + 15);
+  y += flow(ctx, P, [['start', T('o.click.start')], ['look', T('o.click.look')]].map(([v, l]) => ({ id: 'ck:' + v, label: l, on: O.click === v, fn: () => { X.out.click = v; renderOutbreak(); } })), x + cw, y, W - cw, bottom, { px: 22, h: 48 }) + 12;
+  vButton(ctx, P, 'oplay', x, y, 200, 56, O.playing ? T('o.pause') : T('o.play'), () => playOut(!X.out.playing), { primary: true, px: 25 });
+  vButton(ctx, P, 'oagain', x + 214, y, 200, 56, T('o.again'), () => { X.out.day = 0; playOut(true); }, { px: 23 });
+  ctx.font = vfont(30, 700); ctx.fillStyle = VC.ink; ctx.textAlign = 'right'; ctx.fillText(T('o.day', n.d), x + W, y + 12); ctx.textAlign = 'left';
+  y += 66;
+  vSlider(ctx, P, 'oday', x + 16, y, W - 32, n.d, 0, Math.max(1, n.end), VC.ink, v => setDay(Math.round(v)));
+  y += 84;
+  drawChart(ctx, x, y, W, 130, n);
+  y += 130 + 42;
+  // (rows of a name and its value, the values lined up after the longest name)
+  ctx.font = vfont(22);
+  const rows = [[T('o.reached'), T('o.reachedv', num(n.reached), num(FACTS.airports))], [T('o.peak'), T('o.peakv', num(n.peak), n.peakDay)], [T('o.over'), T('o.overv', n.end)]];
+  const lw = Math.max(...rows.map(r => ctx.measureText(r[0]).width)) + 18;
+  rows.slice(0, 2).forEach(([k, v], i) => {
+    ctx.font = vfont(22); ctx.fillStyle = VC.muted; ctx.fillText(k, x, y + 3);
+    ctx.font = vfont(25, 700); ctx.fillStyle = VC.ink; ctx.fillText(v, x + lw, y);
+    if (i === 1) { ctx.font = vfont(21); ctx.fillStyle = VC.muted; ctx.textAlign = 'right'; ctx.fillText(`${rows[2][0]} ${rows[2][1]}`, x + W, y + 4); ctx.textAlign = 'left'; }
+    y += 38;
   });
-  y += Math.ceil(G.length / 2) * 40 + 14;
-  if (y + 60 < bottom) textBlock(ctx, `θ = −2ct, c = tr(P A_c)/8, R_P(θ) = exp(−iθP/2), t = 1. Real network, 3 bits: ${FACTS.alg.odd.label}'s generators carry ${FACTS.real.so7.gens}% of A_c's traceless weight, the whole algebra ${FACTS.real.so7.whole}% (the authors' run, Joel Hancock).`, x, y, W, 21, 29, VC.faint, 400, Math.max(1, Math.min(4, Math.floor((bottom - y) / 29))));
+  y += 4;
+  const [ca, cb] = cityText();
+  if (ca) { y += textBlock(ctx, ca, x, y, W, 23, 30, VC.cyan, 700, 1); if (cb) y += textBlock(ctx, cb, x, y, W, 21, 28, VC.muted, 400, 1); y += 10; }
+  // the settings, two by two
+  const pair = (l, r) => { l(x, y); r(x + hw + 32, y); y += 92; };
+  pair((cx, cy) => { headVal(ctx, cx, cy, hw, T('o.inc'), T('o.days', O.inc)); vSlider(ctx, P, 'oinc', cx + 14, cy + 34, hw - 28, O.inc, 1, 21, VC.amber, v => setOut('inc', v)); },
+    (cx, cy) => { headVal(ctx, cx, cy, hw, T('o.inf'), T('o.days', O.inf)); vSlider(ctx, P, 'oinf', cx + 14, cy + 34, hw - 28, O.inf, 2, 30, VC.red, v => setOut('inf', v)); });
+  if (y + 90 > bottom + 40) return;
+  pair((cx, cy) => { head(ctx, cx, cy, T('o.spread')); flow(ctx, P, ['low', 'medium', 'high'].map(v => ({ id: 'sp:' + v, label: T('o.' + v), on: O.spread === v, fn: () => setOut('spread', v) })), cx, cy + 34, hw, cy + 34 + 52, { px: 21, h: 48 }); },
+    (cx, cy) => { headVal(ctx, cx, cy, hw, T('o.cut'), `${O.cut} %`); vSlider(ctx, P, 'ocut', cx + 14, cy + 34, hw - 28, O.cut, 0, 90, VC.cyan, v => setOut('cut', v)); });
+}
+// the cell: a protein picked, its places and partners there, and the moves
+function drawCellPane(ctx, P, x, y, W, bottom) {
+  const A = api('cell'), f = protInfo(), mv = ctlVal('cell', 'move'), m = mv !== 'none' ? A.move(mv) : null;
+  y += textBlock(ctx, T('c.sub'), x, y, W, 23, 31, VC.muted, 400, 3) + 12;
+  const quick = QUICK_PROT.filter(sy => { const p = A.protein(sy); return Number.isInteger(p) && p >= 0; }).map(sy => A.info(A.protein(sy)).sym);
+  y += flow(ctx, P, quick.map(sy => ({ id: 'pr:' + sy, label: sy, on: X.prot === sy, fn: () => selectProtein(X.prot === sy ? -1 : sy) })), x, y, W, bottom, { px: 22, h: 48 }) + 14;
+  if (f) {
+    y += textBlock(ctx, f.sym, x, y, W, 34, 42, VC.cyan, 700, 1);
+    y += textBlock(ctx, (f.name !== f.sym ? f.name + ' · ' : '') + (f.role || ''), x, y, W, 22, 29, VC.muted, 400, 2) + 8;
+    y += flow(ctx, P, f.places.map(pl => ({ id: 'pl:' + pl.k, label: pl.name, col: placeCol(pl.k) })), x, y, W, bottom, { px: 21, h: 44 }) + 10;
+    for (const pp of f.partners.slice(0, 4)) {
+      const t = pp.list.length ? pp.list.slice(0, 7).map(q => q.sym).join(', ') + (pp.list.length > 7 ? ' ' + T('c.more', pp.list.length - 7) : '') : T('c.alone');
+      ctx.font = vfont(22, 700); ctx.fillStyle = placeCol(pp.place); const nm = pp.name + ': ', nw = Math.min(ctx.measureText(nm).width, W * 0.45);
+      ctx.fillText(fitText(ctx, nm, W * 0.45), x, y);
+      ctx.font = vfont(22); ctx.fillStyle = VC.ink; ctx.fillText(fitText(ctx, t, W - nw - 4), x + nw + 4, y);
+      y += 31;
+    }
+    y += 8;
+  } else y += textBlock(ctx, T('c.none'), x, y, W, 23, 31, VC.faint, 400, 1) + 10;
+  y += head(ctx, x, y, T('c.moves'));
+  y += flow(ctx, P, [{ id: 'mv:none', label: T('c.nomove'), on: mv === 'none', fn: () => setMove('none') }]
+    .concat(A.moves().map(q => ({ id: 'mv:' + q.key, label: q.name, col: q.disease ? VC.red : TEAL, on: mv === q.key, fn: () => setMove(mv === q.key ? 'none' : q.key) }))), x, y, W, bottom, { px: 21, h: 46 }) + 12;
+  if (m && y + 80 < bottom) {
+    y += textBlock(ctx, m.title, x, y, W, 26, 34, VC.ink, 700, 1) + 2;
+    y += textBlock(ctx, m.text, x, y, W, 21, 28, VC.muted, 400, Math.max(1, Math.min(3, Math.floor((bottom - y - 60) / 28)))) + 8;
+    for (const d of A.moveDelta(mv).filter(q => q.lost.length || q.gained.length).slice(0, 3)) {
+      if (y + 30 > bottom) break;
+      const syms = l => l.slice(0, 4).map(p => A.info(p).sym).join(', ');
+      ctx.font = vfont(22, 700); ctx.fillStyle = d.lost.length ? VC.red : TEAL; ctx.fillText(d.sym, x, y); const sw2 = ctx.measureText(d.sym + '  ').width;
+      ctx.font = vfont(21); ctx.fillStyle = VC.ink;
+      ctx.fillText(fitText(ctx, [d.lost.length ? T('c.lost', syms(d.lost)) : '', d.gained.length ? T('c.gained', syms(d.gained)) : ''].filter(Boolean).join('; '), W - sw2), x + sw2, y + 1);
+      y += 30;
+    }
+  }
 }
 // the three scenes, and the chosen scene's own controls
 function drawScenesPane(ctx, P, x, y, W, bottom) {
   const cw = (W - 12 * (SCENES.length - 1)) / SCENES.length;
-  SCENES.forEach(([k, n], j) => vButton(ctx, P, 'scene:' + k, x + j * (cw + 12), y, cw, 56, SCENE_SHORT[k] || n, () => openScene(k), { on: X.scene === k, px: 22 }));
+  SCENES.forEach(([k], j) => vButton(ctx, P, 'scene:' + k, x + j * (cw + 12), y, cw, 56, sceneName(k), () => openScene(k), { on: X.scene === k, px: 22 }));
   y += 76;
-  const sc = SCENES.find(s => s[0] === X.scene);
-  y += textBlock(ctx, sc[2], x, y, W, 25, 35, VC.muted, 400, 4) + 18;
+  y += textBlock(ctx, sceneDesc(X.scene), x, y, W, 25, 35, VC.muted, 400, 4) + 18;
   for (const c of ctlsOf(X.scene).filter(c => ctlShown(X.scene, c))) {
     if (y + 110 > bottom) break;
     ctx.font = vfont(23); ctx.fillStyle = VC.muted; ctx.fillText(c.label, x, y);
@@ -6152,7 +6672,7 @@ function drawScenesPane(ctx, P, x, y, W, bottom) {
 
 // ----------------------------------------------------------- footer panel --
 function sigFoot() {
-  return APP.mode === 'story' ? 's' + Math.round(APP.t * 4) + APP.playing + (curCh ? curCh.key : '') + slideSig() : 'x' + X.turn;
+  return APP.mode === 'story' ? 's' + LANG + Math.round(APP.t * 4) + APP.playing + (curCh ? curCh.key : '') + slideSig() : 'x' + LANG + X.turn + X.scene;
 }
 function drawFoot(ctx, P) {
   if (APP.mode === 'story') {
@@ -6184,19 +6704,21 @@ function drawFoot(ctx, P) {
     P.regions.push({ id: 'track', x: x0 - 10, y: 66, w: x1 - x0 + 20, h: 80, drag: px => APP.seek(clamp((px - x0) / (x1 - x0), 0, 1) * T_END) });
     return;
   }
-  ctx.font = vfont(22); ctx.fillStyle = VC.muted; ctx.fillText('Turn', 28, 58);
-  vButton(ctx, P, 'turn:on', 100, 40, 90, 56, 'On', () => setTurn('on'), { on: X.turn === 'on', px: 22 });
-  vButton(ctx, P, 'turn:off', 198, 40, 90, 56, 'Off', () => setTurn('off'), { on: X.turn === 'off', px: 22 });
-  ctx.fillText('Zoom', 330, 58);
-  vButton(ctx, P, 'z-', 404, 40, 56, 56, '−', () => xrZoom(1.3), { px: 28 });
-  vButton(ctx, P, 'z+', 466, 40, 56, 56, '+', () => xrZoom(1 / 1.3), { px: 28 });
-  vButton(ctx, P, 'home', 560, 40, 230, 56, 'Whole scene', () => flyTo(view(X.scene, 'default')), { px: 22 });
+  // (the fish are life size round you: nothing to turn or zoom)
+  if (X.scene === 'fish') return;
+  ctx.font = vfont(22); ctx.fillStyle = VC.muted; ctx.fillText(T('turn'), 28, 58);
+  vButton(ctx, P, 'turn:on', 116, 40, 90, 56, T('on'), () => setTurn('on'), { on: X.turn === 'on', px: 22 });
+  vButton(ctx, P, 'turn:off', 214, 40, 90, 56, T('off'), () => setTurn('off'), { on: X.turn === 'off', px: 22 });
+  ctx.fillText(T('xr.zoom'), 340, 58);
+  vButton(ctx, P, 'z-', 414, 40, 56, 56, '−', () => xrZoom(1.3), { px: 28 });
+  vButton(ctx, P, 'z+', 476, 40, 56, 56, '+', () => xrZoom(1 / 1.3), { px: 28 });
+  vButton(ctx, P, 'home', 570, 40, 260, 56, T('xr.whole'), () => flyTo(view(X.scene, 'default')), { px: 22 });
 }
 
 
 // ------------------------------------------------------------- narration --
 // ------------------------------------------------------------- narration --
-// Optional voice-over: put an MP3 at audio/narration-qubits.mp3.
+// Optional voice-over: put an MP3 at audio/narration-pass.mp3 (one recording, in English: the German reader reads).
 // Second 0 of the recording plays at second 0 of the story; the story clock
 // follows the audio, so seeking, pausing and chapter jumps stay in sync.
 // Without the file the story runs silently. The sound engine is the shell's
@@ -6204,7 +6726,7 @@ function drawFoot(ctx, P) {
 // and kept running across stories and headset sessions.
 let AUD = null;
 function audioInit() {
-  AUD = HOST.audio.narration('audio/narration-qubits.mp3', {
+  AUD = HOST.audio.narration('audio/narration-pass.mp3', {
     // a recording longer than the story stretches the timeline
     ready(d) {
       if (d + 1 <= T_END) return;
@@ -6320,12 +6842,12 @@ const APP = {
     for (const n in DEF) XS[n] = S[n];
     // (the set on show, or the one about to come: a short fade between two of the same set's views shows none)
     const S2 = storyState(Math.min(ts + 1.5, T_END));
-    let best = 'cube', ba = 0;
+    let best = 'fish', ba = 0;
     for (const k of SET_ORDER) { const a = Math.max(S[k + '_a'], 0.9 * S2[k + '_a']); if (a > ba + 0.01) { ba = a; best = k; } }
     // the story's view, taken back into the set's own frame (explore shows sets unturned)
     const v = storyCam(ts).slice(0, 6), r = -setYaw(best, ts) * D2R, x = v[3], z = v[5];
     v[0] += r / D2R; v[3] = x * Math.cos(r) + z * Math.sin(r); v[5] = -x * Math.sin(r) + z * Math.cos(r);
-    orbit.cur = v; orbit.to = null;
+    orbit.cur = best === 'fish' ? followView(v, 0, true).slice(0, 6) : v; orbit.to = null;
     X.scene = best; X.t0 = performance.now();
     // and pick the scene's controls that come closest to what the story was showing
     const s = GL.sets[best];
@@ -6337,45 +6859,55 @@ const APP = {
         for (const c2 of s.controls || []) c[c2.key] = c2 === ct ? v : ctlValue(best, c2);
         const tg = s.explore ? s.explore(c) : {};
         let d = 0;
-        for (const n in tg) if (n in S && !n.endsWith('_a') && !/_focus$|_code$/.test(n)) d += (tg[n] - S[n]) ** 2;
+        for (const n in tg) if (n in S && !n.endsWith('_a') && n !== 'globe_day') d += (tg[n] - S[n]) ** 2;
         if (d < bd) { bd = d; bo = v; }
       }
       X.ctl[best][ct.key] = bo;
     }
-    // the story's picks carry over to the panes: the string on the big cube, the gallery, the strings added up
-    X.brick = null; X.sum = 0; X.gal = 'largest';
-    if (best === 'cube') {
-      const L = clamp(Math.round(S.cube_bits), 1, 3), f = Math.round(S.cube_focus);
-      if (f >= 0 && f < 1 << (2 * L)) X.brick = Q.name(f, L);
-      if (S.cube_lesson > 0.5) X.gal = 'kinds';
-      else if (S.cube_build > 0.5) X.sum = clamp(Math.round(S.cube_sum), 0, NB());
-    }
-    X.tab = best === 'chart' ? 'depth' : best === 'pairs' ? 'scenes' : viewIs('cube', 'bricks') || viewIs('cube', 'toolbox') ? 'bricks' : 'network';
-    // from the last chapter (the story's end, or its Explore button): the cube, in the Network tab
-    if (ts >= C.circuit.a) openStart();
+    // the story's school carries over as it is (its neighbours, its size), and the story's outbreak (on, at its day)
+    setFishK(Math.round(S.fish_k), false); X.n = clamp(Math.round(S.fish_n / 50) * 50, 100, 600);
+    if (best === 'fish') X.ctl.fish.view = 'default';
+    if (best === 'globe' && S.globe_out > 0.5) { X.ctl.globe.out = 'on'; X.out.day = Math.min(S.globe_day, 1e9); X.out.playing = false; }
+    X.tab = best === 'globe' ? 'outbreak' : best;
+    outApply();
+    // from the last chapter (the story's end, or its Explore button): the cell, in the Cell tab, CFTR picked
+    if (ts >= C.med.a) openStart();
     ST.labels.forEach(L => { L.el.style.opacity = 0; L.o = 0; });
-    showTab(X.tab); pushState(); renderAll();
+    exploreHTML(); pushState();
     $('#panel').scrollTop = 0;
   },
   enterStory(t) {
     this.mode = 'story';
     document.body.classList.remove('exploring');
     $('#btnMode').textContent = 'Explore now';
-    // the story shows its scenes as it tells them: no picked string
-    X.brick = null; X.sum = 0; NEXT.length = 0; pushState();
+    // the story shows its own outbreak and picks none (explore's come back with explore)
+    NEXT.length = 0; pushState();
+    if (GL.sets) { outSetup(STORY_OUT); api('globe').select(-1); api('cell').select(-1); api('cell').isolate(null); GL.sets.fish.steer(null); }
     $('#tip').style.opacity = 0;
     this.t = t || 0; this.playing = true; curCh = null;
   },
 };
 
-// explore mode's start: the story's network on the cube, in the Network tab
+// explore mode's start from the story's end: the cell, in the Cell tab, with CFTR (the story's wrong place) picked
 function openStart() {
-  openScene('cube', false);
-  X.ctl.cube = Object.assign(X.ctl.cube || {}, { view: 'cube', net: String(NETI), cut: '0', bits: '3' });
-  X.brick = null; X.sum = 0; X.gal = 'largest';
-  X.tab = 'network'; showTab('network');
-  orbit.cur = view('cube', viewCam('cube') || 'default'); orbit.to = null;
-  renderAll();
+  openScene('cell', false);
+  X.ctl.cell = Object.assign(X.ctl.cell || {}, { view: 'default', move: 'cf' });
+  X.tab = 'cell';
+  selectProtein('CFTR', undefined, false);
+  orbit.cur = view('cell', viewCam('cell') || 'default'); orbit.to = null;
+}
+
+// the language: every word of the story, its labels and panes, at once (the sets' too); kept on this device
+function setLang(l, keep = true) {
+  if (!LANGS.includes(l)) return;
+  LANG = l;
+  if (keep) { try { localStorage.setItem('passLang', l); } catch (e) { /* private mode */ } }
+  for (const k of SET_ORDER) if (GL.sets[k].setLang) GL.sets[k].setLang(l);
+  buildStoryDOM(); relabel(); trackHTML();
+  for (const L of LBL.sets) { L.tx = ''; labelText(L); }
+  if (XR.tip) { dropSprite(XR.tip); XR.tip = null; XR.tipI = -1; }
+  exploreHTML();
+  if (APP.mode === 'story') updateStoryDOM(storyT(APP.t));
 }
 
 let lastNow = 0;
@@ -6396,11 +6928,13 @@ function frame(now, xrFrame) {
   if (APP.mode === 'story' && APP.playing && APP.t >= T_END) { APP.t = T_END; if (HOST.ended()) APP.playing = false; else APP.enterExplore(); }
   audioSync();
   const ts = storyT(APP.t); // original story time for this point in the narration
+  // (among the fish, on a screen, the camera turns to keep the school in view, unless you look around yourself)
+  const fol = (Sx, v) => ((Sx.fish_a || 0) >= 0.5 && following() ? followView(v, dt) : v);
   if (APP.mode === 'story') {
     S = storyState(ts); tSet = ts;
     const v = storyCam(ts);
     GL.nf = v[6];
-    if (xr) xrPlace(v); else { applyCamera(v); keepCamera(S, ts); }
+    if (xr) xrPlace(v); else { applyCamera(fol(S, v)); keepCamera(S, ts); }
     updateStoryDOM(ts);
     updateTimeline(APP.t, APP.playing);
   } else {
@@ -6413,11 +6947,18 @@ function frame(now, xrFrame) {
     for (let i = 0; i < 3; i++) EXV[7 + i] += (fs[i] - EXV[7 + i]) * ke;
     orbitStep(xr ? pn : now);
     for (let i = 0; i < 6; i++) EXV[i] = orbit.cur[i];
-    if (xr) xrPlace(orbit.cur); else { applyCamera(EXV); keepCamera(S, null); }
+    if (xr) xrPlace(orbit.cur); else { applyCamera(fol(S, EXV)); keepCamera(S, null); }
   }
+  // the fish: life size round you in a headset (their holder), the sea hidden in passthrough (the school swims in your
+  // room) and never shrunk there (in a headset the rise to the globe only fades: the viewer never moves)
+  GL.lifeOn = (S.fish_a || 0) >= 0.5;
+  placeLife(xr);
+  if (XR.on && (!XR.clear || xr)) S = Object.assign({}, S, XR.clear ? { fish_scale: 1 } : { fish_water: 0, fish_scale: 1 });
+  if (!xr) setLens(S.lens);
   K.U.uTime.value = tSet;
   GL.camera.updateMatrixWorld();
   updateLight(xr);
+  tellFish(xr, fishSync());
   updateSets(S, tSet, dt, APP.mode === 'story');
   // what explore mode asked to do once the sets show its pick
   if (NEXT.length) { const fs = NEXT.splice(0); if (APP.mode === 'explore') for (const f of fs) f(); }
@@ -6461,6 +7002,8 @@ function init() {
   (GL.mo = new MutationObserver(applyTheme)).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
   $('#btnMode').addEventListener('click', () => (APP.mode === 'story' ? APP.enterExplore() : APP.enterStory(0)));
   document.addEventListener('click', ev => { if (ev.target.id === 'btnGoExplore') APP.enterExplore(); });
+  // the language switch, on the story panel and above the explore tabs
+  $('#panel').addEventListener('click', ev => { const b = ev.target.closest('button[data-lang]'); if (b && LANGS.includes(b.dataset.lang)) setLang(b.dataset.lang); });
   document.addEventListener('keydown', ev => {
     if (ev.target.closest('input, textarea')) return;
     if (ev.key === ' ' && APP.mode === 'story' && !ev.target.closest('button')) { APP.togglePlay(); ev.preventDefault(); }
@@ -6474,33 +7017,35 @@ function init() {
   if (hp.has('t')) { APP.t = clamp(parseFloat(hp.get('t')) || 0, 0, T_END - 0.01); APP.playing = false; }
   if (hp.has('explore')) {
     APP.enterExplore();
-    // #qubits&explore&scene=cube&view=bricks (any control of a scene by its key, or an option by its name or camera),
-    // &tab=network|bricks|depth|scenes, &net=blurred (an example network by key or name, or its number), &cut=random,
-    // &bits=2, &alg=so7 or so6 (or odd, tfim), &brick=X2X1, &sum=10 (strings added up), &gal=kinds, &ex=on, &src=ex
-    const sc = hp.get('scene');
+    // #pass&explore&tab=fish|outbreak|cell|scenes; &scene=fish|globe|cell and any of its controls by key (&view=afar);
+    // the fish: &k=1..12, &n=100..600, &links=on, &shark (be the shark), &hunt (send one); the outbreak: &start=LHR,
+    // &inc=3, &inf=10, &spread=high, &cut=50, &day=20, &play, &city=SYD, &click=look; the cell: &protein=CFTR,
+    // &move=nfkb; &lang=de (see the language); &now (no glide)
+    const sc = hp.get('scene'), tab = hp.get('tab');
     if (sc && GL.sets[sc]) { openScene(sc, false); showTab('scenes'); }
-    else if (!hp.has('t')) openStart();   // straight in: the cube
+    else if (TABS.some(t => t[0] === tab)) { showTab(tab); if (TAB_SCENE[tab]) openScene(TAB_SCENE[tab], false); }
+    else if (!hp.has('t')) openStart();   // straight in: the cell, as at the story's end
+    if (tab && TABS.some(t => t[0] === tab)) showTab(tab);
     orbit.cur = view(X.scene, viewCam(X.scene) || 'default'); orbit.to = null;
     // controls after the default view, so a control's own view wins
     for (const c of ctlsOf(X.scene)) {
-      const q = String(hp.get(c.key) || '').toLowerCase(), o = q && c.options.find(([v, n]) => v.toLowerCase() === q || String(n).toLowerCase() === q || camFor(X.scene, v) === q || (CAM_ALIAS[X.scene] || {})[v] === q);
-      if (o) setCtl(X.scene, c.key, o[0]);
+      const q = String(hp.get(c.key) || '').toLowerCase(), o = q && c.options.find(([v, n]) => v.toLowerCase() === q || String(n).toLowerCase() === q);
+      if (o) setCtl(X.scene, c.key, o[0], false);
     }
-    // the cube's network, cut, bits and algebra from any tab
-    const nq = String(hp.get('net') || '').toLowerCase(), ni = Q.NETS.findIndex((n, i) => n.key === nq || n.name.toLowerCase() === nq || String(i) === nq);
-    if (ni >= 0) setCtl('cube', 'net', String(ni));
-    if (hp.get('cut')) setCtl('cube', 'cut', /^(1|random)/i.test(hp.get('cut')) ? '1' : '0');
-    if (hp.get('bits')) setCtl('cube', 'bits', String(clamp(parseInt(hp.get('bits'), 10) || 3, 1, 3)));
-    if (hp.get('alg')) setCtl('cube', 'alg', /^(0|tfim|so6|so\(6\)|so\(2l\))$/i.test(hp.get('alg')) ? '0' : '1');
-    if (hp.get('ex')) setCtl('chart', 'ex', /^(1|on)$/i.test(hp.get('ex')) ? 'on' : 'off');
-    if (hp.get('src')) setCtl('chart', 'src', /^(1|ex)/i.test(hp.get('src')) ? 'ex' : 'real');
-    if (hp.get('gal')) setGal(hp.get('gal') === 'kinds' ? 'kinds' : 'largest', false);
-    if (isBrick(hp.get('brick'))) { showTab('bricks'); selectBrick(hp.get('brick'), hp.get('gal') === 'kinds' ? 'kinds' : null); }
-    if (hp.get('sum') && Number.isFinite(+hp.get('sum'))) { showTab('bricks'); setSum(+hp.get('sum')); }
-    if (hp.get('tab') && TABS.some(t => t[0] === hp.get('tab'))) {
-      if (sc || hp.get('brick') || hp.get('sum')) showTab(hp.get('tab')); else pickTab(hp.get('tab'));
-    }
-    if (hp.has('now')) { Object.assign(XS, exploreTargets()); orbit.cur = orbit.to || orbit.cur; orbit.to = null; }
+    if (hp.get('k')) setFishK(hp.get('k'), false);
+    if (hp.get('n')) setFishN(hp.get('n'), false);
+    if (hp.has('shark')) setShark(true);
+    if (hp.has('hunt')) sendShark(null);
+    for (const k of ['inc', 'inf', 'cut', 'spread']) if (hp.get(k)) setOut(k, hp.get(k), false);
+    if (hp.get('start')) setStart(String(hp.get('start')).toUpperCase(), false);
+    if (hp.get('city')) selectCity(String(hp.get('city')).toUpperCase(), false);
+    if (hp.get('click') === 'look' || hp.get('click') === 'start') X.out.click = hp.get('click');
+    if (hp.has('start') || hp.has('day') || hp.has('play') || tab === 'outbreak') { showOutbreak(); if (!tab) showTab('outbreak'); }
+    if (hp.get('day')) setDay(hp.get('day'));
+    if (hp.has('play')) playOut(true);
+    if (hp.get('protein')) { selectProtein(hp.get('protein'), undefined, false); if (!sc && !tab) showTab('cell'); }
+    if (hp.get('move')) setMove(hp.get('move'), false);
+    if (hp.has('now')) { Object.assign(XS, exploreTargets()); for (const n of MOVE_P) XS[n] = exploreTargets()[n]; orbit.cur = orbit.to || orbit.cur; orbit.to = null; }
     renderAll();
   }
   GL.renderer.setAnimationLoop(frame); // also drives the headset's frame loop
@@ -6514,9 +7059,11 @@ return {
   inputs: () => XR.ctrls.map(c => c.src),
   xrPose: () => (XR.on ? { rp: GL.rig.position.clone(), rq: GL.rig.quaternion.clone(), off: XR.globeOff.clone(), s: XR.size, held: XR.ctrls.map(c => (c.grab ? c.grab.target : '')).join(' '),
     pp: XR.panelGroup.position.clone(), pr: XR.panelGroup.rotation.y } : null),
-  // shared rooms (shared.js): the clock is APP's, the shared state the explore panes, and there are no effects
+  // shared rooms (shared.js): the clock is APP's, the shared state the explore panes; the school's swim and the
+  // sharks are effects (fishSync)
   collab: {
     APP, scene: () => GL.scene, state: collabState, apply: collabApply, view: collabView, setView: collabSetView,
+    effect: fishEffect,
     hover: i => { const c = XR.ctrls[i]; return c && c.hover ? c.ray.scale.z : 0; },
     panel(p, yaw) { XR.panelGroup.position.fromArray(p); XR.panelGroup.rotation.set(0, yaw, 0); },
     place(o, s) { XR.globeOff.fromArray(o); XR.size = s; },
@@ -6528,6 +7075,8 @@ return {
     clearTimeout(initT); clearTimeout(xrMsg.t);
     if (GL.mo) GL.mo.disconnect();
     if (XR.session) XR.session.removeEventListener('visibilitychange', xrVisibility);
+    // (the shell's panel speaks the next story's language)
+    for (const el of [$('#story'), $('#explore')]) if (el) el.removeAttribute('lang');
     if (GL.scene) GL.scene.traverse(o => {
       if (o.geometry) o.geometry.dispose();
       if (o.material) [].concat(o.material).forEach(m => { if (m.map) m.map.dispose(); if (m.uniforms) for (const u of Object.values(m.uniforms)) if (u.value && u.value.isTexture) u.value.dispose(); m.dispose(); });
