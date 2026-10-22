@@ -371,15 +371,15 @@ void main() {
     const vote = ti === 3 ? ALB : FOL;
     nodes.forEach((n, i) => {
       const leaf = n.l === DEPTH, cls = leaf ? (path.includes(i) ? vote : CLS[(i * 7 + ti) % 5]) : -1;
-      const colr = leaf ? (cls < 0 ? [0.7, 0.72, 0.78] : L.GLOW[cls]) : [0.86, 0.84, 0.8];
+      const colr = leaf ? (cls < 0 ? [0.7, 0.72, 0.78] : L.GLOW[cls]) : [0.56, 0.58, 0.64];
       FB.add(SPH1, { m: at(...n.p, leaf ? [0.022, 0.022, 0.022] : [0.015, 0.015, 0.015]), col: colr });
       if (n.l > 0) {
         const pa = nodes[idx(n.l - 1, n.k >> 1)].p, a = new THREE.Vector3(...pa), b = new THREE.Vector3(...n.p), d = b.clone().sub(a), ln = d.length();
         const q = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), d.normalize()), mid = a.clone().add(b).multiplyScalar(0.5);
-        FB.add(CYL, { m: new THREE.Matrix4().compose(mid, q, new THREE.Vector3(0.005, ln, 0.005)), col: [0.75, 0.72, 0.68] });
-        if (path.includes(i)) PATH.add(CYL8, { m: new THREE.Matrix4().compose(mid, q, new THREE.Vector3(0.011, ln, 0.011)), col: colr, cen: n.p, obj: [-99, 999, -1, (ti * 0.12 + n.l * 0.11)] });
+        FB.add(CYL, { m: new THREE.Matrix4().compose(mid, q, new THREE.Vector3(0.005, ln, 0.005)), col: [0.46, 0.48, 0.54] });
+        if (path.includes(i)) PATH.add(CYL8, { m: new THREE.Matrix4().compose(mid, q, new THREE.Vector3(0.011, ln, 0.011)), col: leaf ? colr : [1, 0.86, 0.4], cen: n.p, obj: [-99, 999, -1, (ti * 0.12 + n.l * 0.11)] });
       }
-      if (path.includes(i)) PATH.add(SPH1, { m: at(...n.p, [0.032, 0.032, 0.032]), col: leaf ? colr : [1, 0.95, 0.75], cen: n.p, obj: [-99, 999, -1, (ti * 0.12 + n.l * 0.11)] });
+      if (path.includes(i)) PATH.add(SPH1, { m: at(...n.p, [0.032, 0.032, 0.032]), col: leaf ? colr : [1, 0.86, 0.4], cen: n.p, obj: [-99, 999, -1, (ti * 0.12 + n.l * 0.11)] });
     });
     trees.push({ base, top: nodes[path[DEPTH]].p, vote });
   }
@@ -391,7 +391,7 @@ void main() {
     uniforms: { uA: set.uA, uVote: { value: 0 } }, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
     vertexShader: `attribute vec3 aCol; attribute vec4 aObj; uniform float uVote; varying vec3 vC; varying float vAl;
 void main() { vAl = smoothstep(aObj.w, aObj.w + 0.06, uVote); vC = aCol; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); if (vAl < 0.01) gl_Position = vec4(2.0, 2.0, 2.0, 1.0); }`,
-    fragmentShader: `uniform float uA; varying vec3 vC; varying float vAl; void main() { gl_FragColor = vec4(vC * 0.9, vAl * uA * 0.85); }`,
+    fragmentShader: `uniform float uA; varying vec3 vC; varying float vAl; void main() { gl_FragColor = vec4(vC * 1.15, vAl * uA * 0.95); }`,
   });
   set.mats.push(pathMat);
   const paths = new THREE.Mesh(PATH.geometry(), pathMat);

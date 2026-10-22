@@ -283,7 +283,7 @@ ${frag}
     c.textAlign = 'center'; c.textBaseline = 'top'; c.font = `600 30px ${FONT}`;
     keys.forEach((k, i) => { c.fillStyle = ink; c.fillText(short[k], X(x0 + xw * (i + 0.5) / keys.length), Y(SY0) + 52); });
     if (keys.length === 4) { c.font = `24px ${FONT}`; c.fillStyle = muted; c.textAlign = 'left'; c.fillText('bars: precision, recall, F1 (the poster\'s table)', X(x0), Y(SY0) + 96); }
-    c.textAlign = 'center'; c.font = `600 26px ${FONT}`;
+    c.textAlign = 'center'; c.font = `600 ${keys.length === 4 ? 30 : 34}px ${FONT}`;
     vals.forEach(([x, v]) => { c.fillStyle = ink; c.fillText(v.toFixed(2), X(x), Y(SY0) + 10); });
   });
   const rfVals = [], iouVals = [];
