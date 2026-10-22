@@ -32,7 +32,7 @@ Card: kick "Tissue microanatomy", title **Tissue and time**, tagline "how organs
   `tools/lbi/sets/body.md`). The harness always loads them (`set=tissue` or `set=body` shows one alone), and a set may
   make its own instance (`SETS.tissue(K)`).
 - **The organs in 3D** (`sets/organs.js`, manifest `sets/organs.md`; it replaced the PET story's flat line icons, which
-  this story no longer uses: `MICRO_DATA.organs[i].icon` and the data block's `PET_DATA` shim are left unused): a small
+  this story no longer uses; an organ's model is found by its name, `ORGAN3D.idOf`): a small
   lit procedural model of each of the 29 organs (`ORGAN3D`: a signed distance field of a few blended primitives,
   polygonised by surface nets, about 1,000 to 3,000 triangles each, built between frames from the start, one organ
   after another, model then picture, the one a pane or the body shows first). The sets draw them as meshes

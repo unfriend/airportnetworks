@@ -20,7 +20,7 @@ node tools/micro/build.mjs --check                                              
 | --- | --- |
 | `data/gen_data.mjs` | reads Iva Buljan's network of organ architecture (GraphML; kept out of the repository), the preprint's numbers (typed in) and `data/figures.json`, and writes `sets/data.js` |
 | `data/figures.json` | values read off the talk's figures (the atlas of sections, the volcano, trajectories, contact networks) |
-| `sets/data.js` | the constant `MICRO_DATA` (generated; its header documents the fields) and a small `PET_DATA` shim the PET story's icons read (no longer used here: the organs are 3D models) |
+| `sets/data.js` | the constant `MICRO_DATA` (generated; its header documents the fields) |
 | `sets/organs.js` | `ORGAN3D`: small lit 3D models of the 29 organs (signed distance fields polygonised by surface nets, built between frames), drawn as meshes in the scenes and as pictures in the panes; manifest `sets/organs.md` (`SETS.organs` is the harness's gallery) |
 | `sets/slide.js`, `sets/atlas.js`, `sets/hier.js` | the 3D sets (tiles, features, neighbours, groups and domains over the tour's tissue section; the slide library, the atlas, the tile cloud, the volcano and the trajectories; the network of organ architecture and the domain contacts), each with a manifest `sets/<name>.md`; the story also uses `tools/lbi/sets/body.js` and `tools/lbi/sets/tissue.js` |
 | `engine/e1_head.js` ... `e7_app.js` | the story engine, adapted from the PET story |

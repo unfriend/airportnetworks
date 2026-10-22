@@ -4,7 +4,7 @@ The story's organs as small lit 3D models instead of flat line icons: one for ea
 (adipose, adrenal gland, artery, bladder, brain, breast, cervix, colon, oesophagus, fallopian tube, heart, kidney,
 liver, lung, minor salivary gland, muscle, nerve, ovary, pancreas, pituitary, prostate, skin, small intestine, spleen,
 stomach, testis, thyroid, uterus, vagina). They replace the PET story's icons (`tools/pet/sets/icons.js`, which the PET
-story keeps); `MICRO_DATA.organs[i].icon` and the data block's `PET_DATA` shim are no longer read.
+story keeps); an organ's model is found by its name (`idOf`), the only link between the data and the models.
 
 ## How they are built
 
