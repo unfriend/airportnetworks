@@ -980,7 +980,7 @@ void main() {
       p[2] -= 0.3 * fmax * (1 - fw);
       p = K.v3.lerp(p, Fp, fw); s = lerp(s, sF, fw); yaw = lerp(yaw, 0, fw);
       let al = Math.max(Math.min(1, km * 3) * map, fw);
-      al *= (1 - 0.82 * fmax * (1 - fw)) * (1 - vc * (1 - fw));   // (gone behind a plot: the volcano or the trajectories)
+      al *= (1 - 0.82 * fmax * (1 - fw)) * (1 - sm(c01(vc / 0.15)) * (1 - fw));   // (gone behind a plot, the volcano or the trajectories, as soon as it starts)
       cur.P[i] = p; cur.s[i] = s; cur.yaw[i] = yaw; cur.al[i] = al; anySec = Math.max(anySec, al);
       uP[i].set(p[0], p[1], p[2], s); uQ[i].set(yaw, al, Math.max(prog(map, 0.55, 0.95) * km, fw), fw);
     }

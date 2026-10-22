@@ -434,7 +434,7 @@ function buildStory() {
   a = C.age.a; b = C.age.b;
   hide('hier', a, a + 2);
   show('atlas', a + 0.5, a + 2.5, a + 24, a + 26);
-  ramp('atlas_volcano', a + 2, a + 8, 0, 1);
+  ramp('atlas_volcano', a, a + 6, 0, 1);   // (begun before the atlas shows, so its sections never flash up behind it)
   cam(a + 2, 'atlas', 'volcano', -8);
   cam(a + 13, 'atlas', 'volcano', 6, 'spin');
   ramp('atlas_volcano', a + 14, a + 16, 1, 0);

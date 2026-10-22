@@ -4280,7 +4280,7 @@ void main() {
       p[2] -= 0.3 * fmax * (1 - fw);
       p = K.v3.lerp(p, Fp, fw); s = lerp(s, sF, fw); yaw = lerp(yaw, 0, fw);
       let al = Math.max(Math.min(1, km * 3) * map, fw);
-      al *= (1 - 0.82 * fmax * (1 - fw)) * (1 - vc * (1 - fw));   // (gone behind a plot: the volcano or the trajectories)
+      al *= (1 - 0.82 * fmax * (1 - fw)) * (1 - sm(c01(vc / 0.15)) * (1 - fw));   // (gone behind a plot, the volcano or the trajectories, as soon as it starts)
       cur.P[i] = p; cur.s[i] = s; cur.yaw[i] = yaw; cur.al[i] = al; anySec = Math.max(anySec, al);
       uP[i].set(p[0], p[1], p[2], s); uQ[i].set(yaw, al, Math.max(prog(map, 0.55, 0.95) * km, fw), fw);
     }
@@ -5922,7 +5922,7 @@ function buildStory() {
   a = C.age.a; b = C.age.b;
   hide('hier', a, a + 2);
   show('atlas', a + 0.5, a + 2.5, a + 24, a + 26);
-  ramp('atlas_volcano', a + 2, a + 8, 0, 1);
+  ramp('atlas_volcano', a, a + 6, 0, 1);   // (begun before the atlas shows, so its sections never flash up behind it)
   cam(a + 2, 'atlas', 'volcano', -8);
   cam(a + 13, 'atlas', 'volcano', 6, 'spin');
   ramp('atlas_volcano', a + 14, a + 16, 1, 0);
