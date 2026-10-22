@@ -208,7 +208,7 @@ crumbs. Speeds and cleaning times are tuned to look right, not measured.
 
 Files: index.html (the app), stories/ (the ten stories), proteins.html and
 spatial.html (forward to the app), manifest.webmanifest, sw.js (offline cache), audio/,
-shared.js (shared rooms), relay/ (the shared rooms' server), docs/ (the shared rooms' plan),
+shared.js (shared rooms), relay/ (the shared rooms' server), docs/ (the shared rooms' plan and the handover notes), HANDOVER.md (start here when taking the project over),
 AGENTS.md and CLAUDE.md (notes for AI coding agents), tools/smoke.mjs (headless test),
 tools/collab.mjs (headless test of shared rooms; node relay/test.mjs tests the relay),
 tools/lbi/ (sources of the tour; node tools/lbi/build.mjs writes stories/lbi.js),

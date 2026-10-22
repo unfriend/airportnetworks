@@ -64,14 +64,17 @@ Before handing over (or making anything more public), someone has to decide thes
    Institute if it owns the work. See [docs/data-and-permissions.md](docs/data-and-permissions.md).
 2. **The authors' permission** to show their data, figures, posters and talks publicly (muscle, endotype, PET,
    microanatomy and tour stories). Record what was agreed, and with whom, in the same document.
-3. **The repository**: it is on a personal GitHub account (`unfriend/airportnetworks`) and appears to be public.
-   Decide whether it moves to an Institute organisation, who gets admin rights, and whether it stays public.
-4. **Things already on GitHub** that may not belong in a public repository: the `logs-2026-10-*` branches (headset
-   logs with people's first names and room codes), `ikerdata/` (88 MB of the muscle story's authors' files) and
-   screenshots in the history (commit `e3f6b4f`, drawn content only). Deleting branches or rewriting history cannot
-   be undone for those who already fetched them: decide first.
-5. **The live site**: which branch GitHub Pages publishes, its address, any custom domain (see
-   [docs/setup-and-release.md](docs/setup-and-release.md)).
+3. **The repository**: it is public, on a personal GitHub account (`unfriend/airportnetworks`), with no licence.
+   Every pushed branch is public too, the working branch included. Decide whether it moves to an Institute
+   organisation, who gets admin rights, and whether it stays public.
+4. **Things already public** that may not belong there: the `logs-2026-10-*` branches (headset logs whose file names
+   carry people's first names and room codes), `ikerdata/` (88 MB of the muscle story's authors' files: GitHub Pages
+   serves the whole branch, so these files download from the live site too) and screenshots in the history (commits
+   `d7c7862`, `e548fa0` and `e3f6b4f`, removed in `bdc8a8e`; drawn content only). Deleting branches or rewriting
+   history cannot be undone for those who already fetched them: decide first. The checklist is in
+   [docs/data-and-permissions.md](docs/data-and-permissions.md).
+5. **The live site**: GitHub Pages publishes `main` at https://unfriend.github.io/airportnetworks/ (no custom domain
+   found). Confirm the settings and who may change them (see [docs/setup-and-release.md](docs/setup-and-release.md)).
 6. **Who to ask**: **TO FILL (owner):** the people for the code, each story's science, the headsets and the relay.
 7. **Deferred**: whether to add a voice assistant; collecting alignment logs from fresh headsets (a test plan is in
    the runbook).

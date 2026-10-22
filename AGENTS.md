@@ -265,7 +265,7 @@ generation, `{ n, by, at }`; FORMAT networks-10; networks-11 when the eighth sto
   from the Shared dialog. A story the person starts themselves leaves the
   station (no longer following, not pulled back).
 - Arrange all: two rows in front of you, half the stories (rounded up: five of
-  ten) 1.2 m ahead and the rest in the gaps 2.6 m further on, 2.4 m apart, every
+  ten) 1.2 m ahead and the rest 2.6 m further on (behind them; in the gaps when the second row is shorter), 2.4 m apart, every
   station facing away from you (its content floats 1.4 m beyond its spot); it
   needs about 9.6 m x 4 m of floor from 1.2 m in front of you. Remove asks first ("Remove for
   everyone?", 3 s), on the page and in the headset.
@@ -943,8 +943,9 @@ npx http-server -p 8123 -c-1 .          # or: python3 -m http.server 8123
 node tools/smoke.mjs http://127.0.0.1:8123/
 ```
 
-It needs Playwright with a Chromium build (`npm i -D playwright` once, or a
-global install). A 404 for a missing narration MP3 is expected and ignored.
+It needs Playwright with a Chromium build (`npm i --no-save playwright` and
+`npx playwright install chromium` once, or a global install; see
+`docs/setup-and-release.md`). A 404 for a missing narration MP3 is expected and ignored.
 WebGL runs in software (SwiftShader) headlessly, so frame rates are low;
 real-headset behaviour (controllers, session hand-over between stories,
 placement and comfort) can only be confirmed on a device - say so when you

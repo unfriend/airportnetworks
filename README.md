@@ -284,7 +284,8 @@ The protein data is meant for teaching, not research.
 Plain HTML and JavaScript, no framework or dependencies. `AGENTS.md` explains
 how the app shell and the stories fit together, the conventions, and the
 things that are easy to forget. Before committing, serve the folder and run the
-smoke test (needs Playwright):
+smoke test (needs Playwright and its Chromium; setting up a machine, every test
+and the release routine are in `docs/setup-and-release.md`):
 
 ```sh
 npx http-server -p 8123 -c-1 .

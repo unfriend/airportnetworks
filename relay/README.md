@@ -101,7 +101,7 @@ the app's files from the repository over HTTPS, and prints the address to open.
    **Open rooms**. To move a station, point at its ring or card in the headset and hold the grip: point to swing
    it round, raise or lower the controller to push it away or bring it nearer, twist your wrist to turn it, and let
    go to put it down (everyone sees it move). On the page, drag its dot on the room map to move it, or its small
-   square to turn it. In a room nobody can move the story panels or the scenes, so everyone sees them alike. Once
+   square to turn it. At your own station the grip moves its scene and story panel (both grips resize the scene) for everyone there, and nobody can move them anywhere else, so everyone sees them alike. Once
    the stations are where you want them, **Lock the layout** (on the Shared panel, or **Lock layout** in the
    Shared dialog) so nobody moves one by accident; anyone can unlock it. In the headset the Shared panel rides
    on your left controller, so it is always at hand (without a left controller it stays beside the story
