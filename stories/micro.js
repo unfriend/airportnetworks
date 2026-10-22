@@ -3678,7 +3678,7 @@ vec3 boxAt(vec3 q, vec3 c, vec3 X, vec3 Y, vec3 Z, out vec3 nrm, out vec2 fuv) {
   const wallMat = new THREE.ShaderMaterial({
     uniforms: { uA: set.uA, uTime: K.U.uTime, uLib: { value: 1 }, uVis: { value: 1 }, uTex: { value: slideTex }, uTis: { value: TIS },
       uSW: { value: (WR * 2 * TH / U) * 0.8 }, uSH: { value: WH / RT * 0.88 } },
-    transparent: true, depthWrite: false, side: THREE.DoubleSide,
+    transparent: true, depthWrite: false, side: THREE.DoubleSide, extensions: { derivatives: true },
     vertexShader: BOXGL + `
 attribute vec4 aW, aR;
 uniform float uLib, uVis, uA, uTime, uSW, uSH;
@@ -3719,8 +3719,11 @@ void main() {
   vec3 n = normalize(vN), v = normalize(vV), L = normalize(vec3(-0.45, 0.6, 0.65));
   float df = max(dot(n, L), 0.0), fr = pow(1.0 - abs(dot(n, v)), 3.0), sp = pow(max(dot(reflect(-L, n), v), 0.0), 40.0);
   vec3 glass = vec3(0.55, 0.72, 0.86);
+  // (from afar, where a slide is a few pixels across, its rim and edges would be all that shows, as grey dashes: there
+  // it fades to its stained tissue on the glass, so the wall reads as rows of slides in the tissues' own colours)
+  float far = smoothstep(0.1, 0.34, fwidth(vUv.x));
   // the glass's edges: green-blue glass, bright where the light catches it
-  if (vFace > 0.5) { gl_FragColor = vec4(glass * (0.3 + 0.5 * df) + vec3(sp * 0.6), (0.18 + 0.35 * fr + 0.4 * sp) * vA); return; }
+  if (vFace > 0.5) { gl_FragColor = vec4(glass * (0.3 + 0.5 * df) + vec3(sp * 0.6), (0.18 + 0.35 * fr + 0.4 * sp) * vA * (1.0 - 0.8 * far)); return; }
   vec2 tc = vec2((vCell.x + vUv.x) / 4.0, 1.0 - (vCell.y + 1.0 - vUv.y) / 2.0);
   vec4 tx = texture2D(uTex, tc);
   // the tissue lies on the glass as a thin slab: lit, with its shadow on the glass beside it
@@ -3732,6 +3735,10 @@ void main() {
   float a = max(0.06 + 0.24 * rim + 0.18 * shd * (1.0 - ts), ts * 0.97);
   col = mix(glass * (1.0 - 0.45 * shd), col * (0.72 + 0.4 * df), ts);
   col = mix(col, vec3(0.86, 0.9, 0.96), lab * 0.45 * (1.0 - ts)); a = max(a, lab * 0.32);
+  // (afar: the slide's mean look, its tissue's colour over a little glass, lit)
+  float cov = clamp(tis * 2.6, 0.0, 1.0);
+  col = mix(col, mix(glass * 0.45, mix(vT.rgb, vec3(0.30, 0.24, 0.58), 0.25 * vT.a) * (0.72 + 0.42 * df), 0.35 + 0.65 * cov), far);
+  a = mix(a, 0.42 + 0.5 * cov, far); rim *= 1.0 - far;
   col += glass * (vGl * (0.45 + rim) + 0.12 * fr) + vec3(sp * 0.35);
   gl_FragColor = vec4(col, min(1.0, a + vGl * 0.3 + sp * 0.25) * vA);
 }`,
@@ -5524,7 +5531,7 @@ const fitShift = (k, name) => { const f = GL.sets[k].cam[name] && FIT[k] && FIT[
 const SEC = [0, 0, 0.6, -0.22];
 const FIT = { atlas: { default: [0, 0, 1.1, -0.22], library: [0, 0, 1.1, -0.22], atlas: [0, 0, 0.8, -0.35], focus: [0, 0, 0.55, -0.05, 0.0], volcano: [0, 0, 0.45, -0.2],
   curves: [0, 0, 1.1, -0.32], age: [0, 0, 0.45, -0.2] },
-  body: { default: [0, 0, 0.55], front: [0, 0, 0.55] }, hier: { net: [0, 0, 0.35, 0, 0.05], default: [0, 0, 0.25, 0, 0.03] }, tissue: { default: SEC, section: SEC }, slide: { default: SEC, section: SEC, domains: SEC, age: SEC, tiles: [0, 0, 0.35, -0.25], close: [0, 0, 0.25, -0.05], group: [0, 0, 0.75, -0.12] } };
+  body: { default: [0, 0, 0.55], front: [0, 0, 0.55] }, hier: { net: [0, 0, 0.35, 0, 0.05], default: [0, 0, 0.25, 0, 0.03] }, tissue: { default: SEC, section: SEC }, slide: { default: SEC, section: SEC, domains: SEC, age: SEC, tiles: [0, 0, 0.35, -0.25], close: [0, 0, 0.6, -0.14], group: [0, 0, 0.85, -0.17] } };
 // how much further back a view stands on a phone held upright (see narrowK): the wide ones, whose parts reach
 // across the screen
 const NARROW = { tissue: { section: 1.2, default: 1.2 }, slide: { default: 1.2, domains: 1.2, group: 1.25 }, atlas: { library: 1.1, default: 1.1, atlas: 1.2, volcano: 1.15, curves: 1.15 },
