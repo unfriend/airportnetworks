@@ -215,17 +215,23 @@ function buildStory() {
   cam(a, 'fish', 'default');
   cam(b - 1, 'fish', 'default', 0, 'spin');
   label('fish', 'school', () => `<b>${esc(T('lbl.school'))}</b>${sfxSpan(T('lbl.school.r'))}`, a + 6, a + 26, 'cyn');
-  // Who watches whom: the links light up; from afar, a shark, and the warning racing through the school
+  // Who watches whom: the links light up; from just outside the school (close enough to tell each fish and the few it
+  // watches apart), a shark, and the warning racing through the school
   a = C.watch.a; b = C.watch.b;
   ramp('fish_links', a + 4, a + 7, 0, 1);
   cam(a + 8, 'fish', 'default');
-  cam(a + 14, 'fish', 'afar');
-  cam(b, 'fish', 'afar', 40, 'spin');
+  cam(a + 14, 'fish', 'near');
+  cam(b, 'fish', 'near', 40, 'spin');
   jump('fish_hunt', a + 20, 0, 1);
-  // Change the links: one neighbour each, the school falls apart; seven again, it comes together
+  // Change the links: one neighbour each, the school falls apart (the camera backs off to see all of it); seven again,
+  // it comes together (and the camera comes close again, then backs off for the rise)
   a = C.links.a; b = C.links.b;
   jump('fish_k', a + 5, 7, 1);
   jump('fish_k', a + 24, 1, 7);
+  cam(a + 7, 'fish', 'near', 50);
+  cam(a + 15, 'fish', 'afar', 58);
+  cam(a + 26, 'fish', 'afar', 66, 'spin');
+  cam(a + 36, 'fish', 'near', 74);
   cam(b, 'fish', 'afar', 80, 'spin');
   // From the sea to the sky: the camera rises out of the water while the sea shrinks to a dot (in a headset it only
   // fades: the viewer never moves), the globe comes in, and the outbreak starts in Vienna; then the hubs

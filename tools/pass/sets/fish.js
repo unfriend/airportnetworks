@@ -587,11 +587,13 @@ void main() {
     { text: () => [T('Shark', 'Hai'), ''], at: 'shark', cls: 'amb', alpha: () => (SH.on && !SH.steer && SH.t < 7 ? 1 : 0) },
   ];
   // views: [az, el, dist, tx, ty, tz]: floating where you are, looking ahead (the target is just in front of your eyes,
-  // so the camera stands where you do; the engine turns it to the school), looking up to the light, and from outside
-  // the school; 'above' looks down from above the surface (for the rise to the globe)
+  // so the camera stands where you do; the engine turns it to the school), looking up to the light, from outside the
+  // school close enough to tell each fish and its links apart ('near') or the whole of it ('afar'); 'above' looks down
+  // from above the surface (for the rise to the globe)
   const cam = {
     default: [0, -6, 0.25, 0, 1.6, 0],
     up: [20, -55, 0.25, 0, 1.6, 0],
+    near: [25, 10, 8, 0, 1.6, -4],
     afar: [25, 10, 13, 0, 1.6, -4],
     above: [0, 80, 40, 0, 1.6, -4],
   };

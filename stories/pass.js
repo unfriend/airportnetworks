@@ -3255,11 +3255,13 @@ void main() {
     { text: () => [T('Shark', 'Hai'), ''], at: 'shark', cls: 'amb', alpha: () => (SH.on && !SH.steer && SH.t < 7 ? 1 : 0) },
   ];
   // views: [az, el, dist, tx, ty, tz]: floating where you are, looking ahead (the target is just in front of your eyes,
-  // so the camera stands where you do; the engine turns it to the school), looking up to the light, and from outside
-  // the school; 'above' looks down from above the surface (for the rise to the globe)
+  // so the camera stands where you do; the engine turns it to the school), looking up to the light, from outside the
+  // school close enough to tell each fish and its links apart ('near') or the whole of it ('afar'); 'above' looks down
+  // from above the surface (for the rise to the globe)
   const cam = {
     default: [0, -6, 0.25, 0, 1.6, 0],
     up: [20, -55, 0.25, 0, 1.6, 0],
+    near: [25, 10, 8, 0, 1.6, -4],
     afar: [25, 10, 13, 0, 1.6, -4],
     above: [0, 80, 40, 0, 1.6, -4],
   };
@@ -4703,17 +4705,23 @@ function buildStory() {
   cam(a, 'fish', 'default');
   cam(b - 1, 'fish', 'default', 0, 'spin');
   label('fish', 'school', () => `<b>${esc(T('lbl.school'))}</b>${sfxSpan(T('lbl.school.r'))}`, a + 6, a + 26, 'cyn');
-  // Who watches whom: the links light up; from afar, a shark, and the warning racing through the school
+  // Who watches whom: the links light up; from just outside the school (close enough to tell each fish and the few it
+  // watches apart), a shark, and the warning racing through the school
   a = C.watch.a; b = C.watch.b;
   ramp('fish_links', a + 4, a + 7, 0, 1);
   cam(a + 8, 'fish', 'default');
-  cam(a + 14, 'fish', 'afar');
-  cam(b, 'fish', 'afar', 40, 'spin');
+  cam(a + 14, 'fish', 'near');
+  cam(b, 'fish', 'near', 40, 'spin');
   jump('fish_hunt', a + 20, 0, 1);
-  // Change the links: one neighbour each, the school falls apart; seven again, it comes together
+  // Change the links: one neighbour each, the school falls apart (the camera backs off to see all of it); seven again,
+  // it comes together (and the camera comes close again, then backs off for the rise)
   a = C.links.a; b = C.links.b;
   jump('fish_k', a + 5, 7, 1);
   jump('fish_k', a + 24, 1, 7);
+  cam(a + 7, 'fish', 'near', 50);
+  cam(a + 15, 'fish', 'afar', 58);
+  cam(a + 26, 'fish', 'afar', 66, 'spin');
+  cam(a + 36, 'fish', 'near', 74);
   cam(b, 'fish', 'afar', 80, 'spin');
   // From the sea to the sky: the camera rises out of the water while the sea shrinks to a dot (in a headset it only
   // fades: the viewer never moves), the globe comes in, and the outbreak starts in Vienna; then the hubs

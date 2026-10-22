@@ -87,13 +87,14 @@ cities by day 5, 47 by day 10, 676 by day 20, 1,673 by day 30), `cell.api.counts
 1. **A school of fish** (about 40 s). `fish_a` 1, defaults (seven neighbours, no links). Camera: the fish's `default`
    (following the school), towards the end `afar`. Life size in a headset, in AR through your room. "No fish is in
    charge. So how do they stay together?"
-2. **Who watches whom** (about 55 s). `fish_links` 0 -> 1 at 4-7; camera to `afar` at 8-14 (on a screen); `fish_hunt`
+2. **Who watches whom** (about 55 s). `fish_links` 0 -> 1 at 4-7; camera to `near` at 8-14 (on a screen); `fish_hunt`
    0 -> 1 at 20 (stepped; the shark reaches the school 4-6 s later, label "Shark"); the warning races through the school
    at about 26 (the links warm to white, the fish flash). "A school is a network that passes on a warning", faster than
    the shark.
 3. **Change the links** (about 45 s). Links stay on. `fish_k` 7 -> 1 at 5 (stepped): the links become pairs and the
-   school falls apart within about 10 s; `fish_k` 1 -> 7 at about 24: it comes together again over 20-40 s. "The shape of
-   the network decides what the group can do."
+   school falls apart within about 10 s; `fish_k` 1 -> 7 at about 24: it comes together again over 20-40 s. Camera (on
+   a screen): `near` at 7, back to `afar` at 15 while it falls apart, `near` again at 36, `afar` at the end. "The shape
+   of the network decides what the group can do."
 4. **From the sea to the sky** (about 65 s). The rise: on a screen the camera climbs to the fish's `above` view while
    `fish_scale` 1 -> 0.002 (the sea shrinks to a dot) or `fish_a` 1 -> 0 (in a headset: fade only, never move the
    viewer); `globe_a` 0 -> 1 at 7-11, `globe_reveal` 0 -> 1 at 8-14, camera to the globe's `world` then `start` (Vienna,

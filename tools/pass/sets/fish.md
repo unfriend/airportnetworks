@@ -72,8 +72,8 @@ shark).
 
 Anchors `school` (0.6 m above the middle of the school's main body: a mean shift over the fish within 4 m) and `shark`.
 Label: **Shark** / **Hai** (amber) while it comes in. Views: `default` [0, -6, 0.25, 0, 1.6, 0] (floating where you
-are, looking ahead; the engine turns it to the school, as the flock's `followView`), `up` (to the light), `afar`
-[25, 10, 13, 0, 1.6, -4] (the whole school from outside; aim at `school`), `above` [0, 80, 40, 0, 1.6, -4] (looking down
+are, looking ahead; the engine turns it to the school, as the flock's `followView`), `up` (to the light), `near`
+[25, 10, 8, 0, 1.6, -4] (from just outside the school: each fish and its links apart; aim at `school`), `afar` [25, 10, 13, 0, 1.6, -4] (the whole school from outside; aim at `school`), `above` [0, 80, 40, 0, 1.6, -4] (looking down
 from above the surface). Controls (getter, in the set's language): View (Follow the school, Look around, From afar),
 Neighbours watched (7, 1, 3, 12), Network (Off, Who watches whom), Shark (Off, Now and then).
 
