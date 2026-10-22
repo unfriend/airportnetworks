@@ -389,9 +389,10 @@ void main() { gl_FragColor = vec4(litC(vC, normalize(vN), normalize(vV), normali
     const g = smooth(clamp(S.organ_grow, 0, 1)), age = clamp(S.organ_age, 20, 70), open = smooth(clamp(S.organ_open, 0, 1)), body = clamp(S.organ_body, 0, 1);
     ageNow = age; gNow = g; ages.value = age;
     // from small in the body (turned as it lies there) to large at the centre; the ovary shrinks with age
-    const shrink = 1 - 0.16 * smooth((age - 45) / 23);
-    ovary.position.set(lerp(BODY_AT[0], 0, g), lerp(BODY_AT[1], 0, g), lerp(BODY_AT[2], 0, g));
-    ovary.scale.setScalar(Math.exp(lerp(Math.log(BODY_S), 0, g)) * shrink);
+    const shrink = 1 - 0.16 * smooth((age - 45) / 23), side = smooth(clamp(S.organ_side, 0, 1));
+    // (side: to the left, smaller, to make room for the charts beside it)
+    ovary.position.set(lerp(BODY_AT[0], -0.66 * side, g), lerp(BODY_AT[1], 0.02 * side, g), lerp(BODY_AT[2], 0, g));
+    ovary.scale.setScalar(Math.exp(lerp(Math.log(BODY_S), 0, g)) * shrink * (1 - 0.45 * side));
     ovary.rotation.set(0, 0, BODY_ROT * (1 - g));
     // the front wedge of the cut lifts away and fades
     wedge.position.set(0.5 * open, 0.4 * open, 0.5 * open);
@@ -410,7 +411,7 @@ void main() { gl_FragColor = vec4(litC(vC, normalize(vN), normalize(vV), normali
   }
 
   return Object.assign(set, {
-    params: { organ_a: 1, organ_grow: 1, organ_body: 0, organ_open: 1, organ_age: 30, organ_follicle: 0, organ_albicans: 0, organ_vessel: 0, organ_luteum: 0, organ_parts: 0, organ_agelab: 0 },
+    params: { organ_a: 1, organ_grow: 1, organ_body: 0, organ_open: 1, organ_age: 30, organ_side: 0, organ_follicle: 0, organ_albicans: 0, organ_vessel: 0, organ_luteum: 0, organ_parts: 0, organ_agelab: 0 },
     update,
     idle() { step(3); },
     finish() { step(Infinity); },
