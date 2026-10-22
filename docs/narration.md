@@ -21,7 +21,7 @@ MP3 at the file named under each story; if your chapters start at other times, c
 | Disease endotypes: Endotypes | `audio/narration-endo.mp3` | not yet | 7:12 |
 | Whole-body PET: One scan, one system | `audio/narration-pet.mp3` | not yet | 10:24 |
 | Tissue microanatomy: Tissue and time | `audio/narration-micro.mp3` | not yet | 7:36 |
-| Quantum network compression: Three qubits | `audio/narration-qubits.mp3` | not yet | 9:03 |
+| Quantum network compression: Three qubits | `audio/narration-qubits.mp3` | not yet | 9:04 |
 | Collective motion: Flock | `audio/narration-flock.mp3` | not yet | 1:57 |
 | Swarm robotics: Robot gang | `audio/narration-robots.mp3` | not yet | 2:01 |
 
@@ -815,31 +815,31 @@ File: `audio/narration-micro.mp3` (not recorded yet). Chapters: 0:00 Intro, 0:29
 
 ## Quantum network compression: Three qubits (`#qubits`)
 
-File: `audio/narration-qubits.mp3` (not recorded yet). Chapters: 0:00 Pairs, 0:50 Walkers, 1:49 Shrink, 2:32 Cuts, 4:01 Coarse, 5:02 Bricks, 6:31 Toolbox, 7:52 Circuit; it ends at 9:03.
+File: `audio/narration-qubits.mp3` (not recorded yet). Chapters: 0:00 Pairs, 0:51 Walkers, 1:50 Shrink, 2:32 Cuts, 4:02 Coarse, 5:02 Bricks, 6:32 Toolbox, 7:53 Circuit; it ends at 9:04.
 
 ### 0:00 Pairs
 
 - **0:01** Three qubits
 - **0:02** how a gene network fits on a tiny quantum computer
 - **0:07** Some diseases only appear when two genes are broken at the same time.
-- **0:12** Each dot here is a gene, and each square a pair of them. Add genes, and the pairs grow much faster.
-- **0:21** 16,064: genes in the real network
+- **0:12** The dots on the diagonal are genes, and every dot above them a pair. Add genes, and the pairs grow much faster.
+- **0:22** 16,064: genes in the real network
 - **0:24** 129 million: pairs of them
-- **0:26** Far too many to test one by one.
+- **0:27** Far too many to test one by one.
 - **0:33** n genes make n(n − 1)/2 pairs: 16,064 × 16,063 / 2 = 129,018,016. The real network: STRING v12.5, physical protein interactions with a combined score of 500 or more, its largest connected component.
 - **0:44** After the method and figures of Joel Hancock. The networks drawn are examples, computed here.
 
-### 0:50 Walkers
+### 0:51 Walkers
 
 - **0:51** Two walkers on a map
 - **0:53** Think of the network as a map. Each gene is a place, and a street joins two genes whose proteins touch.
-- **1:02** Two walkers wander it, one for each gene of a pair.
-- **1:12** They are drawn to pairs that are broken together in patients more often than in healthy people.
+- **1:03** Two walkers wander it, one for each gene of a pair.
+- **1:13** They are drawn to pairs that are broken together in patients more often than in healthy people.
 - **1:20** Where they settle is where to look.
-- **1:23** In symbols, the walkers' energy is H = K + c V + ρ R. K = I − A_c lets them move along the network (A_c comes later); V rewards the pairs that patients' data point to; R, the exchange operator, swaps the two walkers, so the search is for pairs, not single genes.
+- **1:24** In symbols, the walkers' energy is H = K + c V + ρ R. K = I − A_c lets them move along the network (A_c comes later); V rewards the pairs that patients' data point to; R, the exchange operator, swaps the two walkers, so the search is for pairs, not single genes.
 - **1:45** The valleys here are illustrative: this story uses no patients' data.
 
-### 1:49 Shrink
+### 1:50 Shrink
 
 - **1:50** Why shrink the map?
 - **1:52** A quantum computer could explore all the walkers' routes at once. But today's machines are tiny.
@@ -850,58 +850,58 @@ File: `audio/narration-qubits.mp3` (not recorded yet). Chapters: 0:00 Pairs, 0:5
 
 ### 2:32 Cuts
 
-- **2:32** Cutting the map
+- **2:33** Cutting the map
 - **2:34** Here is an example network, made up for this story: 320 genes and 5,637 links, with eight groups hidden in it. Its genes are never named.
-- **2:44** 1 · First cut: split the genes in two, keeping linked genes together: two halves, one digit
-- **2:55** 2 · Second cut: split each half again: four cells, two digits (a square)
-- **3:06** 3 · Third cut: and again: eight cells, three digits (a cube)
+- **2:45** 1 · First cut: split the genes in two, keeping linked genes together: two halves, one digit
+- **2:56** 2 · Second cut: split each half again: four cells, two digits (a square)
+- **3:07** 3 · Third cut: and again: eight cells, three digits (a cube)
 - **3:13** A gene's code is the side it fell on at each cut. Genes that share a code form a cell, at one corner of the cube.
-- **3:24** Each cut is a bisection. The first is the most significant digit (q2), so cells nest: each new cut splits every cell in two. The real run used 8 cuts: 256 cells of about 63 genes; the picture uses 3.
-- **3:40** The cuts here stand in for the authors' search (a beam search that also favors the toolbox of chapter 7): the network's slowest patterns grouped into eight equal cells, then the codes that keep the most links on the cube's edges. It puts 100% of genes with their hidden group.
+- **3:25** Each cut is a bisection. The first is the most significant digit (q2), so cells nest: each new cut splits every cell in two. The real run used 8 cuts: 256 cells of about 63 genes; the picture uses 3.
+- **3:41** The cuts here stand in for the authors' search (a beam search that also favors the toolbox of chapter 7): the network's slowest patterns grouped into eight equal cells, then the codes that keep the most links on the cube's edges. It puts 100% of genes with their hidden group.
 
-### 4:01 Coarse
+### 4:02 Coarse
 
 - **4:02** The coarse operator
-- **4:03** Now each corner is a cell, and the shrunk map says how much traffic flows between cells: the coarse operator, A_c.
-- **4:12** A loop at each corner is the traffic that stays inside its cell. An edge joins every two corners, as wide as the traffic between them.
+- **4:04** Now each corner is a cell, and the shrunk map says how much traffic flows between cells: the coarse operator, A_c.
+- **4:13** A loop at each corner is the traffic that stays inside its cell. An edge joins every two corners, as wide as the traffic between them.
 - **4:24** Cube edges join cells one digit apart. Here they carry 79% of the traffic between cells; face and body diagonals, two or three digits apart, the rest.
-- **4:35** A_c = P A Pᵀ: A is the network's adjacency matrix, and P the normalized cell indicators, so A_c is an 8 × 8 table. It is balanced over cells (Sinkhorn), so every row adds up to 1. The walkers move by K = I − A_c: what holds for A_c holds for K.
+- **4:36** A_c = P A Pᵀ: A is the network's adjacency matrix, and P the normalized cell indicators, so A_c is an 8 × 8 table. It is balanced over cells (Sinkhorn), so every row adds up to 1. The walkers move by K = I − A_c: what holds for A_c holds for K.
 - **4:56** In the real network, at 3 bits, cube edges carry 61% of the coupling between cells.
 
 ### 5:02 Bricks
 
 - **5:03** Building blocks
 - **5:04** Any traffic table can be built from a few kinds of simple moves: Lego bricks of movement, called Pauli strings.
-- **5:12** I: do nothing: the same loop on every corner
+- **5:13** I: do nothing: the same loop on every corner
 - **5:16** X₀, X₁, X₂flip one digit: hops along the cube’s edges in one direction
 - **5:26** Z₂a sign by digit: loops of +1 (solid, red) and −1 (dashed, blue)
 - **5:31** Z₂X₁hops with signs
 - **5:34** X₂X₁, Y₂Y₁flip two digits at once: face diagonals (Y with signs)
-- **5:40** Any traffic table is a recipe of these bricks, the way a sound is a mix of pure tones.
+- **5:41** Any traffic table is a recipe of these bricks, the way a sound is a mix of pure tones.
 - **5:49** Here they are added largest first, and the rebuilt cube comes close to the true one: after ten bricks the error left is 0.07, down from 1.
 - **6:00** A Pauli string puts one Pauli matrix on each qubit: I (do nothing), X (flip the bit), Z (+1 on 0, −1 on 1) or Y (flip with a sign). Subscripts are qubits; q2 is the first cut. Any 8 × 8 table is one weighted sum of the 64 strings. Here: I 0.55, X₀ 0.17, X₁ 0.11, X₂ 0.08, X₁X₀ 0.04 …
-- **6:21** In the real network the largest weights are I 0.40, X₁ 0.20, X₂X₁ 0.13, X₂ 0.11, Z₂Z₁ 0.08, Y₂Y₁ 0.07, X₀ 0.06, Z₀ 0.05, X₁X₀ 0.04, and a tail.
+- **6:22** In the real network the largest weights are I 0.40, X₁ 0.20, X₂X₁ 0.13, X₂ 0.11, Z₂Z₁ 0.08, Y₂Y₁ 0.07, X₀ 0.06, Z₀ 0.05, X₁X₀ 0.04, and a tail.
 
-### 6:31 Toolbox
+### 6:32 Toolbox
 
 - **6:32** The toolbox
 - **6:33** A quantum computer runs some moves quickly and others hardly at all.
 - **6:38** Keep only the bricks in its quick toolbox, a Lie algebra; the rest goes gray and is dropped.
 - **6:46** What is dropped is the residual: 0 means nothing lost, 1 everything. Here it is 0.34 with three qubits.
 - **6:53** The toolbox: the TFIM chain's moves (X on each qubit, ZZ on neighbors) close to so(6), 15 strings at 3 qubits; Z on q2 as well gives so(7), 21 strings. Closed means the commutators of its strings stay inside, so its operators run as short circuits. Residual = ‖A₀ − ΠA₀‖ / ‖A₀‖, with A₀ the traceless part and Π the projection onto the algebra.
-- **7:18** In the real network, every extra bit makes the fit worse.
+- **7:19** In the real network, every extra bit makes the fit worse.
 - **7:24** Our cuts lose 0.44 at 2 bits, 0.52 at 3 and 0.56 at 4, where random cuts lose 0.57, 0.75 and 0.86. At 8 bits ours lose 0.88 (the best variant 0.82): most of the operator falls outside the toolbox.
 - **7:36** The example network, computed here: 0.00 at 1 bit, 0.12 at 2 and 0.34 at 3 (random cuts: 0.56 at 2, 0.75 at 3).
-- **7:42** At 1 bit every cut loses nothing. In the real network at 3 bits, so(7)'s generators carry 66% of A_c's traceless weight, and the whole algebra 73%.
+- **7:43** At 1 bit every cut loses nothing. In the real network at 3 bits, so(7)'s generators carry 66% of A_c's traceless weight, and the whole algebra 73%.
 
-### 7:52 Circuit
+### 7:53 Circuit
 
 - **7:53** The recipe as a circuit
-- **7:55** What is kept runs as a short circuit: six gates on three qubits, each a small turn.
+- **7:56** What is kept runs as a short circuit: six gates on three qubits, each a small turn.
 - **8:03** Red gates flip (X), blue gates add signs (Z); the deeper the color, the larger the turn.
 - **8:10** One Trotter step of e^(−iKt) at 3 bits in so(7), with the real network's angles: RX on q0, q1 and q2 (θ = −0.112, −0.396, −0.222), RZZ on (q2, q1) at −0.163 and (q1, q0) at +0.039, RZ on q2 at +0.029. θ = −2ct, with c = tr(P A_c)/8 and R_P(θ) = exp(−iθP/2), t = 1.
 - **8:29** From thousands of genes to 8 cells on 3 qubits, and from a traffic table to a few bricks a quantum computer runs well.
-- **8:38** Next: more qubits need larger toolboxes or better cuts, and then the patients' data, V, go in.
+- **8:39** Next: more qubits need larger toolboxes or better cuts, and then the patients' data, V, go in.
 - **8:46** Method and figures: Joel Hancock.
 - **8:49** The networks shown are examples, computed here; numbers marked "real network" are from the authors' run on STRING v12.5. The cuts here stand in for their beam search, and the valleys are illustrative.
 

@@ -152,7 +152,7 @@ instanced tubes), 29k points (the grid of pairs), 11k lines (the strong-mixing n
 
 Done in part 2: the first chapter's key is `title` (named Pairs), as the engine's shared title-arc lines expect; the
 others as below. Explore's shared state is `{ tab, scene, ctl, brick, sum, gal }` (the cube's network, cut, bits and
-algebra live in `ctl.cube`). Paced by `tools/pace.mjs` to 9:03.
+algebra live in `ctl.cube`). Paced by `tools/pace.mjs` to 9:04.
 
 Rename everything: `HOST.register('qubits', ...)`, the header comment (Joel Hancock's method and figures; example
 networks), `audio/narration-qubits.mp3`, `SET_ORDER = ['pairs', 'cube', 'chart']`; remove the body, tissue and organ

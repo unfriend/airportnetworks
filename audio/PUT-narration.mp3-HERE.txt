@@ -48,7 +48,7 @@ start at 0:00, 0:29, 1:26, 2:06, 3:05, 3:58, 5:03, 5:47 and 6:43, ending at
 your recording differs.
 
 The qubits story (#qubits) looks for narration-qubits.mp3. Its chapters start
-at 0:00, 0:50, 1:49, 2:32, 4:01, 5:02, 6:31 and 7:52, ending at 9:03; change
+at 0:00, 0:51, 1:50, 2:32, 4:02, 5:02, 6:32 and 7:53, ending at 9:04; change
 NARRATION_SYNC in tools/qubits/engine/e3_story.js (then rebuild) if your
 recording differs.
 

@@ -287,7 +287,7 @@ void main() { vec2 c = gl_PointCoord - 0.5; float d = length(c); if (d > 0.5) di
   for (let c = 0; c < 8; c++) anchors['hood' + c] = (() => { const h = hood(c); return [h[0] + 0.12, Y0 + 0.06, h[1]]; })();
   const fmtN = v => Math.round(v).toLocaleString('en-US');
   const labels = [
-    { text: () => { const g = Math.round(now.n); return [`${fmtN(g)} genes`, ` · ${fmtN(g * (g - 1) / 2)} pairs`]; }, at: 'corner', cls: 'cyn', alpha: S => clamp(S.pairs_genes, 0, 1) * (1 - clamp(S.pairs_map, 0, 1)) },
+    { text: () => { const g = Math.round(now.n); return [`${fmtN(g)} genes shown`, ` · ${fmtN(g * (g - 1) / 2)} pairs`]; }, at: 'corner', cls: 'cyn', alpha: S => clamp(S.pairs_genes, 0, 1) * (1 - clamp(S.pairs_map, 0, 1)) },
     { text: ['Walker 1', ''], at: 'walker0', cls: 'mag', minor: true, alpha: S => clamp(S.pairs_walk, 0, 1) * clamp(S.pairs_map, 0, 1) * (1 - prog(S.pairs_settle, 0.5, 1)) * (1 - clamp(S.pairs_fold, 0, 1)) },
     { text: ['Walker 2', ''], at: 'walker1', cls: 'cyn', minor: true, alpha: S => clamp(S.pairs_walk, 0, 1) * clamp(S.pairs_map, 0, 1) * (1 - prog(S.pairs_settle, 0.5, 1)) * (1 - clamp(S.pairs_fold, 0, 1)) },
     { text: ['Valley', ' · illustrative'], at: 'valley0', cls: 'amb', alpha: S => prog(S.pairs_valley, 0.5, 1) * clamp(S.pairs_map, 0, 1) * (1 - clamp(S.pairs_fold, 0, 1)) },

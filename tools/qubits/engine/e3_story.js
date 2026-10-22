@@ -7,21 +7,21 @@
 // between two cues lasts long enough to read what appeared at its start; run
 // it again after the text changes). A recording replaces it with its own times.
 const NARRATION_SYNC = [
-  [0, 0], [3.3, 3], [7, 4], [7.7, 4.6], [12.7, 6.5], [21.9, 12], [24.1, 13.5], [34.2, 22.6],
-  [44, 26],                                           // Pairs
-  [50.6, 30], [51.9, 31.18], [53.5, 31.2], [54.1, 31.8], [62.7, 35], [84.2, 54.6], [105.1, 58],  // Walkers
-  [109.9, 62], [111.2, 63.18], [112.3, 63.2], [119.3, 67], [125.5, 72], [134.9, 80.6], [142.2, 83],  // Shrink
-  [152.3, 90], [152.9, 90.6], [154.2, 91.2], [164.8, 98], [194, 124.6], [204.8, 126], [205.4, 126.6],
-  [220.6, 128], [221.2, 128.6],                       // Cuts
-  [241.6, 130], [242.3, 130.6], [243.6, 131.2], [252.8, 137], [264.2, 143], [275.6, 150],
-  [276.3, 150.6], [296.3, 155],                       // Coarse
-  [302.4, 160], [303.1, 160.6], [304, 161.2], [304.6, 161.8], [312.7, 165], [316.2, 168],
-  [326.1, 177], [331, 180], [340.9, 189], [349.2, 193], [360.2, 200], [360.8, 200.6], [381.7, 206],  // Bricks
-  [391.6, 215], [392.2, 215.6], [393.1, 216.2], [398.4, 219], [406.3, 224], [413.3, 230],
-  [414, 230.6], [438.7, 238], [444.2, 243], [456.5, 253], [462.7, 256],  // Toolbox
-  [472.8, 262], [474.1, 263.18], [475.6, 263.2], [476.3, 263.8], [483.1, 266], [490.5, 270],
-  [509, 279], [509.6, 279.6], [518.6, 282], [519.3, 282.6], [526.1, 285], [528.3, 286], [530, 287.6],
-  [543.9, 290],                                       // Circuit
+  [0, 0], [3.3, 3], [7, 4], [7.7, 4.6], [12.7, 6.5], [22.4, 12], [24.6, 13.5], [34.6, 22.6],
+  [44.5, 26],                                         // Pairs
+  [51, 30], [52.3, 31.18], [53.9, 31.2], [54.6, 31.8], [63.1, 35], [84.7, 54.6], [105.5, 58],  // Walkers
+  [110.3, 62], [111.6, 63.18], [112.7, 63.2], [119.8, 67], [125.9, 72], [135.4, 80.6], [142.6, 83],  // Shrink
+  [152.7, 90], [153.4, 90.6], [154.7, 91.2], [165.2, 98], [194.5, 124.6], [205.2, 126],
+  [205.9, 126.6], [221, 128], [221.7, 128.6],         // Cuts
+  [242.1, 130], [242.7, 130.6], [244, 131.2], [253.3, 137], [264.7, 143], [276.1, 150],
+  [276.7, 150.6], [296.7, 155],                       // Coarse
+  [302.8, 160], [303.5, 160.6], [304.4, 161.2], [305, 161.8], [313.1, 165], [316.7, 168],
+  [326.6, 177], [331.4, 180], [341.3, 189], [349.6, 193], [360.6, 200], [361.2, 200.6], [382.1, 206],  // Bricks
+  [392, 215], [392.6, 215.6], [393.5, 216.2], [398.8, 219], [406.7, 224], [413.7, 230],
+  [414.4, 230.6], [439.2, 238], [444.7, 243], [456.9, 253], [463.1, 256],  // Toolbox
+  [473.2, 262], [474.5, 263.18], [476, 263.2], [476.7, 263.8], [483.5, 266], [490.9, 270],
+  [509.4, 279], [510, 279.6], [519, 282], [519.7, 282.6], [526.5, 285], [528.7, 286], [530.4, 287.6],
+  [544.2, 290],                                       // Circuit
 ];
 // recording time -> original story time
 function storyT(t) {
@@ -200,7 +200,7 @@ function buildStory() {
       <h1 data-at="1.2">Three qubits</h1>
       <p class="lede" data-at="2.4">how a gene network fits on a tiny quantum computer</p>
       ${turns(`<p data-at="4" data-out="21.5">Some diseases only appear when two genes are broken at the same time.</p>
-        <p data-at="6.5" data-out="21.5">Each dot here is a gene, and each square a pair of them. Add genes, and the pairs grow much faster.</p>
+        <p data-at="6.5" data-out="21.5">The dots on the diagonal are genes, and every dot above them a pair. Add genes, and the pairs grow much faster.</p>
         <div class="facts"><div data-at="12" data-out="21.5"><b>${fmt(F.genes)}</b><small>genes in the real network</small></div><div data-at="13.5" data-out="21.5"><b>${F.pairsM} million</b><small>pairs of them</small></div></div>
         <p data-at="16" data-out="21.5" class="amber">Far too many to test one by one.</p>`,
       `<p class="note" data-at="22">n genes make n(n − 1)/2 pairs: ${fmt(F.genes)} × ${fmt(F.genes - 1)} / 2 = ${fmt(F.pairs)}. The real network: ${esc(F.source)}, physical protein interactions with a combined score of ${F.score} or more, its largest connected component.</p>
@@ -354,7 +354,7 @@ function buildStory() {
   a = C.toolbox.a; b = C.toolbox.b;
   ramp('cube_alg', a + 2, a + 5, 0, 1);
   ramp('cube_keep', a + 9, a + 15, 0, 1);
-  hide('cube', a + 23, a + 26);
+  hide('cube', a + 21.5, a + 23.5);   // gone before the camera reaches the chart's view (seen from there it crowded the view)
   show('chart', a + 23, a + 26);
   ramp('chart_grow', a + 27, a + 37, 0, 1);
   ramp('chart_ex', a + 38, a + 40, 0, 1);

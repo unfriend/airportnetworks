@@ -31,7 +31,7 @@ qubits; q2 left, q0 right, as a code's digits read), `hood0` .. `hood7` (beside 
 
 ## Labels
 
-- the grid's count: `"240 genes · 28,680 pairs"` (text is a function of the grid: see SPEC.md, labels);
+- the grid's count: `"240 genes shown · 28,680 pairs"` (text is a function of the grid: see SPEC.md, labels);
 - `Walker 1`, `Walker 2` (minor) while they wander; `Valley · illustrative` while the valleys show and the map is flat;
 - `Three qubits` (` · 011` with a code picked: text is a function);
 - the codes `000` .. `111` at the neighborhoods once folded (the others dim while one is picked).
