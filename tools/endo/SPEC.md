@@ -173,6 +173,7 @@ Params:
   dots in its colour, as many as it has genes, up to 40) flies in from above the scene and settles round its
   place; 0, 4 and 7 stay hovering loose above the scene. Staggered by id. (The story crossfades from the tree set's
   endotype view to this.)
+- `syn_shell` 0..1 (default 1): the fibre's wide surface round the junction (the `wide` view's cylinder); 0 hides it.
 Anchors: `axon`, `terminal`, `vesicles`, `activezone`, `mito`, `endosome`, `cleft`, `lamina`, `receptors`, `folds`,
 `channels` (a trough's sodium channels), `nucleus`, `er`, `golgi`, `scaffold` (myofibrils with desmin and plectin),
 `fibre`, `gap` (the middle of the cleft, for standing inside), `junction` (the centre), and `place` (a function: the
@@ -254,13 +255,15 @@ Controls: View (Matrix / Tree / Distances / Endotypes). Explore API `api()`: `se
 Rename everything from the muscle story to this one: `HOST.register('endo', ...)`, the header comment (the poster
 and authors above), `audio/narration-endo.mp3`, `SET_ORDER = ['motor', 'syn', 'net', 'tree']`, the shared-room
 hooks unchanged (see "Shared rooms" in `AGENTS.md`: keep every hook line exactly), the headset code (`e5_xr.js`)
-unchanged except for "Stand in the gap" (below).
+unchanged except for "Stand in the gap" (below). The headset keeps the sets that export `keepClear` (`motor`,
+`syn`) at least 0.35 m from your head in every view but Stand in the gap (`xrClear`, as in the muscle story).
 
 **Chapters** (about 5:10; `CH` keys and times; the narration may later be recorded to these):
 1. `title` 0-14: title card over the motor unit ("Endotypes: one disease, many mechanisms").
 2. `tired` 14-40: the motor unit (`motor`, `motor_signal` on, `motor_site` 3: the junction glows), the camera dives to
    a junction; crossfade into `syn` (`wide`, then `default`), firing, then `syn_tired` up: the twitch fades. Text:
-   CMS, fatigable weakness, the range of severity.
+   CMS, fatigable weakness, the range of severity. `syn_shell` 0 here and in `genes`: the fibre's wide surface round
+   the junction only distracts (it is back from the Network chapter on, while `syn` is hidden).
 3. `genes` 40-70: `syn` with `syn_genes`: the 35 genes where they act; more than 30 causal genes, but the same
    mutation can be mild or severe: genes alone do not explain the range; endotypes might.
 4. `cloud` 70-108: crossfade to `net`: the cloud ("18,306 proteins"), the seeds; `net_k` steps 0 -> 12 (34 groups ->

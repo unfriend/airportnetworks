@@ -260,6 +260,8 @@ function buildStory() {
   cam(a + 5.5, 'motor', 'junction');
   cam(a + 8.6, 'motor', 'junction', 0, null, [0, 0, -0.28]);
   show('syn', a + 8.6, a + 9.4, C.cloud.a - 0.5, C.cloud.a + 1.5);
+  // no fibre's surface round the junction while it fires, tires and shows its genes (it only distracts); back once hidden
+  ramp('syn_shell', C.cloud.a + 2, C.cloud.a + 3, 0, 1);
   ramp('syn_build', a + 8.7, a + 12, 0, 1);
   ramp('syn_fire', a + 11, a + 12.5, 0, 1);
   ramp('syn_tired', a + 17, a + 22, 0, 1);

@@ -79,7 +79,7 @@ see above; the sarcomere is about a third of the build).
 
 Suggested keyframes for the slide-2 chapter: build 0 to 1 over about 6 s (story label on each part as it
 appears), signal 0 to 1 for a few seconds (the reflex loop), heart 0 to 1 while saying it shares the sarcomere,
-open 0 to 1 then contract 0 to 1 (a cam flight `fibre` then `sarcomere`), groups 0 to 1 with site 1..5 stepping
+open 0 to 1 then contract 0 to 1 (a cam flight `fibre`, then `sarcEnd` turning to `sarcSide`), groups 0 to 1 with site 1..5 stepping
 through the five sites while the narrator names the groups, then site back to 0.
 
 ## Anchors
@@ -105,16 +105,29 @@ for `motor_build` to reach their part.
 - `junction` [20, 26, 0.42, ...]: close on the third end plate (vesicles visible; best with `motor_signal`).
 - `fibre` [32, 16, 1.0, 0.5, -0.2, 0.08]: the opened fibre, its myofibrils and the sarcomere growing out.
 - `sarcomere`: inside the lattice, in the bare zone beside the M-band, in a corridor between two thick
-  filaments, looking along the filaments towards a Z-disc's honeycomb: [-92.22, -2.66, 0.2585, 1.27, -0.011, 0.01].
-  The camera sits at x 0.012 (past the M-band struts, which cross the corridor at x 0, and 0.016 before the first
-  crown of heads); the nearest head is about 0.02 away and the nearest thin filament about 0.012 to the side, so
-  nothing is cut by a near plane of 0.01 at world scale 1. The two thin filaments beside the corridor form its
-  walls and look large and slightly faceted that close. Needs `motor_open` 1.
+  filaments, looking along the filaments of the inner half towards its Z-disc's honeycomb and the fibre beyond it:
+  [92.24, -2.68, 0.2565, 0.73, -0.011, 0.01]. The camera sits at x -0.014 from the sarcomere's middle (past the M-band
+  struts, which cross the corridor at x 0, and 0.014 before the first crown of heads); the nearest geometry is about
+  0.012 away, so nothing is cut by a near plane of 0.01 at world scale 1. The two thin filaments beside the corridor
+  form its walls and look large and slightly faceted that close. It looks towards the fibre (not away from it, as it
+  did before) so that in a headset the rest of the unit lies beyond the sarcomere instead of behind your head: kept
+  clear of your head, the view keeps a scale of about 1.6 (four times the default view's) instead of 0.37, the
+  default view's own (`keepClear` below). Explore only. Needs `motor_open` 1.
+- `sarcEnd` [75, 10, 0.9, 1.05, -0.05, 0]: the magnified sarcomere from outside, down its filaments from beyond the
+  outer Z-disc (the camera 0.55 past it), the rest of the unit behind it. The muscle story's first sarcomere shot.
+- `sarcSide` [15, 14, 1.15, 0.97, -0.05, 0]: the sarcomere from the side, a little from above, for the filaments
+  sliding (the story turns from `sarcEnd` to here). Both keep the camera at least 0.6 from any geometry.
 - `heart` [-10, 8, 1.35, 0.30, 0.34, -0.12]: the heart from the front, a little from its right: right atrium,
   right ventricle with the window, the anterior descending artery in its groove and the left border, the trunk and
   the aortic arch.
 
-A good outside view of the sarcomere is [-35, 15, 0.75, 1.0, -0.05, 0].
+Views along the unit from its left (the cord's) side put, in a headset, the whole unit between the view's target and
+you: kept clear of your head, such a view shrinks to about the default view's scale. Close views are best taken
+across the unit (from the front) or from its right end, past the sarcomere.
+
+`keepClear: true`: the set is drawn where its geometry is (the twitch, the heart's beat and the build cut aside), so in
+a headset the engine keeps it at least 0.35 m from your head (`xrClear`, in the muscle and endotype stories'
+`e5_xr.js`).
 
 ## Explore
 

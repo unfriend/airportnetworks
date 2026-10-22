@@ -32,10 +32,11 @@ the small parts are drawn bigger than life (vesicles 0.042 across, cleft 0.13, r
   fading where they would alias. Desmin rings sit round every Z-disc, joined to the neighbours' rings, and
   plectin strands run from the top row up to the nuclei, a mitochondrion and the bottoms of three folds.
 - **The fibre's surface** round the junction: a wide, faint, striated glass cylinder along x (radius 3.2), cut
-  away where the section is (for `wide`). The fibre's cut face has a faint tint.
+  away where the section is (for `wide`). It is a mesh of its own, so `syn_shell` fades and hides it. The fibre's cut
+  face (under the membrane, within the section) has a faint tint, which stays.
 
-Draw calls: 12 at rest, 14 with genes and endotypes on (7 at `syn_build` 0.3: parts that are not there yet are
-hidden). Triangles: 368k (receptors 122k, sodium channels 49k, laminin 34k, AChE 19k, MuSK/LRP4 11k, vesicles
+Draw calls: 13 at rest (12 with `syn_shell` 0), 15 with genes and endotypes on (8 at `syn_build` 0.3: parts that
+are not there yet are hidden). Triangles: 368k (receptors 122k, sodium channels 49k, laminin 34k, AChE 19k, MuSK/LRP4 11k, vesicles
 13k, the rest in three merged meshes). Points: 3,408 (3,773 with genes and endotypes). Line segments: 6,775.
 Build 180 to 230 ms in headless Chromium. Only the 166 vesicle matrices are updated every frame. Untested on a
 headset.
@@ -50,6 +51,7 @@ headset.
 | `syn_tired` | 0 | Fatigable weakness, with firing on. An 8-second loop: six impulses release less and less (relative release 1, 0.7, 0.5, 0.36, 0.27, 0.2 at `syn_tired` 1), then two impulses are skipped (rest). Fewer vesicles fuse and fewer receptors open. The muscle's wave fails below about 0.4 of normal release and the twitch shrinks to nothing by the fifth impulse. 0 healthy. |
 | `syn_genes` | 0 | The 35 seed genes light up where they act, as glowing markers in their endotype's colour. There are 11 groups and they light one after another: nerve (four groups), cleft, membrane (three), inside (three). Group g lights over `syn_genes` 0.04 + 0.07 g to +0.12, and all are lit from 0.86. Each group's label fades in with its markers. The rest of the scene dims a little. |
 | `syn_place` | 0 | Endotype id + 1, 0 none. Its place glows in its colour and the rest dims to about a third. For 0, 4 and 7 (no place) nothing glows and everything dims a little. In-between values cross-fade the two neighbouring ids, so set it with a step (the engine's `jump`) or a quick ease. With `syn_endo` on, that endotype's cloud brightens and the others dim. |
+| `syn_shell` | 1 | The fibre's wide surface round the junction (the cylinder of the `wide` view): 1 shown, 0 hidden (its mesh is not drawn), in between faded. The story hides it in Tired and Genes (it only distracts there) and explore mode always does. |
 | `syn_endo` | 0 | The endotypes arrive. Each is a cloud of its genes (as many as it has, up to 40; 295 dots), starting on a ring above the scene (centre (0, 1.95, 0), 11 at the top, like the tree's endotype view). With a place, the cloud flies down in an arc and settles round its place, gently drifting. Endotypes 0, 4 and 7 come down to hover loose above the bouton, on the right. Staggered by id: id k flies over 0.04 k to 0.04 k + 0.5, so all have landed at 0.94. Visible from 0.06. |
 
 Places, from `ENDO_DATA.endo[].place` (slot, what glows): `mito` (the nerve ending's three mitochondria),
@@ -116,7 +118,8 @@ the group starts to light.
 - Firing: Still (fire 0), Firing (fire 1), Until tired (fire 1, tired 1).
 - Genes: Off / On.
 
-`explore(c)` returns build 1, fire, tired and genes from the controls. It also returns `syn_place` and
+`explore(c)` returns build 1, fire, tired and genes from the controls, and `syn_shell` 0 (no explore view needs the
+fibre's wide surface). It also returns `syn_place` and
 `syn_endo` from `c.place` (an endotype id, -1 or undefined for none) or else from `showPlace(id)`, which the
 engine may call instead (-1 clears). With a place, it returns `syn_endo` 1 and `syn_place` id + 1.
 
@@ -128,6 +131,11 @@ engine may call instead (-1 clears). With a place, it returns `syn_endo` 1 and `
 - In a headset at "Stand in the gap" scale, the cleft (y 0.0 to 0.13) is the band to put at chest height. Use
   the `gap` anchor as the centre.
 - `syn_place` is in the engine's STEP set (no easing); keep it so.
+- `keepClear`: every part is drawn where its geometry is (the nerve's descent while it builds and the endotype
+  clouds' flight aside), so in a headset the engine keeps it clear of your head (`xrClear`, in `e5_xr.js`). It is a
+  function that leaves out the cut-away (a point past `ZC` of a part with the cut flag, `aS.w`), so views into the
+  section (`receptors`) keep their full scale. A hidden mesh (the shell at `syn_shell` 0, meshes not built yet) is
+  left out; the parts of the merged meshes still building count.
 
 ## For the narrator
 

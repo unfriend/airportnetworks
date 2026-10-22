@@ -1166,14 +1166,19 @@ if (position.x > uBuildX) vA = 0.0;` });
   ];
   // a view from a camera position to a target, as [az, el, dist, tx, ty, tz]
   const look = (from, to) => { const d = v3.sub(from, to), L = v3.len(d); return [Math.atan2(d[0], d[2]) * 180 / PI, Math.asin(d[1] / L) * 180 / PI, L, to[0], to[1], to[2]]; };
-  const edge = [LA / 2, 0];   // midway between two thick filaments: a corridor with no filament ahead (x 0.012: past the
-  // M-band struts, which cross this point at x 0, and 0.016 before the first heads)
+  const edge = [LA / 2, 0];   // midway between two thick filaments: a corridor with no filament ahead (x -0.014: past the
+  // M-band struts, which cross this point at x 0, and 0.014 before the first heads), looking along the inner half towards
+  // the fibre, so the rest of the unit lies ahead (in a headset, beyond the sarcomere rather than through you)
   const cam = {
     default: [-20, 14, 3.35, 0.05, 0.05, 0],
     cord: [-24, 12, 0.95, -0.95, -0.15, 0],
     junction: [20, 26, 0.42, ...JN[2].J(0.01, 0, 0.004)],
     fibre: [32, 16, 1.0, 0.5, -0.2, 0.08],
-    sarcomere: look([SC[0] + 0.012, SC[1] + edge[0], SC[2] + edge[1]], [SC[0] + 0.27, SC[1] + edge[0] + 0.012, SC[2] + edge[1] + 0.01]),
+    sarcomere: look([SC[0] - 0.014, SC[1] + edge[0], SC[2] + edge[1]], [SC[0] - 0.27, SC[1] + edge[0] + 0.012, SC[2] + edge[1] + 0.01]),
+    // the magnified sarcomere from outside, the rest of the unit behind it (so in a headset it stays beyond the sarcomere):
+    // down the filaments past its outer Z-disc (the camera 0.55 beyond it), and from the side, a little from above
+    sarcEnd: [75, 10, 0.9, SC[0] + 0.05, SC[1], SC[2]],
+    sarcSide: [15, 14, 1.15, SC[0] - 0.03, SC[1], SC[2]],
     heart: [-10, 8, 1.35, HC[0], HC[1] + 0.05, HC[2]],
   };
   const controls = [
@@ -1192,6 +1197,7 @@ if (position.x > uBuildX) vA = 0.0;` });
   return Object.assign(set, {
     params: { motor_a: 1, motor_build: 1, motor_signal: 0, motor_open: 0, motor_contract: 0, motor_heart: 0, motor_groups: 0, motor_site: 0 },
     update, anchors, labels, cam, controls, explore,
+    keepClear: true,   // drawn where its geometry is: a headset keeps it clear of your head
     idle: dt => { heartStep(sliceMs(dt)); if (!heartJob) heartIn = 1; },   // while the set is hidden, the heart goes on building
     finish: () => { while (heartJob) heartStep(Infinity); heartIn = 1; },     // for screenshots and tests: build it now
   });

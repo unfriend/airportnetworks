@@ -45,7 +45,7 @@ SETS.syn = function (K) {
   const SU = {
     uTime: K.U.uTime, uG: { value: new Array(12).fill(0) }, uD: { value: new Array(12).fill(1) }, uSC: { value: SCOL },
     uStage: { value: [1, 1, 1, 1, 1, 1] }, uNerveY: { value: 0 },
-    uPh: { value: 9 }, uFire: { value: 0 }, uWave: { value: 0 }, uTw: { value: 0 }, uFuse: { value: new Array(16).fill(0) },
+    uPh: { value: 9 }, uFire: { value: 0 }, uWave: { value: 0 }, uTw: { value: 0 }, uFuse: { value: new Array(16).fill(0) }, uShell: { value: 1 },
   };
   // aS: place slot, build stage (0 fibre, 1 membrane, 2 basement membrane, 3 receptors, 4 nerve, 5 Schwann cell and
   // matrix proteins), moves with the arriving nerve (0/1), cut at the cut plane (0/1).
@@ -79,10 +79,11 @@ void main() {` + VB + `
   vN = normalize(mat3(modelMatrix) * normal); vec4 w = modelMatrix * vec4(p, 1.0); vW = w.xyz;
   gl_Position = projectionMatrix * viewMatrix * w;
 }`,
-    fragmentShader: `uniform float uA;
+    fragmentShader: `uniform float uA, uShell;
 varying vec3 vN, vW, vC, vGC, vL; varying float vDm, vK, vP, vKind, vClip, vGA, vSc;
 void main() {
-  if (vK < 0.003 || (vClip > 0.5 && vL.z > ${f4(ZC)})) discard;
+  float sh = vKind > 2.5 && vKind < 3.5 ? uShell : 1.0;   // the fibre's wide surface fades with syn_shell
+  if (vK < 0.003 || sh < 0.003 || (vClip > 0.5 && vL.z > ${f4(ZC)})) discard;
   vec3 n = normalize(vN), v = normalize(cameraPosition - vW); float r = pow(1.0 - abs(dot(n, v)), 2.2), pat = 1.0;
   if (vKind > 1.5 && vKind < 4.5) r = min(r, 0.55);   // wide sheets seen edge-on would add up to white
   if (vKind > 3.5 && vKind < 4.5) {   // the basement membrane: a fibrous mesh
@@ -94,7 +95,7 @@ void main() {
   float a0 = (vKind > 1.5 && vKind < 4.5) ? 0.012 : 0.03;   // sheets seen face-on through many folds stay faint
   vec3 col = (vC * (0.45 + 0.85 * r) * vDm * pat + vGC * (0.5 + 1.2 * r) * pat) * (a0 + 0.42 * r) + pc * vP * (0.35 + 0.8 * r);
   // glass right in front of the eye fades (in the set's own units, so also at life size in a headset)
-  gl_FragColor = vec4(col * vGA * vK * smoothstep(0.03, 0.3, distance(cameraPosition, vW) / vSc), uA);
+  gl_FragColor = vec4(col * vGA * vK * sh * smoothstep(0.03, 0.3, distance(cameraPosition, vW) / vSc), uA);
 }`,
   });
   set.mats.push(glassMat);
@@ -327,7 +328,9 @@ totalEmissiveRadiance += diffuseColor.rgb * uSelf + uRimC * (uRimK * rimF * vDm)
   // the basement membrane: a fibrous sheet through the middle of the cleft and down into every fold
   const lamRows = []; for (let j = 0; j <= 18; j++) lamRows.push(lamProf(lerp(ZB, ZC, j / 18)));
   gAdd(rowsGeo(lamRows), [0.35, 0.85, 1.0], [2, 2, 0, 0], (x, y, z) => [0, 4, 0.9 * smooth((z - ZB) / 0.22) * (0.3 + 0.7 * smooth((XS - Math.abs(x)) / 0.2)) * (0.3 + 0.7 * smooth((y + 0.02) / 0.07))]);
-  // the fibre's surface round the junction (a wide cylinder along x), cut away where the section is
+  // the fibre's surface round the junction (a wide cylinder along x), cut away where the section is: a mesh of its own,
+  // which syn_shell fades and hides (so a headset keeping the scene clear of your head leaves it out when it is off)
+  const shell = Builder({ color: 3, aS: 4, aQ: 3 });
   {
     const RF = 3.2, yc = 0.2 - RF, aB = Math.asin(ZB / RF), xs = [], as = [];
     for (let k = 0; k <= 22; k++) xs.push(lerp(-5, -XS, k / 22));
@@ -343,7 +346,7 @@ totalEmissiveRadiance += diffuseColor.rgb * uSelf + uRimC * (uRimK * rimF * vDm)
       if (!(Math.abs(mx) < XS && ma > aB)) keep.push(ix[q], ix[q + 1], ix[q + 2]);
     }
     g.setIndex(keep);
-    gAdd(g, [1.0, 0.6, 0.7], [0, 1, 0, 0], (x, y, z) => [0.4 + 0.1 * Math.max(0, Math.abs(x) - 0.9), 3, 0.45 * smooth((5 - Math.abs(x)) / 1.6) * smooth((3.2 * 0.87 - Math.abs(z)) / 0.8)]);
+    shell.add(g, { color: [1.0, 0.6, 0.7], aS: [0, 1, 0, 0], aQ: (x, y, z) => [0.4 + 0.1 * Math.max(0, Math.abs(x) - 0.9), 3, 0.45 * smooth((5 - Math.abs(x)) / 1.6) * smooth((3.2 * 0.87 - Math.abs(z)) / 0.8)] });
   }
   {   // the fibre's cut face: a faint tint under the membrane's profile, fading towards the sides and the bottom
     const top = memProf(ZC - 0.002), rows = [top, top.map(p => [p[0], -1.18, p[2]])];
@@ -811,6 +814,7 @@ totalEmissiveRadiance += diffuseColor.rgb * uSelf + uRimC * (uRimK * rimF * vDm)
   diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.55, 0.45, 0.9), Z * 0.85 * fa);
 }`, fe: '\ntotalEmissiveRadiance += diffuseColor.rgb * uTw * 0.7;' }), 1, myoG);
   mk(glass, glassMat, 5);
+  const shellMesh = mk(shell, glassMat, 5);
   {   // the muscle membrane's skin: semi-opaque, so the receptors sit on a surface and the crests hide what is under them
     const sk = Builder({ color: 3, aS: 4, aQ: 3, aCtr: 3 });
     sk.add(rowsGeo(memRows.map(r => r.map(p => [p[0], p[1] - 0.004, p[2]]))), { color: [0.48, 0.26, 0.33], aS: [9, 1, 0, 0], aQ: (x, y) => [waveT(x, y), 2, 1], aCtr: [0, 0, 0] });
@@ -848,6 +852,7 @@ totalEmissiveRadiance += diffuseColor.rgb * uSelf + uRimC * (uRimK * rimF * vDm)
     ST[0] = prog(b, 0, 0.3); ST[1] = prog(b, 0.05, 0.35); ST[2] = prog(b, 0.25, 0.5); ST[3] = prog(b, 0.4, 0.7); ST[4] = prog(b, 0.5, 0.85); ST[5] = prog(b, 0.8, 1);
     const ny = 0.6 * Math.pow(1 - ST[4], 2);
     SU.uNerveY.value = ny; vesMesh.position.y = ny;
+    SU.uShell.value = clamp(S.syn_shell, 0, 1); shellMesh.visible = SU.uShell.value > 0.003;
     // firing: one impulse a second; tired, each of six impulses releases less (the twitch shrinks, then fails), two rest
     const fire = clamp(S.syn_fire, 0, 1), tired = clamp(S.syn_tired, 0, 1);
     const n = Math.floor(t), ph = t - n, kc = ((n % 8) + 8) % 8;
@@ -928,11 +933,14 @@ totalEmissiveRadiance += diffuseColor.rgb * uSelf + uRimC * (uRimK * rimF * vDm)
   function explore(c) {
     const pl = c.place !== undefined ? c.place : placeSel;
     return { syn_build: 1, syn_fire: c.fire === 'firing' || c.fire === 'tired' ? 1 : 0, syn_tired: c.fire === 'tired' ? 1 : 0,
-      syn_genes: c.genes === 'on' ? 1 : 0, syn_place: pl >= 0 ? pl + 1 : 0, syn_endo: pl >= 0 ? 1 : 0 };
+      syn_genes: c.genes === 'on' ? 1 : 0, syn_place: pl >= 0 ? pl + 1 : 0, syn_endo: pl >= 0 ? 1 : 0, syn_shell: 0 };   // (no view here needs the fibre's wide surface)
   }
   return Object.assign(set, {
-    params: { syn_a: 1, syn_build: 1, syn_fire: 0, syn_tired: 0, syn_genes: 0, syn_place: 0, syn_endo: 0 },
+    params: { syn_a: 1, syn_build: 1, syn_fire: 0, syn_tired: 0, syn_genes: 0, syn_place: 0, syn_endo: 0, syn_shell: 1 },
     update, anchors, labels, cam, controls, explore,
+    // drawn where its geometry is, but for the cut-away (a point past the cut plane, of a part cut there): a headset keeps
+    // the rest clear of your head
+    keepClear: o => { const a = o.geometry.attributes.aS; return a && a.itemSize === 4 ? (x, y, z, i) => !(a.array[4 * i + 3] > 0.5 && z > ZC) : null; },
     showPlace: id => { placeSel = id >= 0 && id < 12 ? id : -1; },
     genePos: sym => GPOS[sym] || null,                                       // where a seed gene acts (local coordinates)
     geneGroups: GLAB.map(L => ({ text: [L.b, L.r], genes: L.syms, at: L.at, from: geneStart(L.g) })),   // in the order they light
