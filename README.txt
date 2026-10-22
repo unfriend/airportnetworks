@@ -45,8 +45,8 @@ move them with the grip, then press Anchor. It uses the Quest Browser's room
 anchors (not in private browsing; clearing the site's data forgets the place);
 without them the place holds until you leave VR. #anchor=on (or #anchor=off) in
 a link sets it.
-Shared rooms (Shared button, top bar and Stories screen; in a headset a small
-Shared panel on the left controller): several headsets and screens join one
+Shared rooms (Shared button, top bar and Stories screen; in a headset the menu:
+the clock on your left wrist): several headsets and screens join one
 room and see the same stations, a story each at a spot in the room, in step on
 every device (anyone can play, pause, jump or change a control; the last action
 wins). A headset runs the station it stands at; the others show as rings on the
@@ -61,12 +61,12 @@ again, do that: the headset finds its marks again in a new AR session). A headse
 never overridden, and the room's floor comes from the marks, so a headset
 with a wrong floor still shows things at the same height. Headsets without
 marks line up through Quest Browser's experimental shared space (on unless
-switched off on the Shared panel; every headset needs the same browser version
+switched off in the menu; every headset needs the same browser version
 and the WebXR experiments flag), and line up again after standby; if one is
-still off, press Re-align on its Shared panel (it lines that headset up again
+still off, press Re-align in its menu (it lines that headset up again
 from the start). If two calibrated headsets find the shared space puts them
-far apart (each headset can keep its own copy of it), Fresh shared space on the
-Shared panel (twice) moves the whole room to a new address where the headsets
+far apart (each headset can keep its own copy of it), Fresh shared space in the
+menu (twice) moves the whole room to a new address where the headsets
 make a new one: start AR on one headset first, then the others. The relay keeps the headsets' logs in
 relay/logs/ for checking alignment. People elsewhere and
 screens
@@ -74,13 +74,19 @@ see the stations round their own spot. Screens get a room map and Follow a
 station. A station moves with the grip on its ring or card in a headset (point
 to swing it round, raise or lower to push or pull, twist to turn it), or by
 dragging its dot (or its square, to turn it) on the room map; everyone sees it
-move. Lock layout (Shared panel or dialog) then keeps them where they are,
+move. Lock layout (headset menu or Shared dialog) then keeps them where they are,
 until someone unlocks it. At a station in a headset the grip moves the scene
 or the story panel and both grips resize the scene, during the story too, for
 everyone at once (unless the layout is locked); each station keeps its story,
 so the story panel has no Stories button there: another story is another
-station. In a headset the Shared panel rides on the left controller; its Exit
-button leaves VR or AR (the story panels have none). At a station the flock flies round the station's
+station. In a headset the menu is closed at first: only a clock shows, worn
+like a watch on your left wrist (on the left controller, or on your wrist with
+hand tracking; beside the story panel without either). Touch it with the right
+controller's tip or your right index finger, click the left stick, or point at
+it and pull the trigger, to open the menu above it; the same closes it again.
+Inside: Exit (leaves VR or AR; the story panels have none), Slideshow for every
+story, and the shared room. With hand tracking a fingertip presses its buttons
+too, or pinch while pointing. At a station the flock flies round the station's
 spot, roughly in the same place for everyone (one device leads, the others follow it), with the
 same falcons. The robots move separately on each device; their controls and crumbs are shared. Others join a room through the relay
 (relay/, Node, no packages), which GitHub Pages cannot run: for now it runs on a
@@ -89,7 +95,7 @@ relay/server.mjs --lan prints the https:// address to open on each headset; see
 relay/README.md). GitHub Pages serves everything else; a copy there can join a
 relay elsewhere with &relay=wss://... in the room link. #s=XYZ in a link joins
 room XYZ. Without a relay (none known, or none answers) a room still works on
-the device alone: Start a room here on the Shared panel places the stories in
+the device alone: Start a room here in the headset's menu places the stories in
 your room (Arrange all, moving them, Lock layout, calibrating); the room is kept
 on the device, and once a relay answers it moves there and others can join it.
 Nothing changes for anyone not in a room. Tried on two Quest 3 headsets in one

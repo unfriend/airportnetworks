@@ -236,7 +236,7 @@ same page address, the relay on the same Wi-Fi; every 5 s each headset logged it
   into a space that disagrees once it holds still (not into one that is just its own floor); someone else's frame
   is followed through a space that disagrees only when written since this headset fell asleep (frames carry `p`,
   when they were written) or when the floor moved with no transform; a headset still outside the others' space 15 s
-  after waking asks for it once more; and **Re-align** on the Shared panel lines a headset up again by hand (the
+  after waking asks for it once more; and **Re-align** in the headset's menu lines a headset up again by hand (the
   shared space asked for again, the room's frame written again by whoever wrote it, then taken).
 
 - **19 October, two Quest 3s on Quest Browser 152, the same address** (logs `2026-10-19-*`): the evening

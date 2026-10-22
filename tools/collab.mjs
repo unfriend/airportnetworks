@@ -12,8 +12,10 @@
 // when the frame moves, switches story by walking to another station (and takes its state), lets the story's
 // own panel win over a card behind it; a headset without a shared space calibrates from two marks (its panel's
 // Stop calibrating still works), saves the frame with an anchor at mark A and finds it again next time; a VR
-// headset asks once whether it is in the room, and takes its own floor when elsewhere. --shots also saves
-// pictures (the Shared dialog on a desktop and a phone, two pretend headset views). --quick runs only the last
+// headset asks once whether it is in the room, and takes its own floor when elsewhere; the headset's menu (closed
+// at first, only its clock on the left wrist; opened by the left stick's click, a touch of the right controller or
+// index fingertip, or the trigger on the clock; Exit inside). --shots also saves pictures (the Shared dialog on a
+// desktop and a phone, four pretend headset views). --quick runs only the last
 // story of STORIES in the per-story part (for a quicker run while working on the rest); --port N runs the relay on
 // port N (default: any free port).
 // Needs Playwright as tools/smoke.mjs does (PLAYWRIGHT_MODULE, CHROMIUM_PATH). Exits 1 on any failure.
@@ -149,8 +151,8 @@ async function open(hash, size) {
   const page = await ctx.newPage();
   page.on('pageerror', e => errors.push(e.stack || e.message));
   page.on('console', m => { if (m.type() === 'error' && !/404|Failed to load resource/.test(m.text())) errors.push(m.text()); });
-  await page.goto(base() + 'index.html' + hash);
-  await page.waitForFunction(() => typeof HOST !== 'undefined' && HOST.collab, null, { timeout: 30000 });
+  await page.goto(base() + 'index.html' + hash, { timeout: 90000 });   // (pages already open draw in software: a busy machine loads slowly)
+  await page.waitForFunction(() => typeof HOST !== 'undefined' && HOST.collab, null, { timeout: 90000, polling: 100 });
   return page;
 }
 const until = (page, fn, arg, ms) => page.waitForFunction(fn, arg, { timeout: ms || 1000, polling: 30 }).then(() => true, () => false);
@@ -194,6 +196,7 @@ function installXR(o) {
   X.frame = {
     getPose: (s, b) => pose(world(b).clone().invert().multiply(world(s))),
     getViewerPose: b => pose(world(b).clone().invert().multiply(X.W.head)),
+    getJointPose: (j, b) => (j && j.world ? pose(world(b).clone().invert().multiply(j.world)) : null),   // a tracked hand's joint
     createAnchor(t, b) {
       const w = world(b).clone().multiply(new THREE.Matrix4().compose(V(t.position.x, t.position.y, t.position.z),
         new THREE.Quaternion(t.orientation.x, t.orientation.y, t.orientation.z, t.orientation.w), V(1, 1, 1)));
@@ -527,6 +530,11 @@ try {
   const wantO = unapply(FLOOR, ROOM.slice(0, 3)), wantX = rot(-FLOOR[3], rot(ROOM[3], [1, 0, 0]));
   check('headset: aligns from the frame published for its shared space', fr && fr.src === 'adopted' && near(fr.o, [wantO[0], 0, wantO[2]], 1e-4) && near(fr.x, wantX, 1e-4),
     fr ? `${fr.src} o ${fmt(fr.o)} x ${fmt(fr.x)}, want o ${fmt(wantO)} x ${fmt(wantX)}` : 'no frame');
+  // the menu is closed at the start of a session: only its clock shows (here beside the story panel: no left controller)
+  const menu0 = await H.evaluate(() => { const O = HOST.collab.overlay(); return { open: HOST.collab.menu, clock: O.clockG.visible, panel: O.panelG.visible,
+    regions: O.panel.regions.length, onHand: !!O.onHand, scale: O.clockG.scale.x, hit: O.hit.includes(O.clock.mesh) && !O.hit.includes(O.panel.mesh) }; });
+  check('headset: the menu is closed at first, only its clock shows (beside the story panel without a left controller)', !menu0.open && menu0.clock && !menu0.panel &&
+    !menu0.regions && !menu0.onHand && menu0.scale === 2 && menu0.hit, JSON.stringify(menu0));
   // the shared space as the relay logs caught Quest Browser: its pose at the head right after waking (not used,
   // nothing compared or published from it), and a space that is just this headset's own floor (named on the panel)
   const glitch = await H.evaluate(() => {
@@ -751,7 +759,7 @@ try {
       refDistance: p && p.refDistance }; });
   check('headset: the sound zone puts the narration at the station, at full volume at its spot', zone.pan && zone.model === 'HRTF' && near(zone.pan, czLocal, 1e-3) &&
     near(zone.ear, headLocal, 1e-3) && Math.abs(zone.vol - vol) < 0.012 && vol === 1 && zone.refDistance === 1.5, `${JSON.stringify(zone)}, want ${fmt(czLocal)} at volume ${vol.toFixed(3)}`);
-  // pointing with the trigger: the shell's panel (its Open button) and another station's card take the press
+  // pointing with the trigger: the menu's clock (it opens the menu) and another station's card take the press
   const press = async target => {
     await H.evaluate(t => {
       const X = window.__xr, c = HOST.cur.peek('XR.ctrls')[0], V = THREE.Vector3;
@@ -764,14 +772,11 @@ try {
     }, target);
     await frames(H, 150);
   };
-  const openAt = await H.evaluate(() => {
-    const S = HOST.collab.overlay().panel, r = S.regions.find(x => x.id === 'open');
-    if (!r || !S.mesh.parent.visible) return null;
-    const H = S.mw * S.h / S.w, cx = r.x + r.w / 2, cy = r.y + r.h / 2;
-    return S.mesh.localToWorld(new THREE.Vector3((cx / S.w - 0.5) * S.mw, (0.5 - cy / S.vis) * H, 0)).toArray();
-  });
+  const openAt = await H.evaluate(() => { const O = HOST.collab.overlay(); return !HOST.collab.menu && O.clockG.visible ? O.clockG.getWorldPosition(new THREE.Vector3()).toArray() : null; });
   if (openAt) await press(openAt);
-  check('headset: the shell\'s panel beside the story panel takes the trigger (Open)', !!openAt && await H.evaluate(() => HOST.collab.overlay().panel.vis > 200));
+  const opened = await H.evaluate(() => { const O = HOST.collab.overlay(); return { open: HOST.collab.menu, panel: O.panelG.visible, vis: O.panel.vis, ids: O.panel.regions.map(r => r.id) }; });
+  check('headset: the trigger on the menu\'s clock (beside the story panel) opens the menu: Close in its header, Exit inside', !!openAt && opened.open && opened.panel && opened.vis > 200 &&
+    opened.ids.includes('close') && opened.ids.includes('exit') && !opened.ids.includes('open'), JSON.stringify(opened));
   await H.evaluate(() => HOST.collab.panelOpen(false));
   await frames(H, 150);
   // a station's card 1 m behind the story's own panel: the panel takes the ray (it is nearer, and drawn on top);
@@ -876,24 +881,75 @@ try {
   check('headset: the layout lock (from a page) stops the grip moving a station and Arrange all; the headset panel\'s button unlocks it for everyone',
     lockSeen && lk0.hov === SM.id && !lk1.moving && !!lk1.st && Math.abs(lk1.st.x - lk0.st.x) < 1e-6 && arrRefused && unlockBtn && unlocked,
     JSON.stringify({ lockSeen, hov: lk0.hov, moving: lk1.moving, arrRefused, unlockBtn, unlocked }));
-  // the shared panel rides on the left controller (above it, turned to the eyes); without one it goes back beside
-  // the story panel
+  // the menu's clock rides on the left controller (behind its grip and above it, turned to the eyes); a click of the
+  // left stick opens the menu above the clock and closes it again; a touch of the right controller's tip opens it,
+  // and takes another touch only once moved 7 cm away; with tracked hands the clock sits on the left wrist, the right
+  // index fingertip opens it and presses the menu's buttons by touch; without a left controller or hand the clock
+  // goes back beside the story panel
   const hand = await H.evaluate(async () => {
-    const X = window.__xr, V = THREE.Vector3, O = HOST.collab.overlay();
+    const X = window.__xr, V = THREE.Vector3, M4 = THREE.Matrix4, O = HOST.collab.overlay(), g = O.clockG, S = O.panel;
+    const steps = async n => { for (let k = 0; k < n; k++) { X.step(); await new Promise(r => setTimeout(r, 20)); } };
+    HOST.collab.panelOpen(false);
     const head = new V().setFromMatrixPosition(X.W.head).applyMatrix4(X.W.local.clone().invert()), lp = head.clone().add(new V(-0.2, -0.35, -0.3));
-    X.aim(1, new THREE.Matrix4().compose(lp, new THREE.Quaternion(), new V(1, 1, 1)));
-    for (let k = 0; k < 4; k++) { X.step(); await new Promise(r => setTimeout(r, 20)); }
-    const g = O.panelG, S = O.panel, vh = S.mw * S.vis / S.w * g.scale.x;
-    const out = { p: g.position.toArray(), want: [lp.x, lp.y + 0.07 + vh, lp.z], scale: g.scale.x,
+    X.aim(1, new M4().compose(lp, new THREE.Quaternion(), new V(1, 1, 1)));
+    await steps(4);
+    const out = { closed: !HOST.collab.menu && g.visible && !O.panelG.visible, c: g.position.toArray(), want: lp.clone().add(new V(0, 0.05, 0.05)).toArray(), scale: g.scale.x,
       facing: new V(0, 0, 1).applyQuaternion(g.quaternion).dot(head.clone().sub(g.position).normalize()) };
-    const c1 = HOST.cur.peek('XR.ctrls')[1]; c1.g.visible = false; c1.src = null; X.session.inputSources.length = 1;
-    for (let k = 0; k < 3; k++) { X.step(); await new Promise(r => setTimeout(r, 20)); }
-    out.back = O.panelG.scale.x;
+    // the left stick's click (button 3), pressed and let go: open; again: closed
+    const btn = { pressed: false };
+    X.session.inputSources[1].gamepad = { buttons: [{}, {}, {}, btn], axes: [0, 0, 0, 0], hapticActuators: [] };
+    await steps(2);
+    btn.pressed = true; await steps(2); out.stick = HOST.collab.menu; btn.pressed = false; await steps(3);
+    const vh = S.mw * S.vis / S.w * O.panelG.scale.x;
+    out.above = O.panelG.visible && Math.abs(O.panelG.position.y - vh - (g.position.y + 0.065)) < 1e-3 && Math.hypot(O.panelG.position.x - g.position.x, O.panelG.position.z - g.position.z) < 1e-6;
+    out.pscale = O.panelG.scale.x;
+    out.ids = S.regions.map(r => r.id).slice(0, 3);
+    btn.pressed = true; await steps(2); btn.pressed = false; await steps(2);
+    out.stickClosed = !HOST.collab.menu && !O.panelG.visible;
+    // the right controller's tip: 10 cm off (armed), 2 cm (opens), 5 cm and 2 cm again (no second touch), away and back (closes)
+    const at = d => X.aim(0, new M4().compose(g.position.clone().add(new V(d, 0, 0)), new THREE.Quaternion(), new V(1, 1, 1)));
+    at(0.1); await steps(2); at(0.02); await steps(2); out.touch = HOST.collab.menu;
+    at(0.05); await steps(2); at(0.02); await steps(2); out.held = HOST.collab.menu;
+    at(0.1); await steps(2); at(0.02); await steps(2); out.touchClosed = !HOST.collab.menu;
+    at(0.3); await steps(2);
+    // hands: a left wrist turned every which way, the right index fingertip
+    const J = m => ({ world: X.W.local.clone().multiply(m) }), tip = J(new M4());
+    const tipAt = v => { tip.world = X.W.local.clone().multiply(new M4().makeTranslation(v.x, v.y, v.z)); };
+    const wq = new THREE.Quaternion().setFromEuler(new THREE.Euler(0.5, 0.7, -0.3)), wp = head.clone().add(new V(-0.15, -0.4, -0.35)), wm = new M4().compose(wp, wq, new V(1, 1, 1));
+    X.session.inputSources[1] = { handedness: 'left', targetRayMode: 'tracked-pointer', gamepad: null, targetRaySpace: J(wm), hand: new Map([['wrist', J(wm)]]) };
+    X.session.inputSources[0] = { handedness: 'right', targetRayMode: 'tracked-pointer', gamepad: null, targetRaySpace: J(new M4()), hand: new Map([['index-finger-tip', tip]]) };
+    tipAt(head.clone().add(new V(0.3, -0.3, -0.2)));
+    await steps(25);
+    out.wrist = g.position.toArray(); out.wristWant = wp.clone().add(new V(0, 0.03, 0.035).applyQuaternion(wq)).toArray();
+    out.handClosed = !HOST.collab.menu && g.visible && !!O.onHand;
+    const c0 = g.position.clone();
+    tipAt(c0.clone().add(new V(0.1, 0, 0))); await steps(2); tipAt(c0.clone().add(new V(0.015, 0, 0))); await steps(3);
+    out.finger = HOST.collab.menu && O.panelG.visible;
+    // a fingertip on Exit: hovered 4 cm in front of it, pressed within 1.5 cm, once, again after pulling back
+    const s = X.session, e0 = s.end; let n = 0; s.end = () => { n++; };
+    const r = S.regions.find(x => x.id === 'exit'), Hh = S.mw * S.h / S.w;
+    const onExit = d => S.mesh.localToWorld(new V((r.x + r.w / 2) / S.w * S.mw - S.mw / 2, (0.5 - (r.y + r.h / 2) / S.vis) * Hh, d / O.panelG.scale.x));
+    tipAt(onExit(0.04)); await steps(2); out.pokeHover = S.hover;
+    tipAt(onExit(0.005)); await steps(2); out.poke1 = n; await steps(2); out.poke1b = n;
+    tipAt(onExit(0.04)); await steps(2); tipAt(onExit(0.005)); await steps(2); out.poke2 = n;
+    if (e0) s.end = e0; else delete s.end;
+    tipAt(head.clone().add(new V(0.3, -0.3, -0.2))); await steps(2);
+    HOST.collab.panelOpen(false);
+    // no left controller or hand: beside the story panel again
+    for (const k of [0, 1]) { const c = HOST.cur.peek('XR.ctrls')[k]; c.g.visible = false; c.src = null; }
+    X.session.inputSources.length = 0;
+    await steps(3);
+    out.back = g.scale.x === 2 && !O.onHand && g.visible;
     return out;
   });
-  check('headset: the shared panel rides on the left controller (above it, turned to your eyes), and without one goes back beside the story panel',
-    near(hand.p, hand.want, 2e-3) && Math.abs(hand.scale - 0.62) < 1e-6 && hand.facing > 0.99 && hand.back === 1, JSON.stringify(hand));
-  await H.evaluate(() => { const c = HOST.cur.peek('XR.ctrls')[0]; c.g.visible = false; c.src = null; window.__xr.session.inputSources.length = 0; });
+  check('headset: the menu\'s clock rides on the left controller (behind its grip and above it, turned to your eyes)', hand.closed && near(hand.c, hand.want, 2e-3) &&
+    hand.scale === 1 && hand.facing > 0.99, JSON.stringify(hand));
+  check('headset: a click of the left stick opens the menu above the clock (Close, Exit inside) and closes it again', hand.stick && hand.above && Math.abs(hand.pscale - 0.62) < 1e-6 &&
+    hand.ids.includes('close') && hand.ids.includes('exit') && hand.stickClosed, JSON.stringify(hand));
+  check('headset: a touch of the right controller\'s tip opens the menu; another touch counts only once it moved away', hand.touch && hand.held && hand.touchClosed, JSON.stringify(hand));
+  check('headset: with tracked hands the clock sits on the left wrist, the right index fingertip opens the menu and presses its buttons by touch (once, again after pulling back)',
+    hand.handClosed && near(hand.wrist, hand.wristWant, 2e-3) && hand.finger && hand.pokeHover === 'exit' && hand.poke1 === 1 && hand.poke1b === 1 && hand.poke2 === 2, JSON.stringify(hand));
+  check('headset: without a left controller or hand the clock goes back beside the story panel', hand.back, JSON.stringify(hand));
   await frames(H, 150);
   // the room frame moves (newer marks elsewhere): this headset follows within a second
   ROOM = [2.05, 0, 1, 0.3];
@@ -1515,7 +1571,7 @@ try {
   // in VR the shell's panel asks once per room whether you are in the room with the others; the answer is kept
   const regionIds = () => H.evaluate(() => HOST.collab.overlay().panel.regions.map(r => r.id));
   const pressRegion = id => H.evaluate(id => { const r = HOST.collab.overlay().panel.regions.find(x => x.id === id); if (r) r.fn(); return !!r; }, id);
-  const asked = (await regionIds()).includes('ask:in');
+  const asked = (await regionIds()).includes('ask:in') && await H.evaluate(() => HOST.collab.menu && (window.__collabLog.filter(e => e.ev === 'notice').slice(-1)[0] || {}).title === 'One question');
   await pressRegion('ask:in');
   await frames(H, 300);
   const inRoom = await H.evaluate(() => [HOST.collab.internals().hereSet, HOST.room.src, HOST.room.state]);
@@ -1527,21 +1583,29 @@ try {
   await H.evaluate(installXR, Object.assign({}, xrOpts, { mode: 'immersive-vr', head: [0.3, 1.7, -0.2, 0.6] }));
   await H.evaluate(() => window.__xr.begin());
   await frames(H, 300);
-  const again = (await regionIds()).some(id => id.startsWith('ask:'));
+  const shut = await H.evaluate(() => !HOST.collab.menu);   // (asked already: the menu stays closed)
+  await H.evaluate(() => HOST.collab.panelOpen(true));
+  await frames(H, 150);
+  const again = !shut || (await regionIds()).some(id => id.startsWith('ask:'));
   check('VR: the panel asks once whether you are in the room with the others (In this room: aligned with them; Say I am elsewhere: your own floor; kept for the room)',
     asked && inRoom[0] === true && inRoom[1] !== 'own' && sayAway && away[0] === false && away[1] === 'own' && away[2] === false && !again,
     JSON.stringify({ asked, inRoom, sayAway, away, again }));
-  // Exit (leaving VR or AR) is on the Shared panel, also while it is closed, and not on the story panel
+  // Exit (leaving VR or AR) is inside the headset's menu, and not on the story panel; closed, only the clock shows
   await H.evaluate(() => HOST.collab.panelOpen(false));
+  await frames(H, 200);
+  const exitClosed = await H.evaluate(() => { const O = HOST.collab.overlay(); return O.clockG.visible && !O.panelG.visible && !O.panel.regions.some(x => x.id === 'exit'); });
+  await H.evaluate(() => HOST.collab.panelOpen(true));
   await frames(H, 200);
   const exitT = await H.evaluate(() => {
     const s = HOST.session, e0 = s.end, P = HOST.collab.overlay().panel, r = P.regions.find(x => x.id === 'exit');
     let n = 0; s.end = () => { n++; };
     if (r) r.fn();
     if (e0) s.end = e0; else delete s.end;
-    return { tab: P.vis < P.h, found: !!r, ended: n, story: HOST.cur.peek("XR.main.regions.some(r => r.id === 'exit')") };
+    return { found: !!r, ended: n, story: HOST.cur.peek("XR.main.regions.some(r => r.id === 'exit')") };
   });
-  check('Exit is on the Shared panel (closed too) and ends the session; the story panel has none', exitT.tab && exitT.found && exitT.ended === 1 && exitT.story === false, JSON.stringify(exitT));
+  await H.evaluate(() => HOST.collab.panelOpen(false));
+  check('Exit is inside the headset\'s menu (not on the closed clock) and ends the session; the story panel has none', exitClosed && exitT.found && exitT.ended === 1 && exitT.story === false,
+    JSON.stringify(Object.assign({ exitClosed }, exitT)));
 
   // ------------------------------------------- a fresh shared space --
   // Fresh shared space (two presses): every page in the room moves to the app under s/<n>/ (a new page address, so
@@ -1718,6 +1782,20 @@ try {
     await H.evaluate(() => HOST.collab.panelOpen(true));
     await frames(H, 200);
     await view('headset-panels.png', Sf.yaw + 0.85, -0.18);
+    // the menu's clock on a left controller held low in front (closed), and the menu open above it
+    await H.evaluate(yaw => {
+      const X = window.__xr, V = THREE.Vector3, Y = yaw + HOST.room.internals().yaw;
+      const hp = new V().setFromMatrixPosition(X.W.head).applyMatrix4(X.W.local.clone().invert());
+      const lp = hp.add(new V(-Math.sin(Y), 0, -Math.cos(Y)).multiplyScalar(0.36)).add(new V(-Math.cos(Y), -5, Math.sin(Y)).multiplyScalar(0.06));
+      X.aim(1, new THREE.Matrix4().compose(lp, new THREE.Quaternion().setFromAxisAngle(new V(0, 1, 0), Y), new V(1, 1, 1)));
+      HOST.collab.panelOpen(false);
+    }, Sf.yaw);
+    await frames(H, 300);
+    await view('headset-clock.png', Sf.yaw, -0.62);
+    await H.evaluate(() => HOST.collab.panelOpen(true));
+    await frames(H, 300);
+    await view('headset-menu.png', Sf.yaw, -0.15);
+    await H.evaluate(() => { const c = HOST.cur.peek('XR.ctrls')[1]; c.g.visible = false; c.src = null; window.__xr.session.inputSources.length = 0; });
     // the page's dialog with the room map, on a desktop and on a phone
     await A.setViewportSize({ width: 1000, height: 760 });
     const alive = Promise.all([frames(H, 3500), frames(C, 3500)]);   // the two headsets keep sending where they are
