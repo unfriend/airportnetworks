@@ -84,9 +84,9 @@ const fitShift = (k, name) => { const f = GL.sets[k].cam[name] && FIT[k] && FIT[
 // (the section and the ovary, about 1.9 long, need about 4 units' distance to fit right of the panel: further back,
 // and moved right)
 const SEC = [0, 0, 0.6, -0.22];
-const FIT = { organ: { default: [0, 0, 0.5, -0.2], face: [0, 0, 0.5, -0.15], open: [0, 0, 0.5, -0.2], whole: [0, 0, 0.4, -0.15] },
-  section: { default: SEC, pair: [0, 0, 0.6, -0.22], tiles: SEC, mask: SEC, net: SEC, forest: [0, 0, 0.4, -0.2] },
-  charts: { default: [0, 0, 0.5, -0.2], trends: [0, 0, 0.5, -0.2], hist: [0, 0, 0.5, -0.2], fan: [0, 0, 0.5, -0.2], scores: [0, 0, 0.5, -0.25], side: [0, 0, 0.5, -0.2], focus: [0, 0, 0.3, -0.1] } };
+const FIT = { organ: { default: [0, 0, 0.5, -0.2], face: [0, 0, 1.0, -0.5], open: [0, 0, 0.5, -0.2], whole: [0, 0, 0.4, -0.15] },
+  section: { default: SEC, pair: [0, 0, 1.05, -0.25], tiles: SEC, mask: SEC, net: [0, 0, 0.9, -0.2], forest: [0, 0, 1.0, -0.2] },
+  charts: { default: [0, 0, 0.5, -0.2], trends: [0, 0, 0.5, -0.2], hist: [0, 0, 0.5, -0.2], fan: [0, 0, 0.5, -0.2], scores: [0, 0, 0.5, -0.25], side: [0, 0, 1.0, -0.2], focus: [0, 0, 1.2, -0.58] } };
 // how much further back a view stands on a phone held upright (see narrowK): the wide ones, whose parts reach
 // across the screen
 const NARROW = { organ: { default: 1.15, face: 1.15, open: 1.15 }, section: { default: 1.2, pair: 1.3, tiles: 1.2, mask: 1.2, net: 1.2, forest: 1.3 },
@@ -366,9 +366,9 @@ function buildStory() {
   show('section', a + 0.5, a + 2.5);
   ramp('section_net', a + 2, a + 10, 0, 1);
   ramp('section_age', a + 12, a + 28, 25, 65);
-  cam(a + 1, 'section', 'net', -8);
-  cam(a + 12, 'section', 'net', 4, 'spin');
-  cam(b, 'section', 'net', 14, 'spin');
+  cam(a + 1, 'section', 'net', -6);
+  cam(a + 12, 'section', 'net', 2, 'spin');
+  cam(b, 'section', 'net', 8, 'spin');
   for (const n in TR) TR[n].sort((x, y) => x[0] - y[0]);
   buildCamera(wp);
   // the ovary beside the charts takes their turn (the two are one picture there)

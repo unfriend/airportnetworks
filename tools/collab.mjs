@@ -74,6 +74,10 @@ const STORIES = {
     back: "selectProtein('RELA'); setMove('nfkb'); setFishK(3); setFishN(450); pickTab('fish')",
     effect: { quiet: "setCtl('fish', 'shark', 'off')", idle: '!GL.sets.fish.sharkOn()', send: 'sendShark(null)', seen: 'GL.sets.fish.sharkOn()' },
   },
+  ovary: {
+    change: "selectKind('follicle'); setAge(60); setMethod('seg')",
+    back: "showTab('scenes'); openScene('charts'); setCtl('charts', 'view', 'compare'); selectKind('vessel')",
+  },
   robots: {
     change: "setCtl('robots', 'rule', 'chain'); setCtl('robots', 'robots', '12')", back: "setCtl('robots', 'trails', 'on'); setCtl('robots', 'links', 'on')",
     effect: { quiet: '0', idle: "(window.__c0 = GL.sets.robots.anchors.crumbs().join(), true)", send: 'spillCrumbs()', seen: "GL.sets.robots.anchors.crumbs().join() !== window.__c0" },

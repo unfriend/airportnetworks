@@ -232,7 +232,7 @@ function kindStats(key) {
   if (k.annotated) rows.push(['Marked by hand', fmt(k.annotated), 'training labels']);
   if (k.rf) rows.push(['Random forest', `F1 ${sc2(k.rf.f1)}`, `precision ${sc2(k.rf.precision)} · recall ${sc2(k.rf.recall)}`]);
   rows.push(['SegFormer', `IoU ${sc2(k.iou)}`, key === 'cyst' ? 'hard: the masks mostly miss' : 'overlap of masks']);
-  if (k.trend) rows.push(['With age', `r ${rT(k.trend.rf.r)} · ${rT(k.trend.seg.r)}`, `random forest p ${pT(k.trend.rf.p)} · segmentation p ${pT(k.trend.seg.p)}`]);
+  if (k.trend) rows.push(['With age', `r ${rT(k.trend.rf.r)} · ${rT(k.trend.seg.r)}`, `RF p ${pT(k.trend.rf.p)} · Seg p ${pT(k.trend.seg.p)}`]);
   if (k.compare) rows.push(['Methods agree?', `r ${rT(k.compare.r)}`, `p ${pT(k.compare.p)}`]);
   const note = f1 && f1.printed !== f1.computed ? `F1 ${sc2(f1.printed)} as the poster prints it; its precision and recall give ${sc2(f1.computed)} (asked of the authors).` : '';
   return { rows, note };

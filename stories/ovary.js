@@ -2948,9 +2948,9 @@ const fitShift = (k, name) => { const f = GL.sets[k].cam[name] && FIT[k] && FIT[
 // (the section and the ovary, about 1.9 long, need about 4 units' distance to fit right of the panel: further back,
 // and moved right)
 const SEC = [0, 0, 0.6, -0.22];
-const FIT = { organ: { default: [0, 0, 0.5, -0.2], face: [0, 0, 0.5, -0.15], open: [0, 0, 0.5, -0.2], whole: [0, 0, 0.4, -0.15] },
-  section: { default: SEC, pair: [0, 0, 0.6, -0.22], tiles: SEC, mask: SEC, net: SEC, forest: [0, 0, 0.4, -0.2] },
-  charts: { default: [0, 0, 0.5, -0.2], trends: [0, 0, 0.5, -0.2], hist: [0, 0, 0.5, -0.2], fan: [0, 0, 0.5, -0.2], scores: [0, 0, 0.5, -0.25], side: [0, 0, 0.5, -0.2], focus: [0, 0, 0.3, -0.1] } };
+const FIT = { organ: { default: [0, 0, 0.5, -0.2], face: [0, 0, 1.0, -0.5], open: [0, 0, 0.5, -0.2], whole: [0, 0, 0.4, -0.15] },
+  section: { default: SEC, pair: [0, 0, 1.05, -0.25], tiles: SEC, mask: SEC, net: [0, 0, 0.9, -0.2], forest: [0, 0, 1.0, -0.2] },
+  charts: { default: [0, 0, 0.5, -0.2], trends: [0, 0, 0.5, -0.2], hist: [0, 0, 0.5, -0.2], fan: [0, 0, 0.5, -0.2], scores: [0, 0, 0.5, -0.25], side: [0, 0, 1.0, -0.2], focus: [0, 0, 1.2, -0.58] } };
 // how much further back a view stands on a phone held upright (see narrowK): the wide ones, whose parts reach
 // across the screen
 const NARROW = { organ: { default: 1.15, face: 1.15, open: 1.15 }, section: { default: 1.2, pair: 1.3, tiles: 1.2, mask: 1.2, net: 1.2, forest: 1.3 },
@@ -3230,9 +3230,9 @@ function buildStory() {
   show('section', a + 0.5, a + 2.5);
   ramp('section_net', a + 2, a + 10, 0, 1);
   ramp('section_age', a + 12, a + 28, 25, 65);
-  cam(a + 1, 'section', 'net', -8);
-  cam(a + 12, 'section', 'net', 4, 'spin');
-  cam(b, 'section', 'net', 14, 'spin');
+  cam(a + 1, 'section', 'net', -6);
+  cam(a + 12, 'section', 'net', 2, 'spin');
+  cam(b, 'section', 'net', 8, 'spin');
   for (const n in TR) TR[n].sort((x, y) => x[0] - y[0]);
   buildCamera(wp);
   // the ovary beside the charts takes their turn (the two are one picture there)
@@ -3720,7 +3720,7 @@ function kindStats(key) {
   if (k.annotated) rows.push(['Marked by hand', fmt(k.annotated), 'training labels']);
   if (k.rf) rows.push(['Random forest', `F1 ${sc2(k.rf.f1)}`, `precision ${sc2(k.rf.precision)} · recall ${sc2(k.rf.recall)}`]);
   rows.push(['SegFormer', `IoU ${sc2(k.iou)}`, key === 'cyst' ? 'hard: the masks mostly miss' : 'overlap of masks']);
-  if (k.trend) rows.push(['With age', `r ${rT(k.trend.rf.r)} · ${rT(k.trend.seg.r)}`, `random forest p ${pT(k.trend.rf.p)} · segmentation p ${pT(k.trend.seg.p)}`]);
+  if (k.trend) rows.push(['With age', `r ${rT(k.trend.rf.r)} · ${rT(k.trend.seg.r)}`, `RF p ${pT(k.trend.rf.p)} · Seg p ${pT(k.trend.seg.p)}`]);
   if (k.compare) rows.push(['Methods agree?', `r ${rT(k.compare.r)}`, `p ${pT(k.compare.p)}`]);
   const note = f1 && f1.printed !== f1.computed ? `F1 ${sc2(f1.printed)} as the poster prints it; its precision and recall give ${sc2(f1.computed)} (asked of the authors).` : '';
   return { rows, note };
@@ -4546,8 +4546,9 @@ function xrLandingSetup() {
     // side), eight 0.272 rad apart at 1.4 m (0.379 m apart, the outer ones 55° to the side), nine 0.245 rad apart at
     // 1.55 m (0.379 m apart, the outer ones 56° to the side), ten 0.225 rad
     // apart at 1.7 m (0.382 m apart, the outer ones 58° to the side), eleven 0.206 rad apart at 1.85 m (0.381 m apart,
-    // the outer ones 59° to the side), twelve 0.19 rad apart at 2 m (0.38 m apart, the outer ones 60° to the side)
-    const n = HOST.list.length, a = (k - (n - 1) / 2) * (n > 11 ? 0.19 : n > 10 ? 0.206 : n > 9 ? 0.225 : n > 8 ? 0.245 : n > 7 ? 0.272 : 0.31), d = n > 11 ? 2 : n > 10 ? 1.85 : n > 9 ? 1.7 : n > 8 ? 1.55 : n > 7 ? 1.4 : 1.25;
+    // the outer ones 59° to the side), twelve 0.19 rad apart at 2 m (0.38 m apart, the outer ones 60° to the side),
+    // thirteen 0.177 rad apart at 2.15 m (0.381 m apart, the outer ones 61° to the side)
+    const n = HOST.list.length, a = (k - (n - 1) / 2) * (n > 12 ? 0.177 : n > 11 ? 0.19 : n > 10 ? 0.206 : n > 9 ? 0.225 : n > 8 ? 0.245 : n > 7 ? 0.272 : 0.31), d = n > 12 ? 2.15 : n > 11 ? 2 : n > 10 ? 1.85 : n > 9 ? 1.7 : n > 8 ? 1.55 : n > 7 ? 1.4 : 1.25;
     const P = makePanel(640, 820, 0.36, (ctx, P) => drawLandCard(ctx, P, s), () => 'c' + XR.inStory + s.key);
     P.mesh.position.set(Math.sin(a) * d, -0.105, -Math.cos(a) * d);   // top edge 0.126 m up, under the header
     P.mesh.rotation.y = -a;
@@ -4569,7 +4570,7 @@ function xrLandingClose() {
   if (APP.mode === 'story') APP.playing = true;
 }
 function drawLandHead(ctx, P) {
-  ctx.font = vfont(58, 700); ctx.fillStyle = VC.ink; ctx.fillText(`Networks, in ${['one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve'][HOST.list.length - 1] || HOST.list.length} stories`, 48, 44);
+  ctx.font = vfont(58, 700); ctx.fillStyle = VC.ink; ctx.fillText(`Networks, in ${['one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve', 'thirteen'][HOST.list.length - 1] || HOST.list.length} stories`, 48, 44);
   // anchored: where the place stands, in place of the hint
   const an = HOST.anchor.status();
   textBlock(ctx, an || 'The same ideas, very different networks. Point at a story and pull the trigger (or pinch).', 48, 128, 860, 27, 38, an ? VC.ink : VC.muted, 400, 2);
