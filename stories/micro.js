@@ -5363,12 +5363,12 @@ function updateSets(S, t, dt, story) {
     else if (s.idle) s.idle(dt);   // a hidden set may build in slices
   }
   // the organs' 3D models and their pictures build between frames from the start, one organ after another (the one a
-  // pane or the body wants first): a short slice a frame in a headset, a quarter of the frame elsewhere (4 to 40 ms: a
-  // slow frame's stutter is there anyway). Each picture goes into the HTML chips waiting for it as it is done, and the
-  // headset's panels redraw on GL.orgV (at most twice a second while they come)
+  // pane or the body wants first): a short slice a frame in a headset (3 ms), elsewhere a quarter of the frame, 4 to
+  // 8 ms (a little more where frames are slow anyway). Each picture goes into the HTML chips waiting for it as it is
+  // done, and the headset's panels redraw on GL.orgV (at most twice a second while they come)
   if (!GL.orgDone) {
     ORGAN3D.driven = true;
-    GL.orgDone = ORGAN3D.step(GL.renderer.xr.isPresenting ? 3 : clamp((dt || 0) * 250, 4, 40));
+    GL.orgDone = ORGAN3D.step(GL.renderer.xr.isPresenting ? 3 : clamp((dt || 0) * 250, 4, 8));
     const v = ORGAN3D.version();
     if (v !== GL.orgSeen) { GL.orgSeen = v; fillOrganPics(); }
     const now = performance.now();
