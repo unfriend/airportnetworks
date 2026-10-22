@@ -308,11 +308,10 @@ generation, `{ n, by, at }`; FORMAT networks-10; networks-11 when the eighth sto
   (`buttons[3]`, rising edge: the stories use the stick's axes and
   `buttons[4]`), the trigger or a pinch on the clock (`kind: 'clock'` through
   `ray`/`press`; pulled while the tip touches it, it counts once with the
-  touch), or Close in its header.
-  Open, it stands above the clock (its lower edge 6.5 cm over the clock's
-  middle, at 0.62 of its size), as tall as what it shows: *Menu*, Close; Exit
-  (ends the session: the story panels have no Exit, the headset Stories
-  screen keeps its own) and *Slideshow: on/off* (`HOST.slides.setGlobal`, for
+  touch), or Close in its header. Open, it stands above the clock (its lower
+  edge 6.5 cm over the clock's middle, at 0.62 of its size), as tall as what
+  it shows: *Menu*, Close; Exit (ends the session: the story panels have no
+  Exit, the headset Stories screen keeps its own) and *Slideshow: on/off* (`HOST.slides.setGlobal`, for
   every story, shown when `HOST.slides` exists); then the shared room (its
   code and people as the section's heading, the rooms, the question, the
   room's alignment, stations, people, You; the canvas holds the tallest case,
@@ -320,7 +319,8 @@ generation, `{ n, by, at }`; FORMAT networks-10; networks-11 when the eighth sto
   as leave room for You). A right index fingertip also presses its buttons
   (`poke`: within 1.5 cm of the panel over one, again once pulled back 3 cm;
   a pinch on the ray at the same button within 0.7 s counts once with it,
-  `twice`). The once-per-room question still opens it by itself. `HOST.collab.panelOpen(on)` and `HOST.collab.menu` are for tests.
+  `twice`). The once-per-room question still opens it by itself.
+  `HOST.collab.panelOpen(on)` and `HOST.collab.menu` are for tests.
 - At its station in a shared room a headset moves the scene and the panel for
   everyone: the grip on the scene moves it (`XR.globeOff`), both grips on it
   resize it (`xrResize`: the distance between the hands, a quarter to four times
