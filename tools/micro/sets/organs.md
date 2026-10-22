@@ -19,7 +19,7 @@ story keeps); an organ's model is found by its name (`idOf`), the only link betw
   Centred and scaled to a unit sphere. About 900 to 3,600 triangles each, 46,000 in all; about 430,000 field
   evaluations for all 29.
 - Built between frames, one organ after another, its model and then its picture (so pictures come one by one from the
-  start, not all at the end): `step(ms)` runs the queue as resumable jobs (a slice of the grid, or 300 triangles of a
+  start, not all at the end): `step(ms)` runs the queue as resumable jobs (a row of the grid, or 100 triangles of a
   picture, at a time) for at most `ms` milliseconds. In the story the engine steps it every frame from the first
   (`ORGAN3D.driven`; 3 ms a frame in a headset, elsewhere a quarter of the frame's time, 4 to 8 ms, a little more
   where frames are slow anyway); the sets then leave it alone (in the harness they step it themselves: the network set
@@ -32,7 +32,10 @@ story keeps); an organ's model is found by its name (`idOf`), the only link betw
   the second build step and the other 28 one by one, without errors.
 - Pictures: `canvas(id, px)` draws a model once onto a 2D canvas, lit the same way, with a painter's algorithm (flat
   triangles sorted far to near, each filled and stroked against seams), at twice the size and scaled down. No WebGL, so
-  no render target and nothing to do with a headset session. The panes ask with `pic(id)` and `picUrl(id)`, which
+  no render target and nothing to do with a headset session. Both canvases stay in memory (`willReadFrequently`): on
+  the GPU, each picture's data URL had to be read back from it and waited for the frame being drawn (in headless
+  Chromium 9 s of the first 10 after the story started; on a headset a stall each time). Measured there since, a
+  slice of the queue takes 8 ms (median; 90 % within 12 ms, the longest 29 ms under load). The panes ask with `pic(id)` and `picUrl(id)`, which
   never draw: they give the 64 px picture once the queue has drawn it, else null (or '') and want the organ next.
 
 ## Exports (`ORGAN3D`)

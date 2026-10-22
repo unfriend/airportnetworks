@@ -228,6 +228,7 @@ const ORGAN3D = (() => {
     for (let i = 0; i <= cg; i++) for (let j = 0; j <= cg; j++) for (let k = 0; k <= cg; k++) {
       const x = -1.2 + i * ch, y = -1.2 + j * ch, z = -1.2 + k * ch, d = CF[(i * c1 + j) * c1 + k] = f(x, y, z);
       if (d < ch) { const p = [x, y, z]; for (let q = 0; q < 3; q++) { lo[q] = Math.min(lo[q], p[q] - ch); hi[q] = Math.max(hi[q], p[q] + ch); } }
+      if (k === cg) yield;   // (a row at a time: a whole pass of an intricate organ took up to 0.1 s)
     }
     const far = new Int8Array(cg * cg * cg), M = 1.9 * ch;
     for (let i = 0; i < cg; i++) for (let j = 0; j < cg; j++) for (let k = 0; k < cg; k++) {
@@ -242,7 +243,7 @@ const ORGAN3D = (() => {
     for (let i = 0; i < nx; i++) for (let j = 0; j < ny; j++) for (let k = 0; k < nz; k++) {
       const x = lo[0] + i * h, y = lo[1] + j * h, z = lo[2] + k * h, fr = far[(cc(x) * cg + cc(y)) * cg + cc(z)];
       F[id3(i, j, k)] = fr ? fr * M : f(x, y, z);
-      if (k === nz - 1 && j === ny - 1) yield;
+      if (k === nz - 1) yield;   // (a row at a time, so a slice of 3 ms stays near 3 ms)
     }
     const VI = new Int32Array(nx * ny * nz).fill(-1), P = [], N = [], Cl = [];
     const EG = [[0, 1], [2, 3], [4, 5], [6, 7], [0, 2], [1, 3], [4, 6], [5, 7], [0, 4], [1, 5], [2, 6], [3, 7]], cv = new Float64Array(8), e = 0.004;
@@ -267,7 +268,7 @@ const ORGAN3D = (() => {
       const oc = Math.max(0, 0.14 - f(x + nxv * 0.14, y + nyv * 0.14, z + nzv * 0.14));
       const ko = clamp(1 - 4.6 * oc, 0.42, 1);
       VI[id3(i, j, k)] = P.length / 3; P.push(x, y, z); N.push(nxv, nyv, nzv); Cl.push(col[0] * ko, col[1] * ko, col[2] * ko);
-      if (P.length % 240 === 0) yield;
+      if (P.length % 60 === 0) yield;
     }
     const I = [];
     const quad = (a, b, c, d, dir, axis) => {
@@ -411,7 +412,9 @@ void main() {
     if (!g || typeof document === 'undefined') return null;
     const S = 2, W = px * S, cv = document.createElement('canvas');
     cv.width = cv.height = W;
-    const ctx = cv.getContext('2d');
+    // (both canvases in memory, not on the GPU: a picture's data URL (toDataURL) then needs no read back from the GPU,
+    // which waited for the frame being drawn, up to seconds where the GPU is slow, and stalls a headset)
+    const ctx = cv.getContext('2d', { willReadFrequently: true });
     const [yaw, pitch] = g.view, cyw = Math.cos(yaw * PI / 180), syw = Math.sin(yaw * PI / 180), cp = Math.cos(pitch * PI / 180), sp = Math.sin(pitch * PI / 180);
     const nv = g.pos.length / 3, X = new Float32Array(nv), Y = new Float32Array(nv), Z = new Float32Array(nv), NX = new Float32Array(nv), NY = new Float32Array(nv), NZ = new Float32Array(nv);
     const rot = (x, y, z, o, k) => { const x1 = x * cyw + z * syw, z1 = -x * syw + z * cyw, y2 = y * cp - z1 * sp, z2 = y * sp + z1 * cp; o[0][k] = x1; o[1][k] = y2; o[2][k] = z2; };
@@ -433,11 +436,11 @@ void main() {
       ctx.beginPath();
       ctx.moveTo(ox + X[a] * sc, oy - Y[a] * sc); ctx.lineTo(ox + X[b] * sc, oy - Y[b] * sc); ctx.lineTo(ox + X[c] * sc, oy - Y[c] * sc); ctx.closePath();
       ctx.fillStyle = st; ctx.strokeStyle = st; ctx.lineWidth = 0.7; ctx.fill(); ctx.stroke();
-      if (q % 300 === 299) yield;
+      if (q % 100 === 99) yield;
     }
     const out = document.createElement('canvas');
     out.width = out.height = px;
-    const o2 = out.getContext('2d');
+    const o2 = out.getContext('2d', { willReadFrequently: true });
     o2.imageSmoothingEnabled = true; o2.imageSmoothingQuality = 'high';
     o2.drawImage(cv, 0, 0, px, px);
     return out;
