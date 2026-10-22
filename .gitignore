@@ -22,3 +22,5 @@ Network_VR*/
 *.nii.gz
 *.dcm
 *.nrrd
+tools/pass/shots/
+tools/pass/gen/
