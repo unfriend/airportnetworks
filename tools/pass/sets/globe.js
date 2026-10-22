@@ -292,7 +292,10 @@ void main() { if (vA < 0.004) discard; gl_FragColor = vec4(mix(vec3(1.0, 0.42, 0
     Belgrade: 'Belgrad', Bucharest: 'Bukarest', Kiev: 'Kiew', Beijing: 'Peking', Cairo: 'Kairo', Tokyo: 'Tokio', Geneva: 'Genf', Zurich: 'Zürich',
     Florence: 'Florenz', 'Mexico City': 'Mexiko-Stadt', Singapore: 'Singapur', 'Cape Town': 'Kapstadt', Krakow: 'Krakau', 'St. Petersburg': 'Sankt Petersburg',
     Delhi: 'Delhi', Bangkok: 'Bangkok', Havana: 'Havanna', Tunis: 'Tunis', Tehran: 'Teheran', Bratislava: 'Bratislava', Ljubljana: 'Ljubljana' };
-  const city = i => (LANG === 'de' && CITY_DE[NET.city[i]]) || NET.city[i];
+  // (and a few of the data's names that lost their accents or came in the local form, as English says them)
+  const CITY_FIX = { 'Sao Paulo': 'São Paulo', Bogota: 'Bogotá', Brasilia: 'Brasília', Duesseldorf: 'Düsseldorf', Malaga: 'Málaga', Cancun: 'Cancún',
+    Milano: 'Milan' };
+  const city = i => { const c = CITY_FIX[NET.city[i]] || NET.city[i]; return (LANG === 'de' && CITY_DE[c]) || c; };
 
   const dayText = () => {
     const c = countAt(DAY), r = c.E + c.I + c.R;
@@ -345,10 +348,11 @@ void main() { if (vA < 0.004) discard; gl_FragColor = vec4(mix(vec3(1.0, 0.42, 0
     arrivalDay: i => (i >= 0 && tE[i] < NEVER ? tE[i] : null), chain: i => chainTo(i),
     select: i => { SEL = i >= 0 ? i : -1; setChain(); }, selected: () => SEL,
     pick, find, info, pos, viewOf,
-    // airports by code, city, name or country (the airports story's search), and by a city's German name too
+    // airports by code, city, name or country (the airports story's search), and by a city's German name or accents too
     search: (q, n) => {
       const lq = String(q || '').trim().toLowerCase(), out = [];
-      if (lq) for (const en in CITY_DE) if (CITY_DE[en].toLowerCase().startsWith(lq)) out.push(...O.matches(en, n || 8));
+      const names = [...Object.entries(CITY_FIX), ...Object.entries(CITY_DE)];
+      if (lq) for (const [en, nm] of names) if (nm.toLowerCase().startsWith(lq)) for (const i of O.matches(en, n || 8)) if (!out.includes(i)) out.push(i);
       for (const i of O.matches(q, n || 8)) if (!out.includes(i)) out.push(i);
       return out.slice(0, n || 8);
     }, deg: i => deg[i], n: () => N, routes: () => NET.E,

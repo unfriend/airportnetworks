@@ -127,7 +127,7 @@ const AMBER = '#ffb43b', RED = '#ff5a4b', GREY = '#8e98ab', CYAN = '#46d9ff', TE
 // the panel's words, in the language on show (made again when it changes: setLang)
 function storyHTML() {
   const F = FACTS, city = GL.sets.globe.api.info(F.start).city;
-  const step = (at, col, b, text) => `<li data-at="${at}" data-col="${col}" style="border-left-color:${swCol(col)}"><b style="color:${inkCol(col)}">${esc(b)}</b>${esc(text)}</li>`;
+  const step = (at, out, col, b, text) => `<li data-at="${at}" data-out="${out}" data-col="${col}" style="border-left-color:${swCol(col)}"><b style="color:${inkCol(col)}">${esc(b)}</b>${esc(text)}</li>`;
   // parts of a chapter that take turns in one place, each fading out (data-out) as the next comes: the headset's
   // panel cannot scroll, so no chapter shows more than fits at once
   const turns = (...parts) => `<div style="display:grid">${parts.map(p => `<div style="grid-area:1/1">${p}</div>`).join('')}</div>`;
@@ -158,7 +158,7 @@ function storyHTML() {
       `${p(37, 'cell.8')}${p(42, 'cell.9')}${p(48, 'cell.10', 'amber')}${p(52, 'cell.note', 'note', 0, num(F.proteins), num(F.places))}`)}`,
     med: `<h2 data-at="0.6">${esc(T('med.h'))}</h2>
       ${turns(`${p(1.2, 'med.1', '', 17.5)}
-        <ul class="steps">${step(4, CYAN, T('med.s1'), T('med.s1t'))}${step(6, RED, T('med.s2'), T('med.s2t'))}${step(8, TEAL, T('med.s3'), T('med.s3t'))}</ul>
+        <ul class="steps">${step(4, 17.5, CYAN, T('med.s1'), T('med.s1t'))}${step(6, 17.5, RED, T('med.s2'), T('med.s2t'))}${step(8, 17.5, TEAL, T('med.s3'), T('med.s3t'))}</ul>
         ${p(12, 'med.2', 'amber', 17.5)}`,
       `${p(18, 'med.3')}${p(21, 'med.4')}
         <p data-at="23"><button class="btn primary" id="btnGoExplore" type="button">${esc(T('med.go'))}</button></p>

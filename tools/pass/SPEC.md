@@ -168,6 +168,7 @@ Adapted from the qubits story's engine, with the flock's life-size parts. As bui
   light and dot sizes in a headset (the probe's XR branch), the rise in a headset, frame rate with 600 fish and links.
 - Part 2 tested: the smoke test's pass step (both languages and the switch, every explore tool, picks with a ray,
   `apply(state())` giving the same state, the headset panels in every tab), `build.mjs --check`.
-- Open: the protein names and roles (249) and airport city and country names stay as in the originals (English;
-  scientific names and OpenFlights names; the globe says about 35 well-known cities in German, `CITY_DE`) in the German story: translate them or keep them; the explore panes' text,
+- Open: the protein names and airport city and country names stay as in the originals (English;
+  scientific names and OpenFlights names; the globe says about 35 well-known cities in German, `CITY_DE`; the cell says
+  every protein's role in German, `ROLE_DE`) in the German story: translate them or keep them; the explore panes' text,
   chart and credits are part 2's.

@@ -645,7 +645,7 @@ void main() {
     return true;
   }
   const out = Object.assign(set, { params, update, anchors, labels, cam, explore, see, steer, scatter, shark: startShark, flight, follow,
-    hush: on => { HUSH = !!on; }, sharkOn: () => SH.on, following: () => !!FOL, fish: () => N, neighbours: () => KN,
+    hush: on => { HUSH = !!on; }, hunted: h => { hunts = Math.floor(h + 1e-6); }, sharkOn: () => SH.on, following: () => !!FOL, fish: () => N, neighbours: () => KN,
     // (the flock engine's names, so its shared-room code ports as it is)
     falcon: startShark, falconOn: () => SH.on,
     setLang: l => { LANG = l === 'de' ? 'de' : 'en'; },

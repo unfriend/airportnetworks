@@ -191,7 +191,7 @@ function setLang(l, keep = true) {
   if (APP.mode === 'story') updateStoryDOM(storyT(APP.t));
 }
 
-let lastNow = 0;
+let lastNow = 0, tsPrev = null;
 const EXV = [0, 0, 1, 0, 0, 0, 1, 0, 0, 0];   // explore's view for applyCamera: orbit.cur, then FIT's eased shift
 function frame(now, xrFrame) {
   const dt = lastNow ? Math.min(0.1, Math.max(0, (now - lastNow) / 1000)) : 0;
@@ -213,12 +213,17 @@ function frame(now, xrFrame) {
   const fol = (Sx, v) => ((Sx.fish_a || 0) >= 0.5 && following() ? followView(v, dt) : v);
   if (APP.mode === 'story') {
     S = storyState(ts); tSet = ts;
+    // a jump well past the story's shark sends none (played through, or jumped to within 8 s of it, it comes): the school
+    // as the chapter shows it
+    if ((tsPrev === null || Math.abs(ts - tsPrev) > 1.5) && Math.floor(evalTrack('fish_hunt', ts - 8) + 1e-6) >= Math.floor(S.fish_hunt + 1e-6)) GL.sets.fish.hunted(S.fish_hunt);
+    tsPrev = ts;
     const v = storyCam(ts);
     GL.nf = v[6];
     if (xr) xrPlace(v); else { applyCamera(fol(S, v)); keepCamera(S, ts); }
     updateStoryDOM(ts);
     updateTimeline(APP.t, APP.playing);
   } else {
+    tsPrev = null;
     const pn = performance.now();
     S = exploreStep(dt, pn); tSet = pn / 1000;
     // (a wide view stands further back on a phone held upright, and its target's shift clear of the side panel, FIT,

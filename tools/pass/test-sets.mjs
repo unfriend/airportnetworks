@@ -56,6 +56,7 @@ if (want('globe')) {
   // the chain to a city runs back to the start, each step a route, each arrival later than the one before
   A.setup(base);
   ok(A.search('wien')[0] === A.find('VIE') && A.search('VIE')[0] === A.find('VIE'), 'search finds Vienna by its code and as Wien');
+  ok(A.info(A.find('GRU')).city === 'São Paulo' && A.search('são').includes(A.find('GRU')), 'São Paulo with its tilde, and found so');
   const ch = A.chain(A.find('SYD'));
   ok(ch && ch[0] === base.start && ch.every((c, k) => !k || (A.arrivalDay(c) > A.arrivalDay(ch[k - 1]))), `the way it took to Sydney: ${ch ? ch.map(i => A.info(i).code).join(' > ') : 'none'}`);
   // small towns: how the hubs carry it ("slowly, then everywhere at once")
@@ -133,6 +134,10 @@ if (want('cell')) {
   const gp = A.path(A.protein('EGF'), A.protein('SRF'));
   ok(gp && gp.path.length >= 5, `a path from EGF to SRF: ${gp ? gp.path.length - 1 : '-'} steps`);
   c.setLang('de'); ok(A.move('cf').name === 'Mukoviszidose' && A.placeName(0) === 'Außerhalb der Zelle', 'German names for the moves and places');
+  { c.setLang('en'); const en = []; for (let p = 0; p < n.proteins; p++) en.push(A.info(p).role);
+    c.setLang('de'); const miss = en.filter((r, p) => A.info(p).role === r);
+    ok(!miss.length, `every protein's role in German (${miss.length ? 'missing: ' + [...new Set(miss)].join('; ') : A.info(A.protein('RELA')).role})`);
+    ok(A.search('Entzündung').includes(A.protein('RELA')), 'the German search finds RELA by its role'); }
   c.setLang('en'); ok(A.move('cf').name === 'Cystic fibrosis', 'and English again');
   // every label has a text in both languages
   let bad = 0; for (const l of ['en', 'de']) { c.setLang(l); for (const L of c.labels) { const t = L.text(); if (!Array.isArray(t)) bad++; } }

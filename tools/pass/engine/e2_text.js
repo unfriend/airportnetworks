@@ -189,8 +189,8 @@ const STR = {
   'c.moves': ['Moves', 'Wanderungen'], 'c.nomove': ['None', 'Keine'], 'c.disease': ['a disease', 'eine Krankheit'],
   'c.lost': ['loses {0}', 'verliert {0}'], 'c.gained': ['meets {0}', 'trifft {0}'],
   'c.nochange': ['no partners change', 'keine Partner ändern sich'],
-  'c.note': ['The cell map story’s cell, as it is: an illustrative set of well-studied human proteins in a model cell (Human Protein Atlas, UniProt). Protein names and roles are the scientific ones, in English.',
-    'Die Zelle aus der Geschichte „Cell map“, so wie sie ist: eine Auswahl gut erforschter menschlicher Proteine in einer Modellzelle (Human Protein Atlas, UniProt). Die Namen und Aufgaben der Proteine sind die wissenschaftlichen, auf Englisch.'],
+  'c.note': ['The cell map story’s cell, as it is: an illustrative set of well-studied human proteins in a model cell (Human Protein Atlas, UniProt). Protein names are the scientific ones.',
+    'Die Zelle aus der Geschichte „Cell map“, so wie sie ist: eine Auswahl gut erforschter menschlicher Proteine in einer Modellzelle (Human Protein Atlas, UniProt). Die Namen der Proteine sind die wissenschaftlichen, auf Englisch.'],
   // the headset's panels and tips
   'xr.hint': ['Trigger (or pinch): use buttons. Grip: move the scene or this panel; both grips on the scene resize it. A or X: play and pause.',
     'Abzug (oder Finger zusammen): Knöpfe drücken. Greifen: Szene oder Tafel verschieben, mit beiden Händen größer oder kleiner machen. A oder X: Abspielen und Anhalten.'],

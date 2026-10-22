@@ -65,6 +65,8 @@ rooms, as the flock's: `flight()` `{ t, m, v }`, `follow(o, dt)`, `hush(on)`, `f
 engine: hears each shark launched here as `{ p, v, aim }`), `shark(f)` (launch exactly that one); `falcon` and
 `falconOn` are the same as `shark` and `sharkOn`, so the flock engine's code ports as it is. `sharkOn()`, `fish()`,
 `neighbours()`, `state()` and `watch(f)` (hear each fish the warning reaches) for tests. `setLang('en' | 'de')`.
+`hunted(h)`: count `fish_hunt` as passed up to `h` without sending a shark (the engine, on a jump well past the story's
+shark).
 
 ## Anchors, labels, views, controls
 

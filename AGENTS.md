@@ -932,7 +932,7 @@ contract.
   language is per device: German when `navigator.language` is, kept in `localStorage` (`passLang`), `#pass&lang=de`
   or `&lang=en` in a link; never in `collab.state()`. The shell's own words (top bar, Stories screen, menu) stay
   English. British English, and plain, natural German for a 12-year-old ("du"), not word for word; the cell's
-  protein names and roles and most city names stay as in their stories (open, see `docs/questions-for-authors.md`).
+  protein names (their roles are in German, `ROLE_DE`) and most city names stay as in their stories (open, see `docs/questions-for-authors.md`).
   Add a string in both languages, or the smoke test fails.
 - **Life size and tabletop in one story.** The fish are life size as the flock is (1 unit is 1 m, eyes at 1.6 m): on a
   screen a wide lens (the `lens` track, 58 degrees among the fish, 32 for the globe and the cell) and the flock's

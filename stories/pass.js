@@ -3313,7 +3313,7 @@ void main() {
     return true;
   }
   const out = Object.assign(set, { params, update, anchors, labels, cam, explore, see, steer, scatter, shark: startShark, flight, follow,
-    hush: on => { HUSH = !!on; }, sharkOn: () => SH.on, following: () => !!FOL, fish: () => N, neighbours: () => KN,
+    hush: on => { HUSH = !!on; }, hunted: h => { hunts = Math.floor(h + 1e-6); }, sharkOn: () => SH.on, following: () => !!FOL, fish: () => N, neighbours: () => KN,
     // (the flock engine's names, so its shared-room code ports as it is)
     falcon: startShark, falconOn: () => SH.on,
     setLang: l => { LANG = l === 'de' ? 'de' : 'en'; },
@@ -3616,7 +3616,10 @@ void main() { if (vA < 0.004) discard; gl_FragColor = vec4(mix(vec3(1.0, 0.42, 0
     Belgrade: 'Belgrad', Bucharest: 'Bukarest', Kiev: 'Kiew', Beijing: 'Peking', Cairo: 'Kairo', Tokyo: 'Tokio', Geneva: 'Genf', Zurich: 'Zürich',
     Florence: 'Florenz', 'Mexico City': 'Mexiko-Stadt', Singapore: 'Singapur', 'Cape Town': 'Kapstadt', Krakow: 'Krakau', 'St. Petersburg': 'Sankt Petersburg',
     Delhi: 'Delhi', Bangkok: 'Bangkok', Havana: 'Havanna', Tunis: 'Tunis', Tehran: 'Teheran', Bratislava: 'Bratislava', Ljubljana: 'Ljubljana' };
-  const city = i => (LANG === 'de' && CITY_DE[NET.city[i]]) || NET.city[i];
+  // (and a few of the data's names that lost their accents or came in the local form, as English says them)
+  const CITY_FIX = { 'Sao Paulo': 'São Paulo', Bogota: 'Bogotá', Brasilia: 'Brasília', Duesseldorf: 'Düsseldorf', Malaga: 'Málaga', Cancun: 'Cancún',
+    Milano: 'Milan' };
+  const city = i => { const c = CITY_FIX[NET.city[i]] || NET.city[i]; return (LANG === 'de' && CITY_DE[c]) || c; };
 
   const dayText = () => {
     const c = countAt(DAY), r = c.E + c.I + c.R;
@@ -3669,10 +3672,11 @@ void main() { if (vA < 0.004) discard; gl_FragColor = vec4(mix(vec3(1.0, 0.42, 0
     arrivalDay: i => (i >= 0 && tE[i] < NEVER ? tE[i] : null), chain: i => chainTo(i),
     select: i => { SEL = i >= 0 ? i : -1; setChain(); }, selected: () => SEL,
     pick, find, info, pos, viewOf,
-    // airports by code, city, name or country (the airports story's search), and by a city's German name too
+    // airports by code, city, name or country (the airports story's search), and by a city's German name or accents too
     search: (q, n) => {
       const lq = String(q || '').trim().toLowerCase(), out = [];
-      if (lq) for (const en in CITY_DE) if (CITY_DE[en].toLowerCase().startsWith(lq)) out.push(...O.matches(en, n || 8));
+      const names = [...Object.entries(CITY_FIX), ...Object.entries(CITY_DE)];
+      if (lq) for (const [en, nm] of names) if (nm.toLowerCase().startsWith(lq)) for (const i of O.matches(en, n || 8)) if (!out.includes(i)) out.push(i);
       for (const i of O.matches(q, n || 8)) if (!out.includes(i)) out.push(i);
       return out.slice(0, n || 8);
     }, deg: i => deg[i], n: () => N, routes: () => NET.E,
@@ -3759,9 +3763,120 @@ SETS.cell = function (K) {
     als: ['ALS', 'TDP-43 verlässt den Zellkern', 'Bei fast allen Menschen mit ALS verschwindet TDP-43 aus dem Zellkern der Nervenzellen, die Muskeln steuern, und verklumpt im Zellplasma. Seine Partner beim Spleißen verlieren es; dafür binden p62, Ubiquilin und Proteine aus Stressgranula daran.'],
     cf: ['Mukoviszidose', 'CFTR bleibt im ER hängen', 'Die häufigste Mutation bei Mukoviszidose, F508del, lässt CFTR falsch falten. Die Qualitätskontrolle im ER (Calnexin, HSC70, CHIP, RNF5) fängt es ab und schickt es zum Abbau: An der Membran kommt es nie an.'],
   };
+  // what each protein does, by the original's English words (a role the original changes or adds shows in English
+  // until it is added here: node tools/pass/test-sets.mjs lists any that are missing)
+  const ROLE_DE = {
+    'growth signal': 'Wachstumssignal', 'inflammation signal': 'Entzündungssignal',
+    'hormone that lowers blood sugar': 'Hormon, das den Blutzucker senkt', 'carries iron': 'transportiert Eisen',
+    'carries LDL cholesterol': 'transportiert LDL-Cholesterin', 'sends LDL receptors to be destroyed': 'schickt LDL-Rezeptoren zum Abbau',
+    'matrix the cell grips': 'Matrix, an der sich die Zelle festhält', 'growth-factor receptor': 'Rezeptor für Wachstumsfaktoren',
+    'senses insulin': 'erkennt Insulin', 'senses TNF': 'erkennt TNF', 'glues cells together': 'klebt Zellen zusammen',
+    'cell glue and Wnt gene switch': 'Zellkleber und Wnt-Genschalter', 'links cell junctions to actin': 'verbindet Zellkontakte mit Aktin',
+    'keeps E-cadherin at the surface': 'hält E-Cadherin an der Oberfläche', 'fibronectin receptor': 'Rezeptor für Fibronektin',
+    'grips the matrix': 'hält sich an der Matrix fest', 'links integrins to actin': 'verbindet Integrine mit Aktin',
+    'strengthens the grip': 'verstärkt den Halt', 'signals from the grip': 'meldet Signale vom Haftpunkt',
+    'focal adhesion scaffold': 'Gerüst der Haftpunkte', 'pumps sodium out': 'pumpt Natrium hinaus',
+    'partner of the sodium pump': 'Partner der Natriumpumpe', 'chloride channel': 'Kanal für Chlorid',
+    'scaffold under the membrane': 'Gerüst unter der Membran', 'links membrane to actin': 'verbindet die Membran mit Aktin',
+    'growth signal switch': 'Schalter für Wachstumssignale', 'shapes caveolae': 'formt Caveolae', 'coats caveolae': 'umhüllt Caveolae',
+    'lets vesicles fuse': 'lässt Bläschen verschmelzen', 'vesicle fusion partner': 'hilft Bläschen beim Verschmelzen',
+    'brings in iron': 'holt Eisen herein', 'takes up cholesterol': 'nimmt Cholesterin auf',
+    'links cargo to clathrin': 'verbindet Fracht mit Clathrin', 'picks cargo for clathrin pits': 'wählt Fracht für Clathrin-Gruben aus',
+    'coats budding vesicles': 'umhüllt knospende Bläschen', 'pinches vesicles off': 'schnürt Bläschen ab',
+    'links receptors to RAS': 'verbindet Rezeptoren mit RAS', 'switches RAS on': 'schaltet RAS an', 'relays RAS signals': 'gibt RAS-Signale weiter',
+    'relays to ERK': 'gibt das Signal an ERK weiter', 'growth signal kinase': 'Kinase für Wachstumssignale',
+    'tags receptors for removal': 'markiert Rezeptoren zum Entfernen', 'chaperone for signalling proteins': 'Faltungshelfer für Signalproteine',
+    'HSP90 partner for kinases': 'HSP90-Partner für Kinasen', 'links HSP70 and HSP90': 'verbindet HSP70 und HSP90',
+    'everyday protein chaperone': 'Faltungshelfer für jeden Tag', 'tags misfolded proteins': 'markiert falsch gefaltete Proteine',
+    'relays insulin signals': 'gibt Insulinsignale weiter', 'docks PI3K on receptors': 'dockt PI3K an Rezeptoren an',
+    'makes the PIP3 signal': 'erzeugt das PIP3-Signal', 'switches AKT on': 'schaltet AKT an',
+    'growth and survival kinase': 'Kinase für Wachstum und Überleben', 'insulin signal kinase': 'Kinase für Insulinsignale',
+    'holds GLUT4 vesicles back': 'hält GLUT4-Bläschen zurück', 'tethers GLUT4 vesicles': 'bindet GLUT4-Bläschen an',
+    'brake on mTOR': 'Bremse für mTOR', 'TNF receptor adaptor': 'Adapter am TNF-Rezeptor', 'TNF signal adaptor': 'Adapter für das TNF-Signal',
+    'TNF signal kinase': 'Kinase für das TNF-Signal', 'IKK regulator': 'Regler der IKK', 'frees NF-κB': 'befreit NF-κB',
+    'holds NF-κB in the cytoplasm': 'hält NF-κB im Zellplasma fest', 'inflammation gene switch': 'Genschalter für Entzündung',
+    'marks proteins for destruction': 'markiert Proteine für den Abbau', 'ubiquitin ligase adaptor': 'Adapter einer Ubiquitin-Ligase',
+    'ubiquitin ligase scaffold': 'Gerüst einer Ubiquitin-Ligase', 'ubiquitin ligase core': 'Kern einer Ubiquitin-Ligase',
+    'oxidant sensor': 'Sensor für Oxidantien', 'antioxidant gene switch': 'Genschalter gegen oxidativen Stress',
+    'scaffold that destroys beta-catenin': 'Gerüst, das Beta-Catenin abbaut', 'destroys beta-catenin': 'baut Beta-Catenin ab',
+    'tags beta-catenin': 'markiert Beta-Catenin', 'primes beta-catenin': 'bereitet Beta-Catenin zum Markieren vor',
+    'builds the apoptosome': 'baut das Apoptosom', 'starts cell death': 'startet den Zelltod', 'executes cell death': 'führt den Zelltod aus',
+    'blocks caspases': 'blockiert Caspasen', 'punches holes in mitochondria': 'macht Löcher in Mitochondrien',
+    'clears damaged mitochondria': 'räumt beschädigte Mitochondrien weg', 'divides mitochondria': 'teilt Mitochondrien',
+    'extracts proteins for destruction': 'zieht Proteine zum Abbau heraus', 'p97 partner': 'Partner von p97',
+    'steers new proteins to the ER': 'lenkt neue Proteine zum ER', 'carries cargo into peroxisomes': 'bringt Fracht in Peroxisomen',
+    'peroxisome cargo receptor': 'Frachtrezeptor der Peroxisomen',
+    'delivers peroxisome membrane proteins': 'liefert Membranproteine der Peroxisomen',
+    'collects proteins for recycling': 'sammelt Proteine zum Recycling', 'shuttles proteins to the proteasome': 'bringt Proteine zum Proteasom',
+    'proteasome ubiquitin receptor': 'Ubiquitin-Rezeptor des Proteasoms', 'forms stress granules': 'bildet Stressgranula',
+    'sets the direction of nuclear transport': 'bestimmt die Richtung des Kerntransports',
+    'carries cargo into the nucleus': 'bringt Fracht in den Zellkern', 'reads nuclear import signals': 'liest Signale für den Weg in den Zellkern',
+    'guardian of the genome': 'Wächter des Erbguts', 'keeps p53 in check': 'hält p53 in Schach', 'switches genes on': 'schaltet Gene an',
+    'growth gene switch': 'Genschalter für Wachstum', 'serum response factor': 'Serum-Response-Faktor',
+    'early growth gene switch': 'früher Genschalter für Wachstum', 'partner of FOS': 'Partner von FOS', 'Wnt gene switch': 'Wnt-Genschalter',
+    'partner of NRF2 on DNA': 'Partner von NRF2 an der DNA', 'cholesterol gene switch': 'Genschalter für Cholesterin',
+    'lysosome gene switch': 'Genschalter für Lysosomen', 'RNA splicing regulator': 'regelt das Spleißen von RNA',
+    'RNA-binding protein': 'bindet RNA', 'spots DNA breaks': 'entdeckt Brüche in der DNA', 'DNA repair scaffold': 'Gerüst für die DNA-Reparatur',
+    'seals DNA': 'verschließt Lücken in der DNA', 'repairs broken DNA': 'repariert gebrochene DNA', 'partner of BRCA1': 'Partner von BRCA1',
+    'links BRCA1 and BRCA2': 'verbindet BRCA1 und BRCA2', 'loads RAD51 onto DNA': 'lädt RAD51 auf die DNA',
+    'repairs DNA by copying': 'repariert DNA nach einer Vorlage', 'loads Ran on chromatin': 'lädt Ran am Chromatin auf',
+    'carries cargo out of the nucleus': 'bringt Fracht aus dem Zellkern', 'returns importin alpha': 'bringt Importin alpha zurück',
+    'builds ribosomes': 'baut Ribosomen', 'organises ribosomal RNA': 'ordnet ribosomale RNA', 'modifies ribosomal RNA': 'verändert ribosomale RNA',
+    'snoRNA protein': 'Protein für snoRNA', 'holds MDM2 in the nucleolus': 'hält MDM2 im Kernkörperchen fest',
+    'lines the nuclear pore': 'kleidet die Kernpore aus', 'basket of the nuclear pore': 'Korb der Kernpore',
+    'cytoplasmic face of the pore': 'Seite der Kernpore zum Zellplasma', 'filament of the pore basket': 'Faden des Porenkorbs',
+    'pore filament facing the cytoplasm': 'Porenfaden zum Zellplasma hin', 'switches Ran off': 'schaltet Ran ab',
+    'supports the nucleus': 'stützt den Zellkern', 'anchors the lamina': 'verankert die Kernlamina',
+    'inner nuclear membrane protein': 'Protein der inneren Kernmembran',
+    'links nucleus to cytoskeleton': 'verbindet den Zellkern mit dem Zellskelett', 'links nucleus to actin': 'verbindet den Zellkern mit Aktin',
+    'channel into the ER': 'Kanal ins ER', 'channel subunit': 'Teil eines Kanals', 'docks SRP at the ER': 'dockt SRP am ER an',
+    'anchors SRP receptor': 'verankert den SRP-Rezeptor', 'folds proteins inside the ER': 'faltet Proteine im ER',
+    'checks protein folding': 'prüft, ob Proteine richtig gefaltet sind', 'forms disulfide bonds': 'knüpft Disulfidbrücken',
+    'senses unfolded proteins': 'erkennt ungefaltete Proteine', 'makes cholesterol, statin target': 'stellt Cholesterin her, Ziel der Statine',
+    'holds SCAP in the ER': 'hält SCAP im ER fest', 'escorts SREBP to the Golgi': 'begleitet SREBP zum Golgi-Apparat',
+    'ER quality-control ligase': 'Ligase der Qualitätskontrolle im ER', 'HRD1 partner': 'Partner von HRD1',
+    'exit route for misfolded proteins': 'Ausgang für falsch gefaltete Proteine', 'tags misfolded CFTR': 'markiert falsch gefaltetes CFTR',
+    'COPII vesicle coat': 'Hülle der COPII-Bläschen', 'picks COPII cargo': 'wählt Fracht für COPII aus',
+    'COPII outer coat': 'äußere Hülle von COPII', 'starts COPII budding': 'lässt COPII-Bläschen knospen', 'switches SAR1 on': 'schaltet SAR1 an',
+    'releases calcium': 'setzt Calcium frei', 'Golgi tether': 'Haltefaden am Golgi-Apparat', 'stacks Golgi cisternae': 'stapelt die Golgi-Zisternen',
+    'vesicle tether': 'Haltefaden für Bläschen', 'ER-to-Golgi traffic switch': 'Schalter für den Verkehr vom ER zum Golgi',
+    'starts COPI budding': 'lässt COPI-Bläschen knospen', 'switches ARF1 on': 'schaltet ARF1 an', 'COPI coat': 'Hülle von COPI',
+    'cuts SREBP': 'schneidet SREBP', 'releases active SREBP': 'setzt aktives SREBP frei', 'import receptor': 'Rezeptor für den Import',
+    'import channel': 'Kanal für den Import', 'inner membrane import': 'Import durch die innere Membran',
+    'inner membrane channel': 'Kanal in der inneren Membran', 'import motor anchor': 'Anker des Importmotors',
+    'pulls proteins into the matrix': 'zieht Proteine ins Innere der Mitochondrien',
+    'folds proteins in the matrix': 'faltet Proteine im Inneren der Mitochondrien', 'lid of HSP60': 'Deckel von HSP60',
+    'packs mitochondrial DNA': 'verpackt die DNA der Mitochondrien', 'reads mitochondrial genes': 'liest die Gene der Mitochondrien',
+    'starts mitochondrial transcription': 'startet das Ablesen der Mitochondrien-Gene', 'complex III core': 'Kern von Komplex III',
+    'complex III, passes electrons': 'Komplex III, gibt Elektronen weiter',
+    'complex IV, made in mitochondria': 'Komplex IV, in Mitochondrien hergestellt', 'complex IV subunit': 'Teil von Komplex IV',
+    'carries electrons': 'transportiert Elektronen', 'releases the caspase brake': 'löst die Bremse der Caspasen',
+    'outer membrane pore': 'Pore in der äußeren Membran', 'first step of glycolysis': 'erster Schritt beim Abbau von Zucker',
+    'blocks cell death': 'verhindert den Zelltod', 'fuses mitochondria': 'verschmilzt Mitochondrien',
+    'fuses and tethers mitochondria': 'verschmilzt und verbindet Mitochondrien', 'recruits DRP1': 'holt DRP1 herbei',
+    'flags damaged mitochondria': 'markiert beschädigte Mitochondrien',
+    'imports chaperoned proteins': 'nimmt von Faltungshelfern gebrachte Proteine auf', 'acidifies the lysosome': 'säuert das Lysosom an',
+    'anchors Ragulator': 'verankert den Ragulator', 'Ragulator subunit': 'Teil des Ragulators', 'senses amino acids': 'erkennt Aminosäuren',
+    'mTORC1 subunit': 'Teil von mTORC1', 'growth controller': 'steuert das Wachstum', 'switches mTOR on': 'schaltet mTOR an',
+    'exports cholesterol': 'bringt Cholesterin hinaus', 'hands cholesterol to NPC1': 'reicht Cholesterin an NPC1 weiter',
+    'early endosome switch': 'Schalter für frühe Endosomen', 'tethers early endosomes': 'bindet frühe Endosomen an',
+    'RAB5 partner': 'Partner von RAB5', 'switches RAB5 on': 'schaltet RAB5 an', 'late endosome switch': 'Schalter für späte Endosomen',
+    'hooks endosomes to dynein': 'hängt Endosomen an Dynein', 'sorts tagged receptors': 'sortiert markierte Rezeptoren',
+    'HRS partner': 'Partner von HRS', 'sorts receptors for destruction': 'sortiert Rezeptoren zum Abbau aus',
+    'lets glucose in': 'lässt Zucker herein', 'vesicle fusion protein': 'Protein zum Verschmelzen von Bläschen',
+    'GLUT4 vesicle protein': 'Protein der GLUT4-Bläschen', 'moves GLUT4 vesicles': 'bewegt GLUT4-Bläschen',
+    'docks cargo receptors': 'dockt Frachtrezeptoren an', 'import pore': 'Pore für den Import',
+    'receives membrane proteins': 'nimmt Membranproteine auf', 'breaks down hydrogen peroxide': 'baut Wasserstoffperoxid ab',
+    'burns long fatty acids': 'verbrennt lange Fettsäuren', 'microtubule building block': 'Baustein der Mikrotubuli',
+    'walks cargo outwards': 'trägt Fracht nach außen', 'grips kinesin cargo': 'hält die Fracht von Kinesin fest',
+    'walks cargo inwards': 'trägt Fracht nach innen', 'activates dynein': 'schaltet Dynein an',
+    'filaments under the membrane': 'Fäden unter der Membran', 'feeds actin growth': 'lässt Aktin wachsen',
+    'cuts actin filaments': 'schneidet Aktinfäden'
+  };
   const placeName = k => (LANG === 'de' ? PLACE_DE[NET.PK[k]][0] : O.placeName(k));
   const placeShort = k => (LANG === 'de' ? PLACE_DE[NET.PK[k]][1] : O.placeShort(k));
   const orgName = k => (LANG === 'de' ? ORGS_DE[k] : O.ORGS[k]);
+  const roleOf = p => (LANG === 'de' && ROLE_DE[NET.role[p]]) || NET.role[p];
   const moveText = m => { const d = MOVES_DE[m.key]; return LANG === 'de' && d ? { name: d[0], title: d[1], text: d[2] } : { name: m.name, title: m.title, text: m.text }; };
 
   // ---------------------------------------------------------------- params, update
@@ -3840,7 +3955,7 @@ SETS.cell = function (K) {
     lab('TNF', 'tl', 'inflammation signal', 'Entzündungssignal', S => K.prog(S.cell_cue, 0.02, 0.15) * S.cell_cue_a),
     lab('RELA@cyto', 'amb', 'NF-κB, waiting', 'NF-κB wartet', S => K.prog(S.cell_cue, 0.02, 0.2) * S.cell_cue_a * (1 - K.prog(mv(S, 'nfkb'), 0.05, 0.3)), 'RELA'),
     lab('NFKBIA', 'amb', 'its brake', 'seine Bremse', S => K.prog(S.cell_cue, 0.6, 0.9) * S.cell_cue_a * (1 - K.prog(mv(S, 'nfkb'), 0.3, 0.6)), 'IκBα'),
-    lab('RELA@nuc', 'amb', 'in the nucleus', 'im Zellkern', S => K.prog(mv(S, 'nfkb'), 0.85, 1), 'RELA'),
+    lab('RELA@nuc', 'amb', 'in the nucleus', 'im Zellkern', S => K.prog(mv(S, 'nfkb'), 0.85, 1) * S.cell_cue_a, 'RELA'),   // (gone with the relay, before CFTR)
     // the wrong places: CFTR never reaches the membrane; TDP-43 leaves the nucleus
     lab('CFTR@er', 'amb', 'caught in the ER', 'im ER hängen geblieben', S => K.prog(mv(S, 'cf'), 0.25, 0.5), 'CFTR'),
     lab('CFTR@pm', 'amb', 'never arrives', 'kommt nie an', S => K.prog(mv(S, 'cf'), 0.5, 0.8), 'CFTR'),
@@ -3928,7 +4043,7 @@ SETS.cell = function (K) {
     if (p < 0) return null;
     const by = O.partnersByPlace(p), partners = [];
     by.forEach((list, k) => partners.push({ place: k, name: placeName(k), list: list.map(x => ({ p: x.p, sym: NET.sym[x.p], here: x.here, across: x.across >= 0 ? placeName(x.across) : null })) }));
-    return { p, sym: NET.sym[p], name: NET.name[p], role: NET.role[p], places: NET.pPlaces[p].map(k => ({ k, name: placeName(k) })), partners, degree: NET.pDeg[p],
+    return { p, sym: NET.sym[p], name: NET.name[p], role: roleOf(p), places: NET.pPlaces[p].map(k => ({ k, name: placeName(k) })), partners, degree: NET.pDeg[p],
       moves: MOVES.filter(m => [...m.travelers.flat(), ...m.fails.flat()].some(c => NET.cProt[c] === p)).map(m => m.key) };
   }
   function select(p, copy) {
@@ -3944,7 +4059,12 @@ SETS.cell = function (K) {
     pick, info, select, selected: () => SEL, moveDelta,
     protein: s => (typeof s === 'number' ? s : (A(String(s).toUpperCase()) ?? O.findProtein(String(s)))),
     copyOf: s => CP(s), proteinOf: c => NET.cProt[c], pos: c => cpos(c),
-    search: (q, n) => O.matches(q, n || 8),
+    // (the cell map's search: by symbol, name, role or place; in German also by the German role)
+    search: (q, n) => {
+      const out = O.matches(q, n || 8), lq = String(q || '').trim().toLowerCase();
+      if (LANG === 'de' && lq.length > 2) for (const p of NET.pOrd) { if (out.length >= (n || 8)) break; if (!out.includes(p) && roleOf(p).toLowerCase().includes(lq)) out.push(p); }
+      return out;
+    },
     moves: () => MOVES.map(m => Object.assign({ key: m.key, disease: !!m.disease }, moveText(m))),
     move: key => { const m = MOVES[MV[key]]; return m ? Object.assign({ key: m.key, disease: !!m.disease }, moveText(m)) : null; },
     path: (a, b) => O.bestPath(a, b),          // (over the copies there now: the moves as far as they have gone)
@@ -4356,8 +4476,8 @@ const STR = {
   'c.moves': ['Moves', 'Wanderungen'], 'c.nomove': ['None', 'Keine'], 'c.disease': ['a disease', 'eine Krankheit'],
   'c.lost': ['loses {0}', 'verliert {0}'], 'c.gained': ['meets {0}', 'trifft {0}'],
   'c.nochange': ['no partners change', 'keine Partner ändern sich'],
-  'c.note': ['The cell map story’s cell, as it is: an illustrative set of well-studied human proteins in a model cell (Human Protein Atlas, UniProt). Protein names and roles are the scientific ones, in English.',
-    'Die Zelle aus der Geschichte „Cell map“, so wie sie ist: eine Auswahl gut erforschter menschlicher Proteine in einer Modellzelle (Human Protein Atlas, UniProt). Die Namen und Aufgaben der Proteine sind die wissenschaftlichen, auf Englisch.'],
+  'c.note': ['The cell map story’s cell, as it is: an illustrative set of well-studied human proteins in a model cell (Human Protein Atlas, UniProt). Protein names are the scientific ones.',
+    'Die Zelle aus der Geschichte „Cell map“, so wie sie ist: eine Auswahl gut erforschter menschlicher Proteine in einer Modellzelle (Human Protein Atlas, UniProt). Die Namen der Proteine sind die wissenschaftlichen, auf Englisch.'],
   // the headset's panels and tips
   'xr.hint': ['Trigger (or pinch): use buttons. Grip: move the scene or this panel; both grips on the scene resize it. A or X: play and pause.',
     'Abzug (oder Finger zusammen): Knöpfe drücken. Greifen: Szene oder Tafel verschieben, mit beiden Händen größer oder kleiner machen. A oder X: Abspielen und Anhalten.'],
@@ -4495,7 +4615,7 @@ const AMBER = '#ffb43b', RED = '#ff5a4b', GREY = '#8e98ab', CYAN = '#46d9ff', TE
 // the panel's words, in the language on show (made again when it changes: setLang)
 function storyHTML() {
   const F = FACTS, city = GL.sets.globe.api.info(F.start).city;
-  const step = (at, col, b, text) => `<li data-at="${at}" data-col="${col}" style="border-left-color:${swCol(col)}"><b style="color:${inkCol(col)}">${esc(b)}</b>${esc(text)}</li>`;
+  const step = (at, out, col, b, text) => `<li data-at="${at}" data-out="${out}" data-col="${col}" style="border-left-color:${swCol(col)}"><b style="color:${inkCol(col)}">${esc(b)}</b>${esc(text)}</li>`;
   // parts of a chapter that take turns in one place, each fading out (data-out) as the next comes: the headset's
   // panel cannot scroll, so no chapter shows more than fits at once
   const turns = (...parts) => `<div style="display:grid">${parts.map(p => `<div style="grid-area:1/1">${p}</div>`).join('')}</div>`;
@@ -4526,7 +4646,7 @@ function storyHTML() {
       `${p(37, 'cell.8')}${p(42, 'cell.9')}${p(48, 'cell.10', 'amber')}${p(52, 'cell.note', 'note', 0, num(F.proteins), num(F.places))}`)}`,
     med: `<h2 data-at="0.6">${esc(T('med.h'))}</h2>
       ${turns(`${p(1.2, 'med.1', '', 17.5)}
-        <ul class="steps">${step(4, CYAN, T('med.s1'), T('med.s1t'))}${step(6, RED, T('med.s2'), T('med.s2t'))}${step(8, TEAL, T('med.s3'), T('med.s3t'))}</ul>
+        <ul class="steps">${step(4, 17.5, CYAN, T('med.s1'), T('med.s1t'))}${step(6, 17.5, RED, T('med.s2'), T('med.s2t'))}${step(8, 17.5, TEAL, T('med.s3'), T('med.s3t'))}</ul>
         ${p(12, 'med.2', 'amber', 17.5)}`,
       `${p(18, 'med.3')}${p(21, 'med.4')}
         <p data-at="23"><button class="btn primary" id="btnGoExplore" type="button">${esc(T('med.go'))}</button></p>
@@ -6918,7 +7038,7 @@ function setLang(l, keep = true) {
   if (APP.mode === 'story') updateStoryDOM(storyT(APP.t));
 }
 
-let lastNow = 0;
+let lastNow = 0, tsPrev = null;
 const EXV = [0, 0, 1, 0, 0, 0, 1, 0, 0, 0];   // explore's view for applyCamera: orbit.cur, then FIT's eased shift
 function frame(now, xrFrame) {
   const dt = lastNow ? Math.min(0.1, Math.max(0, (now - lastNow) / 1000)) : 0;
@@ -6940,12 +7060,17 @@ function frame(now, xrFrame) {
   const fol = (Sx, v) => ((Sx.fish_a || 0) >= 0.5 && following() ? followView(v, dt) : v);
   if (APP.mode === 'story') {
     S = storyState(ts); tSet = ts;
+    // a jump well past the story's shark sends none (played through, or jumped to within 8 s of it, it comes): the school
+    // as the chapter shows it
+    if ((tsPrev === null || Math.abs(ts - tsPrev) > 1.5) && Math.floor(evalTrack('fish_hunt', ts - 8) + 1e-6) >= Math.floor(S.fish_hunt + 1e-6)) GL.sets.fish.hunted(S.fish_hunt);
+    tsPrev = ts;
     const v = storyCam(ts);
     GL.nf = v[6];
     if (xr) xrPlace(v); else { applyCamera(fol(S, v)); keepCamera(S, ts); }
     updateStoryDOM(ts);
     updateTimeline(APP.t, APP.playing);
   } else {
+    tsPrev = null;
     const pn = performance.now();
     S = exploreStep(dt, pn); tSet = pn / 1000;
     // (a wide view stands further back on a phone held upright, and its target's shift clear of the side panel, FIT,

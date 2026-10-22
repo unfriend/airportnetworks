@@ -15,8 +15,9 @@ moves (`api.counts()`).
   of the nucleus), and one that fails (CFTR, in cystic fibrosis) turns red and stops a third of the way. Fading,
   lighting and point sizes as in the globe (see globe.md).
 - **German**: the original's place, organelle and move names and texts are English; the set holds German for the 13
-  places, 10 organelles and 7 moves (name, title, text). Protein names and roles stay as in the original (open: see
-  SPEC.md).
+  places, 10 organelles and 7 moves (name, title, text) and every protein's role (`ROLE_DE`, by the original's English
+  words: a role the original changes or adds stays English until added; `test-sets.mjs` lists any missing). Protein
+  names stay the scientific ones (open: see SPEC.md).
 
 ## Params
 
