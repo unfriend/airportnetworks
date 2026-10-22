@@ -1786,15 +1786,15 @@ try {
     await H.evaluate(yaw => {
       const X = window.__xr, V = THREE.Vector3, Y = yaw + HOST.room.internals().yaw;
       const hp = new V().setFromMatrixPosition(X.W.head).applyMatrix4(X.W.local.clone().invert());
-      const lp = hp.add(new V(-Math.sin(Y), 0, -Math.cos(Y)).multiplyScalar(0.36)).add(new V(-Math.cos(Y), -5, Math.sin(Y)).multiplyScalar(0.06));
+      const lp = hp.add(new V(-Math.sin(Y), 0, -Math.cos(Y)).multiplyScalar(0.45)).add(new V(-Math.cos(Y), -5, Math.sin(Y)).multiplyScalar(0.06));
       X.aim(1, new THREE.Matrix4().compose(lp, new THREE.Quaternion().setFromAxisAngle(new V(0, 1, 0), Y), new V(1, 1, 1)));
       HOST.collab.panelOpen(false);
     }, Sf.yaw);
     await frames(H, 300);
-    await view('headset-clock.png', Sf.yaw, -0.62);
+    await view('headset-clock.png', Sf.yaw, -0.55);
     await H.evaluate(() => HOST.collab.panelOpen(true));
     await frames(H, 300);
-    await view('headset-menu.png', Sf.yaw, -0.15);
+    await view('headset-menu.png', Sf.yaw, -0.13);
     await H.evaluate(() => { const c = HOST.cur.peek('XR.ctrls')[1]; c.g.visible = false; c.src = null; window.__xr.session.inputSources.length = 0; });
     // the page's dialog with the room map, on a desktop and on a phone
     await A.setViewportSize({ width: 1000, height: 760 });

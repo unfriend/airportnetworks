@@ -1064,7 +1064,7 @@ Re-align, a station played there, the room taken to a relay that answers and
 joined there by another page; a relay that cannot be reached). `--quick` runs only the last story in the per-story part. A new story needs an entry in `STORIES`
 (`change` and `back`: code that changes its `state()`, and optional `effect`
 and `more`); the headset's story (`HEADSET_STORY`) stays the last entry.
-`--shots <dir>` also saves pictures of the dialog and two headset views.
+`--shots <dir>` also saves pictures of the dialog and four headset views (with the menu's clock on the left wrist, and the menu open).
 
 For the tour, test a changed set on its own in the set harness first
 (`tools/lbi/shot.mjs`, much cheaper than the whole story), then the story at a
