@@ -46,7 +46,8 @@ function buildScene(canvas) {
   GL.sets.body.group.add(GL.dots.group);
 }
 // The organs' points: MICRO_DATA.organs' home points in the body, under the params dots (0..1, as far as the body shows)
-// and dots_pick (an organ's index + 1, 0 none: it grows and glows white, the others dim a little). They twinkle gently.
+// and dots_pick (an organ's index + 1, 0 none: it grows and glows white, the others dim a little, and the organ's small
+// 3D model (ORGAN3D) floats out beside it, turning slowly, once the models are built). They twinkle gently.
 const DOT_COL = '#ff9ec4';
 function makeDots() {
   const set = K.newSet('dots'), O = MICRO_DATA.organs, n = O.length, g = K.pointsGeo(n);
@@ -55,15 +56,41 @@ function makeDots() {
   const pts = new THREE.Points(g, K.points(set, { vertex: 'gl_PointSize *= 1.0 + 0.18 * sin(uTime * 2.3 + position.x * 53.0 + position.y * 31.0);' }));
   pts.renderOrder = 4;
   set.group.add(pts);
-  let last = -1;
+  let last = -1, pickT = 0;
   const _p = new THREE.Vector3();
+  // the models: one geometry of all 29, each placed and shown by its own uniforms (only the picked one shows)
+  let om = null;
+  const oP = O.map(() => new THREE.Vector4()), oQ = O.map(() => new THREE.Vector4());
+  function models() {
+    if (om || !ORGAN3D.ready()) return om;
+    const M = ORGAN3D.merged(O.map(o => ORGAN3D.idOf(o.name) || 'stomach')), mg = new THREE.BufferGeometry();
+    mg.setAttribute('position', new THREE.BufferAttribute(M.pos, 3)); mg.setAttribute('normal', new THREE.BufferAttribute(M.nrm, 3));
+    mg.setAttribute('aCol', new THREE.BufferAttribute(M.col, 3)); mg.setAttribute('aSlot', new THREE.BufferAttribute(M.slot, 1)); mg.setIndex(new THREE.BufferAttribute(M.idx, 1));
+    const sh = ORGAN3D.shader(n);
+    const m = new THREE.ShaderMaterial({ uniforms: { uA: set.uA, uP: { value: oP }, uQ: { value: oQ }, uTint: { value: new THREE.Color(...K.rgb(DOT_COL)) } },
+      vertexShader: sh.vertex, fragmentShader: sh.fragment, transparent: true });
+    set.mats.push(m);
+    om = new THREE.Mesh(mg, m); om.frustumCulled = false; om.renderOrder = 5; om.raycast = () => {};
+    set.group.add(om);
+    return om;
+  }
   return Object.assign(set, {
-    update(S) {
+    update(S, t) {
       const k = Math.round(S.dots_pick || 0);
-      if (k === last) return;
-      last = k;
-      O.forEach((o, i) => { const on = k === i + 1; Z[i] = on ? 0.11 : 0.05; A[i] = !k || on ? 1 : 0.45; C.set(K.rgb(on ? '#ffffff' : DOT_COL), 3 * i); });
-      g.attributes.aSize.needsUpdate = g.attributes.aA.needsUpdate = g.attributes.aCol.needsUpdate = true;
+      if (k !== last) {
+        pickT = last < 0 ? t - 9 : t; last = k;
+        O.forEach((o, i) => { const on = k === i + 1; Z[i] = on ? 0.11 : 0.05; A[i] = !k || on ? 1 : 0.45; C.set(K.rgb(on ? '#ffffff' : DOT_COL), 3 * i); });
+        g.attributes.aSize.needsUpdate = g.attributes.aA.needsUpdate = g.attributes.aCol.needsUpdate = true;
+      }
+      if (t < pickT) pickT = t - 9;   // (a seek back: shown at once)
+      // the picked organ's model grows out in front of the body, beside its point (left of it: its label runs right)
+      if (!models()) return;
+      const gr = smooth(clamp((t - pickT) / 0.9, 0, 1));
+      O.forEach((o, i) => {
+        const on = k === i + 1;
+        oQ[i].set(on ? gr : 0, 0.25, t * 0.5, 0);
+        if (on) oP[i].set(o.pos[0] - 0.19 * gr, o.pos[1] + 0.03, o.pos[2] + 0.16 * gr, 0.075 * (0.3 + 0.7 * gr));
+      });
     },
     // the organ a ray passes closest to (within about 0.045 of its point, in the body's units), or -1
     pick(rc) {
@@ -84,6 +111,9 @@ function updateSets(S, t, dt, story) {
     if (a > 0.003) s.update(S, t, dt);
     else if (s.idle) s.idle(dt);   // a hidden set may build in slices
   }
+  // the organs' 3D models build between frames (the network set steps them while it is hidden): once they are all
+  // ready, the explore panes are drawn again with their pictures
+  if (!GL.orgReady && ORGAN3D.ready()) { GL.orgReady = true; if (APP.mode === 'explore') renderAll(); }
   const da = (S.body_a || 0) * (S.dots || 0);
   GL.dots.setAlpha(da);
   if (da > 0.003) GL.dots.update(S, t);

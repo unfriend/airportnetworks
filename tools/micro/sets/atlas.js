@@ -2,6 +2,9 @@
 // their domains, the tile cloud, ageing (the volcano and the examples' morph) and trajectories over age. Manifest:
 // atlas.md. Slides, sections and tiles are drawn (procedural), never the GTEx images; shares, the volcano and the
 // curves come from MICRO_DATA (the preprint's numbers and readings of the talk's figures), stand-ins where it has none.
+// Everything is drawn as lit 3D objects: each slide a thin glass box with its tissue on it, each section a slab of tiles
+// standing in relief (each domain its own height), the tiles flying into the cloud as small lit cubes, the volcano's
+// bubbles as lit spheres over a glass floor with their shadows, the trajectories as lit ribbons over glass lanes.
 SETS.atlas = function (K) {
   const { THREE, clamp, lerp, prog, rng, gauss } = K;
   const set = K.newSet('atlas');
@@ -364,10 +367,29 @@ SETS.atlas = function (K) {
     return new THREE.CanvasTexture(cv);
   }
 
+  // ---------------------------------------------------------------- a box as the three faces the camera sees
+  // Slides and tiles are boxes; a box is drawn as three quads (its broad face, a side, an end), each turned in the
+  // vertex shader to the side of the box that faces the camera, so a box costs 6 triangles instead of 12 and is right
+  // from every side (in a headset each eye picks its own). position = (a, b, face) with a, b in -0.5..0.5; the broad
+  // face comes first, so a draw range of 6 indices draws only it (a box seen from afar)
+  const BOXQ = { P: [], I: [] };
+  for (let fc = 0; fc < 3; fc++) { const b = BOXQ.P.length / 3; BOXQ.P.push(-0.5, -0.5, fc, 0.5, -0.5, fc, 0.5, 0.5, fc, -0.5, 0.5, fc); BOXQ.I.push(b, b + 1, b + 2, b, b + 2, b + 3); }
+  const boxGeo = g => { g.setIndex(BOXQ.I); g.setAttribute('position', new THREE.Float32BufferAttribute(BOXQ.P, 3)); return g; };
+  // (X, Y, Z: the box's half-to-half axes, scaled; c its centre; out: the point's offset from c and the face's normal)
+  const BOXGL = `
+vec3 boxAt(vec3 q, vec3 c, vec3 X, vec3 Y, vec3 Z, out vec3 nrm, out vec2 fuv) {
+  vec3 V = cameraPosition - (modelMatrix * vec4(c, 1.0)).xyz; mat3 M = mat3(modelMatrix);
+  float sx = dot(V, M * X) >= 0.0 ? 1.0 : -1.0, sy = dot(V, M * Y) >= 0.0 ? 1.0 : -1.0, sz = dot(V, M * Z) >= 0.0 ? 1.0 : -1.0;
+  vec3 l; fuv = q.xy + 0.5;
+  if (q.z < 0.5) { l = vec3(q.x, q.y, 0.5 * sz); nrm = normalize(Z) * sz; }
+  else if (q.z < 1.5) { l = vec3(0.5 * sx, q.x, q.y); nrm = normalize(X) * sx; }
+  else { l = vec3(q.x, 0.5 * sy, q.y); nrm = normalize(Y) * sy; }
+  return X * l.x + Y * l.y + Z * l.z;
+}`;
+
   // ---------------------------------------------------------------- the slide library (one instanced draw)
   const NW = NSL.reduce((s, n) => s + n, 0);
-  const wallGeo = new THREE.InstancedBufferGeometry();
-  { const q = new THREE.PlaneGeometry(1, 1); wallGeo.index = q.index; wallGeo.setAttribute('position', q.attributes.position); wallGeo.setAttribute('uv', q.attributes.uv); }
+  const wallGeo = boxGeo(new THREE.InstancedBufferGeometry());
   const aW = new Float32Array(NW * 4), aWR = new Float32Array(NW * 4);
   { const r = rng(4242); let o = 0;
     TT.forEach((row, ti) => {
@@ -397,11 +419,11 @@ SETS.atlas = function (K) {
     uniforms: { uA: set.uA, uTime: K.U.uTime, uLib: { value: 1 }, uVis: { value: 1 }, uTex: { value: slideTex }, uTis: { value: TIS },
       uSW: { value: (WR * 2 * TH / U) * 0.8 }, uSH: { value: WH / NR * 0.88 } },
     transparent: true, depthWrite: false, side: THREE.DoubleSide,
-    vertexShader: `
+    vertexShader: BOXGL + `
 attribute vec4 aW, aR;
 uniform float uLib, uVis, uA, uTime, uSW, uSH;
 uniform vec4 uTis[${NT}];
-varying vec2 vUv, vCell; varying vec4 vT; varying float vA, vGl;
+varying vec2 vUv, vCell; varying vec4 vT; varying float vA, vGl, vFace; varying vec3 vN, vV;
 void main() {
   float th = aW.x, y = aW.y;
   vec3 home = vec3(${WR.toFixed(3)} * sin(th), y, ${WC.toFixed(3)} - ${WR.toFixed(3)} * cos(th));
@@ -409,14 +431,21 @@ void main() {
   float k = clamp((uLib * 1.45 - aR.y) / 0.45, 0.0, 1.0); k = k * k * (3.0 - 2.0 * k);
   vec3 c = mix(src, home, k);
   c.y += sin(k * 3.14159) * 0.16 * (aR.x - 0.35);
-  float ang = (1.0 - k) * (aR.z * 7.0 - 3.5), ca = cos(ang), sa = sin(ang);
-  vec2 cr = vec2(position.x * ca - position.y * sa, position.x * sa + position.y * ca) * mix(0.3, 1.0, k);
+  float ang = (1.0 - k) * (aR.z * 7.0 - 3.5), ca = cos(ang), sa = sin(ang), sc = mix(0.3, 1.0, k);
   float fl = aW.w > 7.5 ? -1.0 : 1.0;
-  vec3 rgt = vec3(cos(th), 0.0, sin(th));
-  vec3 p = c + rgt * cr.x * uSW + vec3(0.0, cr.y * uSH, 0.0);
-  gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0);
+  // a glass slide: its broad face in the wall's surface (turned in its plane while it flies), a little thickness
+  vec3 rgt = vec3(cos(th), 0.0, sin(th)), up = vec3(0.0, 1.0, 0.0), nw = vec3(-sin(th), 0.0, cos(th));
+  // (each slide a little askew in its place, so the light glints off the glass here and there, as off a real rack)
+  float ty = (aR.x - 0.5) * 0.36 * k, tx = (fract(aR.z * 7.3) - 0.5) * 0.22 * k, cy = cos(ty), sy = sin(ty), cx = cos(tx), sx = sin(tx);
+  vec3 r2 = rgt * cy + nw * sy, n2 = -rgt * sy + nw * cy; up = vec3(0.0, cx, 0.0) + n2 * sx; nw = n2 * cx - vec3(0.0, sx, 0.0); rgt = r2;
+  vec3 X = (rgt * uSW * ca + up * uSH * sa) * sc, Y = (-rgt * uSW * sa + up * uSH * ca) * sc, Z = nw * uSW * 0.16 * sc;
+  vec3 nrm; vec2 fuv;
+  vec3 p = c + boxAt(position, c, X, Y, Z, nrm, fuv);
+  vec4 mv = modelViewMatrix * vec4(p, 1.0);
+  gl_Position = projectionMatrix * mv;
+  vN = normalize(normalMatrix * nrm); vV = -mv.xyz; vFace = position.z;
   float vi = mod(aW.w, 8.0);
-  vUv = uv; vCell = vec2(mod(vi, 4.0), floor(vi / 4.0));
+  vUv = fuv; vCell = vec2(mod(vi, 4.0), floor(vi / 4.0));
   vUv.x = fl > 0.0 ? vUv.x : 1.0 - vUv.x;
   vT = uTis[int(aW.z + 0.5)];
   vA = uA * uVis * smoothstep(0.0, 0.25, k);
@@ -425,20 +454,26 @@ void main() {
 }`,
     fragmentShader: `
 uniform sampler2D uTex;
-varying vec2 vUv, vCell; varying vec4 vT; varying float vA, vGl;
+varying vec2 vUv, vCell; varying vec4 vT; varying float vA, vGl, vFace; varying vec3 vN, vV;
 void main() {
+  vec3 n = normalize(vN), v = normalize(vV), L = normalize(vec3(-0.45, 0.6, 0.65));
+  float df = max(dot(n, L), 0.0), fr = pow(1.0 - abs(dot(n, v)), 3.0), sp = pow(max(dot(reflect(-L, n), v), 0.0), 40.0);
+  vec3 glass = vec3(0.55, 0.72, 0.86);
+  // the glass's edges: green-blue glass, bright where the light catches it
+  if (vFace > 0.5) { gl_FragColor = vec4(glass * (0.3 + 0.5 * df) + vec3(sp * 0.6), (0.18 + 0.35 * fr + 0.4 * sp) * vA); return; }
   vec2 tc = vec2((vCell.x + vUv.x) / 4.0, 1.0 - (vCell.y + 1.0 - vUv.y) / 2.0);
   vec4 tx = texture2D(uTex, tc);
+  // the tissue lies on the glass as a thin slab: lit, with its shadow on the glass beside it
+  float shd = texture2D(uTex, tc + vec2(-0.006, 0.006)).r;
   float tis = tx.r, nuc = tx.g * tis * 1.7, lab = tx.b;
   vec3 col = mix(vT.rgb, vec3(0.30, 0.24, 0.58), clamp(nuc * (0.25 + vT.a * 1.4), 0.0, 0.92));
   vec2 e = min(vUv, 1.0 - vUv); float rim = 1.0 - smoothstep(0.0, 0.07, min(e.x, e.y * 0.4));
-  vec3 glass = vec3(0.55, 0.68, 0.85);
   float ts = smoothstep(0.0, 0.45, tis);
-  float a = max(0.05 + 0.22 * rim, ts * 0.97);
-  col = mix(glass, col, ts);
-  col = mix(col, vec3(0.86, 0.9, 0.96), lab * 0.4 * (1.0 - ts)); a = max(a, lab * 0.3);
-  col += glass * vGl * (0.45 + rim);
-  gl_FragColor = vec4(col, min(1.0, a + vGl * 0.3) * vA);
+  float a = max(0.06 + 0.24 * rim + 0.18 * shd * (1.0 - ts), ts * 0.97);
+  col = mix(glass * (1.0 - 0.45 * shd), col * (0.72 + 0.4 * df), ts);
+  col = mix(col, vec3(0.86, 0.9, 0.96), lab * 0.45 * (1.0 - ts)); a = max(a, lab * 0.32);
+  col += glass * (vGl * (0.45 + rim) + 0.12 * fr) + vec3(sp * 0.35);
+  gl_FragColor = vec4(col, min(1.0, a + vGl * 0.3 + sp * 0.25) * vA);
 }`,
   });
   set.mats.push(wallMat);
@@ -446,15 +481,20 @@ void main() {
 
   // ---------------------------------------------------------------- the sections' tiles = the cloud's points
   const NTILE = SEC.reduce((s, q) => s + q.N, 0), exSet0 = new Set(exT.filter(i => i >= 0));
-  const tileGeo = new THREE.InstancedBufferGeometry();
-  { const q = new THREE.PlaneGeometry(1, 1); tileGeo.index = q.index; tileGeo.setAttribute('position', q.attributes.position); }
+  const tileGeo = boxGeo(new THREE.InstancedBufferGeometry());
+  // each domain stands at its own height on the section (in tile sizes, by its kind of tissue), so a section is a slab
+  // in relief: linings and glands high, muscle middling, connective tissue and fat low, spaces lowest (illustrative)
+  const RELIEF = { 'lining epithelium': 1.0, 'glandular tissue': 0.9, 'lymphoid structure': 0.85, 'skeletal muscle': 0.72, 'cardiac muscle': 0.72, 'smooth muscle': 0.66,
+    'neuronal tissue': 0.6, 'vascular tissue': 0.56, 'connective tissue': 0.42, 'adipose tissue': 0.3, other: 0.34 };
+  const reliefOf = nm => (/space|cyst|lumen/.test(nm) ? 0.16 : RELIEF[typeOf(nm)] || 0.4);
   const aT = new Float32Array(NTILE * 4), aU = new Float32Array(NTILE * 3), aCA = new Float32Array(NTILE * 3), aCB = new Float32Array(NTILE * 3),
-    aH = new Float32Array(NTILE * 3), aM = new Float32Array(NTILE * 4);
+    aH = new Float32Array(NTILE * 3), aM = new Float32Array(NTILE * 4), aRH = new Float32Array(NTILE * 2);
   { const r = rng(77); let o = 0;
     SEC.forEach((s, ti) => { const doms = REC[ti];
       for (let j = 0; j < s.N; j++, o++) {
         const dA = doms[s.d0[j]], dB = doms[s.d1[j]];
         aT.set([s.x[j], s.y[j], ti, s.cell], o * 4);
+        aRH.set([reliefOf(dA.name), reliefOf(dB.name)], o * 2);
         aCA.set(K.rgb(domainColour(dA.name)), o * 3); aCB.set(K.rgb(domainColour(dB.name)), o * 3);
         const he = heOf(dA.name), base = K.rgb(he[0]), nu = clamp(he[1] * (0.3 + 1.1 * r()) + (r() < he[1] * 0.35 ? 0.4 : 0), 0, 0.9), lum = 0.92 + 0.12 * r();
         aH.set(K.v3.mul(K.v3.lerp(base, HAE, nu), lum), o * 3);
@@ -470,6 +510,7 @@ void main() {
     tileGeo.setAttribute('aT', new THREE.InstancedBufferAttribute(aT, 4)); tileGeo.setAttribute('aU', new THREE.InstancedBufferAttribute(aU, 3));
     tileGeo.setAttribute('aCA', new THREE.InstancedBufferAttribute(aCA, 3)); tileGeo.setAttribute('aCB', new THREE.InstancedBufferAttribute(aCB, 3));
     tileGeo.setAttribute('aH', new THREE.InstancedBufferAttribute(aH, 3)); tileGeo.setAttribute('aM', new THREE.InstancedBufferAttribute(aM, 4));
+    tileGeo.setAttribute('aRH', new THREE.InstancedBufferAttribute(aRH, 2));
     tileGeo.instanceCount = NTILE; tileGeo.boundingSphere = new THREE.Sphere(new THREE.Vector3(0, 0, 0), 3);
   }
   // per section: uP = centre and size, uQ = yaw, alpha, domain colours (0 H&E, 1 domains), focus
@@ -477,14 +518,14 @@ void main() {
   const SECU = { uP: { value: uP }, uQ: { value: uQ } };
   const tileMat = new THREE.ShaderMaterial({
     uniforms: Object.assign({ uA: set.uA, uUm: { value: 0 }, uAge: { value: 0 }, uCA: { value: 1 }, uCR: { value: 0 }, uFoc: { value: 0 },
-      uPt: { value: 0.022 }, uCC: { value: new THREE.Vector3(0, 0.05, 0.08) }, uCS: { value: 1 } }, SECU),
-    transparent: true, depthWrite: false,
+      uPt: { value: 0.015 }, uCC: { value: new THREE.Vector3(0, 0.05, 0.08) }, uCS: { value: 1 } }, SECU),
+    transparent: true, depthWrite: true, side: THREE.DoubleSide,
     blending: THREE.CustomBlending, blendSrc: THREE.OneFactor, blendDst: THREE.OneMinusSrcAlphaFactor,
-    vertexShader: `
-attribute vec4 aT, aM; attribute vec3 aU, aCA, aCB, aH;
+    vertexShader: BOXGL + `
+attribute vec4 aT, aM; attribute vec3 aU, aCA, aCB, aH; attribute vec2 aRH;
 uniform vec4 uP[${NT}], uQ[${NT}];
 uniform float uA, uUm, uAge, uCA, uCR, uFoc, uPt, uCS; uniform vec3 uCC;
-varying vec3 vC; varying float vA, vK; varying vec2 vQ;
+varying vec3 vC, vN, vV; varying float vA, vK, vTop; varying vec2 vQ;
 void main() {
   int ti = int(aT.z + 0.5);
   vec4 P = uP[ti], Q = uQ[ti];
@@ -493,33 +534,36 @@ void main() {
   float k = clamp((uUm * 1.7 - aM.z) / 0.6, 0.0, 1.0); k = k * k * (3.0 - 2.0 * k);
   float cr = cos(uCR), sr = sin(uCR);
   vec3 up = uCC + vec3(aU.x * cr + aU.z * sr, aU.y, -aU.x * sr + aU.z * cr) * uCS;
-  vec3 p = mix(sp, up, k);
-  p.y += sin(k * 3.14159) * (0.1 + 0.25 * aM.y);
-  vec3 off = vec3(position.x * c, position.y, -position.x * s) * aT.w * P.w * 0.94;
-  vec4 mvS = modelViewMatrix * vec4(p + off, 1.0);
-  vec4 mv = modelViewMatrix * vec4(p, 1.0);
-  float sc = length(modelViewMatrix[0].xyz);
-  vec4 mvB = mv + vec4(position.xy * uPt * sc * (0.75 + 0.5 * aM.y), 0.0, 0.0);
-  mv = mix(mvS, mvB, k);
-  gl_Position = projectionMatrix * mv;
   float f = smoothstep(aM.x - 0.035, aM.x + 0.035, uAge);
+  // a tile on its section: a box standing on the plate, as tall as its domain's relief; in the cloud, a small cube
+  float cs = aT.w * P.w * 0.94, hs = mix(aRH.x, aRH.y, f) * cs * (0.85 + 0.3 * aM.y), cc = uPt * (0.75 + 0.5 * aM.y);
+  vec3 Xs = vec3(c, 0.0, -s) * cs, Ys = vec3(0.0, cs, 0.0), Zs = vec3(s, 0.0, c) * hs;
+  vec3 X = mix(Xs, vec3(cc, 0.0, 0.0), k), Y = mix(Ys, vec3(0.0, cc, 0.0), k), Z = mix(Zs, vec3(0.0, 0.0, cc), k);
+  vec3 p = mix(sp + Zs * 0.5, up, k);
+  p.y += sin(k * 3.14159) * (0.1 + 0.25 * aM.y);
+  vec3 nrm; vec2 fuv;
+  vec4 mv = modelViewMatrix * vec4(p + boxAt(position, p, X, Y, Z, nrm, fuv), 1.0);
+  gl_Position = projectionMatrix * mv;
+  vN = normalize(normalMatrix * nrm); vV = -mv.xyz; vTop = 1.0 - step(0.5, position.z);
   float gl = aM.x < 1.5 ? clamp(1.0 - abs(uAge - aM.x) * 14.0, 0.0, 1.0) * 0.8 : 0.0;
   float ex = aM.w > 0.25 && aM.w < 0.75 ? 1.0 - 0.5 * Q.w * (1.0 - k) : 1.0 + 0.15 * step(0.75, aM.w) * Q.w;   // a focused example: its domain stands out
   vC = (mix(aH, mix(aCA, aCB, f), max(Q.z, k)) * (1.0 + 0.1 * Q.w) + gl * vec3(0.7)) * ex;
-  vA = uA * mix(Q.y, 0.36 * uCA * (1.0 - 0.85 * uFoc * (1.0 - Q.w)), k);
-  vK = k; vQ = position.xy * 2.0;
+  vA = uA * mix(Q.y, 0.88 * uCA * (1.0 - 0.85 * uFoc * (1.0 - Q.w)), k);
+  vK = k; vQ = fuv * 2.0 - 1.0;
   if (vA < 0.004) gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
 }`,
     fragmentShader: `
-varying vec3 vC; varying float vA, vK; varying vec2 vQ;
+varying vec3 vC, vN, vV; varying float vA, vK, vTop; varying vec2 vQ;
 void main() {
-  vec2 q = abs(vQ); float m = max(q.x, q.y), d = length(vQ);
-  float sq = 1.0 - smoothstep(0.82, 1.0, m);
-  float rd = max(smoothstep(0.95, 0.25, d) * 0.85, pow(max(1.0 - d, 0.0), 1.4) * 0.6);
-  float a = mix(sq, rd, vK) * vA;
+  float a = vA;
   if (a < 0.003) discard;
-  vec3 col = vC * mix(0.92 + 0.12 * (1.0 - m), 1.0 + 0.3 * smoothstep(0.4, 0.0, d), vK);
-  gl_FragColor = vec4(col * a, a * (1.0 - 0.35 * vK));   // dots: part additive (a glow), part over (a dense core keeps its colour)
+  vec3 n = normalize(vN), v = normalize(vV), L = normalize(vec3(-0.45, 0.6, 0.65));
+  if (dot(n, v) < 0.0) n = -n;
+  float df = max(dot(n, L), 0.0), fr = pow(1.0 - max(dot(n, v), 0.0), 2.5);
+  // lit faces; the tops a little brighter and bevelled at their edges; in the cloud a soft glow of their own
+  float e = 1.0 - smoothstep(0.7, 1.0, max(abs(vQ.x), abs(vQ.y)));
+  vec3 col = vC * (0.42 + 0.7 * df) * mix(0.8, 1.06, vTop) * mix(0.82, 1.0, e) + vC * fr * 0.35 + vC * vK * 0.35;
+  gl_FragColor = vec4(col * a, a);
 }`,
   });
   set.mats.push(tileMat);
@@ -585,7 +629,7 @@ void main() {
   const volGeo = new THREE.IcosahedronGeometry(1, 2);
   { const col = new Float32Array(NV * 3), av = new Float32Array(NV * 4);
     const warm = [[0, K.rgb('#ffc8b0')], [1, K.rgb('#ff9a6a')], [2, K.rgb('#ff6a4b')], [3.5, K.rgb('#ff3b3b')]], cool = [[0, K.rgb('#c4d8ff')], [1, K.rgb('#7fb0ff')], [2, K.rgb('#4f86ff')]];
-    VOL.forEach((p, i) => { col.set(K.ramp(p.x >= 0 ? warm : cool, Math.abs(p.x)), i * 3); av.set([p.delay, p.sig ? 1 : 0, p.ex !== undefined ? 1 : 0, 0], i * 4); });
+    VOL.forEach((p, i) => { p.col = K.ramp(p.x >= 0 ? warm : cool, Math.abs(p.x)); col.set(p.col, i * 3); av.set([p.delay, p.sig ? 1 : 0, p.ex !== undefined ? 1 : 0, 0], i * 4); });
     volGeo.setAttribute('aCol', new THREE.InstancedBufferAttribute(col, 3)); volGeo.setAttribute('aV', new THREE.InstancedBufferAttribute(av, 4)); }
   const volMat = new THREE.ShaderMaterial({
     uniforms: { uA: set.uA, uRev: { value: 0 }, uSig: { value: 0 } },
@@ -632,6 +676,50 @@ void main() {
     const pm = K.fade(set, new THREE.MeshBasicMaterial({ color: 0xffb43b, side: THREE.DoubleSide, blending: THREE.AdditiveBlending, depthWrite: false }), 0.07);
     const pl = new THREE.Mesh(new THREE.PlaneGeometry(2 * XM, ZF - ZB), pm); pl.rotation.x = -PI / 2; pl.position.set(0, Ys, 0); pl.renderOrder = 4; vg.add(pl); vg.userData.plane = pl;
   }
+  // the plot as an object in space: a dark glass floor under the bubbles, the two axes as lit rods, each bubble's soft
+  // shadow on the floor, a thin line down to it from each significant one, and a halo round those
+  {
+    const floorM = K.fade(set, new THREE.MeshStandardMaterial({ color: 0x0b1626, roughness: 0.3, metalness: 0.25, transparent: true }), 0.85);
+    const fl = new THREE.Mesh(new THREE.BoxGeometry(2 * XM + 0.1, 0.014, ZF - ZB + 0.1), floorM);
+    fl.position.set(0, VS.y0 - 0.009, 0); fl.renderOrder = 3; vg.add(fl);
+    const rodM = K.fade(set, new THREE.MeshStandardMaterial({ color: 0xa9b8cc, roughness: 0.35, metalness: 0.4, emissive: 0x16202c, transparent: true }), 1);
+    const rods = K.merge([K.tube([[-XM - 0.02, VS.y0, ZF], [XM + 0.02, VS.y0, ZF]], 0.0055, 2, 10), K.tube([[-XM, VS.y0, ZB], [-XM, YT, ZB]], 0.0055, 2, 10)]);
+    const rm = new THREE.Mesh(rods, rodM); rm.renderOrder = 4; vg.add(rm);
+    // shadows and halos: one quad per bubble, popping in with it (the bubbles' own reveal, shared uniforms)
+    const hgeo = new THREE.InstancedBufferGeometry();
+    hgeo.setIndex([0, 1, 2, 0, 2, 3]);
+    hgeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array([-1, -1, 0, 1, -1, 0, 1, 1, 0, -1, 1, 0]), 3));
+    const hp = new Float32Array(NV * 4), hv = new Float32Array(NV * 4), hc = new Float32Array(NV * 3);
+    VOL.forEach((p, i) => { hp.set([...p.pos, p.rad], 4 * i); hv.set([p.delay, p.sig ? 1 : 0, p.ex !== undefined ? 1 : 0, 0], 4 * i); hc.set(p.col, 3 * i); });
+    hgeo.setAttribute('aP', new THREE.InstancedBufferAttribute(hp, 4)); hgeo.setAttribute('aV', new THREE.InstancedBufferAttribute(hv, 4)); hgeo.setAttribute('aCol', new THREE.InstancedBufferAttribute(hc, 3));
+    hgeo.instanceCount = NV; hgeo.boundingSphere = new THREE.Sphere(new THREE.Vector3(), 2);
+    const U2 = volMat.uniforms;
+    const qv = (kind) => `
+attribute vec4 aP, aV; attribute vec3 aCol; uniform float uA, uRev, uSig;
+varying vec2 vQ; varying vec3 vC; varying float vAl;
+void main() {
+  float g = clamp((uRev - aV.x) / 0.14, 0.0, 1.0); g = g * g * (3.0 - 2.0 * g);
+  float on = aV.y * uSig, r = aP.w * (1.0 + 0.35 * aV.z) * g;
+  vQ = position.xy; vC = aCol;
+  ${kind ? `vec4 mv = modelViewMatrix * vec4(aP.xyz, 1.0); mv.xy += position.xy * r * 3.0 * length(modelViewMatrix[0].xyz);
+  vAl = uA * on;` : `float hgt = aP.y - ${VS.y0.toFixed(3)};
+  vec4 mv = modelViewMatrix * vec4(aP.x + position.x * r * 1.7, ${(VS.y0 + 0.0005).toFixed(4)}, aP.z + position.y * r * 1.7, 1.0);
+  vAl = uA * mix(0.25, 0.6, on) / (1.0 + 5.0 * hgt);`}
+  gl_Position = projectionMatrix * mv;
+  if (vAl < 0.004 || g < 0.001) gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
+}`;
+    const shadowM = new THREE.ShaderMaterial({ uniforms: U2, transparent: true, depthWrite: false, vertexShader: qv(0),
+      fragmentShader: 'varying vec2 vQ; varying float vAl; void main() { float d = dot(vQ, vQ); if (d > 1.0) discard; gl_FragColor = vec4(0.0, 0.0, 0.0, vAl * (1.0 - d) * (1.0 - d)); }' });
+    const haloM = new THREE.ShaderMaterial({ uniforms: U2, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, vertexShader: qv(1),
+      fragmentShader: 'varying vec2 vQ; varying vec3 vC; varying float vAl; void main() { float d = length(vQ); if (d > 1.0) discard; float g = exp(-max(d * 3.0 - 0.95, 0.0) * 1.7) * smoothstep(1.0, 0.6, d); gl_FragColor = vec4(mix(vC, vec3(1.0), 0.2) * g * 0.55, g * vAl); }' });
+    set.mats.push(shadowM, haloM);
+    const sh = new THREE.Mesh(hgeo, shadowM); sh.frustumCulled = false; sh.renderOrder = 4; vg.add(sh);
+    const ha = new THREE.Mesh(hgeo, haloM); ha.frustumCulled = false; ha.renderOrder = 6; vg.add(ha);
+    // (the drop lines: from each significant bubble to the floor)
+    const sig = VOL.filter(p => p.sig), dg = K.linesGeo(sig.length), DP = dg.attributes.position.array, DC = dg.attributes.aCol.array, DA = dg.attributes.aA.array;
+    sig.forEach((p, i) => { DP.set(p.pos, 6 * i); DP.set([p.pos[0], VS.y0, p.pos[2]], 6 * i + 3); DC.set(p.col, 6 * i); DC.set(p.col, 6 * i + 3); DA[2 * i] = 0.5; DA[2 * i + 1] = 0.1; });
+    const dl = new THREE.LineSegments(dg, K.lines(set)); dl.frustumCulled = false; dl.renderOrder = 4; vg.add(dl); vg.userData.drops = dl;
+  }
 
   // ---------------------------------------------------------------- trajectories over age (a staircase of lanes)
   const TRJ = Array.isArray(FIG.trajectories) ? FIG.trajectories : [];
@@ -664,7 +752,12 @@ void main() {
       for (let s = 0; s < SEG; s++) { const a0 = AGES[0] + (AGES[1] - AGES[0]) * s / SEG, a1 = AGES[0] + (AGES[1] - AGES[0]) * (s + 1) / SEG, t0 = s / SEG, t1 = (s + 1) / SEG;
         const x0 = ageX(a0), x1 = ageX(a1), q = [[x0, y0, z, t0, 0], [x1, y0, z, t1, 0], [x1, Y(a1), z, t1, 1], [x0, Y(a0), z, t0, 1]];
         for (const v of [0, 1, 2, 0, 2, 3]) push(q[v].slice(0, 3), [0, 0, 1], c, q[v][3], [j, q[v][4], 0]); }
-      const tg = K.tube(Array.from({ length: SEG + 1 }, (_, s) => { const a = AGES[0] + (AGES[1] - AGES[0]) * s / SEG; return [ageX(a), Y(a), z]; }), 0.0055, SEG * 2, 6).toNonIndexed();
+      // (a lit ribbon along the curve's top, a band 0.034 deep, so each trajectory reads as a solid edge in depth)
+      for (let s = 0; s < SEG; s++) { const a0 = AGES[0] + (AGES[1] - AGES[0]) * s / SEG, a1 = AGES[0] + (AGES[1] - AGES[0]) * (s + 1) / SEG, t0 = s / SEG, t1 = (s + 1) / SEG;
+        const x0 = ageX(a0), x1 = ageX(a1), y0r = Y(a0), y1r = Y(a1), nl = Math.hypot(y1r - y0r, x1 - x0) || 1, nn = [-(y1r - y0r) / nl, (x1 - x0) / nl, 0];
+        const q = [[x0, y0r, z - 0.017, t0], [x1, y1r, z - 0.017, t1], [x1, y1r, z + 0.017, t1], [x0, y0r, z + 0.017, t0]];
+        for (const v of [0, 1, 2, 0, 2, 3]) push(q[v].slice(0, 3), nn, c.map(x => x * 0.85), q[v][3], [j, 1, 1]); }
+      const tg = K.tube(Array.from({ length: SEG + 1 }, (_, s) => { const a = AGES[0] + (AGES[1] - AGES[0]) * s / SEG; return [ageX(a), Y(a), z + 0.018]; }), 0.0075, SEG * 2, 8).toNonIndexed();
       const P = tg.attributes.position.array, N = tg.attributes.normal.array;
       for (let v = 0; v < P.length / 3; v++) push([P[v * 3], P[v * 3 + 1], P[v * 3 + 2]], [N[v * 3], N[v * 3 + 1], N[v * 3 + 2]], c, c01((P[v * 3] + LX) / (2 * LX)), [j, 1, 1]); });
     const g = new THREE.BufferGeometry();
@@ -689,6 +782,10 @@ void main() {
   gl_FragColor = vec4(vC * (0.02 + 0.3 * pow(vY, 3.0)), vA);
 }` });
     set.mats.push(m); const cm = new THREE.Mesh(g, m); cm.frustumCulled = false; cm.renderOrder = 5; cg.add(cm); cg.userData.mat = m;
+    // each lane stands on a strip of dark glass
+    const laneM = K.fade(set, new THREE.MeshStandardMaterial({ color: 0x0d1a2b, roughness: 0.3, metalness: 0.25, transparent: true }), 0.85);
+    const lanes = K.merge(LANES.map((l, j) => { const b = new THREE.BoxGeometry(2 * LX + 0.06, 0.008, 0.07); b.translate(0, laneY(j) - 0.0045, laneZ(j)); return b; }));
+    const lm = new THREE.Mesh(lanes, laneM); lm.renderOrder = 4; cg.add(lm);
     // baselines, decade marks, the 40 and 60 guides
     const segs = [], ink = K.rgb('#9fb0c6'), dim = K.rgb('#56677e');
     LANES.forEach((l, j) => { const y0 = laneY(j), z = laneZ(j); segs.push([[-LX, y0, z], [LX, y0, z], dim, 0.55, 0]);
@@ -731,6 +828,7 @@ void main() {
     // the library
     const libV = lib * (1 - 0.72 * map) * (1 - 0.85 * Math.max(um, vc)) * (1 - 0.6 * fmax);
     wallMat.uniforms.uLib.value = lib; wallMat.uniforms.uVis.value = libV; wall.visible = libV > 0.003 && lib > 0.002;
+    wallGeo.setDrawRange(0, map > 0.2 || um > 0.2 || vc > 0.2 ? 6 : 18);   // (a dimmed wall behind the sections: the slides' faces only)
     // the sections: from their tissue's column on the wall to the grid, one of them forward when focused
     const wc = vc > 0 ? curv / (volc + curv) : 0, F0 = [0, 0.02, 0.72], FV = [lerp(0.74, 0.84, wc), 0.04, 0.5], Fp = K.v3.lerp(F0, FV, vc), sF = lerp(0.42, 0.33, vc);
     let anySec = 0;
@@ -748,11 +846,13 @@ void main() {
     // the cloud
     tileMat.uniforms.uUm.value = um; tileMat.uniforms.uAge.value = age; tileMat.uniforms.uFoc.value = fmax;
     tileMat.uniforms.uCA.value = 1 - 0.88 * vc; tileMat.uniforms.uCR.value = 0.5 + 0.035 * t;
-    tiles.visible = anySec > 0.003 || um > 0.002; caps.visible = anySec > 0.003 && um < 0.998; capMat.uniforms.uUm.value = sm(um * 1.6);
+    tiles.visible = anySec > 0.003 || um > 0.002;
+    tileMat.depthWrite = vc < 0.02 && fmax < 0.02;   // (dimmed sections behind a plot or a focused section must not hide what is in front of them) caps.visible = anySec > 0.003 && um < 0.998; capMat.uniforms.uUm.value = sm(um * 1.6);
     // the volcano (left of a focused section)
     const vS = 1 - 0.2 * fmax; vg.position.set(-0.5 * fmax, 0.02, 0.1); vg.scale.setScalar(vS); vg.visible = volc > 0.003;
     volMat.uniforms.uRev.value = volc * 1.05; volMat.uniforms.uSig.value = prog(volc, 0.68, 0.95);
     vg.userData.lines.material.uniforms.uReveal.value = prog(volc, 0, 0.35) * 1.0;
+    vg.userData.drops.material.uniforms.uReveal.value = prog(volc, 0.7, 0.95) > 0 ? 1 : -1;
     vg.userData.plane.material.opacity = 0.07 * set.uA.value * prog(volc, 0.5, 0.8);   // from its base, never compounding
     // the trajectories
     cg.position.set(-0.69 * fmax, 0, 0.1); cg.scale.setScalar(1 - 0.34 * fmax); cg.visible = curv > 0.003;   // (beside a section: smaller, short names)
@@ -828,6 +928,7 @@ void main() {
     umap: [24, 14, 3.3, 0, 0.05, 0.08], focus: [0, 4, 1.95, 0, 0.0, 0.72], volcano: [-6, 9, 3.1, 0.24, 0.02, 0.1],
     curves: [-20, 14, 3.4, 0.33, -0.04, 0.08], age: [0, 6, 3.4, 0.2, 0.02, 0.3],
     slides: [-8, 6, 0.75, -0.1, 0.22, -0.49],   // close to the wall: single slides (the library's own view is the whole wall)
+    shelf: [-32, 10, 0.3, -0.12, 0.1, -0.47],   // a slant along the wall, up close: the slides as glass with their tissue
   };
   const controls = [
     { key: 'view', label: 'View', options: [['library', 'Library'], ['atlas', 'Atlas'], ['tiles', 'Tiles'], ['age', 'Age'], ['pathology', 'Pathology']] },

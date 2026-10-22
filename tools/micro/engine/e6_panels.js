@@ -106,7 +106,7 @@ function sigMain() {
     }
     return s;
   }
-  return ['x', audioLabel(), X.tab, X.scene, JSON.stringify(X.ctl), X.organ, X.domain, X.age, X.step, X.kind].join('|');
+  return ['x', audioLabel(), X.tab, X.scene, JSON.stringify(X.ctl), X.organ, X.domain, X.age, X.step, X.kind, GL.orgReady ? 1 : 0].join('|');
 }
 const XR_HERE = 'micro';
 const XR_STORIES = HOST.list;
@@ -392,7 +392,7 @@ function drawExplorePane(ctx, P, x, y, W) {
   const bottom = P.h - 34;
   ({ organs: drawOrgansPane, domains: drawDomainsPane, age: drawAgePane, method: drawMethodPane, scenes: drawScenesPane }[X.tab] || drawScenesPane)(ctx, P, x, y, W, bottom);
 }
-// buttons that wrap like the HTML chips: items -> { id, label, on, col, icon (a PET_ICONS id), fn }
+// buttons that wrap like the HTML chips: items -> { id, label, on, col, icon (an organ's model: ORGAN3D id), fn }
 function flow(ctx, P, items, x, y, W, maxY, o = {}) {
   const px = o.px || 22, h = o.h || 44, gap = 8;
   let cx = x, cy = y;
@@ -403,7 +403,7 @@ function flow(ctx, P, items, x, y, W, maxY, o = {}) {
     if (cx + w > x + W) { cx = x; cy += h + gap; }
     if (cy + h > maxY) break;
     vButton(ctx, P, it.id, cx, cy, w, h, '', it.fn, { r: 6, on: it.on });
-    if (it.icon) PET_ICONS.draw(ctx, it.icon, cx + 8 + (h - 16) / 2, cy + h / 2, h - 14, { color: it.col || VC.ink, width: 2 });
+    if (it.icon) { const c = ORGAN3D.canvas(it.icon, 64); if (c) ctx.drawImage(c, cx + 7, cy + 4, h - 8, h - 8); }
     else if (it.col) swatch(ctx, cx + 12, cy + h / 2 - 7, 14, it.col);
     ctx.font = vfont(px, it.on ? 700 : 400); ctx.fillStyle = it.ink || VC.ink; ctx.textBaseline = 'middle';
     ctx.fillText(fitText(ctx, it.label, w - 26 - sw), cx + 13 + sw, cy + h / 2 + 1); ctx.textBaseline = 'top';
@@ -429,10 +429,11 @@ function drawAge(ctx, P, x, y, W) {
 }
 function drawOrgansPane(ctx, P, x, y, W, bottom) {
   const O = organOf(X.organ);
-  y += flow(ctx, P, MD.organs.map(o => ({ id: 'org:' + o.name, label: o.name, icon: o.icon, col: o.icon ? DOT_COL : null, on: O === o, fn: () => selectOrgan(O === o ? null : o.name) })), x, y, W, bottom, { px: 20, h: 42 }) + 18;
+  y += flow(ctx, P, MD.organs.map(o => ({ id: 'org:' + o.name, label: o.name, icon: orgPic(o), on: O === o, fn: () => selectOrgan(O === o ? null : o.name) })), x, y, W, bottom, { px: 20, h: 42 }) + 18;
   if (!O) { textBlock(ctx, `The ${FACTS.organs} organs whose tissue GTEx collected. Pick one, or point at an organ's light in the body, a section in the atlas or a node of the network and pull the trigger (or pinch).`, x, y, W, 26, 38, VC.muted); return; }
-  if (O.icon) PET_ICONS.draw(ctx, O.icon, x + 22, y + 22, 44, { color: DOT_COL, width: 3, glow: true });
-  y += textBlock(ctx, O.name, x + (O.icon ? 60 : 0), y + 2, W - 60, 38, 46, VC.ink, 700, 1) + 10;
+  const oi = orgPic(O), oc = oi && ORGAN3D.canvas(oi, 64);
+  if (oc) ctx.drawImage(oc, x - 4, y - 6, 58, 58);
+  y += textBlock(ctx, O.name, x + (oc ? 60 : 0), y + 2, W - 60, 38, 46, VC.ink, 700, 1) + 10;
   const tis = O.tissues.length ? O.tissues : [O.name];
   y += head(ctx, x, y, tis.length > 1 ? `Its ${word(tis.length)} tissues in GTEx: pick one to see its section` : 'One tissue in GTEx');
   y += flow(ctx, P, tis.map(t => ({ id: 'tis:' + t, label: tisShort(t, O.name), col: LEVEL_COL[1], on: X.organ === t || (tis.length > 1 && X.organ === O.name && t === tis[0]), fn: () => selectOrgan(t) })), x, y, W, bottom, { px: 21, h: 44 }) + 14;

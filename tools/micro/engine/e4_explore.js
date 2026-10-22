@@ -32,7 +32,7 @@ const optKey = (k, key, re) => { const c = ctlOf(k, key), o = c && c.options.fin
 const ageOpt = c => { let b = c.options[0][0], bd = Infinity; for (const [v, n] of c.options) { const a = parseFloat(n) || parseFloat(v), d = Math.abs(a - X.age); if (d < bd) { bd = d; b = v; } } return b; };
 const ageF = () => clamp((X.age - AGE0) / (AGE1 - AGE0), 0, 1);
 // a view option's camera: the cam view of the same name, or the one its name stands for
-const CAM_ALIAS = { atlas: { tiles: 'umap', age: 'volcano', pathology: 'curves', section: 'focus' }, slide: { section: 'default', features: 'matrix', neighbours: 'close', age: 'domains' },
+const CAM_ALIAS = { atlas: { tiles: 'umap', age: 'volcano', pathology: 'curves', section: 'focus' }, slide: { section: 'default', features: 'matrix', neighbours: 'close', groups: 'group', age: 'domains' },
   hier: { network: 'net' } };
 function camFor(k, v) {
   const c = GL.sets[k].cam || {}, al = CAM_ALIAS[k] || {}, vc = ctlOf(k, 'view'), o = vc && vc.options.find(x => x[0] === v), n = o ? String(o[1]).toLowerCase() : '';
@@ -54,7 +54,7 @@ const STEPS = [
   ['Tiles', /tile/i, () => `Each slide is cut into small squares: ${FACTS.tilesM} million tiles in all.`],
   ['Features', /feat/i, () => 'A deep-learning vision model describes each tile with a list of numbers, its features.'],
   ['Neighbours', /neigh/i, () => 'Each tile mixes in the features of the tiles around it (message passing), so it knows its surroundings.'],
-  ['Domains', /domain/i, () => 'Tiles with similar mixed features are grouped, across all slides. A pathologist then names each group: a domain.'],
+  ['Domains', /group/i, () => 'Tiles with similar mixed features are grouped, across all slides: in a map of their features, alike tiles gather. A pathologist then names each group: a domain.'],
 ];
 // work for the next frame, once the sets have drawn what was just picked (their anchors follow their params)
 const NEXT = [];
@@ -229,24 +229,11 @@ function collabApply(v) {
 // ------------------------------------------------------------------ panes --
 // (a lit chip as the shell's primary button: its text in the panel's colour, readable in either theme)
 const chip = (attrs, label, on, col) => `<button type="button" ${attrs} aria-pressed="${!!on}"${on ? ' style="background:var(--cyan);color:var(--panel-solid)"' : ''}>${col ? `<span class="sw" style="background:${swCol(col)}"></span>` : ''}${label}</button>`;
-// the PET story's organ icons (PET_ICONS) as small pictures for the HTML panes, for the organs that have one: on a
-// dark disc in the story's colour; drawn at 64 px, shown at 18 to 26
-const ICON = {};
-function iconUrl(id) {
-  if (!id) return '';
-  if (ICON[id] === undefined) {
-    try {
-      const cv = document.createElement('canvas'), ctx = cv.getContext('2d');
-      cv.width = cv.height = 64;
-      ctx.beginPath(); ctx.arc(32, 32, 31, 0, 7); ctx.fillStyle = '#0a1322'; ctx.fill();
-      ctx.lineWidth = 2.5; ctx.strokeStyle = DOT_COL; ctx.globalAlpha = 0.55; ctx.stroke(); ctx.globalAlpha = 1;
-      PET_ICONS.draw(ctx, id, 32, 32, 42, { color: DOT_COL, width: 42 * 0.085, detail: false });
-      ICON[id] = cv.toDataURL();
-    } catch (e) { ICON[id] = ''; }
-  }
-  return ICON[id];
-}
-const iconImg = (o, px) => (o && iconUrl(o.icon) ? `<img src="${iconUrl(o.icon)}" alt="" width="${px || 20}" height="${px || 20}" style="vertical-align:-5px;margin-right:6px">` : '');
+// each organ's small 3D model (ORGAN3D, sets/organs.js) as a picture for the panes: drawn once at 64 px, shown at 20 to
+// 30. The models build between frames from the start; until an organ's is ready it has none (the panes are drawn
+// again once all are: updateSets)
+const orgPic = o => { const id = o && ORGAN3D.idOf(o.name); return id && ORGAN3D.has(id) ? id : null; };
+const iconImg = (o, px) => { const id = orgPic(o), u = id ? ORGAN3D.url(id, 64) : ''; return u ? `<img src="${u}" alt="" width="${px || 22}" height="${px || 22}" style="vertical-align:-6px;margin-right:5px">` : ''; };
 const link = (act, v, text) => `<button type="button" data-act="${act}" data-v="${esc(v)}" style="border:0;background:none;padding:0;font:inherit;color:var(--cyan);text-decoration:underline;cursor:pointer">${text}</button>`;
 let DQ = '';   // the Domains pane's search (this page's own)
 function buildExplore() {

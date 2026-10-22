@@ -5,7 +5,8 @@
 import fs from 'fs';
 const { chromium } = await import(process.env.PLAYWRIGHT_MODULE || 'playwright');
 const [,, set, queries, out, W, H] = process.argv;
-fs.mkdirSync('shots', { recursive: true });
+const DIR = process.env.SHOTS || 'shots', PORT = process.env.PORT || 8123;   // (where shots go, and the server's port)
+fs.mkdirSync(DIR, { recursive: true });
 const b = await chromium.launch({ executablePath: process.env.CHROMIUM_PATH || undefined, args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
 const pg = await b.newPage({ viewport: { width: +(W || 1100), height: +(H || 700) } });
 const errs = [];
@@ -14,11 +15,11 @@ pg.on('console', m => { if (m.type() === 'error' || m.type() === 'warning') errs
 let k = 0;
 for (const q of (queries || '').split('|')) {
   await pg.goto('about:blank');
-  await pg.goto(`http://127.0.0.1:8123/tools/micro/harness.html?set=${set}&${q}`);
+  await pg.goto(`http://127.0.0.1:${PORT}/tools/micro/harness.html?set=${set}&${q}`);
   try { await pg.waitForFunction('window.__ready === true', null, { timeout: 60000 }); } catch (e) { errs.push('timeout waiting for first frame: ' + q); }
   await pg.waitForTimeout(400);
   const st = await pg.evaluate(() => window.__stats);
-  const path = `shots/${out}-${k++}.png`;
+  const path = `${DIR}/${out}-${k++}.png`;
   await pg.screenshot({ path });
   console.log(path, JSON.stringify(st));
 }
