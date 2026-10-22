@@ -18,13 +18,15 @@ Nothing is random between loads.
   kept between about 1 and 2.2 pixels (highlighted links up to 3.6), as point sizes are, and it fades out across its
   width. Two kinds of entries are listed in one instanced buffer:
   - *Context links*, chosen once at load: in each layer about 400 (protein layers) or 700 (other layers) of its links,
-    the same gene pairs in every layer (so a block of stacked layers shows one web, not a fog), short links before long
-    ones, pairs of hubs less often (each gene keeps about the square root of its links) and fewer where genes crowd, so
-    the middle of the layout does not burn out. 14,734 in all. At rest they take their genes' colours (a gradient
-    along the link); while a group, a walk, picked endotypes or the pair view is on they turn a light blue-grey, keep
-    their weight, and a seeded rank thins them a little (to 85 % with a group). In the pair view only those within the
-    two towers show (everyone else waits on the rim). They are weighted by the square root of the live layers in their
-    block, and looking down the tower (where a pair's copies in the stacked layers fall on one line) they dim to 40 %.
+    never more than half of them (the small layers' links crowd among a few genes, whose copies piled up into a white
+    knot), the same gene pairs in every layer (so a block of stacked layers shows one web, not a fog), short links
+    before long ones, pairs of hubs less often (each gene keeps about the square root of its links) and fewer where
+    genes crowd, so the middle of the layout does not burn out. 13,131 in all. At rest they take their genes' colours
+    (a gradient along the link); while a group, a walk, picked endotypes or the pair view is on they turn a light
+    blue-grey, keep their weight, and a seeded rank thins them a little (to 85 % with a group). In the pair view only
+    those within the two towers show (everyone else waits on the rim). They are weighted by the square root of the live
+    layers in their block, and looking down the tower (where a pair's copies in the stacked layers fall on one line)
+    they dim to 40 %.
   - *Highlighted links*, listed again only when the selection changes (and once its 0.7 s cross-fade is over, when the
     pair view comes or goes, or the heat comes or goes): the module (its seeds' links brighter; at 45 % while the
     walkers run), picked endotypes (within one in its colour, between two in amber), the ringed gene's links, the
@@ -39,15 +41,15 @@ Nothing is random between loads.
   and a 71-texel layer texture. Highlighted links are weighted by the number of live layers in their block, so the 27
   stacked protein layers never burn out, and the few layers left at the end of the drop shine brighter; looking down
   the tower and in the squashed grid they dim to 55 %. Entries drawn:
-  14,734 at rest, about 36,000 with Congenital myopathies, at most about 43,000 in any settled state (the pair view),
-  up to about 69,000 for 0.7 s while one large module cross-fades into another.
+  13,131 at rest, about 34,000 with Congenital myopathies, at most about 42,000 in any settled state (the pair view),
+  up to about 67,000 for 0.7 s while one large module cross-fades into another.
 - **Threads**: one vertical ribbon per gene, from its top copy to its bottom copy. Only highlighted genes show one: the
   selected module (faint), seeds with `tower_seeds`, picked endotypes, the ringed gene, the genes in both groups and the
   shared endotypes in the pair, and the module during the drop.
 - Cost: build about 70-130 ms in headless Chromium (listing the context links adds about 10 ms; listing the
   highlighted links again takes a few ms). 5 draw calls at rest, 7 with z bars or walkers; triangles: the fills
-  (13.6k), two per link entry (about 30k at rest, 72k with Congenital myopathies, 87k in the pair view) and two per
-  thread (2.3k). The link shader runs four vertices per entry (about 60k at rest, 145k with Congenital myopathies;
+  (13.6k), two per link entry (about 26k at rest, 69k with Congenital myopathies, 83k in the pair view) and two per
+  thread (2.3k). The link shader runs four vertices per entry (about 53k at rest, 138k with Congenital myopathies;
   the line segments it replaces ran 250k).
 
 ## Params (engine eases them; index params are rounded)
@@ -139,7 +141,7 @@ the module grows / Walk, heat follows / Layer scores / Robustness, layers drop o
 module centroid returns a module gene; a miss returns -1), `setState` with `group`, `gene`, `pick`, `off`, `heat`,
 `walk` and back to empty, `links`, `linkStats`, anchors. No page errors or warnings. Not checked on a headset: comfort
 and point and ribbon sizes at room scale, how the context links read at the Quest's resolution, and frame rate (the
-link shader evaluates both ends of up to about 43,000 entries, four vertices each, per frame and eye; cheap on
+link shader evaluates both ends of up to about 42,000 entries, four vertices each, per frame and eye; cheap on
 desktop, to be watched on the Quest).
 
 Known, data-limited: each module sits where the data's layout puts its genes (Congenital myopathies on the right and

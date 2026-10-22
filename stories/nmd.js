@@ -640,9 +640,11 @@ void main() {
   //   (0..1) thins them a little more while something is selected; they turn a neutral blue-grey then;
   // - the highlighted links (rank + 2), listed again only when the selection changes: the module, the picked
   //   endotypes, the ringed gene, the walk's hottest links and, in the pair view, both groups. Where a link has both
-  //   entries they add up to the brighter of its two looks.
+  //   entries, only the highlighted one draws it (at least as bright as the context).
   const LA = new Uint16Array(edgeCount), LB = new Uint16Array(edgeCount), LLY = new Uint8Array(edgeCount), CQ = new Float32Array(edgeCount);
-  const CTX_N = { ppi: 400 }, CTX_DEF = 700;   // context links per layer, about (fewer in the protein block: 27 layers)
+  // context links per layer, about (fewer in the protein block: 27 layers), and never more than half a layer's links: the
+  // small layers keep their links among a few genes, whose copies pile up into a white knot
+  const CTX_N = { ppi: 400 }, CTX_DEF = 700, CTX_MAX = 0.5;
   const pairHash = (a, b) => {
     let h = Math.imul(Math.min(a, b) + 1, 0x9e3779b1) ^ Math.imul(Math.max(a, b) + 7, 0x85ebca77);
     h = Math.imul(h ^ (h >>> 15), 0x2c1b3c6d); h = Math.imul(h ^ (h >>> 12), 0x297a2d39);
@@ -667,7 +669,7 @@ void main() {
         LA[k] = a; LB[k] = b; LLY[k] = l;
         ws += CQ[k] = lerp(1.5, 0.35, smooth((Math.sqrt(dx * dx + dz * dz) - 0.15) / 0.7)) / Math.sqrt(RHO[a] * RHO[b]);
       }
-      const share = (CTX_N[LAY[l].cat] || CTX_DEF) / Math.max(1e-9, ws);
+      const share = Math.min(CTX_N[LAY[l].cat] || CTX_DEF, CTX_MAX * arr.length / 2) / Math.max(1e-9, ws);
       for (k = k0; k < k0 + arr.length / 2; k++) {
         const q = pairHash(LA[k], LB[k]) / (share * CQ[k]);
         CQ[k] = q < 1 ? q : 1.5;
