@@ -1677,8 +1677,8 @@ try {
   // gives the room its generation, instead of going back to the old address
   const Fp4 = await (await browser.newContext({ viewport: { width: 640, height: 400 } })).newPage();
   Fp4.on('pageerror', e => errors.push(e.stack || e.message));
-  await Fp4.goto(base() + 's/1/index.html');
-  await Fp4.waitForFunction(() => typeof HOST !== 'undefined' && HOST.collab, null, { timeout: 30000 });
+  await Fp4.goto(base() + 's/1/index.html', { timeout: 90000 });
+  await Fp4.waitForFunction(() => typeof HOST !== 'undefined' && HOST.collab, null, { timeout: 90000, polling: 100 });   // (as open(): a busy machine loads slowly)
   await Fp4.evaluate(() => HOST.collab.create());
   const f4 = await until(Fp4, () => !!HOST.collab.code && HOST.collab.status === 'open' && !!HOST.collab.val('sg'), null, 10000);
   await sleep(1500);
@@ -1694,8 +1694,8 @@ try {
   const Lp = await lctx.newPage();
   Lp.on('pageerror', e => errors.push(e.stack || e.message));
   Lp.on('console', m => { if (m.type() === 'error' && !/404|Failed to load resource|ERR_FAILED/.test(m.text())) errors.push(m.text()); });
-  const lopen = async () => { await Lp.waitForFunction(() => typeof HOST !== 'undefined' && HOST.collab, null, { timeout: 30000 }); };
-  await Lp.goto(base() + 'index.html#s=LCL'); await lopen();
+  const lopen = async () => { await Lp.waitForFunction(() => typeof HOST !== 'undefined' && HOST.collab, null, { timeout: 90000, polling: 100 }); };
+  await Lp.goto(base() + 'index.html#s=LCL', { timeout: 90000 }); await lopen();
   const lj = await until(Lp, () => HOST.collab.code === 'LCL' && HOST.collab.local && HOST.collab.status === 'open', null, 8000);
   check('no relay known: a link opens its room on this device', lj, JSON.stringify(await Lp.evaluate(() => [HOST.collab.code, HOST.collab.local, HOST.collab.status, HOST.collab.relay])));
   await Lp.evaluate(() => { HOST.collab.arrange({ x: 0, z: 0, yaw: 0 }); });
@@ -1705,7 +1705,7 @@ try {
   check('a room on this device: Arrange all, moving a station and the lock work alone', await until(Lp, () => HOST.collab.stations().length === HOST.list.length && HOST.collab.locked &&
     !HOST.collab.internals().pending.size, null, 3000));
   await sleep(700);   // kept at most 0.4 s after a change
-  await Lp.reload(); await lopen();
+  await Lp.reload({ timeout: 90000 }); await lopen();
   const lk = await until(Lp, id => HOST.collab.code === 'LCL' && HOST.collab.local && HOST.collab.stations().length === HOST.list.length && HOST.collab.locked &&
     HOST.collab.station(id) && HOST.collab.station(id).z === -3 && HOST.collab.kept().some(r => r.code === 'LCL' && r.stations === HOST.list.length), lsid, 8000);
   check('a room on this device: kept across a reload (stations, places, the lock)', lk, JSON.stringify(await Lp.evaluate(() => [HOST.collab.code, HOST.collab.local, HOST.collab.stations().length, HOST.collab.locked, HOST.collab.kept()])));
@@ -1767,8 +1767,8 @@ try {
   const uctx = await browser.newContext({ viewport: { width: 640, height: 400 } });
   const Up = await uctx.newPage();
   Up.on('pageerror', e => errors.push(e.stack || e.message));
-  await Up.goto(base() + 'index.html#s=QQQ&relay=' + encodeURIComponent('ws://127.0.0.1:9'));
-  await Up.waitForFunction(() => typeof HOST !== 'undefined' && HOST.collab, null, { timeout: 30000 });
+  await Up.goto(base() + 'index.html#s=QQQ&relay=' + encodeURIComponent('ws://127.0.0.1:9'), { timeout: 90000 });
+  await Up.waitForFunction(() => typeof HOST !== 'undefined' && HOST.collab, null, { timeout: 90000, polling: 100 });
   check('a relay that cannot be reached: the room opens on this device instead', await until(Up, () => HOST.collab.code === 'QQQ' && HOST.collab.local && HOST.collab.status === 'open', null, 10000),
     JSON.stringify(await Up.evaluate(() => [HOST.collab.code, HOST.collab.local, HOST.collab.status, window.__collabLog.filter(e => /local|close|join/.test(e.ev)).slice(-5)])));
   await uctx.close();
