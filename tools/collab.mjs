@@ -912,6 +912,27 @@ try {
     at(0.05); await steps(2); at(0.02); await steps(2); out.held = HOST.collab.menu;
     at(0.1); await steps(2); at(0.02); await steps(2); out.touchClosed = !HOST.collab.menu;
     at(0.3); await steps(2);
+    // the tip touching the clock and pointing at it as the trigger is pulled: one toggle, not two (open, then shut)
+    const nMenu = () => window.__collabLog.filter(e => e.ev === 'menu').length;
+    const aimAt = d => { const c = g.position.clone(), dir = c.clone().sub(head).normalize();
+      X.aim(0, new M4().compose(c.clone().addScaledVector(dir, -d), new THREE.Quaternion().setFromUnitVectors(new V(0, 0, -1), dir), new V(1, 1, 1))); };
+    aimAt(0.15); await steps(3);
+    const m0 = nMenu();
+    aimAt(0.025); await steps(3); HOST.cur.peek('XR.ctrls')[0].wantPress = true; await steps(4);
+    out.touchTrigger = [HOST.collab.menu, nMenu() - m0];
+    HOST.collab.panelOpen(false); aimAt(0.15); await steps(3);
+    // the right grip held (carrying something, or both grips resizing the scene) or calibrating: a touch does nothing,
+    // and one begun so counts only once the tip has moved away
+    const grip = { pressed: true };
+    X.session.inputSources[0].gamepad = { buttons: [{}, grip, {}, {}], axes: [0, 0, 0, 0], hapticActuators: [] };
+    at(0.02); await steps(3); out.gripHeld = HOST.collab.menu;
+    grip.pressed = false; await steps(3); out.gripLetGo = HOST.collab.menu;
+    at(0.15); await steps(3); at(0.02); await steps(3); out.afterGrip = HOST.collab.menu;
+    HOST.collab.panelOpen(false); at(0.15); await steps(3);
+    HOST.room.calibrate(); out.calibrating = !!HOST.room.internals().calib;
+    at(0.02); await steps(3); out.calib = HOST.collab.menu;
+    HOST.room.cancel(); HOST.collab.panelOpen(false);
+    X.session.inputSources[0].gamepad = null; at(0.3); await steps(2);
     // hands: a left wrist turned every which way, the right index fingertip
     const J = m => ({ world: X.W.local.clone().multiply(m) }), tip = J(new M4());
     const tipAt = v => { tip.world = X.W.local.clone().multiply(new M4().makeTranslation(v.x, v.y, v.z)); };
@@ -932,6 +953,15 @@ try {
     tipAt(onExit(0.04)); await steps(2); out.pokeHover = S.hover;
     tipAt(onExit(0.005)); await steps(2); out.poke1 = n; await steps(2); out.poke1b = n;
     tipAt(onExit(0.04)); await steps(2); tipAt(onExit(0.005)); await steps(2); out.poke2 = n;
+    // a poke and a pinch on the ray at the same button at once press it once; a pinch a second later is its own
+    const cr = HOST.cur.peek('XR.ctrls')[0], ro = head.clone().add(new V(0.1, -0.2, 0)), rd = onExit(0).sub(ro).normalize();
+    cr.src = cr.src || { targetRayMode: 'tracked-pointer', handedness: 'right', gamepad: null };
+    cr.g.visible = true; cr.g.matrix.compose(ro, new THREE.Quaternion().setFromUnitVectors(new V(0, 0, -1), rd), new V(1, 1, 1));
+    tipAt(onExit(0.04)); await steps(3);
+    const n3 = n;
+    tipAt(onExit(0.005)); await steps(1); cr.wantPress = true; await steps(4); out.pokePinch = n - n3;
+    await new Promise(r => setTimeout(r, 800)); cr.wantPress = true; await steps(4); out.pinchLater = n - n3;
+    cr.g.visible = false;
     if (e0) s.end = e0; else delete s.end;
     tipAt(head.clone().add(new V(0.3, -0.3, -0.2))); await steps(2);
     HOST.collab.panelOpen(false);
@@ -947,8 +977,11 @@ try {
   check('headset: a click of the left stick opens the menu above the clock (Close, Exit inside) and closes it again', hand.stick && hand.above && Math.abs(hand.pscale - 0.62) < 1e-6 &&
     hand.ids.includes('close') && hand.ids.includes('exit') && hand.stickClosed, JSON.stringify(hand));
   check('headset: a touch of the right controller\'s tip opens the menu; another touch counts only once it moved away', hand.touch && hand.held && hand.touchClosed, JSON.stringify(hand));
+  check('headset: the trigger pulled while the tip touches the clock toggles the menu once; no touch with the right grip held or while calibrating',
+    hand.touchTrigger[0] === true && hand.touchTrigger[1] === 1 && !hand.gripHeld && !hand.gripLetGo && hand.afterGrip && hand.calibrating && !hand.calib, JSON.stringify(hand));
   check('headset: with tracked hands the clock sits on the left wrist, the right index fingertip opens the menu and presses its buttons by touch (once, again after pulling back)',
     hand.handClosed && near(hand.wrist, hand.wristWant, 2e-3) && hand.finger && hand.pokeHover === 'exit' && hand.poke1 === 1 && hand.poke1b === 1 && hand.poke2 === 2, JSON.stringify(hand));
+  check('headset: a fingertip poke and a pinch on the ray at the same button press it once (a pinch a second later again)', hand.pokePinch === 1 && hand.pinchLater === 2, JSON.stringify(hand));
   check('headset: without a left controller or hand the clock goes back beside the story panel', hand.back, JSON.stringify(hand));
   await frames(H, 150);
   // the room frame moves (newer marks elsewhere): this headset follows within a second
@@ -1689,13 +1722,24 @@ try {
   await Lp.evaluate(() => HOST.collab.panelOpen(true));
   await frames(Lp, 100);
   const lids = await Lp.evaluate(() => HOST.collab.overlay().panel.regions.map(r => r.id));
-  const lfits = await Lp.evaluate(() => { const S = HOST.collab.overlay().panel, c = S.regions.find(x => x.id === 'col:7'); return !!c && c.y + c.h <= S.h; });
+  // (the menu at its tallest, a room on this headset with a three-line note: You and its colours still on it)
+  const lfit = await Lp.evaluate(() => {
+    const X = window.__xr, C = HOST.collab.internals(), S = HOST.collab.overlay().panel, keep = C.note;
+    const fits = () => { const c = S.regions.find(x => x.id === 'col:7'); return !!c && c.y + c.h <= S.vis && S.vis <= S.h; };
+    const plain = fits();
+    C.note = 'A note three lines long: the relay could not be reached, so this room stays on this headset until one answers, and nobody else can join it yet.';
+    S.sig = ''; X.step(); X.step();
+    const out = { plain, tall: fits(), vis: S.vis, h: S.h };
+    C.note = keep; S.sig = ''; X.step();
+    return out;
+  });
+  const lfits = lfit.plain && lfit.tall;
   const lre = lfits && lids.includes('realign') && !lids.includes('here') && !lids.some(id => id.startsWith('ask:')) &&
     await Lp.evaluate(() => { HOST.collab.overlay().panel.regions.find(r => r.id === 'realign').fn(); return !!HOST.room.internals().again; });
   await frames(Lp, 200);
   const lre2 = await Lp.evaluate(() => ({ again: HOST.room.internals().again, src: HOST.room.src, note: window.__collabLog.filter(e => e.ev === 'notice').slice(-1)[0] }));
-  check('a room on this device: Re-align with nothing to line up with keeps the stations where they are', lre && !lre2.again && lre2.src === 'floor' &&
-    lre2.note && lre2.note.title === 'Nothing to re-align to', JSON.stringify({ lids, lfits, lre, lre2 }));
+  check('a room on this device: Re-align with nothing to line up with keeps the stations where they are (the menu fits, also with a long note)', lre && !lre2.again && lre2.src === 'floor' &&
+    lre2.note && lre2.note.title === 'Nothing to re-align to', JSON.stringify({ lids, lfit, lre, lre2 }));
   const ROOM0 = ROOM;
   ROOM = FLOOR;   // this headset's room is its floor
   const lS = await Lp.evaluate(k => HOST.collab.stations().find(s => s.story === k), HEADSET_STORY);

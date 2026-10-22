@@ -303,19 +303,24 @@ generation, `{ n, by, at }`; FORMAT networks-10; networks-11 when the eighth sto
   opens and closes with a touch of the clock (`touch`: the first 4 cm of the
   right controller's ray, or the right `index-finger-tip`, within 4 cm of its
   middle; another touch counts once moved 7 cm away; a short pulse on a
-  controller), a click of the left stick (`buttons[3]`, rising edge: the
-  stories use the stick's axes and `buttons[4]`), the trigger or a pinch on
-  the clock (`kind: 'clock'` through `ray`/`press`), or Close in its header.
+  controller; none while that controller's grip is held, as when carrying or
+  resizing with both hands, or while calibrating), a click of the left stick
+  (`buttons[3]`, rising edge: the stories use the stick's axes and
+  `buttons[4]`), the trigger or a pinch on the clock (`kind: 'clock'` through
+  `ray`/`press`; pulled while the tip touches it, it counts once with the
+  touch), or Close in its header.
   Open, it stands above the clock (its lower edge 6.5 cm over the clock's
   middle, at 0.62 of its size), as tall as what it shows: *Menu*, Close; Exit
   (ends the session: the story panels have no Exit, the headset Stories
   screen keeps its own) and *Slideshow: on/off* (`HOST.slides.setGlobal`, for
   every story, shown when `HOST.slides` exists); then the shared room (its
   code and people as the section's heading, the rooms, the question, the
-  room's alignment, stations, people, You). A right index fingertip also
-  presses its buttons (`poke`: within 1.5 cm of the panel over one, again
-  once pulled back 3 cm). The once-per-room question still opens it by
-  itself. `HOST.collab.panelOpen(on)` and `HOST.collab.menu` are for tests.
+  room's alignment, stations, people, You; the canvas holds the tallest case,
+  a room on this headset with a three-line note, and People shows only as many
+  as leave room for You). A right index fingertip also presses its buttons
+  (`poke`: within 1.5 cm of the panel over one, again once pulled back 3 cm;
+  a pinch on the ray at the same button within 0.7 s counts once with it,
+  `twice`). The once-per-room question still opens it by itself. `HOST.collab.panelOpen(on)` and `HOST.collab.menu` are for tests.
 - At its station in a shared room a headset moves the scene and the panel for
   everyone: the grip on the scene moves it (`XR.globeOff`), both grips on it
   resize it (`xrResize`: the distance between the hands, a quarter to four times
@@ -1014,7 +1019,9 @@ gliding into place when someone else moves it, the layout lock (the grip and
 Arrange all refused; unlocked from the headset's menu), the menu (closed at
 first, only its clock; on the left controller and on a tracked hand's wrist;
 opened by the left stick, a touch of the right controller or fingertip and
-the trigger on the clock; Exit inside; buttons pressed by a fingertip),
+the trigger on the clock, a touch and a trigger at once toggling it once, no
+touch with the grip held or while calibrating; Exit inside; buttons pressed by
+a fingertip, a poke and a pinch at once pressing once; at its tallest, You still on it),
 re-alignment, walking to another station
 and back, Remove asking first; calibration from two marks (Stop calibrating
 still pressable, two anchors made and checked, the marks drawn), a reset with
