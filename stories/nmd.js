@@ -733,15 +733,17 @@ void main() {
     vec3 na = mix(ca, vec3(0.47, 0.61, 0.88), busy), nb = mix(cb, vec3(0.47, 0.61, 0.88), busy);
     // highlighted: the module (its seeds' links brighter), the pair view's two groups
     float both = qa.y * qb.y, sb = qa.w * qb.w;
-    float mod_ = both * (${f1(LK.mod)} * mix(uMK.x, uMK.y, uX) + ${f1(LK.seed)} * sb * uSeeds) * nearM * (1.0 - 0.2 * uWalk);
+    float mod_ = both * (${f1(LK.mod)} * mix(uMK.x, uMK.y, uX) + ${f1(LK.seed)} * sb * uSeeds) * nearM * (1.0 - 0.55 * uWalk);
     float hiA = sel * mod_ * (1.0 - uPair) + uPair * both * mix(${f1(PKF)}, ${f1(PKS)}, uSeedOnly) * ${f1(LK.pair)} * nearM;
     // the walk: the links between the genes it visits most, in the heat's colours (those between start genes less: the
     // walk found the others)
     float h0 = mix(uHot.x, uHot.y, uX), hm = hv > 0.0 ? min(heatAt(g), heatAt(o)) : 0.0;
     float hot = clamp((hm - h0) / max(0.05, 0.3 * (1.0 - h0)), 0.0, 1.0);
-    hiA = max(hiA, hv * (1.0 - uPair) * hot * hot * (3.0 - 2.0 * hot) * ${f1(LK.hot)} * (1.0 - 0.6 * step(0.999, hm)));
-    // with the heat on, links take its colours from a third of the way up: its darkest blue is darker than the context
-    float hl = hv * (1.0 - uPair);
+    float hotA = hv * (1.0 - uPair) * hot * hot * (3.0 - 2.0 * hot) * ${f1(LK.hot)} * (1.0 - 0.6 * step(0.999, hm));
+    // where the walk's links outshine the module's, they take the heat's colours from a third of the way up (its darkest
+    // blue is darker than the context); the module's other links keep their genes' colours
+    float hl = smoothstep(0.0, 0.03, hotA - hiA);
+    hiA = max(hiA, hotA);
     vec3 ka = mix(ca, heatCol(0.35 + 0.65 * heatAt(g)), hl), kb = mix(cb, heatCol(0.35 + 0.65 * heatAt(o)), hl);
     // picked endotypes: links within one in its colour, links between two in amber
     if (pk > 0.001) {

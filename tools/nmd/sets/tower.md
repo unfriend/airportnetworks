@@ -26,15 +26,15 @@ Nothing is random between loads.
     two towers show (everyone else waits on the rim). They are weighted by the square root of the live layers in their
     block, and looking down the tower (where a pair's copies in the stacked layers fall on one line) they dim to 40 %.
   - *Highlighted links*, listed again only when the selection changes (and once its 0.7 s cross-fade is over, when the
-    pair view comes or goes, or the heat comes or goes): the module (its seeds' links brighter), picked endotypes
-    (within one in its colour, between two in amber), the ringed gene's links, the walk's hottest links and, in the
-    pair view, both groups (with seeds alone, the seeds' links, each brighter as they are fewer). The walk's hottest
-    links are those between genes it visits most (at most 1,500 that reach beyond the start genes, plus the links
-    between start genes), in the heat's colours (with the heat on, every link takes them from a third of the way up:
-    the darkest blue would be darker than the context): during the story's walk and in the Walk tab they show where the
-    walkers go, above the context. A highlighted link that is also a context link is drawn once, by its highlighted
-    entry: in its own colours and at least as bright as the context (so a big module's links, each faint, never turn
-    blue-grey).
+    pair view comes or goes, or the heat comes or goes): the module (its seeds' links brighter; at 45 % while the
+    walkers run), picked endotypes (within one in its colour, between two in amber), the ringed gene's links, the
+    walk's hottest links and, in the pair view, both groups (with seeds alone, the seeds' links, each brighter as they
+    are fewer). The walk's hottest links are those between genes it visits most (at most 1,500 that reach beyond the
+    start genes, plus the links between start genes): during the story's walk and in the Walk tab they show where the
+    walkers go, above the context and the module. Where they outshine the module's links they take the heat's colours
+    from a third of the way up (its darkest blue is darker than the context); the module's other links keep their
+    genes' colours. A highlighted link that is also a context link is drawn once, by its highlighted entry: in its own
+    colours and at least as bright as the context (so a big module's links, each faint, never turn blue-grey).
   Visibility and colour are decided in the shader from a per-gene texture (written only when the selection changes)
   and a 71-texel layer texture. Highlighted links are weighted by the number of live layers in their block, so the 27
   stacked protein layers never burn out, and the few layers left at the end of the drop shine brighter; looking down
