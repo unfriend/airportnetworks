@@ -393,6 +393,7 @@ function buildStory() {
   // then the tile cloud of all slides
   a = C.method.a; b = C.method.b;
   hide('atlas', a, a + 2);
+  jump('atlas_lib', a, 1, 0);   // the library's wall stays gone after its chapter (the sections still come from its place)
   jump('slide_domain', a, 1, 0);
   show('slide', a + 0.5, a + 2.5, a + 37, a + 39);
   ramp('slide_tiles', a + 2, a + 8, 0, 1);

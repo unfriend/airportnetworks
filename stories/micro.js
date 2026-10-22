@@ -4280,7 +4280,7 @@ void main() {
       p[2] -= 0.3 * fmax * (1 - fw);
       p = K.v3.lerp(p, Fp, fw); s = lerp(s, sF, fw); yaw = lerp(yaw, 0, fw);
       let al = Math.max(Math.min(1, km * 3) * map, fw);
-      al *= (1 - 0.82 * fmax * (1 - fw)) * (1 - 0.9 * vc * (1 - fw));
+      al *= (1 - 0.82 * fmax * (1 - fw)) * (1 - (0.9 + 0.1 * wc) * vc * (1 - fw));   // (gone behind the trajectories, faint behind the volcano)
       cur.P[i] = p; cur.s[i] = s; cur.yaw[i] = yaw; cur.al[i] = al; anySec = Math.max(anySec, al);
       uP[i].set(p[0], p[1], p[2], s); uQ[i].set(yaw, al, Math.max(prog(map, 0.55, 0.95) * km, fw), fw);
     }
@@ -5881,6 +5881,7 @@ function buildStory() {
   // then the tile cloud of all slides
   a = C.method.a; b = C.method.b;
   hide('atlas', a, a + 2);
+  jump('atlas_lib', a, 1, 0);   // the library's wall stays gone after its chapter (the sections still come from its place)
   jump('slide_domain', a, 1, 0);
   show('slide', a + 0.5, a + 2.5, a + 37, a + 39);
   ramp('slide_tiles', a + 2, a + 8, 0, 1);

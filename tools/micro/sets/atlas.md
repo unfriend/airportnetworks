@@ -2,7 +2,9 @@
 
 File `sets/atlas.js` (`SETS.atlas`). One set, five pictures that share one stage (y up, viewer towards +z):
 a curved wall of slides at the back, a 10 x 4 arc of sections in front of it, a cloud of tiles in the middle, and the
-volcano or the trajectories in the middle when they are shown (the sections and the wall dim behind them).
+volcano or the trajectories in the middle when they are shown (the sections and the wall dim behind the volcano; behind
+the trajectories the sections go, all but a focused one). The story shows the wall only in its Library chapter
+(`atlas_lib` back to 0 from the Method chapter on).
 
 Everything is a lit 3D object: glass slides with thickness and their tissue, sections standing in relief, the tiles as
 small lit cubes in the cloud, the volcano's bubbles as lit spheres over a glass floor with their shadows, the
