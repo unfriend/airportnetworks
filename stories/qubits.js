@@ -1565,7 +1565,10 @@ void main() {
   const HB = 0.17;   // a brick's half size
   const slotPos = s => { const col = s % 5, row = s < 5 ? 0 : 1; return [col * 0.56, row ? -0.46 : 0.4, -0.2 * ((col - 2) / 2) ** 2]; };
   for (let s = 0; s < NB; s++) anchorsNow.slots.push(slotPos(s));
-  let curA = null, curL = 3, curAlg = 1;
+  let curA = null, curL = 3, curAlg = 1, curList = [], curLesson = false;
+  // the lesson: the reference figure's top row, the strings' kinds one by one (no weights)
+  const LESSON = ['I', 'X0', 'X1', 'X2', 'Z2', 'Z2X1', 'X2X1', 'Y2Y1'];
+  const lessonOf = L => LESSON.filter(nm => !/\d/.test(nm) || Math.max(...nm.match(/\d/g).map(Number)) < L).map(nm => Q.parse(nm, L));
   function update(S, t, dt) {
     LK.depth();
     const ni = clamp(Math.round(S.cube_net), 0, NETS.length - 1), ci = clamp(Math.round(S.cube_cut), 0, 1);
@@ -1629,14 +1632,16 @@ void main() {
     }
     // the gallery: the strings of the largest weights, as small cubes; outside the algebra gray once the toolbox is on
     const alg = Q.algebra(ALGS[ai], L), alw = clamp(S.cube_alg, 0, 1), sum = clamp(S.cube_sum, 0, NB);
-    const list = A.order.slice(0, NB);
+    // (the gallery shows the lesson or the weighted strings; a switch crossfades through nothing at cube_lesson 0.5)
+    const les = clamp(S.cube_lesson, 0, 1), list = les > 0.5 ? lessonOf(L) : A.order.slice(0, NB), swap = Math.abs(les - 0.5) * 2;
+    curList = list; curLesson = les > 0.5;
     if (br > 0.003) list.forEach((k, s) => {
-      const a = prog(S.cube_bricks, 0.3 + 0.045 * s, 0.55 + 0.045 * s), out = k !== 0 && !alg.set.has(k);
+      const a = prog(S.cube_bricks, 0.3 + 0.045 * s, 0.55 + 0.045 * s) * smooth(swap), out = k !== 0 && !alg.set.has(k);
       if (a <= 0.003) return;
       const hit = cur.focus === k ? cur.fa : 0;
       drawString(k, L, slotPos(s), HB, a, out ? alw * 0.85 : 0, Math.max(hit, prog(sum - s, 0.6, 1) * 0.6 * (1 - prog(sum - s, 1.5, 3))));
       // the copy that flies into the big cube as the string is added
-      const f = clamp(sum - s, 0, 1);
+      const f = curLesson ? 0 : clamp(sum - s, 0, 1);
       if (f > 0.001 && f < 0.999) {
         const e = smooth(f), p = slotPos(s), q = [lerp(p[0], cen[0], e), lerp(p[1], cen[1], e) + Math.sin(e * PI) * 0.25, lerp(p[2], cen[2], e) + Math.sin(e * PI) * 0.2];
         drawString(k, L, q, lerp(HB, h, e), a * (1 - prog(f, 0.7, 1)), 0, 0.6);
@@ -1682,12 +1687,12 @@ void main() {
   // has two labels: cyan for a string inside the algebra (or any string before the toolbox), plain for I and for
   // strings outside it once the toolbox is on.
   const fmtW = w => (w < 0 ? '−' : '') + Math.abs(w).toFixed(2);
-  const slotK = s => (curA && s < curA.order.length && s < NB ? curA.order[s] : -1);
+  const slotK = s => (curA && s < curList.length ? curList[s] : -1);
   const outside = k => k > 0 && !Q.algebra(ALGS[curAlg], curL).set.has(k);
   for (let s = 0; s < NB; s++) {
     const at = [slotPos(s)[0] - 0.1, slotPos(s)[1] + HB + 0.1, slotPos(s)[2]];
-    const text = () => { const k = slotK(s); return k < 0 ? ['', ''] : [Q.name(k, curL, { sub: true }), ' ' + fmtW(curA.c.re[k])]; };
-    const vis = S => (slotK(s) < 0 ? 0 : prog(S.cube_bricks, 0.35 + 0.045 * s, 0.6 + 0.045 * s));
+    const text = () => { const k = slotK(s); return k < 0 ? ['', ''] : [Q.name(k, curL, { sub: true }), curLesson ? '' : ' ' + fmtW(curA.c.re[k])]; };
+    const vis = S => (slotK(s) < 0 ? 0 : prog(S.cube_bricks, 0.35 + 0.045 * s, 0.6 + 0.045 * s) * smooth(Math.abs(clamp(S.cube_lesson, 0, 1) - 0.5) * 2));
     labels.push({ text, at, cls: 'cyn', minor: s >= 4, alpha: S => { const k = slotK(s); return k > 0 && !(outside(k) && S.cube_alg > 0.5) ? vis(S) : 0; } });
     labels.push({ text, at, cls: '', minor: s >= 4, alpha: S => { const k = slotK(s); return k === 0 || (outside(k) && S.cube_alg > 0.5) ? vis(S) * (k === 0 ? 1 : 0.8) : 0; } });
   }
@@ -1724,7 +1729,7 @@ void main() {
     return {
       cube_net: clamp(parseInt(c.net, 10) || 0, 0, NETS.length - 1), cube_cut: c.cut === '1' ? 1 : 0, cube_bits: bits,
       cube_genes: v === 'genes' || v === 'cut' ? 1 : 0, cube_ac: v === 'genes' || v === 'cut' ? 0 : 1,
-      cube_bricks: v === 'bricks' || v === 'toolbox' ? 1 : 0, cube_build: 0, cube_sum: 0,
+      cube_bricks: v === 'bricks' || v === 'toolbox' ? 1 : 0, cube_lesson: 0, cube_build: 0, cube_sum: 0,
       cube_alg: v === 'toolbox' ? 1 : 0, cube_keep: v === 'toolbox' ? 1 : 0, cube_algebra: c.alg === '0' ? 0 : 1, cube_focus: -1,
     };
   }
@@ -1741,7 +1746,7 @@ void main() {
       if (tt > 0 && tt < bt && ray.distanceSqToPoint(_p) < rr * rr) { bt = tt; best = hit; }
     };
     if (curA) {
-      curA.order.slice(0, NB).forEach((k, s) => test(slotPos(s), HB * 1.5, { kind: 'brick', slot: s, k, name: Q.name(k, curL) }));
+      curList.forEach((k, s) => test(slotPos(s), HB * 1.5, { kind: 'brick', slot: s, k, name: Q.name(k, curL) }));
       for (let c = 0; c < 1 << curL; c++) test(add3(anchorsNow.cube, corner(c, curL, H * anchorsNow.sc)), 0.09, { kind: 'corner', code: codeStr(c, curL) });
     }
     return best;
@@ -1754,7 +1759,8 @@ void main() {
     // any analysis: network index, cut ('found' | 'random'), bits
     analyze: (ni, cut, L) => anOf(clamp(ni | 0, 0, NETS.length - 1), cut === 'random' ? 1 : 0, clamp(L | 0, 1, 3)),
     // the gallery now: [{ slot, k, name, weight, inside }]
-    bricks: () => (curA ? curA.order.slice(0, NB).map((k, s) => ({ slot: s, k, name: Q.name(k, curL), weight: curA.c.re[k], inside: k === 0 ? null : Q.algebra(ALGS[curAlg], curL).set.has(k) })) : []),
+    bricks: () => (curA ? curList.map((k, s) => ({ slot: s, k, name: Q.name(k, curL), weight: curA.c.re[k], inside: k === 0 ? null : Q.algebra(ALGS[curAlg], curL).set.has(k) })) : []),
+    lesson: L => lessonOf(clamp(L | 0, 1, 3)).map(k => Q.name(k, clamp(L | 0, 1, 3))),
     algebra: () => Q.algebra(ALGS[curAlg], curL),
     corner: (c, L) => corner(c, L),
     pick,
@@ -1763,7 +1769,7 @@ void main() {
   // build the other networks between frames (one per call), or all at once for screenshots
   let nextBuild = 0;
   return Object.assign(set, {
-    params: { cube_a: 1, cube_net: DEF, cube_cut: 0, cube_genes: 0, cube_bits: 3, cube_ac: 1, cube_bricks: 0, cube_build: 0, cube_sum: 0,
+    params: { cube_a: 1, cube_net: DEF, cube_cut: 0, cube_genes: 0, cube_bits: 3, cube_ac: 1, cube_bricks: 0, cube_lesson: 0, cube_build: 0, cube_sum: 0,
       cube_alg: 0, cube_keep: 0, cube_algebra: 1, cube_focus: -1 },
     update, anchors, labels, cam, controls, explore,
     idle() { while (nextBuild < NETS.length && NET[nextBuild]) nextBuild++; if (nextBuild < NETS.length) buildNet(nextBuild); },
@@ -1872,7 +1878,7 @@ SETS.chart = function (K) {
     chart: [0, 0, 0], ours: [X(5) + 0.02, Yr(R.ours[4]) - 0.1, ZO], rand: [X(3) - 0.05, Yr(R.random[2]) + 0.13, ZR],
     best8: [X(NBIT), Yr(R.best8), ZO], ex3: [X(3), Yr(EX[2]), ZO + 0.12], ours3: [X(3), Yr(R.ours[2]), ZO],
     axis: [X(1) - 0.1, Yr(1) + 0.08, ZB], bits: [X(NBIT) + 0.1, Yr(0) - 0.02, ZO],
-    circuit: [0, 0, 0], top: [0, 0.95, 0], time: [-0.72, 0.8, 0],
+    circuit: [0, 0, 0], top: [-0.78, 1.08, 0], time: [-0.72, 0.8, 0],
     q2: [WX(2), 0.9, 0], q1: [WX(1), 0.9, 0], q0: [WX(0), 0.9, 0],
   };
   const fmtT = v => (v < 0 ? '−' : '+') + Math.abs(v).toFixed(3);

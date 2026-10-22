@@ -98,7 +98,7 @@ SETS.chart = function (K) {
     chart: [0, 0, 0], ours: [X(5) + 0.02, Yr(R.ours[4]) - 0.1, ZO], rand: [X(3) - 0.05, Yr(R.random[2]) + 0.13, ZR],
     best8: [X(NBIT), Yr(R.best8), ZO], ex3: [X(3), Yr(EX[2]), ZO + 0.12], ours3: [X(3), Yr(R.ours[2]), ZO],
     axis: [X(1) - 0.1, Yr(1) + 0.08, ZB], bits: [X(NBIT) + 0.1, Yr(0) - 0.02, ZO],
-    circuit: [0, 0, 0], top: [0, 0.95, 0], time: [-0.72, 0.8, 0],
+    circuit: [0, 0, 0], top: [-0.78, 1.08, 0], time: [-0.72, 0.8, 0],
     q2: [WX(2), 0.9, 0], q1: [WX(1), 0.9, 0], q0: [WX(0), 0.9, 0],
   };
   const fmtT = v => (v < 0 ? '−' : '+') + Math.abs(v).toFixed(3);
