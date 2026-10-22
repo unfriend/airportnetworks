@@ -394,6 +394,9 @@ SETS.tower = function (K) {
   }
   // links in pair mode: both modules squeezed into small discs, so each is drawn fainter
   const PKF = Math.round(0.55 * clamp(Math.sqrt(2500 / Math.max(1, (MODL[PGL] || 0) + (MODL[PGR] || 0))), 0.3, 1) * 1000) / 1000;
+  // with seeds alone only the seeds' links show: fewer, so each is drawn brighter
+  let SEEDL = 0; for (let l = 0; l < LN; l++) { const a = LL[l]; for (let k = 0; k < a.length; k += 2) if (PFLAG[a[k]] & PFLAG[a[k + 1]] & 1) SEEDL++; }
+  const PKS = Math.round(0.55 * clamp(Math.sqrt(2500 / Math.max(1, SEEDL)), 0.3, 1) * 1000) / 1000;
   const GLOW_KEYS = ['HP', 'coex_HRA', 'coex_HRV', 'ppi_skeletal_muscle'].filter(k => LI[k] !== undefined);
   const PAIR_GLOW = new Uint8Array(LN); for (const k of GLOW_KEYS) PAIR_GLOW[LI[k]] = 1;
 
@@ -699,7 +702,7 @@ vec4 ribbon(vec3 a, vec3 b, float end, float side, float w, float wMin, float wM
   // across the ribbon: full in the middle, soft at the edges
   const RIBBON_FRAG = `varying vec3 vC; varying float vA, vS;
 void main() { float a = vA * (1.0 - abs(vS * vS * vS)); if (a < 0.0015) discard; gl_FragColor = vec4(vC, a); }`;
-  const LK = { ctx: 0.11, busy: 0.8, sel: 0.85, down: 0.4, mod: 0.36, seed: 0.6, pair: 0.6, hot: 0.25, within: 0.5, betw: 0.42, gene: 0.5,
+  const LK = { ctx: 0.11, busy: 1.0, sel: 0.85, down: 0.4, mod: 0.36, seed: 0.6, pair: 0.6, hot: 0.25, within: 0.5, betw: 0.42, gene: 0.5,
     wCtx: 0.0062, wHi: 0.0105, wMin: 1.1, wMaxC: 2.2, wMaxH: 3.6 };
   const lnMat = new THREE.ShaderMaterial({
     uniforms: uni(), transparent: true, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending,
@@ -721,15 +724,17 @@ void main() {
     float len = distance(xa, xb), near = mix(1.0, 0.45, smoothstep(0.25, 0.95, len)), nearM = mix(1.0, 0.7, smoothstep(0.3, 1.1, len));
     // looking down the tower, the copies of a gene pair in a block's layers fall on one line
     float down = smoothstep(0.6, 0.97, abs(dot(normalize(modelViewMatrix[1].xyz), normalize((modelViewMatrix * vec4(pa, 1.0)).xyz))));
-    // context: in the genes' colours at rest, blue-grey (and a little thinner) while something is selected
+    // context: in the genes' colours at rest, blue-grey (and a little thinner) while something is selected; in the pair
+    // view only within the two towers (everyone else waits on the rim)
     float busy = max(max(sel, pk), max(hv, uPair));
-    float frac = mix(1.0, ${f1(LK.sel)}, sel) * (1.0 - 0.25 * pk) * (1.0 - 0.6 * uGrid) * (1.0 - uPair);
+    float inPP = step(0.5, gt(g, 8.0).z) * step(0.5, gt(o, 8.0).z);
+    float frac = mix(1.0, ${f1(LK.sel)}, sel) * (1.0 - 0.25 * pk) * (1.0 - 0.6 * uGrid) * mix(1.0, inPP, uPair);
     float ctxA = (1.0 - smoothstep(frac - 0.12, frac, q)) * ${f1(LK.ctx)} * mix(1.0, ${f1(LK.busy)}, busy) * L3.w * near * mix(1.0, ${f1(LK.down)}, down);
-    vec3 na = mix(ca, vec3(0.42, 0.56, 0.82), busy), nb = mix(cb, vec3(0.42, 0.56, 0.82), busy);
+    vec3 na = mix(ca, vec3(0.47, 0.61, 0.88), busy), nb = mix(cb, vec3(0.47, 0.61, 0.88), busy);
     // highlighted: the module (its seeds' links brighter), the pair view's two groups
     float both = qa.y * qb.y, sb = qa.w * qb.w;
-    float mod_ = both * (${f1(LK.mod)} * mix(uMK.x, uMK.y, uX) + ${f1(LK.seed)} * sb * max(uSeeds, uSeedOnly * uPair)) * nearM * (1.0 - 0.2 * uWalk);
-    float hiA = sel * mod_ * (1.0 - uPair) + uPair * both * ${f1(Math.round(LK.pair * PKF * 1000) / 1000)} * nearM;
+    float mod_ = both * (${f1(LK.mod)} * mix(uMK.x, uMK.y, uX) + ${f1(LK.seed)} * sb * uSeeds) * nearM * (1.0 - 0.2 * uWalk);
+    float hiA = sel * mod_ * (1.0 - uPair) + uPair * both * mix(${f1(PKF)}, ${f1(PKS)}, uSeedOnly) * ${f1(LK.pair)} * nearM;
     // the walk: the links between the genes it visits most, in the heat's colours (those between start genes less: the
     // walk found the others)
     float h0 = mix(uHot.x, uHot.y, uX), hm = hv > 0.0 ? min(heatAt(g), heatAt(o)) : 0.0;
@@ -750,7 +755,10 @@ void main() {
     // from above, or in the squashed grid, the copies of a link in the stacked layers fall on one line
     hiA *= L1.w * mix(1.0, 0.55, max(down, uGrid));
     ka = mix(ka, mix(ca, vec3(1.0), 0.45), gq); kb = mix(kb, mix(cb, vec3(1.0), 0.45), gq);
-    float a = (hiE > 0.5 ? max(0.0, hiA - ctxA) : ctxA) * live;
+    // a highlighted link that is also a context link is drawn once, by its highlighted entry, at least as bright as the
+    // context and in its own colours (so a big module's faint links never turn blue-grey)
+    float hon = smoothstep(0.0, 0.006, hiA);
+    float a = (hiE > 0.5 ? max(hiA, ctxA * hon) : ctxA * (1.0 - hon)) * live;
     if (a > 0.002) {
       vA = a; vC = hiE > 0.5 ? mix(ka, kb, e) : mix(na, nb, e);
       float w = hiE > 0.5 ? mix(${f1(LK.wCtx)}, ${f1(LK.wHi)}, wide) : ${f1(LK.wCtx)};
