@@ -65,7 +65,7 @@ the app's files from the repository over HTTPS, and prints the address to open.
    keep devices apart: then use a router of your own or a phone's hotspot. Let the machine's firewall accept
    connections on port 8787 (macOS and Windows ask the first time the relay starts: allow it on private
    networks).
-3. For Quest Browser's experimental shared space (used for alignment unless you switch it off on the Shared panel,
+3. For Quest Browser's experimental shared space (used for alignment unless you switch it off in the headset's menu,
    *Shared space: on*; with both headsets on one browser version it lined them up without tape): in
    Quest Browser open `chrome://flags`, set **WebXR experiments** to Enabled and restart the browser completely;
    turn on **Enhanced spatial services** in the headset's settings (privacy, device permissions); and **update
@@ -94,7 +94,7 @@ the app's files from the repository over HTTPS, and prints the address to open.
    same page address on every headset). The first time, the browser warns that the certificate is not trusted:
    choose to continue (it is this machine's own certificate).
 3. Open **Shared**: on the page, the **Shared** button in the top bar or on the Stories screen; in the headset,
-   the **Open** tab on the **Shared space** panel above your left controller (beside the story panel without one). The first person: **Start a room**,
+   the menu: touch the clock on your left wrist (**Open menu**; or click the left stick, or point at it and pull the trigger; beside the story panel without a left controller). The first person: **Start a room**,
    then **Arrange all** puts the ten stories as stations in two rows of five in front of you (or one story where you
    stand: **Add here** in the headset, **Add a station** on the page). Arrange all from a page, without a
    headset, puts the rows round the room's origin (mark A). Everyone else: **Shared**, then pick the room under
@@ -102,17 +102,17 @@ the app's files from the repository over HTTPS, and prints the address to open.
    it round, raise or lower the controller to push it away or bring it nearer, twist your wrist to turn it, and let
    go to put it down (everyone sees it move). On the page, drag its dot on the room map to move it, or its small
    square to turn it. At your own station the grip moves its scene and story panel (both grips resize the scene) for everyone there, and nobody can move them anywhere else, so everyone sees them alike. Once
-   the stations are where you want them, **Lock the layout** (on the Shared panel, or **Lock layout** in the
-   Shared dialog) so nobody moves one by accident; anyone can unlock it. In the headset the Shared panel rides
-   on your left controller, so it is always at hand (without a left controller it stays beside the story
+   the stations are where you want them, **Lock the layout** (in the headset's menu, or **Lock layout** in the
+   Shared dialog) so nobody moves one by accident; anyone can unlock it. In the headset the menu's clock rides
+   on your left wrist, so the menu is always at hand (without a left controller or hand it stays beside the story
    panel).
-4. In the room, use **Enter AR**: you see the room and each other, and the stations stand in it. In VR the panel
+4. In the room, use **Enter AR**: you see the room and each other, and the stations stand in it. In VR the menu
    asks once whether you are in the same room as the others (then the room is aligned as in AR) or elsewhere
    (then you get your own floor and the others see you as an avatar).
-5. **Calibrate every headset on the same two marks** (Shared panel, **Calibrate**): a bright ring shows the point
+5. **Calibrate every headset on the same two marks** (headset's menu, **Calibrate**): a bright ring shows the point
    that counts, at the front of the controller. Put it on mark A, hold still, pull the trigger once; then the
-   same on mark B (while calibrating, any trigger pull away from the Shared panel takes a mark). Orange crosses then show where this headset puts the
-   marks: they must sit on the tape (they show for 30 s, and whenever the Shared panel is open). A headset's own
+   same on mark B (while calibrating, any trigger pull away from the menu takes a mark). Orange crosses then show where this headset puts the
+   marks: they must sit on the tape (they show for 30 s, and whenever the menu is open). A headset's own
    calibration is never overridden. It is kept for next time by two anchors at the marks ("Room calibration from
    last time", when the headset can save anchors); a headset without anchors, or after a recentre (a
    long press on the Meta button), may ask to calibrate again. The room's floor is set by the first headset
@@ -145,11 +145,11 @@ machine or public hosting.
 - **No relay at all**: a room still works on one device (the panel says "this headset only"): its stations,
   their places and the lock are kept on the device, and the room moves to the relay once one answers (the app
   asks every 15 s, and at once when an address is entered), made there from the device's copy.
-- **The headsets do not line up through the shared space**: the Shared panel shows each headset's Quest Browser
+- **The headsets do not line up through the shared space**: the headset's menu shows each headset's Quest Browser
   version (people list) and warns when they differ: update both, one shared space needs one version. Then check on
   every headset: the WebXR experiments flag (`chrome://flags`, then restart the browser; an update can reset it),
   Enhanced spatial services on (Quest settings, privacy), the same address in the browser, and Space Setup done in
-  this room, and *Shared space: on* on the Shared panel (it no longer stays off after a reload). Start one headset
+  this room, and *Shared space: on* in the menu (it no longer stays off after a reload). Start one headset
   in AR first, wait until it says it found the shared space, then the other. If the panel says *Not in the others'
   shared space*, press Re-align; if that does not help, leave AR on both headsets, close Quest Browser on both, and
   start them again one after the other (a headset that left AR and came back on its own got a new space under the
@@ -158,7 +158,7 @@ machine or public hosting.
   them; more than 10 cm, and the room stops using that space (*Shared space not usable*) until they agree again
   or reload.
 - **A fresh shared space**: when the panel says the shared space is split (two calibrated headsets far apart
-  through it), press *Fresh shared space* twice on the Shared panel (or in the page's Shared dialog). Every page in
+  through it), press *Fresh shared space* twice in the headset's menu (or in the page's Shared dialog). Every page in
   the room moves to the app under a new address (`/s/1/`, `/s/2/`, ...: the relay serves the app there too), where
   the headsets make a new shared space: they leave AR, then start AR on one headset first and wait for *Shared
   space found* before the others. The rooms, calibrations and anchors stay (they belong to the relay's address).
@@ -167,7 +167,7 @@ machine or public hosting.
   Meta's servers; in Quest Browser clear the site data of the relay's address (this also forgets the app's
   calibration). Then restart the headsets, run Space Setup on each, check *Enhanced spatial services* and the
   WebXR experiments flag, and start AR on one headset before the others.
-- **The headsets do not line up**: check the orange crosses on each headset (open the Shared panel). Crosses
+- **The headsets do not line up**: check the orange crosses on each headset (open the menu). Crosses
   off the tape: calibrate that headset again, holding still at each mark. Crosses on the tape on both
   headsets but things still apart: please send the logs (below). The pointer rays of the others should start at
   their real controllers.
@@ -182,7 +182,7 @@ machine or public hosting.
   find its anchors in the same session after standby, `marks lost` in the log), do that: a new AR session finds
   the marks at once. If the crosses are still not on the tape, press **Calibrate** and please send the logs. Lined up through the shared space (no tape), it holds the room where the headset says it moved until the
   shared space agrees again (a few seconds; one that disagrees is judged after 20 s: right after waking the space is
-  wrong for up to 15 s, and after a night it may come back made again). If it stays off, press **Re-align** on that headset's Shared panel (it
+  wrong for up to 15 s, and after a night it may come back made again). If it stays off, press **Re-align** in that headset's menu (it
   asks for the shared space again and takes the room's frame afresh, as the others show it); if nothing changes,
   press it on the other headset, and please send the logs (`shared held after wake`, `shared after
   wake`, `shared asked again`, `realign` and `frame asked` lines say what it did).

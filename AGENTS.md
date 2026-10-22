@@ -224,8 +224,8 @@ generation, `{ n, by, at }`; FORMAT networks-10; networks-11 when the eighth sto
   in `localStorage` (`collabRoom.<code>`, the last 8 rooms), and a room joined
   through a relay is kept there too as last seen, so its layout is still there
   on a day the relay is not; a relay that forgot a room (expired overnight, or
-  restarted) gets it back from any page that keeps a copy. The headset's Shared
-  panel shows without a relay too (*Start a room here*, the rooms kept on the
+  restarted) gets it back from any page that keeps a copy. The headset's menu
+  has its shared room section without a relay too (*Start a room here*, the rooms kept on the
   headset). A headset alone is never asked about the others, and without marks
   or a shared space its stations stand on its floor where the session began
   (`'floor'`, for the session; calibrating keeps them in place). The room goes
@@ -236,7 +236,7 @@ generation, `{ n, by, at }`; FORMAT networks-10; networks-11 when the eighth sto
   panel says so). The placement stays as it moves; a `'floor'` frame then gives
   way once the shared space gives a frame. Another tab's writes to a room on
   this device are taken (the `storage` event).
-- A fresh shared space (*Fresh shared space* on the headset's Shared panel and in
+- A fresh shared space (*Fresh shared space* in the headset's menu and in
   the page's Shared dialog, two presses, only where the relay serves the page):
   Quest Browser keeps one shared space per page address, and two Quest 3s each
   kept their own copy of one, session after session (2.6 to 3.4 m apart by the
@@ -250,7 +250,7 @@ generation, `{ n, by, at }`; FORMAT networks-10; networks-11 when the eighth sto
   leave AR as their pages move; the page and then the headset say to start AR on
   one headset first and the others after "Shared space found". Every headset's
   log says its whole address (`search`, `sg` in `session`).
-- Re-align (a button on the headset's Shared panel, `HOST.room.realignNow()`):
+- Re-align (a button in the headset's menu, `HOST.room.realignNow()`):
   this headset lines up again from the start without leaving the session or
   forgetting its marks. The shared space is asked for again, what was held
   since waking is dropped, its own marks are looked for again by their anchors,
@@ -292,13 +292,35 @@ generation, `{ n, by, at }`; FORMAT networks-10; networks-11 when the eighth sto
   the grip on a station, a scene or a panel, the map drag, Arrange all, Add,
   Move here and Remove are refused (`refused()`), a station, scene or panel
   being carried stops where it was last sent, and the cards say so.
-- The headset's Shared panel rides on the left controller (`HAND`, from the
-  left input source's grip or target ray each frame): above it, its lower edge
-  7 cm over it, at 0.62 of its size, turned to your eyes and eased; without a
-  left controller it hangs beside the story panel as before. It shows in every
-  headset session, in a room or not, and its header (also while closed) holds
-  Exit, which ends the session: the story panels have no Exit (the headset
-  Stories screen keeps its own).
+- The headset's menu (the shell's panel, `PNL`, `drawPanel`) is closed at the
+  start of every session: only a clock shows (`drawClock`: the local time, a
+  face 6.5 cm across in the app's cyan rim, *Open menu* under it, redrawn when
+  the minute changes), worn like a watch on the left wrist (`HAND`, each
+  frame: a controller's grip, the clock 5 cm behind it and 5 cm above; a
+  tracked hand's `wrist` joint, the clock 3 cm off the back of the wrist and
+  3.5 cm up the forearm), turned to your eyes and eased; without a left
+  controller or hand it hangs, twice the size, beside the story panel. It
+  opens and closes with a touch of the clock (`touch`: the first 4 cm of the
+  right controller's ray, or the right `index-finger-tip`, within 4 cm of its
+  middle; another touch counts once moved 7 cm away; a short pulse on a
+  controller; none while that controller's grip is held, as when carrying or
+  resizing with both hands, or while calibrating), a click of the left stick
+  (`buttons[3]`, rising edge: the stories use the stick's axes and
+  `buttons[4]`), the trigger or a pinch on the clock (`kind: 'clock'` through
+  `ray`/`press`; pulled while the tip touches it, it counts once with the
+  touch), or Close in its header. Open, it stands above the clock (its lower
+  edge 6.5 cm over the clock's middle, at 0.62 of its size), as tall as what
+  it shows: *Menu*, Close; Exit (ends the session: the story panels have no
+  Exit, the headset Stories screen keeps its own) and *Slideshow: on/off* (`HOST.slides.setGlobal`, for
+  every story, shown when `HOST.slides` exists); then the shared room (its
+  code and people as the section's heading, the rooms, the question, the
+  room's alignment, stations, people, You; the canvas holds the tallest case,
+  a room on this headset with a three-line note, and People shows only as many
+  as leave room for You). A right index fingertip also presses its buttons
+  (`poke`: within 1.5 cm of the panel over one, again once pulled back 3 cm;
+  a pinch on the ray at the same button within 0.7 s counts once with it,
+  `twice`). The once-per-room question still opens it by itself.
+  `HOST.collab.panelOpen(on)` and `HOST.collab.menu` are for tests.
 - At its station in a shared room a headset moves the scene and the panel for
   everyone: the grip on the scene moves it (`XR.globeOff`), both grips on it
   resize it (`xrResize`: the distance between the hands, a quarter to four times
@@ -320,7 +342,7 @@ generation, `{ n, by, at }`; FORMAT networks-10; networks-11 when the eighth sto
   still open when a headset reaches its station closes by itself (`xrBegin`).
   Sound check (on the Stories screen) is then reached only before a headset
   stands at a station, or from the page (`#soundcheck`).
-- In VR the shell's panel asks once per room "Are you in the same room as the
+- In VR the headset's menu opens by itself and asks once per room "Are you in the same room as the
   others?" (In this room / Somewhere else, kept per room code in
   `localStorage` `collabHere`); passthrough counts as in the room.
 - `HOST.room` (headsets) asks for its own `local-floor` and `shared` spaces and
@@ -495,7 +517,7 @@ generation, `{ n, by, at }`; FORMAT networks-10; networks-11 when the eighth sto
   260 ms before the trigger (a bright ring shows that point), at least 50 cm
   apart; a second pull within 0.6 s is ignored, and marks more than 5 cm
   apart in height get a note. Orange
-  crosses show the marks where this headset puts them (while the Shared panel
+  crosses show the marks where this headset puts them (while the headset's menu
   is open, and 30 s after aligning). The panel's room section also shows the
   shared space's id and *Forget calibration* (`HOST.room.forget()`, press
   twice). Anchor requests carry the marks' generation (`R.mgen`), so ones that
@@ -548,7 +570,7 @@ reference, `tools/flock/engine/`):
   explore sway rests (`HOST.room.placing()`).
 - `xrPoint`: after raycasting its own panels (`hs`),
   `const sh = HOST.collab.ray(c.i, c.o, c.d, hs.length ? hs[0].distance : Infinity);`;
-  a hit (`kind: 'shell'`: the shell's panel, the other stations' cards and
+  a hit (`kind: 'shell'`: the shell's menu and its clock, the other stations' cards and
   rings, calibration marks) is nearer than the story's panels and is the hover
   instead of them and of the scene. `xrPress`:
   `if (h.kind === 'shell') { HOST.collab.press(c.i); return; }`.
@@ -994,12 +1016,17 @@ a pretend headset with fake `local-floor` and `shared` spaces: alignment,
 placement at its station, a recentre, taken off and on again (it stays in its
 story), Start on its Stories screen (restarts nothing), the hold and the lock,
 the station's clock and state, rays and head in room coordinates, another
-person drawn, the sound zone, the shell's panel and a card pick, the story
+person drawn, the sound zone, the trigger on the menu's clock and a card pick, the story
 panel winning over a card behind it, a station moved with the grip on its
 card (swung, pushed further, turned; the others see it while it moves) and
 gliding into place when someone else moves it, the layout lock (the grip and
-Arrange all refused; unlocked from the headset panel), the Shared panel on the
-left controller, re-alignment, walking to another station
+Arrange all refused; unlocked from the headset's menu), the menu (closed at
+first, only its clock; on the left controller and on a tracked hand's wrist;
+opened by the left stick, a touch of the right controller or fingertip and
+the trigger on the clock, a touch and a trigger at once toggling it once, no
+touch with the grip held or while calibrating; Exit inside; buttons pressed by
+a fingertip, a poke and a pinch at once pressing once; at its tallest, You still on it),
+re-alignment, walking to another station
 and back, Remove asking first; calibration from two marks (Stop calibrating
 still pressable, two anchors made and checked, the marks drawn), a reset with
 a transform, a recentre without a reset (the anchors keep the frame), the
@@ -1048,7 +1075,7 @@ Re-align, a station played there, the room taken to a relay that answers and
 joined there by another page; a relay that cannot be reached). `--quick` runs only the last story in the per-story part. A new story needs an entry in `STORIES`
 (`change` and `back`: code that changes its `state()`, and optional `effect`
 and `more`); the headset's story (`HEADSET_STORY`) stays the last entry.
-`--shots <dir>` also saves pictures of the dialog and two headset views.
+`--shots <dir>` also saves pictures of the dialog and four headset views (with the menu's clock on the left wrist, and the menu open).
 
 For the tour, test a changed set on its own in the set harness first
 (`tools/lbi/shot.mjs`, much cheaper than the whole story), then the story at a

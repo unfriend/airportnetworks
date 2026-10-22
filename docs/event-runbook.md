@@ -9,7 +9,7 @@ them: [AGENTS.md](../AGENTS.md) ("Shared rooms", "Placement in the headset").
 
 | Where | How to get there | On it |
 | --- | --- | --- |
-| Shared panel (headset) | above the left controller; **Open** / **Close** in its header | **Exit** (leaves VR or AR); **Join**, **Start a room**; in a room **Calibrate**, **Re-align**, **Forget calibration**, **Shared space: on**, **Fresh shared space**, **Move here**, **Add here**, **Arrange all**, **Remove**, **Lock the layout**, **Leave** |
+| Menu (headset) | closed at first: only a clock (**Open menu**) on the left wrist (on the controller, or the wrist with hand tracking; beside the story panel without either). Touch it with the right controller's tip or right index finger, click the left stick, or point at it and pull the trigger; the same, or **Close**, closes it | **Exit** (leaves VR or AR), **Slideshow: on/off** (every story); **Join**, **Start a room**; in a room **Calibrate**, **Re-align**, **Forget calibration**, **Shared space: on**, **Fresh shared space**, **Move here**, **Add here**, **Arrange all**, **Remove**, **Lock the layout**, **Leave** |
 | Stories screen (headset) | after **Enter VR** / **Enter AR** from the start screen, or **Stories** on a story panel (not at a station) | **Sound**, **Sound check**, **Anchor**, **Recenter** (**Place again** when anchored), **Exit**, **Repeat all**, **Repeat one**, a card per story |
 | Shared dialog (page) | **Shared** in the top bar or on the Stories screen | **Start a room**, **Join**, **Join by code**, room map, **Follow**, **Arrange all**, **Add a station**, **Lock layout**, **Fresh shared space**, **Copy link** |
 
@@ -21,7 +21,7 @@ space** shows only on a page that comes from the relay.
 **Every headset**
 
 - [ ] Charged; Quest Browser updated to **the same version on all of them** (two versions never shared a space; the
-  Shared panel shows each version and warns when they differ).
+  headset's menu shows each version and warns when they differ).
 - [ ] Quest Browser `chrome://flags`: **WebXR experiments** Enabled, then restart the browser fully (updates can
   reset it). Settings: **Enhanced spatial services** on (privacy, device permissions), **Physical space features** on
   (developer settings).
@@ -58,18 +58,19 @@ space** shows only on a page that comes from the relay.
    headsets' Wi-Fi if there are several) and leave the window open.
 2. Open **exactly that address** in Quest Browser on every headset and bookmark it (shared spaces need the same
    address). Accept the certificate warning once per headset and per desktop browser.
-3. Once: **Shared** on a page (also in Quest Browser before AR) or **Open** on a headset's Shared panel, then **Start
+3. Once: **Shared** on a page (also in Quest Browser before AR) or a headset's menu (touch the clock on the left wrist), then **Start
    a room**. The address now ends in `#s=` and three letters. Others **Join** it under **Open rooms**, or open the link
    from **Copy link** (not shown for a room that lives on one device only).
 4. **Enter AR** on one headset; after about ten seconds (*Shared space found*, or *Room calibration from last time*)
-   the others, one by one. In VR, answer *Are you in the same room as the others?* with **In this room**.
+   the others, one by one. In VR, answer *Are you in the same room as the others?* with **In this room** (the menu
+   opens by itself for it).
 5. While a headset still shows its Stories screen, press **Sound check** and both beeps (not reachable at a station).
 6. **Arrange all** on a headset: two rows in front of you (from a page: round mark A). To move a station, point at its
    ring or card and hold the grip: point to swing, raise or lower to push or pull, twist to turn. On the page, drag its
    dot (move) or square (turn).
 7. **Calibrate** each headset in the room, one after another: put the bright ring at the controller's tip on mark A,
    hold still, pull the trigger; then mark B. It never depends on the shared space and nothing overrides it.
-8. Check each headset: the **orange crosses** sit on the tape (shown 30 s after aligning, and while the Shared panel is
+8. Check each headset: the **orange crosses** sit on the tape (shown 30 s after aligning, and while the menu is
    open), and others' rays start at their real controllers. *Your marks are ... than the room's* or *Marks at different
    heights*: calibrate again. *Your floor is ... than the room's (allowed for)*: fix that floor in the boundary
    settings later.
@@ -98,7 +99,7 @@ Outside a shared room only (at a station a story ends in explore mode, as for ev
 
 | Symptom | Try, in this order |
 | --- | --- |
-| Headsets not lined up | Look at the orange crosses (Shared panel open). Off the tape: **Calibrate** again. No tape used: **Re-align** on the headset that is off, then the other. *Not in the others' shared space* or *Shared space not usable*: calibrate on the tape, or press **Fresh shared space** twice (every page moves to `/s/1/` and the like, headsets leave AR; start one, wait for *Shared space found*, then the others; rooms and calibrations stay). Last resort: relay/README.md, "Starting the shared space afresh". |
+| Headsets not lined up | Look at the orange crosses (menu open). Off the tape: **Calibrate** again. No tape used: **Re-align** on the headset that is off, then the other. *Not in the others' shared space* or *Shared space not usable*: calibrate on the tape, or press **Fresh shared space** twice (every page moves to `/s/1/` and the like, headsets leave AR; start one, wait for *Shared space found*, then the others; rooms and calibrations stay). Last resort: relay/README.md, "Starting the shared space afresh". |
 | *Quest Browser ... here, ... on ...* | Versions differ: update both; meanwhile calibrate on the tape. |
 | *No shared space (check the WebXR flag ...)*, *No room scan here*, *Shared space switched off here* | Section 1's settings and Space Setup; **Shared space: off** switches it on. Or calibrate on the tape. |
 | Off after standby | Crosses show 30 s (*Check the marks*). *Leave AR and enter it again*: do so. Through the shared space: wait 20 s, then **Re-align**. Still off: **Calibrate**. |

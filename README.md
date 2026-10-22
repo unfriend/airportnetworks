@@ -59,8 +59,8 @@ Meta Quest Browser).
   place); where a headset has none, the place holds until you leave VR. A link
   with `#anchor=on` (or `#anchor=off`) sets it, for a kiosk.
 - **Shared rooms** (the *Shared* button in the top bar and on the Stories
-  screen; in a headset a small *Shared* panel above the left controller, or
-  beside the story panel without one): several
+  screen; in a headset the menu, opened from a clock on the left wrist, or
+  beside the story panel without a left controller or hand): several
   headsets and screens join one room and see the same **stations**, each a
   story at a spot in the room, in step on every device. Anyone can play,
   pause, jump or change a control; the last action wins. A headset runs the
