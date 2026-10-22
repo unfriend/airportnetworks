@@ -394,6 +394,9 @@ SETS.tower = function (K) {
   }
   // links in pair mode: both modules squeezed into small discs, so each is drawn fainter
   const PKF = Math.round(0.55 * clamp(Math.sqrt(2500 / Math.max(1, (MODL[PGL] || 0) + (MODL[PGR] || 0))), 0.3, 1) * 1000) / 1000;
+  // with seeds alone only the seeds' links show: fewer, so each is drawn brighter
+  let SEEDL = 0; for (let l = 0; l < LN; l++) { const a = LL[l]; for (let k = 0; k < a.length; k += 2) if (PFLAG[a[k]] & PFLAG[a[k + 1]] & 1) SEEDL++; }
+  const PKS = Math.round(0.55 * clamp(Math.sqrt(2500 / Math.max(1, SEEDL)), 0.3, 1) * 1000) / 1000;
   const GLOW_KEYS = ['HP', 'coex_HRA', 'coex_HRV', 'ppi_skeletal_muscle'].filter(k => LI[k] !== undefined);
   const PAIR_GLOW = new Uint8Array(LN); for (const k of GLOW_KEYS) PAIR_GLOW[LI[k]] = 1;
 
@@ -408,6 +411,7 @@ SETS.tower = function (K) {
   const gget = (i, r, k) => gtd[(r * N + i) * 4 + k];
   for (let i = 0; i < N; i++) { gset(i, 8, PPOS[2 * i], PPOS[2 * i + 1], PCLS[i], PFLAG[i]); gset(i, 9, BX[i], BZ[i], 0, 0); }
   const SL = [new THREE.Vector4(), new THREE.Vector4()];   // per slot: selected, pick on, gene on, heat on
+  let slotGen = 0;                                          // counts slot changes (the highlighted links follow them)
   const PICKC = Array.from({ length: 8 }, () => new THREE.Color(1, 1, 1));
   const slotInfo = [null, null];
   function writeSlot(s, eff) {
@@ -438,18 +442,19 @@ SETS.tower = function (K) {
     SL[s].set(g >= 0 ? 1 : 0, picks.length ? 1 : 0, eff.gene >= 0 ? 1 : 0, hv ? 1 : 0);
     // big modules have thousands of links per layer: each is drawn fainter
     TU.uMK.value.setComponent(s, g >= 0 ? clamp(Math.sqrt(2500 / Math.max(1, MODL[g])), 0.3, 1) : 1);
+    TU.uHot.value.setComponent(s, hotMin(hv));
     if (s === 1) picks.forEach(([, pc], k) => PICKC[k].set(endoColour(pc)));
-    slotInfo[s] = eff;
+    slotInfo[s] = eff; slotGen++;
     GT.needsUpdate = true;
   }
   function shiftSlots() {
     gtd.copyWithin(0, 4 * N * 4, 8 * N * 4);
-    SL[0].copy(SL[1]); slotInfo[0] = slotInfo[1]; TU.uMK.value.x = TU.uMK.value.y;
+    SL[0].copy(SL[1]); slotInfo[0] = slotInfo[1]; TU.uMK.value.x = TU.uMK.value.y; TU.uHot.value.x = TU.uHot.value.y; slotGen++;
   }
 
   // ---------------------------------------------------------------- layer texture (71 texels x 4 rows, per frame)
   // row 0: y, content alpha, rim alpha, fill alpha; row 1: rim colour, link weight; row 2: bar length, bar alpha, rest y,
-  // rise; row 3: dashed, informative
+  // rise; row 3: dashed, informative, point weight, context link weight
   const ltd = new Float32Array(LN * 4 * 4), ltn = new Float32Array(LN * 4 * 4);
   const LT = new THREE.DataTexture(ltd, LN, 4, THREE.RGBAFormat, THREE.FloatType);
   LT.magFilter = LT.minFilter = THREE.NearestFilter; LT.generateMipmaps = false;
@@ -461,7 +466,7 @@ SETS.tower = function (K) {
     uSeeds: { value: 0 }, uHeat: { value: 0 }, uModule: { value: 0 }, uEndo: { value: 0 }, uGrid: { value: 0 },
     uPair: { value: 0 }, uSeedOnly: { value: 0 }, uRoom: { value: 0 }, uDrop: { value: 0 }, uZ: { value: 0 },
     uPL: { value: new THREE.Color(GR[PGL] ? GR[PGL].col : '#46d9ff') }, uPR: { value: new THREE.Color(GR[PGR] ? GR[PGR].col : '#ff5ad9') },
-    uPickC: { value: PICKC }, uMK: { value: new THREE.Vector2(1, 1) }, uWalk: { value: 0 },
+    uPickC: { value: PICKC }, uMK: { value: new THREE.Vector2(1, 1) }, uWalk: { value: 0 }, uHot: { value: new THREE.Vector2(2, 2) },
   };
   const uni = extra => Object.assign({ uA: set.uA, uPx: K.U.uPx, uTime: K.U.uTime }, TU, extra || {});
   const f1 = x => (Number.isInteger(x) ? x.toFixed(1) : String(x));
@@ -469,7 +474,7 @@ SETS.tower = function (K) {
 uniform sampler2D uGT, uLT;
 uniform float uA, uX, uSeeds, uHeat, uModule, uEndo, uGrid, uPair, uSeedOnly, uRoom, uDrop, uZ, uWalk;
 uniform vec4 uSl0, uSl1;
-uniform vec2 uMK;
+uniform vec2 uMK, uHot;
 uniform vec3 uPL, uPR, uPickC[8];
 vec4 gt(float g, float r) { return texture2D(uGT, vec2((g + 0.5) / ${f1(N)}, (r + 0.5) / ${f1(GT_ROWS)})); }
 vec4 lt(float l, float r) { return texture2D(uLT, vec2((l + 0.5) / ${f1(LN)}, (r + 0.5) / 4.0)); }
@@ -479,6 +484,7 @@ vec3 pickCol(float m) {
   for (int k = 0; k < 8; k++) { float b = bit(m, float(k)) * (1.0 - found); c = mix(c, uPickC[k], b); found = max(found, b); }
   return c;
 }
+float heatAt(float g) { return mix(gt(g, 3.0).x * uSl0.w, gt(g, 7.0).x * uSl1.w, uX); }
 vec3 heatCol(float h) { return h < 0.5 ? mix(vec3(0.05, 0.12, 0.42), vec3(0.27, 0.85, 1.0), h * 2.0) : mix(vec3(0.27, 0.85, 1.0), vec3(1.0), h * 2.0 - 1.0); }
 // one slot's look of gene g: colour; q = (dot alpha, link part, thread, seed); xz; m = (pick mask, ringed)
 void slotLook(float g, float s, vec4 sl, vec2 base, out vec3 col, out vec4 q, out vec2 xz, out vec2 m) {
@@ -626,82 +632,217 @@ void main() {
   set.mats.push(ptMat);
   const pts = new THREE.Points(ptGeo, ptMat); pts.frustumCulled = false; pts.renderOrder = 3;
 
-  // ---------------------------------------------------------------- links: every layer's links in one geometry
-  // vertex position = (gene, layer, partner + 0.9 * rank): the rank (0..1, seeded) thins the faint context links
-  const lp = new Float32Array(edgeCount * 6);
-  { const R = rng(71); let o = 0;
-    for (let l = 0; l < LN; l++) { const arr = LL[l]; for (let k = 0; k < arr.length; k += 2) {
-      const a = arr[k], b = arr[k + 1], rk = R() * 0.9;
-      lp[o++] = a; lp[o++] = l; lp[o++] = b + rk; lp[o++] = b; lp[o++] = l; lp[o++] = a + rk;
-    } } }
-  const lnGeo = new THREE.BufferGeometry(); lnGeo.setAttribute('position', new THREE.BufferAttribute(lp, 3));
+  // ---------------------------------------------------------------- links: ribbons a little wider than a pixel
+  // Every layer-link is drawn as a quad that faces the camera (one pixel lines all but vanished, more so in a headset),
+  // from a list of entries (gene a, gene b, layer, rank) in one instanced geometry:
+  // - the context links, chosen once: in each layer a share of its links, the same gene pairs in every layer (so a
+  //   block of stacked layers shows one web and not a fog), short links (neighbourhoods) before long ones. Their rank
+  //   (0..1) thins them a little more while something is selected; they turn a neutral blue-grey then;
+  // - the highlighted links (rank + 2), listed again only when the selection changes: the module, the picked
+  //   endotypes, the ringed gene, the walk's hottest links and, in the pair view, both groups. Where a link has both
+  //   entries, only the highlighted one draws it (at least as bright as the context).
+  const LA = new Uint16Array(edgeCount), LB = new Uint16Array(edgeCount), LLY = new Uint8Array(edgeCount), CQ = new Float32Array(edgeCount);
+  // context links per layer, about (fewer in the protein block: 27 layers), and never more than half a layer's links: the
+  // small layers keep their links among a few genes, whose copies pile up into a white knot
+  const CTX_N = { ppi: 400 }, CTX_DEF = 700, CTX_MAX = 0.5;
+  const pairHash = (a, b) => {
+    let h = Math.imul(Math.min(a, b) + 1, 0x9e3779b1) ^ Math.imul(Math.max(a, b) + 7, 0x85ebca77);
+    h = Math.imul(h ^ (h >>> 15), 0x2c1b3c6d); h = Math.imul(h ^ (h >>> 12), 0x297a2d39);
+    return ((h ^ (h >>> 15)) >>> 0) / 4294967296;
+  };
+  // a pair's weight: short links first, pairs of hubs less often (each gene keeps about the square root of its links)
+  // and fewer where genes crowd (the middle of the layout), so the web reads evenly across the disc instead of burning
+  // out in the middle
+  const DAV = new Float32Array(N), RHO = new Float32Array(N);
+  for (let i = 0; i < N; i++) { let d = 0, n = 0; for (let l = 0; l < LN; l++) if (PRES[i * LN + l]) { d += deg(i, l); n++; } DAV[i] = n ? d / n : 1; }
+  for (let i = 0; i < N; i++) for (let j = 0; j < i; j++) {
+    const d2 = (BX[i] - BX[j]) ** 2 + (BZ[i] - BZ[j]) ** 2;
+    if (d2 < 0.09) { const w = Math.exp(-d2 / 0.02); RHO[i] += w; RHO[j] += w; }
+  }
+  for (let i = 0; i < N; i++) RHO[i] = DAV[i] * (1 + RHO[i]);
+  let nCtx = 0;
+  { let k = 0;
+    for (let l = 0; l < LN; l++) {
+      const arr = LL[l], k0 = k; let ws = 0;
+      for (let j = 0; j < arr.length; j += 2, k++) {
+        const a = arr[j], b = arr[j + 1], dx = BX[a] - BX[b], dz = BZ[a] - BZ[b];
+        LA[k] = a; LB[k] = b; LLY[k] = l;
+        ws += CQ[k] = lerp(1.5, 0.35, smooth((Math.sqrt(dx * dx + dz * dz) - 0.15) / 0.7)) / Math.sqrt(RHO[a] * RHO[b]);
+      }
+      const share = Math.min(CTX_N[LAY[l].cat] || CTX_DEF, CTX_MAX * arr.length / 2) / Math.max(1e-9, ws);
+      for (k = k0; k < k0 + arr.length / 2; k++) {
+        const q = pairHash(LA[k], LB[k]) / (share * CQ[k]);
+        CQ[k] = q < 1 ? q : 1.5;
+        if (q < 1) nCtx++;
+      }
+    } }
+  const lnBuf = new Float32Array(4 * (nCtx + edgeCount));
+  { let o = 0; for (let k = 0; k < edgeCount; k++) if (CQ[k] < 1) { lnBuf[o] = LA[k]; lnBuf[o + 1] = LB[k]; lnBuf[o + 2] = LLY[k]; lnBuf[o + 3] = CQ[k]; o += 4; } }
+  // a quad: position x = end (0 at a, 1 at b), y = side (-1, 1)
+  const quadGeo = () => {
+    const g = new THREE.InstancedBufferGeometry();
+    g.setIndex([0, 2, 1, 1, 2, 3]); g.setAttribute('position', new THREE.Float32BufferAttribute([0, -1, 0, 0, 1, 0, 1, -1, 0, 1, 1, 0], 3));
+    return g;
+  };
+  const lnGeo = quadGeo(), lnAttr = new THREE.InstancedBufferAttribute(lnBuf, 4);
+  lnAttr.setUsage(THREE.DynamicDrawUsage); lnGeo.setAttribute('aLink', lnAttr); lnGeo.instanceCount = nCtx;
+  // a ribbon from a to b (local coordinates) facing the camera, w local units wide but kept between wMin and wMax
+  // pixels as point sizes are (uPx is half the view's height in pixels times the world's scale)
+  const RIBBON = `
+varying float vS;
+vec4 ribbon(vec3 a, vec3 b, float end, float side, float w, float wMin, float wMax) {
+  vec4 A = modelViewMatrix * vec4(a, 1.0), B = modelViewMatrix * vec4(b, 1.0);
+  vec3 P = mix(A.xyz, B.xyz, end), n = cross(B.xyz - A.xyz, P);
+  float nl = length(n), sc = length(modelViewMatrix[0].xyz);
+  n = nl > 1e-12 ? n / nl : vec3(0.0);
+  float pxU = uPx / sc * projectionMatrix[1][1] / max(-P.z, 0.01);
+  float px = clamp(w * sc * pxU, wMin, wMax);
+  vS = side;
+  return projectionMatrix * vec4(P + n * (side * 0.5 * px / pxU), 1.0);
+}
+`;
+  // across the ribbon: full in the middle, soft at the edges
+  const RIBBON_FRAG = `varying vec3 vC; varying float vA, vS;
+void main() { float a = vA * (1.0 - abs(vS * vS * vS)); if (a < 0.0015) discard; gl_FragColor = vec4(vC, a); }`;
+  const LK = { ctx: 0.11, busy: 1.0, sel: 0.85, down: 0.4, mod: 0.36, seed: 0.6, pair: 0.6, hot: 0.35, within: 0.5, betw: 0.42, gene: 0.5,
+    wCtx: 0.0062, wHi: 0.0105, wMin: 1.1, wMaxC: 2.2, wMaxH: 3.6 };
   const lnMat = new THREE.ShaderMaterial({
-    uniforms: uni(), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
-    vertexShader: LOOK + `
+    uniforms: uni(), transparent: true, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending,
+    vertexShader: K.GLSL + LOOK + RIBBON + `
+attribute vec4 aLink;
 varying vec3 vC; varying float vA;
 void main() {
-  float g = position.x, l = position.y, o = floor(position.z), rk = fract(position.z) / 0.9;
-  vec4 L0 = lt(l, 0.0), L1 = lt(l, 1.0);
-  float w = L0.y * L1.w * uA;
-  vA = 0.0; vC = vec3(0.0);
-  vec3 p = vec3(0.0);
-  if (w > 0.002) {
+  float g = aLink.x, o = aLink.y, l = aLink.z, hiE = step(1.5, aLink.w), q = aLink.w - 2.0 * hiE, e = position.x;
+  vec4 L0 = lt(l, 0.0), L1 = lt(l, 1.0), L3 = lt(l, 3.0);
+  float live = L0.y * uA;
+  vA = 0.0; vC = vec3(0.0); vS = 0.0;
+  gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
+  if (live > 0.002) {
     vec3 ca, cb; vec4 qa, qb; vec2 xa, xb, ma, mb;
     look(g, ca, qa, xa, ma); look(o, cb, qb, xb, mb);
-    float sel = mix(uSl0.x, uSl1.x, uX), pk = mix(uSl0.y, uSl1.y, uX), gn = mix(uSl0.z, uSl1.z, uX);
-    // long links cross the whole disc: they are dimmed, the short ones (neighbourhoods) carry the picture
-    float len = distance(xa, xb), near = mix(1.0, 0.16, smoothstep(0.18, 0.8, len)), nearM = mix(1.0, 0.6, smoothstep(0.3, 1.1, len));
-    float ctx = step(rk, mix(0.26, 0.13, sel) * (1.0 - uPair) * (1.0 - 0.6 * pk)) * mix(0.066, 0.045, sel) * near;
+    float sel = mix(uSl0.x, uSl1.x, uX), pk = mix(uSl0.y, uSl1.y, uX), gn = mix(uSl0.z, uSl1.z, uX), hv = uHeat * mix(uSl0.w, uSl1.w, uX);
+    vec3 pa = vec3(xa.x, L0.x, xa.y), pb = vec3(xb.x, L0.x, xb.y);
+    // long links cross the whole disc: they are dimmed a little, the short ones (neighbourhoods) carry the picture
+    float len = distance(xa, xb), near = mix(1.0, 0.45, smoothstep(0.25, 0.95, len)), nearM = mix(1.0, 0.7, smoothstep(0.3, 1.1, len));
+    // looking down the tower, the copies of a gene pair in a block's layers fall on one line
+    float down = smoothstep(0.6, 0.97, abs(dot(normalize(modelViewMatrix[1].xyz), normalize((modelViewMatrix * vec4(pa, 1.0)).xyz))));
+    // context: in the genes' colours at rest, blue-grey (and a little thinner) while something is selected; in the pair
+    // view only within the two towers (everyone else waits on the rim)
+    float busy = max(max(sel, pk), max(hv, uPair));
+    float inPP = step(0.5, gt(g, 8.0).z) * step(0.5, gt(o, 8.0).z);
+    float frac = mix(1.0, ${f1(LK.sel)}, sel) * (1.0 - 0.25 * pk) * (1.0 - 0.6 * uGrid) * mix(1.0, inPP, uPair);
+    float ctxA = (1.0 - smoothstep(frac - 0.12, frac, q)) * ${f1(LK.ctx)} * mix(1.0, ${f1(LK.busy)}, busy) * L3.w * near * mix(1.0, ${f1(LK.down)}, down);
+    vec3 na = mix(ca, vec3(0.47, 0.61, 0.88), busy), nb = mix(cb, vec3(0.47, 0.61, 0.88), busy);
+    // highlighted: the module (its seeds' links brighter), the pair view's two groups
     float both = qa.y * qb.y, sb = qa.w * qb.w;
-    float mod_ = both * (0.55 * mix(uMK.x, uMK.y, uX) + 0.9 * sb * max(uSeeds, uSeedOnly * uPair)) * nearM * (1.0 - 0.5 * uWalk);
-    float al = max(ctx, sel * mod_ * (1.0 - uPair) + uPair * both * ${f1(PKF)} * nearM);
-    vec3 col = ca;
+    float mod_ = both * (${f1(LK.mod)} * mix(uMK.x, uMK.y, uX) + ${f1(LK.seed)} * sb * uSeeds) * nearM * (1.0 - 0.55 * uWalk);
+    float hiA = sel * mod_ * (1.0 - uPair) + uPair * both * mix(${f1(PKF)}, ${f1(PKS)}, uSeedOnly) * ${f1(LK.pair)} * nearM;
+    // the walk: the links between the genes it visits most, in the heat's colours (those between start genes less: the
+    // walk found the others)
+    float h0 = mix(uHot.x, uHot.y, uX), hm = hv > 0.0 ? min(heatAt(g), heatAt(o)) : 0.0;
+    float hot = clamp((hm - h0) / max(0.05, 0.3 * (1.0 - h0)), 0.0, 1.0);
+    float hotA = hv * (1.0 - uPair) * hot * hot * (3.0 - 2.0 * hot) * ${f1(LK.hot)} * (1.0 - 0.6 * step(0.999, hm));
+    // where the walk's links outshine the module's, they take the heat's colours from a third of the way up (its darkest
+    // blue is darker than the context); the module's other links keep their genes' colours
+    float hl = smoothstep(0.0, 0.03, hotA - hiA);
+    hiA = max(hiA, hotA);
+    vec3 ka = mix(ca, heatCol(0.35 + 0.65 * heatAt(g)), hl), kb = mix(cb, heatCol(0.35 + 0.65 * heatAt(o)), hl);
     // picked endotypes: links within one in its colour, links between two in amber
     if (pk > 0.001) {
       float within = 0.0, any_a = step(0.5, ma.x), any_b = step(0.5, mb.x);
       for (int k = 0; k < 8; k++) within = max(within, bit(ma.x, float(k)) * bit(mb.x, float(k)));
       float betw = any_a * any_b * (1.0 - within);
-      al = mix(al, ctx * 0.6 + within * 0.5 + betw * 0.42, pk);
-      col = mix(col, vec3(1.0, 0.71, 0.23), betw * pk);
+      hiA = mix(hiA, within * ${f1(LK.within)} + betw * ${f1(LK.betw)}, pk);
+      ka = mix(ka, vec3(1.0, 0.71, 0.23), betw * pk); kb = mix(kb, vec3(1.0, 0.71, 0.23), betw * pk);
     }
     float gq = max(ma.y, mb.y) * gn;
-    al = max(al, gq * 0.4); col = mix(col, mix(ca, vec3(1.0), 0.45), gq);
-    vA = al * w; vC = col;
-    p = vec3(xa.x, L0.x, xa.y);
+    hiA = max(hiA, gq * ${f1(LK.gene)});
+    float wide = smoothstep(0.04, 0.3, hiA);   // before the layer's weight: a module link is as wide in the protein block
+    // from above, or in the squashed grid, the copies of a link in the stacked layers fall on one line
+    hiA *= L1.w * mix(1.0, 0.55, max(down, uGrid));
+    ka = mix(ka, mix(ca, vec3(1.0), 0.45), gq); kb = mix(kb, mix(cb, vec3(1.0), 0.45), gq);
+    // a highlighted link that is also a context link is drawn once, by its highlighted entry, at least as bright as the
+    // context and in its own colours (so a big module's faint links never turn blue-grey)
+    float hon = smoothstep(0.0, 0.006, hiA);
+    float a = (hiE > 0.5 ? max(hiA, ctxA * hon) : ctxA * (1.0 - hon)) * live;
+    if (a > 0.002) {
+      vA = a; vC = hiE > 0.5 ? mix(ka, kb, e) : mix(na, nb, e);
+      float w = hiE > 0.5 ? mix(${f1(LK.wCtx)}, ${f1(LK.wHi)}, wide) : ${f1(LK.wCtx)};
+      gl_Position = ribbon(pa, pb, e, position.y, w, ${f1(LK.wMin)}, hiE > 0.5 ? ${f1(LK.wMaxH)} : ${f1(LK.wMaxC)});
+    }
   }
-  gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0);
-  if (vA < 0.003) gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
 }`,
-    fragmentShader: `varying vec3 vC; varying float vA;
-void main() { if (vA < 0.003) discard; gl_FragColor = vec4(vC, vA); }`,
+    fragmentShader: RIBBON_FRAG,
   });
   set.mats.push(lnMat);
-  const links = new THREE.LineSegments(lnGeo, lnMat); links.frustumCulled = false; links.renderOrder = 2;
+  const links = new THREE.Mesh(lnGeo, lnMat); links.frustumCulled = false; links.renderOrder = 2;
 
-  // ---------------------------------------------------------------- threads: one vertical line per gene, top to bottom copy
+  // the walk's hottest links: the least heat both ends need so that at most HOTN links that reach beyond the start
+  // genes qualify (a histogram of the smaller end's heat, counted from the top); links between start genes (heat 1)
+  // always do (Cardiomyopathies' 115 seeds have 3,789)
+  const HOTN = 1500;
+  function hotMin(hv) {
+    if (!hv) return 2;
+    const H = new Int32Array(256);
+    for (let k = 0; k < edgeCount; k++) { const m = Math.min(hv[LA[k]], hv[LB[k]]); if (m < 1) H[Math.floor(m * 256)]++; }
+    let n = 0, b = 255;
+    while (b > 0 && n + H[b] <= HOTN) n += H[b--];
+    return Math.max(0.15, (b + 1) / 256);
+  }
+  // list the highlighted entries again (after the context ones) when the slots, the pair view or the heat change, and
+  // once the cross-fade from the previous selection (slot 0) is over. Per gene and slot: bit 1 module member, 2 picked,
+  // 4 ringed, 8 hot (slot 1 four bits up). A link is listed when both ends share a bit of 1, 2 or 8, or one end is
+  // ringed, or (pair view) both ends are in one of the two groups.
+  const GF = new Uint8Array(N);
+  let listKey = '', nHi = 0;
+  function listLinks(pairOn, heatOn, fading) {
+    const key = slotGen + (pairOn ? 'p' : '') + (heatOn ? 'h' : '') + (fading ? 'f' : '');
+    if (key === listKey) return;
+    listKey = key; GF.fill(0);
+    for (let s = fading ? 0 : 1; s < 2; s++) {
+      const e = slotInfo[s]; if (!e) continue;
+      const g = e.group, hv = heatOn ? e.heat || (g >= 0 ? HEAT[g] : null) : null, h0 = TU.uHot.value.getComponent(s);
+      for (let i = 0; i < N; i++) {
+        const f = (inG(i, g) ? 1 : 0) | (gget(i, 4 * s, 2) > 0.5 ? 2 : 0) | (i === e.gene ? 4 : 0) | (hv && hv[i] > h0 ? 8 : 0);
+        GF[i] |= f << (4 * s);
+      }
+    }
+    let o = 4 * nCtx;
+    for (let k = 0; k < edgeCount; k++) {
+      const a = LA[k], b = LB[k], fa = GF[a], fb = GF[b];
+      if ((fa & fb & 0xbb) || ((fa | fb) & 0x44) || (pairOn && PCLS[a] && PCLS[b])) {
+        lnBuf[o] = a; lnBuf[o + 1] = b; lnBuf[o + 2] = LLY[k]; lnBuf[o + 3] = 2 + CQ[k]; o += 4;
+      }
+    }
+    nHi = o / 4 - nCtx;
+    lnAttr.updateRange.offset = 4 * nCtx; lnAttr.updateRange.count = Math.max(4, 4 * nHi); lnAttr.needsUpdate = true;
+    lnGeo.instanceCount = nCtx + nHi;
+  }
+
+  // ---------------------------------------------------------------- threads: one vertical ribbon per gene, top to bottom copy
   const TOPL = new Int16Array(N).fill(-1), BOTL = new Int16Array(N).fill(-1);
   for (let i = 0; i < N; i++) for (let l = 0; l < LN; l++) if (PRES[i * LN + l]) { if (TOPL[i] < 0) TOPL[i] = l; BOTL[i] = l; }
   const thr = [...Array(N).keys()].filter(i => TOPL[i] >= 0 && BOTL[i] > TOPL[i]);
-  const tp = new Float32Array(thr.length * 6);
-  thr.forEach((i, k) => tp.set([i, TOPL[i], 0, i, BOTL[i], 1], 6 * k));
-  const thGeo = new THREE.BufferGeometry(); thGeo.setAttribute('position', new THREE.BufferAttribute(tp, 3));
+  const tp = new Float32Array(thr.length * 4);
+  thr.forEach((i, k) => tp.set([i, TOPL[i], BOTL[i], 0], 4 * k));
+  const thGeo = quadGeo(); thGeo.setAttribute('aThr', new THREE.InstancedBufferAttribute(tp, 4)); thGeo.instanceCount = thr.length;
   const thMat = new THREE.ShaderMaterial({
-    uniforms: uni(), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
-    vertexShader: LOOK + `
+    uniforms: uni(), transparent: true, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending,
+    vertexShader: K.GLSL + LOOK + RIBBON + `
+attribute vec4 aThr;
 varying vec3 vC; varying float vA;
 void main() {
-  float g = position.x, l = position.y;
+  float g = aThr.x, e = position.x;
   vec3 col; vec4 q; vec2 xz, m; look(g, col, q, xz, m);
-  vec4 L2 = lt(l, 2.0);
-  vC = col; vA = q.z * 0.55 * L2.w * uA;
-  gl_Position = projectionMatrix * modelViewMatrix * vec4(xz.x, L2.z, xz.y, 1.0);
-  if (vA < 0.004) gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
+  vec4 T2 = lt(aThr.y, 2.0), B2 = lt(aThr.z, 2.0);
+  vC = col; vA = q.z * 0.7 * mix(T2.w, B2.w, e) * uA; vS = 0.0;
+  gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
+  if (q.z * uA > 0.004) gl_Position = ribbon(vec3(xz.x, T2.z, xz.y), vec3(xz.x, B2.z, xz.y), e, position.y, 0.0055, 1.0, 2.4);
 }`,
-    fragmentShader: `varying vec3 vC; varying float vA;
-void main() { if (vA < 0.004) discard; gl_FragColor = vec4(vC, vA); }`,
+    fragmentShader: RIBBON_FRAG,
   });
   set.mats.push(thMat);
-  const threads = new THREE.LineSegments(thGeo, thMat); threads.frustumCulled = false; threads.renderOrder = 2;
+  const threads = new THREE.Mesh(thGeo, thMat); threads.frustumCulled = false; threads.renderOrder = 2;
 
   // ---------------------------------------------------------------- z bars: a box sticking out of the rim of each protein layer
   const zLayers = D.ppi.slice();
@@ -946,13 +1087,15 @@ void main() { float d = length(gl_PointCoord - 0.5); float a = smoothstep(0.5, 0
       }
     }
     if (t < lastT - 0.5) { tChange = Math.min(tChange, t - 10); for (let l = 0; l < LN; l++) offT[l] = Math.min(offT[l], t - 10); }
+    // a jump of the clock (a seek) shows the new selection at once: a cross-fade begun then would wait, paused, half done
+    const jumped = Math.abs(t - lastT) > 0.5;
     lastT = t;
     // the selection: explore state wins over the params
     const g = state.group >= 0 && state.group < GN ? state.group : clamp(Math.round(S.tower_group || 0), 0, GN) - 1;
     const eff = { group: g, gene: state.gene, pick: state.pick, heat: state.heat };
     const s2 = [g, state.gene, JSON.stringify(state.pick), state.heat ? state.heatId : 0].join('|');
     if (sig === null) { writeSlot(1, eff); shiftSlots(); sig = s2; tChange = t - 10; }
-    else if (s2 !== sig) { shiftSlots(); writeSlot(1, eff); sig = s2; tChange = t; }
+    else if (s2 !== sig) { shiftSlots(); writeSlot(1, eff); sig = s2; tChange = jumped ? t - 10 : t; }
     const X = clamp((t - tChange) / 0.7, 0, 1);
     TU.uX.value = smooth(X);
     const P = smooth(clamp(S.tower_pair, 0, 1)), Z = clamp(S.tower_z, 0, 1) * (1 - P);
@@ -960,6 +1103,7 @@ void main() { float d = length(gl_PointCoord - 0.5); float a = smoothstep(0.5, 0
     TU.uEndo.value = clamp(S.tower_endo, 0, 1); TU.uGrid.value = smooth(clamp(S.tower_grid, 0, 1)) * (1 - P); TU.uPair.value = P;
     TU.uSeedOnly.value = clamp(S.tower_seedonly, 0, 1); TU.uRoom.value = smooth(clamp(S.tower_room, 0, 1)); TU.uDrop.value = clamp(S.tower_drop, 0, 1);
     TU.uZ.value = Z; TU.uWalk.value = Math.max(clamp(S.tower_walk, 0, 1), state.walk ? 1 : 0) * (1 - P);
+    listLinks(P > 0.001, TU.uHeat.value > 0.001, X < 1);
     const g0 = slotInfo[0] ? slotInfo[0].group : -1, g1 = g, XX = TU.uX.value;
     // layers
     const rise = clamp(S.tower_rise === undefined ? 1 : S.tower_rise, 0, 1), catsT = clamp(S.tower_cats, 0, 1), drop = TU.uDrop.value;
@@ -997,14 +1141,16 @@ void main() { float d = length(gl_PointCoord - 0.5); float a = smoothstep(0.5, 0
       if (pg > 0) c = [lerp(c[0], 1, pg * 0.35), lerp(c[1], 1, pg * 0.35), lerp(c[2], 1, pg * 0.35)];
       let lw = lerp(1, hasZ > 0.5 ? (inf ? 0.55 + 0.45 * zn / 0.6 : 0.3) : 1, Z);
       lw *= 1 + pg * 0.8 - P * (1 - PAIR_GLOW[l]) * 0.15;
-      lw *= clamp(4 / Math.max(1, liveCat[LAY[l].cat] || 1), 0.18, 1);
+      // the context links are thinned per layer already: they are weighted less steeply
+      const lc = Math.max(1, liveCat[LAY[l].cat] || 1), cw = lw * clamp(Math.sqrt(4 / lc), 0.3, 0.75);
+      lw *= clamp(4 / lc, 0.18, 1);
       // bars rise up the tower one after another
       const grow = smooth(clamp((Z * 1.4 - fb * 0.4) / 1.0, 0, 1)) * hasZ;
       const o = l * 4;
       ltn.set([y, content, rimA, fillA], o);
       ltn.set([c[0], c[1], c[2], lw], LN * 4 + o);
       ltn.set([zv * BARS * grow, grow * live, ry, f], 2 * LN * 4 + o);
-      ltn.set([hasData[l] ? 0 : 1, inf, clamp(9 / Math.max(1, liveCat[LAY[l].cat] || 1), 0.35, 1), 0], 3 * LN * 4 + o);
+      ltn.set([hasData[l] ? 0 : 1, inf, clamp(9 / lc, 0.35, 1), cw], 3 * LN * 4 + o);
       LYC[l] = y; LCONT[l] = content;
     }
     let ch = false; for (let k = 0; k < ltn.length; k++) if (ltn[k] !== ltd[k]) { ch = true; break; }

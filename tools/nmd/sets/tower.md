@@ -13,17 +13,44 @@ Nothing is random between loads.
   links show.
 - **Genes**: one point per gene and layer where the gene has a link (23,768 points). Seeds have a white core. At rest
   (all groups) the dots and the context links are kept dim, so the protein block does not become a white-gold blob.
-- **Links**: all 125,463 layer-links in one `LineSegments`. Visibility and colour are decided in the shader from a
-  per-gene texture (written only when the selection changes) and a 71-texel layer texture. A seeded rank thins the
-  faint context links, and long links (which cross the whole disc) are dimmed. Links are weighted by the number of
-  live layers in their block, so the 27 stacked protein layers never burn out, and the few layers left at the end of
-  the drop shine brighter. Upper bound of visible segments: about 37,500 (all groups, or Motor and sensory neuropathies
-  selected); the pair shows about 28,500.
-- **Threads**: one vertical line per gene, from its top copy to its bottom copy. Only highlighted genes show one: the
+- **Links**: all 125,463 layer-links can be drawn, each as a ribbon a little wider than a pixel that faces the camera
+  (instanced quads, one draw call; one-pixel lines all but vanished, more so in a headset). Its width is in local units,
+  kept between about 1 and 2.2 pixels (highlighted links up to 3.6), as point sizes are, and it fades out across its
+  width. Two kinds of entries are listed in one instanced buffer:
+  - *Context links*, chosen once at load: in each layer about 400 (protein layers) or 700 (other layers) of its links,
+    never more than half of them (the small layers' links crowd among a few genes, whose copies piled up into a white
+    knot), the same gene pairs in every layer (so a block of stacked layers shows one web, not a fog), short links
+    before long ones, pairs of hubs less often (each gene keeps about the square root of its links) and fewer where
+    genes crowd, so the middle of the layout does not burn out. 13,131 in all. At rest they take their genes' colours
+    (a gradient along the link); while a group, a walk, picked endotypes or the pair view is on they turn a light
+    blue-grey, keep their weight, and a seeded rank thins them a little (to 85 % with a group). In the pair view only
+    those within the two towers show (everyone else waits on the rim). They are weighted by the square root of the live
+    layers in their block, and looking down the tower (where a pair's copies in the stacked layers fall on one line)
+    they dim to 40 %.
+  - *Highlighted links*, listed again only when the selection changes (and once its 0.7 s cross-fade is over, when the
+    pair view comes or goes, or the heat comes or goes): the module (its seeds' links brighter; at 45 % while the
+    walkers run), picked endotypes (within one in its colour, between two in amber), the ringed gene's links, the
+    walk's hottest links and, in the pair view, both groups (with seeds alone, the seeds' links, each brighter as they
+    are fewer). The walk's hottest links are those between genes it visits most (at most 1,500 that reach beyond the
+    start genes, plus the links between start genes): during the story's walk and in the Walk tab they show where the
+    walkers go, above the context and the module. Where they outshine the module's links they take the heat's colours
+    from a third of the way up (its darkest blue is darker than the context); the module's other links keep their
+    genes' colours. A highlighted link that is also a context link is drawn once, by its highlighted entry: in its own
+    colours and at least as bright as the context (so a big module's links, each faint, never turn blue-grey).
+  Visibility and colour are decided in the shader from a per-gene texture (written only when the selection changes)
+  and a 71-texel layer texture. Highlighted links are weighted by the number of live layers in their block, so the 27
+  stacked protein layers never burn out, and the few layers left at the end of the drop shine brighter; looking down
+  the tower and in the squashed grid they dim to 55 %. Entries drawn:
+  13,131 at rest, about 34,000 with Congenital myopathies, at most about 42,000 in any settled state (the pair view),
+  up to about 67,000 for 0.7 s while one large module cross-fades into another.
+- **Threads**: one vertical ribbon per gene, from its top copy to its bottom copy. Only highlighted genes show one: the
   selected module (faint), seeds with `tower_seeds`, picked endotypes, the ringed gene, the genes in both groups and the
   shared endotypes in the pair, and the module during the drop.
-- Cost: build about 70-120 ms in headless Chromium. 5 draw calls at rest, 7 with z bars or walkers, 13.6k triangles
-  (the fills).
+- Cost: build about 70-130 ms in headless Chromium (listing the context links adds about 10 ms; listing the
+  highlighted links again takes a few ms). 5 draw calls at rest, 7 with z bars or walkers; triangles: the fills
+  (13.6k), two per link entry (about 26k at rest, 69k with Congenital myopathies, 83k in the pair view) and two per
+  thread (2.3k). The link shader runs four vertices per entry (about 53k at rest, 138k with Congenital myopathies;
+  the line segments it replaces ran 250k).
 
 ## Params (engine eases them; index params are rounded)
 
@@ -32,7 +59,7 @@ Nothing is random between loads.
 | `tower_a` | fade | |
 | `tower_rise` | layers appear from the bottom up (default 1) | 0 → 1 over 4-6 s when the tower first appears |
 | `tower_cats` | category tints, and the six category labels above 0.5 (default 0.4) | 0.4 → 1 while naming the layers, back to 0.4 |
-| `tower_group` | 0 all groups (group colours, genes in several groups white-gold, links faint); k = 1..13 selects group k-1: its module glows, the rest dims. Selection changes cross-fade over 0.7 s | **key it as a step**: easing through the values in between shows those groups in passing |
+| `tower_group` | 0 all groups (group colours, genes in several groups white-gold, a web of context links in the same colours); k = 1..13 selects group k-1: its module glows, the rest dims (the context links stay, blue-grey). Selection changes cross-fade over 0.7 s (at once after a seek) | **key it as a step**: easing through the values in between shows those groups in passing |
 | `tower_seeds` | the selected group's seeds glow and pulse; the rest of its module is hidden | 0 → 1 |
 | `tower_walk` | about 20 walkers (sparks with trails) hop along the module's links, climb threads to switch layer, flash back to a seed on restart. Paths are planned at selection with a seeded walk (restart 0.7, switch 0.5, layers weighted by the group's z-scores), so they are a function of `t` | 0 → 1 with `tower_seeds` 1 |
 | `tower_heat` | genes warm up by the group's `heat` (dark blue, cyan, white); genes outside the module that the walk visits show too | 0 → 1 after a few seconds of walk |
@@ -41,7 +68,7 @@ Nothing is random between loads.
 | `tower_endo` | the selected group's genes take endotype colours (20-hue palette, `endoColour(c)`) | 0 → 1 |
 | `tower_grid` | the endotype grid: the group's genes gather into one block per endotype (block size by gene count, hottest genes in the middle), at the same place in every layer; the others slide to a faint ring at the rim. The stack squashes to a tenth of its height around the protein block (rims and fills dim to match), so from above the blocks read as a grid and not as long columns splayed into a funnel | 0 → 1 with `tower_endo` 1, camera to `grid` |
 | `tower_pair` | Congenital Myopathies (left) and Hereditary Cardiomyopathies (right) as two towers; the 29 genes in both in a narrow middle column; links between the sides are the bridges; genes of shared endotypes in amber; the overlap's other layers' links show; HP, coex_HRA, coex_HRV and ppi_skeletal_muscle glow | 0 → 1, camera to `pair` |
-| `tower_seedonly` | in pair mode only seeds and their links stay; the walk's genes fade ("without the walk, the shared architecture is missed") | 0 → 1 → 0 |
+| `tower_seedonly` | in pair mode only seeds and their links stay highlighted (each link brighter, as they are fewer); the walk's genes fade, their links left among the faint context ("without the walk, the shared architecture is missed") | 0 → 1 → 0 |
 | `tower_drop` | robustness: layers fall a little and fade one by one in a fixed random order (the last five are protein layers); at 1 five remain; the selected module stays lit with its threads intact | 0 → 1 over 10-15 s, with a group selected |
 | `tower_room` | the layout moves out into an annulus (inner radius 0.45), with an inner rim, so a person can stand in the middle | 0 → 1, camera `inside` |
 
@@ -113,8 +140,9 @@ the module grows / Walk, heat follows / Layer scores / Robustness, layers drop o
 `walk` (seeds of group 11, half the protein layers off), `pick` (a ray at a seed's copy returns that seed; a ray at the
 module centroid returns a module gene; a miss returns -1), `setState` with `group`, `gene`, `pick`, `off`, `heat`,
 `walk` and back to empty, `links`, `linkStats`, anchors. No page errors or warnings. Not checked on a headset: comfort
-and point sizes at room scale, and frame rate (the link shader evaluates both ends of 125k segments per frame;
-cheap on desktop, to be watched on the Quest).
+and point and ribbon sizes at room scale, how the context links read at the Quest's resolution, and frame rate (the
+link shader evaluates both ends of up to about 42,000 entries, four vertices each, per frame and eye; cheap on
+desktop, to be watched on the Quest).
 
 Known, data-limited: each module sits where the data's layout puts its genes (Congenital myopathies on the right and
 lower part of the discs), and the upper blocks look sparse because those layers have little or no data yet; both
