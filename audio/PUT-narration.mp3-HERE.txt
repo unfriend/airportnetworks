@@ -47,6 +47,11 @@ start at 0:00, 0:29, 1:26, 2:06, 3:05, 3:58, 5:03, 5:47 and 6:43, ending at
 7:36; change NARRATION_SYNC in tools/micro/engine/e3_story.js (then rebuild) if
 your recording differs.
 
+The qubits story (#qubits) looks for narration-qubits.mp3. Its chapters start
+at 0:00, 0:50, 1:49, 2:32, 4:01, 5:02, 6:31 and 7:52, ending at 9:03; change
+NARRATION_SYNC in tools/qubits/engine/e3_story.js (then rebuild) if your
+recording differs.
+
 The flock (#flock) looks for narration-flock.mp3. Its chapters start at 0:00,
 0:24, 1:02 and 1:39, ending at 1:57 (after that the flock flies on in explore
 mode); change NARRATION_SYNC in tools/flock/engine/e3_story.js (then rebuild)

@@ -2037,7 +2037,21 @@ function updateLight(xr) {
 // between two cues lasts long enough to read what appeared at its start; run
 // it again after the text changes). A recording replaces it with its own times.
 const NARRATION_SYNC = [
-  [0, 0], [290, 290],
+  [0, 0], [3.3, 3], [7, 4], [7.7, 4.6], [12.7, 6.5], [21.9, 12], [24.1, 13.5], [34.2, 22.6],
+  [44, 26],                                           // Pairs
+  [50.6, 30], [51.9, 31.18], [53.5, 31.2], [54.1, 31.8], [62.7, 35], [84.2, 54.6], [105.1, 58],  // Walkers
+  [109.9, 62], [111.2, 63.18], [112.3, 63.2], [119.3, 67], [125.5, 72], [134.9, 80.6], [142.2, 83],  // Shrink
+  [152.3, 90], [152.9, 90.6], [154.2, 91.2], [164.8, 98], [194, 124.6], [204.8, 126], [205.4, 126.6],
+  [220.6, 128], [221.2, 128.6],                       // Cuts
+  [241.6, 130], [242.3, 130.6], [243.6, 131.2], [252.8, 137], [264.2, 143], [275.6, 150],
+  [276.3, 150.6], [296.3, 155],                       // Coarse
+  [302.4, 160], [303.1, 160.6], [304, 161.2], [304.6, 161.8], [312.7, 165], [316.2, 168],
+  [326.1, 177], [331, 180], [340.9, 189], [349.2, 193], [360.2, 200], [360.8, 200.6], [381.7, 206],  // Bricks
+  [391.6, 215], [392.2, 215.6], [393.1, 216.2], [398.4, 219], [406.3, 224], [413.3, 230],
+  [414, 230.6], [438.7, 238], [444.2, 243], [456.5, 253], [462.7, 256],  // Toolbox
+  [472.8, 262], [474.1, 263.18], [475.6, 263.2], [476.3, 263.8], [483.1, 266], [490.5, 270],
+  [509, 279], [509.6, 279.6], [518.6, 282], [519.3, 282.6], [526.1, 285], [528.3, 286], [530, 287.6],
+  [543.9, 290],                                       // Circuit
 ];
 // recording time -> original story time
 function storyT(t) {
@@ -3701,8 +3715,9 @@ function xrLandingSetup() {
     // cards 0.36 m wide on an arc: seven 0.31 rad apart at 1.25 m (neighbours 0.386 m apart, the outer ones 53° to the
     // side), eight 0.272 rad apart at 1.4 m (0.379 m apart, the outer ones 55° to the side), nine 0.245 rad apart at
     // 1.55 m (0.379 m apart, the outer ones 56° to the side), ten 0.225 rad
-    // apart at 1.7 m (0.382 m apart, the outer ones 58° to the side)
-    const n = HOST.list.length, a = (k - (n - 1) / 2) * (n > 9 ? 0.225 : n > 8 ? 0.245 : n > 7 ? 0.272 : 0.31), d = n > 9 ? 1.7 : n > 8 ? 1.55 : n > 7 ? 1.4 : 1.25;
+    // apart at 1.7 m (0.382 m apart, the outer ones 58° to the side), eleven 0.206 rad apart at 1.85 m (0.381 m apart,
+    // the outer ones 59° to the side)
+    const n = HOST.list.length, a = (k - (n - 1) / 2) * (n > 10 ? 0.206 : n > 9 ? 0.225 : n > 8 ? 0.245 : n > 7 ? 0.272 : 0.31), d = n > 10 ? 1.85 : n > 9 ? 1.7 : n > 8 ? 1.55 : n > 7 ? 1.4 : 1.25;
     const P = makePanel(640, 820, 0.36, (ctx, P) => drawLandCard(ctx, P, s), () => 'c' + XR.inStory + s.key);
     P.mesh.position.set(Math.sin(a) * d, -0.105, -Math.cos(a) * d);   // top edge 0.126 m up, under the header
     P.mesh.rotation.y = -a;
@@ -3724,7 +3739,7 @@ function xrLandingClose() {
   if (APP.mode === 'story') APP.playing = true;
 }
 function drawLandHead(ctx, P) {
-  ctx.font = vfont(58, 700); ctx.fillStyle = VC.ink; ctx.fillText(`Networks, in ${['one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten'][HOST.list.length - 1] || HOST.list.length} stories`, 48, 44);
+  ctx.font = vfont(58, 700); ctx.fillStyle = VC.ink; ctx.fillText(`Networks, in ${['one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven'][HOST.list.length - 1] || HOST.list.length} stories`, 48, 44);
   // anchored: where the place stands, in place of the hint
   const an = HOST.anchor.status();
   textBlock(ctx, an || 'The same ideas, very different networks. Point at a story and pull the trigger (or pinch).', 48, 128, 860, 27, 38, an ? VC.ink : VC.muted, 400, 2);

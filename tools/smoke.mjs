@@ -1,4 +1,4 @@
-// Headless smoke test for the ten stories.
+// Headless smoke test for the eleven stories.
 //   node tools/smoke.mjs [base-url]     (default http://127.0.0.1:8123/)
 // Serve the folder first (npx http-server -p 8123 -c-1 .). Needs Playwright;
 // set PLAYWRIGHT_MODULE to its path if it is installed globally, and
@@ -20,7 +20,7 @@ await page.waitForTimeout(4000);
 await step('start screen is the landing page', async () => {
   if (!await page.evaluate(() => HOST.picking)) errors.push('start screen not shown on load');
 });
-for (const key of ['airports', 'proteins', 'spatial', 'lbi', 'nmd', 'endo', 'pet', 'micro', 'flock', 'robots']) {
+for (const key of ['airports', 'proteins', 'spatial', 'lbi', 'nmd', 'endo', 'pet', 'micro', 'qubits', 'flock', 'robots']) {
   await step(`load ${key}`, async () => {
     await page.click(`#picker [data-story="${key}"]`).catch(async () => { await page.click('#btnOther'); await page.click(`#picker [data-story="${key}"]`); });
     await page.waitForFunction(k => HOST.curKey === k && HOST.cur && HOST.cur.peek('typeof ST !== "undefined" && ST.items.length > 0'), key, { timeout: 30000 });
@@ -380,6 +380,34 @@ for (const key of ['airports', 'proteins', 'spatial', 'lbi', 'nmd', 'endo', 'pet
     await sleep(300);
     if (bad.length) throw new Error(bad.join('; '));
   }));
+  if (key === 'qubits') await step('qubits: every explore tool, on the page and in the headset', () => page.evaluate(async () => {
+    const sleep = ms => new Promise(r => setTimeout(r, ms));
+    const bad = HOST.cur.peek(`(() => {
+      const out = [];
+      for (let i = 0; i < Q.NETS.length; i++) for (const c of ['0', '1']) for (const b of ['1', '2', '3']) {
+        sceneCtl('cube', 'net', String(i)); setCtl('cube', 'cut', c); setCtl('cube', 'bits', b);
+        if (cubeNet() !== i || cubeBits() !== +b) out.push('network ' + i + ', cut ' + c + ', bits ' + b + ' not shown');
+      }
+      sceneCtl('cube', 'net', String(NETI)); setCtl('cube', 'cut', '0'); setCtl('cube', 'bits', '3');
+      for (const nm of kindsAt(3).concat(largestAt(curAn()))) { selectBrick(nm); if (X.brick !== nm) out.push('brick ' + nm + ' not picked'); }
+      for (let n = 0; n <= NB(); n++) { setSum(n); if (X.sum !== n) out.push('sum ' + n + ' not set'); }
+      setGal('kinds'); setGal('largest');
+      for (const a of ['0', '1']) setCtl('cube', 'alg', a);
+      for (const s of ['pairs', 'cube', 'chart']) { openScene(s); for (const c of ctlsOf(s)) for (const [v] of c.options) setCtl(s, c.key, v); }
+      const st = JSON.stringify(collabState()); collabApply(JSON.parse(st));
+      if (JSON.stringify(collabState()) !== st) out.push('apply(state()) changed the state');
+      openScene('cube'); showView('cube', 'bricks');
+      const rc = new THREE.Raycaster(new THREE.Vector3(0, 0.2, 6), new THREE.Vector3(0, 0, -1));
+      try { pickWith(rc); } catch (e) { out.push('pick threw: ' + e.message); }
+      XR.on = true;
+      for (const [k] of TABS) { pickTab(k); for (const P of XR.panels) { P.last = ''; P.t = -1e9; panelTick(P, performance.now() + 1e6); } }
+      XR.on = false;
+      selectBrick(null); setSum(0); showTab('network');
+      return out;
+    })()`);
+    await sleep(300);
+    if (bad.length) throw new Error(bad.join('; '));
+  }));
   await page.click('#btnOther');
 }
 // Repeat on the Stories screen: one story again and again, or all of them in turn (the last leads to the first)
@@ -404,7 +432,7 @@ await step('Repeat one and Repeat all', async () => {
 });
 // Anchored mode with a pretend headset: a room whose tracking origin can jump (recentring) and
 // anchors that keep their place in it, saved under a handle (Quest's persistent anchors)
-for (const key of ['airports', 'proteins', 'spatial', 'lbi', 'nmd', 'endo', 'pet', 'micro', 'flock', 'robots']) await step(`${key}: anchored placement`, async () => {
+for (const key of ['airports', 'proteins', 'spatial', 'lbi', 'nmd', 'endo', 'pet', 'micro', 'qubits', 'flock', 'robots']) await step(`${key}: anchored placement`, async () => {
   await page.evaluate(k => HOST.start(k), key);
   await page.waitForFunction(k => HOST.curKey === k && HOST.cur && HOST.cur.peek('typeof ST !== "undefined" && ST.items.length > 0'), key, { timeout: 30000 });
   const bad = await page.evaluate(async () => {

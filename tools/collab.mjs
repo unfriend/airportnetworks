@@ -65,6 +65,10 @@ const STORIES = {
     change: "selectOrgan('Ovary'); setAge(70); setStep(3)",
     back: "selectDomain('submucosa'); showTab('domains'); setCtl('hier', 'view', 'contacts')",
   },
+  qubits: {
+    change: "sceneCtl('cube', 'net', '2'); selectBrick('X2X1'); setCtl('cube', 'bits', '2')",
+    back: "setSum(6); setCtl('cube', 'alg', '0'); showTab('depth'); sceneCtl('chart', 'view', 'circuit')",
+  },
   robots: {
     change: "setCtl('robots', 'rule', 'chain'); setCtl('robots', 'robots', '12')", back: "setCtl('robots', 'trails', 'on'); setCtl('robots', 'links', 'on')",
     effect: { quiet: '0', idle: "(window.__c0 = GL.sets.robots.anchors.crumbs().join(), true)", send: 'spillCrumbs()', seen: "GL.sets.robots.anchors.crumbs().join() !== window.__c0" },
