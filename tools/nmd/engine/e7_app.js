@@ -179,14 +179,14 @@ function frame(now, xrFrame) {
   const ts = storyT(APP.t); // original story time for this point in the narration
   if (APP.mode === 'story') {
     S = storyState(ts); tSet = ts;
-    if (xr) xrPlace(storyCam(ts)); else { applyCamera(storyCam(ts)); keepCamera(S, ts); }
+    if (xr) xrPlace(storyCam(ts), dt); else { applyCamera(storyCam(ts)); keepCamera(S, ts); }
     updateStoryDOM(ts);
     updateTimeline(APP.t, APP.playing);
   } else {
     const pn = performance.now();
     S = exploreStep(dt, pn); tSet = pn / 1000;
     orbitStep(xr ? pn : now);
-    if (xr) xrPlace(orbit.cur); else { applyCamera(orbit.cur); keepCamera(S, null); }
+    if (xr) xrPlace(orbit.cur, dt); else { applyCamera(orbit.cur); keepCamera(S, null); }
   }
   K.U.uTime.value = tSet;
   GL.camera.updateMatrixWorld();
@@ -194,6 +194,7 @@ function frame(now, xrFrame) {
   updateSets(S, tSet, dt, APP.mode === 'story');
   if (xr) xrUpdate(S);
   GL.renderer.render(GL.scene, GL.camera);
+  if (navigator.xr) xrPrep(xr ? 2 : 1);   // the headset's sample of the scene (keep clear), in slices
   if (!xr) {
     GL.world.updateMatrixWorld(true);
     if (APP.mode === 'story') placeLabels(LBL.storyAll, L => (L.kind === 'story' ? fadeVal(ts, L.tIn, L.tOut, 0.5) * (S[L.set + '_a'] > 0.5 ? 1 : 0) : setLabelAlpha(L, S)));

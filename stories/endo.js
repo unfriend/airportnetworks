@@ -1432,14 +1432,19 @@ if (position.x > uBuildX) vA = 0.0;` });
   ];
   // a view from a camera position to a target, as [az, el, dist, tx, ty, tz]
   const look = (from, to) => { const d = v3.sub(from, to), L = v3.len(d); return [Math.atan2(d[0], d[2]) * 180 / PI, Math.asin(d[1] / L) * 180 / PI, L, to[0], to[1], to[2]]; };
-  const edge = [LA / 2, 0];   // midway between two thick filaments: a corridor with no filament ahead (x 0.012: past the
-  // M-band struts, which cross this point at x 0, and 0.016 before the first heads)
+  const edge = [LA / 2, 0];   // midway between two thick filaments: a corridor with no filament ahead (x -0.014: past the
+  // M-band struts, which cross this point at x 0, and 0.014 before the first heads), looking along the inner half towards
+  // the fibre, so the rest of the unit lies ahead (in a headset, beyond the sarcomere rather than through you)
   const cam = {
     default: [-20, 14, 3.35, 0.05, 0.05, 0],
     cord: [-24, 12, 0.95, -0.95, -0.15, 0],
     junction: [20, 26, 0.42, ...JN[2].J(0.01, 0, 0.004)],
     fibre: [32, 16, 1.0, 0.5, -0.2, 0.08],
-    sarcomere: look([SC[0] + 0.012, SC[1] + edge[0], SC[2] + edge[1]], [SC[0] + 0.27, SC[1] + edge[0] + 0.012, SC[2] + edge[1] + 0.01]),
+    sarcomere: look([SC[0] - 0.014, SC[1] + edge[0], SC[2] + edge[1]], [SC[0] - 0.27, SC[1] + edge[0] + 0.012, SC[2] + edge[1] + 0.01]),
+    // the magnified sarcomere from outside, the rest of the unit behind it (so in a headset it stays beyond the sarcomere):
+    // down the filaments past its outer Z-disc (the camera 0.55 beyond it), and from the side, a little from above
+    sarcEnd: [75, 10, 0.9, SC[0] + 0.05, SC[1], SC[2]],
+    sarcSide: [15, 14, 1.15, SC[0] - 0.03, SC[1], SC[2]],
     heart: [-10, 8, 1.35, HC[0], HC[1] + 0.05, HC[2]],
   };
   const controls = [
@@ -1458,6 +1463,7 @@ if (position.x > uBuildX) vA = 0.0;` });
   return Object.assign(set, {
     params: { motor_a: 1, motor_build: 1, motor_signal: 0, motor_open: 0, motor_contract: 0, motor_heart: 0, motor_groups: 0, motor_site: 0 },
     update, anchors, labels, cam, controls, explore,
+    keepClear: true,   // drawn where its geometry is: a headset keeps it clear of your head
     idle: dt => { heartStep(sliceMs(dt)); if (!heartJob) heartIn = 1; },   // while the set is hidden, the heart goes on building
     finish: () => { while (heartJob) heartStep(Infinity); heartIn = 1; },     // for screenshots and tests: build it now
   });
@@ -1510,7 +1516,7 @@ SETS.syn = function (K) {
   const SU = {
     uTime: K.U.uTime, uG: { value: new Array(12).fill(0) }, uD: { value: new Array(12).fill(1) }, uSC: { value: SCOL },
     uStage: { value: [1, 1, 1, 1, 1, 1] }, uNerveY: { value: 0 },
-    uPh: { value: 9 }, uFire: { value: 0 }, uWave: { value: 0 }, uTw: { value: 0 }, uFuse: { value: new Array(16).fill(0) },
+    uPh: { value: 9 }, uFire: { value: 0 }, uWave: { value: 0 }, uTw: { value: 0 }, uFuse: { value: new Array(16).fill(0) }, uShell: { value: 1 },
   };
   // aS: place slot, build stage (0 fibre, 1 membrane, 2 basement membrane, 3 receptors, 4 nerve, 5 Schwann cell and
   // matrix proteins), moves with the arriving nerve (0/1), cut at the cut plane (0/1).
@@ -1544,10 +1550,11 @@ void main() {` + VB + `
   vN = normalize(mat3(modelMatrix) * normal); vec4 w = modelMatrix * vec4(p, 1.0); vW = w.xyz;
   gl_Position = projectionMatrix * viewMatrix * w;
 }`,
-    fragmentShader: `uniform float uA;
+    fragmentShader: `uniform float uA, uShell;
 varying vec3 vN, vW, vC, vGC, vL; varying float vDm, vK, vP, vKind, vClip, vGA, vSc;
 void main() {
-  if (vK < 0.003 || (vClip > 0.5 && vL.z > ${f4(ZC)})) discard;
+  float sh = vKind > 2.5 && vKind < 3.5 ? uShell : 1.0;   // the fibre's wide surface fades with syn_shell
+  if (vK < 0.003 || sh < 0.003 || (vClip > 0.5 && vL.z > ${f4(ZC)})) discard;
   vec3 n = normalize(vN), v = normalize(cameraPosition - vW); float r = pow(1.0 - abs(dot(n, v)), 2.2), pat = 1.0;
   if (vKind > 1.5 && vKind < 4.5) r = min(r, 0.55);   // wide sheets seen edge-on would add up to white
   if (vKind > 3.5 && vKind < 4.5) {   // the basement membrane: a fibrous mesh
@@ -1559,7 +1566,7 @@ void main() {
   float a0 = (vKind > 1.5 && vKind < 4.5) ? 0.012 : 0.03;   // sheets seen face-on through many folds stay faint
   vec3 col = (vC * (0.45 + 0.85 * r) * vDm * pat + vGC * (0.5 + 1.2 * r) * pat) * (a0 + 0.42 * r) + pc * vP * (0.35 + 0.8 * r);
   // glass right in front of the eye fades (in the set's own units, so also at life size in a headset)
-  gl_FragColor = vec4(col * vGA * vK * smoothstep(0.03, 0.3, distance(cameraPosition, vW) / vSc), uA);
+  gl_FragColor = vec4(col * vGA * vK * sh * smoothstep(0.03, 0.3, distance(cameraPosition, vW) / vSc), uA);
 }`,
   });
   set.mats.push(glassMat);
@@ -1792,7 +1799,9 @@ totalEmissiveRadiance += diffuseColor.rgb * uSelf + uRimC * (uRimK * rimF * vDm)
   // the basement membrane: a fibrous sheet through the middle of the cleft and down into every fold
   const lamRows = []; for (let j = 0; j <= 18; j++) lamRows.push(lamProf(lerp(ZB, ZC, j / 18)));
   gAdd(rowsGeo(lamRows), [0.35, 0.85, 1.0], [2, 2, 0, 0], (x, y, z) => [0, 4, 0.9 * smooth((z - ZB) / 0.22) * (0.3 + 0.7 * smooth((XS - Math.abs(x)) / 0.2)) * (0.3 + 0.7 * smooth((y + 0.02) / 0.07))]);
-  // the fibre's surface round the junction (a wide cylinder along x), cut away where the section is
+  // the fibre's surface round the junction (a wide cylinder along x), cut away where the section is: a mesh of its own,
+  // which syn_shell fades and hides (so a headset keeping the scene clear of your head leaves it out when it is off)
+  const shell = Builder({ color: 3, aS: 4, aQ: 3 });
   {
     const RF = 3.2, yc = 0.2 - RF, aB = Math.asin(ZB / RF), xs = [], as = [];
     for (let k = 0; k <= 22; k++) xs.push(lerp(-5, -XS, k / 22));
@@ -1808,7 +1817,7 @@ totalEmissiveRadiance += diffuseColor.rgb * uSelf + uRimC * (uRimK * rimF * vDm)
       if (!(Math.abs(mx) < XS && ma > aB)) keep.push(ix[q], ix[q + 1], ix[q + 2]);
     }
     g.setIndex(keep);
-    gAdd(g, [1.0, 0.6, 0.7], [0, 1, 0, 0], (x, y, z) => [0.4 + 0.1 * Math.max(0, Math.abs(x) - 0.9), 3, 0.45 * smooth((5 - Math.abs(x)) / 1.6) * smooth((3.2 * 0.87 - Math.abs(z)) / 0.8)]);
+    shell.add(g, { color: [1.0, 0.6, 0.7], aS: [0, 1, 0, 0], aQ: (x, y, z) => [0.4 + 0.1 * Math.max(0, Math.abs(x) - 0.9), 3, 0.45 * smooth((5 - Math.abs(x)) / 1.6) * smooth((3.2 * 0.87 - Math.abs(z)) / 0.8)] });
   }
   {   // the fibre's cut face: a faint tint under the membrane's profile, fading towards the sides and the bottom
     const top = memProf(ZC - 0.002), rows = [top, top.map(p => [p[0], -1.18, p[2]])];
@@ -2276,6 +2285,7 @@ totalEmissiveRadiance += diffuseColor.rgb * uSelf + uRimC * (uRimK * rimF * vDm)
   diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.55, 0.45, 0.9), Z * 0.85 * fa);
 }`, fe: '\ntotalEmissiveRadiance += diffuseColor.rgb * uTw * 0.7;' }), 1, myoG);
   mk(glass, glassMat, 5);
+  const shellMesh = mk(shell, glassMat, 5);
   {   // the muscle membrane's skin: semi-opaque, so the receptors sit on a surface and the crests hide what is under them
     const sk = Builder({ color: 3, aS: 4, aQ: 3, aCtr: 3 });
     sk.add(rowsGeo(memRows.map(r => r.map(p => [p[0], p[1] - 0.004, p[2]]))), { color: [0.48, 0.26, 0.33], aS: [9, 1, 0, 0], aQ: (x, y) => [waveT(x, y), 2, 1], aCtr: [0, 0, 0] });
@@ -2313,6 +2323,7 @@ totalEmissiveRadiance += diffuseColor.rgb * uSelf + uRimC * (uRimK * rimF * vDm)
     ST[0] = prog(b, 0, 0.3); ST[1] = prog(b, 0.05, 0.35); ST[2] = prog(b, 0.25, 0.5); ST[3] = prog(b, 0.4, 0.7); ST[4] = prog(b, 0.5, 0.85); ST[5] = prog(b, 0.8, 1);
     const ny = 0.6 * Math.pow(1 - ST[4], 2);
     SU.uNerveY.value = ny; vesMesh.position.y = ny;
+    SU.uShell.value = clamp(S.syn_shell, 0, 1); shellMesh.visible = SU.uShell.value > 0.003;
     // firing: one impulse a second; tired, each of six impulses releases less (the twitch shrinks, then fails), two rest
     const fire = clamp(S.syn_fire, 0, 1), tired = clamp(S.syn_tired, 0, 1);
     const n = Math.floor(t), ph = t - n, kc = ((n % 8) + 8) % 8;
@@ -2393,11 +2404,14 @@ totalEmissiveRadiance += diffuseColor.rgb * uSelf + uRimC * (uRimK * rimF * vDm)
   function explore(c) {
     const pl = c.place !== undefined ? c.place : placeSel;
     return { syn_build: 1, syn_fire: c.fire === 'firing' || c.fire === 'tired' ? 1 : 0, syn_tired: c.fire === 'tired' ? 1 : 0,
-      syn_genes: c.genes === 'on' ? 1 : 0, syn_place: pl >= 0 ? pl + 1 : 0, syn_endo: pl >= 0 ? 1 : 0 };
+      syn_genes: c.genes === 'on' ? 1 : 0, syn_place: pl >= 0 ? pl + 1 : 0, syn_endo: pl >= 0 ? 1 : 0, syn_shell: 0 };   // (no view here needs the fibre's wide surface)
   }
   return Object.assign(set, {
-    params: { syn_a: 1, syn_build: 1, syn_fire: 0, syn_tired: 0, syn_genes: 0, syn_place: 0, syn_endo: 0 },
+    params: { syn_a: 1, syn_build: 1, syn_fire: 0, syn_tired: 0, syn_genes: 0, syn_place: 0, syn_endo: 0, syn_shell: 1 },
     update, anchors, labels, cam, controls, explore,
+    // drawn where its geometry is, but for the cut-away (a point past the cut plane, of a part cut there): a headset keeps
+    // the rest clear of your head
+    keepClear: o => { const a = o.geometry.attributes.aS; return a && a.itemSize === 4 ? (x, y, z, i) => !(a.array[4 * i + 3] > 0.5 && z > ZC) : null; },
     showPlace: id => { placeSel = id >= 0 && id < 12 ? id : -1; },
     genePos: sym => GPOS[sym] || null,                                       // where a seed gene acts (local coordinates)
     geneGroups: GLAB.map(L => ({ text: [L.b, L.r], genes: L.syms, at: L.at, from: geneStart(L.g) })),   // in the order they light
@@ -4199,6 +4213,8 @@ function buildStory() {
   cam(a + 5.5, 'motor', 'junction');
   cam(a + 8.6, 'motor', 'junction', 0, null, [0, 0, -0.28]);
   show('syn', a + 8.6, a + 9.4, C.cloud.a - 0.5, C.cloud.a + 1.5);
+  // no fibre's surface round the junction while it fires, tires and shows its genes (it only distracts); back once hidden
+  ramp('syn_shell', C.cloud.a + 2, C.cloud.a + 3, 0, 1);
   ramp('syn_build', a + 8.7, a + 12, 0, 1);
   ramp('syn_fire', a + 11, a + 12.5, 0, 1);
   ramp('syn_tired', a + 17, a + 22, 0, 1);
@@ -5025,12 +5041,12 @@ const _xa = new THREE.Vector3(), _xb = new THREE.Vector3(), _xc = new THREE.Vect
 // floating scene: the side the camera looks from faces you, "up" stays up, the
 // target sits in front of you, and closer views make the scene bigger.
 const _xX = new THREE.Vector3(1, 0, 0), _xY = new THREE.Vector3(0, 1, 0);
-function xrPlace(v) {
+function xrPlace(v, dt) {
   // standing in the gap: the synapse life size around you (gapScale), the cleft at your chest, turned by the thumbstick
   if (XR.room && APP.mode === 'explore' && X.scene === 'syn') {
     const g = anchorOf('syn', 'gap');
     XR.R = gapScale(); XR.hitR = 1.2 / XR.R; XR.target.set(g[0], g[1], g[2]);
-    GL.world.quaternion.setFromAxisAngle(_xY, -v[0] * D2R);
+    GL.world.quaternion.setFromAxisAngle(_xY, -v[0] * D2R); XR.cap = 0;   // (no cap: you stand inside it)
     GL.world.scale.setScalar(XR.R);
     _xb.copy(XR.target).applyQuaternion(GL.world.quaternion).multiplyScalar(XR.R);
     GL.world.position.set(-_xb.x, -0.35 - _xb.y, -_xb.z);   // the rig is at your eyes: the cleft 35 cm below them
@@ -5038,7 +5054,7 @@ function xrPlace(v) {
   }
   const d = Math.max(v[2], 0.05);
   _xq.setFromAxisAngle(_xX, clamp(v[1], -85, 85) * D2R).multiply(_xq2.setFromAxisAngle(_xY, -v[0] * D2R));
-  XR.R = XR.baseR * clamp(Math.pow(3.6 / d, 0.85), 0.12, 10) * XR.size;   // (times the size your hands or the room gave it)
+  const R0 = XR.baseR * clamp(Math.pow(3.6 / d, 0.85), 0.12, 10) * XR.size;   // (times the size your hands or the room gave it)
   XR.hitR = 1.15 * d / 3.6;
   XR.target.set(v[3], v[4], v[5]);
   // a little right of centre and below eye level, leaving room for the panel on the left
@@ -5048,10 +5064,167 @@ function xrPlace(v) {
   XR.globeBase.set(cx, cy, -dc);
   _xq2.setFromUnitVectors(_xz, _xa.set(-gx, -gy, -gz).normalize());
   GL.world.quaternion.copy(_xq2).multiply(_xq);
+  // kept clear of your head (xrClear): the cap comes in quickly and lets go slowly, and the scale bends smoothly into
+  // it; it never takes away the size of an overview or the size your hands gave it (lo)
+  const lo = Math.min(R0, XR.baseR * XR.size), c = Math.max(lo, xrClear(gx, gy, gz, 2 * R0));
+  XR.cap = XR.cap > 0 && dt !== undefined ? XR.cap * Math.pow(c / XR.cap, 1 - Math.exp(-dt / (c < XR.cap ? 0.12 : 0.5))) : c;
+  const x = R0 / XR.cap;
+  XR.R = Math.max(lo, XR.cap * (x < 0.8 ? x : 0.8 + 0.2 * Math.tanh((x - 0.8) / 0.2)));
   GL.world.scale.setScalar(XR.R);
   // the target lands on the placement point
   _xb.copy(XR.target).applyQuaternion(GL.world.quaternion).multiplyScalar(XR.R);
   GL.world.position.set(gx - _xb.x, gy - _xb.y, gz - _xb.z);
+}
+// ------------------------------------------------------------ keep clear --
+// However close the view, the scene never comes nearer your eyes than XR_NEAR (metres): the scale a close view asks for
+// is capped, smoothly, so that no visible part of a set that keeps clear (keepClear: its parts are drawn where their
+// geometry says) passes through your head. Each object is sampled once, in its set's units: a point per XR_VOX cell of
+// its surface (an instance as a ball round its place), gathered in clumps and the clumps in blocks; a block or clump that
+// stays clear at this scale is passed over, and for the points of the others the largest safe scale is solved exactly.
+// The sampling runs in slices between frames (xrPrep, from the start wherever WebXR is), so the headset never stalls on
+// it; an object not sampled yet counts as its bounding ball. A set may say where an object is never drawn (as the
+// junction's cut-away does): keepClear(o) returns a test (x, y, z, i) => drawn, for a point of the object and a vertex
+// of its triangle, or nothing.
+const XR_NEAR = 0.35, XR_VOX = 0.035;
+const _xsm = new WeakMap(), _xh = new THREE.Vector3(), _xu = new THREE.Vector3(), _xw = new THREE.Matrix4(), _xo = new THREE.Matrix4(), _xr = new THREE.Matrix4();
+const xrKey = o => (o.isInstancedMesh ? o : o.geometry);
+const xrDrawn = o => (o.isMesh || o.isPoints || o.isLine) && !!o.geometry && !!o.geometry.attributes.position;
+// the sampler of one object, in slices (a generator: each step a few thousand points)
+function* xrSampler(o, set) {
+  const geo = o.geometry, pa = geo.attributes.position, P = pa.array, n = pa.count, group = set.group;
+  const drawn = typeof set.keepClear === 'function' ? set.keepClear(o) : null;
+  // the voxel in the object's own units, so every part of a set is sampled alike whatever its scale
+  group.updateWorldMatrix(true, false); o.updateWorldMatrix(true, false);
+  const e = _xo.copy(group.matrixWorld).invert().multiply(o.matrixWorld).elements;
+  const v = XR_VOX / Math.sqrt(Math.max(e[0] * e[0] + e[1] * e[1] + e[2] * e[2], e[4] * e[4] + e[5] * e[5] + e[6] * e[6], e[8] * e[8] + e[9] * e[9] + e[10] * e[10])), rv = 0.5 * v;
+  const cells = new Map(), pts = [];   // pts: x, y, z, radius
+  let w = 0;   // work since the last slice
+  // (cells keyed by 10 bits a side, so the keys stay small integers: a set's parts lie well within 1024 cells across)
+  const add = (x, y, z, r, i) => { if (drawn && !drawn(x, y, z, i)) return; const k = (Math.round(x / v) & 1023) | (Math.round(y / v) & 1023) << 10 | (Math.round(z / v) & 1023) << 20; if (!cells.has(k)) { cells.set(k, 1); pts.push(x, y, z, r); } };
+  if (!geo.boundingSphere) geo.computeBoundingSphere();
+  if (!o.isInstancedMesh && geo.boundingSphere.radius < 2 * v) pts.push(...geo.boundingSphere.center.toArray(), geo.boundingSphere.radius);   // a small part: its ball
+  else if (o.isInstancedMesh) {
+    const c = geo.boundingSphere.center, r = geo.boundingSphere.radius, I = o.instanceMatrix.array;
+    for (let i = 0; i < o.count; i++) {
+      const f = 16 * i, s = Math.sqrt(Math.max(I[f] * I[f] + I[f + 1] * I[f + 1] + I[f + 2] * I[f + 2], I[f + 4] * I[f + 4] + I[f + 5] * I[f + 5] + I[f + 6] * I[f + 6], I[f + 8] * I[f + 8] + I[f + 9] * I[f + 9] + I[f + 10] * I[f + 10]));
+      pts.push(I[f] * c.x + I[f + 4] * c.y + I[f + 8] * c.z + I[f + 12], I[f + 1] * c.x + I[f + 5] * c.y + I[f + 9] * c.z + I[f + 13], I[f + 2] * c.x + I[f + 6] * c.y + I[f + 10] * c.z + I[f + 14], s * r);
+    }
+  } else {
+    for (let i = 0; i < n; i++) { add(P[3 * i], P[3 * i + 1], P[3 * i + 2], rv, i); if (++w >= 1500) { w = 0; yield; } }
+    // large triangles and long segments get points inside them too
+    const ix = geo.index ? geo.index.array : null, st = o.isMesh ? 3 : o.isLineSegments ? 2 : 0, at = j => (ix ? ix[j] : j);
+    const m = st ? Math.floor((ix ? ix.length : n) / st) : 0;
+    const d2 = (i, j) => (P[i] - P[j]) ** 2 + (P[i + 1] - P[j + 1]) ** 2 + (P[i + 2] - P[j + 2]) ** 2;
+    for (let f = 0; f < m; f++) {
+      if (++w >= 1500) { w = 0; yield; }
+      let a = 3 * at(st * f), b = 3 * at(st * f + 1), c = st === 3 ? 3 * at(st * f + 2) : b;
+      // rows along the longest edge (a to b), from it to the far corner (c), each as long as the triangle is wide there
+      if (d2(b, c) > d2(a, b) && d2(b, c) >= d2(a, c)) [a, b, c] = [b, c, a]; else if (d2(a, c) > d2(a, b)) [a, b, c] = [c, a, b];
+      const L = Math.sqrt(d2(a, b));
+      if (L < 2 * v) continue;
+      const ux = P[b] - P[a], uy = P[b + 1] - P[a + 1], uz = P[b + 2] - P[a + 2], wx = P[c] - P[a], wy = P[c + 1] - P[a + 1], wz = P[c + 2] - P[a + 2];
+      const q2 = c === b ? 0 : Math.ceil(Math.hypot(uy * wz - uz * wy, uz * wx - ux * wz, ux * wy - uy * wx) / L / v);
+      for (let j = 0; j <= q2; j++) {
+        const t = q2 ? j / q2 : 0, q = Math.max(1, Math.ceil((1 - t) * L / v));
+        const x0 = P[a] + t * wx, y0 = P[a + 1] + t * wy, z0 = P[a + 2] + t * wz, dx = (1 - t) * ux, dy = (1 - t) * uy, dz = (1 - t) * uz;
+        for (let i = 0; i <= q; i++) add(x0 + dx * i / q, y0 + dy * i / q, z0 + dz * i / q, rv, a / 3);
+        if ((w += q) >= 1500) { w = 0; yield; }
+      }
+    }
+  }
+  yield;
+  // clumps of 4 x 4 x 4 cells, in blocks of 4 x 4 x 4 clumps, each with its middle and reach (points' own radii included)
+  const cell = (x, s) => Math.floor(x / s) & 1023, keyOf = (i, s) => cell(pts[i], s) | cell(pts[i + 1], s) << 10 | cell(pts[i + 2], s) << 20;
+  const blocks = new Map();
+  for (let i = 0; i < pts.length; i += 4) {
+    const kb = keyOf(i, 16 * v), kc = keyOf(i, 4 * v);
+    let B = blocks.get(kb); if (!B) blocks.set(kb, B = new Map());
+    let L = B.get(kc); if (!L) B.set(kc, L = []);
+    L.push(i);
+    if (++w >= 1500) { w = 0; yield; }
+  }
+  const ball = L => {   // the middle and reach of a list of balls [x, y, z, r]
+    let cx = 0, cy = 0, cz = 0, r = 0;
+    for (const b of L) { cx += b[0] / L.length; cy += b[1] / L.length; cz += b[2] / L.length; }
+    for (const b of L) r = Math.max(r, Math.hypot(b[0] - cx, b[1] - cy, b[2] - cz) + b[3]);
+    return [cx, cy, cz, r];
+  };
+  const PT = new Float32Array(pts.length), CL = [], CE = [], BL = [], BE = [];
+  let np = 0;
+  for (const B of blocks.values()) {
+    const cs = [];
+    for (const L of B.values()) {
+      const bs = [];
+      for (const i of L) { const p = [pts[i], pts[i + 1], pts[i + 2], pts[i + 3]]; PT.set(p, 4 * np++); bs.push(p); }
+      if ((w += L.length) >= 1500) { w = 0; yield; }
+      const c = ball(bs); CL.push(...c); CE.push(np); cs.push(c);
+    }
+    BL.push(...ball(cs)); BE.push(CE.length);
+  }
+  const top = BL.length ? ball(Array.from({ length: BL.length / 4 }, (_, j) => BL.slice(4 * j, 4 * j + 4))) : [0, 0, 0, 0];
+  _xsm.set(xrKey(o), { P: PT, C: new Float32Array(CL), CE: new Uint32Array(CE), B: new Float32Array(BL), BE: new Uint32Array(BE), top });
+}
+// sampling in slices of about ms milliseconds, one object after another, until every object of the sets that keep clear
+// has its sample (a part made later, such as the heart, is taken up when the headset meets it: xrClear says so)
+let _xjob = null, _xdone = false;
+function xrPrep(ms) {
+  if (_xdone && !_xjob) return;
+  const t0 = performance.now();
+  while (performance.now() - t0 < ms) {
+    if (!_xjob) {
+      let o = null, g = null;   // (g: its set)
+      for (const k of SET_ORDER) if (GL.sets[k].keepClear && !o) GL.sets[k].group.traverse(c => { if (!o && xrDrawn(c) && !_xsm.has(xrKey(c))) { o = c; g = GL.sets[k]; } });
+      if (!o) { _xdone = true; return; }
+      _xjob = xrSampler(o, g);
+    }
+    if (_xjob.next().done) _xjob = null;
+  }
+}
+// the largest scale up to Rmax at which nothing of the sets that keep clear comes within XR_NEAR of your head, with the
+// view's target at (gx, gy, gz) in the rig's frame and the scene turned by GL.world.quaternion (the parts where they
+// were last drawn)
+function xrClear(gx, gy, gz, Rmax) {
+  _xh.copy(XR.head); GL.rig.worldToLocal(_xh);
+  const wx = gx - _xh.x, wy = gy - _xh.y, wz = gz - _xh.z, c0 = wx * wx + wy * wy + wz * wz - XR_NEAR * XR_NEAR;
+  if (c0 <= 0) return Rmax;   // your head is at the scene's middle: there is no keeping clear of it
+  _xw.copy(GL.world.matrixWorld).invert();
+  _xr.makeRotationFromQuaternion(GL.world.quaternion);
+  let R = Rmax, m = null;
+  // a ball (centre u per unit of scale out from the view's target, radius r per unit) as the scale grows: whether it stays
+  // clear up to the scale reached so far (its centre's nearest pass, less its largest reach), and the scale where it stops
+  const at = (C, j) => { const x = C[j], y = C[j + 1], z = C[j + 2]; return _xu.set(m[0] * x + m[4] * y + m[8] * z + m[12], m[1] * x + m[5] * y + m[9] * z + m[13], m[2] * x + m[6] * y + m[10] * z + m[14]); };
+  const clear = (u, r) => { const uu = u.lengthSq(), s = uu > 0 ? clamp(-(wx * u.x + wy * u.y + wz * u.z) / uu, 0, R) : 0; return Math.hypot(wx + s * u.x, wy + s * u.y, wz + s * u.z) - R * r >= XR_NEAR; };
+  const solve = (u, r) => {   // the smallest root of |w + R u| = XR_NEAR + R r
+    const A = u.lengthSq() - r * r, B = wx * u.x + wy * u.y + wz * u.z - XR_NEAR * r, D = B * B - A * c0, q = -B + Math.sqrt(Math.max(D, 0));
+    if (D >= 0 && q > 0 && (A <= 0 || B < 0)) R = Math.min(R, c0 / q);
+  };
+  for (const k of SET_ORDER) {
+    const g = GL.sets[k].group;
+    if (!GL.sets[k].keepClear || !g.visible) continue;
+    g.traverseVisible(o => {
+      if (!xrDrawn(o)) return;
+      // the object's frame, turned as the view asks, measured from the view's target: u = A p + b
+      _xo.multiplyMatrices(_xw, o.matrixWorld);
+      const e = _xo.elements, sc = Math.sqrt(Math.max(e[0] * e[0] + e[1] * e[1] + e[2] * e[2], e[4] * e[4] + e[5] * e[5] + e[6] * e[6], e[8] * e[8] + e[9] * e[9] + e[10] * e[10]));
+      e[12] -= XR.target.x; e[13] -= XR.target.y; e[14] -= XR.target.z;
+      m = _xo.premultiply(_xr).elements;
+      let Q = _xsm.get(xrKey(o));
+      if (!Q) {   // not sampled yet: its bounding ball (an instanced object is sampled at once: that is quick)
+        if (o.isInstancedMesh) { const it = xrSampler(o, GL.sets[k]); while (!it.next().done); Q = _xsm.get(xrKey(o)); }
+        else { if (!o.geometry.boundingSphere) o.geometry.computeBoundingSphere(); const bs = o.geometry.boundingSphere; solve(at(bs.center.toArray(), 0), sc * bs.radius); _xdone = false; return; }
+      }
+      const P = Q.P, C = Q.C, CE = Q.CE, B = Q.B, BE = Q.BE;
+      if (clear(at(Q.top, 0), sc * Q.top[3])) return;
+      for (let b = 0, j0 = 0; b < BE.length; j0 = BE[b++]) {
+        if (clear(at(B, 4 * b), sc * B[4 * b + 3])) continue;
+        for (let j = j0; j < BE[b]; j++) {
+          if (clear(at(C, 4 * j), sc * C[4 * j + 3])) continue;
+          for (let i = j ? CE[j - 1] : 0; i < CE[j]; i++) solve(at(P, 4 * i), sc * P[4 * i + 3]);
+        }
+      }
+    });
+  }
+  return R;
 }
 function xrRecenter() {
   XR.globeOff.set(0, 0, 0); XR.size = 1;
@@ -5527,7 +5700,7 @@ function xrEnded() {
   for (const c of XR.ctrls) { c.g.visible = false; c.dot.visible = false; c.press = null; c.grab = null; c.hover = null; c.src = null; }
   for (const L of [...ST.labels, ...LBL.sets, ...LBL.extra]) { if (L.sprite) L.sprite.visible = false; L.o = -1; }
   if (XR.tip) dropSprite(XR.tip);
-  XR.tip = null; XR.tipI = -1;
+  XR.tip = null; XR.tipI = -1; XR.cap = 0;
   XR.clear = true;
   GL.stars.visible = true; GL.stars.material.size = 1.3;
   GL.world.visible = true;
@@ -6334,14 +6507,14 @@ function frame(now, xrFrame) {
   const ts = storyT(APP.t); // original story time for this point in the narration
   if (APP.mode === 'story') {
     S = storyState(ts); tSet = ts;
-    if (xr) xrPlace(storyCam(ts)); else { applyCamera(storyCam(ts)); keepCamera(S, ts); }
+    if (xr) xrPlace(storyCam(ts), dt); else { applyCamera(storyCam(ts)); keepCamera(S, ts); }
     updateStoryDOM(ts);
     updateTimeline(APP.t, APP.playing);
   } else {
     const pn = performance.now();
     S = exploreStep(dt, pn); tSet = pn / 1000;
     orbitStep(xr ? pn : now);
-    if (xr) xrPlace(orbit.cur); else { applyCamera(orbit.cur); keepCamera(S, null); }
+    if (xr) xrPlace(orbit.cur, dt); else { applyCamera(orbit.cur); keepCamera(S, null); }
   }
   K.U.uTime.value = tSet;
   GL.camera.updateMatrixWorld();
@@ -6351,6 +6524,7 @@ function frame(now, xrFrame) {
   if (NEXT.length) { const fs = NEXT.splice(0); if (APP.mode === 'explore') for (const f of fs) f(); }
   if (xr) xrUpdate(S);
   GL.renderer.render(GL.scene, GL.camera);
+  if (navigator.xr) xrPrep(xr ? 2 : 1);   // the headset's sample of the scene (keep clear), in slices
   if (!xr) {
     GL.world.updateMatrixWorld(true);
     if (APP.mode === 'story') placeLabels(LBL.storyAll, L => (L.kind === 'story' ? fadeVal(ts, L.tIn, L.tOut, 0.5) * (S[L.set + '_a'] > 0.5 ? 1 : 0) : setLabelAlpha(L, S)));

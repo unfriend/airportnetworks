@@ -231,9 +231,10 @@ function buildStory() {
   cam(a + 6, 'motor', 'cord');
   cam(a + 11, 'motor', 'junction');
   cam(a + 16, 'motor', 'fibre');
-  // the magnified sarcomere from just outside its lattice: down the filaments, then from the side
-  cam(a + 22, 'motor', 'sarcomere', 0, null, [0, 8.66, 0.49]);
-  cam(a + 29, 'motor', 'sarcomere', 22, 'spin', [0, 16.66, 0.24]);
+  // the magnified sarcomere from outside, the rest of the unit behind it: down the filaments past its outer Z-disc, then
+  // round to the side (the camera stays clear of the lattice; in a headset nothing passes you)
+  cam(a + 22, 'motor', 'sarcEnd');
+  cam(a + 29, 'motor', 'sarcSide', 0, 'spin');
   cam(a + 34, 'motor', 'default', -10);
   cam(a + 44, 'motor', 'heart');
   cam(b - 1, 'motor', 'default', 15, 'spin');

@@ -786,6 +786,18 @@ and `hpc` (the supercomputer and the stress test).
   engine's `keepCamera` applies them every frame outside a headset. The
   supercomputer uses them to keep the camera out of its racks; the story's
   aisle shot stays on the aisle's centre line by design.
+- In a headset no close view brings a set that exports `keepClear` (the
+  motor unit; in the endotype story also the junction) nearer than 0.35 m to
+  your head: `xrPlace` caps the view's scale, eased, from a sample of the
+  set's visible meshes (`xrClear` in `engine/e5_xr.js`, the same lines in both
+  stories); your own size and an overview's scale stay, and standing inside
+  is left alone. The sample (a point per 3.5 cm of surface, in set units) is
+  taken in slices of a millisecond or two from the start wherever WebXR is
+  (`xrPrep`, from the frame loop), so entering the headset never stalls on
+  it. `keepClear` may be a function giving, per object, a test of where it is
+  never drawn (the junction's cut-away). Sets whose positions come from their
+  shaders (the tower, the network, the tree) do not export it, nor does the
+  supercomputer (its aisle shot is inside it).
 
 ## The endotype story (`stories/endo.js`) is built the same way
 

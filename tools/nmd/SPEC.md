@@ -21,6 +21,13 @@ exports, labels, controls, camera views, performance budget, harness, palette), 
   while the set is hidden; keep each call to a millisecond or two) and `finish()` (build the rest now; the harness
   calls it after building the set, `sweep.mjs` after loading the story), and slice in `update` too, showing the part
   only once it is ready. The motor set's heart does this.
+- A set drawn where its geometry is (no positions computed in its shaders, as the tower's and the tree's are) may export
+  `keepClear: true`: in a headset the engine then never lets a close view bring it nearer than 0.35 m to your head
+  (`xrClear` in `engine/e5_xr.js` caps the view's scale, eased, from a sample of each of its visible meshes: a point per
+  0.035 set units of surface, an instance as a ball, taken once in slices by `xrPrep`; your own size and an overview's
+  scale stay). Instead of `true` it may give a function `o => test or null`, the test `(x, y, z, i) => drawn` for a
+  point in the object's own frame and a vertex of its triangle, for parts a shader never draws (the endotype story's
+  junction leaves out its cut-away this way). The motor set exports `true`.
 
 ## The data, in short
 
@@ -105,7 +112,9 @@ Anchors: `cord`, `soma`, `ganglion`, `axon`, `myelin`, `junction`, `fibre`, `myo
 `mband`, `heart`. Labels: Spinal cord, Motor neuron, Sensory neuron, Axon (myelin), Neuromuscular junction,
 Muscle fibre, Sarcomere, Heart, each with a rule so at most about five show at once (by `motor_open`, `motor_heart`,
 `motor_site`). Cam: `default` (whole unit, three-quarter view), `cord`, `junction`, `fibre`, `sarcomere` (inside the
-lattice, close), `heart`. Explore: View (Motor unit / Junction / Sarcomere / Heart), Show (Diseases on / off),
+lattice, close, looking towards the fibre), `sarcEnd` and `sarcSide` (the magnified sarcomere from outside: down its
+filaments past the outer Z-disc, and from the side; the story's sarcomere shots), `heart`. Close views look across the
+unit or from its right end, so that in a headset the rest of the unit never lies between the view and you. Explore: View (Motor unit / Junction / Sarcomere / Heart), Show (Diseases on / off),
 Motion (Still / Impulses / Contraction).
 
 ### `tower` - the multiplex network (file `sets/tower.js`)
