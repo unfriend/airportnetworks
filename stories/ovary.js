@@ -2635,10 +2635,18 @@ ${frag}
     c.strokeStyle = 'rgba(149,166,189,0.25)'; c.lineWidth = 2; c.fillStyle = muted; c.font = `24px ${FONT}`; c.textAlign = 'right'; c.textBaseline = 'middle';
     for (const v of [0, 0.25, 0.5, 0.75, 1]) { const y = Y(SY0 + v * BH); c.beginPath(); c.moveTo(X(x0), y); c.lineTo(X(x0 + xw), y); c.stroke(); }
     c.textAlign = 'center'; c.textBaseline = 'top'; c.font = `600 30px ${FONT}`;
-    keys.forEach((k, i) => { c.fillStyle = ink; c.fillText(short[k], X(x0 + xw * (i + 0.5) / keys.length), Y(SY0) + 52); });
-    if (keys.length === 4) { c.font = `24px ${FONT}`; c.fillStyle = muted; c.textAlign = 'left'; c.fillText('bars: precision, recall, F1 (the poster\'s table)', X(x0), Y(SY0) + 96); }
-    c.textAlign = 'center'; c.font = `600 ${keys.length === 4 ? 30 : 34}px ${FONT}`;
-    vals.forEach(([x, v]) => { c.fillStyle = ink; c.fillText(v.toFixed(2), X(x), Y(SY0) + 10); });
+    // (a name wider than its slot goes on two lines)
+    const slot = (X(x0 + xw) - X(x0)) / keys.length * 0.94;
+    keys.forEach((k, i) => {
+      const n = short[k], xi = X(x0 + xw * (i + 0.5) / keys.length), two = c.measureText(n).width > slot && n.includes(' ');
+      c.fillStyle = ink;
+      if (two) { const j = n.indexOf(' '); c.fillText(n.slice(0, j), xi, Y(SY0) + 14); c.fillText(n.slice(j + 1), xi, Y(SY0) + 48); }
+      else c.fillText(n, xi, Y(SY0) + 14);
+    });
+    if (keys.length === 4) { c.font = `24px ${FONT}`; c.fillStyle = muted; c.textAlign = 'left'; c.fillText('bars: precision, recall, F1 (the poster\'s table)', X(x0), Y(SY0) + 92); }
+    // each value just above its own bar (three bars to a kind are too close for their values to sit side by side below them)
+    c.textAlign = 'center'; c.textBaseline = 'bottom'; c.font = `600 ${keys.length === 4 ? 21 : 30}px ${FONT}`;
+    vals.forEach(([x, v]) => { c.fillStyle = ink; c.fillText(v.toFixed(2), X(x), Y(SY0 + v * BH) - 6); });
   });
   const rfVals = [], iouVals = [];
   RFK.forEach((k, i) => ['precision', 'recall', 'f1'].forEach((q, j) => rfVals.push([RX0 + RXW * (i + 0.2 + 0.25 * j + 0.125) / 4, kind(k).rf[q]])));
@@ -2661,14 +2669,14 @@ ${frag}
     anchors['end' + pi] = () => { const P = panels[pi], a = Math.min(70, sweepNow); return inP(pi, [P.tx(a), P.ty(T.line(k, 'seg', a)), 0.05]); };
     anchors[k] = anchors['t' + pi];
   });
-  let sweepNow = 70, cmpNow = 0;
+  let sweepNow = 70, cmpNow = 0, sideNow = 0;
 
   // ------------------------------------------------------------- update
   function update(S, t, dt) {
     const sl = clamp(S.charts_slides, 0, 1), hs = clamp(S.charts_hist, 0, 1), tr = clamp(S.charts_trend, 0, 1), cm = clamp(S.charts_cmp, 0, 1);
     const sw = clamp(S.charts_sweep, 20, 70), foc = clamp(S.charts_focus, 0, 4), side = smooth(clamp(S.charts_side, 0, 1));
     const rfA = clamp(S.charts_rf, 0, 1), sgA = clamp(S.charts_seg, 0, 1), bandA = clamp(S.charts_band, 0, 1), scA = clamp(S.charts_score, 0, 1), ioA = clamp(S.charts_iou, 0, 1);
-    sweepNow = sw; cmpNow = cm;
+    sweepNow = sw; cmpNow = cm; sideNow = side;
     // the slides and the histogram
     for (const me of [glass, tissue, label]) { me.material.uniforms.uIn.value = sl; me.material.uniforms.uHist.value = hs; }
     slides.visible = sl > 0.001;
@@ -2720,9 +2728,10 @@ ${frag}
     labels: [
       { text: ['255 donors', 'GTEx, aged 20 to 70'], at: 'histTop', cls: 'cyn', alpha: S => prog(S.charts_hist, 0.7, 1) * S.charts_slides },
       ...ORDER.map((k, pi) => ({
-        text: () => (cmpNow > 0.5 ? [titleOf(k), `r ${T.rText(kind(k).compare.r)}`] : [titleOf(k), `RF ${T.rText(kind(k).trend.rf.r)} · Seg ${T.rText(kind(k).trend.seg.r)}`]),
+        // (beside the ovary the panels are small: the name only; the r values are on each chart's face)
+        text: () => (sideNow > 0.5 ? [titleOf(k), ''] : cmpNow > 0.5 ? [titleOf(k), `r ${T.rText(kind(k).compare.r)}`] : [titleOf(k), `RF ${T.rText(kind(k).trend.rf.r)} · Seg ${T.rText(kind(k).trend.seg.r)}`]),
         at: 't' + pi, cls: ['', 'mag', 'cyn', 'grn'][pi],
-        alpha: S => { const w = q => clamp(1 - Math.abs(S.charts_focus - q), 0, 1), fm = Math.max(w(1), w(2), w(3), w(4)); return Math.max(S.charts_trend, S.charts_cmp) * (1 - fm + w(pi + 1)) * (1 - S.charts_side * 0.6); },
+        alpha: S => { const w = q => clamp(1 - Math.abs(S.charts_focus - q), 0, 1), fm = Math.max(w(1), w(2), w(3), w(4)); return Math.max(S.charts_trend, S.charts_cmp) * (1 - fm + w(pi + 1)) * (1 - S.charts_side * 0.15); },
       })),
       { text: ['Random forest', 'precision · recall · F1'], at: 'rfScores', cls: 'amb', alpha: S => prog(S.charts_score, 0.5, 1) },
       { text: ['SegFormer', 'IoU (overlap of masks)'], at: 'iouScores', cls: 'grn', alpha: S => prog(S.charts_iou, 0.5, 1) },
