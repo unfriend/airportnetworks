@@ -34,7 +34,8 @@ Card: kick "Tissue microanatomy", title **Tissue and time**, tagline "how organs
 - **The organs in 3D** (`sets/organs.js`, manifest `sets/organs.md`; it replaced the PET story's flat line icons, which
   this story no longer uses: `MICRO_DATA.organs[i].icon` and the data block's `PET_DATA` shim are left unused): a small
   lit procedural model of each of the 29 organs (`ORGAN3D`: a signed distance field of a few blended primitives,
-  polygonised by surface nets, about 1,000 to 3,000 triangles each, built between frames). The sets draw them as meshes
+  polygonised by surface nets, about 1,000 to 3,000 triangles each, built between frames from the start, one organ
+  after another, model then picture, the one a pane or the body shows first). The sets draw them as meshes
   (the network's organ ring, the atlas's plates; the engine on the body, beside the picked organ's point) and the
   panes as pictures drawn once onto a 2D canvas (no WebGL, so also inside a headset session). The harness always
   loads them; `set=organs` shows them all (`organs_pics:1`: the pictures).
@@ -137,6 +138,8 @@ index or -1, `domainColour(name)` (or use the atlas set's).
   it, tinted in H&E colours, its shape and colours from its tissue; the same few procedural textures in an atlas)
   in a great curved wall or a slow helix: columns by tissue (40), rows by donor age from 20 at the bottom to 70 at
   the top; they fly in in waves; faint glints; labels "24,945 slides", "40 tissues", "983 people, aged 20 to 70".
+  They stand in a lit rack (a back panel, a shelf at every decade, a post between tissues), so the wall reads in
+  depth from afar, where a slide is a pixel or two.
 - `atlas_map` 0..1: **the atlas**: one larger procedural section per tissue (40; their shapes and domains from
   `MICRO_DATA.figures.atlas` when present, else from `MICRO_DATA.graph`'s domains of that tissue's organ, with
   plausible shapes: a folded strip for gut, a ring for artery, round for ovary, lobed for gland), each a disc of

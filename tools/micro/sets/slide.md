@@ -45,11 +45,12 @@ aggregate `AG` and the zoom patch's artery and vein. If `tissue.js` changes its 
   fainter). Messages are two bright pulses on each link, one each way. Nodes and links appear in a wave from the
   close-up tile.
 - **The map** (groups): the first three principal components of the mixed descriptions (power iteration), scaled so
-  95 % of the tiles lie within 0.42 of the map's centre `[0.04, 0.55, 0.34]` (above the section, towards you), each
-  drawn 45 % of the way towards its own kind's middle so the groups read apart (illustrative: the method clusters in
-  the full description). The nodes lift in a staggered wave and arc out towards you into the map, grow a little and
-  drift gently there; their colour turns to their group's (the domain colour, as the wash will lay it). Then they fly
-  back down to their tiles and melt into the wash.
+  95 % of the tiles lie within 0.58 of the map's centre `[0.04, 0.68, 0.3]` (above the section, towards you), each
+  drawn 60 % of the way towards its own kind's middle (the middles 1.2 times as far apart) so the groups read as
+  groups (illustrative: the method clusters in the full description). The nodes lift in a staggered wave and arc out
+  towards you into the map, grow to 2.5 times their size and drift gently there; their colour turns to their group's
+  (the domain colour, as the wash will lay it), the slide dims under them, and each group of 8 tiles or more is named
+  (labels at its middle, `grp0`..`grp5`). Then they fly back down to their tiles and melt into the wash.
 - **Gauge**: a small slab of dark glass (0.68 x 0.26 x 0.022) above the section's left half, at `[-0.5, 0.57, 0.06]`;
   its face is a canvas (redrawn only when the shown numbers change), its edges lit. It shows "Submucosa", the live
   share, a bar with ticks at 42.9 and 34.5, and "of gut slides at 20 years": the preprint's numbers, said to be of the
@@ -83,8 +84,9 @@ only the messages, the nodes' drift in the map and the focus glow.
   - `slide_tiles` 0 to 1 at a+2..8 (cam `tiles`);
   - `slide_feat` 0 to 1 at a+9.5..15.5 (cam `matrix` from a+10.5);
   - `slide_adj` 0 to 1 at a+17.5..24 (cam `close` from a+18.5; hold a few seconds for the messages);
-  - `slide_group` 0 to 1 at a+26.5..31 (cam `group` from a+28), 1 to 2 at a+32..35.5 with `slide_domain` 0 to 1 at
-    a+32.5..36 (cam `domains` from a+35.5). Then hand over to `atlas_umap`.
+  - `slide_group` 0 to 1 at a+26.5..30.5 (cam `group` from a+28.5: the map and the whole section under it), held to
+    a+33 (the groups named), 1 to 2 at a+33..35.5 with `slide_domain` 0 to 1 at a+33.5..36 (cam `domains` from a+36).
+    Then hand over to `atlas_umap`.
 - `age` (170-215): jump `slide_tiles`, `slide_feat`, `slide_adj` and `slide_group` to 0; with `slide_domain` 1, set
   `slide_gauge` 1 (cam `age`), then `slide_age` 0 to 1 over about 6 s.
 - Focus: the engine sets `slide_focus` from the Domains tab, or as `api().pick` returns.
@@ -107,6 +109,7 @@ only the messages, the nodes' drift in the map and the focus glow.
 | Features · a list of numbers a tile | `feat` | `slide_feat` 0.45-0.75, until `adj`, `group` or `domain` |
 | Each tile · listens to its neighbours | `listen` | `slide_adj` 0.3-0.6, until `slide_group` or `slide_domain` |
 | Alike tiles · gather: a domain each | `cloud` | `slide_group` 0.6-0.9, out by 1.05-1.35; not with a focus |
+| each domain's label, at its group in the map | `grp0`..`grp5` | `slide_group` 0.75-0.95, out by 1.02-1.25; groups of 8 tiles or more; not with a focus |
 | Mucosa / Submucosa / Muscle · inner, circular / Muscle · outer, lengthwise / Lymphoid · patch / Blood vessels | domain anchors | `slide_domain` 0.62-0.95; with a focus only the focused one; lymphoid and vessels give way to the gauge |
 | Gut submucosa · thins with age | `gauge` | with the gauge (its numbers are on the gauge) |
 
@@ -143,8 +146,8 @@ like the slide. A domain then reads as its own colour, not as a mix with pink.
 | `default`, `section` | `[0, 6, 3.2, 0, 0, 0]` | the whole slab (as the tissue set's `section`) |
 | `tiles` | `[-20.6, 12, 1.7, -0.30, 0.11, -0.03]` | the left half at a slant, tiles drawing on |
 | `matrix` | `[-20.1, 20, 0.56, -0.16, 0.12, -0.02]` | the mosaics close up at a slant, so the blocks stand out of the slide |
-| `close` | `[-12.4, 24, 0.66, -0.14, 0.12, -0.01]` | the network over the close-up tile and its neighbours |
-| `group` | `[-14, 10, 2.15, 0.02, 0.34, 0.24]` | the section and the map above it |
+| `close` | `[-12.4, 26, 0.8, -0.14, 0.12, -0.01]` | the network over the close-up tile and its neighbours |
+| `group` | `[-12, 12, 3.0, 0.08, 0.34, 0.135]` | the map and the whole section under it |
 | `domains` | `[5, 5, 2.85, 0.02, -0.02, 0]` | the domain map with its labels |
 | `age` | `[0, 8, 3.25, -0.06, 0.12, 0]` | the domain map and the gauge |
 

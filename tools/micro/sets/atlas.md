@@ -23,13 +23,24 @@ buffer uploads beyond 40 x 2 uniforms (40 x 2 more for the organs), 5 head point
   the glass beside it. Each slide stands a little askew in its place (up to about 10 degrees each way), so the light
   glints off the glass here and there. Behind the sections and plots the wall draws only the slides' faces, and none
   once it is all but gone.
+- The rack the slides stand in (one draw, about 3,000 triangles): a dark blue back panel with a soft light pooled in
+  its middle, a shelf at every decade of age (16 rows each; the rows are spaced for them, `rowY`) with a bright lip
+  where the light catches it, and a post between tissues (darker), 0.036 deep. From afar, where a slide is a pixel or
+  two, the wall reads as a curved cabinet in depth; up close (`shelf`) the slides stand in its compartments. It stands
+  first as the library opens (`atlas_lib` 0 to 0.12) and dims with the wall.
 - The sections: 24,764 tiles in one instanced draw (a box each), plus one instanced draw for the 40 plates and their
   captions (canvas text). On its section each tile is a box standing on the plate, as tall as its domain's relief (in
   tile sizes, by its kind of tissue: linings and glands 0.9 to 1, lymphoid 0.85, muscle 0.66 to 0.72, nerve 0.6,
   vessels 0.56, connective tissue 0.42, fat 0.3, spaces 0.16; illustrative), so a section is a slab in relief, lit, its
   tops bevelled; the relief follows the domain as it changes with age. The same tiles are the cloud's points: as
   `atlas_umap` rises each tile leaves its section, turns into a small lit cube (0.015 a side and up) and flies to the
-  cloud. The tiles write depth, except while a plot or a focused section dims the others.
+  cloud. The tiles' tops are bright and bevelled, their sides darker and darker towards their foot, so a step of the
+  relief reads. A focused section stands in 3.4 times deeper relief (a terrain of its domains). The tiles write depth,
+  except while a plot or a focused section dims the others; the focused section is then drawn again on its own,
+  writing depth, so its relief is right from every side (one more draw of its few hundred tiles: a small geometry of
+  views into the main arrays, made the first time a section is focused).
+- The plates: each a slab of dark glass (0.075 of the plate deep) with a lit edge in its rim's colour, a box drawn as
+  three faces like the tiles; the captions are faces only, and not drawn from behind (they would read mirrored).
 - The organs: one merged geometry of the 40 sections' organs' models (with duplicates: three arteries, two brains ...),
   each floating at its plate's top left corner, turning slowly; gone as the tiles fly to the cloud and beside a plot.
   They build between frames (the network set builds them while it is hidden; here a 3 ms slice a frame while they are
@@ -104,9 +115,9 @@ examples' bubbles), `exDom0`..`exDom2` (where the example's domain lies in its f
 
 ## Cam views (`[az, el, dist, tx, ty, tz]`)
 
-`default` and `library` [0, 6, 3.4, 0, 0, -0.12]; `shelf` [-32, 10, 0.3, -0.12, 0.1, -0.47] (along the rack up close:
+`default` and `library` [0, 10, 3.4, 0, 0, -0.12] (a little from above: the shelves' tops show); `shelf` [-32, 10, 0.3, -0.12, 0.1, -0.47] (along the rack up close:
 the slides as glass with their tissue, askew; the story's library chapter goes there and back); `atlas` [0, 3, 3.2, 0, 0, 0.14]; `umap` [24, 14, 3.3, 0, 0.05, 0.08];
-`focus` [0, 4, 1.95, 0, 0, 0.72] (the focused section alone); `volcano` [-6, 9, 3.1, 0.24, 0.02, 0.1];
+`focus` [-26, 16, 1.95, 0, 0, 0.72] (the focused section alone, from the left and above, so its relief shows); `volcano` [-6, 9, 3.1, 0.24, 0.02, 0.1];
 `curves` [-20, 14, 3.4, 0.33, -0.04, 0.08]; `age` [0, 6, 3.4, 0.2, 0.02, 0.3] (volcano or curves with a focused section);
 `slides` [-8, 6, 0.75, -0.1, 0.22, -0.49] (close to the wall's middle: single slides, each a glass with its tissue; the
 `library` view shows the whole wall, where a slide is 1 to 2 pixels and the wall reads as a texture). At 640 x 400 every

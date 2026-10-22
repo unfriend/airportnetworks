@@ -58,21 +58,30 @@ function makeDots() {
   set.group.add(pts);
   let last = -1, pickT = 0;
   const _p = new THREE.Vector3();
-  // the models: one geometry of all 29, each placed and shown by its own uniforms (only the picked one shows)
-  let om = null;
-  const oP = O.map(() => new THREE.Vector4()), oQ = O.map(() => new THREE.Vector4());
-  function models() {
-    if (om || !ORGAN3D.ready()) return om;
-    const M = ORGAN3D.merged(O.map(o => ORGAN3D.idOf(o.name) || 'stomach')), mg = new THREE.BufferGeometry();
-    mg.setAttribute('position', new THREE.BufferAttribute(M.pos, 3)); mg.setAttribute('normal', new THREE.BufferAttribute(M.nrm, 3));
-    mg.setAttribute('aCol', new THREE.BufferAttribute(M.col, 3)); mg.setAttribute('aSlot', new THREE.BufferAttribute(M.slot, 1)); mg.setIndex(new THREE.BufferAttribute(M.idx, 1));
-    const sh = ORGAN3D.shader(n);
-    const m = new THREE.ShaderMaterial({ uniforms: { uA: set.uA, uP: { value: oP }, uQ: { value: oQ }, uTint: { value: new THREE.Color(...K.rgb(DOT_COL)) } },
-      vertexShader: sh.vertex, fragmentShader: sh.fragment, transparent: true });
-    set.mats.push(m);
-    om = new THREE.Mesh(mg, m); om.frustumCulled = false; om.renderOrder = 5; om.raycast = () => {};
-    set.group.add(om);
-    return om;
+  // the model: only the picked organ's (its geometry swapped when the pick changes, as soon as that model is built: it
+  // is wanted first), placed and shown by its uniforms
+  const oP = [new THREE.Vector4()], oQ = [new THREE.Vector4()], sh = ORGAN3D.shader(1);
+  const om = new THREE.Mesh(new THREE.BufferGeometry(), new THREE.ShaderMaterial({ uniforms: { uA: set.uA, uP: { value: oP }, uQ: { value: oQ },
+    uTint: { value: new THREE.Color(...K.rgb(DOT_COL)) } }, vertexShader: sh.vertex, fragmentShader: sh.fragment, transparent: true }));
+  set.mats.push(om.material);
+  om.frustumCulled = false; om.renderOrder = 5; om.raycast = () => {}; om.visible = false;
+  set.group.add(om);
+  let omId = null;
+  function model(id, t) {
+    if (id !== omId) {
+      const M = id && ORGAN3D.mesh(id);
+      if (id && !M) return false;   // (wanted: built next)
+      om.geometry.dispose();
+      if (id && t - pickT > 0 && t - pickT < 9) pickT = t;   // (a model that came late grows from now; not after a seek)
+      const mg = om.geometry = new THREE.BufferGeometry();
+      if (M) {
+        mg.setAttribute('position', new THREE.BufferAttribute(M.pos, 3)); mg.setAttribute('normal', new THREE.BufferAttribute(M.nrm, 3));
+        mg.setAttribute('aCol', new THREE.BufferAttribute(M.col, 3)); mg.setAttribute('aSlot', new THREE.BufferAttribute(new Float32Array(M.pos.length / 3), 1));
+        mg.setIndex(new THREE.BufferAttribute(M.idx, 1));
+      }
+      omId = id;
+    }
+    return !!id;
   }
   return Object.assign(set, {
     update(S, t) {
@@ -84,13 +93,12 @@ function makeDots() {
       }
       if (t < pickT) pickT = t - 9;   // (a seek back: shown at once)
       // the picked organ's model grows out in front of the body, beside its point (left of it: its label runs right)
-      if (!models()) return;
+      const o = O[k - 1];
+      om.visible = model(o ? ORGAN3D.idOf(o.name) : null, t);
+      if (!om.visible) return;
       const gr = smooth(clamp((t - pickT) / 0.9, 0, 1));
-      O.forEach((o, i) => {
-        const on = k === i + 1;
-        oQ[i].set(on ? gr : 0, 0.25, t * 0.5, 0);
-        if (on) oP[i].set(o.pos[0] - 0.19 * gr, o.pos[1] + 0.03, o.pos[2] + 0.16 * gr, 0.075 * (0.3 + 0.7 * gr));
-      });
+      oQ[0].set(gr, 0.25, t * 0.5, 0);
+      oP[0].set(o.pos[0] - 0.19 * gr, o.pos[1] + 0.03, o.pos[2] + 0.16 * gr, 0.075 * (0.3 + 0.7 * gr));
     },
     // the organ a ray passes closest to (within about 0.045 of its point, in the body's units), or -1
     pick(rc) {
@@ -111,9 +119,18 @@ function updateSets(S, t, dt, story) {
     if (a > 0.003) s.update(S, t, dt);
     else if (s.idle) s.idle(dt);   // a hidden set may build in slices
   }
-  // the organs' 3D models build between frames (the network set steps them while it is hidden): once they are all
-  // ready, the explore panes are drawn again with their pictures
-  if (!GL.orgReady && ORGAN3D.ready()) { GL.orgReady = true; if (APP.mode === 'explore') renderAll(); }
+  // the organs' 3D models and their pictures build between frames from the start, one organ after another (the one a
+  // pane or the body wants first): a short slice a frame in a headset, up to an eighth of a slow frame elsewhere (a
+  // slow frame's stutter is there anyway). Each picture goes into the HTML chips waiting for it as it is done, and the
+  // headset's panels redraw on GL.orgV (at most twice a second while they come)
+  if (!GL.orgDone) {
+    ORGAN3D.driven = true;
+    GL.orgDone = ORGAN3D.step(GL.renderer.xr.isPresenting ? 3 : clamp((dt || 0) * 125, 3, 24));
+    const v = ORGAN3D.version();
+    if (v !== GL.orgSeen) { GL.orgSeen = v; fillOrganPics(); }
+    const now = performance.now();
+    if (GL.orgDone || now - (GL.orgVT || 0) > 500) { GL.orgVT = now; GL.orgV = v; }
+  }
   const da = (S.body_a || 0) * (S.dots || 0);
   GL.dots.setAlpha(da);
   if (da > 0.003) GL.dots.update(S, t);

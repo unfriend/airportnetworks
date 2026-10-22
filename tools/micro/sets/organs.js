@@ -6,7 +6,9 @@
 // renderer, so no WebGL context or render target is needed, also inside a headset session).
 // ORGAN3D: ids, idOf(name), geo(id) (the mesh, built on first use), merged(ids, opts) (one BufferGeometry, aSlot per
 // model), shader(n) (a lit material's GLSL with per-model place and look), canvas(id, px), url(id), step(ms) (build
-// ahead between frames), ready(). Manifest: organs.md. SETS.organs is the harness's gallery (not part of the story).
+// models and pictures ahead between frames, one organ after another), want(id) (that one next), mesh(id), pic(id) and
+// picUrl(id) (without waiting: null until built), version(), ready(). Manifest: organs.md. SETS.organs is the
+// harness's gallery (not part of the story).
 const ORGAN3D = (() => {
   const PI = Math.PI, hyp = (x, y, z = 0) => Math.sqrt(x * x + y * y + z * z), clamp = (x, a, b) => (x < a ? a : x > b ? b : x);
   const hex = s => [1, 3, 5].map(i => parseInt(s.slice(i, i + 2), 16) / 255);
@@ -298,16 +300,24 @@ const ORGAN3D = (() => {
     for (;;) { const r = g.next(); if (r.done) { MESH[id] = r.value; delete JOB[id]; return true; } if (performance.now() > until) return false; }
   };
   const geo = id => (!ORG[id] ? null : MESH[id] || (run(id, Infinity), MESH[id]));
-  let nextB = 0, nextP = 0;
+  // the queue: each organ's model and then its picture, one organ after another, so pictures come one by one from the
+  // start (not all at the end); want(id) puts an organ at the front (the one a pane or the body shows now)
+  const QUEUE = ids.slice();
+  let ver = 0;
+  const want = id => { const i = QUEUE.indexOf(id); if (i > 0) { QUEUE.splice(i, 1); QUEUE.unshift(id); } };
   function step(ms) {
     const until = performance.now() + ms;
-    while (nextB < ids.length) { if (MESH[ids[nextB]] || run(ids[nextB], until)) nextB++; if (performance.now() > until) return false; }
-    // then the pictures, for the panels
-    while (nextP < ids.length && performance.now() < until) if (drawPic(ids[nextP], 64, until)) nextP++;
-    return nextP >= ids.length;
+    while (QUEUE.length) {
+      const id = QUEUE[0];
+      if (!MESH[id]) { if (!run(id, until)) return false; ver++; }
+      if (!drawPic(id, 64, until)) return false;
+      QUEUE.shift(); ver++;
+      if (performance.now() > until) break;
+    }
+    return !QUEUE.length;
   }
-  const ready = () => nextB >= ids.length;
-  const built = () => nextB;
+  const ready = () => ids.every(id => MESH[id]);
+  const built = () => ids.filter(id => MESH[id]).length;
 
   // ------------------------------------------------------------ one geometry for several models
   // aSlot: which model (its index in the list); the material places, turns and lights each (shader(n))
@@ -410,7 +420,15 @@ void main() {
     if (URL[key] === undefined) { const c = canvas(id, px); try { URL[key] = c ? c.toDataURL() : ''; } catch (e) { URL[key] = ''; } }
     return URL[key];
   }
-  return { ids, idOf, geo, merged, shader, canvas, url, step, ready, built, has: id => !!MESH[id], names: BYNAME };
+  // without waiting: the 64 px picture (a canvas, or its data URL) if it is drawn, else null ('') and the organ is
+  // wanted next; a model (its mesh) likewise
+  const pic = id => { const c = PIC[id + '@64']; if (c === undefined) { want(id); return null; } return c; };
+  const picUrl = id => (pic(id) ? url(id, 64) : '');
+  const mesh = id => (MESH[id] || (want(id), null));
+  // version(): goes up as each model and picture is done (the panes redraw on it); driven: the engine steps the queue
+  // itself every frame (the sets then leave it alone; in the harness they step it)
+  return { ids, idOf, geo, merged, shader, canvas, url, pic, picUrl, mesh, want, step, ready, built, has: id => !!MESH[id], version: () => ver,
+    driven: false, names: BYNAME };
 })();
 
 // the harness's gallery of the models (harness.html?set=organs): not part of the story

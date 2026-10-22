@@ -314,10 +314,11 @@ varying vec3 vC, vN, vV; varying float vA, vT, vPh, vH;
 void main() {
   // drawn from the upper node down to the lower one as the lower level grows; the growing end tapers
   float g = clamp((uGrow - aS) / 0.12, 0.0, 1.0), on = step(aT, g + 0.0001), tip = g > 0.999 ? 1.0 : smoothstep(g, g - 0.15, aT);
+  // (thick enough to read as tubes from afar; the rest stay in view, a little dimmer, while a node is focused)
   float h = aH * uF;
-  float r = 0.0052 * (1.0 + 0.6 * h) * on * mix(0.3, 1.0, tip);
+  float r = 0.0074 * (1.0 + 0.45 * h) * on * mix(0.3, 1.0, tip);
   vC = mix(uLC[int(aL0 + 0.5)], uLC[int(aL1 + 0.5)], aT); vT = aT; vPh = aPh; vH = h;
-  vA = on * uK * (0.5 * (1.0 - 0.82 * uF) + 0.75 * h);
+  vA = on * uK * (0.6 * (1.0 - 0.6 * uF) + 0.6 * h);
   vec4 mv = modelViewMatrix * vec4(position + aNrm * r, 1.0);
   vN = normalMatrix * aNrm; vV = -mv.xyz;
   gl_Position = projectionMatrix * mv;
@@ -327,12 +328,12 @@ uniform float uA, uTime;
 varying vec3 vC, vN, vV; varying float vA, vT, vPh, vH;
 void main() {
   if (vA < 0.003) discard;
-  // a soft glowing tube: bright along its middle, fading to its edges; a light runs down it now and then (organ to
-  // domain)
+  // a soft glowing tube in its levels' colours (from the upper level's to the lower one's): lit across, bright along
+  // its middle, fading to its edges; a light runs down it now and then (organ to domain)
   float c = abs(dot(normalize(vN), normalize(vV)));
   float run = pow(0.5 + 0.5 * sin(vT * 7.0 - uTime * 1.4 + vPh), 12.0);
-  vec3 col = mix(vC, vec3(1.0), 0.12 + 0.3 * vH + 0.4 * pow(c, 6.0)) * (0.7 + 1.1 * run);
-  gl_FragColor = vec4(col, vA * uA * (0.15 + 0.85 * c * c) * (1.0 + 0.6 * run));
+  vec3 col = vC * (0.45 + 0.8 * c) * (0.8 + 0.9 * run) + vec3(1.0) * (0.08 * pow(c, 6.0) + 0.22 * vH * pow(c, 3.0) + 0.18 * run);
+  gl_FragColor = vec4(col, vA * uA * (0.25 + 0.75 * c) * (1.0 + 0.5 * run));
 }`,
   });
   set.mats.push(thrMat);
@@ -482,7 +483,7 @@ void main() {
     orgMesh.frustumCulled = false; orgMesh.renderOrder = 3; orgMesh.raycast = () => {};
     set.group.add(orgMesh);
   }
-  const orgStep = ms => { if (!orgMesh && O3) { O3.step(ms); buildOrgans(); } };
+  const orgStep = ms => { if (!orgMesh && O3) { if (!O3.driven) O3.step(ms); buildOrgans(); } };   // (the engine steps them itself)
 
   // ---------------------------------------------------------------- the contact bands (tubes; width and colour per frame)
   const BS = 22, BR = 6, NBD = CO.reduce((s, o) => s + o.bands.length, 0);

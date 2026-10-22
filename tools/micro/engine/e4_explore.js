@@ -230,10 +230,21 @@ function collabApply(v) {
 // (a lit chip as the shell's primary button: its text in the panel's colour, readable in either theme)
 const chip = (attrs, label, on, col) => `<button type="button" ${attrs} aria-pressed="${!!on}"${on ? ' style="background:var(--cyan);color:var(--panel-solid)"' : ''}>${col ? `<span class="sw" style="background:${swCol(col)}"></span>` : ''}${label}</button>`;
 // each organ's small 3D model (ORGAN3D, sets/organs.js) as a picture for the panes: drawn once at 64 px, shown at 20 to
-// 30. The models build between frames from the start; until an organ's is ready it has none (the panes are drawn
-// again once all are: updateSets)
-const orgPic = o => { const id = o && ORGAN3D.idOf(o.name); return id && ORGAN3D.has(id) ? id : null; };
-const iconImg = (o, px) => { const id = orgPic(o), u = id ? ORGAN3D.url(id, 64) : ''; return u ? `<img src="${u}" alt="" width="${px || 22}" height="${px || 22}" style="vertical-align:-6px;margin-right:5px">` : ''; };
+// 30. The models and pictures build between frames from the start (updateSets), the ones a pane asks for first; until
+// an organ's picture is drawn its chip keeps the place with a soft dot, and the picture goes in as it comes
+// (fillOrganPics), so nothing is drawn again all at once
+const orgPic = o => (o && ORGAN3D.idOf(o.name)) || null;
+const ORG_DOT = 'radial-gradient(circle,rgba(255,158,196,.55) 0 22%,rgba(255,158,196,0) 46%)';
+const iconImg = (o, px) => {
+  const id = orgPic(o), u = id ? ORGAN3D.picUrl(id) : '', s = px || 22;
+  return id ? `<span class="o3"${u ? '' : ` data-org="${id}"`} aria-hidden="true" style="display:inline-block;width:${s}px;height:${s}px;vertical-align:-6px;margin-right:5px;background:${u ? `url(${u})` : ORG_DOT} center/contain no-repeat"></span>` : '';
+};
+function fillOrganPics() {
+  for (const el of document.querySelectorAll('span.o3[data-org]')) {
+    const u = ORGAN3D.picUrl(el.dataset.org);
+    if (u) { el.style.background = `url(${u}) center/contain no-repeat`; el.removeAttribute('data-org'); }
+  }
+}
 const link = (act, v, text) => `<button type="button" data-act="${act}" data-v="${esc(v)}" style="border:0;background:none;padding:0;font:inherit;color:var(--cyan);text-decoration:underline;cursor:pointer">${text}</button>`;
 let DQ = '';   // the Domains pane's search (this page's own)
 function buildExplore() {

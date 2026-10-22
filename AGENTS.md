@@ -769,11 +769,12 @@ contract.
 
 `stories/micro.js` is generated from `tools/micro/` (`node tools/micro/build.mjs`, `--check` as for the tour): the
 tour's kit, body and tissue sets (unchanged), small 3D models of the 29 organs (`sets/organs.js`, `ORGAN3D`: signed
-distance fields polygonised by surface nets, built between frames; drawn as meshes on the body, the atlas's plates and
-the network's organ ring, and as pictures in the panes), three sets (`slide`, the method in the tour's visual language
-over the tissue section, drawn in its frame: tiles, their features as glowing blocks, a network of neighbours with
-messages, the lift into a map where alike tiles gather, and the domains; `atlas`, the slide library of glass slides,
-the atlas of sections in relief, the tile cloud, the volcano and the trajectories; `hier`, the network of organ
+distance fields polygonised by surface nets, built between frames from the start, one organ after another, the one on
+show first; drawn as meshes on the body, the atlas's plates and the network's organ ring, and as pictures in the
+panes, each going in as it is drawn), three sets (`slide`, the method in the tour's visual language over the tissue
+section, drawn in its frame: tiles, their features as glowing blocks, a network of neighbours with messages, the lift
+into a map where alike tiles gather, and the domains; `atlas`, the slide library of glass slides, in a lit rack, the
+atlas of sections as slabs in relief, the tile cloud, the volcano and the trajectories; `hier`, the network of organ
 architecture and the domain contacts; each with a manifest) and engine parts adapted from the PET story's.
 `tools/micro/SPEC.md` is the contract.
 

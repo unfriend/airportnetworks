@@ -106,7 +106,7 @@ function sigMain() {
     }
     return s;
   }
-  return ['x', audioLabel(), X.tab, X.scene, JSON.stringify(X.ctl), X.organ, X.domain, X.age, X.step, X.kind, GL.orgReady ? 1 : 0].join('|');
+  return ['x', audioLabel(), X.tab, X.scene, JSON.stringify(X.ctl), X.organ, X.domain, X.age, X.step, X.kind, GL.orgV || 0].join('|');
 }
 const XR_HERE = 'micro';
 const XR_STORIES = HOST.list;
@@ -403,7 +403,11 @@ function flow(ctx, P, items, x, y, W, maxY, o = {}) {
     if (cx + w > x + W) { cx = x; cy += h + gap; }
     if (cy + h > maxY) break;
     vButton(ctx, P, it.id, cx, cy, w, h, '', it.fn, { r: 6, on: it.on });
-    if (it.icon) { const c = ORGAN3D.canvas(it.icon, 64); if (c) ctx.drawImage(c, cx + 7, cy + 4, h - 8, h - 8); }
+    if (it.icon) {   // (its picture, or a soft dot while it is drawn)
+      const c = ORGAN3D.pic(it.icon), q = h - 8;
+      if (c) ctx.drawImage(c, cx + 7, cy + 4, q, q);
+      else { ctx.beginPath(); ctx.arc(cx + 7 + q / 2, cy + 4 + q / 2, q * 0.16, 0, 7); ctx.fillStyle = 'rgba(255,158,196,0.6)'; ctx.fill(); }
+    }
     else if (it.col) swatch(ctx, cx + 12, cy + h / 2 - 7, 14, it.col);
     ctx.font = vfont(px, it.on ? 700 : 400); ctx.fillStyle = it.ink || VC.ink; ctx.textBaseline = 'middle';
     ctx.fillText(fitText(ctx, it.label, w - 26 - sw), cx + 13 + sw, cy + h / 2 + 1); ctx.textBaseline = 'top';
@@ -431,7 +435,7 @@ function drawOrgansPane(ctx, P, x, y, W, bottom) {
   const O = organOf(X.organ);
   y += flow(ctx, P, MD.organs.map(o => ({ id: 'org:' + o.name, label: o.name, icon: orgPic(o), on: O === o, fn: () => selectOrgan(O === o ? null : o.name) })), x, y, W, bottom, { px: 20, h: 42 }) + 18;
   if (!O) { textBlock(ctx, `The ${FACTS.organs} organs whose tissue GTEx collected. Pick one, or point at an organ's light in the body, a section in the atlas or a node of the network and pull the trigger (or pinch).`, x, y, W, 26, 38, VC.muted); return; }
-  const oi = orgPic(O), oc = oi && ORGAN3D.canvas(oi, 64);
+  const oi = orgPic(O), oc = oi && ORGAN3D.pic(oi);
   if (oc) ctx.drawImage(oc, x - 4, y - 6, 58, 58);
   y += textBlock(ctx, O.name, x + (oc ? 60 : 0), y + 2, W - 60, 38, 46, VC.ink, 700, 1) + 10;
   const tis = O.tissues.length ? O.tissues : [O.name];

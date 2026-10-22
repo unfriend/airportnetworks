@@ -270,7 +270,9 @@ const PET_DATA = { organs: [{"id":"brain","short":"brain"},{"id":"thyroid","shor
 // renderer, so no WebGL context or render target is needed, also inside a headset session).
 // ORGAN3D: ids, idOf(name), geo(id) (the mesh, built on first use), merged(ids, opts) (one BufferGeometry, aSlot per
 // model), shader(n) (a lit material's GLSL with per-model place and look), canvas(id, px), url(id), step(ms) (build
-// ahead between frames), ready(). Manifest: organs.md. SETS.organs is the harness's gallery (not part of the story).
+// models and pictures ahead between frames, one organ after another), want(id) (that one next), mesh(id), pic(id) and
+// picUrl(id) (without waiting: null until built), version(), ready(). Manifest: organs.md. SETS.organs is the
+// harness's gallery (not part of the story).
 const ORGAN3D = (() => {
   const PI = Math.PI, hyp = (x, y, z = 0) => Math.sqrt(x * x + y * y + z * z), clamp = (x, a, b) => (x < a ? a : x > b ? b : x);
   const hex = s => [1, 3, 5].map(i => parseInt(s.slice(i, i + 2), 16) / 255);
@@ -562,16 +564,24 @@ const ORGAN3D = (() => {
     for (;;) { const r = g.next(); if (r.done) { MESH[id] = r.value; delete JOB[id]; return true; } if (performance.now() > until) return false; }
   };
   const geo = id => (!ORG[id] ? null : MESH[id] || (run(id, Infinity), MESH[id]));
-  let nextB = 0, nextP = 0;
+  // the queue: each organ's model and then its picture, one organ after another, so pictures come one by one from the
+  // start (not all at the end); want(id) puts an organ at the front (the one a pane or the body shows now)
+  const QUEUE = ids.slice();
+  let ver = 0;
+  const want = id => { const i = QUEUE.indexOf(id); if (i > 0) { QUEUE.splice(i, 1); QUEUE.unshift(id); } };
   function step(ms) {
     const until = performance.now() + ms;
-    while (nextB < ids.length) { if (MESH[ids[nextB]] || run(ids[nextB], until)) nextB++; if (performance.now() > until) return false; }
-    // then the pictures, for the panels
-    while (nextP < ids.length && performance.now() < until) if (drawPic(ids[nextP], 64, until)) nextP++;
-    return nextP >= ids.length;
+    while (QUEUE.length) {
+      const id = QUEUE[0];
+      if (!MESH[id]) { if (!run(id, until)) return false; ver++; }
+      if (!drawPic(id, 64, until)) return false;
+      QUEUE.shift(); ver++;
+      if (performance.now() > until) break;
+    }
+    return !QUEUE.length;
   }
-  const ready = () => nextB >= ids.length;
-  const built = () => nextB;
+  const ready = () => ids.every(id => MESH[id]);
+  const built = () => ids.filter(id => MESH[id]).length;
 
   // ------------------------------------------------------------ one geometry for several models
   // aSlot: which model (its index in the list); the material places, turns and lights each (shader(n))
@@ -674,7 +684,15 @@ void main() {
     if (URL[key] === undefined) { const c = canvas(id, px); try { URL[key] = c ? c.toDataURL() : ''; } catch (e) { URL[key] = ''; } }
     return URL[key];
   }
-  return { ids, idOf, geo, merged, shader, canvas, url, step, ready, built, has: id => !!MESH[id], names: BYNAME };
+  // without waiting: the 64 px picture (a canvas, or its data URL) if it is drawn, else null ('') and the organ is
+  // wanted next; a model (its mesh) likewise
+  const pic = id => { const c = PIC[id + '@64']; if (c === undefined) { want(id); return null; } return c; };
+  const picUrl = id => (pic(id) ? url(id, 64) : '');
+  const mesh = id => (MESH[id] || (want(id), null));
+  // version(): goes up as each model and picture is done (the panes redraw on it); driven: the engine steps the queue
+  // itself every frame (the sets then leave it alone; in the harness they step it)
+  return { ids, idOf, geo, merged, shader, canvas, url, pic, picUrl, mesh, want, step, ready, built, has: id => !!MESH[id], version: () => ver,
+    driven: false, names: BYNAME };
 })();
 
 // the harness's gallery of the models (harness.html?set=organs): not part of the story
@@ -2874,7 +2892,7 @@ void main() {
   // alike tiles gather; there they take their group's colour (a domain), and fly back down to colour the section.
   const HN = 0.05;   // how high the network floats over the slab (above the tallest bars)
   // the map: principal components of the mixed descriptions (power iteration, deflated), scaled to a ball
-  const ECEN = [0.04, 0.55, 0.34], ER = 0.42;
+  const ECEN = [0.04, 0.68, 0.3], ER = 0.58;
   {
     const n = kept.length, mu = new Array(NF).fill(0);
     for (const t of kept) for (let f = 0; f < NF; f++) mu[f] += t.m[f] / n;
@@ -2893,11 +2911,13 @@ void main() {
     }
     const Z = kept.map(t => PC.map(p => t.m.reduce((s, v, f) => s + (v - mu[f]) * p.w[f], 0) / Math.sqrt(Math.max(p.lam, 1e-9))));
     const rad = Z.map(z => Math.hypot(...z)).sort((a, b) => a - b)[Math.floor(n * 0.95)] || 1;
-    // (each drawn 45 % of the way towards its own kind's middle, so the groups read apart: illustrative, the method
-    // clusters in the full description)
-    const mid = DOM.map((_, d) => { const m = [0, 0, 0]; let c = 0; kept.forEach((t, k) => { if (t.dom === d) { for (let q = 0; q < 3; q++) m[q] += Z[k][q]; c++; } }); return m.map(v => v / Math.max(1, c)); });
-    kept.forEach((t, k) => { const z = Z[k].map((v, q) => v + 0.45 * (mid[t.dom][q] - v)); t.e = [ECEN[0] + z[0] / rad * ER * 1.2, ECEN[1] + z[1] / rad * ER * 0.8, ECEN[2] + z[2] / rad * ER * 0.7]; t.ph = R() * 6.28; t.gw = 0.5 * R(); });
+    // (each drawn 60 % of the way towards its own kind's middle, the middles a little apart, so the groups read as
+    // groups: illustrative, the method clusters in the full description)
+    const mid = DOM.map((_, d) => { const m = [0, 0, 0]; let c = 0; kept.forEach((t, k) => { if (t.dom === d) { for (let q = 0; q < 3; q++) m[q] += Z[k][q]; c++; } }); return m.map(v => 1.2 * v / Math.max(1, c)); });
+    kept.forEach((t, k) => { const z = Z[k].map((v, q) => v + 0.6 * (mid[t.dom][q] - v)); t.e = [ECEN[0] + z[0] / rad * ER * 1.2, ECEN[1] + z[1] / rad * ER * 0.8, ECEN[2] + z[2] / rad * ER * 0.7]; t.ph = R() * 6.28; t.gw = 0.5 * R(); });
   }
+  // each group's middle in the map (for its label), and how many tiles it has
+  const GC = DOM.map((_, d) => { const m = [0, 0, 0]; let c = 0; for (const t of kept) if (t.dom === d) { for (let q = 0; q < 3; q++) m[q] += t.e[q]; c++; } return { p: m.map(v => v / Math.max(1, c)), n: c }; });
   // nodes (instanced lit spheres) and their halos (instanced quads facing the camera)
   const NK = kept.length;
   const nodeGeo = new THREE.InstancedBufferGeometry();
@@ -2950,7 +2970,7 @@ varying vec3 vN, vV, vC; varying float vA;
 void main() {
   vec3 col; float vis;
   vec3 p = nodeAt(col, vis);
-  vec4 mv = modelViewMatrix * vec4(p + position * uR * (0.4 + 0.6 * vis) * (1.0 + 0.9 * smoothstep(0.3, 1.0, uGrp) * (1.0 - uLand)), 1.0);
+  vec4 mv = modelViewMatrix * vec4(p + position * uR * (0.4 + 0.6 * vis) * (1.0 + 1.5 * smoothstep(0.3, 1.0, uGrp) * (1.0 - uLand)), 1.0);
   vN = normalize(normalMatrix * normal); vV = -mv.xyz; vC = col; vA = vis;
   gl_Position = projectionMatrix * mv;
   if (vis < 0.01) gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
@@ -2978,7 +2998,7 @@ void main() {
   vec3 col; float vis;
   vec3 p = nodeAt(col, vis);
   vec4 mv = modelViewMatrix * vec4(p, 1.0);
-  mv.xy += position.xy * uR * 3.6 * (1.0 + 0.9 * smoothstep(0.3, 1.0, uGrp) * (1.0 - uLand)) * length(modelViewMatrix[0].xyz);
+  mv.xy += position.xy * uR * 3.6 * (1.0 + 1.5 * smoothstep(0.3, 1.0, uGrp) * (1.0 - uLand)) * length(modelViewMatrix[0].xyz);
   vC = col; vA = vis; vQ = position.xy;
   gl_Position = projectionMatrix * mv;
   if (vis < 0.01) gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
@@ -3125,11 +3145,12 @@ void main() {
   const anchors = {
     tiles: front(5.5 * TS, D0 + 0.004),
     feat: above(CL, HB + 0.012, TS * 0.55), listen: above(CL, HN), close: above(CL, 0.012),
-    cloud: [ECEN[0] + ER * 0.95, ECEN[1] + ER * 0.62, ECEN[2]], cloudC: ECEN.slice(),
+    cloud: [ECEN[0] - ER * 0.3, ECEN[1] + ER * 0.95, ECEN[2]], cloudC: ECEN.slice(),
     mucosa: DA[0], submucosa: DA[1], inner: DA[2], outer: DA[3], lymphoid: DA[4], vessels: DA[5],
     muscularis: front(1.05, (layers(1.05).b2 + layers(1.05).bot) / 2),
     gauge: [GCEN[0] + GW / 2 + 0.01, GCEN[1] + 0.04, GCEN[2]],
   };
+  GC.forEach((g, k) => { anchors['grp' + k] = [g.p[0] + 0.03, g.p[1] + 0.05, g.p[2]]; });
   const azAt = p => { const n = nrm(p[0]); return Math.atan2(n[0], n[2]) * 180 / PI; };
   const Tc = front(0.72, 0.2), Fc = above(CL, 0.016), Nc = above(CL, 0.03, TS * 0.5);
 
@@ -3153,7 +3174,7 @@ void main() {
       U.uNet.value = Math.max(ad, gr > 0 && gr < 2 ? 1 : 0);
       U.uFeat.value = ft * (1 - prog(gr, 0, 0.3));
       U.uOut.value = 1 - prog(gr, 0, 0.25);
-      U.uDim.value = ad * (1 - prog(gr, 0, 0.3));
+      U.uDim.value = Math.max(ad * (1 - prog(gr, 0, 0.3)), 0.85 * prog(gr, 0.1, 0.5) * (1 - prog(gr, 1, 1.4)));   // (the slide dims under the map)
       // hidden parts are not drawn at all
       wash.visible = tl + ft + ad + dm + fc > 0.001;
       bars.visible = ft > 0.001 && U.uOut.value > 0.003;
@@ -3174,6 +3195,8 @@ void main() {
       { text: ['Each tile', 'listens to its neighbours'], at: 'listen', cls: 'cyn', alpha: S => prog(S.slide_adj, 0.3, 0.6) * (1 - prog(Math.max(S.slide_group || 0, S.slide_domain), 0.02, 0.2)) },
       // the method's last step: alike tiles gather in the map of their descriptions
       { text: ['Alike tiles', 'gather: a domain each'], at: 'cloud', cls: 'cyn', alpha: S => prog(S.slide_group || 0, 0.6, 0.9) * (1 - prog(S.slide_group || 0, 1.05, 1.35)) * (1 - clamp(S.slide_focus, 0, 1)) },
+      // (each group in the map named as the domain it becomes; groups of a handful of tiles too small to name)
+      ...DOM.map((d, k) => ({ text: d.label, at: 'grp' + k, cls: d.cls, alpha: S => (GC[k].n >= 8 ? 1 : 0) * prog(S.slide_group || 0, 0.75, 0.95) * (1 - prog(S.slide_group || 0, 1.02, 1.25)) * (1 - clamp(S.slide_focus, 0, 1)) })),
       ...DOM.map((d, k) => ({ text: d.label, at: DK[k], cls: d.cls, alpha: S => domA(k, S) })),
       // (the numbers are on the gauge)
       { text: ['Gut submucosa', 'thins with age'], at: 'gauge', cls: 'mag', alpha: S => gaugeOn(S) },
@@ -3183,8 +3206,9 @@ void main() {
       tiles: [azAt(Tc) - 24, 12, 1.7, ...Tc],
       // (the features and the network from a slant, so the bars and the floating network stand out of the slide)
       matrix: [azAt(Fc) - 22, 20, 0.56, ...Fc],
-      close: [azAt(Nc) - 14, 24, 0.66, ...Nc],
-      group: [-14, 10, 2.15, ECEN[0] - 0.02, ECEN[1] * 0.62, ECEN[2] * 0.7],
+      close: [azAt(Nc) - 14, 26, 0.8, ...Nc],
+      // (the map and the whole section under it)
+      group: [-12, 12, 3.0, ECEN[0] + 0.04, ECEN[1] * 0.5, ECEN[2] * 0.45],
       domains: [5, 5, 2.85, 0.02, -0.02, 0],
       age: [0, 8, 3.25, -0.06, 0.12, 0],
     },
@@ -3563,6 +3587,8 @@ SETS.atlas = function (K) {
   const WCOLS = NSL.map(n => Math.max(1, Math.ceil(n * 1.6 / NR)));
   const WST = []; let U = 0; for (let i = 0; i < NT; i++) { WST.push(U); U += WCOLS[i] + (i < NT - 1 ? GAP : 0); }
   const uTh = u => (u / U - 0.5) * 2 * TH;
+  // the rows by age stand in a rack: a shelf at every decade (16 rows each), SG rows' height apart
+  const SG = 1.6, RT = NR + 6 * SG, rowY = rw => ((rw + 0.5 + SG * (1 + Math.floor(rw / 16))) / RT - 0.5) * WH, shelfY = k => ((16 * k + SG * (k + 0.5)) / RT - 0.5) * WH;
   const WALLMID = TT.map((_, i) => wallAt(uTh(WST[i] + WCOLS[i] / 2), 0));
 
   // ---------------------------------------------------------------- textures: slides (one per shape), captions
@@ -3634,7 +3660,7 @@ vec3 boxAt(vec3 q, vec3 c, vec3 X, vec3 Y, vec3 Z, out vec3 nrm, out vec2 fuv) {
       for (const a of ages) {
         let rw = clamp(Math.floor((a - AGES[0]) / (AGES[1] - AGES[0]) * NR), 0, NR - 1);
         for (let s = 0; s < NR * 2 && occ[rw] >= cols; s++) { const t = rw + (s % 2 ? -1 : 1) * Math.ceil((s + 1) / 2); if (t >= 0 && t < NR && occ[t] < cols) { rw = t; break; } }
-        const c = occ[rw]++, u = WST[ti] + c + 0.5, th = uTh(u), y = ((rw + 0.5) / NR - 0.5) * WH;
+        const c = occ[rw]++, u = WST[ti] + c + 0.5, th = uTh(u), y = rowY(rw);
         aW.set([th, y, ti, vi + (r() < 0.5 ? 0 : 8)], o * 4);
         aWR.set([r(), 0.42 * Math.abs(th) / TH + 0.12 * rw / NR + 0.1 * r(), r(), a], o * 4);
         o++;
@@ -3651,7 +3677,7 @@ vec3 boxAt(vec3 q, vec3 c, vec3 X, vec3 Y, vec3 Z, out vec3 nrm, out vec2 fuv) {
   const slideTex = slideTexture();
   const wallMat = new THREE.ShaderMaterial({
     uniforms: { uA: set.uA, uTime: K.U.uTime, uLib: { value: 1 }, uVis: { value: 1 }, uTex: { value: slideTex }, uTis: { value: TIS },
-      uSW: { value: (WR * 2 * TH / U) * 0.8 }, uSH: { value: WH / NR * 0.88 } },
+      uSW: { value: (WR * 2 * TH / U) * 0.8 }, uSH: { value: WH / RT * 0.88 } },
     transparent: true, depthWrite: false, side: THREE.DoubleSide,
     vertexShader: BOXGL + `
 attribute vec4 aW, aR;
@@ -3713,6 +3739,81 @@ void main() {
   set.mats.push(wallMat);
   const wall = new THREE.Mesh(wallGeo, wallMat); wall.frustumCulled = false; wall.renderOrder = 1; set.group.add(wall);
 
+  // the rack the slides stand in: a dark back panel, a shelf at every decade of age and a post between tissues, lit, so
+  // the wall reads as a curved cabinet in depth (from afar too, where single slides are a few pixels); it stands first
+  // as the library opens, and fades with the wall
+  const rackGeo = new THREE.BufferGeometry();
+  {
+    const P = [], N = [], E = [], I = [], th0 = uTh(-GAP / 2), th1 = uTh(U + GAP / 2), SEG = 120;
+    const r0 = WR - 0.02, r1 = WR + 0.016, yB = shelfY(0), yT = shelfY(5);
+    const at = (r, th, y) => [r * Math.sin(th), y, WC - r * Math.cos(th)], inw = th => [-Math.sin(th), 0, Math.cos(th)];
+    // a quad from four corners (a, b along one way, then c, d back), its normal and the edge glow's coordinate per corner
+    const quad = (a, b, c, d, n, e) => { const v = P.length / 3; for (const q of [a, b, c, d]) P.push(...q); for (let k = 0; k < 4; k++) N.push(...(Array.isArray(n[0]) ? n[k] : n)); E.push(...e); I.push(v, v + 1, v + 2, v, v + 2, v + 3); };
+    // the shelves (the top one and the bottom one a little deeper): top, front lip, underside
+    for (let k = 0; k <= 5; k++) {
+      const y = shelfY(k), h = k % 5 ? 0.0034 : 0.006, rf = r0 - (k % 5 ? 0 : 0.006);
+      for (let sg = 0; sg < SEG; sg++) {
+        const a = lerp(th0, th1, sg / SEG), b = lerp(th0, th1, (sg + 1) / SEG), na = inw(a), nb = inw(b);
+        quad(at(rf, a, y + h), at(rf, b, y + h), at(r1, b, y + h), at(r1, a, y + h), [0, 1, 0], [1, 1, 0, 0]);
+        quad(at(rf, a, y - h), at(rf, b, y - h), at(rf, b, y + h), at(rf, a, y + h), [na, nb, nb, na], [0.8, 0.8, 1, 1]);
+        quad(at(r1, a, y - h), at(r1, b, y - h), at(rf, b, y - h), at(rf, a, y - h), [0, -1, 0], [0, 0, 0, 0]);
+      }
+    }
+    // the posts between tissues (and at both ends): front and both sides
+    const posts = [th0, th1];
+    for (let i = 1; i < NT; i++) posts.push(uTh(WST[i] - GAP / 2));
+    for (const th of posts) {
+      const w = 0.0016 / WR, a = th - w, b = th + w, na = inw(a), sa = [Math.cos(th), 0, Math.sin(th)], sb = sa.map(v => -v);
+      quad(at(r0, a, yB), at(r0, b, yB), at(r0, b, yT), at(r0, a, yT), [na, na, na, na], [-0.2, -0.2, -0.2, -0.2]);
+      quad(at(r1, a, yB), at(r0, a, yB), at(r0, a, yT), at(r1, a, yT), sb, [-0.4, -0.4, -0.4, -0.4]);
+      quad(at(r0, b, yB), at(r1, b, yB), at(r1, b, yT), at(r0, b, yT), sa, [-0.4, -0.4, -0.4, -0.4]);
+    }
+    // the back panel
+    for (let sg = 0; sg < SEG; sg++) {
+      const a = lerp(th0, th1, sg / SEG), b = lerp(th0, th1, (sg + 1) / SEG), na = inw(a), nb = inw(b);
+      quad(at(r1, a, yB), at(r1, b, yB), at(r1, b, yT), at(r1, a, yT), [na, nb, nb, na], [-1, -1, -1, -1]);
+    }
+    rackGeo.setAttribute('position', new THREE.Float32BufferAttribute(P, 3));
+    rackGeo.setAttribute('normal', new THREE.Float32BufferAttribute(N, 3));
+    rackGeo.setAttribute('aE', new THREE.Float32BufferAttribute(E, 1));
+    rackGeo.setIndex(I);
+  }
+  const rackMat = new THREE.ShaderMaterial({
+    uniforms: { uA: set.uA, uK: { value: 1 } },
+    transparent: true, depthWrite: true, side: THREE.DoubleSide,
+    vertexShader: `
+attribute float aE;
+varying vec3 vN, vV, vW; varying float vE;
+void main() {
+  vec4 mv = modelViewMatrix * vec4(position, 1.0);
+  vN = normalize(normalMatrix * normal); vV = -mv.xyz; vE = aE; vW = position;
+  gl_Position = projectionMatrix * mv;
+}`,
+    fragmentShader: `
+uniform float uA, uK;
+varying vec3 vN, vV, vW; varying float vE;
+void main() {
+  float a = uA * uK;
+  if (a < 0.004) discard;
+  vec3 n = normalize(vN), v = normalize(vV), L = normalize(vec3(-0.45, 0.6, 0.65));
+  if (dot(n, v) < 0.0) n = -n;
+  float df = max(dot(n, L), 0.0), fr = pow(1.0 - max(dot(n, v), 0.0), 3.0), sp = pow(max(dot(reflect(-L, n), v), 0.0), 30.0);
+  // the back panel: deep blue, a soft light pooled in its middle; shelves and posts: blue-grey metal with a bright lip
+  if (vE < -0.5) {
+    float pool = exp(-pow(vW.x / 1.1, 2.0) - pow(vW.y / 0.7, 2.0));
+    gl_FragColor = vec4(vec3(0.02, 0.045, 0.085) * (0.6 + 0.6 * df) + vec3(0.03, 0.06, 0.1) * pool, a);
+    return;
+  }
+  // (vE: 1 at a shelf's lip, 0 at its back; below 0 a post: a little darker, no lip)
+  float lip = smoothstep(0.75, 1.0, vE), post = step(vE, -0.1);
+  vec3 base = vec3(0.16, 0.22, 0.32) * (1.0 - 0.35 * post);
+  vec3 col = base * (0.25 + 0.95 * df) + vec3(0.55, 0.7, 0.9) * (fr * 0.25 + sp * 0.5 + lip * (0.18 + 0.3 * df));
+  gl_FragColor = vec4(col, a);
+}`,
+  });
+  set.mats.push(rackMat);
+  const rack = new THREE.Mesh(rackGeo, rackMat); rack.frustumCulled = false; rack.renderOrder = 0; rack.raycast = () => {}; set.group.add(rack);
+
   // ---------------------------------------------------------------- the sections' tiles = the cloud's points
   const NTILE = SEC.reduce((s, q) => s + q.N, 0), exSet0 = new Set(exT.filter(i => i >= 0));
   const tileGeo = boxGeo(new THREE.InstancedBufferGeometry());
@@ -3751,14 +3852,14 @@ void main() {
   const uP = TT.map(() => new THREE.Vector4(0, 0, 0, S0)), uQ = TT.map(() => new THREE.Vector4(0, 0, 0, 0));
   const SECU = { uP: { value: uP }, uQ: { value: uQ } };
   const tileMat = new THREE.ShaderMaterial({
-    uniforms: Object.assign({ uA: set.uA, uUm: { value: 0 }, uAge: { value: 0 }, uCA: { value: 1 }, uCR: { value: 0 }, uFoc: { value: 0 },
+    uniforms: Object.assign({ uA: set.uA, uUm: { value: 0 }, uAge: { value: 0 }, uCA: { value: 1 }, uCR: { value: 0 }, uFoc: { value: 0 }, uHero: { value: -1 },
       uPt: { value: 0.015 }, uCC: { value: new THREE.Vector3(0, 0.05, 0.08) }, uCS: { value: 1 } }, SECU),
     transparent: true, depthWrite: true, side: THREE.DoubleSide,
     blending: THREE.CustomBlending, blendSrc: THREE.OneFactor, blendDst: THREE.OneMinusSrcAlphaFactor,
     vertexShader: BOXGL + `
 attribute vec4 aT, aM; attribute vec3 aU, aCA, aCB, aH; attribute vec2 aRH;
 uniform vec4 uP[${NT}], uQ[${NT}];
-uniform float uA, uUm, uAge, uCA, uCR, uFoc, uPt, uCS; uniform vec3 uCC;
+uniform float uA, uUm, uAge, uCA, uCR, uFoc, uPt, uCS, uHero; uniform vec3 uCC;
 varying vec3 vC, vN, vV; varying float vA, vK, vTop; varying vec2 vQ;
 void main() {
   int ti = int(aT.z + 0.5);
@@ -3770,7 +3871,8 @@ void main() {
   vec3 up = uCC + vec3(aU.x * cr + aU.z * sr, aU.y, -aU.x * sr + aU.z * cr) * uCS;
   float f = smoothstep(aM.x - 0.035, aM.x + 0.035, uAge);
   // a tile on its section: a box standing on the plate, as tall as its domain's relief; in the cloud, a small cube
-  float cs = aT.w * P.w * 0.94, hs = mix(aRH.x, aRH.y, f) * cs * (0.85 + 0.3 * aM.y), cc = uPt * (0.75 + 0.5 * aM.y);
+  // (a focused section stands in deeper relief: a terrain of its domains)
+  float cs = aT.w * P.w * 0.94, hs = mix(aRH.x, aRH.y, f) * cs * (0.85 + 0.3 * aM.y) * (1.0 + 2.4 * Q.w * (1.0 - k)), cc = uPt * (0.75 + 0.5 * aM.y);
   vec3 Xs = vec3(c, 0.0, -s) * cs, Ys = vec3(0.0, cs, 0.0), Zs = vec3(s, 0.0, c) * hs;
   vec3 X = mix(Xs, vec3(cc, 0.0, 0.0), k), Y = mix(Ys, vec3(0.0, cc, 0.0), k), Z = mix(Zs, vec3(0.0, 0.0, cc), k);
   vec3 p = mix(sp + Zs * 0.5, up, k);
@@ -3784,7 +3886,11 @@ void main() {
   vC = (mix(aH, mix(aCA, aCB, f), max(Q.z, k)) * (1.0 + 0.1 * Q.w) + gl * vec3(0.7)) * ex;
   vA = uA * mix(Q.y, 0.88 * uCA * (1.0 - 0.85 * uFoc * (1.0 - Q.w)), k);
   vK = k; vQ = fuv * 2.0 - 1.0;
+#ifdef HERO
   if (vA < 0.004) gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
+#else
+  if (vA < 0.004 || abs(aT.z - uHero) < 0.5) gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
+#endif
 }`,
     fragmentShader: `
 varying vec3 vC, vN, vV; varying float vA, vK, vTop; varying vec2 vQ;
@@ -3794,47 +3900,80 @@ void main() {
   vec3 n = normalize(vN), v = normalize(vV), L = normalize(vec3(-0.45, 0.6, 0.65));
   if (dot(n, v) < 0.0) n = -n;
   float df = max(dot(n, L), 0.0), fr = pow(1.0 - max(dot(n, v), 0.0), 2.5);
-  // lit faces; the tops a little brighter and bevelled at their edges; in the cloud a soft glow of their own
+  // lit faces; the tops bright and bevelled at their edges, the sides darker and darker still towards their foot (where
+  // a step of the relief meets the lower tiles), so the relief reads; in the cloud a soft glow of their own
   float e = 1.0 - smoothstep(0.7, 1.0, max(abs(vQ.x), abs(vQ.y)));
-  vec3 col = vC * (0.42 + 0.7 * df) * mix(0.8, 1.06, vTop) * mix(0.82, 1.0, e) + vC * fr * 0.35 + vC * vK * 0.35;
+  float side = mix(0.42 + 0.26 * (vQ.y * 0.5 + 0.5), 0.8, vK);
+  vec3 col = vC * (0.42 + 0.7 * df) * mix(side, 1.06, vTop) * mix(1.0, mix(0.8, 1.0, e), vTop) + vC * fr * 0.35 + vC * vK * 0.35;
   gl_FragColor = vec4(col * a, a);
 }`,
   });
   set.mats.push(tileMat);
   const tiles = new THREE.Mesh(tileGeo, tileMat); tiles.frustumCulled = false; tiles.renderOrder = 3; set.group.add(tiles);
+  // the focused section drawn again on its own, writing depth, so its relief is right from every side (the main draw
+  // writes none while a section is focused or a plot shows: the dimmed sections must not hide what is in front of them,
+  // and leaves the focused one out). One small geometry per section, made the first time it is focused: views into the
+  // main arrays (its tiles are contiguous)
+  const heroMat = new THREE.ShaderMaterial({ uniforms: tileMat.uniforms, vertexShader: tileMat.vertexShader, fragmentShader: tileMat.fragmentShader,
+    defines: { HERO: 1 }, transparent: true, depthWrite: true, side: THREE.DoubleSide,
+    blending: THREE.CustomBlending, blendSrc: THREE.OneFactor, blendDst: THREE.OneMinusSrcAlphaFactor });
+  set.mats.push(heroMat);
+  const T0 = []; { let o = 0; SEC.forEach(q => { T0.push(o); o += q.N; }); }
+  const HG = [];
+  const heroGeo = ti => {
+    if (HG[ti]) return HG[ti];
+    const g = boxGeo(new THREE.InstancedBufferGeometry()), o = T0[ti], n = SEC[ti].N;
+    for (const k of ['aT', 'aU', 'aCA', 'aCB', 'aH', 'aM', 'aRH']) { const at = tileGeo.attributes[k], w = at.itemSize; g.setAttribute(k, new THREE.InstancedBufferAttribute(at.array.subarray(o * w, (o + n) * w), w)); }
+    g.instanceCount = n; g.boundingSphere = tileGeo.boundingSphere;
+    return (HG[ti] = g);
+  };
+  const hero = new THREE.Mesh(heroGeo(0), heroMat); hero.frustumCulled = false; hero.renderOrder = 3; hero.visible = false; set.group.add(hero);
 
   // plates behind the sections and their captions (one instanced draw: 40 plates, 40 captions)
-  const capGeo = new THREE.InstancedBufferGeometry();
-  { const q = new THREE.PlaneGeometry(1, 1); capGeo.index = q.index; capGeo.setAttribute('position', q.attributes.position); capGeo.setAttribute('uv', q.attributes.uv);
-    const aI = new Float32Array(NT * 2 * 4);
+  // (each plate a slab of dark glass with a lit edge, a box as three faces; a caption is only a face)
+  const capGeo = boxGeo(new THREE.InstancedBufferGeometry());
+  { const aI = new Float32Array(NT * 2 * 4);
     for (let i = 0; i < NT; i++) { aI.set([i, 0, 0, 0], i * 4); aI.set([i, 1, (i % 2) * 0.5, 1 - (Math.floor(i / 2) + 1) * 48 / 1024], (NT + i) * 4); }
     capGeo.setAttribute('aI', new THREE.InstancedBufferAttribute(aI, 4)); capGeo.instanceCount = NT * 2; capGeo.boundingSphere = new THREE.Sphere(new THREE.Vector3(), 3); }
   const capMat = new THREE.ShaderMaterial({
     uniforms: Object.assign({ uA: set.uA, uTex: { value: captionTexture() }, uUm: { value: 0 } }, SECU),
-    transparent: true, depthWrite: false,
-    vertexShader: `
+    transparent: true, depthWrite: false, side: THREE.DoubleSide,
+    vertexShader: BOXGL + `
 attribute vec4 aI; uniform vec4 uP[${NT}], uQ[${NT}]; uniform float uA, uUm;
-varying vec2 vUv, vL; varying float vA, vKind, vF;
+varying vec2 vUv, vL; varying float vA, vKind, vF, vSide; varying vec3 vN, vV;
 void main() {
   vec4 P = uP[int(aI.x + 0.5)], Q = uQ[int(aI.x + 0.5)];
-  float c = cos(Q.x), s = sin(Q.x);
-  vec2 sz = aI.y > 0.5 ? vec2(2.1, 0.39) : vec2(2.3, 2.62);
-  vec3 l = vec3(position.x * sz.x, position.y * sz.y + (aI.y > 0.5 ? -1.2 : -0.13), aI.y > 0.5 ? 0.01 : -0.02);
-  vec3 p = P.xyz + vec3(l.x * c + l.z * s, l.y, -l.x * s + l.z * c) * P.w;
-  gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0);
-  vUv = aI.zw + uv * vec2(0.5, 48.0 / 1024.0); vL = (uv - 0.5) * sz; vKind = aI.y; vF = Q.w;
+  float c = cos(Q.x), s = sin(Q.x), cap = step(0.5, aI.y), th = 0.075 * (1.0 - cap);
+  vec2 sz = cap > 0.5 ? vec2(2.1, 0.39) : vec2(2.3, 2.62);
+  vec3 l = vec3(0.0, cap > 0.5 ? -1.2 : -0.13, cap > 0.5 ? 0.01 : -0.02 - 0.5 * th);
+  vec3 C = P.xyz + vec3(l.x * c + l.z * s, l.y, -l.x * s + l.z * c) * P.w;
+  vec3 X = vec3(c, 0.0, -s) * sz.x * P.w, Y = vec3(0.0, sz.y * P.w, 0.0), Z = vec3(s, 0.0, c) * max(th, 1e-4) * P.w, nrm; vec2 fuv;
+  vec4 mv = modelViewMatrix * vec4(C + boxAt(position, C, X, Y, Z, nrm, fuv), 1.0);
+  gl_Position = projectionMatrix * mv;
+  vN = normalize(normalMatrix * nrm); vV = -mv.xyz; vSide = step(0.5, position.z);
+  vUv = aI.zw + fuv * vec2(0.5, 48.0 / 1024.0); vL = (fuv - 0.5) * sz; vKind = aI.y; vF = Q.w;
   vA = uA * Q.y * (1.0 - uUm);
-  if (vA < 0.004) gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
+  // (a caption is not drawn from behind: it would read mirrored)
+  float back = step(dot(cameraPosition - (modelMatrix * vec4(C, 1.0)).xyz, mat3(modelMatrix) * vec3(s, 0.0, c)), 0.0);
+  if (vA < 0.004 || (cap > 0.5 && (vSide > 0.5 || back > 0.5))) gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
 }`,
     fragmentShader: `
-uniform sampler2D uTex; varying vec2 vUv, vL; varying float vA, vKind, vF;
+uniform sampler2D uTex; varying vec2 vUv, vL; varying float vA, vKind, vF, vSide; varying vec3 vN, vV;
 void main() {
   if (vKind > 0.5) { vec4 t = texture2D(uTex, vUv); gl_FragColor = vec4(t.rgb, t.a * vA * 0.95); return; }
-  vec2 h = vec2(1.15, 1.31), q = abs(vL) - h + 0.16; float d = length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - 0.16;
+  vec3 n = normalize(vN), v = normalize(vV), L = normalize(vec3(-0.45, 0.6, 0.65));
+  if (dot(n, v) < 0.0) n = -n;
+  float df = max(dot(n, L), 0.0), fr = pow(1.0 - max(dot(n, v), 0.0), 2.5);
+  vec3 rimC = mix(vec3(0.35, 0.45, 0.6), vec3(1.0, 0.62, 0.8), vF);
+  // the slab's edges: dark glass lit from the side, its rim colour catching the light
+  if (vSide > 0.5) { gl_FragColor = vec4(vec3(0.03, 0.06, 0.11) * (0.6 + 0.9 * df) + rimC * (0.25 + 0.45 * df + 0.3 * fr), min(1.0, 0.75 + 0.2 * vF) * vA); return; }
+  vec2 h = vec2(1.15, 1.31), q = abs(vL) - h + 0.05; float d = length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - 0.05;
   if (d > 0.0) discard;
   float rim = smoothstep(-0.035, 0.0, d);
-  vec3 col = mix(vec3(0.025, 0.05, 0.09), mix(vec3(0.35, 0.45, 0.6), vec3(1.0, 0.62, 0.8), vF), rim);
-  gl_FragColor = vec4(col, min(1.0, 0.55 + 0.33 * vF + 0.35 * rim) * vA);
+  // its face: dark, a little sheen across it from the light
+  float sheen = 0.5 + 0.5 * dot(vL / max(length(vL), 1e-3), vec2(-0.6, 0.8));
+  vec3 col = mix(vec3(0.025, 0.05, 0.09) * (0.8 + 0.5 * sheen), rimC, rim);
+  gl_FragColor = vec4(col, min(1.0, 0.6 + 0.33 * vF + 0.35 * rim) * vA);
 }`,
   });
   set.mats.push(capMat);
@@ -4079,8 +4218,9 @@ void main() {
     for (let i = 0; i < NT; i++) { cur.fw[i] += (focusW(S, i) - cur.fw[i]) * ke; if (cur.fw[i] < 1e-3) cur.fw[i] = 0; if (cur.fw[i] > fmax) { fmax = cur.fw[i]; fi = i; } }
     cur.fmax = fmax; cur.fi = fi;
     // the library
-    const libV = lib * (1 - 0.72 * map) * (1 - 0.85 * Math.max(um, vc)) * (1 - 0.6 * fmax);
+    const dimW = (1 - 0.72 * map) * (1 - 0.85 * Math.max(um, vc)) * (1 - 0.6 * fmax), libV = lib * dimW;
     wallMat.uniforms.uLib.value = lib; wallMat.uniforms.uVis.value = libV; wall.visible = libV > 0.04 && lib > 0.002;
+    rackMat.uniforms.uK.value = sm(c01(lib / 0.12)) * dimW; rack.visible = rackMat.uniforms.uK.value > 0.01;   // (the rack stands first)
     wallGeo.setDrawRange(0, map > 0.2 || um > 0.2 || vc > 0.2 ? 6 : 18);   // (a dimmed wall behind the sections: the slides' faces only)
     // the sections: from their tissue's column on the wall to the grid, one of them forward when focused
     const wc = vc > 0 ? curv / (volc + curv) : 0, F0 = [0, 0.02, 0.72], FV = [lerp(0.74, 0.84, wc), 0.04, 0.5], Fp = K.v3.lerp(F0, FV, vc), sF = lerp(0.42, 0.33, vc);
@@ -4100,14 +4240,18 @@ void main() {
     tileMat.uniforms.uUm.value = um; tileMat.uniforms.uAge.value = age; tileMat.uniforms.uFoc.value = fmax;
     tileMat.uniforms.uCA.value = 1 - 0.88 * vc; tileMat.uniforms.uCR.value = 0.5 + 0.035 * t;
     tiles.visible = anySec > 0.003 || um > 0.002;
+    const hi = fmax > 0.02 && fi >= 0 ? fi : -1;
+    tileMat.uniforms.uHero.value = hi; hero.visible = hi >= 0 && tiles.visible;
+    if (hi >= 0) hero.geometry = heroGeo(hi);
     // the sections' organs (gone as the tiles fly to the cloud)
-    if (!orgMesh && O3) { O3.step(3); buildOrgans(); }
+    if (!orgMesh && O3) { if (!O3.driven) O3.step(3); buildOrgans(); }   // (the engine steps them itself)
     if (orgMesh) {
       const show = 1 - sm(um * 2.5);
       orgMesh.visible = anySec > 0.003 && show > 0.01 && vc < 0.5;   // (not beside a plot: the sections there are dim)
       if (orgMesh.visible) for (let i = 0; i < NT; i++) { const p = secW(i, [-0.86, 0.9, 0.34]); mP[i].set(p[0], p[1], p[2], Math.min(cur.s[i] * 0.3, 0.075)); mQ[i].set(cur.al[i] * show, 0.25 * cur.fw[i], t * 0.4 + i, 0); }
     }
-    tileMat.depthWrite = vc < 0.02 && fmax < 0.02;   // (dimmed sections behind a plot or a focused section must not hide what is in front of them) caps.visible = anySec > 0.003 && um < 0.998; capMat.uniforms.uUm.value = sm(um * 1.6);
+    tileMat.depthWrite = vc < 0.02 && fmax < 0.02;   // (dimmed sections behind a plot or a focused section must not hide what is in front of them)
+    caps.visible = anySec > 0.003 && um < 0.998; capMat.uniforms.uUm.value = sm(um * 1.6);
     // the volcano (left of a focused section)
     const vS = 1 - 0.2 * fmax; vg.position.set(-0.5 * fmax, 0.02, 0.1); vg.scale.setScalar(vS); vg.visible = volc > 0.003;
     volMat.uniforms.uRev.value = volc * 1.05; volMat.uniforms.uSig.value = prog(volc, 0.68, 0.95);
@@ -4184,8 +4328,10 @@ void main() {
   labels.push({ text: [String(AGES[1]), ' years'], at: 'age70', cls: '', alpha: S => (cur.fi >= 0 ? cur.gauge : 0) * (1 - vcS(S)) });
 
   const cam = {
-    default: [0, 6, 3.4, 0, 0, -0.12], library: [0, 6, 3.4, 0, 0, -0.12], atlas: [0, 3, 3.2, 0, 0, 0.14],
-    umap: [24, 14, 3.3, 0, 0.05, 0.08], focus: [0, 4, 1.95, 0, 0.0, 0.72], volcano: [-6, 9, 3.1, 0.24, 0.02, 0.1],
+    default: [0, 10, 3.4, 0, 0, -0.12], library: [0, 10, 3.4, 0, 0, -0.12],   // (a little from above: the rack's shelves show)
+    atlas: [0, 3, 3.2, 0, 0, 0.14],
+    umap: [24, 14, 3.3, 0, 0.05, 0.08], focus: [-26, 16, 1.95, 0, 0.0, 0.72],   // (the focused section from a little left and above: its relief shows)
+    volcano: [-6, 9, 3.1, 0.24, 0.02, 0.1],
     curves: [-20, 14, 3.4, 0.33, -0.04, 0.08], age: [0, 6, 3.4, 0.2, 0.02, 0.3],
     slides: [-8, 6, 0.75, -0.1, 0.22, -0.49],   // close to the wall: single slides (the library's own view is the whole wall)
     shelf: [-32, 10, 0.3, -0.12, 0.1, -0.47],   // a slant along the wall, up close: the slides as glass with their tissue
@@ -4557,10 +4703,11 @@ varying vec3 vC, vN, vV; varying float vA, vT, vPh, vH;
 void main() {
   // drawn from the upper node down to the lower one as the lower level grows; the growing end tapers
   float g = clamp((uGrow - aS) / 0.12, 0.0, 1.0), on = step(aT, g + 0.0001), tip = g > 0.999 ? 1.0 : smoothstep(g, g - 0.15, aT);
+  // (thick enough to read as tubes from afar; the rest stay in view, a little dimmer, while a node is focused)
   float h = aH * uF;
-  float r = 0.0052 * (1.0 + 0.6 * h) * on * mix(0.3, 1.0, tip);
+  float r = 0.0074 * (1.0 + 0.45 * h) * on * mix(0.3, 1.0, tip);
   vC = mix(uLC[int(aL0 + 0.5)], uLC[int(aL1 + 0.5)], aT); vT = aT; vPh = aPh; vH = h;
-  vA = on * uK * (0.5 * (1.0 - 0.82 * uF) + 0.75 * h);
+  vA = on * uK * (0.6 * (1.0 - 0.6 * uF) + 0.6 * h);
   vec4 mv = modelViewMatrix * vec4(position + aNrm * r, 1.0);
   vN = normalMatrix * aNrm; vV = -mv.xyz;
   gl_Position = projectionMatrix * mv;
@@ -4570,12 +4717,12 @@ uniform float uA, uTime;
 varying vec3 vC, vN, vV; varying float vA, vT, vPh, vH;
 void main() {
   if (vA < 0.003) discard;
-  // a soft glowing tube: bright along its middle, fading to its edges; a light runs down it now and then (organ to
-  // domain)
+  // a soft glowing tube in its levels' colours (from the upper level's to the lower one's): lit across, bright along
+  // its middle, fading to its edges; a light runs down it now and then (organ to domain)
   float c = abs(dot(normalize(vN), normalize(vV)));
   float run = pow(0.5 + 0.5 * sin(vT * 7.0 - uTime * 1.4 + vPh), 12.0);
-  vec3 col = mix(vC, vec3(1.0), 0.12 + 0.3 * vH + 0.4 * pow(c, 6.0)) * (0.7 + 1.1 * run);
-  gl_FragColor = vec4(col, vA * uA * (0.15 + 0.85 * c * c) * (1.0 + 0.6 * run));
+  vec3 col = vC * (0.45 + 0.8 * c) * (0.8 + 0.9 * run) + vec3(1.0) * (0.08 * pow(c, 6.0) + 0.22 * vH * pow(c, 3.0) + 0.18 * run);
+  gl_FragColor = vec4(col, vA * uA * (0.25 + 0.75 * c) * (1.0 + 0.5 * run));
 }`,
   });
   set.mats.push(thrMat);
@@ -4725,7 +4872,7 @@ void main() {
     orgMesh.frustumCulled = false; orgMesh.renderOrder = 3; orgMesh.raycast = () => {};
     set.group.add(orgMesh);
   }
-  const orgStep = ms => { if (!orgMesh && O3) { O3.step(ms); buildOrgans(); } };
+  const orgStep = ms => { if (!orgMesh && O3) { if (!O3.driven) O3.step(ms); buildOrgans(); } };   // (the engine steps them itself)
 
   // ---------------------------------------------------------------- the contact bands (tubes; width and colour per frame)
   const BS = 22, BR = 6, NBD = CO.reduce((s, o) => s + o.bands.length, 0);
@@ -5155,21 +5302,30 @@ function makeDots() {
   set.group.add(pts);
   let last = -1, pickT = 0;
   const _p = new THREE.Vector3();
-  // the models: one geometry of all 29, each placed and shown by its own uniforms (only the picked one shows)
-  let om = null;
-  const oP = O.map(() => new THREE.Vector4()), oQ = O.map(() => new THREE.Vector4());
-  function models() {
-    if (om || !ORGAN3D.ready()) return om;
-    const M = ORGAN3D.merged(O.map(o => ORGAN3D.idOf(o.name) || 'stomach')), mg = new THREE.BufferGeometry();
-    mg.setAttribute('position', new THREE.BufferAttribute(M.pos, 3)); mg.setAttribute('normal', new THREE.BufferAttribute(M.nrm, 3));
-    mg.setAttribute('aCol', new THREE.BufferAttribute(M.col, 3)); mg.setAttribute('aSlot', new THREE.BufferAttribute(M.slot, 1)); mg.setIndex(new THREE.BufferAttribute(M.idx, 1));
-    const sh = ORGAN3D.shader(n);
-    const m = new THREE.ShaderMaterial({ uniforms: { uA: set.uA, uP: { value: oP }, uQ: { value: oQ }, uTint: { value: new THREE.Color(...K.rgb(DOT_COL)) } },
-      vertexShader: sh.vertex, fragmentShader: sh.fragment, transparent: true });
-    set.mats.push(m);
-    om = new THREE.Mesh(mg, m); om.frustumCulled = false; om.renderOrder = 5; om.raycast = () => {};
-    set.group.add(om);
-    return om;
+  // the model: only the picked organ's (its geometry swapped when the pick changes, as soon as that model is built: it
+  // is wanted first), placed and shown by its uniforms
+  const oP = [new THREE.Vector4()], oQ = [new THREE.Vector4()], sh = ORGAN3D.shader(1);
+  const om = new THREE.Mesh(new THREE.BufferGeometry(), new THREE.ShaderMaterial({ uniforms: { uA: set.uA, uP: { value: oP }, uQ: { value: oQ },
+    uTint: { value: new THREE.Color(...K.rgb(DOT_COL)) } }, vertexShader: sh.vertex, fragmentShader: sh.fragment, transparent: true }));
+  set.mats.push(om.material);
+  om.frustumCulled = false; om.renderOrder = 5; om.raycast = () => {}; om.visible = false;
+  set.group.add(om);
+  let omId = null;
+  function model(id, t) {
+    if (id !== omId) {
+      const M = id && ORGAN3D.mesh(id);
+      if (id && !M) return false;   // (wanted: built next)
+      om.geometry.dispose();
+      if (id && t - pickT > 0 && t - pickT < 9) pickT = t;   // (a model that came late grows from now; not after a seek)
+      const mg = om.geometry = new THREE.BufferGeometry();
+      if (M) {
+        mg.setAttribute('position', new THREE.BufferAttribute(M.pos, 3)); mg.setAttribute('normal', new THREE.BufferAttribute(M.nrm, 3));
+        mg.setAttribute('aCol', new THREE.BufferAttribute(M.col, 3)); mg.setAttribute('aSlot', new THREE.BufferAttribute(new Float32Array(M.pos.length / 3), 1));
+        mg.setIndex(new THREE.BufferAttribute(M.idx, 1));
+      }
+      omId = id;
+    }
+    return !!id;
   }
   return Object.assign(set, {
     update(S, t) {
@@ -5181,13 +5337,12 @@ function makeDots() {
       }
       if (t < pickT) pickT = t - 9;   // (a seek back: shown at once)
       // the picked organ's model grows out in front of the body, beside its point (left of it: its label runs right)
-      if (!models()) return;
+      const o = O[k - 1];
+      om.visible = model(o ? ORGAN3D.idOf(o.name) : null, t);
+      if (!om.visible) return;
       const gr = smooth(clamp((t - pickT) / 0.9, 0, 1));
-      O.forEach((o, i) => {
-        const on = k === i + 1;
-        oQ[i].set(on ? gr : 0, 0.25, t * 0.5, 0);
-        if (on) oP[i].set(o.pos[0] - 0.19 * gr, o.pos[1] + 0.03, o.pos[2] + 0.16 * gr, 0.075 * (0.3 + 0.7 * gr));
-      });
+      oQ[0].set(gr, 0.25, t * 0.5, 0);
+      oP[0].set(o.pos[0] - 0.19 * gr, o.pos[1] + 0.03, o.pos[2] + 0.16 * gr, 0.075 * (0.3 + 0.7 * gr));
     },
     // the organ a ray passes closest to (within about 0.045 of its point, in the body's units), or -1
     pick(rc) {
@@ -5208,9 +5363,18 @@ function updateSets(S, t, dt, story) {
     if (a > 0.003) s.update(S, t, dt);
     else if (s.idle) s.idle(dt);   // a hidden set may build in slices
   }
-  // the organs' 3D models build between frames (the network set steps them while it is hidden): once they are all
-  // ready, the explore panes are drawn again with their pictures
-  if (!GL.orgReady && ORGAN3D.ready()) { GL.orgReady = true; if (APP.mode === 'explore') renderAll(); }
+  // the organs' 3D models and their pictures build between frames from the start, one organ after another (the one a
+  // pane or the body wants first): a short slice a frame in a headset, up to an eighth of a slow frame elsewhere (a
+  // slow frame's stutter is there anyway). Each picture goes into the HTML chips waiting for it as it is done, and the
+  // headset's panels redraw on GL.orgV (at most twice a second while they come)
+  if (!GL.orgDone) {
+    ORGAN3D.driven = true;
+    GL.orgDone = ORGAN3D.step(GL.renderer.xr.isPresenting ? 3 : clamp((dt || 0) * 125, 3, 24));
+    const v = ORGAN3D.version();
+    if (v !== GL.orgSeen) { GL.orgSeen = v; fillOrganPics(); }
+    const now = performance.now();
+    if (GL.orgDone || now - (GL.orgVT || 0) > 500) { GL.orgVT = now; GL.orgV = v; }
+  }
   const da = (S.body_a || 0) * (S.dots || 0);
   GL.dots.setAlpha(da);
   if (da > 0.003) GL.dots.update(S, t);
@@ -5359,9 +5523,9 @@ const fitShift = (k, name) => { const f = GL.sets[k].cam[name] && FIT[k] && FIT[
 // (measured at 1280 x 760: each view's parts between the panel's right edge and the screen's, above the timeline)
 // (the section, 2.1 long, needs about 4 units' distance to fit right of the panel: further back, and moved right)
 const SEC = [0, 0, 0.6, -0.22];
-const FIT = { atlas: { default: [0, 0, 1.7, -0.26], library: [0, 0, 1.7, -0.26], atlas: [0, 0, 0.8, -0.35], focus: [0, 0, 0.35, -0.05, 0.03], volcano: [0, 0, 0.45, -0.2],
-  curves: [0, 0, 0.5, -0.25], age: [0, 0, 0.45, -0.2] },
-  body: { default: [0, 0, 0.55], front: [0, 0, 0.55] }, hier: { net: [0, 0, 0.35, 0, 0.05], default: [0, 0, 0.25, 0, 0.03] }, tissue: { default: SEC, section: SEC }, slide: { default: SEC, section: SEC, domains: SEC, age: SEC, tiles: [0, 0, 0.35, -0.25], group: [0, 0, 0.35, -0.2] } };
+const FIT = { atlas: { default: [0, 0, 1.1, -0.22], library: [0, 0, 1.1, -0.22], atlas: [0, 0, 0.8, -0.35], focus: [0, 0, 0.35, -0.05, 0.03], volcano: [0, 0, 0.45, -0.2],
+  curves: [0, 0, 0.9, -0.12], age: [0, 0, 0.45, -0.2] },
+  body: { default: [0, 0, 0.55], front: [0, 0, 0.55] }, hier: { net: [0, 0, 0.35, 0, 0.05], default: [0, 0, 0.25, 0, 0.03] }, tissue: { default: SEC, section: SEC }, slide: { default: SEC, section: SEC, domains: SEC, age: SEC, tiles: [0, 0, 0.35, -0.25], group: [0, 0, 0.75, -0.12] } };
 // how much further back a view stands on a phone held upright (see narrowK): the wide ones, whose parts reach
 // across the screen
 const NARROW = { tissue: { section: 1.2, default: 1.2 }, slide: { default: 1.2, domains: 1.2, group: 1.25 }, atlas: { library: 1.1, default: 1.1, atlas: 1.2, volcano: 1.15, curves: 1.15 },
@@ -5546,13 +5710,13 @@ function buildStory() {
       <p class="credits" data-at="27">${fmt(F.donorsAnalysed)} people's slides were analysed: median age ${F.medianAge}, ${pct(F.male)} men. The slides here are drawn, not the GTEx images.</p>`,
     method: `<h2 data-at="0.6">Finding the domains</h2>
       ${turns(`<ul class="steps">
-          ${step(1.5, 36, '#46d9ff', '1 · Tiles', `each slide is cut into small squares (far smaller than drawn here): ${F.tilesM} million tiles in all`)}
-          ${step(9.5, 36, '#46d9ff', '2 · Features', 'a deep-learning vision model describes each tile with a list of numbers (drawn here as 16 blocks of colour)')}
-          ${step(17.5, 36, '#46d9ff', '3 · Neighbours', 'joined to its neighbours, each tile mixes in their descriptions: messages run along the links (message passing)')}
-          ${step(26.5, 36, '#46d9ff', '4 · Domains', 'in a map of the mixed descriptions, alike tiles gather, across all slides: each group is a domain, and colours the slide')}
+          ${step(1.5, 36.5, '#46d9ff', '1 · Tiles', `each slide is cut into small squares (far smaller than drawn here): ${F.tilesM} million tiles in all`)}
+          ${step(9.5, 36.5, '#46d9ff', '2 · Features', 'a deep-learning vision model describes each tile with a list of numbers (drawn here as 16 blocks of colour)')}
+          ${step(17.5, 36.5, '#46d9ff', '3 · Neighbours', 'joined to its neighbours, each tile mixes in their descriptions: messages run along the links (message passing)')}
+          ${step(26.5, 36.5, '#46d9ff', '4 · Domains', 'in a map of the mixed descriptions, alike tiles gather, across all slides: each group is a domain, and colours the slide')}
         </ul>`,
-      `<p data-at="36.5">No labels needed: a pathologist named the domains afterwards. The method, ${esc(F.method)}, agrees with pathologists' notes (salivary gland r = ${F.bench.salivary.r}, stomach mucosa r = ${F.bench.stomach.r}; r = 1 would be perfect).</p>
-        <p data-at="40.5" class="amber">Now the tiles of every tissue in one map: alike tiles lie close together, coloured by domain.</p>`)}`,
+      `<p data-at="37">No labels needed: a pathologist named the domains afterwards. The method, ${esc(F.method)}, agrees with pathologists' notes (salivary gland r = ${F.bench.salivary.r}, stomach mucosa r = ${F.bench.stomach.r}; r = 1 would be perfect).</p>
+        <p data-at="41" class="amber">Now the tiles of every tissue in one map: alike tiles lie close together, coloured by domain.</p>`)}`,
     atlas: `<h2 data-at="0.6">An atlas of the body</h2>
       ${turns(`<p data-at="1.2" data-out="19.5">Across the ${F.tissues} tissues: ${F.domains} domains of ${F.types} types, in ${F.superclasses} classes.</p>
         <div class="facts"><div data-at="5" data-out="19.5"><b>${F.types}</b><small>types of domain</small></div><div data-at="6.5" data-out="19.5"><b>${pct(F.shared3)}</b><small>in three or more tissues</small></div><div data-at="8" data-out="19.5"><b>${pct(F.specific)}</b><small>in one tissue only</small></div></div>
@@ -5611,6 +5775,7 @@ function buildStory() {
     atlas_lib: 0, atlas_map: 0, atlas_umap: 0, atlas_focus: 0, atlas_age: 0, atlas_volcano: 0, atlas_curves: 0,
     hier_grow: 0, hier_focus: -1, hier_contacts: 0, hier_organ: 0, hier_age: 0 });
   const stomach = MD.organs.findIndex(o => /stomach/i.test(o.name)) + 1;
+  if (stomach) ORGAN3D.want(ORGAN3D.idOf(MD.organs[stomach - 1].name));   // (its model is the first the story shows: built first)
   let a, b;
   // Intro: the tour's PET body, the organs' points lighting up one by one
   a = C.title.a; b = C.title.b;
@@ -5655,27 +5820,27 @@ function buildStory() {
   a = C.method.a; b = C.method.b;
   hide('atlas', a, a + 2);
   jump('slide_domain', a, 1, 0);
-  show('slide', a + 0.5, a + 2.5, a + 36, a + 38);
+  show('slide', a + 0.5, a + 2.5, a + 37, a + 39);
   ramp('slide_tiles', a + 2, a + 8, 0, 1);
   ramp('slide_feat', a + 9.5, a + 15.5, 0, 1);
   ramp('slide_adj', a + 17.5, a + 24, 0, 1);
-  ramp('slide_group', a + 26.5, a + 31, 0, 1);
-  ramp('slide_group', a + 32, a + 35.5, 1, 2);
-  ramp('slide_domain', a + 32.5, a + 36, 0, 1);
+  ramp('slide_group', a + 26.5, a + 30.5, 0, 1);
+  ramp('slide_group', a + 33, a + 35.5, 1, 2);
+  ramp('slide_domain', a + 33.5, a + 36, 0, 1);
   cam(a + 2, 'slide', 'tiles', -8);
   cam(a + 8, 'slide', 'tiles', 4, 'spin');
   cam(a + 10.5, 'slide', 'matrix');
   cam(a + 16, 'slide', 'matrix', 6, 'spin');
   cam(a + 18.5, 'slide', 'close');
   cam(a + 25, 'slide', 'close', 8, 'spin');
-  cam(a + 28, 'slide', 'group');
-  cam(a + 32.5, 'slide', 'group', 6, 'spin');
-  cam(a + 35.5, 'slide', 'domains');
+  cam(a + 28.5, 'slide', 'group');
+  cam(a + 33, 'slide', 'group', 6, 'spin');
+  cam(a + 36, 'slide', 'domains');
   // (the sections come forward from the library's wall, and the tiles rise out of them)
-  show('atlas', a + 36.5, a + 38.5);
-  ramp('atlas_map', a + 36.5, a + 39, 0, 1);
-  ramp('atlas_umap', a + 39, a + 43.5, 0, 1);
-  cam(a + 38, 'atlas', 'umap', -10);
+  show('atlas', a + 37.5, a + 39.5);
+  ramp('atlas_map', a + 37.5, a + 40, 0, 1);
+  ramp('atlas_umap', a + 40, a + 44, 0, 1);
+  cam(a + 39, 'atlas', 'umap', -10);
   cam(b - 0.5, 'atlas', 'umap', 25, 'spin');
   // An atlas of the body: a section per tissue; then the network of organ architecture growing level by level
   a = C.atlas.a; b = C.atlas.b;
@@ -6211,10 +6376,21 @@ function collabApply(v) {
 // (a lit chip as the shell's primary button: its text in the panel's colour, readable in either theme)
 const chip = (attrs, label, on, col) => `<button type="button" ${attrs} aria-pressed="${!!on}"${on ? ' style="background:var(--cyan);color:var(--panel-solid)"' : ''}>${col ? `<span class="sw" style="background:${swCol(col)}"></span>` : ''}${label}</button>`;
 // each organ's small 3D model (ORGAN3D, sets/organs.js) as a picture for the panes: drawn once at 64 px, shown at 20 to
-// 30. The models build between frames from the start; until an organ's is ready it has none (the panes are drawn
-// again once all are: updateSets)
-const orgPic = o => { const id = o && ORGAN3D.idOf(o.name); return id && ORGAN3D.has(id) ? id : null; };
-const iconImg = (o, px) => { const id = orgPic(o), u = id ? ORGAN3D.url(id, 64) : ''; return u ? `<img src="${u}" alt="" width="${px || 22}" height="${px || 22}" style="vertical-align:-6px;margin-right:5px">` : ''; };
+// 30. The models and pictures build between frames from the start (updateSets), the ones a pane asks for first; until
+// an organ's picture is drawn its chip keeps the place with a soft dot, and the picture goes in as it comes
+// (fillOrganPics), so nothing is drawn again all at once
+const orgPic = o => (o && ORGAN3D.idOf(o.name)) || null;
+const ORG_DOT = 'radial-gradient(circle,rgba(255,158,196,.55) 0 22%,rgba(255,158,196,0) 46%)';
+const iconImg = (o, px) => {
+  const id = orgPic(o), u = id ? ORGAN3D.picUrl(id) : '', s = px || 22;
+  return id ? `<span class="o3"${u ? '' : ` data-org="${id}"`} aria-hidden="true" style="display:inline-block;width:${s}px;height:${s}px;vertical-align:-6px;margin-right:5px;background:${u ? `url(${u})` : ORG_DOT} center/contain no-repeat"></span>` : '';
+};
+function fillOrganPics() {
+  for (const el of document.querySelectorAll('span.o3[data-org]')) {
+    const u = ORGAN3D.picUrl(el.dataset.org);
+    if (u) { el.style.background = `url(${u}) center/contain no-repeat`; el.removeAttribute('data-org'); }
+  }
+}
 const link = (act, v, text) => `<button type="button" data-act="${act}" data-v="${esc(v)}" style="border:0;background:none;padding:0;font:inherit;color:var(--cyan);text-decoration:underline;cursor:pointer">${text}</button>`;
 let DQ = '';   // the Domains pane's search (this page's own)
 function buildExplore() {
@@ -7118,7 +7294,7 @@ function sigMain() {
     }
     return s;
   }
-  return ['x', audioLabel(), X.tab, X.scene, JSON.stringify(X.ctl), X.organ, X.domain, X.age, X.step, X.kind, GL.orgReady ? 1 : 0].join('|');
+  return ['x', audioLabel(), X.tab, X.scene, JSON.stringify(X.ctl), X.organ, X.domain, X.age, X.step, X.kind, GL.orgV || 0].join('|');
 }
 const XR_HERE = 'micro';
 const XR_STORIES = HOST.list;
@@ -7415,7 +7591,11 @@ function flow(ctx, P, items, x, y, W, maxY, o = {}) {
     if (cx + w > x + W) { cx = x; cy += h + gap; }
     if (cy + h > maxY) break;
     vButton(ctx, P, it.id, cx, cy, w, h, '', it.fn, { r: 6, on: it.on });
-    if (it.icon) { const c = ORGAN3D.canvas(it.icon, 64); if (c) ctx.drawImage(c, cx + 7, cy + 4, h - 8, h - 8); }
+    if (it.icon) {   // (its picture, or a soft dot while it is drawn)
+      const c = ORGAN3D.pic(it.icon), q = h - 8;
+      if (c) ctx.drawImage(c, cx + 7, cy + 4, q, q);
+      else { ctx.beginPath(); ctx.arc(cx + 7 + q / 2, cy + 4 + q / 2, q * 0.16, 0, 7); ctx.fillStyle = 'rgba(255,158,196,0.6)'; ctx.fill(); }
+    }
     else if (it.col) swatch(ctx, cx + 12, cy + h / 2 - 7, 14, it.col);
     ctx.font = vfont(px, it.on ? 700 : 400); ctx.fillStyle = it.ink || VC.ink; ctx.textBaseline = 'middle';
     ctx.fillText(fitText(ctx, it.label, w - 26 - sw), cx + 13 + sw, cy + h / 2 + 1); ctx.textBaseline = 'top';
@@ -7443,7 +7623,7 @@ function drawOrgansPane(ctx, P, x, y, W, bottom) {
   const O = organOf(X.organ);
   y += flow(ctx, P, MD.organs.map(o => ({ id: 'org:' + o.name, label: o.name, icon: orgPic(o), on: O === o, fn: () => selectOrgan(O === o ? null : o.name) })), x, y, W, bottom, { px: 20, h: 42 }) + 18;
   if (!O) { textBlock(ctx, `The ${FACTS.organs} organs whose tissue GTEx collected. Pick one, or point at an organ's light in the body, a section in the atlas or a node of the network and pull the trigger (or pinch).`, x, y, W, 26, 38, VC.muted); return; }
-  const oi = orgPic(O), oc = oi && ORGAN3D.canvas(oi, 64);
+  const oi = orgPic(O), oc = oi && ORGAN3D.pic(oi);
   if (oc) ctx.drawImage(oc, x - 4, y - 6, 58, 58);
   y += textBlock(ctx, O.name, x + (oc ? 60 : 0), y + 2, W - 60, 38, 46, VC.ink, 700, 1) + 10;
   const tis = O.tissues.length ? O.tissues : [O.name];

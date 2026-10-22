@@ -449,7 +449,7 @@ void main() {
   // alike tiles gather; there they take their group's colour (a domain), and fly back down to colour the section.
   const HN = 0.05;   // how high the network floats over the slab (above the tallest bars)
   // the map: principal components of the mixed descriptions (power iteration, deflated), scaled to a ball
-  const ECEN = [0.04, 0.55, 0.34], ER = 0.42;
+  const ECEN = [0.04, 0.68, 0.3], ER = 0.58;
   {
     const n = kept.length, mu = new Array(NF).fill(0);
     for (const t of kept) for (let f = 0; f < NF; f++) mu[f] += t.m[f] / n;
@@ -468,11 +468,13 @@ void main() {
     }
     const Z = kept.map(t => PC.map(p => t.m.reduce((s, v, f) => s + (v - mu[f]) * p.w[f], 0) / Math.sqrt(Math.max(p.lam, 1e-9))));
     const rad = Z.map(z => Math.hypot(...z)).sort((a, b) => a - b)[Math.floor(n * 0.95)] || 1;
-    // (each drawn 45 % of the way towards its own kind's middle, so the groups read apart: illustrative, the method
-    // clusters in the full description)
-    const mid = DOM.map((_, d) => { const m = [0, 0, 0]; let c = 0; kept.forEach((t, k) => { if (t.dom === d) { for (let q = 0; q < 3; q++) m[q] += Z[k][q]; c++; } }); return m.map(v => v / Math.max(1, c)); });
-    kept.forEach((t, k) => { const z = Z[k].map((v, q) => v + 0.45 * (mid[t.dom][q] - v)); t.e = [ECEN[0] + z[0] / rad * ER * 1.2, ECEN[1] + z[1] / rad * ER * 0.8, ECEN[2] + z[2] / rad * ER * 0.7]; t.ph = R() * 6.28; t.gw = 0.5 * R(); });
+    // (each drawn 60 % of the way towards its own kind's middle, the middles a little apart, so the groups read as
+    // groups: illustrative, the method clusters in the full description)
+    const mid = DOM.map((_, d) => { const m = [0, 0, 0]; let c = 0; kept.forEach((t, k) => { if (t.dom === d) { for (let q = 0; q < 3; q++) m[q] += Z[k][q]; c++; } }); return m.map(v => 1.2 * v / Math.max(1, c)); });
+    kept.forEach((t, k) => { const z = Z[k].map((v, q) => v + 0.6 * (mid[t.dom][q] - v)); t.e = [ECEN[0] + z[0] / rad * ER * 1.2, ECEN[1] + z[1] / rad * ER * 0.8, ECEN[2] + z[2] / rad * ER * 0.7]; t.ph = R() * 6.28; t.gw = 0.5 * R(); });
   }
+  // each group's middle in the map (for its label), and how many tiles it has
+  const GC = DOM.map((_, d) => { const m = [0, 0, 0]; let c = 0; for (const t of kept) if (t.dom === d) { for (let q = 0; q < 3; q++) m[q] += t.e[q]; c++; } return { p: m.map(v => v / Math.max(1, c)), n: c }; });
   // nodes (instanced lit spheres) and their halos (instanced quads facing the camera)
   const NK = kept.length;
   const nodeGeo = new THREE.InstancedBufferGeometry();
@@ -525,7 +527,7 @@ varying vec3 vN, vV, vC; varying float vA;
 void main() {
   vec3 col; float vis;
   vec3 p = nodeAt(col, vis);
-  vec4 mv = modelViewMatrix * vec4(p + position * uR * (0.4 + 0.6 * vis) * (1.0 + 0.9 * smoothstep(0.3, 1.0, uGrp) * (1.0 - uLand)), 1.0);
+  vec4 mv = modelViewMatrix * vec4(p + position * uR * (0.4 + 0.6 * vis) * (1.0 + 1.5 * smoothstep(0.3, 1.0, uGrp) * (1.0 - uLand)), 1.0);
   vN = normalize(normalMatrix * normal); vV = -mv.xyz; vC = col; vA = vis;
   gl_Position = projectionMatrix * mv;
   if (vis < 0.01) gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
@@ -553,7 +555,7 @@ void main() {
   vec3 col; float vis;
   vec3 p = nodeAt(col, vis);
   vec4 mv = modelViewMatrix * vec4(p, 1.0);
-  mv.xy += position.xy * uR * 3.6 * (1.0 + 0.9 * smoothstep(0.3, 1.0, uGrp) * (1.0 - uLand)) * length(modelViewMatrix[0].xyz);
+  mv.xy += position.xy * uR * 3.6 * (1.0 + 1.5 * smoothstep(0.3, 1.0, uGrp) * (1.0 - uLand)) * length(modelViewMatrix[0].xyz);
   vC = col; vA = vis; vQ = position.xy;
   gl_Position = projectionMatrix * mv;
   if (vis < 0.01) gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
@@ -700,11 +702,12 @@ void main() {
   const anchors = {
     tiles: front(5.5 * TS, D0 + 0.004),
     feat: above(CL, HB + 0.012, TS * 0.55), listen: above(CL, HN), close: above(CL, 0.012),
-    cloud: [ECEN[0] + ER * 0.95, ECEN[1] + ER * 0.62, ECEN[2]], cloudC: ECEN.slice(),
+    cloud: [ECEN[0] - ER * 0.3, ECEN[1] + ER * 0.95, ECEN[2]], cloudC: ECEN.slice(),
     mucosa: DA[0], submucosa: DA[1], inner: DA[2], outer: DA[3], lymphoid: DA[4], vessels: DA[5],
     muscularis: front(1.05, (layers(1.05).b2 + layers(1.05).bot) / 2),
     gauge: [GCEN[0] + GW / 2 + 0.01, GCEN[1] + 0.04, GCEN[2]],
   };
+  GC.forEach((g, k) => { anchors['grp' + k] = [g.p[0] + 0.03, g.p[1] + 0.05, g.p[2]]; });
   const azAt = p => { const n = nrm(p[0]); return Math.atan2(n[0], n[2]) * 180 / PI; };
   const Tc = front(0.72, 0.2), Fc = above(CL, 0.016), Nc = above(CL, 0.03, TS * 0.5);
 
@@ -728,7 +731,7 @@ void main() {
       U.uNet.value = Math.max(ad, gr > 0 && gr < 2 ? 1 : 0);
       U.uFeat.value = ft * (1 - prog(gr, 0, 0.3));
       U.uOut.value = 1 - prog(gr, 0, 0.25);
-      U.uDim.value = ad * (1 - prog(gr, 0, 0.3));
+      U.uDim.value = Math.max(ad * (1 - prog(gr, 0, 0.3)), 0.85 * prog(gr, 0.1, 0.5) * (1 - prog(gr, 1, 1.4)));   // (the slide dims under the map)
       // hidden parts are not drawn at all
       wash.visible = tl + ft + ad + dm + fc > 0.001;
       bars.visible = ft > 0.001 && U.uOut.value > 0.003;
@@ -749,6 +752,8 @@ void main() {
       { text: ['Each tile', 'listens to its neighbours'], at: 'listen', cls: 'cyn', alpha: S => prog(S.slide_adj, 0.3, 0.6) * (1 - prog(Math.max(S.slide_group || 0, S.slide_domain), 0.02, 0.2)) },
       // the method's last step: alike tiles gather in the map of their descriptions
       { text: ['Alike tiles', 'gather: a domain each'], at: 'cloud', cls: 'cyn', alpha: S => prog(S.slide_group || 0, 0.6, 0.9) * (1 - prog(S.slide_group || 0, 1.05, 1.35)) * (1 - clamp(S.slide_focus, 0, 1)) },
+      // (each group in the map named as the domain it becomes; groups of a handful of tiles too small to name)
+      ...DOM.map((d, k) => ({ text: d.label, at: 'grp' + k, cls: d.cls, alpha: S => (GC[k].n >= 8 ? 1 : 0) * prog(S.slide_group || 0, 0.75, 0.95) * (1 - prog(S.slide_group || 0, 1.02, 1.25)) * (1 - clamp(S.slide_focus, 0, 1)) })),
       ...DOM.map((d, k) => ({ text: d.label, at: DK[k], cls: d.cls, alpha: S => domA(k, S) })),
       // (the numbers are on the gauge)
       { text: ['Gut submucosa', 'thins with age'], at: 'gauge', cls: 'mag', alpha: S => gaugeOn(S) },
@@ -758,8 +763,9 @@ void main() {
       tiles: [azAt(Tc) - 24, 12, 1.7, ...Tc],
       // (the features and the network from a slant, so the bars and the floating network stand out of the slide)
       matrix: [azAt(Fc) - 22, 20, 0.56, ...Fc],
-      close: [azAt(Nc) - 14, 24, 0.66, ...Nc],
-      group: [-14, 10, 2.15, ECEN[0] - 0.02, ECEN[1] * 0.62, ECEN[2] * 0.7],
+      close: [azAt(Nc) - 14, 26, 0.8, ...Nc],
+      // (the map and the whole section under it)
+      group: [-12, 12, 3.0, ECEN[0] + 0.04, ECEN[1] * 0.5, ECEN[2] * 0.45],
       domains: [5, 5, 2.85, 0.02, -0.02, 0],
       age: [0, 8, 3.25, -0.06, 0.12, 0],
     },

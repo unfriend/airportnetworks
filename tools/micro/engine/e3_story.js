@@ -83,9 +83,9 @@ const fitShift = (k, name) => { const f = GL.sets[k].cam[name] && FIT[k] && FIT[
 // (measured at 1280 x 760: each view's parts between the panel's right edge and the screen's, above the timeline)
 // (the section, 2.1 long, needs about 4 units' distance to fit right of the panel: further back, and moved right)
 const SEC = [0, 0, 0.6, -0.22];
-const FIT = { atlas: { default: [0, 0, 1.7, -0.26], library: [0, 0, 1.7, -0.26], atlas: [0, 0, 0.8, -0.35], focus: [0, 0, 0.35, -0.05, 0.03], volcano: [0, 0, 0.45, -0.2],
-  curves: [0, 0, 0.5, -0.25], age: [0, 0, 0.45, -0.2] },
-  body: { default: [0, 0, 0.55], front: [0, 0, 0.55] }, hier: { net: [0, 0, 0.35, 0, 0.05], default: [0, 0, 0.25, 0, 0.03] }, tissue: { default: SEC, section: SEC }, slide: { default: SEC, section: SEC, domains: SEC, age: SEC, tiles: [0, 0, 0.35, -0.25], group: [0, 0, 0.35, -0.2] } };
+const FIT = { atlas: { default: [0, 0, 1.1, -0.22], library: [0, 0, 1.1, -0.22], atlas: [0, 0, 0.8, -0.35], focus: [0, 0, 0.35, -0.05, 0.03], volcano: [0, 0, 0.45, -0.2],
+  curves: [0, 0, 0.9, -0.12], age: [0, 0, 0.45, -0.2] },
+  body: { default: [0, 0, 0.55], front: [0, 0, 0.55] }, hier: { net: [0, 0, 0.35, 0, 0.05], default: [0, 0, 0.25, 0, 0.03] }, tissue: { default: SEC, section: SEC }, slide: { default: SEC, section: SEC, domains: SEC, age: SEC, tiles: [0, 0, 0.35, -0.25], group: [0, 0, 0.75, -0.12] } };
 // how much further back a view stands on a phone held upright (see narrowK): the wide ones, whose parts reach
 // across the screen
 const NARROW = { tissue: { section: 1.2, default: 1.2 }, slide: { default: 1.2, domains: 1.2, group: 1.25 }, atlas: { library: 1.1, default: 1.1, atlas: 1.2, volcano: 1.15, curves: 1.15 },
@@ -270,13 +270,13 @@ function buildStory() {
       <p class="credits" data-at="27">${fmt(F.donorsAnalysed)} people's slides were analysed: median age ${F.medianAge}, ${pct(F.male)} men. The slides here are drawn, not the GTEx images.</p>`,
     method: `<h2 data-at="0.6">Finding the domains</h2>
       ${turns(`<ul class="steps">
-          ${step(1.5, 36, '#46d9ff', '1 · Tiles', `each slide is cut into small squares (far smaller than drawn here): ${F.tilesM} million tiles in all`)}
-          ${step(9.5, 36, '#46d9ff', '2 · Features', 'a deep-learning vision model describes each tile with a list of numbers (drawn here as 16 blocks of colour)')}
-          ${step(17.5, 36, '#46d9ff', '3 · Neighbours', 'joined to its neighbours, each tile mixes in their descriptions: messages run along the links (message passing)')}
-          ${step(26.5, 36, '#46d9ff', '4 · Domains', 'in a map of the mixed descriptions, alike tiles gather, across all slides: each group is a domain, and colours the slide')}
+          ${step(1.5, 36.5, '#46d9ff', '1 · Tiles', `each slide is cut into small squares (far smaller than drawn here): ${F.tilesM} million tiles in all`)}
+          ${step(9.5, 36.5, '#46d9ff', '2 · Features', 'a deep-learning vision model describes each tile with a list of numbers (drawn here as 16 blocks of colour)')}
+          ${step(17.5, 36.5, '#46d9ff', '3 · Neighbours', 'joined to its neighbours, each tile mixes in their descriptions: messages run along the links (message passing)')}
+          ${step(26.5, 36.5, '#46d9ff', '4 · Domains', 'in a map of the mixed descriptions, alike tiles gather, across all slides: each group is a domain, and colours the slide')}
         </ul>`,
-      `<p data-at="36.5">No labels needed: a pathologist named the domains afterwards. The method, ${esc(F.method)}, agrees with pathologists' notes (salivary gland r = ${F.bench.salivary.r}, stomach mucosa r = ${F.bench.stomach.r}; r = 1 would be perfect).</p>
-        <p data-at="40.5" class="amber">Now the tiles of every tissue in one map: alike tiles lie close together, coloured by domain.</p>`)}`,
+      `<p data-at="37">No labels needed: a pathologist named the domains afterwards. The method, ${esc(F.method)}, agrees with pathologists' notes (salivary gland r = ${F.bench.salivary.r}, stomach mucosa r = ${F.bench.stomach.r}; r = 1 would be perfect).</p>
+        <p data-at="41" class="amber">Now the tiles of every tissue in one map: alike tiles lie close together, coloured by domain.</p>`)}`,
     atlas: `<h2 data-at="0.6">An atlas of the body</h2>
       ${turns(`<p data-at="1.2" data-out="19.5">Across the ${F.tissues} tissues: ${F.domains} domains of ${F.types} types, in ${F.superclasses} classes.</p>
         <div class="facts"><div data-at="5" data-out="19.5"><b>${F.types}</b><small>types of domain</small></div><div data-at="6.5" data-out="19.5"><b>${pct(F.shared3)}</b><small>in three or more tissues</small></div><div data-at="8" data-out="19.5"><b>${pct(F.specific)}</b><small>in one tissue only</small></div></div>
@@ -335,6 +335,7 @@ function buildStory() {
     atlas_lib: 0, atlas_map: 0, atlas_umap: 0, atlas_focus: 0, atlas_age: 0, atlas_volcano: 0, atlas_curves: 0,
     hier_grow: 0, hier_focus: -1, hier_contacts: 0, hier_organ: 0, hier_age: 0 });
   const stomach = MD.organs.findIndex(o => /stomach/i.test(o.name)) + 1;
+  if (stomach) ORGAN3D.want(ORGAN3D.idOf(MD.organs[stomach - 1].name));   // (its model is the first the story shows: built first)
   let a, b;
   // Intro: the tour's PET body, the organs' points lighting up one by one
   a = C.title.a; b = C.title.b;
@@ -379,27 +380,27 @@ function buildStory() {
   a = C.method.a; b = C.method.b;
   hide('atlas', a, a + 2);
   jump('slide_domain', a, 1, 0);
-  show('slide', a + 0.5, a + 2.5, a + 36, a + 38);
+  show('slide', a + 0.5, a + 2.5, a + 37, a + 39);
   ramp('slide_tiles', a + 2, a + 8, 0, 1);
   ramp('slide_feat', a + 9.5, a + 15.5, 0, 1);
   ramp('slide_adj', a + 17.5, a + 24, 0, 1);
-  ramp('slide_group', a + 26.5, a + 31, 0, 1);
-  ramp('slide_group', a + 32, a + 35.5, 1, 2);
-  ramp('slide_domain', a + 32.5, a + 36, 0, 1);
+  ramp('slide_group', a + 26.5, a + 30.5, 0, 1);
+  ramp('slide_group', a + 33, a + 35.5, 1, 2);
+  ramp('slide_domain', a + 33.5, a + 36, 0, 1);
   cam(a + 2, 'slide', 'tiles', -8);
   cam(a + 8, 'slide', 'tiles', 4, 'spin');
   cam(a + 10.5, 'slide', 'matrix');
   cam(a + 16, 'slide', 'matrix', 6, 'spin');
   cam(a + 18.5, 'slide', 'close');
   cam(a + 25, 'slide', 'close', 8, 'spin');
-  cam(a + 28, 'slide', 'group');
-  cam(a + 32.5, 'slide', 'group', 6, 'spin');
-  cam(a + 35.5, 'slide', 'domains');
+  cam(a + 28.5, 'slide', 'group');
+  cam(a + 33, 'slide', 'group', 6, 'spin');
+  cam(a + 36, 'slide', 'domains');
   // (the sections come forward from the library's wall, and the tiles rise out of them)
-  show('atlas', a + 36.5, a + 38.5);
-  ramp('atlas_map', a + 36.5, a + 39, 0, 1);
-  ramp('atlas_umap', a + 39, a + 43.5, 0, 1);
-  cam(a + 38, 'atlas', 'umap', -10);
+  show('atlas', a + 37.5, a + 39.5);
+  ramp('atlas_map', a + 37.5, a + 40, 0, 1);
+  ramp('atlas_umap', a + 40, a + 44, 0, 1);
+  cam(a + 39, 'atlas', 'umap', -10);
   cam(b - 0.5, 'atlas', 'umap', 25, 'spin');
   // An atlas of the body: a section per tissue; then the network of organ architecture growing level by level
   a = C.atlas.a; b = C.atlas.b;
