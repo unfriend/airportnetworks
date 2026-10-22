@@ -6838,6 +6838,8 @@ function buildTimeline() {
     if (ev.key === 'ArrowLeft') { APP.seek(APP.t - 5); ev.preventDefault(); }
   });
   $('#play').addEventListener('click', () => APP.togglePlay());
+  // slideshow: Next and this story's switch, in the shell's row at the foot of the panel (an older shell has none)
+  if ($('#slides')) { $('#btnNext').addEventListener('click', slideNext); $('#btnSlides').addEventListener('click', slideToggle); }
 }
 const ICON_PLAY = '<svg viewBox="0 0 16 16"><path d="M4 2.5v11l9-5.5z"/></svg>';
 const ICON_PAUSE = '<svg viewBox="0 0 16 16"><path d="M3.5 2.5h3v11h-3zM9.5 2.5h3v11h-3z"/></svg>';
@@ -6857,6 +6859,7 @@ function updateTimeline(t, playing) {
   const want = playing ? 'pause' : 'play';
   const btn = $('#play');
   if (btn.dataset.s !== want) { btn.innerHTML = playing ? ICON_PAUSE : ICON_PLAY; btn.dataset.s = want; btn.setAttribute('aria-label', playing ? 'Pause' : 'Play'); }
+  slideDOM();
 }
 
 // ================================================================ EXPLORE ==
@@ -8532,7 +8535,7 @@ function drawScenesPane(ctx, P, x, y, W, bottom) {
 
 // ----------------------------------------------------------- footer panel --
 function sigFoot() {
-  return APP.mode === 'story' ? 's' + Math.round(APP.t * 4) + APP.playing + (curCh ? curCh.key : '') : 'x' + X.turn;
+  return APP.mode === 'story' ? 's' + Math.round(APP.t * 4) + APP.playing + (curCh ? curCh.key : '') + slideSig() : 'x' + X.turn;
 }
 function drawFoot(ctx, P) {
   if (APP.mode === 'story') {
@@ -8543,14 +8546,21 @@ function drawFoot(ctx, P) {
     else { ctx.beginPath(); ctx.moveTo(bx + 38, by + 26); ctx.lineTo(bx + 38, by + 70); ctx.lineTo(bx + 72, by + 48); ctx.closePath(); ctx.fill(); }
     const t = APP.t, ci = Math.max(0, CH.findIndex(c => t >= c.na && t < c.nb));
     const tri = (cx, cy, dir) => { ctx.beginPath(); ctx.moveTo(cx - 9 * dir, cy - 13); ctx.lineTo(cx - 9 * dir, cy + 13); ctx.lineTo(cx + 9 * dir, cy); ctx.closePath(); ctx.fill(); };
-    vButton(ctx, P, 'prev', 140, 52, 78, 72, '', () => APP.seek(t > CH[ci].na + 2 || ci === 0 ? CH[ci].na : CH[ci - 1].na));
-    ctx.fillStyle = VC.ink; tri(171, 88, -1); ctx.fillRect(184, 75, 5, 26);
-    vButton(ctx, P, 'next', 228, 52, 78, 72, '', () => APP.seek(ci < CH.length - 1 ? CH[ci + 1].na : T_END - 0.01));
-    ctx.fillStyle = VC.ink; tri(262, 88, 1); ctx.fillRect(271, 75, 5, 26);
+    // slideshow: waiting at the end of a chapter, Next takes the place of the chapter arrows
+    if (SLIDE.at >= 0) vButton(ctx, P, 'slideNext', 140, 52, 166, 72, 'Next', slideNext, { primary: true, px: 30 });
+    else {
+      vButton(ctx, P, 'prev', 140, 52, 78, 72, '', () => APP.seek(t > CH[ci].na + 2 || ci === 0 ? CH[ci].na : CH[ci - 1].na));
+      ctx.fillStyle = VC.ink; tri(171, 88, -1); ctx.fillRect(184, 75, 5, 26);
+      vButton(ctx, P, 'next', 228, 52, 78, 72, '', () => APP.seek(ci < CH.length - 1 ? CH[ci + 1].na : T_END - 0.01));
+      ctx.fillStyle = VC.ink; tri(262, 88, 1); ctx.fillRect(271, 75, 5, 26);
+    }
     const x0 = 344, x1 = P.w - 40, ty = 100;
     const m = s => Math.floor(s / 60) + ':' + String(Math.floor(s % 60)).padStart(2, '0');
-    ctx.font = vfont(27, 700); ctx.fillStyle = VC.ink; ctx.fillText(CH[ci].name, x0, 40);
     ctx.font = vfont(22); ctx.fillStyle = VC.muted; ctx.textAlign = 'right'; ctx.fillText(m(t) + ' / ' + m(T_END), x1, 44); ctx.textAlign = 'left';
+    // this story's Slideshow switch, left of the clock (placed for the longest clock, so it never shifts)
+    const sx = x1 - ctx.measureText(m(T_END) + ' / ' + m(T_END)).width - 220;
+    if (HOST.slides) vButton(ctx, P, 'slides', sx, 26, 198, 42, 'Slideshow: ' + (slidesOn() ? 'on' : 'off'), slideToggle, { on: slidesOn(), px: 20 });
+    ctx.font = vfont(27, 700); ctx.fillStyle = VC.ink; ctx.fillText(fitText(ctx, CH[ci].name, (HOST.slides ? sx : x1 - 160) - 16 - x0), x0, 40);
     rr(ctx, x0, ty, x1 - x0, 6, 3); ctx.fillStyle = 'rgba(160,178,202,0.28)'; ctx.fill();
     rr(ctx, x0, ty, (x1 - x0) * t / T_END, 6, 3); ctx.fillStyle = VC.cyan; ctx.fill();
     ctx.fillStyle = 'rgba(160,178,202,0.6)';
@@ -8603,6 +8613,48 @@ function audioSync() { if (AUD) AUD.sync(APP.mode === 'story' && APP.playing, AP
 function audioFollow() { if (AUD) APP.t = AUD.follow(APP.t); }
 function audioLabel() { return AUD ? AUD.label() : ''; }
 function audioToggle() { HOST.audio.toggle(); }
+
+// ------------------------------------------------------------- slideshow --
+// Slideshow (HOST.slides: on for this story, or for all): the story waits at the end of each chapter, all its text
+// shown, until Next (or Play) goes on. The stop is a pause and a seek, Next a play, so in a shared room they reach
+// the station's clock like a pause and a play by hand, at the same t on every device.
+const SLIDE = { at: -1, go: -1 };
+const slidesOn = () => !!(HOST.slides && HOST.slides.on(XR_HERE));
+// where chapter i waits: just before its text starts to fade out (0.65 s before its end in story time), on the
+// recording's clock; the same on every device
+const slideStop = i => narrT(CH[i].b - 0.7);
+// every frame, once the clock has moved on from t0: crossing a stop while playing stops there, and a story paused up
+// to 0.25 s before a stop (a room's pause lands that close) waits at it (SLIDE.at, which shows Next)
+function slideStep(t0) {
+  const was = SLIDE.at;
+  SLIDE.at = -1;
+  if (!slidesOn() || APP.mode !== 'story') { SLIDE.go = -1; return; }
+  for (let i = 0; i < CH.length; i++) {
+    const s = slideStop(i);
+    if (APP.playing && i !== SLIDE.go && t0 < s && APP.t >= s) { APP.playing = false; APP.seek(s); }
+    if (!APP.playing && APP.t >= s - 0.25 && APP.t <= s + 0.01) { APP.t = s; SLIDE.at = i; break; }
+  }
+  // gone on from a stop: it stays passed while the clock is near it (the narration may pull the clock back a hair)
+  if (was >= 0 && APP.playing) SLIDE.go = was;
+  else if (SLIDE.go >= 0 && Math.abs(APP.t - slideStop(SLIDE.go)) > 1) SLIDE.go = -1;
+}
+function slideNext() { if (SLIDE.at >= 0) APP.togglePlay(); }
+function slideToggle() { if (HOST.slides) HOST.slides.set(XR_HERE, !slidesOn()); }
+const slideSig = () => (HOST.slides ? HOST.slides.sig() : '') + SLIDE.at;
+// the page (index.html's row at the foot of the panel): Next while the story waits, brought into sight, and the switch
+function slideDOM() {
+  const row = $('#slides');
+  if (!row || !HOST.slides) return;
+  const on = slidesOn(), s = SLIDE.at + '' + on;
+  if (row.dataset.s === s) return;
+  row.dataset.s = s; row.hidden = false;
+  $('#btnNext').hidden = SLIDE.at < 0;
+  const b = $('#btnSlides');
+  b.textContent = 'Slideshow: ' + (on ? 'on' : 'off'); b.setAttribute('aria-pressed', on ? 'true' : 'false');
+  if (SLIDE.at < 0) return;
+  const p = $('#panel'), over = row.getBoundingClientRect().bottom - (p.getBoundingClientRect().bottom - parseFloat(getComputedStyle(p).paddingBottom));
+  if (over > 0) p.scrollTo({ top: p.scrollTop + over, behavior: 'smooth' });
+}
 
 // ================================================================== APP ==
 const APP = {
@@ -8686,12 +8738,14 @@ function frame(now, xrFrame) {
   const xr = XR.on && GL.renderer.xr.isPresenting;
   if (xr) xrBegin(xrFrame, dt);
   let S, tSet;
+  const t0 = APP.t;
   if (APP.mode === 'story' && APP.playing) {
     APP.t += dt;
     audioFollow();
-    // the end: Repeat (shell) starts this story or the next one again, else explore mode opens
-    if (APP.t >= T_END) { APP.t = T_END; if (HOST.ended()) APP.playing = false; else APP.enterExplore(); }
   }
+  slideStep(t0);   // slideshow: the story waits at the end of each chapter
+  // the end: Repeat (shell) starts this story or the next one again, else explore mode opens
+  if (APP.mode === 'story' && APP.playing && APP.t >= T_END) { APP.t = T_END; if (HOST.ended()) APP.playing = false; else APP.enterExplore(); }
   audioSync();
   const ts = storyT(APP.t); // original story time for this point in the narration
   if (APP.mode === 'story') {

@@ -32,6 +32,48 @@ function audioFollow() { if (AUD) APP.t = AUD.follow(APP.t); }
 function audioLabel() { return AUD ? AUD.label() : ''; }
 function audioToggle() { HOST.audio.toggle(); }
 
+// ------------------------------------------------------------- slideshow --
+// Slideshow (HOST.slides: on for this story, or for all): the story waits at the end of each chapter, all its text
+// shown, until Next (or Play) goes on. The stop is a pause and a seek, Next a play, so in a shared room they reach
+// the station's clock like a pause and a play by hand, at the same t on every device.
+const SLIDE = { at: -1, go: -1 };
+const slidesOn = () => !!(HOST.slides && HOST.slides.on(XR_HERE));
+// where chapter i waits: just before its text starts to fade out (0.65 s before its end in story time), on the
+// recording's clock; the same on every device
+const slideStop = i => narrT(CH[i].b - 0.7);
+// every frame, once the clock has moved on from t0: crossing a stop while playing stops there, and a story paused up
+// to 0.25 s before a stop (a room's pause lands that close) waits at it (SLIDE.at, which shows Next)
+function slideStep(t0) {
+  const was = SLIDE.at;
+  SLIDE.at = -1;
+  if (!slidesOn() || APP.mode !== 'story') { SLIDE.go = -1; return; }
+  for (let i = 0; i < CH.length; i++) {
+    const s = slideStop(i);
+    if (APP.playing && i !== SLIDE.go && t0 < s && APP.t >= s) { APP.playing = false; APP.seek(s); }
+    if (!APP.playing && APP.t >= s - 0.25 && APP.t <= s + 0.01) { APP.t = s; SLIDE.at = i; break; }
+  }
+  // gone on from a stop: it stays passed while the clock is near it (the narration may pull the clock back a hair)
+  if (was >= 0 && APP.playing) SLIDE.go = was;
+  else if (SLIDE.go >= 0 && Math.abs(APP.t - slideStop(SLIDE.go)) > 1) SLIDE.go = -1;
+}
+function slideNext() { if (SLIDE.at >= 0) APP.togglePlay(); }
+function slideToggle() { if (HOST.slides) HOST.slides.set(XR_HERE, !slidesOn()); }
+const slideSig = () => (HOST.slides ? HOST.slides.sig() : '') + SLIDE.at;
+// the page (index.html's row at the foot of the panel): Next while the story waits, brought into sight, and the switch
+function slideDOM() {
+  const row = $('#slides');
+  if (!row || !HOST.slides) return;
+  const on = slidesOn(), s = SLIDE.at + '' + on;
+  if (row.dataset.s === s) return;
+  row.dataset.s = s; row.hidden = false;
+  $('#btnNext').hidden = SLIDE.at < 0;
+  const b = $('#btnSlides');
+  b.textContent = 'Slideshow: ' + (on ? 'on' : 'off'); b.setAttribute('aria-pressed', on ? 'true' : 'false');
+  if (SLIDE.at < 0) return;
+  const p = $('#panel'), over = row.getBoundingClientRect().bottom - (p.getBoundingClientRect().bottom - parseFloat(getComputedStyle(p).paddingBottom));
+  if (over > 0) p.scrollTo({ top: p.scrollTop + over, behavior: 'smooth' });
+}
+
 // ================================================================== APP ==
 const APP = {
   mode: 'story', t: 0, playing: true,
@@ -99,12 +141,14 @@ function frame(now, xrFrame) {
   const xr = XR.on && GL.renderer.xr.isPresenting;
   if (xr) xrBegin(xrFrame, dt);
   let S, tSet;
+  const t0 = APP.t;
   if (APP.mode === 'story' && APP.playing) {
     APP.t += dt;
     audioFollow();
-    // the end: Repeat (shell) starts this story or the next one again, else explore mode opens
-    if (APP.t >= T_END) { APP.t = T_END; if (HOST.ended()) APP.playing = false; else APP.enterExplore(); }
   }
+  slideStep(t0);   // slideshow: the story waits at the end of each chapter
+  // the end: Repeat (shell) starts this story or the next one again, else explore mode opens
+  if (APP.mode === 'story' && APP.playing && APP.t >= T_END) { APP.t = T_END; if (HOST.ended()) APP.playing = false; else APP.enterExplore(); }
   audioSync();
   const ts = storyT(APP.t); // original story time for this point in the narration
   if (APP.mode === 'story') {

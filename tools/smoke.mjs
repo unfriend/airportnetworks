@@ -30,6 +30,39 @@ for (const key of ['airports', 'proteins', 'spatial', 'lbi', 'nmd', 'endo', 'pet
     const T = HOST.cur.peek('T_END');
     for (let t = 0; t < T; t += 3) { HOST.cur.peek(`APP.seek(${t})`); await sleep(15); }
   }));
+  // Slideshow: the story waits at the end of a chapter (exactly at its stop, Next shown on the page and the
+  // headset panel), Next goes on; the last chapter waits too before the end opens explore mode
+  await step(`${key}: slideshow stops at the end of a chapter, Next goes on`, async () => {
+    const bad = await page.evaluate(async k => {
+      const sleep = ms => new Promise(r => setTimeout(r, ms)), peek = src => HOST.cur.peek(src), out = [];
+      const until = async (f, ms) => { for (let n = 0; n < ms / 50 && !f(); n++) await sleep(50); return f(); };
+      const foot = () => peek(`(() => { XR.on = true; for (const P of XR.panels) { P.last = ''; P.t = -1e9; panelTick(P, performance.now() + 1e6); } XR.on = false; return XR.foot.regions.map(r => r.id); })()`);
+      HOST.slides.set(k, true);
+      if (!HOST.slides.on(k) || HOST.slides.on(k === 'airports' ? 'proteins' : 'airports')) out.push('the story\'s own switch is not its own');
+      const last = peek('CH.length - 1'), frames = n => until(((f0) => () => window.__frames >= f0 + n)(window.__frames), 30000);
+      // (headless frames can be slow: the clock is put a frame before each stop, and the checks wait for frames)
+      for (const i of [Math.min(1, last), last]) {
+        const s = peek(`slideStop(${i})`);
+        peek(`(APP.mode === 'story' || APP.enterStory(0), APP.seek(${s} - 0.05), APP.playing = true)`);
+        if (!await until(() => !peek('APP.playing'), 30000) || peek('APP.t') !== s || peek('APP.mode') !== 'story') { out.push(`did not wait at the end of chapter ${i + 1} (t ${peek('APP.t')}, stop ${s}, ${peek('APP.mode')})`); continue; }
+        await frames(2);
+        const nb = document.getElementById('btnNext');
+        if (!nb || nb.hidden || !nb.offsetParent) out.push(`chapter ${i + 1}: no Next on the page`);
+        if (!foot().includes('slideNext')) out.push(`chapter ${i + 1}: no Next on the headset panel`);
+        nb.click();
+        if (!await until(() => peek('APP.playing') && peek('APP.t') > s, 30000)) out.push(`Next did not go on (playing ${peek('APP.playing')}, t ${peek('APP.t')})`);
+        if (foot().includes('slideNext')) out.push('Next still on the headset panel once playing');
+        // past the last stop the story ends as before (explore mode, Repeat being off)
+        if (i === last) { peek('APP.seek(T_END - 0.05)'); if (!await until(() => peek('APP.mode') === 'explore', 30000)) out.push('the story did not end after the last stop'); }
+      }
+      peek('APP.enterStory(0)');
+      document.getElementById('btnSlides').click();   // the page's switch: off again for this story
+      if (HOST.slides.on(k) || !await until(() => document.getElementById('btnSlides').textContent === 'Slideshow: off', 30000)) out.push('the Slideshow switch did not turn it off');
+      HOST.slides.setGlobal(false);
+      return out;
+    }, key);
+    if (bad.length) errors.push(...bad.map(b => `${key}: ${b}`));
+  });
   await step(`${key}: explore mode and headset panels`, () => page.evaluate(() => HOST.cur.peek(`(() => {
     APP.enterExplore();
     document.querySelectorAll('.tabs button').forEach(b => b.click());
