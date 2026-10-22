@@ -495,7 +495,9 @@ void main() {
     float h0 = mix(uHot.x, uHot.y, uX), hm = hv > 0.0 ? min(heatAt(g), heatAt(o)) : 0.0;
     float hot = clamp((hm - h0) / max(0.05, 0.3 * (1.0 - h0)), 0.0, 1.0);
     hiA = max(hiA, hv * (1.0 - uPair) * hot * hot * (3.0 - 2.0 * hot) * ${f1(LK.hot)} * (1.0 - 0.6 * step(0.999, hm)));
-    vec3 ka = ca, kb = cb;
+    // with the heat on, links take its colours from a third of the way up: its darkest blue is darker than the context
+    float hl = hv * (1.0 - uPair);
+    vec3 ka = mix(ca, heatCol(0.35 + 0.65 * heatAt(g)), hl), kb = mix(cb, heatCol(0.35 + 0.65 * heatAt(o)), hl);
     // picked endotypes: links within one in its colour, links between two in amber
     if (pk > 0.001) {
       float within = 0.0, any_a = step(0.5, ma.x), any_b = step(0.5, mb.x);
