@@ -1,4 +1,4 @@
-Networks, in ten stories - installable web app
+Networks, in eleven stories - installable web app
   1. Network theory, told with the world's airports  (stories/airports.js)
   2. Network medicine, told with the proteins in a cell  (stories/proteins.js)
   3. Spatial interactome, where proteins meet in a cell  (stories/spatial.js)
@@ -15,9 +15,12 @@ Networks, in ten stories - installable web app
   8. Tissue and time: the small working units organs are built from, in 24,945
      slides, and how they change with age, after Iva Buljan and colleagues
      (stories/micro.js)
-  9. Flock: 200 starlings at dusk flying all around you, each following its
+  9. Three qubits: how a gene network is shrunk to fit on a tiny quantum
+     computer, and broken into building blocks it runs well, after Joel
+     Hancock's method and figures  (stories/qubits.js)
+  10. Flock: 200 starlings at dusk flying all around you, each following its
      seven nearest neighbours  (stories/flock.js)
-  10. Robot gang: robot vacuums in your room that bump and turn, follow you
+  11. Robot gang: robot vacuums in your room that bump and turn, follow you
      about or form a conga line; in a headset they find your floor and walls
      (stories/robots.js)
 
@@ -28,7 +31,7 @@ AR from the start screen opens a Stories screen in the headset (one panel per
 story); entering from inside a story resumes it where you were.
 The start screen is the landing page (no hash, or #stories). The address
 follows you: #stories on the Stories screen (page or headset), #airports,
-#proteins, #spatial, #lbi, #nmd, #endo, #pet, #micro, #flock or #robots in a story, so links can be shared and open that story
+#proteins, #spatial, #lbi, #nmd, #endo, #pet, #micro, #qubits, #flock or #robots in a story, so links can be shared and open that story
 directly (proteins.html and spatial.html forward there). Taking the headset off and on returns to the Stories menu
 (and, unless Anchor is on, places everything in front of the next wearer).
 Repeat all and Repeat one on the Stories screen (page and headset) keep the app
@@ -128,7 +131,7 @@ Narration: put your recordings at audio/narration.mp3 (airports),
 audio/narration-proteins.mp3 (proteins), audio/narration-spatial.mp3
 (cell map), audio/narration-lbi.mp3 (the tour), audio/narration-nmd.mp3,
 audio/narration-endo.mp3, audio/narration-pet.mp3, audio/narration-micro.mp3,
-audio/narration-flock.mp3 and audio/narration-robots.mp3 (only the airports
+audio/narration-qubits.mp3, audio/narration-flock.mp3 and audio/narration-robots.mp3 (only the airports
 one is recorded so far); see the note in the audio folder for chapter timings
 and how to record one, and docs/narration.md for the words. It plays in
 sync with the story, follows pause, seeking and chapter jumps, and has a Sound
@@ -210,6 +213,15 @@ network of organ architecture (kept out of the repository; only the numbers
 are in tools/micro/sets/data.js, from node tools/micro/data/gen_data.mjs). The
 slides and sections are drawn, not the GTEx images.
 
+Qubits story (stories/qubits.js): after Joel Hancock's method and figures
+(network compression onto qubits and the Pauli decomposition). The networks it
+shows are examples made up for the story and computed in the page (no STRING
+data, no gene names, no patient data); the real run's summary numbers (on
+STRING v12.5) are typed in from his brief (tools/qubits/sets/data.js) and shown
+only as "in the real network". The cut stands in for the authors' beam search,
+and the walkers' valleys are illustrative. This story alone uses American
+spelling, as its author asked.
+
 Flock (stories/flock.js): a live simulation, not data. Each bird follows its
 seven nearest neighbours (Ballerini et al. 2008) and keeps its distance; the
 flock as a whole wheels about in front of you and now and then swoops round you;
@@ -224,7 +236,7 @@ it). Without a room setup they get a virtual room round you, and the panel
 offers Set up your room. Point at the floor and pull the trigger to spill
 crumbs. Speeds and cleaning times are tuned to look right, not measured.
 
-Files: index.html (the app), stories/ (the ten stories), proteins.html and
+Files: index.html (the app), stories/ (the eleven stories), proteins.html and
 spatial.html (forward to the app), manifest.webmanifest, sw.js (offline cache), audio/,
 shared.js (shared rooms), relay/ (the shared rooms' server), docs/ (the shared rooms' plan and the handover notes), HANDOVER.md (start here when taking the project over),
 AGENTS.md and CLAUDE.md (notes for AI coding agents), tools/smoke.mjs (headless test),
@@ -234,7 +246,8 @@ tools/nmd/ and ikerdata/ (sources and data of the muscle story; node tools/nmd/b
 writes stories/nmd.js), tools/endo/ (sources of the endotype story; node
 tools/endo/build.mjs writes stories/endo.js), tools/pet/ (sources of the PET story; node
 tools/pet/build.mjs writes stories/pet.js), tools/micro/ (sources of the microanatomy story; node
-tools/micro/build.mjs writes stories/micro.js), tools/flock/ (sources of the flock; node tools/flock/build.mjs
+tools/micro/build.mjs writes stories/micro.js), tools/qubits/ (sources of the qubits story; node
+tools/qubits/build.mjs writes stories/qubits.js), tools/flock/ (sources of the flock; node tools/flock/build.mjs
 writes stories/flock.js), tools/robots/ (sources of the robot gang;
 node tools/robots/build.mjs writes stories/robots.js),
 icons/, three.min.js (three.js r128, MIT licence, see three.LICENSE.txt).

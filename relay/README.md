@@ -95,7 +95,7 @@ the app's files from the repository over HTTPS, and prints the address to open.
    choose to continue (it is this machine's own certificate).
 3. Open **Shared**: on the page, the **Shared** button in the top bar or on the Stories screen; in the headset,
    the menu: touch the clock on your left wrist (**Open menu**; or click the left stick, or point at it and pull the trigger; beside the story panel without a left controller). The first person: **Start a room**,
-   then **Arrange all** puts the ten stories as stations in two rows of five in front of you (or one story where you
+   then **Arrange all** puts the eleven stories as stations in two rows (six, and five behind them) in front of you (or one story where you
    stand: **Add here** in the headset, **Add a station** on the page). Arrange all from a page, without a
    headset, puts the rows round the room's origin (mark A). Everyone else: **Shared**, then pick the room under
    **Open rooms**. To move a station, point at its ring or card in the headset and hold the grip: point to swing

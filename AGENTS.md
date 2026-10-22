@@ -4,10 +4,10 @@ Guidance for AI coding agents (and humans) working on this repository.
 
 ## What this is
 
-An installable web app that teaches network science in ten narrated stories
+An installable web app that teaches network science in eleven narrated stories
 (the airports about four minutes, the proteins and the cell map about five, the tour about nine and a half, the muscle
 story about eight, the endotype story about seven, the PET story about ten and a half, the microanatomy story about seven
-and a half, the flock and the robot gang about two), each
+and a half, the qubits story about nine, the flock and the robot gang about two), each
 followed by an explore mode. Everything works on desktop, phones and in VR/AR headsets (built for Meta
 Quest Browser, WebXR).
 
@@ -21,6 +21,7 @@ Quest Browser, WebXR).
 | Disease endotypes | `stories/endo.js` | one neuromuscular junction close up; the 35 genes of congenital myasthenic syndromes in the authors' protein network (18,306 proteins), their module of 393 genes and 12 endotypes (EndotypY), the motor unit |
 | Whole-body PET | `stories/pet.js` | a PET/CT scanner and how it sees; the organs of the paper's 658 whole-body scans (Geist et al., Med 2025) and their partial correlation networks (printed and read off its figures), from health to disease; the poster's one-scan network and its index (stand-in maths), survival and immunotherapy; the tour's PET body |
 | Tissue microanatomy | `stories/micro.js` | the tour's H&E section and the domains a method finds in it; 24,945 GTEx slides of 40 tissues (Buljan, Bago-Horvath, Rendeiro, bioRxiv 2025); the network of organ architecture (29 organs, tissues, 10 tissue types, 70 domains, Iva Buljan's file); which domains change with age, pathology, and the contacts between domains |
+| Quantum network compression | `stories/qubits.js` | example gene networks (320 genes in 8 hidden groups, at three strengths of mixing, and a random one) cut into 8 cells on 3 qubits; the coarse operator A_c on a cube, its Pauli strings, the toolbox (a Lie algebra, so(6) or so(7)) and what it drops; the real run's residual by depth and its 3-qubit circuit (Joel Hancock's method and figures) |
 | Flock | `stories/flock.js` | 200 starlings (a live simulation) flying all around you at dusk, each following its seven nearest neighbours |
 | Robot gang | `stories/robots.js` | 6 to 24 robot vacuums (a live simulation) in a model living room, or in a headset your own room; who follows whom (you, or the one ahead) is the network |
 
@@ -84,6 +85,9 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
 - `tools/micro/` - the sources of `stories/micro.js` (data generator, data block, small 3D organ models, sets, engine
   parts adapted from the PET story's, build script, set harness; it uses `tools/lbi/kit.js` and the tour's body and
   tissue sets); see its `README.md` and `SPEC.md`.
+- `tools/qubits/` - the sources of `stories/qubits.js` (the maths `QMATH` and its test, the real run's numbers, the
+  shared look, sets, engine parts adapted from the microanatomy story's, build script, set harness; it uses
+  `tools/lbi/kit.js`); see its `README.md` and `SPEC.md`.
 - `tools/lbi/` - the sources of `stories/lbi.js` (kit, sets, engine parts,
   build script, set harness, data generators); see its `README.md`.
 - `tools/flock/` - the sources of `stories/flock.js` (the flock set, engine parts
@@ -245,7 +249,7 @@ spot, y over the floor) and `st.<id>.place` (the scene: `{ x, y, z }` moved from
 where the story puts it, and `s` its size, a factor on the story's own; FORMAT
 networks-8), and per shared space `rf.<space id>` (the room's frame in it) and
 `rs.<space id>` (found split; FORMAT networks-9), and `sg` (the room's shared-space
-generation, `{ n, by, at }`; FORMAT networks-10; networks-11 when the eighth story came, networks-12 the ninth, networks-13 the tenth). The plan is `docs/shared-space-plan.md`.
+generation, `{ n, by, at }`; FORMAT networks-10; networks-11 when the eighth story came, networks-12 the ninth, networks-13 the tenth, networks-14 the eleventh). The plan is `docs/shared-space-plan.md`.
 
 - `HOST.collab` keeps the room's keys (echo suppression by value, optimistic
   writes acknowledged by the relay, apply order stations > clock > state >
@@ -304,10 +308,10 @@ generation, `{ n, by, at }`; FORMAT networks-10; networks-11 when the eighth sto
   a story loads, and the pump retries a lost one). A desktop page follows one
   from the Shared dialog. A story the person starts themselves leaves the
   station (no longer following, not pulled back).
-- Arrange all: two rows in front of you, half the stories (rounded up: five of
-  ten) 1.2 m ahead and the rest 2.6 m further on (behind them; in the gaps when the second row is shorter), 2.4 m apart, every
+- Arrange all: two rows in front of you, half the stories (rounded up: six of
+  eleven) 1.2 m ahead and the rest 2.6 m further on (behind them; in the gaps when the second row is shorter), 2.4 m apart, every
   station facing away from you (its content floats 1.4 m beyond its spot); it
-  needs about 9.6 m x 4 m of floor from 1.2 m in front of you. Remove asks first ("Remove for
+  needs about 12 m x 4 m of floor from 1.2 m in front of you. Remove asks first ("Remove for
   everyone?", 3 s), on the page and in the headset.
 - Moving a station by hand: in a headset the grip on a station's ring or card
   picks it up (the shell hears the session's own `squeezestart` and
@@ -592,7 +596,7 @@ generation, `{ n, by, at }`; FORMAT networks-10; networks-11 when the eighth sto
   A page following a station (Follow) leaves its Stories screen: while that
   shows, nothing syncs.
 
-The hooks every story keeps (all ten, the same lines; the flock is the
+The hooks every story keeps (all eleven, the same lines; the flock is the
 reference, `tools/flock/engine/`):
 
 - `collab: { APP, scene: () => GL.scene, state, apply, view, setView, effect, hover, panel, place }`
@@ -647,6 +651,7 @@ What each story shares:
 | endo | tab, scene, every scene's controls (synapse, network, tree, motor unit), endotype, gene, k (the seed-group step), method step (standing in the gap stays per device) | none |
 | pet | tab, scene, every scene's controls (scanner, body, organs, people, liver), the comparison (a Table 2 row), network, organ, profile, custom uptakes, threshold, group (life size stays per device) | none |
 | micro | tab, scene, every scene's controls (body, section, atlas, network), organ, domain, age, method step | none |
+| qubits | tab, scene, every scene's controls (pairs; cube: view, network, cut, bits, algebra; chart: view, example, angles), the brick shown (a Pauli string by name), how many strings are added up, the gallery (kinds or largest) | none |
 | flock | birds, links, falcon | `falcon` (where it starts, its velocity and aim, in the set's frame), `flock` (quiet, twice a second: where the flock is, see the flock's notes) |
 | robots | rule, robots, trails, links | `crumbs` (a pile: in room coordinates in a headset with an aligned frame, else in the station's frame), `dust` |
 
@@ -692,7 +697,7 @@ says why), whether a recentre fires a reset, sound zones heard, comfort and
 frame rate with presence drawn, and whether the socket keeps running inside an
 immersive session.
 
-## Inside a story (all ten follow the same pattern)
+## Inside a story (all eleven follow the same pattern)
 
 - Data at the top (airports and proteins: precomputed constants; spatial: the
   editable `PLACES`, `PROTEINS`, `LINKS`, `TOGETHER`, `MOVES` lists, laid out
@@ -874,6 +879,30 @@ architecture and the domain contacts; each with a manifest) and engine parts ada
   sections and tiles are drawn, never the GTEx images.
 - `tissue` and `slide` share one frame and are shown together.
 
+## The qubits story (`stories/qubits.js`) is built the same way
+
+`stories/qubits.js` is generated from `tools/qubits/` (`node tools/qubits/build.mjs`, `--check` as for the tour): the
+tour's kit, three shared parts pasted before the sets (`QMATH`, the maths, `sets/qmath.js`, checked by
+`node tools/qubits/test-qmath.mjs`; `QUBITS_DATA`, the real run's numbers typed in from Joel Hancock's brief,
+`sets/data.js`; `QLOOK`, the story's lit instanced tubes, rings, balls and halos, `sets/look.js`), three sets (`pairs`,
+the grid of pairs, the network as a map with two walkers and its valleys, the chip and the eight neighborhoods;
+`cube`, the cuts, the coarse operator A_c on a cube, the Pauli strings as small cubes, added up, and the toolbox;
+`chart`, the real run's residual by depth and the six-gate circuit; each with a manifest) and engine parts adapted
+from the microanatomy story's. `tools/qubits/SPEC.md` is the contract.
+
+- Example networks throughout (Joel Hancock's wish): no STRING data and no gene names; every number about them is
+  computed live by `QMATH` (the cut, A_c, the Pauli weights, the algebras so(2L) and so(2L + 1), the residual, the
+  Trotter angles). The real run's numbers appear only where the text says "in the real network". No data term D and no
+  Walsh-Hadamard step (out of scope); the valleys of the walkers' map are labelled illustrative. The cut stands in
+  for the authors' beam search (the story says so).
+- A set label's `text` may be a function returning `[bold, rest]` (the gallery's weights, the grid's count, the gate
+  angles): the engine reads it again while it shows and redraws it when it changes (`labelText`: the HTML label and
+  the headset's sprite).
+- Step params (never eased): `cube_net`, `cube_cut`, `cube_algebra`, `cube_focus`, `chart_src`, `pairs_code`. The
+  cube builds its default network at load and the others when first asked for in explore (a short pause).
+- **American spelling in this story only** (color, gray, neighborhood, normalized, center), as the brief asks: keep
+  it in `tools/qubits/` and its card; the rest of the app stays British.
+
 ## The flock (`stories/flock.js`) is built the same way
 
 `stories/flock.js` is generated from `tools/flock/` (`node tools/flock/build.mjs`,
@@ -982,7 +1011,7 @@ is the contract between them.
   compact one-line helpers, short comments that say why. No frameworks or
   bundlers; do not add dependencies.
 - Writing in the UI is plain British English, short sentences, no jargon
-  without a gloss. Numbers shown in the story are computed from the data at
+  without a gloss (the qubits story alone uses American spelling, as its author asked). Numbers shown in the story are computed from the data at
   load time, not hard-coded, wherever possible.
 - Scientific content is illustrative but must be correct: only add
   interactions and locations that are well documented (complexes, textbook
@@ -1013,7 +1042,8 @@ is the contract between them.
   `tools/nmd/sets/motor.js`, which the endotype story uses too), `tools/flock/` and
   `stories/flock.js`, `tools/robots/` and `stories/robots.js`, and `tools/pet/` and `stories/pet.js` (and after
   changing `tools/lbi/sets/body.js`, which the PET story uses too), and `tools/micro/` and `stories/micro.js` (and after
-  changing `tools/lbi/sets/body.js` or `tools/lbi/sets/tissue.js`, which it uses).
+  changing `tools/lbi/sets/body.js` or `tools/lbi/sets/tissue.js`, which it uses), and `tools/qubits/` and
+  `stories/qubits.js` (run `node tools/qubits/test-qmath.mjs` after changing its maths).
 - Keep `README.txt` (user-facing notes) in sync with structural changes.
 - Shared rooms: bump `FORMAT` in `shared.js` when the keys or a story's
   `collab.state()` change shape (a room refuses another format). A story's
@@ -1029,7 +1059,7 @@ smoke test, which loads every story, scrubs through it, plays it as a slideshow
 last one, the voice finishing the chapter there where a story has a recording,
 Next on the page, in the bar and on the headset panel beside the chapter arrows,
 Next going on), exercises explore
-mode and the headset panels (for the muscle, endotype, PET and microanatomy stories every explore tool too; for
+mode and the headset panels (for the muscle, endotype, PET, microanatomy and qubits stories every explore tool too; for
 the robot gang every rule, a click to walk, crumbs, a big open floor and one
 with no area, and a pretend headset room from detected planes),
 switches stories, runs anchored placement in each
@@ -1155,7 +1185,7 @@ For the tour, test a changed set on its own in the set harness first
 (`tools/lbi/shot.mjs`, much cheaper than the whole story), then the story at a
 few seconds (`tools/lbi/sweep.mjs`), then the smoke test. The muscle story has
 the same tools in `tools/nmd/` (`shot.mjs`, `sweep.mjs`), and so have the
-endotype story in `tools/endo/`, the PET story in `tools/pet/`, the microanatomy story in `tools/micro/` and the robot gang in `tools/robots/`.
+endotype story in `tools/endo/`, the PET story in `tools/pet/`, the microanatomy story in `tools/micro/`, the qubits story in `tools/qubits/` and the robot gang in `tools/robots/`.
 
 Useful URL hashes: `#spatial&t=95` (open at that second of the timeline, paused),
 `#proteins&explore&q=TP53` (explore mode with a search),
@@ -1166,7 +1196,8 @@ second), `#lbi&explore&scene=atp&view=network&now=1` (a scene with its controls)
 `&walk=TTN,DES`, `#nmd&explore&inside`, `#endo&explore&endo=2`, `#endo&explore&gene=COLQ`,
 `#endo&explore&tab=method&step=1&k=20`, `#endo&explore&scene=syn&view=cleft`, `#endo&explore&inside`, `#pet&t=40`, `#pet&explore&tab=networks&net=C_high`, `#pet&explore&organ=muscle`,
 `#pet&explore&tab=one&profile=cancer&theta=2`, `#pet&explore&scene=scan&view=ring`, `#pet&explore&life`, `#micro&t=100`,
-`#micro&explore&organ=Ovary`, `#micro&explore&tab=age&age=70`, `#micro&explore&scene=atlas&view=volcano`, `#flock&explore&view=afar&links=on&birds=400`
+`#micro&explore&organ=Ovary`, `#micro&explore&tab=age&age=70`, `#micro&explore&scene=atlas&view=volcano`, `#qubits&t=100`, `#qubits&explore&tab=network&net=blurred&cut=random&bits=2`,
+`#qubits&explore&brick=X2X1&alg=so6`, `#qubits&explore&sum=10`, `#qubits&explore&tab=depth&ex=on`, `#qubits&explore&scene=pairs&view=hoods`, `#flock&explore&view=afar&links=on&birds=400`
 (`&hunt` sends a falcon), `#robots&explore&rule=chain&robots=12&trails=on&links=on&view=low`
 (`&crumbs` spills a pile, `&walk=1.5,1.2` walks you there), `#airports&repeat=all` (a kiosk that plays
 every story in turn), `#airports&slides=on` (every story as a slideshow), `#anchor=on` (anchored headset placement). In the console,

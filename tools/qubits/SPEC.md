@@ -148,7 +148,11 @@ Performance (headless Chromium, software GL): builds `pairs` about 140 ms, `cube
 (330 to 400 ms with all four, `finish()`), `chart` about 90 ms; at most 13 draw calls, 75k triangles (the gallery's
 instanced tubes), 29k points (the grid of pairs), 11k lines (the strong-mixing network's links).
 
-## The engine (`tools/qubits/engine/`, copied from the microanatomy story's unchanged: adapt it)
+## The engine (`tools/qubits/engine/`, adapted from the microanatomy story's)
+
+Done in part 2: the first chapter's key is `title` (named Pairs), as the engine's shared title-arc lines expect; the
+others as below. Explore's shared state is `{ tab, scene, ctl, brick, sum, gal }` (the cube's network, cut, bits and
+algebra live in `ctl.cube`). Paced by `tools/pace.mjs` to 9:03.
 
 Rename everything: `HOST.register('qubits', ...)`, the header comment (Joel Hancock's method and figures; example
 networks), `audio/narration-qubits.mp3`, `SET_ORDER = ['pairs', 'cube', 'chart']`; remove the body, tissue and organ

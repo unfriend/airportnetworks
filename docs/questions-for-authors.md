@@ -1,6 +1,6 @@
 # Questions for the authors
 
-Open items found while building the four stories that rest on colleagues' work: places where the sources disagree,
+Open items found while building the five stories that rest on colleagues' work: places where the sources disagree,
 and stand-ins waiting for the authors' own values. Each item says where it is in the source, what the story shows now
 and where that is in the code or data. Whether the authors agreed to their material being shown at all is a separate
 matter: see [data-and-permissions.md](data-and-permissions.md).
@@ -51,6 +51,22 @@ network) and the Rendeiro group. Contact person: **TO FILL (owner)**.
 | M7 | No stomach-versus-uterus network in the talk: its contact-network figure shows the stomach, small intestine, breast and minor salivary gland; the uterus appears only among the domain pairs. Is there one, and where? | the talk (`figures.json`, its `notes`); `tools/micro/SPEC.md` | No such comparison. Contact networks of the colon, skin, ovary, fallopian tube, uterus and coronary artery (`tools/micro/sets/hier.js`). | open |
 | M8 | The co-authors' first names are unconfirmed, and so is the spelling with or without accents. | the bylines of the preprint and the poster | Story credits: "Iva Buljan, Z. Bagó-Horváth and A. F. Rendeiro" (`tools/micro/engine/e3_story.js`). Citations in the data: "Bago-Horvath Z" (preprint) and "Bagó-Horváth Z" (poster) (`tools/micro/data/gen_data.mjs`). `README.md` and `tools/micro/README.md` write the first names out ("Zsuzsanna", "André F."): unconfirmed too. | open |
 | M9 | "10 classes": are the preprint's 10 classes of domain types the 10 tissue types of Iva Buljan's network? | preprint; the network (GraphML) | "218 domains of 74 types, in 10 classes" (`FACTS.superclasses`); the network shows 10 tissue types (adipose tissue, cardiac muscle, connective tissue, glandular tissue, lining epithelium, lymphoid structure, neuronal tissue, skeletal muscle, smooth muscle, vascular tissue). | open |
+
+## Qubits: Three qubits (`qubits`)
+
+Sources: Joel Hancock's brief "Prompt: visualize network compression and the Pauli decomposition" (21 Oct 2026), his
+figure of Pauli strings on a cube, his 3-qubit card and his notes on the runs (none in the repository). As he asked,
+the story shows example networks throughout (computed in the page) and leaves out the data term D and the
+Walsh-Hadamard step; the real run's numbers are in `tools/qubits/sets/data.js`, shown only as "in the real network".
+Who to ask: Joel Hancock. Contact person: **TO FILL (owner)**.
+
+| # | Item | Where in the source | What the story shows now | Status |
+| --- | --- | --- | --- | --- |
+| Q1 | How to credit him: affiliation, and whether co-authors or a paper should be named. | the brief names no affiliation | "After the method and figures of Joel Hancock" (first chapter's small print), "Method and figures: Joel Hancock" (last chapter), the Network and Depth panes (`tools/qubits/engine/e3_story.js`, `e4_explore.js`). | open |
+| Q2 | The cut is a stand-in for the authors' beam search (spectral grouping into 8 equal cells, then the codes with the most coupling on cube edges). Is that a fair picture of the method, and is "a beam search that also favors the toolbox" the right gloss? | brief, "2. Bisections" | Said so in the cut chapter's small print and the last chapter's credits (`tools/qubits/sets/qmath.js`, `cut()`). | open |
+| Q3 | The example networks: 8 groups of 40 genes (the synthetic check had 48), an uneven variant as the story's default, a strongly mixed one and a random one. Acceptable as illustrations? | `notes-05`, "Synthetic check (hypercube SBM)" | `QMATH.NETS` in `tools/qubits/sets/qmath.js`; the story computes its numbers from "Uneven groups" (cube edges 79 %, residual 0.34 in so(7) at 3 bits). | open |
+| Q4 | The circuit runs time downward, as the 3-qubit card does, with RX on q0, q1, q2 first. Is the gates' order the one meant? | brief, "Optional closing frame"; the 3-qubit card | The brief's order and angles (`QUBITS_DATA.circuit`). | open |
+| Q5 | The walkers' map: the valleys are illustrative and the text says the walkers are "drawn to pairs that are broken together in patients more often than in healthy people". Is that plain reading of V right? | brief, "Why we do this", glossary | `tools/qubits/engine/e3_story.js`, chapter "walkers". | open |
 
 ## Muscle and heart (`nmd`)
 

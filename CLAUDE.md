@@ -10,7 +10,7 @@
 - The story files are large (`stories/airports.js` is ~640 KB because of its
   embedded data). Search with Grep and read line ranges; never read them whole.
 - Prefer small, exact edits. When a change touches the headset code, apply it
-  to all ten stories: their XR, panel and landing-screen code is meant to
+  to all eleven stories: their XR, panel and landing-screen code is meant to
   stay identical apart from story-specific panes.
 - Verify visual changes by serving the folder and taking headless Chromium
   screenshots (hashes such as `#spatial&t=60` jump straight to a moment), and
@@ -30,7 +30,7 @@
   `HOST.anchor.locked(kind)` before letting the grip move anything. Real anchors
   only exist on a headset: report their behaviour as untested.
 - Shared rooms (`shared.js`, `relay/`, see "Shared rooms" in `AGENTS.md`): keep
-  the shared hooks in all ten stories, the same lines in each (the `collab`
+  the shared hooks in all eleven stories, the same lines in each (the `collab`
   object, the ray and press lines, the grip line, `'shared'` in the optional
   features, the `HOST.collab.mine()` lines in `xrFreshStart` and
   `xrLandingClose`). `state()` never holds the camera, hover or anything per
@@ -57,6 +57,10 @@
   the repository, and the preprint's numbers via `node tools/micro/data/gen_data.mjs <graphml>`); it includes the tour's
   body and tissue sets (its organs are its own 3D models, `tools/micro/sets/organs.js`), so rebuild it after changing
   those.
+  `stories/qubits.js` likewise from `tools/qubits/` (`node tools/qubits/build.mjs`; its maths checked by
+  `node tools/qubits/test-qmath.mjs`; example networks only, computed live, and the real run's numbers typed in from
+  Joel Hancock's brief in `tools/qubits/sets/data.js`, shown only as "in the real network"). It alone uses American
+  spelling (color, gray, neighborhood), as its author asked; keep it so there and British everywhere else.
 
 ## Keeping token use down
 
