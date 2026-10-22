@@ -127,6 +127,35 @@ await step('the Sound button turns the narration off and on', async () => {
   await page.click('#btnSound');
   await playing('on again');
 });
+// slideshow: at a stop the voice finishes its chapter's words (NARRATION_ENDS) while the story waits, and after
+// Next the narration stays quiet until the story is back there: nothing cut, nothing said twice
+await step('a slideshow stop lets the voice finish its chapter', async () => {
+  await page.evaluate(() => HOST.slides.set('airports', true));
+  const [s, v] = await page.evaluate(() => [HOST.cur.peek('slideStop(1)'), HOST.cur.peek('slideVoice(1)')]);
+  if (!(v > s + 0.5)) throw new Error(`no voice to finish at the first stop (stop ${s}, voice ends ${v})`);
+  // the voice stops at the first frame past the words' end, and headless frames can be far apart: a small window
+  // draws faster, and the frames' spacing is allowed for
+  await page.setViewportSize({ width: 480, height: 300 });
+  const gap = await page.evaluate(async () => { const f0 = window.__frames; await new Promise(r => setTimeout(r, 1500)); return 1.5 / Math.max(1, window.__frames - f0); });
+  await page.evaluate(s => HOST.cur.peek(`(APP.seek(${s} - 0.1), APP.playing || APP.togglePlay())`), s);
+  // the words go on past the stop (unless a slow frame found the stop only after they ended) and end near v
+  let last = -1;
+  const b = await until('waiting at the stop, the voice done', p => { if (p.pos !== null && Math.abs(p.pos - s) < 5) last = Math.max(last, p.pos); return p.t === s && p.pos === null; }, 30000);
+  // T.t: where the sound was when the stop came (a slow page's clock lags the sound, sometimes past the words' end)
+  const T = await page.evaluate(() => HOST.cur.peek('SLIDE.tail'));
+  if (!T || T.v !== Math.max(v, T.t)) throw new Error(`no voice finishing the chapter: ${JSON.stringify(T)}`);
+  if ((T.t < v - 0.5 && last < v - 0.5) || last > T.v + 0.3 + gap) throw new Error(`voice to ${last} (words end ${v}, the sound at ${T.t} at the stop, frames ${gap.toFixed(2)} s apart), story at ${b.t} (stop ${s})`);
+  await page.evaluate(() => document.getElementById('btnNext').click());
+  const q = [], t0 = Date.now();
+  while (Date.now() - t0 < 60000) { const p = await probe(); q.push([p.t, p.pos]); if (p.t > T.v + 0.5) break; await wait(100); }
+  const twice = q.filter(([t, pos]) => t < T.v - 0.15 && pos !== null);
+  if (twice.length) throw new Error(`after Next the chapter's last words again: ${JSON.stringify(twice)}`);
+  const c = await until('the narration with the story again', p => p.pos !== null && p.t > T.v && Math.abs(p.pos - p.t) < 0.4 + gap, 30000);
+  console.log(`ok   slideshow stop at ${s.toFixed(2)} s: the voice went on to ${last.toFixed(2)} s (words end ${v}; the sound at ${T.t.toFixed(2)} s at the stop, frames ${gap.toFixed(2)} s apart), then quiet; after Next quiet until the story passed it, then in step (${c.t.toFixed(1)} s, sound ${c.pos.toFixed(1)} s)`);
+});
+// slideshow off again, the story playing, the window as before, whatever happened above
+await page.setViewportSize({ width: 1280, height: 800 });
+await page.evaluate(() => { HOST.slides.setGlobal(false); HOST.cur.peek('APP.playing || APP.togglePlay()'); });
 await step('a headset session: taken off and put on again', async () => {
   // a stand-in for an XRSession: the shell listens to its visibility and controller events
   await page.evaluate(() => { const s = new EventTarget(); s.visibilityState = 'visible'; window.fakeSession = s; HOST.session = s; });

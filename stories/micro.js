@@ -7312,8 +7312,13 @@ function slideStep(t0) {
   if (T && (APP.mode !== 'story' || HOST.picking || APP.t < T.s - 0.01 || APP.t >= T.v)) SLIDE.tail = null;
   SLIDE.last = APP.t; SLIDE.lt = now; SLIDE.lp = APP.mode === 'story' && APP.playing;
 }
-// at the stop of chapter i the voice, at t in the recording, plays on to where the chapter's voice ends (if later)
-function slideTail(i, t) { const v = slideVoice(i); SLIDE.tail = v > t ? { s: slideStop(i), v, t, at: performance.now() } : null; }
+// at the stop of chapter i the voice plays on from where the sound is (the story's clock, t, can lag it) to where the
+// chapter's words end; a sound already past them stops there, and keeps quiet until the story is back there
+function slideTail(i, t) {
+  const p = AUD && AUD.pos ? AUD.pos() : null, e = slideVoice(i);
+  if (p !== null) t = p;
+  SLIDE.tail = e > t || p !== null ? { s: slideStop(i), v: Math.max(e, t), t, at: performance.now() } : null;
+}
 // what the narration plays (audioSync): the story's clock while it plays; while a voice finishes its chapter, its own
 // clock up to the chapter's voice end, then nothing until the story, gone on from the stop, is back there. So nothing
 // is cut or said twice, and the story does not follow the voice meanwhile (audioFollow)
