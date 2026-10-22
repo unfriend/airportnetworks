@@ -2762,7 +2762,7 @@ void main() {
   float dp = dpr(p1.a), fa = max(dp, fsel);
   vec3 tint = mix(p0.rgb, p1.rgb, smoothstep(0.25, 0.85, uAdj));
   float ta = 0.3 * smoothstep(0.0, 0.25, uAdj);
-  acc = over(acc, vec3(0.012, 0.02, 0.045), max(0.55 * uDim, 0.42 * uFeat) * (1.0 - fa) * inT);
+  acc = over(acc, vec3(0.012, 0.02, 0.045), max(0.45 * uDim, 0.42 * uFeat) * (1.0 - fa) * inT);
   acc = over(acc, vec3(0.0), DARK * fa * inT);
   acc = over(acc, mix(tint, dc, fa), mix(ta, WA + 0.16 * (wa + wv) + 0.12 * fsel, fa) * (1.0 - 0.5 * (foc - fsel)) * inT);
   // focus: the other domains dim
@@ -2835,7 +2835,7 @@ void main() {
   float g = smoothstep(0.0, 1.0, clamp((uFeat * 1.45 - aI.w) / 0.45, 0.0, 1.0));
   float v = mix(aI.y, aI.z, smoothstep(0.2, 0.85, uAdj));
   float h = (${H0.toFixed(4)} + ${HB.toFixed(4)} * pow(v, 1.6)) * g * uOut * (1.0 - 0.45 * smoothstep(0.0, 0.5, uAdj));
-  float bx = mod(aI.x, 4.0), by = floor(aI.x / 4.0), bw = uTS * 0.25 * 0.66;
+  float bx = mod(aI.x, 4.0), by = floor(aI.x / 4.0), bw = uTS * 0.25 * 0.66 * (1.0 - 0.3 * smoothstep(0.0, 0.6, uAdj));
   vec3 o = aC + n * (uTH * 0.5 + 0.0018) + aS * ((bx + 0.5) * 0.25 - 0.5) * uTS * 0.86 + aD * ((by + 0.5) * 0.25 - 0.5) * uTS * 0.86;
   vec3 p = o + aS * position.x * bw - aD * position.y * bw * sd + n * position.z * h;   // (aS, -aD, n) is right-handed: the faces wind outwards
   vec4 mv = modelViewMatrix * vec4(p, 1.0);
@@ -5353,7 +5353,7 @@ const fitShift = (k, name) => { const f = GL.sets[k].cam[name] && FIT[k] && FIT[
 const SEC = [0, 0, 0.6, -0.22];
 const FIT = { atlas: { default: [0, 0, 1.7, -0.26], library: [0, 0, 1.7, -0.26], atlas: [0, 0, 0.8, -0.35], focus: [0, 0, 0.35, -0.05, 0.03], volcano: [0, 0, 0.45, -0.2],
   curves: [0, 0, 0.5, -0.25], age: [0, 0, 0.45, -0.2] },
-  body: { default: [0, 0, 0.55], front: [0, 0, 0.55] }, tissue: { default: SEC, section: SEC }, slide: { default: SEC, section: SEC, domains: SEC, age: SEC, tiles: [0, 0, 0.35, -0.25], group: [0, 0, 0.35, -0.2] } };
+  body: { default: [0, 0, 0.55], front: [0, 0, 0.55] }, hier: { net: [0, 0, 0.35, 0, 0.05], default: [0, 0, 0.25, 0, 0.03] }, tissue: { default: SEC, section: SEC }, slide: { default: SEC, section: SEC, domains: SEC, age: SEC, tiles: [0, 0, 0.35, -0.25], group: [0, 0, 0.35, -0.2] } };
 // how much further back a view stands on a phone held upright (see narrowK): the wide ones, whose parts reach
 // across the screen
 const NARROW = { tissue: { section: 1.2, default: 1.2 }, slide: { default: 1.2, domains: 1.2, group: 1.25 }, atlas: { library: 1.1, default: 1.1, atlas: 1.2, volcano: 1.15, curves: 1.15 },
