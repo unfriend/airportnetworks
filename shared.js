@@ -1756,7 +1756,8 @@
     HAND.hand = !!(src && src.hand);
     if (p && !p.emulatedPosition) {
       HAND.m.fromArray(p.transform.matrix); HAND.at = t;
-      // like a watch: off the back of a hand's wrist (its +y leaves the back of the hand, +z runs up the forearm);
+      // like a watch: off the back of a hand's wrist (its +y leaves the back of the hand, +z runs up the forearm, for
+      // either hand: the Hand Input spec has a joint's -y go into the palm and its -z along the bone, away from the wrist);
       // with a controller a little behind the grip (+z runs back to the wrist) and above it
       if (HAND.hand) HAND.c.set(0, 0.03, 0.035).applyMatrix4(HAND.m);
       else { HAND.c.set(0, 0, 0.05).applyMatrix4(HAND.m); HAND.c.y += 0.05; }
