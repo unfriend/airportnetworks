@@ -554,14 +554,19 @@ void main() { vAl = smoothstep(aObj.w, aObj.w + 0.06, uVote); vC = aCol; gl_Posi
   }
 
   // ------------------------------------------------------------- picking (explore): the object under a ray
-  const plane = new THREE.Plane(), hit = new THREE.Vector3(), inv = new THREE.Matrix4();
+  // (hitAt: where the last pick met the section, in the set's own frame, for the headset's ray and tip; null on a miss)
+  const plane = new THREE.Plane(), hit = new THREE.Vector3(), inv = new THREE.Matrix4(), hw = new THREE.Vector3();
+  let hitAt = null;
   function pick(raycaster) {
+    hitAt = null;
     SA.g.updateMatrixWorld(true);
     plane.setFromNormalAndCoplanarPoint(new THREE.Vector3(0, 0, 1).transformDirection(SA.g.matrixWorld), new THREE.Vector3().setFromMatrixPosition(SA.g.matrixWorld));
     if (!raycaster.ray.intersectPlane(plane, hit)) return -1;
+    set.group.worldToLocal(hw.copy(hit));
     hit.applyMatrix4(inv.copy(SA.g.matrixWorld).invert());
     let best = -1, bd = 1e9;
     for (const o of SA.OBJ) { if (SA.visAt(o, ageNow) < 0.5) continue; const d = Math.hypot(o.x - hit.x, o.y - hit.y) - o.r; if (d < 0.015 && d < bd) { bd = d; best = o.k; } }
+    if (best >= 0) hitAt = [hw.x, hw.y, hw.z];
     return best;
   }
   const count = (S, a) => { const n = [0, 0, 0, 0, 0]; for (const o of S.OBJ) if (S.visAt(o, a) > 0.5) n[o.k]++; return n; };
@@ -608,7 +613,7 @@ void main() { vAl = smoothstep(aObj.w, aObj.w + 0.06, uVote); vC = aCol; gl_Posi
     },
     api() {
       return {
-        kinds: OVARY_DATA.kinds.map(k => k.key), pick, views: VIEWS,
+        kinds: OVARY_DATA.kinds.map(k => k.key), pick, hitAt: () => hitAt, views: VIEWS,
         // what the section shows at an age (objects per kind, by OVARY_DATA.kinds' index), A or B
         count: (a, which) => count(which === 'B' ? SB : SA, a),
         objects: SA.OBJ.map(o => ({ kind: o.k, x: o.x, y: o.y, r: o.r, from: o.from, until: o.until })),

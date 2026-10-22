@@ -331,8 +331,9 @@ function pickAt(mx, my) {
   _rc.setFromCamera(_m2, GL.camera);
   return pickWith(_rc);
 }
-// where a pick is, in its set's own frame (for the headset's ray and tip), or null (then where the ray meets the scene)
-const pickPos = () => null;
+// where a pick is, in its set's own frame (for the headset's ray and tip): where the ray met the section (pickWith
+// has just asked it), or null (then where the ray meets the scene)
+const pickPos = p => (p && X.scene === 'section' && api('section').hitAt ? api('section').hitAt() : null);
 const pickText = p => [cap(KD[p.kind].name), KD[p.kind].annotated ? `${fmt(KD[p.kind].annotated)} marked` : 'segmentation only'];
 function choosePick(p) {
   if (!p) return;

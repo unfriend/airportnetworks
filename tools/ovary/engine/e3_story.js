@@ -184,7 +184,7 @@ function buildStory() {
         <p class="note" data-at="13" data-out="19.5">${esc(reserveText(F))}</p>`,
       `<p data-at="20">Cut open: the outer layer (the cortex) holds the follicles, from tiny resting ones to large ones filled with fluid. The inner part (the medulla) carries the blood vessels.</p>
         <p data-at="28">About once a month a follicle releases its egg. What is left becomes a corpus luteum, which shrinks to a pale scar: a corpus albicans. Scars pile up over the years.</p>
-        <p class="note" data-at="36">The reserve cannot be measured directly. The hormones AMH and FSH are used as indirect markers, but they cannot show the true reserve of follicles.</p>`)}`,
+        <p class="note" data-at="36">The reserve cannot be measured directly. The hormones AMH and FSH are used as indirect markers, but they cannot accurately reflect the true reserve of follicles.</p>`)}`,
     donors: `<h2 data-at="0.6">${F.donors} donors</h2>
       <p data-at="1.2">The ovaries come from GTEx (the Genotype-Tissue Expression project), which collected tissue from people who had died.</p>
       <div class="facts"><div data-at="4"><b>${F.donors}</b><small>donors</small></div><div data-at="5.5"><b>${F.ages[0]}–${F.ages[1]}</b><small>years old</small></div></div>
@@ -223,7 +223,7 @@ function buildStory() {
         <p class="note" data-at="51">r runs from −1 to +1: below 0, fewer with age; above 0, more; near 0, no trend. A small p means a trend this strong would rarely come about by chance.</p>
         <p class="credits" data-at="55">The lines, r and p are the poster's. The dots are drawn to match the poster's trends, not the donors' values. The ovary's counts follow the lines.</p>`)}`,
     agree: `<h2 data-at="0.6">Do the methods agree?</h2>
-      <p data-at="1.2">Now each donor is one dot: the random forest's count across, the segmentation's up. On the dashed diagonal both would count the same.</p>
+      <p data-at="1.2">On the poster each donor is one dot: the random forest's count across, the segmentation's up. On the dashed diagonal both would count the same.</p>
       <ul class="steps">
         ${step(10, 0, KCOL.follicle, `${Plural('follicle')} · r ${rT(fol.compare.r)}`, 'agree well')}
         ${step(13, 0, KCOL.vessel, `${Plural('vessel')} · r ${rT(ves.compare.r)}`, 'agree well')}
@@ -231,7 +231,7 @@ function buildStory() {
         ${step(20, 0, KCOL.macrophage, `${Plural('macrophage')} · r ${rT(mac.compare.r)}`, 'agree less: the segmentation finds fewer')}
       </ul>
       <p class="amber" data-at="24">Two methods, one picture of aging: fewer follicles and vessels, more scars.</p>
-      <p class="credits" data-at="28">r and p as on the poster (p from ${pT(F.pMax)} down to ${pT(F.pMin)}). The dots are drawn to match, not the donors' values.</p>`,
+      <p class="credits" data-at="28">r and p as on the poster (p from ${pT(F.pMax)} down to ${pT(F.pMin)}). The dots are drawn to match, not the donors' values or how many donors each chart has.</p>`,
     network: `<h2 data-at="0.6">Next: a network</h2>
       ${turns(`<p data-at="1.2" data-out="17">Where things lie matters too. Make each object a node, and link objects that lie close together: a spatial neighbor network.</p>
         <p data-at="9" data-out="17">As the ovary ages, the network changes: follicles' nodes go, scars' nodes come.</p>
@@ -534,18 +534,21 @@ function placeLabels(list, alphaOf) {
       if (y + L.h > barTop - 4 || y < 50) o = 0;
       x = Math.max(6, Math.min(x, W - L.w - 6));
     }
-    if (o !== L.o) { L.el.style.opacity = o; L.o = o; }
-    if (o <= 0) continue;
-    vis.push([L, x, y]);
+    if (o <= 0) { if (L.o !== 0) { L.el.style.opacity = 0; L.o = 0; } continue; }
+    vis.push([L, x, y, o]);
   }
   vis.sort((p, q) => p[2] - q[2]);
-  for (const [L, x, y0] of vis) {
-    let y = y0;
+  for (const [L, x, y0, o0] of vis) {
+    let y = y0, o = o0;
     for (let pass = 0; pass < 6; pass++) {
       const hit = _placed.find(r => x < r[0] + r[2] && r[0] < x + L.w && y < r[1] + r[3] && r[1] < y + L.h);
       if (!hit) break;
       y = hit[1] + hit[3] + 2;
     }
+    // (a label nudged down under the panel or the timeline, as on a small screen held sideways, shows none)
+    if ((pr.width && y + L.h > pr.top && y < pr.bottom && x < pr.right + 6) || y + L.h > barTop - 4) o = 0;
+    if (o !== L.o) { L.el.style.opacity = o; L.o = o; }
+    if (o <= 0) continue;
     _placed.push([x, y, L.w, L.h]);
     L.el.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px)`;
   }
