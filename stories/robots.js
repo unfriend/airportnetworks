@@ -2782,6 +2782,7 @@ function buildTimeline() {
   $('#play').addEventListener('click', () => APP.togglePlay());
   // slideshow: Next and this story's switch, in the shell's row at the foot of the panel (an older shell has none)
   if ($('#slides')) { $('#btnNext').addEventListener('click', slideNext); $('#btnSlides').addEventListener('click', slideToggle); }
+  if ($('#btnNextBar')) $('#btnNextBar').addEventListener('click', slideNext);   // Next beside Play (phones)
 }
 const ICON_PLAY = '<svg viewBox="0 0 16 16"><path d="M4 2.5v11l9-5.5z"/></svg>';
 const ICON_PAUSE = '<svg viewBox="0 0 16 16"><path d="M3.5 2.5h3v11h-3zM9.5 2.5h3v11h-3z"/></svg>';
@@ -4092,21 +4093,19 @@ function drawFoot(ctx, P) {
     else { ctx.beginPath(); ctx.moveTo(bx + 38, by + 26); ctx.lineTo(bx + 38, by + 70); ctx.lineTo(bx + 72, by + 48); ctx.closePath(); ctx.fill(); }
     const t = APP.t, ci = Math.max(0, CH.findIndex(c => t >= c.na && t < c.nb));
     const tri = (cx, cy, dir) => { ctx.beginPath(); ctx.moveTo(cx - 9 * dir, cy - 13); ctx.lineTo(cx - 9 * dir, cy + 13); ctx.lineTo(cx + 9 * dir, cy); ctx.closePath(); ctx.fill(); };
-    // slideshow: waiting at the end of a chapter, Next takes the place of the chapter arrows
-    if (SLIDE.at >= 0) vButton(ctx, P, 'slideNext', 140, 52, 166, 72, 'Next', slideNext, { primary: true, px: 30 });
-    else {
-      vButton(ctx, P, 'prev', 140, 52, 78, 72, '', () => APP.seek(t > CH[ci].na + 2 || ci === 0 ? CH[ci].na : CH[ci - 1].na));
-      ctx.fillStyle = VC.ink; tri(171, 88, -1); ctx.fillRect(184, 75, 5, 26);
-      vButton(ctx, P, 'next', 228, 52, 78, 72, '', () => APP.seek(ci < CH.length - 1 ? CH[ci + 1].na : T_END - 0.01));
-      ctx.fillStyle = VC.ink; tri(262, 88, 1); ctx.fillRect(271, 75, 5, 26);
-    }
+    vButton(ctx, P, 'prev', 140, 52, 78, 72, '', () => APP.seek(t > CH[ci].na + 2 || ci === 0 ? CH[ci].na : CH[ci - 1].na));
+    ctx.fillStyle = VC.ink; tri(171, 88, -1); ctx.fillRect(184, 75, 5, 26);
+    vButton(ctx, P, 'next', 228, 52, 78, 72, '', () => APP.seek(ci < CH.length - 1 ? CH[ci + 1].na : T_END - 0.01));
+    ctx.fillStyle = VC.ink; tri(262, 88, 1); ctx.fillRect(271, 75, 5, 26);
     const x0 = 344, x1 = P.w - 40, ty = 100;
     const m = s => Math.floor(s / 60) + ':' + String(Math.floor(s % 60)).padStart(2, '0');
     ctx.font = vfont(22); ctx.fillStyle = VC.muted; ctx.textAlign = 'right'; ctx.fillText(m(t) + ' / ' + m(T_END), x1, 44); ctx.textAlign = 'left';
     // this story's Slideshow switch, left of the clock (placed for the longest clock, so it never shifts)
     const sx = x1 - ctx.measureText(m(T_END) + ' / ' + m(T_END)).width - 220;
     if (HOST.slides) vButton(ctx, P, 'slides', sx, 26, 198, 42, 'Slideshow: ' + (slidesOn() ? 'on' : 'off'), slideToggle, { on: slidesOn(), px: 20 });
-    ctx.font = vfont(27, 700); ctx.fillStyle = VC.ink; ctx.fillText(fitText(ctx, CH[ci].name, (HOST.slides ? sx : x1 - 160) - 16 - x0), x0, 40);
+    // slideshow: waiting at the end of a chapter, Next in the place of the chapter's name (the panel above has it)
+    if (SLIDE.at >= 0) vButton(ctx, P, 'slideNext', x0, 16, 180, 48, 'Next', slideNext, { primary: true, px: 28 });
+    else { ctx.font = vfont(27, 700); ctx.fillStyle = VC.ink; ctx.fillText(fitText(ctx, CH[ci].name, (HOST.slides ? sx : x1 - 160) - 16 - x0), x0, 40); }
     rr(ctx, x0, ty, x1 - x0, 6, 3); ctx.fillStyle = 'rgba(160,178,202,0.28)'; ctx.fill();
     rr(ctx, x0, ty, (x1 - x0) * t / T_END, 6, 3); ctx.fillStyle = VC.cyan; ctx.fill();
     ctx.fillStyle = 'rgba(160,178,202,0.6)';
@@ -4147,10 +4146,10 @@ function audioInit() {
     APP[name] = function (...args) { const r = f.apply(APP, args); AUD.seeked(); audioSync(); return r; };
   }
 }
-// the narration plays while the story plays
-function audioSync() { if (AUD) AUD.sync(APP.mode === 'story' && APP.playing, APP.t); }
+// the narration plays while the story plays (at a slideshow stop, a voice may finish its chapter: slideSound)
+function audioSync() { if (AUD) AUD.sync(...slideSound()); }
 // while it plays, the narration is the clock: the story follows it
-function audioFollow() { if (AUD) APP.t = AUD.follow(APP.t); }
+function audioFollow() { if (AUD && !SLIDE.tail) APP.t = AUD.follow(APP.t); }
 function audioLabel() { return AUD ? AUD.label() : ''; }
 function audioToggle() { HOST.audio.toggle(); }
 
@@ -4158,13 +4157,18 @@ function audioToggle() { HOST.audio.toggle(); }
 // Slideshow (HOST.slides: on for this story, or for all): the story waits at the end of each chapter, all its text
 // shown, until Next (or Play) goes on. The stop is a pause and a seek, Next a play, so in a shared room they reach
 // the station's clock like a pause and a play by hand, at the same t on every device.
-const SLIDE = { at: -1, go: -1, last: 0, lt: 0, lp: false };
+const SLIDE = { at: -1, go: -1, last: 0, lt: 0, lp: false, tail: null };
 const slidesOn = () => !!(HOST.slides && HOST.slides.on(XR_HERE));
 // where chapter i waits: just before its text starts to fade out (0.65 s before its end in story time), on the
 // recording's clock; the same on every device
 const slideStop = i => narrT(CH[i].b - 0.7);
-// every frame, once the clock has moved on from t0: crossing a stop while playing stops there, and a story paused up
-// to 0.25 s before a stop (a room's pause lands that close) waits at it (SLIDE.at, which shows Next). In a shared
+// a chapter's last words can run on past that point (the airports' by up to 2.4 s): a story with a recording says
+// where each chapter's voice ends in it (NARRATION_ENDS, seconds by chapter key), and the voice finishes there while
+// the story waits (slideSound); a story without one pauses the narration with the clock
+const slideVoice = i => (typeof NARRATION_ENDS === 'object' && +NARRATION_ENDS[CH[i].key]) || 0;
+// every frame, once the clock has moved on from t0: crossing a stop while playing stops there, and a story paused just
+// now, while playing up to 0.25 s before a stop (a room's pause lands that close), waits at it too (SLIDE.at, which
+// shows Next); a clock put near a stop while paused (a scrub) stays where it was put, unless right on it. In a shared
 // room the station's clock also moves a playing story on between frames (catching up): a step since the last frame
 // no longer than the time that passed (and the room's 0.25 s drift) counts as playing on too; a jump does not
 function slideStep(t0) {
@@ -4174,30 +4178,47 @@ function slideStep(t0) {
   if (slidesOn() && APP.mode === 'story') {
     for (let i = 0; i < CH.length; i++) {
       const s = slideStop(i);
-      if (APP.playing && i !== SLIDE.go && from < s && APP.t >= s) { APP.playing = false; APP.seek(s); }
-      if (!APP.playing && APP.t >= s - 0.25 && APP.t <= s + 0.01) { APP.t = s; SLIDE.at = i; break; }
+      if (APP.playing && i !== SLIDE.go && from < s && APP.t >= s) { slideTail(i, APP.t); APP.playing = false; APP.seek(s); }
+      else if (!APP.playing && SLIDE.lp && APP.t >= s - 0.25 && APP.t < s) slideTail(i, APP.t);
+      else if (APP.playing || Math.abs(APP.t - s) > 0.002) continue;
+      APP.t = s; SLIDE.at = i; break;
     }
     // gone on from a stop: it stays passed while the clock is near it (the narration may pull the clock back a hair)
     if (was >= 0 && APP.playing) SLIDE.go = was;
     else if (SLIDE.go >= 0 && Math.abs(APP.t - slideStop(SLIDE.go)) > 1) SLIDE.go = -1;
   } else SLIDE.go = -1;
+  // a voice finishing its chapter: done once the story is back where the voice ended, or elsewhere
+  const T = SLIDE.tail;
+  if (T && (APP.mode !== 'story' || HOST.picking || APP.t < T.s - 0.01 || APP.t >= T.v)) SLIDE.tail = null;
   SLIDE.last = APP.t; SLIDE.lt = now; SLIDE.lp = APP.mode === 'story' && APP.playing;
+}
+// at the stop of chapter i the voice, at t in the recording, plays on to where the chapter's voice ends (if later)
+function slideTail(i, t) { const v = slideVoice(i); SLIDE.tail = v > t ? { s: slideStop(i), v, t, at: performance.now() } : null; }
+// what the narration plays (audioSync): the story's clock while it plays; while a voice finishes its chapter, its own
+// clock up to the chapter's voice end, then nothing until the story, gone on from the stop, is back there. So nothing
+// is cut or said twice, and the story does not follow the voice meanwhile (audioFollow)
+function slideSound() {
+  const T = SLIDE.tail, v = T ? T.t + (performance.now() - T.at) / 1000 : 0;
+  return T ? [APP.mode === 'story' && v < T.v, Math.min(v, T.v)] : [APP.mode === 'story' && APP.playing, APP.t];
 }
 function slideNext() { if (SLIDE.at >= 0) APP.togglePlay(); }
 function slideToggle() { if (HOST.slides) HOST.slides.set(XR_HERE, !slidesOn()); }
 const slideSig = () => (HOST.slides ? HOST.slides.sig() : '') + SLIDE.at;
-// the page (index.html's row at the foot of the panel): Next while the story waits, brought into sight, and the switch
+// the page: Next while the story waits (index.html's row at the foot of the panel, brought into sight as far as the
+// chapter's top allows; on a phone, beside Play in the bar instead) and the switch
 function slideDOM() {
   const row = $('#slides');
   if (!row || !HOST.slides) return;
-  const on = slidesOn(), s = SLIDE.at + '' + on;
+  const on = slidesOn(), s = SLIDE.at + '' + on, nb = $('#btnNext'), bar = $('#btnNextBar');
   if (row.dataset.s === s) return;
   row.dataset.s = s; row.hidden = false;
-  $('#btnNext').hidden = SLIDE.at < 0;
+  nb.hidden = SLIDE.at < 0;
+  if (bar) bar.hidden = SLIDE.at < 0;
   const b = $('#btnSlides');
   b.textContent = 'Slideshow: ' + (on ? 'on' : 'off'); b.setAttribute('aria-pressed', on ? 'true' : 'false');
-  if (SLIDE.at < 0) return;
-  const p = $('#panel'), over = row.getBoundingClientRect().bottom - (p.getBoundingClientRect().bottom - parseFloat(getComputedStyle(p).paddingBottom));
+  if (SLIDE.at < 0 || !nb.offsetParent) return;
+  const p = $('#panel'), r = p.getBoundingClientRect(), cs = getComputedStyle(p), sec = $('#story .ch.on');
+  const over = Math.min(row.getBoundingClientRect().bottom - (r.bottom - parseFloat(cs.paddingBottom)), sec ? sec.getBoundingClientRect().top - r.top - parseFloat(cs.paddingTop) : 0);
   if (over > 0) p.scrollTo({ top: p.scrollTop + over, behavior: 'smooth' });
 }
 

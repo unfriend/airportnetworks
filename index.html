@@ -157,6 +157,9 @@ button { cursor: pointer; }
 #slides { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 20px; padding-top: 14px; border-top: 1px solid var(--line); }
 #slides[hidden], body.exploring #slides { display: none; }
 #btnNext { font-size: 16px; padding: 9px 26px; }
+/* on a phone the panel is short: Next goes beside Play in the bar instead, always in sight */
+#btnNextBar { display: none; flex: none; font-size: 15px; padding: 9px 18px; }
+@media (max-width: 899px) { #slides #btnNext { display: none; } body:not(.exploring) #btnNextBar:not([hidden]) { display: block; } }
 #btnSlides { margin-left: auto; font-size: 13px; padding: 6px 12px; color: var(--muted); }
 #btnSlides[aria-pressed="true"] { border-color: var(--cyan); color: var(--cyan); }
 
@@ -421,6 +424,7 @@ body.xr #labels, body.xr #tip { display: none; }
 </aside>
 <footer id="bar">
   <button id="play" type="button" aria-label="Pause"></button>
+  <button class="btn primary" id="btnNextBar" type="button" hidden>Next</button>
   <div id="track" role="slider" aria-label="Story position" tabindex="0" aria-valuemin="0" aria-valuemax="232" aria-valuenow="0"></div>
   <div id="clock">0:00 / 3:51</div>
   <div id="viewctl"></div>
