@@ -124,11 +124,14 @@ Geometry:
 - Genes: a point (`K.points` or your own shader) at `pos` in each layer where the gene has a link in that layer;
   `tower_room` > 0 pushes the layout outwards into an annulus (inner radius about 0.45) so a person can stand in the
   middle (in the headset the engine scales the tower to the room). Seeds have a bright core.
-- Links: line segments within each layer. All layer-links together are about 126,000 segments: put them in one or two
-  geometries and decide visibility and colour in the shader from per-gene state (a small DataTexture or uniform
-  array updated only when the selection changes) and per-layer weights, so that at most about 60,000 are visible in any
-  state, and do not rebuild buffers per frame.
-- Threads: vertical lines through a gene's copies, only for genes that are highlighted (a few hundred at most).
+- Links: within each layer, drawn a little wider than a pixel (one-pixel lines all but vanish, in a headset most of
+  all): camera-facing ribbons (instanced quads) whose width is in local units with a floor and a ceiling in pixels. All
+  layer-links together are about 126,000: put them in one or two geometries and decide visibility and colour in the
+  shader from per-gene state (a small DataTexture or uniform array updated only when the selection changes) and
+  per-layer weights, so that at most about 60,000 are drawn in any settled state, and do not rebuild buffers per frame
+  (relisting the highlighted ones when the selection changes is fine). The links outside the selection (context) stay
+  clearly visible everywhere; the selection, the walk and picked endotypes stand out above them.
+- Threads: vertical ribbons through a gene's copies, only for genes that are highlighted (a few hundred at most).
 
 Params (all 0..1 unless said; the engine eases them, so morphs must look right in between; round index params):
 - `tower_a` fade. `tower_rise` the layers appear from the bottom up (default 1). `tower_cats` the category tints and
