@@ -73,7 +73,7 @@ function frame(now) {
   K.U.uTime.value = t;
   K.U.uPx.value = renderer.getDrawingBufferSize(new THREE.Vector2()).y * 0.5;
   place(camArr);
-  if (Q.get('follow') && set.anchors.school) { const c = set.anchors.school(); camera.lookAt(c[0], c[1], c[2]); }
+  if (Q.get('follow') && set.anchors.school) { set.group.updateMatrixWorld(true); const c = new THREE.Vector3(...set.anchors.school()).applyMatrix4(set.group.matrixWorld); camera.lookAt(c); }   // aim at the school
   set.setAlpha(S[key + '_a']);
   if (set.see) set.see(set.group.worldToLocal(camera.position.clone()).toArray(), []);
   if (steer && set.steer) set.steer(steer);

@@ -26,6 +26,12 @@ for (const f of ['tools/pass/gen/airports.js', 'tools/pass/gen/spatial.js']) {
   vm.runInContext(fs.readFileSync(path.join(root, f), 'utf8').replace(/^const (PASS_\w+) =/m, 'var $1 ='), sandbox, { filename: f });
 }
 for (const s of ['fish', 'globe', 'cell']) if (want(s)) load(`tools/pass/sets/${s}.js`);
+// (tuning: FISH_TUNE='V0=1,KA=2' tries other numbers for the school without editing the set)
+if (process.env.FISH_TUNE && want('fish')) {
+  let src = fs.readFileSync(path.join(root, 'tools/pass/sets/fish.js'), 'utf8');
+  src = src.replace(/^  const V0 = .*$/m, line => process.env.FISH_TUNE.split(',').reduce((l, kv) => { const [k, v] = kv.split('='); return l.replace(new RegExp(`\\b${k} = [-0-9.]+`), `${k} = ${v}`); }, line));
+  vm.runInContext(src, sandbox, { filename: 'fish (tuned)' });
+}
 let fails = 0;
 const ok = (c, msg) => { console.log((c ? 'ok   ' : 'FAIL ') + msg); if (!c) fails++; };
 const build = k => { const t0 = performance.now(); const s = vm.runInContext(`SETS.${k}(K)`, sandbox); console.log(`${k}: built in ${(performance.now() - t0).toFixed(0)} ms`); return s; };
@@ -54,6 +60,84 @@ if (want('globe')) {
   // small towns: how the hubs carry it ("slowly, then everywhere at once")
   const s = A.series(), first = d => s.E[d] + s.I[d] + s.R[d];
   console.log('    reached by day:', [5, 10, 15, 20, 25, 30, 40, 50, 60, 80].map(d => `${d}: ${first(Math.min(d, s.S.length - 1))}`).join(', '));
+}
+if (want('fish')) {
+  const f = build('fish'), S = Object.assign({}, f.params), st = () => f.state();
+  const run = (sec, k) => { S.fish_k = k; for (let i = 0; i < sec * 30; i++) { f.see([0, 1.6, 0], []); f.update(S, 0, 1 / 30); } };
+  // how the school is: polarisation (1: all swim one way), its groups (fish within 0.7 m of each other, chained) and the
+  // share in the biggest, and how far its middle is from you
+  function shape() {
+    const { P, V, N } = st();
+    let vx = 0, vy = 0, vz = 0;
+    for (let i = 0; i < N; i++) { const l = Math.hypot(V[3 * i], V[3 * i + 1], V[3 * i + 2]); vx += V[3 * i] / l; vy += V[3 * i + 1] / l; vz += V[3 * i + 2] / l; }
+    const par = Array.from({ length: N }, (_, i) => i), find = x => { while (par[x] !== x) { par[x] = par[par[x]]; x = par[x]; } return x; };
+    for (let i = 0; i < N; i++) for (let j = i + 1; j < N; j++) if ((P[3 * i] - P[3 * j]) ** 2 + (P[3 * i + 1] - P[3 * j + 1]) ** 2 + (P[3 * i + 2] - P[3 * j + 2]) ** 2 < 0.5) par[find(i)] = find(j);
+    const sz = new Map(); for (let i = 0; i < N; i++) { const r = find(i); sz.set(r, (sz.get(r) || 0) + 1); }
+    const c = st().centre;
+    // local order: how alike each fish swims to those within 1.2 m of it (a school milling round you is ordered too)
+    let lo = 0, ln = 0;
+    for (let i = 0; i < N; i++) {
+      let sx = 0, sy = 0, sz = 0, n = 0;
+      for (let j = 0; j < N; j++) {
+        if ((P[3 * i] - P[3 * j]) ** 2 + (P[3 * i + 1] - P[3 * j + 1]) ** 2 + (P[3 * i + 2] - P[3 * j + 2]) ** 2 > 1.44) continue;
+        const l = Math.hypot(V[3 * j], V[3 * j + 1], V[3 * j + 2]); sx += V[3 * j] / l; sy += V[3 * j + 1] / l; sz += V[3 * j + 2] / l; n++;
+      }
+      if (n > 3) { lo += Math.hypot(sx, sy, sz) / n; ln++; }
+    }
+    let mx = 0, my = 0, mz = 0; for (let i = 0; i < N; i++) { mx += P[3 * i] / N; my += P[3 * i + 1] / N; mz += P[3 * i + 2] / N; }
+    let sp = 0; for (let i = 0; i < N; i++) sp += ((P[3 * i] - mx) ** 2 + (P[3 * i + 1] - my) ** 2 + (P[3 * i + 2] - mz) ** 2) / N;
+    return { spread: Math.sqrt(sp), loc: ln ? lo / ln : 0, pol: Math.hypot(vx, vy, vz) / N, groups: [...sz.values()].filter(n => n >= 3).length, big: Math.max(...sz.values()) / N, dist: Math.hypot(c[0], c[2]) };
+  }
+  const fmtS = s => `spread ${s.spread.toFixed(1)} m, order ${s.loc.toFixed(2)} (polarisation ${s.pol.toFixed(2)}), ${s.groups.toFixed(1)} groups of 3 or more, the biggest ${(s.big * 100).toFixed(0)} %, its middle ${s.dist.toFixed(1)} m from you`;
+  // (each phase measured as the mean of ten looks, two seconds apart, after it has settled for 20 s)
+  const phase = (k, sec) => { run(sec - 20, k); const acc = { spread: 0, loc: 0, pol: 0, groups: 0, big: 0, dist: 0 }; for (let n = 0; n < 10; n++) { run(2, k); const s = shape(); for (const x in acc) acc[x] += s[x] / 10; } return acc; };
+  const t0 = performance.now(); const a = phase(7, 40); const ms = (performance.now() - t0) / (40 * 30);
+  console.log(`    40 s with seven neighbours: ${fmtS(a)} (${ms.toFixed(2)} ms a step)`);
+  const t1 = st().t; run(10, 1); const b10 = shape(); const b = phase(1, 40);
+  console.log(`    then with one: after 10 s the biggest group ${(b10.big * 100).toFixed(0)} %; after 40 s ${fmtS(b)}`);
+  const c = phase(7, 40); console.log(`    then 40 s with seven again: ${fmtS(c)}`);
+  ok(a.big > 0.8 && a.loc > 0.8 && a.spread < 2.5, 'with seven neighbours the school holds and swims as one');
+  ok(b.spread > a.spread * 1.25 && b.groups >= 8 && b.loc < a.loc - 0.2, 'with one neighbour each it falls apart');
+  ok(c.big > 0.7 && c.loc > 0.75 && c.spread < a.spread * 1.4, 'with seven again it comes back together');
+  ok(a.dist < 10 && c.dist < 10, 'it stays round you');
+  // the shark: the warning outruns it. Note when the warning reaches each fish and how far that fish is from the first
+  // one warned; the warning's speed is the slope (fitted for the fish beyond 1.5 m), the shark's its own
+  run(10, 7);
+  const hits = []; f.watch((i, t) => { const { P } = st(); if (!hits.some(h => h[0] === i)) hits.push([i, t, P[3 * i], P[3 * i + 1], P[3 * i + 2]]); });
+  S.fish_hunt = 1; let sharkMax = 0;
+  for (let i = 0; i < 20 * 30; i++) { f.see([0, 1.6, 0], []); f.update(S, 0, 1 / 30); const sh = st().shark; if (sh.on) sharkMax = Math.max(sharkMax, Math.hypot(...sh.v)); }
+  f.watch(null);
+  if (hits.length > 10) {
+    // the warning's front: how far from the first fish warned it has got after 0.3, 0.5 and 0.8 s (the middle one)
+    const h0 = hits[0], far = tau => Math.max(...hits.filter(h => h[1] - h0[1] <= tau).map(h => Math.hypot(h[2] - h0[2], h[3] - h0[3], h[4] - h0[4]))) / tau;
+    const sp = [far(0.3), far(0.5), far(0.8)].sort((x, y) => x - y)[1];
+    ok(sp > sharkMax * 1.5, `the warning reaches ${hits.length} of ${st().N} fish, its front at about ${sp.toFixed(1)} m/s; the shark swims at most ${sharkMax.toFixed(1)} m/s`);
+  } else ok(false, `the shark warned only ${hits.length} fish`);
+  // steering: the shark follows a point
+  f.steer([3, 1.6, -4]); run(4, 7); const sh = st().shark;
+  ok(sh.on && Math.hypot(sh.p[0] - 3, sh.p[1] - 1.6, sh.p[2] + 4) < 1.5, 'a steered shark swims to where it is steered');
+  f.steer(null); run(30, 7); ok(!st().shark.on, 'let go, it swims away');
+}
+if (want('cell')) {
+  const c = build('cell'), A = c.api, S = Object.assign({}, c.params);
+  const n = A.counts();
+  ok(n.proteins > 200 && n.links > 200 && n.places === 13, `the cell map's cell as it is: ${n.proteins} proteins (${n.copies} copies in their places), ${n.links} links, ${n.places} places`);
+  const p = A.protein('RELA'), inf = A.info(p);
+  ok(inf && inf.places.length === 2 && inf.partners.length > 0 && inf.moves.includes('nfkb'), `RELA: ${inf.name}, in ${inf.places.map(x => x.name).join(' and ')}, partners in ${inf.partners.length} places, moves ${inf.moves.join(' ')}`);
+  const d = A.moveDelta('nfkb')[0];
+  ok(d && d.gained.length > 0, `when NF-κB moves into the nucleus RELA loses ${d.lost.length} partners and gains ${d.gained.length}`);
+  const cf = A.moveDelta('cf');
+  ok(cf.length === 1 && cf[0].sym === 'CFTR', 'cystic fibrosis: CFTR fails to reach the membrane');
+  // the growth signal over the copies there now; with no moves, EGF reaches SRF
+  const gp = A.path(A.protein('EGF'), A.protein('SRF'));
+  ok(gp && gp.path.length >= 5, `a path from EGF to SRF: ${gp ? gp.path.length - 1 : '-'} steps`);
+  c.setLang('de'); ok(A.move('cf').name === 'Mukoviszidose' && A.placeName(0) === 'Außerhalb der Zelle', 'German names for the moves and places');
+  c.setLang('en'); ok(A.move('cf').name === 'Cystic fibrosis', 'and English again');
+  // every label has a text in both languages
+  let bad = 0; for (const l of ['en', 'de']) { c.setLang(l); for (const L of c.labels) { const t = L.text(); if (!Array.isArray(t)) bad++; } }
+  ok(!bad, 'every label has its text in both languages');
+  // update runs with the moves under way (the travelling proteins)
+  S.cell_nfkb = 0.5; S.cell_cf = 0.5; S.cell_path = 7.5; c.update(S, 1, 1 / 60); ok(true, 'update with moves under way');
 }
 console.log(fails ? `${fails} failed` : 'all passed');
 process.exit(fails ? 1 : 0);
