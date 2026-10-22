@@ -20,7 +20,7 @@ node tools/ovary/build.mjs --check      # exits 1 if out of date
 | `sets/data.js` | `OVARY_DATA` (generated; its header documents the fields) |
 | `sets/look.js` | `OVARY_TREND` (the poster's lines and numbers looked up) and `OVARY_LOOK` (colors, the lit material for merged objects by age, masks, shapes, surface nets) |
 | `sets/organ.js`, `sets/section.js`, `sets/charts.js` | the 3D sets (the cut-away ovary; a drawn H&E section with the method; the charts), each with a manifest `sets/<name>.md` |
-| `engine/e1_head.js` ... `e7_app.js` | the story engine, copied from the microanatomy story (to be adapted) |
+| `engine/e1_head.js` ... `e7_app.js` | the story engine, adapted from the microanatomy story's: the seven chapters, the explore tabs (Objects, Age, Methods, Scenes) and the headset panels |
 | `SPEC.md` | what each set and the engine must do, the chapters, explore mode; read with `tools/lbi/SPEC.md` |
 | `build.mjs` | the assembler |
 | `harness.html`, `shot.mjs`, `sweep.mjs` | one set alone (`with=body` draws the body behind it; `cam=` a view by name or six numbers; `nofinish=1` leaves what builds between frames unbuilt), its screenshots, and screenshots of the whole story (`SHOTS=<dir>` and `PORT=<port>` for both tools) |

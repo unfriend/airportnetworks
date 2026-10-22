@@ -29,8 +29,8 @@ function returning `[bold, rest]`, read again while it shows, as the qubits stor
 | `sets/data.js` | `OVARY_DATA` (generated; its header documents every field) |
 | `sets/look.js` | `OVARY_TREND` (lookups) and `OVARY_LOOK` (the shared look), pasted before the sets |
 | `sets/organ.js`, `sets/section.js`, `sets/charts.js` | the three sets, each with a manifest `sets/<name>.md` |
-| `engine/*.js` | the engine, **copied unchanged from the microanatomy story** (only the header and the register key changed): part 2 adapts it |
-| `build.mjs` | assembles `stories/ovary.js`: kit, data, look, `tools/micro/sets/organs.js` (ORGAN3D, unchanged), `tools/lbi/sets/body.js` (unchanged), organ, section, charts, engine |
+| `engine/*.js` | the engine, adapted from the microanatomy story's (see "The engine" below) |
+| `build.mjs` | assembles `stories/ovary.js`: kit, data, look, `tools/lbi/sets/body.js` (unchanged), organ, section, charts, engine |
 | `harness.html`, `shot.mjs`, `sweep.mjs` | one set alone (`?set=organ&with=body&p=...&cam=<view or six numbers>`; `nofinish=1` leaves what builds between frames unbuilt), its screenshots, screenshots of the whole story |
 
 ## Data (`OVARY_DATA`, `OVARY_TREND`)
@@ -125,21 +125,30 @@ method's alpha), `charts_band`, `charts_cmp`, `charts_side` (to the right and sm
 Scores), Object (All, Vessels, Scars, Follicles, Macrophages), Method (Both, Random forest, Segmentation). API `api()`:
 `order`, `line(kind, method, age)`, `cohortR`.
 
-## The engine (`engine/`, copied from the microanatomy story: adapt it)
+## The engine (`engine/`, adapted from the microanatomy story's)
 
-- `HOST.register('ovary', ...)` (done), `audio/narration-ovary.mp3`, `SET_ORDER = ['body', 'organ', 'section',
-  'charts']`; drop what is the microanatomy story's own (MICRO_DATA, slide/atlas/hier/tissue, the Organs/Domains tabs,
-  the dots on the body if not wanted; ORGAN3D may stay for a small ovary picture in the panes, `ORGAN3D.idOf('Ovary')`,
-  or go with `tools/micro/sets/organs.js` from `build.mjs`). The shared-room hooks and the headset code unchanged.
-- `organ` and `section` build between frames: call `idle()` while hidden (as the engine does for the motor set's heart)
-  and `finish()` in the sweep and smoke tools (`sweep.mjs` already calls every set's `finish`).
-- `organ` and `body` share one frame: show them together for the first shot (`body_pet` 1, `organ_body` 1,
-  `organ_grow` 0), then fade the body as `organ_grow` rises.
-- Chapter 5: `organ_side` 1 and `charts_side` 1 show the ovary (left) beside the charts (right), `organ_age` following
-  `charts_sweep`.
-- Labels with function text: `organ`'s age readout, `charts`' panel titles (they switch to the comparison's r).
-- Text: plain American English, short sentences, glosses; every number from `OVARY_DATA` (`FACTS`), none hard-coded;
-  `data-at` fade-ins as in the microanatomy story; frame the 3D clear of the panel.
+- `HOST.register('ovary', ...)`, `audio/narration-ovary.mp3`, `SET_ORDER = ['body', 'organ', 'section', 'charts']`,
+  `FRAME = { body: 'organ' }` (one frame: the ovary sits in the body's pelvis); the microanatomy story's own parts
+  (MICRO_DATA, its sets, the organ points and models, the Organs/Domains tabs) are gone, and `build.mjs` no longer
+  includes `tools/micro/sets/organs.js`. The shared-room hooks, the headset code, the slideshow and the narration lines
+  are the shared ones, unchanged (the headset arc and its title now make room for thirteen stories, in every story).
+- `organ` and `section` build between frames: the engine calls `idle()` while a set is hidden; `sweep.mjs` and the
+  smoke test call `finish()`.
+- The story (`e3_story.js`): `FACTS` and the text helpers read `OVARY_DATA` and `OVARY_TREND` (`KD` by kind, `KCOL` the
+  poster's colors lifted for the dark scene, `KINDS4`, `CHART`, `onLine(kind, method, age)`); `FIT` and `NARROW` frame
+  each view beside the panel; in the trends chapter the ovary takes the charts' turn (`ST.side`, `setYaw`); labels
+  whose text is a function are read again while they show (`labelText`, the qubits story's).
+- `NARRATION_SYNC` is written by `node tools/pace.mjs <url> --write ovary` (6:53 now); run it again after the text
+  changes, then the length in `HOST.list`, `audio/PUT-narration.mp3-HERE.txt` and `docs/narration.md`.
+- Explore (`e4_explore.js`, canvas twins in `e6_panels.js`): `X = { tab, scene, ctl, kind, age, method }`; setters
+  `selectKind(key | null, ui)` (by hand it also sets the section's and the ovary's Pick out / Show and the charts'
+  Object), `setAge(n)`, `setMethod('rf' | 'seg', ui)` (by hand it brings up the section's Forest or Masks view and
+  plays it again), `openScene(k)`, `setCtl(k, key, v)`, `showView(k, option)`, `pickTab(k)`. The sets' own Age controls
+  give way to the age slider, which drives `organ_age` and `section_age` to the year (and `charts_sweep` on the Age
+  tab). Pointing at an object on the section picks its kind (`pickWith`, the section's `api().pick`).
+- Hashes: `#ovary&t=200`, `#ovary&explore&kind=follicle`, `#ovary&explore&tab=age&age=60`,
+  `#ovary&explore&scene=section&view=forest` (any control by its key: `view`, `show`, `focus`, `method`),
+  `#ovary&explore&method=seg`, `&now` (no easing).
 
 ### Chapters (about 5:15 of story time; keys, times, suggested keyframes)
 
