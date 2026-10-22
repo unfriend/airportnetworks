@@ -75,7 +75,7 @@ So far only the airports story has one (narration.mp3).
    stories, rebuild with node tools/<story>/build.mjs. A recorded story's
    table follows the recording: tools/pace.mjs leaves it alone from then on.
 4. Bump VERSION in sw.js. sw.js lists the narration files it caches in AUDIO
-   (all ten names are there already).
+   (all eleven names are there already).
 5. Serve the folder and run node tools/smoke.mjs and node tools/audio.mjs
    (both take the address, e.g. http://127.0.0.1:8123/). Whether it is heard
    in a headset can only be checked there (Sound check on the Stories screen).

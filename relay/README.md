@@ -81,7 +81,7 @@ the app's files from the repository over HTTPS, and prints the address to open.
    marks (that never depends on the shared space). See [docs/shared-spaces.md](../docs/shared-spaces.md).
 4. Two marks for calibration: two crosses of tape on the floor or a table, a metre or more apart (at least
    50 cm; the further apart, the better the room lines up). Mark A is the room's origin.
-5. Floor space: Arrange all needs about 9.6 m wide and 4 m deep for all ten (two rows of five, starting 1.2 m in
+5. Floor space: Arrange all needs about 12 m wide and 4 m deep for all eleven (two rows: six, and five behind them, starting 1.2 m in
    front of where you stand); in a smaller room add 2-4 stations with **Add here** (headset) or **Add a station**
    (page).
 

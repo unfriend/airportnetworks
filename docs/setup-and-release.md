@@ -144,7 +144,7 @@ only after the tests pass. No pull requests are used.
 4. **Bump `VERSION` in `sw.js`** (`networks-v70` now, so `networks-v71` next) after any change to a file the app
    serves: `index.html`, `shared.js`, `sw.js`, `manifest.webmanifest`, `three.min.js`, `three.LICENSE.txt`,
    `proteins.html`, `spatial.html`, `README.txt`, and anything in `stories/`, `audio/` or `icons/`. For a new file the
-   app needs, add it to `SHELL` in `sw.js`. A narration goes in `AUDIO`, which already lists all ten file names. If
+   app needs, add it to `SHELL` in `sw.js`. A narration goes in `AUDIO`, which already lists all eleven file names. If
    the new file is not directly inside `stories/`, `audio/` or `icons/`, also add it to `APP_FILES` in
    `relay/server.mjs`.
 5. **Bump `FORMAT` in `shared.js`** (`networks-13` now) when the shared keys, or the shape of a story's
