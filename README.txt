@@ -135,7 +135,8 @@ sync with the story, follows pause, seeking and chapter jumps, and has a Sound
 on/off button (top bar and VR panel). Browsers only start sound after a tap or
 click: the first one in the app (Enter VR counts) turns sound on for every
 story, also when you change story inside the headset. If the button says Play
-sound, press it. Without the file the story runs silently.
+sound, press it. Without the file the story runs silently, at a pace that leaves time
+to read its panel (tools/pace.mjs sets it from the words).
 No sound? Open Sound check on the Stories screen (on the page, or in the headset
 under the title): it shows what the sound system is doing, plays a test beep
 through each of the app's two ways to play sound (Web Audio and an audio

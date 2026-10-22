@@ -371,10 +371,11 @@ void main() { vec3 d = normalize(vW - cameraPosition);
 
   // where the flock likes to be: a roost point in front of the viewer (towards the sunset) that wanders slowly
   // left and right, in and out, up and down, and every 88 s comes in low and close for about ten seconds, so the
-  // flock flies round the viewer (first at 72 s of flight: the story's last chapter, as the flock warms up for
-  // 6 s); two more points near it pull parts of the flock aside, so it stretches and folds
+  // flock flies round the viewer (first at 115 s of flight, none before 70 s: the middle of the story's last chapter
+  // at its pace, NARRATION_SYNC, as the flock warms up for 6 s); two more points near it pull parts of the flock
+  // aside, so it stretches and folds
   const roost = (k, t, out) => {
-    const th = -Math.PI / 2 + 1.1 * Math.sin(t * 0.037) + 0.7 * Math.sin(t * 0.059 - 0.3) + t * 0.012, sw = Math.pow(Math.max(0, Math.sin(t * 0.071 - 3.54)), 10);
+    const th = -Math.PI / 2 + 1.1 * Math.sin(t * 0.037) + 0.7 * Math.sin(t * 0.059 - 0.3) + t * 0.012, sw = t < 70 ? 0 : Math.pow(Math.max(0, Math.sin(t * 0.071 - 0.311)), 10);
     const r = lerp(16 + 3 * Math.sin(t * 0.061), 2, sw), h = lerp(9 + 3 * Math.sin(t * 0.083 + 2), 5, sw);
     if (!k) SW = sw;
     out[0] = ME.c[0] + Math.cos(th) * r; out[1] = h; out[2] = ME.c[1] + Math.sin(th) * r;
@@ -884,9 +885,15 @@ function tellFlock(xr, spot) {
 // ================================================================== STORY ==
 // Narration timing: [time in your recording, original story cue]. The story's
 // animation is stretched or squeezed between these points so each cue lands
-// on the matching sentence. Edit here if you record a narration.
+// on the matching sentence. Until a narration is recorded, the table sets the
+// pace: node tools/pace.mjs writes it from the words on the panel (each stretch
+// between two cues lasts long enough to read what appeared at its start; run
+// it again after the text changes). A recording replaces it with its own times.
 const NARRATION_SYNC = [
-  [0, 0], [72, 72],
+  [0, 0], [4.6, 4], [16, 10],                         // Intro
+  [25.2, 18], [25.9, 18.6], [26.8, 19.2], [38.6, 25], [49.9, 32], [50.6, 32.6], [54.9, 34],  // Seven
+  [63.1, 40], [63.8, 40.6], [64.7, 41.2], [76.1, 49], [84.3, 54], [85, 54.6], [93.4, 56],  // Wave
+  [100.3, 62], [101, 62.6], [102.3, 63.2], [103, 63.8], [106.9, 65], [118.2, 72],  // Around you
 ];
 // recording time -> original story time
 function storyT(t) {

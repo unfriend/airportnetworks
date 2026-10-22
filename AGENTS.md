@@ -5,9 +5,9 @@ Guidance for AI coding agents (and humans) working on this repository.
 ## What this is
 
 An installable web app that teaches network science in ten narrated stories
-(about four minutes each, the tour about eight, the muscle story about seven, the endotype story about five, the PET
-story about five and a half, the microanatomy story about five, the
-flock just over one, the robot gang about one and a half), each
+(the airports about four minutes, the proteins and the cell map about six, the tour about eleven, the muscle story
+about nine and a half, the endotype story about eight, the PET story about eleven, the microanatomy story about eight, the
+flock and the robot gang about two), each
 followed by an explore mode. Everything works on desktop, phones and in VR/AR headsets (built for Meta
 Quest Browser, WebXR).
 
@@ -70,7 +70,8 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
 - `tools/smoke.mjs` - headless smoke test; `tools/audio.mjs` - narration test;
   `tools/update.mjs` - update test for the service worker; `tools/collab.mjs` -
   shared rooms test (see Testing); `tools/narration.mjs` - writes
-  `docs/narration.md` from the running stories.
+  `docs/narration.md` from the running stories; `tools/pace.mjs` - writes the
+  `NARRATION_SYNC` that paces a story without a recording (see "Inside a story").
 - `tools/nmd/` - the sources of `stories/nmd.js` (data generator, data block, sets,
   engine parts, build script, set harness; it uses `tools/lbi/kit.js`); see its
   `README.md`. `ikerdata/` holds the authors' analysis files it reads.
@@ -702,8 +703,23 @@ immersive session.
   interpolates camera waypoints.
 - `NARRATION_SYNC` maps recording time to story time; the narration (if
   present) drives the clock (`audioInit`, `audioSync`, `audioFollow`, thin
-  wrappers around `HOST.audio`). `slideStep` (slideshow, see above) runs in
-  `frame()` after the clock moves and before the end check.
+  wrappers around `HOST.audio`). `APP.t`, the timeline, `#<key>&t=` and the
+  shared rooms' clock run on the recording's time; chapters, `data-at`, labels,
+  camera and animation on story time (`storyT`, back with `narrT`; the sweep
+  tools take story times). Until a story has a recording the table sets its
+  pace: `node tools/pace.mjs <url> [--write] [keys]` writes it from the panel's
+  words (each stretch between two cues, a `data-at` element or a chapter's
+  start or end, lasts the longer of 1.15 times its story time and a second for
+  every 2.2 words, numbers not counted, that appear at its start: about the
+  airports' pace; where that slows a stretch a lot, a line's 0.6 s fade-in keeps
+  the light pace and the rest of the stretch waits, so the text is there at
+  once). Run it again after a story's text changes, then update the lengths
+  (`len` in `HOST.list`, `audio/PUT-narration.mp3-HERE.txt`) and
+  `docs/narration.md`; the flock's first swoop (flight time, `roost` in its
+  set) is timed to its last chapter at this pace. A recorded narration replaces
+  the table with its own times (the airports' is): `pace.mjs` leaves a story
+  with an MP3 in `audio/` alone. `slideStep` (slideshow, see above)
+  runs in `frame()` after the clock moves and before the end check.
 - Explore mode: the `X` state object, `exploreStep()`, tab renderers
   (`render*`), and the canvas/pointer handling in `bindCanvas()`.
 - WebXR: the `XR` object, controllers (`xrController`, `xrPoint`), canvas-drawn
@@ -1141,7 +1157,7 @@ few seconds (`tools/lbi/sweep.mjs`), then the smoke test. The muscle story has
 the same tools in `tools/nmd/` (`shot.mjs`, `sweep.mjs`), and so have the
 endotype story in `tools/endo/`, the PET story in `tools/pet/`, the microanatomy story in `tools/micro/` and the robot gang in `tools/robots/`.
 
-Useful URL hashes: `#spatial&t=95` (open at a story second, paused),
+Useful URL hashes: `#spatial&t=95` (open at that second of the timeline, paused),
 `#proteins&explore&q=TP53` (explore mode with a search),
 `#spatial&explore&tab=moves&move=nfkb&now=1`, `#lbi&t=140` (the tour at a
 second), `#lbi&explore&scene=atp&view=network&now=1` (a scene with its controls),

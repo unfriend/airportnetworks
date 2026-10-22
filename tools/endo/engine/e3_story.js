@@ -2,9 +2,23 @@
 // ================================================================== STORY ==
 // Narration timing: [time in your recording, original story cue]. The story's
 // animation is stretched or squeezed between these points so each cue lands
-// on the matching sentence. Edit here if you record a narration.
+// on the matching sentence. Until a narration is recorded, the table sets the
+// pace: node tools/pace.mjs writes it from the words on the panel (each stretch
+// between two cues lasts long enough to read what appeared at its start; run
+// it again after the text changes). A recording replaces it with its own times.
 const NARRATION_SYNC = [
-  [0, 0], [310, 310],
+  [0, 0], [4.6, 4], [13.7, 9],                        // Intro
+  [24.6, 14], [25.3, 14.6], [26.7, 15.2], [37.1, 24], [47.1, 31], [55.7, 36], [56.4, 36.6],  // Tired
+  [66.2, 40], [66.9, 40.6], [68.3, 41.2], [75.5, 46], [98.1, 65.6], [111, 67], [111.7, 67.6],  // Genes
+  [119.2, 70], [129.5, 79], [143.2, 87], [143.9, 87.6], [153.2, 89], [167.7, 101.6], [173.8, 103],  // Network
+  [184.3, 108], [184.9, 108.6], [187.7, 109.2], [203.6, 119], [216.2, 130], [224.4, 134],
+  [226.1, 135.5], [228, 137], [231.4, 140],           // Walk
+  [245.9, 148], [246.6, 148.6], [248, 149.2], [263.9, 159], [277.1, 170], [284.7, 176.6], [289, 178],  // Neighbours
+  [297, 185], [298.4, 186.18], [301.4, 186.2], [309.2, 193], [325.1, 204], [335.4, 213],
+  [342.7, 217],                                       // Tree
+  [351.9, 225], [353.3, 226.2], [367.8, 233], [379.3, 243], [393.9, 253],  // Endotypes
+  [430.7, 285], [431.4, 285.6], [433.2, 286.2], [436.4, 288.5], [439.6, 291], [445, 294], [450, 298],
+  [450.7, 298.6], [460, 302], [462.3, 304], [475, 310],  // What for
 ];
 // recording time -> original story time
 function storyT(t) {

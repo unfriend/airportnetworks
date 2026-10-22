@@ -8,47 +8,52 @@ If you re-record with different timings, change NARRATION_SYNC near the top of
 stories/airports.js (pairs of [time in recording, original story cue]).
 Without the file the story plays silently on the same timing.
 
+The other stories have no recording yet. Their times below are the pace
+NARRATION_SYNC gives them now, set from the words on their panels by
+node tools/pace.mjs (so that each line can be read); a recording replaces it
+with its own times (see Recording a narration, step 3).
+
 The network-medicine story (#proteins) looks for narration-proteins.mp3. Its
-chapters start at 0:00, 0:12, 0:28, 0:48, 1:10, 1:30, 1:54, 2:20, 2:48 and
-3:18, ending at 3:32; change NARRATION_SYNC in stories/proteins.js if your
+chapters start at 0:00, 0:20, 0:48, 1:16, 1:48, 2:17, 2:59, 3:35, 4:18 and
+5:07, ending at 5:37; change NARRATION_SYNC in stories/proteins.js if your
 recording differs.
 
 The cell map story (#spatial) looks for narration-spatial.mp3. Its chapters
-start at 0:00, 0:12, 0:36, 0:56, 1:20, 1:44, 2:12, 2:38, 3:00 and 3:26, ending
-at 3:40; change NARRATION_SYNC in stories/spatial.js if your recording differs.
+start at 0:00, 0:19, 0:56, 1:26, 2:07, 2:44, 3:27, 4:03, 4:40 and 5:17, ending
+at 5:56; change NARRATION_SYNC in stories/spatial.js if your recording differs.
 
 The tour of the Ludwig Boltzmann Institute (#lbi) looks for narration-lbi.mp3.
-Its chapters start at 0:00, 0:22, 0:54, 1:18, 1:54, 2:42, 3:42, 4:08, 4:50,
-5:22, 5:56, 6:24, 6:50 and 7:20, ending at 7:48; change NARRATION_SYNC in
+Its chapters start at 0:00, 0:42, 1:28, 2:05, 2:59, 4:07, 5:27, 6:11, 7:05,
+7:52, 8:31, 9:16, 9:53 and 10:31, ending at 11:17; change NARRATION_SYNC in
 tools/lbi/engine/e3_story.js (then rebuild) if your recording differs.
 
 The muscle story (#nmd) looks for narration-nmd.mp3. Its chapters start at
-0:00, 0:20, 1:12, 1:36, 2:22, 3:15, 3:52, 4:38, 5:40 and 6:15, ending at 6:50;
+0:00, 0:25, 1:35, 2:08, 3:25, 4:40, 5:36, 6:28, 7:43 and 8:37, ending at 9:23;
 change NARRATION_SYNC in tools/nmd/engine/e3_story.js (then rebuild) if your
 recording differs.
 
 The endotype story (#endo) looks for narration-endo.mp3. Its chapters start at
-0:00, 0:14, 0:40, 1:10, 1:48, 2:28, 3:05, 3:45 and 4:45, ending at 5:10;
+0:00, 0:24, 1:06, 1:59, 3:04, 4:05, 4:57, 5:51 and 7:10, ending at 7:55;
 change NARRATION_SYNC in tools/endo/engine/e3_story.js (then rebuild) if your
 recording differs.
 
 The PET story (#pet) looks for narration-pet.mp3. Its chapters start at 0:00,
-0:16, 0:52, 1:30, 2:08, 2:52, 3:38, 4:18 and 5:05, ending at 5:30; change
+0:24, 1:51, 2:44, 3:32, 4:52, 6:40, 7:49 and 9:34, ending at 10:52; change
 NARRATION_SYNC in tools/pet/engine/e3_story.js (then rebuild) if your
 recording differs.
 
 The microanatomy story (#micro) looks for narration-micro.mp3. Its chapters start
-at 0:00, 0:14, 0:50, 1:25, 2:10, 2:50, 3:35, 4:10 and 4:45, ending at 5:05;
+at 0:00, 0:32, 1:35, 2:18, 3:19, 4:16, 5:27, 6:16 and 7:16, ending at 8:15;
 change NARRATION_SYNC in tools/micro/engine/e3_story.js (then rebuild) if your
 recording differs.
 
 The flock (#flock) looks for narration-flock.mp3. Its chapters start at 0:00,
-0:18, 0:40 and 1:02, ending at 1:12 (after that the flock flies on in explore
+0:25, 1:03 and 1:40, ending at 1:58 (after that the flock flies on in explore
 mode); change NARRATION_SYNC in tools/flock/engine/e3_story.js (then rebuild)
 if your recording differs.
 
 The robot gang (#robots) looks for narration-robots.mp3. Its chapters start at
-0:00, 0:14, 0:34, 0:54 and 1:14, ending at 1:24 (after that the gang stays in
+0:00, 0:25, 0:54, 1:19 and 1:50, ending at 2:09 (after that the gang stays in
 explore mode); change NARRATION_SYNC in tools/robots/engine/e3_story.js (then
 rebuild) if your recording differs.
 
@@ -62,7 +67,8 @@ So far only the airports story has one (narration.mp3).
 2. Save the recording in this folder as the MP3 named above for its story.
 3. If your chapters start at other times, change NARRATION_SYNC where named
    above (pairs of [time in the recording, story time]); for the built
-   stories, rebuild with node tools/<story>/build.mjs.
+   stories, rebuild with node tools/<story>/build.mjs. A recorded story's
+   table follows the recording: tools/pace.mjs leaves it alone from then on.
 4. Bump VERSION in sw.js. sw.js lists the narration files it caches in AUDIO
    (all ten names are there already).
 5. Serve the folder and run node tools/smoke.mjs and node tools/audio.mjs

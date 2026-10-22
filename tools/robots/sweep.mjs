@@ -1,4 +1,4 @@
-// Screenshots of the whole story at given story times, from one page load. Serve the repository root on port 8123 first.
+// Screenshots of the whole story at given story times (as in CH: not the timeline, see NARRATION_SYNC), from one page load. Serve the repository root on port 8123 first.
 // usage (from tools/robots): node sweep.mjs <prefix> "t1,t2,..." [width height]   -> shots/<prefix>-<t>.png
 // The gang is a live simulation, so before each shot the story is run on (without drawing) from the time of the
 // shot before, as if it had played: the robots and the cleaned floor are where they would be.
@@ -17,7 +17,7 @@ await pg.waitForFunction(() => typeof HOST !== 'undefined' && HOST.cur && HOST.c
 console.log('ready in', Date.now() - t0, 'ms');
 let prev = 0;
 for (const t of times.split(',').map(Number).sort((a, b) => a - b)) {
-  await pg.evaluate(([a, t]) => HOST.cur.peek(`APP.seek(${t}); APP.playing = false; simStory(${a}, ${t});`), [prev, t]);
+  await pg.evaluate(([a, t]) => HOST.cur.peek(`APP.seek(narrT(${t})); APP.playing = false; simStory(${a}, ${t});`), [prev, t]);
   prev = t;
   const f0 = await pg.evaluate(() => window.__frames);
   await pg.waitForFunction(f => window.__frames > f + 2, f0, { timeout: 60000 });

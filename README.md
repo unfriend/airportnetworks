@@ -139,7 +139,9 @@ Chapter timings and how to record and re-sync a new recording are in
 `tools/<story>/engine/e3_story.js` for the seven built stories (rebuild after
 changing it) and in `stories/<story>.js` for airports, proteins and spatial.
 The words to record, chapter by chapter with times, are in `docs/narration.md`
-(made by `node tools/narration.mjs`).
+(made by `node tools/narration.mjs`). Until a story is recorded, its `NARRATION_SYNC`
+sets its pace so that its panel can be read: `node tools/pace.mjs <url> --write`
+writes it from the words (run it again after the text changes).
 
 ## Data
 
@@ -269,6 +271,7 @@ The protein data is meant for teaching, not research.
 | `tools/update.mjs` | update test: an older version installed, then this one deployed (see `AGENTS.md`) |
 | `tools/audio.mjs` | narration test under the headset browsers' sound rule, with faults that make the fallback take over (needs `audio/narration.mp3`) |
 | `tools/narration.mjs` | writes `docs/narration.md` from the running stories (serve the folder first) |
+| `tools/pace.mjs` | paces the stories without a recording: writes their `NARRATION_SYNC` from the words on their panels (`--write`; serve the folder first) |
 | `tools/lbi/` | sources of the tour: its 3D sets, engine parts and build script (`node tools/lbi/build.mjs` writes `stories/lbi.js`) |
 | `tools/nmd/`, `ikerdata/` | sources of the muscle story and the authors' data (`node tools/nmd/data/gen_data.mjs`, then `node tools/nmd/build.mjs` writes `stories/nmd.js`) |
 | `tools/endo/` | sources of the endotype story (`node tools/endo/build.mjs` writes `stories/endo.js`; data from `tools/endo/data/gen_data.py` and the authors' files, which are not in the repository) |

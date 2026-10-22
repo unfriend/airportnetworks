@@ -1,6 +1,6 @@
 # The flock (`stories/flock.js`)
 
-Starlings at dusk, flying all around you: a short story (about 1:12), then the flock flies on in explore mode for
+Starlings at dusk, flying all around you: a short story (about two minutes), then the flock flies on in explore mode for
 as long as you stay. Built like the tour and the muscle story: edit the sources here, then
 
 ```sh

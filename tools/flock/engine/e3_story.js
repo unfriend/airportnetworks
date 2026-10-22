@@ -2,9 +2,15 @@
 // ================================================================== STORY ==
 // Narration timing: [time in your recording, original story cue]. The story's
 // animation is stretched or squeezed between these points so each cue lands
-// on the matching sentence. Edit here if you record a narration.
+// on the matching sentence. Until a narration is recorded, the table sets the
+// pace: node tools/pace.mjs writes it from the words on the panel (each stretch
+// between two cues lasts long enough to read what appeared at its start; run
+// it again after the text changes). A recording replaces it with its own times.
 const NARRATION_SYNC = [
-  [0, 0], [72, 72],
+  [0, 0], [4.6, 4], [16, 10],                         // Intro
+  [25.2, 18], [25.9, 18.6], [26.8, 19.2], [38.6, 25], [49.9, 32], [50.6, 32.6], [54.9, 34],  // Seven
+  [63.1, 40], [63.8, 40.6], [64.7, 41.2], [76.1, 49], [84.3, 54], [85, 54.6], [93.4, 56],  // Wave
+  [100.3, 62], [101, 62.6], [102.3, 63.2], [103, 63.8], [106.9, 65], [118.2, 72],  // Around you
 ];
 // recording time -> original story time
 function storyT(t) {

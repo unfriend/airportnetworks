@@ -2,9 +2,24 @@
 // ================================================================== STORY ==
 // Narration timing: [time in your recording, original story cue]. The story's
 // animation is stretched or squeezed between these points so each cue lands
-// on the matching sentence. Edit here if you record a narration.
+// on the matching sentence. Until a narration is recorded, the table sets the
+// pace: node tools/pace.mjs writes it from the words on the panel (each stretch
+// between two cues lasts long enough to read what appeared at its start; run
+// it again after the text changes). A recording replaces it with its own times.
 const NARRATION_SYNC = [
-  [0, 0], [305, 305],
+  [0, 0], [2.8, 2.4], [6.4, 4], [7.1, 4.6], [14.1, 7], [20.9, 10], [21.6, 10.6],  // Intro
+  [32.3, 14], [33, 14.6], [33.9, 15.2], [34.6, 15.8], [46.2, 20.5], [56.2, 27], [67.1, 36.5],
+  [70.7, 38.5], [73.7, 41.1], [78.5, 42.5], [81.2, 44.5], [86.7, 47], [87.4, 47.6],  // Slide
+  [95.3, 50], [96.7, 51.2], [102.6, 55], [111.8, 63], [122.7, 71],  // Library
+  [138.8, 85], [139.5, 85.6], [140.9, 86.5], [181.2, 121.6], [192.4, 125],  // Method
+  [199.6, 130], [200.3, 130.6], [202.6, 131.2], [208.7, 136.5], [211, 138], [224.8, 150],
+  [230.2, 151], [232.5, 153], [235.7, 155], [241.4, 160], [247.8, 163],  // Atlas
+  [256.9, 170], [258.3, 171.2], [265.6, 176], [266.2, 176.6], [276.9, 179.5], [286.5, 184],
+  [319.4, 212.6],                                     // Age
+  [327.8, 215], [329.1, 216.2], [334.6, 220], [347.2, 231], [357.2, 237], [369.1, 244],  // Disease
+  [376, 250], [377.3, 251.2], [384.6, 256], [404.2, 273], [411.4, 278], [412.1, 278.6],  // Contacts
+  [436.9, 285], [437.6, 285.6], [438.9, 286.2], [439.6, 286.8], [448.5, 289.5], [458.9, 296],
+  [459.6, 296.6], [480.8, 298.5], [483.2, 300.6], [495.7, 305],  // Next
 ];
 // recording time -> original story time
 function storyT(t) {

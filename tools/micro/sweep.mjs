@@ -1,4 +1,4 @@
-// Screenshots of the whole microanatomy story at given story times, from one page load. Serve the repository root on port 8123 first.
+// Screenshots of the whole microanatomy story at given story times (as in CH: not the timeline, see NARRATION_SYNC), from one page load. Serve the repository root on port 8123 first.
 // usage (from tools/micro): node sweep.mjs <prefix> "t1,t2,..." [width height]   -> shots/<prefix>-<t>.png
 import fs from 'fs';
 const { chromium } = await import(process.env.PLAYWRIGHT_MODULE || 'playwright');
@@ -16,7 +16,7 @@ await pg.waitForFunction(() => typeof HOST !== 'undefined' && HOST.cur && HOST.c
 await pg.evaluate(() => HOST.cur.peek('for (const k in GL.sets) if (GL.sets[k].finish) GL.sets[k].finish();'));   // sets that build in slices
 console.log('ready in', Date.now() - t0, 'ms');
 for (const t of times.split(',')) {
-  await pg.evaluate(t => HOST.cur.peek(`APP.seek(${t}); APP.playing = false;`), +t);
+  await pg.evaluate(t => HOST.cur.peek(`APP.seek(narrT(${t})); APP.playing = false;`), +t);
   const f0 = await pg.evaluate(() => window.__frames);
   await pg.waitForFunction(f => window.__frames > f + 2, f0, { timeout: 60000 });
   await pg.waitForTimeout(300);
