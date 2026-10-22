@@ -43,7 +43,7 @@ scene.add(new THREE.HemisphereLight(0xdde8ff, 0x1a2233, 0.85));
 const sun = new THREE.DirectionalLight(0xffffff, 0.85); sun.position.set(-0.5, 0.6, 1); camera.add(sun);
 const t0 = performance.now();
 const set = SETS[key](K);
-if (set.finish) set.finish();   // a set that builds in slices (the motor set's heart) builds now
+if (set.finish && !Q.get('nofinish')) set.finish();   // a set that builds in slices (the motor set's heart, the organ models) builds now
 const buildMs = performance.now() - t0;
 scene.add(set.group);
 const S = Object.assign({}, set.params);

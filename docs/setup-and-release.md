@@ -135,7 +135,7 @@ only after the tests pass. No pull requests are used.
    | `tools/lbi/sets/body.js` | lbi, pet, micro |
    | `tools/lbi/sets/tissue.js` | lbi, micro |
    | `tools/nmd/sets/motor.js`, `tools/nmd/sets/data.js` | nmd, endo |
-   | `tools/pet/sets/icons.js` | pet, micro |
+   | `tools/pet/sets/icons.js` | pet |
 
    Rebuilding all seven takes well under a second:
    `for k in lbi nmd endo pet micro flock robots; do node tools/$k/build.mjs; done`

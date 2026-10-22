@@ -3473,7 +3473,7 @@ SETS.atlas = function (K) {
   }
 
   // ---------------------------------------------------------------- the sections: tiles, domains at 20 and 70
-  const TARGET = 750, NAGE = 16;
+  const TARGET = 620, NAGE = 16;
   const SEC = TT.map((row, ti) => {
     const sh = makeShape(ti, row[5]), nz = vnoise(500 + ti), r = rng(900 + ti * 37), doms = REC[ti];
     let cnt = 0; const G0 = 36;
@@ -3832,6 +3832,25 @@ void main() {
   set.mats.push(capMat);
   const caps = new THREE.Mesh(capGeo, capMat); caps.frustumCulled = false; caps.renderOrder = 2; set.group.add(caps);
 
+  // ---------------------------------------------------------------- each section's organ: a small 3D model (ORGAN3D)
+  // floating at its plate's top left corner, turning slowly; the models build between frames (the network set does it
+  // while hidden, or a slice a frame here); until they are ready the plates have none
+  const O3 = typeof ORGAN3D !== 'undefined' ? ORGAN3D : null;
+  const mP = TT.map(() => new THREE.Vector4()), mQ = TT.map(() => new THREE.Vector4());
+  let orgMesh = null;
+  function buildOrgans() {
+    if (orgMesh || !O3 || !O3.ready()) return;
+    const M = O3.merged(ORGAN.map(o => O3.idOf(o) || 'stomach')), g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.BufferAttribute(M.pos, 3)); g.setAttribute('normal', new THREE.BufferAttribute(M.nrm, 3));
+    g.setAttribute('aCol', new THREE.BufferAttribute(M.col, 3)); g.setAttribute('aSlot', new THREE.BufferAttribute(M.slot, 1)); g.setIndex(new THREE.BufferAttribute(M.idx, 1));
+    const sh = O3.shader(NT);
+    const m = new THREE.ShaderMaterial({ uniforms: { uA: set.uA, uP: { value: mP }, uQ: { value: mQ }, uTint: { value: new THREE.Color(1, 1, 1) } },
+      vertexShader: sh.vertex, fragmentShader: sh.fragment, transparent: true });
+    set.mats.push(m);
+    orgMesh = new THREE.Mesh(g, m); orgMesh.frustumCulled = false; orgMesh.renderOrder = 4; orgMesh.raycast = () => {};
+    set.group.add(orgMesh);
+  }
+
   // ---------------------------------------------------------------- the volcano
   const VS = { x: 0.24, y0: -0.52, y: 0.05 };
   const vg = new THREE.Group(); set.group.add(vg);
@@ -4053,7 +4072,7 @@ void main() {
     cur.fmax = fmax; cur.fi = fi;
     // the library
     const libV = lib * (1 - 0.72 * map) * (1 - 0.85 * Math.max(um, vc)) * (1 - 0.6 * fmax);
-    wallMat.uniforms.uLib.value = lib; wallMat.uniforms.uVis.value = libV; wall.visible = libV > 0.003 && lib > 0.002;
+    wallMat.uniforms.uLib.value = lib; wallMat.uniforms.uVis.value = libV; wall.visible = libV > 0.04 && lib > 0.002;
     wallGeo.setDrawRange(0, map > 0.2 || um > 0.2 || vc > 0.2 ? 6 : 18);   // (a dimmed wall behind the sections: the slides' faces only)
     // the sections: from their tissue's column on the wall to the grid, one of them forward when focused
     const wc = vc > 0 ? curv / (volc + curv) : 0, F0 = [0, 0.02, 0.72], FV = [lerp(0.74, 0.84, wc), 0.04, 0.5], Fp = K.v3.lerp(F0, FV, vc), sF = lerp(0.42, 0.33, vc);
@@ -4073,6 +4092,13 @@ void main() {
     tileMat.uniforms.uUm.value = um; tileMat.uniforms.uAge.value = age; tileMat.uniforms.uFoc.value = fmax;
     tileMat.uniforms.uCA.value = 1 - 0.88 * vc; tileMat.uniforms.uCR.value = 0.5 + 0.035 * t;
     tiles.visible = anySec > 0.003 || um > 0.002;
+    // the sections' organs (gone as the tiles fly to the cloud)
+    if (!orgMesh && O3) { O3.step(3); buildOrgans(); }
+    if (orgMesh) {
+      const show = 1 - sm(um * 2.5);
+      orgMesh.visible = anySec > 0.003 && show > 0.01 && vc < 0.5;   // (not beside a plot: the sections there are dim)
+      if (orgMesh.visible) for (let i = 0; i < NT; i++) { const p = secW(i, [-0.86, 0.9, 0.34]); mP[i].set(p[0], p[1], p[2], Math.min(cur.s[i] * 0.3, 0.075)); mQ[i].set(cur.al[i] * show, 0.25 * cur.fw[i], t * 0.4 + i, 0); }
+    }
     tileMat.depthWrite = vc < 0.02 && fmax < 0.02;   // (dimmed sections behind a plot or a focused section must not hide what is in front of them) caps.visible = anySec > 0.003 && um < 0.998; capMat.uniforms.uUm.value = sm(um * 1.6);
     // the volcano (left of a focused section)
     const vS = 1 - 0.2 * fmax; vg.position.set(-0.5 * fmax, 0.02, 0.1); vg.scale.setScalar(vS); vg.visible = volc > 0.003;
@@ -4202,6 +4228,8 @@ void main() {
   return Object.assign(set, {
     params: { atlas_a: 1, atlas_lib: 1, atlas_map: 0, atlas_umap: 0, atlas_focus: 0, atlas_age: 0, atlas_volcano: 0, atlas_curves: 0 },
     update, anchors, labels, cam, controls, explore, api() { return API; },
+    // (the organ models: built at once by the harness and the sweeps)
+    finish() { if (O3) O3.step(Infinity); buildOrgans(); },
   });
 };
 

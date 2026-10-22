@@ -4,15 +4,36 @@ File `sets/atlas.js` (`SETS.atlas`). One set, five pictures that share one stage
 a curved wall of slides at the back, a 10 x 4 arc of sections in front of it, a cloud of tiles in the middle, and the
 volcano or the trajectories in the middle when they are shown (the sections and the wall dim behind them).
 
-Build about 250 to 300 ms in headless Chromium; at most 8 draw calls, about 133,000 triangles, no per-frame buffer uploads
-beyond 40 x 2 uniforms, 5 head points and the 8-segment age gauge.
+Everything is a lit 3D object: glass slides with thickness and their tissue, sections standing in relief, the tiles as
+small lit cubes in the cloud, the volcano's bubbles as lit spheres over a glass floor with their shadows, the
+trajectories as lit ribbons on glass lanes, and each section's organ as a small 3D model (`ORGAN3D`, `sets/organs.md`).
 
-- The library: 24,945 slides in one instanced draw (a portrait glass quad: frosted label end, a tissue blob from one of
-  8 shape textures in a 512 x 512 canvas atlas, coloured in shader by its tissue's eosin colour and nuclear density).
-- The sections: 29,952 tiles in one instanced draw (two triangles each), plus one instanced draw for the 40 plates and
-  their captions (canvas text). The same tiles are the cloud's points: as `atlas_umap` rises each tile leaves its
-  section, turns from a square into a glowing dot (premultiplied blending: normal for the squares, the dots part
-  additive, part over, so a dense core keeps its colour instead of adding up to white) and flies to the cloud.
+Build in headless Chromium about as before (0.75 to 1.9 s on a machine with a load average of about 15, the same as the
+version before it in the same runs; 250 to 300 ms unloaded then); at most 13 draw calls, about 150,000 triangles for
+the library, 200,000 for the atlas of sections (264,000 with the organs' models), 222,000 beside a plot; no per-frame
+buffer uploads beyond 40 x 2 uniforms (40 x 2 more for the organs), 5 head points and the 8-segment age gauge.
+
+- **A box as the three faces the camera sees**: a slide or a tile is a box drawn as three quads (its broad face, a side,
+  an end), each turned in the vertex shader to the side of the box that faces the camera (`BOXGL`: from
+  `cameraPosition` and the model matrix, so each eye of a headset picks its own), 6 triangles instead of 12, right from
+  every side. The broad face comes first, so a draw range of 6 indices draws only it.
+- The library: 24,945 slides in one instanced draw: a portrait glass box (0.16 of its width thick; green-blue glass
+  edges, bright where the light catches them), a frosted label end, a tissue blob from one of 8 shape textures in a
+  512 x 512 canvas atlas, coloured in shader by its tissue's eosin colour and nuclear density, lit, with its shadow on
+  the glass beside it. Each slide stands a little askew in its place (up to about 10 degrees each way), so the light
+  glints off the glass here and there. Behind the sections and plots the wall draws only the slides' faces, and none
+  once it is all but gone.
+- The sections: 24,764 tiles in one instanced draw (a box each), plus one instanced draw for the 40 plates and their
+  captions (canvas text). On its section each tile is a box standing on the plate, as tall as its domain's relief (in
+  tile sizes, by its kind of tissue: linings and glands 0.9 to 1, lymphoid 0.85, muscle 0.66 to 0.72, nerve 0.6,
+  vessels 0.56, connective tissue 0.42, fat 0.3, spaces 0.16; illustrative), so a section is a slab in relief, lit, its
+  tops bevelled; the relief follows the domain as it changes with age. The same tiles are the cloud's points: as
+  `atlas_umap` rises each tile leaves its section, turns into a small lit cube (0.015 a side and up) and flies to the
+  cloud. The tiles write depth, except while a plot or a focused section dims the others.
+- The organs: one merged geometry of the 40 sections' organs' models (with duplicates: three arteries, two brains ...),
+  each floating at its plate's top left corner, turning slowly; gone as the tiles fly to the cloud and beside a plot.
+  They build between frames (the network set builds them while it is hidden; here a 3 ms slice a frame while they are
+  missing).
 
 ## Params
 
@@ -24,8 +45,8 @@ beyond 40 x 2 uniforms, 5 head points and the 8-segment age gauge.
 | `atlas_umap` | 0..1 | the tile cloud: tiles rise out of the sections (staggered, an arc upwards) into the embedding; plates and captions fade | 0 -> 1 over 4 to 5 s |
 | `atlas_focus` | 0..40 | tissue index + 1 (0 none): that section comes forward big, the others recede and dim. Eased inside the set (5/s, on the engine's real frame time `dt`, so it eases while paused too; snaps on the first frame, without a `dt`, after a frame longer than 0.3 s and when `t` jumps by more than 0.3 s beyond `dt`: a seek, story to explore), so the engine may step it. In the cloud, a focus lights that tissue's tiles and dims the rest | step |
 | `atlas_age` | 0..1 | age 20 -> 70 for every section's domains; a gauge with a marker runs along the top of a focused section (shown when the focused tissue is one of the examples, or once the age moves) | 0 -> 1 over 4 to 6 s |
-| `atlas_volcano` | 0..1 | the volcano: axes and grid (0 to 0.35), bubbles pop in (0.15 to 0.8), significant ones light up (0.68 to 0.95); the significance plane | 0 -> 1 over 3 s |
-| `atlas_curves` | 0..1 | trajectories: five lanes draw from age 20 to 70 (each lane a little after the one before; lane j is done at 0.75 + 0.05 j) | 0 -> 1 over 6 s |
+| `atlas_volcano` | 0..1 | the volcano: a dark glass floor and the two axes as lit rods, a faint grid (0 to 0.35); bubbles (lit spheres) pop in with their soft shadows on the floor (0.15 to 0.8), significant ones light up with a halo and a thin line down to the floor (0.68 to 0.95); the significance plane | 0 -> 1 over 3 s |
+| `atlas_curves` | 0..1 | trajectories: five lanes, each on a strip of dark glass, draw from age 20 to 70 as a glowing tube along the top of a lit ribbon (0.034 deep) over a soft curtain (each lane a little after the one before; lane j is done at 0.75 + 0.05 j) | 0 -> 1 over 6 s |
 
 With `atlas_volcano` or `atlas_curves` on and a section focused, the plot moves left and the section sits right at
 radius 0.33, so both fit the `age` view: the volcano at x -0.5, scale 0.8, the section at (0.74, 0.04, 0.5); the curves
@@ -83,7 +104,8 @@ examples' bubbles), `exDom0`..`exDom2` (where the example's domain lies in its f
 
 ## Cam views (`[az, el, dist, tx, ty, tz]`)
 
-`default` and `library` [0, 6, 3.4, 0, 0, -0.12]; `atlas` [0, 3, 3.2, 0, 0, 0.14]; `umap` [24, 14, 3.3, 0, 0.05, 0.08];
+`default` and `library` [0, 6, 3.4, 0, 0, -0.12]; `shelf` [-32, 10, 0.3, -0.12, 0.1, -0.47] (along the rack up close:
+the slides as glass with their tissue, askew; the story's library chapter goes there and back); `atlas` [0, 3, 3.2, 0, 0, 0.14]; `umap` [24, 14, 3.3, 0, 0.05, 0.08];
 `focus` [0, 4, 1.95, 0, 0, 0.72] (the focused section alone); `volcano` [-6, 9, 3.1, 0.24, 0.02, 0.1];
 `curves` [-20, 14, 3.4, 0.33, -0.04, 0.08]; `age` [0, 6, 3.4, 0.2, 0.02, 0.3] (volcano or curves with a focused section);
 `slides` [-8, 6, 0.75, -0.1, 0.22, -0.49] (close to the wall's middle: single slides, each a glass with its tissue; the
