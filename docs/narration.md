@@ -944,7 +944,7 @@ DE: Der Schwarm
 - **1:36** A school is a network that passes on a warning.
 - **1:42** Real schools of fish pass on an attack like this (Rosenthal et al. 2015, Handegard et al. 2012). Ours is a simulation: in our school each fish watches seven neighbours.
 
-DE: Wer wen beobachtet
+DE: Wer sieht wen
 
 - **0:45** Wer wen beobachtet
 - **0:46** Jeder Fisch beobachtet nur ein paar Nachbarn ganz in seiner Nähe und macht, was sie machen: Er dreht, wenn sie drehen, und bleibt nah bei ihnen, aber nicht zu nah.
@@ -965,7 +965,7 @@ DE: Wer wen beobachtet
 - **2:19** Back to seven neighbours each: the links knit the fish together, and the school forms again.
 - **2:29** The same fish, other links. The shape of the network decides what the group can do.
 
-DE: Andere Verbindungen
+DE: Andere Links
 
 - **1:53** Andere Verbindungen
 - **1:54** Was wäre, wenn jeder Fisch nur einen einzigen Nachbarn beobachten würde?
