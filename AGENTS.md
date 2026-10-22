@@ -1232,6 +1232,16 @@ rounds and verification, all on the most expensive model. Next time:
   agents and their work is redone, so finish or checkpoint long runs first.
 - **Prefer cheap tests.** The smoke test and the set harness catch most
   problems; full screenshot sweeps of a story are for the end.
+- **The shape of a story run** (as the qubits story was built: two builders,
+  one review and one fix round in about 1 h 15 min and 1.2M tokens): the
+  builders use the strongest model, the review runs on Sonnet, there is only
+  one fix round and only if the review finds something, and the agents run the
+  smoke test once at the end rather than after every step (the shared-room,
+  relay and update tests run once, by the integrator, after the fix round).
+- **Show every screenshot.** The owner wants to see each screenshot an agent
+  takes as it is taken: agents keep them in one folder outside the repository
+  (e.g. `/tmp/<story>-shots/`), and the conversation that runs them watches that
+  folder and posts each new picture to the chat.
 - **Keep sources small and in the repository.** Edit `tools/lbi/` sources, not
   the 700 KB built file; keep generators and manifests so nothing has to be
   rediscovered.
