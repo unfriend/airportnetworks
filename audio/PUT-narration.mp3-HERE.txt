@@ -14,46 +14,46 @@ node tools/pace.mjs (so that each line can be read); a recording replaces it
 with its own times (see Recording a narration, step 3).
 
 The network-medicine story (#proteins) looks for narration-proteins.mp3. Its
-chapters start at 0:00, 0:20, 0:48, 1:16, 1:48, 2:17, 2:59, 3:35, 4:18 and
-5:07, ending at 5:37; change NARRATION_SYNC in stories/proteins.js if your
+chapters start at 0:00, 0:15, 0:37, 1:01, 1:30, 1:52, 2:27, 2:58, 3:33 and
+4:16, ending at 4:38; change NARRATION_SYNC in stories/proteins.js if your
 recording differs.
 
 The cell map story (#spatial) looks for narration-spatial.mp3. Its chapters
-start at 0:00, 0:19, 0:56, 1:26, 2:07, 2:44, 3:27, 4:03, 4:40 and 5:17, ending
-at 5:56; change NARRATION_SYNC in stories/spatial.js if your recording differs.
+start at 0:00, 0:16, 0:50, 1:16, 1:50, 2:22, 3:00, 3:31, 4:04 and 4:37, ending
+at 5:09; change NARRATION_SYNC in stories/spatial.js if your recording differs.
 
 The tour of the Ludwig Boltzmann Institute (#lbi) looks for narration-lbi.mp3.
-Its chapters start at 0:00, 0:42, 1:28, 2:05, 2:59, 4:07, 5:27, 6:11, 7:05,
-7:52, 8:31, 9:16, 9:53 and 10:31, ending at 11:17; change NARRATION_SYNC in
+Its chapters start at 0:00, 0:33, 1:12, 1:40, 2:25, 3:22, 4:34, 5:09, 5:56,
+6:36, 7:14, 7:51, 8:22 and 8:56, ending at 9:34; change NARRATION_SYNC in
 tools/lbi/engine/e3_story.js (then rebuild) if your recording differs.
 
 The muscle story (#nmd) looks for narration-nmd.mp3. Its chapters start at
-0:00, 0:25, 1:35, 2:08, 3:25, 4:40, 5:36, 6:28, 7:43 and 8:37, ending at 9:23;
+0:00, 0:22, 1:21, 1:47, 2:45, 3:44, 4:27, 5:17, 6:25 and 7:08, ending at 7:47;
 change NARRATION_SYNC in tools/nmd/engine/e3_story.js (then rebuild) if your
 recording differs.
 
 The endotype story (#endo) looks for narration-endo.mp3. Its chapters start at
-0:00, 0:24, 1:06, 1:59, 3:04, 4:05, 4:57, 5:51 and 7:10, ending at 7:55;
-change NARRATION_SYNC in tools/endo/engine/e3_story.js (then rebuild) if your
+0:00, 0:22, 0:59, 1:47, 2:47, 3:42, 4:29, 5:20 and 6:33, ending at 7:12; change
+NARRATION_SYNC in tools/endo/engine/e3_story.js (then rebuild) if your
 recording differs.
 
 The PET story (#pet) looks for narration-pet.mp3. Its chapters start at 0:00,
-0:24, 1:51, 2:44, 3:32, 4:52, 6:40, 7:49 and 9:34, ending at 10:52; change
-NARRATION_SYNC in tools/pet/engine/e3_story.js (then rebuild) if your
-recording differs.
+0:23, 1:46, 2:37, 3:23, 4:39, 6:23, 7:29 and 9:10, ending at 10:24; change
+NARRATION_SYNC in tools/pet/engine/e3_story.js (then rebuild) if your recording
+differs.
 
-The microanatomy story (#micro) looks for narration-micro.mp3. Its chapters start
-at 0:00, 0:32, 1:35, 2:18, 3:19, 4:16, 5:27, 6:16 and 7:16, ending at 8:15;
-change NARRATION_SYNC in tools/micro/engine/e3_story.js (then rebuild) if your
-recording differs.
+The microanatomy story (#micro) looks for narration-micro.mp3. Its chapters
+start at 0:00, 0:29, 1:26, 2:06, 3:05, 3:58, 5:03, 5:47 and 6:43, ending at
+7:36; change NARRATION_SYNC in tools/micro/engine/e3_story.js (then rebuild) if
+your recording differs.
 
 The flock (#flock) looks for narration-flock.mp3. Its chapters start at 0:00,
-0:25, 1:03 and 1:40, ending at 1:58 (after that the flock flies on in explore
+0:24, 1:02 and 1:39, ending at 1:57 (after that the flock flies on in explore
 mode); change NARRATION_SYNC in tools/flock/engine/e3_story.js (then rebuild)
 if your recording differs.
 
 The robot gang (#robots) looks for narration-robots.mp3. Its chapters start at
-0:00, 0:25, 0:54, 1:19 and 1:50, ending at 2:09 (after that the gang stays in
+0:00, 0:23, 0:51, 1:14 and 1:44, ending at 2:01 (after that the gang stays in
 explore mode); change NARRATION_SYNC in tools/robots/engine/e3_story.js (then
 rebuild) if your recording differs.
 

@@ -290,7 +290,7 @@ rule follow, 6 robots, trails off, links off, view default. Hash: `#robots&explo
 - `index.html`: `HOST.list` entry `{ key: 'robots', kick: 'Swarm robotics', title: 'Robot gang', col: '#3ee08f'
   (or another free accent), desc: 'A gang of robot vacuums in your room. In a headset they find your floor and walls,
   follow you about and bounce off the walls.', page: 'A gang of robot vacuums in your room', brand: 'Robot gang',
-  sub: 'vacuums in your room', aria, thing: 'room', loading: 'Waking the robots', len: 'Story 2:09 · then free
+  sub: 'vacuums in your room', aria, thing: 'room', loading: 'Waking the robots', len: 'Story 2:01 · then free
   play' }`. "six stories" → "seven stories" everywhere (title, meta, brand, picker heading, manifest, docs). The
   picker grid must look good with seven cards on wide, medium and narrow screens (check with screenshots).
 - Every story (`stories/airports.js`, `proteins.js`, `spatial.js` by hand; `tools/lbi`, `tools/nmd`, `tools/flock`,

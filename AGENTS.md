@@ -5,9 +5,9 @@ Guidance for AI coding agents (and humans) working on this repository.
 ## What this is
 
 An installable web app that teaches network science in ten narrated stories
-(the airports about four minutes, the proteins and the cell map about six, the tour about eleven, the muscle story
-about nine and a half, the endotype story about eight, the PET story about eleven, the microanatomy story about eight, the
-flock and the robot gang about two), each
+(the airports about four minutes, the proteins and the cell map about five, the tour about nine and a half, the muscle
+story about eight, the endotype story about seven, the PET story about ten and a half, the microanatomy story about seven
+and a half, the flock and the robot gang about two), each
 followed by an explore mode. Everything works on desktop, phones and in VR/AR headsets (built for Meta
 Quest Browser, WebXR).
 
@@ -709,11 +709,11 @@ immersive session.
   tools take story times). Until a story has a recording the table sets its
   pace: `node tools/pace.mjs <url> [--write] [keys]` writes it from the panel's
   words (each stretch between two cues, a `data-at` element or a chapter's
-  start or end, lasts the longer of 1.15 times its story time and a second for
-  every 2.2 words, numbers not counted, that appear at its start: about the
-  airports' pace; where that slows a stretch a lot, a line's 0.6 s fade-in keeps
-  the light pace and the rest of the stretch waits, so the text is there at
-  once). Run it again after a story's text changes, then update the lengths
+  start or end, lasts the longer of 1.1 times its story time and the words,
+  numbers not counted, that appear at its start read at a rate chosen per story
+  so that the whole story reads at the airports' 2.1 words a second; where that
+  slows a stretch a lot, a line's 0.6 s fade-in keeps the light pace and the
+  rest of the stretch waits, so the text is there at once). Run it again after a story's text changes, then update the lengths
   (`len` in `HOST.list`, `audio/PUT-narration.mp3-HERE.txt`) and
   `docs/narration.md`; the flock's first swoop (flight time, `roost` in its
   set) is timed to its last chapter at this pace. A recorded narration replaces
