@@ -332,8 +332,8 @@ const AIRPORT_COLOR = `
   col = mix(col, uPal[int(aComm + 0.5)], uWComm);
   float onPath = step(0.5, aPath);
   float reached = onPath * clamp((uPathProg - aPath + 1.35) / 0.35, 0.0, 1.0);
-  col = mix(col, vec3(1.0, 0.36, 0.86), uFocus * reached);
-  float bright = mix(1.0, 0.22 + reached * 1.5, uFocus);
+  col = mix(col, vec3(0.70, 0.64, 1.0), uFocus * reached);   // shortest paths: a soft lavender, not too loud
+  float bright = mix(1.0, 0.22 + reached * 1.1, uFocus);
   float r = removal(aRnd, aWave, aXrm, uRndRm, uTgtRm, uXrm);
   float red = clamp(r / 0.35, 0.0, 1.0);
   float gone = smoothstep(0.45, 1.0, r);
@@ -639,6 +639,8 @@ function buildScene(canvas) {
   GL.highlights = {};
 }
 // a bright overlay of routes (example edge, path, a hub's fan, a selection)
+// shortest paths: a soft lavender, partly transparent, so they guide the eye without shouting
+const PATH_COL = [0.70, 0.64, 1.0], PATH_A = 0.6;
 function setHighlight(key, pairs, color, opts = {}) {
   const old = GL.highlights[key];
   if (old) { GL.world.remove(old); old.geometry.dispose(); old.material.dispose(); delete GL.highlights[key]; }
@@ -758,7 +760,7 @@ function buildStory() {
     <span class="k">${lo === hi ? lo : k === bins.length - 1 ? lo + '+' : lo + '–' + hi}</span></div>`).join('');
   const hm = Math.max(...HOP_DIST);
   const hopBars = HOP_DIST.slice(0, 10).map((f, k) => `<div class="bar"><span class="v">${f >= 0.01 ? Math.round(f * 100) + '%' : f > 0 ? '<1%' : ''}</span>
-    <div class="fill" data-grow="${22.6 + 0.18 * k}" style="height:${(100 * f / hm).toFixed(1)}%;background:var(--magenta)"></div><span class="k">${k + 1}</span></div>`).join('');
+    <div class="fill" data-grow="${22.6 + 0.18 * k}" style="height:${(100 * f / hm).toFixed(1)}%;background:var(--violet)"></div><span class="k">${k + 1}</span></div>`).join('');
   const legend = COMM_NAMES.map((n, k) => `<li data-at="${4.8 + 0.24 * k}"><span class="sw" style="background:rgb(${COMM_COLORS[k].map(v => Math.round(v * 255)).join(',')})"></span>${k === 9 ? STATS.nComm - 9 + ' smaller clusters' : n}</li>`).join('');
   const kmUI = path ? fmt(Math.round(km(path[0], path[L]) / 10) * 10) : '';
   const html = {
@@ -783,7 +785,7 @@ function buildStory() {
       <p data-at="6.4">Few hubs, many spokes: a heavy-tailed degree distribution, a signature shared by many real networks, from the web to protein interactions.</p>`,
     paths: `<h2 data-at="0.6">Shortest paths</h2>
       <p data-at="1.2">A shortest path uses the fewest edges between two nodes. ${path ? `${esc(city[path[0]])} to ${esc(city[path[L]])}: ${kmUI} km apart, yet only ${L} flights.` : ''}</p>
-      <div class="big magenta" data-at="4.2"><span id="flights">0</span><small id="flightsWord">flights</small></div>
+      <div class="big violet" data-at="4.2"><span id="flights">0</span><small id="flightsWord">flights</small></div>
       <p class="caption" data-at="22.4">Share of all airport pairs, by flights needed</p>
       <div class="bars" data-at="22.4">${hopBars}</div>
       <p data-at="23.4">On average any two airports are ${STATS.avgHops} flights apart, and ${Math.round(STATS.within6 * 100)}% of pairs need 6 or fewer: a small world. Even the most remote pair, ${STATS.diamPair[0]} to ${STATS.diamPair[1]}, needs only ${STATS.diameter}.</p>`,
@@ -842,12 +844,12 @@ function buildStory() {
     const dur = w.map(x => (17.6 - pause * (L - 1)) * x / sw);
     let t = a + 4;
     key('path_prog', t, 0);
-    label(path[0], `<b>${code[path[0]]}</b>${esc(city[path[0]])}`, 0, a + 3.2, b - 1.2, 'mag');
+    label(path[0], `<b>${code[path[0]]}</b>${esc(city[path[0]])}`, 0, a + 3.2, b - 1.2, 'vio');
     for (let k = 0; k < L; k++) {
       key('path_prog', t + dur[k], k + 1);
       ST.hopEnds.push(t + dur[k]);
       ST.cam.push([t, t + dur[k], path[k], path[k + 1]]);
-      label(path[k + 1], `<b>${code[path[k + 1]]}</b>${esc(city[path[k + 1]])}`, 0, t + dur[k] - 0.2, b - 1.2, 'mag');
+      label(path[k + 1], `<b>${code[path[k + 1]]}</b>${esc(city[path[k + 1]])}`, 0, t + dur[k] - 0.2, b - 1.2, 'vio');
       t += dur[k] + pause;
     }
   }
@@ -878,8 +880,8 @@ function buildStory() {
     [1.0, 0.72, 0.22], { radius: 0.0016, spread: 0.5, seed: 5 });
   setHighlight('anc', NET.adj.slice(NET.adjS[anc], NET.adjS[anc + 1]).reduce((o, j) => (o.push([anc, j]), o), []),
     [0.30, 1.0, 0.58], { radius: 0.0020, spread: 0.5, seed: 6 });
-  if (path) setHighlight('path', path.slice(0, -1).map((p, k) => [p, path[k + 1]]), [1.0, 0.35, 0.86],
-    { radius: 0.0040, hops: path.slice(0, -1).map((_, k) => k + 1) });
+  if (path) setHighlight('path', path.slice(0, -1).map((p, k) => [p, path[k + 1]]), PATH_COL,
+    { radius: 0.0030, hops: path.slice(0, -1).map((_, k) => k + 1) });
 
   // ------------------------------------------------------------ camera
   const wp = [[0, 20, -48, 3.6, 0, 0], [11, 24, -28, 3.1, 0, 0], [25, 28, 2, 3.0, 0, 0],
@@ -1077,9 +1079,9 @@ function applyUniforms(S, explore) {
   set('ex', S.ex_prog, explore ? 0 : S.ex_alpha);
   set('ams', S.ams_prog, explore ? 0 : S.ams_alpha);
   set('anc', S.anc_prog, explore ? 0 : S.anc_alpha);
-  set('path', S.path_prog, explore ? 0 : S.path_alpha);
+  set('path', S.path_prog, explore ? 0 : S.path_alpha * PATH_A);
   set('sel', XS.sel_prog, explore ? 0.9 : 0);
-  set('xpath', XS.path_prog, explore ? 1 : 0);
+  set('xpath', XS.path_prog, explore ? PATH_A : 0);
 }
 const LV = new THREE.Vector3();
 function updateLight(xr) {
@@ -1269,8 +1271,8 @@ function runPath(s, t) {
   X.path = res ? res.path : null; X.count = res ? res.count : 0; X.pathEnds = [s, t];
   XS.path_prog = 0;
   if (APP.mode === 'explore') setPathAttribute(X.path); // the story shows its own (enterExplore sets this one)
-  setHighlight('xpath', X.path ? X.path.slice(0, -1).map((p, k) => [p, X.path[k + 1]]) : null, [1.0, 0.35, 0.86],
-    { radius: 0.0034, hops: X.path ? X.path.slice(0, -1).map((_, k) => k + 1) : null });
+  setHighlight('xpath', X.path ? X.path.slice(0, -1).map((p, k) => [p, X.path[k + 1]]) : null, PATH_COL,
+    { radius: 0.0026, hops: X.path ? X.path.slice(0, -1).map((_, k) => k + 1) : null });
   renderPathResult(); updateExtraLabels();
   if (X.path) {
     const c = [0, 0, 0];
@@ -1288,10 +1290,10 @@ function renderPathResult() {
   if (!X.path) { el.innerHTML = '<p class="empty">Choose two airports, or try one of the examples.</p>'; return; }
   const p = X.path, L = p.length - 1, { code, city } = NET;
   const direct = km(p[0], p[L]), flown = p.slice(0, -1).reduce((s, a, k) => s + km(a, p[k + 1]), 0);
-  el.innerHTML = `<div class="result magenta">${L} ${L === 1 ? 'flight' : 'flights'}</div>
+  el.innerHTML = `<div class="result violet">${L} ${L === 1 ? 'flight' : 'flights'}</div>
     <p class="sub">${esc(city[p[0]])} and ${esc(city[p[L]])} are ${fmt(direct)} km apart; this routing flies ${fmt(flown)} km.
     ${X.count > 1 ? `It is one of ${fmt(X.count)} equally short routes.` : 'It is the only route this short.'}</p>
-    <ol class="hops">${p.slice(0, -1).map((a, k) => `<li><div><b>${esc(code[a])}</b> to <b>${esc(code[p[k + 1]])}</b><br><span>${esc(city[a])} to ${esc(city[p[k + 1]])}</span></div><span>${fmt(km(a, p[k + 1]))} km</span></li>`).join('')}</ol>`;
+    <ol class="hops violet">${p.slice(0, -1).map((a, k) => `<li><div><b>${esc(code[a])}</b> to <b>${esc(code[p[k + 1]])}</b><br><span>${esc(city[a])} to ${esc(city[p[k + 1]])}</span></div><span>${fmt(km(a, p[k + 1]))} km</span></li>`).join('')}</ol>`;
 }
 function degBarsHTML(hl) {
   const bins = [[1, 1], [2, 2], [3, 4], [5, 8], [9, 16], [17, 32], [33, 64], [65, 128], [129, 256]];
@@ -1466,7 +1468,7 @@ function updateExtraLabels() {
   if (X.pillars !== 'off') (X.pillars === 'deg' ? NET.degOrd : NET.btwOrd).slice(0, 8).forEach(i => {
     if (i !== X.sel) add(i, `<b>${code[i]}</b>${X.pillars === 'deg' ? deg[i] : '#' + NET.btwRank[i]}`, X.pillars === 'deg' ? 'amb' : 'grn');
   });
-  if (X.path && X.tab === 'path') X.path.forEach(i => add(i, `<b>${code[i]}</b>${esc(city[i])}`, 'mag'));
+  if (X.path && X.tab === 'path') X.path.forEach(i => add(i, `<b>${code[i]}</b>${esc(city[i])}`, 'vio'));
   if (X.sel >= 0 && !(X.path && X.tab === 'path' && X.path.includes(X.sel))) add(X.sel, `<b>${code[X.sel]}</b>${esc(city[X.sel])}`, 'cyn');
 }
 
@@ -1607,7 +1609,7 @@ function xrRecenter() {
 }
 
 // ---------------------------------------------------------------- labels --
-const LBL_STYLE = { '': ['#f2f6fc', null], mag: ['#ffd2f4', '#ff5ad9'], amb: ['#ffe2b0', '#ffb43b'],
+const LBL_STYLE = { '': ['#f2f6fc', null], mag: ['#ffd2f4', '#ff5ad9'], vio: ['#e6e1ff', '#b3a4ff'], amb: ['#ffe2b0', '#ffb43b'],
   grn: ['#c9ffe3', '#3ee08f'], cyn: ['#d2f6ff', '#46d9ff'], tip: ['#e7eef8', '#46d9ff'] };
 function labelSprite(L) {
   if (L.sprite) return L.sprite;
@@ -1616,7 +1618,7 @@ function labelSprite(L) {
   else {
     const b = L.el.querySelector('b');
     bold = b ? b.textContent : ''; rest = L.el.textContent.slice(bold.length).trim();
-    cls = ['mag', 'amb', 'grn', 'cyn'].find(k => L.el.classList.contains(k)) || '';
+    cls = ['mag', 'vio', 'amb', 'grn', 'cyn'].find(k => L.el.classList.contains(k)) || '';
   }
   const px = 34, H = 56, pad = 16, gap = bold && rest ? 10 : 0;
   const cv = document.createElement('canvas'), ctx = cv.getContext('2d');
@@ -2166,7 +2168,7 @@ function xrSetup() {
 // canvas texture. Each draw records clickable regions for the controller ray.
 const VC = { bg: 'rgba(8,15,28,0.95)', ink: '#e7eef8', muted: '#95a6bd', faint: '#6c7d94', line: 'rgba(149,166,189,0.22)',
   chip: 'rgba(149,166,189,0.13)', chipHi: 'rgba(149,166,189,0.30)', on: 'rgba(70,217,255,0.20)', cyan: '#46d9ff',
-  magenta: '#ff5ad9', amber: '#ffb43b', red: '#ff5a4b', green: '#3ee08f' };
+  magenta: '#ff5ad9', violet: '#b3a4ff', amber: '#ffb43b', red: '#ff5a4b', green: '#3ee08f' };
 const vfont = (px, w) => `${w || 400} ${px}px B612, "Segoe UI", "Helvetica Neue", Arial, sans-serif`;
 const cssColor = s => { const m = /var\(--(\w+)\)/.exec(s || ''); return m ? VC[m[1]] || VC.ink : s || VC.ink; };
 function rr(ctx, x, y, w, h, r) {
@@ -2451,11 +2453,11 @@ function drawStoryEl(ctx, P, el, x, y, W, pa) {
     } else {
       const s = cl.contains('lede') ? STY.lede : cl.contains('note') ? STY.note : cl.contains('caption') ? STY.caption
         : cl.contains('credits') ? STY.credits : cl.contains('step') ? STY.step : STY.p;
-      const col = ['amber', 'magenta', 'green', 'red', 'cyan'].find(c => cl.contains(c));
+      const col = ['amber', 'magenta', 'violet', 'green', 'red', 'cyan'].find(c => cl.contains(c));
       h = textBlock(ctx, el.textContent, x, y, W, s.px, s.lh, col ? VC[col] : VC[s.c], s.w) + s.mb;
     }
   } else if (cl.contains('big')) {
-    const col = ['magenta', 'cyan', 'green', 'amber', 'red'].find(c => cl.contains(c));
+    const col = ['magenta', 'violet', 'cyan', 'green', 'amber', 'red'].find(c => cl.contains(c));
     const small = el.querySelector('small'), all = el.textContent;
     const main = (small ? all.slice(0, all.length - small.textContent.length) : all).trim();
     ctx.font = vfont(96, 700); ctx.fillStyle = col ? VC[col] : VC.ink;
@@ -2620,7 +2622,7 @@ function drawPathPane(ctx, P, x, y, W, bottom) {
   if (!X.path) { textBlock(ctx, 'Point at two airports on the globe, or try one of the examples.', x, y, W, 26, 38, VC.muted); return; }
   const p = X.path, L = p.length - 1;
   const direct = km(p[0], p[L]), flown = p.slice(0, -1).reduce((s, a, k) => s + km(a, p[k + 1]), 0);
-  ctx.font = vfont(64, 700); ctx.fillStyle = VC.magenta;
+  ctx.font = vfont(64, 700); ctx.fillStyle = VC.violet;
   ctx.fillText(`${L} ${L === 1 ? 'flight' : 'flights'}`, x, y);
   y += 82;
   y += textBlock(ctx, `${city[p[0]]} and ${city[p[L]]} are ${fmt(direct)} km apart; this routing flies ${fmt(flown)} km. ${X.count > 1 ? `It is one of ${fmt(X.count)} equally short routes.` : 'It is the only route this short.'}`, x, y, W, 23, 33, VC.muted) + 14;
@@ -2631,7 +2633,7 @@ function drawPathPane(ctx, P, x, y, W, bottom) {
       break;
     }
     ctx.fillStyle = VC.line; ctx.fillRect(x, y, W, 2);
-    ctx.font = vfont(24, 700); ctx.fillStyle = VC.magenta; ctx.fillText(String(k + 1), x, y + 12);
+    ctx.font = vfont(24, 700); ctx.fillStyle = VC.violet; ctx.fillText(String(k + 1), x, y + 12);
     ctx.fillStyle = VC.ink; ctx.fillText(`${code[p[k]]} to ${code[p[k + 1]]}`, x + 44, y + 12);
     ctx.font = vfont(21); ctx.fillStyle = VC.muted;
     ctx.fillText(fitText(ctx, `${city[p[k]]} to ${city[p[k + 1]]}`, W - 420), x + 250, y + 15);
