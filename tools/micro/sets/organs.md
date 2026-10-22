@@ -24,7 +24,8 @@ story keeps); `MICRO_DATA.organs[i].icon` and the data block's `PET_DATA` shim a
   (`finish`). In headless Chromium under load all 29 take 1 to 2 s of CPU in all (0.4 to 0.6 s in Node unloaded).
 - Pictures: `canvas(id, px)` draws a model once onto a 2D canvas, lit the same way, with a painter's algorithm (flat
   triangles sorted far to near, each filled and stroked against seams), at twice the size and scaled down. No WebGL, so
-  no render target and nothing to do with a headset session. `step` draws the 64 px pictures after the models.
+  no render target and nothing to do with a headset session. `step` draws the 64 px pictures after the models, as
+  resumable jobs too (300 triangles at a time), so a frame's slice stays short on a headset.
 
 ## Exports (`ORGAN3D`)
 

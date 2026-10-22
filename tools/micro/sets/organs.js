@@ -303,7 +303,7 @@ const ORGAN3D = (() => {
     const until = performance.now() + ms;
     while (nextB < ids.length) { if (MESH[ids[nextB]] || run(ids[nextB], until)) nextB++; if (performance.now() > until) return false; }
     // then the pictures, for the panels
-    while (nextP < ids.length && performance.now() < until) canvas(ids[nextP++], 64);
+    while (nextP < ids.length && performance.now() < until) if (drawPic(ids[nextP], 64, until)) nextP++;
     return nextP >= ids.length;
   }
   const ready = () => nextB >= ids.length;
@@ -359,12 +359,11 @@ void main() {
   }
 
   // ------------------------------------------------------------ pictures (a painter's renderer on a 2D canvas)
-  const PIC = {}, URL = {};
-  function canvas(id, px = 64) {
-    const key = id + '@' + px;
-    if (PIC[key] !== undefined) return PIC[key];
+  // (a resumable job, so drawing ahead between frames stays within its slice: a few hundred triangles at a time)
+  const PIC = {}, URL = {}, PJOB = {};
+  function* picture(id, px) {
     const g = geo(id);
-    if (!g || typeof document === 'undefined') return (PIC[key] = null);
+    if (!g || typeof document === 'undefined') return null;
     const S = 2, W = px * S, cv = document.createElement('canvas');
     cv.width = cv.height = W;
     const ctx = cv.getContext('2d');
@@ -389,14 +388,23 @@ void main() {
       ctx.beginPath();
       ctx.moveTo(ox + X[a] * sc, oy - Y[a] * sc); ctx.lineTo(ox + X[b] * sc, oy - Y[b] * sc); ctx.lineTo(ox + X[c] * sc, oy - Y[c] * sc); ctx.closePath();
       ctx.fillStyle = st; ctx.strokeStyle = st; ctx.lineWidth = 0.7; ctx.fill(); ctx.stroke();
+      if (q % 300 === 299) yield;
     }
     const out = document.createElement('canvas');
     out.width = out.height = px;
     const o2 = out.getContext('2d');
     o2.imageSmoothingEnabled = true; o2.imageSmoothingQuality = 'high';
     o2.drawImage(cv, 0, 0, px, px);
-    return (PIC[key] = out);
+    return out;
   }
+  // a picture now (finishing one under way), or drawn ahead until a time
+  function drawPic(id, px, until) {
+    const key = id + '@' + px;
+    if (PIC[key] !== undefined) return true;
+    const j = PJOB[key] || (PJOB[key] = picture(id, px));
+    for (;;) { const r = j.next(); if (r.done) { PIC[key] = r.value; delete PJOB[key]; return true; } if (performance.now() > until) return false; }
+  }
+  function canvas(id, px = 64) { drawPic(id, px, Infinity); return PIC[id + '@' + px]; }
   function url(id, px = 64) {
     const key = id + '@' + px;
     if (URL[key] === undefined) { const c = canvas(id, px); try { URL[key] = c ? c.toDataURL() : ''; } catch (e) { URL[key] = ''; } }
