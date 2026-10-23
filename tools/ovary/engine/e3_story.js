@@ -89,11 +89,11 @@ const fitShift = (k, name) => { const f = GL.sets[k].cam[name] && FIT[k] && FIT[
 // and moved right)
 const SEC = [0, 0, 0.6, -0.22];
 const FIT = { organ: { default: [0, 0, 0.5, -0.2], face: [0, 0, 1.0, -0.5], open: [0, 0, 0.5, -0.2], whole: [0, 0, 0.4, -0.15] },
-  section: { default: SEC, pair: [0, 0, 1.05, -0.25], tiles: SEC, mask: SEC, net: [0, 0, 0.9, -0.2], forest: [0, 0, 1.0, -0.2] },
+  section: { default: SEC, pair: [0, 0, 1.05, -0.25], tiles: SEC, mask: SEC, net: [0, 0, 0.9, -0.2], forest: [0, 0, 1.0, -0.2], kinds: [0, 0, 0.3, -0.2] },
   charts: { default: [0, 0, 0.5, -0.2], hist: [0, 0, 0.5, -0.2], fan: [0, 0, 0.5, -0.2] } };
 // how much further back a view stands on a phone held upright (see narrowK): the wide ones, whose parts reach
 // across the screen
-const NARROW = { organ: { default: 1.15, face: 1.15, open: 1.15 }, section: { default: 1.2, pair: 1.3, tiles: 1.2, mask: 1.2, net: 1.2, forest: 1.3 },
+const NARROW = { organ: { default: 1.15, face: 1.15, open: 1.15 }, section: { default: 1.2, pair: 1.3, tiles: 1.2, mask: 1.2, net: 1.2, forest: 1.3, kinds: 1.25 },
   charts: { default: 1.25, hist: 1.25, fan: 1.25 } };
 const narrowOf = (k, name) => (NARROW[k] && NARROW[k][name]) || 1;
 // a set's anchor point, in the set's own coordinates
@@ -371,8 +371,8 @@ function buildStory() {
   ramp('section_age', a + 20, a + 36, 25, 65);
   cam(a + 1, 'section', 'net', -6);
   cam(a + 9.5, 'section', 'net', 2, 'spin');
-  cam(a + 16, 'section', 'kinds');
-  cam(a + 20, 'section', 'kinds', -4);
+  cam(a + 14, 'section', 'kinds', 0, null, [0, 10, -0.3, 0, -0.3]);   // (the slab tipped back and sunk: from a little above)
+  cam(a + 19.5, 'section', 'kinds', -4);
   cam(b, 'section', 'kinds', 10, 'spin');
   for (const n in TR) TR[n].sort((x, y) => x[0] - y[0]);
   buildCamera(wp);

@@ -740,7 +740,7 @@ void main() {
     // the network
     nodeMat.uniforms.uNet.value = linkMat.uniforms.uNet.value = stemMat.uniforms.uNet.value = net;
     nodes.visible = links.visible = stems.visible = net > 0.001;
-    stems.visible = net > 0.001 && kinds < 0.3;
+    stems.visible = net > 0.001 && kinds < 0.3; links.visible = net > 0.001 && kinds < 0.93; nodes.visible = net > 0.001 && kinds < 0.999;
     // by kind: the hubs (their places in the slab's frame for the nodes flying in), their sizes and the bands' widths
     LIFTU.value = lift; KINDU.value = kinds;
     kindsG.visible = net > 0.001 && kinds > 0.001;
@@ -820,7 +820,7 @@ void main() {
     cam: {
       default: [0, 8, 3.5, 0, 0, 0], close: [10, 16, 0.85, REP.follicle.x, REP.follicle.y, 0], pair: [0, 6, 3.4, 0, 0, 0],
       tiles: [0, 22, 3.0, 0, 0, 0], feat: [16, 38, 1.0, tile0.x, tile0.y, 0], forest: [-16, 10, 4.6, 0.5, 0, 0],
-      mask: [0, 10, 3.3, 0, 0, 0], net: [8, 32, 3.1, 0, 0.02, 0], kinds: [0, 12, 4.6, 0, 0.24, 0],
+      mask: [0, 10, 3.3, 0, 0, 0], net: [8, 32, 3.1, 0, 0.02, 0], kinds: [0, 12, 4.4, 0, 0.24, 0],
     },
     controls: [
       { key: 'view', label: 'View', options: [['section', 'Section'], ['pair', 'Young and old'], ['tiles', 'Tiles'], ['forest', 'Forest'], ['masks', 'Masks'], ['network', 'Network'], ['kinds', 'By kind']] },
