@@ -676,7 +676,7 @@ void main() {
   const topOf = (S, gfn) => { let y = -9, x = 0; for (const [px, py] of S.OUT) if (py > y) { y = py; x = px; } return () => gfn([x, y + 0.04, 0.02]); };
   let sweepX = -2, ageNow = 30, kindsNow = 0;
   // a hub's upper right rim, where its name goes (at its size now)
-  const hubRim = k => { const r = hubsAt(ageNow).r[k] * prog(kindsNow, 0.15, 0.6), p = HUBP[k]; return [p[0] + 0.72 * r + 0.01, p[1] + 0.72 * r + 0.01, p[2] + 0.3 * r]; };
+  const hubRim = k => { const r = hubsAt(ageNow).r[k] * prog(kindsNow, 0.35, 0.8), p = HUBP[k]; return [p[0] + 0.72 * r + 0.01, p[1] + 0.72 * r + 0.01, p[2] + 0.3 * r]; };
   const anchors = {
     vessel: () => inA([REP.vessel.x, REP.vessel.y, 0.02]), macrophage: () => inA([REP.macrophage.x, REP.macrophage.y, 0.02]),
     albicans: () => inA([REP.albicans.x, REP.albicans.y, 0.02]), follicle: () => inA([REP.follicle.x, REP.follicle.y, 0.02]),
@@ -746,14 +746,14 @@ void main() {
     kindsG.visible = net > 0.001 && kinds > 0.001;
     if (net > 0.001 && kinds > 0.001) {
       gA.updateMatrix(); invA.copy(gA.matrix).invert();
-      const H = hubsAt(age), on = prog(kinds, 0.15, 0.6);
+      const H = hubsAt(age), on = prog(kinds, 0.35, 0.8);
       for (let k = 0; k < 5; k++) {
         hv.set(HUBP[k][0], HUBP[k][1], HUBP[k][2]).applyMatrix4(invA);
         HUBU.value[k].set(hv.x, hv.y, hv.z, H.r[k] / sc);
         hubH.setXYZW(k, HUBP[k][0], HUBP[k][1], HUBP[k][2], H.r[k] * on * (1 + 0.025 * Math.sin(t * 1.3 + k * 1.7)));
       }
       hubH.needsUpdate = true;
-      hubMat.uniforms.uOn.value = haloMat.uniforms.uOn.value = prog(kinds, 0.1, 0.4);
+      hubMat.uniforms.uOn.value = haloMat.uniforms.uOn.value = prog(kinds, 0.3, 0.55);
       const rev = prog(kinds, 0.4, 0.9), ba = prog(kinds, 0.45, 0.85);
       PAIRS.forEach((p, i) => { const w = H.w[i], pres = smooth(Math.min(1, w)); UB[i].set(pres * (0.004 + 0.026 * Math.sqrt(w / WMAX)), ba * pres, rev, 0); });
     }
@@ -849,6 +849,8 @@ void main() {
         // the network by kind at an age (illustrative): objects alive per kind, and per pair of kinds [kind, kind, how
         // many drawn links join them among the objects alive] (by OVARY_DATA.kinds' index)
         byKind: a => { const H = hubsAt(clamp(a, 20, 70)); return { count: H.n.map(n => Math.round(n)), links: PAIRS.map((p, i) => [p[0], p[1], Math.round(H.w[i])]) }; },
+        // the hubs as drawn now (set frame): kind index, centre, radius (0 while they are not shown)
+        hubs: () => [0, 1, 2, 3, 4].map(k => ({ kind: k, p: HUBP[k].slice(), r: kindsG.visible ? hubsAt(ageNow).r[k] * prog(kindsNow, 0.35, 0.8) : 0 })),
       };
     },
   });
