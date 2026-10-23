@@ -1041,6 +1041,26 @@ void main() { vec2 c = gl_PointCoord - 0.5; float d = length(c); if (d > 0.5) di
     pp.frustumCulled = gp.frustumCulled = false;
     set.group.add(pp, gp);
   }
+  // a dark slate behind the grid, as the map has its ground: the dots glow by adding light, which a light wall seen in
+  // passthrough swallows (it grows with the grid: uW is its width)
+  const slateU = { uW: { value: 1.3 }, uSlateA: { value: 0 } };
+  {
+    const m = new THREE.ShaderMaterial({
+      uniforms: Object.assign({ uA: set.uA }, slateU), transparent: true, depthWrite: false, side: THREE.DoubleSide,
+      vertexShader: `uniform float uW; varying vec2 vP;
+void main() { vP = position.xy * uW; gl_Position = projectionMatrix * modelViewMatrix * vec4(vP, -0.03, 1.0); }`,
+      fragmentShader: `uniform float uA, uSlateA, uW; varying vec2 vP;
+void main() {
+  vec2 q = abs(vP) - vec2(0.5 * uW - 0.14); float d = length(max(q, 0.0)) + min(max(q.x, q.y), 0.0);   // a rounded square
+  vec2 g = abs(fract(vP * 9.0) - 0.5); float block = smoothstep(0.44, 0.5, max(g.x, g.y));   // the map ground's blocks
+  gl_FragColor = vec4(mix(vec3(0.022, 0.032, 0.062), vec3(0.08, 0.11, 0.19), block * 0.45), uA * uSlateA * 0.97 * (1.0 - smoothstep(0.0, 0.12, d)));
+}`,
+    });
+    set.mats.push(m);
+    const slate = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), m);
+    slate.renderOrder = -1; slate.frustumCulled = false;
+    set.group.add(slate);
+  }
 
   // ---------------------------------------------------------------- the map
   const net = Q.network(Q.DEFAULT), A3 = Q.analyze(Q.DEFAULT, { L: 3 }), code = A3.code, n = net.n;
@@ -1207,6 +1227,7 @@ void main() { vec2 c = gl_PointCoord - 0.5; float d = length(c); if (d > 0.5) di
     now.n = nn;
     triU.uN.value = nn; triU.uSp.value = spOf(nn);
     triU.uGeneA.value = tri; triU.uPairA.value = tri * prog(grid, 0, 0.04);
+    slateU.uW.value = (nn - 1) * spOf(nn) + 0.56; slateU.uSlateA.value = tri;
     const fold = smooth(clamp(S.pairs_fold, 0, 1)), valley = clamp(S.pairs_valley, 0, 1), hoodK = Math.round(clamp(S.pairs_code, 0, 8)) - 1;
     now.code = hoodK;
     mapU.uMapA.value = map; mapU.uFold.value = fold; mapU.uDepth.value = 0.11 * valley; mapU.uHood.value = hoodK >= 0 ? hoodK : -1;

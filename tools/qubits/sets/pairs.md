@@ -23,6 +23,10 @@ Gray-code order (000, 001, 011, 010, 110, 111, 101, 100: neighbors on the ring d
 
 The resting look (defaults): the map with walkers and valleys.
 
+The grid of pairs stands on a dark slate (a rounded square in the map ground's colors, growing with the grid and fading
+with it, `pairs_genes` x (1 - `pairs_map`)): its dots glow by adding light, which a light wall seen in passthrough AR
+swallowed. The map has its own dark ground for the same reason.
+
 ## Anchors
 
 `tri` (the grid's center), `genes0` (its first gene), `corner` (above its top-left corner: the count label), `map`
