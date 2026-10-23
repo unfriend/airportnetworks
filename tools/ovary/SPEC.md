@@ -2,7 +2,7 @@
 
 The thirteenth story of the web app in `/home/user/airportnetworks`: `stories/ovary.js`, built from `tools/ovary/` like
 the microanatomy story `stories/micro.js` is built from `tools/micro/`. It turns a poster into a narrated, about
-five-minute 3D story (about seven after `tools/pace.mjs`) with an explore mode, on desktop, phones and in VR/AR headsets
+four-and-a-half-minute 3D story (about six and a half after `tools/pace.mjs`) with an explore mode, on desktop, phones and in VR/AR headsets
 (Meta Quest Browser).
 
 - **The poster**: "Mapping the histological landscape of human ovarian aging", Parijat Chakraborty (1), Samir Moustafa
@@ -80,7 +80,9 @@ Params: `organ_grow` 0 small in the body, 1 large at the centre (default 1); `or
 ovary, uterus, tubes) while small; `organ_open` 0 closed, 1 cut open (default 1); `organ_age` 20..70 (default 30: the
 follicles, scars, vessels and size along `OVARY_TREND`); `organ_follicle`, `organ_albicans`, `organ_vessel`,
 `organ_luteum` 0..1 picked out in the poster's colors (the rest dims); `organ_parts` 0..1 the part labels;
-`organ_agelab` 0..1 the age readout label; `organ_side` 0..1 to the left and smaller (for the charts beside it).
+`organ_agelab` 0..1 the age readout label; `organ_counts` 0..1 three tags (follicles, corpora albicantia, blood
+vessels) with each method's count on the poster's line at the age ("Follicles · RF 32 · Seg 43": whole numbers under
+100, the nearest ten above; "none left on the lines" once both are about zero).
 Anchors: `cortex`, `medulla`, `follicle`, `oocyte`, `primordial`, `secondary`, `luteum`, `albicans`, `vessel`, `hilum`,
 `surface`, `blister`, `top`, `age`, `small` (the ovary's centre while small), `pelvis`. Cam: `default`, `face`, `cortex`,
 `medulla`, `whole` (the intact end), `open`, `pelvis` (the body's pelvis, close), `body`. Controls: View (Cut open,
@@ -96,34 +98,32 @@ an oocyte; antral ones round an antrum; a theca that fades with them), and two c
 large scars, no follicles) beside it. Method 1: tiles, UNI2 features as glowing blocks, a grove of five decision trees
 voting (paths light up; one tree errs), predictions washing the tiles. Method 2: SegFormer's masks sweep across
 (follicle masks a little off, IoU 0.70; the cyst's mask mostly misses it, IoU 0.15). The illustrative spatial neighbor
-network over the objects (it changes with `section_age`).
+network over the objects (it changes with `section_age`); with `section_lift` the slab tips back about 70 degrees and
+the nodes rise off it, with `section_kinds` they gather into five glowing hubs by kind (a hub's size: how many of its
+objects are alive at the age) and the links into bands between kinds (a band's width: how many drawn links join those
+two kinds), a slow flow along them; no numbers on them, labelled illustrative.
 
 Params: `section_age` 20..70 (default 30; section A); `section_pair` 0..1 younger and older side by side;
 `section_vessel`, `section_macrophage`, `section_albicans`, `section_follicle`, `section_cyst` 0..1 picked out (the
 poster's colors, the poster-like overlay; the rest dims); `section_tiles`, `section_feat`, `section_forest` (0 to 1 is a
 whole vote: in 0.12, features flow 0.1 to 0.45, the trees answer 0.35 to 0.85, the verdict flies back 0.8 to 0.95),
-`section_pred`; `section_mask` (the sweep); `section_net`. Anchors: `vessel`, `macrophage`, `albicans`, `follicle`,
+`section_pred`; `section_mask` (the sweep); `section_net`; `section_lift`, `section_kinds` (both need `section_net`);
+`section_names` (the hubs' names). Anchors: `vessel`, `macrophage`, `albicans`, `follicle`,
 `cyst`, `center`, `young`, `old`, `barYoung`, `barOld`, `tiles`, `tile`, `feat`, `forest`, `uni`, `pred`, `mask` (the
-sweep), `net`. Cam: `default`, `close` (a follicle), `pair`, `tiles`, `feat`, `forest`, `mask`, `net`. Controls: View
-(Section, Young and old, Tiles, Forest, Masks, Network), Age, Pick out. API `api()`: `kinds`, `pick(raycaster)` -> the
+sweep), `net`, `kinds` (the middle of the hubs), `hub_vessel`, `hub_macrophage`, `hub_albicans`, `hub_follicle`,
+`hub_cyst`. Cam: `default`, `close` (a follicle), `pair`, `tiles`, `feat`, `forest`, `mask`, `net`, `kinds`. Controls:
+View (Section, Young and old, Tiles, Forest, Masks, Network, By kind), Age, Pick out. API `api()`: `kinds`, `pick(raycaster)` -> the
 kind index of the object under the ray (or −1), `count(age, 'A'|'B')`, `objects`, `views`, `tiles`, `links`.
 
-### `charts` (sets/charts.js, charts.md): the poster's charts in 3D
+### `charts` (sets/charts.js, charts.md): the donors in 3D
 
-255 glass slides (drawn) fan out and stack into the age histogram (one slide per donor, the poster's bars); the four
-trend panels (2 x 2 in the poster's order; illustrative dots in two layers, RF in front; the poster's lines drawn on up
-to an age cursor; bands; r and p printed on each panel as on the poster); the four comparison panels (the dots fly
-there; the fitted line as read and the dashed diagonal; r and p); score bars (RF precision, recall, F1 per object;
-SegFormer IoU per object with the cyst).
+255 glass slides (drawn) fan out and stack into the age histogram (one slide per donor, the poster's bars): the story's
+one graph, in passing (chapter 2 only; not a scene of explore mode). The trend, comparison and score charts and their
+illustrative dots were taken out (October 2026, the owner's rule against 2D graphs): the trends are told on the ovary
+(`organ_counts`) and in words, the scores as tags on the section's objects, and explore lists every number as text.
 
-Params: `charts_slides`, `charts_hist`, `charts_trend` (default 1), `charts_sweep` 20..70 (default 70), `charts_focus`
-0..4 (0 all; 1 vessel, 2 albicans, 3 follicle, 4 macrophage, big in the middle), `charts_rf`, `charts_seg` (each
-method's alpha), `charts_band`, `charts_cmp`, `charts_side` (to the right and smaller, with `organ_side` on the left),
-`charts_score`, `charts_iou`. Anchors: `hist`, `histTop`, `fan`, `slides`, `t0`..`t3` (panel titles; also by kind key),
-`p0`..`p3` (r and p), `end0`..`end3` (the Seg line at the cursor), `rfScores`, `iouScores`, `cyst`. Cam: `default`,
-`hist`, `fan`, `trends`, `focus`, `scores`, `rf`, `iou`, `side`. Controls: Chart (Donors, Trends, Methods agree?,
-Scores), Object (All, Vessels, Scars, Follicles, Macrophages), Method (Both, Random forest, Segmentation). API `api()`:
-`order`, `line(kind, method, age)`, `cohortR`.
+Params: `charts_slides`, `charts_hist`. Anchors: `hist`, `histTop`, `fan`, `slides`. Cam: `default`, `hist`, `fan`. No
+controls.
 
 ## The engine (`engine/`, adapted from the microanatomy story's)
 
@@ -136,63 +136,69 @@ Scores), Object (All, Vessels, Scars, Follicles, Macrophages), Method (Both, Ran
   smoke test call `finish()`.
 - The story (`e3_story.js`): `FACTS` and the text helpers read `OVARY_DATA` and `OVARY_TREND` (`KD` by kind, `KCOL` the
   poster's colors lifted for the dark scene, `KINDS4`, `CHART`, `onLine(kind, method, age)`); `FIT` and `NARROW` frame
-  each view beside the panel; in the trends chapter the ovary takes the charts' turn (`ST.side`, `setYaw`); labels
-  whose text is a function are read again while they show (`labelText`, the qubits story's).
-- `NARRATION_SYNC` is written by `node tools/pace.mjs <url> --write ovary` (7:01 now); run it again after the text
+  each view beside the panel; labels whose text is a function are read again while they show (`labelText`, the qubits
+  story's: the ovary's age and its count tags).
+- `NARRATION_SYNC` is written by `node tools/pace.mjs <url> --write ovary`; run it again after the text
   changes, then the length in `HOST.list`, `audio/PUT-narration.mp3-HERE.txt` and `docs/narration.md`.
 - Explore (`e4_explore.js`, canvas twins in `e6_panels.js`): `X = { tab, scene, ctl, kind, age, method }`; setters
-  `selectKind(key | null, ui)` (by hand it also sets the section's and the ovary's Pick out / Show and the charts'
-  Object), `setAge(n)`, `setMethod('rf' | 'seg', ui)` (by hand it brings up the section's Forest or Masks view and
+  `selectKind(key | null, ui)` (by hand it also sets the section's and the ovary's Pick out / Show), `setAge(n)`, `setMethod('rf' | 'seg', ui)` (by hand it brings up the section's Forest or Masks view and
   plays it again), `openScene(k)`, `setCtl(k, key, v)`, `showView(k, option)`, `pickTab(k)`. The sets' own Age controls
-  give way to the age slider, which drives `organ_age` and `section_age` to the year (and `charts_sweep` on the Age
-  tab). Pointing at an object on the section picks its kind (`pickWith`, the section's `api().pick`).
+  give way to the age slider, which drives `organ_age` and `section_age` to the year (on the Age tab the cut-away ovary
+  shows its count tags, `organ_counts`). Pointing at an object on the section picks its kind (`pickWith`, the section's `api().pick`).
 - Hashes: `#ovary&t=200`, `#ovary&explore&kind=follicle`, `#ovary&explore&tab=age&age=60`,
-  `#ovary&explore&scene=section&view=forest` (any control by its key: `view`, `show`, `focus`, `method`),
+  `#ovary&explore&scene=section&view=forest` or `view=kinds` (any control by its key: `view`, `show`),
   `#ovary&explore&method=seg`, `&now` (no easing).
 
-### Chapters (about 5:15 of story time; keys, times, suggested keyframes)
+### Chapters (4:30 of story time; keys, times, suggested keyframes)
 
 1. `reserve` 0-45, the ovary and its reserve: `body_a` 1, `body_pet` 1, `organ_a` 1, `organ_body` 1, `organ_grow` 0,
    `organ_open` 0 (cam `organ.pelvis`); 8-20 `organ_grow` 0->1 while `body_a` 1->0 (cam to `organ.default`); 20-28
    `organ_open` 0->1; 28-45 `organ_parts` 1 (cam `face`, then `cortex`). "Every ovary starts with a reserve of follicles
    that is never refilled." The reserve cannot be measured directly; AMH and FSH only hint at it (`message.reserve`);
-   textbook background with "about" (`background`).
-2. `donors` 45-80, 255 donors: `charts_a` 1, `charts_trend` 0, `charts_slides` 0->1 (45-55, cam `fan`), `charts_hist`
-   0->1 (58-68, cam `hist`); label "255 donors". H&E in one line, GTEx in one line.
+   textbook background with "about" (`background`). (`organ_grow` stays 1 from 18.5: no later key may ease it back.)
+2. `donors` 45-80, 255 donors: `charts_a` 1, `charts_slides` 0->1 (45-55, cam `fan`), `charts_hist` 0->1 (58-68, cam
+   `hist`); label "255 donors". H&E in one line, GTEx in one line.
 3. `section` 80-125, what's in a section: `section_a` 1, `section_age` 26; pick out one kind after another with its
    annotated count (`section_vessel` 86-92, `section_macrophage` 92-98, `section_albicans` 98-104, `section_follicle`
    104-110; cam `close` for the follicle), all at once 110-114, none; `section_pair` 0->1 115-121 (cam `pair`: older,
    large corpora albicantia, almost no follicles; the scale bars).
 4. `methods` 125-185, two methods: `section_tiles` 0->1 127-132 (cam `tiles`), `section_feat` 0->1 133-140 (cam `feat`),
-   `section_forest` 0->1 141-158 (cam `forest`), `section_pred` 0->1 158-163; `section_mask` 0->1 164-174 (cam `mask`);
-   then `charts` scores: `charts_score` and `charts_iou` 0->1 174-185 (cam `scores`; the cyst's 0.15: "hard"). Precision,
-   recall, F1 and IoU in one plain line each.
-5. `trends` 185-245, trends with age: `charts_trend` 1, `charts_side` 1, `organ_side` 1 (`organ_open` 1,
-   `organ_agelab` 1), `charts_sweep` 20->70 with `organ_age` = the same (190-232); `charts_focus` 3 (follicles) 232-245.
-   Follicles fall toward zero by about 60; vessels fall; corpora albicantia rise; macrophages flat by one method,
-   falling by the other. Small print: the dots are illustrative.
-6. `agree` 245-280, do the methods agree: `charts_cmp` 0->1 247-255 (`charts_side` 0, `organ_a` 0); follicles and
-   vessels agree well (r +0.94, +0.78), corpora albicantia and macrophages less (segmentation finds far fewer).
-7. `network` 280-315, next, a network: `section_a` 1, `section_net` 0->1 282-290 (cam `net`; label "illustrative"),
-   `section_age` 25->65 292-308 (nodes and links come and go). The poster's future directions (`message.future`); the
-   microanatomy story's domain contacts are the same idea. Credits (authors, affiliations, CeMM and ERC support, GTEx);
-   small print: the dots and the network are illustrative; the sections are drawn, not GTEx images.
+   `section_forest` 0->1 141-158 (cam `forest`), `section_pred` 0->1 158-163; `section_mask` 0->1 164-173 (cam `mask`,
+   turning over the masked section to the end). From 174.5 story labels on the section's own objects: "Follicle · F1
+   0.83 · IoU 0.70" and the same for blood vessels, macrophages and corpora albicantia, then "Cyst · IoU 0.15: the mask
+   misses most of it" (all from `OVARY_DATA`). Precision, recall, F1 and IoU in one plain line each.
+5. `trends` 185-225, trends with age: the big cut-away ovary alone (`organ_agelab` 1, `organ_counts` 1), `organ_age`
+   20->70 (190-222; cams `default`, then `face`). Text: different donors at each age, not one ovary followed over time;
+   all eight trend r (follicles fall, none on the lines by about 60, the share of donors in their 60s with none;
+   vessels fall; corpora albicantia rise; macrophages no trend by the random forest, p 0.497, falling by segmentation,
+   not drawn in this ovary); compare each method with itself; every other trend has p below 0.001 (computed); then, in
+   a second turn, the agreement donor by donor (the four comparison r; the segmentation finds fewer), what r and p mean,
+   and small print (r and p the poster's; the agreement's p range; the tags read off the lines: approximate).
+6. `network` 225-270, next, a network: `section_a` 1, `section_age` 25, `section_net` 0->1 227-234 (cam `net`; label
+   "illustrative"), `section_lift` 0->1 235-239, `section_kinds` 0->1 239.5-244 and `section_names` (cam `kinds`; label
+   "Neighbor network by kind · illustrative"), `section_age` 25->65 245-261 (the follicles' hub fades by about 59, the
+   scars' swells). "Gather the nodes by kind and the links become bands: which kinds lie next to which." The poster's
+   future directions (`message.future`); the microanatomy story's domain contacts are the same idea. Credits (authors,
+   affiliations, CeMM and ERC support, GTEx); small print: the network is illustrative; the sections are drawn, not
+   GTEx images; the tags' numbers are read off the poster's lines (approximate).
 
 ### Explore mode (tabs, HTML and canvas twins)
 
 - **Objects**: pick one of the four, and the cyst (segmentation only): its look (`section_<kind>` and `organ_<kind>`),
-  annotated count, RF scores, IoU, its trend (r, p, both methods; `charts_focus`), its comparison.
-- **Age**: a slider 20 to 70: `organ_age`, `section_age`, `charts_sweep`; the expected count of each object at that age
-  from each method's line, `OVARY_TREND.line` ("on the poster's trend line").
-- **Methods**: tiles and the forest, or the masks, on the section; their scores.
-- **Scenes**: Ovary (`organ`), Section (`section`), Charts (`charts`), with their controls.
+  annotated count, RF scores, IoU, its trend (r, p, both methods), the methods' agreement donor by donor: as text.
+- **Age**: a slider 20 to 70: `organ_age`, `section_age` (the ovary shows its count tags); the count of each object at
+  that age on each method's line, `OVARY_TREND.line` ("on the poster's trend line", rounded as the tags).
+- **Methods**: tiles and the forest, or the masks, on the section; their scores as text.
+- **Scenes**: Ovary (`organ`), Section (`section`, with the network By kind), with their controls. No charts anywhere in
+  explore mode.
 
 `collab.state()`: `{ tab, scene, ctl, kind, age, method }` (never the camera or anything per device); a shared-room
-entry in `tools/collab.mjs`, FORMAT `networks-16`, Arrange all with thirteen stations (seven and six).
+entry in `tools/collab.mjs`, FORMAT `networks-19` (the charts' controls went), Arrange all with thirteen stations (seven
+and six).
 
 ## Open points (for `docs/questions-for-authors.md`)
 
-Pearson or Spearman r; the y-axis scale of the trend charts (it reads as log10 with 0 at the place of 0.5); the fitted
+Pearson or Spearman r; the y-axis scale of the poster's trend charts (it reads as log10 with 0 at the place of 0.5); the fitted
 lines (they read as straight lines in counts: linear fits?); the blood vessel F1 (0.86 shown, 0.84 from its precision
 and recall); how many donors the follicle comparison has (p = 1.4e-13 with r = 0.94 suggests about 30); what counts as a
-cyst; whether per-decade counts could be shared to replace the illustrative dots.
+cyst; whether per-decade counts could be shared (the illustrative dots are no longer drawn).

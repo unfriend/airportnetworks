@@ -1748,7 +1748,8 @@ void main() { gl_FragColor = vec4(litC(vC, normalize(vN), normalize(vV), normali
 // section cut into tiles, every tile's features (UNI2) as a mosaic of glowing blocks, a small grove of decision trees
 // (the random forest) voting, the tiles colored by their predicted label; (2) SegFormer's masks painting the objects
 // (honestly imperfect where its IoU is low: the cyst's 0.15). And the illustrative spatial neighbor network of the
-// objects, which changes as they do with age.
+// objects, which changes as they do with age; the section tips back, the network rises off it and gathers into five hubs
+// by kind (sized by the objects alive), its links into bands between kinds (also illustrative).
 SETS.section = function (K) {
   const { THREE, smooth, clamp, prog, lerp } = K;
   const L = OVARY_LOOK, T = OVARY_TREND, C = L.C, KI = L.KI;
@@ -2561,7 +2562,7 @@ void main() {
     cam: {
       default: [0, 8, 3.5, 0, 0, 0], close: [10, 16, 0.85, REP.follicle.x, REP.follicle.y, 0], pair: [0, 6, 3.4, 0, 0, 0],
       tiles: [0, 22, 3.0, 0, 0, 0], feat: [16, 38, 1.0, tile0.x, tile0.y, 0], forest: [-16, 10, 4.6, 0.5, 0, 0],
-      mask: [0, 10, 3.3, 0, 0, 0], net: [8, 32, 3.1, 0, 0.02, 0], kinds: [0, 12, 4.6, 0, 0.24, 0],
+      mask: [0, 10, 3.3, 0, 0, 0], net: [8, 32, 3.1, 0, 0.02, 0], kinds: [0, 12, 4.4, 0, 0.24, 0],
     },
     controls: [
       { key: 'view', label: 'View', options: [['section', 'Section'], ['pair', 'Young and old'], ['tiles', 'Tiles'], ['forest', 'Forest'], ['masks', 'Masks'], ['network', 'Network'], ['kinds', 'By kind']] },
