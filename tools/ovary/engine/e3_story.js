@@ -369,7 +369,7 @@ function buildStory() {
   ramp('section_kinds', a + 14.5, a + 19, 0, 1);
   ramp('section_names', a + 17, a + 19, 0, 1);   // (the hubs' names: the set's labels, each going with its hub)
   ramp('section_age', a + 20, a + 36, 25, 65);
-  cam(a + 1, 'section', 'net', -6);
+  cam(a + 2.5, 'section', 'net', -6);   // (over the crossfade: the ovary's face view rises to the network's slowly)
   cam(a + 9.5, 'section', 'net', 2, 'spin');
   cam(a + 14, 'section', 'kinds', 0, null, [0, 10, -0.3, 0, -0.3]);   // (the slab tipped back and sunk: from a little above)
   cam(a + 19.5, 'section', 'kinds', -4);
@@ -389,7 +389,7 @@ function buildStory() {
   // the scores as tags on the masked section's own objects: the random forest's F1 and SegFormer's IoU (the poster's)
   a = C.methods.a; b = C.methods.b;
   [['follicle', 49.5, 'amb'], ['vessel', 50.3, 'cyn'], ['macrophage', 51.1, 'grn'], ['albicans', 51.9, 'mag'], ['cyst', 53.5, '']].forEach(([k, t0, cls]) =>
-    label('section', k, `<b>${esc(cap(KD[k].name))}</b>${KD[k].rf ? `F1 ${sc2(KD[k].rf.f1)} · ` : ''}IoU ${sc2(KD[k].iou)}${k === 'cyst' ? ': the mask misses most of it' : ''}`, a + t0, b, cls));
+    label('section', 'tag_' + k, `<b>${esc(cap(KD[k].name))}</b>${KD[k].rf ? `F1 ${sc2(KD[k].rf.f1)} · ` : ''}IoU ${sc2(KD[k].iou)}${k === 'cyst' ? ': the mask misses most of it' : ''}`, a + t0, b, cls));
 }
 // camera waypoints: [t, az, el, dist, tx, ty, tz, ease, set, narrow factor, FIT's target shift]; 'spin' segments turn at
 // a steady pace.

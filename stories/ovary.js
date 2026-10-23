@@ -2415,6 +2415,11 @@ void main() {
   // a representative of each kind: one shown from 20 to 45 at least (the largest, near the middle)
   const rep = k => { const L0 = SA.OBJ.filter(o => o.k === k && o.from < 25 && o.until > 45); const pool = L0.length ? L0 : SA.OBJ.filter(o => o.k === k); return pool.sort((a, b) => (b.r - 0.2 * Math.hypot(b.x, b.y)) - (a.r - 0.2 * Math.hypot(a.x, a.y)))[0]; };
   const REP = { vessel: rep(VES), macrophage: rep(MAC), albicans: SA.AL.reduce((a, s) => (s.from < a.from ? s : a), SA.AL[0]), follicle: SA.AN[0], cyst: rep(CYS) };
+  // where a tag on one object of each kind goes (the story's scores on the masked section, read side by side): the
+  // object of that kind, shown from 25 to 45, nearest a spot of its own, so the five tags spread over the section
+  // instead of stacking where the representatives sit (near its middle)
+  const near = (k, x, y) => SA.OBJ.filter(o => o.k === k && o.from < 25 && o.until > 45).reduce((a, o) => (!a || Math.hypot(o.x - x, o.y - y) < Math.hypot(a.x - x, a.y - y) ? o : a), null) || REP[OVARY_DATA.kinds[k].key];
+  const TAG = { follicle: REP.follicle, vessel: near(VES, -0.15, 0.35), cyst: near(CYS, -0.3, 0), macrophage: near(MAC, -0.6, -0.42), albicans: near(ALB, 0.55, -0.2) };
   const topOf = (S, gfn) => { let y = -9, x = 0; for (const [px, py] of S.OUT) if (py > y) { y = py; x = px; } return () => gfn([x, y + 0.04, 0.02]); };
   let sweepX = -2, ageNow = 30, kindsNow = 0;
   // a hub's upper right rim, where its name goes (at its size now)
@@ -2432,6 +2437,7 @@ void main() {
     kinds: KC.slice(), kindsLabel: [-1.0, KC[1] + 0.66, KC[2] - 0.1],
   };
   for (const k of [VES, MAC, ALB, FOL, CYS]) anchors['hub_' + OVARY_DATA.kinds[k].key] = () => hubRim(k);
+  for (const k in TAG) anchors['tag_' + k] = () => inA([TAG[k].x, TAG[k].y, 0.02]);
 
   // ------------------------------------------------------------- update
   const hi = [0, 0, 0, 0, 0, 0], TIP = 70 * Math.PI / 180, invA = new THREE.Matrix4(), hv = new THREE.Vector3();
@@ -3225,7 +3231,7 @@ function buildStory() {
   ramp('section_kinds', a + 14.5, a + 19, 0, 1);
   ramp('section_names', a + 17, a + 19, 0, 1);   // (the hubs' names: the set's labels, each going with its hub)
   ramp('section_age', a + 20, a + 36, 25, 65);
-  cam(a + 1, 'section', 'net', -6);
+  cam(a + 2.5, 'section', 'net', -6);   // (over the crossfade: the ovary's face view rises to the network's slowly)
   cam(a + 9.5, 'section', 'net', 2, 'spin');
   cam(a + 14, 'section', 'kinds', 0, null, [0, 10, -0.3, 0, -0.3]);   // (the slab tipped back and sunk: from a little above)
   cam(a + 19.5, 'section', 'kinds', -4);
@@ -3245,7 +3251,7 @@ function buildStory() {
   // the scores as tags on the masked section's own objects: the random forest's F1 and SegFormer's IoU (the poster's)
   a = C.methods.a; b = C.methods.b;
   [['follicle', 49.5, 'amb'], ['vessel', 50.3, 'cyn'], ['macrophage', 51.1, 'grn'], ['albicans', 51.9, 'mag'], ['cyst', 53.5, '']].forEach(([k, t0, cls]) =>
-    label('section', k, `<b>${esc(cap(KD[k].name))}</b>${KD[k].rf ? `F1 ${sc2(KD[k].rf.f1)} · ` : ''}IoU ${sc2(KD[k].iou)}${k === 'cyst' ? ': the mask misses most of it' : ''}`, a + t0, b, cls));
+    label('section', 'tag_' + k, `<b>${esc(cap(KD[k].name))}</b>${KD[k].rf ? `F1 ${sc2(KD[k].rf.f1)} · ` : ''}IoU ${sc2(KD[k].iou)}${k === 'cyst' ? ': the mask misses most of it' : ''}`, a + t0, b, cls));
 }
 // camera waypoints: [t, az, el, dist, tx, ty, tz, ease, set, narrow factor, FIT's target shift]; 'spin' segments turn at
 // a steady pace.

@@ -79,7 +79,8 @@ Suggested keyframes: see SPEC.md, chapters 3, 4 and 7.
   `tiles`, `tile` (the followed tile), `feat`, `forest` (above the grove), `uni` (between the tile and the grove),
   `pred`, `mask` (the sweep line), `net`; `kinds` (the middle of the hubs), `kindsLabel` (above them, at the left),
   `hub_vessel`, `hub_macrophage`, `hub_albicans`, `hub_follicle`, `hub_cyst` (each hub's upper right rim at its size
-  now: for a label beside it; its centre when it is gone).
+  now: for a label beside it; its centre when it is gone); `tag_vessel`, `tag_macrophage`, `tag_albicans`, `tag_follicle`,
+  `tag_cyst` (one object of each kind, shown from 25 to 45, spread over the section: where the story's score tags go).
 - Labels: Younger ovary, Older ovary, 1.58 mm, 791 µm (with the pair); Tiles; Features "UNI2: numbers per tile"; Random
   forest "trees vote on each tile"; SegFormer "paints a mask" (while sweeping); Spatial neighbor network "illustrative"
   (until `section_kinds` 0.3); Neighbor network by kind "illustrative" (from `section_kinds` 0.3, at `kindsLabel`); the
