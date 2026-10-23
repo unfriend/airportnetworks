@@ -126,7 +126,9 @@ const APP = {
     let best = 'section', ba = 0;
     for (const k of SET_ORDER) { const a = Math.max(S[k + '_a'], 0.9 * S2[k + '_a']); if (a > ba + 0.01) { ba = a; best = k; } }
     if (best === 'body') best = 'organ';   // (the body shows with the ovary in it)
-    if (best === 'organ' && S.organ_side > 0.5 && S.charts_a > 0.5) best = 'charts';   // (the ovary beside the charts: the charts' view)
+    // (the donors' slides are no scene of explore mode: from there, explore's start)
+    const fromSlides = best === 'charts';
+    if (fromSlides) best = 'section';
     // the story's view, taken back into the set's own frame (explore shows sets unturned)
     const v = storyCam(ts).slice(0, 6), r = -setYaw(best, ts) * D2R, x = v[3], z = v[5];
     v[0] += r / D2R; v[3] = x * Math.cos(r) + z * Math.sin(r); v[5] = -x * Math.sin(r) + z * Math.cos(r);
@@ -149,18 +151,16 @@ const APP = {
     }
     // (a set that remembers what it showed last is told the chosen controls, long settled, twice)
     if (s.explore) { const c = { t: 1e3 }; for (const c2 of s.controls || []) c[c2.key] = isAge(c2) ? ageOpt(c2) : ctlValue(best, c2); s.explore(c); s.explore(c); }
-    // the story's picks carry over to the panes: the kind picked out (on the section, or the chart in the middle), the
-    // age, the method
+    // the story's picks carry over to the panes: the kind picked out (on the section), the age, the method
     X.kind = null;
     if (best === 'section') { const on = KINDS.filter(q => (S['section_' + q] || 0) > 0.5); if (on.length === 1) X.kind = on[0]; X.ctl.section.show = X.kind || 'none'; }
-    if (best === 'charts') { const f = clamp(Math.round(S.charts_focus || 0), 0, CHART.length); X.ctl.charts.focus = String(f); if (f) X.kind = CHART[f - 1]; }
-    const ag = best === 'organ' ? S.organ_age : best === 'section' ? S.section_age : S.charts_sweep < 69.5 ? S.charts_sweep : X.age;
+    const ag = best === 'organ' ? S.organ_age : best === 'section' ? S.section_age : X.age;
     X.age = Math.round(clamp(ag || X.age, AGE0, AGE1));
     X.method = (S.section_mask || 0) > 0.5 ? 'seg' : 'rf';
-    X.tab = best === 'section' ? (viewIs('section', /tiles|forest|masks/) ? 'methods' : 'objects')
-      : best === 'charts' ? (viewIs('charts', /scores/) ? 'methods' : viewIs('charts', /trends/) ? 'age' : viewIs('charts', /compare/) ? 'objects' : 'scenes') : 'age';
-    // from the last chapter (the story's end, or its Explore button): the section, in the Objects tab
-    if (ts >= C.network.a) openStart();
+    X.tab = best === 'section' ? (viewIs('section', /tiles|forest|masks/) ? 'methods' : 'objects') : 'age';
+    // from the last chapter (the story's end, or its Explore button), or from the donors' slides: the section, in the
+    // Objects tab
+    if (ts >= C.network.a || fromSlides) openStart();
     ST.labels.forEach(L => { L.el.style.opacity = 0; L.o = 0; });
     showTab(X.tab); pushState(); renderAll();
     $('#panel').scrollTop = 0;

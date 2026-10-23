@@ -385,7 +385,7 @@ for (const key of ['airports', 'proteins', 'spatial', 'lbi', 'nmd', 'endo', 'pet
       for (const k of KINDS) { selectKind(k); if (X.kind !== k) out.push('kind ' + k + ' not picked'); }
       for (const a of [20, 45, 70]) { setAge(a); if (X.age !== a) out.push('age ' + a + ' not set'); }
       for (const m of ['rf', 'seg']) { setMethod(m); if (X.method !== m) out.push('method ' + m + ' not set'); }
-      for (const s of ['organ', 'section', 'charts']) { openScene(s); for (const c of ctlsOf(s)) for (const [v] of c.options) setCtl(s, c.key, v); }
+      for (const s of ['organ', 'section']) { openScene(s); for (const c of ctlsOf(s)) for (const [v] of c.options) setCtl(s, c.key, v); }
       const st = JSON.stringify(collabState()); collabApply(JSON.parse(st));
       if (JSON.stringify(collabState()) !== st) out.push('apply(state()) changed the state');
       openScene('section'); setCtl('section', 'view', 'section'); Object.assign(XS, exploreTargets());

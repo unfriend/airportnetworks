@@ -453,21 +453,17 @@ function drawObjectsPane(ctx, P, x, y, W, bottom) {
   y += rows(ctx, st.rows.map(([t, v, s]) => [null, t, v, s]), x, y, W, bottom) + 6;
   if (st.note && y + 60 < bottom) y += textBlock(ctx, st.note, x, y, W, 21, 29, VC.faint, 400, 2) + 10;
   if (y + 60 > bottom) return;
-  const ci = CHART.indexOf(k);
   flow(ctx, P, [{ id: 'sh:sec', label: 'On the section', on: X.scene === 'section' && viewIs('section', /^section$/), fn: () => showView('section', 'section') }]
-    .concat(hasOpt('organ', 'show', k) ? [{ id: 'sh:organ', label: 'In the ovary', on: X.scene === 'organ', fn: () => showView('organ', 'cut') }] : [])
-    .concat(ci >= 0 ? [{ id: 'sh:trend', label: 'With age', on: X.scene === 'charts' && viewIs('charts', /trends/), fn: () => showView('charts', 'trends') },
-      { id: 'sh:cmp', label: 'Methods agree?', on: X.scene === 'charts' && viewIs('charts', /compare/), fn: () => showView('charts', 'compare') }] : []), x, y, W, bottom, { px: 22, h: 50 });
+    .concat(hasOpt('organ', 'show', k) ? [{ id: 'sh:organ', label: 'In the ovary', on: X.scene === 'organ', fn: () => showView('organ', 'cut') }] : []), x, y, W, bottom, { px: 22, h: 50 });
 }
 function drawAgePane(ctx, P, x, y, W, bottom) {
-  y += textBlock(ctx, 'Move the age: the ovary and the section follow the poster\'s trend lines, and the charts\' cursor moves along.', x, y, W, 24, 33, VC.muted, 400, 2) + 14;
+  y += textBlock(ctx, 'Move the age: the ovary and the section follow the poster\'s trend lines (different donors at each age, not one ovary followed over time).', x, y, W, 24, 33, VC.muted, 400, 2) + 14;
   y += drawAge(ctx, P, x, y, W) + 14;
   y += head(ctx, x, y, `On the poster's trend line at ${X.age} (objects per section): random forest · segmentation`);
   y += rows(ctx, ageRows().map(([q, r, s]) => [KCOL[q], Plural(q), `${fmt(r)} · ${fmt(s)}`, '']), x, y, W, bottom) + 14;
   y += head(ctx, x, y, 'Show it on');
   y += flow(ctx, P, [{ id: 'a:organ', label: 'The ovary', on: X.scene === 'organ', fn: () => openScene('organ') },
-    { id: 'a:sec', label: 'The section', on: X.scene === 'section', fn: () => openScene('section') },
-    { id: 'a:charts', label: 'The charts', on: X.scene === 'charts', fn: () => showView('charts', 'trends') }], x, y, W, bottom, { px: 22, h: 50 }) + 16;
+    { id: 'a:sec', label: 'The section', on: X.scene === 'section', fn: () => openScene('section') }], x, y, W, bottom, { px: 22, h: 50 }) + 16;
   if (y + 70 < bottom) textBlock(ctx, 'The two methods count differently; the lines are the poster\'s. The ovary and the section are drawn to follow them, not to scale.', x, y, W, 21, 29, VC.faint, 400, 3);
 }
 function drawMethodsPane(ctx, P, x, y, W, bottom) {
@@ -479,13 +475,12 @@ function drawMethodsPane(ctx, P, x, y, W, bottom) {
   y += textBlock(ctx, m.steps.join(' → ') + '.', x, y, W, 24, 33, VC.muted, 400, 4) + 12;
   y += flow(ctx, P, (rf ? [{ id: 'v:tiles', label: 'Tiles and features', on: X.scene === 'section' && viewIs('section', /tiles/), fn: () => showView('section', 'tiles') },
     { id: 'v:forest', label: 'The vote', on: X.scene === 'section' && viewIs('section', /forest/), fn: () => setMethod('rf') }]
-    : [{ id: 'v:masks', label: 'The masks', on: X.scene === 'section' && viewIs('section', /masks/), fn: () => setMethod('seg') }])
-    .concat([{ id: 'v:scores', label: 'Scores as bars', on: X.scene === 'charts' && viewIs('charts', /scores/), fn: () => showView('charts', 'scores') }]), x, y, W, bottom, { px: 22, h: 50 }) + 16;
+    : [{ id: 'v:masks', label: 'The masks', on: X.scene === 'section' && viewIs('section', /masks/), fn: () => setMethod('seg') }]), x, y, W, bottom, { px: 22, h: 50 }) + 16;
   y += rows(ctx, (rf ? KINDS4 : KINDS).map(q => [KCOL[q], Plural(q), rf ? `F1 ${sc2(KD[q].rf.f1)}` : `IoU ${sc2(KD[q].iou)}`, rf ? `precision ${sc2(KD[q].rf.precision)} · recall ${sc2(KD[q].rf.recall)}` : '']), x, y, W, bottom) + 10;
   if (y + 70 < bottom) textBlock(ctx, rf ? 'Precision: of the tiles called follicle, how many are one. Recall: of the follicles, how many were found. F1: the two in one number. 1 is perfect.'
     : `IoU: how far a predicted mask and the true one overlap (1 is perfect). Cysts, found only by the segmentation: just ${sc2(KD.cyst.iou)}.`, x, y, W, 21, 29, VC.faint, 400, 3);
 }
-// the four scenes, and the chosen scene's own controls (and the age, where the scene shows it)
+// the scenes, and the chosen scene's own controls (and the age, where the scene shows it)
 function drawScenesPane(ctx, P, x, y, W, bottom) {
   const cw = (W - 12 * (SCENES.length - 1)) / SCENES.length;
   SCENES.forEach(([k, n], j) => vButton(ctx, P, 'scene:' + k, x + j * (cw + 12), y, cw, 56, SCENE_SHORT[k] || n, () => openScene(k), { on: X.scene === k, px: 22 }));

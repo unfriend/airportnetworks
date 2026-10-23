@@ -76,7 +76,7 @@ const STORIES = {
   },
   ovary: {
     change: "selectKind('follicle'); setAge(60); setMethod('seg')",
-    back: "showTab('scenes'); openScene('charts'); setCtl('charts', 'view', 'compare'); selectKind('vessel')",
+    back: "showTab('scenes'); openScene('section'); setCtl('section', 'view', 'kinds'); selectKind('vessel')",
   },
   robots: {
     change: "setCtl('robots', 'rule', 'chain'); setCtl('robots', 'robots', '12')", back: "setCtl('robots', 'trails', 'on'); setCtl('robots', 'links', 'on')",

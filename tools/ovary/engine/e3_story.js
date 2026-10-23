@@ -120,8 +120,9 @@ const plural = key => KD[key].plural, Plural = key => cap(KD[key].plural);
 // scores as the poster prints them ('0.70'), r and p as printed ('−0.24', '2.1×10⁻⁴')
 const sc2 = v => (+v).toFixed(2), rT = TRD.rText, pT = TRD.pText;
 const METHOD = { rf: OD.methods.rf, seg: OD.methods.seg };
-// the count of a kind at an age on each method's fitted line, rounded as a count (objects per section)
-const onLine = (key, m, age) => Math.max(0, Math.round(TRD.line(key, m, age)));
+// the count of a kind at an age on each method's fitted line (objects per section), rounded as the ovary's tags round
+// it (the lines are read off the poster's figures): whole numbers under 100, the nearest ten above
+const onLine = (key, m, age) => { const c = Math.max(0, TRD.line(key, m, age)); return c < 99.5 ? Math.round(c) : Math.round(c / 10) * 10; };
 // what the sets know (their api())
 const setApi = k => (GL.sets[k] && GL.sets[k].api ? GL.sets[k].api() : null);
 const API = {};

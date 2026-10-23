@@ -514,7 +514,7 @@ vec3 kindP(vec3 p, out float g) {
   // 59 and the scars' swells. Bands join the kinds: a band's width is how many drawn links join those two kinds among
   // the objects alive (a loop on a hub: links within its kind), with a slow flow along it. No numbers on them.
   const KORD = [FOL, ALB, VES, MAC, CYS];   // round the ellipse from the top, clockwise as seen
-  const KC = [0, 0.4, 0.05], KRX = 0.82, KRY = 0.5, KTILT = 25 * Math.PI / 180;
+  const KC = [0, 0.62, 0], KRX = 0.84, KRY = 0.48, KTILT = 25 * Math.PI / 180;
   const ringAt = (ang, f = 1) => [KC[0] + f * KRX * Math.cos(ang), KC[1] + f * KRY * Math.sin(ang) * Math.cos(KTILT), KC[2] - f * KRY * Math.sin(ang) * Math.sin(KTILT)];
   const HANG = [], HUBP = [];
   KORD.forEach((k, i) => { HANG[k] = Math.PI / 2 - i * 2 * Math.PI / 5; HUBP[k] = ringAt(HANG[k]); });
@@ -626,7 +626,7 @@ varying vec3 vC, vN, vV;
 void main() {
   vec3 n = normalize(vN), v = normalize(vV), l = normalize(vec3(-0.45, 0.6, 0.65));
   float df = max(dot(n, l), 0.0), fr = pow(1.0 - max(dot(n, v), 0.0), 2.2), sp = pow(max(dot(reflect(-l, n), v), 0.0), 24.0);
-  vec3 col = vC * (0.5 + 0.7 * df) + mix(vC, vec3(1.0), 0.5) * fr * 0.6 + vec3(sp * 0.3);
+  vec3 c0 = mix(vC, vec3(1.0), 0.12), col = c0 * (0.5 + 0.6 * df) + c0 * 0.25 + mix(vC, vec3(1.0), 0.5) * fr * 0.7 + vec3(sp * 0.3);
   gl_FragColor = vec4(col, uA * uOn);
 }`,
   });
@@ -687,7 +687,7 @@ void main() {
     forest: [GROVE[0], GROVE[1] + 0.32, GROVE[2]], uni: () => { const a = inA([tile0.x, tile0.y, 0.05]); return [lerp(a[0], GROVE[0], 0.5), lerp(a[1], GROVE[1], 0.5) + 0.22, 0.3]; },
     pred: () => inA([0.3, -0.35, 0.05]), mask: () => inA([clamp(sweepX, -1, 1), 0.72, 0.05]),
     net: () => inA([0.0, 0.62, HN + 0.02]),
-    kinds: KC.slice(), kindsLabel: ringAt(HANG[FOL] + 0.62, 1.32),
+    kinds: KC.slice(), kindsLabel: [-1.0, KC[1] + 0.66, KC[2] - 0.1],
   };
   for (const k of [VES, MAC, ALB, FOL, CYS]) anchors['hub_' + OVARY_DATA.kinds[k].key] = () => hubRim(k);
 
@@ -702,7 +702,7 @@ void main() {
     // the lift: the slab tips back like a tabletop (and sinks a little, so the hubs above it stay in view)
     const lift = smooth(clamp(S.section_lift || 0, 0, 1)), kinds = clamp(S.section_kinds || 0, 0, 1);
     kindsNow = kinds;
-    gA.position.set(-0.6 * pair, -0.42 * lift, -0.05 * lift); gA.scale.setScalar(sc); gA.rotation.x = -TIP * lift;
+    gA.position.set(-0.6 * pair, -0.5 * lift, -0.05 * lift); gA.scale.setScalar(sc); gA.rotation.x = -TIP * lift;
     gB.position.set(0.62 * pair + 0.5 * (1 - pair), 0, 0); gB.scale.setScalar(0.58);
     gB.visible = pair > 0.01;
     for (const m of [SB.slabMat, SB.objMat, SB.fadeMat, SB.rimMat]) m.uniforms.uFade.value = (m === SB.fadeMat ? 0.75 : 1) * prog(pair, 0, 0.6);
@@ -820,7 +820,7 @@ void main() {
     cam: {
       default: [0, 8, 3.5, 0, 0, 0], close: [10, 16, 0.85, REP.follicle.x, REP.follicle.y, 0], pair: [0, 6, 3.4, 0, 0, 0],
       tiles: [0, 22, 3.0, 0, 0, 0], feat: [16, 38, 1.0, tile0.x, tile0.y, 0], forest: [-16, 10, 4.6, 0.5, 0, 0],
-      mask: [0, 10, 3.3, 0, 0, 0], net: [8, 32, 3.1, 0, 0.02, 0], kinds: [0, 12, 4.0, 0, 0.12, 0],
+      mask: [0, 10, 3.3, 0, 0, 0], net: [8, 32, 3.1, 0, 0.02, 0], kinds: [0, 12, 4.3, 0, 0.2, 0],
     },
     controls: [
       { key: 'view', label: 'View', options: [['section', 'Section'], ['pair', 'Young and old'], ['tiles', 'Tiles'], ['forest', 'Forest'], ['masks', 'Masks'], ['network', 'Network'], ['kinds', 'By kind']] },
