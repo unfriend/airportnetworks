@@ -111,7 +111,8 @@ whole vote: in 0.12, features flow 0.1 to 0.45, the trees answer 0.35 to 0.85, t
 `section_names` (the hubs' names). Anchors: `vessel`, `macrophage`, `albicans`, `follicle`,
 `cyst`, `center`, `young`, `old`, `barYoung`, `barOld`, `tiles`, `tile`, `feat`, `forest`, `uni`, `pred`, `mask` (the
 sweep), `net`, `kinds` (the middle of the hubs), `hub_vessel`, `hub_macrophage`, `hub_albicans`, `hub_follicle`,
-`hub_cyst`. Cam: `default`, `close` (a follicle), `pair`, `tiles`, `feat`, `forest`, `mask`, `net`, `kinds`. Controls:
+`hub_cyst`, `tag_vessel`, `tag_macrophage`, `tag_albicans`, `tag_follicle`, `tag_cyst` (the score tags' objects). Cam:
+`default`, `close` (a follicle), `pair`, `tiles`, `feat`, `forest`, `mask`, `net`, `kinds`. Controls:
 View (Section, Young and old, Tiles, Forest, Masks, Network, By kind), Age, Pick out. API `api()`: `kinds`, `pick(raycaster)` -> the
 kind index of the object under the ray (or −1), `count(age, 'A'|'B')`, `objects`, `views`, `tiles`, `links`.
 
