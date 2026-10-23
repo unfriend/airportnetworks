@@ -7,7 +7,8 @@
 // section cut into tiles, every tile's features (UNI2) as a mosaic of glowing blocks, a small grove of decision trees
 // (the random forest) voting, the tiles colored by their predicted label; (2) SegFormer's masks painting the objects
 // (honestly imperfect where its IoU is low: the cyst's 0.15). And the illustrative spatial neighbor network of the
-// objects, which changes as they do with age.
+// objects, which changes as they do with age; the section tips back, the network rises off it and gathers into five hubs
+// by kind (sized by the objects alive), its links into bands between kinds (also illustrative).
 SETS.section = function (K) {
   const { THREE, smooth, clamp, prog, lerp } = K;
   const L = OVARY_LOOK, T = OVARY_TREND, C = L.C, KI = L.KI;

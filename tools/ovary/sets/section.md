@@ -1,6 +1,7 @@
 # `section`: a drawn H&E section of an ovary (file `sets/section.js`)
 
-Chapters 3 (what's in a section), 4 (two methods) and 7 (a network), and the Section scene in explore. Everything is
+Chapters 3 (what's in a section), 4 (two methods) and the last (Next: a network, and the network by kind), and the
+Section scene in explore. Everything is
 drawn: no GTEx image is used.
 
 ## What it is
@@ -38,6 +39,18 @@ drawn: no GTEx image is used.
   its kind's color, sized by kind; primary follicles left out), links to its nearest few within 0.14 (gap between
   edges), stems down to the objects; a node shows while its object does, a link while both ends do, so with
   `section_age` the network changes (follicles' nodes go, scars' come). It draws outwards from the middle.
+- **The network by kind** (ILLUSTRATIVE, as the network): with `section_lift` section A tips back like a tabletop (70
+  degrees about its x axis, sinking 0.5) and the nodes rise off it, each to its own height (0.14 to 0.38 over the slab),
+  the stems stretching; with `section_kinds` the nodes fly on arcs (staggered) into five glowing hubs, one per kind, and
+  merge into them; the links' ends go with them, so the links bundle between the hubs and give way to **bands**. The
+  hubs hang on a tilted ellipse over the section in the set's frame (follicles at the top, then corpora albicantia,
+  vessels, macrophages, cysts, clockwise as seen), lit spheres in the poster's kind colors (`OVARY_LOOK.GLOW`) in a
+  soft halo. A hub's size is how many objects of its kind are alive at `section_age` (its area as their number, plus a
+  small floor: at 25 about 61 vessels, 54 macrophages, 5 scars, 17 follicles, 2 cysts; at 65 about 40, 37, 13, 0, 2):
+  the follicles' hub shrinks and is gone by about 58, the scars' swells. A band's width is how many drawn links join
+  its two kinds among the objects alive at that age (a loop on a hub: links within its kind); bands with none are
+  gone. A slow flow runs along them. No numbers or r on them: they only show which kinds lie next to which in this
+  drawn section.
 
 ## Params
 
@@ -52,7 +65,10 @@ drawn: no GTEx image is used.
 | `section_forest` | 0..1, 0 | the vote: grove in by 0.12, features flow 0.1-0.45, trees answer 0.35-0.85, verdict 0.8-0.95, tile lit at 1 |
 | `section_pred` | 0..1, 0 | predictions sweep across (the blocks go) |
 | `section_mask` | 0..1, 0 | SegFormer's masks sweep across (0 none, 1 all) |
-| `section_net` | 0..1, 0 | the network draws outwards (the section dims a little) |
+| `section_net` | 0..1, 0 | the network draws outwards (the section dims a little); the network by kind needs it too |
+| `section_lift` | 0..1, 0 | the slab tips back about 70 degrees (and sinks 0.5) and the nodes rise off it |
+| `section_kinds` | 0..1, 0 | the nodes gather into the hubs (setting off 0 to 0.375, arriving 0.625 to 1; hubs grow 0.35 to 0.8), stems go by 0.3, links bundle and fade 0.55 to 0.92, bands grow from both ends 0.4 to 0.9 |
+| `section_names` | 0..1, 0 | the hubs' names as set labels (explore's By kind view; the story may key it instead of its own labels) |
 
 Suggested keyframes: see SPEC.md, chapters 3, 4 and 7.
 
@@ -61,15 +77,25 @@ Suggested keyframes: see SPEC.md, chapters 3, 4 and 7.
 - Anchors: `vessel`, `macrophage`, `albicans`, `follicle` (the largest antral follicle, shown to about 58), `cyst`
   (representatives shown at least from 25 to 45), `center`, `young`, `old` (the sections' tops), `barYoung`, `barOld`,
   `tiles`, `tile` (the followed tile), `feat`, `forest` (above the grove), `uni` (between the tile and the grove),
-  `pred`, `mask` (the sweep line), `net`.
+  `pred`, `mask` (the sweep line), `net`; `kinds` (the middle of the hubs), `kindsLabel` (above them, at the left),
+  `hub_vessel`, `hub_macrophage`, `hub_albicans`, `hub_follicle`, `hub_cyst` (each hub's upper right rim at its size
+  now: for a label beside it; its centre when it is gone).
 - Labels: Younger ovary, Older ovary, 1.58 mm, 791 µm (with the pair); Tiles; Features "UNI2: numbers per tile"; Random
-  forest "trees vote on each tile"; SegFormer "paints a mask" (while sweeping); Spatial neighbor network "illustrative".
+  forest "trees vote on each tile"; SegFormer "paints a mask" (while sweeping); Spatial neighbor network "illustrative"
+  (until `section_kinds` 0.3); Neighbor network by kind "illustrative" (from `section_kinds` 0.3, at `kindsLabel`); the
+  hubs' names (Blood vessels, Macrophages, Corpora albicantia, Follicles, Cysts, in their kinds' label classes, while
+  `section_names` is on and the hub is there).
 - Cam: `default` [0, 8, 3.5], `close` (the largest follicle), `pair`, `tiles`, `feat` (a slant close-up of the blocks),
-  `forest` (section and grove), `mask`, `net`.
+  `forest` (section and grove), `mask`, `net`, `kinds` [0, 12, 4.4] on the middle of the tipped section and the hubs.
 - Controls: View (Section, Young and old, Tiles, Forest (the vote plays over 8 s, then the predictions), Masks (the
-  sweep over 5 s), Network), Age (20 ... 70), Pick out (None, Vessels, Macrophages, Scars, Follicles, Cysts).
-- `api()`: `kinds` (keys by index), `pick(raycaster)` (the kind index of the object under a ray, −1 if none), `count(age,
-  'A'|'B')` (objects per kind shown), `objects` (A's objects: kind, x, y, r, from, until), `views`, `tiles`, `links`.
+  sweep over 5 s), Network, By kind (net, lift, kinds and names at 1)), Age (20 ... 70), Pick out (None, Vessels,
+  Macrophages, Scars, Follicles, Cysts).
+- `api()`: `kinds` (keys by index), `pick(raycaster)` (the kind index of the object under a ray, −1 if none; while the
+  hubs are shown, `section_kinds` over 0.5, a hub under the ray first; it uses the section's matrixWorld, so it works
+  with the slab tipped; `hitAt()` is then the hub's centre), `count(age, 'A'|'B')` (objects per kind shown), `objects`
+  (A's objects: kind, x, y, r, from, until), `views`, `tiles`, `links`, `byKind(age)` (`{ count: per kind, links:
+  [[kind, kind, drawn links among the objects alive], ...] }`, by `OVARY_DATA.kinds`' index), `hubs()` (each hub as
+  drawn now: kind, centre `p` in the set's frame, radius `r`, 0 while not shown).
 
 ## Say, and do not say
 
@@ -77,7 +103,11 @@ Suggested keyframes: see SPEC.md, chapters 3, 4 and 7.
   macrophage 5,540, corpus albicans 421, follicle 274) are the training labels; tiles -> UNI2 features -> random forest
   -> tile prediction; SegFormer -> mask prediction; the scores (`OVARY_DATA.kinds`).
 - Do not say: that the section, the tiles' numbers, the forest's paths or the network are the authors' (they are drawn
-  to show the method); the network is the poster's next step, illustrative.
+  to show the method); the network is the poster's next step, illustrative. The network by kind is drawn from this
+  section's links: say "which kinds lie next to which", never that the network "rewires" or any number for a band;
+  the hubs' sizes follow the poster's lines only as the objects on the section do.
 
 Performance: about 114,000 triangles and 6 to 7 draw calls for A (15 with B; up to 12 with the method's parts), 1,376
-tile lines; construction about 120 ms, the stains and objects about 0.7 s more between frames.
+tile lines; the network 10 calls (145 points, 503 lines); by kind 10 calls and about 121,000 triangles at 1 (hubs
+1,600, bands about 4,700; 12 to 13 calls while the nodes gather); construction about 120 to 200 ms, the stains and
+objects about 0.7 s more between frames.
