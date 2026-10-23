@@ -59,8 +59,9 @@
   those.
   `stories/ovary.js` likewise from `tools/ovary/` (`node tools/ovary/build.mjs`; data from the poster's numbers, typed in,
   and the figures' readings in `tools/ovary/data/figures.json` via `node tools/ovary/data/gen_data.mjs`); it includes
-  `tools/lbi/sets/body.js`, so rebuild it after changing that. The dots of its charts and its neighbor network are
-  illustrative (say so); no GTEx image or picture from the poster in it. American spelling, as in the qubits story.
+  `tools/lbi/sets/body.js`, so rebuild it after changing that. Its neighbor network (and the network by kind) is
+  illustrative and its count tags are read off the poster's lines (say so); no charts beyond the donors' histogram, and
+  no GTEx image or picture from the poster in it. American spelling, as in the qubits story.
   `stories/qubits.js` likewise from `tools/qubits/` (`node tools/qubits/build.mjs`; its maths checked by
   `node tools/qubits/test-qmath.mjs`; example networks only, computed live, and the real run's numbers typed in from
   Joel Hancock's brief in `tools/qubits/sets/data.js`, shown only as "in the real network"). It and the aging ovary
