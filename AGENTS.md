@@ -258,7 +258,7 @@ spot, y over the floor) and `st.<id>.place` (the scene: `{ x, y, z }` moved from
 where the story puts it, and `s` its size, a factor on the story's own; FORMAT
 networks-8), and per shared space `rf.<space id>` (the room's frame in it) and
 `rs.<space id>` (found split; FORMAT networks-9), and `sg` (the room's shared-space
-generation, `{ n, by, at }`; FORMAT networks-10; networks-11 when the eighth story came, networks-12 the ninth, networks-13 the tenth, networks-14 the eleventh, networks-15 the twelfth, networks-16 the thirteenth, networks-17 when the PET story's `state()` lost its one-scan fields). The plan is `docs/shared-space-plan.md`.
+generation, `{ n, by, at }`; FORMAT networks-10; networks-11 when the eighth story came, networks-12 the ninth, networks-13 the tenth, networks-14 the eleventh, networks-15 the twelfth, networks-16 the thirteenth, networks-17 when the PET story's `state()` lost its one-scan fields, networks-18 when its liver scene came back). The plan is `docs/shared-space-plan.md`.
 
 - `HOST.collab` keeps the room's keys (echo suppression by value, optimistic
   writes acknowledged by the relay, apply order stations > clock > state >
@@ -658,7 +658,7 @@ What each story shares:
 | lbi | tab, scene, every control of that scene, selected protein, route | none |
 | nmd | tab, scene, every scene's controls, group, gene, picked endotypes, layers knocked out, your genes, the walk (its start and result, the same on every device), walkers, colour, grid, z-scores | none |
 | endo | tab, scene, every scene's controls (synapse, network, tree, motor unit), endotype, gene, k (the seed-group step), method step (standing in the gap stays per device) | none |
-| pet | tab, scene, every scene's controls (scanner, body, organs), the comparison (a Table 2 row), network, organ (life size stays per device) | none |
+| pet | tab, scene, every scene's controls (scanner, body, organs, liver), the comparison (a Table 2 row), network, organ (life size stays per device) | none |
 | micro | tab, scene, every scene's controls (body, section, atlas, network), organ, domain, age, method step | none |
 | ovary | tab, scene, every scene's controls (ovary: view, show; section: view, show; charts: chart, object, method; never their Age steps), the kind of object picked, the age (20 to 70), the method (`rf` or `seg`) | none |
 | qubits | tab, scene, every scene's controls (pairs; cube: view, network, cut, bits, algebra; chart: view, example, angles), the brick shown (a Pauli string by name), how many strings are added up, the gallery (kinds or largest) | none |
@@ -858,10 +858,11 @@ adapted from the muscle story's. `tools/endo/SPEC.md` is the contract.
 ## The PET story (`stories/pet.js`) is built the same way
 
 `stories/pet.js` is generated from `tools/pet/` (`node tools/pet/build.mjs`, `--check` as for the tour): the tour's
-kit and body set (unchanged), organ icons (`sets/icons.js`, `PET_ICONS`), two sets (`scan`, the PET/CT scanner, how
+kit and body set (unchanged), organ icons (`sets/icons.js`, `PET_ICONS`), three sets (`scan`, the PET/CT scanner, how
 PET sees and the vision row, its stages joined by flowing light; `organs`, segmentation, uptake, the cohort, the
-explainer and the paper's networks, drawn in the body set's frame; each with a manifest) and engine parts adapted from
-the endotype story's. `tools/pet/SPEC.md` is the contract.
+explainer and the paper's networks, drawn in the body set's frame; `liver`, an organ as a network of patches, in
+explore mode only; each with a manifest) and engine parts adapted from the endotype story's. `tools/pet/SPEC.md` is the
+contract.
 
 - The data: `tools/pet/data/gen_data.mjs` (Node) writes `tools/pet/sets/data.js` (`PET_DATA`, documented in its
   header) from the paper's tables (typed in), the two weight matrices printed in its Figure 2A, and
@@ -872,8 +873,8 @@ the endotype story's. `tools/pet/SPEC.md` is the contract.
 - `body` and `organs` share one frame and are shown together.
 - The story follows the paper (the network of all scans, then from health to disease); the poster gives its title,
   the vision row and its authors. Its one-scan network, index, survival and immunotherapy results were taken out
-  (October 2026: they did not match the poster; with them went the `people` and `liver` sets and explore's One scan and
-  People tabs, all in the history), and so were the Network chapter's matrix of all scans and its scatter plot (it goes
+  (October 2026: they did not match the poster; with them went the `people` set and explore's One scan and People tabs,
+  all in the history; the explore-only `liver` scene went too and came back the same day), and so were the Network chapter's matrix of all scans and its scatter plot (it goes
   straight to the network on the body).
 
 ## The microanatomy story (`stories/micro.js`) is built the same way

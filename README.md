@@ -220,8 +220,9 @@ writes it from the words (run it again after the text changes).
   figures (`tools/pet/data/figures.json`), and `tools/pet/data/gen_data.mjs`
   writes `tools/pet/sets/data.js`. Illustrative stand-ins, said so in the story:
   typical organ uptakes and a synthetic cohort for explore's matrix and scatter
-  views. The scanner and the body are illustrative. (The poster's one-scan
-  network and its results were taken out: they did not match the poster.)
+  views. The scanner, the body and the liver's patches (explore mode) are
+  illustrative. (The poster's one-scan network and its results were taken
+  out: they did not match the poster.)
 
 - **Tissue and time** (`stories/micro.js`), after the preprint "Systematic mapping of human tissue microanatomy
   reveals age-associated remodeling and resilience" (Iva Buljan, Zsuzsanna Bago-Horvath, André F. Rendeiro;

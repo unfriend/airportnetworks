@@ -21,15 +21,16 @@ node tools/pet/build.mjs --check     # exits 1 if stories/pet.js is out of date
 | `data/figures.json` | values read off the paper's Figures 3 and 4, each read twice independently and reconciled; it also holds readings of the poster's plots (its patients only as group summaries), which the story no longer uses |
 | `sets/data.js` | the constant `PET_DATA` (generated; its header documents the fields) |
 | `sets/icons.js` | `PET_ICONS`: line icons of the 13 organs and the aorta, for canvases and as a texture atlas |
-| `sets/scan.js`, `sets/organs.js` | the 3D sets (the scanner, how PET sees and the vision row; organs, uptake and the paper's networks over the tour's body), each with a manifest `sets/<name>.md`; the story also uses `tools/lbi/sets/body.js` |
+| `sets/scan.js`, `sets/organs.js`, `sets/liver.js` | the 3D sets (the scanner, how PET sees and the vision row; organs, uptake and the paper's networks over the tour's body; an organ as a network of patches, in explore mode only), each with a manifest `sets/<name>.md`; the story also uses `tools/lbi/sets/body.js` |
 | `engine/e1_head.js` ... `e7_app.js` | the story engine, adapted from the endotype story |
 | `SPEC.md` | what each set and the engine must do; read with `tools/lbi/SPEC.md` |
 | `build.mjs` | the assembler |
 | `harness.html`, `shot.mjs`, `sweep.mjs` | one set alone (the body set and the icons always loaded), its screenshots, and screenshots of the whole story |
 
 No patient data belongs in this story. The authors' VR viewer (`Network_VR`) holds a patient's CT surface and PET/CT
-volume: none of it is used here; its idea of the organ network in the body is redrawn from scratch.
+volume: none of it is used here; its ideas (the organ network in the body, an organ as a network of patches) are
+redrawn from scratch.
 
-The poster's one-scan network (its index, survival and the immunotherapy test) and an organ as a network of patches
-were in the story until October 2026, as the sets `people` and `liver` and explore's One scan and People tabs. They
-were taken out because they did not match the poster; git history has them.
+The poster's one-scan network (its index, survival and the immunotherapy test) was in the story until October 2026, as
+the set `people` and explore's One scan and People tabs. It was taken out because it did not match the poster; git
+history has it.

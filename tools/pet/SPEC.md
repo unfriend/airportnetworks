@@ -1,8 +1,8 @@
 # The PET story: 3D sets and engine spec
 
 **Changed in October 2026, after feedback on the story:** the poster's one-scan network, its index, survival and the
-immunotherapy test were taken out (they did not match the poster), with the sets `people` and `liver` and explore's One
-scan and People tabs; the Network chapter goes straight from the organs' values to the network of all scans on the
+immunotherapy test were taken out (they did not match the poster), with the set `people` and explore's One scan and
+People tabs (the explore-only `liver` scene went too and came back the same day); the Network chapter goes straight from the organs' values to the network of all scans on the
 body (no matrix of all scans, no scatter plot); the vision row's chevron arrows became flowing light. The story is now
 seven chapters, about seven minutes. This spec says what is built now; the parts taken out are in git history.
 
@@ -256,10 +256,22 @@ Explore API `api()`: `pick(raycaster)` -> organ id or null (nodes, shells, bars)
 `setFocus(id or null)`.
 Performance: under 150 draw calls; shells merged per organ; the matrix as one instanced mesh or points.
 
+### `liver` - an organ is a network too (file `sets/liver.js`, small)
+
+The authors' VR viewer also shows one organ as a network of small patches. Illustrative, built from scratch (no
+patient data): a liver shape (a smooth signed distance field, the right shape: big right lobe, smaller left lobe,
+the notch), about 1.6 units wide, filled with about 3,000 **patches** on a regular grid (nodes as small soft points),
+each with a stand-in uptake (smooth noise, a cooler patch and a warmer patch); links between patches whose uptake
+ratio exceeds a threshold, within a few grid steps (about 20,000 links, faint additive lines); the best-connected
+patches (top 5 %) glow brighter. Params: `liver_a` fade, `liver_grow` 0..1 (patches appear, from the centre out),
+`liver_links` 0..1, `liver_top` 0..1 (the best-connected patches glow, the rest dim), `liver_spin` (turns). Anchors
+`centre`, `top`. Labels "3,000 patches", "links: uptake ratio above the threshold". Cam `default`, `close`. Controls:
+View (Patches / Links / Hubs). Under 20 draw calls.
+
 ## The engine (`tools/pet/engine/`, copied from the endotype story; adapt it)
 
 Rename everything from the endotype story to this one: `HOST.register('pet', ...)`, the header comment (the paper,
-the poster and the authors above), `audio/narration-pet.mp3`, `SET_ORDER = ['scan', 'body', 'organs']` (the build includes the sets in that order), the shared-room hooks unchanged (see "Shared rooms" in
+the poster and the authors above), `audio/narration-pet.mp3`, `SET_ORDER = ['scan', 'body', 'organs', 'liver']` (the build includes the sets in that order), the shared-room hooks unchanged (see "Shared rooms" in
 `AGENTS.md`: keep every hook line exactly), the headset code (`e5_xr.js`) unchanged except for "Life size" (below).
 `body` and `organs` share one frame: wherever the story or explore mode shows `organs`, show `body` too (same
 transform), with `body_pet` at 1 unless the story says otherwise.
@@ -307,7 +319,7 @@ hard-coded; chapter panels with `data-at` fade-ins as in the endotype story. Sto
 - **Organs**: the 14 organs as chips (icon, colour, name); picking one shows how it is measured (`measure`), its
   links in the network of all scans (Figure 2A, with weights and signs), whether it is a hub in any drawn network,
   and focuses it (`organs_focus`).
-- **Scenes**: Scanner (`scan` controls), Body (`body` controls), Organs (`organs`).
+- **Scenes**: Scanner (`scan` controls), Body (`body` controls), Organs (`organs`), Liver (`liver`, only here).
 URL hashes: `#pet&t=120`, `#pet&explore&tab=networks&cmp=7` (a Table 2 row), `&net=C_high`, `&organ=muscle`,
 `&scene=scan&view=ring`, `&life` (life size).
 `collab.state()`: `{ tab, scene, ctl (every scene's controls), cmp, net, organ }` (plain JSON, the same on every device;

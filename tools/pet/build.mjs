@@ -8,7 +8,7 @@ import path from 'path';
 const here = path.dirname(new URL(import.meta.url).pathname), root = path.join(here, '../..');
 const read = f => fs.readFileSync(path.join(here, f), 'utf8');
 // the data and the organ icons first, then the sets in the order the story uses them (body: the tour's PET scan)
-const SET_FILES = ['sets/data', 'sets/icons', 'sets/scan', '../lbi/sets/body', 'sets/organs'];
+const SET_FILES = ['sets/data', 'sets/icons', 'sets/scan', '../lbi/sets/body', 'sets/organs', 'sets/liver'];
 const ENGINE = ['e2_scene', 'e3_story', 'e4_explore', 'e5_xr', 'e6_panels', 'e7_app'];
 let kit = read('../lbi/kit.js')
   .replace("if (typeof module !== 'undefined') module.exports = { makeKit };\n", '')
