@@ -79,8 +79,23 @@ Before handing over (or making anything more public), someone has to decide thes
 5. **The live site**: GitHub Pages publishes `main` at https://unfriend.github.io/airportnetworks/ (no custom domain
    found). Confirm the settings and who may change them (see [docs/setup-and-release.md](docs/setup-and-release.md)).
 6. **Who to ask**: **TO FILL (owner):** the people for the code, each story's science, the headsets and the relay.
-7. **Deferred**: whether to add a voice assistant; collecting alignment logs from fresh headsets (a test plan is in
-   the runbook).
+7. **Deferred** (after the next two stories and their reviews):
+   - whether to add a voice assistant;
+   - collecting alignment logs from fresh headsets (a test plan is in the runbook);
+   - **station icons**: a small low-poly 3D icon for each story, floating above its station's ring in a shared room
+     (built from simple shapes in the shell's shared-room code, the story's colour, slowly turning). Estimated at
+     about an hour of agent work, with the owner approving a contact sheet of all thirteen before they go in;
+   - **a story design room**: a room in the headset where the owner talks to Claude about a new story. Claude would
+     show the props (the 3D sets) that fit, draft a skeleton story that plays at once with them, build what is missing
+     and reload it live. It would run as Claude Code on a laptop next to the headset, with the relay serving the
+     working folder, and take the voice with what the person looks at and points at. The steps:
+     1. a catalogue of the props;
+     2. a player for stories written as data;
+     3. the room itself, with live reload;
+     4. a bridge on the laptop (the Claude Agent SDK and local speech-to-text, kept outside the app);
+     5. push-to-talk in the headset, with what you look at, point at and see.
+
+     It was estimated at 4 to 6M tokens to build. The microphone inside a headset session is untested on Quest.
 
 ## How work is done
 
