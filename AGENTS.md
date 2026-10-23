@@ -1099,6 +1099,12 @@ is the contract between them.
   interactions and locations that are well documented (complexes, textbook
   pathways, Human Protein Atlas / UniProt locations). Say "in this map" for
   statistics computed on the curated sets.
+- Avoid 2D graphs (bar charts, line charts, scatter plots, matrices, survival
+  curves): in AR and VR they are dull, and a poster or a paper shows them
+  better. A quick graph in passing is fine; a whole chapter needs something
+  that uses the space (the numbers on the body or the organ they belong to, a
+  network standing in the room, things that move, grow or flow). The owner's
+  rule, from the feedback on the PET story (October 2026).
 - External scripts: none beyond the vendored three.js. Fonts come from Google
   Fonts (cached by the service worker).
 
