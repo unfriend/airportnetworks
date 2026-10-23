@@ -148,7 +148,6 @@ const FACTS = (() => {
     annotated: KINDS4.reduce((s, k) => s + KD[k].annotated, 0), zeroAt: z.length ? Math.round(z.reduce((s, v) => s + v, 0) / z.length / 5) * 5 : null,
     birth: B.atBirth, puberty: B.atPuberty, menopause: B.atMenopause, menoAge: B.menopauseAge, future: D.message.future,
     pMin: Math.min(...ps), pMax: Math.max(...ps), f1: D.checks.f1,
-    zeroRaw: z.length ? z.reduce((s, v) => s + v, 0) / z.length : null,
     noTrend: tr.length - sig.length, pBelow: [0.001, 0.01, 0.05].find(x => pTop < x) || null,
     noneDecade: 20 + 10 * last, nonePct: Math.round(zs.reduce((s, a) => s + a[last], 0) / zs.length * 20) * 5,
   };
@@ -276,7 +275,7 @@ function buildStory() {
   start({ body_pet: 1, body_net: 0, body_state: 0, body_blank: 0,
     organ_grow: 0, organ_body: 1, organ_open: 0, organ_age: 25, organ_follicle: 0, organ_albicans: 0, organ_vessel: 0, organ_luteum: 0, organ_parts: 0, organ_agelab: 0, organ_counts: 0,
     section_age: 26, section_pair: 0, section_vessel: 0, section_macrophage: 0, section_albicans: 0, section_follicle: 0, section_cyst: 0,
-    section_tiles: 0, section_feat: 0, section_forest: 0, section_pred: 0, section_mask: 0, section_net: 0, section_lift: 0, section_kinds: 0,
+    section_tiles: 0, section_feat: 0, section_forest: 0, section_pred: 0, section_mask: 0, section_net: 0, section_lift: 0, section_kinds: 0, section_names: 0,
     charts_slides: 0, charts_hist: 0 });
   let a, b;
   // The reserve: the tour's PET body, the ovary small in its pelvis; it grows out of the body, opens, and its parts are named
@@ -368,6 +367,7 @@ function buildStory() {
   ramp('section_net', a + 2, a + 9, 0, 1);
   ramp('section_lift', a + 10, a + 14, 0, 1);
   ramp('section_kinds', a + 14.5, a + 19, 0, 1);
+  ramp('section_names', a + 17, a + 19, 0, 1);   // (the hubs' names: the set's labels, each going with its hub)
   ramp('section_age', a + 20, a + 36, 25, 65);
   cam(a + 1, 'section', 'net', -6);
   cam(a + 9.5, 'section', 'net', 2, 'spin');
@@ -390,11 +390,6 @@ function buildStory() {
   a = C.methods.a; b = C.methods.b;
   [['follicle', 49.5, 'amb'], ['vessel', 50.3, 'cyn'], ['macrophage', 51.1, 'grn'], ['albicans', 51.9, 'mag'], ['cyst', 53.5, '']].forEach(([k, t0, cls]) =>
     label('section', k, `<b>${esc(cap(KD[k].name))}</b>${KD[k].rf ? `F1 ${sc2(KD[k].rf.f1)} · ` : ''}IoU ${sc2(KD[k].iou)}${k === 'cyst' ? ': the mask misses most of it' : ''}`, a + t0, b, cls));
-  // the hubs of the network by kind, named (the follicles' until their hub has gone, as the lines reach none)
-  a = C.network.a; b = C.network.b;
-  const ageReach = v => { for (let t = a; t <= b; t += 0.1) if (evalTrack('section_age', t) >= v) return t; return b; };
-  [['vessel', 'cyn'], ['macrophage', 'grn'], ['albicans', 'mag'], ['follicle', 'amb'], ['cyst', '']].forEach(([k, cls]) =>
-    label('section', 'hub_' + k, `<b>${esc(Plural(k))}</b>`, a + 18, k === 'follicle' && F.zeroRaw ? ageReach(F.zeroRaw - 1.5) : b + 1, cls));
 }
 // camera waypoints: [t, az, el, dist, tx, ty, tz, ease, set, narrow factor, FIT's target shift]; 'spin' segments turn at
 // a steady pace.

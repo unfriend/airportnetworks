@@ -1275,7 +1275,8 @@ void main() {
 // follicles cut open: a fluid-filled antrum lined with granulosa cells, an oocyte on its mound), a corpus luteum and
 // pale scars (corpora albicantia), the medulla with coiled blood vessels running in from the hilum. The age (20 to 70)
 // thins the follicles and adds scars along the poster's trend lines (OVARY_TREND.level: follicles near none by about
-// 60), a cut follicle closing as its floor rises; the vessels thin a little and the ovary shrinks. It also sits small in
+// 60), a cut follicle closing as its floor rises; the vessels thin a little and the ovary shrinks. Tags give each
+// method's count on the poster's lines at the age (organ_counts). It also sits small in
 // the tour's body (the body set's frame, at the ovary's place, beside its partner and the uterus) and grows out of it,
 // and the front wedge of the cut lifts away. The organ's two meshes build between frames (idle, finish).
 SETS.organ = function (K) {
@@ -1651,6 +1652,14 @@ void main() { gl_FragColor = vec4(litC(vC, normalize(vN), normalize(vV), normali
     pelvis: [0, -0.07, 0.02],
   };
   let ageNow = 30, gNow = 1;
+  // the counts on the poster's lines at the age, as the tags give them (organ_counts): each method's line (OVARY_TREND),
+  // whole numbers under 100, the nearest ten above; none once both lines are about zero (read off the poster's figures:
+  // approximate)
+  const tagN = c => (c < 99.5 ? Math.round(c) : Math.round(c / 10) * 10).toLocaleString('en-US');
+  const countTag = k => {
+    const name = OVARY_DATA.kinds[KI[k]].plural, r = T.line(k, 'rf', ageNow), s = T.line(k, 'seg', ageNow);
+    return [name.charAt(0).toUpperCase() + name.slice(1), r < 0.5 && s < 0.5 ? 'none left on the lines' : `RF ${tagN(r)} · Seg ${tagN(s)}`];
+  };
   const visOf = (from, until) => prog(ageNow, from - 1.5, from + 1.5) * (1 - prog(ageNow, until - 1.5, until + 1.5));
 
   // ------------------------------------------------------------- update
@@ -1660,10 +1669,9 @@ void main() { gl_FragColor = vec4(litC(vC, normalize(vN), normalize(vV), normali
     const g = smooth(clamp(S.organ_grow, 0, 1)), age = clamp(S.organ_age, 20, 70), open = smooth(clamp(S.organ_open, 0, 1)), body = clamp(S.organ_body, 0, 1);
     ageNow = age; gNow = g; ages.value = age;
     // from small in the body (turned as it lies there) to large at the centre; the ovary shrinks with age
-    const shrink = 1 - 0.16 * smooth((age - 45) / 23), side = smooth(clamp(S.organ_side, 0, 1));
-    // (side: to the left, smaller, to make room for the charts beside it)
-    ovary.position.set(lerp(BODY_AT[0], -0.66 * side, g), lerp(BODY_AT[1], 0.02 * side, g), lerp(BODY_AT[2], 0, g));
-    ovary.scale.setScalar(Math.exp(lerp(Math.log(BODY_S), 0, g)) * shrink * (1 - 0.45 * side));
+    const shrink = 1 - 0.16 * smooth((age - 45) / 23);
+    ovary.position.set(lerp(BODY_AT[0], 0, g), lerp(BODY_AT[1], 0, g), lerp(BODY_AT[2], 0, g));
+    ovary.scale.setScalar(Math.exp(lerp(Math.log(BODY_S), 0, g)) * shrink);
     ovary.rotation.set(0, 0, BODY_ROT * (1 - g));
     // the front wedge of the cut lifts away and fades
     wedge.position.set(0.5 * open, 0.4 * open, 0.5 * open);
@@ -1682,7 +1690,7 @@ void main() { gl_FragColor = vec4(litC(vC, normalize(vN), normalize(vV), normali
   }
 
   return Object.assign(set, {
-    params: { organ_a: 1, organ_grow: 1, organ_body: 0, organ_open: 1, organ_age: 30, organ_side: 0, organ_follicle: 0, organ_albicans: 0, organ_vessel: 0, organ_luteum: 0, organ_parts: 0, organ_agelab: 0 },
+    params: { organ_a: 1, organ_grow: 1, organ_body: 0, organ_open: 1, organ_age: 30, organ_follicle: 0, organ_albicans: 0, organ_vessel: 0, organ_luteum: 0, organ_parts: 0, organ_agelab: 0, organ_counts: 0 },
     update,
     idle() { step(3); },
     finish() { step(Infinity); },
@@ -1696,6 +1704,10 @@ void main() { gl_FragColor = vec4(litC(vC, normalize(vN), normalize(vV), normali
       { text: ['Corpus albicans', 'a pale scar'], at: 'albicans', cls: 'grn', alpha: S => S.organ_parts * prog(S.organ_grow, 0.85, 1) * prog(S.organ_open, 0.7, 1) * visOf(scar0.from, 999) },
       { text: ['Corpus luteum', ''], at: 'luteum', cls: 'amb', alpha: S => S.organ_parts * prog(S.organ_grow, 0.85, 1) * prog(S.organ_open, 0.7, 1) * visOf(-99, 50) },
       { text: () => ['Age', `${Math.round(ageNow)} years`], at: 'age', cls: 'cyn', alpha: S => S.organ_agelab * prog(S.organ_grow, 0.85, 1) },
+      // each method's count on the poster's line at the age (function labels, read again while they show)
+      { text: () => countTag('follicle'), at: 'follicle', cls: 'amb', alpha: S => S.organ_counts * prog(S.organ_grow, 0.85, 1) },
+      { text: () => countTag('albicans'), at: 'albicans', cls: 'mag', alpha: S => S.organ_counts * prog(S.organ_grow, 0.85, 1) },
+      { text: () => countTag('vessel'), at: 'vessel', cls: 'cyn', alpha: S => S.organ_counts * prog(S.organ_grow, 0.85, 1) },
     ],
     cam: {
       default: [24, 14, 3.5, 0.08, 0, 0], face: [4, 4, 2.6, 0.3, 0.02, 0], cortex: [10, 10, 1.15, big.x, big.y, 0],
@@ -2176,42 +2188,224 @@ void main() { vAl = smoothstep(aObj.w, aObj.w + 0.06, uVote); vC = aCol; gl_Posi
 
   // ------------------------------------------------------------- the spatial neighbor network (illustrative)
   // every object a node floating over it, objects near each other linked (each to its nearest few within reach); a
-  // node shows while its object does (with the age), a link while both ends do
+  // node shows while its object does (with the age), a link while both ends do. With section_lift the slab tips back
+  // and the nodes rise off it, each to its own height; with section_kinds they fly to their kind's hub (below) and merge
+  // into it, and the links, their ends with them, bundle between the hubs and give way to the bands
   const NOD = SA.OBJ.filter(o => o.k !== FOL || o.stage !== 'primary');
-  const ng = K.pointsGeo(NOD.length), ngP = ng.attributes.position.array, ngC = ng.attributes.aCol.array, ngS = ng.attributes.aSize.array, ngW = new Float32Array(NOD.length * 3);
+  const RN = K.rng(31), NG = NOD.map(o => [o.k, RN(), RN(), RN()]);   // per node: kind, when it sets off, how high it rises, where in its hub it ends
+  const ng = K.pointsGeo(NOD.length), ngP = ng.attributes.position.array, ngC = ng.attributes.aCol.array, ngS = ng.attributes.aSize.array, ngW = new Float32Array(NOD.length * 3), ngG = new Float32Array(NOD.length * 4);
   const HN = 0.09;
-  NOD.forEach((o, i) => { ngP.set([o.x, o.y, HN], 3 * i); ngC.set(L.GLOW[o.k], 3 * i); ngS[i] = o.k === ALB ? 0.065 : o.k === FOL ? 0.055 : o.k === CYS ? 0.05 : o.k === VES ? 0.04 : 0.032; ngW.set([o.from, o.until, Math.hypot(o.x, o.y)], 3 * i); });
-  ng.setAttribute('aW', new THREE.BufferAttribute(ngW, 3));
+  NOD.forEach((o, i) => { ngP.set([o.x, o.y, HN], 3 * i); ngC.set(L.GLOW[o.k], 3 * i); ngS[i] = o.k === ALB ? 0.065 : o.k === FOL ? 0.055 : o.k === CYS ? 0.05 : o.k === VES ? 0.04 : 0.032; ngW.set([o.from, o.until, Math.hypot(o.x, o.y)], 3 * i); ngG.set(NG[i], 4 * i); });
+  ng.setAttribute('aW', new THREE.BufferAttribute(ngW, 3)); ng.setAttribute('aG', new THREE.BufferAttribute(ngG, 4));
   const VIS = 'float visW(float a, float b) { return smoothstep(a - 1.5, a + 1.5, uAge) * (1.0 - smoothstep(b - 1.5, b + 1.5, uAge)); }';
-  const nodeMat = K.points(set, { uniforms: { uAge: SA.age, uNet: { value: 0 } }, head: 'attribute vec3 aW; uniform float uAge, uNet; ' + VIS,
-    vertex: 'vA *= visW(aW.x, aW.y) * smoothstep(aW.z * 0.9, aW.z * 0.9 + 0.15, uNet * 1.35 - 0.05);' });
+  // (where a node is: risen off the slab, then on an arc into its hub, a point inside it; g: how far it has gone. The
+  // hubs' places come in the slab's own frame, uHub: xyz and the radius)
+  const KINDP = `attribute vec4 aG; uniform float uLift, uKinds; uniform vec4 uHub[5];
+vec3 kindP(vec3 p, out float g) {
+  vec3 q = vec3(p.xy, p.z + uLift * (0.14 + 0.24 * aG.z));
+  g = smoothstep(0.0, 1.0, clamp(uKinds * 1.6 - aG.y * 0.6, 0.0, 1.0));
+  if (g <= 0.0) return q;
+  vec4 H = uHub[int(aG.x + 0.5)];
+  float a = aG.w * 6.2832, c = fract(aG.y * 7.31) * 2.0 - 1.0, s = sqrt(1.0 - c * c);
+  vec3 h = H.xyz + vec3(cos(a) * s, sin(a) * s, c) * H.w * 0.55;
+  vec3 m = mix(q, h, 0.5) + vec3(0.0, 0.0, 0.12 + 0.1 * aG.z);
+  return mix(mix(q, m, g), mix(m, h, g), g);
+}`;
+  const HUBU = { value: Array.from({ length: 5 }, () => new THREE.Vector4()) }, LIFTU = { value: 0 }, KINDU = { value: 0 };
+  const netU = () => ({ uAge: SA.age, uNet: { value: 0 }, uLift: LIFTU, uKinds: KINDU, uHub: HUBU });
+  const nodeMat = K.points(set, { uniforms: netU(), head: 'attribute vec3 aW; uniform float uAge, uNet; ' + VIS + KINDP,
+    vertex: `float g; vec3 q = kindP(position, g); mv = modelViewMatrix * vec4(q, 1.0); gl_Position = projectionMatrix * mv; gl_PointSize = pointPx(aSize, mv) * (1.0 - 0.45 * g);
+    vA *= visW(aW.x, aW.y) * smoothstep(aW.z * 0.9, aW.z * 0.9 + 0.15, uNet * 1.35 - 0.05) * (1.0 - smoothstep(0.75, 1.0, g));` });
   const nodes = new THREE.Points(ng, nodeMat);
+  nodes.frustumCulled = false;
   const LK = [];
   NOD.forEach((a, i) => {
     const near = NOD.map((b, j) => [Math.hypot(a.x - b.x, a.y - b.y) - a.r - b.r, j]).filter(([d, j]) => j !== i && d < 0.14).sort((p, q) => p[0] - q[0]).slice(0, 4);
     for (const [, j] of near) if (!LK.some(([p, q]) => (p === j && q === i) || (p === i && q === j))) LK.push([i, j]);
   });
-  const lg = K.linesGeo(LK.length), lgP = lg.attributes.position.array, lgC = lg.attributes.aCol.array, lgW = new Float32Array(LK.length * 2 * 4);
+  const lg = K.linesGeo(LK.length), lgP = lg.attributes.position.array, lgC = lg.attributes.aCol.array, lgW = new Float32Array(LK.length * 2 * 4), lgG = new Float32Array(LK.length * 2 * 4);
   LK.forEach(([i, j], k) => {
     const a = NOD[i], b = NOD[j];
     lgP.set([a.x, a.y, HN, b.x, b.y, HN], 6 * k);
     const ca = L.GLOW[a.k], cb = L.GLOW[b.k];
     lgC.set([...ca, ...cb], 6 * k);
     const w = [Math.max(a.from, b.from), Math.min(a.until, b.until), Math.max(Math.hypot(a.x, a.y), Math.hypot(b.x, b.y)), 0];
-    lgW.set(w, 8 * k); lgW.set(w, 8 * k + 4);
+    lgW.set(w, 8 * k); lgW.set(w, 8 * k + 4); lgG.set(NG[i], 8 * k); lgG.set(NG[j], 8 * k + 4);
   });
-  lg.setAttribute('aW', new THREE.BufferAttribute(lgW, 4));
-  const linkMat = K.lines(set, { uniforms: { uAge: SA.age, uNet: { value: 0 } }, head: 'attribute vec4 aW; uniform float uAge, uNet; ' + VIS,
-    vertex: 'vA *= 0.65 * visW(aW.x, aW.y) * smoothstep(aW.z * 0.9 + 0.05, aW.z * 0.9 + 0.2, uNet * 1.35 - 0.05);' });
+  lg.setAttribute('aW', new THREE.BufferAttribute(lgW, 4)); lg.setAttribute('aG', new THREE.BufferAttribute(lgG, 4));
+  const linkMat = K.lines(set, { uniforms: netU(), head: 'attribute vec4 aW; uniform float uAge, uNet; ' + VIS + KINDP,
+    vertex: `float g; gl_Position = projectionMatrix * modelViewMatrix * vec4(kindP(position, g), 1.0);
+    vA *= 0.65 * visW(aW.x, aW.y) * smoothstep(aW.z * 0.9 + 0.05, aW.z * 0.9 + 0.2, uNet * 1.35 - 0.05) * (1.0 - smoothstep(0.55, 0.92, uKinds));` });
   const links = new THREE.LineSegments(lg, linkMat);
-  // stems from each node down to its object
-  const sg = K.linesGeo(NOD.length), sgP = sg.attributes.position.array, sgC = sg.attributes.aCol.array, sgW = new Float32Array(NOD.length * 2 * 3);
-  NOD.forEach((o, i) => { sgP.set([o.x, o.y, 0.02, o.x, o.y, HN], 6 * i); sgC.set([...L.GLOW[o.k], ...L.GLOW[o.k]], 6 * i); sgW.set([o.from, o.until, Math.hypot(o.x, o.y), o.from, o.until, Math.hypot(o.x, o.y)], 6 * i); });
-  sg.setAttribute('aW', new THREE.BufferAttribute(sgW, 3));
-  const stemMat = K.lines(set, { uniforms: { uAge: SA.age, uNet: { value: 0 } }, head: 'attribute vec3 aW; uniform float uAge, uNet; ' + VIS,
-    vertex: 'vA *= 0.3 * visW(aW.x, aW.y) * smoothstep(aW.z * 0.9, aW.z * 0.9 + 0.15, uNet * 1.35 - 0.05);' });
+  links.frustumCulled = false;
+  // stems from each node down to its object (stretching as the nodes rise; gone as they gather)
+  const sg = K.linesGeo(NOD.length), sgP = sg.attributes.position.array, sgC = sg.attributes.aCol.array, sgW = new Float32Array(NOD.length * 2 * 3), sgG = new Float32Array(NOD.length * 2 * 4);
+  NOD.forEach((o, i) => { sgP.set([o.x, o.y, 0.02, o.x, o.y, HN], 6 * i); sgC.set([...L.GLOW[o.k], ...L.GLOW[o.k]], 6 * i); sgW.set([o.from, o.until, Math.hypot(o.x, o.y), o.from, o.until, Math.hypot(o.x, o.y)], 6 * i); sgG.set(NG[i], 8 * i); sgG.set(NG[i], 8 * i + 4); });
+  sg.setAttribute('aW', new THREE.BufferAttribute(sgW, 3)); sg.setAttribute('aG', new THREE.BufferAttribute(sgG, 4));
+  const stemMat = K.lines(set, { uniforms: netU(), head: 'attribute vec3 aW; uniform float uAge, uNet; ' + VIS + KINDP,
+    vertex: `float g; vec3 q = position; if (position.z > 0.05) q = kindP(position, g); gl_Position = projectionMatrix * modelViewMatrix * vec4(q, 1.0);
+    vA *= 0.3 * visW(aW.x, aW.y) * smoothstep(aW.z * 0.9, aW.z * 0.9 + 0.15, uNet * 1.35 - 0.05) * (1.0 - smoothstep(0.0, 0.3, uKinds));` });
   const stems = new THREE.LineSegments(sg, stemMat);
+  stems.frustumCulled = false;
   SA.g.add(nodes, links, stems);
+
+  // ------------------------------------------------------------- the network by kind (illustrative)
+  // Five glowing hubs, one per kind, on a tilted ellipse over the tipped section (in the set's frame): a hub's size is
+  // how many objects of its kind are alive at the age (its area as their number), so the follicles' hub fades by about
+  // 59 and the scars' swells. Bands join the kinds: a band's width is how many drawn links join those two kinds among
+  // the objects alive (a loop on a hub: links within its kind), with a slow flow along it. No numbers on them.
+  const KORD = [FOL, ALB, VES, MAC, CYS];   // round the ellipse from the top, clockwise as seen
+  const KC = [0, 0.62, 0], KRX = 0.84, KRY = 0.48, KTILT = 25 * Math.PI / 180;
+  const ringAt = (ang, f = 1) => [KC[0] + f * KRX * Math.cos(ang), KC[1] + f * KRY * Math.sin(ang) * Math.cos(KTILT), KC[2] - f * KRY * Math.sin(ang) * Math.sin(KTILT)];
+  const HANG = [], HUBP = [];
+  KORD.forEach((k, i) => { HANG[k] = Math.PI / 2 - i * 2 * Math.PI / 5; HUBP[k] = ringAt(HANG[k]); });
+  // how many objects of each kind are alive at an age (smoothly, as they grow and shrink), and the hubs' radii
+  const kindN = a => { const n = [0, 0, 0, 0, 0]; for (const o of SA.OBJ) n[o.k] += SA.visAt(o, a); return n; };
+  const NMAX = Math.max(...[20, 30, 40, 50, 60, 70].map(a => Math.max(...kindN(a))));
+  const hubR = n => smooth(Math.min(1, n)) * (0.02 + 0.13 * Math.sqrt(n / NMAX));
+  let hubCache = { a: -1 };
+  const hubsAt = a => { if (hubCache.a !== a) { const n = kindN(a); hubCache = { a, n, r: n.map(hubR), w: pairW(a) }; } return hubCache; };
+  // the bands: every pair of kinds the links join (and a kind with itself), their links' weights at an age
+  const PAIRS = [], PIX = {};
+  const pairOf = (i, j) => { const a = Math.min(i, j), b = Math.max(i, j), key = a * 5 + b; if (!(key in PIX)) { PIX[key] = PAIRS.length; PAIRS.push([a, b]); } return PIX[key]; };
+  const LKP = LK.map(([i, j]) => pairOf(NOD[i].k, NOD[j].k));
+  const pairW = a => { const w = PAIRS.map(() => 0); LK.forEach(([i, j], k) => { w[LKP[k]] += SA.visAt(NOD[i], a) * SA.visAt(NOD[j], a); }); return w; };
+  let WMAX = 1;
+  for (let a = 20; a <= 70; a += 2.5) WMAX = Math.max(WMAX, ...pairW(a));
+  const NBD = PAIRS.length, BS = 28, BR = 7;
+  const bandGeo = new THREE.BufferGeometry();
+  {
+    const v3s = (a, b, s) => [a[0] + b[0] * s, a[1] + b[1] * s, a[2] + b[2] * s], nrm = a => { const l = Math.hypot(a[0], a[1], a[2]) || 1; return [a[0] / l, a[1] / l, a[2] / l]; };
+    const crs = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+    const PN = nrm(crs([1, 0, 0], [0, Math.cos(KTILT), -Math.sin(KTILT)]));   // (the ellipse's normal, towards you)
+    const nv = NBD * (BS + 1) * BR, P = new Float32Array(nv * 3), Nr = new Float32Array(nv * 3), T = new Float32Array(nv), Bi = new Float32Array(nv), CA = new Float32Array(nv * 3), CB = new Float32Array(nv * 3), idx = [];
+    let v = 0;
+    PAIRS.forEach(([ka, kb], bi) => {
+      const A = HUBP[ka], B = HUBP[kb], v0 = v;
+      let curve;
+      if (ka === kb) {
+        // a loop out from the hub and back, away from the middle
+        const out = nrm([A[0] - KC[0], A[1] - KC[1], A[2] - KC[2]]), side = nrm(crs(out, PN)), Lp = 0.36, Wp = 0.13;
+        curve = u => v3s(v3s(v3s(A, out, Lp * Math.sin(Math.PI * u)), side, Wp * Math.sin(2 * Math.PI * u)), PN, 0.05 * Math.sin(Math.PI * u));
+      } else {
+        // a gentle arc bowing away from the middle and towards you (as the microanatomy story's bands)
+        const M = [(A[0] + B[0]) / 2, (A[1] + B[1]) / 2, (A[2] + B[2]) / 2], len = Math.hypot(B[0] - A[0], B[1] - A[1], B[2] - A[2]);
+        const out = nrm([M[0] - KC[0], M[1] - KC[1], M[2] - KC[2]]), Cp = v3s(v3s(M, out, 0.1 * len), PN, 0.08 * len);
+        curve = u => { const w = 1 - u; return [0, 1, 2].map(i => w * w * A[i] + 2 * u * w * Cp[i] + u * u * B[i]); };
+      }
+      for (let s = 0; s <= BS; s++) {
+        const u = s / BS, p = curve(u), p1 = curve(Math.min(1, u + 1e-3)), p0 = curve(Math.max(0, u - 1e-3)), t = nrm([p1[0] - p0[0], p1[1] - p0[1], p1[2] - p0[2]]);
+        let n1 = crs(t, PN); if (Math.hypot(...n1) < 1e-4) n1 = [1, 0, 0]; n1 = nrm(n1);
+        const n2 = nrm(crs(t, n1));
+        for (let q = 0; q < BR; q++) {
+          const th = q / BR * 2 * Math.PI;
+          P.set(p, 3 * v); Nr.set([n1[0] * Math.cos(th) + n2[0] * Math.sin(th), n1[1] * Math.cos(th) + n2[1] * Math.sin(th), n1[2] * Math.cos(th) + n2[2] * Math.sin(th)], 3 * v);
+          T[v] = u; Bi[v] = bi; CA.set(L.GLOW[ka], 3 * v); CB.set(L.GLOW[kb], 3 * v); v++;
+        }
+      }
+      for (let s = 0; s < BS; s++) for (let q = 0; q < BR; q++) { const a0 = v0 + s * BR + q, a1 = v0 + s * BR + (q + 1) % BR; idx.push(a0, a0 + BR, a1, a1, a0 + BR, a1 + BR); }
+    });
+    bandGeo.setAttribute('position', new THREE.BufferAttribute(P, 3)); bandGeo.setAttribute('aNrm', new THREE.BufferAttribute(Nr, 3));
+    bandGeo.setAttribute('aT', new THREE.BufferAttribute(T, 1)); bandGeo.setAttribute('aB', new THREE.BufferAttribute(Bi, 1));
+    bandGeo.setAttribute('aCA', new THREE.BufferAttribute(CA, 3)); bandGeo.setAttribute('aCB', new THREE.BufferAttribute(CB, 3));
+    bandGeo.setIndex(idx);
+  }
+  const UB = Array.from({ length: Math.max(1, NBD) }, () => new THREE.Vector4());   // x radius, y alpha, z reveal (from both ends)
+  const bandMat = new THREE.ShaderMaterial({
+    uniforms: { uA: set.uA, uTime: K.U.uTime, uB: { value: UB } },
+    transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+    vertexShader: `
+attribute vec3 aNrm, aCA, aCB; attribute float aT, aB;
+uniform vec4 uB[${Math.max(1, NBD)}];
+varying vec3 vN, vW, vG; varying float vT, vZ;
+void main() {
+  vG = mix(aCA, aCB, smoothstep(0.15, 0.85, aT));
+  vec4 B = uB[int(aB + 0.5)];
+  float on = step(min(aT, 1.0 - aT) * 2.0, B.z + 0.0001);
+  vT = aT; vZ = B.y * on;
+  vN = normalize(mat3(modelMatrix) * aNrm);
+  vec4 wp = modelMatrix * vec4(position + aNrm * B.x * on, 1.0); vW = wp.xyz;
+  gl_Position = projectionMatrix * viewMatrix * wp;
+  if (vZ < 0.003) gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
+}`,
+    fragmentShader: `
+uniform float uA, uTime;
+varying vec3 vN, vW, vG; varying float vT, vZ;
+void main() {
+  vec3 n = normalize(vN), v = normalize(cameraPosition - vW);
+  float c = abs(dot(n, v));
+  float flow = 0.75 + 0.5 * pow(0.5 + 0.5 * sin(vT * 16.0 - uTime * 1.6), 3.0);   // a slow flow along the band
+  vec3 col = mix(vG, vec3(1.0), 0.12) * (0.35 + 0.75 * c) * flow + vec3(1.0) * 0.15 * pow(c, 8.0);
+  gl_FragColor = vec4(col, (0.22 + 0.7 * c * c) * vZ * uA);
+}`,
+  });
+  set.mats.push(bandMat);
+  const bands = new THREE.Mesh(bandGeo, bandMat);
+  bands.frustumCulled = false; bands.renderOrder = 6;
+  // the hubs: lit spheres in the kinds' glowing colors (instances: place and radius per frame), each in a soft halo
+  const hubGeo = new THREE.InstancedBufferGeometry();
+  { const s = new THREE.IcosahedronGeometry(1, 3); hubGeo.setIndex(s.index); hubGeo.setAttribute('position', s.attributes.position); hubGeo.setAttribute('normal', s.attributes.normal); }
+  const hubH = new THREE.InstancedBufferAttribute(new Float32Array(20), 4), hubCol = new THREE.InstancedBufferAttribute(new Float32Array(15), 3);
+  hubH.setUsage(THREE.DynamicDrawUsage);
+  for (let k = 0; k < 5; k++) hubCol.setXYZ(k, ...L.GLOW[k]);
+  hubGeo.setAttribute('aH', hubH); hubGeo.setAttribute('aCol', hubCol); hubGeo.instanceCount = 5;
+  const hubMat = new THREE.ShaderMaterial({
+    uniforms: { uA: set.uA, uOn: { value: 0 } }, transparent: true,
+    vertexShader: `
+attribute vec4 aH; attribute vec3 aCol;
+varying vec3 vC, vN, vV;
+void main() {
+  vC = aCol;
+  vec4 mv = modelViewMatrix * vec4(aH.xyz + position * aH.w, 1.0);
+  vN = normalize(normalMatrix * normal); vV = -mv.xyz;
+  gl_Position = projectionMatrix * mv;
+  if (aH.w < 0.002) gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
+}`,
+    fragmentShader: `
+uniform float uA, uOn;
+varying vec3 vC, vN, vV;
+void main() {
+  vec3 n = normalize(vN), v = normalize(vV), l = normalize(vec3(-0.45, 0.6, 0.65));
+  float df = max(dot(n, l), 0.0), fr = pow(1.0 - max(dot(n, v), 0.0), 2.2), sp = pow(max(dot(reflect(-l, n), v), 0.0), 24.0);
+  vec3 c0 = mix(vC, vec3(1.0), 0.12), col = c0 * (0.5 + 0.6 * df) + c0 * 0.25 + mix(vC, vec3(1.0), 0.5) * fr * 0.7 + vec3(sp * 0.3);
+  gl_FragColor = vec4(col, uA * uOn);
+}`,
+  });
+  set.mats.push(hubMat);
+  const hubs = new THREE.Mesh(hubGeo, hubMat);
+  hubs.frustumCulled = false; hubs.renderOrder = 5;
+  const haloGeo = new THREE.InstancedBufferGeometry();
+  haloGeo.setIndex([0, 1, 2, 0, 2, 3]);
+  haloGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array([-1, -1, 0, 1, -1, 0, 1, 1, 0, -1, 1, 0]), 3));
+  haloGeo.setAttribute('aH', hubH); haloGeo.setAttribute('aCol', hubCol); haloGeo.instanceCount = 5;
+  const haloMat = new THREE.ShaderMaterial({
+    uniforms: { uA: set.uA, uOn: { value: 0 }, uTime: K.U.uTime }, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+    vertexShader: `
+attribute vec4 aH; attribute vec3 aCol;
+varying vec3 vC; varying vec2 vQ;
+void main() {
+  vC = aCol; vQ = position.xy;
+  vec4 mv = modelViewMatrix * vec4(aH.xyz, 1.0);
+  mv.xy += position.xy * 3.0 * aH.w * length(modelViewMatrix[0].xyz);
+  gl_Position = projectionMatrix * mv;
+  if (aH.w < 0.002) gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
+}`,
+    fragmentShader: `
+uniform float uA, uOn, uTime;
+varying vec3 vC; varying vec2 vQ;
+void main() {
+  float d = length(vQ);
+  if (d > 1.0) discard;
+  float rr = d * 3.0, glow = exp(-max(rr - 0.95, 0.0) * 1.8) * smoothstep(1.0, 0.5, d) * (0.9 + 0.1 * sin(uTime * 1.3));
+  gl_FragColor = vec4(mix(vC, vec3(1.0), 0.15) * glow * 0.9, uA * uOn * glow * 0.75);
+}`,
+  });
+  set.mats.push(haloMat);
+  const halos = new THREE.Mesh(haloGeo, haloMat);
+  halos.frustumCulled = false; halos.renderOrder = 7;
+  const kindsG = new THREE.Group();
+  kindsG.add(hubs, bands, halos);
+  set.group.add(kindsG);
 
   // ------------------------------------------------------------- anchors
   const tmp = new THREE.Vector3();
@@ -2221,7 +2415,9 @@ void main() { vAl = smoothstep(aObj.w, aObj.w + 0.06, uVote); vC = aCol; gl_Posi
   const rep = k => { const L0 = SA.OBJ.filter(o => o.k === k && o.from < 25 && o.until > 45); const pool = L0.length ? L0 : SA.OBJ.filter(o => o.k === k); return pool.sort((a, b) => (b.r - 0.2 * Math.hypot(b.x, b.y)) - (a.r - 0.2 * Math.hypot(a.x, a.y)))[0]; };
   const REP = { vessel: rep(VES), macrophage: rep(MAC), albicans: SA.AL.reduce((a, s) => (s.from < a.from ? s : a), SA.AL[0]), follicle: SA.AN[0], cyst: rep(CYS) };
   const topOf = (S, gfn) => { let y = -9, x = 0; for (const [px, py] of S.OUT) if (py > y) { y = py; x = px; } return () => gfn([x, y + 0.04, 0.02]); };
-  let sweepX = -2, ageNow = 30;
+  let sweepX = -2, ageNow = 30, kindsNow = 0;
+  // a hub's upper right rim, where its name goes (at its size now)
+  const hubRim = k => { const r = hubsAt(ageNow).r[k] * prog(kindsNow, 0.15, 0.6), p = HUBP[k]; return [p[0] + 0.72 * r + 0.01, p[1] + 0.72 * r + 0.01, p[2] + 0.3 * r]; };
   const anchors = {
     vessel: () => inA([REP.vessel.x, REP.vessel.y, 0.02]), macrophage: () => inA([REP.macrophage.x, REP.macrophage.y, 0.02]),
     albicans: () => inA([REP.albicans.x, REP.albicans.y, 0.02]), follicle: () => inA([REP.follicle.x, REP.follicle.y, 0.02]),
@@ -2232,17 +2428,22 @@ void main() { vAl = smoothstep(aObj.w, aObj.w + 0.06, uVote); vC = aCol; gl_Posi
     forest: [GROVE[0], GROVE[1] + 0.32, GROVE[2]], uni: () => { const a = inA([tile0.x, tile0.y, 0.05]); return [lerp(a[0], GROVE[0], 0.5), lerp(a[1], GROVE[1], 0.5) + 0.22, 0.3]; },
     pred: () => inA([0.3, -0.35, 0.05]), mask: () => inA([clamp(sweepX, -1, 1), 0.72, 0.05]),
     net: () => inA([0.0, 0.62, HN + 0.02]),
+    kinds: KC.slice(), kindsLabel: [-1.0, KC[1] + 0.66, KC[2] - 0.1],
   };
+  for (const k of [VES, MAC, ALB, FOL, CYS]) anchors['hub_' + OVARY_DATA.kinds[k].key] = () => hubRim(k);
 
   // ------------------------------------------------------------- update
-  const hi = [0, 0, 0, 0, 0, 0];
+  const hi = [0, 0, 0, 0, 0, 0], TIP = 70 * Math.PI / 180, invA = new THREE.Matrix4(), hv = new THREE.Vector3();
   function update(S, t, dt) {
     if (!built) step(4);
     const age = clamp(S.section_age, 20, 70), pair = smooth(clamp(S.section_pair, 0, 1));
     ageNow = age; SA.age.value = age;
     // the pair: A shrinks to the left, B comes in on the right (both at 0.58 of A's size)
     const sc = 1 - 0.42 * pair;
-    gA.position.set(-0.6 * pair, 0, 0); gA.scale.setScalar(sc);
+    // the lift: the slab tips back like a tabletop (and sinks a little, so the hubs above it stay in view)
+    const lift = smooth(clamp(S.section_lift || 0, 0, 1)), kinds = clamp(S.section_kinds || 0, 0, 1);
+    kindsNow = kinds;
+    gA.position.set(-0.6 * pair, -0.5 * lift, -0.05 * lift); gA.scale.setScalar(sc); gA.rotation.x = -TIP * lift;
     gB.position.set(0.62 * pair + 0.5 * (1 - pair), 0, 0); gB.scale.setScalar(0.58);
     gB.visible = pair > 0.01;
     for (const m of [SB.slabMat, SB.objMat, SB.fadeMat, SB.rimMat]) m.uniforms.uFade.value = (m === SB.fadeMat ? 0.75 : 1) * prog(pair, 0, 0.6);
@@ -2254,7 +2455,7 @@ void main() { vAl = smoothstep(aObj.w, aObj.w + 0.06, uVote); vC = aCol; gl_Posi
     // method 1
     const tiles = clamp(S.section_tiles, 0, 1), feat = clamp(S.section_feat, 0, 1), forest = clamp(S.section_forest, 0, 1), pred = clamp(S.section_pred, 0, 1);
     const mask = clamp(S.section_mask, 0, 1), net = clamp(S.section_net, 0, 1);
-    const dark = 0.65 * prog(feat, 0, 0.3) * (1 - prog(pred, 0, 0.4)) + 0.35 * prog(net, 0, 0.4);
+    const dark = 0.65 * prog(feat, 0, 0.3) * (1 - prog(pred, 0, 0.4)) + 0.35 * prog(net, 0, 0.4) + 0.25 * prog(kinds, 0.1, 0.6);
     for (const Sx of [SA, SB]) {
       L.setHi(Sx.objMat, hi, 0.5 * pick + 0.6 * dark); L.setHi(Sx.fadeMat, hi, 0.5 * pick + 0.6 * dark); L.setHi(Sx.maskMat, hi);
       Sx.slabMat.uniforms.uDim.value = pick; Sx.slabMat.uniforms.uDark.value = Sx === SA ? dark : 0;
@@ -2280,14 +2481,46 @@ void main() { vAl = smoothstep(aObj.w, aObj.w + 0.06, uVote); vC = aCol; gl_Posi
     // the network
     nodeMat.uniforms.uNet.value = linkMat.uniforms.uNet.value = stemMat.uniforms.uNet.value = net;
     nodes.visible = links.visible = stems.visible = net > 0.001;
+    stems.visible = net > 0.001 && kinds < 0.3;
+    // by kind: the hubs (their places in the slab's frame for the nodes flying in), their sizes and the bands' widths
+    LIFTU.value = lift; KINDU.value = kinds;
+    kindsG.visible = net > 0.001 && kinds > 0.001;
+    if (net > 0.001 && kinds > 0.001) {
+      gA.updateMatrix(); invA.copy(gA.matrix).invert();
+      const H = hubsAt(age), on = prog(kinds, 0.15, 0.6);
+      for (let k = 0; k < 5; k++) {
+        hv.set(HUBP[k][0], HUBP[k][1], HUBP[k][2]).applyMatrix4(invA);
+        HUBU.value[k].set(hv.x, hv.y, hv.z, H.r[k] / sc);
+        hubH.setXYZW(k, HUBP[k][0], HUBP[k][1], HUBP[k][2], H.r[k] * on * (1 + 0.025 * Math.sin(t * 1.3 + k * 1.7)));
+      }
+      hubH.needsUpdate = true;
+      hubMat.uniforms.uOn.value = haloMat.uniforms.uOn.value = prog(kinds, 0.1, 0.4);
+      const rev = prog(kinds, 0.4, 0.9), ba = prog(kinds, 0.45, 0.85);
+      PAIRS.forEach((p, i) => { const w = H.w[i], pres = smooth(Math.min(1, w)); UB[i].set(pres * (0.004 + 0.026 * Math.sqrt(w / WMAX)), ba * pres, rev, 0); });
+    }
   }
 
   // ------------------------------------------------------------- picking (explore): the object under a ray
   // (hitAt: where the last pick met the section, in the set's own frame, for the headset's ray and tip; null on a miss)
   const plane = new THREE.Plane(), hit = new THREE.Vector3(), inv = new THREE.Matrix4(), hw = new THREE.Vector3();
   let hitAt = null;
+  const hubW = new THREE.Vector3(), hubS = new THREE.Sphere(), hubHit = new THREE.Vector3();
   function pick(raycaster) {
     hitAt = null;
+    // by kind: a hub under the ray (the nearest), else the section under it
+    if (kindsG.visible && kindsNow > 0.5) {
+      set.group.updateMatrixWorld(true);
+      const sw = new THREE.Vector3().setFromMatrixScale(set.group.matrixWorld).x, H = hubsAt(ageNow);
+      let kb = -1, db = 1e9;
+      for (let k = 0; k < 5; k++) {
+        if (H.r[k] < 0.01) continue;
+        hubS.set(hubW.set(HUBP[k][0], HUBP[k][1], HUBP[k][2]).applyMatrix4(set.group.matrixWorld), H.r[k] * sw * 1.15);
+        if (!raycaster.ray.intersectSphere(hubS, hubHit)) continue;
+        const d = hubHit.distanceTo(raycaster.ray.origin);
+        if (d < db) { db = d; kb = k; }
+      }
+      if (kb >= 0) { hitAt = HUBP[kb].slice(); return kb; }
+    }
     SA.g.updateMatrixWorld(true);
     plane.setFromNormalAndCoplanarPoint(new THREE.Vector3(0, 0, 1).transformDirection(SA.g.matrixWorld), new THREE.Vector3().setFromMatrixPosition(SA.g.matrixWorld));
     if (!raycaster.ray.intersectPlane(plane, hit)) return -1;
@@ -2300,10 +2533,11 @@ void main() { vAl = smoothstep(aObj.w, aObj.w + 0.06, uVote); vC = aCol; gl_Posi
   }
   const count = (S, a) => { const n = [0, 0, 0, 0, 0]; for (const o of S.OBJ) if (S.visAt(o, a) > 0.5) n[o.k]++; return n; };
 
-  const VIEWS = ['section', 'pair', 'tiles', 'features', 'forest', 'predicted', 'masks', 'network'];
+  const VIEWS = ['section', 'pair', 'tiles', 'features', 'forest', 'predicted', 'masks', 'network', 'kinds'];
+  const NAMES = OVARY_DATA.kinds.map(k => k.plural.charAt(0).toUpperCase() + k.plural.slice(1)), KCLS = ['cyn', 'grn', 'mag', 'amb', ''];
   return Object.assign(set, {
     params: { section_a: 1, section_age: 30, section_pair: 0, section_vessel: 0, section_macrophage: 0, section_albicans: 0, section_follicle: 0, section_cyst: 0,
-      section_tiles: 0, section_feat: 0, section_forest: 0, section_pred: 0, section_mask: 0, section_net: 0 },
+      section_tiles: 0, section_feat: 0, section_forest: 0, section_pred: 0, section_mask: 0, section_net: 0, section_lift: 0, section_kinds: 0, section_names: 0 },
     update,
     idle() { step(3); },
     finish() { step(Infinity); },
@@ -2318,26 +2552,32 @@ void main() { vAl = smoothstep(aObj.w, aObj.w + 0.06, uVote); vC = aCol; gl_Posi
       { text: ['Features', 'UNI2: numbers per tile'], at: 'feat', cls: 'cyn', alpha: S => prog(S.section_feat, 0.4, 0.7) * (1 - prog(S.section_forest, 0.05, 0.2)) },
       { text: ['Random forest', 'trees vote on each tile'], at: 'forest', cls: 'amb', alpha: S => prog(S.section_forest, 0.1, 0.3) * (1 - prog(S.section_pred, 0.5, 0.9)) },
       { text: ['SegFormer', 'paints a mask'], at: 'mask', cls: 'grn', alpha: S => prog(S.section_mask, 0.02, 0.1) * (1 - prog(S.section_mask, 0.9, 1)) },
-      { text: ['Spatial neighbor network', 'illustrative'], at: 'net', cls: 'mag', alpha: S => prog(S.section_net, 0.5, 0.9) },
+      { text: ['Spatial neighbor network', 'illustrative'], at: 'net', cls: 'mag', alpha: S => prog(S.section_net, 0.5, 0.9) * (1 - prog(S.section_kinds || 0, 0.15, 0.3)) },
+      { text: ['Neighbor network by kind', 'illustrative'], at: 'kindsLabel', cls: 'mag', alpha: S => prog(S.section_net, 0.3, 0.6) * prog(S.section_kinds || 0, 0.3, 0.45) },
+      // (the hubs' names: only where section_names asks for them, as explore's By kind view does)
+      ...[VES, MAC, ALB, FOL, CYS].map(k => ({ text: [NAMES[k], ''], at: 'hub_' + OVARY_DATA.kinds[k].key, cls: KCLS[k],
+        alpha: S => prog(S.section_names || 0, 0.3, 1) * prog(S.section_kinds || 0, 0.55, 0.85) * prog(S.section_net, 0.3, 0.6) * smooth(Math.min(1, hubsAt(clamp(S.section_age, 20, 70)).n[k] * 1.5 - 0.3)) })),
     ],
     cam: {
       default: [0, 8, 3.5, 0, 0, 0], close: [10, 16, 0.85, REP.follicle.x, REP.follicle.y, 0], pair: [0, 6, 3.4, 0, 0, 0],
       tiles: [0, 22, 3.0, 0, 0, 0], feat: [16, 38, 1.0, tile0.x, tile0.y, 0], forest: [-16, 10, 4.6, 0.5, 0, 0],
-      mask: [0, 10, 3.3, 0, 0, 0], net: [8, 32, 3.1, 0, 0.02, 0],
+      mask: [0, 10, 3.3, 0, 0, 0], net: [8, 32, 3.1, 0, 0.02, 0], kinds: [0, 12, 4.6, 0, 0.24, 0],
     },
     controls: [
-      { key: 'view', label: 'View', options: [['section', 'Section'], ['pair', 'Young and old'], ['tiles', 'Tiles'], ['forest', 'Forest'], ['masks', 'Masks'], ['network', 'Network']] },
+      { key: 'view', label: 'View', options: [['section', 'Section'], ['pair', 'Young and old'], ['tiles', 'Tiles'], ['forest', 'Forest'], ['masks', 'Masks'], ['network', 'Network'], ['kinds', 'By kind']] },
       { key: 'age', label: 'Age', options: [['20', '20'], ['30', '30'], ['40', '40'], ['50', '50'], ['60', '60'], ['70', '70']] },
       { key: 'show', label: 'Pick out', options: [['none', 'None'], ['vessel', 'Vessels'], ['macrophage', 'Macrophages'], ['albicans', 'Scars'], ['follicle', 'Follicles'], ['cyst', 'Cysts']] },
     ],
     explore(c) {
       const v = c.view || 'section', s = c.show || 'none', tt = c.t || 0;
-      const out = { section_age: +(c.age || 30), section_pair: v === 'pair' ? 1 : 0, section_tiles: 0, section_feat: 0, section_forest: 0, section_pred: 0, section_mask: 0, section_net: 0 };
+      const out = { section_age: +(c.age || 30), section_pair: v === 'pair' ? 1 : 0, section_tiles: 0, section_feat: 0, section_forest: 0, section_pred: 0, section_mask: 0, section_net: 0,
+        section_lift: 0, section_kinds: 0, section_names: 0 };
       for (const k of ['vessel', 'macrophage', 'albicans', 'follicle', 'cyst']) out['section_' + k] = s === k ? 1 : 0;
       if (v === 'tiles') { out.section_tiles = 1; out.section_feat = 1; }
       if (v === 'forest') { out.section_tiles = 1; out.section_feat = 1; out.section_forest = clamp(tt / 8, 0, 1); out.section_pred = clamp((tt - 8) / 4, 0, 1); }
       if (v === 'masks') out.section_mask = clamp(tt / 5, 0, 1);
       if (v === 'network') out.section_net = 1;
+      if (v === 'kinds') Object.assign(out, { section_net: 1, section_lift: 1, section_kinds: 1, section_names: 1 });
       return out;
     },
     api() {
@@ -2347,31 +2587,24 @@ void main() { vAl = smoothstep(aObj.w, aObj.w + 0.06, uVote); vC = aCol; gl_Posi
         count: (a, which) => count(which === 'B' ? SB : SA, a),
         objects: SA.OBJ.map(o => ({ kind: o.k, x: o.x, y: o.y, r: o.r, from: o.from, until: o.until })),
         tiles: TILES.length, links: LK.length,
+        // the network by kind at an age (illustrative): objects alive per kind, and per pair of kinds [kind, kind, how
+        // many drawn links join them among the objects alive] (by OVARY_DATA.kinds' index)
+        byKind: a => { const H = hubsAt(clamp(a, 20, 70)); return { count: H.n.map(n => Math.round(n)), links: PAIRS.map((p, i) => [p[0], p[1], Math.round(H.w[i])]) }; },
       };
     },
   });
 };
 
-// The poster's charts in 3D (the aging ovary story): 255 glass slides (drawn) that gather into a fan and then stack up
-// into the donors' age histogram (one slide per donor, the poster's 20 bars); the four trends with age (count per
-// section against age on the poster's compressed axis, 0 drawn as a row below 1; both fitted lines, as read off the
-// poster; bands of the dots by decade; r and p as printed) and the four method comparisons (segmentation against random
-// forest: the fitted line as read, the dashed diagonal); the scores (precision, recall and F1 of the random forest per
-// object; SegFormer's IoU per object, with the cyst).
-// THE DOTS ARE ILLUSTRATIVE: the poster plots one dot per donor; these are OVARY_DATA.cohort, drawn (seeded) to follow
-// the poster's lines, bands and shares at zero and to give about its r, not the donors' values. The lines, r and p
-// are the poster's.
+// The donors in 3D (the aging ovary story): 255 glass slides (drawn) that gather into a fan and then stack up into the
+// donors' age histogram (one slide per donor, the poster's 20 bars). The story's one graph, and it goes by in passing:
+// the trends, the comparisons and the scores are told on the ovary and the section instead (the owner's rule against 2D
+// graphs). The donors' ages are OVARY_DATA.cohort.age (whole years filling the poster's bars).
 SETS.charts = function (K) {
-  const { THREE, smooth, clamp, prog, lerp } = K;
-  const L = OVARY_LOOK, T = OVARY_TREND, D = OVARY_DATA, C = L.C, KI = L.KI;
+  const { THREE, clamp, prog } = K;
+  const L = OVARY_LOOK, D = OVARY_DATA;
   L.init(K);
   const set = K.newSet('charts');
-  const kind = k => D.kinds[KI[k]];
-  const ORDER = D.chartOrder;   // vessel, albicans, follicle, macrophage
-  const RF = D.methods.rf, SG = D.methods.seg;
   const ink = '#e7eef8', muted = '#95a6bd', FONT = 'Inter, "Segoe UI", Arial, sans-serif';
-  // the poster's method colors, a little lifted for the dark ground
-  const DOT = { rf: L.hex('#5b92d4'), seg: L.hex('#e08670') }, LINE = { rf: L.hex('#3f86ff'), seg: L.hex('#ff6a4a') };
   // a canvas texture drawn once (text and gridlines that belong to a chart)
   function canvasTex(w, h, draw) {
     const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
@@ -2479,289 +2712,31 @@ ${frag}
   histPlate.position.set(HPX + HPW / 2, HY0 - 0.08 + 0.4, -0.06);
   HB.add(histPlate);
 
-  // ------------------------------------------------------------- the trend and comparison panels
-  const PW = 0.92, PH = 0.62, PX0 = -PW / 2 + 0.13 * PW, PX1 = PW / 2 - 0.04 * PW, PY0 = -PH / 2 + 0.15 * PH, PY1 = PH / 2 - 0.12 * PH;
-  const GRID = [[-0.5, 0.36], [0.5, 0.36], [-0.5, -0.38], [0.5, -0.38]];
-  const ZL = { rf: 0.035, seg: -0.005 };
-  const panels = ORDER.map((key, pi) => {
-    const kd = kind(key), A = D.axes[key], cmp = D.compare[key];
-    const Ymin = A.min > 0 ? Math.log10(A.min) : Math.log10(0.5) - 0.14, Ymax = Math.log10(A.max);
-    const tx = a => PX0 + (a - 20) / 50 * (PX1 - PX0), ty = c => PY0 + (T.Y(c) - Ymin) / (Ymax - Ymin) * (PY1 - PY0);
-    const cx = v => PX0 + clamp(v / cmp.xMax, 0, 1.02) * (PX1 - PX0), cy = v => PY0 + clamp(v / cmp.yMax, 0, 1.02) * (PY1 - PY0);
-    const g = new THREE.Group();
-    g.position.set(GRID[pi][0], GRID[pi][1], 0);
-    // the board (a slab of dark glass)
-    const bb = L.builder(); bb.add(new THREE.BoxGeometry(PW, PH, 0.016), { m: new THREE.Matrix4().makeTranslation(0, 0, -0.03), col: [0.09, 0.12, 0.18] });
-    const boardMat = L.objMat(set, { gloss: 0.3, alpha: 0.9 });
-    const board = new THREE.Mesh(bb.geometry(), boardMat);
-    // the trend chart's face: gridlines at the printed ticks, tick labels, r and p as the poster prints them
-    const toPx = (w, h) => [x => (x / PW + 0.5) * w, y => (0.5 - y / PH) * h];
-    const trendTex = canvasTex(768, 512, (c, w, h) => {
-      const [X, Yp] = toPx(w, h);
-      c.lineWidth = 2; c.font = `24px ${FONT}`; c.textBaseline = 'middle';
-      for (const t of A.ticks) { const y = Yp(ty(t)); c.strokeStyle = 'rgba(149,166,189,0.25)'; c.beginPath(); c.moveTo(X(PX0), y); c.lineTo(X(PX1), y); c.stroke(); c.fillStyle = muted; c.textAlign = 'right'; c.fillText(t >= 1000 ? t.toLocaleString('en-US') : String(t), X(PX0) - 8, y); }
-      c.strokeStyle = 'rgba(231,238,248,0.6)'; c.beginPath(); c.moveTo(X(PX0), Yp(PY1)); c.lineTo(X(PX0), Yp(PY0)); c.lineTo(X(PX1), Yp(PY0)); c.stroke();
-      c.textAlign = 'center'; c.textBaseline = 'top'; c.fillStyle = muted;
-      for (const a of [20, 30, 40, 50, 60, 70]) c.fillText(String(a), X(tx(a)), Yp(PY0) + 6);
-      c.textAlign = 'left'; c.textBaseline = 'alphabetic'; c.font = `22px ${FONT}`;
-      const rp = m => `${m.short} r = ${T.rText(kd.trend[m.key].r)}, p = ${T.pText(kd.trend[m.key].p)}`;
-      c.fillStyle = 'rgba(4,9,18,0.55)'; c.fillRect(X(PX0) + 4, Yp(PY0) - 70, 330, 62);
-      c.fillStyle = '#' + new THREE.Color(...LINE.rf).getHexString(); c.fillText(rp(RF), X(PX0) + 12, Yp(PY0) - 44);
-      c.fillStyle = '#' + new THREE.Color(...LINE.seg).getHexString(); c.fillText(rp(SG), X(PX0) + 12, Yp(PY0) - 16);
-    });
-    const cmpTex = canvasTex(768, 512, (c, w, h) => {
-      const [X, Yp] = toPx(w, h);
-      c.lineWidth = 2; c.font = `24px ${FONT}`; c.textBaseline = 'middle';
-      for (const t of A.cmpTicks) {
-        const y = Yp(cy(t)), x = X(cx(t));
-        c.strokeStyle = 'rgba(149,166,189,0.22)'; c.beginPath(); c.moveTo(X(PX0), y); c.lineTo(X(PX1), y); c.stroke(); c.beginPath(); c.moveTo(x, Yp(PY0)); c.lineTo(x, Yp(PY1)); c.stroke();
-        c.fillStyle = muted; c.textAlign = 'right'; c.fillText(String(t), X(PX0) - 8, y); c.textAlign = 'center'; c.fillText(String(t), x, Yp(PY0) + 18);
-      }
-      c.strokeStyle = 'rgba(231,238,248,0.6)'; c.beginPath(); c.moveTo(X(PX0), Yp(PY1)); c.lineTo(X(PX0), Yp(PY0)); c.lineTo(X(PX1), Yp(PY0)); c.stroke();
-      c.textAlign = 'left'; c.textBaseline = 'alphabetic'; c.font = `24px ${FONT}`; c.fillStyle = ink;
-      c.fillText(`r = ${T.rText(kd.compare.r)}`, X(PX0) + 14, Yp(PY1) + 30); c.fillText(`p = ${T.pText(kd.compare.p)}`, X(PX0) + 14, Yp(PY1) + 60);
-    });
-    const trendFace = plate(trendTex, PW, PH), cmpFace = plate(cmpTex, PW, PH);
-    trendFace.position.z = cmpFace.position.z = -0.02;
-    g.add(board, trendFace, cmpFace);
-    // the fitted lines (the poster's, as read), drawn on up to the age cursor; the bands of the dots (10th to 90th
-    // percentile by decade, eased between decades)
-    const lineB = L.builder();
-    const lineGeos = [];
-    for (const m of ['rf', 'seg']) {
-      const pts = [];
-      for (let a = 21; a <= 70.001; a += 0.5) { const c = T.line(key, m, a); if (c < 1) break; pts.push([tx(a), ty(c), ZL[m] + 0.004]); }
-      if (pts.length > 2) {
-        const gg = K.tube(pts, 0.0055, pts.length * 2, 6, false), n = gg.attributes.position.count, ag = new Float32Array(n), uv = gg.attributes.uv;
-        const a0 = 21, a1 = 21 + (pts.length - 1) * 0.5;
-        for (let i = 0; i < n; i++) ag[i] = a0 + uv.getX(i) * (a1 - a0);
-        lineGeos.push({ gg, ag, col: LINE[m] });
-      }
-    }
-    const lineGeo = (() => {
-      const P = [], Cc = [], Ag = [], I = [];
-      for (const { gg, ag, col } of lineGeos) {
-        const b = P.length / 3, p = gg.attributes.position;
-        for (let i = 0; i < p.count; i++) { P.push(p.getX(i), p.getY(i), p.getZ(i)); Cc.push(...col); Ag.push(ag[i]); }
-        for (let i = 0; i < gg.index.count; i++) I.push(b + gg.index.getX(i));
-      }
-      const gg = new THREE.BufferGeometry();
-      gg.setAttribute('position', new THREE.Float32BufferAttribute(P, 3)); gg.setAttribute('aCol', new THREE.Float32BufferAttribute(Cc, 3)); gg.setAttribute('aAge', new THREE.Float32BufferAttribute(Ag, 1)); gg.setIndex(I);
-      return gg;
-    })();
-    const lineMat = new THREE.ShaderMaterial({ uniforms: { uA: set.uA, uSweep: { value: 70 }, uOp: { value: 1 }, uRF: { value: 1 }, uSeg: { value: 1 } }, transparent: true, depthWrite: false,
-      vertexShader: 'attribute vec3 aCol; attribute float aAge; varying vec3 vC; varying float vAge, vM; void main() { vC = aCol; vAge = aAge; vM = step(0.0, position.z - 0.02); gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
-      fragmentShader: 'uniform float uA, uSweep, uOp, uRF, uSeg; varying vec3 vC; varying float vAge, vM; void main() { if (vAge > uSweep + 0.25) discard; gl_FragColor = vec4(vC + 0.15, uA * uOp * mix(uSeg, uRF, vM)); }' });
-    set.mats.push(lineMat);
-    const lines = new THREE.Mesh(lineGeo, lineMat); lines.renderOrder = 3;
-    // bands (a translucent ribbon per method)
-    const bandGeo = (() => {
-      const P = [], Cc = [], Ag = [], I = [];
-      for (const m of ['rf', 'seg']) {
-        const B = D.trends[key][m].band, at = a => { const x = clamp((a - 25) / 10, 0, 4), d = Math.min(3, Math.floor(x)), f = smooth(x - d); return [0, 2].map(j => T.Y(B[d][j]) * (1 - f) + T.Y(B[d + 1][j]) * f); };
-        const b0 = P.length / 3;
-        let n = 0;
-        for (let a = 21; a <= 70.001; a += 1, n++) {
-          const [lo, hi] = at(a), x = tx(a), y0 = PY0 + (lo - Ymin) / (Ymax - Ymin) * (PY1 - PY0), y1 = PY0 + (hi - Ymin) / (Ymax - Ymin) * (PY1 - PY0);
-          P.push(x, Math.max(PY0, y0), ZL[m] - 0.006, x, Math.min(PY1, y1), ZL[m] - 0.006); Cc.push(...DOT[m], ...DOT[m]); Ag.push(a, a);
-        }
-        for (let i = 0; i < n - 1; i++) { const a = b0 + 2 * i; I.push(a, a + 2, a + 1, a + 1, a + 2, a + 3); }
-      }
-      const gg = new THREE.BufferGeometry();
-      gg.setAttribute('position', new THREE.Float32BufferAttribute(P, 3)); gg.setAttribute('aCol', new THREE.Float32BufferAttribute(Cc, 3)); gg.setAttribute('aAge', new THREE.Float32BufferAttribute(Ag, 1)); gg.setIndex(I);
-      return gg;
-    })();
-    const bandMat = new THREE.ShaderMaterial({ uniforms: { uA: set.uA, uSweep: { value: 70 }, uOp: { value: 1 }, uRF: { value: 1 }, uSeg: { value: 1 } }, transparent: true, depthWrite: false, side: THREE.DoubleSide,
-      vertexShader: 'attribute vec3 aCol; attribute float aAge; varying vec3 vC; varying float vAge, vM; void main() { vC = aCol; vAge = aAge; vM = step(0.0, position.z - 0.01); gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
-      fragmentShader: 'uniform float uA, uSweep, uOp, uRF, uSeg; varying vec3 vC; varying float vAge, vM; void main() { if (vAge > uSweep + 0.5) discard; gl_FragColor = vec4(vC, 0.16 * uA * uOp * mix(uSeg, uRF, vM)); }' });
-    set.mats.push(bandMat);
-    const bands = new THREE.Mesh(bandGeo, bandMat);
-    // the comparison's fitted line (as read: segmentation = intercept + slope x random forest) and the dashed diagonal
-    const cb = L.builder();
-    {
-      const x1 = Math.min(cmp.xMax, (cmp.yMax - cmp.intercept) / cmp.slope), p0 = [cx(0), cy(cmp.intercept)], p1 = [cx(x1), cy(cmp.intercept + cmp.slope * x1)];
-      cb.add(K.tube([[...p0, 0.03], [...p1, 0.03]], 0.006, 2, 6, false), { col: [0.93, 0.95, 1] });
-      const dmax = Math.min(cmp.xMax, cmp.yMax), nd = 18;
-      for (let i = 0; i < nd; i++) { const a = dmax * i / nd, b = dmax * (i + 0.55) / nd; cb.add(K.tube([[cx(a), cy(a), 0.025], [cx(b), cy(b), 0.025]], 0.003, 1, 5, false), { col: [0.6, 0.66, 0.75] }); }
-    }
-    const cmpLineMat = L.objMat(set, { gloss: 0.2 });
-    const cmpLines = new THREE.Mesh(cb.geometry(), cmpLineMat);
-    // the age cursor: a thin glowing bar at the swept age
-    const cursorMat = new THREE.MeshBasicMaterial({ color: 0x9fe8ff, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending });
-    const cursor = new THREE.Mesh(new THREE.PlaneGeometry(0.006, PY1 - PY0), cursorMat);
-    cursor.position.set(0, (PY0 + PY1) / 2, 0.04);
-    // the dots (illustrative: OVARY_DATA.cohort): per donor one for each method, in two layers (random forest in front)
-    const dg = K.pointsGeo(2 * N), R = K.rng(300 + pi);
-    const TP = new Float32Array(2 * N * 3), CP = new Float32Array(2 * N * 3), AG = new Float32Array(2 * N), DL = new Float32Array(2 * N);
-    for (let i = 0; i < N; i++) for (let mi = 0; mi < 2; mi++) {
-      const m = mi ? 'seg' : 'rf', j = mi * N + i, c = D.cohort[key][m][i], jit = (R() - 0.5) * 0.35;
-      TP.set([tx(AGES[i] + jit), ty(c), ZL[m] + (R() - 0.5) * 0.006], 3 * j);
-      CP.set([cx(D.cohort[key].rf[i]), cy(D.cohort[key].seg[i]), 0.02 + 0.004 * mi], 3 * j);
-      AG[j] = AGES[i]; DL[j] = R();
-      dg.attributes.aCol.array.set(DOT[m], 3 * j); dg.attributes.aSize.array[j] = 0.019;
-    }
-    const dotMat = K.points(set, { hard: true, additive: false });
-    const dots = new THREE.Points(dg, dotMat);
-    dots.renderOrder = 2;
-    g.add(bands, lines, cmpLines, cursor, dots);
-    set.group.add(g);
-    return { key, kd, g, board, boardMat, trendFace, cmpFace, lines, lineMat, bands, bandMat, cmpLines, cmpLineMat, cursor, cursorMat, dots, dg, TP, CP, AG, DL, tx, ty, cx, cy, last: '' };
-  });
   set.group.add(slides, HB);
 
-  // ------------------------------------------------------------- the scores
-  const SC = new THREE.Group();
-  set.group.add(SC);
-  const BH = 0.8;   // a score of 1 stands this tall
-  const RFK = ['vessel', 'albicans', 'follicle', 'macrophage'], IOUK = ['vessel', 'albicans', 'cyst', 'follicle', 'macrophage'];   // (the poster's table orders)
-  const short = { vessel: 'Blood vessel', albicans: 'Corpus albicans', follicle: 'Follicle', macrophage: 'Macrophage', cyst: 'Cyst' };
-  const rfB = L.builder(), iouB = L.builder(), RX0 = -1.0, RXW = 0.92, IX0 = 0.12, IXW = 0.88, SY0 = -0.42;
-  const shade = (c, w) => c.map(v => v + (1 - v) * w);
-  RFK.forEach((k, i) => {
-    const sc = kind(k).rf, c = L.GLOW[KI[k]];
-    ['precision', 'recall', 'f1'].forEach((q, j) => {
-      const x = RX0 + RXW * (i + 0.2 + 0.25 * j + 0.125) / 4 * 1, h = sc[q] * BH, w = RXW / 4 * 0.22;
-      rfB.add(new THREE.BoxGeometry(w, h, w), { m: new THREE.Matrix4().makeTranslation(x, SY0 + h / 2, 0), col: shade(c, [0.45, 0.22, 0][j]), cen: [x, SY0, 0] });
-    });
-  });
-  IOUK.forEach((k, i) => {
-    const v = kind(k).iou, c = L.GLOW[KI[k]], x = IX0 + IXW * (i + 0.5) / 5, h = v * BH, w = IXW / 5 * 0.42;
-    iouB.add(new THREE.BoxGeometry(w, h, w), { m: new THREE.Matrix4().makeTranslation(x, SY0 + h / 2, 0), col: c, cen: [x, SY0, 0] });
-  });
-  const rfMat = L.objMat(set, { gloss: 0.35, glow: 0.2 }), iouMat = L.objMat(set, { gloss: 0.35, glow: 0.2 });
-  const rfBars = new THREE.Mesh(rfB.geometry(), rfMat), iouBars = new THREE.Mesh(iouB.geometry(), iouMat);
-  const scoreTex = (title, keys, x0, xw, vals) => canvasTex(1024, 640, (c, w, h) => {
-    const X = x => (x - (x0 - 0.04)) / (xw + 0.08) * w, Y = y => (0.5 - (y - (SY0 + 0.38)) / 1.08) * h;
-    c.strokeStyle = 'rgba(149,166,189,0.25)'; c.lineWidth = 2; c.fillStyle = muted; c.font = `24px ${FONT}`; c.textAlign = 'right'; c.textBaseline = 'middle';
-    for (const v of [0, 0.25, 0.5, 0.75, 1]) { const y = Y(SY0 + v * BH); c.beginPath(); c.moveTo(X(x0), y); c.lineTo(X(x0 + xw), y); c.stroke(); }
-    c.textAlign = 'center'; c.textBaseline = 'top'; c.font = `600 30px ${FONT}`;
-    // (a name wider than its slot goes on two lines)
-    const slot = (X(x0 + xw) - X(x0)) / keys.length * 0.94;
-    keys.forEach((k, i) => {
-      const n = short[k], xi = X(x0 + xw * (i + 0.5) / keys.length), two = c.measureText(n).width > slot && n.includes(' ');
-      c.fillStyle = ink;
-      if (two) { const j = n.indexOf(' '); c.fillText(n.slice(0, j), xi, Y(SY0) + 14); c.fillText(n.slice(j + 1), xi, Y(SY0) + 48); }
-      else c.fillText(n, xi, Y(SY0) + 14);
-    });
-    if (keys.length === 4) { c.font = `24px ${FONT}`; c.fillStyle = muted; c.textAlign = 'left'; c.fillText('bars: precision, recall, F1 (the poster\'s table)', X(x0), Y(SY0) + 92); }
-    // each value just above its own bar (three bars to a kind are too close for their values to sit side by side below them)
-    c.textAlign = 'center'; c.textBaseline = 'bottom'; c.font = `600 ${keys.length === 4 ? 21 : 30}px ${FONT}`;
-    vals.forEach(([x, v]) => { c.fillStyle = ink; c.fillText(v.toFixed(2), X(x), Y(SY0 + v * BH) - 6); });
-  });
-  const rfVals = [], iouVals = [];
-  RFK.forEach((k, i) => ['precision', 'recall', 'f1'].forEach((q, j) => rfVals.push([RX0 + RXW * (i + 0.2 + 0.25 * j + 0.125) / 4, kind(k).rf[q]])));
-  IOUK.forEach((k, i) => iouVals.push([IX0 + IXW * (i + 0.5) / 5, kind(k).iou]));
-  const rfPlate = plate(scoreTex('Random forest', RFK, RX0, RXW, rfVals), RXW + 0.08, 1.08), iouPlate = plate(scoreTex('SegFormer', IOUK, IX0, IXW, iouVals), IXW + 0.08, 1.08);
-  rfPlate.position.set(RX0 + RXW / 2, SY0 + 0.38, -0.05); iouPlate.position.set(IX0 + IXW / 2, SY0 + 0.38, -0.05);
-  SC.add(rfBars, iouBars, rfPlate, iouPlate);
-
   // ------------------------------------------------------------- anchors
-  const tmp = new THREE.Vector3();
-  const inP = (pi, p) => { const P = panels[pi]; P.g.updateMatrix(); tmp.set(p[0], p[1], p[2]).applyMatrix4(P.g.matrix); return [tmp.x, tmp.y, tmp.z]; };
   const anchors = {
     hist: [0, HY0 + 0.75, 0], histTop: [ageX(H.from + H.width * 18.5), HY0 + 25 * DY + 0.05, 0], fan: [0, 0.38, 0.05], slides: [0, -0.1, 0.1],
-    rfScores: [RX0 + RXW / 2, SY0 + BH + 0.12, 0], iouScores: [IX0 + IXW / 2, SY0 + BH + 0.12, 0],
-    cyst: [IX0 + IXW * 2.5 / 5, SY0 + D.kinds[KI.cyst].iou * BH + 0.04, 0.03],
   };
-  ORDER.forEach((k, pi) => {
-    anchors['t' + pi] = () => inP(pi, [PX0, PH / 2 - 0.02, 0.04]);           // the panel's title (top left)
-    anchors['p' + pi] = () => inP(pi, [PX0 + 0.02, PY0 + 0.12, 0.05]);      // r and p (lower left, as on the poster)
-    anchors['end' + pi] = () => { const P = panels[pi], a = Math.min(70, sweepNow); return inP(pi, [P.tx(a), P.ty(T.line(k, 'seg', a)), 0.05]); };
-    anchors[k] = anchors['t' + pi];
-  });
-  let sweepNow = 70, cmpNow = 0, sideNow = 0;
 
   // ------------------------------------------------------------- update
-  function update(S, t, dt) {
-    const sl = clamp(S.charts_slides, 0, 1), hs = clamp(S.charts_hist, 0, 1), tr = clamp(S.charts_trend, 0, 1), cm = clamp(S.charts_cmp, 0, 1);
-    const sw = clamp(S.charts_sweep, 20, 70), foc = clamp(S.charts_focus, 0, 4), side = smooth(clamp(S.charts_side, 0, 1));
-    const rfA = clamp(S.charts_rf, 0, 1), sgA = clamp(S.charts_seg, 0, 1), bandA = clamp(S.charts_band, 0, 1), scA = clamp(S.charts_score, 0, 1), ioA = clamp(S.charts_iou, 0, 1);
-    sweepNow = sw; cmpNow = cm; sideNow = side;
-    // the slides and the histogram
+  function update(S) {
+    const sl = clamp(S.charts_slides, 0, 1), hs = clamp(S.charts_hist, 0, 1);
     for (const me of [glass, tissue, label]) { me.material.uniforms.uIn.value = sl; me.material.uniforms.uHist.value = hs; }
     slides.visible = sl > 0.001;
     fadeTo(histPlate, prog(hs, 0.4, 1) * sl);
-    // the panels: the charts show with trend (and comparison); one may be focused (big in the middle)
-    const pa = Math.max(tr, cm);
-    const fw = [1, 2, 3, 4].map(k => clamp(1 - Math.abs(foc - k), 0, 1)), fmax = Math.max(...fw);
-    panels.forEach((P, pi) => {
-      const w = fw[pi], a = pa * (1 - 0.85 * fmax + 0.85 * w);
-      const gx = GRID[pi][0], gy = GRID[pi][1];
-      P.g.position.set(lerp(gx, 0, w) * (1 - 0.38 * side) + 0.62 * side, lerp(gy, 0, w) * (1 - 0.38 * side), 0.25 * w);
-      P.g.scale.setScalar(lerp(1, 1.9, w) * (1 - 0.38 * side) * (1 - 0.15 * fmax * (1 - w)));
-      P.g.visible = a > 0.003;
-      if (!P.g.visible) return;
-      P.boardMat.uniforms.uFade.value = 0.9 * a;
-      fadeTo(P.trendFace, a * (1 - prog(cm, 0, 0.5))); fadeTo(P.cmpFace, a * prog(cm, 0.5, 1));
-      P.lineMat.uniforms.uSweep.value = P.bandMat.uniforms.uSweep.value = sw;
-      P.lineMat.uniforms.uOp.value = a * (1 - prog(cm, 0, 0.4)); P.bandMat.uniforms.uOp.value = a * bandA * (1 - prog(cm, 0, 0.4));
-      P.lineMat.uniforms.uRF.value = P.bandMat.uniforms.uRF.value = rfA; P.lineMat.uniforms.uSeg.value = P.bandMat.uniforms.uSeg.value = sgA;
-      P.lines.visible = cm < 0.4; P.bands.visible = bandA > 0.003 && cm < 0.4;
-      P.cmpLineMat.uniforms.uFade.value = a * prog(cm, 0.6, 1); P.cmpLines.visible = cm > 0.6;
-      P.cursor.position.x = P.tx(sw); P.cursorMat.opacity = a * set.uA.value * 0.8 * (1 - prog(cm, 0, 0.3)) * (sw < 69.9 ? 1 : 0); P.cursor.visible = sw < 69.9 && cm < 0.3;
-      // the dots: they drop in with the chart, show up to the age cursor, and for the comparison each donor's two dots
-      // fly to one place (random forest across, segmentation up), where its random forest dot stays
-      const key = [tr.toFixed(3), cm.toFixed(3), sw.toFixed(2), rfA.toFixed(2), sgA.toFixed(2)].join();
-      if (key === P.last) return;
-      P.last = key;
-      const pos = P.dg.attributes.position.array, al = P.dg.attributes.aA.array;
-      for (let j = 0; j < 2 * N; j++) {
-        const seg = j >= N, dIn = smooth(clamp(tr * 1.6 - P.DL[j] * 0.6, 0, 1)), dC = smooth(clamp(cm * 1.5 - P.DL[j] * 0.5, 0, 1));
-        const a0 = dIn * (seg ? sgA : rfA) * prog(sw - P.AG[j] + 1, 0, 1);
-        const tz = P.TP[3 * j + 2], fall = (1 - dIn) * 0.25;
-        pos[3 * j] = lerp(P.TP[3 * j], P.CP[3 * j], dC); pos[3 * j + 1] = lerp(P.TP[3 * j + 1] + fall, P.CP[3 * j + 1], dC) + Math.sin(dC * Math.PI) * 0.05; pos[3 * j + 2] = lerp(tz, P.CP[3 * j + 2], dC);
-        al[j] = Math.max(cm > 0 ? (seg ? (1 - dC) * a0 : Math.max(a0, dC)) : a0, 0);
-      }
-      P.dg.attributes.position.needsUpdate = true; P.dg.attributes.aA.needsUpdate = true;
-    });
-    // the scores
-    rfMat.uniforms.uGrow.value = smooth(scA); iouMat.uniforms.uGrow.value = smooth(ioA);
-    rfBars.visible = scA > 0.003; iouBars.visible = ioA > 0.003;
-    fadeTo(rfPlate, prog(scA, 0, 0.4)); fadeTo(iouPlate, prog(ioA, 0, 0.4));
   }
 
-  const titleOf = k => kind(k).title;
   return Object.assign(set, {
-    params: { charts_a: 1, charts_slides: 0, charts_hist: 0, charts_trend: 1, charts_sweep: 70, charts_focus: 0, charts_rf: 1, charts_seg: 1, charts_band: 0, charts_cmp: 0, charts_side: 0, charts_score: 0, charts_iou: 0 },
+    params: { charts_a: 1, charts_slides: 0, charts_hist: 0 },
     update,
     anchors,
     labels: [
-      { text: ['255 donors', 'GTEx, aged 20 to 70'], at: 'histTop', cls: 'cyn', alpha: S => prog(S.charts_hist, 0.7, 1) * S.charts_slides },
-      ...ORDER.map((k, pi) => ({
-        // (beside the ovary the panels are small: the name only; the r values are on each chart's face)
-        text: () => (sideNow > 0.5 ? [titleOf(k), ''] : cmpNow > 0.5 ? [titleOf(k), `r ${T.rText(kind(k).compare.r)}`] : [titleOf(k), `RF ${T.rText(kind(k).trend.rf.r)} · Seg ${T.rText(kind(k).trend.seg.r)}`]),
-        at: 't' + pi, cls: ['', 'mag', 'cyn', 'grn'][pi],
-        alpha: S => { const w = q => clamp(1 - Math.abs(S.charts_focus - q), 0, 1), fm = Math.max(w(1), w(2), w(3), w(4)); return Math.max(S.charts_trend, S.charts_cmp) * (1 - fm + w(pi + 1)) * (1 - S.charts_side * 0.15); },
-      })),
-      { text: ['Random forest', 'precision · recall · F1'], at: 'rfScores', cls: 'amb', alpha: S => prog(S.charts_score, 0.5, 1) },
-      { text: ['SegFormer', 'IoU (overlap of masks)'], at: 'iouScores', cls: 'grn', alpha: S => prog(S.charts_iou, 0.5, 1) },
-      { text: ['Cyst', 'hard: 0.15'], at: 'cyst', cls: 'amb', alpha: S => prog(S.charts_iou, 0.7, 1) },
+      { text: [`${D.facts.donors} donors`, `GTEx, aged ${D.facts.ages[0]} to ${D.facts.ages[1]}`], at: 'histTop', cls: 'cyn', alpha: S => prog(S.charts_hist, 0.7, 1) * S.charts_slides },
     ],
-    cam: {
-      default: [0, 4, 3.05, 0, 0, 0], hist: [0, 6, 3.2, -0.05, -0.1, 0], fan: [0, 14, 3.0, 0, -0.15, 0], trends: [0, 4, 3.05, 0, 0, 0],
-      focus: [0, 3, 2.6, 0, 0, 0.25], scores: [0, 8, 3.4, 0, 0, 0], rf: [-8, 10, 2.4, RX0 + RXW / 2, 0, 0], iou: [8, 10, 2.4, IX0 + IXW / 2, 0, 0],
-      side: [0, 4, 3.5, 0, 0, 0],
-    },
-    controls: [
-      { key: 'view', label: 'Chart', options: [['hist', 'Donors'], ['trends', 'Trends'], ['compare', 'Methods agree?'], ['scores', 'Scores']] },
-      { key: 'focus', label: 'Object', options: [['0', 'All'], ['1', 'Vessels'], ['2', 'Scars'], ['3', 'Follicles'], ['4', 'Macrophages']] },
-      { key: 'method', label: 'Method', options: [['both', 'Both'], ['rf', 'Random forest'], ['seg', 'Segmentation']] },
-    ],
-    explore(c) {
-      const v = c.view || 'trends', m = c.method || 'both';
-      return {
-        charts_slides: v === 'hist' ? 1 : 0, charts_hist: v === 'hist' ? 1 : 0, charts_trend: v === 'trends' ? 1 : 0, charts_cmp: v === 'compare' ? 1 : 0,
-        charts_focus: v === 'trends' || v === 'compare' ? +(c.focus || 0) : 0, charts_sweep: 70, charts_band: v === 'trends' ? 1 : 0,
-        charts_rf: m === 'seg' ? 0.12 : 1, charts_seg: m === 'rf' ? 0.12 : 1, charts_score: v === 'scores' ? 1 : 0, charts_iou: v === 'scores' ? 1 : 0, charts_side: 0,
-      };
-    },
-    api() {
-      return {
-        order: ORDER,
-        // the poster's line at an age, and what the drawn dots give (illustrative)
-        line: (k, m, a) => T.line(k, m, a), cohortR: D.cohort.r,
-      };
-    },
+    cam: { default: [0, 6, 3.2, -0.05, -0.1, 0], hist: [0, 6, 3.2, -0.05, -0.1, 0], fan: [0, 14, 3.0, 0, -0.15, 0] },
+    // (not a scene of explore mode: no controls)
+    controls: [],
   });
 };
 
@@ -2889,11 +2864,8 @@ const NARRATION_SYNC = [
   [53.7, 45], [55, 46.2], [61.1, 49], [67.1, 54.5], [78, 63],  // Donors
   [96.7, 80], [98, 81.18], [98.8, 81.2], [106.3, 86], [138.2, 115], [144.7, 120],  // Section
   [154.4, 125], [155.1, 125.6], [156.9, 127], [209.3, 174.6], [223.4, 178],  // Methods
-  [232.4, 185], [233, 185.6], [234.1, 186.2], [244.2, 195], [284.9, 232], [290.7, 236],
-  [291.3, 236.6], [300.4, 240],                       // Age
-  [310.1, 245], [311.4, 246.18], [312.2, 246.2], [329.6, 262], [333.2, 265], [342, 273],  // Agree?
-  [352.8, 280], [353.5, 280.6], [354.6, 281.2], [363.1, 289], [367.8, 292.5], [374, 298.1],
-  [383.4, 302], [390.3, 306], [390.9, 306.6], [412.6, 309], [414.2, 310.5], [421.5, 315],  // Next
+  [232.4, 185], [233, 185.6], [300, 225],             // Age (provisional: run tools/pace.mjs)
+  [300.6, 225.6], [370, 270],                         // Next (provisional)
 ];
 // recording time -> original story time
 function storyT(t) {
@@ -2918,9 +2890,8 @@ const CH = [
   { key: 'donors', name: 'Donors', a: 45, b: 80 },
   { key: 'section', name: 'Section', a: 80, b: 125 },
   { key: 'methods', name: 'Methods', a: 125, b: 185 },
-  { key: 'trends', name: 'Age', a: 185, b: 245 },
-  { key: 'agree', name: 'Agree?', a: 245, b: 280 },
-  { key: 'network', name: 'Next', a: 280, b: 315 },
+  { key: 'trends', name: 'Age', a: 185, b: 225 },
+  { key: 'network', name: 'Next', a: 225, b: 270 },
 ];
 CH.forEach(c => { c.na = narrT(c.a); c.nb = narrT(c.b); }); // chapter times on the recording's clock
 const C = Object.fromEntries(CH.map(c => [c.key, c]));
@@ -2972,11 +2943,11 @@ const fitShift = (k, name) => { const f = GL.sets[k].cam[name] && FIT[k] && FIT[
 const SEC = [0, 0, 0.6, -0.22];
 const FIT = { organ: { default: [0, 0, 0.5, -0.2], face: [0, 0, 1.0, -0.5], open: [0, 0, 0.5, -0.2], whole: [0, 0, 0.4, -0.15] },
   section: { default: SEC, pair: [0, 0, 1.05, -0.25], tiles: SEC, mask: SEC, net: [0, 0, 0.9, -0.2], forest: [0, 0, 1.0, -0.2] },
-  charts: { default: [0, 0, 0.5, -0.2], trends: [0, 0, 0.5, -0.2], hist: [0, 0, 0.5, -0.2], fan: [0, 0, 0.5, -0.2], scores: [0, 0, 0.5, -0.25], side: [0, 0, 1.0, -0.2], focus: [0, 0, 1.4, -0.32] } };
+  charts: { default: [0, 0, 0.5, -0.2], hist: [0, 0, 0.5, -0.2], fan: [0, 0, 0.5, -0.2] } };
 // how much further back a view stands on a phone held upright (see narrowK): the wide ones, whose parts reach
 // across the screen
 const NARROW = { organ: { default: 1.15, face: 1.15, open: 1.15 }, section: { default: 1.2, pair: 1.3, tiles: 1.2, mask: 1.2, net: 1.2, forest: 1.3 },
-  charts: { default: 1.2, trends: 1.2, hist: 1.25, fan: 1.25, scores: 1.3, side: 1.35 } };
+  charts: { default: 1.25, hist: 1.25, fan: 1.25 } };
 const narrowOf = (k, name) => (NARROW[k] && NARROW[k][name]) || 1;
 // a set's anchor point, in the set's own coordinates
 function anchorOf(k, at) {
@@ -2992,7 +2963,7 @@ function anchorOf(k, at) {
 const OD = OVARY_DATA, TRD = OVARY_TREND;
 const KD = Object.fromEntries(OD.kinds.map(k => [k.key, k]));
 // the four kinds both methods find, in the poster's table order (vessel, macrophage, albicans, follicle); the cyst only
-// the segmentation finds; the charts' 2 x 2 order (vessel, albicans, follicle, macrophage)
+// the segmentation finds; the order of the poster's trend charts (vessel, albicans, follicle, macrophage), for lists
 const KINDS4 = OD.kinds.filter(k => !k.segOnly).map(k => k.key), KINDS = OD.kinds.map(k => k.key), CHART = OD.chartOrder;
 // each kind's color: the poster's, lifted for the dark scene and the headset's panel (OVARY_LOOK.GLOW)
 const toHex = c => '#' + c.map(v => Math.round(clamp(v, 0, 1) * 255).toString(16).padStart(2, '0')).join('');
@@ -3002,8 +2973,9 @@ const plural = key => KD[key].plural, Plural = key => cap(KD[key].plural);
 // scores as the poster prints them ('0.70'), r and p as printed ('−0.24', '2.1×10⁻⁴')
 const sc2 = v => (+v).toFixed(2), rT = TRD.rText, pT = TRD.pText;
 const METHOD = { rf: OD.methods.rf, seg: OD.methods.seg };
-// the count of a kind at an age on each method's fitted line, rounded as a count (objects per section)
-const onLine = (key, m, age) => Math.max(0, Math.round(TRD.line(key, m, age)));
+// the count of a kind at an age on each method's fitted line (objects per section), rounded as the ovary's tags round
+// it (the lines are read off the poster's figures): whole numbers under 100, the nearest ten above
+const onLine = (key, m, age) => { const c = Math.max(0, TRD.line(key, m, age)); return c < 99.5 ? Math.round(c) : Math.round(c / 10) * 10; };
 // what the sets know (their api())
 const setApi = k => (GL.sets[k] && GL.sets[k].api ? GL.sets[k].api() : null);
 const API = {};
@@ -3017,11 +2989,20 @@ const FACTS = (() => {
   // the age at which the follicle lines reach none (each method's, averaged; said to the nearest five years)
   const z = ['rf', 'seg'].map(m => D.trends.follicle[m].zeroAge).filter(Number.isFinite);
   const ps = KINDS4.map(k => KD[k].compare.p);
+  // the trends with age (eight: four kinds by two methods): those with p of 0.05 or more are no trend; the others' p sum
+  // up as "below" the first of 0.001, 0.01, 0.05 above their largest
+  const tr = KINDS4.flatMap(k => ['rf', 'seg'].map(m => KD[k].trend[m])), sig = tr.filter(t => t.p < 0.05);
+  const pTop = sig.length ? Math.max(...sig.map(t => t.p)) : 1;
+  // the follicles: the share of donors with none in their section in the last decade (each method's, read off the
+  // figures, averaged; said to the nearest 5 %)
+  const zs = ['rf', 'seg'].map(m => D.trends.follicle[m].zero), last = zs[0].length - 1;
   return {
     donors: D.facts.donors, ages: D.facts.ages, data: D.facts.data, scale: D.facts.scale, bars: H.counts.length, width: H.width, over40: over(40),
     annotated: KINDS4.reduce((s, k) => s + KD[k].annotated, 0), zeroAt: z.length ? Math.round(z.reduce((s, v) => s + v, 0) / z.length / 5) * 5 : null,
     birth: B.atBirth, puberty: B.atPuberty, menopause: B.atMenopause, menoAge: B.menopauseAge, future: D.message.future,
     pMin: Math.min(...ps), pMax: Math.max(...ps), f1: D.checks.f1,
+    noTrend: tr.length - sig.length, pBelow: [0.001, 0.01, 0.05].find(x => pTop < x) || null,
+    noneDecade: 20 + 10 * last, nonePct: Math.round(zs.reduce((s, a) => s + a[last], 0) / zs.length * 20) * 5,
   };
 })();
 const listOf = a => (a.length < 2 ? a.join('') : a.slice(0, -1).join(', ') + ' and ' + a[a.length - 1]);
@@ -3053,6 +3034,18 @@ function buildStory() {
   // panel cannot scroll, so no chapter shows more than fits at once
   const turns = (...parts) => `<div style="display:grid">${parts.map(p => `<div style="grid-area:1/1">${p}</div>`).join('')}</div>`;
   const fol = KD.follicle, ves = KD.vessel, alb = KD.albicans, mac = KD.macrophage, cyst = KD.cyst;
+  // a trend in words: both methods' r below 0, 'fall'; above, 'rise' (the poster's r); per method, 'no trend' where its
+  // p is 0.05 or more
+  const trendDir = k => (k.trend.rf.r < 0 && k.trend.seg.r < 0 ? 'fall' : k.trend.rf.r > 0 && k.trend.seg.r > 0 ? 'rise' : '');
+  const trendBy = (k, m) => { const t = k.trend[m]; return `${t.p >= 0.05 ? 'no trend' : t.r < 0 ? 'falling' : 'rising'} by ${m === 'rf' ? 'the random forest' : 'segmentation'} (r ${rT(t.r)}${t.p >= 0.05 ? `, p ${pT(t.p)}` : ''})`; };
+  // the methods' agreement donor by donor (the poster's comparison r), well (r 0.7 or more) and less; where the
+  // segmentation's fitted line runs below the diagonal for all the less (read slopes below 1), it finds fewer
+  const agreeText = () => {
+    const ag = KINDS4.slice().sort((p, q) => KD[q].compare.r - KD[p].compare.r), well = ag.filter(k => KD[k].compare.r >= 0.7), less = ag.filter(k => KD[k].compare.r < 0.7);
+    const rl = (ks, first) => listOf(ks.map((k, i) => `${plural(k)} (${first && !i ? 'r ' : ''}${rT(KD[k].compare.r)})`));
+    const fewer = less.length && less.every(k => OD.compare[k] && OD.compare[k].slope < 1) ? ': the segmentation finds fewer' : '';
+    return well.length && less.length ? `Donor by donor the methods agree on ${rl(well, true)}, less on ${rl(less)}${fewer}.` : `Donor by donor the methods agree on ${rl(ag, true)}.`;
+  };
   const html = {
     title: `<svg class="route-mark" viewBox="0 0 360 44" aria-hidden="true"><path id="titleArc" d="M8 36 Q180 -16 352 36" fill="none" stroke="var(--red)" stroke-width="2.2" stroke-linecap="round" pathLength="1" stroke-dasharray="1" stroke-dashoffset="1"/><circle cx="8" cy="36" r="4.5" fill="var(--red)"/><circle cx="352" cy="36" r="4.5" fill="var(--red)" id="titleDot" opacity="0"/></svg>
       <h1 data-at="1.2">The aging ovary</h1>
@@ -3090,35 +3083,27 @@ function buildStory() {
         <p data-at="49">How good are they? Precision: of the tiles called follicle, how many are one. Recall: of the follicles, how many were found. F1: the two in one number. IoU: how far a predicted mask and the true one overlap. 1 is perfect.</p>
         <p class="note" data-at="53">Random forest F1: ${KINDS4.map(k => `${plural(k)} ${sc2(KD[k].rf.f1)}`).join(', ')}. SegFormer IoU: ${KINDS4.map(k => `${plural(k)} ${sc2(KD[k].iou)}`).join(', ')}; cysts, which only the segmentation finds, just ${sc2(cyst.iou)}: hard.</p>`)}`,
     trends: `<h2 data-at="0.6">Trends with age</h2>
-      ${turns(`<p data-at="1.2" data-out="46.5">Count each kind in every donor's section by both methods (RF: random forest; Seg: segmentation) and set the counts against age. On the left, the ovary ages along.</p>
+      ${turns(`<p data-at="1.2" data-out="30.5">Count each kind in every donor's section by both methods, RF (random forest) and Seg (segmentation), and set the counts against age: different donors at each age, not one ovary followed over time. This ovary ages along the poster's lines.</p>
         <ul class="steps">
-          ${step(10, 46.5, KCOL.follicle, `${Plural('follicle')} fall`, `toward none by about ${F.zeroAt} · RF r ${rT(fol.trend.rf.r)}, Seg r ${rT(fol.trend.seg.r)}`)}
-          ${step(18, 46.5, KCOL.vessel, `${Plural('vessel')} fall`, `RF r ${rT(ves.trend.rf.r)}, Seg r ${rT(ves.trend.seg.r)}`)}
-          ${step(26, 46.5, KCOL.albicans, `${Plural('albicans')} rise`, `the scars pile up · RF r ${rT(alb.trend.rf.r)}, Seg r ${rT(alb.trend.seg.r)}`)}
-          ${step(34, 46.5, KCOL.macrophage, Plural('macrophage'), `flat by the random forest (r ${rT(mac.trend.rf.r)}), falling by segmentation (r ${rT(mac.trend.seg.r)})`)}
-        </ul>`,
-      `<p data-at="47">${Plural('follicle')} up close: both lines reach none by about ${F.zeroAt}. The band holds most of the dots.</p>
-        <p class="note" data-at="51">r runs from −1 to +1: below 0, fewer with age; above 0, more; near 0, no trend. A small p means a trend this strong would rarely come about by chance.</p>
-        <p class="credits" data-at="55">The lines, r and p are the poster's. The dots are drawn to match the poster's trends, not the donors' values. The ovary's counts follow the lines.</p>`)}`,
-    agree: `<h2 data-at="0.6">Do the methods agree?</h2>
-      <p data-at="1.2">On the poster each donor is one dot: the random forest's count across, the segmentation's up. On the dashed diagonal both would count the same.</p>
-      <ul class="steps">
-        ${step(10, 0, KCOL.follicle, `${Plural('follicle')} · r ${rT(fol.compare.r)}`, 'agree well')}
-        ${step(13, 0, KCOL.vessel, `${Plural('vessel')} · r ${rT(ves.compare.r)}`, 'agree well')}
-        ${step(17, 0, KCOL.albicans, `${Plural('albicans')} · r ${rT(alb.compare.r)}`, 'agree less: the segmentation finds far fewer')}
-        ${step(20, 0, KCOL.macrophage, `${Plural('macrophage')} · r ${rT(mac.compare.r)}`, 'agree less: the segmentation finds fewer')}
-      </ul>
-      <p class="amber" data-at="24">Two methods, one picture of aging: fewer follicles and vessels, more scars.</p>
-      <p class="credits" data-at="28">r and p as on the poster (p from ${pT(F.pMax)} down to ${pT(F.pMin)}). The dots are drawn to match, not the donors' values or how many donors each chart has.</p>`,
+          ${step(7, 30.5, KCOL.follicle, `${Plural('follicle')} ${trendDir(fol)}`, `RF r ${rT(fol.trend.rf.r)}, Seg r ${rT(fol.trend.seg.r)} · the lines reach none by about ${F.zeroAt}; in their ${F.noneDecade}s about ${F.nonePct}% of donors have none in their section`)}
+          ${step(12, 30.5, KCOL.vessel, `${Plural('vessel')} ${trendDir(ves)}`, `RF r ${rT(ves.trend.rf.r)}, Seg r ${rT(ves.trend.seg.r)}`)}
+          ${step(17, 30.5, KCOL.albicans, `${Plural('albicans')} ${trendDir(alb)}`, `the scars pile up · RF r ${rT(alb.trend.rf.r)}, Seg r ${rT(alb.trend.seg.r)}`)}
+          ${step(22, 30.5, KCOL.macrophage, Plural('macrophage'), `${trendBy(mac, 'rf')}, ${trendBy(mac, 'seg')}; not drawn in this ovary`)}
+        </ul>
+        <p class="note" data-at="26" data-out="30.5">Compare each method with itself over the years: they count in their own ways.${F.pBelow ? ` ${F.noTrend ? 'Every other' : 'Every'} trend has p below ${F.pBelow}.` : ''}</p>`,
+      `<p data-at="31">${esc(agreeText())}</p>
+        <p class="note" data-at="34.5">r runs from −1 to +1: below 0, fewer with age; above 0, more; near 0, no trend. A small p means a trend this strong would rarely come about by chance.</p>
+        <p class="credits" data-at="37.5">r and p are the poster's (the agreement's p from ${pT(F.pMax)} down to ${pT(F.pMin)}). The tags on the ovary give each method's count on the poster's lines, read off its figures: approximate. The ovary is drawn to follow them, not to scale.</p>`)}`,
     network: `<h2 data-at="0.6">Next: a network</h2>
-      ${turns(`<p data-at="1.2" data-out="17">Where things lie matters too. Make each object a node, and link objects that lie close together: a spatial neighbor network.</p>
-        <p data-at="9" data-out="17">As the ovary ages, the network changes: follicles' nodes go, scars' nodes come.</p>
-        <p class="note" data-at="12.5" data-out="17">Drawn as an illustration of the poster's next step, not its result.</p>`,
-      `<p data-at="17.5">Next, the authors plan to ${esc(listOf(F.future))}.</p>
-        <p class="amber" data-at="22">This is where network medicine comes in: as in Tissue and time, a tissue becomes a network of neighbors.</p>
-        <p class="credits" data-at="26">${esc(creditText())}</p>
-        <p data-at="29"><button class="btn primary" id="btnGoExplore" type="button">Explore the ovary</button></p>
-        <p class="credits" data-at="30.5">Drawn, not GTEx images: the ovary, the slides and the sections. Illustrative: the dots of the charts and the network.</p>`)}`,
+      ${turns(`<p data-at="1.2" data-out="29.5">Where things lie matters too. Make each object a node, and link objects that lie close together: a spatial neighbor network.</p>
+        <p class="note" data-at="5" data-out="29.5">Drawn as an illustration of the poster's next step, not its result.</p>
+        <p data-at="11" data-out="29.5">Gather the nodes by kind and the links become bands: which kinds lie next to which.</p>
+        <p data-at="19.5" data-out="29.5">As the ovary ages, the network changes: follicles' nodes go, scars' nodes come.</p>`,
+      `<p data-at="30">Next, the authors plan to ${esc(listOf(F.future))}.</p>
+        <p class="amber" data-at="34.5">This is where network medicine comes in: as in Tissue and time, a tissue becomes a network of neighbors.</p>
+        <p class="credits" data-at="38.5">${esc(creditText())}</p>
+        <p data-at="41.5"><button class="btn primary" id="btnGoExplore" type="button">Explore the ovary</button></p>
+        <p class="credits" data-at="43">Drawn, not GTEx images: the ovary, the slides and the sections. Illustrative: the network. The tags on the ovary are each method's count on the poster's lines, read off its figures: approximate.</p>`)}`,
   };
 
   const story = $('#story');
@@ -3141,10 +3126,10 @@ function buildStory() {
     wp.push([t, ...v, ease, frameOf(k), narrowOf(k, name), fitShift(k, name)]);
   };
   start({ body_pet: 1, body_net: 0, body_state: 0, body_blank: 0,
-    organ_grow: 0, organ_body: 1, organ_open: 0, organ_age: 25, organ_side: 0, organ_follicle: 0, organ_albicans: 0, organ_vessel: 0, organ_luteum: 0, organ_parts: 0, organ_agelab: 0,
+    organ_grow: 0, organ_body: 1, organ_open: 0, organ_age: 25, organ_follicle: 0, organ_albicans: 0, organ_vessel: 0, organ_luteum: 0, organ_parts: 0, organ_agelab: 0, organ_counts: 0,
     section_age: 26, section_pair: 0, section_vessel: 0, section_macrophage: 0, section_albicans: 0, section_follicle: 0, section_cyst: 0,
-    section_tiles: 0, section_feat: 0, section_forest: 0, section_pred: 0, section_mask: 0, section_net: 0,
-    charts_slides: 0, charts_hist: 0, charts_trend: 0, charts_sweep: 20, charts_focus: 0, charts_rf: 1, charts_seg: 1, charts_band: 0, charts_cmp: 0, charts_side: 0, charts_score: 0, charts_iou: 0 });
+    section_tiles: 0, section_feat: 0, section_forest: 0, section_pred: 0, section_mask: 0, section_net: 0, section_lift: 0, section_kinds: 0, section_names: 0,
+    charts_slides: 0, charts_hist: 0 });
   let a, b;
   // The reserve: the tour's PET body, the ovary small in its pelvis; it grows out of the body, opens, and its parts are named
   a = C.title.a; b = C.title.b;
@@ -3192,7 +3177,8 @@ function buildStory() {
   ramp('section_pair', a + 35, a + 41, 0, 1);
   cam(a + 35.5, 'section', 'pair');
   cam(b - 0.5, 'section', 'pair', 6, 'spin');
-  // Two methods: tiles, their features, the forest's vote, the predictions; then SegFormer's masks; then the scores
+  // Two methods: tiles, their features, the forest's vote, the predictions; then SegFormer's masks, and the scores as tags
+  // on the masked section's own objects (story labels, below)
   a = C.methods.a; b = C.methods.b;
   ramp('section_pair', a, a + 2, 1, 0);
   ramp('section_tiles', a + 2, a + 7, 0, 1);
@@ -3210,52 +3196,39 @@ function buildStory() {
   ramp('section_mask', a + 39.5, a + 47.5, 0, 1);
   cam(a + 39.5, 'section', 'mask', -6);
   cam(a + 47.5, 'section', 'mask', 6, 'spin');
-  hide('section', a + 48, a + 50);
-  jump('section_mask', a + 50.2, 1, 0);
-  show('charts', a + 48.5, a + 50.5);
-  ramp('charts_score', a + 49.5, a + 53, 0, 1);
-  ramp('charts_iou', a + 52, a + 55, 0, 1);
-  cam(a + 49, 'charts', 'scores', -6);
-  cam(b - 0.5, 'charts', 'scores', 6, 'spin');
-  // Trends with age: the four charts on the right sweep from 20 to 70 while the ovary on the left ages along; then the
-  // follicles up close (behind a short fade, so no other chart passes through the middle)
+  cam(b - 0.5, 'section', 'mask', 18, 'spin', [0, 10]);
+  // Trends with age: the big cut-away ovary alone ages from 20 to 70, its tags giving each method's count on the poster's
+  // lines (no charts: the r values are on the panel)
   a = C.trends.a; b = C.trends.b;
-  ramp('charts_score', a, a + 2, 1, 0); ramp('charts_iou', a, a + 2, 1, 0);
-  ramp('charts_trend', a + 1, a + 4, 0, 1);
-  ramp('charts_side', a, a + 3, 0, 1);
-  jump('organ_grow', a, 0, 1); jump('organ_body', a, 1, 0); jump('organ_side', a, 0, 1); jump('organ_agelab', a, 0, 1); jump('organ_age', a, 25, 20);
+  hide('section', a, a + 2);
+  jump('section_mask', a + 2.2, 1, 0);
+  jump('organ_body', a, 1, 0); jump('organ_agelab', a, 0, 1); jump('organ_age', a, 25, 20);
   show('organ', a + 1, a + 3);
-  ramp('charts_sweep', a + 5, a + 46, 20, 70);
-  ramp('organ_age', a + 5, a + 46, 20, 70);
-  cam(a + 1, 'charts', 'side', -6);
-  cam(a + 46, 'charts', 'side', 6, 'spin');
-  ramp('charts_a', a + 46.3, a + 47.3, 1, 0); hide('organ', a + 46.3, a + 47.3);
-  jump('charts_focus', a + 47.4, 0, 3); jump('charts_side', a + 47.4, 1, 0); jump('charts_band', a + 47.4, 0, 1);
-  ramp('charts_a', a + 47.5, a + 49, 0, 1);
-  cam(a + 47.4, 'charts', 'focus');
-  cam(b - 0.5, 'charts', 'focus', 8, 'spin');
-  // Do the methods agree: all four charts again (behind a short fade), then they turn into the comparisons
-  a = C.agree.a; b = C.agree.b;
-  ramp('charts_a', a, a + 1, 1, 0);
-  jump('charts_focus', a + 1.1, 3, 0); jump('charts_band', a + 1.1, 1, 0);
-  ramp('charts_a', a + 1.2, a + 2.5, 0, 1);
-  ramp('charts_cmp', a + 3, a + 10, 0, 1);
-  cam(a + 1.1, 'charts', 'trends', -6);
-  cam(b - 0.5, 'charts', 'trends', 8, 'spin');
-  // Next, a network: the illustrative spatial neighbor network over the section, changing as it ages from 25 to 65
+  ramp('organ_counts', a + 3, a + 5, 0, 1);
+  ramp('organ_age', a + 5, a + 37, 20, 70);
+  cam(a + 1, 'organ', 'default', -8);
+  cam(a + 14, 'organ', 'default', 6, 'spin');
+  cam(a + 19, 'organ', 'face', -4);
+  cam(b - 0.5, 'organ', 'face', 8, 'spin');
+  // Next, a network: the illustrative spatial neighbor network over the section; it tips back, its nodes rise off it and
+  // gather into hubs by kind, the links into bands between kinds; then it ages from 25 to 65
   a = C.network.a; b = C.network.b;
-  hide('charts', a, a + 2);
+  hide('organ', a, a + 2);
+  jump('organ_counts', a + 2.2, 1, 0); jump('organ_agelab', a + 2.2, 1, 0);
   jump('section_age', a, 26, 25);
   show('section', a + 0.5, a + 2.5);
-  ramp('section_net', a + 2, a + 10, 0, 1);
-  ramp('section_age', a + 12, a + 28, 25, 65);
+  ramp('section_net', a + 2, a + 9, 0, 1);
+  ramp('section_lift', a + 10, a + 14, 0, 1);
+  ramp('section_kinds', a + 14.5, a + 19, 0, 1);
+  ramp('section_names', a + 17, a + 19, 0, 1);   // (the hubs' names: the set's labels, each going with its hub)
+  ramp('section_age', a + 20, a + 36, 25, 65);
   cam(a + 1, 'section', 'net', -6);
-  cam(a + 12, 'section', 'net', 2, 'spin');
-  cam(b, 'section', 'net', 8, 'spin');
+  cam(a + 9.5, 'section', 'net', 2, 'spin');
+  cam(a + 16, 'section', 'kinds');
+  cam(a + 20, 'section', 'kinds', -4);
+  cam(b, 'section', 'kinds', 10, 'spin');
   for (const n in TR) TR[n].sort((x, y) => x[0] - y[0]);
   buildCamera(wp);
-  // the ovary beside the charts takes their turn (the two are one picture there)
-  ST.side = [C.trends.a - 1, C.trends.b];
 
   // --------------------------------------------------------- story labels
   // (the sets label their own parts; the story adds what the scene alone does not say)
@@ -3266,6 +3239,10 @@ function buildStory() {
   a = C.section.a;
   [['vessel', 6, 11.5, 'cyn'], ['macrophage', 12, 17.5, 'grn'], ['albicans', 18, 23.5, 'mag'], ['follicle', 24, 30.5, 'amb']].forEach(([k, t0, t1, cls]) =>
     label('section', k, `<b>${esc(cap(KD[k].name))}</b>${fmt(KD[k].annotated)} marked`, a + t0 + 0.5, a + t1, cls));
+  // the scores as tags on the masked section's own objects: the random forest's F1 and SegFormer's IoU (the poster's)
+  a = C.methods.a; b = C.methods.b;
+  [['follicle', 49.5, 'amb'], ['vessel', 50.3, 'cyn'], ['macrophage', 51.1, 'grn'], ['albicans', 51.9, 'mag'], ['cyst', 53.5, '']].forEach(([k, t0, cls]) =>
+    label('section', k, `<b>${esc(cap(KD[k].name))}</b>${KD[k].rf ? `F1 ${sc2(KD[k].rf.f1)} · ` : ''}IoU ${sc2(KD[k].iou)}${k === 'cyst' ? ': the mask misses most of it' : ''}`, a + t0, b, cls));
 }
 // camera waypoints: [t, az, el, dist, tx, ty, tz, ease, set, narrow factor, FIT's target shift]; 'spin' segments turn at
 // a steady pace.
@@ -3300,10 +3277,10 @@ function buildCamera(wp) {
   });
 }
 // the turn a set has at story time t: that of its latest stay on show (it starts fading in a little before its first view)
-// (the body and the ovary share one turn: one frame; beside the charts, the ovary takes theirs)
+// (the body and the ovary share one turn: one frame)
 function setYaw(k, t) {
   let c = 0;
-  const f = frameOf(k) === 'organ' && ST.side && t >= ST.side[0] && t <= ST.side[1] ? 'charts' : frameOf(k);
+  const f = frameOf(k);
   for (const y of ST.yaw) if (y.k === f && y.t0 - 6 <= t) c = y.c;
   return c;
 }
@@ -3361,7 +3338,7 @@ function buildSetLabels() {
       fn, tx: fn ? b + '|' + r : '', none: !b && !r });
   }
 }
-// a label whose text is a function (the ovary's age, the charts' r) is read again while it shows and redrawn when it
+// a label whose text is a function (the ovary's age and counts) is read again while it shows and redrawn when it
 // changes: the HTML label, and the headset's sprite (dropped, so it is made again)
 function labelText(L) {
   if (!L.fn) return;
@@ -3514,8 +3491,7 @@ function updateTimeline(t, playing) {
 // scene with its own controls.
 const SCENES = [
   ['organ', 'Ovary', 'A drawn ovary, cut open: follicles in the cortex, blood vessels in the medulla, a corpus luteum and corpora albicantia. Its counts follow the poster\'s trend lines with age.'],
-  ['section', 'Section', 'A drawn H&E section of an ovary with the four kinds of object and cysts; a younger and an older one; the two methods; and the illustrative neighbor network.'],
-  ['charts', 'Charts', `The poster's charts in 3D: the ${FACTS.donors} donors by age, the trends with age, whether the methods agree, and their scores. The dots are illustrative.`],
+  ['section', 'Section', 'A drawn H&E section of an ovary with the four kinds of object and cysts; a younger and an older one; the two methods; and the illustrative neighbor network, also gathered by kind.'],
 ];
 const SCENE_SHORT = {};
 const TABS = [['objects', 'Objects'], ['age', 'Age'], ['methods', 'Methods'], ['scenes', 'Scenes']];
@@ -3528,8 +3504,9 @@ const ctlShown = (k, c) => !c.when || c.when(Object.fromEntries((GL.sets[k].cont
 const AGE0 = FACTS.ages[0], AGE1 = FACTS.ages[1];
 const X = { tab: 'objects', scene: 'section', ctl: {}, t0: 0, turn: 'on', kind: null, age: 30, method: 'rf' };
 const XS = {};
-// params that pick something by number jump to their new value instead of easing through the ones in between
-const STEP = new Set(['charts_focus']);
+// params that pick something by number jump to their new value instead of easing through the ones in between (none
+// in this story's scenes now)
+const STEP = new Set();
 const orbit = { cur: [0, 12, 3.6, 0, 0, 0], from: null, to: null, t0: 0, dur: 1.6 };
 const ctlValue = (k, c) => (X.ctl[k] && X.ctl[k][c.key] !== undefined ? X.ctl[k][c.key] : c.options[0][0]);
 const ctlOf = (k, key) => ctlsOf(k).find(c => c.key === key);
@@ -3538,11 +3515,10 @@ const optKey = (k, key, re) => { const c = ctlOf(k, key), o = c && c.options.fin
 const hasOpt = (k, key, v) => { const c = ctlOf(k, key); return !!(c && c.options.some(o => o[0] === v)); };
 // the age slider as a set's own Age option (the one nearest X.age)
 const ageOpt = c => { let b = c.options[0][0], bd = Infinity; for (const [v, n] of c.options) { const a = parseFloat(n) || parseFloat(v), d = Math.abs(a - X.age); if (d < bd) { bd = d; b = v; } } return b; };
-// a view option's camera: the one it stands for, or the cam view of the same name (a focused chart has its own)
-const CAM_ALIAS = { organ: { cut: 'default', closed: 'whole', body: 'pelvis' }, section: { section: 'default', masks: 'mask', network: 'net' }, charts: { compare: 'trends' } };
+// a view option's camera: the one it stands for, or the cam view of the same name
+const CAM_ALIAS = { organ: { cut: 'default', closed: 'whole', body: 'pelvis' }, section: { section: 'default', masks: 'mask', network: 'net' } };
 function camFor(k, v) {
   const c = GL.sets[k].cam || {}, al = CAM_ALIAS[k] || {}, vc = ctlOf(k, 'view'), o = vc && vc.options.find(x => x[0] === v), n = o ? String(o[1]).toLowerCase() : '';
-  if (k === 'charts' && (v === 'trends' || v === 'compare') && ctlValue('charts', ctlOf('charts', 'focus')) !== '0' && c.focus) return 'focus';
   for (const x of [al[v], v, n, al[n]]) if (x && c[x]) return x;
   return null;
 }
@@ -3564,14 +3540,14 @@ function exploreTargets(now = performance.now()) {
   const c = { t: (now - X.t0) / 1000 };
   for (const ct of s.controls || []) c[ct.key] = isAge(ct) ? ageOpt(ct) : ctlValue(k, ct);
   if (s.explore) Object.assign(tg, s.explore(c));
-  // the age slider drives the ovary and the section to the year (the sets' own Age options are steps of ten); the
-  // charts' cursor follows it on the Age tab
+  // the age slider drives the ovary and the section to the year (the sets' own Age options are steps of ten); on the Age
+  // tab the cut-away ovary carries its tags (each method's count on the poster's lines) instead of its parts' names
   if (k === 'organ') {
     tg.organ_age = X.age;
     if (viewIs('organ', /body/)) Object.assign(tg, GL.sets.body.params, { body_a: 1, body_net: 0, body_state: 0, body_blank: 0 });   // the ovary in the tour's body
+    else if (X.tab === 'age') Object.assign(tg, { organ_counts: 1, organ_parts: 0 });
   }
   if (k === 'section') tg.section_age = X.age;
-  if (k === 'charts' && X.tab === 'age' && viewIs('charts', /trends/)) tg.charts_sweep = X.age;
   const out = {};
   for (const n in DEF) out[n] = n in tg ? tg[n] : n.endsWith('_a') ? 0 : XS[n];
   return out;
@@ -3597,8 +3573,8 @@ function setCtl(k, key, v) {
   if (!c || !c.options.some(o => o[0] === v)) return;
   (X.ctl[k] = X.ctl[k] || {})[key] = v;
   X.t0 = performance.now();
-  // a view has its own best camera (and a chart brought to the middle, its own)
-  if ((key === 'view' || (k === 'charts' && key === 'focus')) && k === X.scene) { const n = camFor(k, ctlValue(k, ctlOf(k, 'view'))); flyTo(view(k, n || 'default')); }
+  // a view has its own best camera
+  if (key === 'view' && k === X.scene) { const n = camFor(k, ctlValue(k, ctlOf(k, 'view'))); flyTo(view(k, n || 'default')); }
   pushState(); renderAll();
 }
 // a view of a set by its option's key, its scene brought up
@@ -3620,21 +3596,19 @@ function orbitStep(now) {
 // --------------------------------------------------------------- actions --
 // Each setter changes its own field only when called with ui false (a shared room's state arriving); picked by
 // hand (ui true) it also sets the scenes' controls that show it.
-// a kind of object (null none): picked out on the section and in the ovary (where it has it), its chart brought to the
-// middle; a kind the ovary on show lacks (macrophages, cysts) brings up the section
+// a kind of object (null none): picked out on the section and in the ovary (where it has it); a kind the ovary on show
+// lacks (macrophages, cysts) brings up the section
 function selectKind(v, ui = true) {
   X.kind = KD[v] ? v : null;
   if (ui) {
     const k = X.kind;
     (X.ctl.section = X.ctl.section || {}).show = k || 'none';
     (X.ctl.organ = X.ctl.organ || {}).show = k && hasOpt('organ', 'show', k) ? k : 'none';
-    (X.ctl.charts = X.ctl.charts || {}).focus = String(CHART.indexOf(k) + 1);   // (none, or the cyst: '0', all four)
     if (k && X.scene === 'organ' && !hasOpt('organ', 'show', k)) openScene('section');
-    else if (X.scene === 'charts') flyTo(view('charts', viewCam('charts') || 'default'));
   }
   pushState(); renderAll();
 }
-// the age (20 to 70): the ovary, the section and (on the Age tab) the charts' cursor follow it
+// the age (20 to 70): the ovary and the section follow it
 function setAge(v) {
   X.age = Math.round(clamp(+v, AGE0, AGE1));
   syncAge();
@@ -3730,20 +3704,19 @@ function showTab(k) {
 // a tab picked by hand brings up the scene it talks about (a shared room's tab arriving does not: its scene comes with it)
 function pickTab(k) {
   showTab(k);
-  if (k === 'objects' && X.scene === 'charts' && !viewIs('charts', /trends|compare/)) openScene('section');
-  if (k === 'age' && X.scene === 'charts' && !viewIs('charts', /trends/)) showView('charts', 'trends');
-  if (k === 'methods' && !(X.scene === 'section' && viewIs('section', /tiles|forest|masks/)) && !(X.scene === 'charts' && viewIs('charts', /scores/))) setMethod(X.method);
+  if (k === 'methods' && !(X.scene === 'section' && viewIs('section', /tiles|forest|masks/))) setMethod(X.method);
   renderAll();
 }
 function renderAll() { renderObjects(); renderAge(); renderMethods(); renderScenes(); updateExtraLabels(); }
-// a kind's numbers: annotated, the random forest's scores, SegFormer's IoU, its trend and the methods' agreement
+// a kind's numbers: annotated, the random forest's scores, SegFormer's IoU, its trend and the methods' agreement (as
+// text: no charts in this story's explore mode)
 function kindStats(key) {
   const k = KD[key], f1 = FACTS.f1[key], rows = [];
   if (k.annotated) rows.push(['Marked by hand', fmt(k.annotated), 'training labels']);
   if (k.rf) rows.push(['Random forest', `F1 ${sc2(k.rf.f1)}`, `precision ${sc2(k.rf.precision)} · recall ${sc2(k.rf.recall)}`]);
   rows.push(['SegFormer', `IoU ${sc2(k.iou)}`, key === 'cyst' ? 'hard: the masks mostly miss' : 'overlap of masks']);
   if (k.trend) rows.push(['With age', `r ${rT(k.trend.rf.r)} · ${rT(k.trend.seg.r)}`, `RF p ${pT(k.trend.rf.p)} · Seg p ${pT(k.trend.seg.p)}`]);
-  if (k.compare) rows.push(['Methods agree?', `r ${rT(k.compare.r)}`, `p ${pT(k.compare.p)}`]);
+  if (k.compare) rows.push(['Methods agree', `r ${rT(k.compare.r)}`, `donor by donor · p ${pT(k.compare.p)}`]);
   const note = f1 && f1.printed !== f1.computed ? `F1 ${sc2(f1.printed)} as the poster prints it; its precision and recall give ${sc2(f1.computed)} (asked of the authors).` : '';
   return { rows, note };
 }
@@ -3754,25 +3727,25 @@ function renderObjects() {
   let h = `<p class="sub">The four kinds of object the poster counts, and cysts, which only the segmentation looks for. Pick one, or point at one on the section.</p>
     <div class="chips">${KINDS.map(q => chip(`data-act="kind" data-v="${q}"`, esc(Plural(q)), k === q, KCOL[q])).join('')}</div>`;
   if (k) {
-    const st = kindStats(k), ci = CHART.indexOf(k);
+    const st = kindStats(k);
     h += `<h3><span class="sw" style="display:inline-block;width:14px;height:14px;border-radius:3px;background:${KCOL[k]};margin-right:8px"></span>${esc(Plural(k))}</h3>
       <p class="sub">${esc(KIND_TEXT[k])}</p>
       <dl class="stats">${st.rows.map(([t, v, s]) => `<dt>${t}</dt><dd>${esc(v)}<small>${esc(s)}</small></dd>`).join('')}</dl>
       ${st.note ? `<p class="note">${esc(st.note)}</p>` : ''}
-      <p class="grp-h">Show it</p><div class="chips">${chip('data-act="view" data-v="section:section"', 'On the section', X.scene === 'section' && viewIs('section', /^section$/))}${hasOpt('organ', 'show', k) ? chip('data-act="view" data-v="organ:cut"', 'In the ovary', X.scene === 'organ') : ''}${ci >= 0 ? chip('data-act="view" data-v="charts:trends"', 'With age', X.scene === 'charts' && viewIs('charts', /trends/)) + chip('data-act="view" data-v="charts:compare"', 'Methods agree?', X.scene === 'charts' && viewIs('charts', /compare/)) : ''}</div>`;
+      <p class="grp-h">Show it</p><div class="chips">${chip('data-act="view" data-v="section:section"', 'On the section', X.scene === 'section' && viewIs('section', /^section$/))}${hasOpt('organ', 'show', k) ? chip('data-act="view" data-v="organ:cut"', 'In the ovary', X.scene === 'organ') : ''}</div>`;
   } else h += `<p class="empty">${fmt(FACTS.annotated)} objects of the four kinds were marked by hand to train the methods.</p>`;
   pane.innerHTML = h;
 }
-// the counts on the poster's trend lines at the age (objects per section, rounded), in the charts' order
+// the counts on the poster's trend lines at the age (objects per section, rounded), in the order of its trend charts
 const ageRows = () => CHART.map(q => [q, onLine(q, 'rf', X.age), onLine(q, 'seg', X.age)]);
 function renderAge() {
   const pane = $('#pane-age');
   if (!pane) return;
-  pane.innerHTML = `<p class="sub">Move the age: the ovary and the section follow the poster's trend lines, and the charts' cursor moves along.</p>
+  pane.innerHTML = `<p class="sub">Move the age: the ovary and the section follow the poster's trend lines (different donors at each age, not one ovary followed over time).</p>
     ${ageInput()}
     <p class="grp-h">On the poster's trend line at <b data-agev style="color:var(--ink)">${X.age}</b> (objects per section)</p>
     <dl class="stats" id="ageTab">${ageTable()}</dl>
-    <p class="grp-h">Show it on</p><div class="chips">${chip('data-act="scene" data-v="organ"', 'The ovary', X.scene === 'organ')}${chip('data-act="scene" data-v="section"', 'The section', X.scene === 'section')}${chip('data-act="view" data-v="charts:trends"', 'The charts', X.scene === 'charts')}</div>
+    <p class="grp-h">Show it on</p><div class="chips">${chip('data-act="scene" data-v="organ"', 'The ovary', X.scene === 'organ')}${chip('data-act="scene" data-v="section"', 'The section', X.scene === 'section')}</div>
     <p class="note">The two methods count differently (random forest, segmentation); the lines are the poster's. The ovary and the section are drawn to follow them, not to scale.</p>`;
 }
 const ageTable = () => ageRows().map(([q, r, s]) => `<dt><span class="sw" style="display:inline-block;width:10px;height:10px;border-radius:2px;background:${KCOL[q]};margin-right:6px"></span>${esc(Plural(q))}</dt><dd>${fmt(r)} · ${fmt(s)}<small>random forest · segmentation</small></dd>`).join('');
@@ -3790,7 +3763,7 @@ function renderMethods() {
     <div class="chips">${chip('data-act="method" data-v="rf"', '1 · Tiles and a random forest', rf)}${chip('data-act="method" data-v="seg"', '2 · SegFormer\'s masks', !rf)}</div>
     <h3>${esc(m.title)}</h3><p>${esc(m.steps.join(' → '))}.</p>
     <div class="chips">${rf ? chip('data-act="view" data-v="section:tiles"', 'Tiles and features', X.scene === 'section' && viewIs('section', /tiles/)) + chip('data-act="view" data-v="section:forest"', 'The vote', X.scene === 'section' && viewIs('section', /forest/))
-      : chip('data-act="view" data-v="section:masks"', 'The masks', X.scene === 'section' && viewIs('section', /masks/))}${chip('data-act="view" data-v="charts:scores"', 'Scores as bars', X.scene === 'charts' && viewIs('charts', /scores/))}</div>
+      : chip('data-act="view" data-v="section:masks"', 'The masks', X.scene === 'section' && viewIs('section', /masks/))}</div>
     <dl class="stats">${kinds.map(q => `<dt><span class="sw" style="display:inline-block;width:10px;height:10px;border-radius:2px;background:${KCOL[q]};margin-right:6px"></span>${esc(Plural(q))}</dt><dd>${rf ? `F1 ${sc2(KD[q].rf.f1)}<small>precision ${sc2(KD[q].rf.precision)} · recall ${sc2(KD[q].rf.recall)}</small>` : `IoU ${sc2(KD[q].iou)}`}</dd>`).join('')}</dl>
     <p class="note">${rf ? 'Precision: of the tiles called follicle, how many are one. Recall: of the follicles, how many were found. F1: the two in one number. 1 is perfect.'
       : `IoU: how far a predicted mask and the true one overlap (1 is perfect). Cysts, found only by the segmentation, score just ${sc2(KD.cyst.iou)}: hard.`}</p>`;
@@ -4897,21 +4870,17 @@ function drawObjectsPane(ctx, P, x, y, W, bottom) {
   y += rows(ctx, st.rows.map(([t, v, s]) => [null, t, v, s]), x, y, W, bottom) + 6;
   if (st.note && y + 60 < bottom) y += textBlock(ctx, st.note, x, y, W, 21, 29, VC.faint, 400, 2) + 10;
   if (y + 60 > bottom) return;
-  const ci = CHART.indexOf(k);
   flow(ctx, P, [{ id: 'sh:sec', label: 'On the section', on: X.scene === 'section' && viewIs('section', /^section$/), fn: () => showView('section', 'section') }]
-    .concat(hasOpt('organ', 'show', k) ? [{ id: 'sh:organ', label: 'In the ovary', on: X.scene === 'organ', fn: () => showView('organ', 'cut') }] : [])
-    .concat(ci >= 0 ? [{ id: 'sh:trend', label: 'With age', on: X.scene === 'charts' && viewIs('charts', /trends/), fn: () => showView('charts', 'trends') },
-      { id: 'sh:cmp', label: 'Methods agree?', on: X.scene === 'charts' && viewIs('charts', /compare/), fn: () => showView('charts', 'compare') }] : []), x, y, W, bottom, { px: 22, h: 50 });
+    .concat(hasOpt('organ', 'show', k) ? [{ id: 'sh:organ', label: 'In the ovary', on: X.scene === 'organ', fn: () => showView('organ', 'cut') }] : []), x, y, W, bottom, { px: 22, h: 50 });
 }
 function drawAgePane(ctx, P, x, y, W, bottom) {
-  y += textBlock(ctx, 'Move the age: the ovary and the section follow the poster\'s trend lines, and the charts\' cursor moves along.', x, y, W, 24, 33, VC.muted, 400, 2) + 14;
+  y += textBlock(ctx, 'Move the age: the ovary and the section follow the poster\'s trend lines (different donors at each age, not one ovary followed over time).', x, y, W, 24, 33, VC.muted, 400, 2) + 14;
   y += drawAge(ctx, P, x, y, W) + 14;
   y += head(ctx, x, y, `On the poster's trend line at ${X.age} (objects per section): random forest · segmentation`);
   y += rows(ctx, ageRows().map(([q, r, s]) => [KCOL[q], Plural(q), `${fmt(r)} · ${fmt(s)}`, '']), x, y, W, bottom) + 14;
   y += head(ctx, x, y, 'Show it on');
   y += flow(ctx, P, [{ id: 'a:organ', label: 'The ovary', on: X.scene === 'organ', fn: () => openScene('organ') },
-    { id: 'a:sec', label: 'The section', on: X.scene === 'section', fn: () => openScene('section') },
-    { id: 'a:charts', label: 'The charts', on: X.scene === 'charts', fn: () => showView('charts', 'trends') }], x, y, W, bottom, { px: 22, h: 50 }) + 16;
+    { id: 'a:sec', label: 'The section', on: X.scene === 'section', fn: () => openScene('section') }], x, y, W, bottom, { px: 22, h: 50 }) + 16;
   if (y + 70 < bottom) textBlock(ctx, 'The two methods count differently; the lines are the poster\'s. The ovary and the section are drawn to follow them, not to scale.', x, y, W, 21, 29, VC.faint, 400, 3);
 }
 function drawMethodsPane(ctx, P, x, y, W, bottom) {
@@ -4923,13 +4892,12 @@ function drawMethodsPane(ctx, P, x, y, W, bottom) {
   y += textBlock(ctx, m.steps.join(' → ') + '.', x, y, W, 24, 33, VC.muted, 400, 4) + 12;
   y += flow(ctx, P, (rf ? [{ id: 'v:tiles', label: 'Tiles and features', on: X.scene === 'section' && viewIs('section', /tiles/), fn: () => showView('section', 'tiles') },
     { id: 'v:forest', label: 'The vote', on: X.scene === 'section' && viewIs('section', /forest/), fn: () => setMethod('rf') }]
-    : [{ id: 'v:masks', label: 'The masks', on: X.scene === 'section' && viewIs('section', /masks/), fn: () => setMethod('seg') }])
-    .concat([{ id: 'v:scores', label: 'Scores as bars', on: X.scene === 'charts' && viewIs('charts', /scores/), fn: () => showView('charts', 'scores') }]), x, y, W, bottom, { px: 22, h: 50 }) + 16;
+    : [{ id: 'v:masks', label: 'The masks', on: X.scene === 'section' && viewIs('section', /masks/), fn: () => setMethod('seg') }]), x, y, W, bottom, { px: 22, h: 50 }) + 16;
   y += rows(ctx, (rf ? KINDS4 : KINDS).map(q => [KCOL[q], Plural(q), rf ? `F1 ${sc2(KD[q].rf.f1)}` : `IoU ${sc2(KD[q].iou)}`, rf ? `precision ${sc2(KD[q].rf.precision)} · recall ${sc2(KD[q].rf.recall)}` : '']), x, y, W, bottom) + 10;
   if (y + 70 < bottom) textBlock(ctx, rf ? 'Precision: of the tiles called follicle, how many are one. Recall: of the follicles, how many were found. F1: the two in one number. 1 is perfect.'
     : `IoU: how far a predicted mask and the true one overlap (1 is perfect). Cysts, found only by the segmentation: just ${sc2(KD.cyst.iou)}.`, x, y, W, 21, 29, VC.faint, 400, 3);
 }
-// the four scenes, and the chosen scene's own controls (and the age, where the scene shows it)
+// the scenes, and the chosen scene's own controls (and the age, where the scene shows it)
 function drawScenesPane(ctx, P, x, y, W, bottom) {
   const cw = (W - 12 * (SCENES.length - 1)) / SCENES.length;
   SCENES.forEach(([k, n], j) => vButton(ctx, P, 'scene:' + k, x + j * (cw + 12), y, cw, 56, SCENE_SHORT[k] || n, () => openScene(k), { on: X.scene === k, px: 22 }));
@@ -5118,7 +5086,9 @@ const APP = {
     let best = 'section', ba = 0;
     for (const k of SET_ORDER) { const a = Math.max(S[k + '_a'], 0.9 * S2[k + '_a']); if (a > ba + 0.01) { ba = a; best = k; } }
     if (best === 'body') best = 'organ';   // (the body shows with the ovary in it)
-    if (best === 'organ' && S.organ_side > 0.5 && S.charts_a > 0.5) best = 'charts';   // (the ovary beside the charts: the charts' view)
+    // (the donors' slides are no scene of explore mode: from there, explore's start)
+    const fromSlides = best === 'charts';
+    if (fromSlides) best = 'section';
     // the story's view, taken back into the set's own frame (explore shows sets unturned)
     const v = storyCam(ts).slice(0, 6), r = -setYaw(best, ts) * D2R, x = v[3], z = v[5];
     v[0] += r / D2R; v[3] = x * Math.cos(r) + z * Math.sin(r); v[5] = -x * Math.sin(r) + z * Math.cos(r);
@@ -5141,18 +5111,16 @@ const APP = {
     }
     // (a set that remembers what it showed last is told the chosen controls, long settled, twice)
     if (s.explore) { const c = { t: 1e3 }; for (const c2 of s.controls || []) c[c2.key] = isAge(c2) ? ageOpt(c2) : ctlValue(best, c2); s.explore(c); s.explore(c); }
-    // the story's picks carry over to the panes: the kind picked out (on the section, or the chart in the middle), the
-    // age, the method
+    // the story's picks carry over to the panes: the kind picked out (on the section), the age, the method
     X.kind = null;
     if (best === 'section') { const on = KINDS.filter(q => (S['section_' + q] || 0) > 0.5); if (on.length === 1) X.kind = on[0]; X.ctl.section.show = X.kind || 'none'; }
-    if (best === 'charts') { const f = clamp(Math.round(S.charts_focus || 0), 0, CHART.length); X.ctl.charts.focus = String(f); if (f) X.kind = CHART[f - 1]; }
-    const ag = best === 'organ' ? S.organ_age : best === 'section' ? S.section_age : S.charts_sweep < 69.5 ? S.charts_sweep : X.age;
+    const ag = best === 'organ' ? S.organ_age : best === 'section' ? S.section_age : X.age;
     X.age = Math.round(clamp(ag || X.age, AGE0, AGE1));
     X.method = (S.section_mask || 0) > 0.5 ? 'seg' : 'rf';
-    X.tab = best === 'section' ? (viewIs('section', /tiles|forest|masks/) ? 'methods' : 'objects')
-      : best === 'charts' ? (viewIs('charts', /scores/) ? 'methods' : viewIs('charts', /trends/) ? 'age' : viewIs('charts', /compare/) ? 'objects' : 'scenes') : 'age';
-    // from the last chapter (the story's end, or its Explore button): the section, in the Objects tab
-    if (ts >= C.network.a) openStart();
+    X.tab = best === 'section' ? (viewIs('section', /tiles|forest|masks/) ? 'methods' : 'objects') : 'age';
+    // from the last chapter (the story's end, or its Explore button), or from the donors' slides: the section, in the
+    // Objects tab
+    if (ts >= C.network.a || fromSlides) openStart();
     ST.labels.forEach(L => { L.el.style.opacity = 0; L.o = 0; });
     showTab(X.tab); pushState(); renderAll();
     $('#panel').scrollTop = 0;

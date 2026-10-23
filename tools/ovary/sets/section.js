@@ -645,7 +645,7 @@ varying vec3 vC; varying vec2 vQ;
 void main() {
   vC = aCol; vQ = position.xy;
   vec4 mv = modelViewMatrix * vec4(aH.xyz, 1.0);
-  mv.xy += position.xy * 2.6 * aH.w * length(modelViewMatrix[0].xyz);
+  mv.xy += position.xy * 3.0 * aH.w * length(modelViewMatrix[0].xyz);
   gl_Position = projectionMatrix * mv;
   if (aH.w < 0.002) gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
 }`,
@@ -655,8 +655,8 @@ varying vec3 vC; varying vec2 vQ;
 void main() {
   float d = length(vQ);
   if (d > 1.0) discard;
-  float rr = d * 2.6, glow = exp(-max(rr - 0.95, 0.0) * 2.2) * smoothstep(1.0, 0.55, d) * (0.9 + 0.1 * sin(uTime * 1.3));
-  gl_FragColor = vec4(mix(vC, vec3(1.0), 0.15) * glow * 0.8, uA * uOn * glow * 0.55);
+  float rr = d * 3.0, glow = exp(-max(rr - 0.95, 0.0) * 1.8) * smoothstep(1.0, 0.5, d) * (0.9 + 0.1 * sin(uTime * 1.3));
+  gl_FragColor = vec4(mix(vC, vec3(1.0), 0.15) * glow * 0.9, uA * uOn * glow * 0.75);
 }`,
   });
   set.mats.push(haloMat);
@@ -820,7 +820,7 @@ void main() {
     cam: {
       default: [0, 8, 3.5, 0, 0, 0], close: [10, 16, 0.85, REP.follicle.x, REP.follicle.y, 0], pair: [0, 6, 3.4, 0, 0, 0],
       tiles: [0, 22, 3.0, 0, 0, 0], feat: [16, 38, 1.0, tile0.x, tile0.y, 0], forest: [-16, 10, 4.6, 0.5, 0, 0],
-      mask: [0, 10, 3.3, 0, 0, 0], net: [8, 32, 3.1, 0, 0.02, 0], kinds: [0, 12, 4.3, 0, 0.2, 0],
+      mask: [0, 10, 3.3, 0, 0, 0], net: [8, 32, 3.1, 0, 0.02, 0], kinds: [0, 12, 4.6, 0, 0.24, 0],
     },
     controls: [
       { key: 'view', label: 'View', options: [['section', 'Section'], ['pair', 'Young and old'], ['tiles', 'Tiles'], ['forest', 'Forest'], ['masks', 'Masks'], ['network', 'Network'], ['kinds', 'By kind']] },
