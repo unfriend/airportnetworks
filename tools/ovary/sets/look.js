@@ -1,6 +1,6 @@
 // Shared parts of the aging ovary story's sets (pasted after OVARY_DATA, before the sets; the engine may use them too).
-// OVARY_TREND: the poster's numbers looked up (fitted lines, the relative level of each kind of object with age, the
-// trend charts' compressed y axis, r and p as printed). OVARY_LOOK: the story's look (colors; one lit material for
+// OVARY_TREND: the poster's numbers looked up (fitted lines, the relative level of each kind of object with age, r and
+// p as printed). OVARY_LOOK: the story's look (colors; one lit material for
 // merged objects that grow, shrink and light up with the age and the picked kind; a translucent mask material; a mesh
 // builder; small shapes; surface nets for signed distance fields, built in slices).
 const OVARY_TREND = (() => {
@@ -33,8 +33,6 @@ const OVARY_TREND = (() => {
     }
     return rising ? (lv(o, 0) / top >= x ? 0 : 99) : 99;
   }
-  // the trend charts' y axis as printed: log10 of the count, with 0 drawn as a row at the place of 0.5
-  const Y = c => Math.log10(Math.max(c, 0.5));
   // r and p as the poster prints them: '−0.24', '+0.40'; '2.1×10⁻⁴', '0.497'
   const SUP = { '-': '⁻', 0: '⁰', 1: '¹', 2: '²', 3: '³', 4: '⁴', 5: '⁵', 6: '⁶', 7: '⁷', 8: '⁸', 9: '⁹' };
   const rText = r => (r > 0 ? '+' : r < 0 ? '−' : '') + Math.abs(r).toFixed(2);
@@ -43,7 +41,7 @@ const OVARY_TREND = (() => {
     const [m, e] = p.toExponential(1).split('e');
     return `${m}×10${String(+e).split('').map(c => SUP[c]).join('')}`;
   }
-  return { KEYS, kind, line, level, crossing, Y, rText, pText };
+  return { KEYS, kind, line, level, crossing, rText, pText };
 })();
 
 const OVARY_LOOK = (() => {

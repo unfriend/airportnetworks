@@ -1,8 +1,18 @@
 # The aging ovary: 3D sets and engine spec
 
+**Changed in October 2026, after the owner's rule against 2D graphs:** the story draws no trend, comparison or score
+charts and no illustrative dots any more. The Agree? chapter went (its agreement r are a sentence in Age); Age is the
+big cut-away ovary aging from 20 to 70 with live count tags (`organ_counts`, read off the poster's lines:
+approximate); Methods ends with the score tags on the section's own objects (no score bars); Next tips the section
+back and gathers its illustrative neighbor network into five hubs by kind joined by bands (`section_lift`,
+`section_kinds`) while the age runs 25 to 65. The `charts` set keeps only the slides stacking into the age histogram
+(Donors); explore lost its Charts scene and shows no chart; the data keeps only the donors' ages of its cohort; the
+stray `organ_grow` key that shrank the ovary in the Reserve chapter's cortex close-up is gone. Six chapters, about
+seven minutes. This spec says what is built now; the parts taken out are in git history.
+
 The thirteenth story of the web app in `/home/user/airportnetworks`: `stories/ovary.js`, built from `tools/ovary/` like
 the microanatomy story `stories/micro.js` is built from `tools/micro/`. It turns a poster into a narrated, about
-four-and-a-half-minute 3D story (about six and a half after `tools/pace.mjs`) with an explore mode, on desktop, phones and in VR/AR headsets
+four-and-a-half-minute 3D story (about seven minutes after `tools/pace.mjs`) with an explore mode, on desktop, phones and in VR/AR headsets
 (Meta Quest Browser).
 
 - **The poster**: "Mapping the histological landscape of human ovarian aging", Parijat Chakraborty (1), Samir Moustafa
@@ -25,7 +35,7 @@ function returning `[bold, rest]`, read again while it shows, as the qubits stor
 | Path | What |
 | --- | --- |
 | `data/figures.json` | the poster's figures as read (trend lines, bands and shares at zero by decade, comparison lines, axis notes; disagreements between the two readers resolved by a third reading, listed in `resolved`) |
-| `data/gen_data.mjs` | writes `sets/data.js` (`OVARY_DATA`): the poster's numbers typed in, the readings, the illustrative cohort |
+| `data/gen_data.mjs` | writes `sets/data.js` (`OVARY_DATA`): the poster's numbers typed in, the readings the story uses, the donors' ages |
 | `sets/data.js` | `OVARY_DATA` (generated; its header documents every field) |
 | `sets/look.js` | `OVARY_TREND` (lookups) and `OVARY_LOOK` (the shared look), pasted before the sets |
 | `sets/organ.js`, `sets/section.js`, `sets/charts.js` | the three sets, each with a manifest `sets/<name>.md` |
@@ -41,15 +51,18 @@ affiliations, support, data), `facts` (255 donors, ages 20 to 70, the data GTEx 
 791 µm), `hist` (20 bars from 21, 2.45 years wide: 9, 6, 10, 5, 7, 6, 3, 5, 13, 10, 9, 25, 15, 25, 15, 14, 12, 21, 25,
 20), `kinds` (vessel, macrophage, albicans, follicle in the poster's table order, then cyst: name, plural, title, the
 poster's color, annotated count, RF precision/recall/F1, IoU, trend r and p per method, comparison r and p), `chartOrder`
-(vessel, albicans, follicle, macrophage: the 2 x 2 of the charts), `axes`, `methods` (rf, seg: names, colors, steps),
-`trends` and `compare` (read off the figures), `message` (why, reserve, approach, future), `background` (textbook, to
-be said with "about"), `cohort` (ILLUSTRATIVE dots, see below), `checks` (the F1 check: blood vessel 0.86 printed, 0.84
-computed from its precision and recall; show 0.86).
+(vessel, albicans, follicle, macrophage: the order of the poster's trend charts, for lists), `methods` (rf, seg: names,
+colors, steps), `trends` (read off the figures: each method's fitted line, the follicles' zero age, the share of donors
+with none by decade) and `compare` (read: the comparison lines' slope and intercept; a slope below 1 is where the
+segmentation finds fewer), `message` (why, reserve, approach, future), `background` (textbook, to be said with
+"about"), `cohort` (only `age`: the donors' ages in whole years filling the histogram's bars, for the Donors chapter's
+slides), `checks` (the F1 check: blood vessel 0.86 printed, 0.84 computed from its precision and recall; show 0.86).
+The bands and axes read off the figures stay in `figures.json`, unused.
 
 `OVARY_TREND`: `line(kind, method, age)` the poster's fitted line (objects per section; the lines read as straight lines
 in counts, drawn on a log axis; the follicle lines reach 0 at about 58.5 and 59); `level(kind, age)` the relative
 amount at an age (each method's line over its value at 21, the two averaged; the methods disagree on macrophages);
-`crossing(kind, x, rising)`; `Y(count)` the trend charts' axis (log10, 0 drawn at the place of 0.5); `rText(r)`
+`crossing(kind, x, rising)`; `rText(r)`
 ('+0.40', '−0.24'), `pText(p)` ('2.1×10⁻⁴', '0.497').
 
 `OVARY_LOOK`: colors (`C`: H&E and the organ's; `KIND`: the poster's colors per kind; `GLOW`: the same lifted for the
@@ -57,13 +70,9 @@ dark scene; `KI`: kind key -> index), the lit shader (`LIT`), a mesh builder (`b
 shrink or fade with the age and light up in their kind's color: `objMat(set, opts)`, `maskMat(set, opts)`, `setHi(mat,
 hi, dim)`), shapes (`blob`, `ring`, `sphere`), surface nets (`nets`) and value noise (`noise3`).
 
-**The illustrative cohort** (`OVARY_DATA.cohort`): the poster plots one dot per donor; the story draws 255 donors with
-the poster's ages (filling the histogram's bars) and per kind and method a count drawn (seeded) from the bands read off
-the charts (about the 10th, 50th and 90th percentiles per decade and the share at zero), the two methods tied so the
-comparison gives the poster's r, the spread scaled so the trend gives the poster's r (Pearson's r on counts; with the
-bands unscaled Pearson's r on counts comes closest to the printed values: ranks or log counts give follicle r near
-−0.7). `cohort.r` lists what the dots give (all within 0.01 of the printed r). **The small print must say: the dots are
-drawn to match the poster's trends, not the donors' values.** The lines, r and p are the poster's.
+**No dots.** The poster plots one dot per donor; until October 2026 the story drew an illustrative cohort generated to
+follow the read bands (in git history). Now it draws none: the trends are each method's line (approximate, said so),
+r and p are the poster's.
 
 ## The sets (details in each manifest)
 
@@ -175,7 +184,8 @@ controls.
    vessels fall; corpora albicantia rise; macrophages no trend by the random forest, p 0.497, falling by segmentation,
    not drawn in this ovary); compare each method with itself; every other trend has p below 0.001 (computed); then, in
    a second turn, the agreement donor by donor (the four comparison r; the segmentation finds fewer), what r and p mean,
-   and small print (r and p the poster's; the agreement's p range; the tags read off the lines: approximate).
+   and small print (r and p the poster's; the agreement's p range; "finds fewer" read off the comparison charts'
+   slopes; the tags read off the lines: approximate).
 6. `network` 225-270, next, a network: `section_a` 1, `section_age` 25, `section_net` 0->1 227-234 (cam `net`; label
    "illustrative"), `section_lift` 0->1 235-239, `section_kinds` 0->1 239.5-244 and `section_names` (cam `kinds`; label
    "Neighbor network by kind · illustrative"), `section_age` 25->65 245-261 (the follicles' hub fades by about 59, the
@@ -204,4 +214,4 @@ and six).
 Pearson or Spearman r; the y-axis scale of the poster's trend charts (it reads as log10 with 0 at the place of 0.5); the fitted
 lines (they read as straight lines in counts: linear fits?); the blood vessel F1 (0.86 shown, 0.84 from its precision
 and recall); how many donors the follicle comparison has (p = 1.4e-13 with r = 0.94 suggests about 30); what counts as a
-cyst; whether per-decade counts could be shared (the illustrative dots are no longer drawn).
+cyst; whether per-decade counts could be shared (they would make the count tags exact).

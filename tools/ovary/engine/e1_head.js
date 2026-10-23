@@ -23,7 +23,7 @@ const { smooth, clamp } = K;
 // ================================================================== SETS ==
 // Each set is one 3D scene of the story, centred on the origin. The story fades
 // sets in and out and drives them through their params (see SETS.x.params).
-// OVARY_DATA (the poster's numbers, the figures' readings and the illustrative cohort, tools/ovary/sets/data.js) comes
+// OVARY_DATA (the poster's numbers, the figures' readings and the donors' ages, tools/ovary/sets/data.js) comes
 // first, then OVARY_TREND and OVARY_LOOK (tools/ovary/sets/look.js: the trend lines looked up, the story's look) and
 // the tour's PET body set (SETS.body, unchanged); then the story's sets organ, section and charts.
 const SETS = {};

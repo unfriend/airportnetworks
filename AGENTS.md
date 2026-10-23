@@ -911,22 +911,25 @@ histogram, the one graph, in passing; each with a manifest) and engine parts ada
 `tools/ovary/SPEC.md` is the contract.
 
 - The data: `tools/ovary/data/gen_data.mjs` writes `tools/ovary/sets/data.js` from the poster's numbers (typed in
-  exactly) and `tools/ovary/data/figures.json` (the trend lines, bands, shares at zero and comparison lines read off its
-  figures by two readers, reconciled). The story draws no trend, comparison or score charts (the owner's rule against
-  2D graphs, October 2026; the Agree? chapter and explore's Charts scene went with them): the Age chapter is the
-  cut-away ovary aging from 20 to 70 with tags giving each method's count on the poster's lines (read off its figures:
-  approximate, the story says so), all r in words and the agreement donor by donor; Methods ends with the scores as
-  tags on the section's own objects. The data still holds a seeded illustrative cohort (only its ages are used: the
-  histogram's slides). The lines, r and p are the poster's. The network of the last chapter is the poster's next
-  step, drawn as an illustration and labelled so throughout. The slides, sections and the ovary are drawn, never GTEx
-  images or the poster's pictures.
+  exactly) and what the story uses of `tools/ovary/data/figures.json` (values read off its figures by two readers,
+  reconciled: the trend lines, the shares of donors with none, the comparison lines' slopes; the bands and axes read
+  there are kept but unused). The story draws no trend, comparison or score charts (the owner's rule against 2D
+  graphs, October 2026; the Agree? chapter, explore's Charts scene and the illustrative dots went with them): the Age
+  chapter is the cut-away ovary aging from 20 to 70 with tags giving each method's count on the poster's lines (read
+  off its figures: approximate, the story says so), all r in words and the agreement donor by donor (its "the
+  segmentation finds fewer" from the read slopes, said so in the small print); Methods ends with the scores as tags
+  on the section's own objects. Of the donors the data holds only their ages (whole years filling the histogram's
+  bars, for the Donors chapter's slides). The lines, r and p are the poster's. The network of the last chapter is the
+  poster's next step, drawn as an illustration and labelled so throughout. The slides, sections and the ovary are
+  drawn, never GTEx images or the poster's pictures.
 - `body` and `organ` share one frame (the ovary sits in the body's pelvis before it grows out of it).
 - Labels whose text is a function (the ovary's age and count tags, `organ_counts`) are read again while they show
   (`labelText`, as in the qubits story).
 - Explore: Objects (pick a kind: its numbers as text, picked out on the section and in the ovary; pointing at an object
   on the section picks it), Age (a slider from 20 to 70 driving the ovary, with its count tags, and the section; the
   counts on the poster's trend lines at that age), Methods (tiles and the forest's vote, or the masks, and their scores)
-  and Scenes (Ovary; Section, with the network By kind). No charts anywhere in explore.
+  and Scenes (Ovary; Section, with the network By kind). No charts anywhere in explore (an old link with
+  `scene=charts` is ignored).
 - **American spelling in this story too** (aging, color, gray, center, hematoxylin, neighbor), as the qubits story;
   English only.
 

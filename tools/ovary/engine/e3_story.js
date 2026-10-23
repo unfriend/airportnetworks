@@ -7,15 +7,15 @@
 // between two cues lasts long enough to read what appeared at its start; run
 // it again after the text changes). A recording replaces it with its own times.
 const NARRATION_SYNC = [
-  [0, 0], [2.6, 2.4], [4.6, 4], [10.1, 8.5], [22.7, 20], [34.1, 28], [46.2, 36],  // Reserve
-  [56.3, 45], [58.3, 46.8], [64.3, 49], [70.4, 54.5], [82.1, 63],  // Donors
-  [100.8, 80], [102.1, 81.18], [103, 81.2], [111.2, 86], [143.1, 115], [150.2, 120],  // Section
-  [160.7, 125], [161.4, 125.6], [163.3, 127], [215.7, 174.6], [231.1, 178],  // Methods
-  [240.8, 185], [241.5, 185.6], [242.7, 186.2], [243.3, 186.8], [258.3, 192], [266.9, 197],
-  [277.9, 207], [284.6, 211], [292.4, 216], [293, 216.6], [301, 219.5], [301.6, 220.1],
-  [311.5, 222.5], [312.2, 223.1],                     // Age
-  [328, 225], [328.6, 225.6], [329.8, 226.2], [338, 230], [366.2, 255.6], [376.5, 259.5],
-  [383.9, 263.5], [384.5, 264.1], [408.1, 266.5], [410.4, 268.6], [419.5, 270],  // Next
+  [0, 0], [2.6, 2.4], [4.6, 4], [10.1, 8.5], [22.7, 20], [34.1, 28], [46.3, 36],  // Reserve
+  [56.5, 45], [58.5, 46.8], [64.5, 49], [70.5, 54.5], [82.3, 63],  // Donors
+  [101, 80], [102.3, 81.18], [103.2, 81.2], [111.5, 86], [143.4, 115], [150.4, 120],  // Section
+  [161, 125], [161.7, 125.6], [163.6, 127], [216, 174.6], [231.4, 178],  // Methods
+  [241.2, 185], [241.9, 185.6], [243.1, 186.2], [243.7, 186.8], [258.8, 192], [267.4, 197],
+  [278.4, 207], [285.1, 211], [292.9, 216], [293.6, 216.6], [301.6, 219.5], [302.2, 220.1],
+  [312.2, 222.5], [312.8, 223.1],                     // Age
+  [332.9, 225], [333.6, 225.6], [334.8, 226.2], [343, 230], [371.2, 255.6], [381.5, 259.5],
+  [389, 263.5], [389.6, 264.1], [413.3, 266.5], [415.6, 268.6], [424.8, 270],  // Next
 ];
 // recording time -> original story time
 function storyT(t) {
@@ -189,12 +189,13 @@ function buildStory() {
   const trendDir = k => (k.trend.rf.r < 0 && k.trend.seg.r < 0 ? 'fall' : k.trend.rf.r > 0 && k.trend.seg.r > 0 ? 'rise' : '');
   const trendBy = (k, m) => { const t = k.trend[m]; return `${t.p >= 0.05 ? 'no trend' : t.r < 0 ? 'falling' : 'rising'} by ${m === 'rf' ? 'the random forest' : 'segmentation'} (r ${rT(t.r)}${t.p >= 0.05 ? `, p ${pT(t.p)}` : ''})`; };
   // the methods' agreement donor by donor (the poster's comparison r), well (r 0.7 or more) and less; where the
-  // segmentation's fitted line runs below the diagonal for all the less (read slopes below 1), it finds fewer
+  // segmentation's fitted line runs below the diagonal for all the less (slopes below 1, read off the poster's
+  // comparison charts), it finds fewer (and the small print says where that comes from)
+  const ag = KINDS4.slice().sort((p, q) => KD[q].compare.r - KD[p].compare.r), well = ag.filter(k => KD[k].compare.r >= 0.7), less = ag.filter(k => KD[k].compare.r < 0.7);
+  const fewer = well.length > 0 && less.length > 0 && less.every(k => OD.compare[k] && OD.compare[k].slope < 1);
   const agreeText = () => {
-    const ag = KINDS4.slice().sort((p, q) => KD[q].compare.r - KD[p].compare.r), well = ag.filter(k => KD[k].compare.r >= 0.7), less = ag.filter(k => KD[k].compare.r < 0.7);
     const rl = (ks, first) => listOf(ks.map((k, i) => `${plural(k)} (${first && !i ? 'r ' : ''}${rT(KD[k].compare.r)})`));
-    const fewer = less.length && less.every(k => OD.compare[k] && OD.compare[k].slope < 1) ? ': the segmentation finds fewer' : '';
-    return well.length && less.length ? `Donor by donor the methods agree on ${rl(well, true)}, less on ${rl(less)}${fewer}.` : `Donor by donor the methods agree on ${rl(ag, true)}.`;
+    return well.length && less.length ? `Donor by donor the methods agree on ${rl(well, true)}, less on ${rl(less)}${fewer ? ': the segmentation finds fewer' : ''}.` : `Donor by donor the methods agree on ${rl(ag, true)}.`;
   };
   const html = {
     title: `<svg class="route-mark" viewBox="0 0 360 44" aria-hidden="true"><path id="titleArc" d="M8 36 Q180 -16 352 36" fill="none" stroke="var(--red)" stroke-width="2.2" stroke-linecap="round" pathLength="1" stroke-dasharray="1" stroke-dashoffset="1"/><circle cx="8" cy="36" r="4.5" fill="var(--red)"/><circle cx="352" cy="36" r="4.5" fill="var(--red)" id="titleDot" opacity="0"/></svg>
@@ -243,7 +244,7 @@ function buildStory() {
         <p class="note" data-at="26" data-out="30.5">Compare each method with itself over the years: they count in their own ways.${F.pBelow ? ` ${F.noTrend ? 'Every other' : 'Every'} trend has p below ${F.pBelow}.` : ''}</p>`,
       `<p data-at="31">${esc(agreeText())}</p>
         <p class="note" data-at="34.5">r runs from −1 to +1: below 0, fewer with age; above 0, more; near 0, no trend. A small p means a trend this strong would rarely come about by chance.</p>
-        <p class="credits" data-at="37.5">r and p are the poster's (the agreement's p from ${pT(F.pMax)} down to ${pT(F.pMin)}). The tags on the ovary give each method's count on the poster's lines, read off its figures: approximate. The ovary is drawn to follow them, not to scale.</p>`)}`,
+        <p class="credits" data-at="37.5">r and p are the poster's (the agreement's p from ${pT(F.pMax)} down to ${pT(F.pMin)}).${fewer ? ' "Finds fewer" is read off the slopes of its comparison charts.' : ''} The tags on the ovary give each method's count on the poster's lines, read off its figures: approximate. The ovary is drawn to follow them, not to scale.</p>`)}`,
     network: `<h2 data-at="0.6">Next: a network</h2>
       ${turns(`<p data-at="1.2" data-out="29.5">Where things lie matters too. Make each object a node, and link objects that lie close together: a spatial neighbor network.</p>
         <p class="note" data-at="5" data-out="29.5">Drawn as an illustration of the poster's next step, not its result.</p>

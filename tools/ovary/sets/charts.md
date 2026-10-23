@@ -5,8 +5,8 @@ Chapter 2 (255 donors) only: the story's one graph, and it goes by in passing. N
 The trends with age, the comparisons of the two methods and their scores are no longer charts (the owner's rule against
 2D graphs, October 2026): the Age chapter tells the trends on the cut-away ovary (`organ_counts`, three live tags on
 the poster's lines) and in words (all r, p in sum, the agreement donor by donor), Methods puts the scores as tags on the
-section's own objects, and explore's Objects pane lists every number as text. The illustrative dots
-(`OVARY_DATA.cohort`'s counts) are no longer drawn anywhere; only `cohort.age` is used here.
+section's own objects, and explore's Objects pane lists every number as text. The illustrative dots went with them
+(the generator no longer makes them): `OVARY_DATA.cohort` holds only `age`, used here.
 
 ## What it is
 

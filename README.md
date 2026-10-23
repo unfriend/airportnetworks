@@ -235,8 +235,8 @@ writes it from the words (run it again after the text changes).
   (Parijat Chakraborty, Samir Moustafa, André Rendeiro; LBI Network Medicine, CeMM, Faculty of Computer Science of the
   University of Vienna; supported by CeMM and the ERC; data GTEx), public, used with the owner's OK. Its numbers are
   typed in (`tools/ovary/sets/data.js`, made by `tools/ovary/data/gen_data.mjs`), values read off its figures are in
-  `tools/ovary/data/figures.json`; the dots of the charts and the neighbor network are illustrative, and the ovary,
-  slides and sections are drawn, not GTEx images.
+  `tools/ovary/data/figures.json` (the counts on the ovary come from its lines, so they are approximate); the
+  neighbor network is illustrative, and the ovary, slides and sections are drawn, not GTEx images.
 
 - **Three qubits** (`stories/qubits.js`), after the method and figures of Joel Hancock (network compression onto
   qubits and the Pauli decomposition). The networks shown are examples made up for the story and computed in the
