@@ -223,8 +223,9 @@ Aging ovary story data (stories/ovary.js): the poster "Mapping the histological
 landscape of human ovarian aging" by Chakraborty, Moustafa and Rendeiro
 (public; data GTEx). Its numbers are typed in (tools/ovary/sets/data.js, from
 node tools/ovary/data/gen_data.mjs), values read off its figures are in
-tools/ovary/data/figures.json. The dots of its charts and its neighbor network
-are illustrative; the ovary, slides and sections are drawn, not GTEx images.
+tools/ovary/data/figures.json. Its neighbor network is illustrative, and the
+counts on the ovary are read off the poster's lines (approximate); the ovary,
+slides and sections are drawn, not GTEx images.
 
 Qubits story (stories/qubits.js): after Joel Hancock's method and figures
 (network compression onto qubits and the Pauli decomposition). The networks it

@@ -28,7 +28,7 @@ and where to read on.
 | Disease endotypes: Endotypes | `endo` | `tools/endo/` (built) | not yet | the authors' EndotypY run (kept out of the repository) |
 | Whole-body PET: One scan, one system | `pet` | `tools/pet/` (built) | not yet | the paper's tables and figures, some stand-ins |
 | Tissue microanatomy: Tissue and time | `micro` | `tools/micro/` (built) | not yet | the preprint's numbers, Iva Buljan's network (kept out) |
-| Ovarian aging: The aging ovary | `ovary` | `tools/ovary/` (built) | not yet | the poster's numbers typed in and values read off its figures; the charts' dots and the neighbor network illustrative |
+| Ovarian aging: The aging ovary | `ovary` | `tools/ovary/` (built) | not yet | the poster's numbers typed in and values read off its figures (the ovary's count tags: approximate); the neighbor network illustrative |
 | Quantum network compression: Three qubits | `qubits` | `tools/qubits/` (built) | not yet | example networks computed live; the real run's summary numbers from Joel Hancock's brief (his method and figures) |
 | Networks for everyone: Pass it on | `pass` | `tools/pass/` (built; its globe and cell cut out of `stories/airports.js` and `stories/spatial.js` at build time) | not yet | the airports' routes and the cell map's proteins as in those stories; the fish and the outbreak are simulations; English and German |
 | Collective motion: Flock | `flock` | `tools/flock/` (built) | not yet | a live simulation |

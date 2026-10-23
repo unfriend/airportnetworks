@@ -164,7 +164,8 @@ controls.
    large corpora albicantia, almost no follicles; the scale bars).
 4. `methods` 125-185, two methods: `section_tiles` 0->1 127-132 (cam `tiles`), `section_feat` 0->1 133-140 (cam `feat`),
    `section_forest` 0->1 141-158 (cam `forest`), `section_pred` 0->1 158-163; `section_mask` 0->1 164-173 (cam `mask`,
-   turning over the masked section to the end). From 174.5 story labels on the section's own objects: "Follicle · F1
+   turning over the masked section to the end). From 174.5 story labels on the section's own objects (the set's `tag_*`
+   anchors, spread over the section so the five read side by side): "Follicle · F1
    0.83 · IoU 0.70" and the same for blood vessels, macrophages and corpora albicantia, then "Cyst · IoU 0.15: the mask
    misses most of it" (all from `OVARY_DATA`). Precision, recall, F1 and IoU in one plain line each.
 5. `trends` 185-225, trends with age: the big cut-away ovary alone (`organ_agelab` 1, `organ_counts` 1), `organ_age`
@@ -186,7 +187,8 @@ controls.
 
 - **Objects**: pick one of the four, and the cyst (segmentation only): its look (`section_<kind>` and `organ_<kind>`),
   annotated count, RF scores, IoU, its trend (r, p, both methods), the methods' agreement donor by donor: as text.
-- **Age**: a slider 20 to 70: `organ_age`, `section_age` (the ovary shows its count tags); the count of each object at
+- **Age**: a slider 20 to 70: `organ_age`, `section_age` (the ovary shows its count tags; picking the tab by hand brings
+  up the cut-away ovary); the count of each object at
   that age on each method's line, `OVARY_TREND.line` ("on the poster's trend line", rounded as the tags).
 - **Methods**: tiles and the forest, or the masks, on the section; their scores as text.
 - **Scenes**: Ovary (`organ`), Section (`section`, with the network By kind), with their controls. No charts anywhere in

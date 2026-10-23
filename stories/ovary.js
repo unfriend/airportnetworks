@@ -2869,12 +2869,15 @@ function updateLight(xr) {
 // between two cues lasts long enough to read what appeared at its start; run
 // it again after the text changes). A recording replaces it with its own times.
 const NARRATION_SYNC = [
-  [0, 0], [2.6, 2.4], [4.4, 4], [9.5, 8.5], [22.1, 20], [32.6, 28], [43.8, 36],  // Reserve
-  [53.7, 45], [55, 46.2], [61.1, 49], [67.1, 54.5], [78, 63],  // Donors
-  [96.7, 80], [98, 81.18], [98.8, 81.2], [106.3, 86], [138.2, 115], [144.7, 120],  // Section
-  [154.4, 125], [155.1, 125.6], [156.9, 127], [209.3, 174.6], [223.4, 178],  // Methods
-  [232.4, 185], [233, 185.6], [300, 225],             // Age (provisional: run tools/pace.mjs)
-  [300.6, 225.6], [370, 270],                         // Next (provisional)
+  [0, 0], [2.6, 2.4], [4.6, 4], [10.1, 8.5], [22.7, 20], [34.1, 28], [46.2, 36],  // Reserve
+  [56.3, 45], [58.3, 46.8], [64.3, 49], [70.4, 54.5], [82.1, 63],  // Donors
+  [100.8, 80], [102.1, 81.18], [103, 81.2], [111.2, 86], [143.1, 115], [150.2, 120],  // Section
+  [160.7, 125], [161.4, 125.6], [163.3, 127], [215.7, 174.6], [231.1, 178],  // Methods
+  [240.8, 185], [241.5, 185.6], [242.7, 186.2], [243.3, 186.8], [258.3, 192], [266.9, 197],
+  [277.9, 207], [284.6, 211], [292.4, 216], [293, 216.6], [301, 219.5], [301.6, 220.1],
+  [311.5, 222.5], [312.2, 223.1],                     // Age
+  [328, 225], [328.6, 225.6], [329.8, 226.2], [338, 230], [366.2, 255.6], [376.5, 259.5],
+  [383.9, 263.5], [384.5, 264.1], [408.1, 266.5], [410.4, 268.6], [419.5, 270],  // Next
 ];
 // recording time -> original story time
 function storyT(t) {
@@ -3112,7 +3115,7 @@ function buildStory() {
         <p class="amber" data-at="34.5">This is where network medicine comes in: as in Tissue and time, a tissue becomes a network of neighbors.</p>
         <p class="credits" data-at="38.5">${esc(creditText())}</p>
         <p data-at="41.5"><button class="btn primary" id="btnGoExplore" type="button">Explore the ovary</button></p>
-        <p class="credits" data-at="43">Drawn, not GTEx images: the ovary, the slides and the sections. Illustrative: the network. The tags on the ovary are each method's count on the poster's lines, read off its figures: approximate.</p>`)}`,
+        <p class="credits" data-at="43">Drawn, not GTEx images: the ovary, the slides and the sections. Illustrative: the network. Approximate: the tags on the ovary (read off the poster's figures).</p>`)}`,
   };
 
   const story = $('#story');

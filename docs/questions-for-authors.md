@@ -58,7 +58,7 @@ Source: the poster "Mapping the histological landscape of human ovarian aging" b
 (2, 3) and André Rendeiro (1, 3): (1) Ludwig Boltzmann Institute for Network Medicine at the University of Vienna, (2)
 CeMM Research Center for Molecular Medicine of the Austrian Academy of Sciences, (3) Faculty of Computer Science,
 University of Vienna; data GTEx. The story types in the poster's numbers (`tools/ovary/data/gen_data.mjs`) and reads its
-charts' lines off the figures (`tools/ovary/data/figures.json`); the charts' dots are illustrative. Who to ask: Parijat
+charts' lines off the figures (`tools/ovary/data/figures.json`); the story draws no charts of its own (only the age histogram). Who to ask: Parijat
 Chakraborty (first author) and the Rendeiro group. Contact person: **TO FILL (owner)**.
 
 | # | Item | Where in the source | What the story shows now | Status |
@@ -69,7 +69,7 @@ Chakraborty (first author) and the Rendeiro group. Contact person: **TO FILL (ow
 | O4 | Blood vessel F1: 0.86 is printed, but its precision (0.81) and recall (0.88) give 0.84. | the random forest performance table | The printed 0.86; the Objects pane notes the 0.84 (`OVARY_DATA.checks.f1`). | open |
 | O5 | How many donors does the follicle comparison have? r = 0.94 with p = 1.4×10⁻¹³ suggests about 30, not 255. | the method comparison, follicle panel | The printed r and p; the illustrative dots use all 255 donors. | open |
 | O6 | What counts as a cyst (only the segmentation has it, IoU 0.15)? | the SegFormer scores | "Fluid-filled sacs. Only the segmentation looks for them"; two drawn cysts on the section that stay with age (`tools/ovary/sets/section.js`). | open |
-| O7 | Could per-decade counts (or the donors' counts without identifiers) be shared, to replace the illustrative dots? | the trend and comparison charts | Dots drawn to follow the read lines, bands and shares at zero, said to be illustrative (`OVARY_DATA.cohort`). | open |
+| O7 | Could per-decade counts (or the donors' counts without identifiers) be shared, to replace the illustrative dots? | the trend and comparison charts | Dots drawn to follow the read lines, bands and shares at zero (`OVARY_DATA.cohort`): no longer drawn since the charts went (October 2026); the count tags on the ovary come from the read lines. | open |
 
 ## Qubits: Three qubits (`qubits`)
 

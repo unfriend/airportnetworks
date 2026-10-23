@@ -21,7 +21,7 @@ Quest Browser, WebXR).
 | Disease endotypes | `stories/endo.js` | one neuromuscular junction close up; the 35 genes of congenital myasthenic syndromes in the authors' protein network (18,306 proteins), their module of 393 genes and 12 endotypes (EndotypY), the motor unit |
 | Whole-body PET | `stories/pet.js` | a PET/CT scanner and how it sees; the organs of the paper's 658 whole-body scans (Geist et al., Med 2025) and their partial correlation networks (printed and read off its figures), from health to disease; the tour's PET body |
 | Tissue microanatomy | `stories/micro.js` | the tour's H&E section and the domains a method finds in it; 24,945 GTEx slides of 40 tissues (Buljan, Bago-Horvath, Rendeiro, bioRxiv 2025); the network of organ architecture (29 organs, tissues, 10 tissue types, 70 domains, Iva Buljan's file); which domains change with age, pathology, and the contacts between domains |
-| Ovarian aging | `stories/ovary.js` | the tour's body and a drawn cut-away ovary that ages; 255 GTEx donors aged 20 to 70 (Chakraborty, Moustafa, Rendeiro, poster); a drawn H&E section with blood vessels, macrophages, corpora albicantia and follicles (14,941 marked by hand), tiles with UNI2 features and a random forest, SegFormer's masks; the poster's trends with age and method comparison (its lines, r and p; illustrative dots); an illustrative spatial neighbor network |
+| Ovarian aging | `stories/ovary.js` | the tour's body and a drawn cut-away ovary that ages; 255 GTEx donors aged 20 to 70 (Chakraborty, Moustafa, Rendeiro, poster); a drawn H&E section with blood vessels, macrophages, corpora albicantia and follicles (14,941 marked by hand), tiles with UNI2 features and a random forest, SegFormer's masks and their scores as tags on the section; the poster's trends with age told on the ovary as it ages (each method's count on its lines as tags; r and p in words) and the methods' agreement; an illustrative spatial neighbor network that tips up off the section and gathers into hubs by kind |
 | Quantum network compression | `stories/qubits.js` | example gene networks (320 genes in 8 hidden groups, at three strengths of mixing, and a random one) cut into 8 cells on 3 qubits; the coarse operator A_c on a cube, its Pauli strings, the toolbox (a Lie algebra, so(6) or so(7)) and what it drops; the real run's residual by depth and its 3-qubit circuit (Joel Hancock's method and figures) |
 | Networks for everyone (outreach; English and German) | `stories/pass.js` | a school of fish (300, a live simulation) all around you, each watching its 7 nearest neighbours; the airports story's globe (3,214 airports, 18,858 routes, taken unchanged) with a seeded S/E/I/R outbreak on its routes; the cell map story's cell (249 proteins in 13 places, taken unchanged), its NF-κB relay and CFTR in the wrong place |
 | Flock | `stories/flock.js` | 200 starlings (a live simulation) flying all around you at dusk, each following its seven nearest neighbours |
@@ -660,7 +660,7 @@ What each story shares:
 | endo | tab, scene, every scene's controls (synapse, network, tree, motor unit), endotype, gene, k (the seed-group step), method step (standing in the gap stays per device) | none |
 | pet | tab, scene, every scene's controls (scanner, body, organs, liver), the comparison (a Table 2 row), network, organ (life size stays per device) | none |
 | micro | tab, scene, every scene's controls (body, section, atlas, network), organ, domain, age, method step | none |
-| ovary | tab, scene, every scene's controls (ovary: view, show; section: view, show; charts: chart, object, method; never their Age steps), the kind of object picked, the age (20 to 70), the method (`rf` or `seg`) | none |
+| ovary | tab, scene, every scene's controls (ovary: view, show; section: view, with By kind, show; never their Age steps), the kind of object picked, the age (20 to 70), the method (`rf` or `seg`) | none |
 | qubits | tab, scene, every scene's controls (pairs; cube: view, network, cut, bits, algebra; chart: view, example, angles), the brick shown (a Pauli string by name), how many strings are added up, the gallery (kinds or largest) | none |
 | pass | tab, scene, every scene's controls but the fish's view (the fish: neighbours watched, links, shark now and then; the globe: view, colour, pillars, outbreak on; the cell: view, organelles, colour, move), the school's size, the outbreak's start (an airport's code) and settings (incubation, infectious days, spread, flights cut), the city looked up, the protein picked (never the language, the outbreak's day or the steered shark) | `shark` (as the flock's falcon, in the set's frame), `school` (quiet, twice a second, as the flock's `flock`) |
 | flock | birds, links, falcon | `falcon` (where it starts, its velocity and aim, in the set's frame), `flock` (quiet, twice a second: where the flock is, see the flock's notes) |
@@ -905,24 +905,28 @@ Parijat Chakraborty, Samir Moustafa and André Rendeiro) is generated from `tool
 sets (`organ`, a cut-away ovary built by surface nets between frames, small in the body's pelvis at first, whose
 follicles, scars and vessels follow the poster's trend lines with age; `section`, a drawn H&E section in relief with the
 four kinds and cysts, a younger and an older one, the tiles, UNI2 features, a grove of decision trees that votes, the
-predictions, SegFormer's masks and the illustrative neighbor network; `charts`, the slides into the age histogram, the
-four trend charts, the four comparisons and the scores, in 3D; each with a manifest) and engine parts adapted from the
-microanatomy story's. `tools/ovary/SPEC.md` is the contract.
+predictions, SegFormer's masks and the illustrative neighbor network, which tips back off the section and gathers into
+five hubs by kind joined by bands (`section_lift`, `section_kinds`); `charts`, only the slides stacking into the age
+histogram, the one graph, in passing; each with a manifest) and engine parts adapted from the microanatomy story's.
+`tools/ovary/SPEC.md` is the contract.
 
 - The data: `tools/ovary/data/gen_data.mjs` writes `tools/ovary/sets/data.js` from the poster's numbers (typed in
   exactly) and `tools/ovary/data/figures.json` (the trend lines, bands, shares at zero and comparison lines read off its
-  figures by two readers, reconciled). **The dots of the charts are illustrative**: a seeded cohort of 255 donors with
-  the histogram's ages, drawn to follow the read lines and bands and to give about the poster's r; the story says so.
-  The lines, r and p are the poster's. The network of the last chapter is the poster's next step, drawn as an
-  illustration. The slides, sections and the ovary are drawn, never GTEx images or the poster's pictures.
-- `body` and `organ` share one frame (the ovary sits in the body's pelvis before it grows out of it); beside the charts
-  (the trends chapter, `organ_side` and `charts_side`) the ovary takes the charts' turn (`ST.side` in `setYaw`).
-- Labels whose text is a function (the ovary's age, the charts' r) are read again while they show (`labelText`, as in
-  the qubits story).
-- Explore: Objects (pick a kind: its numbers, picked out on the section and in the ovary, its chart in the middle;
-  pointing at an object on the section picks it), Age (a slider from 20 to 70 driving the ovary, the section and the
-  charts' cursor; the counts on the poster's trend lines at that age), Methods (tiles and the forest's vote, or the
-  masks, and their scores) and Scenes.
+  figures by two readers, reconciled). The story draws no trend, comparison or score charts (the owner's rule against
+  2D graphs, October 2026; the Agree? chapter and explore's Charts scene went with them): the Age chapter is the
+  cut-away ovary aging from 20 to 70 with tags giving each method's count on the poster's lines (read off its figures:
+  approximate, the story says so), all r in words and the agreement donor by donor; Methods ends with the scores as
+  tags on the section's own objects. The data still holds a seeded illustrative cohort (only its ages are used: the
+  histogram's slides). The lines, r and p are the poster's. The network of the last chapter is the poster's next
+  step, drawn as an illustration and labelled so throughout. The slides, sections and the ovary are drawn, never GTEx
+  images or the poster's pictures.
+- `body` and `organ` share one frame (the ovary sits in the body's pelvis before it grows out of it).
+- Labels whose text is a function (the ovary's age and count tags, `organ_counts`) are read again while they show
+  (`labelText`, as in the qubits story).
+- Explore: Objects (pick a kind: its numbers as text, picked out on the section and in the ovary; pointing at an object
+  on the section picks it), Age (a slider from 20 to 70 driving the ovary, with its count tags, and the section; the
+  counts on the poster's trend lines at that age), Methods (tiles and the forest's vote, or the masks, and their scores)
+  and Scenes (Ovary; Section, with the network By kind). No charts anywhere in explore.
 - **American spelling in this story too** (aging, color, gray, center, hematoxylin, neighbor), as the qubits story;
   English only.
 
@@ -1293,7 +1297,7 @@ second), `#lbi&explore&scene=atp&view=network&now=1` (a scene with its controls)
 `#endo&explore&tab=method&step=1&k=20`, `#endo&explore&scene=syn&view=cleft`, `#endo&explore&inside`, `#pet&t=40`, `#pet&explore&tab=networks&net=C_high`, `#pet&explore&organ=muscle`,
 `#pet&explore&scene=scan&view=ring`, `#pet&explore&life`, `#micro&t=100`,
 `#micro&explore&organ=Ovary`, `#micro&explore&tab=age&age=70`, `#micro&explore&scene=atlas&view=volcano`, `#ovary&t=200`,
-`#ovary&explore&kind=follicle`, `#ovary&explore&tab=age&age=60`, `#ovary&explore&scene=section&view=forest`, `#ovary&explore&method=seg`, `#qubits&t=100`, `#qubits&explore&tab=network&net=blurred&cut=random&bits=2`,
+`#ovary&explore&kind=follicle`, `#ovary&explore&tab=age&age=60`, `#ovary&explore&scene=section&view=forest`, `#ovary&explore&scene=section&view=kinds&age=60`, `#ovary&explore&method=seg`, `#qubits&t=100`, `#qubits&explore&tab=network&net=blurred&cut=random&bits=2`,
 `#qubits&explore&brick=X2X1&alg=so6`, `#qubits&explore&sum=10`, `#qubits&explore&tab=depth&ex=on`, `#qubits&explore&scene=pairs&view=hoods`,
 `#pass&t=180&lang=de` (German), `#pass&explore&tab=fish&k=1&links=on&shark`, `#pass&explore&start=LHR&spread=high&cut=50&day=20&city=SYD`,
 `#pass&explore&protein=CFTR&move=cf`, `#pass&explore&scene=globe&pillars=on`, `#flock&explore&view=afar&links=on&birds=400`
