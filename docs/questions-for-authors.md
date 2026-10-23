@@ -26,10 +26,10 @@ Contact person: **TO FILL (owner)**.
 | P1 | The survival row reads inverted: the shorter survivors' network is the denser one (density 23 % against 7 %, disorder 0.14 against 0.23), unlike the paper's other results, and the text does not discuss it. | Table 2, "Survival" (people with cancer, split at the median of 34 months) | The row as printed, with a note saying so, in explore mode only (Networks tab); the narration does not use it. `T2` in `tools/pet/data/gen_data.mjs`; shown by `tools/pet/engine/e4_explore.js` and `e6_panels.js`. | open |
 | P2 | Leukocytes, full cohort split at the median: p = 0.12 in Table 2, p = 0.012 in the text. | Table 2, "Leukocytes"; the paper's text | p = 0.12 as printed (not significant), with a note giving the text's value; explore mode only. Same places as P1. | open |
 | P3 | Hexokinase 2: p = 0.1 in the text, p = 0.01 in the figure and the table (**TO FILL (owner):** the repository has only Table 3's p = 0.01; where the text's p = 0.1 comes from, and whether Figure 4 shows it). | the paper's text; Table 3 (Figure 4: unchecked) | "similar (p = 0.01)" and r = 0.42 with FDG's network (explore mode, Networks tab); the narration says only that HK2's network resembles FDG's (r = 0.42). `T3` in `tools/pet/data/gen_data.mjs`; `tools/pet/engine/e3_story.js`. | open |
-| P4 | The one-scan network's formulas: the poster names Clearance, Heterogeneity and the metabolic displacement index, but their formulas are not published. | the poster | Stand-in maths, said so in the story and in explore mode; the profiles are illustrative too. `single` in `tools/pet/data/gen_data.mjs`. | open |
+| P4 | The one-scan network's formulas: the poster names Clearance, Heterogeneity and the metabolic displacement index, but their formulas are not published. | the poster | Nothing: the one-scan part was taken out of the story in October 2026 (it did not match the poster). | closed (2026-10-23): no longer shown |
 
-P4 comes from the generator's own note rather than from a reading of the paper; ask for the formulas once they are
-published.
+P4 came from the generator's own note rather than from a reading of the paper; it matters again only if the one-scan
+part comes back.
 
 ## Microanatomy: Tissue and time (`micro`)
 

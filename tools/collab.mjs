@@ -58,7 +58,7 @@ const STORIES = {
     back: "showTab('genes'); selectGene(GL.sets.net.api().geneIndex('SNAP25')); setCtl('net', 'walkers', 'on'); setK(3)",
   },
   pet: {
-    change: "selectProfile('cancer'); setTheta(2.5); selectGroup(2)",
+    change: "showNet('A_high'); selectOrgan('liver'); setCtl('scan', 'view', 'inside')",
     back: "showNet('C_high'); selectOrgan('muscle'); setCtl('scan', 'view', 'ring')",
   },
   micro: {

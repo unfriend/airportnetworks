@@ -342,18 +342,16 @@ for (const key of ['airports', 'proteins', 'spatial', 'lbi', 'nmd', 'endo', 'pet
       for (const id of NET_ALL) { showNet(id); if (curNet() !== id) out.push('network ' + id + ' not shown'); }
       for (let i = 0; i < PET_DATA.table2.length; i++) { selectCmp(i); if (X.cmp !== i) out.push('comparison ' + i + ' not selected'); }
       for (const o of PET_DATA.organs) { selectOrgan(o.id); if (X.organ !== o.id) out.push('organ ' + o.id + ' not selected'); }
-      for (const p of ['healthy', 'cancer', 'both', 'dys']) { selectProfile(p); if (curProfile() !== p) out.push('profile ' + p + ' not chosen'); }
-      setU(1, 2); if (!X.u || X.u[1] !== 2) out.push('uptake slider did not set a custom value');
-      setUs(null); setTheta(2.5); setTheta(2);
-      for (let g = 0; g <= 4; g++) { selectGroup(g); if (X.group !== g) out.push('group ' + g + ' not picked'); }
       setLife(true); setLife(false);
-      for (const s of ['scan', 'body', 'organs', 'people', 'liver']) { openScene(s); for (const c of GL.sets[s].controls || []) for (const [v] of c.options) setCtl(s, c.key, v); }
+      for (const s of ['scan', 'body', 'organs']) { openScene(s); for (const c of GL.sets[s].controls || []) for (const [v] of c.options) setCtl(s, c.key, v); }
+      const st = JSON.stringify(collabState()); collabApply(JSON.parse(st));
+      if (JSON.stringify(collabState()) !== st) out.push('apply(state()) changed the state');
       const rc = new THREE.Raycaster(new THREE.Vector3(0, 0.2, 6), new THREE.Vector3(0, 0, -1));
-      for (const s of ['organs', 'people']) { try { GL.sets[s].api().pick(rc); } catch (e) { out.push(s + ' pick threw: ' + e.message); } }
+      try { GL.sets.organs.api().pick(rc); } catch (e) { out.push('organs pick threw: ' + e.message); }
       XR.on = true;
       for (const [k] of TABS) { showTab(k); for (const P of XR.panels) { P.last = ''; P.t = -1e9; panelTick(P, performance.now() + 1e6); } }
       XR.on = false;
-      selectOrgan(null); selectGroup(0); showNet('full'); showTab('networks');
+      selectOrgan(null); showNet('full'); showTab('networks');
       return out;
     })()`);
     await sleep(300);

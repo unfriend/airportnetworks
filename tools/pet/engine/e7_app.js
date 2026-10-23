@@ -147,13 +147,12 @@ const APP = {
     // (the search tried every option on the set: a set that remembers what it showed last, as the organs do for their
     // network's crossfade, is told the chosen ones, long settled, twice)
     if (s.explore) { const c = { t: 1e3 }; for (const c2 of s.controls || []) c[c2.key] = ctlValue(best, c2); s.explore(c); s.explore(c); }
-    // the story's network, organ, profile and group carry over to the panels (the controls hold the network and the
-    // profile: the closest ones were picked above)
-    X.organ = null; X.u = null; X.group = 0; X.cmp = -1; X.netX = null; X.theta = Number.isFinite(S.people_theta) ? round2(clamp(S.people_theta, 1.1, 3)) : S1.theta;
+    // the story's network and organ carry over to the panels (the controls hold the network: the closest one was picked
+    // above)
+    X.organ = null; X.cmp = -1; X.netX = null;
     if (best === 'organs' && S.organs_focus > 0.5) X.organ = PD.ids[Math.round(S.organs_focus) - 1] || null;
     if (best === 'organs' && S.organs_net > 0.5) { const w = NET_ALL[Math.round(S.organs_which)]; if (w) { if (NET_EXTRA.includes(w)) X.netX = w; X.cmp = cmpOfNet(w); } }
-    if (best === 'people' && S.people_group > 0.5) X.group = clamp(Math.round(S.people_group), 0, POSTER.groups.length);
-    X.tab = best === 'organs' ? (S.organs_net > 0.5 ? 'networks' : 'organs') : best === 'people' ? (S.people_map > 0.5 ? 'people' : 'one') : 'scenes';
+    X.tab = best === 'organs' ? (S.organs_net > 0.5 ? 'networks' : 'organs') : 'scenes';
     // from the last chapter (the story's end, or its Explore button): the networks of the paper
     if (ts >= C.vision.a) openNetworks();
     ST.labels.forEach(L => { L.el.style.opacity = 0; L.o = 0; });
@@ -166,7 +165,7 @@ const APP = {
     $('#btnMode').textContent = 'Explore now';
     // the story shows its scenes as it tells them: no picked organ or group, the scanner not life size
     if (X.life) setLife(false);
-    X.organ = null; X.group = 0; NEXT.length = 0; pushState();
+    X.organ = null; NEXT.length = 0; pushState();
     LBL.extra.forEach(L => { L.el.remove(); dropSprite(L); }); LBL.extra = [];
     $('#tip').style.opacity = 0;
     this.t = t || 0; this.playing = true; curCh = null;
@@ -279,9 +278,8 @@ function init() {
   if (hp.has('t')) { APP.t = clamp(parseFloat(hp.get('t')) || 0, 0, T_END - 0.01); APP.playing = false; }
   if (hp.has('explore')) {
     APP.enterExplore();
-    // #pet&explore&scene=scan&view=ring (any control of a scene by its key), &tab=networks|organs|one|people|scenes,
-    // &cmp=7 (a row of Table 2), &net=C_high (or vena, dose_ultralow ...), &organ=muscle, &profile=cancer, &theta=2, &u=2.2,1.7,... (custom
-    // uptakes), &group=3, &life (the scanner life size)
+    // #pet&explore&scene=scan&view=ring (any control of a scene by its key), &tab=networks|organs|scenes,
+    // &cmp=7 (a row of Table 2), &net=C_high (or vena, dose_ultralow ...), &organ=muscle, &life (the scanner life size)
     const sc = hp.get('scene');
     if (sc && GL.sets[sc]) { openScene(sc, false); showTab('scenes'); }
     else if (!hp.has('t')) openNetworks();   // straight in: the network of all scans, with its strength
@@ -291,16 +289,8 @@ function init() {
     if (hp.get('cmp') !== null && hp.get('cmp') !== '') { const i = parseInt(hp.get('cmp'), 10); if (i >= 0 && i < PD.D.table2.length) { showTab('networks'); selectCmp(i); } }
     if (NET_ALL.includes(hp.get('net'))) { showTab('networks'); pickNet(hp.get('net')); }
     if (PD.byId[hp.get('organ')]) { showTab('organs'); selectOrgan(hp.get('organ')); }
-    if (PROFILES.some(p => p[0] === hp.get('profile'))) { showTab('one'); selectProfile(hp.get('profile')); }
-    if (hp.get('u')) { const u = hp.get('u').split(',').map(Number); if (u.length === ONE_N && u.every(Number.isFinite)) { showTab('one'); setUs(u); showOne(); } }
-    if (hp.get('theta') && Number.isFinite(+hp.get('theta'))) { showTab('one'); setTheta(+hp.get('theta')); showOne(); }
-    if (hp.get('group')) { const g = parseInt(hp.get('group'), 10); if (g >= 1 && g <= POSTER.groups.length) { showTab('people'); selectGroup(g); } }
     if (hp.has('life')) setLife(true);   // (it opens the Scenes tab: a tab asked for comes after)
-    if (hp.get('tab') && TABS.some(t => t[0] === hp.get('tab'))) {
-      showTab(hp.get('tab'));
-      if (hp.get('tab') === 'one') showOne();
-      if (hp.get('tab') === 'people' && (X.scene !== 'people' || oneView())) showPeople(/^index$/i);
-    }
+    if (hp.get('tab') && TABS.some(t => t[0] === hp.get('tab'))) showTab(hp.get('tab'));
     if (hp.has('now')) { Object.assign(XS, exploreTargets()); orbit.cur = orbit.to || orbit.cur; orbit.to = null; }
   }
   GL.renderer.setAnimationLoop(frame); // also drives the headset's frame loop

@@ -127,10 +127,10 @@ function xrTip(S) {
 }
 
 // ---------------------------------------------------- picking an organ --
-// The organ or group a ray points at (explore mode, the organs or the people on show): { organ } or { group }, or null
+// The organ a ray points at (explore mode, the organs on show): { organ }, or null
 const _prc = new THREE.Raycaster();
 function pickRay(o, d) {
-  if (APP.mode !== 'explore' || !(X.scene === 'organs' || X.scene === 'people')) return null;
+  if (APP.mode !== 'explore' || X.scene !== 'organs') return null;
   _prc.set(o, d);
   return pickWith(_prc);
 }

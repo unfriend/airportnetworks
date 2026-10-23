@@ -1,28 +1,24 @@
 
 // ================================================================ EXPLORE ==
-// Explore mode: the paper's comparisons and networks, its organs, the poster's one-scan network with your own uptakes
-// and the people on its index; or any scene with its own controls.
+// Explore mode: the paper's comparisons and networks, its organs; or any scene with its own controls.
 const SCENES = [
   ['scan', 'Scanner', 'A PET/CT scanner, cut open: the ring of detectors, the events (a positron, two gamma photons, a line of response) and the image they build. Life size stands it in front of you.'],
   ['body', 'Body', 'A whole-body PET scan: the tracer arriving with the blood, settling where cells use sugar and leaving in the urine (the PET body of the tour).'],
   ['organs', 'Organs', `The paper's organs in the scan: their outlines, their uptakes, the matrix of ${fmt(FACTS.scans)} scans (stand-in values), a partial correlation, the networks and how their strength is spread.`],
-  ['people', 'One scan and people', 'The poster\'s next step: one network per scan, its two measures and the index; then the people on it, survival and the immunotherapy test. Illustrative maths; the dots are stand-ins.'],
-  ['liver', 'Liver', 'An organ is a network too: an illustrative liver in a few thousand patches, linked where one patch\'s uptake is more than a set number of times another\'s (the poster\'s rule); the best connected glow.'],
 ];
-const TABS = [['networks', 'Networks'], ['organs', 'Organs'], ['one', 'One scan'], ['people', 'People'], ['scenes', 'Scenes']];
+const TABS = [['networks', 'Networks'], ['organs', 'Organs'], ['scenes', 'Scenes']];
 // the tour's body set: its network and its disease scan are the tour's illustration, so this story leaves them out
 const HIDE_CTL = { body: ['view', 'state'] };
 const ctlsOf = k => (GL.sets[k].controls || []).filter(c => !(HIDE_CTL[k] || []).includes(c.key));
 // a control the panes offer now: a set may say when one applies (when(values)), so none sits there doing nothing; the
 // shared state keeps every control (ctlsOf) all the same
 const ctlShown = (k, c) => !c.when || c.when(Object.fromEntries(ctlsOf(k).map(x => [x.key, ctlValue(k, x)])));
-const S1 = PET_DATA.single, ONE_N = S1.organs.length;
-const X = { tab: 'networks', scene: 'organs', ctl: {}, t0: 0, turn: 'on', cmp: -1, netX: null, organ: null, u: null, theta: S1.theta, group: 0, life: false };
+const X = { tab: 'networks', scene: 'organs', ctl: {}, t0: 0, turn: 'on', cmp: -1, netX: null, organ: null, life: false };
 const XS = {};
 // params that pick something by number jump to their new value instead of easing through the ones in between; the
 // organs' network and its crossfade (organs_prev to organs_which by organs_mix) and the explainer's pair change smoothly
 // in the set's own time (explore(c)), so they pass unchanged
-const STEP = new Set(['organs_focus', 'organs_pair', 'organs_which', 'organs_prev', 'organs_mix', 'people_group']);
+const STEP = new Set(['organs_focus', 'organs_pair', 'organs_which', 'organs_prev', 'organs_mix']);
 const orbit = { cur: [0, 12, 3.6, 0, 0, 0], from: null, to: null, t0: 0, dur: 1.6 };
 const ctlValue = (k, c) => (X.ctl[k] && X.ctl[k][c.key] !== undefined ? X.ctl[k][c.key] : c.options[0][0]);
 const ctlOf = (k, key) => ctlsOf(k).find(c => c.key === key);
@@ -30,35 +26,22 @@ const ctlOf = (k, key) => ctlsOf(k).find(c => c.key === key);
 const optKey = (k, key, re) => { const c = ctlOf(k, key), o = c && c.options.find(([v, n]) => re.test(v) || re.test(n)); return o ? o[0] : null; };
 const setApi = k => (GL.sets[k] && GL.sets[k].api ? GL.sets[k].api() : null);
 // a view option's camera: the cam view of the same name, or the one its name stands for
-// (One scan shows the whole one-scan scene, its gauges too: the panes change all of it)
-const CAM_ALIAS = { organs: { organs: 'default', uptake: 'bars', partial: 'scatter', network: 'net' }, scan: { scanner: 'default' },
-  people: { one: 'default', 'one scan': 'default', ratios: 'field', people: 'map', index: 'strip', survival: 'km', immunotherapy: 'auc' } };
+const CAM_ALIAS = { organs: { organs: 'default', uptake: 'bars', partial: 'scatter', network: 'net' }, scan: { scanner: 'default' } };
 function camFor(k, v) {
   const c = GL.sets[k].cam || {}, al = CAM_ALIAS[k] || {}, vc = ctlOf(k, 'view'), o = vc && vc.options.find(x => x[0] === v), n = o ? String(o[1]).toLowerCase() : '';
   for (const x of [al[v], v, al[n], n]) if (x && c[x]) return x;
   return null;
 }
 const viewCam = k => { const c = ctlOf(k, 'view'); return c ? camFor(k, ctlValue(k, c)) : null; };
-// the network and the profile on show: the organs set's Network control and the people set's Profile control hold them
-// (their options are the ids), so the Scenes tab and the panes agree; a robustness test's network, which that control
-// does not offer, is X.netX
+// the network on show: the organs set's Network control holds it (its options are the ids), so the Scenes tab and the
+// panes agree; a robustness test's network, which that control does not offer, is X.netX
 const curNet = () => X.netX || ctlValue('organs', ctlOf('organs', 'network'));
-const curProfile = () => ctlValue('people', ctlOf('people', 'profile'));
-// the people set's views: the one-scan network (and its ratios) or the population
+// whether a set's view on show matches re (by its key or its name)
 const viewIs = (k, re) => { const c = ctlOf(k, 'view'); if (!c) return false; const v = ctlValue(k, c), o = c.options.find(x => x[0] === v); return re.test(v) || (o && re.test(o[1])); };
-const oneView = () => viewIs('people', /one|ratio|field/i);
 const netView = () => viewIs('organs', /net|strength/i);
 // work for the next frame, once the sets have drawn what was just picked (their anchors follow their params)
 const NEXT = [];
 const afterUpdate = f => { NEXT.push(f); };
-const round2 = v => Math.round(v * 100) / 100;
-const profU = p => { const q = S1.profiles[p] || S1.profiles.healthy; return q.u.slice(); };
-const curU = () => X.u || profU(curProfile());
-
-// the one-scan network's maths, the people set's own (link i -> j = sigmoid((ln(u_i / u_j) - ln theta) / soft);
-// Clearance = mean of the kidneys' outgoing links; Heterogeneity = Gini coefficient of the strengths; index = m + a C + b H)
-const measureOne = (u, theta) => setApi('people').measure(u, theta);
-const linksOf = r => r.e.reduce((a, row) => a + row.filter(v => v > 0.5).length, 0);
 
 // what the chosen scene and its controls ask for: that set fully in, every other set out; then what the panes pick
 function exploreTargets(now = performance.now()) {
@@ -77,14 +60,6 @@ function exploreTargets(now = performance.now()) {
     tg.organs_focus = X.organ && PD.byId[X.organ] ? PD.byId[X.organ].i + 1 : 0;
     // the body dims under the network, the matrix and the scatter plot
     if ((tg.organs_net || 0) > 0.5 || (tg.organs_rows || 0) > 0.5 || (tg.organs_pair || 0) > 0.5) tg.body_a = 0.55;
-  }
-  if (k === 'people') {
-    const p = curProfile(), u = curU();
-    tg.people_profile = Math.max(0, PROFILES.findIndex(x => x[0] === p));
-    tg.people_custom = X.u ? 1 : 0;
-    for (let i = 0; i < ONE_N; i++) tg['people_u' + i] = u[i];
-    tg.people_theta = X.theta;
-    tg.people_group = X.group;
   }
   // life size: the scanner at work, the couch in, no vision row
   if (k === 'scan' && X.life) Object.assign(tg, { scan_vision: 0, scan_bed: 1, scan_events: Math.max(tg.scan_events || 0, 0.7), scan_lines: Math.max(tg.scan_lines || 0, 0.6) });
@@ -115,7 +90,6 @@ function setCtl(k, key, v) {
   if (!c || !c.options.some(o => o[0] === v)) return;
   (X.ctl[k] = X.ctl[k] || {})[key] = v;
   X.t0 = performance.now();
-  if (k === 'people' && key === 'profile') X.u = null;   // a profile picked: its own uptakes
   if (k === 'organs' && key === 'network') X.netX = null;   // a network of the control's own
   // a view has its own best camera
   if (key === 'view' && k === X.scene && !(X.life && k === 'scan')) { const n = camFor(k, v); flyTo(view(k, n || 'default')); }
@@ -167,30 +141,6 @@ function selectOrgan(id, ui = true) {
   if (ui && X.organ && X.scene === 'organs' && !viewIs('organs', /net|strength|matrix|partial|scatter/i)) afterUpdate(() => { if (X.organ === id) flyNear(anchorOf('organs', id), Math.min(orbit.cur[2], 2.6)); });
   pushState(); renderOrgans(); renderNets();
 }
-// a profile of the one-scan network (its uptakes; custom ones are dropped)
-function selectProfile(p, ui = true) {
-  if (!PROFILES.some(x => x[0] === p)) return;
-  (X.ctl.people = X.ctl.people || {}).profile = p;
-  X.u = null;
-  if (ui) showOne();
-  renderOne(); renderScenes();
-}
-function showOne() {
-  if (X.scene !== 'people') openScene('people');
-  if (!oneView()) { const v = optKey('people', 'view', /one/i); if (v) setCtl('people', 'view', v); }
-}
-// the seven uptakes (null: the profile's own); one moved by hand makes them custom
-function setUs(u) { X.u = u ? u.map(v => round2(clamp(+v, 0.1, 5))) : null; syncOne(); }
-function setU(i, v) { const u = curU(); u[i] = v; setUs(u); }
-function setTheta(v) { X.theta = round2(clamp(+v, 1.1, 3)); syncOne(); }
-// a group of the poster's population (0 none, 1..4): it glows, the others dim
-function selectGroup(g, ui = true) {
-  X.group = clamp(g | 0, 0, POSTER.groups.length);
-  if (ui && X.group) { if (X.scene !== 'people') openScene('people'); if (oneView()) { const v = optKey('people', 'view', /index|strip/i) || optKey('people', 'view', /people|map/i); if (v) setCtl('people', 'view', v); } }
-  renderPeople();
-}
-// a view of the people set (People, Index, Survival, Immunotherapy)
-function showPeople(re) { if (X.scene !== 'people') openScene('people'); const v = optKey('people', 'view', re); if (v) setCtl('people', 'view', v); }
 // Life size: on screen the scanner from a couple of metres at eye height; in the headset life size on your floor
 function setLife(on) {
   X.life = on;
@@ -204,7 +154,7 @@ function setLife(on) {
 
 // ------------------------------------------------------- shared rooms --
 // What everyone at a station sees alike in explore mode: the tab, the scene and every scene's controls (they hold the
-// network and the profile on show), the comparison, the organ, the custom uptakes, the threshold and the group.
+// network on show), the comparison and the organ.
 // Turning and standing by the scanner life size are each person's own view.
 // shared rooms: the scene's view in a headset at a station (explore mode), which turns and sizes it in the room:
 // shared (HOST.collab), so everyone there sees it alike; null while it flies somewhere (a pick, a view arriving)
@@ -222,7 +172,7 @@ function collabSetView(v) {
 function collabState() {
   const ctl = {};
   for (const [k] of SCENES) ctl[k] = Object.fromEntries(ctlsOf(k).map(c => [c.key, ctlValue(k, c)]));
-  return { tab: X.tab, scene: X.scene, ctl, cmp: X.cmp, net: curNet(), organ: X.organ, profile: curProfile(), u: X.u ? X.u.slice() : null, theta: X.theta, group: X.group };
+  return { tab: X.tab, scene: X.scene, ctl, cmp: X.cmp, net: curNet(), organ: X.organ };
 }
 // show another person's state with the story's own setters (so both panels follow); every field is checked, and
 // the camera stays where this person has it
@@ -232,8 +182,6 @@ function collabApply(v) {
   if (TABS.some(t => t[0] === v.tab) && v.tab !== X.tab) showTab(v.tab);
   if ((v.cmp === -1 || int(v.cmp, 0, PD.D.table2.length)) && v.cmp !== X.cmp) selectCmp(v.cmp, false);
   if ((v.organ === null || (typeof v.organ === 'string' && PD.byId[v.organ])) && v.organ !== X.organ) selectOrgan(v.organ, false);
-  if (Number.isFinite(v.theta) && v.theta !== X.theta) setTheta(v.theta);
-  if (int(v.group, 0, POSTER.groups.length + 1) && v.group !== X.group) selectGroup(v.group, false);
   // the scene and its controls; a view flies to its own camera as it does here
   if (SCENES.some(s => s[0] === v.scene) && v.scene !== X.scene) openScene(v.scene);
   for (const [k] of SCENES) for (const c of ctlsOf(k)) {
@@ -241,11 +189,8 @@ function collabApply(v) {
     if (!c.options.some(o => o[0] === x) || ctlValue(k, c) === x) continue;
     if (k === X.scene) setCtl(k, c.key, x); else (X.ctl[k] = X.ctl[k] || {})[c.key] = x;
   }
-  // then the network and the profile (also held by controls: should the two ever disagree, these win) and the custom
-  // uptakes (a profile arriving drops them, as it does here: the room's own come back after it)
+  // then the network (also held by a control: should the two ever disagree, this wins)
   if (NET_ALL.includes(v.net) && v.net !== curNet()) setNet(v.net);
-  if (PROFILES.some(p => p[0] === v.profile) && v.profile !== curProfile()) selectProfile(v.profile, false);
-  if ((v.u === null || (Array.isArray(v.u) && v.u.length === ONE_N && v.u.every(Number.isFinite))) && JSON.stringify(v.u) !== JSON.stringify(X.u)) setUs(v.u);
   renderAll();
 }
 
@@ -300,8 +245,6 @@ function buildExplore() {
     <div class="tabs" role="tablist">${TABS.map(([k, n]) => `<button role="tab" type="button" data-tab="${k}" aria-selected="${k === X.tab}">${n}</button>`).join('')}</div>
     <div class="pane" id="pane-networks" role="tabpanel"></div>
     <div class="pane" id="pane-organs" role="tabpanel"></div>
-    <div class="pane" id="pane-one" role="tabpanel"></div>
-    <div class="pane" id="pane-people" role="tabpanel"></div>
     <div class="pane" id="pane-scenes" role="tabpanel"></div>`;
   document.querySelectorAll('#explore .tabs button').forEach(b => b.addEventListener('click', () => pickTab(b.dataset.tab)));
   // one click handler per pane: buttons carry what they do in data attributes
@@ -311,15 +254,8 @@ function buildExplore() {
     const v = b.dataset.v, n = v !== undefined && v !== '' && !isNaN(+v) ? +v : v;
     ({
       cmp: () => selectCmp(n === X.cmp ? -1 : n), net: () => pickNet(v), cnet: () => showNet(v), organ: () => selectOrgan(v === X.organ ? null : v),
-      profile: () => selectProfile(v), group: () => selectGroup(n === X.group ? 0 : n), pview: () => showPeople(new RegExp('^' + v + '$', 'i')),
-      one: showOne, scene: () => openScene(v), ctl: () => setCtl(b.dataset.scene || X.scene, b.dataset.ctl, v), life: () => setLife(!X.life),
+      scene: () => openScene(v), ctl: () => setCtl(b.dataset.scene || X.scene, b.dataset.ctl, v), life: () => setLife(!X.life),
     }[b.dataset.act] || (() => {}))();
-  });
-  // the sliders of the one-scan network: values change in place, so a drag is not cut short by a redraw
-  $('#explore').addEventListener('input', ev => {
-    const el = ev.target;
-    if (el.dataset.u !== undefined) { setU(+el.dataset.u, +el.value); if (X.scene !== 'people' || !oneView()) showOne(); }
-    else if (el.id === 'theta') { setTheta(+el.value); if (X.scene !== 'people' || !oneView()) showOne(); }
   });
   renderAll();
   $('#viewctl').innerHTML = `<div class="grp"><span>Turn</span><div class="seg" data-ctl="turn" role="group" aria-label="Turn">${[['on', 'On'], ['off', 'Off']].map(([v, n]) => `<button type="button" data-v="${v}" aria-pressed="${X.turn === v}">${n}</button>`).join('')}</div></div>
@@ -341,7 +277,7 @@ function setTurn(v) {
 function showTab(k) {
   X.tab = k;
   document.querySelectorAll('#explore .tabs button').forEach(b => b.setAttribute('aria-selected', b.dataset.tab === k));
-  // (five tabs overflow a phone's panel: the row scrolls so the chosen one shows)
+  // (should the tabs overflow a phone's panel: the row scrolls so the chosen one shows)
   const tb = $('#explore .tabs'), on = tb && tb.querySelector(`[data-tab="${k}"]`);
   if (on) { const r = on.getBoundingClientRect(), q = tb.getBoundingClientRect(); if (r.width && (r.left < q.left || r.right > q.right)) tb.scrollLeft += r.left - q.left - 8; }
   document.querySelectorAll('#explore .pane').forEach(p => p.classList.toggle('on', p.id === 'pane-' + k));
@@ -352,10 +288,8 @@ function pickTab(k) {
   showTab(k);
   if (k === 'networks' && (X.scene !== 'organs' || !netView())) showNet(curNet());
   if (k === 'organs' && X.scene !== 'organs') openScene('organs');
-  if (k === 'one') showOne();
-  if (k === 'people' && (X.scene !== 'people' || oneView())) showPeople(/^index$/i);
 }
-function renderAll() { renderNets(); renderOrgans(); renderOne(); renderPeople(); renderScenes(); }
+function renderAll() { renderNets(); renderOrgans(); renderScenes(); }
 function renderNets() {
   const pane = $('#pane-networks');
   if (!pane) return;
@@ -403,54 +337,6 @@ function renderOrgans() {
   } else h += `<p class="empty">Colours and icons are the same in every scene. Point at an organ in the scan, a bar or a node to pick it there.</p>`;
   pane.innerHTML = h;
 }
-// the one-scan pane: built once per profile or custom change of structure; values change in place (syncOne)
-// the profiles' chips (and Custom, while the uptakes are your own)
-const profChips = () => PROFILES.map(([k, n]) => chip(`data-act="profile" data-v="${k}"`, esc(n), !X.u && curProfile() === k, GROUP_COL[k])).join('') + (X.u ? chip('data-act="one"', 'Custom', true) : '');
-function renderOne() {
-  const pane = $('#pane-one');
-  if (!pane) return;
-  const u = curU();
-  pane.innerHTML = `<p class="sub">The poster's next step: one network per scan, from the uptakes (mean SUV) of ${word(S1.organs.filter(o => o !== 'aorta').length)} organs${S1.organs.includes('aorta') ? ' and the aorta' : ''}. Pick a profile, or move the uptakes yourself.</p>
-    <div class="chips" id="oneProf">${profChips()}</div>
-    ${S1.organs.map((o, i) => `<p class="grp-h">${iconImg(o, 16)}${esc(organName(o))} <b data-uv="${i}" style="margin-left:auto;color:var(--ink)">${u[i].toFixed(2)}</b></p><input type="range" data-u="${i}" min="0.1" max="5" step="0.05" value="${u[i]}" style="accent-color:${organCol(o)}" aria-label="Uptake of the ${esc(organLow(o))}">`).join('')}
-    <p class="grp-h">Threshold: a link where one organ's uptake is this many times another's <b id="thv" style="margin-left:auto;color:var(--ink)">${X.theta.toFixed(2)}</b></p><input type="range" id="theta" min="1.1" max="3" step="0.05" value="${X.theta}" aria-label="Threshold">
-    <dl class="stats" id="oneOut" style="margin-top:14px"></dl>
-    <p class="note">${esc(S1.note)} The profiles are illustrative too.</p>`;
-  syncOne(true);
-}
-function syncOne(fresh) {
-  const pane = $('#pane-one');
-  if (!pane || !$('#oneOut')) return;
-  // a switch between a profile and custom uptakes changes only the chips (the sliders stay: one may be being dragged)
-  if (!fresh && !!pane.querySelector('#oneProf [data-act="one"]') !== !!X.u) $('#oneProf').innerHTML = profChips();
-  const u = curU(), r = measureOne(u, X.theta);
-  pane.querySelectorAll('input[data-u]').forEach(el => { const i = +el.dataset.u; if (document.activeElement !== el) el.value = u[i]; });
-  pane.querySelectorAll('[data-uv]').forEach(el => { el.textContent = u[+el.dataset.uv].toFixed(2); });
-  const th = $('#theta'); if (th && document.activeElement !== th) th.value = X.theta;
-  $('#thv').textContent = X.theta.toFixed(2);
-  $('#oneOut').innerHTML = `<dt>Links</dt><dd>${linksOf(r)}<small>of ${ONE_N * (ONE_N - 1)} possible</small></dd>
-    <dt>Clearance</dt><dd>${r.C.toFixed(2)}<small>the kidneys' links out</small></dd>
-    <dt>Heterogeneity</dt><dd>${r.H.toFixed(2)}<small>0 even, higher: one organ dominates</small></dd>
-    <dt>Index</dt><dd style="color:var(--amber)">${r.mdi.toFixed(1)}<small>metabolic displacement, 0 to 10</small></dd>`;
-}
-function renderPeople() {
-  const pane = $('#pane-people');
-  if (!pane) return;
-  const P = POSTER, g = P.groups[X.group - 1];
-  const views = [['people', 'People'], ['index', 'Index'], ['survival', 'Survival'], ['immunotherapy', 'Immunotherapy']].filter(([k]) => optKey('people', 'view', new RegExp('^' + k + '$', 'i')));
-  let h = `<p class="sub">The poster's results: ${P.mdiN ? `${fmt(P.mdiN)} people` : 'people'} by their index. Pick a group.</p>
-    <div class="chips">${P.groups.map((x, i) => chip(`data-act="group" data-v="${i + 1}"`, `${esc(x.name)} <small>${x.n}</small>`, X.group === i + 1, x.col)).join('')}</div>`;
-  if (g) h += `<h3><span class="sw" style="display:inline-block;width:14px;height:14px;border-radius:3px;background:${swCol(g.col)};margin-right:8px"></span>${esc(g.name)}</h3>
-    <dl class="stats"><dt>People</dt><dd>${g.n}</dd><dt>Index (median)</dt><dd>${g.centre}<small>${Array.isArray(g.err) ? `middle half of the group: ${g.err[0]} to ${g.err[1]}` : ''}</small></dd></dl>`;
-  if (views.length) h += `<p class="grp-h">View</p><div class="chips">${views.map(([k, n]) => chip(`data-act="pview" data-v="${k}"`, n, X.scene === 'people' && viewIs('people', new RegExp('^' + k + '$', 'i')))).join('')}</div>`;
-  if (P.thirds.length) h += `<p class="grp-h">Survival with cancer, by the index's thirds</p>
-    <dl class="stats">${P.thirds.map(t => `<dt><span class="sw" style="display:inline-block;width:9px;height:9px;border-radius:2px;background:${swCol(t.col)};margin-right:6px"></span>${esc(t.name)}${t.n ? ` (${t.n})` : ''}</dt><dd>${t.median === undefined ? '–' : t.median === null ? 'not reached' : t.median + ' months'}<small>median${t.y1 !== null ? ` · ${t.y1}% after one year` : ''}</small></dd>`).join('')}</dl>`;
-  if (P.auc.length) h += `<p class="grp-h">The immunotherapy test${P.respN ? ` (${P.respN} people with lung cancer)` : ''}: good from poor responders</p>
-    <dl class="stats">${P.auc.slice().sort((a, b) => b.auc - a.auc).map(a => `<dt>${esc(a.name)}</dt><dd style="color:${a.net ? 'var(--amber)' : 'var(--muted)'}">${a.auc}<small>AUC${a.p ? ' · ' + esc(a.p) : ''}${a.net ? ' · network measure' : ''}</small></dd>`).join('')}</dl>
-    <p class="sub">${esc(aucNote())}</p>`;
-  h += `<p class="note">Group summaries from the poster. The dots are stand-ins drawn to match them, not patients.</p>`;
-  pane.innerHTML = h;
-}
 function renderScenes() {
   const pane = $('#pane-scenes');
   if (!pane) return;
@@ -463,8 +349,6 @@ function renderScenes() {
 }
 // a control's option is lit when it holds that value (the Network control's none while a robustness test's network shows)
 const ctlLit = (k, c, v) => ctlValue(k, c) === v && !(k === 'organs' && c.key === 'network' && X.netX);
-// the immunotherapy test in a line: what the AUC means, and that none of it is significant yet
-const aucNote = () => `AUC: 1 tells every good responder from every poor one, 0.5 is chance. A first test in few people${POSTER.noneSig ? `: none of these is significant (all p > ${FACTS.p}), so their order may be chance` : ''}.`;
 // labels the panes add (the sets label their own picks)
 function updateExtraLabels() {
   LBL.extra.forEach(L => { L.el.remove(); dropSprite(L); });
@@ -482,15 +366,14 @@ function updateExtraLabels() {
 
 // ----------------------------------------------------------- canvas input --
 const _rc = new THREE.Raycaster(), _m2 = new THREE.Vector2();
-// what a ray (a THREE.Raycaster in world coordinates) points at in the scene on show: { organ } or { group }, or null
+// what a ray (a THREE.Raycaster in world coordinates) points at in the scene on show: { organ }, or null
 function pickWith(rc) {
-  if (APP.mode !== 'explore' || !(X.scene === 'organs' || X.scene === 'people')) return null;
+  if (APP.mode !== 'explore' || X.scene !== 'organs') return null;
   const A = setApi(X.scene);
   if (!A || !A.pick) return null;
   const r = A.pick(rc);
   if (typeof r === 'string') return PD.byId[r] ? { organ: r } : null;
-  if (r && r.organ && PD.byId[r.organ]) return { organ: r.organ };
-  return r && r.group >= 1 && r.group <= POSTER.groups.length ? { group: r.group } : null;
+  return r && r.organ && PD.byId[r.organ] ? { organ: r.organ } : null;
 }
 // what is under the mouse, in explore mode
 function pickAt(mx, my) {
@@ -501,18 +384,15 @@ function pickAt(mx, my) {
 // where a pick is, in its set's own frame (for the headset's ray and tip), or null
 function pickPos(p) {
   if (!p) return null;
-  const s = GL.sets[X.scene], at = p.organ ? p.organ : 'g' + p.group;
+  const s = GL.sets[X.scene], at = p.organ;
   if (!s.anchors || !s.anchors[at]) return null;
   const q = anchorOf(X.scene, at);
   return q && Number.isFinite(q[0]) ? [q[0], q[1], q[2]] : null;
 }
-const pickText = p => (p.organ ? [organName(p.organ), p.organ === 'aorta' ? 'the reference' : PD.byId[p.organ].measure]
-  : [POSTER.groups[p.group - 1].name, `${POSTER.groups[p.group - 1].n} people, median index ${POSTER.groups[p.group - 1].centre}`]);
+const pickText = p => [organName(p.organ), p.organ === 'aorta' ? 'the reference' : PD.byId[p.organ].measure];
 function choosePick(p) {
   if (!p) return;
   if (p.organ && X.scene === 'organs') { if (X.tab !== 'organs' && X.tab !== 'networks') showTab('organs'); selectOrgan(p.organ === X.organ ? null : p.organ, false); }
-  else if (p.organ) showTab('one');   // an organ of the one-scan network: its slider
-  else { showTab('people'); selectGroup(p.group === X.group ? 0 : p.group, false); }
 }
 function bindCanvas() {
   const cv = GL.canvas, tip = $('#tip'), pts = new Map();

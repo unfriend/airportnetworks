@@ -50,7 +50,8 @@ back, as in a real whole-body scan.
 **The vision row** (`scan_vision`): the scanner moves left, shrinks to 0.55 and turns 31 degrees to show its side; the
 patient rises off the couch and stands up as the glowing body (the same instance, its shell turned into a warm
 orange fill and a bright orange rim, as on the slide; the image's hot organs show above it); to its right, linked by
-three big soft 3D arrows (dark grey tail to glowing white head): a neon network of organs (brain, lungs, heart, liver
+flowing light (between each two stages a glowing arc of soft points, cyan to light blue, with two pulses running along
+it left to right, each a bright head with a fading tail, timed from the clock so a seek shows them in place): a neon network of organs (brain, lungs, heart, liver
 and kidneys from `PET_ICONS`, drawn glowing in each organ's colour with a soft fill; 12 small nodes, nine other
 organs once each in their colours and three neutral white; links in their nodes' colours), then three glowing
 prognosis bars (orange 80 %, red 40 %, yellow 90 % of their frames, no text) above a framed medication chart (five
@@ -73,7 +74,7 @@ floor), 1.6 deep (front face z = +0.8, back z = -0.8); bore diameter 0.78; couch
 | `scan_events` | 0 | 0 none; from about 0.03 the **featured** event (one every 2 s: slow, comets, a beam for its line; the labels follow it); above 0.08 the others join, their share growing with the square of the rest ((e - 0.08) / 0.92)^2: about 1.4 a second at 0.3, 6 at 0.6, 25 at 1 |
 | `scan_lines` | 0 | how many lines of the web stay: 0 none, 1 the newest 3,000 (15 s of the stream); rising, it uncovers older lines, so the web grows. Keep `scan_events` on while it rises |
 | `scan_image` | 0 | 0-0.6 the couch carries the patient on through the ring (`scan_pass` to 1) and the counts light up behind it (grainy); the lines and events fade (gone by about 0.55); 0.5-0.95 the smooth image glows up; 0.62-0.95 the grains give way to it; the tumour shows from 0.45 |
-| `scan_vision` | 0 | the vision row: 0-0.45 the scanner moves left; 0.08-0.5 the body rises and stands; chevrons from 0.12, 0.36, 0.62; network 0.44-0.68; prognosis bars 0.7-0.94; medication 0.8-1 |
+| `scan_vision` | 0 | the vision row: 0-0.45 the scanner moves left; 0.08-0.5 the body rises and stands; the flowing light between the stages from 0.12, 0.36, 0.62; network 0.44-0.68; prognosis bars 0.7-0.94; medication 0.8-1 |
 | `scan_floor` | 1 | **added**: the floor and its reflection; set 0 in passthrough AR |
 
 Suggested story keys (chapters of SPEC.md):

@@ -786,20 +786,35 @@ void main() { float f = 1.0 - abs(vS); gl_FragColor = vec4((uC * 0.6 * f * f + v
   let nLit = 0;
 
   // ------------------------------------------------------------------ the vision row --
-  // the scanner moves to the left; to its right, linked by big soft arrows: the glowing body standing (the same
+  // the scanner moves to the left; to its right, linked by flowing light: the glowing body standing (the same
   // body, risen from the couch), a neon network of organs, and prognosis (three bars) above medication (a bar chart)
   const visG = new THREE.Group();
   set.group.add(visG);
   const VX = { body: -0.62, net: 0.68, prog: 2.36 }, CHEV = [-1.15, -0.06, 1.46];
-  const vis = Builder();
+  // between the stages, a glowing line in a shallow arc with pulses of light running along it, left to right: soft
+  // points packed along each arc (aS: how far along, aG: which gap); the pulses move with the clock (uFlow), so a seek
+  // shows them where they would be
+  const FLOW_N = 60, FLOW_W = 0.3, flowG = K.pointsGeo(3 * FLOW_N), flowS = new Float32Array(3 * FLOW_N), flowGi = new Float32Array(3 * FLOW_N);
   CHEV.forEach((cx, k) => {
-    const poly = [[-0.17, -0.085], [0.0, -0.085], [0.0, -0.17], [0.17, 0.0], [0.0, 0.17], [0.0, 0.085], [-0.17, 0.085]];
-    slab(vis, roundPoly(poly, 0.022, 5), 0.07, 0.024, {
-      col: p => { const s = clamp((p[0] - cx + 0.19) / 0.36, 0, 1); return v3.lerp([0.2, 0.21, 0.24], [1.0, 1.0, 1.0], Math.pow(s, 0.7)); },
-      m: p => [0.8, 0.55 * Math.pow(clamp((p[0] - cx + 0.19) / 0.36, 0, 1), 2), 0, 1], e: k + 1 }, basis([1, 0, 0], [0, 1, 0], [0, 0, 1], [cx, -0.04, 0.035]));
+    for (let i = 0; i < FLOW_N; i++) {
+      const s = i / (FLOW_N - 1), n = k * FLOW_N + i, x = cx + (s * 2 - 1) * FLOW_W, y = -0.04 + 0.05 * Math.sin(PI * s);
+      flowG.attributes.position.array.set([x, y, 0.035], 3 * n);
+      flowG.attributes.aCol.array.set(v3.lerp([0.22, 0.62, 1.0], [0.45, 0.9, 1.0], s), 3 * n);
+      flowG.attributes.aSize.array[n] = 0.042; flowG.attributes.aA.array[n] = 0.45 * Math.pow(Math.sin(PI * s), 0.35);   // (soft at the ends)
+      flowS[n] = s; flowGi[n] = k;
+    }
   });
-  const chev = new THREE.Mesh(vis.geo(), visMat);
-  chev.renderOrder = 8; chev.frustumCulled = false; visG.add(chev);
+  flowG.setAttribute('aS', new THREE.BufferAttribute(flowS, 1)); flowG.setAttribute('aG', new THREE.BufferAttribute(flowGi, 1));
+  const flowU = { uFlow: { value: 0 }, uGap: { value: new THREE.Vector3() } };
+  const flow = new THREE.Points(flowG, K.points(set, { uniforms: flowU, head: 'attribute float aS, aG; uniform float uFlow; uniform vec3 uGap;',
+    // two pulses a gap, each a bright head with a fading tail behind it; the gaps a little out of step
+    vertex: `float h = fract(uFlow * 0.42 + aG * 0.31), p = 0.0;
+  for (int j = 0; j < 2; j++) { float d = fract(h + float(j) * 0.5 - aS); p = max(p, exp(-d * 9.0) * smoothstep(0.0, 0.03, 1.0 - d)); }
+  float e = aG < 0.5 ? uGap.x : aG < 1.5 ? uGap.y : uGap.z, edge = smoothstep(0.0, 0.08, aS) * smoothstep(1.0, 0.9, aS);
+  vA = (vA + 0.95 * p * edge * uA) * e;
+  vC = mix(vC, vec3(0.92, 0.98, 1.0), p * 0.75);
+  gl_PointSize *= 1.0 + 1.4 * p * edge;` }));
+  flow.renderOrder = 8; flow.frustumCulled = false; visG.add(flow);
   // the neon organs (icons from PET_ICONS, drawn glowing in each organ's colour on one canvas)
   const NET_ORG = [['brain', '#a78bfa', [0.06, 0.47, 0.04], 0.36], ['lungs', '#60a5fa', [0.0, 0.08, -0.05], 0.36], ['heart', '#f43f5e', [-0.37, -0.22, 0.1], 0.3],
     ['liver', '#f97316', [0.37, -0.2, 0.08], 0.31], ['kidneys', '#fb7185', [0.02, -0.56, 0.0], 0.27]];
@@ -1113,6 +1128,7 @@ void main() {
     // the vision row fades in left to right
     const e = k => smooth(prog(vision, k, k + 0.2));
     SU.uE.value.set(e(0.12), e(0.36), e(0.62), 0);
+    flowU.uGap.value.set(e(0.12), e(0.36), e(0.62)); flowU.uFlow.value = t;
     visG.visible = vision > 0.003;
     netU.uF.value = e(0.44); iconU.uF.value = e(0.48);
     neonU.uG.value.set(prog(vision, 0.7, 0.86), prog(vision, 0.74, 0.9), prog(vision, 0.78, 0.94), prog(vision, 0.8, 1.0));

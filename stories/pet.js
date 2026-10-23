@@ -261,16 +261,7 @@ const SETS = {};
 //   synth             a stand-in cohort of 658 people with Figure 2A's partial correlations: rows (values in organ-bar
 //                     units, f2 order), cor and pcor (its correlations and partial correlations), pairs (for the
 //                     explainer: { a, b, paper, r, pr, xy: per person [a, b, a's residual, b's residual] in z units })
-//   single            the poster's one-scan network, stand-in maths (see the generator): organs, theta, soft, proj
-//                     (the healthy profile is the poster's example bars)
-//                     (MDI = m + a C + b H), profiles { healthy, cancer, both, dys: { u (mean SUVs), C, H, mdi } }
-//   poster            the poster's numbers: cohort (baseline and follow-up scans), creation (panel 3: example uptakes as
-//                     fractions of the kidneys', the example network), mdi (axis, dashed lines, shaded ranges, groups { key,
-//                     name, n, centre (median), err (quartiles), q (percentiles), min, max }), km (survival by thirds of the
-//                     index: curves { tertile, label, n, end, s, lo, hi: [[month, value]] }, table, arrows), prognosis (the
-//                     immunotherapy test in 19 people: strip summaries of good and poor response, auc [{ label, auc, p,
-//                     group }], chance)
-const PET_DATA = {"source":{"paper":"Geist BK, Guthrie J, Kertesz H, Kiefer FW, Kulterer OC, Nakuz T, Nics L, Patronas E-M, Rendeiro A, Vraka C, Yu J, Grünert S, Hacker M. The metabolic organ connectome: A novel approach to measure allostatic load during health-to-disease transition. Med 6, 100881 (2025). doi:10.1016/j.medj.2025.100881 (CC BY 4.0)","poster":"Geist BK, Grentner A, Fischer J, Yu J, Tsomaia D, Smajlovic A, Grünert S, Hacker M. Shaping a New Era in Nuclear Medicine. Division of Nuclear Medicine, Medical University of Vienna; LBI for Network Medicine."},"organs":[{"id":"brain","name":"Brain","short":"Brain","measure":"mean of the whole brain","col":"#a78bfa","pos":[0,0.738,-0.008],"suv":4.4},{"id":"thyroid","name":"Thyroid","short":"Thyroid","measure":"mean of the whole gland","col":"#22d3ee","pos":[0,0.548,0.042],"suv":0.95},{"id":"lungs","name":"Lungs","short":"Lungs","measure":"maximum (left and right averaged)","col":"#60a5fa","pos":[-0.079,0.365,-0.01],"suv":0.55},{"id":"heart","name":"Heart","short":"Heart","measure":"mean of the whole heart","col":"#f43f5e","pos":[0.038,0.293,0.052],"suv":1.8},{"id":"liver","name":"Liver","short":"Liver","measure":"mean of the whole liver","col":"#f97316","pos":[-0.074,0.205,0.012],"suv":1.35},{"id":"spleen","name":"Spleen","short":"Spleen","measure":"mean of the whole spleen","col":"#d946ef","pos":[0.108,0.2,-0.056],"suv":1.1},{"id":"pancreas","name":"Pancreas","short":"Pancreas","measure":"mean of the whole pancreas","col":"#facc15","pos":[0.032,0.14,-0.01],"suv":0.95},{"id":"kidneys","name":"Kidneys","short":"Kidneys","measure":"mean (left and right averaged)","col":"#fb7185","pos":[-0.065,0.098,-0.066],"suv":1.6},{"id":"adrenal","name":"Adrenal glands","short":"Adrenals","measure":"maximum","col":"#a3e635","pos":[-0.054,0.152,-0.06],"suv":1.2},{"id":"intestine","name":"Intestine","short":"Intestine","measure":"mean of the whole intestine","col":"#f9a8d4","pos":[-0.009,0.02,0.05],"suv":1},{"id":"muscle","name":"Muscle","short":"Muscle","measure":"mean of the gluteus maximus","col":"#4ade80","pos":[-0.072,-0.13,-0.085],"suv":0.47},{"id":"marrow","name":"Bone marrow","short":"Marrow","measure":"maximum between the vertebrae L1 and L5","col":"#e7e5e4","pos":[0,0.06,-0.036],"suv":1.3},{"id":"fat","name":"Subcutaneous fat","short":"Fat","measure":"mean between the vertebrae L1 and L5","col":"#fdba74","pos":[0,0.06,0.1],"suv":0.2},{"id":"aorta","name":"Aorta (blood pool)","short":"Aorta","measure":"the reference: every organ is divided by it","col":"#94a3b8","pos":[0.014,0.25,-0.04],"suv":1}],"cohort":{"scans":658,"subjects":548,"healthy":241,"cancer":417,"lung":165,"hnscc":252,"retest6w":47,"cold2w":63,"dose":21,"norepi":40,"gtex":946,"gtexSamples":17382,"gtexProteins":13,"table1":{"cols":["Full FDG cohort","Healthy FDG cohort","Cancer FDG cohort","GTEx cohort"],"rows":[["Subjects","658","241","417","946"],["Male (%)","63","53","69","67"],["Blood glucose (mg/dL)","105 ± 34","83 ± 6","115 ± 38","–"],["BMI (kg/m²)","26 ± 6","25 ± 5","27 ± 6","27 ± 4"],["Age (years)","54 ± 17","34 ± 12","61 ± 11","53 ± 13"],["Leukocytes (10⁹/L)","8.2 ± 2.9","6 ± 2","9.1 ± 2.8","–"],["CRP (mg/dL)","1.7 ± 3.8","0.2 ± 0.5","3.1 ± 4.8","–"],["Norepinephrine (ng/L)","–","271 ± 114 (40 people)","–","–"],["Tumour load, TLG (SUV × mL)","–","–","265 ± 677","–"],["Tumour stage","–","–","4 (3–4)","–"],["Survival (months)","–","–","42 ± 32","–"]]}},"protocol":{"fasting":6,"dose":[250,300],"rest":60,"segmentation":"MOOSE (nnU-Net)","software":"JASP 0.19.0","p":0.05,"hub":1.7},"f2":{"organs":["adrenal","marrow","heart","intestine","kidneys","liver","lungs","muscle","pancreas","spleen","thyroid"],"aorta":[[0,0,-0.19,0,0,0,0.3,0,0,0,0],[0,0,-0.19,0.37,0,0,0.15,0,0,0,0],[-0.19,-0.19,0,0.27,0.23,0.31,0.73,0.17,0.22,-0.16,0],[0,0.37,0.27,0,-0.19,0,-0.31,0.23,0,0,0],[0,0,0.23,-0.19,0,0,-0.21,0,0.15,0.2,0],[0,0,0.31,0,0,0,-0.42,0.17,0,0.42,0],[0.3,0.15,0.73,-0.31,-0.21,-0.42,0,0,-0.16,0.2,0.25],[0,0,0.17,0.23,0,0.17,0,0,0,0.18,0],[0,0,0.22,0,0.15,0,-0.16,0,0,0,0],[0,0,-0.16,0,0.2,0.42,0.2,0.18,0,0,0],[0,0,0,0,0,0,0.25,0,0,0,0]],"vena":[[0,0,-0.2,0,0,0,0.35,0.15,0,0,0],[0,0,0,0.28,-0.16,0,0,0,0.19,0,0],[-0.2,0,0,0.28,0.24,0,0.69,0.15,0,-0.2,-0.22],[0,0.28,0.28,0,-0.21,0,-0.36,0.24,0,0.17,0.19],[0,-0.16,0.24,-0.21,0,0.3,-0.27,0,0.28,0.19,0],[0,0,0,0,0.3,0,0,0,0,0.45,0],[0.35,0,0.69,-0.36,-0.27,0,0,0,0,0.27,0.38],[0.15,0,0.15,0.24,0,0,0,0,0,0,0],[0,0.19,0,0,0.28,0,0,0,0,0,0],[0,0,-0.2,0.17,0.19,0.45,0.27,0,0,0,0],[0,0,-0.22,0.19,0,0,0.38,0,0,0,0]]},"nets":[{"id":"full","title":"All 658 scans (normalised to the aorta)","fig":"2A","n":658,"density":12,"disorder":0.17,"organs":["adrenal","marrow","heart","intestine","kidneys","liver","lungs","muscle","pancreas","spleen","thyroid"],"isolated":[],"hubs":[],"edges":[["adrenal","heart",-0.19],["adrenal","lungs",0.3],["marrow","heart",-0.19],["marrow","intestine",0.37],["marrow","lungs",0.15],["heart","intestine",0.27],["heart","kidneys",0.23],["heart","liver",0.31],["heart","lungs",0.73],["heart","muscle",0.17],["heart","pancreas",0.22],["heart","spleen",-0.16],["intestine","kidneys",-0.19],["intestine","lungs",-0.31],["intestine","muscle",0.23],["kidneys","lungs",-0.21],["kidneys","pancreas",0.15],["kidneys","spleen",0.2],["liver","lungs",-0.42],["liver","muscle",0.17],["liver","spleen",0.42],["lungs","pancreas",-0.16],["lungs","spleen",0.2],["lungs","thyroid",0.25],["muscle","spleen",0.18]],"layout":{"marrow":[0.187,0.128],"kidneys":[0.579,0.173],"pancreas":[0.925,0.059],"intestine":[0.248,0.373],"heart":[0.493,0.397],"spleen":[0.941,0.421],"lungs":[0.424,0.512],"liver":[0.827,0.56],"thyroid":[0.059,0.605],"adrenal":[0.344,0.837],"muscle":[0.728,0.92]},"computed":{"density":0.116,"disorder":0.217,"fitA":2.719,"strength":{"adrenal":0.49,"marrow":0.71,"heart":2.47,"intestine":1.37,"kidneys":0.98,"liver":1.32,"lungs":2.73,"muscle":0.75,"pancreas":0.53,"spleen":1.16,"thyroid":0.25},"hubs":["heart","lungs"]},"exact":true},{"id":"vena","title":"All 658 scans (normalised to the vena cava)","fig":"2A","n":658,"density":12,"disorder":0.21,"organs":["adrenal","marrow","heart","intestine","kidneys","liver","lungs","muscle","pancreas","spleen","thyroid"],"isolated":[],"hubs":[],"edges":[["adrenal","heart",-0.2],["adrenal","lungs",0.35],["adrenal","muscle",0.15],["marrow","intestine",0.28],["marrow","kidneys",-0.16],["marrow","pancreas",0.19],["heart","intestine",0.28],["heart","kidneys",0.24],["heart","lungs",0.69],["heart","muscle",0.15],["heart","spleen",-0.2],["heart","thyroid",-0.22],["intestine","kidneys",-0.21],["intestine","lungs",-0.36],["intestine","muscle",0.24],["intestine","spleen",0.17],["intestine","thyroid",0.19],["kidneys","liver",0.3],["kidneys","lungs",-0.27],["kidneys","pancreas",0.28],["kidneys","spleen",0.19],["liver","spleen",0.45],["lungs","spleen",0.27],["lungs","thyroid",0.38]],"layout":{"marrow":[0.187,0.131],"kidneys":[0.579,0.173],"pancreas":[0.925,0.059],"intestine":[0.248,0.373],"heart":[0.491,0.397],"spleen":[0.941,0.421],"lungs":[0.421,0.512],"liver":[0.824,0.56],"thyroid":[0.059,0.605],"adrenal":[0.344,0.837],"muscle":[0.728,0.928]},"computed":{"density":0.117,"disorder":0.171,"fitA":2.378,"strength":{"adrenal":0.7,"marrow":0.63,"heart":1.98,"intestine":1.73,"kidneys":1.65,"liver":0.75,"lungs":2.32,"muscle":0.54,"pancreas":0.47,"spleen":1.28,"thyroid":0.79},"hubs":["lungs"]},"exact":true},{"id":"A_low","title":"BMI healthy <= 24.4 kg/m2","n":241,"density":27,"organs":["muscle","thyroid","fat","pancreas","adrenal","brain","kidneys","liver","spleen","intestine","marrow"],"isolated":[],"hubs":[],"edges":[["muscle","thyroid",0.33],["muscle","fat",0.3],["muscle","adrenal",0.34],["muscle","kidneys",-0.26],["thyroid","fat",-0.36],["thyroid","pancreas",0.38],["thyroid","kidneys",0.33],["fat","pancreas",0.75],["fat","adrenal",-0.7],["fat","brain",-0.58],["fat","kidneys",0.52],["fat","liver",0.3],["fat","intestine",0.53],["pancreas","adrenal",0.62],["pancreas","intestine",-0.59],["pancreas","brain",0.5],["pancreas","kidneys",-0.34],["adrenal","brain",-0.61],["adrenal","intestine",0.4],["adrenal","liver",0.41],["adrenal","kidneys",0.51],["adrenal","marrow",0.29],["brain","kidneys",0.59],["brain","liver",0.46],["brain","intestine",0.52],["brain","marrow",0.39],["kidneys","liver",-0.35],["kidneys","marrow",-0.38],["kidneys","intestine",-0.33],["liver","spleen",0.45],["liver","intestine",-0.32],["spleen","marrow",0.38],["spleen","intestine",-0.29],["intestine","marrow",0.36]],"layout":{"muscle":[0.311,0.081],"thyroid":[0.786,0.147],"fat":[0.392,0.328],"pancreas":[0.142,0.403],"adrenal":[0.079,0.54],"brain":[0.317,0.511],"kidneys":[0.53,0.618],"liver":[0.865,0.542],"spleen":[0.921,0.74],"intestine":[0.234,0.769],"marrow":[0.459,0.919]},"computed":{"density":0.269,"disorder":0.115,"fitA":4.5,"strength":{"muscle":1.23,"thyroid":1.4,"fat":4.04,"pancreas":3.18,"adrenal":3.88,"brain":3.65,"kidneys":3.61,"liver":2.29,"spleen":1.12,"intestine":3.34,"marrow":1.8},"hubs":[]},"fig":"3A"},{"id":"A_high","title":"BMI healthy > 24.4 kg/m2","n":241,"density":7,"organs":["muscle","thyroid","fat","pancreas","adrenal","brain","kidneys","liver","spleen","intestine","marrow"],"isolated":["thyroid"],"hubs":["brain"],"edges":[["muscle","fat",0.28],["muscle","brain",-0.34],["pancreas","adrenal",0.52],["pancreas","brain",0.55],["adrenal","brain",-0.43],["brain","kidneys",0.28],["pancreas","spleen",0.25],["kidneys","marrow",-0.26],["intestine","marrow",0.43],["liver","spleen",0.48]],"layout":{"muscle":[0.311,0.081],"thyroid":[0.786,0.147],"fat":[0.392,0.328],"pancreas":[0.142,0.403],"adrenal":[0.079,0.54],"brain":[0.317,0.511],"kidneys":[0.53,0.618],"liver":[0.865,0.542],"spleen":[0.921,0.74],"intestine":[0.234,0.769],"marrow":[0.459,0.919]},"computed":{"density":0.069,"disorder":0.2,"fitA":1.559,"strength":{"muscle":0.62,"thyroid":0,"fat":0.28,"pancreas":1.32,"adrenal":0.95,"brain":1.6,"kidneys":0.54,"liver":0.48,"spleen":0.73,"intestine":0.43,"marrow":0.69},"hubs":["brain"]},"fig":"3A"},{"id":"B_low","title":"low tumor load","n":417,"density":18,"organs":["spleen","liver","thyroid","fat","pancreas","kidneys","muscle","heart","brain","adrenal","intestine"],"isolated":[],"hubs":[],"edges":[["spleen","intestine",0.22],["spleen","kidneys",0.24],["liver","thyroid",0.45],["liver","fat",0.27],["liver","brain",0.29],["liver","heart",-0.27],["liver","kidneys",-0.23],["thyroid","fat",-0.43],["thyroid","kidneys",0.3],["thyroid","muscle",0.3],["thyroid","heart",0.42],["thyroid","brain",-0.23],["fat","pancreas",0.4],["fat","kidneys",0.27],["fat","heart",0.24],["fat","muscle",0.44],["fat","brain",-0.41],["pancreas","intestine",0.27],["kidneys","heart",-0.34],["kidneys","brain",0.44],["kidneys","muscle",-0.24],["kidneys","adrenal",-0.24],["muscle","brain",0.42],["muscle","intestine",0.21],["muscle","adrenal",-0.21],["heart","brain",0.47],["heart","adrenal",-0.35],["heart","intestine",0.27],["brain","adrenal",0.53],["brain","intestine",-0.25],["adrenal","intestine",0.32]],"layout":{"spleen":[0.709,0.085],"liver":[0.333,0.242],"thyroid":[0.084,0.311],"fat":[0.54,0.386],"pancreas":[0.916,0.439],"kidneys":[0.281,0.486],"muscle":[0.495,0.514],"heart":[0.104,0.652],"brain":[0.378,0.646],"adrenal":[0.344,0.915],"intestine":[0.726,0.841]},"computed":{"density":0.181,"disorder":0.116,"fitA":3.047,"strength":{"spleen":0.46,"liver":1.51,"thyroid":2.13,"fat":2.46,"pancreas":0.67,"kidneys":2.3,"muscle":1.82,"heart":2.36,"brain":3.04,"adrenal":1.65,"intestine":1.54},"hubs":[]},"fig":"3B"},{"id":"B_high","title":"high tumor load","n":417,"density":8,"organs":["spleen","liver","thyroid","fat","pancreas","kidneys","muscle","heart","brain","adrenal","intestine"],"isolated":["thyroid"],"hubs":["muscle"],"edges":[["spleen","liver",0.3],["spleen","muscle",0.26],["spleen","fat",-0.18],["liver","fat",-0.3],["liver","kidneys",0.32],["liver","muscle",0.36],["fat","pancreas",0.21],["fat","muscle",0.46],["fat","brain",-0.24],["pancreas","kidneys",0.22],["kidneys","muscle",-0.23],["kidneys","heart",0.21],["kidneys","brain",0.29],["kidneys","intestine",0.2],["muscle","brain",0.35],["muscle","adrenal",0.23]],"layout":{"spleen":[0.709,0.085],"liver":[0.333,0.242],"thyroid":[0.084,0.311],"fat":[0.54,0.386],"pancreas":[0.916,0.439],"kidneys":[0.281,0.486],"muscle":[0.495,0.514],"heart":[0.104,0.652],"brain":[0.378,0.646],"adrenal":[0.344,0.915],"intestine":[0.726,0.841]},"computed":{"density":0.079,"disorder":0.228,"fitA":1.986,"strength":{"spleen":0.74,"liver":1.28,"thyroid":0,"fat":1.39,"pancreas":0.43,"kidneys":1.47,"muscle":1.89,"heart":0.21,"brain":0.88,"adrenal":0.23,"intestine":0.2},"hubs":["muscle"]},"fig":"3B"},{"id":"C_low","title":"Lower Tertile: CRP < 0.11 mg/dl","n":658,"density":11,"organs":["liver","spleen","kidneys","heart","muscle","thyroid","adrenal","fat","pancreas","marrow","intestine"],"isolated":[],"hubs":[],"edges":[["liver","spleen",0.37],["liver","kidneys",0.36],["liver","heart",-0.28],["kidneys","heart",0.32],["heart","thyroid",0.4],["kidneys","muscle",-0.29],["muscle","thyroid",0.4],["muscle","adrenal",0.27],["muscle","fat",0.27],["kidneys","fat",0.29],["kidneys","marrow",-0.27],["spleen","pancreas",0.28],["spleen","marrow",0.25],["adrenal","fat",-0.37],["thyroid","fat",-0.42],["adrenal","pancreas",0.33],["fat","pancreas",0.51],["marrow","intestine",0.41]],"layout":{"liver":[0.375,0.101],"spleen":[0.228,0.216],"kidneys":[0.636,0.249],"heart":[0.902,0.196],"muscle":[0.452,0.385],"thyroid":[0.781,0.52],"adrenal":[0.098,0.608],"fat":[0.497,0.61],"pancreas":[0.32,0.726],"marrow":[0.557,0.899],"intestine":[0.776,0.861]},"computed":{"density":0.111,"disorder":0.096,"fitA":1.705,"strength":{"liver":1.01,"spleen":0.9,"kidneys":1.53,"heart":1,"muscle":1.23,"thyroid":1.22,"adrenal":0.97,"fat":1.86,"pancreas":1.12,"marrow":0.93,"intestine":0.41},"hubs":["fat"]},"fig":"3C"},{"id":"C_mid","title":"Middle Tertile: CRP 0.11 - 0.74 mg/dl","n":658,"density":7,"organs":["liver","spleen","kidneys","heart","muscle","thyroid","adrenal","fat","pancreas","marrow","intestine"],"isolated":["heart","adrenal"],"hubs":[],"edges":[["liver","spleen",0.58],["liver","fat",-0.33],["kidneys","pancreas",0.34],["kidneys","fat",0.28],["muscle","thyroid",0.28],["thyroid","fat",-0.41],["fat","pancreas",0.4],["fat","intestine",0.46],["marrow","intestine",0.48],["muscle","marrow",0.31]],"layout":{"liver":[0.375,0.101],"spleen":[0.228,0.216],"kidneys":[0.636,0.249],"heart":[0.902,0.196],"muscle":[0.452,0.385],"thyroid":[0.781,0.52],"adrenal":[0.098,0.608],"fat":[0.497,0.61],"pancreas":[0.32,0.726],"marrow":[0.557,0.899],"intestine":[0.776,0.861]},"computed":{"density":0.07,"disorder":0.2,"fitA":1.578,"strength":{"liver":0.91,"spleen":0.58,"kidneys":0.62,"heart":0,"muscle":0.59,"thyroid":0.69,"adrenal":0,"fat":1.88,"pancreas":0.74,"marrow":0.79,"intestine":0.94},"hubs":["fat"]},"fig":"3C"},{"id":"C_high","title":"Upper Tertile: CRP 0.74 - 40.1 mg/dl","n":658,"density":3,"organs":["liver","spleen","kidneys","heart","muscle","thyroid","adrenal","fat","pancreas","marrow","intestine"],"isolated":["kidneys","heart","thyroid","adrenal","intestine"],"hubs":["muscle"],"edges":[["liver","spleen",0.34],["liver","muscle",0.33],["spleen","muscle",0.28],["muscle","fat",0.27],["fat","pancreas",0.21],["pancreas","marrow",0.21]],"layout":{"liver":[0.375,0.101],"spleen":[0.228,0.216],"kidneys":[0.636,0.249],"heart":[0.902,0.196],"muscle":[0.452,0.385],"thyroid":[0.781,0.52],"adrenal":[0.098,0.608],"fat":[0.497,0.61],"pancreas":[0.32,0.726],"marrow":[0.557,0.899],"intestine":[0.776,0.861]},"computed":{"density":0.03,"disorder":0.301,"fitA":0.943,"strength":{"liver":0.67,"spleen":0.62,"kidneys":0,"heart":0,"muscle":0.88,"thyroid":0,"adrenal":0,"fat":0.48,"pancreas":0.42,"marrow":0.21,"intestine":0},"hubs":["muscle"]},"fig":"3C"},{"id":"FDG_healthy","title":"FDG (N = 241)","n":241,"density":9,"organs":["adrenal","fat","intestine","liver","lungs","muscle","pancreas","spleen","thyroid"],"isolated":[],"hubs":[],"edges":[["liver","spleen",0.47],["fat","pancreas",0.44],["fat","muscle",0.28],["fat","thyroid",-0.28],["adrenal","pancreas",0.27],["intestine","liver",-0.27],["liver","lungs",-0.27],["pancreas","thyroid",0.26],["lungs","muscle",0.25],["muscle","thyroid",0.23],["fat","spleen",0.22]],"layout":{"intestine":[0.342,0.086],"fat":[0.737,0.143],"lungs":[0.085,0.277],"adrenal":[0.469,0.311],"spleen":[0.2,0.574],"liver":[0.517,0.596],"muscle":[0.915,0.565],"pancreas":[0.244,0.884],"thyroid":[0.531,0.914]},"computed":{"density":0.09,"disorder":0.156,"fitA":1.247,"strength":{"adrenal":0.27,"fat":1.22,"intestine":0.27,"liver":1.01,"lungs":0.52,"muscle":0.76,"pancreas":0.97,"spleen":0.69,"thyroid":0.77},"hubs":[]},"fig":"4"},{"id":"HK2","title":"Hexokinase 2 (N = 946)","n":946,"density":7,"organs":["adrenal","fat","intestine","liver","lungs","muscle","pancreas","spleen","thyroid"],"isolated":[],"hubs":[],"edges":[["intestine","muscle",0.2],["liver","spleen",0.17],["intestine","lungs",0.17],["spleen","thyroid",0.17],["fat","liver",0.17],["fat","pancreas",0.17],["adrenal","pancreas",0.16],["adrenal","muscle",0.16],["adrenal","liver",0.15],["pancreas","thyroid",0.13],["intestine","liver",-0.13],["liver","thyroid",-0.13],["lungs","thyroid",0.13],["adrenal","intestine",0.13],["fat","muscle",0.12],["muscle","spleen",0.12],["intestine","thyroid",-0.11]],"layout":{"intestine":[0.342,0.086],"fat":[0.737,0.143],"lungs":[0.085,0.277],"adrenal":[0.469,0.311],"spleen":[0.2,0.574],"liver":[0.517,0.596],"muscle":[0.915,0.565],"pancreas":[0.244,0.884],"thyroid":[0.531,0.914]},"computed":{"density":0.07,"disorder":0.093,"fitA":0.79,"strength":{"adrenal":0.6,"fat":0.46,"intestine":0.74,"liver":0.75,"lungs":0.3,"muscle":0.6,"pancreas":0.46,"spleen":0.46,"thyroid":0.67},"hubs":[]},"fig":"4"},{"id":"GLUT","title":"Cumulated GLUT1 – GLUT4 (N = 946)","n":946,"density":16,"organs":["adrenal","fat","intestine","liver","lungs","muscle","pancreas","spleen","thyroid"],"isolated":[],"hubs":[],"edges":[["spleen","thyroid",0.61],["fat","pancreas",0.41],["intestine","lungs",0.4],["adrenal","thyroid",0.38],["fat","intestine",0.35],["liver","thyroid",0.33],["liver","spleen",-0.3],["lungs","pancreas",0.27],["fat","lungs",-0.23],["adrenal","lungs",0.21],["lungs","spleen",-0.21],["fat","spleen",-0.21],["lungs","thyroid",0.21],["intestine","pancreas",-0.2],["liver","muscle",-0.2],["intestine","spleen",0.2],["liver","pancreas",-0.2],["fat","thyroid",0.18],["adrenal","spleen",-0.17],["adrenal","fat",0.17],["intestine","liver",-0.14],["pancreas","spleen",0.12],["adrenal","pancreas",-0.1]],"layout":{"intestine":[0.342,0.086],"fat":[0.737,0.143],"lungs":[0.085,0.277],"adrenal":[0.469,0.311],"spleen":[0.2,0.574],"liver":[0.517,0.596],"muscle":[0.915,0.565],"pancreas":[0.244,0.884],"thyroid":[0.531,0.914]},"computed":{"density":0.161,"disorder":0.112,"fitA":1.944,"strength":{"adrenal":1.03,"fat":1.55,"intestine":1.29,"liver":1.17,"lungs":1.53,"muscle":0.2,"pancreas":1.3,"spleen":1.82,"thyroid":1.71},"hubs":[]},"fig":"4"},{"id":"dose_standard","title":"Standard dose (21 people)","fig":"2B","n":21,"density":20,"organs":["heart","spleen","pancreas","kidneys","brain","adrenal","liver","thyroid"],"isolated":[],"hubs":[],"edges":[["heart","pancreas",-0.22],["heart","kidneys",0.21],["heart","adrenal",0.22],["spleen","pancreas",0.48],["spleen","kidneys",0.47],["spleen","adrenal",-0.41],["pancreas","adrenal",0.62],["pancreas","thyroid",-0.2],["pancreas","liver",-0.24],["kidneys","brain",0.41],["kidneys","adrenal",0.21],["kidneys","liver",0.37],["kidneys","thyroid",0.38],["adrenal","liver",0.3],["adrenal","thyroid",0.34],["liver","thyroid",-0.56]],"layout":{"heart":[0.333,0.059],"spleen":[0.753,0.111],"pancreas":[0.371,0.371],"kidneys":[0.669,0.525],"brain":[0.059,0.64],"adrenal":[0.445,0.703],"liver":[0.941,0.755],"thyroid":[0.707,0.941]},"computed":{"density":0.201,"disorder":0.155,"fitA":2.295,"strength":{"heart":0.65,"spleen":1.36,"pancreas":1.76,"kidneys":2.05,"brain":0.41,"adrenal":2.1,"liver":1.47,"thyroid":1.48},"hubs":[]},"approx":true},{"id":"dose_ultralow","title":"Ultra low dose (21 people)","fig":"2B","n":21,"density":24,"organs":["heart","spleen","pancreas","kidneys","brain","adrenal","liver","thyroid"],"isolated":[],"hubs":[],"edges":[["heart","spleen",0.4],["heart","pancreas",-0.43],["heart","kidneys",0.49],["heart","adrenal",0.51],["heart","liver",-0.22],["spleen","pancreas",0.35],["spleen","kidneys",-0.3],["spleen","liver",0.21],["pancreas","brain",0.47],["pancreas","adrenal",0.53],["kidneys","brain",0.34],["kidneys","liver",0.29],["kidneys","thyroid",0.36],["brain","adrenal",-0.43],["adrenal","liver",0.47],["adrenal","thyroid",0.45],["liver","thyroid",-0.48]],"layout":{"heart":[0.333,0.059],"spleen":[0.753,0.111],"pancreas":[0.371,0.371],"kidneys":[0.669,0.525],"brain":[0.059,0.64],"adrenal":[0.445,0.703],"liver":[0.941,0.755],"thyroid":[0.707,0.941]},"computed":{"density":0.24,"disorder":0.099,"fitA":2.315,"strength":{"heart":2.05,"spleen":1.26,"pancreas":1.78,"kidneys":1.78,"brain":1.24,"adrenal":2.39,"liver":1.67,"thyroid":1.29},"hubs":["adrenal"]},"approx":true},{"id":"dose_virtual","title":"Virtual ultra low dose (21 people)","fig":"2B","n":21,"density":23,"organs":["heart","spleen","pancreas","kidneys","brain","adrenal","liver","thyroid"],"isolated":[],"hubs":[],"edges":[["heart","spleen",0.36],["heart","pancreas",-0.27],["heart","brain",0.36],["spleen","pancreas",0.37],["spleen","kidneys",0.24],["spleen","thyroid",-0.26],["pancreas","kidneys",0.28],["pancreas","brain",0.25],["pancreas","adrenal",0.5],["pancreas","thyroid",-0.27],["pancreas","liver",-0.2],["kidneys","brain",0.36],["kidneys","adrenal",-0.24],["kidneys","liver",0.4],["kidneys","thyroid",0.56],["brain","adrenal",-0.23],["adrenal","liver",0.39],["adrenal","thyroid",0.48],["liver","thyroid",-0.45]],"layout":{"heart":[0.333,0.059],"spleen":[0.753,0.111],"pancreas":[0.371,0.371],"kidneys":[0.669,0.525],"brain":[0.059,0.64],"adrenal":[0.445,0.703],"liver":[0.941,0.755],"thyroid":[0.707,0.941]},"computed":{"density":0.231,"disorder":0.109,"fitA":2.296,"strength":{"heart":0.99,"spleen":1.23,"pancreas":2.14,"kidneys":2.08,"brain":1.2,"adrenal":1.84,"liver":1.44,"thyroid":2.02},"hubs":[]},"approx":true}],"table2":[{"what":"Test-retest","cohort":"2 scans within 6 weeks, no intervention","part":"test","groups":[{"label":"first scan","n":47,"density":14,"disorder":0.06},{"label":"second scan","n":47,"density":16,"disorder":0.04}],"pD":"p = 0.12","pO":"p = 0.2","sigD":false,"sigO":false},{"what":"Cold exposure","cohort":"2 scans within 2 weeks, cold exposure at the second","part":"test","groups":[{"label":"first scan","n":63,"density":7,"disorder":0.15},{"label":"second scan","n":63,"density":8,"disorder":0.2}],"pD":"p = 0.3","pO":"p = 0.2","sigD":false,"sigO":false},{"what":"Dose","cohort":"2 consecutive scans, 3 doses","part":"test","groups":[{"label":"standard dose","n":21,"density":20,"disorder":0.09},{"label":"ultra-low dose","n":21,"density":24,"disorder":0.07},{"label":"virtual low dose","n":21,"density":23,"disorder":0.08}],"pD":"all p > 0.5","pO":"all p > 0.2","sigD":false,"sigO":false},{"what":"Blood pool","cohort":"full cohort, normalised to","part":"test","groups":[{"label":"aorta","n":658,"density":12,"disorder":0.17},{"label":"vena cava","n":658,"density":12,"disorder":0.21}],"pD":"p = 0.97","pO":"p = 0.97","sigD":false,"sigO":false},{"what":"Scanner","cohort":"2 PET/CT systems","part":"test","groups":[{"label":"Biograph TruePoint 64","n":61,"density":8,"disorder":0.17},{"label":"Biograph Vision","n":61,"density":11,"disorder":0.15}],"pD":"p = 0.3","pO":"p = 0.4","sigD":false,"sigO":false},{"what":"Sex","cohort":"55 people each, matched health","part":"test","groups":[{"label":"male","n":55,"density":27,"disorder":0.21},{"label":"female","n":55,"density":21,"disorder":0.29}],"pD":"p = 0.4","pO":"p = 0.4","sigD":false,"sigO":false},{"what":"Age","cohort":"full cohort, split at the median","part":"test","groups":[{"label":"under 56 years","n":302,"density":17,"disorder":0.13},{"label":"56 or older","n":283,"density":13,"disorder":0.16}],"pD":"p = 0.8","pO":"p = 1.0","sigD":false,"sigO":false},{"what":"Cancer","cohort":"full cohort","part":"health","groups":[{"label":"healthy","n":241,"density":30,"disorder":0.19},{"label":"cancer","n":417,"density":7,"disorder":0.29}],"pD":"p < 0.001","pO":"p = 0.014","sigD":true,"sigO":true},{"what":"BMI","cohort":"full cohort, split at the median","part":"health","groups":[{"label":"BMI under 25.3","n":303,"density":33,"disorder":0.14},{"label":"BMI 25.3 or more","n":303,"density":14,"disorder":0.27}],"pD":"p = 0.024","pO":"p = 0.04","sigD":true,"sigO":true},{"what":"BMI","cohort":"healthy people, split at the median","part":"health","groups":[{"label":"BMI under 24.4","n":94,"density":27,"disorder":0.13},{"label":"BMI 24.4 or more","n":95,"density":7,"disorder":0.17}],"pD":"p < 0.001","pO":"p = 0.02","sigD":true,"sigO":true},{"what":"BMI","cohort":"people with cancer, split at the median","part":"health","groups":[{"label":"BMI under 26.0","n":203,"density":15,"disorder":0.18},{"label":"BMI 26.0 or more","n":214,"density":11,"disorder":0.2}],"pD":"p = 0.3","pO":"p = 0.4","sigD":false,"sigO":false},{"what":"Leukocytes","cohort":"full cohort, split at the median","part":"health","groups":[{"label":"under 7.9 × 10⁹/L","n":117,"density":10,"disorder":0.12},{"label":"7.9 × 10⁹/L or more","n":118,"density":6,"disorder":0.16}],"pD":"p = 0.12","pO":"p = 0.12","sigD":false,"sigO":false,"note":"As printed in Table 2; the paper's text gives p = 0.012 for this split."},{"what":"Leukocytes","cohort":"healthy people, split at the median","part":"health","groups":[{"label":"under 6.5 × 10⁹/L","n":36,"density":5,"disorder":0.09},{"label":"6.5 × 10⁹/L or more","n":37,"density":3,"disorder":0.17}],"pD":"p = 0.3","pO":"p = 0.07","sigD":false,"sigO":false},{"what":"Leukocytes","cohort":"people with cancer, split at the median","part":"health","groups":[{"label":"under 9.3 × 10⁹/L","n":63,"density":11,"disorder":0.12},{"label":"9.3 × 10⁹/L or more","n":63,"density":6,"disorder":0.21}],"pD":"p = 0.03","pO":"p = 0.07","sigD":true,"sigO":false},{"what":"CRP","cohort":"full cohort, split at the median","part":"health","groups":[{"label":"under 0.5 mg/dL","n":190,"density":12,"disorder":0.11},{"label":"0.5 mg/dL or more","n":115,"density":6,"disorder":0.19}],"pD":"p = 0.018","pO":"p = 0.018","sigD":true,"sigO":true},{"what":"CRP","cohort":"healthy people, split at the median","part":"health","groups":[{"label":"under 0.08 mg/dL","n":75,"density":10,"disorder":0.11},{"label":"0.08 mg/dL or more","n":69,"density":10,"disorder":0.12}],"pD":"p = 0.9","pO":"p = 0.8","sigD":false,"sigO":false},{"what":"CRP","cohort":"people with cancer, split at the median","part":"health","groups":[{"label":"under 1.25 mg/dL","n":81,"density":6,"disorder":0.23},{"label":"1.25 mg/dL or more","n":80,"density":3,"disorder":0.43}],"pD":"p = 0.16","pO":"p = 0.2","sigD":false,"sigO":false},{"what":"CRP","cohort":"full cohort, in thirds","part":"health","groups":[{"label":"under 0.11 mg/dL","n":95,"density":11,"disorder":0.1},{"label":"0.11 to 0.74 mg/dL","n":108,"density":7,"disorder":0.17},{"label":"0.74 to 40.1 mg/dL","n":102,"density":3,"disorder":0.27}],"pD":"p = 0.02, then p = 0.09","pO":"p = 0.01, then p = 0.13","sigD":true,"sigO":true},{"what":"Blood glucose","cohort":"full cohort, split at the median","part":"health","groups":[{"label":"under 93 mg/dL","n":104,"density":16,"disorder":0.12},{"label":"93 mg/dL or more","n":114,"density":8,"disorder":0.14}],"pD":"p = 0.025","pO":"p = 0.08","sigD":true,"sigO":false},{"what":"Norepinephrine","cohort":"healthy people, split at the median","part":"health","groups":[{"label":"under 270 ng/L","n":20,"density":14,"disorder":0.11},{"label":"270 ng/L or more","n":20,"density":4,"disorder":0.21}],"pD":"p = 0.04","pO":"p = 0.12","sigD":true,"sigO":false},{"what":"Tumour load","cohort":"people with cancer, split at the median TLG","part":"health","groups":[{"label":"TLG under 23","n":174,"density":18,"disorder":0.17},{"label":"TLG 23 or more","n":174,"density":8,"disorder":0.3}],"pD":"p = 0.028","pO":"p = 0.04","sigD":true,"sigO":true},{"what":"Tumour stage","cohort":"people with cancer","part":"health","groups":[{"label":"stage below III","n":99,"density":20,"disorder":0.16},{"label":"stage IV","n":98,"density":13,"disorder":0.19}],"pD":"p = 0.1","pO":"p = 0.2","sigD":false,"sigO":false},{"what":"Survival","cohort":"people with cancer, split at the median","part":"health","groups":[{"label":"under 34 months","n":208,"density":23,"disorder":0.14},{"label":"34 months or more","n":208,"density":7,"disorder":0.23}],"pD":"p < 0.001","pO":"p = 0.005","sigD":true,"sigO":true,"note":"As printed in Table 2: here the shorter survivors' network is the denser one, unlike the paper's other results; the paper does not discuss it."}],"table3":[{"name":"FDG (the 241 scans of healthy volunteers)","kind":"fdg","density":9,"p":"","r":null,"similar":""},{"name":"Glucose-6-phosphatase 2 (G6PC2)","kind":"metabolism","density":9,"p":"p = 1.0","r":-0.2,"similar":"very different"},{"name":"Glucose-6-phosphatase 3 (G6PC3)","kind":"metabolism","density":12,"p":"p = 0.9","r":-0.1,"similar":"very different"},{"name":"Glucose-6-phosphate dehydrogenase (G6PD)","kind":"metabolism","density":11,"p":"p = 1.0","r":0,"similar":"very different"},{"name":"Glucose transporters GLUT1 to 4 (together)","kind":"metabolism","density":16,"p":"p = 0.1","r":-0.1,"similar":"very different"},{"name":"Glucose-6-phosphate isomerase (GPI)","kind":"metabolism","density":12,"p":"p = 0.8","r":-0.1,"similar":"very different"},{"name":"Hexose-6-phosphate dehydrogenase (H6PD)","kind":"metabolism","density":13,"p":"p = 1.0","r":-0.4,"similar":"very different"},{"name":"Hexokinase 2 (HK2)","kind":"metabolism","density":7,"p":"p = 1.0","r":0.42,"similar":"similar (p = 0.01)"},{"name":"Glucose-6-phosphate exchanger 1 (SLC37A1)","kind":"metabolism","density":7,"p":"p = 1.0","r":0,"similar":"very different"},{"name":"Glucose-6-phosphate exchanger 2 (SLC37A2)","kind":"metabolism","density":8,"p":"p = 0.8","r":-0.2,"similar":"very different"},{"name":"Glucose-6-phosphate exchanger 4 (SLC37A4)","kind":"metabolism","density":12,"p":"p = 0.7","r":-0.1,"similar":"very different"},{"name":"Interleukin-6 (IL-6)","kind":"inflammation","density":14,"p":"p = 0.12","r":0.1,"similar":"very different"},{"name":"Interleukin-1β (IL-1β)","kind":"inflammation","density":13,"p":"p = 0.15","r":0.22,"similar":"very different"},{"name":"Tumour necrosis factor α (TNF-α)","kind":"inflammation","density":10,"p":"p = 0.8","r":0.2,"similar":"very different"},{"name":"C-reactive protein (CRP)","kind":"inflammation","density":10,"p":"p = 0.4","r":0,"similar":"very different"},{"name":"COX4I1","kind":"ageing","density":7,"p":"p = 0.8","r":-0.1,"similar":"very different"},{"name":"CDKN1A","kind":"ageing","density":18,"p":"p = 0.004","r":-0.3,"similar":"very different"},{"name":"HSP90AA1","kind":"ageing","density":17,"p":"p = 0.06","r":0.1,"similar":"very different"},{"name":"EGR1","kind":"ageing","density":10,"p":"p = 0.5","r":0.22,"similar":"very different"}],"strength":{"high":{"disorder":0.09,"bars":[{"organ":"fat","value":3.58},{"organ":"adrenal","value":2.88},{"organ":"muscle","value":2.8},{"organ":"pancreas","value":2.73},{"organ":"brain","value":2.58},{"organ":"marrow","value":2.54},{"organ":"thyroid","value":2.32},{"organ":"intestine","value":2.27},{"organ":"heart","value":2.2},{"organ":"kidneys","value":1.46},{"organ":"liver","value":1.39},{"organ":"spleen","value":0.99}],"fitFirst":3.65,"fitLast":1.31},"low":{"disorder":0.22,"bars":[{"organ":"muscle","value":1.5},{"organ":"fat","value":1.48},{"organ":"brain","value":1.06},{"organ":"kidneys","value":0.884},{"organ":"liver","value":0.84},{"organ":"spleen","value":0.833},{"organ":"pancreas","value":0.51},{"organ":"intestine","value":0.38},{"organ":"heart","value":0.35},{"organ":"adrenal","value":0.33},{"organ":"marrow","value":0.17},{"organ":"thyroid","value":0.13}],"fitFirst":1.8,"fitLast":0.167},"retest_a":{"disorder":0.04,"values":[1.77,1.75,1.6,1.46,1.395,1.36,1.35,1.33,1.29,1.284,1.06],"fitFirst":1.74,"fitLast":1.14},"retest_b":{"disorder":0.06,"values":[2.24,2.16,2.05,1.61,1.58,1.56,1.44,1.42,1.38,1.3,1.17],"fitFirst":2.17,"fitLast":1.17}},"synth":{"n":658,"organs":["adrenal","marrow","heart","intestine","kidneys","liver","lungs","muscle","pancreas","spleen","thyroid"],"shrink":1,"rows":[[1.4,1.2,2.24,1.17,2.13,1.51,0.63,0.52,1.05,1.45,1.15],[1.2,1.32,1.9,1.11,2.19,1.24,0.55,0.53,1.02,1.2,0.85],[0.72,1.38,1.59,1.1,1.81,1.49,0.46,0.55,1.07,1.16,0.82],[1.09,1.22,1.3,0.96,1.67,1.35,0.4,0.47,0.85,1.01,0.89],[1.21,0.76,2.07,1.31,1.76,1.36,0.48,0.44,1.18,0.62,0.45],[1.07,1.19,2.02,1.12,1.37,1.25,0.61,0.49,0.81,1.08,1.26],[0.89,1.29,2.31,1.01,2.16,1.6,0.6,0.52,0.92,1.23,0.95],[1.09,1.28,1.43,1.04,1.35,0.98,0.52,0.31,1.16,1.13,0.94],[1.23,1.36,2.42,1.01,1.85,1.53,0.64,0.47,0.96,1.03,1.05],[1.01,0.9,1.95,1.08,1.36,1.75,0.45,0.61,0.91,1.17,1.04],[1.3,1.51,1.31,1,1.56,1.99,0.4,0.53,0.8,1.33,0.4],[0.8,0.98,1.81,0.94,1.65,1.58,0.51,0.47,0.83,1.15,1.15],[1.42,1.2,1.43,1.16,1.09,1.56,0.49,0.56,0.89,1.12,0.64],[1.25,1.2,2.03,0.7,2.28,1.22,0.55,0.47,1.06,1.23,0.87],[1.28,1.12,1.47,1.04,1.97,1.73,0.49,0.46,1.17,1.2,0.94],[1.16,1.3,1.71,1,1.57,1.43,0.67,0.47,0.89,0.97,1.14],[1.25,1.5,2.12,0.9,1.78,1.35,0.6,0.38,0.93,1.1,0.91],[1.04,1.24,1.98,0.99,2.26,1.73,0.45,0.57,1.39,1.35,0.79],[1.14,1.31,2,1.02,1.62,1.42,0.56,0.48,0.79,1.43,0.81],[1.16,1.57,1.77,1.21,1.67,1.42,0.62,0.49,1.08,1.03,0.89],[1.16,1.43,1.79,1.32,1.31,1.24,0.59,0.37,0.97,0.95,0.92],[1.16,1.11,2.02,1.13,2.03,1.53,0.57,0.52,1,1.43,1],[1.28,1.59,1.14,0.98,1.11,1.05,0.54,0.43,0.69,1.12,0.82],[1.09,1.3,1.47,0.88,1.41,1.34,0.55,0.36,1.01,1.06,0.92],[1.46,1.35,1.79,1.29,1.42,1.22,0.44,0.47,1.26,0.97,0.76],[0.98,1.29,1.89,0.97,2.16,1.49,0.42,0.46,1,1.01,0.82],[0.94,1.18,2.59,0.7,2.01,1.24,0.73,0.36,1.11,1.04,0.85],[1.25,1.29,1.95,0.73,1.54,1.3,0.68,0.47,0.95,1.38,1.12],[1.36,1.43,1.55,0.89,1.53,1.33,0.5,0.31,0.86,1.01,0.72],[0.73,1.53,1.98,0.98,1.81,1.52,0.49,0.44,1.29,1,0.76],[1.17,1.48,1.8,1.05,1.78,1.22,0.6,0.45,1.09,1.1,0.94],[1.29,0.94,1.73,0.95,1.79,1.31,0.45,0.33,0.95,0.94,1.14],[0.57,0.81,1.68,0.92,1.57,1.27,0.38,0.35,0.61,0.6,0.94],[1.32,1.47,1.11,0.96,1.6,1.45,0.44,0.41,0.62,0.99,0.87],[0.86,1.61,1.79,1.27,1.41,1.22,0.49,0.62,0.61,1.08,0.89],[1.38,1.05,1.53,0.96,1.48,1.02,0.6,0.39,0.92,1.33,0.78],[1.26,1.12,1.43,0.9,1.74,1.34,0.47,0.44,0.85,1.33,0.87],[1.12,1.28,2.06,0.68,1.79,1.53,0.58,0.5,0.88,1.33,0.92],[1.41,0.97,2.44,0.86,2.63,1.48,0.75,0.57,0.92,1.75,1.54],[0.84,1.26,1.9,0.85,2.24,1.79,0.5,0.67,1.14,1.13,0.81],[1.1,1.23,2.04,1.29,1.15,1.65,0.57,0.54,1.03,1.22,0.73],[0.91,1.18,1.75,0.87,1.62,1.63,0.47,0.62,1.26,1.3,0.97],[0.89,0.92,1.95,1.23,1.75,1.52,0.43,0.55,1.22,1.21,0.84],[1.22,1.53,1.65,1.15,1.34,1.49,0.57,0.54,0.86,1.26,0.95],[1.03,1.43,2.11,1.02,2.41,1.67,0.59,0.66,1.13,1.39,1.01],[1.56,1.29,1.66,1,1.78,1.22,0.56,0.35,1.05,0.96,0.76],[1.45,1.08,1.16,1.02,1.72,1.52,0.41,0.27,0.74,1.22,0.69],[1.3,1.59,1.78,0.98,1.48,1,0.6,0.48,0.91,0.65,0.97],[1.38,1.34,1.92,1.02,1.67,1.13,0.6,0.53,0.87,1.15,0.85],[1.33,1.25,2.25,0.86,1.99,1.51,0.69,0.55,0.93,1.28,1.01],[1.26,1.45,1.68,1.03,1.8,1.32,0.47,0.46,1.3,1.14,0.7],[0.96,1.24,1.57,1.21,1.89,1.98,0.4,0.62,0.99,1.53,0.75],[1.04,1.75,2.09,1.02,1.32,1.24,0.63,0.43,0.94,1.09,0.84],[0.89,1.24,1.35,1.18,1.41,1.59,0.38,0.54,1.36,1.13,1.05],[1.4,1.57,1.5,1.2,2.18,1.23,0.42,0.49,1.14,1.09,0.81],[1.32,1.52,1.27,1.08,0.99,1.25,0.5,0.47,0.67,0.88,0.8],[1.08,0.88,1.75,0.78,1.85,1.09,0.45,0.55,1.22,1.15,0.59],[1.37,1,2.1,0.85,1.53,1.07,0.61,0.39,0.86,1,1.26],[1.21,1.06,1.82,1.28,1.34,2,0.4,0.81,1.09,1.3,0.82],[1.24,1.12,1.97,0.92,1.89,1.48,0.59,0.38,1.06,1.1,1.01],[1.18,1.43,1.54,1.07,1.56,1.35,0.48,0.34,1,1.03,1.1],[1.35,1.54,1.94,1.19,1.36,1.43,0.58,0.45,0.96,1.12,1.05],[1.1,1.42,1.31,1.22,2,1.04,0.42,0.36,1.06,1.13,0.93],[1.1,1.23,1.68,0.97,1.62,1.19,0.52,0.55,0.59,0.99,0.9],[0.81,1.29,2.2,0.97,1.9,1.42,0.63,0.37,1,1.24,1.13],[1.04,1.05,1.96,0.67,1.95,1.05,0.63,0.49,1.29,0.86,0.94],[1.08,1.42,2.08,1.03,1.61,1.26,0.6,0.5,0.95,0.93,0.88],[1.26,1.44,2.02,1.13,1.33,1.27,0.56,0.48,0.66,0.83,0.81],[1.01,1.24,1.8,0.86,1.76,1.32,0.57,0.29,1.15,1.21,0.79],[1.24,1.63,1.84,1.04,1.44,1.38,0.57,0.53,0.62,1.21,0.88],[1.25,1.05,1.82,0.76,1.74,1.28,0.58,0.46,0.6,1.2,0.98],[1.3,1.58,1.73,1.28,1.48,1.32,0.52,0.46,1.07,1.04,0.98],[1.32,1.54,1.41,1.24,1.58,1.17,0.44,0.29,1.13,0.9,0.72],[1.54,0.81,2.31,1.01,1.03,1.47,0.64,0.61,0.79,1.23,0.98],[1.54,1.27,2.64,0.96,2.25,1.33,0.72,0.51,0.86,1.12,0.74],[1.09,1.6,2.22,1.17,1.84,1.76,0.59,0.63,0.76,1.17,0.67],[1.3,1.17,2.02,1.04,1.83,1.66,0.44,0.42,0.87,1.12,0.94],[1.53,1.43,2.22,0.75,1.48,1.26,0.78,0.34,1.2,1.12,0.92],[1.04,1.52,1.45,0.89,1.15,1.3,0.48,0.44,0.81,0.88,0.73],[0.81,0.94,1.96,0.75,1.79,0.98,0.55,0.35,0.96,0.89,0.96],[1.34,1.36,0.97,1.21,1.49,1.22,0.38,0.4,1,0.79,0.73],[1.14,1.31,1.86,1.02,1.32,1.44,0.44,0.48,1.35,1.02,0.92],[1.43,1.23,2.16,0.84,1.41,0.85,0.67,0.37,0.89,1.14,1],[1.33,1.18,1.35,0.7,2.1,1.24,0.51,0.37,1.22,1.04,0.72],[0.98,1.38,2.23,1.17,1.5,1.53,0.52,0.66,0.93,0.98,0.83],[1.22,1.05,1.94,0.79,2.01,1.42,0.63,0.37,1.09,1.19,0.78],[1.1,1,1.96,0.65,1.57,1.17,0.59,0.42,0.92,1.03,1.03],[1.28,1.38,1.73,0.91,1.44,1.06,0.62,0.44,0.81,0.93,1.2],[0.79,1.22,1.66,1.03,1.48,1.6,0.43,0.52,1.07,1.17,0.99],[1.34,1.16,1.71,1.09,1.73,1.23,0.55,0.52,0.77,1.03,1],[0.94,1.4,1.87,1.26,2.04,2.21,0.47,0.56,1.12,1.54,0.76],[1.1,1.14,1.69,0.91,1.77,1.43,0.4,0.39,1.33,1.08,0.62],[1.67,1.32,1.98,1.22,1.1,1.52,0.6,0.53,1.26,1.28,1.13],[0.94,1.01,2.49,1.09,1.82,0.9,0.66,0.5,1.01,0.81,1.22],[1.24,1.59,1.8,0.94,1.15,1.13,0.6,0.43,0.95,0.93,1.12],[1.24,1.2,1.6,0.99,1.04,1.46,0.55,0.45,0.91,1.15,1.19],[0.84,1.31,1.97,1.2,1.7,1.83,0.47,0.67,1,1.51,0.85],[0.84,1.39,1.75,1.28,1.16,1.22,0.52,0.52,0.94,1.24,0.93],[1.13,0.85,1.32,1.01,1,1.12,0.57,0.32,0.72,1.03,0.97],[1.25,1.11,2.3,0.84,1.51,1.15,0.76,0.32,1,1.21,1.01],[1.05,1.15,1.78,1.37,1.67,1.65,0.39,0.56,1.08,1.07,1],[1.25,1.16,1.81,0.91,1.74,1.64,0.55,0.48,0.72,1.47,0.84],[1.38,1.25,1.12,0.95,1.42,1.1,0.45,0.31,0.73,1.04,0.79],[1.15,1.32,1.85,1.28,1.52,1.06,0.5,0.5,1.16,0.95,0.97],[1.43,1.88,1.4,1.01,1.25,1.32,0.59,0.4,0.73,1.1,1.13],[1.18,0.92,1.71,0.97,1.41,1.2,0.5,0.39,1.02,1.16,0.66],[1.08,1.43,1.6,0.89,1.9,1.62,0.48,0.48,0.64,1.25,1.01],[1.15,1.51,1.86,1.13,1.55,1.23,0.62,0.65,0.98,1.25,1.17],[1.41,1.23,1.65,0.69,1.68,1.29,0.47,0.44,1.04,0.78,0.8],[1.19,1.48,1.78,0.85,1.62,1.54,0.46,0.57,0.84,1.01,0.94],[1.39,1.23,1.78,0.99,1.89,0.97,0.62,0.62,0.75,1.09,0.98],[1.3,1.15,1.84,0.85,1.61,1.02,0.66,0.46,0.78,0.5,1.12],[1.37,0.82,2.54,1.09,2.59,1.27,0.6,0.53,1.25,1.14,0.98],[1.22,1.37,1.96,0.86,1.88,1.2,0.57,0.52,0.97,1.15,0.94],[1.34,0.9,1.6,0.63,1.97,1.15,0.56,0.41,1.11,1.07,0.76],[1.08,1.2,2.05,0.78,1.42,1.22,0.79,0.44,0.99,0.98,0.96],[1.46,1.36,1.5,1.15,1.19,0.95,0.61,0.41,0.74,0.45,1.07],[1.43,1.7,2.44,1.24,1.25,1.29,0.7,0.67,1.28,1.07,0.88],[1.65,1.43,1.5,0.91,1.54,1.48,0.55,0.49,0.9,1.29,0.88],[0.88,1.54,2.14,1.01,1.64,1.68,0.57,0.5,1.24,1.08,1.3],[1.09,1.5,2.37,1.06,1.85,1.71,0.51,0.55,0.84,1.06,0.65],[0.96,1.48,1.57,0.96,1.47,1.45,0.6,0.44,0.97,0.96,1],[1.46,1.74,1.69,1.16,1.13,1.49,0.52,0.47,0.87,1.19,0.73],[1.09,0.96,1.6,1.01,1.72,1.51,0.48,0.44,0.77,1.31,0.87],[1.22,1.47,1.8,0.89,1.85,1.11,0.72,0.59,0.83,1.16,1.3],[1.49,1.06,1.83,0.98,1.14,1.24,0.66,0.41,1,1.07,1.15],[1,1.26,1.58,0.76,0.74,1.22,0.57,0.36,0.83,1.11,0.85],[1.17,1.52,2.17,1.29,1.76,1.5,0.54,0.6,1,1.06,0.86],[1.11,1.63,2.06,1.21,1.8,1.65,0.47,0.46,0.8,1.3,0.65],[1.22,1.17,1.69,1.08,1.38,1.31,0.58,0.45,0.76,1.09,1.06],[1.25,1.36,1.51,0.83,1.76,1.7,0.43,0.48,0.71,1.12,0.8],[1.08,1.18,1.87,1.17,1.79,1.51,0.4,0.41,0.89,0.91,1.02],[1.06,1.28,1.84,0.9,1.46,1.89,0.56,0.7,0.94,1.46,0.96],[1.31,1.15,2.36,0.89,1.54,1.3,0.7,0.48,1.04,1.37,0.91],[1.25,1.46,2.21,0.94,1.57,1.33,0.66,0.55,0.91,0.97,0.97],[0.92,1.07,1.95,0.7,2.1,1.17,0.53,0.45,1.06,0.9,1.01],[1.33,0.81,2.31,0.6,1.59,1.12,0.57,0.35,1.09,0.62,0.89],[1.35,1.26,1.53,0.95,1.36,1.41,0.6,0.55,0.75,0.94,0.94],[1.49,1.49,1.45,1.02,1.18,1.63,0.52,0.42,0.97,0.93,1.03],[0.89,1.3,1.81,0.82,1.98,1.88,0.36,0.46,0.8,0.93,0.9],[1.37,1.03,1.9,0.89,1.95,1.13,0.63,0.55,0.98,0.68,1.07],[1.37,0.84,1.35,1.09,1,1.09,0.54,0.43,0.59,1.03,0.92],[1.46,1.14,2.23,1.05,1.34,0.81,0.66,0.6,1.1,0.94,1.03],[0.87,1.39,1.74,0.91,1.81,1.27,0.53,0.64,1.07,0.94,0.95],[1.04,1.17,1.67,1.14,1.25,1.17,0.61,0.57,0.97,0.92,0.89],[1.03,1.3,2.03,0.95,1.77,1.66,0.49,0.46,1.25,0.99,0.95],[1.43,1.32,1.9,1.05,1.73,1,0.63,0.43,0.94,0.95,0.55],[1.53,1.53,2.11,1.15,1.22,1.22,0.66,0.36,0.72,1.21,1.15],[0.99,1.75,1.84,1.19,1.8,1.57,0.53,0.52,0.91,1.29,1.07],[0.99,1.27,1.6,0.97,1.32,1.39,0.48,0.46,0.97,0.94,0.8],[1.56,1.63,2.13,1.14,1.61,1.23,0.67,0.41,1.05,1.09,1.02],[1.26,1.01,1.7,0.81,1.54,1.31,0.49,0.39,0.89,1.32,0.96],[0.9,1.48,2.06,0.91,1.65,1.33,0.54,0.65,1.05,1.36,0.9],[1.2,1.49,1.15,0.71,2.2,0.54,0.49,0.39,0.7,0.94,1.18],[0.72,1.41,1.76,1.16,1.96,1.54,0.41,0.45,1.12,1.36,0.55],[1.41,1.33,1.94,1.1,1.63,1.62,0.55,0.46,1.03,1.45,1.06],[1.22,1.44,1.7,0.83,1.83,1.38,0.5,0.43,1.01,1.37,1.21],[1.27,1.15,1.77,1.44,2.29,1.96,0.36,0.6,0.92,1.42,0.77],[1.32,1.29,1.46,1.07,1.16,1.09,0.55,0.47,0.71,1.12,0.79],[1.13,1.32,1.91,1.02,1.98,1.83,0.47,0.43,1.26,0.83,0.98],[1.53,1.33,1.77,0.95,1.08,1.38,0.68,0.45,0.77,1.13,0.94],[1.39,1.3,1.74,1.31,1.85,1.26,0.53,0.54,0.97,1.13,0.86],[1.3,1.09,1.89,0.88,1.54,1.32,0.71,0.42,0.8,0.86,1.11],[0.89,0.99,1.29,0.95,1.32,1.7,0.4,0.42,1.04,1.11,0.73],[0.79,1.52,1.58,1.24,1.84,1.47,0.37,0.4,0.7,1.34,1.11],[1.42,1.08,2.17,1.11,1.42,1.37,0.61,0.49,0.98,1.06,0.95],[1.22,1.27,1.53,0.77,2.28,1.59,0.47,0.45,1.26,1.39,1.16],[1.06,1.48,2.3,0.65,2.09,1.27,0.69,0.4,1.08,1.14,0.99],[1.7,1.2,2.14,1.12,1.75,1.03,0.62,0.52,0.98,1.19,1.4],[1.38,1.47,2.19,0.93,1.41,1.33,0.8,0.47,1.04,1.1,1.05],[1.44,1.12,1.83,0.97,1.52,1.2,0.7,0.53,0.95,1.06,1.17],[0.78,1.18,2.02,0.65,1.71,1.4,0.64,0.56,1.16,1.14,0.95],[1.26,1.05,1.41,0.82,1.31,1,0.52,0.51,0.81,1.12,0.97],[1.39,1.19,1.89,1.18,1.43,1.16,0.58,0.41,1.09,1.14,0.81],[1.37,1.22,1.4,0.74,1.15,1.24,0.63,0.45,0.58,1.03,1.01],[1.39,1.33,2.03,0.98,1.26,1.21,0.67,0.41,0.86,0.91,1.01],[1.51,1.47,2.33,1.33,1.5,1.61,0.6,0.62,1.14,0.91,1.2],[1.45,1.04,1.9,0.86,1.55,1.06,0.57,0.39,0.93,0.96,1.26],[1.54,1.22,1.67,1.21,1.34,1.47,0.55,0.39,0.97,0.92,1.03],[0.7,1.03,2.09,1.1,1.86,1.26,0.56,0.55,0.75,0.89,0.99],[1.3,1.13,2.28,0.81,1.58,1.65,0.7,0.57,0.84,1.13,1.16],[0.99,1.08,1.42,0.88,1.27,0.92,0.47,0.39,1.01,1.03,1.12],[0.98,1.19,1.72,0.77,1.71,1.23,0.58,0.49,1.04,1.1,1.18],[0.82,1.46,2.15,1.25,1.96,1.6,0.54,0.63,1,1.05,0.97],[1.23,1.77,1.41,0.75,1.73,1.01,0.49,0.33,0.77,0.99,1.14],[1.17,1.5,1.46,0.8,1.28,1.43,0.47,0.37,0.78,0.84,0.87],[1.35,1.06,2.15,0.92,1.64,1.48,0.57,0.38,0.84,1.43,1.36],[0.95,1.42,1.79,1.19,1.92,1.46,0.39,0.4,1.24,1.3,0.35],[0.9,1.17,2.1,0.92,1.66,1.83,0.61,0.58,1.16,1.3,1.05],[1.04,1.35,2.11,1.1,1.84,1.11,0.61,0.5,1.15,1.18,1.14],[1.22,1.66,1.6,1.31,1.35,1.48,0.45,0.48,0.71,0.93,0.88],[0.9,1.07,2.01,1.09,1.91,1.77,0.55,0.54,0.69,1.46,1.1],[1.1,1.49,2.08,1.17,1.78,1.64,0.57,0.52,0.94,0.97,1.04],[1.35,1.26,2.21,1.08,1.76,1.31,0.63,0.59,1.13,1.17,0.98],[1.37,1.52,1.58,0.91,1.3,1.01,0.51,0.49,0.8,1.06,1.04],[1.19,1.4,1.94,0.78,1.64,1.51,0.59,0.47,1.01,0.98,1.14],[0.93,1.37,1.67,0.94,1.88,1.66,0.46,0.51,0.79,1.39,0.8],[1.2,1.4,2.12,0.85,1.76,1.19,0.71,0.52,0.92,1.2,1.09],[1.21,1.36,1.52,0.71,1.46,1.25,0.58,0.37,0.67,1.24,1.05],[1.15,1.33,1.84,0.86,1.95,1.08,0.54,0.32,0.95,0.94,0.66],[0.93,1.16,1.87,1.02,1.71,1.04,0.52,0.59,0.99,0.9,1],[1.19,1.51,1.99,0.82,1.94,1.62,0.63,0.57,0.95,1.4,1.02],[0.82,1.28,1.61,0.96,1.45,1.39,0.49,0.4,0.96,1.15,1.14],[1.08,1.28,1.59,1.08,1.28,1.18,0.46,0.47,0.82,1.04,0.96],[1.61,1.07,2.3,0.85,1.34,1.38,0.69,0.51,0.85,1.03,1.22],[1,1.27,1.69,0.87,2.17,1.43,0.61,0.49,1.04,0.84,1.22],[0.82,1.57,2.33,1.32,1.86,1.57,0.48,0.52,1.23,1.22,1.09],[1.28,0.99,1.62,0.67,1.9,1.39,0.48,0.39,1,1.03,0.76],[1.14,1.02,1.3,1.05,1.56,1.42,0.54,0.51,0.72,1.3,1.14],[1.23,1.17,1.77,1.22,1.37,1.23,0.54,0.52,0.88,0.96,0.64],[1.15,1.25,1.55,1.18,2.09,1.11,0.52,0.46,1.16,1.43,1.15],[1.18,1.49,2.19,1.22,1.48,1.41,0.59,0.55,1.04,0.98,0.82],[1.15,1.21,1.59,0.82,1.51,1.08,0.55,0.44,0.9,1,0.97],[1.37,1.5,1.99,1.15,1.69,1.11,0.69,0.37,0.67,0.9,1.02],[1.26,1.33,1.97,0.97,1.39,1.39,0.61,0.4,1.03,1.08,0.94],[1.04,1.34,2.34,1.27,1.42,1.32,0.65,0.62,0.77,1.18,0.92],[1.14,1.69,1.46,1.19,1.7,1.1,0.55,0.38,0.9,1.32,0.77],[1.45,1.21,1.85,1.15,1.63,1.56,0.52,0.47,1.33,1.13,1.14],[1.43,1.14,1.32,0.42,1.14,0.86,0.61,0.4,0.69,0.92,1.12],[1.14,1.4,1.87,1.14,1.2,1.49,0.53,0.52,1.01,1.35,1.15],[0.85,0.93,1.82,0.99,1.15,1.22,0.58,0.39,1.11,1,1.14],[1.31,1.27,1.37,1.07,1.69,1.45,0.6,0.38,0.93,1.17,0.96],[1.13,1.3,1.82,1.02,1.85,1.47,0.56,0.54,1.14,1.18,1.07],[1.36,1.01,2.11,1.05,1.59,1,0.59,0.41,0.87,0.85,1.17],[1.27,1.06,1.4,1.06,1.59,1.05,0.45,0.36,0.99,1.16,1.03],[1.11,1.37,1.97,1.28,1.4,1.24,0.56,0.51,0.82,0.78,0.85],[1.15,1.57,1.65,1.04,1.44,1.23,0.55,0.38,0.69,0.95,0.71],[1.07,1.31,2.01,1.06,1.75,1.24,0.54,0.55,0.83,1.03,1.07],[1.09,1.06,2.11,0.53,1.53,1.06,0.67,0.45,0.97,1.14,0.72],[1.39,1.34,1.42,0.98,0.89,1.43,0.45,0.46,0.85,1.13,0.65],[1.14,1.74,2.01,1.3,1.61,1.49,0.58,0.63,0.93,1.03,1.36],[1.29,1.55,2.08,1.24,1.78,1.41,0.6,0.39,1.14,1.15,0.97],[1.48,0.92,1.7,0.78,2.08,1.13,0.53,0.4,0.91,1.02,0.83],[1.04,1.24,2.19,0.95,1.77,1.46,0.46,0.53,1.01,1.39,0.95],[1.15,1.36,1.48,1.13,1.41,1.29,0.45,0.42,0.9,0.86,0.81],[1.29,1.57,1.17,1.3,1.38,1.65,0.34,0.44,0.88,0.89,0.92],[1.25,1.2,1.87,0.92,1.6,1.25,0.59,0.43,0.97,1.12,0.58],[1.41,1.74,1.49,1.32,1.22,1.66,0.48,0.54,0.91,1.13,1],[1.04,1.25,2.07,1.14,2.04,1.92,0.48,0.62,0.97,1.02,0.87],[1.49,1.63,1.74,0.88,1.65,0.98,0.57,0.54,0.86,0.63,1.09],[1.26,1.35,2.14,0.77,1.73,1.65,0.69,0.58,1.03,1.1,1.09],[0.94,1.35,2.06,0.99,1.54,1.29,0.63,0.48,1.15,1.03,0.91],[1.02,1.37,1.7,0.92,1.84,1.14,0.47,0.38,1.34,0.98,0.81],[1.28,1.45,1.53,0.87,2.07,1.38,0.46,0.48,0.87,0.89,0.8],[1.42,0.86,2.57,0.9,1.6,1.45,0.74,0.41,1.05,1.13,1.08],[1.09,1.6,2.04,0.86,1.93,1.36,0.56,0.58,1.02,0.88,1.16],[0.72,1.25,1.58,0.7,1.26,1.3,0.52,0.33,1.09,0.86,0.9],[1.14,1.17,1.79,1.31,1.47,1.25,0.43,0.57,0.88,1.28,0.88],[1.14,0.98,2.14,0.89,1.26,1.21,0.62,0.42,0.9,1.32,1.02],[1.24,1.21,2.02,0.95,1.57,1.15,0.45,0.34,1.19,1.06,0.69],[1.21,0.92,1.77,0.93,1.14,1.01,0.53,0.39,1.07,0.63,1.09],[1.07,0.94,2.28,0.93,2.41,1.85,0.49,0.63,1.14,1.29,1.11],[1.04,1.08,2.17,1.07,1.4,1.41,0.62,0.63,0.98,1.2,0.98],[1.59,1.19,1.49,0.88,1.79,1.19,0.62,0.34,0.66,1.24,0.9],[1.6,1.28,1.65,0.64,1.57,1.23,0.62,0.43,0.86,1.22,0.71],[1.03,1.39,1.39,0.94,1.61,1.27,0.47,0.37,0.92,1,0.79],[1.02,1.17,2.13,1.04,1.67,1.75,0.57,0.62,1.19,1.35,1.05],[1.68,1.06,1.33,1.34,1.26,1.28,0.59,0.58,1,1.08,1.03],[0.87,1.27,1.93,1.16,1.54,1.24,0.69,0.42,0.74,1.01,1.18],[1.39,1.39,1.85,1.07,1.42,1.44,0.66,0.52,0.78,1.3,1.08],[1.55,1.31,2.08,1.03,2.03,1.38,0.7,0.55,0.9,1.74,1.1],[1.54,1.52,2.14,1.04,1.63,1.67,0.68,0.53,1.01,1.35,1],[1.09,1.36,1.59,0.89,1.31,1.29,0.5,0.43,0.94,1.11,0.99],[1.34,1.5,1.37,0.95,1.35,0.86,0.62,0.44,1.03,0.95,0.9],[1.21,1.4,1.82,1,1.24,1.13,0.62,0.5,0.94,1.11,1.19],[1.78,1.16,2.15,1.25,1.29,1.54,0.75,0.63,0.8,1.49,1.17],[1.29,1.42,1.97,0.9,1.94,1.72,0.63,0.68,1.12,1.52,1.08],[1.05,1.29,1.8,0.94,1.08,1.19,0.51,0.49,0.85,1.05,0.66],[1.26,1.12,1.39,0.96,1.61,1.72,0.48,0.51,0.92,1.45,0.9],[0.97,0.9,1.84,1.23,1.56,1.48,0.47,0.64,1.18,1.26,0.78],[1.28,1.42,2.57,1.39,1.67,1.16,0.8,0.55,1.36,1.09,1.08],[1.04,1.57,2.12,1,1.68,1.62,0.58,0.37,1.22,1.04,0.84],[1.29,1.25,2.25,0.97,1.56,1.72,0.66,0.6,0.63,1.25,0.73],[1.28,1.01,1.38,0.77,1.82,1.63,0.46,0.57,0.83,1.14,0.87],[1.12,1.35,2.3,0.85,1.82,1.34,0.66,0.47,1,1.36,0.96],[0.87,1.25,1.73,1.03,1.98,1.69,0.41,0.42,0.86,1.19,0.64],[1.17,1.62,1.81,1.28,1.91,1.63,0.4,0.61,1.2,1.14,0.66],[1.22,1.61,1.89,1.42,1.8,1.78,0.47,0.54,1.15,1.22,1.17],[1.6,1.4,0.85,0.77,1.56,1.33,0.51,0.26,0.63,1.09,0.94],[1.18,1.78,1.78,0.89,1.7,1.54,0.57,0.54,0.84,0.95,1.11],[1.23,1.37,2.1,0.9,1.86,1.41,0.5,0.51,1.04,1.18,0.87],[1.46,1.33,1.92,0.93,1.9,1.23,0.54,0.42,1.13,1.12,0.72],[0.95,1.12,1.54,1.07,1.53,1.81,0.45,0.6,0.9,1.41,0.97],[1.05,0.97,1.72,0.9,1.61,1,0.57,0.43,0.96,0.99,1.17],[0.99,1.34,1.39,1.06,1.96,1.39,0.43,0.39,0.77,0.99,0.87],[1.2,1.5,2.06,1.29,1.37,1.43,0.62,0.47,1.16,1.17,0.98],[1.2,0.98,2.04,1.06,2.08,1.84,0.49,0.63,1.07,1.24,0.94],[1.25,1.18,2.05,0.94,1.68,1.03,0.68,0.31,0.82,0.94,1.18],[1.19,1.08,1.83,0.92,1.99,1.24,0.65,0.49,1.12,1.09,1.03],[1.57,1.23,2.05,1.02,1.48,1.34,0.49,0.46,1.2,0.97,0.85],[1.23,1.3,1.4,0.83,1.79,1.55,0.35,0.37,1.07,1.45,0.77],[1.47,0.9,1.84,1.03,1.76,1.63,0.57,0.57,1.12,1.11,1.19],[1.31,1.11,1.83,1.16,2.34,1.4,0.55,0.66,0.82,1.35,0.67],[1.42,1.71,1.8,0.99,1.88,1.55,0.66,0.38,1.25,1.29,0.96],[0.77,1.93,2.02,1.24,1.17,1.39,0.57,0.62,1,1.04,1.06],[1.01,1,2.31,0.91,1.67,1.51,0.59,0.56,0.98,1.23,1.13],[1.14,0.9,2.43,0.99,2.12,1.25,0.62,0.43,0.91,1.02,0.67],[0.43,1.49,1.72,0.97,1.25,1.15,0.49,0.41,0.78,0.78,0.91],[0.64,1.53,1.67,0.96,1.1,1.81,0.56,0.61,0.74,1.13,0.92],[1.43,1.46,1.61,1.03,1.56,1.11,0.43,0.34,0.93,0.89,0.66],[1.44,1.49,1.49,0.97,1.64,1.17,0.5,0.55,0.98,1.21,0.99],[1.23,1.14,2.26,1.34,2.03,1.65,0.51,0.56,1.05,1.1,1],[1.12,1.49,1.8,1.06,1.61,1.08,0.66,0.44,0.81,1.04,0.95],[0.78,1.26,1.58,0.78,1.52,1.55,0.51,0.53,0.89,1.06,0.93],[0.89,0.96,2,0.97,1.71,1.42,0.67,0.46,0.78,1.09,1.05],[0.9,1.63,1.63,1.04,1.34,1.53,0.48,0.62,0.79,1.32,0.88],[0.87,1.39,1.6,1.07,1.41,1.39,0.47,0.56,0.88,0.99,0.95],[1.29,0.86,1.84,0.69,1.59,1.31,0.62,0.3,0.98,0.99,1.02],[1.26,0.76,1.91,0.97,1.33,1.07,0.61,0.47,1.07,0.94,1.09],[1.46,1.02,2.05,0.76,2.09,0.74,0.66,0.4,0.78,0.96,1.03],[1,1.45,1.83,1.01,1.55,1.09,0.59,0.38,0.89,1.15,1],[1.36,1.24,1.37,0.68,0.99,1.01,0.46,0.32,0.98,0.7,0.83],[1.23,1.08,2.26,0.81,1.68,0.93,0.63,0.47,1.18,0.68,1.2],[1.04,1.45,2.32,0.82,1.85,1.06,0.67,0.45,1.21,1.18,1.31],[1.08,1.58,2.07,1.46,1.24,1.62,0.49,0.44,1.05,0.91,1.03],[1.11,1.23,2.08,1.04,1.6,1.29,0.58,0.51,0.97,1.2,0.92],[1.33,1.41,1.97,1.27,1.82,1.87,0.52,0.49,0.97,1.19,0.81],[1.18,1.06,1.92,1.04,2.11,1.45,0.53,0.51,1.04,0.88,0.85],[1.09,1.51,2.11,1.1,1.72,1.67,0.5,0.56,1.36,1.05,0.93],[1.04,1.47,1.31,0.79,1.85,1.21,0.53,0.32,0.72,1.23,0.86],[1.3,1.72,1.59,1.17,1.89,1.68,0.48,0.56,1.32,1.41,0.89],[1.44,1.71,1.95,1.17,1.32,1.15,0.68,0.46,0.88,1.2,0.99],[1.18,1.35,1.89,1,1.72,1.2,0.57,0.44,1.01,1.02,0.98],[0.83,1.22,1.62,1.15,1.86,1.31,0.38,0.38,0.88,0.82,0.7],[1.19,1.31,1.85,1.01,2.04,1.43,0.6,0.54,1.21,1.32,0.88],[1.1,1.17,1.93,1,1.92,1.36,0.57,0.39,0.9,1.36,1.26],[1,1.22,2.07,1.03,1.46,1.47,0.53,0.51,0.83,1.01,1.07],[1.21,0.93,2.13,0.8,1.39,1.63,0.69,0.5,1,1.17,0.92],[1.31,1.17,1.51,1.05,1.52,1.11,0.49,0.32,0.83,0.97,1.23],[1.08,1.38,1.13,0.97,1.62,1.4,0.3,0.39,1.18,1.13,0.66],[1.13,1.23,2.1,0.74,1.93,1.46,0.67,0.52,0.83,1.03,0.93],[1.12,1.31,2.38,1.14,1.68,1.33,0.69,0.5,1.42,1.34,1.19],[0.66,1.46,1.37,1.11,1.74,1.16,0.31,0.54,0.8,0.88,0.81],[1.31,1.16,1.73,1.1,1.57,1.61,0.41,0.44,1.12,1.02,0.65],[1.3,1.25,1.64,0.87,1.84,1.45,0.57,0.49,1.27,1.2,1.18],[1.1,1.42,1.94,1.07,1.88,1.43,0.59,0.44,0.91,1.37,0.86],[0.98,1.48,1.61,1.15,1.61,1.38,0.48,0.4,0.81,1.23,1.35],[1.43,1.79,1.79,1.27,1.36,1.2,0.58,0.29,1.1,0.73,0.97],[1.15,1.11,1.99,0.82,1.49,1.41,0.57,0.4,0.47,0.79,0.9],[1.43,0.95,1.46,0.92,1.46,1.04,0.45,0.43,0.94,0.92,0.94],[0.96,1.18,1.66,1.02,1.6,1.31,0.57,0.54,0.97,1.29,1.1],[1.32,1.35,1.82,1.18,1.53,1.42,0.52,0.4,0.86,0.94,1.01],[1.31,1.36,2.06,0.94,1.57,1.66,0.65,0.55,0.93,1.53,0.91],[1.28,1.31,2.04,1.19,1.18,1.34,0.53,0.43,1.01,1.34,1.01],[1.41,0.98,2.01,0.92,1.83,1.28,0.69,0.46,0.86,1.22,0.9],[0.86,1.63,1.51,1.06,1.41,1.38,0.48,0.45,0.75,0.91,0.86],[1.15,1.02,1.93,0.77,1.86,1.62,0.59,0.37,1.15,1.01,0.9],[1.48,1.28,1.45,0.76,1.39,1.36,0.46,0.35,0.88,1.07,0.87],[1.18,1.85,1.48,0.94,1.51,1.28,0.57,0.33,0.73,0.9,0.96],[1.52,1.41,2.11,0.97,1.18,1.19,0.6,0.57,0.86,1.1,1.03],[0.86,1.75,1.9,1.32,1.51,1.22,0.54,0.57,0.84,1.2,0.98],[1.27,1.55,1.47,1.11,1.6,1.18,0.56,0.59,0.81,1.22,0.74],[1.23,1.78,1.58,1.25,1.4,1.34,0.46,0.5,0.98,1.01,1.02],[1.27,1.14,2.04,1.06,1.42,1.45,0.61,0.45,1.03,1.21,0.99],[1.36,1.38,1.93,0.87,1.34,1.34,0.7,0.56,0.89,1.02,1.18],[0.93,1.36,1.86,0.68,1.93,1.64,0.56,0.44,1.17,1.53,0.92],[1.23,1.3,1.79,0.84,1.69,1.15,0.54,0.47,1.01,1.14,0.95],[1.47,1.15,1.84,1.02,1.66,1.46,0.55,0.62,1.14,1.1,1.12],[1.23,1.38,1.73,0.91,1.94,1.37,0.41,0.28,0.93,1.04,0.58],[1.35,0.77,1.42,0.76,1.91,1.1,0.45,0.28,0.88,1.13,0.82],[1.35,1.2,1.81,0.64,1.89,1.59,0.49,0.39,1.11,1.23,0.92],[1.03,1.46,1.1,1.05,1.54,1.18,0.47,0.51,0.67,1.11,0.87],[1.03,1.24,2.15,0.92,1.27,1.82,0.55,0.64,1.01,1.32,0.86],[0.86,1.44,2.41,1.15,2.25,1.48,0.55,0.56,1.44,1.09,1.06],[1.2,1.44,2.07,0.98,1.82,1.42,0.63,0.59,0.97,1.24,0.99],[1.31,1.22,1.52,0.99,1.08,1.17,0.59,0.34,0.72,0.98,0.74],[0.65,1.25,1.61,0.86,1.62,1.29,0.51,0.39,1,1.07,0.8],[1.15,1.36,2.46,1.21,1.76,1.64,0.48,0.43,0.8,0.93,1.1],[1.3,1.13,1.68,1.08,1.32,1.28,0.65,0.41,0.93,0.93,0.93],[0.96,1.17,1.66,1.14,1.48,1.12,0.52,0.35,0.94,1.23,0.97],[1.13,1.24,2.12,0.95,1.42,1.09,0.75,0.45,0.85,1.25,1.06],[1.62,1.43,1.45,1,1.43,1.14,0.45,0.46,0.87,0.82,0.85],[1.22,1.06,1.92,1.06,1.76,1.52,0.61,0.58,0.68,1.27,0.8],[1.45,1.4,1.62,0.87,1.71,1.53,0.5,0.44,1.38,0.98,1.07],[1.52,1.53,1.8,1.06,1.47,1.24,0.71,0.62,1.02,1.24,0.96],[1.11,1.4,1.8,1.06,1.69,1.55,0.6,0.49,0.77,1.23,0.97],[1.28,1.33,1.52,0.45,1.46,1.02,0.62,0.37,0.7,1.04,1.1],[1.03,1.46,1.8,0.74,1.54,1.64,0.53,0.53,0.99,1.3,0.7],[0.93,1.79,1.77,1.23,2.36,1.83,0.35,0.63,1.17,1.09,0.6],[1.06,1.32,1.47,1.01,1.42,1.68,0.38,0.49,1.14,0.84,0.88],[1.2,1.26,1.7,0.79,1.34,1.4,0.55,0.4,0.76,1.02,0.85],[1.22,0.98,1.44,0.82,1.55,0.83,0.43,0.34,0.85,0.53,0.8],[1.16,1.57,1.59,0.76,1.67,1.41,0.55,0.42,1.1,0.84,0.64],[1.19,1.2,1.72,0.89,1.74,1.15,0.66,0.5,1.03,1.27,1.14],[1.06,1.26,1.03,1.13,1.58,1.23,0.31,0.5,1.06,0.44,0.62],[0.93,1.41,1.25,1.04,1.35,1.37,0.5,0.42,0.83,1.31,0.93],[1.11,1.3,1.81,1.23,1.68,1.89,0.43,0.62,1.03,1.5,0.82],[1.34,1.31,2.07,1.18,1.52,1.14,0.61,0.44,0.97,1.21,1.2],[0.72,1.31,1.93,1.15,2.08,1.77,0.5,0.52,1.04,0.98,0.89],[1.19,1.28,1.52,1.08,1.71,1.02,0.54,0.49,0.98,0.73,0.88],[1.19,1.47,2.63,1.14,1.7,1.39,0.72,0.51,1.04,1.14,0.87],[1.05,1.06,1.44,0.77,1.88,1.16,0.46,0.49,1.11,1.04,1.02],[1.48,1.33,1.39,0.74,1.45,1.14,0.5,0.48,0.87,0.73,0.88],[1.28,1.31,2.4,0.76,1.35,1.53,0.7,0.44,1.3,1.1,1.13],[1.25,1.4,1.41,1.04,1.71,1.8,0.47,0.53,0.8,1.31,0.84],[1.54,1.15,1.4,1.02,0.99,0.96,0.61,0.44,0.93,1.22,1.13],[1.01,1.03,1.33,0.74,1.6,0.87,0.5,0.42,1.19,0.72,0.84],[1.41,1.15,1.11,0.97,1.19,0.99,0.45,0.4,0.9,1.07,1.03],[1.23,1.31,2.03,0.95,0.8,1.1,0.7,0.29,1.1,0.9,1.27],[0.91,1.32,1.45,0.92,1.66,1.67,0.41,0.53,0.98,0.91,1.02],[1.15,1.03,2.24,1.05,2.22,1.52,0.52,0.53,0.99,1.21,1.12],[1.02,1.3,1.34,1.11,1.74,1.3,0.4,0.47,1.06,1.05,0.82],[0.94,1.6,1.51,1,1.42,1.46,0.42,0.6,1.04,1.17,0.73],[1.21,1.16,2.54,0.89,1.87,1.22,0.69,0.65,1.2,1.13,1.11],[1.19,0.85,1.92,0.61,1.25,1,0.61,0.35,1.07,0.88,1.15],[1.4,1.27,1.87,1.04,2,1.65,0.54,0.56,1.09,1.12,1.07],[0.92,1.87,1.56,0.97,1.45,0.92,0.58,0.49,1.06,0.88,0.69],[1.09,0.83,2.16,1.07,1.94,1.69,0.43,0.64,0.94,1.11,0.74],[1.05,1.22,1.29,1.12,1.41,1.26,0.43,0.63,0.84,1.14,0.95],[1.3,1.3,1.78,1.02,1.18,1.7,0.48,0.53,0.77,1.37,1.08],[1.41,1.44,1.73,0.77,1.42,1.36,0.59,0.43,1.12,1.04,1.04],[1.57,1.47,1.91,0.87,1.91,1.35,0.69,0.4,1.07,1.43,1.01],[1.07,1.18,2.25,1.09,1.48,1.19,0.71,0.58,0.92,1.18,1.18],[1.2,1.15,2.13,0.96,1.3,1.63,0.64,0.47,0.93,1.06,0.95],[1.1,1.36,1.89,0.87,1.42,1.03,0.57,0.43,1.06,0.9,0.89],[1.21,1.06,1.22,0.51,1.41,1.12,0.41,0.28,1.16,0.87,0.79],[1.13,1.6,1.91,1.3,1.3,1.28,0.53,0.5,0.89,1.05,1.1],[1.04,1.26,1.61,0.93,1.6,1.22,0.58,0.48,1.03,1.02,1.19],[1.39,1.25,2.03,1,1.57,1.4,0.52,0.46,1.03,1.09,0.96],[1.61,1.48,1.7,1.06,1.22,0.9,0.59,0.43,0.95,0.77,1.17],[1.49,1.17,1.4,0.91,1.91,1.51,0.47,0.39,0.9,1.15,0.71],[1,1.27,2.15,0.93,1.78,1.82,0.55,0.62,0.9,1.24,0.97],[1.03,0.98,1.69,1.06,1.38,1.6,0.4,0.39,0.83,1.27,1.08],[1.44,1.45,1.59,0.99,1.6,1.08,0.6,0.45,0.84,1.11,0.83],[0.96,1.21,1.42,1.12,1.93,1.77,0.31,0.47,1.08,1.11,0.61],[1.45,1.93,1.29,0.95,0.77,1.28,0.54,0.53,0.83,1,1.47],[0.94,1.15,1.91,0.94,1.8,1.56,0.5,0.3,1.11,1.02,0.75],[1.29,0.88,1.7,0.68,1.87,1.19,0.59,0.54,0.99,0.96,1.11],[1.55,0.96,2.15,0.99,1.54,1.24,0.69,0.44,1.06,1.23,1.07],[1.24,1.17,1.63,0.51,1.56,0.98,0.66,0.36,0.81,0.87,1.24],[1.36,1.27,1.74,1.07,1.96,1.72,0.32,0.58,0.96,1.29,0.71],[1.36,1.3,1.61,1.15,1.55,1.27,0.42,0.49,0.9,1.01,1.01],[1.39,1.39,1.72,0.79,1.74,0.86,0.64,0.28,1.17,0.81,1.22],[1.28,1.34,1.96,0.84,1.95,1.33,0.65,0.4,1.06,1.16,0.99],[0.88,1.37,1.52,1.08,1.4,1.17,0.51,0.46,0.69,1.29,1.23],[1.32,1.37,1.72,1.11,1.52,1.18,0.63,0.45,0.79,1.23,0.94],[0.55,1.18,1.57,1.16,2.09,1.38,0.4,0.51,0.95,0.85,0.83],[1.03,1.13,1.83,1.29,1.89,1.61,0.59,0.53,1.01,1.37,0.9],[1.49,1.17,2.03,0.9,1.43,1.4,0.71,0.5,0.9,1.4,1.13],[1.06,1.29,1.81,1.18,1.52,1.5,0.55,0.48,0.86,1.12,0.75],[0.87,1.15,1.1,1.17,1.83,1.44,0.31,0.42,1.01,1.55,0.62],[1.29,1.14,1.54,0.82,1.93,1.32,0.4,0.46,0.99,1,1.06],[1.37,1.2,2.7,1.32,1.64,1.75,0.63,0.64,1.03,0.96,0.93],[1.29,1.09,2.04,0.91,1.48,1.68,0.48,0.47,1.11,0.79,1.12],[1.27,1.25,2.23,0.85,1.76,1.44,0.67,0.47,0.79,1.28,1.5],[0.92,1.56,2.03,1.12,1.45,1.65,0.51,0.48,1.03,1.33,0.82],[1.54,0.99,1.98,0.7,2.11,1.46,0.56,0.56,1.03,1.34,0.96],[1.25,1.62,1.29,1.11,1.45,1.4,0.46,0.38,0.72,1.09,0.89],[1.06,1.04,1.79,0.82,1.83,0.97,0.67,0.33,0.81,1.11,0.97],[1.78,1.11,1.86,0.86,1.21,1.19,0.67,0.39,1.03,1.14,1.05],[1.34,1.47,1.86,1.31,2.01,1.08,0.6,0.56,1.19,1.14,1.08],[1,1.39,2.17,1.08,1.44,1.47,0.56,0.53,1.09,1.03,1.09],[1.35,1.06,2.2,1.12,1.14,1.39,0.71,0.52,0.86,1.3,1.02],[1.04,1.46,1.38,1.17,1.47,1.38,0.37,0.47,0.78,1.04,0.78],[1.4,1.15,1.8,1.17,1.35,1.73,0.42,0.55,1.07,1.11,0.97],[1.21,1.48,2.1,1.03,1.51,1.65,0.56,0.49,0.94,1.13,0.93],[0.99,0.8,0.85,0.68,1.8,1.41,0.32,0.42,0.87,0.87,0.81],[1.46,1.53,1.72,0.88,0.77,1.39,0.59,0.44,0.93,1.27,0.99],[1.15,1.35,1.99,0.89,1.69,1.32,0.67,0.51,0.9,1.23,1.05],[1.2,1.27,1.79,1.06,1.56,1.23,0.67,0.52,0.83,1,1.28],[1.31,1.31,1.95,1.09,1.41,1.3,0.47,0.43,1.04,1.12,0.63],[1.28,1.15,2.23,1.15,1.8,1.4,0.67,0.49,1.06,0.91,1.14],[1.15,1.15,2.45,1.12,1.53,1.21,0.58,0.54,0.93,1.32,1.14],[1.5,1.96,1.78,1.31,0.94,1.61,0.53,0.49,1.06,1.51,1],[0.98,1.52,1.86,0.91,1.47,1.25,0.62,0.57,0.99,1.22,1.22],[1.34,1.16,1.94,0.95,1.74,1.33,0.63,0.55,1,1.11,0.87],[1.08,1.26,2.07,1.1,1.43,1.23,0.57,0.47,0.82,1.17,1.17],[1.39,1.46,1.79,1.13,1.74,1.38,0.48,0.48,0.83,0.81,0.92],[1.11,1.21,2.31,1.01,1.54,1.7,0.61,0.57,1.03,1.19,1.17],[1.12,1.51,1.66,1.09,1.85,1.48,0.47,0.43,0.93,0.84,0.84],[1.43,0.99,2.07,1.11,1.72,1.42,0.54,0.55,1.31,1.4,0.51],[1.48,1.3,1.72,1.01,1.79,1.58,0.5,0.42,0.78,1.29,0.86],[1.32,1.15,2.05,0.97,1.66,1.19,0.66,0.53,0.74,0.69,1.1],[1.19,1.68,1.59,1.03,1.44,1.56,0.57,0.42,0.95,1.45,0.88],[1.37,1.33,2.01,1.03,1.58,1.38,0.62,0.49,1.08,1.02,1],[1.31,0.97,1.44,0.88,0.84,1.26,0.45,0.51,0.94,1.09,1.02],[0.83,1.56,1.86,1.1,1.21,1.15,0.58,0.45,1.16,1.14,0.99],[1.35,1.35,2.36,0.89,0.73,1.06,0.79,0.49,1.1,1.22,1.06],[0.91,1.1,2.65,0.91,2.18,1.65,0.6,0.53,1.18,1.21,1.09],[1.42,1.54,2.11,1.13,1.8,1.6,0.57,0.56,1.08,1.4,0.69],[1.17,0.96,1.81,0.96,1.92,0.98,0.68,0.55,0.75,0.88,0.9],[1.26,0.87,2.03,1.22,1.49,1.34,0.62,0.46,1.25,1.14,0.88],[0.91,1.02,1.79,1.04,1.69,1.63,0.56,0.44,0.69,1.3,0.89],[1.57,1.43,2.1,1.06,2.05,1.21,0.64,0.43,0.91,1,0.93],[1.35,0.98,1.58,1.11,1.52,1.34,0.52,0.53,1.01,1.04,0.84],[1.21,1.03,1.61,0.87,1.31,1.15,0.5,0.49,0.7,1.02,0.87],[1.25,1.33,2.03,1.06,2.36,1.67,0.48,0.52,0.92,1,1.02],[1.1,1.48,2.19,1.34,1.85,1.65,0.6,0.69,1.14,1.21,1],[1.27,1.45,1.53,1.17,1.09,1.58,0.47,0.54,0.7,0.8,0.68],[1.08,1.43,1.33,1.07,1.63,1.44,0.36,0.42,1,1.03,0.51],[1.46,1.28,1.93,1.01,1.56,1.65,0.61,0.41,1.07,1.31,1.08],[1.19,1.35,1.62,1.21,1.34,1.48,0.48,0.39,1.12,1.07,0.93],[1.47,1.69,1.79,1.07,2.05,1.69,0.56,0.46,0.94,1.38,0.88],[1.32,1.34,2.08,1.13,2.32,1.7,0.65,0.55,0.94,1.57,1.05],[1.19,1.16,2.04,1.13,2,1.52,0.61,0.45,1.03,1.27,1.17],[1.17,1.38,2.18,1.17,1.77,1.57,0.45,0.44,1.09,1.12,0.69],[0.98,1.68,1.84,1.05,1.55,0.86,0.61,0.52,1.04,0.93,0.99],[0.98,0.96,1.15,0.74,1.08,0.86,0.48,0.32,0.75,0.73,1.06],[1.53,1.68,1.99,1.02,1.27,1.42,0.63,0.5,1.02,1.4,0.89],[1.21,1.36,1.74,1.02,1.33,1.32,0.54,0.46,0.81,1.14,1.24],[1.35,1.69,1.88,0.9,1.29,0.99,0.66,0.38,0.97,1.35,0.96],[1.05,0.79,1.39,1.06,1.42,1.13,0.47,0.44,1.05,0.79,1.05],[1.41,1.62,1.99,1.01,1.79,1.54,0.62,0.6,0.76,1.39,0.99],[0.94,1.09,2.5,1.13,1.59,0.99,0.63,0.45,1.02,1.08,0.96],[1.51,1.32,1.21,0.85,1.93,1.64,0.46,0.42,0.82,1.34,0.95],[1.45,1.43,1.3,1.06,1.64,1.34,0.49,0.43,0.41,1.51,1.02],[1.37,1.62,1.84,0.87,1.8,1.29,0.63,0.33,0.93,0.81,1.11],[1.24,1.46,1.98,1.18,1.12,1.45,0.6,0.46,0.71,0.97,1.03],[1.42,1.28,2.05,0.93,1.36,1.28,0.68,0.45,0.94,1.11,1.27],[1.13,1.55,1.57,0.97,1.28,1.25,0.56,0.48,0.76,1.03,0.98],[1.2,1.12,1.59,0.98,1.41,1.17,0.59,0.41,0.73,1.23,0.92],[1.36,1.67,1.65,0.85,1.89,0.89,0.6,0.44,0.86,0.91,0.85],[0.83,1.22,1.59,1.04,1.44,1.69,0.37,0.56,0.97,1.23,0.99],[1.37,1.25,1.86,0.88,1.58,1,0.58,0.37,1.09,0.76,0.97],[0.99,1.32,2.8,1.11,1.67,1.68,0.67,0.69,1.06,1.27,1.21],[1.39,1.4,2.19,1.13,1.84,1.44,0.51,0.55,1.17,1.4,0.92],[1.11,1.18,1.81,0.98,1.54,1.29,0.59,0.44,1.09,1.08,1],[1.3,1.71,1.55,1.18,1.31,1.36,0.5,0.47,0.84,0.91,1.03],[1.19,1.37,2.21,1.11,1.43,1.73,0.62,0.52,1.23,1.31,0.97],[1.59,1.28,2.08,1.07,1.65,1.42,0.69,0.53,1.07,1.4,0.91],[1.37,0.93,1.69,0.69,1.59,0.87,0.71,0.33,0.88,1.36,1.19],[1.24,1.57,2.28,1.05,1.78,1.27,0.68,0.62,1.05,1.09,0.98],[1.38,1.34,2.13,0.82,1.56,1.05,0.74,0.51,1.04,1.22,1.26],[1.18,1.44,1.7,1.06,1.9,1.83,0.43,0.44,0.98,1.37,0.57],[1.29,1.35,1.81,0.64,1.72,1.35,0.5,0.45,1.01,0.99,0.88],[1.27,0.8,1.9,0.93,2.09,1.15,0.57,0.51,1.04,1.08,0.95],[1.17,1.32,2.19,1.13,1.89,1.56,0.62,0.52,1.09,1.24,1.08],[1.52,1.24,1.56,1.01,1.36,1.61,0.53,0.53,0.82,1.09,1.11],[1.36,1.15,1.64,0.73,1.65,0.68,0.67,0.34,1.1,0.77,1.1],[1.25,1.58,1.63,1.11,1.36,1.35,0.5,0.53,1.11,1.16,1.14],[0.98,1.06,2.34,0.76,1.24,1.68,0.65,0.59,0.93,1.2,0.72],[0.91,1.52,1.32,0.92,1.79,0.97,0.44,0.48,0.91,1.06,0.9],[1.55,1.58,2,0.91,1.54,1.35,0.67,0.52,1.02,1.33,1.12],[1.15,1.49,1.8,1.09,1.89,1.28,0.53,0.56,1.06,1.08,0.95],[1.18,1.02,1.97,0.91,1.61,1.34,0.46,0.49,0.96,1.13,0.88],[0.93,1.09,2,0.97,1.58,1.47,0.49,0.55,1.03,1.37,0.55],[1.11,0.91,2.18,0.69,1.71,1.42,0.64,0.51,0.97,1.2,1.07],[0.83,1.11,2.1,1.08,1.88,1.63,0.49,0.53,1.15,1,0.87],[1.52,1.23,1.52,0.79,1.74,1.02,0.51,0.38,1.04,1.01,1.03],[0.9,1.29,2.3,0.93,1.78,1.39,0.58,0.51,1.05,1,1.11],[1.31,1.04,2.05,0.97,1.53,1.24,0.58,0.38,0.9,0.98,0.97],[0.95,1.19,1.98,1.15,1.78,1.1,0.49,0.53,0.69,0.97,1.02],[1.27,1.12,1.77,1.13,1,0.93,0.57,0.35,1.09,1.17,0.77],[1.04,1.28,1.56,0.74,1.6,1.14,0.53,0.39,1.3,0.83,1.08],[1.65,1.08,1.29,1.03,1.87,1.16,0.54,0.54,1,0.88,0.97],[1.04,0.95,1.78,0.97,1.66,1.58,0.52,0.54,1.23,1.29,1.04],[1,1.34,2.06,1.06,1.79,1.7,0.49,0.51,0.83,1.14,0.94],[0.82,0.71,1.66,0.86,1.49,1.55,0.4,0.31,1.02,0.98,0.64],[1.31,1.1,1.98,0.51,1.75,1.12,0.6,0.41,0.88,0.95,1.26],[0.96,1.47,2.48,0.92,2.11,1.59,0.61,0.55,1.29,1.05,1.12],[1,1.36,1.81,1.23,1.61,1.31,0.49,0.54,0.97,0.9,0.9],[0.56,1.43,1.96,1.04,1.19,1.13,0.61,0.45,0.78,0.89,0.94],[0.81,0.97,2.11,1.27,2.26,1.59,0.54,0.51,1.23,1.25,0.99],[1.2,1.03,1.63,1.07,1.89,1.51,0.51,0.44,1.06,1.44,1.15],[1.07,1.65,1.62,1.14,2.23,1.7,0.38,0.46,1.27,1.26,0.67],[1.2,1.3,2.23,1.13,1.77,1.05,0.65,0.43,1.05,0.89,0.89],[1.07,1.32,2.02,1.14,1.85,1.49,0.47,0.46,1.15,1.23,0.73],[1.63,1.11,2.11,0.88,1.59,1.26,0.67,0.46,1.07,1.05,1],[1.6,1.32,1.62,1.06,1.75,1.44,0.45,0.49,1.21,1.09,1.17],[0.92,0.85,2.27,1.23,1.63,1.65,0.56,0.54,0.99,1.48,0.99],[1.18,1.59,1.7,1.16,1.4,1.38,0.54,0.55,0.89,1.46,0.71],[1.03,1.25,1.31,0.76,1.71,1.32,0.43,0.47,0.87,1.24,0.84],[1.36,1.34,2.06,0.95,1.59,1.33,0.6,0.47,0.97,1.3,1.14],[1.53,1.01,2.09,1.1,1.8,1.4,0.52,0.42,0.89,1.46,0.9],[1.01,1.37,1.52,1.07,1.64,1.65,0.35,0.4,0.88,0.65,0.82],[1.67,1.24,1.21,1.05,1.66,1.08,0.49,0.52,1.14,1.17,0.92],[1.16,1.27,2.02,0.9,1.62,1.15,0.64,0.55,0.81,1.28,1.21],[1.54,1.47,1.89,1.15,1.62,1.5,0.55,0.48,0.94,0.91,0.79],[1.47,1.4,1.77,1.18,1.55,1.71,0.49,0.41,0.73,1.26,1],[0.83,1.2,1.33,1.1,1.8,2.01,0.27,0.5,0.95,1.42,0.69],[1.14,0.76,1.89,1.19,1.76,1.36,0.43,0.51,0.97,0.83,0.73],[0.94,0.98,1.2,0.95,1.65,1.63,0.3,0.44,1.15,1.06,0.74],[1.09,1.18,1.94,0.85,1.51,1.04,0.61,0.4,0.99,1.02,0.91],[1.03,1.49,2.09,1.01,1.69,1.27,0.59,0.56,0.77,1.03,0.91],[1.18,1.53,2.05,1.52,1.57,1.07,0.65,0.67,1.04,1.15,0.94],[1,1.61,2.23,1.25,1.55,1.68,0.5,0.56,0.93,1.43,1.12],[1.65,1.62,2.45,1.09,1.78,1.49,0.81,0.37,0.89,1.5,0.96],[1.45,1.16,2.09,0.78,1.21,1.45,0.68,0.48,1.05,1.23,0.75],[1.44,1.45,1.35,1.15,1.48,1.12,0.45,0.46,1.04,1.07,0.89],[0.96,1.61,1.54,0.93,1.65,1.35,0.5,0.51,0.9,1.05,0.84],[1.1,1.77,1.43,0.94,1.77,1.5,0.45,0.44,0.76,0.69,0.8],[1.37,1.46,2.19,0.76,1.06,1.38,0.71,0.4,0.84,0.97,0.98],[1.22,1.01,2.23,0.97,2.24,1.29,0.55,0.47,1.04,0.94,0.83],[1.14,1.28,1.83,1.3,1.38,1.22,0.47,0.51,1.04,1.09,0.66],[1.37,1.11,1.88,1.04,1.49,1.73,0.47,0.5,0.96,1.16,0.98],[1.09,1.26,1.69,1.15,1.81,1.26,0.61,0.49,0.99,1.44,0.94],[1.05,1,2.01,1.1,1.76,1.85,0.57,0.59,0.89,1.22,1.01],[1.47,1.58,2.39,0.98,1.36,1.25,0.72,0.45,0.74,0.85,0.81],[1.1,1.51,2.12,1.21,1.36,1.34,0.54,0.55,1.06,1,1.05],[0.74,1.34,2.28,0.83,1.42,1.2,0.65,0.46,0.74,0.93,0.95],[1.03,1.35,1.52,1.04,1.21,1.12,0.59,0.45,0.8,0.85,0.98],[0.69,1.33,1.84,0.94,1.85,1.76,0.45,0.58,1,1.45,0.95],[1.61,1.14,1.69,0.71,1.81,1.51,0.58,0.51,1,1.26,0.97],[1.41,1.24,1.84,1.05,0.85,0.97,0.67,0.44,0.71,0.72,1.19],[1.59,1.29,1.94,1.11,1.45,1.52,0.43,0.58,0.84,1.04,0.93],[1,1.58,1.42,0.91,1.69,0.83,0.46,0.42,0.73,0.99,0.52],[1.32,1.23,1.8,0.72,1.82,1.03,0.58,0.49,1.04,1.01,0.88],[1.2,1.61,1.41,1.09,1.51,1.51,0.4,0.45,1.04,1.12,0.77],[1.29,1.29,2.1,0.92,2.39,1.29,0.59,0.47,1.07,1.03,1.24],[1.2,1.38,1.63,0.97,1.35,1.26,0.5,0.48,1,0.88,0.67],[1.37,1.35,1.93,1.03,1.76,1.66,0.61,0.53,0.85,1.3,0.94],[1.67,1.21,1.67,0.99,1.66,1.01,0.63,0.43,1,1.16,0.74],[1.46,1.07,2.04,0.93,1.66,1.15,0.63,0.39,1.07,1.22,0.96],[1.27,1.1,1.84,1.2,1.69,1.19,0.53,0.45,0.91,0.72,1.06],[1.36,1.53,1.79,1.22,1.47,1.11,0.55,0.42,1.06,1.07,0.88],[1.1,1.07,1.92,1.31,1.51,1.72,0.4,0.55,0.97,1.07,0.89],[1.44,1.6,1.6,0.86,1.57,1.03,0.64,0.28,1.01,1.22,1.04],[1.6,1.32,1.7,0.72,1.33,1.25,0.69,0.46,0.81,1.16,1.06],[0.99,1.38,1.65,1.19,1.78,1.36,0.52,0.44,1.2,1.13,0.99],[1.37,1.69,1.97,0.92,1.82,1.39,0.54,0.42,1,0.94,1.2],[1.29,1.04,2.12,1.34,1.77,1.48,0.54,0.56,0.91,1.03,1.08],[1.05,1.46,1.9,1.25,1.84,1.59,0.49,0.56,0.7,1.32,0.98],[0.92,1.81,1.93,1.2,1.98,1.91,0.42,0.68,1.23,1.51,0.94],[1.27,1.34,0.99,0.88,1.31,1.4,0.41,0.19,1.09,0.9,0.73],[1.33,1.22,2.18,1.07,1.95,2.21,0.45,0.71,1.14,1.47,0.75],[1.31,1.4,2.25,1.34,1.7,1.7,0.47,0.55,1.09,1.27,0.7],[1.17,1.52,1.64,1.1,1.59,1.59,0.63,0.47,0.7,1.23,1.21],[1.21,1.31,1.55,0.86,1.85,1.36,0.57,0.5,0.92,0.97,0.83],[1.27,1.48,1.71,1.02,1.57,1.2,0.52,0.4,0.71,1.12,0.81],[0.94,1.14,2,0.81,1.9,1.41,0.52,0.41,1.19,1.26,1.17],[0.9,1.51,1.41,1.22,1.51,1.52,0.47,0.35,1.36,1.13,0.9],[1.11,1.29,1.99,1.12,1.93,1.35,0.53,0.48,1.15,1.14,0.87],[0.81,1.33,1.86,1.1,1.76,1.58,0.54,0.53,1.05,1.29,0.88],[1.38,1.27,1.5,1.1,1.41,1.33,0.43,0.38,0.59,1.19,0.77],[1.06,1.05,1.94,0.89,1.56,1.31,0.52,0.45,1.14,1.01,0.7],[1.01,1.55,1.33,0.83,1.9,1.38,0.38,0.59,0.67,1.29,0.76],[1.14,1.69,1.55,1.01,1.52,1.36,0.62,0.35,0.57,1.09,0.9],[1.3,1.28,2.32,0.92,1.76,1.42,0.74,0.61,1.18,1.1,1.04],[0.75,1.3,1.7,0.96,0.88,0.99,0.63,0.36,1.07,1.02,1.19],[1.04,1.22,2.27,1.29,1.47,1.24,0.55,0.49,1.18,1.1,1.16],[0.88,1.51,1.84,1.22,1.97,1.81,0.46,0.56,1.22,1.3,0.87],[1.42,1.42,1.22,0.81,1.35,1,0.5,0.16,0.81,0.64,1.07],[1.07,1.02,1.73,1.06,1.77,1.59,0.37,0.45,0.99,1.29,0.78],[1.18,1.23,1.56,1.14,2.06,1.59,0.48,0.46,1.19,1.3,1.15],[0.98,1.06,1.9,1.3,1.61,1.31,0.43,0.64,0.97,1.36,0.86],[1.17,1.28,1.6,0.79,1.7,1.05,0.49,0.39,1.28,0.98,0.74],[0.91,1.32,1.97,0.8,1.52,1.33,0.47,0.59,1.02,1.45,1.07],[1.15,1.49,1.58,0.91,1.47,1.3,0.54,0.47,1.04,0.79,0.75],[1.19,1.1,1.93,0.72,2.17,1.09,0.63,0.5,0.92,1.01,0.92],[1.27,1.13,1.48,0.74,1.86,0.98,0.51,0.45,1.09,0.92,1.02],[1.03,1.47,1.44,1.15,1.5,0.84,0.49,0.31,0.9,0.96,0.63],[1.45,1.6,2.49,1.26,1.4,1.3,0.8,0.41,1.05,1.37,1.36],[0.75,1.46,1.95,1.12,2.12,1.86,0.41,0.61,0.79,1.32,0.79],[1.42,1.26,1.85,1.06,1.55,1.66,0.44,0.55,0.83,1.35,0.7],[0.98,1.03,1.43,0.87,2.02,1.64,0.36,0.53,0.98,1.27,0.75],[1.08,1.3,2.01,1.17,1.88,1.21,0.52,0.42,1.08,1.02,1.07],[1.11,1.23,2.21,0.83,1.6,1.58,0.64,0.37,1.1,1.39,1.01],[1.59,1.3,2.23,0.86,1.31,0.95,0.72,0.41,0.81,1.01,1.04],[1.62,1.45,1.77,1.04,1.24,1.1,0.71,0.36,0.97,1.07,1.11],[1.26,1.17,1.45,0.88,1.58,0.99,0.52,0.52,0.69,1.25,0.95],[1.06,1.66,2.32,1.31,1.97,1.7,0.47,0.69,0.97,1.52,0.72],[1.35,1.05,1.94,1.09,2.29,1.79,0.51,0.68,1.22,1.44,1.02],[1.04,1.6,2.14,1.16,1.87,1.57,0.52,0.36,0.97,1.03,0.9],[1.23,1.23,2.04,0.91,1.2,1.66,0.63,0.47,1.08,0.77,0.96],[1.23,1.49,1.73,0.84,1.18,1.12,0.7,0.39,0.84,0.97,1.1],[1.16,1.05,1.67,0.97,1.39,1.3,0.49,0.43,0.97,0.71,0.74],[1.12,0.86,1.59,0.78,1.24,1.44,0.46,0.38,1.06,0.98,1.37],[0.82,1.25,1.99,1.13,1.48,1.88,0.56,0.49,0.55,0.87,0.96]],"pcor":[[1,-0.05,-0.2,0.09,-0.02,0,0.33,-0.09,0.03,0.05,-0.03],[-0.05,1,-0.19,0.3,-0.03,0.09,0.19,0,-0.02,-0.02,-0.06],[-0.2,-0.19,1,0.26,0.24,0.3,0.7,0.17,0.24,-0.12,-0.03],[0.09,0.3,0.26,1,-0.19,0,-0.31,0.23,0.02,0.06,0],[-0.02,-0.03,0.24,-0.19,1,0.01,-0.22,0.07,0.16,0.16,-0.03],[0,0.09,0.3,0,0.01,1,-0.41,0.23,-0.01,0.4,-0.02],[0.33,0.19,0.7,-0.31,-0.22,-0.41,1,0,-0.14,0.21,0.3],[-0.09,0,0.17,0.23,0.07,0.23,0,1,-0.04,0.13,0.06],[0.03,-0.02,0.24,0.02,0.16,-0.01,-0.14,-0.04,1,0.01,0],[0.05,-0.02,-0.12,0.06,0.16,0.4,0.21,0.13,0.01,1,0],[-0.03,-0.06,-0.03,0,-0.03,-0.02,0.3,0.06,0,0,1]],"cor":[[1,0.01,0,-0.08,-0.14,-0.2,0.33,-0.15,-0.06,0.01,0.13],[0.01,1,-0.07,0.28,-0.11,0.07,0.01,0.07,-0.06,0.04,-0.04],[0,-0.07,1,0.13,0.21,0.18,0.57,0.34,0.25,0.19,0.25],[-0.08,0.28,0.13,1,-0.03,0.29,-0.2,0.34,0.08,0.15,-0.1],[-0.14,-0.11,0.21,-0.03,1,0.26,-0.13,0.19,0.26,0.22,-0.09],[-0.2,0.07,0.18,0.29,0.26,1,-0.31,0.44,0.14,0.44,-0.16],[0.33,0.01,0.57,-0.2,-0.13,-0.31,1,0.01,-0.03,0.06,0.46],[-0.15,0.07,0.34,0.34,0.19,0.44,0.01,1,0.11,0.33,0.04],[-0.06,-0.06,0.25,0.08,0.26,0.14,-0.03,0.11,1,0.08,-0.02],[0.01,0.04,0.19,0.15,0.22,0.44,0.06,0.33,0.08,1,0.02],[0.13,-0.04,0.25,-0.1,-0.09,-0.16,0.46,0.04,-0.02,0.02,1]],"pairs":[{"a":"liver","b":"spleen","paper":0.42,"r":0.44,"pr":0.4,"xy":[0.66,1.76,0.29,1.09,-0.45,0.49,-0.97,-0.14,0.59,0.29,0.02,0.06,0.02,-0.48,-0.18,-0.34,0.03,-2.43,-0.5,-2.51,-0.41,-0.11,-0.3,-0.06,1.04,0.65,0.47,0.18,-1.51,0.16,-0.64,0.82,0.76,-0.38,0.44,-0.62,1.66,0.37,0.71,0.23,2.63,1.16,2.02,1.04,0.95,0.25,0.91,0.42,0.88,0.09,0.74,0.05,-0.52,0.66,-0.89,0.34,1.55,0.5,1.61,0.31,0.33,-0.65,1.1,-0.74,0.02,0.01,0.14,0.13,1.57,1.27,0.35,0.65,0.29,1.64,0.07,1.6,0.28,-0.33,0.47,-0.63,-0.44,-0.77,0.12,-0.47,0.74,1.68,0.38,1.21,-1.25,0.12,-0.44,0.49,-0.04,-0.19,0.8,0.32,-0.53,-0.68,-1.16,-0.71,0.57,-0.44,-0.32,-0.6,-0.44,-0.32,-0.01,-0.21,-0.2,1.4,0.42,1.44,-0.06,-0.46,0.47,0.1,0.72,-0.52,0.21,-0.43,-0.54,-0.02,-0.32,-0.15,-0.18,-0.79,-0.07,-0.36,-0.34,-2.52,-0.47,-1.73,0.39,-0.57,0.73,-0.32,-0.52,-0.11,-1.45,-0.48,-1.35,1.16,-0.41,1.4,-0.04,1.15,0.08,1.26,0.74,1.18,0.5,1.09,0.55,3.28,0.5,2.22,1.81,0.16,0.62,-0.67,1.22,0.62,0.91,0.54,1.16,1.03,0.37,0.74,0.7,0.57,-0.28,0.33,0.6,0.82,0.59,0.64,1.33,1.48,0.32,0.37,-0.53,-0.72,0.01,-0.6,0.68,0.62,1.34,1.2,-1.45,-2.28,-1.26,-2.33,-0.89,0.25,-1.07,-0.1,0.65,0.93,0.51,0.35,-0.11,0.19,-0.52,0.08,2.58,2.17,1.43,1.61,-0.44,-0.07,-0.3,0.14,1,0.16,0.47,0.22,-0.51,-0.07,-1.22,-0.58,-0.43,-1.1,-0.05,-0.77,-1.07,0.25,-1.73,0.05,-1.14,-0.52,-0.73,-0.23,2.68,1.01,0.8,0.14,0.53,0,0.86,0.07,-0.01,-0.34,0.35,0.09,0.32,0.08,0.36,0.12,-1.26,0.15,-1.18,0.23,-0.68,-0.54,-1,-0.72,0.3,0.7,0.63,0.86,-1.23,-1.22,-1,-1.38,-0.35,-0.85,-0.55,-1,-0.34,-1.38,-0.61,-1.37,-0.13,0.55,0.61,1.07,0.11,0.56,-0.16,0.39,-0.29,0.5,-0.05,0.52,-0.13,-0.28,-0.26,-0.34,-0.72,-1.02,-0.43,-0.56,0.49,0.64,0.15,0.42,-0.1,0.1,-0.52,-0.67,1.68,0.35,0.64,-0.4,1.29,0.1,0.59,0.15,-0.37,0.09,0.83,0.35,-0.2,-1.12,-0.03,-0.66,-1.54,-1.08,-1.17,-0.61,-0.55,-1.55,-0.34,-1.27,0.38,-0.39,-0.23,-0.19,-2.07,0.21,-1.39,0.54,-0.46,-0.31,0.08,-0.22,0.73,-0.62,-0.64,-1.16,0.27,0.43,0.9,0.49,-0.74,-0.33,-0.37,-0.01,-1.2,-0.87,-0.62,-0.72,1.02,0.34,0.46,0.46,-0.51,-0.36,-0.58,-0.65,3.53,2.21,2.51,1.66,0.32,-0.09,-0.04,0.2,0.68,0.93,0.59,0.76,-1.87,-1.49,-2.06,-1.77,-0.93,-0.87,-0.49,-0.53,0.47,0.26,0.97,0.66,1.99,2.09,0.64,1.46,-0.52,0.71,-0.71,0.82,-0.93,-0.33,0.56,0.54,-0.81,0.56,0.39,0.97,1.25,-0.16,0.1,-0.46,1.18,1.86,1.11,1.79,-1.02,-0.3,-0.17,0.37,-1.21,-0.78,-1.62,-0.9,-0.1,0,0.69,0.29,-0.63,0.3,-0.33,0.74,1.13,0.76,0.85,0.67,-0.48,0.77,-0.89,0.11,-0.26,-1.6,-0.41,-1.42,0.79,-0.44,-0.05,-0.64,-1.54,-0.08,-1.75,-0.81,-1.34,-3.05,-0.66,-3.07,-0.33,0.22,-1.22,-0.69,-0.62,0.23,-0.96,-0.09,-0.84,-0.14,-0.26,-0.05,-0.52,-0.6,0.72,-0.47,-1.64,-3.31,-0.71,-3.05,-0.24,-0.14,-0.97,-0.88,0.54,0.98,0.72,0.82,1.37,-0.11,0.97,-0.18,1.5,-0.22,0.16,-0.63,0.42,-0.7,1.03,-0.52,0.58,0.47,0.41,0.57,0.65,1.07,0.7,1.2,-0.98,0.3,-0.59,-0.34,-0.44,-0.16,0.55,0.17,-0.55,0.07,0.43,1.06,0.6,-0.18,-0.53,-0.84,1.24,0.99,0.3,0.84,-0.16,-0.03,0.3,0.11,1.43,0.09,0.99,0.1,0.67,-0.96,-0.06,-0.81,2.21,1.83,1.47,1.28,-0.2,1.37,-0.01,1.27,-0.06,-0.65,-0.29,-0.98,-0.75,-1,-0.9,-1.02,-0.93,-2.44,-0.76,-1.93,0.24,-0.79,0.57,-0.94,1.15,-0.84,1.6,-0.51,2.16,-0.87,1.11,-0.78,-0.91,-2.1,-0.89,-2.61,-1.06,-0.37,-0.2,0.1,-2.22,-0.8,-2.46,-1.2,-0.33,-0.8,-1,-1.34,-0.73,-0.89,-0.5,-1.05,1.29,-0.54,0.7,-0.53,-1.46,-0.77,-1.14,-0.9,-0.55,0.58,0.05,0.9,0.92,0.96,0.42,0.64,0.18,-0.83,0.18,-0.51,-0.5,-0.08,-0.22,-0.21,-0.16,1.13,0.07,1.56,-0.1,1.32,-1.1,0.83,-3.34,-0.82,-2.83,-0.79,0.78,1.32,-0.02,1.29,1.13,1.79,0.96,1.68,0.11,1.34,0,1.41,2.5,1.6,0.87,0.71,-1.05,0.11,-0.61,0.31,1.98,-1.36,1.49,-1.4,0.13,0.15,1.03,0.35,-0.37,0.13,-0.8,-0.43,-0.12,-1.19,0.94,-1.09,1.44,0.05,1.58,0.62,0.49,1.19,-0.12,1.4,0.09,-0.21,0.03,-0.3,0.97,1.45,0.86,1.25,-0.35,0.21,-0.03,0.18,-1.33,0.45,-1.52,-0.04,-0.07,-0.01,0.83,-0.16,-0.6,-0.22,0.04,-0.52,0.22,0.22,0.27,0.06,-1.45,0.1,-1.11,0.25,-0.77,0.22,-0.47,0.35,-0.43,-0.35,0.65,-0.01,-0.59,-0.94,0.08,-0.7,1.06,-0.97,0.13,-1.68,-1.19,-0.69,-0.81,-0.4,0.5,-0.9,1,-0.69,-0.35,-1.05,-0.85,-1.34,1.24,0.15,1.29,-0.19,-1.76,-0.35,-1.25,0.3,-0.49,-0.01,-0.19,-0.01,1.04,-0.24,-0.1,-0.98,-1.42,-0.56,-0.98,-0.12,0.31,-1.34,0.62,-0.69,0.52,1.65,0.66,1.9,0.45,1.03,-0.32,1.09,1.97,1.03,1.62,0.71,-0.98,0.4,-1.16,0.08,0.55,-0.86,0.06,-0.85,1.75,1.81,1.29,1.47,1.18,-0.64,0.68,-0.98,-0.14,0.38,-0.63,-0.25,-1.39,-0.18,-1.42,-0.04,0.64,-0.61,0.68,-0.59,1.29,1.45,0.7,1.3,-0.65,0.51,-0.36,0.17,-0.39,0.69,0.47,1.19,-1.09,-0.79,-0.77,-0.5,-1.27,-1.01,-1.87,-1.35,1.1,1.53,0.84,0.98,0.18,0.23,0.45,0.71,-0.68,-0.3,-0.83,-0.03,0.12,-0.36,0.33,-0.46,0.33,-1.32,0.66,-1.7,0.89,0.61,-0.41,0.29,0.16,-0.34,0.35,-0.09,0.3,1.02,0.8,0.95,-0.49,-0.7,-0.68,-0.83,-1,1.67,-0.96,1.35,0.24,-0.59,-0.37,-0.94,-1.11,-0.5,-0.68,-0.25,-0.98,-1.03,-0.26,-1.03,0.18,-0.11,0.58,0.17,-0.13,0.4,-0.76,-0.12,-1.03,1.13,-0.55,1.23,0.84,0.14,0.68,0,-2.03,-0.93,-0.67,-0.29,0.56,1.28,0.3,1.32,-0.55,-0.51,0.18,0.11,0.41,0.34,1.46,0.45,0.5,0.4,0.25,0.02,-1.44,-1.26,-1.25,-1.13,-1.23,0.29,-0.81,0.7,-0.44,-1.63,-0.76,-1.75,-0.49,-0.76,-0.1,-0.42,-0.43,-0.33,-1.02,-0.64,-1.2,0.21,-0.74,0.43,0.34,0.13,0.37,0.61,0.56,-0.37,-0.24,-1.05,0.24,0.27,0.29,0.19,-0.89,-0.41,-0.65,-0.44,0.44,1.44,-0.69,1.27,-0.26,-1.2,-0.26,-0.89,1.25,-1.04,0.84,-0.83,-0.42,0.11,-0.15,0.19,1.26,0.16,0.89,-0.02,2.35,-0.41,1.03,-1.13,-1.52,-2.4,-1.72,-2.72,1.22,0.02,1.15,-0.46,-0.26,-0.34,-0.12,-0.37,-0.85,-0.62,-0.9,-0.39,0.11,-1.08,-0.27,-1.32,0.42,0.16,0.91,0.21,0.04,-1.11,-0.68,-1.59,-0.21,-1.2,0.56,-0.27,-0.43,0.89,-1.36,0.65,-0.58,1.12,-0.19,1.52,-0.82,-0.22,-1.16,0.26,-1.4,-2.36,-0.91,-1.77,2.05,0.97,0.58,0.11,0.24,0.51,-0.21,0.1,-0.65,0.69,0.44,0.85,-0.5,0.61,0.15,0.72,-0.35,-0.52,0.01,-0.11,1.63,1.24,0.91,0.74,-0.3,-0.1,0.16,-0.51,-0.46,-0.44,0.35,-0.34,0.39,1.03,0.73,0.81,0.13,3.23,0.21,2.49,1.32,1.28,1.31,0.84,-0.24,0.05,-0.06,0.44,-2.01,-0.75,-1.08,-0.61,-0.9,0.05,-0.54,0.12,0.8,1.95,0.97,1.24,1.53,2.14,0.94,1.2,-0.66,-0.25,-0.83,0.09,1.54,1.74,1.55,1.68,0.55,0.79,-0.36,0.34,-0.77,-0.07,-0.68,-0.79,1.1,-0.3,1.12,-0.06,1.51,0.78,1.13,0.29,1.14,0.22,0.83,-0.06,-0.03,1.3,-0.03,1.12,1.4,0.46,0.79,0.54,1.16,0.19,-0.38,-0.49,1.79,0.62,0.86,0.14,-0.08,-0.06,1.48,0.61,0.77,-0.74,0.5,-1.05,0.23,0.41,-0.64,0.17,-0.49,0.11,-0.66,0,1.88,1.55,1.29,1.33,-1.43,-0.55,-0.88,-0.34,0.17,-0.54,0.18,-0.4,0.35,0.35,0.39,0.29,2.01,0.69,0.88,-0.06,-1.32,-0.79,-0.29,-0.44,-0.47,-0.05,-0.01,-0.38,-0.04,-0.67,-0.62,-0.65,0.84,1.77,0.53,2.15,1.16,0.06,1.02,-0.41,0.19,1.27,-0.68,0.11,0.83,0.94,1.48,0.84,0.15,-0.32,-0.61,-0.57,0.65,0.64,0.13,0.4,-0.43,-0.41,-0.65,-0.62,-0.84,-1.6,-0.78,-0.96,1.89,0.17,1.67,0.16,-1,-1.05,-1.08,-0.65,-0.76,0.54,-1.07,0.22,1.25,-0.01,0.07,-0.68,-1.1,-0.3,-0.48,-0.33,0.81,-0.21,0.76,-0.11,0.28,-0.07,0.87,-0.08,0.75,1.13,-0.04,0.91,0.18,-0.54,-0.34,-0.61,-0.15,-0.57,0.99,0.04,-1.17,-0.83,-0.69,-0.66,-2.51,-0.73,-1.99,-0.86,-1.05,0.28,-0.59,0.58,-1.41,-2,-0.7,-0.99,-1.71,-2.11,-1.68,-2.15,-1.19,0.4,-1.1,0.3,1.11,-0.96,0.54,-0.8,-0.26,0.52,-0.56,0.38,2.13,0.47,1.56,0.11,0.39,-1.13,-0.04,-1.56,1.32,-0.24,0.28,-0.62,-0.59,0.67,0.3,1.09,1.35,1.55,0.64,0.98,-0.82,0.51,-0.38,0.4,-0.61,-0.39,-0.55,-0.4,-0.16,-1.4,-0.64,-1.12,0.31,1.11,0.14,0.55,0.04,1.34,0.29,1.39,0.5,-0.47,0.02,-0.46,1.16,0.37,1.62,0.39,-1.01,-0.65,-0.38,-0.12,0.22,0.16,-0.15,0.6,0.45,-0.33,0.57,-0.66,-0.07,1.21,-0.05,0.9,-0.78,-1.1,-1.87,-1.13,1.07,-0.41,0.52,-0.25,0.41,0.49,0.62,0.29,0.31,1.36,0.31,1.21,0.11,0.64,0.17,0.88,-0.6,-1.85,0.02,-1.41,0.25,-1.57,0.45,-1.2,-1.3,-0.9,-1.15,-0.63,-0.16,0.95,-0.07,0.77,0.27,-0.83,0.3,-0.65,1.26,2.18,1.21,1.85,-0.03,1.2,-0.22,1.48,-0.3,0.61,0.27,0.38,0.12,-0.98,0.08,-0.74,1.13,-0.44,1.63,-0.21,0.04,-0.13,0.41,0.45,-0.27,-0.99,0.51,-0.54,-0.66,0.02,-1.04,-0.15,-0.55,0.5,-1.22,0.14,-0.68,0.63,-0.83,0.15,-0.05,-0.44,-0.53,-0.5,0.41,0.54,0.64,0.63,-0.03,-0.39,0.37,-0.62,1.19,2.17,1.23,2.23,-0.81,0.21,-0.88,0.2,0.46,0,-0.05,-0.57,0.06,-0.32,-0.11,0.18,-1.02,0.14,-0.33,0.72,0.97,0.68,0.9,0.92,-0.72,0.06,-0.57,0.05,1.92,1.1,1.04,0.85,0.55,-0.07,-0.6,-0.77,0.29,0.7,-0.11,0.1,-0.73,-0.61,0.39,0.04,-0.23,-0.16,0.11,0.3,1.2,-0.86,0.13,-0.85,-0.27,-0.86,0.72,-0.66,-0.93,0.65,-0.46,1.12,-1.07,0.73,-0.2,0.79,-0.86,-1.4,-1.02,-1.32,0.71,0.88,0.51,0.37,0.74,-0.61,0.77,-0.57,-0.47,0.68,-0.24,0.01,0.81,0.64,0.91,0.47,-1.36,-0.29,-0.2,0.26,1.19,1.03,0.84,1.02,1.96,-0.07,-0.03,-0.99,1.37,-1.34,0.8,-1.15,0.21,-0.4,0.64,0.05,-2.15,-2.88,-1.79,-2.27,0.24,-1.29,0.55,-1.12,-0.82,0.87,-0.2,0.64,-0.49,-3.34,-1.04,-3.27,0.07,1.08,0.66,1.47,2.24,2.02,0.97,1.51,-0.87,0.57,-0.73,0.54,1.74,-0.6,1.02,-0.95,-1.36,-1.87,-1.22,-2.03,0.16,0.21,-0.1,-0.21,-0.77,-0.29,-0.86,-0.31,-0.86,-1.85,-0.66,-1.72,0.75,-0.02,1.08,0.16,1.87,1.07,1.55,0.82,-1.6,0.61,-0.51,0.95,-1.96,-1.93,-1.34,-1.57,-1.49,-0.18,-0.82,0.35,-1.04,-1.03,0.39,-0.09,1.32,-0.96,0.79,-0.98,0.68,0.58,-0.22,0.03,-0.22,-0.24,-0.54,-0.22,0.44,0.34,-0.44,0.18,-0.54,0.16,-1.21,-0.62,-1.43,-1.11,-0.49,-0.35,1.23,0.12,0.67,-0.48,-1.78,-1.12,-1.59,-1.1,1.4,0.06,-0.17,-0.54,-0.35,0.22,-0.9,-0.06,1.43,1.36,0.97,1.46,0.04,-0.3,0.53,-0.08,0.01,1.67,0.73,1.51,-0.68,0.42,-0.61,0.02,1.15,-0.23,1.41,-0.1,-1.3,-1.02,-1.12,-0.76,-0.94,-1.17,-0.15,-0.14,-0.27,-0.23,-0.66,-0.27,-0.55,-0.41,-0.1,-0.38,0.19,-0.07,-0.18,-0.06,-1.87,-1.66,-1.39,-1.49,0.66,0.23,0.88,0.3,1.93,0.71,1.03,0.22,1.01,0.84,0.82,1.4,-1.13,0.05,-0.65,-0.03,1.71,0.04,0.78,0.03,-0.28,-0.48,0.08,-0.23,0.87,-0.41,1.06,0.1,-0.68,-0.73,-0.44,-1.01,-0.46,0.65,0.08,0.58,-1.53,-1.14,-0.22,-0.64,1.51,0.94,-0.19,0.48,-0.33,-0.47,-0.9,-0.53,-2.02,-1.46,-0.78,-1.02,-0.08,0.29,0.46,0.23,-0.75,0.96,-0.56,1.19,-0.7,0.68,-0.16,0.64,0.1,-1.24,-0.62,-1.43,1.05,1.37,0.98,0.91,0.19,1.53,0.78,1.38,0.63,0.09,0.61,0.06,0.36,2.26,0.02,2.47,-0.14,-0.49,-0.59,-0.48,1.64,-0.7,0.45,-1.5,1.38,-1.57,0.86,-1.41,0.36,0.88,0.52,0.76,1.23,1.15,0.66,1.24,0.46,1.22,0.02,0.68,0.22,-0.05,0.53,0.31,-1.58,0.04,-0.36,0.35,-0.67,0.22,0.32,0.52,-1.11,0.19,-1.42,-0.58,0.48,-0.37,-0.04,-0.46,0.16,1.01,0.53,0.93,0.12,-0.31,-0.44,-0.14,1.58,0.07,0.7,-0.03,1.24,0.13,0.83,0.08,0.27,-1.19,0.46,-0.72,0.18,0.84,0.71,1.36,-0.11,0.68,0.16,0.45,-0.48,-0.51,0.02,-0.77,-0.23,0.1,-0.73,0.31,0.21,-0.94,0.32,-1.3,-0.58,1.09,-1.3,0.87,1.07,2.08,0.82,2.17,-0.42,0.61,-0.45,0.41,-0.07,0.06,-0.07,-0.34,-0.51,0.37,-0.65,0.45,0.14,-1.48,-0.41,-1.68,1.45,0.45,0.91,0.16,0.54,-1.32,0.28,-1.34,0.28,1.52,-0.33,1.09,0.97,0.96,0.87,0.94,-0.64,-2.05,-0.51,-2.38,0.88,1.78,1.29,1.95,0.11,-0.42,0.14,-0.62,-0.36,-0.07,-0.29,0.39,-0.84,0.21,-0.62,0.49,-1.21,0.62,-0.39,0.9,1.22,0.53,0.32,0.08,1.03,1.51,0.23,0.91,-1.53,-1.12,-1.08,-1.61,-0.04,0.2,0.27,0.13,1.15,1.01,1.41,1.13,-0.57,-0.53,-0.5,-0.9,-0.04,-0.28,-0.05,-0.48,-0.81,-0.41,-0.75,-0.17,1.32,-0.5,0.3,-1.12,1.22,0.56,0.11,-0.46,0.94,-1.52,0.57,-1.48,0.38,-0.36,-0.02,-0.13,1.25,1.06,1.62,1.13,0.53,-0.14,0.67,0.23,1.39,1.43,1.2,1.01,1.44,2.37,1.16,1.51,0.71,0.86,0.82,0.57,0.91,0.09,-0.08,0.05,-2.01,-0.86,-2,-1.06,-2.03,-1.86,-0.79,-0.81,0.3,1.53,0.31,1.42,-0.13,0.2,-0.03,0.4,-1.47,1.26,-0.72,1.6,-0.89,-1.58,-0.48,-1.27,0.8,1.46,0.32,0.78,-1.49,-0.09,-1.68,-0.07,1.19,1.22,1.48,1.22,-0.05,2.05,0.2,2.09,-0.26,-1.46,0.42,-1.25,0.4,-0.67,0.56,-0.49,-0.28,0.06,0.3,0.13,-0.43,-0.37,-0.16,-0.2,-0.74,0.63,0.02,0.93,-1.89,-0.97,-1.53,-1.13,1.41,0.64,0.46,0.69,-1.46,-1.7,-0.99,-1.43,1.35,0.86,0.12,0.05,0.36,1.51,-0.71,1.01,-0.26,-0.1,0.16,0.02,0.03,-0.95,-0.07,-0.88,1.54,1.04,1.29,0.85,0.27,1.53,0.45,1.03,-1.97,1.33,-0.36,1.74,-0.33,-0.06,-0.86,-0.82,-1.25,0.61,-0.74,0.36,2,1.38,1.38,1.32,-0.01,-0.58,-0.23,-0.43,-0.81,-0.1,-0.89,-0.5,0.86,0.7,0.54,0.24,1.07,-0.07,1.11,-0.18,-2.75,-1.68,-1.4,-1.35,0.02,0.29,-0.31,0.2,1.35,0.48,1.07,0.41,-1.56,-0.21,-1.72,-0.2,0.02,1.15,0.15,0.85,-0.3,-0.11,-0.85,-0.62,-0.02,0.16,-0.66,0.23,0.51,1.38,-0.25,1.27,0.28,0.49,0.36,0.42,1.16,-0.49,0.36,-0.73,-1.36,-0.44,-0.95,-0.24,0.18,-0.53,-0.35,-0.67,-0.47,-0.59,-0.17,-0.28,-1.02,-0.67,-1.77,-0.88,-1.72,0.37,-0.99,1,-0.87,-1.36,-0.3,-0.96,-0.79,-1.13,-0.53,-1.63,0.94,0.96,0.76,0.81,1.46,0.22,0.61,0.04,0.82,-0.58,0.97,0.29,-0.94,-0.78,-0.53,-0.53,0.97,-0.28,0.14,-0.83,-0.14,-0.99,-0.78,-1.24,-0.9,-1.07,-0.62,-0.67,0.99,0.75,0.42,0.23,0.67,1.7,0.78,1.62,1.42,0.81,0.44,0.5,-1.24,-1.04,-1.09,-1.17,0.56,0.64,-0.19,0.54,-0.38,-0.26,0.01,-0.38,0.36,-0.04,-0.07,-0.24,1.22,1.92,0.65,1.67,0.14,1.8,-0.18,1.56,-0.11,0.72,-0.2,0.88,-0.1,1.03,-0.13,0.96,0.22,1.81,-0.12,1.75,1.22,-2.27,0.67,-1.9,-1.1,0.37,-0.94,0.07,-0.81,0.89,-0.84,0.62,0.6,-0.94,0.34,-1.16,1.49,0.82,1.31,0.91,2.73,1.63,1.63,1.68,0.05,-1.35,-0.7,-1.5,1.17,-0.22,0.76,0.16,-1.27,-0.4,-0.78,-0.09,-0.33,-0.34,-0.87,-0.7,-1.14,0.25,-1.73,-0.66,1.36,1.66,0.2,1.35,0.58,2,1.33,1.78,0.43,0.68,0.86,0.79,-0.94,-0.17,-1.02,-0.15,0.02,-0.25,-0.2,-0.31,0.6,-2.08,0.35,-2.02,0.11,-0.65,0.85,-0.18,-0.25,-0.79,-0.79,-1.18,-0.53,-0.04,-1.15,-0.1,1.58,0.29,1.02,0.26,-0.35,1.73,-0.03,1.45,2.06,0.62,1.61,0.15,-0.41,-1.28,-0.19,-1.32,-0.06,-0.53,-0.77,-0.7,-0.61,-0.85,-0.48,-0.61,-0.93,-1.24,-0.23,-0.94,1.69,1.78,0.72,1.53,0.66,0.81,0.81,0.55,-1.58,-1.93,-0.67,-1.54,0.72,-0.33,-0.52,-0.63,-2.13,-0.55,-2.16,-0.32,-1.3,-0.44,-1.22,-0.6,0.67,0.09,0.24,0.25,-0.23,-0.37,-0.54,-0.9,-0.36,-1.09,-0.43,-0.94,1.27,1.01,1.12,0.6,-1.4,0.3,-0.74,0.19,-0.83,0.63,-0.37,0.73,-0.65,-1.94,-0.71,-2.03,-0.99,-0.15,-0.93,-0.1,1.51,-0.16,0.37,-0.33,-1.3,0.61,-0.04,1.1,-0.42,0.32,0.59,0.41,0.04,0.13,0.1,0.08,0.18,-0.79,-0.06,-0.81,0.53,-0.34,-0.17,-0.87,0.98,1.11,0.06,0.64,2.32,2.08,0.49,1.22,0.21,-0.99,1.38,0.17,3.55,1.85,1.67,0.89,1.43,0.84,0.05,0.4,0.98,0.64,1.52,0.53,0.05,-0.64,0.26,-0.86,-0.62,0.09,-0.52,0.29,0.25,0.81,0.13,1,0.71,0.13,1.11,0.56,0.01,0.22,-0.46,-0.06,0.94,0.95,0.57,0.71,-0.08,0.45,-0.1,0.85,-0.15,-0.46,-0.29,-0.25,0.14,0.95,-0.82,0.61,0.06,-0.07,1,0.25,0.3,0.01,0.25,-0.7,-1.47,-0.43,-0.27,0.44,-0.43,-0.01,-0.98,-0.06,1.89,1.02,0.91,0.53,-1.45,-2.3,0.08,-1.13,0.99,0.95,0.22,1.07,0.97,1.01,0.82,0.75,-0.16,1.34,-1.43,0.84,-1.22,-0.62,-1.05,-0.31,-0.09,1.79,-1.06,1.69,-0.2,-1.57,-0.06,-1.47,-1.06,-0.46,-0.9,-0.85,-1.54,-0.91,-1.26,-0.87,-2.1,-0.71,-1.55,-0.18,-0.19,1.34,0.52,1.24,2.1,1.11,0.5,0.53,1.27,1.28,0.29,1.07,1.18,0.85,0.39,0.7,-0.57,-0.38,-0.89,-0.44,0.93,1.49,1.37,1.8,-1.66,-0.43,-0.99,-0.25,-1.03,-0.14,0.23,0.14,-1.49,0.76,-1.37,0.69,1.43,2.14,-0.63,1.14,1.81,1.74,0.65,0.63,0.89,-0.33,0.5,-0.22,1.26,-1.66,1.54,-1.44,-0.94,-0.64,0.29,-0.24,-0.22,-1.98,-0.1,-1.65,0.35,-0.61,0.75,0.12,2.19,-1.14,1.98,-1.09]},{"a":"heart","b":"lungs","paper":0.73,"r":0.57,"pr":0.7,"xy":[1.35,0.79,0.36,0.29,0.3,0,-0.1,0.09,-0.66,-0.94,-0.89,-0.13,-1.56,-1.51,-1.38,-1.18,0.84,-0.72,1.09,1.13,0.68,0.56,0.35,0.08,1.56,0.54,1.22,1.09,-1.14,-0.34,-0.8,-0.4,1.92,0.86,1.64,0.95,0.47,-1,-0.15,-0.68,-1.5,-1.5,-0.79,-0.1,0.03,-0.37,-0.23,-0.08,-1.13,-0.65,-0.86,-0.09,0.69,-0.01,0.46,-0.28,-1.03,-0.63,-1.57,-0.2,-0.27,1.22,-0.48,1.08,1,0.55,1.33,0.64,0.55,-1.02,-0.36,-0.43,0.61,0.11,0.87,0.33,-0.11,0.7,-0.25,1.07,-0.04,0.39,0.32,0.88,0.68,0.2,0.04,0.26,-2.02,-0.08,-1.16,-0.34,-1.01,0.03,-0.61,0.23,-0.04,-1.11,-0.18,-0.89,0.29,-1.28,0.25,-0.48,2.43,1.81,2.65,2.19,0.45,1.32,0.24,0.41,-0.78,-0.47,0.19,0.05,0.54,-0.61,0.58,0.46,0.01,0.47,-0.09,0.43,-0.21,-1.05,-0.28,-1.11,-0.38,-1.76,0.43,-0.45,-2.12,-1.09,-1.43,-0.76,-0.03,-0.59,0.13,-0.33,-0.82,0.54,-0.41,0.31,-1.13,-0.8,-0.97,-0.81,0.81,0.32,0.81,0.2,1.97,2.06,0.21,0.33,0.31,-0.55,-0.49,0.17,0.73,0.25,0.72,1.08,-0.15,-0.8,-1,-0.81,0.46,-1.19,-0.2,-0.4,-0.46,0.22,-0.52,0.15,0.96,0.41,-0.23,0.37,-0.43,0.14,-0.06,0.35,-1.98,-1.4,-1.04,-0.54,-0.07,0.52,0.16,0.21,0.38,0.46,0.36,0.13,1.37,1.36,0.86,0.97,-0.38,-0.83,-0.47,-0.48,-0.72,-1.52,-1.25,-0.52,0.9,0.81,1.46,1,-1.38,-1.75,-2.19,-1.45,-0.93,-1.29,-1.25,-1.2,-1.65,-0.51,-0.84,-0.33,-0.16,-0.98,-0.31,-0.72,0.93,0.62,0.77,-0.32,0.05,-1.5,-1.11,-1.02,0.53,0.43,0.37,0.59,-0.8,-0.67,-0.69,-0.66,0.42,0.31,0.36,0.13,-1.51,-1.3,-1.48,-1.12,-0.38,-0.35,-0.13,-0.33,1.24,0.85,1.11,1.06,0.5,0.76,0.06,0.51,0.88,0.52,0.95,0.75,0.69,0.15,1.3,0.55,-0.01,0.2,0.47,0.8,0.13,0.19,0.52,0.11,0.06,0.32,0.32,0.01,-0.21,-0.26,-0.36,-0.27,-1.19,-1.16,-0.55,-0.43,1.58,0.88,1.21,0.33,2.61,1.72,2.54,1.79,1.29,0.4,1.34,1.34,0.67,-1.1,0.66,-0.62,1.3,2.35,1.53,1.87,-1.09,-0.68,-0.2,-0.13,0.51,0,0.83,0.22,-2.55,-1.75,-2.08,-1.09,0.18,-1.1,-0.19,-0.96,1.1,1.26,1.49,0.36,-1.4,-0.45,-1.23,-0.22,1.33,-0.35,1,0.17,0.44,0.85,0.59,1.29,0.49,0.41,0.59,0.04,-0.22,0.67,-0.21,-0.18,-0.44,-1.23,-0.76,-0.75,-0.28,-0.01,-0.45,-0.23,0.22,-0.85,-0.35,0.52,-0.35,-1.47,-0.18,-0.54,0.56,0.5,-0.28,-0.37,2.12,1.16,1.48,0.73,-0.01,0.5,0.16,-0.15,-0.61,0.02,-0.75,-0.45,0.53,-0.79,-0.16,-0.16,-0.16,-0.3,-0.14,-0.09,-1.49,0.2,-0.73,0.36,1.55,2.13,1.82,1.8,-0.06,-1.65,-0.78,-1.02,0.04,-0.04,0.23,0.18,-2.11,-0.97,-1.11,-0.8,0.14,-0.47,-0.22,-0.52,-1.23,0.41,-0.77,-0.25,-0.29,-0.46,0.23,0.11,-0.63,-0.7,-0.5,-0.52,0.19,0.66,-0.69,-0.26,-0.46,-0.84,-0.2,-0.78,-0.05,-0.87,-0.12,-0.89,-0.06,0.67,-0.45,-0.14,0.11,1.15,0.19,0.78,2.27,0.51,1.07,0.39,0.48,0.21,0.27,-0.18,-0.62,0.1,-0.51,0.06,0.76,2.41,0.94,2.3,-0.92,0.62,-0.47,0.38,1.96,1.47,1.25,0.95,-0.94,0,-0.92,-0.48,1.04,0.15,0.18,0.02,1.77,-0.42,2,0.67,-0.72,0.47,-0.58,0.77,-0.33,-0.3,0.24,-0.08,-0.62,-0.69,-0.45,-0.18,-0.01,1.68,-0.76,0.33,0.08,1.14,-0.05,0.42,-0.69,0.18,0.31,0.26,1.15,-0.12,0.72,0.27,0.81,-0.81,1.31,0.27,-0.34,0.32,-0.24,0.2,-0.9,-1.22,-0.51,-0.71,0.22,-1.56,0.19,-0.88,0.14,0.06,-0.58,-0.01,1.72,1.49,1.58,1.1,1.25,1.07,1.1,0.81,0.47,-0.16,0.23,-0.15,1.59,0.24,1.89,0.3,-0.82,0.46,-0.75,0.34,-1.09,-0.29,-0.95,-0.32,0.04,-1.88,0.2,-0.8,0.32,0.76,-0.26,0.31,-1.4,-0.13,-0.83,-0.24,1.31,1.08,0.72,-0.04,-0.18,-0.21,-0.75,-0.24,-0.41,0.57,-0.54,0.68,0.72,-0.65,0.32,-0.11,0.32,0.76,0.98,1.2,0.97,1.13,1.33,0.41,0.12,-0.17,-0.2,-0.07,-0.61,-0.66,-0.24,-0.04,1.02,1.19,0.94,0.68,-0.32,-0.59,-0.11,-0.82,0.82,-0.07,0.32,-0.37,-2.02,-0.65,-1.81,-1.9,-0.11,-1.45,0.17,0.04,0.43,0.01,-0.01,-0.31,-0.3,-0.55,-0.7,-1.36,-0.09,-1.9,-0.81,-0.79,-1.06,0,-0.44,-0.08,0.33,-0.82,-0.11,0.05,-0.09,1.34,0.31,0.96,-0.17,-0.19,-0.55,-0.13,0.27,1.65,0.33,1.44,-1.59,-1.56,-1.22,-0.38,-0.68,-1.84,-0.55,-1.41,1.15,0.63,0.95,0.56,-0.85,-0.78,-1.73,-1.27,1.55,1.43,1.55,1.19,1.05,0.75,-0.03,-1.02,1.21,2.55,1.05,1.99,0.08,1.5,-0.49,0.58,0.69,0.93,0.28,0.91,-1.2,-0.27,-1.1,-0.97,0.27,0.29,0.41,0.38,-1.24,0.8,-0.68,0.23,0.71,1.26,1.02,0.97,1.63,0.53,0.5,0.09,0.32,0.17,0.07,-0.84,-0.41,0.05,-0.42,0.12,0.9,0.07,0.74,0.69,1.47,1.56,0.92,1.06,-1.17,-0.82,-1.08,-1.36,-0.26,0.34,-0.72,-0.24,1.07,-0.08,0.36,0.56,-1.19,-0.58,-0.65,-1.34,-1.06,-0.84,-0.2,-0.46,1.07,0.23,0.63,-0.67,-0.03,-1.57,0.55,0.13,0.92,0.56,0.1,0.77,0.95,0.63,0.26,0.1,-0.63,-1.02,-0.22,-0.45,0.64,-0.01,0.18,0.33,0.85,0.19,0.51,0.58,1.28,0.85,0.52,0.41,-0.68,-0.43,-0.49,-1.34,0.42,0.36,0.14,0.02,-0.4,-0.93,-0.25,-0.3,0.97,1.63,0.66,0.89,-0.87,0.26,-0.27,-0.23,0.13,-0.06,0.95,0.59,0.22,-0.3,-0.24,-0.47,0.59,0.85,0.09,0.45,-0.59,-0.59,-0.58,-0.5,-0.65,-0.91,-0.4,-0.89,1.55,1.44,1.14,0.41,-0.34,0.65,-1.04,0.54,1.62,-0.75,0.83,-0.37,-0.55,-0.66,-0.23,-0.28,-1.55,-0.09,-1.85,-0.39,-0.09,-0.11,0.26,0.57,-0.77,-0.35,-1.59,-0.97,1.19,0.4,1.05,0.79,-0.64,-0.01,-0.42,-0.31,0.58,1.39,1.05,1.32,0.51,0.57,0.7,0.63,1.67,0.97,1.46,1.06,-1.04,-0.04,-0.45,0.2,0.16,-0.26,-0.75,-0.59,-1.48,0.63,-0.9,-0.77,0.2,-0.15,-0.26,-0.64,0.06,0.3,-0.05,0.32,-1.33,0.52,-1.22,0.71,0.07,0.1,-0.68,-0.1,0.97,0.42,0.83,-0.12,-1.24,-0.99,-1.19,-1.28,0.51,0.07,0.73,0.64,-0.45,0.01,0.6,0.67,0.65,-0.11,0.32,-0.33,0.97,1.16,1.47,1.01,-1.17,-1.02,-0.38,-0.67,0.66,0.3,-0.38,-0.39,0.85,0.49,0.69,0.67,-0.3,-0.2,-0.16,-0.29,1.19,-0.9,0.81,-0.95,-1,-1.04,-0.51,-0.42,-1.95,-2.14,-1.73,-1.44,0.2,0.4,0.79,0.99,-0.95,-0.66,-1.13,-0.68,0.83,-0.69,0.2,0.29,-0.19,0.2,-0.31,-0.72,1.05,1.37,0.39,0.94,0.81,0.86,0.7,1.08,-0.31,-0.79,-0.28,-0.42,-0.84,-0.9,-0.64,-0.54,2.38,1.87,2.04,1.59,0.73,0.1,0.1,-0.38,-0.69,-0.33,-0.02,0.28,-0.02,-1.18,-0.26,-1.09,1.04,0.69,1.17,0.31,0.68,-1.04,1.14,-0.6,-0.09,-0.19,-0.05,-0.44,1.47,-0.65,0.06,-0.55,1.15,0.74,0.56,0.62,-0.95,0.67,-0.38,0.33,-0.45,0.66,0.14,0.28,-1.26,-0.79,-0.64,-0.21,1.03,0.24,0.02,0.24,-1.44,0.38,-2.1,-0.22,0.4,1.37,0.45,1.47,0.16,1.09,-0.03,0.54,0.85,1.5,0.1,0.39,1.06,1.31,0.64,0.91,-0.64,-0.49,-0.42,-0.65,-1.33,0.66,-1.04,0.08,0.05,0.73,-0.2,-0.16,1.07,1.99,0.23,0.85,0.54,0.84,-0.66,0.11,0.01,-0.41,0.73,0.01,-1.27,-0.72,-1.48,-0.56,0.12,-0.8,-0.6,-0.22,2.38,2.52,1.36,2.1,0.99,0.26,1.17,1.05,1.38,1.15,1.57,1.6,-1.31,-0.91,-1.54,-0.8,1.54,1.16,1.4,0.9,-0.22,-1.43,0.27,0.05,0.05,-1.48,-0.39,-0.65,0.29,-0.78,-0.68,-0.65,-2.93,-0.36,-1.93,-0.57,-0.07,0.23,-0.25,-0.07,0.91,-0.55,0.72,-0.57,0.36,-0.14,0.49,-0.05,-0.79,-1.03,-1.28,-0.65,-0.24,0.25,-0.47,-0.26,-1.28,-1.18,-0.86,-0.38,0.79,0.68,0.52,0.8,0.75,-0.56,-0.25,-0.16,0.76,1.36,1,0.93,0.09,1.01,-0.47,0.74,0.77,-0.62,0.6,-0.72,-1.22,-1.98,-0.94,-1.65,0.11,0.24,-1.04,-0.24,0.1,0.04,-0.41,0.37,-0.01,1.07,-0.19,0.94,0.67,0.17,0.38,0.15,1.57,0.43,0.88,0.18,1.96,0.7,2.2,1.56,-0.24,-0.6,0.58,0.26,-0.39,0.09,-0.24,0.78,-0.59,-1.16,0.27,-0.73,-0.97,-0.52,-1.31,-1.36,1.42,-0.44,0.54,0.03,-0.01,1.11,0.3,1.03,-0.68,-0.37,-0.62,0.05,0.63,1.23,0.57,1.57,-0.51,-0.76,-0.51,-0.63,-0.6,-0.84,-0.68,-0.53,0.12,0.74,0.4,0.68,0.34,0.58,-0.04,0.09,0.76,1.11,0.86,0.23,0.1,0.39,0.45,0.29,-1.34,-0.95,-0.39,-1.1,1.41,0.81,0.83,-0.01,1.6,1.23,0.87,0.09,0.85,-0.58,0.75,0.14,0.88,0.26,0.72,0.24,0.53,-0.27,0.36,0.61,0.36,-0.22,0.02,0.4,0.96,-0.51,0.2,-0.16,-1.53,-0.16,-0.68,0.04,-0.66,-0.73,-1.42,-0.73,0.47,1.36,0.62,0.75,0.28,0.19,0.24,0.1,-0.57,-1.76,0.04,-0.33,0.14,0.47,-0.5,0.45,0.4,0.23,-0.01,-0.24,0.84,-0.18,0.7,-0.04,1,1.37,0.85,1.49,-0.9,-0.58,-0.76,-1.05,-2.07,-2.55,-1.68,-1.78,0.92,1.23,0.86,1.29,1.79,1.43,0.7,0.82,-1.34,-2.38,-1.08,-1.62,-0.22,-1.43,-0.02,-0.43,-0.48,0.15,-1.38,-0.54,0.43,0.36,0.53,0.67,-0.6,-0.67,-0.87,-1.09,-0.02,0.3,0.46,0.5,0.58,0.18,1.45,0.73,-1.06,-0.98,-0.99,-1.35,-0.43,0.19,-0.95,-0.15,0.06,-0.31,0.21,-0.07,0.81,1.03,0.56,0.8,0.74,-0.23,0.69,-0.48,0.66,1.4,0.62,1.23,-0.91,-0.67,-0.29,0.03,0.41,0.44,0.39,1.02,-1.08,-0.92,-0.46,-1.04,-0.98,0.2,-0.06,0.36,0.94,0.5,0.78,-0.46,0.3,-0.08,0.18,-0.04,-1.03,0.07,-0.9,-0.02,-0.68,-0.92,-0.77,-1.04,0.74,0.61,0.58,0.59,0.42,1.52,0.02,0.6,0.17,0.08,-0.03,0.15,-0.04,-0.13,-0.1,-0.55,0.11,0.01,-0.95,-0.72,-0.2,-1.44,0.82,-0.34,-1.19,-1.02,-0.61,-0.86,0.03,-0.65,0,-0.71,-2.15,-0.84,-1.75,-0.74,1.08,-0.03,0.7,0.24,1.89,0.05,0.68,0.3,0.83,0.8,0.3,0.46,-0.87,0.45,0.24,0.85,-0.59,-0.44,-0.09,0.39,2.03,-0.7,1.95,-0.18,-0.39,1.01,-0.17,1.19,-0.42,-0.35,-0.14,-0.14,0.99,2,1.06,1.45,-1.08,-1,-0.73,-1.29,0.36,0.6,0.31,0.94,-0.57,-0.52,-1.17,-0.87,0,1.59,-0.52,0.69,0,0.46,0.04,0.68,-0.86,0.75,-0.24,-0.27,0.01,-0.23,0.27,0.2,-0.09,-1.98,-0.54,-0.58,-1.02,-1.73,-1.13,-0.98,-0.31,-0.01,0.39,0.25,-1.12,-1.16,-0.32,-0.87,-0.65,0,-0.05,0.7,-0.26,1.13,-0.8,0.27,-2.37,-2.44,-2.02,-1.22,-1.71,-0.48,-1.3,-0.24,0.04,-1.26,-0.55,-0.66,0.84,0.64,0.46,-0.12,0.41,-0.56,0.05,0.73,-0.86,-0.12,-0.85,0,2.57,1.76,2.39,1.95,-1.12,-0.94,-1.54,-1.26,-1.25,-0.48,-0.91,-0.86,1.85,1.49,1.4,0.96,-1.2,-0.83,-1.2,-0.36,-1.24,0.63,-1.28,-0.61,-1.45,-0.46,-1.28,-0.41,-2.13,-0.97,-1.88,-1.66,0.72,1.54,0.97,0.83,-1.08,-1.38,-1.37,-0.9,1.35,-0.26,0.46,-0.32,-1.42,-1.51,-1.43,-0.98,-0.9,-1.35,-0.88,-0.94,2.27,1.42,1.12,0.54,0.37,0.59,0.46,-0.13,0.2,-0.11,-0.69,-0.31,-0.73,0.27,-0.15,0.48,1.12,-1.2,0.59,-0.33,-1.57,-1.22,-1.89,-1.36,-0.07,-0.72,-0.22,-1.03,-0.23,0.43,-0.29,-0.14,0.34,1.39,0.14,0.65,1.4,1.64,0.74,0.96,1.02,0.95,1.06,1.25,0.28,0.2,0.55,0.1,-1.79,-1.38,-1.03,-1.27,0.34,-0.17,0.19,-0.36,-0.6,0.33,-1.01,-0.14,0.7,-0.29,0.55,-0.42,-0.32,0.4,-0.34,-0.7,-1.24,-0.82,-0.85,-0.31,1.08,0.04,0.56,0.35,-0.35,-1.5,-0.29,-1.17,-0.64,0.52,-0.28,0.21,-1.19,-2.44,-1.06,-0.87,-1.57,-0.08,-1.87,-1.84,0.32,-0.54,0.82,0.72,-0.31,0.44,-0.93,-0.3,1.09,1.39,0.67,0.67,-0.52,1.09,-0.27,0.03,-0.17,-2.35,-0.45,-1.8,-0.6,-1.3,-0.76,-1.49,-0.25,0.95,-0.25,-0.01,0.49,1.06,0.38,0.84,-0.88,-0.41,-0.89,-0.92,-0.24,0.77,-0.02,0.53,-0.7,-1.51,-0.77,-0.17,0.08,0.36,-0.44,0.96,0.72,1.63,0.35,0.67,0.02,0.04,0.34,0.91,-2.16,-2.42,-1.87,-1.36,-0.8,-1.5,-1.12,-1.82,2.78,0.85,1.99,1.29,0.74,-0.72,0.28,-0.61,1.33,1.16,0.59,-0.11,0.71,-0.44,0.83,0.24,0.57,0.13,-0.12,-0.55,-1.59,-0.92,-0.9,-0.58,-0.03,1.24,0.43,1.14,0.19,1.19,0.18,0.15,0.19,0.5,-0.77,-0.12,1.14,0.12,0.66,0.09,1.23,1.58,1.03,1.18,-1.28,-1.82,-0.8,-1.11,-0.01,-1.32,-0.54,-1.14,0.94,0.11,0.95,0.39,-2.93,-2.36,-2.57,-1.63,-0.25,0.42,0.13,-0.27,0.59,1.2,0.37,0.75,-0.03,1.19,-0.55,0.46,0.46,-0.84,0.93,-0.31,1.32,1.24,0.67,1.15,1.99,0.33,1.43,-0.3,-0.06,-0.17,-0.13,-0.68,0.19,0.69,-0.38,-0.21,0.42,0.8,0.12,0.65,0.84,0.2,0.66,-0.23,-0.03,-0.69,0.05,-0.45,1.56,0.58,0.78,0.38,-0.43,-0.76,-0.17,0.05,0.84,-0.07,0.54,0.42,-0.23,-0.47,0,-0.3,0.78,1.13,0.59,0.81,-0.64,0.22,-0.33,0.33,0.65,0.71,0.31,0.48,-1.12,-0.99,-1.16,-1.58,0.17,0.34,0.18,0.3,1.72,2.43,1.69,1.3,2.62,0.52,1.7,0.7,0.96,0.17,0.73,0.43,0.05,1.31,-0.05,1.2,0.71,0.76,0.26,1.04,-0.02,0.12,0.26,0.93,0.92,0.89,0.9,0.68,-0.69,-0.27,-0.93,-0.11,-0.57,-0.48,-0.15,-0.58,0.72,-0.69,0.13,-0.34,1.2,0.47,0.06,0.6,-0.82,-0.79,-0.19,0.11,-1.44,-1.87,-0.73,-0.61,0.4,0.58,0.09,0.32,-0.57,-0.73,-0.49,-0.27,-0.04,0.11,-0.14,0.2,0.86,0.99,0.02,0.82,0.75,0.66,0.05,0.55,1.16,-1.01,1.31,-0.04,0.11,0.62,0.04,0.18,-2.02,-0.67,-1.22,-0.88,0.6,0.81,0.62,0.23,-0.18,-0.14,-0.33,-0.8,0.24,1.1,0.71,0.23,-1.28,-0.79,-1.5,-0.64,0.57,0.72,0.23,0.19,2.15,0.84,2.06,0.88,-1.84,-0.88,-1.77,-1,-1.54,-0.62,-1.08,-1.14,0.13,0.76,0.39,0.51,0.54,0.55,0.88,0.66,0.77,1.33,0.41,0.32,-0.72,0.08,-0.36,-0.12,-0.65,0.37,-0.2,0.28,-0.48,0.55,-0.04,0.11,-0.64,-1.84,-1,-1.4,0.2,0.35,0.36,0.04,3.09,1.24,1.85,0.87,1.19,-0.41,0.53,-0.72,0.02,0.45,-0.14,0.41,-0.77,-0.51,-0.6,-0.6,1.27,0.7,0.73,0.84,0.88,1.46,0.41,0.93,-0.33,1.57,-0.29,0.24,1.5,1.32,0.89,0.86,1.03,1.88,0.39,0.36,-0.3,-1.22,0.08,0.01,0.04,-0.51,0.21,-0.67,0.31,0.2,-0.25,0.02,1.19,0.71,0.46,0.65,-0.74,-0.16,-1.06,-0.61,-0.48,1.21,-0.4,0.24,-0.53,-0.54,-1.06,-1.18,1.66,1.05,1.77,1.58,-1.47,-1.09,-1.27,-1.19,0.61,1.17,0.15,0.03,0.01,-0.17,-0.47,-0.28,0.52,-0.91,0.46,-0.83,0.62,-0.61,0.79,0.26,1.16,0.88,0.74,0.51,0.92,-0.56,0.48,0.42,-0.85,-0.37,-0.86,-1.17,1.55,0.28,1.08,0.28,0.76,0.3,0.99,0.32,0.55,-0.65,0.48,-0.55,-0.09,0.21,0.47,0.22,-0.74,-0.16,-0.93,-0.46,-1.58,-0.12,-2.11,-0.65,-0.07,-0.26,-0.89,-0.25,0.8,-0.64,0.7,-0.02,-0.43,-1.54,0.32,0.06,0.56,0.54,0.42,-0.59,2.11,0.65,1.13,0.63,0.03,-0.63,-0.16,-0.16,0.48,0.56,1.07,1.14,0.94,-0.11,-0.02,0.71,-0.52,-0.41,-1.19,-0.66,-0.56,-1.72,-0.74,-0.65,1.33,1.04,1.35,1.2,0.68,-0.85,0.65,-0.05,0.95,1.22,0.67,0.56,-0.56,-0.99,-1.41,-1.73,1.45,0.13,0.81,0.58,-0.32,-0.07,-0.11,0.08,-1.5,-1.24,-1.27,-1.17,0.8,0.52,0.44,-0.27,0.91,-0.32,0.82,-0.45,-0.88,-2.03,-0.37,-0.7,-1.81,-0.58,-2.28,-1.4,0.69,0.86,0.21,-0.18,0.29,0.01,0.44,0.39,-0.1,-0.63,0.07,-0.43,-1.46,-2.84,-1.42,-1.34,0.27,-1.17,0.18,-0.17,-1.84,-2.51,-1.78,-1.41,0.42,0.61,0.72,0.51,0.88,0.39,0.92,0.45,0.78,0.97,0.04,0.71,1.34,-0.46,0.79,-0.5,2.01,2.59,2.16,2.2,0.9,1.27,1.12,1.15,-1.39,-1.02,-1.37,-1.3,-0.81,-0.51,-0.58,-0.21,-1.14,-1.01,-0.48,-0.2,1.19,1.57,1.8,1.25,1.33,0.05,1.07,0.48,0.08,-0.83,0.24,-0.19,0.25,-0.79,-0.07,-0.64,-0.35,0.56,-0.65,0.48,0.64,0.24,-0.01,0.76,1.81,1.75,2.48,1.77,0.98,-0.12,0.59,-0.23,1.49,1.06,1.99,1.34,-0.88,0.4,-0.46,0.46,0.13,-1.01,-0.35,-0.52,-0.34,0.27,-0.7,-0.37,0.11,1.21,0.41,0.4,0.45,-1.25,0.17,-1.47,-1.17,-0.92,0.04,-0.36,-0.01,0.32,-0.08,-0.21,-1.21,-1.55,-0.92,-1.01,0.92,0.39,0.04,-0.24,-0.51,-0.46,-0.04,0.04,0.4,0.57,0.15,0.56,-0.4,0.77,-0.17,0.38,0.74,0.78,0.65,0.29,0.13,-0.17,-0.07,-0.04,-0.03,-0.02,0.09,-0.12,0.38,-1.48,-0.01,-0.66,-0.62,0.86,-0.15,0.1,-0.32,1.46,-0.17,0.4,-0.47,-0.28,-0.83,0.04,0.52,-0.11,0.27,-0.68,0.99,-0.07,0.26,0.05,0.32,-0.62,0.09,-0.31,0.4,-1.27,-0.67,-0.99,-2.51,-1.45,-1.4,-0.59,1.17,-0.97,0.15,-0.31,1.39,-0.85,1.13,-0.05,-0.5,0.82,-0.64,0.57,-0.78,0.16,-0.71,0.38,-0.27,-0.28,0.44,-0.12,0.62,-0.35,0.09,-0.59,-1.19,-0.81,-1.21,0.02,0.58,-0.23,0.23,0.1,0.2,-0.1,-0.08,0.53,-0.92,-1.24,-0.06,-0.86,0.42,-0.34,0.63,0.3,-1.46,-1.71,-1.23,-1.58,-0.77,0.73,0.2,1.09,1.6,1.96,0.69,1.41,-0.32,0.79,-0.07,0.43,1.46,-0.04,0.79,-0.21,0.13,-0.86,-0.52,-0.01,-1.79,-0.47,-0.65,-0.64,-0.22,-1.82,-0.2,-1.04,-0.73,-0.72,-1.61,-0.78,0.32,-1.17,-0.27,-0.96,-0.61,-0.64,-0.38,-0.54,0.51,-0.85,-0.02,-1.54,-0.69,-0.12,-0.31,0.33,0.39,0.85,0.22,0.57,-0.97,-0.39,-1.2,-1.02,-1.11,-0.62,-0.01,0.1,2.14,2.55,1.58,1.44,0.47,-1.44,0.25,-0.3,0.16,-1.16,0.26,-0.77,-1.14,-1.95,-1.31,-1.21,0.63,-0.35,0.3,-0.29,1.25,0.94,1.22,0.94,1.33,1.68,1.65,0.66,-0.09,1.6,0.07,0.71,-1.07,-0.28,-0.95,-0.98,1.61,-0.78,1.04,-0.25,0.44,-0.37,-1.1,-0.56,1.06,-0.31,1.34,0.54,0.74,0.76,0.74,1.15,-0.21,1.54,0.19,0.92,-0.41,-0.57,0.06,0.21,-0.66,-0.93,-1.08,-1.52,0.6,0.08,0.96,1.37]},{"a":"lungs","b":"liver","paper":-0.42,"r":-0.31,"pr":-0.41,"xy":[0.79,0.66,0.11,-0.15,0,-0.45,0.5,-1.2,-0.94,0.59,0.51,-0.29,-1.51,0.02,-0.37,0.14,-0.72,0.03,0.4,0.15,0.56,-0.41,-0.07,-0.24,0.54,1.04,0.25,0.27,-0.34,-1.51,0.44,-1.17,0.86,0.76,-0.31,0.83,-1,1.66,-0.93,1.15,-1.5,2.63,-0.12,1.73,-0.37,0.95,-0.19,0.87,-0.65,0.88,0.28,0.57,-0.01,-0.52,-0.32,-0.84,-0.63,1.55,0.4,1.28,1.22,0.33,1.18,0.69,0.55,0.02,-0.26,0.24,-1.02,1.57,-0.29,0.28,0.11,0.29,-0.09,-0.44,0.7,0.28,1.23,0.01,0.39,-0.44,0.72,-0.12,0.2,0.74,0.29,-0.2,-0.08,-1.25,0.67,-0.99,0.03,-0.04,0.5,0.4,-1.11,-0.53,-0.61,-0.57,-1.28,0.57,-0.72,0.29,1.81,-0.44,0.63,-0.29,1.32,-0.2,0.34,-0.28,-0.47,-0.06,-0.23,0.57,-0.61,0.72,0,0.36,0.47,-0.54,0.67,-0.64,-1.05,-0.18,-1.14,0.69,-1.76,-0.34,-0.91,0.64,-1.09,0.39,-0.13,0.91,-0.59,-0.52,-0.04,-1.26,0.54,-1.35,0.99,-1.45,-0.8,-0.04,-0.13,-0.28,0.32,0.74,-0.4,0.35,2.06,0.55,0.34,-0.46,-0.55,1.81,0.27,0.7,0.25,1.22,0.5,0.44,-0.8,1.16,-0.26,0.26,-1.19,0.7,-0.19,-0.28,0.22,0.6,0.44,0.12,0.41,1.33,0.55,-0.12,0.14,-0.53,0.39,0.01,-1.4,0.68,-0.19,1.03,0.52,-1.45,0.29,-0.61,0.46,-0.89,0.25,-1.18,1.36,0.65,0.38,0.18,-0.83,-0.11,-0.03,-0.53,-1.52,2.58,0,0.87,0.81,-0.44,0.23,-0.48,-1.75,1,-0.24,0.53,-1.29,-0.51,-0.14,-0.94,-0.51,-0.43,0.15,0.13,-0.98,-1.07,-0.02,-1.73,0.62,-1.14,-0.73,-0.24,-1.5,2.68,-0.66,1.13,0.43,0.53,0.13,0.77,-0.67,-0.01,-0.38,0.54,0.31,0.32,-0.23,0.44,-1.3,-1.26,0.21,-1.38,-0.35,-0.68,-0.04,-0.72,0.85,0.3,0.33,0.14,0.76,-1.23,0.75,-0.94,0.52,-0.35,0.26,-0.35,0.15,-0.34,-0.27,0.02,0.2,-0.13,0.52,-0.06,0.19,0.11,-0.15,-0.21,0.32,-0.29,-0.15,-0.15,-0.26,-0.13,-0.01,-0.13,-1.16,-0.72,-0.03,-0.22,0.88,0.49,-0.51,0.29,1.72,-0.1,0.35,-0.48,0.4,1.68,0.33,0.59,-1.1,1.29,-1.42,1.33,2.35,-0.37,0.84,0.24,-0.68,-0.2,-0.08,0.24,0,-1.54,-0.02,-0.95,-1.75,-0.55,0.21,-0.01,-1.1,0.38,-0.95,0.36,1.26,-2.07,-0.12,-1.51,-0.45,-0.46,0.59,-0.18,-0.35,0.73,-0.45,0.02,0.85,0.27,0.84,0.25,0.41,-0.74,-0.26,-0.22,0.67,-1.2,0.07,-0.41,-1.23,1.02,-0.44,0.54,-0.01,-0.51,0.19,-0.46,-0.85,3.53,0.2,1.82,-1.47,0.32,-0.47,0.15,0.5,0.68,-0.35,0.52,1.16,-1.87,0.28,-1.6,0.5,-0.93,-0.2,-0.19,0.02,0.47,-0.25,0.87,-0.79,1.99,-0.12,0.2,-0.3,-0.52,0.34,-1.18,0.2,-0.93,0.85,-0.1,2.13,-0.81,0.78,-0.38,-1.65,1.25,-0.74,0.67,-0.04,1.18,-0.12,0.56,-0.97,-1.02,-0.02,-0.29,-0.47,-1.21,0,-1.3,0.41,-0.1,0.08,0.54,-0.46,-0.63,0.16,-0.67,-0.7,1.13,-0.47,0.88,0.66,-0.48,0.52,-1.21,-0.84,-0.26,-0.82,0.55,-0.87,0.79,-1.03,0.75,0.67,-1.54,0.68,-1.85,1.15,-1.34,0.64,0.05,0.51,-0.33,0.01,-0.98,0.21,-0.62,-0.09,-0.87,0.1,-0.84,0.53,-0.54,2.41,-0.52,1.74,-0.1,0.62,-1.64,0.69,-0.03,1.47,-0.24,0.44,-0.91,0,0.54,-0.04,0.46,0.15,1.37,-0.47,1.3,-0.42,1.5,-0.82,0.84,0.47,0.42,0.93,0.69,-0.3,0.58,-0.35,0.41,-0.69,0.65,0.02,0.27,1.68,-0.98,1.13,-1.11,1.14,-0.44,0.36,0.29,0.18,-0.55,0.05,0.03,-0.12,0.6,-0.13,-0.16,-0.81,1.24,-0.66,0.38,0.32,-0.16,0.33,0.08,-1.22,1.43,-0.8,1.41,-1.56,0.67,-1.28,0.94,0.06,2.21,0.06,1,1.49,-0.2,0.3,-0.62,1.07,-0.06,0.14,-0.03,-0.16,-0.75,-0.17,-0.45,0.24,-0.93,-1.02,0.48,0.46,0.24,0.65,0.54,-0.29,1.15,-0.3,1.94,-1.88,2.16,-1.59,2.27,0.76,-0.91,0.56,-0.28,-0.13,-1.06,0.42,-0.47,1.08,-2.22,0.13,-2.11,-0.21,-0.33,0.46,-0.79,0.57,-0.73,1.27,-0.85,-0.65,1.29,-0.69,1.27,0.76,-1.46,1,-1.38,1.13,-0.55,-0.41,-0.03,-0.17,0.92,-0.01,0.2,-0.66,0.18,0.01,0.35,1.19,-0.5,0.16,-0.23,-0.59,-0.16,-0.74,-0.05,-0.07,-0.1,-0.19,-1.29,-0.65,-3.34,-0.02,-2.54,-1.45,0.78,0.09,-0.52,0.01,1.13,-0.49,0.65,-0.55,0.11,-0.93,0.03,-1.9,2.5,-0.56,0.93,0,-1.05,0.49,-0.99,-0.82,1.98,-0.56,2.29,1.34,0.13,0.61,0.57,-0.19,-0.37,0.48,-0.92,1.65,-0.12,1.01,0.75,-1.56,1.44,-0.01,1.37,-1.84,0.49,-1.06,-0.02,0.63,0.09,-0.08,0.18,-0.78,0.97,-0.37,0.63,1.43,-0.35,0.29,-0.25,0.75,-1.33,-0.68,-1.13,2.55,-0.07,1.29,0.16,1.5,-0.6,0.98,-0.32,0.93,0.22,0.79,-0.19,-0.27,-1.45,0.08,-1.24,0.29,-0.77,0.37,-0.8,0.8,-0.43,0.55,0.35,1.26,-0.59,0.29,0.16,0.53,1.06,-0.52,1.01,0.17,-1.19,-0.83,-0.2,0.05,0.5,0.02,1.22,0.07,-0.35,0.41,-0.62,1.56,1.24,0.11,1.3,-0.82,-1.76,-0.34,-1.16,0.34,-0.49,0.31,-0.36,-0.08,1.04,0.31,0.08,-0.58,-1.42,-0.8,-0.49,-0.84,0.31,-0.7,1.26,0.23,0.52,-1.27,0.71,-1.57,0.45,-0.01,-0.7,0.56,1.97,0.37,1.17,0.63,-0.98,0.34,-1.38,-1.02,0.55,-0.5,0.63,-0.01,1.75,-0.01,0.78,0.19,1.18,-0.04,1.04,0.85,-0.14,0.29,-0.7,-0.43,-1.39,-0.75,-0.99,0.36,0.64,-0.4,1.11,-0.93,1.29,-0.25,0.38,1.63,-0.65,0.72,-0.83,0.26,-0.39,-0.1,0.1,-0.06,-1.09,0.21,-0.72,-0.3,-1.27,0.1,-1.45,0.85,1.1,0.29,0.34,-0.59,0.18,-0.24,0.33,-0.91,-0.68,-0.48,-0.55,1.44,0.12,-0.53,0.79,0.65,0.33,0.99,0.7,-0.75,0.89,-0.88,-0.02,-0.66,0.16,-0.3,0.55,-0.09,0.3,0.76,0.04,-0.11,-0.49,0.63,-0.74,-0.35,-1,0.53,-1.73,0.4,0.24,0.17,-0.14,-0.01,-1.11,0.15,-0.68,1.39,-0.98,0.76,-0.32,0.57,0.18,0.05,0.49,0.97,-0.13,0.44,-0.97,-0.04,-1.03,0.92,-1.5,-0.26,0.84,-0.38,0.89,0.63,-2.03,-0.05,-0.55,-0.15,0.56,-0.51,0.12,0.3,-0.55,0.37,-0.07,0.52,0.41,1.3,0.57,0.1,0.5,0.3,0.08,0.42,-1.44,-0.45,-0.6,-0.99,-1.23,-0.28,-0.9,0.07,-0.44,0.27,-0.3,0.01,-0.49,0.34,-0.14,-0.11,-0.43,-0.35,-0.61,1.16,-1.2,0.43,-1.13,-1.02,0.34,-0.57,0.47,0.3,0.56,-0.22,0.25,0.49,0.24,0.21,0.11,-0.2,-0.89,-0.06,-0.46,-0.9,0.44,-1.34,-0.38,-1.04,-0.26,-0.14,0.13,-2.14,1.25,-0.83,1.6,0.4,-0.42,0.66,-0.59,-0.66,1.26,-0.28,1.06,-0.69,2.35,-0.3,1.59,0.2,-1.52,-0.36,-0.57,1.37,1.22,0.37,1.11,0.86,-0.26,0.78,-0.43,-0.79,-0.85,-0.03,-0.74,-0.9,0.11,-0.24,0.33,1.87,0.42,0.09,0.79,0.1,0.04,-0.49,0.15,-0.33,-0.21,0.12,0.59,-1.18,-0.43,-0.55,-1.28,0.69,-0.58,-0.24,-0.59,-1.04,-0.82,-1.13,-0.62,-0.19,-1.4,-0.38,-0.08,-0.65,2.05,-0.89,1.04,0.74,0.24,0.41,-0.48,0.67,-0.65,0.62,-0.21,0.66,-0.5,0.26,-0.25,-0.79,-0.35,0.21,-0.06,0.24,1.63,0.05,0.63,0.38,-0.3,1.18,-0.32,1.37,-0.46,1.25,-0.23,1.09,0.39,0.51,0.16,1.5,0.13,0.62,-1.01,1.31,1.32,0.25,0.87,-0.49,-0.24,-0.38,0,0.66,-2.01,1.16,-1.52,0.73,-0.9,0.16,-0.67,1.99,0.8,0.66,0.16,0.84,1.53,0.44,0.27,-0.41,-0.66,-0.23,-0.74,-0.72,1.54,0.09,0.91,-0.8,0.55,0.34,-0.67,2.52,-0.77,1.64,-1.32,0.26,1.1,-0.01,1.15,1.15,1.51,0.38,0.82,-0.91,1.14,-0.11,0.92,1.16,-0.03,0.18,-0.53,-1.43,1.4,-0.35,0.8,-1.48,1.16,-0.41,0.02,-0.78,1.79,-0.56,1.12,-0.36,-0.08,0.32,1.09,0.23,0.77,-0.2,0.97,-0.55,0.23,-0.97,-0.16,-0.14,-0.49,-0.19,-0.56,-1.03,1.88,-0.12,0.89,0.25,-1.43,0.3,-0.93,-1.18,0.17,0.07,0.28,0.68,0.35,0.47,0.02,-0.56,2.01,-0.33,1.08,1.36,-1.32,0.41,-0.36,1.01,-0.47,1.19,-0.55,-0.62,-0.04,-1.17,0.27,-1.98,0.84,-1.19,0.45,0.24,1.16,0.08,1.12,0.04,0.19,1,-1.28,1.07,0.83,0.86,0.71,0.17,0.15,0.04,-0.43,0.43,0.65,-0.44,0.24,0.7,-0.43,0.37,-0.64,-0.6,-0.84,0.03,-0.47,0.09,1.89,0.54,1.31,-1.16,-1,-0.77,-0.41,-0.52,-0.76,-0.25,-1,-0.44,1.25,-0.48,0.58,1.11,-1.1,1.14,-1,-0.37,0.81,0.24,0.66,1.23,0.28,1.14,0.26,-0.76,0.75,-0.25,-0.22,-0.84,0.18,-0.08,-0.08,0.74,-0.15,0.17,0.88,0.58,-1.17,0.3,-0.63,1.11,-2.51,0.22,-1.82,0.39,-1.05,0.29,-0.96,-0.95,-1.41,-0.9,0.14,0.81,-1.71,-0.31,-0.76,1.23,-1.19,-0.12,-1.13,-0.58,1.11,-0.68,1.2,0.26,-0.26,-0.01,-0.69,-0.27,2.13,-0.08,1.57,-0.22,0.39,0.29,0.34,-0.51,1.32,-0.51,0.78,-0.16,-0.59,0.58,-0.41,-0.73,1.35,0.08,0.26,1.36,-0.82,0.62,-0.87,0.19,-0.61,0.09,-0.46,-1.76,-0.16,-0.34,-0.06,0.47,0.31,0.93,-0.57,0.23,0.04,-0.2,-0.08,-0.18,0.5,-0.63,0.53,1.37,1.16,0.63,1.13,-0.58,-1.01,-0.57,-0.01,-2.55,0.22,-0.75,0.07,1.23,0.45,0.62,0.45,1.43,-0.07,0.59,-0.69,-2.38,-0.78,-0.62,-1.13,-1.43,1.07,-0.72,1.02,0.15,0.41,0.2,0.4,0.36,0.31,0.45,-0.37,-0.67,0.11,-0.61,0.2,0.3,-0.6,0.08,0.47,0.18,0.25,-0.51,1.16,-0.98,-1.3,-0.56,-0.62,0.19,-0.16,0.65,-0.7,-0.31,0.27,-0.42,0.77,1.03,1.26,0.35,0.37,-0.23,-0.03,-0.83,-0.27,1.4,-0.3,0.97,-0.4,-0.67,0.12,0.13,0.27,0.44,1.13,0.34,1.52,-0.92,0.04,-0.99,0.81,0.2,-0.27,0.24,0.57,0.5,-0.66,-0.79,-0.54,-0.08,-0.55,0.26,-1.41,0.07,-0.68,0.96,-1.41,-0.92,-0.05,-0.54,-0.05,0.61,0.41,0.13,0.35,1.52,-0.03,0.5,0.31,0.08,1.19,0.04,0.43,-0.13,-0.81,-0.26,-0.8,0.01,0.46,-0.21,0.27,-1.44,0.06,-0.96,0.36,-1.02,-1.02,-0.36,-0.38,-0.65,0.97,-1.06,1.18,-0.84,-0.72,0.63,-0.94,-0.03,1.92,-0.49,1.02,0.05,0.55,-0.03,-0.32,0.8,0.29,0.37,-0.35,0.45,-0.73,0.71,-0.02,-0.44,-0.23,0.53,-0.29,-0.7,1.2,-1.82,1.45,1.01,-0.27,1.21,0.27,-0.35,-0.93,0.23,-0.98,2,-1.07,1.12,-1.11,-1,-0.86,-0.8,-0.11,0.6,0.71,0.77,-0.05,-0.52,0.74,-0.51,1.25,1.59,-0.47,1.3,-0.97,0.46,0.81,0.52,0.46,0.75,-1.36,-0.04,-0.27,-0.23,1.19,-0.13,0.56,-1.98,1.96,-0.4,0.54,-1.73,1.37,-0.75,1.62,-0.01,0.21,-0.21,0.74,-1.16,-2.15,-0.45,-0.74,0,0.24,0.55,0.64,1.13,-0.82,1.07,-1.02,-2.44,-0.49,0.02,0.09,-0.48,0.07,0.63,-0.21,-1.26,2.24,-0.53,0.74,0.64,-0.87,-0.16,-0.82,-0.56,1.74,0.36,1.15,-0.12,-1.36,0.8,-0.96,1.76,0.16,0.56,-0.35,-0.94,-0.77,-0.09,-0.7,-0.48,-0.86,-0.33,0.13,1.49,0.75,-0.25,1.16,-0.83,1.87,0.02,1.26,0.63,-1.6,0.52,-1.13,-0.46,-1.96,0.74,-1.2,-0.97,-1.49,-0.25,-0.8,1.54,-1.04,0.13,0.35,-1.38,1.32,-0.45,1.39,-0.26,0.68,-0.65,0.13,-1.51,-0.22,0.06,-0.49,-1.35,0.44,-0.3,-0.33,1.42,-0.54,0.16,-1.08,0.59,-1.43,-0.38,-0.15,-0.11,1.23,-0.16,0.93,0.27,-1.78,1.11,-1.83,-1.2,1.4,-0.84,0.49,-1.22,-0.35,0.09,-0.93,-0.72,1.43,-1.23,1.14,0.43,0.04,-0.15,0.64,1.39,0.01,0.59,-0.13,1.64,-0.68,0.82,-1.07,0.95,1.15,0.2,1.33,0.2,-1.3,0.01,-0.86,-1.38,-0.94,-0.71,0.3,-0.17,-0.27,-0.38,-0.35,0.33,-0.55,0.57,-0.29,-0.29,0.19,-0.86,0.33,0.4,-1.87,-0.29,-0.71,-0.82,0.66,-0.01,0.79,0.04,1.93,-0.33,1.14,-1.5,1.01,-1.29,1.06,0.52,-1.13,0.68,-1.02,-2.44,1.71,-0.52,1.06,-0.08,-0.28,-0.87,0.65,-0.54,0.87,-0.1,1.08,0.44,-0.68,0.36,-0.29,1.39,-0.46,0.34,-0.31,1.09,-1.53,0.24,-0.13,-2.35,1.51,-1.7,0.6,-1.3,-0.33,-0.96,-0.18,0.95,-2.02,0.32,-0.61,1.06,-0.08,0.59,0.05,-0.41,-0.75,-0.09,-0.93,0.77,-0.7,0.78,-0.82,-1.51,0.1,0.41,-0.35,0.36,1.05,1.24,-0.03,1.63,0.19,0.44,0.05,0.04,0.63,0.63,0.23,-2.42,0.36,0.07,-0.88,-1.5,-0.14,-1.19,0.25,0.85,1.64,-0.28,1.13,-0.72,1.38,-1.41,2.15,1.16,0.36,-0.66,0.63,-0.44,1.23,-0.42,0.46,0.13,0.46,-0.49,0.05,-0.92,0.22,-0.18,0.52,1.24,-1.58,1.22,-1.16,1.19,-0.67,0,0.14,0.5,-1.11,0.85,-1.7,0.12,0.48,-0.42,0.36,1.58,0.16,0.57,-0.12,-1.82,0.12,-0.6,-0.05,-1.32,1.58,-1.22,1.4,0.11,1.24,-0.52,1.09,-2.36,0.27,-0.29,0.87,0.42,0.18,-0.51,0.52,1.2,-0.11,0.63,-0.35,1.19,-0.48,0.86,-0.2,-0.84,-0.23,-0.76,-0.41,1.24,0.21,0.61,0.43,0.33,-0.58,-0.86,-1.13,-0.17,1.07,-0.74,0.48,0.69,-0.42,0.24,-0.73,0.8,-0.07,0.67,-0.33,0.2,-0.51,-0.49,-0.53,-0.69,0.14,-0.63,0.53,0.58,1.45,-0.43,1.09,-0.76,0.54,-0.08,0.8,-0.07,0.28,0.35,-0.9,-0.47,0.97,-0.54,0.85,1.13,-0.64,0.42,0.09,0.22,0.88,0.42,0.37,0.71,0.11,0.21,0.24,-0.99,-0.36,-0.87,0.06,0.34,-0.84,0.5,-1.07,2.43,-1.21,0.54,-1.01,0.52,1.22,-0.53,0.59,0.17,1.03,-0.01,-0.08,1.31,-1.53,1.66,-1.45,0.76,-0.04,0.98,-0.32,0.12,1.15,0.56,0.7,0.89,-0.57,0.21,-0.31,-0.27,-0.04,0.52,-0.18,-0.48,-0.81,-0.34,-0.51,-0.69,1.32,-0.74,1.1,0.47,1.22,0.58,-0.05,-0.79,0.94,-0.11,1.15,-1.87,0.38,-0.2,0.13,0.58,1.25,-0.11,1.28,-0.73,0.53,-0.16,0.68,0.11,1.39,0.05,0.81,0.99,1.44,0.74,0.22,0.66,0.71,0.4,0.39,-1.01,0.91,-0.99,0.45,0.62,-2.01,0.75,-2.05,-0.67,-2.03,0.03,-0.52,0.81,0.3,-0.12,-0.12,-0.14,-0.13,-0.64,0.19,1.1,-1.47,0.19,-1.39,-0.79,-0.89,0.36,-0.24,0.72,0.8,0.04,0.03,0.84,-1.49,0.1,-1.71,-0.88,1.19,-0.25,1.19,-0.62,-0.05,-0.37,-0.33,0.76,-0.26,0.02,0.85,0.55,0.4,-0.12,0.8,1.33,-0.28,-0.02,0.27,0.08,-0.43,0.16,-0.18,0.37,-0.74,0.58,-0.64,0.55,-1.89,0.55,-1.44,-1.84,1.41,-1.01,0.79,0.35,-1.46,-0.05,-0.46,1.24,1.35,-0.36,0.31,-0.41,0.36,-0.88,-0.57,0.45,-0.26,0.54,-0.15,-0.51,0.03,-0.36,0.44,0.7,1.54,0.12,0.92,1.46,0.27,0.78,-0.35,1.57,-1.97,0.84,-1.44,1.32,-0.33,0.57,-0.89,1.88,-1.25,0.44,-1.11,-1.22,2,-0.37,1.12,-0.51,-0.01,-0.93,0.44,0.2,-0.81,0.46,-0.97,0.71,0.86,0.27,0.31,-0.16,1.07,-0.35,1.37,1.21,-2.75,0.91,-1.45,-0.54,0.02,-0.48,-0.11,1.05,1.35,0.24,0.8,-1.09,-1.56,0.11,-1.72,1.17,0.02,-0.02,-0.14,-0.17,-0.3,0.23,-0.77,-0.91,-0.02,-1.07,-0.14,-0.61,0.51,-0.03,-0.68,0.88,0.28,-0.02,0.23,-0.56,1.16,-0.07,0.65,-0.37,-1.36,-0.46,-0.61,0.28,0.18,-0.44,0.13,0.3,-0.47,-0.33,0.12,-0.65,-1.02,-0.51,-1.17,0.21,-1.72,0.38,-1.55,-0.16,-0.87,0.13,-0.04,-0.12,-0.79,0.78,-0.4,-0.26,0.94,0.19,0.37,-0.64,1.46,-0.75,1.02,-1.54,0.82,-0.47,1.14,0.54,-0.94,-0.89,0.15,0.65,0.97,-0.24,0.56,-0.63,-0.14,0.05,-0.37,0.56,-0.9,0.7,-0.78,-0.11,0.99,0.74,-0.08,-0.41,0.67,0.02,0.2,-1.72,1.42,-0.32,0.45,1.04,-1.24,0.66,-1.05,-0.85,0.56,-0.41,-0.15,1.22,-0.38,0.13,0.07,-0.99,0.36,-1.03,0.59,0.13,1.22,0.07,0.03,-0.07,0.14,0.43,-0.97,-1.24,-0.11,-0.28,-0.35,0.52,-0.1,-0.49,-0.19,-0.32,0.22,-0.89,-0.23,-2.03,1.22,-1.03,1.91,-0.58,-1.1,0.36,-1.17,0.86,-0.81,0,-1.06,0.01,0.6,-0.12,0.81,-0.63,1.49,-0.91,1.5,-2.84,2.73,-0.91,1.55,-1.17,0.05,-0.27,-0.02,-2.51,1.17,-0.6,1.04,0.61,-1.27,0.33,-0.93,0.39,-0.33,0.07,-0.66,0.97,-1.14,1.34,-2.25,-0.46,1.36,-1.09,0.34,2.59,0.58,0.78,0.27,1.27,0.43,0.34,0.39,-1.02,-0.94,-0.2,-0.86,-0.51,0.02,0.21,-0.21,-1.01,0.6,-0.26,1.2,1.57,0.11,-0.16,1,0.05,-0.25,-0.09,-0.33,-0.83,-0.53,-0.02,-1.11,-0.79,1.58,-1.04,1.51,0.56,-0.35,1.24,-1.24,0.24,2.06,0.36,1.35,1.75,-0.41,0.17,0.18,-0.12,-0.06,-0.53,-0.23,1.06,-0.61,0.21,-0.39,0.4,-0.93,0.86,-0.38,-1.01,1.69,-0.43,0.43,0.27,0.66,-0.14,0.69,1.21,-1.58,0.23,-0.26,-1.25,0.72,-1.79,0.7,-0.92,-2.13,0.26,-2.19,0.32,-1.3,0.16,-1.1,-1.55,0.67,-0.58,0.48,0.39,-0.23,-0.24,-0.09,-0.46,-0.36,0.11,-0.17,0.57,1.27,0.25,0.77,0.77,-1.4,0.86,-1.29,0.78,-0.83,0.08,-0.67,-0.17,-0.65,0.01,-0.01,-0.02,-0.99,0.1,-0.95,-1.48,1.51,-0.95,1.01,0.86,-1.3,0.39,-0.64,1.46,-0.42,0.45,0.19,-0.28,0.04,0.64,-0.29,-0.11,0.18,-1.09,0.83,-0.07,0.53,-0.17,0.23,-0.62,0.98,-0.37,0.04,-1.27,2.32,-0.7,0.45,-1.45,0.21,-0.12,1.39,-0.97,3.55,-0.97,1.91,-0.85,1.43,-0.87,0.4,0.82,0.98,0.69,0.95,0.16,0.05,0.79,0.12,-0.28,-0.62,-0.25,-0.49,-0.35,0.25,-0.69,0.17,-0.81,0.71,0.61,0.57,-0.23,0.01,0.1,-0.5,-0.1,0.94,0.59,-0.01,-1.24,-0.08,-0.85,0.08,-0.34,-0.15,-0.03,-0.18,-1.71,0.14,-0.61,-0.69,0.73,0.06,0.83,0.44,1.96,0.3,1,-0.07,0.79,-1.47,0.71,-0.82,-0.04,-0.43,-0.51,-0.67,-0.86,1.89,0.13,0.65,-0.47,-1.45,-0.45,0.73,-1.82,0.99,-1.04,0.43,-0.72,0.97,0.08,0.51,-1.17,-0.16,-0.34,-1.54,-0.64,-1.22,-0.02,-0.93,-0.85,-0.09,-1.25,-0.95,-0.12,-0.2,0.47,0.2,0.85,-1.06,0.74,-1.01,-0.39,-1.54,0.01,-0.96,-0.62,-2.1,0.65,-1.85,2.55,-0.19,0.51,-0.2,-1.44,2.1,-0.65,0.68,-1.16,1.27,-1.09,0.53,-1.95,1.18,-0.52,0.44,-0.35,-0.57,-0.31,-0.56,0.94,0.93,-0.05,0.77,1.68,-1.66,-0.12,-0.84,1.6,-1.03,0.73,-0.22,-0.28,-1.49,0.1,-1.66,-0.78,1.43,-0.71,-0.63,-0.37,1.81,0,0.43,-0.31,0.89,-0.55,0.89,0.76,1.26,0.11,1.99,1.54,-0.94,0.83,-0.09,-0.57,-0.22,0.04,0.45,-0.93,0.35,-1.26,1.41,0.08,2.19,0.09,2.3]},{"a":"intestine","b":"marrow","paper":0.37,"r":0.28,"pr":0.3,"xy":[0.96,-0.43,0.94,-0.17,0.59,0.11,0.71,0.32,0.56,0.35,0.42,0.24,-0.23,-0.33,-0.25,-0.35,1.72,-2.31,1.46,-2.1,0.69,-0.49,0.63,-0.4,0.03,-0.06,0.09,0.12,0.24,-0.09,0.77,0.02,0.08,0.25,0.07,0.5,0.45,-1.7,-0.62,-1.82,0,0.9,-0.57,0.32,-0.31,-1.38,-0.3,-1.36,0.91,-0.44,0.28,-0.97,-1.65,-0.41,-1.43,0,0.24,-0.76,0.46,-0.86,0.02,0.01,0.66,-0.23,-0.56,0.85,-0.25,1.08,-0.06,-0.26,-0.57,-0.09,0.1,0.03,-0.11,0.03,1.19,1.14,1.52,0.97,1.79,0.56,2.13,0.55,0.73,-0.79,0.68,-0.67,-0.11,1.22,0.25,0.85,-0.68,0.01,-0.15,-0.13,1.6,0.23,0.96,0.41,-0.18,-0.04,-0.31,0.3,-1.64,-0.53,-0.92,-0.15,-1.5,-0.05,-1.18,-0.11,-0.59,0.54,-0.17,0.56,-0.09,0.98,-0.14,1.13,0.26,0.76,0.67,0.84,-0.3,-1.52,-0.09,-1.06,-0.42,-2.1,-0.29,-1.78,-0.23,0.72,0.14,0.52,1.49,1.33,0.87,1.21,-0.21,-1.06,0.3,-1.15,-0.54,-0.77,-0.42,-0.77,-1.76,-0.06,-1.87,-0.04,-0.79,-1.42,-0.31,-1.02,-0.81,-0.19,-1.2,-0.3,1.6,-0.3,0.93,-0.64,-0.7,-0.5,-1.4,-0.66,1.27,-1.6,0.55,-1.47,0.83,0.99,0.63,0.65,0.12,0.55,-0.03,0.61,0.01,-0.03,0.58,0.1,0.12,-0.95,0.64,-0.97,-0.1,1.26,0.19,1.31,0.14,0.17,0.06,0.22,-0.8,-0.2,-0.7,-0.17,0.19,0.65,0.05,0.77,1.14,-0.24,0.36,-0.55,0.12,1.92,0.18,1.89,1.01,-0.25,0.44,-0.4,1.12,1.17,1.13,1.45,0.45,0.95,0.39,0.55,-1.25,-1.77,-1.66,-1.62,-0.86,-1.3,-0.65,-0.91,1.57,-1.04,-0.33,-1.53,-0.44,-0.76,0,-0.58,0.4,0.57,0.75,0.72,1.06,1.03,0.93,1.03,1.22,0.51,1.76,0.86,-0.16,-0.28,-0.28,-0.31,-0.18,-0.05,0.39,0.22,-1.85,-1.08,-1.35,-0.86,0.16,0.53,0.15,0.59,0.7,0.61,0.44,0.6,-0.76,-0.25,-0.05,-0.1,0.23,1.43,-0.02,1.26,-1.35,-1.08,-1.12,-1.03,1.55,1.2,1.45,1.24,1.35,1.05,1.73,1.24,0.08,-2.1,-0.95,-2.31,-0.25,-0.14,-0.1,0.17,0.93,1.3,0.41,1.08,0.25,-0.58,-0.17,-0.28,-1.37,0.57,-0.62,0.57,-0.62,0.95,-0.67,0.68,-1.4,-1.55,-0.85,-1.11,1.16,0.27,1.38,0.17,0.13,0.02,-0.59,0.12,-0.89,-0.28,-0.54,0.03,-1.66,-0.49,-0.87,-0.4,0.93,0.35,-0.13,0.29,-1.15,-1.05,-0.42,-0.96,-1.92,-1.28,-1.69,-1.11,-0.52,0.36,-0.1,0.42,0.16,-0.35,-0.34,-0.42,0.48,-0.61,0.54,-0.57,1.45,0.42,0.92,0.17,-0.49,-0.68,-0.67,-0.49,1.2,0.1,0.5,-0.05,0.48,-1.22,0.65,-0.69,-0.32,1.24,-0.21,1.23,-0.03,-0.43,-0.18,-0.66,1.14,0.06,0.1,-0.17,1.56,0.38,1.15,0.25,0.08,-1.91,0.73,-2.15,-0.9,-0.81,-0.11,-0.64,2.05,-0.63,1.22,-0.54,-0.51,-0.58,-0.6,-0.7,-0.3,-0.2,0.26,-0.23,1.57,0.1,1.29,0.32,0.08,2.48,0.56,2.24,-0.14,-1.63,-0.15,-1.6,-0.6,0.56,-0.51,0.52,0.73,0.9,0.41,0.76,-1.72,-0.3,-1.76,-0.16,-0.86,0.75,-1.43,0.71,-0.03,-0.31,0.06,-0.28,-0.86,-0.62,-0.15,-0.55,0.51,-2.06,0.47,-1.38,-0.79,0.3,-0.79,0.48,-2.06,-1.69,-1.43,-1.57,-1.23,-0.42,-0.38,-0.66,0.84,0.25,1.47,0.17,1.34,1.7,0.51,1.56,-0.47,0.57,-0.52,0.31,0.07,1.03,-0.12,1.14,0.36,0.84,-0.39,0.95,-0.24,0.79,0.29,0.52,0.9,1.87,0.42,1.59,0.06,-1.47,0.1,-1.51,-0.62,0.71,-0.05,0.62,-0.13,-1.03,0.13,-1.14,-1.31,-0.18,-1.21,-0.49,1.63,0.93,0.97,0.99,1.15,1.39,0.67,1.49,0.43,-0.57,0.62,-0.68,-0.92,0.26,-1.12,0.13,0.95,-0.52,0.64,-0.14,-0.53,-0.08,-1.38,-0.6,-0.6,-0.65,-0.67,-0.59,-0.35,0.7,-0.48,0.68,-1.65,-0.97,-1.27,-0.56,-2.24,-2.09,-2.15,-1.6,-0.29,-0.16,-0.22,-0.56,0.13,0.81,0.15,0.52,-1.01,0.01,-1.4,0.18,-0.62,-1.14,-0.27,-0.99,0.52,-1.97,0.62,-2.23,0.26,-0.7,-0.18,-0.52,-0.48,0.36,-0.68,0.29,0.77,-0.54,0.74,-0.86,-0.29,-0.01,-0.58,0.17,0.3,0.09,0.73,0.17,0.83,0.96,1,1.1,1.08,1.93,1.01,1.93,-0.18,-0.15,-0.32,-0.3,0.78,1.41,1.05,1.59,-1.07,-1.23,-1.09,-1.09,-0.48,0.76,-1.2,0.74,-1.59,0.81,-0.43,1.31,0.9,0.46,0.66,0.57,0.55,0.11,0.28,0.14,-0.95,0.61,-0.89,0.86,2.43,-0.66,1.59,-0.59,0.4,-0.03,0.41,-0.29,0.09,0.08,0.07,0.26,-0.28,0.13,-0.09,-0.26,1.7,-0.01,1.59,0.04,-0.64,-0.89,0.15,-1.01,-0.3,-1.34,-0.47,-1.66,1.33,0.95,1.23,1.25,0.61,-0.94,0.32,-0.89,-1.27,-0.13,-0.94,0.08,-1.94,0.77,-1.22,1.09,0.68,-0.44,0.53,0,-0.37,0.73,0.17,0.52,-0.14,-0.78,0.2,-0.93,-1.95,-0.51,-1.82,-0.64,-0.98,-1.08,-1,-1.19,1.03,-0.49,1.06,-0.41,-1.46,-0.36,-1,-0.77,-0.1,0.11,0.18,0.08,1.85,0.71,1.04,0.75,-0.76,-1.11,-0.55,-0.73,1.17,-0.36,1.3,-0.44,0.55,-1.16,0.55,-0.98,-1.05,-0.75,-1.16,-0.91,-0.68,-0.96,-0.5,-0.78,-1.3,-0.45,-0.95,-0.41,1.4,0.69,0.98,0.72,-1.41,2.01,-0.72,2.31,-1.11,0.84,-0.99,0.73,-0.47,-1.01,-0.51,-0.65,1.04,0.51,0.76,0.69,-0.44,-0.56,-0.77,-0.79,0.53,0.21,0.65,0.51,1.73,1.54,1.35,1.42,0.51,-1,0.32,-1.04,0.92,0.83,0.8,0.86,0.46,-0.16,0.14,-0.08,-0.52,0.92,-0.71,0.98,-1.24,0.43,-1.14,0.47,-0.31,0.3,-0.53,0.21,-0.82,0.45,-0.44,0.48,-1.59,0.27,-1.02,0.2,-0.79,0.14,-0.12,0.47,0.1,-0.61,-0.14,-0.44,-1.03,0.92,-1.01,0.79,-0.2,-0.09,-0.02,-0.05,0.46,-0.09,0.17,-0.07,-0.83,-0.99,-1.04,-0.95,-0.72,-0.11,0.14,-0.06,1.77,1.14,1.1,1.54,-1.84,-1.33,-1.53,-1.19,0.28,-1.22,0.56,-1.52,1.25,-0.54,0.96,-0.71,1.02,-0.23,1.41,0.07,1.25,0.83,0.78,0.8,-0.98,-0.4,-0.67,-0.36,0.84,0.85,1.66,1,-0.16,0.12,-0.03,0.11,1.52,0.19,0.95,0.11,1.07,1.67,1.68,1.67,0.82,-0.39,0.57,-0.28,-3.23,-0.7,-2.57,-0.84,0.77,0.43,0.18,0.32,-0.07,-1.58,0.14,-1.57,0.39,-0.14,1.26,-0.37,0.09,-0.01,0.09,0,0.29,-1.24,0.46,-0.8,0.32,-1.01,0.6,-0.76,1.57,0.29,1.36,0.28,0.24,1.13,0.62,1.06,0.31,0.06,0.07,0.26,-2.6,-1.03,-2.36,-1,-0.13,0.19,-0.75,-0.19,1.68,1.9,1.24,1.89,1.36,1.09,1.61,1.31,-1.24,-1.64,-0.75,-1.34,-0.29,-0.27,-1.11,0.04,0.71,0.25,0.71,0.23,1.65,1.13,1.29,0.97,-0.43,-0.44,-0.25,-0.5,1.8,1.89,1.26,1.54,0.79,-0.21,0.14,-0.25,-0.69,1.39,-0.59,1.54,-1.26,0.2,-1.27,0.01,-0.07,0.21,0.08,0.19,-0.43,0.3,-0.15,0.62,-0.71,0.66,-0.49,0.76,-0.57,-1.86,-0.4,-1.66,-0.77,1.27,-0.89,1.46,-1.66,-0.22,-1.18,-0.27,1.7,-0.58,0.84,-0.49,-0.63,-1.39,-0.74,-1.28,-0.29,-0.38,-0.58,0.08,-0.37,-1.64,-0.32,-1.45,-0.4,-1.55,-1.06,-1.25,0.41,-0.93,-0.17,-1.09,-0.69,-0.46,0.24,-0.47,-1.98,-0.08,-1.63,-0.23,-0.31,0.39,0.12,0.38,0.21,-0.56,-0.43,-0.69,1.9,-1.01,1.81,-1.43,0.89,-0.13,1.65,-0.16,0.41,0.38,0.46,0.13,0.15,0.04,0.32,0.06,0.21,0.95,0.08,0.77,-0.62,0.25,-0.67,0.2,-0.25,0.86,0.39,0.71,-0.02,0.43,0,0.37,1.37,-0.59,0.93,-0.96,-0.57,0.51,-0.93,0.25,-0.31,-0.03,-0.8,-0.17,-0.2,-0.76,-0.37,-1.08,1.26,-1.69,0.4,-1.83,2.17,0.53,2.33,0.65,0,1.15,0.18,1.26,-0.16,-0.22,-0.58,-0.56,-1.28,-1.24,-1.47,-1.49,-0.81,0.21,-0.68,0.37,0.17,-0.23,0.07,-0.14,1.56,1.38,0.69,1.4,2.33,1.34,1.81,1.43,-1.28,0.45,-0.1,0.21,-0.64,2.04,-0.59,1.92,-0.55,0.31,-1.03,0.58,-0.41,0.14,-0.33,0.4,0.39,-0.78,-0.24,-1.13,-0.58,-1.41,-0.11,-1.2,0.31,0.16,0.78,0.26,1.61,0.85,1.48,0.79,0.32,-1.35,-0.34,-1.33,-0.31,-0.5,0.65,-0.17,-0.45,-0.92,0.19,-0.86,0.11,-0.29,-0.53,-0.03,-0.95,0,-1.16,0.13,0.18,-1.72,-0.02,-1.78,0.87,-0.82,0.7,-0.86,-0.07,1.74,0.65,1.68,1.34,2.71,0.69,2.51,-0.51,-1.27,-0.95,-1.14,-0.04,-1.73,0.21,-1.32,-0.19,0.83,-0.04,0.85,-0.24,0.97,-0.68,0.29,0.15,0.66,0.17,0.92,-0.15,0.83,-0.36,0.82,1.88,-0.69,1.27,-0.42,0.35,0.79,1.02,0.76,-1.24,-0.16,-1.26,-0.44,-0.16,-1.47,0.41,-1.55,0.25,1.39,-0.48,1.06,0.4,0.38,0,0.22,-1.75,-1.9,-0.98,-1.78,-0.17,-2.3,-0.12,-2.2,-1.33,-1.18,-0.52,-0.65,0.07,0.65,0.52,0.81,-1.78,-0.25,-1.66,-0.21,-1.06,-0.94,-0.9,-0.47,-1.01,0.64,-0.67,1.1,2.55,1.18,1.97,1.25,0.2,-0.29,-0.04,-0.19,1.49,0.46,1.19,0.38,0.22,-1.03,0.32,-0.86,0.58,0.91,-0.09,0.99,-1.17,0.73,-0.14,0.72,0.96,1.81,0.6,1.68,0.96,1.76,1.15,1.67,0,0.22,0.22,0.4,0.82,-0.32,0.9,-0.04,0.07,0.06,0.23,0.04,0,-0.57,0.41,-0.25,0.14,-0.33,-0.28,-0.26,-1.13,-1.59,-1.14,-1.88,0.27,-0.55,0.75,-0.25,-0.15,0.35,-0.37,0.39,-1.43,-0.3,-1.05,-0.35,0.78,0.04,0.78,0.24,0.6,0.68,0.18,0.83,0.54,-0.6,0.02,-0.56,-0.72,-0.23,-0.47,-0.21,0.41,0.53,0.65,0.59,0.82,0.78,1.01,0.98,1.49,2.1,2.02,2.27,-1.02,-0.81,-0.84,-0.78,-0.42,-1.51,-0.49,-1.36,0.12,-0.52,0.17,-0.64,0.99,0.19,1.03,0.32,-0.34,0.24,-0.58,-0.02,1.07,0.03,0.49,0.15,-0.42,-1.36,0.07,-1.36,0.35,1.39,0.45,1.22,-1.27,-1.19,-0.74,-1.13,-1.33,-0.09,-1.26,-0.07,-0.32,2.36,0.5,2.3,-0.17,0.48,-0.85,0.48,1.77,1.94,1.43,1.93,0.62,1.05,0.58,0.75,1.36,2.03,1.01,2.03,0.35,-0.69,0.28,-0.71,-0.75,0.32,-0.66,0.07,-1.78,0.27,-1.58,0.27,-0.86,0,-0.84,0.16,0.09,-0.63,-0.39,-0.67,-0.49,0.36,-0.26,0.75,-1.34,-2.27,-0.67,-1.92,-1.99,-0.41,-1.95,-0.21,0.27,0.66,0.5,0.39,-0.44,-0.24,-1.52,-0.58,0.83,0.58,0.56,1.02,-0.1,0.58,-0.24,0.54,-0.05,-0.35,0.44,-0.6,-0.78,-0.2,-0.34,-0.21,1.15,0.27,0.56,0.77,0.47,-0.74,1.02,-0.97,0.79,-0.57,1.11,-0.4,-0.25,-0.26,0.27,-0.31,-0.03,0.56,-0.23,0.61,0.31,-1.03,0.2,-1.26,-0.73,0.43,-0.68,0.51,0.36,1,0.38,0.64,0.32,0.42,0.51,0.25,-3.05,0.15,-2.21,0.13,-1.45,0.67,-1.8,0.4,1.29,2.09,0.57,2.15,0.07,0.07,-0.45,-0.07,-1.16,-0.17,-1.01,-0.31,-0.97,-1.35,-0.56,-1.02,-1.34,1.13,-0.9,0.97,-0.62,-0.42,-0.07,-0.47,0.71,-0.18,0.52,-0.26,0.22,0.47,0.54,0.18,1.25,-0.02,0.19,-0.22,0.98,0.03,1.01,0.29,0.82,0.06,0.82,0.09,0.44,-0.09,0.81,-0.05,0.78,0.73,0.7,0.85,-1.26,-1.01,-1.1,-0.86,-1.46,0.13,-1.35,0.05,-1.33,0.05,-1.39,0.1,0.23,0.44,0.02,0.08,0.1,-0.63,0.33,-0.84,-1.43,-1.17,-0.83,-1.09,-0.15,-0.64,0,-0.68,-0.28,0.03,0.23,0.08,-0.42,0.08,-0.67,-0.06,0.27,-1.13,0,-0.72,0.61,-0.01,0.58,0.02,0.01,1.3,-0.71,1.05,-0.62,-0.61,-1.01,-0.38,-2.14,-1.93,-1.76,-1.69,0.21,-0.14,0.01,-0.11,-0.17,2.43,0.19,2.3,0.36,-2.02,-0.7,-1.9,0.67,-0.34,0.12,-0.59,0.11,0.02,-0.73,-0.18,-1.26,0.61,-1.05,0.55,-0.7,0.71,-0.02,0.77,0.52,-0.5,0.48,-0.52,-0.23,-0.64,-0.34,-0.84,-0.7,0.25,-0.58,0.39,-2.71,-1.04,-2.25,-0.91,1.68,1.29,1.3,1.34,-0.37,-0.16,0.05,-0.18,0.01,-0.21,-0.36,-0.01,0.33,0.75,0.5,0.89,-0.5,-0.57,-0.17,-0.59,-0.37,-0.11,-0.97,-0.24,0.36,-1.35,-0.06,-1.23,-0.07,0.63,0.34,0.56,0.65,-0.38,0.22,-0.39,-0.26,2.68,-0.53,2.34,-0.32,-0.65,0.04,-0.44,-1.76,-1.8,-1.45,-1.75,-0.05,-1.43,0.1,-1.32,-2.74,-0.57,-1.69,-0.46,0.38,-0.12,-0.75,0.03,0.86,0.02,0.4,0.18,-1.19,0.37,0.01,0.78,-0.86,0.17,-0.17,0.31,0.46,0.3,0.56,0.31,0.61,0.3,0.98,0.21,0.88,-0.51,0.99,-0.35,1.61,-0.74,1.72,-0.9,-0.55,-0.57,-0.45,-0.74,1,-0.06,0.97,-0.25,0.96,-0.66,0.83,-0.69,-1,-0.7,-1.1,-0.38,1.78,-0.43,0.82,-0.39,-0.51,-0.89,-1.06,-0.73,-0.83,-0.21,-0.64,0.05,0.64,1.09,0.12,1.04,-1.68,-1.34,-1.87,-1.18,0.63,1.38,0.89,1.25,-1,-1.13,0.19,-0.95,-0.78,-0.83,-0.56,-0.86,1.75,0.73,1.9,0.94,0.44,0.39,-0.04,0.46,0.64,-1.02,0.38,-1.25,0.93,0.68,0.55,0.63,0.97,-0.63,-0.06,-0.7,0.17,0.79,-0.21,0.75,-1.8,-2.13,-1.48,-2.22,-0.66,0.99,-1.02,0.65,-0.63,0.2,-0.35,0.15,0.36,-0.12,0.77,-0.22,0.5,0.06,-0.07,0.21,0.83,-0.65,1.08,-0.51,0.69,-0.65,0,-0.29,1.73,2.82,0.94,2.54,-0.49,0.93,-0.55,0.85,-0.29,-0.6,-0.24,-0.68,0.55,-0.18,0.35,0.02,0.71,0.69,0.53,0.84,0.03,-0.4,-0.52,-0.42,0.48,0.89,0.68,0.97,0.58,-1.35,-0.06,-1.35,0.04,0,0.02,0.04,-0.15,-0.63,0.1,-0.58,0.18,1.64,0.37,1.36,0.17,0.14,0.17,0.14,-0.68,-1.43,-1.39,-1.66,0.54,1.12,0.55,1.09,-0.59,0.21,-0.77,0.01,-0.53,-0.86,-0.81,-0.43,0.75,1.05,0.19,0.99,-0.24,-1.45,0.43,-1.48,1.23,-1.83,1.23,-1.85,0.22,-1.2,0.46,-1.35,0.36,0.58,0.83,0.89,0.63,-1.37,0.46,-1.54,-0.74,-1.14,-0.94,-1.2,0.32,0.12,0.19,0.45,1.87,0.75,1.23,0.64,0.96,0.63,0.39,0.18,0.38,0.55,0.21,0.48,0.04,-0.08,0.12,-0.13,1.14,0.21,1.07,0.19,0.38,1.69,0.57,1.66,0.72,0.17,0.94,0.19,0.73,-0.61,1.07,-0.43,0.95,0.36,0.34,0.65,0.3,1.62,0.54,1.72,-1.45,-1.46,-0.77,-1.46,0.12,1.61,-0.24,1.42,0.1,0.26,-0.01,0.3,-0.57,1.67,-0.21,1.72,0.35,-2.17,0.55,-2.14,0.07,1.38,-0.19,1.23,0.72,-0.91,0.62,-0.48,-0.82,0.1,-0.45,-0.03,0.32,0.55,0.5,0.45,-0.75,1.38,0.12,1.59,1,0.69,0.83,0.53,-0.39,-0.1,-0.19,-0.07,-0.17,1.06,-0.09,0.85,-0.13,-0.76,0.28,-0.87,-0.86,1.59,-0.14,1.74,0.22,-0.34,-0.65,-0.45,-0.66,-0.22,-0.23,0.07,0.6,0.07,-0.35,0.15,0.73,0.43,-0.02,0.71,-0.13,-0.51,0.15,-0.51,1.01,1.77,0.87,1.66,0.61,0.29,0.16,0.14,0.37,-0.09,0.34,-0.22,-1.71,-1.6,-0.63,-1.46,0.26,1.15,0.07,1.17,-0.99,0.19,-0.7,0.28,0.32,0.6,0.04,0.53,-2,0.2,-2.07,0.36,-0.37,-2.14,-0.14,-1.87,0.71,0.06,0.65,0.16,0.05,-0.27,-0.22,-0.54,-1.48,-0.62,-0.31,-0.36,0.6,1.19,0.18,1.14,-1.34,-1.01,-1.97,-1.38,-0.43,0.92,-0.17,1.05,-0.49,1.2,-0.53,1.15,0.48,0.81,0.39,0.9,-0.5,-1.22,-1.07,-0.98,-0.15,-0.9,-0.85,-0.98,-1.72,-1.66,-1.71,-1.59,0.45,-0.83,0.09,-0.7,-1.17,-0.29,-0.76,-0.01,-0.37,-0.05,-0.54,0.24,-0.18,-1.11,-0.03,-0.87,0.83,-0.46,0.56,-0.12,0.75,-0.75,0.78,-0.72,-1.47,-0.09,-0.93,0.06,0.19,-0.93,0.55,-1.01,-0.16,-1.5,-0.41,-1.58,0.31,0.19,-0.13,0.27,-0.76,-2.54,-0.78,-2.45,-2.74,-0.84,-2.32,-0.48,-0.43,0.74,-0.59,1.06,1.27,0.25,0.95,0.3,0.24,0.56,0.44,0.48,1.5,-1.4,1.57,-1.14,0.38,-1.14,0.54,-1.03,0.8,1.48,0.63,1.65,0.72,-0.01,1.1,0.29,0.76,0.08,0.39,0.31,-0.66,-0.79,-0.52,-0.7,0.31,0.09,-0.01,0.3,1.3,-1.9,0.7,-1.87,0.87,1.23,0.45,0.94,-1.31,-0.21,-1.29,-0.27,-0.25,0.19,-0.37,0.35,0.53,-1.23,0.2,-0.9,0.36,0.28,0.19,0.37,0.29,-0.24,0.34,-0.31,-0.56,-0.13,-0.59,-0.05,0.85,0.74,0.69,0.71,1.01,0.41,0.76,0.4,0.58,-0.43,-0.18,-0.61,1.03,-2.31,0.56,-2.12,-0.25,-1.35,-0.57,-1.41,-0.83,-0.53,-0.47,-0.38,0.08,0.82,-0.1,0.87,2.89,1,2.52,0.91,1.38,1.31,0.46,1.41,0.52,1.37,1.13,1.42,-1.22,-0.6,-1.4,-0.87,0.84,0.65,0.73,0.68,-0.38,1.32,-0.33,1.19,-0.33,1.99,-0.07,1.92,-1.34,0.69,-1.2,0.55,-0.15,-1.24,-0.04,-0.79,1.65,-0.09,1.04,-0.07,0.23,-0.79,-0.44,-0.82,0.84,-0.16,1.22,-0.23,0.55,-1.29,0.21,-1.52,-0.13,1.21,-0.04,1.2,1.17,0.9,0.54,1,-0.95,0.17,-0.79,0.24,0.22,0.23,0.63,0,-0.32,0.14,-0.87,0.09,-1.6,-0.66,-1.54,-0.76,0.29,-0.24,0.49,-0.35,0.6,-0.05,-0.58,0.05,-0.49,1.2,-0.16,1.31,-1.56,-0.31,-1.32,-0.16,0.49,1.35,0.17,1.26,-0.46,-0.05,-0.02,0.47,-0.16,0.33,-0.33,0.19,0.14,0.2,0.06,0.03,-0.06,-0.4,0.39,-0.39,-0.39,-1,-0.12,-0.75,1.13,-0.87,1.26,-0.63,1.24,0.96,1.26,1.09,1.7,-0.98,0.68,-0.96,-0.8,1.29,0.2,1.43,-1.58,0.09,-1.14,-0.17,1.05,0.33,1.34,0.4,-0.45,1.65,-0.33,1.99,1.9,-1.09,1.45,-0.93,1.37,0.69,0.91,0.72,1.09,2.2,-0.01,2.13,-0.67,0.19,0.08,0.1,0.4,-0.36,-1.05,-0.55,1.91,0.41,0.85,0.54,0.53,0.92,1.01,0.66,-0.75,0.03,-0.33,-0.12,0.11,0.76,0.27,0.85,-1.07,-0.69,-0.96,-0.31,1.24,0.89,1.59,0.81,0.68,-0.06,0.61,0.17,0.54,0.12,0.42,0.01,0.54,-0.13,0.37,-0.1,-0.59,-1.06,-0.75,-0.97,-0.93,1.05,-1.32,0.95,0.03,1.65,0.9,1.43,-0.45,-0.07,-0.43,-0.18,-0.23,0.01,0.27,-0.07,1.64,-0.36,1.14,-0.01,1.24,0.9,0.82,0.85,-1.06,0.5,0.13,0.73,0.31,-1.18,-0.25,-1,0.79,-0.31,0.97,-0.18,1.69,-1.03,0.65,-0.95,-1.18,-0.08,-0.92,0.14,-1.11,0.07,-2,0.2,-0.5,0.82,-0.33,0.64,-1.53,-0.87,-0.91,-0.67,-1.46,-0.73,-1,-0.49,0.84,0.71,1.43,0.87,1.44,1.3,1.79,1.45,0.69,0.71,-0.03,0.73,0.36,-0.18,-0.6,-0.25,-0.73,-1.17,-1.09,-1.18,0.96,0.01,1.05,0.45,-0.97,-0.31,-0.76,-0.23,-0.77,0.02,-0.51,0.21,0.22,0.64,0.9,0.57,-0.65,-0.57,-0.59,-0.59,1.71,1.53,0.42,1.61,0.48,-1.08,-0.12,-1.06,0.89,1.27,0.99,1.6,-0.53,-0.3,-0.63,-0.54,-0.87,0.8,-0.15,0.61,-0.17,-1.06,-0.17,-1.09,-1.23,-1.86,-1.31,-1.73,0.74,-0.2,0.64,-0.47]}]},"single":{"organs":["liver","aorta","spleen","pancreas","kidneys","fat","muscle"],"theta":2,"soft":0.08,"proj":{"m":1.618,"a":5.507,"b":-1.342},"profiles":{"healthy":{"u":[2.18,1.43,1.82,1.31,3,0.52,0.82],"C":0.597,"H":0.206,"mdi":4.63},"cancer":{"u":[2.1,1.5,2.1,1.3,2.45,0.7,1.1],"C":0.365,"H":0.299,"mdi":3.23},"both":{"u":[2.2,1.5,2,1.3,2.75,0.6,0.95],"C":0.487,"H":0.238,"mdi":3.98},"dys":{"u":[2.3,1.5,1.8,1.3,3.3,0.42,0.65],"C":0.664,"H":0.173,"mdi":5.04}},"note":"Stand-ins: the poster names Clearance, Heterogeneity and the index but its formulas are not published yet."},"poster":{"cohort":{"baseline":[{"group":"Healthy","n":80},{"group":"Obese","n":36},{"group":"Post-MI","n":45},{"group":"Lung cancer","n":162},{"group":"HNSCC","n":250},{"group":"Prostate cancer","n":57}],"baselineTotal":630,"followup":[{"group":"No intervention","n":47,"row_beside":"Healthy"},{"group":"bariatric surgery","n":18,"row_beside":"Obese"},{"group":"neoadjuvant ICI","n":19,"row_beside":"Lung cancer"}],"followupTotal":84},"creation":{"uptake":[{"organ":"liver","frac":0.727},{"organ":"aorta","frac":0.478},{"organ":"spleen","frac":0.607},{"organ":"pancreas","frac":0.435},{"organ":"kidneys","frac":1},{"organ":"fat","frac":0.175},{"organ":"muscle","frac":0.272}],"example":{"nodes":["liver","spleen","pancreas","fat","aorta","kidneys","muscle"],"layout":{"liver":[0.172,0.175],"spleen":[0.096,0.487],"pancreas":[0.458,0.432],"fat":[0.282,0.823],"aorta":[0.81,0.144],"kidneys":[0.908,0.494],"muscle":[0.711,0.823]},"edges":[{"a":"kidneys","b":"fat","rel":1},{"a":"kidneys","b":"muscle","rel":0.69},{"a":"liver","b":"fat","rel":0.47},{"a":"aorta","b":"kidneys","rel":0.37},{"a":"aorta","b":"fat","rel":0.31},{"a":"liver","b":"muscle","rel":0.24},{"a":"pancreas","b":"fat","rel":0.16},{"a":"spleen","b":"fat","rel":0.094}]},"heterogeneity":{"low":"Labelled 'low'. Six identical mid-grey discs (#949494, radius about 27 px, no outline) on a regular hexagon with flat top and bottom edges and vertices at left and right: poster centres (4421,4468), (4611,4468), (4708,4632), (4611,4792), (4421,4792), (4324,4632) (side about 190 px). Six equal links (about 7.6 px, #a0a0a0) join them in a ring; every node has degree 2. No highlighted node.","high":"Labelled 'high'. Nine nodes, nine links of very unequal weight. Hub H: a larger orange filled disc (#e88b43, radius about 45 px, about 1.6 x the others' 27-29 px) slightly left of the drawing's centre. From H: two thick near-black links (about 16.5 px, #434343) to the dark nodes A (upper left) and G (lower right), forming one near-straight diagonal through the hub; a thick orange link (about 16 px, #e68239, the highlighted one) to the dark node C on the right, a little above the hub; a medium grey link (about 8.3 px, #959595) to the light node E at the left, below the hub; a thin grey link (about 5 px, #9e9e9e) to the light node F below and slightly left. Around the edge: A to the light node B at the top (about 4 px, #bdbdbd); B to C, medium (about 9.4 px, #8b8b8b); C to the very light node D at far right, lower (about 3.4 px, #c2c2c2); G to the very light node I at the bottom (about 3.3 px, #a6a6a6). Node shade follows the strength of its links: A #727171, C #787878, G #777575 dark; E and F #a6a6a6 mid-light; B #ababab light; D #c1c1c1 and I #bcbbbb very light."},"clearance":"A hub-and-spoke star under the bold title 'clearance'. Centre: a large white circle with a thick black ring (about 9 px; outer radius about 136 px across, 128 px up and down, so very slightly wider than tall), centre at poster (4850, 3815). Inside it a light grey (#cbcbcb) pair of kidney-bean shapes side by side, mirror images, with a bold black capital 'K' over them (K for kidneys: renal tracer handling, which the poster calls Clearance). Six plain mid-grey filled discs (#afabab, no outline, radius about 52 px, 0.38-0.41 of the centre's) about 253-276 px from the centre (about twice its radius), at about 0 (right), 63 (upper right), 126 (upper left), 180 (left), 243 (lower left) and 312 (lower right) degrees counter-clockwise from +x. Each is joined to the centre by one thin light grey line (about 6-7 px, #afabab-#aaaaaa), all equal. No links between satellites."},"mdi":{"axis":[0,10.7],"dashed":[3.22,6.69],"shaded":[[0,3.22],[6.69,10.7]],"order":["dys","healthy","both","cancer"],"groups":[{"key":"cancer","name":"Cancer","n":282,"centre":3.29,"err":[2.52,4.04],"q":{"p10":1.88,"p25":2.5,"p50":3.26,"p75":4.04,"p90":4.75},"min":0,"max":6.52},{"key":"both","name":"Cancer + dyslipidaemia","n":187,"centre":3.92,"err":[3.25,4.68],"q":{"p10":2.84,"p25":3.25,"p50":3.9,"p75":4.69,"p90":5.41},"min":2.2,"max":7.63},{"key":"dys","name":"Dyslipidaemia","n":89,"centre":5.16,"err":[4.47,5.87],"q":{"p10":3.9,"p25":4.47,"p50":5.16,"p75":5.85,"p90":6.58},"min":3.27,"max":7.52},{"key":"healthy","name":"Healthy","n":35,"centre":4.51,"err":[4.09,4.98],"q":{"p10":3.62,"p25":4.07,"p50":4.5,"p75":4.98,"p90":6.46},"min":3.08,"max":7.06}],"note":"The big dot read as the median and the bar as the interquartile range (they match the dots' quartiles); the dashed lines are not explained on the poster."},"km":{"months":[0,140],"curves":[{"tertile":1,"label":"1st tertile near healthy","n":137,"end":73,"s":[[0,1],[5,0.92],[10,0.854],[15,0.788],[20,0.733],[25,0.678],[30,0.678],[35,0.647],[40,0.647],[45,0.633],[50,0.59],[55,0.573],[60,0.573],[65,0.573],[70,0.573],[73,0.552]],"lo":[[0,1],[5,0.873],[10,0.794],[15,0.718],[20,0.66],[25,0.599],[30,0.599],[35,0.563],[40,0.562],[45,0.547],[50,0.498],[55,0.478],[60,0.478],[65,0.477],[70,0.477],[73,0.449]],"hi":[[0,1],[5,0.966],[10,0.914],[15,0.857],[20,0.809],[25,0.758],[30,0.758],[35,0.731],[40,0.73],[45,0.719],[50,0.683],[55,0.67],[60,0.67],[65,0.67],[70,0.67],[73,0.669]]},{"tertile":2,"label":"2nd tertile intermediate","n":136,"end":135,"s":[[0,1],[5,0.942],[10,0.89],[15,0.814],[20,0.769],[25,0.715],[30,0.699],[35,0.649],[40,0.631],[45,0.585],[50,0.585],[55,0.574],[60,0.574],[65,0.539],[70,0.525],[75,0.525],[80,0.486],[85,0.466],[90,0.439],[95,0.402],[100,0.402],[105,0.352],[110,0.352],[115,0.264],[120,0.264],[125,0.264],[130,0.264],[135,0]],"lo":[[0,1],[5,0.901],[10,0.836],[15,0.749],[20,0.697],[25,0.637],[30,0.621],[35,0.566],[40,0.548],[45,0.498],[50,0.498],[55,0.486],[60,0.486],[65,0.446],[70,0.433],[75,0.433],[80,0.385],[85,0.362],[90,0.328],[95,0.279],[100,0.279],[105,0.21],[110,0.21],[114,0.08]],"hi":[[0,1],[5,0.981],[10,0.943],[15,0.88],[20,0.84],[25,0.791],[30,0.777],[35,0.732],[40,0.715],[45,0.671],[50,0.671],[55,0.663],[60,0.663],[65,0.63],[70,0.618],[75,0.618],[80,0.586],[85,0.569],[90,0.549],[95,0.524],[100,0.524],[105,0.493],[110,0.493],[114,0.493]]},{"tertile":3,"label":"3rd tertile remote","n":137,"end":113,"s":[[0,1],[0.1,0.986],[5,0.861],[10,0.693],[15,0.597],[20,0.545],[25,0.516],[30,0.484],[35,0.444],[40,0.42],[45,0.394],[50,0.386],[55,0.386],[60,0.375],[65,0.375],[70,0.361],[75,0.331],[80,0.315],[85,0.315],[90,0.292],[95,0.267],[100,0.238],[105,0.238],[110,0.159],[113,0.119]],"lo":[[0,1],[0.1,0.965],[5,0.802],[10,0.614],[15,0.513],[20,0.46],[25,0.43],[30,0.399],[35,0.36],[40,0.335],[45,0.309],[50,0.301],[55,0.301],[60,0.29],[65,0.29],[70,0.276],[75,0.243],[80,0.225],[85,0.225],[90,0.199],[95,0.171],[100,0.136],[105,0.136],[110,0.045],[113,0.011]],"hi":[[0,1],[0.1,0.997],[5,0.916],[10,0.77],[15,0.679],[20,0.627],[25,0.598],[30,0.568],[35,0.528],[40,0.504],[45,0.478],[50,0.47],[55,0.47],[60,0.459],[65,0.459],[70,0.446],[75,0.419],[80,0.403],[85,0.403],[90,0.385],[95,0.364],[100,0.34],[105,0.34],[110,0.271],[113,0.271]]}],"table":[{"tertile":"1st","deaths":"38%","oneYear":"80%","median":"NR"},{"tertile":"2nd","deaths":"49%","oneYear":"84%","median":"79"},{"tertile":"3rd","deaths":"68%","oneYear":"63%","median":"27"}],"arrows":[{"label":"cancer","tip":{"month":23.1,"S":0.556}},{"label":"dyslipidemia","tip":{"month":55,"S":0.615}}]},"prognosis":{"n":19,"strip":{"axis":[0,6.85],"label":"1D projection of excretion dominance and network heterogeneity","dashed":[3.16,6.63],"good":{"n":14,"min":3.4,"median":4.11,"max":4.68,"q1":3.84,"q3":4.42},"bad":{"n":5,"min":4.27,"median":4.85,"max":5.51}},"auc":[{"label":"Metabolic displacement index","auc":0.914,"p":0.061,"group":"network"},{"label":"Heterogeneity","auc":0.771,"p":0.051,"group":"network"},{"label":"Clearance","auc":0.743,"p":0.098,"group":"network"},{"label":"C-reactive protein (CRP)","auc":0.671,"p":0.323,"group":"clinical"},{"label":"Tumour stage","auc":0.586,"p":0.459,"group":"clinical"},{"label":"Age","auc":0.55,"p":0.973,"group":"clinical"}],"chance":0.5}}};
+const PET_DATA = {"source":{"paper":"Geist BK, Guthrie J, Kertesz H, Kiefer FW, Kulterer OC, Nakuz T, Nics L, Patronas E-M, Rendeiro A, Vraka C, Yu J, Grünert S, Hacker M. The metabolic organ connectome: A novel approach to measure allostatic load during health-to-disease transition. Med 6, 100881 (2025). doi:10.1016/j.medj.2025.100881 (CC BY 4.0)","poster":"Geist BK, Grentner A, Fischer J, Yu J, Tsomaia D, Smajlovic A, Grünert S, Hacker M. Shaping a New Era in Nuclear Medicine. Division of Nuclear Medicine, Medical University of Vienna; LBI for Network Medicine."},"organs":[{"id":"brain","name":"Brain","short":"Brain","measure":"mean of the whole brain","col":"#a78bfa","pos":[0,0.738,-0.008],"suv":4.4},{"id":"thyroid","name":"Thyroid","short":"Thyroid","measure":"mean of the whole gland","col":"#22d3ee","pos":[0,0.548,0.042],"suv":0.95},{"id":"lungs","name":"Lungs","short":"Lungs","measure":"maximum (left and right averaged)","col":"#60a5fa","pos":[-0.079,0.365,-0.01],"suv":0.55},{"id":"heart","name":"Heart","short":"Heart","measure":"mean of the whole heart","col":"#f43f5e","pos":[0.038,0.293,0.052],"suv":1.8},{"id":"liver","name":"Liver","short":"Liver","measure":"mean of the whole liver","col":"#f97316","pos":[-0.074,0.205,0.012],"suv":1.35},{"id":"spleen","name":"Spleen","short":"Spleen","measure":"mean of the whole spleen","col":"#d946ef","pos":[0.108,0.2,-0.056],"suv":1.1},{"id":"pancreas","name":"Pancreas","short":"Pancreas","measure":"mean of the whole pancreas","col":"#facc15","pos":[0.032,0.14,-0.01],"suv":0.95},{"id":"kidneys","name":"Kidneys","short":"Kidneys","measure":"mean (left and right averaged)","col":"#fb7185","pos":[-0.065,0.098,-0.066],"suv":1.6},{"id":"adrenal","name":"Adrenal glands","short":"Adrenals","measure":"maximum","col":"#a3e635","pos":[-0.054,0.152,-0.06],"suv":1.2},{"id":"intestine","name":"Intestine","short":"Intestine","measure":"mean of the whole intestine","col":"#f9a8d4","pos":[-0.009,0.02,0.05],"suv":1},{"id":"muscle","name":"Muscle","short":"Muscle","measure":"mean of the gluteus maximus","col":"#4ade80","pos":[-0.072,-0.13,-0.085],"suv":0.47},{"id":"marrow","name":"Bone marrow","short":"Marrow","measure":"maximum between the vertebrae L1 and L5","col":"#e7e5e4","pos":[0,0.06,-0.036],"suv":1.3},{"id":"fat","name":"Subcutaneous fat","short":"Fat","measure":"mean between the vertebrae L1 and L5","col":"#fdba74","pos":[0,0.06,0.1],"suv":0.2},{"id":"aorta","name":"Aorta (blood pool)","short":"Aorta","measure":"the reference: every organ is divided by it","col":"#94a3b8","pos":[0.014,0.25,-0.04],"suv":1}],"cohort":{"scans":658,"subjects":548,"healthy":241,"cancer":417,"lung":165,"hnscc":252,"retest6w":47,"cold2w":63,"dose":21,"norepi":40,"gtex":946,"gtexSamples":17382,"gtexProteins":13,"table1":{"cols":["Full FDG cohort","Healthy FDG cohort","Cancer FDG cohort","GTEx cohort"],"rows":[["Subjects","658","241","417","946"],["Male (%)","63","53","69","67"],["Blood glucose (mg/dL)","105 ± 34","83 ± 6","115 ± 38","–"],["BMI (kg/m²)","26 ± 6","25 ± 5","27 ± 6","27 ± 4"],["Age (years)","54 ± 17","34 ± 12","61 ± 11","53 ± 13"],["Leukocytes (10⁹/L)","8.2 ± 2.9","6 ± 2","9.1 ± 2.8","–"],["CRP (mg/dL)","1.7 ± 3.8","0.2 ± 0.5","3.1 ± 4.8","–"],["Norepinephrine (ng/L)","–","271 ± 114 (40 people)","–","–"],["Tumour load, TLG (SUV × mL)","–","–","265 ± 677","–"],["Tumour stage","–","–","4 (3–4)","–"],["Survival (months)","–","–","42 ± 32","–"]]}},"protocol":{"fasting":6,"dose":[250,300],"rest":60,"segmentation":"MOOSE (nnU-Net)","software":"JASP 0.19.0","p":0.05,"hub":1.7},"f2":{"organs":["adrenal","marrow","heart","intestine","kidneys","liver","lungs","muscle","pancreas","spleen","thyroid"],"aorta":[[0,0,-0.19,0,0,0,0.3,0,0,0,0],[0,0,-0.19,0.37,0,0,0.15,0,0,0,0],[-0.19,-0.19,0,0.27,0.23,0.31,0.73,0.17,0.22,-0.16,0],[0,0.37,0.27,0,-0.19,0,-0.31,0.23,0,0,0],[0,0,0.23,-0.19,0,0,-0.21,0,0.15,0.2,0],[0,0,0.31,0,0,0,-0.42,0.17,0,0.42,0],[0.3,0.15,0.73,-0.31,-0.21,-0.42,0,0,-0.16,0.2,0.25],[0,0,0.17,0.23,0,0.17,0,0,0,0.18,0],[0,0,0.22,0,0.15,0,-0.16,0,0,0,0],[0,0,-0.16,0,0.2,0.42,0.2,0.18,0,0,0],[0,0,0,0,0,0,0.25,0,0,0,0]],"vena":[[0,0,-0.2,0,0,0,0.35,0.15,0,0,0],[0,0,0,0.28,-0.16,0,0,0,0.19,0,0],[-0.2,0,0,0.28,0.24,0,0.69,0.15,0,-0.2,-0.22],[0,0.28,0.28,0,-0.21,0,-0.36,0.24,0,0.17,0.19],[0,-0.16,0.24,-0.21,0,0.3,-0.27,0,0.28,0.19,0],[0,0,0,0,0.3,0,0,0,0,0.45,0],[0.35,0,0.69,-0.36,-0.27,0,0,0,0,0.27,0.38],[0.15,0,0.15,0.24,0,0,0,0,0,0,0],[0,0.19,0,0,0.28,0,0,0,0,0,0],[0,0,-0.2,0.17,0.19,0.45,0.27,0,0,0,0],[0,0,-0.22,0.19,0,0,0.38,0,0,0,0]]},"nets":[{"id":"full","title":"All 658 scans (normalised to the aorta)","fig":"2A","n":658,"density":12,"disorder":0.17,"organs":["adrenal","marrow","heart","intestine","kidneys","liver","lungs","muscle","pancreas","spleen","thyroid"],"isolated":[],"hubs":[],"edges":[["adrenal","heart",-0.19],["adrenal","lungs",0.3],["marrow","heart",-0.19],["marrow","intestine",0.37],["marrow","lungs",0.15],["heart","intestine",0.27],["heart","kidneys",0.23],["heart","liver",0.31],["heart","lungs",0.73],["heart","muscle",0.17],["heart","pancreas",0.22],["heart","spleen",-0.16],["intestine","kidneys",-0.19],["intestine","lungs",-0.31],["intestine","muscle",0.23],["kidneys","lungs",-0.21],["kidneys","pancreas",0.15],["kidneys","spleen",0.2],["liver","lungs",-0.42],["liver","muscle",0.17],["liver","spleen",0.42],["lungs","pancreas",-0.16],["lungs","spleen",0.2],["lungs","thyroid",0.25],["muscle","spleen",0.18]],"layout":{"marrow":[0.187,0.128],"kidneys":[0.579,0.173],"pancreas":[0.925,0.059],"intestine":[0.248,0.373],"heart":[0.493,0.397],"spleen":[0.941,0.421],"lungs":[0.424,0.512],"liver":[0.827,0.56],"thyroid":[0.059,0.605],"adrenal":[0.344,0.837],"muscle":[0.728,0.92]},"computed":{"density":0.116,"disorder":0.217,"fitA":2.719,"strength":{"adrenal":0.49,"marrow":0.71,"heart":2.47,"intestine":1.37,"kidneys":0.98,"liver":1.32,"lungs":2.73,"muscle":0.75,"pancreas":0.53,"spleen":1.16,"thyroid":0.25},"hubs":["heart","lungs"]},"exact":true},{"id":"vena","title":"All 658 scans (normalised to the vena cava)","fig":"2A","n":658,"density":12,"disorder":0.21,"organs":["adrenal","marrow","heart","intestine","kidneys","liver","lungs","muscle","pancreas","spleen","thyroid"],"isolated":[],"hubs":[],"edges":[["adrenal","heart",-0.2],["adrenal","lungs",0.35],["adrenal","muscle",0.15],["marrow","intestine",0.28],["marrow","kidneys",-0.16],["marrow","pancreas",0.19],["heart","intestine",0.28],["heart","kidneys",0.24],["heart","lungs",0.69],["heart","muscle",0.15],["heart","spleen",-0.2],["heart","thyroid",-0.22],["intestine","kidneys",-0.21],["intestine","lungs",-0.36],["intestine","muscle",0.24],["intestine","spleen",0.17],["intestine","thyroid",0.19],["kidneys","liver",0.3],["kidneys","lungs",-0.27],["kidneys","pancreas",0.28],["kidneys","spleen",0.19],["liver","spleen",0.45],["lungs","spleen",0.27],["lungs","thyroid",0.38]],"layout":{"marrow":[0.187,0.131],"kidneys":[0.579,0.173],"pancreas":[0.925,0.059],"intestine":[0.248,0.373],"heart":[0.491,0.397],"spleen":[0.941,0.421],"lungs":[0.421,0.512],"liver":[0.824,0.56],"thyroid":[0.059,0.605],"adrenal":[0.344,0.837],"muscle":[0.728,0.928]},"computed":{"density":0.117,"disorder":0.171,"fitA":2.378,"strength":{"adrenal":0.7,"marrow":0.63,"heart":1.98,"intestine":1.73,"kidneys":1.65,"liver":0.75,"lungs":2.32,"muscle":0.54,"pancreas":0.47,"spleen":1.28,"thyroid":0.79},"hubs":["lungs"]},"exact":true},{"id":"A_low","title":"BMI healthy <= 24.4 kg/m2","n":241,"density":27,"organs":["muscle","thyroid","fat","pancreas","adrenal","brain","kidneys","liver","spleen","intestine","marrow"],"isolated":[],"hubs":[],"edges":[["muscle","thyroid",0.33],["muscle","fat",0.3],["muscle","adrenal",0.34],["muscle","kidneys",-0.26],["thyroid","fat",-0.36],["thyroid","pancreas",0.38],["thyroid","kidneys",0.33],["fat","pancreas",0.75],["fat","adrenal",-0.7],["fat","brain",-0.58],["fat","kidneys",0.52],["fat","liver",0.3],["fat","intestine",0.53],["pancreas","adrenal",0.62],["pancreas","intestine",-0.59],["pancreas","brain",0.5],["pancreas","kidneys",-0.34],["adrenal","brain",-0.61],["adrenal","intestine",0.4],["adrenal","liver",0.41],["adrenal","kidneys",0.51],["adrenal","marrow",0.29],["brain","kidneys",0.59],["brain","liver",0.46],["brain","intestine",0.52],["brain","marrow",0.39],["kidneys","liver",-0.35],["kidneys","marrow",-0.38],["kidneys","intestine",-0.33],["liver","spleen",0.45],["liver","intestine",-0.32],["spleen","marrow",0.38],["spleen","intestine",-0.29],["intestine","marrow",0.36]],"layout":{"muscle":[0.311,0.081],"thyroid":[0.786,0.147],"fat":[0.392,0.328],"pancreas":[0.142,0.403],"adrenal":[0.079,0.54],"brain":[0.317,0.511],"kidneys":[0.53,0.618],"liver":[0.865,0.542],"spleen":[0.921,0.74],"intestine":[0.234,0.769],"marrow":[0.459,0.919]},"computed":{"density":0.269,"disorder":0.115,"fitA":4.5,"strength":{"muscle":1.23,"thyroid":1.4,"fat":4.04,"pancreas":3.18,"adrenal":3.88,"brain":3.65,"kidneys":3.61,"liver":2.29,"spleen":1.12,"intestine":3.34,"marrow":1.8},"hubs":[]},"fig":"3A"},{"id":"A_high","title":"BMI healthy > 24.4 kg/m2","n":241,"density":7,"organs":["muscle","thyroid","fat","pancreas","adrenal","brain","kidneys","liver","spleen","intestine","marrow"],"isolated":["thyroid"],"hubs":["brain"],"edges":[["muscle","fat",0.28],["muscle","brain",-0.34],["pancreas","adrenal",0.52],["pancreas","brain",0.55],["adrenal","brain",-0.43],["brain","kidneys",0.28],["pancreas","spleen",0.25],["kidneys","marrow",-0.26],["intestine","marrow",0.43],["liver","spleen",0.48]],"layout":{"muscle":[0.311,0.081],"thyroid":[0.786,0.147],"fat":[0.392,0.328],"pancreas":[0.142,0.403],"adrenal":[0.079,0.54],"brain":[0.317,0.511],"kidneys":[0.53,0.618],"liver":[0.865,0.542],"spleen":[0.921,0.74],"intestine":[0.234,0.769],"marrow":[0.459,0.919]},"computed":{"density":0.069,"disorder":0.2,"fitA":1.559,"strength":{"muscle":0.62,"thyroid":0,"fat":0.28,"pancreas":1.32,"adrenal":0.95,"brain":1.6,"kidneys":0.54,"liver":0.48,"spleen":0.73,"intestine":0.43,"marrow":0.69},"hubs":["brain"]},"fig":"3A"},{"id":"B_low","title":"low tumor load","n":417,"density":18,"organs":["spleen","liver","thyroid","fat","pancreas","kidneys","muscle","heart","brain","adrenal","intestine"],"isolated":[],"hubs":[],"edges":[["spleen","intestine",0.22],["spleen","kidneys",0.24],["liver","thyroid",0.45],["liver","fat",0.27],["liver","brain",0.29],["liver","heart",-0.27],["liver","kidneys",-0.23],["thyroid","fat",-0.43],["thyroid","kidneys",0.3],["thyroid","muscle",0.3],["thyroid","heart",0.42],["thyroid","brain",-0.23],["fat","pancreas",0.4],["fat","kidneys",0.27],["fat","heart",0.24],["fat","muscle",0.44],["fat","brain",-0.41],["pancreas","intestine",0.27],["kidneys","heart",-0.34],["kidneys","brain",0.44],["kidneys","muscle",-0.24],["kidneys","adrenal",-0.24],["muscle","brain",0.42],["muscle","intestine",0.21],["muscle","adrenal",-0.21],["heart","brain",0.47],["heart","adrenal",-0.35],["heart","intestine",0.27],["brain","adrenal",0.53],["brain","intestine",-0.25],["adrenal","intestine",0.32]],"layout":{"spleen":[0.709,0.085],"liver":[0.333,0.242],"thyroid":[0.084,0.311],"fat":[0.54,0.386],"pancreas":[0.916,0.439],"kidneys":[0.281,0.486],"muscle":[0.495,0.514],"heart":[0.104,0.652],"brain":[0.378,0.646],"adrenal":[0.344,0.915],"intestine":[0.726,0.841]},"computed":{"density":0.181,"disorder":0.116,"fitA":3.047,"strength":{"spleen":0.46,"liver":1.51,"thyroid":2.13,"fat":2.46,"pancreas":0.67,"kidneys":2.3,"muscle":1.82,"heart":2.36,"brain":3.04,"adrenal":1.65,"intestine":1.54},"hubs":[]},"fig":"3B"},{"id":"B_high","title":"high tumor load","n":417,"density":8,"organs":["spleen","liver","thyroid","fat","pancreas","kidneys","muscle","heart","brain","adrenal","intestine"],"isolated":["thyroid"],"hubs":["muscle"],"edges":[["spleen","liver",0.3],["spleen","muscle",0.26],["spleen","fat",-0.18],["liver","fat",-0.3],["liver","kidneys",0.32],["liver","muscle",0.36],["fat","pancreas",0.21],["fat","muscle",0.46],["fat","brain",-0.24],["pancreas","kidneys",0.22],["kidneys","muscle",-0.23],["kidneys","heart",0.21],["kidneys","brain",0.29],["kidneys","intestine",0.2],["muscle","brain",0.35],["muscle","adrenal",0.23]],"layout":{"spleen":[0.709,0.085],"liver":[0.333,0.242],"thyroid":[0.084,0.311],"fat":[0.54,0.386],"pancreas":[0.916,0.439],"kidneys":[0.281,0.486],"muscle":[0.495,0.514],"heart":[0.104,0.652],"brain":[0.378,0.646],"adrenal":[0.344,0.915],"intestine":[0.726,0.841]},"computed":{"density":0.079,"disorder":0.228,"fitA":1.986,"strength":{"spleen":0.74,"liver":1.28,"thyroid":0,"fat":1.39,"pancreas":0.43,"kidneys":1.47,"muscle":1.89,"heart":0.21,"brain":0.88,"adrenal":0.23,"intestine":0.2},"hubs":["muscle"]},"fig":"3B"},{"id":"C_low","title":"Lower Tertile: CRP < 0.11 mg/dl","n":658,"density":11,"organs":["liver","spleen","kidneys","heart","muscle","thyroid","adrenal","fat","pancreas","marrow","intestine"],"isolated":[],"hubs":[],"edges":[["liver","spleen",0.37],["liver","kidneys",0.36],["liver","heart",-0.28],["kidneys","heart",0.32],["heart","thyroid",0.4],["kidneys","muscle",-0.29],["muscle","thyroid",0.4],["muscle","adrenal",0.27],["muscle","fat",0.27],["kidneys","fat",0.29],["kidneys","marrow",-0.27],["spleen","pancreas",0.28],["spleen","marrow",0.25],["adrenal","fat",-0.37],["thyroid","fat",-0.42],["adrenal","pancreas",0.33],["fat","pancreas",0.51],["marrow","intestine",0.41]],"layout":{"liver":[0.375,0.101],"spleen":[0.228,0.216],"kidneys":[0.636,0.249],"heart":[0.902,0.196],"muscle":[0.452,0.385],"thyroid":[0.781,0.52],"adrenal":[0.098,0.608],"fat":[0.497,0.61],"pancreas":[0.32,0.726],"marrow":[0.557,0.899],"intestine":[0.776,0.861]},"computed":{"density":0.111,"disorder":0.096,"fitA":1.705,"strength":{"liver":1.01,"spleen":0.9,"kidneys":1.53,"heart":1,"muscle":1.23,"thyroid":1.22,"adrenal":0.97,"fat":1.86,"pancreas":1.12,"marrow":0.93,"intestine":0.41},"hubs":["fat"]},"fig":"3C"},{"id":"C_mid","title":"Middle Tertile: CRP 0.11 - 0.74 mg/dl","n":658,"density":7,"organs":["liver","spleen","kidneys","heart","muscle","thyroid","adrenal","fat","pancreas","marrow","intestine"],"isolated":["heart","adrenal"],"hubs":[],"edges":[["liver","spleen",0.58],["liver","fat",-0.33],["kidneys","pancreas",0.34],["kidneys","fat",0.28],["muscle","thyroid",0.28],["thyroid","fat",-0.41],["fat","pancreas",0.4],["fat","intestine",0.46],["marrow","intestine",0.48],["muscle","marrow",0.31]],"layout":{"liver":[0.375,0.101],"spleen":[0.228,0.216],"kidneys":[0.636,0.249],"heart":[0.902,0.196],"muscle":[0.452,0.385],"thyroid":[0.781,0.52],"adrenal":[0.098,0.608],"fat":[0.497,0.61],"pancreas":[0.32,0.726],"marrow":[0.557,0.899],"intestine":[0.776,0.861]},"computed":{"density":0.07,"disorder":0.2,"fitA":1.578,"strength":{"liver":0.91,"spleen":0.58,"kidneys":0.62,"heart":0,"muscle":0.59,"thyroid":0.69,"adrenal":0,"fat":1.88,"pancreas":0.74,"marrow":0.79,"intestine":0.94},"hubs":["fat"]},"fig":"3C"},{"id":"C_high","title":"Upper Tertile: CRP 0.74 - 40.1 mg/dl","n":658,"density":3,"organs":["liver","spleen","kidneys","heart","muscle","thyroid","adrenal","fat","pancreas","marrow","intestine"],"isolated":["kidneys","heart","thyroid","adrenal","intestine"],"hubs":["muscle"],"edges":[["liver","spleen",0.34],["liver","muscle",0.33],["spleen","muscle",0.28],["muscle","fat",0.27],["fat","pancreas",0.21],["pancreas","marrow",0.21]],"layout":{"liver":[0.375,0.101],"spleen":[0.228,0.216],"kidneys":[0.636,0.249],"heart":[0.902,0.196],"muscle":[0.452,0.385],"thyroid":[0.781,0.52],"adrenal":[0.098,0.608],"fat":[0.497,0.61],"pancreas":[0.32,0.726],"marrow":[0.557,0.899],"intestine":[0.776,0.861]},"computed":{"density":0.03,"disorder":0.301,"fitA":0.943,"strength":{"liver":0.67,"spleen":0.62,"kidneys":0,"heart":0,"muscle":0.88,"thyroid":0,"adrenal":0,"fat":0.48,"pancreas":0.42,"marrow":0.21,"intestine":0},"hubs":["muscle"]},"fig":"3C"},{"id":"FDG_healthy","title":"FDG (N = 241)","n":241,"density":9,"organs":["adrenal","fat","intestine","liver","lungs","muscle","pancreas","spleen","thyroid"],"isolated":[],"hubs":[],"edges":[["liver","spleen",0.47],["fat","pancreas",0.44],["fat","muscle",0.28],["fat","thyroid",-0.28],["adrenal","pancreas",0.27],["intestine","liver",-0.27],["liver","lungs",-0.27],["pancreas","thyroid",0.26],["lungs","muscle",0.25],["muscle","thyroid",0.23],["fat","spleen",0.22]],"layout":{"intestine":[0.342,0.086],"fat":[0.737,0.143],"lungs":[0.085,0.277],"adrenal":[0.469,0.311],"spleen":[0.2,0.574],"liver":[0.517,0.596],"muscle":[0.915,0.565],"pancreas":[0.244,0.884],"thyroid":[0.531,0.914]},"computed":{"density":0.09,"disorder":0.156,"fitA":1.247,"strength":{"adrenal":0.27,"fat":1.22,"intestine":0.27,"liver":1.01,"lungs":0.52,"muscle":0.76,"pancreas":0.97,"spleen":0.69,"thyroid":0.77},"hubs":[]},"fig":"4"},{"id":"HK2","title":"Hexokinase 2 (N = 946)","n":946,"density":7,"organs":["adrenal","fat","intestine","liver","lungs","muscle","pancreas","spleen","thyroid"],"isolated":[],"hubs":[],"edges":[["intestine","muscle",0.2],["liver","spleen",0.17],["intestine","lungs",0.17],["spleen","thyroid",0.17],["fat","liver",0.17],["fat","pancreas",0.17],["adrenal","pancreas",0.16],["adrenal","muscle",0.16],["adrenal","liver",0.15],["pancreas","thyroid",0.13],["intestine","liver",-0.13],["liver","thyroid",-0.13],["lungs","thyroid",0.13],["adrenal","intestine",0.13],["fat","muscle",0.12],["muscle","spleen",0.12],["intestine","thyroid",-0.11]],"layout":{"intestine":[0.342,0.086],"fat":[0.737,0.143],"lungs":[0.085,0.277],"adrenal":[0.469,0.311],"spleen":[0.2,0.574],"liver":[0.517,0.596],"muscle":[0.915,0.565],"pancreas":[0.244,0.884],"thyroid":[0.531,0.914]},"computed":{"density":0.07,"disorder":0.093,"fitA":0.79,"strength":{"adrenal":0.6,"fat":0.46,"intestine":0.74,"liver":0.75,"lungs":0.3,"muscle":0.6,"pancreas":0.46,"spleen":0.46,"thyroid":0.67},"hubs":[]},"fig":"4"},{"id":"GLUT","title":"Cumulated GLUT1 – GLUT4 (N = 946)","n":946,"density":16,"organs":["adrenal","fat","intestine","liver","lungs","muscle","pancreas","spleen","thyroid"],"isolated":[],"hubs":[],"edges":[["spleen","thyroid",0.61],["fat","pancreas",0.41],["intestine","lungs",0.4],["adrenal","thyroid",0.38],["fat","intestine",0.35],["liver","thyroid",0.33],["liver","spleen",-0.3],["lungs","pancreas",0.27],["fat","lungs",-0.23],["adrenal","lungs",0.21],["lungs","spleen",-0.21],["fat","spleen",-0.21],["lungs","thyroid",0.21],["intestine","pancreas",-0.2],["liver","muscle",-0.2],["intestine","spleen",0.2],["liver","pancreas",-0.2],["fat","thyroid",0.18],["adrenal","spleen",-0.17],["adrenal","fat",0.17],["intestine","liver",-0.14],["pancreas","spleen",0.12],["adrenal","pancreas",-0.1]],"layout":{"intestine":[0.342,0.086],"fat":[0.737,0.143],"lungs":[0.085,0.277],"adrenal":[0.469,0.311],"spleen":[0.2,0.574],"liver":[0.517,0.596],"muscle":[0.915,0.565],"pancreas":[0.244,0.884],"thyroid":[0.531,0.914]},"computed":{"density":0.161,"disorder":0.112,"fitA":1.944,"strength":{"adrenal":1.03,"fat":1.55,"intestine":1.29,"liver":1.17,"lungs":1.53,"muscle":0.2,"pancreas":1.3,"spleen":1.82,"thyroid":1.71},"hubs":[]},"fig":"4"},{"id":"dose_standard","title":"Standard dose (21 people)","fig":"2B","n":21,"density":20,"organs":["heart","spleen","pancreas","kidneys","brain","adrenal","liver","thyroid"],"isolated":[],"hubs":[],"edges":[["heart","pancreas",-0.22],["heart","kidneys",0.21],["heart","adrenal",0.22],["spleen","pancreas",0.48],["spleen","kidneys",0.47],["spleen","adrenal",-0.41],["pancreas","adrenal",0.62],["pancreas","thyroid",-0.2],["pancreas","liver",-0.24],["kidneys","brain",0.41],["kidneys","adrenal",0.21],["kidneys","liver",0.37],["kidneys","thyroid",0.38],["adrenal","liver",0.3],["adrenal","thyroid",0.34],["liver","thyroid",-0.56]],"layout":{"heart":[0.333,0.059],"spleen":[0.753,0.111],"pancreas":[0.371,0.371],"kidneys":[0.669,0.525],"brain":[0.059,0.64],"adrenal":[0.445,0.703],"liver":[0.941,0.755],"thyroid":[0.707,0.941]},"computed":{"density":0.201,"disorder":0.155,"fitA":2.295,"strength":{"heart":0.65,"spleen":1.36,"pancreas":1.76,"kidneys":2.05,"brain":0.41,"adrenal":2.1,"liver":1.47,"thyroid":1.48},"hubs":[]},"approx":true},{"id":"dose_ultralow","title":"Ultra low dose (21 people)","fig":"2B","n":21,"density":24,"organs":["heart","spleen","pancreas","kidneys","brain","adrenal","liver","thyroid"],"isolated":[],"hubs":[],"edges":[["heart","spleen",0.4],["heart","pancreas",-0.43],["heart","kidneys",0.49],["heart","adrenal",0.51],["heart","liver",-0.22],["spleen","pancreas",0.35],["spleen","kidneys",-0.3],["spleen","liver",0.21],["pancreas","brain",0.47],["pancreas","adrenal",0.53],["kidneys","brain",0.34],["kidneys","liver",0.29],["kidneys","thyroid",0.36],["brain","adrenal",-0.43],["adrenal","liver",0.47],["adrenal","thyroid",0.45],["liver","thyroid",-0.48]],"layout":{"heart":[0.333,0.059],"spleen":[0.753,0.111],"pancreas":[0.371,0.371],"kidneys":[0.669,0.525],"brain":[0.059,0.64],"adrenal":[0.445,0.703],"liver":[0.941,0.755],"thyroid":[0.707,0.941]},"computed":{"density":0.24,"disorder":0.099,"fitA":2.315,"strength":{"heart":2.05,"spleen":1.26,"pancreas":1.78,"kidneys":1.78,"brain":1.24,"adrenal":2.39,"liver":1.67,"thyroid":1.29},"hubs":["adrenal"]},"approx":true},{"id":"dose_virtual","title":"Virtual ultra low dose (21 people)","fig":"2B","n":21,"density":23,"organs":["heart","spleen","pancreas","kidneys","brain","adrenal","liver","thyroid"],"isolated":[],"hubs":[],"edges":[["heart","spleen",0.36],["heart","pancreas",-0.27],["heart","brain",0.36],["spleen","pancreas",0.37],["spleen","kidneys",0.24],["spleen","thyroid",-0.26],["pancreas","kidneys",0.28],["pancreas","brain",0.25],["pancreas","adrenal",0.5],["pancreas","thyroid",-0.27],["pancreas","liver",-0.2],["kidneys","brain",0.36],["kidneys","adrenal",-0.24],["kidneys","liver",0.4],["kidneys","thyroid",0.56],["brain","adrenal",-0.23],["adrenal","liver",0.39],["adrenal","thyroid",0.48],["liver","thyroid",-0.45]],"layout":{"heart":[0.333,0.059],"spleen":[0.753,0.111],"pancreas":[0.371,0.371],"kidneys":[0.669,0.525],"brain":[0.059,0.64],"adrenal":[0.445,0.703],"liver":[0.941,0.755],"thyroid":[0.707,0.941]},"computed":{"density":0.231,"disorder":0.109,"fitA":2.296,"strength":{"heart":0.99,"spleen":1.23,"pancreas":2.14,"kidneys":2.08,"brain":1.2,"adrenal":1.84,"liver":1.44,"thyroid":2.02},"hubs":[]},"approx":true}],"table2":[{"what":"Test-retest","cohort":"2 scans within 6 weeks, no intervention","part":"test","groups":[{"label":"first scan","n":47,"density":14,"disorder":0.06},{"label":"second scan","n":47,"density":16,"disorder":0.04}],"pD":"p = 0.12","pO":"p = 0.2","sigD":false,"sigO":false},{"what":"Cold exposure","cohort":"2 scans within 2 weeks, cold exposure at the second","part":"test","groups":[{"label":"first scan","n":63,"density":7,"disorder":0.15},{"label":"second scan","n":63,"density":8,"disorder":0.2}],"pD":"p = 0.3","pO":"p = 0.2","sigD":false,"sigO":false},{"what":"Dose","cohort":"2 consecutive scans, 3 doses","part":"test","groups":[{"label":"standard dose","n":21,"density":20,"disorder":0.09},{"label":"ultra-low dose","n":21,"density":24,"disorder":0.07},{"label":"virtual low dose","n":21,"density":23,"disorder":0.08}],"pD":"all p > 0.5","pO":"all p > 0.2","sigD":false,"sigO":false},{"what":"Blood pool","cohort":"full cohort, normalised to","part":"test","groups":[{"label":"aorta","n":658,"density":12,"disorder":0.17},{"label":"vena cava","n":658,"density":12,"disorder":0.21}],"pD":"p = 0.97","pO":"p = 0.97","sigD":false,"sigO":false},{"what":"Scanner","cohort":"2 PET/CT systems","part":"test","groups":[{"label":"Biograph TruePoint 64","n":61,"density":8,"disorder":0.17},{"label":"Biograph Vision","n":61,"density":11,"disorder":0.15}],"pD":"p = 0.3","pO":"p = 0.4","sigD":false,"sigO":false},{"what":"Sex","cohort":"55 people each, matched health","part":"test","groups":[{"label":"male","n":55,"density":27,"disorder":0.21},{"label":"female","n":55,"density":21,"disorder":0.29}],"pD":"p = 0.4","pO":"p = 0.4","sigD":false,"sigO":false},{"what":"Age","cohort":"full cohort, split at the median","part":"test","groups":[{"label":"under 56 years","n":302,"density":17,"disorder":0.13},{"label":"56 or older","n":283,"density":13,"disorder":0.16}],"pD":"p = 0.8","pO":"p = 1.0","sigD":false,"sigO":false},{"what":"Cancer","cohort":"full cohort","part":"health","groups":[{"label":"healthy","n":241,"density":30,"disorder":0.19},{"label":"cancer","n":417,"density":7,"disorder":0.29}],"pD":"p < 0.001","pO":"p = 0.014","sigD":true,"sigO":true},{"what":"BMI","cohort":"full cohort, split at the median","part":"health","groups":[{"label":"BMI under 25.3","n":303,"density":33,"disorder":0.14},{"label":"BMI 25.3 or more","n":303,"density":14,"disorder":0.27}],"pD":"p = 0.024","pO":"p = 0.04","sigD":true,"sigO":true},{"what":"BMI","cohort":"healthy people, split at the median","part":"health","groups":[{"label":"BMI under 24.4","n":94,"density":27,"disorder":0.13},{"label":"BMI 24.4 or more","n":95,"density":7,"disorder":0.17}],"pD":"p < 0.001","pO":"p = 0.02","sigD":true,"sigO":true},{"what":"BMI","cohort":"people with cancer, split at the median","part":"health","groups":[{"label":"BMI under 26.0","n":203,"density":15,"disorder":0.18},{"label":"BMI 26.0 or more","n":214,"density":11,"disorder":0.2}],"pD":"p = 0.3","pO":"p = 0.4","sigD":false,"sigO":false},{"what":"Leukocytes","cohort":"full cohort, split at the median","part":"health","groups":[{"label":"under 7.9 × 10⁹/L","n":117,"density":10,"disorder":0.12},{"label":"7.9 × 10⁹/L or more","n":118,"density":6,"disorder":0.16}],"pD":"p = 0.12","pO":"p = 0.12","sigD":false,"sigO":false,"note":"As printed in Table 2; the paper's text gives p = 0.012 for this split."},{"what":"Leukocytes","cohort":"healthy people, split at the median","part":"health","groups":[{"label":"under 6.5 × 10⁹/L","n":36,"density":5,"disorder":0.09},{"label":"6.5 × 10⁹/L or more","n":37,"density":3,"disorder":0.17}],"pD":"p = 0.3","pO":"p = 0.07","sigD":false,"sigO":false},{"what":"Leukocytes","cohort":"people with cancer, split at the median","part":"health","groups":[{"label":"under 9.3 × 10⁹/L","n":63,"density":11,"disorder":0.12},{"label":"9.3 × 10⁹/L or more","n":63,"density":6,"disorder":0.21}],"pD":"p = 0.03","pO":"p = 0.07","sigD":true,"sigO":false},{"what":"CRP","cohort":"full cohort, split at the median","part":"health","groups":[{"label":"under 0.5 mg/dL","n":190,"density":12,"disorder":0.11},{"label":"0.5 mg/dL or more","n":115,"density":6,"disorder":0.19}],"pD":"p = 0.018","pO":"p = 0.018","sigD":true,"sigO":true},{"what":"CRP","cohort":"healthy people, split at the median","part":"health","groups":[{"label":"under 0.08 mg/dL","n":75,"density":10,"disorder":0.11},{"label":"0.08 mg/dL or more","n":69,"density":10,"disorder":0.12}],"pD":"p = 0.9","pO":"p = 0.8","sigD":false,"sigO":false},{"what":"CRP","cohort":"people with cancer, split at the median","part":"health","groups":[{"label":"under 1.25 mg/dL","n":81,"density":6,"disorder":0.23},{"label":"1.25 mg/dL or more","n":80,"density":3,"disorder":0.43}],"pD":"p = 0.16","pO":"p = 0.2","sigD":false,"sigO":false},{"what":"CRP","cohort":"full cohort, in thirds","part":"health","groups":[{"label":"under 0.11 mg/dL","n":95,"density":11,"disorder":0.1},{"label":"0.11 to 0.74 mg/dL","n":108,"density":7,"disorder":0.17},{"label":"0.74 to 40.1 mg/dL","n":102,"density":3,"disorder":0.27}],"pD":"p = 0.02, then p = 0.09","pO":"p = 0.01, then p = 0.13","sigD":true,"sigO":true},{"what":"Blood glucose","cohort":"full cohort, split at the median","part":"health","groups":[{"label":"under 93 mg/dL","n":104,"density":16,"disorder":0.12},{"label":"93 mg/dL or more","n":114,"density":8,"disorder":0.14}],"pD":"p = 0.025","pO":"p = 0.08","sigD":true,"sigO":false},{"what":"Norepinephrine","cohort":"healthy people, split at the median","part":"health","groups":[{"label":"under 270 ng/L","n":20,"density":14,"disorder":0.11},{"label":"270 ng/L or more","n":20,"density":4,"disorder":0.21}],"pD":"p = 0.04","pO":"p = 0.12","sigD":true,"sigO":false},{"what":"Tumour load","cohort":"people with cancer, split at the median TLG","part":"health","groups":[{"label":"TLG under 23","n":174,"density":18,"disorder":0.17},{"label":"TLG 23 or more","n":174,"density":8,"disorder":0.3}],"pD":"p = 0.028","pO":"p = 0.04","sigD":true,"sigO":true},{"what":"Tumour stage","cohort":"people with cancer","part":"health","groups":[{"label":"stage below III","n":99,"density":20,"disorder":0.16},{"label":"stage IV","n":98,"density":13,"disorder":0.19}],"pD":"p = 0.1","pO":"p = 0.2","sigD":false,"sigO":false},{"what":"Survival","cohort":"people with cancer, split at the median","part":"health","groups":[{"label":"under 34 months","n":208,"density":23,"disorder":0.14},{"label":"34 months or more","n":208,"density":7,"disorder":0.23}],"pD":"p < 0.001","pO":"p = 0.005","sigD":true,"sigO":true,"note":"As printed in Table 2: here the shorter survivors' network is the denser one, unlike the paper's other results; the paper does not discuss it."}],"table3":[{"name":"FDG (the 241 scans of healthy volunteers)","kind":"fdg","density":9,"p":"","r":null,"similar":""},{"name":"Glucose-6-phosphatase 2 (G6PC2)","kind":"metabolism","density":9,"p":"p = 1.0","r":-0.2,"similar":"very different"},{"name":"Glucose-6-phosphatase 3 (G6PC3)","kind":"metabolism","density":12,"p":"p = 0.9","r":-0.1,"similar":"very different"},{"name":"Glucose-6-phosphate dehydrogenase (G6PD)","kind":"metabolism","density":11,"p":"p = 1.0","r":0,"similar":"very different"},{"name":"Glucose transporters GLUT1 to 4 (together)","kind":"metabolism","density":16,"p":"p = 0.1","r":-0.1,"similar":"very different"},{"name":"Glucose-6-phosphate isomerase (GPI)","kind":"metabolism","density":12,"p":"p = 0.8","r":-0.1,"similar":"very different"},{"name":"Hexose-6-phosphate dehydrogenase (H6PD)","kind":"metabolism","density":13,"p":"p = 1.0","r":-0.4,"similar":"very different"},{"name":"Hexokinase 2 (HK2)","kind":"metabolism","density":7,"p":"p = 1.0","r":0.42,"similar":"similar (p = 0.01)"},{"name":"Glucose-6-phosphate exchanger 1 (SLC37A1)","kind":"metabolism","density":7,"p":"p = 1.0","r":0,"similar":"very different"},{"name":"Glucose-6-phosphate exchanger 2 (SLC37A2)","kind":"metabolism","density":8,"p":"p = 0.8","r":-0.2,"similar":"very different"},{"name":"Glucose-6-phosphate exchanger 4 (SLC37A4)","kind":"metabolism","density":12,"p":"p = 0.7","r":-0.1,"similar":"very different"},{"name":"Interleukin-6 (IL-6)","kind":"inflammation","density":14,"p":"p = 0.12","r":0.1,"similar":"very different"},{"name":"Interleukin-1β (IL-1β)","kind":"inflammation","density":13,"p":"p = 0.15","r":0.22,"similar":"very different"},{"name":"Tumour necrosis factor α (TNF-α)","kind":"inflammation","density":10,"p":"p = 0.8","r":0.2,"similar":"very different"},{"name":"C-reactive protein (CRP)","kind":"inflammation","density":10,"p":"p = 0.4","r":0,"similar":"very different"},{"name":"COX4I1","kind":"ageing","density":7,"p":"p = 0.8","r":-0.1,"similar":"very different"},{"name":"CDKN1A","kind":"ageing","density":18,"p":"p = 0.004","r":-0.3,"similar":"very different"},{"name":"HSP90AA1","kind":"ageing","density":17,"p":"p = 0.06","r":0.1,"similar":"very different"},{"name":"EGR1","kind":"ageing","density":10,"p":"p = 0.5","r":0.22,"similar":"very different"}],"strength":{"high":{"disorder":0.09,"bars":[{"organ":"fat","value":3.58},{"organ":"adrenal","value":2.88},{"organ":"muscle","value":2.8},{"organ":"pancreas","value":2.73},{"organ":"brain","value":2.58},{"organ":"marrow","value":2.54},{"organ":"thyroid","value":2.32},{"organ":"intestine","value":2.27},{"organ":"heart","value":2.2},{"organ":"kidneys","value":1.46},{"organ":"liver","value":1.39},{"organ":"spleen","value":0.99}],"fitFirst":3.65,"fitLast":1.31},"low":{"disorder":0.22,"bars":[{"organ":"muscle","value":1.5},{"organ":"fat","value":1.48},{"organ":"brain","value":1.06},{"organ":"kidneys","value":0.884},{"organ":"liver","value":0.84},{"organ":"spleen","value":0.833},{"organ":"pancreas","value":0.51},{"organ":"intestine","value":0.38},{"organ":"heart","value":0.35},{"organ":"adrenal","value":0.33},{"organ":"marrow","value":0.17},{"organ":"thyroid","value":0.13}],"fitFirst":1.8,"fitLast":0.167},"retest_a":{"disorder":0.04,"values":[1.77,1.75,1.6,1.46,1.395,1.36,1.35,1.33,1.29,1.284,1.06],"fitFirst":1.74,"fitLast":1.14},"retest_b":{"disorder":0.06,"values":[2.24,2.16,2.05,1.61,1.58,1.56,1.44,1.42,1.38,1.3,1.17],"fitFirst":2.17,"fitLast":1.17}},"synth":{"n":658,"organs":["adrenal","marrow","heart","intestine","kidneys","liver","lungs","muscle","pancreas","spleen","thyroid"],"shrink":1,"rows":[[1.4,1.2,2.24,1.17,2.13,1.51,0.63,0.52,1.05,1.45,1.15],[1.2,1.32,1.9,1.11,2.19,1.24,0.55,0.53,1.02,1.2,0.85],[0.72,1.38,1.59,1.1,1.81,1.49,0.46,0.55,1.07,1.16,0.82],[1.09,1.22,1.3,0.96,1.67,1.35,0.4,0.47,0.85,1.01,0.89],[1.21,0.76,2.07,1.31,1.76,1.36,0.48,0.44,1.18,0.62,0.45],[1.07,1.19,2.02,1.12,1.37,1.25,0.61,0.49,0.81,1.08,1.26],[0.89,1.29,2.31,1.01,2.16,1.6,0.6,0.52,0.92,1.23,0.95],[1.09,1.28,1.43,1.04,1.35,0.98,0.52,0.31,1.16,1.13,0.94],[1.23,1.36,2.42,1.01,1.85,1.53,0.64,0.47,0.96,1.03,1.05],[1.01,0.9,1.95,1.08,1.36,1.75,0.45,0.61,0.91,1.17,1.04],[1.3,1.51,1.31,1,1.56,1.99,0.4,0.53,0.8,1.33,0.4],[0.8,0.98,1.81,0.94,1.65,1.58,0.51,0.47,0.83,1.15,1.15],[1.42,1.2,1.43,1.16,1.09,1.56,0.49,0.56,0.89,1.12,0.64],[1.25,1.2,2.03,0.7,2.28,1.22,0.55,0.47,1.06,1.23,0.87],[1.28,1.12,1.47,1.04,1.97,1.73,0.49,0.46,1.17,1.2,0.94],[1.16,1.3,1.71,1,1.57,1.43,0.67,0.47,0.89,0.97,1.14],[1.25,1.5,2.12,0.9,1.78,1.35,0.6,0.38,0.93,1.1,0.91],[1.04,1.24,1.98,0.99,2.26,1.73,0.45,0.57,1.39,1.35,0.79],[1.14,1.31,2,1.02,1.62,1.42,0.56,0.48,0.79,1.43,0.81],[1.16,1.57,1.77,1.21,1.67,1.42,0.62,0.49,1.08,1.03,0.89],[1.16,1.43,1.79,1.32,1.31,1.24,0.59,0.37,0.97,0.95,0.92],[1.16,1.11,2.02,1.13,2.03,1.53,0.57,0.52,1,1.43,1],[1.28,1.59,1.14,0.98,1.11,1.05,0.54,0.43,0.69,1.12,0.82],[1.09,1.3,1.47,0.88,1.41,1.34,0.55,0.36,1.01,1.06,0.92],[1.46,1.35,1.79,1.29,1.42,1.22,0.44,0.47,1.26,0.97,0.76],[0.98,1.29,1.89,0.97,2.16,1.49,0.42,0.46,1,1.01,0.82],[0.94,1.18,2.59,0.7,2.01,1.24,0.73,0.36,1.11,1.04,0.85],[1.25,1.29,1.95,0.73,1.54,1.3,0.68,0.47,0.95,1.38,1.12],[1.36,1.43,1.55,0.89,1.53,1.33,0.5,0.31,0.86,1.01,0.72],[0.73,1.53,1.98,0.98,1.81,1.52,0.49,0.44,1.29,1,0.76],[1.17,1.48,1.8,1.05,1.78,1.22,0.6,0.45,1.09,1.1,0.94],[1.29,0.94,1.73,0.95,1.79,1.31,0.45,0.33,0.95,0.94,1.14],[0.57,0.81,1.68,0.92,1.57,1.27,0.38,0.35,0.61,0.6,0.94],[1.32,1.47,1.11,0.96,1.6,1.45,0.44,0.41,0.62,0.99,0.87],[0.86,1.61,1.79,1.27,1.41,1.22,0.49,0.62,0.61,1.08,0.89],[1.38,1.05,1.53,0.96,1.48,1.02,0.6,0.39,0.92,1.33,0.78],[1.26,1.12,1.43,0.9,1.74,1.34,0.47,0.44,0.85,1.33,0.87],[1.12,1.28,2.06,0.68,1.79,1.53,0.58,0.5,0.88,1.33,0.92],[1.41,0.97,2.44,0.86,2.63,1.48,0.75,0.57,0.92,1.75,1.54],[0.84,1.26,1.9,0.85,2.24,1.79,0.5,0.67,1.14,1.13,0.81],[1.1,1.23,2.04,1.29,1.15,1.65,0.57,0.54,1.03,1.22,0.73],[0.91,1.18,1.75,0.87,1.62,1.63,0.47,0.62,1.26,1.3,0.97],[0.89,0.92,1.95,1.23,1.75,1.52,0.43,0.55,1.22,1.21,0.84],[1.22,1.53,1.65,1.15,1.34,1.49,0.57,0.54,0.86,1.26,0.95],[1.03,1.43,2.11,1.02,2.41,1.67,0.59,0.66,1.13,1.39,1.01],[1.56,1.29,1.66,1,1.78,1.22,0.56,0.35,1.05,0.96,0.76],[1.45,1.08,1.16,1.02,1.72,1.52,0.41,0.27,0.74,1.22,0.69],[1.3,1.59,1.78,0.98,1.48,1,0.6,0.48,0.91,0.65,0.97],[1.38,1.34,1.92,1.02,1.67,1.13,0.6,0.53,0.87,1.15,0.85],[1.33,1.25,2.25,0.86,1.99,1.51,0.69,0.55,0.93,1.28,1.01],[1.26,1.45,1.68,1.03,1.8,1.32,0.47,0.46,1.3,1.14,0.7],[0.96,1.24,1.57,1.21,1.89,1.98,0.4,0.62,0.99,1.53,0.75],[1.04,1.75,2.09,1.02,1.32,1.24,0.63,0.43,0.94,1.09,0.84],[0.89,1.24,1.35,1.18,1.41,1.59,0.38,0.54,1.36,1.13,1.05],[1.4,1.57,1.5,1.2,2.18,1.23,0.42,0.49,1.14,1.09,0.81],[1.32,1.52,1.27,1.08,0.99,1.25,0.5,0.47,0.67,0.88,0.8],[1.08,0.88,1.75,0.78,1.85,1.09,0.45,0.55,1.22,1.15,0.59],[1.37,1,2.1,0.85,1.53,1.07,0.61,0.39,0.86,1,1.26],[1.21,1.06,1.82,1.28,1.34,2,0.4,0.81,1.09,1.3,0.82],[1.24,1.12,1.97,0.92,1.89,1.48,0.59,0.38,1.06,1.1,1.01],[1.18,1.43,1.54,1.07,1.56,1.35,0.48,0.34,1,1.03,1.1],[1.35,1.54,1.94,1.19,1.36,1.43,0.58,0.45,0.96,1.12,1.05],[1.1,1.42,1.31,1.22,2,1.04,0.42,0.36,1.06,1.13,0.93],[1.1,1.23,1.68,0.97,1.62,1.19,0.52,0.55,0.59,0.99,0.9],[0.81,1.29,2.2,0.97,1.9,1.42,0.63,0.37,1,1.24,1.13],[1.04,1.05,1.96,0.67,1.95,1.05,0.63,0.49,1.29,0.86,0.94],[1.08,1.42,2.08,1.03,1.61,1.26,0.6,0.5,0.95,0.93,0.88],[1.26,1.44,2.02,1.13,1.33,1.27,0.56,0.48,0.66,0.83,0.81],[1.01,1.24,1.8,0.86,1.76,1.32,0.57,0.29,1.15,1.21,0.79],[1.24,1.63,1.84,1.04,1.44,1.38,0.57,0.53,0.62,1.21,0.88],[1.25,1.05,1.82,0.76,1.74,1.28,0.58,0.46,0.6,1.2,0.98],[1.3,1.58,1.73,1.28,1.48,1.32,0.52,0.46,1.07,1.04,0.98],[1.32,1.54,1.41,1.24,1.58,1.17,0.44,0.29,1.13,0.9,0.72],[1.54,0.81,2.31,1.01,1.03,1.47,0.64,0.61,0.79,1.23,0.98],[1.54,1.27,2.64,0.96,2.25,1.33,0.72,0.51,0.86,1.12,0.74],[1.09,1.6,2.22,1.17,1.84,1.76,0.59,0.63,0.76,1.17,0.67],[1.3,1.17,2.02,1.04,1.83,1.66,0.44,0.42,0.87,1.12,0.94],[1.53,1.43,2.22,0.75,1.48,1.26,0.78,0.34,1.2,1.12,0.92],[1.04,1.52,1.45,0.89,1.15,1.3,0.48,0.44,0.81,0.88,0.73],[0.81,0.94,1.96,0.75,1.79,0.98,0.55,0.35,0.96,0.89,0.96],[1.34,1.36,0.97,1.21,1.49,1.22,0.38,0.4,1,0.79,0.73],[1.14,1.31,1.86,1.02,1.32,1.44,0.44,0.48,1.35,1.02,0.92],[1.43,1.23,2.16,0.84,1.41,0.85,0.67,0.37,0.89,1.14,1],[1.33,1.18,1.35,0.7,2.1,1.24,0.51,0.37,1.22,1.04,0.72],[0.98,1.38,2.23,1.17,1.5,1.53,0.52,0.66,0.93,0.98,0.83],[1.22,1.05,1.94,0.79,2.01,1.42,0.63,0.37,1.09,1.19,0.78],[1.1,1,1.96,0.65,1.57,1.17,0.59,0.42,0.92,1.03,1.03],[1.28,1.38,1.73,0.91,1.44,1.06,0.62,0.44,0.81,0.93,1.2],[0.79,1.22,1.66,1.03,1.48,1.6,0.43,0.52,1.07,1.17,0.99],[1.34,1.16,1.71,1.09,1.73,1.23,0.55,0.52,0.77,1.03,1],[0.94,1.4,1.87,1.26,2.04,2.21,0.47,0.56,1.12,1.54,0.76],[1.1,1.14,1.69,0.91,1.77,1.43,0.4,0.39,1.33,1.08,0.62],[1.67,1.32,1.98,1.22,1.1,1.52,0.6,0.53,1.26,1.28,1.13],[0.94,1.01,2.49,1.09,1.82,0.9,0.66,0.5,1.01,0.81,1.22],[1.24,1.59,1.8,0.94,1.15,1.13,0.6,0.43,0.95,0.93,1.12],[1.24,1.2,1.6,0.99,1.04,1.46,0.55,0.45,0.91,1.15,1.19],[0.84,1.31,1.97,1.2,1.7,1.83,0.47,0.67,1,1.51,0.85],[0.84,1.39,1.75,1.28,1.16,1.22,0.52,0.52,0.94,1.24,0.93],[1.13,0.85,1.32,1.01,1,1.12,0.57,0.32,0.72,1.03,0.97],[1.25,1.11,2.3,0.84,1.51,1.15,0.76,0.32,1,1.21,1.01],[1.05,1.15,1.78,1.37,1.67,1.65,0.39,0.56,1.08,1.07,1],[1.25,1.16,1.81,0.91,1.74,1.64,0.55,0.48,0.72,1.47,0.84],[1.38,1.25,1.12,0.95,1.42,1.1,0.45,0.31,0.73,1.04,0.79],[1.15,1.32,1.85,1.28,1.52,1.06,0.5,0.5,1.16,0.95,0.97],[1.43,1.88,1.4,1.01,1.25,1.32,0.59,0.4,0.73,1.1,1.13],[1.18,0.92,1.71,0.97,1.41,1.2,0.5,0.39,1.02,1.16,0.66],[1.08,1.43,1.6,0.89,1.9,1.62,0.48,0.48,0.64,1.25,1.01],[1.15,1.51,1.86,1.13,1.55,1.23,0.62,0.65,0.98,1.25,1.17],[1.41,1.23,1.65,0.69,1.68,1.29,0.47,0.44,1.04,0.78,0.8],[1.19,1.48,1.78,0.85,1.62,1.54,0.46,0.57,0.84,1.01,0.94],[1.39,1.23,1.78,0.99,1.89,0.97,0.62,0.62,0.75,1.09,0.98],[1.3,1.15,1.84,0.85,1.61,1.02,0.66,0.46,0.78,0.5,1.12],[1.37,0.82,2.54,1.09,2.59,1.27,0.6,0.53,1.25,1.14,0.98],[1.22,1.37,1.96,0.86,1.88,1.2,0.57,0.52,0.97,1.15,0.94],[1.34,0.9,1.6,0.63,1.97,1.15,0.56,0.41,1.11,1.07,0.76],[1.08,1.2,2.05,0.78,1.42,1.22,0.79,0.44,0.99,0.98,0.96],[1.46,1.36,1.5,1.15,1.19,0.95,0.61,0.41,0.74,0.45,1.07],[1.43,1.7,2.44,1.24,1.25,1.29,0.7,0.67,1.28,1.07,0.88],[1.65,1.43,1.5,0.91,1.54,1.48,0.55,0.49,0.9,1.29,0.88],[0.88,1.54,2.14,1.01,1.64,1.68,0.57,0.5,1.24,1.08,1.3],[1.09,1.5,2.37,1.06,1.85,1.71,0.51,0.55,0.84,1.06,0.65],[0.96,1.48,1.57,0.96,1.47,1.45,0.6,0.44,0.97,0.96,1],[1.46,1.74,1.69,1.16,1.13,1.49,0.52,0.47,0.87,1.19,0.73],[1.09,0.96,1.6,1.01,1.72,1.51,0.48,0.44,0.77,1.31,0.87],[1.22,1.47,1.8,0.89,1.85,1.11,0.72,0.59,0.83,1.16,1.3],[1.49,1.06,1.83,0.98,1.14,1.24,0.66,0.41,1,1.07,1.15],[1,1.26,1.58,0.76,0.74,1.22,0.57,0.36,0.83,1.11,0.85],[1.17,1.52,2.17,1.29,1.76,1.5,0.54,0.6,1,1.06,0.86],[1.11,1.63,2.06,1.21,1.8,1.65,0.47,0.46,0.8,1.3,0.65],[1.22,1.17,1.69,1.08,1.38,1.31,0.58,0.45,0.76,1.09,1.06],[1.25,1.36,1.51,0.83,1.76,1.7,0.43,0.48,0.71,1.12,0.8],[1.08,1.18,1.87,1.17,1.79,1.51,0.4,0.41,0.89,0.91,1.02],[1.06,1.28,1.84,0.9,1.46,1.89,0.56,0.7,0.94,1.46,0.96],[1.31,1.15,2.36,0.89,1.54,1.3,0.7,0.48,1.04,1.37,0.91],[1.25,1.46,2.21,0.94,1.57,1.33,0.66,0.55,0.91,0.97,0.97],[0.92,1.07,1.95,0.7,2.1,1.17,0.53,0.45,1.06,0.9,1.01],[1.33,0.81,2.31,0.6,1.59,1.12,0.57,0.35,1.09,0.62,0.89],[1.35,1.26,1.53,0.95,1.36,1.41,0.6,0.55,0.75,0.94,0.94],[1.49,1.49,1.45,1.02,1.18,1.63,0.52,0.42,0.97,0.93,1.03],[0.89,1.3,1.81,0.82,1.98,1.88,0.36,0.46,0.8,0.93,0.9],[1.37,1.03,1.9,0.89,1.95,1.13,0.63,0.55,0.98,0.68,1.07],[1.37,0.84,1.35,1.09,1,1.09,0.54,0.43,0.59,1.03,0.92],[1.46,1.14,2.23,1.05,1.34,0.81,0.66,0.6,1.1,0.94,1.03],[0.87,1.39,1.74,0.91,1.81,1.27,0.53,0.64,1.07,0.94,0.95],[1.04,1.17,1.67,1.14,1.25,1.17,0.61,0.57,0.97,0.92,0.89],[1.03,1.3,2.03,0.95,1.77,1.66,0.49,0.46,1.25,0.99,0.95],[1.43,1.32,1.9,1.05,1.73,1,0.63,0.43,0.94,0.95,0.55],[1.53,1.53,2.11,1.15,1.22,1.22,0.66,0.36,0.72,1.21,1.15],[0.99,1.75,1.84,1.19,1.8,1.57,0.53,0.52,0.91,1.29,1.07],[0.99,1.27,1.6,0.97,1.32,1.39,0.48,0.46,0.97,0.94,0.8],[1.56,1.63,2.13,1.14,1.61,1.23,0.67,0.41,1.05,1.09,1.02],[1.26,1.01,1.7,0.81,1.54,1.31,0.49,0.39,0.89,1.32,0.96],[0.9,1.48,2.06,0.91,1.65,1.33,0.54,0.65,1.05,1.36,0.9],[1.2,1.49,1.15,0.71,2.2,0.54,0.49,0.39,0.7,0.94,1.18],[0.72,1.41,1.76,1.16,1.96,1.54,0.41,0.45,1.12,1.36,0.55],[1.41,1.33,1.94,1.1,1.63,1.62,0.55,0.46,1.03,1.45,1.06],[1.22,1.44,1.7,0.83,1.83,1.38,0.5,0.43,1.01,1.37,1.21],[1.27,1.15,1.77,1.44,2.29,1.96,0.36,0.6,0.92,1.42,0.77],[1.32,1.29,1.46,1.07,1.16,1.09,0.55,0.47,0.71,1.12,0.79],[1.13,1.32,1.91,1.02,1.98,1.83,0.47,0.43,1.26,0.83,0.98],[1.53,1.33,1.77,0.95,1.08,1.38,0.68,0.45,0.77,1.13,0.94],[1.39,1.3,1.74,1.31,1.85,1.26,0.53,0.54,0.97,1.13,0.86],[1.3,1.09,1.89,0.88,1.54,1.32,0.71,0.42,0.8,0.86,1.11],[0.89,0.99,1.29,0.95,1.32,1.7,0.4,0.42,1.04,1.11,0.73],[0.79,1.52,1.58,1.24,1.84,1.47,0.37,0.4,0.7,1.34,1.11],[1.42,1.08,2.17,1.11,1.42,1.37,0.61,0.49,0.98,1.06,0.95],[1.22,1.27,1.53,0.77,2.28,1.59,0.47,0.45,1.26,1.39,1.16],[1.06,1.48,2.3,0.65,2.09,1.27,0.69,0.4,1.08,1.14,0.99],[1.7,1.2,2.14,1.12,1.75,1.03,0.62,0.52,0.98,1.19,1.4],[1.38,1.47,2.19,0.93,1.41,1.33,0.8,0.47,1.04,1.1,1.05],[1.44,1.12,1.83,0.97,1.52,1.2,0.7,0.53,0.95,1.06,1.17],[0.78,1.18,2.02,0.65,1.71,1.4,0.64,0.56,1.16,1.14,0.95],[1.26,1.05,1.41,0.82,1.31,1,0.52,0.51,0.81,1.12,0.97],[1.39,1.19,1.89,1.18,1.43,1.16,0.58,0.41,1.09,1.14,0.81],[1.37,1.22,1.4,0.74,1.15,1.24,0.63,0.45,0.58,1.03,1.01],[1.39,1.33,2.03,0.98,1.26,1.21,0.67,0.41,0.86,0.91,1.01],[1.51,1.47,2.33,1.33,1.5,1.61,0.6,0.62,1.14,0.91,1.2],[1.45,1.04,1.9,0.86,1.55,1.06,0.57,0.39,0.93,0.96,1.26],[1.54,1.22,1.67,1.21,1.34,1.47,0.55,0.39,0.97,0.92,1.03],[0.7,1.03,2.09,1.1,1.86,1.26,0.56,0.55,0.75,0.89,0.99],[1.3,1.13,2.28,0.81,1.58,1.65,0.7,0.57,0.84,1.13,1.16],[0.99,1.08,1.42,0.88,1.27,0.92,0.47,0.39,1.01,1.03,1.12],[0.98,1.19,1.72,0.77,1.71,1.23,0.58,0.49,1.04,1.1,1.18],[0.82,1.46,2.15,1.25,1.96,1.6,0.54,0.63,1,1.05,0.97],[1.23,1.77,1.41,0.75,1.73,1.01,0.49,0.33,0.77,0.99,1.14],[1.17,1.5,1.46,0.8,1.28,1.43,0.47,0.37,0.78,0.84,0.87],[1.35,1.06,2.15,0.92,1.64,1.48,0.57,0.38,0.84,1.43,1.36],[0.95,1.42,1.79,1.19,1.92,1.46,0.39,0.4,1.24,1.3,0.35],[0.9,1.17,2.1,0.92,1.66,1.83,0.61,0.58,1.16,1.3,1.05],[1.04,1.35,2.11,1.1,1.84,1.11,0.61,0.5,1.15,1.18,1.14],[1.22,1.66,1.6,1.31,1.35,1.48,0.45,0.48,0.71,0.93,0.88],[0.9,1.07,2.01,1.09,1.91,1.77,0.55,0.54,0.69,1.46,1.1],[1.1,1.49,2.08,1.17,1.78,1.64,0.57,0.52,0.94,0.97,1.04],[1.35,1.26,2.21,1.08,1.76,1.31,0.63,0.59,1.13,1.17,0.98],[1.37,1.52,1.58,0.91,1.3,1.01,0.51,0.49,0.8,1.06,1.04],[1.19,1.4,1.94,0.78,1.64,1.51,0.59,0.47,1.01,0.98,1.14],[0.93,1.37,1.67,0.94,1.88,1.66,0.46,0.51,0.79,1.39,0.8],[1.2,1.4,2.12,0.85,1.76,1.19,0.71,0.52,0.92,1.2,1.09],[1.21,1.36,1.52,0.71,1.46,1.25,0.58,0.37,0.67,1.24,1.05],[1.15,1.33,1.84,0.86,1.95,1.08,0.54,0.32,0.95,0.94,0.66],[0.93,1.16,1.87,1.02,1.71,1.04,0.52,0.59,0.99,0.9,1],[1.19,1.51,1.99,0.82,1.94,1.62,0.63,0.57,0.95,1.4,1.02],[0.82,1.28,1.61,0.96,1.45,1.39,0.49,0.4,0.96,1.15,1.14],[1.08,1.28,1.59,1.08,1.28,1.18,0.46,0.47,0.82,1.04,0.96],[1.61,1.07,2.3,0.85,1.34,1.38,0.69,0.51,0.85,1.03,1.22],[1,1.27,1.69,0.87,2.17,1.43,0.61,0.49,1.04,0.84,1.22],[0.82,1.57,2.33,1.32,1.86,1.57,0.48,0.52,1.23,1.22,1.09],[1.28,0.99,1.62,0.67,1.9,1.39,0.48,0.39,1,1.03,0.76],[1.14,1.02,1.3,1.05,1.56,1.42,0.54,0.51,0.72,1.3,1.14],[1.23,1.17,1.77,1.22,1.37,1.23,0.54,0.52,0.88,0.96,0.64],[1.15,1.25,1.55,1.18,2.09,1.11,0.52,0.46,1.16,1.43,1.15],[1.18,1.49,2.19,1.22,1.48,1.41,0.59,0.55,1.04,0.98,0.82],[1.15,1.21,1.59,0.82,1.51,1.08,0.55,0.44,0.9,1,0.97],[1.37,1.5,1.99,1.15,1.69,1.11,0.69,0.37,0.67,0.9,1.02],[1.26,1.33,1.97,0.97,1.39,1.39,0.61,0.4,1.03,1.08,0.94],[1.04,1.34,2.34,1.27,1.42,1.32,0.65,0.62,0.77,1.18,0.92],[1.14,1.69,1.46,1.19,1.7,1.1,0.55,0.38,0.9,1.32,0.77],[1.45,1.21,1.85,1.15,1.63,1.56,0.52,0.47,1.33,1.13,1.14],[1.43,1.14,1.32,0.42,1.14,0.86,0.61,0.4,0.69,0.92,1.12],[1.14,1.4,1.87,1.14,1.2,1.49,0.53,0.52,1.01,1.35,1.15],[0.85,0.93,1.82,0.99,1.15,1.22,0.58,0.39,1.11,1,1.14],[1.31,1.27,1.37,1.07,1.69,1.45,0.6,0.38,0.93,1.17,0.96],[1.13,1.3,1.82,1.02,1.85,1.47,0.56,0.54,1.14,1.18,1.07],[1.36,1.01,2.11,1.05,1.59,1,0.59,0.41,0.87,0.85,1.17],[1.27,1.06,1.4,1.06,1.59,1.05,0.45,0.36,0.99,1.16,1.03],[1.11,1.37,1.97,1.28,1.4,1.24,0.56,0.51,0.82,0.78,0.85],[1.15,1.57,1.65,1.04,1.44,1.23,0.55,0.38,0.69,0.95,0.71],[1.07,1.31,2.01,1.06,1.75,1.24,0.54,0.55,0.83,1.03,1.07],[1.09,1.06,2.11,0.53,1.53,1.06,0.67,0.45,0.97,1.14,0.72],[1.39,1.34,1.42,0.98,0.89,1.43,0.45,0.46,0.85,1.13,0.65],[1.14,1.74,2.01,1.3,1.61,1.49,0.58,0.63,0.93,1.03,1.36],[1.29,1.55,2.08,1.24,1.78,1.41,0.6,0.39,1.14,1.15,0.97],[1.48,0.92,1.7,0.78,2.08,1.13,0.53,0.4,0.91,1.02,0.83],[1.04,1.24,2.19,0.95,1.77,1.46,0.46,0.53,1.01,1.39,0.95],[1.15,1.36,1.48,1.13,1.41,1.29,0.45,0.42,0.9,0.86,0.81],[1.29,1.57,1.17,1.3,1.38,1.65,0.34,0.44,0.88,0.89,0.92],[1.25,1.2,1.87,0.92,1.6,1.25,0.59,0.43,0.97,1.12,0.58],[1.41,1.74,1.49,1.32,1.22,1.66,0.48,0.54,0.91,1.13,1],[1.04,1.25,2.07,1.14,2.04,1.92,0.48,0.62,0.97,1.02,0.87],[1.49,1.63,1.74,0.88,1.65,0.98,0.57,0.54,0.86,0.63,1.09],[1.26,1.35,2.14,0.77,1.73,1.65,0.69,0.58,1.03,1.1,1.09],[0.94,1.35,2.06,0.99,1.54,1.29,0.63,0.48,1.15,1.03,0.91],[1.02,1.37,1.7,0.92,1.84,1.14,0.47,0.38,1.34,0.98,0.81],[1.28,1.45,1.53,0.87,2.07,1.38,0.46,0.48,0.87,0.89,0.8],[1.42,0.86,2.57,0.9,1.6,1.45,0.74,0.41,1.05,1.13,1.08],[1.09,1.6,2.04,0.86,1.93,1.36,0.56,0.58,1.02,0.88,1.16],[0.72,1.25,1.58,0.7,1.26,1.3,0.52,0.33,1.09,0.86,0.9],[1.14,1.17,1.79,1.31,1.47,1.25,0.43,0.57,0.88,1.28,0.88],[1.14,0.98,2.14,0.89,1.26,1.21,0.62,0.42,0.9,1.32,1.02],[1.24,1.21,2.02,0.95,1.57,1.15,0.45,0.34,1.19,1.06,0.69],[1.21,0.92,1.77,0.93,1.14,1.01,0.53,0.39,1.07,0.63,1.09],[1.07,0.94,2.28,0.93,2.41,1.85,0.49,0.63,1.14,1.29,1.11],[1.04,1.08,2.17,1.07,1.4,1.41,0.62,0.63,0.98,1.2,0.98],[1.59,1.19,1.49,0.88,1.79,1.19,0.62,0.34,0.66,1.24,0.9],[1.6,1.28,1.65,0.64,1.57,1.23,0.62,0.43,0.86,1.22,0.71],[1.03,1.39,1.39,0.94,1.61,1.27,0.47,0.37,0.92,1,0.79],[1.02,1.17,2.13,1.04,1.67,1.75,0.57,0.62,1.19,1.35,1.05],[1.68,1.06,1.33,1.34,1.26,1.28,0.59,0.58,1,1.08,1.03],[0.87,1.27,1.93,1.16,1.54,1.24,0.69,0.42,0.74,1.01,1.18],[1.39,1.39,1.85,1.07,1.42,1.44,0.66,0.52,0.78,1.3,1.08],[1.55,1.31,2.08,1.03,2.03,1.38,0.7,0.55,0.9,1.74,1.1],[1.54,1.52,2.14,1.04,1.63,1.67,0.68,0.53,1.01,1.35,1],[1.09,1.36,1.59,0.89,1.31,1.29,0.5,0.43,0.94,1.11,0.99],[1.34,1.5,1.37,0.95,1.35,0.86,0.62,0.44,1.03,0.95,0.9],[1.21,1.4,1.82,1,1.24,1.13,0.62,0.5,0.94,1.11,1.19],[1.78,1.16,2.15,1.25,1.29,1.54,0.75,0.63,0.8,1.49,1.17],[1.29,1.42,1.97,0.9,1.94,1.72,0.63,0.68,1.12,1.52,1.08],[1.05,1.29,1.8,0.94,1.08,1.19,0.51,0.49,0.85,1.05,0.66],[1.26,1.12,1.39,0.96,1.61,1.72,0.48,0.51,0.92,1.45,0.9],[0.97,0.9,1.84,1.23,1.56,1.48,0.47,0.64,1.18,1.26,0.78],[1.28,1.42,2.57,1.39,1.67,1.16,0.8,0.55,1.36,1.09,1.08],[1.04,1.57,2.12,1,1.68,1.62,0.58,0.37,1.22,1.04,0.84],[1.29,1.25,2.25,0.97,1.56,1.72,0.66,0.6,0.63,1.25,0.73],[1.28,1.01,1.38,0.77,1.82,1.63,0.46,0.57,0.83,1.14,0.87],[1.12,1.35,2.3,0.85,1.82,1.34,0.66,0.47,1,1.36,0.96],[0.87,1.25,1.73,1.03,1.98,1.69,0.41,0.42,0.86,1.19,0.64],[1.17,1.62,1.81,1.28,1.91,1.63,0.4,0.61,1.2,1.14,0.66],[1.22,1.61,1.89,1.42,1.8,1.78,0.47,0.54,1.15,1.22,1.17],[1.6,1.4,0.85,0.77,1.56,1.33,0.51,0.26,0.63,1.09,0.94],[1.18,1.78,1.78,0.89,1.7,1.54,0.57,0.54,0.84,0.95,1.11],[1.23,1.37,2.1,0.9,1.86,1.41,0.5,0.51,1.04,1.18,0.87],[1.46,1.33,1.92,0.93,1.9,1.23,0.54,0.42,1.13,1.12,0.72],[0.95,1.12,1.54,1.07,1.53,1.81,0.45,0.6,0.9,1.41,0.97],[1.05,0.97,1.72,0.9,1.61,1,0.57,0.43,0.96,0.99,1.17],[0.99,1.34,1.39,1.06,1.96,1.39,0.43,0.39,0.77,0.99,0.87],[1.2,1.5,2.06,1.29,1.37,1.43,0.62,0.47,1.16,1.17,0.98],[1.2,0.98,2.04,1.06,2.08,1.84,0.49,0.63,1.07,1.24,0.94],[1.25,1.18,2.05,0.94,1.68,1.03,0.68,0.31,0.82,0.94,1.18],[1.19,1.08,1.83,0.92,1.99,1.24,0.65,0.49,1.12,1.09,1.03],[1.57,1.23,2.05,1.02,1.48,1.34,0.49,0.46,1.2,0.97,0.85],[1.23,1.3,1.4,0.83,1.79,1.55,0.35,0.37,1.07,1.45,0.77],[1.47,0.9,1.84,1.03,1.76,1.63,0.57,0.57,1.12,1.11,1.19],[1.31,1.11,1.83,1.16,2.34,1.4,0.55,0.66,0.82,1.35,0.67],[1.42,1.71,1.8,0.99,1.88,1.55,0.66,0.38,1.25,1.29,0.96],[0.77,1.93,2.02,1.24,1.17,1.39,0.57,0.62,1,1.04,1.06],[1.01,1,2.31,0.91,1.67,1.51,0.59,0.56,0.98,1.23,1.13],[1.14,0.9,2.43,0.99,2.12,1.25,0.62,0.43,0.91,1.02,0.67],[0.43,1.49,1.72,0.97,1.25,1.15,0.49,0.41,0.78,0.78,0.91],[0.64,1.53,1.67,0.96,1.1,1.81,0.56,0.61,0.74,1.13,0.92],[1.43,1.46,1.61,1.03,1.56,1.11,0.43,0.34,0.93,0.89,0.66],[1.44,1.49,1.49,0.97,1.64,1.17,0.5,0.55,0.98,1.21,0.99],[1.23,1.14,2.26,1.34,2.03,1.65,0.51,0.56,1.05,1.1,1],[1.12,1.49,1.8,1.06,1.61,1.08,0.66,0.44,0.81,1.04,0.95],[0.78,1.26,1.58,0.78,1.52,1.55,0.51,0.53,0.89,1.06,0.93],[0.89,0.96,2,0.97,1.71,1.42,0.67,0.46,0.78,1.09,1.05],[0.9,1.63,1.63,1.04,1.34,1.53,0.48,0.62,0.79,1.32,0.88],[0.87,1.39,1.6,1.07,1.41,1.39,0.47,0.56,0.88,0.99,0.95],[1.29,0.86,1.84,0.69,1.59,1.31,0.62,0.3,0.98,0.99,1.02],[1.26,0.76,1.91,0.97,1.33,1.07,0.61,0.47,1.07,0.94,1.09],[1.46,1.02,2.05,0.76,2.09,0.74,0.66,0.4,0.78,0.96,1.03],[1,1.45,1.83,1.01,1.55,1.09,0.59,0.38,0.89,1.15,1],[1.36,1.24,1.37,0.68,0.99,1.01,0.46,0.32,0.98,0.7,0.83],[1.23,1.08,2.26,0.81,1.68,0.93,0.63,0.47,1.18,0.68,1.2],[1.04,1.45,2.32,0.82,1.85,1.06,0.67,0.45,1.21,1.18,1.31],[1.08,1.58,2.07,1.46,1.24,1.62,0.49,0.44,1.05,0.91,1.03],[1.11,1.23,2.08,1.04,1.6,1.29,0.58,0.51,0.97,1.2,0.92],[1.33,1.41,1.97,1.27,1.82,1.87,0.52,0.49,0.97,1.19,0.81],[1.18,1.06,1.92,1.04,2.11,1.45,0.53,0.51,1.04,0.88,0.85],[1.09,1.51,2.11,1.1,1.72,1.67,0.5,0.56,1.36,1.05,0.93],[1.04,1.47,1.31,0.79,1.85,1.21,0.53,0.32,0.72,1.23,0.86],[1.3,1.72,1.59,1.17,1.89,1.68,0.48,0.56,1.32,1.41,0.89],[1.44,1.71,1.95,1.17,1.32,1.15,0.68,0.46,0.88,1.2,0.99],[1.18,1.35,1.89,1,1.72,1.2,0.57,0.44,1.01,1.02,0.98],[0.83,1.22,1.62,1.15,1.86,1.31,0.38,0.38,0.88,0.82,0.7],[1.19,1.31,1.85,1.01,2.04,1.43,0.6,0.54,1.21,1.32,0.88],[1.1,1.17,1.93,1,1.92,1.36,0.57,0.39,0.9,1.36,1.26],[1,1.22,2.07,1.03,1.46,1.47,0.53,0.51,0.83,1.01,1.07],[1.21,0.93,2.13,0.8,1.39,1.63,0.69,0.5,1,1.17,0.92],[1.31,1.17,1.51,1.05,1.52,1.11,0.49,0.32,0.83,0.97,1.23],[1.08,1.38,1.13,0.97,1.62,1.4,0.3,0.39,1.18,1.13,0.66],[1.13,1.23,2.1,0.74,1.93,1.46,0.67,0.52,0.83,1.03,0.93],[1.12,1.31,2.38,1.14,1.68,1.33,0.69,0.5,1.42,1.34,1.19],[0.66,1.46,1.37,1.11,1.74,1.16,0.31,0.54,0.8,0.88,0.81],[1.31,1.16,1.73,1.1,1.57,1.61,0.41,0.44,1.12,1.02,0.65],[1.3,1.25,1.64,0.87,1.84,1.45,0.57,0.49,1.27,1.2,1.18],[1.1,1.42,1.94,1.07,1.88,1.43,0.59,0.44,0.91,1.37,0.86],[0.98,1.48,1.61,1.15,1.61,1.38,0.48,0.4,0.81,1.23,1.35],[1.43,1.79,1.79,1.27,1.36,1.2,0.58,0.29,1.1,0.73,0.97],[1.15,1.11,1.99,0.82,1.49,1.41,0.57,0.4,0.47,0.79,0.9],[1.43,0.95,1.46,0.92,1.46,1.04,0.45,0.43,0.94,0.92,0.94],[0.96,1.18,1.66,1.02,1.6,1.31,0.57,0.54,0.97,1.29,1.1],[1.32,1.35,1.82,1.18,1.53,1.42,0.52,0.4,0.86,0.94,1.01],[1.31,1.36,2.06,0.94,1.57,1.66,0.65,0.55,0.93,1.53,0.91],[1.28,1.31,2.04,1.19,1.18,1.34,0.53,0.43,1.01,1.34,1.01],[1.41,0.98,2.01,0.92,1.83,1.28,0.69,0.46,0.86,1.22,0.9],[0.86,1.63,1.51,1.06,1.41,1.38,0.48,0.45,0.75,0.91,0.86],[1.15,1.02,1.93,0.77,1.86,1.62,0.59,0.37,1.15,1.01,0.9],[1.48,1.28,1.45,0.76,1.39,1.36,0.46,0.35,0.88,1.07,0.87],[1.18,1.85,1.48,0.94,1.51,1.28,0.57,0.33,0.73,0.9,0.96],[1.52,1.41,2.11,0.97,1.18,1.19,0.6,0.57,0.86,1.1,1.03],[0.86,1.75,1.9,1.32,1.51,1.22,0.54,0.57,0.84,1.2,0.98],[1.27,1.55,1.47,1.11,1.6,1.18,0.56,0.59,0.81,1.22,0.74],[1.23,1.78,1.58,1.25,1.4,1.34,0.46,0.5,0.98,1.01,1.02],[1.27,1.14,2.04,1.06,1.42,1.45,0.61,0.45,1.03,1.21,0.99],[1.36,1.38,1.93,0.87,1.34,1.34,0.7,0.56,0.89,1.02,1.18],[0.93,1.36,1.86,0.68,1.93,1.64,0.56,0.44,1.17,1.53,0.92],[1.23,1.3,1.79,0.84,1.69,1.15,0.54,0.47,1.01,1.14,0.95],[1.47,1.15,1.84,1.02,1.66,1.46,0.55,0.62,1.14,1.1,1.12],[1.23,1.38,1.73,0.91,1.94,1.37,0.41,0.28,0.93,1.04,0.58],[1.35,0.77,1.42,0.76,1.91,1.1,0.45,0.28,0.88,1.13,0.82],[1.35,1.2,1.81,0.64,1.89,1.59,0.49,0.39,1.11,1.23,0.92],[1.03,1.46,1.1,1.05,1.54,1.18,0.47,0.51,0.67,1.11,0.87],[1.03,1.24,2.15,0.92,1.27,1.82,0.55,0.64,1.01,1.32,0.86],[0.86,1.44,2.41,1.15,2.25,1.48,0.55,0.56,1.44,1.09,1.06],[1.2,1.44,2.07,0.98,1.82,1.42,0.63,0.59,0.97,1.24,0.99],[1.31,1.22,1.52,0.99,1.08,1.17,0.59,0.34,0.72,0.98,0.74],[0.65,1.25,1.61,0.86,1.62,1.29,0.51,0.39,1,1.07,0.8],[1.15,1.36,2.46,1.21,1.76,1.64,0.48,0.43,0.8,0.93,1.1],[1.3,1.13,1.68,1.08,1.32,1.28,0.65,0.41,0.93,0.93,0.93],[0.96,1.17,1.66,1.14,1.48,1.12,0.52,0.35,0.94,1.23,0.97],[1.13,1.24,2.12,0.95,1.42,1.09,0.75,0.45,0.85,1.25,1.06],[1.62,1.43,1.45,1,1.43,1.14,0.45,0.46,0.87,0.82,0.85],[1.22,1.06,1.92,1.06,1.76,1.52,0.61,0.58,0.68,1.27,0.8],[1.45,1.4,1.62,0.87,1.71,1.53,0.5,0.44,1.38,0.98,1.07],[1.52,1.53,1.8,1.06,1.47,1.24,0.71,0.62,1.02,1.24,0.96],[1.11,1.4,1.8,1.06,1.69,1.55,0.6,0.49,0.77,1.23,0.97],[1.28,1.33,1.52,0.45,1.46,1.02,0.62,0.37,0.7,1.04,1.1],[1.03,1.46,1.8,0.74,1.54,1.64,0.53,0.53,0.99,1.3,0.7],[0.93,1.79,1.77,1.23,2.36,1.83,0.35,0.63,1.17,1.09,0.6],[1.06,1.32,1.47,1.01,1.42,1.68,0.38,0.49,1.14,0.84,0.88],[1.2,1.26,1.7,0.79,1.34,1.4,0.55,0.4,0.76,1.02,0.85],[1.22,0.98,1.44,0.82,1.55,0.83,0.43,0.34,0.85,0.53,0.8],[1.16,1.57,1.59,0.76,1.67,1.41,0.55,0.42,1.1,0.84,0.64],[1.19,1.2,1.72,0.89,1.74,1.15,0.66,0.5,1.03,1.27,1.14],[1.06,1.26,1.03,1.13,1.58,1.23,0.31,0.5,1.06,0.44,0.62],[0.93,1.41,1.25,1.04,1.35,1.37,0.5,0.42,0.83,1.31,0.93],[1.11,1.3,1.81,1.23,1.68,1.89,0.43,0.62,1.03,1.5,0.82],[1.34,1.31,2.07,1.18,1.52,1.14,0.61,0.44,0.97,1.21,1.2],[0.72,1.31,1.93,1.15,2.08,1.77,0.5,0.52,1.04,0.98,0.89],[1.19,1.28,1.52,1.08,1.71,1.02,0.54,0.49,0.98,0.73,0.88],[1.19,1.47,2.63,1.14,1.7,1.39,0.72,0.51,1.04,1.14,0.87],[1.05,1.06,1.44,0.77,1.88,1.16,0.46,0.49,1.11,1.04,1.02],[1.48,1.33,1.39,0.74,1.45,1.14,0.5,0.48,0.87,0.73,0.88],[1.28,1.31,2.4,0.76,1.35,1.53,0.7,0.44,1.3,1.1,1.13],[1.25,1.4,1.41,1.04,1.71,1.8,0.47,0.53,0.8,1.31,0.84],[1.54,1.15,1.4,1.02,0.99,0.96,0.61,0.44,0.93,1.22,1.13],[1.01,1.03,1.33,0.74,1.6,0.87,0.5,0.42,1.19,0.72,0.84],[1.41,1.15,1.11,0.97,1.19,0.99,0.45,0.4,0.9,1.07,1.03],[1.23,1.31,2.03,0.95,0.8,1.1,0.7,0.29,1.1,0.9,1.27],[0.91,1.32,1.45,0.92,1.66,1.67,0.41,0.53,0.98,0.91,1.02],[1.15,1.03,2.24,1.05,2.22,1.52,0.52,0.53,0.99,1.21,1.12],[1.02,1.3,1.34,1.11,1.74,1.3,0.4,0.47,1.06,1.05,0.82],[0.94,1.6,1.51,1,1.42,1.46,0.42,0.6,1.04,1.17,0.73],[1.21,1.16,2.54,0.89,1.87,1.22,0.69,0.65,1.2,1.13,1.11],[1.19,0.85,1.92,0.61,1.25,1,0.61,0.35,1.07,0.88,1.15],[1.4,1.27,1.87,1.04,2,1.65,0.54,0.56,1.09,1.12,1.07],[0.92,1.87,1.56,0.97,1.45,0.92,0.58,0.49,1.06,0.88,0.69],[1.09,0.83,2.16,1.07,1.94,1.69,0.43,0.64,0.94,1.11,0.74],[1.05,1.22,1.29,1.12,1.41,1.26,0.43,0.63,0.84,1.14,0.95],[1.3,1.3,1.78,1.02,1.18,1.7,0.48,0.53,0.77,1.37,1.08],[1.41,1.44,1.73,0.77,1.42,1.36,0.59,0.43,1.12,1.04,1.04],[1.57,1.47,1.91,0.87,1.91,1.35,0.69,0.4,1.07,1.43,1.01],[1.07,1.18,2.25,1.09,1.48,1.19,0.71,0.58,0.92,1.18,1.18],[1.2,1.15,2.13,0.96,1.3,1.63,0.64,0.47,0.93,1.06,0.95],[1.1,1.36,1.89,0.87,1.42,1.03,0.57,0.43,1.06,0.9,0.89],[1.21,1.06,1.22,0.51,1.41,1.12,0.41,0.28,1.16,0.87,0.79],[1.13,1.6,1.91,1.3,1.3,1.28,0.53,0.5,0.89,1.05,1.1],[1.04,1.26,1.61,0.93,1.6,1.22,0.58,0.48,1.03,1.02,1.19],[1.39,1.25,2.03,1,1.57,1.4,0.52,0.46,1.03,1.09,0.96],[1.61,1.48,1.7,1.06,1.22,0.9,0.59,0.43,0.95,0.77,1.17],[1.49,1.17,1.4,0.91,1.91,1.51,0.47,0.39,0.9,1.15,0.71],[1,1.27,2.15,0.93,1.78,1.82,0.55,0.62,0.9,1.24,0.97],[1.03,0.98,1.69,1.06,1.38,1.6,0.4,0.39,0.83,1.27,1.08],[1.44,1.45,1.59,0.99,1.6,1.08,0.6,0.45,0.84,1.11,0.83],[0.96,1.21,1.42,1.12,1.93,1.77,0.31,0.47,1.08,1.11,0.61],[1.45,1.93,1.29,0.95,0.77,1.28,0.54,0.53,0.83,1,1.47],[0.94,1.15,1.91,0.94,1.8,1.56,0.5,0.3,1.11,1.02,0.75],[1.29,0.88,1.7,0.68,1.87,1.19,0.59,0.54,0.99,0.96,1.11],[1.55,0.96,2.15,0.99,1.54,1.24,0.69,0.44,1.06,1.23,1.07],[1.24,1.17,1.63,0.51,1.56,0.98,0.66,0.36,0.81,0.87,1.24],[1.36,1.27,1.74,1.07,1.96,1.72,0.32,0.58,0.96,1.29,0.71],[1.36,1.3,1.61,1.15,1.55,1.27,0.42,0.49,0.9,1.01,1.01],[1.39,1.39,1.72,0.79,1.74,0.86,0.64,0.28,1.17,0.81,1.22],[1.28,1.34,1.96,0.84,1.95,1.33,0.65,0.4,1.06,1.16,0.99],[0.88,1.37,1.52,1.08,1.4,1.17,0.51,0.46,0.69,1.29,1.23],[1.32,1.37,1.72,1.11,1.52,1.18,0.63,0.45,0.79,1.23,0.94],[0.55,1.18,1.57,1.16,2.09,1.38,0.4,0.51,0.95,0.85,0.83],[1.03,1.13,1.83,1.29,1.89,1.61,0.59,0.53,1.01,1.37,0.9],[1.49,1.17,2.03,0.9,1.43,1.4,0.71,0.5,0.9,1.4,1.13],[1.06,1.29,1.81,1.18,1.52,1.5,0.55,0.48,0.86,1.12,0.75],[0.87,1.15,1.1,1.17,1.83,1.44,0.31,0.42,1.01,1.55,0.62],[1.29,1.14,1.54,0.82,1.93,1.32,0.4,0.46,0.99,1,1.06],[1.37,1.2,2.7,1.32,1.64,1.75,0.63,0.64,1.03,0.96,0.93],[1.29,1.09,2.04,0.91,1.48,1.68,0.48,0.47,1.11,0.79,1.12],[1.27,1.25,2.23,0.85,1.76,1.44,0.67,0.47,0.79,1.28,1.5],[0.92,1.56,2.03,1.12,1.45,1.65,0.51,0.48,1.03,1.33,0.82],[1.54,0.99,1.98,0.7,2.11,1.46,0.56,0.56,1.03,1.34,0.96],[1.25,1.62,1.29,1.11,1.45,1.4,0.46,0.38,0.72,1.09,0.89],[1.06,1.04,1.79,0.82,1.83,0.97,0.67,0.33,0.81,1.11,0.97],[1.78,1.11,1.86,0.86,1.21,1.19,0.67,0.39,1.03,1.14,1.05],[1.34,1.47,1.86,1.31,2.01,1.08,0.6,0.56,1.19,1.14,1.08],[1,1.39,2.17,1.08,1.44,1.47,0.56,0.53,1.09,1.03,1.09],[1.35,1.06,2.2,1.12,1.14,1.39,0.71,0.52,0.86,1.3,1.02],[1.04,1.46,1.38,1.17,1.47,1.38,0.37,0.47,0.78,1.04,0.78],[1.4,1.15,1.8,1.17,1.35,1.73,0.42,0.55,1.07,1.11,0.97],[1.21,1.48,2.1,1.03,1.51,1.65,0.56,0.49,0.94,1.13,0.93],[0.99,0.8,0.85,0.68,1.8,1.41,0.32,0.42,0.87,0.87,0.81],[1.46,1.53,1.72,0.88,0.77,1.39,0.59,0.44,0.93,1.27,0.99],[1.15,1.35,1.99,0.89,1.69,1.32,0.67,0.51,0.9,1.23,1.05],[1.2,1.27,1.79,1.06,1.56,1.23,0.67,0.52,0.83,1,1.28],[1.31,1.31,1.95,1.09,1.41,1.3,0.47,0.43,1.04,1.12,0.63],[1.28,1.15,2.23,1.15,1.8,1.4,0.67,0.49,1.06,0.91,1.14],[1.15,1.15,2.45,1.12,1.53,1.21,0.58,0.54,0.93,1.32,1.14],[1.5,1.96,1.78,1.31,0.94,1.61,0.53,0.49,1.06,1.51,1],[0.98,1.52,1.86,0.91,1.47,1.25,0.62,0.57,0.99,1.22,1.22],[1.34,1.16,1.94,0.95,1.74,1.33,0.63,0.55,1,1.11,0.87],[1.08,1.26,2.07,1.1,1.43,1.23,0.57,0.47,0.82,1.17,1.17],[1.39,1.46,1.79,1.13,1.74,1.38,0.48,0.48,0.83,0.81,0.92],[1.11,1.21,2.31,1.01,1.54,1.7,0.61,0.57,1.03,1.19,1.17],[1.12,1.51,1.66,1.09,1.85,1.48,0.47,0.43,0.93,0.84,0.84],[1.43,0.99,2.07,1.11,1.72,1.42,0.54,0.55,1.31,1.4,0.51],[1.48,1.3,1.72,1.01,1.79,1.58,0.5,0.42,0.78,1.29,0.86],[1.32,1.15,2.05,0.97,1.66,1.19,0.66,0.53,0.74,0.69,1.1],[1.19,1.68,1.59,1.03,1.44,1.56,0.57,0.42,0.95,1.45,0.88],[1.37,1.33,2.01,1.03,1.58,1.38,0.62,0.49,1.08,1.02,1],[1.31,0.97,1.44,0.88,0.84,1.26,0.45,0.51,0.94,1.09,1.02],[0.83,1.56,1.86,1.1,1.21,1.15,0.58,0.45,1.16,1.14,0.99],[1.35,1.35,2.36,0.89,0.73,1.06,0.79,0.49,1.1,1.22,1.06],[0.91,1.1,2.65,0.91,2.18,1.65,0.6,0.53,1.18,1.21,1.09],[1.42,1.54,2.11,1.13,1.8,1.6,0.57,0.56,1.08,1.4,0.69],[1.17,0.96,1.81,0.96,1.92,0.98,0.68,0.55,0.75,0.88,0.9],[1.26,0.87,2.03,1.22,1.49,1.34,0.62,0.46,1.25,1.14,0.88],[0.91,1.02,1.79,1.04,1.69,1.63,0.56,0.44,0.69,1.3,0.89],[1.57,1.43,2.1,1.06,2.05,1.21,0.64,0.43,0.91,1,0.93],[1.35,0.98,1.58,1.11,1.52,1.34,0.52,0.53,1.01,1.04,0.84],[1.21,1.03,1.61,0.87,1.31,1.15,0.5,0.49,0.7,1.02,0.87],[1.25,1.33,2.03,1.06,2.36,1.67,0.48,0.52,0.92,1,1.02],[1.1,1.48,2.19,1.34,1.85,1.65,0.6,0.69,1.14,1.21,1],[1.27,1.45,1.53,1.17,1.09,1.58,0.47,0.54,0.7,0.8,0.68],[1.08,1.43,1.33,1.07,1.63,1.44,0.36,0.42,1,1.03,0.51],[1.46,1.28,1.93,1.01,1.56,1.65,0.61,0.41,1.07,1.31,1.08],[1.19,1.35,1.62,1.21,1.34,1.48,0.48,0.39,1.12,1.07,0.93],[1.47,1.69,1.79,1.07,2.05,1.69,0.56,0.46,0.94,1.38,0.88],[1.32,1.34,2.08,1.13,2.32,1.7,0.65,0.55,0.94,1.57,1.05],[1.19,1.16,2.04,1.13,2,1.52,0.61,0.45,1.03,1.27,1.17],[1.17,1.38,2.18,1.17,1.77,1.57,0.45,0.44,1.09,1.12,0.69],[0.98,1.68,1.84,1.05,1.55,0.86,0.61,0.52,1.04,0.93,0.99],[0.98,0.96,1.15,0.74,1.08,0.86,0.48,0.32,0.75,0.73,1.06],[1.53,1.68,1.99,1.02,1.27,1.42,0.63,0.5,1.02,1.4,0.89],[1.21,1.36,1.74,1.02,1.33,1.32,0.54,0.46,0.81,1.14,1.24],[1.35,1.69,1.88,0.9,1.29,0.99,0.66,0.38,0.97,1.35,0.96],[1.05,0.79,1.39,1.06,1.42,1.13,0.47,0.44,1.05,0.79,1.05],[1.41,1.62,1.99,1.01,1.79,1.54,0.62,0.6,0.76,1.39,0.99],[0.94,1.09,2.5,1.13,1.59,0.99,0.63,0.45,1.02,1.08,0.96],[1.51,1.32,1.21,0.85,1.93,1.64,0.46,0.42,0.82,1.34,0.95],[1.45,1.43,1.3,1.06,1.64,1.34,0.49,0.43,0.41,1.51,1.02],[1.37,1.62,1.84,0.87,1.8,1.29,0.63,0.33,0.93,0.81,1.11],[1.24,1.46,1.98,1.18,1.12,1.45,0.6,0.46,0.71,0.97,1.03],[1.42,1.28,2.05,0.93,1.36,1.28,0.68,0.45,0.94,1.11,1.27],[1.13,1.55,1.57,0.97,1.28,1.25,0.56,0.48,0.76,1.03,0.98],[1.2,1.12,1.59,0.98,1.41,1.17,0.59,0.41,0.73,1.23,0.92],[1.36,1.67,1.65,0.85,1.89,0.89,0.6,0.44,0.86,0.91,0.85],[0.83,1.22,1.59,1.04,1.44,1.69,0.37,0.56,0.97,1.23,0.99],[1.37,1.25,1.86,0.88,1.58,1,0.58,0.37,1.09,0.76,0.97],[0.99,1.32,2.8,1.11,1.67,1.68,0.67,0.69,1.06,1.27,1.21],[1.39,1.4,2.19,1.13,1.84,1.44,0.51,0.55,1.17,1.4,0.92],[1.11,1.18,1.81,0.98,1.54,1.29,0.59,0.44,1.09,1.08,1],[1.3,1.71,1.55,1.18,1.31,1.36,0.5,0.47,0.84,0.91,1.03],[1.19,1.37,2.21,1.11,1.43,1.73,0.62,0.52,1.23,1.31,0.97],[1.59,1.28,2.08,1.07,1.65,1.42,0.69,0.53,1.07,1.4,0.91],[1.37,0.93,1.69,0.69,1.59,0.87,0.71,0.33,0.88,1.36,1.19],[1.24,1.57,2.28,1.05,1.78,1.27,0.68,0.62,1.05,1.09,0.98],[1.38,1.34,2.13,0.82,1.56,1.05,0.74,0.51,1.04,1.22,1.26],[1.18,1.44,1.7,1.06,1.9,1.83,0.43,0.44,0.98,1.37,0.57],[1.29,1.35,1.81,0.64,1.72,1.35,0.5,0.45,1.01,0.99,0.88],[1.27,0.8,1.9,0.93,2.09,1.15,0.57,0.51,1.04,1.08,0.95],[1.17,1.32,2.19,1.13,1.89,1.56,0.62,0.52,1.09,1.24,1.08],[1.52,1.24,1.56,1.01,1.36,1.61,0.53,0.53,0.82,1.09,1.11],[1.36,1.15,1.64,0.73,1.65,0.68,0.67,0.34,1.1,0.77,1.1],[1.25,1.58,1.63,1.11,1.36,1.35,0.5,0.53,1.11,1.16,1.14],[0.98,1.06,2.34,0.76,1.24,1.68,0.65,0.59,0.93,1.2,0.72],[0.91,1.52,1.32,0.92,1.79,0.97,0.44,0.48,0.91,1.06,0.9],[1.55,1.58,2,0.91,1.54,1.35,0.67,0.52,1.02,1.33,1.12],[1.15,1.49,1.8,1.09,1.89,1.28,0.53,0.56,1.06,1.08,0.95],[1.18,1.02,1.97,0.91,1.61,1.34,0.46,0.49,0.96,1.13,0.88],[0.93,1.09,2,0.97,1.58,1.47,0.49,0.55,1.03,1.37,0.55],[1.11,0.91,2.18,0.69,1.71,1.42,0.64,0.51,0.97,1.2,1.07],[0.83,1.11,2.1,1.08,1.88,1.63,0.49,0.53,1.15,1,0.87],[1.52,1.23,1.52,0.79,1.74,1.02,0.51,0.38,1.04,1.01,1.03],[0.9,1.29,2.3,0.93,1.78,1.39,0.58,0.51,1.05,1,1.11],[1.31,1.04,2.05,0.97,1.53,1.24,0.58,0.38,0.9,0.98,0.97],[0.95,1.19,1.98,1.15,1.78,1.1,0.49,0.53,0.69,0.97,1.02],[1.27,1.12,1.77,1.13,1,0.93,0.57,0.35,1.09,1.17,0.77],[1.04,1.28,1.56,0.74,1.6,1.14,0.53,0.39,1.3,0.83,1.08],[1.65,1.08,1.29,1.03,1.87,1.16,0.54,0.54,1,0.88,0.97],[1.04,0.95,1.78,0.97,1.66,1.58,0.52,0.54,1.23,1.29,1.04],[1,1.34,2.06,1.06,1.79,1.7,0.49,0.51,0.83,1.14,0.94],[0.82,0.71,1.66,0.86,1.49,1.55,0.4,0.31,1.02,0.98,0.64],[1.31,1.1,1.98,0.51,1.75,1.12,0.6,0.41,0.88,0.95,1.26],[0.96,1.47,2.48,0.92,2.11,1.59,0.61,0.55,1.29,1.05,1.12],[1,1.36,1.81,1.23,1.61,1.31,0.49,0.54,0.97,0.9,0.9],[0.56,1.43,1.96,1.04,1.19,1.13,0.61,0.45,0.78,0.89,0.94],[0.81,0.97,2.11,1.27,2.26,1.59,0.54,0.51,1.23,1.25,0.99],[1.2,1.03,1.63,1.07,1.89,1.51,0.51,0.44,1.06,1.44,1.15],[1.07,1.65,1.62,1.14,2.23,1.7,0.38,0.46,1.27,1.26,0.67],[1.2,1.3,2.23,1.13,1.77,1.05,0.65,0.43,1.05,0.89,0.89],[1.07,1.32,2.02,1.14,1.85,1.49,0.47,0.46,1.15,1.23,0.73],[1.63,1.11,2.11,0.88,1.59,1.26,0.67,0.46,1.07,1.05,1],[1.6,1.32,1.62,1.06,1.75,1.44,0.45,0.49,1.21,1.09,1.17],[0.92,0.85,2.27,1.23,1.63,1.65,0.56,0.54,0.99,1.48,0.99],[1.18,1.59,1.7,1.16,1.4,1.38,0.54,0.55,0.89,1.46,0.71],[1.03,1.25,1.31,0.76,1.71,1.32,0.43,0.47,0.87,1.24,0.84],[1.36,1.34,2.06,0.95,1.59,1.33,0.6,0.47,0.97,1.3,1.14],[1.53,1.01,2.09,1.1,1.8,1.4,0.52,0.42,0.89,1.46,0.9],[1.01,1.37,1.52,1.07,1.64,1.65,0.35,0.4,0.88,0.65,0.82],[1.67,1.24,1.21,1.05,1.66,1.08,0.49,0.52,1.14,1.17,0.92],[1.16,1.27,2.02,0.9,1.62,1.15,0.64,0.55,0.81,1.28,1.21],[1.54,1.47,1.89,1.15,1.62,1.5,0.55,0.48,0.94,0.91,0.79],[1.47,1.4,1.77,1.18,1.55,1.71,0.49,0.41,0.73,1.26,1],[0.83,1.2,1.33,1.1,1.8,2.01,0.27,0.5,0.95,1.42,0.69],[1.14,0.76,1.89,1.19,1.76,1.36,0.43,0.51,0.97,0.83,0.73],[0.94,0.98,1.2,0.95,1.65,1.63,0.3,0.44,1.15,1.06,0.74],[1.09,1.18,1.94,0.85,1.51,1.04,0.61,0.4,0.99,1.02,0.91],[1.03,1.49,2.09,1.01,1.69,1.27,0.59,0.56,0.77,1.03,0.91],[1.18,1.53,2.05,1.52,1.57,1.07,0.65,0.67,1.04,1.15,0.94],[1,1.61,2.23,1.25,1.55,1.68,0.5,0.56,0.93,1.43,1.12],[1.65,1.62,2.45,1.09,1.78,1.49,0.81,0.37,0.89,1.5,0.96],[1.45,1.16,2.09,0.78,1.21,1.45,0.68,0.48,1.05,1.23,0.75],[1.44,1.45,1.35,1.15,1.48,1.12,0.45,0.46,1.04,1.07,0.89],[0.96,1.61,1.54,0.93,1.65,1.35,0.5,0.51,0.9,1.05,0.84],[1.1,1.77,1.43,0.94,1.77,1.5,0.45,0.44,0.76,0.69,0.8],[1.37,1.46,2.19,0.76,1.06,1.38,0.71,0.4,0.84,0.97,0.98],[1.22,1.01,2.23,0.97,2.24,1.29,0.55,0.47,1.04,0.94,0.83],[1.14,1.28,1.83,1.3,1.38,1.22,0.47,0.51,1.04,1.09,0.66],[1.37,1.11,1.88,1.04,1.49,1.73,0.47,0.5,0.96,1.16,0.98],[1.09,1.26,1.69,1.15,1.81,1.26,0.61,0.49,0.99,1.44,0.94],[1.05,1,2.01,1.1,1.76,1.85,0.57,0.59,0.89,1.22,1.01],[1.47,1.58,2.39,0.98,1.36,1.25,0.72,0.45,0.74,0.85,0.81],[1.1,1.51,2.12,1.21,1.36,1.34,0.54,0.55,1.06,1,1.05],[0.74,1.34,2.28,0.83,1.42,1.2,0.65,0.46,0.74,0.93,0.95],[1.03,1.35,1.52,1.04,1.21,1.12,0.59,0.45,0.8,0.85,0.98],[0.69,1.33,1.84,0.94,1.85,1.76,0.45,0.58,1,1.45,0.95],[1.61,1.14,1.69,0.71,1.81,1.51,0.58,0.51,1,1.26,0.97],[1.41,1.24,1.84,1.05,0.85,0.97,0.67,0.44,0.71,0.72,1.19],[1.59,1.29,1.94,1.11,1.45,1.52,0.43,0.58,0.84,1.04,0.93],[1,1.58,1.42,0.91,1.69,0.83,0.46,0.42,0.73,0.99,0.52],[1.32,1.23,1.8,0.72,1.82,1.03,0.58,0.49,1.04,1.01,0.88],[1.2,1.61,1.41,1.09,1.51,1.51,0.4,0.45,1.04,1.12,0.77],[1.29,1.29,2.1,0.92,2.39,1.29,0.59,0.47,1.07,1.03,1.24],[1.2,1.38,1.63,0.97,1.35,1.26,0.5,0.48,1,0.88,0.67],[1.37,1.35,1.93,1.03,1.76,1.66,0.61,0.53,0.85,1.3,0.94],[1.67,1.21,1.67,0.99,1.66,1.01,0.63,0.43,1,1.16,0.74],[1.46,1.07,2.04,0.93,1.66,1.15,0.63,0.39,1.07,1.22,0.96],[1.27,1.1,1.84,1.2,1.69,1.19,0.53,0.45,0.91,0.72,1.06],[1.36,1.53,1.79,1.22,1.47,1.11,0.55,0.42,1.06,1.07,0.88],[1.1,1.07,1.92,1.31,1.51,1.72,0.4,0.55,0.97,1.07,0.89],[1.44,1.6,1.6,0.86,1.57,1.03,0.64,0.28,1.01,1.22,1.04],[1.6,1.32,1.7,0.72,1.33,1.25,0.69,0.46,0.81,1.16,1.06],[0.99,1.38,1.65,1.19,1.78,1.36,0.52,0.44,1.2,1.13,0.99],[1.37,1.69,1.97,0.92,1.82,1.39,0.54,0.42,1,0.94,1.2],[1.29,1.04,2.12,1.34,1.77,1.48,0.54,0.56,0.91,1.03,1.08],[1.05,1.46,1.9,1.25,1.84,1.59,0.49,0.56,0.7,1.32,0.98],[0.92,1.81,1.93,1.2,1.98,1.91,0.42,0.68,1.23,1.51,0.94],[1.27,1.34,0.99,0.88,1.31,1.4,0.41,0.19,1.09,0.9,0.73],[1.33,1.22,2.18,1.07,1.95,2.21,0.45,0.71,1.14,1.47,0.75],[1.31,1.4,2.25,1.34,1.7,1.7,0.47,0.55,1.09,1.27,0.7],[1.17,1.52,1.64,1.1,1.59,1.59,0.63,0.47,0.7,1.23,1.21],[1.21,1.31,1.55,0.86,1.85,1.36,0.57,0.5,0.92,0.97,0.83],[1.27,1.48,1.71,1.02,1.57,1.2,0.52,0.4,0.71,1.12,0.81],[0.94,1.14,2,0.81,1.9,1.41,0.52,0.41,1.19,1.26,1.17],[0.9,1.51,1.41,1.22,1.51,1.52,0.47,0.35,1.36,1.13,0.9],[1.11,1.29,1.99,1.12,1.93,1.35,0.53,0.48,1.15,1.14,0.87],[0.81,1.33,1.86,1.1,1.76,1.58,0.54,0.53,1.05,1.29,0.88],[1.38,1.27,1.5,1.1,1.41,1.33,0.43,0.38,0.59,1.19,0.77],[1.06,1.05,1.94,0.89,1.56,1.31,0.52,0.45,1.14,1.01,0.7],[1.01,1.55,1.33,0.83,1.9,1.38,0.38,0.59,0.67,1.29,0.76],[1.14,1.69,1.55,1.01,1.52,1.36,0.62,0.35,0.57,1.09,0.9],[1.3,1.28,2.32,0.92,1.76,1.42,0.74,0.61,1.18,1.1,1.04],[0.75,1.3,1.7,0.96,0.88,0.99,0.63,0.36,1.07,1.02,1.19],[1.04,1.22,2.27,1.29,1.47,1.24,0.55,0.49,1.18,1.1,1.16],[0.88,1.51,1.84,1.22,1.97,1.81,0.46,0.56,1.22,1.3,0.87],[1.42,1.42,1.22,0.81,1.35,1,0.5,0.16,0.81,0.64,1.07],[1.07,1.02,1.73,1.06,1.77,1.59,0.37,0.45,0.99,1.29,0.78],[1.18,1.23,1.56,1.14,2.06,1.59,0.48,0.46,1.19,1.3,1.15],[0.98,1.06,1.9,1.3,1.61,1.31,0.43,0.64,0.97,1.36,0.86],[1.17,1.28,1.6,0.79,1.7,1.05,0.49,0.39,1.28,0.98,0.74],[0.91,1.32,1.97,0.8,1.52,1.33,0.47,0.59,1.02,1.45,1.07],[1.15,1.49,1.58,0.91,1.47,1.3,0.54,0.47,1.04,0.79,0.75],[1.19,1.1,1.93,0.72,2.17,1.09,0.63,0.5,0.92,1.01,0.92],[1.27,1.13,1.48,0.74,1.86,0.98,0.51,0.45,1.09,0.92,1.02],[1.03,1.47,1.44,1.15,1.5,0.84,0.49,0.31,0.9,0.96,0.63],[1.45,1.6,2.49,1.26,1.4,1.3,0.8,0.41,1.05,1.37,1.36],[0.75,1.46,1.95,1.12,2.12,1.86,0.41,0.61,0.79,1.32,0.79],[1.42,1.26,1.85,1.06,1.55,1.66,0.44,0.55,0.83,1.35,0.7],[0.98,1.03,1.43,0.87,2.02,1.64,0.36,0.53,0.98,1.27,0.75],[1.08,1.3,2.01,1.17,1.88,1.21,0.52,0.42,1.08,1.02,1.07],[1.11,1.23,2.21,0.83,1.6,1.58,0.64,0.37,1.1,1.39,1.01],[1.59,1.3,2.23,0.86,1.31,0.95,0.72,0.41,0.81,1.01,1.04],[1.62,1.45,1.77,1.04,1.24,1.1,0.71,0.36,0.97,1.07,1.11],[1.26,1.17,1.45,0.88,1.58,0.99,0.52,0.52,0.69,1.25,0.95],[1.06,1.66,2.32,1.31,1.97,1.7,0.47,0.69,0.97,1.52,0.72],[1.35,1.05,1.94,1.09,2.29,1.79,0.51,0.68,1.22,1.44,1.02],[1.04,1.6,2.14,1.16,1.87,1.57,0.52,0.36,0.97,1.03,0.9],[1.23,1.23,2.04,0.91,1.2,1.66,0.63,0.47,1.08,0.77,0.96],[1.23,1.49,1.73,0.84,1.18,1.12,0.7,0.39,0.84,0.97,1.1],[1.16,1.05,1.67,0.97,1.39,1.3,0.49,0.43,0.97,0.71,0.74],[1.12,0.86,1.59,0.78,1.24,1.44,0.46,0.38,1.06,0.98,1.37],[0.82,1.25,1.99,1.13,1.48,1.88,0.56,0.49,0.55,0.87,0.96]],"pcor":[[1,-0.05,-0.2,0.09,-0.02,0,0.33,-0.09,0.03,0.05,-0.03],[-0.05,1,-0.19,0.3,-0.03,0.09,0.19,0,-0.02,-0.02,-0.06],[-0.2,-0.19,1,0.26,0.24,0.3,0.7,0.17,0.24,-0.12,-0.03],[0.09,0.3,0.26,1,-0.19,0,-0.31,0.23,0.02,0.06,0],[-0.02,-0.03,0.24,-0.19,1,0.01,-0.22,0.07,0.16,0.16,-0.03],[0,0.09,0.3,0,0.01,1,-0.41,0.23,-0.01,0.4,-0.02],[0.33,0.19,0.7,-0.31,-0.22,-0.41,1,0,-0.14,0.21,0.3],[-0.09,0,0.17,0.23,0.07,0.23,0,1,-0.04,0.13,0.06],[0.03,-0.02,0.24,0.02,0.16,-0.01,-0.14,-0.04,1,0.01,0],[0.05,-0.02,-0.12,0.06,0.16,0.4,0.21,0.13,0.01,1,0],[-0.03,-0.06,-0.03,0,-0.03,-0.02,0.3,0.06,0,0,1]],"cor":[[1,0.01,0,-0.08,-0.14,-0.2,0.33,-0.15,-0.06,0.01,0.13],[0.01,1,-0.07,0.28,-0.11,0.07,0.01,0.07,-0.06,0.04,-0.04],[0,-0.07,1,0.13,0.21,0.18,0.57,0.34,0.25,0.19,0.25],[-0.08,0.28,0.13,1,-0.03,0.29,-0.2,0.34,0.08,0.15,-0.1],[-0.14,-0.11,0.21,-0.03,1,0.26,-0.13,0.19,0.26,0.22,-0.09],[-0.2,0.07,0.18,0.29,0.26,1,-0.31,0.44,0.14,0.44,-0.16],[0.33,0.01,0.57,-0.2,-0.13,-0.31,1,0.01,-0.03,0.06,0.46],[-0.15,0.07,0.34,0.34,0.19,0.44,0.01,1,0.11,0.33,0.04],[-0.06,-0.06,0.25,0.08,0.26,0.14,-0.03,0.11,1,0.08,-0.02],[0.01,0.04,0.19,0.15,0.22,0.44,0.06,0.33,0.08,1,0.02],[0.13,-0.04,0.25,-0.1,-0.09,-0.16,0.46,0.04,-0.02,0.02,1]],"pairs":[{"a":"liver","b":"spleen","paper":0.42,"r":0.44,"pr":0.4,"xy":[0.66,1.76,0.29,1.09,-0.45,0.49,-0.97,-0.14,0.59,0.29,0.02,0.06,0.02,-0.48,-0.18,-0.34,0.03,-2.43,-0.5,-2.51,-0.41,-0.11,-0.3,-0.06,1.04,0.65,0.47,0.18,-1.51,0.16,-0.64,0.82,0.76,-0.38,0.44,-0.62,1.66,0.37,0.71,0.23,2.63,1.16,2.02,1.04,0.95,0.25,0.91,0.42,0.88,0.09,0.74,0.05,-0.52,0.66,-0.89,0.34,1.55,0.5,1.61,0.31,0.33,-0.65,1.1,-0.74,0.02,0.01,0.14,0.13,1.57,1.27,0.35,0.65,0.29,1.64,0.07,1.6,0.28,-0.33,0.47,-0.63,-0.44,-0.77,0.12,-0.47,0.74,1.68,0.38,1.21,-1.25,0.12,-0.44,0.49,-0.04,-0.19,0.8,0.32,-0.53,-0.68,-1.16,-0.71,0.57,-0.44,-0.32,-0.6,-0.44,-0.32,-0.01,-0.21,-0.2,1.4,0.42,1.44,-0.06,-0.46,0.47,0.1,0.72,-0.52,0.21,-0.43,-0.54,-0.02,-0.32,-0.15,-0.18,-0.79,-0.07,-0.36,-0.34,-2.52,-0.47,-1.73,0.39,-0.57,0.73,-0.32,-0.52,-0.11,-1.45,-0.48,-1.35,1.16,-0.41,1.4,-0.04,1.15,0.08,1.26,0.74,1.18,0.5,1.09,0.55,3.28,0.5,2.22,1.81,0.16,0.62,-0.67,1.22,0.62,0.91,0.54,1.16,1.03,0.37,0.74,0.7,0.57,-0.28,0.33,0.6,0.82,0.59,0.64,1.33,1.48,0.32,0.37,-0.53,-0.72,0.01,-0.6,0.68,0.62,1.34,1.2,-1.45,-2.28,-1.26,-2.33,-0.89,0.25,-1.07,-0.1,0.65,0.93,0.51,0.35,-0.11,0.19,-0.52,0.08,2.58,2.17,1.43,1.61,-0.44,-0.07,-0.3,0.14,1,0.16,0.47,0.22,-0.51,-0.07,-1.22,-0.58,-0.43,-1.1,-0.05,-0.77,-1.07,0.25,-1.73,0.05,-1.14,-0.52,-0.73,-0.23,2.68,1.01,0.8,0.14,0.53,0,0.86,0.07,-0.01,-0.34,0.35,0.09,0.32,0.08,0.36,0.12,-1.26,0.15,-1.18,0.23,-0.68,-0.54,-1,-0.72,0.3,0.7,0.63,0.86,-1.23,-1.22,-1,-1.38,-0.35,-0.85,-0.55,-1,-0.34,-1.38,-0.61,-1.37,-0.13,0.55,0.61,1.07,0.11,0.56,-0.16,0.39,-0.29,0.5,-0.05,0.52,-0.13,-0.28,-0.26,-0.34,-0.72,-1.02,-0.43,-0.56,0.49,0.64,0.15,0.42,-0.1,0.1,-0.52,-0.67,1.68,0.35,0.64,-0.4,1.29,0.1,0.59,0.15,-0.37,0.09,0.83,0.35,-0.2,-1.12,-0.03,-0.66,-1.54,-1.08,-1.17,-0.61,-0.55,-1.55,-0.34,-1.27,0.38,-0.39,-0.23,-0.19,-2.07,0.21,-1.39,0.54,-0.46,-0.31,0.08,-0.22,0.73,-0.62,-0.64,-1.16,0.27,0.43,0.9,0.49,-0.74,-0.33,-0.37,-0.01,-1.2,-0.87,-0.62,-0.72,1.02,0.34,0.46,0.46,-0.51,-0.36,-0.58,-0.65,3.53,2.21,2.51,1.66,0.32,-0.09,-0.04,0.2,0.68,0.93,0.59,0.76,-1.87,-1.49,-2.06,-1.77,-0.93,-0.87,-0.49,-0.53,0.47,0.26,0.97,0.66,1.99,2.09,0.64,1.46,-0.52,0.71,-0.71,0.82,-0.93,-0.33,0.56,0.54,-0.81,0.56,0.39,0.97,1.25,-0.16,0.1,-0.46,1.18,1.86,1.11,1.79,-1.02,-0.3,-0.17,0.37,-1.21,-0.78,-1.62,-0.9,-0.1,0,0.69,0.29,-0.63,0.3,-0.33,0.74,1.13,0.76,0.85,0.67,-0.48,0.77,-0.89,0.11,-0.26,-1.6,-0.41,-1.42,0.79,-0.44,-0.05,-0.64,-1.54,-0.08,-1.75,-0.81,-1.34,-3.05,-0.66,-3.07,-0.33,0.22,-1.22,-0.69,-0.62,0.23,-0.96,-0.09,-0.84,-0.14,-0.26,-0.05,-0.52,-0.6,0.72,-0.47,-1.64,-3.31,-0.71,-3.05,-0.24,-0.14,-0.97,-0.88,0.54,0.98,0.72,0.82,1.37,-0.11,0.97,-0.18,1.5,-0.22,0.16,-0.63,0.42,-0.7,1.03,-0.52,0.58,0.47,0.41,0.57,0.65,1.07,0.7,1.2,-0.98,0.3,-0.59,-0.34,-0.44,-0.16,0.55,0.17,-0.55,0.07,0.43,1.06,0.6,-0.18,-0.53,-0.84,1.24,0.99,0.3,0.84,-0.16,-0.03,0.3,0.11,1.43,0.09,0.99,0.1,0.67,-0.96,-0.06,-0.81,2.21,1.83,1.47,1.28,-0.2,1.37,-0.01,1.27,-0.06,-0.65,-0.29,-0.98,-0.75,-1,-0.9,-1.02,-0.93,-2.44,-0.76,-1.93,0.24,-0.79,0.57,-0.94,1.15,-0.84,1.6,-0.51,2.16,-0.87,1.11,-0.78,-0.91,-2.1,-0.89,-2.61,-1.06,-0.37,-0.2,0.1,-2.22,-0.8,-2.46,-1.2,-0.33,-0.8,-1,-1.34,-0.73,-0.89,-0.5,-1.05,1.29,-0.54,0.7,-0.53,-1.46,-0.77,-1.14,-0.9,-0.55,0.58,0.05,0.9,0.92,0.96,0.42,0.64,0.18,-0.83,0.18,-0.51,-0.5,-0.08,-0.22,-0.21,-0.16,1.13,0.07,1.56,-0.1,1.32,-1.1,0.83,-3.34,-0.82,-2.83,-0.79,0.78,1.32,-0.02,1.29,1.13,1.79,0.96,1.68,0.11,1.34,0,1.41,2.5,1.6,0.87,0.71,-1.05,0.11,-0.61,0.31,1.98,-1.36,1.49,-1.4,0.13,0.15,1.03,0.35,-0.37,0.13,-0.8,-0.43,-0.12,-1.19,0.94,-1.09,1.44,0.05,1.58,0.62,0.49,1.19,-0.12,1.4,0.09,-0.21,0.03,-0.3,0.97,1.45,0.86,1.25,-0.35,0.21,-0.03,0.18,-1.33,0.45,-1.52,-0.04,-0.07,-0.01,0.83,-0.16,-0.6,-0.22,0.04,-0.52,0.22,0.22,0.27,0.06,-1.45,0.1,-1.11,0.25,-0.77,0.22,-0.47,0.35,-0.43,-0.35,0.65,-0.01,-0.59,-0.94,0.08,-0.7,1.06,-0.97,0.13,-1.68,-1.19,-0.69,-0.81,-0.4,0.5,-0.9,1,-0.69,-0.35,-1.05,-0.85,-1.34,1.24,0.15,1.29,-0.19,-1.76,-0.35,-1.25,0.3,-0.49,-0.01,-0.19,-0.01,1.04,-0.24,-0.1,-0.98,-1.42,-0.56,-0.98,-0.12,0.31,-1.34,0.62,-0.69,0.52,1.65,0.66,1.9,0.45,1.03,-0.32,1.09,1.97,1.03,1.62,0.71,-0.98,0.4,-1.16,0.08,0.55,-0.86,0.06,-0.85,1.75,1.81,1.29,1.47,1.18,-0.64,0.68,-0.98,-0.14,0.38,-0.63,-0.25,-1.39,-0.18,-1.42,-0.04,0.64,-0.61,0.68,-0.59,1.29,1.45,0.7,1.3,-0.65,0.51,-0.36,0.17,-0.39,0.69,0.47,1.19,-1.09,-0.79,-0.77,-0.5,-1.27,-1.01,-1.87,-1.35,1.1,1.53,0.84,0.98,0.18,0.23,0.45,0.71,-0.68,-0.3,-0.83,-0.03,0.12,-0.36,0.33,-0.46,0.33,-1.32,0.66,-1.7,0.89,0.61,-0.41,0.29,0.16,-0.34,0.35,-0.09,0.3,1.02,0.8,0.95,-0.49,-0.7,-0.68,-0.83,-1,1.67,-0.96,1.35,0.24,-0.59,-0.37,-0.94,-1.11,-0.5,-0.68,-0.25,-0.98,-1.03,-0.26,-1.03,0.18,-0.11,0.58,0.17,-0.13,0.4,-0.76,-0.12,-1.03,1.13,-0.55,1.23,0.84,0.14,0.68,0,-2.03,-0.93,-0.67,-0.29,0.56,1.28,0.3,1.32,-0.55,-0.51,0.18,0.11,0.41,0.34,1.46,0.45,0.5,0.4,0.25,0.02,-1.44,-1.26,-1.25,-1.13,-1.23,0.29,-0.81,0.7,-0.44,-1.63,-0.76,-1.75,-0.49,-0.76,-0.1,-0.42,-0.43,-0.33,-1.02,-0.64,-1.2,0.21,-0.74,0.43,0.34,0.13,0.37,0.61,0.56,-0.37,-0.24,-1.05,0.24,0.27,0.29,0.19,-0.89,-0.41,-0.65,-0.44,0.44,1.44,-0.69,1.27,-0.26,-1.2,-0.26,-0.89,1.25,-1.04,0.84,-0.83,-0.42,0.11,-0.15,0.19,1.26,0.16,0.89,-0.02,2.35,-0.41,1.03,-1.13,-1.52,-2.4,-1.72,-2.72,1.22,0.02,1.15,-0.46,-0.26,-0.34,-0.12,-0.37,-0.85,-0.62,-0.9,-0.39,0.11,-1.08,-0.27,-1.32,0.42,0.16,0.91,0.21,0.04,-1.11,-0.68,-1.59,-0.21,-1.2,0.56,-0.27,-0.43,0.89,-1.36,0.65,-0.58,1.12,-0.19,1.52,-0.82,-0.22,-1.16,0.26,-1.4,-2.36,-0.91,-1.77,2.05,0.97,0.58,0.11,0.24,0.51,-0.21,0.1,-0.65,0.69,0.44,0.85,-0.5,0.61,0.15,0.72,-0.35,-0.52,0.01,-0.11,1.63,1.24,0.91,0.74,-0.3,-0.1,0.16,-0.51,-0.46,-0.44,0.35,-0.34,0.39,1.03,0.73,0.81,0.13,3.23,0.21,2.49,1.32,1.28,1.31,0.84,-0.24,0.05,-0.06,0.44,-2.01,-0.75,-1.08,-0.61,-0.9,0.05,-0.54,0.12,0.8,1.95,0.97,1.24,1.53,2.14,0.94,1.2,-0.66,-0.25,-0.83,0.09,1.54,1.74,1.55,1.68,0.55,0.79,-0.36,0.34,-0.77,-0.07,-0.68,-0.79,1.1,-0.3,1.12,-0.06,1.51,0.78,1.13,0.29,1.14,0.22,0.83,-0.06,-0.03,1.3,-0.03,1.12,1.4,0.46,0.79,0.54,1.16,0.19,-0.38,-0.49,1.79,0.62,0.86,0.14,-0.08,-0.06,1.48,0.61,0.77,-0.74,0.5,-1.05,0.23,0.41,-0.64,0.17,-0.49,0.11,-0.66,0,1.88,1.55,1.29,1.33,-1.43,-0.55,-0.88,-0.34,0.17,-0.54,0.18,-0.4,0.35,0.35,0.39,0.29,2.01,0.69,0.88,-0.06,-1.32,-0.79,-0.29,-0.44,-0.47,-0.05,-0.01,-0.38,-0.04,-0.67,-0.62,-0.65,0.84,1.77,0.53,2.15,1.16,0.06,1.02,-0.41,0.19,1.27,-0.68,0.11,0.83,0.94,1.48,0.84,0.15,-0.32,-0.61,-0.57,0.65,0.64,0.13,0.4,-0.43,-0.41,-0.65,-0.62,-0.84,-1.6,-0.78,-0.96,1.89,0.17,1.67,0.16,-1,-1.05,-1.08,-0.65,-0.76,0.54,-1.07,0.22,1.25,-0.01,0.07,-0.68,-1.1,-0.3,-0.48,-0.33,0.81,-0.21,0.76,-0.11,0.28,-0.07,0.87,-0.08,0.75,1.13,-0.04,0.91,0.18,-0.54,-0.34,-0.61,-0.15,-0.57,0.99,0.04,-1.17,-0.83,-0.69,-0.66,-2.51,-0.73,-1.99,-0.86,-1.05,0.28,-0.59,0.58,-1.41,-2,-0.7,-0.99,-1.71,-2.11,-1.68,-2.15,-1.19,0.4,-1.1,0.3,1.11,-0.96,0.54,-0.8,-0.26,0.52,-0.56,0.38,2.13,0.47,1.56,0.11,0.39,-1.13,-0.04,-1.56,1.32,-0.24,0.28,-0.62,-0.59,0.67,0.3,1.09,1.35,1.55,0.64,0.98,-0.82,0.51,-0.38,0.4,-0.61,-0.39,-0.55,-0.4,-0.16,-1.4,-0.64,-1.12,0.31,1.11,0.14,0.55,0.04,1.34,0.29,1.39,0.5,-0.47,0.02,-0.46,1.16,0.37,1.62,0.39,-1.01,-0.65,-0.38,-0.12,0.22,0.16,-0.15,0.6,0.45,-0.33,0.57,-0.66,-0.07,1.21,-0.05,0.9,-0.78,-1.1,-1.87,-1.13,1.07,-0.41,0.52,-0.25,0.41,0.49,0.62,0.29,0.31,1.36,0.31,1.21,0.11,0.64,0.17,0.88,-0.6,-1.85,0.02,-1.41,0.25,-1.57,0.45,-1.2,-1.3,-0.9,-1.15,-0.63,-0.16,0.95,-0.07,0.77,0.27,-0.83,0.3,-0.65,1.26,2.18,1.21,1.85,-0.03,1.2,-0.22,1.48,-0.3,0.61,0.27,0.38,0.12,-0.98,0.08,-0.74,1.13,-0.44,1.63,-0.21,0.04,-0.13,0.41,0.45,-0.27,-0.99,0.51,-0.54,-0.66,0.02,-1.04,-0.15,-0.55,0.5,-1.22,0.14,-0.68,0.63,-0.83,0.15,-0.05,-0.44,-0.53,-0.5,0.41,0.54,0.64,0.63,-0.03,-0.39,0.37,-0.62,1.19,2.17,1.23,2.23,-0.81,0.21,-0.88,0.2,0.46,0,-0.05,-0.57,0.06,-0.32,-0.11,0.18,-1.02,0.14,-0.33,0.72,0.97,0.68,0.9,0.92,-0.72,0.06,-0.57,0.05,1.92,1.1,1.04,0.85,0.55,-0.07,-0.6,-0.77,0.29,0.7,-0.11,0.1,-0.73,-0.61,0.39,0.04,-0.23,-0.16,0.11,0.3,1.2,-0.86,0.13,-0.85,-0.27,-0.86,0.72,-0.66,-0.93,0.65,-0.46,1.12,-1.07,0.73,-0.2,0.79,-0.86,-1.4,-1.02,-1.32,0.71,0.88,0.51,0.37,0.74,-0.61,0.77,-0.57,-0.47,0.68,-0.24,0.01,0.81,0.64,0.91,0.47,-1.36,-0.29,-0.2,0.26,1.19,1.03,0.84,1.02,1.96,-0.07,-0.03,-0.99,1.37,-1.34,0.8,-1.15,0.21,-0.4,0.64,0.05,-2.15,-2.88,-1.79,-2.27,0.24,-1.29,0.55,-1.12,-0.82,0.87,-0.2,0.64,-0.49,-3.34,-1.04,-3.27,0.07,1.08,0.66,1.47,2.24,2.02,0.97,1.51,-0.87,0.57,-0.73,0.54,1.74,-0.6,1.02,-0.95,-1.36,-1.87,-1.22,-2.03,0.16,0.21,-0.1,-0.21,-0.77,-0.29,-0.86,-0.31,-0.86,-1.85,-0.66,-1.72,0.75,-0.02,1.08,0.16,1.87,1.07,1.55,0.82,-1.6,0.61,-0.51,0.95,-1.96,-1.93,-1.34,-1.57,-1.49,-0.18,-0.82,0.35,-1.04,-1.03,0.39,-0.09,1.32,-0.96,0.79,-0.98,0.68,0.58,-0.22,0.03,-0.22,-0.24,-0.54,-0.22,0.44,0.34,-0.44,0.18,-0.54,0.16,-1.21,-0.62,-1.43,-1.11,-0.49,-0.35,1.23,0.12,0.67,-0.48,-1.78,-1.12,-1.59,-1.1,1.4,0.06,-0.17,-0.54,-0.35,0.22,-0.9,-0.06,1.43,1.36,0.97,1.46,0.04,-0.3,0.53,-0.08,0.01,1.67,0.73,1.51,-0.68,0.42,-0.61,0.02,1.15,-0.23,1.41,-0.1,-1.3,-1.02,-1.12,-0.76,-0.94,-1.17,-0.15,-0.14,-0.27,-0.23,-0.66,-0.27,-0.55,-0.41,-0.1,-0.38,0.19,-0.07,-0.18,-0.06,-1.87,-1.66,-1.39,-1.49,0.66,0.23,0.88,0.3,1.93,0.71,1.03,0.22,1.01,0.84,0.82,1.4,-1.13,0.05,-0.65,-0.03,1.71,0.04,0.78,0.03,-0.28,-0.48,0.08,-0.23,0.87,-0.41,1.06,0.1,-0.68,-0.73,-0.44,-1.01,-0.46,0.65,0.08,0.58,-1.53,-1.14,-0.22,-0.64,1.51,0.94,-0.19,0.48,-0.33,-0.47,-0.9,-0.53,-2.02,-1.46,-0.78,-1.02,-0.08,0.29,0.46,0.23,-0.75,0.96,-0.56,1.19,-0.7,0.68,-0.16,0.64,0.1,-1.24,-0.62,-1.43,1.05,1.37,0.98,0.91,0.19,1.53,0.78,1.38,0.63,0.09,0.61,0.06,0.36,2.26,0.02,2.47,-0.14,-0.49,-0.59,-0.48,1.64,-0.7,0.45,-1.5,1.38,-1.57,0.86,-1.41,0.36,0.88,0.52,0.76,1.23,1.15,0.66,1.24,0.46,1.22,0.02,0.68,0.22,-0.05,0.53,0.31,-1.58,0.04,-0.36,0.35,-0.67,0.22,0.32,0.52,-1.11,0.19,-1.42,-0.58,0.48,-0.37,-0.04,-0.46,0.16,1.01,0.53,0.93,0.12,-0.31,-0.44,-0.14,1.58,0.07,0.7,-0.03,1.24,0.13,0.83,0.08,0.27,-1.19,0.46,-0.72,0.18,0.84,0.71,1.36,-0.11,0.68,0.16,0.45,-0.48,-0.51,0.02,-0.77,-0.23,0.1,-0.73,0.31,0.21,-0.94,0.32,-1.3,-0.58,1.09,-1.3,0.87,1.07,2.08,0.82,2.17,-0.42,0.61,-0.45,0.41,-0.07,0.06,-0.07,-0.34,-0.51,0.37,-0.65,0.45,0.14,-1.48,-0.41,-1.68,1.45,0.45,0.91,0.16,0.54,-1.32,0.28,-1.34,0.28,1.52,-0.33,1.09,0.97,0.96,0.87,0.94,-0.64,-2.05,-0.51,-2.38,0.88,1.78,1.29,1.95,0.11,-0.42,0.14,-0.62,-0.36,-0.07,-0.29,0.39,-0.84,0.21,-0.62,0.49,-1.21,0.62,-0.39,0.9,1.22,0.53,0.32,0.08,1.03,1.51,0.23,0.91,-1.53,-1.12,-1.08,-1.61,-0.04,0.2,0.27,0.13,1.15,1.01,1.41,1.13,-0.57,-0.53,-0.5,-0.9,-0.04,-0.28,-0.05,-0.48,-0.81,-0.41,-0.75,-0.17,1.32,-0.5,0.3,-1.12,1.22,0.56,0.11,-0.46,0.94,-1.52,0.57,-1.48,0.38,-0.36,-0.02,-0.13,1.25,1.06,1.62,1.13,0.53,-0.14,0.67,0.23,1.39,1.43,1.2,1.01,1.44,2.37,1.16,1.51,0.71,0.86,0.82,0.57,0.91,0.09,-0.08,0.05,-2.01,-0.86,-2,-1.06,-2.03,-1.86,-0.79,-0.81,0.3,1.53,0.31,1.42,-0.13,0.2,-0.03,0.4,-1.47,1.26,-0.72,1.6,-0.89,-1.58,-0.48,-1.27,0.8,1.46,0.32,0.78,-1.49,-0.09,-1.68,-0.07,1.19,1.22,1.48,1.22,-0.05,2.05,0.2,2.09,-0.26,-1.46,0.42,-1.25,0.4,-0.67,0.56,-0.49,-0.28,0.06,0.3,0.13,-0.43,-0.37,-0.16,-0.2,-0.74,0.63,0.02,0.93,-1.89,-0.97,-1.53,-1.13,1.41,0.64,0.46,0.69,-1.46,-1.7,-0.99,-1.43,1.35,0.86,0.12,0.05,0.36,1.51,-0.71,1.01,-0.26,-0.1,0.16,0.02,0.03,-0.95,-0.07,-0.88,1.54,1.04,1.29,0.85,0.27,1.53,0.45,1.03,-1.97,1.33,-0.36,1.74,-0.33,-0.06,-0.86,-0.82,-1.25,0.61,-0.74,0.36,2,1.38,1.38,1.32,-0.01,-0.58,-0.23,-0.43,-0.81,-0.1,-0.89,-0.5,0.86,0.7,0.54,0.24,1.07,-0.07,1.11,-0.18,-2.75,-1.68,-1.4,-1.35,0.02,0.29,-0.31,0.2,1.35,0.48,1.07,0.41,-1.56,-0.21,-1.72,-0.2,0.02,1.15,0.15,0.85,-0.3,-0.11,-0.85,-0.62,-0.02,0.16,-0.66,0.23,0.51,1.38,-0.25,1.27,0.28,0.49,0.36,0.42,1.16,-0.49,0.36,-0.73,-1.36,-0.44,-0.95,-0.24,0.18,-0.53,-0.35,-0.67,-0.47,-0.59,-0.17,-0.28,-1.02,-0.67,-1.77,-0.88,-1.72,0.37,-0.99,1,-0.87,-1.36,-0.3,-0.96,-0.79,-1.13,-0.53,-1.63,0.94,0.96,0.76,0.81,1.46,0.22,0.61,0.04,0.82,-0.58,0.97,0.29,-0.94,-0.78,-0.53,-0.53,0.97,-0.28,0.14,-0.83,-0.14,-0.99,-0.78,-1.24,-0.9,-1.07,-0.62,-0.67,0.99,0.75,0.42,0.23,0.67,1.7,0.78,1.62,1.42,0.81,0.44,0.5,-1.24,-1.04,-1.09,-1.17,0.56,0.64,-0.19,0.54,-0.38,-0.26,0.01,-0.38,0.36,-0.04,-0.07,-0.24,1.22,1.92,0.65,1.67,0.14,1.8,-0.18,1.56,-0.11,0.72,-0.2,0.88,-0.1,1.03,-0.13,0.96,0.22,1.81,-0.12,1.75,1.22,-2.27,0.67,-1.9,-1.1,0.37,-0.94,0.07,-0.81,0.89,-0.84,0.62,0.6,-0.94,0.34,-1.16,1.49,0.82,1.31,0.91,2.73,1.63,1.63,1.68,0.05,-1.35,-0.7,-1.5,1.17,-0.22,0.76,0.16,-1.27,-0.4,-0.78,-0.09,-0.33,-0.34,-0.87,-0.7,-1.14,0.25,-1.73,-0.66,1.36,1.66,0.2,1.35,0.58,2,1.33,1.78,0.43,0.68,0.86,0.79,-0.94,-0.17,-1.02,-0.15,0.02,-0.25,-0.2,-0.31,0.6,-2.08,0.35,-2.02,0.11,-0.65,0.85,-0.18,-0.25,-0.79,-0.79,-1.18,-0.53,-0.04,-1.15,-0.1,1.58,0.29,1.02,0.26,-0.35,1.73,-0.03,1.45,2.06,0.62,1.61,0.15,-0.41,-1.28,-0.19,-1.32,-0.06,-0.53,-0.77,-0.7,-0.61,-0.85,-0.48,-0.61,-0.93,-1.24,-0.23,-0.94,1.69,1.78,0.72,1.53,0.66,0.81,0.81,0.55,-1.58,-1.93,-0.67,-1.54,0.72,-0.33,-0.52,-0.63,-2.13,-0.55,-2.16,-0.32,-1.3,-0.44,-1.22,-0.6,0.67,0.09,0.24,0.25,-0.23,-0.37,-0.54,-0.9,-0.36,-1.09,-0.43,-0.94,1.27,1.01,1.12,0.6,-1.4,0.3,-0.74,0.19,-0.83,0.63,-0.37,0.73,-0.65,-1.94,-0.71,-2.03,-0.99,-0.15,-0.93,-0.1,1.51,-0.16,0.37,-0.33,-1.3,0.61,-0.04,1.1,-0.42,0.32,0.59,0.41,0.04,0.13,0.1,0.08,0.18,-0.79,-0.06,-0.81,0.53,-0.34,-0.17,-0.87,0.98,1.11,0.06,0.64,2.32,2.08,0.49,1.22,0.21,-0.99,1.38,0.17,3.55,1.85,1.67,0.89,1.43,0.84,0.05,0.4,0.98,0.64,1.52,0.53,0.05,-0.64,0.26,-0.86,-0.62,0.09,-0.52,0.29,0.25,0.81,0.13,1,0.71,0.13,1.11,0.56,0.01,0.22,-0.46,-0.06,0.94,0.95,0.57,0.71,-0.08,0.45,-0.1,0.85,-0.15,-0.46,-0.29,-0.25,0.14,0.95,-0.82,0.61,0.06,-0.07,1,0.25,0.3,0.01,0.25,-0.7,-1.47,-0.43,-0.27,0.44,-0.43,-0.01,-0.98,-0.06,1.89,1.02,0.91,0.53,-1.45,-2.3,0.08,-1.13,0.99,0.95,0.22,1.07,0.97,1.01,0.82,0.75,-0.16,1.34,-1.43,0.84,-1.22,-0.62,-1.05,-0.31,-0.09,1.79,-1.06,1.69,-0.2,-1.57,-0.06,-1.47,-1.06,-0.46,-0.9,-0.85,-1.54,-0.91,-1.26,-0.87,-2.1,-0.71,-1.55,-0.18,-0.19,1.34,0.52,1.24,2.1,1.11,0.5,0.53,1.27,1.28,0.29,1.07,1.18,0.85,0.39,0.7,-0.57,-0.38,-0.89,-0.44,0.93,1.49,1.37,1.8,-1.66,-0.43,-0.99,-0.25,-1.03,-0.14,0.23,0.14,-1.49,0.76,-1.37,0.69,1.43,2.14,-0.63,1.14,1.81,1.74,0.65,0.63,0.89,-0.33,0.5,-0.22,1.26,-1.66,1.54,-1.44,-0.94,-0.64,0.29,-0.24,-0.22,-1.98,-0.1,-1.65,0.35,-0.61,0.75,0.12,2.19,-1.14,1.98,-1.09]},{"a":"heart","b":"lungs","paper":0.73,"r":0.57,"pr":0.7,"xy":[1.35,0.79,0.36,0.29,0.3,0,-0.1,0.09,-0.66,-0.94,-0.89,-0.13,-1.56,-1.51,-1.38,-1.18,0.84,-0.72,1.09,1.13,0.68,0.56,0.35,0.08,1.56,0.54,1.22,1.09,-1.14,-0.34,-0.8,-0.4,1.92,0.86,1.64,0.95,0.47,-1,-0.15,-0.68,-1.5,-1.5,-0.79,-0.1,0.03,-0.37,-0.23,-0.08,-1.13,-0.65,-0.86,-0.09,0.69,-0.01,0.46,-0.28,-1.03,-0.63,-1.57,-0.2,-0.27,1.22,-0.48,1.08,1,0.55,1.33,0.64,0.55,-1.02,-0.36,-0.43,0.61,0.11,0.87,0.33,-0.11,0.7,-0.25,1.07,-0.04,0.39,0.32,0.88,0.68,0.2,0.04,0.26,-2.02,-0.08,-1.16,-0.34,-1.01,0.03,-0.61,0.23,-0.04,-1.11,-0.18,-0.89,0.29,-1.28,0.25,-0.48,2.43,1.81,2.65,2.19,0.45,1.32,0.24,0.41,-0.78,-0.47,0.19,0.05,0.54,-0.61,0.58,0.46,0.01,0.47,-0.09,0.43,-0.21,-1.05,-0.28,-1.11,-0.38,-1.76,0.43,-0.45,-2.12,-1.09,-1.43,-0.76,-0.03,-0.59,0.13,-0.33,-0.82,0.54,-0.41,0.31,-1.13,-0.8,-0.97,-0.81,0.81,0.32,0.81,0.2,1.97,2.06,0.21,0.33,0.31,-0.55,-0.49,0.17,0.73,0.25,0.72,1.08,-0.15,-0.8,-1,-0.81,0.46,-1.19,-0.2,-0.4,-0.46,0.22,-0.52,0.15,0.96,0.41,-0.23,0.37,-0.43,0.14,-0.06,0.35,-1.98,-1.4,-1.04,-0.54,-0.07,0.52,0.16,0.21,0.38,0.46,0.36,0.13,1.37,1.36,0.86,0.97,-0.38,-0.83,-0.47,-0.48,-0.72,-1.52,-1.25,-0.52,0.9,0.81,1.46,1,-1.38,-1.75,-2.19,-1.45,-0.93,-1.29,-1.25,-1.2,-1.65,-0.51,-0.84,-0.33,-0.16,-0.98,-0.31,-0.72,0.93,0.62,0.77,-0.32,0.05,-1.5,-1.11,-1.02,0.53,0.43,0.37,0.59,-0.8,-0.67,-0.69,-0.66,0.42,0.31,0.36,0.13,-1.51,-1.3,-1.48,-1.12,-0.38,-0.35,-0.13,-0.33,1.24,0.85,1.11,1.06,0.5,0.76,0.06,0.51,0.88,0.52,0.95,0.75,0.69,0.15,1.3,0.55,-0.01,0.2,0.47,0.8,0.13,0.19,0.52,0.11,0.06,0.32,0.32,0.01,-0.21,-0.26,-0.36,-0.27,-1.19,-1.16,-0.55,-0.43,1.58,0.88,1.21,0.33,2.61,1.72,2.54,1.79,1.29,0.4,1.34,1.34,0.67,-1.1,0.66,-0.62,1.3,2.35,1.53,1.87,-1.09,-0.68,-0.2,-0.13,0.51,0,0.83,0.22,-2.55,-1.75,-2.08,-1.09,0.18,-1.1,-0.19,-0.96,1.1,1.26,1.49,0.36,-1.4,-0.45,-1.23,-0.22,1.33,-0.35,1,0.17,0.44,0.85,0.59,1.29,0.49,0.41,0.59,0.04,-0.22,0.67,-0.21,-0.18,-0.44,-1.23,-0.76,-0.75,-0.28,-0.01,-0.45,-0.23,0.22,-0.85,-0.35,0.52,-0.35,-1.47,-0.18,-0.54,0.56,0.5,-0.28,-0.37,2.12,1.16,1.48,0.73,-0.01,0.5,0.16,-0.15,-0.61,0.02,-0.75,-0.45,0.53,-0.79,-0.16,-0.16,-0.16,-0.3,-0.14,-0.09,-1.49,0.2,-0.73,0.36,1.55,2.13,1.82,1.8,-0.06,-1.65,-0.78,-1.02,0.04,-0.04,0.23,0.18,-2.11,-0.97,-1.11,-0.8,0.14,-0.47,-0.22,-0.52,-1.23,0.41,-0.77,-0.25,-0.29,-0.46,0.23,0.11,-0.63,-0.7,-0.5,-0.52,0.19,0.66,-0.69,-0.26,-0.46,-0.84,-0.2,-0.78,-0.05,-0.87,-0.12,-0.89,-0.06,0.67,-0.45,-0.14,0.11,1.15,0.19,0.78,2.27,0.51,1.07,0.39,0.48,0.21,0.27,-0.18,-0.62,0.1,-0.51,0.06,0.76,2.41,0.94,2.3,-0.92,0.62,-0.47,0.38,1.96,1.47,1.25,0.95,-0.94,0,-0.92,-0.48,1.04,0.15,0.18,0.02,1.77,-0.42,2,0.67,-0.72,0.47,-0.58,0.77,-0.33,-0.3,0.24,-0.08,-0.62,-0.69,-0.45,-0.18,-0.01,1.68,-0.76,0.33,0.08,1.14,-0.05,0.42,-0.69,0.18,0.31,0.26,1.15,-0.12,0.72,0.27,0.81,-0.81,1.31,0.27,-0.34,0.32,-0.24,0.2,-0.9,-1.22,-0.51,-0.71,0.22,-1.56,0.19,-0.88,0.14,0.06,-0.58,-0.01,1.72,1.49,1.58,1.1,1.25,1.07,1.1,0.81,0.47,-0.16,0.23,-0.15,1.59,0.24,1.89,0.3,-0.82,0.46,-0.75,0.34,-1.09,-0.29,-0.95,-0.32,0.04,-1.88,0.2,-0.8,0.32,0.76,-0.26,0.31,-1.4,-0.13,-0.83,-0.24,1.31,1.08,0.72,-0.04,-0.18,-0.21,-0.75,-0.24,-0.41,0.57,-0.54,0.68,0.72,-0.65,0.32,-0.11,0.32,0.76,0.98,1.2,0.97,1.13,1.33,0.41,0.12,-0.17,-0.2,-0.07,-0.61,-0.66,-0.24,-0.04,1.02,1.19,0.94,0.68,-0.32,-0.59,-0.11,-0.82,0.82,-0.07,0.32,-0.37,-2.02,-0.65,-1.81,-1.9,-0.11,-1.45,0.17,0.04,0.43,0.01,-0.01,-0.31,-0.3,-0.55,-0.7,-1.36,-0.09,-1.9,-0.81,-0.79,-1.06,0,-0.44,-0.08,0.33,-0.82,-0.11,0.05,-0.09,1.34,0.31,0.96,-0.17,-0.19,-0.55,-0.13,0.27,1.65,0.33,1.44,-1.59,-1.56,-1.22,-0.38,-0.68,-1.84,-0.55,-1.41,1.15,0.63,0.95,0.56,-0.85,-0.78,-1.73,-1.27,1.55,1.43,1.55,1.19,1.05,0.75,-0.03,-1.02,1.21,2.55,1.05,1.99,0.08,1.5,-0.49,0.58,0.69,0.93,0.28,0.91,-1.2,-0.27,-1.1,-0.97,0.27,0.29,0.41,0.38,-1.24,0.8,-0.68,0.23,0.71,1.26,1.02,0.97,1.63,0.53,0.5,0.09,0.32,0.17,0.07,-0.84,-0.41,0.05,-0.42,0.12,0.9,0.07,0.74,0.69,1.47,1.56,0.92,1.06,-1.17,-0.82,-1.08,-1.36,-0.26,0.34,-0.72,-0.24,1.07,-0.08,0.36,0.56,-1.19,-0.58,-0.65,-1.34,-1.06,-0.84,-0.2,-0.46,1.07,0.23,0.63,-0.67,-0.03,-1.57,0.55,0.13,0.92,0.56,0.1,0.77,0.95,0.63,0.26,0.1,-0.63,-1.02,-0.22,-0.45,0.64,-0.01,0.18,0.33,0.85,0.19,0.51,0.58,1.28,0.85,0.52,0.41,-0.68,-0.43,-0.49,-1.34,0.42,0.36,0.14,0.02,-0.4,-0.93,-0.25,-0.3,0.97,1.63,0.66,0.89,-0.87,0.26,-0.27,-0.23,0.13,-0.06,0.95,0.59,0.22,-0.3,-0.24,-0.47,0.59,0.85,0.09,0.45,-0.59,-0.59,-0.58,-0.5,-0.65,-0.91,-0.4,-0.89,1.55,1.44,1.14,0.41,-0.34,0.65,-1.04,0.54,1.62,-0.75,0.83,-0.37,-0.55,-0.66,-0.23,-0.28,-1.55,-0.09,-1.85,-0.39,-0.09,-0.11,0.26,0.57,-0.77,-0.35,-1.59,-0.97,1.19,0.4,1.05,0.79,-0.64,-0.01,-0.42,-0.31,0.58,1.39,1.05,1.32,0.51,0.57,0.7,0.63,1.67,0.97,1.46,1.06,-1.04,-0.04,-0.45,0.2,0.16,-0.26,-0.75,-0.59,-1.48,0.63,-0.9,-0.77,0.2,-0.15,-0.26,-0.64,0.06,0.3,-0.05,0.32,-1.33,0.52,-1.22,0.71,0.07,0.1,-0.68,-0.1,0.97,0.42,0.83,-0.12,-1.24,-0.99,-1.19,-1.28,0.51,0.07,0.73,0.64,-0.45,0.01,0.6,0.67,0.65,-0.11,0.32,-0.33,0.97,1.16,1.47,1.01,-1.17,-1.02,-0.38,-0.67,0.66,0.3,-0.38,-0.39,0.85,0.49,0.69,0.67,-0.3,-0.2,-0.16,-0.29,1.19,-0.9,0.81,-0.95,-1,-1.04,-0.51,-0.42,-1.95,-2.14,-1.73,-1.44,0.2,0.4,0.79,0.99,-0.95,-0.66,-1.13,-0.68,0.83,-0.69,0.2,0.29,-0.19,0.2,-0.31,-0.72,1.05,1.37,0.39,0.94,0.81,0.86,0.7,1.08,-0.31,-0.79,-0.28,-0.42,-0.84,-0.9,-0.64,-0.54,2.38,1.87,2.04,1.59,0.73,0.1,0.1,-0.38,-0.69,-0.33,-0.02,0.28,-0.02,-1.18,-0.26,-1.09,1.04,0.69,1.17,0.31,0.68,-1.04,1.14,-0.6,-0.09,-0.19,-0.05,-0.44,1.47,-0.65,0.06,-0.55,1.15,0.74,0.56,0.62,-0.95,0.67,-0.38,0.33,-0.45,0.66,0.14,0.28,-1.26,-0.79,-0.64,-0.21,1.03,0.24,0.02,0.24,-1.44,0.38,-2.1,-0.22,0.4,1.37,0.45,1.47,0.16,1.09,-0.03,0.54,0.85,1.5,0.1,0.39,1.06,1.31,0.64,0.91,-0.64,-0.49,-0.42,-0.65,-1.33,0.66,-1.04,0.08,0.05,0.73,-0.2,-0.16,1.07,1.99,0.23,0.85,0.54,0.84,-0.66,0.11,0.01,-0.41,0.73,0.01,-1.27,-0.72,-1.48,-0.56,0.12,-0.8,-0.6,-0.22,2.38,2.52,1.36,2.1,0.99,0.26,1.17,1.05,1.38,1.15,1.57,1.6,-1.31,-0.91,-1.54,-0.8,1.54,1.16,1.4,0.9,-0.22,-1.43,0.27,0.05,0.05,-1.48,-0.39,-0.65,0.29,-0.78,-0.68,-0.65,-2.93,-0.36,-1.93,-0.57,-0.07,0.23,-0.25,-0.07,0.91,-0.55,0.72,-0.57,0.36,-0.14,0.49,-0.05,-0.79,-1.03,-1.28,-0.65,-0.24,0.25,-0.47,-0.26,-1.28,-1.18,-0.86,-0.38,0.79,0.68,0.52,0.8,0.75,-0.56,-0.25,-0.16,0.76,1.36,1,0.93,0.09,1.01,-0.47,0.74,0.77,-0.62,0.6,-0.72,-1.22,-1.98,-0.94,-1.65,0.11,0.24,-1.04,-0.24,0.1,0.04,-0.41,0.37,-0.01,1.07,-0.19,0.94,0.67,0.17,0.38,0.15,1.57,0.43,0.88,0.18,1.96,0.7,2.2,1.56,-0.24,-0.6,0.58,0.26,-0.39,0.09,-0.24,0.78,-0.59,-1.16,0.27,-0.73,-0.97,-0.52,-1.31,-1.36,1.42,-0.44,0.54,0.03,-0.01,1.11,0.3,1.03,-0.68,-0.37,-0.62,0.05,0.63,1.23,0.57,1.57,-0.51,-0.76,-0.51,-0.63,-0.6,-0.84,-0.68,-0.53,0.12,0.74,0.4,0.68,0.34,0.58,-0.04,0.09,0.76,1.11,0.86,0.23,0.1,0.39,0.45,0.29,-1.34,-0.95,-0.39,-1.1,1.41,0.81,0.83,-0.01,1.6,1.23,0.87,0.09,0.85,-0.58,0.75,0.14,0.88,0.26,0.72,0.24,0.53,-0.27,0.36,0.61,0.36,-0.22,0.02,0.4,0.96,-0.51,0.2,-0.16,-1.53,-0.16,-0.68,0.04,-0.66,-0.73,-1.42,-0.73,0.47,1.36,0.62,0.75,0.28,0.19,0.24,0.1,-0.57,-1.76,0.04,-0.33,0.14,0.47,-0.5,0.45,0.4,0.23,-0.01,-0.24,0.84,-0.18,0.7,-0.04,1,1.37,0.85,1.49,-0.9,-0.58,-0.76,-1.05,-2.07,-2.55,-1.68,-1.78,0.92,1.23,0.86,1.29,1.79,1.43,0.7,0.82,-1.34,-2.38,-1.08,-1.62,-0.22,-1.43,-0.02,-0.43,-0.48,0.15,-1.38,-0.54,0.43,0.36,0.53,0.67,-0.6,-0.67,-0.87,-1.09,-0.02,0.3,0.46,0.5,0.58,0.18,1.45,0.73,-1.06,-0.98,-0.99,-1.35,-0.43,0.19,-0.95,-0.15,0.06,-0.31,0.21,-0.07,0.81,1.03,0.56,0.8,0.74,-0.23,0.69,-0.48,0.66,1.4,0.62,1.23,-0.91,-0.67,-0.29,0.03,0.41,0.44,0.39,1.02,-1.08,-0.92,-0.46,-1.04,-0.98,0.2,-0.06,0.36,0.94,0.5,0.78,-0.46,0.3,-0.08,0.18,-0.04,-1.03,0.07,-0.9,-0.02,-0.68,-0.92,-0.77,-1.04,0.74,0.61,0.58,0.59,0.42,1.52,0.02,0.6,0.17,0.08,-0.03,0.15,-0.04,-0.13,-0.1,-0.55,0.11,0.01,-0.95,-0.72,-0.2,-1.44,0.82,-0.34,-1.19,-1.02,-0.61,-0.86,0.03,-0.65,0,-0.71,-2.15,-0.84,-1.75,-0.74,1.08,-0.03,0.7,0.24,1.89,0.05,0.68,0.3,0.83,0.8,0.3,0.46,-0.87,0.45,0.24,0.85,-0.59,-0.44,-0.09,0.39,2.03,-0.7,1.95,-0.18,-0.39,1.01,-0.17,1.19,-0.42,-0.35,-0.14,-0.14,0.99,2,1.06,1.45,-1.08,-1,-0.73,-1.29,0.36,0.6,0.31,0.94,-0.57,-0.52,-1.17,-0.87,0,1.59,-0.52,0.69,0,0.46,0.04,0.68,-0.86,0.75,-0.24,-0.27,0.01,-0.23,0.27,0.2,-0.09,-1.98,-0.54,-0.58,-1.02,-1.73,-1.13,-0.98,-0.31,-0.01,0.39,0.25,-1.12,-1.16,-0.32,-0.87,-0.65,0,-0.05,0.7,-0.26,1.13,-0.8,0.27,-2.37,-2.44,-2.02,-1.22,-1.71,-0.48,-1.3,-0.24,0.04,-1.26,-0.55,-0.66,0.84,0.64,0.46,-0.12,0.41,-0.56,0.05,0.73,-0.86,-0.12,-0.85,0,2.57,1.76,2.39,1.95,-1.12,-0.94,-1.54,-1.26,-1.25,-0.48,-0.91,-0.86,1.85,1.49,1.4,0.96,-1.2,-0.83,-1.2,-0.36,-1.24,0.63,-1.28,-0.61,-1.45,-0.46,-1.28,-0.41,-2.13,-0.97,-1.88,-1.66,0.72,1.54,0.97,0.83,-1.08,-1.38,-1.37,-0.9,1.35,-0.26,0.46,-0.32,-1.42,-1.51,-1.43,-0.98,-0.9,-1.35,-0.88,-0.94,2.27,1.42,1.12,0.54,0.37,0.59,0.46,-0.13,0.2,-0.11,-0.69,-0.31,-0.73,0.27,-0.15,0.48,1.12,-1.2,0.59,-0.33,-1.57,-1.22,-1.89,-1.36,-0.07,-0.72,-0.22,-1.03,-0.23,0.43,-0.29,-0.14,0.34,1.39,0.14,0.65,1.4,1.64,0.74,0.96,1.02,0.95,1.06,1.25,0.28,0.2,0.55,0.1,-1.79,-1.38,-1.03,-1.27,0.34,-0.17,0.19,-0.36,-0.6,0.33,-1.01,-0.14,0.7,-0.29,0.55,-0.42,-0.32,0.4,-0.34,-0.7,-1.24,-0.82,-0.85,-0.31,1.08,0.04,0.56,0.35,-0.35,-1.5,-0.29,-1.17,-0.64,0.52,-0.28,0.21,-1.19,-2.44,-1.06,-0.87,-1.57,-0.08,-1.87,-1.84,0.32,-0.54,0.82,0.72,-0.31,0.44,-0.93,-0.3,1.09,1.39,0.67,0.67,-0.52,1.09,-0.27,0.03,-0.17,-2.35,-0.45,-1.8,-0.6,-1.3,-0.76,-1.49,-0.25,0.95,-0.25,-0.01,0.49,1.06,0.38,0.84,-0.88,-0.41,-0.89,-0.92,-0.24,0.77,-0.02,0.53,-0.7,-1.51,-0.77,-0.17,0.08,0.36,-0.44,0.96,0.72,1.63,0.35,0.67,0.02,0.04,0.34,0.91,-2.16,-2.42,-1.87,-1.36,-0.8,-1.5,-1.12,-1.82,2.78,0.85,1.99,1.29,0.74,-0.72,0.28,-0.61,1.33,1.16,0.59,-0.11,0.71,-0.44,0.83,0.24,0.57,0.13,-0.12,-0.55,-1.59,-0.92,-0.9,-0.58,-0.03,1.24,0.43,1.14,0.19,1.19,0.18,0.15,0.19,0.5,-0.77,-0.12,1.14,0.12,0.66,0.09,1.23,1.58,1.03,1.18,-1.28,-1.82,-0.8,-1.11,-0.01,-1.32,-0.54,-1.14,0.94,0.11,0.95,0.39,-2.93,-2.36,-2.57,-1.63,-0.25,0.42,0.13,-0.27,0.59,1.2,0.37,0.75,-0.03,1.19,-0.55,0.46,0.46,-0.84,0.93,-0.31,1.32,1.24,0.67,1.15,1.99,0.33,1.43,-0.3,-0.06,-0.17,-0.13,-0.68,0.19,0.69,-0.38,-0.21,0.42,0.8,0.12,0.65,0.84,0.2,0.66,-0.23,-0.03,-0.69,0.05,-0.45,1.56,0.58,0.78,0.38,-0.43,-0.76,-0.17,0.05,0.84,-0.07,0.54,0.42,-0.23,-0.47,0,-0.3,0.78,1.13,0.59,0.81,-0.64,0.22,-0.33,0.33,0.65,0.71,0.31,0.48,-1.12,-0.99,-1.16,-1.58,0.17,0.34,0.18,0.3,1.72,2.43,1.69,1.3,2.62,0.52,1.7,0.7,0.96,0.17,0.73,0.43,0.05,1.31,-0.05,1.2,0.71,0.76,0.26,1.04,-0.02,0.12,0.26,0.93,0.92,0.89,0.9,0.68,-0.69,-0.27,-0.93,-0.11,-0.57,-0.48,-0.15,-0.58,0.72,-0.69,0.13,-0.34,1.2,0.47,0.06,0.6,-0.82,-0.79,-0.19,0.11,-1.44,-1.87,-0.73,-0.61,0.4,0.58,0.09,0.32,-0.57,-0.73,-0.49,-0.27,-0.04,0.11,-0.14,0.2,0.86,0.99,0.02,0.82,0.75,0.66,0.05,0.55,1.16,-1.01,1.31,-0.04,0.11,0.62,0.04,0.18,-2.02,-0.67,-1.22,-0.88,0.6,0.81,0.62,0.23,-0.18,-0.14,-0.33,-0.8,0.24,1.1,0.71,0.23,-1.28,-0.79,-1.5,-0.64,0.57,0.72,0.23,0.19,2.15,0.84,2.06,0.88,-1.84,-0.88,-1.77,-1,-1.54,-0.62,-1.08,-1.14,0.13,0.76,0.39,0.51,0.54,0.55,0.88,0.66,0.77,1.33,0.41,0.32,-0.72,0.08,-0.36,-0.12,-0.65,0.37,-0.2,0.28,-0.48,0.55,-0.04,0.11,-0.64,-1.84,-1,-1.4,0.2,0.35,0.36,0.04,3.09,1.24,1.85,0.87,1.19,-0.41,0.53,-0.72,0.02,0.45,-0.14,0.41,-0.77,-0.51,-0.6,-0.6,1.27,0.7,0.73,0.84,0.88,1.46,0.41,0.93,-0.33,1.57,-0.29,0.24,1.5,1.32,0.89,0.86,1.03,1.88,0.39,0.36,-0.3,-1.22,0.08,0.01,0.04,-0.51,0.21,-0.67,0.31,0.2,-0.25,0.02,1.19,0.71,0.46,0.65,-0.74,-0.16,-1.06,-0.61,-0.48,1.21,-0.4,0.24,-0.53,-0.54,-1.06,-1.18,1.66,1.05,1.77,1.58,-1.47,-1.09,-1.27,-1.19,0.61,1.17,0.15,0.03,0.01,-0.17,-0.47,-0.28,0.52,-0.91,0.46,-0.83,0.62,-0.61,0.79,0.26,1.16,0.88,0.74,0.51,0.92,-0.56,0.48,0.42,-0.85,-0.37,-0.86,-1.17,1.55,0.28,1.08,0.28,0.76,0.3,0.99,0.32,0.55,-0.65,0.48,-0.55,-0.09,0.21,0.47,0.22,-0.74,-0.16,-0.93,-0.46,-1.58,-0.12,-2.11,-0.65,-0.07,-0.26,-0.89,-0.25,0.8,-0.64,0.7,-0.02,-0.43,-1.54,0.32,0.06,0.56,0.54,0.42,-0.59,2.11,0.65,1.13,0.63,0.03,-0.63,-0.16,-0.16,0.48,0.56,1.07,1.14,0.94,-0.11,-0.02,0.71,-0.52,-0.41,-1.19,-0.66,-0.56,-1.72,-0.74,-0.65,1.33,1.04,1.35,1.2,0.68,-0.85,0.65,-0.05,0.95,1.22,0.67,0.56,-0.56,-0.99,-1.41,-1.73,1.45,0.13,0.81,0.58,-0.32,-0.07,-0.11,0.08,-1.5,-1.24,-1.27,-1.17,0.8,0.52,0.44,-0.27,0.91,-0.32,0.82,-0.45,-0.88,-2.03,-0.37,-0.7,-1.81,-0.58,-2.28,-1.4,0.69,0.86,0.21,-0.18,0.29,0.01,0.44,0.39,-0.1,-0.63,0.07,-0.43,-1.46,-2.84,-1.42,-1.34,0.27,-1.17,0.18,-0.17,-1.84,-2.51,-1.78,-1.41,0.42,0.61,0.72,0.51,0.88,0.39,0.92,0.45,0.78,0.97,0.04,0.71,1.34,-0.46,0.79,-0.5,2.01,2.59,2.16,2.2,0.9,1.27,1.12,1.15,-1.39,-1.02,-1.37,-1.3,-0.81,-0.51,-0.58,-0.21,-1.14,-1.01,-0.48,-0.2,1.19,1.57,1.8,1.25,1.33,0.05,1.07,0.48,0.08,-0.83,0.24,-0.19,0.25,-0.79,-0.07,-0.64,-0.35,0.56,-0.65,0.48,0.64,0.24,-0.01,0.76,1.81,1.75,2.48,1.77,0.98,-0.12,0.59,-0.23,1.49,1.06,1.99,1.34,-0.88,0.4,-0.46,0.46,0.13,-1.01,-0.35,-0.52,-0.34,0.27,-0.7,-0.37,0.11,1.21,0.41,0.4,0.45,-1.25,0.17,-1.47,-1.17,-0.92,0.04,-0.36,-0.01,0.32,-0.08,-0.21,-1.21,-1.55,-0.92,-1.01,0.92,0.39,0.04,-0.24,-0.51,-0.46,-0.04,0.04,0.4,0.57,0.15,0.56,-0.4,0.77,-0.17,0.38,0.74,0.78,0.65,0.29,0.13,-0.17,-0.07,-0.04,-0.03,-0.02,0.09,-0.12,0.38,-1.48,-0.01,-0.66,-0.62,0.86,-0.15,0.1,-0.32,1.46,-0.17,0.4,-0.47,-0.28,-0.83,0.04,0.52,-0.11,0.27,-0.68,0.99,-0.07,0.26,0.05,0.32,-0.62,0.09,-0.31,0.4,-1.27,-0.67,-0.99,-2.51,-1.45,-1.4,-0.59,1.17,-0.97,0.15,-0.31,1.39,-0.85,1.13,-0.05,-0.5,0.82,-0.64,0.57,-0.78,0.16,-0.71,0.38,-0.27,-0.28,0.44,-0.12,0.62,-0.35,0.09,-0.59,-1.19,-0.81,-1.21,0.02,0.58,-0.23,0.23,0.1,0.2,-0.1,-0.08,0.53,-0.92,-1.24,-0.06,-0.86,0.42,-0.34,0.63,0.3,-1.46,-1.71,-1.23,-1.58,-0.77,0.73,0.2,1.09,1.6,1.96,0.69,1.41,-0.32,0.79,-0.07,0.43,1.46,-0.04,0.79,-0.21,0.13,-0.86,-0.52,-0.01,-1.79,-0.47,-0.65,-0.64,-0.22,-1.82,-0.2,-1.04,-0.73,-0.72,-1.61,-0.78,0.32,-1.17,-0.27,-0.96,-0.61,-0.64,-0.38,-0.54,0.51,-0.85,-0.02,-1.54,-0.69,-0.12,-0.31,0.33,0.39,0.85,0.22,0.57,-0.97,-0.39,-1.2,-1.02,-1.11,-0.62,-0.01,0.1,2.14,2.55,1.58,1.44,0.47,-1.44,0.25,-0.3,0.16,-1.16,0.26,-0.77,-1.14,-1.95,-1.31,-1.21,0.63,-0.35,0.3,-0.29,1.25,0.94,1.22,0.94,1.33,1.68,1.65,0.66,-0.09,1.6,0.07,0.71,-1.07,-0.28,-0.95,-0.98,1.61,-0.78,1.04,-0.25,0.44,-0.37,-1.1,-0.56,1.06,-0.31,1.34,0.54,0.74,0.76,0.74,1.15,-0.21,1.54,0.19,0.92,-0.41,-0.57,0.06,0.21,-0.66,-0.93,-1.08,-1.52,0.6,0.08,0.96,1.37]},{"a":"lungs","b":"liver","paper":-0.42,"r":-0.31,"pr":-0.41,"xy":[0.79,0.66,0.11,-0.15,0,-0.45,0.5,-1.2,-0.94,0.59,0.51,-0.29,-1.51,0.02,-0.37,0.14,-0.72,0.03,0.4,0.15,0.56,-0.41,-0.07,-0.24,0.54,1.04,0.25,0.27,-0.34,-1.51,0.44,-1.17,0.86,0.76,-0.31,0.83,-1,1.66,-0.93,1.15,-1.5,2.63,-0.12,1.73,-0.37,0.95,-0.19,0.87,-0.65,0.88,0.28,0.57,-0.01,-0.52,-0.32,-0.84,-0.63,1.55,0.4,1.28,1.22,0.33,1.18,0.69,0.55,0.02,-0.26,0.24,-1.02,1.57,-0.29,0.28,0.11,0.29,-0.09,-0.44,0.7,0.28,1.23,0.01,0.39,-0.44,0.72,-0.12,0.2,0.74,0.29,-0.2,-0.08,-1.25,0.67,-0.99,0.03,-0.04,0.5,0.4,-1.11,-0.53,-0.61,-0.57,-1.28,0.57,-0.72,0.29,1.81,-0.44,0.63,-0.29,1.32,-0.2,0.34,-0.28,-0.47,-0.06,-0.23,0.57,-0.61,0.72,0,0.36,0.47,-0.54,0.67,-0.64,-1.05,-0.18,-1.14,0.69,-1.76,-0.34,-0.91,0.64,-1.09,0.39,-0.13,0.91,-0.59,-0.52,-0.04,-1.26,0.54,-1.35,0.99,-1.45,-0.8,-0.04,-0.13,-0.28,0.32,0.74,-0.4,0.35,2.06,0.55,0.34,-0.46,-0.55,1.81,0.27,0.7,0.25,1.22,0.5,0.44,-0.8,1.16,-0.26,0.26,-1.19,0.7,-0.19,-0.28,0.22,0.6,0.44,0.12,0.41,1.33,0.55,-0.12,0.14,-0.53,0.39,0.01,-1.4,0.68,-0.19,1.03,0.52,-1.45,0.29,-0.61,0.46,-0.89,0.25,-1.18,1.36,0.65,0.38,0.18,-0.83,-0.11,-0.03,-0.53,-1.52,2.58,0,0.87,0.81,-0.44,0.23,-0.48,-1.75,1,-0.24,0.53,-1.29,-0.51,-0.14,-0.94,-0.51,-0.43,0.15,0.13,-0.98,-1.07,-0.02,-1.73,0.62,-1.14,-0.73,-0.24,-1.5,2.68,-0.66,1.13,0.43,0.53,0.13,0.77,-0.67,-0.01,-0.38,0.54,0.31,0.32,-0.23,0.44,-1.3,-1.26,0.21,-1.38,-0.35,-0.68,-0.04,-0.72,0.85,0.3,0.33,0.14,0.76,-1.23,0.75,-0.94,0.52,-0.35,0.26,-0.35,0.15,-0.34,-0.27,0.02,0.2,-0.13,0.52,-0.06,0.19,0.11,-0.15,-0.21,0.32,-0.29,-0.15,-0.15,-0.26,-0.13,-0.01,-0.13,-1.16,-0.72,-0.03,-0.22,0.88,0.49,-0.51,0.29,1.72,-0.1,0.35,-0.48,0.4,1.68,0.33,0.59,-1.1,1.29,-1.42,1.33,2.35,-0.37,0.84,0.24,-0.68,-0.2,-0.08,0.24,0,-1.54,-0.02,-0.95,-1.75,-0.55,0.21,-0.01,-1.1,0.38,-0.95,0.36,1.26,-2.07,-0.12,-1.51,-0.45,-0.46,0.59,-0.18,-0.35,0.73,-0.45,0.02,0.85,0.27,0.84,0.25,0.41,-0.74,-0.26,-0.22,0.67,-1.2,0.07,-0.41,-1.23,1.02,-0.44,0.54,-0.01,-0.51,0.19,-0.46,-0.85,3.53,0.2,1.82,-1.47,0.32,-0.47,0.15,0.5,0.68,-0.35,0.52,1.16,-1.87,0.28,-1.6,0.5,-0.93,-0.2,-0.19,0.02,0.47,-0.25,0.87,-0.79,1.99,-0.12,0.2,-0.3,-0.52,0.34,-1.18,0.2,-0.93,0.85,-0.1,2.13,-0.81,0.78,-0.38,-1.65,1.25,-0.74,0.67,-0.04,1.18,-0.12,0.56,-0.97,-1.02,-0.02,-0.29,-0.47,-1.21,0,-1.3,0.41,-0.1,0.08,0.54,-0.46,-0.63,0.16,-0.67,-0.7,1.13,-0.47,0.88,0.66,-0.48,0.52,-1.21,-0.84,-0.26,-0.82,0.55,-0.87,0.79,-1.03,0.75,0.67,-1.54,0.68,-1.85,1.15,-1.34,0.64,0.05,0.51,-0.33,0.01,-0.98,0.21,-0.62,-0.09,-0.87,0.1,-0.84,0.53,-0.54,2.41,-0.52,1.74,-0.1,0.62,-1.64,0.69,-0.03,1.47,-0.24,0.44,-0.91,0,0.54,-0.04,0.46,0.15,1.37,-0.47,1.3,-0.42,1.5,-0.82,0.84,0.47,0.42,0.93,0.69,-0.3,0.58,-0.35,0.41,-0.69,0.65,0.02,0.27,1.68,-0.98,1.13,-1.11,1.14,-0.44,0.36,0.29,0.18,-0.55,0.05,0.03,-0.12,0.6,-0.13,-0.16,-0.81,1.24,-0.66,0.38,0.32,-0.16,0.33,0.08,-1.22,1.43,-0.8,1.41,-1.56,0.67,-1.28,0.94,0.06,2.21,0.06,1,1.49,-0.2,0.3,-0.62,1.07,-0.06,0.14,-0.03,-0.16,-0.75,-0.17,-0.45,0.24,-0.93,-1.02,0.48,0.46,0.24,0.65,0.54,-0.29,1.15,-0.3,1.94,-1.88,2.16,-1.59,2.27,0.76,-0.91,0.56,-0.28,-0.13,-1.06,0.42,-0.47,1.08,-2.22,0.13,-2.11,-0.21,-0.33,0.46,-0.79,0.57,-0.73,1.27,-0.85,-0.65,1.29,-0.69,1.27,0.76,-1.46,1,-1.38,1.13,-0.55,-0.41,-0.03,-0.17,0.92,-0.01,0.2,-0.66,0.18,0.01,0.35,1.19,-0.5,0.16,-0.23,-0.59,-0.16,-0.74,-0.05,-0.07,-0.1,-0.19,-1.29,-0.65,-3.34,-0.02,-2.54,-1.45,0.78,0.09,-0.52,0.01,1.13,-0.49,0.65,-0.55,0.11,-0.93,0.03,-1.9,2.5,-0.56,0.93,0,-1.05,0.49,-0.99,-0.82,1.98,-0.56,2.29,1.34,0.13,0.61,0.57,-0.19,-0.37,0.48,-0.92,1.65,-0.12,1.01,0.75,-1.56,1.44,-0.01,1.37,-1.84,0.49,-1.06,-0.02,0.63,0.09,-0.08,0.18,-0.78,0.97,-0.37,0.63,1.43,-0.35,0.29,-0.25,0.75,-1.33,-0.68,-1.13,2.55,-0.07,1.29,0.16,1.5,-0.6,0.98,-0.32,0.93,0.22,0.79,-0.19,-0.27,-1.45,0.08,-1.24,0.29,-0.77,0.37,-0.8,0.8,-0.43,0.55,0.35,1.26,-0.59,0.29,0.16,0.53,1.06,-0.52,1.01,0.17,-1.19,-0.83,-0.2,0.05,0.5,0.02,1.22,0.07,-0.35,0.41,-0.62,1.56,1.24,0.11,1.3,-0.82,-1.76,-0.34,-1.16,0.34,-0.49,0.31,-0.36,-0.08,1.04,0.31,0.08,-0.58,-1.42,-0.8,-0.49,-0.84,0.31,-0.7,1.26,0.23,0.52,-1.27,0.71,-1.57,0.45,-0.01,-0.7,0.56,1.97,0.37,1.17,0.63,-0.98,0.34,-1.38,-1.02,0.55,-0.5,0.63,-0.01,1.75,-0.01,0.78,0.19,1.18,-0.04,1.04,0.85,-0.14,0.29,-0.7,-0.43,-1.39,-0.75,-0.99,0.36,0.64,-0.4,1.11,-0.93,1.29,-0.25,0.38,1.63,-0.65,0.72,-0.83,0.26,-0.39,-0.1,0.1,-0.06,-1.09,0.21,-0.72,-0.3,-1.27,0.1,-1.45,0.85,1.1,0.29,0.34,-0.59,0.18,-0.24,0.33,-0.91,-0.68,-0.48,-0.55,1.44,0.12,-0.53,0.79,0.65,0.33,0.99,0.7,-0.75,0.89,-0.88,-0.02,-0.66,0.16,-0.3,0.55,-0.09,0.3,0.76,0.04,-0.11,-0.49,0.63,-0.74,-0.35,-1,0.53,-1.73,0.4,0.24,0.17,-0.14,-0.01,-1.11,0.15,-0.68,1.39,-0.98,0.76,-0.32,0.57,0.18,0.05,0.49,0.97,-0.13,0.44,-0.97,-0.04,-1.03,0.92,-1.5,-0.26,0.84,-0.38,0.89,0.63,-2.03,-0.05,-0.55,-0.15,0.56,-0.51,0.12,0.3,-0.55,0.37,-0.07,0.52,0.41,1.3,0.57,0.1,0.5,0.3,0.08,0.42,-1.44,-0.45,-0.6,-0.99,-1.23,-0.28,-0.9,0.07,-0.44,0.27,-0.3,0.01,-0.49,0.34,-0.14,-0.11,-0.43,-0.35,-0.61,1.16,-1.2,0.43,-1.13,-1.02,0.34,-0.57,0.47,0.3,0.56,-0.22,0.25,0.49,0.24,0.21,0.11,-0.2,-0.89,-0.06,-0.46,-0.9,0.44,-1.34,-0.38,-1.04,-0.26,-0.14,0.13,-2.14,1.25,-0.83,1.6,0.4,-0.42,0.66,-0.59,-0.66,1.26,-0.28,1.06,-0.69,2.35,-0.3,1.59,0.2,-1.52,-0.36,-0.57,1.37,1.22,0.37,1.11,0.86,-0.26,0.78,-0.43,-0.79,-0.85,-0.03,-0.74,-0.9,0.11,-0.24,0.33,1.87,0.42,0.09,0.79,0.1,0.04,-0.49,0.15,-0.33,-0.21,0.12,0.59,-1.18,-0.43,-0.55,-1.28,0.69,-0.58,-0.24,-0.59,-1.04,-0.82,-1.13,-0.62,-0.19,-1.4,-0.38,-0.08,-0.65,2.05,-0.89,1.04,0.74,0.24,0.41,-0.48,0.67,-0.65,0.62,-0.21,0.66,-0.5,0.26,-0.25,-0.79,-0.35,0.21,-0.06,0.24,1.63,0.05,0.63,0.38,-0.3,1.18,-0.32,1.37,-0.46,1.25,-0.23,1.09,0.39,0.51,0.16,1.5,0.13,0.62,-1.01,1.31,1.32,0.25,0.87,-0.49,-0.24,-0.38,0,0.66,-2.01,1.16,-1.52,0.73,-0.9,0.16,-0.67,1.99,0.8,0.66,0.16,0.84,1.53,0.44,0.27,-0.41,-0.66,-0.23,-0.74,-0.72,1.54,0.09,0.91,-0.8,0.55,0.34,-0.67,2.52,-0.77,1.64,-1.32,0.26,1.1,-0.01,1.15,1.15,1.51,0.38,0.82,-0.91,1.14,-0.11,0.92,1.16,-0.03,0.18,-0.53,-1.43,1.4,-0.35,0.8,-1.48,1.16,-0.41,0.02,-0.78,1.79,-0.56,1.12,-0.36,-0.08,0.32,1.09,0.23,0.77,-0.2,0.97,-0.55,0.23,-0.97,-0.16,-0.14,-0.49,-0.19,-0.56,-1.03,1.88,-0.12,0.89,0.25,-1.43,0.3,-0.93,-1.18,0.17,0.07,0.28,0.68,0.35,0.47,0.02,-0.56,2.01,-0.33,1.08,1.36,-1.32,0.41,-0.36,1.01,-0.47,1.19,-0.55,-0.62,-0.04,-1.17,0.27,-1.98,0.84,-1.19,0.45,0.24,1.16,0.08,1.12,0.04,0.19,1,-1.28,1.07,0.83,0.86,0.71,0.17,0.15,0.04,-0.43,0.43,0.65,-0.44,0.24,0.7,-0.43,0.37,-0.64,-0.6,-0.84,0.03,-0.47,0.09,1.89,0.54,1.31,-1.16,-1,-0.77,-0.41,-0.52,-0.76,-0.25,-1,-0.44,1.25,-0.48,0.58,1.11,-1.1,1.14,-1,-0.37,0.81,0.24,0.66,1.23,0.28,1.14,0.26,-0.76,0.75,-0.25,-0.22,-0.84,0.18,-0.08,-0.08,0.74,-0.15,0.17,0.88,0.58,-1.17,0.3,-0.63,1.11,-2.51,0.22,-1.82,0.39,-1.05,0.29,-0.96,-0.95,-1.41,-0.9,0.14,0.81,-1.71,-0.31,-0.76,1.23,-1.19,-0.12,-1.13,-0.58,1.11,-0.68,1.2,0.26,-0.26,-0.01,-0.69,-0.27,2.13,-0.08,1.57,-0.22,0.39,0.29,0.34,-0.51,1.32,-0.51,0.78,-0.16,-0.59,0.58,-0.41,-0.73,1.35,0.08,0.26,1.36,-0.82,0.62,-0.87,0.19,-0.61,0.09,-0.46,-1.76,-0.16,-0.34,-0.06,0.47,0.31,0.93,-0.57,0.23,0.04,-0.2,-0.08,-0.18,0.5,-0.63,0.53,1.37,1.16,0.63,1.13,-0.58,-1.01,-0.57,-0.01,-2.55,0.22,-0.75,0.07,1.23,0.45,0.62,0.45,1.43,-0.07,0.59,-0.69,-2.38,-0.78,-0.62,-1.13,-1.43,1.07,-0.72,1.02,0.15,0.41,0.2,0.4,0.36,0.31,0.45,-0.37,-0.67,0.11,-0.61,0.2,0.3,-0.6,0.08,0.47,0.18,0.25,-0.51,1.16,-0.98,-1.3,-0.56,-0.62,0.19,-0.16,0.65,-0.7,-0.31,0.27,-0.42,0.77,1.03,1.26,0.35,0.37,-0.23,-0.03,-0.83,-0.27,1.4,-0.3,0.97,-0.4,-0.67,0.12,0.13,0.27,0.44,1.13,0.34,1.52,-0.92,0.04,-0.99,0.81,0.2,-0.27,0.24,0.57,0.5,-0.66,-0.79,-0.54,-0.08,-0.55,0.26,-1.41,0.07,-0.68,0.96,-1.41,-0.92,-0.05,-0.54,-0.05,0.61,0.41,0.13,0.35,1.52,-0.03,0.5,0.31,0.08,1.19,0.04,0.43,-0.13,-0.81,-0.26,-0.8,0.01,0.46,-0.21,0.27,-1.44,0.06,-0.96,0.36,-1.02,-1.02,-0.36,-0.38,-0.65,0.97,-1.06,1.18,-0.84,-0.72,0.63,-0.94,-0.03,1.92,-0.49,1.02,0.05,0.55,-0.03,-0.32,0.8,0.29,0.37,-0.35,0.45,-0.73,0.71,-0.02,-0.44,-0.23,0.53,-0.29,-0.7,1.2,-1.82,1.45,1.01,-0.27,1.21,0.27,-0.35,-0.93,0.23,-0.98,2,-1.07,1.12,-1.11,-1,-0.86,-0.8,-0.11,0.6,0.71,0.77,-0.05,-0.52,0.74,-0.51,1.25,1.59,-0.47,1.3,-0.97,0.46,0.81,0.52,0.46,0.75,-1.36,-0.04,-0.27,-0.23,1.19,-0.13,0.56,-1.98,1.96,-0.4,0.54,-1.73,1.37,-0.75,1.62,-0.01,0.21,-0.21,0.74,-1.16,-2.15,-0.45,-0.74,0,0.24,0.55,0.64,1.13,-0.82,1.07,-1.02,-2.44,-0.49,0.02,0.09,-0.48,0.07,0.63,-0.21,-1.26,2.24,-0.53,0.74,0.64,-0.87,-0.16,-0.82,-0.56,1.74,0.36,1.15,-0.12,-1.36,0.8,-0.96,1.76,0.16,0.56,-0.35,-0.94,-0.77,-0.09,-0.7,-0.48,-0.86,-0.33,0.13,1.49,0.75,-0.25,1.16,-0.83,1.87,0.02,1.26,0.63,-1.6,0.52,-1.13,-0.46,-1.96,0.74,-1.2,-0.97,-1.49,-0.25,-0.8,1.54,-1.04,0.13,0.35,-1.38,1.32,-0.45,1.39,-0.26,0.68,-0.65,0.13,-1.51,-0.22,0.06,-0.49,-1.35,0.44,-0.3,-0.33,1.42,-0.54,0.16,-1.08,0.59,-1.43,-0.38,-0.15,-0.11,1.23,-0.16,0.93,0.27,-1.78,1.11,-1.83,-1.2,1.4,-0.84,0.49,-1.22,-0.35,0.09,-0.93,-0.72,1.43,-1.23,1.14,0.43,0.04,-0.15,0.64,1.39,0.01,0.59,-0.13,1.64,-0.68,0.82,-1.07,0.95,1.15,0.2,1.33,0.2,-1.3,0.01,-0.86,-1.38,-0.94,-0.71,0.3,-0.17,-0.27,-0.38,-0.35,0.33,-0.55,0.57,-0.29,-0.29,0.19,-0.86,0.33,0.4,-1.87,-0.29,-0.71,-0.82,0.66,-0.01,0.79,0.04,1.93,-0.33,1.14,-1.5,1.01,-1.29,1.06,0.52,-1.13,0.68,-1.02,-2.44,1.71,-0.52,1.06,-0.08,-0.28,-0.87,0.65,-0.54,0.87,-0.1,1.08,0.44,-0.68,0.36,-0.29,1.39,-0.46,0.34,-0.31,1.09,-1.53,0.24,-0.13,-2.35,1.51,-1.7,0.6,-1.3,-0.33,-0.96,-0.18,0.95,-2.02,0.32,-0.61,1.06,-0.08,0.59,0.05,-0.41,-0.75,-0.09,-0.93,0.77,-0.7,0.78,-0.82,-1.51,0.1,0.41,-0.35,0.36,1.05,1.24,-0.03,1.63,0.19,0.44,0.05,0.04,0.63,0.63,0.23,-2.42,0.36,0.07,-0.88,-1.5,-0.14,-1.19,0.25,0.85,1.64,-0.28,1.13,-0.72,1.38,-1.41,2.15,1.16,0.36,-0.66,0.63,-0.44,1.23,-0.42,0.46,0.13,0.46,-0.49,0.05,-0.92,0.22,-0.18,0.52,1.24,-1.58,1.22,-1.16,1.19,-0.67,0,0.14,0.5,-1.11,0.85,-1.7,0.12,0.48,-0.42,0.36,1.58,0.16,0.57,-0.12,-1.82,0.12,-0.6,-0.05,-1.32,1.58,-1.22,1.4,0.11,1.24,-0.52,1.09,-2.36,0.27,-0.29,0.87,0.42,0.18,-0.51,0.52,1.2,-0.11,0.63,-0.35,1.19,-0.48,0.86,-0.2,-0.84,-0.23,-0.76,-0.41,1.24,0.21,0.61,0.43,0.33,-0.58,-0.86,-1.13,-0.17,1.07,-0.74,0.48,0.69,-0.42,0.24,-0.73,0.8,-0.07,0.67,-0.33,0.2,-0.51,-0.49,-0.53,-0.69,0.14,-0.63,0.53,0.58,1.45,-0.43,1.09,-0.76,0.54,-0.08,0.8,-0.07,0.28,0.35,-0.9,-0.47,0.97,-0.54,0.85,1.13,-0.64,0.42,0.09,0.22,0.88,0.42,0.37,0.71,0.11,0.21,0.24,-0.99,-0.36,-0.87,0.06,0.34,-0.84,0.5,-1.07,2.43,-1.21,0.54,-1.01,0.52,1.22,-0.53,0.59,0.17,1.03,-0.01,-0.08,1.31,-1.53,1.66,-1.45,0.76,-0.04,0.98,-0.32,0.12,1.15,0.56,0.7,0.89,-0.57,0.21,-0.31,-0.27,-0.04,0.52,-0.18,-0.48,-0.81,-0.34,-0.51,-0.69,1.32,-0.74,1.1,0.47,1.22,0.58,-0.05,-0.79,0.94,-0.11,1.15,-1.87,0.38,-0.2,0.13,0.58,1.25,-0.11,1.28,-0.73,0.53,-0.16,0.68,0.11,1.39,0.05,0.81,0.99,1.44,0.74,0.22,0.66,0.71,0.4,0.39,-1.01,0.91,-0.99,0.45,0.62,-2.01,0.75,-2.05,-0.67,-2.03,0.03,-0.52,0.81,0.3,-0.12,-0.12,-0.14,-0.13,-0.64,0.19,1.1,-1.47,0.19,-1.39,-0.79,-0.89,0.36,-0.24,0.72,0.8,0.04,0.03,0.84,-1.49,0.1,-1.71,-0.88,1.19,-0.25,1.19,-0.62,-0.05,-0.37,-0.33,0.76,-0.26,0.02,0.85,0.55,0.4,-0.12,0.8,1.33,-0.28,-0.02,0.27,0.08,-0.43,0.16,-0.18,0.37,-0.74,0.58,-0.64,0.55,-1.89,0.55,-1.44,-1.84,1.41,-1.01,0.79,0.35,-1.46,-0.05,-0.46,1.24,1.35,-0.36,0.31,-0.41,0.36,-0.88,-0.57,0.45,-0.26,0.54,-0.15,-0.51,0.03,-0.36,0.44,0.7,1.54,0.12,0.92,1.46,0.27,0.78,-0.35,1.57,-1.97,0.84,-1.44,1.32,-0.33,0.57,-0.89,1.88,-1.25,0.44,-1.11,-1.22,2,-0.37,1.12,-0.51,-0.01,-0.93,0.44,0.2,-0.81,0.46,-0.97,0.71,0.86,0.27,0.31,-0.16,1.07,-0.35,1.37,1.21,-2.75,0.91,-1.45,-0.54,0.02,-0.48,-0.11,1.05,1.35,0.24,0.8,-1.09,-1.56,0.11,-1.72,1.17,0.02,-0.02,-0.14,-0.17,-0.3,0.23,-0.77,-0.91,-0.02,-1.07,-0.14,-0.61,0.51,-0.03,-0.68,0.88,0.28,-0.02,0.23,-0.56,1.16,-0.07,0.65,-0.37,-1.36,-0.46,-0.61,0.28,0.18,-0.44,0.13,0.3,-0.47,-0.33,0.12,-0.65,-1.02,-0.51,-1.17,0.21,-1.72,0.38,-1.55,-0.16,-0.87,0.13,-0.04,-0.12,-0.79,0.78,-0.4,-0.26,0.94,0.19,0.37,-0.64,1.46,-0.75,1.02,-1.54,0.82,-0.47,1.14,0.54,-0.94,-0.89,0.15,0.65,0.97,-0.24,0.56,-0.63,-0.14,0.05,-0.37,0.56,-0.9,0.7,-0.78,-0.11,0.99,0.74,-0.08,-0.41,0.67,0.02,0.2,-1.72,1.42,-0.32,0.45,1.04,-1.24,0.66,-1.05,-0.85,0.56,-0.41,-0.15,1.22,-0.38,0.13,0.07,-0.99,0.36,-1.03,0.59,0.13,1.22,0.07,0.03,-0.07,0.14,0.43,-0.97,-1.24,-0.11,-0.28,-0.35,0.52,-0.1,-0.49,-0.19,-0.32,0.22,-0.89,-0.23,-2.03,1.22,-1.03,1.91,-0.58,-1.1,0.36,-1.17,0.86,-0.81,0,-1.06,0.01,0.6,-0.12,0.81,-0.63,1.49,-0.91,1.5,-2.84,2.73,-0.91,1.55,-1.17,0.05,-0.27,-0.02,-2.51,1.17,-0.6,1.04,0.61,-1.27,0.33,-0.93,0.39,-0.33,0.07,-0.66,0.97,-1.14,1.34,-2.25,-0.46,1.36,-1.09,0.34,2.59,0.58,0.78,0.27,1.27,0.43,0.34,0.39,-1.02,-0.94,-0.2,-0.86,-0.51,0.02,0.21,-0.21,-1.01,0.6,-0.26,1.2,1.57,0.11,-0.16,1,0.05,-0.25,-0.09,-0.33,-0.83,-0.53,-0.02,-1.11,-0.79,1.58,-1.04,1.51,0.56,-0.35,1.24,-1.24,0.24,2.06,0.36,1.35,1.75,-0.41,0.17,0.18,-0.12,-0.06,-0.53,-0.23,1.06,-0.61,0.21,-0.39,0.4,-0.93,0.86,-0.38,-1.01,1.69,-0.43,0.43,0.27,0.66,-0.14,0.69,1.21,-1.58,0.23,-0.26,-1.25,0.72,-1.79,0.7,-0.92,-2.13,0.26,-2.19,0.32,-1.3,0.16,-1.1,-1.55,0.67,-0.58,0.48,0.39,-0.23,-0.24,-0.09,-0.46,-0.36,0.11,-0.17,0.57,1.27,0.25,0.77,0.77,-1.4,0.86,-1.29,0.78,-0.83,0.08,-0.67,-0.17,-0.65,0.01,-0.01,-0.02,-0.99,0.1,-0.95,-1.48,1.51,-0.95,1.01,0.86,-1.3,0.39,-0.64,1.46,-0.42,0.45,0.19,-0.28,0.04,0.64,-0.29,-0.11,0.18,-1.09,0.83,-0.07,0.53,-0.17,0.23,-0.62,0.98,-0.37,0.04,-1.27,2.32,-0.7,0.45,-1.45,0.21,-0.12,1.39,-0.97,3.55,-0.97,1.91,-0.85,1.43,-0.87,0.4,0.82,0.98,0.69,0.95,0.16,0.05,0.79,0.12,-0.28,-0.62,-0.25,-0.49,-0.35,0.25,-0.69,0.17,-0.81,0.71,0.61,0.57,-0.23,0.01,0.1,-0.5,-0.1,0.94,0.59,-0.01,-1.24,-0.08,-0.85,0.08,-0.34,-0.15,-0.03,-0.18,-1.71,0.14,-0.61,-0.69,0.73,0.06,0.83,0.44,1.96,0.3,1,-0.07,0.79,-1.47,0.71,-0.82,-0.04,-0.43,-0.51,-0.67,-0.86,1.89,0.13,0.65,-0.47,-1.45,-0.45,0.73,-1.82,0.99,-1.04,0.43,-0.72,0.97,0.08,0.51,-1.17,-0.16,-0.34,-1.54,-0.64,-1.22,-0.02,-0.93,-0.85,-0.09,-1.25,-0.95,-0.12,-0.2,0.47,0.2,0.85,-1.06,0.74,-1.01,-0.39,-1.54,0.01,-0.96,-0.62,-2.1,0.65,-1.85,2.55,-0.19,0.51,-0.2,-1.44,2.1,-0.65,0.68,-1.16,1.27,-1.09,0.53,-1.95,1.18,-0.52,0.44,-0.35,-0.57,-0.31,-0.56,0.94,0.93,-0.05,0.77,1.68,-1.66,-0.12,-0.84,1.6,-1.03,0.73,-0.22,-0.28,-1.49,0.1,-1.66,-0.78,1.43,-0.71,-0.63,-0.37,1.81,0,0.43,-0.31,0.89,-0.55,0.89,0.76,1.26,0.11,1.99,1.54,-0.94,0.83,-0.09,-0.57,-0.22,0.04,0.45,-0.93,0.35,-1.26,1.41,0.08,2.19,0.09,2.3]},{"a":"intestine","b":"marrow","paper":0.37,"r":0.28,"pr":0.3,"xy":[0.96,-0.43,0.94,-0.17,0.59,0.11,0.71,0.32,0.56,0.35,0.42,0.24,-0.23,-0.33,-0.25,-0.35,1.72,-2.31,1.46,-2.1,0.69,-0.49,0.63,-0.4,0.03,-0.06,0.09,0.12,0.24,-0.09,0.77,0.02,0.08,0.25,0.07,0.5,0.45,-1.7,-0.62,-1.82,0,0.9,-0.57,0.32,-0.31,-1.38,-0.3,-1.36,0.91,-0.44,0.28,-0.97,-1.65,-0.41,-1.43,0,0.24,-0.76,0.46,-0.86,0.02,0.01,0.66,-0.23,-0.56,0.85,-0.25,1.08,-0.06,-0.26,-0.57,-0.09,0.1,0.03,-0.11,0.03,1.19,1.14,1.52,0.97,1.79,0.56,2.13,0.55,0.73,-0.79,0.68,-0.67,-0.11,1.22,0.25,0.85,-0.68,0.01,-0.15,-0.13,1.6,0.23,0.96,0.41,-0.18,-0.04,-0.31,0.3,-1.64,-0.53,-0.92,-0.15,-1.5,-0.05,-1.18,-0.11,-0.59,0.54,-0.17,0.56,-0.09,0.98,-0.14,1.13,0.26,0.76,0.67,0.84,-0.3,-1.52,-0.09,-1.06,-0.42,-2.1,-0.29,-1.78,-0.23,0.72,0.14,0.52,1.49,1.33,0.87,1.21,-0.21,-1.06,0.3,-1.15,-0.54,-0.77,-0.42,-0.77,-1.76,-0.06,-1.87,-0.04,-0.79,-1.42,-0.31,-1.02,-0.81,-0.19,-1.2,-0.3,1.6,-0.3,0.93,-0.64,-0.7,-0.5,-1.4,-0.66,1.27,-1.6,0.55,-1.47,0.83,0.99,0.63,0.65,0.12,0.55,-0.03,0.61,0.01,-0.03,0.58,0.1,0.12,-0.95,0.64,-0.97,-0.1,1.26,0.19,1.31,0.14,0.17,0.06,0.22,-0.8,-0.2,-0.7,-0.17,0.19,0.65,0.05,0.77,1.14,-0.24,0.36,-0.55,0.12,1.92,0.18,1.89,1.01,-0.25,0.44,-0.4,1.12,1.17,1.13,1.45,0.45,0.95,0.39,0.55,-1.25,-1.77,-1.66,-1.62,-0.86,-1.3,-0.65,-0.91,1.57,-1.04,-0.33,-1.53,-0.44,-0.76,0,-0.58,0.4,0.57,0.75,0.72,1.06,1.03,0.93,1.03,1.22,0.51,1.76,0.86,-0.16,-0.28,-0.28,-0.31,-0.18,-0.05,0.39,0.22,-1.85,-1.08,-1.35,-0.86,0.16,0.53,0.15,0.59,0.7,0.61,0.44,0.6,-0.76,-0.25,-0.05,-0.1,0.23,1.43,-0.02,1.26,-1.35,-1.08,-1.12,-1.03,1.55,1.2,1.45,1.24,1.35,1.05,1.73,1.24,0.08,-2.1,-0.95,-2.31,-0.25,-0.14,-0.1,0.17,0.93,1.3,0.41,1.08,0.25,-0.58,-0.17,-0.28,-1.37,0.57,-0.62,0.57,-0.62,0.95,-0.67,0.68,-1.4,-1.55,-0.85,-1.11,1.16,0.27,1.38,0.17,0.13,0.02,-0.59,0.12,-0.89,-0.28,-0.54,0.03,-1.66,-0.49,-0.87,-0.4,0.93,0.35,-0.13,0.29,-1.15,-1.05,-0.42,-0.96,-1.92,-1.28,-1.69,-1.11,-0.52,0.36,-0.1,0.42,0.16,-0.35,-0.34,-0.42,0.48,-0.61,0.54,-0.57,1.45,0.42,0.92,0.17,-0.49,-0.68,-0.67,-0.49,1.2,0.1,0.5,-0.05,0.48,-1.22,0.65,-0.69,-0.32,1.24,-0.21,1.23,-0.03,-0.43,-0.18,-0.66,1.14,0.06,0.1,-0.17,1.56,0.38,1.15,0.25,0.08,-1.91,0.73,-2.15,-0.9,-0.81,-0.11,-0.64,2.05,-0.63,1.22,-0.54,-0.51,-0.58,-0.6,-0.7,-0.3,-0.2,0.26,-0.23,1.57,0.1,1.29,0.32,0.08,2.48,0.56,2.24,-0.14,-1.63,-0.15,-1.6,-0.6,0.56,-0.51,0.52,0.73,0.9,0.41,0.76,-1.72,-0.3,-1.76,-0.16,-0.86,0.75,-1.43,0.71,-0.03,-0.31,0.06,-0.28,-0.86,-0.62,-0.15,-0.55,0.51,-2.06,0.47,-1.38,-0.79,0.3,-0.79,0.48,-2.06,-1.69,-1.43,-1.57,-1.23,-0.42,-0.38,-0.66,0.84,0.25,1.47,0.17,1.34,1.7,0.51,1.56,-0.47,0.57,-0.52,0.31,0.07,1.03,-0.12,1.14,0.36,0.84,-0.39,0.95,-0.24,0.79,0.29,0.52,0.9,1.87,0.42,1.59,0.06,-1.47,0.1,-1.51,-0.62,0.71,-0.05,0.62,-0.13,-1.03,0.13,-1.14,-1.31,-0.18,-1.21,-0.49,1.63,0.93,0.97,0.99,1.15,1.39,0.67,1.49,0.43,-0.57,0.62,-0.68,-0.92,0.26,-1.12,0.13,0.95,-0.52,0.64,-0.14,-0.53,-0.08,-1.38,-0.6,-0.6,-0.65,-0.67,-0.59,-0.35,0.7,-0.48,0.68,-1.65,-0.97,-1.27,-0.56,-2.24,-2.09,-2.15,-1.6,-0.29,-0.16,-0.22,-0.56,0.13,0.81,0.15,0.52,-1.01,0.01,-1.4,0.18,-0.62,-1.14,-0.27,-0.99,0.52,-1.97,0.62,-2.23,0.26,-0.7,-0.18,-0.52,-0.48,0.36,-0.68,0.29,0.77,-0.54,0.74,-0.86,-0.29,-0.01,-0.58,0.17,0.3,0.09,0.73,0.17,0.83,0.96,1,1.1,1.08,1.93,1.01,1.93,-0.18,-0.15,-0.32,-0.3,0.78,1.41,1.05,1.59,-1.07,-1.23,-1.09,-1.09,-0.48,0.76,-1.2,0.74,-1.59,0.81,-0.43,1.31,0.9,0.46,0.66,0.57,0.55,0.11,0.28,0.14,-0.95,0.61,-0.89,0.86,2.43,-0.66,1.59,-0.59,0.4,-0.03,0.41,-0.29,0.09,0.08,0.07,0.26,-0.28,0.13,-0.09,-0.26,1.7,-0.01,1.59,0.04,-0.64,-0.89,0.15,-1.01,-0.3,-1.34,-0.47,-1.66,1.33,0.95,1.23,1.25,0.61,-0.94,0.32,-0.89,-1.27,-0.13,-0.94,0.08,-1.94,0.77,-1.22,1.09,0.68,-0.44,0.53,0,-0.37,0.73,0.17,0.52,-0.14,-0.78,0.2,-0.93,-1.95,-0.51,-1.82,-0.64,-0.98,-1.08,-1,-1.19,1.03,-0.49,1.06,-0.41,-1.46,-0.36,-1,-0.77,-0.1,0.11,0.18,0.08,1.85,0.71,1.04,0.75,-0.76,-1.11,-0.55,-0.73,1.17,-0.36,1.3,-0.44,0.55,-1.16,0.55,-0.98,-1.05,-0.75,-1.16,-0.91,-0.68,-0.96,-0.5,-0.78,-1.3,-0.45,-0.95,-0.41,1.4,0.69,0.98,0.72,-1.41,2.01,-0.72,2.31,-1.11,0.84,-0.99,0.73,-0.47,-1.01,-0.51,-0.65,1.04,0.51,0.76,0.69,-0.44,-0.56,-0.77,-0.79,0.53,0.21,0.65,0.51,1.73,1.54,1.35,1.42,0.51,-1,0.32,-1.04,0.92,0.83,0.8,0.86,0.46,-0.16,0.14,-0.08,-0.52,0.92,-0.71,0.98,-1.24,0.43,-1.14,0.47,-0.31,0.3,-0.53,0.21,-0.82,0.45,-0.44,0.48,-1.59,0.27,-1.02,0.2,-0.79,0.14,-0.12,0.47,0.1,-0.61,-0.14,-0.44,-1.03,0.92,-1.01,0.79,-0.2,-0.09,-0.02,-0.05,0.46,-0.09,0.17,-0.07,-0.83,-0.99,-1.04,-0.95,-0.72,-0.11,0.14,-0.06,1.77,1.14,1.1,1.54,-1.84,-1.33,-1.53,-1.19,0.28,-1.22,0.56,-1.52,1.25,-0.54,0.96,-0.71,1.02,-0.23,1.41,0.07,1.25,0.83,0.78,0.8,-0.98,-0.4,-0.67,-0.36,0.84,0.85,1.66,1,-0.16,0.12,-0.03,0.11,1.52,0.19,0.95,0.11,1.07,1.67,1.68,1.67,0.82,-0.39,0.57,-0.28,-3.23,-0.7,-2.57,-0.84,0.77,0.43,0.18,0.32,-0.07,-1.58,0.14,-1.57,0.39,-0.14,1.26,-0.37,0.09,-0.01,0.09,0,0.29,-1.24,0.46,-0.8,0.32,-1.01,0.6,-0.76,1.57,0.29,1.36,0.28,0.24,1.13,0.62,1.06,0.31,0.06,0.07,0.26,-2.6,-1.03,-2.36,-1,-0.13,0.19,-0.75,-0.19,1.68,1.9,1.24,1.89,1.36,1.09,1.61,1.31,-1.24,-1.64,-0.75,-1.34,-0.29,-0.27,-1.11,0.04,0.71,0.25,0.71,0.23,1.65,1.13,1.29,0.97,-0.43,-0.44,-0.25,-0.5,1.8,1.89,1.26,1.54,0.79,-0.21,0.14,-0.25,-0.69,1.39,-0.59,1.54,-1.26,0.2,-1.27,0.01,-0.07,0.21,0.08,0.19,-0.43,0.3,-0.15,0.62,-0.71,0.66,-0.49,0.76,-0.57,-1.86,-0.4,-1.66,-0.77,1.27,-0.89,1.46,-1.66,-0.22,-1.18,-0.27,1.7,-0.58,0.84,-0.49,-0.63,-1.39,-0.74,-1.28,-0.29,-0.38,-0.58,0.08,-0.37,-1.64,-0.32,-1.45,-0.4,-1.55,-1.06,-1.25,0.41,-0.93,-0.17,-1.09,-0.69,-0.46,0.24,-0.47,-1.98,-0.08,-1.63,-0.23,-0.31,0.39,0.12,0.38,0.21,-0.56,-0.43,-0.69,1.9,-1.01,1.81,-1.43,0.89,-0.13,1.65,-0.16,0.41,0.38,0.46,0.13,0.15,0.04,0.32,0.06,0.21,0.95,0.08,0.77,-0.62,0.25,-0.67,0.2,-0.25,0.86,0.39,0.71,-0.02,0.43,0,0.37,1.37,-0.59,0.93,-0.96,-0.57,0.51,-0.93,0.25,-0.31,-0.03,-0.8,-0.17,-0.2,-0.76,-0.37,-1.08,1.26,-1.69,0.4,-1.83,2.17,0.53,2.33,0.65,0,1.15,0.18,1.26,-0.16,-0.22,-0.58,-0.56,-1.28,-1.24,-1.47,-1.49,-0.81,0.21,-0.68,0.37,0.17,-0.23,0.07,-0.14,1.56,1.38,0.69,1.4,2.33,1.34,1.81,1.43,-1.28,0.45,-0.1,0.21,-0.64,2.04,-0.59,1.92,-0.55,0.31,-1.03,0.58,-0.41,0.14,-0.33,0.4,0.39,-0.78,-0.24,-1.13,-0.58,-1.41,-0.11,-1.2,0.31,0.16,0.78,0.26,1.61,0.85,1.48,0.79,0.32,-1.35,-0.34,-1.33,-0.31,-0.5,0.65,-0.17,-0.45,-0.92,0.19,-0.86,0.11,-0.29,-0.53,-0.03,-0.95,0,-1.16,0.13,0.18,-1.72,-0.02,-1.78,0.87,-0.82,0.7,-0.86,-0.07,1.74,0.65,1.68,1.34,2.71,0.69,2.51,-0.51,-1.27,-0.95,-1.14,-0.04,-1.73,0.21,-1.32,-0.19,0.83,-0.04,0.85,-0.24,0.97,-0.68,0.29,0.15,0.66,0.17,0.92,-0.15,0.83,-0.36,0.82,1.88,-0.69,1.27,-0.42,0.35,0.79,1.02,0.76,-1.24,-0.16,-1.26,-0.44,-0.16,-1.47,0.41,-1.55,0.25,1.39,-0.48,1.06,0.4,0.38,0,0.22,-1.75,-1.9,-0.98,-1.78,-0.17,-2.3,-0.12,-2.2,-1.33,-1.18,-0.52,-0.65,0.07,0.65,0.52,0.81,-1.78,-0.25,-1.66,-0.21,-1.06,-0.94,-0.9,-0.47,-1.01,0.64,-0.67,1.1,2.55,1.18,1.97,1.25,0.2,-0.29,-0.04,-0.19,1.49,0.46,1.19,0.38,0.22,-1.03,0.32,-0.86,0.58,0.91,-0.09,0.99,-1.17,0.73,-0.14,0.72,0.96,1.81,0.6,1.68,0.96,1.76,1.15,1.67,0,0.22,0.22,0.4,0.82,-0.32,0.9,-0.04,0.07,0.06,0.23,0.04,0,-0.57,0.41,-0.25,0.14,-0.33,-0.28,-0.26,-1.13,-1.59,-1.14,-1.88,0.27,-0.55,0.75,-0.25,-0.15,0.35,-0.37,0.39,-1.43,-0.3,-1.05,-0.35,0.78,0.04,0.78,0.24,0.6,0.68,0.18,0.83,0.54,-0.6,0.02,-0.56,-0.72,-0.23,-0.47,-0.21,0.41,0.53,0.65,0.59,0.82,0.78,1.01,0.98,1.49,2.1,2.02,2.27,-1.02,-0.81,-0.84,-0.78,-0.42,-1.51,-0.49,-1.36,0.12,-0.52,0.17,-0.64,0.99,0.19,1.03,0.32,-0.34,0.24,-0.58,-0.02,1.07,0.03,0.49,0.15,-0.42,-1.36,0.07,-1.36,0.35,1.39,0.45,1.22,-1.27,-1.19,-0.74,-1.13,-1.33,-0.09,-1.26,-0.07,-0.32,2.36,0.5,2.3,-0.17,0.48,-0.85,0.48,1.77,1.94,1.43,1.93,0.62,1.05,0.58,0.75,1.36,2.03,1.01,2.03,0.35,-0.69,0.28,-0.71,-0.75,0.32,-0.66,0.07,-1.78,0.27,-1.58,0.27,-0.86,0,-0.84,0.16,0.09,-0.63,-0.39,-0.67,-0.49,0.36,-0.26,0.75,-1.34,-2.27,-0.67,-1.92,-1.99,-0.41,-1.95,-0.21,0.27,0.66,0.5,0.39,-0.44,-0.24,-1.52,-0.58,0.83,0.58,0.56,1.02,-0.1,0.58,-0.24,0.54,-0.05,-0.35,0.44,-0.6,-0.78,-0.2,-0.34,-0.21,1.15,0.27,0.56,0.77,0.47,-0.74,1.02,-0.97,0.79,-0.57,1.11,-0.4,-0.25,-0.26,0.27,-0.31,-0.03,0.56,-0.23,0.61,0.31,-1.03,0.2,-1.26,-0.73,0.43,-0.68,0.51,0.36,1,0.38,0.64,0.32,0.42,0.51,0.25,-3.05,0.15,-2.21,0.13,-1.45,0.67,-1.8,0.4,1.29,2.09,0.57,2.15,0.07,0.07,-0.45,-0.07,-1.16,-0.17,-1.01,-0.31,-0.97,-1.35,-0.56,-1.02,-1.34,1.13,-0.9,0.97,-0.62,-0.42,-0.07,-0.47,0.71,-0.18,0.52,-0.26,0.22,0.47,0.54,0.18,1.25,-0.02,0.19,-0.22,0.98,0.03,1.01,0.29,0.82,0.06,0.82,0.09,0.44,-0.09,0.81,-0.05,0.78,0.73,0.7,0.85,-1.26,-1.01,-1.1,-0.86,-1.46,0.13,-1.35,0.05,-1.33,0.05,-1.39,0.1,0.23,0.44,0.02,0.08,0.1,-0.63,0.33,-0.84,-1.43,-1.17,-0.83,-1.09,-0.15,-0.64,0,-0.68,-0.28,0.03,0.23,0.08,-0.42,0.08,-0.67,-0.06,0.27,-1.13,0,-0.72,0.61,-0.01,0.58,0.02,0.01,1.3,-0.71,1.05,-0.62,-0.61,-1.01,-0.38,-2.14,-1.93,-1.76,-1.69,0.21,-0.14,0.01,-0.11,-0.17,2.43,0.19,2.3,0.36,-2.02,-0.7,-1.9,0.67,-0.34,0.12,-0.59,0.11,0.02,-0.73,-0.18,-1.26,0.61,-1.05,0.55,-0.7,0.71,-0.02,0.77,0.52,-0.5,0.48,-0.52,-0.23,-0.64,-0.34,-0.84,-0.7,0.25,-0.58,0.39,-2.71,-1.04,-2.25,-0.91,1.68,1.29,1.3,1.34,-0.37,-0.16,0.05,-0.18,0.01,-0.21,-0.36,-0.01,0.33,0.75,0.5,0.89,-0.5,-0.57,-0.17,-0.59,-0.37,-0.11,-0.97,-0.24,0.36,-1.35,-0.06,-1.23,-0.07,0.63,0.34,0.56,0.65,-0.38,0.22,-0.39,-0.26,2.68,-0.53,2.34,-0.32,-0.65,0.04,-0.44,-1.76,-1.8,-1.45,-1.75,-0.05,-1.43,0.1,-1.32,-2.74,-0.57,-1.69,-0.46,0.38,-0.12,-0.75,0.03,0.86,0.02,0.4,0.18,-1.19,0.37,0.01,0.78,-0.86,0.17,-0.17,0.31,0.46,0.3,0.56,0.31,0.61,0.3,0.98,0.21,0.88,-0.51,0.99,-0.35,1.61,-0.74,1.72,-0.9,-0.55,-0.57,-0.45,-0.74,1,-0.06,0.97,-0.25,0.96,-0.66,0.83,-0.69,-1,-0.7,-1.1,-0.38,1.78,-0.43,0.82,-0.39,-0.51,-0.89,-1.06,-0.73,-0.83,-0.21,-0.64,0.05,0.64,1.09,0.12,1.04,-1.68,-1.34,-1.87,-1.18,0.63,1.38,0.89,1.25,-1,-1.13,0.19,-0.95,-0.78,-0.83,-0.56,-0.86,1.75,0.73,1.9,0.94,0.44,0.39,-0.04,0.46,0.64,-1.02,0.38,-1.25,0.93,0.68,0.55,0.63,0.97,-0.63,-0.06,-0.7,0.17,0.79,-0.21,0.75,-1.8,-2.13,-1.48,-2.22,-0.66,0.99,-1.02,0.65,-0.63,0.2,-0.35,0.15,0.36,-0.12,0.77,-0.22,0.5,0.06,-0.07,0.21,0.83,-0.65,1.08,-0.51,0.69,-0.65,0,-0.29,1.73,2.82,0.94,2.54,-0.49,0.93,-0.55,0.85,-0.29,-0.6,-0.24,-0.68,0.55,-0.18,0.35,0.02,0.71,0.69,0.53,0.84,0.03,-0.4,-0.52,-0.42,0.48,0.89,0.68,0.97,0.58,-1.35,-0.06,-1.35,0.04,0,0.02,0.04,-0.15,-0.63,0.1,-0.58,0.18,1.64,0.37,1.36,0.17,0.14,0.17,0.14,-0.68,-1.43,-1.39,-1.66,0.54,1.12,0.55,1.09,-0.59,0.21,-0.77,0.01,-0.53,-0.86,-0.81,-0.43,0.75,1.05,0.19,0.99,-0.24,-1.45,0.43,-1.48,1.23,-1.83,1.23,-1.85,0.22,-1.2,0.46,-1.35,0.36,0.58,0.83,0.89,0.63,-1.37,0.46,-1.54,-0.74,-1.14,-0.94,-1.2,0.32,0.12,0.19,0.45,1.87,0.75,1.23,0.64,0.96,0.63,0.39,0.18,0.38,0.55,0.21,0.48,0.04,-0.08,0.12,-0.13,1.14,0.21,1.07,0.19,0.38,1.69,0.57,1.66,0.72,0.17,0.94,0.19,0.73,-0.61,1.07,-0.43,0.95,0.36,0.34,0.65,0.3,1.62,0.54,1.72,-1.45,-1.46,-0.77,-1.46,0.12,1.61,-0.24,1.42,0.1,0.26,-0.01,0.3,-0.57,1.67,-0.21,1.72,0.35,-2.17,0.55,-2.14,0.07,1.38,-0.19,1.23,0.72,-0.91,0.62,-0.48,-0.82,0.1,-0.45,-0.03,0.32,0.55,0.5,0.45,-0.75,1.38,0.12,1.59,1,0.69,0.83,0.53,-0.39,-0.1,-0.19,-0.07,-0.17,1.06,-0.09,0.85,-0.13,-0.76,0.28,-0.87,-0.86,1.59,-0.14,1.74,0.22,-0.34,-0.65,-0.45,-0.66,-0.22,-0.23,0.07,0.6,0.07,-0.35,0.15,0.73,0.43,-0.02,0.71,-0.13,-0.51,0.15,-0.51,1.01,1.77,0.87,1.66,0.61,0.29,0.16,0.14,0.37,-0.09,0.34,-0.22,-1.71,-1.6,-0.63,-1.46,0.26,1.15,0.07,1.17,-0.99,0.19,-0.7,0.28,0.32,0.6,0.04,0.53,-2,0.2,-2.07,0.36,-0.37,-2.14,-0.14,-1.87,0.71,0.06,0.65,0.16,0.05,-0.27,-0.22,-0.54,-1.48,-0.62,-0.31,-0.36,0.6,1.19,0.18,1.14,-1.34,-1.01,-1.97,-1.38,-0.43,0.92,-0.17,1.05,-0.49,1.2,-0.53,1.15,0.48,0.81,0.39,0.9,-0.5,-1.22,-1.07,-0.98,-0.15,-0.9,-0.85,-0.98,-1.72,-1.66,-1.71,-1.59,0.45,-0.83,0.09,-0.7,-1.17,-0.29,-0.76,-0.01,-0.37,-0.05,-0.54,0.24,-0.18,-1.11,-0.03,-0.87,0.83,-0.46,0.56,-0.12,0.75,-0.75,0.78,-0.72,-1.47,-0.09,-0.93,0.06,0.19,-0.93,0.55,-1.01,-0.16,-1.5,-0.41,-1.58,0.31,0.19,-0.13,0.27,-0.76,-2.54,-0.78,-2.45,-2.74,-0.84,-2.32,-0.48,-0.43,0.74,-0.59,1.06,1.27,0.25,0.95,0.3,0.24,0.56,0.44,0.48,1.5,-1.4,1.57,-1.14,0.38,-1.14,0.54,-1.03,0.8,1.48,0.63,1.65,0.72,-0.01,1.1,0.29,0.76,0.08,0.39,0.31,-0.66,-0.79,-0.52,-0.7,0.31,0.09,-0.01,0.3,1.3,-1.9,0.7,-1.87,0.87,1.23,0.45,0.94,-1.31,-0.21,-1.29,-0.27,-0.25,0.19,-0.37,0.35,0.53,-1.23,0.2,-0.9,0.36,0.28,0.19,0.37,0.29,-0.24,0.34,-0.31,-0.56,-0.13,-0.59,-0.05,0.85,0.74,0.69,0.71,1.01,0.41,0.76,0.4,0.58,-0.43,-0.18,-0.61,1.03,-2.31,0.56,-2.12,-0.25,-1.35,-0.57,-1.41,-0.83,-0.53,-0.47,-0.38,0.08,0.82,-0.1,0.87,2.89,1,2.52,0.91,1.38,1.31,0.46,1.41,0.52,1.37,1.13,1.42,-1.22,-0.6,-1.4,-0.87,0.84,0.65,0.73,0.68,-0.38,1.32,-0.33,1.19,-0.33,1.99,-0.07,1.92,-1.34,0.69,-1.2,0.55,-0.15,-1.24,-0.04,-0.79,1.65,-0.09,1.04,-0.07,0.23,-0.79,-0.44,-0.82,0.84,-0.16,1.22,-0.23,0.55,-1.29,0.21,-1.52,-0.13,1.21,-0.04,1.2,1.17,0.9,0.54,1,-0.95,0.17,-0.79,0.24,0.22,0.23,0.63,0,-0.32,0.14,-0.87,0.09,-1.6,-0.66,-1.54,-0.76,0.29,-0.24,0.49,-0.35,0.6,-0.05,-0.58,0.05,-0.49,1.2,-0.16,1.31,-1.56,-0.31,-1.32,-0.16,0.49,1.35,0.17,1.26,-0.46,-0.05,-0.02,0.47,-0.16,0.33,-0.33,0.19,0.14,0.2,0.06,0.03,-0.06,-0.4,0.39,-0.39,-0.39,-1,-0.12,-0.75,1.13,-0.87,1.26,-0.63,1.24,0.96,1.26,1.09,1.7,-0.98,0.68,-0.96,-0.8,1.29,0.2,1.43,-1.58,0.09,-1.14,-0.17,1.05,0.33,1.34,0.4,-0.45,1.65,-0.33,1.99,1.9,-1.09,1.45,-0.93,1.37,0.69,0.91,0.72,1.09,2.2,-0.01,2.13,-0.67,0.19,0.08,0.1,0.4,-0.36,-1.05,-0.55,1.91,0.41,0.85,0.54,0.53,0.92,1.01,0.66,-0.75,0.03,-0.33,-0.12,0.11,0.76,0.27,0.85,-1.07,-0.69,-0.96,-0.31,1.24,0.89,1.59,0.81,0.68,-0.06,0.61,0.17,0.54,0.12,0.42,0.01,0.54,-0.13,0.37,-0.1,-0.59,-1.06,-0.75,-0.97,-0.93,1.05,-1.32,0.95,0.03,1.65,0.9,1.43,-0.45,-0.07,-0.43,-0.18,-0.23,0.01,0.27,-0.07,1.64,-0.36,1.14,-0.01,1.24,0.9,0.82,0.85,-1.06,0.5,0.13,0.73,0.31,-1.18,-0.25,-1,0.79,-0.31,0.97,-0.18,1.69,-1.03,0.65,-0.95,-1.18,-0.08,-0.92,0.14,-1.11,0.07,-2,0.2,-0.5,0.82,-0.33,0.64,-1.53,-0.87,-0.91,-0.67,-1.46,-0.73,-1,-0.49,0.84,0.71,1.43,0.87,1.44,1.3,1.79,1.45,0.69,0.71,-0.03,0.73,0.36,-0.18,-0.6,-0.25,-0.73,-1.17,-1.09,-1.18,0.96,0.01,1.05,0.45,-0.97,-0.31,-0.76,-0.23,-0.77,0.02,-0.51,0.21,0.22,0.64,0.9,0.57,-0.65,-0.57,-0.59,-0.59,1.71,1.53,0.42,1.61,0.48,-1.08,-0.12,-1.06,0.89,1.27,0.99,1.6,-0.53,-0.3,-0.63,-0.54,-0.87,0.8,-0.15,0.61,-0.17,-1.06,-0.17,-1.09,-1.23,-1.86,-1.31,-1.73,0.74,-0.2,0.64,-0.47]}]}};
 
 // Organ icons for the PET story: a clean single-weight line icon per organ in the style of the legend of the paper's
 // Figure 2 (Geist et al., Med 2025), neon on request (the vision slide's organ network). Vector paths on a 2D canvas.
@@ -1446,20 +1437,35 @@ void main() { float f = 1.0 - abs(vS); gl_FragColor = vec4((uC * 0.6 * f * f + v
   let nLit = 0;
 
   // ------------------------------------------------------------------ the vision row --
-  // the scanner moves to the left; to its right, linked by big soft arrows: the glowing body standing (the same
+  // the scanner moves to the left; to its right, linked by flowing light: the glowing body standing (the same
   // body, risen from the couch), a neon network of organs, and prognosis (three bars) above medication (a bar chart)
   const visG = new THREE.Group();
   set.group.add(visG);
   const VX = { body: -0.62, net: 0.68, prog: 2.36 }, CHEV = [-1.15, -0.06, 1.46];
-  const vis = Builder();
+  // between the stages, a glowing line in a shallow arc with pulses of light running along it, left to right: soft
+  // points packed along each arc (aS: how far along, aG: which gap); the pulses move with the clock (uFlow), so a seek
+  // shows them where they would be
+  const FLOW_N = 60, FLOW_W = 0.3, flowG = K.pointsGeo(3 * FLOW_N), flowS = new Float32Array(3 * FLOW_N), flowGi = new Float32Array(3 * FLOW_N);
   CHEV.forEach((cx, k) => {
-    const poly = [[-0.17, -0.085], [0.0, -0.085], [0.0, -0.17], [0.17, 0.0], [0.0, 0.17], [0.0, 0.085], [-0.17, 0.085]];
-    slab(vis, roundPoly(poly, 0.022, 5), 0.07, 0.024, {
-      col: p => { const s = clamp((p[0] - cx + 0.19) / 0.36, 0, 1); return v3.lerp([0.2, 0.21, 0.24], [1.0, 1.0, 1.0], Math.pow(s, 0.7)); },
-      m: p => [0.8, 0.55 * Math.pow(clamp((p[0] - cx + 0.19) / 0.36, 0, 1), 2), 0, 1], e: k + 1 }, basis([1, 0, 0], [0, 1, 0], [0, 0, 1], [cx, -0.04, 0.035]));
+    for (let i = 0; i < FLOW_N; i++) {
+      const s = i / (FLOW_N - 1), n = k * FLOW_N + i, x = cx + (s * 2 - 1) * FLOW_W, y = -0.04 + 0.05 * Math.sin(PI * s);
+      flowG.attributes.position.array.set([x, y, 0.035], 3 * n);
+      flowG.attributes.aCol.array.set(v3.lerp([0.22, 0.62, 1.0], [0.45, 0.9, 1.0], s), 3 * n);
+      flowG.attributes.aSize.array[n] = 0.042; flowG.attributes.aA.array[n] = 0.45 * Math.pow(Math.sin(PI * s), 0.35);   // (soft at the ends)
+      flowS[n] = s; flowGi[n] = k;
+    }
   });
-  const chev = new THREE.Mesh(vis.geo(), visMat);
-  chev.renderOrder = 8; chev.frustumCulled = false; visG.add(chev);
+  flowG.setAttribute('aS', new THREE.BufferAttribute(flowS, 1)); flowG.setAttribute('aG', new THREE.BufferAttribute(flowGi, 1));
+  const flowU = { uFlow: { value: 0 }, uGap: { value: new THREE.Vector3() } };
+  const flow = new THREE.Points(flowG, K.points(set, { uniforms: flowU, head: 'attribute float aS, aG; uniform float uFlow; uniform vec3 uGap;',
+    // two pulses a gap, each a bright head with a fading tail behind it; the gaps a little out of step
+    vertex: `float h = fract(uFlow * 0.42 + aG * 0.31), p = 0.0;
+  for (int j = 0; j < 2; j++) { float d = fract(h + float(j) * 0.5 - aS); p = max(p, exp(-d * 9.0) * smoothstep(0.0, 0.03, 1.0 - d)); }
+  float e = aG < 0.5 ? uGap.x : aG < 1.5 ? uGap.y : uGap.z, edge = smoothstep(0.0, 0.08, aS) * smoothstep(1.0, 0.9, aS);
+  vA = (vA + 0.95 * p * edge * uA) * e;
+  vC = mix(vC, vec3(0.92, 0.98, 1.0), p * 0.75);
+  gl_PointSize *= 1.0 + 1.4 * p * edge;` }));
+  flow.renderOrder = 8; flow.frustumCulled = false; visG.add(flow);
   // the neon organs (icons from PET_ICONS, drawn glowing in each organ's colour on one canvas)
   const NET_ORG = [['brain', '#a78bfa', [0.06, 0.47, 0.04], 0.36], ['lungs', '#60a5fa', [0.0, 0.08, -0.05], 0.36], ['heart', '#f43f5e', [-0.37, -0.22, 0.1], 0.3],
     ['liver', '#f97316', [0.37, -0.2, 0.08], 0.31], ['kidneys', '#fb7185', [0.02, -0.56, 0.0], 0.27]];
@@ -1773,6 +1779,7 @@ void main() {
     // the vision row fades in left to right
     const e = k => smooth(prog(vision, k, k + 0.2));
     SU.uE.value.set(e(0.12), e(0.36), e(0.62), 0);
+    flowU.uGap.value.set(e(0.12), e(0.36), e(0.62)); flowU.uFlow.value = t;
     visG.visible = vision > 0.003;
     netU.uF.value = e(0.44); iconU.uF.value = e(0.48);
     neonU.uG.value.set(prog(vision, 0.7, 0.86), prog(vision, 0.74, 0.9), prog(vision, 0.78, 0.94), prog(vision, 0.8, 1.0));
@@ -4005,2011 +4012,11 @@ void main() {
   });
 };
 
-// `people`: one scan, one network; then the people on its index (the PET story). The poster's panels 3 and 4: one
-// person's organ uptakes (bars), the 7 x 7 field of their pairwise log ratios (glowing columns), a glass threshold
-// plane, the lit columns flying up to become this person's directed network on a ring, its two measures (Clearance,
-// Heterogeneity) on gauges and the metabolic displacement index on a dial. Then the poster's results, as group
-// summaries only: 593 stand-in dots on a map of the two measures (with lines of equal index) that drop into the four
-// rows of the poster's strip plot, survival by the index's thirds, the immunotherapy test (two summary bands and the
-// AUC bars) and follow-up (illustrative).
-// The one-scan maths is the stand-in of tools/pet/data/gen_data.mjs (the poster names the measures; its formulas are not
-// published). The dots are drawn (seeded) to follow each group's summary, never real patients. Everything is built
-// once; update() sets uniforms, a few dozen instances and, when a value changes, the gauges' small readout.
-// Frame: y up, the viewer at +z. One scan around the origin (bars left, ring of seven above the field, gauges right);
-// the population in the same place (map, then strip), survival on a panel to the left, immunotherapy to the right.
-SETS.people = function (K) {
-  const { THREE, clamp, lerp, prog, rgb } = K;
-  const set = K.newSet('people');
-  const D = PET_DATA, S1 = D.single || {}, PO = D.poster || {}, PI = Math.PI, TAU = 2 * PI;
-  const ICONS = typeof PET_ICONS !== 'undefined' ? PET_ICONS : null;
-  const R = K.rng(5930);
-  const sat = x => clamp(Number.isFinite(x) ? x : 0, 0, 1);
-  const hexOf = c => '#' + c.map(v => Math.round(clamp(v, 0, 1) * 255).toString(16).padStart(2, '0')).join('');
-  const fmt = n => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-  const cap = s => String(s).charAt(0).toUpperCase() + String(s).slice(1);
-
-  // ---------------------------------------------------------------- the organs, the profiles, the maths
-  const ONE = (S1.organs || ['liver', 'aorta', 'spleen', 'pancreas', 'kidneys', 'fat', 'muscle']).slice(), N = ONE.length;
-  const ORG = ONE.map(id => (D.organs || []).find(o => o.id === id) || { id, name: id, short: cap(id), col: '#9aa3b5' });
-  const OCOL = ORG.map(o => rgb(o.col));
-  const KID = ONE.indexOf('kidneys');
-  const PROF = ['healthy', 'cancer', 'both', 'dys'];
-  const PROFN = { healthy: 'Healthy', cancer: 'Cancer', both: 'Cancer + dyslipidaemia', dys: 'Dyslipidaemia' };
-  const SP = S1.profiles || {}, P0 = SP.healthy || { u: ONE.map(() => 1), C: 0, H: 0 };
-  const PU = PROF.map(k => (SP[k] || P0).u.slice());
-  const PROJ = S1.proj || { m: 0, a: 1, b: 0 }, SOFT = S1.soft || 0.08, THETA = S1.theta || 2;
-  const GKEY = ['cancer', 'both', 'dys', 'healthy'];                    // people_group 1..4
-  const GHEX = { cancer: '#d9dde6', both: '#9b5de5', dys: '#ff4fd8', healthy: '#38bdf8' };
-  const GCOL = GKEY.map(k => rgb(GHEX[k]));
-  const THIRD = ['#38bdf8', '#a78bfa', '#d9dde6'].map(rgb);
-  const WARM = rgb('#ffb43b'), HUBC = rgb('#ffb020'), CYAN = rgb('#46d9ff'), INK = rgb('#e7eef8'), MUTED = rgb('#95a6bd'), CLIN = rgb('#8d97aa');
-  const GOOD = rgb('#38bdf8'), POOR = rgb('#d9dde6'), PANEL = [0.022, 0.04, 0.075];
-
-  // the poster's one-scan network with the stand-in maths of gen_data.mjs (exactly): link i -> j weighs
-  // sigmoid((ln(u_i / u_j) - ln theta) / soft); Clearance = mean of the kidneys' outgoing links; Heterogeneity = Gini
-  // coefficient of the strengths (in + out); index = m + a C + b H, between 0 and 10
-  const sig = x => 1 / (1 + Math.exp(-x));
-  function measure(u, theta, sc) {
-    const lt = Math.log(theta > 0 ? theta : THETA);
-    const uu = sc ? sc.uu : new Array(N), e = sc ? sc.e : ONE.map(() => new Array(N).fill(0)), s = sc ? sc.s : new Array(N);
-    for (let i = 0; i < N; i++) { uu[i] = Math.max(1e-3, +(u && u[i]) || 0); s[i] = 0; e[i][i] = 0; }
-    for (let i = 0; i < N; i++) for (let j = 0; j < N; j++) if (i !== j) {
-      const v = sig((Math.log(uu[i] / uu[j]) - lt) / SOFT);
-      e[i][j] = v; s[i] += v; s[j] += v;
-    }
-    let C = 0, m = 0, g = 0;
-    if (KID >= 0) { for (let j = 0; j < N; j++) if (j !== KID) C += e[KID][j]; C /= N - 1; }
-    for (let i = 0; i < N; i++) m += s[i] / N;
-    for (let i = 0; i < N; i++) for (let j = 0; j < N; j++) g += Math.abs(s[i] - s[j]);
-    const H = m > 0 ? g / (2 * N * N * m) : 0, o = sc ? sc.out : {};
-    o.e = e; o.s = s; o.C = C; o.H = H; o.mdi = clamp(PROJ.m + PROJ.a * C + PROJ.b * H, 0, 10);
-    return o;
-  }
-  // update() measures into its own scratch arrays (no allocations per frame)
-  const MS = { uu: new Array(N).fill(1), e: ONE.map(() => new Array(N).fill(0)), s: new Array(N).fill(0), out: {} };
-  // the uptakes on show: the profiles blended (people_profile 0..3), or the custom values
-  // the two profiles blended and how far (people_profile 0..3 between neighbours; with people_skip on, the story's step
-  // from cancer, 1, to dyslipidaemia, 3, crossfades the two directly, never passing the profile between them)
-  const PB = [0, 1, 0];
-  function profBlend(S) {
-    const p = clamp(Number.isFinite(S.people_profile) ? S.people_profile : 0, 0, 3);
-    if ((S.people_skip || 0) > 0.5 && p > 1 && p < 3) { PB[0] = 1; PB[1] = 3; PB[2] = (p - 1) / 2; return PB; }
-    PB[0] = Math.floor(p); PB[1] = Math.min(3, PB[0] + 1); PB[2] = p - PB[0];
-    return PB;
-  }
-  // a profile's weight in that blend, as a label's alpha (1 alone, none from a little past halfway)
-  const profNear = (S, k) => { const [lo, hi, f] = profBlend(S); return sat(1 - (1 - (k === lo ? 1 - f : 0) - (k === hi && hi !== lo ? f : 0)) * 2.2); };
-  function uptakes(S, out) {
-    const [lo, hi, f] = profBlend(S);
-    const c = sat(S.people_custom);
-    for (let i = 0; i < N; i++) {
-      let v = lerp(PU[lo][i], PU[hi][i], f);
-      const cu = S['people_u' + i];
-      if (c > 0 && Number.isFinite(cu)) v = lerp(v, clamp(cu, 0.1, 5), c);
-      out[i] = v;
-    }
-    return out;
-  }
-
-  // ---------------------------------------------------------------- shared GLSL and builders
-  // per-link values (49 of them) and group alphas travel as packed vec4 arrays (few uniform registers)
-  const PK = `
-float pk(vec4 v, float r) { return r < 0.5 ? v.x : (r < 1.5 ? v.y : (r < 2.5 ? v.z : v.w)); }
-#define GET(A, I) pk(A[int((I) * 0.25 + 0.01)], (I) - 4.0 * floor((I) * 0.25 + 0.01))
-`;
-  const NL = N * N, NB = Math.ceil(NL / 4);
-  const packed = n => new Float32Array(4 * Math.ceil(n / 4));
-  const V = new THREE.Vector3();
-  const tr = (obj, p, out) => { V.set(p[0], p[1], p[2]).applyMatrix4(obj.matrix); out = out || [0, 0, 0]; out[0] = V.x; out[1] = V.y; out[2] = V.z; return out; };
-  const l3 = (a, b, f) => [lerp(a[0], b[0], f), lerp(a[1], b[1], f), lerp(a[2], b[2], f)];
-  const sub3 = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
-  const nrm3 = a => { const l = Math.hypot(a[0], a[1], a[2]) || 1; return [a[0] / l, a[1] / l, a[2] / l]; };
-  const crs3 = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
-  const sub = (parent, x, y, z, yaw) => { const g = new THREE.Group(); g.position.set(x, y, z); g.rotation.y = yaw || 0; g.updateMatrix(); parent.add(g); return g; };
-
-  // lines whose alpha is set per group (aG) each frame
-  function lineSet(parent, ng, order, additive = true) {
-    const P = [], C = [], A = [], G = [], nb = Math.ceil(ng / 4);
-    const api = {
-      seg(a, b, c, al, g) { P.push(a[0], a[1], a[2], b[0], b[1], b[2]); C.push(...c, ...c); A.push(al, al); G.push(g, g); return api; },
-      dash(a, b, n, c, al, g) { for (let k = 0; k < n; k++) api.seg(l3(a, b, k / n), l3(a, b, (k + 0.55) / n), c, al, g); return api; },
-      build() {
-        const geo = new THREE.BufferGeometry();
-        geo.setAttribute('position', new THREE.Float32BufferAttribute(P, 3));
-        geo.setAttribute('aCol', new THREE.Float32BufferAttribute(C, 3));
-        geo.setAttribute('aA', new THREE.Float32BufferAttribute(A, 1));
-        geo.setAttribute('aG', new THREE.Float32BufferAttribute(G, 1));
-        const m = new THREE.ShaderMaterial({
-          uniforms: { uA: set.uA, uG: { value: new Float32Array(nb * 4) } },
-          transparent: true, depthWrite: false, blending: additive ? THREE.AdditiveBlending : THREE.NormalBlending,
-          vertexShader: `${PK}
-attribute vec3 aCol; attribute float aA, aG;
-uniform float uA; uniform vec4 uG[${nb}];
-varying vec3 vC; varying float vA;
-void main() { vC = aCol; vA = aA * uA * GET(uG, aG); gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
-          fragmentShader: 'varying vec3 vC; varying float vA; void main() { if (vA < 0.003) discard; gl_FragColor = vec4(vC, vA); }',
-        });
-        set.mats.push(m);
-        const ls = new THREE.LineSegments(geo, m);
-        ls.frustumCulled = false; ls.renderOrder = order; parent.add(ls);
-        api.g = m.uniforms.uG.value;
-        return api;
-      },
-    };
-    return api;
-  }
-
-  // rounded rectangles, pills and dots (instanced quads in their parent's x-y plane): centre, half extents, corner
-  // radius, glow; colour and alpha; fill (0..1) and stroke width
-  const PILL_V = `
-attribute vec3 iP; attribute vec4 iS, iC; attribute vec2 iE;
-varying vec2 vQ; varying vec4 vS, vC; varying vec2 vE;
-void main() {
-  vec2 h = iS.xy + iS.w;
-  vQ = position.xy * 2.0 * h; vS = iS; vC = iC; vE = iE;
-  gl_Position = projectionMatrix * modelViewMatrix * vec4(iP + vec3(vQ, 0.0), 1.0);
-  if (iC.a < 0.003) gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
-}`;
-  const PILL_F = `
-uniform float uA;
-varying vec2 vQ; varying vec4 vS, vC; varying vec2 vE;
-void main() {
-  float rr = min(vS.z, min(vS.x, vS.y));
-  vec2 q = abs(vQ) - (vS.xy - rr);
-  float d = length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - rr;
-  float aa = max(fwidth(d), 1e-5);
-  float inside = 1.0 - smoothstep(-aa, aa, d);
-  float stroke = vE.y > 0.0 ? 1.0 - smoothstep(vE.y - aa, vE.y + aa, abs(d)) : 0.0;
-  float glow = vS.w > 0.0 ? exp(-max(d, 0.0) / (0.38 * vS.w)) * (1.0 - inside) * 0.5 : 0.0;
-  float core = 1.0 - smoothstep(0.0, vS.y, abs(vQ.y));
-  vec3 col = mix(vC.rgb, vec3(1.0), 0.16 * core * inside * vE.x + 0.35 * stroke);
-  float a = max(max(inside * vE.x, stroke), glow) * vC.a * uA;
-  if (a < 0.003) discard;
-  gl_FragColor = vec4(col, a);
-}`;
-  function pillSet(parent, n, order, additive) {
-    const base = new THREE.PlaneGeometry(1, 1), geo = new THREE.InstancedBufferGeometry();
-    geo.index = base.index; geo.setAttribute('position', base.attributes.position);
-    const iP = new Float32Array(3 * n), iS = new Float32Array(4 * n), iC = new Float32Array(4 * n), iE = new Float32Array(2 * n);
-    const at = { iP: new THREE.InstancedBufferAttribute(iP, 3), iS: new THREE.InstancedBufferAttribute(iS, 4), iC: new THREE.InstancedBufferAttribute(iC, 4), iE: new THREE.InstancedBufferAttribute(iE, 2) };
-    for (const k in at) { at[k].setUsage(THREE.DynamicDrawUsage); geo.setAttribute(k, at[k]); }
-    geo.instanceCount = n;
-    const m = new THREE.ShaderMaterial({ uniforms: { uA: set.uA }, vertexShader: PILL_V, fragmentShader: PILL_F, transparent: true, depthWrite: false,
-      blending: additive ? THREE.AdditiveBlending : THREE.NormalBlending, extensions: { derivatives: true } });
-    set.mats.push(m);
-    const mesh = new THREE.Mesh(geo, m);
-    mesh.frustumCulled = false; mesh.renderOrder = order; parent.add(mesh);
-    const base0 = new Float32Array(n);   // each instance's resting alpha
-    let dAll = true, dC = false, dX = false;   // what changed since the last flush (only that is uploaded)
-    return {
-      mesh,
-      put(k, x, y, z, hx, hy, rr, glow, col, a, fill = 1, stroke = 0) {
-        iP[3 * k] = x; iP[3 * k + 1] = y; iP[3 * k + 2] = z;
-        iS[4 * k] = hx; iS[4 * k + 1] = hy; iS[4 * k + 2] = rr; iS[4 * k + 3] = glow;
-        iC[4 * k] = col[0]; iC[4 * k + 1] = col[1]; iC[4 * k + 2] = col[2]; iC[4 * k + 3] = 0; base0[k] = a;
-        iE[2 * k] = fill; iE[2 * k + 1] = stroke; dAll = true;
-      },
-      x(k, x, hx) { if (iP[3 * k] !== x || iS[4 * k] !== hx) { iP[3 * k] = x; iS[4 * k] = hx; dX = true; } },
-      a(k, f) { const v = base0[k] * f; if (iC[4 * k + 3] !== v) { iC[4 * k + 3] = v; dC = true; } },
-      flush() {
-        if (dAll) { for (const k in at) at[k].needsUpdate = true; } else { if (dC) at.iC.needsUpdate = true; if (dX) { at.iP.needsUpdate = true; at.iS.needsUpdate = true; } }
-        dAll = dC = dX = false;
-      },
-    };
-  }
-
-  // a canvas texture on a plane (a canvas of the plane's shape, size pixels wide; WebGL 2 mipmaps any size):
-  // draw(ctx, X, Y, px) gets x and y in the plane's local units; the plane's alpha is set with .k
-  const FONT = 'system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif';
-  const font = (w, px) => `${w} ${Math.round(px)}px ${FONT}`;
-  function textPlane(parent, cx, cy, z, w, h, size, order, draw) {
-    const cv = document.createElement('canvas'); cv.width = size; cv.height = Math.round(size * h / w);
-    const ctx = cv.getContext('2d'), px = size / w;
-    if (draw) draw(ctx, x => (x - (cx - w / 2)) * px, y => (cy + h / 2 - y) * px, px);
-    const tex = new THREE.CanvasTexture(cv);
-    tex.anisotropy = 4;
-    const m = new THREE.ShaderMaterial({
-      uniforms: { uA: set.uA, uK: { value: 0 }, uMap: { value: tex } }, transparent: true, depthWrite: false,
-      vertexShader: 'varying vec2 vUv; void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
-      fragmentShader: 'uniform sampler2D uMap; uniform float uA, uK; varying vec2 vUv; void main() { vec4 c = texture2D(uMap, vUv); float a = c.a * uA * uK; if (a < 0.003) discard; gl_FragColor = vec4(c.rgb, a); }',
-    });
-    set.mats.push(m);
-    const mesh = new THREE.Mesh(new THREE.PlaneGeometry(w, h), m);
-    mesh.position.set(cx, cy, z); mesh.renderOrder = order; mesh.frustumCulled = false;
-    parent.add(mesh);
-    return { mesh, m, ctx, cv, tex, px, set k(v) { m.uniforms.uK.value = v; mesh.visible = v > 0.003; } };
-  }
-
-  // ---------------------------------------------------------------- sub-frames
-  const gBars = sub(set.group, 0, 0, 0), gRing = sub(set.group, 0, 0, 0), gField = sub(set.group, 0, 0, 0);
-  const gMet = sub(set.group, 1.08, 0.33, 0.14, -0.24), gPop = sub(set.group, 0, 0, 0);
-  const gKM = sub(set.group, -2.38, 0.2, 0.5, 0.52), gAUC = sub(set.group, 2.38, 0.2, 0.5, -0.52);
-  const gFloor = new THREE.Group(); gFloor.rotation.x = -PI / 2; gField.add(gFloor);   // local (x, y, z) -> (x, z, -y)
-
-  // ---------------------------------------------------------------- icons: node discs, bar icons, the field's headers
-  const ATL = ICONS ? ICONS.atlas(THREE, 128) : null;
-  const icoMat = new THREE.ShaderMaterial({
-    uniforms: { uA: set.uA, uPx: K.U.uPx, uMap: { value: ATL ? ATL.texture : null }, uHas: { value: ATL ? 1 : 0 }, uHub: { value: new THREE.Color(...HUBC) } },
-    transparent: true, depthWrite: false,
-    vertexShader: K.GLSL + `
-attribute vec3 aCol; attribute float aSize, aA, aHub, aDisc; attribute vec4 aUV;
-uniform float uA;
-varying vec3 vC; varying float vA, vHub, vDisc; varying vec4 vUV;
-void main() {
-  vC = aCol; vA = aA * uA; vHub = aHub; vDisc = aDisc; vUV = aUV;
-  vec4 mv = modelViewMatrix * vec4(position, 1.0);
-  gl_Position = projectionMatrix * mv;
-  gl_PointSize = pointPx(aSize, mv);
-  if (vA < 0.004) gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
-}`,
-    fragmentShader: `
-uniform sampler2D uMap; uniform vec3 uHub; uniform float uHas;
-varying vec3 vC; varying float vA, vHub, vDisc; varying vec4 vUV;
-void main() {
-  vec2 pc = gl_PointCoord; float d = length(pc - 0.5) * 2.0;
-  if (d > 1.0) discard;
-  vec2 q = (pc - 0.5) / mix(0.92, 0.66, vDisc) + 0.5;
-  float ic = 0.0;
-  if (uHas > 0.5 && q.x > 0.0 && q.x < 1.0 && q.y > 0.0 && q.y < 1.0) ic = texture2D(uMap, vec2(mix(vUV.x, vUV.z, q.x), mix(vUV.w, vUV.y, q.y))).a;
-  float ring = (smoothstep(0.74, 0.8, d) - smoothstep(0.93, 1.0, d)) * vDisc;
-  float disc = (1.0 - smoothstep(0.94, 1.0, d)) * vDisc;
-  vec3 fill = mix(vec3(0.025, 0.045, 0.085), uHub, vHub * 0.85);
-  vec3 ink = mix(mix(vec3(0.95, 0.97, 1.0), vC, 0.3 + 0.5 * (1.0 - vDisc)), vec3(0.16, 0.08, 0.0), vHub);
-  vec3 col = mix(mix(fill, ink, ic), mix(vC, vec3(1.0, 0.86, 0.5), vHub * 0.7), ring);
-  gl_FragColor = vec4(col, max(disc * 0.92, max(ic, ring)) * vA);
-}`,
-  });
-  set.mats.push(icoMat);
-  function iconPoints(parent, list, order) {   // list: [{ p, oi, size, disc }]
-    const geo = K.pointsGeo(list.length);
-    geo.setAttribute('aUV', new THREE.BufferAttribute(new Float32Array(4 * list.length), 4));
-    geo.setAttribute('aHub', new THREE.BufferAttribute(new Float32Array(list.length), 1));
-    geo.setAttribute('aDisc', new THREE.BufferAttribute(new Float32Array(list.length).fill(1), 1));
-    list.forEach((L, k) => {
-      geo.attributes.position.array.set(L.p, 3 * k);
-      geo.attributes.aCol.array.set(OCOL[L.oi], 3 * k);
-      geo.attributes.aSize.array[k] = L.size;
-      geo.attributes.aDisc.array[k] = L.disc === undefined ? 1 : L.disc;
-      if (ATL) geo.attributes.aUV.array.set(ATL.uv(ONE[L.oi]), 4 * k);
-    });
-    for (const n of ['aA', 'aSize', 'aHub']) geo.attributes[n].setUsage(THREE.DynamicDrawUsage);
-    const pts = new THREE.Points(geo, icoMat);
-    pts.frustumCulled = false; pts.renderOrder = order; parent.add(pts);
-    return geo;
-  }
-
-  // ================================================================ ONE SCAN
-  // ---------------------------------------------------------------- the bars (poster's panel 3)
-  // as on the poster: the organs' names on the left, the bars on a track to the right (here with an SUV scale)
-  const BY = k => 0.66 - k * 0.1, BX0 = 0.35, BK = 0.15, BTRK = 5 * BK;    // rows, the track's start, units per SUV
-  const BPX = [-0.075, BX0 + BTRK + 0.045], BPY = [BY(N - 1) - 0.135, BY(0) + 0.07];   // the panel's extent
-  const bgB = pillSet(gBars, 1, 1, false), bPill = pillSet(gBars, 2 * N, 3, false);
-  bgB.put(0, (BPX[0] + BPX[1]) / 2, (BPY[0] + BPY[1]) / 2, -0.02, (BPX[1] - BPX[0]) / 2, (BPY[1] - BPY[0]) / 2, 0.05, 0, PANEL, 0.72, 1, 0.0025);
-  for (let i = 0; i < N; i++) {
-    bPill.put(i, BX0 + BTRK / 2, BY(i), -0.004, BTRK / 2, 0.021, 0.021, 0, [0.16, 0.2, 0.28], 0.55);
-    bPill.put(N + i, BX0, BY(i), 0, 0.001, 0.021, 0.021, 0.022, OCOL[i], 1);
-  }
-  const bIco = iconPoints(gBars, ONE.map((id, i) => ({ p: [0, BY(i), 0.004], oi: i, size: 0.078, disc: 0 })), 6);
-  const bLines = lineSet(gBars, 4, 2);
-  for (let v = 1; v <= 5; v++) bLines.seg([BX0 + v * BK, BY(N - 1) - 0.05, -0.006], [BX0 + v * BK, BY(0) + 0.045, -0.006], MUTED, v % 2 ? 0.12 : 0.2, 0);
-  bLines.build();
-  const bTex = textPlane(gBars, (BPX[0] + BPX[1]) / 2, (BPY[0] + BPY[1]) / 2, -0.01, BPX[1] - BPX[0], BPY[1] - BPY[0], 1024, 4, (c, X, Y, px) => {
-    c.textBaseline = 'middle'; c.textAlign = 'left';
-    ORG.forEach((o, i) => { c.font = font(600, 0.058 * px); c.fillStyle = hexOf(l3(OCOL[i], INK, 0.55)); c.fillText(o.short || o.name, X(0.058), Y(BY(i))); });
-    c.font = font(600, 0.036 * px); c.fillStyle = hexOf(l3(MUTED, INK, 0.25)); c.textAlign = 'center';
-    for (let v = 0; v <= 5; v++) c.fillText(String(v), X(BX0 + v * BK), Y(BY(N - 1) - 0.075));
-    c.textAlign = 'left'; c.fillText('mean SUV', X(0.058), Y(BY(N - 1) - 0.075));
-  });
-
-  // ---------------------------------------------------------------- the ratio field, the threshold plane
-  const FY = -0.62, FZ = 0.3, FP = 0.155, HS = 0.3, HMAX = 0.98, CW = 0.104;   // floor, centre z, pitch, height per ln unit
-  const cellX = j => (j - (N - 1) / 2) * FP, cellZ = i => FZ + (i - (N - 1) / 2) * FP;
-  const fPill = pillSet(gFloor, NL + 1, 1, false);
-  fPill.put(NL, 0, -FZ, FY - 0.002, (N * FP) / 2 + 0.05, (N * FP) / 2 + 0.05, 0.05, 0, PANEL, 0.82, 1, 0.003);
-  for (let i = 0; i < N; i++) for (let j = 0; j < N; j++) {
-    const k = i * N + j;
-    fPill.put(k, cellX(j), -cellZ(i), FY, FP * 0.44, FP * 0.44, 0.016, 0, i === j ? OCOL[i].map(v => v * 0.35) : [0.07, 0.1, 0.16], i === j ? 0.9 : 0.75);
-  }
-  const plPill = pillSet(gFloor, 1, 4, false);
-  plPill.put(0, 0, -FZ, FY, (N * FP) / 2 + 0.07, (N * FP) / 2 + 0.07, 0.04, 0.03, CYAN, 0.16, 1, 0.004);
-  // the columns: one box each, its base on the floor; the part above the plane glows
-  const colGeo = new THREE.BoxGeometry(1, 1, 1); colGeo.translate(0, 0.5, 0);
-  const colMat = new THREE.ShaderMaterial({
-    uniforms: { uA: set.uA, uK: { value: 0 }, uPlane: { value: FY }, uThr: { value: 0 } },
-    transparent: true, depthWrite: true,
-    vertexShader: `
-attribute vec4 iCol; attribute float iF;
-varying vec3 vC, vN; varying float vY, vE, vF; varying vec2 vUv;
-void main() {
-  vec4 p = vec4(position, 1.0);
-#ifdef USE_INSTANCING
-  p = instanceMatrix * p;
-#endif
-  vY = p.y; vC = iCol.rgb; vE = iCol.a; vF = iF; vUv = uv; vN = normal;
-  gl_Position = projectionMatrix * modelViewMatrix * p;
-}`,
-    fragmentShader: `
-uniform float uA, uK, uPlane, uThr;
-varying vec3 vC, vN; varying float vY, vE, vF; varying vec2 vUv;
-void main() {
-  float above = smoothstep(uPlane - 0.004, uPlane + 0.004, vY);
-  float sh = 0.5 + 0.5 * clamp(dot(normalize(vN), normalize(vec3(-0.35, 0.85, 0.45))), 0.0, 1.0);
-  vec2 e2 = abs(vUv - 0.5); float edge = smoothstep(0.34, 0.5, max(e2.x, e2.y));
-  float lit = mix(0.85, mix(0.3, 0.55 + 1.05 * vE * (1.0 - 0.45 * vF), above), uThr);
-  vec3 col = vC * lit * (sh + 0.55 * edge) + vec3(1.0, 0.95, 0.85) * step(0.5, vN.y) * above * uThr * vE * 0.35 * (1.0 - 0.5 * vF);
-  gl_FragColor = vec4(col, uA * uK * mix(0.9, 0.97, above));
-}`,
-  });
-  set.mats.push(colMat);
-  const cols = new THREE.InstancedMesh(colGeo, colMat, NL);
-  const iCol = new THREE.InstancedBufferAttribute(new Float32Array(4 * NL), 4), iF = new THREE.InstancedBufferAttribute(new Float32Array(NL), 1);
-  iCol.setUsage(THREE.DynamicDrawUsage); iF.setUsage(THREE.DynamicDrawUsage);
-  colGeo.setAttribute('iCol', iCol); colGeo.setAttribute('iF', iF);
-  cols.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-  cols.frustumCulled = false; cols.renderOrder = 2;
-  gField.add(cols);
-  for (let i = 0; i < N; i++) for (let j = 0; j < N; j++) iCol.array.set(OCOL[i], 4 * (i * N + j));
-  // the headers: row i (the numerator) on the left edge, column j (the denominator) on the front edge
-  const fIco = iconPoints(gField, [
-    ...ONE.map((id, i) => ({ p: [cellX(0) - 0.13, FY + 0.05, cellZ(i)], oi: i, size: 0.092 })),
-    ...ONE.map((id, j) => ({ p: [cellX(j), FY + 0.05, cellZ(N - 1) + 0.13], oi: j, size: 0.092 })),
-  ], 6);
-
-  // ---------------------------------------------------------------- the ring of seven and the directed links
-  const RC = [0, 0.43, -0.05], RR = 0.42, TILT = 12 * PI / 180, RN = [0, Math.sin(TILT), Math.cos(TILT)];
-  // the poster's example network, read round: kidneys right, aorta and pancreas over them, liver and spleen left,
-  // fat and muscle below
-  const RING = ['kidneys', 'aorta', 'pancreas', 'liver', 'spleen', 'fat', 'muscle'];
-  const ORDER = RING.filter(id => ONE.includes(id)).concat(ONE.filter(id => !RING.includes(id)));
-  const NODE = ONE.map(id => {
-    const a = ORDER.indexOf(id) / N * TAU;
-    return [RC[0] + RR * Math.cos(a), RC[1] + RR * Math.sin(a) * Math.cos(TILT), RC[2] - RR * Math.sin(a) * Math.sin(TILT)];
-  });
-  // each ordered pair i -> j: a quadratic curve bowed towards the viewer and to its own side (i -> j and j -> i apart)
-  const BZ = [];
-  for (let i = 0; i < N; i++) for (let j = 0; j < N; j++) {
-    if (i === j) { BZ.push(null); continue; }
-    const a = NODE[i], b = NODE[j], c = sub3(b, a), L = Math.hypot(c[0], c[1], c[2]), side = nrm3(crs3(RN, c)), mid = l3(a, b, 0.5);
-    BZ.push([a, [mid[0] + RN[0] * (0.05 + 0.2 * L) + side[0] * 0.08 * L, mid[1] + RN[1] * (0.05 + 0.2 * L) + side[1] * 0.08 * L, mid[2] + RN[2] * (0.05 + 0.2 * L) + side[2] * 0.08 * L], b]);
-  }
-  const bez = (z, s) => { const u = 1 - s; return [u * u * z[0][0] + 2 * u * s * z[1][0] + s * s * z[2][0], u * u * z[0][1] + 2 * u * s * z[1][1] + s * s * z[2][1], u * u * z[0][2] + 2 * u * s * z[1][2] + s * s * z[2][2]]; };
-  // links as glowing tubes whose width and brightness follow the weight (uT) and the Clearance highlight (uB)
-  const LIGHT = [1, 0.93, 0.8];
-  let tubeMat;
-  {
-    const NS = 24, NRAD = 5, pos = [], off = [], col = [], ls = [], idx = [];
-    let v0 = 0;
-    for (let L = 0; L < NL; L++) {
-      const z = BZ[L]; if (!z) continue;
-      const i = Math.floor(L / N);
-      for (let q = 0; q <= NS; q++) {
-        const s = q / NS, c = bez(z, s), c2 = bez(z, Math.min(1, s + 0.01)), c1 = bez(z, Math.max(0, s - 0.01));
-        const T = nrm3(sub3(c2, c1)), n1 = nrm3(crs3(T, RN)), n2 = crs3(T, n1), cc = l3(OCOL[i], LIGHT, 0.25 + 0.55 * s);
-        for (let r = 0; r < NRAD; r++) {
-          const th = r / NRAD * TAU, o = [Math.cos(th) * n1[0] + Math.sin(th) * n2[0], Math.cos(th) * n1[1] + Math.sin(th) * n2[1], Math.cos(th) * n1[2] + Math.sin(th) * n2[2]];
-          pos.push(...c); off.push(...o); col.push(...cc); ls.push(L, s);
-        }
-      }
-      for (let q = 0; q < NS; q++) for (let r = 0; r < NRAD; r++) {
-        const a = v0 + q * NRAD + r, b = v0 + q * NRAD + (r + 1) % NRAD, c = a + NRAD, d = b + NRAD;
-        idx.push(a, c, b, b, c, d);
-      }
-      v0 += (NS + 1) * NRAD;
-    }
-    const geo = new THREE.BufferGeometry();
-    geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
-    geo.setAttribute('aOff', new THREE.Float32BufferAttribute(off, 3));
-    geo.setAttribute('aCol', new THREE.Float32BufferAttribute(col, 3));
-    geo.setAttribute('aLS', new THREE.Float32BufferAttribute(ls, 2));
-    geo.setIndex(idx);
-    tubeMat = new THREE.ShaderMaterial({
-      uniforms: { uA: set.uA, uTime: K.U.uTime, uR0: { value: 0.0085 }, uT: { value: packed(NL) }, uB: { value: packed(NL) } },
-      transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
-      vertexShader: `${PK}
-attribute vec3 aOff, aCol; attribute vec2 aLS;
-uniform float uA, uR0, uTime; uniform vec4 uT[${NB}], uB[${NB}];
-varying vec3 vC, vN, vW; varying float vA;
-void main() {
-  float T = GET(uT, aLS.x), B = GET(uB, aLS.x);
-  vec3 p = position + aOff * uR0 * (0.35 + 0.65 * min(T, 1.0)) * (0.8 + 0.5 * B);
-  float flow = 0.62 + 0.38 * sin(6.2832 * (aLS.y * 2.0 - uTime * 0.85));
-  vC = aCol * (0.55 + 0.6 * B); vA = uA * min(T, 1.0) * flow * min(B, 1.6);
-  vec4 w = modelMatrix * vec4(p, 1.0); vW = w.xyz; vN = normalize(mat3(modelMatrix) * aOff);
-  gl_Position = projectionMatrix * viewMatrix * w;
-  if (T < 0.004) gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
-}`,
-      fragmentShader: `
-varying vec3 vC, vN, vW; varying float vA;
-void main() {
-  float f = abs(dot(normalize(vN), normalize(cameraPosition - vW)));
-  float core = pow(f, 1.3);
-  gl_FragColor = vec4(vC * (0.55 + 0.9 * core), vA * (0.2 + 0.8 * core));
-}`,
-    });
-    set.mats.push(tubeMat);
-    const mesh = new THREE.Mesh(geo, tubeMat);
-    mesh.frustumCulled = false; mesh.renderOrder = 4; gRing.add(mesh);
-  }
-  // flowing particles: three comets on each link (a head and five fading behind it); while the network forms they
-  // fly up from their column in the field
-  const NPK = 3, NTR = 6, NPP = NPK * NTR;
-  const partMat = new THREE.ShaderMaterial({
-    uniforms: { uA: set.uA, uPx: K.U.uPx, uTime: K.U.uTime, uPlane: { value: FY }, uE: { value: packed(NL) }, uF: { value: packed(NL) }, uH: { value: packed(NL) } },
-    transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
-    vertexShader: K.GLSL + PK + `
-attribute vec3 aP0, aP1, aP2, aSt, aCol; attribute vec3 aD;
-uniform float uA, uPlane; uniform vec4 uE[${NB}], uF[${NB}], uH[${NB}];
-varying vec3 vC; varying float vA;
-void main() {
-  float E = GET(uE, aD.x), F = GET(uF, aD.x), top = GET(uH, aD.x);
-  float s = clamp(fract(aD.y + uTime * 0.23) - aD.z * 0.017, 0.0, 1.0), u = 1.0 - s;
-  vec3 lp = u * u * aP0 + 2.0 * u * s * aP1 + s * s * aP2;
-  vec3 st = vec3(aSt.x, mix(uPlane, max(uPlane, top), aSt.z), aSt.y);
-  float f = smoothstep(0.0, 1.0, F);
-  vec3 pos = mix(st, lp, f); pos.y += sin(f * 3.14159) * 0.22;
-  float head = 1.0 - aD.z / ${NTR}.0;
-  vC = mix(aCol, vec3(1.0), 0.45 * head);
-  vA = uA * E * smoothstep(0.0, 0.06, F) * head * mix(1.0, smoothstep(0.0, 0.05, s) * smoothstep(1.0, 0.9, s), f);
-  vec4 mv = modelViewMatrix * vec4(pos, 1.0);
-  gl_Position = projectionMatrix * mv;
-  gl_PointSize = pointPx(0.03 * (0.45 + 0.55 * head), mv);
-  if (vA < 0.004) gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
-}`,
-    fragmentShader: `
-varying vec3 vC; varying float vA;
-void main() {
-  vec2 c = gl_PointCoord - 0.5; float d = length(c);
-  if (d > 0.5) discard;
-  float a = max(smoothstep(0.5, 0.15, d) * 0.9, pow(1.0 - d * 2.0, 1.5) * 0.6);
-  gl_FragColor = vec4(vC, a * vA);
-}`,
-  });
-  set.mats.push(partMat);
-  {
-    const n = (NL - N) * NPP, geo = new THREE.BufferGeometry(), A = {};
-    for (const [k, w] of [['position', 3], ['aP0', 3], ['aP1', 3], ['aP2', 3], ['aSt', 3], ['aCol', 3], ['aD', 3]]) A[k] = new Float32Array(n * w);
-    let q = 0;
-    for (let L = 0; L < NL; L++) {
-      const z = BZ[L]; if (!z) continue;
-      const i = Math.floor(L / N), j = L % N;
-      for (let pkt = 0; pkt < NPK; pkt++) {
-        const ph = (pkt + R() * 0.6) / NPK, yf = 0.2 + 0.8 * R(), jx = (R() - 0.5) * CW * 0.6, jz = (R() - 0.5) * CW * 0.6;
-        for (let tr = 0; tr < NTR; tr++, q++) {
-          A.aP0.set(z[0], 3 * q); A.aP1.set(z[1], 3 * q); A.aP2.set(z[2], 3 * q);
-          A.aSt.set([cellX(j) + jx, cellZ(i) + jz, yf], 3 * q);
-          A.aCol.set(l3(OCOL[i], LIGHT, 0.3), 3 * q);
-          A.aD.set([L, ph, tr], 3 * q);
-        }
-      }
-    }
-    for (const k in A) geo.setAttribute(k, new THREE.BufferAttribute(A[k], 3));
-    const pts = new THREE.Points(geo, partMat);
-    pts.frustumCulled = false; pts.renderOrder = 5; gRing.add(pts);
-  }
-  // the nodes: a halo (strength, hubs, the kidneys' star) under a disc with the organ's icon
-  const haloGeo = K.pointsGeo(N + 1);
-  NODE.forEach((p, i) => { haloGeo.attributes.position.array.set(p, 3 * i); haloGeo.attributes.aCol.array.set(OCOL[i], 3 * i); });
-  if (KID >= 0) { haloGeo.attributes.position.array.set(NODE[KID], 3 * N); haloGeo.attributes.aCol.array.set(OCOL[KID], 3 * N); }
-  for (const n of ['aA', 'aSize', 'aCol']) haloGeo.attributes[n].setUsage(THREE.DynamicDrawUsage);
-  const halos = new THREE.Points(haloGeo, K.points(set, {}));
-  halos.frustumCulled = false; halos.renderOrder = 6; gRing.add(halos);
-  const nIco = iconPoints(gRing, ONE.map((id, i) => ({ p: [NODE[i][0], NODE[i][1], NODE[i][2] + 0.01], oi: i, size: 0.13 })), 7);
-  const rLines = lineSet(gRing, 4, 3);
-  for (let k = 0; k < 96; k++) {
-    const a0 = k / 96 * TAU, a1 = (k + 0.6) / 96 * TAU;
-    const p = a => [RC[0] + RR * Math.cos(a), RC[1] + RR * Math.sin(a) * Math.cos(TILT), RC[2] - RR * Math.sin(a) * Math.sin(TILT) - 0.004];
-    rLines.seg(p(a0), p(a1), CYAN, 0.16, 0);
-  }
-  rLines.build();
-
-  // ---------------------------------------------------------------- the two measures and the index (poster's panel 4)
-  const GAUGE_V = 'varying vec2 vP; uniform float uS; void main() { vP = position.xy * uS; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }';
-  const GAUGE_F = `
-uniform float uA, uK, uVal, uFillK, uTicks, uMinor; uniform vec3 uZ; uniform vec4 uMkF; uniform vec3 uMkC[4]; uniform vec3 uFill;
-varying vec2 vP;
-const float PI = 3.14159265;
-float sweepOf(vec2 p) { float a = degrees(atan(p.y, p.x)); if (a < -90.0) a += 360.0; return (210.0 - a) / 240.0; }
-void main() {
-  vec2 p = vP; float r = length(p);
-  if (r > 1.13) discard;
-  float f = sweepOf(p), inS = step(0.0, f) * step(f, 1.0), aa = max(fwidth(r), 1e-4) * 1.2;
-  vec3 col = vec3(0.0); float al = 0.0;
-  // the dial's face: a dark disc
-  float face = 1.0 - smoothstep(0.99 - aa, 0.99 + aa, r);
-  col = vec3(0.022, 0.04, 0.075); al = face * 0.7;
-  // the band: track, shaded zones (the index dial), the value's fill
-  float band = smoothstep(0.78 - aa, 0.78 + aa, r) * (1.0 - smoothstep(0.93 - aa, 0.93 + aa, r)) * inS;
-  float zone = uZ.z * (step(f, uZ.x) + step(uZ.y, f));
-  vec3 track = mix(vec3(0.12, 0.17, 0.26), vec3(0.3, 0.32, 0.36), zone);
-  float filled = step(f, uVal * uFillK);
-  vec3 fill = uFill * (0.6 + 0.65 * f);
-  col = mix(col, mix(track, fill, filled), band); al = max(al, band * mix(0.85, 1.0, filled));
-  // ticks
-  float ft = floor(f * uTicks + 0.5) / uTicks, dT = abs(f - ft) * 4.18879 * r;
-  float tick = (1.0 - smoothstep(0.012 - aa, 0.012 + aa, dT)) * smoothstep(0.64 - aa, 0.64 + aa, r) * (1.0 - smoothstep(0.74 - aa, 0.74 + aa, r)) * inS;
-  float fm = floor(f * uMinor + 0.5) / uMinor, dM = abs(f - fm) * 4.18879 * r;
-  tick = max(tick, 0.5 * (1.0 - smoothstep(0.007 - aa, 0.007 + aa, dM)) * smoothstep(0.69 - aa, 0.69 + aa, r) * (1.0 - smoothstep(0.74 - aa, 0.74 + aa, r)) * inS);
-  col = mix(col, vec3(0.82, 0.88, 0.96), tick * 0.85); al = max(al, tick);
-  // the dashed range of the index dial
-  if (uZ.z > 0.5) for (int i = 0; i < 2; i++) {
-    float fz = i == 0 ? uZ.x : uZ.y, dz = abs(f - fz) * 4.18879 * r;
-    float dash = (1.0 - smoothstep(0.006 - aa, 0.006 + aa, dz)) * step(0.5, fract(r * 14.0)) * step(0.12, r) * (1.0 - smoothstep(0.93, 0.93 + aa, r));
-    col = mix(col, vec3(0.9), dash * 0.7); al = max(al, dash * 0.7);
-  }
-  // the groups' medians round the dial
-  for (int i = 0; i < 4; i++) {
-    float fg = i == 0 ? uMkF.x : (i == 1 ? uMkF.y : (i == 2 ? uMkF.z : uMkF.w));
-    if (fg < 0.0) continue;
-    float ag = radians(210.0 - 240.0 * fg); vec2 pg = vec2(cos(ag), sin(ag)) * 1.035;
-    float m = 1.0 - smoothstep(0.05 - aa, 0.05 + aa, length(p - pg));
-    col = mix(col, uMkC[i], m); al = max(al, m);
-  }
-  // the needle and its hub
-  float an = radians(210.0 - 240.0 * clamp(uVal, 0.0, 1.0)); vec2 nd = vec2(cos(an), sin(an));
-  float tN = clamp(dot(p, nd), 0.0, 0.86), wN = mix(0.05, 0.012, tN / 0.86);
-  float needle = (1.0 - smoothstep(wN - aa, wN + aa, length(p - nd * tN))) * uFillK;
-  col = mix(col, vec3(1.0, 0.96, 0.88), needle); al = max(al, needle);
-  float hub = 1.0 - smoothstep(0.085 - aa, 0.085 + aa, r), hubR = hub * (1.0 - smoothstep(0.05 - aa, 0.05 + aa, r));
-  col = mix(col, mix(uFill, vec3(0.05, 0.06, 0.08), hubR), hub); al = max(al, hub);
-  float a = al * uA * uK;
-  if (a < 0.003) discard;
-  gl_FragColor = vec4(col, a);
-}`;
-  function gauge(x, y, r, ticks, minor, zones, marks) {
-    const mk = [-1, -1, -1, -1], mc = [0, 1, 2, 3].map(() => new THREE.Vector3());
-    (marks || []).slice(0, 4).forEach((m, k) => { mk[k] = m[0]; mc[k].set(...m[1]); });
-    const m = new THREE.ShaderMaterial({
-      uniforms: { uA: set.uA, uK: { value: 0 }, uS: { value: 1.15 }, uVal: { value: 0 }, uFillK: { value: 0 }, uTicks: { value: ticks }, uMinor: { value: minor },
-        uZ: { value: new THREE.Vector3(zones ? zones[0] : 0, zones ? zones[1] : 1, zones ? 1 : 0) }, uMkF: { value: new THREE.Vector4(...mk) }, uMkC: { value: mc },
-        uFill: { value: new THREE.Vector3(...WARM) } },
-      vertexShader: GAUGE_V, fragmentShader: GAUGE_F, transparent: true, depthWrite: false, extensions: { derivatives: true },
-    });
-    set.mats.push(m);
-    const mesh = new THREE.Mesh(new THREE.PlaneGeometry(2 * r * 1.15, 2 * r * 1.15), m);
-    m.uniforms.uS.value = 1.15 / (r * 1.15);   // plane units -> dial units (the band's outer edge at 0.93)
-    mesh.position.set(x, y, 0); mesh.renderOrder = 3; gMet.add(mesh);
-    m.mesh = mesh;
-    return m;
-  }
-  const MD = PO.mdi || {}, MG = GKEY.map(k => (MD.groups || []).find(g => g.key === k) || null);
-  const ZONE = Array.isArray(MD.dashed) && MD.dashed.length === 2 ? MD.dashed : null;
-  const GA = { C: [-0.24, 0.4, 0.2], H: [0.24, 0.4, 0.2], X: [0, -0.2, 0.32] };
-  // the Heterogeneity gauge reads 0 to 0.8 (custom uptakes reach about 0.7 at theta 3; the most a Gini of seven can be
-  // is 6/7), Clearance 0 to 1, the index 0 to 10; each dial has its ends written on it
-  const HMAXG = 0.8;
-  const gC = gauge(GA.C[0], GA.C[1], GA.C[2], 5, 10);
-  const gH = gauge(GA.H[0], GA.H[1], GA.H[2], 8, 16);
-  const gX = gauge(GA.X[0], GA.X[1], GA.X[2], 10, 20, ZONE ? [ZONE[0] / 10, ZONE[1] / 10] : null,
-    MG.map((g, k) => (g && Number.isFinite(g.centre) ? [g.centre / 10, GCOL[k]] : [-1, [0, 0, 0]])));
-  // the dials' end values (one static canvas; each dial's part shows with its dial)
-  const ENDS = textPlane(gMet, 0, 0.05, 0.003, 1.0, 1.0, 512, 4, (c, X, Y, px) => {
-    c.font = font(600, 0.042 * px); c.fillStyle = hexOf(l3(MUTED, INK, 0.35)); c.textBaseline = 'middle';
-    const end = (g, txt, f) => {
-      const a = (210 - 240 * f) * PI / 180, r = g[2] * 1.02;
-      c.textAlign = f < 0.5 ? 'right' : 'left';
-      c.fillText(txt, X(g[0] + Math.cos(a) * r + (f < 0.5 ? -0.012 : 0.012)), Y(g[1] + Math.sin(a) * r - 0.018));
-    };
-    end(GA.C, '0', 0); end(GA.C, '1', 1); end(GA.H, '0', 0); end(GA.H, String(HMAXG), 1); end(GA.X, '0', 0); end(GA.X, '10', 1);
-  });
-  ENDS.m.uniforms.uCK = { value: new THREE.Vector3() };
-  ENDS.m.vertexShader = 'varying vec2 vUv; varying vec2 vP; void main() { vUv = uv; vP = position.xy; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }';
-  ENDS.m.fragmentShader = `uniform sampler2D uMap; uniform float uA, uK; uniform vec3 uCK; varying vec2 vUv; varying vec2 vP;
-void main() { vec4 c = texture2D(uMap, vUv); float y = vP.y + ${(0.05).toFixed(3)}; float ck = y < 0.17 ? uCK.z : (vP.x < 0.0 ? uCK.x : uCK.y);
-  float a = c.a * uA * uK * ck; if (a < 0.003) discard; gl_FragColor = vec4(c.rgb, a); }`;
-  // the readouts: one canvas, four cells (Clearance, Heterogeneity, index), redrawn when a value's text changes
-  // (small, no mipmaps: it is uploaded again whenever a readout's text changes)
-  const RO = textPlane(gMet, 0, 0, 0.004, 1, 0.125, 512, 4, null);
-  RO.tex.generateMipmaps = false; RO.tex.minFilter = THREE.LinearFilter;
-  RO.mesh.visible = false;
-  // each readout shows with its own gauge (uCK: the three cells' alphas)
-  RO.m.uniforms.uCK = { value: new THREE.Vector3() };
-  RO.m.fragmentShader = 'uniform sampler2D uMap; uniform float uA, uK; uniform vec3 uCK; varying vec2 vUv; void main() { vec4 c = texture2D(uMap, vUv); float ck = vUv.x < 0.25 ? uCK.x : (vUv.x < 0.5 ? uCK.y : uCK.z); float a = c.a * uA * uK * ck; if (a < 0.003) discard; gl_FragColor = vec4(c.rgb, a); }';
-  RO.mesh.geometry.dispose();
-  {
-    const cells = [[GA.C[0], GA.C[1] - 0.115, 0.15], [GA.H[0], GA.H[1] - 0.115, 0.15], [GA.X[0], GA.X[1] - 0.175, 0.2]];
-    const pos = [], uv = [], idx = [];
-    cells.forEach(([x, y, w], k) => {
-      const h = w / 2, u0 = k / 4, u1 = (k + 1) / 4;
-      pos.push(x - w / 2, y - h / 2, 0, x + w / 2, y - h / 2, 0, x + w / 2, y + h / 2, 0, x - w / 2, y + h / 2, 0);
-      uv.push(u0, 0, u1, 0, u1, 1, u0, 1);
-      idx.push(4 * k, 4 * k + 1, 4 * k + 2, 4 * k, 4 * k + 2, 4 * k + 3);
-    });
-    const geo = new THREE.BufferGeometry();
-    geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
-    geo.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
-    geo.setIndex(idx);
-    RO.mesh.geometry = geo; RO.mesh.position.set(0, 0, 0.004);
-  }
-  const roText = ['', '', ''];
-  function readout(k, txt) {
-    if (roText[k] === txt) return;
-    roText[k] = txt;
-    const c = RO.ctx, w = RO.cv.width / 4, h = RO.cv.height;
-    c.clearRect(k * w, 0, w, h);
-    c.font = font(700, h * 0.72); c.textAlign = 'center'; c.textBaseline = 'middle';
-    c.fillStyle = k === 2 ? hexOf(WARM) : hexOf(INK);
-    c.fillText(txt, k * w + w / 2, h * 0.54);
-    RO.tex.needsUpdate = true;
-  }
-
-  // ================================================================ THE POPULATION
-  // ---------------------------------------------------------------- the strip: the index axis and the poster's four rows
-  const AXMAX = (Array.isArray(MD.axis) && MD.axis[1] > 1) ? MD.axis[1] : 10.7, SX0 = -1.32, SW = 2.64, SK = SW / AXMAX, AXY = -0.3, STOP = 0.56;
-  const SX = v => SX0 + v * SK;
-  const ORDERG = (Array.isArray(MD.order) && MD.order.length ? MD.order : ['dys', 'healthy', 'both', 'cancer']).filter(k => GKEY.includes(k));
-  GKEY.forEach(k => { if (!ORDERG.includes(k)) ORDERG.push(k); });
-  const ROWY = GKEY.map(k => 0.45 - ORDERG.indexOf(k) * 0.19);
-  const LABX = SX(Math.min(AXMAX - 2.9, 7.35));                         // where the rows' labels sit
-  // ---------------------------------------------------------------- stand-in dots that follow the poster's summaries
-  // each group's index values come from its quantiles (min, p10, p25, median, p75, p90, max; or a normal spread from
-  // its error bar), stratified so the summary is met. Each dot's two measures are placed so that m + a C + b H gives
-  // its value exactly: Heterogeneity falls as the index rises (as it does through the four illustrative profiles),
-  // with a spread, and Clearance makes up the rest
-  const probit = p => { p = clamp(p, 1e-4, 1 - 1e-4); const q = p < 0.5 ? p : 1 - p, t = Math.sqrt(-2 * Math.log(q)); const x = t - (2.515517 + 0.802853 * t + 0.010328 * t * t) / (1 + 1.432788 * t + 0.189269 * t * t + 0.001308 * t * t * t); return p < 0.5 ? -x : x; };
-  function quantFn(g) {
-    const q = g.q || {}, err = Array.isArray(g.err) ? g.err : null, kn = [];
-    const add = (u, v) => { if (Number.isFinite(v)) kn.push([u, v]); };
-    add(0, g.min); add(0.1, q.p10); add(0.25, Number.isFinite(q.p25) ? q.p25 : err && err[0]); add(0.5, Number.isFinite(q.p50) ? q.p50 : g.centre);
-    add(0.75, Number.isFinite(q.p75) ? q.p75 : err && err[1]); add(0.9, q.p90); add(1, g.max);
-    for (let i = 1; i < kn.length; i++) kn[i][1] = Math.max(kn[i][1], kn[i - 1][1]);
-    if (kn.length >= 3 && kn[0][0] === 0 && kn[kn.length - 1][0] === 1) return u => {
-      for (let i = 1; i < kn.length; i++) if (u <= kn[i][0]) return lerp(kn[i - 1][1], kn[i][1], (u - kn[i - 1][0]) / (kn[i][0] - kn[i - 1][0]));
-      return kn[kn.length - 1][1];
-    };
-    const c = Number.isFinite(g.centre) ? g.centre : 5, sd = err ? Math.max(0.05, (err[1] - err[0]) / 1.349) : 0.8;
-    return u => clamp(c + sd * probit(u), 0, 10);
-  }
-  const strat = (n, k) => (n === 1 ? 0.5 : k === 0 ? 0 : k === n - 1 ? 1 : (k + R()) / n);
-  const shuffle = a => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(R() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
-  const QF = MG.map(g => (g ? quantFn(g) : null));
-  const AA = Math.abs(PROJ.a) > 1e-6 ? PROJ.a : 1, pv = p => PROJ.m + PROJ.a * p.C + PROJ.b * p.H;
-  // Heterogeneity's trend with the index, through the four profiles (a straight line there, levelling off beyond them,
-  // so the ends of the index do not need an impossible Heterogeneity)
-  let sH = 0, vC = 4, hC = 0.22;
-  {
-    const ps = PROF.map(k => SP[k]).filter(p => p && Number.isFinite(p.C) && Number.isFinite(p.H));
-    if (ps.length) { vC = ps.reduce((s, p) => s + pv(p), 0) / ps.length; hC = ps.reduce((s, p) => s + p.H, 0) / ps.length; }
-    let sxy = 0, sxx = 0;
-    for (const p of ps) { sxy += (pv(p) - vC) * (p.H - hC); sxx += (pv(p) - vC) * (pv(p) - vC); }
-    if (sxx > 1e-9) sH = sxy / sxx;
-  }
-  const HDEV = 0.12, hTrend = v => hC + HDEV * Math.tanh(sH * (v - vC) / HDEV);
-  const DOTS = [];
-  GKEY.forEach((key, g) => {
-    const s = MG[g]; if (!s || !(s.n > 0) || !QF[g]) return;
-    const n = Math.round(s.n), pc = SP[key], dv = pc && Number.isFinite(pc.H) ? pc.H - hTrend(pv(pc)) : 0;   // the group's own offset
-    const vals = shuffle(Array.from({ length: n }, (_, k) => QF[g](strat(n, k))));
-    for (const v of vals) DOTS.push({ g, v, H: Math.max(0.01, hTrend(v) + dv + K.gauss(R) * 0.06), k: R(), jy: R() - 0.5, jz: R() - 0.5, mz: R() - 0.5 });
-  });
-  const NDOT = DOTS.length;
-  // the map shares the strip's frame: Heterogeneity up, Clearance across, scaled so that every line of equal index
-  // meets the axis at that index; the strip then only straightens those lines and sorts the people into their rows
-  const Hs = DOTS.map(d => d.H).sort((a, b) => a - b), hq = q => Hs[Math.round(q * (Hs.length - 1))];
-  let h0 = Hs.length ? hq(0.02) : 0, h1 = Hs.length ? hq(0.98) : 0.5;
-  if (!(h1 > h0 + 1e-6)) { h0 = 0; h1 = 0.5; }
-  // the few beyond the frame's range (the ends of the index, which the stand-in formulas reach only with an extreme
-  // Heterogeneity) are drawn in softly towards its edge, keeping their order and spread; each dot's Clearance then
-  // gives its index exactly, so it stays on its line of equal index
-  const HPAD = (h1 - h0) * 0.12, soft = (x, e) => e + HPAD * Math.tanh((x - e) / HPAD);
-  for (const d of DOTS) {
-    if (d.H > h1) d.H = soft(d.H, h1); else if (d.H < h0) d.H = Math.max(0.005, soft(d.H, h0));
-    d.C = (d.v - PROJ.m - PROJ.b * d.H) / AA;
-  }
-  const MY0 = AXY + 0.11, MY1 = 0.72, HAX = h0 - (MY0 - AXY) / (MY1 - MY0) * (h1 - h0);    // HAX: Heterogeneity at the axis
-  const MX = C => SX(PROJ.m + AA * C + PROJ.b * HAX), MY = H => MY0 + (H - h0) / (h1 - h0) * (MY1 - MY0);
-  const isoX = (w, y) => SX(w - PROJ.b * (HAX + (y - AXY) / (MY1 - MY0) * (h1 - h0) - HAX));   // the line of index w at height y
-  const mapPt = (C, H, z, o) => { o = o || [0, 0, 0]; o[0] = clamp(MX(C), SX0 - 0.03, SX0 + SW); o[1] = clamp(MY(H), MY0 - 0.08, MY1 + 0.08); o[2] = z; return o; };
-  // follow-up (illustrative: the poster gives the groups and their sizes, not their values): its three follow-up groups
-  // as rings on the row of the people they come from (no intervention: people scanned again with nothing done in
-  // between, beside the healthy volunteers in the poster's table, on the healthy row; bariatric surgery: beside the
-  // people with obesity, on the dyslipidaemia row; immunotherapy before surgery: people with lung cancer, on the cancer
-  // row). Their first values come from their row's summary, the immunotherapy group's from the poster's own summary of
-  // those 19 people (its response strip: 14 good, 5 poor). Surgery and immunotherapy move part of the way towards the
-  // healthy range (the poster: the index moved towards it), no intervention stays
-  const PG = PO.prognosis || {}, PST = PG.strip || {};
-  const RG = PST.good || null, RB = PST.bad || PST.poor || null, QH = QF[3] || (u => 4.5);
-  const fin = Number.isFinite;
-  const qOf = s => (s && fin(s.min) && fin(s.max) ? quantFn({ min: s.min, max: s.max, centre: fin(s.median) ? s.median : (s.min + s.max) / 2,
-    q: { p25: fin(s.q1) ? s.q1 : undefined, p75: fin(s.q3) ? s.q3 : undefined } }) : null);
-  const QRG = qOf(RG), QRB = qOf(RB);
-  const FU = ((PO.cohort || {}).followup || []).map(f => {
-    const s = `${f.group || ''} ${f.row_beside || ''}`, kind = /\bici\b|immun|checkpoint|lung/i.test(s) ? 'ici' : /bariatric|obes/i.test(s) ? 'bar' : 'none';
-    return { kind, row: kind === 'ici' ? 0 : kind === 'bar' ? 2 : 3, n: Math.round(+f.n || 0), name: kind === 'ici' ? 'Immunotherapy' : cap(String(f.group || '')) };
-  }).filter(f => f.n > 0).slice(0, 3);
-  const FDOTS = [];
-  FU.forEach((f, k) => {
-    // the immunotherapy group: from the response strip's two summaries when their sizes add up to the group's
-    const resp = f.kind === 'ici' && QRG && QRB && Math.round(+RG.n) + Math.round(+RB.n) === f.n ? Math.round(+RG.n) : -1;
-    for (let q = 0; q < f.n; q++) {
-      const qf = resp >= 0 ? (q < resp ? QRG : QRB) : (QF[f.row] || QH);
-      const v0 = resp >= 0 ? (q < resp ? QRG(strat(resp, q)) : QRB(strat(f.n - resp, q - resp))) : qf(strat(f.n, q));
-      const v1 = f.kind === 'none' ? v0 : lerp(v0, QH(0.25 + 0.5 * R()), f.kind === 'ici' ? 0.5 : 0.6);
-      FDOTS.push({ f: k, row: f.row, v0, v1, k: R(), jy: R() - 0.5, jz: R() - 0.5, col: f.kind === 'none' ? GCOL[3] : GCOL[f.row] });
-    }
-  });
-  const NFD = FDOTS.length;
-  const fuPos = (d, v) => [SX(v), ROWY[d.row] + d.jy * 0.1, 0.05 + d.jz * 0.04];
-
-  // ---------------------------------------------------------------- the dots (one draw: map, strip, follow-up rings)
-  const dotMat = new THREE.ShaderMaterial({
-    uniforms: { uA: set.uA, uPx: K.U.uPx, uMap: { value: 0 }, uMdi: { value: 0 }, uFol: { value: 0 }, uDim: { value: 1 }, uGF: { value: new Float32Array(8) },
-      uOrig: { value: new THREE.Vector3(...RC) }, uHealthy: { value: new THREE.Vector3(...GCOL[3]) } },
-    transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
-    vertexShader: K.GLSL + PK + `
-attribute vec3 aMap, aStr, aEnd, aCol; attribute vec4 aD;
-uniform float uA, uMap, uMdi, uFol, uDim; uniform vec4 uGF[2]; uniform vec3 uOrig, uHealthy;
-varying vec3 vC; varying float vA, vPx, vRing; varying vec2 vCH;
-void main() {
-  float g = aD.x, k = aD.y, gf = GET(uGF, g), sz = 0.024, a;
-  vec3 pos; vC = aCol; vRing = 0.0; vCH = aD.zw;
-  if (g < 3.5) {
-    float r = smoothstep(k * 0.45, k * 0.45 + 0.55, uMap);
-    pos = mix(uOrig, aMap, r); pos.z += sin(3.14159 * r) * 0.3;
-    float q = smoothstep(k * 0.35, k * 0.35 + 0.65, uMdi);
-    pos = mix(pos, aStr, q); pos.z += sin(3.14159 * q) * 0.12;
-    a = smoothstep(0.0, 0.2, r) * min(gf, 1.0) * uDim * (1.0 - 0.62 * uFol);
-    sz *= 0.75 + 0.35 * gf;
-  } else {
-    float s = smoothstep(0.3 + 0.25 * k, 0.72 + 0.25 * k, uFol);
-    pos = mix(aStr, aEnd, s);
-    a = smoothstep(0.0, 0.25, uFol) * uMdi * uDim * gf;
-    vC = mix(aCol, uHealthy, 0.35 * s * step(0.001, distance(aEnd, aStr)));   // a hint of the healthy colour, no more
-    vRing = 1.0; sz = 0.036;
-  }
-  vA = a * uA;
-  vec4 mv = modelViewMatrix * vec4(pos, 1.0);
-  gl_Position = projectionMatrix * mv;
-  gl_PointSize = pointPx(sz, mv); vPx = gl_PointSize;
-  if (vA < 0.004) gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
-}`,
-    fragmentShader: `
-varying vec3 vC; varying float vA, vPx, vRing; varying vec2 vCH;
-float seg(vec2 p, vec2 a, vec2 b) { vec2 pa = p - a, ba = b - a; float h = clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0); return length(pa - ba * h); }
-void main() {
-  vec2 c = gl_PointCoord - 0.5; c.y = -c.y; float d = length(c);
-  if (d > 0.5) discard;
-  float glow = pow(max(0.0, 1.0 - d * 2.0), 1.6), core = smoothstep(0.5, 0.18, d);
-  float a = max(core * 0.85, glow * 0.6);
-  vec3 col = mix(vC, vec3(1.0), smoothstep(0.22, 0.0, d) * 0.35);
-  if (vRing > 0.5) { a = smoothstep(0.5, 0.42, d) * smoothstep(0.25, 0.32, d) + glow * 0.25; col = vC; }
-  // close up (a big point: a headset near the strip) a dot becomes its person's mini network: seven nodes on a ring,
-  // the kidneys' spokes by Clearance, one node grown by Heterogeneity
-  float net = smoothstep(16.0, 30.0, vPx) * (1.0 - vRing);
-  if (net > 0.0) {
-    float m = 0.0, px = 1.6 / vPx, spokes = floor(vCH.x * 6.0 + 0.5);
-    vec2 n0 = vec2(0.0, 0.33);
-    for (int i = 0; i < 7; i++) {
-      float an = 1.5708 + 6.2832 * float(i) / 7.0;
-      vec2 p = 0.33 * vec2(cos(an), sin(an)), q = 0.33 * vec2(cos(an + 0.8976), sin(an + 0.8976));
-      float rad = i == 4 ? 0.045 + 0.2 * vCH.y : 0.045;
-      m = max(m, smoothstep(rad + px, rad - px, length(c - p)));
-      if (i > 0 && float(i) <= spokes) m = max(m, 0.8 * smoothstep(0.018 + px, 0.018 - px, seg(c, n0, p)));
-      m = max(m, 0.3 * smoothstep(0.01 + px, 0.01 - px, seg(c, p, q)));
-    }
-    a = mix(a, m + 0.12 * glow, net); col = mix(col, mix(vC, vec3(1.0), 0.25), net);
-  }
-  gl_FragColor = vec4(col, a * vA);
-}`,
-  });
-  set.mats.push(dotMat);
-  const STATS = GKEY.map(() => ({ n: 0, x: 0, y: 0, z: 0 }));
-  {
-    const n = NDOT + NFD, geo = new THREE.BufferGeometry(), A = { position: new Float32Array(3 * n), aMap: new Float32Array(3 * n), aStr: new Float32Array(3 * n), aEnd: new Float32Array(3 * n), aCol: new Float32Array(3 * n), aD: new Float32Array(4 * n) };
-    DOTS.forEach((d, q) => {
-      const mp = mapPt(d.C, d.H, d.mz * 0.08), sp = [SX(d.v), ROWY[d.g] + d.jy * 0.13, d.jz * 0.12];
-      const st = STATS[d.g]; st.n++; st.x += mp[0]; st.y += mp[1]; st.z += mp[2];
-      A.aMap.set(mp, 3 * q); A.aStr.set(sp, 3 * q); A.aEnd.set(sp, 3 * q); A.aCol.set(GCOL[d.g], 3 * q);
-      // the mini network's shape: the kidneys' spokes by Clearance, one node by Heterogeneity
-      A.aD.set([d.g, d.k, clamp(d.C, 0, 1), clamp((d.H - h0) / (h1 - h0), 0, 1)], 4 * q);
-    });
-    FDOTS.forEach((d, q0) => {
-      const q = NDOT + q0, s = fuPos(d, d.v0);
-      A.aStr.set(s, 3 * q); A.aEnd.set(fuPos(d, d.v1), 3 * q); A.aMap.set(s, 3 * q);
-      A.aCol.set(d.col, 3 * q); A.aD.set([4 + d.f, d.k, 0, 0], 4 * q);
-    });
-    for (const k in A) geo.setAttribute(k, new THREE.BufferAttribute(A[k], k === 'aD' ? 4 : 3));
-    const pts = new THREE.Points(geo, dotMat);
-    pts.frustumCulled = false; pts.renderOrder = 5; gPop.add(pts);
-  }
-  STATS.forEach(s => { if (s.n) { s.x /= s.n; s.y /= s.n; s.z /= s.n; } });
-  // follow-up trails: from where each ring started to where it is
-  const trailMat = new THREE.ShaderMaterial({
-    uniforms: { uA: set.uA, uFol: { value: 0 }, uK: { value: 0 } },
-    transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
-    vertexShader: `
-attribute vec3 aStr, aEnd, aCol; attribute vec2 aW;
-uniform float uA, uFol, uK;
-varying vec3 vC; varying float vA;
-void main() {
-  float s = smoothstep(0.3 + 0.25 * aW.y, 0.72 + 0.25 * aW.y, uFol);
-  vec3 p = mix(aStr, mix(aStr, aEnd, s), aW.x);
-  vC = mix(aCol, vec3(0.22, 0.74, 0.97), 0.35 * s * aW.x); vA = uA * uK * mix(0.08, 0.6, aW.x) * step(0.001, distance(aEnd, aStr)) * smoothstep(0.0, 0.1, s);
-  gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0);
-}`,
-    fragmentShader: 'varying vec3 vC; varying float vA; void main() { if (vA < 0.003) discard; gl_FragColor = vec4(vC, vA); }',
-  });
-  set.mats.push(trailMat);
-  if (NFD) {
-    const geo = new THREE.BufferGeometry(), A = { position: new Float32Array(6 * NFD), aStr: new Float32Array(6 * NFD), aEnd: new Float32Array(6 * NFD), aCol: new Float32Array(6 * NFD), aW: new Float32Array(4 * NFD) };
-    FDOTS.forEach((d, q) => {
-      const s = fuPos(d, d.v0), e = fuPos(d, d.v1);
-      for (let w = 0; w < 2; w++) { A.aStr.set(s, 6 * q + 3 * w); A.aEnd.set(e, 6 * q + 3 * w); A.aCol.set(d.col, 6 * q + 3 * w); A.aW.set([w, d.k], 4 * q + 2 * w); }
-    });
-    for (const k in A) geo.setAttribute(k, new THREE.BufferAttribute(A[k], k === 'aW' ? 2 : 3));
-    const ls = new THREE.LineSegments(geo, trailMat);
-    ls.frustumCulled = false; ls.renderOrder = 4; gPop.add(ls);
-  }
-  // the person shown in the one-scan network: a white-ringed dot among the others
-  const perGeo = K.pointsGeo(2);
-  for (const n of ['position', 'aCol', 'aA', 'aSize']) perGeo.attributes[n].setUsage(THREE.DynamicDrawUsage);
-  const person = new THREE.Points(perGeo, K.points(set, { additive: false, hard: true }));
-  person.frustumCulled = false; person.renderOrder = 8; gPop.add(person);
-
-  // ---------------------------------------------------------------- the frame (map and strip), summaries, lines of equal index
-  const pPill = pillSet(gPop, 16, 7, false), bgPill = pillSet(gPop, 4, 1, false);
-  // the map's legend (the poster's): a swatch per group, its label beside it
-  const LEG = k => [SX0 + SW - 1.05, MY1 + 0.02 - ORDERG.indexOf(GKEY[k]) * 0.1, 0.02];   // in the rows' order, so the names glide straight down
-  GKEY.forEach((key, k) => { const p = LEG(k); pPill.put(12 + k, p[0] - 0.03, p[1], p[2], 0.016, 0.016, 0.016, 0.012, GCOL[k], 1); });
-  const P_PANEL = 0, P_SH0 = 1, P_SH1 = 2, P_HB = 3, PNX = [SX0 - 0.15, SX0 + SW + 0.08], PNY = [AXY - 0.15, MY1 + 0.12];
-  bgPill.put(P_PANEL, (PNX[0] + PNX[1]) / 2, (PNY[0] + PNY[1]) / 2, -0.12, (PNX[1] - PNX[0]) / 2, (PNY[1] - PNY[0]) / 2, 0.05, 0, PANEL, 0.62, 1, 0.0025);
-  const shaded = Array.isArray(MD.shaded) ? MD.shaded : [];
-  [P_SH0, P_SH1].forEach((k, q) => {
-    const r = shaded[q];
-    if (r) bgPill.put(k, SX((r[0] + r[1]) / 2), (AXY + STOP) / 2, -0.1, (r[1] - r[0]) * SK / 2, (STOP - AXY) / 2, 0.003, 0, [0.42, 0.46, 0.54], 0.13);
-  });
-  const HQ = MG[3] ? (Array.isArray(MG[3].err) ? MG[3].err : [QH(0.25), QH(0.75)]) : [4.1, 5];
-  bgPill.put(P_HB, SX((HQ[0] + HQ[1]) / 2), (AXY + STOP + 0.1) / 2, -0.09, (HQ[1] - HQ[0]) * SK / 2, (STOP + 0.1 - AXY) / 2, 0.012, 0, GCOL[3], 0.13, 1, 0.003);
-  // each group: the p10-p90 whisker, the interquartile bar (the poster's error bar) and the median (its big dot)
-  MG.forEach((g, k) => {
-    if (!g || !QF[k]) return;
-    const y = ROWY[k], z = 0.08, q = g.q || {}, e = Array.isArray(g.err) ? g.err : [QF[k](0.25), QF[k](0.75)];
-    const w0 = Number.isFinite(q.p10) ? q.p10 : QF[k](0.1), w1 = Number.isFinite(q.p90) ? q.p90 : QF[k](0.9);
-    pPill.put(3 * k, SX((w0 + w1) / 2), y, z, (w1 - w0) * SK / 2, 0.0045, 0.0045, 0, GCOL[k], 0.7);
-    pPill.put(3 * k + 1, SX((e[0] + e[1]) / 2), y, z + 0.002, (e[1] - e[0]) * SK / 2, 0.019, 0.019, 0.014, GCOL[k], 0.95);
-    pPill.put(3 * k + 2, SX(Number.isFinite(g.centre) ? g.centre : QF[k](0.5)), y, z + 0.004, 0.04, 0.04, 0.04, 0.022, GCOL[k], 1, 1, 0.007);
-  });
-  // lines: the map's Heterogeneity axis and arrows (group 0), the shared axis line (1), the index's ticks (2), the
-  // poster's dashed lines (3)
-  const pLines = lineSet(gPop, 4, 2);
-  {
-    const x0 = SX0 - 0.04, xr = SX0 + SW + 0.03;
-    pLines.seg([x0, AXY, -0.08], [xr, AXY, -0.08], INK, 0.7, 1);
-    pLines.seg([xr, AXY, -0.08], [xr - 0.03, AXY + 0.015, -0.08], INK, 0.6, 0).seg([xr, AXY, -0.08], [xr - 0.03, AXY - 0.015, -0.08], INK, 0.6, 0);
-    pLines.seg([x0, AXY, -0.08], [x0, MY1 + 0.08, -0.08], INK, 0.6, 0);
-    pLines.seg([x0, MY1 + 0.08, -0.08], [x0 - 0.015, MY1 + 0.05, -0.08], INK, 0.6, 0).seg([x0, MY1 + 0.08, -0.08], [x0 + 0.015, MY1 + 0.05, -0.08], INK, 0.6, 0);
-    for (let v = 0; v <= Math.floor(AXMAX); v++) pLines.seg([SX(v), AXY, -0.08], [SX(v), AXY - 0.025, -0.08], INK, 0.7, 2);
-    for (let v = 0.5; v < AXMAX; v += 1) pLines.seg([SX(v), AXY, -0.08], [SX(v), AXY - 0.012, -0.08], INK, 0.4, 2);
-    (Array.isArray(MD.dashed) ? MD.dashed : []).forEach(v => pLines.dash([SX(v), AXY, -0.09], [SX(v), STOP, -0.09], 18, INK, 0.45, 3));
-  }
-  pLines.build();
-  // the lines of equal index: tilted on the map (the index weighs both measures), upright on the strip
-  const ISO = [];
-  for (let w = 1; w <= Math.floor(AXMAX); w++) ISO.push(w);
-  const isoGeo = K.linesGeo(ISO.length), isoMat = K.lines(set, {});
-  isoGeo.attributes.position.setUsage(THREE.DynamicDrawUsage); isoGeo.attributes.aA.setUsage(THREE.DynamicDrawUsage);
-  ISO.forEach((w, k) => { isoGeo.attributes.aCol.array.set(WARM, 6 * k); isoGeo.attributes.aCol.array.set(l3(WARM, INK, 0.3), 6 * k + 3); });
-  const isoLines = new THREE.LineSegments(isoGeo, isoMat);
-  isoLines.frustumCulled = false; isoLines.renderOrder = 2; gPop.add(isoLines);
-  let isoKey = -1;
-  function isoSet(q, al) {
-    const key = Math.round(q * 1000) + 1001 * Math.round(al * 1000);
-    if (key === isoKey) return;
-    isoKey = key;
-    const P = isoGeo.attributes.position.array, A = isoGeo.attributes.aA.array, yT = lerp(MY1 + 0.05, STOP, q);
-    ISO.forEach((w, k) => {
-      P.set([SX(w), AXY, -0.085, lerp(isoX(w, MY1 + 0.05), SX(w), q), yT, -0.085], 6 * k);
-      A[2 * k] = al * 0.7; A[2 * k + 1] = al * 0.15;
-    });
-    isoGeo.attributes.position.needsUpdate = true; isoGeo.attributes.aA.needsUpdate = true;
-    isoLines.visible = al > 0.003;
-  }
-  const sTex = textPlane(gPop, SX0 + SW / 2, AXY - 0.06, -0.08, SW + 0.24, (SW + 0.24) / 16, 1024, 3, (c, X, Y, px) => {
-    c.font = font(600, 0.085 * px); c.fillStyle = hexOf(l3(MUTED, INK, 0.4)); c.textAlign = 'center'; c.textBaseline = 'middle';
-    for (let v = 0; v <= Math.floor(AXMAX); v++) c.fillText(String(v), X(SX(v)), Y(AXY - 0.068));
-  });
-  // the map's axis titles
-  const mTex = textPlane(gPop, (PNX[0] + PNX[1]) / 2, (PNY[0] + PNY[1]) / 2, -0.07, PNX[1] - PNX[0], PNY[1] - PNY[0], 1024, 3, (c, X, Y, px) => {
-    c.textBaseline = 'middle'; c.font = font(700, 0.05 * px); c.fillStyle = hexOf(INK);
-    c.textAlign = 'right'; c.fillText('Clearance', X(SX0 + SW - 0.02), Y(AXY - 0.065));
-    c.save(); c.translate(X(SX0 - 0.09), Y(MY1 + 0.07)); c.rotate(-PI / 2); c.textAlign = 'right'; c.fillText('Heterogeneity', 0, 0); c.restore();
-  });
-
-  // ---------------------------------------------------------------- survival by the index's thirds (poster's Kaplan-Meier)
-  const KMD = PO.km || {}, KC = (KMD.curves || []).slice(0, 3), KT = KMD.table || [];
-  const KMAX = (Array.isArray(KMD.months) && KMD.months[1] > 0) ? KMD.months[1] : 140;
-  const KX0 = -0.6, KW = 1.32, KY0 = -0.38, KH = 0.86;
-  const kx = m => KX0 + m / KMAX * KW, ky = s => KY0 + clamp(s, 0, 1) * KH;
-  const thirdName = (c, k) => { const s = String((c && c.label) || ''); return /near healthy/i.test(s) ? 'Near healthy' : /intermediate/i.test(s) ? 'Intermediate' : /remote/i.test(s) ? 'Remote' : ['Near healthy', 'Intermediate', 'Remote'][k]; };
-  // a staircase through the read-off points: the value holds, then drops in small steps between two readings; the
-  // last drop is one step at the curve's end (as on the poster: the intermediate third falls to 0 at 135 months)
-  function stair(pts) {
-    const out = [[pts[0][0], pts[0][1]]];
-    for (let k = 1; k < pts.length; k++) {
-      const [m0, s0] = pts[k - 1], [m1, s1] = pts[k];
-      if (Math.abs(s1 - s0) < 1e-4) { out.push([m1, s0]); continue; }
-      if (k === pts.length - 1) { out.push([m1, s0], [m1, s1]); continue; }
-      const n = Math.max(1, Math.round((m1 - m0) / 2.5));
-      for (let q = 1; q <= n; q++) {
-        const md = m0 + (m1 - m0) * (q - 0.7 + 0.4 * R()) / n, v0 = s0 + (s1 - s0) * (q - 1) / n, v1 = s0 + (s1 - s0) * q / n;
-        out.push([md, v0], [md, v1]);
-      }
-      out.push([m1, s1]);
-    }
-    return out;
-  }
-  const stairAt = (st, m) => { let v = st[0][1]; for (const p of st) { if (p[0] > m) break; v = p[1]; } return v; };
-  const kmSt = KC.map(c => (Array.isArray(c.s) && c.s.length > 1 ? stair(c.s) : null));
-  // ribbons (curves, with a soft glow) and bands, each vertex with its month (reveal) and its curve (alpha). Two passes
-  // over one geometry: the bands and glows add up (uPass 0), the curves' cores lie on top with normal blending (uPass
-  // 1), so each third keeps its own colour where glow and band would add up to white
-  const RIB_V = `${PK}
-attribute vec3 aCol; attribute vec4 aD;   // across (-1..1), month (0..1), curve, glow
-uniform float uA; uniform vec4 uGA[2], uGR[2];
-varying vec3 vC; varying float vA, vV, vT, vR, vGl;
-void main() {
-  vC = aCol; vV = aD.x; vT = aD.y; vGl = aD.w; vA = uA * GET(uGA, aD.z); vR = GET(uGR, aD.z);
-  gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-}`;
-  const RIB_F = `
-uniform float uPass;
-varying vec3 vC; varying float vA, vV, vT, vR, vGl;
-void main() {
-  if (vT > vR || (uPass > 0.5) != (vGl < 0.5)) discard;
-  float e = abs(vV);
-  float a = vGl > 1.5 ? 0.15 : (vGl > 0.5 ? exp(-e * 3.0) * 0.14 : 1.0 - smoothstep(0.6, 1.0, e));
-  a *= vA;
-  if (a < 0.003) discard;
-  gl_FragColor = vec4(mix(vC, vec3(1.0), vGl < 0.5 ? 0.06 * (1.0 - e) : 0.0), a);
-}`;
-  const ribU = { uA: set.uA, uGA: { value: new Float32Array(8) }, uGR: { value: new Float32Array(8) } };
-  const ribMat = new THREE.ShaderMaterial({ uniforms: Object.assign({ uPass: { value: 0 } }, ribU), vertexShader: RIB_V, fragmentShader: RIB_F,
-    transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide });
-  const ribCore = new THREE.ShaderMaterial({ uniforms: Object.assign({ uPass: { value: 1 } }, ribU), vertexShader: RIB_V, fragmentShader: RIB_F,
-    transparent: true, depthWrite: false, side: THREE.DoubleSide });
-  set.mats.push(ribMat, ribCore);
-  {
-    const P = [], C = [], A = [], idx = [];
-    let nv = 0;
-    const quad = (a, b, c, d, col, across, t, g, gl) => {
-      [a, b, c, d].forEach((p, q) => { P.push(p[0], p[1], p[2]); C.push(...col); A.push(across[q], t[q], g, gl); });
-      idx.push(nv, nv + 1, nv + 2, nv, nv + 2, nv + 3); nv += 4;
-    };
-    // a ribbon along one straight piece (horizontal or vertical), square ends so the corners meet
-    const ribbon = (m0, s0, m1, s1, w, col, g, gl) => {
-      const x0 = kx(m0), y0 = ky(s0), x1 = kx(m1), y1 = ky(s1), z = gl ? 0.002 : 0.006;
-      const t0 = m0 / KMAX, t1 = m1 / KMAX;
-      if (Math.abs(y1 - y0) < 1e-6) quad([x0 - w, y0 - w, z], [x1 + w, y0 - w, z], [x1 + w, y0 + w, z], [x0 - w, y0 + w, z], col, [-1, -1, 1, 1], [t0, t1, t1, t0], g, gl);
-      else quad([x0 - w, y0 + w, z], [x0 + w, y0 + w, z], [x0 + w, y1 - w, z], [x0 - w, y1 - w, z], col, [-1, 1, 1, -1], [t0, t0, t0, t0], g, gl);
-    };
-    KC.forEach((c, k) => {
-      const st = kmSt[k]; if (!st) return;
-      // the band between the lower and upper limits, in half-month slices
-      if (Array.isArray(c.lo) && Array.isArray(c.hi) && c.lo.length > 1 && c.hi.length > 1) {
-        const lo = stair(c.lo), hi = stair(c.hi), mEnd = Math.min(c.lo[c.lo.length - 1][0], c.hi[c.hi.length - 1][0]);
-        for (let m = 0; m < mEnd; m += 0.5) {
-          const m2 = Math.min(mEnd, m + 0.5), a = stairAt(lo, m + 0.25), b = stairAt(hi, m + 0.25);
-          quad([kx(m), ky(a), 0], [kx(m2), ky(a), 0], [kx(m2), ky(b), 0], [kx(m), ky(b), 0], THIRD[k], [0, 0, 0, 0], [m / KMAX, m2 / KMAX, m2 / KMAX, m / KMAX], 3 + k, 2);
-        }
-      }
-      for (let q = 1; q < st.length; q++) {
-        const [m0, s0] = st[q - 1], [m1, s1] = st[q];
-        if (Math.abs(m1 - m0) < 1e-6 && Math.abs(s1 - s0) < 1e-6) continue;
-        ribbon(m0, s0, m1, s1, 0.005, THIRD[k], k, 0);
-        ribbon(m0, s0, m1, s1, 0.016, THIRD[k], k, 1);
-      }
-    });
-    const geo = new THREE.BufferGeometry();
-    geo.setAttribute('position', new THREE.Float32BufferAttribute(P.length ? P : [0, 0, 0], 3));
-    geo.setAttribute('aCol', new THREE.Float32BufferAttribute(C.length ? C : [0, 0, 0], 3));
-    geo.setAttribute('aD', new THREE.Float32BufferAttribute(A.length ? A : [0, 0, 0, 0], 4));
-    if (idx.length) geo.setIndex(idx);
-    const mesh = new THREE.Mesh(geo, ribMat), core = new THREE.Mesh(geo, ribCore);
-    mesh.frustumCulled = false; mesh.renderOrder = 4; mesh.visible = idx.length > 0; gKM.add(mesh);
-    core.frustumCulled = false; core.renderOrder = 5; core.visible = idx.length > 0; gKM.add(core);
-  }
-  const kPill = pillSet(gKM, 4, 1, false), KLEG = k => [kx(KMAX * 0.56), ky(0.95 - k * 0.085), 0.01];
-  kPill.put(0, 0.04, KT.length ? -0.05 : 0.05, -0.02, 0.86, KT.length ? 0.76 : 0.66, 0.05, 0, PANEL, 0.78, 1, 0.0025);   // the table under the chart
-  [0, 1, 2].forEach(k => { const p = KLEG(k); kPill.put(1 + k, p[0] - 0.05, p[1], p[2], 0.035, 0.006, 0.006, 0.012, THIRD[k], 1); });
-  const kLines = lineSet(gKM, 2, 2);
-  kLines.seg([KX0, KY0, 0], [KX0 + KW, KY0, 0], INK, 0.7, 0).seg([KX0, KY0, 0], [KX0, KY0 + KH, 0], INK, 0.7, 0);
-  for (let m = 0; m <= KMAX + 1e-6; m += 20) kLines.seg([kx(m), KY0, 0], [kx(m), KY0 - 0.018, 0], INK, 0.7, 0);
-  for (let s = 0.2; s <= 1.0001; s += 0.2) { kLines.seg([KX0, ky(s), 0], [KX0 - 0.018, ky(s), 0], INK, 0.7, 0); kLines.seg([KX0, ky(s), -0.002], [KX0 + KW, ky(s), -0.002], MUTED, 0.1, 0); }
-  kLines.build();
-  const kTex = textPlane(gKM, 0.04, 0.05, -0.008, 1.8, 1.8, 1024, 2, (c, X, Y, px) => {
-    c.textBaseline = 'middle';
-    c.font = font(700, 0.06 * px); c.fillStyle = hexOf(INK); c.textAlign = 'left';
-    c.fillText('Survival by thirds of the index', X(KX0), Y(KY0 + KH + 0.125));
-    c.font = font(500, 0.046 * px); c.fillStyle = hexOf(l3(MUTED, INK, 0.3));
-    const kn = KC.reduce((a, x) => a + (+x.n || 0), 0);
-    c.fillText(`${kn ? fmt(kn) + ' people with cancer' : 'People with cancer'}, in thirds of the index (poster)`, X(KX0), Y(KY0 + KH + 0.06));
-    c.font = font(600, 0.042 * px); c.textAlign = 'center';
-    for (let m = 0; m <= KMAX + 1e-6; m += 20) c.fillText(String(m), X(kx(m)), Y(KY0 - 0.048));
-    c.textAlign = 'right';
-    for (let s = 0; s <= 1.0001; s += 0.2) c.fillText(s.toFixed(1), X(KX0 - 0.03), Y(ky(s)));
-    c.font = font(600, 0.044 * px); c.fillStyle = hexOf(INK); c.textAlign = 'center';
-    c.fillText('Months', X(KX0 + KW / 2), Y(KY0 - 0.115));
-    c.save(); c.translate(X(KX0 - 0.13), Y(KY0 + KH / 2)); c.rotate(-PI / 2); c.fillText('Survival', 0, 0); c.restore();
-    // the poster's table, under the chart (clear of the curves and their bands)
-    if (KT.length) {
-      const x0 = KX0, cw = [0.42, 0.26, 0.26, 0.38], rh = 0.06, y0 = KY0 - 0.165;
-      const hdr = ['Third', 'Deaths', '1 year', 'Median survival'];
-      const cell = (txt, k, row, w, col) => { let x = x0; for (let q = 0; q < k; q++) x += cw[q]; c.font = font(w, 0.044 * px); c.fillStyle = col; c.textAlign = k ? 'center' : 'left'; c.fillText(txt, X(k ? x + cw[k] / 2 : x + 0.045), Y(y0 - rh * (row + 0.5))); };
-      hdr.forEach((h, k) => cell(h, k, 0, 700, hexOf(MUTED)));
-      KT.slice(0, 3).forEach((r, q) => {
-        c.fillStyle = hexOf(THIRD[q]); c.globalAlpha = 0.16; c.fillRect(X(x0), Y(y0 - rh * (q + 1) - 0.002), (cw.reduce((a, b) => a + b, 0)) * px, (rh - 0.006) * px); c.globalAlpha = 1;
-        c.fillStyle = hexOf(THIRD[q]); c.fillRect(X(x0 + 0.006), Y(y0 - rh * (q + 1.5) + 0.014), 0.026 * px, 0.028 * px);
-        const pct = s => String(s).replace(/\s*%$/, ' %'), med = String(r.median) === 'NR' ? 'not reached' : `${r.median} mo`;
-        cell(thirdName(KC[q], q), 0, q + 1, 600, hexOf(INK)); cell(pct(r.deaths), 1, q + 1, 600, hexOf(INK)); cell(pct(r.oneYear), 2, q + 1, 600, hexOf(INK)); cell(med, 3, q + 1, 600, hexOf(INK));
-      });
-    }
-  });
-
-  // ---------------------------------------------------------------- the immunotherapy test (poster's response strip and AUCs)
-  const AUC = (PG.auc || []).filter(a => a && Number.isFinite(+a.auc)).slice(0, 6).map(a => Object.assign({}, a, { auc: +a.auc, label: String(a.label || a.name || '') }));
-  const RAX = (Array.isArray(PST.axis) && PST.axis[1] > 0) ? PST.axis[1] : 6.85, RX0 = -0.42, RX1 = 0.8, rx = v => RX0 + v / RAX * (RX1 - RX0), RAY = 0.3;
-  const AA0 = 0.45, AA1 = 1.0, AX0 = -0.2, AX1 = 0.56, ax = v => AX0 + (v - AA0) / (AA1 - AA0) * (AX1 - AX0), AAY = -0.46;
-  const aRowY = r => 0.05 - r * 0.083 - (r >= 3 ? 0.035 : 0);
-  const isNet = a => a.group === 'network' || /index|heterogen|clearance/i.test(a.label);
-  const aPill = pillSet(gAUC, 1 + 2 * 6 + 6, 3, false);   // the panel, 6 tracks, 6 bars, two bands of up to 3 pills
-  aPill.put(0, 0.0, 0.08, -0.02, 0.92, 0.7, 0.05, 0, PANEL, 0.78, 1, 0.0025);
-  AUC.forEach((a, r) => {
-    aPill.put(1 + r, (AX0 + AX1) / 2, aRowY(r), -0.004, (AX1 - AX0) / 2, 0.03, 0.006, 0, [0.14, 0.18, 0.26], 0.4);
-    aPill.put(7 + r, AX0, aRowY(r), 0, 0.001, 0.03, 0.006, 0.02, isNet(a) ? WARM : CLIN, 1);
-  });
-  // the two summary bands: good response (min to max, the quartiles, the median), poor response (min to max, median)
-  const RGY = 0.5, RBY = 0.4;
-  // pills k (min to max), k + 1 (the quartiles, when given) and the last (the median)
-  const band = (k, s, y, col) => {
-    if (!s || !Number.isFinite(s.min) || !Number.isFinite(s.max)) return;
-    const q = Number.isFinite(s.q1) && Number.isFinite(s.q3);
-    aPill.put(k, rx((s.min + s.max) / 2), y, 0.002, (s.max - s.min) / RAX * (RX1 - RX0) / 2, 0.012, 0.012, 0.01, col, 0.75);
-    if (q) aPill.put(k + 1, rx((s.q1 + s.q3) / 2), y, 0.004, (s.q3 - s.q1) / RAX * (RX1 - RX0) / 2, 0.026, 0.006, 0.012, col, 0.95);
-    if (Number.isFinite(s.median)) aPill.put(q ? k + 2 : k + 1, rx(s.median), y, 0.006, 0.007, 0.045, 0.006, 0.01, [1, 1, 1], 1, 1, 0);
-  };
-  band(13, RG, RGY, GOOD); band(16, RB, RBY, POOR);
-  const aLines = lineSet(gAUC, 2, 2);
-  aLines.seg([RX0, RAY, 0], [RX1, RAY, 0], INK, 0.7, 0);
-  for (let v = 0; v <= Math.floor(RAX); v++) aLines.seg([rx(v), RAY, 0], [rx(v), RAY - 0.018, 0], INK, 0.7, 0);
-  (Array.isArray(PST.dashed) ? PST.dashed : []).forEach(v => aLines.dash([rx(v), RAY, -0.002], [rx(v), 0.58, -0.002], 12, GOOD, 0.85, 0));
-  aLines.seg([AX0, AAY, 0], [AX1, AAY, 0], INK, 0.7, 1);
-  for (let v = 0.5; v <= AA1 + 1e-6; v += 0.1) aLines.seg([ax(v), AAY, 0], [ax(v), AAY - 0.018, 0], INK, 0.7, 1);
-  const CH = Number.isFinite(PG.chance) ? PG.chance : 0.5;
-  aLines.dash([ax(CH), AAY, 0.008], [ax(CH), aRowY(0) + 0.06, 0.008], 16, INK, 0.55, 1);
-  aLines.build();
-  const aTex = textPlane(gAUC, 0, 0.08, -0.008, 1.84, 1.84, 1024, 4, (c, X, Y, px) => {
-    c.textBaseline = 'middle';
-    c.font = font(700, 0.06 * px); c.fillStyle = hexOf(INK); c.textAlign = 'left';
-    c.fillText('Immunotherapy before surgery', X(-0.84), Y(0.715));
-    c.font = font(500, 0.046 * px); c.fillStyle = hexOf(l3(MUTED, INK, 0.3));
-    const noP = AUC.length && AUC.every(a => !(+a.p < 0.05));
-    c.fillText(`${PG.n ? PG.n + ' people' : 'People'} with lung cancer: a first test${noP ? ', no p below 0.05' : ''}`, X(-0.84), Y(0.655));
-    c.font = font(600, 0.04 * px); c.textAlign = 'center'; c.fillStyle = hexOf(l3(MUTED, INK, 0.3));
-    for (let v = 0; v <= Math.floor(RAX); v++) c.fillText(String(v), X(rx(v)), Y(RAY - 0.045));
-    c.font = font(500, 0.045 * px);
-    c.fillText('Displacement index: Clearance and Heterogeneity in one number', X((RX0 + RX1) / 2), Y(RAY - 0.1));
-    c.font = font(600, 0.04 * px);
-    for (let v = 0.5; v <= AA1 + 1e-6; v += 0.1) c.fillText(v.toFixed(1), X(ax(v)), Y(AAY - 0.045));
-    c.font = font(500, 0.045 * px); c.fillText('AUC: how well each tells good from poor responders (0.5 is chance)', X((AX0 + AX1) / 2 - 0.14), Y(AAY - 0.105));
-    c.textAlign = 'right';
-    AUC.forEach((a, r) => {
-      c.font = font(isNet(a) ? 700 : 600, 0.042 * px); c.fillStyle = hexOf(isNet(a) ? WARM : INK);
-      const txt = a.label.replace(/^Metabolic displacement index$/i, 'Displacement index');
-      c.fillText(txt, X(AX0 - 0.03), Y(aRowY(r)));
-    });
-    c.font = font(700, 0.045 * px); c.textAlign = 'left';
-    c.fillStyle = hexOf(WARM); c.fillText('network measures', X(-0.84), Y(aRowY(0) + 0.07));
-    c.fillStyle = hexOf(CLIN); c.fillText('clinical measures', X(-0.84), Y(aRowY(3) + 0.065));
-  });
-
-  // ---------------------------------------------------------------- state, anchors, labels
-  const U = new Array(N).fill(1);
-  const cur = { map: 0, mdi: 0, theta: THETA, m: measure(PU[0], THETA), plane: FY, prof: 0, top: new Float32Array(NL), hub: -1, hubW: 0, pf: 1,
-    person: [0, 0, 0], barsV: 0, fieldV: 0, ringV: 0, frame: 0, pickId: null, pickF: -9, pickAt: [0, 0, 0] };
-  const own = f => { const o = [0, 0, 0]; return () => f(o); };
-  const cp = (o, p) => { o[0] = p[0]; o[1] = p[1]; o[2] = p[2]; return o; };
-  const set3 = (o, x, y, z) => { o[0] = x; o[1] = y; o[2] = z; return o; };
-  const mix3 = (o, a, b, f) => set3(o, lerp(a[0], b[0], f), lerp(a[1], b[1], f), lerp(a[2], b[2], f));
-  const kmAnchor = k => tr(gKM, KLEG(k));
-  // a group's centre: on the map the mean of its dots, on the strip its median dot (gliding from one to the other)
-  const groupAt = (k, o) => {
-    const c = MG[k] && Number.isFinite(MG[k].centre) ? MG[k].centre : QF[k] ? QF[k](0.5) : 5, f = prog(cur.mdi, 0.15, 0.85), st = STATS[k];
-    return set3(o, lerp(st.x, SX(c), f), lerp(st.y, ROWY[k], f), lerp(st.z, 0.08, f));
-  };
-  const anchors = {
-    one: own(o => tr(gRing, RC, o)),
-    profile: own(o => tr(gRing, [RC[0] - RR - 0.2, RC[1] + RR + 0.12, RC[2]], o)),
-    bars: own(o => tr(gBars, [BPX[0], BPY[1] + 0.05, 0], o)),
-    field: [0, FY + 0.05, FZ],
-    example: own(o => { const i = ONE.indexOf('kidneys'), j = ONE.indexOf('fat'); return i < 0 || j < 0 ? set3(o, 0, FY, FZ) : set3(o, cellX(j), cur.top[i * N + j] + 0.04, cellZ(i)); }),
-    plane: own(o => set3(o, cellX(N - 1) + FP * 0.65, cur.plane + 0.01, cellZ(N - 1) + FP * 0.65)),
-    metrics: tr(gMet, [0, 0.1, 0]),
-    clearance: tr(gMet, [GA.C[0] - 0.19, GA.C[1] + GA.C[2] + 0.08, 0]),
-    hetero: tr(gMet, [GA.H[0] - 0.03, GA.H[1] + GA.H[2] + 0.08, 0]),
-    dial: tr(gMet, [GA.X[0] - 0.5, GA.X[1] - GA.X[2] - 0.08, 0]),
-    note: tr(gMet, [GA.X[0] - 0.5, GA.X[1] - GA.X[2] - 0.2, 0]),
-    map: [(PNX[0] + PNX[1]) / 2, (PNY[0] + PNY[1]) / 2, 0],
-    mapNote: [PNX[0], PNY[1] + 0.07, 0],
-    iso: [isoX(2, MY1 + 0.05), MY1 + 0.07, 0],
-    strip: [SX0 + SW / 2, 0.15, 0],
-    axis: [SX(AXMAX / 2) - 0.45, AXY - 0.16, 0],
-    person: own(o => cp(o, cur.person)),
-    km: tr(gKM, [KX0 + KW / 2, KY0 + KH / 2, 0]),
-    auc: tr(gAUC, [0, 0.08, 0]),
-    good: tr(gAUC, [rx(RG && Number.isFinite(RG.max) ? RG.max : 4.7) + 0.03, RGY, 0.01]),
-    poor: tr(gAUC, [rx(RB && Number.isFinite(RB.max) ? RB.max : 5.5) + 0.03, RBY, 0.01]),
-    healthy: [SX(HQ[1]) + 0.01, STOP + 0.1, 0],
-  };
-  // each organ: node_<id> is its node on the ring (its labels); <id> is where the organ is pointed at: the spot a ray
-  // has just picked (a node, a bar or a header of the field), else its node while the ring shows, its bar while the
-  // bars show, its row's header on the field
-  ONE.forEach((id, i) => {
-    const node = [NODE[i][0], NODE[i][1], NODE[i][2] + 0.02];
-    anchors['node_' + id] = own(o => tr(gRing, node, o));
-    anchors[id] = own(o => (cur.pickId === id && cur.frame - cur.pickF <= 1 ? cp(o, cur.pickAt)
-      : cur.ringV > 0.5 || !(cur.barsV > 0.5 || cur.fieldV > 0.5) ? tr(gRing, node, o)
-      : cur.barsV > 0.5 ? tr(gBars, [BX0 + BTRK + 0.02, BY(i), 0], o) : set3(o, cellX(0) - 0.13, FY + 0.05, cellZ(i))));
-    anchors['bar_' + id] = own(o => tr(gBars, [BX0 + BTRK + 0.02, BY(i), 0], o));
-  });
-  GKEY.forEach((k, q) => {
-    anchors['g' + (q + 1)] = own(o => groupAt(q, o));
-    const row = [LABX, ROWY[q], 0.02];
-    anchors['lab_g' + (q + 1)] = own(o => mix3(o, LEG(q), row, prog(cur.mdi, 0.2, 0.8)));
-  });
-  [0, 1, 2].forEach(k => { anchors['km' + (k + 1)] = own(o => cp(o, kmAnchor(k))); });
-  AUC.forEach((a, r) => { anchors['auc' + (r + 1)] = tr(gAUC, [ax(a.auc) + 0.025, aRowY(r), 0.01]); });
-  FU.forEach((f, k) => { anchors['f' + (k + 1)] = [LABX, ROWY[f.row], 0.02]; });
-
-  const near = (x, k) => sat(1 - Math.abs(x - k) * 2.2);
-  const S_ = (S, n) => sat(S[n]);
-  const oneOff = S => 1 - prog(S_(S, 'people_map'), 0, 0.4);                    // the one-scan part gives way to the people
-  const popQuiet = S => 1 - prog(Math.max(S_(S, 'people_km'), S_(S, 'people_response')), 0, 0.5);
-  const labels = [];
-  // the organs' names: on the bars (in the panel itself), then on the ring's nodes; with the measures only the kidneys
-  // (Clearance) and the node with the most links (Heterogeneity: strength z-score above about 1.7) keep theirs
-  const hubK = S => prog(S_(S, 'people_metrics'), 0.25, 0.7);
-  ORG.forEach((o, i) => {
-    labels.push({ text: [o.short || o.name, ''], at: 'node_' + o.id, cls: '', minor: i !== KID,
-      alpha: S => prog(S_(S, 'people_one'), 0.55, 0.9) * (i === KID ? 1 : 1 - prog(S_(S, 'people_metrics'), 0, 0.35)) * (i === cur.hub ? 1 - hubK(S) * cur.hubW : 1) * oneOff(S) });
-    labels.push({ text: [o.short || o.name, ' · most links'], at: 'node_' + o.id, cls: 'amb', alpha: S => (i === cur.hub ? hubK(S) * cur.hubW : 0) * prog(S_(S, 'people_one'), 0.55, 0.9) * oneOff(S) });
-  });
-  labels.push({ text: ['Uptake', ' · one scan, illustrative values'], at: 'bars', cls: '', alpha: S => S_(S, 'people_bars') * (1 - prog(S_(S, 'people_one'), 0.2, 0.5)) * oneOff(S) });
-  labels.push({ text: ['Kidneys ÷ fat', ' · one ratio'], at: 'example', cls: 'amb', alpha: S => prog(S_(S, 'people_ratio'), 0.6, 0.95) * (1 - prog(S_(S, 'people_one'), 0, 0.3)) * oneOff(S) });
-  labels.push({ text: ['Threshold', ''], at: 'plane', cls: 'cyn', alpha: S => prog(S_(S, 'people_thresh'), 0.3, 0.8) * (1 - prog(S_(S, 'people_one'), 0.5, 0.9)) * oneOff(S) });
-  PROF.forEach((p, k) => labels.push({ text: [PROFN[p], ' · illustrative uptakes'], at: 'profile', cls: '', alpha: S => profNear(S, k) * (1 - S_(S, 'people_custom')) * S_(S, 'people_one') * oneOff(S) }));
-  labels.push({ text: ['Your uptakes', ''], at: 'profile', cls: 'amb', alpha: S => S_(S, 'people_custom') * S_(S, 'people_one') * oneOff(S) });
-  // (the gauges' and the note's captions give way on narrow screens, where they covered the gauges: the panel names them)
-  labels.push({ text: ['Clearance', ''], at: 'clearance', cls: 'amb', minor: true, alpha: S => prog(S_(S, 'people_metrics'), 0.05, 0.4) * oneOff(S) });
-  labels.push({ text: ['Heterogeneity', ''], at: 'hetero', cls: 'amb', minor: true, alpha: S => prog(S_(S, 'people_metrics'), 0.3, 0.65) * oneOff(S) });
-  labels.push({ text: ['Displacement index', ' · 0 to 10'], at: 'dial', cls: 'amb', minor: true, alpha: S => prog(S_(S, 'people_metrics'), 0.55, 0.9) * oneOff(S) });
-  labels.push({ text: ['Illustrative maths', ' · formulas not yet published'], at: 'note', cls: '', minor: true, alpha: S => prog(S_(S, 'people_metrics'), 0.6, 1) * oneOff(S) });
-  // the people: the groups (the map's legend, then the rows' names), giving way to the follow-up groups; what is a
-  // stand-in is said on the map, on the strip and in follow-up alike
-  const mapOnly = S => prog(S_(S, 'people_map'), 0.6, 1) * (1 - prog(S_(S, 'people_mdi'), 0, 0.4));
-  const folK = S => prog(S_(S, 'people_follow'), 0, 0.3);
-  MG.forEach((g, k) => {
-    if (!g) return;
-    labels.push({ text: [g.name || PROFN[GKEY[k]], Number.isFinite(+g.n) ? ` · n = ${g.n}` : ''], at: 'lab_g' + (k + 1), cls: { healthy: 'cyn', dys: 'mag' }[GKEY[k]] || '',
-      alpha: S => { const sel = clamp(S.people_group || 0, 0, 4), hi = sat(1 - Math.abs(sel - (k + 1))); return prog(S_(S, 'people_map'), 0.6, 1) * lerp(1, 0.35 + 0.65 * hi, sat(sel)) * popQuiet(S) * (1 - folK(S)); } });
-  });
-  labels.push({ text: [`${fmt(NDOT)} people`, ' · stand-in dots, group summaries'], at: 'mapNote', cls: '', alpha: mapOnly });
-  labels.push({ text: [`${fmt(NDOT)} people`, ' · stand-in dots; the bars and medians are the poster\'s'], at: 'mapNote', cls: '',
-    alpha: S => prog(S_(S, 'people_mdi'), 0.4, 0.9) * S_(S, 'people_map') * popQuiet(S) * (1 - folK(S)) });
-  labels.push({ text: ['Follow-up', ' · illustrative: the poster gives only group sizes'], at: 'mapNote', cls: 'amb',
-    alpha: S => prog(S_(S, 'people_follow'), 0.15, 0.45) * S_(S, 'people_mdi') * S_(S, 'people_map') * popQuiet(S) });
-  labels.push({ text: ['Lines of equal index', ''], at: 'iso', cls: 'amb', alpha: S => mapOnly(S) * prog(S_(S, 'people_map'), 0.8, 1) });
-  labels.push({ text: ['This scan', ''], at: 'person', cls: 'amb', alpha: S => prog(S_(S, 'people_map'), 0.6, 0.9) * (1 - folK(S)) * popQuiet(S) * cur.pf });
-  labels.push({ text: ['Metabolic displacement index', ''], at: 'axis', cls: '', alpha: S => prog(S_(S, 'people_mdi'), 0.5, 1) * S_(S, 'people_map') * popQuiet(S) });
-  KC.forEach((c, k) => {
-    labels.push({ text: [thirdName(c, k), Number.isFinite(+c.n) ? ` · n = ${c.n}` : ''], at: 'km' + (k + 1), cls: ['cyn', '', ''][k], alpha: S => prog(S_(S, 'people_km'), 0.55 + 0.1 * k, 0.85 + 0.1 * k) });
-  });
-  const nOf = s => (Number.isFinite(+s.n) ? ` · n = ${s.n}` : '');
-  if (RG) labels.push({ text: ['Good response', nOf(RG)], at: 'good', cls: 'cyn', alpha: S => prog(S_(S, 'people_response'), 0.05, 0.3) });
-  if (RB) labels.push({ text: ['Poor response', nOf(RB)], at: 'poor', cls: '', alpha: S => prog(S_(S, 'people_response'), 0.1, 0.35) });
-  AUC.forEach((a, r) => labels.push({ text: [`AUC ${a.auc}`, Number.isFinite(+a.p) ? ` · p = ${a.p}` : ''], at: 'auc' + (r + 1), cls: isNet(a) ? 'amb' : '',
-    alpha: S => prog(S_(S, 'people_response'), 0.4 + 0.05 * r, 0.55 + 0.05 * r) }));   // (the last, Age, fully in a while before the board goes)
-  const folA = S => prog(S_(S, 'people_follow'), 0.1, 0.4) * S_(S, 'people_mdi') * S_(S, 'people_map') * popQuiet(S);
-  FU.forEach((f, k) => labels.push({ text: [f.name, ` · n = ${f.n}`], at: 'f' + (k + 1), cls: f.kind === 'none' ? '' : 'amb', alpha: folA }));
-  if (MG[3]) labels.push({ text: ['Healthy range', ' · middle half'], at: 'healthy', cls: 'cyn', alpha: S => folA(S) * prog(S_(S, 'people_follow'), 0.2, 0.5) });
-
-  // ---------------------------------------------------------------- update
-  const st0 = (i, j) => 0.42 * i / N + 0.06 * j / N;     // when a column's links fly up (people_one)
-  const uE = partMat.uniforms.uE.value, uF = partMat.uniforms.uF.value, uH = partMat.uniforms.uH.value, uT = tubeMat.uniforms.uT.value, uB = tubeMat.uniforms.uB.value;
-  const M4 = new THREE.Matrix4(), Q0 = new THREE.Quaternion(), P3 = new THREE.Vector3(), S3 = new THREE.Vector3();
-  const LASTU = new Float32Array(N + 1).fill(NaN), HW = new Float32Array(N), PM = [0, 0, 0], TG = [0, 0, 0], SP3 = [0, 0, 0], PA = [0, 0, 0];
-  let lastFa = -1;
-  const ptA = perGeo.attributes;
-  ptA.aCol.array.set([1, 1, 1], 0); ptA.aSize.array[0] = 0.07; ptA.aSize.array[1] = 0.05;
-  function update(S, t) {
-    cur.frame++;
-    const bars = S_(S, 'people_bars'), ratio = S_(S, 'people_ratio'), thr = S_(S, 'people_thresh'), one = S_(S, 'people_one'), met = S_(S, 'people_metrics');
-    const map = S_(S, 'people_map'), mdi = S_(S, 'people_mdi'), km = S_(S, 'people_km'), resp = S_(S, 'people_response'), fol = S_(S, 'people_follow');
-    const theta = clamp(Number.isFinite(S.people_theta) ? S.people_theta : THETA, 1.01, 10);
-    uptakes(S, U);
-    const M = measure(U, theta, MS);
-    cur.map = map; cur.mdi = mdi; cur.theta = theta; cur.m = M; cur.prof = profBlend(S).slice();
-    cur.plane = FY + HS * Math.log(theta) * thr;
-    // as the people rise, the one-scan part gives way by itself (keep), and the ring stays formed while it shrinks
-    // into this person's dot (oneR), whatever people_one does meanwhile
-    const keep = 1 - prog(map, 0, 0.5), oneR = Math.max(one, prog(map, 0, 0.15));
-
-    // the bars: in the middle at first, then to the left as the network forms
-    const sl = prog(oneR, 0.05, 0.5), ba = bars * keep;
-    gBars.position.set(lerp(-0.53, -1.56, sl), lerp(-0.02, 0.02, sl), lerp(0, 0.16, sl));
-    gBars.rotation.y = 0.22 * sl; gBars.scale.setScalar(lerp(1, 0.86, sl)); gBars.updateMatrix();
-    gBars.visible = ba > 0.003;
-    if (gBars.visible) {
-      bgB.a(0, prog(ba, 0, 0.3)); bgB.flush(); bTex.k = prog(ba, 0.05, 0.35);
-      for (let i = 0; i < N; i++) {
-        const g = prog(ba, 0.1 + 0.06 * i, 0.55 + 0.06 * i), len = Math.max(0.002, Math.min(U[i], 5.2) * BK * g);
-        bPill.a(i, prog(ba, 0, 0.3));
-        bPill.x(N + i, BX0 + len / 2, len / 2); bPill.a(N + i, prog(ba, 0.05, 0.3));
-        bIco.attributes.aA.array[i] = prog(ba, 0, 0.3);
-      }
-      bPill.flush(); bIco.attributes.aA.needsUpdate = true;
-      bLines.g[0] = prog(ba, 0, 0.4);
-    }
-
-    // the field: columns rise to ln(u_i / u_j); the plane rises to ln(theta); lit columns become links. A column
-    // that does not rise (the diagonal, a negative ratio) is not drawn at all: its cell on the floor stays dark
-    // (and it steps back, dimmed, once the gauges are up: it explained the links, which the network now holds)
-    const fDim = 1 - 0.7 * prog(met, 0, 0.6), fa = prog(ratio, 0, 0.3) * keep * fDim, pla = prog(thr, 0, 0.2) * keep * fDim;
-    gField.visible = fa > 0.003 || pla > 0.003;
-    let changed = LASTU[N] !== ratio;
-    LASTU[N] = ratio;
-    for (let i = 0; i < N; i++) if (LASTU[i] !== U[i]) { LASTU[i] = U[i]; changed = true; }
-    for (let i = 0; i < N; i++) for (let j = 0; j < N; j++) {
-      const L = i * N + j, r = i === j ? 0 : Math.max(0, Math.log(U[i] / U[j]));
-      const rise = prog(ratio, 0.12 + 0.4 * (i + j) / (2 * N - 2), 0.5 + 0.4 * (i + j) / (2 * N - 2));
-      const h = Math.min(HMAX, HS * r) * rise;
-      cur.top[L] = FY + h;
-      const e = i === j ? 0 : M.e[i][j], F = i === j ? 0 : prog(oneR, st0(i, j), st0(i, j) + 0.5);
-      iCol.array[4 * L + 3] = e; iF.array[L] = F;
-      uH[L] = FY + h; uF[L] = F;
-      if (changed) { M4.compose(P3.set(cellX(j), FY, cellZ(i)), Q0, h < 0.003 ? S3.set(0, 0, 0) : S3.set(CW, h, CW)); cols.setMatrixAt(L, M4); }
-    }
-    if (changed) cols.instanceMatrix.needsUpdate = true;
-    if (gField.visible) {
-      if (fa !== lastFa) { for (let k = 0; k <= NL; k++) fPill.a(k, fa); fIco.attributes.aA.array.fill(fa); fIco.attributes.aA.needsUpdate = true; lastFa = fa; }
-      fPill.flush();
-      plPill.a(0, pla); plPill.flush();
-      plPill.mesh.position.set(0, 0, cur.plane - FY);
-      iCol.needsUpdate = true; iF.needsUpdate = true;
-    }
-    colMat.uniforms.uK.value = fa; colMat.uniforms.uPlane.value = cur.plane + 1e-4; colMat.uniforms.uThr.value = prog(thr, 0.2, 0.8);
-    colMat.depthWrite = set.uA.value > 0.97 && fa > 0.97;   // a fading field never hides what is behind it
-    cols.visible = fa > 0.003;
-
-    // the ring: it shrinks into this person's dot as the people rise
-    const rT = prog(map, 0, 0.6), sc = lerp(1, 0.06, rT), ringVis = 1 - prog(map, 0.45, 0.7);
-    mapPt(M.C, M.H, 0.06, PM);
-    mix3(TG, RC, PM, rT);
-    gRing.position.set(TG[0] - RC[0] * sc, TG[1] - RC[1] * sc, TG[2] - RC[2] * sc); gRing.scale.setScalar(sc); gRing.updateMatrix();
-    gRing.visible = oneR > 0.003 && ringVis > 0.003;
-    const kd = prog(met, 0, 0.45), hk = prog(met, 0.25, 0.7);
-    for (let i = 0; i < N; i++) for (let j = 0; j < N; j++) {
-      const L = i * N + j;
-      if (i === j) { uE[L] = 0; uT[L] = 0; uB[L] = 0; continue; }
-      const e = M.e[i][j], arrive = prog(oneR, st0(i, j) + 0.3, st0(i, j) + 0.55);
-      uE[L] = e * ringVis * prog(ratio, 0.3, 0.6);
-      uT[L] = e * arrive * ringVis;
-      uB[L] = i === KID ? 1 + 0.9 * kd : 1 - 0.5 * kd;
-    }
-    // node sizes by strength (Heterogeneity); the node with the most links glows orange-yellow as its strength's z-score
-    // passes about 1.7 (smoothly, between 1.55 and 1.85); the kidneys' halo
-    const na = prog(oneR, 0.05, 0.4) * ringVis;
-    let sm = 0, sv = 0, hub = -1;
-    for (let i = 0; i < N; i++) sm += M.s[i] / N;
-    for (let i = 0; i < N; i++) sv += (M.s[i] - sm) * (M.s[i] - sm) / N;
-    const sd = Math.sqrt(sv) || 1;
-    for (let i = 0; i < N; i++) { HW[i] = prog((M.s[i] - sm) / sd, 1.55, 1.85); if (HW[i] > 0 && (hub < 0 || M.s[i] > M.s[hub])) hub = i; }
-    cur.hub = hub; cur.hubW = hub >= 0 ? HW[hub] : 0;
-    if (gRing.visible) {
-      const hc = haloGeo.attributes.aCol.array;
-      for (let i = 0; i < N; i++) {
-        const rel = sm > 0 ? M.s[i] / sm : 1, w = i === hub ? HW[i] : 0;
-        const size = 0.13 * clamp(1 + hk * (rel - 1) * 0.55, 0.55, 1.9);
-        nIco.attributes.aA.array[i] = na; nIco.attributes.aSize.array[i] = size; nIco.attributes.aHub.array[i] = w * hk * (0.75 + 0.25 * Math.sin(t * 2.2));
-        haloGeo.attributes.aA.array[i] = na * (0.35 + 0.4 * hk);
-        haloGeo.attributes.aSize.array[i] = size * (1.7 + 0.5 * hk * rel);
-        for (let c = 0; c < 3; c++) hc[3 * i + c] = lerp(OCOL[i][c], HUBC[c], hk * w);
-      }
-      haloGeo.attributes.aA.array[N] = KID >= 0 ? na * kd * (0.55 + 0.25 * Math.sin(t * 3)) : 0;
-      haloGeo.attributes.aSize.array[N] = 0.42;
-      for (const n of ['aA', 'aSize', 'aCol']) haloGeo.attributes[n].needsUpdate = true;
-      for (const n of ['aA', 'aSize', 'aHub']) nIco.attributes[n].needsUpdate = true;
-      rLines.g[0] = na;
-    }
-    cur.barsV = ba; cur.fieldV = fa; cur.ringV = na;
-
-    // the gauges and the dial (they give way with the rest of the one-scan part)
-    const gk0 = prog(met, 0, 0.45), gk1 = prog(met, 0.25, 0.7), gk2 = prog(met, 0.5, 0.95);
-    gMet.visible = met * keep > 0.003;
-    gC.uniforms.uK.value = gk0 * keep; gC.uniforms.uVal.value = M.C; gC.uniforms.uFillK.value = gk0; gC.mesh.visible = gk0 * keep > 0.003;
-    gH.uniforms.uK.value = gk1 * keep; gH.uniforms.uVal.value = M.H / HMAXG; gH.uniforms.uFillK.value = gk1; gH.mesh.visible = gk1 * keep > 0.003;
-    gX.uniforms.uK.value = gk2 * keep; gX.uniforms.uVal.value = M.mdi / 10; gX.uniforms.uFillK.value = gk2; gX.mesh.visible = gk2 * keep > 0.003;
-    if (gMet.visible) { readout(0, M.C.toFixed(2)); readout(1, M.H.toFixed(2)); readout(2, M.mdi.toFixed(1)); }
-    RO.m.uniforms.uCK.value.set(gk0, gk1, gk2); RO.k = keep;
-    ENDS.m.uniforms.uCK.value.set(gk0, gk1, gk2); ENDS.k = keep;
-
-    // the people
-    const sel = clamp(S.people_group || 0, 0, 4), any = sat(sel), gf = dotMat.uniforms.uGF.value;
-    for (let g = 0; g < 4; g++) { const hi = sat(1 - Math.abs(sel - (g + 1))); gf[g] = lerp(1, 0.16 + 1.04 * hi, any); }
-    for (let g = 4; g < 8; g++) gf[g] = 1;
-    const dim = 1 - 0.6 * Math.max(km, resp);
-    gPop.visible = map > 0.003;
-    dotMat.uniforms.uMap.value = map; dotMat.uniforms.uMdi.value = mdi; dotMat.uniforms.uFol.value = fol; dotMat.uniforms.uDim.value = dim;
-    trailMat.uniforms.uFol.value = fol; trailMat.uniforms.uK.value = mdi * dim;
-    // this person's dot: from the ring to the map, then onto its profile's row of the strip (between two rows while
-    // the profile blends), a little above the row's middle; it dims with its row when another group is picked
-    const [lo, hi, pf] = cur.prof;
-    const ga = Math.max(0, GKEY.indexOf(PROF[lo])), gb = Math.max(0, GKEY.indexOf(PROF[hi]));
-    set3(SP3, SX(M.mdi), lerp(ROWY[ga], ROWY[gb], pf) + 0.05, 0.12);
-    mix3(PA, RC, PM, prog(map, 0.05, 0.6)); mix3(PA, PA, SP3, prog(mdi, 0.2, 0.9));
-    cp(cur.person, PA);
-    cur.pf = Math.min(1, lerp(gf[ga], gf[gb], pf));
-    if (gPop.visible) {
-      const pal = prog(map, 0.4, 0.7) * (1 - 0.5 * fol) * dim * cur.pf;
-      ptA.position.array.set(PA, 0); ptA.position.array.set(PA, 3);
-      for (let c = 0; c < 3; c++) ptA.aCol.array[3 + c] = lerp(GCOL[ga][c], GCOL[gb][c], pf);
-      ptA.aA.array[0] = pal; ptA.aA.array[1] = pal;
-      for (const n of ['position', 'aCol', 'aA']) ptA[n].needsUpdate = true;
-      // frames, summaries, shading
-      const stripA = map * prog(mdi, 0.3, 0.9) * dim;
-      bgPill.a(P_PANEL, prog(map, 0, 0.4) * lerp(1, 0.6, Math.max(km, resp)));
-      bgPill.a(P_SH0, stripA); bgPill.a(P_SH1, stripA); bgPill.a(P_HB, prog(fol, 0, 0.35) * stripA);
-      bgPill.flush();
-      for (let k = 0; k < 4; k++) {
-        const hi = sat(1 - Math.abs(sel - (k + 1))), f = lerp(1, 0.25 + 0.75 * hi, any) * (1 - 0.55 * fol);
-        for (let q = 0; q < 3; q++) pPill.a(3 * k + q, prog(mdi, 0.55 + 0.05 * q, 0.95) * map * dim * f);
-        pPill.a(12 + k, prog(map, 0.6, 1) * (1 - prog(mdi, 0, 0.3)) * lerp(1, 0.3 + 0.7 * hi, any));
-      }
-      pPill.flush();
-      const mapA = prog(map, 0.2, 0.6) * dim;
-      pLines.g[0] = mapA * (1 - prog(mdi, 0, 0.4)); pLines.g[1] = mapA; pLines.g[2] = stripA; pLines.g[3] = stripA;
-      sTex.k = stripA; mTex.k = mapA * (1 - prog(mdi, 0, 0.4));
-      isoSet(prog(mdi, 0.1, 0.7), prog(map, 0.3, 0.8) * lerp(1, 0.3, prog(mdi, 0.3, 0.9)) * dim);
-    }
-
-    // survival: the curves draw left to right, the bands with them
-    gKM.visible = km > 0.003;
-    if (gKM.visible) {
-      const gaK = ribU.uGA.value, grK = ribU.uGR.value;
-      for (let k = 0; k < 3; k++) { const rv = prog(km, 0.08 + 0.1 * k, 0.75 + 0.1 * k) * 1.02; gaK[k] = prog(km, 0, 0.2); gaK[3 + k] = prog(km, 0, 0.2); grK[k] = rv; grK[3 + k] = rv; }
-      kPill.a(0, prog(km, 0, 0.25)); for (let k = 0; k < 3; k++) kPill.a(1 + k, prog(km, 0.55 + 0.1 * k, 0.85 + 0.1 * k)); kPill.flush();
-      kLines.g[0] = prog(km, 0, 0.3); kTex.k = prog(km, 0.1, 0.4);
-    }
-
-    // the immunotherapy test: the two bands, then the AUC bars from the top down
-    gAUC.visible = resp > 0.003;
-    if (gAUC.visible) {
-      aPill.a(0, prog(resp, 0, 0.25));
-      for (let k = 13; k < 19; k++) aPill.a(k, prog(resp, 0.05, 0.3));
-      AUC.forEach((a, r) => {
-        const g = prog(resp, 0.3 + 0.08 * r, 0.55 + 0.08 * r), len = Math.max(0.002, (ax(a.auc) - AX0) * g);
-        aPill.a(1 + r, prog(resp, 0.2, 0.4)); aPill.x(7 + r, AX0 + len / 2, len / 2); aPill.a(7 + r, prog(resp, 0.3 + 0.08 * r, 0.36 + 0.08 * r));
-      });
-      aPill.flush();
-      aLines.g[0] = prog(resp, 0, 0.3); aLines.g[1] = prog(resp, 0.25, 0.5); aTex.k = prog(resp, 0.05, 0.35);
-    }
-  }
-
-  // ---------------------------------------------------------------- views, controls, explore API
-  // views (framed for the scene's share of a wide screen, about 1.3 : 1, labels included)
-  const cam = {
-    default: [-4, 14, 5.0, 0.36, 0.12, 0.1],      // the whole one-scan part: bars, ring, field and the measures
-    one: [-4, 15, 4.0, -0.36, 0.12, 0.1],         // bars, the ring of seven and the field
-    field: [-23, 30, 3.65, 0.02, -0.1, 0.22],      // the ratio columns and the threshold plane, the bars behind them
-    metrics: [-20, 8, 3.1, 0.65, 0.3, 0.1],       // the ring and the gauges
-    map: [0, 5, 4.1, -0.03, 0.24, 0],
-    strip: [0, 4, 4.1, -0.03, 0.2, 0],
-    km: [30, 4, 2.95, -2.36, 0.15, 0.5],          // the survival panel with its table under the chart
-    auc: [-30, 4, 2.95, 2.4, 0.2, 0.5],
-  };
-
-  const controls = [
-    { key: 'view', label: 'View', options: [['one', 'One scan'], ['field', 'Ratios'], ['map', 'People'], ['strip', 'Index'], ['km', 'Survival'], ['auc', 'Immunotherapy']] },
-    // (a profile shows in the one-scan views only: when says so)
-    { key: 'profile', label: 'Profile', options: PROF.map(p => [p, PROFN[p]]), when: c => c.view === 'one' || c.view === 'field' },
-  ];
-  function explore(c) {
-    const v = c.view || 'one', pop = !(v === 'one' || v === 'field'), o = {
-      people_bars: pop ? 0 : 1, people_ratio: pop ? 0 : 1, people_thresh: pop ? 0 : 1, people_one: v === 'one' ? 1 : 0, people_metrics: v === 'one' ? 1 : 0,
-      people_map: pop ? 1 : 0, people_mdi: pop && v !== 'map' ? 1 : 0, people_km: v === 'km' ? 1 : 0, people_response: v === 'auc' ? 1 : 0, people_follow: 0,
-    };
-    const pi = PROF.indexOf(c.profile);
-    if (pi >= 0) o.people_profile = pi;
-    o.people_skip = 0;
-    return o;
-  }
-  // what a ray points at: an organ (a node, a bar, a header) or a group (its row on the strip, or its cloud on the map).
-  // An organ comes with the spot it was picked at (`at`, in the set's frame), which its anchor then returns for this
-  // frame and the next, so a hover is marked where it is
-  const _inv = new THREE.Matrix4(), _ray = new THREE.Ray(), _rl = new THREE.Ray(), _pl = new THREE.Plane(), _hit = new THREE.Vector3(), _w = new THREE.Vector3();
-  function pick(raycaster) {
-    set.group.updateMatrixWorld();
-    _ray.copy(raycaster.ray).applyMatrix4(_inv.copy(set.group.matrixWorld).invert());
-    const o = _ray.origin, d = _ray.direction;
-    let best = null, bt = Infinity;
-    const at = [0, 0, 0];
-    const tryPt = (p, rad, res) => {
-      const x = p[0] - o.x, y = p[1] - o.y, z = p[2] - o.z, along = x * d.x + y * d.y + z * d.z;
-      if (along <= 0) return;
-      const off = Math.sqrt(Math.max(0, x * x + y * y + z * z - along * along));
-      if (off < rad && along < bt) { bt = along; best = res; cp(at, p); }
-    };
-    if (cur.ringV > 0.5) ONE.forEach((id, i) => tryPt(tr(gRing, NODE[i]), 0.075 * gRing.scale.x, { organ: id }));
-    // the bars: the ray meets the panel's plane; a row is hit anywhere along its name, icon and track
-    if (cur.barsV > 0.5) {
-      _rl.copy(_ray).applyMatrix4(_inv.copy(gBars.matrix).invert());
-      _pl.set(_w.set(0, 0, 1), 0);
-      if (_rl.intersectPlane(_pl, _hit) && _hit.x > BPX[0] && _hit.x < BPX[1]) {
-        const i = Math.round((BY(0) - _hit.y) / 0.1);
-        if (i >= 0 && i < N && Math.abs(_hit.y - BY(i)) < 0.05) {
-          const p = tr(gBars, [_hit.x, _hit.y, 0]), along = (p[0] - o.x) * d.x + (p[1] - o.y) * d.y + (p[2] - o.z) * d.z;
-          if (along > 0 && along < bt) { bt = along; best = { organ: ONE[i] }; cp(at, p); }
-        }
-      }
-    }
-    if (cur.fieldV > 0.5) ONE.forEach((id, i) => { tryPt([cellX(0) - 0.13, FY + 0.05, cellZ(i)], 0.055, { organ: id }); tryPt([cellX(i), FY + 0.05, cellZ(N - 1) + 0.13], 0.055, { organ: id }); });
-    if (best) { best.at = at; cur.pickId = best.organ; cur.pickF = cur.frame; cp(cur.pickAt, at); return best; }
-    if (cur.map > 0.5) {
-      _pl.set(_w.set(0, 0, 1), 0);
-      if (_ray.intersectPlane(_pl, _hit)) {
-        if (cur.mdi > 0.5) {
-          if (_hit.x > SX0 - 0.05 && _hit.x < SX0 + SW + 0.05) GKEY.forEach((k, q) => { if (Math.abs(_hit.y - ROWY[q]) < 0.09) best = { group: q + 1 }; });
-        } else {
-          let bd = 0.3;
-          STATS.forEach((s, q) => { if (!s.n) return; const dd = Math.hypot(_hit.x - s.x, _hit.y - s.y); if (dd < bd) { bd = dd; best = { group: q + 1 }; } });
-        }
-      }
-    }
-    return best;
-  }
-  const API = {
-    measure, organs: ONE.slice(), pick, profiles: PROF.slice(), groups: GKEY.slice(),
-    current: () => ({ u: U.slice(), theta: cur.theta, C: cur.m.C, H: cur.m.H, mdi: cur.m.mdi, links: cur.m.e.reduce((a, r) => a + r.filter(v => v > 0.5).length, 0), hub: cur.hub >= 0 && cur.hubW > 0.5 ? ONE[cur.hub] : null }),
-    dots: NDOT, followUp: NFD,
-    // the stand-in dots' summaries per group (to check them against the poster's), and the follow-up rings'
-    summary: () => {
-      const st = a => { a = a.slice().sort((p, q) => p - q); const at = f => a[Math.round(f * (a.length - 1))]; return a.length ? { n: a.length, min: a[0], p10: at(0.1), p25: at(0.25), p50: at(0.5), p75: at(0.75), p90: at(0.9), max: a[a.length - 1] } : { n: 0 }; };
-      return { groups: GKEY.map((k, g) => Object.assign({ key: k }, st(DOTS.filter(d => d.g === g).map(d => d.v)))),
-        clearance: [Math.min(...DOTS.map(d => d.C)), Math.max(...DOTS.map(d => d.C))], heterogeneity: [Math.min(...DOTS.map(d => d.H)), Math.max(...DOTS.map(d => d.H))],
-        followUp: FU.map((f, k) => ({ name: f.name, n: f.n, row: GKEY[f.row], from: st(FDOTS.filter(d => d.f === k).map(d => d.v0)), to: st(FDOTS.filter(d => d.f === k).map(d => d.v1)) })) };
-    },
-  };
-  const params = { people_a: 1, people_bars: 1, people_ratio: 1, people_thresh: 1, people_one: 1, people_metrics: 1, people_profile: 0, people_skip: 0, people_custom: 0, people_theta: THETA,
-    people_map: 0, people_mdi: 0, people_group: 0, people_km: 0, people_response: 0, people_follow: 0 };
-  ONE.forEach((id, i) => { params['people_u' + i] = PU[0][i]; });
-  return Object.assign(set, { params, update, anchors, labels, cam, controls, explore, api: () => API });
-};
-
-// `liver`: an organ is a network too (the PET story). The authors' VR viewer also shows one organ as a network of
-// small patches; this is an illustrative stand-in built from scratch (no patient data). A liver as one smooth surface
-// (a signed distance field: the big right lobe, the smaller left lobe, the notches of the gallbladder and the round
-// ligament, the gallbladder in its bed underneath, the falciform ligament on the front) is filled with about 3,000
-// patches on a regular grid, each with a stand-in uptake (smooth noise, a cooler and a warmer patch, a little noise
-// per patch as in any scan). Two patches a few grid steps apart are linked when one outshines the other by more than
-// a threshold (the poster's rule for organs, applied to patches): about 20,000 links. The best-connected 5 % stand out
-// (each keeps its own colour, in an amber ring). Everything is built once at load; update only sets uniforms (and hides
-// what is not drawn), so the picture follows the params and the time alone.
-// Frame: x the patient's left (so the right lobe is on your left when you face it), y up, z forward; about 1.6 wide.
-SETS.liver = function (K) {
-  const { THREE, smooth, clamp, lerp, prog, v3 } = K;
-  const set = K.newSet('liver');
-  const R = K.rng(1606);
-  const ORG = typeof PET_DATA !== 'undefined' && (PET_DATA.organs || []).find(o => o.id === 'liver');
-  const COL = K.rgb(ORG ? ORG.col : '#f97316'), HUBC = K.rgb('#ffb020'), LINKC = K.rgb('#4c7cff'), FRONTC = K.rgb('#46d9ff');
-  const smin = (a, b, k) => { const h = Math.max(k - Math.abs(a - b), 0) / k; return Math.min(a, b) - h * h * k * 0.25; };
-  const smax = (a, b, k) => -smin(-a, -b, k);
-  const sat = x => clamp(x, 0, 1);
-  const fmt = n => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-
-  // ------------------------------------------------------------------ the shape
-  // The outline seen from the front, as an anatomy atlas draws it: the dome over the right lobe, its rounded right
-  // border, the sharp inferior border rising to the tip of the left lobe, with two notches in it: the gallbladder's
-  // (its fundus shows below it) and the round ligament's, where the falciform ligament divides the lobes. A flag 1
-  // marks the notches' points, left out of the smooth outline that sets each column's height.
-  const OUT = [
-    [0.785, 0.125], [0.72, 0.205], [0.49, 0.29], [0.31, 0.335], [0.15, 0.352], [0.03, 0.362],
-    [-0.13, 0.41], [-0.33, 0.455], [-0.53, 0.458], [-0.70, 0.40], [-0.81, 0.28], [-0.865, 0.10],
-    [-0.862, -0.10], [-0.805, -0.29], [-0.705, -0.425], [-0.575, -0.50], [-0.445, -0.508], [-0.34, -0.474],
-    [-0.285, -0.448], [-0.238, -0.405, 1], [-0.19, -0.418], [-0.10, -0.372], [0.0, -0.315], [0.034, -0.294],
-    [0.058, -0.24, 1], [0.083, -0.268], [0.18, -0.212], [0.33, -0.122], [0.50, -0.032], [0.64, 0.035], [0.74, 0.07],
-  ];
-  const loop = (pts, n) => new THREE.CatmullRomCurve3(pts.map(p => new THREE.Vector3(p[0], p[1], 0)), true, 'centripetal')
-    .getSpacedPoints(n).slice(0, n).map(p => [p.x, p.y]);
-  const POLY = loop(OUT, 200), SMOOTH = loop(OUT.filter(p => !p[2]), 200);
-  // signed distance to a closed polygon, negative inside (after Inigo Quilez)
-  function sdPoly(V, x, y) {
-    let d = Infinity, s = 1;
-    for (let i = 0, j = V.length - 1; i < V.length; j = i++) {
-      const ex = V[j][0] - V[i][0], ey = V[j][1] - V[i][1], wx = x - V[i][0], wy = y - V[i][1];
-      const t = clamp((wx * ex + wy * ey) / (ex * ex + ey * ey), 0, 1), bx = wx - ex * t, by = wy - ey * t;
-      d = Math.min(d, bx * bx + by * by);
-      const c1 = y >= V[i][1], c2 = y < V[j][1], c3 = ex * wy > ey * wx;
-      if ((c1 && c2 && c3) || (!c1 && !c2 && !c3)) s = -s;
-    }
-    return s * Math.sqrt(d);
-  }
-  // Depth: the front (diaphragmatic) surface bulges forward; the back sits deep behind the right lobe and shallow
-  // behind the left. Over the lower part of each column the back (visceral) surface slopes forward to meet the front,
-  // so the inferior border is a thin, sharp edge at the front; the top is a broad dome. Both surfaces round off
-  // towards the outline (an ellipse's quarter over a width W: tight at the inferior border, wide at the dome).
-  const zF0 = x => 0.30 - 0.17 * smooth((x + 0.1) / 0.9);
-  const zB0 = x => -0.44 + 0.30 * smooth((x + 0.3) / 0.9);
-  const G = 0.012, X0 = -0.96, Y0 = -0.62, NX = 156, NY = 99;
-  const D2 = new Float32Array(NX * NY), FR = new Float32Array(NX * NY), BK = new Float32Array(NX * NY);
-  // each column's extent in the smooth outline (held constant beyond the right border's middle and the left lobe's
-  // tip, where a column's extent shrinks to nothing), lightly smoothed along x
-  const ext = x => { let yb = Infinity, yt = -Infinity;
-    for (let a = 0, b = SMOOTH.length - 1; a < SMOOTH.length; b = a++) {
-      const p = SMOOTH[a], q = SMOOTH[b];
-      if ((p[0] <= x) !== (q[0] <= x)) { const y = p[1] + (q[1] - p[1]) * (x - p[0]) / (q[0] - p[0]); yb = Math.min(yb, y); yt = Math.max(yt, y); }
-    }
-    return [yb, yt]; };
-  const EXT = [];
-  for (let i = 0; i < NX; i++) { const e = [0, 0]; for (let w = -3; w <= 3; w++) { const r = ext(clamp(X0 + (i + w) * G, -0.74, 0.7)); e[0] += r[0] / 7; e[1] += r[1] / 7; } EXT.push(e); }
-  for (let i = 0; i < NX; i++) {
-    const x = X0 + i * G, yb = EXT[i][0], yt = EXT[i][1];
-    const zf0 = zF0(x), zb0 = zB0(x), vs = lerp(0.4, 0.62, smooth((x + 0.55) / 0.6));
-    for (let j = 0; j < NY; j++) {
-      const y = Y0 + j * G, q = j * NX + i, d = sdPoly(POLY, x, y);
-      const v = sat((y - yb) / (yt - yb));
-      const zf = zf0 + 0.035 * (1 - (2 * v - 1) * (2 * v - 1)) * (1 - 0.6 * smooth((x + 0.1) / 0.8));
-      const zb = lerp(zf - 0.085, zb0, smooth(v / vs)), zc = 0.5 * (zf + zb);
-      const wf = lerp(0.045, 0.26, smooth(v / 0.55)), wb = lerp(0.09, 0.26, smooth(v / 0.55));
-      const sf = sat(-d / wf), sb = sat(-d / wb), ef = Math.sqrt(sf * (2 - sf)), eb = Math.sqrt(sb * (2 - sb));
-      D2[q] = d; FR[q] = zc + (zf - zc) * ef; BK[q] = zc - (zc - zb) * eb;
-    }
-  }
-  // round cones (after Inigo Quilez's capsule) for the cuts and the gallbladder
-  const capsule = (a, b, r1, r2) => ({ a, b, r1, r2, ba: v3.sub(b, a), l2: v3.dot(v3.sub(b, a), v3.sub(b, a)),
-    lo: a.map((v, i) => Math.min(v, b[i])), hi: a.map((v, i) => Math.max(v, b[i])), rm: Math.max(r1, r2) });
-  function capD(c, x, y, z) {
-    const px = x - c.a[0], py = y - c.a[1], pz = z - c.a[2], t = clamp((px * c.ba[0] + py * c.ba[1] + pz * c.ba[2]) / c.l2, 0, 1);
-    const dx = px - c.ba[0] * t, dy = py - c.ba[1] * t, dz = pz - c.ba[2] * t;
-    return Math.sqrt(dx * dx + dy * dy + dz * dz) - lerp(c.r1, c.r2, t);
-  }
-  // the gallbladder lies in its bed under the right lobe, its fundus at the notch; the round ligament's fissure runs
-  // back from its notch; the vena cava lies in a groove at the back
-  const GB_F = [-0.238, -0.398, 0.165], GB_N = [-0.075, -0.2, -0.14];
-  const GB = capsule(GB_F, GB_N, 0.072, 0.04);
-  const TERES = capsule([0.058, -0.25, 0.3], [0.045, -0.1, -0.2], 0.02, 0.026);
-  const IVC = capsule([-0.03, -0.7, -0.43], [-0.02, 0.7, -0.4], 0.075, 0.075);
-  // the field: the outline and the two surfaces (bilinear in the table), then the cuts, which only add to the outside
-  let cD = 0, cF = 0, cB = 0;
-  function column(x, y) {
-    const u = (x - X0) / G, w = (y - Y0) / G;
-    if (u < 0 || w < 0 || u >= NX - 1 || w >= NY - 1) { cD = 1; cF = cB = 0; return; }
-    const i = Math.floor(u), j = Math.floor(w), a = u - i, b = w - j, q = j * NX + i, a1 = 1 - a, b1 = 1 - b;
-    cD = (D2[q] * a1 + D2[q + 1] * a) * b1 + (D2[q + NX] * a1 + D2[q + NX + 1] * a) * b;
-    cF = (FR[q] * a1 + FR[q + 1] * a) * b1 + (FR[q + NX] * a1 + FR[q + NX + 1] * a) * b;
-    cB = (BK[q] * a1 + BK[q + 1] * a) * b1 + (BK[q + NX] * a1 + BK[q + NX + 1] * a) * b;
-  }
-  // smax(f, s - capD, k) is exactly f where capD >= s + k - f; the distance to the segment's box less the largest
-  // radius never exceeds capD, so far from a cut (most of the organ) it is skipped
-  function carve(f, c, s, k, x, y, z) {
-    const m = s + k - f + c.rm;
-    if (m <= 0) return f;
-    const dx = Math.max(c.lo[0] - x, 0, x - c.hi[0]), dy = Math.max(c.lo[1] - y, 0, y - c.hi[1]), dz = Math.max(c.lo[2] - z, 0, z - c.hi[2]);
-    return dx * dx + dy * dy + dz * dz >= m * m ? f : smax(f, s - capD(c, x, y, z), k);
-  }
-  function cut(f, x, y, z) {
-    if (f > 0.06) return f;
-    f = carve(f, GB, 0.008, 0.035, x, y, z);
-    f = carve(f, TERES, 0, 0.02, x, y, z);
-    return carve(f, IVC, 0, 0.04, x, y, z);
-  }
-  function field(x, y, z) { column(x, y); return cut(Math.max(cD, z - cF, cB - z), x, y, z); }
-  const grad = (p, e = 0.004) => [field(p[0] + e, p[1], p[2]) - field(p[0] - e, p[1], p[2]),
-    field(p[0], p[1] + e, p[2]) - field(p[0], p[1] - e, p[2]), field(p[0], p[1], p[2] + e) - field(p[0], p[1], p[2] - e)].map(g => g / (2 * e));
-
-  // the surface: surface nets on a grid, each vertex pulled onto the surface; smooth normals from the faces
-  const surf = (function () {
-    const h = 0.018, lo = [-0.93, -0.6, -0.52], n = [101, 64, 52], F = new Float32Array(n[0] * n[1] * n[2]);
-    const id = (i, j, k) => (i * n[1] + j) * n[2] + k, OC = new Uint8Array(n[0] * n[1]);   // OC: columns all outside
-    for (let i = 0; i < n[0]; i++) for (let j = 0; j < n[1]; j++) {
-      const x = lo[0] + i * h, y = lo[1] + j * h, o = id(i, j, 0);
-      column(x, y);
-      if (cD > 0.06) { F.fill(cD, o, o + n[2]); OC[i * n[1] + j] = 1; continue; }
-      for (let k = 0; k < n[2]; k++) { const z = lo[2] + k * h; F[o + k] = cut(Math.max(cD, z - cF, cB - z), x, y, z); }
-    }
-    const VI = new Int32Array(n[0] * n[1] * n[2]).fill(-1), P = [], cv = new Float64Array(8);
-    const EG = [0, 1, 2, 3, 4, 5, 6, 7, 0, 2, 1, 3, 4, 6, 5, 7, 0, 4, 1, 5, 2, 6, 3, 7], si = n[1] * n[2], sj = n[2];
-    const CO = [0, si, sj, si + sj, 1, si + 1, sj + 1, si + sj + 1];   // the corners' offsets (bit 0 i, bit 1 j, bit 2 k)
-    const oc = (i, j) => OC[i * n[1] + j];
-    for (let i = 0; i < n[0] - 1; i++) for (let j = 0; j < n[1] - 1; j++) {
-      if (oc(i, j) & oc(i + 1, j) & oc(i, j + 1) & oc(i + 1, j + 1)) continue;
-      for (let k = 0; k < n[2] - 1; k++) {
-        const o = id(i, j, k);
-        let neg = 0;
-        for (let c = 0; c < 8; c++) { const v = cv[c] = F[o + CO[c]]; if (v < 0) neg++; }
-        if (neg === 0 || neg === 8) continue;
-        let sx = 0, sy = 0, sz = 0, ne = 0;
-        for (let e = 0; e < 24; e += 2) {
-          const a = EG[e], b = EG[e + 1];
-          if ((cv[a] < 0) === (cv[b] < 0)) continue;
-          const t = cv[a] / (cv[a] - cv[b]);
-          sx += (a & 1) + ((b & 1) - (a & 1)) * t; sy += (a >> 1 & 1) + ((b >> 1 & 1) - (a >> 1 & 1)) * t; sz += (a >> 2 & 1) + ((b >> 2 & 1) - (a >> 2 & 1)) * t; ne++;
-        }
-        // one Newton step onto the surface, along the cell's own gradient
-        const gx = (cv[1] - cv[0] + cv[3] - cv[2] + cv[5] - cv[4] + cv[7] - cv[6]) / (4 * h);
-        const gy = (cv[2] - cv[0] + cv[3] - cv[1] + cv[6] - cv[4] + cv[7] - cv[5]) / (4 * h);
-        const gz = (cv[4] - cv[0] + cv[5] - cv[1] + cv[6] - cv[2] + cv[7] - cv[3]) / (4 * h);
-        const x = lo[0] + (i + sx / ne) * h, y = lo[1] + (j + sy / ne) * h, z = lo[2] + (k + sz / ne) * h;
-        const st = clamp(field(x, y, z) / (gx * gx + gy * gy + gz * gz || 1), -0.5 * h, 0.5 * h);
-        VI[o] = P.length / 3; P.push(x - gx * st, y - gy * st, z - gz * st);
-      }
-    }
-    const I3 = [], quad = (a, b, c, d, flip) => { if (a < 0 || b < 0 || c < 0 || d < 0) return; if (flip) I3.push(a, c, b, a, d, c); else I3.push(a, b, c, a, c, d); };
-    for (let i = 0; i < n[0] - 1; i++) for (let j = 0; j < n[1] - 1; j++) {
-      if (oc(i, j) & oc(i + 1, j) & oc(i, j + 1)) continue;
-      for (let k = 0; k < n[2] - 1; k++) {
-        const in0 = F[id(i, j, k)] < 0;
-        if (j > 0 && k > 0 && in0 !== F[id(i + 1, j, k)] < 0) quad(VI[id(i, j - 1, k - 1)], VI[id(i, j, k - 1)], VI[id(i, j, k)], VI[id(i, j - 1, k)], !in0);
-        if (i > 0 && k > 0 && in0 !== F[id(i, j + 1, k)] < 0) quad(VI[id(i - 1, j, k - 1)], VI[id(i - 1, j, k)], VI[id(i, j, k)], VI[id(i, j, k - 1)], !in0);
-        if (i > 0 && j > 0 && in0 !== F[id(i, j, k + 1)] < 0) quad(VI[id(i - 1, j - 1, k)], VI[id(i, j - 1, k)], VI[id(i, j, k)], VI[id(i - 1, j, k)], !in0);
-      }
-    }
-    const g = new THREE.BufferGeometry();
-    g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(P), 3));
-    g.setIndex(I3);   // three.js picks 16-bit indices when they fit
-    g.computeVertexNormals();
-    g.computeBoundingBox();
-    let vin = 0; for (let q = 0; q < F.length; q++) if (F[q] < 0) vin++;
-    g.userData.vol = vin * h * h * h;   // the organ's volume, for the patches' first step
-    return g;
-  })();
-  const BB = surf.boundingBox, C0 = [(BB.min.x + BB.max.x) / 2, (BB.min.y + BB.max.y) / 2, (BB.min.z + BB.max.z) / 2];
-  const spin = new THREE.Group(), body = new THREE.Group();
-  set.group.add(spin); spin.add(body);
-  body.position.set(-C0[0], -C0[1], -C0[2]);   // centred on the origin; the spin turns it about its own middle
-
-  // ------------------------------------------------------------------ the patches
-  // a regular grid (the scan's voxels, coarsened) with its step chosen so that about 3,000 patches lie inside. The
-  // organ lies obliquely in the body, so the grid is turned against the liver's own axes (and no row of patches
-  // lines up with the usual views)
-  const TARGET = 3000;
-  const MR = new THREE.Matrix4().makeRotationFromEuler(new THREE.Euler(0.27, 0.417, 1.374, 'YXZ')).elements;   // columns: the grid's axes
-  const gp = (i, j, k, hp) => [(MR[0] * i + MR[4] * j + MR[8] * k) * hp, (MR[1] * i + MR[5] * j + MR[9] * k) * hp, (MR[2] * i + MR[6] * j + MR[10] * k) * hp];
-  const lattice = hp => {
-    const lo = [1e9, 1e9, 1e9], hi = [-1e9, -1e9, -1e9];
-    for (let c = 0; c < 8; c++) {
-      const p = [c & 1 ? BB.max.x : BB.min.x, c & 2 ? BB.max.y : BB.min.y, c & 4 ? BB.max.z : BB.min.z];
-      for (let a = 0; a < 3; a++) { const q = (MR[4 * a] * p[0] + MR[4 * a + 1] * p[1] + MR[4 * a + 2] * p[2]) / hp; lo[a] = Math.min(lo[a], Math.floor(q) - 1); hi[a] = Math.max(hi[a], Math.ceil(q) + 1); }
-    }
-    const out = [], fv = [];
-    for (let i = lo[0]; i <= hi[0]; i++) for (let j = lo[1]; j <= hi[1]; j++) for (let k = lo[2]; k <= hi[2]; k++) {
-      const p = gp(i, j, k, hp), f = field(p[0], p[1], p[2]);
-      if (f < -0.3 * hp) { out.push(i, j, k); fv.push(f); }
-    }
-    return { hp, lo, hi, cells: out, fv };
-  };
-  // the coarsest step that still leaves at least 3,000 inside (from the volume, then corrected by the count's cube
-  // root; within 0.5 % above is enough); then the few nearest the surface go, so exactly 3,000 stay
-  let LAT = null;
-  { let hp = Math.cbrt(surf.userData.vol / TARGET);
-    for (let it = 0; it < 12 && !(LAT && LAT.cells.length / 3 <= TARGET * 1.005); it++) {
-      const L = lattice(hp), n = L.cells.length / 3;
-      if (n >= TARGET && (!LAT || n < LAT.cells.length / 3)) LAT = L;
-      hp *= n >= TARGET ? Math.cbrt(n / TARGET) * 0.9995 : Math.min(Math.cbrt(n / TARGET), 0.998);
-    }
-    while (!LAT) { hp *= 0.98; const L = lattice(hp); if (L.cells.length / 3 >= TARGET) LAT = L; }
-    const keep = [...LAT.fv.keys()].sort((p, q) => LAT.fv[p] - LAT.fv[q]).slice(0, TARGET).sort((p, q) => p - q);
-    LAT.cells = keep.flatMap(c => LAT.cells.slice(3 * c, 3 * c + 3)); }
-  const HP = LAT.hp, N = LAT.cells.length / 3, PP = new Float32Array(3 * N);
-  const DIMS = LAT.hi.map((v, c) => v - LAT.lo[c] + 1), IDX = new Int32Array(DIMS[0] * DIMS[1] * DIMS[2]).fill(-1);
-  const lid = (i, j, k) => ((i - LAT.lo[0]) * DIMS[1] + (j - LAT.lo[1])) * DIMS[2] + (k - LAT.lo[2]);
-  // each node is drawn somewhere inside its own grid cell, not at the grid point: one per cell keeps them evenly
-  // spread, and no rows of nodes line up from any side. Near the surface the shift is halved (up to three times,
-  // then none) until the node is as far inside as its grid point had to be
-  for (let n = 0; n < N; n++) {
-    const i = LAT.cells[3 * n], j = LAT.cells[3 * n + 1], k = LAT.cells[3 * n + 2];
-    const di = 0.7 * (R() - 0.5), dj = 0.7 * (R() - 0.5), dk = 0.7 * (R() - 0.5);
-    let p = null;
-    for (let s = 1; s >= 0.1 && !p; s *= 0.5) { const q = gp(i + s * di, j + s * dj, k + s * dk, HP); if (field(q[0], q[1], q[2]) < -0.3 * HP) p = q; }
-    PP.set(p || gp(i, j, k, HP), 3 * n); IDX[lid(i, j, k)] = n;
-  }
-  // stand-in uptake (log scale, 0 the liver's usual): smooth noise in three octaves, a warmer patch high in the right
-  // lobe, a cooler one where the lobes meet, and a little noise per patch
-  const WARM = [-0.47, 0.13, 0.02], COOL = [0.2, 0.08, 0.0];
-  const WAVES = [];
-  const RU = K.rng(2025);
-  [[0.95, 0.07], [0.5, 0.045], [0.27, 0.024]].forEach(([lam, amp]) => { for (let w = 0; w < 5; w++) WAVES.push([K.unit(RU), 2 * Math.PI / lam, amp, RU() * 6.2832]); });
-  const LU = new Float32Array(N);
-  for (let n = 0; n < N; n++) {
-    const p = [PP[3 * n], PP[3 * n + 1], PP[3 * n + 2]];
-    let L = 0;
-    for (const [d, k, a, ph] of WAVES) L += a * Math.sin(k * v3.dot(d, p) + ph);
-    const dw = v3.dist(p, WARM), dc = v3.dist(p, COOL);
-    L += 0.36 * Math.exp(-dw * dw / (2 * 0.15 * 0.15)) - 0.28 * Math.exp(-dc * dc / (2 * 0.13 * 0.13)) + 0.038 * K.gauss(RU);
-    LU[n] = L;
-  }
-  // links: every pair within 2.45 grid steps whose uptake ratio exceeds the threshold, from the brighter to the
-  // dimmer; the threshold is the round ratio (two decimals) that leaves about 20,000 links
-  const OFF = [];
-  for (let a = -2; a <= 2; a++) for (let b = -2; b <= 2; b++) for (let c = -2; c <= 2; c++) {
-    const r2 = a * a + b * b + c * c;
-    if (r2 > 0 && r2 <= 6 && (a > 0 || (a === 0 && (b > 0 || (b === 0 && c > 0))))) OFF.push([a, b, c]);
-  }
-  const PA = new Int32Array(N * OFF.length), PB = new Int32Array(N * OFF.length), PD = new Float32Array(N * OFF.length);
-  let NP = 0;
-  for (let n = 0; n < N; n++) {
-    const i = LAT.cells[3 * n], j = LAT.cells[3 * n + 1], k = LAT.cells[3 * n + 2];
-    for (let q = 0; q < OFF.length; q++) {
-      const o = OFF[q], ii = i + o[0], jj = j + o[1], kk = k + o[2];
-      if (ii > LAT.hi[0] || jj < LAT.lo[1] || jj > LAT.hi[1] || kk < LAT.lo[2] || kk > LAT.hi[2]) continue;
-      const m = IDX[lid(ii, jj, kk)];
-      if (m >= 0) { PA[NP] = n; PB[NP] = m; PD[NP++] = LU[n] - LU[m]; }
-    }
-  }
-  const LINKS_WANTED = 20000, SD = new Float32Array(NP);
-  for (let e = 0; e < NP; e++) SD[e] = Math.abs(PD[e]);
-  SD.sort();
-  const above = th => { const l = Math.log(th); let a = 0, b = NP; while (a < b) { const m = (a + b) >> 1; if (SD[m] <= l) a = m + 1; else b = m; } return NP - a; };
-  const q0 = Math.exp(SD[Math.max(0, NP - LINKS_WANTED)]) * 100;
-  const THETA = [Math.floor(q0) / 100, Math.ceil(q0) / 100].sort((a, b) => Math.abs(above(a) - LINKS_WANTED) - Math.abs(above(b) - LINKS_WANTED))[0], LT = Math.log(THETA);
-  const EA = [], EB = [], EW = [];
-  for (let e = 0; e < NP; e++) {
-    const d = PD[e] < 0 ? -PD[e] : PD[e];
-    if (d <= LT) continue;
-    const hot = PD[e] > 0;
-    EA.push(hot ? PA[e] : PB[e]); EB.push(hot ? PB[e] : PA[e]); EW.push(d - LT);
-  }
-  const NL = EA.length, DEG = new Int32Array(N);
-  for (let e = 0; e < NL; e++) { DEG[EA[e]]++; DEG[EB[e]]++; }
-  // the best connected: the top 5 % by number of links
-  const NH = Math.round(0.05 * N), ORDER = [...Array(N).keys()].sort((a, b) => DEG[b] - DEG[a] || a - b), HUB = new Uint8Array(N);
-  for (let r = 0; r < NH; r++) HUB[ORDER[r]] = 1;
-  const wMax = EW.reduce((m, w) => Math.max(m, w), 0) || 1;
-  // where the hubs crowd most (the anchor 'top'): the hub with the most hubs within 0.15
-  let TOP = [0, 0, 0];
-  { let best = -1;
-    for (let r = 0; r < NH; r++) {
-      const a = ORDER[r]; let c = 0;
-      for (let s = 0; s < NH; s++) { const b = ORDER[s], dx = PP[3 * a] - PP[3 * b], dy = PP[3 * a + 1] - PP[3 * b + 1], dz = PP[3 * a + 2] - PP[3 * b + 2]; if (dx * dx + dy * dy + dz * dz < 0.0225) c++; }
-      if (c > best) { best = c; TOP = [PP[3 * a], PP[3 * a + 1], PP[3 * a + 2]]; }
-    } }
-  // patches appear from the middle out (by distance from their centroid)
-  const CEN = [0, 0, 0];
-  for (let n = 0; n < N; n++) for (let c = 0; c < 3; c++) CEN[c] += PP[3 * n + c] / N;
-  const RV = new Float32Array(N);
-  { let m = 0; for (let n = 0; n < N; n++) { RV[n] = Math.hypot(PP[3 * n] - CEN[0], PP[3 * n + 1] - CEN[1], PP[3 * n + 2] - CEN[2]); m = Math.max(m, RV[n]); }
-    for (let n = 0; n < N; n++) RV[n] /= m; }
-
-  // ------------------------------------------------------------------ materials
-  const U = { uGrow: { value: 1 }, uLinks: { value: 1 }, uTop: { value: 0 }, uHubC: { value: new THREE.Color(...HUBC) },
-    uLinkC: { value: new THREE.Color(...LINKC) }, uFrontC: { value: new THREE.Color(...FRONTC) } };
-  const LOOK = `
-uniform float uA, uGrow, uLinks, uTop; uniform vec3 uHubC, uLinkC, uFrontC;
-// hot iron, as the body set draws the scan: black, dark red, red, orange, yellow, white
-vec3 hot(float x) { return vec3(pow(clamp(x * 2.0, 0.0, 1.0), 0.9), pow(clamp((x - 0.15) / 0.8, 0.0, 1.0), 1.5), clamp((x - 0.76) * 4.2, 0.0, 1.0) * 0.95); }
-// brighter in front of the set's middle, darker behind
-float depthCue(vec4 mv) { vec4 o = modelViewMatrix * vec4(${C0.map(v => v.toFixed(4)).join(', ')}, 1.0); float s = length(modelViewMatrix[0].xyz); return clamp(1.0 - (o.z - mv.z) / s * 0.75, 0.45, 1.3); }
-`;
-  const mat = (vs, fs, extra) => {
-    const m = new THREE.ShaderMaterial(Object.assign({
-      uniforms: Object.assign({ uA: set.uA, uPx: K.U.uPx, uTime: K.U.uTime }, U),
-      vertexShader: K.GLSL + LOOK + vs, fragmentShader: fs,
-      transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
-    }, extra || {}));
-    set.mats.push(m);
-    return m;
-  };
-  // a glassy surface lit like an organ in a dark room: a glowing rim, a soft key light, faint contour bands
-  const glass = (col, o) => {
-    const m = new THREE.ShaderMaterial({
-      uniforms: { uA: set.uA, uC: { value: new THREE.Color(...col) }, uK: { value: 1 }, uF: { value: o.face }, uR: { value: o.rim },
-        uD: { value: o.dif }, uB: { value: o.band || 0 }, uY: { value: new THREE.Vector3(...(o.fade || [-9, -8, 1])) } },
-      transparent: true, depthWrite: false, side: o.side || THREE.DoubleSide, blending: THREE.AdditiveBlending,
-      vertexShader: `varying vec3 vN, vV; varying float vY;
-void main() { vec4 mv = modelViewMatrix * vec4(position, 1.0); vN = normalize(normalMatrix * normal); vV = -mv.xyz; vY = position.y; gl_Position = projectionMatrix * mv; }`,
-      fragmentShader: `uniform float uA, uK, uF, uR, uD, uB; uniform vec3 uC, uY; varying vec3 vN, vV; varying float vY;
-void main() {
-  vec3 n = normalize(vN), v = normalize(vV); float nv = dot(n, v); n *= sign(nv);
-  float r = pow(1.0 - abs(nv), 2.4);
-  vec3 L = normalize(vec3(-0.45, 0.65, 0.6));
-  float dif = max(dot(n, L), 0.0), sp = pow(max(dot(reflect(-L, n), v), 0.0), 18.0);
-  float bw = fwidth(vY * 18.0), band = uB * (1.0 - smoothstep(0.0, 1.5 * bw, abs(fract(vY * 18.0) - 0.5) - 0.5 + 1.5 * bw)) * (1.0 - r);
-  float a = (uF + uR * r + uD * dif + band) * uA * uK * mix(1.0, uY.z, smoothstep(uY.x, uY.y, vY));   // uY: fades along local y
-  gl_FragColor = vec4(uC * (0.6 + 0.6 * r) + vec3(1.0, 0.92, 0.85) * sp * 0.5, a + sp * 0.1 * uA * uK);
-}`,
-      extensions: { derivatives: true },
-    });
-    set.mats.push(m);
-    return m;
-  };
-
-  // ------------------------------------------------------------------ the organ
-  // its near side, and its far side fainter (drawn double sided at one strength, from below it looked hollow)
-  const SHELL = { face: 0.025, rim: 0.5, dif: 0.12, band: 0.05 };
-  const shellMat = glass(COL, Object.assign({ side: THREE.FrontSide }, SHELL)), backMat = glass(COL, Object.assign({ side: THREE.BackSide }, SHELL));
-  const shell = new THREE.Mesh(surf, shellMat), back = new THREE.Mesh(surf, backMat);
-  shell.renderOrder = back.renderOrder = 1;
-  body.add(back, shell);
-  // the gallbladder in its bed (bile green, faint): a pear from the fundus to the neck, and the cystic duct
-  const gbMat = glass(K.rgb('#9ad66a'), { face: 0.03, rim: 0.45, dif: 0.08, fade: [0.02, 0.16, 0.3] });   // its body and neck, up under the liver, stay faint
-  {
-    const prof = [];
-    for (let s = 0; s <= 24; s++) {
-      const u = s / 24, r = u < 0.25 ? 0.074 * Math.sin(Math.acos(1 - u / 0.25)) : lerp(0.074, 0.036, smooth((u - 0.25) / 0.75));
-      prof.push(new THREE.Vector2(Math.max(r, 0.0001), -0.074 + u * (v3.dist(GB_F, GB_N) + 0.074)));
-    }
-    prof.push(new THREE.Vector2(0.012, v3.dist(GB_F, GB_N) + 0.03), new THREE.Vector2(0.011, v3.dist(GB_F, GB_N) + 0.09), new THREE.Vector2(0.0001, v3.dist(GB_F, GB_N) + 0.092));
-    const g = new THREE.LatheGeometry(prof, 20);
-    const m = new THREE.Mesh(g, gbMat);
-    m.position.set(...GB_F);
-    m.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), new THREE.Vector3(...v3.norm(v3.sub(GB_N, GB_F))));
-    body.add(m);
-  }
-  // the falciform ligament: up the front from the round ligament's notch and over the dome, where it fades; traced on
-  // the surface in a plane that leans a little to the right (the patient's right)
-  const LIG = [];
-  {
-    const cx = y => 0.055 - 0.07 * sat((y + 0.24) / 0.6), C = [0, -0.02, -0.08];
-    const onSurf = (dy, dz) => { let a = 0, b = 1.2;
-      for (let it = 0; it < 30; it++) { const m = 0.5 * (a + b), y = C[1] + m * dy, z = C[2] + m * dz; if (field(cx(y), y, z) < 0) a = m; else b = m; }
-      const y = C[1] + a * dy, z = C[2] + a * dz, p = [cx(y), y, z], g = v3.norm(grad(p)); return v3.add(p, v3.mul(g, 0.004)); };
-    const t0 = Math.atan2(-0.24 - C[1], 0.26 - C[2]);
-    for (let s = 0; s <= 36; s++) { const t = lerp(t0, 1.95, s / 36); LIG.push(onSurf(Math.sin(t), Math.cos(t))); }
-  }
-  const ligMat = glass(K.rgb('#ffd2a8'), { face: 0.07, rim: 0.4, dif: 0.12, fade: [0.28, 0.4, 0.1] });   // it fades over the dome
-  body.add(new THREE.Mesh(K.tube(LIG, 0.0055, 120, 6), ligMat));
-
-  // ------------------------------------------------------------------ the patches, drawn
-  const ptGeo = new THREE.BufferGeometry();
-  {
-    const A = new Float32Array(4 * N);
-    for (let n = 0; n < N; n++) { A[4 * n] = clamp(0.5 + 0.95 * LU[n], 0.16, 1); A[4 * n + 1] = RV[n]; A[4 * n + 2] = HUB[n]; A[4 * n + 3] = R(); }
-    ptGeo.setAttribute('position', new THREE.BufferAttribute(PP, 3));
-    ptGeo.setAttribute('aI', new THREE.BufferAttribute(A, 4));
-    ptGeo.computeBoundingSphere();
-  }
-  const ptMat = mat(`
-attribute vec4 aI;
-uniform float uSz;
-varying vec3 vC; varying float vA, vHub, vRing;
-void main() {
-  vec4 mv = modelViewMatrix * vec4(position, 1.0);
-  gl_Position = projectionMatrix * mv;
-  float g = uGrow * 1.1, ap = smoothstep(aI.y, aI.y + 0.05, g), fl = uGrow < 0.999 ? exp(-pow((g - aI.y - 0.035) / 0.045, 2.0)) : 0.0;
-  float hub = aI.z * uTop, rest = uTop * (1.0 - aI.z), pulse = 0.75 + 0.25 * sin(uTime * 1.6 + aI.w * 6.2832);
-  vec3 c = hot(aI.x) * (1.0 - 0.3 * uLinks) * (0.9 + 0.1 * sin(uTime * 1.1 + aI.w * 40.0));
-  // with the hubs shown the rest turn grey and dim; a hub keeps its own colour (its uptake) and gets an amber ring
-  c = mix(c, vec3(dot(c, vec3(0.3, 0.59, 0.11))), 0.7 * rest);
-  c = mix(c, uFrontC * 0.7, fl * 0.85);   // the growing front: cyan (not white), so it never reads as the hottest tissue
-  float br = mix(1.0, 0.28, rest) * (1.0 + 0.3 * hub) * (1.0 + 0.25 * fl);
-  float sz = uSz * (1.0 + 0.6 * hub) * (1.0 - 0.3 * rest) * (1.0 + 0.5 * fl) * ap;
-  // up close (as in a headset) points shrink with distance and never grow beyond about two degrees
-  float sc = length(modelViewMatrix[0].xyz), dl = -mv.z / sc;
-  gl_PointSize = min(pointPx(sz * clamp(dl / 1.4, 0.5, 1.0), mv), 0.035 * (1.0 + 0.6 * hub) * uPx * projectionMatrix[1][1] / sc);
-  vC = c * br * depthCue(mv); vHub = hub; vRing = hub * pulse; vA = uA * ap;
-  if (vA < 0.004) gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
-}`, `
-uniform vec3 uHubC;
-varying vec3 vC; varying float vA, vHub, vRing;
-void main() {
-  float d = length(gl_PointCoord - 0.5) * 2.0;
-  if (d > 1.0) discard;
-  // a hub's disc is larger: its own colour fills the inner part (as large as any patch), the ring the outer part
-  float e = d * (1.0 + 0.6 * vHub), core = smoothstep(0.65, 0.1, e), halo = pow(max(1.0 - e, 0.0), 2.0);
-  float ring = vRing * smoothstep(0.58, 0.72, d) * smoothstep(1.0, 0.86, d);
-  gl_FragColor = vec4(vC * (0.65 + 0.5 * core) * (1.0 - ring) + uHubC * 1.2 * ring, vA * (core * 0.6 + halo * 0.35 + ring * 0.85));
-}`);
-  ptMat.uniforms.uSz = { value: HP * 0.62 };
-  const pts = new THREE.Points(ptGeo, ptMat);
-  pts.renderOrder = 3;
-  body.add(pts);
-
-  // ------------------------------------------------------------------ the links, drawn
-  const lnGeo = new THREE.BufferGeometry();
-  {
-    const pos = new Float32Array(6 * NL), A = new Float32Array(8 * NL), B = new Float32Array(4 * NL);
-    for (let e = 0; e < NL; e++) {
-      const a = EA[e], b = EB[e], w = Math.sqrt(EW[e] / wMax), hub = HUB[a] | HUB[b], rv = Math.max(RV[a], RV[b]);
-      const ord = 0.72 * rv + 0.28 * R(), ph = R();
-      for (let s = 0; s < 2; s++) {
-        const n = s ? b : a, v = 2 * e + s;
-        pos[3 * v] = PP[3 * n]; pos[3 * v + 1] = PP[3 * n + 1]; pos[3 * v + 2] = PP[3 * n + 2];
-        A[4 * v] = s; A[4 * v + 1] = w; A[4 * v + 2] = ord; A[4 * v + 3] = ph; B[2 * v] = rv; B[2 * v + 1] = hub;
-      }
-    }
-    lnGeo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-    lnGeo.setAttribute('aL', new THREE.BufferAttribute(A, 4));
-    lnGeo.setAttribute('aR', new THREE.BufferAttribute(B, 2));
-    lnGeo.computeBoundingSphere();
-  }
-  const lnMat = mat(`
-attribute vec4 aL; attribute vec2 aR;
-varying vec3 vC; varying float vA, vS, vPh;
-void main() {
-  vec4 mv = modelViewMatrix * vec4(position, 1.0);
-  gl_Position = projectionMatrix * mv;
-  float hub = aR.y, ord = aL.z, ph = aL.w;
-  float on = smoothstep(ord, ord + 0.06, uLinks * 1.06) * smoothstep(aR.x, aR.x + 0.05, uGrow * 1.1);
-  float hl = hub * uTop;
-  vec3 c = mix(uLinkC, vec3(0.5, 0.72, 1.0), aL.y * 0.4);
-  c = mix(c, uHubC, hl * 0.9);
-  float br = (0.35 + 0.65 * aL.y) * mix(1.0, 0.16, uTop * (1.0 - hub)) * (1.0 + 0.7 * hl);
-  vC = c * br * depthCue(mv); vS = aL.x; vPh = ph; vA = uA * on;
-  if (vA < 0.004) gl_Position = vec4(2.0, 2.0, 2.0, 1.0);   // hidden: both ends share 'on', so the whole line goes
-  // up close each line covers fewer others: the strong ones grow brighter, the weak ones step back
-  float near = clamp((2.6 * length(modelViewMatrix[0].xyz) / -mv.z - 1.0) / 1.5, 0.0, 1.0);
-  vA *= mix(1.0, mix(0.7, 1.6, aL.y), near);
-}`, `
-uniform float uTime;
-varying vec3 vC; varying float vA, vS, vPh;
-void main() {
-  if (vA < 0.004) discard;
-  float w = fract(vPh + uTime * 0.3) * 1.5 - 0.25, g = exp(-pow((vS - w) / 0.13, 2.0));
-  gl_FragColor = vec4(vC * (1.0 + 1.6 * g), vA * (0.024 + 0.07 * g));
-}`);
-  const lns = new THREE.LineSegments(lnGeo, lnMat);
-  lns.renderOrder = 2;
-  body.add(lns);
-
-  // ------------------------------------------------------------------ anchors, labels
-  let ang = 0;
-  // an anchor turns with the spin; it returns the same array each time (the engine copies it)
-  const at = p => { const x = p[0] - C0[0], z = p[2] - C0[2], o = [x, p[1] - C0[1], z];
-    return () => { const c = Math.cos(ang), s = Math.sin(ang); o[0] = x * c + z * s; o[2] = -x * s + z * c; return o; }; };
-  // a point on the surface: from the inside point p outwards along d
-  const surfAt = (p, d) => { let a = 0, b = 1; d = v3.norm(d);
-    for (let it = 0; it < 30; it++) { const m = 0.5 * (a + b), q = v3.add(p, v3.mul(d, m)); if (field(q[0], q[1], q[2]) < 0) a = m; else b = m; }
-    return v3.add(p, v3.mul(d, a)); };
-  const anchors = {
-    centre: [0, 0, 0],                                               // the middle of the organ (of its box)
-    core: at(CEN),                                                   // the middle of its patches, where they start to grow
-    top: at(TOP),
-    right: at(surfAt([-0.45, 0.05, -0.05], [-0.55, 0.6, 0.6])),   // the right lobe, its upper outer front
-    left: at(surfAt([0.5, 0.1, 0.0], [0.3, 0.25, 1])),            // the left lobe
-    dome: at(surfAt([-0.4, 0.1, -0.08], [0, 1, 0.15])),           // the top of the dome
-    notch: at(v3.add(GB_F, [0, -0.08, 0.02])),                     // the gallbladder's notch, its fundus below the edge
-    teres: at(LIG[0]),                                               // the round ligament's notch
-    warm: at(WARM), cool: at(COOL),
-    web: at(surfAt(WARM, [0.1, -0.2, 1])),                          // where the links crowd, on the front
-  };
-  const labels = [
-    { text: [fmt(N) + ' patches', ''], at: 'right', alpha: S => prog(S.liver_grow, 0.55, 0.85) * (1 - prog(S.liver_links, 0.1, 0.35)) },
-    { text: ['Links:', 'uptake ratio above the threshold'], at: 'web', cls: 'cyn', alpha: S => prog(S.liver_links, 0.35, 0.65) * prog(S.liver_grow, 0.7, 0.95) * (1 - prog(S.liver_top, 0.1, 0.4)) },
-    { text: ['Best connected', 'the top 5 % of patches'], at: 'top', cls: 'amb', alpha: S => prog(S.liver_top, 0.45, 0.8) * prog(S.liver_grow, 0.7, 0.95) },
-  ];
-  const API = Object.freeze({ patches: N, links: NL, theta: THETA, hubs: NH, step: Math.round(HP * 1e5) / 1e5, pairs: NP,
-    meanLinks: Math.round(20 * NL / N) / 10, maxLinks: DEG[ORDER[0]] });
-  const num = (v, d) => (v === undefined ? d : v);
-  return Object.assign(set, {
-    params: { liver_a: 1, liver_grow: 1, liver_links: 1, liver_top: 0, liver_spin: 0 },
-    update(S) {
-      ang = num(S.liver_spin, 0) * Math.PI * 2;
-      spin.rotation.y = ang;
-      const g = sat(num(S.liver_grow, 1)), l = sat(num(S.liver_links, 1)), tp = sat(num(S.liver_top, 0));
-      U.uGrow.value = g; U.uLinks.value = l; U.uTop.value = tp;
-      // the organ steps back for the links and the hubs, and stands out a little while it is empty
-      const k = (1 - 0.35 * l - 0.25 * tp) * (1 + 0.4 * (1 - g));
-      shellMat.uniforms.uK.value = k; backMat.uniforms.uK.value = 0.45 * k;
-      gbMat.uniforms.uK.value = ligMat.uniforms.uK.value = 1 - 0.5 * l - 0.3 * tp;
-      pts.visible = g > 0.001; lns.visible = g > 0.001 && l > 0.001;   // nothing to draw: no draw call
-    },
-    anchors,
-    labels,
-    cam: {
-      default: [-16, 9, 3.4, 0, -0.02, 0],   // (back a little: the right lobe reached the screen's edge)
-      front: [0, 3, 3.1, 0, 0, 0],
-      close: [-34, 12, 1.7, ...at(WARM)()],   // for liver_spin 0
-      below: [-12, -52, 3.1, 0, -0.05, 0],
-      side: [-90, 6, 3.0, 0, 0, 0],
-    },
-    controls: [{ key: 'view', label: 'View', options: [['patches', 'Patches'], ['links', 'Links'], ['hubs', 'Hubs']] }],
-    explore(c) { return { liver_grow: 1, liver_links: c.view === 'patches' ? 0 : 1, liver_top: c.view === 'hubs' ? 1 : 0, liver_spin: 0 }; },
-    api() { return API; },
-  });
-};
-
 
 // ================================================================= SCENE ==
 const GL = {};
 // the sets, in the order they appear in the story
-const SET_ORDER = ['scan', 'body', 'organs', 'people', 'liver'];
+const SET_ORDER = ['scan', 'body', 'organs'];
 // sets drawn in another set's frame: the organs lie in the PET body, so the two always turn together
 const FRAME = { body: 'organs' };
 const frameOf = k => FRAME[k] || k;
@@ -6124,25 +4131,18 @@ function updateLight(xr) {
 // between two cues lasts long enough to read what appeared at its start; run
 // it again after the text changes). A recording replaces it with its own times.
 const NARRATION_SYNC = [
-  [0, 0], [1.3, 1.2], [3.1, 2.4], [5.7, 4], [13.1, 9],  // Intro
-  [23.5, 16], [24.2, 16.6], [25, 17.2], [25.7, 17.8], [33.3, 20.5], [46.4, 29], [47, 29.6],
-  [51.2, 30.5], [51.8, 31.1], [59.4, 33.5], [60.1, 34.1], [67.7, 37], [68.3, 37.6], [82, 43],
-  [89, 47], [89.7, 47.6],                             // Scanner
-  [106.4, 52], [107.7, 53.18], [108.8, 53.2], [118.5, 62], [137.2, 72],  // Sugar
-  [157, 90], [157.7, 90.6], [159, 91.2], [196.8, 125.6], [198.8, 126],  // Organs
-  [203.1, 128], [204.4, 129.2], [212.3, 135], [213.9, 136.5], [215.7, 138], [221.2, 143],
-  [227.2, 147], [233.3, 150.5], [245.1, 157], [254.2, 163], [254.9, 163.6], [265.5, 167],
-  [266.2, 167.6], [271.6, 169], [272.3, 169.6],       // Network
-  [279.5, 172], [280.8, 173.18], [281.9, 173.2], [291.9, 179], [300.1, 183], [307.1, 188],
-  [307.8, 188.6], [318.9, 193], [334.5, 203], [341.5, 207], [342.1, 207.6], [356.7, 211],
-  [357.4, 211.6], [366.7, 214], [367.4, 214.6],       // Health
-  [383.3, 218], [384.6, 219.18], [385.7, 219.2], [395.2, 224], [418.3, 245], [423.1, 248],
-  [423.8, 248.6], [438.3, 252],                       // One scan
-  [449.2, 258], [449.9, 258.6], [451.2, 259.2], [459.9, 267], [469, 272], [481.2, 283.1],
-  [488.4, 283.5], [489.1, 284.1], [492.8, 284.5], [493.4, 285.1], [496.2, 285.5], [506.8, 295.1],
-  [530.5, 300], [531.2, 300.6], [539.2, 303], [539.9, 303.6],  // People
-  [550.1, 305], [551.4, 306.18], [552.5, 306.2], [561.6, 311], [562.3, 311.6], [577.7, 317],
-  [587.3, 322.5], [588, 323.1], [601.7, 325], [604.5, 327.6], [624.7, 330],  // Vision
+  [0, 0], [1.3, 1.2], [3.1, 2.4], [5.8, 4], [12.9, 9],  // Intro
+  [23.6, 16], [24.2, 16.6], [25.1, 17.2], [25.8, 17.8], [33.6, 20.5], [46.9, 29], [47.6, 29.6],
+  [51.8, 30.5], [52.5, 31.1], [60.3, 33.5], [60.9, 34.1], [68.7, 37], [69.4, 37.6], [83.4, 43],
+  [90.5, 47], [91.2, 47.6],                           // Scanner
+  [108.4, 52], [109.7, 53.18], [110.8, 53.2], [120.5, 62], [139.6, 72],  // Sugar
+  [159.4, 90], [160.7, 91.18], [161.4, 91.2], [199.2, 125.6], [201.3, 126], [201.9, 126.6],  // Organs
+  [205.7, 128], [207, 129.2], [215, 133], [215.7, 133.6], [236, 139], [242.2, 142],  // Network
+  [246.6, 146], [247.9, 147.18], [249, 147.2], [259.3, 153], [267.7, 157], [274.8, 162],
+  [275.5, 162.6], [286.9, 167], [302.9, 177], [310, 181], [310.7, 181.6], [325.6, 185],
+  [326.2, 185.6], [335.8, 188], [336.5, 188.6],       // Health
+  [352.7, 192], [354, 193.18], [355.2, 193.2], [364.5, 198], [365.2, 198.6], [381, 204],
+  [390.8, 209.5], [391.4, 210.1], [405.5, 212], [408.3, 214.6], [422.4, 217],  // Vision
 ];
 // recording time -> original story time
 function storyT(t) {
@@ -6167,11 +4167,9 @@ const CH = [
   { key: 'scanner', name: 'Scanner', a: 16, b: 52 },
   { key: 'body', name: 'Sugar', a: 52, b: 90 },
   { key: 'organs', name: 'Organs', a: 90, b: 128 },
-  { key: 'cohort', name: 'Network', a: 128, b: 172 },
-  { key: 'health', name: 'Health', a: 172, b: 218 },
-  { key: 'one', name: 'One scan', a: 218, b: 258 },
-  { key: 'people', name: 'People', a: 258, b: 305 },
-  { key: 'vision', name: 'Vision', a: 305, b: 330 },
+  { key: 'cohort', name: 'Network', a: 128, b: 146 },
+  { key: 'health', name: 'Health', a: 146, b: 192 },
+  { key: 'vision', name: 'Vision', a: 192, b: 217 },
 ];
 CH.forEach(c => { c.na = narrT(c.a); c.nb = narrT(c.b); }); // chapter times on the recording's clock
 const C = Object.fromEntries(CH.map(c => [c.key, c]));
@@ -6219,12 +4217,10 @@ const fitShift = (k, name) => { const f = GL.sets[k].cam[name] && FIT[k] && FIT[
 // or their target moved, so they fit beside the panel (added to the set's own view, in story and explore mode alike)
 // (measured at 1280 x 760: each view's parts between the panel's right edge and the screen's, above the timeline)
 const FIT = { scan: { vision: [0, 0, 3.3, -0.75] }, body: { default: [0, 0, 0.55] }, organs: { default: [0, 0, 0.55], strength: [0, 0, 0.9, -0.25] },
-  liver: { default: [0, 0, 0.15, -0.22] },
-  people: { default: [0, 0, 1.1, -0.75], one: [0, 0, 0.45, 0, -0.08], field: [0, 0, 0.5, -0.01, -0.05, 0.03], metrics: [0, 0, 0.75, -0.38], map: [0, 0, 1.6, -0.45], strip: [0, 0, 1.3, -0.3], auc: [6, 0, 0.8, -0.3], km: [0, 0, 0.45, -0.18, 0] } };
+};
 // how much further back a view stands on a phone held upright (see narrowK): the wide ones, whose parts reach
-// across the screen (the vision row; the network with its chart; the one-scan scene with its gauges)
-const NARROW = { scan: { vision: 1.32 }, body: { front: 1.1 }, organs: { net: 1.3, strength: 1.45, matrix: 1.15, bars: 1.1 },
-  people: { default: 1.2, one: 1.2, field: 1.15, metrics: 1.35, strip: 1.15, map: 1.1, km: 1.1, auc: 1.1 } };
+// across the screen (the vision row; the network with its chart)
+const NARROW = { scan: { vision: 1.32 }, body: { front: 1.1 }, organs: { net: 1.3, strength: 1.45, matrix: 1.15, bars: 1.1 } };
 const narrowOf = (k, name) => (NARROW[k] && NARROW[k][name]) || 1;
 // a set's anchor point, in the set's own coordinates
 function anchorOf(k, at) {
@@ -6235,7 +4231,7 @@ function anchorOf(k, at) {
 }
 
 // ------------------------------------------------------------------- data --
-// The paper's and the poster's numbers (PET_DATA), looked up once for the story and the panels. The networks read off
+// The paper's numbers (PET_DATA), looked up once for the story and the panels. The networks read off
 // the figures may still be empty (no links yet): everything here works with any subset of organs and any number of links.
 const PD = (() => {
   const D = PET_DATA, byId = {};
@@ -6285,36 +4281,6 @@ function netTitle(id) {
 }
 // Table 3's protein networks drawn in Figure 4
 const PROT_NET = r => (r.kind === 'fdg' ? 'FDG_healthy' : /HK2/.test(r.name) ? 'HK2' : /GLUT/.test(r.name) ? 'GLUT' : null);
-// the four profiles of the one-scan network, in the order of people_profile, and the poster's groups' colours
-const PROFILES = [['healthy', 'Healthy'], ['cancer', 'Cancer'], ['both', 'Cancer + dyslipidaemia'], ['dys', 'Dyslipidaemia']];
-const GROUP_COL = { cancer: '#d9dde6', both: '#9b5de5', dys: '#ff4fd8', healthy: '#38bdf8' };
-const THIRD_COL = ['#38bdf8', '#a78bfa', '#d9dde6'];
-// The poster's numbers (PET_DATA.poster): its groups on the index, its cohort, survival by the index's thirds and the
-// immunotherapy test
-const POSTER = (() => {
-  const P = PET_DATA.poster || {}, mdi = P.mdi || {}, co = P.cohort || {}, km = P.km || {}, pr = P.prognosis || {};
-  const sum = l => l.reduce((a, g) => a + (Number.isFinite(+g.n) ? +g.n : 0), 0);
-  const groups = (mdi.groups || []).map((g, i) => Object.assign({ i, col: GROUP_COL[g.key] || '#9aa3b5' }, g));
-  const base = co.baseline || [], follow = co.followup || [];
-  // survival by the index's thirds: the curves (label, n) with the poster's table (median in months, NR: not reached;
-  // survival after one year)
-  const thirds = (km.curves || []).map((c, i) => {
-    const r = (km.table || [])[i] || {}, md = parseFloat(r.median), y = parseFloat(r.oneYear);
-    const nm = String(c.label || '').replace(/^\d+(st|nd|rd|th)\s+(tertile|third)\s*/i, '');
-    return { name: nm.charAt(0).toUpperCase() + nm.slice(1), n: +c.n || null, col: THIRD_COL[i] || '#9aa3b5',
-      median: r.median === undefined ? undefined : Number.isFinite(md) ? md : null, y1: Number.isFinite(y) ? Math.round(y) : null };
-  });
-  // the immunotherapy test: the AUC of each measure (the network's own: group 'network'), its p value, and how many people
-  const st = pr.strip || {};
-  const auc = (pr.auc || []).filter(a => Number.isFinite(+a.auc)).map(a => ({ name: String(a.label || ''), auc: +a.auc,
-    pv: typeof a.p === 'number' ? a.p : NaN, p: typeof a.p === 'number' ? `p = ${a.p}` : '', net: a.group === 'network' }));
-  const respN = +pr.n || sum([st.good, st.bad].filter(Boolean)) || null;
-  const best = l => l.slice().sort((a, b) => b.auc - a.auc)[0] || null;
-  return { groups, mdiN: sum(groups), base, follow, baseN: +co.baselineTotal || sum(base), followN: +co.followupTotal || sum(follow), thirds, respN, auc,
-    bestNet: best(auc.filter(a => a.net)), bestClin: best(auc.filter(a => !a.net)),
-    // none of the measures significant (every p over the story's threshold): said so wherever the AUCs are
-    noneSig: auc.length > 0 && auc.every(a => a.pv > PET_DATA.protocol.p) };
-})();
 
 // ------------------------------------------------------------------ facts --
 // Numbers the story quotes, all from PET_DATA (a comparison or a reading not there yet leaves its sentence out)
@@ -6330,7 +4296,6 @@ const FACTS = (() => {
     row: { cancer: row('Cancer'), bmi: row('BMI', /healthy/), crp: row('CRP', /thirds/), tumour: row('Tumour load'), norepi: row('Norepinephrine') },
     weeks: retest ? num((/(\d+)\s*weeks/.exec(retest.cohort) || [])[1]) : null,
     robust: D.table2.filter(r => r.part === 'test'), hk2: D.table3.find(r => /HK2/.test(r.name)) || null, tested: D.table3.filter(r => r.kind !== 'fdg').length,
-    pair: (D.synth && D.synth.pairs && D.synth.pairs[0]) || null, single: D.single, poster: POSTER,
     year: num((/\((\d{4})\)/.exec(D.source.paper) || [])[1]),
   };
 })();
@@ -6349,7 +4314,7 @@ const pct = v => (Number.isFinite(+v) ? `${+v}%` : '–');
 
 // the story's own networks, in the order it shows them (one that has no links yet is skipped: the network stays)
 function buildStory() {
-  const F = FACTS, R = F.row, P = F.poster, S1 = F.single, prof = k => (S1 && S1.profiles && S1.profiles[k]) || null;
+  const F = FACTS, R = F.row;
   // fade a set in over [t0, t1] and out over [t2, t3]
   const show = (k, t0, t1, t2, t3) => { ramp(k + '_a', t0, t1, 0, 1); if (t2 !== undefined) ramp(k + '_a', t2, t3, 1, 0); };
   // jump an index param (an organ, a pair, a group) at time t
@@ -6360,19 +4325,6 @@ function buildStory() {
   const wi = id => NET_ALL.indexOf(id);                      // organs_which for a network
   const gD = (r, i) => (r && r.groups[i] ? pct(r.groups[i].density) : '–'), gO = (r, i) => (r && r.groups[i] ? dis(r.groups[i].disorder) : '–');
   const step = (id, at, text) => `<li data-at="${at}" data-col="${organCol(id)}" style="border-left-color:${swCol(organCol(id))}"><b style="color:${inkCol(organCol(id))}">${esc(organName(id))}</b>${text}</li>`;
-  const ones = (S1 && S1.organs) || [], onesN = ones.filter(o => o !== 'aorta').length;   // (the aorta is no organ)
-  const thirds = P.thirds.filter(g => g.median !== undefined || g.y1 !== null);
-  const med = g => (g.median === null ? 'not reached' : `${g.median} months`);
-  const cap = t => t.charAt(0).toUpperCase() + t.slice(1);
-  const bar = P.follow.find(g => /bariatric/i.test(g.group || ''));
-  // the explainer's pair linked only through other organs (the organs set finds it in the stand-in cohort; none: left out)
-  const OP = setApi('organs') || {}, ind = (OP.pairs || []).find(p => p.indirect && Number.isFinite(p.r) && Number.isFinite(p.pr)) || null;
-  // (said only while the poster's centres are in that order)
-  const gc = k => { const g = P.groups.find(x => x.key === k); return g && Number.isFinite(+g.centre) ? +g.centre : NaN; };
-  const order = gc('cancer') < gc('healthy') && gc('healthy') < gc('dys');
-  // (and the stand-in profiles' indices, said only while they are in the same order)
-  const pm = k => (prof(k) && Number.isFinite(prof(k).mdi) ? prof(k).mdi : NaN);
-  const porder = pm('cancer') < pm('healthy') && pm('healthy') < pm('dys');
   // ------------------------------------------------------------ panel copy
   // parts of a chapter that take turns in one place, each fading out (data-out) as the next comes: the headset's
   // panel cannot scroll, so no chapter shows more than fits at once
@@ -6381,7 +4333,7 @@ function buildStory() {
     title: `<svg class="route-mark" viewBox="0 0 360 44" aria-hidden="true"><path id="titleArc" d="M8 36 Q180 -16 352 36" fill="none" stroke="var(--red)" stroke-width="2.2" stroke-linecap="round" pathLength="1" stroke-dasharray="1" stroke-dashoffset="1"/><circle cx="8" cy="36" r="4.5" fill="var(--red)"/><circle cx="352" cy="36" r="4.5" fill="var(--red)" id="titleDot" opacity="0"/></svg>
       <h1 data-at="1.2">One scan, one system</h1>
       <p class="lede" data-at="2.4">the body as a metabolic network</p>
-      <p data-at="4">From one PET scan to a network of organs: what it says about health, disease and survival.</p>
+      <p data-at="4">From one PET scan to a network of organs: what it says about health and disease.</p>
       <p class="note" data-at="9">After a paper in Med${F.year ? ` (${F.year})` : ''} and a poster from the Division of Nuclear Medicine, Medical University of Vienna, and the LBI for Network Medicine.</p>`,
     scanner: `<h2 data-at="0.6">Seeing sugar</h2>
       ${turns(`<p data-at="1.2" data-out="12.5">A PET scan (positron emission tomography) starts with a sugar. FDG (fluorodeoxyglucose) is a glucose look-alike carrying radioactive fluorine-18.</p>
@@ -6410,15 +4362,10 @@ function buildStory() {
       <p data-at="35" class="amber">One scan, one row of numbers.</p>
       <p class="credits" data-at="36">The organs' values shown here are typical uptakes, for illustration.</p>`,
     cohort: `<h2 data-at="0.6">${fmt(F.scans)} scans</h2>
-      ${turns(`<p data-at="1.2" data-out="14.5">The paper used ${fmt(F.scans)} scans of ${fmt(F.subjects)} people: ${F.healthy} of healthy volunteers and ${F.cancer} of people with cancer (${F.lung} lung, ${F.hnscc} head and neck).</p>
-        <div class="facts"><div data-at="7" data-out="14.5"><b>${fmt(F.scans)}</b><small>scans</small></div><div data-at="8.5" data-out="14.5"><b>${F.f2n}</b><small>organs in the network</small></div><div data-at="10" data-out="14.5"><b>${fmt(F.scans * F.f2n)}</b><small>values at most</small></div></div>`,
-      F.pair ? `<p data-at="15" data-out="34.5">Which organs rise and fall together across people? Take the ${esc(organLow(F.pair.a))} and the ${esc(organLow(F.pair.b))}.</p>
-        <p data-at="19" data-out="34.5">A plain correlation mixes direct links with links that only pass through other organs.</p>
-        <p data-at="22.5" data-out="34.5" class="amber">A partial correlation first takes out what all the other organs explain, then correlates what is left: in the stand-in data, r = ${dis(F.pair.r)} becomes ${dis(F.pair.pr)} (the paper's partial correlation: ${dis(F.pair.paper)}).</p>
-        ${ind ? `<p data-at="29" data-out="34.5">The ${esc(organLow(ind.a))} and the ${esc(organLow(ind.b))}: r = ${dis(ind.r)}, but ${dis(ind.pr)} once the other organs are taken out.${ind.paper === null ? ' The paper draws no link between them.' : ''}</p>` : ''}` : '',
-      `<p data-at="35">Keep the significant ones (unlikely to be chance: p &lt; ${F.p}) and draw them: blue where two organs rise together, red where one rises as the other falls.</p>
-        <p data-at="39">The network of all ${fmt(F.scans)} scans: ${F.f2n} organs, ${F.links} links${Number.isFinite(+F.density) ? `, a density of ${pct(F.density)} (more on that next)` : ''}.</p>
-        <p class="credits" data-at="41">Figure 2A of the paper. The people in the scatter plot are ${fmt(F.scans)} stand-ins with the paper's partial correlations.</p>`)}`,
+      ${turns(`<p data-at="1.2" data-out="4.5">The paper used ${fmt(F.scans)} scans of ${fmt(F.subjects)} people: ${F.healthy} of healthy volunteers and ${F.cancer} of people with cancer (${F.lung} lung, ${F.hnscc} head and neck).</p>`,
+      `<p data-at="5">Which organs rise and fall together across people? Two are linked when they still do once all the others are taken into account (a partial correlation), and that is unlikely to be chance (p &lt; ${F.p}): blue where they rise together, red where one rises as the other falls.</p>
+        <p data-at="11" class="amber">The network of all ${fmt(F.scans)} scans: ${F.f2n} organs, ${F.links} links${Number.isFinite(+F.density) ? `, a density of ${pct(F.density)} (more on that next)` : ''}.</p>
+        <p class="credits" data-at="14">Figure 2A of the paper.</p>`)}`,
     health: `<h2 data-at="0.6">From health to disease</h2>
       ${turns(`<p data-at="1.2" data-out="15.5">Split the scans into groups, and give each group its own network.${R.cancer ? ` Healthy people's is dense: ${gD(R.cancer, 0)} of the most possible, against ${gD(R.cancer, 1)} with cancer.` : ''}</p>
         ${R.bmi ? `<p data-at="7" data-out="15.5">Weight, in healthy people: a density of ${gD(R.bmi, 0)} below the median BMI (body mass index: weight for height), ${gD(R.bmi, 1)} above it.</p>
@@ -6429,32 +4376,13 @@ function buildStory() {
       `${F.robust.every(r => !r.sigD && !r.sigO) ? `<p data-at="35">And it holds: ${F.weeks ? `two scans within ${F.weeks} weeks, ` : ''}an ultra-low dose, another scanner, men and women, the aorta or the vena cava as the reference: none made a significant difference, though some groups were small (${Math.min(...F.robust.flatMap(r => r.groups.map(g => g.n)))} people).</p>` : ''}
         ${F.hk2 ? `<p data-at="39">Of ${F.tested} networks built from genes' activity in the tissues of ${fmt(F.gtex)} people, only that of hexokinase 2, an enzyme that traps FDG, resembles FDG's (r = ${F.hk2.r}).</p>` : ''}
         <p class="credits" data-at="42">Table 2 and Figures 3 and 4 of the paper; networks other than that of all scans read off its figures.${R.cancer ? ` Disorder: ${gO(R.cancer, 0)} healthy, ${gO(R.cancer, 1)} with cancer.` : ''} A hub: an organ whose strength is more than ${F.hubZ} standard deviations above the network's average (z-score).</p>`)}`,
-    one: `<h2 data-at="0.6">One scan, one network</h2>
-      ${turns(`<p data-at="1.2" data-out="23.5">So far, one network for a whole group. The next step: a network for every scan, from ${word(onesN)} organs${ones.includes('aorta') ? ' and the aorta' : ''}.</p>
-        <p data-at="6" data-out="23.5">Compare every organ with every other: how much more sugar does it take up?</p>
-        <p data-at="12" data-out="23.5">Where one outshines another by more than a threshold, draw a link. The links make this person's network.</p>`,
-      `<ul class="steps">
-          <li data-at="24"><b>Clearance</b>how the kidneys handle the tracer</li>
-          <li data-at="27"><b>Heterogeneity</b>how unevenly the links are spread: evenly, or one organ dominating</li>
-        </ul>
-        ${porder ? `<p data-at="30" class="amber">Together they give a metabolic displacement index: how far, and which way, a scan's metabolism has moved. In these illustrative profiles health sits in the middle (${pm('healthy').toFixed(1)}); cancer pulls it down (${pm('cancer').toFixed(1)}), dyslipidaemia (unhealthy blood fats) up (${pm('dys').toFixed(1)}).</p>` : ''}
-        <p class="note" data-at="34">Illustrative maths: the poster names Clearance, Heterogeneity and the index, but its formulas are not published yet. These are stand-ins, and so are the profiles.</p>`)}`,
-    people: `<h2 data-at="0.6">${P.mdiN ? `${fmt(P.mdiN)} people, one index` : 'People on one index'}</h2>
-      ${turns(`<p data-at="1.2" data-out="24">Every scan becomes one point, placed by its two measures.${P.groups.length ? ` In the poster's results: ${listOf(P.groups.map(g => `${esc(g.name.toLowerCase())} (${g.n})`))}.` : ''}</p>
-        ${order ? `<p data-at="9" data-out="24">On the index, cancer sits low and dyslipidaemia high, with healthy people in between. These are medians: the groups overlap widely.</p>` : ''}
-        ${P.groups.length ? `<div class="facts" style="flex-wrap:wrap;row-gap:8px">${P.groups.map((g, j) => `<div data-at="${14 + 2 * j}" data-out="24" style="flex:1 1 40%"><b data-col="${g.col}" style="color:${inkCol(g.col)}">${Number.isFinite(+g.centre) ? (+g.centre).toFixed(1) : '–'}</b><small>${esc(g.name)}: median</small></div>`).join('')}</div>` : ''}`,
-      `<p data-at="24.5" data-out="36" class="amber">Split by the index into thirds: people with cancer furthest from the healthy range had the shortest survival.</p>
-        ${thirds.length ? `<ul class="steps">${thirds.map((g, j) => `<li data-at="${25.5 + j}" data-out="36" data-col="${g.col}" style="border-left-color:${swCol(g.col)}"><b style="color:${inkCol(g.col)}">${esc(cap(g.name))}${g.n ? ` (${g.n})` : ''}</b>median survival ${med(g)}${g.y1 !== null ? `; ${g.y1}% alive after a year` : ''}</li>`).join('')}</ul>` : ''}`,
-      `<p data-at="36.5">${P.respN ? `In ${P.respN}` : 'In a small group of'} people with lung cancer given immunotherapy before surgery, the index scored higher than CRP, tumour stage or age at telling good from poor responders apart${P.bestNet && P.bestClin ? ` (AUC ${P.bestNet.auc.toFixed(2)} against ${P.bestClin.auc.toFixed(2)} at best; AUC scores how well a measure tells two groups apart: 1 is perfect, 0.5 is chance)` : ''}. A first hint from few people${P.noneSig ? ': none of these results is significant' : P.bestNet && P.bestNet.pv > F.p ? ': the index\'s result is not significant' : ''}.</p>
-        <p data-at="42">The poster also reports that after ${bar ? `weight-loss (bariatric) surgery${Number.isFinite(+bar.n) ? ` (${bar.n} people)` : ''}` : 'surgery'}, and after immunotherapy, the index moved towards the healthy range.</p>
-        <p class="credits" data-at="45">The poster's results, as group summaries. The dots are stand-ins drawn to match them, not patients, and how far the follow-up groups move is illustrative.</p>`)}`,
     vision: `<h2 data-at="0.6">One scan, one system</h2>
       ${turns(`<p data-at="1.2" data-out="17">One day, one routine scan might show how a whole body is doing: what lies ahead, and which medication might help.</p>
         <p data-at="6" data-out="17">Muscle and fat could become targets for treatment (they respond to GLP-1 drugs, for blood sugar and weight), and the networks a way to follow how drugs such as metformin, statins and SGLT2 inhibitors act on metabolism.</p>
         <p data-at="12" data-out="17" class="amber">A measure of health, not only of disease. It still has to be proven in larger studies that follow people over time.</p>`,
       `<p data-at="17.5">Poster: Barbara K Geist, Alexander Grentner, Joel Fischer, Josef Yu, Dato Tsomaia, Adna Smajlovic, Stefan Grünert and Marcus Hacker: Division of Nuclear Medicine, Medical University of Vienna, and the LBI for Network Medicine.</p>
         <p data-at="20"><button class="btn primary" id="btnGoExplore" type="button">Explore the networks</button></p>
-        <p class="credits" data-at="22">Geist et al., The metabolic organ connectome, Med${F.year ? ` (${F.year})` : ''}; poster: Shaping a New Era in Nuclear Medicine. Networks of all ${fmt(F.scans)} scans: printed in the paper; other networks read off its figures. One-scan maths, organ values, the ${fmt(F.scans)} scans in the matrix and scatter plot, and the population dots: illustrative stand-ins.</p>`)}`,
+        <p class="credits" data-at="22">Geist et al., The metabolic organ connectome, Med${F.year ? ` (${F.year})` : ''}; poster: Shaping a New Era in Nuclear Medicine. Networks of all ${fmt(F.scans)} scans: printed in the paper; other networks read off its figures. Organ values: illustrative.</p>`)}`,
   };
 
   const story = $('#story');
@@ -6478,9 +4406,7 @@ function buildStory() {
   };
   start({ scan_vision: 1, scan_bed: 0, scan_pass: 0, scan_cut: 0, scan_events: 0, scan_lines: 0, scan_image: 0,
     body_pet: 0, body_net: 0, body_state: 0, body_blank: 0,
-    organs_seg: 0, organs_suv: 0, organs_focus: 0, organs_lesion: 0, organs_rows: 0, organs_pair: 0, organs_partial: 0, organs_net: 0, organs_which: 0, organs_prev: 0, organs_mix: 1, organs_strength: 0,
-    people_bars: 0, people_ratio: 0, people_thresh: 0, people_one: 0, people_metrics: 0, people_profile: 0, people_skip: 0, people_custom: 0, people_map: 0, people_mdi: 0,
-    people_group: 0, people_km: 0, people_response: 0, people_follow: 0 });
+    organs_seg: 0, organs_suv: 0, organs_focus: 0, organs_lesion: 0, organs_rows: 0, organs_pair: 0, organs_partial: 0, organs_net: 0, organs_which: 0, organs_prev: 0, organs_mix: 1, organs_strength: 0 });
   let a, b;
   // Intro: the vision row (scanner, body, network, prognosis, medication), then it draws back into the scanner
   a = C.title.a; b = C.title.b;
@@ -6510,9 +4436,9 @@ function buildStory() {
   // Where the sugar goes: the standing body, the tracer arriving, the hot organs, then a tumour
   a = C.body.a; b = C.body.b;
   show('body', a + 0.3, a + 2.3);
-  ramp('body_a', C.one.a, C.one.a + 2, 0.55, 0);   // (dimmed under the organs from their chapter on)
+  ramp('body_a', C.vision.a, C.vision.a + 2, 0.55, 0);   // (dimmed under the organs from their chapter on)
   ramp('body_pet', a + 1.5, a + 10, 0, 1);
-  show('organs', a + 18, a + 20, C.one.a, C.one.a + 2);
+  show('organs', a + 18, a + 20, C.vision.a, C.vision.a + 2);
   ramp('organs_lesion', a + 19, a + 21, 0, 1);
   cam(a + 2.5, 'body', 'front', -12, null, [0, 0, 0.55]);   // (a slow turn from the scanner as it fades)
   cam(a + 9.5, 'body', 'front', 6, 'spin', [0, 0, 0.55]);
@@ -6536,31 +4462,11 @@ function buildStory() {
   cam(a + 15, 'organs', 'bars');
   cam(a + 22, 'organs', 'bars', 6, 'spin');
   cam(b - 0.5, 'organs', 'bars', -6, 'spin');
-  // 658 scans: one row, then all of them; the partial correlation of two organs; the network of all scans
+  // 658 scans: the bars make way, and the network of all scans grows on the body
   a = C.cohort.a; b = C.cohort.b;
-  // (the body steps out while the slab and the scatter plot have the stage, and back under the network)
-  ramp('body_a', a + 0.5, a + 2.5, 0.55, 0); ramp('body_a', a + 35, a + 38, 0, 0.55);
-  key('organs_rows', a + 1, 0); key('organs_rows', a + 5, 0.35); key('organs_rows', a + 7, 0.35); key('organs_rows', a + 12, 1);
-  if (F.pair) {
-    ramp('organs_pair', a + 15, a + 18, 0, 1);   // (the dots rise out of the slab)
-    ramp('organs_partial', a + 22, a + 27, 0, 1);
-    // then a pair linked only through other organs: back to its raw values, on to it, its partial correlation
-    // (organs_pair NPR + 1 is pair 1 again: from there the last pair is a neighbour, the ones between never show)
-    if (ind) {
-      const np = OP.pairs.length, ii = OP.pairs.indexOf(ind) + 1, from = ii === np ? np + 1 : 1;
-      if (from !== 1) jump('organs_pair', a + 28.5, 1, from);
-      ramp('organs_partial', a + 28.5, a + 29.5, 1, 0); ramp('organs_pair', a + 28.5, a + 30, from, ii);
-      ramp('organs_partial', a + 30.5, a + 34, 0, 1);
-      jump('organs_pair', C.health.a, ii, 0);   // (unseen: the network has hidden the panel by then)
-    } else jump('organs_pair', C.health.a, 1, 0);
-  }
-  ramp('organs_net', a + 34.5, a + 37.5, 0, 1);   // (the scatter plot makes way by a + 35.6, as the text turns to the network)
-  ramp('organs_suv', a + 32.5, a + 34, 1, 0); ramp('organs_rows', a + 34, a + 36.5, 1, 0);   // (no bar comes back as the slab goes)
-  // (the slab reaches left of the view's target: nudged clear of the panel)
-  cam(a + 3.5, 'organs', 'matrix', 0, null, [0, 0, 0.35, -0.25]);
-  cam(a + 13, 'organs', 'matrix', 10, 'spin', [0, 0, 0.35, -0.25]);
-  if (F.pair) { cam(a + 16, 'organs', 'scatter'); cam(a + 34, 'organs', 'scatter', 5, 'spin'); }
-  cam(a + 37, 'organs', 'net');
+  ramp('organs_suv', a + 1, a + 3, 1, 0);
+  ramp('organs_net', a + 3, a + 8, 0, 1);
+  cam(a + 3, 'organs', 'net');
   cam(b - 0.5, 'organs', 'net', 18, 'spin');
   // From health to disease: BMI, the strength distribution, CRP thirds; robust; hexokinase 2 like FDG
   a = C.health.a; b = C.health.b;
@@ -6587,54 +4493,10 @@ function buildStory() {
   cam(a + 34, 'organs', 'strength', 10, 'spin');
   cam(a + 37, 'organs', 'net', 20);
   cam(b - 0.5, 'organs', 'net', 34, 'spin');
-  // One scan, one network: bars, ratios, the threshold, the network, the two measures, three profiles in turn
-  a = C.one.a; b = C.one.b;
-  show('people', a + 0.5, a + 2.5, C.vision.a, C.vision.a + 1.5);
-  ramp('people_bars', a + 2, a + 5, 0, 1);
-  ramp('people_ratio', a + 7, a + 11, 0, 1);
-  ramp('people_thresh', a + 12, a + 15, 0, 1);
-  ramp('people_one', a + 17, a + 22, 0, 1);
-  ramp('people_bars', a + 18, a + 20.5, 1, 0);   // (as the network forms: the bars move aside, under the panel)
-  ramp('people_metrics', a + 24, a + 28, 0, 1);
-  key('people_profile', a + 31, 0); key('people_profile', a + 33, 1); key('people_profile', a + 35, 1); key('people_profile', a + 38, 3);
-  jump('people_skip', a + 34, 0, 1); jump('people_skip', a + 38.5, 1, 0);   // (cancer straight to dyslipidaemia: never via the two together)
-  // (the bars first: they stand above the field, about 1.2 wide, before the network pushes them aside)
-  const barsV = [-4, -9, -1.85, 0.36, 0.36, -0.1];   // (on top of the view's own FIT)
-  cam(a + 1, 'people', 'one', -10, null, barsV);
-  cam(a + 6.5, 'people', 'one', 0, 'spin', barsV);
-  cam(a + 10, 'people', 'field');
-  cam(a + 15, 'people', 'field', 12, 'spin');
-  cam(a + 18, 'people', 'one');
-  // (lifted a little: the ratio field below the ring stays above the timeline)
-  cam(a + 24, 'people', 'metrics', 0, null, [0, 0, 0, 0, -0.1, 0]);
-  cam(b - 0.5, 'people', 'metrics', 8, 'spin', [0, 0, 0, 0, -0.1, 0]);
-  // People: the population by its two measures, the index strip, the groups in turn, survival, immunotherapy, follow-up
-  a = C.people.a; b = C.people.b;
-  ramp('people_map', a + 1, a + 6, 0, 1);
-  for (const n of ['people_ratio', 'people_thresh', 'people_one', 'people_metrics']) ramp(n, a + 2, a + 6, 1, 0);
-  ramp('people_mdi', a + 9, a + 14, 0, 1);
-  // each group glows in turn as its number appears in the panel
-  P.groups.slice(0, 4).reduce((g0, g, j) => { jump('people_group', a + 14 + 2 * j, g0, j + 1); return j + 1; }, 0);
-  if (P.groups.length) jump('people_group', a + 22.5, Math.min(4, P.groups.length), 0);
-  ramp('people_km', a + 24, a + 28, 0, 1);
-  ramp('people_km', a + 33.5, a + 35.5, 1, 0);
-  ramp('people_response', a + 35, a + 39, 0, 1);
-  ramp('people_response', a + 41, a + 43, 1, 0);
-  ramp('people_follow', a + 42, a + 46, 0, 1);
-  cam(a + 2, 'people', 'map');
-  cam(a + 8, 'people', 'map', 8, 'spin');
-  cam(a + 10.5, 'people', 'strip');
-  cam(a + 23, 'people', 'strip', 5, 'spin');
-  cam(a + 26, 'people', 'km');
-  cam(a + 33.5, 'people', 'km', 4, 'spin');
-  cam(a + 37.5, 'people', 'auc');   // (4 s from one board to the other: no whip pan)
-  cam(a + 40.5, 'people', 'auc', 4, 'spin');
-  cam(a + 44, 'people', 'strip');
-  cam(b - 0.5, 'people', 'strip', 6, 'spin');
   // One scan, one system: the vision row again
   a = C.vision.a; b = C.vision.b;
   show('scan', a + 1.3, a + 3.3);
-  // (the scanner comes back as it was at the start: couch out, closed, no events; and as the row, after the index strip
+  // (the scanner comes back as it was at the start: couch out, closed, no events; and as the row, after the network
   // has gone: a big scanner fading in through it showed its insides)
   for (const n of ['scan_bed', 'scan_cut', 'scan_lines', 'scan_image']) jump(n, a, 1, 0);
   jump('scan_pass', a, 0.6, 0);
@@ -6885,29 +4747,25 @@ function updateTimeline(t, playing) {
 }
 
 // ================================================================ EXPLORE ==
-// Explore mode: the paper's comparisons and networks, its organs, the poster's one-scan network with your own uptakes
-// and the people on its index; or any scene with its own controls.
+// Explore mode: the paper's comparisons and networks, its organs; or any scene with its own controls.
 const SCENES = [
   ['scan', 'Scanner', 'A PET/CT scanner, cut open: the ring of detectors, the events (a positron, two gamma photons, a line of response) and the image they build. Life size stands it in front of you.'],
   ['body', 'Body', 'A whole-body PET scan: the tracer arriving with the blood, settling where cells use sugar and leaving in the urine (the PET body of the tour).'],
   ['organs', 'Organs', `The paper's organs in the scan: their outlines, their uptakes, the matrix of ${fmt(FACTS.scans)} scans (stand-in values), a partial correlation, the networks and how their strength is spread.`],
-  ['people', 'One scan and people', 'The poster\'s next step: one network per scan, its two measures and the index; then the people on it, survival and the immunotherapy test. Illustrative maths; the dots are stand-ins.'],
-  ['liver', 'Liver', 'An organ is a network too: an illustrative liver in a few thousand patches, linked where one patch\'s uptake is more than a set number of times another\'s (the poster\'s rule); the best connected glow.'],
 ];
-const TABS = [['networks', 'Networks'], ['organs', 'Organs'], ['one', 'One scan'], ['people', 'People'], ['scenes', 'Scenes']];
+const TABS = [['networks', 'Networks'], ['organs', 'Organs'], ['scenes', 'Scenes']];
 // the tour's body set: its network and its disease scan are the tour's illustration, so this story leaves them out
 const HIDE_CTL = { body: ['view', 'state'] };
 const ctlsOf = k => (GL.sets[k].controls || []).filter(c => !(HIDE_CTL[k] || []).includes(c.key));
 // a control the panes offer now: a set may say when one applies (when(values)), so none sits there doing nothing; the
 // shared state keeps every control (ctlsOf) all the same
 const ctlShown = (k, c) => !c.when || c.when(Object.fromEntries(ctlsOf(k).map(x => [x.key, ctlValue(k, x)])));
-const S1 = PET_DATA.single, ONE_N = S1.organs.length;
-const X = { tab: 'networks', scene: 'organs', ctl: {}, t0: 0, turn: 'on', cmp: -1, netX: null, organ: null, u: null, theta: S1.theta, group: 0, life: false };
+const X = { tab: 'networks', scene: 'organs', ctl: {}, t0: 0, turn: 'on', cmp: -1, netX: null, organ: null, life: false };
 const XS = {};
 // params that pick something by number jump to their new value instead of easing through the ones in between; the
 // organs' network and its crossfade (organs_prev to organs_which by organs_mix) and the explainer's pair change smoothly
 // in the set's own time (explore(c)), so they pass unchanged
-const STEP = new Set(['organs_focus', 'organs_pair', 'organs_which', 'organs_prev', 'organs_mix', 'people_group']);
+const STEP = new Set(['organs_focus', 'organs_pair', 'organs_which', 'organs_prev', 'organs_mix']);
 const orbit = { cur: [0, 12, 3.6, 0, 0, 0], from: null, to: null, t0: 0, dur: 1.6 };
 const ctlValue = (k, c) => (X.ctl[k] && X.ctl[k][c.key] !== undefined ? X.ctl[k][c.key] : c.options[0][0]);
 const ctlOf = (k, key) => ctlsOf(k).find(c => c.key === key);
@@ -6915,35 +4773,22 @@ const ctlOf = (k, key) => ctlsOf(k).find(c => c.key === key);
 const optKey = (k, key, re) => { const c = ctlOf(k, key), o = c && c.options.find(([v, n]) => re.test(v) || re.test(n)); return o ? o[0] : null; };
 const setApi = k => (GL.sets[k] && GL.sets[k].api ? GL.sets[k].api() : null);
 // a view option's camera: the cam view of the same name, or the one its name stands for
-// (One scan shows the whole one-scan scene, its gauges too: the panes change all of it)
-const CAM_ALIAS = { organs: { organs: 'default', uptake: 'bars', partial: 'scatter', network: 'net' }, scan: { scanner: 'default' },
-  people: { one: 'default', 'one scan': 'default', ratios: 'field', people: 'map', index: 'strip', survival: 'km', immunotherapy: 'auc' } };
+const CAM_ALIAS = { organs: { organs: 'default', uptake: 'bars', partial: 'scatter', network: 'net' }, scan: { scanner: 'default' } };
 function camFor(k, v) {
   const c = GL.sets[k].cam || {}, al = CAM_ALIAS[k] || {}, vc = ctlOf(k, 'view'), o = vc && vc.options.find(x => x[0] === v), n = o ? String(o[1]).toLowerCase() : '';
   for (const x of [al[v], v, al[n], n]) if (x && c[x]) return x;
   return null;
 }
 const viewCam = k => { const c = ctlOf(k, 'view'); return c ? camFor(k, ctlValue(k, c)) : null; };
-// the network and the profile on show: the organs set's Network control and the people set's Profile control hold them
-// (their options are the ids), so the Scenes tab and the panes agree; a robustness test's network, which that control
-// does not offer, is X.netX
+// the network on show: the organs set's Network control holds it (its options are the ids), so the Scenes tab and the
+// panes agree; a robustness test's network, which that control does not offer, is X.netX
 const curNet = () => X.netX || ctlValue('organs', ctlOf('organs', 'network'));
-const curProfile = () => ctlValue('people', ctlOf('people', 'profile'));
-// the people set's views: the one-scan network (and its ratios) or the population
+// whether a set's view on show matches re (by its key or its name)
 const viewIs = (k, re) => { const c = ctlOf(k, 'view'); if (!c) return false; const v = ctlValue(k, c), o = c.options.find(x => x[0] === v); return re.test(v) || (o && re.test(o[1])); };
-const oneView = () => viewIs('people', /one|ratio|field/i);
 const netView = () => viewIs('organs', /net|strength/i);
 // work for the next frame, once the sets have drawn what was just picked (their anchors follow their params)
 const NEXT = [];
 const afterUpdate = f => { NEXT.push(f); };
-const round2 = v => Math.round(v * 100) / 100;
-const profU = p => { const q = S1.profiles[p] || S1.profiles.healthy; return q.u.slice(); };
-const curU = () => X.u || profU(curProfile());
-
-// the one-scan network's maths, the people set's own (link i -> j = sigmoid((ln(u_i / u_j) - ln theta) / soft);
-// Clearance = mean of the kidneys' outgoing links; Heterogeneity = Gini coefficient of the strengths; index = m + a C + b H)
-const measureOne = (u, theta) => setApi('people').measure(u, theta);
-const linksOf = r => r.e.reduce((a, row) => a + row.filter(v => v > 0.5).length, 0);
 
 // what the chosen scene and its controls ask for: that set fully in, every other set out; then what the panes pick
 function exploreTargets(now = performance.now()) {
@@ -6962,14 +4807,6 @@ function exploreTargets(now = performance.now()) {
     tg.organs_focus = X.organ && PD.byId[X.organ] ? PD.byId[X.organ].i + 1 : 0;
     // the body dims under the network, the matrix and the scatter plot
     if ((tg.organs_net || 0) > 0.5 || (tg.organs_rows || 0) > 0.5 || (tg.organs_pair || 0) > 0.5) tg.body_a = 0.55;
-  }
-  if (k === 'people') {
-    const p = curProfile(), u = curU();
-    tg.people_profile = Math.max(0, PROFILES.findIndex(x => x[0] === p));
-    tg.people_custom = X.u ? 1 : 0;
-    for (let i = 0; i < ONE_N; i++) tg['people_u' + i] = u[i];
-    tg.people_theta = X.theta;
-    tg.people_group = X.group;
   }
   // life size: the scanner at work, the couch in, no vision row
   if (k === 'scan' && X.life) Object.assign(tg, { scan_vision: 0, scan_bed: 1, scan_events: Math.max(tg.scan_events || 0, 0.7), scan_lines: Math.max(tg.scan_lines || 0, 0.6) });
@@ -7000,7 +4837,6 @@ function setCtl(k, key, v) {
   if (!c || !c.options.some(o => o[0] === v)) return;
   (X.ctl[k] = X.ctl[k] || {})[key] = v;
   X.t0 = performance.now();
-  if (k === 'people' && key === 'profile') X.u = null;   // a profile picked: its own uptakes
   if (k === 'organs' && key === 'network') X.netX = null;   // a network of the control's own
   // a view has its own best camera
   if (key === 'view' && k === X.scene && !(X.life && k === 'scan')) { const n = camFor(k, v); flyTo(view(k, n || 'default')); }
@@ -7052,30 +4888,6 @@ function selectOrgan(id, ui = true) {
   if (ui && X.organ && X.scene === 'organs' && !viewIs('organs', /net|strength|matrix|partial|scatter/i)) afterUpdate(() => { if (X.organ === id) flyNear(anchorOf('organs', id), Math.min(orbit.cur[2], 2.6)); });
   pushState(); renderOrgans(); renderNets();
 }
-// a profile of the one-scan network (its uptakes; custom ones are dropped)
-function selectProfile(p, ui = true) {
-  if (!PROFILES.some(x => x[0] === p)) return;
-  (X.ctl.people = X.ctl.people || {}).profile = p;
-  X.u = null;
-  if (ui) showOne();
-  renderOne(); renderScenes();
-}
-function showOne() {
-  if (X.scene !== 'people') openScene('people');
-  if (!oneView()) { const v = optKey('people', 'view', /one/i); if (v) setCtl('people', 'view', v); }
-}
-// the seven uptakes (null: the profile's own); one moved by hand makes them custom
-function setUs(u) { X.u = u ? u.map(v => round2(clamp(+v, 0.1, 5))) : null; syncOne(); }
-function setU(i, v) { const u = curU(); u[i] = v; setUs(u); }
-function setTheta(v) { X.theta = round2(clamp(+v, 1.1, 3)); syncOne(); }
-// a group of the poster's population (0 none, 1..4): it glows, the others dim
-function selectGroup(g, ui = true) {
-  X.group = clamp(g | 0, 0, POSTER.groups.length);
-  if (ui && X.group) { if (X.scene !== 'people') openScene('people'); if (oneView()) { const v = optKey('people', 'view', /index|strip/i) || optKey('people', 'view', /people|map/i); if (v) setCtl('people', 'view', v); } }
-  renderPeople();
-}
-// a view of the people set (People, Index, Survival, Immunotherapy)
-function showPeople(re) { if (X.scene !== 'people') openScene('people'); const v = optKey('people', 'view', re); if (v) setCtl('people', 'view', v); }
 // Life size: on screen the scanner from a couple of metres at eye height; in the headset life size on your floor
 function setLife(on) {
   X.life = on;
@@ -7089,7 +4901,7 @@ function setLife(on) {
 
 // ------------------------------------------------------- shared rooms --
 // What everyone at a station sees alike in explore mode: the tab, the scene and every scene's controls (they hold the
-// network and the profile on show), the comparison, the organ, the custom uptakes, the threshold and the group.
+// network on show), the comparison and the organ.
 // Turning and standing by the scanner life size are each person's own view.
 // shared rooms: the scene's view in a headset at a station (explore mode), which turns and sizes it in the room:
 // shared (HOST.collab), so everyone there sees it alike; null while it flies somewhere (a pick, a view arriving)
@@ -7107,7 +4919,7 @@ function collabSetView(v) {
 function collabState() {
   const ctl = {};
   for (const [k] of SCENES) ctl[k] = Object.fromEntries(ctlsOf(k).map(c => [c.key, ctlValue(k, c)]));
-  return { tab: X.tab, scene: X.scene, ctl, cmp: X.cmp, net: curNet(), organ: X.organ, profile: curProfile(), u: X.u ? X.u.slice() : null, theta: X.theta, group: X.group };
+  return { tab: X.tab, scene: X.scene, ctl, cmp: X.cmp, net: curNet(), organ: X.organ };
 }
 // show another person's state with the story's own setters (so both panels follow); every field is checked, and
 // the camera stays where this person has it
@@ -7117,8 +4929,6 @@ function collabApply(v) {
   if (TABS.some(t => t[0] === v.tab) && v.tab !== X.tab) showTab(v.tab);
   if ((v.cmp === -1 || int(v.cmp, 0, PD.D.table2.length)) && v.cmp !== X.cmp) selectCmp(v.cmp, false);
   if ((v.organ === null || (typeof v.organ === 'string' && PD.byId[v.organ])) && v.organ !== X.organ) selectOrgan(v.organ, false);
-  if (Number.isFinite(v.theta) && v.theta !== X.theta) setTheta(v.theta);
-  if (int(v.group, 0, POSTER.groups.length + 1) && v.group !== X.group) selectGroup(v.group, false);
   // the scene and its controls; a view flies to its own camera as it does here
   if (SCENES.some(s => s[0] === v.scene) && v.scene !== X.scene) openScene(v.scene);
   for (const [k] of SCENES) for (const c of ctlsOf(k)) {
@@ -7126,11 +4936,8 @@ function collabApply(v) {
     if (!c.options.some(o => o[0] === x) || ctlValue(k, c) === x) continue;
     if (k === X.scene) setCtl(k, c.key, x); else (X.ctl[k] = X.ctl[k] || {})[c.key] = x;
   }
-  // then the network and the profile (also held by controls: should the two ever disagree, these win) and the custom
-  // uptakes (a profile arriving drops them, as it does here: the room's own come back after it)
+  // then the network (also held by a control: should the two ever disagree, this wins)
   if (NET_ALL.includes(v.net) && v.net !== curNet()) setNet(v.net);
-  if (PROFILES.some(p => p[0] === v.profile) && v.profile !== curProfile()) selectProfile(v.profile, false);
-  if ((v.u === null || (Array.isArray(v.u) && v.u.length === ONE_N && v.u.every(Number.isFinite))) && JSON.stringify(v.u) !== JSON.stringify(X.u)) setUs(v.u);
   renderAll();
 }
 
@@ -7185,8 +4992,6 @@ function buildExplore() {
     <div class="tabs" role="tablist">${TABS.map(([k, n]) => `<button role="tab" type="button" data-tab="${k}" aria-selected="${k === X.tab}">${n}</button>`).join('')}</div>
     <div class="pane" id="pane-networks" role="tabpanel"></div>
     <div class="pane" id="pane-organs" role="tabpanel"></div>
-    <div class="pane" id="pane-one" role="tabpanel"></div>
-    <div class="pane" id="pane-people" role="tabpanel"></div>
     <div class="pane" id="pane-scenes" role="tabpanel"></div>`;
   document.querySelectorAll('#explore .tabs button').forEach(b => b.addEventListener('click', () => pickTab(b.dataset.tab)));
   // one click handler per pane: buttons carry what they do in data attributes
@@ -7196,15 +5001,8 @@ function buildExplore() {
     const v = b.dataset.v, n = v !== undefined && v !== '' && !isNaN(+v) ? +v : v;
     ({
       cmp: () => selectCmp(n === X.cmp ? -1 : n), net: () => pickNet(v), cnet: () => showNet(v), organ: () => selectOrgan(v === X.organ ? null : v),
-      profile: () => selectProfile(v), group: () => selectGroup(n === X.group ? 0 : n), pview: () => showPeople(new RegExp('^' + v + '$', 'i')),
-      one: showOne, scene: () => openScene(v), ctl: () => setCtl(b.dataset.scene || X.scene, b.dataset.ctl, v), life: () => setLife(!X.life),
+      scene: () => openScene(v), ctl: () => setCtl(b.dataset.scene || X.scene, b.dataset.ctl, v), life: () => setLife(!X.life),
     }[b.dataset.act] || (() => {}))();
-  });
-  // the sliders of the one-scan network: values change in place, so a drag is not cut short by a redraw
-  $('#explore').addEventListener('input', ev => {
-    const el = ev.target;
-    if (el.dataset.u !== undefined) { setU(+el.dataset.u, +el.value); if (X.scene !== 'people' || !oneView()) showOne(); }
-    else if (el.id === 'theta') { setTheta(+el.value); if (X.scene !== 'people' || !oneView()) showOne(); }
   });
   renderAll();
   $('#viewctl').innerHTML = `<div class="grp"><span>Turn</span><div class="seg" data-ctl="turn" role="group" aria-label="Turn">${[['on', 'On'], ['off', 'Off']].map(([v, n]) => `<button type="button" data-v="${v}" aria-pressed="${X.turn === v}">${n}</button>`).join('')}</div></div>
@@ -7226,7 +5024,7 @@ function setTurn(v) {
 function showTab(k) {
   X.tab = k;
   document.querySelectorAll('#explore .tabs button').forEach(b => b.setAttribute('aria-selected', b.dataset.tab === k));
-  // (five tabs overflow a phone's panel: the row scrolls so the chosen one shows)
+  // (should the tabs overflow a phone's panel: the row scrolls so the chosen one shows)
   const tb = $('#explore .tabs'), on = tb && tb.querySelector(`[data-tab="${k}"]`);
   if (on) { const r = on.getBoundingClientRect(), q = tb.getBoundingClientRect(); if (r.width && (r.left < q.left || r.right > q.right)) tb.scrollLeft += r.left - q.left - 8; }
   document.querySelectorAll('#explore .pane').forEach(p => p.classList.toggle('on', p.id === 'pane-' + k));
@@ -7237,10 +5035,8 @@ function pickTab(k) {
   showTab(k);
   if (k === 'networks' && (X.scene !== 'organs' || !netView())) showNet(curNet());
   if (k === 'organs' && X.scene !== 'organs') openScene('organs');
-  if (k === 'one') showOne();
-  if (k === 'people' && (X.scene !== 'people' || oneView())) showPeople(/^index$/i);
 }
-function renderAll() { renderNets(); renderOrgans(); renderOne(); renderPeople(); renderScenes(); }
+function renderAll() { renderNets(); renderOrgans(); renderScenes(); }
 function renderNets() {
   const pane = $('#pane-networks');
   if (!pane) return;
@@ -7288,54 +5084,6 @@ function renderOrgans() {
   } else h += `<p class="empty">Colours and icons are the same in every scene. Point at an organ in the scan, a bar or a node to pick it there.</p>`;
   pane.innerHTML = h;
 }
-// the one-scan pane: built once per profile or custom change of structure; values change in place (syncOne)
-// the profiles' chips (and Custom, while the uptakes are your own)
-const profChips = () => PROFILES.map(([k, n]) => chip(`data-act="profile" data-v="${k}"`, esc(n), !X.u && curProfile() === k, GROUP_COL[k])).join('') + (X.u ? chip('data-act="one"', 'Custom', true) : '');
-function renderOne() {
-  const pane = $('#pane-one');
-  if (!pane) return;
-  const u = curU();
-  pane.innerHTML = `<p class="sub">The poster's next step: one network per scan, from the uptakes (mean SUV) of ${word(S1.organs.filter(o => o !== 'aorta').length)} organs${S1.organs.includes('aorta') ? ' and the aorta' : ''}. Pick a profile, or move the uptakes yourself.</p>
-    <div class="chips" id="oneProf">${profChips()}</div>
-    ${S1.organs.map((o, i) => `<p class="grp-h">${iconImg(o, 16)}${esc(organName(o))} <b data-uv="${i}" style="margin-left:auto;color:var(--ink)">${u[i].toFixed(2)}</b></p><input type="range" data-u="${i}" min="0.1" max="5" step="0.05" value="${u[i]}" style="accent-color:${organCol(o)}" aria-label="Uptake of the ${esc(organLow(o))}">`).join('')}
-    <p class="grp-h">Threshold: a link where one organ's uptake is this many times another's <b id="thv" style="margin-left:auto;color:var(--ink)">${X.theta.toFixed(2)}</b></p><input type="range" id="theta" min="1.1" max="3" step="0.05" value="${X.theta}" aria-label="Threshold">
-    <dl class="stats" id="oneOut" style="margin-top:14px"></dl>
-    <p class="note">${esc(S1.note)} The profiles are illustrative too.</p>`;
-  syncOne(true);
-}
-function syncOne(fresh) {
-  const pane = $('#pane-one');
-  if (!pane || !$('#oneOut')) return;
-  // a switch between a profile and custom uptakes changes only the chips (the sliders stay: one may be being dragged)
-  if (!fresh && !!pane.querySelector('#oneProf [data-act="one"]') !== !!X.u) $('#oneProf').innerHTML = profChips();
-  const u = curU(), r = measureOne(u, X.theta);
-  pane.querySelectorAll('input[data-u]').forEach(el => { const i = +el.dataset.u; if (document.activeElement !== el) el.value = u[i]; });
-  pane.querySelectorAll('[data-uv]').forEach(el => { el.textContent = u[+el.dataset.uv].toFixed(2); });
-  const th = $('#theta'); if (th && document.activeElement !== th) th.value = X.theta;
-  $('#thv').textContent = X.theta.toFixed(2);
-  $('#oneOut').innerHTML = `<dt>Links</dt><dd>${linksOf(r)}<small>of ${ONE_N * (ONE_N - 1)} possible</small></dd>
-    <dt>Clearance</dt><dd>${r.C.toFixed(2)}<small>the kidneys' links out</small></dd>
-    <dt>Heterogeneity</dt><dd>${r.H.toFixed(2)}<small>0 even, higher: one organ dominates</small></dd>
-    <dt>Index</dt><dd style="color:var(--amber)">${r.mdi.toFixed(1)}<small>metabolic displacement, 0 to 10</small></dd>`;
-}
-function renderPeople() {
-  const pane = $('#pane-people');
-  if (!pane) return;
-  const P = POSTER, g = P.groups[X.group - 1];
-  const views = [['people', 'People'], ['index', 'Index'], ['survival', 'Survival'], ['immunotherapy', 'Immunotherapy']].filter(([k]) => optKey('people', 'view', new RegExp('^' + k + '$', 'i')));
-  let h = `<p class="sub">The poster's results: ${P.mdiN ? `${fmt(P.mdiN)} people` : 'people'} by their index. Pick a group.</p>
-    <div class="chips">${P.groups.map((x, i) => chip(`data-act="group" data-v="${i + 1}"`, `${esc(x.name)} <small>${x.n}</small>`, X.group === i + 1, x.col)).join('')}</div>`;
-  if (g) h += `<h3><span class="sw" style="display:inline-block;width:14px;height:14px;border-radius:3px;background:${swCol(g.col)};margin-right:8px"></span>${esc(g.name)}</h3>
-    <dl class="stats"><dt>People</dt><dd>${g.n}</dd><dt>Index (median)</dt><dd>${g.centre}<small>${Array.isArray(g.err) ? `middle half of the group: ${g.err[0]} to ${g.err[1]}` : ''}</small></dd></dl>`;
-  if (views.length) h += `<p class="grp-h">View</p><div class="chips">${views.map(([k, n]) => chip(`data-act="pview" data-v="${k}"`, n, X.scene === 'people' && viewIs('people', new RegExp('^' + k + '$', 'i')))).join('')}</div>`;
-  if (P.thirds.length) h += `<p class="grp-h">Survival with cancer, by the index's thirds</p>
-    <dl class="stats">${P.thirds.map(t => `<dt><span class="sw" style="display:inline-block;width:9px;height:9px;border-radius:2px;background:${swCol(t.col)};margin-right:6px"></span>${esc(t.name)}${t.n ? ` (${t.n})` : ''}</dt><dd>${t.median === undefined ? '–' : t.median === null ? 'not reached' : t.median + ' months'}<small>median${t.y1 !== null ? ` · ${t.y1}% after one year` : ''}</small></dd>`).join('')}</dl>`;
-  if (P.auc.length) h += `<p class="grp-h">The immunotherapy test${P.respN ? ` (${P.respN} people with lung cancer)` : ''}: good from poor responders</p>
-    <dl class="stats">${P.auc.slice().sort((a, b) => b.auc - a.auc).map(a => `<dt>${esc(a.name)}</dt><dd style="color:${a.net ? 'var(--amber)' : 'var(--muted)'}">${a.auc}<small>AUC${a.p ? ' · ' + esc(a.p) : ''}${a.net ? ' · network measure' : ''}</small></dd>`).join('')}</dl>
-    <p class="sub">${esc(aucNote())}</p>`;
-  h += `<p class="note">Group summaries from the poster. The dots are stand-ins drawn to match them, not patients.</p>`;
-  pane.innerHTML = h;
-}
 function renderScenes() {
   const pane = $('#pane-scenes');
   if (!pane) return;
@@ -7348,8 +5096,6 @@ function renderScenes() {
 }
 // a control's option is lit when it holds that value (the Network control's none while a robustness test's network shows)
 const ctlLit = (k, c, v) => ctlValue(k, c) === v && !(k === 'organs' && c.key === 'network' && X.netX);
-// the immunotherapy test in a line: what the AUC means, and that none of it is significant yet
-const aucNote = () => `AUC: 1 tells every good responder from every poor one, 0.5 is chance. A first test in few people${POSTER.noneSig ? `: none of these is significant (all p > ${FACTS.p}), so their order may be chance` : ''}.`;
 // labels the panes add (the sets label their own picks)
 function updateExtraLabels() {
   LBL.extra.forEach(L => { L.el.remove(); dropSprite(L); });
@@ -7367,15 +5113,14 @@ function updateExtraLabels() {
 
 // ----------------------------------------------------------- canvas input --
 const _rc = new THREE.Raycaster(), _m2 = new THREE.Vector2();
-// what a ray (a THREE.Raycaster in world coordinates) points at in the scene on show: { organ } or { group }, or null
+// what a ray (a THREE.Raycaster in world coordinates) points at in the scene on show: { organ }, or null
 function pickWith(rc) {
-  if (APP.mode !== 'explore' || !(X.scene === 'organs' || X.scene === 'people')) return null;
+  if (APP.mode !== 'explore' || X.scene !== 'organs') return null;
   const A = setApi(X.scene);
   if (!A || !A.pick) return null;
   const r = A.pick(rc);
   if (typeof r === 'string') return PD.byId[r] ? { organ: r } : null;
-  if (r && r.organ && PD.byId[r.organ]) return { organ: r.organ };
-  return r && r.group >= 1 && r.group <= POSTER.groups.length ? { group: r.group } : null;
+  return r && r.organ && PD.byId[r.organ] ? { organ: r.organ } : null;
 }
 // what is under the mouse, in explore mode
 function pickAt(mx, my) {
@@ -7386,18 +5131,15 @@ function pickAt(mx, my) {
 // where a pick is, in its set's own frame (for the headset's ray and tip), or null
 function pickPos(p) {
   if (!p) return null;
-  const s = GL.sets[X.scene], at = p.organ ? p.organ : 'g' + p.group;
+  const s = GL.sets[X.scene], at = p.organ;
   if (!s.anchors || !s.anchors[at]) return null;
   const q = anchorOf(X.scene, at);
   return q && Number.isFinite(q[0]) ? [q[0], q[1], q[2]] : null;
 }
-const pickText = p => (p.organ ? [organName(p.organ), p.organ === 'aorta' ? 'the reference' : PD.byId[p.organ].measure]
-  : [POSTER.groups[p.group - 1].name, `${POSTER.groups[p.group - 1].n} people, median index ${POSTER.groups[p.group - 1].centre}`]);
+const pickText = p => [organName(p.organ), p.organ === 'aorta' ? 'the reference' : PD.byId[p.organ].measure];
 function choosePick(p) {
   if (!p) return;
   if (p.organ && X.scene === 'organs') { if (X.tab !== 'organs' && X.tab !== 'networks') showTab('organs'); selectOrgan(p.organ === X.organ ? null : p.organ, false); }
-  else if (p.organ) showTab('one');   // an organ of the one-scan network: its slider
-  else { showTab('people'); selectGroup(p.group === X.group ? 0 : p.group, false); }
 }
 function bindCanvas() {
   const cv = GL.canvas, tip = $('#tip'), pts = new Map();
@@ -7582,10 +5324,10 @@ function xrTip(S) {
 }
 
 // ---------------------------------------------------- picking an organ --
-// The organ or group a ray points at (explore mode, the organs or the people on show): { organ } or { group }, or null
+// The organ a ray points at (explore mode, the organs on show): { organ }, or null
 const _prc = new THREE.Raycaster();
 function pickRay(o, d) {
-  if (APP.mode !== 'explore' || !(X.scene === 'organs' || X.scene === 'people')) return null;
+  if (APP.mode !== 'explore' || X.scene !== 'organs') return null;
   _prc.set(o, d);
   return pickWith(_prc);
 }
@@ -8119,7 +5861,7 @@ function sigMain() {
     }
     return s;
   }
-  return ['x', audioLabel(), X.tab, X.scene, JSON.stringify(X.ctl), X.cmp, X.netX, X.organ, X.u ? X.u.join(',') : '', X.theta, X.group, X.life].join('|');
+  return ['x', audioLabel(), X.tab, X.scene, JSON.stringify(X.ctl), X.cmp, X.netX, X.organ, X.life].join('|');
 }
 const XR_HERE = 'pet';
 const XR_STORIES = HOST.list;
@@ -8405,7 +6147,7 @@ function drawExplorePane(ctx, P, x, y, W) {
   ctx.fillStyle = VC.line; ctx.fillRect(x, y + 62, W, 2);
   y += 88;
   const bottom = P.h - 34;
-  ({ networks: drawNetsPane, organs: drawOrgansPane, one: drawOnePane, people: drawPeoplePane, scenes: drawScenesPane }[X.tab] || drawScenesPane)(ctx, P, x, y, W, bottom);
+  ({ networks: drawNetsPane, organs: drawOrgansPane, scenes: drawScenesPane }[X.tab] || drawScenesPane)(ctx, P, x, y, W, bottom);
 }
 // buttons that wrap like the HTML chips: items -> { id, label, on, col, icon (an organ id), fn }
 function flow(ctx, P, items, x, y, W, maxY, o = {}) {
@@ -8492,59 +6234,10 @@ function drawOrgansPane(ctx, P, x, y, W, bottom) {
   y += head(ctx, x, y, `Its links among all ${fmt(FACTS.scans)} scans (Figure 2A; blue together, red opposite)`);
   flow(ctx, P, e.map(q => { const o = q[0] === id ? q[1] : q[0]; return { id: 'ol:' + o, label: `${PD.byId[o].short} ${q[2] > 0 ? '+' : '−'}${Math.abs(q[2]).toFixed(2)}`, icon: o, col: q[2] > 0 ? '#4c7cff' : '#ff4d4d', fn: () => selectOrgan(o) }; }), x, y, W, bottom, { px: 21, h: 46 });
 }
-function drawOnePane(ctx, P, x, y, W, bottom) {
-  const p = curProfile(), u = curU(), r = measureOne(u, X.theta);
-  y += flow(ctx, P, PROFILES.map(([k, n]) => ({ id: 'prof:' + k, label: n, col: GROUP_COL[k], on: !X.u && p === k, fn: () => selectProfile(k) })).concat(X.u ? [{ id: 'prof:custom', label: 'Custom', on: true, fn: showOne }] : []), x, y, W, bottom, { px: 22, h: 48 }) + 16;
-  const lw = 250, vw = 90, sx = x + lw, sw = W - lw - vw - 20;
-  S1.organs.forEach((o, i) => {
-    PET_ICONS.draw(ctx, o, x + 16, y + 24, 30, { color: organCol(o), width: 2 });
-    ctx.font = vfont(23); ctx.fillStyle = VC.ink; ctx.textBaseline = 'middle'; ctx.fillText(fitText(ctx, organName(o).replace(/ \(.*\)$/, ''), lw - 50), x + 42, y + 25);
-    ctx.textAlign = 'right'; ctx.fillText(u[i].toFixed(2), x + W, y + 25); ctx.textAlign = 'left'; ctx.textBaseline = 'top';
-    vSlider(ctx, P, 'u:' + i, sx, y, sw, u[i], 0.1, 5, organCol(o), v => { setU(i, v); if (X.scene !== 'people' || !oneView()) showOne(); });
-    y += 54;
-  });
-  ctx.font = vfont(23); ctx.fillStyle = VC.ink; ctx.textBaseline = 'middle'; ctx.fillText('Threshold', x + 4, y + 25);
-  ctx.textAlign = 'right'; ctx.fillText(X.theta.toFixed(2), x + W, y + 25); ctx.textAlign = 'left'; ctx.textBaseline = 'top';
-  vSlider(ctx, P, 'theta', sx, y, sw, X.theta, 1.1, 3, VC.cyan, v => { setTheta(v); if (X.scene !== 'people' || !oneView()) showOne(); });
-  y += 70;
-  const cells = [['Links', String(linksOf(r))], ['Clearance', r.C.toFixed(2)], ['Heterogeneity', r.H.toFixed(2)], ['Index', r.mdi.toFixed(1)]], cw = W / 4;
-  cells.forEach(([k, v], j) => {
-    ctx.font = vfont(52, 700); ctx.fillStyle = j === 3 ? VC.amber : VC.ink; ctx.fillText(v, x + j * cw, y);
-    ctx.font = vfont(22); ctx.fillStyle = VC.muted; ctx.fillText(k, x + j * cw, y + 62);
-  });
-  y += 110;
-  if (y + 90 < bottom) textBlock(ctx, `${S1.note} The profiles are illustrative too.`, x, y, W, 21, 29, VC.faint, 400, 3);
-}
-function drawPeoplePane(ctx, P, x, y, W, bottom) {
-  const PO = POSTER, g = PO.groups[X.group - 1];
-  y += textBlock(ctx, `The poster's results: ${PO.mdiN ? fmt(PO.mdiN) + ' people' : 'people'} by their index. Pick a group.`, x, y, W, 24, 33, VC.muted, 400, 2) + 10;
-  y += flow(ctx, P, PO.groups.map((q, i) => ({ id: 'grp:' + (i + 1), label: `${q.name} · ${q.n}`, col: q.col, on: X.group === i + 1, fn: () => selectGroup(X.group === i + 1 ? 0 : i + 1) })), x, y, W, bottom, { px: 22, h: 48 }) + 14;
-  if (g) y += textBlock(ctx, `${g.name}: ${g.n} people, median index ${g.centre}${Array.isArray(g.err) ? ` (middle half of the group: ${g.err[0]} to ${g.err[1]})` : ''}.`, x, y, W, 24, 33, VC.ink, 400, 2) + 12;
-  const views = [['people', 'People'], ['index', 'Index'], ['survival', 'Survival'], ['immunotherapy', 'Immunotherapy']].filter(([k]) => optKey('people', 'view', new RegExp('^' + k + '$', 'i')));
-  if (views.length) { y += head(ctx, x, y, 'View'); y += flow(ctx, P, views.map(([k, n]) => ({ id: 'pv:' + k, label: n, on: X.scene === 'people' && viewIs('people', new RegExp('^' + k + '$', 'i')), fn: () => showPeople(new RegExp('^' + k + '$', 'i')) })), x, y, W, bottom, { px: 23, h: 52 }) + 16; }
-  if (PO.thirds.length) {
-    y += head(ctx, x, y, 'Survival with cancer, by the index\'s thirds (median; after one year)');
-    for (const t of PO.thirds) {
-      swatch(ctx, x, y + 6, 18, t.col);
-      y += textBlock(ctx, `${t.name}${t.n ? ` (${t.n})` : ''}: ${t.median === undefined ? '–' : t.median === null ? 'not reached' : t.median + ' months'}${t.y1 !== null ? `; ${t.y1}%` : ''}`, x + 30, y, W - 30, 23, 32, VC.ink, 400, 1) + 2;
-    }
-    y += 12;
-  }
-  if (PO.auc.length && y + 80 < bottom) {
-    y += head(ctx, x, y, `The immunotherapy test${PO.respN ? ` (${PO.respN} people)` : ''}: AUC, 0.5 is chance`);
-    for (const a of PO.auc.slice().sort((p, q) => q.auc - p.auc)) {
-      if (y + 34 > bottom - 130) break;
-      y += textBlock(ctx, `${a.name}: ${a.auc}${a.p ? ' · ' + a.p : ''}`, x, y, W, 23, 32, a.net ? VC.amber : VC.muted, a.net ? 700 : 400, 1) + 2;
-    }
-    if (y + 64 < bottom - 60) y += textBlock(ctx, aucNote(), x, y + 6, W, 21, 29, VC.muted, 400, 2) + 8;
-  }
-  if (y + 40 < bottom) textBlock(ctx, 'Group summaries from the poster; the dots are stand-ins drawn to match them, not patients.', x, bottom - 60, W, 21, 29, VC.faint, 400, 2);
-}
-// the five scenes, and the chosen scene's own controls
-const SCENE_SHORT = { people: 'People' };
+// the scenes, and the chosen scene's own controls
 function drawScenesPane(ctx, P, x, y, W, bottom) {
   const cw = (W - 12 * (SCENES.length - 1)) / SCENES.length;
-  SCENES.forEach(([k, n], j) => vButton(ctx, P, 'scene:' + k, x + j * (cw + 12), y, cw, 56, SCENE_SHORT[k] || n, () => openScene(k), { on: X.scene === k, px: 22 }));
+  SCENES.forEach(([k, n], j) => vButton(ctx, P, 'scene:' + k, x + j * (cw + 12), y, cw, 56, n, () => openScene(k), { on: X.scene === k, px: 22 }));
   y += 76;
   const sc = SCENES.find(s => s[0] === X.scene);
   y += textBlock(ctx, sc[2], x, y, W, 25, 35, VC.muted, 400, 4) + 18;
@@ -8751,13 +6444,12 @@ const APP = {
     // (the search tried every option on the set: a set that remembers what it showed last, as the organs do for their
     // network's crossfade, is told the chosen ones, long settled, twice)
     if (s.explore) { const c = { t: 1e3 }; for (const c2 of s.controls || []) c[c2.key] = ctlValue(best, c2); s.explore(c); s.explore(c); }
-    // the story's network, organ, profile and group carry over to the panels (the controls hold the network and the
-    // profile: the closest ones were picked above)
-    X.organ = null; X.u = null; X.group = 0; X.cmp = -1; X.netX = null; X.theta = Number.isFinite(S.people_theta) ? round2(clamp(S.people_theta, 1.1, 3)) : S1.theta;
+    // the story's network and organ carry over to the panels (the controls hold the network: the closest one was picked
+    // above)
+    X.organ = null; X.cmp = -1; X.netX = null;
     if (best === 'organs' && S.organs_focus > 0.5) X.organ = PD.ids[Math.round(S.organs_focus) - 1] || null;
     if (best === 'organs' && S.organs_net > 0.5) { const w = NET_ALL[Math.round(S.organs_which)]; if (w) { if (NET_EXTRA.includes(w)) X.netX = w; X.cmp = cmpOfNet(w); } }
-    if (best === 'people' && S.people_group > 0.5) X.group = clamp(Math.round(S.people_group), 0, POSTER.groups.length);
-    X.tab = best === 'organs' ? (S.organs_net > 0.5 ? 'networks' : 'organs') : best === 'people' ? (S.people_map > 0.5 ? 'people' : 'one') : 'scenes';
+    X.tab = best === 'organs' ? (S.organs_net > 0.5 ? 'networks' : 'organs') : 'scenes';
     // from the last chapter (the story's end, or its Explore button): the networks of the paper
     if (ts >= C.vision.a) openNetworks();
     ST.labels.forEach(L => { L.el.style.opacity = 0; L.o = 0; });
@@ -8770,7 +6462,7 @@ const APP = {
     $('#btnMode').textContent = 'Explore now';
     // the story shows its scenes as it tells them: no picked organ or group, the scanner not life size
     if (X.life) setLife(false);
-    X.organ = null; X.group = 0; NEXT.length = 0; pushState();
+    X.organ = null; NEXT.length = 0; pushState();
     LBL.extra.forEach(L => { L.el.remove(); dropSprite(L); }); LBL.extra = [];
     $('#tip').style.opacity = 0;
     this.t = t || 0; this.playing = true; curCh = null;
@@ -8883,9 +6575,8 @@ function init() {
   if (hp.has('t')) { APP.t = clamp(parseFloat(hp.get('t')) || 0, 0, T_END - 0.01); APP.playing = false; }
   if (hp.has('explore')) {
     APP.enterExplore();
-    // #pet&explore&scene=scan&view=ring (any control of a scene by its key), &tab=networks|organs|one|people|scenes,
-    // &cmp=7 (a row of Table 2), &net=C_high (or vena, dose_ultralow ...), &organ=muscle, &profile=cancer, &theta=2, &u=2.2,1.7,... (custom
-    // uptakes), &group=3, &life (the scanner life size)
+    // #pet&explore&scene=scan&view=ring (any control of a scene by its key), &tab=networks|organs|scenes,
+    // &cmp=7 (a row of Table 2), &net=C_high (or vena, dose_ultralow ...), &organ=muscle, &life (the scanner life size)
     const sc = hp.get('scene');
     if (sc && GL.sets[sc]) { openScene(sc, false); showTab('scenes'); }
     else if (!hp.has('t')) openNetworks();   // straight in: the network of all scans, with its strength
@@ -8895,16 +6586,8 @@ function init() {
     if (hp.get('cmp') !== null && hp.get('cmp') !== '') { const i = parseInt(hp.get('cmp'), 10); if (i >= 0 && i < PD.D.table2.length) { showTab('networks'); selectCmp(i); } }
     if (NET_ALL.includes(hp.get('net'))) { showTab('networks'); pickNet(hp.get('net')); }
     if (PD.byId[hp.get('organ')]) { showTab('organs'); selectOrgan(hp.get('organ')); }
-    if (PROFILES.some(p => p[0] === hp.get('profile'))) { showTab('one'); selectProfile(hp.get('profile')); }
-    if (hp.get('u')) { const u = hp.get('u').split(',').map(Number); if (u.length === ONE_N && u.every(Number.isFinite)) { showTab('one'); setUs(u); showOne(); } }
-    if (hp.get('theta') && Number.isFinite(+hp.get('theta'))) { showTab('one'); setTheta(+hp.get('theta')); showOne(); }
-    if (hp.get('group')) { const g = parseInt(hp.get('group'), 10); if (g >= 1 && g <= POSTER.groups.length) { showTab('people'); selectGroup(g); } }
     if (hp.has('life')) setLife(true);   // (it opens the Scenes tab: a tab asked for comes after)
-    if (hp.get('tab') && TABS.some(t => t[0] === hp.get('tab'))) {
-      showTab(hp.get('tab'));
-      if (hp.get('tab') === 'one') showOne();
-      if (hp.get('tab') === 'people' && (X.scene !== 'people' || oneView())) showPeople(/^index$/i);
-    }
+    if (hp.get('tab') && TABS.some(t => t[0] === hp.get('tab'))) showTab(hp.get('tab'));
     if (hp.has('now')) { Object.assign(XS, exploreTargets()); orbit.cur = orbit.to || orbit.cur; orbit.to = null; }
   }
   GL.renderer.setAnimationLoop(frame); // also drives the headset's frame loop

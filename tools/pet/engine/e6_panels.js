@@ -106,7 +106,7 @@ function sigMain() {
     }
     return s;
   }
-  return ['x', audioLabel(), X.tab, X.scene, JSON.stringify(X.ctl), X.cmp, X.netX, X.organ, X.u ? X.u.join(',') : '', X.theta, X.group, X.life].join('|');
+  return ['x', audioLabel(), X.tab, X.scene, JSON.stringify(X.ctl), X.cmp, X.netX, X.organ, X.life].join('|');
 }
 const XR_HERE = 'pet';
 const XR_STORIES = HOST.list;
@@ -392,7 +392,7 @@ function drawExplorePane(ctx, P, x, y, W) {
   ctx.fillStyle = VC.line; ctx.fillRect(x, y + 62, W, 2);
   y += 88;
   const bottom = P.h - 34;
-  ({ networks: drawNetsPane, organs: drawOrgansPane, one: drawOnePane, people: drawPeoplePane, scenes: drawScenesPane }[X.tab] || drawScenesPane)(ctx, P, x, y, W, bottom);
+  ({ networks: drawNetsPane, organs: drawOrgansPane, scenes: drawScenesPane }[X.tab] || drawScenesPane)(ctx, P, x, y, W, bottom);
 }
 // buttons that wrap like the HTML chips: items -> { id, label, on, col, icon (an organ id), fn }
 function flow(ctx, P, items, x, y, W, maxY, o = {}) {
@@ -479,59 +479,10 @@ function drawOrgansPane(ctx, P, x, y, W, bottom) {
   y += head(ctx, x, y, `Its links among all ${fmt(FACTS.scans)} scans (Figure 2A; blue together, red opposite)`);
   flow(ctx, P, e.map(q => { const o = q[0] === id ? q[1] : q[0]; return { id: 'ol:' + o, label: `${PD.byId[o].short} ${q[2] > 0 ? '+' : '−'}${Math.abs(q[2]).toFixed(2)}`, icon: o, col: q[2] > 0 ? '#4c7cff' : '#ff4d4d', fn: () => selectOrgan(o) }; }), x, y, W, bottom, { px: 21, h: 46 });
 }
-function drawOnePane(ctx, P, x, y, W, bottom) {
-  const p = curProfile(), u = curU(), r = measureOne(u, X.theta);
-  y += flow(ctx, P, PROFILES.map(([k, n]) => ({ id: 'prof:' + k, label: n, col: GROUP_COL[k], on: !X.u && p === k, fn: () => selectProfile(k) })).concat(X.u ? [{ id: 'prof:custom', label: 'Custom', on: true, fn: showOne }] : []), x, y, W, bottom, { px: 22, h: 48 }) + 16;
-  const lw = 250, vw = 90, sx = x + lw, sw = W - lw - vw - 20;
-  S1.organs.forEach((o, i) => {
-    PET_ICONS.draw(ctx, o, x + 16, y + 24, 30, { color: organCol(o), width: 2 });
-    ctx.font = vfont(23); ctx.fillStyle = VC.ink; ctx.textBaseline = 'middle'; ctx.fillText(fitText(ctx, organName(o).replace(/ \(.*\)$/, ''), lw - 50), x + 42, y + 25);
-    ctx.textAlign = 'right'; ctx.fillText(u[i].toFixed(2), x + W, y + 25); ctx.textAlign = 'left'; ctx.textBaseline = 'top';
-    vSlider(ctx, P, 'u:' + i, sx, y, sw, u[i], 0.1, 5, organCol(o), v => { setU(i, v); if (X.scene !== 'people' || !oneView()) showOne(); });
-    y += 54;
-  });
-  ctx.font = vfont(23); ctx.fillStyle = VC.ink; ctx.textBaseline = 'middle'; ctx.fillText('Threshold', x + 4, y + 25);
-  ctx.textAlign = 'right'; ctx.fillText(X.theta.toFixed(2), x + W, y + 25); ctx.textAlign = 'left'; ctx.textBaseline = 'top';
-  vSlider(ctx, P, 'theta', sx, y, sw, X.theta, 1.1, 3, VC.cyan, v => { setTheta(v); if (X.scene !== 'people' || !oneView()) showOne(); });
-  y += 70;
-  const cells = [['Links', String(linksOf(r))], ['Clearance', r.C.toFixed(2)], ['Heterogeneity', r.H.toFixed(2)], ['Index', r.mdi.toFixed(1)]], cw = W / 4;
-  cells.forEach(([k, v], j) => {
-    ctx.font = vfont(52, 700); ctx.fillStyle = j === 3 ? VC.amber : VC.ink; ctx.fillText(v, x + j * cw, y);
-    ctx.font = vfont(22); ctx.fillStyle = VC.muted; ctx.fillText(k, x + j * cw, y + 62);
-  });
-  y += 110;
-  if (y + 90 < bottom) textBlock(ctx, `${S1.note} The profiles are illustrative too.`, x, y, W, 21, 29, VC.faint, 400, 3);
-}
-function drawPeoplePane(ctx, P, x, y, W, bottom) {
-  const PO = POSTER, g = PO.groups[X.group - 1];
-  y += textBlock(ctx, `The poster's results: ${PO.mdiN ? fmt(PO.mdiN) + ' people' : 'people'} by their index. Pick a group.`, x, y, W, 24, 33, VC.muted, 400, 2) + 10;
-  y += flow(ctx, P, PO.groups.map((q, i) => ({ id: 'grp:' + (i + 1), label: `${q.name} · ${q.n}`, col: q.col, on: X.group === i + 1, fn: () => selectGroup(X.group === i + 1 ? 0 : i + 1) })), x, y, W, bottom, { px: 22, h: 48 }) + 14;
-  if (g) y += textBlock(ctx, `${g.name}: ${g.n} people, median index ${g.centre}${Array.isArray(g.err) ? ` (middle half of the group: ${g.err[0]} to ${g.err[1]})` : ''}.`, x, y, W, 24, 33, VC.ink, 400, 2) + 12;
-  const views = [['people', 'People'], ['index', 'Index'], ['survival', 'Survival'], ['immunotherapy', 'Immunotherapy']].filter(([k]) => optKey('people', 'view', new RegExp('^' + k + '$', 'i')));
-  if (views.length) { y += head(ctx, x, y, 'View'); y += flow(ctx, P, views.map(([k, n]) => ({ id: 'pv:' + k, label: n, on: X.scene === 'people' && viewIs('people', new RegExp('^' + k + '$', 'i')), fn: () => showPeople(new RegExp('^' + k + '$', 'i')) })), x, y, W, bottom, { px: 23, h: 52 }) + 16; }
-  if (PO.thirds.length) {
-    y += head(ctx, x, y, 'Survival with cancer, by the index\'s thirds (median; after one year)');
-    for (const t of PO.thirds) {
-      swatch(ctx, x, y + 6, 18, t.col);
-      y += textBlock(ctx, `${t.name}${t.n ? ` (${t.n})` : ''}: ${t.median === undefined ? '–' : t.median === null ? 'not reached' : t.median + ' months'}${t.y1 !== null ? `; ${t.y1}%` : ''}`, x + 30, y, W - 30, 23, 32, VC.ink, 400, 1) + 2;
-    }
-    y += 12;
-  }
-  if (PO.auc.length && y + 80 < bottom) {
-    y += head(ctx, x, y, `The immunotherapy test${PO.respN ? ` (${PO.respN} people)` : ''}: AUC, 0.5 is chance`);
-    for (const a of PO.auc.slice().sort((p, q) => q.auc - p.auc)) {
-      if (y + 34 > bottom - 130) break;
-      y += textBlock(ctx, `${a.name}: ${a.auc}${a.p ? ' · ' + a.p : ''}`, x, y, W, 23, 32, a.net ? VC.amber : VC.muted, a.net ? 700 : 400, 1) + 2;
-    }
-    if (y + 64 < bottom - 60) y += textBlock(ctx, aucNote(), x, y + 6, W, 21, 29, VC.muted, 400, 2) + 8;
-  }
-  if (y + 40 < bottom) textBlock(ctx, 'Group summaries from the poster; the dots are stand-ins drawn to match them, not patients.', x, bottom - 60, W, 21, 29, VC.faint, 400, 2);
-}
-// the five scenes, and the chosen scene's own controls
-const SCENE_SHORT = { people: 'People' };
+// the scenes, and the chosen scene's own controls
 function drawScenesPane(ctx, P, x, y, W, bottom) {
   const cw = (W - 12 * (SCENES.length - 1)) / SCENES.length;
-  SCENES.forEach(([k, n], j) => vButton(ctx, P, 'scene:' + k, x + j * (cw + 12), y, cw, 56, SCENE_SHORT[k] || n, () => openScene(k), { on: X.scene === k, px: 22 }));
+  SCENES.forEach(([k, n], j) => vButton(ctx, P, 'scene:' + k, x + j * (cw + 12), y, cw, 56, n, () => openScene(k), { on: X.scene === k, px: 22 }));
   y += 76;
   const sc = SCENES.find(s => s[0] === X.scene);
   y += textBlock(ctx, sc[2], x, y, W, 25, 35, VC.muted, 400, 4) + 18;

@@ -6,7 +6,7 @@ Guidance for AI coding agents (and humans) working on this repository.
 
 An installable web app that teaches network science in thirteen narrated stories
 (the airports about four minutes, the proteins and the cell map about five, the tour about nine and a half, the muscle
-story about eight, the endotype story about seven, the PET story about ten and a half, the microanatomy story about seven
+story about eight, the endotype story about seven, the PET story about seven, the microanatomy story about seven
 and a half, the ovary story about seven, the qubits story about nine, the pass story about seven, the flock and the robot gang about two), each
 followed by an explore mode. Everything works on desktop, phones and in VR/AR headsets (built for Meta
 Quest Browser, WebXR).
@@ -19,7 +19,7 @@ Quest Browser, WebXR).
 | LBI Network Medicine tour | `stories/lbi.js` | ten 3D scenes, from a protein machine and an illustrative interactome to organs and tissue |
 | Rare muscle diseases | `stories/nmd.js` | 1,182 genes of 13 neuromuscular disease groups in a tower of 71 layers (real data in `ikerdata/`), the motor unit, a supercomputer |
 | Disease endotypes | `stories/endo.js` | one neuromuscular junction close up; the 35 genes of congenital myasthenic syndromes in the authors' protein network (18,306 proteins), their module of 393 genes and 12 endotypes (EndotypY), the motor unit |
-| Whole-body PET | `stories/pet.js` | a PET/CT scanner and how it sees; the organs of the paper's 658 whole-body scans (Geist et al., Med 2025) and their partial correlation networks (printed and read off its figures), from health to disease; the poster's one-scan network and its index (stand-in maths), survival and immunotherapy; the tour's PET body |
+| Whole-body PET | `stories/pet.js` | a PET/CT scanner and how it sees; the organs of the paper's 658 whole-body scans (Geist et al., Med 2025) and their partial correlation networks (printed and read off its figures), from health to disease; the tour's PET body |
 | Tissue microanatomy | `stories/micro.js` | the tour's H&E section and the domains a method finds in it; 24,945 GTEx slides of 40 tissues (Buljan, Bago-Horvath, Rendeiro, bioRxiv 2025); the network of organ architecture (29 organs, tissues, 10 tissue types, 70 domains, Iva Buljan's file); which domains change with age, pathology, and the contacts between domains |
 | Ovarian aging | `stories/ovary.js` | the tour's body and a drawn cut-away ovary that ages; 255 GTEx donors aged 20 to 70 (Chakraborty, Moustafa, Rendeiro, poster); a drawn H&E section with blood vessels, macrophages, corpora albicantia and follicles (14,941 marked by hand), tiles with UNI2 features and a random forest, SegFormer's masks; the poster's trends with age and method comparison (its lines, r and p; illustrative dots); an illustrative spatial neighbor network |
 | Quantum network compression | `stories/qubits.js` | example gene networks (320 genes in 8 hidden groups, at three strengths of mixing, and a random one) cut into 8 cells on 3 qubits; the coarse operator A_c on a cube, its Pauli strings, the toolbox (a Lie algebra, so(6) or so(7)) and what it drops; the real run's residual by depth and its 3-qubit circuit (Joel Hancock's method and figures) |
@@ -258,7 +258,7 @@ spot, y over the floor) and `st.<id>.place` (the scene: `{ x, y, z }` moved from
 where the story puts it, and `s` its size, a factor on the story's own; FORMAT
 networks-8), and per shared space `rf.<space id>` (the room's frame in it) and
 `rs.<space id>` (found split; FORMAT networks-9), and `sg` (the room's shared-space
-generation, `{ n, by, at }`; FORMAT networks-10; networks-11 when the eighth story came, networks-12 the ninth, networks-13 the tenth, networks-14 the eleventh, networks-15 the twelfth, networks-16 the thirteenth). The plan is `docs/shared-space-plan.md`.
+generation, `{ n, by, at }`; FORMAT networks-10; networks-11 when the eighth story came, networks-12 the ninth, networks-13 the tenth, networks-14 the eleventh, networks-15 the twelfth, networks-16 the thirteenth, networks-17 when the PET story's `state()` lost its one-scan fields). The plan is `docs/shared-space-plan.md`.
 
 - `HOST.collab` keeps the room's keys (echo suppression by value, optimistic
   writes acknowledged by the relay, apply order stations > clock > state >
@@ -658,7 +658,7 @@ What each story shares:
 | lbi | tab, scene, every control of that scene, selected protein, route | none |
 | nmd | tab, scene, every scene's controls, group, gene, picked endotypes, layers knocked out, your genes, the walk (its start and result, the same on every device), walkers, colour, grid, z-scores | none |
 | endo | tab, scene, every scene's controls (synapse, network, tree, motor unit), endotype, gene, k (the seed-group step), method step (standing in the gap stays per device) | none |
-| pet | tab, scene, every scene's controls (scanner, body, organs, people, liver), the comparison (a Table 2 row), network, organ, profile, custom uptakes, threshold, group (life size stays per device) | none |
+| pet | tab, scene, every scene's controls (scanner, body, organs), the comparison (a Table 2 row), network, organ (life size stays per device) | none |
 | micro | tab, scene, every scene's controls (body, section, atlas, network), organ, domain, age, method step | none |
 | ovary | tab, scene, every scene's controls (ovary: view, show; section: view, show; charts: chart, object, method; never their Age steps), the kind of object picked, the age (20 to 70), the method (`rf` or `seg`) | none |
 | qubits | tab, scene, every scene's controls (pairs; cube: view, network, cut, bits, algebra; chart: view, example, angles), the brick shown (a Pauli string by name), how many strings are added up, the gallery (kinds or largest) | none |
@@ -858,20 +858,23 @@ adapted from the muscle story's. `tools/endo/SPEC.md` is the contract.
 ## The PET story (`stories/pet.js`) is built the same way
 
 `stories/pet.js` is generated from `tools/pet/` (`node tools/pet/build.mjs`, `--check` as for the tour): the tour's
-kit and body set (unchanged), organ icons (`sets/icons.js`, `PET_ICONS`), four sets (`scan`, the PET/CT scanner, how
-PET sees and the vision row; `organs`, segmentation, uptake, the cohort, the explainer and the paper's networks, drawn
-in the body set's frame; `people`, the poster's one-scan network and the population; `liver`, an organ as a network
-of patches; each with a manifest) and engine parts adapted from the endotype story's. `tools/pet/SPEC.md` is the
-contract.
+kit and body set (unchanged), organ icons (`sets/icons.js`, `PET_ICONS`), two sets (`scan`, the PET/CT scanner, how
+PET sees and the vision row, its stages joined by flowing light; `organs`, segmentation, uptake, the cohort, the
+explainer and the paper's networks, drawn in the body set's frame; each with a manifest) and engine parts adapted from
+the endotype story's. `tools/pet/SPEC.md` is the contract.
 
 - The data: `tools/pet/data/gen_data.mjs` (Node) writes `tools/pet/sets/data.js` (`PET_DATA`, documented in its
   header) from the paper's tables (typed in), the two weight matrices printed in its Figure 2A, and
-  `tools/pet/data/figures.json`: values read off its Figures 3 and 4 and the poster's plots (each read twice
-  independently and reconciled). The poster's per-patient points are kept only as group summaries. Stand-ins, said
-  so in the story: typical organ uptakes, a synthetic cohort with Figure 2A's partial correlations (for the
-  explainer), the one-scan formulas (the poster names Clearance, Heterogeneity and the index; their formulas are not
-  published) and the population dots. The authors' VR viewer (with a patient's scan) is not used: no patient data.
+  `tools/pet/data/figures.json`: values read off its Figures 3 and 4 (each read twice independently and reconciled).
+  Stand-ins, said so in the story: typical organ uptakes and a synthetic cohort with Figure 2A's partial correlations
+  (for explore's matrix and scatter views). The authors' VR viewer (with a patient's scan) is not used: no patient
+  data.
 - `body` and `organs` share one frame and are shown together.
+- The story follows the paper (the network of all scans, then from health to disease); the poster gives its title,
+  the vision row and its authors. Its one-scan network, index, survival and immunotherapy results were taken out
+  (October 2026: they did not match the poster; with them went the `people` and `liver` sets and explore's One scan and
+  People tabs, all in the history), and so were the Network chapter's matrix of all scans and its scatter plot (it goes
+  straight to the network on the body).
 
 ## The microanatomy story (`stories/micro.js`) is built the same way
 
@@ -1287,7 +1290,7 @@ second), `#lbi&explore&scene=atp&view=network&now=1` (a scene with its controls)
 `#nmd&explore&pick=5:13,11:7` (endotypes, group:number), `#nmd&explore&walk=5` or
 `&walk=TTN,DES`, `#nmd&explore&inside`, `#endo&explore&endo=2`, `#endo&explore&gene=COLQ`,
 `#endo&explore&tab=method&step=1&k=20`, `#endo&explore&scene=syn&view=cleft`, `#endo&explore&inside`, `#pet&t=40`, `#pet&explore&tab=networks&net=C_high`, `#pet&explore&organ=muscle`,
-`#pet&explore&tab=one&profile=cancer&theta=2`, `#pet&explore&scene=scan&view=ring`, `#pet&explore&life`, `#micro&t=100`,
+`#pet&explore&scene=scan&view=ring`, `#pet&explore&life`, `#micro&t=100`,
 `#micro&explore&organ=Ovary`, `#micro&explore&tab=age&age=70`, `#micro&explore&scene=atlas&view=volcano`, `#ovary&t=200`,
 `#ovary&explore&kind=follicle`, `#ovary&explore&tab=age&age=60`, `#ovary&explore&scene=section&view=forest`, `#ovary&explore&method=seg`, `#qubits&t=100`, `#qubits&explore&tab=network&net=blurred&cut=random&bits=2`,
 `#qubits&explore&brick=X2X1&alg=so6`, `#qubits&explore&sum=10`, `#qubits&explore&tab=depth&ex=on`, `#qubits&explore&scene=pairs&view=hoods`,

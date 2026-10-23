@@ -1,5 +1,11 @@
 # The PET story: 3D sets and engine spec
 
+**Changed in October 2026, after feedback on the story:** the poster's one-scan network, its index, survival and the
+immunotherapy test were taken out (they did not match the poster), with the sets `people` and `liver` and explore's One
+scan and People tabs; the Network chapter goes straight from the organs' values to the network of all scans on the
+body (no matrix of all scans, no scatter plot); the vision row's chevron arrows became flowing light. The story is now
+seven chapters, about seven minutes. This spec says what is built now; the parts taken out are in git history.
+
 We are adding a ninth story to the web app in `/home/user/airportnetworks`: `stories/pet.js`, built from `tools/pet/`
 like the endotype story `stories/endo.js` is built from `tools/endo/`. It turns a paper, a poster and a vision slide
 into a narrated, about five-and-a-half-minute 3D story with an explore mode, on desktop, phones and in VR/AR headsets
@@ -57,9 +63,6 @@ labels, controls, camera views, performance budget, harness, palette), with thes
 - `table2`: every comparison of the paper's Table 2 (groups with n, density %, disorder; p values; a `note` where the printed row needs a word); `table3` the
   protein networks; `strength`: Figure 3D's strength distributions; `synth`: a stand-in cohort of 658 people with
   Figure 2A's partial correlations (`rows`, and `pairs` for the partial-correlation explainer).
-- `single`: the poster's one-scan network with stand-in maths (seven organs: liver, aorta, spleen, pancreas, kidneys,
-  fat, muscle; four illustrative profiles: healthy, cancer, both = cancer + dyslipidaemia, dys = dyslipidaemia).
-- `poster`: the poster's numbers (cohort, MDI groups, survival curves, the immunotherapy test).
 
 ## Shared facts (use exactly; the engine's `FACTS` reads them from `PET_DATA`)
 
@@ -87,7 +90,7 @@ labels, controls, camera views, performance budget, harness, palette), with thes
   and subcutaneous fat dominate (the hubs). Robust: test-retest (6 weeks), dose (down to a tenth), scanner, sex,
   aorta or vena cava: no significant differences. Hexokinase 2's network (from GTEx tissue of 946 people) is the
   only one of the proteins tested that resembles the FDG network (r = 0.42).
-- The poster: 630 baseline scans (healthy 80, obese 36, after a heart attack 45, lung cancer 162, head and neck cancer
+- The poster (no longer shown; kept for the record): 630 baseline scans (healthy 80, obese 36, after a heart attack 45, lung cancer 162, head and neck cancer
   250, prostate cancer 57) and 84 follow-up scans (no intervention 47, bariatric surgery 18, immunotherapy before
   surgery 19; check `PET_DATA.poster.cohort`). One network per scan: seven organs (liver, aorta, spleen, pancreas,
   kidneys, fat, muscle), pairwise uptake ratios, a threshold. Clearance and Heterogeneity; the metabolic
@@ -96,9 +99,8 @@ labels, controls, camera views, performance budget, harness, palette), with thes
   with lung cancer given immune checkpoint inhibitors before surgery it told good from poor responders better than
   CRP, tumour stage or age (AUCs from `PET_DATA.poster.prognosis`; a first test in 19 people: say so). After surgery
   and immunotherapy the index moved towards the healthy range.
-- Stand-ins (say so where they show): typical organ uptakes; the 658 synthetic people of the explainer; the one-scan
-  formulas (the poster names Clearance, Heterogeneity and the index; its formulas are not published yet); the
-  population dots (drawn to match the poster's group summaries, not real patients).
+- Stand-ins (say so where they show): typical organ uptakes; the 658 synthetic people behind explore's matrix and
+  scatter views.
 
 ## Palette and look
 
@@ -172,7 +174,8 @@ Params:
 - `scan_image` 0..1: the image forms: the lines fade and the patient's PET image (the body instance, `body_pet`)
   glows up inside the shell.
 - `scan_vision` 0..1: **the vision row** of the slide: the scanner moves to the left and shrinks a little, and to its
-  right appear, linked by large soft chevron arrows (white to grey gradient, as on the slide): a standing glowing PET
+  right appear, linked by flowing light (a glowing arc between each two, pulses running along it left to right; the
+  slide's chevron arrows looked heavy in 3D): a standing glowing PET
   body (a second body instance, or the same one stood up), a **neon network of organs** (brain, lungs, heart, liver,
   kidneys from `PET_ICONS` drawn neon: glowing coloured outlines with filled translucent shapes, linked by glowing
   lines with coloured nodes, as on the slide), and on the right **prognosis** (three glowing horizontal bars of
@@ -253,88 +256,19 @@ Explore API `api()`: `pick(raycaster)` -> organ id or null (nodes, shells, bars)
 `setFocus(id or null)`.
 Performance: under 150 draw calls; shells merged per organ; the matrix as one instanced mesh or points.
 
-### `people` - one scan, one network; then 630 people (file `sets/people.js`)
-
-**One scan** (the poster's panels 3 and 4): seven organs (`single.organs`), their uptakes `u` (from
-`people_profile`, or the custom values, below), shown as:
-- `people_bars` 0..1: seven horizontal uptake bars with icons and names, as on the poster's panel 3 (the healthy
-  profile is the poster's own example, `poster.creation.uptake`; its example network, `poster.creation.example`, is
-  what the healthy profile's links at theta 2 reproduce, plus two weak ones).
-- `people_ratio` 0..1: a 7 x 7 field of glowing columns on a dark floor, rows and columns labelled with icons:
-  column (i, j) rises to `ln(u_i / u_j)` when positive (organ i outshines j), nothing on the diagonal or where
-  negative.
-- `people_thresh` 0..1: a glass plane rises to the threshold's height `ln(theta)` (theta = `people_theta`, default
-  `single.theta` = 2); columns above it light up (they become links), those below dim. Label "threshold".
-- `people_one` 0..1: the lit columns fly up and become directed links (glowing arrows or flowing particles from i to
-  j) between seven nodes on a ring above the field (icons in discs): this person's network. Link weight
-  `e = sigmoid((ln(u_i/u_j) - ln theta) / soft)` (soft from `single.soft`), so everything changes smoothly.
-- `people_metrics` 0..1: the two measures, as on the poster's panel 4: **Clearance** (the kidneys' outgoing links
-  highlighted as a star, a gauge with the value = mean of e(kidneys -> j)) and **Heterogeneity** (node size by
-  strength, the sum of in and out weights; a gauge with the Gini coefficient of the strengths: an even ring is low,
-  one dominating node is high); and the **displacement index** on a 0..10 dial: `MDI = m + a C + b H` (`single.proj`),
-  clamped. Mark these "illustrative maths" in a small label.
-- `people_profile` 0..3 (fractional values blend the uptakes): 0 healthy, 1 cancer, 2 cancer + dyslipidaemia
-  (`both`), 3 dyslipidaemia (`dys`); `people_skip` 1 crossfades 1 and 3 directly (the story's step); `people_custom` 0/1 with `people_u0` .. `people_u6`: custom uptakes (mean SUV,
-  0.1 to 5) used instead of the profile when 1. Everything above follows the current uptakes at every frame.
-
-**The population** (the poster's results; group summaries only):
-- `people_map` 0..1: 593 people (the poster's strip: cancer 282, cancer + dyslipidaemia 187, dyslipidaemia 89,
-  healthy 35) appear as tiny glowing glyphs (a dot, or a 7-node mini network when close) in the group colours,
-  scattered in a plane by their two measures (Clearance across, Heterogeneity up): positions are stand-ins generated
-  (seeded) so that each group's projection `m + a C + b H` follows that group's summary in `poster.mdi` (centre,
-  error bar and quantiles; if quantiles are missing, a normal spread from the error bar). They rise from the one-scan
-  network (the person shown becomes one dot among many).
-- `people_mdi` 0..1: the dots slide onto the index axis (0 to 10), into four rows (the poster's strip plot): each
-  group's centre as a big dot with its error bar, the poster's dashed lines and shaded ranges; labels with group
-  names and n. The axis label "metabolic displacement index".
-- `people_group` 0..4 (0 none; 1 cancer, 2 cancer + dyslipidaemia, 3 dyslipidaemia, 4 healthy): that group glows,
-  the others dim.
-- `people_km` 0..1: survival by the index's thirds (`poster.km`): three step curves as glowing ribbons drawn left to
-  right over 0 to 140 months, each with its translucent confidence band, y = survival 0 to 1; axes with ticks; labels
-  "near healthy", "intermediate", "remote" with n, and the table's numbers (median survival, 1-year survival).
-- `people_response` 0..1: the immunotherapy test (`poster.prognosis`): the 19 people as two summary bands on the
-  index axis (good response n = 14, poor n = 5: min to max, median marked; no single points), then the AUC bars from
-  top to bottom (the three network measures in the set's warm colour, the clinical ones in grey), with their AUC and
-  P values as labels, and the chance line at 0.5.
-- `people_follow` 0..1: follow-up (illustrative): among the dots, the follow-up groups (bariatric surgery, immunotherapy)
-  glide from their first place towards the healthy range, leaving faint trails; the no-intervention group stays.
-Anchors: `one` (the ring of seven), each of the seven organ ids (its node), `bars`, `field` (the ratio columns),
-`plane` (the threshold plane), `metrics`, `map`, `strip`, `km`, `auc`, `g1` .. `g4` (group centres in the current
-view).
-Labels: organ names, "threshold", "Clearance", "Heterogeneity", "displacement index", group names with n, the third
-names, AUC labels; at most about eight at once.
-Cam: `default` and `one` (the one-scan field and network), `field`, `metrics`, `map`, `strip`, `km`, `auc`.
-Controls: View (One scan / Ratios / People / Index / Survival / Immunotherapy), Profile (Healthy / Cancer / Cancer +
-dyslipidaemia / Dyslipidaemia).
-Explore API `api()`: `measure(u, theta)` -> `{ e (7 x 7), s (strengths), C, H, mdi }` (the same maths the set draws),
-`organs` (the seven ids), `pick(raycaster)` -> `{ organ: id }` or `{ group: 1..4 }` or null.
-Performance: the glyphs instanced; under 100 draw calls.
-
-### `liver` - an organ is a network too (file `sets/liver.js`, small)
-
-The authors' VR viewer also shows one organ as a network of small patches. Illustrative, built from scratch (no
-patient data): a liver shape (a smooth signed distance field, the right shape: big right lobe, smaller left lobe,
-the notch), about 1.6 units wide, filled with about 3,000 **patches** on a regular grid (nodes as small soft points),
-each with a stand-in uptake (smooth noise, a cooler patch and a warmer patch); links between patches whose uptake
-ratio exceeds a threshold, within a few grid steps (about 20,000 links, faint additive lines); the best-connected
-patches (top 5 %) glow brighter. Params: `liver_a` fade, `liver_grow` 0..1 (patches appear, from the centre out),
-`liver_links` 0..1, `liver_top` 0..1 (the best-connected patches glow, the rest dim), `liver_spin` (turns). Anchors
-`centre`, `top`. Labels "3,000 patches", "links: uptake ratio above the threshold". Cam `default`, `close`. Controls:
-View (Patches / Links / Hubs). Under 20 draw calls.
-
 ## The engine (`tools/pet/engine/`, copied from the endotype story; adapt it)
 
 Rename everything from the endotype story to this one: `HOST.register('pet', ...)`, the header comment (the paper,
-the poster and the authors above), `audio/narration-pet.mp3`, `SET_ORDER = ['scan', 'body', 'organs', 'people',
-'liver']` (the build includes the sets in that order), the shared-room hooks unchanged (see "Shared rooms" in
+the poster and the authors above), `audio/narration-pet.mp3`, `SET_ORDER = ['scan', 'body', 'organs']` (the build includes the sets in that order), the shared-room hooks unchanged (see "Shared rooms" in
 `AGENTS.md`: keep every hook line exactly), the headset code (`e5_xr.js`) unchanged except for "Life size" (below).
 `body` and `organs` share one frame: wherever the story or explore mode shows `organs`, show `body` too (same
 transform), with `body_pet` at 1 unless the story says otherwise.
 
-**Chapters** (about 5:30; `CH` keys and times; the narration may later be recorded to these):
+**Chapters** (about 7:00 at the pace `tools/pace.mjs` sets; `CH` keys and story times; the narration may later be
+recorded to these):
 1. `title` 0-16: `scan` with `scan_vision` 1 (the vision row); title card "One scan, one system" with the tagline
    "the body as a metabolic network" and the line "From one PET scan to a network of organs: what it says about
-   health, disease and survival". Then the row draws back into the scanner (`scan_vision` 1 -> 0).
+   health and disease". Then the row draws back into the scanner (`scan_vision` 1 -> 0).
 2. `scanner` 16-52: `scan`: the couch slides in (`scan_bed`), FDG explained (a sugar with radioactive fluorine;
    fasting, an hour's rest), `scan_cut` shows the ring, `scan_events` on: positron, annihilation, two photons,
    coincidence, line of response; lines accumulate (`scan_lines`), then `scan_image`: millions of lines become the
@@ -345,26 +279,21 @@ transform), with `body_pet` at 1 unless the story says otherwise.
    every organ's metabolism at once."
 4. `organs` 90-128: `organs_seg` (an AI outlines 13 organs, a doctor checks), `organs_suv` (each organ's uptake divided
    by the aorta's), a moment of focus on two or three organs (brain, liver, muscle).
-5. `cohort` 128-172: `organs_rows` (one person's row, then 658 scans: 241 of healthy volunteers, 417 with cancer), the explainer
-   (`organs_pair` 1 = liver and spleen, `organs_partial` 0 -> 1: what a partial correlation is), then `organs_net` with
-   `organs_which` 0: the network of all 658 scans (11 organs, density 12 %).
-6. `health` 172-218: `organs_which` to 1 (healthy, if read; else stay) then the comparisons: BMI (2 -> 3: 27 % to 7 %,
+5. `cohort` 128-146: the organs' bars make way (`organs_suv` 1 -> 0) and the network of all 658 scans grows on the
+   body (`organs_net` 0 -> 1, `organs_which` 0); text: the paper's 658 scans (241 of healthy volunteers, 417 with
+   cancer), what a link means (a partial correlation, significant, blue or red) in one paragraph, then the network
+   (11 organs, 25 links, density 12 %).
+6. `health` 146-192: `organs_which` to 1 (healthy, if read; else stay) then the comparisons: BMI (2 -> 3: 27 % to 7 %,
    the brain becomes a hub), CRP thirds (6 -> 7 -> 8: 11 %, 7 %, 3 %), with `organs_strength` (density, disorder: an
    even network vs one with hubs; muscle and fat dominate when health erodes); healthy 30 % vs cancer 7 % stated in
    text; robustness in one line (6 weeks apart, a tenth of the dose, another scanner: the same network); HK2 in one
    line.
-7. `one` 218-258: crossfade to `people`: one scan, one network (`people_bars`, `people_ratio`, `people_thresh`,
-   `people_one`), the two measures (`people_metrics`), the profiles stepping healthy -> cancer -> dyslipidaemia
-   (`people_profile` 0 -> 1 -> 3) so the index moves; the "illustrative maths" note.
-8. `people` 258-305: `people_map`, `people_mdi` (cancer one way, dyslipidaemia the other, the healthy between),
-   `people_km` (the thirds' survival), `people_response` (the immunotherapy test, 19 people: the network measures beat
-   CRP, stage and age; a first test), `people_follow` (after surgery and immunotherapy, towards the healthy range).
-9. `vision` 305-330: back to `scan` with `scan_vision` (the row again): one scan, one system: prognosis, medication,
+7. `vision` 192-217: back to `scan` with `scan_vision` (the row again): one scan, one system: prognosis, medication,
    organs like muscle and fat as targets (the paper names GLP-1 drugs, metformin, statins and SGLT2 inhibitors), a
    measure of health, not only of disease; still to be validated in larger studies. Credits: the paper (Med 2025),
    the poster's authors, the Division of Nuclear Medicine (Medical University of Vienna) and the LBI for Network
-   Medicine. Small print: "Networks of all 658 scans: printed in the paper; other networks read off its figures. One-scan
-   maths, organ values and the population dots: illustrative stand-ins."
+   Medicine. Small print: "Networks of all 658 scans: printed in the paper; other networks read off its figures. Organ
+   values: illustrative."
 
 Text: plain British English, short sentences, no jargon without a gloss; every number from `PET_DATA` (`FACTS`), none
 hard-coded; chapter panels with `data-at` fade-ins as in the endotype story. Story labels on set anchors.
@@ -378,17 +307,11 @@ hard-coded; chapter panels with `data-at` fade-ins as in the endotype story. Sto
 - **Organs**: the 14 organs as chips (icon, colour, name); picking one shows how it is measured (`measure`), its
   links in the network of all scans (Figure 2A, with weights and signs), whether it is a hub in any drawn network,
   and focuses it (`organs_focus`).
-- **One scan** (the poster): profile buttons (Healthy, Cancer, Cancer + dyslipidaemia, Dyslipidaemia), seven
-  sliders (the uptakes; moving one switches to custom), a threshold slider (1.1 to 3), and the live readout:
-  links, Clearance, Heterogeneity, index, with the stand-in note; shows `people` (one-scan view).
-- **People**: the groups (chips with n; picking one highlights it), the thirds' survival (table), the immunotherapy
-  test (AUC list); view buttons for map, index, survival, immunotherapy.
-- **Scenes**: Scanner (`scan` controls), Body (`body` controls), Organs (`organs`), One scan and people (`people`),
-  Liver (`liver`).
+- **Scenes**: Scanner (`scan` controls), Body (`body` controls), Organs (`organs`).
 URL hashes: `#pet&t=120`, `#pet&explore&tab=networks&cmp=7` (a Table 2 row), `&net=C_high`, `&organ=muscle`,
-`&tab=one&profile=cancer&theta=2`, `&tab=people&group=3`, `&scene=scan&view=ring`, `&life` (life size).
-`collab.state()`: `{ tab, scene, ctl (every scene's controls), cmp, net, organ, profile, u (custom uptakes or null),
-theta, group }` (plain JSON, the same on every device; `apply(state())` gives the same state back).
+`&scene=scan&view=ring`, `&life` (life size).
+`collab.state()`: `{ tab, scene, ctl (every scene's controls), cmp, net, organ }` (plain JSON, the same on every device;
+`apply(state())` gives the same state back).
 
 **Life size** (the endotype story's *Stand in the gap*, adapted; an Explore view control and in the Scenes tab):
 on screen a view from 2.5 m at eye height; in a headset the `scan` set life size (1 unit = 1 m) standing on your

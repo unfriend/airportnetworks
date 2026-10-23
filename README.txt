@@ -208,11 +208,10 @@ names follow their strongest COMPARTMENTS term. The synapse is illustrative.
 PET story data (stories/pet.js): the paper by Geist et al. (Med 6, 100881,
 2025; CC BY 4.0) and the poster "Shaping a New Era in Nuclear Medicine". No
 patient data: the network of all 658 scans is printed in the paper (Figure 2A);
-the other networks and the poster's plots are read off the figures
-(tools/pet/data/figures.json; the poster's patients only as group summaries).
-Typical organ uptakes, the explainer's synthetic cohort, the population's dots
-and the one-scan formulas are illustrative stand-ins (the poster's formulas are
-not published). node tools/pet/data/gen_data.mjs writes tools/pet/sets/data.js.
+the other networks are read off its figures (tools/pet/data/figures.json).
+Typical organ uptakes and the synthetic cohort behind explore's matrix and
+scatter views are illustrative stand-ins. node tools/pet/data/gen_data.mjs
+writes tools/pet/sets/data.js.
 
 Microanatomy story data (stories/micro.js): the preprint by Buljan, Bago-Horvath
 and Rendeiro (bioRxiv 2025, CC BY-NC), its poster and talk, and Iva Buljan's

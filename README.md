@@ -21,7 +21,7 @@ Meta Quest Browser).
 | **Cell map** (spatial interactome) | 249 proteins in 13 compartments of a model human cell | where proteins meet, proteins in several places, signals crossing the cell, proteins that move, proximity labelling, proteins in the wrong place |
 | **Muscle and heart** (rare muscle diseases) | 1,182 genes of 13 groups of neuromuscular disorders in a tower of 71 layers, after the ISMB 2026 talk by Iker Núñez-Carpintero and Philipp Friedrich (LBI Network Medicine), on their data | the motor unit from nerve to sarcomere, a multiplex network, a random walk with restart, disease modules, endotypes, the overlap of congenital myopathies and cardiomyopathies, a stress test on a supercomputer; explore: pick a group, search a gene, run your own walk, knock out layers, pick endotypes, stand inside the tower |
 | **Endotypes** (disease endotypes) | one junction between nerve and muscle close up, the 35 genes of congenital myasthenic syndromes, their protein network of 18,306 proteins and 12 endotypes, after the ISMB 2026 EndotypY poster by Chloé Bûcheron, Iker Núñez-Carpintero, Enes Sakalli, Mathilde Meyenberg, Julia Guthrie and Jörg Menche (LBI Network Medicine), on their run | fatigable weakness, seed genes, a random walk with restart, a disease module, functional neighbourhoods, a tree whose splits are tested, endotypes and where they act in the synapse; explore: every endotype and gene, the method step by step, stand in the gap |
-| **One scan, one system** (whole-body PET) | a PET/CT scanner and how it sees, the tour's glowing PET body, its organs outlined and measured, and the networks of the organs' metabolism from 658 whole-body scans, after the paper by Barbara K Geist and colleagues (Med, 2025) and their poster "Shaping a New Era in Nuclear Medicine" (Medical University of Vienna and LBI Network Medicine) | positrons and coincidences, uptake, partial correlations, network density and disorder, hubs, health eroding into disease, one network per scan, an index that predicts survival |
+| **One scan, one system** (whole-body PET) | a PET/CT scanner and how it sees, the tour's glowing PET body, its organs outlined and measured, and the networks of the organs' metabolism from 658 whole-body scans, after the paper by Barbara K Geist and colleagues (Med, 2025) and their poster "Shaping a New Era in Nuclear Medicine" (Medical University of Vienna and LBI Network Medicine) | positrons and coincidences, uptake, partial correlations, network density and disorder, hubs, health eroding into disease |
 | **Tissue and time** (tissue microanatomy) | an H&E-stained section and the working units (microanatomical domains) a method finds in it, a library of 24,945 slides of 40 tissues, an atlas of their domains, the network of how organs are built, after the preprint by Iva Buljan, Zsuzsanna Bago-Horvath and André Rendeiro (bioRxiv, 2025) | tiles, features, message passing and clustering without labels; domains shared and specific; which change with age; pathology; contacts between domains that stay or change |
 | **The aging ovary** (ovarian aging) | the tour's body and a drawn cut-away ovary that ages, 255 donors aged 20 to 70 (GTEx), a drawn H&E section with blood vessels, macrophages, corpora albicantia and follicles, after the poster by Parijat Chakraborty, Samir Moustafa and André Rendeiro (LBI Network Medicine, CeMM, University of Vienna) | the reserve of follicles that is never refilled, what a section shows, two methods (tiles with UNI2 features and a random forest; SegFormer's masks) and their scores, the trends with age (follicles toward none by about 60, fewer vessels, more scars), whether the methods agree, and a spatial neighbor network as the next step; explore: pick a kind of object, move the age, compare the methods. American spelling |
 | **Three qubits** (quantum network compression) | example gene networks cut into eight cells on three qubits, the coarse operator on a cube, its building blocks (Pauli strings) and the toolbox a quantum computer runs well, after the method and figures of Joel Hancock; the real run's summary numbers on STRING | why pairs of genes, two walkers on a map, bisections and bit codes, the coarse operator A_c, Pauli strings, a Lie algebra and the residual it leaves, the honest result by depth, a Trotter step as a circuit; explore: four example networks, found or random cuts, 1 to 3 bits, every brick, add them up, so(6) or so(7) |
@@ -216,15 +216,12 @@ writes it from the words (run it again after the text changes).
   and the poster "Shaping a New Era in Nuclear Medicine" (Barbara K Geist,
   Alexander Grentner, Joel Fischer, Josef Yu, Dato Tsomaia, Adna Smajlovic,
   Stefan Grünert, Marcus Hacker). No patient data: the networks of all 658 scans
-  are the paper's printed numbers (its Figure 2A), the others and the poster's
-  plots are read off the figures (`tools/pet/data/figures.json`; the poster's
-  patients only as group summaries), and `tools/pet/data/gen_data.mjs` writes
-  `tools/pet/sets/data.js`. Illustrative stand-ins, said so in the story:
-  typical organ uptakes, a synthetic cohort for the partial-correlation
-  explainer, the population's dots and the one-scan formulas (the poster names
-  Clearance, Heterogeneity and the metabolic displacement index; its formulas
-  are not published). The scanner, the body and the liver's patches are
-  illustrative.
+  are the paper's printed numbers (its Figure 2A), the others are read off its
+  figures (`tools/pet/data/figures.json`), and `tools/pet/data/gen_data.mjs`
+  writes `tools/pet/sets/data.js`. Illustrative stand-ins, said so in the story:
+  typical organ uptakes and a synthetic cohort for explore's matrix and scatter
+  views. The scanner and the body are illustrative. (The poster's one-scan
+  network and its results were taken out: they did not match the poster.)
 
 - **Tissue and time** (`stories/micro.js`), after the preprint "Systematic mapping of human tissue microanatomy
   reveals age-associated remodeling and resilience" (Iva Buljan, Zsuzsanna Bago-Horvath, André F. Rendeiro;

@@ -2,7 +2,7 @@
 // ================================================================= SCENE ==
 const GL = {};
 // the sets, in the order they appear in the story
-const SET_ORDER = ['scan', 'body', 'organs', 'people', 'liver'];
+const SET_ORDER = ['scan', 'body', 'organs'];
 // sets drawn in another set's frame: the organs lie in the PET body, so the two always turn together
 const FRAME = { body: 'organs' };
 const frameOf = k => FRAME[k] || k;

@@ -2,11 +2,12 @@
 // - the paper: Geist et al., "The metabolic organ connectome: A novel approach to measure allostatic load during
 //   health-to-disease transition", Med 6, 100881 (2025), doi 10.1016/j.medj.2025.100881, CC BY 4.0: its tables
 //   (typed in below) and the weight matrices printed in its Figure 2A;
-// - tools/pet/data/figures.json: values read off the paper's figures 3 and 4 and the poster's plots ("Shaping a New
-//   Era in Nuclear Medicine", Geist et al.), each read twice independently and reconciled;
-// - stand-ins for what is not published (marked so in the data): typical organ uptakes, a synthetic cohort that has
-//   the paper's partial correlations, and the poster's one-scan measures (see `single`).
-// No patient data: the poster's per-patient points are summarised (group centres, spreads, quantiles).
+// - tools/pet/data/figures.json: values read off the paper's figures 3 and 4, each read twice independently and
+//   reconciled (it also holds readings of the poster's plots, "Shaping a New Era in Nuclear Medicine", Geist et al.:
+//   the story no longer shows the poster's one-scan network and results, so they are not used);
+// - stand-ins for what is not published (marked so in the data): typical organ uptakes and a synthetic cohort that has
+//   the paper's partial correlations.
+// No patient data.
 // usage (from the repository root): node tools/pet/data/gen_data.mjs
 import fs from 'fs';
 import path from 'path';
@@ -220,59 +221,6 @@ const T3 = [
   ['EGR1', 'ageing', 10, 'p = 0.5', 0.22, 'very different'],
 ].map(([name, kind, density, p, r, similar]) => ({ name, kind, density, p, r, similar }));
 
-// ------------------------------------------------- the poster: one scan --
-// The poster: pairwise uptake ratios of seven organs, thresholded, give one person's (directed) network; Clearance
-// (renal tracer handling) and Heterogeneity (global metabolic heterogeneity) are measured on it, and the metabolic
-// displacement index (MDI) is a one-dimensional projection of the two. The exact formulas are not published, so
-// these are stand-ins that follow the poster's description:
-//   link i -> j with weight e = sigmoid((ln(u_i / u_j) - ln theta) / soft): organ i outshines organ j by theta;
-//   Clearance = mean of e(kidneys -> j) over the other six organs (how far the kidneys outshine the rest);
-//   Heterogeneity = Gini coefficient of the node strengths (sum of in- and out-weights): 0 even, towards 1 one hub;
-//   MDI = clamp(m + a Clearance + b Heterogeneity, 0, 10), fitted so the four illustrative profiles land on the
-//   poster's four group centres.
-const ONE = ['liver', 'aorta', 'spleen', 'pancreas', 'kidneys', 'fat', 'muscle'];
-// theta 2: with the poster's example uptakes this keeps all eight links of the poster's example network (and two more)
-const THETA = 2, SOFT = 0.08;
-// illustrative mean SUVs (not normalised). healthy: the poster's example bars (panel 3, as fractions of the kidneys'
-// bar) with the kidneys at 3.0; with cancer the kidneys clear less and muscle and fat take up more; with
-// dyslipidaemia (insulin resistance) muscle and fat take up less
-const EX = Object.fromEntries(FIG.poster.creation.uptake.map(u => [u.organ, u.frac]));
-const PROFILES = {
-  healthy: ONE.map(id => r2(3.0 * EX[id])),
-  cancer: [2.1, 1.5, 2.1, 1.3, 2.45, 0.7, 1.1],
-  both: [2.2, 1.5, 2.0, 1.3, 2.75, 0.6, 0.95],
-  dys: [2.3, 1.5, 1.8, 1.3, 3.3, 0.42, 0.65],
-};
-const sig = x => 1 / (1 + Math.exp(-x));
-function oneScan(u) {
-  const N = u.length, e = u.map(() => new Array(N).fill(0)), s = new Array(N).fill(0);
-  for (let i = 0; i < N; i++) for (let j = 0; j < N; j++) if (i !== j) {
-    e[i][j] = sig((Math.log(u[i] / u[j]) - Math.log(THETA)) / SOFT);
-    s[i] += e[i][j]; s[j] += e[i][j];
-  }
-  const k = ONE.indexOf('kidneys');
-  const C = e[k].reduce((a, v, j) => a + (j === k ? 0 : v), 0) / (N - 1);
-  const m = s.reduce((a, v) => a + v, 0) / N;
-  let g = 0;
-  for (const a of s) for (const b of s) g += Math.abs(a - b);
-  const H = m > 0 ? g / (2 * N * N * m) : 0;
-  return { e, s, C, H };
-}
-const TARGET = Object.fromEntries((FIG.poster.mdi.groups || []).map(g => [g.key, g.centre]));
-const fitRows = Object.keys(PROFILES).map(k => { const o = oneScan(PROFILES[k]); return [1, o.C, o.H, TARGET[k]]; });
-const XtX = [0, 1, 2].map(i => [0, 1, 2].map(j => fitRows.reduce((s, r) => s + r[i] * r[j], 0)));
-const Xty = [0, 1, 2].map(i => fitRows.reduce((s, r) => s + r[i] * r[3], 0));
-const [pm, pa, pb] = inv(XtX).map(r => r.reduce((s, v, j) => s + v * Xty[j], 0));
-const mdiOf = (C, H) => Math.max(0, Math.min(10, pm + pa * C + pb * H));
-const single = {
-  organs: ONE, theta: THETA, soft: SOFT, proj: { m: r3(pm), a: r3(pa), b: r3(pb) },
-  profiles: Object.fromEntries(Object.entries(PROFILES).map(([k, u]) => {
-    const o = oneScan(u);
-    return [k, { u, C: r3(o.C), H: r3(o.H), mdi: r2(mdiOf(o.C, o.H)) }];
-  })),
-  note: 'Stand-ins: the poster names Clearance, Heterogeneity and the index but its formulas are not published yet.',
-};
-
 // ------------------------------------------------------------- output --
 const D = {
   source: {
@@ -288,8 +236,6 @@ const D = {
   table2: T2, table3: T3,
   strength: FIG.fig3D || null,
   synth: { n: NP, organs: F2, shrink: r2(shrink), rows, pcor: pcor.map(r => r.map(r2)), cor: cor.map(r => r.map(r2)), pairs: PAIRS },
-  single,
-  poster: FIG.poster,
 };
 const head = `// PET_DATA: generated by tools/pet/data/gen_data.mjs; never edit by hand.
 // Sources: the paper (${D.source.paper}) and the poster (${D.source.poster}).
@@ -314,20 +260,10 @@ const head = `// PET_DATA: generated by tools/pet/data/gen_data.mjs; never edit 
 //   synth             a stand-in cohort of 658 people with Figure 2A's partial correlations: rows (values in organ-bar
 //                     units, f2 order), cor and pcor (its correlations and partial correlations), pairs (for the
 //                     explainer: { a, b, paper, r, pr, xy: per person [a, b, a's residual, b's residual] in z units })
-//   single            the poster's one-scan network, stand-in maths (see the generator): organs, theta, soft, proj
-//                     (the healthy profile is the poster's example bars)
-//                     (MDI = m + a C + b H), profiles { healthy, cancer, both, dys: { u (mean SUVs), C, H, mdi } }
-//   poster            the poster's numbers: cohort (baseline and follow-up scans), creation (panel 3: example uptakes as
-//                     fractions of the kidneys', the example network), mdi (axis, dashed lines, shaded ranges, groups { key,
-//                     name, n, centre (median), err (quartiles), q (percentiles), min, max }), km (survival by thirds of the
-//                     index: curves { tertile, label, n, end, s, lo, hi: [[month, value]] }, table, arrows), prognosis (the
-//                     immunotherapy test in 19 people: strip summaries of good and poor response, auc [{ label, auc, p,
-//                     group }], chance)
 `;
 const out = path.join(here, '../sets/data.js');
 fs.writeFileSync(out, head + 'const PET_DATA = ' + JSON.stringify(D) + ';\n');
 console.log('wrote', out, (fs.statSync(out).size / 1024).toFixed(0), 'KB');
 console.log('full cohort computed', JSON.stringify(nets[0].computed), 'shrink', r2(shrink));
 console.log('pairs', PAIRS.map(p => `${p.a}-${p.b} paper ${p.paper} r ${p.r} partial ${p.pr}`).join('; '));
-console.log('one scan', JSON.stringify(single.profiles), 'proj', JSON.stringify(single.proj));
 for (const x of nets.slice(2)) console.log(x.id, 'printed', x.density, 'computed', x.computed.density * 100, 'disorder', x.computed.disorder, 'hubs', x.computed.hubs.join(' '));
