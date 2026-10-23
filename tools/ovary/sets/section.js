@@ -447,42 +447,224 @@ void main() { vAl = smoothstep(aObj.w, aObj.w + 0.06, uVote); vC = aCol; gl_Posi
 
   // ------------------------------------------------------------- the spatial neighbor network (illustrative)
   // every object a node floating over it, objects near each other linked (each to its nearest few within reach); a
-  // node shows while its object does (with the age), a link while both ends do
+  // node shows while its object does (with the age), a link while both ends do. With section_lift the slab tips back
+  // and the nodes rise off it, each to its own height; with section_kinds they fly to their kind's hub (below) and merge
+  // into it, and the links, their ends with them, bundle between the hubs and give way to the bands
   const NOD = SA.OBJ.filter(o => o.k !== FOL || o.stage !== 'primary');
-  const ng = K.pointsGeo(NOD.length), ngP = ng.attributes.position.array, ngC = ng.attributes.aCol.array, ngS = ng.attributes.aSize.array, ngW = new Float32Array(NOD.length * 3);
+  const RN = K.rng(31), NG = NOD.map(o => [o.k, RN(), RN(), RN()]);   // per node: kind, when it sets off, how high it rises, where in its hub it ends
+  const ng = K.pointsGeo(NOD.length), ngP = ng.attributes.position.array, ngC = ng.attributes.aCol.array, ngS = ng.attributes.aSize.array, ngW = new Float32Array(NOD.length * 3), ngG = new Float32Array(NOD.length * 4);
   const HN = 0.09;
-  NOD.forEach((o, i) => { ngP.set([o.x, o.y, HN], 3 * i); ngC.set(L.GLOW[o.k], 3 * i); ngS[i] = o.k === ALB ? 0.065 : o.k === FOL ? 0.055 : o.k === CYS ? 0.05 : o.k === VES ? 0.04 : 0.032; ngW.set([o.from, o.until, Math.hypot(o.x, o.y)], 3 * i); });
-  ng.setAttribute('aW', new THREE.BufferAttribute(ngW, 3));
+  NOD.forEach((o, i) => { ngP.set([o.x, o.y, HN], 3 * i); ngC.set(L.GLOW[o.k], 3 * i); ngS[i] = o.k === ALB ? 0.065 : o.k === FOL ? 0.055 : o.k === CYS ? 0.05 : o.k === VES ? 0.04 : 0.032; ngW.set([o.from, o.until, Math.hypot(o.x, o.y)], 3 * i); ngG.set(NG[i], 4 * i); });
+  ng.setAttribute('aW', new THREE.BufferAttribute(ngW, 3)); ng.setAttribute('aG', new THREE.BufferAttribute(ngG, 4));
   const VIS = 'float visW(float a, float b) { return smoothstep(a - 1.5, a + 1.5, uAge) * (1.0 - smoothstep(b - 1.5, b + 1.5, uAge)); }';
-  const nodeMat = K.points(set, { uniforms: { uAge: SA.age, uNet: { value: 0 } }, head: 'attribute vec3 aW; uniform float uAge, uNet; ' + VIS,
-    vertex: 'vA *= visW(aW.x, aW.y) * smoothstep(aW.z * 0.9, aW.z * 0.9 + 0.15, uNet * 1.35 - 0.05);' });
+  // (where a node is: risen off the slab, then on an arc into its hub, a point inside it; g: how far it has gone. The
+  // hubs' places come in the slab's own frame, uHub: xyz and the radius)
+  const KINDP = `attribute vec4 aG; uniform float uLift, uKinds; uniform vec4 uHub[5];
+vec3 kindP(vec3 p, out float g) {
+  vec3 q = vec3(p.xy, p.z + uLift * (0.14 + 0.24 * aG.z));
+  g = smoothstep(0.0, 1.0, clamp(uKinds * 1.6 - aG.y * 0.6, 0.0, 1.0));
+  if (g <= 0.0) return q;
+  vec4 H = uHub[int(aG.x + 0.5)];
+  float a = aG.w * 6.2832, c = fract(aG.y * 7.31) * 2.0 - 1.0, s = sqrt(1.0 - c * c);
+  vec3 h = H.xyz + vec3(cos(a) * s, sin(a) * s, c) * H.w * 0.55;
+  vec3 m = mix(q, h, 0.5) + vec3(0.0, 0.0, 0.12 + 0.1 * aG.z);
+  return mix(mix(q, m, g), mix(m, h, g), g);
+}`;
+  const HUBU = { value: Array.from({ length: 5 }, () => new THREE.Vector4()) }, LIFTU = { value: 0 }, KINDU = { value: 0 };
+  const netU = () => ({ uAge: SA.age, uNet: { value: 0 }, uLift: LIFTU, uKinds: KINDU, uHub: HUBU });
+  const nodeMat = K.points(set, { uniforms: netU(), head: 'attribute vec3 aW; uniform float uAge, uNet; ' + VIS + KINDP,
+    vertex: `float g; vec3 q = kindP(position, g); mv = modelViewMatrix * vec4(q, 1.0); gl_Position = projectionMatrix * mv; gl_PointSize = pointPx(aSize, mv) * (1.0 - 0.45 * g);
+    vA *= visW(aW.x, aW.y) * smoothstep(aW.z * 0.9, aW.z * 0.9 + 0.15, uNet * 1.35 - 0.05) * (1.0 - smoothstep(0.75, 1.0, g));` });
   const nodes = new THREE.Points(ng, nodeMat);
+  nodes.frustumCulled = false;
   const LK = [];
   NOD.forEach((a, i) => {
     const near = NOD.map((b, j) => [Math.hypot(a.x - b.x, a.y - b.y) - a.r - b.r, j]).filter(([d, j]) => j !== i && d < 0.14).sort((p, q) => p[0] - q[0]).slice(0, 4);
     for (const [, j] of near) if (!LK.some(([p, q]) => (p === j && q === i) || (p === i && q === j))) LK.push([i, j]);
   });
-  const lg = K.linesGeo(LK.length), lgP = lg.attributes.position.array, lgC = lg.attributes.aCol.array, lgW = new Float32Array(LK.length * 2 * 4);
+  const lg = K.linesGeo(LK.length), lgP = lg.attributes.position.array, lgC = lg.attributes.aCol.array, lgW = new Float32Array(LK.length * 2 * 4), lgG = new Float32Array(LK.length * 2 * 4);
   LK.forEach(([i, j], k) => {
     const a = NOD[i], b = NOD[j];
     lgP.set([a.x, a.y, HN, b.x, b.y, HN], 6 * k);
     const ca = L.GLOW[a.k], cb = L.GLOW[b.k];
     lgC.set([...ca, ...cb], 6 * k);
     const w = [Math.max(a.from, b.from), Math.min(a.until, b.until), Math.max(Math.hypot(a.x, a.y), Math.hypot(b.x, b.y)), 0];
-    lgW.set(w, 8 * k); lgW.set(w, 8 * k + 4);
+    lgW.set(w, 8 * k); lgW.set(w, 8 * k + 4); lgG.set(NG[i], 8 * k); lgG.set(NG[j], 8 * k + 4);
   });
-  lg.setAttribute('aW', new THREE.BufferAttribute(lgW, 4));
-  const linkMat = K.lines(set, { uniforms: { uAge: SA.age, uNet: { value: 0 } }, head: 'attribute vec4 aW; uniform float uAge, uNet; ' + VIS,
-    vertex: 'vA *= 0.65 * visW(aW.x, aW.y) * smoothstep(aW.z * 0.9 + 0.05, aW.z * 0.9 + 0.2, uNet * 1.35 - 0.05);' });
+  lg.setAttribute('aW', new THREE.BufferAttribute(lgW, 4)); lg.setAttribute('aG', new THREE.BufferAttribute(lgG, 4));
+  const linkMat = K.lines(set, { uniforms: netU(), head: 'attribute vec4 aW; uniform float uAge, uNet; ' + VIS + KINDP,
+    vertex: `float g; gl_Position = projectionMatrix * modelViewMatrix * vec4(kindP(position, g), 1.0);
+    vA *= 0.65 * visW(aW.x, aW.y) * smoothstep(aW.z * 0.9 + 0.05, aW.z * 0.9 + 0.2, uNet * 1.35 - 0.05) * (1.0 - smoothstep(0.55, 0.92, uKinds));` });
   const links = new THREE.LineSegments(lg, linkMat);
-  // stems from each node down to its object
-  const sg = K.linesGeo(NOD.length), sgP = sg.attributes.position.array, sgC = sg.attributes.aCol.array, sgW = new Float32Array(NOD.length * 2 * 3);
-  NOD.forEach((o, i) => { sgP.set([o.x, o.y, 0.02, o.x, o.y, HN], 6 * i); sgC.set([...L.GLOW[o.k], ...L.GLOW[o.k]], 6 * i); sgW.set([o.from, o.until, Math.hypot(o.x, o.y), o.from, o.until, Math.hypot(o.x, o.y)], 6 * i); });
-  sg.setAttribute('aW', new THREE.BufferAttribute(sgW, 3));
-  const stemMat = K.lines(set, { uniforms: { uAge: SA.age, uNet: { value: 0 } }, head: 'attribute vec3 aW; uniform float uAge, uNet; ' + VIS,
-    vertex: 'vA *= 0.3 * visW(aW.x, aW.y) * smoothstep(aW.z * 0.9, aW.z * 0.9 + 0.15, uNet * 1.35 - 0.05);' });
+  links.frustumCulled = false;
+  // stems from each node down to its object (stretching as the nodes rise; gone as they gather)
+  const sg = K.linesGeo(NOD.length), sgP = sg.attributes.position.array, sgC = sg.attributes.aCol.array, sgW = new Float32Array(NOD.length * 2 * 3), sgG = new Float32Array(NOD.length * 2 * 4);
+  NOD.forEach((o, i) => { sgP.set([o.x, o.y, 0.02, o.x, o.y, HN], 6 * i); sgC.set([...L.GLOW[o.k], ...L.GLOW[o.k]], 6 * i); sgW.set([o.from, o.until, Math.hypot(o.x, o.y), o.from, o.until, Math.hypot(o.x, o.y)], 6 * i); sgG.set(NG[i], 8 * i); sgG.set(NG[i], 8 * i + 4); });
+  sg.setAttribute('aW', new THREE.BufferAttribute(sgW, 3)); sg.setAttribute('aG', new THREE.BufferAttribute(sgG, 4));
+  const stemMat = K.lines(set, { uniforms: netU(), head: 'attribute vec3 aW; uniform float uAge, uNet; ' + VIS + KINDP,
+    vertex: `float g; vec3 q = position; if (position.z > 0.05) q = kindP(position, g); gl_Position = projectionMatrix * modelViewMatrix * vec4(q, 1.0);
+    vA *= 0.3 * visW(aW.x, aW.y) * smoothstep(aW.z * 0.9, aW.z * 0.9 + 0.15, uNet * 1.35 - 0.05) * (1.0 - smoothstep(0.0, 0.3, uKinds));` });
   const stems = new THREE.LineSegments(sg, stemMat);
+  stems.frustumCulled = false;
   SA.g.add(nodes, links, stems);
+
+  // ------------------------------------------------------------- the network by kind (illustrative)
+  // Five glowing hubs, one per kind, on a tilted ellipse over the tipped section (in the set's frame): a hub's size is
+  // how many objects of its kind are alive at the age (its area as their number), so the follicles' hub fades by about
+  // 59 and the scars' swells. Bands join the kinds: a band's width is how many drawn links join those two kinds among
+  // the objects alive (a loop on a hub: links within its kind), with a slow flow along it. No numbers on them.
+  const KORD = [FOL, ALB, VES, MAC, CYS];   // round the ellipse from the top, clockwise as seen
+  const KC = [0, 0.4, 0.05], KRX = 0.82, KRY = 0.5, KTILT = 25 * Math.PI / 180;
+  const ringAt = (ang, f = 1) => [KC[0] + f * KRX * Math.cos(ang), KC[1] + f * KRY * Math.sin(ang) * Math.cos(KTILT), KC[2] - f * KRY * Math.sin(ang) * Math.sin(KTILT)];
+  const HANG = [], HUBP = [];
+  KORD.forEach((k, i) => { HANG[k] = Math.PI / 2 - i * 2 * Math.PI / 5; HUBP[k] = ringAt(HANG[k]); });
+  // how many objects of each kind are alive at an age (smoothly, as they grow and shrink), and the hubs' radii
+  const kindN = a => { const n = [0, 0, 0, 0, 0]; for (const o of SA.OBJ) n[o.k] += SA.visAt(o, a); return n; };
+  const NMAX = Math.max(...[20, 30, 40, 50, 60, 70].map(a => Math.max(...kindN(a))));
+  const hubR = n => smooth(Math.min(1, n)) * (0.02 + 0.13 * Math.sqrt(n / NMAX));
+  let hubCache = { a: -1 };
+  const hubsAt = a => { if (hubCache.a !== a) { const n = kindN(a); hubCache = { a, n, r: n.map(hubR), w: pairW(a) }; } return hubCache; };
+  // the bands: every pair of kinds the links join (and a kind with itself), their links' weights at an age
+  const PAIRS = [], PIX = {};
+  const pairOf = (i, j) => { const a = Math.min(i, j), b = Math.max(i, j), key = a * 5 + b; if (!(key in PIX)) { PIX[key] = PAIRS.length; PAIRS.push([a, b]); } return PIX[key]; };
+  const LKP = LK.map(([i, j]) => pairOf(NOD[i].k, NOD[j].k));
+  const pairW = a => { const w = PAIRS.map(() => 0); LK.forEach(([i, j], k) => { w[LKP[k]] += SA.visAt(NOD[i], a) * SA.visAt(NOD[j], a); }); return w; };
+  let WMAX = 1;
+  for (let a = 20; a <= 70; a += 2.5) WMAX = Math.max(WMAX, ...pairW(a));
+  const NBD = PAIRS.length, BS = 28, BR = 7;
+  const bandGeo = new THREE.BufferGeometry();
+  {
+    const v3s = (a, b, s) => [a[0] + b[0] * s, a[1] + b[1] * s, a[2] + b[2] * s], nrm = a => { const l = Math.hypot(a[0], a[1], a[2]) || 1; return [a[0] / l, a[1] / l, a[2] / l]; };
+    const crs = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+    const PN = nrm(crs([1, 0, 0], [0, Math.cos(KTILT), -Math.sin(KTILT)]));   // (the ellipse's normal, towards you)
+    const nv = NBD * (BS + 1) * BR, P = new Float32Array(nv * 3), Nr = new Float32Array(nv * 3), T = new Float32Array(nv), Bi = new Float32Array(nv), CA = new Float32Array(nv * 3), CB = new Float32Array(nv * 3), idx = [];
+    let v = 0;
+    PAIRS.forEach(([ka, kb], bi) => {
+      const A = HUBP[ka], B = HUBP[kb], v0 = v;
+      let curve;
+      if (ka === kb) {
+        // a loop out from the hub and back, away from the middle
+        const out = nrm([A[0] - KC[0], A[1] - KC[1], A[2] - KC[2]]), side = nrm(crs(out, PN)), Lp = 0.36, Wp = 0.13;
+        curve = u => v3s(v3s(v3s(A, out, Lp * Math.sin(Math.PI * u)), side, Wp * Math.sin(2 * Math.PI * u)), PN, 0.05 * Math.sin(Math.PI * u));
+      } else {
+        // a gentle arc bowing away from the middle and towards you (as the microanatomy story's bands)
+        const M = [(A[0] + B[0]) / 2, (A[1] + B[1]) / 2, (A[2] + B[2]) / 2], len = Math.hypot(B[0] - A[0], B[1] - A[1], B[2] - A[2]);
+        const out = nrm([M[0] - KC[0], M[1] - KC[1], M[2] - KC[2]]), Cp = v3s(v3s(M, out, 0.1 * len), PN, 0.08 * len);
+        curve = u => { const w = 1 - u; return [0, 1, 2].map(i => w * w * A[i] + 2 * u * w * Cp[i] + u * u * B[i]); };
+      }
+      for (let s = 0; s <= BS; s++) {
+        const u = s / BS, p = curve(u), p1 = curve(Math.min(1, u + 1e-3)), p0 = curve(Math.max(0, u - 1e-3)), t = nrm([p1[0] - p0[0], p1[1] - p0[1], p1[2] - p0[2]]);
+        let n1 = crs(t, PN); if (Math.hypot(...n1) < 1e-4) n1 = [1, 0, 0]; n1 = nrm(n1);
+        const n2 = nrm(crs(t, n1));
+        for (let q = 0; q < BR; q++) {
+          const th = q / BR * 2 * Math.PI;
+          P.set(p, 3 * v); Nr.set([n1[0] * Math.cos(th) + n2[0] * Math.sin(th), n1[1] * Math.cos(th) + n2[1] * Math.sin(th), n1[2] * Math.cos(th) + n2[2] * Math.sin(th)], 3 * v);
+          T[v] = u; Bi[v] = bi; CA.set(L.GLOW[ka], 3 * v); CB.set(L.GLOW[kb], 3 * v); v++;
+        }
+      }
+      for (let s = 0; s < BS; s++) for (let q = 0; q < BR; q++) { const a0 = v0 + s * BR + q, a1 = v0 + s * BR + (q + 1) % BR; idx.push(a0, a0 + BR, a1, a1, a0 + BR, a1 + BR); }
+    });
+    bandGeo.setAttribute('position', new THREE.BufferAttribute(P, 3)); bandGeo.setAttribute('aNrm', new THREE.BufferAttribute(Nr, 3));
+    bandGeo.setAttribute('aT', new THREE.BufferAttribute(T, 1)); bandGeo.setAttribute('aB', new THREE.BufferAttribute(Bi, 1));
+    bandGeo.setAttribute('aCA', new THREE.BufferAttribute(CA, 3)); bandGeo.setAttribute('aCB', new THREE.BufferAttribute(CB, 3));
+    bandGeo.setIndex(idx);
+  }
+  const UB = Array.from({ length: Math.max(1, NBD) }, () => new THREE.Vector4());   // x radius, y alpha, z reveal (from both ends)
+  const bandMat = new THREE.ShaderMaterial({
+    uniforms: { uA: set.uA, uTime: K.U.uTime, uB: { value: UB } },
+    transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+    vertexShader: `
+attribute vec3 aNrm, aCA, aCB; attribute float aT, aB;
+uniform vec4 uB[${Math.max(1, NBD)}];
+varying vec3 vN, vW, vG; varying float vT, vZ;
+void main() {
+  vG = mix(aCA, aCB, smoothstep(0.15, 0.85, aT));
+  vec4 B = uB[int(aB + 0.5)];
+  float on = step(min(aT, 1.0 - aT) * 2.0, B.z + 0.0001);
+  vT = aT; vZ = B.y * on;
+  vN = normalize(mat3(modelMatrix) * aNrm);
+  vec4 wp = modelMatrix * vec4(position + aNrm * B.x * on, 1.0); vW = wp.xyz;
+  gl_Position = projectionMatrix * viewMatrix * wp;
+  if (vZ < 0.003) gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
+}`,
+    fragmentShader: `
+uniform float uA, uTime;
+varying vec3 vN, vW, vG; varying float vT, vZ;
+void main() {
+  vec3 n = normalize(vN), v = normalize(cameraPosition - vW);
+  float c = abs(dot(n, v));
+  float flow = 0.75 + 0.5 * pow(0.5 + 0.5 * sin(vT * 16.0 - uTime * 1.6), 3.0);   // a slow flow along the band
+  vec3 col = mix(vG, vec3(1.0), 0.12) * (0.35 + 0.75 * c) * flow + vec3(1.0) * 0.15 * pow(c, 8.0);
+  gl_FragColor = vec4(col, (0.22 + 0.7 * c * c) * vZ * uA);
+}`,
+  });
+  set.mats.push(bandMat);
+  const bands = new THREE.Mesh(bandGeo, bandMat);
+  bands.frustumCulled = false; bands.renderOrder = 6;
+  // the hubs: lit spheres in the kinds' glowing colors (instances: place and radius per frame), each in a soft halo
+  const hubGeo = new THREE.InstancedBufferGeometry();
+  { const s = new THREE.IcosahedronGeometry(1, 3); hubGeo.setIndex(s.index); hubGeo.setAttribute('position', s.attributes.position); hubGeo.setAttribute('normal', s.attributes.normal); }
+  const hubH = new THREE.InstancedBufferAttribute(new Float32Array(20), 4), hubCol = new THREE.InstancedBufferAttribute(new Float32Array(15), 3);
+  hubH.setUsage(THREE.DynamicDrawUsage);
+  for (let k = 0; k < 5; k++) hubCol.setXYZ(k, ...L.GLOW[k]);
+  hubGeo.setAttribute('aH', hubH); hubGeo.setAttribute('aCol', hubCol); hubGeo.instanceCount = 5;
+  const hubMat = new THREE.ShaderMaterial({
+    uniforms: { uA: set.uA, uOn: { value: 0 } }, transparent: true,
+    vertexShader: `
+attribute vec4 aH; attribute vec3 aCol;
+varying vec3 vC, vN, vV;
+void main() {
+  vC = aCol;
+  vec4 mv = modelViewMatrix * vec4(aH.xyz + position * aH.w, 1.0);
+  vN = normalize(normalMatrix * normal); vV = -mv.xyz;
+  gl_Position = projectionMatrix * mv;
+  if (aH.w < 0.002) gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
+}`,
+    fragmentShader: `
+uniform float uA, uOn;
+varying vec3 vC, vN, vV;
+void main() {
+  vec3 n = normalize(vN), v = normalize(vV), l = normalize(vec3(-0.45, 0.6, 0.65));
+  float df = max(dot(n, l), 0.0), fr = pow(1.0 - max(dot(n, v), 0.0), 2.2), sp = pow(max(dot(reflect(-l, n), v), 0.0), 24.0);
+  vec3 col = vC * (0.5 + 0.7 * df) + mix(vC, vec3(1.0), 0.5) * fr * 0.6 + vec3(sp * 0.3);
+  gl_FragColor = vec4(col, uA * uOn);
+}`,
+  });
+  set.mats.push(hubMat);
+  const hubs = new THREE.Mesh(hubGeo, hubMat);
+  hubs.frustumCulled = false; hubs.renderOrder = 5;
+  const haloGeo = new THREE.InstancedBufferGeometry();
+  haloGeo.setIndex([0, 1, 2, 0, 2, 3]);
+  haloGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array([-1, -1, 0, 1, -1, 0, 1, 1, 0, -1, 1, 0]), 3));
+  haloGeo.setAttribute('aH', hubH); haloGeo.setAttribute('aCol', hubCol); haloGeo.instanceCount = 5;
+  const haloMat = new THREE.ShaderMaterial({
+    uniforms: { uA: set.uA, uOn: { value: 0 }, uTime: K.U.uTime }, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+    vertexShader: `
+attribute vec4 aH; attribute vec3 aCol;
+varying vec3 vC; varying vec2 vQ;
+void main() {
+  vC = aCol; vQ = position.xy;
+  vec4 mv = modelViewMatrix * vec4(aH.xyz, 1.0);
+  mv.xy += position.xy * 2.6 * aH.w * length(modelViewMatrix[0].xyz);
+  gl_Position = projectionMatrix * mv;
+  if (aH.w < 0.002) gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
+}`,
+    fragmentShader: `
+uniform float uA, uOn, uTime;
+varying vec3 vC; varying vec2 vQ;
+void main() {
+  float d = length(vQ);
+  if (d > 1.0) discard;
+  float rr = d * 2.6, glow = exp(-max(rr - 0.95, 0.0) * 2.2) * smoothstep(1.0, 0.55, d) * (0.9 + 0.1 * sin(uTime * 1.3));
+  gl_FragColor = vec4(mix(vC, vec3(1.0), 0.15) * glow * 0.8, uA * uOn * glow * 0.55);
+}`,
+  });
+  set.mats.push(haloMat);
+  const halos = new THREE.Mesh(haloGeo, haloMat);
+  halos.frustumCulled = false; halos.renderOrder = 7;
+  const kindsG = new THREE.Group();
+  kindsG.add(hubs, bands, halos);
+  set.group.add(kindsG);
 
   // ------------------------------------------------------------- anchors
   const tmp = new THREE.Vector3();
@@ -492,7 +674,9 @@ void main() { vAl = smoothstep(aObj.w, aObj.w + 0.06, uVote); vC = aCol; gl_Posi
   const rep = k => { const L0 = SA.OBJ.filter(o => o.k === k && o.from < 25 && o.until > 45); const pool = L0.length ? L0 : SA.OBJ.filter(o => o.k === k); return pool.sort((a, b) => (b.r - 0.2 * Math.hypot(b.x, b.y)) - (a.r - 0.2 * Math.hypot(a.x, a.y)))[0]; };
   const REP = { vessel: rep(VES), macrophage: rep(MAC), albicans: SA.AL.reduce((a, s) => (s.from < a.from ? s : a), SA.AL[0]), follicle: SA.AN[0], cyst: rep(CYS) };
   const topOf = (S, gfn) => { let y = -9, x = 0; for (const [px, py] of S.OUT) if (py > y) { y = py; x = px; } return () => gfn([x, y + 0.04, 0.02]); };
-  let sweepX = -2, ageNow = 30;
+  let sweepX = -2, ageNow = 30, kindsNow = 0;
+  // a hub's upper right rim, where its name goes (at its size now)
+  const hubRim = k => { const r = hubsAt(ageNow).r[k] * prog(kindsNow, 0.15, 0.6), p = HUBP[k]; return [p[0] + 0.72 * r + 0.01, p[1] + 0.72 * r + 0.01, p[2] + 0.3 * r]; };
   const anchors = {
     vessel: () => inA([REP.vessel.x, REP.vessel.y, 0.02]), macrophage: () => inA([REP.macrophage.x, REP.macrophage.y, 0.02]),
     albicans: () => inA([REP.albicans.x, REP.albicans.y, 0.02]), follicle: () => inA([REP.follicle.x, REP.follicle.y, 0.02]),
@@ -503,17 +687,22 @@ void main() { vAl = smoothstep(aObj.w, aObj.w + 0.06, uVote); vC = aCol; gl_Posi
     forest: [GROVE[0], GROVE[1] + 0.32, GROVE[2]], uni: () => { const a = inA([tile0.x, tile0.y, 0.05]); return [lerp(a[0], GROVE[0], 0.5), lerp(a[1], GROVE[1], 0.5) + 0.22, 0.3]; },
     pred: () => inA([0.3, -0.35, 0.05]), mask: () => inA([clamp(sweepX, -1, 1), 0.72, 0.05]),
     net: () => inA([0.0, 0.62, HN + 0.02]),
+    kinds: KC.slice(), kindsLabel: ringAt(HANG[FOL] + 0.62, 1.32),
   };
+  for (const k of [VES, MAC, ALB, FOL, CYS]) anchors['hub_' + OVARY_DATA.kinds[k].key] = () => hubRim(k);
 
   // ------------------------------------------------------------- update
-  const hi = [0, 0, 0, 0, 0, 0];
+  const hi = [0, 0, 0, 0, 0, 0], TIP = 70 * Math.PI / 180, invA = new THREE.Matrix4(), hv = new THREE.Vector3();
   function update(S, t, dt) {
     if (!built) step(4);
     const age = clamp(S.section_age, 20, 70), pair = smooth(clamp(S.section_pair, 0, 1));
     ageNow = age; SA.age.value = age;
     // the pair: A shrinks to the left, B comes in on the right (both at 0.58 of A's size)
     const sc = 1 - 0.42 * pair;
-    gA.position.set(-0.6 * pair, 0, 0); gA.scale.setScalar(sc);
+    // the lift: the slab tips back like a tabletop (and sinks a little, so the hubs above it stay in view)
+    const lift = smooth(clamp(S.section_lift || 0, 0, 1)), kinds = clamp(S.section_kinds || 0, 0, 1);
+    kindsNow = kinds;
+    gA.position.set(-0.6 * pair, -0.42 * lift, -0.05 * lift); gA.scale.setScalar(sc); gA.rotation.x = -TIP * lift;
     gB.position.set(0.62 * pair + 0.5 * (1 - pair), 0, 0); gB.scale.setScalar(0.58);
     gB.visible = pair > 0.01;
     for (const m of [SB.slabMat, SB.objMat, SB.fadeMat, SB.rimMat]) m.uniforms.uFade.value = (m === SB.fadeMat ? 0.75 : 1) * prog(pair, 0, 0.6);
@@ -525,7 +714,7 @@ void main() { vAl = smoothstep(aObj.w, aObj.w + 0.06, uVote); vC = aCol; gl_Posi
     // method 1
     const tiles = clamp(S.section_tiles, 0, 1), feat = clamp(S.section_feat, 0, 1), forest = clamp(S.section_forest, 0, 1), pred = clamp(S.section_pred, 0, 1);
     const mask = clamp(S.section_mask, 0, 1), net = clamp(S.section_net, 0, 1);
-    const dark = 0.65 * prog(feat, 0, 0.3) * (1 - prog(pred, 0, 0.4)) + 0.35 * prog(net, 0, 0.4);
+    const dark = 0.65 * prog(feat, 0, 0.3) * (1 - prog(pred, 0, 0.4)) + 0.35 * prog(net, 0, 0.4) + 0.25 * prog(kinds, 0.1, 0.6);
     for (const Sx of [SA, SB]) {
       L.setHi(Sx.objMat, hi, 0.5 * pick + 0.6 * dark); L.setHi(Sx.fadeMat, hi, 0.5 * pick + 0.6 * dark); L.setHi(Sx.maskMat, hi);
       Sx.slabMat.uniforms.uDim.value = pick; Sx.slabMat.uniforms.uDark.value = Sx === SA ? dark : 0;
@@ -551,14 +740,46 @@ void main() { vAl = smoothstep(aObj.w, aObj.w + 0.06, uVote); vC = aCol; gl_Posi
     // the network
     nodeMat.uniforms.uNet.value = linkMat.uniforms.uNet.value = stemMat.uniforms.uNet.value = net;
     nodes.visible = links.visible = stems.visible = net > 0.001;
+    stems.visible = net > 0.001 && kinds < 0.3;
+    // by kind: the hubs (their places in the slab's frame for the nodes flying in), their sizes and the bands' widths
+    LIFTU.value = lift; KINDU.value = kinds;
+    kindsG.visible = net > 0.001 && kinds > 0.001;
+    if (net > 0.001 && kinds > 0.001) {
+      gA.updateMatrix(); invA.copy(gA.matrix).invert();
+      const H = hubsAt(age), on = prog(kinds, 0.15, 0.6);
+      for (let k = 0; k < 5; k++) {
+        hv.set(HUBP[k][0], HUBP[k][1], HUBP[k][2]).applyMatrix4(invA);
+        HUBU.value[k].set(hv.x, hv.y, hv.z, H.r[k] / sc);
+        hubH.setXYZW(k, HUBP[k][0], HUBP[k][1], HUBP[k][2], H.r[k] * on * (1 + 0.025 * Math.sin(t * 1.3 + k * 1.7)));
+      }
+      hubH.needsUpdate = true;
+      hubMat.uniforms.uOn.value = haloMat.uniforms.uOn.value = prog(kinds, 0.1, 0.4);
+      const rev = prog(kinds, 0.4, 0.9), ba = prog(kinds, 0.45, 0.85);
+      PAIRS.forEach((p, i) => { const w = H.w[i], pres = smooth(Math.min(1, w)); UB[i].set(pres * (0.004 + 0.026 * Math.sqrt(w / WMAX)), ba * pres, rev, 0); });
+    }
   }
 
   // ------------------------------------------------------------- picking (explore): the object under a ray
   // (hitAt: where the last pick met the section, in the set's own frame, for the headset's ray and tip; null on a miss)
   const plane = new THREE.Plane(), hit = new THREE.Vector3(), inv = new THREE.Matrix4(), hw = new THREE.Vector3();
   let hitAt = null;
+  const hubW = new THREE.Vector3(), hubS = new THREE.Sphere(), hubHit = new THREE.Vector3();
   function pick(raycaster) {
     hitAt = null;
+    // by kind: a hub under the ray (the nearest), else the section under it
+    if (kindsG.visible && kindsNow > 0.5) {
+      set.group.updateMatrixWorld(true);
+      const sw = new THREE.Vector3().setFromMatrixScale(set.group.matrixWorld).x, H = hubsAt(ageNow);
+      let kb = -1, db = 1e9;
+      for (let k = 0; k < 5; k++) {
+        if (H.r[k] < 0.01) continue;
+        hubS.set(hubW.set(HUBP[k][0], HUBP[k][1], HUBP[k][2]).applyMatrix4(set.group.matrixWorld), H.r[k] * sw * 1.15);
+        if (!raycaster.ray.intersectSphere(hubS, hubHit)) continue;
+        const d = hubHit.distanceTo(raycaster.ray.origin);
+        if (d < db) { db = d; kb = k; }
+      }
+      if (kb >= 0) { hitAt = HUBP[kb].slice(); return kb; }
+    }
     SA.g.updateMatrixWorld(true);
     plane.setFromNormalAndCoplanarPoint(new THREE.Vector3(0, 0, 1).transformDirection(SA.g.matrixWorld), new THREE.Vector3().setFromMatrixPosition(SA.g.matrixWorld));
     if (!raycaster.ray.intersectPlane(plane, hit)) return -1;
@@ -571,10 +792,11 @@ void main() { vAl = smoothstep(aObj.w, aObj.w + 0.06, uVote); vC = aCol; gl_Posi
   }
   const count = (S, a) => { const n = [0, 0, 0, 0, 0]; for (const o of S.OBJ) if (S.visAt(o, a) > 0.5) n[o.k]++; return n; };
 
-  const VIEWS = ['section', 'pair', 'tiles', 'features', 'forest', 'predicted', 'masks', 'network'];
+  const VIEWS = ['section', 'pair', 'tiles', 'features', 'forest', 'predicted', 'masks', 'network', 'kinds'];
+  const NAMES = OVARY_DATA.kinds.map(k => k.plural.charAt(0).toUpperCase() + k.plural.slice(1)), KCLS = ['cyn', 'grn', 'mag', 'amb', ''];
   return Object.assign(set, {
     params: { section_a: 1, section_age: 30, section_pair: 0, section_vessel: 0, section_macrophage: 0, section_albicans: 0, section_follicle: 0, section_cyst: 0,
-      section_tiles: 0, section_feat: 0, section_forest: 0, section_pred: 0, section_mask: 0, section_net: 0 },
+      section_tiles: 0, section_feat: 0, section_forest: 0, section_pred: 0, section_mask: 0, section_net: 0, section_lift: 0, section_kinds: 0, section_names: 0 },
     update,
     idle() { step(3); },
     finish() { step(Infinity); },
@@ -589,26 +811,32 @@ void main() { vAl = smoothstep(aObj.w, aObj.w + 0.06, uVote); vC = aCol; gl_Posi
       { text: ['Features', 'UNI2: numbers per tile'], at: 'feat', cls: 'cyn', alpha: S => prog(S.section_feat, 0.4, 0.7) * (1 - prog(S.section_forest, 0.05, 0.2)) },
       { text: ['Random forest', 'trees vote on each tile'], at: 'forest', cls: 'amb', alpha: S => prog(S.section_forest, 0.1, 0.3) * (1 - prog(S.section_pred, 0.5, 0.9)) },
       { text: ['SegFormer', 'paints a mask'], at: 'mask', cls: 'grn', alpha: S => prog(S.section_mask, 0.02, 0.1) * (1 - prog(S.section_mask, 0.9, 1)) },
-      { text: ['Spatial neighbor network', 'illustrative'], at: 'net', cls: 'mag', alpha: S => prog(S.section_net, 0.5, 0.9) },
+      { text: ['Spatial neighbor network', 'illustrative'], at: 'net', cls: 'mag', alpha: S => prog(S.section_net, 0.5, 0.9) * (1 - prog(S.section_kinds || 0, 0.15, 0.3)) },
+      { text: ['Neighbor network by kind', 'illustrative'], at: 'kindsLabel', cls: 'mag', alpha: S => prog(S.section_net, 0.3, 0.6) * prog(S.section_kinds || 0, 0.3, 0.45) },
+      // (the hubs' names: only where section_names asks for them, as explore's By kind view does)
+      ...[VES, MAC, ALB, FOL, CYS].map(k => ({ text: [NAMES[k], ''], at: 'hub_' + OVARY_DATA.kinds[k].key, cls: KCLS[k],
+        alpha: S => prog(S.section_names || 0, 0.3, 1) * prog(S.section_kinds || 0, 0.55, 0.85) * prog(S.section_net, 0.3, 0.6) * smooth(Math.min(1, hubsAt(clamp(S.section_age, 20, 70)).n[k] * 1.5 - 0.3)) })),
     ],
     cam: {
       default: [0, 8, 3.5, 0, 0, 0], close: [10, 16, 0.85, REP.follicle.x, REP.follicle.y, 0], pair: [0, 6, 3.4, 0, 0, 0],
       tiles: [0, 22, 3.0, 0, 0, 0], feat: [16, 38, 1.0, tile0.x, tile0.y, 0], forest: [-16, 10, 4.6, 0.5, 0, 0],
-      mask: [0, 10, 3.3, 0, 0, 0], net: [8, 32, 3.1, 0, 0.02, 0],
+      mask: [0, 10, 3.3, 0, 0, 0], net: [8, 32, 3.1, 0, 0.02, 0], kinds: [0, 12, 4.0, 0, 0.12, 0],
     },
     controls: [
-      { key: 'view', label: 'View', options: [['section', 'Section'], ['pair', 'Young and old'], ['tiles', 'Tiles'], ['forest', 'Forest'], ['masks', 'Masks'], ['network', 'Network']] },
+      { key: 'view', label: 'View', options: [['section', 'Section'], ['pair', 'Young and old'], ['tiles', 'Tiles'], ['forest', 'Forest'], ['masks', 'Masks'], ['network', 'Network'], ['kinds', 'By kind']] },
       { key: 'age', label: 'Age', options: [['20', '20'], ['30', '30'], ['40', '40'], ['50', '50'], ['60', '60'], ['70', '70']] },
       { key: 'show', label: 'Pick out', options: [['none', 'None'], ['vessel', 'Vessels'], ['macrophage', 'Macrophages'], ['albicans', 'Scars'], ['follicle', 'Follicles'], ['cyst', 'Cysts']] },
     ],
     explore(c) {
       const v = c.view || 'section', s = c.show || 'none', tt = c.t || 0;
-      const out = { section_age: +(c.age || 30), section_pair: v === 'pair' ? 1 : 0, section_tiles: 0, section_feat: 0, section_forest: 0, section_pred: 0, section_mask: 0, section_net: 0 };
+      const out = { section_age: +(c.age || 30), section_pair: v === 'pair' ? 1 : 0, section_tiles: 0, section_feat: 0, section_forest: 0, section_pred: 0, section_mask: 0, section_net: 0,
+        section_lift: 0, section_kinds: 0, section_names: 0 };
       for (const k of ['vessel', 'macrophage', 'albicans', 'follicle', 'cyst']) out['section_' + k] = s === k ? 1 : 0;
       if (v === 'tiles') { out.section_tiles = 1; out.section_feat = 1; }
       if (v === 'forest') { out.section_tiles = 1; out.section_feat = 1; out.section_forest = clamp(tt / 8, 0, 1); out.section_pred = clamp((tt - 8) / 4, 0, 1); }
       if (v === 'masks') out.section_mask = clamp(tt / 5, 0, 1);
       if (v === 'network') out.section_net = 1;
+      if (v === 'kinds') Object.assign(out, { section_net: 1, section_lift: 1, section_kinds: 1, section_names: 1 });
       return out;
     },
     api() {
@@ -618,6 +846,9 @@ void main() { vAl = smoothstep(aObj.w, aObj.w + 0.06, uVote); vC = aCol; gl_Posi
         count: (a, which) => count(which === 'B' ? SB : SA, a),
         objects: SA.OBJ.map(o => ({ kind: o.k, x: o.x, y: o.y, r: o.r, from: o.from, until: o.until })),
         tiles: TILES.length, links: LK.length,
+        // the network by kind at an age (illustrative): objects alive per kind, and per pair of kinds [kind, kind, how
+        // many drawn links join them among the objects alive] (by OVARY_DATA.kinds' index)
+        byKind: a => { const H = hubsAt(clamp(a, 20, 70)); return { count: H.n.map(n => Math.round(n)), links: PAIRS.map((p, i) => [p[0], p[1], Math.round(H.w[i])]) }; },
       };
     },
   });

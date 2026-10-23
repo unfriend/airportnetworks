@@ -4,8 +4,7 @@
 // scene with its own controls.
 const SCENES = [
   ['organ', 'Ovary', 'A drawn ovary, cut open: follicles in the cortex, blood vessels in the medulla, a corpus luteum and corpora albicantia. Its counts follow the poster\'s trend lines with age.'],
-  ['section', 'Section', 'A drawn H&E section of an ovary with the four kinds of object and cysts; a younger and an older one; the two methods; and the illustrative neighbor network.'],
-  ['charts', 'Charts', `The poster's charts in 3D: the ${FACTS.donors} donors by age, the trends with age, whether the methods agree, and their scores. The dots are illustrative.`],
+  ['section', 'Section', 'A drawn H&E section of an ovary with the four kinds of object and cysts; a younger and an older one; the two methods; and the illustrative neighbor network, also gathered by kind.'],
 ];
 const SCENE_SHORT = {};
 const TABS = [['objects', 'Objects'], ['age', 'Age'], ['methods', 'Methods'], ['scenes', 'Scenes']];
@@ -18,8 +17,9 @@ const ctlShown = (k, c) => !c.when || c.when(Object.fromEntries((GL.sets[k].cont
 const AGE0 = FACTS.ages[0], AGE1 = FACTS.ages[1];
 const X = { tab: 'objects', scene: 'section', ctl: {}, t0: 0, turn: 'on', kind: null, age: 30, method: 'rf' };
 const XS = {};
-// params that pick something by number jump to their new value instead of easing through the ones in between
-const STEP = new Set(['charts_focus']);
+// params that pick something by number jump to their new value instead of easing through the ones in between (none
+// in this story's scenes now)
+const STEP = new Set();
 const orbit = { cur: [0, 12, 3.6, 0, 0, 0], from: null, to: null, t0: 0, dur: 1.6 };
 const ctlValue = (k, c) => (X.ctl[k] && X.ctl[k][c.key] !== undefined ? X.ctl[k][c.key] : c.options[0][0]);
 const ctlOf = (k, key) => ctlsOf(k).find(c => c.key === key);
@@ -28,11 +28,10 @@ const optKey = (k, key, re) => { const c = ctlOf(k, key), o = c && c.options.fin
 const hasOpt = (k, key, v) => { const c = ctlOf(k, key); return !!(c && c.options.some(o => o[0] === v)); };
 // the age slider as a set's own Age option (the one nearest X.age)
 const ageOpt = c => { let b = c.options[0][0], bd = Infinity; for (const [v, n] of c.options) { const a = parseFloat(n) || parseFloat(v), d = Math.abs(a - X.age); if (d < bd) { bd = d; b = v; } } return b; };
-// a view option's camera: the one it stands for, or the cam view of the same name (a focused chart has its own)
-const CAM_ALIAS = { organ: { cut: 'default', closed: 'whole', body: 'pelvis' }, section: { section: 'default', masks: 'mask', network: 'net' }, charts: { compare: 'trends' } };
+// a view option's camera: the one it stands for, or the cam view of the same name
+const CAM_ALIAS = { organ: { cut: 'default', closed: 'whole', body: 'pelvis' }, section: { section: 'default', masks: 'mask', network: 'net' } };
 function camFor(k, v) {
   const c = GL.sets[k].cam || {}, al = CAM_ALIAS[k] || {}, vc = ctlOf(k, 'view'), o = vc && vc.options.find(x => x[0] === v), n = o ? String(o[1]).toLowerCase() : '';
-  if (k === 'charts' && (v === 'trends' || v === 'compare') && ctlValue('charts', ctlOf('charts', 'focus')) !== '0' && c.focus) return 'focus';
   for (const x of [al[v], v, n, al[n]]) if (x && c[x]) return x;
   return null;
 }
@@ -54,14 +53,14 @@ function exploreTargets(now = performance.now()) {
   const c = { t: (now - X.t0) / 1000 };
   for (const ct of s.controls || []) c[ct.key] = isAge(ct) ? ageOpt(ct) : ctlValue(k, ct);
   if (s.explore) Object.assign(tg, s.explore(c));
-  // the age slider drives the ovary and the section to the year (the sets' own Age options are steps of ten); the
-  // charts' cursor follows it on the Age tab
+  // the age slider drives the ovary and the section to the year (the sets' own Age options are steps of ten); on the Age
+  // tab the cut-away ovary carries its tags (each method's count on the poster's lines) instead of its parts' names
   if (k === 'organ') {
     tg.organ_age = X.age;
     if (viewIs('organ', /body/)) Object.assign(tg, GL.sets.body.params, { body_a: 1, body_net: 0, body_state: 0, body_blank: 0 });   // the ovary in the tour's body
+    else if (X.tab === 'age') Object.assign(tg, { organ_counts: 1, organ_parts: 0 });
   }
   if (k === 'section') tg.section_age = X.age;
-  if (k === 'charts' && X.tab === 'age' && viewIs('charts', /trends/)) tg.charts_sweep = X.age;
   const out = {};
   for (const n in DEF) out[n] = n in tg ? tg[n] : n.endsWith('_a') ? 0 : XS[n];
   return out;
@@ -87,8 +86,8 @@ function setCtl(k, key, v) {
   if (!c || !c.options.some(o => o[0] === v)) return;
   (X.ctl[k] = X.ctl[k] || {})[key] = v;
   X.t0 = performance.now();
-  // a view has its own best camera (and a chart brought to the middle, its own)
-  if ((key === 'view' || (k === 'charts' && key === 'focus')) && k === X.scene) { const n = camFor(k, ctlValue(k, ctlOf(k, 'view'))); flyTo(view(k, n || 'default')); }
+  // a view has its own best camera
+  if (key === 'view' && k === X.scene) { const n = camFor(k, ctlValue(k, ctlOf(k, 'view'))); flyTo(view(k, n || 'default')); }
   pushState(); renderAll();
 }
 // a view of a set by its option's key, its scene brought up
@@ -110,21 +109,19 @@ function orbitStep(now) {
 // --------------------------------------------------------------- actions --
 // Each setter changes its own field only when called with ui false (a shared room's state arriving); picked by
 // hand (ui true) it also sets the scenes' controls that show it.
-// a kind of object (null none): picked out on the section and in the ovary (where it has it), its chart brought to the
-// middle; a kind the ovary on show lacks (macrophages, cysts) brings up the section
+// a kind of object (null none): picked out on the section and in the ovary (where it has it); a kind the ovary on show
+// lacks (macrophages, cysts) brings up the section
 function selectKind(v, ui = true) {
   X.kind = KD[v] ? v : null;
   if (ui) {
     const k = X.kind;
     (X.ctl.section = X.ctl.section || {}).show = k || 'none';
     (X.ctl.organ = X.ctl.organ || {}).show = k && hasOpt('organ', 'show', k) ? k : 'none';
-    (X.ctl.charts = X.ctl.charts || {}).focus = String(CHART.indexOf(k) + 1);   // (none, or the cyst: '0', all four)
     if (k && X.scene === 'organ' && !hasOpt('organ', 'show', k)) openScene('section');
-    else if (X.scene === 'charts') flyTo(view('charts', viewCam('charts') || 'default'));
   }
   pushState(); renderAll();
 }
-// the age (20 to 70): the ovary, the section and (on the Age tab) the charts' cursor follow it
+// the age (20 to 70): the ovary and the section follow it
 function setAge(v) {
   X.age = Math.round(clamp(+v, AGE0, AGE1));
   syncAge();
@@ -220,20 +217,19 @@ function showTab(k) {
 // a tab picked by hand brings up the scene it talks about (a shared room's tab arriving does not: its scene comes with it)
 function pickTab(k) {
   showTab(k);
-  if (k === 'objects' && X.scene === 'charts' && !viewIs('charts', /trends|compare/)) openScene('section');
-  if (k === 'age' && X.scene === 'charts' && !viewIs('charts', /trends/)) showView('charts', 'trends');
-  if (k === 'methods' && !(X.scene === 'section' && viewIs('section', /tiles|forest|masks/)) && !(X.scene === 'charts' && viewIs('charts', /scores/))) setMethod(X.method);
+  if (k === 'methods' && !(X.scene === 'section' && viewIs('section', /tiles|forest|masks/))) setMethod(X.method);
   renderAll();
 }
 function renderAll() { renderObjects(); renderAge(); renderMethods(); renderScenes(); updateExtraLabels(); }
-// a kind's numbers: annotated, the random forest's scores, SegFormer's IoU, its trend and the methods' agreement
+// a kind's numbers: annotated, the random forest's scores, SegFormer's IoU, its trend and the methods' agreement (as
+// text: no charts in this story's explore mode)
 function kindStats(key) {
   const k = KD[key], f1 = FACTS.f1[key], rows = [];
   if (k.annotated) rows.push(['Marked by hand', fmt(k.annotated), 'training labels']);
   if (k.rf) rows.push(['Random forest', `F1 ${sc2(k.rf.f1)}`, `precision ${sc2(k.rf.precision)} · recall ${sc2(k.rf.recall)}`]);
   rows.push(['SegFormer', `IoU ${sc2(k.iou)}`, key === 'cyst' ? 'hard: the masks mostly miss' : 'overlap of masks']);
   if (k.trend) rows.push(['With age', `r ${rT(k.trend.rf.r)} · ${rT(k.trend.seg.r)}`, `RF p ${pT(k.trend.rf.p)} · Seg p ${pT(k.trend.seg.p)}`]);
-  if (k.compare) rows.push(['Methods agree?', `r ${rT(k.compare.r)}`, `p ${pT(k.compare.p)}`]);
+  if (k.compare) rows.push(['Methods agree', `r ${rT(k.compare.r)}`, `donor by donor · p ${pT(k.compare.p)}`]);
   const note = f1 && f1.printed !== f1.computed ? `F1 ${sc2(f1.printed)} as the poster prints it; its precision and recall give ${sc2(f1.computed)} (asked of the authors).` : '';
   return { rows, note };
 }
@@ -244,25 +240,25 @@ function renderObjects() {
   let h = `<p class="sub">The four kinds of object the poster counts, and cysts, which only the segmentation looks for. Pick one, or point at one on the section.</p>
     <div class="chips">${KINDS.map(q => chip(`data-act="kind" data-v="${q}"`, esc(Plural(q)), k === q, KCOL[q])).join('')}</div>`;
   if (k) {
-    const st = kindStats(k), ci = CHART.indexOf(k);
+    const st = kindStats(k);
     h += `<h3><span class="sw" style="display:inline-block;width:14px;height:14px;border-radius:3px;background:${KCOL[k]};margin-right:8px"></span>${esc(Plural(k))}</h3>
       <p class="sub">${esc(KIND_TEXT[k])}</p>
       <dl class="stats">${st.rows.map(([t, v, s]) => `<dt>${t}</dt><dd>${esc(v)}<small>${esc(s)}</small></dd>`).join('')}</dl>
       ${st.note ? `<p class="note">${esc(st.note)}</p>` : ''}
-      <p class="grp-h">Show it</p><div class="chips">${chip('data-act="view" data-v="section:section"', 'On the section', X.scene === 'section' && viewIs('section', /^section$/))}${hasOpt('organ', 'show', k) ? chip('data-act="view" data-v="organ:cut"', 'In the ovary', X.scene === 'organ') : ''}${ci >= 0 ? chip('data-act="view" data-v="charts:trends"', 'With age', X.scene === 'charts' && viewIs('charts', /trends/)) + chip('data-act="view" data-v="charts:compare"', 'Methods agree?', X.scene === 'charts' && viewIs('charts', /compare/)) : ''}</div>`;
+      <p class="grp-h">Show it</p><div class="chips">${chip('data-act="view" data-v="section:section"', 'On the section', X.scene === 'section' && viewIs('section', /^section$/))}${hasOpt('organ', 'show', k) ? chip('data-act="view" data-v="organ:cut"', 'In the ovary', X.scene === 'organ') : ''}</div>`;
   } else h += `<p class="empty">${fmt(FACTS.annotated)} objects of the four kinds were marked by hand to train the methods.</p>`;
   pane.innerHTML = h;
 }
-// the counts on the poster's trend lines at the age (objects per section, rounded), in the charts' order
+// the counts on the poster's trend lines at the age (objects per section, rounded), in the order of its trend charts
 const ageRows = () => CHART.map(q => [q, onLine(q, 'rf', X.age), onLine(q, 'seg', X.age)]);
 function renderAge() {
   const pane = $('#pane-age');
   if (!pane) return;
-  pane.innerHTML = `<p class="sub">Move the age: the ovary and the section follow the poster's trend lines, and the charts' cursor moves along.</p>
+  pane.innerHTML = `<p class="sub">Move the age: the ovary and the section follow the poster's trend lines (different donors at each age, not one ovary followed over time).</p>
     ${ageInput()}
     <p class="grp-h">On the poster's trend line at <b data-agev style="color:var(--ink)">${X.age}</b> (objects per section)</p>
     <dl class="stats" id="ageTab">${ageTable()}</dl>
-    <p class="grp-h">Show it on</p><div class="chips">${chip('data-act="scene" data-v="organ"', 'The ovary', X.scene === 'organ')}${chip('data-act="scene" data-v="section"', 'The section', X.scene === 'section')}${chip('data-act="view" data-v="charts:trends"', 'The charts', X.scene === 'charts')}</div>
+    <p class="grp-h">Show it on</p><div class="chips">${chip('data-act="scene" data-v="organ"', 'The ovary', X.scene === 'organ')}${chip('data-act="scene" data-v="section"', 'The section', X.scene === 'section')}</div>
     <p class="note">The two methods count differently (random forest, segmentation); the lines are the poster's. The ovary and the section are drawn to follow them, not to scale.</p>`;
 }
 const ageTable = () => ageRows().map(([q, r, s]) => `<dt><span class="sw" style="display:inline-block;width:10px;height:10px;border-radius:2px;background:${KCOL[q]};margin-right:6px"></span>${esc(Plural(q))}</dt><dd>${fmt(r)} · ${fmt(s)}<small>random forest · segmentation</small></dd>`).join('');
@@ -280,7 +276,7 @@ function renderMethods() {
     <div class="chips">${chip('data-act="method" data-v="rf"', '1 · Tiles and a random forest', rf)}${chip('data-act="method" data-v="seg"', '2 · SegFormer\'s masks', !rf)}</div>
     <h3>${esc(m.title)}</h3><p>${esc(m.steps.join(' → '))}.</p>
     <div class="chips">${rf ? chip('data-act="view" data-v="section:tiles"', 'Tiles and features', X.scene === 'section' && viewIs('section', /tiles/)) + chip('data-act="view" data-v="section:forest"', 'The vote', X.scene === 'section' && viewIs('section', /forest/))
-      : chip('data-act="view" data-v="section:masks"', 'The masks', X.scene === 'section' && viewIs('section', /masks/))}${chip('data-act="view" data-v="charts:scores"', 'Scores as bars', X.scene === 'charts' && viewIs('charts', /scores/))}</div>
+      : chip('data-act="view" data-v="section:masks"', 'The masks', X.scene === 'section' && viewIs('section', /masks/))}</div>
     <dl class="stats">${kinds.map(q => `<dt><span class="sw" style="display:inline-block;width:10px;height:10px;border-radius:2px;background:${KCOL[q]};margin-right:6px"></span>${esc(Plural(q))}</dt><dd>${rf ? `F1 ${sc2(KD[q].rf.f1)}<small>precision ${sc2(KD[q].rf.precision)} · recall ${sc2(KD[q].rf.recall)}</small>` : `IoU ${sc2(KD[q].iou)}`}</dd>`).join('')}</dl>
     <p class="note">${rf ? 'Precision: of the tiles called follicle, how many are one. Recall: of the follicles, how many were found. F1: the two in one number. 1 is perfect.'
       : `IoU: how far a predicted mask and the true one overlap (1 is perfect). Cysts, found only by the segmentation, score just ${sc2(KD.cyst.iou)}: hard.`}</p>`;

@@ -11,11 +11,8 @@ const NARRATION_SYNC = [
   [53.7, 45], [55, 46.2], [61.1, 49], [67.1, 54.5], [78, 63],  // Donors
   [96.7, 80], [98, 81.18], [98.8, 81.2], [106.3, 86], [138.2, 115], [144.7, 120],  // Section
   [154.4, 125], [155.1, 125.6], [156.9, 127], [209.3, 174.6], [223.4, 178],  // Methods
-  [232.4, 185], [233, 185.6], [234.1, 186.2], [244.2, 195], [284.9, 232], [290.7, 236],
-  [291.3, 236.6], [300.4, 240],                       // Age
-  [310.1, 245], [311.4, 246.18], [312.2, 246.2], [329.6, 262], [333.2, 265], [342, 273],  // Agree?
-  [352.8, 280], [353.5, 280.6], [354.6, 281.2], [363.1, 289], [367.8, 292.5], [374, 298.1],
-  [383.4, 302], [390.3, 306], [390.9, 306.6], [412.6, 309], [414.2, 310.5], [421.5, 315],  // Next
+  [232.4, 185], [233, 185.6], [300, 225],             // Age (provisional: run tools/pace.mjs)
+  [300.6, 225.6], [370, 270],                         // Next (provisional)
 ];
 // recording time -> original story time
 function storyT(t) {
@@ -40,9 +37,8 @@ const CH = [
   { key: 'donors', name: 'Donors', a: 45, b: 80 },
   { key: 'section', name: 'Section', a: 80, b: 125 },
   { key: 'methods', name: 'Methods', a: 125, b: 185 },
-  { key: 'trends', name: 'Age', a: 185, b: 245 },
-  { key: 'agree', name: 'Agree?', a: 245, b: 280 },
-  { key: 'network', name: 'Next', a: 280, b: 315 },
+  { key: 'trends', name: 'Age', a: 185, b: 225 },
+  { key: 'network', name: 'Next', a: 225, b: 270 },
 ];
 CH.forEach(c => { c.na = narrT(c.a); c.nb = narrT(c.b); }); // chapter times on the recording's clock
 const C = Object.fromEntries(CH.map(c => [c.key, c]));
@@ -94,11 +90,11 @@ const fitShift = (k, name) => { const f = GL.sets[k].cam[name] && FIT[k] && FIT[
 const SEC = [0, 0, 0.6, -0.22];
 const FIT = { organ: { default: [0, 0, 0.5, -0.2], face: [0, 0, 1.0, -0.5], open: [0, 0, 0.5, -0.2], whole: [0, 0, 0.4, -0.15] },
   section: { default: SEC, pair: [0, 0, 1.05, -0.25], tiles: SEC, mask: SEC, net: [0, 0, 0.9, -0.2], forest: [0, 0, 1.0, -0.2] },
-  charts: { default: [0, 0, 0.5, -0.2], trends: [0, 0, 0.5, -0.2], hist: [0, 0, 0.5, -0.2], fan: [0, 0, 0.5, -0.2], scores: [0, 0, 0.5, -0.25], side: [0, 0, 1.0, -0.2], focus: [0, 0, 1.4, -0.32] } };
+  charts: { default: [0, 0, 0.5, -0.2], hist: [0, 0, 0.5, -0.2], fan: [0, 0, 0.5, -0.2] } };
 // how much further back a view stands on a phone held upright (see narrowK): the wide ones, whose parts reach
 // across the screen
 const NARROW = { organ: { default: 1.15, face: 1.15, open: 1.15 }, section: { default: 1.2, pair: 1.3, tiles: 1.2, mask: 1.2, net: 1.2, forest: 1.3 },
-  charts: { default: 1.2, trends: 1.2, hist: 1.25, fan: 1.25, scores: 1.3, side: 1.35 } };
+  charts: { default: 1.25, hist: 1.25, fan: 1.25 } };
 const narrowOf = (k, name) => (NARROW[k] && NARROW[k][name]) || 1;
 // a set's anchor point, in the set's own coordinates
 function anchorOf(k, at) {
@@ -114,7 +110,7 @@ function anchorOf(k, at) {
 const OD = OVARY_DATA, TRD = OVARY_TREND;
 const KD = Object.fromEntries(OD.kinds.map(k => [k.key, k]));
 // the four kinds both methods find, in the poster's table order (vessel, macrophage, albicans, follicle); the cyst only
-// the segmentation finds; the charts' 2 x 2 order (vessel, albicans, follicle, macrophage)
+// the segmentation finds; the order of the poster's trend charts (vessel, albicans, follicle, macrophage), for lists
 const KINDS4 = OD.kinds.filter(k => !k.segOnly).map(k => k.key), KINDS = OD.kinds.map(k => k.key), CHART = OD.chartOrder;
 // each kind's color: the poster's, lifted for the dark scene and the headset's panel (OVARY_LOOK.GLOW)
 const toHex = c => '#' + c.map(v => Math.round(clamp(v, 0, 1) * 255).toString(16).padStart(2, '0')).join('');
@@ -139,11 +135,21 @@ const FACTS = (() => {
   // the age at which the follicle lines reach none (each method's, averaged; said to the nearest five years)
   const z = ['rf', 'seg'].map(m => D.trends.follicle[m].zeroAge).filter(Number.isFinite);
   const ps = KINDS4.map(k => KD[k].compare.p);
+  // the trends with age (eight: four kinds by two methods): those with p of 0.05 or more are no trend; the others' p sum
+  // up as "below" the first of 0.001, 0.01, 0.05 above their largest
+  const tr = KINDS4.flatMap(k => ['rf', 'seg'].map(m => KD[k].trend[m])), sig = tr.filter(t => t.p < 0.05);
+  const pTop = sig.length ? Math.max(...sig.map(t => t.p)) : 1;
+  // the follicles: the share of donors with none in their section in the last decade (each method's, read off the
+  // figures, averaged; said to the nearest 5 %)
+  const zs = ['rf', 'seg'].map(m => D.trends.follicle[m].zero), last = zs[0].length - 1;
   return {
     donors: D.facts.donors, ages: D.facts.ages, data: D.facts.data, scale: D.facts.scale, bars: H.counts.length, width: H.width, over40: over(40),
     annotated: KINDS4.reduce((s, k) => s + KD[k].annotated, 0), zeroAt: z.length ? Math.round(z.reduce((s, v) => s + v, 0) / z.length / 5) * 5 : null,
     birth: B.atBirth, puberty: B.atPuberty, menopause: B.atMenopause, menoAge: B.menopauseAge, future: D.message.future,
     pMin: Math.min(...ps), pMax: Math.max(...ps), f1: D.checks.f1,
+    zeroRaw: z.length ? z.reduce((s, v) => s + v, 0) / z.length : null,
+    noTrend: tr.length - sig.length, pBelow: [0.001, 0.01, 0.05].find(x => pTop < x) || null,
+    noneDecade: 20 + 10 * last, nonePct: Math.round(zs.reduce((s, a) => s + a[last], 0) / zs.length * 20) * 5,
   };
 })();
 const listOf = a => (a.length < 2 ? a.join('') : a.slice(0, -1).join(', ') + ' and ' + a[a.length - 1]);
@@ -175,6 +181,18 @@ function buildStory() {
   // panel cannot scroll, so no chapter shows more than fits at once
   const turns = (...parts) => `<div style="display:grid">${parts.map(p => `<div style="grid-area:1/1">${p}</div>`).join('')}</div>`;
   const fol = KD.follicle, ves = KD.vessel, alb = KD.albicans, mac = KD.macrophage, cyst = KD.cyst;
+  // a trend in words: both methods' r below 0, 'fall'; above, 'rise' (the poster's r); per method, 'no trend' where its
+  // p is 0.05 or more
+  const trendDir = k => (k.trend.rf.r < 0 && k.trend.seg.r < 0 ? 'fall' : k.trend.rf.r > 0 && k.trend.seg.r > 0 ? 'rise' : '');
+  const trendBy = (k, m) => { const t = k.trend[m]; return `${t.p >= 0.05 ? 'no trend' : t.r < 0 ? 'falling' : 'rising'} by ${m === 'rf' ? 'the random forest' : 'segmentation'} (r ${rT(t.r)}${t.p >= 0.05 ? `, p ${pT(t.p)}` : ''})`; };
+  // the methods' agreement donor by donor (the poster's comparison r), well (r 0.7 or more) and less; where the
+  // segmentation's fitted line runs below the diagonal for all the less (read slopes below 1), it finds fewer
+  const agreeText = () => {
+    const ag = KINDS4.slice().sort((p, q) => KD[q].compare.r - KD[p].compare.r), well = ag.filter(k => KD[k].compare.r >= 0.7), less = ag.filter(k => KD[k].compare.r < 0.7);
+    const rl = (ks, first) => listOf(ks.map((k, i) => `${plural(k)} (${first && !i ? 'r ' : ''}${rT(KD[k].compare.r)})`));
+    const fewer = less.length && less.every(k => OD.compare[k] && OD.compare[k].slope < 1) ? ': the segmentation finds fewer' : '';
+    return well.length && less.length ? `Donor by donor the methods agree on ${rl(well, true)}, less on ${rl(less)}${fewer}.` : `Donor by donor the methods agree on ${rl(ag, true)}.`;
+  };
   const html = {
     title: `<svg class="route-mark" viewBox="0 0 360 44" aria-hidden="true"><path id="titleArc" d="M8 36 Q180 -16 352 36" fill="none" stroke="var(--red)" stroke-width="2.2" stroke-linecap="round" pathLength="1" stroke-dasharray="1" stroke-dashoffset="1"/><circle cx="8" cy="36" r="4.5" fill="var(--red)"/><circle cx="352" cy="36" r="4.5" fill="var(--red)" id="titleDot" opacity="0"/></svg>
       <h1 data-at="1.2">The aging ovary</h1>
@@ -212,35 +230,27 @@ function buildStory() {
         <p data-at="49">How good are they? Precision: of the tiles called follicle, how many are one. Recall: of the follicles, how many were found. F1: the two in one number. IoU: how far a predicted mask and the true one overlap. 1 is perfect.</p>
         <p class="note" data-at="53">Random forest F1: ${KINDS4.map(k => `${plural(k)} ${sc2(KD[k].rf.f1)}`).join(', ')}. SegFormer IoU: ${KINDS4.map(k => `${plural(k)} ${sc2(KD[k].iou)}`).join(', ')}; cysts, which only the segmentation finds, just ${sc2(cyst.iou)}: hard.</p>`)}`,
     trends: `<h2 data-at="0.6">Trends with age</h2>
-      ${turns(`<p data-at="1.2" data-out="46.5">Count each kind in every donor's section by both methods (RF: random forest; Seg: segmentation) and set the counts against age. On the left, the ovary ages along.</p>
+      ${turns(`<p data-at="1.2" data-out="30.5">Count each kind in every donor's section by both methods, RF (random forest) and Seg (segmentation), and set the counts against age: different donors at each age, not one ovary followed over time. This ovary ages along the poster's lines.</p>
         <ul class="steps">
-          ${step(10, 46.5, KCOL.follicle, `${Plural('follicle')} fall`, `toward none by about ${F.zeroAt} · RF r ${rT(fol.trend.rf.r)}, Seg r ${rT(fol.trend.seg.r)}`)}
-          ${step(18, 46.5, KCOL.vessel, `${Plural('vessel')} fall`, `RF r ${rT(ves.trend.rf.r)}, Seg r ${rT(ves.trend.seg.r)}`)}
-          ${step(26, 46.5, KCOL.albicans, `${Plural('albicans')} rise`, `the scars pile up · RF r ${rT(alb.trend.rf.r)}, Seg r ${rT(alb.trend.seg.r)}`)}
-          ${step(34, 46.5, KCOL.macrophage, Plural('macrophage'), `flat by the random forest (r ${rT(mac.trend.rf.r)}), falling by segmentation (r ${rT(mac.trend.seg.r)})`)}
-        </ul>`,
-      `<p data-at="47">${Plural('follicle')} up close: both lines reach none by about ${F.zeroAt}. The band holds most of the dots.</p>
-        <p class="note" data-at="51">r runs from −1 to +1: below 0, fewer with age; above 0, more; near 0, no trend. A small p means a trend this strong would rarely come about by chance.</p>
-        <p class="credits" data-at="55">The lines, r and p are the poster's. The dots are drawn to match the poster's trends, not the donors' values. The ovary's counts follow the lines.</p>`)}`,
-    agree: `<h2 data-at="0.6">Do the methods agree?</h2>
-      <p data-at="1.2">On the poster each donor is one dot: the random forest's count across, the segmentation's up. On the dashed diagonal both would count the same.</p>
-      <ul class="steps">
-        ${step(10, 0, KCOL.follicle, `${Plural('follicle')} · r ${rT(fol.compare.r)}`, 'agree well')}
-        ${step(13, 0, KCOL.vessel, `${Plural('vessel')} · r ${rT(ves.compare.r)}`, 'agree well')}
-        ${step(17, 0, KCOL.albicans, `${Plural('albicans')} · r ${rT(alb.compare.r)}`, 'agree less: the segmentation finds far fewer')}
-        ${step(20, 0, KCOL.macrophage, `${Plural('macrophage')} · r ${rT(mac.compare.r)}`, 'agree less: the segmentation finds fewer')}
-      </ul>
-      <p class="amber" data-at="24">Two methods, one picture of aging: fewer follicles and vessels, more scars.</p>
-      <p class="credits" data-at="28">r and p as on the poster (p from ${pT(F.pMax)} down to ${pT(F.pMin)}). The dots are drawn to match, not the donors' values or how many donors each chart has.</p>`,
+          ${step(7, 30.5, KCOL.follicle, `${Plural('follicle')} ${trendDir(fol)}`, `RF r ${rT(fol.trend.rf.r)}, Seg r ${rT(fol.trend.seg.r)} · the lines reach none by about ${F.zeroAt}; in their ${F.noneDecade}s about ${F.nonePct}% of donors have none in their section`)}
+          ${step(12, 30.5, KCOL.vessel, `${Plural('vessel')} ${trendDir(ves)}`, `RF r ${rT(ves.trend.rf.r)}, Seg r ${rT(ves.trend.seg.r)}`)}
+          ${step(17, 30.5, KCOL.albicans, `${Plural('albicans')} ${trendDir(alb)}`, `the scars pile up · RF r ${rT(alb.trend.rf.r)}, Seg r ${rT(alb.trend.seg.r)}`)}
+          ${step(22, 30.5, KCOL.macrophage, Plural('macrophage'), `${trendBy(mac, 'rf')}, ${trendBy(mac, 'seg')}; not drawn in this ovary`)}
+        </ul>
+        <p class="note" data-at="26" data-out="30.5">Compare each method with itself over the years: they count in their own ways.${F.pBelow ? ` ${F.noTrend ? 'Every other' : 'Every'} trend has p below ${F.pBelow}.` : ''}</p>`,
+      `<p data-at="31">${esc(agreeText())}</p>
+        <p class="note" data-at="34.5">r runs from −1 to +1: below 0, fewer with age; above 0, more; near 0, no trend. A small p means a trend this strong would rarely come about by chance.</p>
+        <p class="credits" data-at="37.5">r and p are the poster's (the agreement's p from ${pT(F.pMax)} down to ${pT(F.pMin)}). The tags on the ovary give each method's count on the poster's lines, read off its figures: approximate. The ovary is drawn to follow them, not to scale.</p>`)}`,
     network: `<h2 data-at="0.6">Next: a network</h2>
-      ${turns(`<p data-at="1.2" data-out="17">Where things lie matters too. Make each object a node, and link objects that lie close together: a spatial neighbor network.</p>
-        <p data-at="9" data-out="17">As the ovary ages, the network changes: follicles' nodes go, scars' nodes come.</p>
-        <p class="note" data-at="12.5" data-out="17">Drawn as an illustration of the poster's next step, not its result.</p>`,
-      `<p data-at="17.5">Next, the authors plan to ${esc(listOf(F.future))}.</p>
-        <p class="amber" data-at="22">This is where network medicine comes in: as in Tissue and time, a tissue becomes a network of neighbors.</p>
-        <p class="credits" data-at="26">${esc(creditText())}</p>
-        <p data-at="29"><button class="btn primary" id="btnGoExplore" type="button">Explore the ovary</button></p>
-        <p class="credits" data-at="30.5">Drawn, not GTEx images: the ovary, the slides and the sections. Illustrative: the dots of the charts and the network.</p>`)}`,
+      ${turns(`<p data-at="1.2" data-out="29.5">Where things lie matters too. Make each object a node, and link objects that lie close together: a spatial neighbor network.</p>
+        <p class="note" data-at="5" data-out="29.5">Drawn as an illustration of the poster's next step, not its result.</p>
+        <p data-at="11" data-out="29.5">Gather the nodes by kind and the links become bands: which kinds lie next to which.</p>
+        <p data-at="19.5" data-out="29.5">As the ovary ages, the network changes: follicles' nodes go, scars' nodes come.</p>`,
+      `<p data-at="30">Next, the authors plan to ${esc(listOf(F.future))}.</p>
+        <p class="amber" data-at="34.5">This is where network medicine comes in: as in Tissue and time, a tissue becomes a network of neighbors.</p>
+        <p class="credits" data-at="38.5">${esc(creditText())}</p>
+        <p data-at="41.5"><button class="btn primary" id="btnGoExplore" type="button">Explore the ovary</button></p>
+        <p class="credits" data-at="43">Drawn, not GTEx images: the ovary, the slides and the sections. Illustrative: the network. The tags on the ovary are each method's count on the poster's lines, read off its figures: approximate.</p>`)}`,
   };
 
   const story = $('#story');
@@ -263,10 +273,10 @@ function buildStory() {
     wp.push([t, ...v, ease, frameOf(k), narrowOf(k, name), fitShift(k, name)]);
   };
   start({ body_pet: 1, body_net: 0, body_state: 0, body_blank: 0,
-    organ_grow: 0, organ_body: 1, organ_open: 0, organ_age: 25, organ_side: 0, organ_follicle: 0, organ_albicans: 0, organ_vessel: 0, organ_luteum: 0, organ_parts: 0, organ_agelab: 0,
+    organ_grow: 0, organ_body: 1, organ_open: 0, organ_age: 25, organ_follicle: 0, organ_albicans: 0, organ_vessel: 0, organ_luteum: 0, organ_parts: 0, organ_agelab: 0, organ_counts: 0,
     section_age: 26, section_pair: 0, section_vessel: 0, section_macrophage: 0, section_albicans: 0, section_follicle: 0, section_cyst: 0,
-    section_tiles: 0, section_feat: 0, section_forest: 0, section_pred: 0, section_mask: 0, section_net: 0,
-    charts_slides: 0, charts_hist: 0, charts_trend: 0, charts_sweep: 20, charts_focus: 0, charts_rf: 1, charts_seg: 1, charts_band: 0, charts_cmp: 0, charts_side: 0, charts_score: 0, charts_iou: 0 });
+    section_tiles: 0, section_feat: 0, section_forest: 0, section_pred: 0, section_mask: 0, section_net: 0, section_lift: 0, section_kinds: 0,
+    charts_slides: 0, charts_hist: 0 });
   let a, b;
   // The reserve: the tour's PET body, the ovary small in its pelvis; it grows out of the body, opens, and its parts are named
   a = C.title.a; b = C.title.b;
@@ -314,7 +324,8 @@ function buildStory() {
   ramp('section_pair', a + 35, a + 41, 0, 1);
   cam(a + 35.5, 'section', 'pair');
   cam(b - 0.5, 'section', 'pair', 6, 'spin');
-  // Two methods: tiles, their features, the forest's vote, the predictions; then SegFormer's masks; then the scores
+  // Two methods: tiles, their features, the forest's vote, the predictions; then SegFormer's masks, and the scores as tags
+  // on the masked section's own objects (story labels, below)
   a = C.methods.a; b = C.methods.b;
   ramp('section_pair', a, a + 2, 1, 0);
   ramp('section_tiles', a + 2, a + 7, 0, 1);
@@ -332,52 +343,38 @@ function buildStory() {
   ramp('section_mask', a + 39.5, a + 47.5, 0, 1);
   cam(a + 39.5, 'section', 'mask', -6);
   cam(a + 47.5, 'section', 'mask', 6, 'spin');
-  hide('section', a + 48, a + 50);
-  jump('section_mask', a + 50.2, 1, 0);
-  show('charts', a + 48.5, a + 50.5);
-  ramp('charts_score', a + 49.5, a + 53, 0, 1);
-  ramp('charts_iou', a + 52, a + 55, 0, 1);
-  cam(a + 49, 'charts', 'scores', -6);
-  cam(b - 0.5, 'charts', 'scores', 6, 'spin');
-  // Trends with age: the four charts on the right sweep from 20 to 70 while the ovary on the left ages along; then the
-  // follicles up close (behind a short fade, so no other chart passes through the middle)
+  cam(b - 0.5, 'section', 'mask', 18, 'spin', [0, 10]);
+  // Trends with age: the big cut-away ovary alone ages from 20 to 70, its tags giving each method's count on the poster's
+  // lines (no charts: the r values are on the panel)
   a = C.trends.a; b = C.trends.b;
-  ramp('charts_score', a, a + 2, 1, 0); ramp('charts_iou', a, a + 2, 1, 0);
-  ramp('charts_trend', a + 1, a + 4, 0, 1);
-  ramp('charts_side', a, a + 3, 0, 1);
-  jump('organ_grow', a, 0, 1); jump('organ_body', a, 1, 0); jump('organ_side', a, 0, 1); jump('organ_agelab', a, 0, 1); jump('organ_age', a, 25, 20);
+  hide('section', a, a + 2);
+  jump('section_mask', a + 2.2, 1, 0);
+  jump('organ_body', a, 1, 0); jump('organ_agelab', a, 0, 1); jump('organ_age', a, 25, 20);
   show('organ', a + 1, a + 3);
-  ramp('charts_sweep', a + 5, a + 46, 20, 70);
-  ramp('organ_age', a + 5, a + 46, 20, 70);
-  cam(a + 1, 'charts', 'side', -6);
-  cam(a + 46, 'charts', 'side', 6, 'spin');
-  ramp('charts_a', a + 46.3, a + 47.3, 1, 0); hide('organ', a + 46.3, a + 47.3);
-  jump('charts_focus', a + 47.4, 0, 3); jump('charts_side', a + 47.4, 1, 0); jump('charts_band', a + 47.4, 0, 1);
-  ramp('charts_a', a + 47.5, a + 49, 0, 1);
-  cam(a + 47.4, 'charts', 'focus');
-  cam(b - 0.5, 'charts', 'focus', 8, 'spin');
-  // Do the methods agree: all four charts again (behind a short fade), then they turn into the comparisons
-  a = C.agree.a; b = C.agree.b;
-  ramp('charts_a', a, a + 1, 1, 0);
-  jump('charts_focus', a + 1.1, 3, 0); jump('charts_band', a + 1.1, 1, 0);
-  ramp('charts_a', a + 1.2, a + 2.5, 0, 1);
-  ramp('charts_cmp', a + 3, a + 10, 0, 1);
-  cam(a + 1.1, 'charts', 'trends', -6);
-  cam(b - 0.5, 'charts', 'trends', 8, 'spin');
-  // Next, a network: the illustrative spatial neighbor network over the section, changing as it ages from 25 to 65
+  ramp('organ_counts', a + 3, a + 5, 0, 1);
+  ramp('organ_age', a + 5, a + 37, 20, 70);
+  cam(a + 1, 'organ', 'default', -8);
+  cam(a + 14, 'organ', 'default', 6, 'spin');
+  cam(a + 19, 'organ', 'face', -4);
+  cam(b - 0.5, 'organ', 'face', 8, 'spin');
+  // Next, a network: the illustrative spatial neighbor network over the section; it tips back, its nodes rise off it and
+  // gather into hubs by kind, the links into bands between kinds; then it ages from 25 to 65
   a = C.network.a; b = C.network.b;
-  hide('charts', a, a + 2);
+  hide('organ', a, a + 2);
+  jump('organ_counts', a + 2.2, 1, 0); jump('organ_agelab', a + 2.2, 1, 0);
   jump('section_age', a, 26, 25);
   show('section', a + 0.5, a + 2.5);
-  ramp('section_net', a + 2, a + 10, 0, 1);
-  ramp('section_age', a + 12, a + 28, 25, 65);
+  ramp('section_net', a + 2, a + 9, 0, 1);
+  ramp('section_lift', a + 10, a + 14, 0, 1);
+  ramp('section_kinds', a + 14.5, a + 19, 0, 1);
+  ramp('section_age', a + 20, a + 36, 25, 65);
   cam(a + 1, 'section', 'net', -6);
-  cam(a + 12, 'section', 'net', 2, 'spin');
-  cam(b, 'section', 'net', 8, 'spin');
+  cam(a + 9.5, 'section', 'net', 2, 'spin');
+  cam(a + 16, 'section', 'kinds');
+  cam(a + 20, 'section', 'kinds', -4);
+  cam(b, 'section', 'kinds', 10, 'spin');
   for (const n in TR) TR[n].sort((x, y) => x[0] - y[0]);
   buildCamera(wp);
-  // the ovary beside the charts takes their turn (the two are one picture there)
-  ST.side = [C.trends.a - 1, C.trends.b];
 
   // --------------------------------------------------------- story labels
   // (the sets label their own parts; the story adds what the scene alone does not say)
@@ -388,6 +385,15 @@ function buildStory() {
   a = C.section.a;
   [['vessel', 6, 11.5, 'cyn'], ['macrophage', 12, 17.5, 'grn'], ['albicans', 18, 23.5, 'mag'], ['follicle', 24, 30.5, 'amb']].forEach(([k, t0, t1, cls]) =>
     label('section', k, `<b>${esc(cap(KD[k].name))}</b>${fmt(KD[k].annotated)} marked`, a + t0 + 0.5, a + t1, cls));
+  // the scores as tags on the masked section's own objects: the random forest's F1 and SegFormer's IoU (the poster's)
+  a = C.methods.a; b = C.methods.b;
+  [['follicle', 49.5, 'amb'], ['vessel', 50.3, 'cyn'], ['macrophage', 51.1, 'grn'], ['albicans', 51.9, 'mag'], ['cyst', 53.5, '']].forEach(([k, t0, cls]) =>
+    label('section', k, `<b>${esc(cap(KD[k].name))}</b>${KD[k].rf ? `F1 ${sc2(KD[k].rf.f1)} · ` : ''}IoU ${sc2(KD[k].iou)}${k === 'cyst' ? ': the mask misses most of it' : ''}`, a + t0, b, cls));
+  // the hubs of the network by kind, named (the follicles' until their hub has gone, as the lines reach none)
+  a = C.network.a; b = C.network.b;
+  const ageReach = v => { for (let t = a; t <= b; t += 0.1) if (evalTrack('section_age', t) >= v) return t; return b; };
+  [['vessel', 'cyn'], ['macrophage', 'grn'], ['albicans', 'mag'], ['follicle', 'amb'], ['cyst', '']].forEach(([k, cls]) =>
+    label('section', 'hub_' + k, `<b>${esc(Plural(k))}</b>`, a + 18, k === 'follicle' && F.zeroRaw ? ageReach(F.zeroRaw - 1.5) : b + 1, cls));
 }
 // camera waypoints: [t, az, el, dist, tx, ty, tz, ease, set, narrow factor, FIT's target shift]; 'spin' segments turn at
 // a steady pace.
@@ -422,10 +428,10 @@ function buildCamera(wp) {
   });
 }
 // the turn a set has at story time t: that of its latest stay on show (it starts fading in a little before its first view)
-// (the body and the ovary share one turn: one frame; beside the charts, the ovary takes theirs)
+// (the body and the ovary share one turn: one frame)
 function setYaw(k, t) {
   let c = 0;
-  const f = frameOf(k) === 'organ' && ST.side && t >= ST.side[0] && t <= ST.side[1] ? 'charts' : frameOf(k);
+  const f = frameOf(k);
   for (const y of ST.yaw) if (y.k === f && y.t0 - 6 <= t) c = y.c;
   return c;
 }
@@ -483,7 +489,7 @@ function buildSetLabels() {
       fn, tx: fn ? b + '|' + r : '', none: !b && !r });
   }
 }
-// a label whose text is a function (the ovary's age, the charts' r) is read again while it shows and redrawn when it
+// a label whose text is a function (the ovary's age and counts) is read again while it shows and redrawn when it
 // changes: the HTML label, and the headset's sprite (dropped, so it is made again)
 function labelText(L) {
   if (!L.fn) return;

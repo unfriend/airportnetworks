@@ -1,6 +1,6 @@
 # `organ`: the ovary in 3D (file `sets/organ.js`)
 
-A large cut-away ovary for chapter 1 and the age sweep of chapter 5, and the same ovary small in the tour's body for the
+A large cut-away ovary for chapter 1 and the age sweep of chapter 5 (Age), and the same ovary small in the tour's body for the
 first shot. Lit 3D throughout (no flat cards). Sizes are exaggerated where a real one would be invisible (primordial
 follicles are about 0.04 mm; here they are specks): say "drawn", never "to scale".
 
@@ -45,11 +45,11 @@ years). The ovary shrinks by 16 % from 45 to 68. `shown(age)` gives what the mod
 | `organ_follicle`, `organ_albicans`, `organ_vessel`, `organ_luteum` | 0..1, 0 | picked out in the poster's colors (lifted for the dark scene; the luteum golden), glowing a little; the rest dims |
 | `organ_parts` | 0..1, 0 | the part labels |
 | `organ_agelab` | 0..1, 0 | the age readout label ("Age · 35 years", a function label) |
-| `organ_side` | 0..1, 0 | moves the ovary to the left (x −0.66) at 0.55 of its size, for the charts beside it |
+| `organ_counts` | 0..1, 0 | three tags with each method's count on the poster's line at `organ_age` (function labels, see below) |
 
 Suggested keyframes: chapter 1: `body_pet` 1 with `organ_body` 1, `organ_grow` 0, `organ_open` 0 (cam `pelvis`), then
-`organ_grow` 0->1 (body fading), `organ_open` 0->1, `organ_parts` 1 (cams `default`, `face`, `cortex`). Chapter 5:
-`organ_side` 1, `organ_agelab` 1, `organ_age` 20->70 with the charts' sweep.
+`organ_grow` 0->1 (body fading), `organ_open` 0->1, `organ_parts` 1 (cams `default`, `face`, `cortex`). Chapter 5
+(Age): the ovary alone, `organ_agelab` 1, `organ_counts` 1, `organ_age` 20->70 (cams `default`, `face`).
 
 ## Anchors, labels, cams, controls
 
@@ -58,7 +58,11 @@ Suggested keyframes: chapter 1: `body_pet` 1 with `organ_body` 1, `organ_grow` 0
   scar there earliest), `vessel`, `hilum`, `surface`, `blister`, `top`, `age`, `small` (the ovary's centre), `pelvis`.
 - Labels (with `organ_parts`, once grown and open): Cortex "where the follicles are", Medulla "vessels, loose tissue",
   Follicle "fluid-filled" (while it shows), Primordial follicles "the reserve" (until about 50), Corpus albicans "a pale
-  scar", Corpus luteum (until 50); the age readout with `organ_agelab`.
+  scar", Corpus luteum (until 50); the age readout with `organ_agelab`; with `organ_counts` three tags at `follicle`,
+  `albicans` and `vessel`: "Follicles · RF 32 · Seg 43", "Corpora albicantia · RF 75 · Seg 16", "Blood vessels · RF
+  1,000 · Seg 1,090" at 20 (`OVARY_TREND.line` per method at the age, rounded: whole numbers under 100, the nearest ten
+  above; "none left on the lines" once both lines are about zero, the follicles from about 59). The lines are read off
+  the poster's figures: say approximate. Macrophages have no tag (not drawn in this ovary; the two methods disagree).
 - Cam: `default` [24, 14, 3.5], `face` (the cut face square on), `cortex` (close on the largest follicle), `medulla`,
   `whole` (the intact end), `open` (for the wedge lifting), `pelvis` (the body's pelvis, close), `body` (the whole body).
 - Controls: View (Cut open, Closed, In the body), Age (20, 30, 40, 50, 60, 70), Show (All, Follicles, Scars, Vessels).
@@ -69,7 +73,8 @@ Suggested keyframes: chapter 1: `body_pet` 1 with `organ_body` 1, `organ_grow` 0
   luteum, which shrinks to a pale scar, the corpus albicans, so scars pile up over the years; about one to two million
   follicles at birth, about 300,000 to 400,000 at puberty, about a thousand at menopause (on average around 51)
   (`OVARY_DATA.background`). The model's counts follow the poster's trend lines.
-- Do not say the model is to scale, or that its counts are measured: it is drawn, the counts follow the lines.
+- Do not say the model is to scale, or that its counts are measured: it is drawn, the counts follow the lines. The
+  tags' numbers are the lines' (read off the figures, approximate), not counts of this drawn ovary.
 
 Performance: about 60,000 to 82,000 triangles and 6 or 7 draw calls when shown (the pelvis and partner only while
 small), 560 points; construction about 100 ms, the meshes about 0.3 s more between frames.

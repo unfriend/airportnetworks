@@ -4,7 +4,8 @@
 // follicles cut open: a fluid-filled antrum lined with granulosa cells, an oocyte on its mound), a corpus luteum and
 // pale scars (corpora albicantia), the medulla with coiled blood vessels running in from the hilum. The age (20 to 70)
 // thins the follicles and adds scars along the poster's trend lines (OVARY_TREND.level: follicles near none by about
-// 60), a cut follicle closing as its floor rises; the vessels thin a little and the ovary shrinks. It also sits small in
+// 60), a cut follicle closing as its floor rises; the vessels thin a little and the ovary shrinks. Tags give each
+// method's count on the poster's lines at the age (organ_counts). It also sits small in
 // the tour's body (the body set's frame, at the ovary's place, beside its partner and the uterus) and grows out of it,
 // and the front wedge of the cut lifts away. The organ's two meshes build between frames (idle, finish).
 SETS.organ = function (K) {
@@ -380,6 +381,14 @@ void main() { gl_FragColor = vec4(litC(vC, normalize(vN), normalize(vV), normali
     pelvis: [0, -0.07, 0.02],
   };
   let ageNow = 30, gNow = 1;
+  // the counts on the poster's lines at the age, as the tags give them (organ_counts): each method's line (OVARY_TREND),
+  // whole numbers under 100, the nearest ten above; none once both lines are about zero (read off the poster's figures:
+  // approximate)
+  const tagN = c => (c < 99.5 ? Math.round(c) : Math.round(c / 10) * 10).toLocaleString('en-US');
+  const countTag = k => {
+    const name = OVARY_DATA.kinds[KI[k]].plural, r = T.line(k, 'rf', ageNow), s = T.line(k, 'seg', ageNow);
+    return [name.charAt(0).toUpperCase() + name.slice(1), r < 0.5 && s < 0.5 ? 'none left on the lines' : `RF ${tagN(r)} · Seg ${tagN(s)}`];
+  };
   const visOf = (from, until) => prog(ageNow, from - 1.5, from + 1.5) * (1 - prog(ageNow, until - 1.5, until + 1.5));
 
   // ------------------------------------------------------------- update
@@ -389,10 +398,9 @@ void main() { gl_FragColor = vec4(litC(vC, normalize(vN), normalize(vV), normali
     const g = smooth(clamp(S.organ_grow, 0, 1)), age = clamp(S.organ_age, 20, 70), open = smooth(clamp(S.organ_open, 0, 1)), body = clamp(S.organ_body, 0, 1);
     ageNow = age; gNow = g; ages.value = age;
     // from small in the body (turned as it lies there) to large at the centre; the ovary shrinks with age
-    const shrink = 1 - 0.16 * smooth((age - 45) / 23), side = smooth(clamp(S.organ_side, 0, 1));
-    // (side: to the left, smaller, to make room for the charts beside it)
-    ovary.position.set(lerp(BODY_AT[0], -0.66 * side, g), lerp(BODY_AT[1], 0.02 * side, g), lerp(BODY_AT[2], 0, g));
-    ovary.scale.setScalar(Math.exp(lerp(Math.log(BODY_S), 0, g)) * shrink * (1 - 0.45 * side));
+    const shrink = 1 - 0.16 * smooth((age - 45) / 23);
+    ovary.position.set(lerp(BODY_AT[0], 0, g), lerp(BODY_AT[1], 0, g), lerp(BODY_AT[2], 0, g));
+    ovary.scale.setScalar(Math.exp(lerp(Math.log(BODY_S), 0, g)) * shrink);
     ovary.rotation.set(0, 0, BODY_ROT * (1 - g));
     // the front wedge of the cut lifts away and fades
     wedge.position.set(0.5 * open, 0.4 * open, 0.5 * open);
@@ -411,7 +419,7 @@ void main() { gl_FragColor = vec4(litC(vC, normalize(vN), normalize(vV), normali
   }
 
   return Object.assign(set, {
-    params: { organ_a: 1, organ_grow: 1, organ_body: 0, organ_open: 1, organ_age: 30, organ_side: 0, organ_follicle: 0, organ_albicans: 0, organ_vessel: 0, organ_luteum: 0, organ_parts: 0, organ_agelab: 0 },
+    params: { organ_a: 1, organ_grow: 1, organ_body: 0, organ_open: 1, organ_age: 30, organ_follicle: 0, organ_albicans: 0, organ_vessel: 0, organ_luteum: 0, organ_parts: 0, organ_agelab: 0, organ_counts: 0 },
     update,
     idle() { step(3); },
     finish() { step(Infinity); },
@@ -425,6 +433,10 @@ void main() { gl_FragColor = vec4(litC(vC, normalize(vN), normalize(vV), normali
       { text: ['Corpus albicans', 'a pale scar'], at: 'albicans', cls: 'grn', alpha: S => S.organ_parts * prog(S.organ_grow, 0.85, 1) * prog(S.organ_open, 0.7, 1) * visOf(scar0.from, 999) },
       { text: ['Corpus luteum', ''], at: 'luteum', cls: 'amb', alpha: S => S.organ_parts * prog(S.organ_grow, 0.85, 1) * prog(S.organ_open, 0.7, 1) * visOf(-99, 50) },
       { text: () => ['Age', `${Math.round(ageNow)} years`], at: 'age', cls: 'cyn', alpha: S => S.organ_agelab * prog(S.organ_grow, 0.85, 1) },
+      // each method's count on the poster's line at the age (function labels, read again while they show)
+      { text: () => countTag('follicle'), at: 'follicle', cls: 'amb', alpha: S => S.organ_counts * prog(S.organ_grow, 0.85, 1) },
+      { text: () => countTag('albicans'), at: 'albicans', cls: 'mag', alpha: S => S.organ_counts * prog(S.organ_grow, 0.85, 1) },
+      { text: () => countTag('vessel'), at: 'vessel', cls: 'cyn', alpha: S => S.organ_counts * prog(S.organ_grow, 0.85, 1) },
     ],
     cam: {
       default: [24, 14, 3.5, 0.08, 0, 0], face: [4, 4, 2.6, 0.3, 0.02, 0], cortex: [10, 10, 1.15, big.x, big.y, 0],
