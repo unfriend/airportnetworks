@@ -3713,6 +3713,8 @@ function showTab(k) {
 // a tab picked by hand brings up the scene it talks about (a shared room's tab arriving does not: its scene comes with it)
 function pickTab(k) {
   showTab(k);
+  // (the Age tab's 3D is the cut-away ovary with its tags, each method's count on the poster's lines, as in the story)
+  if (k === 'age' && !(X.scene === 'organ' && viewIs('organ', /cut/))) showView('organ', 'cut');
   if (k === 'methods' && !(X.scene === 'section' && viewIs('section', /tiles|forest|masks/))) setMethod(X.method);
   renderAll();
 }
