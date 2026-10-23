@@ -45,8 +45,8 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
   shared-room test (three pages and a pretend headset in a room). All pass on main.
 - **Tried on real headsets:** the stories and their sound on Quest; shared rooms on two Quest 3 headsets in several
   rounds (what happened is in [docs/quest-shared-space-findings.md](docs/quest-shared-space-findings.md) and AGENTS.md
-  "Shared rooms"). **TO FILL (owner):** which stories have been looked at on a headset (the PET, microanatomy, ovary, qubits and
-  pass stories were not, during development).
+  "Shared rooms"). All thirteen stories, the slideshow and the headset menu on the wrist were tried on a headset in
+  October 2026, after the tests had passed on every change.
 - **Untested on a device:** lining headsets up again after standby or a night; moving and resizing scenes with the
   grips; persistent anchors restored after a restart; sound zones; comfort and frame rate with other people drawn;
   whether the connection to the relay keeps running inside a headset session. The full list ends AGENTS.md "Shared
