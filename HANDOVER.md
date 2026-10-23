@@ -96,6 +96,27 @@ Before handing over (or making anything more public), someone has to decide thes
      5. push-to-talk in the headset, with what you look at, point at and see.
 
      It was estimated at 4 to 6M tokens to build. The microphone inside a headset session is untested on Quest.
+   - **live updates**: the app picks up a release by itself without losing its place.
+     - **How it notices:** a small version file, written by a release script, lists each story file's fingerprint, the
+       shell's version, the shared-room format and the list of stories. The app checks it every minute or so, and when
+       the page comes back into view.
+     - **Taken without asking:**
+       - a new story's card appears on the Stories screen, on the page and in the headset;
+       - a changed story not on show updates quietly;
+       - the story on show is swapped in place, keeping its chapter, time, mode, explore choices and placement, or at
+         its next pause if preferred.
+     - **A dialogue first, on the page and as a headset panel**, for breaking changes: the shell (`index.html`,
+       `shared.js`, `sw.js`), a new shared-room `FORMAT`, or a story that needs a newer shell than the one running
+       (each story would say which it needs).
+     - **After a full reload:** the app saves its place, reloads and restores it. A full reload always ends a headset
+       session (entering VR needs a tap), so the headset then shows one "Enter VR to continue" button.
+     - **Groundwork:**
+       - the list of stories moves out of `index.html` into its own file;
+       - the headset Stories screen in all thirteen stories reads the number of stories instead of having it written
+         in (today "thirteen" and the card spacing are in every story's panel code).
+     - **Size:** estimated at about 3 to 4 hours of agent work and 2 to 3M tokens, the tests included (the update test
+       would cover a story added live, a story swapped in place, the dialogue and the restore). Most useful for a kiosk
+       or headsets at an event.
 
 ## How work is done
 
