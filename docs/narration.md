@@ -19,7 +19,7 @@ MP3 at the file named under each story; if your chapters start at other times, c
 | LBI Network Medicine: The future | `audio/narration-lbi.mp3` | not yet | 9:34 |
 | Rare muscle diseases: Muscle and heart | `audio/narration-nmd.mp3` | not yet | 7:47 |
 | Disease endotypes: Endotypes | `audio/narration-endo.mp3` | not yet | 7:12 |
-| Whole-body PET: One scan, one system | `audio/narration-pet.mp3` | not yet | 10:24 |
+| Whole-body PET: One scan, one system | `audio/narration-pet.mp3` | not yet | 7:02 |
 | Tissue microanatomy: Tissue and time | `audio/narration-micro.mp3` | not yet | 7:36 |
 | Ovarian aging: The aging ovary | `audio/narration-ovary.mp3` | not yet | 7:01 |
 | Quantum network compression: Three qubits | `audio/narration-qubits.mp3` | not yet | 9:04 |
@@ -609,14 +609,14 @@ File: `audio/narration-endo.mp3` (not recorded yet). Chapters: 0:00 Intro, 0:22 
 
 ## Whole-body PET: One scan, one system (`#pet`)
 
-File: `audio/narration-pet.mp3` (not recorded yet). Chapters: 0:00 Intro, 0:23 Scanner, 1:46 Sugar, 2:37 Organs, 3:23 Network, 4:39 Health, 6:23 One scan, 7:29 People, 9:10 Vision; it ends at 10:24.
+File: `audio/narration-pet.mp3` (not recorded yet). Chapters: 0:00 Intro, 0:23 Scanner, 1:48 Sugar, 2:39 Organs, 3:25 Network, 4:06 Health, 5:52 Vision; it ends at 7:02.
 
 ### 0:00 Intro
 
 - **0:01** One scan, one system
 - **0:03** the body as a metabolic network
-- **0:05** From one PET scan to a network of organs: what it says about health, disease and survival.
-- **0:13** After a paper in Med (2025) and a poster from the Division of Nuclear Medicine, Medical University of Vienna, and the LBI for Network Medicine.
+- **0:05** From one PET scan to a network of organs: what it says about health and disease.
+- **0:12** After a paper in Med (2025) and a poster from the Division of Nuclear Medicine, Medical University of Vienna, and the LBI for Network Medicine.
 
 ### 0:23 Scanner
 
@@ -625,94 +625,59 @@ File: `audio/narration-pet.mp3` (not recorded yet). Chapters: 0:00 Intro, 0:23 S
 - **0:33** After at least 6 hours without food, it goes into a vein. For about 60 minutes the person rests: cells take it up like glucose, and an enzyme, hexokinase, traps it inside.
 - **0:46** Then the scan. Around the tunnel sits a ring of detectors.
 - **0:51** A positron: fluorine-18 decays and sends one out (the electron's antimatter twin); it travels about a millimetre (drawn larger here)
-- **0:59** Two photons: it meets an electron and both vanish: two gamma photons of 511 keV (kiloelectronvolts) fly off in opposite directions
-- **1:07** A coincidence: two detectors on opposite sides of the ring register both within a few billionths of a second; the line between them, the line of response, passes close to where the sugar is
-- **1:22** Millions of such lines make the image: a map of where the body takes up sugar.
-- **1:29** The uptake is measured as the SUV, the standardised uptake value: the tracer in a tissue divided by the dose per kilogram of body weight (1 would be an even spread). Protocol as in the paper: 250 to 300 MBq (megabecquerels) of FDG.
+- **1:00** Two photons: it meets an electron and both vanish: two gamma photons of 511 keV (kiloelectronvolts) fly off in opposite directions
+- **1:08** A coincidence: two detectors on opposite sides of the ring register both within a few billionths of a second; the line between them, the line of response, passes close to where the sugar is
+- **1:23** Millions of such lines make the image: a map of where the body takes up sugar.
+- **1:30** The uptake is measured as the SUV, the standardised uptake value: the tracer in a tissue divided by the dose per kilogram of body weight (1 would be an even spread). Protocol as in the paper: 250 to 300 MBq (megabecquerels) of FDG.
 
-### 1:46 Sugar
+### 1:48 Sugar
 
-- **1:47** Where the sugar goes
-- **1:48** The tracer arrives with the blood, and within the hour it settles where cells use sugar.
-- **1:58** The brain takes up the most, and the heart often does too (how much varies from person to person). The kidneys and the bladder glow too: FDG is filtered into the urine and not taken back, so it leaves the body that way.
-- **2:17** A tumour shows as a hot spot. Such spots are mostly what a scan is read for.
-- **2:27** Yet the scan holds every organ's metabolism at once.
+- **1:49** Where the sugar goes
+- **1:50** The tracer arrives with the blood, and within the hour it settles where cells use sugar.
+- **2:00** The brain takes up the most, and the heart often does too (how much varies from person to person). The kidneys and the bladder glow too: FDG is filtered into the urine and not taken back, so it leaves the body that way.
+- **2:19** A tumour shows as a hot spot. Such spots are mostly what a scan is read for.
+- **2:29** Yet the scan holds every organ's metabolism at once.
 
-### 2:37 Organs
+### 2:39 Organs
 
-- **2:37** Every organ, measured
-- **2:39** An AI (MOOSE, an nnU-Net model) outlines up to 13 organs in each scan, in 3D, and a doctor checks them (not every organ is in every scan).
-- **2:53** Each organ's uptake is divided by that of the aorta: the blood pool, the same reference in every scan.
-- **3:02** Brain: mean of the whole brain: it lives on sugar
-- **3:07** Liver: mean of the whole liver
-- **3:11** Muscle: mean of the gluteus maximus (the buttock muscle)
-- **3:16** One scan, one row of numbers.
-- **3:18** The organs' values shown here are typical uptakes, for illustration.
+- **2:40** Every organ, measured
+- **2:41** An AI (MOOSE, an nnU-Net model) outlines up to 13 organs in each scan, in 3D, and a doctor checks them (not every organ is in every scan).
+- **2:55** Each organ's uptake is divided by that of the aorta: the blood pool, the same reference in every scan.
+- **3:05** Brain: mean of the whole brain: it lives on sugar
+- **3:09** Liver: mean of the whole liver
+- **3:14** Muscle: mean of the gluteus maximus (the buttock muscle)
+- **3:18** One scan, one row of numbers.
+- **3:21** The organs' values shown here are typical uptakes, for illustration.
 
-### 3:23 Network
+### 3:25 Network
 
-- **3:23** 658 scans
-- **3:24** The paper used 658 scans of 548 people: 241 of healthy volunteers and 417 of people with cancer (165 lung, 252 head and neck).
-- **3:32** 658: scans
-- **3:33** 11: organs in the network
-- **3:35** 7,238: values at most
-- **3:41** Which organs rise and fall together across people? Take the liver and the spleen.
-- **3:47** A plain correlation mixes direct links with links that only pass through other organs.
-- **3:53** A partial correlation first takes out what all the other organs explain, then correlates what is left: in the stand-in data, r = 0.44 becomes 0.40 (the paper's partial correlation: 0.42).
-- **4:05** The intestine and the liver: r = 0.29, but 0.00 once the other organs are taken out. The paper draws no link between them.
-- **4:14** Keep the significant ones (unlikely to be chance: p < 0.05) and draw them: blue where two organs rise together, red where one rises as the other falls.
-- **4:25** The network of all 658 scans: 11 organs, 25 links, a density of 12% (more on that next).
-- **4:31** Figure 2A of the paper. The people in the scatter plot are 658 stand-ins with the paper's partial correlations.
+- **3:26** 658 scans
+- **3:27** The paper used 658 scans of 548 people: 241 of healthy volunteers and 417 of people with cancer (165 lung, 252 head and neck).
+- **3:35** Which organs rise and fall together across people? Two are linked when they still do once all the others are taken into account (a partial correlation), and that is unlikely to be chance (p < 0.05): blue where they rise together, red where one rises as the other falls.
+- **3:56** The network of all 658 scans: 11 organs, 25 links, a density of 12% (more on that next).
+- **4:02** Figure 2A of the paper.
 
-### 4:39 Health
+### 4:06 Health
 
-- **4:40** From health to disease
-- **4:41** Split the scans into groups, and give each group its own network. Healthy people's is dense: 30% of the most possible, against 7% with cancer.
-- **4:51** Weight, in healthy people: a density of 27% below the median BMI (body mass index: weight for height), 7% above it.
-- **5:00** Above it, the brain becomes a hub: an organ with far stronger links than the rest.
-- **5:07** Two measures. Density: all links' strength together, as a share of the most possible. Disorder: how unevenly that strength is spread, from 0 (even) up (a few hubs).
-- **5:18** Inflammation (CRP, C-reactive protein, a marker of it in the blood; in thirds): density 11%, 7% and 3%; disorder 0.10, 0.17 and 0.27. In the sparse networks of the less healthy groups, muscle and subcutaneous fat dominate; here muscle becomes a hub.
-- **5:34** Stress (norepinephrine, a stress hormone, in 40 healthy people: 14% against 4%) and tumour load (18% against 8%) thin it too.
-- **5:41** And it holds: two scans within 6 weeks, an ultra-low dose, another scanner, men and women, the aorta or the vena cava as the reference: none made a significant difference, though some groups were small (21 people).
-- **5:56** Of 18 networks built from genes' activity in the tissues of 946 people, only that of hexokinase 2, an enzyme that traps FDG, resembles FDG's (r = 0.42).
-- **6:06** Table 2 and Figures 3 and 4 of the paper; networks other than that of all scans read off its figures. Disorder: 0.19 healthy, 0.29 with cancer. A hub: an organ whose strength is more than 1.7 standard deviations above the network's average (z-score).
+- **4:07** From health to disease
+- **4:09** Split the scans into groups, and give each group its own network. Healthy people's is dense: 30% of the most possible, against 7% with cancer.
+- **4:19** Weight, in healthy people: a density of 27% below the median BMI (body mass index: weight for height), 7% above it.
+- **4:27** Above it, the brain becomes a hub: an organ with far stronger links than the rest.
+- **4:34** Two measures. Density: all links' strength together, as a share of the most possible. Disorder: how unevenly that strength is spread, from 0 (even) up (a few hubs).
+- **4:46** Inflammation (CRP, C-reactive protein, a marker of it in the blood; in thirds): density 11%, 7% and 3%; disorder 0.10, 0.17 and 0.27. In the sparse networks of the less healthy groups, muscle and subcutaneous fat dominate; here muscle becomes a hub.
+- **5:02** Stress (norepinephrine, a stress hormone, in 40 healthy people: 14% against 4%) and tumour load (18% against 8%) thin it too.
+- **5:10** And it holds: two scans within 6 weeks, an ultra-low dose, another scanner, men and women, the aorta or the vena cava as the reference: none made a significant difference, though some groups were small (21 people).
+- **5:25** Of 18 networks built from genes' activity in the tissues of 946 people, only that of hexokinase 2, an enzyme that traps FDG, resembles FDG's (r = 0.42).
+- **5:35** Table 2 and Figures 3 and 4 of the paper; networks other than that of all scans read off its figures. Disorder: 0.19 healthy, 0.29 with cancer. A hub: an organ whose strength is more than 1.7 standard deviations above the network's average (z-score).
 
-### 6:23 One scan
+### 5:52 Vision
 
-- **6:23** One scan, one network
-- **6:25** So far, one network for a whole group. The next step: a network for every scan, from six organs and the aorta.
-- **6:35** Compare every organ with every other: how much more sugar does it take up?
-- **6:41** Where one outshines another by more than a threshold, draw a link. The links make this person's network.
-- **6:55** Clearance: how the kidneys handle the tracer
-- **6:58** Heterogeneity: how unevenly the links are spread: evenly, or one organ dominating
-- **7:03** Together they give a metabolic displacement index: how far, and which way, a scan's metabolism has moved. In these illustrative profiles health sits in the middle (4.6); cancer pulls it down (3.2), dyslipidaemia (unhealthy blood fats) up (5.0).
-- **7:18** Illustrative maths: the poster names Clearance, Heterogeneity and the index, but its formulas are not published yet. These are stand-ins, and so are the profiles.
-
-### 7:29 People
-
-- **7:29** 593 people, one index
-- **7:31** Every scan becomes one point, placed by its two measures. In the poster's results: cancer (282), cancer + dyslipidaemia (187), dyslipidaemia (89) and healthy (35).
-- **7:39** On the index, cancer sits low and dyslipidaemia high, with healthy people in between. These are medians: the groups overlap widely.
-- **7:49** 3.3: Cancer: median
-- **7:51** 3.9: Cancer + dyslipidaemia: median
-- **7:53** 5.2: Dyslipidaemia: median
-- **7:55** 4.5: Healthy: median
-- **8:00** Split by the index into thirds: people with cancer furthest from the healthy range had the shortest survival.
-- **8:08** Near healthy (137): median survival not reached; 80% alive after a year
-- **8:12** Intermediate (136): median survival 79 months; 84% alive after a year
-- **8:16** Remote (137): median survival 27 months; 63% alive after a year
-- **8:26** In 19 people with lung cancer given immunotherapy before surgery, the index scored higher than CRP, tumour stage or age at telling good from poor responders apart (AUC 0.91 against 0.67 at best; AUC scores how well a measure tells two groups apart: 1 is perfect, 0.5 is chance). A first hint from few people: none of these results is significant.
-- **8:50** The poster also reports that after weight-loss (bariatric) surgery (18 people), and after immunotherapy, the index moved towards the healthy range.
-- **8:59** The poster's results, as group summaries. The dots are stand-ins drawn to match them, not patients, and how far the follow-up groups move is illustrative.
-
-### 9:10 Vision
-
-- **9:10** One scan, one system
-- **9:12** One day, one routine scan might show how a whole body is doing: what lies ahead, and which medication might help.
-- **9:21** Muscle and fat could become targets for treatment (they respond to GLP-1 drugs, for blood sugar and weight), and the networks a way to follow how drugs such as metformin, statins and SGLT2 inhibitors act on metabolism.
-- **9:37** A measure of health, not only of disease. It still has to be proven in larger studies that follow people over time.
-- **9:47** Poster: Barbara K Geist, Alexander Grentner, Joel Fischer, Josef Yu, Dato Tsomaia, Adna Smajlovic, Stefan Grünert and Marcus Hacker: Division of Nuclear Medicine, Medical University of Vienna, and the LBI for Network Medicine.
-- **10:03** Geist et al., The metabolic organ connectome, Med (2025); poster: Shaping a New Era in Nuclear Medicine. Networks of all 658 scans: printed in the paper; other networks read off its figures. One-scan maths, organ values, the 658 scans in the matrix and scatter plot, and the population dots: illustrative stand-ins.
+- **5:53** One scan, one system
+- **5:55** One day, one routine scan might show how a whole body is doing: what lies ahead, and which medication might help.
+- **6:04** Muscle and fat could become targets for treatment (they respond to GLP-1 drugs, for blood sugar and weight), and the networks a way to follow how drugs such as metformin, statins and SGLT2 inhibitors act on metabolism.
+- **6:21** A measure of health, not only of disease. It still has to be proven in larger studies that follow people over time.
+- **6:30** Poster: Barbara K Geist, Alexander Grentner, Joel Fischer, Josef Yu, Dato Tsomaia, Adna Smajlovic, Stefan Grünert and Marcus Hacker: Division of Nuclear Medicine, Medical University of Vienna, and the LBI for Network Medicine.
+- **6:47** Geist et al., The metabolic organ connectome, Med (2025); poster: Shaping a New Era in Nuclear Medicine. Networks of all 658 scans: printed in the paper; other networks read off its figures. Organ values: illustrative.
 
 ## Tissue microanatomy: Tissue and time (`#micro`)
 

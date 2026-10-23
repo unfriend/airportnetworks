@@ -38,7 +38,7 @@ NARRATION_SYNC in tools/endo/engine/e3_story.js (then rebuild) if your
 recording differs.
 
 The PET story (#pet) looks for narration-pet.mp3. Its chapters start at 0:00,
-0:23, 1:46, 2:37, 3:25, 4:06 and 5:52, ending at 7:02; change
+0:23, 1:48, 2:39, 3:25, 4:06 and 5:52, ending at 7:02; change
 NARRATION_SYNC in tools/pet/engine/e3_story.js (then rebuild) if your recording
 differs.
 
