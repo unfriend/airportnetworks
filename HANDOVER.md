@@ -117,6 +117,23 @@ Before handing over (or making anything more public), someone has to decide thes
      - **Size:** estimated at about 3 to 4 hours of agent work and 2 to 3M tokens, the tests included (the update test
        would cover a story added live, a story swapped in place, the dialogue and the restore). Most useful for a kiosk
        or headsets at an event.
+   - **shared rooms without a relay (peer to peer)**, so the copy on GitHub Pages has multiplayer too.
+     - **How:** the page that starts a room plays the relay's part for everyone, reusing `LocalSocket`'s rules. The
+       others connect to it over WebRTC with PeerJS (MIT, vendored like three.js, loaded only when needed) in a
+       `PeerSocket` with the same interface. If the host leaves, the next device takes over from its own copy of the
+       room.
+     - **Order to try:** the relay first, then peer to peer, then this device only.
+     - **Catches:**
+       - PeerJS still needs a server to introduce the devices: its free public one, with no guarantees, or one we
+         host ourselves.
+       - University and event Wi-Fi often blocks direct links between devices; getting through then needs a TURN
+         server, another third party. For events the laptop relay stays the reliable choice.
+       - Without a relay there is no "Fresh shared space" and no stored alignment logs.
+       - The introduction server and the other devices see each device's IP address: record it in
+         `docs/data-and-permissions.md`, and the owner decides whether that is acceptable.
+       - WebRTC inside an immersive session on Quest is untested.
+     - **Size:** estimated at about 3 to 5 hours of agent work and 2 to 4M tokens, the tests included (a peer-to-peer
+       run of the shared-room test with a pretend introduction server).
 
 ## How work is done
 
