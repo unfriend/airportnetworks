@@ -1042,10 +1042,13 @@ void main() { vec2 c = gl_PointCoord - 0.5; float d = length(c); if (d > 0.5) di
     set.group.add(pp, gp);
   }
   // a dark slate behind the grid, as the map has its ground: the dots glow by adding light, which a light wall seen in
-  // passthrough swallows (it grows with the grid: uW is its width)
+  // passthrough swallows (it grows with the grid: uW is its width). It never writes depth (update keeps it so: QLOOK's
+  // depth() turns depth writing on for every normally blended material once the set is fully in, and the slate,
+  // standing upright through the middle of the map, then hid the map's far half even while invisible)
   const slateU = { uW: { value: 1.3 }, uSlateA: { value: 0 } };
+  let slate, slateM;
   {
-    const m = new THREE.ShaderMaterial({
+    const m = slateM = new THREE.ShaderMaterial({
       uniforms: Object.assign({ uA: set.uA }, slateU), transparent: true, depthWrite: false, side: THREE.DoubleSide,
       vertexShader: `uniform float uW; varying vec2 vP;
 void main() { vP = position.xy * uW; gl_Position = projectionMatrix * modelViewMatrix * vec4(vP, -0.03, 1.0); }`,
@@ -1057,7 +1060,7 @@ void main() {
 }`,
     });
     set.mats.push(m);
-    const slate = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), m);
+    slate = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), m);
     slate.renderOrder = -1; slate.frustumCulled = false;
     set.group.add(slate);
   }
@@ -1221,13 +1224,14 @@ void main() { vec2 c = gl_PointCoord - 0.5; float d = length(c); if (d > 0.5) di
   const now = { walkers: [[0, 0, 0], [0, 0, 0]], n: 6, code: -1 };
   function update(S, t) {
     LK.depth();
+    slateM.depthWrite = false;
     const genes = clamp(S.pairs_genes, 0, 1), grid = clamp(S.pairs_grid, 0, 1), map = clamp(S.pairs_map, 0, 1);
     const tri = genes * (1 - map);
     const nn = 6 * Math.pow(NMAX / 6, grid);
     now.n = nn;
     triU.uN.value = nn; triU.uSp.value = spOf(nn);
     triU.uGeneA.value = tri; triU.uPairA.value = tri * prog(grid, 0, 0.04);
-    slateU.uW.value = (nn - 1) * spOf(nn) + 0.56; slateU.uSlateA.value = tri;
+    slateU.uW.value = (nn - 1) * spOf(nn) + 0.56; slateU.uSlateA.value = tri; slate.visible = tri > 0.003;
     const fold = smooth(clamp(S.pairs_fold, 0, 1)), valley = clamp(S.pairs_valley, 0, 1), hoodK = Math.round(clamp(S.pairs_code, 0, 8)) - 1;
     now.code = hoodK;
     mapU.uMapA.value = map; mapU.uFold.value = fold; mapU.uDepth.value = 0.11 * valley; mapU.uHood.value = hoodK >= 0 ? hoodK : -1;
