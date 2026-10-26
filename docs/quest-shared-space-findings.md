@@ -147,6 +147,15 @@ frame, `local-floor` in `local`, the shared space in `local-floor`, the head, th
 transform, anchor results with the browser's reasons for refusals, the browser version and the page address.
 Comparing both headsets' logs afterwards found every item on this page.
 
+## VR and the features a session asks for
+
+A Quest 3 left VR for its home a moment after Enter VR, on the Stories screen and inside a story, while AR on it and
+VR on a Pico worked. Every story asked for `local-floor`, `hand-tracking`, `anchors`, `plane-detection`,
+`mesh-detection` and `shared`, all optional (the spec says optional features a browser cannot give are dropped).
+Asking VR for only `local-floor`, `hand-tracking` and `anchors` (`HOST.xr.features`) started it on the first try
+(October 2026). One of `plane-detection`, `mesh-detection` or `shared` is to blame; which one was not tried. AR still
+asks for all six, and a VR session that closes by itself within 10 s makes the next one ask for less.
+
 ## Still untested on headsets
 
 Whether headsets line up again after standby (and after a night) with these rules, whether asking for the shared

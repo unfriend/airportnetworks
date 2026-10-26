@@ -200,7 +200,9 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
   `anchors`, `plane-detection` and `mesh-detection` (the robot gang's room) and
   `shared` (the shared space), all optional; VR only for `local-floor`,
   `hand-tracking` and `anchors`, since a Quest 3 left VR for its home at once
-  with the full list (October 2026; AR was fine there, and VR on a Pico). A VR
+  with the full list (October 2026; AR was fine there, and VR on a Pico) and
+  started VR on the first try with these three (which of the other three was
+  to blame was not tried). A VR
   session that ends within 10 s of starting, or whose page goes with it (no
   `pagehide`), makes the next one ask for less (`hand-tracking` and
   `local-floor`, then `local-floor`, then nothing; `xrSteps` in `localStorage`,
