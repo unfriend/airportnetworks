@@ -2299,6 +2299,7 @@ totalEmissiveRadiance += diffuseColor.rgb * uSelf + uRimC * (uRimK * rimF * vDm)
     const m = lit('skin', { side: THREE.DoubleSide, self: 0.1, rimK: 0.12, rimC: [1.0, 0.6, 0.7], vh: 'attribute vec3 aCtr;', vb: 'transformed.y -= (1.0 - vK) * 0.3;' });
     m.userData.base = 0.62; mk(sk, m, 3);
   }
+  let cutMesh;
   {   // the cut face: deep rose-red muscle, paler just under the membrane, faintly striated where the myofibrils run and
     // mottled, fading towards the sides and the bottom. Half see-through and writing no depth, so the nuclei,
     // organelles and myofibrils behind it show through it; it thins while a place glows (the rest dims) and as you
@@ -2314,7 +2315,7 @@ totalEmissiveRadiance += diffuseColor.rgb * uSelf + uRimC * (uRimK * rimF * vDm)
   diffuseColor.a *= vK * (0.45 + 0.55 * vDm) * smoothstep(0.0, 0.35, ${f4(XS)} - abs(vL.x)) * (0.3 + 0.7 * smoothstep(-1.18, -0.78, vL.y))
     * (0.25 + 0.75 * smoothstep(1.2, 4.0, length(vViewPosition) / vScl));
 }` });
-    m.userData.base = 0.55; m.depthWrite = false; mk(cutB, m, 4);
+    m.userData.base = 0.55; m.depthWrite = false; cutMesh = mk(cutB, m, 4);
   }
 
   // ------------------------------------------------------------------ update
@@ -2347,7 +2348,7 @@ totalEmissiveRadiance += diffuseColor.rgb * uSelf + uRimC * (uRimK * rimF * vDm)
     ST[0] = prog(b, 0, 0.3); ST[1] = prog(b, 0.05, 0.35); ST[2] = prog(b, 0.25, 0.5); ST[3] = prog(b, 0.4, 0.7); ST[4] = prog(b, 0.5, 0.85); ST[5] = prog(b, 0.8, 1);
     const ny = 0.6 * Math.pow(1 - ST[4], 2);
     SU.uNerveY.value = ny; vesMesh.position.y = ny;
-    SU.uShell.value = clamp(S.syn_shell, 0, 1); shellMesh.visible = SU.uShell.value > 0.003;
+    SU.uShell.value = clamp(S.syn_shell, 0, 1); shellMesh.visible = SU.uShell.value > 0.003; cutMesh.visible = ST[0] > 0;
     // firing: one impulse a second; tired, each of six impulses releases less (the twitch shrinks, then fails), two rest
     const fire = clamp(S.syn_fire, 0, 1), tired = clamp(S.syn_tired, 0, 1);
     const n = Math.floor(t), ph = t - n, kc = ((n % 8) + 8) % 8;
@@ -4250,8 +4251,7 @@ function buildStory() {
   cam(a + 5.5, 'motor', 'junction');
   cam(a + 8.6, 'motor', 'junction', 0, null, [0, 0, -0.28]);
   show('syn', a + 8.6, a + 9.4, C.cloud.a - 0.5, C.cloud.a + 1.5);
-  // no fibre's surface round the junction anywhere in the story: it only distracts, and in passthrough AR it is a dark
-  // shell round the nerve ending
+  // no fibre's surface round the junction anywhere in the story: it only distracts
   key('syn_shell', 0, 0);
   ramp('syn_build', a + 8.7, a + 12, 0, 1);
   ramp('syn_fire', a + 11, a + 12.5, 0, 1);

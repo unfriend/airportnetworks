@@ -263,7 +263,7 @@ unchanged except for "Stand in the gap" (below). The headset keeps the sets that
 2. `tired` 14-40: the motor unit (`motor`, `motor_signal` on, `motor_site` 3: the junction glows), the camera dives to
    a junction; crossfade into `syn` (`wide`, then `default`), firing, then `syn_tired` up: the twitch fades. Text:
    CMS, fatigable weakness, the range of severity. `syn_shell` 0 here and all through the story: the fibre's wide
-   surface round the junction only distracts (and in passthrough AR it is a dark shell round the nerve ending).
+   surface round the junction only distracts.
 3. `genes` 40-70: `syn` with `syn_genes`: the 35 genes where they act; more than 30 causal genes, but the same
    mutation can be mild or severe: genes alone do not explain the range; endotypes might.
 4. `cloud` 70-108: crossfade to `net`: the cloud ("18,306 proteins"), the seeds; `net_k` steps 0 -> 12 (34 groups ->

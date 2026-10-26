@@ -32,10 +32,19 @@ the small parts are drawn bigger than life (vesicles 0.042 across, cleft 0.13, r
   fading where they would alias. Desmin rings sit round every Z-disc, joined to the neighbours' rings, and
   plectin strands run from the top row up to the nuclei, a mitochondrion and the bottoms of three folds.
 - **The fibre's surface** round the junction: a wide, faint, striated glass cylinder along x (radius 3.2), cut
-  away where the section is (for `wide`). It is a mesh of its own, so `syn_shell` fades and hides it. The fibre's cut
-  face (under the membrane, within the section) has a faint tint, which stays.
+  away where the section is (for `wide`). It is a mesh of its own, so `syn_shell` fades and hides it.
+- **The fibre's cut face** (under the membrane, within the section, z just behind `ZC`): a translucent, lit section of
+  muscle, a mesh of its own. Deep rose-red, paler just under the membrane, faintly striated low down (where the
+  myofibrils run, period `ZP`) and mottled; it fades towards the sides and the bottom. Opacity 0.55 at most and it
+  writes no depth, so the nuclei, organelles and myofibrils behind it show through; it thins while a place glows (the
+  rest dims) and as the camera comes close (from 4 set units, to a quarter at 1.2: the close views look into the
+  fibre unveiled). It fades in with the fibre (`syn_build` stage 0).
+- **Over the room** (passthrough AR): the glass adds its colour as light but writes alpha only as much as it glows
+  (1.4 times its brightest channel, at most 0.85; custom blending). Plain additive blending wrote alpha 1 under every
+  faint sheet, so over a light wall the cut face, the membranes and the bouton showed as a black box; in VR the
+  canvas is opaque, so nothing changes there.
 
-Draw calls: 13 at rest (12 with `syn_shell` 0), 15 with genes and endotypes on (8 at `syn_build` 0.3: parts that
+Draw calls: 14 at rest (13 with `syn_shell` 0), 16 with genes and endotypes on (9 at `syn_build` 0.3: parts that
 are not there yet are hidden). Triangles: 368k (receptors 122k, sodium channels 49k, laminin 34k, AChE 19k, MuSK/LRP4 11k, vesicles
 13k, the rest in three merged meshes). Points: 3,408 (3,773 with genes and endotypes). Line segments: 6,775.
 Build 180 to 230 ms in headless Chromium. Only the 166 vesicle matrices are updated every frame. Untested on a
@@ -51,7 +60,7 @@ headset.
 | `syn_tired` | 0 | Fatigable weakness, with firing on. An 8-second loop: six impulses release less and less (relative release 1, 0.7, 0.5, 0.36, 0.27, 0.2 at `syn_tired` 1), then two impulses are skipped (rest). Fewer vesicles fuse and fewer receptors open. The muscle's wave fails below about 0.4 of normal release and the twitch shrinks to nothing by the fifth impulse. 0 healthy. |
 | `syn_genes` | 0 | The 35 seed genes light up where they act, as glowing markers in their endotype's colour. There are 11 groups and they light one after another: nerve (four groups), cleft, membrane (three), inside (three). Group g lights over `syn_genes` 0.04 + 0.07 g to +0.12, and all are lit from 0.86. Each group's label fades in with its markers. The rest of the scene dims a little. |
 | `syn_place` | 0 | Endotype id + 1, 0 none. Its place glows in its colour and the rest dims to about a third. For 0, 4 and 7 (no place) nothing glows and everything dims a little. In-between values cross-fade the two neighbouring ids, so set it with a step (the engine's `jump`) or a quick ease. With `syn_endo` on, that endotype's cloud brightens and the others dim. |
-| `syn_shell` | 1 | The fibre's wide surface round the junction (the cylinder of the `wide` view): 1 shown, 0 hidden (its mesh is not drawn), in between faded. The story never shows it (it only distracts, and in passthrough AR it is a dark shell round the nerve ending), and explore mode always hides it. |
+| `syn_shell` | 1 | The fibre's wide surface round the junction (the cylinder of the `wide` view): 1 shown, 0 hidden (its mesh is not drawn), in between faded. The story never shows it (it only distracts), and explore mode always hides it. |
 | `syn_endo` | 0 | The endotypes arrive. Each is a cloud of its genes (as many as it has, up to 40; 295 dots), starting on a ring above the scene (centre (0, 1.95, 0), 11 at the top, like the tree's endotype view). With a place, the cloud flies down in an arc and settles round its place, gently drifting. Endotypes 0, 4 and 7 come down to hover loose above the bouton, on the right. Staggered by id: id k flies over 0.04 k to 0.04 k + 0.5, so all have landed at 0.94. Visible from 0.06. |
 
 Places, from `ENDO_DATA.endo[].place` (slot, what glows): `mito` (the nerve ending's three mitochondria),
