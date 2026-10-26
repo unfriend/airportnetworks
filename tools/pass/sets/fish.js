@@ -206,10 +206,13 @@ void main() { vec2 c = gl_PointCoord - 0.5; float d = length(c); if (d > 0.5) di
     AL[i] = 0; FL[i] = 0; BK[i] = 0; PH[i] = R() * TAU; GR[i] = R();
   };
   for (let i = 0; i < MAXN; i++) spawn(i, [0, 2, -6], 2.6);
-  // the viewer (head and hands, in this set's frame; the engine updates them) and the shark
+  // the viewer (head and hands, in this set's frame; the engine updates them) and the shark (cruise: kept, swimming
+  // loops round the school; dash and thru: a pass through it; ph, eff, bank: its swimming, see poseShark)
   const ME = { head: [0, 1.6, 0], hands: [], c: [0, 0] };
-  const SH = { on: false, p: [0, 0, 0], v: [0, 0, 0], t: 0, pass: 0, next: 25, aim: null, steer: null, gone: 0 };
+  const SH = { on: false, p: [0, 0, 0], v: [0, 0, 0], t: 0, pass: 0, next: 25, aim: null, steer: null, gone: 0,
+    cruise: false, dir: 1, ct: 0, gap: 8, dash: false, thru: 0, ph: 0, eff: 0, bank: 0, hd: [0, 1] };
   let tOff = 0, FOL = null, HUSH = false;   // shared rooms: another device's school to follow (see follow), and no sharks of our own for now
+  let HOLD = false;                         // explore's "be the shark" is on: a shark let go stays (cruises) until it is off
   const CEN = [0, 2, -6];                   // the middle of the school's main body (centre())
 
   // a grid of cells round the viewer for the neighbour search: the fish sorted by cell, then shells of cells searched
@@ -350,16 +353,48 @@ void main() { vec2 c = gl_PointCoord - 0.5; float d = length(c); if (d > 0.5) di
     sharkStep(dt);
   }
   let WATCH = null;   // (tests: hear when the warning reaches each fish)
-  // the shark: in from afar, straight through the thick of the school, then away (about 14 s); or after a point it is
-  // steered to (explore mode: you are the shark)
-  const SV = 3.2;   // its cruising speed (m/s); it bursts to 5 through the school, still slower than the warning
+  // the shark: in from afar, straight through the thick of the school, then away (about 16 s); or after a point it is
+  // steered to (explore mode: you are the shark), and let go while you still are, it stays: it cruises in wide loops
+  // round the school and every so often bursts straight through it, so the fish keep fleeing, until you steer it again
+  // or stop being the shark (then it swims off)
+  const SV = 3.2;   // its cruising speed in (m/s); it bursts to 5 through the school, still slower than the warning
+  const LOOP = 5, CRUISE = 2.4, DASH = 4.6, HEAD = 3;   // a kept shark's loops (m) and speeds (m/s), and how far it keeps from your head
   function sharkStep(dt) {
     if (!SH.on) return;
     SH.t += dt;
-    let tx, ty, tz, sp;
+    const v0 = SH.v.slice();
+    let tx, ty, tz, sp, turn = 1.4;
     if (SH.steer) {
       tx = SH.steer[0]; ty = SH.steer[1]; tz = SH.steer[2];
-      sp = clamp(Math.hypot(tx - SH.p[0], ty - SH.p[1], tz - SH.p[2]) * 1.6, 0.4, 5.5);
+      sp = clamp(Math.hypot(tx - SH.p[0], ty - SH.p[1], tz - SH.p[2]) * 1.6, 0.8, 5.5);   // (never quite still: a shark swims to breathe)
+    } else if (SH.cruise) {
+      SH.ct += dt;
+      const ex = SH.p[0] - CEN[0], ez = SH.p[2] - CEN[2];
+      if (SH.dash) {
+        // through the school: at its middle, then on past it for a moment, then back to the loops
+        if (!SH.thru && Math.hypot(ex, SH.p[1] - CEN[1], ez) < 1.4) SH.thru = SH.ct;
+        if (SH.thru) { tx = SH.p[0] + SH.v[0]; ty = SH.p[1]; tz = SH.p[2] + SH.v[2]; } else { tx = CEN[0]; ty = CEN[1]; tz = CEN[2]; }
+        sp = DASH;
+        if ((SH.thru && SH.ct > SH.thru + 1.1) || SH.ct > 9) { SH.dash = false; SH.thru = 0; SH.ct = 0; SH.gap = 9 + R() * 8; SH.dir = loopDir(); }
+      } else {
+        // a wide loop round the school's middle, the way it was going, rising and sinking a little; a burst through the
+        // school once it is due and the shark is off to the school's side as you see it (so it crosses your view, never
+        // comes at you)
+        const a = Math.atan2(ez, ex) + SH.dir * 0.75;
+        tx = CEN[0] + Math.cos(a) * LOOP; ty = CEN[1] + 0.5 * Math.sin(SH.t * 0.21); tz = CEN[2] + Math.sin(a) * LOOP;
+        sp = CRUISE;
+        const yx = ME.head[0] - CEN[0], yz = ME.head[2] - CEN[2], side = (ex * yx + ez * yz) / ((Math.hypot(ex, ez) * Math.hypot(yx, yz)) + 1e-3);
+        if (SH.ct > SH.gap && Math.abs(side) < 0.5) { SH.dash = true; SH.ct = 0; SH.thru = 0; }
+      }
+      // never through your head: its way goes round you a few metres off, and where it would soon come nearer (where it
+      // is in 0.8 s) it gives up a burst and turns away hard
+      const hx = tx - ME.head[0], hz = tz - ME.head[2], hl = Math.hypot(hx, hz) + 1e-3;
+      if (hl < HEAD + 1) { tx = ME.head[0] + hx / hl * (HEAD + 1); tz = ME.head[2] + hz / hl * (HEAD + 1); }
+      const qx = SH.p[0] + SH.v[0] * 0.8 - ME.head[0], qz = SH.p[2] + SH.v[2] * 0.8 - ME.head[2], ql = Math.hypot(qx, qz) + 1e-3;
+      if (ql < HEAD + 0.5) {
+        if (SH.dash) { SH.dash = false; SH.thru = 0; SH.ct = 0; SH.gap = 4 + R() * 4; }
+        tx = SH.p[0] + qx / ql * 4; ty = SH.p[1]; tz = SH.p[2] + qz / ql * 4; sp = CRUISE; turn = 3.5;
+      }
     } else {
       const hunting = !SH.pass && SH.t < 9, through = SH.pass && SH.t < SH.pass + 1.6;
       if (hunting) {
@@ -367,16 +402,33 @@ void main() { vec2 c = gl_PointCoord - 0.5; float d = length(c); if (d > 0.5) di
         if (SH.aim && SH.t < 2.5) { tx = SH.aim[0]; ty = SH.aim[1]; tz = SH.aim[2]; }
         if (Math.hypot(CEN[0] - SH.p[0], CEN[1] - SH.p[1], CEN[2] - SH.p[2]) < 1.5) SH.pass = SH.t;
       } else if (through) { tx = SH.p[0] + SH.v[0]; ty = SH.p[1]; tz = SH.p[2] + SH.v[2]; }
-      else { tx = SH.p[0] + SH.v[0] * 3; ty = SH.p[1] - 0.5; tz = SH.p[2] + SH.v[2] * 3; }
-      sp = hunting && Math.hypot(CEN[0] - SH.p[0], CEN[2] - SH.p[2]) < 7 ? 5 : through ? 5 : SV;
+      else {
+        // away: on its way and away from you, slowly sinking
+        const ox = SH.p[0] - ME.c[0], oz = SH.p[2] - ME.c[1], ol = Math.hypot(ox, oz) + 1e-3, vl = Math.hypot(SH.v[0], SH.v[2]) + 1e-3;
+        tx = SH.p[0] + (SH.v[0] / vl + ox / ol) * 3; ty = SH.p[1] - 0.5; tz = SH.p[2] + (SH.v[2] / vl + oz / ol) * 3;
+      }
+      sp = hunting && Math.hypot(CEN[0] - SH.p[0], CEN[2] - SH.p[2]) < 7 ? 5 : through ? 5 : hunting ? SV : 2.8;   // (it goes a little slower than it came: longer in view)
     }
-    const dx = tx - SH.p[0], dy = ty - SH.p[1], dz = tz - SH.p[2], dl = Math.hypot(dx, dy, dz) + 1e-3, k = Math.min(1, dt * 1.4);
+    const dx = tx - SH.p[0], dy = ty - SH.p[1], dz = tz - SH.p[2], dl = Math.hypot(dx, dy, dz) + 1e-3, k = Math.min(1, dt * turn);
     for (let c = 0; c < 3; c++) { SH.v[c] += ([dx, dy, dz][c] / dl * sp - SH.v[c]) * k; SH.p[c] += SH.v[c] * dt; }
     SH.p[1] = clamp(SH.p[1], BED + 1, 8);
-    const far = Math.hypot(SH.p[0] - ME.c[0], SH.p[2] - ME.c[1]);
-    if (!SH.steer && SH.t > 8 && far > 24) { SH.on = false; SH.aim = null; }
-    if (!SH.steer && SH.t > 30) { SH.on = false; SH.aim = null; }
+    // how hard it works (speeding up, turning: its tail beats faster and wider) and how it banks into a turn
+    const vl = Math.hypot(SH.v[0], SH.v[1], SH.v[2]) + 1e-3, fx = SH.v[0] / vl, fz = SH.v[2] / vl;
+    const ax = (SH.v[0] - v0[0]) / dt, ay = (SH.v[1] - v0[1]) / dt, az = (SH.v[2] - v0[2]) / dt;
+    const fwd = ax * fx + ay * SH.v[1] / vl + az * fz, lat = -ax * fz + az * fx;   // (along its way; to its right, as cross(forward, up))
+    SH.eff += (clamp(Math.max(0, fwd) / 3 + Math.abs(lat) / 7, 0, 1) - SH.eff) * Math.min(1, dt * 2.5);
+    SH.bank += (clamp(lat * 0.07, -0.5, 0.5) - SH.bank) * Math.min(1, dt * 3);
+    const far = Math.hypot(SH.p[0] - ME.c[0], SH.p[2] - ME.c[1]), mine = SH.steer || SH.cruise;
+    if (!mine && SH.t > 8 && far > 24) { SH.on = false; SH.aim = null; }
+    if (!mine && SH.t > 30) { SH.on = false; SH.aim = null; }
   }
+  // which way round the school a shark is swimming (1: the way the angle grows)
+  const loopDir = () => ((SH.p[0] - CEN[0]) * SH.v[2] - (SH.p[2] - CEN[2]) * SH.v[0] >= 0 ? 1 : -1);
+  // a shark let go while you are the shark: it cruises (its first burst through the school comes soon)
+  function cruise() { SH.cruise = true; SH.dash = false; SH.thru = 0; SH.ct = 0; SH.gap = 5 + R() * 5; SH.dir = loopDir(); }
+  // off it goes, as a passing shark does after its pass; leave: yours, once you stop being the shark
+  function away() { SH.steer = null; SH.cruise = false; SH.dash = false; SH.t = 8; SH.pass = 6; SH.aim = null; }
+  function leave() { if (SH.on && (SH.cruise || SH.steer)) away(); }
   function launch(aim) {
     const from = aim ? Math.atan2(aim[2] - ME.c[1], aim[0] - ME.c[0]) + Math.PI * (0.7 + R() * 0.6) : R() * TAU;
     startShark({ p: [ME.c[0] + Math.cos(from) * 22, CEN[1] + (R() - 0.5) * 2, ME.c[1] + Math.sin(from) * 22], v: [-Math.cos(from) * SV, 0, -Math.sin(from) * SV], aim: aim || null });
@@ -384,17 +436,15 @@ void main() { vec2 c = gl_PointCoord - 0.5; float d = length(c); if (d > 0.5) di
   }
   function startShark(f) {
     SH.p = f.p.slice(); SH.v = f.v.slice(); SH.on = true; SH.t = 0; SH.pass = 0; SH.aim = f.aim ? f.aim.slice() : null;
+    SH.cruise = false; SH.dash = false; SH.thru = 0; SH.eff = 0.5; SH.bank = 0;
   }
 
   // drawing: one instanced batch of fish, lit by the water's light from above: a dark back, silver flanks that glint
   // when they turn towards the surface, a pale belly; they swim with a wave down the body, faster when warned, and
   // flash as the warning reaches them
-  function fishGeo(L, kind) {
+  function fishGeo(L) {
     // x right, y up, z forward (nose at +z); aS 0 at the nose, 1 at the tail's tip; aF 1 on fins
-    const shark = kind === 'shark';
-    const rings = shark
-      ? [[0.5, 0, 0], [0.43, 0.035, 0.04], [0.32, 0.075, 0.07], [0.15, 0.1, 0.09], [-0.02, 0.095, 0.085], [-0.18, 0.07, 0.06], [-0.3, 0.04, 0.035], [-0.37, 0.02, 0.018]]
-      : [[0.5, 0, 0], [0.43, 0.05, 0.03], [0.3, 0.09, 0.047], [0.14, 0.105, 0.053], [-0.02, 0.098, 0.048], [-0.17, 0.07, 0.034], [-0.28, 0.038, 0.019], [-0.33, 0.02, 0.011]];
+    const rings = [[0.5, 0, 0], [0.43, 0.05, 0.03], [0.3, 0.09, 0.047], [0.14, 0.105, 0.053], [-0.02, 0.098, 0.048], [-0.17, 0.07, 0.034], [-0.28, 0.038, 0.019], [-0.33, 0.02, 0.011]];
     const M = 10, pos = [], nrm = [], aS = [], aF = [], idx = [];
     const vtx = (x, y, z, nx, ny, nz, f) => { pos.push(x * L, y * L, z * L); nrm.push(nx, ny, nz); aS.push(clamp((0.5 - z) / 1.0, 0, 1)); aF.push(f); return pos.length / 3 - 1; };
     const ringIdx = rings.map(([z, h, w], r) => {
@@ -419,22 +469,10 @@ void main() { vec2 c = gl_PointCoord - 0.5; float d = length(c); if (d > 0.5) di
     for (let k = 0; k < M; k++) idx.push(last[k], tc, last[(k + 1) % M]);
     // fins: flat, seen from both sides
     const fin = pts => { const b = pos.length / 3; for (const p of pts) vtx(p[0], p[1], p[2], 1, 0, 0, 1); for (let k = 1; k < pts.length - 1; k++) idx.push(b, b + k, b + k + 1); };
-    if (shark) {
-      fin([[0, 0.02, -0.36], [0, 0.26, -0.56], [0, 0.03, -0.44]]);     // the tail: a long upper lobe
-      fin([[0, -0.01, -0.36], [0, -0.0, -0.44], [0, -0.14, -0.5]]);    // and a short lower one
-      fin([[0, 0.09, 0.08], [0, 0.27, -0.06], [0, 0.085, -0.1]]);      // the tall dorsal fin
-      fin([[0, 0.04, -0.27], [0, 0.08, -0.33], [0, 0.03, -0.31]]);     // a small second one
-      // pectoral fins, out to the sides and down
-      const pb = pos.length / 3;
-      vtx(0.07, -0.04, 0.16, 0, 1, 0, 1); vtx(0.24, -0.11, -0.02, 0, 1, 0, 1); vtx(0.07, -0.05, 0.03, 0, 1, 0, 1);
-      vtx(-0.07, -0.04, 0.16, 0, 1, 0, 1); vtx(-0.24, -0.11, -0.02, 0, 1, 0, 1); vtx(-0.07, -0.05, 0.03, 0, 1, 0, 1);
-      idx.push(pb, pb + 1, pb + 2, pb + 3, pb + 5, pb + 4);
-    } else {
-      fin([[0, 0.018, -0.32], [0, 0.15, -0.5], [0, 0, -0.41]]);         // a forked tail
-      fin([[0, -0.018, -0.32], [0, 0, -0.41], [0, -0.15, -0.5]]);
-      fin([[0, 0.018, -0.32], [0, 0, -0.41], [0, -0.018, -0.32]]);
-      fin([[0, 0.1, 0.1], [0, 0.17, -0.0], [0, 0.092, -0.06]]);         // the dorsal fin
-    }
+    fin([[0, 0.018, -0.32], [0, 0.15, -0.5], [0, 0, -0.41]]);         // a forked tail
+    fin([[0, -0.018, -0.32], [0, 0, -0.41], [0, -0.15, -0.5]]);
+    fin([[0, 0.018, -0.32], [0, 0, -0.41], [0, -0.018, -0.32]]);
+    fin([[0, 0.1, 0.1], [0, 0.17, -0.0], [0, 0.092, -0.06]]);         // the dorsal fin
     const g = new THREE.InstancedBufferGeometry();
     g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(pos), 3));
     g.setAttribute('normal', new THREE.BufferAttribute(new Float32Array(nrm), 3));
@@ -485,17 +523,131 @@ void main() {
   });
   const FL_I = new Float32Array(MAXN * 3), aP = new THREE.InstancedBufferAttribute(P, 3), aV = new THREE.InstancedBufferAttribute(V, 3), aB = new THREE.InstancedBufferAttribute(FL_I, 3);
   for (const a of [aP, aV, aB]) a.setUsage(THREE.DynamicDrawUsage);
-  const fg = fishGeo(0.27, 'fish');
+  const fg = fishGeo(0.27);
   fg.setAttribute('iP', aP); fg.setAttribute('iV', aV); fg.setAttribute('iB', aB);
   const fishM = fishMat({ hz: 11, amp: 0.022, back: '0.1, 0.2, 0.28', flank: '0.55, 0.64, 0.7', belly: '0.82, 0.86, 0.88', glint: 1.1, flash: 1.0 });
   // (iB here: bank, flash, phase; the flash is what the shader brightens by)
   const fishes = new THREE.Mesh(fg, fishM);
   fishes.frustumCulled = false; fishes.renderOrder = 2; set.group.add(fishes);
-  // the shark: one larger fish, grey, slower beats
-  const sg = fishGeo(2.3, 'shark'), sP = new THREE.InstancedBufferAttribute(new Float32Array(3), 3), sV = new THREE.InstancedBufferAttribute(new Float32Array(3), 3), sB = new THREE.InstancedBufferAttribute(new Float32Array(3), 3);
-  sg.setAttribute('iP', sP); sg.setAttribute('iV', sV); sg.setAttribute('iB', sB); sg.instanceCount = 1;
-  const shark = new THREE.Mesh(sg, fishMat({ hz: 3.2, amp: 0.12, back: '0.26, 0.3, 0.33', flank: '0.42, 0.47, 0.5', belly: '0.8, 0.82, 0.82', glint: 0.35, flash: 0.0 }));
-  shark.frustumCulled = false; shark.renderOrder = 2; set.group.add(shark);
+  // the shark: a body of its own, 2.3 m from the snout to the tip of the tail. A torpedo lofted from a profile (a
+  // conical snout, widest a third of the way back, a slim tail stalk), a tall first dorsal fin and a small second one,
+  // long pectoral fins swept back and down, small pelvic and anal fins, and a crescent tail whose upper lobe is the
+  // longer; drawn in one batch. x to its left (the frame poseShark builds), y up, z forward (the snout at +z), metres;
+  // aS 0 at the snout, 1 at the tail's root (more on the tail fin), for the swimming wave; aK 1 on fins
+  const SNOUT = 1.0, BODY = 1.85, sOf = z => (SNOUT - z) / BODY;
+  // the body's profile: s, half height, half width, the middle's height (a smooth curve through these)
+  const PROF = [[0, 0, 0, -0.005], [0.02, 0.04, 0.05, -0.005], [0.06, 0.082, 0.098, -0.004], [0.12, 0.122, 0.135, 0], [0.2, 0.155, 0.16, 0.005],
+    [0.3, 0.18, 0.172, 0.01], [0.4, 0.188, 0.17, 0.012], [0.5, 0.178, 0.158, 0.01], [0.6, 0.155, 0.135, 0.008], [0.7, 0.12, 0.1, 0.006],
+    [0.8, 0.082, 0.066, 0.005], [0.9, 0.052, 0.04, 0.008], [1, 0.04, 0.03, 0.012]];
+  function prof(s) {
+    let i = 0; while (i < PROF.length - 2 && s > PROF[i + 1][0]) i++;
+    const a = PROF[i], b = PROF[i + 1], p = PROF[Math.max(0, i - 1)], q = PROF[Math.min(PROF.length - 1, i + 2)], d = b[0] - a[0], t = clamp((s - a[0]) / d, 0, 1);
+    const t2 = t * t, t3 = t2 * t;
+    return [1, 2, 3].map(k => (2 * t3 - 3 * t2 + 1) * a[k] + (t3 - 2 * t2 + t) * (b[k] - p[k]) / (b[0] - p[0]) * d + (3 * t2 - 2 * t3) * b[k] + (t3 - t2) * (q[k] - a[k]) / (q[0] - a[0]) * d);
+  }
+  function sharkGeo() {
+    const pos = [], aS = [], aK = [], idx = [], NR = 30, M = 18;
+    const vtx = (x, y, z, k) => { pos.push(x, y, z); aS.push(sOf(z)); aK.push(k); return pos.length / 3 - 1; };
+    // the body: rings from the snout back, closer together at the snout, a little flatter underneath
+    const rings = [];
+    for (let r = 0; r < NR; r++) {
+      const s = Math.pow(r / (NR - 1), 1.4), z = SNOUT - s * BODY, [h, w, yc] = prof(s);
+      if (!r) { rings.push([vtx(0, yc, z, 0)]); continue; }
+      const ring = [];
+      for (let k = 0; k < M; k++) { const a = k / M * TAU, c = Math.cos(a); ring.push(vtx(Math.sin(a) * w, yc + c * h * (c < 0 ? 0.88 : 1), z, 0)); }
+      rings.push(ring);
+    }
+    for (let r = 1; r < NR; r++) {
+      const A = rings[r - 1], B = rings[r];
+      for (let k = 0; k < M; k++) { const k1 = (k + 1) % M; if (A.length === 1) idx.push(A[0], B[k1], B[k]); else idx.push(A[k], A[k1], B[k1], A[k], B[k1], B[k]); }
+    }
+    { const last = rings[NR - 1], z = SNOUT - BODY, cap = vtx(0, prof(1)[2], z - 0.01, 0); for (let k = 0; k < M; k++) idx.push(last[k], last[(k + 1) % M], cap); }
+    // fins: flat, seen from both sides; a fan from their first point (or from c)
+    const fin = (pts, c) => {
+      const b = pos.length / 3; for (const p of c ? [c, ...pts] : pts) vtx(p[0], p[1], p[2], 1);
+      const n = pts.length + (c ? 1 : 0);
+      for (let k = 1; k < n - 1; k++) idx.push(b, b + k, b + k + 1);
+      if (c) idx.push(b, b + n - 1, b + 1);
+    };
+    const pair = pts => { fin(pts); fin(pts.map(p => [-p[0], p[1], p[2]]).reverse()); };
+    fin([[0, 0.19, 0.3], [0, 0.36, 0.15], [0, 0.53, -0.11], [0, 0.31, -0.05], [0, 0.16, -0.1]]);        // the first dorsal fin, tall and swept back
+    fin([[0, 0.08, -0.46], [0, 0.155, -0.56], [0, 0.125, -0.565], [0, 0.07, -0.6]]);                 // the second, small
+    fin([[0, -0.055, -0.5], [0, -0.125, -0.6], [0, -0.1, -0.605], [0, -0.05, -0.64]]);               // the anal fin
+    pair([[0.13, -0.06, 0.5], [0.38, -0.14, 0.38], [0.62, -0.27, 0.07], [0.33, -0.15, 0.2], [0.13, -0.075, 0.3]]);   // pectoral fins: long, back and down
+    pair([[0.05, -0.105, -0.15], [0.17, -0.18, -0.3], [0.035, -0.1, -0.31]]);                          // pelvic fins
+    // the tail: a crescent, its upper lobe longer (round a point in its middle)
+    fin([[0, 0.045, -0.8], [0, 0.28, -1.02], [0, 0.47, -1.3], [0, 0.22, -1.1], [0, 0.03, -1.0], [0, -0.1, -1.035], [0, -0.25, -1.13], [0, -0.15, -0.93], [0, -0.03, -0.8]], [0, 0.01, -0.9]);
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(pos), 3));
+    g.setAttribute('aS', new THREE.BufferAttribute(new Float32Array(aS), 1));
+    g.setAttribute('aK', new THREE.BufferAttribute(new Float32Array(aK), 1));
+    g.setIndex(idx); g.computeVertexNormals();
+    return g;
+  }
+  // its eye (on each side, a little above the middle), for the shader
+  const EYE = (() => { const s = 0.1, [h, w, yc] = prof(s); return new THREE.Vector3(Math.sin(1.05) * w * 0.98, yc + Math.cos(1.05) * h, SNOUT - s * BODY); })();
+  const sharkMat = mat({
+    uniforms: Object.assign({ uA: set.uA, uPh: { value: 0 }, uAmp: { value: 0.09 }, uEye: { value: EYE } }, U), transparent: true, side: THREE.DoubleSide,
+    vertexShader: `attribute float aS, aK; uniform float uPh, uAmp; varying vec3 vW, vN, vNL, vL; varying float vK;
+void main() {
+  // swimming: a slow wave runs back along the body, wider towards the tail; the head stays nearly still
+  vec3 p = position, n = normal;
+  float A = uAmp * (0.05 + aS * aS), w = uPh - aS * 5.2;
+  p.x += A * sin(w);
+  float dx = (uAmp * 2.0 * aS * sin(w) - A * 5.2 * cos(w)) * ${(-1 / BODY).toFixed(4)};   // (the bend's slope along z turns the normals)
+  n.z -= dx * n.x;
+  vL = position; vNL = normal; vK = aK;
+  vW = (modelMatrix * vec4(p, 1.0)).xyz; vN = normalize(mat3(modelMatrix) * n);
+  gl_Position = projectionMatrix * viewMatrix * vec4(vW, 1.0);
+}`,
+    fragmentShader: WATER + `uniform float uA, uWater; uniform vec3 uEye; varying vec3 vW, vN, vNL, vL; varying float vK;
+void main() {
+  vec3 v = vW - cameraPosition; float dist = length(v); vec3 d = v / dist;
+  float fs = gl_FrontFacing ? 1.0 : -1.0;
+  vec3 n = normalize(vN) * fs, nl = normalize(vNL) * fs;   // (the side you see: fins are seen from both)
+  // counter-shading: a blue-grey back down to an uneven line along the flank, a pale belly (fins: dark, pale beneath)
+  float wob = 0.07 * sin(vL.z * 13.0 + 0.7) + 0.04 * sin(vL.z * 29.0);
+  float back = vK > 0.5 ? smoothstep(-0.75, -0.3, nl.y) : smoothstep(-0.4, -0.12, nl.y + wob);
+  vec3 c = mix(vec3(0.86, 0.88, 0.88), vec3(0.25, 0.33, 0.4), back);
+  c *= 1.0 - 0.2 * smoothstep(0.55, 0.95, nl.y) * (1.0 - vK);   // (darker along the spine)
+  // five gill slits on each flank, just before the pectoral fins, leaning back towards the top
+  if (vK < 0.5 && abs(nl.x) > 0.55 && nl.y > -0.5 && nl.y < 0.5) {
+    float q = (vL.z - 0.47 + 0.22 * vL.y) / 0.042;
+    if (q > 0.0 && q < 5.0) c *= 1.0 - 0.5 * (1.0 - smoothstep(0.1, 0.25, abs(fract(q) - 0.5)));
+  }
+  // the mouth: a faint dark line under the snout
+  if (vK < 0.5 && nl.y < -0.45 && abs(vL.x) < 0.1) c *= 1.0 - 0.45 * (1.0 - smoothstep(0.004, 0.012, abs(vL.z - 0.77 + 3.0 * vL.x * vL.x)));
+  // small dark eyes
+  float e = length(vec3(abs(vL.x), vL.y, vL.z) - uEye);
+  c = mix(c, vec3(0.02, 0.025, 0.03), (1.0 - smoothstep(0.014, 0.02, e)) * (1.0 - vK));
+  // lit from the surface; the skin has a sheen; a faint rim keeps the shape against deep water
+  c *= 0.42 + 0.58 * max(dot(n, uSun), 0.0) + 0.22 * max(-n.y, 0.0) + 0.12 * vK;   // (and a little from the water below)
+  vec3 rf = reflect(d, n);
+  c += vec3(0.55, 0.8, 0.85) * (pow(max(rf.y, 0.0), 6.0) * 0.2 + pow(max(dot(rf, uSun), 0.0), 28.0) * 0.4) * (1.0 - 0.5 * vK);
+  c += vec3(0.3, 0.55, 0.6) * pow(1.0 - abs(dot(n, d)), 3.0) * 0.16 * uWater;
+  c = mix(c, waterCol(d), (1.0 - exp(-dist * ${FOG.toFixed(4)})) * uWater);
+  gl_FragColor = vec4(c, uA);
+}`,
+  });
+  const shark = new THREE.Mesh(sharkGeo(), sharkMat);
+  shark.frustumCulled = false; shark.renderOrder = 2; shark.visible = false; set.group.add(shark);
+  // its pose, every frame: where it glides between steps, along its way (never standing on its nose), banked into
+  // turns; its tail beats slowly at cruise and faster as it speeds up or turns hard
+  const _sf = new THREE.Vector3(), _sx = new THREE.Vector3(), _sy = new THREE.Vector3(), _sZ = new THREE.Vector3(0, 0, 1), _sU = new THREE.Vector3(0, 1, 0), _sM = new THREE.Matrix4(), _sQ = new THREE.Quaternion();
+  function poseShark(dt, lag) {
+    shark.visible = SH.on;
+    if (!SH.on) return;
+    const sp = Math.hypot(SH.v[0], SH.v[1], SH.v[2]), hl = Math.hypot(SH.v[0], SH.v[2]);
+    if (hl > 0.05) { SH.hd[0] = SH.v[0] / hl; SH.hd[1] = SH.v[2] / hl; }
+    const pitch = clamp(Math.atan2(SH.v[1], hl), -0.5, 0.5), cp = Math.cos(pitch);
+    _sf.set(SH.hd[0] * cp, Math.sin(pitch), SH.hd[1] * cp);
+    _sx.crossVectors(_sU, _sf).normalize(); _sy.crossVectors(_sf, _sx);
+    shark.quaternion.setFromRotationMatrix(_sM.makeBasis(_sx, _sy, _sf)).multiply(_sQ.setFromAxisAngle(_sZ, SH.bank));
+    shark.position.set(SH.p[0] + SH.v[0] * lag, SH.p[1] + SH.v[1] * lag, SH.p[2] + SH.v[2] * lag);
+    SH.ph += dt * TAU * (0.3 + 0.2 * sp + 0.8 * SH.eff);
+    sharkMat.uniforms.uPh.value = SH.ph % (TAU * 1000);
+    sharkMat.uniforms.uAmp.value = 0.085 * (1 + 0.5 * SH.eff);
+  }
   // the network: each fish to the few it watches; cyan, warming to white where the warning is
   const lg = K.linesGeo(MAXN * KMAX), lm = K.lines(set, { additive: true }), net = new THREE.LineSegments(lg, lm);
   net.frustumCulled = false; net.renderOrder = 3; set.group.add(net);
@@ -504,8 +656,6 @@ void main() {
     for (let i = 0; i < N; i++) { FL_I[i * 3] = BK[i]; FL_I[i * 3 + 1] = Math.max(FL[i], AL[i] * 0.18); FL_I[i * 3 + 2] = PH[i]; }
     fg.instanceCount = N;
     aP.needsUpdate = aV.needsUpdate = aB.needsUpdate = true;
-    shark.visible = SH.on;
-    if (SH.on) { sP.array.set(SH.p); sV.array.set(SH.v); sB.array.set([0, 0, 1.3]); sP.needsUpdate = sV.needsUpdate = sB.needsUpdate = true; }
     const la = clamp(S.fish_links, 0, 1);
     net.visible = la > 0.01;
     if (net.visible) {
@@ -543,15 +693,18 @@ void main() {
     }
     CEN[0] = c[0]; CEN[1] = c[1]; CEN[2] = c[2];
   }
+  const EYE_H = 1.6;   // the viewer's eyes over this set's origin
   const params = { fish_a: 1, fish_n: 300, fish_k: 7, fish_links: 0, fish_water: 1, fish_shark: 0, fish_hunt: 0, fish_scale: 1 };
   let tLast = null, hunts = 0, tSim = 0, acc = 0, SCL = 1;
   const SIM = 1 / 30;   // the school moves in steps of a thirtieth of a second; between them the fish glide on (uLag)
   function update(S, t, dt) {
     const water = U.uWater.value = clamp(S.fish_water, 0, 1);
     for (const m of ENV) m.visible = water > 0.003;
-    // without the water (passthrough) the school swims in your room, at a third of life size
+    // without the water (passthrough) the school swims in your room, at a third of life size, shrunk round your eyes
+    // (round the floor it swam at knee height)
     SCL = Math.max(1e-4, S.fish_scale === undefined ? 1 : S.fish_scale);
-    set.group.scale.setScalar((water > 0.5 ? 1 : 0.34) * SCL);
+    const pt = water > 0.5 ? 1 : 0.34;
+    set.group.scale.setScalar(pt * SCL); set.group.position.y = EYE_H * (1 - pt);
     // more or fewer fish: new ones join beside a fish already swimming
     const want = clamp(Math.round(S.fish_n), 30, MAXN);
     if (want > N) for (let i = N; i < want; i++) { const j = Math.floor(R() * N) * 3; spawn(i, [P[j], P[j + 1], P[j + 2]], 0.4); V[i * 3] = V[j]; V[i * 3 + 1] = V[j + 1]; V[i * 3 + 2] = V[j + 2]; }
@@ -570,6 +723,7 @@ void main() {
     while (acc >= SIM) { acc -= SIM; tSim += SIM; step(SIM, tSim + tOff); stepped = true; }
     if (stepped) draw(S);
     U.uLag.value = acc;
+    poseShark(d, acc);
     SNOWC.set(ME.head[0], ME.head[1], ME.head[2]);
   }
   // warm up, so the school is already swimming when the scene first shows; then move it in front of you
@@ -582,9 +736,9 @@ void main() {
   draw(params);
 
   const anchors = { school: () => [CEN[0], CEN[1] + 0.6, CEN[2]],
-    shark: () => (SH.on ? [SH.p[0], SH.p[1] + 0.9, SH.p[2]] : [0, -100, 0]) };
+    shark: () => (SH.on ? [SH.p[0], SH.p[1] + 0.75, SH.p[2]] : [0, -100, 0]) };   // (just over its dorsal fin)
   const labels = [
-    { text: () => [T('Shark', 'Hai'), ''], at: 'shark', cls: 'amb', alpha: () => (SH.on && !SH.steer && SH.t < 7 ? 1 : 0) },
+    { text: () => [T('Shark', 'Hai'), ''], at: 'shark', cls: 'amb', alpha: () => (SH.on && !SH.steer && !SH.cruise && SH.t < 7 ? 1 : 0) },
   ];
   // views: [az, el, dist, tx, ty, tz]: floating where you are, looking ahead (the target is just in front of your eyes,
   // so the camera stands where you do; the engine turns it to the school), looking up to the light, from outside the
@@ -615,20 +769,34 @@ void main() {
     return { fish_k: +c.k || 7, fish_links: c.links === 'on' ? 1 : 0, fish_shark: c.shark === 'some' ? 1 : 0 };
   }
   // the engine tells the school where you are (head and hands, in this set's frame); spot: at a station in a shared
-  // room the school stays round the station's spot (this frame's origin), the same for everyone there
+  // room the school stays round the station's spot (this frame's origin), the same for everyone there; or [x, z]: round
+  // that point instead (in a headset, where you would be had you not moved the sea with the grip)
   function see(head, hands, spot) {
     ME.head = head; ME.hands = hands || [];
     if (SCL < 0.5) return;   // (the sea shrinking as the camera rises: the school stays where it is)
-    const cx = spot ? 0 : head[0], cz = spot ? 0 : head[2];
+    const at = Array.isArray(spot), cx = at ? spot[0] : spot ? 0 : head[0], cz = at ? spot[1] : spot ? 0 : head[2];
     ME.c[0] += (cx - ME.c[0]) * 0.02; ME.c[1] += (cz - ME.c[1]) * 0.02;
   }
-  // you are the shark: it swims after this point (in this set's frame) for as long as you steer it; null lets it go
+  // you are the shark: it swims after this point (in this set's frame) for as long as you steer it (none yet: it comes
+  // in from beyond the point, away from you); null lets it go: while you are still the shark (hold) it stays and
+  // cruises round the school, else it swims off
   function steer(p) {
     if (p) {
-      if (!SH.on) startShark({ p: [p[0] - 3, p[1], p[2] - 3], v: [1, 0, 1], aim: null });
-      SH.steer = p.slice();
-    } else if (SH.steer) { SH.steer = null; SH.t = Math.max(SH.t, 8); SH.pass = SH.pass || SH.t; }
+      if (!SH.on) {
+        const ox = p[0] - ME.head[0], oz = p[2] - ME.head[2], ol = Math.hypot(ox, oz) + 1e-3;
+        startShark({ p: [p[0] + ox / ol * 7, p[1], p[2] + oz / ol * 7], v: [-ox / ol * 2, 0, -oz / ol * 2], aim: null });
+      }
+      SH.steer = p.slice(); SH.cruise = false; SH.dash = false;
+    } else if (SH.steer) {
+      SH.steer = null;
+      if (HOLD) cruise(); else away();
+    }
   }
+  // explore's "be the shark" on (the engine says so every frame): off, a shark of yours swims off
+  function hold(on) { HOLD = !!on; if (!HOLD) leave(); }
+  // a shark from another device at the station (or the story's, sent with shark): not while you are being the shark
+  // with one of your own
+  function arrive(f) { if (HOLD && SH.on && (SH.cruise || SH.steer)) return; startShark(f); }
   // shared rooms, as the flock's: this school's swim (its time, middle and velocity), and another's to follow
   function flight() {
     const m = middle(); let x = 0, y = 0, z = 0;
@@ -646,10 +814,10 @@ void main() {
     launch(dir ? [ME.head[0] + dir[0] * 8, ME.head[1] + dir[1] * 8, ME.head[2] + dir[2] * 8] : null);
     return true;
   }
-  const out = Object.assign(set, { params, update, anchors, labels, cam, explore, see, steer, scatter, shark: startShark, flight, follow,
+  const out = Object.assign(set, { params, update, anchors, labels, cam, explore, see, steer, hold, scatter, shark: arrive, flight, follow,
     hush: on => { HUSH = !!on; }, hunted: h => { hunts = Math.floor(h + 1e-6); }, sharkOn: () => SH.on, following: () => !!FOL, fish: () => N, neighbours: () => KN,
     // (the flock engine's names, so its shared-room code ports as it is)
-    falcon: startShark, falconOn: () => SH.on,
+    falcon: arrive, falconOn: () => SH.on, kept: () => SH.on && SH.cruise,
     setLang: l => { LANG = l === 'de' ? 'de' : 'en'; },
     state: () => ({ P, V, AL, FL, N, NB, NBC, KN, KMAX, me: ME, shark: SH, centre: CEN, t: tSim }), watch: f => { WATCH = f; } });
   Object.defineProperty(out, 'controls', { get: () => CTL[LANG], enumerable: true });

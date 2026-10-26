@@ -67,10 +67,14 @@ float openR(vec3 e) {
 }`;
 
   // translucent membranes (bouton, axon, myelin, Schwann cell, muscle membrane, organelle envelopes, the fibre's
-  // surface, the cut edges and the basement membrane's sheet): additive glass that glows at the rim
+  // surface, the cut edges and the basement membrane's sheet): additive glass that glows at the rim. Its colour adds
+  // up as light; its alpha is only as much as it glows (plain additive blending wrote alpha 1 under every faint
+  // sheet, so over the room in passthrough AR the glass showed as a black box; in VR the canvas is opaque anyway)
   const glassMat = new THREE.ShaderMaterial({
     uniforms: Object.assign({ uA: set.uA }, SU),
-    transparent: true, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending,
+    transparent: true, depthWrite: false, side: THREE.DoubleSide, blending: THREE.CustomBlending,
+    blendEquation: THREE.AddEquation, blendSrc: THREE.OneFactor, blendDst: THREE.OneFactor,
+    blendSrcAlpha: THREE.OneFactor, blendDstAlpha: THREE.OneMinusSrcAlphaFactor,
     vertexShader: `attribute vec3 color;` + VH + `
 varying vec3 vN, vW, vC; varying float vGA, vSc;
 void main() {` + VB + `
@@ -89,13 +93,13 @@ void main() {
   if (vKind > 3.5 && vKind < 4.5) {   // the basement membrane: a fibrous mesh
     vec2 q = vec2(vL.x + vL.y, vL.z) * 70.0;
     pat = 0.2 + 0.8 * pow(abs(sin(q.x + 1.7 * sin(q.y * 0.53)) * sin(q.y * 0.8 + 1.3 * sin(q.x * 0.41))), 0.7); r = 0.18 + 0.4 * r;
-  } else if (vKind > 5.5) { gl_FragColor = vec4(vC * vDm * vGA * vK * 0.09 + vGC * 0.05, uA); return; }
-  else if (vKind > 2.5) { pat = 0.65 + 0.35 * smoothstep(0.2, 0.6, abs(fract(vL.x / ${f4(ZP)}) - 0.5) * 2.0); r = 0.2 + 0.8 * r; }   // the fibre's surface: a base tint, striated
+  } else if (vKind > 2.5) { pat = 0.65 + 0.35 * smoothstep(0.2, 0.6, abs(fract(vL.x / ${f4(ZP)}) - 0.5) * 2.0); r = 0.2 + 0.8 * r; }   // the fibre's surface: a base tint, striated
   vec3 pc = vKind < 1.5 ? vec3(0.25, 0.42, 0.5) : vec3(1.0, 0.68, 0.32);
   float a0 = (vKind > 1.5 && vKind < 4.5) ? 0.012 : 0.03;   // sheets seen face-on through many folds stay faint
   vec3 col = (vC * (0.45 + 0.85 * r) * vDm * pat + vGC * (0.5 + 1.2 * r) * pat) * (a0 + 0.42 * r) + pc * vP * (0.35 + 0.8 * r);
   // glass right in front of the eye fades (in the set's own units, so also at life size in a headset)
-  gl_FragColor = vec4(col * vGA * vK * sh * smoothstep(0.03, 0.3, distance(cameraPosition, vW) / vSc), uA);
+  col *= vGA * vK * sh * smoothstep(0.03, 0.3, distance(cameraPosition, vW) / vSc) * uA;
+  gl_FragColor = vec4(col, min(0.85, 1.4 * max(col.r, max(col.g, col.b))));
 }`,
   });
   set.mats.push(glassMat);
@@ -348,9 +352,12 @@ totalEmissiveRadiance += diffuseColor.rgb * uSelf + uRimC * (uRimK * rimF * vDm)
     g.setIndex(keep);
     shell.add(g, { color: [1.0, 0.6, 0.7], aS: [0, 1, 0, 0], aQ: (x, y, z) => [0.4 + 0.1 * Math.max(0, Math.abs(x) - 0.9), 3, 0.45 * smooth((5 - Math.abs(x)) / 1.6) * smooth((3.2 * 0.87 - Math.abs(z)) / 0.8)] });
   }
-  {   // the fibre's cut face: a faint tint under the membrane's profile, fading towards the sides and the bottom
-    const top = memProf(ZC - 0.002), rows = [top, top.map(p => [p[0], -1.18, p[2]])];
-    gAdd(rowsGeo(rows), [1.0, 0.5, 0.6], [0, 0, 0, 0], (x, y) => [0, 6, smooth((XS - Math.abs(x)) / 0.35) * (0.4 + 0.6 * smooth((y + 1.18) / 0.4))]);
+  // the fibre's cut face under the membrane's profile: a translucent, lit section of muscle (its mesh is made below);
+  // aQ.z is the membrane's height above each point, so the shader knows how deep under the membrane it is
+  const cutB = Builder({ color: 3, aS: 4, aQ: 3 });
+  {
+    const top = memProf(ZC - 0.002), nc = top.length, rows = [top, top.map(p => [p[0], -1.18, p[2]])];
+    cutB.add(rowsGeo(rows), { color: [0.58, 0.15, 0.23], aS: [0, 0, 0, 0], aQ: (x, y, z, i) => [0, 6, top[i % nc][1]] });
   }
   // cut edges, where the cut plane meets the bouton, the Schwann cell, the muscle membrane and the basement membrane
   const edge = (pts, closed, col, s, gain) => gAdd(tubeFn(ring(pts, closed), pts.length * 2, 4, 0.0045), col, s, [0, 0, gain]);
@@ -821,6 +828,24 @@ totalEmissiveRadiance += diffuseColor.rgb * uSelf + uRimC * (uRimK * rimF * vDm)
     const m = lit('skin', { side: THREE.DoubleSide, self: 0.1, rimK: 0.12, rimC: [1.0, 0.6, 0.7], vh: 'attribute vec3 aCtr;', vb: 'transformed.y -= (1.0 - vK) * 0.3;' });
     m.userData.base = 0.62; mk(sk, m, 3);
   }
+  let cutMesh;
+  {   // the cut face: deep rose-red muscle, paler just under the membrane, faintly striated where the myofibrils run and
+    // mottled, fading towards the sides and the bottom. Half see-through and writing no depth, so the nuclei,
+    // organelles and myofibrils behind it show through it; it thins while a place glows (the rest dims) and as you
+    // come close (in the set's units, so also at life size), so the close views look into the fibre unveiled
+    const m = lit('cut', { side: THREE.DoubleSide, self: 0.2, rimK: 0, rough: 0.85, vh: 'varying float vTop, vScl;',
+      vb: 'vTop = aQ.z; vScl = length(modelMatrix[0].xyz);', fh: 'varying float vTop, vScl;',
+      fcol: `{
+  float d = vTop - vL.y, x = vL.x / ${f4(ZP)}, w = fwidth(x) * 1.5, m = abs(fract(x - 0.5) - 0.5);
+  float A = (1.0 - smoothstep(0.3 - w, 0.3 + w, m)) * clamp(1.0 - w * 4.0, 0.0, 1.0) * (1.0 - smoothstep(-0.86, -0.76, vL.y));
+  float mot = sin(vL.x * 23.0 + 2.0 * sin(vL.y * 17.0)) * sin(vL.y * 19.0 + 1.3 * sin(vL.x * 13.0));
+  diffuseColor.rgb *= (1.0 - 0.2 * A) * (1.0 + 0.07 * mot) * (0.85 + 0.15 * smoothstep(-1.18, -0.5, vL.y));
+  diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.92, 0.62, 0.66), 0.55 * (1.0 - smoothstep(0.0, 0.07, d)));
+  diffuseColor.a *= vK * (0.45 + 0.55 * vDm) * smoothstep(0.0, 0.35, ${f4(XS)} - abs(vL.x)) * (0.3 + 0.7 * smoothstep(-1.18, -0.78, vL.y))
+    * (0.25 + 0.75 * smoothstep(1.2, 4.0, length(vViewPosition) / vScl));
+}` });
+    m.userData.base = 0.55; m.depthWrite = false; cutMesh = mk(cutB, m, 4);
+  }
 
   // ------------------------------------------------------------------ update
   const G = SU.uG.value, D = SU.uD.value, ST = SU.uStage.value, FU = SU.uFuse.value, EW = EU.uEW.value;
@@ -852,7 +877,7 @@ totalEmissiveRadiance += diffuseColor.rgb * uSelf + uRimC * (uRimK * rimF * vDm)
     ST[0] = prog(b, 0, 0.3); ST[1] = prog(b, 0.05, 0.35); ST[2] = prog(b, 0.25, 0.5); ST[3] = prog(b, 0.4, 0.7); ST[4] = prog(b, 0.5, 0.85); ST[5] = prog(b, 0.8, 1);
     const ny = 0.6 * Math.pow(1 - ST[4], 2);
     SU.uNerveY.value = ny; vesMesh.position.y = ny;
-    SU.uShell.value = clamp(S.syn_shell, 0, 1); shellMesh.visible = SU.uShell.value > 0.003;
+    SU.uShell.value = clamp(S.syn_shell, 0, 1); shellMesh.visible = SU.uShell.value > 0.003; cutMesh.visible = ST[0] > 0;
     // firing: one impulse a second; tired, each of six impulses releases less (the twitch shrinks, then fails), two rest
     const fire = clamp(S.syn_fire, 0, 1), tired = clamp(S.syn_tired, 0, 1);
     const n = Math.floor(t), ph = t - n, kc = ((n % 8) + 8) % 8;

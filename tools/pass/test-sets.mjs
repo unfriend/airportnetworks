@@ -119,6 +119,23 @@ if (want('fish')) {
   f.steer([3, 1.6, -4]); run(4, 7); const sh = st().shark;
   ok(sh.on && Math.hypot(sh.p[0] - 3, sh.p[1] - 1.6, sh.p[2] + 4) < 1.5, 'a steered shark swims to where it is steered');
   f.steer(null); run(30, 7); ok(!st().shark.on, 'let go, it swims away');
+  // being the shark (hold): let go, it stays, cruising round the school and now and then through it, never through
+  // your head; once you stop being the shark it swims off
+  f.hold(true); f.steer([2, 1.6, -4]); run(3, 7); f.steer(null);
+  let on = true, nearC = 99, nearH = 99, farH = 0, inView = 0, passes = 0, inside = false;
+  for (let i = 0; i < 90 * 30; i++) {
+    f.hold(true); f.see([0, 1.6, 0], []); f.update(S, 0, 1 / 30);
+    const { shark: s2, centre: c } = st(), dc = Math.hypot(s2.p[0] - c[0], s2.p[1] - c[1], s2.p[2] - c[2]), dh = Math.hypot(s2.p[0], s2.p[1] - 1.6, s2.p[2]);
+    on = on && s2.on; nearC = Math.min(nearC, dc); nearH = Math.min(nearH, dh); farH = Math.max(farH, dh); if (dh < 12) inView++;
+    if (dc < 2 && !inside) passes++; inside = dc < 2;
+  }
+  ok(on && passes >= 4 && farH < 18 && inView > 0.85 * 90 * 30, `let go while you are the shark, it stays: in 90 s ${passes} passes through the school (nearest ${nearC.toFixed(1)} m from its middle), within 12 m of you ${(inView / 27).toFixed(0)} % of the time, at most ${farH.toFixed(1)} m`);
+  ok(nearH > 2, `and keeps clear of your head (nearest ${nearH.toFixed(1)} m)`);
+  f.shark({ p: [20, 1.6, 0], v: [-3, 0, 0], aim: null }); ok(Math.hypot(st().shark.p[0] - 20, st().shark.p[2]) > 1, 'a shark from someone else does not take yours');
+  f.steer([1, 1.6, -3]); run(4, 7); ok(st().shark.steer && Math.hypot(st().shark.p[0] - 1, st().shark.p[2] + 3) < 3, 'steered again, it comes back to your point');
+  f.steer(null); f.hold(false); let gone = -1;
+  for (let i = 0; i < 30 * 30 && gone < 0; i++) { f.hold(false); f.see([0, 1.6, 0], []); f.update(S, 0, 1 / 30); if (!st().shark.on) gone = i / 30; }
+  ok(gone > 2 && gone < 25, `when you stop being the shark it swims off (gone after ${gone.toFixed(1)} s)`);
 }
 if (want('cell')) {
   const c = build('cell'), A = c.api, S = Object.assign({}, c.params);

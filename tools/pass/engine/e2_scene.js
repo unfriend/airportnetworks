@@ -127,14 +127,18 @@ function setLens(w) {
   if (Math.abs(fov - GL.camera.fov) > 0.01) { GL.camera.fov = fov; GL.camera.updateProjectionMatrix(); }
 }
 // the fish's holder: nothing on a screen; in a headset it undoes GL.world's pose, so the school's frame hangs a standing
-// eye height below the rig, life size, wherever xrPlace puts the globe and the cell
+// eye height below the rig, life size, wherever xrPlace puts the globe and the cell; moved by as far as you have moved
+// the sea with the grip (XR.lifeOff, in the rig's frame, easing to XR.lifeTo; this device only, never shared: people
+// differ in height). At a station in a shared room only up and down: the school stays round the station's spot
 const _lm = new THREE.Matrix4(), _lt = new THREE.Matrix4();
-function placeLife(xr) {
+function placeLife(xr, dt) {
   const h = GL.life;
   if (!xr) { h.position.set(0, 0, 0); h.quaternion.identity(); h.scale.setScalar(1); }
   else {
+    if (HOST.room && HOST.room.placing()) XR.lifeTo.x = XR.lifeTo.z = 0;
+    XR.lifeOff.lerp(XR.lifeTo, 1 - Math.exp(-(dt || 0) * 8));
     GL.world.updateMatrix();
-    _lm.copy(GL.world.matrix).invert().multiply(_lt.makeTranslation(0, -1.6, 0));
+    _lm.copy(GL.world.matrix).invert().multiply(_lt.makeTranslation(XR.lifeOff.x, XR.lifeOff.y - 1.6, XR.lifeOff.z));
     _lm.decompose(h.position, h.quaternion, h.scale);
   }
   h.updateMatrix();
@@ -191,7 +195,8 @@ function followView(v, dt, keep) {
 }
 // the school keeps clear of you: your head and hands, in its own frame. On a screen you float at the middle of the
 // sea (not where the camera is: from afar the school would follow the camera away). spot: at a station in a shared
-// room (fishSync), where the school stays round the station's spot instead of round you
+// room (fishSync), where the school stays round the station's spot instead of round you; elsewhere in a headset with
+// the sea moved, it stays round where you would be had you not moved it (so it keeps where you put it)
 const _sv = new THREE.Vector3(), _sm = new THREE.Matrix4();
 function tellFish(xr, spot) {
   const s = GL.sets.fish;
@@ -199,6 +204,7 @@ function tellFish(xr, spot) {
   _sm.copy(s.group.matrixWorld).invert();
   const head = xr ? _sv.copy(XR.head).applyMatrix4(_sm).toArray() : [0, 1.6, 0];
   const hands = xr ? XR.ctrls.filter(c => c.src && c.g.visible).map(c => _sv.copy(c.o).applyMatrix4(_sm).toArray()) : [];
+  if (xr && !spot && XR.lifeOff.lengthSq() > 1e-6) { _sv.copy(XR.lifeOff).applyQuaternion(GL.rig.quaternion).add(XR.head).applyMatrix4(_sm); spot = [_sv.x, _sv.z]; }
   s.see(head, hands, spot);
 }
 // a point of the world (THREE.Vector3, world coordinates) in the school's frame

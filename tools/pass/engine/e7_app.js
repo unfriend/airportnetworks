@@ -238,12 +238,13 @@ function frame(now, xrFrame) {
   // the fish: life size round you in a headset (their holder), the sea hidden in passthrough (the school swims in your
   // room) and never shrunk there (in a headset the rise to the globe only fades: the viewer never moves)
   GL.lifeOn = (S.fish_a || 0) >= 0.5;
-  placeLife(xr);
+  placeLife(xr, dt);
   if (XR.on && (!XR.clear || xr)) S = Object.assign({}, S, XR.clear ? { fish_scale: 1 } : { fish_water: 0, fish_scale: 1 });
   if (!xr) setLens(S.lens);
   K.U.uTime.value = tSet;
   GL.camera.updateMatrixWorld();
   updateLight(xr);
+  GL.sets.fish.hold(sharking());   // (be the shark: a shark let go stays while it is on)
   tellFish(xr, fishSync());
   updateSets(S, tSet, dt, APP.mode === 'story');
   // what explore mode asked to do once the sets show its pick

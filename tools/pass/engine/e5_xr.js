@@ -8,6 +8,7 @@
 const XR = {
   on: false, mode: null, session: null, needRecenter: false, fov: false, fontOK: 0, clear: true,
   head: new THREE.Vector3(), headQ: new THREE.Quaternion(), globeOff: new THREE.Vector3(), size: 1, globeBase: new THREE.Vector3(), camLocal: new THREE.Vector3(0, 0, 5),
+  lifeOff: new THREE.Vector3(), lifeTo: new THREE.Vector3(),   // (where the sea has been moved with the grip: placeLife)
   baseR: 0.36, R: 0.36, viewH: 1600, hitR: 1, target: new THREE.Vector3(),
   ctrls: [], panels: [], main: null, foot: null, tip: null, tipI: -1, elInfo: null,
   kbd: { open: false, q: '' },
@@ -41,7 +42,7 @@ function xrPlace(v) {
   GL.world.position.set(gx - _xb.x, gy - _xb.y, gz - _xb.z);
 }
 function xrRecenter() {
-  XR.globeOff.set(0, 0, 0); XR.size = 1;
+  XR.globeOff.set(0, 0, 0); XR.size = 1; XR.lifeOff.set(0, 0, 0); XR.lifeTo.set(0, 0, 0);
   if (XR.panelGroup) { XR.panelGroup.position.copy(XR.panelHome.p); XR.panelGroup.rotation.set(0, XR.panelHome.yaw, 0); }
   // anchored: the scene and the panel go back where they were saved with the place
   const s = HOST.anchor.saved();
@@ -191,8 +192,8 @@ function xrPress(c) {
     if (r.drag) { r.drag(h.x, h.y); buzz(c, 0.2, 12); }
   } else if (h.kind === 'sea') {
     // among the fish in explore mode the trigger is the shark: held, it leads the shark where you point (Be the
-    // shark); else a pull sends one that way
-    if (APP.mode !== 'explore' || X.scene !== 'fish' || XR.stories) return;
+    // shark); else a pull sends one that way (not while the sea is being carried)
+    if (APP.mode !== 'explore' || X.scene !== 'fish' || XR.stories || seaHeld()) return;
     if (X.shark) { c.press = { kind: 'sea', steer: true }; steerRay(c); buzz(c, 0.3, 20); }
     else { _sm.copy(GL.sets.fish.group.matrixWorld).invert(); if (sendShark(_xb.copy(c.d).transformDirection(_sm).toArray())) buzz(c, 0.5, 40); }
   } else { c.press = Object.assign(startDrag(c), { kind: 'globe', i: h.i, pk: h.pk }); orbit.held = true; }
@@ -223,7 +224,14 @@ function xrGrab(c, on) {
   const h = c.hover;
   if (!on || !h) return;
   if (XR.stories || HOST.anchor.locked(h.kind)) return; // the Stories screen stays put, and so does an anchored place (in a shared room: only at its station, unless locked)
-  if (h.kind === 'sea') return;   // the sea is life size round you: it stays where it is
+  // the sea: the school moves with your hand (one hand at a time; it lets go of the shark you were leading)
+  if (h.kind === 'sea') {
+    if (seaHeld()) return;
+    if (c.press && c.press.kind === 'sea') { c.press = null; GL.sets.fish.steer(null); }
+    c.grab = { target: 'sea', o0: GL.rig.worldToLocal(c.o.clone()), off0: XR.lifeTo.clone() };
+    buzz(c, 0.4, 25);
+    return;
+  }
   // the scene is held by its placement point (where the view's target sits), so a still hand moves nothing
   const p0 = h.kind === 'panel' ? XR.panelGroup.getWorldPosition(new THREE.Vector3()) : GL.rig.localToWorld(XR.globeBase.clone().add(XR.globeOff));
   c.grab = { target: h.kind === 'panel' ? 'panel' : 'globe', q0: new THREE.Quaternion().setFromRotationMatrix(c.g.matrix).invert(),
@@ -236,6 +244,7 @@ function carry(c, dt) {
   const G = c.grab, gp = c.src.gamepad;
   // both hands on the scene resize it (xrResize, once a frame); when one lets go, the other carries on from there
   if (HOST.anchor.locked(G.target === 'panel' ? 'panel' : 'globe')) { c.grab = null; return; }   // locked meanwhile (a shared room's layout lock)
+  if (G.target === 'sea') { carrySea(c, G); return; }
   const o = G.target === 'globe' ? XR.ctrls.find(k => k !== c && k.grab && k.grab.target === 'globe' && k.src && k.g.visible) : null;
   if (o) { if (c.i > o.i) xrResize(o, c); return; }
   if (G.two) { G.two = null; G.q0.setFromRotationMatrix(c.g.matrix).invert(); G.o0.copy(c.o); G.p0.copy(GL.rig.localToWorld(XR.globeBase.clone().add(XR.globeOff))); G.reach = 1; }
@@ -252,6 +261,17 @@ function carry(c, dt) {
     GL.rig.worldToLocal(_gh.copy(XR.head));
     XR.panelGroup.rotation.set(0, Math.atan2(_gh.x - _gv.x, _gh.z - _gv.z), 0); // keep it upright, facing you
   }
+}
+// the sea (the school life size round you) follows the hand's move since the grip, in the rig's frame, within a few
+// metres; at a station in a shared room only up and down (placeLife eases it there)
+const seaHeld = () => XR.ctrls.some(k => k.grab && k.grab.target === 'sea');
+function carrySea(c, G) {
+  GL.rig.worldToLocal(_gv.copy(c.o)).sub(G.o0);
+  if (HOST.room && HOST.room.placing()) _gv.x = _gv.z = 0;
+  _gv.add(G.off0);
+  _gv.y = clamp(_gv.y, -2, 2);
+  const l = Math.hypot(_gv.x, _gv.z); if (l > 6) { _gv.x *= 6 / l; _gv.z *= 6 / l; }
+  XR.lifeTo.copy(_gv);
 }
 // both hands on the scene: it grows and shrinks with the distance between them (a quarter to four times the
 // story's own size) and moves with their middle
@@ -394,7 +414,7 @@ function xrUpdate(S) {
 // Be the shark with a tracked hand: the shark follows your index fingertip (the trigger held on the sea does the same
 // for a controller)
 function xrFingertip(frame, ref) {
-  if (!sharking() || !frame || !ref || !frame.getJointPose || XR.ctrls.some(c => c.press && c.press.kind === 'sea')) { if (XR.tipSteer) { XR.tipSteer = false; GL.sets.fish.steer(null); } return; }
+  if (!sharking() || !frame || !ref || !frame.getJointPose || XR.ctrls.some(c => c.press && c.press.kind === 'sea') || seaHeld()) { if (XR.tipSteer) { XR.tipSteer = false; GL.sets.fish.steer(null); } return; }
   let tip = null;
   try {
     for (const src of (XR.session && XR.session.inputSources) || []) {
@@ -459,6 +479,7 @@ async function xrStart(mode) {
 function xrEnterScene() {
   XR.stories = false;
   XR.on = true; XR.needRecenter = true; XR.fov = false; XR.tipI = -1;
+  XR.lifeOff.set(0, 0, 0); XR.lifeTo.set(0, 0, 0);
   document.body.classList.add('xr');
   GL.rig.position.set(0, 0, 0); GL.rig.quaternion.identity();
   XR.clear = !(XR.session.environmentBlendMode && XR.session.environmentBlendMode !== 'opaque') && XR.mode !== 'immersive-ar';
@@ -500,6 +521,7 @@ function xrVisibility() {
 function xrFreshStart() {
   XR.kbd.open = false; XR.kbd.q = '';
   for (const c of XR.ctrls) { c.press = null; c.grab = null; c.wantPress = false; }
+  XR.lifeOff.set(0, 0, 0); XR.lifeTo.set(0, 0, 0);   // (the sea at a new wearer's own eye height)
   // at a shared room's station the story and its place stay: the room's clock and state go on applying
   if (HOST.collab.mine()) { lastNow = 0; return; }
   APP.enterStory(0); APP.playing = false; audioSync();
