@@ -134,6 +134,25 @@ Before handing over (or making anything more public), someone has to decide thes
        - WebRTC inside an immersive session on Quest is untested.
      - **Size:** estimated at about 3 to 5 hours of agent work and 2 to 4M tokens, the tests included (a peer-to-peer
        run of the shared-room test with a pretend introduction server).
+   - **subtitles in the headset**, chosen per person from the headset's menu (Subtitles: off / follow / placed).
+     - **Follow:** a little below the line of sight, about 1.5 m ahead. Not stuck to the head (uncomfortable): they
+       stay put until you turn more than about 25 degrees, then glide back in front of you, as the wrist clock turns to
+       your eyes.
+     - **Placed:** picked up with the grip and left anywhere in the room, on this headset only, remembered for next
+       time.
+     - Per device, never in `collab.state()`: nothing changes for the shared rooms.
+     - **How:** all in the shell, no change to the thirteen stories. The words come from each story's panel (its
+       `section.ch` chapters and their `data-at` lines, read as `tools/narration.mjs` reads them), split into short
+       two-line captions spread over the time until the next line by word count. The pass story's follow its
+       language. The panel is drawn like the shell's menu and clock, and the grip reuses the code that carries
+       stations.
+     - **To know:** only the airports story has a recorded voice, so in the other twelve the subtitles repeat the
+       panel's words (useful when the panel is out of view: in the flock or among the fish, at a station, the panel
+       behind you). Each line starts with the voice; the captions within a long line are timed by word count, not
+       matched word by word.
+     - **Size:** estimated at about 2 to 3 hours of agent work and 1 to 1.5M tokens, the tests included, plus a short
+       round of tuning (size, distance, follow speed) after the owner tries it on a Quest. A caption bar under the
+       scene on screens and phones would add about half an hour.
 
 ## How work is done
 
