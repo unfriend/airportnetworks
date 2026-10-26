@@ -211,8 +211,9 @@ function roomLine() {
   if ((xrFeature('plane-detection') || xrFeature('mesh-detection')) && performance.now() - XRR.t0 < 4000) return 'Finding your room …';
   return 'No room setup found: a virtual room round you';
 }
-// Quest can run its room setup from the page, once a session
-const canCapture = () => XRR.kind !== 'real' && !XRR.capture && !!(XR.session && typeof XR.session.initiateRoomCapture === 'function');
+// Quest can run its room setup from the page, once a session (one that can see the room: AR; VR asks for no room scan)
+const canCapture = () => XRR.kind !== 'real' && !XRR.capture && !!(XR.session && typeof XR.session.initiateRoomCapture === 'function') &&
+  (xrFeature('plane-detection') || xrFeature('mesh-detection'));
 function roomCapture() {
   if (!canCapture()) return;
   XRR.capture = true;
@@ -508,7 +509,7 @@ async function xrStart(mode) {
   if (XR.session || !navigator.xr) return;
   let session;
   try {
-    session = await navigator.xr.requestSession(mode, { optionalFeatures: ['local-floor', 'hand-tracking', 'anchors', 'plane-detection', 'mesh-detection', 'shared'] });
+    session = await navigator.xr.requestSession(mode, { optionalFeatures: HOST.xr.features(mode) });
   } catch (err) {
     HOST.landingVR = false;
     xrMsg(`Could not start ${mode === 'immersive-ar' ? 'AR' : 'VR'}: ${err && err.message ? err.message : err}`);

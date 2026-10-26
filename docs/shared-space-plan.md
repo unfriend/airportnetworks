@@ -198,7 +198,8 @@ asks the session for `local-floor` and, when granted, `shared` spaces of its own
    `const sh = HOST.collab.ray(c.i, c.o, c.d, hs.length ? hs[0].distance : Infinity)`; when it returns a hit (a
    shell object nearer than the story's nearest panel), that is the hover (`{ kind: 'shell', point, dist }`,
    drawn with the usual dot) and a press goes to `HOST.collab.press(c.i)` instead of the story.
-4. `'shared'` in the session's optional features.
+4. `'shared'` in the session's optional features (now `HOST.xr.features(mode)`, AR only: VR asks for less since a Quest 3
+   left VR at once with the full list).
 
 The shell polls `state()` five times a second and publishes it when its value changed (echo suppression by
 value); a remote value goes through `apply()` and becomes the last synced value. A remote value that arrives

@@ -1131,7 +1131,8 @@ HOST.audio = (function () {
       'Narration ' + (A.muted ? 'turned off here' : 'on') + '. Taps: ' + (A.tapped ? 'yes, last ' + (A.lastTap || '-') : 'none yet') +
         (ua ? '. Page has had a tap: ' + (ua.hasBeenActive ? 'yes' : 'no') : ''),
       'Page ' + document.visibilityState + (A.session ? ', headset view ' + A.session.visibilityState : ', no headset session'),
-      ...A.log.slice(-5),
+      ...(HOST.xr ? [HOST.xr.line()] : []),
+      ...A.log.slice(-4),
     ];
   }
   // the shell calls this when a story is swapped out
@@ -1142,11 +1143,49 @@ HOST.audio = (function () {
     running, narration, unlock, toggle, watch, drop, beep, setEngine, reset, report, zone, engine: () => engine(A.cur), state: () => A,
   };
 })();
+// ------------------------------------------------------------- what a headset session asks for --
+// Every story asks with HOST.xr.features(mode). AR asks for everything a room needs (anchors, the room scan for the
+// robot gang, the shared space); VR only for what VR uses: a Quest 3 left VR for its home at once with the full list
+// (October 2026; AR fine there, VR fine on a Pico). A VR session that closes by itself within 10 s, or whose page goes
+// with it, makes the next one ask for less (kept as `xrSteps` in localStorage; back to the start in another browser
+// version); Sound check shows what VR asks for.
+HOST.xr = (function () {
+  const AR = ['local-floor', 'hand-tracking', 'anchors', 'plane-detection', 'mesh-detection', 'shared'];
+  const VR = [['local-floor', 'hand-tracking', 'anchors'], ['local-floor', 'hand-tracking'], ['local-floor'], []];
+  const KEY = 'xrSteps', ua = navigator.userAgent, SOON = 10000;
+  const fresh = () => ({ ua, vr: 0, open: 0, note: '' });
+  let X = fresh(), asked = '', cur = null;
+  try { const v = JSON.parse(localStorage.getItem(KEY) || 'null'); if (v && v.ua === ua) X = Object.assign(fresh(), v); } catch (e) { /* none */ }
+  const save = () => { try { localStorage.setItem(KEY, JSON.stringify(X)); } catch (e) { /* private window */ } };
+  const down = why => { if (X.vr < VR.length - 1) X.vr++; X.note = why; X.open = 0; save(); console.warn('VR asks for less next time:', why, VR[X.vr]); };
+  // a VR session still young when its page last went without a pagehide: the tab went down with it
+  if (X.open) down('the last VR session went down with its page');
+  addEventListener('pagehide', () => { if (X.open) { X.open = 0; save(); } });
+  function watch(s) {
+    if (!s || s === cur) return;   // a story taking over a running session sets it again
+    cur = s;
+    const mode = asked; asked = '';
+    if (mode !== 'immersive-vr') return;
+    const t0 = performance.now();
+    X.open = 1; save();
+    const ok = setTimeout(() => { if (X.open) { X.open = 0; save(); } }, SOON);
+    s.addEventListener('end', () => {
+      clearTimeout(ok);
+      const t = performance.now() - t0;
+      if (X.open && t < SOON) down('VR closed by itself after ' + (t / 1000).toFixed(1) + ' s');
+    });
+  }
+  return {
+    features(mode) { asked = mode; return (mode === 'immersive-vr' ? VR[X.vr] : AR).slice(); },
+    watch,
+    line: () => 'VR asks for: ' + (VR[X.vr].join(', ') || 'nothing extra') + (X.vr ? ' (less than at first: ' + X.note + ')' : ''),
+  };
+})();
 // stories set HOST.session when they start or take over a headset session; the sound system, the anchor and the
 // shared room (shared.js) listen to it
 (function () {
   let s = null;
-  Object.defineProperty(HOST, 'session', { get: () => s, set(v) { s = v; HOST.audio.watch(v); HOST.anchor.watch(v); if (HOST.room) HOST.room.watch(v); }, enumerable: true });
+  Object.defineProperty(HOST, 'session', { get: () => s, set(v) { s = v; HOST.xr.watch(v); HOST.audio.watch(v); HOST.anchor.watch(v); if (HOST.room) HOST.room.watch(v); }, enumerable: true });
 })();
 // --------------------------------------------------------------- anchored placement --
 // Anchored mode (the Anchor button on the headset Stories screen, or #anchor=on / #anchor=off in a

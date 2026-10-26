@@ -126,6 +126,11 @@ docs/quest-shared-space-findings.md.
 Upload the whole folder to any HTTPS web server (GitHub Pages, Netlify,
 your university web space ...). Installing and VR both need https://.
 
+VR asks the headset for less than AR (no room scan, no shared space): a Quest 3
+left VR for its home at once when asked for everything. If VR still closes by
+itself within 10 seconds, press Enter VR again: each such try asks for less.
+Sound check shows what VR asks for now.
+
 Install:
 - Meta Quest Browser: open the page, then use the Install button in the
   address bar (or the "Install" button in the page's top bar if shown).

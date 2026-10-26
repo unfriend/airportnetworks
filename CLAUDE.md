@@ -31,8 +31,8 @@
   only exist on a headset: report their behaviour as untested.
 - Shared rooms (`shared.js`, `relay/`, see "Shared rooms" in `AGENTS.md`): keep
   the shared hooks in all thirteen stories, the same lines in each (the `collab`
-  object, the ray and press lines, the grip line, `'shared'` in the optional
-  features, the `HOST.collab.mine()` lines in `xrFreshStart` and
+  object, the ray and press lines, the grip line, the optional features from
+  `HOST.xr.features(mode)` (AR asks for `'shared'`, VR for less), the `HOST.collab.mine()` lines in `xrFreshStart` and
   `xrLandingClose`). `state()` never holds the camera, hover or anything per
   device, and `apply(state())` gives the same `state()` back. After touching
   `shared.js`, the relay or a story's hooks or its `state()`, run

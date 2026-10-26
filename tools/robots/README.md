@@ -30,8 +30,9 @@ Useful hashes: `#robots&t=25`, `#robots&explore&rule=chain&robots=12&trails=on&l
 
 ## The headset's room
 
-Every story asks for `plane-detection` and `mesh-detection` as optional features when it starts a headset session (a
-session survives a change of story, so the gang may inherit one). `xrRoom(frame, ref)` runs every frame and reads the
+Every story asks for `plane-detection` and `mesh-detection` as optional features when it starts an AR session (a
+session survives a change of story, so the gang may inherit one; VR asks for no room scan, so there the gang gets the
+virtual room and no *Set up your room*). `xrRoom(frame, ref)` runs every frame and reads the
 room again when the detected planes or meshes change, once a second besides (poses can move without a change, and a
 first read can come before tracking has them), at most twice a second, or at once after the reference space was reset;
 `setRoom` skips a room that has not changed, so the cleaned floor stays. The room: the floor (the plane labelled floor,

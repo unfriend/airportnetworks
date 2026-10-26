@@ -195,8 +195,17 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
   find (another room) is kept for the next session while things hold where
   they are. Each request carries a generation number, so one that settles
   after Place again, Anchor off or the end of the session is thrown away.
-  Sessions request `anchors` as an optional feature (and `plane-detection` and
-  `mesh-detection`, for the robot gang's room).
+  What a session asks for comes from the shell (`HOST.xr.features(mode)`, in
+  every story's `xrStart`): AR asks for `local-floor`, `hand-tracking`,
+  `anchors`, `plane-detection` and `mesh-detection` (the robot gang's room) and
+  `shared` (the shared space), all optional; VR only for `local-floor`,
+  `hand-tracking` and `anchors`, since a Quest 3 left VR for its home at once
+  with the full list (October 2026; AR was fine there, and VR on a Pico). A VR
+  session that ends within 10 s of starting, or whose page goes with it (no
+  `pagehide`), makes the next one ask for less (`hand-tracking` and
+  `local-floor`, then `local-floor`, then nothing; `xrSteps` in `localStorage`,
+  back to the start in another browser version): Sound check says what VR asks
+  for and why. Ending VR on purpose within 10 s counts too.
 - Sound belongs to the shell (`HOST.audio` in `index.html`); stories only say
   what should play. A story asks for its file with
   `AUD = HOST.audio.narration(url, { ready, error })` and calls
@@ -639,7 +648,7 @@ reference, `tools/flock/engine/`):
 - The panel footer: `if (!(HOST.room && HOST.room.placing())) hb('stories', ...)`;
   `xrResize` and the two-hand branch at the top of `carry`; `XR.size` in
   `xrPlace` (scene stories), `xrRecenter` and `xrAdopt`.
-- `'shared'` in the session's optional features.
+- The session's optional features from `HOST.xr.features(mode)` (AR asks for `'shared'`; VR does not).
 - `xrFreshStart`: `if (HOST.collab.mine()) { lastNow = 0; return; }`: a
   headset taken off at a station keeps its story and place (no Stories screen
   for a new wearer); the room's clock and state go on applying.
@@ -1072,8 +1081,9 @@ is the contract between them.
   and you are an avatar: a click on the floor walks it there (`floorPoint`,
   then `walkTo`), a drag turns the view.
 - In a headset the room is yours. Every story asks for `plane-detection` and
-  `mesh-detection` as optional features when it starts a session (a session
-  survives story changes), and `xrRoom` (`engine/e5_xr.js`) reads
+  `mesh-detection` as optional features when it starts an AR session (a session
+  survives story changes; VR asks for no room scan, so the robots get the
+  virtual room there and no *Set up your room*), and `xrRoom` (`engine/e5_xr.js`) reads
   `frame.detectedPlanes` and `frame.detectedMeshes` (only when
   `session.enabledFeatures` lists them, inside try/catch) when they change,
   once a second besides (poses can move on their own, and a first read may
