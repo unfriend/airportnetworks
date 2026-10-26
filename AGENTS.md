@@ -1008,7 +1008,8 @@ contract.
   `engine/e5_xr.js`): it follows the hand's move, one hand at a time, anywhere outside a room and only up and down at a
   station (the school stays round the station's spot), where `HOST.anchor.locked` allows the grip; per device (people
   differ in height), never in `collab.state()` or the `place` hook; reset by Recenter and for a new wearer. While it is
-  carried no shark steering starts.
+  carried no shark steering starts. The school's height, the grip and the new shark were checked on a Quest 3 (October
+  2026), with the endotype junction over a real wall, the PET scanner's base and the fitted card titles.
 - **The outbreak** is the globe set's seeded S/E/I/R model on the real route network: the same start and settings give
   the same outbreak on every device, so a shared room shares only those; each person plays its days. The story and
   the Outbreak tab say it is a simple model, not a forecast.
