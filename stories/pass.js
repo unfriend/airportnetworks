@@ -4658,6 +4658,9 @@ const STR = {
   // the headset's panels and tips
   'xr.hint': ['Trigger (or pinch): use buttons. Grip: move the scene or this panel; both grips on the scene resize it. A or X: play and pause.',
     'Abzug (oder Finger zusammen): Knöpfe drücken. Greifen: Szene oder Tafel verschieben, mit beiden Händen größer oder kleiner machen. A oder X: Abspielen und Anhalten.'],
+  // among the fish the grip moves the school instead (this headset only; at a station only up and down)
+  'xr.hint.fish': ['Trigger (or pinch): use buttons. Grip: in the sea move the school (for you only), on this panel move the panel. A or X: play and pause.',
+    'Abzug (oder Finger zusammen): Knöpfe drücken. Greifen: im Meer den Schwarm verschieben (nur für dich), an der Tafel die Tafel. A oder X: Abspielen und Anhalten.'],
   'xr.hint.anchor': ['Trigger (or pinch): use buttons. A or X: play and pause. Anchored: to move things, use Place again on the Stories screen.',
     'Abzug (oder Finger zusammen): Knöpfe drücken. A oder X: Abspielen und Anhalten. Verankert: Verschieben geht mit „Place again“ im Stories-Bildschirm.'],
   'xr.zoom': ['Zoom', 'Zoom'], 'xr.whole': ['Whole scene', 'Ganze Szene'],
@@ -6561,10 +6564,10 @@ function panelTick(P, now) {
 // ------------------------------------------------------------ main panel --
 function sigMain() {
   if (XR.stories) return 'stories' + audioLabel();
-  if (APP.mode !== 'story') return ['x', LANG, audioLabel(), X.tab, X.scene, JSON.stringify(X.ctl), X.n, X.shark, GL.sets.fish.sharkOn(), JSON.stringify(X.out), Math.floor(X.out.day), X.city, X.prot].join('|');
+  if (APP.mode !== 'story') return ['x', LANG, audioLabel(), X.tab, X.scene, JSON.stringify(X.ctl), X.n, X.shark, GL.sets.fish.sharkOn(), !!GL.lifeOn, JSON.stringify(X.out), Math.floor(X.out.day), X.city, X.prot].join('|');
   {
     const it = ST.items.find(x => x.ch === curCh);
-    let s = 's' + LANG + audioLabel() + (HOST.room && HOST.room.inRoom() ? 'r' + HOST.room.gripHint : '') + (curCh ? curCh.key : '');
+    let s = 's' + LANG + audioLabel() + (GL.lifeOn ? 'f' : '') + (HOST.room && HOST.room.inRoom() ? 'r' + HOST.room.gripHint : '') + (curCh ? curCh.key : '');
     if (it) {
       for (const e of it.els) s += Math.round(Math.max(0, e.o) * 3);
       for (const g of it.grow) s += Math.round(Math.max(0, g.s) * 6);
@@ -6702,7 +6705,7 @@ function drawMain(ctx, P) {
   else if (story) {
     drawStoryPane(ctx, P, 44, 136, P.w - 88);
     ctx.fillStyle = VC.line; ctx.fillRect(36, P.h - 96, P.w - 72, 2);
-    textBlock(ctx, HOST.room && HOST.room.inRoom() ? HOST.room.gripHint : HOST.anchor.on ? T('xr.hint.anchor') : T('xr.hint'), 44, P.h - 80, P.w - 88 - 320, 21, 28, VC.faint, 400, 3);
+    textBlock(ctx, HOST.room && HOST.room.inRoom() ? HOST.room.gripHint : HOST.anchor.on ? T('xr.hint.anchor') : GL.lifeOn ? T('xr.hint.fish') : T('xr.hint'), 44, P.h - 80, P.w - 88 - 320, 21, 28, VC.faint, 400, 3);
   } else { drawExplorePane(ctx, P, 40, 120, P.w - 80); ctx.fillStyle = VC.line; ctx.fillRect(36, P.h - 96, P.w - 72, 2); }
   if (!XR.stories) drawLang(ctx, P, P.w - 44, P.h - 82);
 }

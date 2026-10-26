@@ -126,10 +126,10 @@ function panelTick(P, now) {
 // ------------------------------------------------------------ main panel --
 function sigMain() {
   if (XR.stories) return 'stories' + audioLabel();
-  if (APP.mode !== 'story') return ['x', LANG, audioLabel(), X.tab, X.scene, JSON.stringify(X.ctl), X.n, X.shark, GL.sets.fish.sharkOn(), JSON.stringify(X.out), Math.floor(X.out.day), X.city, X.prot].join('|');
+  if (APP.mode !== 'story') return ['x', LANG, audioLabel(), X.tab, X.scene, JSON.stringify(X.ctl), X.n, X.shark, GL.sets.fish.sharkOn(), !!GL.lifeOn, JSON.stringify(X.out), Math.floor(X.out.day), X.city, X.prot].join('|');
   {
     const it = ST.items.find(x => x.ch === curCh);
-    let s = 's' + LANG + audioLabel() + (HOST.room && HOST.room.inRoom() ? 'r' + HOST.room.gripHint : '') + (curCh ? curCh.key : '');
+    let s = 's' + LANG + audioLabel() + (GL.lifeOn ? 'f' : '') + (HOST.room && HOST.room.inRoom() ? 'r' + HOST.room.gripHint : '') + (curCh ? curCh.key : '');
     if (it) {
       for (const e of it.els) s += Math.round(Math.max(0, e.o) * 3);
       for (const g of it.grow) s += Math.round(Math.max(0, g.s) * 6);
@@ -267,7 +267,7 @@ function drawMain(ctx, P) {
   else if (story) {
     drawStoryPane(ctx, P, 44, 136, P.w - 88);
     ctx.fillStyle = VC.line; ctx.fillRect(36, P.h - 96, P.w - 72, 2);
-    textBlock(ctx, HOST.room && HOST.room.inRoom() ? HOST.room.gripHint : HOST.anchor.on ? T('xr.hint.anchor') : T('xr.hint'), 44, P.h - 80, P.w - 88 - 320, 21, 28, VC.faint, 400, 3);
+    textBlock(ctx, HOST.room && HOST.room.inRoom() ? HOST.room.gripHint : HOST.anchor.on ? T('xr.hint.anchor') : GL.lifeOn ? T('xr.hint.fish') : T('xr.hint'), 44, P.h - 80, P.w - 88 - 320, 21, 28, VC.faint, 400, 3);
   } else { drawExplorePane(ctx, P, 40, 120, P.w - 80); ctx.fillStyle = VC.line; ctx.fillRect(36, P.h - 96, P.w - 72, 2); }
   if (!XR.stories) drawLang(ctx, P, P.w - 44, P.h - 82);
 }

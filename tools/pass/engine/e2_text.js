@@ -194,6 +194,9 @@ const STR = {
   // the headset's panels and tips
   'xr.hint': ['Trigger (or pinch): use buttons. Grip: move the scene or this panel; both grips on the scene resize it. A or X: play and pause.',
     'Abzug (oder Finger zusammen): Knöpfe drücken. Greifen: Szene oder Tafel verschieben, mit beiden Händen größer oder kleiner machen. A oder X: Abspielen und Anhalten.'],
+  // among the fish the grip moves the school instead (this headset only; at a station only up and down)
+  'xr.hint.fish': ['Trigger (or pinch): use buttons. Grip: in the sea move the school (for you only), on this panel move the panel. A or X: play and pause.',
+    'Abzug (oder Finger zusammen): Knöpfe drücken. Greifen: im Meer den Schwarm verschieben (nur für dich), an der Tafel die Tafel. A oder X: Abspielen und Anhalten.'],
   'xr.hint.anchor': ['Trigger (or pinch): use buttons. A or X: play and pause. Anchored: to move things, use Place again on the Stories screen.',
     'Abzug (oder Finger zusammen): Knöpfe drücken. A oder X: Abspielen und Anhalten. Verankert: Verschieben geht mit „Place again“ im Stories-Bildschirm.'],
   'xr.zoom': ['Zoom', 'Zoom'], 'xr.whole': ['Whole scene', 'Ganze Szene'],

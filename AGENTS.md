@@ -755,7 +755,12 @@ immersive session.
   panels (`makePanel`, `panelTick` with a signature function so textures only
   redraw on change, `vButton`, `textBlock`). The HTML panel cannot be shown in
   a headset, so every pane exists twice: HTML (`render*`) and canvas (`draw*`).
-  Keep both in step when you change one.
+  Keep both in step when you change one. Story titles and kickers on the
+  canvases (the Stories screen's cards, the story panel's header) go through
+  `fitTitle`: their own size when they fit, else smaller down to about 0.8 of
+  it, then (on the big cards, whose description moves down) two lines split
+  where they are most even, else an ellipsis; the shell's station cards
+  (`drawCard` in `shared.js`) shrink theirs the same way.
 
 ## The tour (`stories/lbi.js`) is built from sets
 
