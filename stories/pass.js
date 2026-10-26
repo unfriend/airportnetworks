@@ -6475,6 +6475,36 @@ function fitText(ctx, text, maxW) {
   while (t.length > 1 && ctx.measureText(t + '…').width > maxW) t = t.slice(0, -1);
   return t + '…';
 }
+// a title (textBaseline top): its own size when it fits, else smaller to fit, down to min, on the same baseline;
+// below that, with two, on two lines split where they are most even (as large as fits); else cut short at min.
+// Returns its height: lh for one line, lh plus a line for two.
+function fitTitle(ctx, text, x, y, maxW, px, lh, color, weight, min, two) {
+  text = String(text); ctx.fillStyle = color || VC.ink;
+  const size = L => {   // the largest size from px down to min at which every line fits, else 0
+    ctx.font = vfont(px, weight);
+    let s = Math.min(px, Math.floor(px * maxW / Math.max(...L.map(l => ctx.measureText(l).width))));
+    for (; s >= min; s--) { ctx.font = vfont(s, weight); if (L.every(l => ctx.measureText(l).width <= maxW)) return s; }
+    return 0;
+  };
+  let s = size([text]);
+  if (!s && two) {
+    const wd = text.split(' ');
+    let L = null, m = Infinity;
+    ctx.font = vfont(px, weight);
+    for (let k = 1; k < wd.length; k++) {
+      const p = [wd.slice(0, k).join(' '), wd.slice(k).join(' ')], v = Math.max(...p.map(l => ctx.measureText(l).width));
+      if (v < m) { m = v; L = p; }
+    }
+    if (L && (s = size(L))) {
+      const y0 = y + Math.round((px - s) * 0.8), l2 = Math.round(lh * s / px);
+      L.forEach((l, k) => ctx.fillText(l, x, y0 + k * l2));
+      return lh + l2;
+    }
+  }
+  s = s || min; ctx.font = vfont(s, weight);
+  ctx.fillText(fitText(ctx, text, maxW), x, y + Math.round((px - s) * 0.8));   // (B612's baseline is 0.8 of its size down)
+  return lh;
+}
 function vButton(ctx, P, id, x, y, w, h, label, fn, o = {}) {
   const hov = P.hover === id;
   rr(ctx, x, y, w, h, o.r !== undefined ? o.r : 10);
@@ -6629,10 +6659,11 @@ function drawLandCard(ctx, P, s) {
   rr(ctx, 8, 8, P.w - 16, P.h - 16, 22);
   ctx.lineWidth = 4; ctx.strokeStyle = hov ? s.col : here && XR.inStory ? 'rgba(70,217,255,0.6)' : 'rgba(140,170,210,0.3)'; ctx.stroke();
   ctx.fillStyle = s.col; ctx.fillRect(8, 8, P.w - 16, 10);
-  ctx.font = vfont(28, 700); ctx.fillStyle = s.col; ctx.fillText(s.kick.toUpperCase(), 48, 64);
-  ctx.font = vfont(72, 700); ctx.fillStyle = VC.ink; ctx.fillText(s.title, 46, 112);
-  textBlock(ctx, s.desc, 48, 222, P.w - 96, 31, 45, VC.muted, 400, 7);
-  ctx.font = vfont(26); ctx.fillStyle = VC.faint; ctx.fillText(s.len, 48, P.h - 196);
+  fitTitle(ctx, s.kick.toUpperCase(), 48, 64, P.w - 96, 28, 34, s.col, 700, 22);
+  // a long title shrinks a little, else takes two lines and the description moves down (ending above the length)
+  const dy = 112 + fitTitle(ctx, s.title, 46, 112, P.w - 94, 72, 78, VC.ink, 700, 58, true) + 32;
+  textBlock(ctx, s.desc, 48, dy, P.w - 96, 31, 45, VC.muted, 400, Math.min(7, Math.floor((P.h - 243 - dy) / 45) + 1));
+  ctx.font = vfont(26); ctx.fillStyle = VC.faint; ctx.fillText(fitText(ctx, s.len, P.w - 96), 48, P.h - 196);
   const label = here && XR.inStory ? 'Resume' : 'Start';
   vButton(ctx, P, 'go', 48, P.h - 140, P.w - 96, 92, label, null, { primary: true, px: 34 });
   P.regions.push({ id, x: 0, y: 0, w: P.w, h: P.h, fn: () => (here ? xrLandingClose() : HOST.go(s.key)) });
@@ -6645,9 +6676,10 @@ function drawStoriesPane(ctx, P, x, y, W) {
   for (const { key: k, kick, title, desc, col } of XR_STORIES) {
     const here = k === XR_HERE;
     vButton(ctx, P, 'story:' + k, x, y, W, h, '', () => { if (here) XR.stories = false; else HOST.go(k); }, { on: here, r: 14 });
-    ctx.font = vfont(21, 700); ctx.fillStyle = col; ctx.fillText(kick.toUpperCase(), x + 26, y + 22);
-    ctx.font = vfont(38, 700); ctx.fillStyle = VC.ink; ctx.fillText(title, x + 26, y + 54);
-    if (here) { ctx.font = vfont(22); ctx.fillStyle = VC.cyan; ctx.textAlign = 'right'; ctx.fillText('You are here', x + W - 26, y + 26); ctx.textAlign = 'left'; }
+    let yw = 0;   // the kicker stops short of 'You are here' beside it
+    if (here) { ctx.font = vfont(22); ctx.fillStyle = VC.cyan; ctx.textAlign = 'right'; ctx.fillText('You are here', x + W - 26, y + 26); ctx.textAlign = 'left'; yw = ctx.measureText('You are here').width + 20; }
+    fitTitle(ctx, kick.toUpperCase(), x + 26, y + 22, W - 52 - yw, 21, 26, col, 700, 17);
+    fitTitle(ctx, title, x + 26, y + 54, W - 52, 38, 44, VC.ink, 700, 30);
     textBlock(ctx, desc, x + 26, y + 100, W - 52, 24, 33, VC.muted, 400, 2);
     y += h + 18;
   }
@@ -6663,8 +6695,8 @@ function drawMain(ctx, P) {
   // at a shared room's station each station keeps its story: another story is another station, so no Stories button
   if (!(HOST.room && HOST.room.placing())) hb('stories', 'Stories', () => { XR.stories = true; XR.kbd.open = false; APP.playing = false; }, 130);
   if (!XR.stories) hb('mode', story ? 'Explore now' : 'Replay story', () => (story ? APP.enterExplore() : APP.enterStory(0)), 186, { primary: story });
-  ctx.font = vfont(30, 700); ctx.fillStyle = VC.ink;
-  ctx.fillText(fitText(ctx, T('title'), x - 40), 40, 36);
+  // the story's name, smaller when the buttons leave it less room
+  fitTitle(ctx, T('title'), 40, 36, x - 40, 30, 36, VC.ink, 700, 24);
   ctx.fillStyle = VC.line; ctx.fillRect(36, 104, P.w - 72, 2);
   if (XR.stories) drawStoriesPane(ctx, P, 44, 136, P.w - 88);
   else if (story) {
