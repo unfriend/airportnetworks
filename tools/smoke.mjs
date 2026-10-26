@@ -476,6 +476,13 @@ for (const key of ['airports', 'proteins', 'spatial', 'lbi', 'nmd', 'endo', 'pet
       const st = JSON.stringify(collabState()); collabApply(JSON.parse(st));
       if (JSON.stringify(collabState()) !== st) out.push('apply(state()) changed the state');
       if ('lang' in collabState() || /"(de|en)"/.test(st)) out.push('the language is in the shared state');
+      // the school's place at a station (sea): taken to the centimetre within reach (2 m up or down, 6 m to the side),
+      // a bad one ignored, and the same state back when applied again
+      for (const [v, want] of [[[0.5, -0.25, 1.2], '[0.5,-0.25,1.2]'], [[1, 2], '[0.5,-0.25,1.2]'], [[0, 'x', 0], '[0.5,-0.25,1.2]'], [[0.004, 5, -8], '[0,2,-6]'], [[0, 0, 0], '[0,0,0]']]) {
+        collabApply(Object.assign(JSON.parse(st), { sea: v }));
+        const s2 = JSON.stringify(collabState()); collabApply(JSON.parse(s2));
+        if (JSON.stringify(collabState().sea) !== want || JSON.stringify(collabState()) !== s2) out.push('the sea ' + JSON.stringify(v) + ' gave ' + JSON.stringify(collabState().sea));
+      }
       XR.on = true;
       for (const [k] of TABS) { pickTab(k); for (const P of XR.panels) { P.last = ''; P.t = -1e9; panelTick(P, performance.now() + 1e6); } }
       XR.on = false;

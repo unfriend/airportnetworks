@@ -148,7 +148,7 @@ only after the tests pass. No pull requests are used.
    app needs, add it to `SHELL` in `sw.js`. A narration goes in `AUDIO`, which already lists all thirteen file names. If
    the new file is not directly inside `stories/`, `audio/` or `icons/`, also add it to `APP_FILES` in
    `relay/server.mjs`.
-5. **Bump `FORMAT` in `shared.js`** (`networks-13` now) when the shared keys, or the shape of a story's
+5. **Bump `FORMAT` in `shared.js`** (`networks-20` now) when the shared keys, or the shape of a story's
    `collab.state()`, change. A room refuses pages that have another format, so every device in a room has to update
    together.
 6. **Update the docs.**

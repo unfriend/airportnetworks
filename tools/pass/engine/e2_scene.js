@@ -127,16 +127,20 @@ function setLens(w) {
   if (Math.abs(fov - GL.camera.fov) > 0.01) { GL.camera.fov = fov; GL.camera.updateProjectionMatrix(); }
 }
 // the fish's holder: nothing on a screen; in a headset it undoes GL.world's pose, so the school's frame hangs a standing
-// eye height below the rig, life size, wherever xrPlace puts the globe and the cell; moved by as far as you have moved
-// the sea with the grip (XR.lifeOff, in the rig's frame, easing to XR.lifeTo; this device only, never shared: people
-// differ in height). At a station in a shared room only up and down: the school stays round the station's spot
+// eye height below the rig, life size, wherever xrPlace puts the globe and the cell; moved by as far as the sea has been
+// moved with the grip (XR.lifeOff, in the rig's frame): outside a shared room easing to XR.lifeTo, this headset's own
+// (people differ in height); at a station easing to XR.lifeSt, the station's (collab.state()'s sea, the same for
+// everyone there: the rig is the station's spot on every headset, so the school is in one place in the room), and put
+// there at once when the station is reached. The school stays round the frame's origin there (tellFish, fishSync)
 const _lm = new THREE.Matrix4(), _lt = new THREE.Matrix4();
 function placeLife(xr, dt) {
   const h = GL.life;
   if (!xr) { h.position.set(0, 0, 0); h.quaternion.identity(); h.scale.setScalar(1); }
   else {
-    if (HOST.room && HOST.room.placing()) XR.lifeTo.x = XR.lifeTo.z = 0;
-    XR.lifeOff.lerp(XR.lifeTo, 1 - Math.exp(-(dt || 0) * 8));
+    const st = seaSt();
+    if (st && !XR.lifeAt) XR.lifeOff.copy(XR.lifeSt);
+    XR.lifeAt = st;
+    XR.lifeOff.lerp(st ? XR.lifeSt : XR.lifeTo, 1 - Math.exp(-(dt || 0) * 8));
     GL.world.updateMatrix();
     _lm.copy(GL.world.matrix).invert().multiply(_lt.makeTranslation(XR.lifeOff.x, XR.lifeOff.y - 1.6, XR.lifeOff.z));
     _lm.decompose(h.position, h.quaternion, h.scale);
@@ -195,7 +199,8 @@ function followView(v, dt, keep) {
 }
 // the school keeps clear of you: your head and hands, in its own frame. On a screen you float at the middle of the
 // sea (not where the camera is: from afar the school would follow the camera away). spot: at a station in a shared
-// room (fishSync), where the school stays round the station's spot instead of round you; elsewhere in a headset with
+// room (fishSync), where the school stays round the station's spot instead of round you (its frame's origin, so
+// moved with the station's sea, XR.lifeSt, the same on every headset there); elsewhere in a headset with
 // the sea moved, it stays round where you would be had you not moved it (so it keeps where you put it)
 const _sv = new THREE.Vector3(), _sm = new THREE.Matrix4();
 function tellFish(xr, spot) {

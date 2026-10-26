@@ -208,8 +208,10 @@ function setMove(key, ui = true) {
 // ------------------------------------------------------- shared rooms --
 // What everyone at a station sees alike in explore mode: the tab, the scene, every scene's controls (not the fish's
 // view: on a screen it is each person's camera), the school's size, the outbreak's start and settings, the city looked
-// up and the protein picked. The camera, the outbreak's day (each plays it themselves), the language and a steered
-// shark stay each person's own.
+// up and the protein picked; and in story and explore mode alike where the sea has been moved at the station (sea: the
+// school's offset in the station's frame, metres to the centimetre, XR.lifeSt; kept and passed on by a screen, which
+// draws the fish where it always does). The camera, the outbreak's day (each plays it themselves), the language, a
+// steered shark and the sea moved outside a room stay each person's own.
 // shared rooms: the scene's view in a headset at a station (explore mode), which turns and sizes it in the room:
 // shared (HOST.collab), so everyone there sees it alike; null while it flies somewhere, and among the life-size fish
 function collabView() {
@@ -228,8 +230,10 @@ function collabState() {
   const ctl = {};
   for (const [k] of SCENES) ctl[k] = Object.fromEntries(ctlsOf(k).filter(c => !(SHARED_SKIP[k] || []).includes(c.key)).map(c => [c.key, ctlValue(k, c)]));
   const O = X.out;
-  return { tab: X.tab, scene: X.scene, ctl, n: X.n, out: { start: O.start, inc: O.inc, inf: O.inf, spread: O.spread, cut: O.cut }, city: X.city, prot: X.prot };
+  return { tab: X.tab, scene: X.scene, ctl, n: X.n, out: { start: O.start, inc: O.inc, inf: O.inf, spread: O.spread, cut: O.cut }, city: X.city, prot: X.prot,
+    sea: XR.lifeSt.toArray() };
 }
+const _sa = new THREE.Vector3();
 // show another person's state with the story's own setters (so both panels follow); every field is checked, and
 // the camera stays where this person has it
 function collabApply(v) {
@@ -255,6 +259,8 @@ function collabApply(v) {
   }
   if (typeof v.city === 'string' && v.city !== X.city && (!v.city || outIndex(v.city) >= 0)) selectCity(v.city, false);
   if (typeof v.prot === 'string' && v.prot !== X.prot) { const p = v.prot ? api('cell').protein(v.prot) : -1; if (!v.prot || (Number.isInteger(p) && p >= 0)) selectProtein(p, undefined, false); }
+  // (the school glides there: placeLife); not while this headset carries it, so a late echo never pulls at the hand
+  if (v3ok(v.sea) && !seaHeld()) XR.lifeSt.copy(seaClamp(_sa.fromArray(v.sea)));
   renderAll();
 }
 // shared rooms: the school belongs to the station, as the flock does. Everyone there says where their school is, twice

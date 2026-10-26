@@ -269,7 +269,7 @@ spot, y over the floor) and `st.<id>.place` (the scene: `{ x, y, z }` moved from
 where the story puts it, and `s` its size, a factor on the story's own; FORMAT
 networks-8), and per shared space `rf.<space id>` (the room's frame in it) and
 `rs.<space id>` (found split; FORMAT networks-9), and `sg` (the room's shared-space
-generation, `{ n, by, at }`; FORMAT networks-10; networks-11 when the eighth story came, networks-12 the ninth, networks-13 the tenth, networks-14 the eleventh, networks-15 the twelfth, networks-16 the thirteenth, networks-17 when the PET story's `state()` lost its one-scan fields, networks-18 when its liver scene came back, networks-19 when the ovary story's charts went). The plan is `docs/shared-space-plan.md`.
+generation, `{ n, by, at }`; FORMAT networks-10; networks-11 when the eighth story came, networks-12 the ninth, networks-13 the tenth, networks-14 the eleventh, networks-15 the twelfth, networks-16 the thirteenth, networks-17 when the PET story's `state()` lost its one-scan fields, networks-18 when its liver scene came back, networks-19 when the ovary story's charts went, networks-20 when the pass story's school got a shared place at a station). The plan is `docs/shared-space-plan.md`.
 
 - `HOST.collab` keeps the room's keys (echo suppression by value, optimistic
   writes acknowledged by the relay, apply order stations > clock > state >
@@ -673,7 +673,7 @@ What each story shares:
 | micro | tab, scene, every scene's controls (body, section, atlas, network), organ, domain, age, method step | none |
 | ovary | tab, scene, every scene's controls (ovary: view, show; section: view, with By kind, show; never their Age steps), the kind of object picked, the age (20 to 70), the method (`rf` or `seg`) | none |
 | qubits | tab, scene, every scene's controls (pairs; cube: view, network, cut, bits, algebra; chart: view, example, angles), the brick shown (a Pauli string by name), how many strings are added up, the gallery (kinds or largest) | none |
-| pass | tab, scene, every scene's controls but the fish's view (the fish: neighbours watched, links, shark now and then; the globe: view, colour, pillars, outbreak on; the cell: view, organelles, colour, move), the school's size, the outbreak's start (an airport's code) and settings (incubation, infectious days, spread, flights cut), the city looked up, the protein picked (never the language, the outbreak's day or the steered shark) | `shark` (as the flock's falcon, in the set's frame), `school` (quiet, twice a second, as the flock's `flock`) |
+| pass | tab, scene, every scene's controls but the fish's view (the fish: neighbours watched, links, shark now and then; the globe: view, colour, pillars, outbreak on; the cell: view, organelles, colour, move), the school's size, the outbreak's start (an airport's code) and settings (incubation, infectious days, spread, flights cut), the city looked up, the protein picked, the school's place at a station (`sea`, moved with the grip there) (never the language, the outbreak's day, the steered shark or the sea moved outside a room) | `shark` (as the flock's falcon, in the set's frame), `school` (quiet, twice a second, as the flock's `flock`) |
 | flock | birds, links, falcon | `falcon` (where it starts, its velocity and aim, in the set's frame), `flock` (quiet, twice a second: where the flock is, see the flock's notes) |
 | robots | rule, robots, trails, links | `crumbs` (a pile: in room coordinates in a headset with an aligned frame, else in the station's frame), `dust` |
 
@@ -1005,10 +1005,14 @@ contract.
   the Quest). The rise to the globe shrinks the sea on a screen (`fish_scale`) and only fades it in a headset (the
   viewer never moves). Among the fish the ray hits the sea (`kind: 'sea'`): in explore mode the trigger is the shark,
   and the grip moves the school (`XR.lifeOff`, the holder's offset in the rig's frame, eased; `carrySea` in
-  `engine/e5_xr.js`): it follows the hand's move, one hand at a time, anywhere outside a room and only up and down at a
-  station (the school stays round the station's spot), where `HOST.anchor.locked` allows the grip; per device (people
-  differ in height), never in `collab.state()` or the `place` hook; reset by Recenter and for a new wearer. While it is
-  carried no shark steering starts. The school's height, the grip and the new shark were checked on a Quest 3 (October
+  `engine/e5_xr.js`): it follows the hand's move, one hand at a time, within 2 m up or down and 6 m to the side. Outside
+  a room it is per device (`XR.lifeTo`: people differ in height), reset by Recenter and for a new wearer. At a station
+  it is the station's, for everyone there (`XR.lifeSt`, `sea` in `collab.state()`, metres in the station rig's frame to
+  the centimetre: every headset there has the station's spot as its rig, so it is one place in the room, and the
+  school's frame, where `fishSync` works, moves with it); moved in all three directions where `HOST.anchor.locked`
+  allows the grip, gliding in on the others' headsets, never reset by Recenter, a new wearer or a new session; walking
+  away goes back to your own; a screen following the station keeps and passes it on but draws nothing differently.
+  Never in the `place` hook. While it is carried no shark steering starts. The school's height, the grip and the new shark were checked on a Quest 3 (October
   2026), with the endotype junction over a real wall, the PET scanner's base and the fitted card titles.
 - **The outbreak** is the globe set's seeded S/E/I/R model on the real route network: the same start and settings give
   the same outbreak on every device, so a shared room shares only those; each person plays its days. The story and

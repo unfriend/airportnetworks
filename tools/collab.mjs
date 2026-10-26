@@ -70,8 +70,9 @@ const STORIES = {
     back: "setSum(6); setCtl('cube', 'alg', '0'); showTab('depth'); sceneCtl('chart', 'view', 'circuit')",
   },
   pass: {
-    change: "pickTab('outbreak'); setStart('LHR'); setOut('inc', 3); setOut('cut', 50); selectCity('SYD')",
-    back: "selectProtein('RELA'); setMove('nfkb'); setFishK(3); setFishN(450); pickTab('fish')",
+    // (and the school's place at the station, sea: moved with the grip there, the same for everyone)
+    change: "pickTab('outbreak'); setStart('LHR'); setOut('inc', 3); setOut('cut', 50); selectCity('SYD'); XR.lifeSt.set(0.4, -0.3, 1.25)",
+    back: "selectProtein('RELA'); setMove('nfkb'); setFishK(3); setFishN(450); pickTab('fish'); XR.lifeSt.set(-1.5, 0.2, 0)",
     effect: { quiet: "setCtl('fish', 'shark', 'off')", idle: '!GL.sets.fish.sharkOn()', send: 'sendShark(null)', seen: 'GL.sets.fish.sharkOn()' },
   },
   ovary: {

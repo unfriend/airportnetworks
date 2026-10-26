@@ -79,8 +79,9 @@ Suggested story keys: chapter 1 the defaults; chapter 2 `fish_links` 0 -> 1 at +
 ## Exports beyond the set contract
 
 `see(head, hands, spot)`: where the viewer is, in the set's frame (call every frame; `spot` true at a station in a shared
-room: the school stays round the station's spot; `[x, z]`: round that point instead, the engine's way of keeping the
-school where you moved the sea). `hold(on)`: explore's "be the shark" is on (every frame): a shark let go stays;
+room: the school stays round the station's spot, this frame's origin, which the engine moves with the station's sea,
+the same for everyone there; `[x, z]`: round that point instead, the engine's way of keeping the school where you moved
+the sea outside a room). `hold(on)`: explore's "be the shark" is on (every frame): a shark let go stays;
 `kept()`: one is cruising. `steer(p)`: the shark chases `p` (set frame) until `steer(null)`.
 `scatter(dir)`: send a shark where `dir` points (from the head; none: from anywhere); false while one is about. Shared
 rooms, as the flock's: `flight()` `{ t, m, v }`, `follow(o, dt)`, `hush(on)`, `following()`, `onLaunch` (set by the

@@ -4380,16 +4380,20 @@ function setLens(w) {
   if (Math.abs(fov - GL.camera.fov) > 0.01) { GL.camera.fov = fov; GL.camera.updateProjectionMatrix(); }
 }
 // the fish's holder: nothing on a screen; in a headset it undoes GL.world's pose, so the school's frame hangs a standing
-// eye height below the rig, life size, wherever xrPlace puts the globe and the cell; moved by as far as you have moved
-// the sea with the grip (XR.lifeOff, in the rig's frame, easing to XR.lifeTo; this device only, never shared: people
-// differ in height). At a station in a shared room only up and down: the school stays round the station's spot
+// eye height below the rig, life size, wherever xrPlace puts the globe and the cell; moved by as far as the sea has been
+// moved with the grip (XR.lifeOff, in the rig's frame): outside a shared room easing to XR.lifeTo, this headset's own
+// (people differ in height); at a station easing to XR.lifeSt, the station's (collab.state()'s sea, the same for
+// everyone there: the rig is the station's spot on every headset, so the school is in one place in the room), and put
+// there at once when the station is reached. The school stays round the frame's origin there (tellFish, fishSync)
 const _lm = new THREE.Matrix4(), _lt = new THREE.Matrix4();
 function placeLife(xr, dt) {
   const h = GL.life;
   if (!xr) { h.position.set(0, 0, 0); h.quaternion.identity(); h.scale.setScalar(1); }
   else {
-    if (HOST.room && HOST.room.placing()) XR.lifeTo.x = XR.lifeTo.z = 0;
-    XR.lifeOff.lerp(XR.lifeTo, 1 - Math.exp(-(dt || 0) * 8));
+    const st = seaSt();
+    if (st && !XR.lifeAt) XR.lifeOff.copy(XR.lifeSt);
+    XR.lifeAt = st;
+    XR.lifeOff.lerp(st ? XR.lifeSt : XR.lifeTo, 1 - Math.exp(-(dt || 0) * 8));
     GL.world.updateMatrix();
     _lm.copy(GL.world.matrix).invert().multiply(_lt.makeTranslation(XR.lifeOff.x, XR.lifeOff.y - 1.6, XR.lifeOff.z));
     _lm.decompose(h.position, h.quaternion, h.scale);
@@ -4448,7 +4452,8 @@ function followView(v, dt, keep) {
 }
 // the school keeps clear of you: your head and hands, in its own frame. On a screen you float at the middle of the
 // sea (not where the camera is: from afar the school would follow the camera away). spot: at a station in a shared
-// room (fishSync), where the school stays round the station's spot instead of round you; elsewhere in a headset with
+// room (fishSync), where the school stays round the station's spot instead of round you (its frame's origin, so
+// moved with the station's sea, XR.lifeSt, the same on every headset there); elsewhere in a headset with
 // the sea moved, it stays round where you would be had you not moved it (so it keeps where you put it)
 const _sv = new THREE.Vector3(), _sm = new THREE.Matrix4();
 function tellFish(xr, spot) {
@@ -4658,9 +4663,12 @@ const STR = {
   // the headset's panels and tips
   'xr.hint': ['Trigger (or pinch): use buttons. Grip: move the scene or this panel; both grips on the scene resize it. A or X: play and pause.',
     'Abzug (oder Finger zusammen): Knöpfe drücken. Greifen: Szene oder Tafel verschieben, mit beiden Händen größer oder kleiner machen. A oder X: Abspielen und Anhalten.'],
-  // among the fish the grip moves the school instead (this headset only; at a station only up and down)
+  // among the fish the grip moves the school instead (outside a shared room this headset's only; at a station the
+  // station's, for everyone there, as the panel: fish.room, in place of the shell's hint, which offers resizing)
   'xr.hint.fish': ['Trigger (or pinch): use buttons. Grip: in the sea move the school (for you only), on this panel move the panel. A or X: play and pause.',
     'Abzug (oder Finger zusammen): Knöpfe drücken. Greifen: im Meer den Schwarm verschieben (nur für dich), an der Tafel die Tafel. A oder X: Abspielen und Anhalten.'],
+  'xr.hint.fish.room': ['Trigger (or pinch): use buttons. Grip: in the sea move the school, on this panel move the panel, for everyone here. A or X: play and pause.',
+    'Abzug (oder Finger zusammen): Knöpfe drücken. Greifen: im Meer den Schwarm verschieben, an der Tafel die Tafel, für alle hier. A oder X: Abspielen und Anhalten.'],
   'xr.hint.anchor': ['Trigger (or pinch): use buttons. A or X: play and pause. Anchored: to move things, use Place again on the Stories screen.',
     'Abzug (oder Finger zusammen): Knöpfe drücken. A oder X: Abspielen und Anhalten. Verankert: Verschieben geht mit „Place again“ im Stories-Bildschirm.'],
   'xr.zoom': ['Zoom', 'Zoom'], 'xr.whole': ['Whole scene', 'Ganze Szene'],
@@ -5405,8 +5413,10 @@ function setMove(key, ui = true) {
 // ------------------------------------------------------- shared rooms --
 // What everyone at a station sees alike in explore mode: the tab, the scene, every scene's controls (not the fish's
 // view: on a screen it is each person's camera), the school's size, the outbreak's start and settings, the city looked
-// up and the protein picked. The camera, the outbreak's day (each plays it themselves), the language and a steered
-// shark stay each person's own.
+// up and the protein picked; and in story and explore mode alike where the sea has been moved at the station (sea: the
+// school's offset in the station's frame, metres to the centimetre, XR.lifeSt; kept and passed on by a screen, which
+// draws the fish where it always does). The camera, the outbreak's day (each plays it themselves), the language, a
+// steered shark and the sea moved outside a room stay each person's own.
 // shared rooms: the scene's view in a headset at a station (explore mode), which turns and sizes it in the room:
 // shared (HOST.collab), so everyone there sees it alike; null while it flies somewhere, and among the life-size fish
 function collabView() {
@@ -5425,8 +5435,10 @@ function collabState() {
   const ctl = {};
   for (const [k] of SCENES) ctl[k] = Object.fromEntries(ctlsOf(k).filter(c => !(SHARED_SKIP[k] || []).includes(c.key)).map(c => [c.key, ctlValue(k, c)]));
   const O = X.out;
-  return { tab: X.tab, scene: X.scene, ctl, n: X.n, out: { start: O.start, inc: O.inc, inf: O.inf, spread: O.spread, cut: O.cut }, city: X.city, prot: X.prot };
+  return { tab: X.tab, scene: X.scene, ctl, n: X.n, out: { start: O.start, inc: O.inc, inf: O.inf, spread: O.spread, cut: O.cut }, city: X.city, prot: X.prot,
+    sea: XR.lifeSt.toArray() };
 }
+const _sa = new THREE.Vector3();
 // show another person's state with the story's own setters (so both panels follow); every field is checked, and
 // the camera stays where this person has it
 function collabApply(v) {
@@ -5452,6 +5464,8 @@ function collabApply(v) {
   }
   if (typeof v.city === 'string' && v.city !== X.city && (!v.city || outIndex(v.city) >= 0)) selectCity(v.city, false);
   if (typeof v.prot === 'string' && v.prot !== X.prot) { const p = v.prot ? api('cell').protein(v.prot) : -1; if (!v.prot || (Number.isInteger(p) && p >= 0)) selectProtein(p, undefined, false); }
+  // (the school glides there: placeLife); not while this headset carries it, so a late echo never pulls at the hand
+  if (v3ok(v.sea) && !seaHeld()) XR.lifeSt.copy(seaClamp(_sa.fromArray(v.sea)));
   renderAll();
 }
 // shared rooms: the school belongs to the station, as the flock does. Everyone there says where their school is, twice
@@ -5847,7 +5861,9 @@ function bindCanvas() {
 const XR = {
   on: false, mode: null, session: null, needRecenter: false, fov: false, fontOK: 0, clear: true,
   head: new THREE.Vector3(), headQ: new THREE.Quaternion(), globeOff: new THREE.Vector3(), size: 1, globeBase: new THREE.Vector3(), camLocal: new THREE.Vector3(0, 0, 5),
-  lifeOff: new THREE.Vector3(), lifeTo: new THREE.Vector3(),   // (where the sea has been moved with the grip: placeLife)
+  // where the sea has been moved with the grip (placeLife): lifeTo this headset's own, lifeSt a shared room's station's
+  // (the same for everyone there: collab.state()'s sea), lifeOff as drawn, easing to the one in use (seaSt)
+  lifeOff: new THREE.Vector3(), lifeTo: new THREE.Vector3(), lifeSt: new THREE.Vector3(), lifeAt: false,
   baseR: 0.36, R: 0.36, viewH: 1600, hitR: 1, target: new THREE.Vector3(),
   ctrls: [], panels: [], main: null, foot: null, tip: null, tipI: -1, elInfo: null,
   kbd: { open: false, q: '' },
@@ -5881,7 +5897,7 @@ function xrPlace(v) {
   GL.world.position.set(gx - _xb.x, gy - _xb.y, gz - _xb.z);
 }
 function xrRecenter() {
-  XR.globeOff.set(0, 0, 0); XR.size = 1; XR.lifeOff.set(0, 0, 0); XR.lifeTo.set(0, 0, 0);
+  XR.globeOff.set(0, 0, 0); XR.size = 1; XR.lifeTo.set(0, 0, 0); if (!seaSt()) XR.lifeOff.set(0, 0, 0);   // (never the station's sea)
   if (XR.panelGroup) { XR.panelGroup.position.copy(XR.panelHome.p); XR.panelGroup.rotation.set(0, XR.panelHome.yaw, 0); }
   // anchored: the scene and the panel go back where they were saved with the place
   const s = HOST.anchor.saved();
@@ -6067,7 +6083,7 @@ function xrGrab(c, on) {
   if (h.kind === 'sea') {
     if (seaHeld()) return;
     if (c.press && c.press.kind === 'sea') { c.press = null; GL.sets.fish.steer(null); }
-    c.grab = { target: 'sea', o0: GL.rig.worldToLocal(c.o.clone()), off0: XR.lifeTo.clone() };
+    c.grab = { target: 'sea', o0: GL.rig.worldToLocal(c.o.clone()), st: seaSt(), off0: (seaSt() ? XR.lifeSt : XR.lifeTo).clone() };
     buzz(c, 0.4, 25);
     return;
   }
@@ -6102,15 +6118,20 @@ function carry(c, dt) {
   }
 }
 // the sea (the school life size round you) follows the hand's move since the grip, in the rig's frame, within a few
-// metres; at a station in a shared room only up and down (placeLife eases it there)
+// metres (placeLife eases it there): this headset's own, or at a shared room's station the station's, for everyone
+// there (the rig is the station's spot on every headset there, so the same offset is the same place in the room)
 const seaHeld = () => XR.ctrls.some(k => k.grab && k.grab.target === 'sea');
+const seaSt = () => !!(HOST.room && HOST.room.placing());
+// up or down 2 m, 6 m to the side, to the centimetre: the station's value goes out as it is, so apply(state()) gives it
+// back unchanged (the 1 cm of slack keeps a rounded value from being shortened again)
+function seaClamp(v) {
+  const l = Math.hypot(v.x, v.z), k = l > 6.01 ? 6 / l : 1, r = x => Math.round(x * 100) / 100 + 0;
+  return v.set(r(v.x * k), r(clamp(v.y, -2, 2)), r(v.z * k));
+}
 function carrySea(c, G) {
-  GL.rig.worldToLocal(_gv.copy(c.o)).sub(G.o0);
-  if (HOST.room && HOST.room.placing()) _gv.x = _gv.z = 0;
-  _gv.add(G.off0);
-  _gv.y = clamp(_gv.y, -2, 2);
-  const l = Math.hypot(_gv.x, _gv.z); if (l > 6) { _gv.x *= 6 / l; _gv.z *= 6 / l; }
-  XR.lifeTo.copy(_gv);
+  if (G.st !== seaSt()) { c.grab = null; return; }   // (reached or left a station meanwhile)
+  GL.rig.worldToLocal(_gv.copy(c.o)).sub(G.o0).add(G.off0);
+  (G.st ? XR.lifeSt : XR.lifeTo).copy(seaClamp(_gv));
 }
 // both hands on the scene: it grows and shrinks with the distance between them (a quarter to four times the
 // story's own size) and moves with their middle
@@ -6318,7 +6339,7 @@ async function xrStart(mode) {
 function xrEnterScene() {
   XR.stories = false;
   XR.on = true; XR.needRecenter = true; XR.fov = false; XR.tipI = -1;
-  XR.lifeOff.set(0, 0, 0); XR.lifeTo.set(0, 0, 0);
+  XR.lifeOff.set(0, 0, 0); XR.lifeTo.set(0, 0, 0); XR.lifeAt = false;   // (a station's sea stays: placeLife takes it there)
   document.body.classList.add('xr');
   GL.rig.position.set(0, 0, 0); GL.rig.quaternion.identity();
   XR.clear = !(XR.session.environmentBlendMode && XR.session.environmentBlendMode !== 'opaque') && XR.mode !== 'immersive-ar';
@@ -6360,7 +6381,7 @@ function xrVisibility() {
 function xrFreshStart() {
   XR.kbd.open = false; XR.kbd.q = '';
   for (const c of XR.ctrls) { c.press = null; c.grab = null; c.wantPress = false; }
-  XR.lifeOff.set(0, 0, 0); XR.lifeTo.set(0, 0, 0);   // (the sea at a new wearer's own eye height)
+  XR.lifeTo.set(0, 0, 0); if (!seaSt()) XR.lifeOff.set(0, 0, 0);   // (the sea at a new wearer's own eye height; a station's stays)
   // at a shared room's station the story and its place stay: the room's clock and state go on applying
   if (HOST.collab.mine()) { lastNow = 0; return; }
   APP.enterStory(0); APP.playing = false; audioSync();
@@ -6705,7 +6726,7 @@ function drawMain(ctx, P) {
   else if (story) {
     drawStoryPane(ctx, P, 44, 136, P.w - 88);
     ctx.fillStyle = VC.line; ctx.fillRect(36, P.h - 96, P.w - 72, 2);
-    textBlock(ctx, HOST.room && HOST.room.inRoom() ? HOST.room.gripHint : HOST.anchor.on ? T('xr.hint.anchor') : GL.lifeOn ? T('xr.hint.fish') : T('xr.hint'), 44, P.h - 80, P.w - 88 - 320, 21, 28, VC.faint, 400, 3);
+    textBlock(ctx, HOST.room && HOST.room.inRoom() ? (GL.lifeOn && !HOST.anchor.locked('sea') ? T('xr.hint.fish.room') : HOST.room.gripHint) : HOST.anchor.on ? T('xr.hint.anchor') : GL.lifeOn ? T('xr.hint.fish') : T('xr.hint'), 44, P.h - 80, P.w - 88 - 320, 21, 28, VC.faint, 400, 3);
   } else { drawExplorePane(ctx, P, 40, 120, P.w - 80); ctx.fillStyle = VC.line; ctx.fillRect(36, P.h - 96, P.w - 72, 2); }
   if (!XR.stories) drawLang(ctx, P, P.w - 44, P.h - 82);
 }

@@ -98,9 +98,10 @@ dragging its dot (or its square, to turn it) on the room map; everyone sees it
 move. Lock layout (headset menu or Shared dialog) then keeps them where they are,
 until someone unlocks it. At a station in a headset the grip moves the scene
 or the story panel and both grips resize the scene, during the story too, for
-everyone at once (unless the layout is locked); each station keeps its story,
-so the story panel has no Stories button there: another story is another
-station. In a headset the menu is closed at first: only a clock shows, worn
+everyone at once (unless the layout is locked; among the fish of Pass it on the
+grip in the sea moves the school, for everyone there too); each station keeps
+its story, so the story panel has no Stories button there: another story is
+another station. In a headset the menu is closed at first: only a clock shows, worn
 like a watch on your left wrist (on the left controller, or on your wrist with
 hand tracking; beside the story panel without either). Touch it with the right
 controller's tip or your right index finger, click the left stick, or point at

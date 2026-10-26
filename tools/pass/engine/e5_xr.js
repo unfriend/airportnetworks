@@ -8,7 +8,9 @@
 const XR = {
   on: false, mode: null, session: null, needRecenter: false, fov: false, fontOK: 0, clear: true,
   head: new THREE.Vector3(), headQ: new THREE.Quaternion(), globeOff: new THREE.Vector3(), size: 1, globeBase: new THREE.Vector3(), camLocal: new THREE.Vector3(0, 0, 5),
-  lifeOff: new THREE.Vector3(), lifeTo: new THREE.Vector3(),   // (where the sea has been moved with the grip: placeLife)
+  // where the sea has been moved with the grip (placeLife): lifeTo this headset's own, lifeSt a shared room's station's
+  // (the same for everyone there: collab.state()'s sea), lifeOff as drawn, easing to the one in use (seaSt)
+  lifeOff: new THREE.Vector3(), lifeTo: new THREE.Vector3(), lifeSt: new THREE.Vector3(), lifeAt: false,
   baseR: 0.36, R: 0.36, viewH: 1600, hitR: 1, target: new THREE.Vector3(),
   ctrls: [], panels: [], main: null, foot: null, tip: null, tipI: -1, elInfo: null,
   kbd: { open: false, q: '' },
@@ -42,7 +44,7 @@ function xrPlace(v) {
   GL.world.position.set(gx - _xb.x, gy - _xb.y, gz - _xb.z);
 }
 function xrRecenter() {
-  XR.globeOff.set(0, 0, 0); XR.size = 1; XR.lifeOff.set(0, 0, 0); XR.lifeTo.set(0, 0, 0);
+  XR.globeOff.set(0, 0, 0); XR.size = 1; XR.lifeTo.set(0, 0, 0); if (!seaSt()) XR.lifeOff.set(0, 0, 0);   // (never the station's sea)
   if (XR.panelGroup) { XR.panelGroup.position.copy(XR.panelHome.p); XR.panelGroup.rotation.set(0, XR.panelHome.yaw, 0); }
   // anchored: the scene and the panel go back where they were saved with the place
   const s = HOST.anchor.saved();
@@ -228,7 +230,7 @@ function xrGrab(c, on) {
   if (h.kind === 'sea') {
     if (seaHeld()) return;
     if (c.press && c.press.kind === 'sea') { c.press = null; GL.sets.fish.steer(null); }
-    c.grab = { target: 'sea', o0: GL.rig.worldToLocal(c.o.clone()), off0: XR.lifeTo.clone() };
+    c.grab = { target: 'sea', o0: GL.rig.worldToLocal(c.o.clone()), st: seaSt(), off0: (seaSt() ? XR.lifeSt : XR.lifeTo).clone() };
     buzz(c, 0.4, 25);
     return;
   }
@@ -263,15 +265,20 @@ function carry(c, dt) {
   }
 }
 // the sea (the school life size round you) follows the hand's move since the grip, in the rig's frame, within a few
-// metres; at a station in a shared room only up and down (placeLife eases it there)
+// metres (placeLife eases it there): this headset's own, or at a shared room's station the station's, for everyone
+// there (the rig is the station's spot on every headset there, so the same offset is the same place in the room)
 const seaHeld = () => XR.ctrls.some(k => k.grab && k.grab.target === 'sea');
+const seaSt = () => !!(HOST.room && HOST.room.placing());
+// up or down 2 m, 6 m to the side, to the centimetre: the station's value goes out as it is, so apply(state()) gives it
+// back unchanged (the 1 cm of slack keeps a rounded value from being shortened again)
+function seaClamp(v) {
+  const l = Math.hypot(v.x, v.z), k = l > 6.01 ? 6 / l : 1, r = x => Math.round(x * 100) / 100 + 0;
+  return v.set(r(v.x * k), r(clamp(v.y, -2, 2)), r(v.z * k));
+}
 function carrySea(c, G) {
-  GL.rig.worldToLocal(_gv.copy(c.o)).sub(G.o0);
-  if (HOST.room && HOST.room.placing()) _gv.x = _gv.z = 0;
-  _gv.add(G.off0);
-  _gv.y = clamp(_gv.y, -2, 2);
-  const l = Math.hypot(_gv.x, _gv.z); if (l > 6) { _gv.x *= 6 / l; _gv.z *= 6 / l; }
-  XR.lifeTo.copy(_gv);
+  if (G.st !== seaSt()) { c.grab = null; return; }   // (reached or left a station meanwhile)
+  GL.rig.worldToLocal(_gv.copy(c.o)).sub(G.o0).add(G.off0);
+  (G.st ? XR.lifeSt : XR.lifeTo).copy(seaClamp(_gv));
 }
 // both hands on the scene: it grows and shrinks with the distance between them (a quarter to four times the
 // story's own size) and moves with their middle
@@ -479,7 +486,7 @@ async function xrStart(mode) {
 function xrEnterScene() {
   XR.stories = false;
   XR.on = true; XR.needRecenter = true; XR.fov = false; XR.tipI = -1;
-  XR.lifeOff.set(0, 0, 0); XR.lifeTo.set(0, 0, 0);
+  XR.lifeOff.set(0, 0, 0); XR.lifeTo.set(0, 0, 0); XR.lifeAt = false;   // (a station's sea stays: placeLife takes it there)
   document.body.classList.add('xr');
   GL.rig.position.set(0, 0, 0); GL.rig.quaternion.identity();
   XR.clear = !(XR.session.environmentBlendMode && XR.session.environmentBlendMode !== 'opaque') && XR.mode !== 'immersive-ar';
@@ -521,7 +528,7 @@ function xrVisibility() {
 function xrFreshStart() {
   XR.kbd.open = false; XR.kbd.q = '';
   for (const c of XR.ctrls) { c.press = null; c.grab = null; c.wantPress = false; }
-  XR.lifeOff.set(0, 0, 0); XR.lifeTo.set(0, 0, 0);   // (the sea at a new wearer's own eye height)
+  XR.lifeTo.set(0, 0, 0); if (!seaSt()) XR.lifeOff.set(0, 0, 0);   // (the sea at a new wearer's own eye height; a station's stays)
   // at a shared room's station the story and its place stay: the room's clock and state go on applying
   if (HOST.collab.mine()) { lastNow = 0; return; }
   APP.enterStory(0); APP.playing = false; audioSync();

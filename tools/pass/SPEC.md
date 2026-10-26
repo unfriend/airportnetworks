@@ -56,7 +56,7 @@ returns.
   `LBL_STYLE` has it now too).
 - Placement: **the fish are life size** (as the flock: 1 unit is 1 m, the viewer at the origin with eyes 1.6 m up; in a
   headset `xrPlace` puts the set's origin 1.6 m below your eyes and never moves it, but the grip on the sea does, for this
-  device only: see `e5_xr.js` below; on a screen the camera stands where
+  device only outside a shared room and for everyone at a station: see `e5_xr.js` below; on a screen the camera stands where
   you float and turns to follow the school, the flock's `followView`, aiming at the anchor `school`). **The globe and the
   cell are tabletop sets** (radius 1, as the qubits and tour sets: the view's target floats in front of you). The engine
   must call `fish.see(head, hands, spot)` every frame (in the set's frame), as the flock engine does. In passthrough AR the
@@ -136,12 +136,21 @@ cities by day 5, 47 by day 10, 676 by day 20, 1,673 by day 30), `cell.api.counts
 
 - Fish: as the flock's `flockSync` (the set has the same `flight`, `follow`, `hush`, `onLaunch`, `shark(f)`; effects
   `shark` with `{ p, v, aim }` and a quiet `school` twice a second). The school roosts round the station's spot
-  (`see(..., spot)`).
+  (`see(..., spot)`), moved by the station's sea.
+- The school's place at a station: `sea` in `collab.state()` (`[x, y, z]`, metres in the station rig's frame, to the
+  centimetre, `[0, 0, 0]` until someone moves it; `XR.lifeSt`), always present, so it is the same on every device and
+  `apply(state())` gives it back. The grip on the sea at your station moves it (`carrySea`), the shell sends it out
+  with the rest of the state five times a second, and the others' schools glide there (`placeLife`). At a station
+  `HOST.anchor.frame()` gives every headset the same rig (the station's spot), so the same offset is the same place in
+  the room for everyone, and the school's frame (where `fishSync` works and the school roosts) with it. `apply()` takes
+  only an array of three finite numbers, clamped as the grip is (`seaClamp`; a rounded value is never shortened
+  again), and never publishes. A screen following the station keeps and reports it but draws the fish where it always
+  does (`placeLife` moves nothing on a screen).
 - Outbreak: share the start (IATA code) and the settings (`inc`, `inf`, `spread`, `kept`) in `collab.state()`; the model
   is seeded, so every device computes the same outbreak; not the day being drawn.
 - Cell: the selected protein (symbol), the moves on (keys), the colour and organelles.
 - Never the language, the camera, the steered or kept shark (a shark from another device does not replace one you
-  steer or keep) or where you moved the sea (`XR.lifeOff`: per device, people differ in height).
+  steer or keep) or where you moved the sea outside a room (`XR.lifeTo`: per device, people differ in height).
 
 ## The engine
 
@@ -153,7 +162,8 @@ Adapted from the qubits story's engine, with the flock's life-size parts. As bui
   a getter), the story's labels (`relabel`), the explore panes and the headset's panels all read it.
 - `e2_scene.js`: the lens (`setLens`, from the `lens` track: 58 degrees among the fish, 32 for the globe and the cell),
   the fish's holder (`GL.life`, `placeLife`: in a headset it undoes `GL.world`'s pose, so the school is life size round
-  you, moved by `XR.lifeOff`, eased to `XR.lifeTo`), the flock's `followView` aimed at the school (`schoolAt`),
+  you, moved by `XR.lifeOff`, eased to `XR.lifeTo` outside a room and to the station's `XR.lifeSt` at a station, put
+  there at once when the station is reached), the flock's `followView` aimed at the school (`schoolAt`),
   `tellFish` (`see(head, hands, spot)` every frame; with the sea moved, the spot is where you would be had you not
   moved it, so the school keeps where you put it instead of swimming back round you).
 - `e3_story.js`: the six chapters (keys as above; story time 305 s, paced to 6:53 from the longer language), `LIN`
@@ -164,10 +174,16 @@ Adapted from the qubits story's engine, with the flock's life-size parts. As bui
   `steerRay`; a tracked hand's index fingertip leads it, `xrFingertip`), label sprites sized by distance. The grip on the
   sea moves the school (`xrGrab`, after the hook line, then `carrySea`): it follows the hand's move since the grip, in
   the rig's frame (up and down within 2 m, sideways within 6 m), one hand at a time (both grips: nothing more; no resize
-  of a life-size school); at a station in a shared room only up and down, and only where `HOST.anchor.locked` allows the
-  grip (at your station, unless the layout is locked); never in `collab.state()`, the `place` hook or `xrPose().held`'s
-  `'globe'`. While it is carried no shark steering starts (trigger or fingertip), and gripping it lets go of the shark
-  that hand was leading. Recenter, a new wearer (`xrFreshStart`) and a new session put it back.
+  of a life-size school), rounded to the centimetre (`seaClamp`). Two offsets: this headset's own (`XR.lifeTo`) outside
+  a shared room, never shared; and at a station in a shared room the station's (`XR.lifeSt`, `sea` in `collab.state()`,
+  the same for everyone there), moved in all three directions where `HOST.anchor.locked` allows the grip (at your
+  station, unless the layout is locked; reaching or leaving a station while carrying lets go). Neither is in the
+  `place` hook or `xrPose().held`'s `'globe'`. While it is carried no shark steering starts (trigger or fingertip), and
+  gripping it lets go of the shark that hand was leading. Recenter, a new wearer (`xrFreshStart`) and a new session put
+  this headset's own back, never the station's (that would move it for everyone); walking away from the station the
+  school glides back to this headset's own, and coming back it is at the station's again. In a room the story panel's
+  hint among the fish is `xr.hint.fish.room` (the grip moves the school and the panel for everyone; the shell's
+  `gripHint` offers resizing, which the school does not do).
 - `e6_panels.js`: the headset's twins of the panes, and the language switch at the foot of the main panel (`drawLang`).
 
 ## Tested, untested, open
@@ -187,7 +203,14 @@ Adapted from the qubits story's engine, with the flock's life-size parts. As bui
   frame rate with 600 fish and links. Tested with a pretend headset (a temporary script, October 2026): the grip on the
   sea moved the school by the hand's move (0.3, 0.4, -0.5 m), at a pretend station only up and down (a hand moved
   1, 0.3, -1 m lifted it 0.3 m), not on the Stories screen, not with a second hand, no shark steering while carried,
-  Recenter put it back.
+  Recenter put it back. The station's sea (a temporary script, October 2026, two pages and a pretend station): `sea` in
+  `state()` (`[0,0,0]` at first), `apply(state())` exact, a moved value taken and reported, bad values (wrong length,
+  NaN, Infinity, strings, objects, missing) ignored, clamped and idempotent (`[0.004,5,-8]` to `[0,2,-6]`); the grip at
+  a pretend station moved x, y and z of the station's value (0.5, 0.4, -0.7 m) and not this headset's own, clamped to
+  `[6,2,0]`; reaching the station put the drawn sea there at once, a new value glided in; Recenter and a new wearer left
+  it alone; walking away glided back to this headset's own; two pages with the same rig and different scene views put
+  the school's frame at the same room point (to 1 mm). Untested on headsets: two Quest 3s seeing the school in one
+  place.
 - Part 2 tested: the smoke test's pass step (both languages and the switch, every explore tool, picks with a ray,
   `apply(state())` giving the same state, the headset panels in every tab), `build.mjs --check`.
 - Open: the protein names and airport city and country names stay as in the originals (English;

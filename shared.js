@@ -22,7 +22,7 @@
 // (or #debug in a link) prints them as well.
 (function () {
   const PROTO = 1;
-  const FORMAT = 'networks-19';   // the shared state's format (keys, the stories' state()): bump when it changes shape
+  const FORMAT = 'networks-20';   // the shared state's format (keys, the stories' state()): bump when it changes shape
   const BROWSER = (/OculusBrowser\/(\d+)/.exec(navigator.userAgent) || [])[1] || '';   // Quest Browser's version (shared spaces differ by it)
   const EYE = 1.6;               // a standing eye height (m): a station's rig hangs this high over its spot
   const AHEAD = 1.4;             // a station's content floats this far in front of its spot
