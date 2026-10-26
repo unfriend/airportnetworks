@@ -1263,8 +1263,10 @@
     rr(ctx, 4, 4, W - 8, H - 8, 22); ctx.fillStyle = 'rgba(8,15,28,0.92)'; ctx.fill();
     ctx.lineWidth = o.hover ? 6 : 3; ctx.strokeStyle = o.hover ? m.col : 'rgba(140,170,210,0.35)'; ctx.stroke();
     ctx.fillStyle = m.col; ctx.fillRect(4, 4, W - 8, 9);
-    ctx.font = FONT(24, 700); ctx.fillStyle = m.col; ctx.fillText(m.kick.toUpperCase(), 32, 36);
-    ctx.font = FONT(54, 700); ctx.fillStyle = INK; ctx.fillText(fit(ctx, m.title, W - 64), 30, 70);
+    ctx.font = FONT(24, 700); ctx.fillStyle = m.col; ctx.fillText(fit(ctx, m.kick.toUpperCase(), W - 64), 32, 36);
+    let tp = 54;   // a long title smaller (down to 44 px, on the same baseline: B612's is 0.8 of its size down), else cut short
+    for (; ; tp--) { ctx.font = FONT(tp, 700); if (tp <= 44 || ctx.measureText(m.title).width <= W - 64) break; }
+    ctx.fillStyle = INK; ctx.fillText(fit(ctx, m.title, W - 64), 30, 70 + Math.round((54 - tp) * 0.8));
     ctx.font = FONT(28); ctx.fillStyle = INK; ctx.fillText(stationLine(s), 32, 150);
     ctx.fillStyle = MUTED; ctx.fillText(fit(ctx, who.length ? 'Here: ' + who.join(', ') : 'Nobody here yet', W - 64), 32, 194);
     ctx.font = FONT(22); ctx.fillStyle = held ? INK : FAINT;

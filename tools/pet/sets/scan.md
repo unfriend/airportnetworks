@@ -63,6 +63,11 @@ y = -1.05 (exported as `set.floorY`). Gantry 2.02 wide, 2.1 tall (1.05 above the
 floor), 1.6 deep (front face z = +0.8, back z = -0.8); bore diameter 0.78; couch top (the pad) at y = -0.215, the table
 2.3 long. The detector ring's centre plane is z = 0.
 
+No two faces of the solids lie at the same height where they overlap (they fought as a saw-tooth flicker): the gantry's
+flat bottom is at y -0.99 and the plinth under it is 5 cm tall (top at -1.0, a centimetre below; it showed inside the
+housing once it is cut open); the carriage's top is 2 mm under the table's board (-0.347 against -0.345). The floor and
+the reflection write no depth.
+
 ## Params
 
 | param | default | meaning |
