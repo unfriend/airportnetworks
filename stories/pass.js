@@ -2670,11 +2670,12 @@ return { PLACES, CONTACTS, MOVES, NET, A, CP, CELL, LAYOUT, POS, cpos, latLonOf,
 // each fish watches its nearest few neighbours (seven by default, one to twelve: fish_k) whatever the distance, swims
 // the way they swim, keeps a little apart and stays with them, and wanders a little of its own accord; nothing else
 // holds the school together, so with one neighbour each it falls apart and with seven it holds. A shark (sent by the
-// story, now and then in explore mode, or steered from a point) frightens the fish nearest it, and the warning passes
-// from neighbour to neighbour faster than the shark swims: each fish flashes silver as it reaches it.
+// story, now and then in explore mode, or steered from a point, and then kept round the school while you are the
+// shark) frightens the fish nearest it, and the warning passes from neighbour to neighbour faster than the shark swims:
+// each fish flashes silver as it reaches it.
 // Life size: 1 unit is 1 m, the viewer floats at the origin with eyes at 1.6 m (the seabed is far below, the surface far
 // above), the sun is up and a little towards -z. Without the water (passthrough AR) nothing opaque is drawn and the
-// school swims in your room at a third of life size.
+// school swims in your room at a third of life size, shrunk round your eyes.
 // The simulation is the one part of a set that is not a pure function of the params and the time: it runs on.
 SETS.fish = function (K) {
   const { THREE, clamp, lerp, rng } = K;
@@ -3204,9 +3205,9 @@ void main() {
   // aS 0 at the snout, 1 at the tail's root (more on the tail fin), for the swimming wave; aK 1 on fins
   const SNOUT = 1.0, BODY = 1.85, sOf = z => (SNOUT - z) / BODY;
   // the body's profile: s, half height, half width, the middle's height (a smooth curve through these)
-  const PROF = [[0, 0, 0, -0.005], [0.02, 0.04, 0.05, -0.005], [0.06, 0.082, 0.098, -0.004], [0.12, 0.122, 0.135, 0], [0.2, 0.155, 0.16, 0.005],
-    [0.3, 0.18, 0.172, 0.01], [0.4, 0.188, 0.17, 0.012], [0.5, 0.178, 0.158, 0.01], [0.6, 0.155, 0.135, 0.008], [0.7, 0.12, 0.1, 0.006],
-    [0.8, 0.082, 0.066, 0.005], [0.9, 0.052, 0.04, 0.008], [1, 0.04, 0.03, 0.012]];
+  const PROF = [[0, 0, 0, -0.005], [0.02, 0.04, 0.05, -0.005], [0.06, 0.085, 0.1, -0.004], [0.12, 0.13, 0.143, 0], [0.2, 0.167, 0.172, 0.005],
+    [0.3, 0.194, 0.186, 0.01], [0.4, 0.203, 0.184, 0.012], [0.5, 0.192, 0.17, 0.01], [0.6, 0.167, 0.145, 0.008], [0.7, 0.128, 0.106, 0.006],
+    [0.8, 0.085, 0.068, 0.005], [0.9, 0.052, 0.04, 0.008], [1, 0.04, 0.03, 0.012]];
   function prof(s) {
     let i = 0; while (i < PROF.length - 2 && s > PROF[i + 1][0]) i++;
     const a = PROF[i], b = PROF[i + 1], p = PROF[Math.max(0, i - 1)], q = PROF[Math.min(PROF.length - 1, i + 2)], d = b[0] - a[0], t = clamp((s - a[0]) / d, 0, 1);

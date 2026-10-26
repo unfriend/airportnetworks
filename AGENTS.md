@@ -995,14 +995,23 @@ contract.
   screen a wide lens (the `lens` track, 58 degrees among the fish, 32 for the globe and the cell) and the flock's
   `followView`; in a headset the fish set hangs in a holder (`GL.life`, `placeLife`) that undoes the pose `xrPlace`
   gives `GL.world` for the globe and the cell, so the school stays round you while the other two float in front of
-  you. In passthrough the sea is hidden (`fish_water` 0, per device) and the school swims in your room. The rise to
-  the globe shrinks the sea on a screen (`fish_scale`) and only fades it in a headset (the viewer never moves). Among
-  the fish the ray hits the sea (`kind: 'sea'`): its grip moves nothing, and in explore mode the trigger is the shark.
+  you. In passthrough the sea is hidden (`fish_water` 0, per device) and the school swims in your room at a third of
+  life size, shrunk round your eyes so it stays at eye level (round the floor it swam a metre below them: "too low" on
+  the Quest). The rise to the globe shrinks the sea on a screen (`fish_scale`) and only fades it in a headset (the
+  viewer never moves). Among the fish the ray hits the sea (`kind: 'sea'`): in explore mode the trigger is the shark,
+  and the grip moves the school (`XR.lifeOff`, the holder's offset in the rig's frame, eased; `carrySea` in
+  `engine/e5_xr.js`): it follows the hand's move, one hand at a time, anywhere outside a room and only up and down at a
+  station (the school stays round the station's spot), where `HOST.anchor.locked` allows the grip; per device (people
+  differ in height), never in `collab.state()` or the `place` hook; reset by Recenter and for a new wearer. While it is
+  carried no shark steering starts.
 - **The outbreak** is the globe set's seeded S/E/I/R model on the real route network: the same start and settings give
   the same outbreak on every device, so a shared room shares only those; each person plays its days. The story and
   the Outbreak tab say it is a simple model, not a forecast.
 - Explore: Fish (be the shark: the pointer, a controller's ray with the trigger held, or a tracked hand's index
-  fingertip; neighbours watched 1 to 12; links; the school's size), Outbreak (pick any airport on the globe, by click,
+  fingertip; let go while Be the shark is on, the shark stays, cruising round the school and through it now and then,
+  clear of your head, until you steer it again, turn Be the shark off or leave the fish (the set's `hold`, from
+  `sharking()` every frame); the story's sharks and Now and then pass through and go; neighbours watched 1 to 12;
+  links; the school's size), Outbreak (pick any airport on the globe, by click,
   ray or search, as the start or to look it up; play, the day, the chart of cities in each state, the settings), Cell
   (a protein's places and partners there, the cell map's seven moves and what each changes) and Scenes. In a shared
   room the school belongs to the station as the flock does (`fishSync`).

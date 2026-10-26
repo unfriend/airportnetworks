@@ -55,14 +55,19 @@ returns.
 - Label classes used: `''`, `amb`, `cyn`, `tl` (the cell map's teal: the shell has `.lbl.tl`; the copied engine's
   `LBL_STYLE` has it now too).
 - Placement: **the fish are life size** (as the flock: 1 unit is 1 m, the viewer at the origin with eyes 1.6 m up; in a
-  headset `xrPlace` puts the set's origin 1.6 m below your eyes and never moves it; on a screen the camera stands where
+  headset `xrPlace` puts the set's origin 1.6 m below your eyes and never moves it, but the grip on the sea does, for this
+  device only: see `e5_xr.js` below; on a screen the camera stands where
   you float and turns to follow the school, the flock's `followView`, aiming at the anchor `school`). **The globe and the
   cell are tabletop sets** (radius 1, as the qubits and tour sets: the view's target floats in front of you). The engine
   must call `fish.see(head, hands, spot)` every frame (in the set's frame), as the flock engine does. In passthrough AR the
-  engine sets `fish_water` 0 on that device (the school swims in your room at a third of life size).
+  engine sets `fish_water` 0 on that device (the school swims in your room at a third of life size, shrunk round your
+  eyes, so it stays at eye level).
 - Explore's "be the shark": `fish.steer(p)` with a point in the fish set's frame: on a screen the point on the pointer's
   ray at the school's distance from the camera; in a headset the controller ray's point at that distance, or the right
-  index fingertip; `steer(null)` when the pointer leaves or the button is let go.
+  index fingertip; `steer(null)` when the pointer leaves or the button is let go. The engine calls `fish.hold(on)` every
+  frame with whether you are the shark (`sharking()`: explore mode, Be the shark on, the fish scene on show): while on, a
+  shark let go stays and cruises round the school (and through it now and then) until you steer it again; off (the
+  switch, another scene or tab that brings another scene, the story), it swims off.
 
 ## The sets in short
 
@@ -114,8 +119,8 @@ cities by day 5, 47 by day 10, 676 by day 20, 1,673 by day 30), `cell.api.counts
 
 ## Explore mode (tabs; HTML and canvas twins)
 
-- **Fish**: be the shark (`steer`), neighbours watched 1-12 (`fish_k`), links on/off (`fish_links`), school size
-  (`fish_n`, 100-600). The fish fade in life size, as in chapter 1.
+- **Fish**: be the shark (`steer`; let go, it stays while Be the shark is on: `hold`), neighbours watched 1-12
+  (`fish_k`), links on/off (`fish_links`), school size (`fish_n`, 100-600). The fish fade in life size, as in chapter 1.
 - **Outbreak**: pick any airport as the start (`globe.api.pick(raycaster)`: click; in a headset the ray and trigger) then
   play: the engine advances `globe_day` (3-4 days a second) to `api.end()`; a chart of `api.series()` (cities in each
   state by day), the day counter (`Math.floor(globe_day)`), the selected airport's `arrivalDay`. Sliders through
@@ -135,7 +140,8 @@ cities by day 5, 47 by day 10, 676 by day 20, 1,673 by day 30), `cell.api.counts
 - Outbreak: share the start (IATA code) and the settings (`inc`, `inf`, `spread`, `kept`) in `collab.state()`; the model
   is seeded, so every device computes the same outbreak; not the day being drawn.
 - Cell: the selected protein (symbol), the moves on (keys), the colour and organelles.
-- Never the language, the camera or the steered shark's point.
+- Never the language, the camera, the steered or kept shark (a shark from another device does not replace one you
+  steer or keep) or where you moved the sea (`XR.lifeOff`: per device, people differ in height).
 
 ## The engine
 
@@ -147,26 +153,41 @@ Adapted from the qubits story's engine, with the flock's life-size parts. As bui
   a getter), the story's labels (`relabel`), the explore panes and the headset's panels all read it.
 - `e2_scene.js`: the lens (`setLens`, from the `lens` track: 58 degrees among the fish, 32 for the globe and the cell),
   the fish's holder (`GL.life`, `placeLife`: in a headset it undoes `GL.world`'s pose, so the school is life size round
-  you), the flock's `followView` aimed at the school (`schoolAt`), `tellFish` (`see(head, hands, spot)` every frame).
+  you, moved by `XR.lifeOff`, eased to `XR.lifeTo`), the flock's `followView` aimed at the school (`schoolAt`),
+  `tellFish` (`see(head, hands, spot)` every frame; with the sea moved, the spot is where you would be had you not
+  moved it, so the school keeps where you put it instead of swimming back round you).
 - `e3_story.js`: the six chapters (keys as above; story time 305 s, paced to 6:53 from the longer language), `LIN`
   tracks (the outbreak's days and the cell's travelling proteins run evenly), `STORY_OUT` (the story's outbreak, from
   Vienna; explore's comes back with explore).
 - `e4_explore.js`: the tabs (Fish, Outbreak, Cell, Scenes), `collabState`/`collabApply`, `fishSync`/`fishEffect`.
 - `e5_xr.js`: the sea as the ray's target among the fish (`kind: 'sea'`; the trigger is the shark in explore mode,
-  `steerRay`; a tracked hand's index fingertip leads it, `xrFingertip`), label sprites sized by distance.
+  `steerRay`; a tracked hand's index fingertip leads it, `xrFingertip`), label sprites sized by distance. The grip on the
+  sea moves the school (`xrGrab`, after the hook line, then `carrySea`): it follows the hand's move since the grip, in
+  the rig's frame (up and down within 2 m, sideways within 6 m), one hand at a time (both grips: nothing more; no resize
+  of a life-size school); at a station in a shared room only up and down, and only where `HOST.anchor.locked` allows the
+  grip (at your station, unless the layout is locked); never in `collab.state()`, the `place` hook or `xrPose().held`'s
+  `'globe'`. While it is carried no shark steering starts (trigger or fingertip), and gripping it lets go of the shark
+  that hand was leading. Recenter, a new wearer (`xrFreshStart`) and a new session put it back.
 - `e6_panels.js`: the headset's twins of the panes, and the language switch at the foot of the main panel (`drawLang`).
 
 ## Tested, untested, open
 
 - Tested: `node tools/pass/test-sets.mjs` (the outbreak is the same for the same settings, its series add up, fewer
   flights slow it, its chain runs back to the start; the school holds with seven, falls apart with one and comes
-  together again, stays round you, its warning outruns the shark, a steered shark follows and leaves; the cell's API and
+  together again, stays round you, its warning outruns the shark, a steered shark follows and leaves, and kept (being
+  the shark) it cruises round the school and through it, clear of your head, comes back when steered and swims off when
+  you stop; the cell's API and
   German names); harness screenshots of each set (no page errors); `build.mjs --check`; the two original stories
   unchanged. Build times in the harness (software GL): fish about 150 ms (with 5 s of warm-up), globe 150-240 ms, cell
   120-210 ms; draw calls: fish 8-10, globe 5-8, cell about 60 (the original's organelles); a fish step about 2 ms (300
   fish).
-- Untested (headset): life size and comfort of the school round you, the passthrough school, the globe's and cell's
-  light and dot sizes in a headset (the probe's XR branch), the rise in a headset, frame rate with 600 fish and links.
+- Untested (headset): life size and comfort of the school round you, the passthrough school (now at eye level), moving
+  the sea with the grip (comfort, the easing), the new shark's look and swimming in a headset and a kept shark's loops
+  round you, the globe's and cell's light and dot sizes in a headset (the probe's XR branch), the rise in a headset,
+  frame rate with 600 fish and links. Tested with a pretend headset (a temporary script, October 2026): the grip on the
+  sea moved the school by the hand's move (0.3, 0.4, -0.5 m), at a pretend station only up and down (a hand moved
+  1, 0.3, -1 m lifted it 0.3 m), not on the Stories screen, not with a second hand, no shark steering while carried,
+  Recenter put it back.
 - Part 2 tested: the smoke test's pass step (both languages and the switch, every explore tool, picks with a ray,
   `apply(state())` giving the same state, the headset panels in every tab), `build.mjs --check`.
 - Open: the protein names and airport city and country names stay as in the originals (English;

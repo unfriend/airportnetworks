@@ -289,8 +289,10 @@ void main() {
       slab(outer, rrect(0, 0, 0.03, 0.004, 0.004, 3), 0.004, 0.0018, cutL([1.0, 0.42, 0.16], 0.4, 0.95), basis([-s, c, 0], [-c, -s, 0], [0, 0, 1], [0.832 * c, 0.832 * s, 0.815]));
     }
   }
-  // the slim grey plinth, and the couch's base, pedestal (a curved skirt) and carriage
-  flat(outer, rrect(0, 0, 0.92, 0.68, 0.1, 6), -0.99, 0.06, 0.02, { col: GREY, m: [0.5, 0, 0, 0.8] });
+  // the slim grey plinth, and the couch's base, pedestal (a curved skirt) and carriage. The plinth's top stays 1 cm
+  // under the gantry's flat bottom (y -0.99), and the carriage's top 2 mm under the table's board (y -0.345): faces
+  // at the same height fought (a saw-tooth flicker inside the housing once it is cut open)
+  flat(outer, rrect(0, 0, 0.92, 0.68, 0.1, 6), -1.0, 0.05, 0.02, { col: GREY, m: [0.5, 0, 0, 0.8] });
   flat(outer, rrect(0, -1.9, 0.27, 0.92, 0.1, 6), -0.955, 0.095, 0.035, { col: [0.84, 0.86, 0.89], m: p => [0.75, 0, 0, floorAO(p[1] + 0.03)] });
   {
     const KEY = [[-0.96, 0.22, 0.62], [-0.9, 0.19, 0.56], [-0.8, 0.14, 0.46], [-0.66, 0.13, 0.42], [-0.54, 0.16, 0.5], [-0.46, 0.2, 0.66]];
@@ -299,7 +301,7 @@ void main() {
     for (let i = 0; i <= NR; i++) { const y = lerp(-0.96, -0.45, i / NR), [hx, hz] = cr(y); sec.push(rrect(0, -1.82, hx, hz, Math.min(0.12, hx * 0.8), 7).map(q => [q[0], y, -q[1]])); }
     grid(outer, sec.length, sec[0].length, (i, j) => sec[i][j], { col: [0.86, 0.88, 0.9], m: p => [0.75, 0, 0, 0.7 + 0.3 * K.smooth((p[1] + 0.95) / 0.45)] }, { wrapJ: true, flip: true });
   }
-  flat(outer, rrect(0, -1.81, 0.22, 0.86, 0.1, 6), -0.345, 0.11, 0.04, { col: [0.8, 0.82, 0.86], m: [0.8, 0, 0, 0.9] });
+  flat(outer, rrect(0, -1.81, 0.22, 0.86, 0.1, 6), -0.347, 0.108, 0.04, { col: [0.8, 0.82, 0.86], m: [0.8, 0, 0, 0.9] });
   const outerGeo = outer.geo();
 
   // the couch's table top (it slides): a thick white board with a blue stripe along its sides, and a soft pad

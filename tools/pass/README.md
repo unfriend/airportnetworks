@@ -16,7 +16,7 @@ node tools/pass/test-sets.mjs      # the sets without a browser: the outbreak, t
 | --- | --- |
 | `build.mjs` | the assembler; `ORIGINALS` says which sections and declarations of the two hand-written stories are taken (whole, unchanged) and what they hand the sets |
 | `gen/` | the cut-out originals (`airports.js`: `PASS_AIRPORTS`, `spatial.js`: `PASS_SPATIAL`), written by the build for the harness; not committed |
-| `sets/fish.js` | the school of fish in deep water: a live simulation after the flock's (neighbours watched 1-12, links, a shark, the warning flashing from fish to fish) |
+| `sets/fish.js` | the school of fish in deep water: a live simulation after the flock's (neighbours watched 1-12, links, a shark of its own that swims heavily and, while you are the shark, stays and cruises round the school, the warning flashing from fish to fish) |
 | `sets/globe.js` | the airports' globe behind the set contract, and a seeded S/E/I/R outbreak on its route network |
 | `sets/cell.js` | the cell map's cell behind the set contract: its organelles, proteins, links, moves, signals and wrong places as params, its explore tools as an API |
 | `sets/<name>.md` | each set's manifest: params, suggested keys, API, anchors, labels, views, controls, what may be said |

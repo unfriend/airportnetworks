@@ -26,18 +26,38 @@ and seeking the story only changes the params.
   one neighbour each, 16 groups, local order 0.52, 3.4 m spread (it falls apart within about 10 s); 40 s after going back
   to seven, one school again (86 %). Tuned to look right: the numbers (speeds, distances, the warning's pace) are not
   measured on real fish.
-- **Shark**: one larger fish (2.3 m, grey, a tall dorsal fin, a long upper tail lobe, pectoral fins, slow beats). It
-  comes in from 22 m at 3.2 m/s, homes on the school's main body (or first on where it was sent), bursts through at
-  5 m/s, then swims away and is gone (about 14 s). Fish within 4.5 m flee and are warned; the warning passes from
+- **Shark**: a body of its own (`sharkGeo`, one mesh, one draw call, about 1,100 triangles; its own shader): 2.3 m from
+  the snout to the tip of the tail, a torpedo lofted from a profile (`PROF`: a conical snout, widest a third of the way
+  back, a slim tail stalk, a little flatter underneath), a tall swept-back first dorsal fin and a small second one, long
+  pectoral fins swept back and down, small pelvic and anal fins, and a crescent tail whose upper lobe is the longer.
+  Counter-shaded (a blue-grey back down to an uneven line along the flank, a pale belly; fins dark, pale seen from
+  below), five gill slits on each flank as darker bands, small dark eyes, a faint mouth line underneath, a sheen from
+  the surface and a faint rim against deep water; in passthrough no rim and no fog. It swims heavily (`poseShark`, every
+  frame): a slow wave runs back along the body, its sway growing towards the tail (the head nearly still, the tail
+  about 13 cm each way), the tail beating about 0.8 times a second at 2.4 m/s and faster (up to about 1.6) as it speeds
+  up or turns hard; it banks into turns and never stands on its nose (pitch within 0.5 rad). It comes in from 22 m at
+  3.2 m/s, homes on the school's main body (or first on where it was sent), bursts through at 5 m/s, then swims away,
+  away from you, at 2.8 m/s and is gone (about 16 s). Fish within 4.5 m flee and are warned; the warning passes from
   neighbour to neighbour (a little weaker each time, 0.94 per step of the chain) at about 10 m/s, twice the shark's best
   speed, and every fish flashes silver as it reaches it (and its links warm from cyan to white). It comes when
   `fish_hunt` passes a whole number, now and then when `fish_shark` is on (every 30-55 s), or when sent (`scatter`).
-  **Steered** (`steer(p)`, explore's "be the shark"): it swims after the point at up to 5.5 m/s for as long as it is
-  steered; let go, it swims away.
+  **Steered** (`steer(p)`, explore's "be the shark"): it swims after the point at 0.8 to 5.5 m/s for as long as it is
+  steered (none yet: it comes in from 7 m beyond the point, away from you). **Kept** (`hold(true)`, every frame while
+  explore's "be the shark" is on and the fish are on show): let go, it stays and cruises in wide loops (5 m) round the
+  school's middle at 2.4 m/s, rising and sinking a little, and every 9-17 s (the first after 5-10 s), once it is off to
+  the school's side as you see it, bursts straight through the school at 4.6 m/s (so the fish keep fleeing and it
+  crosses your view); its way bends round your head 3-4 m off and a burst that would bring it nearer is given up.
+  Steered again, it comes back to your point; `hold(false)` (being the shark off, another tab, the story) sends it off
+  as a passing shark goes. Measured in `test-sets.mjs`: in 90 s 7 passes through the school, within 12 m of you 95 % of
+  the time, never nearer your head than 3.3 m; gone 8 s after `hold(false)`. A shark from another device (`shark(f)`)
+  does not replace one you are steering or keeping.
 - **Network**: each fish's link to the fish it watches (cyan, additive, fainter with distance from you), warming to
   white where the warning is.
 - **Passthrough** (`fish_water` below 0.5): the water, light, seabed and specks are hidden and the school swims in your
-  room at a third of life size (0.34), as the flock does.
+  room at a third of life size (0.34), shrunk round your eyes (the group lifted by 1.6 x 0.66 m), so its middle stays
+  at about eye level (shrunk round the floor, as before October 2026, it swam about 1 m below your eyes, at knee
+  height: "too low" on the Quest). With the water its middle is at about 1.85 m (measured over two minutes: 1.5 to
+  2.4), a little above your eyes.
 
 ## Params
 
@@ -59,7 +79,9 @@ Suggested story keys: chapter 1 the defaults; chapter 2 `fish_links` 0 -> 1 at +
 ## Exports beyond the set contract
 
 `see(head, hands, spot)`: where the viewer is, in the set's frame (call every frame; `spot` true at a station in a shared
-room: the school stays round the station's spot). `steer(p)`: the shark chases `p` (set frame) until `steer(null)`.
+room: the school stays round the station's spot; `[x, z]`: round that point instead, the engine's way of keeping the
+school where you moved the sea). `hold(on)`: explore's "be the shark" is on (every frame): a shark let go stays;
+`kept()`: one is cruising. `steer(p)`: the shark chases `p` (set frame) until `steer(null)`.
 `scatter(dir)`: send a shark where `dir` points (from the head; none: from anywhere); false while one is about. Shared
 rooms, as the flock's: `flight()` `{ t, m, v }`, `follow(o, dt)`, `hush(on)`, `following()`, `onLaunch` (set by the
 engine: hears each shark launched here as `{ p, v, aim }`), `shark(f)` (launch exactly that one); `falcon` and
@@ -70,8 +92,9 @@ shark).
 
 ## Anchors, labels, views, controls
 
-Anchors `school` (0.6 m above the middle of the school's main body: a mean shift over the fish within 4 m) and `shark`.
-Label: **Shark** / **Hai** (amber) while it comes in. Views: `default` [0, -6, 0.25, 0, 1.6, 0] (floating where you
+Anchors `school` (0.6 m above the middle of the school's main body: a mean shift over the fish within 4 m) and `shark`
+(0.75 m above it: just over its dorsal fin). Label: **Shark** / **Hai** (amber) while it comes in (never on a steered
+or kept shark). Views: `default` [0, -6, 0.25, 0, 1.6, 0] (floating where you
 are, looking ahead; the engine turns it to the school, as the flock's `followView`), `up` (to the light), `near`
 [25, 10, 8, 0, 1.6, -4] (from just outside the school: each fish and its links apart; aim at `school`), `afar` [25, 10, 13, 0, 1.6, -4] (the whole school from outside; aim at `school`), `above` [0, 80, 40, 0, 1.6, -4] (looking down
 from above the surface). Controls (getter, in the set's language): View (Follow the school, Look around, From afar),

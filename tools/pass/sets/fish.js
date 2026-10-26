@@ -2,11 +2,12 @@
 // each fish watches its nearest few neighbours (seven by default, one to twelve: fish_k) whatever the distance, swims
 // the way they swim, keeps a little apart and stays with them, and wanders a little of its own accord; nothing else
 // holds the school together, so with one neighbour each it falls apart and with seven it holds. A shark (sent by the
-// story, now and then in explore mode, or steered from a point) frightens the fish nearest it, and the warning passes
-// from neighbour to neighbour faster than the shark swims: each fish flashes silver as it reaches it.
+// story, now and then in explore mode, or steered from a point, and then kept round the school while you are the
+// shark) frightens the fish nearest it, and the warning passes from neighbour to neighbour faster than the shark swims:
+// each fish flashes silver as it reaches it.
 // Life size: 1 unit is 1 m, the viewer floats at the origin with eyes at 1.6 m (the seabed is far below, the surface far
 // above), the sun is up and a little towards -z. Without the water (passthrough AR) nothing opaque is drawn and the
-// school swims in your room at a third of life size.
+// school swims in your room at a third of life size, shrunk round your eyes.
 // The simulation is the one part of a set that is not a pure function of the params and the time: it runs on.
 SETS.fish = function (K) {
   const { THREE, clamp, lerp, rng } = K;
