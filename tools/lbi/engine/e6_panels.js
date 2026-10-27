@@ -136,7 +136,7 @@ function sigMain() {
     }
     return s;
   }
-  return ['x', audioLabel(), X.tab, X.scene, JSON.stringify(X.ctl[X.scene] || {}), X.sel, X.path ? routeNames(X.path).join(',') : '', X.pathErr || '',
+  return ['x', audioLabel(), xrSig(), X.tab, X.scene, JSON.stringify(X.ctl[X.scene] || {}), X.sel, X.path ? routeNames(X.path).join(',') : '', X.pathErr || '',
     XR.kbd.open, XR.kbd.q, XR.pf, XR.pt, XR.pick, XR.routing].join('|');
 }
 const XR_HERE = 'lbi';

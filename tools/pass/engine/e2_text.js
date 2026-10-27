@@ -194,10 +194,15 @@ const STR = {
   // the headset's panels and tips
   'xr.hint': ['Trigger (or pinch): use buttons. Grip: move the scene or this panel; both grips on the scene resize it. A or X: play and pause.',
     'Abzug (oder Finger zusammen): Knöpfe drücken. Greifen: Szene oder Tafel verschieben, mit beiden Händen größer oder kleiner machen. A oder X: Abspielen und Anhalten.'],
+  // moving freely (the shell's setting): what the grip holds turns with the hand too
+  'xr.hint.free': ['Trigger (or pinch): use buttons. Grip: hold the scene or this panel to move and turn it; both grips on the scene resize it. A or X: play and pause.',
+    'Abzug (oder Finger zusammen): Knöpfe drücken. Greifen: Szene oder Tafel festhalten, verschieben und drehen, mit beiden Händen größer oder kleiner machen. A oder X: Abspielen und Anhalten.'],
   // among the fish the grip moves the school instead (outside a shared room this headset's only; at a station the
   // station's, for everyone there, as the panel: fish.room, in place of the shell's hint, which offers resizing)
   'xr.hint.fish': ['Trigger (or pinch): use buttons. Grip: in the sea move the school (for you only), on this panel move the panel. A or X: play and pause.',
     'Abzug (oder Finger zusammen): Knöpfe drücken. Greifen: im Meer den Schwarm verschieben (nur für dich), an der Tafel die Tafel. A oder X: Abspielen und Anhalten.'],
+  'xr.hint.fish.free': ['Trigger (or pinch): use buttons. Grip: in the sea move the school (for you only), on this panel move and turn the panel. A or X: play and pause.',
+    'Abzug (oder Finger zusammen): Knöpfe drücken. Greifen: im Meer den Schwarm verschieben (nur für dich), an der Tafel die Tafel verschieben und drehen. A oder X: Abspielen und Anhalten.'],
   'xr.hint.fish.room': ['Trigger (or pinch): use buttons. Grip: in the sea move the school, on this panel move the panel, for everyone here. A or X: play and pause.',
     'Abzug (oder Finger zusammen): Knöpfe drücken. Greifen: im Meer den Schwarm verschieben, an der Tafel die Tafel, für alle hier. A oder X: Abspielen und Anhalten.'],
   'xr.hint.anchor': ['Trigger (or pinch): use buttons. A or X: play and pause. Anchored: to move things, use Place again on the Stories screen.',

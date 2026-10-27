@@ -136,7 +136,7 @@ function sigMain() {
     }
     return s;
   }
-  return ['x', audioLabel(), X.tab, X.scene, JSON.stringify(X.ctl), X.kind, X.age, X.method].join('|');
+  return ['x', audioLabel(), xrSig(), X.tab, X.scene, JSON.stringify(X.ctl), X.kind, X.age, X.method].join('|');
 }
 const XR_HERE = 'ovary';
 const XR_STORIES = HOST.list;

@@ -136,7 +136,7 @@ function sigMain() {
     }
     return s;
   }
-  return ['x', audioLabel(), X.tab, X.scene, JSON.stringify(X.ctl), X.organ, X.domain, X.age, X.step, X.kind, GL.orgV || 0].join('|');
+  return ['x', audioLabel(), xrSig(), X.tab, X.scene, JSON.stringify(X.ctl), X.organ, X.domain, X.age, X.step, X.kind, GL.orgV || 0].join('|');
 }
 const XR_HERE = 'micro';
 const XR_STORIES = HOST.list;

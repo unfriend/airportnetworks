@@ -212,6 +212,40 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
   `local-floor`, then `local-floor`, then nothing; `xrSteps` in `localStorage`,
   back to the start in another browser version): Sound check says what VR asks
   for and why. Ending VR on purpose within 10 s counts too.
+- Two headset settings, one for the whole system (the owner, October 2026:
+  "the settings systemwide, with the default being that everything is 3D"):
+  `HOST.xr.labels()` (`'fixed'`, the default: labels in 3D; `'face'`: on top;
+  `'hidden'`) and `HOST.xr.free()` (free moving, on by default), set with
+  `HOST.xr.setLabels(m)` and `HOST.xr.setFree(on)`, `HOST.xr.sig()` for panel
+  signatures; a row in the headset's menu (*Labels: in 3D* -> *hidden* -> *on
+  top*, each press the next; *Moving: free* / *Moving: facing you*) and, in a
+  room, in the page's Shared dialog. In a shared room they are the room's (key
+  `look`, below), for every headset and page in it; otherwise the device's own
+  (`xrLabels`, `xrFree` in `localStorage`), which keeps a room's last value
+  after leaving it. `#labels=face|fixed|hidden` and `#free=on|off` in a link
+  set them. Stories read them every frame (`xrSettings` in `xrBegin`; a shell
+  without them means on top and nothing free) and put `xrSig()` in `sigMain`.
+  - Labels in 3D: every scene label is a flat sign at its sprite's place and
+    size, upright and turned to you (about the vertical, in the rig's frame:
+    `placeLabelXR` with `XR.signL` and `XR.signH`), but in the scene:
+    depth-tested, so what stands in front hides it, readable from both sides.
+    On top: sprites over everything, as before. Hidden: no scene labels, and
+    no story text panel in story mode (`XR.main`; its foot, explore's panels
+    and the Stories screen stay). The pointer's tip (`XR.tip`) is always a
+    sprite. In the shell, station cards are drawn in both modes and not at
+    all when hidden (the ring stays, pointable and grabbable); people's name
+    tags are sprites, signs over the head, or nothing.
+  - Free moving: the grip holds the scene like a real object, the point you
+    hold the pivot. One hand moves it and turns it with the hand (`XR.rot`, a
+    turn in the rig's frame; the facing comes from `XR.globeBase`, not from
+    where you moved it, `xrFace`); two hands size it as before, move it with
+    their middle and turn it with the line between them; let go, it stays.
+    The story panel is held rigidly and may tilt. Off: things move but keep
+    facing you, and the panel stands upright (turning it off clears `XR.rot`
+    and stands the panel up, its yaw kept). Recenter clears the turn. The
+    life-size stories (the flock, the robots, the pass story's fish) move only
+    their panel. Stations stay level (room furniture). The anchored
+    arrangement keeps `q` (the scene's turn) and `pq` (the panel's) too.
 - Sound belongs to the shell (`HOST.audio` in `index.html`); stories only say
   what should play. A story asks for its file with
   `AUD = HOST.audio.narration(url, { ready, error })` and calls
@@ -271,9 +305,14 @@ the content floats 1.4 m ahead of the spot), with `st.<id>.play` (the clock:
 `collab.state()`), `st.<id>.panel` (the story panel: `{ x, y, z, yaw }` from the
 spot, y over the floor) and `st.<id>.place` (the scene: `{ x, y, z }` moved from
 where the story puts it, and `s` its size, a factor on the story's own; FORMAT
-networks-8), and per shared space `rf.<space id>` (the room's frame in it) and
+networks-8; both gain `q`, `[x, y, z, w]` to 4 decimals, the scene's turn and the
+panel's tilt left by a free grip, absent when there is none; FORMAT networks-22),
+`look` (the headsets' two settings, `{ labels, free, by, at }`: set by anyone,
+from a page's Shared dialog or a headset's menu, never refused by the layout
+lock; a room without it gives everything in 3D; free moving turned off takes
+every `q` out of the stations' places and panels in the same write), and per shared space `rf.<space id>` (the room's frame in it) and
 `rs.<space id>` (found split; FORMAT networks-9), and `sg` (the room's shared-space
-generation, `{ n, by, at }`; FORMAT networks-10; networks-11 when the eighth story came, networks-12 the ninth, networks-13 the tenth, networks-14 the eleventh, networks-15 the twelfth, networks-16 the thirteenth, networks-17 when the PET story's `state()` lost its one-scan fields, networks-18 when its liver scene came back, networks-19 when the ovary story's charts went, networks-20 when the pass story's school got a shared place at a station, networks-21 when the fourteenth story came). The plan is `docs/shared-space-plan.md`.
+generation, `{ n, by, at }`; FORMAT networks-10; networks-11 when the eighth story came, networks-12 the ninth, networks-13 the tenth, networks-14 the eleventh, networks-15 the twelfth, networks-16 the thirteenth, networks-17 when the PET story's `state()` lost its one-scan fields, networks-18 when its liver scene came back, networks-19 when the ovary story's charts went, networks-20 when the pass story's school got a shared place at a station, networks-21 when the fourteenth story came, networks-22 when the scene's and the panel's turn joined a station's place). The plan is `docs/shared-space-plan.md`.
 
 - `HOST.collab` keeps the room's keys (echo suppression by value, optimistic
   writes acknowledged by the relay, apply order stations > clock > state >
@@ -380,7 +419,9 @@ generation, `{ n, by, at }`; FORMAT networks-10; networks-11 when the eighth sto
   edge 6.5 cm over the clock's middle, at 0.62 of its size), as tall as what
   it shows: *Menu*, Close; Exit (ends the session: the story panels have no
   Exit, the headset Stories screen keeps its own) and *Slideshow: on/off* (`HOST.slides.setGlobal`, for
-  every story, shown when `HOST.slides` exists); then the shared room (its
+  every story, shown when `HOST.slides` exists); *Labels* and *Moving* (the
+  two headset settings, `HOST.xr`; in a room a line under them says they are
+  the same for everyone there); then the shared room (its
   code and people as the section's heading, the rooms, the question, the
   room's alignment, stations, people, You; the canvas holds the tallest case,
   a room on this headset with a three-line note, and People shows only as many
@@ -393,10 +434,15 @@ generation, `{ n, by, at }`; FORMAT networks-10; networks-11 when the eighth sto
   everyone: the grip on the scene moves it (`XR.globeOff`), both grips on it
   resize it (`xrResize`: the distance between the hands, a quarter to four times
   the story's own size, `XR.size`, in story and explore mode alike) and move it
-  with their middle, the grip on the panel moves the panel. `placeSync` (every
+  with their middle, the grip on the panel moves the panel; with free moving on
+  (the room's setting) the grip turns the scene and tilts the panel too, and the
+  turn is the station's, for everyone there whatever their own setting
+  (`q` in the place and the panel; ignored while free moving is off). `placeSync` (every
   frame, from the shell's tick) sends what is held out at most every 100 ms
   (`xrPose().held`) and once more when let go, glides each to the room's value
-  otherwise (`collab.panel`, `collab.place`), and puts both there at once when
+  otherwise (`collab.panel`, `collab.place`; a turn by slerp, sent when it
+  changed by more than 0.004 rad, the panel's `yaw` worked out from its
+  quaternion), and puts both there at once when
   a station is reached. Both values carry the story they were written for, so
   a late one from before the station changed story is refused by the relay. `HOST.anchor.locked(kind)` is
   `HOST.room.gripLocked()` in a room: true away from the headset's station and
@@ -626,10 +672,14 @@ reference, `tools/flock/engine/`):
 - `collab: { APP, scene: () => GL.scene, state, apply, view, setView, effect, hover, panel, place }`
   in its returned object: `APP` is its own clock object, `effect(type, data)`
   plays a one-shot effect another person caused (without sending it again),
-  `hover(i)` is how far controller i's ray reaches now (or 0), `panel(p, yaw)`
-  puts the story panel where another person moved it, `place(o, s)` the scene
-  (`XR.globeOff` and `XR.size`); `xrPose()` also returns `s` (the size) and
-  `held` (what grips hold: `'globe'`, `'panel'`, joined by spaces). `view()` is the scene's
+  `hover(i)` is how far controller i's ray reaches now (or 0), `panel(p, yaw, q)`
+  puts the story panel where another person moved it (upright at `yaw`, or
+  held at the turn `q` while free moving is on), `place(o, s, q)` the scene
+  (`XR.globeOff`, `XR.size` and, free moving on, its turn `XR.rot`; `q` an
+  array or null, null meaning no turn); `xrPose()` also returns `s` (the size),
+  `held` (what grips hold: `'globe'`, `'panel'`, joined by spaces), `rot` (the
+  scene's turn, `XR.rot`), `pq` (the panel's quaternion) and `pr` worked out
+  from it (`yawOf`); `xrAdopt` takes `rot` and `pq` across a story change. `view()` is the scene's
   view in explore mode (`orbit.cur`, rounded; the longitude or azimuth
   normalised), which in a headset turns and sizes the scene in the room, or
   null (story mode, or while it flies somewhere); `setView(v)` glides there in
@@ -719,6 +769,8 @@ after a night, lined them up. Not confirmed on headsets yet: whether they line u
 standby (and a night) now, whether asking for the shared space again (Re-align,
 or 15 s after waking) joins the others' space,
 moving and resizing scenes with the grips (comfort, how it looks for the others),
+the free grip turning scenes and tilting panels, how readable labels in 3D are
+and how the cards and name tags look in each label mode,
 persistent anchors restored (one headset's handles were refused; the log now
 says why), whether a recentre fires a reset, sound zones heard, comfort and
 frame rate with presence drawn, and whether the socket keeps running inside an
@@ -1252,7 +1304,15 @@ the robot gang every rule, a click to walk, crumbs, a big open floor and one
 with no area, and a pretend headset room from detected planes),
 switches stories, runs anchored placement in each
 story with a pretend headset (an origin that jumps, anchors that stay, saved
-handles), and fails on console errors:
+handles), checks the two headset settings with a pretend headset in a page of
+its own (everything in 3D by default; the menu's Labels and Moving buttons
+going round, kept across a reload, set by a link; for the qubits, the flock and
+the airports: labels on top as sprites, in 3D as depth-tested upright signs
+turned to the head, also after it moves, and hidden with the story text panel
+gone in story mode; a free grip turning the scene 90 degrees with the hand, the
+point held staying in it, staying when let go and facing you again with free
+moving off; the panel tilting with the hand; the flock's grip taking only the
+panel), and fails on console errors:
 
 ```sh
 npx http-server -p 8123 -c-1 .          # or: python3 -m http.server 8123
@@ -1300,7 +1360,10 @@ on the first story followed, also a slideshow stop on one page pausing the
 station for the others at the chapter's end, and its Next playing it again.
 Before that: Arrange all's rows, a code with no room, Remove asking first.
 After: a station moved and turned on the room map (and refused while the
-layout is locked),
+layout is locked), the headsets' two settings as the room's (everything in 3D
+in a room without them; set on one page, or in another's Shared dialog with the
+layout locked, for every page; free moving off taking the turns out of the
+stations' places and panels; kept across the relay restart),
 two controls changed at once on two pages (both kept), two stations
 followed back to back (the second not lost), a story picked by hand (stops
 following), no writes while idle (no ping-pong), a late joiner, a relay restart, and
@@ -1356,13 +1419,17 @@ controller was held still, VR elsewhere with its in-room question; at a
 station no Stories button and a Stories screen closing by itself, the grip on
 the scene and the panel unlocked there (locked by the layout lock), both grips
 resizing the scene and one hand carrying on, the place, size and panel going
-out to the room and gliding in from it; Re-align
+out to the room and gliding in from it, a free grip turning the scene 90 degrees
+and tilting the panel (the turns in the room, the other pages holding the same
+`q`), Moving in the headset's menu turning free moving off for everyone (the
+turns gone, the scene facing you again, the panel upright) and Labels going
+round there for every page; Re-align
 (an offset headset back on the room's frame, the shared space asked for again),
 and after a night: a headset still outside the space asking for it again, a
 follower holding against a space made again and following the room's frame
 once written again, this headset's own frame written into a space made again;
 a room on this device (no relay known: a link opens it, Arrange all, a moved
-station and the lock kept across a reload, a headset alone on its floor with
+station, the lock and the headsets' settings kept across a reload, a headset alone on its floor with
 Re-align, a station played there, the room taken to a relay that answers and
 joined there by another page; a relay that cannot be reached). `--quick` runs only the last story in the per-story part. A new story needs an entry in `STORIES`
 (`change` and `back`: code that changes its `state()`, and optional `effect`

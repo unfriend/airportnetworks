@@ -136,7 +136,7 @@ function sigMain() {
     }
     return s;
   }
-  return ['x', audioLabel(), X.tab, X.scene, JSON.stringify(X.ctl[X.scene] || {}), X.group, X.gene, JSON.stringify(X.pick), [...X.off].join(','),
+  return ['x', audioLabel(), xrSig(), X.tab, X.scene, JSON.stringify(X.ctl[X.scene] || {}), X.group, X.gene, JSON.stringify(X.pick), [...X.off].join(','),
     X.walk ? X.walk.from + ':' + X.walk.top.join(',') : '', X.walkFrom, X.mine.join(','), X.walkers, X.showZ, X.colour, X.grid, X.room, X.egroup, X.err,
     XR.kbd.open, XR.kbd.q].join('|');
 }

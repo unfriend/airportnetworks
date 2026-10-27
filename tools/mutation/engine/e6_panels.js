@@ -136,7 +136,7 @@ function sigMain() {
     }
     return s;
   }
-  return ['x', audioLabel(), X.tab, X.scene, JSON.stringify(X.ctl), X.time, X.reads, X.rseed, X.branch, X.w, X.sseed, XR.on].join('|');
+  return ['x', audioLabel(), xrSig(), X.tab, X.scene, JSON.stringify(X.ctl), X.time, X.reads, X.rseed, X.branch, X.w, X.sseed, XR.on].join('|');
 }
 const XR_HERE = 'mutation';
 const XR_STORIES = HOST.list;

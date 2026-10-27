@@ -142,13 +142,13 @@ only after the tests pass. No pull requests are used.
 
    Rebuilding all eleven takes well under a second:
    `for k in lbi nmd endo pet micro ovary qubits mutation pass flock robots; do node tools/$k/build.mjs; done`
-4. **Bump `VERSION` in `sw.js`** (`networks-v89` now, so `networks-v90` next) after any change to a file the app
+4. **Bump `VERSION` in `sw.js`** (`networks-v90` now, so `networks-v91` next) after any change to a file the app
    serves: `index.html`, `shared.js`, `sw.js`, `manifest.webmanifest`, `three.min.js`, `three.LICENSE.txt`,
    `proteins.html`, `spatial.html`, `README.txt`, and anything in `stories/`, `audio/` or `icons/`. For a new file the
    app needs, add it to `SHELL` in `sw.js`. A narration goes in `AUDIO`, which already lists all fourteen file names. If
    the new file is not directly inside `stories/`, `audio/` or `icons/`, also add it to `APP_FILES` in
    `relay/server.mjs`.
-5. **Bump `FORMAT` in `shared.js`** (`networks-21` now) when the shared keys, or the shape of a story's
+5. **Bump `FORMAT` in `shared.js`** (`networks-22` now) when the shared keys, or the shape of a story's
    `collab.state()`, change. A room refuses pages that have another format, so every device in a room has to update
    together.
 6. **Update the docs.**

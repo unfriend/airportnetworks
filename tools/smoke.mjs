@@ -717,6 +717,203 @@ for (const key of ['airports', 'proteins', 'spatial', 'lbi', 'nmd', 'endo', 'pet
   if (bad.length) errors.push(...bad.map(b => `${key}: ${b}`));
   await page.evaluate(() => HOST.openPicker());
 });
+// The headset's two settings (the shell's menu, for every story; in a shared room the room's): labels on top
+// (sprites over everything), in 3D (upright signs in the scene, depth-tested, turned to you) or hidden (none, and no
+// story text panel in story mode), and free moving (the grip holds the scene and the panel like a real object, what
+// you hold staying in your hand). Everything in 3D by default, kept across a reload, set by a link. In a page of its
+// own (its own storage, as a new device), with a pretend headset whose frames the test drives: a scene story
+// (qubits), a life-size one (flock) and a hand-written one (airports)
+{
+  const sp = await browser.newPage({ viewport: { width: 640, height: 400 } });
+  sp.on('pageerror', e => errors.push('settings: ' + (e.stack || e.message)));
+  sp.on('console', m => { if (m.type() === 'error' && !/404|Failed to load resource/.test(m.text())) errors.push('settings: ' + m.text()); });
+  const sx = s => sp.evaluate(s => HOST.cur.peek(s), s);
+  const tick = n => sp.evaluate(n => window.__tick(n), n || 1);
+  const qa = (a, b) => 2 * Math.acos(Math.min(1, Math.abs(a[0] * b[0] + a[1] * b[1] + a[2] * b[2] + a[3] * b[3]))) * 180 / Math.PI;   // degrees between two turns
+  const setLook = (l, f) => sp.evaluate(([l, f]) => { if (l) HOST.xr.setLabels(l); if (f !== undefined) HOST.xr.setFree(f); }, [l, f]);
+  const head = (p, yaw) => sp.evaluate(([p, yaw]) => { window.__head = { p, q: [0, Math.sin(yaw / 2), 0, Math.cos(yaw / 2)] }; }, [p, yaw || 0]);
+  // a story with the pretend headset: its own frame loop stopped; one headset frame as its frame() runs it while
+  // presenting, then the shell's own frame callback (where the menu is drawn)
+  const openXR = async (key, hash) => {
+    await sp.goto('about:blank');
+    await sp.goto(base + 'index.html#' + key + (hash || ''));
+    await sp.waitForFunction(k => typeof HOST !== 'undefined' && HOST.curKey === k && HOST.cur && HOST.cur.peek('typeof ST !== "undefined" && ST.items.length > 0 && !!XR.panelGroup'), key, { timeout: 30000 });
+    await sp.evaluate(() => {
+      window.__head = { p: [0, 1.6, 0], q: [0, 0, 0, 1] };
+      const pose = () => { const h = window.__head; return { transform: { position: { x: h.p[0], y: h.p[1], z: h.p[2] }, orientation: { x: h.q[0], y: h.q[1], z: h.q[2], w: h.q[3] } } }; };
+      window.__frame = { getViewerPose: pose };
+      window.__raf = [];
+      HOST.renderer.xr.getReferenceSpace = () => ({});
+      HOST.renderer.setAnimationLoop(null);
+      window.__s = { visibilityState: 'visible', renderState: {}, environmentBlendMode: 'opaque', enabledFeatures: [], inputSources: [],
+        addEventListener() {}, removeEventListener() {}, requestAnimationFrame: cb => window.__raf.push(cb) };
+      HOST.session = window.__s;
+      HOST.cur.peek('(XR.session = window.__s, XR.mode = "immersive-vr", xrEnterScene(), XR.stories = false, XR.inStory = true, APP.playing = false)');
+      window.__tick = (n = 1) => {
+        for (let i = 0; i < n; i++) {
+          HOST.cur.peek(`(() => {
+            xrBegin(window.__frame, 0.016);
+            const hand = typeof xrPlaceGlobe === 'function', pn = performance.now();   // (the hand-written stories place their scene so)
+            let S;
+            if (APP.mode === 'story') { const ts = storyT(APP.t); S = storyState(ts); if (hand) xrPlaceGlobe(storyCam(ts)); else { xrPlace(storyCam(ts)); K.U.uTime.value = ts; updateSets(S, ts, 0.016, true); } }
+            else { S = hand ? exploreStep(0.016) : exploreStep(0.016, pn); orbitStep(pn); if (hand) xrPlaceGlobe(orbit.cur); else { xrPlace(orbit.cur); updateSets(S, pn / 1000, 0.016, false); } }
+            if (hand) applyUniforms(S, APP.mode === 'explore');
+            GL.scene.updateMatrixWorld(true); xrUpdate(S); GL.scene.updateMatrixWorld(true);
+          })()`);
+          for (const cb of window.__raf.splice(0)) cb(performance.now(), window.__frame);
+        }
+      };
+      window.__tick(3);
+    });
+  };
+  // the scene's labels as the headset shows them: sprites on top, signs in 3D (depth-tested, upright, turned to you)
+  const LABELS = `(() => {
+    const all = [...ST.labels, ...(LBL.sets || []), ...LBL.extra], q = new THREE.Quaternion(), up = new THREE.Vector3();
+    const sp = all.filter(L => L.sprite && L.sprite.visible), sg = all.filter(L => L.sign && L.sign.visible);
+    const face = L => { const c = L.sign.getWorldPosition(new THREE.Vector3()), n = new THREE.Vector3(0, 0, 1).applyQuaternion(L.sign.getWorldQuaternion(q)), h = XR.head.clone().sub(c);
+      n.y = 0; h.y = 0; return h.length() < 0.01 ? 0 : n.angleTo(h) * 180 / Math.PI; };
+    return { sprites: sp.length, signs: sg.length, onTop: sp.every(L => !L.sprite.material.depthTest), inDepth: sg.every(L => L.sign.material.depthTest),
+      q: sg.map(L => L.sign.getWorldQuaternion(q).toArray()), up: Math.min(1, ...sg.map(L => up.set(0, 1, 0).applyQuaternion(L.sign.getWorldQuaternion(q)).y)),
+      face: Math.max(0, ...sg.map(face)), main: XR.main.mesh.visible, foot: XR.foot.mesh.visible };
+  })()`;
+  const labels = () => sx(LABELS);
+  // the controller i at p (in the room; the rig stands at the head, facing -z), turned yaw and pitched, in degrees
+  const ctrl = (i, p, yaw, pitch) => sx(`(() => { const c = XR.ctrls[${i}]; c.src = { targetRayMode: 'tracked-pointer', gamepad: null }; c.g.visible = true;
+    c.g.matrix.compose(new THREE.Vector3(${p.join(',')}), new THREE.Quaternion().setFromEuler(new THREE.Euler(${(pitch || 0) * Math.PI / 180}, ${(yaw || 0) * Math.PI / 180}, 0, 'YXZ')), new THREE.Vector3(1, 1, 1));
+    c.g.matrixWorld.copy(c.g.matrix); })()`);
+  const grab = (i, kind, on) => sx(`(c => { c.hover = ${kind === 'panel' ? '{ kind: "panel", P: XR.main }' : `{ kind: "${kind}", i: -1 }`}; xrGrab(c, ${on}); return !!c.grab; })(XR.ctrls[${i}])`);
+  const POSE = `(() => { GL.scene.updateMatrixWorld(true); return { wq: GL.world.getWorldQuaternion(new THREE.Quaternion()).toArray(), rot: XR.rot.toArray(),
+    pq: XR.panelGroup.quaternion.toArray(), up: new THREE.Vector3(0, 1, 0).applyQuaternion(XR.panelGroup.quaternion).y }; })()`;
+
+  // each label mode, at the moment with the most labels (the flock: explore mode with a falcon)
+  const labelModes = async key => {
+    const bad = [];
+    if (key === 'flock') {   // (the falcon's label shows once it is on its way)
+      await setLook('face'); await sx('(APP.enterExplore(), sendFalcon([0.2, 0.1, -1]), 0)');
+      for (let k = 0; k < 100 && !(await labels()).sprites; k++) await tick(1);
+    }
+    else {
+      await setLook('face'); await tick(1);
+      const t = await sp.evaluate(() => { let bt = 0, bn = -1;
+        for (let t = 5; t < HOST.cur.peek('T_END'); t += 5) {
+          HOST.cur.peek(`(APP.seek(${t}), APP.playing = false)`); window.__tick(1);
+          const n = HOST.cur.peek('[...ST.labels, ...(LBL.sets || [])].filter(L => L.sprite && L.sprite.visible).length');
+          if (n > bn) { bn = n; bt = t; }
+        }
+        return bt; });
+      await sx(`(APP.seek(${t}), APP.playing = false)`);
+    }
+    const story = await sx('APP.mode') === 'story';
+    await setLook('face'); await tick(3);
+    const F = await labels();
+    if (!(F.sprites > 0 && !F.signs && F.onTop)) bad.push(`on top: ${F.sprites} sprites (over everything: ${F.onTop}), ${F.signs} signs`);
+    await setLook('fixed'); await tick(3);
+    const D1 = await labels();
+    if (!(D1.signs === F.sprites && !D1.sprites && D1.inDepth && D1.up > 1 - 1e-6 && D1.face < 1)) bad.push(`in 3D: ${D1.signs} signs for ${F.sprites} labels, ${D1.sprites} sprites, depth-tested ${D1.inDepth}, upright ${D1.up}, turned to you within ${D1.face} deg`);
+    // the head moves 0.67 m sideways and turns: each sign turns to it again, upright
+    await head([0.6, 1.6, 0.3], 0.5); await tick(3);
+    const D2 = await labels();
+    if (!(D2.signs === D1.signs && D2.inDepth && D2.up > 1 - 1e-6 && D2.face < 1)) bad.push(`in 3D, the head moved sideways: ${D2.signs} signs, turned to you within ${D2.face} deg (turned ${Math.max(0, ...D2.q.map((q, i) => qa(q, D1.q[i] || q))).toFixed(2)} deg), upright ${D2.up}`);
+    await head([0, 1.6, 0]);
+    await setLook('hidden'); await tick(3);
+    const H = await labels();
+    if (!(!H.sprites && !H.signs && H.main === !story && H.foot)) bad.push(`hidden (${story ? 'story' : 'explore'}): ${H.sprites + H.signs} labels, text panel shown ${H.main}, foot ${H.foot}`);
+    if (story) {
+      await sx('APP.enterExplore()'); await tick(3);
+      const HX = await labels();
+      if (!(!HX.sprites && !HX.signs && HX.main && HX.foot)) bad.push(`hidden in explore mode: ${HX.sprites + HX.signs} labels, its panels ${HX.main} ${HX.foot}`);
+    }
+    // the pointer's tip stays a sprite on top in every mode
+    const tip = await sx(`(() => { const L = { set: typeof SET_ORDER !== 'undefined' ? SET_ORDER[0] : '', at: [0, 0, 0], i: 0, txt: ['Tip', 'here', 'tip'] }, was = XR.tip, out = [];
+      XR.tip = L; for (const m of ['fixed', 'hidden', 'face']) { XR.lm = m; placeLabelXR(L, 1, XS); out.push(!!(L.sprite && L.sprite.visible) && !L.sign); }
+      dropSprite(L); XR.tip = was; XR.lm = xrLabelMode(); return out; })()`);
+    if (!tip.every(Boolean)) bad.push(`the pointer's tip is not a sprite in every mode (${tip})`);
+    return bad;
+  };
+  // free moving with the grip: a scene story's scene turns with the hand (what you hold stays in it), stays when let
+  // go, and faces you again with free moving off; the panel tilts with the hand. A life-size story moves only its panel
+  const freeMoving = async key => {
+    const bad = [], life = key === 'flock';
+    await setLook('fixed', true);
+    await sx(`(APP.enterExplore(), orbit.to = null, typeof setTurn === 'function' && setTurn('off'), xrRecenter(), 0)`); await tick(3);
+    if (life) {
+      await ctrl(0, [0.25, 1.4, -0.9]); await tick(1);
+      if (await grab(0, 'sky', true)) bad.push('the grip took the sky');
+      const w0 = await sx(POSE);
+      if (qa(w0.wq, [0, 0, 0, 1]) > 1e-6) bad.push('the flock\'s world is turned');
+    } else {
+      await ctrl(0, [0.25, 1.4, -0.9]); await tick(1);
+      const g = await grab(0, 'globe', true), p0 = await sx(POSE);
+      await sx('(GL.scene.updateMatrixWorld(true), window.__held = GL.world.worldToLocal(XR.ctrls[0].o.clone()), 0)');
+      // the hand turns 90 degrees about the vertical as it moves
+      for (let k = 1; k <= 6; k++) { await ctrl(0, [0.25 + 0.05 * k, 1.4 + 0.02 * k, -0.9 + 0.03 * k], 15 * k); await tick(1); }
+      const p1 = await sx(POSE), d = await sx('(GL.scene.updateMatrixWorld(true), GL.world.localToWorld(window.__held.clone()).distanceTo(XR.ctrls[0].o))');
+      const want = await sx(`new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI / 2).multiply(new THREE.Quaternion().fromArray(${JSON.stringify(p0.wq)})).toArray()`);
+      if (!g || Math.abs(qa(p0.wq, p1.wq) - 90) > 0.05 || qa(p1.wq, want) > 0.05 || d > 0.01)
+        bad.push(`the hand turned 90 degrees: the scene turned ${qa(p0.wq, p1.wq).toFixed(3)} deg (${qa(p1.wq, want).toFixed(3)} from 90 about the vertical), the point held ${(d * 100).toFixed(2)} cm from the hand`);
+      // let go, it stays
+      await grab(0, 'globe', false); await ctrl(0, [0, 1.2, -0.3], -40); await tick(4);
+      const p2 = await sx(POSE);
+      if (qa(p2.wq, p1.wq) > 0.01) bad.push(`let go, the scene turned on by ${qa(p2.wq, p1.wq).toFixed(3)} deg`);
+      const pr = await sx('HOST.cur.xrPose().rot.toArray()');
+      if (qa(pr, p2.rot) > 1e-6) bad.push('xrPose().rot is not the scene\'s turn');
+      // free moving off: no turn of its own, and it faces you again (from where it is, as before free moving)
+      await setLook(null, false); await tick(2);
+      const p3 = await sx(`(() => { const g = XR.globeBase.clone().add(XR.globeOff).negate().normalize(), f = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, 1), g);
+        return { rot: XR.rot.toArray(), w: GL.world.quaternion.toArray(), old: f.multiply(_xq).toArray() }; })()`);
+      if (qa(p3.rot, [0, 0, 0, 1]) > 1e-6 || qa(p3.w, p3.old) > 1e-3) bad.push(`free moving off: a turn of ${qa(p3.rot, [0, 0, 0, 1]).toFixed(3)} deg left, ${qa(p3.w, p3.old).toFixed(4)} deg from facing you`);
+      // ...and with it off a grab turns nothing
+      await ctrl(0, [0.25, 1.4, -0.9]); await tick(1); await grab(0, 'globe', true);
+      for (let k = 1; k <= 3; k++) { await ctrl(0, [0.25 + 0.05 * k, 1.4, -0.9], 30 * k); await tick(1); }
+      if (qa(await sx('XR.rot.toArray()'), [0, 0, 0, 1]) > 1e-6) bad.push('free moving off, the grip turned the scene');
+      await grab(0, 'globe', false);
+      await setLook(null, true); await tick(1);
+    }
+    // the panel held and turned (20 degrees, pitched 30) tilts with the hand and stays so; free moving off, upright again
+    await ctrl(0, [-0.4, 1.5, -0.7]); await tick(1); await grab(0, 'panel', true);
+    await ctrl(0, [-0.35, 1.55, -0.7], 20, 30); await tick(2);
+    await grab(0, 'panel', false); await tick(3);
+    const pn = await sx(POSE), tilt = Math.acos(Math.min(1, pn.up)) * 180 / Math.PI, pq = await sx('HOST.cur.xrPose().pq.toArray()');
+    if (!(tilt > 25 && tilt < 35) || qa(pq, pn.pq) > 1e-6) bad.push(`the panel held and turned tilts ${tilt.toFixed(2)} deg (xrPose().pq ${qa(pq, pn.pq).toFixed(4)} deg from it)`);
+    if (life && qa((await sx(POSE)).wq, [0, 0, 0, 1]) > 1e-6) bad.push('the flock\'s world turned with the panel');
+    await setLook(null, false); await tick(2);
+    if (Math.abs((await sx(POSE)).up - 1) > 1e-6) bad.push('free moving off, the panel does not stand upright again');
+    await setLook(null, true);
+    await sx('(XR.ctrls[0].src = null, XR.ctrls[0].g.visible = false, XR.ctrls[0].hover = null, 0)');
+    return bad;
+  };
+
+  // a new device: everything in 3D; the menu's two buttons go round (Labels: in 3D, hidden, on top; Moving: free,
+  // facing you), the story follows, and the choice is kept across a reload; a link sets them
+  await step('headset settings: everything in 3D by default; the menu\'s two buttons go round, kept across a reload, set by a link', async () => {
+    const bad = [];
+    await openXR('qubits');
+    const d0 = await sp.evaluate(() => [HOST.xr.labels(), HOST.xr.free(), HOST.cur.peek('XR.lm'), HOST.cur.peek('XR.free'), localStorage.getItem('xrLabels')]);
+    if (!(d0[0] === 'fixed' && d0[1] === true && d0[2] === 'fixed' && d0[3] === true && d0[4] === null)) bad.push('the defaults are not labels in 3D and free moving: ' + JSON.stringify(d0));
+    await sp.evaluate(() => HOST.collab.panelOpen(true)); await tick(2);
+    const press = async id => { await tick(2); const ok = await sp.evaluate(id => { const r = HOST.collab.overlay().panel.regions.find(x => x.id === id); if (r && r.fn) r.fn(); return !!(r && r.fn); }, id); await tick(2); return ok; };
+    const seen = [];
+    for (let k = 0; k < 3; k++) { if (!await press('labels')) { bad.push('no Labels button in the menu'); break; } seen.push(await sp.evaluate(() => HOST.xr.labels() + '/' + HOST.cur.peek('XR.lm'))); }
+    if (seen.join() !== 'hidden/hidden,face/face,fixed/fixed') bad.push('Labels went ' + seen.join(', ') + ' (not hidden, on top, in 3D, with the story following)');
+    if (!await press('free') || await sp.evaluate(() => HOST.xr.free() || HOST.cur.peek('XR.free'))) bad.push('Moving did not turn free moving off');
+    await press('labels');
+    await sp.reload(); await sp.waitForFunction(() => typeof HOST !== 'undefined' && HOST.xr && HOST.curKey === 'qubits', null, { timeout: 30000 });
+    const kept = await sp.evaluate(() => [HOST.xr.labels(), HOST.xr.free()]);
+    if (kept[0] !== 'hidden' || kept[1] !== false) bad.push('not kept across a reload: ' + kept);
+    await sp.goto('about:blank'); await sp.goto(base + 'index.html#qubits&labels=face&free=on');
+    await sp.waitForFunction(() => typeof HOST !== 'undefined' && HOST.xr && HOST.curKey === 'qubits', null, { timeout: 30000 });
+    const link = await sp.evaluate(() => [HOST.xr.labels(), HOST.xr.free(), HOST.xr.sig()]);
+    if (link.join() !== 'face,true,face+') bad.push('#labels=face&free=on gave ' + link);
+    await setLook('fixed', true);
+    if (bad.length) errors.push(...bad.map(b => 'settings: ' + b));
+  });
+  for (const key of ['qubits', 'flock', 'airports']) await step(`${key}: labels on top, in 3D and hidden in the headset; free moving with the grip`, async () => {
+    await openXR(key);
+    const bad = (await labelModes(key)).concat(await freeMoving(key));
+    if (bad.length) errors.push(...bad.map(b => `${key}: ${b}`));
+  });
+  await sp.close();
+}
 await step('old links forward to the app', async () => {
   await page.goto(base + 'spatial.html#t=20');
   await page.waitForFunction(() => typeof HOST !== 'undefined' && HOST.curKey === 'spatial', null, { timeout: 30000 });

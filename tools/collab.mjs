@@ -6,7 +6,11 @@
 // changes reach a following page (within 5 s: a busy machine is slow), the explore state round-trips both ways
 // and the story's effect reaches the others; two people changing different controls at once both keep their
 // change; a switch asked for while a story loads is not lost; a story picked by hand stops following; no writes
-// while idle (no ping-pong); a late joiner gets everything; a relay restart is survived; a pretend headset (fake local-floor and shared spaces,
+// while idle (no ping-pong); a late joiner gets everything; a relay restart is survived; the headsets' two settings
+// (labels, free moving) are the room's: everything in 3D in a room without them, set on one page, in the Shared
+// dialog or the headset's menu for every page and headset, never refused by the layout lock, kept across a relay
+// restart and in a room on this device, free moving off taking the turns out of places and panels, and a free grip
+// at a station turning the scene and the panel for everyone; a pretend headset (fake local-floor and shared spaces,
 // as tools/smoke.mjs pretends) aligns from a published frame, stands at its station, stays there when taken off
 // and on again, restarts nothing with Start on its Stories screen, sends its rays in room coordinates, re-aligns
 // when the frame moves, switches story by walking to another station (and takes its state), lets the story's
@@ -388,6 +392,46 @@ try {
   await A.evaluate(() => { HOST.collab.dialog(false); HOST.collab.arrange({ x: 0, z: 0, yaw: 0 }); });
   await st7(B); await st7(C);
 
+  // ------------------------------------------- the headsets' two settings --
+  // labels (in 3D, hidden, on top) and free moving are the room's, the same on every page and headset in it (key
+  // look): a room without the key gives everything in 3D; set on one page, the others follow at once, also from the
+  // Shared dialog's row and with the layout locked (it never refuses them); free moving off takes the turns out of
+  // the stations' places and panels
+  const lookOf = p => p.evaluate(() => [HOST.xr.labels(), HOST.xr.free()].join());
+  const lookIs = (p, want) => until(p, w => [HOST.xr.labels(), HOST.xr.free()].join() === w, want, 3000);
+  const look0 = await Promise.all([A, B, C].map(lookOf));
+  check('the headsets\' settings: a room without them gives everything in 3D (labels in 3D, free moving) on every page',
+    !(await roomInfo(code)).keys.look && look0.every(l => l === 'fixed,true'), look0.join('; '));
+  await A.evaluate(() => HOST.xr.setLabels('hidden'));
+  const lookSet = await lookIs(B, 'hidden,true') && await lookIs(C, 'hidden,true');
+  check('the headsets\' settings: set on one page, every other page in the room follows', lookSet, (await Promise.all([A, B, C].map(lookOf))).join('; '));
+  // a station's scene turned and its panel tilted (as a free grip leaves them), and the layout locked; then B's
+  // Shared dialog: labels on top, free moving off
+  const tId = await stationOf(A, 'lbi'), kTp = 'st.' + tId + '.place', kTn = 'st.' + tId + '.panel';
+  await A.evaluate(([a, b]) => {
+    HOST.collab.publish([[a, { x: 0.1, y: 0, z: -0.2, s: 1, q: [0, 0.7071, 0, 0.7071], story: 'lbi' }], [b, { x: -0.5, y: 1.5, z: -0.6, yaw: 0.3, q: [0.2, 0.1, 0, 0.9747], story: 'lbi' }]]);
+    HOST.collab.lock(true);
+  }, [kTp, kTn]);
+  const turned = await until(B, k => HOST.collab.locked && !!HOST.collab.val(k) && !!HOST.collab.val(k).q, kTp, 3000);
+  const dlg = await B.evaluate(async () => {
+    HOST.collab.dialog(true); await new Promise(r => setTimeout(r, 300));
+    const sl = document.querySelector('#shLabels'), fb = document.querySelector('[data-sh="free"]'), shown = sl && sl.value;
+    sl.value = 'face'; sl.dispatchEvent(new Event('change', { bubbles: true })); fb.click();
+    await new Promise(r => setTimeout(r, 300));
+    const out = { shown, sel: sl.value, btn: fb.textContent };
+    HOST.collab.dialog(false);
+    return out;
+  });
+  const lk2 = await lookIs(A, 'face,false') && await lookIs(C, 'face,false');
+  for (let k = 0; k < 15 && ((await roomInfo(code)).keys[kTp] || { v: {} }).v.q; k++) await sleep(200);
+  const rk2 = (await roomInfo(code)).keys, unq = !!rk2[kTp] && !rk2[kTp].v.q && !!rk2[kTn] && !rk2[kTn].v.q && rk2[kTn].v.yaw === 0.3;
+  const aUnq = await A.evaluate(([a, b]) => !HOST.collab.val(a).q && !HOST.collab.val(b).q, [kTp, kTn]);
+  check('the headsets\' settings: the Shared dialog\'s row sets them for everyone, also with the layout locked; free moving off takes the turns out of the stations\' places and panels',
+    turned && dlg.shown === 'hidden' && dlg.sel === 'face' && dlg.btn === 'Moving: facing you' && lk2 && unq && aUnq && !!rk2.look && rk2.look.v.labels === 'face' && rk2.look.v.free === false,
+    JSON.stringify({ turned, dlg, lk2, place: rk2[kTp], panel: rk2[kTn], look: rk2.look }));
+  await A.evaluate(([a, b]) => { HOST.collab.lock(false); HOST.collab.publish([[a, null], [b, null]]); HOST.xr.setLabels('fixed'); HOST.xr.setFree(true); }, [kTp, kTn]);
+  await lookIs(B, 'fixed,true'); await lookIs(C, 'fixed,true');
+
   // ------------------------------------------------- each story, followed --
   for (const [key, T] of Object.entries(STORIES)) {
     const id = await stationOf(A, key);
@@ -531,6 +575,9 @@ try {
   await D.context().close();
 
   // ---------------------------------------------------- relay restart --
+  // (the headsets' labels on top first: the restarted relay gets the room's settings back too)
+  await A.evaluate(() => HOST.xr.setLabels('face'));
+  await until(A, () => !HOST.collab.internals().pending.size, null, 3000);
   const before = await roomInfo(code), keep = port;
   await stopRelay();
   await sleep(400);
@@ -544,6 +591,12 @@ try {
   await peek(A, STORIES[key0].change);
   const sR = await stateOf(A);
   check('and a change after the restart still reaches the others', await until(B, s => JSON.stringify(HOST.cur.collab.state()) === s, sR, 5000));
+  let lookR = null;
+  for (let k = 0; k < 25 && !lookR; k++) { const r = await roomInfo(code).catch(() => ({ keys: {} })); lookR = r.keys && r.keys.look && r.keys.look.v; if (!lookR) await sleep(200); }
+  check('a relay restart keeps the headsets\' settings (labels on top here) for every page', !!lookR && lookR.labels === 'face' && lookR.free === true &&
+    await lookIs(B, 'face,true') && await lookIs(C, 'face,true'), JSON.stringify({ lookR, B: await lookOf(B) }));
+  await A.evaluate(() => HOST.xr.setLabels('fixed'));
+  await lookIs(B, 'fixed,true'); await lookIs(C, 'fixed,true');
 
   // ------------------------------------------------- a pretend headset --
   const H = await open('#s=' + code);
@@ -1119,6 +1172,67 @@ try {
   });
   check('headset: a place, size and panel from someone else pglide in', Math.abs(pglide.size - 0.5) < 1e-3 && near(pglide.off, [0.2, 0.1, -0.3], 2e-3) &&
     near(pglide.pp, [-0.7, -0.1, -0.6], 2e-3) && Math.abs(pglide.pr - 0.4) < 3e-3 && pglide.between, JSON.stringify(pglide));
+  // free moving (the room's setting, on by default): the grip turns the scene with the hand and tilts the panel; the
+  // turns go out with the place and the panel (q, to 4 decimals), and the other pages hold the same values
+  // degrees between two turns (normalised: the room's are rounded to 4 decimals)
+  const qang = (a, b) => 2 * Math.acos(Math.min(1, Math.abs(a[0] * b[0] + a[1] * b[1] + a[2] * b[2] + a[3] * b[3]) / Math.hypot(...a) / Math.hypot(...b))) * 180 / Math.PI;
+  const fm = await H.evaluate(async () => {
+    const X = window.__xr, V = (x, y, z) => new THREE.Vector3(x, y, z), R = HOST.cur.peek('GL.rig');
+    const run = async n => { for (let k = 0; k < n; k++) { X.step(); await new Promise(r => setTimeout(r, 30)); } };
+    // controller i at p in the rig's frame, turned yaw about its vertical and pitched (radians)
+    const at = (i, p, yaw, pitch) => X.aim(i, new THREE.Matrix4().compose(V(...p).applyMatrix4(R.matrixWorld),
+      R.quaternion.clone().multiply(new THREE.Quaternion().setFromEuler(new THREE.Euler(pitch || 0, yaw || 0, 0, 'YXZ'))), V(1, 1, 1)));
+    const grab = (i, kind, on) => HOST.cur.peek(`(c => { if (${on}) c.hover = ${kind === 'panel' ? '{ kind: "panel", P: XR.main, x: 10, y: 10, point: XR.main.mesh.getWorldPosition(new THREE.Vector3()) }' : '{ kind: "globe", i: -1, point: c.o.clone() }'}; xrGrab(c, ${on}); })(XR.ctrls[${i}])`);
+    const free = HOST.xr.free(), rot0 = HOST.cur.peek('XR.rot.toArray()');
+    // the scene: held, the hand turned 90 degrees about the vertical as it moves
+    at(0, [0.1, -0.2, -0.6]); await run(2);
+    grab(0, 'globe', true); await run(2);
+    for (let k = 1; k <= 6; k++) { at(0, [0.1 + 0.02 * k, -0.2, -0.6 + 0.01 * k], k * Math.PI / 12); await run(2); }
+    grab(0, 'globe', false); await run(6);
+    const rot = HOST.cur.peek('XR.rot.toArray()');
+    // the panel: held, the hand turned 20 degrees and pitched 30
+    const pw = HOST.cur.peek('GL.rig.worldToLocal(XR.main.mesh.getWorldPosition(new THREE.Vector3())).toArray()');
+    at(0, [pw[0], pw[1], pw[2] + 0.3]); await run(1); grab(0, 'panel', true);
+    at(0, [pw[0] + 0.05, pw[1] + 0.05, pw[2] + 0.3], 20 * Math.PI / 180, 30 * Math.PI / 180); await run(6);
+    grab(0, 'panel', false); await run(6);
+    X.ctrl(0, null);
+    return { free, rot0, rot, want: new THREE.Quaternion().setFromAxisAngle(V(0, 1, 0), Math.PI / 2).multiply(new THREE.Quaternion().fromArray(rot0)).toArray(),
+      pq: HOST.cur.peek('XR.panelGroup.quaternion.toArray()'), up: HOST.cur.peek('new THREE.Vector3(0, 1, 0).applyQuaternion(XR.panelGroup.quaternion).y') };
+  });
+  let rk3 = {};
+  for (let k = 0; k < 15; k++) { rk3 = (await roomInfo(code)).keys; if (rk3[kPl] && rk3[kPl].v.q && rk3[kPn] && rk3[kPn].v.q) break; await frames(H, 200); }
+  const fq = rk3[kPl] && rk3[kPl].v.q, fpq = rk3[kPn] && rk3[kPn].v.q;
+  const vals = await Promise.all([A, B].map(p => p.evaluate(([a, b]) => JSON.stringify([HOST.collab.val(a).q, HOST.collab.val(b).q]), [kPl, kPn])));
+  const tilt = Math.acos(Math.min(1, fm.up)) * 180 / Math.PI;
+  check('headset: free moving at a station, the grip turns the scene with the hand (90 degrees) and tilts the panel (30 degrees); the turns go out to the room, and the others have the same',
+    fm.free && !!fq && !!fpq && qang(fm.rot, fm.want) < 0.05 && qang(fq, fm.rot) < 0.05 && tilt > 25 && tilt < 35 && qang(fpq, fm.pq) < 0.05 &&
+    vals.every(v => v === JSON.stringify([fq, fpq])), JSON.stringify({ fm, fq, fpq, vals, tilt }));
+  // the headset's menu sets them for everyone in the room: Moving: facing you (the turns go, the scene faces you
+  // again and the panel stands upright), then Labels round (hidden, on top, in 3D), each followed by the pages
+  const menuPress = id => H.evaluate(async id => {
+    const X = window.__xr; X.step(); X.step();
+    const r = HOST.collab.overlay().panel.regions.find(x => x.id === id); if (r && r.fn) r.fn();
+    for (let k = 0; k < 3; k++) { X.step(); await new Promise(res => setTimeout(res, 20)); }
+    return !!(r && r.fn);
+  }, id);
+  await H.evaluate(() => HOST.collab.panelOpen(true));
+  const pf = await menuPress('free');
+  const offAB = await lookIs(A, 'fixed,false') && await lookIs(B, 'fixed,false');
+  let rk4 = {};
+  for (let k = 0; k < 15; k++) { rk4 = (await roomInfo(code)).keys; if (!rk4[kPl].v.q && !rk4[kPn].v.q) break; await frames(H, 200); }
+  await frames(H, 100);
+  const hOff = await H.evaluate(() => ({ free: HOST.cur.peek('XR.free'), rot: HOST.cur.peek('XR.rot.toArray()'), up: HOST.cur.peek('new THREE.Vector3(0, 1, 0).applyQuaternion(XR.panelGroup.quaternion).y') }));
+  check('headset: Moving in the headset\'s menu turns free moving off for everyone: the turns leave the room, the scene faces you again and the panel stands upright',
+    pf && offAB && !rk4[kPl].v.q && !rk4[kPn].v.q && !hOff.free && qang(hOff.rot, [0, 0, 0, 1]) < 1e-6 && Math.abs(hOff.up - 1) < 1e-6, JSON.stringify({ pf, offAB, place: rk4[kPl], panel: rk4[kPn], hOff }));
+  const lseen = [];
+  for (let k = 0; k < 3; k++) {
+    const ok = await menuPress('labels'), w = await H.evaluate(() => HOST.xr.labels());
+    lseen.push(w + '/' + await peek(H, 'XR.lm') + (ok && await lookIs(A, w + ',false') && await lookIs(C, w + ',false') ? '' : ' (not on the pages)'));
+  }
+  check('headset: Labels in the headset\'s menu goes round (hidden, on top, in 3D), for its story and every page in the room', lseen.join() === 'hidden/hidden,face/face,fixed/fixed', lseen.join(', '));
+  await H.evaluate(() => HOST.collab.panelOpen(false));
+  await A.evaluate(() => HOST.xr.setFree(true));
+  check('headset: and free moving on again from a page', await until(H, () => { window.__xr.step(); return HOST.xr.free() && HOST.cur.peek('XR.free'); }, null, 3000));
   // the layout lock stops the grip on scenes and panels too
   await A.evaluate(() => HOST.collab.lock(true));
   await until(H, () => HOST.collab.locked, null, 3000);
@@ -1740,12 +1854,18 @@ try {
   await Lp.evaluate(id => { HOST.collab.move(id, { x: 0.5, z: -3, yaw: 0.2 }); HOST.collab.lock(true); }, lsid);
   check('a room on this device: Arrange all, moving a station and the lock work alone', await until(Lp, () => HOST.collab.stations().length === HOST.list.length && HOST.collab.locked &&
     !HOST.collab.internals().pending.size, null, 3000));
+  // the headsets' settings in a room on this device: the room's too (with the layout locked), and kept with it
+  await Lp.evaluate(() => { HOST.xr.setLabels('hidden'); HOST.xr.setFree(false); });
+  const llook = await until(Lp, () => JSON.stringify(HOST.collab.look()) === '{"labels":"hidden","free":false}' && !HOST.collab.internals().pending.size, null, 3000);
   await sleep(700);   // kept at most 0.4 s after a change
   await Lp.reload({ timeout: 90000 }); await lopen();
   const lk = await until(Lp, id => HOST.collab.code === 'LCL' && HOST.collab.local && HOST.collab.stations().length === HOST.list.length && HOST.collab.locked &&
     HOST.collab.station(id) && HOST.collab.station(id).z === -3 && HOST.collab.kept().some(r => r.code === 'LCL' && r.stations === HOST.list.length), lsid, 8000);
   check('a room on this device: kept across a reload (stations, places, the lock)', lk, JSON.stringify(await Lp.evaluate(() => [HOST.collab.code, HOST.collab.local, HOST.collab.stations().length, HOST.collab.locked, HOST.collab.kept()])));
-  await Lp.evaluate(() => HOST.collab.lock(false));
+  const llook2 = await until(Lp, () => HOST.collab.code === 'LCL' && JSON.stringify(HOST.collab.look()) === '{"labels":"hidden","free":false}' && HOST.xr.labels() === 'hidden' && !HOST.xr.free(), null, 8000);
+  check('a room on this device: the headsets\' settings are the room\'s (set with the layout locked) and kept across a reload', llook && llook2,
+    JSON.stringify(await Lp.evaluate(() => [HOST.collab.look(), HOST.xr.labels(), HOST.xr.free()])));
+  await Lp.evaluate(() => { HOST.collab.lock(false); HOST.xr.setLabels('fixed'); HOST.xr.setFree(true); });
   await ready(Lp, 'airports');
   // a headset alone (no shared space): the stations stand on its floor; the panel has Re-align, not the question
   // whether it is in the room with the others; walking up to a station plays its story there

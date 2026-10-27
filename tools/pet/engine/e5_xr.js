@@ -143,28 +143,64 @@ function labelTex(L) {
   ctx.font = vfont(px); ctx.fillText(rest, pad + wb + gap, H / 2 + 1);
   const tex = new THREE.CanvasTexture(cv);
   tex.anisotropy = 4;
-  const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false, depthWrite: false }));
-  sp.renderOrder = cls === 'tip' ? 11 : 10;
-  sp.userData.aspect = cv.width / H;
+  return (L.ltex = { tex, aspect: cv.width / H, tip: cls === 'tip' });
+}
+// labels on top: a sprite turned to you, drawn over everything, beside its point
+function labelSprite(L) {
+  if (L.sprite) return L.sprite;
+  const t = labelTex(L);
+  const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: t.tex, transparent: true, depthTest: false, depthWrite: false }));
+  sp.renderOrder = t.tip ? 11 : 10;
+  sp.userData.aspect = t.aspect;
   sp.center.set(-0.35 / sp.userData.aspect, 0.5);
   GL.world.add(sp);
   return (L.sprite = sp);
 }
-function dropSprite(L) {
-  const sp = L && L.sprite;
-  if (!sp) return;
-  if (sp.parent) sp.parent.remove(sp);
-  sp.material.map.dispose(); sp.material.dispose();
-  L.sprite = null;
+// labels in 3D: a flat sign at the sprite's place and size, turned to you each frame, readable from both sides (a quad facing +z and one facing
+// -z with its picture flipped, so its text never reads mirrored), in the scene's depth: what stands in front of it
+// hides it, and it hides what is behind it (drawn first of the see-through things; its clear corners cut away)
+function labelSign(L) {
+  if (L.sign) return L.sign;
+  const t = labelTex(L), a = 0.35 / t.aspect, b = a + 1;   // (in its width, as the sprite's centre)
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute([a, -0.5, 0, b, -0.5, 0, b, 0.5, 0, a, 0.5, 0, a, -0.5, 0, b, -0.5, 0, b, 0.5, 0, a, 0.5, 0], 3));
+  g.setAttribute('uv', new THREE.Float32BufferAttribute([0, 0, 1, 0, 1, 1, 0, 1, 1, 0, 0, 0, 0, 1, 1, 1], 2));
+  g.setIndex([0, 1, 2, 0, 2, 3, 4, 6, 5, 4, 7, 6]);
+  const sg = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ map: t.tex, transparent: true, alphaTest: 0.1 }));
+  sg.renderOrder = -1;
+  sg.userData.aspect = t.aspect;
+  GL.world.add(sg);
+  return (L.sign = sg);
 }
+function dropSprite(L) {
+  if (!L) return;
+  for (const k of ['sprite', 'sign']) {
+    const o = L[k];
+    if (!o) continue;
+    if (o.parent) o.parent.remove(o);
+    if (k === 'sign') o.geometry.dispose();
+    o.material.dispose();
+    L[k] = null;
+  }
+  if (L.ltex) { L.ltex.tex.dispose(); L.ltex = null; }
+}
+function hideLabelXR(L) { if (L.sprite) L.sprite.visible = false; if (L.sign) L.sign.visible = false; }
 function placeLabelXR(L, alpha, S) {
-  if (alpha <= 0.001) { if (L.sprite) L.sprite.visible = false; return; }
-  const sp = labelSprite(L), o = alpha;
+  // on top (a sprite), in 3D (a sign) or hidden, as the shell's setting says; the pointer's tip is always a sprite
+  const m = L === XR.tip ? 'face' : XR.lm, fixed = m === 'fixed';
+  if (alpha <= 0.001 || m === 'hidden') { hideLabelXR(L); return; }
+  if (fixed ? L.sprite : L.sign) (fixed ? L.sprite : L.sign).visible = false;
+  const sp = fixed ? labelSign(L) : labelSprite(L), o = alpha;
   sp.visible = o > 0.01;
   sp.material.opacity = o;
   labelPos(L, sp.position);
   const hm = (XR.room && APP.mode === 'explore' && X.scene === 'scan' ? 0.036 : 0.021) / XR.R;   // (life size: the labels are further away)
   sp.scale.set(hm * sp.userData.aspect, hm, 1);
+  if (fixed) {
+    // upright and turned to you, about the vertical only (the rig's frame): a sign in the scene, not a sprite on top
+    _fv.copy(sp.position).applyMatrix4(GL.world.matrix);
+    sp.quaternion.copy(XR.signL).multiply(_fq.setFromAxisAngle(_xY, Math.atan2(XR.signH.x - _fv.x, XR.signH.z - _fv.z)));
+  }
 }
 // the organ or group a controller points at, labelled where the ray meets it
 function xrTip(S) {

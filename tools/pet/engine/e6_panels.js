@@ -136,7 +136,7 @@ function sigMain() {
     }
     return s;
   }
-  return ['x', audioLabel(), X.tab, X.scene, JSON.stringify(X.ctl), X.cmp, X.netX, X.organ, X.life].join('|');
+  return ['x', audioLabel(), xrSig(), X.tab, X.scene, JSON.stringify(X.ctl), X.cmp, X.netX, X.organ, X.life].join('|');
 }
 const XR_HERE = 'pet';
 const XR_STORIES = HOST.list;
