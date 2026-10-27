@@ -288,7 +288,9 @@ const MMATH = (() => {
   function simulate(m, t, parent, simple) {
     let gates = circuit(m, t).gates;
     if (simple) gates = gates.flatMap(decompose);
-    const st = run(gates, (() => { const s = new Float64Array(16); s[parent << 2] = 1; return s; })()), out = new Float64Array(4);
+    const st = new Float64Array(16), out = new Float64Array(4);
+    st[parent << 2] = 1;
+    run(gates, st);
     for (let s = 0; s < 16; s++) out[s & 3] += st[s] * st[s];
     return out;
   }
@@ -377,9 +379,14 @@ const MMATH = (() => {
       n.seq = toStr(from);
       branches.push({ id: b, from: n.parent, to: n.id, len: n.len, depth: n.depth, muts });
     }
-    const byLen = branches.slice().sort((a, b) => a.len - b.len);
+    // a long and a short branch to point at: the longest whose swaps are at least three quarters of what its length
+    // leads one to expect, and the shortest with at most that many (chance can give a long branch one swap and a short
+    // one four; the story's point is the expected count)
+    const byLen = branches.slice().sort((a, b) => a.len - b.len), L = nodes[root].seq.length;
+    const long = byLen.slice().reverse().find(b => b.muts.length >= 0.75 * b.len * L) || byLen[byLen.length - 1];
+    const short = byLen.find(b => b.muts.length <= Math.max(1, b.len * L) && b.muts.length < long.muts.length) || byLen[0];
     return { kind: 'family', seed, speed, model: e.model.key, nodes, branches, root, tips: tip, unit: unit / speed,
-      longest: byLen[byLen.length - 1].id, shortest: byLen[0].id };
+      longest: byLen[byLen.length - 1].id, shortest: byLen[0].id, highlight: { long: long.id, short: short.id } };
   }
   // the poster's species tree ((s1, s2), s3) with example branch lengths, laid out the same way: the root's split along
   // a line from front right to back left, n1's two tips round the vertical from it, so the three tips stand about 120
@@ -531,11 +538,12 @@ const MMATH = (() => {
     return out;
   }
   // a method's long-run mix, the root's prior: letter by letter pi_x pi_y; the exact pair model's pi_xy; the coupled
-  // stand-in's, where its machine settles when run branch after branch (its step is not the same for every length:
-  // here at the tree's mean branch length, tbar). That mix favours matching pairs more than the exact model's does
-  // (on short steps the weight w comes on top of the pairs' own long-run favour), which is part of how the stand-in
-  // favours pairs too strongly; with the exact model's mix as its prior it would rebuild fewer intact ancestors than
-  // letter by letter on Figure 5's stems, as each branch's weighting makes the species' broken pairs unlikely
+  // stand-in's, where its machine settles when run branch after branch (its step differs with the branch length: here
+  // at the tree's mean branch length, tbar). Every step weights matching pairs by w again, on top of where it began,
+  // so that mix favours them more than the exact model's (on short steps it nears pi_x pi_y w^2 instead of
+  // pi_x pi_y w): part of how the stand-in favours pairs too strongly. (With the exact model's mix as its prior it
+  // would rebuild fewer intact ancestors than letter by letter from Figure 5's stems: each branch's weighting makes
+  // the species' broken pairs unlikely, which counts against matching ancestors.)
   function prior(method, m, w = 8, dbl = 0.1, tbar = 0.3) {
     if (method === 'exact') return pairModel(m, w, dbl).pi;
     if (method === 'coupled') return stationary(Pcoupled(m, w, tbar));
