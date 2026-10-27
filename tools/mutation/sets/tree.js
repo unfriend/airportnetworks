@@ -19,7 +19,7 @@ SETS.tree = function (K) {
   const SRAD = [0.05, 0.036, 0.026];               // the species tree's (two levels)
   const GEAR_U = 0.3, GEAR_R = [0.064, 0.054, 0.046], SGEAR_R = [0.075, 0.062];
   const NS = 32, RS = 10;                          // samples along a branch, sides round it
-  const TS = 0.034, TP = 0.039, LIFT = 0.06, OUT = 0.035;   // the rows of letters: tile size, pitch, above and before the branch
+  const TS = 0.038, TP = 0.044, LIFT = 0.06, OUT = 0.035;   // the rows of letters: tile size, pitch, above and before the branch
   const FLASH = 0.12;                              // how far up a branch (in u) a mutation's flash lasts
   const RISE = 0.55, GAP = 1.1;                    // the machines' packets: rise per second, the height between two
   const L8 = 8;
@@ -303,8 +303,8 @@ void main() {
         for (const mu of B.muts) {
           if (mu.at > u) break;
           M.curve(tr, b, mu.at, _p); M.tangent(tr, b, mu.at, _t);
-          const r = lerp(RAD[B.depth - 1], RAD[B.depth], mu.at) * 1.6;
-          rings.add(_p, _t, r, 0.0065, LK.LCOL[mu.to], fa * dim, 0);
+          const r = lerp(RAD[B.depth - 1], RAD[B.depth], mu.at) * 1.35;
+          rings.add(_p, _t, r, 0.0055, LK.LCOL[mu.to], fa * dim, 0);
           const x = (u - mu.at) / FLASH;
           if (x < 1 && u < 1) {
             halos.add(_p, 0.16 + 0.22 * x, LK.LCOL[mu.to], fa * (1 - x) * 0.95);
@@ -385,7 +385,7 @@ void main() {
     pick: mid(() => Math.max(0, now.pick)),
     gear: () => { const o = [0, 0, 0]; M.curve(now.F.tr, 0, GEAR_U, o); o[0] += 0.07; return o; },
     tips: () => { const n = tipNode(2) || tipNode(0); return [n.pos[0], n.pos[1] + 0.12, n.pos[2]]; },
-    q: [0, -0.86, 0], n1: SP.nodes[1].pos, sgear: () => { const o = [0, 0, 0]; M.curve(SP, 1, GEAR_U, o); o[0] += 0.08; return o; },
+    q: [0, -0.86, 0], n1: SP.nodes[1].pos, sgear: () => { const o = [0, 0, 0]; M.curve(SP, 2, GEAR_U, o); o[1] += 0.08; return o; },
   };
   for (let j = 0; j < 8; j++) anchors['tip' + j] = () => { const n = tipNode(j); return [n.pos[0], n.pos[1] + 0.12, n.pos[2]]; };
   SP.tipIds.forEach((id, j) => { anchors['s' + (j + 1)] = SP.nodes[id].pos; });
@@ -427,7 +427,7 @@ void main() {
     pair: pairView, long: near(lp), short: near(spt),
     gears: [28, 14, 3.9, 0, -0.28, 0],
     stand: [20, 4, 1.45, 0, 0.35, 0],
-    up: [20, -50, 1.7, 0, 0.22, 0],
+    up: [20, -64, 1.67, 0, 0.55, 0],
     species: [18, 16, 3.9, 0, -0.42, 0.1],
     what: [36, 12, 4.4, 0, -0.38, 0],
   };

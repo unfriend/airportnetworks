@@ -81,7 +81,7 @@ SETS.rule = function (K) {
   // scratch (nothing is allocated per frame)
   const _a = [0, 0, 0], _b = [0, 0, 0], _c = [0, 0, 0], _d = [0, 0, 0], _e = [0, 0, 0], _col = [0, 0, 0];
   const pA = new Float64Array(4), pB = new Float64Array(4), pM = new Float64Array(4), bl = new Float64Array(6), ang = new Float64Array(12);
-  const _q = new THREE.Quaternion(), _q2 = new THREE.Quaternion(), YV = new THREE.Vector3(0, 1, 0);
+  const YV = new THREE.Vector3(0, 1, 0);
   const lerp3 = (out, a, b, s) => { out[0] = a[0] + (b[0] - a[0]) * s; out[1] = a[1] + (b[1] - a[1]) * s; out[2] = a[2] + (b[2] - a[2]) * s; return out; };
   const set3 = (out, x, y, z) => { out[0] = x; out[1] = y; out[2] = z; return out; };
   // a point of the pyramid placed at centre c with scale s
@@ -326,7 +326,7 @@ SETS.rule = function (K) {
       tubes.add(set3(_c, hx, RAIL_Y, 0), set3(_d, hx, hy, 0), 0.011, METAL, pa, 0);
       boxes.add(set3(_c, hx, hy, 0), SZ_HEAD, LK.BLUE, pa);
       // the letter it carries
-      if (cp > 0.17 && cp < 0.58) { set3(_c, hx, hy - 0.025 - MT * 0.5 - 0.005, 0); tiles.add(_c, null, MT, par, pa, 0, 0.2); }
+      if (cp > 0.17 && cp < 0.58) { set3(_c, hx, hy - 0.025 - MT * 0.5 - 0.005, 0); tiles.add(_c, LK.ID, MT, par, pa, 0, 0.2); }
     }
     // the child: a dim '?' until the stamp; then the parent's letter; '?' with its ring of shares once it turns
     s = fly(m, 0.1, CHD_T, _a);

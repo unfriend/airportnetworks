@@ -63,7 +63,6 @@ SETS.letters = function (K) {
   const _q = new THREE.Quaternion(), _q2 = new THREE.Quaternion(), _qr = new THREE.Quaternion(), _m4 = new THREE.Matrix4();
   const _vx = new THREE.Vector3(), _vy = new THREE.Vector3(), _vz = new THREE.Vector3();
   const lerp3 = (out, a, b, s) => { out[0] = a[0] + (b[0] - a[0]) * s; out[1] = a[1] + (b[1] - a[1]) * s; out[2] = a[2] + (b[2] - a[2]) * s; return out; };
-  const copy3 = (out, a) => { out[0] = a[0]; out[1] = a[1]; out[2] = a[2]; return out; };
   // a quaternion that turns a tile to face along n with its letter's top along u (u perpendicular to n)
   function faceQ(out, n, u) {
     _vz.set(n[0], n[1], n[2]).normalize(); _vy.set(u[0], u[1], u[2]).normalize(); _vx.crossVectors(_vy, _vz);
