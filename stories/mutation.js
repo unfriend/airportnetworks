@@ -6075,6 +6075,7 @@ const APP = {
     const S2 = storyState(Math.min(ts + 1.5, T_END));
     let best = 'letters', ba = 0;
     for (const k of SET_ORDER) { const a = Math.max(S[k + '_a'], 0.9 * S2[k + '_a']); if (a > ba + 0.01) { ba = a; best = k; } }
+    if (best === 'tree' && S.stem_a > 0.5 && S.stem_fields + S.stem_truth > 0.1) best = 'stem';   // (the rebuilt fields stand under the species tree)
     // the story's view, taken back into the set's own frame (explore shows sets unturned)
     const v = storyCam(ts).slice(0, 6), r = -setYaw(best, ts) * D2R, x = v[3], z = v[5];
     v[0] += r / D2R; v[3] = x * Math.cos(r) + z * Math.sin(r); v[5] = -x * Math.sin(r) + z * Math.cos(r);
@@ -6232,7 +6233,7 @@ function init() {
     // (the branch length), &reads=100 (read-outs), &branch=5 (1 to 14), &w=20 (the pair favour), &rebuild=2 (its seed)
     const sc = hp.get('scene'), tb = hp.get('tab'), tabOK = TABS.some(t => t[0] === tb);
     if (sc && GL.sets[sc]) { openScene(sc, false); showTab(tabOK ? tb : 'scenes'); }
-    else if (tabOK) pickTab(tb);
+    else if (tabOK) { pickTab(tb); if (tb === 'letters' && !hp.get('view')) showView('letters', 'qubits'); }   // (the Letters tab is about the qubits)
     else if (!hp.has('t')) openStart();   // straight in: the machine
     // (a start letter asks for the path, a parent letter for the machine, unless a view is given)
     if (!hp.get('view') && X.scene === 'rule' && hp.get('start')) setCtl('rule', 'view', 'path');
