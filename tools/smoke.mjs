@@ -1,4 +1,4 @@
-// Headless smoke test for the thirteen stories.
+// Headless smoke test for the fourteen stories.
 //   node tools/smoke.mjs [base-url]     (default http://127.0.0.1:8123/)
 // Serve the folder first (npx http-server -p 8123 -c-1 .). Needs Playwright;
 // set PLAYWRIGHT_MODULE to its path if it is installed globally, and
@@ -20,7 +20,7 @@ await page.waitForTimeout(4000);
 await step('start screen is the landing page', async () => {
   if (!await page.evaluate(() => HOST.picking)) errors.push('start screen not shown on load');
 });
-for (const key of ['airports', 'proteins', 'spatial', 'lbi', 'nmd', 'endo', 'pet', 'micro', 'ovary', 'qubits', 'pass', 'flock', 'robots']) {
+for (const key of ['airports', 'proteins', 'spatial', 'lbi', 'nmd', 'endo', 'pet', 'micro', 'ovary', 'qubits', 'mutation', 'pass', 'flock', 'robots']) {
   await step(`load ${key}`, async () => {
     await page.click(`#picker [data-story="${key}"]`).catch(async () => { await page.click('#btnOther'); await page.click(`#picker [data-story="${key}"]`); });
     await page.waitForFunction(k => HOST.curKey === k && HOST.cur && HOST.cur.peek('typeof ST !== "undefined" && ST.items.length > 0'), key, { timeout: 30000 });
@@ -428,6 +428,109 @@ for (const key of ['airports', 'proteins', 'spatial', 'lbi', 'nmd', 'endo', 'pet
     await sleep(300);
     if (bad.length) throw new Error(bad.join('; '));
   }));
+  if (key === 'mutation') await step('mutation: every explore tool, on the page and in the headset', async () => {
+    const bad = await page.evaluate(async () => {
+      const sleep = ms => new Promise(r => setTimeout(r, ms)), peek = src => HOST.cur.peek(src);
+      const until = async (f, ms) => { for (let n = 0; n < ms / 50 && !f(); n++) await sleep(50); return f(); };
+      const out = peek(`(() => {
+        const out = [], txt = k => document.getElementById('pane-' + k).textContent;
+        // Letters: every letter and mix in the two qubits, read out, cleared, read again
+        pickTab('letters');
+        for (const [v] of MIXES()) { setMix(v); if (letMix() !== v || X.scene !== 'letters' || !viewIs('letters', 'qubits')) out.push('the mix ' + v + ' not shown'); }
+        setMix('G'); readOut(100);
+        if (X.reads !== 100 || readCounts()[2] !== 100 || !txt('letters').includes('G is ')) out.push('G read out 100 times gave ' + readCounts() + ' (' + txt('letters').slice(0, 80) + ')');
+        readOut(0); if (X.reads) out.push('Clear left read-outs');
+        setMix('even'); readOut(100); if (readCounts().some(n => n < 10)) out.push('an even mix read out lopsided: ' + readCounts());
+        const r0 = X.rseed; readAgain(); if (X.rseed === r0 || X.reads) out.push('Read again kept the seed or the piles');
+        setMix('rule'); setTime(0.45); if (X.time !== 0.45 || !txt('letters').includes('0.45 swaps per letter')) out.push('the rule\\'s mix does not follow the branch length');
+        // Rule: every rule, view, start and parent letter, the branch length from 0 to 2
+        pickTab('rule');
+        for (const m of M.MODELS) { sceneCtl('rule', 'model', m.key); if (M.MODELS[ruleModel()] !== m || !txt('rule').includes(m.note)) out.push('the rule ' + m.key + ' not shown'); }
+        for (const [v] of ctlOf('rule', 'view').options) { showView('rule', v); if (ruleView() !== v || !ruleInfo().rows.length) out.push('the rule\\'s view ' + v + ' not shown'); }
+        showView('rule', 'path'); for (const l of LET) { sceneCtl('rule', 'start', l); if (LET[letterOf('start')] !== l) out.push('start ' + l + ' not set'); }
+        showView('rule', 'steps'); for (const l of LET) { sceneCtl('rule', 'parent', l); if (LET[letterOf('parent')] !== l) out.push('parent ' + l + ' not set'); }
+        for (const t of [0, 0.8, 2]) setTime(t);
+        if (X.time !== 2 || !txt('rule').includes('after 2.00') || !txt('rule').includes('Simple steps')) out.push('the Rule pane does not follow the branch length or the steps');
+        // Tree: every tree and speed (fourteen branches each), every branch picked, a new tree, every view, the machines
+        pickTab('tree');
+        for (const s of ['1', '2', '3', '4', '5']) for (const sp of ['0', '1', '2', '3']) {
+          sceneCtl('tree', 'seed', s); sceneCtl('tree', 'speed', sp);
+          if (treeNow().branches.length !== 14) out.push('tree ' + s + ' at speed ' + sp + ' has ' + treeNow().branches.length + ' branches');
+        }
+        sceneCtl('tree', 'seed', '3'); sceneCtl('tree', 'speed', '1');
+        for (let b = 0; b < 14; b++) { selectBranch(b); if (X.branch !== b || !txt('tree').includes('Branch ' + (b + 1) + ' · ')) out.push('branch ' + (b + 1) + ' not shown'); }
+        nextTree(); if (X.branch !== -1 || ctlValue('tree', ctlOf('tree', 'seed')) !== '4') out.push('New tree did not bring the next tree');
+        for (const [v] of ctlOf('tree', 'view').options) { showView('tree', v); for (const [r] of ctlOf('tree', 'run').options) sceneCtl('tree', 'run', r); }
+        for (const c of ['default', 'stand', 'up', 'crown']) if (!GL.sets.tree.cam[c]) out.push('no tree view ' + c);
+        // Stem: both sources and every method, the authors' shares, the pair favour, rebuilt again
+        pickTab('stem');
+        for (const [s] of ctlOf('stem', 'src').options) for (const [m] of ctlOf('stem', 'method').options) {
+          sceneCtl('stem', 'src', s); sceneCtl('stem', 'method', m);
+          if (stemInfo().rows.some(r => r[1] === '–') || stemInfo().ex.length !== 3) out.push('no shares or examples for ' + s + ', ' + m);
+        }
+        sceneCtl('stem', 'src', 'test'); sceneCtl('stem', 'method', 'all');
+        const share = m => stemInfo().rows.find(r => r[3] === m)[1];
+        if (share('indep') !== '10 % intact' || share('coupled') !== '43 % intact' || share('exact') !== '20 % intact') out.push('the authors\\' shares are not shown: ' + stemInfo().rows.map(r => r[1]));
+        for (const w of [1, 8, 20, 30]) { setW(w); if (X.w !== w || !stemLive() || !txt('stem').includes('matching pairs ' + w + ' × as likely')) out.push('the pair favour ' + w + ' not shown live'); }
+        setW(8);
+        const R = api('stem').results(1, 8, X.sseed);
+        if (!(R.indep.share < R.exact.share && R.exact.share < R.coupled.share)) out.push('the live example does not go the poster\\'s way (letter by letter < exact < coupled)');
+        const s0 = X.sseed; rebuildAgain(); if (X.sseed === s0) out.push('Rebuild again kept its seed');
+        for (const [v] of ctlOf('stem', 'view').options) showView('stem', v);
+        // Scenes: every scene's every control; the shared state round trip
+        for (const [k] of SCENES) { openScene(k); for (const c of ctlsOf(k)) for (const [v] of c.options) setCtl(k, c.key, v); }
+        const st = JSON.stringify(collabState()); collabApply(JSON.parse(st));
+        if (JSON.stringify(collabState()) !== st) out.push('apply(state()) changed the state');
+        // the headset's panels, every tab
+        XR.on = true;
+        for (const [k] of TABS) { pickTab(k); for (const P of XR.panels) { P.last = ''; P.t = -1e9; panelTick(P, performance.now() + 1e6); } }
+        XR.on = false;
+        // ready to pick: the family tree grown, and the rebuilt fields
+        sceneCtl('tree', 'seed', '1'); sceneCtl('tree', 'speed', '1'); showView('tree', 'tree'); selectBranch(-1);
+        orbit.cur = view('tree', 'default'); orbit.to = null; Object.assign(XS, exploreTargets());
+        return out;
+      })()`);
+      // picks with the pointer, once the sets have drawn the tree: a branch, then a field of rebuilt stems
+      const f0 = window.__frames; await until(() => window.__frames >= f0 + 3, 30000);
+      // (the first point on a grid over the scene, beside the side panel, that picks a thing of that kind)
+      const pickOn = kind => peek(`(() => { applyCamera(orbit.cur); GL.camera.updateMatrixWorld(); GL.world.updateMatrixWorld(true);
+        for (let y = 0.15; y < 0.9; y += 0.03) for (let x = 0.3; x < 0.95; x += 0.03) { const p = pickAt(innerWidth * x, innerHeight * y); if (p && p.${kind} !== undefined) return p; }
+        return null; })()`);
+      const pb = pickOn('branch');
+      if (!pb || pb.branch === undefined) out.push('no branch picked on the family tree (' + JSON.stringify(pb) + ')');
+      else { peek(`(pickText(${JSON.stringify(pb)}), choosePick(${JSON.stringify(pb)}))`); if (peek('X.branch') !== pb.branch) out.push('a branch clicked was not picked'); }
+      peek(`(selectBranch(-1), showView('stem', 'rebuild'), sceneCtl('stem', 'method', 'all'), orbit.cur = view('stem', viewCam('stem')), orbit.to = null, Object.assign(XS, exploreTargets()))`);
+      const f1 = window.__frames; await until(() => window.__frames >= f1 + 3, 30000);
+      const pf = pickOn('field');
+      if (!pf || !pf.field) out.push('no field picked among the rebuilt stems (' + JSON.stringify(pf) + ')');
+      else { peek(`(pickText(${JSON.stringify(pf)}), choosePick(${JSON.stringify(pf)}))`); if (peek('stemMethod()') !== pf.field) out.push('a field clicked did not light its method'); }
+      peek(`(sceneCtl('stem', 'method', 'all'), sceneCtl('stem', 'src', 'test'), pickTab('rule'))`);
+      return out;
+    });
+    if (bad.length) errors.push(...bad.map(b => 'mutation: ' + b));
+  });
+  if (key === 'mutation') await step('mutation: its links open explore mode on what they say', async () => {
+    // (a page of its own: a link differing only in its hash would not load the story again)
+    const lp = await browser.newPage({ viewport: { width: 1280, height: 760 } });
+    lp.on('pageerror', e => errors.push('mutation link: ' + (e.stack || e.message)));
+    lp.on('console', m => { if (m.type() === 'error' && !/404|Failed to load resource/.test(m.text())) errors.push('mutation link: ' + m.text()); });
+    const LINKS = [
+      ['tab=letters&mix=G', "X.tab === 'letters' && X.scene === 'letters' && viewIs('letters', 'qubits') && letMix() === 'G' && txt('letters').includes('G is ')"],
+      ['tab=rule&model=even&start=C&time=0.8', "X.tab === 'rule' && ruleView() === 'path' && M.MODELS[ruleModel()].key === 'even' && LET[letterOf('start')] === 'C' && X.time === 0.8 && txt('rule').includes('after 0.80')"],
+      ['tab=tree&seed=3&speed=2&branch=5', "X.tab === 'tree' && X.scene === 'tree' && treeSeed() === 3 && ctlValue('tree', ctlOf('tree', 'speed')) === '2' && X.branch === 4 && txt('tree').includes('Branch 5 · ')"],
+      ['tab=stem&src=live&w=20', "X.tab === 'stem' && X.scene === 'stem' && stemLive() && X.w === 20 && txt('stem').includes('matching pairs 20 × as likely')"],
+      ['scene=tree&view=up', "X.tab === 'scenes' && X.scene === 'tree' && orbit.cur[1] === view('tree', 'up')[1] && orbit.cur[2] === view('tree', 'up')[2]"],
+    ];
+    try {
+      for (const [h, ok] of LINKS) {
+        await lp.goto('about:blank');
+        await lp.goto(base + 'index.html#mutation&explore&' + h);
+        await lp.waitForFunction(() => typeof HOST !== 'undefined' && HOST.curKey === 'mutation' && HOST.cur && HOST.cur.peek('APP.mode') === 'explore', null, { timeout: 30000 });
+        const shown = await lp.evaluate(ok => HOST.cur.peek(`(() => { const txt = k => document.getElementById('pane-' + k).textContent; return ${ok}; })()`), ok);
+        if (!shown) errors.push(`mutation: the link #mutation&explore&${h} does not show what it says (${await lp.evaluate(() => JSON.stringify(HOST.cur.collab.state()))})`);
+      }
+    } finally { await lp.close(); }
+  });
   if (key === 'pass') await step('pass: both languages and their switch, every explore tool, on the page and in the headset', () => page.evaluate(async () => {
     const sleep = ms => new Promise(r => setTimeout(r, ms)), peek = src => HOST.cur.peek(src), out = [];
     const panels = () => peek(`(() => { XR.on = true; for (const P of XR.panels) { P.last = ''; P.t = -1e9; panelTick(P, performance.now() + 1e6); } XR.on = false; return XR.main.regions.map(r => r.id); })()`);
@@ -516,7 +619,7 @@ await step('Repeat one and Repeat all', async () => {
 });
 // Anchored mode with a pretend headset: a room whose tracking origin can jump (recentring) and
 // anchors that keep their place in it, saved under a handle (Quest's persistent anchors)
-for (const key of ['airports', 'proteins', 'spatial', 'lbi', 'nmd', 'endo', 'pet', 'micro', 'ovary', 'qubits', 'pass', 'flock', 'robots']) await step(`${key}: anchored placement`, async () => {
+for (const key of ['airports', 'proteins', 'spatial', 'lbi', 'nmd', 'endo', 'pet', 'micro', 'ovary', 'qubits', 'mutation', 'pass', 'flock', 'robots']) await step(`${key}: anchored placement`, async () => {
   await page.evaluate(k => HOST.start(k), key);
   await page.waitForFunction(k => HOST.curKey === k && HOST.cur && HOST.cur.peek('typeof ST !== "undefined" && ST.items.length > 0'), key, { timeout: 30000 });
   const bad = await page.evaluate(async () => {

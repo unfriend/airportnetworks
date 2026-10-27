@@ -79,6 +79,11 @@ const STORIES = {
     change: "selectKind('follicle'); setAge(60); setMethod('seg')",
     back: "showTab('scenes'); openScene('section'); setCtl('section', 'view', 'kinds'); selectKind('vessel')",
   },
+  mutation: {
+    change: "pickTab('rule'); sceneCtl('rule', 'model', 'even'); sceneCtl('rule', 'start', 'C'); setTime(0.8)",
+    // (the pair favour picked by hand turns the stem's numbers to this example, computed live)
+    back: "pickTab('tree'); sceneCtl('tree', 'seed', '3'); selectBranch(4); setW(20)",
+  },
   robots: {
     change: "setCtl('robots', 'rule', 'chain'); setCtl('robots', 'robots', '12')", back: "setCtl('robots', 'trails', 'on'); setCtl('robots', 'links', 'on')",
     effect: { quiet: '0', idle: "(window.__c0 = GL.sets.robots.anchors.crumbs().join(), true)", send: 'spillCrumbs()', seen: "GL.sets.robots.anchors.crumbs().join() !== window.__c0" },
