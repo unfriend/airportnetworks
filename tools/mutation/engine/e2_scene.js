@@ -63,11 +63,14 @@ function viewDir(v, out) {
 // factor (NARROW in the story; 1 for most views), taken in full at half as wide as tall
 GL.nf = 1;
 const narrowK = () => (GL.wide || !(GL.nf > 1) ? 1 : 1 + (GL.nf - 1) * clamp((1 - (GL.aspect || 1)) / 0.5, 0, 1));
+// on a screen held sideways without the side panel (the panel below, the scene in a strip above it) a view may come
+// closer and aim lower: v[10] and v[11] (LOW in the story), taken in full from 1.2 : 1 on (as GL.fit's strip)
+const lowK = () => (GL.wide ? 0 : clamp(((GL.aspect || 1) - 0.6) / 0.6, 0, 1));
 // (v[7..9]: the target's shift clear of the side panel, FIT in the story; on a screen without a side panel it goes back)
 function applyCamera(v) {
-  const u = GL.wide ? 0 : 1;
-  viewDir(v, _vd); _vt.set(v[3] - u * (v[7] || 0), v[4] - u * (v[8] || 0), v[5] - u * (v[9] || 0));
-  GL.camera.position.copy(_vt).addScaledVector(_vd, v[2] * (GL.fit || 1) * narrowK());
+  const u = GL.wide ? 0 : 1, L = lowK(), lk = 1 + ((v[10] || 1) - 1) * L;
+  viewDir(v, _vd); _vt.set(v[3] - u * (v[7] || 0), v[4] - u * (v[8] || 0) + L * (v[11] || 0), v[5] - u * (v[9] || 0));
+  GL.camera.position.copy(_vt).addScaledVector(_vd, v[2] * (GL.fit || 1) * narrowK() * lk);
   GL.camera.up.set(0, 1, 0); GL.camera.lookAt(_vt);
 }
 // sets on show may keep the camera out of their solid parts (as the muscle story's supercomputer does): keepOut takes the camera's

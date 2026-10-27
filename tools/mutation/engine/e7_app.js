@@ -186,7 +186,7 @@ function openStart() {
 }
 
 let lastNow = 0;
-const EXV = [0, 0, 1, 0, 0, 0, 1, 0, 0, 0];   // explore's view for applyCamera: orbit.cur, then FIT's eased shift
+const EXV = [0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0];   // explore's view for applyCamera: orbit.cur, then FIT's and LOW's, eased
 function frame(now, xrFrame) {
   const dt = lastNow ? Math.min(0.1, Math.max(0, (now - lastNow) / 1000)) : 0;
   lastNow = now;
@@ -218,6 +218,7 @@ function frame(now, xrFrame) {
     const vn = viewCam(X.scene) || 'default', fs = fitShift(X.scene, vn), ke = 1 - Math.exp(-dt * 3);
     GL.nf += (narrowOf(X.scene, vn) - GL.nf) * ke;
     for (let i = 0; i < 3; i++) EXV[7 + i] += (fs[i] - EXV[7 + i]) * ke;
+    const lo = lowOf(X.scene, vn); EXV[10] += (lo[0] - EXV[10]) * ke; EXV[11] += (lo[1] - EXV[11]) * ke;
     orbitStep(xr ? pn : now);
     for (let i = 0; i < 6; i++) EXV[i] = orbit.cur[i];
     if (xr) xrPlace(orbit.cur); else { applyCamera(EXV); keepCamera(S, null); }

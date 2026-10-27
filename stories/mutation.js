@@ -3544,11 +3544,14 @@ function viewDir(v, out) {
 // factor (NARROW in the story; 1 for most views), taken in full at half as wide as tall
 GL.nf = 1;
 const narrowK = () => (GL.wide || !(GL.nf > 1) ? 1 : 1 + (GL.nf - 1) * clamp((1 - (GL.aspect || 1)) / 0.5, 0, 1));
+// on a screen held sideways without the side panel (the panel below, the scene in a strip above it) a view may come
+// closer and aim lower: v[10] and v[11] (LOW in the story), taken in full from 1.2 : 1 on (as GL.fit's strip)
+const lowK = () => (GL.wide ? 0 : clamp(((GL.aspect || 1) - 0.6) / 0.6, 0, 1));
 // (v[7..9]: the target's shift clear of the side panel, FIT in the story; on a screen without a side panel it goes back)
 function applyCamera(v) {
-  const u = GL.wide ? 0 : 1;
-  viewDir(v, _vd); _vt.set(v[3] - u * (v[7] || 0), v[4] - u * (v[8] || 0), v[5] - u * (v[9] || 0));
-  GL.camera.position.copy(_vt).addScaledVector(_vd, v[2] * (GL.fit || 1) * narrowK());
+  const u = GL.wide ? 0 : 1, L = lowK(), lk = 1 + ((v[10] || 1) - 1) * L;
+  viewDir(v, _vd); _vt.set(v[3] - u * (v[7] || 0), v[4] - u * (v[8] || 0) + L * (v[11] || 0), v[5] - u * (v[9] || 0));
+  GL.camera.position.copy(_vt).addScaledVector(_vd, v[2] * (GL.fit || 1) * narrowK() * lk);
   GL.camera.up.set(0, 1, 0); GL.camera.lookAt(_vt);
 }
 // sets on show may keep the camera out of their solid parts (as the muscle story's supercomputer does): keepOut takes the camera's
@@ -3705,9 +3708,17 @@ const FIT = {
     fields: [0, 0, 1.85, -0.29, 0.8, 0], compare: [0, 0, 1.8, -0.46, 0.23, 0] },
 };
 // how much further back a view stands on a phone held upright (see narrowK): the wide ones, whose parts reach
-// across the screen
-const NARROW = {};
+// across the screen (measured at 390 x 760: the machine's close-ups and the pyramid beside them, the circuit, the tree
+// seen across its two branches, the straight strand, the fields)
+const NARROW = { letters: { default: 1.1, peel: 1.1 }, tree: { pair: 1.35, gears: 1.06, what: 1.06 },
+  rule: { copy: 1.6, turn: 1.18, circuit: 1.1 }, stem: { strand: 1.4, fold: 1.2, fields: 1.12, compare: 1.22 } };
 const narrowOf = (k, name) => (NARROW[k] && NARROW[k][name]) || 1;
+// on a screen held sideways but too narrow for the side panel (the panel below, the scene in a strip above it, see
+// lowK) the tall family tree comes closer and is centred in the strip: [distance factor, the target's shift up]
+// (measured at 640 x 400: about as tall as the strip, as the qubits story's map stands there)
+const LOW = { tree: { default: [0.63, 0], grow: [0.62, 0], crown: [0.72, 0], pair: [0.69, -0.68], gears: [0.67, -0.1] } };
+const LOW1 = [1, 0];
+const lowOf = (k, name) => (LOW[k] && LOW[k][name]) || LOW1;
 // a set's anchor point, in the set's own coordinates
 function anchorOf(k, at) {
   const s = GL.sets[k];
@@ -3895,7 +3906,7 @@ function buildStory() {
     const v = view(k, name);
     v[0] += spin || 0;
     if (nudge) for (let i = 0; i < nudge.length; i++) v[i] += nudge[i] || 0;
-    wp.push([t, ...v, ease, frameOf(k), narrowOf(k, name), fitShift(k, name)]);
+    wp.push([t, ...v, ease, frameOf(k), narrowOf(k, name), fitShift(k, name), lowOf(k, name)]);
   };
   start({ letters_helix: 1, letters_peel: 0, letters_copy1: 0, letters_mut1: 0, letters_copy2: 0, letters_mut2: 0, letters_open: 0, letters_code: 0,
     letters_mix: 0, letters_target: 0, letters_time: M.POINTS[1], letters_reads: 0, letters_seed: 1,
@@ -4044,7 +4055,7 @@ function buildStory() {
   a = C.machine.a;
   label('tree', 'tip2', '<b>New sequences</b> · read at the tips', a + 35, C.machine.b - 2, 'cyn');
 }
-// camera waypoints: [t, az, el, dist, tx, ty, tz, ease, set, narrow factor, FIT's target shift]; 'spin' segments turn at
+// camera waypoints: [t, az, el, dist, tx, ty, tz, ease, set, narrow factor, FIT's target shift, LOW]; 'spin' segments turn at
 // a steady pace.
 // When the story hands over from one set to another, the new set is turned about its
 // vertical axis so that its first view starts where the camera already is: a crossfade
@@ -4073,7 +4084,7 @@ function buildCamera(wp) {
     let az = w[1];
     if (prev !== null) az += 360 * Math.round((prev - az) / 360);
     prev = az;
-    return [w[0], az, w[2], w[3], w[4], w[5], w[6], w[7], w[9] || 1, w[10]];
+    return [w[0], az, w[2], w[3], w[4], w[5], w[6], w[7], w[9] || 1, w[10], w[11]];
   });
 }
 // the turn a set has at story time t: that of its latest stay on show (it starts fading in a little before its first view)
@@ -4096,18 +4107,18 @@ function spinEase(t, D) {
   if (t > D - r) return 1 - v * (D - t) * (D - t) / (2 * r);
   return v * (t - r / 2);
 }
-// the story's view at time t: [az, el, dist, tx, ty, tz, narrow factor, and FIT's target shift x, y, z]
+// the story's view at time t: [az, el, dist, tx, ty, tz, narrow factor, FIT's target shift x, y, z, and LOW's two]
 // (in a headset the family tree stands tall while it is the scene, see standView)
 const storyCam = t => (XR.on ? standView(storyView(t), standW(t)) : storyView(t));
 function storyView(t) {
-  const wp = ST.wp, end = w => [w[1], w[2], w[3], w[4], w[5], w[6], w[8], ...w[9]];
+  const wp = ST.wp, end = w => [w[1], w[2], w[3], w[4], w[5], w[6], w[8], ...w[9], ...w[10]];
   if (t <= wp[0][0]) return end(wp[0]);
   for (let i = 1; i < wp.length; i++) {
     if (t <= wp[i][0]) {
-      const p = wp[i - 1], q = wp[i], x = q[0] > p[0] ? (q[7] === 'spin' ? spinEase : smoothSeg)(t - p[0], q[0] - p[0]) : 1, f = p[9], g = q[9];
+      const p = wp[i - 1], q = wp[i], x = q[0] > p[0] ? (q[7] === 'spin' ? spinEase : smoothSeg)(t - p[0], q[0] - p[0]) : 1, f = p[9], g = q[9], l = p[10], m = q[10];
       return [p[1] + (q[1] - p[1]) * x, p[2] + (q[2] - p[2]) * x, Math.exp(Math.log(p[3]) + (Math.log(q[3]) - Math.log(p[3])) * x),
         p[4] + (q[4] - p[4]) * x, p[5] + (q[5] - p[5]) * x, p[6] + (q[6] - p[6]) * x, p[8] + (q[8] - p[8]) * x,
-        f[0] + (g[0] - f[0]) * x, f[1] + (g[1] - f[1]) * x, f[2] + (g[2] - f[2]) * x];
+        f[0] + (g[0] - f[0]) * x, f[1] + (g[1] - f[1]) * x, f[2] + (g[2] - f[2]) * x, l[0] + (m[0] - l[0]) * x, l[1] + (m[1] - l[1]) * x];
     }
   }
   return end(wp[wp.length - 1]);
@@ -6192,7 +6203,7 @@ function openStart() {
 }
 
 let lastNow = 0;
-const EXV = [0, 0, 1, 0, 0, 0, 1, 0, 0, 0];   // explore's view for applyCamera: orbit.cur, then FIT's eased shift
+const EXV = [0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0];   // explore's view for applyCamera: orbit.cur, then FIT's and LOW's, eased
 function frame(now, xrFrame) {
   const dt = lastNow ? Math.min(0.1, Math.max(0, (now - lastNow) / 1000)) : 0;
   lastNow = now;
@@ -6224,6 +6235,7 @@ function frame(now, xrFrame) {
     const vn = viewCam(X.scene) || 'default', fs = fitShift(X.scene, vn), ke = 1 - Math.exp(-dt * 3);
     GL.nf += (narrowOf(X.scene, vn) - GL.nf) * ke;
     for (let i = 0; i < 3; i++) EXV[7 + i] += (fs[i] - EXV[7 + i]) * ke;
+    const lo = lowOf(X.scene, vn); EXV[10] += (lo[0] - EXV[10]) * ke; EXV[11] += (lo[1] - EXV[11]) * ke;
     orbitStep(xr ? pn : now);
     for (let i = 0; i < 6; i++) EXV[i] = orbit.cur[i];
     if (xr) xrPlace(orbit.cur); else { applyCamera(EXV); keepCamera(S, null); }
