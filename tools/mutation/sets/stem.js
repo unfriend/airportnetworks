@@ -416,7 +416,7 @@ void main() {
   SPECIES.forEach((P, j) => { anchors['sp' + (j + 1)] = [P.base[0] + 0.1, P.base[1] + 0.62, P.base[2]]; });
   ORDER.forEach((m, f) => {
     anchors['field_' + m] = [FX[f] - FW / 2 + 0.02, -0.93, FZ - FD / 2 - 0.02];
-    anchors['ex_' + m] = [FX[f] + 0.13, -0.3, EZ];
+    anchors['ex_' + m] = [FX[f] - 0.4, -0.22, EZ];
   });
   const share = m => {
     const R = now.R;
@@ -443,7 +443,7 @@ void main() {
   ORDER.forEach(m => labels.push({ text: () => [now.src === 1 ? NAME_LIVE[m] : NAME[m], share(m)], at: 'field_' + m, cls: m === 'coupled' ? 'cyn' : m === 'exact' ? 'grn' : '',
     alpha: S => prog(S.stem_fields, 0.3, 0.7) * (1 - prog(S.stem_examples, 0.1, 0.5)) * (Math.round(S.stem_method) < 0 || METHODS[Math.round(S.stem_method)] === m ? 1 : 0.5) }));
   labels.push({ text: ['True ancestor', ` · ${nb(TRUTH.broken)}`], at: 'truth', cls: 'amb', alpha: S => prog(S.stem_truth, 0.5, 1) });
-  ORDER.forEach(m => labels.push({ text: () => [now.src === 1 ? NAME_LIVE[m] : NAME[m], now.R ? ` · ${nb(now.R[m].broken)}` : ''], at: 'ex_' + m, cls: m === 'coupled' ? 'cyn' : m === 'exact' ? 'grn' : '',
+  ORDER.forEach(m => labels.push({ text: () => [now.src === 1 ? NAME_LIVE[m] : NAME[m], now.R ? ` · ${now.R[m].broken || 'none'} broken` : ''], at: 'ex_' + m, cls: m === 'coupled' ? 'cyn' : m === 'exact' ? 'grn' : '',
     alpha: S => prog(S.stem_examples, 0.5, 1) }));
   const cam = {
     default: [16, 6, 3.4, 0, 0, 0],
