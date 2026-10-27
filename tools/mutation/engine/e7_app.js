@@ -130,6 +130,10 @@ const APP = {
     const v = storyCam(ts).slice(0, 6), r = -setYaw(best, ts) * D2R, x = v[3], z = v[5];
     v[0] += r / D2R; v[3] = x * Math.cos(r) + z * Math.sin(r); v[5] = -x * Math.sin(r) + z * Math.cos(r);
     orbit.cur = v; orbit.to = null;
+    // (in a headset the tall tree's axis stood a little further off than the view's target, see standView: explore
+    // turns a scene round its target, so the target glides back onto the axis)
+    const sb = XR.on && best === 'tree' ? standW(ts) * STAND_BACK : 0;
+    if (sb > 0) { const A = v[0] * D2R; flyTo([v[0], v[1], v[2], v[3] - sb * Math.sin(A), v[4], v[5] - sb * Math.cos(A)]); }
     X.scene = best; X.t0 = performance.now();
     // the story's numbers carry over to the panes first (the branch length, the read-outs, the pair favour), so the
     // controls are matched with them

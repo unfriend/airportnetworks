@@ -84,7 +84,7 @@ function storyState(t) {
 }
 const fadeVal = (t, a, b, d) => (t <= a || t >= b ? 0 : Math.min(smooth((t - a) / d), smooth((b - t) / d)));
 
-const ST = { labels: [], items: [] };
+const ST = { labels: [], items: [], stand: [] };
 // a set's camera view by name (falls back to its default view)
 // (with the story's own framing on top: FIT)
 const view = (k, name) => {
@@ -138,6 +138,8 @@ const word = n => ['no', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 
 const listOf = a => (a.length < 2 ? a.join('') : a.slice(0, -1).join(', ') + ' and ' + a[a.length - 1]);
 const swapsN = n => `${n} swap${n === 1 ? '' : 's'}`;
 const brokenN = n => (n ? `${n} broken pair${n === 1 ? '' : 's'}` : 'no broken pair');
+// a big count in words: 1,048,576 is 'about a million'
+const aboutN = n => { const m = Math.round(n / 1e6); return m === 1 ? 'about a million' : m > 1 ? `about ${word(m)} million` : fmt(n); };
 // four chances in words: 'A 71 %, C 5 %, G 19 % and T 6 %'
 const chancesText = p => listOf(Array.from(p).map((v, i) => `${LET[i]} ${pct(v)}`));
 // how far a mix has come from its pure letter towards the long-run mix (the pyramid is an affine picture of the four
@@ -161,7 +163,9 @@ const FACTS = (() => {
   // the family tree (seed 1, the story's speed): its long and short branch
   const tr = M.familyTree(1, 1), L = tr.branches[tr.highlight.long], S = tr.branches[tr.highlight.short];
   // the machine as the story shows it at the end of its turn: parent G after 1 swap per letter
-  const par = 2, t = 1, a = M.angles(MI, t), simple = M.circuit(MI, t).gates.filter(g => g.type === 'MRY').flatMap(M.decompose);
+  const par = 2, t = 1, a = M.angles(MI, t), circ = M.circuit(MI, t), simple = circ.gates.filter(g => g.type === 'MRY').flatMap(M.decompose);
+  // the count: how many letters the story links at most (ten), and the pairs that hold (each once: A–T, C–G, G–T)
+  const TEN = 10, held = D.pairsOk.filter(p => p[0] < p[1]);
   return {
     anc: D.fig1.ancestor, d1: D.fig1.d1, d2: D.fig1.d2, sw1: sw('d1'), sw2: sw('d2'), n: D.fig1.ancestor.length,
     mix, reads, nReads, point: M.POINTS[1],
@@ -171,8 +175,10 @@ const FACTS = (() => {
     long: { len: L.len, swaps: L.muts.length }, short: { len: S.len, swaps: S.muts.length },
     turn: { t, par, c1: a[par], c0: [a[4 + 2 * par], a[5 + 2 * par]] },
     ry: simple.filter(g => g.type === 'RY').length, cx: simple.filter(g => g.type === 'CNOT').length,
-    combos: { pair: M.combos(2), three: M.combos(3), ten: M.combos(10) }, qubits10: M.qubits(10),
-    truthBroken: M.brokenPairs(TD.truth.top, TD.truth.bottom).length,
+    wires: circ.wires.length, copies: circ.gates.filter(g => g.type === 'CNOT').length, blocks: circ.gates.filter(g => g.type === 'MRY').length,
+    perLetter: M.qubits(1), perLink: M.combos(1), held,
+    ten: TEN, combos: { pair: M.combos(2), three: M.combos(3), ten: M.combos(TEN) }, qubits10: M.qubits(TEN),
+    species: Object.keys(TD.species).length, truthBroken: M.brokenPairs(TD.truth.top, TD.truth.bottom).length,
     authors: D.poster.authors, refs: D.poster.refs,
   };
 })();
@@ -183,11 +189,14 @@ const swCol = c => c;   // a swatch or a bar in the same colour
 // the poster's letters (the Okabe-Ito palette, as the sets draw them), the machine's blue, time's green
 const LCOL = ['#e69f00', '#56b4e9', '#f0e442', '#cc79a7'];
 const BLUE = '#4fb0ff', GREEN = '#3fd6a6', CYAN = '#46d9ff', AMBER = '#ffb43b', RED = '#ff5a4b', GREY = '#8e98ab';
-// the three ways of rebuilding, as the stem set colours their fields' tags
+// the three ways of rebuilding, as the stem set colours their fields' tags, and as the story names them
 const METHOD_COL = { indep: GREY, exact: GREEN, coupled: CYAN };
+const METHOD_SAY = { indep: 'Letter by letter', exact: 'The exact pair calculation', coupled: 'With the coupled circuit' };
 
 function buildStory() {
   const F = FACTS;
+  // the fields of rebuilt ancestors left to right (the shares in ascending order): the text names them in this order
+  const FIELDS = GL.sets.stem.api().methods;
   // fade a set in over [t0, t1] and out over [t2, t3]
   const show = (k, t0, t1, t2, t3) => { ramp(k + '_a', t0, t1, 0, 1); if (t2 !== undefined) ramp(k + '_a', t2, t3, 1, 0); };
   const hide = (k, t0, t1) => ramp(k + '_a', t0, t1, 1, 0);
@@ -207,9 +216,9 @@ function buildStory() {
     title: `<svg class="route-mark" viewBox="0 0 360 44" aria-hidden="true"><path id="titleArc" d="M8 36 Q180 -16 352 36" fill="none" stroke="var(--red)" stroke-width="2.2" stroke-linecap="round" pathLength="1" stroke-dasharray="1" stroke-dashoffset="1"/><circle cx="8" cy="36" r="4.5" fill="var(--red)"/><circle cx="352" cy="36" r="4.5" fill="var(--red)" id="titleDot" opacity="0"/></svg>
       <h1 data-at="1.2">The mutation machine</h1>
       <p class="lede" data-at="2.4">DNA's changes as a quantum circuit</p>
-      ${turns(`<p data-at="4" data-out="12.5">DNA is a text written in four letters: A, C, G and T.</p>
+      ${turns(`<p data-at="4" data-out="12.5">DNA is a text written in ${word(LET.length)} letters: ${listOf([...LET])}.</p>
         <p data-at="6.5" data-out="12.5" class="amber">Every time it is copied, now and then a letter is swapped for another. That is a mutation.</p>`,
-      `<p data-at="13">Here an ancestor's ${word(F.n)} letters, ${F.anc}, are copied twice, and each copy swaps two of them.</p>
+      `<p data-at="13">Here an ancestor's ${word(F.n)} letters, ${F.anc}, are copied twice, and ${F.sw1.length === F.sw2.length ? `each copy swaps ${word(F.sw1.length)} of them` : `the first copy swaps ${word(F.sw1.length)} of them and the second ${word(F.sw2.length)}`}.</p>
         <ul class="steps">
           ${step(15, 0, GREEN, `Copy 1 · ${F.d1}`, esc(listOf(F.sw1)))}
           ${step(20.5, 0, GREEN, `Copy 2 · ${F.d2}`, esc(listOf(F.sw2)))}
@@ -224,12 +233,12 @@ function buildStory() {
         <p class="note" data-at="28.5">Chance gives more or fewer swaps; the length is what to expect. Trees like this trace viruses as they spread [1] and how a tumour grew from one cancer cell [6], and the rule of change they assume matters [2].</p>
         <p class="credits" data-at="31">The tree's ${F.branches} branches and their swaps are examples, simulated with the story's rule. Heights are change: each branch rises by its length.</p>`)}`,
     qubits: `<h2 data-at="0.6">Letters as qubits</h2>
-      ${turns(`<p data-at="1.2" data-out="18.5">A quantum computer can hold each letter in two qubits, drawn as arrows on spheres: up is 0, down is 1.</p>
+      ${turns(`<p data-at="1.2" data-out="18.5">A quantum computer can hold each letter in ${word(F.perLetter)} qubits, drawn as arrows on spheres: up is 0, down is 1.</p>
         <ul class="steps">${[0, 1, 2, 3].map(i => step(6 + 3 * i, 18.5, LCOL[i], `${LET[i]} is ${KET[i]}`, codeWords(i))).join('')}</ul>`,
-      `<p data-at="19">Tilt the arrows and the two qubits hold a mix of all four letters at once, like a spinning coin.</p>
+      `<p data-at="19">Tilt the arrows and the ${word(F.perLetter)} qubits hold a mix of all ${word(LET.length)} letters at once, like a spinning coin.</p>
         <p data-at="24">Reading them out makes the coin land on one letter, each with its own chance.</p>
         <p data-at="28" class="amber">Here the chances are ${chancesText(F.mix)}; ${F.nReads} read-outs gave ${listOf(F.reads.map((n, i) => `${n} ${LET[i]}`))}.</p>
-        <p class="note" data-at="31">|01⟩ means first 0, then 1. An arrow shorter than its sphere means the two qubits depend on each other. This mix is where the rule of the next chapter takes an A after ${F.point} swaps per letter.</p>`)}`,
+        <p class="note" data-at="31">|01⟩ means first 0, then 1. An arrow shorter than its sphere means the ${word(F.perLetter)} qubits depend on each other. This mix is where the rule of the next chapter takes an A after ${F.point} swaps per letter.</p>`)}`,
     rule: `<h2 data-at="0.6">The rule</h2>
       ${turns(`<p data-at="1.2" data-out="16.5">A substitution model is the rule for how letters change:</p>
         <ul class="steps">
@@ -246,32 +255,28 @@ function buildStory() {
         <ul class="steps">
           ${step(8, 25.5, CYAN, '1 · Copy', 'the parent\'s letter is stamped onto the child')}
           ${step(13, 25.5, GREEN, '2 · Turn', 'the child\'s qubits turn: the longer the branch, the further, and the child\'s mix lands where the rule\'s path is at that time')}
-          ${step(20, 25.5, BLUE, '3 · The circuit', 'four wires, the parent\'s two qubits and the child\'s, with two copy gates and two turn blocks')}
+          ${step(20, 25.5, BLUE, '3 · The circuit', `${word(F.wires)} wires, the parent's ${word(F.perLetter)} qubits and the child's, with ${word(F.copies)} copy gates and ${word(F.blocks)} turn blocks`)}
         </ul>`,
       `<p data-at="26.5">One machine per branch, joined into the tree.</p>
         <p data-at="34" class="amber">Read at the tips, it writes new sequences that follow the rule.</p>
-        <p class="note" data-at="36">The copy is two CNOT gates. The turn is a few rotations of single qubits plus steps that link two qubits, so it depends on the parent's letter: for a ${LET[F.turn.par]} after ${F.turn.t} swap per letter, c1 turns ${deg(F.turn.c1)} and c0 ${deg(F.turn.c0[0])} or ${deg(F.turn.c0[1])}. How far each step turns depends only on the branch length; the steps are the same on every branch: ${F.ry} turns of one qubit and ${F.cx} links.</p>`)}`,
+        <p class="note" data-at="36">The copy is ${word(F.copies)} CNOT gates. The turn is a few rotations of single qubits plus steps that link two qubits, so it depends on the parent's letter: for a ${LET[F.turn.par]} after ${F.turn.t} swap per letter, c1 and c0, the child's first and second qubit, turn ${deg(F.turn.c1)} and ${deg(F.turn.c0[0])} or ${deg(F.turn.c0[1])}. How far each step turns depends only on the branch length; the steps are the same on every branch: ${F.ry} turns of one qubit and ${F.cx} links.</p>`)}`,
     pairs: `<h2 data-at="0.6">Letters that work together</h2>
       ${turns(`<p data-at="1.2" data-out="27.5">Letters often act together.</p>
-        <p data-at="4" data-out="27.5">An RNA strand folds back on itself into a stem, held by pairs: A with T, C with G, G with T.</p>
+        <p data-at="4" data-out="27.5">An RNA strand folds back on itself into a stem, held by pairs: ${F.held.map(p => `${p[0]} with ${p[1]}`).join(', ')}.</p>
         <p data-at="14" data-out="27.5" class="amber">If one letter changes alone, its pair breaks.</p>
         <p data-at="21" data-out="27.5">Coupling lets the two letters of a pair change together, so the pair holds.</p>`,
-      `<p data-at="28">Models of pairs exist, but each linked letter multiplies the combinations by four.</p>
-        <div class="facts"><div data-at="29">${big(CYAN, fmt(F.combos.pair))}<small>combinations for a pair</small></div><div data-at="33">${big(AMBER, fmt(F.combos.ten))}<small>for ten letters: about a million</small></div><div data-at="35">${big(GREEN, F.qubits10)}<small>qubits for ten: two per letter</small></div></div>
+      `<p data-at="28">Models of pairs exist, but each linked letter multiplies the combinations by ${word(F.perLink)}.</p>
+        <div class="facts"><div data-at="29">${big(CYAN, fmt(F.combos.pair))}<small>combinations for a pair</small></div><div data-at="33">${big(AMBER, fmt(F.combos.ten))}<small>for ${word(F.ten)} letters: ${aboutN(F.combos.ten)}</small></div><div data-at="35">${big(GREEN, F.qubits10)}<small>qubits for ${word(F.ten)}: ${word(F.perLetter)} per letter</small></div></div>
         <p class="note" data-at="36">T stands for RNA's U here, as on the poster. On every branch the coupling acts on both letters of a pair beside the turn: changes that keep a pair are more likely (${word(TD.w)} times, in the authors' example), and both letters may change at once [3].</p>`)}`,
     rebuild: `<h2 data-at="0.6">Rebuilding the ancestor</h2>
-      ${turns(`<p data-at="1.2" data-out="26.5">Three species carry the same stem, each changed in its own way.</p>
+      ${turns(`<p data-at="1.2" data-out="26.5">${cap(word(F.species))} species carry the same stem, each changed in its own way.</p>
         <p data-at="7" data-out="26.5" class="amber">What did their shared ancestor have?</p>
         <p data-at="14" data-out="26.5">Rebuild it ${fmt(TD.n)} times with each method, and count the ancestors whose ${W} pairs all hold:</p>
-        <ul class="steps">
-          ${step(18, 26.5, METHOD_COL.indep, 'Letter by letter', `${pct(TD.intact.indep)} of them`)}
-          ${step(21, 26.5, METHOD_COL.coupled, 'With the coupled circuit', `${pct(TD.intact.coupled)}`)}
-          ${step(24, 26.5, METHOD_COL.exact, 'The exact pair calculation', `${pct(TD.intact.exact)}`)}
-        </ul>`,
+        <ul class="steps">${FIELDS.map((m, i) => step(18 + 3 * i, 26.5, METHOD_COL[m], METHOD_SAY[m], `${pct(TD.intact[m])}${i ? '' : ' of them'}`)).join('')}</ul>`,
       `<p data-at="27" class="amber">So the coupling favours pairs too strongly: its ancestors look believable, but its percentages are not true chances.</p>
         <p data-at="31">And a broken pair is normal: the true ancestor here has ${word(F.truthBroken)}, and only ${esc(TD.allSixPrior)} of ancestors have all ${W} pairs matched.</p>
         <p data-at="35">One rebuilt ancestor of each method stands before its field; white frames mark letters that differ from the true one.</p>
-        <p class="note" data-at="38">In the authors' test: a made-up stem of ${W} pairs in three species, ${fmt(TD.n)} rebuilt ancestors per method, matching pairs ${word(TD.w)} times as likely as mismatched ones. The shares are theirs; which stems are intact is drawn for the picture.</p>`)}`,
+        <p class="note" data-at="38">In the authors' test: a made-up stem of ${W} pairs in ${word(F.species)} species, ${fmt(TD.n)} rebuilt ancestors per method, matching pairs ${word(TD.w)} times as likely as mismatched ones. The shares are theirs; which stems are intact is drawn for the picture.</p>`)}`,
     what: `<h2 data-at="0.6">What it is for</h2>
       ${turns(`<p data-at="1.2" data-out="13.5">Rebuilding ancestors is how researchers brought back old virus proteins for vaccine research [4, 5] and trace how a tumour grew from one cancer cell [6].</p>
         <p data-at="6" data-out="13.5" class="amber">This circuit turns a rule of letter change into a machine a quantum computer can run, and couples letters that change together.</p>
@@ -306,7 +311,7 @@ function buildStory() {
     rule_balls: 0, rule_flow: 1, rule_pyr: 0, rule_path: 0, rule_time: 0, rule_model: MI, rule_start: 0, rule_compile: 0, rule_machine: 0,
     rule_parent: F.turn.par, rule_copy: 0, rule_circuit: 0, rule_simple: 0, rule_run: 1,
     stem_strand: 0, stem_fold: 0, stem_break: 0, stem_couple: 0, stem_both: 0, stem_count: 0, stem_qubits: 0, stem_species: 0, stem_fields: 0,
-    stem_sort: 0, stem_truth: 0, stem_examples: 0, stem_src: 0, stem_w: TD.w, stem_seed: 1, stem_method: -1 });
+    stem_named: 0, stem_sort: 0, stem_truth: 0, stem_examples: 0, stem_src: 0, stem_w: TD.w, stem_seed: 1, stem_method: -1 });
   let a, b;
   // A text in four letters: the helix turning, its top strand peeling into the ancestor's row, two copies with swaps
   a = C.title.a; b = C.title.b;
@@ -328,6 +333,7 @@ function buildStory() {
   ramp('tree_grow', a + 4, a + 24, 0, 1);
   ramp('tree_hi', a + 24, a + 27, 0, 1);
   ramp('tree_hi', b - 3, b - 1, 1, 0);
+  ST.stand.push([a + 1, a + 4, b - 2.5, b]);   // (in a headset: once the letters have gone, until the qubits come)
   cam(a + 1.5, 'tree', 'grow', -10);
   cam(a + 22, 'tree', 'grow', 30, 'spin');
   cam(a + 25, 'tree', 'pair', -4);
@@ -371,6 +377,7 @@ function buildStory() {
   ramp('tree_gears', a + 29, a + 32, 0, 1);
   ramp('tree_flow', a + 34, a + 36, 0, 1);
   ramp('tree_flow', b - 3, b - 1, 1, 0);
+  ST.stand.push([a + 27.5, a + 30.5, b - 2.5, b]);   // (in a headset: once the circuit has gone, until the stem comes)
   cam(a + 1.5, 'rule', 'compiler', -4);
   cam(a + 5.5, 'rule', 'machine', 0);
   cam(a + 8.5, 'rule', 'copy', -2);
@@ -415,8 +422,12 @@ function buildStory() {
   show('stem', a + 3, a + 5);
   ramp('stem_species', a + 6, a + 11, 0, 1);
   ramp('stem_fields', a + 14, a + 24, 0, 1);
-  ['indep', 'coupled', 'exact'].forEach((m, i) => jump('stem_method', a + 18 + 3 * i, i - 1, M.METHODS.indexOf(m)));
-  jump('stem_method', a + 27, M.METHODS.indexOf('exact'), -1);
+  // each field lit, and its tag shown, as the text names it (its step's data-at), left to right
+  FIELDS.forEach((m, i) => {
+    jump('stem_method', a + 18 + 3 * i, i ? M.METHODS.indexOf(FIELDS[i - 1]) : -1, M.METHODS.indexOf(m));
+    ramp('stem_named', a + 18 + 3 * i, a + 18.6 + 3 * i, i, i + 1);
+  });
+  jump('stem_method', a + 27, M.METHODS.indexOf(FIELDS[FIELDS.length - 1]), -1);
   ramp('stem_sort', a + 25, a + 28, 0, 1);
   ramp('tree_q', a + 30, a + 33, 1, 0);
   ramp('stem_truth', a + 31, a + 34, 0, 1);
@@ -494,7 +505,9 @@ function spinEase(t, D) {
   return v * (t - r / 2);
 }
 // the story's view at time t: [az, el, dist, tx, ty, tz, narrow factor, and FIT's target shift x, y, z]
-function storyCam(t) {
+// (in a headset the family tree stands tall while it is the scene, see standView)
+const storyCam = t => (XR.on ? standView(storyView(t), standW(t)) : storyView(t));
+function storyView(t) {
   const wp = ST.wp, end = w => [w[1], w[2], w[3], w[4], w[5], w[6], w[8], ...w[9]];
   if (t <= wp[0][0]) return end(wp[0]);
   for (let i = 1; i < wp.length; i++) {
@@ -506,6 +519,26 @@ function storyCam(t) {
     }
   }
   return end(wp[wp.length - 1]);
+}
+
+// In a headset the family tree stands tall in front of you while it is the scene (chapter 2, and the machines of
+// chapter 5): the story's view eases into the tree set's `stand` (about 1.5 m tall, its root low, its crown above your
+// eyes), keeping the story's turn; the species tree of chapters 7 and 8 stays at table size. Its axis stands STAND_BACK
+// (in the set's units) further off than the view's target, so that nothing of it, the level ring and the rows of
+// letters riding up included, comes within 0.35 m of your eyes (measured with the story's turns: 0.44 m at the
+// closest). The weight follows the story's time alone, so at a shared-room station everyone sees the same size. On a
+// screen nothing changes.
+const STAND_BACK = 0.2;
+// ST.stand: [t0, t1, t2, t3], in over t0..t1 and out over t2..t3 (story time)
+const standW = t => ST.stand.reduce((w, [t0, t1, t2, t3]) => Math.max(w, Math.min(smooth((t - t0) / (t1 - t0)), smooth((t3 - t) / (t3 - t2)))), 0);
+function standView(v, w) {
+  if (w <= 0) return v;
+  const s = view('tree', 'stand'), A = v[0] * D2R;
+  s[3] += STAND_BACK * Math.sin(A); s[5] += STAND_BACK * Math.cos(A);   // (towards you: the target nearer, the axis further)
+  v[1] += (s[1] - v[1]) * w;
+  v[2] = Math.exp(Math.log(v[2]) + (Math.log(s[2]) - Math.log(v[2])) * w);
+  for (let i = 3; i < 6; i++) v[i] += (s[i] - v[i]) * w;
+  return v;
 }
 
 // ---------------------------------------------------------------- labels --

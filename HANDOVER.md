@@ -1,6 +1,6 @@
 # Start here: handing over Networks
 
-An installable web app that teaches network science in thirteen narrated 3D stories, each followed by an explore mode,
+An installable web app that teaches network science in fourteen narrated 3D stories, each followed by an explore mode,
 on desktops, phones and VR/AR headsets (built for Meta Quest Browser). Several headsets can share one room. There is
 no build step and no framework: plain HTML and JavaScript with a vendored three.js, deployed by copying the folder to
 any HTTPS host. This page is for the colleagues taking it over: what there is, what state it is in, what is still open,
@@ -16,7 +16,7 @@ and where to read on.
 | change the code | this page, then [docs/setup-and-release.md](docs/setup-and-release.md) and [AGENTS.md](AGENTS.md) (the full guide: structure, conventions, every shared-room rule, testing) |
 | work with an AI coding agent | [CLAUDE.md](CLAUDE.md) and [AGENTS.md](AGENTS.md) are written for agents too; see "Working with AI agents" below |
 
-## The thirteen stories
+## The fourteen stories
 
 | Story | Key | Source | Narration | Data |
 | --- | --- | --- | --- | --- |
@@ -30,6 +30,7 @@ and where to read on.
 | Tissue microanatomy: Tissue and time | `micro` | `tools/micro/` (built) | not yet | the preprint's numbers, Iva Buljan's network (kept out) |
 | Ovarian aging: The aging ovary | `ovary` | `tools/ovary/` (built) | not yet | the poster's numbers typed in and values read off its figures (the ovary's count tags: approximate); the neighbor network illustrative |
 | Quantum network compression: Three qubits | `qubits` | `tools/qubits/` (built) | not yet | example networks computed live; the real run's summary numbers from Joel Hancock's brief (his method and figures) |
+| DNA substitution models as quantum circuits: The mutation machine | `mutation` | `tools/mutation/` (built) | not yet | example numbers computed live, as in the authors' own test; the poster's numbers typed in, shown only as "in the authors' test"; the coupling computed live is our stand-in for their circuit |
 | Networks for everyone: Pass it on | `pass` | `tools/pass/` (built; its globe and cell cut out of `stories/airports.js` and `stories/spatial.js` at build time) | not yet | the airports' routes and the cell map's proteins as in those stories; the fish and the outbreak are simulations; English and German |
 | Collective motion: Flock | `flock` | `tools/flock/` (built) | not yet | a live simulation |
 | Swarm robotics: Robot gang | `robots` | `tools/robots/` (built) | not yet | a live simulation |
@@ -45,13 +46,13 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
   shared-room test (three pages and a pretend headset in a room). All pass on main.
 - **Tried on real headsets:** the stories and their sound on Quest; shared rooms on two Quest 3 headsets in several
   rounds (what happened is in [docs/quest-shared-space-findings.md](docs/quest-shared-space-findings.md) and AGENTS.md
-  "Shared rooms"). All thirteen stories, the slideshow and the headset menu on the wrist were tried on a headset in
-  October 2026, after the tests had passed on every change.
+  "Shared rooms"). All thirteen stories of then, the slideshow and the headset menu on the wrist were tried on a headset
+  in October 2026, after the tests had passed on every change; the fourteenth, the mutation machine, came after.
 - **Untested on a device:** lining headsets up again after standby or a night; moving and resizing scenes with the
   grips; persistent anchors restored after a restart; sound zones; comfort and frame rate with other people drawn;
   whether the connection to the relay keeps running inside a headset session. The full list ends AGENTS.md "Shared
   rooms"; [docs/event-runbook.md](docs/event-runbook.md) says what to try at an event.
-- **Unfinished:** narration for ten stories (scripts ready in [docs/narration.md](docs/narration.md)); the muscle
+- **Unfinished:** narration for thirteen stories (scripts ready in [docs/narration.md](docs/narration.md)); the muscle
   story's layer z-scores, walks and endotype names are stand-ins until its authors send their own; the questions in
   [docs/questions-for-authors.md](docs/questions-for-authors.md) are open.
 - **Known quirk of the tests:** the shared-room test checks timing, and a heavily loaded machine (software WebGL draws
@@ -66,7 +67,8 @@ Before handing over (or making anything more public), someone has to decide thes
 1. **Licence.** The project has no `LICENSE` file, so nobody else has the right to reuse it. Choose one, with the
    Institute if it owns the work. See [docs/data-and-permissions.md](docs/data-and-permissions.md).
 2. **The authors' permission** to show their data, figures, posters and talks publicly (muscle, endotype, PET,
-   microanatomy and tour stories). Record what was agreed, and with whom, in the same document.
+   microanatomy, mutation machine (a draft poster) and tour stories). Record what was agreed, and with whom, in the same
+   document.
 3. **The repository**: it is public, on a personal GitHub account (`unfriend/airportnetworks`), with no licence.
    Every pushed branch is public too, the working branch included. Decide whether it moves to an Institute
    organisation, who gets admin rights, and whether it stays public.
@@ -84,7 +86,7 @@ Before handing over (or making anything more public), someone has to decide thes
    - collecting alignment logs from fresh headsets (a test plan is in the runbook);
    - **station icons**: a small low-poly 3D icon for each story, floating above its station's ring in a shared room
      (built from simple shapes in the shell's shared-room code, the story's colour, slowly turning). Estimated at
-     about an hour of agent work, with the owner approving a contact sheet of all thirteen before they go in;
+     about an hour of agent work, with the owner approving a contact sheet of all fourteen before they go in;
    - **a story design room**: a room in the headset where the owner talks to Claude about a new story. Claude would
      show the props (the 3D sets) that fit, draft a skeleton story that plays at once with them, build what is missing
      and reload it live. It would run as Claude Code on a laptop next to the headset, with the relay serving the
@@ -112,8 +114,8 @@ Before handing over (or making anything more public), someone has to decide thes
        session (entering VR needs a tap), so the headset then shows one "Enter VR to continue" button.
      - **Groundwork:**
        - the list of stories moves out of `index.html` into its own file;
-       - the headset Stories screen in all thirteen stories reads the number of stories instead of having it written
-         in (today "thirteen" and the card spacing are in every story's panel code).
+       - the headset Stories screen in all fourteen stories reads the number of stories instead of having it written
+         in (today "fourteen" and the card spacing are in every story's panel code).
      - **Size:** estimated at about 3 to 4 hours of agent work and 2 to 3M tokens, the tests included (the update test
        would cover a story added live, a story swapped in place, the dialogue and the restore). Most useful for a kiosk
        or headsets at an event.
@@ -141,12 +143,12 @@ Before handing over (or making anything more public), someone has to decide thes
      - **Placed:** picked up with the grip and left anywhere in the room, on this headset only, remembered for next
        time.
      - Per device, never in `collab.state()`: nothing changes for the shared rooms.
-     - **How:** all in the shell, no change to the thirteen stories. The words come from each story's panel (its
+     - **How:** all in the shell, no change to the fourteen stories. The words come from each story's panel (its
        `section.ch` chapters and their `data-at` lines, read as `tools/narration.mjs` reads them), split into short
        two-line captions spread over the time until the next line by word count. The pass story's follow its
        language. The panel is drawn like the shell's menu and clock, and the grip reuses the code that carries
        stations.
-     - **To know:** only the airports story has a recorded voice, so in the other twelve the subtitles repeat the
+     - **To know:** only the airports story has a recorded voice, so in the other thirteen the subtitles repeat the
        panel's words (useful when the panel is out of view: in the flock or among the fish, at a station, the panel
        behind you). Each line starts with the voice; the captions within a long line are timed by word count, not
        matched word by word.
@@ -168,35 +170,25 @@ Before handing over (or making anything more public), someone has to decide thes
    around the poster's one-scan story in 3D (a person's network on their body, many people side by side by how far
    their network has drifted from healthy, a patient's network moving back after treatment), with only the paper's
    two or three key numbers.
-9. **A fourteenth story: "The mutation machine" (planned, waiting for the author)** (October 2026). From the poster
-   "Converting Mutation into a Machinery: DNA Substitution Models as Quantum Circuits" (Enes Berk Sakalli, Arndt von
-   Haeseler; a draft, its footer still has placeholders). The owner agreed to the outline and wants to clarify with
-   the author first: **do not start until the owner says so**. The questions are in
-   [docs/questions-for-authors.md](docs/questions-for-authors.md) ("The mutation machine").
-   - **The story** (about 7 minutes, 8 chapters): a text in four letters (copying, a swap is a mutation); the family
-     tree (branch length, viruses, tumours); letters as qubits (two per letter, arrows on spheres, a superposition as a
-     spinning coin, read out); the rule (four letters as balls and arrows, the mix as a point in a pyramid standing in
-     the room, gliding from corner A to the long-run mix); the machine (a compiler turns the rule into gears: copy the
-     parent's letter, turn by the branch's length, one machine per branch); letters that work together (an RNA stem,
-     a pair breaks if one letter changes alone, coupling); rebuilding the ancestor (2,000 rebuilt stems per method
-     gathering into three crowds: 43 % with all six pairs intact with coupling, 10 % letter by letter, 20 % with the
-     exact pair model; no bar chart); what for (old virus proteins, a tumour's first cell) and the scope (simulated
-     data, one letter or pair at a time). Explore: Letters, Rule, Tree, Stem, Scenes; the examples computed live and
-     said so, the poster's numbers only "in the authors' test". British spelling.
-   - **The tree in 3D** (the owner's wish): not a flat diagram but a tree growing up out of the floor, the ancestor at
-     the root, branches spreading in all directions with their lengths as real lengths, so you walk round it and look
-     up into it; letters travel up the branches as glowing beads, a mutation flashes where it happens; each branch's
-     gear sits at its fork and turns as far as the branch is long; the descendants hang at the tips (later the three
-     species' RNA stems as hairpins), and the rebuilt ancestors gather round the trunk.
-   - **Reuse:** the qubits story's engine and look (lit tubes, balls, rings, glows) and its circuit (adapted to copy
-     and turn), the kit, the tour's DNA helix to open, the endotype tree's 3D look. **New:** three sets (letters,
-     rule, stem), a small maths file with its test (how the mix moves, the turn's angles, pairs, the ancestor rebuilt
-     on the three-species tree), a data file typed in from the poster (Figure 5's sequences, the percentages), and the
-     fourteenth card (the headset arc would reach about 150 degrees: tighter or two rows; every story's panel code,
-     `FORMAT`, the tests, the docs).
-   - **Size:** about 4 to 5 hours of agent work and 3 to 4M tokens, the tests included (spec, data and maths about
-     45 min; the sets and engine 1.5 to 2 h; one review and one fix round about 45 min; integration and every test once
-     1 to 1.5 h).
+9. **The fourteenth story: "The mutation machine" (built, October 2026).** From the poster "Converting Mutation into a
+   Machinery: DNA Substitution Models as Quantum Circuits" (Enes Berk Sakalli, Arndt von Haeseler; a draft, its footer
+   still has placeholders), with the first author's answers on the values, the turn and how to word the result (MM2 to
+   MM4 in [docs/questions-for-authors.md](docs/questions-for-authors.md)). Sources in `tools/mutation/` (`SPEC.md`,
+   `README.md`, the sets' manifests); its maths checked by `node tools/mutation/test-mmath.mjs`.
+   - **What it is** (about 8.5 minutes, 8 chapters, then explore): a text in four letters copied with swaps; a family
+     tree in 3D that grows up from its root, its branch lengths real lengths, so you walk round it and look up into it
+     (letters ride up the branches, a swap flashes where it happens); a letter as two qubits and its read-outs; the rule
+     of change as balls and arrows and a path through a pyramid of mixes; the machine for one branch (copy, then turn)
+     and its circuit, one machine per branch; an RNA stem, a pair breaking and the coupling; the ancestor of three
+     species rebuilt 2,000 times three ways (the authors' 10 %, 43 % and 20 %, worded as the author asked: the coupling
+     favours matching pairs too strongly, so its percentages are not true chances); what it is for. Explore: Letters,
+     Rule, Tree, Stem and Scenes. Example numbers computed live; the poster's numbers only "in the authors' test"; the
+     coupling computed live in explore is our stand-in for their circuit, labelled so. British spelling.
+   - **Untested:** everything in a headset (the panels, picking branches and fields with the ray, the family tree
+     standing about 1.5 m tall in front of you, its crown above your eyes, in the story and in explore's Stand in it)
+     and the big tree's comfort there; so far only the headless tests have run it.
+   - **Still open:** MM1 (is the poster final?), MM5 (credit and title) and MM6 (is our coupled stand-in a fair picture
+     of their circuit, and may explore show it live?).
 
 ## How work is done
 
@@ -208,11 +200,13 @@ Before handing over (or making anything more public), someone has to decide thes
 - The story files are large (`stories/airports.js` is about 640 KB with its data): search them, never read them whole.
 - Headset behaviour can only be confirmed on a device: say so when reporting a change.
 
-## Adding a thirteenth story
+## Adding a fifteenth story
 
-The thirteenth story (`ovary`) is the most recent example: `git show --stat` on its commits shows every file it touched
-(the twelfth, `pass`, shows how a story reuses another's models unchanged, and a story in two languages). Start from the closest
-existing story (`tools/qubits/` or `tools/micro/` for a data story, `tools/flock/` for a live simulation).
+The fourteenth story (`mutation`) is the most recent example: `git show --stat` on its commits shows every file it
+touched (the thirteenth, `ovary`, is a data story; the twelfth, `pass`, shows how a story reuses another's models
+unchanged, and a story in two languages). Start from the closest existing story (`tools/mutation/` or `tools/qubits/`
+for a story whose numbers are computed live, `tools/micro/` or `tools/ovary/` for a data story, `tools/flock/` for a
+live simulation).
 
 1. `tools/<key>/`: `SPEC.md` (the contract), `README.md`, the sets (each with a manifest `sets/<name>.md`), the engine
    (`engine/e1_head.js` to `e7_app.js`), `build.mjs`, `harness.html`, `shot.mjs`, `sweep.mjs`, a data generator if it has
@@ -220,7 +214,8 @@ existing story (`tools/qubits/` or `tools/micro/` for a data story, `tools/flock
 2. `index.html`: an entry in `HOST.list` (key, kick, title, colour, loading text, length: pace the story first with
    `node tools/pace.mjs <url> --write <key>`, which prints it), the count in the start
    screen's text and meta description, and the card rows' CSS if the rows change.
-3. The headset Stories screen in **every** story: the arc's spacing for n cards and the number word ("thirteen") in each
+3. The headset Stories screen in **every** story: the arc's spacing for n cards (a step for the new n, the outer cards
+   kept within about 62 degrees) and the number word ("fourteen") in each
    story's panel code (`stories/airports.js`, `proteins.js`, `spatial.js`, and `tools/*/engine/e6_panels.js`, then
    rebuild those).
 4. `shared.js`: bump `FORMAT`; the Arrange all comment (two rows of n/2). `sw.js`: bump `VERSION`, add

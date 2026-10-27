@@ -415,7 +415,7 @@ function renderTree() {
 }
 
 // the rebuild in words: per method its share of intact ancestors, the true ancestor and the examples
-const STEM_ORDER = ['indep', 'coupled', 'exact'];
+const STEM_ORDER = ['indep', 'exact', 'coupled'];   // (as the fields stand, left to right: the shares in ascending order)
 function stemInfo() {
   const live = stemLive(), A = api('stem'), R = A.results ? A.results(live ? 1 : 0, X.w, X.sseed) : null, names = (live ? A.namesLive : A.names) || {};
   const rows = STEM_ORDER.map(m => {

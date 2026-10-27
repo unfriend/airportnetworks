@@ -29,13 +29,14 @@ on the poster (the text says so). Species, truth and examples come from `MUT_DAT
 | `stem_qubits` | 0 | a row of 20 qubits under it all (two per letter, each pair holding a letter's mix: `MMATH.path` at the story's points, `MMATH.bloch`), appearing left to right | 0 -> 1 at 214-216 |
 | `stem_species` | 0 | the three species' stems on the species tree's tips, small, upright, facing the viewer, broken pairs as red crosses; letters that differ from the true ancestor framed white as `stem_truth` comes | 0 -> 1 at 224-229 |
 | `stem_fields` | 0 | three fields of 2,000 tiny stems sprout in front of the root (left to right: letter by letter, exact pair model, coupled circuit), each at its own moment: lit in the letters' colours when all six pairs hold, dim with its broken rungs red otherwise, so each field's share lights up as it grows; dark beds under them | 0 -> 1 at 232-242; -> 0 at 264-266 |
+| `stem_named` | 3 | how many fields' tags show, left to right (0.5: the first tag half in): they come as the narrator names each field | 0 -> 1 at 236, -> 2 at 239, -> 3 at 242 (each over 0.6 s) |
 | `stem_sort` | 0 | the stems whose six pairs all hold walk to the front rows of their field (in their random order): a lit block whose depth is the share | 0 -> 1 at 243-246 |
 | `stem_truth` | 0 | the true ancestor's stem, big at the root (in front of the species tree's "?", which the story fades with `tree_q`), its one broken pair | 0 -> 1 at 249-252 |
 | `stem_examples` | 0 | one rebuilt ancestor per method stands before its field (Figure 5's in the story; the most likely one, `best`, live), letters that differ from the truth framed white; the fields dim a little | 0 -> 1 at 253-257; -> 0 at 264-266 |
 | `stem_src` | 0 | 0 the authors' test (their shares, Figure 5's examples), 1 this example computed live (`MMATH.rebuild` with `stem_w` and `stem_seed`). **Step param** | 0 in the story |
 | `stem_w` | 8 | the pair favour w, 1 to 30 (live only: the authors' test is w = 8). **Step param** | 8 |
 | `stem_seed` | 1 | the rebuild's seed (which 2,000 ancestors; also the crowd's shuffle). **Step param** | 1 |
-| `stem_method` | -1 | a method lit, the other fields dimmed: index into `MMATH.METHODS` (0 indep, 1 coupled, 2 exact), -1 all. **Step param** | 0 at 236, 1 at 239, 2 at 242 (as the narrator names each), -1 at 245 |
+| `stem_method` | -1 | a method lit, the other fields dimmed: index into `MMATH.METHODS` (0 indep, 1 coupled, 2 exact), -1 all. **Step param** | the fields left to right as the narrator names each: 0 at 236, 2 at 239, 1 at 242; -1 at 245 |
 
 The resting look (defaults): the folded stem at the origin, alone.
 
@@ -61,8 +62,8 @@ before the middle field's, so three tags never touch), `ex_indep`, `ex_exact`, `
   with `stem_species`, until the fields come;
 - per field (text is a function): `Letter by letter · 10 % intact`, `Exact pair model · 20 % intact`, `Coupled circuit ·
   43 % intact` (the authors' test: `MUT_DATA.test.intact`), or live `Letter by letter · 11 % here`, `Exact pair model ·
-  30 % here`, `Coupling, our stand-in · 46 % here` (`MMATH.rebuild`'s share); dimmed for a method not lit; they give way
-  to the examples;
+  30 % here`, `Coupling, our stand-in · 46 % here` (`MMATH.rebuild`'s share); each as `stem_named` reaches its field;
+  dimmed for a method not lit; they give way to the examples;
 - `True ancestor · 1 broken pair` (amber, at `truth`): with `stem_truth`;
 - per example (a function): `Letter by letter · 2 broken`, `Exact pair model · 1 broken`, `Coupled circuit · none
   broken` (Figure 5's; live, the most likely ancestors' counts): with `stem_examples`.
@@ -101,8 +102,8 @@ drives `stem_seed` (rebuild again) itself.
 - `pick(raycaster)` -> { kind: 'field', method } (where the ray meets a field's floor), { kind: 'stem', which: 'truth' |
   'indep' | 'exact' | 'coupled' | 's1' | 's2' | 's3' }, or null.
 
-Live numbers (the story's model, w = 8, seed 1): letter by letter 11.0 % intact (exact chance 11.4 %), exact pair model
-30.1 % (31.0 %), coupled stand-in 46.1 % (44.6 %); most likely ancestors ATTACT / CGATGG (1 broken), ATTACT / TGATGA and
+Live numbers (the story's model, w = 8, seed 1, as `node tools/mutation/test-mmath.mjs` prints them): letter by letter
+10.9 % intact (exact chance 11.4 %), exact pair model 30.0 % (31.0 %), coupled stand-in 46.1 % (44.6 %); most likely ancestors ATTACT / CGATGG (1 broken), ATTACT / TGATGA and
 ATTACT / TGATGG (none broken).
 
 ## Sizes for framing

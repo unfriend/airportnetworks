@@ -92,7 +92,7 @@ tests use headless Chromium, which draws in software here and is slow, so run th
 
 | Test | Command | Needs | When to run it | Time | A failure usually means |
 | --- | --- | --- | --- | --- | --- |
-| Build check | `for k in lbi nmd endo pet micro ovary qubits pass flock robots; do node tools/$k/build.mjs --check; done` | Node | after any change in `tools/`, and before every release | under 1 s | a built story no longer matches its sources: run its `build.mjs` and commit both |
+| Build check | `for k in lbi nmd endo pet micro ovary qubits mutation pass flock robots; do node tools/$k/build.mjs --check; done` | Node | after any change in `tools/`, and before every release | under 1 s | a built story no longer matches its sources: run its `build.mjs` and commit both |
 | Smoke | `node tools/smoke.mjs http://127.0.0.1:8123/` | server, Playwright | before every commit | about 4 min | a page or console error in a story (they are printed at the end). A 404 for a missing narration MP3 is expected and ignored |
 | Sound | `node tools/audio.mjs http://127.0.0.1:8123/` | server, Playwright, `audio/narration.mp3` | after touching sound (`HOST.audio` in `index.html`, a story's narration code, how `sw.js` serves the narration) | a few minutes | the narration no longer starts after a tap or a story change, or the `<audio>` fallback no longer takes over |
 | Update | `git worktree add /tmp/old origin/main`, then `node tools/update.mjs /tmp/old .`, then `git worktree remove /tmp/old` | Playwright, port 8125 free (it serves both versions itself) | after changing `sw.js` or how files load, and before every release | under 1 min | `VERSION` was not bumped, a new file is missing from `SHELL`, or the page and its stories came from different versions. If it says the two versions look the same, the old checkout is not older |
@@ -125,8 +125,8 @@ only after the tests pass. No pull requests are used.
 
 1. **Start up to date.** Run `git fetch origin`, then `git merge-base --is-ancestor origin/main HEAD && echo ok`. If
    it prints nothing, merge `origin/main` into your branch first.
-2. **Edit the sources, never a built story.** Ten stories are built from `tools/<key>/`: lbi, nmd, endo, pet,
-   micro, ovary, qubits, pass, flock and robots (pass also takes its globe and cell from `stories/airports.js` and
+2. **Edit the sources, never a built story.** Eleven stories are built from `tools/<key>/`: lbi, nmd, endo, pet,
+   micro, ovary, qubits, mutation, pass, flock and robots (pass also takes its globe and cell from `stories/airports.js` and
    `stories/spatial.js`: rebuild it after changing either). `stories/airports.js`, `stories/proteins.js` and `stories/spatial.js` are edited by hand.
    Search them rather than reading them whole, because they are large.
 3. **Rebuild.** If the data changed, run the data generator first (see the story's README), then rebuild the
@@ -134,21 +134,21 @@ only after the tests pass. No pull requests are used.
 
    | Source | Stories built from it |
    | --- | --- |
-   | `tools/lbi/kit.js` | all ten built stories |
+   | `tools/lbi/kit.js` | all eleven built stories |
    | `tools/lbi/sets/body.js` | lbi, pet, micro, ovary |
    | `tools/lbi/sets/tissue.js` | lbi, micro |
    | `tools/nmd/sets/motor.js`, `tools/nmd/sets/data.js` | nmd, endo |
    | `tools/pet/sets/icons.js` | pet |
 
-   Rebuilding all ten takes well under a second:
-   `for k in lbi nmd endo pet micro ovary qubits pass flock robots; do node tools/$k/build.mjs; done`
-4. **Bump `VERSION` in `sw.js`** (`networks-v80` now, so `networks-v81` next) after any change to a file the app
+   Rebuilding all eleven takes well under a second:
+   `for k in lbi nmd endo pet micro ovary qubits mutation pass flock robots; do node tools/$k/build.mjs; done`
+4. **Bump `VERSION` in `sw.js`** (`networks-v89` now, so `networks-v90` next) after any change to a file the app
    serves: `index.html`, `shared.js`, `sw.js`, `manifest.webmanifest`, `three.min.js`, `three.LICENSE.txt`,
    `proteins.html`, `spatial.html`, `README.txt`, and anything in `stories/`, `audio/` or `icons/`. For a new file the
-   app needs, add it to `SHELL` in `sw.js`. A narration goes in `AUDIO`, which already lists all thirteen file names. If
+   app needs, add it to `SHELL` in `sw.js`. A narration goes in `AUDIO`, which already lists all fourteen file names. If
    the new file is not directly inside `stories/`, `audio/` or `icons/`, also add it to `APP_FILES` in
    `relay/server.mjs`.
-5. **Bump `FORMAT` in `shared.js`** (`networks-20` now) when the shared keys, or the shape of a story's
+5. **Bump `FORMAT` in `shared.js`** (`networks-21` now) when the shared keys, or the shape of a story's
    `collab.state()`, change. A room refuses pages that have another format, so every device in a room has to update
    together.
 6. **Update the docs.**

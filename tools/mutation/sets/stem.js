@@ -441,8 +441,9 @@ void main() {
   ];
   SPECIES.forEach((P, j) => labels.push({ text: [`Species ${j + 1}`, ` · ${nb(P.broken)}`], at: 'sp' + (j + 1), cls: '',
     alpha: S => prog(S.stem_species, 0.4 + 0.15 * j, 0.7 + 0.15 * j) * (1 - prog(S.stem_fields, 0.1, 0.3)) }));
-  ORDER.forEach(m => labels.push({ text: () => [now.src === 1 ? NAME_LIVE[m] : NAME[m], share(m)], at: 'field_' + m, cls: m === 'coupled' ? 'cyn' : m === 'exact' ? 'grn' : '',
-    alpha: S => prog(S.stem_fields, 0.3, 0.7) * (1 - prog(S.stem_examples, 0.1, 0.5)) * (Math.round(S.stem_method) < 0 || METHODS[Math.round(S.stem_method)] === m ? 1 : 0.5) }));
+  // (a field's tag comes as the story names it: stem_named counts the fields named so far, left to right)
+  ORDER.forEach((m, f) => labels.push({ text: () => [now.src === 1 ? NAME_LIVE[m] : NAME[m], share(m)], at: 'field_' + m, cls: m === 'coupled' ? 'cyn' : m === 'exact' ? 'grn' : '',
+    alpha: S => prog(S.stem_fields, 0.3, 0.7) * clamp(S.stem_named - f, 0, 1) * (1 - prog(S.stem_examples, 0.1, 0.5)) * (Math.round(S.stem_method) < 0 || METHODS[Math.round(S.stem_method)] === m ? 1 : 0.5) }));
   labels.push({ text: ['True ancestor', ` · ${nb(TRUTH.broken)}`], at: 'truth', cls: 'amb', alpha: S => prog(S.stem_truth, 0.5, 1) });
   ORDER.forEach(m => labels.push({ text: () => [now.src === 1 ? NAME_LIVE[m] : NAME[m], now.R ? ` · ${now.R[m].broken || 'none'} broken` : ''], at: 'ex_' + m, cls: m === 'coupled' ? 'cyn' : m === 'exact' ? 'grn' : '',
     alpha: S => prog(S.stem_examples, 0.5, 1) }));
@@ -469,7 +470,7 @@ void main() {
     return {
       stem_strand: close ? 1 : 0, stem_fold: 1, stem_break: 0, stem_couple: v === 'stem' ? 1 : 0, stem_both: v === 'stem' ? 1 : 0,
       stem_count: v === 'count' ? 3 : 0, stem_qubits: v === 'count' ? 1 : 0,
-      stem_species: rb ? 1 : 0, stem_fields: rb ? 1 : 0, stem_sort: v === 'compare' ? 1 : 0, stem_truth: v === 'compare' ? 1 : 0, stem_examples: v === 'compare' ? 1 : 0,
+      stem_species: rb ? 1 : 0, stem_fields: rb ? 1 : 0, stem_named: 3, stem_sort: v === 'compare' ? 1 : 0, stem_truth: v === 'compare' ? 1 : 0, stem_examples: v === 'compare' ? 1 : 0,
       stem_src: c.src === 'live' ? 1 : 0, stem_w: clamp(parseInt(c.w, 10) || 8, 1, 30), stem_seed: 1,
       stem_method: c.method && c.method !== 'all' ? METHODS.indexOf(c.method) : -1,
     };
@@ -524,7 +525,7 @@ void main() {
   };
   return Object.assign(set, {
     params: { stem_a: 1, stem_strand: 1, stem_fold: 1, stem_break: 0, stem_couple: 0, stem_both: 0, stem_count: 0, stem_qubits: 0,
-      stem_species: 0, stem_fields: 0, stem_sort: 0, stem_truth: 0, stem_examples: 0, stem_src: 0, stem_w: 8, stem_seed: 1, stem_method: -1 },
+      stem_species: 0, stem_fields: 0, stem_named: 3, stem_sort: 0, stem_truth: 0, stem_examples: 0, stem_src: 0, stem_w: 8, stem_seed: 1, stem_method: -1 },
     update, anchors, labels, cam, controls, explore,
     api: () => API,
   });

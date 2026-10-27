@@ -1,4 +1,4 @@
-Networks, in thirteen stories - installable web app
+Networks, in fourteen stories - installable web app
   1. Network theory, told with the world's airports  (stories/airports.js)
   2. Network medicine, told with the proteins in a cell  (stories/proteins.js)
   3. Spatial interactome, where proteins meet in a cell  (stories/spatial.js)
@@ -22,12 +22,16 @@ Networks, in thirteen stories - installable web app
   10. Three qubits: how a gene network is shrunk to fit on a tiny quantum
      computer, and broken into building blocks it runs well, after Joel
      Hancock's method and figures  (stories/qubits.js)
-  11. Pass it on (Weitersagen!): how warnings, viruses and signals spread, from
+  11. The mutation machine: how DNA changes letter by letter along a family
+     tree, and how a rule for those changes becomes a quantum circuit, one
+     machine per branch; after the poster by Enes Berk Sakalli and Arndt von
+     Haeseler  (stories/mutation.js)
+  12. Pass it on (Weitersagen!): how warnings, viruses and signals spread, from
      a school of fish to the world's flights to a cell; for everyone, in
      English and German  (stories/pass.js)
-  12. Flock: 200 starlings at dusk flying all around you, each following its
+  13. Flock: 200 starlings at dusk flying all around you, each following its
      seven nearest neighbours  (stories/flock.js)
-  13. Robot gang: robot vacuums in your room that bump and turn, follow you
+  14. Robot gang: robot vacuums in your room that bump and turn, follow you
      about or form a conga line; in a headset they find your floor and walls
      (stories/robots.js)
 
@@ -38,7 +42,7 @@ AR from the start screen opens a Stories screen in the headset (one panel per
 story); entering from inside a story resumes it where you were.
 The start screen is the landing page (no hash, or #stories). The address
 follows you: #stories on the Stories screen (page or headset), #airports,
-#proteins, #spatial, #lbi, #nmd, #endo, #pet, #micro, #ovary, #qubits, #pass, #flock or #robots in a story, so links can be shared and open that story
+#proteins, #spatial, #lbi, #nmd, #endo, #pet, #micro, #ovary, #qubits, #mutation, #pass, #flock or #robots in a story, so links can be shared and open that story
 directly (proteins.html and spatial.html forward there). Taking the headset off and on returns to the Stories menu
 (and, unless Anchor is on, places everything in front of the next wearer).
 Repeat all and Repeat one on the Stories screen (page and headset) keep the app
@@ -144,7 +148,7 @@ Narration: put your recordings at audio/narration.mp3 (airports),
 audio/narration-proteins.mp3 (proteins), audio/narration-spatial.mp3
 (cell map), audio/narration-lbi.mp3 (the tour), audio/narration-nmd.mp3,
 audio/narration-endo.mp3, audio/narration-pet.mp3, audio/narration-micro.mp3,
-audio/narration-ovary.mp3, audio/narration-qubits.mp3, audio/narration-pass.mp3, audio/narration-flock.mp3 and audio/narration-robots.mp3 (only the airports
+audio/narration-ovary.mp3, audio/narration-qubits.mp3, audio/narration-mutation.mp3, audio/narration-pass.mp3, audio/narration-flock.mp3 and audio/narration-robots.mp3 (only the airports
 one is recorded so far); see the note in the audio folder for chapter timings
 and how to record one, and docs/narration.md for the words. It plays in
 sync with the story, follows pause, seeking and chapter jumps, and has a Sound
@@ -242,6 +246,16 @@ only as "in the real network". The cut stands in for the authors' beam search,
 and the walkers' valleys are illustrative. This story alone uses American
 spelling, as its author asked.
 
+The mutation machine (stories/mutation.js): after the poster "Converting
+Mutation into a Machinery: DNA Substitution Models as Quantum Circuits" by Enes
+Berk Sakalli and Arndt von Haeseler (a draft) and the first author's answers to
+our questions. As in the authors' own test, the numbers drawn are examples,
+computed in the page (tools/mutation/sets/mmath.js); the poster's numbers are
+typed in (tools/mutation/sets/data.js) and shown only as "in the authors' test".
+The coupling computed live is our stand-in for their circuit, and says so. The
+test is synthetic (no patient data); the poster's figures are redrawn in 3D, its
+pictures never shown.
+
 Pass it on (stories/pass.js): an outreach story of the Ludwig Boltzmann
 Institute for Network Medicine, in English and German (a switch, EN | DE, on the
 story panel and above the explore tabs; German when the device's language is,
@@ -266,7 +280,7 @@ it). Without a room setup they get a virtual room round you, and the panel
 offers Set up your room. Point at the floor and pull the trigger to spill
 crumbs. Speeds and cleaning times are tuned to look right, not measured.
 
-Files: index.html (the app), stories/ (the thirteen stories), proteins.html and
+Files: index.html (the app), stories/ (the fourteen stories), proteins.html and
 spatial.html (forward to the app), manifest.webmanifest, sw.js (offline cache), audio/,
 shared.js (shared rooms), relay/ (the shared rooms' server), docs/ (the shared rooms' plan and the handover notes), HANDOVER.md (start here when taking the project over),
 AGENTS.md and CLAUDE.md (notes for AI coding agents), tools/smoke.mjs (headless test),
@@ -278,7 +292,8 @@ tools/endo/build.mjs writes stories/endo.js), tools/pet/ (sources of the PET sto
 tools/pet/build.mjs writes stories/pet.js), tools/micro/ (sources of the microanatomy story; node
 tools/micro/build.mjs writes stories/micro.js), tools/ovary/ (sources of the aging ovary story; node
 tools/ovary/build.mjs writes stories/ovary.js), tools/qubits/ (sources of the qubits story; node
-tools/qubits/build.mjs writes stories/qubits.js), tools/pass/ (sources of the pass story; node
+tools/qubits/build.mjs writes stories/qubits.js), tools/mutation/ (sources of the mutation story;
+node tools/mutation/build.mjs writes stories/mutation.js), tools/pass/ (sources of the pass story; node
 tools/pass/build.mjs writes stories/pass.js from them and from the airports and cell map stories), tools/flock/ (sources of the flock; node tools/flock/build.mjs
 writes stories/flock.js), tools/robots/ (sources of the robot gang;
 node tools/robots/build.mjs writes stories/robots.js),

@@ -453,12 +453,13 @@ function vSlider(ctx, P, id, x, y, w, v, lo, hi, col, set) {
   P.regions.push({ id, x: x - 16, y, w: w + 32, h: 48, drag: px => set(lo + clamp((px - x) / w, 0, 1) * (hi - lo)) });
 }
 // rows of a name (muted) and its value (ink), as the HTML's dl.stats
-function stats(ctx, x, y, W, rows) {
+// (kw: the names' column, wider where they are long, as the rebuild's methods)
+function stats(ctx, x, y, W, rows, kw = 220) {
   let yy = y;
   for (const [k, v, more] of rows) {
-    ctx.font = vfont(22); ctx.fillStyle = VC.muted; ctx.fillText(k, x, yy + 3);
-    ctx.font = vfont(25, 700); ctx.fillStyle = VC.ink; ctx.fillText(v, x + 220, yy);
-    if (more) { const w = ctx.measureText(v).width; ctx.font = vfont(21); ctx.fillStyle = VC.muted; ctx.fillText(fitText(ctx, more, W - 240 - w), x + 236 + w, yy + 4); }
+    ctx.font = vfont(22); ctx.fillStyle = VC.muted; ctx.fillText(fitText(ctx, k, kw - 10), x, yy + 3);
+    ctx.font = vfont(25, 700); ctx.fillStyle = VC.ink; ctx.fillText(v, x + kw, yy);
+    if (more) { const w = ctx.measureText(v).width; ctx.font = vfont(21); ctx.fillStyle = VC.muted; ctx.fillText(fitText(ctx, more, W - kw - 20 - w), x + kw + 16 + w, yy + 4); }
     yy += 38;
   }
   return yy - y;
@@ -529,7 +530,6 @@ function drawTreePane(ctx, P, x, y, W, bottom) {
 }
 function drawStemPane(ctx, P, x, y, W, bottom) {
   const v = stemView(), on = X.scene === 'stem', live = stemLive(), me = stemMethod(), I = stemInfo();
-  const SHORT = { indep: 'Letter by letter', coupled: 'Coupling', exact: 'Exact pairs' };
   y += textBlock(ctx, `Three species carry one RNA stem of ${word(TD.pairs)} pairs. Rebuild their ancestor ${fmt(TD.n)} times with each method; count those whose ${word(TD.pairs)} pairs all hold.`, x, y, W, 23, 32, VC.muted, 400, 2) + 10;
   y += head(ctx, x, y, 'Show');
   y += flow(ctx, P, ctlOf('stem', 'view').options.map(([o, n]) => ({ id: 'v:' + o, label: n, on: on && v === o, fn: () => showView('stem', o) })), x, y, W, bottom, { px: 22, h: 50 }) + 12;
@@ -539,9 +539,10 @@ function drawStemPane(ctx, P, x, y, W, bottom) {
   if (live) y += numRow(ctx, P, 'w', x, y, W);
   y += head(ctx, x, y, 'Method');
   y += flow(ctx, P, ctlOf('stem', 'method').options.map(([o, n]) => ({ id: 'm:' + o, label: n, col: METHOD_COL[o], on: me === o, fn: () => sceneCtl('stem', 'method', o) })), x, y, W, bottom, { px: 22, h: 50 }) + 14;
-  y += stats(ctx, x, y, W, I.rows.map(r => [SHORT[r[3]] || r[0], r[1], r[2]])) + 8;
+  // (the methods named as on the page's pane)
+  y += stats(ctx, x, y, W, I.rows.map(r => r.slice(0, 3)), 280) + 8;
   y += head(ctx, x, y, 'The true ancestor and one rebuilt each');
-  y += stats(ctx, x, y, W, [['True', I.truth, I.truthB]].concat(I.ex.map(r => [SHORT[r[3]] || r[0], r[1], r[2]]))) + 10;
+  y += stats(ctx, x, y, W, [['True', I.truth, I.truthB]].concat(I.ex.map(r => r.slice(0, 3))), 280) + 10;
   footNote(ctx, `The coupled circuit favours matching pairs too strongly: believable ancestors, but its percentages are not true chances. Only ${TD.allSixPrior} of ancestors have all ${word(TD.pairs)} pairs matched.${live ? ' The coupling here is our stand-in for the authors\' circuit.' : ''}`, x, y, W, bottom);
 }
 // the four scenes, and the chosen scene's own controls (its sliders too)

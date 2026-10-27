@@ -1010,10 +1010,12 @@ with a manifest) and engine parts adapted from the qubits story's. `tools/mutati
   ancestors look believable, but its percentages are not true chances. Never say the circuit is "better" or "more
   accurate".
 - The family tree is properly 3D (the owner's wish): it grows up out of its root, its eight tips evenly round the
-  vertical, and heights are change (a branch rises by its length), so you walk round it and look up into it. Its view
-  `stand` is the headset's (the tree about 1.6 m tall, its root 1.25 m below your eyes and its crown just above them:
-  you stand at its edge and look up into it; explore's Tree tab, Look: Stand in it); `up` looks up from below the root on
-  a screen only (the headset's Tree pane leaves it out: it would tip the tree over).
+  vertical, and heights are change (a branch rises by its length), so you walk round it and look up into it. In a
+  headset the story eases into the tree set's `stand` view while the family tree is the scene (chapter 2 and the
+  machines of chapter 5; `standView` in `engine/e3_story.js`, by story time, so everyone at a station sees the same
+  size): the tree stands about 1.5 m tall in front of you, its root low and its crown above your eyes, and nothing of it
+  comes within 0.35 m of your eyes; the species tree stays at table size. Explore offers it as Look: Stand in it; `up`
+  looks up from below the root on a screen only (the headset's Tree pane leaves it out: it would tip the tree over).
 - A set label's `text` may be a function (the branches' lengths, the branch picked, the dial's branch length): the
   engine reads it again while it shows (`labelText`, as in the qubits story). Step params (never eased) are listed in
   each manifest and in `STEP` (`engine/e4_explore.js`).

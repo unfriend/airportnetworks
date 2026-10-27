@@ -266,8 +266,9 @@ and checks the set alone with the harness.
   (matching ones lit), three letters' 64 as a cube, ten letters' about a million as a vast soft cloud of points (about
   60k drawn), against a row of 20 small qubit spheres (two per letter). Chapter 7: the three species' stems at the
   species tree's tips (small, upright, broken rungs as red crosses as in Figure 5), the true ancestor hidden at first;
-  then the rebuild: three fields of 2,000 tiny stems each sprout in front of the root (one field per method, labelled
-  letter by letter, circuit with coupling, exact pair model), each tiny stem a small ladder of six rungs; stems with all
+  then the rebuild: three fields of 2,000 tiny stems each sprout in front of the root (one field per method, left to
+  right as their shares grow: letter by letter, exact pair model, circuit with coupling; each field's tag comes as the
+  text names it), each tiny stem a small ladder of six rungs; stems with all
   six pairs glow in the letters' colours, the others are dim with their broken rungs red; the share in each field lights
   up as it grows (from `MUT_DATA.test.intact` in the story: `MMATH.crowd`; from `MMATH.rebuild` live in explore, a step
   param choosing); then the true ancestor's stem appears big at the root with its one broken pair, beside the three
@@ -278,7 +279,11 @@ and checks the set alone with the harness.
 Sizes for framing go in each manifest, with views (`cam`, `[az, el, dist, tx, ty, tz]`) for every chapter's beat. For
 the tree, a close view frames it large: in a headset (`xrPlace`: the view's target lands 1.2 m ahead, 0.2 m below the
 eyes; scale grows as the view's distance shrinks) it should stand about 1.6 m tall with its root low and its crown
-above your eyes, so you look up into it; give a view `up` from near the root looking up into the crown too.
+above your eyes, so you look up into it; give a view `up` from near the root looking up into the crown too. In a
+headset the story eases into the tree's `stand` view while the family tree is the scene (chapter 2 and the machines of
+chapter 5; `standView` in `engine/e3_story.js`, following the story's time only, so a shared-room station sees one
+size), and nothing of the tree comes within 0.35 m of your eyes; the species tree of chapters 7 and 8 stays at table
+size.
 
 ## The engine (`tools/mutation/engine/`, adapted from the qubits story's)
 
@@ -330,7 +335,7 @@ Numbers from `FACTS`, none hard-coded. The text below is a draft: keep its meani
 7. `rebuild` 218-264, **Rebuilding the ancestor** (`tree` species tree + `stem`): the species' stems, the "?", three
    fields of 2,000, the shares, the true ancestor. "Three species carry the same stem, each changed in its own way. What
    did their shared ancestor have? Rebuild it 2,000 times with each method and count the ancestors whose six pairs all
-   hold. Letter by letter: 10 %. With the coupled circuit: 43 %. The exact pair calculation: 20 %. So the coupling
+   hold. Letter by letter: 10 %. The exact pair calculation: 20 %. With the coupled circuit: 43 %. So the coupling
    favours pairs too strongly: its ancestors look believable, but its percentages are not true chances. And a broken
    pair is normal: the true ancestor here has one, and only about a quarter of ancestors have all six." Small print:
    the authors' test: a made-up six-pair stem in three species, 2,000 rebuilt ancestors per method.
