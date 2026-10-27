@@ -81,8 +81,21 @@ const view = (k, name) => {
 const fitShift = (k, name) => { const f = GL.sets[k].cam[name] && FIT[k] && FIT[k][name]; return f ? [f[3] || 0, f[4] || 0, f[5] || 0] : [0, 0, 0]; };
 // views whose parts reach under the side panel or off the right edge on a landscape screen: a little further back,
 // or their target moved, so they fit beside the panel (added to the set's own view, in story and explore mode alike)
-// (measured at 1280 x 760: each view's parts between the panel's right edge and the screen's, above the timeline)
-const FIT = {};
+// (measured at 1280 x 760: each view's parts between the panel's right edge and the screen's, above the timeline; the
+// sets' own views fill a whole screen, so most stand back a little and move their target left of the parts' middle)
+const FIT = {
+  letters: { default: [0, 0, 0.7, -0.22, -0.06, 0], helix: [0, 0, 1.1, -0.17, -0.03, -0.08], peel: [0, 0, 0.6, -0.17, -0.03, 0.02],
+    rows: [0, 0, 0.15, -0.27, -0.09, 0.06], qubits: [0, 0, 0.1, -0.13, 0.08, 0], reads: [0, 0, 0.25, -0.22, 0.02, 0] },
+  tree: { default: [0, 0, 0.1, -0.26, -0.23, 0.11], grow: [0, 0, 1.4, -0.28, 0.24, 0.09], crown: [0, 0, 0.3, -0.24, -0.3, 0.14],
+    pair: [0, 0, 0.1, -0.53, -0.51, 0.56], gears: [0, 0, 1.2, -0.21, 0.06, 0.11], species: [0, 0, 0.55, -0.33, -0.07, 0.11],
+    what: [0, 0, 0.1, -0.5, -0.1, 0.08] },
+  rule: { default: [0, 0, 0.35, -0.1, -0.12, -0.05], rates: [0, 0, 2.6, -0.32, -0.07, 0.09], pyramid: [0, 0, 0.6, -0.05, -0.13, -0.02],
+    path: [0, 0, 0.35, -0.09, -0.12, -0.06], compiler: [0, 0, 0.35, -0.23, 0.16, 0], machine: [0, 0, 1.1, 0.03, 0.05, 0],
+    copy: [0, 0, 1.65, 0.37, -0.1, 0], turn: [0, 0, 1.15, -0.18, 0.15, 0.04], circuit: [0, 0, 0.5, -0.2, -0.05, 0], steps: [0, 0, 0.5, -0.15, 0.2, 0] },
+  stem: { default: [0, 0, 0.1, -0.2, -0.03, 0.06], strand: [0, 0, 0.45, -0.21, -0.09, 0], fold: [0, 0, 0.1, -0.18, -0.06, 0.05],
+    break: [0, 0, 0.3, -0.22, -0.14, 0.1], count: [0, 0, 0.1, -0.61, 0.02, -0.13], cloud: [0, 0, 1.75, -0.4, 0.24, -0.07],
+    fields: [0, 0, 1.85, -0.29, 0.8, 0], compare: [0, 0, 1.8, -0.46, 0.23, 0] },
+};
 // how much further back a view stands on a phone held upright (see narrowK): the wide ones, whose parts reach
 // across the screen
 const NARROW = {};

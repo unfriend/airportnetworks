@@ -17,8 +17,8 @@ const ctlsOf = k => (GL.sets[k].controls || []).filter(c => !isNum(c));
 // a control the panes offer now: a set may say when one applies (when(values)), so none sits there doing nothing; the
 // shared state keeps every control (ctlsOf) all the same
 const ctlShown = (k, c) => !c.when || c.when(Object.fromEntries((GL.sets[k].controls || []).map(x => [x.key, isNum(x) ? numOf(x.key) : ctlValue(k, x)])));
-// a slider of a set's on show now
-const numShown = (k, key) => { const c = (GL.sets[k].controls || []).find(x => x.key === key); return !!c && ctlShown(k, c); };
+// whether a scene's slider applies now
+const numShown = (k, key) => { const c = (GL.sets[k].controls || []).find(x => x.key === key); return !!c && ctlShown(k, c) && (key !== 'w' || stemLive()); };   // (w only for the example computed live)
 const numOf = key => (key === 'w' ? X.w : X.time);
 // (explore opens on the rule's machine; each scene starts on the story's own choices)
 const X = { tab: 'rule', scene: 'rule', t0: 0, turn: 'on',

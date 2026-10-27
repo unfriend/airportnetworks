@@ -296,8 +296,7 @@ function init() {
     }
     const vq = String(hp.get('view') || '').toLowerCase(), vc = ctlOf(X.scene, 'view'), vo = vq && vc && opt(X.scene, vc, vq);
     if (vo) setCtl(X.scene, 'view', vo[0]);
-    else if (vq && (GL.sets[X.scene].cam || {})[vq]) orbit.cur = view(X.scene, vq);   // a camera of its own (the tree's up, stand)
-    orbit.to = null;
+    else if (vq && (GL.sets[X.scene].cam || {})[vq]) { orbit.cur = view(X.scene, vq); orbit.to = null; }   // a camera of its own (the tree's up, stand)
     if (hp.get('time') && Number.isFinite(+hp.get('time'))) setTime(+hp.get('time'), false);
     if (hp.get('reads') && Number.isFinite(+hp.get('reads'))) X.reads = clamp(Math.round(+hp.get('reads')), 0, READ_MAX());
     if (hp.get('branch') && Number.isFinite(+hp.get('branch'))) selectBranch(Math.round(+hp.get('branch')) - 1, false);
