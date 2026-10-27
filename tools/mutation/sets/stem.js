@@ -100,8 +100,8 @@ SETS.stem = function (K) {
     return { key: k, base: [n.pos[0], n.pos[1] + 0.05, n.pos[2]], top: idx(st.top), bottom: idx(st.bottom), broken: M.brokenPairs(st.top, st.bottom).length };
   });
   const TRUTH = { top: idx(D.truth.top), bottom: idx(D.truth.bottom), broken: M.brokenPairs(D.truth.top, D.truth.bottom).length };
-  const TBASE = [0, -0.99, 0.2], FX = [-1.18, 0, 1.18], FZ = 1.16, FW = 0.94, FD = 0.62, COLS = 50, ROWS = 40, N = 2000, EZ = 1.74;
-  const fieldOf = m => ORDER.indexOf(m);
+  const TBASE = [0, -0.99, 0.2], FX = [-1.22, 0, 1.22], FZ = 1.2, FW = 1.02, FD = 0.7, COLS = 50, ROWS = 40, N = 2000, EZ = 1.8;
+  const EXB = FX.map(x => [x, -0.99, EZ]);   // where the rebuilt examples stand: before their fields
 
   // ---------------------------------------------------------------- the fields: 3 x 2,000 tiny stems, one instanced quad each
   // each a tiny upright ladder drawn in its shader (rails, six rungs in its two letters' colours, a loop), turned
@@ -110,7 +110,7 @@ SETS.stem = function (K) {
   // the front) as uSort goes to 1
   const NF = 3 * N;
   const fieldU = { uCam: { value: new THREE.Vector3(0, 0, 40) }, uGrow: { value: 0 }, uSort: { value: 0 }, uK: { value: new THREE.Vector3(1, 1, 1) },
-    uW: { value: 0.026 }, uH: { value: 0.075 }, uL0: { value: new THREE.Color(...LC[0]) }, uL1: { value: new THREE.Color(...LC[1]) },
+    uW: { value: 0.03 }, uH: { value: 0.088 }, uL0: { value: new THREE.Color(...LC[0]) }, uL1: { value: new THREE.Color(...LC[1]) },
     uL2: { value: new THREE.Color(...LC[2]) }, uL3: { value: new THREE.Color(...LC[3]) }, uRed: { value: new THREE.Color(...LK.RED) }, uRail: { value: new THREE.Color(0.78, 0.86, 1.0) } };
   const fieldGeo = new THREE.InstancedBufferGeometry();
   const FA = {};
@@ -164,15 +164,15 @@ void main() {
   float y = vUv.y * 7.2, x = vUv.x;                 // across -1..1; six rungs between y 0.35 and 6.35, the loop above
   float hw = 0.32 + 0.68 * abs(cos(vPh + y * 0.57)); // the ladder's half width as seen: it twists, 11 pairs a turn
   vec3 col = vec3(0.0); float on = 0.0;
-  if (y > 0.2 && y < 6.35 && abs(abs(x) - hw) < 0.2) { col = uRail; on = 1.0; }
-  if (y >= 6.35) { float r = length(vec2(x / hw, (y - 6.35) / 0.8)); if (abs(r - 1.0) < 0.3) { col = uRail; on = 1.0; } }
+  if (y > 0.2 && y < 6.35 && abs(abs(x) - hw) < 0.15) { col = uRail; on = 1.0; }
+  if (y >= 6.35) { float r = length(vec2(x / hw, (y - 6.35) / 0.8)); if (abs(r - 1.0) < 0.26) { col = uRail; on = 1.0; } }
   float j = floor(y - 0.35), fy = y - 0.35 - j;
-  if (j >= 0.0 && j < 6.0 && abs(fy - 0.5) < 0.25 && abs(x) < hw) {
+  if (j >= 0.0 && j < 6.0 && abs(fy - 0.5) < 0.3 && abs(x) < hw) {
     float s = pairAt(j);
     if (holds(s) > 0.5) { col = x < 0.0 ? lc(floor(s / 4.0 + 0.01)) : lc(mod(s + 0.01, 4.0)); on = 2.0; } else { col = uRed; on = 3.0; }
   }
   if (on < 0.5) discard;
-  float b = on > 2.5 ? 1.0 : vGood > 0.5 ? 1.3 : 0.3;   // all six hold: bright; else dim, its broken rungs red
+  float b = on > 2.5 ? 0.8 : vGood > 0.5 ? (on > 1.5 ? 1.45 : 0.8) : 0.24;   // all six hold: bright; else dim, its broken rungs red
   gl_FragColor = vec4(col * b * vK, uA);
 }`,
   });
@@ -396,8 +396,7 @@ void main() {
     }
     if (exA > 0.003 && R) for (let f = 0; f < 3; f++) {
       const m = ORDER[f];
-      _b[0] = FX[f]; _b[1] = -0.99; _b[2] = EZ;
-      smallStem(_b, 0.085, R[m].bestIdx.top, R[m].bestIdx.bottom, exA * prog(exA, f * 0.2, f * 0.2 + 0.6), TRUTH, 1);
+      smallStem(EXB[f], 0.085, R[m].bestIdx.top, R[m].bestIdx.bottom, exA * prog(exA, f * 0.2, f * 0.2 + 0.6), TRUTH, 1);
     }
     tiles.end(); tubes.end(); balls.end(); halos.end(); rings.end(); boxes.end(); glass.end(); cones.end(); gears.end();
   }
@@ -422,7 +421,7 @@ void main() {
   const share = m => {
     const R = now.R;
     if (!R) return '';
-    return now.src === 1 ? ` · ${pct(R[m].share)} all hold here` : ` · ${pct(D.intact[m])} all six hold`;
+    return now.src === 1 ? ` · ${pct(R[m].share)} here` : ` · ${pct(D.intact[m])} all six`;
   };
   const brk0 = MMATH.LETTERS[ORIG[BI]];
   const labels = [
@@ -440,7 +439,7 @@ void main() {
     { text: [`${M.qubits(10)} qubits`, ' · two per letter, for all ten'], at: 'qubits', cls: 'grn', alpha: S => prog(S.stem_qubits, 0.5, 1) },
   ];
   SPECIES.forEach((P, j) => labels.push({ text: [`Species ${j + 1}`, ` · ${nb(P.broken)}`], at: 'sp' + (j + 1), cls: '',
-    alpha: S => prog(S.stem_species, 0.4 + 0.2 * j, 0.8 + 0.2 * j) * (1 - prog(S.stem_fields, 0.1, 0.3)) }));
+    alpha: S => prog(S.stem_species, 0.4 + 0.15 * j, 0.7 + 0.15 * j) * (1 - prog(S.stem_fields, 0.1, 0.3)) }));
   ORDER.forEach(m => labels.push({ text: () => [now.src === 1 ? NAME_LIVE[m] : NAME[m], share(m)], at: 'field_' + m, cls: m === 'coupled' ? 'cyn' : m === 'exact' ? 'grn' : '',
     alpha: S => prog(S.stem_fields, 0.3, 0.7) * (1 - prog(S.stem_examples, 0.1, 0.5)) * (Math.round(S.stem_method) < 0 || METHODS[Math.round(S.stem_method)] === m ? 1 : 0.5) }));
   labels.push({ text: ['True ancestor', ` · ${nb(TRUTH.broken)}`], at: 'truth', cls: 'amb', alpha: S => prog(S.stem_truth, 0.5, 1) });
@@ -454,8 +453,8 @@ void main() {
     count: [-12, 10, 5.4, 0.85, -0.1, -0.15],
     cloud: [-10, 12, 8.4, 1.0, 0.0, -1.4],
     species: [18, 16, 3.9, 0, -0.38, 0.1],
-    fields: [0, 34, 4.4, 0, -0.95, 1.12],
-    compare: [0, 20, 4.2, 0, -0.62, 0.85],
+    fields: [0, 30, 4.1, 0, -0.95, 1.15],
+    compare: [0, 18, 4.4, 0, -0.55, 0.85],
     what: [36, 12, 4.4, 0, -0.38, 0],
   };
   const controls = [
