@@ -205,7 +205,7 @@ void main() {
     dataCache.set(key, R);
     return R;
   }
-  let fieldKey = '';
+  let fieldKey = null;   // the data the fields hold now
   function fillFields(R) {
     const ps = FA.aPos.array, so = FA.aSort.array, pa = FA.aPA.array, pb = FA.aPB.array, info = FA.aInfo.array, SL = FA.SLOT;
     ORDER.forEach((m, f) => {
@@ -375,15 +375,15 @@ void main() {
     const src = Math.round(S.stem_src) === 1 ? 1 : 0, w = clamp(Math.round(S.stem_w), 1, 30), seed = Math.max(1, Math.round(S.stem_seed));
     const meth = Math.round(S.stem_method);
     now.src = src; now.w = w; now.seed = seed; now.method = meth >= 0 && meth < 3 ? meth : -1;
-    const R = (fl > 0.003 || exA > 0.003) ? dataOf(src, w, seed) : now.R;
-    if (R) now.R = R;
+    const same = now.R && now.Rsrc === src && now.Rw === w && now.Rseed === seed;
+    const R = same ? now.R : (fl > 0.003 || exA > 0.003) ? dataOf(src, w, seed) : now.R;
+    if (R && !same && (fl > 0.003 || exA > 0.003)) { now.R = R; now.Rsrc = src; now.Rw = w; now.Rseed = seed; }
     for (let j = 0; j < 3; j++) {
       const P = SPECIES[j];
       smallStem(P.base, 0.07, P.top, P.bottom, spA * prog(spA, j * 0.2, j * 0.2 + 0.6), TRUTH, tr);
     }
     if (fl > 0.003) {
-      const key = `${src}|${w}|${seed}`;
-      if (key !== fieldKey) { fillFields(R); fieldKey = key; }
+      if (fieldKey !== R) { fillFields(R); fieldKey = R; }
       fieldU.uGrow.value = fl; fieldU.uSort.value = clamp(S.stem_sort, 0, 1);
       fieldU.uK.value.set(fieldK(ORDER[0], exA), fieldK(ORDER[1], exA), fieldK(ORDER[2], exA));
       // a dark bed under each field
@@ -415,13 +415,14 @@ void main() {
   };
   SPECIES.forEach((P, j) => { anchors['sp' + (j + 1)] = [P.base[0] + 0.1, P.base[1] + 0.62, P.base[2]]; });
   ORDER.forEach((m, f) => {
-    anchors['field_' + m] = [FX[f] - FW / 2 + 0.02, -0.93, FZ - FD / 2 - 0.02];
-    anchors['ex_' + m] = [FX[f] - 0.4, -0.22, EZ];
+    // (behind the outer fields, before the middle one: three tags side by side would touch on a narrow screen)
+    anchors['field_' + m] = f === 1 ? [FX[f] - FW / 2 + 0.02, -0.97, FZ + FD / 2 + 0.06] : [FX[f] - FW / 2 + 0.02, -0.93, FZ - FD / 2 - 0.02];
+    anchors['ex_' + m] = [FX[f] - (f === 2 ? 0.55 : 0.4), -0.22, EZ];
   });
   const share = m => {
     const R = now.R;
     if (!R) return '';
-    return now.src === 1 ? ` · ${pct(R[m].share)} here` : ` · ${pct(D.intact[m])} all six`;
+    return now.src === 1 ? ` · ${pct(R[m].share)} here` : ` · ${pct(D.intact[m])} intact`;
   };
   const brk0 = MMATH.LETTERS[ORIG[BI]];
   const labels = [
@@ -449,13 +450,13 @@ void main() {
     default: [16, 6, 3.4, 0, 0, 0],
     strand: [0, 4, 4.4, 0, 0.1, 0],
     fold: [14, 8, 3.2, 0, 0.02, 0],
-    break: [24, 6, 2.3, 0, 0.12, 0],
+    break: [24, 6, 2.3, 0.12, 0.12, 0],
     count: [-12, 10, 5.4, 0.85, -0.1, -0.15],
     cloud: [-10, 12, 8.4, 1.0, 0.0, -1.4],
     species: [18, 16, 3.9, 0, -0.38, 0.1],
     fields: [0, 30, 4.6, 0, -0.95, 1.15],
-    compare: [0, 27, 4.7, 0, -0.5, 0.9],
-    what: [8, 14, 4.3, 0, -0.36, 0],
+    compare: [0, 27, 4.7, 0.14, -0.5, 0.9],
+    what: [8, 14, 4.3, 0.16, -0.36, 0],
   };
   const controls = [
     { key: 'view', label: 'View', options: [['stem', 'Stem'], ['count', 'Count'], ['rebuild', 'Rebuild'], ['compare', 'Compare']] },

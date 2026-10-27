@@ -129,7 +129,16 @@ void main() {
     let F = trees.get(key);
     if (F) return F;
     const tr = M.familyTree(seed, speed, MODEL);
-    if (!geoBySeed.has(seed)) geoBySeed.set(seed, branchGeo(tr, RAD));
+    if (!geoBySeed.has(seed)) {
+      // (explore can ask for any number of trees: keep the last few, free the rest)
+      for (const [k, g] of geoBySeed) {
+        if (geoBySeed.size < 6) break;
+        if (g === famMesh.geometry) continue;
+        g.dispose(); geoBySeed.delete(k);
+        for (const [tk, T] of trees) if (T.seed === k) trees.delete(tk);
+      }
+      geoBySeed.set(seed, branchGeo(tr, RAD));
+    }
     const anc = M.toIdx(tr.nodes[tr.root].seq), P = tr.branches.map(b => M.P(MODEL, b.len));
     const top = Math.max(...tr.nodes.map(n => n.pos[1]));
     const turn = tr.branches.map(b => M.turnAngle(MODEL, b.len));
@@ -245,7 +254,7 @@ void main() {
     camL.copy(camW); set.group.worldToLocal(camL);
     const sp = clamp(S.tree_species, 0, 1), fa = 1 - sp, sa = sp;
     const seed = Math.max(1, Math.round(S.tree_seed)), speed = SPEEDS[clamp(Math.round(S.tree_speed), 0, SPEEDS.length - 1)];
-    const F = family(seed, speed), tr = F.tr;
+    const F = now.F.seed === seed && now.F.speed === speed ? now.F : family(seed, speed), tr = F.tr;
     if (famMesh.geometry !== F.geo) famMesh.geometry = F.geo;
     now.F = F; now.fam = fa; now.sp = sa;
     const grow = clamp(S.tree_grow, 0, 1), seqA = clamp(S.tree_seq, 0, 1), hi = clamp(S.tree_hi, 0, 1);
@@ -420,7 +429,7 @@ void main() {
     let az = Math.atan2(-dz, dx) * 180 / PI;
     if (Math.cos(az * PI / 180) < 0) az += 180;
     // (aimed a little right of their middle: the tags run to the right of their branches)
-    const a = az * PI / 180, cx = (lp[0] + spt[0]) / 2 + 0.3 * Math.cos(a), cz = (lp[2] + spt[2]) / 2 - 0.3 * Math.sin(a);
+    const a = az * PI / 180, cx = (lp[0] + spt[0]) / 2 + 0.45 * Math.cos(a), cz = (lp[2] + spt[2]) / 2 - 0.45 * Math.sin(a);
     return [Math.round(((az + 540) % 360) - 180), 14, 4.6, +cx.toFixed(2), +((lp[1] + spt[1]) / 2).toFixed(2), +cz.toFixed(2)];
   })();
   const near = p => { const az = Math.atan2(p[0], p[2]) * 180 / PI; return [Math.round(az + 12), 12, 2.4, +p[0].toFixed(2), +p[1].toFixed(2), +p[2].toFixed(2)]; };
@@ -433,7 +442,7 @@ void main() {
     stand: [20, 4, 1.45, 0, 0.35, 0],
     up: [200, -62, 2.2, 0, 0.3, 0.05],
     species: [18, 16, 3.9, 0, -0.42, 0.1],
-    what: [8, 14, 4.3, 0, -0.36, 0],
+    what: [8, 14, 4.3, 0.16, -0.36, 0],
   };
   const controls = [
     { key: 'view', label: 'View', options: [['tree', 'Family tree'], ['machines', 'Machines'], ['species', 'Species tree']] },
