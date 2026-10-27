@@ -8,22 +8,21 @@
 // it again after the text changes). A recording replaces it with its own times.
 const NARRATION_SYNC = [
   [0, 0], [2.6, 2.4], [5.2, 4], [5.8, 4.6], [10.7, 6.5], [18.3, 13], [19, 13.6], [25.1, 15],
-  [31.2, 20.5], [34.5, 23], [35.2, 23.6],             // Letters
-  [43.9, 26], [44.5, 26.6], [45.8, 27.2], [71.5, 50.6], [79.4, 51.5], [80, 52.1], [83.2, 52.5],
-  [86, 55.1], [101, 57], [101.7, 57.6],               // Family tree
-  [110.4, 60], [111, 60.6], [112.3, 61.2], [120.4, 66], [134.7, 79], [143.1, 84], [149.5, 88],
-  [150.2, 88.6], [156.3, 91], [156.9, 91.6],          // Qubits
-  [170.7, 96], [171.3, 96.6], [172.2, 97.2], [172.8, 97.8], [176.4, 99], [179.8, 102], [184.2, 106],
-  [194.8, 113], [202.4, 118], [210.9, 124], [216.4, 128],  // The rule
-  [229.6, 134], [230.2, 134.6], [231.1, 135.2], [244.1, 147], [253.8, 154], [261.4, 160.5],
-  [270.3, 168.6], [274.8, 170], [275.4, 170.6],       // Machine
-  [302.3, 180], [303.6, 181.18], [304.7, 181.2], [334.8, 208.6], [339.7, 209], [344.1, 213],
-  [346.6, 215], [347.3, 215.6], [349.1, 216], [349.8, 216.6],  // Pairs
-  [368.6, 218], [369.3, 218.6], [370.6, 219.2], [384.7, 232], [391, 236], [400.9, 245], [408.5, 249],
-  [409.2, 249.6], [418.7, 253], [419.4, 253.6], [427.2, 256],  // Rebuild
-  [443.7, 264], [445, 265.18], [446.1, 265.2], [455.8, 270], [456.5, 270.6], [465.1, 273],
-  [465.8, 273.6], [476.2, 278], [476.8, 278.6], [492.7, 280], [494.4, 281.6], [507.3, 282],
-  [516.1, 290],                                       // What for
+  [31.2, 20.5], [34.6, 23], [35.2, 23.6],             // Letters
+  [43.9, 26], [44.6, 26.6], [45.8, 27.2], [71.6, 50.6], [79.4, 51.5], [80.1, 52.1], [83.2, 52.5],
+  [86.1, 55.1], [101.1, 57], [101.8, 57.6],           // Family tree
+  [110.4, 60], [111.1, 60.6], [112.4, 61.2], [120.4, 66], [134.7, 79], [143.2, 84], [149.6, 88],
+  [150.2, 88.6], [156.4, 91], [157, 91.6],            // Qubits
+  [170.8, 96], [171.5, 96.6], [172.3, 97.2], [173, 97.8], [176.5, 99], [179.9, 102], [184.3, 106],
+  [194.9, 113], [202.6, 118], [211.1, 124], [216.6, 128],  // The rule
+  [229.7, 134], [230.4, 134.6], [231.2, 135.2], [244.2, 147], [254, 154], [261.6, 160.5],
+  [270.5, 168.6], [275, 170], [275.6, 170.6],         // Machine
+  [305.1, 180], [306.4, 181.18], [307.4, 181.2], [337.6, 208.6], [342.4, 209], [346.8, 213],
+  [349.4, 215], [350, 215.6], [351.9, 216], [352.6, 216.6],  // Pairs
+  [371.4, 218], [372.1, 218.6], [373.4, 219.2], [387.4, 232], [393.8, 236], [403.7, 245],
+  [411.3, 249], [412, 249.6], [421.5, 253], [422.2, 253.6], [430, 256],  // Rebuild
+  [446.6, 264], [447.9, 265.18], [448.9, 265.2], [458.7, 270], [459.3, 270.6], [468, 273],
+  [468.7, 273.6], [479, 278], [479.7, 278.6], [495.6, 280], [497.3, 281.6], [510.2, 282], [519, 290],  // What for
 ];
 // recording time -> original story time
 function storyT(t) {
@@ -267,7 +266,7 @@ function buildStory() {
         </ul>`,
       `<p data-at="26.5">One machine per branch, joined into the tree.</p>
         <p data-at="34" class="amber">Read at the tips, it writes new sequences that follow the rule.</p>
-        <p class="note" data-at="36">The copy is ${word(F.copies)} CNOT gates. The turn is a few rotations of single qubits plus steps that link two qubits, so it depends on the parent's letter: for a ${LET[F.turn.par]} after ${F.turn.t} swap per letter, c1 and c0, the child's first and second qubit, turn ${deg(F.turn.c1)} and ${deg(F.turn.c0[0])} or ${deg(F.turn.c0[1])}. How far each step turns depends only on the branch length; the steps are the same on every branch: ${F.ry} turns of one qubit and ${F.cx} links.</p>`)}`,
+        <p class="note" data-at="36">The copy is ${word(F.copies)} CNOT gates. The turn is a few rotations of single qubits plus steps that link two qubits, so it depends on the parent's letter: for a ${LET[F.turn.par]} after ${F.turn.t} swap per letter, c1, the child's first qubit, turns ${deg(F.turn.c1)} and c0, its second, ${deg(F.turn.c0[0])} or ${deg(F.turn.c0[1])}. How far each step turns depends only on the branch length; the steps are the same on every branch: ${F.ry} turns of one qubit and ${F.cx} links.</p>`)}`,
     pairs: `<h2 data-at="0.6">Letters that work together</h2>
       ${turns(`<p data-at="1.2" data-out="27.5">Letters often act together.</p>
         <p data-at="4" data-out="27.5">An RNA strand folds back on itself into a stem, held by pairs: ${F.held.map(p => `${p[0]} with ${p[1]}`).join(', ')}.</p>
