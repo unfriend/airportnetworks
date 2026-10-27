@@ -17,11 +17,14 @@ canvas { display: block; }
 <script>
 // Test harness for one set of the mutation story (serve the repository root, open /tools/mutation/harness.html):
 // harness.html?set=rule&p=rule_path:1&t=3&cam=pyramid&anim=1
+// &with=tree also loads and shows a second set in the same frame (sets that share one, as the tree and the stem): its
+// params take their defaults and the p= values, its labels show too; cam= names a view of either (the first set's first)
 // the maths (sets/mmath.js), the real run's numbers (sets/data.js) and the shared look (sets/look.js) are always
 // loaded; a label's text may be a function (it is re-read every frame, as the story's engine does)
 const Q = new URLSearchParams(location.search);
 const FILE = Q.get('set');
 document.write(`<script src="sets/${FILE}.js?v=${Date.now()}"><\/script>`);
+if (Q.get('with')) document.write(`<script src="sets/${Q.get('with')}.js?v=${Date.now()}"><\/script>`);
 </script>
 </head><body>
 <div id="info"></div>
@@ -47,17 +50,26 @@ const buildMs = performance.now() - t0;
 scene.add(set.group);
 const S = Object.assign({}, set.params);
 if (S[key + '_a'] === undefined) S[key + '_a'] = 1;
+// the second set (&with=), in the same frame
+const key2 = Q.get('with'), set2 = key2 ? SETS[key2](K) : null;
+if (set2) {
+  if (set2.finish && !Q.get('nofinish')) set2.finish();
+  scene.add(set2.group);
+  Object.assign(S, set2.params, Object.assign({}, S));
+  if (S[key2 + '_a'] === undefined) S[key2 + '_a'] = 1;
+}
+const buildMs2 = set2 ? performance.now() - t0 - buildMs : 0;
 for (const kv of (Q.get('p') || '').split(',').filter(Boolean)) { const [k, v] = kv.split(':'); S[k] = parseFloat(v); }
 // (cam: a view of the set by name, or six numbers)
-const camQ = Q.get('cam'), camArr = camQ ? (set.cam && set.cam[camQ] ? set.cam[camQ] : camQ.split(',').map(Number)) : (set.cam && set.cam.default) || [0, 15, 3.6, 0, 0, 0];
+const camQ = Q.get('cam'), camArr = camQ ? (set.cam && set.cam[camQ] ? set.cam[camQ] : set2 && set2.cam && set2.cam[camQ] ? set2.cam[camQ] : camQ.split(',').map(Number)) : (set.cam && set.cam.default) || [0, 15, 3.6, 0, 0, 0];
 function place(c) {
   const [az, el, d, tx, ty, tz] = c, A = az * Math.PI / 180, E = el * Math.PI / 180;
   camera.position.set(tx + d * Math.cos(E) * Math.sin(A), ty + d * Math.sin(E), tz + d * Math.cos(E) * Math.cos(A));
   camera.up.set(0, 1, 0); camera.lookAt(tx, ty, tz);
 }
 const txt = L => (typeof L.text === 'function' ? L.text() : L.text);
-const labels = (set.labels || []).map(L => { const el = document.createElement('div'); el.className = 'l ' + (L.cls || ''); document.body.appendChild(el); return { L, el, h: '' }; });
-const anchor = a => (typeof a === 'function' ? a() : typeof a === 'string' ? (typeof set.anchors[a] === 'function' ? set.anchors[a]() : set.anchors[a]) : a);
+const labels = [set, set2].filter(Boolean).flatMap(st => (st.labels || []).map(L => { const el = document.createElement('div'); el.className = 'l ' + (L.cls || ''); document.body.appendChild(el); return { L, el, h: '', st }; }));
+const anchor = (a, st) => (typeof a === 'function' ? a() : typeof a === 'string' ? (typeof st.anchors[a] === 'function' ? st.anchors[a]() : st.anchors[a]) : a);
 let t = parseFloat(Q.get('t') || '0'), last = performance.now(), frames = 0, ms = 0;
 const v = new THREE.Vector3();
 function frame(now) {
@@ -67,8 +79,10 @@ function frame(now) {
   K.U.uPx.value = renderer.getDrawingBufferSize(new THREE.Vector2()).y * 0.5;
   place(camArr);
   set.setAlpha(S[key + '_a']);
+  if (set2) set2.setAlpha(S[key2 + '_a']);
   const a = performance.now();
   set.update(S, t, dt);
+  if (set2 && S[key2 + '_a'] > 0) set2.update(S, t, dt);
   renderer.render(scene, camera);
   ms += performance.now() - a; frames++;
   for (const lb of labels) {
@@ -77,13 +91,13 @@ function frame(now) {
     if (al <= 0) continue;
     const tx = txt(L), h = `<b>${tx[0]}</b>${tx[1] || ''}`;
     if (h !== lb.h) { el.innerHTML = h; lb.h = h; }
-    const p = anchor(L.at);
-    v.set(p[0], p[1], p[2]).applyMatrix4(set.group.matrixWorld).project(camera);
+    const p = anchor(L.at, lb.st);
+    v.set(p[0], p[1], p[2]).applyMatrix4(lb.st.group.matrixWorld).project(camera);
     el.style.transform = `translate(${((v.x * 0.5 + 0.5) * W + 8).toFixed(1)}px, ${((-v.y * 0.5 + 0.5) * H - 10).toFixed(1)}px)`;
   }
   let tris = renderer.info.render.triangles, calls = renderer.info.render.calls, pts = renderer.info.render.points, lns = renderer.info.render.lines;
-  document.getElementById('info').textContent = `build ${buildMs.toFixed(0)} ms · ${calls} calls · ${tris} tris · ${pts} pts · ${lns} lines · t=${t.toFixed(2)}`;
-  window.__stats = { buildMs, calls, tris, pts, lns, frameMs: ms / frames };
+  document.getElementById('info').textContent = `build ${buildMs.toFixed(0)}${set2 ? ' + ' + buildMs2.toFixed(0) : ''} ms · ${calls} calls · ${tris} tris · ${pts} pts · ${lns} lines · t=${t.toFixed(2)}`;
+  window.__stats = { buildMs, buildMs2, calls, tris, pts, lns, frameMs: ms / frames };
   window.__ready = true;
   if (Q.get('anim') || frames < 3) requestAnimationFrame(frame);
 }

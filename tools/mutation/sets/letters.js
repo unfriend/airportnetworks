@@ -234,7 +234,7 @@ SETS.letters = function (K) {
     now.F = F;
     let spinA = 0, coll = 0;
     if (flyL >= 0) {
-      spinA = 5 * PI * smooth(prog(fNow, 0, 0.36));
+      spinA = 4 * PI * smooth(prog(fNow, 0, 0.36));   // (whole turns: the arrows come back where they were)
       coll = prog(fNow, 0.3, 0.46) * (1 - prog(fNow, 0.62, 0.95));
       // the arrows land on the letter read, then return to the mix (a fresh copy for the next read-out)
       for (let i = 0; i < 4; i++) pShow[i] = lerp(pShow[i], i === flyL ? 1 : 0, coll);
@@ -283,7 +283,8 @@ SETS.letters = function (K) {
     if (flyL >= 0 && qa > 0.004) {
       const s = smooth(prog(fNow, 0.46, 0.95)), sz = lerp(0.14, PT, s);
       slotPos(flyL, flySlot, _b);
-      lerp3(_a, now.hero, _b, s); _a[1] += 0.35 * Math.sin(PI * s); _a[2] += 0.25 * Math.sin(PI * s);
+      _c[0] = now.hero[0]; _c[1] = now.hero[1] - 0.2; _c[2] = now.hero[2] + 0.18;   // (out of the tile's front)
+      lerp3(_a, _c, _b, s); _a[1] += 0.3 * Math.sin(PI * s); _a[2] += 0.2 * Math.sin(PI * s);
       _q.set(0, 0, 0, 1).slerp(QFLAT, s);
       const pa = prog(fNow, 0.4, 0.5) * qa;
       tiles.add(_a, _q, sz, flyL, pa, 0, 0.5 * (1 - s));
@@ -328,7 +329,7 @@ SETS.letters = function (K) {
     peel: [8, 12, 3.4, 0, 0.18, 0.05],
     rows: [12, 10, 3.7, 0, 0.04, 0.12],
     qubits: [0, 6, 2.9, 0, 0.2, 0.3],
-    reads: [0, 14, 3.6, 0, -0.22, 0.35],
+    reads: [0, 12, 3.95, 0, -0.14, 0.35],
   };
   const MIXES = [['A', 'A'], ['C', 'C'], ['G', 'G'], ['T', 'T'], ['even', 'Even'], ['rule', 'The rule\'s mix']];
   const controls = [
