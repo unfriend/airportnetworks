@@ -324,7 +324,7 @@ const MMATH = (() => {
   // scales the branch lengths (and the mutations) but not the drawing, so a tree keeps its shape: tree.unit is the
   // drawn height of one swap per letter.
   function familyTree(seed = 1, speed = 1, m = DEFAULT) {
-    const r = rng(seed), e = prep(m), nodes = [], LEN = [[0.1, 0.4], [0.06, 0.45], [0.05, 0.6]];
+    const r = rng(seed), e = prep(m), nodes = [], LEN = [[0.15, 0.45], [0.1, 0.5], [0.05, 0.6]];
     const RAD = [0, 0.38, 0.78, 1.12], SPREAD = [0, Math.PI / 2, Math.PI / 4, Math.PI / 8];
     const root = node(nodes, -1, 0, Math.PI / 2, 0);
     for (let d = 1; d <= 3; d++) {
@@ -502,8 +502,36 @@ const MMATH = (() => {
   function trans(method, m, w, t, dbl) {
     return method === 'indep' ? Pindep(m, t) : method === 'coupled' ? Pcoupled(m, w, t) : Ppair(m, w, t, dbl);
   }
-  function prior(method, m, w, dbl) {
-    if (method !== 'indep') return pairModel(m, w, dbl).pi;   // (the coupled stand-in's rows tend to this too)
+  // the long-run mix of a step M (n x n, rows sum to 1): pi M = pi, sum pi = 1 (Gauss-Jordan elimination)
+  function stationary(M, n = 16) {
+    const c1 = n + 1, A = new Float64Array(n * c1);
+    for (let i = 0; i < n; i++) {
+      for (let j = 0; j < n; j++) A[i * c1 + j] = i === n - 1 ? 1 : M[j * n + i] - (i === j ? 1 : 0);
+      A[i * c1 + n] = i === n - 1 ? 1 : 0;
+    }
+    for (let c = 0; c < n; c++) {
+      let p = c;
+      for (let r = c + 1; r < n; r++) if (Math.abs(A[r * c1 + c]) > Math.abs(A[p * c1 + c])) p = r;
+      if (p !== c) for (let k = 0; k <= n; k++) { const v = A[c * c1 + k]; A[c * c1 + k] = A[p * c1 + k]; A[p * c1 + k] = v; }
+      for (let r = 0; r < n; r++) {
+        if (r === c) continue;
+        const f = A[r * c1 + c] / A[c * c1 + c];
+        if (f) for (let k = c; k <= n; k++) A[r * c1 + k] -= f * A[c * c1 + k];
+      }
+    }
+    const out = new Float64Array(n);
+    for (let i = 0; i < n; i++) out[i] = Math.max(A[i * c1 + n] / A[i * c1 + i], 0);
+    return out;
+  }
+  // a method's long-run mix, the root's prior: letter by letter pi_x pi_y; the exact pair model's pi_xy; the coupled
+  // stand-in's, where its machine settles when run branch after branch (its step is not the same for every length:
+  // here at the tree's mean branch length, tbar). That mix favours matching pairs more than the exact model's does
+  // (on short steps the weight w comes on top of the pairs' own long-run favour), which is part of how the stand-in
+  // favours pairs too strongly; with the exact model's mix as its prior it would rebuild fewer intact ancestors than
+  // letter by letter on Figure 5's stems, as each branch's weighting makes the species' broken pairs unlikely
+  function prior(method, m, w = 8, dbl = 0.1, tbar = 0.3) {
+    if (method === 'exact') return pairModel(m, w, dbl).pi;
+    if (method === 'coupled') return stationary(Pcoupled(m, w, tbar));
     const p = prep(m).pi, out = new Float64Array(16);
     for (let s = 0; s < 16; s++) out[s] = p[s >> 2] * p[s & 3];
     return out;
@@ -520,7 +548,8 @@ const MMATH = (() => {
     const key = `${method}|${mkey(mo)}|${w}|${n}|${seed}|${dbl}`;
     if (rebuildCache.has(key)) return rebuildCache.get(key);
     const tr = speciesTree(), N = tr.nodes.length, mats = tr.nodes.map(nd => (nd.parent < 0 ? null : trans(method, mo, w, nd.len, dbl)));
-    const pri = prior(method, mo, w, dbl), K = tr.nodes.find(nd => nd.stem).stem.top.length;
+    const tbar = tr.branches.reduce((a, b) => a + b.len, 0) / tr.branches.length;
+    const pri = prior(method, mo, w, dbl, tbar), K = tr.nodes.find(nd => nd.stem).stem.top.length;
     const post = new Float64Array(K * 16), pairOk = new Float64Array(K), L = new Float64Array(N * 16);
     let top = '', bottom = '', expected = 1;
     for (let i = 0; i < K; i++) {
@@ -551,7 +580,7 @@ const MMATH = (() => {
       }
       good[k] = all; intact += all;
     }
-    const res = { method, model: mo.key, w, n, seed, dbl, pairs: K, post, pairOk, samples, good, intact, share: intact / n, expected, best: { top, bottom } };
+    const res = { method, model: mo.key, w, n, seed, dbl, pairs: K, prior: pri, post, pairOk, samples, good, intact, share: intact / n, expected, best: { top, bottom } };
     rebuildCache.set(key, res);
     return res;
   }
@@ -591,7 +620,7 @@ const MMATH = (() => {
     amps, bloch, sample, WIRES, angles, circuit, decompose, run, simulate, turnAngle,
     familyTree, speciesTree, curve, tangent, seqAt,
     OKS, ok, pairState, brokenPairs, pairModel, Ppair, Pindep, Pcoupled, matchShare, allSixPrior,
-    METHODS, rebuild, crowd, combos, qubits, eigSym,
+    METHODS, prior, stationary, rebuild, crowd, combos, qubits, eigSym,
   };
 })();
 if (typeof module !== 'undefined') module.exports = MMATH;
