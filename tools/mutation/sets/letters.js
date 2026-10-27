@@ -294,7 +294,7 @@ SETS.letters = function (K) {
   }
 
   // ---------------------------------------------------------------- anchors, labels, views
-  const rowEnd = R => [R.pos[0][0] - 0.16 * Math.cos(R.yaw), R.pos[0][1] + 0.02, R.pos[0][2] + 0.16 * Math.sin(R.yaw)];
+  const rowEnd = R => [R.pos[0][0] - 0.1 * Math.cos(R.yaw), R.pos[0][1] + 0.19, R.pos[0][2] + 0.1 * Math.sin(R.yaw)];   // (above the row's start)
   const _t = [0, 0, 0];
   const anchors = {
     helix: [X0 + 3 * RISE, HR + 0.1, 0], centre: [0, 0, 0],
