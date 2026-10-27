@@ -405,7 +405,9 @@ void main() {
       alpha: S => (1 - clamp(S.tree_species, 0, 1)) * (Math.round(S.tree_pick) >= 0 ? 1 : 0) },
     { text: ['One machine per branch', ''], at: 'gear', cls: 'cyn',
       alpha: S => (1 - clamp(S.tree_species, 0, 1)) * prog(S.tree_gears, 0.5, 1) * (Math.round(S.tree_pick) >= 0 ? 0 : 1) },
-    { text: ['Coupling gears', ' · one per branch'], at: 'sgear', cls: 'cyn', alpha: S => clamp(S.tree_species, 0, 1) * prog(S.tree_gears, 0.5, 1) * (1 - clamp(S.tree_flow, 0, 1)) },
+    // (it gives way once the stem set's fields come: the story shows the two sets together)
+    { text: ['Coupling gears', ' · one per branch'], at: 'sgear', cls: 'cyn',
+      alpha: S => clamp(S.tree_species, 0, 1) * prog(S.tree_gears, 0.5, 1) * (1 - clamp(S.tree_flow, 0, 1)) * (1 - prog(S.stem_fields || 0, 0, 0.3)) },
     { text: ['?', ' · their shared ancestor'], at: 'q', cls: 'amb', alpha: S => clamp(S.tree_species, 0, 1) * prog(S.tree_q, 0.4, 1) },
   ];
   // views: the family tree whole, from low as it grows, the crown, the long and the short branch (the story's tree,
@@ -427,7 +429,7 @@ void main() {
     pair: pairView, long: near(lp), short: near(spt),
     gears: [28, 14, 3.9, 0, -0.28, 0],
     stand: [20, 4, 1.45, 0, 0.35, 0],
-    up: [204, -50, 1.63, 0.25, 0.45, 0.6],
+    up: [200, -62, 2.2, 0, 0.3, 0.05],
     species: [18, 16, 3.9, 0, -0.42, 0.1],
     what: [36, 12, 4.4, 0, -0.38, 0],
   };
