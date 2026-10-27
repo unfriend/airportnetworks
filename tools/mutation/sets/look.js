@@ -10,6 +10,8 @@
 // Every pool: const P = LK.<pool>(max); set.group.add(P.mesh) once; then every frame P.begin(), P.add(...) (at most max
 // times: more are dropped; add returns the instance's index or -1), P.end() (sets the count, uploads, and hides the
 // mesh while it is empty, so an empty pool costs no draw call). Nothing is allocated per add: reuse arrays and options.
+// Triangles per instance: tube 20, cone 48, tile 200, ball 352, ring 640, glass 952, gear about 1,550 (a qubit about
+// 2,800 with its glass, two rings, ball, tubes and cone); each pool is one draw call (gears two).
 //
 // From the qubits story, unchanged in use:
 //   tubes(max).add(a, b, r, col, alpha, dash)          an open cylinder from point a to point b, radius r; dash: the
@@ -259,6 +261,7 @@ void main() {
 }`;
   function glass(max) {
     const P = pool(new THREE.SphereGeometry(1, 28, 18), mat(VTUBE, FGLASS, { blending: THREE.AdditiveBlending }), max);
+    P.mesh.renderOrder = 1;   // (after the solid pieces, so its glow lies over what is inside and behind)
     P.add = (p, r, col, alpha) => {
       if (r <= 0 || alpha <= 0.004) return -1;
       _m.compose(_p.set(p[0], p[1], p[2]), _q.set(0, 0, 0, 1), _s.set(r, r, r));
@@ -345,7 +348,7 @@ void main() {
   // the frame: the whole rounded edge, and a band just inside it on the faces
   float fr = vF * (vFace > 0.5 ? smoothstep(-0.008, 0.008, box(vUv - 0.5, 0.33, 0.07)) : 1.0);
   vec3 body = mix(vC, uWhite, fr);
-  vec3 col = body * (0.52 + 0.36 * dif + 0.14 * hemi + 0.75 * vG) + body * rim * 0.55 + vec3(spec * 0.22);
+  vec3 col = body * (0.62 + 0.36 * dif + 0.14 * hemi + 0.75 * vG) + body * rim * 0.55 + vec3(spec * 0.22);
   if (vFace > 0.5) col = mix(col, uInk, texture2D(uMap, vec2((vL + vUv.x) / ${CELLS}.0, vUv.y)).a);
   gl_FragColor = vec4(col, vA);
 }`;
