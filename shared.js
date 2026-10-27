@@ -15,14 +15,14 @@
 //               machine, two-point calibration, the saved frame with an anchor at mark A, reconciliation
 //
 // A story takes part with one object and two lines (section 7 of the plan): its factory returns
-//   collab: { APP, scene: () => GL.scene, state, apply, effect, hover, panel }
+//   collab: { APP, scene: () => GL.scene, state, apply, view, setView, effect, hover, panel(p, yaw, q), place(o, s, q) }
 // and its headset pointer code asks HOST.collab.ray(i, o, d) before its own raycast (a hit is the hover, kind
 // 'shell'; a press then goes to HOST.collab.press(i)). It calls HOST.collab.effect(type, data) where it causes
 // a one-shot effect itself. Debugging: window.__collabLog (the last 1000 events), localStorage collabDebug = 1
 // (or #debug in a link) prints them as well.
 (function () {
   const PROTO = 1;
-  const FORMAT = 'networks-21';   // the shared state's format (keys, the stories' state()): bump when it changes shape
+  const FORMAT = 'networks-22';   // the shared state's format (keys, the stories' state()): bump when it changes shape
   const BROWSER = (/OculusBrowser\/(\d+)/.exec(navigator.userAgent) || [])[1] || '';   // Quest Browser's version (shared spaces differ by it)
   const EYE = 1.6;               // a standing eye height (m): a station's rig hangs this high over its spot
   const AHEAD = 1.4;             // a station's content floats this far in front of its spot
@@ -415,6 +415,7 @@
     }
     if (!local && has(/^r[fs]\./)) R.recAt = 0;   // a frame published for a shared space, or one found split: checked on the next frame
     if (has(/^sg$/)) spaceMove();
+    if (has(/^look$/)) { const L = look(); if (L && HOST.xr && HOST.xr.keep) HOST.xr.keep(L); }   // (kept after leaving the room)
     changed();
   }
 
@@ -811,6 +812,33 @@
     changed();
   }
   const refused = what => { if (!layoutLocked()) return false; log('layout locked', { what }); return true; };
+  // the headsets' two settings (HOST.xr: labels facing you, in 3D or hidden; free moving on or off) are the room's in a
+  // room, for everyone in it (key look: { labels, free, by, at }; a room without it: everything in 3D), set from a
+  // headset's menu or the page's dialog, and never refused by the layout lock. Null outside a room (the device's own)
+  const LOOKS = ['face', 'fixed', 'hidden'], LOOK0 = { labels: 'fixed', free: true };
+  function look() {
+    if (!C.code || !C.welcomed) return null;
+    const v = val('look');
+    return { labels: v && LOOKS.includes(v.labels) ? v.labels : LOOK0.labels, free: v && typeof v.free === 'boolean' ? v.free : LOOK0.free };
+  }
+  const freeNow = () => (HOST.xr && HOST.xr.free ? HOST.xr.free() : true);
+  function setLook(o) {
+    const L = look();
+    if (!L) return false;
+    const v = { labels: LOOKS.includes(o.labels) ? o.labels : L.labels, free: typeof o.free === 'boolean' ? o.free : L.free };
+    const pairs = [['look', { labels: v.labels, free: v.free, by: C.id, at: Math.round(now()) }]];
+    // free moving off: every station's scene and panel stand as without it (no turn, the panel upright at its yaw)
+    if (L.free && !v.free) {
+      for (const k of new Set([...C.keys.keys(), ...C.pending.keys()])) {
+        const x = /^st\.[\w-]+\.(place|panel)$/.test(k) && val(k);
+        if (x && typeof x === 'object' && x.q !== undefined) { const y = Object.assign({}, x); delete y.q; pairs.push([k, y]); }
+      }
+    }
+    publish(pairs);
+    log('look', v);
+    changed();
+    return true;
+  }
   // Arrange all: every story in two rows in front of you (half, rounded up, in front), spots 2.4 m apart,
   // every station facing away from you, so its content floats beyond its spot and faces your side; a story that
   // already has a station keeps it (moved, its state kept)
@@ -978,37 +1006,59 @@
     try { s = C.hook.state(); } catch (e) { return; }
     if (s !== undefined) publish([[kX(L.id), s]]);
   }
-  // The station's panel (relative to its spot: x, y over the floor, z, yaw) and its scene (moved from where the story
-  // puts it, x, y, z, and sized, s), moved here with the grip (both hands on the scene resize it): they go out to the
-  // room ten times a second while held and once more when let go, so the others see them move; otherwise they glide to
-  // the room's values (and are put there at once when a station is reached). Every frame, from the shell's tick.
+  // The station's panel (relative to its spot: x, y over the floor, z, yaw, and with free moving its rotation q) and its
+  // scene (moved from where the story puts it, x, y, z, sized, s, and with free moving turned, q), moved here with the
+  // grip (both hands on the scene resize it): they go out to the room ten times a second while held and once more when
+  // let go, so the others see them move; otherwise they glide to the room's values (and are put there at once when a
+  // station is reached). Every frame, from the shell's tick.
   const PL = { id: '', held: { panel: false, globe: false }, quiet: { panel: 0, globe: 0 }, at: 0 };
-  const PLACE0 = { x: 0, y: 0, z: 0, s: 1 };
+  const PLACE0 = { x: 0, y: 0, z: 0, s: 1, q: null };
   const SIZE = [0.25, 4];   // a scene's size: a quarter to four times the story's own
   const clampS = v => Math.min(SIZE[1], Math.max(SIZE[0], v));
-  const panelHome = () => ({ x: PANEL_HOME.p[0], y: PANEL_HOME.p[1] + EYE, z: PANEL_HOME.p[2], yaw: PANEL_HOME.yaw });
+  const panelHome = () => ({ x: PANEL_HOME.p[0], y: PANEL_HOME.p[1] + EYE, z: PANEL_HOME.p[2], yaw: PANEL_HOME.yaw, q: null });
+  // turns (free moving) as [x, y, z, w]: the scene's (q of the place; none: not turned) and the panel's (q of the panel;
+  // none: upright at its yaw). They go out to 4 decimals, w never negative (q and -q are one turn); with free moving
+  // off the room's are not taken (turning it off takes them out of the room: setLook)
+  const r4 = x => Math.round(x * 10000) / 10000;
+  const Q1 = [0, 0, 0, 1];
+  const validQ = q => Array.isArray(q) && q.length === 4 && q.every(Number.isFinite) && Math.abs(Math.hypot(...q) - 1) < 0.01;
+  const qOf = q => (!q ? null : Array.isArray(q) ? (validQ(q) ? q.slice() : null) : Number.isFinite(q.w) ? [q.x, q.y, q.z, q.w] : null);   // a story's (a quaternion)
+  const qOut = q => { const n = Math.hypot(...q) || 1, k = q[3] < 0 ? -1 : 1; return q.map(c => r4(k * c / n) + 0); };
+  const qAng = (a, b) => 2 * Math.acos(Math.min(1, Math.abs(a[0] * b[0] + a[1] * b[1] + a[2] * b[2] + a[3] * b[3])));
+  const yawQ = y => [0, Math.sin(y / 2), 0, Math.cos(y / 2)];
+  const _qa = new THREE.Quaternion(), _qb = new THREE.Quaternion();
+  const qSlerp = (a, b, k) => _qa.fromArray(a).slerp(_qb.fromArray(b), k).toArray();
   // (each value names its story: one written for the station's story before it changed is no longer taken)
   const ofStory = (v, L) => !v.story || v.story === L.story;
   const validPanel = (v, L) => !!(v && typeof v === 'object' && ['x', 'y', 'z', 'yaw'].every(k => Number.isFinite(v[k])) && ofStory(v, L));
   const validPlace = (v, L) => !!(v && typeof v === 'object' && ['x', 'y', 'z', 's'].every(k => Number.isFinite(v[k])) && v.s > 0 && ofStory(v, L));
-  const roomPanel = L => { const v = val(kPanel(L.id)); return validPanel(v, L) ? v : panelHome(); };
-  const roomPlace = L => { const v = val(kPlace(L.id)); return validPlace(v, L) ? { x: v.x, y: v.y, z: v.z, s: clampS(v.s) } : PLACE0; };
+  const roomQ = v => (freeNow() && validQ(v.q) ? v.q.slice() : null);
+  const roomPanel = L => { const v = val(kPanel(L.id)); return validPanel(v, L) ? { x: v.x, y: v.y, z: v.z, yaw: v.yaw, q: roomQ(v) } : panelHome(); };
+  const roomPlace = L => { const v = val(kPlace(L.id)); return validPlace(v, L) ? { x: v.x, y: v.y, z: v.z, s: clampS(v.s), q: roomQ(v) } : PLACE0; };
   function placeSync(dt, t) {
     const L = liveSt();
     if (!synced(L) || !R.placing() || HOST.picking || !C.hook.panel) { PL.id = ''; return; }
     let p = null;
     try { p = HOST.cur.xrPose(); } catch (e) { /* not in a headset */ }
     if (!p) return;
-    // (as they are here; rounded only when they go out, or easing would stall a few millimetres short)
-    const cur = { panel: { x: p.pp.x, y: p.pp.y + EYE, z: p.pp.z, yaw: p.pr }, globe: { x: p.off.x, y: p.off.y, z: p.off.z, s: clampS(+p.s || 1) } };
+    // (as they are here; rounded only when they go out, or easing would stall a few millimetres short). The panel's
+    // yaw is its heading (its rotation's own y is not, once it is tilted or turned past 90 degrees); a turn only when
+    // there is one: the scene turned, the panel tilted
+    const pq = qOf(p.pq), rot = qOf(p.rot);
+    let pyaw = p.pr;
+    if (pq) { _v.set(0, 0, 1).applyQuaternion(_q.fromArray(pq)); if (Math.hypot(_v.x, _v.z) > 0.1) pyaw = Math.atan2(_v.x, _v.z); }
+    const cur = { panel: { x: p.pp.x, y: p.pp.y + EYE, z: p.pp.z, yaw: pyaw, q: pq && qAng(pq, yawQ(pyaw)) > 0.001 ? pq : null },
+      globe: { x: p.off.x, y: p.off.y, z: p.off.z, s: clampS(+p.s || 1), q: rot && qAng(rot, Q1) > 0.001 ? rot : null } };
     const room = { panel: roomPanel(L), globe: roomPlace(L) };
     const put = (w, v) => {
-      try { if (w === 'panel') C.hook.panel([v.x, v.y - EYE, v.z], v.yaw); else if (C.hook.place) C.hook.place([v.x, v.y, v.z], v.s); } catch (e) { /* story not ready */ }
+      try { if (w === 'panel') C.hook.panel([v.x, v.y - EYE, v.z], v.yaw, v.q || null); else if (C.hook.place) C.hook.place([v.x, v.y, v.z], v.s, v.q || null); } catch (e) { /* story not ready */ }
     };
     if (PL.id !== L.id) { PL.id = L.id; PL.held = { panel: false, globe: false }; put('panel', room.panel); put('globe', room.globe); return; }   // a station reached: as the room has it
     const lk = layoutLocked(), hs = String(p.held || ''), out = [];   // held: what a grip holds there ('panel', 'globe')
     for (const w of ['panel', 'globe']) {
       const held = !lk && hs.includes(w), a = cur[w], b = room[w];
+      // the turns compared and eased: the panel's upright at its yaw when it has none, the scene's none
+      const qa = a.q || (w === 'panel' ? yawQ(a.yaw) : Q1), qb = b.q || (w === 'panel' ? yawQ(b.yaw) : Q1), dq = qAng(qa, qb);
       // held: out to the room ten times a second, and once more when let go (locked meanwhile: nothing more goes out,
       // and it goes back to where the room has it); the other one, not held, goes on following the room
       if (held || PL.held[w]) {
@@ -1017,25 +1067,27 @@
         if ((held && t - PL.at < 100) || (!held && lk)) continue;
         if (w === 'panel') {
           const v = { x: r3(a.x), y: r3(a.y), z: r3(a.z), yaw: r3(a.yaw) };
-          if (Math.hypot(v.x - b.x, v.y - b.y, v.z - b.z) > 0.002 || Math.abs(v.yaw - b.yaw) > 0.004) out.push([kPanel(L.id), Object.assign(v, { story: L.story })]);
+          if (a.q) v.q = qOut(a.q);
+          if (Math.hypot(v.x - b.x, v.y - b.y, v.z - b.z) > 0.002 || Math.abs(v.yaw - b.yaw) > 0.004 || dq > 0.004) out.push([kPanel(L.id), Object.assign(v, { story: L.story })]);
         } else {
           const v = { x: r3(a.x), y: r3(a.y), z: r3(a.z), s: r3(a.s) };
-          if (Math.hypot(v.x - b.x, v.y - b.y, v.z - b.z) > 0.002 || Math.abs(v.s - b.s) > 0.002) out.push([kPlace(L.id), Object.assign(v, { story: L.story })]);
+          if (a.q) v.q = qOut(a.q);
+          if (Math.hypot(v.x - b.x, v.y - b.y, v.z - b.z) > 0.002 || Math.abs(v.s - b.s) > 0.002 || dq > 0.004) out.push([kPlace(L.id), Object.assign(v, { story: L.story })]);
         }
         continue;
       }
       if (t < PL.quiet[w]) continue;
-      // the room's value glides in (the last couple of millimetres at once)
-      const k = 1 - Math.exp(-dt * 12), d = Math.hypot(b.x - a.x, b.y - a.y, b.z - a.z);
+      // the room's value glides in (the last couple of millimetres at once); a turn by slerp
+      const k = 1 - Math.exp(-dt * 12), d = Math.hypot(b.x - a.x, b.y - a.y, b.z - a.z), q = a.q || b.q ? qSlerp(qa, qb, k) : null;
       if (w === 'panel') {
         let y = (b.yaw - a.yaw) % (2 * Math.PI);
         if (y > Math.PI) y -= 2 * Math.PI; else if (y < -Math.PI) y += 2 * Math.PI;
-        if (d < 1e-6 && Math.abs(y) < 1e-6) continue;
-        put(w, d < 0.002 && Math.abs(y) < 0.003 ? b : { x: a.x + (b.x - a.x) * k, y: a.y + (b.y - a.y) * k, z: a.z + (b.z - a.z) * k, yaw: a.yaw + y * k });
+        if (d < 1e-6 && Math.abs(y) < 1e-6 && dq < 1e-6) continue;
+        put(w, d < 0.002 && Math.abs(y) < 0.003 && dq < 0.003 ? b : { x: a.x + (b.x - a.x) * k, y: a.y + (b.y - a.y) * k, z: a.z + (b.z - a.z) * k, yaw: a.yaw + y * k, q });
       } else {
         const ds = Math.abs(Math.log(b.s / a.s));
-        if (d < 1e-6 && ds < 1e-6) continue;
-        put(w, d < 0.002 && ds < 0.001 ? b : { x: a.x + (b.x - a.x) * k, y: a.y + (b.y - a.y) * k, z: a.z + (b.z - a.z) * k, s: a.s * Math.pow(b.s / a.s, k) });
+        if (d < 1e-6 && ds < 1e-6 && dq < 1e-6) continue;
+        put(w, d < 0.002 && ds < 0.001 && dq < 0.003 ? b : { x: a.x + (b.x - a.x) * k, y: a.y + (b.y - a.y) * k, z: a.z + (b.z - a.z) * k, s: a.s * Math.pow(b.s / a.s, k), q });
       }
     }
     if (out.length) { PL.at = t; publish(out); }
@@ -1150,7 +1202,7 @@
     OV.room = new THREE.Group(); OV.room.matrixAutoUpdate = false;
     OV.root.add(OV.room);
     OV.panelG = new THREE.Group();
-    OV.panel = sheet(720, 1320, 0.42, 53);   // (the tallest it gets: a room on this headset with a three-line note, 1281 px)
+    OV.panel = sheet(720, 1400, 0.42, 53);   // (the tallest it gets: a room on this headset with a three-line note, 1383 px)
     OV.panelG.add(OV.panel.mesh); OV.root.add(OV.panelG);
     OV.panel.mesh.userData.shell = { kind: 'panel' };
     // the menu's clock: the group's origin is the face's middle
@@ -1228,17 +1280,23 @@
     o.g.position.set(S.x, 0, S.z); o.g.rotation.set(0, S.yaw, 0); o.g.scale.setScalar(held ? 1.12 : 1);
     return o;
   }
-  function cardFor(s) {
+  function cardFor(s, lm) {
     let o = OV.cards.get(s.id);
     if (!o) {
       o = sheet(560, 330, 0.5, 49);   // drawn before the story's panels (50), so a panel in front stays on top
       o.mesh.material.depthTest = true;
-      o.mesh.userData.shell = { kind: 'station', id: s.id };
+      // two faces back to back, so it reads the right way round from behind too (the card in 3D stays put)
+      o.mesh.material.side = THREE.FrontSide;
+      o.back = new THREE.Mesh(o.mesh.geometry, o.mesh.material);
+      o.back.rotation.y = Math.PI; o.back.renderOrder = 49;
+      o.mesh.userData.shell = o.back.userData.shell = { kind: 'station', id: s.id };
+      o.mesh.add(o.back);
       OV.cards.set(s.id, o); OV.room.add(o.mesh);
     }
     const S = shown(s), [cx, cz] = content(S);
-    // turned to you (seen from another row it would be back to front), else facing back to its spot
-    o.mesh.position.set(cx, 1.45, cz); o.mesh.rotation.set(0, R.headOK ? Math.atan2(R.hr.x - cx, R.hr.z - cz) : S.yaw, 0);
+    // facing you: turned to you (seen from another row it would be back to front); in 3D (and without a head): facing
+    // back to its spot
+    o.mesh.position.set(cx, 1.45, cz); o.mesh.rotation.set(0, lm === 'face' && R.headOK ? Math.atan2(R.hr.x - cx, R.hr.z - cz) : S.yaw, 0);
     return o;
   }
   function stationLine(s) {
@@ -1301,7 +1359,11 @@
     o.tagTex = new THREE.CanvasTexture(o.tagCv);
     o.tag = new THREE.Sprite(new THREE.SpriteMaterial({ map: o.tagTex, transparent: true, depthTest: false, depthWrite: false }));
     o.tag.renderOrder = 57; o.tag.scale.set(0.3, 0.066, 1);
-    o.g.add(o.avatar, o.tag);
+    // labels in 3D: the tag as a sign turned with the head, two faces back to back (each reads the right way round)
+    const sm = new THREE.MeshBasicMaterial({ map: o.tagTex, transparent: true, depthWrite: false }), sg = new THREE.PlaneGeometry(0.3, 0.066);
+    o.sign = new THREE.Group(); o.sign.visible = false;
+    for (const ry of [0, Math.PI]) { const f = new THREE.Mesh(sg, sm); f.rotation.y = ry; f.renderOrder = 57; o.sign.add(f); }
+    o.g.add(o.avatar, o.tag, o.sign);
     OV.room.add(o.g); OV.people.set(id, o);
     return o;
   }
@@ -1314,7 +1376,7 @@
   }
   function drawPeople(dt) {
     const k = 1 - Math.exp(-dt / 0.06);   // ease towards the latest presence (time constant 60 ms)
-    const vr = HOST.mode !== 'immersive-ar';
+    const vr = HOST.mode !== 'immersive-ar', lm = HOST.xr.labels();
     for (const id of OV.people.keys()) if (!C.pres.has(id) || !C.pres.get(id).head) dropPerson(id);
     for (const [id, P] of C.pres) {
       if (!P.head) continue;
@@ -1337,7 +1399,13 @@
       o.e.p.lerp(_v.set(h[0], h[1], h[2]), k); o.e.q.slerp(_q.set(h[3], h[4], h[5], h[6]), k);
       o.avatar.position.copy(o.e.p); o.avatar.quaternion.copy(o.e.q);
       o.avatar.visible = vr || !m.here;
+      // the name: facing you (a sprite over everything), in 3D (a sign over the head, turned with it) or hidden
       o.tag.position.set(o.e.p.x, o.e.p.y + 0.24, o.e.p.z);
+      o.tag.visible = lm === 'face'; o.sign.visible = lm === 'fixed';
+      if (o.sign.visible) {
+        _v.set(0, 0, -1).applyQuaternion(o.e.q);
+        o.sign.position.copy(o.tag.position); o.sign.rotation.set(0, Math.atan2(-_v.x, -_v.z) + Math.PI, 0);
+      }
       for (let i = 0; i < 2; i++) {
         const H = hands[i], on = !!H;
         o.rays[i].visible = o.dots[i].visible = on; o.hands[i].visible = on && o.avatar.visible;
@@ -1356,7 +1424,7 @@
   // the previews of the stations that are not live here (the live one keeps only its ring, fainter)
   const HOV = [];   // what the controllers point at, this frame
   function drawPreviews() {
-    const ids = new Set(C.st.map(s => s.id));
+    const ids = new Set(C.st.map(s => s.id)), lm = HOST.xr.labels();
     for (const [id, o] of OV.rings) if (!ids.has(id)) { o.g.parent.remove(o.g); o.g.traverse(x => { if (x.geometry) x.geometry.dispose(); }); o.mat.dispose(); OV.rings.delete(id); }
     for (const [id, o] of OV.cards) if (!ids.has(id) || (id === C.live && C.stById.get(id).story === HOST.curKey)) {
       o.mesh.parent.remove(o.mesh); o.mesh.geometry.dispose(); o.tex.dispose(); o.mesh.material.dispose(); OV.cards.delete(id);
@@ -1366,7 +1434,10 @@
       r.mat.opacity = live ? 0.3 : MV.id === s.id ? 1 : 0.75;
       r.ring.userData.shell = { kind: 'station', id: s.id, live };   // (the live one: only to move it)
       if (live) continue;
-      const c = cardFor(s);
+      // labels hidden: no card (the ring stays, to walk up to, point at and move)
+      const c = cardFor(s, lm);
+      c.mesh.visible = lm !== 'hidden';
+      if (!c.mesh.visible) continue;
       c.hover = HOV.some(h => h.target.kind === 'station' && h.target.id === s.id);
       drawCard(c, s);
     }
@@ -1408,7 +1479,7 @@
     return J([C.code, C.status, C.note, PNL.open, PNL.page, OV.panel.hover, C.name, C.color, C.hereSet, here(), askHere(), R.status(), C.mine, C.live, armed(C.mine),
       C.st.map(s => s.id + s.story), C.members.map(m => m.id + m.name + m.color + m.kind + m.here), [...C.pres].map(([id, P]) => id + P.st),
       C.code ? 0 : (C.rooms || []).map(r => r.code + r.members), C.roomsErr, C.relay, sharedLine(), sourceLine(), versionNote(), scanNote(), fullNote(), floorNote(), forgetArmed(), freshArmed(), canFresh(), !!(R.saved || R.frame), R.sharedAlign, layoutLocked(),
-      C.local, C.code ? 0 : localRooms().map(r => r.code + r.stations), !!R.again, HOST.slides ? HOST.slides.sig() : '', menuHint()]);
+      C.local, C.code ? 0 : localRooms().map(r => r.code + r.stations), !!R.again, HOST.slides ? HOST.slides.sig() : '', menuHint(), HOST.xr.sig()]);
   }
   function drawPanel() {
     const S = OV.panel, sig = panelSig();
@@ -1429,7 +1500,13 @@
     // Exit (leave VR or AR) and the slideshow for every story: at hand on the left wrist, not on the story panels
     button(S, 'exit', x, y, bw, 60, 'Exit', () => { if (HOST.session && HOST.session.end) HOST.session.end(); });
     if (HOST.slides) { const on = !!HOST.slides.global(); button(S, 'slides', x + bw + 16, y, bw, 60, on ? 'Slideshow: on' : 'Slideshow: off', () => HOST.slides.setGlobal(!on), { on }); }
-    y += 76; line();
+    y += 76;
+    // labels (in 3D, hidden, facing you: each press the next) and free moving, for every story; in a room the room's
+    const lm = HOST.xr.labels(), fr = HOST.xr.free(), LBL = { fixed: 'in 3D', hidden: 'hidden', face: 'facing you' };
+    button(S, 'labels', x, y, bw, 60, 'Labels: ' + LBL[lm], () => HOST.xr.setLabels({ fixed: 'hidden', hidden: 'face', face: 'fixed' }[lm]), { on: lm === 'fixed' });
+    button(S, 'free', x + bw + 16, y, bw, 60, fr ? 'Moving: free' : 'Moving: facing you', () => HOST.xr.setFree(!fr), { on: fr });
+    if (C.code) { y += 70; ctx.font = FONT(21); ctx.fillStyle = MUTED; ctx.fillText(fit(ctx, 'Labels and moving: the same for everyone in this room', w), x, y); y += 32; } else y += 76;
+    line();
     // the shared room: its code, how many are in it, the connection
     const n = C.members.length, title = !C.code ? 'Shared room' : C.local ? `Room ${C.code} · this headset` : `Shared room ${C.code} · ${n} ${n === 1 ? 'person' : 'people'}`;
     ctx.font = FONT(28, 700); ctx.fillStyle = C.code ? CYAN : INK; ctx.fillText(fit(ctx, title, w), x, y); y += 40;
@@ -1917,7 +1994,7 @@
     if (OV.clockG.visible) OV.hit.push(OV.clock.mesh);
     if (OV.panelG.visible) OV.hit.push(OV.panel.mesh);
     if (OV.room.visible) {
-      for (const o of OV.cards.values()) OV.hit.push(o.mesh);
+      for (const o of OV.cards.values()) if (o.mesh.visible) OV.hit.push(o.mesh, o.back);
       for (const o of OV.rings.values()) if (o.ring.userData.shell) OV.hit.push(o.ring);
     }
     OV.root.updateMatrixWorld(true);
@@ -2975,7 +3052,7 @@
   // the station's panel and scene as the room has them, in its story's rig (the station's spot at eye height)
   function panelPose(L) {
     const v = L ? roomPanel(L) : panelHome(), q = L ? roomPlace(L) : PLACE0;
-    return { pp: [v.x, v.y - EYE, v.z], pr: v.yaw, off: [q.x, q.y, q.z], s: q.s };
+    return { pp: [v.x, v.y - EYE, v.z], pr: v.yaw, pq: v.q, off: [q.x, q.y, q.z], s: q.s, q: q.q };
   }
   // for a story starting in a running session at a station (HOST.start): its rig, panel and scene there
   function adopt(key) {
@@ -2983,7 +3060,8 @@
     if (!C.code || !R.session || !R.aligned || !L || L.story !== key) return null;
     const P = panelPose(L);
     return { rp: new THREE.Vector3(L.x, EYE, L.z).applyMatrix4(R.m), rq: new THREE.Quaternion().setFromAxisAngle(_Y, R.yaw + L.yaw),
-      off: new THREE.Vector3().fromArray(P.off), s: P.s, pp: new THREE.Vector3().fromArray(P.pp), pr: P.pr };
+      off: new THREE.Vector3().fromArray(P.off), s: P.s, pp: new THREE.Vector3().fromArray(P.pp), pr: P.pr,
+      rot: new THREE.Quaternion().fromArray(P.q || Q1), pq: P.pq ? new THREE.Quaternion().fromArray(P.pq) : new THREE.Quaternion().setFromAxisAngle(_Y, P.pr) };
   }
   // the headset session started (or ended): the shell's own frame callback, the spaces, the lifecycle guard
   function watch(s) {
@@ -3043,8 +3121,9 @@
     sharedAlign(on) { if (on !== undefined) setSharedAlign(on); return R.sharedAlign; }, floorNote,
     handles: () => ((R.saved && R.saved.anchors) || []).concat(R.anchorIds || []).filter(Boolean),   // kept by HOST.anchor's tidy-up
     get marks() { return R.mk; }, get cmp() { return R.cmp; }, frameKey: kFrame,
-    // the station's panel, for a story's xrRecenter while placed (off, pp, pr in its rig)
-    saved: () => { const L = liveSt(), P = panelPose(L); return placing() ? { off: P.off, s: P.s, pp: P.pp, pr: P.pr } : null; },
+    // the station's panel and scene, for a story's xrRecenter while placed (off, s, pp, pr in its rig; q the scene's
+    // turn and pq the panel's rotation, [x, y, z, w] or null: none)
+    saved: () => { const L = liveSt(), P = panelPose(L); return placing() ? { off: P.off, s: P.s, pp: P.pp, pr: P.pr, q: P.q, pq: P.pq } : null; },
     joined() { if (R.session) { begin(); loop(R.session); } },
     left() { R.begun = null; R.frame = null; R.src = ''; R.aligned = false; R.calib = null; setState('off'); },
     realign() { R.cmp = null; R.again = 0; if (R.src === 'own' || R.src === 'adopted' || R.src === 'shared' || (R.src === 'floor' && !C.local) || !here()) { R.frame = null; R.src = ''; R.aligned = false; R.recAt = 0; } },
@@ -3095,6 +3174,7 @@
       else if (act === 'remove') removeAsk(arg);
       else if (act === 'arrange') arrange({ x: 0, z: 0, yaw: 0 });
       else if (act === 'lock') setLock(!layoutLocked());
+      else if (act === 'free') HOST.xr.setFree(!HOST.xr.free());
       else if (act === 'fresh') { freshAsk(); setTimeout(renderDialog, 3050); }
       else if (act === 'add') { const k = $('#shAdd').value, id = add(k, freeSpot()); if (id) log('added', { st: id, story: k }); }
       else if (act === 'color') setMe({ color: arg });
@@ -3102,6 +3182,7 @@
       renderDialog();
     });
     $('#shName').addEventListener('change', ev => setMe({ name: ev.target.value.trim() || C.name }));
+    $('#shLabels').addEventListener('change', ev => { HOST.xr.setLabels(ev.target.value); renderDialog(); });
     $('#shRelay').addEventListener('keydown', ev => { if (ev.key === 'Enter') { setRelay(ev.target.value, 'typed'); listRooms(); } });
     $('#shCode').addEventListener('keydown', ev => { if (ev.key === 'Enter') join(ev.target.value); });
     DLG.map = $('#shMap');
@@ -3190,6 +3271,10 @@
       const sel = $('#shAdd'), lk = layoutLocked(), lb = $('[data-sh="lock"]');
       if (!sel.options.length) sel.innerHTML = HOST.list.map(m => `<option value="${m.key}">${esc(m.title)}</option>`).join('');
       if (lb) { lb.textContent = lk ? 'Unlock layout' : 'Lock layout'; lb.setAttribute('aria-pressed', String(lk)); lb.classList.toggle('on', lk); }
+      // the headsets' labels and moving, the room's (not locked with the layout)
+      const sl = $('#shLabels'), fb2 = $('[data-sh="free"]'), lm = HOST.xr.labels(), fr = HOST.xr.free();
+      if (sl && sl.value !== lm) sl.value = lm;
+      if (fb2) { fb2.textContent = fr ? 'Moving: free' : 'Moving: facing you'; fb2.setAttribute('aria-pressed', String(fr)); }
       const fb = $('[data-sh="fresh"]'), fa = freshArmed();
       if (fb) { fb.hidden = !canFresh(); fb.textContent = fa ? 'Fresh space for everyone? Press again' : 'Fresh shared space'; fb.classList.toggle('armed', fa); }
       for (const q of DLG.el.querySelectorAll('[data-sh="arrange"], [data-sh="add"], #shAdd, [data-sh^="remove:"]')) q.disabled = lk;
@@ -3316,6 +3401,8 @@
     arrange, add, move, remove, follow: id => choose(id, 'follow'), pick: id => choose(id, 'pick'), unfollow, me: setMe, setHere,
     mapView: () => MAP.tf,   // the room map's room <-> pixel transform (X, Y, ix, iz), once drawn
     lock: on => setLock(on), get locked() { return layoutLocked(); },
+    // the room's labels and moving ({ labels, free }; null outside a room), set for everyone there (HOST.xr calls these)
+    look, setLook,
     fresh: () => freshAsk(), get gen() { return SG; },   // a fresh shared space (two calls: the first arms it); this page's generation
     ray, press, effect, detach, hash, dialog, people: () => C.pres, log,
     panelOpen(on) { menuOpen(on, 'api'); }, get menu() { return PNL.open; },   // the headset's menu, open or closed

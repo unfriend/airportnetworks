@@ -367,6 +367,7 @@ body.picking #panel, body.picking #bar { visibility: hidden; }
 #shared .sh-room b { font-size: 26px; letter-spacing: 0.08em; }
 #shared .sh-room span { flex: 1 1 200px; color: #a9b8cc; font-size: 13px; }
 #shMap { display: block; width: 100%; aspect-ratio: 16 / 10; max-height: 45vh; border-radius: 8px; margin-top: 10px; cursor: pointer; background: #071021; }
+#shared .sh-look span { color: #a9b8cc; font-size: 13px; }
 #shared .sh-colors { display: flex; gap: 8px; flex-wrap: wrap; }
 #shared .sh-colors button { width: 30px; height: 30px; border-radius: 7px; border: 2px solid transparent; padding: 0; }
 #shared .sh-colors button[aria-pressed="true"] { border-color: #f2f6fc; }
@@ -483,6 +484,7 @@ body.xr #labels, body.xr #tip { display: none; }
       <h3>Stations</h3>
       <ul class="sh-stations"></ul>
       <div class="row mt"><button class="btn" type="button" data-sh="arrange">Arrange all</button><select id="shAdd" aria-label="Story for a new station"></select><button class="btn" type="button" data-sh="add">Add a station</button><button class="btn" type="button" data-sh="lock" aria-pressed="false" title="Once the stations are in place: nobody moves one by accident">Lock layout</button><button class="btn" type="button" data-sh="fresh" hidden title="Every page in the room moves to a new address, where the headsets make a new shared space together">Fresh shared space</button></div>
+      <div class="row mt sh-look"><span>In the headsets, for everyone here:</span><select id="shLabels" aria-label="Labels in the headsets"><option value="fixed">Labels: in 3D</option><option value="face">Labels: facing you</option><option value="hidden">Labels: hidden</option></select><button class="btn" type="button" data-sh="free" aria-pressed="true" title="Free: the grip turns what it holds with your hand. Facing you: things you move keep facing you">Moving: free</button></div>
       <h3>People</h3>
       <ul class="sh-people"></ul>
     </div>
@@ -1179,10 +1181,42 @@ HOST.xr = (function () {
       if (X.open && t < SOON) down('VR closed by itself after ' + (t / 1000).toFixed(1) + ' s');
     });
   }
+  // Two settings for every story in the headset (the menu's Labels and Moving rows): labels 'face' (turned to you,
+  // drawn over everything), 'fixed' (in 3D: signs that stay put and are hidden by what stands in front of them) or
+  // 'hidden' (no labels, and no story text panel in story mode); free moving on (the grip holds what it takes like a
+  // real object, turning it with the hand) or off (it moves things but they keep facing you). One setting for the
+  // whole system, everything in 3D by default: in a shared room the room's, for everyone in it (shared.js, key look),
+  // else this device's own (xrLabels, xrFree), which keeps a room's last value after leaving it. Stories read
+  // labels() and free() every frame and put sig() in their panels' signatures. #labels=face|fixed|hidden and
+  // #free=on|off in a link set them.
+  const LABELS = ['face', 'fixed', 'hidden'], own = { labels: 'fixed', free: true };
+  try {
+    const l = localStorage.getItem('xrLabels'), f = localStorage.getItem('xrFree');
+    if (LABELS.includes(l)) own.labels = l;
+    if (f === 'on' || f === 'off') own.free = f === 'on';
+  } catch (e) { /* storage blocked */ }
+  const keepOwn = () => { try { localStorage.setItem('xrLabels', own.labels); localStorage.setItem('xrFree', own.free ? 'on' : 'off'); } catch (e) { /* storage blocked */ } };
+  // in a shared room the room's ({ labels, free }), else null
+  const room = () => (HOST.collab && HOST.collab.look ? HOST.collab.look() : null);
+  const look = () => room() || own;
+  function setLook(o) {
+    if (HOST.collab && HOST.collab.setLook && HOST.collab.setLook(o)) return;   // in a room: written for everyone there
+    Object.assign(own, o); keepOwn();
+  }
   return {
     features(mode) { asked = mode; return (mode === 'immersive-vr' ? VR[X.vr] : AR).slice(); },
     watch,
     line: () => 'VR asks for: ' + (VR[X.vr].join(', ') || 'nothing extra') + (X.vr ? ' (less than at first: ' + X.note + ')' : ''),
+    labels: () => look().labels,
+    setLabels(m) { if (LABELS.includes(m)) setLook({ labels: m }); },
+    free: () => look().free,
+    setFree(on) { setLook({ free: !!on }); },
+    sig: () => { const L = look(); return L.labels + (L.free ? '+' : '-'); },
+    // the room's value, kept as this device's own (shared.js, when the room's changes): it stays after leaving
+    keep(o) {
+      if (!o || !LABELS.includes(o.labels) || (o.labels === own.labels && !!o.free === own.free)) return;
+      own.labels = o.labels; own.free = !!o.free; keepOwn();
+    },
   };
 })();
 // stories set HOST.session when they start or take over a headset session; the sound system, the anchor and the
@@ -1206,17 +1240,20 @@ HOST.anchor = (function () {
   const room = () => !!(HOST.room && HOST.room.placing());
   // gen counts placements: a request (restore, create) still running when the place is dropped, placed
   // again or the session changes finds a newer gen when it settles, and throws its result away
-  const N = { on: false, uuid: '', old: [], off: null, s: 1, pp: null, pr: 0, session: null, anchor: null, want: '', busy: false,
+  const N = { on: false, uuid: '', old: [], off: null, s: 1, pp: null, pr: 0, q: null, pq: null, session: null, anchor: null, want: '', busy: false,
     gen: 0, placed: false, restored: false, kind: '', note: '', last: null, since: 0, wait: 8000 };
+  // the scene's turn and the panel's rotation (free moving) as [x, y, z, w]: from a story's xrPose (quaternions) or a
+  // save (arrays); none (older saves, or nothing turned): null
+  const quat = q => { const a = !q ? null : Array.isArray(q) ? q.slice(0, 4) : [q.x, q.y, q.z, q.w]; return a && a.length === 4 && a.every(Number.isFinite) ? a : null; };
   try {
     N.on = localStorage.getItem('xrAnchor') === '1';
     const s = JSON.parse(localStorage.getItem('xrPlace') || 'null');
-    if (s) Object.assign(N, { uuid: s.uuid || '', old: s.old || [], off: s.off || null, s: +s.s || 1, pp: s.pp || null, pr: +s.pr || 0 });
+    if (s) Object.assign(N, { uuid: s.uuid || '', old: s.old || [], off: s.off || null, s: +s.s || 1, pp: s.pp || null, pr: +s.pr || 0, q: quat(s.q), pq: quat(s.pq) });
   } catch (e) { /* storage blocked */ }
   function store() {
     try {
       localStorage.setItem('xrAnchor', N.on ? '1' : '0');
-      localStorage.setItem('xrPlace', JSON.stringify({ uuid: N.uuid, old: N.old, off: N.off, s: N.s, pp: N.pp, pr: N.pr }));
+      localStorage.setItem('xrPlace', JSON.stringify({ uuid: N.uuid, old: N.old, off: N.off, s: N.s, pp: N.pp, pr: N.pr, q: N.q, pq: N.pq }));
     } catch (e) { /* storage blocked */ }
   }
   // a saved handle we no longer need: delete it now, or at the start of the next headset session
@@ -1284,7 +1321,7 @@ HOST.anchor = (function () {
     let P = null;
     try { P = HOST.cur && HOST.cur.xrPose(); } catch (e) { /* story not ready */ }
     if (!P) { N.want = 'create'; return; }
-    N.off = P.off.toArray(); N.s = +P.s || 1; N.pp = P.pp.toArray(); N.pr = P.pr; N.placed = true; N.kind = 'session'; N.note = '';
+    N.off = P.off.toArray(); N.s = +P.s || 1; N.pp = P.pp.toArray(); N.pr = P.pr; N.q = quat(P.rot); N.pq = quat(P.pq); N.placed = true; N.kind = 'session'; N.note = '';
     store();
     if (typeof f.createAnchor !== 'function' || typeof XRRigidTransform === 'undefined') return;
     N.busy = true;
@@ -1319,7 +1356,7 @@ HOST.anchor = (function () {
     // Place again: forget the place; the story puts everything in front of you, then it is anchored there
     again() {
       if (!N.on) return;
-      drop(); N.off = N.pp = null; N.s = 1; N.pr = 0; N.note = ''; store();
+      drop(); N.off = N.pp = N.q = N.pq = null; N.s = 1; N.pr = 0; N.note = ''; store();
       N.want = 'create';
     },
     // while true, a story must not re-place anything (headset taken off, recentring); also while it stands at
@@ -1330,8 +1367,15 @@ HOST.anchor = (function () {
     // shell's own things (kind 'shell': its panel, previews, marks) never move the scene behind them (the grip on a
     // station's preview moves that station)
     locked: kind => kind === 'shell' || (HOST.room && HOST.room.inRoom && HOST.room.inRoom() ? HOST.room.gripLocked() : N.on),
-    // the arrangement saved with the place: { off, s, pp, pr } in the frame, or null (at a station: as the room has it)
-    saved: () => (room() ? HOST.room.saved() : N.on && N.off && N.pp ? { off: N.off, s: N.s, pp: N.pp, pr: N.pr } : null),
+    // the arrangement saved with the place: { off, s, pp, pr, q, pq } in the frame, or null (at a station: as the room
+    // has it). q: the scene's turn, pq: the panel's rotation, [x, y, z, w] or null (none saved, or free moving off:
+    // no turn, the panel upright at pr)
+    saved() {
+      if (room()) return HOST.room.saved();
+      if (!N.on || !N.off || !N.pp) return null;
+      const fr = HOST.xr.free();
+      return { off: N.off, s: N.s, pp: N.pp, pr: N.pr, q: fr ? N.q : null, pq: fr ? N.pq : null };
+    },
     // once a frame from a story's headset loop, once the headset has a pose: the frame's pose in the room ({ p, yaw }), or null.
     // In a shared room with an aligned frame it is the story's station: its spot at eye height, facing its way.
     frame(f, ref) {
@@ -1619,6 +1663,8 @@ HOST.closePicker = function () {
   HOST.setRepeat(hp.get('repeat') || HOST.repeat);
   if (hp.has('slides')) HOST.slides.setGlobal(hp.get('slides') !== 'off');
   if (hp.has('anchor')) HOST.anchor.set(hp.get('anchor') !== 'off');
+  if (hp.has('labels')) HOST.xr.setLabels(hp.get('labels'));
+  if (hp.has('free')) HOST.xr.setFree(hp.get('free') !== 'off');
   if (hp.has('soundcheck')) HOST.soundCheck(true);
   HOST.collab.boot(hp); // #s=XYZ joins a shared room
   const key = HOST.list.map(s => s.key).find(k => hp.has(k)) || 'airports';
