@@ -57,6 +57,11 @@ at 0:00, 0:51, 1:50, 2:32, 4:02, 5:02, 6:32 and 7:53, ending at 9:04; change
 NARRATION_SYNC in tools/qubits/engine/e3_story.js (then rebuild) if your
 recording differs.
 
+The mutation machine (#mutation) looks for narration-mutation.mp3. Its
+chapters start at 0:00, 0:43, 1:50, 2:50, 3:49, 5:02, 6:08 and 7:23, ending at
+8:36; change NARRATION_SYNC in tools/mutation/engine/e3_story.js (then rebuild)
+if your recording differs.
+
 The pass story (#pass) looks for narration-pass.mp3 (one recording, in English:
 the German reads its own words, docs/narration.md lists both). Its chapters
 start at 0:00, 0:44, 1:53, 2:43, 4:18 and 5:46, ending at 6:53 (paced from the
