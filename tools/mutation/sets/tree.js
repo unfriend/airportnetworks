@@ -419,7 +419,9 @@ void main() {
     const dx = lp[0] - spt[0], dz = lp[2] - spt[2];
     let az = Math.atan2(-dz, dx) * 180 / PI;
     if (Math.cos(az * PI / 180) < 0) az += 180;
-    return [Math.round(((az + 540) % 360) - 180), 14, 4.6, +((lp[0] + spt[0]) / 2).toFixed(2), +((lp[1] + spt[1]) / 2).toFixed(2), +((lp[2] + spt[2]) / 2).toFixed(2)];
+    // (aimed a little right of their middle: the tags run to the right of their branches)
+    const a = az * PI / 180, cx = (lp[0] + spt[0]) / 2 + 0.3 * Math.cos(a), cz = (lp[2] + spt[2]) / 2 - 0.3 * Math.sin(a);
+    return [Math.round(((az + 540) % 360) - 180), 14, 4.6, +cx.toFixed(2), +((lp[1] + spt[1]) / 2).toFixed(2), +cz.toFixed(2)];
   })();
   const near = p => { const az = Math.atan2(p[0], p[2]) * 180 / PI; return [Math.round(az + 12), 12, 2.4, +p[0].toFixed(2), +p[1].toFixed(2), +p[2].toFixed(2)]; };
   const cam = {
@@ -431,7 +433,7 @@ void main() {
     stand: [20, 4, 1.45, 0, 0.35, 0],
     up: [200, -62, 2.2, 0, 0.3, 0.05],
     species: [18, 16, 3.9, 0, -0.42, 0.1],
-    what: [36, 12, 4.4, 0, -0.38, 0],
+    what: [8, 14, 4.3, 0, -0.36, 0],
   };
   const controls = [
     { key: 'view', label: 'View', options: [['tree', 'Family tree'], ['machines', 'Machines'], ['species', 'Species tree']] },

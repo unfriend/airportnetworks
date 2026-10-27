@@ -455,7 +455,7 @@ void main() {
     species: [18, 16, 3.9, 0, -0.38, 0.1],
     fields: [0, 30, 4.6, 0, -0.95, 1.15],
     compare: [0, 27, 4.7, 0, -0.5, 0.9],
-    what: [36, 12, 4.4, 0, -0.38, 0],
+    what: [8, 14, 4.3, 0, -0.36, 0],
   };
   const controls = [
     { key: 'view', label: 'View', options: [['stem', 'Stem'], ['count', 'Count'], ['rebuild', 'Rebuild'], ['compare', 'Compare']] },

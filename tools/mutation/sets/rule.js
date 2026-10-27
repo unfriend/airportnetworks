@@ -36,7 +36,7 @@ SETS.rule = function (K) {
   const QR = 0.12, GR = 0.19, GAP = 2 * 0.9 * GR;   // qubits, gears (meshing gears' centres 1.8 R apart)
   const PQ = [[XP, 0.52, 0], [XP, 0.52 - GAP, 0]], CQ = [[XC, 0.52, 0.06], [XC, 0.52 - GAP, 0.06]];
   const GC = [[XC, 0.52, -0.05], [XC, 0.52 - GAP, -0.05]], GD = [XC + GAP, 0.52, -0.05];
-  const MINI = [0.8, 0.45, 0], MS = 0.24, ZB = -0.22;   // the small pyramid; the machine's back frame
+  const MINI = [0.8, 0.45, 0], MS = 0.24, ZB = -0.22, FRAME_X = [XP, XC, GD[0]];   // the small pyramid; the machine's back frame
   const RAIL_Y = 1.12, HEAD_REST = [(XP + XC) / 2, 1.05], HEAD_DOWN = 0.985;
   // the circuit: wires p1, p0, c1, c0 top to bottom
   const WY = [-0.3, -0.47, -0.64, -0.81], XL = -1.1, XR = 1.12, WIRE = { p1: 0, p0: 1, c1: 2, c0: 3 };
@@ -273,18 +273,21 @@ SETS.rule = function (K) {
     if (s > 0.01) tiles.add(_a, TILE_Q, MT * s, ks < 0.5 ? parF : par, mA, 0, 0.1);
     letterBloch(parF, par, ks, bl);
     for (let q = 0; q < 2; q++) { s = fly(m, 0.05 + 0.04 * q, PQ[q], _b); if (s > 0.01) LK.qubit(QPOOLS, _b, QR * s, bl, mA, PO[q]); }
-    // the back frame: axles from the gears and posts from the parent's qubits into two rails behind (one machine)
-    const fa = mA * prog(m, 0.45, 0.9);
+    // the back frame: posts from the parent's qubits and axles from the gears into uprights behind, standing on one
+    // crossbar under the machine (one machine; clear of the copy's two lines in front)
+    const fa = mA * prog(m, 0.45, 0.9), yb = PQ[1][1] - QR - 0.08;
     if (fa > 0.004) {
       for (let q = 0; q < 2; q++) {
         tubes.add(set3(_c, XP, PQ[q][1], -QR), set3(_d, XP, PQ[q][1], ZB), 0.012, METAL, fa, 0);
         tubes.add(set3(_c, XC, GC[q][1], GC[q][2]), set3(_d, XC, GC[q][1], ZB), 0.022, METAL, fa, 0);
-        tubes.add(set3(_c, XP, PQ[q][1], ZB), set3(_d, q ? XC : GD[0], PQ[q][1], ZB), 0.014, METAL, 0.8 * fa, 0);
-        balls.add(_c, 0.022, METAL, fa);
       }
       tubes.add(set3(_c, GD[0], GD[1], GD[2]), set3(_d, GD[0], GD[1], ZB), 0.022, METAL, fa, 0);
-      tubes.add(set3(_c, XP, PQ[0][1], ZB), set3(_d, XP, PQ[1][1], ZB), 0.014, METAL, 0.8 * fa, 0);
-      tubes.add(set3(_c, XC, GC[0][1], ZB), set3(_d, XC, GC[1][1], ZB), 0.014, METAL, 0.8 * fa, 0);
+      for (let f = 0; f < 3; f++) {
+        const x = FRAME_X[f];
+        tubes.add(set3(_c, x, PQ[0][1], ZB), set3(_d, x, yb, ZB), 0.014, METAL, 0.8 * fa, 0);
+        balls.add(_d, 0.022, METAL, fa);
+      }
+      tubes.add(set3(_c, XP, yb, ZB), set3(_d, GD[0], yb, ZB), 0.014, METAL, 0.8 * fa, 0);
     }
     // the gears: the child's two, and the green dial that drives them (meshing: each turned the other way)
     const ga = GEAR_K * turnAt(SWM, ks, tEff);
