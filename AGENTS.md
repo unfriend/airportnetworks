@@ -4,10 +4,10 @@ Guidance for AI coding agents (and humans) working on this repository.
 
 ## What this is
 
-An installable web app that teaches network science in thirteen narrated stories
+An installable web app that teaches network science in fourteen narrated stories
 (the airports about four minutes, the proteins and the cell map about five, the tour about nine and a half, the muscle
 story about eight, the endotype story about seven, the PET story about seven, the microanatomy story about seven
-and a half, the ovary story about seven, the qubits story about nine, the pass story about seven, the flock and the robot gang about two), each
+and a half, the ovary story about seven, the qubits story about nine, the mutation story about eight and a half, the pass story about seven, the flock and the robot gang about two), each
 followed by an explore mode. Everything works on desktop, phones and in VR/AR headsets (built for Meta
 Quest Browser, WebXR).
 
@@ -23,6 +23,7 @@ Quest Browser, WebXR).
 | Tissue microanatomy | `stories/micro.js` | the tour's H&E section and the domains a method finds in it; 24,945 GTEx slides of 40 tissues (Buljan, Bago-Horvath, Rendeiro, bioRxiv 2025); the network of organ architecture (29 organs, tissues, 10 tissue types, 70 domains, Iva Buljan's file); which domains change with age, pathology, and the contacts between domains |
 | Ovarian aging | `stories/ovary.js` | the tour's body and a drawn cut-away ovary that ages; 255 GTEx donors aged 20 to 70 (Chakraborty, Moustafa, Rendeiro, poster); a drawn H&E section with blood vessels, macrophages, corpora albicantia and follicles (14,941 marked by hand), tiles with UNI2 features and a random forest, SegFormer's masks and their scores as tags on the section; the poster's trends with age told on the ovary as it ages (each method's count on its lines as tags; r and p in words) and the methods' agreement; an illustrative spatial neighbor network that tips up off the section and gathers into hubs by kind |
 | Quantum network compression | `stories/qubits.js` | example gene networks (320 genes in 8 hidden groups, at three strengths of mixing, and a random one) cut into 8 cells on 3 qubits; the coarse operator A_c on a cube, its Pauli strings, the toolbox (a Lie algebra, so(6) or so(7)) and what it drops; the real run's residual by depth and its 3-qubit circuit (Joel Hancock's method and figures) |
+| DNA substitution models as quantum circuits | `stories/mutation.js` | a text in four letters copied with swaps; a family tree in 3D (8 tips, 14 branches, every swap simulated) you walk round and look up into; a letter's two qubits and their read-outs; a rule of change (three example substitution models) as balls and arrows and a path through the pyramid of mixes; the machine for one branch (copy and turn), its circuit, one machine per branch; an RNA stem, its pairs and their coupling; the ancestor of three species rebuilt 2,000 times three ways (Enes Berk Sakalli and Arndt von Haeseler's poster; example numbers computed live, the poster's only as the authors' test) |
 | Networks for everyone (outreach; English and German) | `stories/pass.js` | a school of fish (300, a live simulation) all around you, each watching its 7 nearest neighbours; the airports story's globe (3,214 airports, 18,858 routes, taken unchanged) with a seeded S/E/I/R outbreak on its routes; the cell map story's cell (249 proteins in 13 places, taken unchanged), its NF-κB relay and CFTR in the wrong place |
 | Flock | `stories/flock.js` | 200 starlings (a live simulation) flying all around you at dusk, each following its seven nearest neighbours |
 | Robot gang | `stories/robots.js` | 6 to 24 robot vacuums (a live simulation) in a model living room, or in a headset your own room; who follows whom (you, or the one ahead) is the network |
@@ -92,6 +93,9 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
   tour's body set); see its `README.md` and `SPEC.md`.
 - `tools/qubits/` - the sources of `stories/qubits.js` (the maths `QMATH` and its test, the real run's numbers, the
   shared look, sets, engine parts adapted from the microanatomy story's, build script, set harness; it uses
+  `tools/lbi/kit.js`); see its `README.md` and `SPEC.md`.
+- `tools/mutation/` - the sources of `stories/mutation.js` (the maths `MMATH` and its test, the poster's numbers, the
+  shared look, four sets, engine parts adapted from the qubits story's, build script, set harness; it uses
   `tools/lbi/kit.js`); see its `README.md` and `SPEC.md`.
 - `tools/pass/` - the sources of `stories/pass.js` (the build that cuts the airports story's globe and the cell map
   story's cell out of `stories/airports.js` and `stories/spatial.js`, unchanged; three sets, `fish`, `globe` and `cell`;
@@ -269,7 +273,7 @@ spot, y over the floor) and `st.<id>.place` (the scene: `{ x, y, z }` moved from
 where the story puts it, and `s` its size, a factor on the story's own; FORMAT
 networks-8), and per shared space `rf.<space id>` (the room's frame in it) and
 `rs.<space id>` (found split; FORMAT networks-9), and `sg` (the room's shared-space
-generation, `{ n, by, at }`; FORMAT networks-10; networks-11 when the eighth story came, networks-12 the ninth, networks-13 the tenth, networks-14 the eleventh, networks-15 the twelfth, networks-16 the thirteenth, networks-17 when the PET story's `state()` lost its one-scan fields, networks-18 when its liver scene came back, networks-19 when the ovary story's charts went, networks-20 when the pass story's school got a shared place at a station). The plan is `docs/shared-space-plan.md`.
+generation, `{ n, by, at }`; FORMAT networks-10; networks-11 when the eighth story came, networks-12 the ninth, networks-13 the tenth, networks-14 the eleventh, networks-15 the twelfth, networks-16 the thirteenth, networks-17 when the PET story's `state()` lost its one-scan fields, networks-18 when its liver scene came back, networks-19 when the ovary story's charts went, networks-20 when the pass story's school got a shared place at a station, networks-21 when the fourteenth story came). The plan is `docs/shared-space-plan.md`.
 
 - `HOST.collab` keeps the room's keys (echo suppression by value, optimistic
   writes acknowledged by the relay, apply order stations > clock > state >
@@ -329,7 +333,7 @@ generation, `{ n, by, at }`; FORMAT networks-10; networks-11 when the eighth sto
   from the Shared dialog. A story the person starts themselves leaves the
   station (no longer following, not pulled back).
 - Arrange all: two rows in front of you, half the stories (rounded up: seven of
-  thirteen) 1.2 m ahead and the rest 2.6 m further on (behind them; in the gaps when the second row is shorter), 2.4 m apart, every
+  fourteen) 1.2 m ahead and the rest 2.6 m further on (behind them; in the gaps when the second row is shorter), 2.4 m apart, every
   station facing away from you (its content floats 1.4 m beyond its spot); it
   needs about 14.5 m x 4 m of floor from 1.2 m in front of you. Remove asks first ("Remove for
   everyone?", 3 s), on the page and in the headset.
@@ -616,7 +620,7 @@ generation, `{ n, by, at }`; FORMAT networks-10; networks-11 when the eighth sto
   A page following a station (Follow) leaves its Stories screen: while that
   shows, nothing syncs.
 
-The hooks every story keeps (all thirteen, the same lines; the flock is the
+The hooks every story keeps (all fourteen, the same lines; the flock is the
 reference, `tools/flock/engine/`):
 
 - `collab: { APP, scene: () => GL.scene, state, apply, view, setView, effect, hover, panel, place }`
@@ -673,6 +677,7 @@ What each story shares:
 | micro | tab, scene, every scene's controls (body, section, atlas, network), organ, domain, age, method step | none |
 | ovary | tab, scene, every scene's controls (ovary: view, show; section: view, with By kind, show; never their Age steps), the kind of object picked, the age (20 to 70), the method (`rf` or `seg`) | none |
 | qubits | tab, scene, every scene's controls (pairs; cube: view, network, cut, bits, algebra; chart: view, example, angles), the brick shown (a Pauli string by name), how many strings are added up, the gallery (kinds or largest) | none |
+| mutation | tab, scene, every scene's controls (letters: view, letter or mix; rule: view, rule, start and parent letters; tree: view, tree, how fast letters change, machines; stem: view, numbers (the authors' test or this example), method), the branch length (`time`, to the hundredth), the read-outs and their seed, the branch picked, the pair favour (`w`), the rebuild's seed (never the camera or how far the read-outs have played) | none |
 | pass | tab, scene, every scene's controls but the fish's view (the fish: neighbours watched, links, shark now and then; the globe: view, colour, pillars, outbreak on; the cell: view, organelles, colour, move), the school's size, the outbreak's start (an airport's code) and settings (incubation, infectious days, spread, flights cut), the city looked up, the protein picked, the school's place at a station (`sea`, moved with the grip there) (never the language, the outbreak's day, the steered shark or the sea moved outside a room) | `shark` (as the flock's falcon, in the set's frame), `school` (quiet, twice a second, as the flock's `flock`) |
 | flock | birds, links, falcon | `falcon` (where it starts, its velocity and aim, in the set's frame), `flock` (quiet, twice a second: where the flock is, see the flock's notes) |
 | robots | rule, robots, trails, links | `crumbs` (a pile: in room coordinates in a headset with an aligned frame, else in the station's frame), `dust` |
@@ -719,7 +724,7 @@ says why), whether a recentre fires a reset, sound zones heard, comfort and
 frame rate with presence drawn, and whether the socket keeps running inside an
 immersive session.
 
-## Inside a story (all thirteen follow the same pattern)
+## Inside a story (all fourteen follow the same pattern)
 
 - Data at the top (airports and proteins: precomputed constants; spatial: the
   editable `PLACES`, `PROTEINS`, `LINKS`, `TOGETHER`, `MOVES` lists, laid out
@@ -973,6 +978,52 @@ from the microanatomy story's. `tools/qubits/SPEC.md` is the contract.
 - **American spelling in this story** (color, gray, neighborhood, normalized, center; the aging ovary story too), as the brief asks: keep
   it in `tools/qubits/` and its card; the rest of the app stays British.
 
+## The mutation machine (`stories/mutation.js`) is built the same way
+
+`stories/mutation.js` ("The mutation machine", after the poster "Converting Mutation into a Machinery: DNA Substitution
+Models as Quantum Circuits" by Enes Berk Sakalli and Arndt von Haeseler, a draft) is generated from `tools/mutation/`
+(`node tools/mutation/build.mjs`, `--check` as for the tour): the tour's kit, three shared parts pasted before the sets
+(`MMATH`, the maths, `sets/mmath.js`, checked by `node tools/mutation/test-mmath.mjs`; `MUT_DATA`, the poster's numbers
+typed in, `sets/data.js`; `MLOOK`, the qubits story's lit instanced tubes, rings, balls, boxes and halos plus letter
+tiles, arrowheads, qubit spheres and gears, `sets/look.js`), four sets (`letters`, the DNA helix, the ancestor's eight
+letters and two copies with swaps, a letter's two qubits and their read-outs piling up; `tree`, the family tree in 3D,
+one machine (a gear) per branch and the poster's species tree; `rule`, a rule of change as balls and arrows, the pyramid
+of mixes and the path through it, the compiler, the machine for one branch and its circuit; `stem`, an RNA stem, a pair
+breaking, the coupling, the count of combinations and the fields of rebuilt ancestors, drawn in `tree`'s frame; each
+with a manifest) and engine parts adapted from the qubits story's. `tools/mutation/SPEC.md` is the contract.
+
+- Example numbers throughout, as in the authors' own test (the author: fine for a test of the method; a real result
+  would estimate them from real sequences). Every number about the examples is computed live by `MMATH`: three
+  substitution models (GTR as the story's, JC69 and K80) and P(t) = e^(Qt), the path through the pyramid, the qubits'
+  arrows and read-outs, the circuit's angles and its simple steps (checked by a state-vector run), the family tree with
+  every swap simulated, the pair models and the ancestor rebuilt by Felsenstein's pruning. The poster's numbers
+  (`MUT_DATA`: Figure 1's sequences, Figure 5's stems, the shares of 2,000 rebuilt ancestors with all six pairs intact,
+  10 %, 43 % and 20 %) appear only where the text says "in the authors' test".
+- The poster does not give its coupled circuit in detail, so the live example's coupling is **our stand-in**: each
+  branch's turn, then a step that weights every matching pair w times (`MMATH.Pcoupled`), labelled so wherever it shows
+  (MM6 in `docs/questions-for-authors.md`).
+- The author's answers (27 Oct 2026) are the story's. The turn: the circuit copies the parent's letter onto the child,
+  then turns the child by single-qubit rotations plus two-qubit steps that make the turn depend on the parent's letter;
+  how far each step turns depends only on the branch length, and the steps are the same on every branch. The wording of
+  the result: a broken pair in the true ancestor is normal (only about a quarter of ancestors have all six pairs
+  matched); the coupled circuit favours matching pairs too strongly (43 % against the exact calculation's 20 %): its
+  ancestors look believable, but its percentages are not true chances. Never say the circuit is "better" or "more
+  accurate".
+- The family tree is properly 3D (the owner's wish): it grows up out of its root, its eight tips evenly round the
+  vertical, and heights are change (a branch rises by its length), so you walk round it and look up into it. Its view
+  `stand` is the headset's (the tree about 1.6 m tall, its root 1.25 m below your eyes and its crown just above them:
+  you stand at its edge and look up into it; explore's Tree tab, Look: Stand in it); `up` looks up from below the root on
+  a screen only (the headset's Tree pane leaves it out: it would tip the tree over).
+- A set label's `text` may be a function (the branches' lengths, the branch picked, the dial's branch length): the
+  engine reads it again while it shows (`labelText`, as in the qubits story). Step params (never eased) are listed in
+  each manifest and in `STEP` (`engine/e4_explore.js`).
+- Explore: Letters (a letter or a mix in two qubits, read out 1 or 100 more), Rule (three rules, the start and parent
+  letters, the branch length; the path, the machine, its circuit and simple steps), Tree (five trees, how fast letters
+  change, a branch picked by click or ray, the machines running, the views), Stem (the authors' test or this example
+  live, the pair favour w from 1 to 30, a method lit, rebuild again) and Scenes.
+- **British spelling** (colour, favour, tumour, centre, grey), English only. T stands for RNA's U, as on the poster. No
+  patient data (the test is synthetic); the poster's pictures are never shown, its figures are redrawn in 3D.
+
 ## The pass story (`stories/pass.js`) is built the same way
 
 `stories/pass.js` ("Pass it on", in German "Weitersagen!", the institute's outreach story for about 12 and up) is
@@ -1175,7 +1226,8 @@ is the contract between them.
   changing `tools/lbi/sets/body.js` or `tools/lbi/sets/tissue.js`, which it uses), and `tools/ovary/` and
   `stories/ovary.js` (and after changing `tools/lbi/sets/body.js`, which it uses; first
   `node tools/ovary/data/gen_data.mjs` after changing its readings), and `tools/qubits/` and
-  `stories/qubits.js` (run `node tools/qubits/test-qmath.mjs` after changing its maths), and `tools/pass/` and
+  `stories/qubits.js` (run `node tools/qubits/test-qmath.mjs` after changing its maths), and `tools/mutation/` and
+  `stories/mutation.js` (run `node tools/mutation/test-mmath.mjs` after changing its maths), and `tools/pass/` and
   `stories/pass.js` (and after changing `stories/airports.js` or `stories/spatial.js`, whose globe and cell it takes).
 - Keep `README.txt` (user-facing notes) in sync with structural changes.
 - Shared rooms: bump `FORMAT` in `shared.js` when the keys or a story's
@@ -1192,8 +1244,8 @@ smoke test, which loads every story, scrubs through it, plays it as a slideshow
 last one, the voice finishing the chapter there where a story has a recording,
 Next on the page, in the bar and on the headset panel beside the chapter arrows,
 Next going on), exercises explore
-mode and the headset panels (for the muscle, endotype, PET, microanatomy, ovary, qubits and pass stories every explore tool too,
-for the pass story in both languages with its switch; for
+mode and the headset panels (for the muscle, endotype, PET, microanatomy, ovary, qubits, mutation and pass stories every explore tool too,
+for the mutation story also its links (each opens explore mode on what it says), for the pass story in both languages with its switch; for
 the robot gang every rule, a click to walk, crumbs, a big open floor and one
 with no area, and a pretend headset room from detected planes),
 switches stories, runs anchored placement in each
@@ -1319,7 +1371,7 @@ For the tour, test a changed set on its own in the set harness first
 (`tools/lbi/shot.mjs`, much cheaper than the whole story), then the story at a
 few seconds (`tools/lbi/sweep.mjs`), then the smoke test. The muscle story has
 the same tools in `tools/nmd/` (`shot.mjs`, `sweep.mjs`), and so have the
-endotype story in `tools/endo/`, the PET story in `tools/pet/`, the microanatomy story in `tools/micro/`, the ovary story in `tools/ovary/`, the qubits story in `tools/qubits/`, the pass story in `tools/pass/` and the robot gang in `tools/robots/`.
+endotype story in `tools/endo/`, the PET story in `tools/pet/`, the microanatomy story in `tools/micro/`, the ovary story in `tools/ovary/`, the qubits story in `tools/qubits/`, the mutation story in `tools/mutation/`, the pass story in `tools/pass/` and the robot gang in `tools/robots/`.
 
 Useful URL hashes: `#spatial&t=95` (open at that second of the timeline, paused),
 `#proteins&explore&q=TP53` (explore mode with a search),
@@ -1333,6 +1385,10 @@ second), `#lbi&explore&scene=atp&view=network&now=1` (a scene with its controls)
 `#micro&explore&organ=Ovary`, `#micro&explore&tab=age&age=70`, `#micro&explore&scene=atlas&view=volcano`, `#ovary&t=200`,
 `#ovary&explore&kind=follicle`, `#ovary&explore&tab=age&age=60`, `#ovary&explore&scene=section&view=forest`, `#ovary&explore&scene=section&view=kinds&age=60`, `#ovary&explore&method=seg`, `#qubits&t=100`, `#qubits&explore&tab=network&net=blurred&cut=random&bits=2`,
 `#qubits&explore&brick=X2X1&alg=so6`, `#qubits&explore&sum=10`, `#qubits&explore&tab=depth&ex=on`, `#qubits&explore&scene=pairs&view=hoods`,
+`#mutation&t=100`, `#mutation&explore&tab=letters&mix=G` (or `mix=rule&time=0.45&reads=100`),
+`#mutation&explore&tab=rule&model=even&start=C&time=0.8`, `#mutation&explore&tab=rule&view=steps&parent=T`,
+`#mutation&explore&tab=tree&seed=3&speed=2&branch=5`, `#mutation&explore&tab=stem&src=live&w=20` (`&rebuild=2` its seed),
+`#mutation&explore&scene=tree&view=up` (the tree's own cameras: `up`, `stand`, `crown`),
 `#pass&t=180&lang=de` (German), `#pass&explore&tab=fish&k=1&links=on&shark`, `#pass&explore&start=LHR&spread=high&cut=50&day=20&city=SYD`,
 `#pass&explore&protein=CFTR&move=cf`, `#pass&explore&scene=globe&pillars=on`, `#flock&explore&view=afar&links=on&birds=400`
 (`&hunt` sends a falcon), `#robots&explore&rule=chain&robots=12&trails=on&links=on&view=low`

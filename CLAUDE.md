@@ -10,7 +10,7 @@
 - The story files are large (`stories/airports.js` is ~640 KB because of its
   embedded data). Search with Grep and read line ranges; never read them whole.
 - Prefer small, exact edits. When a change touches the headset code, apply it
-  to all thirteen stories: their XR, panel and landing-screen code is meant to
+  to all fourteen stories: their XR, panel and landing-screen code is meant to
   stay identical apart from story-specific panes.
 - Verify visual changes by serving the folder and taking headless Chromium
   screenshots (hashes such as `#spatial&t=60` jump straight to a moment), and
@@ -30,7 +30,7 @@
   `HOST.anchor.locked(kind)` before letting the grip move anything. Real anchors
   only exist on a headset: report their behaviour as untested.
 - Shared rooms (`shared.js`, `relay/`, see "Shared rooms" in `AGENTS.md`): keep
-  the shared hooks in all thirteen stories, the same lines in each (the `collab`
+  the shared hooks in all fourteen stories, the same lines in each (the `collab`
   object, the ray and press lines, the grip line, the optional features from
   `HOST.xr.features(mode)` (AR asks for `'shared'`, VR for less), the `HOST.collab.mine()` lines in `xrFreshStart` and
   `xrLandingClose`). `state()` never holds the camera, hover or anything per
@@ -66,6 +66,11 @@
   `node tools/qubits/test-qmath.mjs`; example networks only, computed live, and the real run's numbers typed in from
   Joel Hancock's brief in `tools/qubits/sets/data.js`, shown only as "in the real network"). It and the aging ovary
   story use American spelling (color, gray, neighborhood, aging), as asked; keep it so there and British everywhere else.
+  `stories/mutation.js` likewise from `tools/mutation/` (`node tools/mutation/build.mjs`; its maths checked by
+  `node tools/mutation/test-mmath.mjs`; example numbers only, computed live, and the poster's numbers typed in
+  `tools/mutation/sets/data.js`, shown only as "in the authors' test"). Its coupling, computed live, is our stand-in for
+  the authors' circuit and says so; never call the circuit "better" or "more accurate". No patient data and none of the
+  poster's pictures (its figures are redrawn in 3D). British spelling.
   `stories/pass.js` likewise from `tools/pass/` (`node tools/pass/build.mjs`; its sets checked by
   `node tools/pass/test-sets.mjs`). Its globe and cell are cut, unchanged, out of `stories/airports.js` and
   `stories/spatial.js` at build time, so rebuild it after changing either. It is in English and German: every word in
