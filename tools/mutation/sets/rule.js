@@ -361,7 +361,7 @@ SETS.rule = function (K) {
   const DIAL = [0, 0.25, 0.5, 1, 2];
 
   // ---- the circuit, under the machine
-  const XPOS = [0, 0, 0, 0], SZ_CAR = [0.1, 0.05, 0.06], SZ_HEAD = [0.22, 0.05, 0.13], SZ_BLOCK = [0.3, BH, 0.08], SZ_CTRL = [0.045, 0.045, 0.045], SZ_RY = [0.05, 0.075, 0.05];
+  const XPOS = [0, 0, 0, 0], SZ_CAR = [0.1, 0.05, 0.06], SZ_HEAD = [0.22, 0.05, 0.13], SZ_BLOCK = [0.3, BH, 0.08], SZ_CTRL = [0.045, 0.045, 0.045], SZ_RY = [0.056, 0.09, 0.05];
   let RUN = 1;
   // a gate glows as a pulse on its wire passes it
   const flash = (w, x) => RUN * Math.exp(-(((XPOS[w] - x) / 0.06) ** 2));
@@ -421,10 +421,11 @@ SETS.rule = function (K) {
         if (it.ry !== undefined) {
           let v = 0; for (let xx = 0; xx < st.N; xx++) v += st.sign[it.ry * st.N + xx] * ang[th0 + xx];
           v /= st.N;
-          const sh = 0.25 + 0.75 * Math.abs(v) / Math.max(mx, 0.35);
+          const sh = 0.4 + 0.6 * Math.abs(v) / Math.max(mx, 0.35);
           boxes.add(set3(_a, xi, WY[it.w], 0), SZ_RY, LK.mix(DIM, LK.mix(LK.BLUE, LK.RIM, 0.3 * fl, _e), sh, _col), sa);
-          set3(_a, xi - 0.026 * Math.sin(v), WY[it.w] - 0.026 * Math.cos(v), 0.03); set3(_b, xi + 0.026 * Math.sin(v), WY[it.w] + 0.026 * Math.cos(v), 0.03);
-          tubes.add(_a, _b, 0.004, LK.INK, sa, 0);
+          // (a needle on its face, turned by its angle)
+          set3(_a, xi - 0.034 * Math.sin(v), WY[it.w] - 0.034 * Math.cos(v), 0.03); set3(_b, xi + 0.034 * Math.sin(v), WY[it.w] + 0.034 * Math.cos(v), 0.03);
+          tubes.add(_a, _b, 0.005, LK.WHITE, sa, 0);
         } else {
           const dn = WY[it.w] < WY[it.ctrl] ? 1 : -1;
           tubes.add(set3(_a, xi, WY[it.ctrl], 0), set3(_b, xi, WY[it.w] + dn * 0.022, 0), 0.004, LK.WHITE, sa, 0);
@@ -492,7 +493,7 @@ SETS.rule = function (K) {
     p3: () => [now.pts[2][0] + 0.04, now.pts[2][1] + 0.04, now.pts[2][2]],
     compiler: [DR + 0.05, DRUM[1], 0],
     parent: [PAR_T[0] + MT * 0.62, PAR_T[1] + 0.03, 0], child: [CHD_T[0] + MT * 0.62, CHD_T[1] + 0.03, 0], press: () => [now.head[0] + 0.13, now.head[1] + 0.05, 0],
-    gears: [XC - 0.12, GC[1][1] - GR - 0.1, 0.06], dial: [GD[0] + 0.08, GD[1] - GR - 0.17, 0], mini: [MINI[0] - 0.22, MINI[1] - MS * 0.75, 0],
+    gears: [XC - 0.12, GC[1][1] - GR - 0.1, 0.06], dial: [GD[0] + 0.08, GD[1] - GR - 0.17, 0], mini: [MINI[0] - 0.12, MINI[1] + MS * 1.25, 0],
     machine: [0, 0.5, 0], circuit: [0, -0.55, 0],
     wireParent: [XL - 0.62, (WY[0] + WY[1]) / 2 + 0.02, 0], wireChild: [XL - 0.62, (WY[2] + WY[3]) / 2 + 0.02, 0],
     copyGates: [XCOPY[0] - 0.04, WY[0] + 0.1, 0], turn1: [XB[0] - BW[0] / 2, WY[3] - 0.11, 0], turn2: [XB[1] - BW[1] / 2 + 0.12, WY[3] - 0.11, 0],
@@ -534,9 +535,9 @@ SETS.rule = function (K) {
     compiler: [0, 20, 3.9, 0, -0.12, 0],
     machine: [0, 8, 3.3, -0.1, 0.52, 0],
     copy: [0, 8, 2.5, (XP + XC) / 2, 0.68, 0],
-    turn: [12, 6, 2.7, 0.25, 0.42, 0],
+    turn: [12, 6, 2.9, 0.05, 0.42, 0],
     circuit: [0, 6, 4.4, -0.15, 0.12, 0],
-    steps: [0, 4, 3.1, 0.15, -0.5, 0],
+    steps: [0, 4, 3.5, -0.05, -0.5, 0],
   };
   const LETTER_OPTS = M.LETTERS.split('').map(l => [l, l]);
   const controls = [
