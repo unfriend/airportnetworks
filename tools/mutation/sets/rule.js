@@ -361,7 +361,7 @@ SETS.rule = function (K) {
   const DIAL = [0, 0.25, 0.5, 1, 2];
 
   // ---- the circuit, under the machine
-  const XPOS = [0, 0, 0, 0], SZ_CAR = [0.1, 0.05, 0.06], SZ_HEAD = [0.22, 0.05, 0.13], SZ_BLOCK = [0.3, BH, 0.08], SZ_CTRL = [0.045, 0.045, 0.045], SZ_RY = [0.056, 0.09, 0.05];
+  const XPOS = [0, 0, 0, 0], SZ_CAR = [0.1, 0.05, 0.06], SZ_HEAD = [0.22, 0.05, 0.13], SZ_BLOCK = [0.3, BH, 0.08], SZ_RY = [0.056, 0.09, 0.05];
   let RUN = 1;
   // a gate glows as a pulse on its wire passes it
   const flash = (w, x) => RUN * Math.exp(-(((XPOS[w] - x) / 0.06) ** 2));
@@ -404,7 +404,7 @@ SETS.rule = function (K) {
         let top = WY[wt];
         for (let c = 0; c < st.ctrls.length; c++) {
           const w = st.ctrls[c];
-          boxes.add(set3(_a, x, WY[w], 0), SZ_CTRL, LK.RIM, blockA);
+          balls.add(set3(_a, x, WY[w], 0), 0.026, LK.RIM, blockA);
           top = Math.max(top, WY[w]);
         }
         tubes.add(set3(_a, x, top, 0), set3(_b, x, WY[wt] + BH / 2, 0), 0.007, LK.RIM, blockA, 0);

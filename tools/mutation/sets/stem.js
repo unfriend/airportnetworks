@@ -54,7 +54,7 @@ SETS.stem = function (K) {
   }
 
   // ---------------------------------------------------------------- the count: 16, 64, about a million, 20 qubits
-  const CS = [1.18, 0.1, 0], PQ = 0.2, CC = [1.2, 0.15, -1.9], QY = -0.86, QZ = 0.28;
+  const CS = [1.18, 0.1, 0], PQ = 0.2, CC = [1.2, 0.2, -2.7], QY = -0.88, QZ = 0.3;
   const CUBE = [], CUBEC = [];
   for (let i = 0; i < 4; i++) for (let j = 0; j < 4; j++) for (let k = 0; k < 4; k++) {
     CUBE.push([i, j, k]);
@@ -68,11 +68,11 @@ SETS.stem = function (K) {
     const dl = new Float32Array(NCLOUD), r = K.rng(61);
     for (let n = 0; n < NCLOUD; n++) {
       // a vast soft cloud, densest at its middle, flattened a little
-      const u = K.unit(r), rad = 0.25 + 2.7 * Math.pow(r(), 0.62);
+      const u = K.unit(r), rad = 0.2 + 2.4 * Math.pow(r(), 0.6);
       pa[3 * n] = CC[0] + u[0] * rad * 1.15; pa[3 * n + 1] = CC[1] + u[1] * rad * 0.62; pa[3 * n + 2] = CC[2] + u[2] * rad;
       const c = LC[Math.floor(r() * 4)];
       ca[3 * n] = c[0]; ca[3 * n + 1] = c[1]; ca[3 * n + 2] = c[2];
-      sa[n] = 0.012 + 0.016 * r(); aa[n] = 0.25 + 0.35 * r(); dl[n] = r();
+      sa[n] = 0.012 + 0.016 * r(); aa[n] = 0.1 + 0.22 * r(); dl[n] = r();
     }
     g.setAttribute('aDelay', new THREE.BufferAttribute(dl, 1));
     cloudU = { uExp: { value: 0 }, uCloudA: { value: 0 }, uC0: { value: new THREE.Vector3(CS[0], CS[1], CS[2] - 1.5 * PQ) } };
@@ -90,7 +90,7 @@ SETS.stem = function (K) {
   const QB = [];
   for (let l = 0; l < 10; l++) {
     const p = M.path(M.DEFAULT, l % 4, M.POINTS[(l >> 2) % 3]), b = M.bloch(p);
-    for (let q = 0; q < 2; q++) QB.push({ c: [1.02 + (l - 4.5) * 0.25 + (q - 0.5) * 0.112, QY, QZ], b, at: 3 * q });
+    for (let q = 0; q < 2; q++) QB.push({ c: [1.0 + (l - 4.5) * 0.275 + (q - 0.5) * 0.125, QY, QZ], b, at: 3 * q });
   }
 
   // ---------------------------------------------------------------- chapter 7: where things stand
@@ -367,7 +367,7 @@ void main() {
     cloudU.uExp.value = smooth(cl); cloudU.uCloudA.value = prog(cl, 0, 0.25); cloud.visible = cl > 0.003;
     if (qa > 0.003) for (let n = 0; n < QB.length; n++) {
       const Q = QB[n], a = qa * prog(qa, n / QB.length * 0.6, n / QB.length * 0.6 + 0.4);
-      LK.qubit(QPOOLS, Q.c, 0.046, Q.b, a, Q.at ? QOPT1 : QOPT0);
+      LK.qubit(QPOOLS, Q.c, 0.054, Q.b, a, Q.at ? QOPT1 : QOPT0);
     }
 
     // ---- chapter 7: the species' stems, the fields, the true ancestor and the rebuilt examples
@@ -411,7 +411,7 @@ void main() {
   const nb = n => `${n} broken pair${n === 1 ? '' : 's'}`;
   const anchors = {
     stem: [0, 0, 0], loop: [0.12, 0.62, 0], top: [0.3, 0.45, 0], brk: () => now.brk, gear: () => [now.gear[0] + 0.1, now.gear[1] + 0.06, now.gear[2]],
-    square: [CS[0] - 0.42, CS[1] + 0.48, 0], cube: [CS[0] - 0.42, CS[1] + 0.52, -0.3], cloud: [CC[0] + 1.2, CC[1] + 1.2, CC[2] + 0.6], qubits: [QB[0].c[0] - 0.06, QY - 0.13, QZ],
+    square: [CS[0] - 0.42, CS[1] + 0.48, 0], cube: [CS[0] - 0.42, CS[1] + 0.52, -0.3], cloud: [CC[0] - 0.5, CC[1] + 1.25, CC[2] + 0.4], qubits: [QB[0].c[0] - 0.06, QY - 0.13, QZ],
     truth: [TBASE[0] + 0.2, TBASE[1] + 0.92, TBASE[2]], root: [0, -1, 0],
   };
   SPECIES.forEach((P, j) => { anchors['sp' + (j + 1)] = [P.base[0] + 0.1, P.base[1] + 0.62, P.base[2]]; });
@@ -452,7 +452,7 @@ void main() {
     fold: [14, 8, 3.2, 0, 0.02, 0],
     break: [24, 6, 2.3, 0, 0.12, 0],
     count: [-12, 10, 5.4, 0.85, -0.1, -0.15],
-    cloud: [-10, 12, 8.6, 1.0, 0.1, -1.2],
+    cloud: [-10, 12, 8.4, 1.0, 0.0, -1.4],
     species: [18, 16, 3.9, 0, -0.38, 0.1],
     fields: [0, 34, 4.4, 0, -0.95, 1.12],
     compare: [0, 20, 4.2, 0, -0.62, 0.85],
