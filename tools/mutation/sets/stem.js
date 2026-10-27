@@ -24,11 +24,13 @@ SETS.stem = function (K) {
   const EX = D.rebuilt.coupled, LOOP = 'GAAA';                         // GTTACT / TGATGA: all six pairs hold
   const STRAND = idx(EX.top + LOOP + [...EX.bottom].reverse().join(''));
   const NL = STRAND.length, BI = 4;                                    // pair 5 (index 4) breaks and is coupled
-  const SPC = 0.15, TSC = 0.115, HEND = 0.5, RR = 0.21, TW = 2 * PI / 11, LL = 4 * SPC, RHO = LL / PI;
+  const SPC = 0.15, TSC = 0.108, HEND = 0.5, RR = 0.235, TW = 2 * PI / 11, LL = 4 * SPC, RHO = LL / PI;
   const pairOf = k => (k < 6 ? k : k >= NL - 6 ? NL - 1 - k : -1), sideOf = k => (k < 6 ? -1 : k >= NL - 6 ? 1 : 0);
   const CP = Array.from({ length: NL }, () => [0, 0, 0]), CDIR = Array.from({ length: 6 }, () => [0, 0, 0]);
   // where each letter is at fold f: a straight row (0), a hairpin folding round its loop (to 0.55), twisting into the
-  // stem (to 1); bulge pushes pair BI's letters apart
+  // stem (to 1: 11 pairs a turn, pair BI square to the story's view and the loop in line with the top pair, so the
+  // pair that breaks and the loop read; the lowest pairs turn away, as in any helix); bulge pushes pair BI's letters
+  // apart
   function layout(f, bulge) {
     const fA = smooth(clamp(f / 0.55, 0, 1)), fB = smooth(clamp((f - 0.5) / 0.5, 0, 1)), al = PI * fA, H = HEND * fA;
     const g = lerp(1, RR / RHO, fB);
@@ -43,7 +45,7 @@ SETS.stem = function (K) {
           x = rho * Math.sin(te) + sg * d * Math.cos(al / 2); y = H - rho * (1 - Math.cos(te)) - d * Math.sin(al / 2);
         }
       }
-      const i = pairOf(k), ph = fB * ((i >= 0 ? i : 5.5) - 2.5) * TW, c = Math.cos(ph), sn = Math.sin(ph);
+      const i = pairOf(k), ph = fB * ((i >= 0 ? i : 5) - BI) * TW, c = Math.cos(ph), sn = Math.sin(ph);
       let xx = x * g;
       if (i === BI) xx += sideOf(k) * bulge;
       CP[k][0] = xx * c; CP[k][1] = y; CP[k][2] = -xx * sn;
@@ -330,8 +332,14 @@ void main() {
           cross(_a, e, 0.05, rungA * prog(brk, 0.55, 0.85));
         }
       }
-      // the coupling: a coupling gear on pair BI's rung (its axle), turning as both letters change
-      if (coup > 0.003) gears.add(now.gear, CDIR[BI], 0.085, PI * smooth(both) + 0.6 * coup, LK.BLUE, strand * coup * rungA, OPT_PAIR);
+      // the coupling: a coupling gear over pair BI's rung, its double band along the rung (the poster's sign for a
+      // pair's two letters), winding in as it comes and turning half round as both letters change
+      if (coup > 0.003) {
+        const e = CDIR[BI];
+        _b[0] = -e[2]; _b[1] = 0; _b[2] = e[0];   // across the rung, level: the gear's axis
+        add3(_a, now.gear, _b, 0.045);
+        gears.add(_a, _b, 0.11, PI * smooth(both) - 1.4 * (1 - coup), LK.BLUE, strand * coup * rungA, OPT_PAIR);
+      }
     }
 
     // ---- the count
