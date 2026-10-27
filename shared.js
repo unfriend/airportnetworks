@@ -812,7 +812,7 @@
     changed();
   }
   const refused = what => { if (!layoutLocked()) return false; log('layout locked', { what }); return true; };
-  // the headsets' two settings (HOST.xr: labels facing you, in 3D or hidden; free moving on or off) are the room's in a
+  // the headsets' two settings (HOST.xr: labels in 3D (turned to you, in the scene), on top or hidden; free moving on or off) are the room's in a
   // room, for everyone in it (key look: { labels, free, by, at }; a room without it: everything in 3D), set from a
   // headset's menu or the page's dialog, and never refused by the layout lock. Null outside a room (the device's own)
   const LOOKS = ['face', 'fixed', 'hidden'], LOOK0 = { labels: 'fixed', free: true };
@@ -1294,9 +1294,9 @@
       OV.cards.set(s.id, o); OV.room.add(o.mesh);
     }
     const S = shown(s), [cx, cz] = content(S);
-    // facing you: turned to you (seen from another row it would be back to front); in 3D (and without a head): facing
-    // back to its spot
-    o.mesh.position.set(cx, 1.45, cz); o.mesh.rotation.set(0, lm === 'face' && R.headOK ? Math.atan2(R.hr.x - cx, R.hr.z - cz) : S.yaw, 0);
+    // turned to you, upright (seen from another row it would be back to front), on top or in 3D alike: it is a card in
+    // the room either way; without a head, facing back to its spot
+    o.mesh.position.set(cx, 1.45, cz); o.mesh.rotation.set(0, R.headOK ? Math.atan2(R.hr.x - cx, R.hr.z - cz) : S.yaw, 0);
     return o;
   }
   function stationLine(s) {
@@ -1399,12 +1399,14 @@
       o.e.p.lerp(_v.set(h[0], h[1], h[2]), k); o.e.q.slerp(_q.set(h[3], h[4], h[5], h[6]), k);
       o.avatar.position.copy(o.e.p); o.avatar.quaternion.copy(o.e.q);
       o.avatar.visible = vr || !m.here;
-      // the name: facing you (a sprite over everything), in 3D (a sign over the head, turned with it) or hidden
+      // the name: on top of everything (a sprite), in 3D (a sign over the head, upright and turned to you, hidden by
+      // what stands in front of it) or hidden
       o.tag.position.set(o.e.p.x, o.e.p.y + 0.24, o.e.p.z);
       o.tag.visible = lm === 'face'; o.sign.visible = lm === 'fixed';
       if (o.sign.visible) {
-        _v.set(0, 0, -1).applyQuaternion(o.e.q);
-        o.sign.position.copy(o.tag.position); o.sign.rotation.set(0, Math.atan2(-_v.x, -_v.z) + Math.PI, 0);
+        o.sign.position.copy(o.tag.position);
+        if (R.headOK) o.sign.rotation.set(0, Math.atan2(R.hr.x - o.sign.position.x, R.hr.z - o.sign.position.z), 0);
+        else { _v.set(0, 0, -1).applyQuaternion(o.e.q); o.sign.rotation.set(0, Math.atan2(-_v.x, -_v.z) + Math.PI, 0); }   // (turned with the person)
       }
       for (let i = 0; i < 2; i++) {
         const H = hands[i], on = !!H;
@@ -1501,8 +1503,8 @@
     button(S, 'exit', x, y, bw, 60, 'Exit', () => { if (HOST.session && HOST.session.end) HOST.session.end(); });
     if (HOST.slides) { const on = !!HOST.slides.global(); button(S, 'slides', x + bw + 16, y, bw, 60, on ? 'Slideshow: on' : 'Slideshow: off', () => HOST.slides.setGlobal(!on), { on }); }
     y += 76;
-    // labels (in 3D, hidden, facing you: each press the next) and free moving, for every story; in a room the room's
-    const lm = HOST.xr.labels(), fr = HOST.xr.free(), LBL = { fixed: 'in 3D', hidden: 'hidden', face: 'facing you' };
+    // labels (in 3D, hidden, on top: each press the next) and free moving, for every story; in a room the room's
+    const lm = HOST.xr.labels(), fr = HOST.xr.free(), LBL = { fixed: 'in 3D', hidden: 'hidden', face: 'on top' };
     button(S, 'labels', x, y, bw, 60, 'Labels: ' + LBL[lm], () => HOST.xr.setLabels({ fixed: 'hidden', hidden: 'face', face: 'fixed' }[lm]), { on: lm === 'fixed' });
     button(S, 'free', x + bw + 16, y, bw, 60, fr ? 'Moving: free' : 'Moving: facing you', () => HOST.xr.setFree(!fr), { on: fr });
     if (C.code) { y += 70; ctx.font = FONT(21); ctx.fillStyle = MUTED; ctx.fillText(fit(ctx, 'Labels and moving: the same for everyone in this room', w), x, y); y += 32; } else y += 76;

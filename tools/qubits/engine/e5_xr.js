@@ -2,13 +2,13 @@
 // Headset mode (built for Meta Quest, works in any WebXR browser). Each scene
 // floats in front of you as an object: the story's camera moves become
 // rotations and scaling of the scene, the side panel is redrawn on a canvas you
-// point at, and labels become sprites facing you or signs in the scene. Controllers: point and pull the trigger
+// point at, and labels become sprites on top or signs in the scene. Controllers: point and pull the trigger
 // to click, drag the scene with the trigger or grip, thumbstick spins and zooms,
 // A/X plays and pauses the story. Hand tracking: point and pinch.
 const XR = {
   on: false, mode: null, session: null, needRecenter: false, fov: false, fontOK: 0, clear: true,
   head: new THREE.Vector3(), headQ: new THREE.Quaternion(), globeOff: new THREE.Vector3(), size: 1, globeBase: new THREE.Vector3(), camLocal: new THREE.Vector3(0, 0, 5),
-  rot: new THREE.Quaternion(), free: false, lm: 'face', signY: 0, signL: new THREE.Quaternion(),
+  rot: new THREE.Quaternion(), free: false, lm: 'face', signL: new THREE.Quaternion(), signH: new THREE.Vector3(),
   baseR: 0.36, R: 0.36, viewH: 1600, hitR: 1, target: new THREE.Vector3(),
   ctrls: [], panels: [], main: null, foot: null, tip: null, tipI: -1, elInfo: null,
   kbd: { open: false, q: '' },
@@ -54,8 +54,9 @@ function xrRecenter() {
 
 // ------------------------------------------------- labels and free moving --
 // The shell's two headset settings, the same for everyone in a shared room (HOST.xr; read every frame, and a shell
-// without them means labels facing you and nothing free): labels 'face' (sprites turned to you, over everything),
-// 'fixed' (signs standing in the scene) or 'hidden'; free moving holds what the grip takes like a real object.
+// without them means labels on top and nothing free): labels 'face' (on top: sprites turned to you, over everything),
+// 'fixed' (in 3D: upright signs in the scene, turned to you) or 'hidden'; free moving holds what the grip takes like a
+// real object.
 const xrLabelMode = () => (HOST.xr && HOST.xr.labels ? HOST.xr.labels() : 'face');
 const xrFreeOn = () => !!(HOST.xr && HOST.xr.free && HOST.xr.free());
 const xrSig = () => (HOST.xr && HOST.xr.sig ? HOST.xr.sig() : '');
@@ -80,12 +81,11 @@ function xrPanelPose(p, yaw, q) {
 // a turn of the hand (in the room) as a turn in the rig's frame, where the scene and the panel hang
 function xrRigTurn(q, out) { return out.copy(GL.rig.quaternion).invert().multiply(q).multiply(_fq.copy(GL.rig.quaternion)); }
 // the scene's facing, into q: from its placement point (gx, gy, gz) towards you; moving freely, from its home place,
-// then turned by XR.rot. Its yaw is the way the labels' signs face (labels in 3D).
+// then turned by XR.rot
 function xrFace(q, gx, gy, gz) {
   if (XR.free) _fv.copy(XR.globeBase).negate(); else _fv.set(-gx, -gy, -gz);
   q.setFromUnitVectors(_xz, _fv.normalize());
   if (XR.free) q.premultiply(XR.rot);
-  XR.signY = yawOf(q, XR.signY);
   return q;
 }
 // once a frame: the settings as they are now; free moving turned off gives the scene back its facing and stands the
@@ -132,7 +132,7 @@ function labelTex(L) {
   tex.anisotropy = 4;
   return (L.ltex = { tex, aspect: cv.width / H, tip: cls === 'tip' });
 }
-// labels facing you: a sprite drawn over everything, beside its point
+// labels on top: a sprite turned to you, drawn over everything, beside its point
 function labelSprite(L) {
   if (L.sprite) return L.sprite;
   const t = labelTex(L);
@@ -143,7 +143,7 @@ function labelSprite(L) {
   GL.world.add(sp);
   return (L.sprite = sp);
 }
-// labels in 3D: a flat sign at the sprite's place and size, readable from both sides (a quad facing +z and one facing
+// labels in 3D: a flat sign at the sprite's place and size, turned to you each frame, readable from both sides (a quad facing +z and one facing
 // -z with its picture flipped, so its text never reads mirrored), in the scene's depth: what stands in front of it
 // hides it, and it hides what is behind it (drawn first of the see-through things; its clear corners cut away)
 function labelSign(L) {
@@ -173,7 +173,7 @@ function dropSprite(L) {
 }
 function hideLabelXR(L) { if (L.sprite) L.sprite.visible = false; if (L.sign) L.sign.visible = false; }
 function placeLabelXR(L, alpha, S) {
-  // facing you (a sprite), in 3D (a sign) or hidden, as the shell's setting says; the pointer's tip is always a sprite
+  // on top (a sprite), in 3D (a sign) or hidden, as the shell's setting says; the pointer's tip is always a sprite
   const m = L === XR.tip ? 'face' : XR.lm, fixed = m === 'fixed';
   if (alpha <= 0.001 || m === 'hidden') { hideLabelXR(L); return; }
   if (fixed ? L.sprite : L.sign) (fixed ? L.sprite : L.sign).visible = false;
@@ -183,7 +183,11 @@ function placeLabelXR(L, alpha, S) {
   labelPos(L, sp.position);
   const hm = 0.021 / XR.R;
   sp.scale.set(hm * sp.userData.aspect, hm, 1);
-  if (fixed) sp.quaternion.copy(XR.signL);
+  if (fixed) {
+    // upright and turned to you, about the vertical only (the rig's frame): a sign in the scene, not a sprite on top
+    _fv.copy(sp.position).applyMatrix4(GL.world.matrix);
+    sp.quaternion.copy(XR.signL).multiply(_fq.setFromAxisAngle(_xY, Math.atan2(XR.signH.x - _fv.x, XR.signH.z - _fv.z)));
+  }
 }
 // the brick or the cell a controller points at, labelled where the ray meets it
 function xrTip(S) {
@@ -451,8 +455,9 @@ function xrUpdate(S) {
   GL.rig.updateMatrixWorld(true);
   XR.camLocal.copy(XR.head);
   GL.world.worldToLocal(XR.camLocal);
-  // labels in 3D: the signs stand upright facing the scene's front (XR.signY, from xrPlace), in the world's frame
-  XR.signL.copy(GL.world.quaternion).invert().multiply(_fq.setFromAxisAngle(_xY, XR.signY));
+  // labels in 3D: each sign turns to you (placeLabelXR) from the world's frame back to the rig's, where your head is
+  XR.signL.copy(GL.world.quaternion).invert();
+  GL.rig.worldToLocal(XR.signH.copy(XR.head));
   const story = APP.mode === 'story';
   for (const L of ST.labels) {
     if (story) placeLabelXR(L, fadeVal(storyT(APP.t), L.tIn, L.tOut, 0.5) * (S[L.set + '_a'] > 0.5 ? 1 : 0), S);
