@@ -1,5 +1,5 @@
 // ------------------------------------------------------------- narration --
-// Optional voice-over: put an MP3 at audio/narration-qubits.mp3.
+// Optional voice-over: put an MP3 at audio/narration-mutation.mp3.
 // Second 0 of the recording plays at second 0 of the story; the story clock
 // follows the audio, so seeking, pausing and chapter jumps stay in sync.
 // Without the file the story runs silently. The sound engine is the shell's
@@ -7,7 +7,7 @@
 // and kept running across stories and headset sessions.
 let AUD = null;
 function audioInit() {
-  AUD = HOST.audio.narration('audio/narration-qubits.mp3', {
+  AUD = HOST.audio.narration('audio/narration-mutation.mp3', {
     // a recording longer than the story stretches the timeline
     ready(d) {
       if (d + 1 <= T_END) return;
@@ -123,39 +123,37 @@ const APP = {
     for (const n in DEF) XS[n] = S[n];
     // (the set on show, or the one about to come: a short fade between two of the same set's views shows none)
     const S2 = storyState(Math.min(ts + 1.5, T_END));
-    let best = 'cube', ba = 0;
+    let best = 'letters', ba = 0;
     for (const k of SET_ORDER) { const a = Math.max(S[k + '_a'], 0.9 * S2[k + '_a']); if (a > ba + 0.01) { ba = a; best = k; } }
     // the story's view, taken back into the set's own frame (explore shows sets unturned)
     const v = storyCam(ts).slice(0, 6), r = -setYaw(best, ts) * D2R, x = v[3], z = v[5];
     v[0] += r / D2R; v[3] = x * Math.cos(r) + z * Math.sin(r); v[5] = -x * Math.sin(r) + z * Math.cos(r);
     orbit.cur = v; orbit.to = null;
     X.scene = best; X.t0 = performance.now();
+    // the story's numbers carry over to the panes first (the branch length, the read-outs, the pair favour), so the
+    // controls are matched with them
+    if (best === 'letters') { X.time = clamp(Math.round(S.letters_time * 100) / 100, 0, 2); X.rseed = Math.max(1, Math.round(S.letters_seed)); }
+    if (best === 'rule') X.time = clamp(Math.round(S.rule_time * 100) / 100, 0, 2);
+    X.reads = best === 'letters' && S.letters_open > 0.5 ? clamp(Math.round(S.letters_reads), 0, READ_MAX()) : 0;
+    X.branch = -1; X.w = clamp(Math.round(S.stem_w), 1, 30) || TD.w; X.sseed = 1;
     // and pick the scene's controls that come closest to what the story was showing
     const s = GL.sets[best];
     X.ctl[best] = {};
     for (const ct of ctlsOf(best)) {
       let bo = ct.options[0][0], bd = Infinity;
       for (const [v] of ct.options) {
-        const c = { t: 1e3 };
-        for (const c2 of s.controls || []) c[c2.key] = c2 === ct ? v : ctlValue(best, c2);
+        const c = ctlArgs(best, 0);
+        c.t = 1e3; c[ct.key] = v;
         const tg = s.explore ? s.explore(c) : {};
         let d = 0;
-        for (const n in tg) if (n in S && !n.endsWith('_a') && !/_focus$|_code$/.test(n)) d += (tg[n] - S[n]) ** 2;
+        for (const n in tg) if (n in S && !n.endsWith('_a') && !/_reads$|_seed$|_pick$/.test(n)) d += (tg[n] - S[n]) ** 2;
         if (d < bd) { bd = d; bo = v; }
       }
       X.ctl[best][ct.key] = bo;
     }
-    // the story's picks carry over to the panes: the string on the big cube, the gallery, the strings added up
-    X.brick = null; X.sum = 0; X.gal = 'largest';
-    if (best === 'cube') {
-      const L = clamp(Math.round(S.cube_bits), 1, 3), f = Math.round(S.cube_focus);
-      if (f >= 0 && f < 1 << (2 * L)) X.brick = Q.name(f, L);
-      if (S.cube_lesson > 0.5) X.gal = 'kinds';
-      else if (S.cube_build > 0.5) X.sum = clamp(Math.round(S.cube_sum), 0, NB());
-    }
-    X.tab = best === 'chart' ? 'depth' : best === 'pairs' ? 'scenes' : viewIs('cube', 'bricks') || viewIs('cube', 'toolbox') ? 'bricks' : 'network';
-    // from the last chapter (the story's end, or its Explore button): the cube, in the Network tab
-    if (ts >= C.circuit.a) openStart();
+    X.tab = best;
+    // from the last chapter (the story's end, or its Explore button): the machine, in the Rule tab
+    if (ts >= C.what.a) openStart();
     ST.labels.forEach(L => { L.el.style.opacity = 0; L.o = 0; });
     showTab(X.tab); pushState(); renderAll();
     $('#panel').scrollTop = 0;
@@ -164,20 +162,21 @@ const APP = {
     this.mode = 'story';
     document.body.classList.remove('exploring');
     $('#btnMode').textContent = 'Explore now';
-    // the story shows its scenes as it tells them: no picked string
-    X.brick = null; X.sum = 0; NEXT.length = 0; pushState();
+    // the story shows its scenes as it tells them: no picked branch, no read-outs of explore's own
+    X.branch = -1; X.reads = 0; NEXT.length = 0; pushState();
     $('#tip').style.opacity = 0;
     this.t = t || 0; this.playing = true; curCh = null;
   },
 };
 
-// explore mode's start: the story's network on the cube, in the Network tab
+// explore mode's start: the machine for one branch as the story left it (the story's rule, a G after 1 swap per letter),
+// in the Rule tab
 function openStart() {
-  openScene('cube', false);
-  X.ctl.cube = Object.assign(X.ctl.cube || {}, { view: 'cube', net: String(NETI), cut: '0', bits: '3' });
-  X.brick = null; X.sum = 0; X.gal = 'largest';
-  X.tab = 'network'; showTab('network');
-  orbit.cur = view('cube', viewCam('cube') || 'default'); orbit.to = null;
+  openScene('rule', false);
+  X.ctl.rule = Object.assign(X.ctl.rule || {}, { view: 'machine', model: M.DEFAULT, parent: LET[FACTS.turn.par] });
+  X.time = FACTS.turn.t; X.branch = -1;
+  X.tab = 'rule'; showTab('rule');
+  orbit.cur = view('rule', viewCam('rule') || 'default'); orbit.to = null;
   renderAll();
 }
 
@@ -277,32 +276,33 @@ function init() {
   if (hp.has('t')) { APP.t = clamp(parseFloat(hp.get('t')) || 0, 0, T_END - 0.01); APP.playing = false; }
   if (hp.has('explore')) {
     APP.enterExplore();
-    // #qubits&explore&scene=cube&view=bricks (any control of a scene by its key, or an option by its name or camera),
-    // &tab=network|bricks|depth|scenes, &net=blurred (an example network by key or name, or its number), &cut=random,
-    // &bits=2, &alg=so7 or so6 (or odd, tfim), &brick=X2X1, &sum=10 (strings added up), &gal=kinds, &ex=on, &src=ex
-    const sc = hp.get('scene');
-    if (sc && GL.sets[sc]) { openScene(sc, false); showTab('scenes'); }
-    else if (!hp.has('t')) openStart();   // straight in: the cube
+    // #mutation&explore&scene=tree&view=up (a scene; view: an option by its key or name, or a camera of the scene by
+    // name), &tab=letters|rule|tree|stem|scenes (picked by hand: its scene comes up), any control by its key (mix=G,
+    // model=even, start=C, parent=T, seed=3, speed=2, run=on, src=live, method=coupled; by option or name), &time=0.8
+    // (the branch length), &reads=100 (read-outs), &branch=5 (1 to 14), &w=20 (the pair favour), &rebuild=2 (its seed)
+    const sc = hp.get('scene'), tb = hp.get('tab'), tabOK = TABS.some(t => t[0] === tb);
+    if (sc && GL.sets[sc]) { openScene(sc, false); showTab(tabOK ? tb : 'scenes'); }
+    else if (tabOK) pickTab(tb);
+    else if (!hp.has('t')) openStart();   // straight in: the machine
+    // (a start letter asks for the path, a parent letter for the machine, unless a view is given)
+    if (!hp.get('view') && X.scene === 'rule' && hp.get('start')) setCtl('rule', 'view', 'path');
+    if (!hp.get('view') && X.scene === 'rule' && hp.get('parent') && !machineOn()) setCtl('rule', 'view', 'machine');
     orbit.cur = view(X.scene, viewCam(X.scene) || 'default'); orbit.to = null;
-    // controls after the default view, so a control's own view wins
-    for (const c of ctlsOf(X.scene)) {
-      const q = String(hp.get(c.key) || '').toLowerCase(), o = q && c.options.find(([v, n]) => v.toLowerCase() === q || String(n).toLowerCase() === q || camFor(X.scene, v) === q || (CAM_ALIAS[X.scene] || {})[v] === q);
-      if (o) setCtl(X.scene, c.key, o[0]);
+    // every scene's controls but the view by their keys (no two scenes share one), then the view of the scene on show
+    const opt = (k, c, q) => c.options.find(([v, n]) => v.toLowerCase() === q || String(n).toLowerCase() === q || camFor(k, v) === q || (CAM_ALIAS[k] || {})[v] === q);
+    for (const [k] of SCENES) for (const c of ctlsOf(k)) {
+      const q = String(hp.get(c.key) || '').toLowerCase(), o = q && c.key !== 'view' && opt(k, c, q);
+      if (o) { if (k === X.scene) setCtl(k, c.key, o[0]); else (X.ctl[k] = X.ctl[k] || {})[c.key] = o[0]; }
     }
-    // the cube's network, cut, bits and algebra from any tab
-    const nq = String(hp.get('net') || '').toLowerCase(), ni = Q.NETS.findIndex((n, i) => n.key === nq || n.name.toLowerCase() === nq || String(i) === nq);
-    if (ni >= 0) setCtl('cube', 'net', String(ni));
-    if (hp.get('cut')) setCtl('cube', 'cut', /^(1|random)/i.test(hp.get('cut')) ? '1' : '0');
-    if (hp.get('bits')) setCtl('cube', 'bits', String(clamp(parseInt(hp.get('bits'), 10) || 3, 1, 3)));
-    if (hp.get('alg')) setCtl('cube', 'alg', /^(0|tfim|so6|so\(6\)|so\(2l\))$/i.test(hp.get('alg')) ? '0' : '1');
-    if (hp.get('ex')) setCtl('chart', 'ex', /^(1|on)$/i.test(hp.get('ex')) ? 'on' : 'off');
-    if (hp.get('src')) setCtl('chart', 'src', /^(1|ex)/i.test(hp.get('src')) ? 'ex' : 'real');
-    if (hp.get('gal')) setGal(hp.get('gal') === 'kinds' ? 'kinds' : 'largest', false);
-    if (isBrick(hp.get('brick'))) { showTab('bricks'); selectBrick(hp.get('brick'), hp.get('gal') === 'kinds' ? 'kinds' : null); }
-    if (hp.get('sum') && Number.isFinite(+hp.get('sum'))) { showTab('bricks'); setSum(+hp.get('sum')); }
-    if (hp.get('tab') && TABS.some(t => t[0] === hp.get('tab'))) {
-      if (sc || hp.get('brick') || hp.get('sum')) showTab(hp.get('tab')); else pickTab(hp.get('tab'));
-    }
+    const vq = String(hp.get('view') || '').toLowerCase(), vc = ctlOf(X.scene, 'view'), vo = vq && vc && opt(X.scene, vc, vq);
+    if (vo) setCtl(X.scene, 'view', vo[0]);
+    else if (vq && (GL.sets[X.scene].cam || {})[vq]) orbit.cur = view(X.scene, vq);   // a camera of its own (the tree's up, stand)
+    orbit.to = null;
+    if (hp.get('time') && Number.isFinite(+hp.get('time'))) setTime(+hp.get('time'), false);
+    if (hp.get('reads') && Number.isFinite(+hp.get('reads'))) X.reads = clamp(Math.round(+hp.get('reads')), 0, READ_MAX());
+    if (hp.get('branch') && Number.isFinite(+hp.get('branch'))) selectBranch(Math.round(+hp.get('branch')) - 1, false);
+    if (hp.get('w') && Number.isFinite(+hp.get('w'))) setW(+hp.get('w'), !hp.get('src'));
+    if (hp.get('rebuild') && Number.isFinite(+hp.get('rebuild'))) X.sseed = clamp(Math.round(+hp.get('rebuild')), 1, 999);
     if (hp.has('now')) { Object.assign(XS, exploreTargets()); orbit.cur = orbit.to || orbit.cur; orbit.to = null; }
     renderAll();
   }

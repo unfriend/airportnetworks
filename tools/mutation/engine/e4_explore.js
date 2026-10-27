@@ -1,63 +1,106 @@
 // ================================================================ EXPLORE ==
-// Explore mode: the example networks and their cuts (Network), the building blocks and the toolbox (Bricks), the real
-// run's residual by depth and the circuit (Depth); or any scene with its own controls (Scenes).
+// Explore mode: a letter or a mix in two qubits and its read-outs (Letters), the rule, its path and the machine for
+// one branch (Rule), the family tree and its machines (Tree), the stem rebuilt three ways (Stem); or any scene with its
+// own controls (Scenes).
 const SCENES = [
-  ['pairs', 'Pairs and map', 'The grid of all pairs of genes, the example network as a map with two walkers in its valleys (illustrative), the chip with three qubits and the eight neighborhoods.'],
-  ['cube', 'Cube', 'An example network cut in two, four and eight; its coarse operator A_c on the cube; its building blocks (Pauli strings), added up; and the toolbox, with what falls outside it.'],
-  ['chart', 'Chart', 'The real network\'s residual at each depth, our cuts against random ones, with the example network\'s; and the recipe as a circuit of six gates.'],
+  ['letters', 'Letters', 'DNA\'s double helix, the ancestor\'s eight letters and two copies with swaps; then one letter in two qubits, its four codes, a mix of all four and its read-outs piling up.'],
+  ['tree', 'Tree', 'A family tree in 3D, every swap simulated with the story\'s example rule; one machine per branch; and the species tree of the authors\' test.'],
+  ['rule', 'Rule and machine', 'A rule of change as balls and arrows, the pyramid of mixes and the path through it; the machine for one branch (the copy and the turn) and its circuit.'],
+  ['stem', 'Stem', 'An RNA stem: a pair breaking, the coupling that keeps it, the combinations a model of pairs must track; the ancestor of three species rebuilt three ways.'],
 ];
-const SCENE_SHORT = { pairs: 'Pairs' };
-const TABS = [['network', 'Network'], ['bricks', 'Bricks'], ['depth', 'Depth'], ['scenes', 'Scenes']];
-const ctlsOf = k => GL.sets[k].controls || [];
+const SCENE_SHORT = { rule: 'Rule' };
+const TABS = [['letters', 'Letters'], ['rule', 'Rule'], ['tree', 'Tree'], ['stem', 'Stem'], ['scenes', 'Scenes']];
+// the branch length (time) and the pair favour (w) are sliders the panes hold themselves (X.time, X.w): the sets'
+// controls of those names only say when one applies
+const isNum = c => c.key === 'time' || c.key === 'w';
+const ctlsOf = k => (GL.sets[k].controls || []).filter(c => !isNum(c));
 // a control the panes offer now: a set may say when one applies (when(values)), so none sits there doing nothing; the
 // shared state keeps every control (ctlsOf) all the same
-const ctlShown = (k, c) => !c.when || c.when(Object.fromEntries(ctlsOf(k).map(x => [x.key, ctlValue(k, x)])));
-// (explore opens on the story's own network, at its cube)
-const X = { tab: 'network', scene: 'cube', ctl: { cube: { view: 'cube', net: String(NETI) } }, t0: 0, turn: 'on', brick: null, sum: 0, gal: 'largest' };
+const ctlShown = (k, c) => !c.when || c.when(Object.fromEntries((GL.sets[k].controls || []).map(x => [x.key, isNum(x) ? numOf(x.key) : ctlValue(k, x)])));
+// a slider of a set's on show now
+const numShown = (k, key) => { const c = (GL.sets[k].controls || []).find(x => x.key === key); return !!c && ctlShown(k, c); };
+const numOf = key => (key === 'w' ? X.w : X.time);
+// (explore opens on the rule's machine; each scene starts on the story's own choices)
+const X = { tab: 'rule', scene: 'rule', t0: 0, turn: 'on',
+  ctl: { letters: { view: 'qubits', mix: 'rule' }, rule: { view: 'path', model: M.DEFAULT, start: 'A', parent: 'G' }, tree: { view: 'tree', seed: '1', speed: '1', run: 'off' },
+    stem: { view: 'rebuild', src: 'test', method: 'all' } },
+  time: 1, reads: 0, rseed: 1, branch: -1, w: TD.w, sseed: 1 };
 const XS = {};
 // params that pick something by number jump to their new value instead of easing through the ones in between
-const STEP = new Set(['cube_net', 'cube_cut', 'cube_algebra', 'cube_focus', 'chart_src', 'pairs_code']);
+const STEP = new Set(['letters_code', 'letters_target', 'letters_seed', 'rule_model', 'rule_start', 'rule_parent', 'tree_seed', 'tree_speed', 'tree_pick',
+  'stem_src', 'stem_w', 'stem_seed', 'stem_method']);
 const orbit = { cur: [0, 12, 3.6, 0, 0, 0], from: null, to: null, t0: 0, dur: 1.6 };
 const ctlValue = (k, c) => (X.ctl[k] && X.ctl[k][c.key] !== undefined ? X.ctl[k][c.key] : c.options[0][0]);
 const ctlOf = (k, key) => ctlsOf(k).find(c => c.key === key);
-// a view option's camera: the cam view of the same name, or the one it stands for
-const CAM_ALIAS = { pairs: { pairs: 'grid' }, cube: { cut: 'genes', toolbox: 'bricks' } };
+// a view option's camera: the one it stands for, or the cam view of the same name
+const CAM_ALIAS = { letters: { copies: 'rows', qubits: 'reads' }, rule: { rule: 'rates' }, tree: { tree: 'default', machines: 'gears' },
+  stem: { stem: 'default', count: 'cloud', rebuild: 'fields' } };
 function camFor(k, v) {
   const c = GL.sets[k].cam || {}, al = CAM_ALIAS[k] || {};
-  for (const x of [v, al[v]]) if (x && c[x]) return x;
+  for (const x of [al[v], v]) if (x && c[x]) return x;
   return null;
 }
 const viewCam = k => { const c = ctlOf(k, 'view'); return c ? camFor(k, ctlValue(k, c)) : null; };
 // the view on show in a set
 const viewIs = (k, v) => { const c = ctlOf(k, 'view'); return !!c && ctlValue(k, c) === v; };
-// what the sets know (their api()): the cube's analysis, gallery and picking; the chart's series and gates
+// what the sets know (their api()): the letters' chances, the rule's angles, the tree's branches and picking, the
+// stem's rebuilds and picking
 const API = {};
 const api = k => API[k] || (API[k] = (GL.sets[k] && GL.sets[k].api ? GL.sets[k].api() : null) || {});
-const NB = () => api('cube').NB || 10;
 // work for the next frame, once the sets have drawn what was just picked
 const NEXT = [];
-// what the cube shows: its network, cut, bits and algebra (its own controls), and their analysis (computed here)
-const cubeNet = () => clamp(parseInt(ctlValue('cube', ctlOf('cube', 'net')), 10) || 0, 0, Q.NETS.length - 1);
-const cubeCut = () => (ctlValue('cube', ctlOf('cube', 'cut')) === '1' ? 'random' : 'found');
-const cubeBits = () => clamp(parseInt(ctlValue('cube', ctlOf('cube', 'bits')), 10) || 3, 1, 3);
-const cubeAlg = () => (ctlValue('cube', ctlOf('cube', 'alg')) === '0' ? 'tfim' : 'odd');
-const curAn = () => anOf(cubeNet(), cubeCut(), cubeBits());
-const inAlg = (k, L, alg) => k > 0 && Q.algebra(alg || cubeAlg(), L).set.has(k);
-const chartSrc = () => (ctlValue('chart', ctlOf('chart', 'src')) === 'ex' ? 1 : 0);
+// what the panes choose, by name
+const letMix = () => ctlValue('letters', ctlOf('letters', 'mix'));
+const ruleModel = () => Math.max(0, M.MODELS.findIndex(m => m.key === ctlValue('rule', ctlOf('rule', 'model'))));
+const letterOf = key => Math.max(0, LET.indexOf(ctlValue('rule', ctlOf('rule', key))));
+const ruleView = () => ctlValue('rule', ctlOf('rule', 'view'));
+const machineOn = () => ['machine', 'circuit', 'steps'].includes(ruleView());
+const treeView = () => ctlValue('tree', ctlOf('tree', 'view'));
+const treeSeed = () => Math.max(1, parseInt(ctlValue('tree', ctlOf('tree', 'seed')), 10) || 1);
+// the family tree chosen (the tree set draws the same: MMATH.familyTree by seed and speed), kept for the panes
+const TREES = new Map();
+function treeNow() {
+  const sp = (api('tree').speeds || [0.5, 1, 2, 4])[clamp(parseInt(ctlValue('tree', ctlOf('tree', 'speed')), 10) || 0, 0, 3)], k = treeSeed() + '|' + sp;
+  if (!TREES.has(k)) { if (TREES.size > 7) TREES.delete(TREES.keys().next().value); TREES.set(k, M.familyTree(treeSeed(), sp)); }
+  return TREES.get(k);
+}
+const stemView = () => ctlValue('stem', ctlOf('stem', 'view'));
+const stemLive = () => ctlValue('stem', ctlOf('stem', 'src')) === 'live';
+const stemMethod = () => ctlValue('stem', ctlOf('stem', 'method'));
+const READ_MAX = () => api('letters').READ_MAX || 400;
+// the four chances of the letter or mix chosen, and how a read-out of it comes out (MMATH.sample by index, 1-based,
+// as the letters set draws them)
+const letChances = () => (api('letters').chances ? api('letters').chances(letMix(), X.time) : [1, 0, 0, 0]);
+function readCounts(n = X.reads) {
+  const p = letChances(), c = [0, 0, 0, 0];
+  for (let k = 1; k <= n; k++) c[M.sample(p, X.rseed, k)]++;
+  return c;
+}
 
+// the controls a set's explore() reads: its own, with the panes' numbers (the branch length, the pair favour, the
+// read-outs and their seed)
+function ctlArgs(k, now) {
+  const c = { t: (now - X.t0) / 1000 };
+  for (const ct of GL.sets[k].controls || []) c[ct.key] = isNum(ct) ? numOf(ct.key) : ctlValue(k, ct);
+  if (k === 'letters') { c.reads = X.reads; c.seed = X.rseed; }
+  return c;
+}
 // what the chosen scene and its controls ask for: that set fully in, every other set out; then what the panes pick
-// (the brick on the big cube, the gallery shown, the strings added up)
+// (the branch picked, the rebuild's seed); the species tree shows its stems, and the rebuilt fields stand under it
 function exploreTargets(now = performance.now()) {
   const k = X.scene, s = GL.sets[k], tg = Object.assign({}, s.params);
   tg[k + '_a'] = 1;
-  const c = { t: (now - X.t0) / 1000 };
-  for (const ct of s.controls || []) c[ct.key] = ctlValue(k, ct);
+  const c = ctlArgs(k, now);
   if (s.explore) Object.assign(tg, s.explore(c));
-  if (k === 'cube' && c.view !== 'genes' && c.view !== 'cut') {
-    tg.cube_focus = brickK(X.brick, cubeBits());
-    if (c.view === 'bricks' || c.view === 'toolbox') {
-      tg.cube_lesson = X.gal === 'kinds' ? 1 : 0;
-      if (c.view === 'bricks' && X.sum > 0 && X.gal !== 'kinds') { tg.cube_build = 1; tg.cube_sum = X.sum; }
+  if (k === 'tree') {
+    if (c.view !== 'species') tg.tree_pick = X.branch;
+    else Object.assign(tg, { stem_a: 1, stem_strand: 0, stem_count: 0, stem_qubits: 0, stem_species: 1, stem_fields: 0, stem_sort: 0, stem_truth: 0, stem_examples: 0 });
+  }
+  if (k === 'stem') {
+    tg.stem_seed = X.sseed;
+    if (c.view === 'rebuild' || c.view === 'compare') {
+      Object.assign(tg, GL.sets.tree.params, { tree_a: 1, tree_species: 1, tree_grow: 1, tree_seq: 1, tree_hi: 0, tree_gears: 1, tree_flow: 0,
+        tree_q: c.view === 'rebuild' ? 1 : 0, tree_pick: -1 });
     }
   }
   const out = {};
@@ -66,7 +109,11 @@ function exploreTargets(now = performance.now()) {
 }
 function exploreStep(dt, now) {
   const tg = exploreTargets(now), k = 1 - Math.exp(-dt * 3.5);
-  for (const n in DEF) XS[n] = STEP.has(n) ? tg[n] : XS[n] + (tg[n] - XS[n]) * k;
+  for (const n in DEF) {
+    // read-outs play one by one (about one a second), many at once quickly; fewer (cleared, a new mix) at once
+    if (n === 'letters_reads') { const g = tg[n], v = XS[n]; XS[n] = g <= v ? g : Math.min(g, v + dt * Math.max(0.9, (g - v) * 2.5)); continue; }
+    XS[n] = STEP.has(n) ? tg[n] : XS[n] + (tg[n] - XS[n]) * k;
+  }
   // a gently swaying scene, unless you are steering it or a set asks for stillness
   if (X.turn === 'on' && !orbit.to && !orbit.held && !GL.still && !HOST.room.placing()) { X.sway = (X.sway || 0) + dt; orbit.cur[0] += dt * 6 * Math.cos(X.sway * 0.25); }
   return XS;
@@ -110,42 +157,60 @@ function flyNear(p, d) { if (p) flyTo([orbit.cur[0], orbit.cur[1], d, p[0], p[1]
 // --------------------------------------------------------------- actions --
 // Each setter changes its own field only when called with ui false (a shared room's state arriving); picked by
 // hand (ui true) it also brings up the scene and the view that show it.
-// a brick (a Pauli string by name, 'X2X1'; null none), shown on the big cube; gal: the gallery it was picked from (the
-// kinds of the reference figure, or this network's largest)
-function selectBrick(nm, gal, ui = true) {
-  X.brick = isBrick(nm) ? nm : null;
-  if (gal === 'kinds' || gal === 'largest') X.gal = gal;
-  if (ui) {
-    // (picked without its gallery: the network's largest if it is one of them, else the kinds)
-    if (X.brick && !gal) X.gal = largestAt(curAn()).includes(X.brick) ? 'largest' : 'kinds';
-    if (X.brick) X.sum = 0;
-    if (!(X.scene === 'cube' && (viewIs('cube', 'bricks') || viewIs('cube', 'toolbox')))) showView('cube', 'bricks');
-  }
+// the branch length (0 to 2 swaps per letter, to the hundredth): the rule's path and machine, the letters' rule mix
+function setTime(v, ui = true) {
+  const t = clamp(Math.round(+v * 100) / 100, 0, 2);
+  if (!Number.isFinite(t) || t === X.time) return;
+  X.time = t;
+  if (ui && letMix() === 'rule') X.reads = 0;   // (another mix: its read-outs start again)
+  syncNums();
+}
+// the pair favour w (1 to 30): how much more likely a matching pair is, in the example computed live
+function setW(v, ui = true) {
+  const w = clamp(Math.round(+v) || 1, 1, 30);
+  if (w === X.w) return;
+  X.w = w;
+  if (ui && !stemLive()) { (X.ctl.stem = X.ctl.stem || {}).src = 'live'; renderAll(); return; }   // (the authors' test is w = 8)
+  syncNums();
+}
+// a letter or a mix in the two qubits, from the Letters tab: its read-outs start again
+function setMix(v) {
+  if (!ctlOf('letters', 'mix').options.some(o => o[0] === v)) return;
+  if (!(X.scene === 'letters' && viewIs('letters', 'qubits'))) showView('letters', 'qubits');
+  if (v !== letMix()) X.reads = 0;
+  setCtl('letters', 'mix', v);
+}
+// read out n more (up to the piles' most), or clear them (0); read again: a new seed, the piles cleared
+function readOut(n, ui = true) {
+  X.reads = n > 0 ? clamp(X.reads + n, 0, READ_MAX()) : 0;
+  if (ui && !(X.scene === 'letters' && viewIs('letters', 'qubits'))) showView('letters', 'qubits');
   renderAll();
 }
-// how many of the network's largest strings are added up (0 to 10): the big cube rebuilt from them, and the error left
-function setSum(n, ui = true) {
-  X.sum = clamp(Math.round(+n) || 0, 0, NB());
-  if (ui) {
-    X.brick = null; X.gal = 'largest';
-    if (!(X.scene === 'cube' && viewIs('cube', 'bricks'))) { showView('cube', 'bricks'); renderAll(); }
-  }
-  syncSum();
-}
-// the gallery beside the big cube: the kinds of brick (the reference figure) or this network's ten largest
-function setGal(g, ui = true) {
-  if (g !== 'kinds' && g !== 'largest') return;
-  X.gal = g;
-  if (ui) { if (g === 'kinds') X.sum = 0; if (X.scene !== 'cube' || !(viewIs('cube', 'bricks') || viewIs('cube', 'toolbox'))) showView('cube', 'bricks'); }
+function readAgain() { X.rseed = X.rseed % 999 + 1; X.reads = 0; renderAll(); }
+// a branch of the family tree (-1 none): lit, its rise measured, its machine lit
+function selectBranch(b, ui = true) {
+  const n = treeNow().branches.length;
+  X.branch = Number.isInteger(b) && b >= 0 && b < n ? b : -1;
+  if (ui && X.branch >= 0 && !(X.scene === 'tree' && treeView() !== 'species')) { if (X.scene !== 'tree') openScene('tree'); if (treeView() === 'species') setCtl('tree', 'view', 'tree'); }
   renderAll();
 }
-// a control of the cube or the chart picked from a tab: its scene brought up
-function sceneCtl(k, key, v) { if (X.scene !== k) openScene(k); setCtl(k, key, v); }
+// a new family tree: the next of the five
+function nextTree() { const o = ctlOf('tree', 'seed').options, i = o.findIndex(x => x[0] === ctlValue('tree', ctlOf('tree', 'seed'))); X.branch = -1; sceneCtl('tree', 'seed', o[(i + 1) % o.length][0]); }
+// rebuild again: another 2,000 ancestors per method (this example, live)
+function rebuildAgain() { X.sseed = X.sseed % 999 + 1; if (!stemLive()) (X.ctl.stem = X.ctl.stem || {}).src = 'live'; if (X.scene !== 'stem') openScene('stem'); renderAll(); }
+// a control of a scene picked from a tab: its scene brought up (a new tree drops the branch picked)
+function sceneCtl(k, key, v) {
+  if (X.scene !== k) openScene(k);
+  if (k === 'tree' && (key === 'seed' || key === 'speed') && ctlValue(k, ctlOf(k, key)) !== v) X.branch = -1;
+  if (k === 'letters' && key === 'mix' && letMix() !== v) X.reads = 0;
+  setCtl(k, key, v);
+}
 
 // ------------------------------------------------------- shared rooms --
-// What everyone at a station sees alike in explore mode: the tab, the scene and every scene's controls (the cube's
-// network, cut, bits and algebra among them), the brick shown, how many strings are added up and the gallery. The
-// camera is each person's own.
+// What everyone at a station sees alike in explore mode: the tab, the scene and every scene's controls (the letter or
+// mix, the rule, its start and parent letters, the tree and how fast its letters change, the source and the method
+// among them), the branch length, the read-outs and their seed, the branch picked, the pair favour and the rebuild's
+// seed. The camera is each person's own, and so is how far the read-outs have played.
 // shared rooms: the scene's view in a headset at a station (explore mode), which turns and sizes it in the room:
 // shared (HOST.collab), so everyone there sees it alike; null while it flies somewhere (a pick, a view arriving)
 function collabView() {
@@ -162,7 +227,7 @@ function collabSetView(v) {
 function collabState() {
   const ctl = {};
   for (const [k] of SCENES) ctl[k] = Object.fromEntries(ctlsOf(k).map(c => [c.key, ctlValue(k, c)]));
-  return { tab: X.tab, scene: X.scene, ctl, brick: X.brick, sum: X.sum, gal: X.gal };
+  return { tab: X.tab, scene: X.scene, ctl, time: X.time, reads: X.reads, rseed: X.rseed, branch: X.branch, w: X.w, sseed: X.sseed };
 }
 // show another person's state with the story's own setters (so both panels follow); every field is checked, and
 // the camera stays where this person has it
@@ -176,27 +241,33 @@ function collabApply(v) {
     if (!c.options.some(o => o[0] === x) || ctlValue(k, c) === x) continue;
     if (k === X.scene) setCtl(k, c.key, x); else (X.ctl[k] = X.ctl[k] || {})[c.key] = x;
   }
-  // then the picks
-  if ((v.brick === null || isBrick(v.brick)) && v.brick !== X.brick) selectBrick(v.brick, null, false);
-  if ((v.gal === 'kinds' || v.gal === 'largest') && v.gal !== X.gal) setGal(v.gal, false);
-  if (Number.isInteger(v.sum) && v.sum >= 0 && v.sum <= NB() && v.sum !== X.sum) setSum(v.sum, false);
+  // then the numbers and the picks
+  const int = (x, lo, hi) => Number.isInteger(x) && x >= lo && x <= hi;
+  if (Number.isFinite(v.time) && v.time >= 0 && v.time <= 2 && v.time !== X.time) setTime(v.time, false);
+  if (int(v.reads, 0, READ_MAX())) X.reads = v.reads;
+  if (int(v.rseed, 1, 999)) X.rseed = v.rseed;
+  if (int(v.branch, -1, 63) && v.branch !== X.branch) selectBranch(v.branch, false);
+  if (int(v.w, 1, 30) && v.w !== X.w) setW(v.w, false);
+  if (int(v.sseed, 1, 999)) X.sseed = v.sseed;
   renderAll();
 }
 
 // ------------------------------------------------------------------ panes --
 // (a lit chip as the shell's primary button: its text in the panel's colour, readable in either theme)
 const chip = (attrs, label, on, col) => `<button type="button" ${attrs} aria-pressed="${!!on}"${on ? ' style="background:var(--cyan);color:var(--panel-solid)"' : ''}>${col ? `<span class="sw" style="background:${swCol(col)}"></span>` : ''}${label}</button>`;
-const link = (act, v, text) => `<button type="button" data-act="${act}" data-v="${esc(v)}" style="border:0;background:none;padding:0;font:inherit;color:var(--cyan);text-decoration:underline;cursor:pointer">${text}</button>`;
 const cap = s => (s ? String(s).charAt(0).toUpperCase() + String(s).slice(1) : '');
-// a cell's color (by its code at 3 bits: a cell at fewer bits takes its first corner's), as in the sets
-const cellCol = (c, L) => Q.CELL_COLORS[c << (3 - L)];
-// the cells of an analysis, in a line: '8 of 40 genes', or '8, of 21 to 62 genes'
-const cellsText = A => { const lo = Math.min(...A.sizes), hi = Math.max(...A.sizes); return lo === hi ? `${A.sizes.length} of ${lo} genes` : `${A.sizes.length}, of ${lo} to ${hi} genes`; };
-const algLabel = (alg, L) => Q.algebra(alg, L).label;
-// the strings of the gallery now: the kinds of the reference figure at the bits shown, or this network's largest
-const kindsAt = L => (api('cube').lesson ? api('cube').lesson(L) : []);
-const largestAt = A => A.order.slice(0, NB()).map(k => Q.name(k, A.L));
-const GATE_COL = { RX: RED, RZZ: BLUE, RZ: BLUE };
+// the letters and mixes the Letters tab offers, with their colours (a mix has none)
+const MIXES = () => ctlOf('letters', 'mix').options;
+const mixCol = v => (LET.indexOf(v) >= 0 ? LCOL[LET.indexOf(v)] : null);
+const LETTER_CHIPS = LET.split('').map((l, i) => [l, l, LCOL[i]]);
+// a slider the panes hold (the branch length or the pair favour), with its value; it changes in place, so a drag is not
+// cut short by a redraw
+const NUM = { time: { label: 'Branch length', min: 0, max: 2, step: 0.01, col: GREEN, text: v => `${v.toFixed(2)} swaps per letter` },
+  w: { label: 'Pair favour', min: 1, max: 30, step: 1, col: CYAN, text: v => `matching pairs ${v} × as likely` } };
+const slider = key => { const o = NUM[key], v = numOf(key);
+  return `<p class="grp-h">${o.label} <b data-numv="${key}" style="margin-left:auto;color:var(--ink)">${esc(o.text(v))}</b></p>
+    <input type="range" data-num="${key}" min="${o.min}" max="${o.max}" step="${o.step}" value="${v}" aria-label="${o.label}" style="accent-color:${o.col}">`; };
+const statsHtml = rows => `<dl class="stats">${rows.map(([k, v, more]) => `<dt>${esc(k)}</dt><dd>${esc(v)}${more ? `<small>${esc(more)}</small>` : ''}</dd>`).join('')}</dl>`;
 function buildExplore() {
   $('#explore').innerHTML = `
     <div class="tabs" role="tablist">${TABS.map(([k, n]) => `<button role="tab" type="button" data-tab="${k}" aria-selected="${k === X.tab}">${n}</button>`).join('')}</div>
@@ -208,13 +279,18 @@ function buildExplore() {
     if (!b) return;
     const v = b.dataset.v;
     ({
-      brick: () => selectBrick(v === X.brick ? null : v, b.dataset.gal), gal: () => setGal(v),
       view: () => { const [k, w] = v.split(':'); showView(k, w); }, scene: () => openScene(v),
       ctl: () => sceneCtl(b.dataset.scene || X.scene, b.dataset.ctl, v),
+      mix: () => setMix(v), read: () => readOut(+v), again: () => readAgain(),
+      branch: () => selectBranch(+v === X.branch ? -1 : +v), tree: () => nextTree(), rebuild: () => rebuildAgain(),
+      cam: () => { if (X.scene !== 'tree') openScene('tree'); flyTo(view('tree', v)); },
     }[b.dataset.act] || (() => {}))();
   });
-  // the sum's slider changes in place, so a drag is not cut short by a redraw
-  $('#explore').addEventListener('input', ev => { if (ev.target.dataset.sum !== undefined) setSum(+ev.target.value, true); });
+  // the sliders change in place, so a drag is not cut short by a redraw
+  $('#explore').addEventListener('input', ev => {
+    const k = ev.target.dataset.num;
+    if (k === 'time') setTime(+ev.target.value, true); else if (k === 'w') setW(+ev.target.value, true);
+  });
   renderAll();
   $('#viewctl').innerHTML = `<div class="grp"><span>Turn</span><div class="seg" data-ctl="turn" role="group" aria-label="Turn">${[['on', 'On'], ['off', 'Off']].map(([v, n]) => `<button type="button" data-v="${v}" aria-pressed="${X.turn === v}">${n}</button>`).join('')}</div></div>`;
   $('#viewctl').addEventListener('click', ev => {
@@ -239,75 +315,129 @@ function showTab(k) {
 // a tab picked by hand brings up the scene it talks about (a shared room's tab arriving does not: its scene comes with it)
 function pickTab(k) {
   showTab(k);
-  if (k === 'network' && !(X.scene === 'cube' && ['genes', 'cut', 'cube'].some(v => viewIs('cube', v)))) showView('cube', 'cube');
-  if (k === 'bricks' && !(X.scene === 'cube' && (viewIs('cube', 'bricks') || viewIs('cube', 'toolbox')))) showView('cube', 'bricks');
-  if (k === 'depth' && X.scene !== 'chart') openScene('chart');
+  if (k === 'letters' && X.scene !== 'letters') showView('letters', 'qubits');
+  if ((k === 'rule' || k === 'tree' || k === 'stem') && X.scene !== k) openScene(k);
 }
-function renderAll() { renderNetwork(); renderBricks(); renderDepth(); renderScenes(); updateExtraLabels(); }
-function renderNetwork() {
-  const pane = $('#pane-network');
+function renderAll() { renderLetters(); renderRule(); renderTree(); renderStem(); renderScenes(); updateExtraLabels(); }
+// the numbers that follow a slider, redrawn in place (the sliders themselves keep still while dragged)
+function syncNums() {
+  for (const k in NUM) {
+    document.querySelectorAll(`[data-numv="${k}"]`).forEach(el => { el.textContent = NUM[k].text(numOf(k)); });
+    document.querySelectorAll(`input[data-num="${k}"]`).forEach(el => { if (document.activeElement !== el) el.value = numOf(k); });
+  }
+  const live = { letters: lettersLive, rule: ruleLive, stem: stemLiveHtml };
+  for (const k in live) document.querySelectorAll(`[data-live="${k}"]`).forEach(el => { el.innerHTML = live[k](); });
+}
+
+// what a letter or a mix holds: its chances, its two arrows, its read-outs so far (in words, for both panels)
+function lettersInfo() {
+  const p = letChances(), b = M.bloch(p), mix = letMix(), li = LET.indexOf(mix), cnt = readCounts();
+  const len = k => Math.hypot(b[3 * k], b[3 * k + 2]);
+  return {
+    what: li >= 0 ? `${LET[li]} is ${KET[li]}: ${codeWords(li)}.` : mix === 'even' ? 'An even mix: a quarter each.' : `The rule's mix after ${X.time.toFixed(2)} swaps per letter, from A.`,
+    chances: chancesText(p),
+    arrows: li >= 0 ? 'both as long as the sphere' : `${len(0).toFixed(2)} and ${len(1).toFixed(2)} of the sphere`,
+    reads: X.reads ? `${X.reads} read-out${X.reads === 1 ? '' : 's'}: ${LET.split('').map((l, i) => `${l} ${cnt[i]}`).join(', ')}` : 'none yet',
+  };
+}
+const lettersLive = () => { const I = lettersInfo(); return `<p class="sub">${esc(I.what)}</p>${statsHtml([['Chances', I.chances], ['Arrows', I.arrows], ['Read out', I.reads]])}`; };
+function renderLetters() {
+  const pane = $('#pane-letters');
   if (!pane) return;
-  const ni = cubeNet(), N = Q.NETS[ni], L = cubeBits(), A = curAn(), p3 = anOf(ni, cubeCut(), 3).purity;
-  const ch = (key, opts, on) => opts.map(([v, n]) => chip(`data-act="ctl" data-scene="cube" data-ctl="${key}" data-v="${v}"`, esc(n), on(v))).join('');
-  pane.innerHTML = `<p class="sub">Four example networks of ${Q.network(N.key).n} genes, made up for this story. Pick one, cut it, and see how much of it the toolbox keeps. Every number here is computed as you choose.</p>
-    <p class="grp-h">Network</p><div class="chips">${ch('net', Q.NETS.map((n, i) => [String(i), n.name]), v => +v === ni)}</div>
-    <p class="sub">${esc(cap(N.note))}.</p>
-    <p class="grp-h">Cut</p><div class="chips">${ch('cut', [['0', 'Found'], ['1', 'Random halvings']], v => (v === '1') === (cubeCut() === 'random'))}</div>
-    <p class="grp-h">Bits (cuts)</p><div class="chips">${ch('bits', [['1', '1'], ['2', '2'], ['3', '3']], v => +v === L)}</div>
-    <p class="grp-h">Show</p><div class="chips">${[['genes', 'Genes'], ['cut', 'The cuts'], ['cube', 'The cube (A_c)']].map(([v, n]) => chip(`data-act="view" data-v="cube:${v}"`, n, X.scene === 'cube' && viewIs('cube', v))).join('')}</div>
-    <dl class="stats"><dt>Cells</dt><dd>${cellsText(A)}</dd>
-      <dt>Hidden groups</dt><dd>${p3 === null ? 'none' : pct(p3)}<small>${p3 === null ? 'this network has no groups' : 'of genes with their group, at 3 bits'}</small></dd>
-      <dt>Links cut</dt><dd>${pct(A.cutShare)}<small>of links run between cells</small></dd>
-      <dt>On cube edges</dt><dd>${pct(A.cubeShare)}<small>of the traffic between cells</small></dd>
-      <dt>Residual</dt><dd>${f2(A.fits.odd.residual)}<small>${algLabel('odd', L)}</small> &nbsp;${f2(A.fits.tfim.residual)}<small>${algLabel('tfim', L)}</small></dd></dl>
-    <div class="chips">${A.sizes.map((s, c) => chip('disabled', `${codeStr(c, L)} · ${s}`, false, cellCol(c, L))).join('')}</div>
-    <p class="note">The residual is the share of A_c the toolbox drops: 0 nothing lost, 1 everything. At 1 bit it is always 0. The cut stands in for the authors' beam search. After the method and figures of Joel Hancock.</p>`;
+  const mix = letMix(), on = X.scene === 'letters' && viewIs('letters', 'qubits');
+  pane.innerHTML = `<p class="sub">A quantum computer holds each letter in two qubits, drawn as arrows on spheres: up is 0, down is 1. Pick a letter or a mix, then read it out.</p>
+    <p class="grp-h">Letter or mix</p><div class="chips">${MIXES().map(([v, n]) => chip(`data-act="mix" data-v="${v}"`, esc(n), on && mix === v, mixCol(v))).join('')}</div>
+    ${mix === 'rule' ? slider('time') : ''}
+    <div data-live="letters">${lettersLive()}</div>
+    <p class="grp-h">Read out</p><div class="chips">${chip('data-act="read" data-v="1"', '1 more', false)}${chip('data-act="read" data-v="100"', '100 more', false)}${chip('data-act="read" data-v="0"', 'Clear', false)}${chip('data-act="again"', 'Read again', false)}</div>
+    <p class="grp-h">Show</p><div class="chips">${[['helix', 'The helix'], ['copies', 'The copies'], ['qubits', 'The qubits']].map(([v, n]) => chip(`data-act="view" data-v="letters:${v}"`, n, X.scene === 'letters' && viewIs('letters', v))).join('')}</div>
+    <p class="note">Each read-out lands on one letter, by its chance: the piles grow roughly as tall as the chances. |01⟩ means first 0, then 1; an arrow shorter than its sphere means the two qubits depend on each other.</p>`;
 }
-function renderBricks() {
-  const pane = $('#pane-bricks');
+
+// the rule, its path and the machine, in words (computed here for the rule, branch length and letters chosen)
+function ruleInfo() {
+  const mi = ruleModel(), mo = M.MODELS[mi], A = api('rule'), t = X.time, v = ruleView();
+  const pi = A.longRun ? A.longRun(mi) : Array.from(M.pi(mi)), r = mo.r, NAMES = ['A↔C', 'A↔G', 'A↔T', 'C↔G', 'C↔T', 'G↔T'];
+  const ord = r.map((x, i) => [x, NAMES[i]]).sort((p, q) => q[0] - p[0]), even = ord[0][0] === ord[5][0];
+  const rows = [['Long run', chancesText(pi)], ['Swaps', even ? 'all alike' : `${ord[0][1]} and ${ord[1][1]} most readily`, even ? '' : `${ord[5][1]} least`]];
+  if (v === 'path') {
+    const s = letterOf('start'), p = A.mix ? A.mix(mi, s, t) : Array.from(M.path(mi, s, t));
+    rows.push(['The mix', chancesText(p), `after ${t.toFixed(2)} swaps per letter`], ['On its way', pct(wayOf(p, pi, s)), 'of the way to the long-run mix']);
+  }
+  if (machineOn()) {
+    const par = letterOf('parent'), g = A.angles ? A.angles(mi, t, par) : { c1: 0, c0: [0, 0] }, st = A.steps ? A.steps() : { turns: 12, links: 12, copy: 2 };
+    rows.push(['The child', chancesText(Array.from(M.path(mi, par, t))), `parent ${LET[par]}, after ${t.toFixed(2)}`],
+      ['c1 turns', deg(g.c1)], ['c0 turns', `${deg(g.c0[0])} or ${deg(g.c0[1])}`, 'as c1 is 0 or 1'], ['The gears', deg(M.turnAngle(mi, t)), 'the turn on average']);
+    if (v === 'steps') rows.push(['Simple steps', `${st.turns} turns, ${st.links} links`, `plus the copy's ${st.copy} CNOTs`]);
+  }
+  return { note: mo.note, rows };
+}
+const ruleLive = () => statsHtml(ruleInfo().rows);
+function renderRule() {
+  const pane = $('#pane-rule');
   if (!pane) return;
-  const L = cubeBits(), A = curAn(), alg = cubeAlg(), k = brickK(X.brick, L);
-  const one = (nm, gal, w) => { const kk = Q.parse(nm, L), out = kk > 0 && !inAlg(kk, L, alg);
-    return chip(`data-act="brick" data-gal="${gal}" data-v="${nm}"`, `${sub(nm)}${w !== undefined ? ` <small>${f2(w)}</small>` : ''}`, X.brick === nm, kk === 0 ? null : out ? GRAY : PURPLE); };
-  pane.innerHTML = `<p class="sub">Pauli strings, the building blocks of any traffic table between cells. Pick one to see it on the cube, or add the largest up.</p>
-    <p class="grp-h">The kinds of brick (the reference figure)</p><div class="chips">${kindsAt(L).map(nm => one(nm, 'kinds')).join('')}</div>
-    <p class="grp-h">This network's ${word(NB())} largest, with their weights</p><div class="chips">${largestAt(A).map(nm => one(nm, 'largest', A.c.re[Q.parse(nm, L)])).join('')}</div>
-    ${k >= 0 ? `<h3>${esc(sub(X.brick))}</h3><p>${esc(cap(brickWhat(k, L)))}. Its weight here: ${f2(A.c.re[k])}. ${k === 0 ? 'The trace part: the same everywhere, kept.' : inAlg(k, L, alg) ? `Inside the toolbox, ${algLabel(alg, L)}: kept.` : `Outside the toolbox, ${algLabel(alg, L)}: dropped.`}</p>`
-      : X.brick ? `<p class="sub">${esc(sub(X.brick))} needs more bits than the ${L} shown.</p>` : ''}
-    <p class="grp-h">Add them up, largest first <b data-sumv style="margin-left:auto;color:var(--ink)">${X.sum}</b></p>
-    <input type="range" data-sum min="0" max="${NB()}" step="1" value="${X.sum}" aria-label="Strings added up" style="accent-color:${PURPLE}">
-    <p class="sub" data-errv>${errText(A)}</p>
-    <p class="grp-h">The toolbox (a Lie algebra)</p><div class="chips">${[['1', 'odd'], ['0', 'tfim']].map(([v, a]) => chip(`data-act="ctl" data-scene="cube" data-ctl="alg" data-v="${v}"`, `${algLabel(a, L)} · ${Q.algebra(a, L).dim} strings`, alg === a)).join('')}</div>
-    <div class="chips">${[['bricks', 'Every brick'], ['toolbox', 'Only the toolbox']].map(([v, n]) => chip(`data-act="view" data-v="cube:${v}"`, n, X.scene === 'cube' && viewIs('cube', v))).join('')}</div>
-    <p class="sub">Residual: ${f2(A.fits[alg].residual)} of the table falls outside ${algLabel(alg, L)} and is dropped (its generators alone hold ${pct(A.fits[alg].gens)} of the traceless weight).</p>
-    <p class="note">Purple: inside the toolbox; gray: outside, dropped; I, the trace part, is kept. Solid +, dashed −; corners red for +1, blue for −1. ${algLabel('tfim', L)} is the TFIM chain (X on each qubit, ZZ on neighbors); ${algLabel('odd', L)} adds Z on q${L - 1}.</p>`;
+  const mi = ruleModel(), v = ruleView(), on = X.scene === 'rule';
+  const ch = (key, opts, cur) => opts.map(([o, n, col]) => chip(`data-act="ctl" data-scene="rule" data-ctl="${key}" data-v="${o}"`, esc(n), cur === o, col)).join('');
+  pane.innerHTML = `<p class="sub">A rule of change (a substitution model): how readily each letter swaps for another, and how common each is in the long run. The rates are examples; every number here is computed as you choose.</p>
+    <p class="grp-h">Rule</p><div class="chips">${ch('model', M.MODELS.map(m => [m.key, m.name]), M.MODELS[mi].key)}</div>
+    <p class="sub">${esc(M.MODELS[mi].note)}</p>
+    <p class="grp-h">Show</p><div class="chips">${ctlOf('rule', 'view').options.map(([o, n]) => chip(`data-act="view" data-v="rule:${o}"`, esc(n), on && v === o)).join('')}</div>
+    ${v === 'path' ? `<p class="grp-h">Start</p><div class="chips">${ch('start', LETTER_CHIPS, LET[letterOf('start')])}</div>` : ''}
+    ${machineOn() ? `<p class="grp-h">Parent's letter</p><div class="chips">${ch('parent', LETTER_CHIPS, LET[letterOf('parent')])}</div>` : ''}
+    ${v !== 'rule' ? slider('time') : ''}
+    <div data-live="rule">${ruleLive()}</div>
+    <p class="note">${machineOn() ? 'The copy is two CNOT gates. The turn is rotations of single qubits plus steps that link two qubits, so it depends on the parent\'s letter. How far each step turns depends only on the branch length; the steps are the same on every branch.' : 'Every mix of the four letters is a point in the pyramid, the pure letters at its corners; over time the rule moves it along a path towards the long-run mix. The most general standard rule is GTR.'}</p>`;
 }
-// the error left after the strings added up so far
-const errText = A => (X.sum ? `Error left: ${f2(A.errors[Math.min(X.sum, A.errors.length - 1)])} (1 with none added)` : 'Error left: 1, with none added yet');
-// the sum's readouts and slider, in place (a drag is not cut short)
-function syncSum() {
-  const A = curAn();
-  document.querySelectorAll('[data-sumv]').forEach(el => { el.textContent = X.sum; });
-  document.querySelectorAll('[data-errv]').forEach(el => { el.textContent = errText(A); });
-  document.querySelectorAll('input[data-sum]').forEach(el => { if (document.activeElement !== el) el.value = X.sum; });
+
+// a branch of the family tree in words (its length, swaps and machine), for both panels
+function branchInfo(b) {
+  const tr = treeNow(), B = tr.branches[b];
+  if (!B) return null;
+  return { head: `Branch ${b + 1} · ${f2(B.len)} swaps per letter · ${swapsN(B.muts.length)}`,
+    muts: B.muts.length ? B.muts.map(m => `${LET[m.from]}→${LET[m.to]} at letter ${m.site + 1}`).join(', ') : 'no swap on this branch',
+    seqs: `${tr.nodes[B.from].seq} → ${tr.nodes[B.to].seq}`, turn: `its machine turns ${deg(M.turnAngle(M.DEFAULT, B.len))} on average` };
 }
-function renderDepth() {
-  const pane = $('#pane-depth');
+function renderTree() {
+  const pane = $('#pane-tree');
   if (!pane) return;
-  const R = FACTS.real.R, ex = FACTS.ex.res, circ = viewIs('chart', 'circuit'), src = chartSrc(), G = (api('chart').gates || [])[src] || [];
-  const td = (v, b) => `<td style="text-align:right;padding:3px 4px${b ? ';font-weight:700' : ''}">${v}</td>`;
-  const row = (name, vals, col) => `<tr><th style="text-align:left;font-weight:400;padding:3px 6px 3px 0;color:${inkCol(col)}">${name}</th>${vals.map(v => td(v === null ? '' : f2(v))).join('')}</tr>`;
-  pane.innerHTML = `<p class="sub">In the real network: how much of A_c the best toolbox drops at each depth, our cuts against random ones. 0 means nothing lost.</p>
-    <table style="width:100%;border-collapse:collapse;font-size:13px;font-variant-numeric:tabular-nums;margin:0 0 10px">
-      <tr><th style="text-align:left;font-weight:400;color:var(--muted)">Bits</th>${R.bits.map(b => td(b, true)).join('')}</tr>
-      ${row('Our cuts', R.ours, '#46d9ff')}${row('Random', R.random, GRAY)}${row('Example', R.bits.map((b, i) => (i < ex.length ? ex[i] : null)), '#ffb43b')}</table>
-    <p class="sub">Good at 2 to 4 bits, worse with every bit: at 8 bits ours lose ${f2(FACTS.real.ours(8))} (the best variant ${f2(R.best8)}) and random cuts ${f2(FACTS.real.rand(8))}. The example network's row is computed here.</p>
-    <p class="grp-h">Show</p><div class="chips">${[['chart', 'The chart'], ['circuit', 'The circuit']].map(([v, n]) => chip(`data-act="view" data-v="chart:${v}"`, n, X.scene === 'chart' && viewIs('chart', v))).join('')}</div>
-    ${circ ? `<p class="grp-h">Angles</p><div class="chips">${[['real', 'Real network'], ['ex', 'Example network']].map(([v, n]) => chip(`data-act="ctl" data-scene="chart" data-ctl="src" data-v="${v}"`, n, (v === 'ex') === !!src)).join('')}</div>`
-      : `<p class="grp-h">Example network</p><div class="chips">${[['off', 'Off'], ['on', 'On']].map(([v, n]) => chip(`data-act="ctl" data-scene="chart" data-ctl="ex" data-v="${v}"`, n, ctlValue('chart', ctlOf('chart', 'ex')) === v)).join('')}</div>`}
-    <p class="grp-h">One Trotter step at 3 bits in ${FACTS.alg.odd.label} (${src ? 'the example network, computed here' : 'the real network'})</p>
-    <ul class="steps">${G.map(g => `<li data-col="${GATE_COL[g.type]}" style="border-left-color:${GATE_COL[g.type]}"><b style="color:${inkCol(GATE_COL[g.type])}">${g.type} on ${g.qubits.map(q => 'q' + q).join(', ')}</b>θ = ${f3s(g.theta)}</li>`).join('')}</ul>
-    <p class="note">θ = −2ct, with c = tr(P A_c)/8 and R_P(θ) = exp(−iθP/2), t = 1. Red for X-type gates, blue for Z-type. In the real network at 3 bits, ${FACTS.alg.odd.label}'s generators carry ${FACTS.real.so7.gens}% of A_c's traceless weight and the whole algebra ${FACTS.real.so7.whole}%. Real numbers: the authors' run (Joel Hancock) on ${esc(FACTS.source)}.</p>`;
+  const v = treeView(), on = X.scene === 'tree', tr = treeNow(), I = X.branch >= 0 && v !== 'species' ? branchInfo(X.branch) : null;
+  const ch = (key, cur) => ctlOf('tree', key).options.map(([o, n]) => chip(`data-act="ctl" data-scene="tree" data-ctl="${key}" data-v="${o}"`, esc(n), cur === o)).join('');
+  pane.innerHTML = `<p class="sub">A family tree of ${word(tr.nodes.filter(n => n.tip >= 0).length)} descendants of one ancestor, ${esc(tr.nodes[tr.root].seq)}, every swap simulated with the story's example rule. Heights are change: each branch rises by its length.</p>
+    <p class="grp-h">Show</p><div class="chips">${ctlOf('tree', 'view').options.map(([o, n]) => chip(`data-act="view" data-v="tree:${o}"`, esc(n), on && v === o)).join('')}</div>
+    <p class="grp-h">Tree</p><div class="chips">${ch('seed', ctlValue('tree', ctlOf('tree', 'seed')))}${chip('data-act="tree"', 'New tree', false)}</div>
+    <p class="grp-h">Letters change</p><div class="chips">${ch('speed', ctlValue('tree', ctlOf('tree', 'speed')))}</div>
+    ${v !== 'tree' ? `<p class="grp-h">Machines</p><div class="chips">${ch('run', ctlValue('tree', ctlOf('tree', 'run')))}</div>` : ''}
+    <p class="grp-h">Look</p><div class="chips">${[['default', 'The whole tree'], ['stand', 'Stand in it'], ['up', 'Up from the root']].map(([c, n]) => chip(`data-act="cam" data-v="${c}"`, n, false)).join('')}</div>
+    ${v !== 'species' ? `<p class="grp-h">Branch</p><div class="chips">${tr.branches.map((B, i) => chip(`data-act="branch" data-v="${i}"`, String(i + 1), X.branch === i, B.muts.length ? null : GREY)).join('')}</div>
+      ${I ? `<h3>${esc(I.head)}</h3><p class="sub">${esc(cap(I.muts))}. ${esc(I.seqs)}; ${esc(I.turn)}.</p>` : '<p class="sub">Pick a branch (click it, or point and pull the trigger): its length, its swaps and its machine.</p>'}`
+      : '<p class="sub">The species tree of the authors\' test, ((1, 2), 3), with example branch lengths, and their stems at its tips. A coupling gear on each branch. See the Stem tab.</p>'}
+    <p class="note">One machine per branch: the steps are the same on every branch, only how far they turn changes with its length. Chance gives a branch more or fewer swaps than its length leads one to expect.</p>`;
+}
+
+// the rebuild in words: per method its share of intact ancestors, the true ancestor and the examples
+const STEM_ORDER = ['indep', 'coupled', 'exact'];
+function stemInfo() {
+  const live = stemLive(), A = api('stem'), R = A.results ? A.results(live ? 1 : 0, X.w, X.sseed) : null, names = (live ? A.namesLive : A.names) || {};
+  const rows = STEM_ORDER.map(m => {
+    const r = R && R[m];
+    return [names[m] || m, r ? (live ? `${pct(r.share)} here` : `${pct(r.share)} intact`) : '–', r && live && r.expected != null ? `exact chance ${pct(r.expected)}` : '', m];
+  });
+  const ex = STEM_ORDER.map(m => { const r = R && R[m]; return r ? [names[m] || m, `${r.best.top} / ${r.best.bottom}`, brokenN(r.broken), m] : null; }).filter(Boolean);
+  return { live, rows, ex, truth: `${TD.truth.top} / ${TD.truth.bottom}`, truthB: brokenN(FACTS.truthBroken) };
+}
+const stemLiveHtml = () => { const I = stemInfo(); return `${statsHtml(I.rows.map(r => r.slice(0, 3)))}
+  <p class="grp-h">The true ancestor and one rebuilt each</p>${statsHtml([['True', I.truth, I.truthB]].concat(I.ex.map(r => r.slice(0, 3))))}`; };
+function renderStem() {
+  const pane = $('#pane-stem');
+  if (!pane) return;
+  const v = stemView(), on = X.scene === 'stem', live = stemLive(), me = stemMethod();
+  pane.innerHTML = `<p class="sub">Three species carry one RNA stem of ${word(TD.pairs)} pairs. Rebuild their shared ancestor ${fmt(TD.n)} times with each method, and count the ancestors whose ${word(TD.pairs)} pairs all hold.</p>
+    <p class="grp-h">Show</p><div class="chips">${ctlOf('stem', 'view').options.map(([o, n]) => chip(`data-act="view" data-v="stem:${o}"`, esc(n), on && v === o)).join('')}</div>
+    <p class="grp-h">Numbers</p><div class="chips">${ctlOf('stem', 'src').options.map(([o, n]) => chip(`data-act="ctl" data-scene="stem" data-ctl="src" data-v="${o}"`, esc(n), ctlValue('stem', ctlOf('stem', 'src')) === o)).join('')}</div>
+    ${live ? `${slider('w')}<div class="chips">${chip('data-act="rebuild"', 'Rebuild again', false)}</div>` : `<p class="sub">The authors' test: ${fmt(TD.n)} rebuilt ancestors per method, matching pairs ${word(TD.w)} times as likely as mismatched ones.</p>`}
+    <p class="grp-h">Method</p><div class="chips">${ctlOf('stem', 'method').options.map(([o, n]) => chip(`data-act="ctl" data-scene="stem" data-ctl="method" data-v="${o}"`, esc(n), me === o, METHOD_COL[o])).join('')}</div>
+    <div data-live="stem">${stemLiveHtml()}</div>
+    <p class="note">The coupled circuit favours matching pairs too strongly: its ancestors look believable, but its percentages are not true chances. A broken pair is normal: only ${esc(TD.allSixPrior)} of ancestors have all ${word(TD.pairs)} pairs matched (the authors). ${live ? 'Computed here with the story\'s example rule; the coupling is our stand-in for the authors\' circuit.' : 'In the authors\' test the shares are theirs; which stems are intact is drawn for the picture.'}</p>`;
 }
 function renderScenes() {
   const pane = $('#pane-scenes');
@@ -316,22 +446,26 @@ function renderScenes() {
   pane.innerHTML = `<div class="chips">${SCENES.map(([k, n]) => chip(`data-act="scene" data-v="${k}"`, esc(n), k === X.scene)).join('')}</div>
     <h3>${esc(sc[1])}</h3><p class="sub">${esc(sc[2])}</p>
     ${ctlsOf(X.scene).filter(c => ctlShown(X.scene, c)).map(c => `<p class="grp-h">${esc(c.label)}</p><div class="chips">${c.options.map(([v, n]) => chip(`data-act="ctl" data-ctl="${c.key}" data-v="${v}"`, esc(n), ctlValue(X.scene, c) === v)).join('')}</div>`).join('')}
-    ${X.scene === 'cube' && X.brick ? `<p class="sub" style="margin-top:10px">Also shown: ${esc(sub(X.brick))} (Bricks tab).</p>` : ''}`;
+    ${Object.keys(NUM).filter(key => numShown(X.scene, key)).map(slider).join('')}`;
 }
-// labels the panes add (none: the sets label their own picks, the cube its focused string)
+// labels the panes add (none: the sets label their own picks, the tree its branch, the stem its fields)
 function updateExtraLabels() {}
 
 // ----------------------------------------------------------- canvas input --
 const _rc = new THREE.Raycaster(), _m2 = new THREE.Vector2();
-// what a ray (a THREE.Raycaster in world coordinates) points at in the scene on show: { brick } (a string of the
-// gallery) or { cell } (a corner of the big cube, by its code), or null
+// what a ray (a THREE.Raycaster in world coordinates) points at in the scene on show: { branch } (of the family tree),
+// { sbranch } (of the species tree), { field } (a method's field) or { stem } (a species', the truth's or a method's
+// example), or null
 function pickWith(rc) {
-  if (APP.mode !== 'explore' || X.scene !== 'cube') return null;
-  const A = api('cube');
-  if (!A.pick) return null;
+  if (APP.mode !== 'explore') return null;
+  const sp = X.scene === 'tree' && treeView() === 'species', fields = X.scene === 'stem' && (viewIs('stem', 'rebuild') || viewIs('stem', 'compare'));
   let r = null;
-  try { r = A.pick(rc); } catch (e) { return null; }
-  return !r ? null : r.kind === 'brick' && isBrick(r.name) ? { brick: r.name } : r.kind === 'corner' ? { cell: r.code } : null;
+  try {
+    if (sp || fields) r = api('stem').pick ? api('stem').pick(rc) : null;
+    if (!r && X.scene === 'tree') r = api('tree').pick ? api('tree').pick(rc) : null;
+  } catch (e) { return null; }
+  if (!r) return null;
+  return r.kind === 'branch' ? (r.species ? { sbranch: r.b } : { branch: r.b }) : r.kind === 'field' ? { field: r.method } : r.kind === 'stem' ? { stem: r.which } : null;
 }
 // what is under the mouse, in explore mode
 function pickAt(mx, my) {
@@ -340,13 +474,29 @@ function pickAt(mx, my) {
   return pickWith(_rc);
 }
 // where a pick is, in its set's own frame (for the headset's ray and tip), or null (then where the ray meets the scene)
-function pickPos(p) { return null; }
-const pickText = p => (p.brick ? [sub(p.brick), brickWhat(Q.parse(p.brick, cubeBits()), cubeBits())]
-  : [`Cell ${p.cell}`, `${curAn().sizes[parseInt(p.cell, 2)] || 0} genes`]);
+function pickPos(p) {
+  if (X.scene !== 'tree' || !api('tree').mid) return null;
+  return p.branch !== undefined ? api('tree').mid(p.branch, false) : p.sbranch !== undefined ? api('tree').mid(p.sbranch, true) : null;
+}
+const SPECIES_NAME = { s1: 'Species 1', s2: 'Species 2', s3: 'Species 3', n1: 'The ancestor of species 1 and 2' };
+function pickText(p) {
+  const A = api('tree'), S = api('stem'), names = (stemLive() ? S.namesLive : S.names) || {};
+  if (p.branch !== undefined) { const B = treeNow().branches[p.branch]; return B ? [`Branch ${p.branch + 1}`, `${f2(B.len)} swaps per letter · ${swapsN(B.muts.length)}`] : ['', '']; }
+  if (p.sbranch !== undefined) {
+    const sp = A.species(), B = sp.branches[p.sbranch], n = B && sp.nodes[B.to];
+    return B ? [`To ${(SPECIES_NAME[n.name] || 'a species').replace(/^The/, 'the')}`, `${f2(B.len)} swaps per letter (an example)`] : ['', ''];
+  }
+  if (p.field) { const r = S.results()[p.field]; return [names[p.field] || p.field, stemLive() ? `${pct(r.share)} intact here` : `${pct(r.share)} intact in the authors' test`]; }
+  if (p.stem === 'truth') return ['True ancestor', `${TD.truth.top} / ${TD.truth.bottom} · ${brokenN(FACTS.truthBroken)}`];
+  if (TD.species[p.stem]) { const s = TD.species[p.stem]; return [SPECIES_NAME[p.stem], `${s.top} / ${s.bottom} · ${brokenN(M.brokenPairs(s.top, s.bottom).length)}`]; }
+  const r = S.results()[p.stem];
+  return r ? [names[p.stem] || p.stem, `${r.best.top} / ${r.best.bottom} · ${brokenN(r.broken)}`] : ['', ''];
+}
+// a click (or the trigger) on a branch picks it; on a field, lights its method (again: all three)
 function choosePick(p) {
-  if (!p || !p.brick) return;
-  if (X.tab !== 'bricks') showTab('bricks');
-  selectBrick(p.brick === X.brick ? null : p.brick, null, false);
+  if (!p) return;
+  if (p.branch !== undefined) { if (X.tab !== 'tree') showTab('tree'); selectBranch(p.branch === X.branch ? -1 : p.branch, false); }
+  else if (p.field) { if (X.tab !== 'stem') showTab('stem'); sceneCtl('stem', 'method', stemMethod() === p.field ? 'all' : p.field); }
 }
 function bindCanvas() {
   const cv = GL.canvas, tip = $('#tip'), pts = new Map();

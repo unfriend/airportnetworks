@@ -100,7 +100,7 @@ function placeLabelXR(L, alpha, S) {
   const hm = 0.021 / XR.R;
   sp.scale.set(hm * sp.userData.aspect, hm, 1);
 }
-// the brick or the cell a controller points at, labelled where the ray meets it
+// the branch, the field or the stem a controller points at, labelled where the ray meets it
 function xrTip(S) {
   let h = null;
   if (APP.mode === 'explore') for (const c of XR.ctrls) if (c.hover && c.hover.kind === 'globe' && c.hover.pk) { h = c.hover; break; }
@@ -113,8 +113,8 @@ function xrTip(S) {
   if (XR.tip) { GL.sets[XR.tip.set].group.worldToLocal(_xp.copy(h.point)); XR.tip.at = [_xp.x, _xp.y, _xp.z]; placeLabelXR(XR.tip, 1, S); }
 }
 
-// ---------------------------------------------------- picking a brick --
-// The brick or the cell a ray points at in explore mode (see pickWith), or null
+// --------------------------------------------------- picking a branch --
+// The branch, the field or the stem a ray points at in explore mode (see pickWith), or null
 const _prc = new THREE.Raycaster();
 function pickRay(o, d) {
   if (APP.mode !== 'explore') return null;
@@ -264,7 +264,7 @@ function xrPoint(c, dt) {
     hit = { kind: 'panel', P, x: h.uv.x * P.w, y: (1 - h.uv.y) * P.h, point: h.point };
     dist = h.distance;
   } else if (!XR.stories) {
-    // the scene counts as a ball around the view's target; a brick or a corner counts if the ray passes close
+    // the scene counts as a ball around the view's target; a branch or a stem counts if the ray passes close
     const oL = _xa.copy(c.o).applyMatrix4(_xinv), dL = _xb.copy(c.d).transformDirection(_xinv);
     _xc.copy(oL).sub(XR.target);
     const b = _xc.dot(dL), disc = b * b - (_xc.lengthSq() - XR.hitR * XR.hitR);

@@ -2,9 +2,10 @@
 // ================================================================= SCENE ==
 const GL = {};
 // the sets, in the order they appear in the story
-const SET_ORDER = ['pairs', 'cube', 'chart'];
-// (no set is drawn in another's frame here; the engine's shared lines keep the hook)
-const FRAME = {};
+const SET_ORDER = ['letters', 'tree', 'rule', 'stem'];
+// sets drawn in another set's frame: the stems stand on the species tree's tips and their fields in front of its root,
+// so the two always turn together
+const FRAME = { stem: 'tree' };
 const frameOf = k => FRAME[k] || k;
 function buildScene(canvas) {
   const renderer = HOST.makeRenderer({ canvas, antialias: true, alpha: true, powerPreference: 'high-performance' });

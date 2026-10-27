@@ -1,15 +1,15 @@
-// Three qubits: how a gene network fits on a tiny quantum computer. Why pairs of genes, two walkers on the network as
-// on a map, why the map must shrink, the bisections that give each gene a code of bits, the coarse operator A_c on a
-// cube, its building blocks (Pauli strings), the toolbox a quantum computer runs well (a Lie algebra) and what falls
-// outside it (the residual), and the recipe as a short circuit. After the method and the figures of Joel Hancock (his
-// brief for this visualization, "Prompt: visualize network compression and the Pauli decomposition", 21 Oct 2026, his
-// figure of Pauli strings on a cube and his 3-qubit card). The networks shown are examples, computed here (QMATH); the
-// real run's numbers (QUBITS_DATA, on STRING) appear only where the story says "in the real network". American
-// spelling in this story only, as the brief asks.
+// The mutation machine: DNA's changes as a quantum circuit. DNA as a text in four letters, copied with mutations; a
+// family tree in 3D whose branches are as long as the change along them; each letter in two qubits; a rule of change
+// (a substitution model) as a path through a pyramid of mixes; the compiler that turns it into a machine of gears, one
+// per branch (the copy, the turn and the circuit); letters that work together in an RNA stem, and the coupling that
+// keeps their pairs; and the ancestor of three species rebuilt three ways. After the poster "Converting Mutation into a
+// Machinery: DNA Substitution Models as Quantum Circuits" by Enes Berk Sakalli and Arndt von Haeseler (a draft of 26 Oct
+// 2026) and Enes's answers to our questions. The numbers drawn are examples, computed here (MMATH), as in the authors'
+// own test; the poster's own numbers (MUT_DATA) appear only where the story says "in the authors' test".
 // Runs inside index.html, which owns the page, the renderer and the headset session.
-// Built by tools/qubits/build.mjs from the tour's kit and the maths, data, look, sets and engine parts in tools/qubits:
-// edit those, not this file.
-HOST.register('qubits', function (HOST) {
+// Built by tools/mutation/build.mjs from the tour's kit and the maths, data, look, sets and engine parts in
+// tools/mutation: edit those, not this file.
+HOST.register('mutation', function (HOST) {
 'use strict';
 const D2R = Math.PI / 180;
 const $ = s => document.querySelector(s);
@@ -23,9 +23,9 @@ const K = makeKit(THREE);
 const { smooth, clamp } = K;
 
 // ================================================================== SETS ==
-// Each set is one 3D scene of the story, centered on the origin. The story fades
+// Each set is one 3D scene of the story, centred on the origin. The story fades
 // sets in and out and drives them through their params (see SETS.x.params).
-// QMATH (the maths, computed live from example networks), QUBITS_DATA (the real run's numbers, typed in) and QLOOK (the
-// story's lit tubes, rings, balls and halos) come first, then the sets: pairs, cube, chart.
+// MMATH (the maths, computed live from example numbers), MUT_DATA (the poster's numbers, typed in) and MLOOK (the
+// story's lit tubes, rings, balls, tiles, qubits and gears) come first, then the sets: letters, tree, rule, stem.
 const SETS = {};
 //@@SETS@@
