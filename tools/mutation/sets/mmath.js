@@ -23,10 +23,13 @@
 // The example values, and why (chosen to tell the poster's story in the same direction, never tuned to its numbers):
 // - the story's model ('uneven', GTR): exchangeabilities AC 1.0, AG 3.6, AT 0.7, CG 1.1, CT 4.2, GT 0.9: transitions
 //   (A<->G, C<->T) swap several times as readily as the other swaps, as in real DNA; long-run shares A 0.32, C 0.18,
-//   G 0.24, T 0.26: A the most common, as on the poster's picture of the pyramid, so the path from corner A does not
-//   head for the pyramid's middle. 'even' (JC69) and 'transitions' (K80, kappa 4) are the textbook simpler rules.
-// - the path: T_PATH = 1.6 swaps per letter (by then the mix is within a few per cent of the long-run mix) and points
-//   1 to 3 at 0.15, 0.45 and 1.0 (early, half way, nearly there).
+//   G 0.24, T 0.26: A the most common, as on the poster's picture of the pyramid. 'even' (JC69) and 'transitions'
+//   (K80, kappa 4) are the textbook simpler rules.
+// - the path: T_PATH = 1.6 swaps per letter, points 1 to 3 at 0.15, 0.45 and 1.0. From corner A the story's mix has
+//   come about 17 %, 41 % and 65 % of the way to the long-run mix at the three points and 78 % at T_PATH (even the
+//   simplest rule leaves 13 % at 1.6; the slow part here is purines against pyrimidines, as those swaps are rarer).
+// - the family tree: branch lengths seeded between 0.15 and 0.45 swaps per letter for the first split, 0.1 and 0.5 for
+//   the second and 0.05 and 0.6 for the tips, so the crown is about as tall as it is wide.
 // - the species tree ((s1, s2), s3): root to n1 0.25, n1 to s1 0.2, n1 to s2 0.3, root to s3 0.45: long enough for the
 //   1 to 5 changed letters (of 12) that set the species apart from the true ancestor in Figure 5, short enough that
 //   the stem is still recognisably one stem.
@@ -34,11 +37,15 @@
 //   tenth of the product of their single rates (dbl = 0.1: rare, but allowed, as the poster says).
 // - the coupled circuit: the poster does not give its parts in detail, so Pcoupled is OUR STAND-IN for it (the story
 //   says so wherever it shows): the independent turn, then a step that weights every resulting pair by w if it matches
-//   and renormalises, on every branch however short. That favours pairs too strongly, by construction, which is what
-//   the authors found of theirs; the stand-in was not tuned to their numbers.
-// In this example (2,000 ancestors each, seed 1) the share with all six pairs matching comes out at about 12 % letter
-// by letter, 27 % with the exact pair model and 52 % with the coupled stand-in; the long-run chance that all six pairs
-// match (allSixPrior) is about a third. The poster's test gives 10 %, 20 % and 43 %, and about a quarter.
+//   and renormalises, on every branch however short; its root's prior is its own long-run mix (where its machine
+//   settles, branch after branch, at the tree's mean branch length), which favours pairs more than the exact model's
+//   (94 % of pairs matching against 83 %). So it favours pairs too strongly, by construction, which is what the
+//   authors found of theirs.
+// In this example (the story's model, w = 8) the exact chance that all six pairs of the rebuilt ancestor match is about
+// 11 % letter by letter, 31 % with the exact pair model and 45 % with the coupled stand-in (2,000 sampled with seed 1:
+// 11.0 %, 30.0 % and 46.1 %), and the long-run chance that all six match (allSixPrior) is about a third (0.33). The
+// poster's test gives 10 %, 20 % and 43 %, and about a quarter: the stand-in landing near 43 % is chance, nothing was
+// fitted to it, and the story shows the poster's numbers only as the poster's.
 const MMATH = (() => {
   // ------------------------------------------------------------------ helpers
   // the kit's seeded random numbers (the same sequence as K.rng)
