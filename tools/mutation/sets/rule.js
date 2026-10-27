@@ -158,9 +158,10 @@ SETS.rule = function (K) {
     for (let i = 0; i < 4; i++) {
       tr(_a, T, CN[i]);
       const l = Math.hypot(CN[i][0], CN[i][1], CN[i][2]);
-      for (let d = 0; d < 3; d++) _b[d] = _a[d] + CN[i][d] / l * (small ? 0.06 : 0.13) * (small ? 1 : 1);
-      if (ta > 0.004) tiles.add(_b, null, small ? 0.075 : 0.17, i, ta, 0, 0.1);
-      halos.add(_a, small ? 0.12 : 0.22, LK.LCOL[i], 0.35 * fa);
+      const k = small ? T.s / MS : T.s;   // (the corners shrink with the pyramid as it drops into the compiler)
+      for (let d = 0; d < 3; d++) _b[d] = _a[d] + CN[i][d] / l * (small ? 0.06 : 0.13) * k;
+      if (ta > 0.004) tiles.add(_b, null, (small ? 0.075 : 0.17) * k, i, ta, 0, 0.1);
+      halos.add(_a, (small ? 0.12 : 0.22) * k, LK.LCOL[i], 0.35 * fa);
     }
     if (pathA <= 0.004) return;
     // the path: the whole of it faint and dashed, the part travelled bright green, points 1 to 3, the long-run mix
@@ -512,10 +513,10 @@ SETS.rule = function (K) {
     { text: ['Simple steps', ` · ${NRY} turns of one qubit, ${NCX} links`], at: 'steps', cls: 'cyn', alpha: S => cOn(S) * simpleOn(S) },
   );
   const cam = {
-    default: [0, 14, 3.7, 0, 0.28, 0],
-    rates: [16, 12, 3.6, 0, 0.3, 0],
-    pyramid: [-22, 16, 3.6, 0, 0.3, 0],
-    path: [12, 20, 3.1, 0.08, 0.28, 0.05],
+    default: [-26, 20, 4.0, 0, 0.3, 0],
+    rates: [16, 12, 4.0, 0, 0.32, 0],
+    pyramid: [-22, 16, 3.9, 0, 0.3, 0],
+    path: [-32, 24, 3.6, 0, 0.32, 0],
     compiler: [0, 20, 3.9, 0, -0.12, 0],
     machine: [0, 8, 3.2, 0, 0.55, 0],
     copy: [0, 8, 2.5, -0.45, 0.68, 0],
