@@ -117,19 +117,19 @@ authors (first author Chloé Bûcheron). Contact person: **TO FILL (owner)**.
 
 E2 follows from the story's own choices in the generator rather than from a reading of the poster.
 
-## The mutation machine (planned, not built)
+## The mutation machine (`mutation`)
 
 Source: the poster "Converting Mutation into a Machinery: DNA Substitution Models as Quantum Circuits" (Enes Berk
-Sakalli, Arndt von Haeseler; a draft of 26 Oct 2026, not in the repository). The owner is asking these before the story
-is built (see [HANDOVER.md](../HANDOVER.md), item 9). Who to ask: Enes Berk Sakalli. Contact person: **TO FILL (owner)**.
+Sakalli, Arndt von Haeseler; a draft of 26 Oct 2026, not in the repository). Enes Berk Sakalli answered MM2 to MM4 on 27 Oct
+2026 (through the owner); the story follows those answers. Who to ask: Enes Berk Sakalli. Contact person: **TO FILL (owner)**.
 
 | # | Item | Where in the source | What the story would show | Status |
 | --- | --- | --- | --- | --- |
-| M1 | Is the poster final? Its footer still has placeholders (conference, contact, funding); numbers or figures may change. | footer | the draft's numbers | open |
-| M2 | The values behind the figures: the substitution rates and long-run mix (Figure 2), the pair model and the coupling's strength, the tree's branch lengths (Figure 5). Or are example values, computed in the page and said so, fine? | Figures 2, 4, 5 | example values, labelled | open |
-| M3 | How the turn is built as gates (for example a rotation on the first qubit and a controlled one on the second, the parent's letter copied first), so the circuit is drawn right. | section 3, Figure 4 | copy, turn, join as the poster draws them | open |
-| M4 | How to word the result: the true ancestor has one broken pair, so "all six pairs intact" is not "right"; and the coupled circuit (43 %) beats the exact pair model (20 %). How often did each method rebuild the true ancestor, and how should the story say this without claiming the circuit is simply better? | section 4, Figure 5 | "coupling changes pairing in the rebuilt ancestors", the three percentages | open |
-| M5 | Credit: both authors and their institutes as on the poster, and the title "The mutation machine"? | header | as on the poster | open |
+| MM1 | Is the poster final? Its footer still has placeholders (conference, contact, funding); numbers or figures may change. | footer | the draft's numbers | open |
+| MM2 | The values behind the figures: the substitution rates and long-run mix (Figure 2), the pair model and the coupling's strength, the tree's branch lengths (Figure 5). Or are example values, computed in the page and said so, fine? | Figures 2, 4, 5 | example values, labelled | answered 27 Oct 2026: example numbers (rates, long-run mix, branch lengths); matching pairs eight times as likely as mismatched ones. Fine for a test of the method; a real result would estimate them from real sequences. |
+| MM3 | How the turn is built as gates (for example a rotation on the first qubit and a controlled one on the second, the parent's letter copied first), so the circuit is drawn right. | section 3, Figure 4 | copy, turn, join as the poster draws them | answered 27 Oct 2026: the parent's letter is copied onto the child, then the child is turned by single-qubit rotations plus two-qubit steps that make the turn depend on the parent's letter; the angles depend only on the branch length, and the steps are the same on every branch. |
+| MM4 | How to word the result: the true ancestor has one broken pair, so "all six pairs intact" is not "right"; and the coupled circuit (43 %) beats the exact pair model (20 %). How often did each method rebuild the true ancestor, and how should the story say this without claiming the circuit is simply better? | section 4, Figure 5 | "coupling changes pairing in the rebuilt ancestors", the three percentages | answered 27 Oct 2026: a mismatched pair in the true ancestor is normal (allowed, only rarer; only about a quarter of ancestors have all six pairs matched). With coupling 43 % of the rebuilt ancestors have all pairs matched, without 10 %; the exact calculation gives 20 %, so the coupled model favours matching pairs too strongly: believable ancestors, but its percentages are not true probabilities. |
+| MM5 | Credit: both authors and their institutes as on the poster, and the title "The mutation machine"? | header | as on the poster | open |
 
 ## Pass it on (`pass`)
 
