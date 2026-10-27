@@ -168,6 +168,35 @@ Before handing over (or making anything more public), someone has to decide thes
    around the poster's one-scan story in 3D (a person's network on their body, many people side by side by how far
    their network has drifted from healthy, a patient's network moving back after treatment), with only the paper's
    two or three key numbers.
+9. **A fourteenth story: "The mutation machine" (planned, waiting for the author)** (October 2026). From the poster
+   "Converting Mutation into a Machinery: DNA Substitution Models as Quantum Circuits" (Enes Berk Sakalli, Arndt von
+   Haeseler; a draft, its footer still has placeholders). The owner agreed to the outline and wants to clarify with
+   the author first: **do not start until the owner says so**. The questions are in
+   [docs/questions-for-authors.md](docs/questions-for-authors.md) ("The mutation machine").
+   - **The story** (about 7 minutes, 8 chapters): a text in four letters (copying, a swap is a mutation); the family
+     tree (branch length, viruses, tumours); letters as qubits (two per letter, arrows on spheres, a superposition as a
+     spinning coin, read out); the rule (four letters as balls and arrows, the mix as a point in a pyramid standing in
+     the room, gliding from corner A to the long-run mix); the machine (a compiler turns the rule into gears: copy the
+     parent's letter, turn by the branch's length, one machine per branch); letters that work together (an RNA stem,
+     a pair breaks if one letter changes alone, coupling); rebuilding the ancestor (2,000 rebuilt stems per method
+     gathering into three crowds: 43 % with all six pairs intact with coupling, 10 % letter by letter, 20 % with the
+     exact pair model; no bar chart); what for (old virus proteins, a tumour's first cell) and the scope (simulated
+     data, one letter or pair at a time). Explore: Letters, Rule, Tree, Stem, Scenes; the examples computed live and
+     said so, the poster's numbers only "in the authors' test". British spelling.
+   - **The tree in 3D** (the owner's wish): not a flat diagram but a tree growing up out of the floor, the ancestor at
+     the root, branches spreading in all directions with their lengths as real lengths, so you walk round it and look
+     up into it; letters travel up the branches as glowing beads, a mutation flashes where it happens; each branch's
+     gear sits at its fork and turns as far as the branch is long; the descendants hang at the tips (later the three
+     species' RNA stems as hairpins), and the rebuilt ancestors gather round the trunk.
+   - **Reuse:** the qubits story's engine and look (lit tubes, balls, rings, glows) and its circuit (adapted to copy
+     and turn), the kit, the tour's DNA helix to open, the endotype tree's 3D look. **New:** three sets (letters,
+     rule, stem), a small maths file with its test (how the mix moves, the turn's angles, pairs, the ancestor rebuilt
+     on the three-species tree), a data file typed in from the poster (Figure 5's sequences, the percentages), and the
+     fourteenth card (the headset arc would reach about 150 degrees: tighter or two rows; every story's panel code,
+     `FORMAT`, the tests, the docs).
+   - **Size:** about 4 to 5 hours of agent work and 3 to 4M tokens, the tests included (spec, data and maths about
+     45 min; the sets and engine 1.5 to 2 h; one review and one fix round about 45 min; integration and every test once
+     1 to 1.5 h).
 
 ## How work is done
 
