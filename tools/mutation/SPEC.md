@@ -7,7 +7,7 @@ Circuits"** by **Enes Berk Sakalli** (Ludwig Boltzmann Institute for Network Med
 Medical University of Vienna); a draft of 26 Oct 2026, not in the repository. What it says is summed up below; nothing
 else from it is needed.
 
-Card (`HOST.list`): key `mutation`, kick "DNA substitution models as quantum circuits", title **The mutation machine**,
+Card (`HOST.list`): key `mutation`, kick "Quantum phylogenetics", title **The mutation machine**,
 colour `#4d8dff`, desc "DNA changes letter by letter as it is copied. A rule for those changes becomes a machine of
 gears on a quantum computer, one per branch of a family tree, and pairs of letters that change together are coupled.",
 page "The mutation machine: DNA's changes as a quantum circuit", brand "The mutation machine", sub "DNA's changes as a

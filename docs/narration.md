@@ -23,7 +23,7 @@ MP3 at the file named under each story; if your chapters start at other times, c
 | Tissue microanatomy: Tissue and time | `audio/narration-micro.mp3` | not yet | 7:36 |
 | Ovarian aging: The aging ovary | `audio/narration-ovary.mp3` | not yet | 7:04 |
 | Quantum network compression: Three qubits | `audio/narration-qubits.mp3` | not yet | 9:04 |
-| DNA substitution models as quantum circuits: The mutation machine | `audio/narration-mutation.mp3` | not yet | 8:39 |
+| Quantum phylogenetics: The mutation machine | `audio/narration-mutation.mp3` | not yet | 8:39 |
 | Networks for everyone: Pass it on | `audio/narration-pass.mp3` | not yet | 6:53 |
 | Collective motion: Flock | `audio/narration-flock.mp3` | not yet | 1:57 |
 | Swarm robotics: Robot gang | `audio/narration-robots.mp3` | not yet | 2:01 |
@@ -945,7 +945,7 @@ File: `audio/narration-qubits.mp3` (not recorded yet). Chapters: 0:00 Pairs, 0:5
 - **8:46** Method and figures: Joel Hancock.
 - **8:49** The networks shown are examples, computed here; numbers marked "real network" are from the authors' run on STRING v12.5. The cuts here stand in for their beam search, and the valleys are illustrative.
 
-## DNA substitution models as quantum circuits: The mutation machine (`#mutation`)
+## Quantum phylogenetics: The mutation machine (`#mutation`)
 
 File: `audio/narration-mutation.mp3` (not recorded yet). Chapters: 0:00 Letters, 0:43 Family tree, 1:50 Qubits, 2:50 The rule, 3:49 Machine, 5:05 Pairs, 6:11 Rebuild, 7:26 What for; it ends at 8:39.
 
