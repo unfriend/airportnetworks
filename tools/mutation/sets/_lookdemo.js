@@ -12,13 +12,13 @@ SETS._lookdemo = function (K) {
     update(S, t) {
       LK.depth();
       for (const P of [tubes, rings, balls, halos, cones, glass, tiles, gears]) P.begin();
-      // tiles A C G T: A turned a little, C framed, G facing the camera, T seen from behind; a small '?'
+      // tiles A C G T: A turned a little, C framed, G seen from behind (glowing), T facing the camera; a small '?'
       LK.quat(q, [0, 1, 0], 0.35);
       tiles.add([-0.9, 0.85, 0], q, 0.32, 0, 1);
       tiles.add([-0.3, 0.85, 0], q, 0.32, 1, 1, 1);
-      tiles.add([0.3, 0.85, 0], null, 0.32, 2, 1);
+      tiles.add([0.9, 0.85, 0], null, 0.32, 3, 1);
       LK.quat(qb, [0, 1, 0], Math.PI + 0.45 + S._lookdemo_turn * t);
-      tiles.add([0.9, 0.85, 0], qb, 0.32, 3, 1, 0, 0.5);
+      tiles.add([0.3, 0.85, 0], qb, 0.32, 2, 1, 0, 0.5);
       tiles.add([1.4, 0.85, 0], q, 0.2, 4, 1);
       // under each tile its two qubits (the code)
       for (let i = 0; i < 4; i++) for (let j = 0; j < 2; j++) {

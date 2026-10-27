@@ -343,7 +343,7 @@ void main() {
   float dif = max(dot(n, l), 0.0), hemi = 0.5 + 0.5 * n.y;
   float rim = pow(1.0 - abs(dot(n, v)), 2.4), spec = pow(max(dot(reflect(-l, n), v), 0.0), 24.0);
   // the frame: the whole rounded edge, and a band just inside it on the faces
-  float fr = vF * (vFace > 0.5 ? smoothstep(-0.085, -0.07, box(vUv - 0.5, 0.38, 0.08)) : 1.0);
+  float fr = vF * (vFace > 0.5 ? smoothstep(-0.008, 0.008, box(vUv - 0.5, 0.33, 0.07)) : 1.0);
   vec3 body = mix(vC, uWhite, fr);
   vec3 col = body * (0.52 + 0.36 * dif + 0.14 * hemi + 0.75 * vG) + body * rim * 0.55 + vec3(spec * 0.22);
   if (vFace > 0.5) col = mix(col, uInk, texture2D(uMap, vec2((vL + vUv.x) / ${CELLS}.0, vUv.y)).a);
@@ -488,11 +488,11 @@ void main() {
     if (o.marks !== false) {
       const f = o.face || FRONT;
       _l[0] = f[1] * UP[2] - f[2] * UP[1]; _l[1] = f[2] * UP[0] - f[0] * UP[2]; _l[2] = f[0] * UP[1] - f[1] * UP[0];
-      const ll = Math.hypot(_l[0], _l[1], _l[2]) || 1, w = R * 0.022;
-      if (rg) rg.add(at(_a, c, 0, R * 1.25, 0), f, R * 0.07, w, INK, 0.85 * alpha);
+      const ll = Math.hypot(_l[0], _l[1], _l[2]) || 1, w = R * 0.026;
+      if (rg) rg.add(at(_a, c, 0, R * 1.27, 0), f, R * 0.08, w, INK, 0.85 * alpha);
       if (tb) {
-        tb.add(at(_a, c, 0, -R * 1.16, 0), at(_b, c, 0, -R * 1.38, 0), w, INK, 0.85 * alpha);
-        tb.add(at(_a, c, 0, -R * 1.16, 0), at(_b, c, _l[0] / ll * R * 0.07, -R * 1.215, _l[2] / ll * R * 0.07), w, INK, 0.85 * alpha);
+        tb.add(at(_a, c, 0, -R * 1.16, 0), at(_b, c, 0, -R * 1.4, 0), w, INK, 0.85 * alpha);
+        tb.add(at(_a, c, 0, -R * 1.16, 0), at(_b, c, _l[0] / ll * R * 0.08, -R * 1.22, _l[2] / ll * R * 0.08), w, INK, 0.85 * alpha);
       }
     }
     // the arrow: Bloch x along +x, z up, y along -z; turned round the vertical by spin
@@ -504,10 +504,10 @@ void main() {
       if (o.tip) at(o.tip, c, 0, 0, 0);
       return;
     }
-    const dx = bx / len, dy = bz / len, dz = -by / len, h = Math.min(R * 0.3, L * 0.6), hr = R * 0.1 * Math.min(1, L / (R * 0.35));
-    if (bl) bl.add(c, R * 0.06, col, alpha);
+    const dx = bx / len, dy = bz / len, dz = -by / len, h = Math.min(R * 0.32, L * 0.6), hr = R * 0.13 * Math.min(1, L / (R * 0.35));
+    if (bl) bl.add(c, R * 0.075, col, alpha);
     at(_a, c, dx * (L - h), dy * (L - h), dz * (L - h));
-    if (tb && L - h > R * 0.02) tb.add(c, _a, R * 0.035, col, alpha);
+    if (tb && L - h > R * 0.02) tb.add(c, _a, R * 0.048, col, alpha);
     _b[0] = dx; _b[1] = dy; _b[2] = dz;
     if (cn) cn.add(_a, _b, h, hr, col, alpha);
     at(_a, c, dx * L, dy * L, dz * L);
