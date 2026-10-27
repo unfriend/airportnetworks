@@ -19,6 +19,7 @@ SETS.letters = function (K) {
   // the two copies of Figure 1: their swaps (MUT_DATA gives 1-based positions)
   const COPIES = ['d1', 'd2'].map(k => ({ key: k, seq: M.toIdx(D.fig1[k]),
     swaps: D.fig1.swaps[k].map(([pos, a, b]) => ({ j: pos - 1, from: M.idx(a), to: M.idx(b) })) }));
+  COPIES.forEach(C => { C.at = new Int8Array(NL).fill(-1); C.swaps.forEach((x, w) => { C.at[x.j] = w; }); });
   const RULE = M.model(M.DEFAULT), EVEN = new Float64Array([0.25, 0.25, 0.25, 0.25]);
   const READ_MAX = 400;   // the most read-outs the piles hold (explore: read out 1 or 100 more)
 
@@ -38,7 +39,7 @@ SETS.letters = function (K) {
 
   // ---------------------------------------------------------------- the rows: the ancestor and its two copies
   // fanned out a little in depth, each copy lower and further forward (a family in the making)
-  const Y = new THREE.Vector3(0, 1, 0), SP = 0.2, TS = 0.17;
+  const Y = new THREE.Vector3(0, 1, 0), SP = 0.2, TS = 0.17, XAX = [1, 0, 0], UP = [0, 1, 0];
   const ROWS = [{ c: [0, 0.52, -0.12], yaw: 0 }, { c: [-0.26, 0.04, 0.16], yaw: 0.2 }, { c: [0.26, -0.44, 0.44], yaw: -0.2 }];
   ROWS.forEach(R => {
     R.q = new THREE.Quaternion().setFromAxisAngle(Y, R.yaw);
@@ -153,7 +154,7 @@ SETS.letters = function (K) {
       let al = g * Math.max(hA, m), size = lerp(0.1 * g, TS, m);
       hp(0, k, spin, _a); hp(1, k, spin, _b); lerp3(_c, _a, _b, 0.25);
       _d[0] = 0; _d[1] = _b[1] - _a[1]; _d[2] = _b[2] - _a[2];
-      faceQ(_q, [1, 0, 0], _d);
+      faceQ(_q, XAX, _d);
       _q.slerp(ROWS[0].q, m);
       lerp3(_e, _c, ROWS[0].pos[j], m); _e[2] += 0.22 * Math.sin(PI * m);
       if (j === 0 && op > 0) {
@@ -181,7 +182,7 @@ SETS.letters = function (K) {
         lerp3(_e, ROWS[0].pos[j], R.pos[j], s); _e[2] += 0.16 * Math.sin(PI * s);
         _q.copy(ROWS[0].q).slerp(R.q, s);
         let L = ANC[j], frame = 0, glow = 0;
-        const si = c ? 1 : 0, w = COPIES[si].swaps.findIndex(x => x.j === j);
+        const si = c ? 1 : 0, w = COPIES[si].at[j];
         if (w >= 0) {
           const f = prog(mu, w * 0.5 + 0.05, w * 0.5 + 0.42), sp = COPIES[si].swaps[w];
           L = f < 0.5 ? sp.from : sp.to; frame = prog(f, 0.55, 0.9); glow = 0.9 * Math.sin(PI * f);
@@ -269,7 +270,7 @@ SETS.letters = function (K) {
     if (pileA > 0.004) {
       for (let L = 0; L < 4; L++) {
         _a[0] = PILE_X[L]; _a[1] = PILE_Y - 0.004; _a[2] = PILE_Z;
-        rings.add(_a, [0, 1, 0], 0.08 + 0.05 * (g - 1), 0.006, LK.LCOL[L], 0.7 * pileA, 0);
+        rings.add(_a, UP, 0.08 + 0.05 * (g - 1), 0.006, LK.LCOL[L], 0.7 * pileA, 0);
         for (let m = 0; m < cnt[L]; m++) {
           slotPos(L, m, _b);
           _q.copy(QFLAT).premultiply(_q2.setFromAxisAngle(Y, (M.hash(L * 4096 + m, 3) - 0.5) * 0.4));
