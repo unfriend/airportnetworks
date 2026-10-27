@@ -31,15 +31,16 @@ SETS.rule = function (K) {
 
   // ---------------------------------------------------------------- the machine's layout
   const DRUM = [0, -0.6, 0], DR = 0.48, DH = 0.3;
-  const PAR_T = [-0.95, 0.88, 0], CHD_T = [0, 0.88, 0], MT = 0.17;
+  const XP = -1.05, XC = -0.15;   // the parent's column, the child's
+  const PAR_T = [XP, 0.88, 0], CHD_T = [XC, 0.88, 0], MT = 0.17;
   const QR = 0.12, GR = 0.19, GAP = 2 * 0.9 * GR;   // qubits, gears (meshing gears' centres 1.8 R apart)
-  const PQ = [[-0.95, 0.52, 0], [-0.95, 0.52 - GAP, 0]], CQ = [[0, 0.52, 0.06], [0, 0.52 - GAP, 0.06]];
-  const GC = [[0, 0.52, -0.05], [0, 0.52 - GAP, -0.05]], GD = [GAP, 0.52, -0.05];
-  const MINI = [0.92, 0.42, 0], MS = 0.24;
-  const RAIL_Y = 1.12, HEAD_REST = [-0.47, 1.05], HEAD_DOWN = 0.985;
+  const PQ = [[XP, 0.52, 0], [XP, 0.52 - GAP, 0]], CQ = [[XC, 0.52, 0.06], [XC, 0.52 - GAP, 0.06]];
+  const GC = [[XC, 0.52, -0.05], [XC, 0.52 - GAP, -0.05]], GD = [XC + GAP, 0.52, -0.05];
+  const MINI = [0.8, 0.45, 0], MS = 0.24, ZB = -0.22;   // the small pyramid; the machine's back frame
+  const RAIL_Y = 1.12, HEAD_REST = [(XP + XC) / 2, 1.05], HEAD_DOWN = 0.985;
   // the circuit: wires p1, p0, c1, c0 top to bottom
   const WY = [-0.3, -0.47, -0.64, -0.81], XL = -1.1, XR = 1.12, WIRE = { p1: 0, p0: 1, c1: 2, c0: 3 };
-  const XCOPY = [-0.85, -0.7], XB = [-0.24, 0.48], BW = [0.3, 0.42];
+  const XCOPY = [-0.85, -0.7], XB = [-0.24, 0.48], BW = [0.3, 0.42], BH = 0.14;
   // the turn blocks' simple steps (the structure is the same for every branch: MMATH.decompose of the circuit's two
   // turn blocks; only the RY angles change, computed below without allocating)
   const STEPS = M.circuit(M.DEFAULT, 0.5).gates.filter(g => g.type === 'MRY').map((g, b) => {
@@ -272,6 +273,19 @@ SETS.rule = function (K) {
     if (s > 0.01) tiles.add(_a, TILE_Q, MT * s, ks < 0.5 ? parF : par, mA, 0, 0.1);
     letterBloch(parF, par, ks, bl);
     for (let q = 0; q < 2; q++) { s = fly(m, 0.05 + 0.04 * q, PQ[q], _b); if (s > 0.01) LK.qubit(QPOOLS, _b, QR * s, bl, mA, PO[q]); }
+    // the back frame: axles from the gears and posts from the parent's qubits into two rails behind (one machine)
+    const fa = mA * prog(m, 0.45, 0.9);
+    if (fa > 0.004) {
+      for (let q = 0; q < 2; q++) {
+        tubes.add(set3(_c, XP, PQ[q][1], -QR), set3(_d, XP, PQ[q][1], ZB), 0.012, METAL, fa, 0);
+        tubes.add(set3(_c, XC, GC[q][1], GC[q][2]), set3(_d, XC, GC[q][1], ZB), 0.022, METAL, fa, 0);
+        tubes.add(set3(_c, XP, PQ[q][1], ZB), set3(_d, q ? XC : GD[0], PQ[q][1], ZB), 0.014, METAL, 0.8 * fa, 0);
+        balls.add(_c, 0.022, METAL, fa);
+      }
+      tubes.add(set3(_c, GD[0], GD[1], GD[2]), set3(_d, GD[0], GD[1], ZB), 0.022, METAL, fa, 0);
+      tubes.add(set3(_c, XP, PQ[0][1], ZB), set3(_d, XP, PQ[1][1], ZB), 0.014, METAL, 0.8 * fa, 0);
+      tubes.add(set3(_c, XC, GC[0][1], ZB), set3(_d, XC, GC[1][1], ZB), 0.014, METAL, 0.8 * fa, 0);
+    }
     // the gears: the child's two, and the green dial that drives them (meshing: each turned the other way)
     const ga = GEAR_K * turnAt(SWM, ks, tEff);
     now.gearsA = ga;
@@ -347,7 +361,7 @@ SETS.rule = function (K) {
   const DIAL = [0, 0.25, 0.5, 1, 2];
 
   // ---- the circuit, under the machine
-  const XPOS = [0, 0, 0, 0], SZ_CAR = [0.1, 0.05, 0.06], SZ_HEAD = [0.22, 0.05, 0.13], SZ_BLOCK = [0.3, 0.12, 0.08], SZ_CTRL = [0.045, 0.045, 0.045], SZ_RY = [0.05, 0.075, 0.05];
+  const XPOS = [0, 0, 0, 0], SZ_CAR = [0.1, 0.05, 0.06], SZ_HEAD = [0.22, 0.05, 0.13], SZ_BLOCK = [0.3, BH, 0.08], SZ_CTRL = [0.045, 0.045, 0.045], SZ_RY = [0.05, 0.075, 0.05];
   let RUN = 1;
   // a gate glows as a pulse on its wire passes it
   const flash = (w, x) => RUN * Math.exp(-(((XPOS[w] - x) / 0.06) ** 2));
@@ -386,14 +400,14 @@ SETS.rule = function (K) {
         SZ_BLOCK[0] = BW[b] * (1 - 0.6 * simple);
         boxes.add(set3(_a, x, WY[wt], 0), SZ_BLOCK, LK.mix(LK.BLUE, LK.RIM, 0.25 * f, _col), blockA);
         halos.add(set3(_a, x, WY[wt], 0.05), 0.35, LK.RIM, (0.15 + 0.3 * f) * blockA);
-        gears.add(set3(_a, x, WY[wt], 0.045), FRONT, 0.042, (b ? -1 : 1) * now.gearsA, LK.BLUE, blockA, GOPT);
+        gears.add(set3(_a, x, WY[wt], 0.05), FRONT, 0.055, (b ? -1 : 1) * now.gearsA, LK.BLUE, blockA, GOPT);
         let top = WY[wt];
         for (let c = 0; c < st.ctrls.length; c++) {
           const w = st.ctrls[c];
           boxes.add(set3(_a, x, WY[w], 0), SZ_CTRL, LK.RIM, blockA);
           top = Math.max(top, WY[w]);
         }
-        tubes.add(set3(_a, x, top, 0), set3(_b, x, WY[wt] + 0.06, 0), 0.007, LK.RIM, blockA, 0);
+        tubes.add(set3(_a, x, top, 0), set3(_b, x, WY[wt] + BH / 2, 0), 0.007, LK.RIM, blockA, 0);
       }
       // the simple steps: turns of one qubit (shaded by how far they turn, a needle at the angle) and links of two
       const sa = cA * prog(grow, 0.35, 0.7) * smooth(simple);
@@ -478,10 +492,10 @@ SETS.rule = function (K) {
     p3: () => [now.pts[2][0] + 0.04, now.pts[2][1] + 0.04, now.pts[2][2]],
     compiler: [DR + 0.05, DRUM[1], 0],
     parent: [PAR_T[0] + MT * 0.62, PAR_T[1] + 0.03, 0], child: [CHD_T[0] + MT * 0.62, CHD_T[1] + 0.03, 0], press: () => [now.head[0] + 0.13, now.head[1] + 0.05, 0],
-    gears: [GC[1][0] - GR - 0.3, GC[1][1] - 0.02, 0.06], dial: [GD[0] + GR + 0.1, GD[1] + 0.12, 0], mini: [MINI[0] - 0.1, MINI[1] - MS * 0.55, 0],
+    gears: [XC - 0.12, GC[1][1] - GR - 0.1, 0.06], dial: [GD[0] + 0.08, GD[1] - GR - 0.17, 0], mini: [MINI[0] - 0.22, MINI[1] - MS * 0.75, 0],
     machine: [0, 0.5, 0], circuit: [0, -0.55, 0],
-    wireParent: [XL - 0.2, (WY[0] + WY[1]) / 2 + 0.02, 0], wireChild: [XL - 0.2, (WY[2] + WY[3]) / 2 + 0.02, 0],
-    copyGates: [XCOPY[0] - 0.04, WY[0] + 0.1, 0], turn1: [XB[0] - BW[0] / 2, WY[2] - 0.1, 0], turn2: [XB[1] - BW[1] / 2, WY[3] - 0.1, 0],
+    wireParent: [XL - 0.62, (WY[0] + WY[1]) / 2 + 0.02, 0], wireChild: [XL - 0.62, (WY[2] + WY[3]) / 2 + 0.02, 0],
+    copyGates: [XCOPY[0] - 0.04, WY[0] + 0.1, 0], turn1: [XB[0] - BW[0] / 2, WY[3] - 0.11, 0], turn2: [XB[1] - BW[1] / 2 + 0.12, WY[3] - 0.11, 0],
     steps: [0.1, WY[0] + 0.12, 0],
   };
   const deg = v => `${Math.round(Math.abs(v) * 180 / PI)}°`;
@@ -504,12 +518,12 @@ SETS.rule = function (K) {
     { text: ['Copy', ' · the parent’s letter onto the child'], at: 'press', cls: 'cyn', alpha: S => mOn(S) * prog(S.rule_copy, 0.03, 0.12) * (1 - prog(S.rule_copy, 0.85, 0.95)) * (1 - cOn(S)) },
     { text: ['Turn', ' · as far as the branch is long'], at: 'gears', cls: 'cyn', alpha: S => mOn(S) * prog(S.rule_copy, 0.9, 1) * prog(S.rule_time, 0.02, 0.12) * (1 - cOn(S)) },
     { text: () => ['Branch length', ` · ${now.t.toFixed(2)} swaps per letter`], at: 'dial', cls: 'grn', alpha: S => mOn(S) * prog(S.rule_copy, 0.85, 1) * (1 - simpleOn(S)) },
-    { text: ['The child’s mix', ' · on the rule’s path'], at: 'mini', cls: '', alpha: S => mOn(S) * prog(S.rule_copy, 0.9, 1) * prog(S.rule_time, 0.02, 0.12) * (1 - cOn(S)) },
-    { text: ['Parent', ''], at: 'wireParent', cls: '', minor: true, alpha: cOn },
-    { text: ['Child', ''], at: 'wireChild', cls: '', minor: true, alpha: cOn },
+    { text: ['The child’s mix', ' · the same path'], at: 'mini', cls: '', alpha: S => mOn(S) * prog(S.rule_copy, 0.9, 1) * prog(S.rule_time, 0.02, 0.12) * (1 - cOn(S)) },
+    { text: ['Parent', ' p1, p0'], at: 'wireParent', cls: '', minor: true, alpha: cOn },
+    { text: ['Child', ' c1, c0'], at: 'wireChild', cls: '', minor: true, alpha: cOn },
     { text: ['Copy', ' · two CNOT gates'], at: 'copyGates', cls: 'cyn', alpha: S => cOn(S) * (1 - simpleOn(S)) },
     { text: () => ['c1 turns', ' ' + deg(now.ang[now.parent])], at: 'turn1', cls: 'cyn', alpha: S => cOn(S) * (1 - simpleOn(S)) },
-    { text: () => ['c0 turns', ` ${deg(now.ang[4 + 2 * now.parent])} if c1 is 0, ${deg(now.ang[5 + 2 * now.parent])} if 1`], at: 'turn2', cls: 'cyn', alpha: S => cOn(S) * (1 - simpleOn(S)) },
+    { text: () => ['c0 turns', ` ${deg(now.ang[4 + 2 * now.parent])} or ${deg(now.ang[5 + 2 * now.parent])}, as c1 is 0 or 1`], at: 'turn2', cls: 'cyn', alpha: S => cOn(S) * (1 - simpleOn(S)) },
     { text: ['Simple steps', ` · ${NRY} turns of one qubit, ${NCX} links`], at: 'steps', cls: 'cyn', alpha: S => cOn(S) * simpleOn(S) },
   );
   const cam = {
@@ -518,10 +532,10 @@ SETS.rule = function (K) {
     pyramid: [-22, 16, 3.9, 0, 0.3, 0],
     path: [-32, 24, 3.6, 0, 0.32, 0],
     compiler: [0, 20, 3.9, 0, -0.12, 0],
-    machine: [0, 8, 3.2, 0, 0.55, 0],
-    copy: [0, 8, 2.5, -0.45, 0.68, 0],
-    turn: [10, 6, 2.7, 0.35, 0.45, 0],
-    circuit: [0, 6, 4.3, 0, 0.12, 0],
+    machine: [0, 8, 3.3, -0.1, 0.52, 0],
+    copy: [0, 8, 2.5, (XP + XC) / 2, 0.68, 0],
+    turn: [12, 6, 2.7, 0.25, 0.42, 0],
+    circuit: [0, 6, 4.4, -0.15, 0.12, 0],
     steps: [0, 4, 3.1, 0.15, -0.5, 0],
   };
   const LETTER_OPTS = M.LETTERS.split('').map(l => [l, l]);
