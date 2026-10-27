@@ -120,7 +120,7 @@ const narrowOf = (k, name) => (NARROW[k] && NARROW[k][name]) || 1;
 // on a screen held sideways but too narrow for the side panel (the panel below, the scene in a strip above it, see
 // lowK) the tall family tree comes closer and is centred in the strip: [distance factor, the target's shift up]
 // (measured at 640 x 400: about as tall as the strip, as the qubits story's map stands there)
-const LOW = { tree: { default: [0.63, 0], grow: [0.62, 0], crown: [0.72, 0], pair: [0.69, -0.68], gears: [0.67, -0.1] } };
+const LOW = { tree: { default: [0.72, -0.3], grow: [0.62, 0], crown: [0.72, 0], pair: [0.69, -0.68], gears: [0.67, -0.1] } };
 const LOW1 = [1, 0];
 const lowOf = (k, name) => (LOW[k] && LOW[k][name]) || LOW1;
 // a set's anchor point, in the set's own coordinates

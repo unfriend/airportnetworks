@@ -23,7 +23,7 @@ MP3 at the file named under each story; if your chapters start at other times, c
 | Tissue microanatomy: Tissue and time | `audio/narration-micro.mp3` | not yet | 7:36 |
 | Ovarian aging: The aging ovary | `audio/narration-ovary.mp3` | not yet | 7:04 |
 | Quantum network compression: Three qubits | `audio/narration-qubits.mp3` | not yet | 9:04 |
-| DNA substitution models as quantum circuits: The mutation machine | `audio/narration-mutation.mp3` | not yet | 8:36 |
+| DNA substitution models as quantum circuits: The mutation machine | `audio/narration-mutation.mp3` | not yet | 8:39 |
 | Networks for everyone: Pass it on | `audio/narration-pass.mp3` | not yet | 6:53 |
 | Collective motion: Flock | `audio/narration-flock.mp3` | not yet | 1:57 |
 | Swarm robotics: Robot gang | `audio/narration-robots.mp3` | not yet | 2:01 |
@@ -947,7 +947,7 @@ File: `audio/narration-qubits.mp3` (not recorded yet). Chapters: 0:00 Pairs, 0:5
 
 ## DNA substitution models as quantum circuits: The mutation machine (`#mutation`)
 
-File: `audio/narration-mutation.mp3` (not recorded yet). Chapters: 0:00 Letters, 0:43 Family tree, 1:50 Qubits, 2:50 The rule, 3:49 Machine, 5:02 Pairs, 6:08 Rebuild, 7:23 What for; it ends at 8:36.
+File: `audio/narration-mutation.mp3` (not recorded yet). Chapters: 0:00 Letters, 0:43 Family tree, 1:50 Qubits, 2:50 The rule, 3:49 Machine, 5:05 Pairs, 6:11 Rebuild, 7:26 What for; it ends at 8:39.
 
 ### 0:00 Letters
 
@@ -994,7 +994,7 @@ File: `audio/narration-mutation.mp3` (not recorded yet). Chapters: 0:00 Letters,
 - **3:04** Here A↔G and C↔T swap about four times as readily as the other pairs, and A is the most common letter in the long run (32 %).
 - **3:14** Every mix of the four letters is a point in this pyramid, the pure letters at its corners.
 - **3:22** Start at A, and as time goes on the rule moves the mix along a path towards the long-run mix.
-- **3:30** After 0.15, 0.45 and 1 swaps per letter it has come 17 %, 41 % and 65 % of the way; after 1.6, 78 %.
+- **3:31** After 0.15, 0.45 and 1 swaps per letter it has come 17 %, 41 % and 65 % of the way; after 1.6, 78 %.
 - **3:36** The most general standard rule is GTR, the general time-reversible model. The mix follows p(t) = p(0) e^(Qt), a dynamical system: Q holds the rates. The rates and shares here are examples.
 
 ### 3:49 Machine
@@ -1003,47 +1003,47 @@ File: `audio/narration-mutation.mp3` (not recorded yet). Chapters: 0:00 Letters,
 - **3:51** A compiler turns the rule into a quantum circuit: a machine of gears for one branch.
 - **3:58** 1 · Copy: the parent's letter is stamped onto the child
 - **4:04** 2 · Turn: the child's qubits turn: the longer the branch, the further, and the child's mix lands where the rule's path is at that time
-- **4:13** 3 · The circuit: four wires, the parent's two qubits and the child's, with two copy gates and two turn blocks
+- **4:14** 3 · The circuit: four wires, the parent's two qubits and the child's, with two copy gates and two turn blocks
 - **4:21** One machine per branch, joined into the tree.
 - **4:29** Read at the tips, it writes new sequences that follow the rule.
-- **4:34** The copy is two CNOT gates. The turn is a few rotations of single qubits plus steps that link two qubits, so it depends on the parent's letter: for a G after 1 swap per letter, c1 turns 84° and c0 55° or 56°. How far each step turns depends only on the branch length; the steps are the same on every branch: 12 turns of one qubit and 12 links.
+- **4:35** The copy is two CNOT gates. The turn is a few rotations of single qubits plus steps that link two qubits, so it depends on the parent's letter: for a G after 1 swap per letter, c1, the child's first qubit, turns 84° and c0, its second, 55° or 56°. How far each step turns depends only on the branch length; the steps are the same on every branch: 12 turns of one qubit and 12 links.
 
-### 5:02 Pairs
+### 5:05 Pairs
 
-- **5:02** Letters that work together
-- **5:04** Letters often act together.
-- **5:07** An RNA strand folds back on itself into a stem, held by pairs: A with T, C with G, G with T.
-- **5:18** If one letter changes alone, its pair breaks.
-- **5:26** Coupling lets the two letters of a pair change together, so the pair holds.
-- **5:34** Models of pairs exist, but each linked letter multiplies the combinations by four.
-- **5:39** 16: combinations for a pair
-- **5:44** 1,048,576: for ten letters: about a million
-- **5:46** 20: qubits for ten: two per letter
-- **5:49** T stands for RNA's U here, as on the poster. On every branch the coupling acts on both letters of a pair beside the turn: changes that keep a pair are more likely (eight times, in the authors' example), and both letters may change at once [3].
+- **5:05** Letters that work together
+- **5:07** Letters often act together.
+- **5:10** An RNA strand folds back on itself into a stem, held by pairs: A with T, C with G, G with T.
+- **5:21** If one letter changes alone, its pair breaks.
+- **5:29** Coupling lets the two letters of a pair change together, so the pair holds.
+- **5:36** Models of pairs exist, but each linked letter multiplies the combinations by four.
+- **5:42** 16: combinations for a pair
+- **5:46** 1,048,576: for ten letters: about a million
+- **5:49** 20: qubits for ten: two per letter
+- **5:51** T stands for RNA's U here, as on the poster. On every branch the coupling acts on both letters of a pair beside the turn: changes that keep a pair are more likely (eight times, in the authors' example), and both letters may change at once [3].
 
-### 6:08 Rebuild
+### 6:11 Rebuild
 
-- **6:09** Rebuilding the ancestor
-- **6:10** Three species carry the same stem, each changed in its own way.
-- **6:16** What did their shared ancestor have?
-- **6:24** Rebuild it 2,000 times with each method, and count the ancestors whose six pairs all hold:
-- **6:31** Letter by letter: 10 % of them
-- **6:34** With the coupled circuit: 43 %
+- **6:12** Rebuilding the ancestor
+- **6:13** Three species carry the same stem, each changed in its own way.
+- **6:19** What did their shared ancestor have?
+- **6:27** Rebuild it 2,000 times with each method, and count the ancestors whose six pairs all hold:
+- **6:33** Letter by letter: 10 % of them
 - **6:37** The exact pair calculation: 20 %
-- **6:40** So the coupling favours pairs too strongly: its ancestors look believable, but its percentages are not true chances.
-- **6:48** And a broken pair is normal: the true ancestor here has one, and only about a quarter of ancestors have all six pairs matched.
-- **6:58** One rebuilt ancestor of each method stands before its field; white frames mark letters that differ from the true one.
-- **7:07** In the authors' test: a made-up stem of six pairs in three species, 2,000 rebuilt ancestors per method, matching pairs eight times as likely as mismatched ones. The shares are theirs; which stems are intact is drawn for the picture.
+- **6:40** With the coupled circuit: 43 %
+- **6:43** So the coupling favours pairs too strongly: its ancestors look believable, but its percentages are not true chances.
+- **6:51** And a broken pair is normal: the true ancestor here has one, and only about a quarter of ancestors have all six pairs matched.
+- **7:01** One rebuilt ancestor of each method stands before its field; white frames mark letters that differ from the true one.
+- **7:10** In the authors' test: a made-up stem of six pairs in three species, 2,000 rebuilt ancestors per method, matching pairs eight times as likely as mismatched ones. The shares are theirs; which stems are intact is drawn for the picture.
 
-### 7:23 What for
+### 7:26 What for
 
-- **7:24** What it is for
-- **7:26** Rebuilding ancestors is how researchers brought back old virus proteins for vaccine research [4, 5] and trace how a tumour grew from one cancer cell [6].
-- **7:35** This circuit turns a rule of letter change into a machine a quantum computer can run, and couples letters that change together.
-- **7:45** For now it handles one letter or one pair at a time, on simulated data. For real results the numbers would be estimated from real sequences.
-- **7:56** After the poster by Enes Berk Sakalli (Ludwig Boltzmann Institute for Network Medicine at the University of Vienna) and Arndt von Haeseler (Center for Integrative Bioinformatics Vienna (CIBIV), Max Perutz Labs, University of Vienna and Medical University of Vienna).
-- **8:13** [1] Hadfield et al., Nextstrain, Bioinformatics 2018. [2] Arenas and Posada, Curr HIV Res 2010. [3] Schöniger and von Haeseler, Mol Phylogenet Evol 1994. [4] Doria-Rose et al., J Virol 2005. [5] Rolland et al., J Virol 2007. [6] Li et al., Oncogene 2026.
-- **8:27** The numbers drawn are examples, computed here; numbers said to be from the authors' test are theirs.
+- **7:27** What it is for
+- **7:28** Rebuilding ancestors is how researchers brought back old virus proteins for vaccine research [4, 5] and trace how a tumour grew from one cancer cell [6].
+- **7:38** This circuit turns a rule of letter change into a machine a quantum computer can run, and couples letters that change together.
+- **7:48** For now it handles one letter or one pair at a time, on simulated data. For real results the numbers would be estimated from real sequences.
+- **7:59** After the poster by Enes Berk Sakalli (Ludwig Boltzmann Institute for Network Medicine at the University of Vienna) and Arndt von Haeseler (Center for Integrative Bioinformatics Vienna (CIBIV), Max Perutz Labs, University of Vienna and Medical University of Vienna).
+- **8:16** [1] Hadfield et al., Nextstrain, Bioinformatics 2018. [2] Arenas and Posada, Curr HIV Res 2010. [3] Schöniger and von Haeseler, Mol Phylogenet Evol 1994. [4] Doria-Rose et al., J Virol 2005. [5] Rolland et al., J Virol 2007. [6] Li et al., Oncogene 2026.
+- **8:30** The numbers drawn are examples, computed here; numbers said to be from the authors' test are theirs.
 
 ## Networks for everyone: Pass it on (`#pass`)
 
