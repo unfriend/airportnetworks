@@ -261,7 +261,8 @@ const SETS = {};
 // - pairs of letters: a reversible 16-state pair model, its P(t), the independent and the coupled stand-in, and the
 //   rebuild of the ancestral stem by Felsenstein's pruning, sampled.
 //
-// The example values, and why (chosen to tell the poster's story in the same direction, never tuned to its numbers):
+// The example values, and why. They were chosen so the example tells the poster's story in the same direction (the
+// order letter by letter < exact < coupled is designed in, as the SPEC asks); none was tuned to hit its numbers:
 // - the story's model ('uneven', GTR): exchangeabilities AC 1.0, AG 3.6, AT 0.7, CG 1.1, CT 4.2, GT 0.9: transitions
 //   (A<->G, C<->T) swap several times as readily as the other swaps, as in real DNA; long-run shares A 0.32, C 0.18,
 //   G 0.24, T 0.26: A the most common, as on the poster's picture of the pyramid. 'even' (JC69) and 'transitions'
@@ -278,15 +279,18 @@ const SETS = {};
 //   tenth of the product of their single rates (dbl = 0.1: rare, but allowed, as the poster says).
 // - the coupled circuit: the poster does not give its parts in detail, so Pcoupled is OUR STAND-IN for it (the story
 //   says so wherever it shows): the independent turn, then a step that weights every resulting pair by w if it matches
-//   and renormalises, on every branch however short; its root's prior is its own long-run mix (where its machine
-//   settles, branch after branch, at the tree's mean branch length), which favours pairs more than the exact model's
-//   (94 % of pairs matching against 83 %). So it favours pairs too strongly, by construction, which is what the
-//   authors found of theirs.
+//   and renormalises, on every branch however short. Its root's prior is our choice too: its own long-run mix (where
+//   its machine settles, branch after branch, at the tree's mean branch length), which favours pairs more than the
+//   exact model's (94 % of pairs matching against 83 %). We kept it because that makes the stand-in favour pairs too
+//   strongly, as the authors found of theirs, and so keeps the poster's order: with the exact model's mix as its prior
+//   it would rebuild hardly more intact ancestors than letter by letter (12 % against 11 %) and far fewer than the
+//   exact model (31 %), since each branch's weighting makes the species' broken pairs unlikely from a matching root.
 // In this example (the story's model, w = 8) the exact chance that all six pairs of the rebuilt ancestor match is about
 // 11 % letter by letter, 31 % with the exact pair model and 45 % with the coupled stand-in (2,000 sampled with seed 1:
-// 11.0 %, 30.0 % and 46.1 %), and the long-run chance that all six match (allSixPrior) is about a third (0.33). The
-// poster's test gives 10 %, 20 % and 43 %, and about a quarter: the stand-in landing near 43 % is chance, nothing was
-// fitted to it, and the story shows the poster's numbers only as the poster's.
+// 10.9 %, 30.0 % and 46.1 %), and the long-run chance that all six match (allSixPrior) is about a third (0.33). The
+// poster's test gives 10 %, 20 % and 43 %, and about a quarter. That the stand-in's 45 % lands near the authors' 43 %
+// is chance: only its place above the exact model was chosen, no value was fitted to its size, and the story shows the
+// poster's numbers only as the poster's.
 const MMATH = (() => {
   // ------------------------------------------------------------------ helpers
   // the kit's seeded random numbers (the same sequence as K.rng)
@@ -782,9 +786,10 @@ const MMATH = (() => {
   // stand-in's, where its machine settles when run branch after branch (its step differs with the branch length: here
   // at the tree's mean branch length, tbar). Every step weights matching pairs by w again, on top of where it began,
   // so that mix favours them more than the exact model's (on short steps it nears pi_x pi_y w^2 instead of
-  // pi_x pi_y w): part of how the stand-in favours pairs too strongly. (With the exact model's mix as its prior it
-  // would rebuild fewer intact ancestors than letter by letter from Figure 5's stems: each branch's weighting makes
-  // the species' broken pairs unlikely, which counts against matching ancestors.)
+  // pi_x pi_y w): part of how the stand-in favours pairs too strongly. A choice, kept for that (see the header): with
+  // the exact model's mix as its prior it would rebuild hardly more intact ancestors than letter by letter from Figure
+  // 5's stems (12 % against 11 %), far fewer than the exact model (31 %): each branch's weighting makes the species'
+  // broken pairs unlikely from a matching root, which counts against matching ancestors.
   function prior(method, m, w = 8, dbl = 0.1, tbar = 0.3) {
     if (method === 'exact') return pairModel(m, w, dbl).pi;
     if (method === 'coupled') return stationary(Pcoupled(m, w, tbar));
@@ -3593,7 +3598,23 @@ function updateLight(xr) {
 // between two cues lasts long enough to read what appeared at its start; run
 // it again after the text changes). A recording replaces it with its own times.
 const NARRATION_SYNC = [
-  [0, 0], [290, 290],   // (paced from the panel's words by tools/pace.mjs once the text is final)
+  [0, 0], [2.6, 2.4], [5.2, 4], [5.8, 4.6], [10.7, 6.5], [18.3, 13], [19, 13.6], [25.1, 15],
+  [31.2, 20.5], [34.5, 23], [35.2, 23.6],             // Letters
+  [43.9, 26], [44.5, 26.6], [45.8, 27.2], [71.5, 50.6], [79.4, 51.5], [80, 52.1], [83.2, 52.5],
+  [86, 55.1], [101, 57], [101.7, 57.6],               // Family tree
+  [110.4, 60], [111, 60.6], [112.3, 61.2], [120.4, 66], [134.7, 79], [143.1, 84], [149.5, 88],
+  [150.2, 88.6], [156.3, 91], [156.9, 91.6],          // Qubits
+  [170.7, 96], [171.3, 96.6], [172.2, 97.2], [172.8, 97.8], [176.4, 99], [179.8, 102], [184.2, 106],
+  [194.8, 113], [202.4, 118], [210.9, 124], [216.4, 128],  // The rule
+  [229.6, 134], [230.2, 134.6], [231.1, 135.2], [244.1, 147], [253.8, 154], [261.4, 160.5],
+  [270.3, 168.6], [274.8, 170], [275.4, 170.6],       // Machine
+  [302.3, 180], [303.6, 181.18], [304.7, 181.2], [334.8, 208.6], [339.7, 209], [344.1, 213],
+  [346.6, 215], [347.3, 215.6], [349.1, 216], [349.8, 216.6],  // Pairs
+  [368.6, 218], [369.3, 218.6], [370.6, 219.2], [384.7, 232], [391, 236], [400.9, 245], [408.5, 249],
+  [409.2, 249.6], [418.7, 253], [419.4, 253.6], [427.2, 256],  // Rebuild
+  [443.7, 264], [445, 265.18], [446.1, 265.2], [455.8, 270], [456.5, 270.6], [465.1, 273],
+  [465.8, 273.6], [476.2, 278], [476.8, 278.6], [492.7, 280], [494.4, 281.6], [507.3, 282],
+  [516.1, 290],                                       // What for
 ];
 // recording time -> original story time
 function storyT(t) {

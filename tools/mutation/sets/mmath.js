@@ -20,7 +20,8 @@
 // - pairs of letters: a reversible 16-state pair model, its P(t), the independent and the coupled stand-in, and the
 //   rebuild of the ancestral stem by Felsenstein's pruning, sampled.
 //
-// The example values, and why (chosen to tell the poster's story in the same direction, never tuned to its numbers):
+// The example values, and why. They were chosen so the example tells the poster's story in the same direction (the
+// order letter by letter < exact < coupled is designed in, as the SPEC asks); none was tuned to hit its numbers:
 // - the story's model ('uneven', GTR): exchangeabilities AC 1.0, AG 3.6, AT 0.7, CG 1.1, CT 4.2, GT 0.9: transitions
 //   (A<->G, C<->T) swap several times as readily as the other swaps, as in real DNA; long-run shares A 0.32, C 0.18,
 //   G 0.24, T 0.26: A the most common, as on the poster's picture of the pyramid. 'even' (JC69) and 'transitions'
@@ -37,15 +38,18 @@
 //   tenth of the product of their single rates (dbl = 0.1: rare, but allowed, as the poster says).
 // - the coupled circuit: the poster does not give its parts in detail, so Pcoupled is OUR STAND-IN for it (the story
 //   says so wherever it shows): the independent turn, then a step that weights every resulting pair by w if it matches
-//   and renormalises, on every branch however short; its root's prior is its own long-run mix (where its machine
-//   settles, branch after branch, at the tree's mean branch length), which favours pairs more than the exact model's
-//   (94 % of pairs matching against 83 %). So it favours pairs too strongly, by construction, which is what the
-//   authors found of theirs.
+//   and renormalises, on every branch however short. Its root's prior is our choice too: its own long-run mix (where
+//   its machine settles, branch after branch, at the tree's mean branch length), which favours pairs more than the
+//   exact model's (94 % of pairs matching against 83 %). We kept it because that makes the stand-in favour pairs too
+//   strongly, as the authors found of theirs, and so keeps the poster's order: with the exact model's mix as its prior
+//   it would rebuild hardly more intact ancestors than letter by letter (12 % against 11 %) and far fewer than the
+//   exact model (31 %), since each branch's weighting makes the species' broken pairs unlikely from a matching root.
 // In this example (the story's model, w = 8) the exact chance that all six pairs of the rebuilt ancestor match is about
 // 11 % letter by letter, 31 % with the exact pair model and 45 % with the coupled stand-in (2,000 sampled with seed 1:
-// 11.0 %, 30.0 % and 46.1 %), and the long-run chance that all six match (allSixPrior) is about a third (0.33). The
-// poster's test gives 10 %, 20 % and 43 %, and about a quarter: the stand-in landing near 43 % is chance, nothing was
-// fitted to it, and the story shows the poster's numbers only as the poster's.
+// 10.9 %, 30.0 % and 46.1 %), and the long-run chance that all six match (allSixPrior) is about a third (0.33). The
+// poster's test gives 10 %, 20 % and 43 %, and about a quarter. That the stand-in's 45 % lands near the authors' 43 %
+// is chance: only its place above the exact model was chosen, no value was fitted to its size, and the story shows the
+// poster's numbers only as the poster's.
 const MMATH = (() => {
   // ------------------------------------------------------------------ helpers
   // the kit's seeded random numbers (the same sequence as K.rng)
@@ -541,9 +545,10 @@ const MMATH = (() => {
   // stand-in's, where its machine settles when run branch after branch (its step differs with the branch length: here
   // at the tree's mean branch length, tbar). Every step weights matching pairs by w again, on top of where it began,
   // so that mix favours them more than the exact model's (on short steps it nears pi_x pi_y w^2 instead of
-  // pi_x pi_y w): part of how the stand-in favours pairs too strongly. (With the exact model's mix as its prior it
-  // would rebuild fewer intact ancestors than letter by letter from Figure 5's stems: each branch's weighting makes
-  // the species' broken pairs unlikely, which counts against matching ancestors.)
+  // pi_x pi_y w): part of how the stand-in favours pairs too strongly. A choice, kept for that (see the header): with
+  // the exact model's mix as its prior it would rebuild hardly more intact ancestors than letter by letter from Figure
+  // 5's stems (12 % against 11 %), far fewer than the exact model (31 %): each branch's weighting makes the species'
+  // broken pairs unlikely from a matching root, which counts against matching ancestors.
   function prior(method, m, w = 8, dbl = 0.1, tbar = 0.3) {
     if (method === 'exact') return pairModel(m, w, dbl).pi;
     if (method === 'coupled') return stationary(Pcoupled(m, w, tbar));
