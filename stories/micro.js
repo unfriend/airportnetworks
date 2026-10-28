@@ -6126,13 +6126,14 @@ function buildStory() {
   show('hier', a + 19, a + 20);
   hide('atlas', a + 28.8, a + 30.3);
   // (the camera rises over the atlas while its tiles gather, holds while things fly, then takes the network's view)
-  cam(a + 19.5, 'hier', 'grow');
-  cam(a + 28.5, 'hier', 'grow', 7, 'spin');
+  // (an even turn of about 2.5 degrees a second, ending where it did before the morph, so the next hand-over is as it was)
+  cam(a + 19.5, 'hier', 'grow', -3);
+  cam(a + 28.5, 'hier', 'grow', 19, 'spin');
   // (the tissue type shared most widely lights up with its line)
   const wideN = F.wide ? hierIdx(F.wide.name, 2) : -1;
   if (wideN >= 0) { jump('hier_focus', a + 30, -1, wideN); jump('hier_focus', b - 0.5, wideN, -1); }
-  cam(a + 31.5, 'hier', 'net', -8);
-  cam(b - 0.5, 'hier', 'net', 18, 'spin');
+  cam(a + 31.5, 'hier', 'net', 4);
+  cam(b - 0.5, 'hier', 'net', 25, 'spin');
   // Age: the volcano; then the three examples in turn (the ovary, the gut on the slide, the pituitary)
   a = C.age.a; b = C.age.b;
   hide('hier', a, a + 2);
