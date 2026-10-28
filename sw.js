@@ -1,6 +1,6 @@
 // Offline support: the app shell is cached on install, so the installed app
 // opens without a network connection. Bump VERSION when you change any file.
-const VERSION = 'networks-v93';
+const VERSION = 'networks-v94';
 const SHELL = ['./', './index.html', './shared.js', './proteins.html', './spatial.html', './stories/airports.js', './stories/proteins.js', './stories/spatial.js', './stories/lbi.js', './stories/nmd.js', './stories/endo.js', './stories/pet.js', './stories/micro.js', './stories/ovary.js', './stories/qubits.js', './stories/mutation.js', './stories/topo.js', './stories/pass.js', './stories/flock.js', './stories/robots.js', './three.min.js', './manifest.webmanifest',
   './icons/icon-192.png', './icons/icon-512.png', './icons/maskable-512.png', './icons/apple-touch-icon.png', './icons/favicon-32.png'];
 
@@ -57,6 +57,10 @@ self.addEventListener('fetch', e => {
   // pages: network first, checked with the server; each page is cached under its own name
   // (the bare folder URL is index.html)
   if (req.mode === 'navigate') {
+    // (only the app's own pages: another page in this folder, as the peer-to-peer test page p2p/, is left to the
+    // browser, so it never takes the place of the app's start page in the offline copy)
+    const rest = url.href.startsWith(self.registration.scope) ? url.pathname.slice(new URL(self.registration.scope).pathname.length) : null;
+    if (rest === null || !/^(index\.html|proteins\.html|spatial\.html)?$/.test(rest)) return;
     const m = /\/(proteins|spatial)\.html$/.exec(url.pathname), page = m ? './' + m[1] + '.html' : './index.html';
     e.respondWith(fresh(fetch(req, { cache: 'no-cache' }), page));
     return;

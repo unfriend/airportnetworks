@@ -1,0 +1,438 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Peer-to-peer test</title>
+<!-- A test page, not part of the app: can devices in a shared room talk to each other directly (WebRTC), without the
+     laptop relay? PeerJS's public server introduces them, Cloudflare's STUN server tells each its public address, and
+     the page measures the link: how it goes, how fast, and whether it keeps running inside VR or AR. See README.md. -->
+<style>
+  :root { --bg: #0b1424; --panel: #13203a; --ink: #e8eef8; --muted: #9fb0c8; --cyan: #46d9ff; --ok: #5fd38d; --warn: #ffb020;
+    --bad: #ff6b6b; --line: rgba(140, 170, 210, 0.25); }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 17px/1.45 system-ui, -apple-system, 'Segoe UI', sans-serif; }
+  main { max-width: 880px; margin: 0 auto; padding: 16px; }
+  h1 { font-size: 28px; margin: 8px 0 4px; }
+  h2 { font-size: 20px; margin: 26px 0 8px; }
+  p { margin: 6px 0; }
+  .muted, .small { color: var(--muted); }
+  .small { font-size: 14px; }
+  .form { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; align-items: end; margin: 16px 0; }
+  label { display: grid; gap: 4px; font-size: 14px; color: var(--muted); }
+  input { font: inherit; color: var(--ink); background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; min-width: 0; }
+  button { font: inherit; font-weight: 600; color: #04121c; background: var(--cyan); border: 0; border-radius: 8px; padding: 11px 18px; cursor: pointer; }
+  button.quiet { color: var(--ink); background: var(--panel); border: 1px solid var(--line); }
+  button:disabled { opacity: 0.45; cursor: default; }
+  .rows { display: grid; gap: 6px; }
+  .row { display: grid; grid-template-columns: minmax(150px, 210px) 1fr; gap: 12px; padding: 10px 12px; background: var(--panel); border-radius: 8px; }
+  .row b { font-weight: 600; }
+  .ok { color: var(--ok); } .warn { color: var(--warn); } .bad { color: var(--bad); }
+  .links { display: grid; gap: 8px; }
+  .link { padding: 12px; background: var(--panel); border-radius: 8px; border-left: 4px solid var(--line); }
+  .link.open { border-left-color: var(--ok); } .link.failed, .link.closed { border-left-color: var(--bad); } .link.connecting { border-left-color: var(--warn); }
+  .link .nums { display: flex; flex-wrap: wrap; gap: 6px 18px; margin-top: 4px; color: var(--muted); font-size: 15px; }
+  .link .nums b { color: var(--ink); font-weight: 600; }
+  .buttons { display: flex; flex-wrap: wrap; gap: 10px; }
+  textarea { width: 100%; min-height: 220px; font: 14px/1.4 ui-monospace, Menlo, Consolas, monospace; color: var(--ink); background: var(--panel);
+    border: 1px solid var(--line); border-radius: 8px; padding: 10px; }
+  #log { font-size: 14px; color: var(--muted); max-height: 160px; overflow: auto; margin: 0; padding-left: 18px; }
+  canvas#xr { position: fixed; inset: 0; width: 100%; height: 100%; }
+  @media (max-width: 520px) { .row { grid-template-columns: 1fr; gap: 2px; } h1 { font-size: 24px; } }
+</style>
+</head>
+<body>
+<main>
+  <h1>Peer-to-peer test</h1>
+  <p>Can these devices talk to each other directly, without the laptop relay? Open this page on two or more devices,
+    give each the same room code and press Start. The first device becomes the room's host; the others link to it.</p>
+  <p class="muted">Try it on the network you will use: two headsets on the same Wi-Fi, and a phone on mobile data with
+    a headset on Wi-Fi. Then enter VR on a headset for a minute: the link should keep running.</p>
+
+  <section class="form">
+    <label>Room code<input id="code" maxlength="8" autocomplete="off" autocapitalize="characters" spellcheck="false"></label>
+    <label>This device<input id="name" autocomplete="off"></label>
+    <label>Network<input id="net" autocomplete="off" placeholder="e.g. Institute Wi-Fi"></label>
+    <div class="buttons"><button id="start" type="button">Start</button><button id="stop" class="quiet" type="button" disabled>Stop</button></div>
+  </section>
+
+  <div class="rows">
+    <div class="row"><b>Introduction server</b><span id="sServer" class="muted">not started</span></div>
+    <div class="row"><b>Public address (STUN)</b><span id="sStun" class="muted">not started</span></div>
+    <div class="row"><b>This device</b><span id="sRole" class="muted">not started</span></div>
+  </div>
+
+  <h2>Links</h2>
+  <div id="links" class="links"><p class="muted">No links yet.</p></div>
+  <p class="small">Each link sends 15 small messages a second each way, as people's positions are sent in a shared room,
+    and a round trip once a second.</p>
+
+  <h2>Inside the headset</h2>
+  <div class="buttons"><button id="enterVR" type="button" disabled>Enter VR</button><button id="enterAR" type="button" disabled>Enter AR</button></div>
+  <p class="muted" id="xrNote">A panel in front of you shows the links live. Pull the trigger (or pinch) to leave.</p>
+
+  <h2>Report</h2>
+  <p class="muted">Every device's results, as the host collects them. Copy it from any device (a laptop in the room is
+    easiest) and send it back.</p>
+  <textarea id="report" readonly></textarea>
+  <div class="buttons" style="margin-top:10px"><button id="copy" class="quiet" type="button">Copy report</button></div>
+  <h2>Events</h2>
+  <ol id="log"></ol>
+
+  <p class="small" style="margin-top:24px">How it works: PeerJS 1.5.5 (MIT licence, vendored next to three.js) and its free public
+    server, 0.peerjs.com, introduce the devices; Cloudflare's free STUN server, stun.cloudflare.com, tells each device
+    its public address; after that the messages go straight from device to device. The introduction server, Cloudflare
+    and the other devices see each device's IP address. Nothing else leaves the page, and nothing is stored.</p>
+</main>
+<canvas id="xr" hidden></canvas>
+<script src="../three.min.js"></script>
+<script src="../peerjs.min.js"></script>
+<script>
+'use strict';
+const PREFIX = 'lbinet-p2ptest-';   // (PeerJS's public server is shared by everyone: our ids carry a prefix)
+const ICE = [{ urls: 'stun:stun.cloudflare.com:3478' }];
+const RATE = 15, PING = 1000, SUM = 2000, OPEN_LIMIT = 20000;
+const $ = s => document.querySelector(s);
+const now = () => performance.now();
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+const ms = v => (v === null || v === undefined || !isFinite(v) ? '–' : v < 1000 ? Math.round(v) + ' ms' : (v / 1000).toFixed(1) + ' s');
+const quant = (a, q) => { if (!a.length) return null; const s = a.slice().sort((x, y) => x - y); return s[Math.min(s.length - 1, Math.floor(q * s.length))]; };
+const store = { get: k => { try { return localStorage.getItem(k) || ''; } catch (e) { return ''; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch (e) { /* private mode */ } } };
+
+function deviceName() {
+  const ua = navigator.userAgent; let m;
+  if ((m = /OculusBrowser\/(\d+)/.exec(ua))) return `Quest Browser ${m[1]}`;
+  if ((m = /PicoBrowser\/(\d+)/i.exec(ua))) return `Pico Browser ${m[1]}`;
+  if (/iPhone|iPad/.test(ua)) return /CriOS/.test(ua) ? 'iPhone Chrome' : 'iPhone Safari';
+  if (/Android/.test(ua)) return /Firefox/.test(ua) ? 'Android Firefox' : /SamsungBrowser/.test(ua) ? 'Samsung Internet' : 'Android Chrome';
+  if (/Firefox\//.test(ua)) return 'Desktop Firefox';
+  if (/Edg\//.test(ua)) return 'Desktop Edge';
+  if (/Chrome\//.test(ua)) return 'Desktop Chrome';
+  if (/Safari\//.test(ua)) return 'Desktop Safari';
+  return 'This device';
+}
+const randomCode = () => Array.from({ length: 4 }, () => 'ABCDEFGHJKLMNPQRSTUVWXYZ'[Math.floor(Math.random() * 24)]).join('');
+
+// ------------------------------------------------------------------------------------------------------------ state
+const S = { peer: null, role: '', code: '', name: '', net: '', t0: 0, server: 'not started', serverMs: null, serverErr: '',
+  stun: null, links: new Map(), table: [], timers: [], vr: null, vrLog: [], log: [], retries: 0, started: '' };
+
+function log(msg, cls) {
+  const t = S.t0 ? ((now() - S.t0) / 1000).toFixed(1) + ' s' : '';
+  S.log.push({ t, msg, cls });
+  if (S.log.length > 60) S.log.shift();
+  $('#log').innerHTML = S.log.map(l => `<li class="${l.cls || ''}">${esc(l.t)} ${esc(l.msg)}</li>`).join('');
+  $('#log').scrollTop = 1e6;
+}
+
+// ------------------------------------------------------------------------------------------------------- start, stop
+function start(again) {
+  stop(true);
+  S.code = ($('#code').value || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8) || randomCode();
+  $('#code').value = S.code;
+  S.name = $('#name').value.trim() || deviceName(); S.net = $('#net').value.trim();
+  store.set('p2pName', S.name); store.set('p2pNet', S.net);
+  history.replaceState(null, '', '#room=' + S.code);
+  if (!again) { S.t0 = now(); S.retries = 0; S.started = new Date().toISOString().slice(0, 16).replace('T', ' '); }
+  S.role = 'starting'; S.server = 'connecting'; S.serverMs = null; S.serverErr = '';
+  $('#start').textContent = 'Start again'; $('#stop').disabled = false;
+  if (!S.stun) stunProbe();
+  if (typeof Peer !== 'function') { S.server = 'failed'; S.serverErr = 'PeerJS did not load'; render(); return; }
+  host();
+  S.timers.push(setInterval(tickStream, Math.round(1000 / RATE)), setInterval(tickPing, PING), setInterval(tickSum, SUM));
+  render();
+}
+function stop(quiet) {
+  for (const t of S.timers) clearInterval(t);
+  S.timers = [];
+  for (const L of S.links.values()) { L.stopWatch(); try { L.conn.close(); } catch (e) { /* gone */ } }
+  S.links.clear(); S.table = [];
+  if (S.peer) { try { S.peer.destroy(); } catch (e) { /* gone */ } S.peer = null; }
+  if (!quiet) { S.role = ''; S.server = 'stopped'; $('#stop').disabled = true; render(); }
+}
+const peerOpts = () => ({ config: { iceServers: ICE }, debug: 0 });   // (this page says what goes wrong itself)
+
+// the first device with a room code takes its id and becomes the host; anyone after finds the id taken and links to it
+function host() {
+  const p = S.peer = new Peer(PREFIX + S.code, peerOpts());
+  p.on('open', () => { if (S.peer !== p) return; serverUp(); S.role = 'host'; log(`Host of room ${S.code}: waiting for the others`, 'ok'); render(); });
+  p.on('connection', c => { if (S.peer === p) wire(c, 'guest'); });
+  p.on('error', e => {
+    if (S.peer !== p) return;
+    if (e.type === 'unavailable-id' && S.role === 'starting') { S.peer = null; try { p.destroy(); } catch (x) { /* gone */ } join(); return; }
+    peerError(e);
+  });
+  p.on('disconnected', () => serverLost(p));
+}
+function join() {
+  const p = S.peer = new Peer(peerOpts());   // (an id from the server)
+  p.on('open', () => {
+    if (S.peer !== p) return;
+    serverUp(); S.role = 'guest';
+    log(`Linking to the host of room ${S.code}`);
+    wire(p.connect(PREFIX + S.code, { reliable: true, serialization: 'json', metadata: { name: S.name, net: S.net } }), 'host');
+    render();
+  });
+  p.on('connection', c => { if (S.peer === p) wire(c, 'guest'); });
+  p.on('error', e => { if (S.peer === p) peerError(e); });
+  p.on('disconnected', () => serverLost(p));
+}
+function serverUp() {
+  if (S.serverMs === null) S.serverMs = now() - S.t0;
+  S.server = 'ok'; S.serverErr = '';
+}
+function serverLost(p) {
+  if (S.peer !== p || p.destroyed) return;
+  S.server = 'lost'; log('Lost the introduction server: trying again (links already open keep working)', 'warn'); render();
+  setTimeout(() => { if (S.peer === p && !p.destroyed && p.disconnected) p.reconnect(); }, 2000);
+}
+function peerError(e) {
+  const t = e && e.type;
+  const say = {
+    'browser-incompatible': 'This browser cannot open WebRTC data channels.',
+    network: 'Could not reach the introduction server (0.peerjs.com), or lost it.',
+    'server-error': 'The introduction server (0.peerjs.com) did not answer.',
+    'socket-error': 'The introduction server (0.peerjs.com) could not be reached.',
+    'socket-closed': 'The introduction server closed the connection.',
+    'peer-unavailable': 'The host is not there (it may just have left).',
+    'unavailable-id': 'That room code is in use.',
+    webrtc: 'WebRTC error: ' + (e && e.message),
+  }[t] || `${t || 'error'}: ${e && e.message}`;
+  log(say, 'bad');
+  if (/server|socket|network/.test(t || '')) { S.server = 'failed'; S.serverErr = say; }
+  // the host has gone (or is not there yet): try again, which takes over as host when its id is free
+  if (t === 'peer-unavailable' && S.role === 'guest' && S.retries < 6) { S.retries++; setTimeout(() => start(true), 3000); log(`Trying again in 3 s (${S.retries} of 6)`); }
+  render();
+}
+
+// ---------------------------------------------------------------------------------------------------------- a link
+function wire(c, kind) {
+  const meta = c.metadata || {};
+  const L = { id: c.peer, conn: c, kind, name: kind === 'host' ? 'the host' : meta.name || 'a device', net: kind === 'host' ? '' : meta.net || '', t0: now(), state: 'connecting',
+    openMs: null, rtt: [], rx: [], seq: 0, lastSeq: -1, skipped: 0, maxGap: 0, lastAt: 0, path: '', pair: '', iceRtt: null, ice: '', err: '', sum: null };
+  S.links.set(c.peer, L);
+  c.on('open', () => {
+    L.state = 'open'; L.openMs = now() - L.t0; L.lastAt = now(); S.retries = 0;
+    log(`Link to ${L.name} open in ${ms(L.openMs)}`, 'ok');
+    c.send({ k: 'hello', name: S.name, net: S.net });   // (each side names itself to the other)
+    render();
+  });
+  c.on('data', d => onData(L, d));
+  c.on('close', () => {
+    if (L.state === 'closed') return;
+    L.state = 'closed'; log(`Link to ${L.name} closed`, 'warn'); render();
+    if (kind === 'host' && S.role === 'guest' && S.retries < 6) { S.retries++; log('The host left: trying again in 3 s (the first to try becomes the new host)'); setTimeout(() => start(true), 3000); }
+  });
+  c.on('error', e => { L.state = 'failed'; L.err = (e && (e.type || e.message)) || 'error'; log(`Link to ${L.name}: ${L.err}`, 'bad'); render(); });
+  const w = setInterval(() => {
+    const pc = c.peerConnection;
+    if (pc) L.ice = pc.iceConnectionState;
+    if (L.state === 'connecting' && (L.ice === 'failed' || now() - L.t0 > OPEN_LIMIT)) {
+      L.state = 'failed'; L.err = L.ice === 'failed' ? 'no route between the two devices (ICE failed)' : 'no link after 20 s';
+      log(`Link to ${L.name}: ${L.err}`, 'bad'); render();
+    }
+  }, 500);
+  L.stopWatch = () => clearInterval(w);
+}
+function onData(L, d) {
+  if (!d || typeof d !== 'object') return;
+  const t = now();
+  if (L.lastAt && L.state === 'open') { const gap = t - L.lastAt; if (gap > L.maxGap) L.maxGap = gap; if (S.vr && gap > S.vr.maxGap) S.vr.maxGap = gap; }
+  L.lastAt = t;
+  if (S.vr) S.vr.rx++;
+  switch (d.k) {
+    case 'hello': L.name = String(d.name || L.name).slice(0, 40); L.net = String(d.net || '').slice(0, 60); render(); break;
+    case 'ping': send(L, { k: 'pong', t: d.t }); break;
+    case 'pong': L.rtt.push(t - d.t); if (L.rtt.length > 120) L.rtt.shift(); break;
+    case 's':
+      L.rx.push(t); while (L.rx.length && t - L.rx[0] > 5000) L.rx.shift();
+      if (L.lastSeq >= 0 && d.n !== L.lastSeq + 1) L.skipped++;
+      L.lastSeq = d.n; break;
+    case 'sum': L.sum = d.s; break;
+    case 'table': if (Array.isArray(d.rows)) S.table = d.rows; break;
+  }
+}
+const send = (L, m) => { if (L.state === 'open') { try { L.conn.send(m); } catch (e) { /* closing */ } } };
+function tickStream() { for (const L of S.links.values()) send(L, { k: 's', n: L.seq++ }); }
+function tickPing() { const t = now(); for (const L of S.links.values()) send(L, { k: 'ping', t }); }
+async function tickSum() {
+  for (const L of S.links.values()) if (L.state === 'open') await pathOf(L).catch(() => {});
+  const mine = summary();
+  if (S.role === 'host') {
+    S.table = [mine, ...[...S.links.values()].filter(L => L.sum).map(L => L.sum)];
+    for (const L of S.links.values()) send(L, { k: 'table', rows: S.table });
+  } else {
+    for (const L of S.links.values()) send(L, { k: 'sum', s: mine });
+  }
+  render();
+}
+// which way the link goes: the candidate pair WebRTC chose
+async function pathOf(L) {
+  const pc = L.conn.peerConnection;
+  if (!pc) return;
+  const st = await pc.getStats(), by = new Map();
+  let pairId = null, pair = null;
+  st.forEach(r => { by.set(r.id, r); if (r.type === 'transport' && r.selectedCandidatePairId) pairId = r.selectedCandidatePairId; });
+  pair = pairId ? by.get(pairId) : null;
+  if (!pair) st.forEach(r => { if (!pair && r.type === 'candidate-pair' && r.state === 'succeeded' && (r.nominated || r.selected)) pair = r; });
+  if (!pair) return;
+  const lc = by.get(pair.localCandidateId), rc = by.get(pair.remoteCandidateId);
+  const lt = (lc && lc.candidateType) || '?', rt = (rc && rc.candidateType) || '?', proto = (lc && lc.protocol) || '';
+  L.pair = `${lt} to ${rt}${proto ? ', ' + proto : ''}`;
+  L.path = lt === 'relay' || rt === 'relay' ? 'through a relay (TURN)' : lt === 'srflx' || rt === 'srflx' ? 'direct, through the internet (STUN)' : 'direct, on the same network';
+  if (pair.currentRoundTripTime) L.iceRtt = pair.currentRoundTripTime * 1000;
+}
+
+// ---------------------------------------------------------------------------------------- the public address (STUN)
+async function stunProbe() {
+  const t = now(), kinds = new Set();
+  let found = null, pc;
+  S.stun = { state: 'asking' }; render();
+  try {
+    pc = new RTCPeerConnection({ iceServers: ICE });
+    pc.createDataChannel('probe');
+    const done = new Promise(res => {
+      pc.onicecandidate = e => {
+        if (!e.candidate) return res();
+        const c = e.candidate.candidate || '', ty = (/ typ (\w+)/.exec(c) || [])[1] || '?', addr = c.split(' ')[4] || '';
+        kinds.add(ty === 'host' ? (addr.endsWith('.local') ? 'host (behind a .local name)' : 'host') : ty);
+        if (ty === 'srflx' && !found) found = { ms: now() - t, v6: addr.includes(':') };
+      };
+      setTimeout(res, 6000);
+    });
+    await pc.setLocalDescription(await pc.createOffer());
+    await done;
+  } catch (e) { log('STUN check failed: ' + e.message, 'bad'); }
+  try { if (pc) pc.close(); } catch (e) { /* closed */ }
+  S.stun = { state: found ? 'found' : 'none', ms: found ? found.ms : null, v6: found ? found.v6 : false, kinds: [...kinds] };
+  log(found ? `Public address found in ${ms(found.ms)}` : 'No public address from STUN (UDP may be blocked here)', found ? 'ok' : 'warn');
+  render();
+}
+
+// ----------------------------------------------------------------------------------------------- summary and report
+function summary() {
+  return { name: S.name, net: S.net, role: S.role, server: S.server, serverMs: S.serverMs === null ? null : Math.round(S.serverMs),
+    stun: S.stun ? { state: S.stun.state, ms: S.stun.ms === null || S.stun.ms === undefined ? null : Math.round(S.stun.ms), kinds: S.stun.kinds || [] } : null,
+    links: [...S.links.values()].map(L => ({ name: L.name, net: L.net, state: L.state, openMs: L.openMs === null ? null : Math.round(L.openMs), path: L.path, pair: L.pair,
+      rtt: quant(L.rtt, 0.5), p95: quant(L.rtt, 0.95), rate: +(L.rx.length / 5).toFixed(1), gap: Math.round(L.maxGap), skipped: L.skipped, err: L.err })),
+    vr: S.vrLog.map(v => ({ mode: v.mode, secs: Math.round(v.secs), rx: v.rx, gap: Math.round(v.maxGap), hidden: v.hidden })).concat(S.vr ? [{ mode: S.vr.mode, secs: Math.round((now() - S.vr.t0) / 1000), rx: S.vr.rx, gap: Math.round(S.vr.maxGap), hidden: S.vr.hidden, now: true }] : []) };
+}
+function linesOf(s) {
+  const out = [`${s.name}${s.net ? ` on "${s.net}"` : ''} (${s.role === 'host' ? 'host' : s.role === 'guest' ? 'linked to the host' : s.role || 'not started'})`];
+  out.push(`  introduction server: ${s.server === 'ok' || s.serverMs !== null ? `reached in ${ms(s.serverMs)}` : s.server}${s.server === 'lost' ? ' (lost since)' : ''}`);
+  if (s.stun) out.push(`  public address (STUN): ${s.stun.state === 'found' ? `found in ${ms(s.stun.ms)}` : s.stun.state === 'none' ? 'not found' : 'asking'}; candidates: ${(s.stun.kinds || []).join(', ') || 'none'}`);
+  for (const l of s.links || []) {
+    out.push(`  to ${l.name}${l.net ? ` ("${l.net}")` : ''}: ${l.state === 'open' ? `open in ${ms(l.openMs)}, ${l.path || 'path unknown'}${l.pair ? ` (${l.pair})` : ''}, round trip ${ms(l.rtt)} (95 %: ${ms(l.p95)}), ${l.rate} messages/s, longest gap ${ms(l.gap)}${l.skipped ? `, ${l.skipped} out of order` : ''}`
+      : `${l.state}${l.err ? ': ' + l.err : ''}`}`);
+  }
+  for (const v of s.vr || []) out.push(`  in ${v.mode === 'immersive-ar' ? 'AR' : 'VR'}${v.now ? ' (now)' : ''}: ${v.secs} s, ${v.rx} messages received, longest gap ${ms(v.gap)}, hidden ${v.hidden} time${v.hidden === 1 ? '' : 's'}`);
+  return out;
+}
+function report() {
+  const rows = S.table.length ? S.table.map(r => (r.name === S.name && r.role === S.role ? summary() : r)) : [summary()];
+  return [`Peer-to-peer test, room ${S.code || '–'}, ${S.started || ''} (UTC)`, ...rows.flatMap(linesOf),
+    ...(S.log.filter(l => l.cls === 'bad').slice(-6).map(l => `  event on ${S.name}: ${l.t} ${l.msg}`))].join('\n');
+}
+
+// ------------------------------------------------------------------------------------------------------------ page
+function render() {
+  const sv = $('#sServer');
+  sv.className = S.server === 'ok' ? 'ok' : S.server === 'failed' || S.server === 'lost' ? 'bad' : 'muted';
+  sv.textContent = S.server === 'ok' ? `reached in ${ms(S.serverMs)} (0.peerjs.com)` : S.server === 'failed' ? S.serverErr || 'failed' : S.server === 'lost' ? 'lost: trying again' : S.server;
+  const st = $('#sStun');
+  st.className = !S.stun ? 'muted' : S.stun.state === 'found' ? 'ok' : S.stun.state === 'none' ? 'warn' : 'muted';
+  st.textContent = !S.stun ? 'not started' : S.stun.state === 'asking' ? 'asking stun.cloudflare.com…' : S.stun.state === 'found'
+    ? `found in ${ms(S.stun.ms)}${S.stun.v6 ? ' (IPv6)' : ''}` : 'not found: UDP may be blocked here (links on the same network can still work)';
+  const ro = $('#sRole');
+  ro.className = S.role === 'host' || S.role === 'guest' ? 'ok' : 'muted';
+  ro.textContent = S.role === 'host' ? `host of room ${S.code}` : S.role === 'guest' ? `linked to the host of room ${S.code}` : S.role === 'starting' ? 'starting…' : 'not started';
+  const links = [...S.links.values()];
+  $('#links').innerHTML = links.length ? links.map(L => `<div class="link ${L.state}"><b>${esc(L.name)}</b>${L.net ? ` <span class="muted">on ${esc(L.net)}</span>` : ''}
+      <div>${L.state === 'open' ? `open, ${esc(L.path || 'finding the path…')}${L.pair ? ` <span class="muted">(${esc(L.pair)})</span>` : ''}`
+        : L.state === 'connecting' ? `linking… <span class="muted">${esc(L.ice || '')}</span>` : `<span class="bad">${esc(L.state)}${L.err ? ': ' + esc(L.err) : ''}</span>`}</div>
+      ${L.state === 'open' ? `<div class="nums"><span>opened in <b>${ms(L.openMs)}</b></span><span>round trip <b>${ms(quant(L.rtt, 0.5))}</b> (95 %: ${ms(quant(L.rtt, 0.95))})</span>
+        <span><b>${(L.rx.length / 5).toFixed(1)}</b> messages/s in</span><span>longest gap <b>${ms(L.maxGap)}</b></span><span>last heard ${ms(now() - L.lastAt)} ago</span></div>` : ''}</div>`).join('')
+    : `<p class="muted">${S.role === 'host' ? 'Waiting for another device with the same room code.' : 'No links yet.'}</p>`;
+  $('#report').value = report();
+}
+setInterval(() => { if (S.links.size) render(); }, 1000);
+
+// ---------------------------------------------------------------------------------------------- inside the headset
+let X = null;
+function makeXR() {
+  const canvas = $('#xr');
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+  renderer.xr.enabled = true;
+  renderer.xr.setReferenceSpaceType('local');   // (the origin is where your head was as the session began)
+  const scene = new THREE.Scene(), cam = new THREE.PerspectiveCamera(70, 1, 0.05, 50);
+  const c = document.createElement('canvas'); c.width = 1024; c.height = 640;
+  const tex = new THREE.CanvasTexture(c);
+  const panel = new THREE.Mesh(new THREE.PlaneGeometry(0.96, 0.6), new THREE.MeshBasicMaterial({ map: tex, transparent: true }));
+  panel.position.set(0, 0, -1.1); scene.add(panel);
+  const cube = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.06, 0.06), new THREE.MeshNormalMaterial());   // (turns while frames run)
+  cube.position.set(0.42, -0.36, -1.1); scene.add(cube);
+  return { renderer, scene, cam, c, ctx: c.getContext('2d'), tex, cube, drawn: 0 };
+}
+function drawPanel() {
+  const { ctx, c } = X, W = c.width, H = c.height;
+  ctx.clearRect(0, 0, W, H);
+  ctx.fillStyle = 'rgba(11,20,36,0.94)'; ctx.beginPath(); ctx.roundRect ? ctx.roundRect(0, 0, W, H, 28) : ctx.rect(0, 0, W, H); ctx.fill();
+  ctx.strokeStyle = 'rgba(70,217,255,0.6)'; ctx.lineWidth = 3; ctx.stroke();
+  let y = 64;
+  const line = (txt, size, col, bold) => { ctx.font = `${bold ? '700 ' : ''}${size}px system-ui, sans-serif`; ctx.fillStyle = col; ctx.fillText(txt, 40, y); y += size * 1.45; };
+  line(`Peer-to-peer test · room ${S.code || '–'}`, 40, '#e8eef8', true);
+  line(S.role === 'host' ? 'Host' : S.role === 'guest' ? 'Linked to the host' : 'Not started', 28, '#9fb0c8');
+  const links = [...S.links.values()];
+  if (!links.length) line('No links yet', 30, '#ffb020');
+  for (const L of links.slice(0, 4)) {
+    line(`${L.name}: ${L.state === 'open' ? L.path || 'open' : L.state}`, 30, L.state === 'open' ? '#5fd38d' : '#ff6b6b', true);
+    if (L.state === 'open') line(`round trip ${ms(quant(L.rtt, 0.5))} · ${(L.rx.length / 5).toFixed(1)}/s in · last heard ${ms(now() - L.lastAt)} ago`, 26, '#e8eef8');
+  }
+  if (S.vr) line(`In ${S.vr.mode === 'immersive-ar' ? 'AR' : 'VR'} ${Math.round((now() - S.vr.t0) / 1000)} s · ${S.vr.rx} messages · longest gap ${ms(S.vr.maxGap)} · hidden ${S.vr.hidden}`, 26, '#46d9ff');
+  y = H - 34; line('Pull the trigger (or pinch) to leave', 24, '#9fb0c8');
+  X.tex.needsUpdate = true; X.drawn = now();
+}
+async function enterXR(mode) {
+  if (!navigator.xr) return;
+  let session;
+  try { session = await navigator.xr.requestSession(mode, { optionalFeatures: ['local-floor'] }); }
+  catch (e) { log(`Could not start ${mode === 'immersive-ar' ? 'AR' : 'VR'}: ${e.message}`, 'bad'); return; }
+  if (!X) X = makeXR();
+  await X.renderer.xr.setSession(session);
+  const vr = S.vr = { mode, t0: now(), rx: 0, maxGap: 0, hidden: 0 };
+  log(`Entered ${mode === 'immersive-ar' ? 'AR' : 'VR'}`);
+  X.scene.background = mode === 'immersive-vr' ? new THREE.Color(0x0b1424) : null;
+  session.addEventListener('visibilitychange', () => { if (session.visibilityState !== 'visible') { vr.hidden++; log('Headset view hidden (system menu or sleep)'); } });
+  session.addEventListener('select', () => session.end());
+  session.addEventListener('end', () => {
+    vr.secs = (now() - vr.t0) / 1000; S.vrLog.push(vr); S.vr = null;
+    X.renderer.setAnimationLoop(null);
+    log(`Left ${mode === 'immersive-ar' ? 'AR' : 'VR'} after ${Math.round(vr.secs)} s: ${vr.rx} messages, longest gap ${ms(vr.maxGap)}`, vr.maxGap > 1500 ? 'warn' : 'ok');
+    render();
+  });
+  X.renderer.setAnimationLoop(() => { X.cube.rotation.y += 0.02; X.cube.rotation.x += 0.013; if (now() - X.drawn > 500) drawPanel(); X.renderer.render(X.scene, X.cam); });
+}
+
+// ------------------------------------------------------------------------------------------------------------ wiring
+$('#code').value = ((/room=([A-Za-z0-9]+)/.exec(location.hash) || [])[1] || '').toUpperCase() || randomCode();
+$('#name').value = store.get('p2pName') || deviceName();
+$('#net').value = store.get('p2pNet');
+$('#start').addEventListener('click', () => start(false));
+$('#stop').addEventListener('click', () => { stop(false); log('Stopped'); });
+$('#copy').addEventListener('click', async () => {
+  const txt = report();
+  try { await navigator.clipboard.writeText(txt); log('Report copied', 'ok'); }
+  catch (e) { const ta = $('#report'); ta.focus(); ta.select(); try { document.execCommand('copy'); log('Report copied', 'ok'); } catch (x) { log('Select the report and copy it by hand'); } }
+});
+$('#enterVR').addEventListener('click', () => enterXR('immersive-vr'));
+$('#enterAR').addEventListener('click', () => enterXR('immersive-ar'));
+if (navigator.xr && navigator.xr.isSessionSupported) {
+  navigator.xr.isSessionSupported('immersive-vr').then(ok => { $('#enterVR').disabled = !ok; }).catch(() => {});
+  navigator.xr.isSessionSupported('immersive-ar').then(ok => { $('#enterAR').disabled = !ok; }).catch(() => {});
+} else $('#xrNote').textContent = 'This browser has no VR or AR (WebXR): use a headset for this part.';
+// (leaving frees the room code on the server at once)
+window.addEventListener('pagehide', () => { if (S.peer) try { S.peer.destroy(); } catch (e) { /* gone */ } });
+render();
+</script>
+</body>
+</html>
