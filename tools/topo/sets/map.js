@@ -46,7 +46,7 @@ SETS.map = function (K) {
     return out;
   }
   // the stored complex by cell: the edges and triangles each cell is in
-  const csr = (n, cnt, list) => {
+  const csr = (n, list) => {
     const off = new Uint32Array(N + 1);
     for (let e = 0; e < n; e++) for (const v of list(e)) off[v + 1]++;
     for (let i = 0; i < N; i++) off[i + 1] += off[i];
@@ -55,8 +55,8 @@ SETS.map = function (K) {
     return { off, ids };
   };
   const E = W.edges, TR = W.tris, _l2 = [0, 0], _l3 = [0, 0, 0];
-  const edgeOf = csr(E.n, 2, e => { _l2[0] = E.i[e]; _l2[1] = E.j[e]; return _l2; });
-  const triOf = csr(TR.n, 3, t => { _l3[0] = TR.i[t]; _l3[1] = TR.j[t]; _l3[2] = TR.k[t]; return _l3; });
+  const edgeOf = csr(E.n, e => { _l2[0] = E.i[e]; _l2[1] = E.j[e]; return _l2; });
+  const triOf = csr(TR.n, t => { _l3[0] = TR.i[t]; _l3[1] = TR.j[t]; _l3[2] = TR.k[t]; return _l3; });
 
   // the two groups by the sign of the score (cells scored exactly 0, after rounding, fill each group up to its stored
   // size), for 50 and 100 µm; each cell's type among comp's six (five types and other)
@@ -327,13 +327,14 @@ void main() {
 
   // ---------------------------------------------------------------- update
   const now = { cell: e.cell, r: 50, wx: 0, rise: 0, delta: 0, split: 0, h: 0, dome: [0, 0, 0], pieces: 0, loops: 0, lo: e.logOdds };
-  const _a = [0, 0, 0], _b = [0, 0, 0], _p = [0, 0, 0], _q = [0, 0, 0];
+  const _a = [0, 0, 0], _b = [0, 0, 0], _p = [0, 0, 0], _q = [0, 0, 0], _col = [0, 0, 0], _dir = [0, 1, 0], _sz = [0.05, 0, 0.05], BASE = [6 * PSP + 0.03, 0.006, 0.2];
   const RIB0 = { glow: 0.9, fill: 1, to: 1 }, RIB1 = { glow: 0.9, fill: 1, to: 1 }, RY1 = [0.06, 0, 0];
   const CYANL = [0.6, 0.93, 1.0], SPOTC = [0, 0, 0], GENEGREY = [0.62, 0.66, 0.74];
   // a cell's height on the relief now (the same as the shader's)
   const hOf = (i, all, split) => H50[i] * HM * sstep(VIS[i], VIS[i] + 0.05, all) * (1 - sstep(0, 0.35, split)) + LIFT;
   function update(S, t) {
-    const A = set.uA.value, show = S.slide_show === undefined ? 1 : clamp(S.slide_show, 0, 2);
+    // (only over the window: with the slide set showing the tile alone, nothing of this shows)
+    const show = S.slide_show === undefined ? 1 : clamp(S.slide_show, 0, 2), wa = Math.min(1, show), A = set.uA.value * wa;
     now.wx = BOTHX * Math.max(0, show - 1);
     inner.position.set(now.wx, 0, 0);
     const all = clamp(S.map_all, 0, 1), split = clamp(S.map_split, 0, 1), om = clamp(S.map_omics, 0, 2), o1 = clamp(om, 0, 1), o2 = clamp(om - 1, 0, 1);
@@ -347,7 +348,7 @@ void main() {
     beads.visible = all > 0.003 || split > 0.003;
     beadU.uR.value = lerp(0.0042, 0.0074, split);
     // the sweeping dome (rows back and forth) lights the cells under it
-    const da = prog(all, 0, 0.02) * (1 - prog(all, 0.92, 0.97));
+    const da = prog(all, 0, 0.02) * (1 - prog(all, 0.92, 0.97)) * wa;
     {
       const a = clamp(all / 0.92, 0, 0.9999) * rows, row = Math.floor(a), f = a - row, x = row % 2 ? (1 - f) * side : f * side, y = (row + 0.5) * 100;
       now.dome[0] = (x - side / 2) * k; now.dome[2] = (y - side / 2) * k; now.dome[1] = LIFT;
@@ -359,7 +360,7 @@ void main() {
       halos.add(now.dome, DR * 3, LK.CYAN, 0.25 * da);
     }
     // ---- one cell
-    const c = S.map_pick >= 0 && S.map_pick < N ? Math.round(S.map_pick) : e.cell, ca = clamp(S.map_cell, 0, 1) * (1 - prog(split, 0, 0.2)) * (1 - prog(om, 0, 0.2));
+    const c = S.map_pick >= 0 && S.map_pick < N ? Math.round(S.map_pick) : e.cell, ca = clamp(S.map_cell, 0, 1) * (1 - prog(split, 0, 0.2)) * (1 - prog(om, 0, 0.2)) * wa;
     setCell(c);
     now.cell = c;
     const r = clamp(S.map_r, 0.5, 120), hc = hOf(c, all, split), cx = X[c], cz = Z[c];
@@ -370,7 +371,7 @@ void main() {
     if (ca > 0.003) {
       dome.position.set(cx, hc, cz); dome.scale.setScalar(DR * Math.min(1, 0.2 + 0.8 * ca / 0.6));
       domeMat.uniforms.uK.value = ca * (0.85 + 0.15 * Math.sin(t * 2));
-      rings.add([cx, hc + 0.0005, cz], UP, DR, 0.0012, LK.CYAN, ca, 0);
+      _q[0] = cx; _q[1] = hc + 0.0005; _q[2] = cz; rings.add(_q, UP, DR, 0.0012, LK.CYAN, ca, 0);
       const ba = clamp(S.map_balls, 0, 1) * ca;
       for (const i of local.nb) {
         _p[0] = X[i]; _p[1] = hOf(i, all, split) + 0.004; _p[2] = Z[i];
@@ -387,9 +388,11 @@ void main() {
       for (const tr of local.tris) {
         if (TR.r[tr] > r) break;
         const i = TR.i[tr], j = TR.j[tr], kk = TR.k[tr];
-        sheet.add([X[i], hOf(i, all, split) + 0.0035, Z[i]], [X[j], hOf(j, all, split) + 0.0035, Z[j]], [X[kk], hOf(kk, all, split) + 0.0035, Z[kk]], LK.CYAN, ca, 0.6);
+        _a[0] = X[i]; _a[1] = hOf(i, all, split) + 0.0035; _a[2] = Z[i]; _b[0] = X[j]; _b[1] = hOf(j, all, split) + 0.0035; _b[2] = Z[j];
+        _p[0] = X[kk]; _p[1] = hOf(kk, all, split) + 0.0035; _p[2] = Z[kk];
+        sheet.add(_a, _b, _p, LK.CYAN, ca, 0.6);
       }
-      halos.add([cx, hc + 0.004, cz], 0.05, LK.CYAN, 0.35 * ca);
+      _q[0] = cx; _q[1] = hc + 0.004; _q[2] = cz; halos.add(_q, 0.05, LK.CYAN, 0.35 * ca);
       // its own bars: rods on the log ruler behind it, pieces to the left, loops to the right, rising with map_bars
       const bars = clamp(S.map_bars, 0, 1) * ca;
       if (bars > 0.003) {
@@ -413,25 +416,25 @@ void main() {
         if (yl <= y0 + lvl + 1e-4) {
           _a[0] = xl - 0.08; _a[1] = yl; _a[2] = z; _b[0] = xr + 0.065; _b[1] = yl; _b[2] = z;
           tubes.add(_a, _b, 0.0011, CYANL, 0.8 * bars, 0);
-          halos.add([cx, yl, z], 0.03, LK.CYAN, 0.25 * bars);
+          _q[0] = cx; _q[1] = yl; _q[2] = z; halos.add(_q, 0.03, LK.CYAN, 0.25 * bars);
         }
       }
       // its score: a needle up (towards cirrhosis) or down (towards healthy)
       const sc = clamp(S.map_score, 0, 1) * ca;
       if (sc > 0.003 && !isNaN(now.lo)) {
-        const L = clamp(now.lo / SD.limit50, -1, 1) * 0.17 * sc, col = T.colour(now.lo, SD.limit50, [0, 0, 0]), bright = LK.mix(col, now.lo >= 0 ? LK.CIRRLIT : LK.HEALTHYLIT, 0.5);
+        const L = clamp(now.lo / SD.limit50, -1, 1) * 0.17 * sc, bright = LK.mix(T.colour(now.lo, SD.limit50, _col), now.lo >= 0 ? LK.CIRRLIT : LK.HEALTHYLIT, 0.5, _col);
         const x = cx + DR + 0.02;
         _a[0] = x; _a[1] = hc; _a[2] = cz; _b[0] = x; _b[1] = hc + L; _b[2] = cz;
         tubes.add(_a, _b, 0.0026, bright, sc, 0);
-        cones.add(_b, [0, Math.sign(L) || 1, 0], 0.014, 0.0065, bright, sc);
+        _dir[1] = Math.sign(L) || 1; cones.add(_b, _dir, 0.014, 0.0065, bright, sc);
         balls.add(_a, 0.004, bright, sc);
         rings.add(_a, UP, 0.012, 0.0009, bright, 0.6 * sc, 0);
       }
     }
     // ---- the piles' bases and the sketches
-    const pa = prog(split, 0.15, 0.5) * (1 - o1);
+    const pa = prog(split, 0.15, 0.5) * (1 - o1) * wa;
     if (pa > 0.003) {
-      for (let g = 0; g < 2; g++) { _a[0] = GX[g]; _a[1] = PBASE - 0.006; _a[2] = PZ; boxes.add(_a, [6 * PSP + 0.03, 0.006, 0.2], g ? LK.CIRR : LK.HEALTHY, 0.75 * pa); }
+      for (let g = 0; g < 2; g++) { _a[0] = GX[g]; _a[1] = PBASE - 0.006; _a[2] = PZ; boxes.add(_a, BASE, g ? LK.CIRR : LK.HEALTHY, 0.75 * pa); }
     }
     plate.visible = o2 > 0.003; plateU.uA.value = A * o2;
     spotA.value = A * o1 * (1 - o2);
@@ -448,7 +451,7 @@ void main() {
     }
     geneP.begin();
     if (o1 * (1 - o2) > 0.003) {
-      const a = o1 * (1 - o2);
+      const a = o1 * (1 - o2) * wa;
       for (const G of GENES) {
         const f = sstep(G[4], G[4] + 0.5, o1);
         _a[0] = G[0]; _a[1] = lerp(0.01, G[1], f); _a[2] = G[2];
@@ -457,13 +460,14 @@ void main() {
     }
     geneP.end();
     if (o2 > 0.003) {
-      PROT.forEach((pr, j) => {
+      for (let j = 0; j < PROT.length; j++) {
+        const pr = PROT[j];
         for (let g = 0; g < 2; g++) {
           const h = pr[g] * sstep(j * 0.08, j * 0.08 + 0.5, o2);
           _a[0] = -0.5 + j * 0.2 + (g ? 0.035 : -0.035); _a[1] = 0.01 + h / 2; _a[2] = -0.2;
-          if (h > 0.002) boxes.add(_a, [0.05, h, 0.05], g ? LK.CIRRLIT : LK.HEALTHYLIT, o2);
+          _sz[1] = h; if (h > 0.002) boxes.add(_a, _sz, g ? LK.CIRRLIT : LK.HEALTHYLIT, o2 * wa);
         }
-      });
+      }
     }
     tubes.end(); balls.end(); rings.end(); halos.end(); cones.end(); sheet.end(); discs.end(); ribbons.end(); boxes.end();
     LK.depth();
@@ -488,7 +492,8 @@ void main() {
   CT.forEach((nm, t) => { anchors['h_' + t] = pileTop(0, t); anchors['c_' + t] = pileTop(1, t); });
   const share = (g, t) => COMP[now.delta][g ? 'cirrhosis' : 'healthy'][t];
   const cellName = () => (now.cell === e.cell ? 'Cell v' : `Cell ${fmt(now.cell + 1)}`);
-  const one = S => clamp(S.map_cell, 0, 1) * (1 - prog(S.map_split, 0, 0.2)) * (1 - prog(S.map_omics, 0, 0.2));
+  const win = S => (S.slide_show === undefined ? 1 : clamp(S.slide_show, 0, 1));   // (the map shows only over the window)
+  const one = S => win(S) * clamp(S.map_cell, 0, 1) * (1 - prog(S.map_split, 0, 0.2)) * (1 - prog(S.map_omics, 0, 0.2));
   const FIB = CT.indexOf('Fibroblasts'), LYM = CT.indexOf('Lymphocytes');
   const labels = [
     { text: () => [cellName(), ` · ${DELTA} µm round it`], at: 'dome', cls: 'cyn',
@@ -498,19 +503,19 @@ void main() {
     { text: () => ['Its own bars', ` · ${now.pieces} piece${now.pieces === 1 ? '' : 's'}, ${now.loops} loop${now.loops === 1 ? '' : 's'}`], at: 'bars', cls: 'amb',
       alpha: S => one(S) * prog(S.map_bars, 0.4, 0.8) * (1 - prog(S.map_all, 0, 0.05)) },
     { text: () => ['Its score', ` · ${sgn(now.lo)}`], at: 'score', cls: '', alpha: S => one(S) * prog(S.map_score, 0.5, 1) * (1 - prog(S.map_all, 0, 0.05)) },
-    { text: ['Every cell a centre', ''], at: 'sweep', cls: 'cyn', alpha: S => prog(S.map_all, 0.01, 0.04) * (1 - prog(S.map_all, 0.88, 0.94)) },
-    { text: ['Red, raised', ' · cirrhosis-like'], at: 'red', cls: 'mag', alpha: S => prog(S.map_all, 0.95, 1) * (1 - prog(S.map_split, 0, 0.1)) * (1 - one(S)) },
-    { text: ['Blue, sunk', ' · healthy-like'], at: 'blue', cls: 'cyn', alpha: S => prog(S.map_all, 0.95, 1) * (1 - prog(S.map_split, 0, 0.1)) * (1 - one(S)) },
+    { text: ['Every cell a centre', ''], at: 'sweep', cls: 'cyn', alpha: S => win(S) * prog(S.map_all, 0.01, 0.04) * (1 - prog(S.map_all, 0.88, 0.94)) },
+    { text: ['Red, raised', ' · cirrhosis-like'], at: 'red', cls: 'mag', alpha: S => win(S) * prog(S.map_all, 0.95, 1) * (1 - prog(S.map_split, 0, 0.1)) * (1 - one(S)) },
+    { text: ['Blue, sunk', ' · healthy-like'], at: 'blue', cls: 'cyn', alpha: S => win(S) * prog(S.map_all, 0.95, 1) * (1 - prog(S.map_split, 0, 0.1)) * (1 - one(S)) },
     { text: () => ['Healthy-like', ` · ${fmt(SD[now.delta ? 'comp100' : 'comp50'].sizes[0])} cells`], at: 'healthy', cls: 'cyn',
-      alpha: S => prog(S.map_split, 0.6, 0.9) * (1 - prog(S.map_omics, 0, 0.3)) },
+      alpha: S => win(S) * prog(S.map_split, 0.6, 0.9) * (1 - prog(S.map_omics, 0, 0.3)) },
     { text: () => ['Cirrhosis-like', ` · ${fmt(SD[now.delta ? 'comp100' : 'comp50'].sizes[1])} cells`], at: 'cirrhosis', cls: 'mag',
-      alpha: S => prog(S.map_split, 0.6, 0.9) * (1 - prog(S.map_omics, 0, 0.3)) },
-    { text: () => ['Fibroblasts', ` · ${pct(share(1, FIB))}`], at: 'c_' + FIB, cls: 'grn', alpha: S => prog(S.map_split, 0.85, 1) * (1 - prog(S.map_omics, 0, 0.3)) },
-    { text: () => ['Lymphocytes', ` · ${pct(share(1, LYM))}`], at: 'c_' + LYM, cls: '', alpha: S => prog(S.map_split, 0.85, 1) * (1 - prog(S.map_omics, 0, 0.3)) },
-    { text: () => ['Fibroblasts', ` · ${pct(share(0, FIB))}`], at: 'h_' + FIB, cls: 'grn', alpha: S => prog(S.map_split, 0.85, 1) * (1 - prog(S.map_omics, 0, 0.3)) },
-    { text: () => ['Lymphocytes', ` · ${pct(share(0, LYM))}`], at: 'h_' + LYM, cls: '', alpha: S => prog(S.map_split, 0.85, 1) * (1 - prog(S.map_omics, 0, 0.3)) },
-    { text: ['Genes', ' · sketch: the workflow, not data'], at: 'genes', cls: 'amb', alpha: S => prog(S.map_omics, 0.5, 0.9) * (1 - prog(S.map_omics, 1.1, 1.4)) },
-    { text: ['Proteins', ' · sketch: the workflow, not data'], at: 'proteins', cls: 'amb', alpha: S => prog(S.map_omics, 1.5, 1.9) },
+      alpha: S => win(S) * prog(S.map_split, 0.6, 0.9) * (1 - prog(S.map_omics, 0, 0.3)) },
+    { text: () => ['Fibroblasts', ` · ${pct(share(1, FIB))}`], at: 'c_' + FIB, cls: 'grn', alpha: S => win(S) * prog(S.map_split, 0.85, 1) * (1 - prog(S.map_omics, 0, 0.3)) },
+    { text: () => ['Lymphocytes', ` · ${pct(share(1, LYM))}`], at: 'c_' + LYM, cls: '', alpha: S => win(S) * prog(S.map_split, 0.85, 1) * (1 - prog(S.map_omics, 0, 0.3)) },
+    { text: () => ['Fibroblasts', ` · ${pct(share(0, FIB))}`], at: 'h_' + FIB, cls: 'grn', alpha: S => win(S) * prog(S.map_split, 0.85, 1) * (1 - prog(S.map_omics, 0, 0.3)) },
+    { text: () => ['Lymphocytes', ` · ${pct(share(0, LYM))}`], at: 'h_' + LYM, cls: '', alpha: S => win(S) * prog(S.map_split, 0.85, 1) * (1 - prog(S.map_omics, 0, 0.3)) },
+    { text: ['Genes', ' · sketch: the workflow, not data'], at: 'genes', cls: 'amb', alpha: S => win(S) * prog(S.map_omics, 0.5, 0.9) * (1 - prog(S.map_omics, 1.1, 1.4)) },
+    { text: ['Proteins', ' · sketch: the workflow, not data'], at: 'proteins', cls: 'amb', alpha: S => win(S) * prog(S.map_omics, 1.5, 1.9) },
   ];
   const vx = Math.round(X[e.cell] * 1000) / 1000, vz = Math.round(Z[e.cell] * 1000) / 1000;
   const cam = {

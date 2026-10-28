@@ -407,10 +407,11 @@ void main() {
   // ---------------------------------------------------------------- the layout (slide_show: 0 tile, 1 window, 2 both)
   // { ta, wa: the two pieces' presence; tx, ts: the tile's place and scale; wx: the window's place } (the map set
   // repeats wx so its things stay on the window)
-  const layout = s => {
+  const layout = (s, out) => {
     s = clamp(s, 0, 2);
-    const f = Math.max(0, s - 1);
-    return { ta: s <= 1 ? 1 - s : f, wa: Math.min(1, s), tx: BOTH.tx * f, ts: lerp(1, D.tile.side / D.slide.side, f), wx: BOTH.wx * f };
+    const f = Math.max(0, s - 1), o = out || {};
+    o.ta = s <= 1 ? 1 - s : f; o.wa = Math.min(1, s); o.tx = BOTH.tx * f; o.ts = lerp(1, D.tile.side / D.slide.side, f); o.wx = BOTH.wx * f;
+    return o;
   };
 
   // the overview's zoom: z 0 the whole section on its glass (centred on the origin), 1 into the window (TW across, at wx)
@@ -461,37 +462,45 @@ void main() {
 
   // ---------------------------------------------------------------- update
   const now = { lay: layout(0), F: 1, wx: 0 };
+  const _t = [0, 0, 0], _h = [0, 0, 0], GL1 = [SLEN, 0.5, SLEN * 1.2], GL2 = [0, 0, 0], SQ = [[-1, -1], [1, -1], [1, 1], [-1, 1]];
+  // a piece's look this frame: its ground, its cells, its spots (no allocation)
+  function piece(t, a, mode, pts, all) {
+    t.g.visible = a > 0.003;
+    if (!t.g.visible) return;
+    fill(t, mode, t === WIN ? all : 0);
+    const m1 = clamp(mode, 0, 1), m2 = clamp(mode - 1, 0, 1);
+    t.U.uA.value = a; t.U.uM1.value = m1; t.U.uM2.value = m2; t.U.uPts.value = pts; t.U.uAll.value = all; t.U.uDim.value = t === WIN ? Math.min(1, all * 4) : 0;
+    t.heA.value = a; t.flA.value = a;
+    t.he.bead(pts); t.fl.bead(pts);
+    t.sp.U.uA.value = a * (1 - pts); t.sp.U.uWipe.value = m1; t.sp.U.uWipe2.value = m2;   // in with the first sweep, out with the second
+    t.sp.mesh.visible = t.sp.U.uA.value > 0.003 && m1 > 0.003 && m2 < 0.999;
+    // the ground writes depth only while it is fully there (so the glass below never shows through it)
+    t.ground.material.depthWrite = a > 0.97 && pts < 0.05 && all < 0.01;
+  }
+  // a square's outline (corners x0, y0 to x0 + s, y0 + s in µm on the tile) as tubes, with balls at its corners
+  function square(x0, y0, s, r, col, a, br) {
+    for (let j = 0; j < 4; j++) {
+      const p = SQ[j], q = SQ[(j + 1) % 4];
+      tubes.add(tpos(x0 + s * (p[0] + 1) / 2, y0 + s * (p[1] + 1) / 2, _a), tpos(x0 + s * (q[0] + 1) / 2, y0 + s * (q[1] + 1) / 2, _b), r, col, a, 0);
+      if (br) balls.add(_a, br, col, a);
+    }
+  }
   const CYANG = [0.55, 0.92, 1.0], AMB = LK.PIECE, _a = [0, 0, 0], _b = [0, 0, 0], _q = [0, 0, 0, 1];
   function update(S) {
-    const lay = layout(S.slide_show), all = clamp(S.map_all || 0, 0, 1) * clamp(S.map_a === undefined ? 0 : S.map_a, 0, 1);
-    now.lay = lay;
+    const lay = layout(S.slide_show, now.lay), all = clamp(S.map_all || 0, 0, 1) * clamp(S.map_a === undefined ? 0 : S.map_a, 0, 1);
     const over = clamp(S.slide_over, 0, 1), z = zoomOf(over), oa = prog(over, 0.02, 0.22), wd = 1 - prog(over, 0.08, 0.3);
     const mode = clamp(S.slide_mode, 0, 2), pts = clamp(S.slide_points, 0, 1), A = set.uA.value;
     TILE.g.position.set(lay.tx, 0, 0); TILE.g.scale.setScalar(lay.ts);
     WIN.g.position.set(lay.wx, 0, 0);
     now.wx = lay.wx;
-    // each piece: its ground, its cells, its spots
-    for (const [t, a0] of [[TILE, lay.ta], [WIN, lay.wa * wd]]) {
-      const a = a0 * A, on = a > 0.003;
-      t.g.visible = on;
-      if (!on) continue;
-      fill(t, mode, t === WIN ? all : 0);
-      const m1 = clamp(mode, 0, 1), m2 = clamp(mode - 1, 0, 1);
-      t.U.uA.value = a; t.U.uM1.value = m1; t.U.uM2.value = m2; t.U.uPts.value = pts; t.U.uAll.value = all; t.U.uDim.value = t === WIN ? Math.min(1, all * 4) : 0;
-      t.heA.value = a; t.flA.value = a;
-      t.he.bead(pts); t.fl.bead(pts);
-      t.sp.U.uA.value = a * (1 - pts); t.sp.U.uWipe.value = m1; t.sp.U.uWipe2.value = m2;   // in with the first sweep, out with the second
-      t.sp.mesh.visible = t.sp.U.uA.value > 0.003 && m1 > 0.003 && m2 < 0.999;
-      // the ground writes depth only while it is fully there (so the glass below never shows through it)
-      t.ground.material.depthWrite = a > 0.97 && pts < 0.05 && all < 0.01;
-    }
+    piece(TILE, lay.ta * A, mode, pts, all); piece(WIN, lay.wa * wd * A, mode, pts, all);
     // the glass slide under them: its +x end just past the tissue, its label far off to the left; the overview's glass
     glass.begin();
     const ga = Math.max(lay.ta, lay.wa * wd);
     if (ga > 0.003) {
       const end = lay.wa >= 1 && lay.ta > 0 ? lerp(SEND, BOTH.wx + TW / 2 + 0.45, lay.ta) : SEND;
       _a[0] = end - SLEN / 2; _a[1] = -SL.thick * 0.5 * 0.5 - 0.0015; _a[2] = 0;
-      glass.add(_a, null, [SLEN, 0.5, SLEN * 1.2], LK.SLIDE, ga * (1 - 0.6 * pts), 0);
+      glass.add(_a, null, GL1, LK.SLIDE, ga * (1 - 0.6 * pts), 0);
     }
     now.F = ovPlace(z, lay.wx);
     ovU.uA.value = oa * A;
@@ -499,27 +508,29 @@ void main() {
     if (oa > 0.003) {
       _b[0] = 0; _b[1] = -SL.thick * 0.5 * 0.4 - 0.0015; _b[2] = 0;
       toOv(_b, _a);
-      glass.add(_a, null, [OVL * now.F, 0.4 * now.F, OVL * now.F], LK.SLIDE, oa * (1 - prog(z, 0.6, 0.95)), 0);
+      GL2[0] = OVL * now.F; GL2[1] = 0.4 * now.F; GL2[2] = OVL * now.F;
+      glass.add(_a, null, GL2, LK.SLIDE, oa * (1 - prog(z, 0.6, 0.95)), 0);
     }
     glass.end();
     // the window marked on the overview (a glowing square, the same size on screen as it grows)
     mark.begin(); markH.begin();
     const ma = oa * (1 - prog(z, 0.75, 1)) * Math.max(0.35, 1 - prog(z, 0.4, 0.8));
     if (ma > 0.003) {
-      const h = owin.side / 2, c = [[-h, -h], [h, -h], [h, h], [-h, h]], rad = 0.0045;
+      const h = owin.side / 2, rad = 0.0045;
       for (let j = 0; j < 4; j++) {
-        const p0 = c[j], p1 = c[(j + 1) % 4];
-        toOv([owin.x + p0[0], 0.004 / now.F, owin.z + p0[1]], _a); toOv([owin.x + p1[0], 0.004 / now.F, owin.z + p1[1]], _b);
+        const p0 = SQ[j], p1 = SQ[(j + 1) % 4];
+        _t[0] = owin.x + h * p0[0]; _t[1] = 0.004 / now.F; _t[2] = owin.z + h * p0[1]; toOv(_t, _a);
+        _t[0] = owin.x + h * p1[0]; _t[2] = owin.z + h * p1[1]; toOv(_t, _b);
         mark.add(_a, _b, rad, CYANG, ma, 0);
       }
-      toOv([owin.x, 0.01 / now.F, owin.z], _a);
+      _t[0] = owin.x; _t[1] = 0.01 / now.F; _t[2] = owin.z; toOv(_t, _a);
       markH.add(_a, 0.06 + owin.side * now.F * 0.5, LK.CYAN, 0.35 * ma * (1 - z));
     }
     mark.end(); markH.end();
     // chapter 2's scales and the poster's patch, on the tile
     tubes.begin(); balls.begin(); rings.begin(); halos.begin();
-    const sc = clamp(S.slide_scale, 0, 3), w = j => clamp(1 - Math.abs(sc - j), 0, 1), ta = lay.ta;
-    const w1 = w(1) * ta, w2 = w(2) * ta, w3 = w(3) * ta, pa = clamp(S.slide_patch, 0, 1) * ta;
+    const sc = clamp(S.slide_scale, 0, 3), ta = lay.ta;
+    const w1 = clamp(1 - Math.abs(sc - 1), 0, 1) * ta, w2 = clamp(1 - Math.abs(sc - 2), 0, 1) * ta, w3 = clamp(1 - Math.abs(sc - 3), 0, 1) * ta, pa = clamp(S.slide_patch, 0, 1) * ta;
     if (w1 > 0.003) {
       // a grid of 100 µm squares, one lit
       for (let x = (D.tile.side % GRID) / 2; x <= D.tile.side; x += GRID) {
@@ -527,13 +538,12 @@ void main() {
         tubes.add(tpos(0, x, _a), tpos(D.tile.side, x, _b), 0.0011, CYANG, 0.35 * w1, 0);
       }
       const x0 = (D.tile.side % GRID) / 2 + gq[0] * GRID, y0 = (D.tile.side % GRID) / 2 + gq[1] * GRID;
-      const c = [[x0, y0], [x0 + GRID, y0], [x0 + GRID, y0 + GRID], [x0, y0 + GRID]];
-      for (let j = 0; j < 4; j++) tubes.add(tpos(c[j][0], c[j][1], _a), tpos(c[(j + 1) % 4][0], c[(j + 1) % 4][1], _b), 0.0032, LK.CYAN, w1, 0);
+      square(x0, y0, GRID, 0.0032, LK.CYAN, w1, 0);
       halos.add(tpos(x0 + GRID / 2, y0 + GRID / 2, _a), GRID * tk * 1.3, LK.CYAN, 0.18 * w1);
     }
     if (w2 > 0.003) {
       // a cell and its six nearest
-      const hp = tpos(T.tile.x[HUB], T.tile.y[HUB], [0, 0, 0]);
+      const hp = tpos(T.tile.x[HUB], T.tile.y[HUB], _h);
       hp[1] = 0.006;
       for (const j of six) {
         tpos(T.tile.x[j], T.tile.y[j], _b); _b[1] = 0.006;
@@ -545,7 +555,7 @@ void main() {
     }
     if (w3 > 0.003) {
       // a fixed circle round one cell
-      const cp = tpos(T.tile.x[CIR], T.tile.y[CIR], [0, 0, 0]);
+      const cp = tpos(T.tile.x[CIR], T.tile.y[CIR], _h);
       cp[1] = 0.005;
       rings.add(cp, UP, CIRR * tk, 0.0028, LK.CYAN, w3, 0);
       for (const j of inCircle) { tpos(T.tile.x[j], T.tile.y[j], _b); _b[1] = 0.006; balls.add(_b, j === CIR ? 0.01 : 0.0075, j === CIR ? LK.CYAN : LK.BEAD, w3); }
@@ -553,12 +563,8 @@ void main() {
     }
     if (pa > 0.003) {
       // the poster's patch (its square in the tile)
-      const x0 = TP[0], y0 = TP[1], s = TP[2], c = [[x0, y0], [x0 + s, y0], [x0 + s, y0 + s], [x0, y0 + s]];
-      for (let j = 0; j < 4; j++) {
-        tubes.add(tpos(c[j][0], c[j][1], _a), tpos(c[(j + 1) % 4][0], c[(j + 1) % 4][1], _b), 0.0036, AMB, pa, 0);
-        balls.add(tpos(c[j][0], c[j][1], _a), 0.006, AMB, pa);
-      }
-      halos.add(tpos(x0 + s / 2, y0 + s / 2, _a), s * tk * 1.6, AMB, 0.12 * pa);
+      square(TP[0], TP[1], TP[2], 0.0036, AMB, pa, 0.006);
+      halos.add(tpos(TP[0] + TP[2] / 2, TP[1] + TP[2] / 2, _a), TP[2] * tk * 1.6, AMB, 0.12 * pa);
     }
     tubes.end(); balls.end(); rings.end(); halos.end();
     LK.depth();
@@ -583,7 +589,7 @@ void main() {
     label: () => toOv([-OVL / 2 + SL.label * OVL / 2, 0.02, 0], [0, 0, 0]),
   };
   const fmt = v => v.toLocaleString('en-GB');
-  const tileA = S => layout(S.slide_show).ta, winA = S => layout(S.slide_show).wa * (1 - prog(S.slide_over, 0.08, 0.3));
+  const LS = {}, tileA = S => layout(S.slide_show, LS).ta, winA = S => layout(S.slide_show, LS).wa * (1 - prog(S.slide_over, 0.08, 0.3));
   const modeW = (S, j) => clamp(1 - Math.abs(clamp(S.slide_mode, 0, 2) - j), 0, 1);
   const quiet = S => (1 - clamp(S.slide_points, 0, 1)) * (1 - prog(Math.abs(S.slide_scale), 0.2, 0.6)) * (1 - prog(S.slide_patch, 0, 0.4));
   const labels = [
