@@ -130,8 +130,9 @@ are base64 strings; `TDATA` decodes them once. Fields:
   `{ minutes: 1.9, seconds: [71, 46], machine }` (the poster's, typed in).
 - `labels`: 123 numbers, 0 healthy, 1 cirrhosis (the slides' order everywhere below).
 - `h0`, `h1` (the cosine models of pieces and of loops): `fve` (the first six fractions of variance), `scores` (123 ×
-  4), `curves` (123 flat lists `[u, y, u, y, ...]`: each slide's unit Betti curve as the figure scripts' exact envelope
-  at 160 columns, u from 0 to 1 on the log ruler, y over the bundle's top), `phi` (the first two components, the same form, over
+  4), `curves` (packed; `TDATA` decodes them in place at load into 123 `Float32Array`s `[u, y, u, y, ...]`: each
+  slide's unit Betti curve as the figure scripts' exact envelope at 64 columns, u from 0 to 1 on the log ruler, y over
+  the bundle's top), `phi` (the first two components, the same form, over
   their common largest |value|), `means` `{ healthy, cirrhosis }` (the classes' mean unit curves, over their common top),
   `gamma` (γ over its largest |value|; `gammaPeak` that value per µm²), `classes`, `y` (0/1 per slide), `coef` (4
   weights on the scores), `intercept`, `C`, `logOdds` (the final model's log-odds per slide), `held` (each slide's
@@ -156,8 +157,9 @@ are base64 strings; `TDATA` decodes them once. Fields:
   (Int16, log-odds × 100, -32768 where a cell has no local curve; at δ 50 and 100 µm), `limit50`, `limit100` (the colour
   map's limit: the slide's 98th percentile of |log-odds|), `train` 122, `comp50` and `comp100` `{ types (the five most
   frequent and "other"), healthy, cirrhosis (shares), sizes [healthy-like, cirrhosis-like] }`, `local` (each cell's own
-  bars at 50 µm: `off0`, `off1` (Uint32 offsets per cell), `h0` (one-byte radii of its pieces' joinings), `h1` (pairs of
-  one-byte radii: births and deaths of its loops)), `edges` `{ n, ij (Uint16 pairs), r (one-byte radii) }` and `tris` `{
+  bars at 50 µm, deflated: read them only through `TDATA.slide.localH0(i)` and `localH1(i)`, which give null until
+  `TDATA.ready` has settled, a frame or two after load), `eBars` `{ h0, h1 }` (the poster's cell v's own bars, exact,
+  always there: use these in the story), `edges` `{ n, ij (Uint16 pairs), r (one-byte radii) }` and `tris` `{
   n, ijk, r }` (the slide's alpha complex among the window's cells), `e` `{ cell, logOdds, drawR }` (the poster's cell
   v, its score and the radius its panel draws), `overview` `{ bin (µm), w, h, window [x, y, side] in bins, count (Uint8,
   cells per bin over the 99th percentile), scar (Uint8, the share of fibroblasts and lymphocytes), cells }` (the whole

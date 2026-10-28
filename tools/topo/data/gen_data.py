@@ -10,14 +10,14 @@
 # (PYTHONPATH=<topocyte checkout>). Slide ids, donor details and images never go in: slides are numbered.
 # usage: python -I tools/topo/data/gen_data.py cells.h5ad fig1/ [cache dir]    (about half an hour the first time;
 # the cohort's persistence and models are cached in the cache dir, by default fig1/../fig1_cache)
-import sys, os, math, json, base64, importlib.util, functools
+import sys, os, math, json, base64, zlib, importlib.util, functools
 import numpy as np
 
 H5AD, FIG1 = os.path.abspath(sys.argv[1]), os.path.abspath(sys.argv[2])
 CACHE = os.path.abspath(sys.argv[3]) if len(sys.argv) > 3 else os.path.join(os.path.dirname(FIG1), 'fig1_cache')
 os.environ['TOPOCYTE_FIG1_CACHE'] = CACHE
 OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'sets', 'data.js')
-COLUMNS = 160            # columns of the curves drawn per slide (the figure scripts' exact envelope, coarser)
+COLUMNS = 64             # columns of the curves drawn per slide (the figure scripts' exact envelope, coarser)
 FINE = 0.5               # µm: width of the windows of radius whose shares are kept (any window is a sum of them)
 FINE_TOP = 100.0         # µm: the last fine window ends here; one more runs to infinity
 TILE_B = 640.0           # µm: the healthy tile round b's patch (as the poster's panel a)
@@ -140,11 +140,15 @@ def dimension(dim, groups):
     curves = [BettiCurve.from_result(groups[g], dim) for g in ids]
     # the unit curves, drawn over the bundle's top: two passes, so that only one slide's steps are held at a time
     top = max(float(np.asarray(c.steps()[1], float).max()) / n for c, n in zip(curves, result.norms))
-    drawn = []
+    drawn, off = [], [0]
     for curve, norm in zip(curves, result.norms):
         x, v = curve.steps()
-        drawn.append(env(np.sqrt(np.maximum(x, 0)) * MPP, np.asarray(v, float) / norm / top))
+        with np.errstate(divide='ignore'):
+            e = simplify.envelope(np.sqrt(np.maximum(x, 0)) * MPP, np.asarray(v, float) / norm / top, COLUMNS, RULER)
+        drawn.append(np.round(np.clip(e, 0, 1) * 65535).astype(np.uint16))
+        off.append(off[-1] + len(e))
     del x, v
+    drawn = {'off': b64(np.array(off, np.uint32)), 'uy': b64(np.concatenate(drawn))}
     v_, rho = result.eigenvectors, result.gram_eigenvalues
     from topocyte.ph.decomposition import _flat_bars, _step_sums
     rows = [v_[:, k] / (np.sqrt(rho[k]) * result.norms) for k in range(2)]   # the two shapes the story draws
@@ -283,6 +287,7 @@ for s, t in st.get_filtration():
         continue
     (edges_w if len(s) == 2 else tris_w).append((*w, math.sqrt(t) * MPP))
 edges_w, tris_w = np.array(edges_w), np.array(tris_w)
+k_e = int(np.flatnonzero(idx == pe['cell'])[0])     # the poster's cell v among the window's cells
 
 
 def i16(v, scale):
@@ -318,8 +323,16 @@ slide = {
     'lo50': b64(i16(f50['log_odds'], 100)), 'lo100': b64(i16(f100['log_odds'], 100)),
     'limit50': round(f50['limit'], 2), 'limit100': round(f100['limit'], 2), 'train': int(f50['train_slides']),
     'comp50': comp(comp50), 'comp100': comp(comp100),
-    'local': {'off0': b64(np.array(off0, np.uint32)), 'h0': b64(np.concatenate(h0d)),
-              'off1': b64(np.array(off1, np.uint32)), 'h1': b64(np.concatenate(h1b) if h1b else np.zeros(0, np.uint8))},
+    # each cell's own bars, deflated (raw): per cell the count of its pieces' joinings and of its loops (Uint16 each),
+    # then all joinings' one-byte radii, then all loops' (birth, death) pairs of one-byte radii
+    'local': {'n0': int(off0[-1]), 'n1': int(off1[-1]),
+              'z': base64.b64encode(zlib.compress(np.diff(np.array(off0)).astype(np.uint16).tobytes() +
+                                                  np.diff(np.array(off1)).astype(np.uint16).tobytes() +
+                                                  np.concatenate(h0d).tobytes() +
+                                                  (np.concatenate(h1b) if h1b else np.zeros(0, np.uint8)).tobytes(),
+                                                  9, -15)).decode()},
+    'eBars': {'h0': rnd(np.sort(np.sqrt(local[k_e].diagrams[0][np.isfinite(local[k_e].diagrams[0][:, 1]), 1]) * MPP), 3),
+              'h1': rnd(np.sqrt(local[k_e].diagrams[1][np.isfinite(local[k_e].diagrams[1][:, 1])]) * MPP, 3)},
     'edges': {'n': len(edges_w), 'ij': b64(edges_w[:, :2].astype(np.uint16)), 'r': b64(rcode(edges_w[:, 2]))},
     'tris': {'n': len(tris_w), 'ijk': b64(tris_w[:, :3].astype(np.uint16)), 'r': b64(rcode(tris_w[:, 3]))},
     'e': {'cell': int(np.flatnonzero(idx == pe['cell'])[0]), 'logOdds': round(pe['log_odds'], 2),
@@ -416,7 +429,7 @@ checks = {
     'fve 0.72 0.20': (round(P['fve'][0], 2), round(P['fve'][1], 2)) == (0.72, 0.20),
     'confusion 62/4/10/47': P['confusion'] == [62, 4, 10, 47],
     'accuracy 0.886': round(P['accuracy'], 3) == 0.886,
-    'shares 2.73 4.65': [round(w[2], 2) for w in P['windows'][1:3]] == [2.73, 4.65],
+    'shares 2.73 4.65': [round(w[2], 2) for w in P['windows'] if w[0] in (5.0, 10.0)] == [2.73, 4.65],
     'gap 7.04': round(P['gap'], 2) == 7.04,
     'split 1000/5716 at 100 µm': data['slide']['comp100']['sizes'] == [1000, 5716],
     'patch 82 pieces at t1': data['patch']['betti'][0][0] == 82,
