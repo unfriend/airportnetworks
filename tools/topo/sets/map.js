@@ -143,8 +143,8 @@ void main() {
   float dif = max(dot(n, l), 0.0), rim = pow(1.0 - abs(dot(n, v)), 2.0), spec = pow(max(dot(reflect(-l, n), v), 0.0), 30.0);
   float m = min(vB.x, min(vB.y, vB.z)), w = fwidth(m), line = 1.0 - smoothstep(0.4 * w, 1.6 * w, m);
   vec3 col = vC * (0.42 + 0.55 * dif + 0.25 * rim) + vec3(spec * 0.35);
-  col = mix(col, mix(vC, vec3(1.0), 0.55), line * 0.45);
-  gl_FragColor = vec4(col, vA * (0.82 + 0.15 * line));
+  col = mix(col, mix(vC, vec3(1.0), 0.5), line * 0.25);
+  gl_FragColor = vec4(col, vA * (0.84 + 0.1 * line));
 }`,
   });
   set.mats.push(relMat);
@@ -313,8 +313,11 @@ void main() {
   const ext = (() => {
     const B = 10, bs = side / B, sum = new Float32Array(B * B), cnt = new Float32Array(B * B);
     for (let i = 0; i < N; i++) { if (isNaN(W.lo50[i])) continue; const q = clamp(Math.floor(W.x[i] / bs), 0, B - 1) + B * clamp(Math.floor(W.y[i] / bs), 0, B - 1); sum[q] += H50[i]; cnt[q]++; }
-    let hi = 0, lo = 0;
-    for (let q = 0; q < B * B; q++) if (cnt[q] >= 25) { if (!cnt[hi] || sum[q] / cnt[q] > sum[hi] / cnt[hi]) hi = q; if (!cnt[lo] || sum[q] / cnt[q] < sum[lo] / cnt[lo]) lo = q; }
+    let hi = 0, lo = -1;
+    for (let q = 0; q < B * B; q++) if (cnt[q] >= 40 && (!cnt[hi] || sum[q] / cnt[q] > sum[hi] / cnt[hi])) hi = q;
+    // (the lowest well away from the highest, so their two tags never meet)
+    for (let q = 0; q < B * B; q++) if (cnt[q] >= 40 && Math.hypot(q % B - hi % B, Math.floor(q / B) - Math.floor(hi / B)) >= 4 && (lo < 0 || sum[q] / cnt[q] < sum[lo] / cnt[lo])) lo = q;
+    if (lo < 0) lo = hi;
     const at = q => [((q % B) + 0.5) * bs, (Math.floor(q / B) + 0.5) * bs, sum[q] / cnt[q]];
     return { hi: at(hi), lo: at(lo) };
   })();
@@ -322,7 +325,7 @@ void main() {
   // ---------------------------------------------------------------- update
   const now = { cell: e.cell, r: 50, wx: 0, rise: 0, delta: 0, split: 0, h: 0, dome: [0, 0, 0], pieces: 0, loops: 0, lo: e.logOdds };
   const _a = [0, 0, 0], _b = [0, 0, 0], _p = [0, 0, 0], _q = [0, 0, 0];
-  const RIB0 = { glow: 0.7, fill: 0.9, to: 1 }, RIB1 = { glow: 0.7, fill: 0.9, to: 1 }, RY1 = [0.06, 0, 0];
+  const RIB0 = { glow: 0.9, fill: 1, to: 1 }, RIB1 = { glow: 0.9, fill: 1, to: 1 }, RY1 = [0.06, 0, 0];
   const CYANL = [0.6, 0.93, 1.0], SPOTC = [0, 0, 0], GENEGREY = [0.62, 0.66, 0.74];
   // a cell's height on the relief now (the same as the shader's)
   const hOf = (i, all, split) => H50[i] * HM * sstep(VIS[i], VIS[i] + 0.05, all) * (1 - sstep(0, 0.35, split)) + LIFT;
@@ -506,13 +509,13 @@ void main() {
     { text: ['Genes', ' · sketch: the workflow, not data'], at: 'genes', cls: 'amb', alpha: S => prog(S.map_omics, 0.5, 0.9) * (1 - prog(S.map_omics, 1.1, 1.4)) },
     { text: ['Proteins', ' · sketch: the workflow, not data'], at: 'proteins', cls: 'amb', alpha: S => prog(S.map_omics, 1.5, 1.9) },
   ];
-  const vx = X[e.cell], vz = Z[e.cell];
+  const vx = Math.round(X[e.cell] * 1000) / 1000, vz = Math.round(Z[e.cell] * 1000) / 1000;
   const cam = {
     default: [22, 34, 3.6, 0, 0.02, 0.06],
     cell: [18, 40, 0.62, vx, 0.03, vz],
-    net: [10, 58, 0.36, vx, 0.005, vz + 0.01],
-    bars: [12, 16, 0.95, vx, 0.13, vz - 0.04],
-    score: [24, 22, 0.75, vx + 0.03, 0.06, vz - 0.02],
+    net: [10, 58, 0.36, vx, 0.005, Math.round((vz + 0.01) * 1000) / 1000],
+    bars: [12, 16, 0.95, vx, 0.13, Math.round((vz - 0.04) * 1000) / 1000],
+    score: [24, 22, 0.75, Math.round((vx + 0.03) * 1000) / 1000, 0.06, Math.round((vz - 0.02) * 1000) / 1000],
     sweep: [6, 44, 3.4, 0, 0, 0.08],
     relief: [24, 30, 3.5, 0, 0.02, 0.06],
     low: [32, 12, 3.1, 0, 0.04, 0.12],
@@ -536,7 +539,7 @@ void main() {
   }
 
   // ---------------------------------------------------------------- picking and what explore reads
-  const _v = new THREE.Vector3(), _w = new THREE.Vector3();
+  const _v = new THREE.Vector3(), _w = new THREE.Vector3(), _ray = new THREE.Ray(), _inv = new THREE.Matrix4(), _tmp = [];
   let lastS = null;
   // the cell a ray (a THREE.Raycaster in world coordinates) points at, as drawn now (on the relief or flat), or null
   function pick(rc) {
@@ -548,6 +551,22 @@ void main() {
       _v.set(X[i], hOf(i, all, 0), Z[i]).applyMatrix4(Mw);
       const d = _w.copy(_v).sub(ray.origin).dot(ray.direction);
       if (d > 0 && d < bt && ray.distanceSqToPoint(_v) < tol * tol) { bt = d; best = i; }
+    }
+    if (best < 0) {
+      // (no bead under the ray: the cell nearest to where it meets the slide, within 30 µm)
+      _inv.copy(Mw).invert();
+      _ray.copy(ray).applyMatrix4(_inv);
+      if (Math.abs(_ray.direction.y) > 1e-6) {
+        const tt = (LIFT - _ray.origin.y) / _ray.direction.y;
+        if (tt > 0) {
+          _ray.at(tt, _v);
+          let bd = 900;
+          for (const i of near(_v.x / k + side / 2, _v.z / k + side / 2, 30, _tmp)) {
+            const q = (W.x[i] - _v.x / k - side / 2) ** 2 + (W.y[i] - _v.z / k - side / 2) ** 2;
+            if (q < bd) { bd = q; best = i; }
+          }
+        }
+      }
     }
     return best < 0 ? null : { kind: 'cell', cell: best };
   }

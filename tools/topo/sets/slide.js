@@ -126,23 +126,33 @@ SETS.slide = function (K) {
       } else if (kd !== CELL.RBC) { drop(fHz, S, ts, x, y, 1); drop(fCo, S, ts, x, y, 0.25); }
       drop(fTi, P, tp, x, y, 1);
     }
-    // a separable gaussian blur of sigma µm: a lone cell of weight w becomes a bump w x scale high
+    // a blur of about sigma µm (three box blurs each way, running sums: the cost does not grow with sigma), scaled so
+    // that a lone cell of weight w becomes a bump w x scale high
     const tmp = new Float32Array(S * S);
     function blur(f, N, t, sig, scale) {
-      const r = Math.max(1, Math.ceil(2.5 * sig / t)), ker = new Float32Array(2 * r + 1);
-      let sum = 0;
-      for (let q = -r; q <= r; q++) { ker[q + r] = Math.exp(-q * q * t * t / (2 * sig * sig)); sum += ker[q + r]; }
-      const g = tmp.length >= N * N ? tmp : new Float32Array(N * N), peak = scale;   // (the kernel's middle is 1: a lone cell's bump is scale high)
-      for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
-        let acc = 0;
-        for (let q = -r; q <= r; q++) { const ii = i + q; if (ii >= 0 && ii < N) acc += f[ii + N * j] * ker[q + r]; }
-        g[i + N * j] = acc;
-      }
-      for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
-        let acc = 0;
-        for (let q = -r; q <= r; q++) { const jj = j + q; if (jj >= 0 && jj < N) acc += g[i + N * jj] * ker[q + r]; }
-        f[i + N * j] = acc * peak;
-      }
+      const st = sig / t, r = Math.max(1, Math.round((Math.sqrt(4 * st * st + 1) - 1) / 2)), w = 2 * r + 1;
+      // the middle of three boxes: (a lone 1, blurred) for the scale
+      let c = new Float32Array(6 * r + 1);
+      c[3 * r] = 1;
+      for (let p = 0; p < 3; p++) { const d = new Float32Array(c.length); for (let i = 0; i < c.length; i++) for (let q = -r; q <= r; q++) if (i + q >= 0 && i + q < c.length) d[i] += c[i + q]; c = d; }
+      const peak = scale / (c[3 * r] * c[3 * r]), g = tmp.length >= N * N ? tmp : new Float32Array(N * N);
+      const pass = (src, dst, along) => {   // along 1: rows, N: columns
+        const across = along === 1 ? N : 1;
+        for (let line = 0; line < N; line++) {
+          const o = line * across;
+          let acc = 0;
+          for (let q = 0; q <= r && q < N; q++) acc += src[o + q * along];
+          for (let i = 0; i < N; i++) {
+            dst[o + i * along] = acc;
+            if (i + r + 1 < N) acc += src[o + (i + r + 1) * along];
+            if (i - r >= 0) acc -= src[o + (i - r) * along];
+          }
+        }
+      };
+      pass(f, g, 1); pass(g, f, 1); pass(f, g, 1);
+      pass(g, f, N); pass(f, g, N); pass(g, f, N);
+      for (let q = 0; q < N * N; q++) f[q] *= peak;
+      return w;
     }
     blur(fCy, S, ts, 12, 0.42); blur(fCo, S, ts, 13, 0.4); blur(fHz, S, ts, 9, 0.28); blur(fTi, P, tp, 24, 0.55);
     const SB = new Uint8Array(S * S * 4);
@@ -160,17 +170,19 @@ SETS.slide = function (K) {
     // the cells, pre-averaged for far views (premultiplied colour and cover): each cell's ellipse, its nucleus darker
     const C = 256, tc = side / C, CF = new Float32Array(C * C * 4);
     const ASP = [0.92, 0.84, 0.26, 0.95, 0.94, 0.64, 0.97, 0.9], NR = [0.34, 0.5, 0.45, 0.76, 0.5, 0.5, 0, 0.42];
-    for (let i = 0; i < n; i++) {
+    // (the hot loop in a small function of its own, so the engine optimises it at once)
+    function rasterCell(i) {
       const kd = KIND[i], a = RAD[i] / k / tc * (kd === CELL.BODY ? 0.64 : 1), b = a * ASP[kd], ca = Math.cos(ANG[i]), sa = Math.sin(ANG[i]);
-      const cx = src.x[i] / tc - 0.5, cy = src.y[i] / tc - 0.5, e = Math.ceil(a) + 1, nr = NR[kd];
-      for (let j = Math.max(0, Math.floor(cy - e)); j <= Math.min(C - 1, Math.ceil(cy + e)); j++) for (let ii = Math.max(0, Math.floor(cx - e)); ii <= Math.min(C - 1, Math.ceil(cx + e)); ii++) {
-        const dx = ii - cx, dy = j - cy, u = (dx * ca + dy * sa) / a, v = (dy * ca - dx * sa) / Math.max(b, 0.35), rho = Math.sqrt(u * u + v * v);
-        if (rho >= 1.15) continue;
-        const cov = clamp((1.15 - rho) / 0.3, 0, 1) * 0.92, o = 4 * (ii + C * j), inN = rho < nr ? 1 : 0;
-        for (let q = 0; q < 3; q++) CF[o + q] += cov * (inN ? NU[3 * i + q] : CY[3 * i + q]);
-        CF[o + 3] += cov;
+      const cx = src.x[i] / tc - 0.5, cy = src.y[i] / tc - 0.5, e = Math.ceil(a) + 1, nr2 = NR[kd] * NR[kd], ia = 1 / a, ib = 1 / Math.max(b, 0.35);
+      const j0 = Math.max(0, Math.floor(cy - e)), j1 = Math.min(C - 1, Math.ceil(cy + e)), i0 = Math.max(0, Math.floor(cx - e)), i1 = Math.min(C - 1, Math.ceil(cx + e));
+      for (let j = j0; j <= j1; j++) for (let ii = i0; ii <= i1; ii++) {
+        const dx = ii - cx, dy = j - cy, u = (dx * ca + dy * sa) * ia, v = (dy * ca - dx * sa) * ib, r2 = u * u + v * v;
+        if (r2 >= 1.3225) continue;
+        const rho = Math.sqrt(r2), cov = Math.min(1, (1.15 - rho) / 0.3) * 0.92, o = 4 * (ii + C * j), src3 = r2 < nr2 ? NU : CY;
+        CF[o] += cov * src3[3 * i]; CF[o + 1] += cov * src3[3 * i + 1]; CF[o + 2] += cov * src3[3 * i + 2]; CF[o + 3] += cov;
       }
     }
+    for (let i = 0; i < n; i++) rasterCell(i);
     const CB = new Uint8Array(C * C * 4);
     for (let o = 0; o < CF.length; o += 4) {
       const w = CF[o + 3] > 1 ? 1 / CF[o + 3] : 1;
@@ -215,7 +227,7 @@ void main() {
     E *= 1.0 + kf * (b - 0.5) * 0.8;
   }
   // empty spaces (vessels) white; between the hepatocytes thin pale sinusoids, wandering slits
-  float V = (1.0 - smoothstep(0.02, 0.16, cy + 0.55 * co + 0.6 * hz)) * (0.8 + 0.3 * vn(p / 4.0 + 7.0));
+  float V = (1.0 - smoothstep(0.02, 0.16, cy + 0.55 * co + 0.6 * hz)) * (0.8 + 0.3 * vn(p / 4.0 + 7.0)) * smoothstep(0.35, 0.65, s.a);   // (not at the tissue's edge)
   float sn = vn(p / 14.0 + 1.5 * vec2(vn(p / 40.0), vn(p / 40.0 + 9.0))), sw = fwidth(sn) * 1.2 + 0.012;
   V = max(V, 0.7 * (1.0 - smoothstep(0.0, sw, abs(sn - 0.5))) * smoothstep(0.2, 0.6, cy) * (1.0 - co) * smoothstep(0.012, 0.004, px));
   vec3 he = exp(-E * vec3(0.16, 1.05, 0.60) - H * vec3(1.31, 1.37, 0.62));
@@ -586,7 +598,7 @@ void main() {
     { text: ['The new slide', ` · a window of ${fmt(T.slide.n)} cells`], at: 'window', cls: '',
       alpha: S => winA(S) * (1 - prog(S.slide_over, 0, 0.05)) * (1 - prog(S.map_cell || 0, 0, 0.3)) * (1 - prog(S.map_all || 0, 0, 0.1)) * (1 - prog(S.map_split || 0, 0, 0.1)) * (1 - tileA(S)) },
   ];
-  const cell = (x, y) => [x - th, y - th].map(v => v * tk);
+  const cell = (x, y) => [x - th, y - th].map(v => Math.round(v * tk * 1000) / 1000);
   const [hx, hz] = cell(T.tile.x[HUB], T.tile.y[HUB]), [cx, cz] = cell(T.tile.x[CIR], T.tile.y[CIR]), [sx, sz] = cell((D.tile.side % GRID) / 2 + (gq[0] + 0.5) * GRID, (D.tile.side % GRID) / 2 + (gq[1] + 0.5) * GRID);
   const cam = {
     default: [0, 56, 3.4, 0, 0, 0.06],
