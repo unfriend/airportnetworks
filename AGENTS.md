@@ -4,10 +4,10 @@ Guidance for AI coding agents (and humans) working on this repository.
 
 ## What this is
 
-An installable web app that teaches network science in fourteen narrated stories
+An installable web app that teaches network science in fifteen narrated stories
 (the airports about four minutes, the proteins and the cell map about five, the tour about nine and a half, the muscle
 story about eight, the endotype story about seven, the PET story about seven, the microanatomy story about seven
-and a half, the ovary story about seven, the qubits story about nine, the mutation story about eight and a half, the pass story about seven, the flock and the robot gang about two), each
+and a half, the ovary story about seven, the qubits story about nine, the mutation story about eight and a half, the tissue topology story about eight, the pass story about seven, the flock and the robot gang about two), each
 followed by an explore mode. Everything works on desktop, phones and in VR/AR headsets (built for Meta
 Quest Browser, WebXR).
 
@@ -24,6 +24,7 @@ Quest Browser, WebXR).
 | Ovarian aging | `stories/ovary.js` | the tour's body and a drawn cut-away ovary that ages; 255 GTEx donors aged 20 to 70 (Chakraborty, Moustafa, Rendeiro, poster); a drawn H&E section with blood vessels, macrophages, corpora albicantia and follicles (14,941 marked by hand), tiles with UNI2 features and a random forest, SegFormer's masks and their scores as tags on the section; the poster's trends with age told on the ovary as it ages (each method's count on its lines as tags; r and p in words) and the methods' agreement; an illustrative spatial neighbor network that tips up off the section and gathers into hubs by kind |
 | Quantum network compression | `stories/qubits.js` | example gene networks (320 genes in 8 hidden groups, at three strengths of mixing, and a random one) cut into 8 cells on 3 qubits; the coarse operator A_c on a cube, its Pauli strings, the toolbox (a Lie algebra, so(6) or so(7)) and what it drops; the real run's residual by depth and its 3-qubit circuit (Joel Hancock's method and figures) |
 | Quantum phylogenetics | `stories/mutation.js` | a text in four letters copied with swaps; a family tree in 3D (8 tips, 14 branches, every swap simulated) you walk round and look up into; a letter's two qubits and their read-outs; a rule of change (three example substitution models) as balls and arrows and a path through the pyramid of mixes; the machine for one branch (copy and turn), its circuit, one machine per branch; an RNA stem, its pairs and their coupling; the ancestor of three species rebuilt 2,000 times three ways (Enes Berk Sakalli and Arndt von Haeseler's poster; example numbers computed live, the poster's only as the authors' test) |
+| Tissue topology | `stories/topo.js` | 110 real cells of a healthy liver (the poster's patch) with balls growing round them, the network with triangles, pieces joining and loops opening and closing, and the tower of scales; 123 GTEx liver slides (66 healthy, 57 with cirrhosis, 30.8 million cells found by HistoPLUS), their curves, main shapes, scores, a classifier's wall, its held-out test and its weight for every radius; a new slide's window of 6,716 cells, every cell scored, the two groups and their cell types (Simon Schindler, André Rendeiro and Jörg Menche's poster; every number computed by their package topocyte on their data) |
 | Networks for everyone (outreach; English and German) | `stories/pass.js` | a school of fish (300, a live simulation) all around you, each watching its 7 nearest neighbours; the airports story's globe (3,214 airports, 18,858 routes, taken unchanged) with a seeded S/E/I/R outbreak on its routes; the cell map story's cell (249 proteins in 13 places, taken unchanged), its NF-κB relay and CFTR in the wrong place |
 | Flock | `stories/flock.js` | 200 starlings (a live simulation) flying all around you at dusk, each following its seven nearest neighbours |
 | Robot gang | `stories/robots.js` | 6 to 24 robot vacuums (a live simulation) in a model living room, or in a headset your own room; who follows whom (you, or the one ahead) is the network |
@@ -97,6 +98,10 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
 - `tools/mutation/` - the sources of `stories/mutation.js` (the maths `MMATH` and its test, the poster's numbers, the
   shared look, four sets, engine parts adapted from the qubits story's, build script, set harness; it uses
   `tools/lbi/kit.js`); see its `README.md` and `SPEC.md`.
+- `tools/topo/` - the sources of `stories/topo.js` (the data generator, which runs topocyte on the authors' files,
+  the data it writes and its decoders and their test, the shared look, four sets, engine parts adapted from the mutation
+  story's, build script, set harness; it uses `tools/lbi/kit.js`, the tour's body set and the microanatomy story's organ
+  models); see its `README.md` and `SPEC.md`.
 - `tools/pass/` - the sources of `stories/pass.js` (the build that cuts the airports story's globe and the cell map
   story's cell out of `stories/airports.js` and `stories/spatial.js`, unchanged; three sets, `fish`, `globe` and `cell`;
   the story's words in two languages; engine parts adapted from the qubits and flock stories'; set checks, harness); see
@@ -326,7 +331,7 @@ from a page's Shared dialog or a headset's menu, never refused by the layout
 lock; a room without it gives everything in 3D; free moving turned off takes
 every `q` out of the stations' places and panels in the same write), and per shared space `rf.<space id>` (the room's frame in it) and
 `rs.<space id>` (found split; FORMAT networks-9), and `sg` (the room's shared-space
-generation, `{ n, by, at }`; FORMAT networks-10; networks-11 when the eighth story came, networks-12 the ninth, networks-13 the tenth, networks-14 the eleventh, networks-15 the twelfth, networks-16 the thirteenth, networks-17 when the PET story's `state()` lost its one-scan fields, networks-18 when its liver scene came back, networks-19 when the ovary story's charts went, networks-20 when the pass story's school got a shared place at a station, networks-21 when the fourteenth story came, networks-22 when the scene's and the panel's turn joined a station's place). The plan is `docs/shared-space-plan.md`.
+generation, `{ n, by, at }`; FORMAT networks-10; networks-11 when the eighth story came, networks-12 the ninth, networks-13 the tenth, networks-14 the eleventh, networks-15 the twelfth, networks-16 the thirteenth, networks-17 when the PET story's `state()` lost its one-scan fields, networks-18 when its liver scene came back, networks-19 when the ovary story's charts went, networks-20 when the pass story's school got a shared place at a station, networks-21 when the fourteenth story came, networks-22 when the scene's and the panel's turn joined a station's place, networks-23 when the fifteenth story came). The plan is `docs/shared-space-plan.md`.
 
 - `HOST.collab` keeps the room's keys (echo suppression by value, optimistic
   writes acknowledged by the relay, apply order stations > clock > state >
@@ -385,10 +390,10 @@ generation, `{ n, by, at }`; FORMAT networks-10; networks-11 when the eighth sto
   a story loads, and the pump retries a lost one). A desktop page follows one
   from the Shared dialog. A story the person starts themselves leaves the
   station (no longer following, not pulled back).
-- Arrange all: two rows in front of you, half the stories (rounded up: seven of
-  fourteen) 1.2 m ahead and the rest 2.6 m further on (behind them; in the gaps when the second row is shorter), 2.4 m apart, every
+- Arrange all: two rows in front of you, half the stories (rounded up: eight of
+  fifteen) 1.2 m ahead and the rest 2.6 m further on (behind them; in the gaps when the second row is shorter), 2.4 m apart, every
   station facing away from you (its content floats 1.4 m beyond its spot); it
-  needs about 14.5 m x 4 m of floor from 1.2 m in front of you. Remove asks first ("Remove for
+  needs about 17 m x 4 m of floor from 1.2 m in front of you. Remove asks first ("Remove for
   everyone?", 3 s), on the page and in the headset.
 - Moving a station by hand: in a headset the grip on a station's ring or card
   picks it up (the shell hears the session's own `squeezestart` and
@@ -680,7 +685,7 @@ generation, `{ n, by, at }`; FORMAT networks-10; networks-11 when the eighth sto
   A page following a station (Follow) leaves its Stories screen: while that
   shows, nothing syncs.
 
-The hooks every story keeps (all fourteen, the same lines; the flock is the
+The hooks every story keeps (all fifteen, the same lines; the flock is the
 reference, `tools/flock/engine/`):
 
 - `collab: { APP, scene: () => GL.scene, state, apply, view, setView, effect, hover, panel, place }`
@@ -742,6 +747,7 @@ What each story shares:
 | ovary | tab, scene, every scene's controls (ovary: view, show; section: view, with By kind, show; never their Age steps), the kind of object picked, the age (20 to 70), the method (`rf` or `seg`) | none |
 | qubits | tab, scene, every scene's controls (pairs; cube: view, network, cut, bits, algebra; chart: view, example, angles), the brick shown (a Pauli string by name), how many strings are added up, the gallery (kinds or largest) | none |
 | mutation | tab, scene, every scene's controls (letters: view, letter or mix; rule: view, rule, start and parent letters; tree: view, tree, how fast letters change, machines; stem: view, numbers (the authors' test or this example), method), the branch length (`time`, to the hundredth), the read-outs and their seed, the branch picked, the pair favour (`w`), the rebuild's seed (never the camera or how far the read-outs have played) | none |
+| topo | tab, scene, every scene's controls (the liver: lifted out, in the body or a slice; the slide: tissue, look, one scale; the tower: view, what is lit; the cohort: view, pieces or loops; the map: show, 50 or 100 µm), the patch's radius (`r`, µm to the hundredth), a cell's network radius (`mr`), the slide picked (`slide`, -1 none), the window of radii (`from`, `to`, on the 0.5 µm grid; `to` 100.5 is "and above"), the cell picked (`cell`, -1 the poster's cell v) | none |
 | pass | tab, scene, every scene's controls but the fish's view (the fish: neighbours watched, links, shark now and then; the globe: view, colour, pillars, outbreak on; the cell: view, organelles, colour, move), the school's size, the outbreak's start (an airport's code) and settings (incubation, infectious days, spread, flights cut), the city looked up, the protein picked, the school's place at a station (`sea`, moved with the grip there) (never the language, the outbreak's day, the steered shark or the sea moved outside a room) | `shark` (as the flock's falcon, in the set's frame), `school` (quiet, twice a second, as the flock's `flock`) |
 | flock | birds, links, falcon | `falcon` (where it starts, its velocity and aim, in the set's frame), `flock` (quiet, twice a second: where the flock is, see the flock's notes) |
 | robots | rule, robots, trails, links | `crumbs` (a pile: in room coordinates in a headset with an aligned frame, else in the station's frame), `dust` |
@@ -792,7 +798,7 @@ says why), whether a recentre fires a reset, sound zones heard, comfort and
 frame rate with presence drawn, and whether the socket keeps running inside an
 immersive session.
 
-## Inside a story (all fourteen follow the same pattern)
+## Inside a story (all fifteen follow the same pattern)
 
 - Data at the top (airports and proteins: precomputed constants; spatial: the
   editable `PLACES`, `PROTEINS`, `LINKS`, `TOGETHER`, `MOVES` lists, laid out
@@ -1094,6 +1100,63 @@ with a manifest) and engine parts adapted from the qubits story's. `tools/mutati
 - **British spelling** (colour, favour, tumour, centre, grey), English only. T stands for RNA's U, as on the poster. No
   patient data (the test is synthetic); the poster's pictures are never shown, its figures are redrawn in 3D.
 
+## The shape of tissue (`stories/topo.js`) is built the same way
+
+`stories/topo.js` ("The shape of tissue", after the poster "topocyte: scale-resolved topological phenotyping of tissue
+architecture across spatial modalities" by Simon Schindler, André Rendeiro and Jörg Menche) is generated from
+`tools/topo/` (`node tools/topo/build.mjs`, `--check` as for the tour): the tour's kit, three shared parts pasted before
+the sets (`TOPO_DATA`, the authors' numbers, `sets/data.js`, generated; `TDATA`, its decoders and look-ups,
+`sets/tdata.js`, checked with the data by `node tools/topo/test-data.mjs`; `TLOOK`, the mutation story's lit tubes,
+rings, balls and halos plus glass discs, glass triangles, ribbons, glass slides and cells drawn in H&E or as beads,
+`sets/look.js`), the tour's `body` set and the microanatomy story's organ models (`ORGAN3D`, only its liver; both
+unchanged), four sets (`slide`, the healthy tile round the poster's patch and the new slide's window drawn in H&E from
+their cells, sketches of other modalities, the fixed scales other tools read and the whole slide's overview; `map`, in
+`slide`'s frame: one cell's neighbourhood, its own network, bars and score, then every cell scored as a relief, the
+two groups and their cell types, and sketches of the next steps; `tower`, the poster's patch: balls growing round 110
+cells, the network with triangles, pieces joining and loops opening and closing, the tower of scales and its barcode;
+`cohort`, the 123 slides as a rack of glass slides with their curves, the main shapes, the space of scores, the
+classifier's wall, the held-out stacks and the weight for every radius on a column of radii; each with a manifest) and
+engine parts adapted from the mutation story's. `tools/topo/SPEC.md` is the contract.
+
+- **Every number is topocyte's** (the owner: "use the topocyte code for all calculations").
+  `tools/topo/data/gen_data.py` runs the authors' package topocyte and the poster's own figure scripts on the authors'
+  GTEx liver cohort (123 slides, 66 healthy and 57 with cirrhosis, 30.8 million cells found by HistoPLUS, CC BY 4.0)
+  and writes `tools/topo/sets/data.js` (`TOPO_DATA`, documented in its header): the slides' curves, scores, classifiers
+  and held-out results for pieces and loops, the shares of the gap by radius, the poster's patch with its complex,
+  bars, joins and loops, a healthy tile round it and the new slide's window (6,716 cells, each with its own score and
+  bars). topocyte is GPL-3: it is only run offline, and none of its code is copied into the app. The authors' files,
+  the cohort table, slide ids and any GTEx image stay out of the repository: only derived numbers go in, and slides are
+  numbered, never named. `TDATA` only decodes and looks things up (what is alive at a radius by its stored radius, the
+  stored bars alive there, sums of stored shares, the poster's colours): **the app computes nothing scientific**, so
+  never recompute persistence, a functional PCA, a classifier or a score in it.
+- The data reproduces every number of the poster (`test-data.mjs` checks them): 66 and 57 slides; the first two main
+  shapes hold 72 % and 20 % of the variation in loops; the held-out test gets 62 of 66 healthy and 47 of 57 cirrhotic
+  slides right (4 and 10 wrong, accuracy 0.886); loops of 5 to 10 µm add 2.73 and of 10 to 15 µm 4.65 to a gap of 7.04
+  (odds × 1,138); the patch has 82 pieces at the poster's first snapshot (4.08 µm); the new slide splits into 1,000
+  and 5,716 cells at 100 µm.
+- The local radius is 50 µm (the author's choice); the poster's split at 100 µm appears only in small print and as
+  explore's map at 100 µm (only the colours and groups change). Cell v's score is the data's (6.97; the poster prints
+  26.57: T5 in `docs/questions-for-authors.md`, open).
+- The cell types are the cell classifier's labels (HistoPLUS), not a pathologist's: "Cancer cell" is kept (the author's
+  wish), and the story says once what the labels are. The genes and proteins of the last chapter are sketches of the
+  workflow, labelled so, not data.
+- The tissue is drawn from the cells' positions and types, never from an image. The relief of scored cells takes its
+  heights from the stored scores round each cell, smoothed for drawing only; its colours are each cell's own score.
+- In a headset the tower of scales stands about 1.5 m tall in front of you while it is the scene (chapters 3 and 4;
+  `standView` in `engine/e3_story.js`, by story time, so everyone at a station sees the same size; nothing of it comes
+  within 0.35 m of your eyes), as the mutation story's family tree does. Explore offers it as Look: Stand at it; `up`
+  looks up through it on a screen only.
+- The radii ease on the poster's log ruler (the tower set's `log`). A set label's `text` may be a function
+  (`labelText`); step params (never eased) are listed in each manifest and in `STEP` (`engine/e4_explore.js`).
+- Explore: Patch (the radius from 1.5 to 60 µm with the poster's four stops, the balls, the tower or the barcode,
+  pieces or loops lit, the counts there), Cohort (pieces or loops; the rack, the scores or the held-out stacks; a slide
+  picked by click or ray, its scores and held-out result), Scales (a window of radii of your own, 0 to 100 µm or "and
+  above" in 0.5 µm steps: its share of the gap and its odds factor), Cells (one cell, every cell, the two groups or the
+  sketches, at 50 or 100 µm; a cell picked by click or ray: its neighbourhood, its own network at a radius, its bars
+  and score) and Scenes (Liver, Section, Patch, Cohort, Map).
+- **British spelling** (colour, centre, grey, haematoxylin, neighbourhood, tumour), English only. No patient data, no
+  donor details, no GTEx ids or images, and never the poster's pictures.
+
 ## The pass story (`stories/pass.js`) is built the same way
 
 `stories/pass.js` ("Pass it on", in German "Weitersagen!", the institute's outreach story for about 12 and up) is
@@ -1297,7 +1360,10 @@ is the contract between them.
   `stories/ovary.js` (and after changing `tools/lbi/sets/body.js`, which it uses; first
   `node tools/ovary/data/gen_data.mjs` after changing its readings), and `tools/qubits/` and
   `stories/qubits.js` (run `node tools/qubits/test-qmath.mjs` after changing its maths), and `tools/mutation/` and
-  `stories/mutation.js` (run `node tools/mutation/test-mmath.mjs` after changing its maths), and `tools/pass/` and
+  `stories/mutation.js` (run `node tools/mutation/test-mmath.mjs` after changing its maths), and `tools/topo/` and
+  `stories/topo.js` (run `node tools/topo/test-data.mjs` after its data or decoders change; its data only from the
+  authors' files through `tools/topo/data/gen_data.py`; and after changing `tools/lbi/sets/body.js` or
+  `tools/micro/sets/organs.js`, which it uses), and `tools/pass/` and
   `stories/pass.js` (and after changing `stories/airports.js` or `stories/spatial.js`, whose globe and cell it takes).
 - Keep `README.txt` (user-facing notes) in sync with structural changes.
 - Shared rooms: bump `FORMAT` in `shared.js` when the keys or a story's
@@ -1314,8 +1380,10 @@ smoke test, which loads every story, scrubs through it, plays it as a slideshow
 last one, the voice finishing the chapter there where a story has a recording,
 Next on the page, in the bar and on the headset panel beside the chapter arrows,
 Next going on), exercises explore
-mode and the headset panels (for the muscle, endotype, PET, microanatomy, ovary, qubits, mutation and pass stories every explore tool too,
-for the mutation story also its links (each opens explore mode on what it says), for the pass story in both languages with its switch; for
+mode and the headset panels (for the muscle, endotype, PET, microanatomy, ovary, qubits, mutation, tissue topology and pass stories every explore tool too,
+for the tissue topology story the panes' numbers against its data (the patch's counts at the poster's snapshots, the
+held-out test, a window's share of the gap, the two groups, cell v's score), for the mutation and tissue topology
+stories also their links (each opens explore mode on what it says), for the pass story in both languages with its switch; for
 the robot gang every rule, a click to walk, crumbs, a big open floor and one
 with no area, and a pretend headset room from detected planes),
 switches stories, runs anchored placement in each
@@ -1462,7 +1530,7 @@ For the tour, test a changed set on its own in the set harness first
 (`tools/lbi/shot.mjs`, much cheaper than the whole story), then the story at a
 few seconds (`tools/lbi/sweep.mjs`), then the smoke test. The muscle story has
 the same tools in `tools/nmd/` (`shot.mjs`, `sweep.mjs`), and so have the
-endotype story in `tools/endo/`, the PET story in `tools/pet/`, the microanatomy story in `tools/micro/`, the ovary story in `tools/ovary/`, the qubits story in `tools/qubits/`, the mutation story in `tools/mutation/`, the pass story in `tools/pass/` and the robot gang in `tools/robots/`.
+endotype story in `tools/endo/`, the PET story in `tools/pet/`, the microanatomy story in `tools/micro/`, the ovary story in `tools/ovary/`, the qubits story in `tools/qubits/`, the mutation story in `tools/mutation/`, the tissue topology story in `tools/topo/` (also `test-data.mjs`: its data and decoders against the poster's numbers, a second), the pass story in `tools/pass/` and the robot gang in `tools/robots/`.
 
 Useful URL hashes: `#spatial&t=95` (open at that second of the timeline, paused),
 `#proteins&explore&q=TP53` (explore mode with a search),
@@ -1480,6 +1548,11 @@ second), `#lbi&explore&scene=atp&view=network&now=1` (a scene with its controls)
 `#mutation&explore&tab=rule&model=even&start=C&time=0.8`, `#mutation&explore&tab=rule&view=steps&parent=T`,
 `#mutation&explore&tab=tree&seed=3&speed=2&branch=5`, `#mutation&explore&tab=stem&src=live&w=20` (`&rebuild=2` its seed),
 `#mutation&explore&scene=tree&view=up` (the tree's own cameras: `up`, `stand`, `crown`),
+`#topo&t=100`, `#topo&explore&tab=patch&r=13.5&tower=on` (`tower=off`: the balls; `view=bars`: the barcode; `lit=loops`),
+`#topo&explore&tab=cohort&dim=1&view=space&slide=17` (`dim=0`: pieces; `view=rack|space|held`),
+`#topo&explore&tab=scales&dim=1&from=5&to=15` (`to=above`), `#topo&explore&tab=cells&cell=1234&r=4.8&delta=50`
+(`show=map|split|genes|proteins`), `#topo&explore&scene=slide&mode=points`, `#topo&explore&scene=body&liver=slice`,
+`#topo&explore&scene=tower&view=up` (the tower's own cameras: `up`, `stand`),
 `#pass&t=180&lang=de` (German), `#pass&explore&tab=fish&k=1&links=on&shark`, `#pass&explore&start=LHR&spread=high&cut=50&day=20&city=SYD`,
 `#pass&explore&protein=CFTR&move=cf`, `#pass&explore&scene=globe&pillars=on`, `#flock&explore&view=afar&links=on&birds=400`
 (`&hunt` sends a falcon), `#robots&explore&rule=chain&robots=12&trails=on&links=on&view=low`

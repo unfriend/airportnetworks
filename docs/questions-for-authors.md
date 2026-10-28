@@ -1,6 +1,6 @@
 # Questions for the authors
 
-Open items found while building the seven stories that rest on colleagues' work: places where the sources disagree,
+Open items found while building the eight stories that rest on colleagues' work: places where the sources disagree,
 and stand-ins waiting for the authors' own values. Each item says where it is in the source, what the story shows now
 and where that is in the code or data. Whether the authors agreed to their material being shown at all is a separate
 matter: see [data-and-permissions.md](data-and-permissions.md).
@@ -131,6 +131,22 @@ Sakalli, Arndt von Haeseler; a draft of 26 Oct 2026, not in the repository). Ene
 | MM4 | How to word the result: the true ancestor has one broken pair, so "all six pairs intact" is not "right"; and the coupled circuit (43 %) beats the exact pair model (20 %). How often did each method rebuild the true ancestor, and how should the story say this without claiming the circuit is simply better? | section 4, Figure 5 | the three shares as the authors' test's; the coupling favours matching pairs too strongly, its percentages are not true chances; a broken pair is normal (chapter "Rebuild", the Stem tab) | answered 27 Oct 2026: a mismatched pair in the true ancestor is normal (allowed, only rarer; only about a quarter of ancestors have all six pairs matched). With coupling 43 % of the rebuilt ancestors have all pairs matched, without 10 %; the exact calculation gives 20 %, so the coupled model favours matching pairs too strongly: believable ancestors, but its percentages are not true probabilities. |
 | MM5 | Credit: both authors and their institutes as on the poster, and the title "The mutation machine"? | header | "After the poster by Enes Berk Sakalli and Arndt von Haeseler" (first chapter's small print); both with their institutes and the poster's six references (last chapter); the card's title "The mutation machine" (`index.html`, `tools/mutation/engine/e3_story.js`) | open |
 | MM6 | Is our coupled stand-in (each branch's turn, then a coupling that weights matching pairs w times) a fair picture of their circuit, and may the story show it live in explore? | section 4 (coupling) | Explore's Stem tab, "This example": the ancestor rebuilt live letter by letter, with the exact pair model and with the coupled stand-in (`MMATH.Pcoupled` in `tools/mutation/sets/mmath.js`), labelled "our stand-in for the authors' circuit"; the chapters show only the authors' shares | open |
+
+## The shape of tissue (`topo`)
+
+Sources: the poster "topocyte: scale-resolved topological phenotyping of tissue architecture across spatial modalities"
+(Simon Schindler, André Rendeiro, Jörg Menche; shown at the Evaluation of the LBI for Network Medicine 2026), the
+package's documentation (topocyte.lab.lbi-netmed.com), and the authors' cohort data and code, shared for this story (not
+in the repository). T1 to T4 were answered by 28 Oct 2026; the story follows those answers. Who to ask: Simon Schindler.
+Contact person: **TO FILL (owner)**.
+
+| # | Item | Where in the source | What the story shows now | Status |
+| --- | --- | --- | --- | --- |
+| T1 | Is the poster final, and how should the story credit it? | header | the poster's title, its three authors and their institutes (the last chapter's small print and explore's About note: `AUTH`, `INSTS` and `ABOUT` in `tools/topo/engine/e3_story.js`) | answered 28 Oct 2026: yes; Simon Schindler, André Rendeiro, Jörg Menche |
+| T2 | The cohort data: may the story use the cohort itself (the cells, the slides' curves, scores and classifiers), so that every number is topocyte's rather than read off the figures? | the poster's figures | every number computed by topocyte and the poster's figure scripts on the authors' data (`tools/topo/data/gen_data.py`, `tools/topo/sets/data.js`); only derived numbers in the repository, slides numbered | answered 28 Oct 2026: shared |
+| T3 | The local radius round each cell for the map of every cell: the poster's figure uses 100 µm. | the poster's map of the new slide | 50 µm throughout; 100 µm only in small print and as explore's map at 100 µm (`FACTS.delta` in `tools/topo/engine/e3_story.js`; `lo50`, `lo100` in the data) | answered 28 Oct 2026: 50 µm |
+| T4 | Three details: show the poster's split at 100 µm (1,000 and 5,716 cells)? Show the new slide's id? Keep the cell classifier's label "Cancer cell" in healthy and cirrhotic livers? | the poster's map of the new slide and its legend | the split in small print ("with a radius of 100 µm, as in the poster's figure"); the slide numbered, never named; "Cancer cell" as the classifier's label, which the story says once are the labels of the computer that found the cells | answered 28 Oct 2026: show the split, leave out the id, keep "Cancer cell" |
+| T5 | The poster's panel e prints the score of its cell v as 26.57, but the figure's own data and topocyte give 6.97. Which is right? | panel e | the data's 6.97, as "its score" (`TOPO_DATA.slide.e.logOdds`); 26.57 is never shown | open |
 
 ## Pass it on (`pass`)
 

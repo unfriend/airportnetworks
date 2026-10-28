@@ -1,8 +1,8 @@
 # airportnetworks
 
-**Networks, in fourteen stories**: an installable web app that teaches network
-science through fourteen short, animated stories. Each story takes a few minutes
-(the tour about eight) and ends in an explore mode where the network is yours
+**Networks, in fifteen stories**: an installable web app that teaches network
+science through fifteen short, animated stories. Each story takes a few minutes
+(the tour about nine and a half) and ends in an explore mode where the network is yours
 to play with.
 It runs in any modern browser, on phones, and in VR and AR headsets (built for
 Meta Quest Browser).
@@ -26,6 +26,7 @@ Meta Quest Browser).
 | **The aging ovary** (ovarian aging) | the tour's body and a drawn cut-away ovary that ages, 255 donors aged 20 to 70 (GTEx), a drawn H&E section with blood vessels, macrophages, corpora albicantia and follicles, after the poster by Parijat Chakraborty, Samir Moustafa and André Rendeiro (LBI Network Medicine, CeMM, University of Vienna) | the reserve of follicles that is never refilled, what a section shows, two methods (tiles with UNI2 features and a random forest; SegFormer's masks) and their scores, the trends with age (follicles toward none by about 60, fewer vessels, more scars), whether the methods agree, and a spatial neighbor network as the next step; explore: pick a kind of object, move the age, compare the methods. American spelling |
 | **Three qubits** (quantum network compression) | example gene networks cut into eight cells on three qubits, the coarse operator on a cube, its building blocks (Pauli strings) and the toolbox a quantum computer runs well, after the method and figures of Joel Hancock; the real run's summary numbers on STRING | why pairs of genes, two walkers on a map, bisections and bit codes, the coarse operator A_c, Pauli strings, a Lie algebra and the residual it leaves, the honest result by depth, a Trotter step as a circuit; explore: four example networks, found or random cuts, 1 to 3 bits, every brick, add them up, so(6) or so(7) |
 | **The mutation machine** (Quantum phylogenetics) | a text in four letters copied with swaps, a family tree in 3D that you walk round and look up into, a letter's two qubits, a rule of change as a path through a pyramid of mixes, the machine of gears for one branch and its circuit, an RNA stem, and the ancestor of three species rebuilt three ways, after the poster by Enes Berk Sakalli (LBI Network Medicine) and Arndt von Haeseler (CIBIV, Max Perutz Labs) | mutations and family trees, branch length, a letter in two qubits, superposition and read-out, a substitution model (GTR) as a dynamical system, a compiler from a rule to a circuit (copy, then turn), one machine per branch, letters that change together coupled, rebuilding an ancestor and what its shares mean; explore: any letter or mix and its read-outs, three rules, the branch length, five trees and any branch, the pair favour, rebuild again. Example numbers, computed live |
+| **The shape of tissue** (tissue topology) | the tour's body with its liver lifted out, a slice of healthy liver drawn from its real cells, balls growing round 110 of them until pieces join and loops open and close, the tower of scales, 123 liver slides as a rack of glass slides with their curves, a classifier's wall and the scales it weighs, and a new slide scored cell by cell, after the poster by Simon Schindler, André Rendeiro and Jörg Menche (LBI Network Medicine, CeMM, Medical University of Vienna, Max Perutz Labs), on their data | where cells sit as data in any modality, one scale or every scale, a network with triangles (the alpha complex), persistent homology: pieces and loops, the barcode and the Betti curves, comparing the slides' curves (functional PCA), a classifier read back as a weight for every radius, a fair test on slides it never saw, every cell a centre (local persistent homology), cirrhosis-like and healthy-like cells; explore: any radius, any slide, a window of radii of your own, any cell and its neighbourhood. Every number computed by the authors' package topocyte |
 | **Pass it on** (networks for everyone; in English and German) | a school of fish all around you (in a headset, life size; in passthrough, in your room), the airports story's globe with an outbreak on its routes, and the cell map story's cell, for the Ludwig Boltzmann Institute for Network Medicine's outreach (about 12 and up) | no fish is in charge: each watches a few neighbours, and a warning races through the school faster than the shark; one neighbour each and the school falls apart; an infection travels along the flight routes, slowly, then through the hubs everywhere at once (a simple model, not a forecast); a signal passes hand to hand in a cell, and a protein in the wrong place stops it; explore: be the shark, change who watches whom, start an outbreak in any city and change how it spreads, the cell's proteins and moves |
 | **Flock** (collective motion) | 200 starlings at dusk flying all around you (in a headset, life size), over a field by a lake | no leader: each bird follows its seven nearest neighbours, so the flock is a network that changes from moment to moment; a falcon sets off a wave that runs through the whole flock; explore: as many birds as you like (100 to 400), who follows whom, send a falcon; then it flies on for as long as you stay |
 | **Robot gang** (swarm robotics) | a gang of 6 to 24 robot vacuums in a model living room; in a headset, in your own room (its floor, walls and furniture from the headset's room setup) | bump and turn: no map, yet the floor gets clean; then one rule, follow, on two networks of who follows whom: a star (all follow you) and a chain (a conga line). Click the floor to walk; in a headset the trigger on the floor spills crumbs |
@@ -81,7 +82,7 @@ Meta Quest Browser).
   unconfirmed, is in `docs/quest-shared-space-findings.md`.
 - The address shows where you are, so you can share it: `#stories` on the
   Stories screen (on the page or in the headset), `#airports`, `#proteins`,
-  `#spatial`, `#lbi`, `#nmd`, `#endo`, `#pet`, `#micro`, `#ovary`, `#qubits`, `#mutation`, `#pass`, `#flock` or `#robots`
+  `#spatial`, `#lbi`, `#nmd`, `#endo`, `#pet`, `#micro`, `#ovary`, `#qubits`, `#mutation`, `#topo`, `#pass`, `#flock` or `#robots`
   in a story. A story link opens that story directly; a link without
   a hash lands on the Stories screen. Old links to `proteins.html` and
   `spatial.html` still work.
@@ -123,7 +124,7 @@ the next time you are on the Stories screen.
 Optional voice-overs go in `audio/`: `narration.mp3` (airports),
 `narration-proteins.mp3`, `narration-spatial.mp3`, `narration-lbi.mp3`, `narration-nmd.mp3`,
 `narration-endo.mp3`, `narration-pet.mp3`, `narration-micro.mp3`, `narration-ovary.mp3`,
-`narration-qubits.mp3`, `narration-mutation.mp3`, `narration-pass.mp3`, `narration-flock.mp3` and `narration-robots.mp3`. Only the airports story has
+`narration-qubits.mp3`, `narration-mutation.mp3`, `narration-topo.mp3`, `narration-pass.mp3`, `narration-flock.mp3` and `narration-robots.mp3`. Only the airports story has
 a recording so far; the others run silently. A narration plays in sync
 with its story, follows pausing, seeking and chapter jumps, and gets a *Sound*
 button in the top bar and the headset panel. Browsers only start sound after a
@@ -256,6 +257,19 @@ writes it from the words (run it again after the text changes).
   for their circuit, and says so. The test is synthetic: no patient data. The poster's pictures are not shown: its
   figures are redrawn in 3D.
 
+- **The shape of tissue** (`stories/topo.js`), after the poster "topocyte: scale-resolved topological phenotyping of
+  tissue architecture across spatial modalities" by Simon Schindler, André Rendeiro and Jörg Menche (Ludwig Boltzmann
+  Institute for Network Medicine at the University of Vienna; University of Vienna; CeMM Research Center for Molecular
+  Medicine of the Austrian Academy of Sciences; Medical University of Vienna; Max Perutz Labs, Vienna BioCenter), and
+  the package's documentation (topocyte.lab.lbi-netmed.com). Every number is computed by the authors' package topocyte
+  and the poster's own figure scripts, run by `tools/topo/data/gen_data.py` on the authors' GTEx liver cohort (123
+  slides, 66 healthy and 57 with cirrhosis, 30.8 million cells found by HistoPLUS, CC BY 4.0); the page only looks the
+  numbers up. Only the numbers are kept (`tools/topo/sets/data.js`): the authors' files, slide ids, donor details and
+  images are not in the repository, the slides are numbered, and the tissue is drawn from the cells' positions and
+  types. topocyte (GPL-3) is run offline only; none of its code is in the app. The cell types are the cell
+  classifier's labels, not a pathologist's; the genes and proteins of the last chapter are sketches of the workflow,
+  not data.
+
 - **Pass it on** (`stories/pass.js`), an outreach story of the Ludwig Boltzmann Institute for Network Medicine
   (LBI-NetMed), in English and German. Its globe is the airports story's (OpenFlights.org routes, 2014 snapshot, Open
   Database License; Natural Earth coastlines) and its cell the cell map story's (Human Protein Atlas and UniProt
@@ -291,7 +305,7 @@ The protein data is meant for teaching, not research.
 | Path | What it is |
 | --- | --- |
 | `index.html` | the app: Stories screen, shared page layout, loads and swaps the stories |
-| `stories/airports.js`, `stories/proteins.js`, `stories/spatial.js`, `stories/lbi.js`, `stories/nmd.js`, `stories/endo.js`, `stories/pet.js`, `stories/micro.js`, `stories/ovary.js`, `stories/qubits.js`, `stories/mutation.js`, `stories/pass.js`, `stories/flock.js`, `stories/robots.js` | the fourteen stories, with their data, explore modes and headset panels |
+| `stories/airports.js`, `stories/proteins.js`, `stories/spatial.js`, `stories/lbi.js`, `stories/nmd.js`, `stories/endo.js`, `stories/pet.js`, `stories/micro.js`, `stories/ovary.js`, `stories/qubits.js`, `stories/mutation.js`, `stories/topo.js`, `stories/pass.js`, `stories/flock.js`, `stories/robots.js` | the fifteen stories, with their data, explore modes and headset panels |
 | `proteins.html`, `spatial.html` | forward old links to the app |
 | `sw.js`, `manifest.webmanifest`, `icons/` | offline cache and app install |
 | `audio/` | optional narrations |
@@ -314,6 +328,7 @@ The protein data is meant for teaching, not research.
 | `tools/ovary/` | sources of the aging ovary story (`node tools/ovary/data/gen_data.mjs`, then `node tools/ovary/build.mjs` writes `stories/ovary.js`) |
 | `tools/qubits/` | sources of the qubits story (`node tools/qubits/build.mjs` writes `stories/qubits.js`; `node tools/qubits/test-qmath.mjs` checks its maths) |
 | `tools/mutation/` | sources of the mutation story (`node tools/mutation/build.mjs` writes `stories/mutation.js`; `node tools/mutation/test-mmath.mjs` checks its maths) |
+| `tools/topo/` | sources of the tissue topology story (`node tools/topo/build.mjs` writes `stories/topo.js`; `node tools/topo/test-data.mjs` checks its data against the poster's numbers; data from `tools/topo/data/gen_data.py` and the authors' files, which are not in the repository) |
 | `tools/pass/` | sources of the pass story (`node tools/pass/build.mjs` writes `stories/pass.js`, cutting its globe and cell out of `stories/airports.js` and `stories/spatial.js`; `node tools/pass/test-sets.mjs` checks its sets) |
 | `tools/flock/` | sources of the flock (`node tools/flock/build.mjs` writes `stories/flock.js`) |
 | `tools/robots/` | sources of the robot gang (`node tools/robots/build.mjs` writes `stories/robots.js`) |
@@ -340,7 +355,7 @@ The muscle story (`stories/nmd.js`) is generated the same way from `tools/nmd/`
 `tools/endo/`, the PET story (`stories/pet.js`) from `tools/pet/`, the
 microanatomy story (`stories/micro.js`) from `tools/micro/`, the aging ovary story (`stories/ovary.js`) from
 `tools/ovary/`, the qubits story (`stories/qubits.js`) from
-`tools/qubits/`, the mutation story (`stories/mutation.js`) from `tools/mutation/`, the pass story (`stories/pass.js`) from `tools/pass/` (with the airports' globe and the cell map's
+`tools/qubits/`, the mutation story (`stories/mutation.js`) from `tools/mutation/`, the tissue topology story (`stories/topo.js`) from `tools/topo/`, the pass story (`stories/pass.js`) from `tools/pass/` (with the airports' globe and the cell map's
 cell taken from their stories at build time), the flock
 (`stories/flock.js`) from `tools/flock/` and the robot gang
 (`stories/robots.js`) from `tools/robots/`, each with `node tools/<key>/build.mjs`

@@ -5,8 +5,9 @@ across, centred on the origin while the window lies alone; side by side, `slide_
 window to x 0.42). Nothing here is computed but drawing: the cells within 50 µm of a cell are found by their drawn
 positions, the complex is the window's stored one (`TDATA.slide.edges`, `.tris`) filtered by stored radius, the counts
 are of stored bars (`TDATA.deaths`, `TDATA.betti`), the colours are each cell's stored score (`lo50`, `lo100`,
-`TDATA.colour`), the relief's heights the stored scores round each cell smoothed for drawing (below), the groups are the scores' signs (as many as `comp50.sizes`), the piles' tags are `comp50`'s
-stored shares.
+`TDATA.colour`), the relief's heights the stored scores round each cell smoothed for drawing (below), the groups are
+the scores' signs alone (as in the authors' code: below 0 healthy-like, above 0 cirrhosis-like, a cell at 0 or with no
+score in neither; the counts are `comp50.sizes`), the piles' tags are `comp50`'s stored shares.
 
 - **One cell** (the poster's cell v, `TOPO_DATA.slide.e.cell`, at (-0.002, 0, 0.332), a cell the classifier labels a
   fibroblast; or one picked in explore, `map_pick`): a glass dome of 50 µm (cyan, its rim glowing, a ring at its
@@ -146,6 +147,8 @@ and curves when the cell changes.
   fitted on the other 122 slides (pieces, H0).
 - Cell v's score is its own as the data gives it (6.97 at 50 µm), never the poster's printed 26.57.
 - The colours are the poster's (RdBu_r), clamped at the slide's 98th percentile of the scores (17.92).
-- The groups are the scores' signs; the piles' shares are topocyte's (`comp50`). The types are the cell classifier's
-  labels. With a radius of 100 µm, as in the poster's figure, the split is 1,000 and 5,716.
+- The groups are the scores' signs alone, as in the authors' code (a cell scored exactly 0, or not at all, is in
+  neither and stays on the slide, fading as the others lift off; this window has none); the piles' shares are
+  topocyte's (`comp50`). The types are the cell classifier's labels. With a radius of 100 µm, as in the poster's
+  figure, the split is 1,000 and 5,716.
 - The spots, the genes, the multiplex slide and the proteins are sketches of the workflow, not data.

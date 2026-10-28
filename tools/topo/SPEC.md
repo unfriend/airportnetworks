@@ -241,12 +241,17 @@ screen as the tour's tissue set does).
     (from `local`) rise beside it as a small tower of its own (threads and chimneys need no joins here: show the bars as
     rods and its two curves as small ribbons); its score as a needle up (red) or down (blue) and a tag ("its score:
     +6.97" from `e.logOdds`).
-  - Every cell a centre (`map_all` 0..1): the dome sweeps across the window; behind it every cell rises or sinks by its
-    score (`lo50`, clamped at ±`limit50`) and takes the map's colour: a relief, the scar bands red and up, the healthy
-    lobules blue and down. Cells with no local curve stay grey and flat.
-  - The split (`map_split` 0..1): the cells lift off in two groups, healthy-like and cirrhosis-like (`comp50.sizes`),
-    and sort themselves by type into piles (the five types and other: `comp50` shares), as columns of small cells (in
-    passing), tags with the shares.
+  - Every cell a centre (`map_all` 0..1): the dome sweeps across the window; behind it every cell takes the map's colour
+    by its own stored score (`lo50`, clamped at ±`limit50`) and rises or sinks with the scores round it: a relief, the
+    scar bands red and up, the healthy lobules blue and down. The heights are smoothed for drawing only (each cell's
+    clamped score as a Gaussian-weighted mean over the cells within 60 µm, σ 25 µm, so bands and lobules read as ridges
+    and hollows, not single spikes); the colours and every number (tags, the needle, explore) are each cell's own stored
+    score. Cells with no local curve stay grey and flat.
+  - The split (`map_split` 0..1): the cells lift off in two groups by the sign of their score alone, as the authors' code
+    splits them: healthy-like below 0, cirrhosis-like above 0, a cell at 0 or with no score in neither (it stays on the
+    slide and fades); the counts are `comp50.sizes` (1,529 and 5,187; at 100 µm `comp100.sizes`, 1,000 and 5,716), never
+    filled up to them. They sort themselves by type into piles (the five types and other: `comp50` shares), as columns
+    of small cells (in passing), tags with the shares.
   - The sketches (`map_omics` step: 0 none, 1 transcriptomics, 2 proteomics): the same two groups on a sketched slide of
     spots, with a schematic volcano of genes (dots rising), and on a sketched multiplex slide with a few protein bars
     as columns: labelled "sketch: the workflow, not data" (the poster's own words: "the other two sketch the workflow").
@@ -300,8 +305,9 @@ hard-coded. The text below is a draft: keep its meaning and its plainness, short
 6. `scales` 206-252, **Which scales matter** (`cohort`: the wall, the stacks, the column of radii). "A classifier draws a
    wall between the two clouds. Read back through the shapes, it becomes a weight for every radius: loops alive at 5 to
    15 µm speak for cirrhosis. Loops from 5 to 10 µm add 2.73 to the difference between the two groups and loops from 10
-   to 15 µm add 4.65; the other radii take 0.35 away. Together: 7.04, odds of about 1,138 to 1. Tested fairly, on
-   slides it never saw, it gets 109 of 123 right." Small print: a logistic regression on the first four scores; γ(r);
+   to 15 µm add 4.65; the other radii take 0.35 away. Together: 7.04 in log-odds: on average, a cirrhotic slide's odds
+   of cirrhosis are about 1,138 times a healthy slide's. Tested fairly, on slides it never saw, it gets 109 of 123
+   right." Small print: a logistic regression on the first four scores; γ(r);
    five-fold cross-validation: 62 of 66 healthy and 47 of 57 cirrhotic slides, accuracy 0.886.
 7. `cells` 252-302, **Every cell a centre** (`slide` overview, the window, `map`). "Now a slide the classifier never saw.
    Pick one cell and look only at the cells within 50 µm of it: they make their own small network and their own

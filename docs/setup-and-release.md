@@ -11,7 +11,7 @@ version, and undo one. Start with [HANDOVER.md](../HANDOVER.md). [AGENTS.md](../
 | --- | --- | --- |
 | Node | 22 (the relay alone runs on 18 or newer) | the build scripts, the data generators (all but one), the relay and every test. `relay/test.mjs` uses Node's own WebSocket client, which is on by default from Node 22 |
 | Playwright, with its Chromium | 1.56 | every browser test: smoke, sound, update, shared rooms, the set harnesses, and `tools/narration.mjs` |
-| Python 3 | 3.13 | optional: serving the folder (`python3 -m http.server`). Needed for the endotype story's data generator (3.11 or newer, see below) |
+| Python 3 | 3.13 | optional: serving the folder (`python3 -m http.server`). Needed for the data generators of the endotype story (3.11 or newer) and the tissue topology story (3.10 or newer), see below |
 | `http-server` | any | optional: another way to serve the folder (`npx` fetches it) |
 | `openssl` | any | only for the relay's `--lan` mode (see [relay/README.md](../relay/README.md)) |
 | git | any | a checkout. The update test also needs a second, older checkout |
@@ -60,6 +60,30 @@ python -I tools/endo/data/gen_data.py run.pkl seeds.xlsx   # a few minutes; writ
 node tools/endo/build.mjs
 ```
 
+**Python for the tissue topology data.** You only need this when the authors send new data or topocyte changes. The
+script is `tools/topo/data/gen_data.py`; it runs the authors' package topocyte (GPL-3, run here only, none of its code
+goes into the app) and the poster's own figure scripts. Its header asks for:
+
+- Python 3.10 or newer
+- numpy, scipy, anndata, pandas, scikit-learn, gudhi and h5py
+- checkouts of the authors' topocyte and topocyte_data repositories on the path (installed into the virtual
+  environment, or on `PYTHONPATH` when Python runs without `-I`, which ignores it)
+- the authors' files, which are not in the repository (ask the owner for them): the cohort's cells (`cells.h5ad`) and
+  the poster's figure project (`fig1/`, with `real.py` and `simplify.py`)
+
+It needs about 14 GB of memory (it packs the pieces and the loops in processes of their own) and takes about 30
+minutes the first time; the cohort's persistence and models are kept in a cache folder (by default `fig1_cache/`
+next to `fig1/`), so later runs are quicker. Only the numbers it writes go into the repository: no slide ids, no
+donor details, no images.
+
+```sh
+python3 -m venv ~/venvs/topo && . ~/venvs/topo/bin/activate
+pip install numpy scipy anndata pandas scikit-learn gudhi h5py
+python -I tools/topo/data/gen_data.py cells.h5ad fig1/   # topocyte and topocyte_data importable; writes tools/topo/sets/data.js
+node tools/topo/test-data.mjs                            # the data and its decoders against the poster's numbers
+node tools/topo/build.mjs
+```
+
 The other data generators are Node scripts (each story's `tools/<key>/README.md` lists them). The microanatomy
 generator also needs Iva Buljan's GraphML file, which is kept out of the repository.
 
@@ -92,7 +116,7 @@ tests use headless Chromium, which draws in software here and is slow, so run th
 
 | Test | Command | Needs | When to run it | Time | A failure usually means |
 | --- | --- | --- | --- | --- | --- |
-| Build check | `for k in lbi nmd endo pet micro ovary qubits mutation pass flock robots; do node tools/$k/build.mjs --check; done` | Node | after any change in `tools/`, and before every release | under 1 s | a built story no longer matches its sources: run its `build.mjs` and commit both |
+| Build check | `for k in lbi nmd endo pet micro ovary qubits mutation topo pass flock robots; do node tools/$k/build.mjs --check; done` | Node | after any change in `tools/`, and before every release | under 1 s | a built story no longer matches its sources: run its `build.mjs` and commit both |
 | Smoke | `node tools/smoke.mjs http://127.0.0.1:8123/` | server, Playwright | before every commit | about 5 min | a page or console error in a story (they are printed at the end). A 404 for a missing narration MP3 is expected and ignored |
 | Sound | `node tools/audio.mjs http://127.0.0.1:8123/` | server, Playwright, `audio/narration.mp3` | after touching sound (`HOST.audio` in `index.html`, a story's narration code, how `sw.js` serves the narration) | a few minutes | the narration no longer starts after a tap or a story change, or the `<audio>` fallback no longer takes over |
 | Update | `git worktree add /tmp/old origin/main`, then `node tools/update.mjs /tmp/old .`, then `git worktree remove /tmp/old` | Playwright, port 8125 free (it serves both versions itself) | after changing `sw.js` or how files load, and before every release | under 1 min | `VERSION` was not bumped, a new file is missing from `SHELL`, or the page and its stories came from different versions. If it says the two versions look the same, the old checkout is not older |
@@ -125,8 +149,8 @@ only after the tests pass. No pull requests are used.
 
 1. **Start up to date.** Run `git fetch origin`, then `git merge-base --is-ancestor origin/main HEAD && echo ok`. If
    it prints nothing, merge `origin/main` into your branch first.
-2. **Edit the sources, never a built story.** Eleven stories are built from `tools/<key>/`: lbi, nmd, endo, pet,
-   micro, ovary, qubits, mutation, pass, flock and robots (pass also takes its globe and cell from `stories/airports.js` and
+2. **Edit the sources, never a built story.** Twelve stories are built from `tools/<key>/`: lbi, nmd, endo, pet,
+   micro, ovary, qubits, mutation, topo, pass, flock and robots (pass also takes its globe and cell from `stories/airports.js` and
    `stories/spatial.js`: rebuild it after changing either). `stories/airports.js`, `stories/proteins.js` and `stories/spatial.js` are edited by hand.
    Search them rather than reading them whole, because they are large.
 3. **Rebuild.** If the data changed, run the data generator first (see the story's README), then rebuild the
@@ -134,21 +158,22 @@ only after the tests pass. No pull requests are used.
 
    | Source | Stories built from it |
    | --- | --- |
-   | `tools/lbi/kit.js` | all eleven built stories |
-   | `tools/lbi/sets/body.js` | lbi, pet, micro, ovary |
+   | `tools/lbi/kit.js` | all twelve built stories |
+   | `tools/lbi/sets/body.js` | lbi, pet, micro, ovary, topo |
    | `tools/lbi/sets/tissue.js` | lbi, micro |
    | `tools/nmd/sets/motor.js`, `tools/nmd/sets/data.js` | nmd, endo |
    | `tools/pet/sets/icons.js` | pet |
+   | `tools/micro/sets/organs.js` | micro, topo |
 
-   Rebuilding all eleven takes well under a second:
-   `for k in lbi nmd endo pet micro ovary qubits mutation pass flock robots; do node tools/$k/build.mjs; done`
-4. **Bump `VERSION` in `sw.js`** (`networks-v91` now, so `networks-v92` next) after any change to a file the app
+   Rebuilding all twelve takes about a second:
+   `for k in lbi nmd endo pet micro ovary qubits mutation topo pass flock robots; do node tools/$k/build.mjs; done`
+4. **Bump `VERSION` in `sw.js`** (`networks-v92` now, so `networks-v93` next) after any change to a file the app
    serves: `index.html`, `shared.js`, `sw.js`, `manifest.webmanifest`, `three.min.js`, `three.LICENSE.txt`,
    `proteins.html`, `spatial.html`, `README.txt`, and anything in `stories/`, `audio/` or `icons/`. For a new file the
-   app needs, add it to `SHELL` in `sw.js`. A narration goes in `AUDIO`, which already lists all fourteen file names. If
+   app needs, add it to `SHELL` in `sw.js`. A narration goes in `AUDIO`, which already lists all fifteen file names. If
    the new file is not directly inside `stories/`, `audio/` or `icons/`, also add it to `APP_FILES` in
    `relay/server.mjs`.
-5. **Bump `FORMAT` in `shared.js`** (`networks-22` now) when the shared keys, or the shape of a story's
+5. **Bump `FORMAT` in `shared.js`** (`networks-23` now) when the shared keys, or the shape of a story's
    `collab.state()`, change. A room refuses pages that have another format, so every device in a room has to update
    together.
 6. **Update the docs.**

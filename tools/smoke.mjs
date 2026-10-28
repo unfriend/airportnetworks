@@ -1,4 +1,4 @@
-// Headless smoke test for the fourteen stories.
+// Headless smoke test for the fifteen stories.
 //   node tools/smoke.mjs [base-url]     (default http://127.0.0.1:8123/)
 // Serve the folder first (npx http-server -p 8123 -c-1 .). Needs Playwright;
 // set PLAYWRIGHT_MODULE to its path if it is installed globally, and
@@ -20,7 +20,7 @@ await page.waitForTimeout(4000);
 await step('start screen is the landing page', async () => {
   if (!await page.evaluate(() => HOST.picking)) errors.push('start screen not shown on load');
 });
-for (const key of ['airports', 'proteins', 'spatial', 'lbi', 'nmd', 'endo', 'pet', 'micro', 'ovary', 'qubits', 'mutation', 'pass', 'flock', 'robots']) {
+for (const key of ['airports', 'proteins', 'spatial', 'lbi', 'nmd', 'endo', 'pet', 'micro', 'ovary', 'qubits', 'mutation', 'topo', 'pass', 'flock', 'robots']) {
   await step(`load ${key}`, async () => {
     await page.click(`#picker [data-story="${key}"]`).catch(async () => { await page.click('#btnOther'); await page.click(`#picker [data-story="${key}"]`); });
     await page.waitForFunction(k => HOST.curKey === k && HOST.cur && HOST.cur.peek('typeof ST !== "undefined" && ST.items.length > 0'), key, { timeout: 30000 });
@@ -531,6 +531,125 @@ for (const key of ['airports', 'proteins', 'spatial', 'lbi', 'nmd', 'endo', 'pet
       }
     } finally { await lp.close(); }
   });
+  if (key === 'topo') await step('topo: every explore tool, on the page and in the headset', async () => {
+    const bad = await page.evaluate(async () => {
+      const sleep = ms => new Promise(r => setTimeout(r, ms)), peek = src => HOST.cur.peek(src);
+      const until = async (f, ms) => { for (let n = 0; n < ms / 50 && !f(); n++) await sleep(50); return f(); };
+      // (the cells' own bars are inflated a frame or two after load)
+      if (!await until(() => peek('TDATA.localReady'), 30000)) return ['the cells\' own bars were never unpacked'];
+      const out = peek(`(() => {
+        const out = [], txt = k => document.getElementById('pane-' + k).textContent;
+        // the value of a row of a pane, read from the page (a sign as the panes print it: − or +)
+        const dd = (k, name) => { const t = [...document.querySelectorAll('#pane-' + k + ' dt')].find(d => d.textContent === name), v = t && t.nextElementSibling.firstChild;
+          return v ? parseFloat(v.textContent.replace('−', '-')) : NaN; };
+        // Patch: the poster's four snapshots give its counts; every view and what is lit
+        pickTab('patch'); if (X.scene !== 'tower') out.push('the Patch tab did not bring up the patch');
+        for (const s of FACTS.snaps) {
+          setR(s.r);
+          if (X.r !== Math.round(s.r * 100) / 100 || dd('patch', 'Pieces') !== s.pieces || dd('patch', 'Loops') !== s.loops) out.push('at ' + s.r + ' µm the pane shows ' + dd('patch', 'Pieces') + ' pieces and ' + dd('patch', 'Loops') + ' loops, not ' + s.pieces + ' and ' + s.loops);
+        }
+        for (const r of [1.5, 60]) { setR(r); if (X.r !== r) out.push('the radius ' + r + ' not set'); }
+        for (const [v] of ctlOf('tower', 'view').options) { showView('tower', v); if (towerView() !== v) out.push('the patch\\'s view ' + v + ' not shown'); }
+        for (const [v] of ctlOf('tower', 'lit').options) sceneCtl('tower', 'lit', v);
+        // Cohort: both kinds of curve and every view, every slide picked; the held-out test as the poster's
+        pickTab('cohort'); if (X.scene !== 'cohort') out.push('the Cohort tab did not bring up the cohort');
+        for (const [d] of ctlOf('cohort', 'dim').options) for (const [v] of COHORT_VIEWS()) {
+          sceneCtl('cohort', 'dim', d); showView('cohort', v);
+          if (cohortDim() !== +d || cohortView() !== v) out.push('the cohort\\'s ' + v + ' of dimension ' + d + ' not shown');
+        }
+        sceneCtl('cohort', 'dim', '1');
+        const P = TOPO_DATA.poster, cf = P.confusion, N = TOPO_DATA.labels.length;
+        if (!txt('cohort').includes((cf[0] + cf[3]) + ' of ' + N + ' right') || !txt('cohort').includes(cf[0] + ' of ' + (cf[0] + cf[1]) + ' right') || !txt('cohort').includes(cf[3] + ' of ' + (cf[2] + cf[3]) + ' right') || !txt('cohort').includes(P.accuracy.toFixed(3)))
+          out.push('the Cohort pane does not show the poster\\'s held-out test ' + cf + ', ' + P.accuracy);
+        for (let i = 0; i < N; i++) { selectSlide(i); if (X.slide !== i || !txt('cohort').includes('Slide ' + (i + 1) + ' · ')) { out.push('slide ' + (i + 1) + ' not shown'); break; } }
+        stepSlide(1); if (X.slide !== 0) out.push('Next after the last slide did not go round to the first');
+        selectSlide(-1);
+        // Scales: a window of radii of your own, read from the pane, is the sum of the stored shares; the poster's windows
+        pickTab('scales'); if (X.scene !== 'cohort' || cohortView() !== 'scales') out.push('the Scales tab did not bring up the column of radii');
+        for (const [d] of ctlOf('cohort', 'dim').options) {
+          sceneCtl('cohort', 'dim', d);
+          for (const [a, b] of [[5, 15], [0, 5], [15, 100.5]]) {
+            setFrom(a); setTo(b);
+            const want = TDATA.share(+d, a, b > 100 ? Infinity : b);
+            if (X.from !== a || X.to !== b || Math.abs(dd('scales', 'Adds') - want) > 0.006) out.push('the window ' + a + '-' + b + ' µm of dimension ' + d + ' reads ' + dd('scales', 'Adds') + ', not ' + want.toFixed(3));
+          }
+        }
+        sceneCtl('cohort', 'dim', '1'); setFrom(5); setTo(15);
+        for (const [a, b, s] of P.windows) if (Math.abs(TDATA.share(1, a, b) - s) > 0.005 || !txt('scales').includes(f2s(s))) out.push('the poster\\'s window ' + a + '-' + b + ' µm (' + s + ') is not shown');
+        if (Math.abs(TOPO_DATA.h1.shares.gap - P.gap) > 0.005 || dd('scales', 'The gap') !== +P.gap.toFixed(2)) out.push('the gap ' + dd('scales', 'The gap') + ' is not the poster\\'s ' + P.gap);
+        // Cells: every way to show the map, both radii, a cell picked and its network's radius; cell v's score as the data's
+        pickTab('cells'); if (X.scene !== 'map') out.push('the Cells tab did not bring up the map');
+        for (const [d] of ctlOf('map', 'delta').options) for (const [s] of ctlOf('map', 'show').options) {
+          sceneCtl('map', 'delta', d); showView('map', s);
+          if (mapDelta() !== +d || mapShow() !== s) out.push('the map\\'s ' + s + ' at ' + d + ' µm not shown');
+          if (s === 'split') { const z = TOPO_DATA.slide['comp' + d].sizes; if (!txt('cells').includes(fmt(z[1]) + ' cirrhosis-like and ' + fmt(z[0]) + ' healthy-like')) out.push('the groups at ' + d + ' µm are not ' + z); }
+        }
+        sceneCtl('map', 'delta', '50'); showView('map', 'cell');
+        selectCell(-1); if (!txt('cells').includes('Cell v') || dd('cells', 'Score') !== +TOPO_DATA.slide.e.logOdds.toFixed(2)) out.push('cell v\\'s score reads ' + dd('cells', 'Score') + ', not the data\\'s ' + TOPO_DATA.slide.e.logOdds);
+        selectCell(1233); setMR(4.8);
+        const lo = TDATA.slide.lo50[1233];
+        if (X.cell !== 1233 || X.mr !== 4.8 || !txt('cells').includes('Cell 1,234') || (Number.isFinite(lo) ? Math.abs(dd('cells', 'Score') - lo) > 0.006 : !txt('cells').includes('none'))) out.push('cell 1,234 at 4.8 µm not shown (' + txt('cells').slice(0, 120) + ')');
+        if (cellsInfo().rows.some(r => r[1] === '…' || r[1] === 'unpacking…')) out.push('cell 1,234\\'s own bars are not shown');
+        // Scenes: every scene's every control; the shared state round trip
+        for (const [k] of SCENES) { openScene(k); for (const c of ctlsOf(k)) for (const [v] of c.options) setCtl(k, c.key, v); }
+        const st = JSON.stringify(collabState()); collabApply(JSON.parse(st));
+        if (JSON.stringify(collabState()) !== st) out.push('apply(state()) changed the state');
+        // the headset's panels, every tab
+        XR.on = true;
+        for (const [k] of TABS) { pickTab(k); for (const P of XR.panels) { P.last = ''; P.t = -1e9; panelTick(P, performance.now() + 1e6); } }
+        XR.on = false;
+        // ready to pick: the slides in the space of their scores
+        selectCell(-1); selectSlide(-1); pickTab('cohort'); showView('cohort', 'space');
+        orbit.cur = view('cohort', viewCam('cohort')); orbit.to = null; Object.assign(XS, exploreTargets());
+        return out;
+      })()`);
+      // picks with the pointer, once the sets have drawn: a slide of the cohort, then a cell of the new slide
+      const f0 = window.__frames; await until(() => window.__frames >= f0 + 3, 30000);
+      // (the first point on a grid over the scene, beside the side panel, that picks a thing of that kind)
+      const pickOn = kind => peek(`(() => { applyCamera(orbit.cur); GL.camera.updateMatrixWorld(); GL.world.updateMatrixWorld(true);
+        for (let y = 0.15; y < 0.9; y += 0.03) for (let x = 0.3; x < 0.95; x += 0.03) { const p = pickAt(innerWidth * x, innerHeight * y); if (p && p.${kind} !== undefined) return p; }
+        return null; })()`);
+      const ps = pickOn('slide');
+      if (!ps) out.push('no slide picked in the space of scores');
+      else { peek(`(pickText(${JSON.stringify(ps)}), choosePick(${JSON.stringify(ps)}))`); if (peek('X.slide') !== ps.slide) out.push('a slide clicked was not picked'); }
+      peek(`(selectSlide(-1), pickTab('cells'), showView('map', 'map'), orbit.cur = view('map', viewCam('map')), orbit.to = null, Object.assign(XS, exploreTargets()))`);
+      const f1 = window.__frames; await until(() => window.__frames >= f1 + 3, 30000);
+      const pc = pickOn('cell');
+      if (!pc) out.push('no cell picked on the map');
+      else { peek(`(pickText(${JSON.stringify(pc)}), choosePick(${JSON.stringify(pc)}))`); if (peek('X.cell') !== (pc.cell === peek("api('map').e") ? -1 : pc.cell)) out.push('a cell clicked was not picked'); }
+      peek(`(selectCell(-1), sceneCtl('map', 'delta', '50'), pickTab('patch'))`);
+      return out;
+    });
+    if (bad.length) errors.push(...bad.map(b => 'topo: ' + b));
+  });
+  if (key === 'topo') await step('topo: its links open explore mode on what they say', async () => {
+    // (a page of its own: a link differing only in its hash would not load the story again)
+    const lp = await browser.newPage({ viewport: { width: 1280, height: 760 } });
+    lp.on('pageerror', e => errors.push('topo link: ' + (e.stack || e.message)));
+    lp.on('console', m => { if (m.type() === 'error' && !/404|Failed to load resource/.test(m.text())) errors.push('topo link: ' + m.text()); });
+    // (dd: a row's value read from a pane, as the mutation story's txt reads its text)
+    const LINKS = [
+      ['tab=patch&r=13.5&tower=on', "X.tab === 'patch' && X.scene === 'tower' && X.r === 13.5 && towerView() === 'tower' && txt('patch').includes('13.50 µm') && dd('patch', 'Pieces') === api('tower').counts(13.5).pieces"],
+      ['tab=cohort&dim=1&view=space&slide=17', "X.tab === 'cohort' && X.scene === 'cohort' && cohortView() === 'space' && cohortDim() === 1 && X.slide === 16 && txt('cohort').includes('Slide 17 · ')"],
+      ['tab=scales&dim=1&from=5&to=15', "X.tab === 'scales' && cohortView() === 'scales' && cohortDim() === 1 && X.from === 5 && X.to === 15 && Math.abs(dd('scales', 'Adds') - TDATA.share(1, 5, 15)) < 0.006"],
+      ['tab=cells&cell=1234&r=4.8&delta=50', "X.tab === 'cells' && X.scene === 'map' && mapShow() === 'cell' && mapDelta() === 50 && X.cell === 1233 && X.mr === 4.8 && txt('cells').includes('Cell 1,234')"],
+      ['scene=slide&mode=points', "X.tab === 'scenes' && X.scene === 'slide' && ctlValue('slide', ctlOf('slide', 'look')) === 'points'"],
+      ['scene=body&liver=slice', "X.tab === 'scenes' && X.scene === 'body' && ctlValue('body', ctlOf('body', 'liver')) === 'slice'"],
+      ['scene=tower&view=up', "X.tab === 'scenes' && X.scene === 'tower' && orbit.cur[1] === view('tower', 'up')[1] && orbit.cur[2] === view('tower', 'up')[2]"],
+    ];
+    try {
+      for (const [h, ok] of LINKS) {
+        await lp.goto('about:blank');
+        await lp.goto(base + 'index.html#topo&explore&' + h);
+        await lp.waitForFunction(() => typeof HOST !== 'undefined' && HOST.curKey === 'topo' && HOST.cur && HOST.cur.peek('APP.mode') === 'explore', null, { timeout: 30000 });
+        const shown = await lp.evaluate(ok => HOST.cur.peek(`(() => { const txt = k => document.getElementById('pane-' + k).textContent;
+          const dd = (k, name) => { const t = [...document.querySelectorAll('#pane-' + k + ' dt')].find(d => d.textContent === name), v = t && t.nextElementSibling.firstChild;
+            return v ? parseFloat(v.textContent.replace('−', '-')) : NaN; };
+          return ${ok}; })()`), ok);
+        if (!shown) errors.push(`topo: the link #topo&explore&${h} does not show what it says (${await lp.evaluate(() => JSON.stringify(HOST.cur.collab.state()))})`);
+      }
+    } finally { await lp.close(); }
+  });
   if (key === 'pass') await step('pass: both languages and their switch, every explore tool, on the page and in the headset', () => page.evaluate(async () => {
     const sleep = ms => new Promise(r => setTimeout(r, ms)), peek = src => HOST.cur.peek(src), out = [];
     const panels = () => peek(`(() => { XR.on = true; for (const P of XR.panels) { P.last = ''; P.t = -1e9; panelTick(P, performance.now() + 1e6); } XR.on = false; return XR.main.regions.map(r => r.id); })()`);
@@ -619,7 +738,7 @@ await step('Repeat one and Repeat all', async () => {
 });
 // Anchored mode with a pretend headset: a room whose tracking origin can jump (recentring) and
 // anchors that keep their place in it, saved under a handle (Quest's persistent anchors)
-for (const key of ['airports', 'proteins', 'spatial', 'lbi', 'nmd', 'endo', 'pet', 'micro', 'ovary', 'qubits', 'mutation', 'pass', 'flock', 'robots']) await step(`${key}: anchored placement`, async () => {
+for (const key of ['airports', 'proteins', 'spatial', 'lbi', 'nmd', 'endo', 'pet', 'micro', 'ovary', 'qubits', 'mutation', 'topo', 'pass', 'flock', 'robots']) await step(`${key}: anchored placement`, async () => {
   await page.evaluate(k => HOST.start(k), key);
   await page.waitForFunction(k => HOST.curKey === k && HOST.cur && HOST.cur.peek('typeof ST !== "undefined" && ST.items.length > 0'), key, { timeout: 30000 });
   const bad = await page.evaluate(async () => {

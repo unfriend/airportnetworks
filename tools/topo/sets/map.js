@@ -7,7 +7,7 @@
 // cell takes the poster's colour by its own stored score (lo50, clamped at the colour map's limit) and rises or sinks
 // with the scores round it (a smoothed height, for drawing only): a relief of the window's stored triangles, the scars
 // red and up, the healthy-like tissue blue and down. The cells then
-// lift off in two groups by the sign of their score (healthy-like, cirrhosis-like: as many as comp50.sizes) and sort
+// lift off in two groups by the sign of their score alone (healthy-like below 0, cirrhosis-like above: comp50.sizes) and sort
 // themselves by type into piles (comp50's five types and other), as columns whose heights follow each type's share; and
 // the sketches of the workflow on other modalities (spots and a volcano of genes; a multiplex slide and protein columns:
 // schematic, labelled so). Nothing is computed here but drawing: look-ups by stored radius, counts of stored bars,
@@ -76,19 +76,14 @@ SETS.map = function (K) {
   const edgeOf = csr(E.n, e => { _l2[0] = E.i[e]; _l2[1] = E.j[e]; return _l2; });
   const triOf = csr(TR.n, t => { _l3[0] = TR.i[t]; _l3[1] = TR.j[t]; _l3[2] = TR.k[t]; return _l3; });
 
-  // the two groups by the sign of the score (cells scored exactly 0, after rounding, fill each group up to its stored
-  // size), for 50 and 100 µm; each cell's type among comp's six (five types and other)
+  // the two groups by the sign of the score alone, as the authors' code splits them: 0 healthy-like (below 0),
+  // 1 cirrhosis-like (above 0), 2 neither (a score of exactly 0, or none); for 50 and 100 µm. The counts are
+  // comp50.sizes and comp100.sizes. Each cell's type among comp's six (five types and other)
   const COMP = [SD.comp50, SD.comp100], LOS = [W.lo50, W.lo100];
-  const GROUP = [new Uint8Array(N), new Uint8Array(N)], SIZE = [[0, 0], [0, 0]];
-  for (let d = 0; d < 2; d++) {
-    const lo = LOS[d], want0 = COMP[d].sizes[0];
-    let neg = 0;
-    for (let i = 0; i < N; i++) if (lo[i] < 0) neg++;
-    let spare = want0 - neg;
-    for (let i = 0; i < N; i++) {
-      const g = lo[i] < 0 ? 0 : lo[i] > 0 ? 1 : spare-- > 0 ? 0 : 1;
-      GROUP[d][i] = g; SIZE[d][g]++;
-    }
+  const GROUP = [new Uint8Array(N), new Uint8Array(N)], SIZE = [[0, 0, 0], [0, 0, 0]];
+  for (let d = 0; d < 2; d++) for (let i = 0; i < N; i++) {
+    const v = LOS[d][i], g = v < 0 ? 0 : v > 0 ? 1 : 2;   // (NaN compares false both ways: neither)
+    GROUP[d][i] = g; SIZE[d][g]++;
   }
   const CT = SD.comp50.types, ctIdx = W.types.map(nm => { const j = CT.indexOf(nm); return j < 0 ? CT.indexOf('other') : j; });
   const TYPE = new Uint8Array(N);
@@ -104,7 +99,10 @@ SETS.map = function (K) {
     const per = [0, 1].map(g => Math.max(1, Math.round(SIZE[d][g] / LAYERS))), dims = per.map(c => { const nx = Math.ceil(Math.sqrt(c)); return [nx, Math.ceil(c / nx)]; });
     const fill = Array.from({ length: 2 }, () => new Int32Array(6));
     for (let i = 0; i < N; i++) {
-      const g = GROUP[d][i], t = TYPE[i], s = fill[g][t]++, c = per[g], layer = Math.floor(s / c), q = s % c, [nx, nz] = dims[g];
+      const g = GROUP[d][i];
+      // (a cell in neither group stays where it lies, and fades as the others lift off)
+      if (g > 1) { PILE[d][3 * i] = X[i]; PILE[d][3 * i + 1] = LIFT; PILE[d][3 * i + 2] = Z[i]; continue; }
+      const t = TYPE[i], s = fill[g][t]++, c = per[g], layer = Math.floor(s / c), q = s % c, [nx, nz] = dims[g];
       const cx = GX[g] + (t - 2.5) * PSP, ix = q % nx, iz = Math.floor(q / nx);
       PILE[d][3 * i] = cx + (ix - (nx - 1) / 2) * PITCHB; PILE[d][3 * i + 1] = PBASE + (layer + 0.5) * PITCHB; PILE[d][3 * i + 2] = PZ + (iz - (nz - 1) / 2) * PITCHB;
       if (d === 0) DELAY[i] = 0.45 * Math.min(1, layer / 40) + 0.06 * R0();
@@ -200,10 +198,10 @@ void main() {
   vec3 q = mix(aQ, aQ2, uDelta), p = mix(p0, q, e) + vec3(0.0, 0.22 * sin(3.14159 * e), 0.0);
   float b = smoothstep(aD.x, aD.x + 0.5, uBack);
   p = mix(p, vec3(aP.x, uLift + 0.003, aP.y), b);
-  // the map's colour on the relief, the type's in the piles, the group's back on the slide
-  float g = mix(aD.y, aD.z, uDelta);
+  // the map's colour on the relief, the type's in the piles, the group's back on the slide (2: in neither, grey, fading)
+  float g = mix(aD.y, aD.z, uDelta), none = smoothstep(1.4, 1.6, g);
   vec3 c = mix(mix(aC, aC2, uDelta), aT, e);
-  c = mix(c, mix(uHC, uCC, g), b);
+  c = mix(c, mix(mix(uHC, uCC, min(g, 1.0)), vec3(0.42, 0.45, 0.52), none), b);
   // under the sweeping dome the cells light
   float dd = length(vec2(aP.x, aP.y) - uDome.xy), lit = uDome.w * (1.0 - smoothstep(uDome.z * 0.85, uDome.z, dd));
   vG = lit;
@@ -213,7 +211,7 @@ void main() {
   float px = uR * uPx * projectionMatrix[1][1] / max(-mv.z, 1e-4), gr = max(1.0, 1.4 / max(px, 1e-3));   // never under 1.4 pixels
   mv.xy += position.xy * sz * gr;
   vQ = position.xy;
-  vA = uA * max(rise, e) * (1.0 - uHid * b) / (gr * gr);
+  vA = uA * max(rise, e) * (1.0 - uHid * b) * (1.0 - none * e) / (gr * gr);
   gl_Position = projectionMatrix * mv;
   if (vA < 0.004) gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
 }`,
@@ -306,9 +304,9 @@ void main() {
     for (let row = 0, y = 25; y < side; row++, y += 50 * 0.866) for (let x = row % 2 ? 50 : 25; x < side; x += 50) {
       near(x, y, SPR * 1.3, tmp);
       if (!tmp.length) continue;
-      let a = 0, b = 0;
-      for (const i of tmp) { a += GROUP[0][i]; b += GROUP[1][i]; }
-      SPOTS.push([(x - side / 2) * k, (y - side / 2) * k, a / tmp.length, b / tmp.length]);
+      let a = 0, b = 0, na = 0, nb = 0;   // (of the cells in a group)
+      for (const i of tmp) { const g0 = GROUP[0][i], g1 = GROUP[1][i]; if (g0 < 2) { a += g0; na++; } if (g1 < 2) { b += g1; nb++; } }
+      SPOTS.push([(x - side / 2) * k, (y - side / 2) * k, na ? a / na : 0, nb ? b / nb : 0]);
     }
   }
   const spotP = LK.cells(SPOTS.length), geneP = LK.cells(GENES.length);
@@ -596,6 +594,7 @@ void main() {
     }
     return best < 0 ? null : { kind: 'cell', cell: best };
   }
+  const GNAME = ['healthy-like', 'cirrhosis-like', 'in neither group'];
   const API = {
     n: N, e: e.cell, drawR: e.drawR, eLogOdds: e.logOdds, limit50: SD.limit50, limit100: SD.limit100, delta: DELTA,
     comp50: SD.comp50, comp100: SD.comp100, types: W.types,
@@ -605,7 +604,7 @@ void main() {
       const nb = near(W.x[i], W.y[i], DELTA, []);
       const h0 = i === e.cell ? SD.eBars.h0 : W.localH0(i), h1 = i === e.cell ? SD.eBars.h1 : W.localH1(i);
       return { i, x: W.x[i], y: W.y[i], type: W.types[W.type[i]], lo50: i === e.cell ? e.logOdds : W.lo50[i], lo100: W.lo100[i], near: nb.length,
-        h0, h1, group50: GROUP[0][i] ? 'cirrhosis-like' : 'healthy-like', group100: GROUP[1][i] ? 'cirrhosis-like' : 'healthy-like' };
+        h0, h1, group50: GNAME[GROUP[0][i]], group100: GNAME[GROUP[1][i]] };
     },
     // the counts at radius r for a cell's own bars (pieces: its deaths still alive plus the one living on; loops alive)
     counts(i, r) { const c = API.cell(i); return c.h0 ? { pieces: T.deaths(c.h0, r) + 1, loops: T.betti(c.h1 || [], r) } : null; },

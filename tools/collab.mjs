@@ -88,6 +88,10 @@ const STORIES = {
     // (the pair favour picked by hand turns the stem's numbers to this example, computed live)
     back: "pickTab('tree'); sceneCtl('tree', 'seed', '3'); selectBranch(4); setW(20)",
   },
+  topo: {
+    change: "pickTab('cohort'); sceneCtl('cohort', 'dim', '0'); showView('cohort', 'space'); selectSlide(16); setR(30, false)",
+    back: "pickTab('cells'); sceneCtl('map', 'delta', '100'); selectCell(1233); setMR(4.8); setFrom(10); setTo(20)",
+  },
   robots: {
     change: "setCtl('robots', 'rule', 'chain'); setCtl('robots', 'robots', '12')", back: "setCtl('robots', 'trails', 'on'); setCtl('robots', 'links', 'on')",
     effect: { quiet: '0', idle: "(window.__c0 = GL.sets.robots.anchors.crumbs().join(), true)", send: 'spillCrumbs()', seen: "GL.sets.robots.anchors.crumbs().join() !== window.__c0" },

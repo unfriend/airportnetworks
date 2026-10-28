@@ -243,10 +243,10 @@ function collabApply(v) {
   const int = (x, lo, hi) => Number.isInteger(x) && x >= lo && x <= hi, num = (x, lo, hi) => Number.isFinite(x) && x >= lo && x <= hi;
   if (num(v.r, 1.5, 60) && v.r !== X.r) setR(v.r, false);
   if (num(v.mr, 1.5, 60) && v.mr !== X.mr) setMR(v.mr, false);
-  // (the window as one: both ends on the grid, the first below the second)
-  if (num(v.from, 0, 100) && num(v.to, 0.5, 100.5) && v.from < v.to && (v.from !== X.from || v.to !== X.to)) {
-    X.from = Math.round(v.from * 2) / 2; X.to = Math.round(v.to * 2) / 2; syncNums();
-  }
+  // (the window as one: both ends rounded onto the grid first, as the sliders do, then the first below the second; so
+  // state() reports what was applied and apply(state()) changes nothing)
+  const grid = x => (Number.isFinite(x) ? Math.round(x * 2) / 2 : NaN), wf = grid(v.from), wt = grid(v.to);
+  if (num(wf, 0, 100) && num(wt, 0.5, 100.5) && wf < wt && (wf !== X.from || wt !== X.to)) { X.from = wf; X.to = wt; syncNums(); }
   if (int(v.slide, -1, (api('cohort').n || 1) - 1) && v.slide !== X.slide) selectSlide(v.slide, false);
   if (int(v.cell, -1, (api('map').n || 1) - 1) && v.cell !== X.cell) selectCell(v.cell, false);
   renderAll();
@@ -407,8 +407,9 @@ function cellsInfo() {
   if (!c) return { head: '', rows: [], piles: [] };
   const lo = d === 100 ? c.lo100 : c.lo50, cnt = A.counts ? A.counts(i, X.mr) : null;
   const rows = [['Type', c.type, 'the cell classifier\'s label'], ['Score', Number.isFinite(lo) ? f2s(lo) : 'none', Number.isFinite(lo) ? `${d === 100 ? c.group100 : c.group50} · within ${d} µm` : 'no curve of its own'],
-    ['Within 50 µm', `${fmt(c.near)} cells`, 'itself included'],
-    ['Its bars', c.h0 ? `${plural(c.h0.length + 1, 'piece', 'pieces')}, ${plural(c.h1.length / 2, 'loop', 'loops')}` : 'unpacking…'],
+    // (the neighbourhood drawn, its network and its own bars are the 50 µm ones, whichever radius the map is at)
+    ['Drawn round it', `${fmt(c.near)} cells`, `within ${A.delta} µm, itself included`],
+    ['Its bars', c.h0 ? `${plural(c.h0.length + 1, 'piece', 'pieces')}, ${plural(c.h1.length / 2, 'loop', 'loops')}` : 'unpacking…', `of those ${A.delta} µm`],
     [`At ${fmtR2(X.mr)} µm`, cnt ? `${plural(cnt.pieces, 'piece', 'pieces')}, ${plural(cnt.loops, 'loop', 'loops')}` : '…', 'still alive']];
   const C = d === 100 ? A.comp100 : A.comp50;
   const piles = C ? C.types.map((t, k) => [t, `${pct(C.cirrhosis[k])} · ${pct(C.healthy[k])}`, 'cirrhosis-like · healthy-like']) : [];

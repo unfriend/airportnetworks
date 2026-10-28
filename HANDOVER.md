@@ -1,6 +1,6 @@
 # Start here: handing over Networks
 
-An installable web app that teaches network science in fourteen narrated 3D stories, each followed by an explore mode,
+An installable web app that teaches network science in fifteen narrated 3D stories, each followed by an explore mode,
 on desktops, phones and VR/AR headsets (built for Meta Quest Browser). Several headsets can share one room. There is
 no build step and no framework: plain HTML and JavaScript with a vendored three.js, deployed by copying the folder to
 any HTTPS host. This page is for the colleagues taking it over: what there is, what state it is in, what is still open,
@@ -16,7 +16,7 @@ and where to read on.
 | change the code | this page, then [docs/setup-and-release.md](docs/setup-and-release.md) and [AGENTS.md](AGENTS.md) (the full guide: structure, conventions, every shared-room rule, testing) |
 | work with an AI coding agent | [CLAUDE.md](CLAUDE.md) and [AGENTS.md](AGENTS.md) are written for agents too; see "Working with AI agents" below |
 
-## The fourteen stories
+## The fifteen stories
 
 | Story | Key | Source | Narration | Data |
 | --- | --- | --- | --- | --- |
@@ -31,6 +31,7 @@ and where to read on.
 | Ovarian aging: The aging ovary | `ovary` | `tools/ovary/` (built) | not yet | the poster's numbers typed in and values read off its figures (the ovary's count tags: approximate); the neighbor network illustrative |
 | Quantum network compression: Three qubits | `qubits` | `tools/qubits/` (built) | not yet | example networks computed live; the real run's summary numbers from Joel Hancock's brief (his method and figures) |
 | Quantum phylogenetics: The mutation machine | `mutation` | `tools/mutation/` (built) | not yet | example numbers computed live, as in the authors' own test; the poster's numbers typed in, shown only as "in the authors' test"; the coupling computed live is our stand-in for their circuit |
+| Tissue topology: The shape of tissue | `topo` | `tools/topo/` (built) | not yet | every number computed by the authors' package topocyte on their GTEx liver cohort (the files kept out of the repository; only the numbers in it); the poster's numbers all reproduced; the genes and proteins of the last chapter are sketches |
 | Networks for everyone: Pass it on | `pass` | `tools/pass/` (built; its globe and cell cut out of `stories/airports.js` and `stories/spatial.js` at build time) | not yet | the airports' routes and the cell map's proteins as in those stories; the fish and the outbreak are simulations; English and German |
 | Collective motion: Flock | `flock` | `tools/flock/` (built) | not yet | a live simulation |
 | Swarm robotics: Robot gang | `robots` | `tools/robots/` (built) | not yet | a live simulation |
@@ -47,7 +48,8 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
 - **Tried on real headsets:** the stories and their sound on Quest; shared rooms on two Quest 3 headsets in several
   rounds (what happened is in [docs/quest-shared-space-findings.md](docs/quest-shared-space-findings.md) and AGENTS.md
   "Shared rooms"). All thirteen stories of then, the slideshow and the headset menu on the wrist were tried on a headset
-  in October 2026, after the tests had passed on every change; the fourteenth, the mutation machine, came after.
+  in October 2026, after the tests had passed on every change; the fourteenth and the fifteenth, the mutation machine
+  and the shape of tissue, came after.
 - **Checked on a Quest 3 (28 October 2026):** the two headset settings (labels in 3D, on top or hidden, and free
   moving, everything in 3D by default and the same for a whole room): the labels, the story panels and the station
   cards in 3D, hidden taking every story panel away, and the grip moving and turning scenes and panels, alone and at a
@@ -58,7 +60,7 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
   name tags in each label mode; the story panels in 3D in the life-size and stand-inside views (passing birds, fish or
   layers hide parts of them). The full list ends AGENTS.md "Shared rooms"; [docs/event-runbook.md](docs/event-runbook.md)
   says what to try at an event.
-- **Unfinished:** narration for thirteen stories (scripts ready in [docs/narration.md](docs/narration.md)); the muscle
+- **Unfinished:** narration for fourteen stories (scripts ready in [docs/narration.md](docs/narration.md)); the muscle
   story's layer z-scores, walks and endotype names are stand-ins until its authors send their own; the questions in
   [docs/questions-for-authors.md](docs/questions-for-authors.md) are open.
 - **Known quirk of the tests:** the shared-room test checks timing, and a heavily loaded machine (software WebGL draws
@@ -73,7 +75,8 @@ Before handing over (or making anything more public), someone has to decide thes
 1. **Licence.** The project has no `LICENSE` file, so nobody else has the right to reuse it. Choose one, with the
    Institute if it owns the work. See [docs/data-and-permissions.md](docs/data-and-permissions.md).
 2. **The authors' permission** to show their data, figures, posters and talks publicly (muscle, endotype, PET,
-   microanatomy, mutation machine (a draft poster) and tour stories). Record what was agreed, and with whom, in the same
+   microanatomy, mutation machine (a draft poster), tissue topology (the authors' cohort data and code) and tour
+   stories). Record what was agreed, and with whom, in the same
    document.
 3. **The repository**: it is public, on a personal GitHub account (`unfriend/airportnetworks`), with no licence.
    Every pushed branch is public too, the working branch included. Decide whether it moves to an Institute
@@ -92,7 +95,7 @@ Before handing over (or making anything more public), someone has to decide thes
    - collecting alignment logs from fresh headsets (a test plan is in the runbook);
    - **station icons**: a small low-poly 3D icon for each story, floating above its station's ring in a shared room
      (built from simple shapes in the shell's shared-room code, the story's colour, slowly turning). Estimated at
-     about an hour of agent work, with the owner approving a contact sheet of all fourteen before they go in;
+     about an hour of agent work, with the owner approving a contact sheet of all fifteen before they go in;
    - **a story design room**: a room in the headset where the owner talks to Claude about a new story. Claude would
      show the props (the 3D sets) that fit, draft a skeleton story that plays at once with them, build what is missing
      and reload it live. It would run as Claude Code on a laptop next to the headset, with the relay serving the
@@ -120,8 +123,8 @@ Before handing over (or making anything more public), someone has to decide thes
        session (entering VR needs a tap), so the headset then shows one "Enter VR to continue" button.
      - **Groundwork:**
        - the list of stories moves out of `index.html` into its own file;
-       - the headset Stories screen in all fourteen stories reads the number of stories instead of having it written
-         in (today "fourteen" and the card spacing are in every story's panel code).
+       - the headset Stories screen in all fifteen stories reads the number of stories instead of having it written
+         in (today "fifteen" and the card spacing are in every story's panel code).
      - **Size:** estimated at about 3 to 4 hours of agent work and 2 to 3M tokens, the tests included (the update test
        would cover a story added live, a story swapped in place, the dialogue and the restore). Most useful for a kiosk
        or headsets at an event.
@@ -149,12 +152,12 @@ Before handing over (or making anything more public), someone has to decide thes
      - **Placed:** picked up with the grip and left anywhere in the room, on this headset only, remembered for next
        time.
      - Per device, never in `collab.state()`: nothing changes for the shared rooms.
-     - **How:** all in the shell, no change to the fourteen stories. The words come from each story's panel (its
+     - **How:** all in the shell, no change to the fifteen stories. The words come from each story's panel (its
        `section.ch` chapters and their `data-at` lines, read as `tools/narration.mjs` reads them), split into short
        two-line captions spread over the time until the next line by word count. The pass story's follow its
        language. The panel is drawn like the shell's menu and clock, and the grip reuses the code that carries
        stations.
-     - **To know:** only the airports story has a recorded voice, so in the other thirteen the subtitles repeat the
+     - **To know:** only the airports story has a recorded voice, so in the other fourteen the subtitles repeat the
        panel's words (useful when the panel is out of view: in the flock or among the fish, at a station, the panel
        behind you). Each line starts with the voice; the captions within a long line are timed by word count, not
        matched word by word.
@@ -195,6 +198,28 @@ Before handing over (or making anything more public), someone has to decide thes
      and the big tree's comfort there; so far only the headless tests have run it.
    - **Still open:** MM1 (is the poster final?), MM5 (credit and title) and MM6 (is our coupled stand-in a fair picture
      of their circuit, and may explore show it live?).
+10. **The fifteenth story: "The shape of tissue" (built, October 2026).** From the poster "topocyte: scale-resolved
+    topological phenotyping of tissue architecture across spatial modalities" (Simon Schindler, André Rendeiro, Jörg
+    Menche), with the authors' GTEx liver cohort and their package topocyte, shared for this story, and their answers on
+    the credit, the data, the local radius and three details (T1 to T4 in
+    [docs/questions-for-authors.md](docs/questions-for-authors.md)). Sources in `tools/topo/` (`SPEC.md`, `README.md`,
+    the sets' manifests). Its data is written by `tools/topo/data/gen_data.py` (Python: it runs topocyte and the poster's
+    figure scripts on the authors' files, which stay out of the repository; see
+    [docs/setup-and-release.md](docs/setup-and-release.md)) and checked by `node tools/topo/test-data.mjs`.
+    - **What it is** (about 8 minutes, 8 chapters, then explore): the tour's body with its liver lifted out, a slice of
+      it falling flat as a slide of real cells drawn in H&E; other ways of measuring tissue, sketched, then only the
+      cells' positions; the single scales other tools fix; balls growing round the poster's 110 cells until pieces join
+      and loops open and close, and the tower of scales, where the radius becomes height; 123 slides as a rack of glass
+      slides with their curves, their main shapes and the space of their scores; a classifier's wall, its fair test (109
+      of 123 right) and its weight for every radius (loops of 5 to 15 µm speak for cirrhosis); a new slide scored cell
+      by cell, its scars red and raised, and its cells in two groups with their cell types. Explore: Patch, Cohort,
+      Scales, Cells and Scenes. Every number is topocyte's: the app only looks them up. Slides are numbered, never named;
+      no GTEx images. British spelling.
+    - **Untested:** everything in a headset (the panels, picking slides and cells with the ray, the tower of scales
+      standing about 1.5 m tall in front of you in chapters 3 and 4 and in explore's Stand at it) and the tower's comfort
+      there; so far only the headless tests have run it.
+    - **Still open:** T5 (the poster's panel e prints its cell v's score as 26.57; the figure's own data and topocyte
+      give 6.97, which the story shows).
 
 ## How work is done
 
@@ -206,13 +231,14 @@ Before handing over (or making anything more public), someone has to decide thes
 - The story files are large (`stories/airports.js` is about 640 KB with its data): search them, never read them whole.
 - Headset behaviour can only be confirmed on a device: say so when reporting a change.
 
-## Adding a fifteenth story
+## Adding a sixteenth story
 
-The fourteenth story (`mutation`) is the most recent example: `git show --stat` on its commits shows every file it
-touched (the thirteenth, `ovary`, is a data story; the twelfth, `pass`, shows how a story reuses another's models
-unchanged, and a story in two languages). Start from the closest existing story (`tools/mutation/` or `tools/qubits/`
-for a story whose numbers are computed live, `tools/micro/` or `tools/ovary/` for a data story, `tools/flock/` for a
-live simulation).
+The fifteenth story (`topo`) is the most recent example: `git show --stat` on its commits shows every file it touched
+(the fourteenth, `mutation`, computes its numbers live; the thirteenth, `ovary`, is a data story typed in and read off
+figures; the twelfth, `pass`, shows how a story reuses another's models unchanged, and a story in two languages). Start
+from the closest existing story (`tools/topo/` for a story whose numbers come from the authors' own code run on their
+data, `tools/mutation/` or `tools/qubits/` for a story whose numbers are computed live, `tools/micro/` or
+`tools/ovary/` for a data story, `tools/flock/` for a live simulation).
 
 1. `tools/<key>/`: `SPEC.md` (the contract), `README.md`, the sets (each with a manifest `sets/<name>.md`), the engine
    (`engine/e1_head.js` to `e7_app.js`), `build.mjs`, `harness.html`, `shot.mjs`, `sweep.mjs`, a data generator if it has
@@ -221,7 +247,7 @@ live simulation).
    `node tools/pace.mjs <url> --write <key>`, which prints it), the count in the start
    screen's text and meta description, and the card rows' CSS if the rows change.
 3. The headset Stories screen in **every** story: the arc's spacing for n cards (a step for the new n, the outer cards
-   kept within about 62 degrees) and the number word ("fourteen") in each
+   kept within about 62 degrees) and the number word ("fifteen") in each
    story's panel code (`stories/airports.js`, `proteins.js`, `spatial.js`, and `tools/*/engine/e6_panels.js`, then
    rebuild those).
 4. `shared.js`: bump `FORMAT`; the Arrange all comment (two rows of n/2). `sw.js`: bump `VERSION`, add

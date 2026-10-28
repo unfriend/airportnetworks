@@ -10,7 +10,7 @@
 - The story files are large (`stories/airports.js` is ~640 KB because of its
   embedded data). Search with Grep and read line ranges; never read them whole.
 - Prefer small, exact edits. When a change touches the headset code, apply it
-  to all fourteen stories: their XR, panel and landing-screen code is meant to
+  to all fifteen stories: their XR, panel and landing-screen code is meant to
   stay identical apart from story-specific panes.
 - Verify visual changes by serving the folder and taking headless Chromium
   screenshots (hashes such as `#spatial&t=60` jump straight to a moment), and
@@ -33,11 +33,11 @@
   the shell's (`HOST.xr.labels()`, `HOST.xr.free()`, in a room the room's key
   `look`), the same for every story: never put them in a story's `state()`.
   Stories read them every frame through the shared lines (`xrSettings`,
-  `placeLabelXR`, `xrFace`), the same in all fourteen. How the signs read and
+  `placeLabelXR`, `xrFace`), the same in all fifteen. How the signs read and
   how the free grip feels can only be checked on a headset: report them as
   untested.
 - Shared rooms (`shared.js`, `relay/`, see "Shared rooms" in `AGENTS.md`): keep
-  the shared hooks in all fourteen stories, the same lines in each (the `collab`
+  the shared hooks in all fifteen stories, the same lines in each (the `collab`
   object, the ray and press lines, the grip line, the optional features from
   `HOST.xr.features(mode)` (AR asks for `'shared'`, VR for less), the `HOST.collab.mine()` lines in `xrFreshStart` and
   `xrLandingClose`). `state()` never holds the camera, hover or anything per
@@ -78,6 +78,14 @@
   `tools/mutation/sets/data.js`, shown only as "in the authors' test"). Its coupling, computed live, is our stand-in for
   the authors' circuit and says so; never call the circuit "better" or "more accurate". No patient data and none of the
   poster's pictures (its figures are redrawn in 3D). British spelling.
+  `stories/topo.js` likewise from `tools/topo/` (`node tools/topo/build.mjs`; its data and decoders checked by
+  `node tools/topo/test-data.mjs`; data from the authors' files via `tools/topo/data/gen_data.py`, which runs their
+  package topocyte (GPL-3, offline only, none of its code copied) and the poster's figure scripts; the files are not in
+  the repository). Every number is topocyte's: never write science in the app (no persistence, functional PCA,
+  classifier or score computed there), only look up `TOPO_DATA` through `TDATA`. No GTEx ids, donor details or images,
+  and none of the poster's pictures (slides are numbered); "Cancer cell" stays (the cell classifier's label, the
+  author's wish). It includes `tools/lbi/sets/body.js` and `tools/micro/sets/organs.js`, so rebuild it after changing
+  those. British spelling.
   `stories/pass.js` likewise from `tools/pass/` (`node tools/pass/build.mjs`; its sets checked by
   `node tools/pass/test-sets.mjs`). Its globe and cell are cut, unchanged, out of `stories/airports.js` and
   `stories/spatial.js` at build time, so rebuild it after changing either. It is in English and German: every word in

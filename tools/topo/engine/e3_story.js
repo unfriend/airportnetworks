@@ -148,6 +148,9 @@ const FACTS = (() => {
     slides: D.labels.length, healthy: D.src.healthy, cirrhosis: D.src.cirrhosis, cellsM: (D.src.cells / 1e6).toFixed(1),
     minutes: D.src.runtime.minutes, tile: T.tile.n, tileSide: D.tile.side,
     patch: T.patch.n, snaps: P.snaps.map((r, k) => ({ r, pieces: P.betti[k][0], loops: P.betti[k][1] })), loop: P.loop, loops: P.h1.length / 2,
+    // the loops alive at the second snapshot besides the big one (the stored loops, longest first): how many, and the
+    // radius by which they have all filled in
+    others: (() => { const r = P.snaps[1], o = P.loops.slice(1).filter(L => L.b <= r && r < L.d); return { n: o.length, by: Math.max(0, ...o.map(L => L.d)) }; })(),
     fve: H.fve, w, rest: gap - w.reduce((s, x) => s + x.s, 0), gap, odds: Math.exp(gap),
     right: conf[0] + conf[3], hRight: conf[0], cRight: conf[3], hN: conf[0] + conf[1], cN: conf[2] + conf[3], acc: H.accuracy,
     window: T.slide.n, newCells: SD.overview.cells, score: SD.e.logOdds, delta: 50, train: SD.train, limit: SD.limit50,
@@ -195,6 +198,8 @@ function buildStory() {
     return `${one ? 'still one piece' : `${fmt(n)} pieces`}, and the big loop has filled`;
   };
   const SNAP_AT = [14, 25, 35, 43];   // (as the radius reaches each snapshot, below)
+  // two stored shares [healthy-like, cirrhosis-like] compared in words, as the percentages shown read
+  const more = ([h, c]) => (Math.round(100 * c) === Math.round(100 * h) ? 'about as many' : c > h ? 'more' : 'fewer');
   const [wa, wb] = F.w;
   const html = {
     title: `<svg class="route-mark" viewBox="0 0 360 44" aria-hidden="true"><path id="titleArc" d="M8 36 Q180 -16 352 36" fill="none" stroke="var(--red)" stroke-width="2.2" stroke-linecap="round" pathLength="1" stroke-dasharray="1" stroke-dashoffset="1"/><circle cx="8" cy="36" r="4.5" fill="var(--red)"/><circle cx="352" cy="36" r="4.5" fill="var(--red)" id="titleDot" opacity="0"/></svg>
@@ -221,7 +226,7 @@ function buildStory() {
         <p data-at="5" data-out="13.5">Grow a ball round every cell.</p>
         <p data-at="8" data-out="13.5" class="amber">Where two balls touch, the cells are joined by an edge; where three meet, a triangle fills in: a network that also has triangles.</p>`,
       `<ul class="steps">${F.snaps.map((s, k) => step(SNAP_AT[k], 0, k ? (s.r < ld ? ORANGE : AMBER) : AMBER, `${fmtR2(s.r)} µm`, esc(cap(snapSay(s))))).join('')}</ul>
-        <p class="note" data-at="46">The network with triangles is the alpha complex, a simplicial complex: the higher-order generalisation of a network. The radii and counts are the poster's snapshots; ${word(F.snaps[1].loops)} loops are alive at ${fmtR2(F.snaps[1].r)} µm, most of them small and brief.</p>`)}`,
+        <p class="note" data-at="46">The network with triangles is the alpha complex, a simplicial complex: the higher-order generalisation of a network. The radii and counts are the poster's snapshots; ${word(F.snaps[1].loops)} loops are alive at ${fmtR2(F.snaps[1].r)} µm: the big one, and ${word(F.others.n)} others that have all filled in by ${fmtR(F.others.by)} µm.</p>`)}`,
     tower: `<h2 data-at="0.6">The tower of scales</h2>
       ${turns(`<p data-at="1.2" data-out="27.5">Now let the radius become height.</p>
         <p data-at="4" data-out="27.5">Each piece is a thread rising from its cell; where two pieces join, their threads merge, until one trunk is left.</p>
@@ -260,7 +265,7 @@ function buildStory() {
         <p class="note" data-at="40">Local persistent homology: the slide's network restricted to each cell's neighbourhood. The shapes and the classifier were fitted on the other ${F.train} slides (pieces, H0). The colours are the poster's, at most ±${f2(F.limit)}.</p>`)}`,
     next: `<h2 data-at="0.6">Where analysis begins</h2>
       ${turns(`<p data-at="1.2" data-out="17.5">The cells now fall into two groups: ${fmt(F.sizes[1])} cirrhosis-like and ${fmt(F.sizes[0])} healthy-like.</p>
-        <p data-at="8" data-out="17.5">The groups can be compared in whatever was measured: here, the cirrhosis-like cells hold ${F.lymph[1] > F.lymph[0] ? 'more' : 'fewer'} lymphocytes (${pct(F.lymph[1])} against ${pct(F.lymph[0])}) and ${F.fib[1] > F.fib[0] ? 'a few more' : 'fewer'} fibroblasts (${pct(F.fib[1])} against ${pct(F.fib[0])}).</p>
+        <p data-at="8" data-out="17.5">The groups can be compared in whatever was measured: here, the cirrhosis-like cells hold ${more(F.lymph)} lymphocytes (${pct(F.lymph[1])} against ${pct(F.lymph[0])}) and ${more(F.fib)} fibroblasts (${pct(F.fib[1])} against ${pct(F.fib[0])}).</p>
         <p class="note" data-at="12" data-out="17.5">The types are the labels of the computer that found the cells, not a pathologist's. With a radius of 100 µm, as in the poster's figure, the groups have ${fmt(F.sizes100[0])} healthy-like and ${fmt(F.sizes100[1])} cirrhosis-like cells.</p>`,
       `<p data-at="18">In spatial transcriptomics it would be genes, in spatial proteomics proteins.</p>
         <p data-at="25" class="amber">Four calls of topocyte, and the shape of tissue becomes something to measure.</p>

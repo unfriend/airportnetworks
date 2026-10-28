@@ -1,4 +1,4 @@
-Networks, in fourteen stories - installable web app
+Networks, in fifteen stories - installable web app
   1. Network theory, told with the world's airports  (stories/airports.js)
   2. Network medicine, told with the proteins in a cell  (stories/proteins.js)
   3. Spatial interactome, where proteins meet in a cell  (stories/spatial.js)
@@ -26,12 +26,16 @@ Networks, in fourteen stories - installable web app
      tree, and how a rule for those changes becomes a quantum circuit, one
      machine per branch; after the poster by Enes Berk Sakalli and Arndt von
      Haeseler  (stories/mutation.js)
-  12. Pass it on (Weitersagen!): how warnings, viruses and signals spread, from
+  12. The shape of tissue: where cells sit in slides of liver, read at every
+     scale at once (persistent homology), and which scales tell cirrhosis from
+     healthy tissue, down to every cell; after the poster by Simon Schindler,
+     André Rendeiro and Jörg Menche, on their data  (stories/topo.js)
+  13. Pass it on (Weitersagen!): how warnings, viruses and signals spread, from
      a school of fish to the world's flights to a cell; for everyone, in
      English and German  (stories/pass.js)
-  13. Flock: 200 starlings at dusk flying all around you, each following its
+  14. Flock: 200 starlings at dusk flying all around you, each following its
      seven nearest neighbours  (stories/flock.js)
-  14. Robot gang: robot vacuums in your room that bump and turn, follow you
+  15. Robot gang: robot vacuums in your room that bump and turn, follow you
      about or form a conga line; in a headset they find your floor and walls
      (stories/robots.js)
 
@@ -42,7 +46,7 @@ AR from the start screen opens a Stories screen in the headset (one panel per
 story); entering from inside a story resumes it where you were.
 The start screen is the landing page (no hash, or #stories). The address
 follows you: #stories on the Stories screen (page or headset), #airports,
-#proteins, #spatial, #lbi, #nmd, #endo, #pet, #micro, #ovary, #qubits, #mutation, #pass, #flock or #robots in a story, so links can be shared and open that story
+#proteins, #spatial, #lbi, #nmd, #endo, #pet, #micro, #ovary, #qubits, #mutation, #topo, #pass, #flock or #robots in a story, so links can be shared and open that story
 directly (proteins.html and spatial.html forward there). Taking the headset off and on returns to the Stories menu
 (and, unless Anchor is on, places everything in front of the next wearer).
 Repeat all and Repeat one on the Stories screen (page and headset) keep the app
@@ -161,7 +165,7 @@ Narration: put your recordings at audio/narration.mp3 (airports),
 audio/narration-proteins.mp3 (proteins), audio/narration-spatial.mp3
 (cell map), audio/narration-lbi.mp3 (the tour), audio/narration-nmd.mp3,
 audio/narration-endo.mp3, audio/narration-pet.mp3, audio/narration-micro.mp3,
-audio/narration-ovary.mp3, audio/narration-qubits.mp3, audio/narration-mutation.mp3, audio/narration-pass.mp3, audio/narration-flock.mp3 and audio/narration-robots.mp3 (only the airports
+audio/narration-ovary.mp3, audio/narration-qubits.mp3, audio/narration-mutation.mp3, audio/narration-topo.mp3, audio/narration-pass.mp3, audio/narration-flock.mp3 and audio/narration-robots.mp3 (only the airports
 one is recorded so far); see the note in the audio folder for chapter timings
 and how to record one, and docs/narration.md for the words. It plays in
 sync with the story, follows pause, seeking and chapter jumps, and has a Sound
@@ -269,6 +273,20 @@ The coupling computed live is our stand-in for their circuit, and says so. The
 test is synthetic (no patient data); the poster's figures are redrawn in 3D, its
 pictures never shown.
 
+The shape of tissue (stories/topo.js): after the poster "topocyte:
+scale-resolved topological phenotyping of tissue architecture across spatial
+modalities" by Simon Schindler, André Rendeiro and Jörg Menche, and the
+package's documentation (topocyte.lab.lbi-netmed.com). Every number is computed
+by the authors' package topocyte and the poster's own figure scripts on the
+authors' GTEx liver cohort (123 slides, 66 healthy and 57 with cirrhosis, 30.8
+million cells found by HistoPLUS, CC BY 4.0), by tools/topo/data/gen_data.py;
+the page only looks the numbers up (tools/topo/sets/data.js). The authors'
+files, slide ids, donor details and images are not in the repository: slides
+are numbered, and the tissue is drawn from the cells' positions and types.
+topocyte (GPL-3) is run offline only, none of its code is in the app. The cell
+types are the cell classifier's labels; the genes and proteins of the last
+chapter are sketches of the workflow, not data.
+
 Pass it on (stories/pass.js): an outreach story of the Ludwig Boltzmann
 Institute for Network Medicine, in English and German (a switch, EN | DE, on the
 story panel and above the explore tabs; German when the device's language is,
@@ -293,7 +311,7 @@ it). Without a room setup they get a virtual room round you, and the panel
 offers Set up your room. Point at the floor and pull the trigger to spill
 crumbs. Speeds and cleaning times are tuned to look right, not measured.
 
-Files: index.html (the app), stories/ (the fourteen stories), proteins.html and
+Files: index.html (the app), stories/ (the fifteen stories), proteins.html and
 spatial.html (forward to the app), manifest.webmanifest, sw.js (offline cache), audio/,
 shared.js (shared rooms), relay/ (the shared rooms' server), docs/ (the shared rooms' plan and the handover notes), HANDOVER.md (start here when taking the project over),
 AGENTS.md and CLAUDE.md (notes for AI coding agents), tools/smoke.mjs (headless test),
@@ -306,7 +324,9 @@ tools/pet/build.mjs writes stories/pet.js), tools/micro/ (sources of the microan
 tools/micro/build.mjs writes stories/micro.js), tools/ovary/ (sources of the aging ovary story; node
 tools/ovary/build.mjs writes stories/ovary.js), tools/qubits/ (sources of the qubits story; node
 tools/qubits/build.mjs writes stories/qubits.js), tools/mutation/ (sources of the mutation story;
-node tools/mutation/build.mjs writes stories/mutation.js), tools/pass/ (sources of the pass story; node
+node tools/mutation/build.mjs writes stories/mutation.js), tools/topo/ (sources of the tissue topology
+story; node tools/topo/build.mjs writes stories/topo.js; its data from the authors' files, not in the repository),
+tools/pass/ (sources of the pass story; node
 tools/pass/build.mjs writes stories/pass.js from them and from the airports and cell map stories), tools/flock/ (sources of the flock; node tools/flock/build.mjs
 writes stories/flock.js), tools/robots/ (sources of the robot gang;
 node tools/robots/build.mjs writes stories/robots.js),
