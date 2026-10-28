@@ -24,6 +24,7 @@ MP3 at the file named under each story; if your chapters start at other times, c
 | Ovarian aging: The aging ovary | `audio/narration-ovary.mp3` | not yet | 7:04 |
 | Quantum network compression: Three qubits | `audio/narration-qubits.mp3` | not yet | 9:04 |
 | Quantum phylogenetics: The mutation machine | `audio/narration-mutation.mp3` | not yet | 8:39 |
+| Tissue topology: The shape of tissue | `audio/narration-topo.mp3` | not yet | 8:04 |
 | Networks for everyone: Pass it on | `audio/narration-pass.mp3` | not yet | 6:53 |
 | Collective motion: Flock | `audio/narration-flock.mp3` | not yet | 1:57 |
 | Swarm robotics: Robot gang | `audio/narration-robots.mp3` | not yet | 2:01 |
@@ -1044,6 +1045,107 @@ File: `audio/narration-mutation.mp3` (not recorded yet). Chapters: 0:00 Letters,
 - **7:59** After the poster by Enes Berk Sakalli (Ludwig Boltzmann Institute for Network Medicine at the University of Vienna) and Arndt von Haeseler (Center for Integrative Bioinformatics Vienna (CIBIV), Max Perutz Labs, University of Vienna and Medical University of Vienna).
 - **8:16** [1] Hadfield et al., Nextstrain, Bioinformatics 2018. [2] Arenas and Posada, Curr HIV Res 2010. [3] Schöniger and von Haeseler, Mol Phylogenet Evol 1994. [4] Doria-Rose et al., J Virol 2005. [5] Rolland et al., J Virol 2007. [6] Li et al., Oncogene 2026.
 - **8:30** The numbers drawn are examples, computed here; numbers said to be from the authors' test are theirs.
+
+## Tissue topology: The shape of tissue (`#topo`)
+
+File: `audio/narration-topo.mp3` (not recorded yet). Chapters: 0:00 Where cells sit, 0:56 Which scale?, 1:40 Balls grow, 2:48 The tower, 3:52 123 slides, 4:50 Which scales, 5:51 Every cell, 6:51 What next; it ends at 8:04.
+
+### 0:00 Where cells sit
+
+- **0:01** The shape of tissue
+- **0:02** Topology of cells in the liver
+- **0:05** Under the microscope, a slice of liver is a crowd of cells, and where they sit says how healthy the tissue is.
+- **0:13** Here a thin slice is cut from a liver and laid on glass.
+- **0:22** A computer can find every cell in a stained slide: 30.8 million of them in 123 slides of liver here.
+- **0:29** Other ways of measuring tissue, reading genes in spots or staining proteins in colour, also give where the cells are.
+- **0:38** From here on, only those positions count.
+- **0:41** After the poster by Simon Schindler, André Rendeiro and Jörg Menche. The cells were found by the authors with HistoPLUS in the GTEx project's slides; topocyte reads cells from any spatial modality (H&E, spatial transcriptomics, spatial proteomics) as an AnnData.
+
+### 0:56 Which scale?
+
+- **0:57** Which scale?
+- **0:57** To read how cells are arranged, most tools pick one scale:
+- **1:02** One patch size: cut the tissue into squares, and read each square
+- **1:09** A neighbour count: join each cell to its nearest few, here six
+- **1:16** One radius: look only at the cells within a fixed distance
+- **1:21** But tissue has structure at every scale, from a cell's neighbours to the shape of a whole lobule.
+- **1:28** topocyte reads all of them at once.
+- **1:31** Scale-resolved: every radius at once, with no size to choose. Next, the 110 cells of the small square in the middle of this healthy tile.
+
+### 1:40 Balls grow
+
+- **1:41** Balls grow
+- **1:41** Take the 110 cells of that square, and keep only where they sit.
+- **1:46** Grow a ball round every cell.
+- **1:49** Where two balls touch, the cells are joined by an edge; where three meet, a triangle fills in: a network that also has triangles.
+- **1:58** 4.08 µm: 82 separate pieces
+- **2:10** 13.49 µm: 3 pieces left, and a big loop has just closed round an empty space
+- **2:21** 24.59 µm: It is all one piece, the big loop still open inside
+- **2:30** 48.86 µm: Still one piece, and the big loop has filled
+- **2:34** The network with triangles is the alpha complex, a simplicial complex: the higher-order generalisation of a network. The radii and counts are the poster's snapshots; seven loops are alive at 13.49 µm, most of them small and brief.
+
+### 2:48 The tower
+
+- **2:48** The tower of scales
+- **2:50** Now let the radius become height.
+- **2:53** Each piece is a thread rising from its cell; where two pieces join, their threads merge, until one trunk is left.
+- **3:02** Each loop is a chimney, from the height where it closes to where it fills.
+- **3:09** The glass plane rises with the radius: it cuts the tower where the network is at that radius.
+- **3:19** How long each piece and each loop lives is a bar; how many are alive at each height gives two curves.
+- **3:27** 110: pieces, a bar each
+- **3:30** 85: loops, at most ten at once
+- **3:33** Together they describe the tissue at every scale at once.
+- **3:37** This is persistent homology. Pieces are H0 (connected components), loops H1 (holes); the bars are the barcode, and the counts the Betti curves, exact step functions. The filtration's value is t = r²; the story shows the radius r.
+
+### 3:52 123 slides
+
+- **3:52** 123 slides
+- **3:53** Do this for every slide: 66 healthy livers and 57 with cirrhosis, where scars cut the liver into knots.
+- **4:00** Each slide gets its own curves: here its loops, small radii on the left, large on the right.
+- **4:06** Scaled to the same size, only their shape counts.
+- **4:12** The healthy slides' average in blue, the cirrhotic slides' in red.
+- **4:17** Comparing every slide with every other finds the main shapes the curves vary by:
+- **4:23** 72 %of the variation in loops: shape 1
+- **4:25** 20 %shape 2
+- **4:32** Each slide becomes a point by how much of each shape it has, and healthy and cirrhotic slides fall apart before anything is trained.
+- **4:41** Cosine normalisation; the functional PCA, computed exactly from the bars' ends (no grid). All 123 slides and 30.8 million cells took 1.9 minutes on a laptop's processor.
+
+### 4:50 Which scales
+
+- **4:51** Which scales matter
+- **4:52** A classifier draws a wall between the two clouds.
+- **4:59** Each slide moves to its log-odds: how far it lies on the cirrhosis side of the wall, or the healthy side.
+- **5:07** Read back through the shapes, it becomes a weight for every radius: loops alive at 5 to 15 µm speak for cirrhosis.
+- **5:21** What each stretch of radii adds to the difference between the two groups:
+- **5:26** +2.73: loops of 5 to 10 µm
+- **5:27** +4.65: 10 to 15 µm
+- **5:29** −0.35: the other radii
+- **5:31** Together: 7.04 in log-odds: on average, a cirrhotic slide's odds of cirrhosis are about 1,138 times a healthy slide's.
+- **5:38** Tested fairly, on slides it never saw, it gets 109 of 123 right.
+- **5:42** A logistic regression on the first four scores; γ(r) is its weight per radius. Five-fold cross-validation: 62 of 66 healthy and 47 of 57 cirrhotic slides right, accuracy 0.886.
+
+### 5:51 Every cell
+
+- **5:52** Every cell a centre
+- **5:54** Now a slide the classifier never saw: 398,611 cells, and a window of 6,716 of them.
+- **6:03** Pick one cell and look only at the cells within 50 µm of it.
+- **6:09** They make their own small network, with its own pieces and loops,
+- **6:15** and their own curves.
+- **6:22** The classifier gives the cell a score of its own:
+- **6:26** +6.97: its log-odds: cirrhosis-like
+- **6:31** Do this for every cell, and the slide becomes a map: the scars light up red, the healthy tissue blue.
+- **6:39** Local persistent homology: the slide's network restricted to each cell's neighbourhood. The shapes and the classifier were fitted on the other 122 slides (pieces, H0). The colours are the poster's, at most ±17.92.
+
+### 6:51 What next
+
+- **6:51** Where analysis begins
+- **6:52** The cells now fall into two groups: 5,187 cirrhosis-like and 1,529 healthy-like.
+- **7:00** The groups can be compared in whatever was measured: here, the cirrhosis-like cells hold more lymphocytes (17 % against 5 %) and a few more fibroblasts (26 % against 24 %).
+- **7:09** The types are the labels of the computer that found the cells, not a pathologist's. With a radius of 100 µm, as in the poster's figure, the groups have 1,000 healthy-like and 5,716 cirrhosis-like cells.
+- **7:21** In spatial transcriptomics it would be genes, in spatial proteomics proteins.
+- **7:29** Four calls of topocyte, and the shape of tissue becomes something to measure.
+- **7:35** After the poster by Simon Schindler, André Rendeiro and Jörg Menche (Ludwig Boltzmann Institute for Network Medicine at the University of Vienna; University of Vienna; CeMM Research Center for Molecular Medicine of the Austrian Academy of Sciences; Medical University of Vienna; Max Perutz Labs, Vienna BioCenter).
+- **7:52** The cells: the GTEx project's liver slides, segmented by the authors with HistoPLUS (CC BY 4.0); slides are numbered, never named. The genes and proteins are sketches of the workflow, not data. topocyte.lab.lbi-netmed.com
 
 ## Networks for everyone: Pass it on (`#pass`)
 
