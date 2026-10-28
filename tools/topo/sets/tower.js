@@ -27,20 +27,19 @@ SETS.tower = function (K) {
   // the barcode's board to the right of the tower: its first rod's foot, its turn about y (degrees), the rods' pitch,
   // the loops' lanes' pitch and the gap between the two
   const BOARD = { x: 1.14, z: -0.1, yaw: 16, p: 0.0085, lane: 0.034, gap: 0.12 };
-  const HS = TH / 1;                         // the height of a radius: HS x TDATA.height(r) (times tower_rise)
 
   // ---------------------------------------------------------------- the patch, in units (the poster's y up is -z)
   const X = new Float32Array(N), Z = new Float32Array(N);
   for (let i = 0; i < N; i++) { X[i] = (T.patch.x[i] - SIDE / 2) * KU; Z[i] = -(T.patch.y[i] - SIDE / 2) * KU; }
   const at = (x, y) => [(x - SIDE / 2) * KU, -(y - SIDE / 2) * KU];
   // the complex: edges [i, j, r] and triangles [i, j, k, r], as stored
-  const NE = P.edges.length / 3, EI = new Uint16Array(NE), EJ = new Uint16Array(NE), ER = new Float32Array(NE), EU = new Float32Array(NE);
+  const NE = P.edges.length / 3, EI = new Uint16Array(NE), EJ = new Uint16Array(NE), ER = new Float64Array(NE), EU = new Float32Array(NE);
   for (let e = 0; e < NE; e++) { EI[e] = P.edges[3 * e]; EJ[e] = P.edges[3 * e + 1]; ER[e] = P.edges[3 * e + 2]; EU[e] = T.u(ER[e]); }
-  const NT = P.tris.length / 4, TI = new Uint16Array(NT), TJ = new Uint16Array(NT), TK = new Uint16Array(NT), TRR = new Float32Array(NT);
+  const NT = P.tris.length / 4, TI = new Uint16Array(NT), TJ = new Uint16Array(NT), TK = new Uint16Array(NT), TRR = new Float64Array(NT);
   for (let k = 0; k < NT; k++) { TI[k] = P.tris[4 * k]; TJ[k] = P.tris[4 * k + 1]; TK[k] = P.tris[4 * k + 2]; TRR[k] = P.tris[4 * k + 3]; }
   // the joins, in the filtration's order: the piece that started at cell v joins the one that started at w across a-b
   const J = P.joins.slice().sort((p, q) => p[4] - q[4]), NJ = J.length;
-  const JV = new Uint16Array(NJ), JW = new Uint16Array(NJ), JA = new Uint16Array(NJ), JB = new Uint16Array(NJ), JR = new Float32Array(NJ);
+  const JV = new Uint16Array(NJ), JW = new Uint16Array(NJ), JA = new Uint16Array(NJ), JB = new Uint16Array(NJ), JR = new Float64Array(NJ);
   J.forEach((j, k) => { JV[k] = j[0]; JW[k] = j[1]; JA[k] = j[2]; JB[k] = j[3]; JR[k] = j[4]; });
   const joinEdge = new Set(J.map(j => Math.min(j[2], j[3]) * 1000 + Math.max(j[2], j[3])));
   const EJOIN = new Uint8Array(NE);
@@ -48,7 +47,8 @@ SETS.tower = function (K) {
 
   // each piece's thread: the segments between the joinings that change its size, and the radius it dies at
   // (bookkeeping of the stored joins for the drawing: sizes are counts of cells)
-  const death = new Float32Array(N).fill(Infinity), grows = new Uint8Array(N), size = new Int32Array(N).fill(1), from = new Float32Array(N);
+  // (radii in doubles, as stored: they are compared with the radius on show, and a snapshot's radius is a stored one)
+  const death = new Float64Array(N).fill(Infinity), grows = new Uint8Array(N), size = new Int32Array(N).fill(1), from = new Float64Array(N);
   const SEG = [];   // [rep, r0, r1, size]
   const BRIDGE = new Int32Array(NJ);   // the dying piece's size at its join
   for (let k = 0; k < NJ; k++) {
@@ -153,7 +153,7 @@ SETS.tower = function (K) {
     cnt.fill(0);
     for (let i = 0; i < N; i++) { let c = i; while (par[c] >= 0) c = par[c]; rep[i] = c; cnt[c]++; }
   }
-  const hOf = r => HS * T.height(r);
+  const hOf = r => TH * T.height(r);   // the height of a radius (times tower_rise)
   const _a = [0, 0, 0], _b = [0, 0, 0], _c = [0, 0, 0], _d = [0, 0, 0], _e = [0, 0, 0], _col = [0, 0, 0], _col2 = [0, 0, 0];
   const WHITE = LK.WHITE, LOOPLIT = LK.mix(LK.LOOP, [1, 0.9, 0.7], 0.25);
   const thick = s => 0.0032 * Math.pow(s, 0.45);
@@ -208,7 +208,7 @@ SETS.tower = function (K) {
     const he = clamp(S.tower_he, 0, 1), lit = Math.round(S.tower_lit) || 0;
     const pA = lit === 2 ? 0.3 : 1, lA = lit === 1 ? 0.3 : 1;   // pieces or loops lit
     const yp = rise * hOf(r);
-    Object.assign(now, { r, u, rise, yp, bars, lit, n0: pieces(r), n1: loopsAt(r) });
+    now.r = r; now.u = u; now.rise = rise; now.yp = yp; now.bars = bars; now.lit = lit; now.n0 = pieces(r); now.n1 = loopsAt(r);
     replay(r);
     tubes.begin(); rings.begin(); halos.begin(); sheet.begin(); ribbons.begin(); cells.begin(); discs.begin(); stain.begin();
 
@@ -242,12 +242,11 @@ SETS.tower = function (K) {
         sheet.add(_a, _b, _c, LK.CYAN, 0.32 * pa, 0); sheet.add(_a, _c, _d, LK.CYAN, 0.32 * pa, 0);
         tubes.add(_a, _b, 0.004, LK.CYAN, 0.8 * pa, 0); tubes.add(_b, _c, 0.004, LK.CYAN, 0.8 * pa, 0);
         tubes.add(_c, _d, 0.004, LK.CYAN, 0.8 * pa, 0); tubes.add(_d, _a, 0.004, LK.CYAN, 0.8 * pa, 0);
-        // where the threads cross it: beads in their piece's colour
+        // the cells on it in their piece's colour, brighter where a piece's thread crosses it
         for (let i = 0; i < N; i++) {
-          if (rep[i] !== i) continue;
-          const c = cnt[i] > 1 ? COL[i] : LK.BEAD;
+          const c = cnt[rep[i]] > 1 ? COL[rep[i]] : LK.BEAD, th = rep[i] === i;
           _a[0] = X[i]; _a[1] = y; _a[2] = Z[i];
-          cells.add(_a, BEAD_R * KU * 0.9, LK.CELL.BEAD, c, pa * pA, ANG[i], UP);
+          cells.add(_a, BEAD_R * KU * (th ? 0.95 : 0.7), LK.CELL.BEAD, c, pa * pA * (th ? 1 : 0.6), ANG[i], UP);
         }
       }
       // loops alive: their holes glow (a glass fan, a halo), their rings orange
@@ -318,11 +317,12 @@ SETS.tower = function (K) {
         // (the poster's loop glows inside, all the way up, brighter where the plane cuts it)
         if (L.main) for (let q = 0; q <= 8; q++) {
           _a[0] = L.hx; _a[1] = lerp(y0, y1, q / 8); _a[2] = L.hz;
-          const at = Math.abs(_a[1] - now.yp) < (y1 - y0) / 8 ? 1.6 : 1;
-          halos.add(_a, L.rad * 1.9, LOOPLIT, 0.34 * a * at * (_a[1] <= now.yp + 1e-4 ? 1 : 0.35));
+          const cut = Math.abs(_a[1] - now.yp) < (y1 - y0) / 8 ? 1.6 : 1;
+          halos.add(_a, L.rad * 1.5, LOOPLIT, 0.28 * a * cut * (_a[1] <= now.yp + 1e-4 ? 1 : 0.35));
         }
       }
-      // the ruler: a post on the plate's corner, a mark at 2, 5, 10, 20 and 50 µm, and where the plane is
+      // the ruler: a post beside the plate, a mark at 2, 5, 10, 20 and 50 µm, a cyan ring where the plane is and a dashed
+      // line from it to the plane's edge
       const ra = tw;
       _a[0] = RULER[0]; _a[1] = 0; _a[2] = RULER[1]; _b[0] = RULER[0]; _b[1] = rise * TH; _b[2] = RULER[1];
       tubes.add(_a, _b, 0.0045, LK.INK, 0.8 * ra, 0);
@@ -401,11 +401,11 @@ SETS.tower = function (K) {
   const labels = [
     ...SNAP.map((s, k) => ({ text: s.text, at: 'tag', cls: '', alpha: S => near(S, k) * flat(S) })),
     { text: () => ['The big loop', ' · round an empty space'], at: 'hole', cls: 'amb',
-      alpha: S => { const r = +S.tower_r || 1.5; return (MAIN.b <= r && r < MAIN.d ? 1 : 0) * flat(S) * (1 - clamp(Math.round(S.tower_lit) === 1 ? 1 : 0, 0, 1)) * prog(T.u(r) - MAIN.ub, 0.03, 0.06); } },
+      alpha: S => { const r = +S.tower_r || 1.5; return (MAIN.b <= r && r < MAIN.d ? 1 : 0) * flat(S) * (Math.round(S.tower_lit) === 1 ? 0 : 1) * prog(T.u(r) - MAIN.ub, 0.03, 0.06); } },
     { text: () => [`${fmtR(now.r)} µm`, ` · ${plural(now.n0, 'piece', 'pieces')} · ${plural(now.n1, 'loop', 'loops')}`], at: 'plane', cls: 'cyn',
       alpha: S => prog(S.tower_rise, 0.5, 0.9) },
     ...TICKS.map((m, k) => ({ text: [`${m} µm`, ''], at: 'tick' + k, cls: '',
-      alpha: S => prog(S.tower_rise, 0.6, 1) * (1 - clamp(S.tower_bars, 0, 1)) * prog(Math.abs(T.u(Math.max(0.5, +S.tower_r || 1.5)) - T.u(m)), 0.03, 0.06) })),
+      alpha: S => prog(S.tower_rise, 0.6, 1) * (1 - clamp(S.tower_bars, 0, 1)) * prog(Math.abs(T.u(Math.max(0.5, +S.tower_r || 1.5)) - T.u(m)), 0.045, 0.08) })),
     { text: ['The trunk', ' · one piece left'], at: 'trunk', cls: 'amb',
       alpha: S => prog(S.tower_rise, 0.8, 1) * (1 - prog(S.tower_bars, 0, 0.3)) * prog(+S.tower_r || 0, 17, 20) * (Math.round(S.tower_lit) === 2 ? 0 : 1) },
     { text: ['The big loop', ' · a chimney from birth to filling'], at: 'chimney', cls: 'amb',
@@ -414,12 +414,12 @@ SETS.tower = function (K) {
     { text: ['Loops', ` · ${NL} rods, at most ${B1.top} at once`], at: 'bars1', cls: 'amb', alpha: S => prog(S.tower_bars, 0.6, 0.8) * (Math.round(S.tower_lit) === 1 ? 0 : 1) },
   ];
   const cam = {
-    default: [18, 16, 5.6, 0.1, 0.72, 0],          // the tower whole, the plate at its foot
+    default: [18, 16, 4.9, 0, 0.74, 0],            // the tower whole, the plate at its foot
     plate: [8, 52, 3.4, 0, 0, 0.05],               // a close look at the plate: the balls growing (chapter 3)
     snap: [0, 64, 3.0, 0, 0, 0.02],                // from above, as the poster's snapshots
     tower: [26, 12, 5.0, 0, 0.85, 0],              // the tower rising (chapter 4)
     up: [205, -58, 2.6, 0.05, 0.95, 0],            // from under the plate, up through the tower (screens)
-    bars: [8, 12, 6.2, 0.85, 0.82, -0.15],         // the tower and the board of rods and curves
+    bars: [6, 12, 6.0, 1.0, 0.82, -0.15],          // the tower and the board of rods and curves
     stand: [16, 0, 1.17, 0, 1.06, 0],              // the headset: about 1.55 m tall in front of you (see the manifest)
   };
 
@@ -467,6 +467,8 @@ SETS.tower = function (K) {
   const API = {
     range: [T.rOf(0), T.rOf(1)], ticks: TICKS, snaps: SNAP.map((s, k) => ({ r: s.r, pieces: P.betti[k][0], loops: P.betti[k][1] })),
     counts: r => ({ pieces: pieces(r), loops: loopsAt(r) }),
+    // the most pieces and loops alive at once on the ruler, the barcode's lanes, the cells, the loops
+    most: { pieces: B0.top, loops: B1.top }, lanes: LANES, cells: N, loops: NL, main: { b: MAIN.b, d: MAIN.d, edges: MAIN.ring.length },
     // the cell's piece at radius r (the cell its piece started from) and how many cells it holds
     piece(i, r) { replay(r); const p = rep[i], n = cnt[p]; replay(now.r); return { start: p, cells: n }; },
     loop: k => { const L = LOOPS[k]; return L ? { k, b: L.b, d: L.d, main: L.main, edges: L.ring.length } : null; },
@@ -476,6 +478,8 @@ SETS.tower = function (K) {
   return Object.assign(set, {
     params: { tower_a: 1, tower_r: 1.5, tower_rise: 0, tower_bars: 0, tower_he: 0, tower_lit: 0 },
     update, anchors, labels, cam, controls, explore,
+    // params the engine should ease on the poster's log ruler (TDATA.u in, TDATA.rOf out), in the story and in explore
+    log: ['tower_r'],
     api: () => API,
   });
 };

@@ -296,7 +296,7 @@ void main() {
   float d = length(vQ);
   if (d > 1.0) discard;
   float w = fwidth(d), e = 1.0 - smoothstep(1.0 - 1.5 * w, 1.0, d);
-  float z = sqrt(max(0.0, 1.0 - d * d)), lit = 0.62 + 0.38 * clamp(dot(vec3(vQ.x, vQ.y, z), normalize(vec3(-0.45, 0.6, 0.65))), 0.0, 1.0);
+  float z = sqrt(max(0.0, 1.0 - d * d)), lit = 0.74 + 0.26 * clamp(dot(vec3(vQ.x, vQ.y, z), normalize(vec3(-0.45, 0.6, 0.65))), 0.0, 1.0);
   vec3 c = vC.rgb * lit + vec3(1.0) * pow(max(0.0, 1.0 - length(vQ - vec2(-0.35, 0.38)) * 1.6), 3.0) * 0.35;
   c = mix(c * 0.55, c, smoothstep(1.0, 0.85, d));   // a darker rim
   gl_FragColor = vec4(c, vA * e * 0.92);
@@ -562,7 +562,7 @@ void main() {
     square: inTile((D.tile.side % GRID) / 2 + (gq[0] + 1) * GRID, (D.tile.side % GRID) / 2 + gq[1] * GRID),
     hub: inTile(T.tile.x[HUB] + 12, T.tile.y[HUB] - 6),
     circle: inTile(T.tile.x[CIR] + CIRR, T.tile.y[CIR] - CIRR * 0.4),
-    spots: inTile(470, 520), fluo: inTile(470, 520), points: inTile(470, 520),
+    spots: inTile(470, 500), fluo: inTile(470, 590), points: inTile(470, 545),
     section: () => toOv([OVX - ovW / 2 + 0.05, 0.01, -ovH / 2 + 0.02], [0, 0, 0]),
     mark: () => toOv([owin.x + owin.side / 2, 0.01, owin.z - owin.side / 2], [0, 0, 0]),
     label: () => toOv([-OVL / 2 + SL.label * OVL / 2, 0.02, 0], [0, 0, 0]),
