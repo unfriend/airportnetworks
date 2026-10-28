@@ -1232,7 +1232,7 @@ try {
     for (let k = 0; k < 4; k++) { C.pres.set(id, { id, at: performance.now(), st: '', head: [1, 1.6, -2, 0, 0, 0, 1], hands: [] }); window.__xr.step(); await new Promise(r => setTimeout(r, 10)); }
     const O = HOST.collab.overlay(), o = O.people.get(id), f = m => ({ vis: m.visible, dt: m.material.depthTest, dw: m.material.depthWrite, at: m.material.alphaTest, ro: m.renderOrder });
     const out = { cards: [...O.cards.values()].map(c => Object.assign(f(c.mesh), { back: c.back.renderOrder, same: c.back.material === c.mesh.material, v: c.mesh.material.version })),
-      tag: o ? f(o.tag) : null, sign: o ? Object.assign(f(o.sign), { faces: o.sign.children.map(f) }) : null,
+      tag: o ? f(o.tag) : null, sign: o ? { vis: o.sign.visible, faces: o.sign.children.map(f) } : null,
       menu: [O.clock, O.panel, O.note].map(S => !S.mesh.material.depthTest && S.mesh.renderOrder > 50) };
     C.pres.delete(id); C.members = C.members.filter(m => m.id !== id);
     return out;
