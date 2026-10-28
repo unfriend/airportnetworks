@@ -786,12 +786,12 @@ try {
     const steps = async n => { for (let k = 0; k < n; k++) { X.step(); await new Promise(r => setTimeout(r, 20)); } };
     P('(APP.mode !== "story" && APP.enterStory(0), APP.playing = true, XR.stories = true, XR.inStory = false)');
     await steps(4);
-    // a ray at the globe from 0.8 m before its middle: nothing to point at while away (the same ray hits the globe once the
-    // shell says the headset is not away)
+    // a ray at the globe from half a metre outside it: nothing to point at while away (the same ray hits the globe once
+    // the shell says the headset is not away)
     const mid = P('GL.world.getWorldPosition(new THREE.Vector3())'), dir = mid.clone().sub(new V().setFromMatrixPosition(X.W.head).applyMatrix4(X.W.local.clone().invert())).normalize();
-    const c = P('XR.ctrls')[0];
+    const rad = 1.04 * P('GL.world.getWorldScale(new THREE.Vector3()).x') + 0.5, c = P('XR.ctrls')[0];
     c.src = c.src || { targetRayMode: 'tracked-pointer', handedness: 'right', gamepad: null };
-    c.g.visible = true; c.g.matrix.compose(mid.clone().addScaledVector(dir, -0.8), new THREE.Quaternion().setFromUnitVectors(new V(0, 0, -1), dir), new V(1, 1, 1));
+    c.g.visible = true; c.g.matrix.compose(mid.clone().addScaledVector(dir, -rad), new THREE.Quaternion().setFromUnitVectors(new V(0, 0, -1), dir), new V(1, 1, 1));
     P('(XR.main.last = "", XR.main.t = -1e9)');
     await steps(3);
     P('xrUpdate(storyState(storyT(APP.t)))');   // (a pretend session's frames run only xrBegin: what xrUpdate shows, asked here)

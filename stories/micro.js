@@ -3592,8 +3592,9 @@ SETS.atlas = function (K) {
     return { N, x, y, cell, d0, d1, flip, exAt };
   });
   // where each tile goes when its section's tiles gather into one bead per domain (atlas_net, before the section flies
-  // into the network): each domain's bead sits at its tiles' centre, pushed clear of the others, its tiles packed in a
-  // sunflower BK of their spacing apart (they shrink as much), the ones nearest the centre in the middle
+  // into the network): each domain's bead sits at its tiles' centre, pushed clear of the others; each tile keeps its
+  // direction from that centre and moves in to a radius by its rank in distance, so the domain contracts into a disc
+  // without tiles crossing (BK of their spacing apart: they shrink as much)
   const BK = 0.72;
   SEC.forEach((s, ti) => {
     const nd = REC[ti].length, B = Array.from({ length: nd }, () => ({ n: 0, x: 0, y: 0, R: 0, js: [] }));
@@ -3610,7 +3611,7 @@ SETS.atlas = function (K) {
     s.gx = new Float32Array(s.N); s.gy = new Float32Array(s.N);
     for (const b of on) {
       b.js.sort((a, c) => Math.hypot(s.x[a] - b.cx, s.y[a] - b.cy) - Math.hypot(s.x[c] - b.cx, s.y[c] - b.cy));
-      b.js.forEach((j, k) => { const r = b.R * Math.sqrt((k + 0.5) / b.n), th = k * 2.39996; s.gx[j] = b.x + r * Math.cos(th); s.gy[j] = b.y + r * Math.sin(th); });
+      b.js.forEach((j, k) => { const r = b.R * Math.sqrt((k + 0.5) / b.n), th = Math.atan2(s.y[j] - b.cy, s.x[j] - b.cx + 1e-6); s.gx[j] = b.x + r * Math.cos(th); s.gy[j] = b.y + r * Math.sin(th); });
     }
   });
 
@@ -3987,7 +3988,9 @@ void main() {
   float ex = aM.w > 0.25 && aM.w < 0.75 ? 1.0 - 0.5 * Q.w * (1.0 - k) : 1.0 + 0.15 * step(0.75, aM.w) * Q.w;   // a focused example: its domain stands out
   // (Q.z: H&E 0 to domain colours 1; above 1 while the section flies into the network: its plate fades)
   vC = (mix(aH, mix(aCA, aCB, f), max(min(Q.z, 1.0), k)) * (1.0 + 0.1 * Q.w) + gl * vec3(0.7)) * ex;
-  vC = mix(vC, vec3(1.0), 0.55 * hot) * (1.0 + 0.45 * fly + 0.6 * hot);
+  // (on the way the tiles take on a little of the network's colours: salmon at the tissue types, blue to the domains)
+  vC = mix(vC, mix(vec3(0.94, 0.56, 0.48), vec3(0.35, 0.66, 1.0), k4), 0.3 * cube);
+  vC = mix(vC, vec3(1.0), 0.4 * hot) * (1.0 + 0.2 * fly + 0.4 * hot);
   vA = uA * mix(Q.y, 0.88 * uCA * (1.0 - 0.85 * uFoc * (1.0 - Q.w)), k);
   vK = max(k, 0.85 * cube); vQ = fuv * 2.0 - 1.0;
 #ifdef HERO
@@ -4388,7 +4391,7 @@ void main() {
     let o = 0;
     SEC.forEach((s, ti) => { for (let j = 0; j < s.N; j++, o++) { const m = MS[ti], mp = MAP[REC[ti][s.d0[j]].name]; if (!m) continue;
       if (mp.ty >= 0) nT[mp.ty] = (nT[mp.ty] || 0) + 1; if (mp.d >= 0) nD[mp.d] = (nD[mp.d] || 0) + 1; } });
-    const rOf = n => 0.0062 * Math.cbrt(Math.max(1, n));
+    const rOf = n => 0.0044 * Math.cbrt(Math.max(1, n));
     const r = rng(4711);
     o = 0;
     SEC.forEach((s, ti) => {
@@ -5790,7 +5793,7 @@ const fitShift = (k, name) => { const f = GL.sets[k].cam[name] && FIT[k] && FIT[
 const SEC = [0, 0, 0.6, -0.22];
 const FIT = { atlas: { default: [0, 0, 1.1, -0.22], library: [0, 0, 1.1, -0.22], atlas: [0, 0, 0.8, -0.35], focus: [0, 0, 0.55, -0.05, 0.0], volcano: [0, 0, 0.45, -0.2],
   curves: [0, 0, 1.1, -0.32], age: [0, 0, 0.45, -0.2] },
-  body: { default: [0, 0, 0.55], front: [0, 0, 0.55] }, hier: { net: [0, 0, 0.35, 0, 0.05], default: [0, 0, 0.25, 0, 0.03], grow: [0, 0, 0.6, -0.3, 0.02] }, tissue: { default: SEC, section: SEC }, slide: { default: SEC, section: SEC, domains: SEC, age: SEC, tiles: [0, 0, 0.35, -0.25], close: [0, 0, 0.6, -0.14], group: [0, 0, 0.85, -0.17] } };
+  body: { default: [0, 0, 0.55], front: [0, 0, 0.55] }, hier: { net: [0, 0, 0.35, 0, 0.05], default: [0, 0, 0.25, 0, 0.03], grow: [0, 0, 0.8, -0.18, 0.02] }, tissue: { default: SEC, section: SEC }, slide: { default: SEC, section: SEC, domains: SEC, age: SEC, tiles: [0, 0, 0.35, -0.25], close: [0, 0, 0.6, -0.14], group: [0, 0, 0.85, -0.17] } };
 // how much further back a view stands on a phone held upright (see narrowK): the wide ones, whose parts reach
 // across the screen
 const NARROW = { tissue: { section: 1.2, default: 1.2 }, slide: { default: 1.2, domains: 1.2, group: 1.25 }, atlas: { library: 1.1, default: 1.1, atlas: 1.2, volcano: 1.15, curves: 1.15 },
