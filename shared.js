@@ -2042,7 +2042,8 @@
       // clock (twice its size) hangs in front of you, a little to the left, and follows you gently (not while the menu
       // is open below it, so its buttons stay put)
       _v.set(0, 0, -1).applyQuaternion(HD.q);
-      _v.set(-0.3, 0.1, -0.65).applyAxisAngle(_Y, Math.atan2(-_v.x, -_v.z)).add(HD.p);
+      const hy = Math.atan2(-_v.x, -_v.z);   // (where you face along the floor)
+      _v.set(-0.3, 0.1, -0.65).applyAxisAngle(_Y, hy).add(HD.p);
       if (!OV.ahead) OV.clockG.position.copy(_v); else if (!PNL.open) OV.clockG.position.lerp(_v, 1 - Math.exp(-dt * 3));
       OV.clockG.quaternion.setFromRotationMatrix(_m.lookAt(HD.p, OV.clockG.position, _Y));
       OV.clockG.scale.setScalar(2);

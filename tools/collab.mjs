@@ -799,6 +799,9 @@ try {
     const out = { away: HOST.room.away(), mine: HOST.collab.mine(), stories: P('XR.stories'), playing: P('APP.playing'), world: P('GL.world.visible'),
       panels: P('XR.main.mesh.visible || XR.foot.mesh.visible'), land: P('XR.land.some(Q => Q.mesh.visible)'), kind: c.hover && c.hover.kind,
       button: P('XR.main.regions.some(r => r.id === "stories")'), clock: O.clockG.visible && !!O.ahead && O.clockG.scale.x === 2 };
+    const hm = X.W.local.clone().invert().multiply(X.W.head), hp = new V(), hq = new THREE.Quaternion();
+    hm.decompose(hp, hq, new V());
+    out.front = +O.clockG.position.clone().sub(hp).normalize().dot(new V(0, 0, -1).applyQuaternion(hq)).toFixed(3);   // (the clock ahead of your eyes)
     await steps(10);
     out.still = P('APP.t') === t0 && !P('APP.playing');
     const aw = HOST.room.away;
@@ -810,7 +813,7 @@ try {
   });
   check('headset: away from every station in a room no story shows (no Stories screen, the scene and panels hidden, nothing to point at, paused, no Stories button; the clock in front of you)',
     away0.away && !away0.mine && !away0.stories && !away0.playing && !away0.world && !away0.panels && !away0.land && !away0.kind && away0.control === 'globe' && !away0.button &&
-    away0.still && away0.clock, JSON.stringify(away0));
+    away0.still && away0.clock && away0.front > 0.85, JSON.stringify(away0));
   // walk to the headset story's station: after a second there it becomes this headset's story, placed at the station
   const stationFor = async k => { const s = await H.evaluate(k => HOST.collab.stations().find(s => s.story === k) || null, k); if (!s) throw new Error('no station for ' + k); return s; };
   const S1 = await stationFor(HEADSET_STORY);
