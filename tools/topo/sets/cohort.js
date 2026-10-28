@@ -58,10 +58,10 @@ SETS.cohort = function (K) {
   for (let a = 0; a < 8; a++) for (const b of [1, 2, 4]) if (!(a & b)) EDGE.push([a, a | b]);
   // the four stacks by the held-out result (healthy right, healthy wrong, cirrhosis wrong, cirrhosis right): slides
   // lying flat, turned so their labels face you, a column of labels in the class's colour
-  const STK = { x: [-0.84, -0.34, 0.34, 0.84], z: 0.08, size: 0.34, pitch: 0.0135 };
+  const STK = { x: [-0.96, -0.36, 0.36, 0.96], z: 0.08, size: 0.34, pitch: 0.0135 };
   // the weight per radius: the column (the tower's ruler: 1.5 µm at its foot, 60 µm at TH), gamma swinging WG to the
   // sides, the means beside it, and the gap's stack in front and to the left
-  const G = { x: 1.95, z: 0, TH: 1.6, WG: 0.42, xm: 1.95 + 0.42 + 0.2, WM: 0.3, xs: 1.18, zs: 0.36, rs: 0.1, k: 0.11 };
+  const G = { x: 2.05, z: 0, TH: 1.6, WG: 0.42, xm: 2.05 + 0.42 + 0.2, WM: 0.3, xs: 1.3, zs: 0.36, rs: 0.1, k: 0.11 };
   const COL_TICKS = [2, 5, 10, 20, 50];
   const qStand = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), PI / 2);   // on its long edge, face to +z
   const qFlat = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), PI / 2);    // flat, its label towards you
@@ -123,7 +123,7 @@ SETS.cohort = function (K) {
   const M = [model(0), model(1)];
 
   // ---------------------------------------------------------------- the frame of the moment
-  const now = { dim: 1, m: M[1], pick: -1, space: 0, odds: 0, stacks: 0, gamma: 0, gap: 0,
+  const now = { dim: 1, m: M[1], pick: -1, ps: 0, space: 0, odds: 0, stacks: 0, gamma: 0, gap: 0,
     win: [5, 15], wy: [0, 0], drum: [[0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0]], wallTop: [0, 0, 0] };
   const POS = new Float32Array(3 * N), SIZE = new Float32Array(N), VIS = new Float32Array(N), RIB = new Float32Array(N);
   const _p = [0, 0, 0], _a = [0, 0, 0], _b = [0, 0, 0], _c = [0, 0, 0], _o = [0, 0, 0], _u = [0, 0, 0], _y = [0, 0, 0], _col = [0, 0, 0], _col2 = [0, 0, 0];
@@ -207,10 +207,10 @@ SETS.cohort = function (K) {
       const vis = Math.max(fa, f1);
       _p[0] = x; _p[1] = y; _p[2] = z;
       POS[3 * i] = x; POS[3 * i + 1] = y; POS[3 * i + 2] = z; SIZE[i] = s; VIS[i] = vis;
-      slides.add(_p, _q, s, CL[c], vis * others, picked ? 1 : 0.55 * f1 * (1 - f3) + 0.25 * f3);
+      slides.add(_p, _q, s, CL[c], vis * others, picked ? 1 : 0.35 + 0.3 * f1 * (1 - f3) + 0.45 * f3);
       // its glow in the cloud (the clouds read from afar)
-      const ha = 0.38 * prog(f1, 0.6, 1) * (1 - f3) * others * cubeA;
-      if (ha > 0.003) halos.add(_p, picked ? 0.2 : 0.1, CLIT[c], picked ? 0.9 : ha);
+      const ha = 0.16 * prog(f1, 0.6, 1) * (1 - f3) * others * cubeA;
+      if (ha > 0.003 || picked) halos.add(_p, picked ? 0.2 : 0.07, CLIT[c], picked ? 0.9 * prog(f1, 0.6, 1) : ha);
       // a faint line down to the cube's floor (where it is in depth)
       const da = 0.2 * prog(f1, 0.85, 1) * (1 - f2) * cubeA * others;
       if (da > 0.003) { _b[0] = x; _b[1] = C[1] - HS; _b[2] = z; tubes.add(_p, _b, 0.0018, CLIT[c], da, 0); }
@@ -242,7 +242,7 @@ SETS.cohort = function (K) {
 
     // ---- the two main shapes: hovering over the rack, then on the cube's back edges (shape 1 across the top, shape 2
     // up the left), as the axes they are
-    const ps = prog(space, 0.1, 0.6), shA = shapes * (1 - prog(stacks, 0, 0.4)) * (1 - 0.3 * ps);
+    const ps = now.ps = prog(space, 0.1, 0.6), shA = shapes * (1 - prog(stacks, 0, 0.4)) * (1 - 0.3 * ps);
     if (shA > 0.003) for (let k = 0; k < 2; k++) {
       const Pk = PH[k], th = k ? PI / 2 * ps : 0, lu = lerp(1.3, 2 * HS, ps), ly = lerp(0.32, 0.24, ps);
       const hover = k ? [-0.65, 1.38, -0.3] : [-0.65, 1.06, 0.22];
@@ -325,7 +325,7 @@ SETS.cohort = function (K) {
         const w = m.WIN[k], f = prog(gap, 0.08 * k, 0.08 * k + 0.5), col = w.s >= 0 ? LK.CIRRLIT : LK.HEALTHYLIT, a = wA * (w.poster ? 1 : 0.8);
         const cx = lerp(G.x, G.xs, f), cz = lerp(G.z, G.zs, f), cy = lerp((w.h0 + w.h1) / 2, (w.y0 + w.y1) / 2, f) + 0.25 * Math.sin(PI * f);
         const hh = lerp((w.h1 - w.h0) / 2, (w.y1 - w.y0) / 2, f), r = lerp(w.R, G.rs + (w.s < 0 ? 0.016 : 0), f);
-        const d = now.drum[k]; d[0] = cx + r; d[1] = cy + hh; d[2] = cz;
+        const d = now.drum[k]; d[0] = cx + r + 0.02; d[1] = cy; d[2] = cz;
         if (a <= 0.003) continue;
         _a[0] = _b[0] = cx; _a[2] = _b[2] = cz; _a[1] = cy - hh; _b[1] = cy + hh;
         tubes.add(_a, _b, r, col, (0.13 + 0.12 * f) * a, 0);
@@ -368,12 +368,12 @@ SETS.cohort = function (K) {
   const cloudMid = c => () => { const p = now.m.mids[c]; return [C[0] + p[0], C[1] + p[1] + 0.12, C[2] + p[2]]; };
   const logAt = L => () => { const m = now.m, s = (L() - m.b0) / m.na; return [C[0] + m.n[0] * s + 0.06, C[1] + m.n[1] * s, C[2] + m.n[2] * s]; };
   const stackTop = g => () => [STK.x[g] - 0.05, STK.size * DIMS.thick + now.m.cnt[g] * STK.pitch + 0.06, STK.z + 0.1];
-  const STACK = [['healthy', 'right'], ['healthy', 'called cirrhosis'], ['cirrhosis', 'called healthy'], ['cirrhosis', 'right']];
+  const STACK = [['healthy', 'right'], ['healthy', 'wrong'], ['cirrhosis', 'wrong'], ['cirrhosis', 'right']];
   const anchors = {
     rack: [0, 0.4, 0], rowH: [RACK.x[0] + RACK.L * 0.1, RACK.foot + RW + RACK.rh + 0.08, RACK.zf], rowC: [RACK.x[1] + RACK.L * 0.1, RACK.foot + RW + RACK.rh + 0.08, RACK.zf],
     ruler: [RACK.x[0] - RACK.L / 2 + RIB_X0 * RACK.L, RACK.foot + 0.02, MEAN_Z + 0.05],
     meanH: [RACK.x[0] + RACK.L * 0.05, RACK.foot + RW + RACK.rh * 1.08 + 0.06, MEAN_Z], meanC: [RACK.x[1] + RACK.L * 0.05, RACK.foot + RW + RACK.rh * 1.08 + 0.06, MEAN_Z],
-    phi1: () => { const P = PH[0]; return [P.o[0] + P.U[0] * 0.98, P.o[1] + P.U[1] * 0.98 + 0.12, P.o[2]]; },
+    phi1: () => { const P = PH[0], u = lerp(0.98, 0.62, now.ps); return [P.o[0] + P.U[0] * u, P.o[1] + P.U[1] * u + 0.12, P.o[2]]; },
     phi2: () => { const P = PH[1]; return [P.o[0] + P.U[0] * 0.98 - P.Y[0] * 0.2, P.o[1] + P.U[1] * 0.98 + 0.1, P.o[2]]; },
     axis3: cube(-HS, -HS, HS + 0.08), cube: cube(0, 0, 0),
     healthy: cloudMid(0), cirrhosis: cloudMid(1),
@@ -382,7 +382,7 @@ SETS.cohort = function (K) {
     stack0: stackTop(0), stack1: stackTop(1), stack2: stackTop(2), stack3: stackTop(3),
     stacks: [0, 1.02, STK.z], column: [G.x, G.TH * 0.5, G.z], colTop: [G.x + 0.04, G.TH + 0.06, G.z],
     gPeak: () => { const m = now.m; return [G.x + G.WG * m.gy + 0.03 * Math.sign(m.gy), G.TH * m.gu, G.z]; },
-    means: [G.xm + G.WM * 0.55, G.TH * 0.86, G.z], gap: () => [G.xs + G.rs + 0.06, now.m.H.shares.gap * G.k + 0.02, G.zs],
+    means: [G.xm + G.WM * 0.3, G.TH * 0.9, G.z], gap: () => [G.xs - G.rs - 0.09, now.m.H.shares.gap * G.k + 0.2, G.zs],
     win: () => [G.x + 0.22, (now.wy[0] + now.wy[1]) / 2, G.z],
     pick: () => { const i = Math.max(0, now.pick); return [POS[3 * i] + SIZE[i] * 0.3, POS[3 * i + 1] + SIZE[i] * (RIB[i] > 0.1 ? 0.75 : 0.2) + 0.03, POS[3 * i + 2]]; },
   };
@@ -416,7 +416,7 @@ SETS.cohort = function (K) {
     { text: () => { const c = now.m.H.confusion; return [`${c[0] + c[3]} of ${N} right`, ` · held out, accuracy ${now.m.H.accuracy.toFixed(3)}`]; }, at: 'stacks', cls: '',
       alpha: S => prog(S.cohort_stacks, 0.85, 1) * (1 - prog(S.cohort_gamma, 0, 0.3)) * noPick(S) },
     { text: () => ['Radius', ` · up the column, ${T.rOf(0)} to ${T.rOf(1)} µm`], at: 'colTop', cls: '', alpha: S => prog(S.cohort_gamma, 0.15, 0.3) * (1 - prog(S.cohort_gamma, 0.6, 0.75)) * (1 - clamp(S.cohort_win, 0, 1)) },
-    { text: ['Weight per radius', ' · red speaks for cirrhosis'], at: 'gPeak', cls: 'mag', alpha: S => prog(S.cohort_gamma, 0.4, 0.6) * (1 - prog(S.cohort_gap, 0, 0.3)) },
+    { text: ['Weight per radius', ' · red speaks for cirrhosis'], at: 'gPeak', cls: 'mag', alpha: S => prog(S.cohort_gamma, 0.4, 0.55) * (1 - prog(S.cohort_gamma, 0.65, 0.8)) * (1 - clamp(S.cohort_win, 0, 1)) },
     { text: ['The means', ' · cirrhosis red, healthy blue'], at: 'means', cls: '', alpha: S => prog(S.cohort_gamma, 0.55, 0.75) * (1 - prog(S.cohort_gap, 0, 0.3)) * (1 - clamp(S.cohort_win, 0, 1)) },
     // the windows' tags (the poster's two, and the rest of the radii together, at its larger part)
     ...[0, 1, 2, 3].map(k => ({
@@ -443,18 +443,18 @@ SETS.cohort = function (K) {
     }, at: 'pick', cls: 'cyn', alpha: S => (Math.round(S.cohort_pick) >= 0 ? 1 : 0) },
   ];
   // views (for the loops' model, the story's): the wall seen edge-on (along the plane, across its normal's tilt)
-  const n1 = M[1].n, wallAz = Math.atan2(-n1[2], n1[0]) * 180 / PI;
+  const n1 = M[1].n, wallAz = Math.atan2(-n1[2], n1[0]) * 180 / PI, W1 = n1.map((v, k) => +(C[k] + v * M[1].D0).toFixed(2));
   const cam = {
-    default: [18, 24, 4.6, 0, 0.42, 0.05],         // the rack whole, from the front and above
+    default: [18, 26, 4.0, 0, 0.4, 0.05],          // the rack whole, from the front and above
     rack: [10, 16, 2.9, 0, 0.42, 0.55],            // close on the rack's front: the curves standing on their slides
     means: [0, 10, 2.3, 0, 0.42, 0.85],            // the two means in front of their rows
     shapes: [14, 18, 4.4, 0, 0.82, 0.05],          // the shapes hovering over the rack
     space: [28, 16, 4.7, 0, C[1], 0],              // the cube of the scores
-    wall: [Math.round(wallAz), 6, 4.6, 0, C[1], 0], // the wall edge-on between the clouds
+    wall: [Math.round(wallAz), 8, 4.6, W1[0], W1[1], W1[2]],   // the wall nearly edge-on between the clouds (aimed at it)
     odds: [Math.round(wallAz) - 25, 10, 4.6, 0, C[1], 0],   // the slides on the log-odds axis
-    stacks: [8, 20, 3.5, 0, 0.36, 0.1],            // the four stacks
-    gamma: [12, 8, 4.3, G.x + 0.25, 0.8, 0],       // the column, gamma and the means
-    gap: [-14, 10, 4.0, G.x - 0.25, 0.7, 0.1],     // the column and the gap's stack
+    stacks: [22, 26, 3.7, 0, 0.36, 0.1],           // the four stacks
+    gamma: [10, 8, 4.3, G.x + 0.35, 0.8, 0],       // the column, gamma and the means
+    gap: [-14, 10, 4.2, G.x - 0.2, 0.7, 0.1],      // the column and the gap's stack
     all: [16, 18, 6.6, 0.75, 0.75, 0],             // everything
   };
 
