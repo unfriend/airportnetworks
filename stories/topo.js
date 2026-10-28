@@ -4947,7 +4947,11 @@ const fitShift = (k, name) => { const f = GL.sets[k].cam[name] && FIT[k] && FIT[
 // or their target moved, so they fit beside the panel (added to the set's own view, in story and explore mode alike)
 // (measured at 1280 x 760: each view's parts between the panel's right edge and the screen's, above the timeline; the
 // sets' own views fill a whole screen, so most stand back a little and move their target left of the parts' middle)
-const FIT = {};
+const FIT = {
+  tower: { bars: [0, 0, 0.8, -0.3, 0, 0] },
+  cohort: { stacks: [0, 0, 0.4, -0.25, 0, 0] },
+  map: { relief: [0, 0, 0.3, -0.15, 0, 0] },
+};
 // how much further back a view stands on a phone held upright (see narrowK): the wide ones, whose parts reach
 // across the screen
 const NARROW = {};
