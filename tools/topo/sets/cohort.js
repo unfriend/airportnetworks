@@ -23,7 +23,7 @@ SETS.cohort = function (K) {
   const slides = LK.slides(N), DIMS = slides.dims;
   const ribbons = LK.ribbons(N, 168);    // the slides' own curves (at most 165 points)
   const big = LK.ribbons(8, 700);        // the means, the shapes, gamma (up to 685 points)
-  const tubes = LK.tubes(240), rings = LK.rings(24), halos = LK.halos(N + 16), boxes = LK.boxes(N + 4), sheet = LK.sheet(24), cones = LK.cones(6);
+  const tubes = LK.tubes(240), rings = LK.rings(24), halos = LK.halos(N + 64), boxes = LK.boxes(N + 4), sheet = LK.sheet(24), cones = LK.cones(6);
   // glass and guides never write depth (the axes, the column, the drums: things seen through)
   tubes.mesh.material.userData.fixed = true; tubes.mesh.material.depthWrite = false;
   for (const p of [boxes, rings, cones, tubes, slides, ribbons, big, halos, sheet]) set.group.add(p.mesh);
@@ -47,6 +47,8 @@ SETS.cohort = function (K) {
     const base = RACK.foot + RACK.step * SLOT[i];
     RP[3 * i] = RACK.x[CLS[i] ? 1 : 0]; RP[3 * i + 1] = base + RW / 2; RP[3 * i + 2] = RACK.zf - SLOT[i] * RACK.pz;
   }
+  // the order they are drawn in: back to front, so the glass and the curves in front lie over those behind
+  const ORDER = Array.from({ length: N }, (_, i) => i).sort((p, q) => SLOT[q] - SLOT[p] || p - q);
   const RIB_X0 = DIMS.label + 0.025, RIB_W = 1 - RIB_X0 - 0.025;   // where a slide's ribbon runs, in slide lengths
   const MEAN_Z = RACK.zf + 0.17;                                     // the means stand in front of their rows
 
@@ -125,6 +127,7 @@ SETS.cohort = function (K) {
   // ---------------------------------------------------------------- the frame of the moment
   const now = { dim: 1, m: M[1], pick: -1, ps: 0, space: 0, odds: 0, stacks: 0, gamma: 0, gap: 0,
     win: [5, 15], wy: [0, 0], drum: [[0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0]], wallTop: [0, 0, 0] };
+  const STKH = new Float32Array(4);   // how high each stack has grown (slides landed)
   const POS = new Float32Array(3 * N), SIZE = new Float32Array(N), VIS = new Float32Array(N), RIB = new Float32Array(N);
   const _p = [0, 0, 0], _a = [0, 0, 0], _b = [0, 0, 0], _c = [0, 0, 0], _o = [0, 0, 0], _u = [0, 0, 0], _y = [0, 0, 0], _col = [0, 0, 0], _col2 = [0, 0, 0];
   const _q = new THREE.Quaternion(), _qs = new THREE.Quaternion(), _ax = new THREE.Vector3(0, 1, 0);
@@ -185,8 +188,9 @@ SETS.cohort = function (K) {
     }
 
     // ---- the slides: in the rack, flying into the cloud, gliding to the log-odds, dropping into the stacks
-    for (let i = 0; i < N; i++) {
-      const c = CLS[i] ? 1 : 0, picked = i === pick, others = pick >= 0 && !picked ? 0.55 : 1;
+    STKH.fill(0);
+    for (let o = 0; o < N; o++) {
+      const i = ORDER[o], c = CLS[i] ? 1 : 0, picked = i === pick, others = pick >= 0 && !picked ? 0.55 : 1;
       const ta = 0.1 * SLOT[i] / ROWN, fa = prog(rack, ta, ta + 0.04);                       // into its slot
       const tf = 0.45 * i / (N - 1), f1 = prog(space, 0.03 + tf, 0.03 + tf + 0.5);         // out to the cloud
       const f2 = prog(odds, 0.25 * SLOT[i] / ROWN, 0.25 * SLOT[i] / ROWN + 0.75);            // to its log-odds
@@ -200,6 +204,7 @@ SETS.cohort = function (K) {
       // the stack, over a hop (a picked slide pulled out a little towards you)
       const sx = STK.x[g], sy = STK.size * DIMS.thick / 2 + j * STK.pitch, sz = STK.z + (picked ? 0.14 : 0);
       x = lerp(x, sx, f3); y = lerp(y, sy, f3) + 0.22 * Math.sin(PI * f3); z = lerp(z, sz, f3); s = lerp(s, STK.size, f3);
+      if (f3 > 0.9) STKH[g] = Math.max(STKH[g], (j + 1) * STK.pitch);
       const sway = prog(f1, 0.8, 1) * (1 - f3);
       _q.copy(qStand);
       if (sway > 0.001) _q.premultiply(_qs.setFromAxisAngle(_ax, 0.35 * sway * Math.sin(0.4 * t + 1.7 * i)));
@@ -227,6 +232,11 @@ SETS.cohort = function (K) {
         const col = picked ? LK.mix(CYAN, WHITE, 0.35, _col) : LK.mix(cc, WHITE, 0.55 * flash, _col);
         ribbons.add(H.curves[i], _o, _u, _y, 0.005 * s / RACK.L, col, ra, O);
       }
+    }
+
+    // ---- the stacks glow from inside in their class's colour, as high as they have grown
+    for (let g = 0; g < 4; g++) for (let y = 0.03; y < STKH[g]; y += 0.07) {
+      _a[0] = STK.x[g]; _a[1] = y; _a[2] = STK.z; halos.add(_a, 0.3, CLIT[g < 2 ? 0 : 1], 0.16 * prog(STKH[g] - y, 0, 0.05) * (pick >= 0 ? 0.5 : 1));
     }
 
     // ---- the classes' means, standing in front of their rows
