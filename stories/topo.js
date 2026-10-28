@@ -7664,7 +7664,11 @@ function init() {
     if (num('slide') !== null) selectSlide(Math.round(num('slide')) - 1, false);
     if (num('from') !== null) setFrom(num('from'));
     if (num('to') !== null || /^(above|inf)/i.test(hp.get('to') || '')) setTo(num('to') !== null ? num('to') : 100.5);
-    if (num('cell') !== null) selectCell(Math.round(num('cell')) - 1, false);
+    if (num('cell') !== null) {
+      selectCell(Math.round(num('cell')) - 1, false);
+      // (the cell's own view, round the cell picked)
+      if (X.scene === 'map' && X.cell >= 0) { const p = api('map').pos(X.cell), v = view('map', 'cell'); orbit.cur = [v[0], v[1], v[2], p[0], v[4], p[2]]; orbit.to = null; }
+    }
     if (hp.has('now')) { Object.assign(XS, exploreTargets()); orbit.cur = orbit.to || orbit.cur; orbit.to = null; }
     renderAll();
   }
