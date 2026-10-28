@@ -4991,12 +4991,17 @@ const FIT = {
   map: { relief: [0, 0, 0.3, -0.15, 0, 0] },
 };
 // how much further back a view stands on a phone held upright (see narrowK): the wide ones, whose parts reach
-// across the screen
-const NARROW = {};
+// across the screen (measured at 390 x 760, the scene's pixels against the strip above the panel: the patch's 110
+// cells across the width, the tower with its ruler and the board beside it, the cohort's shapes, scores and wall)
+const NARROW = { tower: { plate: 1.15, snap: 1.15, tower: 1.25, default: 1.25, bars: 1.32 },
+  cohort: { shapes: 1.25, space: 1.2, wall: 1.2, odds: 1.2 } };
 const narrowOf = (k, name) => (NARROW[k] && NARROW[k][name]) || 1;
 // on a screen held sideways but too narrow for the side panel (the panel below, the scene in a strip above it, see
 // lowK) the tall tower comes closer and is centred in the strip: [distance factor, the target's shift up]
-const LOW = {};
+// (measured at 640 x 400: the tower about as tall as the strip, its plate's label end left under the panel; the board
+// and the cohort's low views brought closer)
+const LOW = { tower: { plate: [1, -0.2], snap: [1, -0.2], tower: [0.95, -0.38], default: [0.95, -0.38], bars: [0.72, -0.3] },
+  cohort: { default: [0.7, -0.2], rack: [0.8, -0.1], means: [0.9, 0], shapes: [1, -0.15], stacks: [0.78, -0.1] } };
 const LOW1 = [1, 0];
 const lowOf = (k, name) => (LOW[k] && LOW[k][name]) || LOW1;
 // a set's anchor point, in the set's own coordinates
