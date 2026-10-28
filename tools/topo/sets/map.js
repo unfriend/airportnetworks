@@ -4,8 +4,9 @@
 // window's stored complex (edges and triangles whose stored radius is at most map_r, among those cells) grows, the cell's
 // own stored bars rise beside it as a small tower (rods on the tower's log ruler, its two curves as ribbons counted from
 // the stored bars), and its stored score stands as a needle. Then a dome sweeps the window row by row and behind it every
-// cell rises or sinks by its own stored score (lo50, clamped at the colour map's limit) and takes the poster's colours: a
-// relief of the window's stored triangles, the scars red and up, the healthy-like tissue blue and down. The cells then
+// cell takes the poster's colour by its own stored score (lo50, clamped at the colour map's limit) and rises or sinks
+// with the scores round it (a smoothed height, for drawing only): a relief of the window's stored triangles, the scars
+// red and up, the healthy-like tissue blue and down. The cells then
 // lift off in two groups by the sign of their score (healthy-like, cirrhosis-like: as many as comp50.sizes) and sort
 // themselves by type into piles (comp50's five types and other), as columns whose heights follow each type's share; and
 // the sketches of the workflow on other modalities (spots and a volcano of genes; a multiplex slide and protein columns:
@@ -44,6 +45,23 @@ SETS.map = function (K) {
       if ((W.x[i] - px) ** 2 + (W.y[i] - py) ** 2 <= r * r) out.push(i);
     }
     return out;
+  }
+  // the relief's height, for drawing only: each cell's stored score (H50) as a Gaussian-weighted mean over the cells
+  // within 60 µm (σ 25 µm), so scar bands and lobules read as ridges and hollows, not single spikes. The colours, the
+  // tags, the needle and explore keep each cell's own stored score; a cell with no local curve stays flat.
+  const HS = new Float32Array(N);
+  {
+    const nb = [], s2 = 2 * 25 * 25;
+    for (let i = 0; i < N; i++) {
+      if (isNaN(W.lo50[i])) continue;
+      let s = 0, w = 0;
+      for (const j of near(W.x[i], W.y[i], 60, nb)) {
+        if (isNaN(W.lo50[j])) continue;
+        const q = Math.exp(-((W.x[j] - W.x[i]) ** 2 + (W.y[j] - W.y[i]) ** 2) / s2);
+        s += q * H50[j]; w += q;
+      }
+      HS[i] = s / w;
+    }
   }
   // the stored complex by cell: the edges and triangles each cell is in
   const csr = (n, list) => {
@@ -108,7 +126,7 @@ SETS.map = function (K) {
       const vs = [TR.i[t], TR.j[t], TR.k[t]];
       for (let c = 0; c < 3; c++) {
         const i = vs[c], v = o * 3 + c;
-        rel.P[2 * v] = X[i]; rel.P[2 * v + 1] = Z[i]; rel.H[v] = H50[i]; rel.V[v] = VIS[i];
+        rel.P[2 * v] = X[i]; rel.P[2 * v + 1] = Z[i]; rel.H[v] = HS[i]; rel.V[v] = VIS[i];
         for (let j = 0; j < 3; j++) { rel.C[3 * v + j] = C50[3 * i + j]; rel.C2[3 * v + j] = C100[3 * i + j]; }
         rel.B[3 * v + c] = 1;
       }
@@ -159,7 +177,7 @@ void main() {
   bg.setAttribute('position', bq.attributes.position); bg.setIndex(bq.index);
   const BP = new Float32Array(4 * N), BC = new Float32Array(3 * N), BT = new Float32Array(3 * N), BG = new Float32Array(6 * N);
   for (let i = 0; i < N; i++) {
-    BP[4 * i] = X[i]; BP[4 * i + 1] = Z[i]; BP[4 * i + 2] = H50[i]; BP[4 * i + 3] = VIS[i];
+    BP[4 * i] = X[i]; BP[4 * i + 1] = Z[i]; BP[4 * i + 2] = HS[i]; BP[4 * i + 3] = VIS[i];
     BC.set(TCOL[TYPE[i]], 3 * i); BT[3 * i] = DELAY[i]; BT[3 * i + 1] = GROUP[0][i]; BT[3 * i + 2] = GROUP[1][i];
   }
   bg.setAttribute('aP', new THREE.InstancedBufferAttribute(BP, 4));
@@ -315,7 +333,7 @@ void main() {
   // ---------------------------------------------------------------- the extremes of the relief (for its tags: drawing)
   const ext = (() => {
     const B = 10, bs = side / B, sum = new Float32Array(B * B), cnt = new Float32Array(B * B);
-    for (let i = 0; i < N; i++) { if (isNaN(W.lo50[i])) continue; const q = clamp(Math.floor(W.x[i] / bs), 0, B - 1) + B * clamp(Math.floor(W.y[i] / bs), 0, B - 1); sum[q] += H50[i]; cnt[q]++; }
+    for (let i = 0; i < N; i++) { if (isNaN(W.lo50[i])) continue; const q = clamp(Math.floor(W.x[i] / bs), 0, B - 1) + B * clamp(Math.floor(W.y[i] / bs), 0, B - 1); sum[q] += HS[i]; cnt[q]++; }
     let hi = 0, lo = -1;
     for (let q = 0; q < B * B; q++) if (cnt[q] >= 40 && (!cnt[hi] || sum[q] / cnt[q] > sum[hi] / cnt[hi])) hi = q;
     // (the lowest well away from the highest, so their two tags never meet)
@@ -331,7 +349,7 @@ void main() {
   const RIB0 = { glow: 0.9, fill: 1, to: 1 }, RIB1 = { glow: 0.9, fill: 1, to: 1 }, RY1 = [0.06, 0, 0];
   const CYANL = [0.6, 0.93, 1.0], SPOTC = [0, 0, 0], GENEGREY = [0.62, 0.66, 0.74];
   // a cell's height on the relief now (the same as the shader's)
-  const hOf = (i, all, split) => H50[i] * HM * sstep(VIS[i], VIS[i] + 0.05, all) * (1 - sstep(0, 0.35, split)) + LIFT;
+  const hOf = (i, all, split) => HS[i] * HM * sstep(VIS[i], VIS[i] + 0.05, all) * (1 - sstep(0, 0.35, split)) + LIFT;
   function update(S, t) {
     // (only over the window: with the slide set showing the tile alone, nothing of this shows)
     const show = S.slide_show === undefined ? 1 : clamp(S.slide_show, 0, 2), wa = Math.min(1, show), A = set.uA.value * wa;
