@@ -44,19 +44,17 @@ import gudhi
 
 
 # ---- the cells: the healthy and cirrhosis slides of the h5ad, as topocyte_data's loader returns them ----
-@functools.cache
-def _cohort_arrays():
-    f = h5py.File(H5AD, 'r')
+# (read from the file each time: one slide is small, and the whole cohort is only read when the figure scripts' cache
+# lacks its persistence; keeping 30 million cells in memory starved the later steps)
+def _rows(f, slides):
     o = f['obs']
     cats = {k: [c.decode() for c in o[k]['categories'][:]] for k in ('label', 'slide_id', 'cell_type')}
     lab = o['label']['codes'][:]
     keep = np.isin(lab, [cats['label'].index('healthy'), cats['label'].index('cirrhosis')])
-    rows = np.flatnonzero(keep)
-    arrays = {k: o[k]['codes'][:][rows] for k in ('label', 'slide_id', 'cell_type')}
-    arrays['prob'] = o['prob'][:][rows]
-    xy = f['obsm']['spatial']
-    arrays['spatial'] = np.concatenate([xy[a:b] for a, b in _runs(rows)])
-    return cats, arrays
+    del lab
+    if slides is not None:
+        keep &= np.isin(o['slide_id']['codes'][:], [cats['slide_id'].index(s) for s in slides])
+    return cats, np.flatnonzero(keep)
 
 
 def _runs(rows, size=4_000_000):
@@ -70,21 +68,32 @@ def _runs(rows, size=4_000_000):
             a += size
 
 
+def _read(ds, rows):
+    return np.concatenate([ds[a:b] for a, b in _runs(rows)])
+
+
 def load_cells(slides=None):
-    cats, arr = _cohort_arrays()
-    sel = np.ones(arr['label'].size, bool)
-    if slides is not None:
-        codes = [cats['slide_id'].index(s) for s in slides]
-        sel = np.isin(arr['slide_id'], codes)
-    def cat(k):
-        return pd.Categorical.from_codes(arr[k][sel], categories=cats[k]).remove_unused_categories()
-    obs = pd.DataFrame({'slide_id': cat('slide_id'), 'label': cat('label'), 'cell_type': cat('cell_type'),
-                        'prob': arr['prob'][sel]})
-    obs.index = pd.Index(np.arange(int(sel.sum())).astype(str))
-    return ad.AnnData(obs=obs, obsm={'spatial': np.asarray(arr['spatial'][sel], dtype=np.float32)})
+    with h5py.File(H5AD, 'r') as f:
+        cats, rows = _rows(f, slides)
+        o = f['obs']
+        def cat(k):
+            return pd.Categorical.from_codes(_read(o[k]['codes'], rows), categories=cats[k]).remove_unused_categories()
+        obs = pd.DataFrame({'slide_id': cat('slide_id'), 'label': cat('label'), 'cell_type': cat('cell_type'),
+                            'prob': _read(o['prob'], rows)})
+        obs.index = pd.Index(np.arange(rows.size).astype(str))
+        xy = np.asarray(_read(f['obsm']['spatial'], rows), dtype=np.float32)
+    return ad.AnnData(obs=obs, obsm={'spatial': xy})
+
+
+def cohort_cells():
+    with h5py.File(H5AD, 'r') as f:
+        return int(_rows(f, None)[1].size)
 
 
 real.load_cells = load_cells
+# the two cohorts' stored models are read once (each read of the cache is a gigabyte)
+real.cohort_view = functools.cache(real.cohort_view)
+real.holdout_view = functools.cache(real.holdout_view)
 MPP, RULER = real.MPP, real.RULER
 log = functools.partial(print, file=sys.stderr, flush=True)
 
@@ -119,6 +128,10 @@ log('cohort without slide f ...')
 hold = real.holdout_view()
 log('panels b, c, d ...')
 pb, pc, pd_ = real.panel_b(), real.panel_c(), real.panel_d()
+pc = {'fve': pc['fve']}
+import gc
+gc.collect()
+log('f at 100 µm ...')
 real.DELTA_UM = 100.0
 f100, comp100 = real.f_scores(), real.f_composition()
 log('panel e ...')
@@ -349,7 +362,7 @@ data = {
     'about': 'topocyte (Schindler, Rendeiro, Menche): the GTEx liver cohort of its tutorial 04 and poster, computed by '
              'topocyte and the poster\'s figure scripts; slides numbered, no ids',
     'src': {'mpp': MPP, 'healthy': labels.count('healthy'), 'cirrhosis': labels.count('cirrhosis'),
-            'cells': int(_cohort_arrays()[1]['label'].size), 'components': clf_opts['n_components'],
+            'cells': cohort_cells(), 'components': clf_opts['n_components'],
             'folds': int(view.uns['betti_fpca_cos_h1']['classifiers']['label']['params']['cv']),
             'ruler': list(RULER), 'rcode': [R_LO, R_HI],
             # typed from the poster (its runtime.tex): persistence and fPCA of the cohort on a laptop's CPU
