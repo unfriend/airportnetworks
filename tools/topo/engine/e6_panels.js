@@ -147,9 +147,9 @@ function sigMain() {
     }
     return s;
   }
-  return ['x', audioLabel(), xrSig(), X.tab, X.scene, JSON.stringify(X.ctl), X.time, X.reads, X.rseed, X.branch, X.w, X.sseed, XR.on].join('|');
+  return ['x', audioLabel(), xrSig(), X.tab, X.scene, JSON.stringify(X.ctl), X.r, X.mr, X.slide, X.from, X.to, X.cell, TDATA.localReady, XR.on].join('|');
 }
-const XR_HERE = 'mutation';
+const XR_HERE = 'topo';
 const XR_STORIES = HOST.list;
 // ------------------------------------------------------- headset landing --
 // The Stories screen in the headset: a title panel and one card per story,
@@ -273,7 +273,7 @@ function drawMain(ctx, P) {
   if (!(HOST.room && HOST.room.placing())) hb('stories', 'Stories', () => { XR.stories = true; XR.kbd.open = false; APP.playing = false; }, 130);
   if (!XR.stories) hb('mode', story ? 'Explore now' : 'Replay story', () => (story ? APP.enterExplore() : APP.enterStory(0)), 186, { primary: story });
   // the story's name, smaller when the buttons leave it less room
-  fitTitle(ctx, 'The mutation machine', 40, 36, x - 40, 30, 36, VC.ink, 700, 24);
+  fitTitle(ctx, 'The shape of tissue', 40, 36, x - 40, 30, 36, VC.ink, 700, 24);
   ctx.fillStyle = VC.line; ctx.fillRect(36, 104, P.w - 72, 2);
   if (XR.stories) drawStoriesPane(ctx, P, 44, 136, P.w - 88);
   else if (story) {
@@ -436,7 +436,7 @@ function drawExplorePane(ctx, P, x, y, W) {
   ctx.fillStyle = VC.line; ctx.fillRect(x, y + 62, W, 2);
   y += 88;
   const bottom = P.h - 34;
-  ({ letters: drawLettersPane, rule: drawRulePane, tree: drawTreePane, stem: drawStemPane, scenes: drawScenesPane }[X.tab] || drawScenesPane)(ctx, P, x, y, W, bottom);
+  ({ patch: drawPatchPane, cohort: drawCohortPane, scales: drawScalesPane, cells: drawCellsPane, scenes: drawScenesPane }[X.tab] || drawScenesPane)(ctx, P, x, y, W, bottom);
 }
 // buttons that wrap like the HTML chips: items -> { id, label, on, col, ink, fn } (no fn: a plain chip)
 function flow(ctx, P, items, x, y, W, maxY, o = {}) {
@@ -465,7 +465,7 @@ function vSlider(ctx, P, id, x, y, w, v, lo, hi, col, set) {
   P.regions.push({ id, x: x - 16, y, w: w + 32, h: 48, drag: px => set(lo + clamp((px - x) / w, 0, 1) * (hi - lo)) });
 }
 // rows of a name (muted) and its value (ink), as the HTML's dl.stats
-// (kw: the names' column, wider where they are long, as the rebuild's methods)
+// (kw: the names' column, wider where they are long, as the windows of radii)
 function stats(ctx, x, y, W, rows, kw = 220) {
   let yy = y;
   for (const [k, v, more] of rows) {
@@ -476,88 +476,78 @@ function stats(ctx, x, y, W, rows, kw = 220) {
   }
   return yy - y;
 }
-// a slider the panes hold (the branch length or the pair favour): its name, its value and the slider under them
+// a slider the panes hold (a radius or an end of the window): its name, its value and the slider under them (a radius
+// slides on the log ruler, as on the page)
 function numRow(ctx, P, key, x, y, W) {
   const o = NUM[key], v = numOf(key);
   ctx.font = vfont(22); ctx.fillStyle = VC.muted; ctx.fillText(o.label, x, y + 2);
   ctx.font = vfont(24, 700); ctx.fillStyle = VC.ink; ctx.textAlign = 'right'; ctx.fillText(o.text(v), x + W, y); ctx.textAlign = 'left';
-  vSlider(ctx, P, 'num:' + key, x + 14, y + 28, W - 28, v, o.min, o.max, o.col, val => (key === 'w' ? setW(val, true) : setTime(val, true)));
+  vSlider(ctx, P, 'num:' + key, x + 14, y + 28, W - 28, sOf(o, v), o.log ? 0 : o.min, o.log ? 1000 : o.max, o.col, s => setNum(key, vOf(o, s), true));
   return 28 + 48 + 12;
 }
 // a closing note in the room left, if any
 const footNote = (ctx, text, x, y, W, bottom) => { if (y + 60 < bottom) textBlock(ctx, text, x, y, W, 21, 29, VC.faint, 400, Math.max(1, Math.min(4, Math.floor((bottom - y) / 29)))); };
-function drawLettersPane(ctx, P, x, y, W, bottom) {
-  const I = lettersInfo(), mix = letMix(), on = X.scene === 'letters' && viewIs('letters', 'qubits');
-  y += textBlock(ctx, 'A quantum computer holds each letter in two qubits, arrows on spheres: up is 0, down is 1. Pick a letter or a mix, then read it out.', x, y, W, 23, 32, VC.muted, 400, 2) + 10;
-  y += head(ctx, x, y, 'Letter or mix');
-  y += flow(ctx, P, MIXES().map(([v, n]) => ({ id: 'mix:' + v, label: n, on: on && mix === v, col: mixCol(v), fn: () => setMix(v) })), x, y, W, bottom, { px: 22, h: 50 }) + 14;
-  if (mix === 'rule') y += numRow(ctx, P, 'time', x, y, W);
-  y += textBlock(ctx, I.what, x, y, W, 24, 32, VC.ink, 400, 2) + 10;
-  y += stats(ctx, x, y, W, [['Chances', I.chances], ['Arrows', I.arrows], ['Read out', I.reads]]) + 12;
-  y += head(ctx, x, y, 'Read out');
-  y += flow(ctx, P, [['1', '1 more'], ['100', '100 more'], ['0', 'Clear']].map(([v, n]) => ({ id: 'read:' + v, label: n, fn: () => readOut(+v) }))
-    .concat([{ id: 'again', label: 'Read again', fn: readAgain }]), x, y, W, bottom, { px: 22, h: 50 }) + 14;
+const dimChips = () => DIMS.map(([o, n]) => ({ id: 'dim:' + o, label: n, col: o === '1' ? ORANGE : AMBER, on: ctlValue('cohort', ctlOf('cohort', 'dim')) === o, fn: () => sceneCtl('cohort', 'dim', o) }));
+function drawPatchPane(ctx, P, x, y, W, bottom) {
+  const on = X.scene === 'tower', v = towerView(), lit = ctlValue('tower', ctlOf('tower', 'lit'));
+  y += textBlock(ctx, `The poster's patch: ${FACTS.patch} real cells of a healthy liver. Grow the balls; raise the tower to see every radius at once.`, x, y, W, 23, 32, VC.muted, 400, 2) + 10;
+  y += numRow(ctx, P, 'r', x, y, W);
+  y += flow(ctx, P, SNAP_CHIPS().map(([r, n]) => ({ id: 'r:' + r, label: n, on: Math.abs(X.r - r) < 0.006, fn: () => setR(r) })), x, y, W, bottom, { px: 22, h: 50 }) + 14;
+  y += stats(ctx, x, y, W, patchInfo()) + 12;
   y += head(ctx, x, y, 'Show');
-  y += flow(ctx, P, [['helix', 'The helix'], ['copies', 'The copies'], ['qubits', 'The qubits']].map(([v, n]) => ({ id: 'v:' + v, label: n, on: X.scene === 'letters' && viewIs('letters', v), fn: () => showView('letters', v) })), x, y, W, bottom, { px: 22, h: 50 }) + 14;
-  footNote(ctx, 'Each read-out lands on one letter, by its chance: the piles grow roughly as tall as the chances. |01⟩ means first 0, then 1.', x, y, W, bottom);
-}
-function drawRulePane(ctx, P, x, y, W, bottom) {
-  const mi = ruleModel(), v = ruleView(), on = X.scene === 'rule', I = ruleInfo();
-  const letters = key => LETTER_CHIPS.map(([l, n, col]) => ({ id: key + ':' + l, label: n, col, on: LET[letterOf(key)] === l, fn: () => sceneCtl('rule', key, l) }));
-  y += textBlock(ctx, 'A rule of change: how readily each letter swaps for another, and how common each is in the long run. Example rates, computed as you choose.', x, y, W, 23, 32, VC.muted, 400, 2) + 10;
-  y += head(ctx, x, y, 'Rule');
-  y += flow(ctx, P, M.MODELS.map((m, i) => ({ id: 'model:' + m.key, label: m.name, on: i === mi, fn: () => sceneCtl('rule', 'model', m.key) })), x, y, W, bottom, { px: 22, h: 50 }) + 12;
-  y += head(ctx, x, y, 'Show');
-  y += flow(ctx, P, ctlOf('rule', 'view').options.map(([o, n]) => ({ id: 'v:' + o, label: n, on: on && v === o, fn: () => showView('rule', o) })), x, y, W, bottom, { px: 22, h: 50 }) + 12;
-  if (v === 'path') { y += head(ctx, x, y, 'Start'); y += flow(ctx, P, letters('start'), x, y, W, bottom, { px: 22, h: 50 }) + 12; }
-  if (machineOn()) { y += head(ctx, x, y, 'Parent\'s letter'); y += flow(ctx, P, letters('parent'), x, y, W, bottom, { px: 22, h: 50 }) + 12; }
-  if (v !== 'rule') y += numRow(ctx, P, 'time', x, y, W);
-  y += stats(ctx, x, y, W, I.rows) + 12;
-  footNote(ctx, machineOn() ? 'The copy is two CNOT gates; the turn is rotations of single qubits plus steps that link two qubits, so it depends on the parent\'s letter. The angles depend only on the branch length.'
-    : cap(I.note), x, y, W, bottom);
-}
-function drawTreePane(ctx, P, x, y, W, bottom) {
-  const v = treeView(), on = X.scene === 'tree', tr = treeNow(), I = X.branch >= 0 && v !== 'species' ? branchInfo(X.branch) : null;
-  const opts = key => ctlOf('tree', key).options.map(([o, n]) => ({ id: key + ':' + o, label: n, on: ctlValue('tree', ctlOf('tree', key)) === o, fn: () => sceneCtl('tree', key, o) }));
-  y += textBlock(ctx, `A family tree from one ancestor, ${tr.nodes[tr.root].seq}, every swap simulated with the story's example rule. Heights are change: each branch rises by its length.`, x, y, W, 23, 32, VC.muted, 400, 2) + 10;
-  y += head(ctx, x, y, 'Show');
-  y += flow(ctx, P, ctlOf('tree', 'view').options.map(([o, n]) => ({ id: 'v:' + o, label: n, on: on && v === o, fn: () => showView('tree', o) })), x, y, W, bottom, { px: 22, h: 50 }) + 12;
-  y += head(ctx, x, y, 'Tree');
-  y += flow(ctx, P, opts('seed').concat([{ id: 'newtree', label: 'New tree', fn: nextTree }]), x, y, W, bottom, { px: 22, h: 50 }) + 12;
-  y += head(ctx, x, y, 'Letters change');
-  y += flow(ctx, P, opts('speed'), x, y, W, bottom, { px: 22, h: 50 }) + 12;
-  if (v !== 'tree') { y += head(ctx, x, y, 'Machines'); y += flow(ctx, P, opts('run'), x, y, W, bottom, { px: 22, h: 50 }) + 12; }
-  // (in a headset the view from below would tip the tree over: stand in it instead)
+  y += flow(ctx, P, ctlOf('tower', 'view').options.map(([o, n]) => ({ id: 'v:' + o, label: n, on: on && v === o, fn: () => showView('tower', o) })), x, y, W, bottom, { px: 22, h: 50 }) + 12;
+  y += head(ctx, x, y, 'Lit');
+  y += flow(ctx, P, ctlOf('tower', 'lit').options.map(([o, n]) => ({ id: 'lit:' + o, label: n, col: o === 'pieces' ? AMBER : o === 'loops' ? ORANGE : null, on: lit === o, fn: () => sceneCtl('tower', 'lit', o) })), x, y, W, bottom, { px: 22, h: 50 }) + 12;
+  // (in a headset the view from below would tip the tower over: stand at it instead)
   y += head(ctx, x, y, 'Look');
-  y += flow(ctx, P, [['default', 'The whole tree'], ['stand', 'Stand in it']].concat(XR.on ? [] : [['up', 'Up from the root']])
-    .map(([c, n]) => ({ id: 'cam:' + c, label: n, fn: () => { if (X.scene !== 'tree') openScene('tree'); flyTo(view('tree', c)); } })), x, y, W, bottom, { px: 22, h: 50 }) + 12;
-  if (v === 'species') { textBlock(ctx, 'The species tree of the authors\' test, ((1, 2), 3), with example branch lengths, and their stems at its tips; a coupling gear on each branch. See the Stem tab.', x, y, W, 23, 32, VC.ink, 400, 3); return; }
-  y += head(ctx, x, y, 'Branch (or point at one and pull the trigger)');
-  y += flow(ctx, P, tr.branches.map((B, i) => ({ id: 'br:' + i, label: String(i + 1), on: X.branch === i, ink: B.muts.length ? VC.ink : VC.muted, fn: () => selectBranch(X.branch === i ? -1 : i) })), x, y, W, bottom, { px: 21, h: 46 }) + 12;
-  if (I) {
-    y += textBlock(ctx, I.head, x, y, W, 27, 36, VC.ink, 700, 1) + 4;
-    y += textBlock(ctx, `${cap(I.muts)}. ${I.seqs}; ${I.turn}.`, x, y, W, 23, 31, VC.ink, 400, 3) + 10;
-  }
-  footNote(ctx, 'One machine per branch: the same steps on every branch, only how far they turn changes with its length.', x, y, W, bottom);
+  y += flow(ctx, P, LOOKS.filter(([c]) => !(XR.on && c === 'up')).map(([c, n]) => ({ id: 'cam:' + c, label: n, fn: () => { if (X.scene !== 'tower') openScene('tower'); flyTo(view('tower', c)); } })), x, y, W, bottom, { px: 22, h: 50 }) + 12;
+  footNote(ctx, 'Pieces are H0 (connected components), loops H1 (holes). An edge appears where two balls meet, a triangle where three do. The counts are the stored bars alive at this radius.', x, y, W, bottom);
 }
-function drawStemPane(ctx, P, x, y, W, bottom) {
-  const v = stemView(), on = X.scene === 'stem', live = stemLive(), me = stemMethod(), I = stemInfo();
-  y += textBlock(ctx, `Three species carry one RNA stem of ${word(TD.pairs)} pairs. Rebuild their ancestor ${fmt(TD.n)} times with each method; count those whose ${word(TD.pairs)} pairs all hold.`, x, y, W, 23, 32, VC.muted, 400, 2) + 10;
+function drawCohortPane(ctx, P, x, y, W, bottom) {
+  const on = X.scene === 'cohort', v = cohortView(), I = cohortInfo();
+  y += textBlock(ctx, `The ${FACTS.slides} slides, ${FACTS.healthy} healthy and ${FACTS.cirrhosis} with cirrhosis: as curves, as points by their scores, by their held-out result. Point at a slide and pull the trigger to pick it.`, x, y, W, 23, 32, VC.muted, 400, 3) + 10;
+  y += head(ctx, x, y, 'Curves of');
+  y += flow(ctx, P, dimChips(), x, y, W, bottom, { px: 22, h: 50 }) + 12;
   y += head(ctx, x, y, 'Show');
-  y += flow(ctx, P, ctlOf('stem', 'view').options.map(([o, n]) => ({ id: 'v:' + o, label: n, on: on && v === o, fn: () => showView('stem', o) })), x, y, W, bottom, { px: 22, h: 50 }) + 12;
-  y += head(ctx, x, y, 'Numbers');
-  y += flow(ctx, P, ctlOf('stem', 'src').options.map(([o, n]) => ({ id: 'src:' + o, label: n, on: ctlValue('stem', ctlOf('stem', 'src')) === o, fn: () => sceneCtl('stem', 'src', o) }))
-    .concat(live ? [{ id: 'rebuild', label: 'Rebuild again', fn: rebuildAgain }] : []), x, y, W, bottom, { px: 22, h: 50 }) + 12;
-  if (live) y += numRow(ctx, P, 'w', x, y, W);
-  y += head(ctx, x, y, 'Method');
-  y += flow(ctx, P, ctlOf('stem', 'method').options.map(([o, n]) => ({ id: 'm:' + o, label: n, col: METHOD_COL[o], on: me === o, fn: () => sceneCtl('stem', 'method', o) })), x, y, W, bottom, { px: 22, h: 50 }) + 14;
-  // (the methods named as on the page's pane)
-  y += stats(ctx, x, y, W, I.rows.map(r => r.slice(0, 3)), 280) + 8;
-  y += head(ctx, x, y, 'The true ancestor and one rebuilt each');
-  y += stats(ctx, x, y, W, [['True', I.truth, I.truthB]].concat(I.ex.map(r => r.slice(0, 3))), 280) + 10;
-  footNote(ctx, `The coupled circuit favours matching pairs too strongly: believable ancestors, but its percentages are not true chances. Only ${TD.allSixPrior} of ancestors have all ${word(TD.pairs)} pairs matched.${live ? ' The coupling here is our stand-in for the authors\' circuit.' : ''}`, x, y, W, bottom);
+  y += flow(ctx, P, COHORT_VIEWS().map(([o, n]) => ({ id: 'v:' + o, label: n, on: on && v === o, fn: () => showView('cohort', o) })), x, y, W, bottom, { px: 22, h: 50 }) + 12;
+  y += stats(ctx, x, y, W, I.rows) + 8;
+  y += head(ctx, x, y, 'Slide');
+  y += flow(ctx, P, [{ id: 'sl:-1', label: '‹ Previous', fn: () => stepSlide(-1) }, { id: 'sl:1', label: 'Next ›', fn: () => stepSlide(1) }, { id: 'sl:none', label: 'None', on: X.slide < 0, fn: () => selectSlide(-1) }], x, y, W, bottom, { px: 22, h: 50 }) + 12;
+  if (I.pick) { y += textBlock(ctx, I.pick.head, x, y, W, 27, 36, VC.ink, 700, 1) + 4; y += stats(ctx, x, y, W, I.pick.rows) + 10; }
+  footNote(ctx, 'Slides are numbered, never named. Each held-out result comes from five-fold cross-validation: a model that never saw the slide.', x, y, W, bottom);
 }
-// the four scenes, and the chosen scene's own controls (its sliders too)
+function drawScalesPane(ctx, P, x, y, W, bottom) {
+  const I = scalesInfo();
+  y += textBlock(ctx, 'The classifier read back as a weight for every radius (red speaks for cirrhosis), and what each stretch of radii adds to the gap between the two groups. Choose a window of radii.', x, y, W, 23, 32, VC.muted, 400, 3) + 10;
+  y += head(ctx, x, y, 'Curves of');
+  y += flow(ctx, P, dimChips(), x, y, W, bottom, { px: 22, h: 50 }) + 12;
+  y += numRow(ctx, P, 'from', x, y, W);
+  y += numRow(ctx, P, 'to', x, y, W);
+  y += stats(ctx, x, y, W, I.rows) + 10;
+  y += head(ctx, x, y, 'What each stretch adds');
+  y += stats(ctx, x, y, W, I.ws, 260) + 10;
+  footNote(ctx, 'A window\'s number is its share of the gap: the sum of topocyte\'s stored shares for its radii, looked up; the odds factor is e to that share.', x, y, W, bottom);
+}
+function drawCellsPane(ctx, P, x, y, W, bottom) {
+  const on = X.scene === 'map', s = mapShow(), d = ctlValue('map', ctlOf('map', 'delta')), I = cellsInfo();
+  y += textBlock(ctx, `The new slide: a window of ${fmt(FACTS.window)} real cells, each scored by a classifier fitted on the other ${FACTS.train} slides. Point at a cell and pull the trigger.`, x, y, W, 23, 32, VC.muted, 400, 3) + 10;
+  y += head(ctx, x, y, 'Show');
+  y += flow(ctx, P, ctlOf('map', 'show').options.map(([o, n]) => ({ id: 'v:' + o, label: n, on: on && s === o, fn: () => showView('map', o) })), x, y, W, bottom, { px: 22, h: 50 }) + 12;
+  y += head(ctx, x, y, 'Map at');
+  y += flow(ctx, P, ctlOf('map', 'delta').options.map(([o, n]) => ({ id: 'd:' + o, label: n, on: d === o, fn: () => sceneCtl('map', 'delta', o) })), x, y, W, bottom, { px: 22, h: 50 }) + 12;
+  if (s === 'cell') {
+    y += numRow(ctx, P, 'mr', x, y, W);
+    y += flow(ctx, P, [{ id: 'cellv', label: 'Cell v', on: X.cell < 0, fn: () => selectCell(-1) }], x, y, W, bottom, { px: 22, h: 50 }) + 12;
+    y += textBlock(ctx, I.head, x, y, W, 27, 36, VC.ink, 700, 1) + 4;
+    y += stats(ctx, x, y, W, I.rows) + 10;
+  } else {
+    y += textBlock(ctx, `${fmt(I.sizes[1])} cirrhosis-like and ${fmt(I.sizes[0])} healthy-like cells, at ${mapDelta()} µm.`, x, y, W, 24, 32, VC.ink, 400, 2) + 8;
+    y += head(ctx, x, y, 'Cell types (the classifier\'s labels): cirrhosis-like · healthy-like');
+    y += stats(ctx, x, y, W, I.piles.map(r => r.slice(0, 2)), 260) + 10;
+  }
+  footNote(ctx, s === 'genes' || s === 'proteins' ? 'The genes and proteins are sketches of the workflow, not data.' : `The local radius is ${FACTS.delta} µm; at 100 µm, as in the poster's figure, only the colours and groups change.`, x, y, W, bottom);
+}
+// the five scenes, and the chosen scene's own controls (its sliders too)
 function drawScenesPane(ctx, P, x, y, W, bottom) {
   const cw = (W - 12 * (SCENES.length - 1)) / SCENES.length;
   SCENES.forEach(([k, n], j) => vButton(ctx, P, 'scene:' + k, x + j * (cw + 12), y, cw, 56, SCENE_SHORT[k] || n, () => openScene(k), { on: X.scene === k, px: 22 }));

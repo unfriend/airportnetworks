@@ -1,5 +1,5 @@
 // ------------------------------------------------------------- narration --
-// Optional voice-over: put an MP3 at audio/narration-mutation.mp3.
+// Optional voice-over: put an MP3 at audio/narration-topo.mp3.
 // Second 0 of the recording plays at second 0 of the story; the story clock
 // follows the audio, so seeking, pausing and chapter jumps stay in sync.
 // Without the file the story runs silently. The sound engine is the shell's
@@ -7,7 +7,7 @@
 // and kept running across stories and headset sessions.
 let AUD = null;
 function audioInit() {
-  AUD = HOST.audio.narration('audio/narration-mutation.mp3', {
+  AUD = HOST.audio.narration('audio/narration-topo.mp3', {
     // a recording longer than the story stretches the timeline
     ready(d) {
       if (d + 1 <= T_END) return;
@@ -123,24 +123,23 @@ const APP = {
     for (const n in DEF) XS[n] = S[n];
     // (the set on show, or the one about to come: a short fade between two of the same set's views shows none)
     const S2 = storyState(Math.min(ts + 1.5, T_END));
-    let best = 'letters', ba = 0;
+    let best = 'tower', ba = 0;
     for (const k of SET_ORDER) { const a = Math.max(S[k + '_a'], 0.9 * S2[k + '_a']); if (a > ba + 0.01) { ba = a; best = k; } }
-    if (best === 'tree' && S.stem_a > 0.5 && S.stem_fields + S.stem_truth > 0.1) best = 'stem';   // (the rebuilt fields stand under the species tree)
+    if (best === 'slide' && S.map_a > 0.5) best = 'map';   // (the map lies on the slide's window)
+    if (best === 'body' && S.slide_a > 0.3) best = 'slide';   // (the liver's slice has become the tile)
     // the story's view, taken back into the set's own frame (explore shows sets unturned)
     const v = storyCam(ts).slice(0, 6), r = -setYaw(best, ts) * D2R, x = v[3], z = v[5];
     v[0] += r / D2R; v[3] = x * Math.cos(r) + z * Math.sin(r); v[5] = -x * Math.sin(r) + z * Math.cos(r);
     orbit.cur = v; orbit.to = null;
-    // (in a headset the tall tree's axis stood a little further off than the view's target, see standView: explore
+    // (in a headset the tall tower's axis stood a little further off than the view's target, see standView: explore
     // turns a scene round its target, so the target glides back onto the axis)
-    const sb = XR.on && best === 'tree' ? standW(ts) * STAND_BACK : 0;
+    const sb = XR.on && best === 'tower' ? standW(ts) * STAND_BACK : 0;
     if (sb > 0) { const A = v[0] * D2R; flyTo([v[0], v[1], v[2], v[3] - sb * Math.sin(A), v[4], v[5] - sb * Math.cos(A)]); }
     X.scene = best; X.t0 = performance.now();
-    // the story's numbers carry over to the panes first (the branch length, the read-outs, the pair favour), so the
-    // controls are matched with them
-    if (best === 'letters') { X.time = clamp(Math.round(S.letters_time * 100) / 100, 0, 2); X.rseed = Math.max(1, Math.round(S.letters_seed)); }
-    if (best === 'rule') X.time = clamp(Math.round(S.rule_time * 100) / 100, 0, 2);
-    X.reads = best === 'letters' && S.letters_open > 0.5 ? clamp(Math.round(S.letters_reads), 0, READ_MAX()) : 0;
-    X.branch = -1; X.w = clamp(Math.round(S.stem_w), 1, 30) || TD.w; X.sseed = 1;
+    // the story's numbers carry over to the panes first (the radii), so the controls are matched with them
+    if (best === 'tower') X.r = clamp(Math.round(S.tower_r * 100) / 100, 1.5, 60);
+    if (best === 'map') X.mr = clamp(Math.round(S.map_r * 100) / 100, 1.5, 60);
+    X.slide = -1; X.cell = -1;
     // and pick the scene's controls that come closest to what the story was showing
     const s = GL.sets[best];
     X.ctl[best] = {};
@@ -151,14 +150,15 @@ const APP = {
         c.t = 1e3; c[ct.key] = v;
         const tg = s.explore ? s.explore(c) : {};
         let d = 0;
-        for (const n in tg) if (n in S && !n.endsWith('_a') && !/_reads$|_seed$|_pick$/.test(n)) d += (tg[n] - S[n]) ** 2;
+        for (const n in tg) if (n in S && !n.endsWith('_a') && !/_pick$/.test(n)) d += (tg[n] - S[n]) ** 2;
         if (d < bd) { bd = d; bo = v; }
       }
       X.ctl[best][ct.key] = bo;
     }
-    X.tab = best;
-    // from the last chapter (the story's end, or its Explore button): the machine, in the Rule tab
-    if (ts >= C.what.a) openStart();
+    X.tab = { tower: 'patch', cohort: S.cohort_gamma > 0.5 ? 'scales' : 'cohort', map: 'cells' }[best] || 'scenes';
+    if (X.tab === 'scales') X.ctl.cohort.view = 'scales';
+    // from the last chapter (the story's end, or its Explore button): the patch, in the Patch tab
+    if (ts >= C.next.a) openStart();
     ST.labels.forEach(L => { L.el.style.opacity = 0; L.o = 0; });
     showTab(X.tab); pushState(); renderAll();
     $('#panel').scrollTop = 0;
@@ -167,21 +167,21 @@ const APP = {
     this.mode = 'story';
     document.body.classList.remove('exploring');
     $('#btnMode').textContent = 'Explore now';
-    // the story shows its scenes as it tells them: no picked branch, no read-outs of explore's own
-    X.branch = -1; X.reads = 0; NEXT.length = 0; pushState();
+    // the story shows its scenes as it tells them: no slide or cell picked in explore
+    X.slide = -1; X.cell = -1; NEXT.length = 0; pushState();
     $('#tip').style.opacity = 0;
     this.t = t || 0; this.playing = true; curCh = null;
   },
 };
 
-// explore mode's start: the machine for one branch as the story left it (the story's rule, a G after 1 swap per letter),
-// in the Rule tab
+// explore mode's start: the poster's patch with its tower standing, at the radius where the big loop has just closed,
+// in the Patch tab
 function openStart() {
-  openScene('rule', false);
-  X.ctl.rule = Object.assign(X.ctl.rule || {}, { view: 'machine', model: M.DEFAULT, parent: LET[FACTS.turn.par] });
-  X.time = FACTS.turn.t; X.branch = -1;
-  X.tab = 'rule'; showTab('rule');
-  orbit.cur = view('rule', viewCam('rule') || 'default'); orbit.to = null;
+  openScene('tower', false);
+  X.ctl.tower = Object.assign(X.ctl.tower || {}, { view: 'tower' });
+  X.r = Math.round(FACTS.snaps[1].r * 100) / 100; X.slide = -1; X.cell = -1;
+  X.tab = 'patch'; showTab('patch');
+  orbit.cur = view('tower', viewCam('tower') || 'default'); orbit.to = null;
   renderAll();
 }
 
@@ -282,32 +282,33 @@ function init() {
   if (hp.has('t')) { APP.t = clamp(parseFloat(hp.get('t')) || 0, 0, T_END - 0.01); APP.playing = false; }
   if (hp.has('explore')) {
     APP.enterExplore();
-    // #mutation&explore&scene=tree&view=up (a scene; view: an option by its key or name, or a camera of the scene by
-    // name), &tab=letters|rule|tree|stem|scenes (picked by hand: its scene comes up), any control by its key (mix=G,
-    // model=even, start=C, parent=T, seed=3, speed=2, run=on, src=live, method=coupled; by option or name), &time=0.8
-    // (the branch length), &reads=100 (read-outs), &branch=5 (1 to 14), &w=20 (the pair favour), &rebuild=2 (its seed)
+    // #topo&explore&scene=slide&look=points (a scene; view: an option by its key or name, or a camera of the scene by
+    // name; mode= for look=), &tab=patch|cohort|scales|cells|scenes (picked by hand: its scene comes up), any control by
+    // its key (lit=loops, dim=0, show=map, delta=100, piece=window, scale=radius, liver=slice; by option or name),
+    // &tower=on|off (the patch's tower or its balls), &r=13.5 (the patch's radius, or in the Cells tab a cell's network's),
+    // &slide=17 (1 to 123), &from=5&to=15 (a window of radii; to=above), &cell=1234 (1 to 6,716)
     const sc = hp.get('scene'), tb = hp.get('tab'), tabOK = TABS.some(t => t[0] === tb);
-    if (sc && GL.sets[sc]) { openScene(sc, false); showTab(tabOK ? tb : 'scenes'); }
-    else if (tabOK) { pickTab(tb); if (tb === 'letters' && !hp.get('view')) showView('letters', 'qubits'); }   // (the Letters tab is about the qubits)
-    else if (!hp.has('t')) openStart();   // straight in: the machine
-    // (a start letter asks for the path, a parent letter for the machine, unless a view is given)
-    if (!hp.get('view') && X.scene === 'rule' && hp.get('start')) setCtl('rule', 'view', 'path');
-    if (!hp.get('view') && X.scene === 'rule' && hp.get('parent') && !machineOn()) setCtl('rule', 'view', 'machine');
+    if (hp.has('mode') && !hp.has('look')) hp.set('look', hp.get('mode'));
+    if (sc && GL.sets[sc] && SCENES.some(s => s[0] === sc)) { openScene(sc, false); showTab(tabOK ? tb : 'scenes'); }
+    else if (tabOK) pickTab(tb);
+    else if (!hp.has('t')) openStart();   // straight in: the patch
     orbit.cur = view(X.scene, viewCam(X.scene) || 'default'); orbit.to = null;
-    // every scene's controls but the view by their keys (no two scenes share one), then the view of the scene on show
+    // every scene's controls but the views by their keys (no two scenes share one), then the view of the scene on show
     const opt = (k, c, q) => c.options.find(([v, n]) => v.toLowerCase() === q || String(n).toLowerCase() === q || camFor(k, v) === q || (CAM_ALIAS[k] || {})[v] === q);
     for (const [k] of SCENES) for (const c of ctlsOf(k)) {
-      const q = String(hp.get(c.key) || '').toLowerCase(), o = q && c.key !== 'view' && opt(k, c, q);
+      const q = String(hp.get(c.key) || '').toLowerCase(), o = q && c.key !== 'view' && c.key !== viewKey(k) && opt(k, c, q);
       if (o) { if (k === X.scene) setCtl(k, c.key, o[0]); else (X.ctl[k] = X.ctl[k] || {})[c.key] = o[0]; }
     }
-    const vq = String(hp.get('view') || '').toLowerCase(), vc = ctlOf(X.scene, 'view'), vo = vq && vc && opt(X.scene, vc, vq);
-    if (vo) setCtl(X.scene, 'view', vo[0]);
-    else if (vq && (GL.sets[X.scene].cam || {})[vq]) { orbit.cur = view(X.scene, vq); orbit.to = null; }   // a camera of its own (the tree's up, stand)
-    if (hp.get('time') && Number.isFinite(+hp.get('time'))) setTime(+hp.get('time'), false);
-    if (hp.get('reads') && Number.isFinite(+hp.get('reads'))) X.reads = clamp(Math.round(+hp.get('reads')), 0, READ_MAX());
-    if (hp.get('branch') && Number.isFinite(+hp.get('branch'))) selectBranch(Math.round(+hp.get('branch')) - 1, false);
-    if (hp.get('w') && Number.isFinite(+hp.get('w'))) setW(+hp.get('w'), !hp.get('src'));
-    if (hp.get('rebuild') && Number.isFinite(+hp.get('rebuild'))) X.sseed = clamp(Math.round(+hp.get('rebuild')), 1, 999);
+    if (hp.has('tower') && X.scene === 'tower' && !hp.get('view')) setCtl('tower', 'view', hp.get('tower') === 'off' ? 'balls' : 'tower');
+    const vk = viewKey(X.scene), vq = String(hp.get('view') || hp.get(vk) || '').toLowerCase(), vc = ctlOf(X.scene, vk), vo = vq && vc && opt(X.scene, vc, vq);
+    if (vo) setCtl(X.scene, vk, vo[0]);
+    else if (vq && (GL.sets[X.scene].cam || {})[vq]) { orbit.cur = view(X.scene, vq); orbit.to = null; }   // a camera of its own (the tower's up, stand)
+    const num = k => (hp.get(k) !== null && hp.get(k) !== '' && Number.isFinite(+hp.get(k)) ? +hp.get(k) : null);
+    if (num('r') !== null) { if (X.scene === 'map') setMR(num('r'), false); else setR(num('r'), false); }
+    if (num('slide') !== null) selectSlide(Math.round(num('slide')) - 1, false);
+    if (num('from') !== null) setFrom(num('from'));
+    if (num('to') !== null || /^(above|inf)/i.test(hp.get('to') || '')) setTo(num('to') !== null ? num('to') : 100.5);
+    if (num('cell') !== null) selectCell(Math.round(num('cell')) - 1, false);
     if (hp.has('now')) { Object.assign(XS, exploreTargets()); orbit.cur = orbit.to || orbit.cur; orbit.to = null; }
     renderAll();
   }

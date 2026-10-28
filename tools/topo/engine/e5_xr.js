@@ -189,7 +189,7 @@ function placeLabelXR(L, alpha, S) {
     sp.quaternion.copy(XR.signL).multiply(_fq.setFromAxisAngle(_xY, Math.atan2(XR.signH.x - _fv.x, XR.signH.z - _fv.z)));
   }
 }
-// the branch, the field or the stem a controller points at, labelled where the ray meets it
+// the slide, the cell or the loop a controller points at, labelled where the ray meets it
 function xrTip(S) {
   let h = null;
   if (APP.mode === 'explore') for (const c of XR.ctrls) if (c.hover && c.hover.kind === 'globe' && c.hover.pk) { h = c.hover; break; }
@@ -202,8 +202,8 @@ function xrTip(S) {
   if (XR.tip) { GL.sets[XR.tip.set].group.worldToLocal(_xp.copy(h.point)); XR.tip.at = [_xp.x, _xp.y, _xp.z]; placeLabelXR(XR.tip, 1, S); }
 }
 
-// --------------------------------------------------- picking a branch --
-// The branch, the field or the stem a ray points at in explore mode (see pickWith), or null
+// --------------------------------------------------- picking a slide --
+// The slide, the cell, the loop or the bar a ray points at in explore mode (see pickWith), or null
 const _prc = new THREE.Raycaster();
 function pickRay(o, d) {
   if (APP.mode !== 'explore') return null;
@@ -362,7 +362,7 @@ function xrPoint(c, dt) {
     hit = { kind: 'panel', P, x: h.uv.x * P.w, y: (1 - h.uv.y) * P.h, point: h.point };
     dist = h.distance;
   } else if (!XR.stories) {
-    // the scene counts as a ball around the view's target; a branch or a stem counts if the ray passes close
+    // the scene counts as a ball around the view's target; a slide, a cell or a loop counts if the ray passes close
     const oL = _xa.copy(c.o).applyMatrix4(_xinv), dL = _xb.copy(c.d).transformDirection(_xinv);
     _xc.copy(oL).sub(XR.target);
     const b = _xc.dot(dL), disc = b * b - (_xc.lengthSq() - XR.hitR * XR.hitR);

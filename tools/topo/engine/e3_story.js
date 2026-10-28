@@ -7,22 +7,7 @@
 // between two cues lasts long enough to read what appeared at its start; run
 // it again after the text changes). A recording replaces it with its own times.
 const NARRATION_SYNC = [
-  [0, 0], [2.6, 2.4], [5.2, 4], [5.8, 4.6], [10.7, 6.5], [18.3, 13], [19, 13.6], [25.1, 15],
-  [31.2, 20.5], [34.6, 23], [35.2, 23.6],             // Letters
-  [43.9, 26], [44.6, 26.6], [45.8, 27.2], [71.6, 50.6], [79.4, 51.5], [80.1, 52.1], [83.2, 52.5],
-  [86.1, 55.1], [101.1, 57], [101.8, 57.6],           // Family tree
-  [110.4, 60], [111.1, 60.6], [112.4, 61.2], [120.4, 66], [134.7, 79], [143.2, 84], [149.6, 88],
-  [150.2, 88.6], [156.4, 91], [157, 91.6],            // Qubits
-  [170.8, 96], [171.5, 96.6], [172.3, 97.2], [173, 97.8], [176.5, 99], [179.9, 102], [184.3, 106],
-  [194.9, 113], [202.6, 118], [211.1, 124], [216.6, 128],  // The rule
-  [229.7, 134], [230.4, 134.6], [231.2, 135.2], [244.2, 147], [254, 154], [261.6, 160.5],
-  [270.5, 168.6], [275, 170], [275.6, 170.6],         // Machine
-  [305.1, 180], [306.4, 181.18], [307.4, 181.2], [337.6, 208.6], [342.4, 209], [346.8, 213],
-  [349.4, 215], [350, 215.6], [351.9, 216], [352.6, 216.6],  // Pairs
-  [371.4, 218], [372.1, 218.6], [373.4, 219.2], [387.4, 232], [393.8, 236], [403.7, 245],
-  [411.3, 249], [412, 249.6], [421.5, 253], [422.2, 253.6], [430, 256],  // Rebuild
-  [446.6, 264], [447.9, 265.18], [448.9, 265.2], [458.7, 270], [459.3, 270.6], [468, 273],
-  [468.7, 273.6], [479, 278], [479.7, 278.6], [495.6, 280], [497.3, 281.6], [510.2, 282], [519, 290],  // What for
+  [0, 0], [340, 340],   // (not paced yet: node tools/pace.mjs writes it from the panel's words)
 ];
 // recording time -> original story time
 function storyT(t) {
@@ -43,27 +28,34 @@ function narrT(o) {
 }
 let T_END = NARRATION_SYNC[NARRATION_SYNC.length - 1][0];
 const CH = [
-  { key: 'title', name: 'Letters', a: 0, b: 26 },
-  { key: 'tree', name: 'Family tree', a: 26, b: 60 },
-  { key: 'qubits', name: 'Qubits', a: 60, b: 96 },
-  { key: 'rule', name: 'The rule', a: 96, b: 134 },
-  { key: 'machine', name: 'Machine', a: 134, b: 180 },
-  { key: 'pairs', name: 'Pairs', a: 180, b: 218 },
-  { key: 'rebuild', name: 'Rebuild', a: 218, b: 264 },
-  { key: 'what', name: 'What for', a: 264, b: 290 },
+  { key: 'title', name: 'Where cells sit', a: 0, b: 34 },
+  { key: 'scale', name: 'Which scale?', a: 34, b: 62 },
+  { key: 'balls', name: 'Balls grow', a: 62, b: 112 },
+  { key: 'tower', name: 'The tower', a: 112, b: 160 },
+  { key: 'cohort', name: '123 slides', a: 160, b: 206 },
+  { key: 'scales', name: 'Which scales', a: 206, b: 252 },
+  { key: 'cells', name: 'Every cell', a: 252, b: 302 },
+  { key: 'next', name: 'What next', a: 302, b: 340 },
 ];
 CH.forEach(c => { c.na = narrT(c.a); c.nb = narrT(c.b); }); // chapter times on the recording's clock
 const C = Object.fromEntries(CH.map(c => [c.key, c]));
 
-// every param of every set, at rest; the sets themselves start hidden
+// every param of every set, at rest; the sets themselves start hidden (and the engine's liver, see makeLiver)
 const DEF = {};
+// params eased on the poster's log ruler of the radius (TDATA.u in, TDATA.rOf out), in the story and in explore: the
+// sets' own (a set lists them as log) and the map's radius
+const LOG = new Set(['map_r']);
 function buildDefaults() {
   for (const k of SET_ORDER) Object.assign(DEF, GL.sets[k].params);
   for (const k of SET_ORDER) DEF[k + '_a'] = 0;
+  DEF.liver_a = 0; DEF.liver_lift = 0; DEF.liver_slice = 0;
+  for (const k of SET_ORDER) for (const n of GL.sets[k].log || []) LOG.add(n);
 }
 const TR = {};
 const key = (n, t, v) => { (TR[n] = TR[n] || []).push([t, v]); };
 const ramp = (n, t0, t1, v0, v1) => { key(n, t0, v0); key(n, t1, v1); };
+// a radius eased on the log ruler: between u(v0) and u(v1), back to µm
+const logMix = (v0, v1, x) => (v0 > 0 && v1 > 0 ? TDATA.rOf(TDATA.u(v0) + (TDATA.u(v1) - TDATA.u(v0)) * x) : v0 + (v1 - v0) * x);
 function evalTrack(n, t) {
   const ks = TR[n];
   if (!ks) return DEF[n];
@@ -71,7 +63,8 @@ function evalTrack(n, t) {
   for (let i = 1; i < ks.length; i++) {
     if (t <= ks[i][0]) {
       const [t0, v0] = ks[i - 1], [t1, v1] = ks[i];
-      return t1 <= t0 ? v1 : v0 + (v1 - v0) * smooth((t - t0) / (t1 - t0));
+      if (t1 <= t0) return v1;
+      return LOG.has(n) ? logMix(v0, v1, smooth((t - t0) / (t1 - t0))) : v0 + (v1 - v0) * smooth((t - t0) / (t1 - t0));
     }
   }
   return ks[ks.length - 1][1];
@@ -98,29 +91,14 @@ const fitShift = (k, name) => { const f = GL.sets[k].cam[name] && FIT[k] && FIT[
 // or their target moved, so they fit beside the panel (added to the set's own view, in story and explore mode alike)
 // (measured at 1280 x 760: each view's parts between the panel's right edge and the screen's, above the timeline; the
 // sets' own views fill a whole screen, so most stand back a little and move their target left of the parts' middle)
-const FIT = {
-  letters: { default: [0, 0, 0.7, -0.22, -0.06, 0], helix: [0, 0, 1.1, -0.17, -0.03, -0.08], peel: [0, 0, 0.6, -0.17, -0.03, 0.02],
-    rows: [0, 0, 0.45, -0.32, -0.09, 0.06], qubits: [0, 0, 0.1, -0.13, 0.08, 0], reads: [0, 0, 0.25, -0.22, 0.02, 0] },
-  tree: { default: [0, 0, 0.1, -0.26, -0.23, 0.11], grow: [0, 0, 1.4, -0.28, 0.24, 0.09], crown: [0, 0, 0.3, -0.24, -0.3, 0.14],
-    pair: [0, 0, 0.5, -0.51, -0.54, 0.53], gears: [0, 0, 1.45, -0.24, 0.02, 0.13], species: [0, 0, 0.65, -0.35, -0.1, 0.12],
-    what: [0, 0, 0.1, -0.5, -0.1, 0.08] },
-  rule: { default: [0, 0, 0.35, -0.1, -0.12, -0.05], rates: [0, 0, 2.6, -0.32, -0.07, 0.09], pyramid: [0, 0, 0.6, -0.05, -0.13, -0.02],
-    path: [0, 0, 0.35, -0.09, -0.12, -0.06], compiler: [0, 0, 0.35, -0.23, 0.16, 0], machine: [0, 0, 1.1, 0.03, 0.05, 0],
-    copy: [0, 0, 1.65, 0.37, -0.1, 0], turn: [0, 0, 1.15, -0.18, 0.15, 0.04], circuit: [0, 0, 0.5, -0.2, -0.05, 0], steps: [0, 0, 0.5, -0.15, 0.2, 0] },
-  stem: { default: [0, 0, 0.1, -0.2, -0.03, 0.06], strand: [0, 0, 0.45, -0.21, -0.09, 0], fold: [0, 0, 0.1, -0.18, -0.06, 0.05],
-    break: [0, 0, 0.3, -0.22, -0.14, 0.1], count: [0, 0, 0.1, -0.61, 0.02, -0.13], cloud: [0, 0, 1.75, -0.63, 0.24, -0.11],
-    fields: [0, 0, 1.85, -0.29, 0.8, 0], compare: [0, 0, 1.8, -0.46, 0.23, 0] },
-};
+const FIT = {};
 // how much further back a view stands on a phone held upright (see narrowK): the wide ones, whose parts reach
-// across the screen (measured at 390 x 760: the machine's close-ups and the pyramid beside them, the circuit, the tree
-// seen across its two branches, the straight strand, the fields)
-const NARROW = { letters: { default: 1.1, peel: 1.1 }, tree: { pair: 1.35, gears: 1.06, what: 1.06 },
-  rule: { copy: 1.6, turn: 1.18, circuit: 1.1 }, stem: { strand: 1.4, fold: 1.2, fields: 1.12, compare: 1.22 } };
+// across the screen
+const NARROW = {};
 const narrowOf = (k, name) => (NARROW[k] && NARROW[k][name]) || 1;
 // on a screen held sideways but too narrow for the side panel (the panel below, the scene in a strip above it, see
-// lowK) the tall family tree comes closer and is centred in the strip: [distance factor, the target's shift up]
-// (measured at 640 x 400: about as tall as the strip, as the qubits story's map stands there)
-const LOW = { tree: { default: [0.72, -0.3], grow: [0.62, 0], crown: [0.72, 0], pair: [0.69, -0.68], gears: [0.67, -0.1] } };
+// lowK) the tall tower comes closer and is centred in the strip: [distance factor, the target's shift up]
+const LOW = {};
 const LOW1 = [1, 0];
 const lowOf = (k, name) => (LOW[k] && LOW[k][name]) || LOW1;
 // a set's anchor point, in the set's own coordinates
@@ -132,82 +110,49 @@ function anchorOf(k, at) {
 }
 
 // ------------------------------------------------------------------- data --
-// The maths (MMATH) on the story's example numbers, and the poster's numbers (MUT_DATA), looked up once for the story
-// and the panes. The examples' numbers are computed here, never typed in; the poster's are used only where the text
-// says "in the authors' test".
-const M = MMATH, D = MUT_DATA, TD = D.test;
-const MI = Math.max(0, M.MODELS.findIndex(m => m.key === M.DEFAULT));   // the story's rule (rule_model)
-const LET = M.LETTERS, KET = M.KETS;
+// Every number the story shows is topocyte's (TOPO_DATA), looked up through TDATA: counts of stored bars, sums of
+// stored shares, stored scores. Nothing scientific is computed here.
+const D = TOPO_DATA, T = TDATA, P = D.patch, SD = D.slide;
 const f2 = v => (v < 0 ? '−' : '') + Math.abs(v).toFixed(2);
+const f2s = v => (v < 0 ? '−' : '+') + Math.abs(v).toFixed(2);   // a share or a score with its sign
 const pct = v => (Number.isFinite(+v) ? `${Math.round(100 * v)} %` : '–');
-const deg = v => `${Math.round(Math.abs(v) * 180 / Math.PI)}°`;   // how far a turn goes (its size, not its direction)
+// a radius in µm as the poster prints its snapshots (two decimals; whole above 60)
+const fmtR = r => (!Number.isFinite(r) ? '∞' : r >= 60 ? String(Math.round(r)) : r >= 10 ? r.toFixed(1).replace(/\.0$/, '') : r.toFixed(2));
+const fmtR2 = r => (!Number.isFinite(r) ? '∞' : r.toFixed(2));
 const word = n => ['no', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve'][n] || String(n);
-const listOf = a => (a.length < 2 ? a.join('') : a.slice(0, -1).join(', ') + ' and ' + a[a.length - 1]);
-const swapsN = n => `${n} swap${n === 1 ? '' : 's'}`;
-const brokenN = n => (n ? `${n} broken pair${n === 1 ? '' : 's'}` : 'no broken pair');
-// a big count in words: 1,048,576 is 'about a million'
-const aboutN = n => { const m = Math.round(n / 1e6); return m === 1 ? 'about a million' : m > 1 ? `about ${word(m)} million` : fmt(n); };
-// four chances in words: 'A 71 %, C 5 %, G 19 % and T 6 %'
-const chancesText = p => listOf(Array.from(p).map((v, i) => `${LET[i]} ${pct(v)}`));
-// how far a mix has come from its pure letter towards the long-run mix (the pyramid is an affine picture of the four
-// chances, so the share of the distance is the same there)
-const wayOf = (p, pi, s) => {
-  let d = 0, d0 = 0;
-  for (let i = 0; i < 4; i++) { d += (p[i] - pi[i]) ** 2; d0 += ((i === s ? 1 : 0) - pi[i]) ** 2; }
-  return 1 - Math.sqrt(d / (d0 || 1));
-};
-// the arrows of a letter's two qubits, in words
-const codeWords = i => [['up', 'up'], ['up', 'down'], ['down', 'up'], ['down', 'down']][i].map((w, k) => `${k ? 'second' : 'first'} ${w}`).join(', ');
+const plural = (n, one, many) => `${n === 1 ? 'one' : fmt(n)} ${n === 1 ? one : many}`;
+const cap = s => (s ? String(s).charAt(0).toUpperCase() + String(s).slice(1) : '');
 
 // ------------------------------------------------------------------ facts --
-// Numbers the story quotes: the examples' computed here, the authors' test's from MUT_DATA
+// Numbers the story quotes, all from TOPO_DATA
 const FACTS = (() => {
-  const sw = k => D.fig1.swaps[k].map(([at, a, b]) => `${a}→${b} at letter ${at}`);
-  // the letters' mix (the rule's after point 2, from A) and the story's 24 read-outs (seed 1, as letters_reads)
-  const mix = Array.from(M.path(MI, 0, M.POINTS[1])), reads = [0, 0, 0, 0], nReads = 24;
-  for (let k = 1; k <= nReads; k++) reads[M.sample(mix, 1, k)]++;
-  const pi = Array.from(M.pi(MI)), r = M.MODELS[MI].r, top = pi.indexOf(Math.max(...pi));
-  // the family tree (seed 1, the story's speed): its long and short branch
-  const tr = M.familyTree(1, 1), L = tr.branches[tr.highlight.long], S = tr.branches[tr.highlight.short];
-  // the machine as the story shows it at the end of its turn: parent G after 1 swap per letter
-  const par = 2, t = 1, a = M.angles(MI, t), circ = M.circuit(MI, t), simple = circ.gates.filter(g => g.type === 'MRY').flatMap(M.decompose);
-  // the count: how many letters the story links at most (ten), and the pairs that hold (each once: A–T, C–G, G–T)
-  const TEN = 10, held = D.pairsOk.filter(p => p[0] < p[1]);
+  const H = D.h1, conf = H.confusion, W = D.poster.windows, c50 = SD.comp50, ti = n => c50.types.indexOf(n);
+  const w = W.map(([r0, r1]) => ({ r0, r1, s: T.share(1, r0, r1) })), gap = H.shares.gap;
   return {
-    anc: D.fig1.ancestor, d1: D.fig1.d1, d2: D.fig1.d2, sw1: sw('d1'), sw2: sw('d2'), n: D.fig1.ancestor.length,
-    mix, reads, nReads, point: M.POINTS[1],
-    pi, top, fast: ((r[1] + r[4]) / 2) / ((r[0] + r[2] + r[3] + r[5]) / 4),   // transitions against the other swaps
-    points: M.POINTS, tPath: M.T_PATH, ways: M.POINTS.concat(M.T_PATH).map(x => wayOf(M.path(MI, 0, x), pi, 0)),
-    branches: tr.branches.length, tips: tr.nodes.filter(n => n.tip >= 0).length,
-    long: { len: L.len, swaps: L.muts.length }, short: { len: S.len, swaps: S.muts.length },
-    turn: { t, par, c1: a[par], c0: [a[4 + 2 * par], a[5 + 2 * par]] },
-    ry: simple.filter(g => g.type === 'RY').length, cx: simple.filter(g => g.type === 'CNOT').length,
-    wires: circ.wires.length, copies: circ.gates.filter(g => g.type === 'CNOT').length, blocks: circ.gates.filter(g => g.type === 'MRY').length,
-    perLetter: M.qubits(1), perLink: M.combos(1), held,
-    ten: TEN, combos: { pair: M.combos(2), three: M.combos(3), ten: M.combos(TEN) }, qubits10: M.qubits(TEN),
-    species: Object.keys(TD.species).length, truthBroken: M.brokenPairs(TD.truth.top, TD.truth.bottom).length,
-    authors: D.poster.authors, refs: D.poster.refs,
+    slides: D.labels.length, healthy: D.src.healthy, cirrhosis: D.src.cirrhosis, cellsM: (D.src.cells / 1e6).toFixed(1),
+    minutes: D.src.runtime.minutes, tile: T.tile.n, tileSide: D.tile.side,
+    patch: T.patch.n, snaps: P.snaps.map((r, k) => ({ r, pieces: P.betti[k][0], loops: P.betti[k][1] })), loop: P.loop, loops: P.h1.length / 2,
+    fve: H.fve, w, rest: gap - w.reduce((s, x) => s + x.s, 0), gap, odds: Math.exp(gap),
+    right: conf[0] + conf[3], hRight: conf[0], cRight: conf[3], hN: conf[0] + conf[1], cN: conf[2] + conf[3], acc: H.accuracy,
+    window: T.slide.n, newCells: SD.overview.cells, score: SD.e.logOdds, delta: 50, train: SD.train, limit: SD.limit50,
+    sizes: c50.sizes, sizes100: SD.comp100.sizes,
+    lymph: [c50.healthy[ti('Lymphocytes')], c50.cirrhosis[ti('Lymphocytes')]], fib: [c50.healthy[ti('Fibroblasts')], c50.cirrhosis[ti('Fibroblasts')]],
   };
 })();
 // colours as text on the HTML panel, which is light in the light theme: a colour mixed with the panel's ink (darker on
 // a light panel, lighter on a dark one). The headset's panel is dark: its canvas twin takes the colour itself (data-col).
 const inkCol = c => `color-mix(in srgb, ${c} 55%, var(--ink))`;
 const swCol = c => c;   // a swatch or a bar in the same colour
-// the poster's letters (the Okabe-Ito palette, as the sets draw them), the machine's blue, time's green
-const LCOL = ['#e69f00', '#56b4e9', '#f0e442', '#cc79a7'];
-const BLUE = '#4fb0ff', GREEN = '#3fd6a6', CYAN = '#46d9ff', AMBER = '#ffb43b', RED = '#ff5a4b', GREY = '#8e98ab';
-// the three ways of rebuilding, as the stem set colours their fields' tags, and as the story names them
-const METHOD_COL = { indep: GREY, exact: GREEN, coupled: CYAN };
-const METHOD_SAY = { indep: 'Letter by letter', exact: 'The exact pair calculation', coupled: 'With the coupled circuit' };
+// the story's colours (SPEC.md, "Look"): balls and highlights cyan, pieces amber, loops orange, the two classes, the
+// second shape green
+const CYAN = '#46d9ff', AMBER = '#ffb43b', ORANGE = '#ff7a3c', RED = '#ff7a6b', BLUE = '#7cc0ff', GREEN = '#3ee08f', GREY = '#8e98ab';
 
 function buildStory() {
-  const F = FACTS;
-  // the fields of rebuilt ancestors left to right (the shares in ascending order): the text names them in this order
-  const FIELDS = GL.sets.stem.api().methods;
+  const F = FACTS, most = (GL.sets.tower.api().most || {}).loops || 0;
   // fade a set in over [t0, t1] and out over [t2, t3]
   const show = (k, t0, t1, t2, t3) => { ramp(k + '_a', t0, t1, 0, 1); if (t2 !== undefined) ramp(k + '_a', t2, t3, 1, 0); };
   const hide = (k, t0, t1) => ramp(k + '_a', t0, t1, 1, 0);
-  // jump an index param (a letter, a method) at time t
+  // jump an index param (a pick, a layout) at time t
   const jump = (n, t, v0, v1) => { key(n, t - 0.01, v0); key(n, t, v1); };
   // values a set starts the story with (keyed at time 0, so a set's resting defaults never leak into the story)
   const start = vals => { for (const n in vals) if (n in DEF) key(n, 0, vals[n]); };
@@ -218,80 +163,88 @@ function buildStory() {
   // parts of a chapter that take turns in one place, each fading out (data-out) as the next comes: the headset's
   // panel cannot scroll, so no chapter shows more than fits at once
   const turns = (...parts) => `<div style="display:grid">${parts.map(p => `<div style="grid-area:1/1">${p}</div>`).join('')}</div>`;
-  const W = word(TD.pairs), A1 = F.authors[0], A2 = F.authors[1];
+  // the poster's four snapshots in words, from their stored counts and the big loop's stored birth and death
+  const [lb, ld] = F.loop;
+  const snapSay = s => {
+    const n = s.pieces, one = n === 1;
+    if (s.r < lb) return `${fmt(n)} separate pieces`;
+    if (s.r < ld) return T.u(s.r) - T.u(lb) < 0.05 ? `${one ? 'one piece' : `${fmt(n)} pieces`} left, and a big loop has just closed round an empty space`
+      : `${one ? 'it is all one piece' : `${fmt(n)} pieces`}, the big loop still open inside`;
+    return `${one ? 'still one piece' : `${fmt(n)} pieces`}, and the big loop has filled`;
+  };
+  const SNAP_AT = [14, 25, 35, 43];   // (as the radius reaches each snapshot, below)
+  const [wa, wb] = F.w, AUTH = 'Simon Schindler, André Rendeiro and Jörg Menche';
   const html = {
     title: `<svg class="route-mark" viewBox="0 0 360 44" aria-hidden="true"><path id="titleArc" d="M8 36 Q180 -16 352 36" fill="none" stroke="var(--red)" stroke-width="2.2" stroke-linecap="round" pathLength="1" stroke-dasharray="1" stroke-dashoffset="1"/><circle cx="8" cy="36" r="4.5" fill="var(--red)"/><circle cx="352" cy="36" r="4.5" fill="var(--red)" id="titleDot" opacity="0"/></svg>
-      <h1 data-at="1.2">The mutation machine</h1>
-      <p class="lede" data-at="2.4">DNA's changes as a quantum circuit</p>
-      ${turns(`<p data-at="4" data-out="12.5">DNA is a text written in ${word(LET.length)} letters: ${listOf([...LET])}.</p>
-        <p data-at="6.5" data-out="12.5" class="amber">Every time it is copied, now and then a letter is swapped for another. That is a mutation.</p>`,
-      `<p data-at="13">Here an ancestor's ${word(F.n)} letters, ${F.anc}, are copied twice, and ${F.sw1.length === F.sw2.length ? `each copy swaps ${word(F.sw1.length)} of them` : `the first copy swaps ${word(F.sw1.length)} of them and the second ${word(F.sw2.length)}`}.</p>
+      <h1 data-at="1.2">The shape of tissue</h1>
+      <p class="lede" data-at="2.4">Topology of cells in the liver</p>
+      ${turns(`<p data-at="4" data-out="16.5">Under the microscope, a slice of liver is a crowd of cells, and where they sit says how healthy the tissue is.</p>
+        <p data-at="9" data-out="16.5" class="amber">Here a thin slice is cut from a liver and laid on glass.</p>`,
+      `<p data-at="17">A computer can find every cell in a stained slide: ${F.cellsM} million of them in ${F.slides} slides of liver here.</p>
+        <p data-at="21">Other ways of measuring tissue, reading genes in spots or staining proteins in colour, also give where the cells are.</p>
+        <p data-at="29.5" class="amber">From here on, only those positions count.</p>
+        <p class="credits" data-at="31">After the poster by ${AUTH}. The cells were found by the authors with HistoPLUS in the GTEx project's slides; topocyte reads cells from any spatial modality (H&amp;E, spatial transcriptomics, spatial proteomics) as an AnnData.</p>`)}`,
+    scale: `<h2 data-at="0.6">Which scale?</h2>
+      ${turns(`<p data-at="1.2" data-out="21.5">To read how cells are arranged, most tools pick one scale:</p>
         <ul class="steps">
-          ${step(15, 0, GREEN, `Copy 1 · ${F.d1}`, esc(listOf(F.sw1)))}
-          ${step(20.5, 0, GREEN, `Copy 2 · ${F.d2}`, esc(listOf(F.sw2)))}
-        </ul>
-        <p class="credits" data-at="23">After the poster by Enes Berk Sakalli and Arndt von Haeseler. The numbers drawn are examples, as in the authors' own test.</p>`)}`,
-    tree: `<h2 data-at="0.6">A family tree</h2>
-      ${turns(`<p data-at="1.2" data-out="23.5">Copied over many generations, one text becomes many: a family tree.</p>
-        <p data-at="6" data-out="23.5">Where two branches part lived a shared ancestor.</p>
-        <p data-at="11" data-out="23.5" class="amber">Each copy carries the letters up its branch. Where one flashes, a letter was swapped.</p>`,
-      `<p data-at="24">A branch's length says how much changed along it: the expected number of swaps per letter, which grows with time.</p>
-        <div class="facts"><div data-at="25.5">${big(GREEN, f2(F.long.len))}<small>swaps per letter on a long branch: ${swapsN(F.long.swaps)} here</small></div><div data-at="26.5">${big(GREEN, f2(F.short.len))}<small>on a short one: ${swapsN(F.short.swaps)}</small></div></div>
-        <p class="note" data-at="28.5">Chance gives more or fewer swaps; the length is what to expect. Trees like this trace viruses as they spread [1] and how a tumour grew from one cancer cell [6], and the rule of change they assume matters [2].</p>
-        <p class="credits" data-at="31">The tree's ${F.branches} branches and their swaps are examples, simulated with the story's rule. Heights are change: each branch rises by its length.</p>`)}`,
-    qubits: `<h2 data-at="0.6">Letters as qubits</h2>
-      ${turns(`<p data-at="1.2" data-out="18.5">A quantum computer can hold each letter in ${word(F.perLetter)} qubits, drawn as arrows on spheres: up is 0, down is 1.</p>
-        <ul class="steps">${[0, 1, 2, 3].map(i => step(6 + 3 * i, 18.5, LCOL[i], `${LET[i]} is ${KET[i]}`, codeWords(i))).join('')}</ul>`,
-      `<p data-at="19">Tilt the arrows and the ${word(F.perLetter)} qubits hold a mix of all ${word(LET.length)} letters at once, like a spinning coin.</p>
-        <p data-at="24">Reading them out makes the coin land on one letter, each with its own chance.</p>
-        <p data-at="28" class="amber">Here the chances are ${chancesText(F.mix)}; ${F.nReads} read-outs gave ${listOf(F.reads.map((n, i) => `${n} ${LET[i]}`))}.</p>
-        <p class="note" data-at="31">|01⟩ means first 0, then 1. An arrow shorter than its sphere means the ${word(F.perLetter)} qubits depend on each other. This mix is where the rule of the next chapter takes an A after ${F.point} swaps per letter.</p>`)}`,
-    rule: `<h2 data-at="0.6">The rule</h2>
-      ${turns(`<p data-at="1.2" data-out="16.5">A substitution model is the rule for how letters change:</p>
-        <ul class="steps">
-          ${step(3, 16.5, BLUE, 'Thicker arrows', 'how readily one letter swaps for another')}
-          ${step(6, 16.5, AMBER, 'Bigger balls', 'how common each letter is in the long run')}
-        </ul>
-        <p class="note" data-at="10" data-out="16.5">Here A↔G and C↔T swap about ${word(Math.round(F.fast))} times as readily as the other pairs, and ${LET[F.top]} is the most common letter in the long run (${pct(F.pi[F.top])}).</p>`,
-      `<p data-at="17">Every mix of the four letters is a point in this pyramid, the pure letters at its corners.</p>
-        <p data-at="22" class="amber">Start at A, and as time goes on the rule moves the mix along a path towards the long-run mix.</p>
-        <p data-at="28">After ${listOf(F.points.map(String))} swaps per letter it has come ${listOf(F.ways.slice(0, 3).map(pct))} of the way; after ${F.tPath}, ${pct(F.ways[3])}.</p>
-        <p class="note" data-at="32">The most general standard rule is GTR, the general time-reversible model. The mix follows p(t) = p(0) e^(Qt), a dynamical system: Q holds the rates. The rates and shares here are examples.</p>`)}`,
-    machine: `<h2 data-at="0.6">The machine</h2>
-      ${turns(`<p data-at="1.2" data-out="25.5">A compiler turns the rule into a quantum circuit: a machine of gears for one branch.</p>
-        <ul class="steps">
-          ${step(8, 25.5, CYAN, '1 · Copy', 'the parent\'s letter is stamped onto the child')}
-          ${step(13, 25.5, GREEN, '2 · Turn', 'the child\'s qubits turn: the longer the branch, the further, and the child\'s mix lands where the rule\'s path is at that time')}
-          ${step(20, 25.5, BLUE, '3 · The circuit', `${word(F.wires)} wires, the parent's ${word(F.perLetter)} qubits and the child's, with ${word(F.copies)} copy gates and ${word(F.blocks)} turn blocks`)}
+          ${step(4, 21.5, CYAN, 'One patch size', 'cut the tissue into squares, and read each square')}
+          ${step(11, 21.5, CYAN, 'A neighbour count', 'join each cell to its nearest few, here six')}
+          ${step(17, 21.5, CYAN, 'One radius', 'look only at the cells within a fixed distance')}
         </ul>`,
-      `<p data-at="26.5">One machine per branch, joined into the tree.</p>
-        <p data-at="34" class="amber">Read at the tips, it writes new sequences that follow the rule.</p>
-        <p class="note" data-at="36">The copy is ${word(F.copies)} CNOT gates. The turn is a few rotations of single qubits plus steps that link two qubits, so it depends on the parent's letter: for a ${LET[F.turn.par]} after ${F.turn.t} swap per letter, c1, the child's first qubit, turns ${deg(F.turn.c1)} and c0, its second, ${deg(F.turn.c0[0])} or ${deg(F.turn.c0[1])}. How far each step turns depends only on the branch length; the steps are the same on every branch: ${F.ry} turns of one qubit and ${F.cx} links.</p>`)}`,
-    pairs: `<h2 data-at="0.6">Letters that work together</h2>
-      ${turns(`<p data-at="1.2" data-out="27.5">Letters often act together.</p>
-        <p data-at="4" data-out="27.5">An RNA strand folds back on itself into a stem, held by pairs: ${F.held.map(p => `${p[0]} with ${p[1]}`).join(', ')}.</p>
-        <p data-at="14" data-out="27.5" class="amber">If one letter changes alone, its pair breaks.</p>
-        <p data-at="21" data-out="27.5">Coupling lets the two letters of a pair change together, so the pair holds.</p>`,
-      `<p data-at="28">Models of pairs exist, but each linked letter multiplies the combinations by ${word(F.perLink)}.</p>
-        <div class="facts"><div data-at="29">${big(CYAN, fmt(F.combos.pair))}<small>combinations for a pair</small></div><div data-at="33">${big(AMBER, fmt(F.combos.ten))}<small>for ${word(F.ten)} letters: ${aboutN(F.combos.ten)}</small></div><div data-at="35">${big(GREEN, F.qubits10)}<small>qubits for ${word(F.ten)}: ${word(F.perLetter)} per letter</small></div></div>
-        <p class="note" data-at="36">T stands for RNA's U here, as on the poster. On every branch the coupling acts on both letters of a pair beside the turn: changes that keep a pair are more likely (${word(TD.w)} times, in the authors' example), and both letters may change at once [3].</p>`)}`,
-    rebuild: `<h2 data-at="0.6">Rebuilding the ancestor</h2>
-      ${turns(`<p data-at="1.2" data-out="26.5">${cap(word(F.species))} species carry the same stem, each changed in its own way.</p>
-        <p data-at="7" data-out="26.5" class="amber">What did their shared ancestor have?</p>
-        <p data-at="14" data-out="26.5">Rebuild it ${fmt(TD.n)} times with each method, and count the ancestors whose ${W} pairs all hold:</p>
-        <ul class="steps">${FIELDS.map((m, i) => step(18 + 3 * i, 26.5, METHOD_COL[m], METHOD_SAY[m], `${pct(TD.intact[m])}${i ? '' : ' of them'}`)).join('')}</ul>`,
-      `<p data-at="27" class="amber">So the coupling favours pairs too strongly: its ancestors look believable, but its percentages are not true chances.</p>
-        <p data-at="31">And a broken pair is normal: the true ancestor here has ${word(F.truthBroken)}, and only ${esc(TD.allSixPrior)} of ancestors have all ${W} pairs matched.</p>
-        <p data-at="35">One rebuilt ancestor of each method stands before its field; white frames mark letters that differ from the true one.</p>
-        <p class="note" data-at="38">In the authors' test: a made-up stem of ${W} pairs in ${word(F.species)} species, ${fmt(TD.n)} rebuilt ancestors per method, matching pairs ${word(TD.w)} times as likely as mismatched ones. The shares are theirs; which stems are intact is drawn for the picture.</p>`)}`,
-    what: `<h2 data-at="0.6">What it is for</h2>
-      ${turns(`<p data-at="1.2" data-out="13.5">Rebuilding ancestors is how researchers brought back old virus proteins for vaccine research [4, 5] and trace how a tumour grew from one cancer cell [6].</p>
-        <p data-at="6" data-out="13.5" class="amber">This circuit turns a rule of letter change into a machine a quantum computer can run, and couples letters that change together.</p>
-        <p class="note" data-at="9" data-out="13.5">For now it handles one letter or one pair at a time, on simulated data. For real results the numbers would be estimated from real sequences.</p>`,
-      `<p data-at="14">After the poster by ${esc(A1.name)} (${esc(A1.inst)}) and ${esc(A2.name)} (${esc(A2.inst)}).</p>
-        <p data-at="16"><button class="btn primary" id="btnGoExplore" type="button">Explore the machine</button></p>
-        <p class="credits" data-at="17">${F.refs.map((r, i) => `[${i + 1}] ${esc(r)}.`).join(' ')}</p>
-        <p class="credits" data-at="18">The numbers drawn are examples, computed here; numbers said to be from the authors' test are theirs.</p>`)}`,
+      `<p data-at="22">But tissue has structure at every scale, from a cell's neighbours to the shape of a whole lobule.</p>
+        <p data-at="25" class="amber">topocyte reads all of them at once.</p>
+        <p class="note" data-at="27">Scale-resolved: every radius at once, with no size to choose. Next, the ${F.patch} cells of the small square in the middle of this healthy tile.</p>`)}`,
+    balls: `<h2 data-at="0.6">Balls grow</h2>
+      ${turns(`<p data-at="1.2" data-out="13.5">Take the ${F.patch} cells of that square, and keep only where they sit.</p>
+        <p data-at="5" data-out="13.5">Grow a ball round every cell.</p>
+        <p data-at="8" data-out="13.5" class="amber">Where two balls touch, the cells are joined by an edge; where three meet, a triangle fills in: a network that also has triangles.</p>`,
+      `<ul class="steps">${F.snaps.map((s, k) => step(SNAP_AT[k], 0, k ? (s.r < ld ? ORANGE : AMBER) : AMBER, `${fmtR2(s.r)} µm`, esc(cap(snapSay(s))))).join('')}</ul>
+        <p class="note" data-at="46">The network with triangles is the alpha complex, a simplicial complex: the higher-order generalisation of a network. The radii and counts are the poster's snapshots; ${word(F.snaps[1].loops)} loops are alive at ${fmtR2(F.snaps[1].r)} µm, most of them small and brief.</p>`)}`,
+    tower: `<h2 data-at="0.6">The tower of scales</h2>
+      ${turns(`<p data-at="1.2" data-out="27.5">Now let the radius become height.</p>
+        <p data-at="4" data-out="27.5">Each piece is a thread rising from its cell; where two pieces join, their threads merge, until one trunk is left.</p>
+        <p data-at="12" data-out="27.5" class="amber">Each loop is a chimney, from the height where it closes to where it fills.</p>
+        <p data-at="19" data-out="27.5">The glass plane rises with the radius: it cuts the tower where the network is at that radius.</p>`,
+      `<p data-at="28">How long each piece and each loop lives is a bar; how many are alive at each height gives two curves.</p>
+        <div class="facts"><div data-at="31">${big(AMBER, fmt(F.patch))}<small>pieces, a bar each</small></div><div data-at="33">${big(ORANGE, fmt(F.loops))}<small>loops, at most ${word(most)} at once</small></div></div>
+        <p data-at="36" class="amber">Together they describe the tissue at every scale at once.</p>
+        <p class="note" data-at="40">This is persistent homology. Pieces are H0 (connected components), loops H1 (holes); the bars are the barcode, and the counts the Betti curves, exact step functions. The filtration's value is t = r²; the story shows the radius r.</p>`)}`,
+    cohort: `<h2 data-at="0.6">${F.slides} slides</h2>
+      ${turns(`<p data-at="1.2" data-out="20.5">Do this for every slide: ${F.healthy} healthy livers and ${F.cirrhosis} with cirrhosis, where scars cut the liver into knots.</p>
+        <p data-at="6" data-out="20.5">Each slide gets its own curves: here its loops, small radii on the left, large on the right.</p>
+        <p data-at="11" data-out="20.5">Scaled to the same size, only their shape counts.</p>
+        <p data-at="16" data-out="20.5" class="amber">The healthy slides' average in blue, the cirrhotic slides' in red.</p>`,
+      `<p data-at="21">Comparing every slide with every other finds the main shapes the curves vary by:</p>
+        <div class="facts"><div data-at="23">${big(CYAN, pct(F.fve[0]))}<small>of the variation in loops: shape 1</small></div><div data-at="24.5">${big(GREEN, pct(F.fve[1]))}<small>shape 2</small></div></div>
+        <p data-at="31" class="amber">Each slide becomes a point by how much of each shape it has, and healthy and cirrhotic slides fall apart before anything is trained.</p>
+        <p class="note" data-at="38">Cosine normalisation; the functional PCA, computed exactly from the bars' ends (no grid). All ${F.slides} slides and ${F.cellsM} million cells took ${F.minutes} minutes on a laptop's processor.</p>`)}`,
+    scales: `<h2 data-at="0.6">Which scales matter</h2>
+      ${turns(`<p data-at="1.2" data-out="23.5">A classifier draws a wall between the two clouds.</p>
+        <p data-at="7" data-out="23.5">Each slide moves to its log-odds: how far it lies on the cirrhosis side of the wall, or the healthy side.</p>
+        <p data-at="11" data-out="23.5" class="amber">Read back through the shapes, it becomes a weight for every radius: loops alive at ${wa.r0} to ${wb.r1} µm speak for cirrhosis.</p>`,
+      `<p data-at="24">What each stretch of radii adds to the difference between the two groups:</p>
+        <div class="facts"><div data-at="25">${big(RED, f2s(wa.s))}<small>loops of ${wa.r0} to ${wa.r1} µm</small></div><div data-at="26.5">${big(RED, f2s(wb.s))}<small>${wb.r0} to ${wb.r1} µm</small></div><div data-at="28">${big(BLUE, f2s(F.rest))}<small>the other radii</small></div></div>
+        <p data-at="30">Together: ${f2(F.gap)}, odds of about ${fmt(F.odds)} to 1.</p>
+        <p data-at="34" class="amber">Tested fairly, on slides it never saw, it gets ${F.right} of ${F.slides} right.</p>
+        <p class="note" data-at="38">A logistic regression on the first four scores; γ(r) is its weight per radius. Five-fold cross-validation: ${F.hRight} of ${F.hN} healthy and ${F.cRight} of ${F.cN} cirrhotic slides right, accuracy ${F.acc.toFixed(3)}.</p>`)}`,
+    cells: `<h2 data-at="0.6">Every cell a centre</h2>
+      ${turns(`<p data-at="1.2" data-out="26.5">Now a slide the classifier never saw: ${fmt(F.newCells)} cells, and a window of ${fmt(F.window)} of them.</p>
+        <p data-at="10" data-out="26.5">Pick one cell and look only at the cells within ${F.delta} µm of it.</p>
+        <p data-at="15" data-out="26.5">They make their own small network, with its own pieces and loops,</p>
+        <p data-at="21" data-out="26.5" class="amber">and their own curves.</p>`,
+      `<p data-at="27">The classifier gives the cell a score of its own:</p>
+        <div class="facts"><div data-at="28">${big(F.score < 0 ? BLUE : RED, f2s(F.score))}<small>its log-odds: ${F.score < 0 ? 'healthy' : 'cirrhosis'}-like</small></div></div>
+        <p data-at="33" class="amber">Do this for every cell, and the slide becomes a map: the scars light up red, the healthy tissue blue.</p>
+        <p class="note" data-at="40">Local persistent homology: the slide's network restricted to each cell's neighbourhood. The shapes and the classifier were fitted on the other ${F.train} slides (pieces, H0). The colours are the poster's, at most ±${f2(F.limit)}.</p>`)}`,
+    next: `<h2 data-at="0.6">Where analysis begins</h2>
+      ${turns(`<p data-at="1.2" data-out="17.5">The cells now fall into two groups: ${fmt(F.sizes[1])} cirrhosis-like and ${fmt(F.sizes[0])} healthy-like.</p>
+        <p data-at="8" data-out="17.5">The groups can be compared in whatever was measured: here, the cirrhosis-like cells hold ${F.lymph[1] > F.lymph[0] ? 'more' : 'fewer'} lymphocytes (${pct(F.lymph[1])} against ${pct(F.lymph[0])}) and ${F.fib[1] > F.fib[0] ? 'a few more' : 'fewer'} fibroblasts (${pct(F.fib[1])} against ${pct(F.fib[0])}).</p>
+        <p class="note" data-at="12" data-out="17.5">The types are the labels of the computer that found the cells, not a pathologist's. With a radius of 100 µm, as in the poster's figure, the groups have ${fmt(F.sizes100[0])} healthy-like and ${fmt(F.sizes100[1])} cirrhosis-like cells.</p>`,
+      `<p data-at="18">In spatial transcriptomics it would be genes, in spatial proteomics proteins.</p>
+        <p data-at="25" class="amber">Four calls of topocyte, and the shape of tissue becomes something to measure.</p>
+        <p data-at="28"><button class="btn primary" id="btnGoExplore" type="button">Explore the shape of tissue</button></p>
+        <p class="credits" data-at="29">After the poster by ${AUTH} (Ludwig Boltzmann Institute for Network Medicine at the University of Vienna; University of Vienna; CeMM Research Center for Molecular Medicine of the Austrian Academy of Sciences; Medical University of Vienna; Max Perutz Labs, Vienna BioCenter).</p>
+        <p class="credits" data-at="30">The cells: the GTEx project's liver slides, segmented by the authors with HistoPLUS (CC BY 4.0); slides are numbered, never named. The genes and proteins are sketches of the workflow, not data. topocyte.lab.lbi-netmed.com</p>`)}`,
   };
 
   const story = $('#story');
@@ -312,152 +265,172 @@ function buildStory() {
     if (nudge) for (let i = 0; i < nudge.length; i++) v[i] += nudge[i] || 0;
     wp.push([t, ...v, ease, frameOf(k), narrowOf(k, name), fitShift(k, name), lowOf(k, name)]);
   };
-  start({ letters_helix: 1, letters_peel: 0, letters_copy1: 0, letters_mut1: 0, letters_copy2: 0, letters_mut2: 0, letters_open: 0, letters_code: 0,
-    letters_mix: 0, letters_target: 0, letters_time: M.POINTS[1], letters_reads: 0, letters_seed: 1,
-    tree_species: 0, tree_grow: 0, tree_seq: 1, tree_hi: 0, tree_gears: 0, tree_flow: 0, tree_q: 0, tree_seed: 1, tree_speed: 1, tree_pick: -1,
-    rule_balls: 0, rule_flow: 1, rule_pyr: 0, rule_path: 0, rule_time: 0, rule_model: MI, rule_start: 0, rule_compile: 0, rule_machine: 0,
-    rule_parent: F.turn.par, rule_copy: 0, rule_circuit: 0, rule_simple: 0, rule_run: 1,
-    stem_strand: 0, stem_fold: 0, stem_break: 0, stem_couple: 0, stem_both: 0, stem_count: 0, stem_qubits: 0, stem_species: 0, stem_fields: 0,
-    stem_named: 0, stem_sort: 0, stem_truth: 0, stem_examples: 0, stem_src: 0, stem_w: TD.w, stem_seed: 1, stem_method: -1 });
+  start({ body_pet: 1, body_net: 0, body_state: 0, body_blank: 0, liver_lift: 0, liver_slice: 0,
+    slide_show: 0, slide_mode: 0, slide_points: 0, slide_scale: 0, slide_patch: 0, slide_over: 0,
+    map_cell: 0, map_r: 1.5, map_balls: 0, map_bars: 0, map_score: 0, map_all: 0, map_split: 0, map_omics: 0, map_pick: -1, map_delta: 0,
+    tower_r: 1.5, tower_rise: 0, tower_bars: 0, tower_he: 1, tower_lit: 0,
+    cohort_dim: 1, cohort_rack: 0, cohort_means: 0, cohort_shapes: 0, cohort_space: 0, cohort_wall: 0, cohort_odds: 0, cohort_stacks: 0,
+    cohort_gamma: 0, cohort_gap: 0, cohort_win: 0, cohort_from: 5, cohort_to: 15, cohort_pick: -1 });
   let a, b;
-  // A text in four letters: the helix turning, its top strand peeling into the ancestor's row, two copies with swaps
+  // Where cells sit: the tour's body, its liver lifting out and turning, a thin slice of it standing inside it, falling
+  // flat and growing into the healthy tile on its glass; the cells close; the other modalities sweep in (sketches),
+  // then every cell becomes a bead
   a = C.title.a; b = C.title.b;
-  show('letters', 0.2, 2, b - 1, b + 1);
-  ramp('letters_peel', a + 6, a + 11, 0, 1);
-  ramp('letters_helix', a + 11, a + 14, 1, 0);
-  ramp('letters_copy1', a + 13, a + 15, 0, 1);
-  ramp('letters_mut1', a + 15, a + 18, 0, 1);
-  ramp('letters_copy2', a + 18.5, a + 20.5, 0, 1);
-  ramp('letters_mut2', a + 20.5, a + 23.5, 0, 1);
-  cam(a, 'letters', 'default', -8);
-  cam(a + 5.5, 'letters', 'default', 2, 'spin');
-  cam(a + 10, 'letters', 'peel', 0);
-  cam(a + 14, 'letters', 'rows', -6);
-  cam(b - 0.5, 'letters', 'rows', 6, 'spin');
-  // A family tree: it grows from its root, the letters riding up, mutations flashing; a long and a short branch
-  a = C.tree.a; b = C.tree.b;
-  show('tree', a, a + 2, b - 2, b);
-  ramp('tree_grow', a + 4, a + 24, 0, 1);
-  ramp('tree_hi', a + 24, a + 27, 0, 1);
-  ramp('tree_hi', b - 3, b - 1, 1, 0);
-  ST.stand.push([a + 1, a + 4, b - 2.5, b]);   // (in a headset: once the letters have gone, until the qubits come)
-  cam(a + 1.5, 'tree', 'grow', -10);
-  cam(a + 22, 'tree', 'grow', 30, 'spin');
-  cam(a + 25, 'tree', 'pair', -4);
-  cam(b - 0.5, 'tree', 'pair', 6, 'spin');
-  // Letters as qubits: the ancestor's first tile opens into two qubits, the four codes, the tilt into a mix, read-outs
-  a = C.qubits.a; b = C.qubits.b;
-  show('letters', a, a + 2, b - 1, b + 1);
-  ramp('letters_open', a + 2, a + 6, 0, 1);
-  [1, 2, 3].forEach(i => jump('letters_code', a + 6 + 3 * i, i - 1, i));
-  jump('letters_code', a + 18, 3, 0);
-  ramp('letters_mix', a + 19, a + 22, 0, 1);
-  ramp('letters_reads', a + 24, a + 28, 0, 4);
-  ramp('letters_reads', a + 28, a + 34, 4, F.nReads);
-  cam(a + 0.5, 'letters', 'rows', -4);
-  cam(a + 3.5, 'letters', 'qubits', -6);
-  cam(a + 23, 'letters', 'qubits', 6, 'spin');
-  cam(a + 25.5, 'letters', 'reads', -3);
-  cam(b - 0.5, 'letters', 'reads', 4, 'spin');
-  // The rule: balls and arrows, the pyramid of mixes, the path from A towards the long-run mix
-  a = C.rule.a; b = C.rule.b;
-  show('rule', a, a + 2);
-  ramp('rule_balls', a + 1, a + 6, 0, 1);
-  ramp('rule_pyr', a + 16, a + 21, 0, 1);
-  ramp('rule_path', a + 22, a + 24, 0, 1);
-  ramp('rule_time', a + 24, a + 35, 0, M.T_PATH);
-  cam(a + 1, 'rule', 'rates', -8);
-  cam(a + 15, 'rule', 'rates', 10, 'spin');
-  cam(a + 18, 'rule', 'pyramid', -4);
-  cam(a + 23, 'rule', 'path', -6);
-  cam(b - 0.5, 'rule', 'path', 10, 'spin');
-  // The machine: the compiler, the copy, the turn, the circuit; then one machine per branch of the family tree
-  a = C.machine.a; b = C.machine.b;
-  ramp('rule_time', a, a + 2, M.T_PATH, 0);
-  ramp('rule_compile', a, a + 4, 0, 1);
-  ramp('rule_machine', a + 4, a + 8, 0, 1);
-  ramp('rule_copy', a + 8, a + 13, 0, 1);
-  ramp('rule_time', a + 13, a + 20, 0, F.turn.t);
-  ramp('rule_circuit', a + 20, a + 23, 0, 1);
-  hide('rule', a + 25.5, a + 27.5);
-  show('tree', a + 26.5, a + 29, b - 2, b);
-  ramp('tree_gears', a + 29, a + 32, 0, 1);
-  ramp('tree_flow', a + 34, a + 36, 0, 1);
-  ramp('tree_flow', b - 3, b - 1, 1, 0);
-  ST.stand.push([a + 27.5, a + 30.5, b - 2.5, b]);   // (in a headset: once the circuit has gone, until the stem comes)
-  cam(a + 1.5, 'rule', 'compiler', -4);
-  cam(a + 5.5, 'rule', 'machine', 0);
-  cam(a + 8.5, 'rule', 'copy', -2);
-  cam(a + 13, 'rule', 'copy', 2, 'spin');
-  cam(a + 14.5, 'rule', 'turn', -4);
-  cam(a + 20, 'rule', 'turn', 4, 'spin');
-  cam(a + 21.5, 'rule', 'circuit', -2);
-  cam(a + 25, 'rule', 'circuit', 3, 'spin');
-  cam(a + 28, 'tree', 'gears', -10);
-  cam(b - 0.5, 'tree', 'gears', 14, 'spin');
-  // Letters that work together: the strand folds into a stem, a pair breaks, the coupling keeps one, the count
-  a = C.pairs.a; b = C.pairs.b;
-  show('stem', a, a + 2, b - 2, b);
-  ramp('stem_strand', a + 1, a + 5, 0, 1);
-  ramp('stem_fold', a + 6, a + 12, 0, 1);
-  ramp('stem_break', a + 14, a + 17, 0, 1);
-  ramp('stem_break', a + 20, a + 21, 1, 0);
-  ramp('stem_couple', a + 21, a + 23, 0, 1);
-  ramp('stem_both', a + 24, a + 26, 0, 1);
-  ramp('stem_count', a + 28, a + 30, 0, 1);
-  ramp('stem_count', a + 31, a + 32.5, 1, 2);
-  ramp('stem_count', a + 33, a + 35, 2, 3);
-  ramp('stem_qubits', a + 34, a + 36, 0, 1);
-  cam(a + 1.5, 'stem', 'strand', 20);
-  cam(a + 6.5, 'stem', 'fold', 6);
-  cam(a + 13, 'stem', 'fold', -4, 'spin');
-  cam(a + 15, 'stem', 'break', -6);
-  cam(a + 27, 'stem', 'break', 8, 'spin');
-  cam(a + 29, 'stem', 'count', 0);
-  cam(a + 32.5, 'stem', 'count', 4, 'spin');
-  cam(a + 34.5, 'stem', 'cloud', 0);
-  cam(b - 0.5, 'stem', 'cloud', 4, 'spin');
-  // Rebuilding the ancestor: the species tree and its stems, the "?", three fields of rebuilt ancestors, their
-  // shares, the true ancestor and one rebuilt example per method (the close-up's params jump while the stem set is out)
-  a = C.rebuild.a; b = C.rebuild.b;
-  jump('tree_species', a - 1, 0, 1); jump('tree_grow', a - 1, 1, 0); jump('tree_gears', a - 1, 1, 0);
-  jump('stem_strand', a + 0.5, 1, 0); jump('stem_count', a + 0.5, 3, 0); jump('stem_qubits', a + 0.5, 1, 0);
-  show('tree', a, a + 3);
-  ramp('tree_grow', a, a + 6, 0, 1);
-  ramp('tree_q', a + 1, a + 4, 0, 1);
-  ramp('tree_gears', a + 3, a + 6, 0, 1);
-  show('stem', a + 3, a + 5);
-  ramp('stem_species', a + 6, a + 11, 0, 1);
-  ramp('stem_fields', a + 14, a + 24, 0, 1);
-  // each field lit, and its tag shown, as the text names it (its step's data-at), left to right
-  FIELDS.forEach((m, i) => {
-    jump('stem_method', a + 18 + 3 * i, i ? M.METHODS.indexOf(FIELDS[i - 1]) : -1, M.METHODS.indexOf(m));
-    ramp('stem_named', a + 18 + 3 * i, a + 18.6 + 3 * i, i, i + 1);
-  });
-  jump('stem_method', a + 27, M.METHODS.indexOf(FIELDS[FIELDS.length - 1]), -1);
-  ramp('stem_sort', a + 25, a + 28, 0, 1);
-  ramp('tree_q', a + 30, a + 33, 1, 0);
-  ramp('stem_truth', a + 31, a + 34, 0, 1);
-  ramp('stem_examples', a + 35, a + 39, 0, 1);
-  cam(a + 1.5, 'tree', 'species', -8);
-  cam(a + 12, 'tree', 'species', 6, 'spin');
-  cam(a + 15, 'stem', 'fields', -4);
-  cam(a + 29, 'stem', 'fields', 4, 'spin');
-  cam(a + 32, 'stem', 'compare', -3);
-  cam(b - 0.5, 'stem', 'compare', 4, 'spin');
-  // What it is for: the species tree, its machines running, the species' stems
-  a = C.what.a; b = C.what.b;
-  for (const n of ['stem_fields', 'stem_examples', 'stem_truth']) ramp(n, a, a + 2, 1, 0);
-  ramp('tree_flow', a + 2, a + 6, 0, 1);
-  cam(a + 2, 'tree', 'what', -6);
-  cam(b - 0.5, 'tree', 'what', 16, 'spin');
+  show('body', 0.2, 2);
+  hide('body', a + 11.5, a + 14);
+  ramp('liver_a', a + 2.5, a + 3.5, 0, 1);
+  ramp('liver_lift', a + 3.5, a + 8.5, 0, 1);
+  ramp('liver_slice', a + 9, a + 12, 0, 0.5);
+  ramp('liver_slice', a + 12, a + 15.5, 0.5, 1);
+  ramp('liver_a', a + 16, a + 17, 1, 0);
+  show('slide', a + 15, a + 16.5);
+  ramp('slide_mode', a + 21, a + 23.5, 0, 1);
+  ramp('slide_mode', a + 25.5, a + 28, 1, 2);
+  ramp('slide_points', a + 29.5, a + 31.5, 0, 1);
+  jump('slide_mode', a + 33.5, 2, 0);   // (unseen: every cell is a bead by then)
+  const LIV = [0, 6, -2.05, LIVER_OUT[0], LIVER_OUT[1], LIVER_OUT[2]];   // (the body's front view brought close to the lifted liver)
+  cam(a, 'body', 'front', -12);
+  cam(a + 3.5, 'body', 'front', -4, 'spin');
+  cam(a + 8.5, 'body', 'front', -6, null, LIV);
+  cam(a + 12, 'body', 'front', 4, 'spin', LIV);
+  cam(a + 15.5, 'slide', 'tile', 0);
+  cam(a + 18, 'slide', 'close', 0);
+  cam(a + 20.5, 'slide', 'tile', -6);
+  cam(b - 0.5, 'slide', 'tile', 6, 'spin');
+  // Which scale?: back to H&E, the three fixed scales on the tile in turn, then the poster's patch marked
+  a = C.scale.a; b = C.scale.b;
+  ramp('slide_points', a + 1, a + 3, 1, 0);
+  ramp('slide_scale', a + 4, a + 6, 0, 1);
+  ramp('slide_scale', a + 11, a + 13, 1, 2);
+  ramp('slide_scale', a + 17, a + 19, 2, 3);
+  ramp('slide_scale', a + 22, a + 23.5, 3, 0);
+  ramp('slide_patch', a + 23, a + 25, 0, 1);
+  hide('slide', a + 26, a + 28);
+  cam(a + 1.5, 'slide', 'tile', -4);
+  cam(a + 5, 'slide', 'square', 0);
+  cam(a + 10, 'slide', 'square', 6, 'spin');
+  cam(a + 12, 'slide', 'hub', 0);
+  cam(a + 16, 'slide', 'hub', 6, 'spin');
+  cam(a + 18, 'slide', 'circle', 0);
+  cam(a + 21.5, 'slide', 'circle', 6, 'spin');
+  cam(a + 24, 'slide', 'patch', 0);
+  cam(a + 26.5, 'slide', 'patch', 3, 'spin');
+  // Balls grow: the patch's 110 cells in H&E shrink into beads; balls grow round them, the radius stopping at the
+  // poster's four snapshots (eased on its log ruler: tower_r is one of the tower set's log params)
+  a = C.balls.a; b = C.balls.b;
+  show('tower', a - 2, a + 1);
+  ramp('tower_he', a + 3, a + 8, 1, 0);
+  key('tower_r', a + 8, 1.5);
+  F.snaps.forEach((s, k) => ramp('tower_r', a + SNAP_AT[k] - [3, 6, 5, 4][k], a + SNAP_AT[k], k ? F.snaps[k - 1].r : 1.5, s.r));
+  ramp('tower_r', a + 46, a + 48.5, F.snaps[3].r, 60);
+  ST.stand.push([a + 1, a + 4.5, C.tower.b - 4, C.tower.b - 0.5]);   // (in a headset: the tower stands tall through chapters 3 and 4)
+  cam(a + 0.5, 'tower', 'snap', 0);
+  cam(a + 4, 'tower', 'plate', -8);
+  cam(a + 10, 'tower', 'plate', 4, 'spin');
+  cam(a + 13, 'tower', 'snap', -6);
+  cam(b - 1.5, 'tower', 'snap', 10, 'spin');
+  // The tower of scales: the radius back to its start as the tower rises, then the plane sweeping up through it,
+  // stopping where the big loop has just closed and where it is still open; the barcode and the two curves
+  a = C.tower.a; b = C.tower.b;
+  ramp('tower_rise', a + 1, a + 10, 0, 1);
+  ramp('tower_r', a + 2, a + 10, 60, 1.5);
+  ramp('tower_r', a + 12, a + 17, 1.5, F.snaps[1].r);
+  ramp('tower_r', a + 20, a + 24, F.snaps[1].r, F.snaps[2].r);
+  ramp('tower_r', a + 26, a + 29, F.snaps[2].r, 60);
+  ramp('tower_bars', a + 29, a + 40, 0, 1);
+  hide('tower', b - 2, b + 1);
+  cam(a + 1, 'tower', 'tower', -10);
+  cam(a + 10, 'tower', 'tower', 8, 'spin');
+  cam(a + 12, 'tower', 'default', 0);
+  cam(a + 28, 'tower', 'default', 22, 'spin');
+  cam(a + 30, 'tower', 'bars', 0);
+  cam(b - 1.5, 'tower', 'bars', 10, 'spin');
+  // 123 slides: the rack and its curves lighting one after another, the classes' means, the two main shapes, then the
+  // slides fly into the cube of their scores
+  a = C.cohort.a; b = C.cohort.b;
+  show('cohort', a - 2, a + 1);
+  ramp('cohort_rack', a + 1, a + 16, 0, 1);
+  ramp('cohort_means', a + 16, a + 19, 0, 1);
+  ramp('cohort_shapes', a + 22, a + 26, 0, 1);
+  ramp('cohort_space', a + 31, a + 41, 0, 1);
+  cam(a + 0.5, 'cohort', 'default', -10);
+  cam(a + 5, 'cohort', 'rack', -6);
+  cam(a + 15, 'cohort', 'rack', 6, 'spin');
+  cam(a + 17.5, 'cohort', 'means', 0);
+  cam(a + 21, 'cohort', 'means', 4, 'spin');
+  cam(a + 23.5, 'cohort', 'shapes', -4);
+  cam(a + 30, 'cohort', 'shapes', 4, 'spin');
+  cam(a + 33, 'cohort', 'space', -6);
+  cam(b - 0.5, 'cohort', 'space', 10, 'spin');
+  // Which scales matter: the wall, the log-odds, the weight per radius on the column, the windows' bands dropping into
+  // the gap; then the column goes and the slides drop into the four stacks of the held-out test
+  a = C.scales.a; b = C.scales.b;
+  ramp('cohort_wall', a + 1, a + 6, 0, 1);
+  ramp('cohort_odds', a + 7, a + 11, 0, 1);
+  ramp('cohort_gamma', a + 11, a + 23, 0, 1);
+  ramp('cohort_gap', a + 25, a + 32, 0, 1);
+  ramp('cohort_gamma', a + 32, a + 34, 1, 0);
+  ramp('cohort_stacks', a + 34, a + 42, 0, 1);
+  hide('cohort', b - 2, b + 1);
+  cam(a + 1.5, 'cohort', 'wall', 0);
+  cam(a + 6, 'cohort', 'wall', 4, 'spin');
+  cam(a + 7.5, 'cohort', 'odds', 0);
+  cam(a + 11, 'cohort', 'odds', 4, 'spin');
+  cam(a + 13, 'cohort', 'gamma', 0);
+  cam(a + 23, 'cohort', 'gamma', 6, 'spin');
+  cam(a + 25, 'cohort', 'gap', 0);
+  cam(a + 32, 'cohort', 'gap', 4, 'spin');
+  cam(a + 35, 'cohort', 'stacks', -6);
+  cam(b - 1, 'cohort', 'stacks', 8, 'spin');
+  // Every cell a centre: the new slide whole on its glass, the zoom into the window, one cell under its dome (its
+  // network growing with the balls, its bars, its score), then the dome sweeping the window into a relief
+  a = C.cells.a; b = C.cells.b;
+  jump('slide_show', a - 1, 0, 1); jump('slide_over', a - 1, 0, 1); jump('slide_patch', a - 1, 1, 0);
+  show('slide', a, a + 2);
+  ramp('slide_over', a + 4, a + 10, 1, 0);
+  show('map', a + 10, a + 11);
+  ramp('map_cell', a + 11, a + 13.5, 0, 1);
+  key('map_r', a + 11, 1.5);
+  ramp('map_r', a + 13, a + 16.5, 1.5, SD.e.drawR);
+  ramp('map_r', a + 17, a + 21, SD.e.drawR, 30);
+  ramp('map_r', a + 22, a + 26, 30, F.delta);
+  ramp('map_balls', a + 12, a + 14, 0, 1);
+  ramp('map_balls', a + 19, a + 22, 1, 0);
+  ramp('map_bars', a + 21, a + 26, 0, 1);
+  ramp('map_score', a + 27, a + 29, 0, 1);
+  ramp('map_cell', a + 32, a + 34, 1, 0);
+  ramp('map_all', a + 33, a + 46, 0, 1);
+  cam(a + 0.5, 'slide', 'over', -6);
+  cam(a + 10, 'slide', 'window', 0);
+  cam(a + 12, 'map', 'cell', -6);
+  cam(a + 14.5, 'map', 'net', 0);
+  cam(a + 19.5, 'map', 'net', 6, 'spin');
+  cam(a + 23, 'map', 'bars', 0);
+  cam(a + 26.5, 'map', 'bars', 4, 'spin');
+  cam(a + 28, 'map', 'score', 0);
+  cam(a + 32, 'map', 'score', 4, 'spin');
+  cam(a + 34.5, 'map', 'sweep', 0);
+  cam(a + 41, 'map', 'sweep', 4, 'spin');
+  cam(a + 43, 'map', 'relief', -4);
+  cam(b - 0.5, 'map', 'relief', 10, 'spin');
+  // Where analysis begins: the cells lift off into their two groups and their piles by type; then the sketches of the
+  // other modalities (genes, then proteins)
+  a = C.next.a; b = C.next.b;
+  ramp('map_split', a + 2, a + 10, 0, 1);
+  ramp('map_omics', a + 18, a + 22, 0, 1);
+  ramp('map_omics', a + 25, a + 29, 1, 2);
+  cam(a + 2, 'map', 'split', -6);
+  cam(a + 16, 'map', 'split', 8, 'spin');
+  cam(a + 18.5, 'map', 'omics', -4);
+  cam(b - 0.5, 'map', 'omics', 10, 'spin');
   for (const n in TR) TR[n].sort((x, y) => x[0] - y[0]);
   buildCamera(wp);
 
   // --------------------------------------------------------- story labels
-  // (the sets label their own parts; the story adds what the scene alone does not say)
-  a = C.machine.a;
-  label('tree', 'tip2', '<b>New sequences</b> · read at the tips', a + 35, C.machine.b - 2, 'cyn');
+  // (the sets label their own parts; the story adds what the scene alone does not say: the liver and its slice)
+  a = C.title.a;
+  label('body', () => GL.liver.at.liver, '<b>The liver</b>', a + 5, a + 10.5, '');
+  label('body', () => GL.liver.at.slice, '<b>A thin slice</b> · laid on glass', a + 9.5, a + 12.6, 'amb');
 }
 // camera waypoints: [t, az, el, dist, tx, ty, tz, ease, set, narrow factor, FIT's target shift, LOW]; 'spin' segments turn at
 // a steady pace.
@@ -492,7 +465,7 @@ function buildCamera(wp) {
   });
 }
 // the turn a set has at story time t: that of its latest stay on show (it starts fading in a little before its first view)
-// (the tree and the stem share one turn: one frame)
+// (the slide and the map share one turn: one frame)
 function setYaw(k, t) {
   let c = 0;
   const f = frameOf(k);
@@ -512,7 +485,7 @@ function spinEase(t, D) {
   return v * (t - r / 2);
 }
 // the story's view at time t: [az, el, dist, tx, ty, tz, narrow factor, FIT's target shift x, y, z, and LOW's two]
-// (in a headset the family tree stands tall while it is the scene, see standView)
+// (in a headset the tower of scales stands tall while it is the scene, see standView)
 const storyCam = t => (XR.on ? standView(storyView(t), standW(t)) : storyView(t));
 function storyView(t) {
   const wp = ST.wp, end = w => [w[1], w[2], w[3], w[4], w[5], w[6], w[8], ...w[9], ...w[10]];
@@ -528,19 +501,18 @@ function storyView(t) {
   return end(wp[wp.length - 1]);
 }
 
-// In a headset the family tree stands tall in front of you while it is the scene (chapter 2, and the machines of
-// chapter 5): the story's view eases into the tree set's `stand` (about 1.5 m tall, its root low, its crown above your
-// eyes), keeping the story's turn; the species tree of chapters 7 and 8 stays at table size. Its axis stands STAND_BACK
-// (in the set's units) further off than the view's target, so that nothing of it, the level ring and the rows of
-// letters riding up included, comes within 0.35 m of your eyes (measured with the story's turns: 0.44 m at the
-// closest). The weight follows the story's time alone, so at a shared-room station everyone sees the same size. On a
-// screen nothing changes.
+// In a headset the tower of scales stands tall in front of you while it is the scene (chapters 3 and 4): the story's
+// view eases into the tower set's `stand` (about 1.5 m tall, the plate low and the trunk's top above your eyes),
+// keeping the story's turn. Its axis stands STAND_BACK (in the set's units) further off than the view's target, so that
+// nothing of it comes within 0.35 m of your eyes (the tower set's manifest: 0.38 m at the closest for the story's
+// turns from -60 to 60 degrees, the board more than 0.9 m away). The weight follows the story's time alone, so at a
+// shared-room station everyone sees the same size. On a screen nothing changes.
 const STAND_BACK = 0.2;
 // ST.stand: [t0, t1, t2, t3], in over t0..t1 and out over t2..t3 (story time)
 const standW = t => ST.stand.reduce((w, [t0, t1, t2, t3]) => Math.max(w, Math.min(smooth((t - t0) / (t1 - t0)), smooth((t3 - t) / (t3 - t2)))), 0);
 function standView(v, w) {
   if (w <= 0) return v;
-  const s = view('tree', 'stand'), A = v[0] * D2R;
+  const s = view('tower', 'stand'), A = v[0] * D2R;
   s[3] += STAND_BACK * Math.sin(A); s[5] += STAND_BACK * Math.cos(A);   // (towards you: the target nearer, the axis further)
   v[1] += (s[1] - v[1]) * w;
   v[2] = Math.exp(Math.log(v[2]) + (Math.log(s[2]) - Math.log(v[2])) * w);
@@ -575,7 +547,7 @@ function buildSetLabels() {
       fn, tx: fn ? b + '|' + r : '', none: !b && !r });
   }
 }
-// a label whose text is a function (a pile's count, a branch's length, a field's share, a turn's angle) is read again
+// a label whose text is a function (the radius and its counts, a slide picked, a window's share, a cell's score) is read again
 // while it shows and redrawn when it changes: the HTML label, and the headset's sprite (dropped, so it is made again)
 function labelText(L) {
   if (!L.fn) return;
