@@ -48,14 +48,16 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
   rounds (what happened is in [docs/quest-shared-space-findings.md](docs/quest-shared-space-findings.md) and AGENTS.md
   "Shared rooms"). All thirteen stories of then, the slideshow and the headset menu on the wrist were tried on a headset
   in October 2026, after the tests had passed on every change; the fourteenth, the mutation machine, came after.
-- **Untested on a device:** lining headsets up again after standby or a night; moving and resizing scenes with the
-  grips; persistent anchors restored after a restart; sound zones; comfort and frame rate with other people drawn;
-  whether the connection to the relay keeps running inside a headset session; the two headset settings of October
-  2026 (labels in 3D, on top or hidden, and free moving, everything in 3D by default and the same for a whole room):
-  how readable the signs in 3D are, how the story panels read standing in the scene with labels in 3D (passing birds,
-  fish or layers in the life-size and stand-inside views now hide parts of them), how the free grip feels (turning the
-  scene with the hand, tilting the panel), and how the station cards and name tags look in each mode. The full list ends AGENTS.md "Shared
-  rooms"; [docs/event-runbook.md](docs/event-runbook.md) says what to try at an event.
+- **Checked on a Quest 3 (28 October 2026):** the two headset settings (labels in 3D, on top or hidden, and free
+  moving, everything in 3D by default and the same for a whole room): the labels, the story panels and the station
+  cards in 3D, hidden taking every story panel away, and the grip moving and turning scenes and panels, alone and at a
+  station in a shared room (the grip moves things there only at your station, by design).
+- **Untested on a device:** lining headsets up again after standby or a night; how a scene moved or turned at a
+  station looks on the other headsets; persistent anchors restored after a restart; sound zones; comfort and frame
+  rate with other people drawn; whether the connection to the relay keeps running inside a headset session; people's
+  name tags in each label mode; the story panels in 3D in the life-size and stand-inside views (passing birds, fish or
+  layers hide parts of them). The full list ends AGENTS.md "Shared rooms"; [docs/event-runbook.md](docs/event-runbook.md)
+  says what to try at an event.
 - **Unfinished:** narration for thirteen stories (scripts ready in [docs/narration.md](docs/narration.md)); the muscle
   story's layer z-scores, walks and endotype names are stand-ins until its authors send their own; the questions in
   [docs/questions-for-authors.md](docs/questions-for-authors.md) are open.

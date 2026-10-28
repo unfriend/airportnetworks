@@ -782,10 +782,11 @@ space, and even at a fresh address (`s/<n>/`) the second joined the first's id
 after a night, lined them up. Not confirmed on headsets yet: whether they line up again after
 standby (and a night) now, whether asking for the shared space again (Re-align,
 or 15 s after waking) joins the others' space,
-moving and resizing scenes with the grips (comfort, how it looks for the others),
-the free grip turning scenes and tilting panels, how readable labels in 3D are,
-how the story panels read standing in the scene with labels in 3D,
-and how the cards and name tags look in each label mode,
+how a scene moved, resized or turned at a station looks for the others, people's
+name tags in each label mode, the story panels in 3D in the life-size and
+stand-inside views (the labels, the story panels and the station cards in 3D,
+hidden, and the grip moving and turning scenes and panels, alone and at a
+station, were checked on a Quest 3, 28 October 2026),
 persistent anchors restored (one headset's handles were refused; the log now
 says why), whether a recentre fires a reset, sound zones heard, comfort and
 frame rate with presence drawn, and whether the socket keeps running inside an
