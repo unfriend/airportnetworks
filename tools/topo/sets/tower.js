@@ -118,7 +118,7 @@ SETS.tower = function (K) {
       ANG[i] = rng() * PI * 2;
     }
   }
-  const HE_R = [10, 9, 8, 4.5, 6, 4, 3.8, 7, 2];   // a cell's long half-axis by kind, µm (drawing)
+  const HE_R = [10, 9, 8, 4.5, 6, 4, 3.8, 7, 2], STAIN = [PW + 0.06, 0.003, PW + 0.06];   // a cell's long half-axis by kind, µm (drawing)
   const BEAD_R = 1.7;                             // a bead's core, µm
 
   // ---------------------------------------------------------------- the pools
@@ -127,14 +127,14 @@ SETS.tower = function (K) {
   set.group.add(plate.mesh, stain.mesh, tubes.mesh, rings.mesh, halos.mesh, sheet.mesh, ribbons.mesh, cells.mesh, discs.mesh);
   // the plate: a glass slide's clear part under the patch, its frosted label towards you (tinted as the healthy slides)
   const PL = 0.12, CLEAR = PW + 2 * PL, PSX = CLEAR / (1 - plate.dims.label), PTH = 0.045;
-  const PLATE_Q = LK.quat([0, 0, 0, 1], UP, PI / 2), PLATE_P = [0, -PTH / 2, PSX * (0.5 - plate.dims.label / 2) - CLEAR / 2 - PSX * plate.dims.label / 2 + PSX * plate.dims.label];
-  PLATE_P[2] = PSX / 2 - CLEAR / 2 - PSX * plate.dims.label + PSX * plate.dims.label;   // (the clear part centred on the patch)
-  PLATE_P[2] = (PSX * plate.dims.label) / 2;
+  // (turned a quarter about y, so its label end, -x, points to +z; moved so the clear part is centred on the patch)
+  const PLATE_Q = LK.quat([0, 0, 0, 1], UP, PI / 2), PLATE_P = [0, -PTH / 2, PSX * plate.dims.label / 2];
   plate.begin(); plate.add(PLATE_P, PLATE_Q, [PSX, PTH / plate.dims.thick, CLEAR / plate.dims.wid], LK.HEALTHY, 1, 0); plate.end();
   const LABEL_Z = CLEAR / 2 + PSX * plate.dims.label / 2;   // the label's middle
 
   // ---------------------------------------------------------------- what the frame shows now
-  const now = { r: 1.5, u: 0, rise: 0, yp: 0, bars: 0, lit: 0, n0: N, n1: 0 };
+  const now = { r: 1.5, u: 0, rise: 0, yp: 0, bars: 0, lit: 0, n0: N, n1: 0, w0: [WALL.c[0], TH, WALL.c[2]], w1: [WALL.c[0], TH, WALL.c[2]] };
+  const Wr = [Math.cos(WALL.yaw * PI / 180), 0, -Math.sin(WALL.yaw * PI / 180)], Wn = [-Wr[2], 0, Wr[0]];   // the wall's along and out
   const par = new Int16Array(N), rep = new Int16Array(N), cnt = new Int16Array(N);
   // which piece each cell is in at radius r: the stored joins up to r replayed in order
   function replay(r) {
@@ -200,7 +200,6 @@ SETS.tower = function (K) {
     const yp = rise * hOf(r);
     Object.assign(now, { r, u, rise, yp, bars, lit, n0: pieces(r), n1: loopsAt(r) });
     replay(r);
-    plate.mesh.visible = true;
     tubes.begin(); rings.begin(); halos.begin(); sheet.begin(); ribbons.begin(); cells.begin(); discs.begin(); stain.begin();
 
     // ---- the cells on the plate: in H&E (their types), turning into beads tinted by their piece
@@ -208,7 +207,7 @@ SETS.tower = function (K) {
     if (he > 0.003) {
       cells.bead(ball); cells.beadCol(LK.BEAD);
       _a[0] = 0; _a[1] = 0.0015; _a[2] = 0;
-      stain.add(_a, [PW + 0.06, 0.003, PW + 0.06], LK.EOSINPALE, 0.55 * he);
+      stain.add(_a, STAIN, LK.EOSINPALE, 0.55 * he);
       for (let i = 0; i < N; i++) {
         _a[0] = X[i]; _a[1] = cy; _a[2] = Z[i];
         cells.add(_a, lerp(BEAD_R / 0.385, HE_R[KIND[i]], he) * KU, KIND[i], LK.CELLCOL[KIND[i]][0], 1, ANG[i], UP);
@@ -329,8 +328,7 @@ SETS.tower = function (K) {
       _a[0] = 0; _a[1] = yp2; _a[2] = 0;
       rings.add(_a, UP, ARC.R, 0.0028, LK.CYAN, 0.55 * prog(bars, 0.3, 0.6), 90);
       // the glass wall and its two curves, drawing upwards
-      const wa = prog(bars, 0.35, 0.7), cw = Math.cos(WALL.yaw * PI / 180), sw = Math.sin(WALL.yaw * PI / 180);
-      const Wr = [cw, 0, -sw], Wn = [sw, 0, cw], w2 = WALL.w / 2, wh = rise * TH + 0.1;
+      const wa = prog(bars, 0.35, 0.7), w2 = WALL.w / 2, wh = rise * TH + 0.1;
       if (wa > 0.003) {
         const cxw = WALL.c[0], czw = WALL.c[2];
         _a[0] = cxw - Wr[0] * w2; _a[1] = 0; _a[2] = czw - Wr[2] * w2; _b[0] = cxw + Wr[0] * w2; _b[1] = 0; _b[2] = czw + Wr[2] * w2;
@@ -343,22 +341,24 @@ SETS.tower = function (K) {
         RIB0.to = RIB1.to = prog(bars, 0.55, 1) * 1.001;
         for (let q = 0; q < 2; q++) {
           const off = q ? 0.06 : -w2 + 0.05, wd = q ? w2 - 0.11 : w2 - 0.03 - 0.05;
-          const o = [cxw + Wr[0] * off + Wn[0] * 0.02, 0, czw + Wr[2] * off + Wn[2] * 0.02];
-          ribbons.add(q ? B1ENV : B0ENV, o, [0, rise * TH, 0], [Wr[0] * wd, 0, Wr[2] * wd], 0.012, q ? LK.LOOP : LK.PIECE, ca * (q ? lA : pA), q ? RIB1 : RIB0);
+          const o = RO[q], Y = RY[q];
+          o[0] = cxw + Wr[0] * off + Wn[0] * 0.02; o[2] = czw + Wr[2] * off + Wn[2] * 0.02; RU[1] = rise * TH; Y[0] = Wr[0] * wd; Y[2] = Wr[2] * wd;
+          ribbons.add(q ? B1ENV : B0ENV, o, RU, Y, 0.012, q ? LK.LOOP : LK.PIECE, ca * (q ? lA : pA), q ? RIB1 : RIB0);
           // the plane's line across the curve, and where it meets it
           const n = q ? now.n1 / B1.top : now.n0 / B0.top;
           _a[0] = o[0]; _a[1] = yp2; _a[2] = o[2]; _b[0] = o[0] + Wr[0] * wd; _b[1] = yp2; _b[2] = o[2] + Wr[2] * wd;
           tubes.add(_a, _b, 0.0025, LK.CYAN, 0.7 * ca, 0);
           _a[0] = o[0] + Wr[0] * wd * n; _a[2] = o[2] + Wr[2] * wd * n;
           halos.add(_a, 0.06, q ? LK.LOOP : LK.PIECE, ca);
-          now['w' + q] = [o[0] + Wr[0] * wd * 0.5, rise * TH + 0.04, o[2] + Wr[2] * wd * 0.5];
+          const w = q ? now.w1 : now.w0;
+          w[0] = o[0] + Wr[0] * wd * 0.5; w[1] = rise * TH + 0.04; w[2] = o[2] + Wr[2] * wd * 0.5;
         }
       }
     }
-    plate.mesh.visible = true;
     tubes.end(); rings.end(); halos.end(); sheet.end(); ribbons.end(); cells.end(); discs.end(); stain.end();
   }
   const RIB0 = { glow: 0.8, fill: 0.9, to: 1 }, RIB1 = { glow: 0.8, fill: 0.9, to: 1 };
+  const RO = [[0, 0, 0], [0, 0, 0]], RY = [[0, 0, 0], [0, 0, 0]], RU = [0, 1, 0];
 
   // ---------------------------------------------------------------- anchors, labels, views
   const fmtR = r => (r < 10 ? r.toFixed(2) : r.toFixed(1));
@@ -382,7 +382,7 @@ SETS.tower = function (K) {
     chimney: () => [MAIN.hx + MAIN.rad, now.rise * (hOf(MAIN.b) + hOf(MAIN.d)) / 2, MAIN.hz],
     bars: () => { const B = BARS[Math.round(NB0 * 0.75)]; return [B.x, now.rise * 0.55, B.z]; },
     bars1: () => { const B = BARS[NB0 + 4]; return [B.x, now.rise * 1.05, B.z]; },
-    b0: () => now.w0 || [WALL.c[0], TH, WALL.c[2]], b1: () => now.w1 || [WALL.c[0], TH, WALL.c[2]],
+    b0: () => now.w0, b1: () => now.w1,
   };
   TICKS.forEach((m, k) => { anchors['tick' + k] = () => [RULER[0] + 0.03, now.rise * hOf(m), RULER[1]]; });
   const labels = [
