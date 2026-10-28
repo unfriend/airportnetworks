@@ -99,11 +99,11 @@ const fitShift = (k, name) => { const f = GL.sets[k].cam[name] && FIT[k] && FIT[
 const SEC = [0, 0, 0.6, -0.22];
 const FIT = { atlas: { default: [0, 0, 1.1, -0.22], library: [0, 0, 1.1, -0.22], atlas: [0, 0, 0.8, -0.35], focus: [0, 0, 0.55, -0.05, 0.0], volcano: [0, 0, 0.45, -0.2],
   curves: [0, 0, 1.1, -0.32], age: [0, 0, 0.45, -0.2] },
-  body: { default: [0, 0, 0.55], front: [0, 0, 0.55] }, hier: { net: [0, 0, 0.35, 0, 0.05], default: [0, 0, 0.25, 0, 0.03] }, tissue: { default: SEC, section: SEC }, slide: { default: SEC, section: SEC, domains: SEC, age: SEC, tiles: [0, 0, 0.35, -0.25], close: [0, 0, 0.6, -0.14], group: [0, 0, 0.85, -0.17] } };
+  body: { default: [0, 0, 0.55], front: [0, 0, 0.55] }, hier: { net: [0, 0, 0.35, 0, 0.05], default: [0, 0, 0.25, 0, 0.03], grow: [0, 0, 0.6, -0.3, 0.02] }, tissue: { default: SEC, section: SEC }, slide: { default: SEC, section: SEC, domains: SEC, age: SEC, tiles: [0, 0, 0.35, -0.25], close: [0, 0, 0.6, -0.14], group: [0, 0, 0.85, -0.17] } };
 // how much further back a view stands on a phone held upright (see narrowK): the wide ones, whose parts reach
 // across the screen
 const NARROW = { tissue: { section: 1.2, default: 1.2 }, slide: { default: 1.2, domains: 1.2, group: 1.25 }, atlas: { library: 1.1, default: 1.1, atlas: 1.2, volcano: 1.15, curves: 1.15 },
-  hier: { net: 1.2, default: 1.2 } };
+  hier: { net: 1.2, default: 1.2, grow: 1.2 } };
 const narrowOf = (k, name) => (NARROW[k] && NARROW[k][name]) || 1;
 // a set's anchor point, in the set's own coordinates
 function anchorOf(k, at) {
@@ -346,7 +346,7 @@ function buildStory() {
   };
   start({ body_pet: 1, body_net: 0, body_state: 0, body_blank: 0, dots: 0, dots_pick: 0, tissue_graph: 0, tissue_mark: 0, tissue_embed: 0,
     slide_tiles: 0, slide_feat: 0, slide_adj: 0, slide_group: 0, slide_domain: 0, slide_age: 0, slide_focus: 0,
-    atlas_lib: 0, atlas_map: 0, atlas_umap: 0, atlas_focus: 0, atlas_age: 0, atlas_volcano: 0, atlas_curves: 0,
+    atlas_lib: 0, atlas_map: 0, atlas_umap: 0, atlas_focus: 0, atlas_age: 0, atlas_volcano: 0, atlas_curves: 0, atlas_net: 0,
     hier_grow: 0, hier_focus: -1, hier_contacts: 0, hier_organ: 0, hier_age: 0 });
   const stomach = MD.organs.findIndex(o => /stomach/i.test(o.name)) + 1;
   if (stomach) ORGAN3D.want(ORGAN3D.idOf(MD.organs[stomach - 1].name));   // (its model is the first the story shows: built first)
@@ -418,19 +418,27 @@ function buildStory() {
   ramp('atlas_umap', a + 40, a + 44, 0, 1);
   cam(a + 39, 'atlas', 'umap', -10);
   cam(b - 0.5, 'atlas', 'umap', 25, 'spin');
-  // An atlas of the body: a section per tissue; then the network of organ architecture growing level by level
+  // An atlas of the body: a section per tissue; then it turns into the network of organ architecture, level by level
+  // with the legend's lines: the sections' tiles gather into a bead per domain, each section's organ flies up to its
+  // node, the sections to their tissues', their beads on to the tissue types' and the domains' (atlas_net; hier_grow
+  // is keyed at the same times, so each node grows as its things arrive: the atlas leads it by netLead)
   a = C.atlas.a; b = C.atlas.b;
   ramp('atlas_umap', a + 1, a + 4, 1, 0);
   cam(a + 2.5, 'atlas', 'atlas', -6);
-  cam(a + 18, 'atlas', 'atlas', 8, 'spin');
-  hide('atlas', a + 19, a + 21);
-  show('hier', a + 19.5, a + 21.5);
-  ramp('hier_grow', a + 21, a + 29, 0, 1);
+  cam(a + 15.5, 'atlas', 'atlas', 5, 'spin');
+  const lead = +api('atlas').netLead || 0, grow = v => (v - lead) / (1 - lead);
+  ramp('atlas_net', a + 15, a + 31.5, 0, 1); ramp('hier_grow', a + 15, a + 31.5, grow(0), grow(1));
+  jump('atlas_net', a + 33, 1, 0);   // (the atlas is gone by then; it comes back as itself in the next chapter)
+  show('hier', a + 19, a + 20);
+  hide('atlas', a + 28.8, a + 30.3);
+  // (the camera rises over the atlas while its tiles gather, holds while things fly, then takes the network's view)
+  cam(a + 19.5, 'hier', 'grow');
+  cam(a + 28.5, 'hier', 'grow', 7, 'spin');
   // (the tissue type shared most widely lights up with its line)
   const wideN = F.wide ? hierIdx(F.wide.name, 2) : -1;
   if (wideN >= 0) { jump('hier_focus', a + 30, -1, wideN); jump('hier_focus', b - 0.5, wideN, -1); }
-  cam(a + 20.5, 'hier', 'net', -15);
-  cam(b - 0.5, 'hier', 'net', 25, 'spin');
+  cam(a + 31.5, 'hier', 'net', -8);
+  cam(b - 0.5, 'hier', 'net', 18, 'spin');
   // Age: the volcano; then the three examples in turn (the ovary, the gut on the slide, the pituitary)
   a = C.age.a; b = C.age.b;
   hide('hier', a, a + 2);
@@ -500,6 +508,8 @@ function buildStory() {
   label('tissue', at('tissue', 'submucosa'), '<b>Fibres</b>pink: eosin', a + 8, a + 13, 'amb');
   label('tissue', at('tissue', 'vessel'), '<b>A blood vessel</b>', a + 9.5, a + 13, 'amb');
 }
+// sets the one before turns into at a hand-over (the network grows out of the atlas: atlas_net), so they share its turn
+const MORPH = { hier: 'atlas' };
 // camera waypoints: [t, az, el, dist, tx, ty, tz, ease, set, narrow factor, FIT's target shift]; 'spin' segments turn at
 // a steady pace.
 // When the story hands over from one set to another, the new set is turned about its
@@ -517,7 +527,8 @@ function buildCamera(wp) {
   for (const w of wp) {
     if (!cur || w[8] !== cur.k) {
       const d = prevAz === null ? 0 : ((prevAz - w[1]) % 360 + 540) % 360 - 180;
-      cur = { k: w[8], t0: w[0], c: Math.abs(d) > 40 ? d : 0 };
+      // (a set that the one before turns into, MORPH, takes its turn: the atlas's things fly to the network's nodes)
+      cur = { k: w[8], t0: w[0], c: cur && MORPH[w[8]] === cur.k ? cur.c : Math.abs(d) > 40 ? d : 0 };
       ST.yaw.push(cur);
     }
     turn(w, cur.c);

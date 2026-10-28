@@ -40,7 +40,9 @@
   the shared hooks in all fifteen stories, the same lines in each (the `collab`
   object, the ray and press lines, the grip line, the optional features from
   `HOST.xr.features(mode)` (AR asks for `'shared'`, VR for less), the `HOST.collab.mine()` lines in `xrFreshStart` and
-  `xrLandingClose`). `state()` never holds the camera, hover or anything per
+  `xrLandingClose`, and the walk-in lines: `xrRoomOnly` and `xrAway` (no Stories screen in a room; away from its station
+  the story hidden, not pointable, paused) read in `xrBegin`, `xrPoint`, `xrUpdate`, `xrEnterScene`, `xrFreshStart`,
+  `xrEnded`, `xrLandingClose` and the panel footer). `state()` never holds the camera, hover or anything per
   device, and `apply(state())` gives the same `state()` back. After touching
   `shared.js`, the relay or a story's hooks or its `state()`, run
   `node relay/test.mjs` and `node tools/collab.mjs` as well as the smoke test

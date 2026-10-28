@@ -41,6 +41,9 @@ function buildScene(canvas) {
   // one colour per domain in every set: the atlas set's (from the talk's figures), handed to the sets that take it
   const dc = GL.sets.atlas.api && GL.sets.atlas.api().domainColour;
   if (dc) for (const k of SET_ORDER) { const A = GL.sets[k].api && GL.sets[k].api(), f = A && (A.useColours || A.recolour); if (f && k !== 'atlas') f(dc); }
+  // the network's layout to the atlas, whose sections turn into it in the story (atlas_net: they fly to its nodes)
+  const nl = GL.sets.hier.api && GL.sets.hier.api().layout, un = GL.sets.atlas.api && GL.sets.atlas.api().useNetwork;
+  if (nl && un) un(nl());
   // the 29 organs of GTEx as points of light in the tour's body (the engine's own, in the body set's frame)
   GL.dots = makeDots();
   GL.sets.body.group.add(GL.dots.group);

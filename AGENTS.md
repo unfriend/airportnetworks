@@ -135,7 +135,8 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
 - The start screen (`#picker`) is the landing page. Entering VR/AR from it
   (`HOST.landingVR` / `HOST.picking`) shows the headset Stories screen
   (`XR.stories`, built by `xrLandingSetup`). Entering VR/AR from inside a
-  story resumes that story.
+  story resumes that story. In a shared room a headset never shows the
+  Stories screen (see "Shared rooms").
 - The address mirrors the state (`HOST.setUrl`): `#stories` while the Stories
   screen shows (page or headset), `#<key>` in a story. A `#<key>` link opens
   that story directly; no hash or `#stories` lands on the Stories screen.
@@ -305,10 +306,11 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
     when *Play sound* was pressed in the headset. *Play sound* (and any press
     while loading) only starts the engines; it never mutes.
   - Sound check (`#soundcheck`, a button on the Stories screen; in the headset
-    a panel that takes the place of the story cards, `drawSoundCheck`) shows
-    `HOST.audio.report()`, plays a beep through each engine and lets the user
-    pick an engine (`soundEngine` in `localStorage`). Ask a user with sound
-    problems on a device for those lines.
+    a panel that takes the place of the story cards, `drawSoundCheck`, and a
+    page of the headset's menu, the shell's `soundPage`, so it is there in a
+    shared room too) shows `HOST.audio.report()`, plays a beep through each
+    engine and lets the user pick an engine (`soundEngine` in `localStorage`).
+    Ask a user with sound problems on a device for those lines.
   - Listeners the shell adds while a story runs (a new context, the headset
     session) are added with `HOST.quiet` set, so story changes do not remove
     them.
@@ -384,12 +386,28 @@ generation, `{ n, by, at }`; FORMAT networks-10; networks-11 when the eighth sto
   space again (`q.frame`, passed on like presence) and takes it (waiting up to
   3 s). The frame held so far stays until another is found ("Re-aligned", or
   "Nothing to re-align to").
-- A headset runs live the station it stands at (within 1.1 m for 1 s, left
-  beyond 1.5 m) or picks one by pointing at its preview (a ring and a card);
-  `HOST.go` switches story (in a room `HOST.start` queues a request made while
-  a story loads, and the pump retries a lost one). A desktop page follows one
-  from the Shared dialog. A story the person starts themselves leaves the
-  station (no longer following, not pulled back).
+- A headset runs live only the station it stands at (within 1.1 m for 1 s,
+  left beyond 1.5 m): stations are walk-in only (the owner, October 2026: "the
+  stories can only be visited by going to their circle"). The trigger or a
+  pinch on another station's card or ring runs nothing (a notice says to walk
+  into its circle); the grip there still moves the station. `HOST.go` switches
+  story (in a room `HOST.start` queues a request made while a story loads, and
+  the pump retries a lost one). Away from every station (`HOST.room.away()`: a
+  headset in a room not at a station, its story not yet loaded there, or the
+  room not yet aligned) no story shows: the stories hide their scene
+  (`GL.world`, with the life-size holders in it), their story panels and
+  labels, leave nothing of them to point at, and pause the story, silent
+  (`xrAway`); only the shell's things show (the other stations' rings and
+  cards, people, the menu and its clock, calibration marks; the clock hangs in
+  front of you without a left controller or hand). Walking out of a circle
+  drops the station (`C.mine` and `C.live`), so nothing of the story goes out
+  to the room while away (no clock, no state, no view, no place: a pause there
+  is not the room's) and the station plays on for the others; walking back in
+  takes the station's clock, state, view, place and panel again. A session
+  that starts drops a station the page followed (walk-in only). A desktop page
+  follows one from the Shared dialog (a page cannot walk). A story the person
+  starts themselves leaves the station (no longer following, not pulled
+  back).
 - Arrange all: two rows in front of you, half the stories (rounded up: eight of
   fifteen) 1.2 m ahead and the rest 2.6 m further on (behind them; in the gaps when the second row is shorter), 2.4 m apart, every
   station facing away from you (its content floats 1.4 m beyond its spot); it
@@ -437,8 +455,10 @@ generation, `{ n, by, at }`; FORMAT networks-10; networks-11 when the eighth sto
   touch), or Close in its header. Open, it stands above the clock (its lower
   edge 6.5 cm over the clock's middle, at 0.62 of its size), as tall as what
   it shows: *Menu*, Close; Exit (ends the session: the story panels have no
-  Exit, the headset Stories screen keeps its own) and *Slideshow: on/off* (`HOST.slides.setGlobal`, for
-  every story, shown when `HOST.slides` exists); *Labels* and *Moving* (the
+  Exit, the headset Stories screen keeps its own), *Slideshow: on/off* (`HOST.slides.setGlobal`, for
+  every story, shown when `HOST.slides` exists) and *Sound check* (a page in
+  place of the rest: the two beeps, the engine choice, Reset the sound and
+  `HOST.audio.report()`, redrawn twice a second; Back); *Labels* and *Moving* (the
   two headset settings, `HOST.xr`; in a room a line under them says they are
   the same for everyone there); then the shared room (its
   code and people as the section's heading, the rooms, the question, the
@@ -447,7 +467,9 @@ generation, `{ n, by, at }`; FORMAT networks-10; networks-11 when the eighth sto
   as leave room for You). A right index fingertip also presses its buttons
   (`poke`: within 1.5 cm of the panel over one, again once pulled back 3 cm;
   a pinch on the ray at the same button within 0.7 s counts once with it,
-  `twice`). The once-per-room question still opens it by itself.
+  `twice`). The once-per-room question still opens it by itself, and so does
+  the first time in a room with no stations (once per room: its Stations
+  section says "None yet: Arrange all puts every story in front of you").
   `HOST.collab.panelOpen(on)` and `HOST.collab.menu` are for tests.
 - At its station in a shared room a headset moves the scene and the panel for
   everyone: the grip on the scene moves it (`XR.globeOff`), both grips on it
@@ -470,11 +492,16 @@ generation, `{ n, by, at }`; FORMAT networks-10; networks-11 when the eighth sto
   flock and the robots are life size (`life: true` in `HOST.list`): only their
   panel moves. Outside a room both grips resize the scene too, for this device
   only (kept with an anchored place, reset by Recenter).
-- At a station the story panel has no Stories button (in a room each station
-  keeps its story; another story is another station), and a Stories screen
-  still open when a headset reaches its station closes by itself (`xrBegin`).
-  Sound check (on the Stories screen) is then reached only before a headset
-  stands at a station, or from the page (`#soundcheck`).
+- In a shared room a headset never shows the Stories screen (neither its
+  header nor the story cards) and the story panel has no Stories button (each
+  station keeps its story; another story is another station): one open closes
+  at once when a room is started or joined (from the page, the headset's menu
+  or a `#s=` link; `xrBegin`), entering VR or AR from the start screen in a
+  room does not open it (`xrEnterScene`), nor does a new wearer
+  (`xrFreshStart`) or a story's end. Leaving the room in the headset brings it
+  back, as for a new wearer (`xrBegin` sees `XR.inRoom` turn false and calls
+  `xrFreshStart`), and a session ended away from a station opens the page's
+  Stories screen (`xrEnded`). Sound check is in the headset's menu.
 - In VR the headset's menu opens by itself and asks once per room "Are you in the same room as the
   others?" (In this room / Somewhere else, kept per room code in
   `localStorage` `collabHere`); passthrough counts as in the room.
@@ -705,31 +732,49 @@ reference, `tools/flock/engine/`):
   0.25 s (`orbit.fast`). The flock and the robots are life size in a headset:
   their `view()` is always null. While a headset stands at its station the
   explore sway rests (`HOST.room.placing()`).
+- Two helpers next to `xrSig`:
+  `const xrRoomOnly = () => !!(HOST.room && HOST.room.away && HOST.room.inRoom());`
+  (a headset in a shared room: no Stories screen) and
+  `const xrAway = () => !!(HOST.room && HOST.room.away && HOST.room.away());`
+  (away from its station: the story hidden and paused); a shell without
+  `HOST.room.away` gives the old behaviour.
 - `xrPoint`: after raycasting its own panels (`hs`),
   `const sh = HOST.collab.ray(c.i, c.o, c.d, hs.length ? hs[0].distance : Infinity);`;
   a hit (`kind: 'shell'`: the shell's menu and its clock, the other stations' cards and
   rings, calibration marks) is nearer than the story's panels and is the hover
-  instead of them and of the scene. `xrPress`:
+  instead of them and of the scene; then `else if (xrAway()) hit = null;`
+  (nothing of the story to point at). `xrPress`:
   `if (h.kind === 'shell') { HOST.collab.press(c.i); return; }`.
 - `xrGrab`: `if (XR.stories || HOST.anchor.locked(h.kind)) return;` (in a
   shared room only at its station and unless the layout is locked; the shell's
   own things never move the scene, and the grip on a station's preview moves
   that station, done by the shell); `carry` lets go when that turns locked, and
   a controller that disappears lets go too.
-- `xrBegin`: `if (XR.stories && HOST.collab.mine() && HOST.room.placing()) xrLandingClose();`
-  after setting the rig from `HOST.anchor.frame()` (at a station the story is
-  the station's); the scene's offset and size there come from the room
+- `xrBegin`, after setting the rig from `HOST.anchor.frame()`:
+  `const roomOnly = xrRoomOnly(); if (XR.inRoom && !roomOnly) xrFreshStart(); XR.inRoom = roomOnly;`
+  and `if (XR.stories && (roomOnly || (HOST.collab.mine() && HOST.room.placing()))) xrLandingClose();`
+  (no Stories screen in a room; at a station the story is the station's;
+  leaving the room brings the Stories screen back); after the controllers,
+  `if (xrAway()) { APP.playing = false; SLIDE.tail = null; }` (paused and
+  silent away from its station; never published: the shell has no live
+  station then). The scene's offset and size at a station come from the room
   (`placeSync`), not from before.
-- The panel footer: `if (!(HOST.room && HOST.room.placing())) hb('stories', ...)`;
+- `xrUpdate`: `const land = !!XR.stories, away = xrAway();`, the story panels
+  `!land && !away && XR.lm !== 'hidden'` and `GL.world.visible = !land && !away;`.
+- `xrEnterScene`: `XR.inRoom = xrRoomOnly(); const fromStart = (HOST.picking || HOST.landingVR) && !XR.inRoom;`.
+- `xrEnded`: `const away = xrAway();` first, and
+  `if (XR.stories || away) { XR.stories = false; HOST.openPicker(); }`.
+- The panel footer: `if (!(HOST.room && HOST.room.placing()) && !xrRoomOnly()) hb('stories', ...)`;
   `xrResize` and the two-hand branch at the top of `carry`; `XR.size` in
   `xrPlace` (scene stories), `xrRecenter` and `xrAdopt`.
 - The session's optional features from `HOST.xr.features(mode)` (AR asks for `'shared'`; VR does not).
-- `xrFreshStart`: `if (HOST.collab.mine()) { lastNow = 0; return; }`: a
-  headset taken off at a station keeps its story and place (no Stories screen
-  for a new wearer); the room's clock and state go on applying.
-- `xrLandingClose`: `if (!XR.inStory && !HOST.collab.mine()) APP.enterStory(0);`:
-  Start on the headset Stories screen at a station never restarts the story
-  for everyone.
+- `xrFreshStart`: `if (HOST.collab.mine() || xrRoomOnly()) { lastNow = 0; return; }`: a
+  headset taken off in a room keeps its story and place (no Stories screen
+  for a new wearer); at a station the room's clock and state go on applying.
+- `xrLandingClose`: `if (!XR.inStory && !HOST.collab.mine() && !xrRoomOnly()) APP.enterStory(0);`
+  and `if (APP.mode === 'story' && !xrRoomOnly()) APP.playing = true;`: closing
+  a Stories screen in a room never restarts or plays the story (at a station
+  it runs on the station's clock).
 - `HOST.collab.effect(type, data)` where the story itself causes a one-shot
   effect.
 
@@ -1456,10 +1501,17 @@ two controls changed at once on two pages (both kept), two stations
 followed back to back (the second not lost), a story picked by hand (stops
 following), no writes while idle (no ping-pong), a late joiner, a relay restart, and
 a pretend headset with fake `local-floor` and `shared` spaces: alignment,
-placement at its station, a recentre, taken off and on again (it stays in its
-story), Start on its Stories screen (restarts nothing), the hold and the lock,
+away from every station no story (no Stories screen, the scene and panels
+hidden, nothing to point at, paused, no Stories button, the clock in front),
+placement at its station once it walks into its circle (the story shown), a
+recentre, taken off and on again (it stays in its story), a Stories screen
+opened at a station closing at once (restarting nothing), walking out of the
+circle (the story hidden and paused here while the station plays on, nothing
+written; no Stories screen for a new wearer out there) and back in (shown and
+running on the station's clock), the hold and the lock,
 the station's clock and state, rays and head in room coordinates, another
-person drawn, the sound zone, the trigger on the menu's clock and a card pick, the story
+person drawn, the sound zone, the trigger on the menu's clock, the trigger on
+another station's card running nothing (a notice: walk into its circle), the story
 panel winning over a card behind it, a station moved with the grip on its
 card (swung, pushed further, turned; the others see it while it moves) and
 gliding into place when someone else moves it, the layout lock (the grip and
@@ -1468,8 +1520,8 @@ first, only its clock; on the left controller and on a tracked hand's wrist;
 opened by the left stick, a touch of the right controller or fingertip and
 the trigger on the clock, a touch and a trigger at once toggling it once, no
 touch with the grip held or while calibrating; Exit inside; buttons pressed by
-a fingertip, a poke and a pinch at once pressing once; at its tallest, You still on it),
-re-alignment, walking to another station
+a fingertip, a poke and a pinch at once pressing once; at its tallest, You still on it;
+Sound check in it: both beeps, the engine choice, Back), re-alignment, walking to another station
 and back, Remove asking first; calibration from two marks (Stop calibrating
 still pressable, two anchors made and checked, the marks drawn), a reset with
 a transform, a recentre without a reset (the anchors keep the frame), the
@@ -1480,7 +1532,10 @@ reported, as a distance; not used at all by default), a space found split by two
 calibrated headsets (the room told, whole again once they agree; a headset
 without marks takes nothing through it), no room scan said and taken back, a fresh shared space (two presses move the
 room's pages to `s/1/`, where they join again; a headset there told to start
-one headset first; a page opened at the old address moved too), anchors not
+one headset first; a page opened at the old address moved too; that room has
+no stations: entered from the start screen, the headset shows no Stories
+screen and no story, only the menu, opened by itself with Arrange all;
+leaving the room brings the Stories screen back, joining one closes it), anchors not
 found by their handles after waking and found by a later try (meanwhile the
 panel asks to leave AR and enter it again; a jump with their handles saved
 keeps the calibration), the room's floor from
@@ -1503,8 +1558,8 @@ not tracked (the frame follows the reset at once, then the anchors found
 again by their handles), unknown saved anchors deleted at session start, a
 full anchor store (cleaned and asked again; still full: the marks hold and the
 panel says so), the mark taken where the
-controller was held still, VR elsewhere with its in-room question; at a
-station no Stories button and a Stories screen closing by itself, the grip on
+controller was held still, VR elsewhere with its in-room question; in a
+room no Stories button (at a station either) and a Stories screen closing by itself, the grip on
 the scene and the panel unlocked there (locked by the layout lock), both grips
 resizing the scene and one hand carrying on, the place, size and panel going
 out to the room and gliding in from it, a free grip turning the scene 90 degrees
@@ -1524,7 +1579,8 @@ Re-align, a station played there, the room taken to a relay that answers and
 joined there by another page; a relay that cannot be reached). `--quick` runs only the last story in the per-story part. A new story needs an entry in `STORIES`
 (`change` and `back`: code that changes its `state()`, and optional `effect`
 and `more`); the headset's story (`HEADSET_STORY`) stays the last entry.
-`--shots <dir>` also saves pictures of the dialog and four headset views (with the menu's clock on the left wrist, and the menu open).
+`--shots <dir>` also saves pictures of the dialog and six headset views (with the menu's clock on the left wrist, the menu open, its Sound check, and
+stepped out of a station's circle: no story, only the room and the clock in front).
 
 For the tour, test a changed set on its own in the set harness first
 (`tools/lbi/shot.mjs`, much cheaper than the whole story), then the story at a

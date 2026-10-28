@@ -3591,6 +3591,28 @@ SETS.atlas = function (K) {
     const exAt = doms.map((d, k) => { let sx = 0, sy = 0, n = 0; for (let j = 0; j < N; j++) if (d1[j] === k) { sx += x[j]; sy += y[j]; n++; } return n ? [sx / n, sy / n] : [0, 0]; });
     return { N, x, y, cell, d0, d1, flip, exAt };
   });
+  // where each tile goes when its section's tiles gather into one bead per domain (atlas_net, before the section flies
+  // into the network): each domain's bead sits at its tiles' centre, pushed clear of the others, its tiles packed in a
+  // sunflower BK of their spacing apart (they shrink as much), the ones nearest the centre in the middle
+  const BK = 0.72;
+  SEC.forEach((s, ti) => {
+    const nd = REC[ti].length, B = Array.from({ length: nd }, () => ({ n: 0, x: 0, y: 0, R: 0, js: [] }));
+    for (let j = 0; j < s.N; j++) { const b = B[s.d0[j]]; b.n++; b.x += s.x[j]; b.y += s.y[j]; b.js.push(j); }
+    const on = B.filter(b => b.n);
+    for (const b of on) { b.x /= b.n; b.y /= b.n; b.cx = b.x; b.cy = b.y; b.R = BK * s.cell * Math.sqrt(b.n / PI); }
+    for (let it = 0; it < 120; it++) for (let p = 0; p < on.length; p++) for (let q = p + 1; q < on.length; q++) {
+      const A = on[p], C = on[q], dx = C.x - A.x, dy = C.y - A.y, d = Math.hypot(dx, dy) || 1e-3, m = A.R + C.R + 0.6 * BK * s.cell;
+      if (d >= m) continue;
+      const wA = C.n / (A.n + C.n), ux = d > 1e-3 ? dx / d : Math.cos(p + q), uy = d > 1e-3 ? dy / d : Math.sin(p + q), push = (m - d) * 0.5;
+      A.x -= ux * push * wA * 2; A.y -= uy * push * wA * 2; C.x += ux * push * (1 - wA) * 2; C.y += uy * push * (1 - wA) * 2;
+      for (const b of [A, C]) { const lim = Math.max(0.2, 1.05 - b.R); b.x = clamp(b.x, -lim, lim); b.y = clamp(b.y, -lim, lim); }
+    }
+    s.gx = new Float32Array(s.N); s.gy = new Float32Array(s.N);
+    for (const b of on) {
+      b.js.sort((a, c) => Math.hypot(s.x[a] - b.cx, s.y[a] - b.cy) - Math.hypot(s.x[c] - b.cx, s.y[c] - b.cy));
+      b.js.forEach((j, k) => { const r = b.R * Math.sqrt((k + 0.5) / b.n), th = k * 2.39996; s.gx[j] = b.x + r * Math.cos(th); s.gy[j] = b.y + r * Math.sin(th); });
+    }
+  });
 
   // ---------------------------------------------------------------- the tile cloud (an embedding by domain)
   // tissues sit round a sphere grouped by organ system; a domain found in one tissue clusters beside it, one shared by
@@ -3873,6 +3895,10 @@ void main() {
   const reliefOf = nm => (/space|cyst|lumen/.test(nm) ? 0.16 : RELIEF[typeOf(nm)] || 0.4);
   const aT = new Float32Array(NTILE * 4), aU = new Float32Array(NTILE * 3), aCA = new Float32Array(NTILE * 3), aCB = new Float32Array(NTILE * 3),
     aH = new Float32Array(NTILE * 3), aM = new Float32Array(NTILE * 4), aRH = new Float32Array(NTILE * 2);
+  // the morph into the network (filled by useNetwork): aNA its tissue type's node and when it gets there, aNB its
+  // domain's node and when, aNC its place in the clumps there (a unit ball) and when it leaves for the type, aND where it
+  // gathers on its section (section-local) and the clumps' radii at the type and at the domain
+  const aNA = new Float32Array(NTILE * 4), aNB = new Float32Array(NTILE * 4), aNC = new Float32Array(NTILE * 4), aND = new Float32Array(NTILE * 4);
   { const r = rng(77); let o = 0;
     SEC.forEach((s, ti) => { const doms = REC[ti];
       for (let j = 0; j < s.N; j++, o++) {
@@ -3890,11 +3916,13 @@ void main() {
         aU.set(p, o * 3);
         const exw = !exSet0.has(ti) ? 0 : dA.ex !== undefined || dB.ex !== undefined ? 1 : 0.5;   // in an example's section: its domain or the rest
         aM.set([s.flip[j], r(), 0.15 * Math.hypot(GRID[ti].p[0], GRID[ti].p[1]) + 0.45 * r(), exw], o * 4);
+        aND.set([s.gx[j], s.gy[j], 0.01, 0.01], o * 4);
       } });
     tileGeo.setAttribute('aT', new THREE.InstancedBufferAttribute(aT, 4)); tileGeo.setAttribute('aU', new THREE.InstancedBufferAttribute(aU, 3));
     tileGeo.setAttribute('aCA', new THREE.InstancedBufferAttribute(aCA, 3)); tileGeo.setAttribute('aCB', new THREE.InstancedBufferAttribute(aCB, 3));
     tileGeo.setAttribute('aH', new THREE.InstancedBufferAttribute(aH, 3)); tileGeo.setAttribute('aM', new THREE.InstancedBufferAttribute(aM, 4));
     tileGeo.setAttribute('aRH', new THREE.InstancedBufferAttribute(aRH, 2));
+    for (const [k, a] of [['aNA', aNA], ['aNB', aNB], ['aNC', aNC], ['aND', aND]]) tileGeo.setAttribute(k, new THREE.InstancedBufferAttribute(a, 4));
     tileGeo.instanceCount = NTILE; tileGeo.boundingSphere = new THREE.Sphere(new THREE.Vector3(0, 0, 0), 3);
   }
   // per section: uP = centre and size, uQ = yaw, alpha, domain colours (0 H&E, 1 domains), focus
@@ -3902,39 +3930,66 @@ void main() {
   const SECU = { uP: { value: uP }, uQ: { value: uQ } };
   const tileMat = new THREE.ShaderMaterial({
     uniforms: Object.assign({ uA: set.uA, uUm: { value: 0 }, uAge: { value: 0 }, uCA: { value: 1 }, uCR: { value: 0 }, uFoc: { value: 0 }, uHero: { value: -1 },
-      uPt: { value: 0.015 }, uCC: { value: new THREE.Vector3(0, 0.05, 0.08) }, uCS: { value: 1 } }, SECU),
+      uPt: { value: 0.015 }, uCC: { value: new THREE.Vector3(0, 0.05, 0.08) }, uCS: { value: 1 }, uG: { value: -1 }, uNt: { value: 0.0042 } }, SECU),
     transparent: true, depthWrite: true, side: THREE.DoubleSide,
     blending: THREE.CustomBlending, blendSrc: THREE.OneFactor, blendDst: THREE.OneMinusSrcAlphaFactor,
     vertexShader: BOXGL + `
-attribute vec4 aT, aM; attribute vec3 aU, aCA, aCB, aH; attribute vec2 aRH;
+attribute vec4 aT, aM, aNA, aNB, aNC, aND; attribute vec3 aU, aCA, aCB, aH; attribute vec2 aRH;
 uniform vec4 uP[${NT}], uQ[${NT}];
-uniform float uA, uUm, uAge, uCA, uCR, uFoc, uPt, uCS, uHero; uniform vec3 uCC;
+uniform float uA, uUm, uAge, uCA, uCR, uFoc, uPt, uCS, uHero, uG, uNt; uniform vec3 uCC;
 varying vec3 vC, vN, vV; varying float vA, vK, vTop; varying vec2 vQ;
 void main() {
   int ti = int(aT.z + 0.5);
   vec4 P = uP[ti], Q = uQ[ti];
   float c = cos(Q.x), s = sin(Q.x);
-  vec3 sp = P.xyz + vec3(aT.x * c, aT.y, -aT.x * s) * P.w;
+  // the morph into the network (uG: the network's growth, hier_grow; below -0.9 none): the tiles gather into a bead per
+  // domain on their section (gat), ride it to its tissue's node (the section's place, uP), fly on to their tissue
+  // type's node (k3) and on to their domain's (k4), shrinking into it with a flash (gone, hot)
+  float gat = 0.0, k3 = 0.0, k4 = 0.0, gone = 0.0, hot = 0.0;
+  if (uG > -0.9) {
+    gat = clamp((uG + 0.31 - 0.04 * mod(aT.z, 10.0) / 9.0 - 0.02 * aM.y) / 0.1, 0.0, 1.0); gat = gat * gat * (3.0 - 2.0 * gat);
+    float j = 0.012 * aM.y, a3 = aNA.w + j, d3 = aNC.w + j, a4 = aNB.w + j, d4 = max(a4 - 0.17, a3 + 0.015);
+    k3 = clamp((uG - d3) / max(a3 - d3, 0.001), 0.0, 1.0); k3 = k3 * k3 * (3.0 - 2.0 * k3);
+    k4 = clamp((uG - d4) / max(a4 - d4, 0.001), 0.0, 1.0); k4 = k4 * k4 * (3.0 - 2.0 * k4);
+    gone = clamp((uG - a4) / 0.035, 0.0, 1.0);
+    hot = exp(-pow((uG - a3) / 0.018, 2.0)) * step(0.0001, k3) * (1.0 - k4) + exp(-pow((uG - a4) / 0.018, 2.0)) * step(0.0001, k4);
+  }
+  vec2 lp = mix(aT.xy, aND.xy, gat);
+  vec3 sp = P.xyz + vec3(lp.x * c, lp.y, -lp.x * s) * P.w;
   float k = clamp((uUm * 1.7 - aM.z) / 0.6, 0.0, 1.0); k = k * k * (3.0 - 2.0 * k);
   float cr = cos(uCR), sr = sin(uCR);
   vec3 up = uCC + vec3(aU.x * cr + aU.z * sr, aU.y, -aU.x * sr + aU.z * cr) * uCS;
   float f = smoothstep(aM.x - 0.035, aM.x + 0.035, uAge);
   // a tile on its section: a box standing on the plate, as tall as its domain's relief; in the cloud, a small cube
   // (a focused section stands in deeper relief: a terrain of its domains)
-  float cs = aT.w * P.w * 0.94, hs = mix(aRH.x, aRH.y, f) * cs * (0.85 + 0.3 * aM.y) * (1.0 + 2.4 * Q.w * (1.0 - k)), cc = uPt * (0.75 + 0.5 * aM.y);
+  float cs = aT.w * P.w * 0.94 * (1.0 - ${(1 - BK).toFixed(2)} * gat), hs = mix(aRH.x, aRH.y, f) * cs * (0.85 + 0.3 * aM.y) * (1.0 + 2.4 * Q.w * (1.0 - k)), cc = uPt * (0.75 + 0.5 * aM.y);
   vec3 Xs = vec3(c, 0.0, -s) * cs, Ys = vec3(0.0, cs, 0.0), Zs = vec3(s, 0.0, c) * hs;
   vec3 X = mix(Xs, vec3(cc, 0.0, 0.0), k), Y = mix(Ys, vec3(0.0, cc, 0.0), k), Z = mix(Zs, vec3(0.0, 0.0, cc), k);
   vec3 p = mix(sp + Zs * 0.5, up, k);
   p.y += sin(k * 3.14159) * (0.1 + 0.25 * aM.y);
+  // (in flight: a small bright cube, on a path bowed out from the network's axis; a clump round each node)
+  float fly = 0.0, cube = 0.0;
+  if (k3 > 0.0) {
+    vec3 q = mix(mix(p, aNA.xyz + aNC.xyz * aND.z, k3), aNB.xyz + aNC.xyz * aND.w, k4);
+    vec2 o = q.xz; float ol = length(o); o = ol > 1e-4 ? o / ol : vec2(0.0, 1.0);
+    float b3 = sin(3.14159 * k3) * (1.0 - k4), b4 = sin(3.14159 * k4);
+    q.xz += o * (0.12 * b3 + 0.06 * b4); q.y += 0.05 * b3 - 0.02 * b4;
+    cube = min(1.0, k3 * 6.0); fly = max(b3, b4);
+    float cn = uNt * (0.75 + 0.5 * aM.y) * (1.0 - gone);
+    X = mix(X, vec3(cn, 0.0, 0.0), cube); Y = mix(Y, vec3(0.0, cn, 0.0), cube); Z = mix(Z, vec3(0.0, 0.0, cn), cube);
+    p = q;
+  }
   vec3 nrm; vec2 fuv;
   vec4 mv = modelViewMatrix * vec4(p + boxAt(position, p, X, Y, Z, nrm, fuv), 1.0);
   gl_Position = projectionMatrix * mv;
   vN = normalize(normalMatrix * nrm); vV = -mv.xyz; vTop = 1.0 - step(0.5, position.z);
   float gl = aM.x < 1.5 ? clamp(1.0 - abs(uAge - aM.x) * 14.0, 0.0, 1.0) * 0.8 : 0.0;
   float ex = aM.w > 0.25 && aM.w < 0.75 ? 1.0 - 0.5 * Q.w * (1.0 - k) : 1.0 + 0.15 * step(0.75, aM.w) * Q.w;   // a focused example: its domain stands out
-  vC = (mix(aH, mix(aCA, aCB, f), max(Q.z, k)) * (1.0 + 0.1 * Q.w) + gl * vec3(0.7)) * ex;
+  // (Q.z: H&E 0 to domain colours 1; above 1 while the section flies into the network: its plate fades)
+  vC = (mix(aH, mix(aCA, aCB, f), max(min(Q.z, 1.0), k)) * (1.0 + 0.1 * Q.w) + gl * vec3(0.7)) * ex;
+  vC = mix(vC, vec3(1.0), 0.55 * hot) * (1.0 + 0.45 * fly + 0.6 * hot);
   vA = uA * mix(Q.y, 0.88 * uCA * (1.0 - 0.85 * uFoc * (1.0 - Q.w)), k);
-  vK = k; vQ = fuv * 2.0 - 1.0;
+  vK = max(k, 0.85 * cube); vQ = fuv * 2.0 - 1.0;
 #ifdef HERO
   if (vA < 0.004) gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
 #else
@@ -3970,7 +4025,7 @@ void main() {
   const T0 = []; { let o = 0; SEC.forEach(q => { T0.push(o); o += q.N; }); }
   const heroGeo = ti => {
     const g = boxGeo(new THREE.InstancedBufferGeometry()), o = T0[ti], n = SEC[ti].N;
-    for (const k of ['aT', 'aU', 'aCA', 'aCB', 'aH', 'aM', 'aRH']) { const at = tileGeo.attributes[k], w = at.itemSize; g.setAttribute(k, new THREE.InstancedBufferAttribute(at.array.subarray(o * w, (o + n) * w), w)); }
+    for (const k of ['aT', 'aU', 'aCA', 'aCB', 'aH', 'aM', 'aRH', 'aNA', 'aNB', 'aNC', 'aND']) { const at = tileGeo.attributes[k], w = at.itemSize; g.setAttribute(k, new THREE.InstancedBufferAttribute(at.array.subarray(o * w, (o + n) * w), w)); }
     g.instanceCount = n; g.boundingSphere = tileGeo.boundingSphere;
     return g;
   };
@@ -4000,7 +4055,7 @@ void main() {
   gl_Position = projectionMatrix * mv;
   vN = normalize(normalMatrix * nrm); vV = -mv.xyz; vSide = step(0.5, position.z);
   vUv = aI.zw + fuv * vec2(0.5, 48.0 / 1024.0); vL = (fuv - 0.5) * sz; vKind = aI.y; vF = Q.w;
-  vA = uA * Q.y * (1.0 - uUm);
+  vA = uA * Q.y * (1.0 - uUm) * (1.0 - clamp(Q.z - 1.0, 0.0, 1.0));   // (Q.z above 1: the section flies into the network)
   // (a caption is not drawn from behind: it would read mirrored)
   float back = step(dot(cameraPosition - (modelMatrix * vec4(C, 1.0)).xyz, mat3(modelMatrix) * vec3(s, 0.0, c)), 0.0);
   if (vA < 0.004 || (cap > 0.5 && (vSide > 0.5 || back > 0.5))) gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
@@ -4247,6 +4302,123 @@ void main() {
   markG.attributes.aCol.array.set(K.rgb('#ffb43b')); markG.attributes.aSize.array[0] = 0.05;
   for (let i = 0; i < 8; i++) { const c = K.rgb(i === 7 ? '#ffb43b' : '#9fb0c6'); gaugeG.attributes.aCol.array.set(c, i * 6); gaugeG.attributes.aCol.array.set(c, i * 6 + 3); }
 
+  // ---------------------------------------------------------------- the morph into the network (atlas_net)
+  // In the story the atlas turns into the network of organ architecture (the hier set), one level after another, as
+  // the network grows (hier_grow, which the engine keys with atlas_net: g = (atlas_net - NET0) / (1 - NET0), so the
+  // atlas leads by NET0): first each section's tiles gather into a bead per domain; each section's organ flies up to
+  // its organ's node (sections of one organ merge there); each section, its plate fading, flies to its tissue's node
+  // (to its organ's where the organ is one tissue); its beads fly on to their tissue type's node and on to their
+  // domain's node, where they shrink with a flash. Each node of the network grows as its things arrive. The targets are
+  // the network's own (its api().layout(), handed over by the engine: useNetwork) in its frame, which the story gives
+  // this set's turn (buildCamera) so they meet exactly.
+  const NET0 = 0.25, gOf = n => (n > 0 ? (n - NET0) / (1 - NET0) : -1);
+  // the atlas's domain names that are not the network's: its own name for one, or none of its own (null: the domain
+  // goes to its tissue type's node; '': the slide's edge, not a domain, stays with its tissue). Every other name is
+  // the network's; a name that is neither is reported once (console) and goes to its tissue type
+  const NETMAP = { 'adipose tissue': 'fat', 'cardiac muscle': 'myocardium',
+    'connective tissue': null, 'skeletal muscle': null, 'calcified plaques': null, 'cyst': null, 'renal tubules': null,
+    'gastric glands': null, 'gastric foveolae': null, 'tissue edge': '' };
+  let NET = null, MAP = null;
+  const MS = TT.map(() => null);   // per section: its organ's and its own flight
+  const bez = (a, b, c, e) => [0, 1, 2].map(q => (1 - e) * (1 - e) * a[q] + 2 * e * (1 - e) * b[q] + e * e * c[q]);
+  const lift = (a, c, h) => { const m = K.v3.lerp(a, c, 0.5); return [m[0], m[1] + h, m[2] + 0.12]; };
+  // a flash where things arrive: one additive glow per event, by the network's growth (uG)
+  const flGeo = new THREE.InstancedBufferGeometry();
+  flGeo.setIndex([0, 1, 2, 0, 2, 3]);
+  flGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array([-1, -1, 0, 1, -1, 0, 1, 1, 0, -1, 1, 0]), 3));
+  const flMat = new THREE.ShaderMaterial({ uniforms: { uA: set.uA, uG: tileMat.uniforms.uG }, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+    vertexShader: `
+attribute vec4 aFP, aFC; uniform float uA, uG;
+varying vec2 vQ; varying vec3 vC; varying float vF;
+void main() {
+  float x = (uG - aFP.w) / 0.026, f = uG > -0.9 ? exp(-x * x) : 0.0;
+  vQ = position.xy; vC = aFC.rgb; vF = f * uA;
+  vec4 mv = modelViewMatrix * vec4(aFP.xyz, 1.0);
+  mv.xy += position.xy * aFC.w * (0.6 + 0.6 * f) * length(modelViewMatrix[0].xyz);
+  gl_Position = projectionMatrix * mv;
+  if (vF < 0.01) gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
+}`,
+    fragmentShader: `
+varying vec2 vQ; varying vec3 vC; varying float vF;
+void main() {
+  float d = dot(vQ, vQ);
+  if (d > 1.0) discard;
+  float g = exp(-d * 4.0) * (1.0 - d) + 0.8 * exp(-d * 40.0);
+  gl_FragColor = vec4(mix(vC, vec3(1.0), 0.35) * g * vF, g * vF);
+}` });
+  set.mats.push(flMat);
+  const flash = new THREE.Mesh(flGeo, flMat); flash.frustumCulled = false; flash.renderOrder = 6; flash.visible = false; flash.raycast = () => {};
+  set.group.add(flash);
+  function useNetwork(L) {
+    if (NET || !L || !Array.isArray(L.pos) || !Array.isArray(L.start)) return;
+    const lv = L.level, low = L.name.map(s => String(s).toLowerCase()), GSL = L.levelStart || [0, 0.22, 0.44, 0.66], st = L.start;
+    const node = (name, level) => low.findIndex((s, i) => lv[i] === level && s === String(name).toLowerCase());
+    const P = i => L.pos[i], R = i => L.size[i] || 0.03;
+    // the atlas's domains -> the network's nodes (d: its domain node or -1; ty: its tissue type's node or -1)
+    MAP = {};
+    const miss = [];
+    for (const nm in DT) {
+      const m = NETMAP[nm];
+      const d = m === undefined ? node(nm, 3) : m ? node(m, 3) : -1;
+      let ty = d >= 0 ? (L.up[d] || []).find(u => lv[u] === 2) : m === '' ? -1 : node(typeOf(nm), 2);
+      if (ty === undefined) ty = -1;
+      if ((m === undefined && d < 0) || (m && d < 0)) miss.push(nm);
+      MAP[nm] = { d, ty, as: d >= 0 ? L.name[d] : ty >= 0 ? L.name[ty] + ' (tissue type)' : 'its tissue' };
+    }
+    if (miss.length) console.warn('atlas: no node in the network for', miss.join(', '));
+    // each section: its organ's flight (1) and its own (2), to its tissue's node or its organ's
+    const FL = [], flashAt = (p, g, col, size) => FL.push([...p, g, ...K.rgb(col), size]);
+    const seen = new Set();
+    TT.forEach((row, ti) => {
+      const on = node(ORGAN[ti], 0), tn = node(NAMES[ti], 1), sn = tn >= 0 ? tn : on;
+      if (on < 0) return;
+      const r = rng(1300 + ti), G = GRID[ti], c = Math.cos(G.yaw), sn0 = Math.sin(G.yaw), l = [-0.86, 0.9, 0.34];
+      const c0 = [G.p[0] + (l[0] * c + l[2] * sn0) * S0, G.p[1] + l[1] * S0, G.p[2] + (-l[0] * sn0 + l[2] * c) * S0];
+      const arr1 = st[on] + 0.012, dep1 = arr1 - 0.2 * (0.8 + 0.4 * r());
+      const arr2 = (tn >= 0 ? st[tn] : GSL[1] + st[on] - GSL[0]) + 0.012, dep2 = arr2 - 0.19;
+      // (the section comes to rest just outside its node, on the side away from the axis, so the node stays in sight)
+      const np = P(sn), rad = Math.hypot(np[0], np[2]) || 1, out = [np[0] / rad, 0, np[2] / rad], gap = R(sn) * 0.9 + 0.03;
+      const s2 = [np[0] + out[0] * gap, np[1] - 0.01, np[2] + out[2] * gap];
+      MS[ti] = { on, sn, dep1, arr1, c0, c1: lift(c0, P(on), 0.3 + 0.1 * r()), dep2, arr2, s2, s1: lift(G.p, s2, 0.22), sEnd: 0.034 };
+      if (!seen.has(on)) { seen.add(on); flashAt(P(on), arr1, '#7dffb0', R(on) * 2.4); }
+      flashAt(s2, arr2, '#c4f5b8', 0.07);
+    });
+    // each tile: its tissue type's node and its domain's, when it leaves and gets there, and its place in the clumps
+    const nT = {}, nD = {}, bead = {};
+    let o = 0;
+    SEC.forEach((s, ti) => { for (let j = 0; j < s.N; j++, o++) { const m = MS[ti], mp = MAP[REC[ti][s.d0[j]].name]; if (!m) continue;
+      if (mp.ty >= 0) nT[mp.ty] = (nT[mp.ty] || 0) + 1; if (mp.d >= 0) nD[mp.d] = (nD[mp.d] || 0) + 1; } });
+    const rOf = n => 0.0062 * Math.cbrt(Math.max(1, n));
+    const r = rng(4711);
+    o = 0;
+    SEC.forEach((s, ti) => {
+      const m = MS[ti];
+      for (let j = 0; j < s.N; j++, o++) {
+        const dn = REC[ti][s.d0[j]].name, mp = MAP[dn];
+        const u = K.unit(r), q = Math.cbrt(r()); aNC.set([u[0] * q, u[1] * q, u[2] * q], o * 4);
+        if (!m) { aNA.set([0, 0, 0, 9], o * 4); aNC[o * 4 + 3] = 9; aNB.set([0, 0, 0, 9], o * 4); continue; }   // (never leaves)
+        const bk = ti + ':' + dn, rb = bead[bk] === undefined ? (bead[bk] = r()) : bead[bk];   // (a bead's tiles fly together)
+        if (mp.ty < 0) {   // the slide's edge: gathers into its section's middle and goes there
+          aNA.set([...m.s2, m.arr2 + 0.07], o * 4); aNC[o * 4 + 3] = m.arr2 + 0.02; aNB.set([...m.s2, m.arr2 + 0.08], o * 4);
+          aND[o * 4 + 2] = aND[o * 4 + 3] = 0.006; continue;
+        }
+        const a3 = st[mp.ty] + 0.012 + 0.04 * rb;
+        aNA.set([...P(mp.ty), a3], o * 4); aNC[o * 4 + 3] = Math.max(a3 - 0.17, m.arr2 + 0.012 + 0.03 * rb);
+        aND[o * 4 + 2] = rOf(nT[mp.ty]);
+        if (mp.d >= 0) { aNB.set([...P(mp.d), st[mp.d] + 0.012], o * 4); aND[o * 4 + 3] = rOf(nD[mp.d]); }
+        else { aNB.set([...P(mp.ty), GSL[3] + 0.03 + 0.06 * rb], o * 4); aND[o * 4 + 3] = 0.35 * rOf(nT[mp.ty]); }   // (no node of its own: into its type's)
+      }
+    });
+    for (const k of ['aNA', 'aNB', 'aNC', 'aND']) tileGeo.attributes[k].needsUpdate = true;
+    for (const t in nT) flashAt(P(+t), st[+t] + 0.035, '#ffc2a8', rOf(nT[t]) * 2.2);
+    for (const d in nD) flashAt(P(+d), st[+d] + 0.02, '#a8d4ff', R(+d) * 2.5 + rOf(nD[d]));
+    const fp = new Float32Array(FL.length * 4), fc = new Float32Array(FL.length * 4);
+    FL.forEach((f, i) => { fp.set(f.slice(0, 4), i * 4); fc.set(f.slice(4, 8), i * 4); });
+    flGeo.setAttribute('aFP', new THREE.InstancedBufferAttribute(fp, 4)); flGeo.setAttribute('aFC', new THREE.InstancedBufferAttribute(fc, 4));
+    flGeo.instanceCount = FL.length;
+    NET = L;
+  }
+
   // ---------------------------------------------------------------- per-frame state
   const cur = { fw: new Float32Array(NT), P: TT.map(() => [0, 0, 0]), s: new Float32Array(NT), yaw: new Float32Array(NT), al: new Float32Array(NT),
     first: true, t: 0, fmax: 0, fi: -1, lib: 1, map: 0, um: 0, vc: 0, volc: 0, curv: 0, age: 0, vOff: [0, 0, 0], vS: 1, gauge: 0, rev: new Array(NL).fill(0) };
@@ -4257,6 +4429,8 @@ void main() {
 
   function update(S, t, dt) {
     const lib = c01(S.atlas_lib), map = c01(S.atlas_map), um = c01(S.atlas_umap), age = c01(S.atlas_age), volc = c01(S.atlas_volcano), curv = c01(S.atlas_curves);
+    const MG = NET ? gOf(c01(S.atlas_net || 0)) : -1;   // the network's growth while the atlas turns into it (-1: not)
+    tileMat.uniforms.uG.value = MG; flash.visible = MG > -0.9;
     // (snaps on the first frame, without a dt, after a long frame or when t jumps: a seek, story to explore)
     const vc = Math.max(volc, curv), snap = cur.first || !(dt >= 0) || dt > 0.3 || Math.abs(t - cur.t - dt) > 0.3, ke = snap ? 1 : 1 - Math.exp(-5 * dt);
     cur.first = false; cur.t = t;
@@ -4281,8 +4455,12 @@ void main() {
       p = K.v3.lerp(p, Fp, fw); s = lerp(s, sF, fw); yaw = lerp(yaw, 0, fw);
       let al = Math.max(Math.min(1, km * 3) * map, fw);
       al *= (1 - 0.82 * fmax * (1 - fw)) * (1 - sm(c01(vc / 0.15)) * (1 - fw));   // (gone behind a plot, the volcano or the trajectories, as soon as it starts)
+      let cm = Math.max(prog(map, 0.55, 0.95) * km, fw);
+      // the morph: the section flies to its tissue's node, shrinking, its plate fading (cm above 1, read by the shaders)
+      const m = MG > -0.9 && MS[i], k2 = m ? c01((MG - m.dep2) / (m.arr2 - m.dep2)) : 0;
+      if (k2 > 0) { const e = sm(k2); p = bez(p, m.s1, m.s2, e); s = Math.exp(lerp(Math.log(s), Math.log(m.sEnd), e)); yaw = lerp(yaw, 0, e); cm = 1 + prog(k2, 0, 0.45); }
       cur.P[i] = p; cur.s[i] = s; cur.yaw[i] = yaw; cur.al[i] = al; anySec = Math.max(anySec, al);
-      uP[i].set(p[0], p[1], p[2], s); uQ[i].set(yaw, al, Math.max(prog(map, 0.55, 0.95) * km, fw), fw);
+      uP[i].set(p[0], p[1], p[2], s); uQ[i].set(yaw, al, cm, fw);
     }
     // the cloud
     tileMat.uniforms.uUm.value = um; tileMat.uniforms.uAge.value = age; tileMat.uniforms.uFoc.value = fmax;
@@ -4296,7 +4474,17 @@ void main() {
     if (orgMesh) {
       const show = 1 - sm(um * 2.5);
       orgMesh.visible = anySec > 0.003 && show > 0.01 && vc < 0.5;   // (not beside a plot: the sections there are dim)
-      if (orgMesh.visible) for (let i = 0; i < NT; i++) { const p = secW(i, [-0.86, 0.9, 0.34]); mP[i].set(p[0], p[1], p[2], Math.min(cur.s[i] * 0.3, 0.075)); mQ[i].set(cur.al[i] * show, 0.25 * cur.fw[i], t * 0.4 + i, 0); }
+      if (orgMesh.visible) for (let i = 0; i < NT; i++) {
+        const m = MG > -0.9 && MS[i], k1 = m ? c01((MG - m.dep1) / (m.arr1 - m.dep1)) : 0;
+        if (k1 <= 0) { const p = secW(i, [-0.86, 0.9, 0.34]); mP[i].set(p[0], p[1], p[2], Math.min(cur.s[i] * 0.3, 0.075)); mQ[i].set(cur.al[i] * show, 0.25 * cur.fw[i], t * 0.4 + i, 0); continue; }
+        // the morph: the organ flies up to its node in the network and turns as the network's model there does; landed,
+        // it fades as that one grows (the same model, so they read as one), with a flash
+        const o = m.on, e = sm(k1), ga = prog(MG, NET.start[o], NET.start[o] + NET.span), so = NET.size[o], sA = 0.75 * so;
+        const p = k1 < 1 ? bez(m.c0, m.c1, NET.pos[o], e) : NET.pos[o];
+        const own = t * 0.4 + i, dA = ((NET.spinRate * t + NET.spin[o] - own) % (2 * PI) + 3 * PI) % (2 * PI) - PI;
+        mP[i].set(p[0], p[1], p[2], k1 < 1 ? lerp(Math.min(S0 * 0.3, 0.075), sA, e) : Math.max(sA, so * (0.25 + 0.75 * ga)));
+        mQ[i].set(k1 < 1 ? 1 : 1 - ga, 0.25 + 0.6 * Math.sin(PI * k1) + 0.8 * Math.exp(-Math.pow((MG - m.arr1) / 0.02, 2)), own + dA * prog(k1, 0.5, 1), 0);
+      }
     }
     tileMat.depthWrite = vc < 0.02 && fmax < 0.02;   // (dimmed sections behind a plot or a focused section must not hide what is in front of them)
     caps.visible = anySec > 0.003 && um < 0.998; capMat.uniforms.uUm.value = sm(um * 1.6);
@@ -4354,7 +4542,7 @@ void main() {
     { text: [`${AGES[1]}`, ' years'], at: 'libAge70', cls: '', minor: true, alpha: libLab },
     { text: [`${AGES[0]}`, ' years'], at: 'libAge20', cls: '', minor: true, alpha: libLab },
     { text: [`${F.domains || 218} domains`, ` in ${F.types || 74} types`], at: 'atlasTop', cls: 'cyn',
-      alpha: S => prog(S.atlas_map, 0.7, 1) * (1 - prog(S.atlas_umap, 0, 0.3)) * (1 - prog(vcS(S), 0, 0.1)) * (1 - anyF(S)) },   // (gone with the sections behind a plot)
+      alpha: S => prog(S.atlas_map, 0.7, 1) * (1 - prog(S.atlas_umap, 0, 0.3)) * (1 - prog(vcS(S), 0, 0.1)) * (1 - anyF(S)) * (1 - prog(S.atlas_net || 0, 0, 0.06)) },   // (gone with the sections behind a plot, or as they turn into the network)
     { text: [`${Math.round((F.tiles || 162e6) / 1e6)} million tiles`, `, ${F.domains || 218} domains`], at: 'umapTop', cls: 'cyn',
       alpha: S => prog(S.atlas_umap, 0.6, 0.95) * (1 - prog(vcS(S), 0, 0.1)) * (1 - anyF(S)) },
     { text: [`${F.ageChange || 28} %`, ' of domains change with age'], at: 'volcanoTop', cls: 'amb', alpha: S => prog(S.atlas_volcano, 0.7, 1) },
@@ -4425,10 +4613,13 @@ void main() {
     domains: i => (REC[i] || []).map((d, k) => { const a = shares(REC[i], 0), b = shares(REC[i], 1); return { name: d.name, at20: +a[k].toFixed(1), at70: +b[k].toFixed(1), colour: domainColour(d.name) }; }),
     tissuesOf: organ => ORGAN.map((o, i) => (o.toLowerCase() === String(organ).toLowerCase() ? i : -1)).filter(i => i >= 0),
     volcanoFromFigure: volFromFig, slides: NSL.slice(), tiles: NTILE,
+    // the morph into the network: its layout from the engine (the hier set's api().layout()); atlas_net leads the
+    // network's growth by netLead; netMap: each domain name of the atlas -> the node it ends at
+    useNetwork, netLead: NET0, netMap: () => (MAP ? Object.fromEntries(Object.entries(MAP).map(([k, v]) => [k, v.as])) : null),
   };
 
   return Object.assign(set, {
-    params: { atlas_a: 1, atlas_lib: 1, atlas_map: 0, atlas_umap: 0, atlas_focus: 0, atlas_age: 0, atlas_volcano: 0, atlas_curves: 0 },
+    params: { atlas_a: 1, atlas_lib: 1, atlas_map: 0, atlas_umap: 0, atlas_focus: 0, atlas_age: 0, atlas_volcano: 0, atlas_curves: 0, atlas_net: 0 },
     update, anchors, labels, cam, controls, explore, api() { return API; },
     // (the organ models: built at once by the harness and the sweeps)
     finish() { if (O3) O3.step(Infinity); buildOrgans(); },
@@ -5238,6 +5429,8 @@ void main() {
   const cam = {
     default: [0, 12, 4.15, 0, -0.03, 0],
     net: [28, 38, 4.6, 0, -0.2, 0],
+    // (the network growing out of the atlas's sections in front of it: from a little above, wide enough for both)
+    grow: [6, 20, 4.4, 0, 0, 0.12],
     // (the target right of the network's middle: the notes' column on its right is in the picture)
     contacts: [0, 6, 2.8, CEN[0] + 0.28, CEN[1] + 0.03, CEN[2]],
   };
@@ -5277,6 +5470,13 @@ void main() {
     contactOrgans: CO.map(co => ({ name: co.name, organ: co.gOrgan, tissue: co.gTissue, domains: co.dom.slice(),
       changes: co.ch.map(ch => ({ a: ch.a, b: ch.b, dir: ch.dir, from: ch.c[2], to: clamp(ch.c[2] + ch.d, 0.03, 0.98), fig: ch.fig })) })),
     levelColour: L => '#' + new THREE.Color(...LCOL[L]).getHexString(),
+    // where the network stands and when each node grows, for the atlas set, whose sections turn into it in the story
+    // (atlas_net): rest positions in this set's frame (no contacts shown), the hier_grow at which a node starts to grow
+    // (it is grown 0.1 later: scale from 0.25, alpha from 0), its radius when grown (an organ's model: ORAD) and an
+    // organ model's turn (t * spinRate + spin)
+    layout: () => ({ pos: POS.map(p => p.slice()), level: LEV.slice(), name: NAME.slice(), up: UP.map(u => u.slice()),
+      start: ids.map(i => GS[LEV[i]] + SW[i]), span: 0.1, size: ids.map(i => (LEV[i] === 0 ? ORAD[i] : RAD[i])),
+      spin: ids.map(i => (OSL[i] >= 0 ? oPh[OSL[i]] : 0)), spinRate: 0.35, levelStart: GS.slice() }),
     useColours(fn) { if (typeof fn !== 'function') return; domainColour = n => rgb(fn(n)); for (const co of CO) co.col = co.dom.map(domainColour); bandCols(); },
   };
 
@@ -5333,6 +5533,9 @@ function buildScene(canvas) {
   // one colour per domain in every set: the atlas set's (from the talk's figures), handed to the sets that take it
   const dc = GL.sets.atlas.api && GL.sets.atlas.api().domainColour;
   if (dc) for (const k of SET_ORDER) { const A = GL.sets[k].api && GL.sets[k].api(), f = A && (A.useColours || A.recolour); if (f && k !== 'atlas') f(dc); }
+  // the network's layout to the atlas, whose sections turn into it in the story (atlas_net: they fly to its nodes)
+  const nl = GL.sets.hier.api && GL.sets.hier.api().layout, un = GL.sets.atlas.api && GL.sets.atlas.api().useNetwork;
+  if (nl && un) un(nl());
   // the 29 organs of GTEx as points of light in the tour's body (the engine's own, in the body set's frame)
   GL.dots = makeDots();
   GL.sets.body.group.add(GL.dots.group);
@@ -5587,11 +5790,11 @@ const fitShift = (k, name) => { const f = GL.sets[k].cam[name] && FIT[k] && FIT[
 const SEC = [0, 0, 0.6, -0.22];
 const FIT = { atlas: { default: [0, 0, 1.1, -0.22], library: [0, 0, 1.1, -0.22], atlas: [0, 0, 0.8, -0.35], focus: [0, 0, 0.55, -0.05, 0.0], volcano: [0, 0, 0.45, -0.2],
   curves: [0, 0, 1.1, -0.32], age: [0, 0, 0.45, -0.2] },
-  body: { default: [0, 0, 0.55], front: [0, 0, 0.55] }, hier: { net: [0, 0, 0.35, 0, 0.05], default: [0, 0, 0.25, 0, 0.03] }, tissue: { default: SEC, section: SEC }, slide: { default: SEC, section: SEC, domains: SEC, age: SEC, tiles: [0, 0, 0.35, -0.25], close: [0, 0, 0.6, -0.14], group: [0, 0, 0.85, -0.17] } };
+  body: { default: [0, 0, 0.55], front: [0, 0, 0.55] }, hier: { net: [0, 0, 0.35, 0, 0.05], default: [0, 0, 0.25, 0, 0.03], grow: [0, 0, 0.6, -0.3, 0.02] }, tissue: { default: SEC, section: SEC }, slide: { default: SEC, section: SEC, domains: SEC, age: SEC, tiles: [0, 0, 0.35, -0.25], close: [0, 0, 0.6, -0.14], group: [0, 0, 0.85, -0.17] } };
 // how much further back a view stands on a phone held upright (see narrowK): the wide ones, whose parts reach
 // across the screen
 const NARROW = { tissue: { section: 1.2, default: 1.2 }, slide: { default: 1.2, domains: 1.2, group: 1.25 }, atlas: { library: 1.1, default: 1.1, atlas: 1.2, volcano: 1.15, curves: 1.15 },
-  hier: { net: 1.2, default: 1.2 } };
+  hier: { net: 1.2, default: 1.2, grow: 1.2 } };
 const narrowOf = (k, name) => (NARROW[k] && NARROW[k][name]) || 1;
 // a set's anchor point, in the set's own coordinates
 function anchorOf(k, at) {
@@ -5834,7 +6037,7 @@ function buildStory() {
   };
   start({ body_pet: 1, body_net: 0, body_state: 0, body_blank: 0, dots: 0, dots_pick: 0, tissue_graph: 0, tissue_mark: 0, tissue_embed: 0,
     slide_tiles: 0, slide_feat: 0, slide_adj: 0, slide_group: 0, slide_domain: 0, slide_age: 0, slide_focus: 0,
-    atlas_lib: 0, atlas_map: 0, atlas_umap: 0, atlas_focus: 0, atlas_age: 0, atlas_volcano: 0, atlas_curves: 0,
+    atlas_lib: 0, atlas_map: 0, atlas_umap: 0, atlas_focus: 0, atlas_age: 0, atlas_volcano: 0, atlas_curves: 0, atlas_net: 0,
     hier_grow: 0, hier_focus: -1, hier_contacts: 0, hier_organ: 0, hier_age: 0 });
   const stomach = MD.organs.findIndex(o => /stomach/i.test(o.name)) + 1;
   if (stomach) ORGAN3D.want(ORGAN3D.idOf(MD.organs[stomach - 1].name));   // (its model is the first the story shows: built first)
@@ -5906,19 +6109,27 @@ function buildStory() {
   ramp('atlas_umap', a + 40, a + 44, 0, 1);
   cam(a + 39, 'atlas', 'umap', -10);
   cam(b - 0.5, 'atlas', 'umap', 25, 'spin');
-  // An atlas of the body: a section per tissue; then the network of organ architecture growing level by level
+  // An atlas of the body: a section per tissue; then it turns into the network of organ architecture, level by level
+  // with the legend's lines: the sections' tiles gather into a bead per domain, each section's organ flies up to its
+  // node, the sections to their tissues', their beads on to the tissue types' and the domains' (atlas_net; hier_grow
+  // is keyed at the same times, so each node grows as its things arrive: the atlas leads it by netLead)
   a = C.atlas.a; b = C.atlas.b;
   ramp('atlas_umap', a + 1, a + 4, 1, 0);
   cam(a + 2.5, 'atlas', 'atlas', -6);
-  cam(a + 18, 'atlas', 'atlas', 8, 'spin');
-  hide('atlas', a + 19, a + 21);
-  show('hier', a + 19.5, a + 21.5);
-  ramp('hier_grow', a + 21, a + 29, 0, 1);
+  cam(a + 15.5, 'atlas', 'atlas', 5, 'spin');
+  const lead = +api('atlas').netLead || 0, grow = v => (v - lead) / (1 - lead);
+  ramp('atlas_net', a + 15, a + 31.5, 0, 1); ramp('hier_grow', a + 15, a + 31.5, grow(0), grow(1));
+  jump('atlas_net', a + 33, 1, 0);   // (the atlas is gone by then; it comes back as itself in the next chapter)
+  show('hier', a + 19, a + 20);
+  hide('atlas', a + 28.8, a + 30.3);
+  // (the camera rises over the atlas while its tiles gather, holds while things fly, then takes the network's view)
+  cam(a + 19.5, 'hier', 'grow');
+  cam(a + 28.5, 'hier', 'grow', 7, 'spin');
   // (the tissue type shared most widely lights up with its line)
   const wideN = F.wide ? hierIdx(F.wide.name, 2) : -1;
   if (wideN >= 0) { jump('hier_focus', a + 30, -1, wideN); jump('hier_focus', b - 0.5, wideN, -1); }
-  cam(a + 20.5, 'hier', 'net', -15);
-  cam(b - 0.5, 'hier', 'net', 25, 'spin');
+  cam(a + 31.5, 'hier', 'net', -8);
+  cam(b - 0.5, 'hier', 'net', 18, 'spin');
   // Age: the volcano; then the three examples in turn (the ovary, the gut on the slide, the pituitary)
   a = C.age.a; b = C.age.b;
   hide('hier', a, a + 2);
@@ -5988,6 +6199,8 @@ function buildStory() {
   label('tissue', at('tissue', 'submucosa'), '<b>Fibres</b>pink: eosin', a + 8, a + 13, 'amb');
   label('tissue', at('tissue', 'vessel'), '<b>A blood vessel</b>', a + 9.5, a + 13, 'amb');
 }
+// sets the one before turns into at a hand-over (the network grows out of the atlas: atlas_net), so they share its turn
+const MORPH = { hier: 'atlas' };
 // camera waypoints: [t, az, el, dist, tx, ty, tz, ease, set, narrow factor, FIT's target shift]; 'spin' segments turn at
 // a steady pace.
 // When the story hands over from one set to another, the new set is turned about its
@@ -6005,7 +6218,8 @@ function buildCamera(wp) {
   for (const w of wp) {
     if (!cur || w[8] !== cur.k) {
       const d = prevAz === null ? 0 : ((prevAz - w[1]) % 360 + 540) % 360 - 180;
-      cur = { k: w[8], t0: w[0], c: Math.abs(d) > 40 ? d : 0 };
+      // (a set that the one before turns into, MORPH, takes its turn: the atlas's things fly to the network's nodes)
+      cur = { k: w[8], t0: w[0], c: cur && MORPH[w[8]] === cur.k ? cur.c : Math.abs(d) > 40 ? d : 0 };
       ST.yaw.push(cur);
     }
     turn(w, cur.c);
@@ -6236,7 +6450,7 @@ const AGE0 = FACTS.ages[0], AGE1 = FACTS.ages[1];
 const X = { tab: 'organs', scene: 'atlas', ctl: {}, t0: 0, turn: 'on', organ: null, domain: null, age: AGE0, step: 1, kind: null };
 const XS = {};
 // params that pick something by number jump to their new value instead of easing through the ones in between
-const STEP = new Set(['slide_focus', 'atlas_focus', 'hier_focus', 'hier_organ', 'dots_pick']);
+const STEP = new Set(['slide_focus', 'atlas_focus', 'hier_focus', 'hier_organ', 'dots_pick', 'atlas_net']);   // (atlas_net: the story's morph, never eased back in explore)
 const orbit = { cur: [0, 12, 3.6, 0, 0, 0], from: null, to: null, t0: 0, dur: 1.6 };
 const ctlValue = (k, c) => (X.ctl[k] && X.ctl[k][c.key] !== undefined ? X.ctl[k][c.key] : c.options[0][0]);
 const ctlOf = (k, key) => ctlsOf(k).find(c => c.key === key);

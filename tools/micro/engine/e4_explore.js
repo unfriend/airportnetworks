@@ -22,7 +22,7 @@ const AGE0 = FACTS.ages[0], AGE1 = FACTS.ages[1];
 const X = { tab: 'organs', scene: 'atlas', ctl: {}, t0: 0, turn: 'on', organ: null, domain: null, age: AGE0, step: 1, kind: null };
 const XS = {};
 // params that pick something by number jump to their new value instead of easing through the ones in between
-const STEP = new Set(['slide_focus', 'atlas_focus', 'hier_focus', 'hier_organ', 'dots_pick']);
+const STEP = new Set(['slide_focus', 'atlas_focus', 'hier_focus', 'hier_organ', 'dots_pick', 'atlas_net']);   // (atlas_net: the story's morph, never eased back in explore)
 const orbit = { cur: [0, 12, 3.6, 0, 0, 0], from: null, to: null, t0: 0, dur: 1.6 };
 const ctlValue = (k, c) => (X.ctl[k] && X.ctl[k][c.key] !== undefined ? X.ctl[k][c.key] : c.options[0][0]);
 const ctlOf = (k, key) => ctlsOf(k).find(c => c.key === key);

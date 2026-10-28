@@ -9,8 +9,8 @@ them: [AGENTS.md](../AGENTS.md) ("Shared rooms", "Placement in the headset").
 
 | Where | How to get there | On it |
 | --- | --- | --- |
-| Menu (headset) | closed at first: only a clock (**Open menu**) on the left wrist (on the controller, or the wrist with hand tracking; beside the story panel without either). Touch it with the right controller's tip or right index finger, click the left stick, or point at it and pull the trigger; the same, or **Close**, closes it | **Exit** (leaves VR or AR), **Slideshow: on/off** (every story); **Join**, **Start a room**; in a room **Calibrate**, **Re-align**, **Forget calibration**, **Shared space: on**, **Fresh shared space**, **Move here**, **Add here**, **Arrange all**, **Remove**, **Lock the layout**, **Leave** |
-| Stories screen (headset) | after **Enter VR** / **Enter AR** from the start screen, or **Stories** on a story panel (not at a station) | **Sound**, **Sound check**, **Anchor**, **Recenter** (**Place again** when anchored), **Exit**, **Repeat all**, **Repeat one**, a card per story |
+| Menu (headset) | closed at first: only a clock (**Open menu**) on the left wrist (on the controller, or the wrist with hand tracking; beside the story panel without either). Touch it with the right controller's tip or right index finger, click the left stick, or point at it and pull the trigger; the same, or **Close**, closes it | **Exit** (leaves VR or AR), **Slideshow: on/off** (every story), **Sound check**; **Join**, **Start a room**; in a room **Calibrate**, **Re-align**, **Forget calibration**, **Shared space: on**, **Fresh shared space**, **Move here**, **Add here**, **Arrange all**, **Remove**, **Lock the layout**, **Leave** |
+| Stories screen (headset) | outside a shared room only: after **Enter VR** / **Enter AR** from the start screen, or **Stories** on a story panel | **Sound**, **Sound check**, **Anchor**, **Recenter** (**Place again** when anchored), **Exit**, **Repeat all**, **Repeat one**, a card per story |
 | Shared dialog (page) | **Shared** in the top bar or on the Stories screen | **Start a room**, **Join**, **Join by code**, room map, **Follow**, **Arrange all**, **Add a station**, **Lock layout**, **Fresh shared space**, **Copy link** |
 
 **Remove**, **Forget calibration** and **Fresh shared space** act only on a second press within 3 s. **Fresh shared
@@ -64,7 +64,8 @@ space** shows only on a page that comes from the relay.
 4. **Enter AR** on one headset; after about ten seconds (*Shared space found*, or *Room calibration from last time*)
    the others, one by one. In VR, answer *Are you in the same room as the others?* with **In this room** (the menu
    opens by itself for it).
-5. While a headset still shows its Stories screen, press **Sound check** and both beeps (not reachable at a station).
+5. In each headset's menu press **Sound check** and both beeps (in a room there is no Stories screen; a room with no
+   stations yet opens the menu by itself).
 6. **Arrange all** on a headset: two rows in front of you (from a page: round mark A). To move a station, point at its
    ring or card and hold the grip: point to swing, raise or lower to push or pull, twist to turn. On the page, drag its
    dot (move) or square (turn).
@@ -76,8 +77,11 @@ space** shows only on a page that comes from the relay.
    settings later.
 9. **Lock the layout** (**Lock layout** on the page): nobody can move, add or remove a station, or move a scene or
    panel, until someone unlocks it.
-10. Walk up to a station, or point at its card and pull the trigger: it runs for everyone there. Screens **Follow** a
-    station from the room map.
+10. Walk into a station's circle (a second there): its story runs there, as it does for everyone there. Pointing at a
+    card and pulling the trigger does not go there. Away from every station a headset shows no story, only the rings,
+    cards, people and the menu; walking out of a circle hides and pauses the story on that headset only (it plays on
+    for the others), walking back in carries on with the station. Screens **Follow** a station from the room map.
+    **Leave** in the menu brings the headset's Stories screen back.
 
 ## 3. Kiosk: one headset or screen on its own
 

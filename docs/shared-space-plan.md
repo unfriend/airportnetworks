@@ -157,11 +157,13 @@ asks the session for `local-floor` and, when granted, `shared` spaces of its own
 ## 6. Stations on a headset
 
 - **Your station**: the nearest station whose spot is within 1.1 m of you for 1 s (leave it beyond 1.5 m; spots
-  2.4 m apart never compete), or the one you point at and pick. Your station's story is the live story on your headset (`HOST.go(key)` when it
+  2.4 m apart never compete). Your station's story is the live story on your headset (`HOST.go(key)` when it
   differs) and is placed at its station; all other stations show as **previews** drawn by the shell: a ring on
   the floor at the spot in the story's colour, and a small upright card (title, kick, who is there, its state:
-  playing at 1:23 / exploring) where the content would float. Pointing at a preview and pulling the trigger
-  makes it your station.
+  playing at 1:23 / exploring) where the content would float. (Built at first: pointing at a preview and pulling
+  the trigger made it your station. Since October 2026 stations are walk-in only, the owner's wish: the trigger
+  on a preview runs nothing, away from every station a headset shows no story, only the previews, people and the
+  menu, and a headset in a room never shows the Stories screen; see "Shared rooms" in `AGENTS.md`.)
 - **Placement**: in a room with an aligned frame, `HOST.anchor.frame()` returns the rig pose of your station
   (room -> local applied to the spot, at a standing eye height of 1.6 m above the floor, facing the station's
   direction), `held()` and `locked()` are true (stories do not recentre, the grip moves only panels), and
@@ -229,7 +231,8 @@ address while joined, so a reload rejoins.
   writes over 5 s of idle: zero); a late joiner gets everything; a relay restart is survived (reconnect and
   refetch); a pretend headset (as `tools/smoke.mjs` does) with fake `local-floor` and `shared` spaces aligns from a
   published frame, its story stands at its station, its rays reach the others in room coordinates, walking to
-  another station switches the story; calibration from two fake marks gives the expected frame.
+  another station switches the story (and walking out hides and pauses it, writing nothing); calibration from two
+  fake marks gives the expected frame.
 - `node tools/smoke.mjs` stays green (nobody in a room: nothing changes).
 - Untested until two Quest 3 headsets are in a room: shared-space ids, calibration accuracy, sound zones heard,
   comfort, frame rate with presence drawn.
@@ -260,7 +263,9 @@ Differences from the plan:
   since stations can be moved by hand, in a room it moves nothing, and the grip on a station's preview moves that
   station, done by the shell; the shell's own things never move the scene); in `xrFreshStart` a headset taken off at a station keeps its
   story and place instead of starting a new wearer on the Stories screen; in `xrLandingClose` Start on the headset
-  Stories screen at a station does not restart the story for everyone. `effect` exists only where a story has
+  Stories screen at a station does not restart the story for everyone. Later (walk-in only) the stories read
+  `HOST.room.away()` and `HOST.room.inRoom()` in a few more lines (`xrRoomOnly`, `xrAway`): no Stories screen in a
+  room, and away from its station the story hidden, not pointable and paused. `effect` exists only where a story has
   one-shot effects. A story's `dispose()` clears its timers (quick story changes in a room made a late one crash
   the next story).
 - **Relay**: a state key `st.<id>.*` is refused unless its station exists after the batch, and a state value with

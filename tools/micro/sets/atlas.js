@@ -1129,6 +1129,8 @@ void main() {
 
   function update(S, t, dt) {
     const lib = c01(S.atlas_lib), map = c01(S.atlas_map), um = c01(S.atlas_umap), age = c01(S.atlas_age), volc = c01(S.atlas_volcano), curv = c01(S.atlas_curves);
+    const MG = NET ? gOf(c01(S.atlas_net || 0)) : -1;   // the network's growth while the atlas turns into it (-1: not)
+    tileMat.uniforms.uG.value = MG; flash.visible = MG > -0.9;
     // (snaps on the first frame, without a dt, after a long frame or when t jumps: a seek, story to explore)
     const vc = Math.max(volc, curv), snap = cur.first || !(dt >= 0) || dt > 0.3 || Math.abs(t - cur.t - dt) > 0.3, ke = snap ? 1 : 1 - Math.exp(-5 * dt);
     cur.first = false; cur.t = t;
@@ -1153,8 +1155,12 @@ void main() {
       p = K.v3.lerp(p, Fp, fw); s = lerp(s, sF, fw); yaw = lerp(yaw, 0, fw);
       let al = Math.max(Math.min(1, km * 3) * map, fw);
       al *= (1 - 0.82 * fmax * (1 - fw)) * (1 - sm(c01(vc / 0.15)) * (1 - fw));   // (gone behind a plot, the volcano or the trajectories, as soon as it starts)
+      let cm = Math.max(prog(map, 0.55, 0.95) * km, fw);
+      // the morph: the section flies to its tissue's node, shrinking, its plate fading (cm above 1, read by the shaders)
+      const m = MG > -0.9 && MS[i], k2 = m ? c01((MG - m.dep2) / (m.arr2 - m.dep2)) : 0;
+      if (k2 > 0) { const e = sm(k2); p = bez(p, m.s1, m.s2, e); s = Math.exp(lerp(Math.log(s), Math.log(m.sEnd), e)); yaw = lerp(yaw, 0, e); cm = 1 + prog(k2, 0, 0.45); }
       cur.P[i] = p; cur.s[i] = s; cur.yaw[i] = yaw; cur.al[i] = al; anySec = Math.max(anySec, al);
-      uP[i].set(p[0], p[1], p[2], s); uQ[i].set(yaw, al, Math.max(prog(map, 0.55, 0.95) * km, fw), fw);
+      uP[i].set(p[0], p[1], p[2], s); uQ[i].set(yaw, al, cm, fw);
     }
     // the cloud
     tileMat.uniforms.uUm.value = um; tileMat.uniforms.uAge.value = age; tileMat.uniforms.uFoc.value = fmax;
@@ -1168,7 +1174,17 @@ void main() {
     if (orgMesh) {
       const show = 1 - sm(um * 2.5);
       orgMesh.visible = anySec > 0.003 && show > 0.01 && vc < 0.5;   // (not beside a plot: the sections there are dim)
-      if (orgMesh.visible) for (let i = 0; i < NT; i++) { const p = secW(i, [-0.86, 0.9, 0.34]); mP[i].set(p[0], p[1], p[2], Math.min(cur.s[i] * 0.3, 0.075)); mQ[i].set(cur.al[i] * show, 0.25 * cur.fw[i], t * 0.4 + i, 0); }
+      if (orgMesh.visible) for (let i = 0; i < NT; i++) {
+        const m = MG > -0.9 && MS[i], k1 = m ? c01((MG - m.dep1) / (m.arr1 - m.dep1)) : 0;
+        if (k1 <= 0) { const p = secW(i, [-0.86, 0.9, 0.34]); mP[i].set(p[0], p[1], p[2], Math.min(cur.s[i] * 0.3, 0.075)); mQ[i].set(cur.al[i] * show, 0.25 * cur.fw[i], t * 0.4 + i, 0); continue; }
+        // the morph: the organ flies up to its node in the network and turns as the network's model there does; landed,
+        // it fades as that one grows (the same model, so they read as one), with a flash
+        const o = m.on, e = sm(k1), ga = prog(MG, NET.start[o], NET.start[o] + NET.span), so = NET.size[o], sA = 0.75 * so;
+        const p = k1 < 1 ? bez(m.c0, m.c1, NET.pos[o], e) : NET.pos[o];
+        const own = t * 0.4 + i, dA = ((NET.spinRate * t + NET.spin[o] - own) % (2 * PI) + 3 * PI) % (2 * PI) - PI;
+        mP[i].set(p[0], p[1], p[2], k1 < 1 ? lerp(Math.min(S0 * 0.3, 0.075), sA, e) : Math.max(sA, so * (0.25 + 0.75 * ga)));
+        mQ[i].set(k1 < 1 ? 1 : 1 - ga, 0.25 + 0.6 * Math.sin(PI * k1) + 0.8 * Math.exp(-Math.pow((MG - m.arr1) / 0.02, 2)), own + dA * prog(k1, 0.5, 1), 0);
+      }
     }
     tileMat.depthWrite = vc < 0.02 && fmax < 0.02;   // (dimmed sections behind a plot or a focused section must not hide what is in front of them)
     caps.visible = anySec > 0.003 && um < 0.998; capMat.uniforms.uUm.value = sm(um * 1.6);
@@ -1226,7 +1242,7 @@ void main() {
     { text: [`${AGES[1]}`, ' years'], at: 'libAge70', cls: '', minor: true, alpha: libLab },
     { text: [`${AGES[0]}`, ' years'], at: 'libAge20', cls: '', minor: true, alpha: libLab },
     { text: [`${F.domains || 218} domains`, ` in ${F.types || 74} types`], at: 'atlasTop', cls: 'cyn',
-      alpha: S => prog(S.atlas_map, 0.7, 1) * (1 - prog(S.atlas_umap, 0, 0.3)) * (1 - prog(vcS(S), 0, 0.1)) * (1 - anyF(S)) },   // (gone with the sections behind a plot)
+      alpha: S => prog(S.atlas_map, 0.7, 1) * (1 - prog(S.atlas_umap, 0, 0.3)) * (1 - prog(vcS(S), 0, 0.1)) * (1 - anyF(S)) * (1 - prog(S.atlas_net || 0, 0, 0.06)) },   // (gone with the sections behind a plot, or as they turn into the network)
     { text: [`${Math.round((F.tiles || 162e6) / 1e6)} million tiles`, `, ${F.domains || 218} domains`], at: 'umapTop', cls: 'cyn',
       alpha: S => prog(S.atlas_umap, 0.6, 0.95) * (1 - prog(vcS(S), 0, 0.1)) * (1 - anyF(S)) },
     { text: [`${F.ageChange || 28} %`, ' of domains change with age'], at: 'volcanoTop', cls: 'amb', alpha: S => prog(S.atlas_volcano, 0.7, 1) },
@@ -1297,10 +1313,13 @@ void main() {
     domains: i => (REC[i] || []).map((d, k) => { const a = shares(REC[i], 0), b = shares(REC[i], 1); return { name: d.name, at20: +a[k].toFixed(1), at70: +b[k].toFixed(1), colour: domainColour(d.name) }; }),
     tissuesOf: organ => ORGAN.map((o, i) => (o.toLowerCase() === String(organ).toLowerCase() ? i : -1)).filter(i => i >= 0),
     volcanoFromFigure: volFromFig, slides: NSL.slice(), tiles: NTILE,
+    // the morph into the network: its layout from the engine (the hier set's api().layout()); atlas_net leads the
+    // network's growth by netLead; netMap: each domain name of the atlas -> the node it ends at
+    useNetwork, netLead: NET0, netMap: () => (MAP ? Object.fromEntries(Object.entries(MAP).map(([k, v]) => [k, v.as])) : null),
   };
 
   return Object.assign(set, {
-    params: { atlas_a: 1, atlas_lib: 1, atlas_map: 0, atlas_umap: 0, atlas_focus: 0, atlas_age: 0, atlas_volcano: 0, atlas_curves: 0 },
+    params: { atlas_a: 1, atlas_lib: 1, atlas_map: 0, atlas_umap: 0, atlas_focus: 0, atlas_age: 0, atlas_volcano: 0, atlas_curves: 0, atlas_net: 0 },
     update, anchors, labels, cam, controls, explore, api() { return API; },
     // (the organ models: built at once by the harness and the sweeps)
     finish() { if (O3) O3.step(Infinity); buildOrgans(); },

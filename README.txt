@@ -43,7 +43,8 @@ index.html is the app: it shows a start screen to pick a story, and the Stories
 button (top bar, and the panel in VR/AR) brings it back. Stories are loaded into
 the same page, so changing story never ends a VR or AR session; entering VR or
 AR from the start screen opens a Stories screen in the headset (one panel per
-story); entering from inside a story resumes it where you were.
+story); entering from inside a story resumes it where you were. In a shared
+room a headset has no Stories screen: you walk to a story's station instead.
 The start screen is the landing page (no hash, or #stories). The address
 follows you: #stories on the Stories screen (page or headset), #airports,
 #proteins, #spatial, #lbi, #nmd, #endo, #pet, #micro, #ovary, #qubits, #mutation, #topo, #pass, #flock or #robots in a story, so links can be shared and open that story
@@ -78,8 +79,15 @@ Shared rooms (Shared button, top bar and Stories screen; in a headset the menu:
 the clock on your left wrist): several headsets and screens join one
 room and see the same stations, a story each at a spot in the room, in step on
 every device (anyone can play, pause, jump or change a control; the last action
-wins). A headset runs the station it stands at; the others show as rings on the
-floor with a card, and pointing at one and pulling the trigger goes there too.
+wins). A headset runs only the station it stands at: walk into a station's
+circle and after a second its story plays there; the others show as rings on the
+floor with a card. Away from every station no story shows, only the rings, the
+cards, the other people and the menu; walk out of a circle and its story hides
+and pauses on your headset (it plays on for the others), walk back in and it
+carries on as the station has it. Pointing at a card and pulling the trigger
+does not take you there: walk into its circle. A headset in a room never shows
+the Stories screen (leave the room in the menu and it comes back); in a room
+with no stations yet the menu opens by itself, with Arrange all.
 People in the room calibrate every headset on the same two tape marks
 (Calibrate: touch mark A, then mark B, with the ring at the front of a
 controller; orange crosses then show where the headset puts the marks, and two
@@ -115,7 +123,7 @@ hand tracking; beside the story panel without either). Touch it with the right
 controller's tip or your right index finger, click the left stick, or point at
 it and pull the trigger, to open the menu above it; the same closes it again.
 Inside: Exit (leaves VR or AR; the story panels have none), Slideshow for every
-story, two headset settings for every story, and the shared room. With hand
+story, Sound check, two headset settings for every story, and the shared room. With hand
 tracking a fingertip presses its buttons too, or pinch while pointing. Labels:
 in 3D (the default: the scene's labels stand in the scene as signs turned to
 you, and the story panels, the stations' cards and people's name tags stand in
@@ -175,7 +183,7 @@ story, also when you change story inside the headset. If the button says Play
 sound, press it. Without the file the story runs silently, at a pace that leaves time
 to read its panel (tools/pace.mjs sets it from the words).
 No sound? Open Sound check on the Stories screen (on the page, or in the headset
-under the title): it shows what the sound system is doing, plays a test beep
+under the title; in a shared room in the headset's menu): it shows what the sound system is doing, plays a test beep
 through each of the app's two ways to play sound (Web Audio and an audio
 element) and lets you choose the one you hear. Reset clears the saved choices.
 A link ending in #soundcheck opens it.

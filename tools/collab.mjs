@@ -134,7 +134,7 @@ const STORIES = {
 // the stories a pretend headset walks between: its own (the last in STORIES, whose station has an explore clock and
 // stored state; the flock's sky catches every ray, so its rays have a length), another, one whose card it points at
 // (the trigger there runs nothing: stations are walk-in only) and one it moves by its card
-const HEADSET_STORY = 'flock', OTHER_STORY = 'spatial', PICK_STORY = 'proteins', MOVE_STORY = 'nmd';
+const HEADSET_STORY = 'flock', OTHER_STORY = 'spatial', PICK_STORY = 'proteins', MOVE_STORY = 'nmd';   // (PICK_STORY: its card is pointed at)
 
 const root = path.join(path.dirname(new URL(import.meta.url).pathname), '..');
 const argv = process.argv.slice(2), shots = argv.includes('--shots') ? argv[argv.indexOf('--shots') + 1] : '';
@@ -986,15 +986,27 @@ try {
   });
   check('headset: the story\'s own panel in front of a station\'s card takes the ray (the card alone would)', depth.kind === 'panel' && depth.alone && Math.abs(depth.alone - depth.toCard) < 0.05 && !depth.behind,
     JSON.stringify(depth));
+  // stations are walk-in only: the trigger on another station's card runs nothing from afar (a notice says to walk into
+  // its circle), and the headset stays at its own
   const SP = await stationFor(PICK_STORY);
   const cardAt = await H.evaluate(id => { const c = HOST.collab.overlay().cards.get(id); return c ? c.mesh.getWorldPosition(new THREE.Vector3()).toArray() : null; }, SP.id);
+  const hovCard = !!cardAt && await H.evaluate(([id, t]) => {
+    const X = window.__xr, c = HOST.cur.peek('XR.ctrls')[0], V = THREE.Vector3;
+    const head = new V().setFromMatrixPosition(X.W.head).applyMatrix4(X.W.local.clone().invert()), o = head.clone().add(new V(0.12, -0.3, -0.1));
+    c.src = c.src || { targetRayMode: 'tracked-pointer', handedness: 'right', gamepad: null }; c.g.visible = true;
+    c.g.matrix.compose(o, new THREE.Quaternion().setFromUnitVectors(new V(0, 0, -1), new V(...t).sub(o).normalize()), new V(1, 1, 1));
+    X.step(); X.step();
+    const h = HOST.collab.internals().hov.get(0);
+    return !!h && h.target.kind === 'station' && h.target.id === id;
+  }, [SP.id, cardAt]);
   if (cardAt) await press(cardAt);
-  let picked = !!cardAt && await until(H, k => HOST.curKey === k, PICK_STORY, 15000) && await ready(H, PICK_STORY, 40000);
-  if (picked) { await H.evaluate(() => HOST.cur.peek('xrAdopt()')); await frames(H, 200); }
-  const rigP = await rigOf(H), wantP = rigAt(SP);
-  check(`headset: pointing at a station's card and pulling the trigger goes there (${PICK_STORY}, placed at its station)`, picked && near(rigP.slice(0, 3), wantP.slice(0, 3), 1e-4),
-    `story ${await H.evaluate(() => HOST.curKey)}, rig ${fmt(rigP)}, want ${fmt(wantP)}, card ${cardAt && fmt(cardAt)}; ` +
-    await H.evaluate(() => JSON.stringify(window.__collabLog.slice(-8).map(e => [e.ev, e.id || e.st || e.story || '']))));
+  const went = await until(H, k => HOST.curKey === k || HOST.busy, PICK_STORY, 3000);
+  await frames(H, 200);
+  const pk = await H.evaluate(() => ({ key: HOST.curKey, mine: HOST.collab.mine(), note: (window.__collabLog.filter(e => e.ev === 'notice').slice(-1)[0] || {}).title }));
+  const rigP = await rigOf(H), wantP = rigAt(S1, LOCAL);
+  check(`headset: the trigger on another station's card runs nothing from afar (${PICK_STORY}): a notice says to walk into its circle, and the headset stays at its own`,
+    hovCard && !went && pk.key === HEADSET_STORY && pk.mine === S1.id && pk.note === 'Walk into its circle' && near(rigP.slice(0, 3), wantP.slice(0, 3), 1e-4),
+    JSON.stringify({ hovCard, went, pk, rig: rigP, want: wantP }));
   // the grip on another station's card picks it up: pointed 20 degrees further left it swings round the hand, raised
   // 10 degrees it goes further, a twist of the wrist turns it; the room has it while it moves (ten times a second)
   // and where it is put down; when someone else moves it, its ring here glides there
@@ -1059,6 +1071,31 @@ try {
   check('headset: the layout lock (from a page) stops the grip moving a station and Arrange all; the headset panel\'s button unlocks it for everyone',
     lockSeen && lk0.hov === SM.id && !lk1.moving && !!lk1.st && Math.abs(lk1.st.x - lk0.st.x) < 1e-6 && arrRefused && unlockBtn && unlocked,
     JSON.stringify({ lockSeen, hov: lk0.hov, moving: lk1.moving, arrRefused, unlockBtn, unlocked }));
+  // Sound check in the menu (the stories have theirs on the Stories screen, which a room never shows): a page in place of
+  // the rest of the menu, a beep through each engine, the engine choice (the audio element, then automatic again) and
+  // what the sound system is doing; Back goes back to the menu
+  const snd = await H.evaluate(async () => {
+    const X = window.__xr, S = HOST.collab.overlay().panel, ids = () => S.regions.map(r => r.id);
+    const tap = id => { const r = S.regions.find(x => x.id === id); if (r && r.fn) { r.fn(); return true; } return false; };
+    const steps = async n => { for (let k = 0; k < n; k++) { X.step(); await new Promise(r => setTimeout(r, 20)); } };
+    HOST.collab.panelOpen(true); await steps(3);
+    const out = { button: tap('sound') };
+    await steps(3);
+    out.page = ids(); out.tall = S.vis;
+    const beep = HOST.audio.beep, beeps = [];
+    HOST.audio.beep = e => { beeps.push(e); };   // (asked for through the engine named; no sound in a test)
+    tap('snd:beepW'); tap('snd:beepM');
+    HOST.audio.beep = beep; out.beeps = beeps.join();
+    tap('snd:media'); await steps(3); out.media = HOST.audio.pref;
+    tap('snd:auto'); await steps(3); out.auto = HOST.audio.pref;
+    tap('snd:back'); await steps(3);
+    out.back = ids().includes('exit') && ids().includes('sound') && !ids().includes('snd:beepW');
+    HOST.collab.panelOpen(false); await steps(2);
+    return out;
+  });
+  check('headset: Sound check in the menu: a beep through each engine, the engine choice and what the sound system is doing; Back returns to the menu',
+    snd.button && ['snd:beepW', 'snd:beepM', 'snd:auto', 'snd:webaudio', 'snd:media', 'snd:reset', 'snd:back'].every(id => snd.page.includes(id)) && !snd.page.includes('exit') &&
+    snd.tall > 600 && snd.beeps === 'webaudio,media' && snd.media === 'media' && snd.auto === 'auto' && snd.back, JSON.stringify(snd));
   // the menu's clock rides on the left controller (behind its grip and above it, turned to the eyes); a click of the
   // left stick opens the menu above the clock and closes it again; a touch of the right controller's tip opens it,
   // and takes another touch only once moved 7 cm away; with tracked hands the clock sits on the left wrist, the right
@@ -1197,7 +1234,7 @@ try {
   const pub2 = ((await roomInfo(code)).keys[kv] || {}).v;
   check(`headset: in explore mode at a station the scene's view is shared (${OTHER_STORY}: published, followed, a turn here goes out)`,
     !!v0 && JSON.stringify(pub0) === JSON.stringify(v0) && got1 && JSON.stringify(pub2) === JSON.stringify(v2), JSON.stringify({ v0, pub0, v1, got1, v2, pub2 }));
-  // at a station in a shared room the story panel has no Stories button, and a Stories screen left open closes by
+  // in a shared room the story panel has no Stories button (at a station too), and a Stories screen left open closes by
   // itself (the story goes on as the room has it)
   const sb = await H.evaluate(async () => {
     const X = window.__xr, ids = () => HOST.cur.peek('XR.main.regions.map(r => r.id)');
@@ -1207,7 +1244,7 @@ try {
     for (let k = 0; k < 3; k++) { X.step(); await new Promise(r => setTimeout(r, 20)); }
     return { none, closed: !HOST.cur.peek('XR.stories'), same: HOST.cur.peek('APP.mode') === mode, ids: ids() };
   });
-  check('headset: at a station in a shared room no Stories button, and a Stories screen closes by itself (the story goes on)', sb.none && sb.closed && sb.same, JSON.stringify(sb));
+  check('headset: in a shared room no Stories button at a station either, and a Stories screen closes by itself (the story goes on)', sb.none && sb.closed && sb.same, JSON.stringify(sb));
   // the scene and the panel at a station: both grips on the scene resize it (and move it with their middle), one grip
   // on the panel moves it; it goes out to the room (st.<id>.place, st.<id>.panel) and comes back from it, gliding
   const kPl = 'st.' + S2.id + '.place', kPn = 'st.' + S2.id + '.panel';
@@ -1932,10 +1969,27 @@ try {
   await Fp2.evaluate(() => HOST.start('airports'));
   await ready(Fp2, 'airports');
   await Fp2.evaluate(installXR, Object.assign({}, xrOpts, { sharedId: 'U9', shared: SHARED }));
-  await Fp2.evaluate(() => window.__xr.begin());
+  await Fp2.evaluate(() => { HOST.landingVR = true; window.__xr.begin(); });   // (as Enter VR on the start screen)
   await frames(Fp2, 1200);
   const fXr = await Fp2.evaluate(() => { const L = window.__collabLog, s = L.filter(e => e.ev === 'session').pop() || {};
     return { told: L.some(e => e.ev === 'notice' && e.title === 'A fresh shared space'), page: s.page, sg: s.sg, search: s.search }; });
+  // this room has no stations yet: entered from the start screen, the headset shows no Stories screen and no story, only
+  // the menu, opened by itself (Arrange all in it); leaving the room brings the Stories screen back (as for a new
+  // wearer), and joining one closes it again
+  const fEmpty = await Fp2.evaluate(async c => {
+    const X = window.__xr, P = s => HOST.cur.peek(s), steps = async n => { for (let k = 0; k < n; k++) { X.step(); await new Promise(r => setTimeout(r, 20)); } };
+    const shown = () => { P('xrUpdate(APP.mode === "story" ? storyState(storyT(APP.t)) : exploreStep(0))'); return { stories: P('XR.stories'), world: P('GL.world.visible'), main: P('XR.main.mesh.visible'), land: P('XR.land[0].mesh.visible') }; };
+    const out = { menu: HOST.collab.menu, by: (window.__collabLog.filter(e => e.ev === 'menu').pop() || {}).by, arrange: HOST.collab.overlay().panel.regions.some(r => r.id === 'arrange'),
+      in: shown() };
+    HOST.collab.leave(); await steps(4);
+    out.left = Object.assign(shown(), { inStory: P('XR.inStory') });
+    HOST.collab.join(c); await steps(4);
+    out.joined = shown();
+    return out;
+  }, fcode);
+  check('an empty room in a headset (entered from the start screen): no Stories screen and no story, only the menu, opened by itself with Arrange all; leaving the room brings the Stories screen back, joining one closes it',
+    fEmpty.menu && fEmpty.by === 'empty' && fEmpty.arrange && !fEmpty.in.stories && !fEmpty.in.world && !fEmpty.in.main && !fEmpty.in.land &&
+    fEmpty.left.stories && !fEmpty.left.inStory && fEmpty.left.land && !fEmpty.left.main && !fEmpty.joined.stories && !fEmpty.joined.land && !fEmpty.joined.world, JSON.stringify(fEmpty));
   await Fp2.evaluate(() => window.__xr.end());
   const Fp3 = await open('?probe=1#s=' + fcode);
   const fp3 = await Fp3.waitForURL(/\/s\/1\/\?probe=1#/, { timeout: 15000 }).then(() => true, () => false);
@@ -2114,7 +2168,21 @@ try {
     await H.evaluate(() => HOST.collab.panelOpen(true));
     await frames(H, 300);
     await view('headset-menu.png', Sf.yaw, -0.13);
+    // Sound check in the menu
+    await H.evaluate(() => { const r = HOST.collab.overlay().panel.regions.find(x => x.id === 'sound'); if (r) r.fn(); });
+    await frames(H, 300);
+    await view('headset-sound.png', Sf.yaw, -0.13);
+    await H.evaluate(() => HOST.collab.panelOpen(false));
     await H.evaluate(() => { const c = HOST.cur.peek('XR.ctrls')[1]; c.g.visible = false; c.src = null; window.__xr.session.inputSources.length = 0; });
+    // stepped out of the station's circle, facing the stations: no story, only the room (rings, cards, the other person)
+    // and the menu's clock in front (no left controller)
+    const sp = await awaySpot(H, Sf);
+    if (sp) {
+      const toward = Math.atan2(-(Sf.x - sp[0]), -(Sf.z - sp[1]));
+      await goRoom(H, sp[0], 1.6, sp[1], toward);
+      await frames(H, 800);
+      await view('headset-away.png', toward, -0.08);
+    }
     // the page's dialog with the room map, on a desktop and on a phone
     await A.setViewportSize({ width: 1000, height: 760 });
     const alive = Promise.all([frames(H, 3500), frames(C, 3500)]);   // the two headsets keep sending where they are
