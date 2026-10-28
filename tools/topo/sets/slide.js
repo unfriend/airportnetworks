@@ -190,8 +190,10 @@ void main() {
     float b = vn(vec2(q.x * 0.09, q.y * 0.8 + 2.0 * vn(q * 0.05)));
     E *= 1.0 + kf * (b - 0.5) * 0.8;
   }
-  float V = (1.0 - smoothstep(0.1, 0.5, cy + 0.55 * co + 0.6 * hz)) * 0.8;
-  V *= 0.75 + 0.5 * vn(p / 4.0 + 7.0);
+  // empty spaces (vessels) white; between the hepatocytes thin pale sinusoids, wandering slits
+  float V = (1.0 - smoothstep(0.03, 0.28, cy + 0.55 * co + 0.6 * hz)) * (0.8 + 0.3 * vn(p / 4.0 + 7.0));
+  float sn = vn(p / 14.0 + 1.5 * vec2(vn(p / 40.0), vn(p / 40.0 + 9.0))), sw = fwidth(sn) * 1.2 + 0.012;
+  V = max(V, 0.7 * (1.0 - smoothstep(0.0, sw, abs(sn - 0.5))) * smoothstep(0.2, 0.6, cy) * (1.0 - co) * smoothstep(0.012, 0.004, px));
   vec3 he = exp(-E * vec3(0.16, 1.05, 0.60) - H * vec3(1.31, 1.37, 0.62));
   he = mix(he, vec3(0.97, 0.95, 0.97), clamp(V, 0.0, 1.0));
   // far away the cells come from their pre-averaged map; close up they are drawn one by one

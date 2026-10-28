@@ -394,15 +394,15 @@ SETS.tower = function (K) {
   const labels = [
     ...SNAP.map((s, k) => ({ text: s.text, at: 'tag', cls: '', alpha: S => near(S, k) * flat(S) })),
     { text: () => ['The big loop', ' · round an empty space'], at: 'hole', cls: 'amb',
-      alpha: S => { const r = +S.tower_r || 1.5; return (MAIN.b <= r && r < MAIN.d ? 1 : 0) * flat(S) * (1 - clamp(S.tower_lit === 1 ? 1 : 0, 0, 1)) * prog(T.u(r) - MAIN.ub, 0.03, 0.06); } },
+      alpha: S => { const r = +S.tower_r || 1.5; return (MAIN.b <= r && r < MAIN.d ? 1 : 0) * flat(S) * (1 - clamp(Math.round(S.tower_lit) === 1 ? 1 : 0, 0, 1)) * prog(T.u(r) - MAIN.ub, 0.03, 0.06); } },
     { text: () => [`${fmtR(now.r)} µm`, ` · ${plural(now.n0, 'piece', 'pieces')} · ${plural(now.n1, 'loop', 'loops')}`], at: 'plane', cls: 'cyn',
       alpha: S => prog(S.tower_rise, 0.5, 0.9) },
     ...TICKS.map((m, k) => ({ text: [`${m} µm`, ''], at: 'tick' + k, cls: '',
       alpha: S => prog(S.tower_rise, 0.6, 1) * (1 - clamp(S.tower_bars, 0, 1)) * prog(Math.abs(T.u(Math.max(0.5, +S.tower_r || 1.5)) - T.u(m)), 0.03, 0.06) })),
     { text: ['The trunk', ' · one piece left'], at: 'trunk', cls: 'amb',
-      alpha: S => prog(S.tower_rise, 0.8, 1) * (1 - prog(S.tower_bars, 0, 0.3)) * prog(+S.tower_r || 0, 17, 20) * (S.tower_lit === 2 ? 0 : 1) },
+      alpha: S => prog(S.tower_rise, 0.8, 1) * (1 - prog(S.tower_bars, 0, 0.3)) * prog(+S.tower_r || 0, 17, 20) * (Math.round(S.tower_lit) === 2 ? 0 : 1) },
     { text: ['The big loop', ' · a chimney from birth to filling'], at: 'chimney', cls: 'amb',
-      alpha: S => prog(S.tower_rise, 0.8, 1) * (1 - prog(S.tower_bars, 0, 0.3)) * prog(+S.tower_r || 0, 13, 15) * (S.tower_lit === 1 ? 0 : 1) },
+      alpha: S => prog(S.tower_rise, 0.8, 1) * (1 - prog(S.tower_bars, 0, 0.3)) * prog(+S.tower_r || 0, 13, 15) * (Math.round(S.tower_lit) === 1 ? 0 : 1) },
     { text: ['Pieces', ` · ${N} rods: their staircase is the count`], at: 'bars', cls: 'amb', alpha: S => prog(S.tower_bars, 0.45, 0.65) * (Math.round(S.tower_lit) === 2 ? 0 : 1) },
     { text: ['Loops', ` · ${NL} rods, at most ${B1.top} at once`], at: 'bars1', cls: 'amb', alpha: S => prog(S.tower_bars, 0.6, 0.8) * (Math.round(S.tower_lit) === 1 ? 0 : 1) },
   ];
