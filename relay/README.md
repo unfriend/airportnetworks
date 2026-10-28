@@ -4,7 +4,9 @@ A small server that lets several headsets and desktop browsers share a room: eac
 playing the same stories in step (the plan is [docs/shared-space-plan.md](../docs/shared-space-plan.md)). It keeps,
 per room, the latest value of every shared state key and passes ephemeral messages (pointer rays, effects) on
 without storing them. One file, `server.mjs`: Node 18 or newer, no packages (its own minimal WebSocket code). It
-can serve the app as well (`--static .`), so the page and the relay share one address.
+can serve the app as well (`--static .`), so the page and the relay share one address. It is also an introduction
+server for devices that link to each other directly (peer to peer, PeerJS's protocol at `/peerjs`; see
+[Introduction server for peer to peer](#introduction-server-for-peer-to-peer-peerjs)).
 
 **Where it runs.** For now on a machine (a laptop will do) on the **same Wi-Fi as the headsets**, not on the
 internet. It serves the app too, so every headset and desktop opens one address on that machine. GitHub Pages
@@ -32,6 +34,7 @@ node relay/server.mjs [--lan] [--port 8787] [--host 0.0.0.0] [--static .] [--cer
 | `--expire <s>` | 21600 (6 h) | a room without members is deleted after this |
 | `--ping <s>` | 20 | how often the relay pings every member (keeps proxies from closing idle sockets) |
 | `--quiet` | off | no log lines |
+| `--no-peer` | off | no introduction server for peer to peer (`/peerjs`, on by default; it costs nothing while unused) |
 | `--lan` | off | for headsets on the same Wi-Fi: HTTPS with a certificate of its own (made with `openssl` in `relay/.lan/`) and the app's files served from the repository; prints the address to open on the headsets |
 
 It prints `relay listening on http://<host>:<port>` when it starts and, when it serves the app on every address
@@ -39,8 +42,9 @@ It prints `relay listening on http://<host>:<port>` when it starts and, when it 
 the address for desktops only and how to reach it from a headset (`--lan`, or `adb reverse` and
 `http://localhost:<port>/`), since a headset gets no VR or AR at an `http://` address. Then one line per event: a room created, a
 join, a hello, every stored write (`XYZ set #12 by k7f2: st.a1.play`, deletions as `key=null`), every refusal
-with its reason, dropped ephemeral messages (counted), a leave, a timeout, an expired room. `X-Forwarded-For`
-is used for these lines only. It stops cleanly on SIGTERM (telling every member, close code 1001).
+with its reason, dropped ephemeral messages (counted), a leave, a timeout, an expired room; and for the introduction
+server an id joining, coming back, refused, leaving or timing out and an id that never came (ids only, `peer join
+<id>`). `X-Forwarded-For` is used for the rooms' lines only. It stops cleanly on SIGTERM (telling every member, close code 1001).
 
 Headsets need a secure context for WebXR (`https://`, or `http://localhost`), and a page on `https://` can only
 open `wss://` sockets. `--lan` takes care of both on a local network: it makes a certificate of its own for
@@ -254,8 +258,9 @@ All under `/api/`, JSON, `Cache-Control: no-store`, `Access-Control-Allow-Origin
 
 With `--static <dir>`, every other path may be a file of the app, and only that: `index.html` (also at `/`),
 `shared.js`, `sw.js`, `manifest.webmanifest`, `three.min.js`, `three.LICENSE.txt`, `proteins.html`,
-`spatial.html`, `README.txt`, and the files directly in `stories/`, `audio/` and `icons/` (`APP_FILES` and
-`APP_DIRS` in `server.mjs`: add to them when the app needs a new file or folder). Everything else is 404: the
+`spatial.html`, `README.txt`, `peerjs.min.js`, `PEERJS-LICENSE.txt`, and the files directly in `stories/`, `audio/`,
+`icons/` and `p2p/` (the peer-to-peer test page, at `/p2p/`: a path ending in `/` is that folder's `index.html`)
+(`APP_FILES` and `APP_DIRS` in `server.mjs`: add to them when the app needs a new file or folder). Everything else is 404: the
 authors' data (`ikerdata/`), `tools/`, `docs/`, the relay itself, folders (no listings), anything whose path has
 a part starting with `.` (no `..`, no `.git`), and links that lead out of those files. `GET` and `HEAD`. `Cache-Control: no-cache` with `ETag`/`Last-Modified` (304 when unchanged, as the
 service worker expects), gzip for text when asked, single byte ranges on every file (206; 416 when
@@ -335,6 +340,57 @@ automatic pong keeps an idle member in. A member silent for 40 s is dropped (`ti
 **A restart** empties the rooms. A client whose room has gone (`room` on reconnecting) can make it again
 under the same code (`POST /api/rooms` with `code`) and fill it from its own state.
 
+## Introduction server for peer to peer (`/peerjs`)
+
+Devices in a shared room can also link to each other directly (WebRTC data channels, through PeerJS 1.5.5, vendored as
+`peerjs.min.js`). Before they can, something must introduce them: pass each one's offer, answer and network
+candidates to the other. By default PeerJS's free public server (`0.peerjs.com`) does that. The relay does it too,
+speaking the same protocol, so that
+
+- **tests** need no internet (`tools/peer.mjs`, and the protocol in `relay/test.mjs`), and
+- **an event** can have its own introduction server when the public one is down, slow or not wanted (on the laptop on
+  the event's Wi-Fi, or a public relay): then nothing about the devices goes beyond the relay (and the STUN server).
+
+Once two devices are linked their messages go straight from one to the other, not through the relay. It is on by
+default and costs nothing while nobody uses it; `--no-peer` turns it off. A PeerJS client uses it with
+
+```js
+new Peer(id, { host: '192.168.1.20', port: 8787, path: '/peerjs', secure: true,   // secure: https and wss (--lan)
+  config: { iceServers: [{ urls: 'stun:stun.cloudflare.com:3478' }] } });         // (key: PeerJS's default, peerjs)
+```
+
+The peer-to-peer test page takes it from its address, `#room=ABCD&peer=<address>:8787` (the path `/peerjs` when none is
+given; `http://` or `https://` in front says how to reach it, else as the page is reached), and shows which server it
+uses. The relay serves that page too: `https://<address>:8787/p2p/#room=ABCD&peer=<address>:8787` with `--lan`. A page
+on `https://` (GitHub Pages) can only use an introduction server on `https://` whose certificate it trusts: `--lan`'s
+self-signed one is refused there without asking, as for rooms (open the page from the relay instead).
+
+**Protocol** (what PeerJS 1.5.5's client expects; ids, not rooms; nothing stored). HTTP, with CORS and preflights as
+the API (other keys or paths 404, other methods 405):
+
+| request | answer |
+| --- | --- |
+| `GET /peerjs/peerjs/id?ts=...` | a new id (a UUID) as plain text, for a client that brings none |
+| `GET /peerjs` | `{ name, key, path }` |
+| `GET /peerjs/peerjs/peers` | 401: listing peers is off |
+
+The socket is `/peerjs/peerjs?key=peerjs&id=<id>&token=<token>&version=...`; JSON text messages with a `type`:
+
+| from | `type` | meaning |
+| --- | --- | --- |
+| server | `OPEN` | the id is this socket's; also when the same id comes again with the same token (a reconnect while the old socket hangs on: the new one wins, the old is closed with 4008) |
+| server | `ID-TAKEN` `{ payload: { msg } }` | another socket holds the id with another token; closed (4001) |
+| server | `INVALID-KEY` | a key other than `peerjs`; closed (4003) |
+| server | `ERROR` `{ payload: { msg } }` | no id, token or key, an id PeerJS would not make (letters and digits, single `-`, `_` or spaces between them, at most 64), a token over 64 characters (closed, 4000), or 5000 ids connected (4013) |
+| client | `OFFER`, `ANSWER`, `CANDIDATE`, `LEAVE` `{ dst, payload }` | passed on to `dst` as `{ type, src, dst, payload }`, `src` the sender's id whatever it wrote |
+| client | `HEARTBEAT` | PeerJS sends one every 5 s; like any frame, it keeps the id |
+| server | `EXPIRE` `{ src, dst }` | messages for an id not connected wait 5 s (at most 128 KB per id; a `LEAVE` is not kept): if it connects meanwhile it gets them after its `OPEN`, in order; else each sender hears `EXPIRE` once, `src` the absent id (PeerJS reports `peer-unavailable`) |
+
+Anything else (not JSON, another type, no `dst`, a message over 64 KB, more than 200 a second per id) is dropped
+without an answer, as PeerJS's own server does (an `ERROR` would end the client). An id is free as soon as its socket
+closes, or once silent for `--timeout` (40 s; closed with 4009): the relay pings every socket every `--ping` seconds
+and a browser answers by itself, so only a device that has gone falls silent. 1001: the relay is stopping.
+
 ## Testing
 
 ```sh
@@ -348,5 +404,13 @@ malformed and oversized messages, hand-made frames (masking, fragmentation with 
 close), member timeouts, version and protocol mismatches, replaced sockets, room expiry, the room's limits
 (5000 keys; 4 MB with the keys counted), the static files (types, gzip, byte ranges, 304, path traversal
 attempts, every file `sw.js` caches served and nothing else of the repository, links, no file left open by a
-download cut short), the start lines (no `http://` address for headsets), `--lan` and the log. It exits 1 on
-a failure. The shared-room client in the app has its own test (`tools/collab.mjs`).
+download cut short), the start lines (no `http://` address for headsets), `--lan`, the log, and the introduction
+server: ids over HTTP (CORS, bad requests refused), `OPEN`, `ID-TAKEN` for another token, the same token reconnecting,
+messages passed on with `src`, kept for an id that comes a moment later and `EXPIRE` for one that never comes,
+heartbeats, a silent id dropped, a closed socket freeing its id, the log (ids only) and `--no-peer`. It exits 1 on a
+failure. The shared-room client in the app has its own test (`tools/collab.mjs`).
+
+`node tools/peer.mjs` (Playwright and Chromium, as `tools/smoke.mjs`; seconds) is the end-to-end check: it starts the
+relay, opens the peer-to-peer test page from it in two headless pages with `&peer=` pointing at the relay, and checks
+that the first hosts, the second gets an id and links to it, the data channel opens and messages go both ways, and
+that the host's id is freed when it leaves and the other page takes over. Nothing goes to the internet.
