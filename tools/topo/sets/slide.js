@@ -215,7 +215,7 @@ void main() {
   vec2 p = vUv * uSide;                                   // µm
   float px = max(fwidth(vUv.x), fwidth(vUv.y)) * uTW;     // local units per pixel
   vec4 s = texture2D(tS, vUv), d = texture2D(tD, vUv);
-  float cy = min(s.r * 1.25, 1.0), co = min(s.g, 1.0), hz = min(s.b, 1.0), ti = smoothstep(0.08, 0.32, s.a + 0.08 * (vn(p / 30.0) - 0.5));
+  float cy = min(s.r * 1.25, 1.0), co = min(s.g, 1.0), hz = min(s.b, 1.0), ti = smoothstep(0.2, 0.42, s.a + 0.08 * (vn(p / 30.0) - 0.5));
   // eosin: the hepatocytes' cytoplasm pink, pale sinusoids between them, paler streaky collagen; haematoxylin: a haze
   float E = 0.2 + 0.24 * cy + 0.2 * co, H = 0.02 + 0.5 * hz + 0.04 * co;
   E *= 0.88 + 0.24 * vn(p / 9.0);                         // uneven staining
@@ -256,6 +256,7 @@ void main() {
   gl_FragColor = vec4(col, uA * ti * (1.0 - 0.55 * dm) * (1.0 - 0.15 * uPts));
 }`,
     });
+    mat.userData.fixed = true;   // (its depth writes are its own: LK.depth() leaves it alone)
     set.mats.push(mat);
     const quad = new THREE.PlaneGeometry(TW, TW);
     quad.rotateX(-PI / 2);
@@ -315,6 +316,7 @@ void main() {
 }`,
       extensions: { derivatives: true },
     });
+    mat.userData.fixed = true;
     set.mats.push(mat);
     const mesh = new THREE.Mesh(g, mat);
     mesh.frustumCulled = false; mesh.renderOrder = 2; mesh.visible = false;   // (over the cells)
@@ -363,6 +365,7 @@ void main() {
   gl_FragColor = vec4(he, uA * pres);
 }`,
   });
+  ovMat.userData.fixed = true;
   set.mats.push(ovMat);
   const ovGeo = new THREE.PlaneGeometry(ovW, ovH);
   ovGeo.rotateX(-PI / 2);

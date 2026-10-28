@@ -147,6 +147,7 @@ void main() {
   gl_FragColor = vec4(col, vA * (0.84 + 0.1 * line));
 }`,
   });
+  relMat.userData.fixed = true;   // (its depth writes are its own)
   set.mats.push(relMat);
   const relief = new THREE.Mesh(relGeo, relMat);
   relief.frustumCulled = false; relief.renderOrder = 1;
@@ -208,6 +209,7 @@ void main() {
   gl_FragColor = vec4(col, vA * a);
 }`,
   });
+  beadMat.userData.fixed = true;
   set.mats.push(beadMat);
   const beads = new THREE.Mesh(bg, beadMat);
   beads.frustumCulled = false; beads.renderOrder = 2;
@@ -302,6 +304,7 @@ void main() {
   const plateMat = new THREE.ShaderMaterial({ uniforms: plateU, transparent: true, depthWrite: false,
     vertexShader: 'void main() { gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
     fragmentShader: 'uniform float uA; void main() { gl_FragColor = vec4(0.006, 0.01, 0.022, 0.9 * uA); }' });
+  plateMat.userData.fixed = true;
   set.mats.push(plateMat);
   const plateGeo = new THREE.PlaneGeometry(TW, TW);
   plateGeo.rotateX(-PI / 2);
