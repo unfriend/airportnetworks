@@ -66,11 +66,13 @@ ok(S.n === 6716 && S.n === D.slide.n, `the window: ${S.n} cells (6,716)`);
 ok(D.slide.comp100.sizes.join('/') === '1000/5716', 'the split at 100 µm: 1,000 and 5,716 cells (the poster\'s)');
 const c50 = [0, 0];
 for (let i = 0; i < S.n; i++) { if (S.lo50[i] < 0) c50[0]++; else if (S.lo50[i] > 0) c50[1]++; }
-// (the packed scores are rounded to 0.01: a few cells within 0.005 of zero count as neither)
-ok(Math.abs(c50[0] - D.slide.comp50.sizes[0]) <= 5 && Math.abs(c50[1] - D.slide.comp50.sizes[1]) <= 5, `the split at 50 µm from the packed scores: ${c50.join('/')} (stored ${D.slide.comp50.sizes.join('/')})`);
+ok(c50.join('/') === D.slide.comp50.sizes.join('/'), `the split at 50 µm from the scores: ${c50.join('/')} (stored ${D.slide.comp50.sizes.join('/')})`);
+const c100 = [0, 0];
+for (let i = 0; i < S.n; i++) { if (S.lo100[i] < 0) c100[0]++; else if (S.lo100[i] > 0) c100[1]++; }
+ok(c100.join('/') === '1000/5716', `the split at 100 µm from the scores: ${c100.join('/')}`);
 ok(D.slide.train === 122, 'scored by the model of the other 122 slides');
 const e = D.slide.e;
-ok(near(S.lo50[e.cell], e.logOdds, 0.011), `cell v's score at 50 µm: ${S.lo50[e.cell]} (${e.logOdds})`);
+ok(near(S.lo50[e.cell], e.logOdds, 0.006), `cell v's score at 50 µm: ${S.lo50[e.cell]} (${e.logOdds})`);
 ok(T.localReady && S.localH0(e.cell).length >= 19, `cell v has ${S.localH0(e.cell).length + 1} cells within 50 µm`);
 const ev = D.slide.eBars, mine = S.localH0(e.cell);
 ok(ev.h0.length === mine.length && ev.h0.every((r, k) => Math.abs(r - mine[k]) / r < 0.025), 'cell v\'s stored bars agree with its packed ones (to the one-byte step)');

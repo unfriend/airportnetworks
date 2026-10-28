@@ -290,11 +290,6 @@ edges_w, tris_w = np.array(edges_w), np.array(tris_w)
 k_e = int(np.flatnonzero(idx == pe['cell'])[0])     # the poster's cell v among the window's cells
 
 
-def i16(v, scale):
-    a = np.round(np.asarray(v, float) * scale)
-    return np.where(np.isfinite(a), np.clip(a, -32767, 32767), -32768).astype(np.int16)
-
-
 def comp(c):
     return {'types': c['types'], 'healthy': rnd(c['healthy_like'], 4), 'cirrhosis': rnd(c['cirrhosis_like'], 4),
             'sizes': [c['sizes']['healthy_like'], c['sizes']['cirrhosis_like']]}
@@ -320,7 +315,7 @@ over = {'bin': round(bin_um, 2), 'w': int(nb[0]), 'h': int(nb[1]),
 slide = {
     'side': side, 'n': int(idx.size), 'types': types,
     'xy': b64(np.round(wxy * 10).astype(np.int16)), 'type': b64(ttype.astype(np.uint8)),
-    'lo50': b64(i16(f50['log_odds'], 100)), 'lo100': b64(i16(f100['log_odds'], 100)),
+    'lo50': b64(np.asarray(f50['log_odds'], np.float32)), 'lo100': b64(np.asarray(f100['log_odds'], np.float32)),
     'limit50': round(f50['limit'], 2), 'limit100': round(f100['limit'], 2), 'train': int(f50['train_slides']),
     'comp50': comp(comp50), 'comp100': comp(comp100),
     # each cell's own bars, deflated (raw): per cell the count of its pieces' joinings and of its loops (Uint16 each),

@@ -154,7 +154,7 @@ are base64 strings; `TDATA` decodes them once. Fields:
   µm), `type` (Uint8 per cell), `patch` `[x, y, side]` (where the patch lies in the tile; the patch's y is flipped:
   `y_tile = patch[1] + side - y_patch`).
 - `slide` (the new slide's window: `side` 1500 µm, y down; `n` 6,716 cells): `types`, `xy`, `type`, `lo50` and `lo100`
-  (Int16, log-odds × 100, -32768 where a cell has no local curve; at δ 50 and 100 µm), `limit50`, `limit100` (the colour
+  (Float32, log-odds, NaN where a cell has no local curve; at δ 50 and 100 µm), `limit50`, `limit100` (the colour
   map's limit: the slide's 98th percentile of |log-odds|), `train` 122, `comp50` and `comp100` `{ types (the five most
   frequent and "other"), healthy, cirrhosis (shares), sizes [healthy-like, cirrhosis-like] }`, `local` (each cell's own
   bars at 50 µm, deflated: read them only through `TDATA.slide.localH0(i)` and `localH1(i)`, which give null until

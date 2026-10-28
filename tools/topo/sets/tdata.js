@@ -79,7 +79,7 @@ const TDATA = (() => {
     y: Float32Array.from(P.pts.filter((_, i) => i % 2 === 1)), side: P.side };
   out.tile = cells(D.tile);
   const S = D.slide, sl = out.slide = cells(S);
-  const lo = (s) => { const a = b64(s, Int16Array), f = new Float32Array(a.length); for (let i = 0; i < a.length; i++) f[i] = a[i] === -32768 ? NaN : a[i] / 100; return f; };
+  const lo = s => b64(s, Float32Array);   // (NaN where a cell has no local curve)
   sl.lo50 = lo(S.lo50); sl.lo100 = lo(S.lo100);
   const ij = b64(S.edges.ij, Uint16Array), er = b64(S.edges.r, Uint8Array), ijk = b64(S.tris.ijk, Uint16Array), tr = b64(S.tris.r, Uint8Array);
   sl.edges = { n: S.edges.n, i: new Uint16Array(S.edges.n), j: new Uint16Array(S.edges.n), r: new Float32Array(S.edges.n) };
