@@ -121,28 +121,13 @@ def env(r, v, columns=COLUMNS):
     return rnd(e, 4)
 
 
-# ---- the poster's panels, as its figure scripts compute them ----
-log('cohort (persistence, cosine fPCA, classifiers) ...')
-view = real.cohort_view()
-log('cohort without slide f ...')
-hold = real.holdout_view()
-log('panels b, c, d ...')
-pb, pc, pd_ = real.panel_b(), real.panel_c(), real.panel_d()
-pc = {'fve': pc['fve']}
 import gc
-gc.collect()
-log('f at 100 µm ...')
-real.DELTA_UM = 100.0
-f100, comp100 = real.f_scores(), real.f_composition()
-log('panel e ...')
-pe = real.panel_e()
-real.DELTA_UM = 50.0
-log('f at 50 µm ...')
-f50, comp50 = real.f_scores(), real.f_composition()
-
-ids = [str(g) for g in view.uns['betti_fpca_cos_h1']['group_ids']]
-labels = [str(view.obs.loc[g, 'label']) for g in ids]
 clf_opts = real.COHORT['classify']
+
+
+def cohort_ids(view):
+    ids = [str(g) for g in view.uns['betti_fpca_cos_h1']['group_ids']]
+    return ids, [str(view.obs.loc[g, 'label']) for g in ids]
 
 
 # ---- the cohort, per homology dimension: curves, components, scores, classifier, shares ----
@@ -153,21 +138,32 @@ def dimension(dim, groups):
     result = FPCAResult.coerce(payload)
     entry = payload['classifiers'][clf_opts['label_key']]
     curves = [BettiCurve.from_result(groups[g], dim) for g in ids]
-    unit = []
+    # the unit curves, drawn over the bundle's top: two passes, so that only one slide's steps are held at a time
+    top = max(float(np.asarray(c.steps()[1], float).max()) / n for c, n in zip(curves, result.norms))
+    drawn = []
     for curve, norm in zip(curves, result.norms):
         x, v = curve.steps()
-        unit.append((np.sqrt(np.maximum(x, 0)) * MPP, np.asarray(v, float) / norm))
-    top = max(float(v.max()) for _, v in unit)
+        drawn.append(env(np.sqrt(np.maximum(x, 0)) * MPP, np.asarray(v, float) / norm / top))
+    del x, v
     v_, rho = result.eigenvectors, result.gram_eigenvalues
     from topocyte.ph.decomposition import _flat_bars, _step_sums
-    rows = [v_[:, k] / (np.sqrt(rho[k]) * result.norms) for k in range(min(4, len(rho)))]
+    rows = [v_[:, k] / (np.sqrt(rho[k]) * result.norms) for k in range(2)]   # the two shapes the story draws
     x, values = _step_sums(*_flat_bars(curves, dim)[:3], rows)
+    del curves
     r = np.sqrt(x) * MPP
+    del x
     phi_peak = max(float(np.abs(row).max()) for row in values)
+    phi = [env(r, row / phi_peak, 240) for row in values]
+    del r, values
+    gc.collect()
     coef = _coefficient(view, key, clf_opts['label_key'], MPP)
     rc = np.sqrt(coef.x)
     mtop = max(float(coef.reference.max()), float(coef.positive.max()))
     gpeak = max(abs(float(coef.gamma.max())), abs(float(coef.gamma.min())))
+    means = {'healthy': env(rc, coef.reference / mtop, 240), 'cirrhosis': env(rc, coef.positive / mtop, 240)}
+    gamma = env(rc, coef.gamma / gpeak, 240)
+    del coef, rc
+    gc.collect()
     edges = list(np.arange(0.0, FINE_TOP + FINE / 2, FINE)) + [math.inf]
     table = tc.tl.fpca_scale_importance(view, fpca_key=key, key=clf_opts['label_key'], windows=edges, scale=MPP)
     # the held-out prediction of every slide, as fpca_classify's own cross-validation makes them (same folds)
@@ -183,10 +179,7 @@ def dimension(dim, groups):
     return {
         'fve': rnd(result.explained_variance_ratio[:6], 4),
         'scores': [rnd(s, 4) for s in result.scores[:, :4]],
-        'curves': [env(rr, vv / top) for rr, vv in unit],
-        'phi': [env(r, row / phi_peak, 240) for row in values],
-        'means': {'healthy': env(rc, coef.reference / mtop, 240), 'cirrhosis': env(rc, coef.positive / mtop, 240)},
-        'gamma': env(rc, coef.gamma / gpeak, 240), 'gammaPeak': round(gpeak, 6),
+        'curves': drawn, 'phi': phi, 'means': means, 'gamma': gamma, 'gammaPeak': round(gpeak, 6),
         'classes': list(entry['classes']), 'y': [int(v) for v in y],
         'coef': rnd(np.ravel(entry['coef']), 6), 'intercept': round(float(np.ravel(entry['intercept'])[0]), 6),
         'C': round(float(entry['C']), 6),
@@ -199,11 +192,52 @@ def dimension(dim, groups):
     }
 
 
-groups = tc.tl.read_persistence(view, 'slide_ph')
-log('packing H0 ...')
-h0 = dimension(0, groups)
-log('packing H1 ...')
-h1 = dimension(1, groups)
+
+# Each dimension is packed in a process of its own (TOPO_PART=0 or 1), before the main one reads anything big: the
+# cohort's 30.8 million bars of pieces, walked several times, ran a single process out of memory.
+PART = os.environ.get('TOPO_PART')
+if PART is not None:
+    dim = int(PART)
+    view = real.cohort_view()
+    ids, labels = cohort_ids(view)
+    log(f'packing H{dim} ...')
+    out = dimension(dim, tc.tl.read_persistence(view, 'slide_ph'))
+    with open(os.path.join(CACHE, f'topo-h{dim}.json'), 'w') as fh:
+        json.dump(out, fh)
+    sys.exit(0)
+
+
+def part(dim):
+    path = os.path.join(CACHE, f'topo-h{dim}.json')
+    if not os.path.exists(path):
+        import subprocess
+        subprocess.run([sys.executable, os.path.abspath(__file__), *sys.argv[1:]], env={**os.environ, 'TOPO_PART': str(dim)},
+                       check=True)
+    with open(path) as fh:
+        return json.load(fh)
+
+
+h0, h1 = part(0), part(1)
+
+# ---- the poster's panels, as its figure scripts compute them ----
+log('cohort (persistence, cosine fPCA, classifiers) ...')
+view = real.cohort_view()
+log('cohort without slide f ...')
+hold = real.holdout_view()
+log('panels b, c, d ...')
+pb, pc, pd_ = real.panel_b(), real.panel_c(), real.panel_d()
+pc = {'fve': pc['fve']}
+gc.collect()
+log('f at 100 µm ...')
+real.DELTA_UM = 100.0
+f100, comp100 = real.f_scores(), real.f_composition()
+log('panel e ...')
+pe = real.panel_e()
+real.DELTA_UM = 50.0
+log('f at 50 µm ...')
+f50, comp50 = real.f_scores(), real.f_composition()
+
+ids, labels = cohort_ids(view)
 
 
 # ---- slide f's window: its cells, types, local log-odds and local bars at 50 µm, the alpha complex there ----

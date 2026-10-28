@@ -131,7 +131,7 @@ are base64 strings; `TDATA` decodes them once. Fields:
 - `labels`: 123 numbers, 0 healthy, 1 cirrhosis (the slides' order everywhere below).
 - `h0`, `h1` (the cosine models of pieces and of loops): `fve` (the first six fractions of variance), `scores` (123 ×
   4), `curves` (123 flat lists `[u, y, u, y, ...]`: each slide's unit Betti curve as the figure scripts' exact envelope
-  at 160 columns, u from 0 to 1 on the log ruler, y over the bundle's top), `phi` (four components, the same form, over
+  at 160 columns, u from 0 to 1 on the log ruler, y over the bundle's top), `phi` (the first two components, the same form, over
   their common largest |value|), `means` `{ healthy, cirrhosis }` (the classes' mean unit curves, over their common top),
   `gamma` (γ over its largest |value|; `gammaPeak` that value per µm²), `classes`, `y` (0/1 per slide), `coef` (4
   weights on the scores), `intercept`, `C`, `logOdds` (the final model's log-odds per slide), `held` (each slide's

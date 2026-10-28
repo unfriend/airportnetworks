@@ -14,7 +14,8 @@
 // hides the mesh while it is empty, so an empty pool costs no draw call). A pool keeps what it holds until the next
 // begin(): a set may fill a still pool once. Nothing is allocated per add: reuse arrays and options objects.
 // Draw calls: one per pool (discs two). Triangles per instance: tube 20, cone 48, ball 352, ring 640, glass 952, disc 2
-// (drawn twice), cell 2, slide 236, sheet 1 per triangle, ribbon 4 per point of its pool (pts) less 4.
+// (drawn twice), cell 2, slide 224, sheet 1 per triangle, ribbon 4 per point of its pool (pts) less 4 (so give pts the
+// envelopes' length: 123 ribbons of 160 points are about 78k triangles).
 // Order of drawing (renderOrder): tubes, rings, balls, boxes, cones, slides 0; cells, the sheet, ribbons, glass 1;
 // discs 2 and 3 (after everything else of the set, so beads, edges and triangles show through the balls' glass).
 // Depth: tubes, rings, balls, boxes and cones write depth only while the set is fully in (call depth() every frame);
@@ -40,7 +41,8 @@
 //       buffer: the discs stay flat) is highest there, so the union is cut along the bisectors between centres (the
 //       Voronoi cells within the balls, as the alpha complex is built), and a seam glows where two balls just touch
 //       and fades as they overlap more. Lift c a little off a surface it lies on. Two draw calls (a depth pass and the
-//       glass), after everything else of the set.
+//       glass), after everything else of the set; the depth pass hides what is drawn later within the dome's height
+//       over the plane. P.dome.value: the dome's height on the radius (change it for every disc of the pool).
 //   sheet(max).add(a, b, c, col, alpha, edge)
 //       One glass triangle (corners a, b, c) in a merged buffer: 25 % glass at alpha 1, lit, a little brighter seen
 //       edge-on; edge 0..1 (optional, default 0.6) a thin bright line along its sides. Drawn in front of a surface it
@@ -72,8 +74,9 @@
 //       camera), nuc its nucleus (optional, default CELLCOL[kind][1]). H&E cells fade out as they shrink on screen
 //       (under P.lod(px0, px1): their radius in pixels, default 0.6 to 1.6; lay a stain under them for far views) and
 //       near the eye; beads never shrink under 1.5 pixels (smaller ones dim instead). P.bead(v): every cell turns into
-//       a bead of 0.385 of its radius in P.beadCol (default BEAD) as v goes 0..1. opts (optional): additive (glowing
-//       on black), depth (write depth while the set is fully in). Drawn in front of the surface (polygon offset).
+//       a bead of 0.385 of its radius, in BEAD or the colour set by P.beadCol(c), as v goes 0..1. opts (optional):
+//       additive (glowing on black), depth (write depth while the set is fully in). Drawn in front of the surface
+//       (polygon offset). A still pool of thousands is best filled once (P.begin, adds, P.end) and left.
 //   he(H, E, out)                                      the colour of H haematoxylin and E eosin (optical densities)
 // Cell kinds (CELL): HEP 0 (hepatocyte-like: polygonal, a large round nucleus with its nucleolus, sometimes two), LARGE 1
 // (a bigger, darker, irregular nucleus), SPINDLE 2 (a long thin cell, a slim nucleus), SMALL 3 (small and round, a dark
