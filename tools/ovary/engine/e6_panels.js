@@ -96,7 +96,7 @@ function makePanel(w, h, mw, draw, sig) {
     new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthTest: false, depthWrite: false }));
   mesh.renderOrder = 50;
   mesh.visible = false;
-  const P = { w, h, cv, ctx: cv.getContext('2d'), tex, mesh, draw, sig, regions: [], hover: null, last: '', t: 0 };
+  const P = { w, h, cv, ctx: cv.getContext('2d'), tex, mesh, draw, sig, regions: [], hover: null, last: '', t: 0, inScene: false };
   P.at = (x, y) => {
     for (let k = P.regions.length - 1; k >= 0; k--) {
       const r = P.regions[k];
@@ -105,6 +105,17 @@ function makePanel(w, h, mw, draw, sig) {
     return null;
   };
   return P;
+}
+// a story panel in the scene or on top, as the labels are: labels in 3D, it stands in the scene as their signs do
+// (depth-tested and writing depth, drawn first of the see-through things, its clear corners cut away), so what stands
+// in front of it hides it and it hides what is behind it; otherwise it is drawn over everything. Set only when that
+// changes (a new alphaTest needs the material built again)
+function panelDepth(P, inScene) {
+  if (P.inScene === inScene) return;
+  const m = P.mesh.material;
+  P.inScene = m.depthTest = m.depthWrite = inScene;
+  m.alphaTest = inScene ? 0.1 : 0; m.needsUpdate = true;
+  P.mesh.renderOrder = inScene ? -1 : 50;
 }
 // redraw only when what the panel shows has changed (texture uploads are not free)
 function panelTick(P, now) {

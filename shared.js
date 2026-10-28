@@ -1283,7 +1283,7 @@
   function cardFor(s, lm) {
     let o = OV.cards.get(s.id);
     if (!o) {
-      o = sheet(560, 330, 0.5, 49);   // drawn before the story's panels (50), so a panel in front stays on top
+      o = sheet(560, 330, 0.5, 49);   // on top: drawn before the story's panels (50), so a panel in front stays on top
       o.mesh.material.depthTest = true;
       // two faces back to back, so it reads the right way round from behind too (the card in 3D stays put)
       o.mesh.material.side = THREE.FrontSide;
@@ -1292,6 +1292,15 @@
       o.mesh.userData.shell = o.back.userData.shell = { kind: 'station', id: s.id };
       o.mesh.add(o.back);
       OV.cards.set(s.id, o); OV.room.add(o.mesh);
+    }
+    // labels in 3D: in the scene as the labels' signs are (drawn first of the see-through things, writing depth, its
+    // clear corners cut away), so a glowing or glass model in front hides it; on top: drawn after the scenes. Set only
+    // when the mode changes (a new alphaTest needs the material built again)
+    const fixed = lm === 'fixed';
+    if (o.fixed !== fixed) {
+      const m = o.mesh.material;
+      o.fixed = m.depthWrite = fixed; m.alphaTest = fixed ? 0.1 : 0; m.needsUpdate = true;
+      o.mesh.renderOrder = o.back.renderOrder = fixed ? -1 : 49;
     }
     const S = shown(s), [cx, cz] = content(S);
     // turned to you, upright (seen from another row it would be back to front), on top or in 3D alike: it is a card in
@@ -1359,10 +1368,11 @@
     o.tagTex = new THREE.CanvasTexture(o.tagCv);
     o.tag = new THREE.Sprite(new THREE.SpriteMaterial({ map: o.tagTex, transparent: true, depthTest: false, depthWrite: false }));
     o.tag.renderOrder = 57; o.tag.scale.set(0.3, 0.066, 1);
-    // labels in 3D: the tag as a sign turned with the head, two faces back to back (each reads the right way round)
-    const sm = new THREE.MeshBasicMaterial({ map: o.tagTex, transparent: true, depthWrite: false }), sg = new THREE.PlaneGeometry(0.3, 0.066);
+    // labels in 3D: the tag as a sign turned with the head, two faces back to back (each reads the right way round),
+    // in the scene as the labels' signs are (drawn first of the see-through things, writing depth, corners cut away)
+    const sm = new THREE.MeshBasicMaterial({ map: o.tagTex, transparent: true, alphaTest: 0.1 }), sg = new THREE.PlaneGeometry(0.3, 0.066);
     o.sign = new THREE.Group(); o.sign.visible = false;
-    for (const ry of [0, Math.PI]) { const f = new THREE.Mesh(sg, sm); f.rotation.y = ry; f.renderOrder = 57; o.sign.add(f); }
+    for (const ry of [0, Math.PI]) { const f = new THREE.Mesh(sg, sm); f.rotation.y = ry; f.renderOrder = -1; o.sign.add(f); }
     o.g.add(o.avatar, o.tag, o.sign);
     OV.room.add(o.g); OV.people.set(id, o);
     return o;

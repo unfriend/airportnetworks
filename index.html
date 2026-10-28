@@ -1182,9 +1182,10 @@ HOST.xr = (function () {
     });
   }
   // Two settings for every story in the headset (the menu's Labels and Moving rows): labels 'face' (sprites turned to
-  // you, drawn over everything), 'fixed' (in 3D: upright signs in the scene, turned to you and hidden by what stands
-  // in front of them) or
-  // 'hidden' (no labels, and no story text panel in story mode); free moving on (the grip holds what it takes like a
+  // you, drawn over everything, and the story panels on top), 'fixed' (in 3D: upright signs in the scene, turned to
+  // you and hidden by what stands in front of them; the story panels, the station cards and the name tags stand in
+  // the scene too) or 'hidden' (no labels and no story panels; the Stories screen, the menu and its clock stay, so
+  // the setting can be changed back); free moving on (the grip holds what it takes like a
   // real object, turning it with the hand) or off (it moves things but they keep facing you). One setting for the
   // whole system, everything in 3D by default: in a shared room the room's, for everyone in it (shared.js, key look),
   // else this device's own (xrLabels, xrFree), which keeps a room's last value after leaving it. Stories read

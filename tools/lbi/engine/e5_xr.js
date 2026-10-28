@@ -444,9 +444,10 @@ function xrUpdate(S) {
     // Sound check takes the place of the story cards while it is open
     for (const P of XR.land) P.mesh.visible = land && (P === XR.land[0] || !XR.soundCheck);
     XR.snd.mesh.visible = land && !!XR.soundCheck;
-    // labels hidden: the story's text panel goes too (its foot, with play, the clock and the chapters, stays)
-    XR.main.mesh.visible = !land && !(XR.lm === 'hidden' && APP.mode === 'story');
-    XR.foot.mesh.visible = !land;
+    // labels hidden: no story panel at all, in story and explore mode (the Stories screen, the shell's menu and its
+    // clock stay, and A or X still plays); labels in 3D: the panels stand in the scene, as the labels' signs do
+    XR.main.mesh.visible = XR.foot.mesh.visible = !land && XR.lm !== 'hidden';
+    panelDepth(XR.main, XR.lm === 'fixed'); panelDepth(XR.foot, XR.lm === 'fixed');
   }
   GL.world.visible = !land;
   if (land !== XR.landShown) { XR.landShown = land; HOST.setUrl(land); }

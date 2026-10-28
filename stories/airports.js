@@ -2024,9 +2024,10 @@ function xrUpdate(S) {
     // Sound check takes the place of the story cards while it is open
     for (const P of XR.land) P.mesh.visible = land && (P === XR.land[0] || !XR.soundCheck);
     XR.snd.mesh.visible = land && !!XR.soundCheck;
-    // labels hidden: the story's text panel goes too (its foot, with play, the clock and the chapters, stays)
-    XR.main.mesh.visible = !land && !(XR.lm === 'hidden' && APP.mode === 'story');
-    XR.foot.mesh.visible = !land;
+    // labels hidden: no story panel at all, in story and explore mode (the Stories screen, the shell's menu and its
+    // clock stay, and A or X still plays); labels in 3D: the panels stand in the scene, as the labels' signs do
+    XR.main.mesh.visible = XR.foot.mesh.visible = !land && XR.lm !== 'hidden';
+    panelDepth(XR.main, XR.lm === 'fixed'); panelDepth(XR.foot, XR.lm === 'fixed');
   }
   GL.world.visible = !land;
   if (land !== XR.landShown) { XR.landShown = land; HOST.setUrl(land); }
@@ -2370,7 +2371,7 @@ function makePanel(w, h, mw, draw, sig) {
     new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthTest: false, depthWrite: false }));
   mesh.renderOrder = 50;
   mesh.visible = false;
-  const P = { w, h, cv, ctx: cv.getContext('2d'), tex, mesh, draw, sig, regions: [], hover: null, last: '', t: 0 };
+  const P = { w, h, cv, ctx: cv.getContext('2d'), tex, mesh, draw, sig, regions: [], hover: null, last: '', t: 0, inScene: false };
   P.at = (x, y) => {
     for (let k = P.regions.length - 1; k >= 0; k--) {
       const r = P.regions[k];
@@ -2379,6 +2380,17 @@ function makePanel(w, h, mw, draw, sig) {
     return null;
   };
   return P;
+}
+// a story panel in the scene or on top, as the labels are: labels in 3D, it stands in the scene as their signs do
+// (depth-tested and writing depth, drawn first of the see-through things, its clear corners cut away), so what stands
+// in front of it hides it and it hides what is behind it; otherwise it is drawn over everything. Set only when that
+// changes (a new alphaTest needs the material built again)
+function panelDepth(P, inScene) {
+  if (P.inScene === inScene) return;
+  const m = P.mesh.material;
+  P.inScene = m.depthTest = m.depthWrite = inScene;
+  m.alphaTest = inScene ? 0.1 : 0; m.needsUpdate = true;
+  P.mesh.renderOrder = inScene ? -1 : 50;
 }
 // redraw only when what the panel shows has changed (texture uploads are not free)
 function panelTick(P, now) {
