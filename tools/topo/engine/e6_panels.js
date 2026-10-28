@@ -168,8 +168,8 @@ function xrLandingSetup() {
     // apart at 1.7 m (0.382 m apart, the outer ones 58° to the side), eleven 0.206 rad apart at 1.85 m (0.381 m apart,
     // the outer ones 59° to the side), twelve 0.19 rad apart at 2 m (0.38 m apart, the outer ones 60° to the side),
     // thirteen 0.177 rad apart at 2.15 m (0.381 m apart, the outer ones 61° to the side), fourteen 0.166 rad apart at
-    // 2.3 m (0.381 m apart, the outer ones 62° to the side), fifteen 0.155 rad apart at 2.46 m (0.381 m apart, the outer
-    // ones 62° to the side)
+    // 2.3 m (0.381 m apart, the outer ones 62° to the side), fifteen 0.155 rad apart at 2.46 m (0.381 m apart, the
+    // outer ones 62° to the side)
     const n = HOST.list.length, a = (k - (n - 1) / 2) * (n > 14 ? 0.155 : n > 13 ? 0.166 : n > 12 ? 0.177 : n > 11 ? 0.19 : n > 10 ? 0.206 : n > 9 ? 0.225 : n > 8 ? 0.245 : n > 7 ? 0.272 : 0.31), d = n > 14 ? 2.46 : n > 13 ? 2.3 : n > 12 ? 2.15 : n > 11 ? 2 : n > 10 ? 1.85 : n > 9 ? 1.7 : n > 8 ? 1.55 : n > 7 ? 1.4 : 1.25;
     const P = makePanel(640, 820, 0.36, (ctx, P) => drawLandCard(ctx, P, s), () => 'c' + XR.inStory + s.key);
     P.mesh.position.set(Math.sin(a) * d, -0.105, -Math.cos(a) * d);   // top edge 0.126 m up, under the header

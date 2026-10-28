@@ -63,7 +63,7 @@ chapters start at 0:00, 0:43, 1:50, 2:50, 3:49, 5:05, 6:11 and 7:26, ending at
 if your recording differs.
 
 The shape of tissue (#topo) looks for narration-topo.mp3. Its chapters start
-at 0:00, 0:56, 1:40, 2:48, 3:52, 4:50, 5:51 and 6:51, ending at 8:04; change
+at 0:00, 0:56, 1:40, 2:51, 3:55, 4:53, 5:54 and 6:54, ending at 8:07; change
 NARRATION_SYNC in tools/topo/engine/e3_story.js (then rebuild) if your
 recording differs.
 
