@@ -267,7 +267,9 @@ the text shows: counts, shares, fve, accuracy, the snapshots, sizes, the cell's 
 identical (the headset code, the shared-room hooks, the slideshow, `fitTitle`, the landing screen, the headset settings
 lines: see "Shared rooms" and "Inside a story" in AGENTS.md; no life-size or room mode in this story). Keep labels whose
 `text` is a function, `STEP`, `finish()`, the stand view (`standView` in `e3_story.js`: here the tower's `stand` view in
-chapters 3 and 4). `ORGAN3D` is driven as in the microanatomy story (`ORGAN3D.driven`, want the liver first).
+chapters 3 and 4). `ORGAN3D` is driven as in the microanatomy story (`ORGAN3D.driven`, want the liver first). On
+phones the views that clip or come out small get the mutation story's factors (`NARROW` for a phone held upright,
+measured at 390 x 760; `LOW` for one held sideways, measured at 640 x 400: the tower, the board and the cohort's views).
 
 **Chapters** (about 5 minutes of story time before pacing; `CH` keys and times; the first key is `title`). Every
 chapter: one or two plain sentences first, then the technical layer in smaller print. Numbers from `FACTS`, none

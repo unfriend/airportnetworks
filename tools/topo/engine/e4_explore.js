@@ -76,10 +76,14 @@ const mapShow = () => ctlValue('map', ctlOf('map', 'show'));
 const mapDelta = () => (ctlValue('map', ctlOf('map', 'delta')) === '100' ? 100 : 50);
 const DIMS = [['1', 'Loops'], ['0', 'Pieces']];
 
+// the radius the patch shows for X.r (held to the hundredth): one of the poster's snapshots picked is its stored radius,
+// so the patch and its counts are the poster's there (its first, 4.081 µm, is the very radius at which a piece joins:
+// at 4.08 one more piece would still be apart)
+const patchR = r => { const s = FACTS.snaps.find(s => Math.round(s.r * 100) / 100 === r); return s ? s.r : r; };
 // the controls a set's explore() reads: its own, with the panes' radii
 function ctlArgs(k, now) {
   const c = { t: (now - X.t0) / 1000 };
-  for (const ct of allCtl(k)) c[ct.key] = isNum(k, ct) ? (k === 'map' ? X.mr : X.r) : ctlValue(k, ct);
+  for (const ct of allCtl(k)) c[ct.key] = isNum(k, ct) ? (k === 'map' ? X.mr : patchR(X.r)) : ctlValue(k, ct);
   return c;
 }
 // what the chosen scene and its controls ask for: that set fully in, every other set out; then what the panes pick
@@ -193,8 +197,11 @@ function selectCell(i, ui = true) {
   X.cell = Number.isInteger(i) && i >= 0 && i < n && i !== api('map').e ? i : -1;
   if (ui) {
     if (!(X.scene === 'map' && mapShow() === 'cell')) showView('map', 'cell');
-    // (fly to it once the set shows it flat again)
-    NEXT.push(() => { const p = api('map').pos(X.cell >= 0 ? X.cell : api('map').e); flyNear([p[0], 0.02, p[2]], Math.min(orbit.cur[2], 0.8)); });
+    // (fly to it once the set shows it flat again; not if another scene or view was picked meanwhile)
+    NEXT.push(() => {
+      if (X.scene !== 'map' || mapShow() !== 'cell') return;
+      const p = api('map').pos(X.cell >= 0 ? X.cell : api('map').e); flyNear([p[0], 0.02, p[2]], Math.min(orbit.cur[2], 0.8));
+    });
   }
   renderAll();
 }
@@ -335,8 +342,8 @@ const winTxt = (r0, r1) => (r1 > 100 ? `${r0} µm and above` : `${r0}–${r1} µ
 
 // the patch at its radius, in words: the counts of the stored bars alive there (both panels)
 function patchInfo() {
-  const c = api('tower').counts ? api('tower').counts(X.r) : { pieces: 0, loops: 0 }, [lb, ld] = FACTS.loop;
-  const big = X.r < lb ? 'the big one not yet closed' : X.r < ld ? 'the big one among them' : 'the big one has filled';
+  const r = patchR(X.r), c = api('tower').counts ? api('tower').counts(r) : { pieces: 0, loops: 0 }, [lb, ld] = FACTS.loop;
+  const big = r < lb ? 'the big one not yet closed' : r < ld ? 'the big one among them' : 'the big one has filled';
   return [['Radius', `${fmtR2(X.r)} µm`], ['Pieces', fmt(c.pieces), c.pieces === 1 ? 'all joined into one' : ''], ['Loops', fmt(c.loops), big]];
 }
 const patchLive = () => statsHtml(patchInfo());
@@ -480,7 +487,7 @@ function pickText(p) {
     const A = api('map'), c = A.cell(p.cell), lo = mapDelta() === 100 ? c.lo100 : c.lo50;
     return [p.cell === A.e ? 'Cell v' : `Cell ${fmt(p.cell + 1)}`, `${c.type} · ${Number.isFinite(lo) ? `score ${f2s(lo)}` : 'no score'}`];
   }
-  if (p.tcell !== undefined) { const q = api('tower').piece(p.tcell, X.r); return ['A cell', `in a piece of ${plural(q.cells, 'cell', 'cells')} at ${fmtR(X.r)} µm`]; }
+  if (p.tcell !== undefined) { const q = api('tower').piece(p.tcell, patchR(X.r)); return ['A cell', `in a piece of ${plural(q.cells, 'cell', 'cells')} at ${fmtR(X.r)} µm`]; }
   if (p.loop !== undefined) return loopText(api('tower').loop(p.loop));
   if (p.bar !== undefined) {
     if (p.dim) return loopText(api('tower').loop(p.bar));

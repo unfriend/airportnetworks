@@ -10,8 +10,9 @@
 // radius and carries the complex at that radius; what lies above it is drawn faint. Beside the tower the barcode (one
 // rod per bar, at the heights it spans, sorted) and the two Betti curves as lit ribbons on a glass wall (tower_bars),
 // their counts looked up from the stored bars. Nothing here is computed but looked up: which simplices and bars are
-// alive at a radius (their stored radii against it), which piece a cell is in (the stored joins replayed in order), and
-// where things go (stored positions and radii). Everything follows the params and t.
+// alive at a radius (their stored radii against it), which piece a cell is in at a radius (read off the stored joins,
+// replayed in order: bookkeeping for the drawing; the joins are gudhi's), and where things go (stored positions and
+// radii). Everything follows the params and t.
 SETS.tower = function (K) {
   const { THREE, clamp, lerp, prog, smooth } = K;
   const set = K.newSet('tower');

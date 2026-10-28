@@ -8,7 +8,7 @@ slides). The poster's y runs up the plate away from you (-z).
 - **Balls** (`tower_r`, µm): a glass disc of radius r round every cell (`TLOOK.discs`, so overlapping balls read as one
   union with a seam where two just touch). An edge appears when r reaches its stored radius (glowing white as it
   appears, a joining edge amber), a glass triangle likewise. The beads and balls take the colour of the piece they are
-  in (the stored joins replayed in order up to r); a piece of one cell stays white-gold. Every loop alive at r
+  in (read off the stored joins, replayed in order up to r); a piece of one cell stays white-gold. Every loop alive at r
   (`birth <= r < death`, as `TDATA.betti`) glows: its ring of edges orange (`loops[].ring`), its hole a glass fan and a
   soft halo, a white flash as it is born; the poster's loop (`loops[0]`, `patch.loop`) brightest. Tags at the poster's
   four snapshots, from `patch.snaps` and `patch.betti`.
@@ -17,8 +17,9 @@ slides). The poster's y runs up the plate away from you (-z).
   thicker as it gathers cells and coloured as its piece; where it joins another (`patch.joins`) it bridges, at the
   height of the joining, along a curve across the middle of its joining edge to the other piece's thread; the threads
   merge until one trunk (amber, the last piece) goes on to the top. Each loop is a chimney: its ring extruded from the
-  height of its birth to its death and capped where it fills (the poster's loop with lit edges, rings and a glow inside;
-  the short-lived ones as faint walls and a cap). The radius plane (faint glass in a cyan frame) rises with `tower_r`
+  height of its birth to its death and capped where it fills (the poster's loop with lit edges, rings and a faint glow
+  inside, kept low so the threads behind it still read; the short-lived ones as faint walls and a cap). The plate fades
+  back to half as the tower rises (its frosted label was the brightest thing at the tower's foot). The radius plane (faint glass in a cyan frame) rises with `tower_r`
   and carries the complex at that radius: cells, edges, triangles, balls (fainter here) and the loops' holes; whatever
   stands above it is drawn faint, so the plane reads as "now". The ruler: a post at the plate's left (x -1, z 0) with
   marks at 2, 5, 10, 20 and 50 µm and a cyan ring at the plane. At `tower_rise` 0 everything lies on the plate (the balls
@@ -30,10 +31,13 @@ slides). The poster's y runs up the plate away from you (-z).
   changes, a rod's pitch per piece) traces it exactly. The loops' rods are packed into lanes (each to the first lane free
   at its birth: as many lanes as loops ever alive at once, 10), so the busy lanes at a height are the count of loops, and
   the β1 ribbon (`TDATA.betti`, a lane's pitch per loop) stands behind them. The rods alive at the plane are lit; the
-  plane's line runs across the board with a bead where it meets each curve.
+  plane's line runs across the board with a bead where it meets each curve. The board comes only once the tower stands
+  (`tower_bars` counts from `tower_rise` 0.7 on: in explore the two are eased together), and while it is up the tower,
+  its plane and the complex on it step back to 55 %, so the rods flying out and the curves read.
 
 Nothing here is computed but looked up: which simplices and bars are alive at a radius (stored radii against it), which
-piece a cell is in (the stored joins replayed), the counts (`TDATA.deaths`, `TDATA.betti`), and where things go (stored
+piece a cell is in at radius r (read off the stored joins, replayed in order up to r: bookkeeping for the drawing, the
+joins themselves are gudhi's), the counts (`TDATA.deaths`, `TDATA.betti`), and where things go (stored
 positions and radii). The packing of the loops' rods into lanes, the piece colours and the threads' thickness (cells
 per piece) are drawing only.
 
@@ -55,7 +59,8 @@ The resting look (defaults): the 110 cells as white-gold beads on the plate, the
 `plate` (the middle of the plate), `label` (the plate's frosted label), `top` (the tower's top on its axis), `tag` (the
 plate's back left corner: the snapshots' tags), `cell` (a cell of the big loop, on the plane), `hole` (the big loop's hole
 on the plane), `plane` (the ruler at the plane's height), `trunk` (above the trunk's top), `chimney` (the big chimney's
-side, halfway up), `bars` (above the pieces' staircase), `bars1` (above the loops' lanes), `board` (the board's middle),
+side, halfway up), `bars` (above the pieces' staircase), `bars1` (above the board's right part, over the pieces' low end
+left of the loops' lanes, so its tag ends on the board), `board` (the board's middle),
 `tick0` .. `tick4` (the ruler's marks at 2, 5, 10, 20, 50 µm). All but `plate`, `label` and `tag` follow the params.
 
 ## Labels
@@ -69,19 +74,19 @@ side, halfway up), `bars` (above the pieces' staircase), `bars1` (above the loop
 - `2 µm` .. `50 µm` (at the ticks): while the tower stands and the board is away, each fading where the plane passes;
 - `The trunk · one piece left` (amber, at `trunk`): the tower up, r past 17 µm, before the board;
 - `The big loop · a chimney from birth to filling` (amber, at `chimney`): the tower up, r past 13 µm, before the board;
-- `Pieces · 110 rods: their staircase is the count` (amber, at `bars`) and `Loops · 85 rods, at most 10 at once` (at
-  `bars1`): with the board (numbers from the data).
+- `Pieces · 110` (amber, at `bars`) and `Loops · 85` (at `bars1`): with the board (numbers from the data; short, so both
+  stay on the board at 640 x 400: the panel says what the staircase and the lanes count, and "at most ten at once").
 
 ## Cam views `[az, el, dist, tx, ty, tz]` (target in the set's frame)
 
 | View | Value | For |
 | --- | --- | --- |
-| `default` | [18, 16, 4.9, 0, 0.74, 0] | the tower whole, the plate at its foot |
+| `default` | [18, 20, 4.9, 0, 0.78, 0] | the tower whole, the plate at its foot (from a little above: the plate a floor, not a wall in front of the threads) |
 | `plate` | [8, 52, 3.4, 0, 0, 0.05] | a close look at the plate: the balls growing (chapter 3) |
 | `snap` | [0, 64, 3.0, 0, 0, 0.02] | from above, as the poster's snapshots (the plate fills the screen, the tag at its top left) |
-| `tower` | [26, 12, 5.0, 0, 0.85, 0] | the tower rising (chapter 4) |
+| `tower` | [26, 17, 5.0, 0, 0.85, 0] | the tower rising (chapter 4) |
 | `up` | [205, -58, 2.6, 0.05, 0.95, 0] | from under the glass plate, up through the threads into the big chimney's glow (screens; in a headset it tips the tower, so prefer `stand`) |
-| `bars` | [6, 12, 6.0, 1.0, 0.82, -0.15] | the tower and the board of rods and curves |
+| `bars` | [6, 16, 6.0, 1.0, 0.82, -0.15] | the tower and the board of rods and curves |
 | `stand` | [16, 0, 1.17, 0, 1.06, 0] | **the headset view**: `xrPlace` scales it to 0.94 m a unit, so the tower (1.68 units with the trunk's top) stands about 1.55 m tall, the plate about 1.2 m below your eyes and its top about 0.4 m above them: you stand at its front and look up through it. With the engine's `standView` (its axis 0.2 units further off, as the mutation story's tree) nothing of the tower comes within 0.38 m of your eyes for story turns from -60 to 60 degrees (the ruler stands at the plate's left side for that), and the board stays more than 0.9 m away; keep the story's turn within that range while it is eased in (chapter 4). On a screen it is a close crop across the plane |
 
 ## Explore

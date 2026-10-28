@@ -3660,8 +3660,9 @@ void main() {
 // radius and carries the complex at that radius; what lies above it is drawn faint. Beside the tower the barcode (one
 // rod per bar, at the heights it spans, sorted) and the two Betti curves as lit ribbons on a glass wall (tower_bars),
 // their counts looked up from the stored bars. Nothing here is computed but looked up: which simplices and bars are
-// alive at a radius (their stored radii against it), which piece a cell is in (the stored joins replayed in order), and
-// where things go (stored positions and radii). Everything follows the params and t.
+// alive at a radius (their stored radii against it), which piece a cell is in at a radius (read off the stored joins,
+// replayed in order: bookkeeping for the drawing; the joins are gudhi's), and where things go (stored positions and
+// radii). Everything follows the params and t.
 SETS.tower = function (K) {
   const { THREE, clamp, lerp, prog, smooth } = K;
   const set = K.newSet('tower');
@@ -4889,19 +4890,20 @@ function updateLight(xr) {
 // between two cues lasts long enough to read what appeared at its start; run
 // it again after the text changes). A recording replaces it with its own times.
 const NARRATION_SYNC = [
-  [0, 0], [1.3, 1.2], [2.8, 2.4], [5.1, 4], [13.5, 9], [22.3, 17], [29.1, 21], [38.5, 29.5],
-  [41.2, 31], [41.8, 31.6],                           // Where cells sit
-  [56.4, 34], [57, 34.6], [57.8, 35.2], [62, 38], [82.4, 56.6], [88.6, 59], [91.3, 61], [91.9, 61.6],  // Which scale?
-  [100.4, 62], [101.1, 62.6], [101.8, 63.2], [106.4, 67], [109.7, 70], [118.8, 76], [150.7, 105],
-  [154.1, 108], [154.8, 108.6],                       // Balls grow
-  [168.2, 112], [169.5, 113.18], [170.4, 113.2], [200.5, 140.6], [207.9, 143], [217.8, 152],  // The tower
-  [232.2, 160], [233.5, 161.2], [240, 166], [246.9, 171], [258.5, 181.6], [263.2, 183],
-  [265.5, 184.5], [272.6, 191], [281.7, 198],         // 123 slides
-  [290.9, 206], [291.5, 206.6], [292.7, 207.2], [299.1, 213], [307, 217], [322, 230.6], [326.3, 231],
-  [331.8, 236], [338.2, 240], [342.6, 244],           // Which scales
-  [351.8, 252], [353.1, 253.18], [354, 253.2], [383, 279.6], [386.1, 280], [399.3, 292],  // Every cell
-  [411.1, 302], [411.8, 302.6], [412.9, 303.2], [420.4, 310], [429.2, 314], [441.3, 320], [449, 327],
-  [454, 330], [455.7, 331.6], [472.6, 332], [484.8, 340],  // What next
+  [0, 0], [1.3, 1.2], [2.8, 2.4], [5.1, 4], [13.5, 9], [22.3, 17], [29.2, 21], [38.5, 29.5],
+  [41.2, 31], [41.9, 31.6],                           // Where cells sit
+  [56.4, 34], [57.1, 34.6], [57.9, 35.2], [62.1, 38], [82.5, 56.6], [88.7, 59], [91.4, 61],
+  [92, 61.6],                                         // Which scale?
+  [100.5, 62], [101.2, 62.6], [101.9, 63.2], [106.5, 67], [109.8, 70], [119, 76], [150.9, 105],
+  [154.3, 108], [155, 108.6],                         // Balls grow
+  [171.1, 112], [172.4, 113.18], [173.2, 113.2], [203.4, 140.6], [210.7, 143], [220.6, 152],  // The tower
+  [235.1, 160], [236.4, 161.2], [242.9, 166], [249.8, 171], [261.4, 181.6], [266.1, 183],
+  [268.4, 184.5], [275.5, 191], [284.7, 198],         // 123 slides
+  [293.8, 206], [294.5, 206.6], [295.6, 207.2], [302, 213], [310, 217], [325, 230.6], [329.3, 231],
+  [334.8, 236], [341.3, 240], [345.7, 244],           // Which scales
+  [354.8, 252], [356.1, 253.18], [357, 253.2], [386, 279.6], [389.2, 280], [402.4, 292],  // Every cell
+  [414.2, 302], [414.8, 302.6], [416, 303.2], [423.5, 310], [431.5, 314], [443.7, 320], [451.4, 327],
+  [456.3, 330], [458.1, 331.6], [475, 332], [487.2, 340],  // What next
 ];
 // recording time -> original story time
 function storyT(t) {
@@ -5683,10 +5685,14 @@ const mapShow = () => ctlValue('map', ctlOf('map', 'show'));
 const mapDelta = () => (ctlValue('map', ctlOf('map', 'delta')) === '100' ? 100 : 50);
 const DIMS = [['1', 'Loops'], ['0', 'Pieces']];
 
+// the radius the patch shows for X.r (held to the hundredth): one of the poster's snapshots picked is its stored radius,
+// so the patch and its counts are the poster's there (its first, 4.081 µm, is the very radius at which a piece joins:
+// at 4.08 one more piece would still be apart)
+const patchR = r => { const s = FACTS.snaps.find(s => Math.round(s.r * 100) / 100 === r); return s ? s.r : r; };
 // the controls a set's explore() reads: its own, with the panes' radii
 function ctlArgs(k, now) {
   const c = { t: (now - X.t0) / 1000 };
-  for (const ct of allCtl(k)) c[ct.key] = isNum(k, ct) ? (k === 'map' ? X.mr : X.r) : ctlValue(k, ct);
+  for (const ct of allCtl(k)) c[ct.key] = isNum(k, ct) ? (k === 'map' ? X.mr : patchR(X.r)) : ctlValue(k, ct);
   return c;
 }
 // what the chosen scene and its controls ask for: that set fully in, every other set out; then what the panes pick
@@ -5800,8 +5806,11 @@ function selectCell(i, ui = true) {
   X.cell = Number.isInteger(i) && i >= 0 && i < n && i !== api('map').e ? i : -1;
   if (ui) {
     if (!(X.scene === 'map' && mapShow() === 'cell')) showView('map', 'cell');
-    // (fly to it once the set shows it flat again)
-    NEXT.push(() => { const p = api('map').pos(X.cell >= 0 ? X.cell : api('map').e); flyNear([p[0], 0.02, p[2]], Math.min(orbit.cur[2], 0.8)); });
+    // (fly to it once the set shows it flat again; not if another scene or view was picked meanwhile)
+    NEXT.push(() => {
+      if (X.scene !== 'map' || mapShow() !== 'cell') return;
+      const p = api('map').pos(X.cell >= 0 ? X.cell : api('map').e); flyNear([p[0], 0.02, p[2]], Math.min(orbit.cur[2], 0.8));
+    });
   }
   renderAll();
 }
@@ -5942,8 +5951,8 @@ const winTxt = (r0, r1) => (r1 > 100 ? `${r0} µm and above` : `${r0}–${r1} µ
 
 // the patch at its radius, in words: the counts of the stored bars alive there (both panels)
 function patchInfo() {
-  const c = api('tower').counts ? api('tower').counts(X.r) : { pieces: 0, loops: 0 }, [lb, ld] = FACTS.loop;
-  const big = X.r < lb ? 'the big one not yet closed' : X.r < ld ? 'the big one among them' : 'the big one has filled';
+  const r = patchR(X.r), c = api('tower').counts ? api('tower').counts(r) : { pieces: 0, loops: 0 }, [lb, ld] = FACTS.loop;
+  const big = r < lb ? 'the big one not yet closed' : r < ld ? 'the big one among them' : 'the big one has filled';
   return [['Radius', `${fmtR2(X.r)} µm`], ['Pieces', fmt(c.pieces), c.pieces === 1 ? 'all joined into one' : ''], ['Loops', fmt(c.loops), big]];
 }
 const patchLive = () => statsHtml(patchInfo());
@@ -6087,7 +6096,7 @@ function pickText(p) {
     const A = api('map'), c = A.cell(p.cell), lo = mapDelta() === 100 ? c.lo100 : c.lo50;
     return [p.cell === A.e ? 'Cell v' : `Cell ${fmt(p.cell + 1)}`, `${c.type} · ${Number.isFinite(lo) ? `score ${f2s(lo)}` : 'no score'}`];
   }
-  if (p.tcell !== undefined) { const q = api('tower').piece(p.tcell, X.r); return ['A cell', `in a piece of ${plural(q.cells, 'cell', 'cells')} at ${fmtR(X.r)} µm`]; }
+  if (p.tcell !== undefined) { const q = api('tower').piece(p.tcell, patchR(X.r)); return ['A cell', `in a piece of ${plural(q.cells, 'cell', 'cells')} at ${fmtR(X.r)} µm`]; }
   if (p.loop !== undefined) return loopText(api('tower').loop(p.loop));
   if (p.bar !== undefined) {
     if (p.dim) return loopText(api('tower').loop(p.bar));
