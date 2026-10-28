@@ -227,7 +227,7 @@ void main() {
     E *= 1.0 + kf * (b - 0.5) * 0.8;
   }
   // empty spaces (vessels) white; between the hepatocytes thin pale sinusoids, wandering slits
-  float V = (1.0 - smoothstep(0.02, 0.16, cy + 0.55 * co + 0.6 * hz)) * (0.8 + 0.3 * vn(p / 4.0 + 7.0)) * smoothstep(0.35, 0.65, s.a);   // (not at the tissue's edge)
+  float V = (1.0 - smoothstep(0.02, 0.16, cy + 0.55 * co + 0.6 * hz)) * (0.8 + 0.3 * vn(p / 4.0 + 7.0)) * smoothstep(0.45, 0.8, s.a);   // (not at the tissue's edge)
   float sn = vn(p / 14.0 + 1.5 * vec2(vn(p / 40.0), vn(p / 40.0 + 9.0))), sw = fwidth(sn) * 1.2 + 0.012;
   V = max(V, 0.7 * (1.0 - smoothstep(0.0, sw, abs(sn - 0.5))) * smoothstep(0.2, 0.6, cy) * (1.0 - co) * smoothstep(0.012, 0.004, px));
   vec3 he = exp(-E * vec3(0.16, 1.05, 0.60) - H * vec3(1.31, 1.37, 0.62));
