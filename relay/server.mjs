@@ -2,7 +2,8 @@
 // Rooms with 3-letter codes, a key -> { v, seq, by } map per room (every stored write gets the
 // room's next seq: last writer wins), ephemeral messages that are never stored, and members.
 // Node 18 or newer and no packages: its own minimal WebSocket code (RFC 6455). It can serve the
-// app as well (--static), so the page and the relay share one address.
+// app as well (--static), so the page and the relay share one address. It is also an introduction server for
+// devices that link to each other directly (PeerJS's server protocol, at /peerjs; --no-peer turns it off).
 //   node relay/server.mjs [--port 8787] [--host 0.0.0.0] [--cert c.pem --key k.pem] [--static .] [--logs dir]
 //   node relay/server.mjs --lan    (for headsets on the same Wi-Fi: HTTPS with a certificate of its own, the app
 //                                   served, the headsets' logs kept in relay/logs/)
@@ -19,13 +20,14 @@ import { pipeline } from 'node:stream';
 import { fileURLToPath } from 'node:url';
 
 const PROTO = 1;
-const OPT = { port: 8787, host: '0.0.0.0', cert: '', key: '', static: '', timeout: 40, expire: 6 * 3600, ping: 20, quiet: false, lan: false, logs: '' };
+const OPT = { port: 8787, host: '0.0.0.0', cert: '', key: '', static: '', timeout: 40, expire: 6 * 3600, ping: 20, quiet: false, lan: false, logs: '', 'no-peer': false };
 const HELP = `usage: node relay/server.mjs [options]
   --port <n>       port (8787; 0 picks a free one)       --host <addr>   address (0.0.0.0)
   --cert <file>    with --key: speak HTTPS and WSS       --static <dir>  also serve the app from <dir>
   --timeout <s>    a silent member is dropped (40)       --expire <s>    a room without members goes (21600)
   --ping <s>       WebSocket ping to every member (20)   --quiet         no log lines
   --logs <dir>     keep the logs headsets send (their room alignment, one JSON line per entry) in <dir>
+  --no-peer        no introduction server for peer to peer (PeerJS's protocol, at /peerjs: on by default)
   --lan            for headsets on the same Wi-Fi: HTTPS with a self-signed certificate made once with openssl for
                    this machine's addresses (in relay/.lan/), the app served from the repository, and the headsets'
                    logs kept in relay/logs/`;
@@ -38,6 +40,7 @@ for (let i = 2; i < process.argv.length; i++) {
   if (v === undefined || (typeof OPT[name] === 'number' && !(OPT[name] >= 0))) { console.log(HELP); process.exit(1); }
 }
 if (!OPT.cert !== !OPT.key) { console.log('--cert and --key go together'); process.exit(1); }
+const PEER = !OPT['no-peer'];
 
 // This machine's addresses on the local network (what a headset on the same Wi-Fi types in)
 const lanAddresses = () => Object.values(os.networkInterfaces()).flat().filter(a => a && a.family === 'IPv4' && !a.internal).map(a => a.address);
@@ -180,13 +183,14 @@ function upgrade(req, socket, head) {
   socket.on('error', () => socket.destroy());
   const deny = (status, extra = '') => socket.end(`HTTP/1.1 ${status} ${http.STATUS_CODES[status]}\r\n${extra}Connection: close\r\nContent-Length: 0\r\n\r\n`);
   const url = parseUrl(req), key = req.headers['sec-websocket-key'];
-  if (!url || url.pathname !== '/api/ws') return deny(404);
+  const peer = PEER && url && url.pathname === PEER_PATH + 'peerjs';   // (PeerJS asks for {path}peerjs)
+  if (!url || (url.pathname !== '/api/ws' && !peer)) return deny(404);
   if (req.method !== 'GET' || !/^websocket$/i.test(req.headers.upgrade || '') || !/^[A-Za-z0-9+/]{22}==$/.test(key || '')) return deny(400);
   if (req.headers['sec-websocket-version'] !== '13') return deny(426, 'Sec-WebSocket-Version: 13\r\n');
   const accept = crypto.createHash('sha1').update(key + GUID).digest('base64');
   socket.write(`HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: ${accept}\r\n\r\n`);
   const ws = new Ws(socket);
-  join(ws, url.searchParams, clientIp(req));
+  if (peer) peerJoin(ws, url.searchParams); else join(ws, url.searchParams, clientIp(req));
   if (head && head.length) ws.data(head);
 }
 
@@ -349,9 +353,84 @@ function set(room, m, msg) {
   if (bad.length) refuse(room, m, cid, bad.map(b => b[0]), bad.map(([k, w]) => `${k}: ${w}`).join('; ').slice(0, 500));
 }
 
+// ---- an introduction server for peer to peer: what PeerJS 1.5.5's client expects of a PeerServer, at /peerjs
+// (so a client passes { host, port, path: '/peerjs', secure } and the default key 'peerjs'). Devices that link to
+// each other directly (WebRTC) meet here by id, swap their offers, answers and candidates, and then talk without it.
+// For tests, and for an event's own when the public one (0.peerjs.com) is down or not wanted. Nothing is stored:
+// an id lives while its socket does (or until it is silent for --timeout), and messages for an id not yet connected
+// wait PEER_WAIT, then each sender hears EXPIRE (as from PeerJS's own server).
+const PEER_PATH = '/peerjs/', PEER_KEY = 'peerjs', PEER_ID = /^[A-Za-z0-9]+(?:[ _-][A-Za-z0-9]+)*$/;   // (PeerJS's own id rule)
+const PEER_MAX = 5000, PEER_WAIT = 5000, PEER_RATE = 200, PEER_MSG = 64 << 10, PEER_HELD = 128 << 10, PEER_QUEUES = 500;
+const PEER_PASS = new Set(['OFFER', 'ANSWER', 'CANDIDATE', 'LEAVE']);   // passed on from src to dst; HEARTBEAT is life only
+const peers = new Map(), waiting = new Map();   // id -> { id, token, ws }; an absent id -> { msgs, size, from, timer }
+const peerOut = (ws, type, payload) => ws.text(JSON.stringify(payload ? { type, payload } : { type }));
+
+function peerJoin(ws, q) {
+  const id = q.get('id') || '', token = q.get('token') || '', key = q.get('key') || '';
+  const shut = (type, msg, code, why) => { if (why) log(`peer refused ${id.slice(0, 64) || '(no id)'} (${why})`); peerOut(ws, type, { msg }); ws.close(code, why || msg); };
+  if (!id || !token || !key) return shut('ERROR', 'No id, token, or key supplied to websocket server', 4000, 'no id, token or key');
+  if (key !== PEER_KEY) return shut('INVALID-KEY', 'Invalid key provided', 4003, 'another key');
+  if (id.length > 64 || !PEER_ID.test(id) || token.length > 64) return shut('ERROR', 'Invalid id or token', 4000, 'a bad id or token');
+  let p = peers.get(id);
+  if (p && p.token !== token) return shut('ID-TAKEN', 'ID is taken', 4001, 'id taken');
+  const back = !!p;
+  if (p) {   // the same device again (it reconnects while its old socket hangs on): the new socket wins
+    const old = p.ws;
+    old.onmessage = old.onclose = () => {};
+    old.close(4008, 'replaced');
+    p.ws = ws;
+  } else {
+    if (peers.size >= PEER_MAX) return shut('ERROR', 'Server has reached its concurrent user limit', 4013, 'full');
+    peers.set(id, p = { id, token, ws, rate: { n: 0, t0: 0 }, dropped: 0 });
+  }
+  ws.onmessage = text => peerMessage(p, text);
+  ws.onclose = () => peerLeave(p);
+  peerOut(ws, 'OPEN');
+  log(`peer ${back ? 'back' : 'join'} ${id} (${peers.size} connected)`);
+  const w = waiting.get(id);   // what came for it meanwhile, in order
+  if (w) { clearTimeout(w.timer); waiting.delete(id); for (const m of w.msgs) ws.text(m); }
+}
+function peerLeave(p, why = 'leave') {
+  if (peers.get(p.id) !== p) return;
+  p.ws.onmessage = p.ws.onclose = () => {};
+  peers.delete(p.id);   // the id is free at once
+  log(`peer ${why} ${p.id} (${peers.size} connected)`);
+}
+function peerMessage(p, text) {   // anything else is ignored, as PeerJS's own server does (a reply of ERROR would end the client)
+  if (peers.get(p.id) !== p || text.length > PEER_MSG) return;
+  let m;
+  try { m = JSON.parse(text); } catch { return; }
+  if (!m || typeof m !== 'object' || !PEER_PASS.has(m.type) || typeof m.dst !== 'string' || !m.dst || m.dst.length > 64) return;
+  if (over(p.rate, PEER_RATE)) { p.dropped++; return; }   // counted, logged once a tick
+  const out = JSON.stringify({ type: m.type, src: p.id, dst: m.dst, payload: m.payload });   // src is always the sender's id
+  const to = peers.get(m.dst);
+  if (to) return to.ws.text(out);
+  if (m.type === 'LEAVE') return;   // nobody there to tell
+  let w = waiting.get(m.dst);
+  if (!w) {
+    if (waiting.size >= PEER_QUEUES) return;
+    const dst = m.dst;
+    waiting.set(dst, w = { msgs: [], size: 0, from: new Set(), timer: setTimeout(() => peerExpire(dst), PEER_WAIT) });
+  }
+  if (w.size + out.length > PEER_HELD) return;
+  w.msgs.push(out); w.size += out.length; w.from.add(p.id);
+}
+function peerExpire(dst) {   // nobody came for these: each sender hears it once, as from that id
+  const w = waiting.get(dst);
+  if (!w) return;
+  waiting.delete(dst);
+  for (const src of w.from) { const p = peers.get(src); if (p) p.ws.text(JSON.stringify({ type: 'EXPIRE', src: dst, dst: src })); }
+  log(`peer ${dst} never came (${w.msgs.length} messages for it from ${[...w.from].join(' ')})`);
+}
+
 // silent members time out, everybody gets a WebSocket ping, rooms without members expire
 setInterval(() => {
   const now = Date.now();
+  for (const p of peers.values()) {   // a browser answers pings by itself, so only a device that has gone falls silent
+    if (now - p.ws.last > OPT.timeout * 1000) { p.ws.close(4009, 'timeout'); peerLeave(p, 'timeout'); continue; }
+    if (now - p.ws.pinged >= OPT.ping * 1000) { p.ws.send(9, EMPTY); p.ws.pinged = now; }
+    if (p.dropped) { log(`peer dropped ${p.dropped} messages from ${p.id} (more than ${PEER_RATE} a second)`); p.dropped = 0; }
+  }
   for (const room of rooms.values()) {
     for (const m of room.members.values()) {
       if (now - m.ws.last > OPT.timeout * 1000) { kick(room, m, 'timeout', `silent for ${OPT.timeout} s`, 4009); continue; }
@@ -372,13 +451,16 @@ function reply(res, status, body, type, extra = {}) {
 const json = (res, status, obj) => reply(res, status, JSON.stringify(obj), 'application/json');
 const plain = (res, status, text, extra) => reply(res, status, text + '\n', 'text/plain; charset=utf-8', extra);
 
-function api(req, res, url) {
+function cors(req, res) {   // the API and the introduction server, for pages on another origin (GitHub Pages); true: answered
   res.setHeader('Access-Control-Allow-Origin', '*');
-  if (req.method === 'OPTIONS') {
-    res.writeHead(204, { 'Access-Control-Allow-Methods': 'GET, POST, OPTIONS', 'Access-Control-Allow-Headers': 'Content-Type', 'Access-Control-Max-Age': '600',
-      ...(req.headers['access-control-request-private-network'] ? { 'Access-Control-Allow-Private-Network': 'true' } : {}) });
-    return res.end();
-  }
+  if (req.method !== 'OPTIONS') return false;
+  res.writeHead(204, { 'Access-Control-Allow-Methods': 'GET, POST, OPTIONS', 'Access-Control-Allow-Headers': 'Content-Type', 'Access-Control-Max-Age': '600',
+    ...(req.headers['access-control-request-private-network'] ? { 'Access-Control-Allow-Private-Network': 'true' } : {}) });
+  res.end();
+  return true;
+}
+function api(req, res, url) {
+  if (cors(req, res)) return;
   const p = url.pathname, room = /^\/api\/rooms\/([A-Za-z]{3})$/.exec(p);
   if (p === '/api/ping' && req.method === 'GET') return json(res, 200, { now: Date.now(), proto: PROTO });
   if (p === '/api/rooms' && req.method === 'GET') {
@@ -392,6 +474,20 @@ function api(req, res, url) {
     return json(res, 200, { code: r.code, app: r.app, version: r.version, created: r.created, seq: r.seq, idle: idle(r), members: people(r), keys: keysOut(r) });
   }
   if (p === '/api/ping' || p === '/api/rooms' || p === '/api/log' || room) return json(res, 405, { error: 'method not allowed' });
+  json(res, 404, { error: 'not found' });
+}
+// the introduction server's HTTP side: PeerJS asks {path}{key}/id for a new id (a page that brings its own id does not)
+function peerHttp(req, res, url) {
+  if (cors(req, res)) return;
+  if (req.method !== 'GET') return json(res, 405, { error: 'method not allowed' });
+  const p = url.pathname;
+  if (p === '/peerjs' || p === PEER_PATH) return json(res, 200, { name: 'Introduction server for peer to peer (PeerJS 1.5 protocol)', key: PEER_KEY, path: '/peerjs' });
+  if (p === PEER_PATH + PEER_KEY + '/id') {
+    let id;
+    do id = crypto.randomUUID(); while (peers.has(id) || waiting.has(id));
+    return reply(res, 200, id, 'text/plain; charset=utf-8');   // (no newline: the page takes the text as it is)
+  }
+  if (p === PEER_PATH + PEER_KEY + '/peers') return json(res, 401, { error: 'listing peers is off' });
   json(res, 404, { error: 'not found' });
 }
 function createRoom(req, res) {
@@ -462,9 +558,10 @@ const REAL = ROOT ? fs.realpathSync(ROOT) : '';
 // Only the app's own files are served, not the rest of the repository (the authors' data in ikerdata/,
 // tools/, docs/, the relay's certificate): these files at the top, and the files directly inside these
 // folders. Everything index.html, sw.js (SHELL, AUDIO) and the stories load is here; add what the app gains.
+// (p2p/ is the peer-to-peer test page, at /p2p/: with &peer= it can use this relay's introduction server.)
 const APP_FILES = new Set(['index.html', 'shared.js', 'sw.js', 'manifest.webmanifest', 'three.min.js', 'three.LICENSE.txt',
-  'proteins.html', 'spatial.html', 'README.txt']);
-const APP_DIRS = new Set(['stories', 'audio', 'icons']);
+  'peerjs.min.js', 'PEERJS-LICENSE.txt', 'proteins.html', 'spatial.html', 'README.txt']);
+const APP_DIRS = new Set(['stories', 'audio', 'icons', 'p2p']);
 const appFile = segs => (segs.length === 1 && APP_FILES.has(segs[0])) || (segs.length === 2 && APP_DIRS.has(segs[0]));
 
 async function serve(req, res, url) {
@@ -480,7 +577,7 @@ async function serve(req, res, url) {
     if (segs.length === 2 && !p.endsWith('/')) return plain(res, 301, 'Moved', { Location: url.pathname + '/' + url.search });
     segs.splice(0, 2);
   }
-  if (!segs.length) segs.push('index.html');   // / is the app; no folder listings
+  if (!segs.length || p.endsWith('/')) segs.push('index.html');   // / is the app, a folder its index.html; no listings
   if (!appFile(segs)) return plain(res, 404, 'Not found');
   const file = path.join(REAL, ...segs);
   let st;
@@ -522,6 +619,7 @@ function request(req, res) {
   if (!url) return plain(res, 400, 'Bad request');
   const fail = err => { log('error', req.url, err.message); if (!res.headersSent) plain(res, 500, 'Internal error'); else res.destroy(); };
   if (url.pathname === '/api' || url.pathname.startsWith('/api/')) { try { return api(req, res, url); } catch (err) { return fail(err); } }
+  if (PEER && (url.pathname === '/peerjs' || url.pathname.startsWith(PEER_PATH))) { try { return peerHttp(req, res, url); } catch (err) { return fail(err); } }
   if (ROOT) return serve(req, res, url).catch(fail);
   if (url.pathname === '/') return plain(res, 200, 'Shared-room relay: the API is under /api/ (see relay/README.md).');
   plain(res, 404, 'Not found');
@@ -532,6 +630,7 @@ server.on('upgrade', upgrade);
 server.listen(OPT.port, OPT.host, () => {
   const a = server.address(), host = a.family === 'IPv6' ? `[${a.address}]` : a.address, scheme = OPT.cert ? 'https' : 'http';
   console.log(`relay listening on ${scheme}://${host}:${a.port}${ROOT ? ', serving ' + ROOT : ''} (protocol ${PROTO})`);
+  if (PEER) console.log(`Introduction server for peer to peer (PeerJS) at /peerjs, key ${PEER_KEY} (--no-peer turns it off)`);
   if (ROOT && /^(0\.0\.0\.0|::)$/.test(a.address)) {
     const lan = lanAddresses(), at = lan.map(ip => `${scheme}://${ip}:${a.port}/`).join(' or ');
     const pick = lan.length > 1 ? '\n(This machine has several addresses: use the one on the Wi-Fi the headsets are on.)' : '';
@@ -549,6 +648,7 @@ server.listen(OPT.port, OPT.host, () => {
 for (const sig of ['SIGINT', 'SIGTERM']) {
   process.on(sig, () => {   // say goodbye, so clients reconnect at once (a container stop sends SIGTERM)
     for (const r of rooms.values()) for (const m of r.members.values()) m.ws.close(1001, 'relay stopping');
+    for (const p of peers.values()) p.ws.close(1001, 'relay stopping');
     server.close();
     setTimeout(() => process.exit(0), 200);
   });

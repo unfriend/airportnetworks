@@ -52,9 +52,10 @@ const newRoom = async (body = { app: 'networks', version: 'v1' }) => (await req(
 const state = async code => (await req('GET', '/api/rooms/' + code)).json();
 
 // ---- a WebSocket client (Node's own, as a browser would)
-function client(room, id, extra = '') {
-  const ws = new WebSocket(`ws://127.0.0.1:${port}/api/ws?room=${room}&id=${id}${extra}`);
-  const c = { ws, id, q: [], closed: null };
+const client = (room, id, extra = '') => socket(`ws://127.0.0.1:${port}/api/ws?room=${room}&id=${id}${extra}`);
+function socket(url) {
+  const ws = new WebSocket(url);
+  const c = { ws, q: [], closed: null };
   c.opened = new Promise(r => { ws.onopen = r; ws.onerror = r; });
   c.done = new Promise(r => { ws.onclose = e => { c.closed = { code: e.code, reason: e.reason }; r(c.closed); }; });
   ws.onmessage = e => c.q.push(JSON.parse(e.data));
@@ -78,6 +79,12 @@ async function joined(room, id, hello) {
   return c;
 }
 
+// ---- a peer of the introduction server (PeerJS's protocol at /peerjs), as PeerJS 1.5.5 connects
+const peerQuery = (id, token, key = 'peerjs') => `/peerjs/peerjs?key=${key}&id=${encodeURIComponent(id)}&token=${token}&version=1.5.5`;
+const peer = (id, token, key) => socket(`ws://127.0.0.1:${port}${peerQuery(id, token, key)}`);
+const ty = (type, more = () => true) => m => m.type === type && more(m);
+async function peerOpen(id, token) { const c = peer(id, token); c.open = await c.next(ty('OPEN')); return c; }
+
 // ---- a raw client: masked frames by hand, server frames parsed
 function frame({ op = 1, fin = true, payload = '', mask = true, rsv = 0, len }) {
   const body = Buffer.from(payload), n = len ?? body.length, key = mask ? crypto.randomBytes(4) : Buffer.alloc(0);
@@ -86,8 +93,8 @@ function frame({ op = 1, fin = true, payload = '', mask = true, rsv = 0, len }) 
   if (mask) for (let i = 0; i < body.length; i++) body[i] ^= key[i & 3];
   return Buffer.concat([head, key, body]);
 }
-async function raw(pathAndQuery, { version = '13' } = {}) {
-  const s = net.connect(port, '127.0.0.1');
+async function raw(pathAndQuery, { version = '13', at = port } = {}) {
+  const s = net.connect(at, '127.0.0.1');
   await new Promise(r => s.once('connect', r));
   const r = { s, buf: Buffer.alloc(0), head: '', frames: [], msgs: [], ended: false };
   s.on('data', d => {
@@ -409,7 +416,8 @@ try {
     r = await req('GET', '/stories/flock.js', { headers: { 'Accept-Encoding': 'gzip, br' } });
     ok(r.headers['content-encoding'] === 'gzip' && zlib.gunzipSync(r.buf).equals(file('stories/flock.js')) && /Accept-Encoding/.test(r.headers.vary), 'gzipped when asked');
     const types = { '/shared.js': 'text/javascript', '/sw.js': 'text/javascript', '/manifest.webmanifest': 'application/manifest+json', '/icons/icon-192.png': 'image/png', '/three.min.js': 'text/javascript',
-      '/three.LICENSE.txt': 'text/plain', '/README.txt': 'text/plain', '/proteins.html': 'text/html' };
+      '/three.LICENSE.txt': 'text/plain', '/README.txt': 'text/plain', '/proteins.html': 'text/html', '/peerjs.min.js': 'text/javascript',
+      '/PEERJS-LICENSE.txt': 'text/plain', '/p2p/': 'text/html', '/p2p/index.html': 'text/html' };
     for (const [p, t] of Object.entries(types)) { r = await req('HEAD', p); ok(r.status === 200 && r.headers['content-type'].startsWith(t), `${p} is ${t}`); }
     ok((await req('GET', '/sw.js')).headers['cache-control'] === 'no-cache', 'files are revalidated (no-cache)');
     const mp3 = file('audio/narration.mp3'), size = mp3.length;
@@ -534,6 +542,101 @@ try {
     ok((await req('POST', '/api/log', { body: { room: 'ABC', id: 'm3', entries: [] } })).status === 404, 'without --logs (or --lan) logs are off');
     L.kill();
     fs.rmSync(dir, { recursive: true, force: true });
+  });
+
+  // ---- the introduction server for peer to peer (PeerJS 1.5.5's server protocol at /peerjs)
+  await step('introduction server: ids over HTTP, CORS, bad requests refused', async () => {
+    const a = await req('GET', '/peerjs/peerjs/id?ts=17301234560.42&version=1.5.5'), b = await req('GET', '/peerjs/peerjs/id?ts=2&version=1.5.5');
+    ok(a.status === 200 && /^[0-9a-f-]{36}$/.test(a.text) && a.text !== b.text, 'a new id as text (no newline), another each time');
+    ok(a.headers['access-control-allow-origin'] === '*' && /^text\/plain/.test(a.headers['content-type']), 'CORS as the API');
+    const pre = await req('OPTIONS', '/peerjs/peerjs/id', { headers: { Origin: 'https://example.github.io', 'Access-Control-Request-Method': 'GET', 'Access-Control-Request-Private-Network': 'true' } });
+    ok(pre.status === 204 && pre.headers['access-control-allow-private-network'] === 'true', 'preflight (also for private networks)');
+    ok((await req('GET', '/peerjs')).json().key === 'peerjs' && (await req('GET', '/peerjs/')).status === 200, 'its root says what it is');
+    ok((await req('GET', '/peerjs/other/id')).status === 404 && (await req('POST', '/peerjs/peerjs/id')).status === 405 &&
+      (await req('GET', '/peerjs/peerjs/peers')).status === 401, 'another key 404, POST 405, no listing of peers (401)');
+    const n = peer('x1', '');
+    ok((await n.next(ty('ERROR')))?.payload?.msg && (await n.closedIn(2000))?.code === 4000, 'no token: ERROR, closed (4000)');
+    const k = peer('x2', 'tok', 'other');
+    ok((await k.next(ty('INVALID-KEY'))) && (await k.closedIn(2000))?.code === 4003, 'another key: INVALID-KEY, closed (4003)');
+    const i = peer('no good!', 'tok');
+    ok((await i.next(ty('ERROR'))) && (await i.closedIn(2000))?.code === 4000, 'an id PeerJS would not make: ERROR, closed');
+    const w = await raw('/peerjs/peerjs/elsewhere?key=peerjs&id=x3&token=tok');
+    await sleep(200);
+    ok(/^HTTP\/1.1 404/.test(w.head), 'a socket on another path is 404');
+  });
+
+  await step('introduction server: OPEN, ID-TAKEN, a reconnect, messages passed on with src, kept for a while, EXPIRE', async () => {
+    const P = await peerOpen('pa', 'tokpa7'), Q = await peerOpen('pb', 'tokpb7');
+    ok(P.open && Q.open, 'OPEN for a new id');
+    const t0 = Date.now(), cand = n => ({ candidate: { candidate: `candidate:${n} 1 udp 2122260223 192.168.1.20 5${n}000 typ host`, sdpMid: '0', sdpMLineIndex: 0 }, type: 'data', connectionId: 'dc_g' });
+    P.send({ type: 'OFFER', dst: 'ghost', payload: { sdp: { type: 'offer', sdp: 'v=0' }, type: 'data', connectionId: 'dc_g' } });
+    P.send({ type: 'CANDIDATE', dst: 'ghost', payload: cand(1) });
+    P.send({ type: 'CANDIDATE', dst: 'ghost', payload: cand(2) });
+    P.send({ type: 'LEAVE', dst: 'nobody' });
+    const T = peer('pa', 'tokzz7');
+    const taken = await T.next(ty('ID-TAKEN'));
+    ok(taken && taken.payload?.msg && (await T.closedIn(2000))?.code === 4001, 'the same id with another token: ID-TAKEN, closed (4001)');
+    const offer = { sdp: { type: 'offer', sdp: 'v=0\r\no=- 1 2 IN IP4 127.0.0.1' }, type: 'data', connectionId: 'dc_1', label: 'dc_1', serialization: 'json', reliable: true, metadata: { name: 'Ann' } };
+    P.send({ type: 'OFFER', src: 'forged', dst: 'pb', payload: offer });
+    const o = await Q.next(ty('OFFER'));
+    ok(o && o.src === 'pa' && o.dst === 'pb' && JSON.stringify(o.payload) === JSON.stringify(offer), 'an OFFER reaches its dst, src filled in (never the sender\'s own)');
+    Q.send({ type: 'ANSWER', dst: 'pa', payload: { sdp: { type: 'answer', sdp: 'v=0' }, type: 'data', connectionId: 'dc_1' } });
+    ok((await P.next(ty('ANSWER')))?.src === 'pb', 'an ANSWER back');
+    P.send({ type: 'CANDIDATE', dst: 'pb', payload: cand(3) });
+    ok((await Q.next(ty('CANDIDATE')))?.payload?.candidate?.candidate === cand(3).candidate.candidate, 'a CANDIDATE');
+    P.send({ type: 'LEAVE', dst: 'pb' });
+    ok((await Q.next(ty('LEAVE')))?.src === 'pa', 'a LEAVE');
+    P.send({ type: 'HEARTBEAT' }); P.send('not json'); P.send({ type: 'NOPE', dst: 'pb' }); P.send({ type: 'OFFER', payload: offer });
+    ok(await Q.none(() => true) && await P.none(() => true, 50) && !P.closed, 'a heartbeat, a message that is not JSON, an unknown type or no dst: nothing passed on, no answer, the socket stays');
+    P.send({ type: 'CANDIDATE', dst: 'pb', payload: cand(4) });
+    ok(await Q.next(ty('CANDIDATE')), 'and it still passes messages on');
+    // messages for an id that comes a moment later wait for it, in order, after its OPEN
+    P.send({ type: 'OFFER', dst: 'pc', payload: { ...offer, connectionId: 'dc_c' } });
+    P.send({ type: 'CANDIDATE', dst: 'pc', payload: cand(5) });
+    await sleep(300);
+    const C = peer('pc', 'tokpc7');
+    for (const end = Date.now() + 2000; C.q.length < 3 && Date.now() < end;) await sleep(10);
+    ok(C.q.map(m => m.type).join() === 'OPEN,OFFER,CANDIDATE' && C.q[1].src === 'pa' && C.q[1].payload.connectionId === 'dc_c',
+      'messages for an id not yet connected wait for it: after its OPEN, in order');
+    // the same id and token again (a reconnect while the old socket hangs on): OPEN, and the new socket wins
+    const P2 = await peerOpen('pa', 'tokpa7');
+    ok(P2.open && (await P.closedIn(2000))?.code === 4008, 'the same id and token again: OPEN, the old socket closed (4008)');
+    Q.send({ type: 'CANDIDATE', dst: 'pa', payload: cand(6) });
+    ok(await P2.next(ty('CANDIDATE', m => m.src === 'pb')), 'messages go to the new socket');
+    // nobody came for ghost: its sender hears EXPIRE once (on its socket now), after about 5 s; a LEAVE is never kept
+    const ex = await P2.next(ty('EXPIRE', m => m.src === 'ghost'), 8000), took = Date.now() - t0;
+    ok(ex && ex.dst === 'pa' && took > 4000 && took < 7500, `EXPIRE from the absent id, after ${(took / 1000).toFixed(1)} s`);
+    await sleep(400);
+    ok(!P2.q.some(ty('EXPIRE')) && !Q.q.some(ty('EXPIRE')), 'once for its three messages, none for a LEAVE or for an id that came');
+    // an id is free once its socket closes
+    Q.ws.close(); await Q.done; await sleep(100);
+    const Q2 = await peerOpen('pb', 'tokother7');
+    ok(Q2.open, 'a closed socket frees its id: OPEN for another token');
+    for (const c of [P2, Q2, C]) c.ws.close();
+    ok(/peer join pa \(\d+ connected\)/.test(relay.out) && /peer back pa/.test(relay.out) && /peer refused pa \(id taken\)/.test(relay.out) &&
+      /peer leave pb/.test(relay.out) && /peer ghost never came/.test(relay.out), 'the log: joins, a reconnect, a refusal, leaves, an id that never came');
+    ok(!/tokp|tokzz|tokother|192\.168\.1\.20|v=0/.test(relay.out), 'ids only: no tokens or messages in the log');
+  });
+
+  await step('introduction server: heartbeats keep a peer in; a silent one is dropped and its id freed', async () => {
+    const h = await raw(peerQuery('beats', 'tokhb')), s = await raw(peerQuery('silent', 'toks'));   // (raw sockets never answer pings)
+    const beat = setInterval(() => h.send({ payload: '{"type":"HEARTBEAT"}' }), 250);
+    const code = await s.closeCode(4000);
+    clearInterval(beat);
+    ok(s.msgs.some(ty('OPEN')) && code === 4009, 'a silent peer is closed (4009) after the timeout (1 s here)');
+    ok(h.msgs.some(ty('OPEN')) && !h.frames.some(f => f.op === 8) && !h.ended, 'one that sends HEARTBEAT stays');
+    const again = await peerOpen('silent', 'tokother');
+    ok(again.open && /peer timeout silent/.test(relay.out), 'the silent one\'s id is free again');
+    again.ws.close(); h.s.destroy();
+  });
+
+  await step('--no-peer: no introduction server', async () => {
+    const N = await start(['--no-peer', '--quiet']);
+    ok((await req('GET', '/peerjs/peerjs/id', { at: N.port })).status === 404, 'no ids');
+    const w = await raw(peerQuery('n1', 'tok'), { at: N.port });
+    await sleep(200);
+    ok(/^HTTP\/1.1 404/.test(w.head) && !/Introduction server/.test(N.out) && /Introduction server for peer to peer/.test(relay.out), 'no socket either (on by default)');
+    N.kill();
   });
 
   await step('the log has a line per write and per refusal', async () => {
