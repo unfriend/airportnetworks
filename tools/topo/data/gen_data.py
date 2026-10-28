@@ -402,7 +402,7 @@ patch = {
     'edges': [v for s, t in simp if len(s) == 2 for v in (*s, round(math.sqrt(t), 3))],
     'tris': [v for s, t in simp if len(s) == 3 for v in (*s, round(math.sqrt(t), 3))],
     'h0': rnd(np.sort(pb['h0']), 3), 'h1': rnd(pb['h1'], 3), 'loop': rnd(pb['loop'], 3), 'hole': rnd(pb['hole'], 2),
-    'snaps': [round(r, 2) for r, _ in pb['snaps']], 'betti': [list(b) for b in pb['betti']],
+    'snaps': [round(r, 3) for r, _ in pb['snaps']], 'betti': [list(b) for b in pb['betti']],
 }
 
 data = {
