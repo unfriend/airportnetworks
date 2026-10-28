@@ -77,17 +77,17 @@ SETS.slide = function (K) {
     for (let i = 0; i < n; i++) {
       const kd = kindOf[src.type[i]], L = LOOK[kd], x = src.x[i], y = src.y[i];
       X[i] = (x - side / 2) * k; Z[i] = (y - side / 2) * k; KIND[i] = kd;
-      // the three nearest neighbours: hepatocytes press together, so their size follows their spacing
-      let d1 = 1e9, d2 = 1e9, d3 = 1e9, sxx = 0, sxy = 0, syy = 0, ns = 0;
+      // hepatocytes press together, so their size follows how close the cells round them sit (the spacing of a
+      // hexagonal packing as dense as the cells within 30 µm)
+      let cnt = 0, sxx = 0, sxy = 0, syy = 0, ns = 0;
       near(x, y, 36, (j, q, dx, dy) => {
-        if (j === i) return;
-        if (q < d1) { d3 = d2; d2 = d1; d1 = q; } else if (q < d2) { d3 = d2; d2 = q; } else if (q < d3) d3 = q;
-        if (kd === CELL.SPINDLE && kindOf[src.type[j]] === CELL.SPINDLE) { sxx += dx * dx; sxy += dx * dy; syy += dy * dy; ns++; }
+        if (q <= 900) cnt++;
+        if (j !== i && kd === CELL.SPINDLE && kindOf[src.type[j]] === CELL.SPINDLE) { sxx += dx * dx; sxy += dx * dy; syy += dy * dy; ns++; }
       });
-      const sp = (Math.sqrt(d1) + Math.sqrt(d2) + Math.sqrt(d3)) / 3;
+      const sp = 1.0746 / Math.sqrt(cnt / (PI * 900));
       let r = L[0];
-      if (kd === CELL.HEP || kd === CELL.LARGE) r = clamp(0.56 * (sp < 1e8 ? sp : 20), 7, kd === CELL.LARGE ? 14 : 13);
-      else if (kd === CELL.PLAIN) r = clamp(0.5 * (sp < 1e8 ? sp : 16), 5, 9);
+      if (kd === CELL.HEP || kd === CELL.LARGE) r = clamp(0.56 * sp, 8.5, kd === CELL.LARGE ? 15.5 : 15) * (0.94 + 0.12 * R());
+      else if (kd === CELL.PLAIN) r = clamp(0.45 * sp, 5.5, 9);
       else r *= 0.9 + 0.2 * R();
       RAD[i] = r * k;
       // spindles lie along their spindle neighbours (the main axis of where they sit), else any way
@@ -117,7 +117,7 @@ SETS.slide = function (K) {
     };
     for (let i = 0; i < n; i++) {
       const kd = KIND[i], x = src.x[i], y = src.y[i], r = RAD[i] / k;
-      if (kd === CELL.HEP || kd === CELL.LARGE || kd === CELL.PLAIN) splat(x, y, 0.62 * r, 1, 0, true);
+      if (kd === CELL.HEP || kd === CELL.LARGE || kd === CELL.PLAIN) splat(x, y, 0.8 * r, 0.75, 0, false);
       else if (kd === CELL.SPINDLE) {
         splat(x, y, 13, 0.4, 1, false);
         const a = 2 * ANG[i], di = clamp(Math.floor(x / side * M), 0, M - 1) + M * clamp(Math.floor(y / side * M), 0, M - 1);
@@ -179,7 +179,7 @@ void main() {
   vec2 p = vUv * uSide;                                   // µm
   float px = max(fwidth(vUv.x), fwidth(vUv.y)) * uTW;     // local units per pixel
   vec4 s = texture2D(tS, vUv), d = texture2D(tD, vUv);
-  float cy = s.r, co = min(s.g, 1.0), hz = min(s.b, 1.0), ti = smoothstep(0.08, 0.32, s.a + 0.08 * (vn(p / 30.0) - 0.5));
+  float cy = min(s.r * 1.25, 1.0), co = min(s.g, 1.0), hz = min(s.b, 1.0), ti = smoothstep(0.08, 0.32, s.a + 0.08 * (vn(p / 30.0) - 0.5));
   // eosin: the hepatocytes' cytoplasm pink, pale sinusoids between them, paler streaky collagen; haematoxylin: a haze
   float E = 0.13 + 0.3 * cy + 0.22 * co, H = 0.02 + 0.5 * hz + 0.04 * co;
   E *= 0.88 + 0.24 * vn(p / 9.0);                         // uneven staining

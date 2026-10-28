@@ -23,8 +23,9 @@ SETS.tower = function (K) {
   const GHOST = 0.2;                         // what stands above the radius plane
   const TICKS = [2, 5, 10, 20, 50];
   const RULER = [-1.0, 0.98];                // the ruler's post (x, z): the plate's front left corner
-  const ARC = { R: 1.3, a0: 265, a1: 95 };   // the barcode: an arc round the back, from the left (degrees from +z)
-  const WALL = { c: [1.5, 0, 0.42], yaw: -32, w: 0.86 };   // the glass wall of the Betti curves (its foot's middle)
+  // the barcode's board to the right of the tower: its first rod's foot, its turn about y (degrees), the rods' pitch,
+  // the loops' lanes' pitch and the gap between the two
+  const BOARD = { x: 1.14, z: -0.1, yaw: 16, p: 0.0085, lane: 0.034, gap: 0.12 };
   const HS = TH / 1;                         // the height of a radius: HS x TDATA.height(r) (times tower_rise)
 
   // ---------------------------------------------------------------- the patch, in units (the poster's y up is -z)
@@ -74,18 +75,27 @@ SETS.tower = function (K) {
   });
   const NL = LOOPS.length, MAIN = LOOPS[0];
 
-  // the barcode, sorted: the pieces by the radius they join at (the last piece, which never does, at the end), then the
-  // loops by birth. Each rod at its place on the arc
+  // the barcode on its board: the pieces' rods side by side, the longest-lived first (the last piece, which never joins,
+  // at the left), so the rods alive at any height are the first ones and their tops make a staircase that is the count
+  // of pieces; the loops' rods packed into lanes (each to the first lane free at its birth, as they are sorted by
+  // birth: as many lanes as loops ever alive at once), so the busy lanes at a height are the count of loops. Drawing,
+  // not science: the rods are the stored bars; the counts are looked up below
+  const Br = [Math.cos(BOARD.yaw * PI / 180), 0, -Math.sin(BOARD.yaw * PI / 180)], Bn = [-Br[2], 0, Br[0]];   // along, out
   const BARS = [];
-  for (let i = 0; i < N; i++) BARS.push({ dim: 0, i, b: 0, d: death[i] });
-  BARS.sort((p, q) => p.d - q.d);
-  const NB0 = BARS.length;
-  LOOPS.slice().sort((p, q) => p.b - q.b || p.d - q.d).forEach(L => BARS.push({ dim: 1, i: L.k, b: L.b, d: L.d, main: L.main }));
-  const NB = BARS.length, GAP = 6;   // (a gap of a few rods between the two kinds)
-  BARS.forEach((B, k) => {
-    const s = (k + (B.dim ? GAP : 0)) / (NB + GAP - 1), a = (ARC.a0 + (ARC.a1 - ARC.a0 + (ARC.a1 < ARC.a0 ? 0 : -360)) * s) * PI / 180;
-    B.x = ARC.R * Math.sin(a); B.z = ARC.R * Math.cos(a); B.k = k;
+  for (let i = 0; i < N; i++) BARS.push({ dim: 0, i, b: 0, d: death[i], sx: X[i], sz: Z[i] });
+  BARS.sort((p, q) => q.d - p.d || p.i - q.i);
+  BARS.forEach((B, k) => { B.s = k * BOARD.p; });
+  const NB0 = BARS.length, S1 = (NB0 - 1) * BOARD.p + BOARD.gap, laneEnd = [];
+  LOOPS.slice().sort((p, q) => p.b - q.b || p.d - q.d).forEach(L => {
+    let l = laneEnd.findIndex(e => e <= L.b);
+    if (l < 0) { l = laneEnd.length; laneEnd.push(0); }
+    laneEnd[l] = L.d;
+    BARS.push({ dim: 1, i: L.k, b: L.b, d: L.d, main: L.main, sx: L.hx, sz: L.hz, s: S1 + l * BOARD.lane, lane: l });
   });
+  const NB = BARS.length, LANES = laneEnd.length, SEND = S1 + (LANES - 1) * BOARD.lane;
+  // a point on the board: s along it from the first rod, d out of it (towards you), height y
+  const onBoard = (s, d, y, out) => { out[0] = BOARD.x + Br[0] * s + Bn[0] * d; out[1] = y; out[2] = BOARD.z + Br[2] * s + Bn[2] * d; return out; };
+  BARS.forEach((B, k) => { B.k = k; const o = onBoard(B.s, 0.03, 0, [0, 0, 0]); B.x = o[0]; B.z = o[2]; });
 
   // the Betti curves as step envelopes [u, y, ...] on the ruler, counted from the stored bars at every radius where a
   // count changes (TDATA: pieces alive = deaths still to come + the one that lives on; loops alive = bars alive)
@@ -133,8 +143,7 @@ SETS.tower = function (K) {
   const LABEL_Z = CLEAR / 2 + PSX * plate.dims.label / 2;   // the label's middle
 
   // ---------------------------------------------------------------- what the frame shows now
-  const now = { r: 1.5, u: 0, rise: 0, yp: 0, bars: 0, lit: 0, n0: N, n1: 0, w0: [WALL.c[0], TH, WALL.c[2]], w1: [WALL.c[0], TH, WALL.c[2]] };
-  const Wr = [Math.cos(WALL.yaw * PI / 180), 0, -Math.sin(WALL.yaw * PI / 180)], Wn = [-Wr[2], 0, Wr[0]];   // the wall's along and out
+  const now = { r: 1.5, u: 0, rise: 0, yp: 0, bars: 0, lit: 0, n0: N, n1: 0 };
   const par = new Int16Array(N), rep = new Int16Array(N), cnt = new Int16Array(N);
   // which piece each cell is in at radius r: the stored joins up to r replayed in order
   function replay(r) {
@@ -316,45 +325,39 @@ SETS.tower = function (K) {
       tubes.add(_a, _b, 0.003, LK.CYAN, 0.6 * ra, 14);
     }
 
-    // ---- the barcode and the Betti curves
+    // ---- the barcode and the Betti curves: the threads and chimneys lift out of the tower as rods and fly to the board
     if (bars > 0.003) {
-      const yp2 = now.yp;
       for (const B of BARS) {
-        const g = smooth((bars - 0.55 * B.k / NB) / 0.12);
-        if (g <= 0.003) continue;
-        const y0 = rise * hOf(B.b), y1 = B.d === Infinity ? rise * (TH + 0.08) : rise * hOf(B.d), alive = B.b <= r && r < B.d;
+        const f = smooth((bars - 0.04 - 0.34 * B.k / NB) / 0.2);
+        if (f <= 0.003) continue;
+        const y0 = rise * hOf(B.b), y1 = B.d === Infinity ? rise * (TH + 0.08) : rise * hOf(B.d), alive = B.b <= r && r < B.d, hop = 0.1 * Math.sin(PI * f);
         const dimA = B.dim ? lA : pA, c = B.dim ? LK.LOOP : LK.PIECE;
-        _a[0] = B.x; _a[1] = y0; _a[2] = B.z; _b[0] = B.x; _b[1] = y0 + (Math.max(y1, y0 + 0.004) - y0) * g; _b[2] = B.z;
-        tubes.add(_a, _b, B.main || B.d === Infinity ? 0.0075 : 0.0052, alive ? LK.mix(c, WHITE, 0.25, _col) : c, g * dimA * (alive ? 1 : 0.45) * (B.main ? 1.2 : 1), 0);
+        const x = lerp(B.sx, B.x, f), z = lerp(B.sz, B.z, f);
+        _a[0] = _b[0] = x; _a[2] = _b[2] = z; _a[1] = y0 + hop; _b[1] = Math.max(y1, y0 + 0.004) + hop;
+        const col = B.dim ? c : LK.mix(cnt[rep[B.i]] > 1 || B.d === Infinity ? COL[B.i] : LK.BEAD, c, f, _col);
+        tubes.add(_a, _b, B.main || B.d === Infinity ? 0.0058 : 0.0034, alive ? LK.mix(col, WHITE, 0.3, _col) : col, prog(f, 0, 0.15) * dimA * (alive ? 1 : 0.5), 0);
       }
-      // the plane's level through the rods
-      _a[0] = 0; _a[1] = yp2; _a[2] = 0;
-      rings.add(_a, UP, ARC.R, 0.0028, LK.CYAN, 0.55 * prog(bars, 0.3, 0.6), 90);
-      // the glass wall and its two curves, drawing upwards
-      const wa = prog(bars, 0.35, 0.7), w2 = WALL.w / 2, wh = rise * TH + 0.1;
+      // the glass board behind them, and the two curves on it, drawing upwards: the count of pieces at a height is the
+      // width of the rods' staircase there (a rod's pitch per piece), the count of loops the busy lanes (a lane's pitch)
+      const wa = prog(bars, 0.3, 0.6), wh = rise * TH + 0.12;
       if (wa > 0.003) {
-        const cxw = WALL.c[0], czw = WALL.c[2];
-        _a[0] = cxw - Wr[0] * w2; _a[1] = 0; _a[2] = czw - Wr[2] * w2; _b[0] = cxw + Wr[0] * w2; _b[1] = 0; _b[2] = czw + Wr[2] * w2;
-        _c[0] = _b[0]; _c[1] = wh; _c[2] = _b[2]; _d[0] = _a[0]; _d[1] = wh; _d[2] = _a[2];
-        sheet.add(_a, _b, _c, LK.CYAN, 0.28 * wa, 0); sheet.add(_a, _c, _d, LK.CYAN, 0.28 * wa, 0);
-        tubes.add(_a, _b, 0.004, LK.CYAN, 0.7 * wa, 0); tubes.add(_b, _c, 0.004, LK.CYAN, 0.7 * wa, 0);
-        tubes.add(_c, _d, 0.004, LK.CYAN, 0.7 * wa, 0); tubes.add(_d, _a, 0.004, LK.CYAN, 0.7 * wa, 0);
-        // the curves: pieces from the wall's left edge, loops from its middle; heights on the ruler, counts sideways
-        const ca = prog(bars, 0.5, 0.75);
+        onBoard(-0.07, -0.02, 0, _a); onBoard(SEND + 0.07, -0.02, 0, _b); onBoard(SEND + 0.07, -0.02, wh, _c); onBoard(-0.07, -0.02, wh, _d);
+        sheet.add(_a, _b, _c, LK.CYAN, 0.22 * wa, 0); sheet.add(_a, _c, _d, LK.CYAN, 0.22 * wa, 0);
+        tubes.add(_a, _b, 0.004, LK.CYAN, 0.6 * wa, 0); tubes.add(_b, _c, 0.004, LK.CYAN, 0.6 * wa, 0);
+        tubes.add(_c, _d, 0.004, LK.CYAN, 0.6 * wa, 0); tubes.add(_d, _a, 0.004, LK.CYAN, 0.6 * wa, 0);
+        const ca = prog(bars, 0.5, 0.7);
         RIB0.to = RIB1.to = prog(bars, 0.55, 1) * 1.001;
+        RU[1] = rise * TH;
         for (let q = 0; q < 2; q++) {
-          const off = q ? 0.06 : -w2 + 0.05, wd = q ? w2 - 0.11 : w2 - 0.03 - 0.05;
-          const o = RO[q], Y = RY[q];
-          o[0] = cxw + Wr[0] * off + Wn[0] * 0.02; o[2] = czw + Wr[2] * off + Wn[2] * 0.02; RU[1] = rise * TH; Y[0] = Wr[0] * wd; Y[2] = Wr[2] * wd;
-          ribbons.add(q ? B1ENV : B0ENV, o, RU, Y, 0.012, q ? LK.LOOP : LK.PIECE, ca * (q ? lA : pA), q ? RIB1 : RIB0);
-          // the plane's line across the curve, and where it meets it
-          const n = q ? now.n1 / B1.top : now.n0 / B0.top;
-          _a[0] = o[0]; _a[1] = yp2; _a[2] = o[2]; _b[0] = o[0] + Wr[0] * wd; _b[1] = yp2; _b[2] = o[2] + Wr[2] * wd;
-          tubes.add(_a, _b, 0.0025, LK.CYAN, 0.7 * ca, 0);
-          _a[0] = o[0] + Wr[0] * wd * n; _a[2] = o[2] + Wr[2] * wd * n;
-          halos.add(_a, 0.06, q ? LK.LOOP : LK.PIECE, ca);
-          const w = q ? now.w1 : now.w0;
-          w[0] = o[0] + Wr[0] * wd * 0.5; w[1] = rise * TH + 0.04; w[2] = o[2] + Wr[2] * wd * 0.5;
+          const s0 = q ? S1 - BOARD.lane / 2 : -BOARD.p / 2, w = q ? B1.top * BOARD.lane : B0.top * BOARD.p, o = RO[q], Y = RY[q];
+          onBoard(s0, -0.005, 0, o); Y[0] = Br[0] * w; Y[2] = Br[2] * w;
+          ribbons.add(q ? B1ENV : B0ENV, o, RU, Y, 0.008, q ? LK.LOOP : LK.PIECE, ca * (q ? lA : pA), q ? RIB1 : RIB0);
+          // the plane's line across, and where it meets the curve (the count at this radius)
+          const n = q ? now.n1 : now.n0;
+          onBoard(s0, 0.03, now.yp, _a); onBoard(s0 + (q ? LANES * BOARD.lane : NB0 * BOARD.p), 0.03, now.yp, _b);
+          tubes.add(_a, _b, 0.0022, LK.CYAN, 0.75 * ca, 0);
+          onBoard(s0 + w * n / (q ? B1.top : B0.top), 0.03, now.yp, _a);
+          halos.add(_a, 0.07, q ? LK.LOOP : LK.PIECE, ca);
         }
       }
     }
@@ -362,6 +365,7 @@ SETS.tower = function (K) {
   }
   const RIB0 = { glow: 0.8, fill: 0.9, to: 1 }, RIB1 = { glow: 0.8, fill: 0.9, to: 1 };
   const RO = [[0, 0, 0], [0, 0, 0]], RY = [[0, 0, 0], [0, 0, 0]], RU = [0, 1, 0];
+  const top0 = () => onBoard(NB0 * BOARD.p * 0.18, 0.03, now.rise * hOf(BARS[Math.round(NB0 * 0.18)].d) + 0.05, [0, 0, 0]);
 
   // ---------------------------------------------------------------- anchors, labels, views
   const fmtR = r => (r < 10 ? r.toFixed(2) : r.toFixed(1));
@@ -383,9 +387,8 @@ SETS.tower = function (K) {
     plane: () => [RULER[0], now.yp + 0.03, RULER[1]],
     trunk: () => [X[TRUNK], now.rise * (TH + 0.08) + 0.04, Z[TRUNK]],
     chimney: () => [MAIN.hx + MAIN.rad, now.rise * (hOf(MAIN.b) + hOf(MAIN.d)) / 2, MAIN.hz],
-    bars: () => { const B = BARS[Math.round(NB0 * 0.75)]; return [B.x, now.rise * 0.55, B.z]; },
-    bars1: () => { const B = BARS[NB0 + 4]; return [B.x, now.rise * 1.05, B.z]; },
-    b0: () => now.w0, b1: () => now.w1,
+    bars: top0, bars1: () => onBoard(S1 + BOARD.lane * LANES * 0.5, 0.03, now.rise * hOf(MAIN.d) + 0.06, [0, 0, 0]),
+    board: () => onBoard(SEND / 2, 0, now.rise * TH * 0.5, [0, 0, 0]),
   };
   TICKS.forEach((m, k) => { anchors['tick' + k] = () => [RULER[0] + 0.03, now.rise * hOf(m), RULER[1]]; });
   const labels = [
@@ -400,10 +403,8 @@ SETS.tower = function (K) {
       alpha: S => prog(S.tower_rise, 0.8, 1) * (1 - prog(S.tower_bars, 0, 0.3)) * prog(+S.tower_r || 0, 17, 20) * (S.tower_lit === 2 ? 0 : 1) },
     { text: ['The big loop', ' · a chimney from birth to filling'], at: 'chimney', cls: 'amb',
       alpha: S => prog(S.tower_rise, 0.8, 1) * (1 - prog(S.tower_bars, 0, 0.3)) * prog(+S.tower_r || 0, 13, 15) * (S.tower_lit === 1 ? 0 : 1) },
-    { text: ['Barcode', ' · a rod for every piece'], at: 'bars', cls: 'amb', alpha: S => prog(S.tower_bars, 0.25, 0.45) * (S.tower_lit === 2 ? 0 : 1) },
-    { text: ['A rod for every loop', ''], at: 'bars1', cls: 'amb', alpha: S => prog(S.tower_bars, 0.45, 0.6) * (S.tower_lit === 1 ? 0 : 1) },
-    { text: () => ['Pieces', ` · ${N} at the start`], at: 'b0', cls: 'amb', alpha: S => prog(S.tower_bars, 0.7, 0.9) * (S.tower_lit === 2 ? 0 : 1) },
-    { text: () => ['Loops', ` · at most ${B1.top}`], at: 'b1', cls: 'amb', alpha: S => prog(S.tower_bars, 0.75, 0.95) * (S.tower_lit === 1 ? 0 : 1) },
+    { text: ['Pieces', ` · ${N} rods: their staircase is the count`], at: 'bars', cls: 'amb', alpha: S => prog(S.tower_bars, 0.45, 0.65) * (Math.round(S.tower_lit) === 2 ? 0 : 1) },
+    { text: ['Loops', ` · ${NL} rods, at most ${B1.top} at once`], at: 'bars1', cls: 'amb', alpha: S => prog(S.tower_bars, 0.6, 0.8) * (Math.round(S.tower_lit) === 1 ? 0 : 1) },
   ];
   const cam = {
     default: [22, 18, 6.2, 0.25, 0.8, 0.05],
