@@ -671,8 +671,9 @@ SETS.scan = function (K) {
   // The cut: surfaces flagged for it vanish above uCut (scanner frame) with a glowing edge; their insides (back
   // faces) show as the dark inside of the housing. uMir draws the mirrored copy (the floor's reflection). o.cry: the
 // crystals, each with its own glow (aG, per instance: a crystal struck by a photon flashes). While the set fades,
-// back faces are dropped: the dark inside showed through the housing itself (a muddy charcoal ghost).
-  const SU = { uCut: { value: 9 }, uWin: { value: 0 }, uDim: { value: 1 }, uFloor: { value: FLOOR }, uE: { value: new THREE.Vector4(1, 1, 1, 1) } };
+// back faces are dropped: the dark inside showed through the housing itself (a muddy charcoal ghost). uRoom fades the
+// scanner alone (scan_rise: the patient's image stays), as the set's fade does.
+  const SU = { uCut: { value: 9 }, uWin: { value: 0 }, uDim: { value: 1 }, uFloor: { value: FLOOR }, uRoom: { value: 1 }, uE: { value: new THREE.Vector4(1, 1, 1, 1) } };
   function studio(o = {}) {
     const m = new THREE.ShaderMaterial({
       uniforms: Object.assign({ uA: set.uA, uMir: { value: o.mir ? 1 : 0 }, uK: { value: 1 } }, SU), defines: o.cry ? { CRY: '' } : {},
@@ -699,7 +700,7 @@ void main() {
   gl_Position = projectionMatrix * viewMatrix * w;
 }`,
       fragmentShader: `
-uniform float uA, uCut, uWin, uDim, uMir, uFloor, uK;
+uniform float uA, uCut, uWin, uDim, uMir, uFloor, uK, uRoom;
 varying vec3 vC, vN, vW, vL, vLN; varying vec4 vM; varying float vE;
 #ifdef CRY
 varying float vG;
@@ -715,8 +716,8 @@ void main() {
   if (vM.z > 0.5 && vL.y > uCut) discard;
   if (vM.z > 1.5 && abs(vL.z) < uWin) discard;   // the bore's cover opens over the detector ring
   bool inside = !gl_FrontFacing;
-  if (inside && uA < 0.97) discard;
-  float a = uA * vE * uK;
+  if (inside && uA * uRoom < 0.97) discard;
+  float a = uA * vE * uK * uRoom;
   // the reflection fades with the height above the floor (and costs nothing where it has gone)
   if (uMir > 0.5) { a *= 0.32 * exp(-max(vL.y - uFloor, 0.0) * 3.0); if (a < 0.004) discard; }
   vec3 n = normalize(vN), v = normalize(cameraPosition - vW);
@@ -1166,6 +1167,9 @@ void main() {
     body.group.traverse(o => { if (o.isPoints) o.renderOrder = 2; });
     patientG.add(body.group);
   }
+  // the image's intensity on the body set's hot-iron scale (its uniform, read after its update): scan_rise cools it
+  // down the scale to dark, as a glow fades, rather than greying it (without it, the image only dims)
+  const bodyU = body ? (body.mats.find(m => m.uniforms && m.uniforms.uK && m.uniforms.uP) || {}).uniforms : null;
 
   // ------------------------------------------------------------------ where the sugar is --
   // Events are drawn from a pool of points in the body's frame weighted by FDG uptake: brain, heart muscle, kidneys
@@ -1207,9 +1211,9 @@ void main() {
   }
   // up close (in a headset, or the inside view) sprites shrink with distance, so they stay grains, not discs
   const CLOSE = ' gl_PointSize *= clamp(-mv.z / length(modelViewMatrix[0].xyz) / 1.6, 0.35, 1.0);';
-  const dotU = { uImg: { value: 0 }, uLow: { value: -9 } };
-  const dotMat = K.points(set, { uniforms: dotU, head: 'attribute float aSeed; uniform float uImg, uLow;',
-    vertex: 'vA *= (aSeed < 0.0 ? smoothstep(0.45, 0.8, uImg) : smoothstep(aSeed * 0.55, aSeed * 0.55 + 0.04, uImg) * (1.0 - smoothstep(0.62, 0.95, uImg))) * smoothstep(uLow - 0.004, uLow + 0.012, position.y);' + CLOSE });
+  const dotU = { uImg: { value: 0 }, uLow: { value: -9 }, uGl: { value: 1 } };
+  const dotMat = K.points(set, { uniforms: dotU, head: 'attribute float aSeed; uniform float uImg, uLow, uGl;',
+    vertex: 'vA *= uGl * (aSeed < 0.0 ? smoothstep(0.45, 0.8, uImg) : smoothstep(aSeed * 0.55, aSeed * 0.55 + 0.04, uImg) * (1.0 - smoothstep(0.62, 0.95, uImg))) * smoothstep(uLow - 0.004, uLow + 0.012, position.y);' + CLOSE });
   const dots = new THREE.Points(dotG, dotMat);
   dots.renderOrder = 4; dots.frustumCulled = false;
   patientG.add(dots);
@@ -1618,6 +1622,9 @@ void main() {
   const mS = new THREE.Matrix4(), mL = new THREE.Matrix4(), qa = new THREE.Quaternion(), qb = new THREE.Quaternion();
   const pa = new THREE.Vector3(), pb = new THREE.Vector3(), sa = new THREE.Vector3(), sb = new THREE.Vector3();
   const LIE = new THREE.Matrix4().makeRotationX(-PI / 2), STAND = new THREE.Vector3(VX.body, 0.0, 0), SSTAND = 0.8;
+  // where scan_rise stands the patient: the body set's own place (its frame in this set's frame; the story gives the
+  // turn it gives the body set, so the hand-over from this set's image to the body set cannot be seen)
+  const RISE = { x: 0, y: 0, z: 0, yaw: 0, s: 1 }, qr = new THREE.Quaternion(), YAX = new THREE.Vector3(0, 1, 0);
   const BED_IN = 1.15, PASS = 0.85, TZ0 = 0.85;   // the table's head end at bed 0; its travel in; the travel of the pass
   let tableZ = TZ0;
   const live = { vis: 0, img: 0, ev: 0 };
@@ -1648,6 +1655,9 @@ void main() {
     // as the image forms, the couch carries the patient on through the ring to the thighs (the counts come in behind it)
     const pass = g('scan_pass') + (1 - g('scan_pass')) * prog(img, 0, 0.6);
     const flo = S.scan_floor === undefined ? 1 : g('scan_floor');
+    // the scanner goes, leaving the patient's image, which stands up (linear here: the story eases each stage, in step
+    // with its camera) and then cools to dark
+    const rise = g('scan_rise'), room = 1 - smooth(prog(rise, 0, 0.25)), up = prog(rise, 0.25, 0.75), glow = 1 - prog(rise, 0.75, 1);
     live.vis = vision; live.img = img; live.ev = evs;
     // the scanner moves to the left, shrinks a little and turns to show its side (as on the slide)
     const fs = smooth(prog(vision, 0, 0.45));
@@ -1670,42 +1680,51 @@ void main() {
       pa.lerp(pb, fb); pa.y += Math.sin(PI * fb) * 0.35; qa.slerp(qb, fb); sa.lerp(sb, fb);
       patientG.matrix.compose(pa, qa, sa);
     }
+    if (up > 0) {
+      // (it pitches up as it turns: its shoulders stay level)
+      patientG.matrix.decompose(pa, qa, sa);
+      qa.slerp(qb.identity(), up).premultiply(qr.setFromAxisAngle(YAX, RISE.yaw * up));
+      pa.lerp(pb.set(RISE.x, RISE.y, RISE.z), up); sa.lerp(sb.setScalar(RISE.s), up);
+      patientG.matrix.compose(pa, qa, sa);
+    }
     patientG.matrixWorldNeedsUpdate = true;
     // the cut: the housing's upper half goes (a plane sweeping down to just above the bore's centre); lights down
     SU.uCut.value = lerp(1.12, 0.015, smooth(cut));
     SU.uWin.value = (ZH + 0.012) * smooth(prog(cut, 0.5, 1));
     innerMesh.visible = crystals.visible = cut > 0.002;   // hidden by the housing until it opens
     SU.uDim.value = 1 - 0.38 * smooth(Math.max(cut, evs)) * (1 - vision);
-    const a = set.uA.value, solid = a > 0.97;
+    SU.uRoom.value = room;
+    const a = set.uA.value, solid = a * room > 0.97;
     solidMat.depthWrite = cryMat.depthWrite = solid;
-    floorMesh.visible = outerRefl.visible = tableRefl.visible = flo > 0.003;
-    floorMat.uniforms.uF.value = flo * (1 - 0.4 * fs);
+    floorMesh.visible = outerRefl.visible = tableRefl.visible = flo * room > 0.003;
+    floorMat.uniforms.uF.value = flo * (1 - 0.4 * fs) * room;
     // the image: the counts light up behind the ring as the patient passes through it, then the smooth image (the
     // body set at steady state) glows inside the shell once the pass is done
     const standA = prog(vision, 0.1, 0.42), imgA = smooth(prog(img, 0.5, 0.95));
     const bodyA = Math.max(imgA * (1 - fb), standA);
     if (body) {
-      body.setAlpha(a * bodyA);
-      if (bodyA > 0.003) body.update(BP, t);
+      body.setAlpha(a * bodyA * (bodyU ? (glow > 0 ? 1 : 0) : glow));
+      if (bodyA * glow > 0.003) { body.update(BP, t); if (bodyU) bodyU.uK.value *= glow; }
     }
     dotU.uImg.value = img * (1 - fb);
     dotU.uLow.value = (pose.tz - ZH) / pose.s;
-    dots.visible = img > 0.003 && fb < 1;
+    dotU.uGl.value = glow * glow;
+    dots.visible = img > 0.003 && fb < 1 && glow > 0.003;
     const dark = Math.max(smooth(prog(img, 0, 0.5)), 0.55 * smooth(Math.max(cut, evs)));
     // standing in the row, the shell turns into the slide's warm orange glow under the image (the image blends by
     // maximum, so its hot organs still show above it), with a bright rim round its outline
     shellU.uSC.value.setRGB(lerp(lerp(0.36, 0.02, dark), 0.85, fb), lerp(lerp(0.45, 0.03, dark), 0.25, fb), lerp(lerp(0.58, 0.05, dark), 0.04, fb));
-    shellU.uSA.value = lerp(0.45, 0.84, dark) * (1 - smooth(prog(vision, 0.04, 0.25))) + 0.9 * standA * fb;
-    shellU.uSR.value = lerp(1 - 0.35 * dark, 1.2, fb);
+    shellU.uSA.value = (lerp(0.45, 0.84, dark) * (1 - smooth(prog(vision, 0.04, 0.25))) + 0.9 * standA * fb) * room;
+    shellU.uSR.value = lerp(1 - 0.35 * dark, 1.2, fb) * room;
     shellU.uRC.value.setRGB(lerp(0.5, 1.0, fb), lerp(0.7, 0.55, fb), lerp(0.95, 0.2, fb));
-    shellD.visible = shellU.uSA.value > 0.003; shellR.visible = shellU.uSR.value * standA + (1 - fb) > 0.003;
+    shellD.visible = shellU.uSA.value > 0.003; shellR.visible = shellU.uSR.value * (standA + 1 - fb) > 0.003;
     // the hottest source inside the ring's slice gives the featured events
     featSrc = -1;
     for (const k of SRC_BY_W) if (Math.abs(pose.tz - pose.s * SRC[k][0][1]) < ZH - 0.025) { featSrc = k; break; }
     // the web of lines
     const cap = Math.round(lin * WEB_N), head = Math.floor(t * WEB_RATE);
     webU.uHead.value = head; webU.uCap.value = cap; webU.uNow.value = t; webU.uPose.value.set(pose.ty, pose.tz, pose.s);
-    webU.uLin.value = (0.022 + 0.05 * (1 - lin)) * (1 - smooth(prog(img, 0.05, 0.55))) * (1 - fs);
+    webU.uLin.value = (0.022 + 0.05 * (1 - lin)) * (1 - smooth(prog(img, 0.05, 0.55))) * (1 - fs) * room;
     web.visible = cap > 0 && webU.uLin.value > 0.001;
     if (web.visible) webStep(cap, head);
     // the animated events
@@ -1713,7 +1732,7 @@ void main() {
     for (let k = 0; k < nLit; k++) CG[LIT[k]] = 0;
     const litBefore = nLit;
     nLit = 0;
-    const fxA = (1 - smooth(prog(img, 0.1, 0.5))) * (1 - fs);
+    const fxA = (1 - smooth(prog(img, 0.1, 0.5))) * (1 - fs) * room;
     if (evs > 0.001 && fxA > 0.002) featState(t); else featured.on = false;
     if (evs > 0.001 && fxA > 0.002) {
       // beyond the featured events, the share of events shown grows with the square of scan_events (a few at 0.3)
@@ -1805,8 +1824,10 @@ void main() {
   const notRow = S => 1 - prog(S.scan_vision || 0, 0, 0.2);
   const evLab = S => notRow(S) * (1 - prog(S.scan_image || 0, 0, 0.3)) * (featured.on ? 1 : 0);
   return Object.assign(set, {
-    params: { scan_a: 1, scan_bed: 0, scan_pass: 0, scan_cut: 0, scan_events: 0, scan_lines: 0, scan_image: 0, scan_vision: 0, scan_floor: 1 },
+    params: { scan_a: 1, scan_bed: 0, scan_pass: 0, scan_cut: 0, scan_events: 0, scan_lines: 0, scan_image: 0, scan_vision: 0, scan_floor: 1, scan_rise: 0 },
     floorY: FLOOR,
+    // where scan_rise stands the patient (set it once; see RISE)
+    riseTo: RISE,
     update,
     anchors,
     labels: [
@@ -1817,7 +1838,7 @@ void main() {
       // once they are under way; with the events on in explore, scan_events is 1 and both show at once)
       { text: ['Two gamma photons', '· 511 keV each'], at: 'event', cls: 'amb', alpha: S => evLab(S) * prog(S.scan_events || 0, 0.005, 0.04) * Math.max(prog(S.scan_lines || 0, 0.04, 0.06), prog(S.scan_events || 0, 0.9, 1)) * (1 - prog(S.scan_lines || 0, 0.45, 0.65)) * (0.45 + 0.55 * featured.env) },
       { text: ['Line of response', ''], at: 'lor', cls: 'amb', alpha: S => evLab(S) * featured.lorOn * prog(S.scan_events || 0, 0.01, 0.05) * Math.max(prog(S.scan_lines || 0, 0.41, 0.45), prog(S.scan_events || 0, 0.9, 1)) * (1 - prog(S.scan_lines || 0, 0.72, 0.9)) },
-      { text: ['FDG', 'in the patient'], at: 'patient', cls: 'amb', alpha: S => notRow(S) * prog(S.scan_image || 0, 0.5, 0.9) },
+      { text: ['FDG', 'in the patient'], at: 'patient', cls: 'amb', alpha: S => notRow(S) * prog(S.scan_image || 0, 0.5, 0.9) * (1 - prog(S.scan_rise || 0, 0, 0.15)) },
       // (the row's names give way on narrow screens, where they covered the pictures: minor)
       { text: ['PET scan', ''], at: 'vision_scan', minor: true, alpha: S => rowA(S, 0.3) },
       { text: ['One body', ''], at: 'vision_body', minor: true, alpha: S => rowA(S, 0.4) },
@@ -4864,10 +4885,10 @@ function buildStory() {
         </ul>`)}
       <p class="credits" data-at="31">The uptake is measured as the SUV, the standardised uptake value: the tracer in a tissue divided by the dose per kilogram of body weight, so 1 would be an even spread. Protocol as in the paper: ${F.dose[0]} to ${F.dose[1]} MBq of FDG.</p>`,
     body: `<h2 data-at="0.6">Where the sugar goes</h2>
-      <p data-at="1.2">The tracer arrives with the blood, and within the hour it settles where cells use sugar.</p>
-      <p data-at="10">The brain takes up the most, and the heart often does too, though this varies greatly from person to person. The kidneys and the bladder glow too: FDG is filtered into the urine and not taken back, so it leaves the body that way.</p>
-      <p data-at="20">A tumour shows as a hot spot. This is the main application of PET scans.</p>
-      <p data-at="29" class="amber">Yet the scan holds every organ's metabolism at once.</p>`,
+      <p data-at="6.5">The tracer arrives with the blood, and within the hour it settles where cells use sugar.</p>
+      <p data-at="15">The brain takes up the most, and the heart often does too, though this varies greatly from person to person. The kidneys and the bladder glow too: FDG is filtered into the urine and not taken back, so it leaves the body that way.</p>
+      <p data-at="25">A tumour shows as a hot spot. This is the main application of PET scans.</p>
+      <p data-at="34" class="amber">Yet the scan holds every organ's metabolism at once.</p>`,
     organs: `<h2 data-at="0.6">Every organ, measured</h2>
       ${turns(`<p data-at="1.2" data-out="22.5">Segmentation algorithms outline up to ${F.organs} organs in each scan, in 3D, and a doctor checks them.</p>
         <p data-at="14" data-out="22.5">Each organ's uptake is divided by that of the aorta: the blood pool, the same reference in every scan.</p>`,
@@ -4917,13 +4938,13 @@ function buildStory() {
     if (nudge) for (let i = 0; i < nudge.length; i++) v[i] += nudge[i] || 0;
     wp.push([t, ...v, ease, frameOf(k), narrowOf(k, name), fitShift(k, name)]);
   };
-  start({ scan_vision: 1, scan_bed: 0, scan_pass: 0, scan_cut: 0, scan_events: 0, scan_lines: 0, scan_image: 0,
+  start({ scan_vision: 1, scan_bed: 0, scan_pass: 0, scan_cut: 0, scan_events: 0, scan_lines: 0, scan_image: 0, scan_rise: 0,
     body_pet: 0, body_net: 0, body_state: 0, body_blank: 0,
     organs_seg: 0, organs_suv: 0, organs_focus: 0, organs_lesion: 0, organs_rows: 0, organs_pair: 0, organs_partial: 0, organs_net: 0, organs_which: 0, organs_prev: 0, organs_mix: 1, organs_strength: 0 });
   let a, b;
   // Intro: the vision row (scanner, body, network, prognosis, medication), then it draws back into the scanner
   a = C.title.a; b = C.title.b;
-  show('scan', 0.2, 2.5, C.body.a + 0.3, C.body.a + 2.3);
+  show('scan', 0.2, 2.5, C.body.a + 6.5, C.body.a + 7);   // (by then only its patient's image was left, and it is dark)
   ramp('scan_vision', a + 10, a + 15, 1, 0);
   cam(a, 'scan', 'vision', -8);
   cam(a + 9.5, 'scan', 'vision', 4, 'spin');
@@ -4946,18 +4967,24 @@ function buildStory() {
   // (the image from above the couch: from inside the bore the body set's image is coarse)
   cam(a + 32, 'scan', 'ring', 2, null, [0, 6, 0.8, 0, -0.08, 0.4]);
   cam(b - 0.5, 'scan', 'ring', 14, 'spin', [0, 6, 0.8, 0, -0.08, 0.4]);
-  // Where the sugar goes: the standing body, the tracer arriving, the hot organs, then a tumour
+  // Where the sugar goes: the scanner goes and the patient's image stands up, exactly where (and as large as) the body
+  // set stands in the view the chapter then uses, the camera easing to that view in step (so the hand-over from the scan
+  // set's patient to the body set cannot be seen); its glow fades, then the tracer arrives, the hot organs, a tumour
   a = C.body.a; b = C.body.b;
-  show('body', a + 0.3, a + 2.3);
-  ramp('body_pet', a + 1.5, a + 10, 0, 1);
-  show('organs', a + 18, a + 20);
-  ramp('organs_lesion', a + 19, a + 21, 0, 1);
-  cam(a + 2.5, 'body', 'front', -12, null, [0, 0, 0.55]);   // (a slow turn from the scanner as it fades)
-  cam(a + 9.5, 'body', 'front', 6, 'spin', [0, 0, 0.55]);
-  cam(a + 12, 'body', 'front', 10, null, [0, 0, -0.55, 0, 0.22, 0]);   // (not so close that the arms reach the top bar)
-  cam(a + 18, 'body', 'front', 18, 'spin', [0, 0, -0.55, 0, 0.22, 0]);
-  cam(a + 21, 'organs', 'lesion');
-  cam(a + 28, 'organs', 'lesion', 10, 'spin');
+  ramp('scan_rise', a, a + 1.5, 0, 0.25);          // the room goes (the camera holds)
+  ramp('scan_rise', a + 1.5, a + 5, 0.25, 0.75);   // the patient stands up and turns
+  ramp('scan_rise', a + 5, a + 6.5, 0.75, 1);      // its glow cools to dark
+  show('body', a + 5, a + 6);   // (dark until the tracer comes: at body_pet 0 it draws nothing)
+  ramp('body_pet', a + 6.5, a + 15, 0, 1);
+  show('organs', a + 23, a + 25);
+  ramp('organs_lesion', a + 24, a + 26, 0, 1);
+  cam(a + 1.5, 'scan', 'ring', 14, null, [0, 6, 0.8, 0, -0.08, 0.4]);   // (where the scanner chapter's camera rests)
+  cam(a + 5, 'body', 'front', -12, null, [0, 0, 0.55]);   // (buildCamera turns the body so the camera keeps its side)
+  cam(a + 14.5, 'body', 'front', 6, 'spin', [0, 0, 0.55]);
+  cam(a + 17, 'body', 'front', 10, null, [0, 0, -0.55, 0, 0.22, 0]);   // (not so close that the arms reach the top bar)
+  cam(a + 23, 'body', 'front', 18, 'spin', [0, 0, -0.55, 0, 0.22, 0]);
+  cam(a + 26, 'organs', 'lesion');
+  cam(a + 32, 'organs', 'lesion', 10, 'spin');
   cam(b - 1, 'organs', 'default', -6);
   ramp('organs_lesion', b - 3, b, 1, 0);
   // Every organ, measured: the AI's outlines, slice by slice; each organ's uptake as a bar; three organs in turn
@@ -5007,16 +5034,20 @@ function buildStory() {
   cam(b - 0.5, 'organs', 'net', 34, 'spin');
   for (const n in TR) TR[n].sort((x, y) => x[0] - y[0]);
   buildCamera(wp);
+  // the scan set's patient stands up where the body set stands: no move, the same size, and the body set's turn (taken
+  // from the camera's hand-over above) less its own
+  const rt = GL.sets.scan.riseTo;
+  if (rt) rt.yaw = (setYaw('body', C.body.a + 5) - setYaw('scan', C.body.a + 5)) * D2R;
 
   // --------------------------------------------------------- story labels
   // (the sets label their own parts, the hubs among them; the story adds what the scene alone does not say; the body
   // set labels its organs only with its own network, so its anchors are passed as points)
   const at = (k, n) => () => anchorOf(k, n);
   a = C.body.a;
-  label('body', at('body', 'brain'), '<b>Brain</b>', a + 11, a + 18, 'amb');
-  label('body', at('body', 'heart'), '<b>Heart</b>', a + 12, a + 18, 'amb');
-  label('body', at('body', 'kidneys'), '<b>Kidneys</b>', a + 13.5, a + 18, 'amb');
-  label('body', at('body', 'bladder'), '<b>Bladder</b>', a + 14.5, a + 18, 'amb');
+  label('body', at('body', 'brain'), '<b>Brain</b>', a + 16, a + 23, 'amb');
+  label('body', at('body', 'heart'), '<b>Heart</b>', a + 17, a + 23, 'amb');
+  label('body', at('body', 'kidneys'), '<b>Kidneys</b>', a + 18.5, a + 23, 'amb');
+  label('body', at('body', 'bladder'), '<b>Bladder</b>', a + 19.5, a + 23, 'amb');
   // (the health chapter opens on the network of all scans: the paper drew none for healthy against cancer, so the two
   // densities the text quotes stand by its title)
   if (R.cancer) label('organs', at('organs', 'title'), `<b>Healthy ${gD(R.cancer, 0)} · cancer ${gD(R.cancer, 1)}</b>density; no network drawn for them`, C.health.a + 1.5, C.health.a + 7, 'amb');

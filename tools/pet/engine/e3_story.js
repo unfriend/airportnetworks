@@ -216,10 +216,10 @@ function buildStory() {
         </ul>`)}
       <p class="credits" data-at="31">The uptake is measured as the SUV, the standardised uptake value: the tracer in a tissue divided by the dose per kilogram of body weight, so 1 would be an even spread. Protocol as in the paper: ${F.dose[0]} to ${F.dose[1]} MBq of FDG.</p>`,
     body: `<h2 data-at="0.6">Where the sugar goes</h2>
-      <p data-at="1.2">The tracer arrives with the blood, and within the hour it settles where cells use sugar.</p>
-      <p data-at="10">The brain takes up the most, and the heart often does too, though this varies greatly from person to person. The kidneys and the bladder glow too: FDG is filtered into the urine and not taken back, so it leaves the body that way.</p>
-      <p data-at="20">A tumour shows as a hot spot. This is the main application of PET scans.</p>
-      <p data-at="29" class="amber">Yet the scan holds every organ's metabolism at once.</p>`,
+      <p data-at="6.5">The tracer arrives with the blood, and within the hour it settles where cells use sugar.</p>
+      <p data-at="15">The brain takes up the most, and the heart often does too, though this varies greatly from person to person. The kidneys and the bladder glow too: FDG is filtered into the urine and not taken back, so it leaves the body that way.</p>
+      <p data-at="25">A tumour shows as a hot spot. This is the main application of PET scans.</p>
+      <p data-at="34" class="amber">Yet the scan holds every organ's metabolism at once.</p>`,
     organs: `<h2 data-at="0.6">Every organ, measured</h2>
       ${turns(`<p data-at="1.2" data-out="22.5">Segmentation algorithms outline up to ${F.organs} organs in each scan, in 3D, and a doctor checks them.</p>
         <p data-at="14" data-out="22.5">Each organ's uptake is divided by that of the aorta: the blood pool, the same reference in every scan.</p>`,
@@ -269,13 +269,13 @@ function buildStory() {
     if (nudge) for (let i = 0; i < nudge.length; i++) v[i] += nudge[i] || 0;
     wp.push([t, ...v, ease, frameOf(k), narrowOf(k, name), fitShift(k, name)]);
   };
-  start({ scan_vision: 1, scan_bed: 0, scan_pass: 0, scan_cut: 0, scan_events: 0, scan_lines: 0, scan_image: 0,
+  start({ scan_vision: 1, scan_bed: 0, scan_pass: 0, scan_cut: 0, scan_events: 0, scan_lines: 0, scan_image: 0, scan_rise: 0,
     body_pet: 0, body_net: 0, body_state: 0, body_blank: 0,
     organs_seg: 0, organs_suv: 0, organs_focus: 0, organs_lesion: 0, organs_rows: 0, organs_pair: 0, organs_partial: 0, organs_net: 0, organs_which: 0, organs_prev: 0, organs_mix: 1, organs_strength: 0 });
   let a, b;
   // Intro: the vision row (scanner, body, network, prognosis, medication), then it draws back into the scanner
   a = C.title.a; b = C.title.b;
-  show('scan', 0.2, 2.5, C.body.a + 0.3, C.body.a + 2.3);
+  show('scan', 0.2, 2.5, C.body.a + 6.5, C.body.a + 7);   // (by then only its patient's image was left, and it is dark)
   ramp('scan_vision', a + 10, a + 15, 1, 0);
   cam(a, 'scan', 'vision', -8);
   cam(a + 9.5, 'scan', 'vision', 4, 'spin');
@@ -298,18 +298,24 @@ function buildStory() {
   // (the image from above the couch: from inside the bore the body set's image is coarse)
   cam(a + 32, 'scan', 'ring', 2, null, [0, 6, 0.8, 0, -0.08, 0.4]);
   cam(b - 0.5, 'scan', 'ring', 14, 'spin', [0, 6, 0.8, 0, -0.08, 0.4]);
-  // Where the sugar goes: the standing body, the tracer arriving, the hot organs, then a tumour
+  // Where the sugar goes: the scanner goes and the patient's image stands up, exactly where (and as large as) the body
+  // set stands in the view the chapter then uses, the camera easing to that view in step (so the hand-over from the scan
+  // set's patient to the body set cannot be seen); its glow fades, then the tracer arrives, the hot organs, a tumour
   a = C.body.a; b = C.body.b;
-  show('body', a + 0.3, a + 2.3);
-  ramp('body_pet', a + 1.5, a + 10, 0, 1);
-  show('organs', a + 18, a + 20);
-  ramp('organs_lesion', a + 19, a + 21, 0, 1);
-  cam(a + 2.5, 'body', 'front', -12, null, [0, 0, 0.55]);   // (a slow turn from the scanner as it fades)
-  cam(a + 9.5, 'body', 'front', 6, 'spin', [0, 0, 0.55]);
-  cam(a + 12, 'body', 'front', 10, null, [0, 0, -0.55, 0, 0.22, 0]);   // (not so close that the arms reach the top bar)
-  cam(a + 18, 'body', 'front', 18, 'spin', [0, 0, -0.55, 0, 0.22, 0]);
-  cam(a + 21, 'organs', 'lesion');
-  cam(a + 28, 'organs', 'lesion', 10, 'spin');
+  ramp('scan_rise', a, a + 1.5, 0, 0.25);          // the room goes (the camera holds)
+  ramp('scan_rise', a + 1.5, a + 5, 0.25, 0.75);   // the patient stands up and turns
+  ramp('scan_rise', a + 5, a + 6.5, 0.75, 1);      // its glow cools to dark
+  show('body', a + 5, a + 6);   // (dark until the tracer comes: at body_pet 0 it draws nothing)
+  ramp('body_pet', a + 6.5, a + 15, 0, 1);
+  show('organs', a + 23, a + 25);
+  ramp('organs_lesion', a + 24, a + 26, 0, 1);
+  cam(a + 1.5, 'scan', 'ring', 14, null, [0, 6, 0.8, 0, -0.08, 0.4]);   // (where the scanner chapter's camera rests)
+  cam(a + 5, 'body', 'front', -12, null, [0, 0, 0.55]);   // (buildCamera turns the body so the camera keeps its side)
+  cam(a + 14.5, 'body', 'front', 6, 'spin', [0, 0, 0.55]);
+  cam(a + 17, 'body', 'front', 10, null, [0, 0, -0.55, 0, 0.22, 0]);   // (not so close that the arms reach the top bar)
+  cam(a + 23, 'body', 'front', 18, 'spin', [0, 0, -0.55, 0, 0.22, 0]);
+  cam(a + 26, 'organs', 'lesion');
+  cam(a + 32, 'organs', 'lesion', 10, 'spin');
   cam(b - 1, 'organs', 'default', -6);
   ramp('organs_lesion', b - 3, b, 1, 0);
   // Every organ, measured: the AI's outlines, slice by slice; each organ's uptake as a bar; three organs in turn
@@ -359,16 +365,20 @@ function buildStory() {
   cam(b - 0.5, 'organs', 'net', 34, 'spin');
   for (const n in TR) TR[n].sort((x, y) => x[0] - y[0]);
   buildCamera(wp);
+  // the scan set's patient stands up where the body set stands: no move, the same size, and the body set's turn (taken
+  // from the camera's hand-over above) less its own
+  const rt = GL.sets.scan.riseTo;
+  if (rt) rt.yaw = (setYaw('body', C.body.a + 5) - setYaw('scan', C.body.a + 5)) * D2R;
 
   // --------------------------------------------------------- story labels
   // (the sets label their own parts, the hubs among them; the story adds what the scene alone does not say; the body
   // set labels its organs only with its own network, so its anchors are passed as points)
   const at = (k, n) => () => anchorOf(k, n);
   a = C.body.a;
-  label('body', at('body', 'brain'), '<b>Brain</b>', a + 11, a + 18, 'amb');
-  label('body', at('body', 'heart'), '<b>Heart</b>', a + 12, a + 18, 'amb');
-  label('body', at('body', 'kidneys'), '<b>Kidneys</b>', a + 13.5, a + 18, 'amb');
-  label('body', at('body', 'bladder'), '<b>Bladder</b>', a + 14.5, a + 18, 'amb');
+  label('body', at('body', 'brain'), '<b>Brain</b>', a + 16, a + 23, 'amb');
+  label('body', at('body', 'heart'), '<b>Heart</b>', a + 17, a + 23, 'amb');
+  label('body', at('body', 'kidneys'), '<b>Kidneys</b>', a + 18.5, a + 23, 'amb');
+  label('body', at('body', 'bladder'), '<b>Bladder</b>', a + 19.5, a + 23, 'amb');
   // (the health chapter opens on the network of all scans: the paper drew none for healthy against cancer, so the two
   // densities the text quotes stand by its title)
   if (R.cancer) label('organs', at('organs', 'title'), `<b>Healthy ${gD(R.cancer, 0)} · cancer ${gD(R.cancer, 1)}</b>density; no network drawn for them`, C.health.a + 1.5, C.health.a + 7, 'amb');
