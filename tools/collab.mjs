@@ -11,15 +11,19 @@
 // dialog or the headset's menu for every page and headset, never refused by the layout lock, kept across a relay
 // restart and in a room on this device, free moving off taking the turns out of places and panels, and a free grip
 // at a station turning the scene and the panel for everyone; a pretend headset (fake local-floor and shared spaces,
-// as tools/smoke.mjs pretends) aligns from a published frame, stands at its station, stays there when taken off
-// and on again, restarts nothing with Start on its Stories screen, sends its rays in room coordinates, re-aligns
-// when the frame moves, switches story by walking to another station (and takes its state), lets the story's
-// own panel win over a card behind it; a headset without a shared space calibrates from two marks (its panel's
+// as tools/smoke.mjs pretends) aligns from a published frame, shows no story and no Stories screen away from every
+// station (the story hidden, not pointable, paused, nothing written), stands at its station once it walks into its
+// circle, stays there when taken off and on again, never shows a Stories screen in a room, hides and pauses the story
+// when it walks out (the station plays on for the others) and runs it again on the station's clock when it walks back,
+// sends its rays in room coordinates, re-aligns when the frame moves, switches story by walking to another station
+// (and takes its state; the trigger on a card runs nothing from afar), lets the story's own panel win over a card
+// behind it, has Sound check in its menu; a headset without a shared space calibrates from two marks (its panel's
 // Stop calibrating still works), saves the frame with an anchor at mark A and finds it again next time; a VR
 // headset asks once whether it is in the room, and takes its own floor when elsewhere; the headset's menu (closed
 // at first, only its clock on the left wrist; opened by the left stick's click, a touch of the right controller or
-// index fingertip, or the trigger on the clock; Exit inside). --shots also saves pictures (the Shared dialog on a
-// desktop and a phone, four pretend headset views). --quick runs only the last
+// index fingertip, or the trigger on the clock; Exit inside); a headset in an empty room sees only the menu, opened by
+// itself, and leaving the room brings its Stories screen back. --shots also saves pictures (the Shared dialog on a
+// desktop and a phone, six pretend headset views). --quick runs only the last
 // story of STORIES in the per-story part (for a quicker run while working on the rest); --port N runs the relay on
 // port N (default: any free port).
 // Needs Playwright as tools/smoke.mjs does (PLAYWRIGHT_MODULE, CHROMIUM_PATH). Exits 1 on any failure.
@@ -128,7 +132,8 @@ const STORIES = {
   },
 };
 // the stories a pretend headset walks between: its own (the last in STORIES, whose station has an explore clock and
-// stored state; the flock's sky catches every ray, so its rays have a length), another, and one whose card it picks
+// stored state; the flock's sky catches every ray, so its rays have a length), another, one whose card it points at
+// (the trigger there runs nothing: stations are walk-in only) and one it moves by its card
 const HEADSET_STORY = 'flock', OTHER_STORY = 'spatial', PICK_STORY = 'proteins', MOVE_STORY = 'nmd';
 
 const root = path.join(path.dirname(new URL(import.meta.url).pathname), '..');
@@ -297,6 +302,16 @@ const rigOf = page => page.evaluate(() => { const r = HOST.cur.peek('GL.rig'); r
 // where a story's rig must stand at station s: its spot at eye height, in this headset's local space
 const rigAt = (s, L) => { L = L || LOCAL; const w = apply(ROOM, [s.x, 1.6, s.z]); return [...unapply(L, w), ROOM[3] + s.yaw - L[3]]; };
 const headAt = (s, yaw) => [...apply(ROOM, [s.x, 1.6, s.z]), yaw || 0];
+// a spot 2 m (or a little more) from station s with every other station more than 1.7 m away (room coordinates [x, z]):
+// walking there leaves s's circle and enters no other
+const awaySpot = (page, s) => page.evaluate(s => {
+  const all = HOST.collab.stations().filter(o => o.id !== s.id);
+  for (let r = 2; r < 4; r += 0.5) for (let k = 0; k < 24; k++) {
+    const a = k * Math.PI / 12, x = s.x + r * Math.sin(a), z = s.z + r * Math.cos(a);
+    if (all.every(o => Math.hypot(o.x - x, o.z - z) > 1.7)) return [x, z];
+  }
+  return null;
+}, s);
 // walk a pretend headset to station s: after a second there its story starts (frames go on until it has), and
 // takes over the session as a story does in its init (xrAdopt). Returns whether it switched, and not too early.
 async function walk(page, s, story, yaw) {
@@ -623,10 +638,11 @@ try {
   const wantO = unapply(FLOOR, ROOM.slice(0, 3)), wantX = rot(-FLOOR[3], rot(ROOM[3], [1, 0, 0]));
   check('headset: aligns from the frame published for its shared space', fr && fr.src === 'adopted' && near(fr.o, [wantO[0], 0, wantO[2]], 1e-4) && near(fr.x, wantX, 1e-4),
     fr ? `${fr.src} o ${fmt(fr.o)} x ${fmt(fr.x)}, want o ${fmt(wantO)} x ${fmt(wantX)}` : 'no frame');
-  // the menu is closed at the start of a session: only its clock shows (here beside the story panel: no left controller)
+  // the menu is closed at the start of a session: only its clock shows (here twice its size, no left controller: in front
+  // of you away from a station, beside the story panel at one)
   const menu0 = await H.evaluate(() => { const O = HOST.collab.overlay(); return { open: HOST.collab.menu, clock: O.clockG.visible, panel: O.panelG.visible,
     regions: O.panel.regions.length, onHand: !!O.onHand, scale: O.clockG.scale.x, hit: O.hit.includes(O.clock.mesh) && !O.hit.includes(O.panel.mesh) }; });
-  check('headset: the menu is closed at first, only its clock shows (beside the story panel without a left controller)', !menu0.open && menu0.clock && !menu0.panel &&
+  check('headset: the menu is closed at first, only its clock shows (twice its size without a left controller)', !menu0.open && menu0.clock && !menu0.panel &&
     !menu0.regions && !menu0.onHand && menu0.scale === 2 && menu0.hit, JSON.stringify(menu0));
   // the shared space as the relay logs caught Quest Browser: its pose at the head right after waking (not used,
   // nothing compared or published from it), and a space that is just this headset's own floor (named on the panel)
@@ -762,6 +778,39 @@ try {
   const rb = await H.evaluate(() => ({ src: HOST.room.src, o: HOST.room.frame.o }));
   check('and back in the room\'s space, it takes the room\'s frame again', rb.src === 'adopted' && near([rb.o[0], rb.o[2]], [wantO[0], wantO[2]], 2e-3), JSON.stringify(rb));
   const qB = (await roomInfo(code)).seq;
+  // in a room, away from every station, a headset shows no story: no Stories screen (one opened is closed at once), the
+  // story's scene, panels and labels hidden, nothing of it to point at, paused and silent (a story left playing, its
+  // clock standing still), no Stories button; the menu's clock in front of you (no left controller); nothing written
+  const away0 = await H.evaluate(async () => {
+    const X = window.__xr, P = s => HOST.cur.peek(s), V = THREE.Vector3, O = HOST.collab.overlay();
+    const steps = async n => { for (let k = 0; k < n; k++) { X.step(); await new Promise(r => setTimeout(r, 20)); } };
+    P('(APP.mode !== "story" && APP.enterStory(0), APP.playing = true, XR.stories = true, XR.inStory = false)');
+    await steps(4);
+    // a ray at the globe from 0.8 m before its middle: nothing to point at while away (the same ray hits the globe once the
+    // shell says the headset is not away)
+    const mid = P('GL.world.getWorldPosition(new THREE.Vector3())'), dir = mid.clone().sub(new V().setFromMatrixPosition(X.W.head).applyMatrix4(X.W.local.clone().invert())).normalize();
+    const c = P('XR.ctrls')[0];
+    c.src = c.src || { targetRayMode: 'tracked-pointer', handedness: 'right', gamepad: null };
+    c.g.visible = true; c.g.matrix.compose(mid.clone().addScaledVector(dir, -0.8), new THREE.Quaternion().setFromUnitVectors(new V(0, 0, -1), dir), new V(1, 1, 1));
+    P('(XR.main.last = "", XR.main.t = -1e9)');
+    await steps(3);
+    P('xrUpdate(storyState(storyT(APP.t)))');   // (a pretend session's frames run only xrBegin: what xrUpdate shows, asked here)
+    const t0 = P('APP.t');
+    const out = { away: HOST.room.away(), mine: HOST.collab.mine(), stories: P('XR.stories'), playing: P('APP.playing'), world: P('GL.world.visible'),
+      panels: P('XR.main.mesh.visible || XR.foot.mesh.visible'), land: P('XR.land.some(Q => Q.mesh.visible)'), kind: c.hover && c.hover.kind,
+      button: P('XR.main.regions.some(r => r.id === "stories")'), clock: O.clockG.visible && !!O.ahead && O.clockG.scale.x === 2 };
+    await steps(10);
+    out.still = P('APP.t') === t0 && !P('APP.playing');
+    const aw = HOST.room.away;
+    HOST.room.away = () => false; X.step(); out.control = c.hover && c.hover.kind; HOST.room.away = aw;
+    P('(APP.playing = false)');
+    c.g.visible = false; c.src = null;
+    await steps(2);
+    return out;
+  });
+  check('headset: away from every station in a room no story shows (no Stories screen, the scene and panels hidden, nothing to point at, paused, no Stories button; the clock in front of you)',
+    away0.away && !away0.mine && !away0.stories && !away0.playing && !away0.world && !away0.panels && !away0.land && !away0.kind && away0.control === 'globe' && !away0.button &&
+    away0.still && away0.clock, JSON.stringify(away0));
   // walk to the headset story's station: after a second there it becomes this headset's story, placed at the station
   const stationFor = async k => { const s = await H.evaluate(k => HOST.collab.stations().find(s => s.story === k) || null, k); if (!s) throw new Error('no station for ' + k); return s; };
   const S1 = await stationFor(HEADSET_STORY);
@@ -769,6 +818,9 @@ try {
   const rig = await rigOf(H), want = rigAt(S1);
   check('headset: a second at a station switches to its story, which stands at the station', switched && near(rig.slice(0, 3), want.slice(0, 3), 1e-4) && angle(rig[3], want[3]) < 1e-4,
     `story ${await H.evaluate(() => HOST.curKey)}, rig ${fmt(rig)}, want ${fmt(want)}`);
+  const shownAt = await H.evaluate(() => { HOST.cur.peek('xrUpdate(APP.mode === "story" ? storyState(storyT(APP.t)) : XS)');
+    return { away: HOST.room.away(), world: HOST.cur.peek('GL.world.visible'), main: HOST.cur.peek('XR.main.mesh.visible'), card: HOST.collab.overlay().cards.has(HOST.collab.mine()) }; });
+  check('headset: and there its story shows (scene and panel; its own card gone)', !shownAt.away && shownAt.world && shownAt.main && !shownAt.card, JSON.stringify(shownAt));
   // the headset recentres (its local origin moves; the story's own reset listener asks to recentre): the story
   // stays at its station, placed there again every frame
   const relocal = L => H.evaluate(L => {
@@ -801,14 +853,47 @@ try {
     await H.evaluate(() => JSON.stringify(window.__collabLog.filter(e => /publish|switch|attach|apply|recv|go|station|adopt|hold/.test(e.ev)).slice(-40).map(e => [e.t, e.ev, e.keys || e.st || e.story || e.id || '']))) : '';
   check('headset: arriving at a station and starting a session write nothing', !wrote.length, wrote.join(', ') + wroteWhy);
   check('headset: the station\'s clock and state apply there', await until(H, s => HOST.cur.peek('APP.mode') === 'explore' && JSON.stringify(HOST.cur.collab.state()) === s, await stateOf(A), 2000));
-  // a session begun on the headset's Stories screen at a station: its card (Start) goes into the story as the
-  // room has it, and restarts nothing for the others
+  // in a room no Stories screen: one opened at a station anyway (as an older shell would) closes at once, and restarts
+  // nothing for the others
   const q5 = (await roomInfo(code)).seq;
-  await H.evaluate(() => HOST.cur.peek('(XR.stories = true, XR.inStory = false, xrLandingClose())'));
+  await H.evaluate(() => HOST.cur.peek('(XR.stories = true, XR.inStory = false)'));
   await frames(H, 400);
   const q6 = (await roomInfo(code)).seq, card = await H.evaluate(() => HOST.cur.peek('[APP.mode, XR.stories]')), modeA = (await clockOf(A))[0];
-  check('headset: Start on its Stories screen at a station restarts nothing (no writes, still exploring)', q6 === q5 && card[0] === 'explore' && card[1] === false && modeA === 'explore',
-    `${q6 - q5} writes, headset ${card}, A ${modeA}`);
+  check('headset: in a room a Stories screen opened at a station closes at once and restarts nothing (no writes, still exploring)', q6 === q5 && card[0] === 'explore' &&
+    card[1] === false && modeA === 'explore', `${q6 - q5} writes, headset ${card}, A ${modeA}`);
+  // walking out of the circle (beyond 1.5 m, into no other): the story is hidden and paused here while the station plays
+  // on for the others, and nothing is written; taken off and put on again out there, no Stories screen for the new
+  // wearer; walking back in, the story shows again and runs on the station's clock
+  const kP1 = 'st.' + S1.id + '.play', play1 = (await roomInfo(code)).keys[kP1].v;
+  await A.evaluate(k => HOST.collab.publish([[k, { mode: 'story', t: 20, playing: true, at: Math.round(HOST.collab.now()) }]]), kP1);
+  const playsH = await until(H, () => { window.__xr.step(); return HOST.cur.peek('APP.mode === "story" && APP.playing'); }, null, 6000);
+  const spot = await awaySpot(H, S1), q7 = (await roomInfo(code)).seq;
+  await H.evaluate(h => window.__xr.head(h), [...apply(ROOM, [spot[0], 1.6, spot[1]]), 0]);
+  await frames(H, 600);
+  const seen1 = id => H.evaluate(id => { HOST.cur.peek('xrUpdate(APP.mode === "story" ? storyState(storyT(APP.t)) : XS)');
+    return { away: HOST.room.away(), mine: HOST.collab.mine(), live: !!HOST.collab.live(), mode: HOST.cur.peek('APP.mode'), playing: HOST.cur.peek('APP.playing'), t: HOST.cur.peek('APP.t'),
+      world: HOST.cur.peek('GL.world.visible'), main: HOST.cur.peek('XR.main.mesh.visible'), stories: HOST.cur.peek('XR.stories'), card: HOST.collab.overlay().cards.has(id) }; }, id);
+  const out1 = await seen1(S1.id);
+  await frames(H, 800);
+  const out1b = await seen1(S1.id);
+  await H.evaluate(() => window.__xr.visibility('hidden'));
+  await sleep(3300);
+  await H.evaluate(() => window.__xr.visibility('visible'));
+  await frames(H, 600);
+  const out2 = await seen1(S1.id), q8 = (await roomInfo(code)).seq, room8 = (await roomInfo(code)).keys[kP1].v;
+  check('headset: walking out of its circle hides the story (scene and panels; the station\'s card back) and pauses it here, writing nothing: the station plays on for the others',
+    playsH && !!spot && out1.away && !out1.mine && !out1.live && !out1.playing && !out1.world && !out1.main && out1.card && out1b.t === out1.t && q8 === q7 && room8.playing && room8.mode === 'story',
+    JSON.stringify({ playsH, spot, out1, t1b: out1b.t, writes: q8 - q7, room8 }));
+  check('headset: taken off and put on again away from a station, no Stories screen for the new wearer (still hidden and paused)', !out2.stories && out2.away && !out2.world && !out2.playing,
+    JSON.stringify(out2));
+  await H.evaluate(h => window.__xr.head(h), headAt(S1, 0.4));
+  const backIn = await until(H, id => { window.__xr.step(); return HOST.collab.mine() === id && !HOST.room.away(); }, S1.id, 6000);
+  await frames(H, 300);
+  const out3 = await seen1(S1.id), q9 = (await roomInfo(code)).seq, want3 = await A.evaluate(k => { const P = HOST.collab.val(k); return P.t + (HOST.collab.now() - P.at) / 1000; }, kP1);
+  check('headset: walking back in shows the story again and runs it on the station\'s clock (nothing written)', backIn && !out3.away && out3.world && out3.main && !out3.card &&
+    out3.mode === 'story' && out3.playing && Math.abs(out3.t - want3) < 1.5 && q9 === q7, JSON.stringify({ backIn, out3, want3, writes: q9 - q7 }));
+  await A.evaluate(([k, v]) => HOST.collab.publish([[k, v]]), [kP1, play1]);   // (the station back in explore mode, as the rest expects)
+  await until(H, () => { window.__xr.step(); return HOST.cur.peek('APP.mode') === 'explore'; }, null, 6000);
   // a ray: the others see it in room coordinates
   const ow = apply(ROOM, [S1.x + 0.2, 1.3, S1.z - 0.1]), dw = unit([0.3, -0.2, -1]);
   await H.evaluate(([o, d]) => window.__xr.ctrl(0, o, d), [ow, dw]);

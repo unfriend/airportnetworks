@@ -81,6 +81,7 @@ the reflection write no depth.
 | `scan_image` | 0 | 0-0.6 the couch carries the patient on through the ring (`scan_pass` to 1) and the counts light up behind it (grainy); the lines and events fade (gone by about 0.55); 0.5-0.95 the smooth image glows up; 0.62-0.95 the grains give way to it; the tumour shows from 0.45 |
 | `scan_vision` | 0 | the vision row: 0-0.45 the scanner moves left; 0.08-0.5 the body rises and stands; the flowing light between the stages from 0.12, 0.36, 0.62; network 0.44-0.68; prognosis bars 0.7-0.94; medication 0.8-1 |
 | `scan_floor` | 1 | **added**: the floor and its reflection; set 0 in passthrough AR |
+| `scan_rise` | 0 | **added**: the hand-over to the body set. 0-0.25 the scanner goes (housing, ring, couch, floor and reflection, events, lines, the shell and the count grains; the image stays where it lies); 0.25-0.75 the patient stands up to `riseTo` (pitching up from lying as it turns, shoulders level; scale to `riseTo.s`); 0.75-1 its glow cools down the hot-iron scale to dark (the tumour's grains first), as the body set is at `body_pet` 0. Linear in each stage: the story eases each stage and moves its camera in step. Explore leaves it at 0 |
 
 Suggested story keys (chapters of SPEC.md):
 - `title` 0-16: `scan_vision` 1 from the start (bed 0); 12 -> 16: `scan_vision` 1 -> 0 (the body lies back down, the row
@@ -93,6 +94,10 @@ Suggested story keys (chapters of SPEC.md):
   into the gantry than at pass 0.4-0.6). Moving `scan_pass` while lines show is fine: the web moves with the patient.
   The featured event's source follows the slice: the brain at pass 0, the tumour from about 0.25, the heart from
   about 0.35.
+- `body` 52-: `scan_rise` 0 -> 0.25 over 1.5 s (the camera holds), 0.25 -> 0.75 over 3.5 s (the camera eases to the body
+  set's front view in step), 0.75 -> 1 over 1.5 s; the body set fades in meanwhile (dark at `body_pet` 0) and this set
+  out once its image is dark; then `body_pet` 0 -> 1. The story sets `riseTo.yaw` to the turn it gives the body set at
+  the hand-over (less this set's own), so the standing image and the body set coincide.
 - `vision` 305-330: `scan_vision` 0 -> 1 over about 8 s (and `scan_cut`, `scan_events`, `scan_lines`, `scan_image`
   back to 0, `scan_bed` 0 for the slide's look).
 - Explore and story rest: all at their defaults is the calm resting look (the scanner, the patient on the couch).
@@ -142,7 +147,8 @@ and "Line of response" (amb; from `scan_events` 0.01, once a featured line is dr
 
 ## API
 
-`set.floorY` (-1.05) and `api()` -> `{ floorY, event() (the `event` anchor: 15 cm above the latest featured event's
+`set.riseTo` `{ x, y, z, yaw, s }` (default all 0 and `s` 1: the body set's own place, unturned): where `scan_rise` stands
+the patient, its body frame in this set's frame (`yaw` in radians); set it once. `set.floorY` (-1.05) and `api()` -> `{ floorY, event() (the `event` anchor: 15 cm above the latest featured event's
 annihilation point, in the set's frame, or null when there is none), live: { vis, img, ev } }` (`live`: the current
 `scan_vision`, `scan_image`, `scan_events`). For life size in a headset put `floorY` on the floor; set `scan_floor` 0
 in AR (the engine does: e7_app).

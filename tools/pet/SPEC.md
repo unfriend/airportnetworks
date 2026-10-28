@@ -285,8 +285,13 @@ recorded to these):
    fasting, an hour's rest), `scan_cut` shows the ring, `scan_events` on: positron, annihilation, two photons,
    coincidence, line of response; lines accumulate (`scan_lines`), then `scan_image`: millions of lines become the
    image.
-3. `body` 52-90: crossfade to `body` (front view, `body_pet` 0 -> 1 over about 8 s: the tracer arriving), with
-   `organs` (`organs_lesion` on later). Text: where the sugar goes (brain and heart most; kidneys and bladder because
+3. `body` 52-90: one continuous move, no jump of the camera or the body (the owner's note, October 2026: hide the
+   scanner, stand the body up, fade the organs, then the sugar): the scanner goes and leaves the patient's image
+   (`scan_rise` 0-0.25, 1.5 s, the camera holding), which stands up and turns to exactly where, and as large as, `body`
+   stands in its front view, the camera easing to that view in step (0.25-0.75, 3.5 s; the scan set's `riseTo.yaw` is
+   the turn `buildCamera` gives `body` at the hand-over), then its glow cools to dark (0.75-1, 1.5 s) while `body` fades
+   in, dark at `body_pet` 0, and `scan` out; then `body_pet` 0 -> 1 over about 8 s (the tracer arriving, from 6.5 s,
+   with the first paragraph), with `organs` (`organs_lesion` on later). Text: where the sugar goes (brain and heart most; kidneys and bladder because
    FDG leaves in the urine); a tumour shows as a hot spot: usually that is all a scan is read for. "Yet the scan holds
    every organ's metabolism at once."
 4. `organs` 90-128: `organs_seg` (an AI outlines 13 organs, a doctor checks), `organs_suv` (each organ's uptake divided

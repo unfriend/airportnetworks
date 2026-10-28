@@ -801,6 +801,8 @@ void main() {
   const cam = {
     default: [0, 12, 4.15, 0, -0.03, 0],
     net: [28, 38, 4.6, 0, -0.2, 0],
+    // (the network growing out of the atlas's sections in front of it: from a little above, wide enough for both)
+    grow: [6, 20, 4.4, 0, 0, 0.12],
     // (the target right of the network's middle: the notes' column on its right is in the picture)
     contacts: [0, 6, 2.8, CEN[0] + 0.28, CEN[1] + 0.03, CEN[2]],
   };
@@ -840,6 +842,13 @@ void main() {
     contactOrgans: CO.map(co => ({ name: co.name, organ: co.gOrgan, tissue: co.gTissue, domains: co.dom.slice(),
       changes: co.ch.map(ch => ({ a: ch.a, b: ch.b, dir: ch.dir, from: ch.c[2], to: clamp(ch.c[2] + ch.d, 0.03, 0.98), fig: ch.fig })) })),
     levelColour: L => '#' + new THREE.Color(...LCOL[L]).getHexString(),
+    // where the network stands and when each node grows, for the atlas set, whose sections turn into it in the story
+    // (atlas_net): rest positions in this set's frame (no contacts shown), the hier_grow at which a node starts to grow
+    // (it is grown 0.1 later: scale from 0.25, alpha from 0), its radius when grown (an organ's model: ORAD) and an
+    // organ model's turn (t * spinRate + spin)
+    layout: () => ({ pos: POS.map(p => p.slice()), level: LEV.slice(), name: NAME.slice(), up: UP.map(u => u.slice()),
+      start: ids.map(i => GS[LEV[i]] + SW[i]), span: 0.1, size: ids.map(i => (LEV[i] === 0 ? ORAD[i] : RAD[i])),
+      spin: ids.map(i => (OSL[i] >= 0 ? oPh[OSL[i]] : 0)), spinRate: 0.35, levelStart: GS.slice() }),
     useColours(fn) { if (typeof fn !== 'function') return; domainColour = n => rgb(fn(n)); for (const co of CO) co.col = co.dom.map(domainColour); bandCols(); },
   };
 
