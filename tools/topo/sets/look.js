@@ -490,11 +490,11 @@ void main() {
   vec3 c = vYs < 0.0 ? vNg : vC;
   float dif = max(dot(n, l), 0.0), spec = pow(max(dot(reflect(-l, n), v), 0.0), 30.0), rim = pow(1.0 - abs(dot(n, v)), 2.0);
   if (vCap > 0.5) {
-    gl_FragColor = vec4(c * (0.55 + 0.4 * dif + 0.3 * rim + 0.9 * vG) + vec3(spec * 0.5), vA * 0.95);
+    gl_FragColor = vec4(c * (0.45 + 0.35 * dif + 0.25 * rim + 0.4 * vG) + vec3(spec * 0.35), vA * 0.95);
   } else {
     float w = max(fwidth(vT), 1e-5), line = smoothstep(1.0 - 2.5 * w, 1.0 - 0.4 * w, vT);
-    float a = vF * (0.05 + 0.32 * vT * vT) + line * (0.55 + 0.45 * vG);
-    vec3 col = c * (0.55 + 0.25 * dif + 0.5 * vT * vT) + mix(c, vec3(1.0), 0.4) * line * (0.4 + 0.6 * vG) + vec3(spec * 0.15);
+    float a = vF * (0.06 + 0.3 * pow(vT, 1.5)) + line * (0.55 + 0.45 * vG);
+    vec3 col = c * (0.5 + 0.2 * dif + 0.3 * vT * vT) + mix(c, vec3(1.0), 0.25) * line * (0.3 + 0.4 * vG) + vec3(spec * 0.12);
     gl_FragColor = vec4(col, vA * min(1.0, a));
   }
 }`;
@@ -623,8 +623,10 @@ void main() {
       * smoothstep(0.07 - wv, 0.07 + wv, vUv.y) * (1.0 - smoothstep(0.93 - wv, 0.93 + wv, vUv.y)) : 0.0;
     float gr = (h2(floor(vUv * vec2(700.0, 240.0))) - 0.5) * 0.06;   // frosted grain
     vec3 fro = mix(vec3(0.84, 0.88, 0.93), vC, 0.6) * (0.72 + 0.3 * dif + gr) * (1.0 + 0.7 * vG) + vC * vG * 0.4;
-    vec3 col = mix(gc * (0.35 + 0.9 * fr) + vec3(spec), fro, lab);
-    gl_FragColor = vec4(col, vA * mix(0.06 + 0.45 * fr + 0.8 * spec, 0.9, lab));
+    // (clear glass: almost nothing face-on, more towards grazing, a broad sheen; the bottom face fainter)
+    float sh = pow(max(dot(reflect(-l, n), v), 0.0), 6.0) * 0.08;
+    vec3 col = mix(gc * (0.5 + 0.9 * fr) + vec3(spec + sh), fro, lab);
+    gl_FragColor = vec4(col, vA * mix((0.025 + 0.4 * fr + 0.8 * spec + sh) * (vP > 2.5 ? 0.6 : 1.0), 0.9, lab));
   } else {
     // the polished edges catch the light and glow a little, as a slide's do
     vec3 col = mix(gc, vec3(1.0), 0.3) * (0.45 + 0.55 * dif) + gc * fr * 0.8 + vec3(spec);
