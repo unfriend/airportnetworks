@@ -86,7 +86,7 @@ SETS.slide = function (K) {
       });
       const sp = 1.0746 / Math.sqrt(cnt / (PI * 900));
       let r = L[0];
-      if (kd === CELL.HEP || kd === CELL.LARGE) r = clamp(0.56 * sp, 8.5, kd === CELL.LARGE ? 15.5 : 15) * (0.94 + 0.12 * R());
+      if (kd === CELL.HEP || kd === CELL.LARGE) r = clamp(0.6 * sp, 9, kd === CELL.LARGE ? 16 : 15.5) * (0.94 + 0.12 * R());
       else if (kd === CELL.PLAIN) r = clamp(0.45 * sp, 5.5, 9);
       else r *= 0.9 + 0.2 * R();
       RAD[i] = r * k;
@@ -117,7 +117,7 @@ SETS.slide = function (K) {
     };
     for (let i = 0; i < n; i++) {
       const kd = KIND[i], x = src.x[i], y = src.y[i], r = RAD[i] / k;
-      if (kd === CELL.HEP || kd === CELL.LARGE || kd === CELL.PLAIN) splat(x, y, 0.8 * r, 0.75, 0, false);
+      if (kd === CELL.HEP || kd === CELL.LARGE || kd === CELL.PLAIN) splat(x, y, 1.05 * r, 0.6, 0, false);
       else if (kd === CELL.SPINDLE) {
         splat(x, y, 13, 0.4, 1, false);
         const a = 2 * ANG[i], di = clamp(Math.floor(x / side * M), 0, M - 1) + M * clamp(Math.floor(y / side * M), 0, M - 1);
@@ -181,7 +181,7 @@ void main() {
   vec4 s = texture2D(tS, vUv), d = texture2D(tD, vUv);
   float cy = min(s.r * 1.25, 1.0), co = min(s.g, 1.0), hz = min(s.b, 1.0), ti = smoothstep(0.08, 0.32, s.a + 0.08 * (vn(p / 30.0) - 0.5));
   // eosin: the hepatocytes' cytoplasm pink, pale sinusoids between them, paler streaky collagen; haematoxylin: a haze
-  float E = 0.13 + 0.3 * cy + 0.22 * co, H = 0.02 + 0.5 * hz + 0.04 * co;
+  float E = 0.2 + 0.24 * cy + 0.2 * co, H = 0.02 + 0.5 * hz + 0.04 * co;
   E *= 0.88 + 0.24 * vn(p / 9.0);                         // uneven staining
   vec2 fv = d.rg * 2.0 - 1.0; float fs = length(fv);
   float kf = smoothstep(0.004, 0.0015, px) * co * min(1.0, fs * 1.5);
@@ -191,7 +191,7 @@ void main() {
     E *= 1.0 + kf * (b - 0.5) * 0.8;
   }
   // empty spaces (vessels) white; between the hepatocytes thin pale sinusoids, wandering slits
-  float V = (1.0 - smoothstep(0.03, 0.28, cy + 0.55 * co + 0.6 * hz)) * (0.8 + 0.3 * vn(p / 4.0 + 7.0));
+  float V = (1.0 - smoothstep(0.02, 0.16, cy + 0.55 * co + 0.6 * hz)) * (0.8 + 0.3 * vn(p / 4.0 + 7.0));
   float sn = vn(p / 14.0 + 1.5 * vec2(vn(p / 40.0), vn(p / 40.0 + 9.0))), sw = fwidth(sn) * 1.2 + 0.012;
   V = max(V, 0.7 * (1.0 - smoothstep(0.0, sw, abs(sn - 0.5))) * smoothstep(0.2, 0.6, cy) * (1.0 - co) * smoothstep(0.012, 0.004, px));
   vec3 he = exp(-E * vec3(0.16, 1.05, 0.60) - H * vec3(1.31, 1.37, 0.62));
@@ -205,7 +205,7 @@ void main() {
   float hy = texture2D(tS, vUv + vec2(0.0, uTexel)).r - texture2D(tS, vUv - vec2(0.0, uTexel)).r + 0.5 * (texture2D(tS, vUv + vec2(0.0, uTexel)).g - texture2D(tS, vUv - vec2(0.0, uTexel)).g);
   vec3 nl = normalize(vec3(-hx * 0.9, 1.0, -hy * 0.9));
   vec3 n = normalize(nl.x * vT + nl.y * vN0 + nl.z * vB), n0 = normalize(vN0), l = normalize(vec3(-0.45, 0.55, 0.7));
-  he *= 1.0 + 0.9 * (max(dot(n, l), 0.0) - max(dot(n0, l), 0.0));
+  he *= 1.0 + 0.6 * (max(dot(n, l), 0.0) - max(dot(n0, l), 0.0));
   // the modalities (sketched): under the spots the stain dims; fluorescence is dark with a faint autofluorescence
   vec3 col = mix(he, he * 0.7, uSpots);
   vec3 fl = vec3(0.006, 0.01, 0.022) + vec3(0.03, 0.05, 0.045) * (0.4 * cy + co) + vec3(0.04, 0.02, 0.06) * hz;

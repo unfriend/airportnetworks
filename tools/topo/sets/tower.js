@@ -274,9 +274,10 @@ SETS.tower = function (K) {
         tubes.add(_a, _b, 0.0026 * (1 + 0.6 * fl), c, cA * (0.85 + 0.15 * fl), 0);
       }
       // the balls: glass discs of radius r round every cell, tinted by their piece
-      const R = r * KU, dA = cA * (1 - 0.45 * prog(u, 0.8, 1)) * (1 - 0.35 * rise);
+      // (once the balls reach far past the patch they say no more: they calm down, and on the plane they stay faint)
+      const R = r * KU, dA = cA * (1 - 0.65 * prog(u, 0.72, 1)) * (1 - 0.55 * rise), tint = 0.7 * (1 - 0.6 * prog(u, 0.7, 0.9)) * pA;
       for (let i = 0; i < N; i++) {
-        const c = cnt[rep[i]] > 1 ? LK.mix(LK.CYAN, COL[rep[i]], 0.75 * pA, _col) : LK.CYAN;
+        const c = cnt[rep[i]] > 1 ? LK.mix(LK.CYAN, COL[rep[i]], tint, _col) : LK.CYAN;
         _a[0] = X[i]; _a[1] = y + 0.002; _a[2] = Z[i];
         discs.add(_a, UP, R, c, dA, 1);
       }
@@ -289,12 +290,12 @@ SETS.tower = function (K) {
       for (let s = 0; s < NS; s++) {
         const i = SEG[4 * s], n = SEG[4 * s + 3];
         const y0 = rise * hOf(SEG[4 * s + 1]), y1 = SEG[4 * s + 2] === Infinity ? rise * (TH + 0.08) : rise * hOf(SEG[4 * s + 2]);
-        column(X[i], Z[i], y0, y1, n > 1 ? thick(n) : 0.0022, n > 1 ? COL[i] : LK.BEAD, tw * pA * (n > 1 ? 1 : 0.45));
+        column(X[i], Z[i], y0, y1, n > 1 ? thick(n) : 0.0019, n > 1 ? COL[i] : LK.BEAD, tw * pA * (n > 1 ? 1 : 0.4));
       }
       // the bridges: across each joining edge to the piece it joins, at the height of the joining
       for (let k = 0; k < NJ; k++) {
         const yb = rise * hOf(JR[k]), n = BRIDGE[k], c = n > 1 ? COL[JV[k]] : LK.BEAD;
-        bridge(k, yb, c, n > 1 ? thick(n) : 0.0024, tw * pA * (n > 1 ? 1 : 0.55) * (yb <= now.yp + 1e-4 ? 1 : GHOST));
+        bridge(k, yb, c, n > 1 ? thick(n) * 0.8 : 0.002, tw * pA * (n > 1 ? 1 : 0.5) * (yb <= now.yp + 1e-4 ? 1 : GHOST));
         if (yb <= now.yp + 1e-4 && n > 1) { _a[0] = X[JW[k]]; _a[1] = yb; _a[2] = Z[JW[k]]; halos.add(_a, 0.045 + 0.01 * Math.sqrt(n), c, 0.5 * tw * pA); }
       }
       // the top of the trunk
@@ -313,7 +314,12 @@ SETS.tower = function (K) {
           ringAt(L, y1, 0.0055, LK.mix(LK.LOOP, WHITE, 0.45, _col2), capA);
         }
         fan(L, y1, LOOPLIT, capA * (L.main ? 1 : 0.55), L.main ? 0 : 0.4);
-        if (L.main) { _a[0] = L.hx; _a[1] = (y0 + Math.min(y1, Math.max(y0, now.yp))) / 2; _a[2] = L.hz; halos.add(_a, 0.5, LK.LOOP, 0.3 * a * (L.b <= r && r < L.d ? 1 : 0.4)); }
+        // (the poster's loop glows inside, all the way up, brighter where the plane cuts it)
+        if (L.main) for (let q = 0; q <= 8; q++) {
+          _a[0] = L.hx; _a[1] = lerp(y0, y1, q / 8); _a[2] = L.hz;
+          const at = Math.abs(_a[1] - now.yp) < (y1 - y0) / 8 ? 1.6 : 1;
+          halos.add(_a, L.rad * 1.6, LK.LOOP, 0.22 * a * at * (_a[1] <= now.yp + 1e-4 ? 1 : 0.35));
+        }
       }
       // the ruler: a post on the plate's corner, a mark at 2, 5, 10, 20 and 50 µm, and where the plane is
       const ra = tw;
