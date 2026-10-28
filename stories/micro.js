@@ -3931,7 +3931,7 @@ void main() {
   const SECU = { uP: { value: uP }, uQ: { value: uQ } };
   const tileMat = new THREE.ShaderMaterial({
     uniforms: Object.assign({ uA: set.uA, uUm: { value: 0 }, uAge: { value: 0 }, uCA: { value: 1 }, uCR: { value: 0 }, uFoc: { value: 0 }, uHero: { value: -1 },
-      uPt: { value: 0.015 }, uCC: { value: new THREE.Vector3(0, 0.05, 0.08) }, uCS: { value: 1 }, uG: { value: -1 }, uNt: { value: 0.0042 } }, SECU),
+      uPt: { value: 0.015 }, uCC: { value: new THREE.Vector3(0, 0.05, 0.08) }, uCS: { value: 1 }, uG: { value: -1 }, uNt: { value: 0.0036 } }, SECU),
     transparent: true, depthWrite: true, side: THREE.DoubleSide,
     blending: THREE.CustomBlending, blendSrc: THREE.OneFactor, blendDst: THREE.OneMinusSrcAlphaFactor,
     vertexShader: BOXGL + `
@@ -3974,7 +3974,7 @@ void main() {
     vec3 q = mix(mix(p, aNA.xyz + aNC.xyz * aND.z, k3), aNB.xyz + aNC.xyz * aND.w, k4);
     vec2 o = q.xz; float ol = length(o); o = ol > 1e-4 ? o / ol : vec2(0.0, 1.0);
     float b3 = sin(3.14159 * k3) * (1.0 - k4), b4 = sin(3.14159 * k4);
-    q.xz += o * (0.12 * b3 + 0.06 * b4); q.y += 0.05 * b3 - 0.02 * b4;
+    q.xz += o * (0.08 * b3 + 0.06 * b4); q.y += 0.05 * b3 - 0.02 * b4;
     cube = min(1.0, k3 * 6.0); fly = max(b3, b4);
     float cn = uNt * (0.75 + 0.5 * aM.y) * (1.0 - gone);
     X = mix(X, vec3(cn, 0.0, 0.0), cube); Y = mix(Y, vec3(0.0, cn, 0.0), cube); Z = mix(Z, vec3(0.0, 0.0, cn), cube);
@@ -4391,7 +4391,7 @@ void main() {
     let o = 0;
     SEC.forEach((s, ti) => { for (let j = 0; j < s.N; j++, o++) { const m = MS[ti], mp = MAP[REC[ti][s.d0[j]].name]; if (!m) continue;
       if (mp.ty >= 0) nT[mp.ty] = (nT[mp.ty] || 0) + 1; if (mp.d >= 0) nD[mp.d] = (nD[mp.d] || 0) + 1; } });
-    const rOf = n => 0.0044 * Math.cbrt(Math.max(1, n));
+    const rOf = n => 0.0036 * Math.cbrt(Math.max(1, n));
     const r = rng(4711);
     o = 0;
     SEC.forEach((s, ti) => {
