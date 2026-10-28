@@ -20,8 +20,9 @@ SETS.scan = function (K) {
   // The cut: surfaces flagged for it vanish above uCut (scanner frame) with a glowing edge; their insides (back
   // faces) show as the dark inside of the housing. uMir draws the mirrored copy (the floor's reflection). o.cry: the
 // crystals, each with its own glow (aG, per instance: a crystal struck by a photon flashes). While the set fades,
-// back faces are dropped: the dark inside showed through the housing itself (a muddy charcoal ghost).
-  const SU = { uCut: { value: 9 }, uWin: { value: 0 }, uDim: { value: 1 }, uFloor: { value: FLOOR }, uE: { value: new THREE.Vector4(1, 1, 1, 1) } };
+// back faces are dropped: the dark inside showed through the housing itself (a muddy charcoal ghost). uRoom fades the
+// scanner alone (scan_rise: the patient's image stays), as the set's fade does.
+  const SU = { uCut: { value: 9 }, uWin: { value: 0 }, uDim: { value: 1 }, uFloor: { value: FLOOR }, uRoom: { value: 1 }, uE: { value: new THREE.Vector4(1, 1, 1, 1) } };
   function studio(o = {}) {
     const m = new THREE.ShaderMaterial({
       uniforms: Object.assign({ uA: set.uA, uMir: { value: o.mir ? 1 : 0 }, uK: { value: 1 } }, SU), defines: o.cry ? { CRY: '' } : {},
@@ -48,7 +49,7 @@ void main() {
   gl_Position = projectionMatrix * viewMatrix * w;
 }`,
       fragmentShader: `
-uniform float uA, uCut, uWin, uDim, uMir, uFloor, uK;
+uniform float uA, uCut, uWin, uDim, uMir, uFloor, uK, uRoom;
 varying vec3 vC, vN, vW, vL, vLN; varying vec4 vM; varying float vE;
 #ifdef CRY
 varying float vG;
@@ -64,8 +65,8 @@ void main() {
   if (vM.z > 0.5 && vL.y > uCut) discard;
   if (vM.z > 1.5 && abs(vL.z) < uWin) discard;   // the bore's cover opens over the detector ring
   bool inside = !gl_FrontFacing;
-  if (inside && uA < 0.97) discard;
-  float a = uA * vE * uK;
+  if (inside && uA * uRoom < 0.97) discard;
+  float a = uA * vE * uK * uRoom;
   // the reflection fades with the height above the floor (and costs nothing where it has gone)
   if (uMir > 0.5) { a *= 0.32 * exp(-max(vL.y - uFloor, 0.0) * 3.0); if (a < 0.004) discard; }
   vec3 n = normalize(vN), v = normalize(cameraPosition - vW);
@@ -556,9 +557,9 @@ void main() {
   }
   // up close (in a headset, or the inside view) sprites shrink with distance, so they stay grains, not discs
   const CLOSE = ' gl_PointSize *= clamp(-mv.z / length(modelViewMatrix[0].xyz) / 1.6, 0.35, 1.0);';
-  const dotU = { uImg: { value: 0 }, uLow: { value: -9 } };
-  const dotMat = K.points(set, { uniforms: dotU, head: 'attribute float aSeed; uniform float uImg, uLow;',
-    vertex: 'vA *= (aSeed < 0.0 ? smoothstep(0.45, 0.8, uImg) : smoothstep(aSeed * 0.55, aSeed * 0.55 + 0.04, uImg) * (1.0 - smoothstep(0.62, 0.95, uImg))) * smoothstep(uLow - 0.004, uLow + 0.012, position.y);' + CLOSE });
+  const dotU = { uImg: { value: 0 }, uLow: { value: -9 }, uGl: { value: 1 } };
+  const dotMat = K.points(set, { uniforms: dotU, head: 'attribute float aSeed; uniform float uImg, uLow, uGl;',
+    vertex: 'vA *= uGl * (aSeed < 0.0 ? smoothstep(0.45, 0.8, uImg) : smoothstep(aSeed * 0.55, aSeed * 0.55 + 0.04, uImg) * (1.0 - smoothstep(0.62, 0.95, uImg))) * smoothstep(uLow - 0.004, uLow + 0.012, position.y);' + CLOSE });
   const dots = new THREE.Points(dotG, dotMat);
   dots.renderOrder = 4; dots.frustumCulled = false;
   patientG.add(dots);
