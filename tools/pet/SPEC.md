@@ -3,8 +3,12 @@
 **Changed in October 2026, after feedback on the story:** the poster's one-scan network, its index, survival and the
 immunotherapy test were taken out (they did not match the poster), with the set `people` and explore's One scan and
 People tabs (the explore-only `liver` scene went too and came back the same day); the Network chapter goes straight from the organs' values to the network of all scans on the
-body (no matrix of all scans, no scatter plot); the vision row's chevron arrows became flowing light. The story is now
-seven chapters, about seven minutes. This spec says what is built now; the parts taken out are in git history.
+body (no matrix of all scans, no scatter plot); the vision row's chevron arrows became flowing light. **Changed again on
+28 October 2026:** the last chapter, Vision, went (its credits and the Explore button close Health; the vision row stays
+in the intro), the second chapter is "How PET sees" (FDG as one tracer among others, no brackets in its text, the
+photons and the line in one step, no "Millions of such lines"), the organ labels of the third are names only, the AI is
+"Segmentation algorithms", the intro's note is shorter, and the scanner hands its patient over to the body set in one
+move (below). The story is now six chapters, about six minutes (6:13). This spec says what is built now; the parts taken out are in git history.
 
 We are adding a ninth story to the web app in `/home/user/airportnetworks`: `stories/pet.js`, built from `tools/pet/`
 like the endotype story `stories/endo.js` is built from `tools/endo/`. It turns a paper, a poster and a vision slide
@@ -276,15 +280,15 @@ the poster and the authors above), `audio/narration-pet.mp3`, `SET_ORDER = ['sca
 `body` and `organs` share one frame: wherever the story or explore mode shows `organs`, show `body` too (same
 transform), with `body_pet` at 1 unless the story says otherwise.
 
-**Chapters** (about 7:00 at the pace `tools/pace.mjs` sets; `CH` keys and story times; the narration may later be
+**Chapters** (about 6:13 at the pace `tools/pace.mjs` sets; `CH` keys and story times; the narration may later be
 recorded to these):
 1. `title` 0-16: `scan` with `scan_vision` 1 (the vision row); title card "One scan, one system" with the tagline
    "the body as a metabolic network" and the line "From one PET scan to a network of organs: what it says about
    health and disease". Then the row draws back into the scanner (`scan_vision` 1 -> 0).
-2. `scanner` 16-52: `scan`: the couch slides in (`scan_bed`), FDG explained (a sugar with radioactive fluorine;
-   fasting, an hour's rest), `scan_cut` shows the ring, `scan_events` on: positron, annihilation, two photons,
-   coincidence, line of response; lines accumulate (`scan_lines`), then `scan_image`: millions of lines become the
-   image.
+2. `scanner` 16-52, "How PET sees": `scan`: the couch slides in (`scan_bed`), the tracer explained (FDG, the most
+   common, a glucose look-alike carrying fluorine-18; fasting, an hour's rest), `scan_cut` shows the ring, `scan_events` on: positron, annihilation, two photons,
+   coincidence, line of response (one step: "Two photons, one line"); lines accumulate (`scan_lines`), then
+   `scan_image`: the image.
 3. `body` 52-90: one continuous move, no jump of the camera or the body (the owner's note, October 2026: hide the
    scanner, stand the body up, fade the organs, then the sugar): the scanner goes and leaves the patient's image
    (`scan_rise` 0-0.25, 1.5 s, the camera holding), which stands up and turns to exactly where, and as large as, `body`
@@ -292,25 +296,24 @@ recorded to these):
    the turn `buildCamera` gives `body` at the hand-over), then its glow cools to dark (0.75-1, 1.5 s) while `body` fades
    in, dark at `body_pet` 0, and `scan` out; then `body_pet` 0 -> 1 over about 8 s (the tracer arriving, from 6.5 s,
    with the first paragraph), with `organs` (`organs_lesion` on later). Text: where the sugar goes (brain and heart most; kidneys and bladder because
-   FDG leaves in the urine); a tumour shows as a hot spot: usually that is all a scan is read for. "Yet the scan holds
+   FDG leaves in the urine); a tumour shows as a hot spot: "This is the main application of PET scans". Labels: Brain, Heart, Kidneys,
+   Bladder, Tumour, names only. "Yet the scan holds
    every organ's metabolism at once."
-4. `organs` 90-128: `organs_seg` (an AI outlines 13 organs, a doctor checks), `organs_suv` (each organ's uptake divided
+4. `organs` 90-128: `organs_seg` (segmentation algorithms outline up to 13 organs, a doctor checks), `organs_suv` (each organ's uptake divided
    by the aorta's), a moment of focus on two or three organs (brain, liver, muscle).
 5. `cohort` 128-146: the organs' bars make way (`organs_suv` 1 -> 0) and the network of all 658 scans grows on the
    body (`organs_net` 0 -> 1, `organs_which` 0); text: the paper's 658 scans (241 of healthy volunteers, 417 with
    cancer), what a link means (a partial correlation, significant, blue or red) in one paragraph, then the network
    (11 organs, 25 links, density 12 %).
-6. `health` 146-192: `organs_which` to 1 (healthy, if read; else stay) then the comparisons: BMI (2 -> 3: 27 % to 7 %,
+6. `health` 146-200: `organs_which` to 1 (healthy, if read; else stay) then the comparisons: BMI (2 -> 3: 27 % to 7 %,
    the brain becomes a hub), CRP thirds (6 -> 7 -> 8: 11 %, 7 %, 3 %), with `organs_strength` (density, disorder: an
    even network vs one with hubs; muscle and fat dominate when health erodes); healthy 30 % vs cancer 7 % stated in
    text; robustness in one line (6 weeks apart, a tenth of the dose, another scanner: the same network); HK2 in one
    line.
-7. `vision` 192-217: back to `scan` with `scan_vision` (the row again): one scan, one system: prognosis, medication,
-   organs like muscle and fat as targets (the paper names GLP-1 drugs, metformin, statins and SGLT2 inhibitors), a
-   measure of health, not only of disease; still to be validated in larger studies. Credits: the paper (Med 2025),
-   the poster's authors, the Division of Nuclear Medicine (Medical University of Vienna) and the LBI for Network
-   Medicine. Small print: "Networks of all 658 scans: printed in the paper; other networks read off its figures. Organ
-   values: illustrative."
+   It ends (from 47.5 s into the chapter, 200 in all) with the credits: the poster's authors, the Division of Nuclear
+   Medicine (Medical University of Vienna) and the LBI for Network Medicine, the Explore button, and the small print
+   "Networks of all 658 scans: printed in the paper; other networks read off its figures. Organ values: illustrative."
+   (The Vision chapter that followed, the row again with prognosis and medication, went on 28 October 2026.)
 
 Text: plain British English, short sentences, no jargon without a gloss; every number from `PET_DATA` (`FACTS`), none
 hard-coded; chapter panels with `data-at` fade-ins as in the endotype story. Story labels on set anchors.

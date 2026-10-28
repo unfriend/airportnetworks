@@ -11,7 +11,7 @@ small lit cubes in the cloud, the volcano's bubbles as lit spheres over a glass 
 trajectories as lit ribbons on glass lanes, and each section's organ as a small 3D model (`ORGAN3D`, `sets/organs.md`).
 
 Build in headless Chromium about as before (0.75 to 1.9 s on a machine with a load average of about 15, the same as the
-version before it in the same runs; 250 to 300 ms unloaded then); at most 13 draw calls; whole frames at 1100 x 650
+version before it in the same runs; 250 to 300 ms unloaded then); at most 13 draw calls (14 while the morph into the network runs); whole frames at 1100 x 650
 measured 154,000 triangles for the library (slides 150,000, rack 4,800), 220,000 for the atlas of sections (its
 tiles 149,000, the dimmed wall 50,000, the organs' lighter models 16,500), 224,000 with a focused section, 215,000
 beside a plot (more only while the network fades in over it); no per-frame
@@ -50,6 +50,11 @@ buffer uploads beyond 40 x 2 uniforms (40 x 2 more for the organs), 5 head point
   They are the lighter copies (`ORGAN3D.lite`, about a quarter of the triangles: 16,500 for the 40 instead of 66,000),
   as they are small on screen (20 to 40 pixels; the focused section's about 70). They build between frames (in the
   story the engine builds them from the start; in the harness here a 3 ms slice a frame while they are missing).
+- The morph into the network (`atlas_net`, the story's Atlas chapter only; see below): the tiles move in the vertex
+  shader from four more per-tile attributes (`aNA` the tissue type's node and when, `aNB` the domain's node and when,
+  `aNC` a place in the clumps there and when it leaves, `aND` where it gathers on its section and the clumps' radii:
+  1.6 MB, written once), the sections and the organs by their 40 + 40 uniforms as before; one more draw (an additive
+  glow per arrival, about 160 quads) while it runs. Per frame only the uniform `uG` changes.
 
 ## Params
 
@@ -63,6 +68,7 @@ buffer uploads beyond 40 x 2 uniforms (40 x 2 more for the organs), 5 head point
 | `atlas_age` | 0..1 | age 20 -> 70 for every section's domains; a gauge with a marker runs along the top of a focused section (shown when the focused tissue is one of the examples, or once the age moves) | 0 -> 1 over 4 to 6 s |
 | `atlas_volcano` | 0..1 | the volcano: a dark glass floor and the two axes as lit rods, a faint grid (0 to 0.35); bubbles (lit spheres) pop in with their soft shadows on the floor (0.15 to 0.8), significant ones light up with a halo and a thin line down to the floor (0.68 to 0.95); the significance plane | 0 -> 1 over 3 s |
 | `atlas_curves` | 0..1 | trajectories: five lanes, each on a strip of dark glass, draw from age 20 to 70 as a glowing tube along the top of a lit ribbon (0.034 deep) over a soft curtain (each lane a little after the one before; lane j is done at 0.75 + 0.05 j) | 0 -> 1 over 6 s |
+| `atlas_net` | 0..1 (rest 0) | the atlas (with `atlas_map` 1) turns into the network of organ architecture, as the hier set grows: see below. Needs the network's layout (`useNetwork`); without it (the harness) nothing moves. Listed in the engine's `STEP` (explore never eases it back through the morph) | the Atlas chapter: 0 -> 1 over 16.5 s, with `hier_grow` keyed at the same times from `(0 - netLead) / (1 - netLead)` to 1; back to 0 once the atlas is hidden |
 
 With `atlas_volcano` or `atlas_curves` on and a section focused, the plot moves left and the section sits right at
 radius 0.33, so both fit the `age` view: the volcano at x -0.5, scale 0.8, the section at (0.74, 0.04, 0.5); the curves
@@ -104,7 +110,7 @@ examples' bubbles), `exDom0`..`exDom2` (where the example's domain lies in its f
 - Library (`atlas_lib` near 1, nothing else on): "24,945 slides", "40 tissues of 29 organs", "983 people, aged 20 to 70"
   (971 analysed), and the rows' direction at the wall's left edge: "70 years" (top) and "20 years" (bottom; both
   `minor`).
-- Atlas: "218 domains in 74 types". Cloud: "162 million tiles, 218 domains".
+- Atlas: "218 domains in 74 types" (gone as `atlas_net` starts). Cloud: "162 million tiles, 218 domains".
 - Volcano: "28 % of domains change with age", the three examples by name and place ("Corpus albicans ovary",
   "Submucosa gut", "Adenohypophysis pituitary"; no numbers there, see below; an example's own label goes while its
   section stands beside the plot, whose label names it), "Falls with age" and "Rises with age" (hidden while a section
@@ -138,7 +144,45 @@ Pathology the trajectories (over the dimmed atlas).
 `examples` (tissue index per example, -1 if not found), `pick(raycaster)` -> tissue index or -1 (a section of the atlas
 or the focused one; in the library, a tissue's column of slides), `domainColour(name)` (hex), `domains(i)` ->
 `[{ name, at20, at70, colour }]` (shares in % as drawn), `tissuesOf(organ)` -> indices, `volcanoFromFigure`,
-`slides` (per tissue), `tiles`.
+`slides` (per tissue), `tiles`; for the morph `useNetwork(layout)` (the hier set's `api().layout()`, which the engine
+hands over in `buildScene`), `netLead` (0.25) and `netMap()` (each domain name of the atlas -> the node it ends at, once
+the layout is in).
+
+## The morph into the network (`atlas_net`)
+
+The owner: the domains should morph into the network, as the organs move to where they are in it. With the network's
+growth `g` (`hier_grow`) = (`atlas_net` - 0.25) / 0.75 (the engine keys the two at the same times, so this holds
+exactly at every moment; `g` runs from -1/3, where the network shows nothing, to 1), each thing arrives just as its
+node starts to grow (the node's `start` in the layout, plus 0.012), so the node is there because it arrived:
+
+1. `g` -0.31 to -0.15: on each section the tiles gather into one bead per domain (its tiles' centre, pushed clear of the
+   other beads; each tile keeps its direction from the centre and moves in by its rank in distance, so nothing crosses;
+   the tiles shrink to 0.72 of their size). This is the moment the panel says "218 domains of 74 types".
+2. Organs (arrive at `g` 0 to 0.1): each section's organ model flies up from its plate's corner to its organ's node in
+   the organ ring, growing and glowing; sections of one organ arrive together and merge. Landed, it takes the network's
+   model's turn and fades as that one grows (the same model: they read as one), with a flash.
+3. Tissues (0.22 to 0.31): each section, its plate and caption fading, shrinks (to 0.034) and flies to its tissue's node
+   (24 sections) or, where its organ is one tissue, to its organ's node (16), coming to rest just outside it.
+4. Tissue types (0.45 to 0.55): its beads fly on, a bead's tiles together as small bright cubes on paths bowed out from
+   the axis, to their tissue type's node, where the tiles of all sections gather in a clump (its radius by the cube root
+   of its tiles), tinted a little salmon.
+5. Domains (0.67 to 0.77): from there each domain's tiles fly to their domain's node in the domain ring, tinted a little
+   blue, and shrink into it with a flash. Tiles of a domain with no node of its own contract into their type's node
+   instead (0.69 to 0.81); the slide's edge contracts into its section's middle at its tissue's node.
+
+From `g` about 0.85 nothing of the atlas is left; the engine fades it out and the hier set goes on as before.
+
+The mapping (atlas name -> the network's node), checked as the layout is handed over (a name that is neither the
+network's nor in `NETMAP` is reported once on the console and goes to its tissue type): 54 of the atlas's 64 domain
+names are the network's own; two have another name there (adipose tissue -> fat, cardiac muscle -> myocardium); seven
+have no node of their own and end at their tissue type's node (connective tissue -> connective tissue, skeletal muscle
+-> skeletal muscle, calcified plaques -> vascular tissue, cyst, renal tubules and gastric glands -> glandular tissue,
+gastric foveolae -> lining epithelium); tissue edge (the slide's edge, not a domain) stays with its tissue. The atlas
+draws 132 pairs of a section and a domain; they end at 56 of the network's 70 domain nodes and at 5 tissue type nodes.
+
+The targets are the network's rest positions in its own frame (no contacts shown). The story gives the network the
+atlas's turn at this hand-over (`MORPH` in the engine's `buildCamera`), so the two frames are one and they meet exactly,
+on any screen and in a headset, wherever `xrPlace` puts and scales the world.
 
 ## Domain colours
 

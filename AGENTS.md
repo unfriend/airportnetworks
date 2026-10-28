@@ -1035,6 +1035,10 @@ architecture and the domain contacts; each with a manifest) and engine parts ada
   preprint's numbers (typed in) and `tools/micro/data/figures.json` (values read off the talk's figures). The slides,
   sections and tiles are drawn, never the GTEx images.
 - `tissue` and `slide` share one frame and are shown together.
+- In the Atlas chapter the atlas turns into the network (`atlas_net`, with `hier_grow` keyed at the same times, so each
+  node grows as its things arrive): the sections' tiles gather into a bead per domain, the organs fly up to their nodes,
+  the sections to their tissues', their beads on to the tissue types' and the domains' (by name; the mapping is in
+  `sets/atlas.md`). The network takes the atlas's turn at that hand-over (`MORPH` in `buildCamera`), so they meet exactly.
 
 ## The aging ovary story (`stories/ovary.js`) is built the same way
 

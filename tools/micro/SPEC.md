@@ -199,8 +199,13 @@ or explore shows `slide`, show `tissue` too (same transform).
 4. `method` 85-130: back at the section: `slide_tiles`, `slide_feat`, `slide_adj`, `slide_group` and `slide_domain`
    (H&E-UTAG in four steps, built as the tour builds its cell network; 162 million tiles; no labels needed, named
    afterwards; agrees with pathologists); then `atlas_umap`.
-5. `atlas` 130-170: `atlas_map` (218 domains in 74 types; 16 % shared by 3 or more tissues, 69 % in one), then `hier`
-   (`hier_grow`: organs, tissues, tissue types, domains; connective tissue everywhere).
+5. `atlas` 130-170: `atlas_map` (218 domains in 74 types; 16 % shared by 3 or more tissues, 69 % in one), then the
+   atlas turns into `hier`, level by level with the panel's legend (`atlas_net`, with `hier_grow` keyed at the same
+   times: each node grows as its things arrive): the sections' tiles gather into a bead per domain, each section's organ
+   flies up to its organ's node (sections of one organ merge), the sections to their tissues' nodes, their beads on to
+   the tissue types' nodes and to the domains' (by name; a domain with no node of its own to its tissue type's: the
+   mapping is in `sets/atlas.md`), each with a flash; the network takes the atlas's turn there (`MORPH` in
+   `buildCamera`), so they meet exactly; then the network as before (connective tissue everywhere).
 6. `age` 170-215: age is the strongest driver (of 111 variables); 28 % change; `atlas_volcano`; the three examples
    (`atlas_focus` ovary with `atlas_age`; the gut submucosa with `slide_age`; the pituitary), connective tissue up.
 7. `pathology` 215-250: `atlas_curves`: GTEx's pathologists' notes (9,643 of 54 kinds); calcified plaques after

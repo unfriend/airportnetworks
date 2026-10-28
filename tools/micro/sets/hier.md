@@ -36,7 +36,7 @@ Two pictures in one set, centred on the origin, facing +z.
 | Param | Range | Meaning | Suggested keyframes |
 | --- | --- | --- | --- |
 | `hier_a` | 0..1 | the set's fade | |
-| `hier_grow` | 0..1 (rest 1) | the network grows top to bottom: organs 0-0.18, tissues 0.22-0.4, tissue types 0.44-0.62, domains 0.66-0.84 (each ring grows round from the back; threads draw down to each node as it appears); the connective tissue callout from 0.8 | chapter 5: 0 to 1 over about 12 s |
+| `hier_grow` | 0..1 (rest 1) | the network grows top to bottom: organs 0-0.18, tissues 0.22-0.4, tissue types 0.44-0.62, domains 0.66-0.84 (each ring grows round from the back; threads draw down to each node as it appears; a node grows over 0.1 from its start, `api().layout().start`); the connective tissue callout from 0.8. Below 0 is 0 | chapter 5: keyed with the atlas set's `atlas_net` at the same times, from -1/3 to 1 over 16.5 s, so the network grows as the atlas's things arrive at its nodes (see `atlas.md`, "The morph into the network") |
 | `hier_focus` | -1..132 (rest -1) | a node index into `MICRO_DATA.graph.nodes`: it and everything linked to it up and down the levels light up (direct links fully, two steps 0.6, three steps 0.35), the rest dims; the node grows and gets a pulsing ring; its label and up to six neighbours' labels show. From a domain that the talk's atlas names, the walk up reaches only the organs whose atlas maps show it (and their tissues) | **put it in the engine's `STEP` set** (jump; the set crossfades for 0.3 s by itself). A fractional value crossfades the two nodes either side |
 | `hier_contacts` | 0..1 | the contact network comes forward: nodes fly 0.04-0.56, bands draw from both ends to the middle 0.55-0.95, its labels from 0.55 | chapter 8: 0 to 1 over 3 s |
 | `hier_organ` | 0..5 (rest 0) | which contact network: 0 Colon, 1 Skin, 2 Ovary, 3 Fallopian tube, 4 Uterus, 5 Coronary artery (`api().contactOrgans`) | **put it in `STEP`** (the set crossfades 0.3 s); a fractional value crossfades the two networks |
@@ -79,7 +79,9 @@ back. The set's own node labels start at a node's edge, not its centre.
 ## Cam views
 
 `default` [0, 12, 4.15, 0, -0.03, 0] (the whole hourglass), `net` [28, 38, 4.6, 0, -0.2, 0] (from above: the rings),
-`contacts` [0, 6, 2.8, 0.28, 0.05, 0.45] (the contact network left of the middle, its notes' column right).
+`contacts` [0, 6, 2.8, 0.28, 0.05, 0.45] (the contact network left of the middle, its notes' column right), `grow` [6, 20,
+4.4, 0, 0, 0.12] (from a little above and further back: wide enough for the atlas's sections in front of the network,
+while the atlas turns into it in the story).
 
 ## Controls (explore)
 
@@ -98,6 +100,11 @@ Age (20 years / 70 years; only with Contacts). `explore(c)` returns `hier_grow` 
   without figures): for the Domains tab's "found in".
 - `contactOrgans`: `[{ name, organ (graph index), tissue (graph index or -1), domains: [names], changes: [{ a, b, dir,
   from, to (shares at 20 and 70), fig (true when from the figures) }] }]`.
+- `layout()`: where the network stands and when each node grows, for the atlas set's morph into it (the engine hands it
+  over in `buildScene`): `pos` (rest positions in this set's frame, no contacts shown), `level`, `name`, `up` (direct
+  links upwards), `start` (the `hier_grow` at which a node starts to grow; `span` 0.1 later it is grown, scale from 0.25
+  and alpha from 0), `size` (its radius grown; an organ's model's `ORAD`), `spin` and `spinRate` (an organ model's turn
+  is t x spinRate + spin), `levelStart` (each level's start).
 - `levelColour(level)` -> '#rrggbb'; `useColours(fn)`: recolour the contact networks' domains with the atlas set's
   `domainColour(name)` (the set also takes `K.domainColour` at build time if the engine puts it there). Until then
   domains take the talk's tissue-type colours (Figure 5b), a little varied per domain; calcified plaque is bone white.
