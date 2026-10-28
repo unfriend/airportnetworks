@@ -52,8 +52,9 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
   grips; persistent anchors restored after a restart; sound zones; comfort and frame rate with other people drawn;
   whether the connection to the relay keeps running inside a headset session; the two headset settings of October
   2026 (labels in 3D, on top or hidden, and free moving, everything in 3D by default and the same for a whole room):
-  how readable the signs in 3D are, how the free grip feels (turning the scene with the hand, tilting the panel), and
-  how the station cards and name tags look in each mode. The full list ends AGENTS.md "Shared
+  how readable the signs in 3D are, how the story panels read standing in the scene with labels in 3D (passing birds,
+  fish or layers in the life-size and stand-inside views now hide parts of them), how the free grip feels (turning the
+  scene with the hand, tilting the panel), and how the station cards and name tags look in each mode. The full list ends AGENTS.md "Shared
   rooms"; [docs/event-runbook.md](docs/event-runbook.md) says what to try at an event.
 - **Unfinished:** narration for thirteen stories (scripts ready in [docs/narration.md](docs/narration.md)); the muscle
   story's layer z-scores, walks and endotype names are stand-ins until its authors send their own; the questions in

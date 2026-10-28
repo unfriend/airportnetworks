@@ -718,8 +718,9 @@ for (const key of ['airports', 'proteins', 'spatial', 'lbi', 'nmd', 'endo', 'pet
   await page.evaluate(() => HOST.openPicker());
 });
 // The headset's two settings (the shell's menu, for every story; in a shared room the room's): labels on top
-// (sprites over everything), in 3D (upright signs in the scene, depth-tested, turned to you) or hidden (none, and no
-// story text panel in story mode), and free moving (the grip holds the scene and the panel like a real object, what
+// (sprites and the story panels over everything), in 3D (upright signs in the scene, depth-tested, turned to you, and
+// the story panels in the scene as they are) or hidden (none, and no story panel at all, in story and explore mode),
+// and free moving (the grip holds the scene and the panel like a real object, what
 // you hold staying in your hand). Everything in 3D by default, kept across a reload, set by a link. In a page of its
 // own (its own storage, as a new device), with a pretend headset whose frames the test drives: a scene story
 // (qubits), a life-size one (flock) and a hand-written one (airports)
@@ -768,15 +769,35 @@ for (const key of ['airports', 'proteins', 'spatial', 'lbi', 'nmd', 'endo', 'pet
   };
   // the scene's labels as the headset shows them: sprites on top, signs in 3D (depth-tested, upright, turned to you)
   const LABELS = `(() => {
+    const look = P => { const m = P.mesh.material; return { vis: P.mesh.visible, dt: m.depthTest, dw: m.depthWrite, at: m.alphaTest, ro: P.mesh.renderOrder, v: m.version }; };
     const all = [...ST.labels, ...(LBL.sets || []), ...LBL.extra], q = new THREE.Quaternion(), up = new THREE.Vector3();
     const sp = all.filter(L => L.sprite && L.sprite.visible), sg = all.filter(L => L.sign && L.sign.visible);
     const face = L => { const c = L.sign.getWorldPosition(new THREE.Vector3()), n = new THREE.Vector3(0, 0, 1).applyQuaternion(L.sign.getWorldQuaternion(q)), h = XR.head.clone().sub(c);
       n.y = 0; h.y = 0; return h.length() < 0.01 ? 0 : n.angleTo(h) * 180 / Math.PI; };
     return { sprites: sp.length, signs: sg.length, onTop: sp.every(L => !L.sprite.material.depthTest), inDepth: sg.every(L => L.sign.material.depthTest),
       q: sg.map(L => L.sign.getWorldQuaternion(q).toArray()), up: Math.min(1, ...sg.map(L => up.set(0, 1, 0).applyQuaternion(L.sign.getWorldQuaternion(q)).y)),
-      face: Math.max(0, ...sg.map(face)), main: XR.main.mesh.visible, foot: XR.foot.mesh.visible };
+      face: Math.max(0, ...sg.map(face)), main: XR.main.mesh.visible, foot: XR.foot.mesh.visible, panels: [XR.main, XR.foot].map(look), land: XR.land.concat(XR.snd).map(look) };
   })()`;
   const labels = () => sx(LABELS);
+  // the story panels (text, foot) in each label mode: on top as before (drawn over everything), in 3D in the scene as
+  // the labels' signs are (depth-tested, writing depth, drawn first of the see-through things, the clear corners cut
+  // away), hidden not drawn at all; the Stories screen's panels stay on top in every mode
+  const PANEL = { face: p => p.vis && !p.dt && !p.dw && !p.at && p.ro === 50, fixed: p => p.vis && p.dt && p.dw && p.at > 0 && p.ro === -1, hidden: p => !p.vis };
+  const landOnTop = L => L.land.every(p => !p.dt && !p.dw && !p.at && p.ro === 50);
+  // what a controller 0.6 m in front of a story panel, pointed at its middle, hovers ('panel:main', 'panel:foot', or
+  // whatever else it reaches)
+  const pointAt = async which => {
+    await sx(`(() => { const P = XR.${which}, c = XR.ctrls[0]; GL.scene.updateMatrixWorld(true);
+      const p = P.mesh.getWorldPosition(new THREE.Vector3()), n = new THREE.Vector3(0, 0, 1).applyQuaternion(P.mesh.getWorldQuaternion(new THREE.Quaternion()));
+      c.src = { targetRayMode: 'tracked-pointer', gamepad: null }; c.g.visible = true;
+      c.g.matrix.compose(p.clone().addScaledVector(n, 0.6), new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, -1), n.clone().negate()), new THREE.Vector3(1, 1, 1));
+      c.g.matrixWorld.copy(c.g.matrix); return 0; })()`);
+    await tick(1);
+    const h = await sx(`(h => h ? h.kind + (h.kind === 'panel' ? (h.P === XR.main ? ':main' : h.P === XR.foot ? ':foot' : ':other') : '') : 'none')(XR.ctrls[0].hover)`);
+    await sx('(XR.ctrls[0].src = null, XR.ctrls[0].g.visible = false, XR.ctrls[0].hover = null, 0)'); await tick(1);
+    return h;
+  };
+  const pointBoth = async () => [await pointAt('main'), await pointAt('foot')];
   // the controller i at p (in the room; the rig stands at the head, facing -z), turned yaw and pitched, in degrees
   const ctrl = (i, p, yaw, pitch) => sx(`(() => { const c = XR.ctrls[${i}]; c.src = { targetRayMode: 'tracked-pointer', gamepad: null }; c.g.visible = true;
     c.g.matrix.compose(new THREE.Vector3(${p.join(',')}), new THREE.Quaternion().setFromEuler(new THREE.Euler(${(pitch || 0) * Math.PI / 180}, ${(yaw || 0) * Math.PI / 180}, 0, 'YXZ')), new THREE.Vector3(1, 1, 1));
@@ -803,26 +824,51 @@ for (const key of ['airports', 'proteins', 'spatial', 'lbi', 'nmd', 'endo', 'pet
         return bt; });
       await sx(`(APP.seek(${t}), APP.playing = false)`);
     }
-    const story = await sx('APP.mode') === 'story';
+    const story = await sx('APP.mode') === 'story', where = story ? 'story' : 'explore';
     await setLook('face'); await tick(3);
     const F = await labels();
     if (!(F.sprites > 0 && !F.signs && F.onTop)) bad.push(`on top: ${F.sprites} sprites (over everything: ${F.onTop}), ${F.signs} signs`);
+    if (!F.panels.every(PANEL.face)) bad.push(`on top (${where}): the story panels are not drawn over everything as before: ${JSON.stringify(F.panels)}`);
     await setLook('fixed'); await tick(3);
     const D1 = await labels();
     if (!(D1.signs === F.sprites && !D1.sprites && D1.inDepth && D1.up > 1 - 1e-6 && D1.face < 1)) bad.push(`in 3D: ${D1.signs} signs for ${F.sprites} labels, ${D1.sprites} sprites, depth-tested ${D1.inDepth}, upright ${D1.up}, turned to you within ${D1.face} deg`);
+    if (!D1.panels.every(PANEL.fixed)) bad.push(`in 3D (${where}): the story panels are not in the scene: ${JSON.stringify(D1.panels)}`);
+    if (!landOnTop(D1)) bad.push('in 3D: the Stories screen\'s panels are not on top: ' + JSON.stringify(D1.land));
     // the head moves 0.67 m sideways and turns: each sign turns to it again, upright
     await head([0.6, 1.6, 0.3], 0.5); await tick(3);
     const D2 = await labels();
     if (!(D2.signs === D1.signs && D2.inDepth && D2.up > 1 - 1e-6 && D2.face < 1)) bad.push(`in 3D, the head moved sideways: ${D2.signs} signs, turned to you within ${D2.face} deg (turned ${Math.max(0, ...D2.q.map((q, i) => qa(q, D1.q[i] || q))).toFixed(2)} deg), upright ${D2.up}`);
-    await head([0, 1.6, 0]);
+    // (the panels' materials are built again only when the mode changes, not every frame)
+    if (!D2.panels.every((p, i) => p.v === D1.panels[i].v)) bad.push(`in 3D: the story panels' materials were built again with no change of mode (${D1.panels.map(p => p.v)} -> ${D2.panels.map(p => p.v)})`);
+    await head([0, 1.6, 0]); await tick(1);
+    // the pointer reaches each panel in 3D (the ray order is as on top)
+    const hitD = await pointBoth();
+    if (hitD.join() !== 'panel:main,panel:foot') bad.push(`in 3D (${where}): a ray at each story panel's middle hovers ${hitD}`);
     await setLook('hidden'); await tick(3);
-    const H = await labels();
-    if (!(!H.sprites && !H.signs && H.main === !story && H.foot)) bad.push(`hidden (${story ? 'story' : 'explore'}): ${H.sprites + H.signs} labels, text panel shown ${H.main}, foot ${H.foot}`);
+    const H = await labels(), hitH = await pointBoth();
+    if (!(!H.sprites && !H.signs && !H.main && !H.foot)) bad.push(`hidden (${where}): ${H.sprites + H.signs} labels, text panel shown ${H.main}, foot ${H.foot}`);
+    if (hitH.some(h => h.startsWith('panel'))) bad.push(`hidden (${where}): a ray at a hidden story panel hovers ${hitH}`);
     if (story) {
+      // A or X still plays and pauses with no panel
+      const btn = on => sx(`(() => { const c = XR.ctrls[0]; c.src = { targetRayMode: 'tracked-pointer', gamepad: { axes: [0, 0, 0, 0], buttons: [0, 1, 2, 3, 4].map(i => ({ pressed: i === 4 && ${on}, touched: false, value: 0 })) } }; c.g.visible = true; return 0; })()`);
+      const was = await sx('APP.playing');
+      await btn(true); await tick(1); await btn(false); await tick(1);
+      const now = await sx('APP.playing');
+      await sx('(APP.playing = false, XR.ctrls[0].src = null, XR.ctrls[0].g.visible = false, XR.ctrls[0].hover = null, 0)'); await tick(1);
+      if (!(was === false && now === true)) bad.push(`hidden: A or X does not play with the panels gone (${was} -> ${now})`);
       await sx('APP.enterExplore()'); await tick(3);
-      const HX = await labels();
-      if (!(!HX.sprites && !HX.signs && HX.main && HX.foot)) bad.push(`hidden in explore mode: ${HX.sprites + HX.signs} labels, its panels ${HX.main} ${HX.foot}`);
+      const HX = await labels(), hitX = await pointBoth();
+      if (!(!HX.sprites && !HX.signs && !HX.main && !HX.foot)) bad.push(`hidden in explore mode: ${HX.sprites + HX.signs} labels, its panels ${HX.main} ${HX.foot}`);
+      if (hitX.some(h => h.startsWith('panel'))) bad.push(`hidden in explore mode: a ray at a hidden panel hovers ${hitX}`);
     }
+    // back from hidden (now in explore mode): the panels show again, in the scene in 3D and over everything on top
+    await setLook('fixed'); await tick(3);
+    const B1 = await labels();
+    if (!B1.panels.every(PANEL.fixed)) bad.push(`in 3D again (explore): the story panels are not back in the scene: ${JSON.stringify(B1.panels)}`);
+    await setLook('face'); await tick(3);
+    const B2 = await labels(), hitB = await pointBoth();
+    if (!B2.panels.every(PANEL.face) || !landOnTop(B2)) bad.push(`on top again (explore): the story panels are not drawn over everything: ${JSON.stringify(B2.panels)}`);
+    if (hitB.join() !== 'panel:main,panel:foot') bad.push(`on top again (explore): a ray at each story panel's middle hovers ${hitB}`);
     // the pointer's tip stays a sprite on top in every mode
     const tip = await sx(`(() => { const L = { set: typeof SET_ORDER !== 'undefined' ? SET_ORDER[0] : '', at: [0, 0, 0], i: 0, txt: ['Tip', 'here', 'tip'] }, was = XR.tip, out = [];
       XR.tip = L; for (const m of ['fixed', 'hidden', 'face']) { XR.lm = m; placeLabelXR(L, 1, XS); out.push(!!(L.sprite && L.sprite.visible) && !L.sign); }
@@ -907,7 +953,7 @@ for (const key of ['airports', 'proteins', 'spatial', 'lbi', 'nmd', 'endo', 'pet
     await setLook('fixed', true);
     if (bad.length) errors.push(...bad.map(b => 'settings: ' + b));
   });
-  for (const key of ['qubits', 'flock', 'airports']) await step(`${key}: labels on top, in 3D and hidden in the headset; free moving with the grip`, async () => {
+  for (const key of ['qubits', 'flock', 'airports']) await step(`${key}: labels and story panels on top, in 3D and hidden in the headset; free moving with the grip`, async () => {
     await openXR(key);
     const bad = (await labelModes(key)).concat(await freeMoving(key));
     if (bad.length) errors.push(...bad.map(b => `${key}: ${b}`));

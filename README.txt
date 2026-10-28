@@ -114,9 +114,11 @@ Inside: Exit (leaves VR or AR; the story panels have none), Slideshow for every
 story, two headset settings for every story, and the shared room. With hand
 tracking a fingertip presses its buttons too, or pinch while pointing. Labels:
 in 3D (the default: the scene's labels stand in the scene as signs turned to
-you, hidden by what is in front of them), hidden (no labels, and no story text
-panel during the story; play and the chapters stay), or on top (turned to you
-and drawn over everything, as before); each press goes to the next. Moving:
+you, and the story panels, the stations' cards and people's name tags stand in
+it too, all hidden by what is in front of them), hidden (no labels and no story
+panels at all, in the story and in explore mode; A or X still plays and pauses,
+and the menu on your wrist brings them back), or on top (labels and story
+panels drawn over everything, as before); each press goes to the next. Moving:
 free (the default: the grip holds the scene like a real object and turns it
 with your hand, two hands turn it too; the story panel can tilt; Recenter
 puts things back) or facing you (things you move keep facing you and the

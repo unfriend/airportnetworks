@@ -229,12 +229,26 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
     size, upright and turned to you (about the vertical, in the rig's frame:
     `placeLabelXR` with `XR.signL` and `XR.signH`), but in the scene:
     depth-tested, so what stands in front hides it, readable from both sides.
-    On top: sprites over everything, as before. Hidden: no scene labels, and
-    no story text panel in story mode (`XR.main`; its foot, explore's panels
-    and the Stories screen stay). The pointer's tip (`XR.tip`) is always a
-    sprite. In the shell, station cards are drawn in both modes and not at
-    all when hidden (the ring stays, pointable and grabbable); people's name
-    tags are sprites, signs over the head, or nothing.
+    The two story panels (`XR.main`, the text and explore's panes, and
+    `XR.foot`) stand in the scene the same way (`panelDepth`, set only when
+    the mode changes: depth-tested and writing depth, drawn first of the
+    see-through things at `renderOrder` -1, their clear corners cut away by
+    `alphaTest` 0.1), so whatever stands in front hides them, glass and
+    glowing points too, and they hide what is behind them; the pointer still
+    reaches a panel first, even one partly hidden behind the scene.
+    On top: sprites and both story panels over everything, as before
+    (`renderOrder` 50). Hidden: no scene labels and no story panel at all,
+    neither `XR.main` nor `XR.foot`, in story and explore mode (not drawn and
+    not pointable); the headset Stories screen stays (never stuck), the
+    shell's menu and its clock stay (to switch back), and A or X still plays
+    and pauses. The Stories screen's panels, the menu, its clock and the
+    shell's notes are on top in every mode. The pointer's tip (`XR.tip`) is
+    always a sprite. In the shell, station cards are drawn on top (after the
+    scenes, before the story's panels, depth-tested) or, in 3D, as the labels'
+    signs are (`renderOrder` -1, writing depth, `alphaTest` 0.1, both faces),
+    and not at all when hidden (the ring stays, pointable and grabbable);
+    people's name tags are sprites, signs over the head drawn the same way,
+    or nothing.
   - Free moving: the grip holds the scene like a real object, the point you
     hold the pivot. One hand moves it and turns it with the hand (`XR.rot`, a
     turn in the rig's frame; the facing comes from `XR.globeBase`, not from
@@ -769,7 +783,8 @@ after a night, lined them up. Not confirmed on headsets yet: whether they line u
 standby (and a night) now, whether asking for the shared space again (Re-align,
 or 15 s after waking) joins the others' space,
 moving and resizing scenes with the grips (comfort, how it looks for the others),
-the free grip turning scenes and tilting panels, how readable labels in 3D are
+the free grip turning scenes and tilting panels, how readable labels in 3D are,
+how the story panels read standing in the scene with labels in 3D,
 and how the cards and name tags look in each label mode,
 persistent anchors restored (one headset's handles were refused; the log now
 says why), whether a recentre fires a reset, sound zones heard, comfort and
@@ -1308,8 +1323,12 @@ handles), checks the two headset settings with a pretend headset in a page of
 its own (everything in 3D by default; the menu's Labels and Moving buttons
 going round, kept across a reload, set by a link; for the qubits, the flock and
 the airports: labels on top as sprites, in 3D as depth-tested upright signs
-turned to the head, also after it moves, and hidden with the story text panel
-gone in story mode; a free grip turning the scene 90 degrees with the hand, the
+turned to the head, also after it moves, and hidden; the two story panels on top
+as before, in 3D in the scene (depth-tested, writing depth, `renderOrder` -1,
+`alphaTest` above 0, their materials built again only when the mode changes,
+the ray still reaching each), and hidden with neither panel drawn or pointable
+in story and explore mode, A or X still playing; back again from hidden; the
+Stories screen's panels on top throughout; a free grip turning the scene 90 degrees with the hand, the
 point held staying in it, staying when let go and facing you again with free
 moving off; the panel tilting with the hand; the flock's grip taking only the
 panel), and fails on console errors:
@@ -1423,7 +1442,9 @@ out to the room and gliding in from it, a free grip turning the scene 90 degrees
 and tilting the panel (the turns in the room, the other pages holding the same
 `q`), Moving in the headset's menu turning free moving off for everyone (the
 turns gone, the scene facing you again, the panel upright) and Labels going
-round there for every page; Re-align
+round there for every page (the other stations' cards and a person's name tag
+on top as before, drawn as the labels' signs in 3D, not drawn when hidden; the
+menu on top in every mode); Re-align
 (an offset headset back on the room's frame, the shared space asked for again),
 and after a night: a headset still outside the space asking for it again, a
 follower holding against a space made again and following the room's frame

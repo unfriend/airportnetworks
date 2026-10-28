@@ -1224,12 +1224,42 @@ try {
   const hOff = await H.evaluate(() => ({ free: HOST.cur.peek('XR.free'), rot: HOST.cur.peek('XR.rot.toArray()'), up: HOST.cur.peek('new THREE.Vector3(0, 1, 0).applyQuaternion(XR.panelGroup.quaternion).y') }));
   check('headset: Moving in the headset\'s menu turns free moving off for everyone: the turns leave the room, the scene faces you again and the panel stands upright',
     pf && offAB && !rk4[kPl].v.q && !rk4[kPn].v.q && !hOff.free && qang(hOff.rot, [0, 0, 0, 1]) < 1e-6 && Math.abs(hOff.up - 1) < 1e-6, JSON.stringify({ pf, offAB, place: rk4[kPl], panel: rk4[kPn], hOff }));
-  const lseen = [];
+  // what the headset draws of the room in each: the other stations' cards and a person's name tag (someone injected
+  // for a few frames)
+  const roomLook = () => H.evaluate(async () => {
+    const C = HOST.collab.internals(), id = 'zz-look';
+    if (!C.members.some(m => m.id === id)) C.members.push({ id, name: 'Look', color: '#ff7a59', kind: 'vr', here: false });
+    for (let k = 0; k < 4; k++) { C.pres.set(id, { id, at: performance.now(), st: '', head: [1, 1.6, -2, 0, 0, 0, 1], hands: [] }); window.__xr.step(); await new Promise(r => setTimeout(r, 10)); }
+    const O = HOST.collab.overlay(), o = O.people.get(id), f = m => ({ vis: m.visible, dt: m.material.depthTest, dw: m.material.depthWrite, at: m.material.alphaTest, ro: m.renderOrder });
+    const out = { cards: [...O.cards.values()].map(c => Object.assign(f(c.mesh), { back: c.back.renderOrder, same: c.back.material === c.mesh.material, v: c.mesh.material.version })),
+      tag: o ? f(o.tag) : null, sign: o ? Object.assign(f(o.sign), { faces: o.sign.children.map(f) }) : null,
+      menu: [O.clock, O.panel, O.note].map(S => !S.mesh.material.depthTest && S.mesh.renderOrder > 50) };
+    C.pres.delete(id); C.members = C.members.filter(m => m.id !== id);
+    return out;
+  });
+  const lseen = [], looks = {};
   for (let k = 0; k < 3; k++) {
     const ok = await menuPress('labels'), w = await H.evaluate(() => HOST.xr.labels());
     lseen.push(w + '/' + await peek(H, 'XR.lm') + (ok && await lookIs(A, w + ',false') && await lookIs(C, w + ',false') ? '' : ' (not on the pages)'));
+    looks[w] = await roomLook();
+    if (w === 'fixed') looks.again = await roomLook();
   }
   check('headset: Labels in the headset\'s menu goes round (hidden, on top, in 3D), for its story and every page in the room', lseen.join() === 'hidden/hidden,face/face,fixed/fixed', lseen.join(', '));
+  // on top the cards are drawn after the scenes (before the story's panels, depth-tested) and the tag is a sprite over
+  // everything, as before; in 3D both are drawn as the labels' signs are (first of the see-through things, writing
+  // depth, their clear corners cut away; both faces), so a glowing or glass model in front hides them, and their
+  // materials are built again only when the mode changes; hidden, neither is drawn. The menu, its clock and the
+  // shell's note stay on top in every mode
+  const LK = looks, cardsAre = (L, want) => !!L && L.cards.length > 5 && L.cards.every(c => c.same && want(c));
+  check('headset: the other stations\' cards and a person\'s name tag are on top as before with labels on top, drawn in the scene as the labels\' signs are with labels in 3D, and not drawn with labels hidden; the menu stays on top',
+    cardsAre(LK.face, c => c.vis && c.dt && !c.dw && !c.at && c.ro === 49 && c.back === 49) && LK.face.tag && LK.face.tag.vis && !LK.face.tag.dt && LK.face.tag.ro > 50 && !LK.face.sign.vis &&
+    cardsAre(LK.fixed, c => c.vis && c.dt && c.dw && c.at > 0 && c.ro === -1 && c.back === -1) && LK.fixed.tag && !LK.fixed.tag.vis && LK.fixed.sign.vis &&
+    LK.fixed.sign.faces.length === 2 && LK.fixed.sign.faces.every(x => x.dt && x.dw && x.at > 0 && x.ro === -1) &&
+    LK.again.cards.every((c, i) => c.v === LK.fixed.cards[i].v) &&
+    !!LK.hidden && LK.hidden.cards.every(c => !c.vis) && LK.hidden.tag && !LK.hidden.tag.vis && !LK.hidden.sign.vis &&
+    ['face', 'fixed', 'hidden'].every(m => LK[m] && LK[m].menu.every(Boolean)),
+    JSON.stringify({ face: LK.face && Object.assign({}, LK.face, { cards: LK.face.cards.slice(0, 2) }), fixed: LK.fixed && Object.assign({}, LK.fixed, { cards: LK.fixed.cards.slice(0, 2) }),
+      hidden: LK.hidden && Object.assign({}, LK.hidden, { cards: LK.hidden.cards.slice(0, 2) }) }));
   await H.evaluate(() => HOST.collab.panelOpen(false));
   await A.evaluate(() => HOST.xr.setFree(true));
   check('headset: and free moving on again from a page', await until(H, () => { window.__xr.step(); return HOST.xr.free() && HOST.cur.peek('XR.free'); }, null, 3000));
