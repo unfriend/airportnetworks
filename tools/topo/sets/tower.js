@@ -119,7 +119,7 @@ SETS.tower = function (K) {
     }
   }
   const HE_R = [10, 9, 8, 4.5, 6, 4, 3.8, 7, 2], STAIN = [PW + 0.06, 0.003, PW + 0.06];   // a cell's long half-axis by kind, µm (drawing)
-  const BEAD_R = 1.7;                             // a bead's core, µm
+  const BEAD_R = 2.1;                             // a bead's core, µm
 
   // ---------------------------------------------------------------- the pools
   const plate = LK.slides(1), stain = LK.boxes(1), tubes = LK.tubes(3200), rings = LK.rings(16), halos = LK.halos(260);
@@ -129,7 +129,7 @@ SETS.tower = function (K) {
   const PL = 0.12, CLEAR = PW + 2 * PL, PSX = CLEAR / (1 - plate.dims.label), PTH = 0.045;
   // (turned a quarter about y, so its label end, -x, points to +z; moved so the clear part is centred on the patch)
   const PLATE_Q = LK.quat([0, 0, 0, 1], UP, PI / 2), PLATE_P = [0, -PTH / 2, PSX * plate.dims.label / 2];
-  plate.begin(); plate.add(PLATE_P, PLATE_Q, [PSX, PTH / plate.dims.thick, CLEAR / plate.dims.wid], LK.HEALTHY, 1, 0); plate.end();
+  plate.begin(); plate.add(PLATE_P, PLATE_Q, [PSX, PTH / plate.dims.thick, CLEAR / plate.dims.wid], LK.mix(LK.HEALTHY, LK.GREY, 0.55), 1, 0); plate.end();
   const LABEL_Z = CLEAR / 2 + PSX * plate.dims.label / 2;   // the label's middle
 
   // ---------------------------------------------------------------- what the frame shows now
@@ -145,7 +145,7 @@ SETS.tower = function (K) {
   }
   const hOf = r => HS * T.height(r);
   const _a = [0, 0, 0], _b = [0, 0, 0], _c = [0, 0, 0], _d = [0, 0, 0], _e = [0, 0, 0], _col = [0, 0, 0], _col2 = [0, 0, 0];
-  const WHITE = LK.WHITE, HOT = [1, 0.93, 0.78];
+  const WHITE = LK.WHITE, LOOPLIT = LK.mix(LK.LOOP, [1, 0.9, 0.7], 0.25);
   const thick = s => 0.0032 * Math.pow(s, 0.45);
   // a vertical piece of the tower from y0 to y1 at (x, z), bright below the plane and faint above it
   function column(x, z, y0, y1, r, col, a) {
@@ -248,7 +248,7 @@ SETS.tower = function (K) {
         fan(L, y + 0.001, LK.LOOP, a * 0.7, 0);
         ringAt(L, y + 0.0005, L.main ? 0.0042 : 0.0034, LK.LOOP, a);
         _a[0] = L.hx; _a[1] = y + 0.004; _a[2] = L.hz;
-        halos.add(_a, L.rad * 2.2, LK.LOOP, a * 0.55);
+        halos.add(_a, L.rad * 1.2, LK.LOOP, a * 0.35);
         if (age < 1) halos.add(_a, L.rad * (1.2 + 2.5 * age), WHITE, cA * lA * (1 - age) * 0.8);   // (just born)
       }
       // triangles and edges alive at r
@@ -267,7 +267,7 @@ SETS.tower = function (K) {
       // the balls: glass discs of radius r round every cell, tinted by their piece
       const R = r * KU, dA = cA * (1 - 0.45 * prog(u, 0.8, 1)) * (1 - 0.35 * rise);
       for (let i = 0; i < N; i++) {
-        const c = cnt[rep[i]] > 1 ? LK.mix(LK.CYAN, COL[rep[i]], 0.45 * pA, _col) : LK.CYAN;
+        const c = cnt[rep[i]] > 1 ? LK.mix(LK.CYAN, COL[rep[i]], 0.75 * pA, _col) : LK.CYAN;
         _a[0] = X[i]; _a[1] = y + 0.002; _a[2] = Z[i];
         discs.add(_a, UP, R, c, dA, 1);
       }
@@ -280,12 +280,12 @@ SETS.tower = function (K) {
       for (let s = 0; s < NS; s++) {
         const i = SEG[4 * s], n = SEG[4 * s + 3];
         const y0 = rise * hOf(SEG[4 * s + 1]), y1 = SEG[4 * s + 2] === Infinity ? rise * (TH + 0.08) : rise * hOf(SEG[4 * s + 2]);
-        column(X[i], Z[i], y0, y1, thick(n), n > 1 ? COL[i] : LK.BEAD, tw * pA * (n > 1 ? 1 : 0.7));
+        column(X[i], Z[i], y0, y1, n > 1 ? thick(n) : 0.0022, n > 1 ? COL[i] : LK.BEAD, tw * pA * (n > 1 ? 1 : 0.45));
       }
       // the bridges: across each joining edge to the piece it joins, at the height of the joining
       for (let k = 0; k < NJ; k++) {
         const yb = rise * hOf(JR[k]), n = BRIDGE[k], c = n > 1 ? COL[JV[k]] : LK.BEAD;
-        bridge(k, yb, c, thick(n), tw * pA * (n > 1 ? 1 : 0.7) * (yb <= now.yp + 1e-4 ? 1 : GHOST));
+        bridge(k, yb, c, n > 1 ? thick(n) : 0.0024, tw * pA * (n > 1 ? 1 : 0.55) * (yb <= now.yp + 1e-4 ? 1 : GHOST));
         if (yb <= now.yp + 1e-4 && n > 1) { _a[0] = X[JW[k]]; _a[1] = yb; _a[2] = Z[JW[k]]; halos.add(_a, 0.045 + 0.01 * Math.sqrt(n), c, 0.5 * tw * pA); }
       }
       // the top of the trunk
@@ -295,12 +295,15 @@ SETS.tower = function (K) {
       for (const L of LOOPS) {
         const y0 = rise * hOf(L.b), y1 = rise * hOf(L.d), a = tw * lA * (L.main ? 1 : 0.5);
         if (y1 - y0 < 1e-4 && !L.main) continue;
-        for (const [i, j] of L.ring) wall(i, j, y0, y1, LK.LOOP, a * (L.main ? 0.75 : 0.6));
-        if (L.main) for (const v of L.vs) column(X[v], Z[v], y0, y1, 0.0024, LK.LOOP, a);
-        ringAt(L, y0, L.main ? 0.0034 : 0.0022, LK.LOOP, a * (y0 <= now.yp ? 1 : GHOST));
+        // (the poster's loop with its edges and rings lit; the short-lived ones as walls and a cap only)
+        for (const [i, j] of L.ring) wall(i, j, y0, y1, LOOPLIT, a * (L.main ? 1 : 0.7));
         const capA = a * (y1 <= now.yp ? 1 : GHOST);
-        ringAt(L, y1, L.main ? 0.0045 : 0.0024, LK.mix(LK.LOOP, WHITE, 0.3, _col2), capA);
-        fan(L, y1, LK.LOOP, capA * (L.main ? 1 : 0.7), 0);
+        if (L.main) {
+          for (const v of L.vs) column(X[v], Z[v], y0, y1, 0.0032, LOOPLIT, a);
+          ringAt(L, y0, 0.0042, LOOPLIT, a * (y0 <= now.yp ? 1 : GHOST));
+          ringAt(L, y1, 0.0055, LK.mix(LK.LOOP, WHITE, 0.45, _col2), capA);
+        }
+        fan(L, y1, LOOPLIT, capA * (L.main ? 1 : 0.55), L.main ? 0 : 0.4);
         if (L.main) { _a[0] = L.hx; _a[1] = (y0 + Math.min(y1, Math.max(y0, now.yp))) / 2; _a[2] = L.hz; halos.add(_a, 0.5, LK.LOOP, 0.3 * a * (L.b <= r && r < L.d ? 1 : 0.4)); }
       }
       // the ruler: a post on the plate's corner, a mark at 2, 5, 10, 20 and 50 µm, and where the plane is
