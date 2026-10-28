@@ -249,8 +249,8 @@ function collabApply(v) {
 const chip = (attrs, label, on, col) => `<button type="button" ${attrs} aria-pressed="${!!on}"${on ? ' style="background:var(--cyan);color:var(--panel-solid)"' : ''}>${col ? `<span class="sw" style="background:${swCol(col)}"></span>` : ''}${label}</button>`;
 // a slider the panes hold (a radius, an end of the window), with its value; it changes in place, so a drag is not cut
 // short by a redraw. A radius slides on the poster's log ruler (0 to 1000 along it)
-const NUM = { r: { label: 'Radius', log: true, min: 1.5, max: 60, col: CYAN, text: v => `${fmtR(v)} µm` },
-  mr: { label: 'Its network at', log: true, min: 1.5, max: 60, col: CYAN, text: v => `${fmtR(v)} µm` },
+const NUM = { r: { label: 'Radius', log: true, min: 1.5, max: 60, col: CYAN, text: v => `${fmtR2(v)} µm` },
+  mr: { label: 'Its network at', log: true, min: 1.5, max: 60, col: CYAN, text: v => `${fmtR2(v)} µm` },
   from: { label: 'From', min: 0, max: 100, step: 0.5, col: CYAN, text: v => `${v} µm` },
   to: { label: 'To', min: 0.5, max: 100.5, step: 0.5, col: CYAN, text: v => (v > 100 ? 'and above' : `${v} µm`) } };
 const sOf = (o, v) => (o.log ? Math.round(1000 * T.u(v)) : v), vOf = (o, s) => (o.log ? T.rOf(s / 1000) : s);
@@ -329,7 +329,7 @@ const winTxt = (r0, r1) => (r1 > 100 ? `${r0} µm and above` : `${r0}–${r1} µ
 function patchInfo() {
   const c = api('tower').counts ? api('tower').counts(X.r) : { pieces: 0, loops: 0 }, [lb, ld] = FACTS.loop;
   const big = X.r < lb ? 'the big one not yet closed' : X.r < ld ? 'the big one among them' : 'the big one has filled';
-  return [['Radius', `${fmtR(X.r)} µm`], ['Pieces', fmt(c.pieces), c.pieces === 1 ? 'all joined into one' : ''], ['Loops', fmt(c.loops), big]];
+  return [['Radius', `${fmtR2(X.r)} µm`], ['Pieces', fmt(c.pieces), c.pieces === 1 ? 'all joined into one' : ''], ['Loops', fmt(c.loops), big]];
 }
 const patchLive = () => statsHtml(patchInfo());
 const SNAP_CHIPS = () => FACTS.snaps.map(s => [s.r, `${fmtR2(s.r)} µm`]).concat([[60, '60 µm']]);
@@ -401,7 +401,7 @@ function cellsInfo() {
   const rows = [['Type', c.type, 'the cell classifier\'s label'], ['Score', Number.isFinite(lo) ? f2s(lo) : 'none', Number.isFinite(lo) ? `${d === 100 ? c.group100 : c.group50} · within ${d} µm` : 'no curve of its own'],
     ['Within 50 µm', `${fmt(c.near)} cells`, 'itself included'],
     ['Its bars', c.h0 ? `${plural(c.h0.length + 1, 'piece', 'pieces')}, ${plural(c.h1.length / 2, 'loop', 'loops')}` : 'unpacking…'],
-    [`At ${fmtR(X.mr)} µm`, cnt ? `${plural(cnt.pieces, 'piece', 'pieces')}, ${plural(cnt.loops, 'loop', 'loops')}` : '…', 'still alive']];
+    [`At ${fmtR2(X.mr)} µm`, cnt ? `${plural(cnt.pieces, 'piece', 'pieces')}, ${plural(cnt.loops, 'loop', 'loops')}` : '…', 'still alive']];
   const C = d === 100 ? A.comp100 : A.comp50;
   const piles = C ? C.types.map((t, k) => [t, `${pct(C.cirrhosis[k])} · ${pct(C.healthy[k])}`, 'cirrhosis-like · healthy-like']) : [];
   return { head: i === A.e ? 'Cell v · the poster\'s' : `Cell ${fmt(i + 1)}`, rows, piles, sizes: C ? C.sizes : [0, 0] };
