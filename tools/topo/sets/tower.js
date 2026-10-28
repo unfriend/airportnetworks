@@ -22,7 +22,8 @@ SETS.tower = function (K) {
   const LIFT = 0.006;                        // the complex over the plate or the plane
   const GHOST = 0.2;                         // what stands above the radius plane
   const TICKS = [2, 5, 10, 20, 50];
-  const RULER = [-1.0, 0.98];                // the ruler's post (x, z): the plate's front left corner
+  const RULER = [-1.0, 0];                   // the ruler's post (x, z): beside the plate's left edge (never near your eyes in
+                                             // the headset's stand view, whichever way the story turns it)
   // the barcode's board to the right of the tower: its first rod's foot, its turn about y (degrees), the rods' pitch,
   // the loops' lanes' pitch and the gap between the two
   const BOARD = { x: 1.14, z: -0.1, yaw: 16, p: 0.0085, lane: 0.034, gap: 0.12 };
@@ -306,10 +307,10 @@ SETS.tower = function (K) {
         const y0 = rise * hOf(L.b), y1 = rise * hOf(L.d), a = tw * lA * (L.main ? 1 : 0.5);
         if (y1 - y0 < 1e-4 && !L.main) continue;
         // (the poster's loop with its edges and rings lit; the short-lived ones as walls and a cap only)
-        for (const [i, j] of L.ring) wall(i, j, y0, y1, LOOPLIT, a * (L.main ? 1 : 0.7));
+        for (const [i, j] of L.ring) wall(i, j, y0, y1, LOOPLIT, a * (L.main ? 0.6 : 0.7));
         const capA = a * (y1 <= now.yp ? 1 : GHOST);
         if (L.main) {
-          for (const v of L.vs) column(X[v], Z[v], y0, y1, 0.0032, LOOPLIT, a);
+          for (const v of L.vs) column(X[v], Z[v], y0, y1, 0.0034, LK.mix(LK.LOOP, WHITE, 0.3, _col2), a);
           ringAt(L, y0, 0.0042, LOOPLIT, a * (y0 <= now.yp ? 1 : GHOST));
           ringAt(L, y1, 0.0055, LK.mix(LK.LOOP, WHITE, 0.45, _col2), capA);
         }
@@ -318,7 +319,7 @@ SETS.tower = function (K) {
         if (L.main) for (let q = 0; q <= 8; q++) {
           _a[0] = L.hx; _a[1] = lerp(y0, y1, q / 8); _a[2] = L.hz;
           const at = Math.abs(_a[1] - now.yp) < (y1 - y0) / 8 ? 1.6 : 1;
-          halos.add(_a, L.rad * 1.6, LK.LOOP, 0.22 * a * at * (_a[1] <= now.yp + 1e-4 ? 1 : 0.35));
+          halos.add(_a, L.rad * 1.9, LOOPLIT, 0.34 * a * at * (_a[1] <= now.yp + 1e-4 ? 1 : 0.35));
         }
       }
       // the ruler: a post on the plate's corner, a mark at 2, 5, 10, 20 and 50 µm, and where the plane is
@@ -413,14 +414,15 @@ SETS.tower = function (K) {
     { text: ['Loops', ` · ${NL} rods, at most ${B1.top} at once`], at: 'bars1', cls: 'amb', alpha: S => prog(S.tower_bars, 0.6, 0.8) * (Math.round(S.tower_lit) === 1 ? 0 : 1) },
   ];
   const cam = {
-    default: [22, 18, 6.2, 0.25, 0.8, 0.05],
-    plate: [8, 52, 3.4, 0, 0, 0.05],
-    snap: [0, 64, 3.0, 0, 0, 0.02],
-    tower: [26, 12, 5.4, 0.05, 0.85, 0],
-    up: [205, -58, 2.6, 0.05, 0.95, 0],
-    bars: [-8, 14, 5.6, 0.45, 0.85, -0.2],
-    stand: [16, 0, 1.17, 0, 1.06, 0],
+    default: [18, 16, 5.6, 0.1, 0.72, 0],          // the tower whole, the plate at its foot
+    plate: [8, 52, 3.4, 0, 0, 0.05],               // a close look at the plate: the balls growing (chapter 3)
+    snap: [0, 64, 3.0, 0, 0, 0.02],                // from above, as the poster's snapshots
+    tower: [26, 12, 5.0, 0, 0.85, 0],              // the tower rising (chapter 4)
+    up: [205, -58, 2.6, 0.05, 0.95, 0],            // from under the plate, up through the tower (screens)
+    bars: [8, 12, 6.2, 0.85, 0.82, -0.15],         // the tower and the board of rods and curves
+    stand: [16, 0, 1.17, 0, 1.06, 0],              // the headset: about 1.55 m tall in front of you (see the manifest)
   };
+
   const controls = [
     { key: 'view', label: 'View', options: [['balls', 'Balls'], ['tower', 'Tower'], ['bars', 'Barcode']] },
     { key: 'r', label: 'Radius', options: SNAP.map(s => [String(s.r), s.tag]).concat([['60', '60 µm']]) },

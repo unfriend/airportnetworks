@@ -106,34 +106,59 @@ SETS.slide = function (K) {
     // the stain map (S x S): R the hepatocytes' cytoplasm, G collagen (where spindle cells gather), B a haze of nuclei
     // (where lymphocytes and the like gather), A the tissue itself (a soft cover of every cell); and a direction field
     // for the collagen's fibres (the spindles' angles)
-    const S = 256, ts = side / S, F = new Float32Array(S * S * 4), M = 32, DIR = new Float32Array(M * M * 3);
-    const splat = (x, y, sig, w, ch, cap) => {
-      const rr = 2.6 * sig / ts, cx = x / ts - 0.5, cy = y / ts - 0.5, i0 = Math.max(0, Math.floor(cx - rr)), i1 = Math.min(S - 1, Math.ceil(cx + rr));
-      const j0 = Math.max(0, Math.floor(cy - rr)), j1 = Math.min(S - 1, Math.ceil(cy + rr)), q = ts * ts / (2 * sig * sig);
-      for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) {
-        const dx = i - cx, dy = j - cy, v = w * Math.exp(-(dx * dx + dy * dy) * q), o = 4 * (i + S * j) + ch;
-        F[o] = cap ? Math.max(F[o], v) : F[o] + v;
+    // (each field: the cells' weights dropped into a grid, then blurred: much cheaper than a kernel per cell)
+    const S = 256, ts = side / S, M = 32, DIR = new Float32Array(M * M * 3), P = 64, tp = side / P;
+    const fCy = new Float32Array(S * S), fCo = new Float32Array(S * S), fHz = new Float32Array(S * S), fTi = new Float32Array(P * P);
+    const drop = (f, N, t, x, y, w) => {
+      const fx = x / t - 0.5, fy = y / t - 0.5, i = Math.floor(fx), j = Math.floor(fy), u = fx - i, v = fy - j;
+      for (let b = 0; b < 2; b++) for (let a = 0; a < 2; a++) {
+        const ii = i + a, jj = j + b;
+        if (ii >= 0 && jj >= 0 && ii < N && jj < N) f[ii + N * jj] += w * (a ? u : 1 - u) * (b ? v : 1 - v);
       }
     };
     for (let i = 0; i < n; i++) {
       const kd = KIND[i], x = src.x[i], y = src.y[i], r = RAD[i] / k;
-      if (kd === CELL.HEP || kd === CELL.LARGE || kd === CELL.PLAIN) splat(x, y, 1.05 * r, 0.6, 0, false);
+      if (kd === CELL.HEP || kd === CELL.LARGE || kd === CELL.PLAIN) drop(fCy, S, ts, x, y, r * r / 95);
       else if (kd === CELL.SPINDLE) {
-        splat(x, y, 13, 0.4, 1, false);
+        drop(fCo, S, ts, x, y, 1);
         const a = 2 * ANG[i], di = clamp(Math.floor(x / side * M), 0, M - 1) + M * clamp(Math.floor(y / side * M), 0, M - 1);
         DIR[3 * di] += Math.cos(a); DIR[3 * di + 1] += Math.sin(a); DIR[3 * di + 2]++;
-      } else if (kd !== CELL.RBC) { splat(x, y, 9, 0.28, 2, false); splat(x, y, 15, 0.1, 1, false); }
-      splat(x, y, 24, 0.55, 3, false);
+      } else if (kd !== CELL.RBC) { drop(fHz, S, ts, x, y, 1); drop(fCo, S, ts, x, y, 0.25); }
+      drop(fTi, P, tp, x, y, 1);
     }
+    // a separable gaussian blur of sigma µm: a lone cell of weight w becomes a bump w x scale high
+    const tmp = new Float32Array(S * S);
+    function blur(f, N, t, sig, scale) {
+      const r = Math.max(1, Math.ceil(2.5 * sig / t)), ker = new Float32Array(2 * r + 1);
+      let sum = 0;
+      for (let q = -r; q <= r; q++) { ker[q + r] = Math.exp(-q * q * t * t / (2 * sig * sig)); sum += ker[q + r]; }
+      const g = tmp.length >= N * N ? tmp : new Float32Array(N * N), peak = scale;   // (the kernel's middle is 1: a lone cell's bump is scale high)
+      for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
+        let acc = 0;
+        for (let q = -r; q <= r; q++) { const ii = i + q; if (ii >= 0 && ii < N) acc += f[ii + N * j] * ker[q + r]; }
+        g[i + N * j] = acc;
+      }
+      for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
+        let acc = 0;
+        for (let q = -r; q <= r; q++) { const jj = j + q; if (jj >= 0 && jj < N) acc += g[i + N * jj] * ker[q + r]; }
+        f[i + N * j] = acc * peak;
+      }
+    }
+    blur(fCy, S, ts, 12, 0.42); blur(fCo, S, ts, 13, 0.4); blur(fHz, S, ts, 9, 0.28); blur(fTi, P, tp, 24, 0.55);
     const SB = new Uint8Array(S * S * 4);
-    for (let o = 0; o < F.length; o++) SB[o] = Math.min(255, F[o] * 255);
+    for (let j = 0; j < S; j++) for (let i = 0; i < S; i++) {
+      const o = i + S * j, px = (i + 0.5) * ts / tp - 0.5, py = (j + 0.5) * ts / tp - 0.5;
+      const a = clamp(Math.floor(px), 0, P - 2), b = clamp(Math.floor(py), 0, P - 2), u = clamp(px - a, 0, 1), v = clamp(py - b, 0, 1);
+      const ti = (fTi[a + P * b] * (1 - u) + fTi[a + 1 + P * b] * u) * (1 - v) + (fTi[a + P * (b + 1)] * (1 - u) + fTi[a + 1 + P * (b + 1)] * u) * v;
+      SB[4 * o] = Math.min(255, fCy[o] * 255); SB[4 * o + 1] = Math.min(255, fCo[o] * 255); SB[4 * o + 2] = Math.min(255, fHz[o] * 255); SB[4 * o + 3] = Math.min(255, ti * 255);
+    }
     const DB = new Uint8Array(M * M * 4);
     for (let d = 0; d < M * M; d++) {
       const c = DIR[3 * d], s = DIR[3 * d + 1], l = Math.hypot(c, s) || 1, w = Math.min(1, DIR[3 * d + 2] / 3);
       DB[4 * d] = 127.5 + 127 * c / l * w; DB[4 * d + 1] = 127.5 + 127 * s / l * w; DB[4 * d + 2] = 0; DB[4 * d + 3] = 255;
     }
     // the cells, pre-averaged for far views (premultiplied colour and cover): each cell's ellipse, its nucleus darker
-    const C = 512, tc = side / C, CF = new Float32Array(C * C * 4);
+    const C = 256, tc = side / C, CF = new Float32Array(C * C * 4);
     const ASP = [0.92, 0.84, 0.26, 0.95, 0.94, 0.64, 0.97, 0.9], NR = [0.34, 0.5, 0.45, 0.76, 0.5, 0.5, 0, 0.42];
     for (let i = 0; i < n; i++) {
       const kd = KIND[i], a = RAD[i] / k / tc * (kd === CELL.BODY ? 0.64 : 1), b = a * ASP[kd], ca = Math.cos(ANG[i]), sa = Math.sin(ANG[i]);
@@ -154,8 +179,7 @@ SETS.slide = function (K) {
 
     // the ground: one quad, the stain computed in its shader (Beer-Lambert, as the tour's tissue set), lit as a relief
     const U = { uA: { value: 0 }, tS: { value: dataTex(SB, S, S) }, tD: { value: dataTex(DB, M, M) }, tC: { value: dataTex(CB, C, C, true) },
-      uSide: { value: side }, uTW: { value: TW }, uCell: { value: 20 * k }, uSpots: { value: 0 }, uDark: { value: 0 }, uPts: { value: 0 },
-      uMode: { value: 0 }, uAll: { value: 0 }, uDim: { value: 0 }, uTexel: { value: 1 / S } };
+      uSide: { value: side }, uTW: { value: TW }, uCell: { value: 20 * k }, uM1: { value: 0 }, uM2: { value: 0 }, uPts: { value: 0 }, uAll: { value: 0 }, uDim: { value: 0 }, uTexel: { value: 1 / S } };
     const mat = new THREE.ShaderMaterial({
       uniforms: U, transparent: true, depthWrite: false, extensions: { derivatives: true },
       vertexShader: `varying vec2 vUv; varying vec3 vN0, vT, vB;
@@ -164,7 +188,7 @@ void main() {
   vN0 = normalMatrix * vec3(0.0, 1.0, 0.0); vT = normalMatrix * vec3(1.0, 0.0, 0.0); vB = normalMatrix * vec3(0.0, 0.0, 1.0);
   gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
 }`,
-      fragmentShader: `uniform sampler2D tS, tD, tC; uniform float uA, uSide, uTW, uCell, uSpots, uDark, uPts, uMode, uAll, uDim, uTexel;
+      fragmentShader: `uniform sampler2D tS, tD, tC; uniform float uA, uSide, uTW, uCell, uM1, uM2, uPts, uAll, uDim, uTexel;
 varying vec2 vUv; varying vec3 vN0, vT, vB;
 float h21(vec2 p) { vec3 q = fract(vec3(p.xyx) * 0.1031); q += dot(q, q.yzx + 33.33); return fract((q.x + q.y) * q.z); }
 float vn(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
@@ -207,7 +231,9 @@ void main() {
   vec3 n = normalize(nl.x * vT + nl.y * vN0 + nl.z * vB), n0 = normalize(vN0), l = normalize(vec3(-0.45, 0.55, 0.7));
   he *= 1.0 + 0.6 * (max(dot(n, l), 0.0) - max(dot(n0, l), 0.0));
   // the modalities (sketched): under the spots the stain dims; fluorescence is dark with a faint autofluorescence
-  vec3 col = mix(he, he * 0.7, uSpots);
+  float w1 = smoothstep(0.0, 0.18, uM1 * 1.18 - vUv.x), w2 = smoothstep(0.0, 0.18, uM2 * 1.18 - vUv.x);   // the sweeps, from the left
+  float uSpots = w1 * (1.0 - w2), uDark = max(w2, 0.85 * uPts);
+  vec3 col = mix(he, he * 0.55, uSpots);
   vec3 fl = vec3(0.006, 0.01, 0.022) + vec3(0.03, 0.05, 0.045) * (0.4 * cy + co) + vec3(0.04, 0.02, 0.06) * hz;
   col = mix(col, fl, uDark);
   // as points: dark glass with the tissue's ghost
@@ -235,8 +261,9 @@ void main() {
     for (let row = 0, y = SP / 2; y < side; row++, y += SP * 0.866) for (let x = row % 2 ? SP : SP / 2; x < side; x += SP) {
       let r = 0, gg = 0, b = 0, w = 0;
       near(x, y, SR * 1.25, j => { const c = tcol[src.type[j]]; r += c[0]; gg += c[1]; b += c[2]; w++; });
-      const c = w ? [r / w, gg / w, b / w] : [0.32, 0.36, 0.44], f = w ? 0.25 : 0;
-      spots.push((x - side / 2) * k, (y - side / 2) * k, c[0] * (1 - f) + f, c[1] * (1 - f) + f, c[2] * (1 - f) + f, w ? 1 : 0.35);
+      // (the mix brightened to a clear colour: a spot reads all the types under it at once)
+      const c = w ? [r / w, gg / w, b / w] : [0.32, 0.36, 0.44], mx = w ? 0.95 / Math.max(c[0], c[1], c[2], 1e-3) : 1;
+      spots.push((x - side / 2) * k, (y - side / 2) * k, Math.min(1, c[0] * mx), Math.min(1, c[1] * mx), Math.min(1, c[2] * mx), w ? 1 : 0.35);
     }
     const sp = spotMesh(spots, SR * k);
     g.add(sp.mesh);
@@ -251,16 +278,16 @@ void main() {
     for (let i = 0; i < m; i++) { P[3 * i] = list[6 * i]; P[3 * i + 1] = list[6 * i + 1]; P[3 * i + 2] = i; C.set(list.slice(6 * i + 2, 6 * i + 6), 4 * i); }
     g.setAttribute('aP', new THREE.InstancedBufferAttribute(P, 3)); g.setAttribute('aC', new THREE.InstancedBufferAttribute(C, 4));
     g.instanceCount = m;
-    const U = { uA: { value: 0 }, uR: { value: r }, uWipe: { value: 0 }, uTW: { value: TW } };
+    const U = { uA: { value: 0 }, uR: { value: r }, uWipe: { value: 0 }, uWipe2: { value: 0 }, uTW: { value: TW } };
     const mat = new THREE.ShaderMaterial({
       uniforms: U, transparent: true, depthWrite: false,
-      vertexShader: `attribute vec3 aP; attribute vec4 aC; uniform float uA, uR, uWipe, uTW;
+      vertexShader: `attribute vec3 aP; attribute vec4 aC; uniform float uA, uR, uWipe, uWipe2, uTW;
 varying vec2 vQ; varying vec4 vC; varying float vA;
 void main() {
   vQ = position.xy; vC = aC;
   // the sweep comes from the left
   float f = (aP.x / uTW + 0.5);
-  vA = uA * smoothstep(0.0, 0.18, uWipe * 1.18 - f) * aC.a;
+  vA = uA * smoothstep(0.0, 0.18, uWipe * 1.18 - f) * (1.0 - smoothstep(0.0, 0.18, uWipe2 * 1.18 - f)) * aC.a;
   gl_Position = projectionMatrix * modelViewMatrix * vec4(aP.x + position.x * uR, 0.0015, aP.y - position.y * uR, 1.0);
   if (vA < 0.004) gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
 }`,
@@ -278,7 +305,7 @@ void main() {
     });
     set.mats.push(mat);
     const mesh = new THREE.Mesh(g, mat);
-    mesh.frustumCulled = false; mesh.renderOrder = 1; mesh.visible = false;
+    mesh.frustumCulled = false; mesh.renderOrder = 2; mesh.visible = false;   // (over the cells)
     return { mesh, U };
   }
 
@@ -316,7 +343,7 @@ void main() {
   float pres = smoothstep(0.42, 0.62, o.b + 0.28 * edge);
   float dens = o.r, scar = o.g;
   // purple where the cells are dense, the scars' collagen pale and streaky, a grain of nuclei
-  float grain = vn(b * 9.0) - 0.5, streak = vn(vec2(b.x * 1.2 + 3.0 * vn(b * 0.4), b.y * 4.0));
+  float grain = vn(b * 9.0) - 0.5, streak = vn(b * 2.2 + 2.5 * vec2(vn(b * 0.5), vn(b * 0.5 + 5.0)));
   float E = 0.32 + 0.22 * dens * (1.0 - scar) + 0.12 * scar * streak + 0.06 * grain;
   float H = 0.08 + 0.55 * dens * (0.55 + 0.6 * scar) + 0.12 * grain * dens;
   vec3 he = exp(-E * vec3(0.16, 1.05, 0.60) - H * vec3(1.31, 1.37, 0.62));
@@ -403,7 +430,7 @@ void main() {
       const w1 = wipe(m1, t.X[i]), w2 = wipe(m2, t.X[i]);
       // H&E fully until the spots sweep in (under them it stays, a little dimmed), gone where the fluorescence comes
       const dim = t === WIN && all > 0 ? sstep(0, 0.05, all - VIS[i]) : 0;
-      const ha = (1 - 0.25 * w1) * (1 - w2) * (1 - 0.8 * dim), fa = w2 * (1 - 0.8 * dim);
+      const ha = (1 - 0.45 * w1 * (1 - w2)) * (1 - w2) * (1 - 0.8 * dim), fa = w2 * (1 - 0.8 * dim);
       _p[0] = t.X[i]; _p[1] = 0.0008; _p[2] = t.Z[i];
       _c[0] = t.CY[3 * i]; _c[1] = t.CY[3 * i + 1]; _c[2] = t.CY[3 * i + 2];
       _n[0] = t.NU[3 * i]; _n[1] = t.NU[3 * i + 1]; _n[2] = t.NU[3 * i + 2];
@@ -435,12 +462,11 @@ void main() {
       if (!on) continue;
       fill(t, mode, t === WIN ? all : 0);
       const m1 = clamp(mode, 0, 1), m2 = clamp(mode - 1, 0, 1);
-      t.U.uA.value = a; t.U.uSpots.value = m1 * (1 - m2); t.U.uDark.value = Math.max(m2, 0.85 * pts); t.U.uPts.value = pts;
-      t.U.uMode.value = mode; t.U.uAll.value = all; t.U.uDim.value = t === WIN ? Math.min(1, all * 4) : 0;
+      t.U.uA.value = a; t.U.uM1.value = m1; t.U.uM2.value = m2; t.U.uPts.value = pts; t.U.uAll.value = all; t.U.uDim.value = t === WIN ? Math.min(1, all * 4) : 0;
       t.heA.value = a; t.flA.value = a;
       t.he.bead(pts); t.fl.bead(pts);
-      t.sp.U.uA.value = a * (1 - pts) * (1 - m2); t.sp.U.uWipe.value = m1;   // in with the first sweep, out as the second comes
-      t.sp.mesh.visible = t.sp.U.uA.value > 0.003 && t.sp.U.uWipe.value > 0.003;
+      t.sp.U.uA.value = a * (1 - pts); t.sp.U.uWipe.value = m1; t.sp.U.uWipe2.value = m2;   // in with the first sweep, out with the second
+      t.sp.mesh.visible = t.sp.U.uA.value > 0.003 && m1 > 0.003 && m2 < 0.999;
       // the ground writes depth only while it is fully there (so the glass below never shows through it)
       t.ground.material.depthWrite = a > 0.97 && pts < 0.05 && all < 0.01;
     }
