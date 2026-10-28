@@ -4,9 +4,10 @@
 // Headsets and desktop browsers join a room on the relay (relay/server.mjs). A room holds stations: a story
 // at a spot in the room, each with its own clock and explore state, the same on every device. A headset runs
 // live the station it stands at (the others show as previews on the floor), placed at that station for
-// everybody and with its narration coming from there; desktop operators follow a station from a room map.
+// everybody and with its narration coming from there; away from every station it shows only the room (no Stories
+// screen in a room: a story is reached by walking into its circle); desktop operators follow a station from a room map.
 // Nobody outside a room is affected: until you join, only the Shared buttons show (and, in a headset, the menu:
-// a clock on the left wrist that opens it, with Exit, the slideshow and the shared room inside).
+// a clock on the left wrist that opens it, with Exit, the slideshow, Sound check and the shared room inside).
 //
 //  HOST.collab  the session: relay, room, keys (echo suppression by value, optimistic writes, apply order),
 //               members, the relay's clock, stations, the story hooks, presence, effects, the overlay hung in the
@@ -686,11 +687,12 @@
     }
     return adopt(key);
   }
-  // make a station yours (walking up to it, pointing at its preview, Follow on a page): its story runs live here
+  // make a station yours (walking into its circle in a headset, Follow on a page): its story runs live here
   function choose(id, how) {
     const s = C.stById.get(id);
     if (!s) return;
     C.mine = id; C.live = id; C.picked = how === 'pick';
+    C.viewSeen = '';   // (the room's view is taken again on arriving: one turned here while away is not the room's)
     if (how === 'follow') C.follow = id;
     log('station', { st: id, story: s.story, how });
     // following from a page shows the station: its Stories screen closes (while it shows, the pump stands still)
@@ -1339,7 +1341,7 @@
     ctx.fillStyle = MUTED; ctx.fillText(fit(ctx, who.length ? 'Here: ' + who.join(', ') : 'Nobody here yet', W - 64), 32, 194);
     ctx.font = FONT(22); ctx.fillStyle = held ? INK : FAINT;
     const tip = held ? ['Moving: point, raise or lower, twist to turn.', 'Let go of the grip to put it down.'] :
-      ['Walk up, or point here and pull the trigger.', lk ? 'The layout is locked.' : 'Hold the grip to move it.'];
+      ['Walk into its circle to see it.', lk ? 'The layout is locked.' : 'Hold the grip to move it.'];
     tip.forEach((l, k) => ctx.fillText(fit(ctx, l, W - 64), 32, H - 76 + 30 * k));
     o.tex.needsUpdate = true;
   }
@@ -1459,11 +1461,11 @@
   // ------------------------------------------------------- the headset's menu --
   // A clock over the back of the left wrist (a controller's grip, or a tracked hand's wrist; beside the story panel
   // without either) opens the menu: touch it with the other controller's tip or index fingertip, click the left
-  // stick, or point at it and pull the trigger (or pinch). The menu stands above the clock: Exit and the slideshow
-  // for every story, then the shared room: join one from the list (no typing), leave, your name and colour,
+  // stick, or point at it and pull the trigger (or pinch). The menu stands above the clock: Exit, the slideshow for
+  // every story and Sound check, then the shared room: join one from the list (no typing), leave, your name and colour,
   // calibrate, the alignment, the stations (Arrange all, Add a station here, Move here, Remove) and the people.
-  // It is closed at the start of every session.
-  const PNL = { open: false, page: 'main', asked: '' };
+  // It is closed at the start of every session, and opens by itself the first time in a room with no stations.
+  const PNL = { open: false, page: 'main', asked: '', empty: '' };
   // the clock's canvas (px) and its width in the room (m): a face 6.5 cm across with "Open menu" under it; top and
   // below: how far its face reaches above its middle and its caption below it (m)
   const CLOCK = { w: 300, h: 380, cy: 150, r: 140, mw: 0.07 };
@@ -1476,7 +1478,7 @@
   }
   const toggleMenu = why => menuOpen(!PNL.open, why);
   // where the menu is and how it closes, for the notices and its header
-  const menuWhere = () => (HAND.ok ? 'the clock on your left wrist' : 'the clock beside the story panel');
+  const menuWhere = () => (HAND.ok ? 'the clock on your left wrist' : away() ? 'the clock in front of you' : 'the clock beside the story panel');
   const menuHint = () => (!HAND.ok ? 'Point at the clock to close it' : HAND.hand ? 'Touch the clock to close it' : 'Touch the clock or click the left stick to close');
   // Remove takes two presses (page and headset): the first arms it for 3 s ("Remove for everyone?")
   const armed = id => !!(C.rm && C.rm.id === id && performance.now() < C.rm.until);
@@ -1492,7 +1494,8 @@
     return J([C.code, C.status, C.note, PNL.open, PNL.page, OV.panel.hover, C.name, C.color, C.hereSet, here(), askHere(), R.status(), C.mine, C.live, armed(C.mine),
       C.st.map(s => s.id + s.story), C.members.map(m => m.id + m.name + m.color + m.kind + m.here), [...C.pres].map(([id, P]) => id + P.st),
       C.code ? 0 : (C.rooms || []).map(r => r.code + r.members), C.roomsErr, C.relay, sharedLine(), sourceLine(), versionNote(), scanNote(), fullNote(), floorNote(), forgetArmed(), freshArmed(), canFresh(), !!(R.saved || R.frame), R.sharedAlign, layoutLocked(),
-      C.local, C.code ? 0 : localRooms().map(r => r.code + r.stations), !!R.again, HOST.slides ? HOST.slides.sig() : '', menuHint(), HOST.xr.sig()]);
+      C.local, C.code ? 0 : localRooms().map(r => r.code + r.stations), !!R.again, HOST.slides ? HOST.slides.sig() : '', menuHint(), HOST.xr.sig(),
+      PNL.page === 'sound' ? Math.floor(performance.now() / 500) + HOST.audio.pref : '']);
   }
   function drawPanel() {
     const S = OV.panel, sig = panelSig();
@@ -1509,10 +1512,25 @@
     let y = 118;
     const line = () => { ctx.fillStyle = 'rgba(149,166,189,0.22)'; ctx.fillRect(x, y, w, 2); y += 18; };
     const label = (s, col) => { ctx.font = FONT(22, 700); ctx.fillStyle = col || MUTED; ctx.fillText(s.toUpperCase(), x, y); y += 36; };
+    // as tall as what it shows (it hangs from its top edge): the background goes in behind
+    const finish = y => {
+      const H = Math.min(S.h, Math.ceil(y));
+      ctx.globalCompositeOperation = 'destination-over';
+      rr(ctx, 0, 0, W, H, 24); ctx.fillStyle = 'rgba(8,15,28,0.95)'; ctx.fill();
+      ctx.globalCompositeOperation = 'source-over';
+      rr(ctx, 1, 1, W - 2, H - 2, 24); ctx.lineWidth = 2; ctx.strokeStyle = C.code ? 'rgba(70,217,255,0.5)' : 'rgba(140,170,210,0.3)'; ctx.stroke();
+      showTop(S, H);
+      S.tex.needsUpdate = true;
+    };
     line();
-    // Exit (leave VR or AR) and the slideshow for every story: at hand on the left wrist, not on the story panels
-    button(S, 'exit', x, y, bw, 60, 'Exit', () => { if (HOST.session && HOST.session.end) HOST.session.end(); });
-    if (HOST.slides) { const on = !!HOST.slides.global(); button(S, 'slides', x + bw + 16, y, bw, 60, on ? 'Slideshow: on' : 'Slideshow: off', () => HOST.slides.setGlobal(!on), { on }); }
+    // Sound check: in place of the rest of the menu
+    if (PNL.page === 'sound') { finish(soundPage(S, x, y, w)); return; }
+    // Exit (leave VR or AR), the slideshow for every story and Sound check: at hand on the left wrist, not on the story
+    // panels (Sound check is here too because a shared room never shows the Stories screen, where the stories have theirs)
+    const ew = 150, sw = (w - ew - 32) / 2;
+    button(S, 'exit', x, y, ew, 60, 'Exit', () => { if (HOST.session && HOST.session.end) HOST.session.end(); });
+    if (HOST.slides) { const on = !!HOST.slides.global(); button(S, 'slides', x + ew + 16, y, sw, 60, on ? 'Slideshow: on' : 'Slideshow: off', () => HOST.slides.setGlobal(!on), { on, px: 23 }); }
+    button(S, 'sound', x + ew + sw + 32, y, sw, 60, 'Sound check', () => { PNL.page = 'sound'; }, { px: 23 });
     y += 76;
     // labels (in 3D, hidden, on top: each press the next) and free moving, for every story; in a room the room's
     const lm = HOST.xr.labels(), fr = HOST.xr.free(), LBL = { fixed: 'in 3D', hidden: 'hidden', face: 'on top' };
@@ -1604,7 +1622,7 @@
       label('Stations');
       const mine = C.stById.get(C.mine), arm = mine && armed(mine.id);
       ctx.font = FONT(24); ctx.fillStyle = INK;
-      ctx.fillText(fit(ctx, mine ? 'Yours: ' + meta(mine.story).title : C.st.length ? 'Walk up to one, or point at its card' : 'None yet: Arrange all puts every story in front of you', w), x, y); y += 40;
+      ctx.fillText(fit(ctx, mine ? 'Yours: ' + meta(mine.story).title : C.st.length ? 'Walk into a circle to see its story' : 'None yet: Arrange all puts every story in front of you', w), x, y); y += 40;
       const lk = layoutLocked();
       button(S, 'move', x, y, bw, 60, 'Move here', mine && !lk ? () => move(mine.id) : null);
       button(S, 'addpage', x + bw + 16, y, bw, 60, 'Add here', lk ? null : () => { PNL.page = 'add'; });
@@ -1649,14 +1667,28 @@
       S.regions.push({ id: 'col:' + i, x: bx, y, w: 62, h: 46, fn: () => setMe({ color: c }) });
     });
     y += 46 + 28;
-    // as tall as what it shows (it hangs from its top edge): the background goes in behind
-    const H = Math.min(S.h, Math.ceil(y));
-    ctx.globalCompositeOperation = 'destination-over';
-    rr(ctx, 0, 0, W, H, 24); ctx.fillStyle = 'rgba(8,15,28,0.95)'; ctx.fill();
-    ctx.globalCompositeOperation = 'source-over';
-    rr(ctx, 1, 1, W - 2, H - 2, 24); ctx.lineWidth = 2; ctx.strokeStyle = C.code ? 'rgba(70,217,255,0.5)' : 'rgba(140,170,210,0.3)'; ctx.stroke();
-    showTop(S, H);
-    S.tex.needsUpdate = true;
+    finish(y);
+  }
+  // Sound check in the menu, as the stories have it on their Stories screen (which a shared room never shows): a beep
+  // through each engine, the engine choice and what the sound system is doing (HOST.audio.report(), redrawn twice a
+  // second while it shows)
+  function soundPage(S, x, y, w) {
+    const ctx = S.ctx, A = HOST.audio, bw = (w - 16) / 2, cw = (w - 32) / 3;
+    ctx.font = FONT(28, 700); ctx.fillStyle = INK; ctx.fillText('Sound check', x, y); y += 42;
+    ctx.font = FONT(21); ctx.fillStyle = MUTED;
+    y += wrapText(ctx, 'No narration? Press both beeps. If you hear only one, choose that way to play.', x, y, w, 28, 2) + 12;
+    button(S, 'snd:beepW', x, y, bw, 60, 'Beep: Web Audio', () => A.beep('webaudio'), { px: 22 });
+    button(S, 'snd:beepM', x + bw + 16, y, bw, 60, 'Beep: audio element', () => A.beep('media'), { px: 22 });
+    y += 76;
+    [['auto', 'Automatic'], ['webaudio', 'Web Audio'], ['media', 'Audio element']].forEach(([k, l], i) =>
+      button(S, 'snd:' + k, x + i * (cw + 16), y, cw, 56, l, () => A.setEngine(k), { on: A.pref === k, px: 22 }));
+    y += 74;
+    ctx.font = FONT(19); ctx.fillStyle = MUTED;
+    for (const l of A.report()) { if (y > S.h - 160) break; y += wrapText(ctx, l, x, y, w, 25, 3) + 6; }
+    y += 12;
+    button(S, 'snd:back', x, y, bw, 58, 'Back', () => { PNL.page = 'main'; }, { px: 23 });
+    button(S, 'snd:reset', x + bw + 16, y, bw, 58, 'Reset the sound', () => A.reset(), { px: 23 });
+    return y + 58 + 28;
   }
   // the clock: the local time (hour ticks, hour and minute hands) in the app's cyan rim, on a dark face that stands
   // out against the room and a dark scene alike, "Open menu" or "Close menu" under it; drawn again only when the
@@ -1772,7 +1804,8 @@
       toggleMenu('trigger'); return;
     }
     if (h.target.kind === 'panel') { const r = OV.panel.at(h.x, h.y); if (r && r.fn && !twice(r.id, 'ray')) { log('panel', { id: r.id }); r.fn(); OV.panel.sig = ''; } }
-    else if (h.target.kind === 'station' && !h.target.live && !MV.src) choose(h.target.id, 'pick');   // not while carrying one
+    // a station runs only where it stands: the trigger on its card or ring says so (the grip still moves it)
+    else if (h.target.kind === 'station' && !h.target.live && !MV.src) notice('Walk into its circle', 'A story plays where its station stands: walk up to it to see it.', 3500);
   }
   // touching the clock opens and closes the menu: the right controller's tip (the first 4 cm of its ray) or the right
   // index fingertip within 4 cm of the clock's middle; it takes another touch only once moved 7 cm away. A fingertip
@@ -1886,8 +1919,11 @@
     // in VR, once per room: the shell's panel opens with its question (in the room with the others, or elsewhere?)
     if (HOST.session && askHere() && PNL.asked !== C.code && OV.root && OV.root.visible) {
       PNL.asked = C.code; menuOpen(true, 'question');
-      notice('One question', 'Are you in the same room as the others? Answer in the menu, ' + (HAND.ok ? 'above the clock on your left wrist.' : 'left of the story panel.'), 9000);
+      notice('One question', 'Are you in the same room as the others? Answer in the menu, ' + (HAND.ok ? 'above the clock on your left wrist.' : away() ? 'under the clock in front of you.' : 'left of the story panel.'), 9000);
     }
+    // the first time in a room with no stations yet (nothing to see but the menu): the menu opens by itself, with Arrange
+    // all in it (once per room)
+    if (HOST.session && C.code && C.welcomed && !C.st.length && PNL.empty !== C.code && OV.root && OV.root.visible) { PNL.empty = C.code; menuOpen(true, 'empty'); }
     if (MV.src && f) carryStation(f, t);
     if (C.code) placeSync(dt, t);
     leftHand(f, local);
@@ -1896,8 +1932,9 @@
     drawOverlay(dt);
     pump();
   }
-  // your station by where you stand: the nearest within 1.1 m for a second (or one you picked) until you
-  // walk into another one; you leave it beyond 1.5 m (the live story stays where it is)
+  // your station by where you stand: the nearest within 1.1 m for a second until you walk into another one; you leave
+  // it beyond 1.5 m, and its story is no longer live here: the stories hide it and pause it (HOST.room.away), and
+  // nothing of it goes out to the room until you walk into a circle again
   function zoneStep(t) {
     const x = R.hr.x, z = R.hr.z, dist = s => Math.hypot(s.x - x, s.z - z);
     const Z = C.zone && C.stById.get(C.zone);
@@ -1907,7 +1944,7 @@
       const dz = dist(Z), was = C.zoneAt;
       if (!was || Math.hypot(Z.x - was[0], Z.z - was[1]) > 0.01) { C.zoneAt = [Z.x, Z.z]; if (was) C.zoneD = Math.max(FAR, dz + 0.5); }
       C.zoneD = Math.max(FAR, Math.min(C.zoneD || FAR, dz + 0.5));
-      if (dz > C.zoneD) { C.zone = ''; C.zoneAt = null; C.zoneD = 0; if (!C.picked) C.mine = ''; log('zone left', { st: Z.id }); changed(); }
+      if (dz > C.zoneD) { C.zone = ''; C.zoneAt = null; C.zoneD = 0; if (!C.picked) { C.mine = ''; if (C.live === Z.id) C.live = ''; } log('zone left', { st: Z.id }); changed(); }
     }
     let best = null, bd = NEAR;
     for (const s of C.st) { if (s.id === MV.id) continue; const d = dist(s); if (d < bd) { bd = d; best = s; } }
@@ -1961,13 +1998,13 @@
     }
     drawMarks();
     // the menu: its clock on the left wrist when there is a left controller or hand (always at hand), else beside
-    // the story's panel; open, the menu above the clock. Drawn first, so it is placed by its height this frame (it
-    // hangs from its top edge, and its height follows what it shows). Without a relay too: a room on this headset
-    // places the stories
-    const t = performance.now();
+    // the story's panel (in front of you away from a station in a shared room, the story hidden); open, the menu above
+    // the clock. Drawn first, so it is placed by its height this frame (it hangs from its top edge, and its height
+    // follows what it shows). Without a relay too: a room on this headset places the stories
+    const t = performance.now(), aw = away();
     let p = null;
-    if (!HAND.ok) { try { p = HOST.cur && HOST.cur.xrPose(); } catch (e) { /* not ready */ } }
-    OV.clockG.visible = HAND.ok || !!p;
+    if (!HAND.ok && !aw) { try { p = HOST.cur && HOST.cur.xrPose(); } catch (e) { /* not ready */ } }
+    OV.clockG.visible = HAND.ok || !!p || (aw && HD.ok);
     OV.panelG.visible = OV.clockG.visible && PNL.open;
     if (OV.panelG.visible) {
       OV.panel.hover = POKE.hov;
@@ -1988,7 +2025,7 @@
       if (HD.ok) OV.panelG.quaternion.setFromRotationMatrix(_m.lookAt(HD.p, OV.panelG.position, _Y));
       OV.panelG.scale.setScalar(sc);
       OV.onHand = true;
-    } else if (OV.clockG.visible) {
+    } else if (OV.clockG.visible && p) {
       OV.onHand = false;
       // to the left of the story panel (0.62 m wide), turned a little more towards you: the clock (twice its size,
       // as it is further away) with its top where the closed menu's tab used to be, the menu hanging below it
@@ -2000,7 +2037,20 @@
       OV.clockG.scale.setScalar(2);
       OV.panelG.quaternion.copy(OV.clockG.quaternion); OV.panelG.scale.setScalar(1);
       OV.panelG.position.copy(OV.clockG.position).add(_v2.set(0, -2 * CLOCK.below - 0.015, 0).applyQuaternion(OV.clockG.quaternion));
+    } else if (OV.clockG.visible) {
+      // away from a station in a shared room the story and its panel are hidden: without a left controller or hand the
+      // clock (twice its size) hangs in front of you, a little to the left, and follows you gently (not while the menu
+      // is open below it, so its buttons stay put)
+      _v.set(0, 0, -1).applyQuaternion(HD.q);
+      _v.set(-0.3, 0.1, -0.65).applyAxisAngle(_Y, Math.atan2(-_v.x, -_v.z)).add(HD.p);
+      if (!OV.ahead) OV.clockG.position.copy(_v); else if (!PNL.open) OV.clockG.position.lerp(_v, 1 - Math.exp(-dt * 3));
+      OV.clockG.quaternion.setFromRotationMatrix(_m.lookAt(HD.p, OV.clockG.position, _Y));
+      OV.clockG.scale.setScalar(2);
+      OV.panelG.quaternion.copy(OV.clockG.quaternion); OV.panelG.scale.setScalar(1);
+      OV.panelG.position.copy(OV.clockG.position).add(_v2.set(0, -2 * CLOCK.below - 0.015, 0).applyQuaternion(OV.clockG.quaternion));
+      OV.onHand = false;
     } else OV.onHand = false;
+    OV.ahead = OV.clockG.visible && !HAND.ok && !p;
     drawNote(HD.ok ? HD.p : null, HD.q);
     // what the controllers can point at
     OV.hit.length = 0;
@@ -3062,6 +3112,9 @@
     return { p: [_v.x, _v.y, _v.z], yaw: R.yaw + S.yaw, room: true };
   }
   const placing = () => { const L = liveSt(); return !!(C.code && R.session && R.aligned && L && L.story === HOST.curKey); };
+  // a headset in a shared room away from a station (not at one, or its story not yet loaded, or the room not yet aligned):
+  // a story only runs at its station, so the stories hide theirs and pause it, and only the shell's things show
+  const away = () => !!(C.code && R.session) && !placing();
   // the station's panel and scene as the room has them, in its story's rig (the station's spot at eye height)
   function panelPose(L) {
     const v = L ? roomPanel(L) : panelHome(), q = L ? roomPlace(L) : PLACE0;
@@ -3084,6 +3137,9 @@
     // what a story does by itself when a session starts or a headset wakes is not a person's action: not published
     holdTask();
     if (!s) { dropStation(null); letGo(); setState('off'); HOST.audio.zone(null); if (C.code) { upload(performance.now(), true); hello(); connect(); } changed(); return; }
+    // in a headset a station is reached only by walking into its circle: one this page followed (or a session ended at)
+    // is not its station
+    if (C.live || C.follow) { log('station dropped for the headset', { st: C.live || C.follow }); C.follow = ''; C.mine = ''; C.live = ''; C.picked = false; C.zone = ''; C.cand = ''; }
     quiet(() => s.addEventListener('visibilitychange', () => {
       holdTask();
       log('headset', { visibility: s.visibilityState });
@@ -3120,7 +3176,9 @@
   HOST.room = {
     get state() { return R.state; }, get aligned() { return R.aligned; }, get frame() { return R.frame; }, get src() { return R.src; },
     watch, update: f => update(f), place, placing, adopt, calibrate, cancel, mark, status, forget: forgetMarks, sharedLine, sourceLine, realignNow,
-    inRoom: () => !!(C.code && R.session),   // a headset in a shared room (the stories show no Stories button then)
+    // a headset in a shared room: the stories show no Stories screen and no Stories button then (a story is reached by
+    // walking into its station's circle), and away from a station (away) they hide their story and pause it
+    inRoom: () => !!(C.code && R.session), away,
     // in a shared room the grip moves a scene or a panel only at the headset's station, and not while the layout is
     // locked: what it moves goes out to the room, so everybody sees it alike (placeSync)
     gripLocked: () => !placing() || layoutLocked(),
