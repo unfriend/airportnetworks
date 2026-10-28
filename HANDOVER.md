@@ -164,11 +164,13 @@ Before handing over (or making anything more public), someone has to decide thes
      - **Size:** estimated at about 2 to 3 hours of agent work and 1 to 1.5M tokens, the tests included, plus a short
        round of tuning (size, distance, follow speed) after the owner tries it on a Quest. A caption bar under the
        scene on screens and phones would add about half an hour.
-8. **The PET story ("One scan, one system"): feedback waiting for the owner's answer** (October 2026). The owner noted:
-   - Scanner to Sugar: instead of hiding the body and bringing it back from another angle, turn the body, hide the
-     scanner, fade the organs out, then show the sugar as now.
-   - Sugar: take "into the urine" off the kidneys' label.
-   - The network and the prognosis need far more 3D; the Vision part could go.
+8. **The PET story ("One scan, one system"): its second half waits for the poster** (October 2026). Done on 28 October:
+   the scanner hands its patient to the body in one move (the scanner goes, the body stands up, its glow fades, then
+   the sugar), the organ labels are names only, the Vision chapter is gone, the second chapter is "How PET sees" with
+   the owner's text changes, and the intro is 2 s shorter (6:13 in all). Still open from the owner's notes:
+   - The text from the Network chapter on (about 3:52 then) "does not match the poster" (owner, 28 October; set aside
+     for now). The poster's PDF is needed in the session to rewrite it.
+   - The network and the prognosis need far more 3D.
    - The story is a bit dry: less statistics, more story.
 
    Open question: it follows the paper (Geist et al., Med 2025: the Network and Health chapters are its statistics);

@@ -6,7 +6,7 @@ Guidance for AI coding agents (and humans) working on this repository.
 
 An installable web app that teaches network science in fifteen narrated stories
 (the airports about four minutes, the proteins and the cell map about five, the tour about nine and a half, the muscle
-story about eight, the endotype story about seven, the PET story about seven, the microanatomy story about seven
+story about eight, the endotype story about seven, the PET story about six, the microanatomy story about seven
 and a half, the ovary story about seven, the qubits story about nine, the mutation story about eight and a half, the tissue topology story about eight, the pass story about seven, the flock and the robot gang about two), each
 followed by an explore mode. Everything works on desktop, phones and in VR/AR headsets (built for Meta
 Quest Browser, WebXR).
@@ -1015,7 +1015,13 @@ contract.
   the vision row and its authors. Its one-scan network, index, survival and immunotherapy results were taken out
   (October 2026: they did not match the poster; with them went the `people` set and explore's One scan and People tabs,
   all in the history; the explore-only `liver` scene went too and came back the same day), and so were the Network chapter's matrix of all scans and its scatter plot (it goes
-  straight to the network on the body).
+  straight to the network on the body). On 28 October 2026, after the owner's notes, its last chapter (Vision: the row
+  again, prognosis and medication) went too (its credits and Explore button close Health; the row stays in the intro),
+  the second chapter became "How PET sees" (FDG as the most common of the tracers; no brackets in its text), the organ
+  labels became names only and the AI "segmentation algorithms". The scanner hands its patient to the body set in one
+  move (`scan_rise`): the scanner goes, the patient stands up exactly where the body set's body stands (`riseTo`, after
+  `buildCamera`'s turn), its glow cools, then the tracer arrives as before. Open: the owner finds the text from the
+  Network chapter on does not match the poster (the poster is needed to rewrite it; see HANDOVER.md).
 
 ## The microanatomy story (`stories/micro.js`) is built the same way
 
