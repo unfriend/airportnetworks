@@ -7,7 +7,19 @@
 // between two cues lasts long enough to read what appeared at its start; run
 // it again after the text changes). A recording replaces it with its own times.
 const NARRATION_SYNC = [
-  [0, 0], [340, 340],   // (not paced yet: node tools/pace.mjs writes it from the panel's words)
+  [0, 0], [1.3, 1.2], [2.8, 2.4], [5.1, 4], [13.5, 9], [22.3, 17], [29.1, 21], [38.5, 29.5],
+  [41.2, 31], [41.8, 31.6],                           // Where cells sit
+  [56.4, 34], [57, 34.6], [57.8, 35.2], [62, 38], [82.4, 56.6], [88.6, 59], [91.3, 61], [91.9, 61.6],  // Which scale?
+  [100.4, 62], [101.1, 62.6], [101.8, 63.2], [106.4, 67], [109.7, 70], [118.8, 76], [150.7, 105],
+  [154.1, 108], [154.8, 108.6],                       // Balls grow
+  [168.2, 112], [169.5, 113.18], [170.4, 113.2], [200.5, 140.6], [207.9, 143], [217.8, 152],  // The tower
+  [232.2, 160], [233.5, 161.2], [240, 166], [246.9, 171], [258.5, 181.6], [263.2, 183],
+  [265.5, 184.5], [272.6, 191], [281.7, 198],         // 123 slides
+  [290.9, 206], [291.5, 206.6], [292.7, 207.2], [299.1, 213], [307, 217], [322, 230.6], [326.3, 231],
+  [331.8, 236], [338.2, 240], [342.6, 244],           // Which scales
+  [351.8, 252], [353.1, 253.18], [354, 253.2], [383, 279.6], [386.1, 280], [399.3, 292],  // Every cell
+  [411.1, 302], [411.8, 302.6], [412.9, 303.2], [420.4, 310], [429.2, 314], [441.3, 320], [449, 327],
+  [454, 330], [455.7, 331.6], [472.6, 332], [484.8, 340],  // What next
 ];
 // recording time -> original story time
 function storyT(t) {
@@ -143,6 +155,12 @@ const FACTS = (() => {
     lymph: [c50.healthy[ti('Lymphocytes')], c50.cirrhosis[ti('Lymphocytes')]], fib: [c50.healthy[ti('Fibroblasts')], c50.cirrhosis[ti('Fibroblasts')]],
   };
 })();
+// the credits: the last chapter's small print and explore's About note (the Scenes pane, page and headset)
+const AUTH = 'Simon Schindler, André Rendeiro and Jörg Menche';
+const INSTS = 'Ludwig Boltzmann Institute for Network Medicine at the University of Vienna; University of Vienna; CeMM Research Center for Molecular Medicine of the Austrian Academy of Sciences; Medical University of Vienna; Max Perutz Labs, Vienna BioCenter';
+const CELLS_CREDIT = 'The cells: the GTEx project\'s liver slides, segmented by the authors with HistoPLUS (CC BY 4.0); slides are numbered, never named.';
+const SITE = 'topocyte.lab.lbi-netmed.com';
+const ABOUT = `After the poster "topocyte: scale-resolved topological phenotyping of tissue architecture across spatial modalities" by ${AUTH} (${INSTS}). ${CELLS_CREDIT} ${SITE}`;
 // colours as text on the HTML panel, which is light in the light theme: a colour mixed with the panel's ink (darker on
 // a light panel, lighter on a dark one). The headset's panel is dark: its canvas twin takes the colour itself (data-col).
 const inkCol = c => `color-mix(in srgb, ${c} 55%, var(--ink))`;
@@ -177,7 +195,7 @@ function buildStory() {
     return `${one ? 'still one piece' : `${fmt(n)} pieces`}, and the big loop has filled`;
   };
   const SNAP_AT = [14, 25, 35, 43];   // (as the radius reaches each snapshot, below)
-  const [wa, wb] = F.w, AUTH = 'Simon Schindler, André Rendeiro and Jörg Menche';
+  const [wa, wb] = F.w;
   const html = {
     title: `<svg class="route-mark" viewBox="0 0 360 44" aria-hidden="true"><path id="titleArc" d="M8 36 Q180 -16 352 36" fill="none" stroke="var(--red)" stroke-width="2.2" stroke-linecap="round" pathLength="1" stroke-dasharray="1" stroke-dashoffset="1"/><circle cx="8" cy="36" r="4.5" fill="var(--red)"/><circle cx="352" cy="36" r="4.5" fill="var(--red)" id="titleDot" opacity="0"/></svg>
       <h1 data-at="1.2">The shape of tissue</h1>
@@ -228,7 +246,7 @@ function buildStory() {
         <p data-at="11" data-out="23.5" class="amber">Read back through the shapes, it becomes a weight for every radius: loops alive at ${wa.r0} to ${wb.r1} µm speak for cirrhosis.</p>`,
       `<p data-at="24">What each stretch of radii adds to the difference between the two groups:</p>
         <div class="facts"><div data-at="25">${big(RED, f2s(wa.s))}<small>loops of ${wa.r0} to ${wa.r1} µm</small></div><div data-at="26.5">${big(RED, f2s(wb.s))}<small>${wb.r0} to ${wb.r1} µm</small></div><div data-at="28">${big(BLUE, f2s(F.rest))}<small>the other radii</small></div></div>
-        <p data-at="30">Together: ${f2(F.gap)}, odds of about ${fmt(F.odds)} to 1.</p>
+        <p data-at="30">Together: ${f2(F.gap)} in log-odds: on average, a cirrhotic slide's odds of cirrhosis are about ${fmt(F.odds)} times a healthy slide's.</p>
         <p data-at="34" class="amber">Tested fairly, on slides it never saw, it gets ${F.right} of ${F.slides} right.</p>
         <p class="note" data-at="38">A logistic regression on the first four scores; γ(r) is its weight per radius. Five-fold cross-validation: ${F.hRight} of ${F.hN} healthy and ${F.cRight} of ${F.cN} cirrhotic slides right, accuracy ${F.acc.toFixed(3)}.</p>`)}`,
     cells: `<h2 data-at="0.6">Every cell a centre</h2>
@@ -247,8 +265,8 @@ function buildStory() {
       `<p data-at="18">In spatial transcriptomics it would be genes, in spatial proteomics proteins.</p>
         <p data-at="25" class="amber">Four calls of topocyte, and the shape of tissue becomes something to measure.</p>
         <p data-at="28"><button class="btn primary" id="btnGoExplore" type="button">Explore the shape of tissue</button></p>
-        <p class="credits" data-at="29">After the poster by ${AUTH} (Ludwig Boltzmann Institute for Network Medicine at the University of Vienna; University of Vienna; CeMM Research Center for Molecular Medicine of the Austrian Academy of Sciences; Medical University of Vienna; Max Perutz Labs, Vienna BioCenter).</p>
-        <p class="credits" data-at="30">The cells: the GTEx project's liver slides, segmented by the authors with HistoPLUS (CC BY 4.0); slides are numbered, never named. The genes and proteins are sketches of the workflow, not data. topocyte.lab.lbi-netmed.com</p>`)}`,
+        <p class="credits" data-at="29">After the poster by ${AUTH} (${INSTS}).</p>
+        <p class="credits" data-at="30">${esc(CELLS_CREDIT)} The genes and proteins are sketches of the workflow, not data. ${SITE}</p>`)}`,
   };
 
   const story = $('#story');

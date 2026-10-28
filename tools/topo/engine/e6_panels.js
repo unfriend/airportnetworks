@@ -501,7 +501,7 @@ function drawPatchPane(ctx, P, x, y, W, bottom) {
   // (in a headset the view from below would tip the tower over: stand at it instead)
   y += head(ctx, x, y, 'Look');
   y += flow(ctx, P, LOOKS.filter(([c]) => !(XR.on && c === 'up')).map(([c, n]) => ({ id: 'cam:' + c, label: n, fn: () => { if (X.scene !== 'tower') openScene('tower'); flyTo(view('tower', c)); } })), x, y, W, bottom, { px: 22, h: 50 }) + 12;
-  footNote(ctx, 'Pieces are H0 (connected components), loops H1 (holes). An edge appears where two balls meet, a triangle where three do. The counts are the stored bars alive at this radius.', x, y, W, bottom);
+  footNote(ctx, NOTE.patch, x, y, W, bottom);
 }
 function drawCohortPane(ctx, P, x, y, W, bottom) {
   const on = X.scene === 'cohort', v = cohortView(), I = cohortInfo();
@@ -514,7 +514,7 @@ function drawCohortPane(ctx, P, x, y, W, bottom) {
   y += head(ctx, x, y, 'Slide');
   y += flow(ctx, P, [{ id: 'sl:-1', label: '‹ Previous', fn: () => stepSlide(-1) }, { id: 'sl:1', label: 'Next ›', fn: () => stepSlide(1) }, { id: 'sl:none', label: 'None', on: X.slide < 0, fn: () => selectSlide(-1) }], x, y, W, bottom, { px: 22, h: 50 }) + 12;
   if (I.pick) { y += textBlock(ctx, I.pick.head, x, y, W, 27, 36, VC.ink, 700, 1) + 4; y += stats(ctx, x, y, W, I.pick.rows) + 10; }
-  footNote(ctx, 'Slides are numbered, never named. Each held-out result comes from five-fold cross-validation: a model that never saw the slide.', x, y, W, bottom);
+  footNote(ctx, NOTE.cohort, x, y, W, bottom);
 }
 function drawScalesPane(ctx, P, x, y, W, bottom) {
   const I = scalesInfo();
@@ -526,7 +526,7 @@ function drawScalesPane(ctx, P, x, y, W, bottom) {
   y += stats(ctx, x, y, W, I.rows) + 10;
   y += head(ctx, x, y, 'What each stretch adds');
   y += stats(ctx, x, y, W, I.ws, 260) + 10;
-  footNote(ctx, 'A window\'s number is its share of the gap: the sum of topocyte\'s stored shares for its radii, looked up; the odds factor is e to that share.', x, y, W, bottom);
+  footNote(ctx, NOTE.scales, x, y, W, bottom);
 }
 function drawCellsPane(ctx, P, x, y, W, bottom) {
   const on = X.scene === 'map', s = mapShow(), d = ctlValue('map', ctlOf('map', 'delta')), I = cellsInfo();
@@ -545,10 +545,15 @@ function drawCellsPane(ctx, P, x, y, W, bottom) {
     y += head(ctx, x, y, 'Cell types (the classifier\'s labels): cirrhosis-like · healthy-like');
     y += stats(ctx, x, y, W, I.piles.map(r => r.slice(0, 2)), 260) + 10;
   }
-  footNote(ctx, s === 'genes' || s === 'proteins' ? 'The genes and proteins are sketches of the workflow, not data.' : `The local radius is ${FACTS.delta} µm; at 100 µm, as in the poster's figure, only the colours and groups change.`, x, y, W, bottom);
+  footNote(ctx, NOTE.cells(s), x, y, W, bottom);
 }
-// the five scenes, and the chosen scene's own controls (its sliders too)
+// the five scenes, and the chosen scene's own controls (its sliders too); explore's About at its foot, room kept for it
 function drawScenesPane(ctx, P, x, y, W, bottom) {
+  ctx.font = vfont(21);
+  const end = bottom - 34 - wrapLines(ctx, ABOUT, W).length * 29;
+  head(ctx, x, end, 'About');
+  textBlock(ctx, ABOUT, x, end + 34, W, 21, 29, VC.faint);
+  bottom = end - 16;
   const cw = (W - 12 * (SCENES.length - 1)) / SCENES.length;
   SCENES.forEach(([k, n], j) => vButton(ctx, P, 'scene:' + k, x + j * (cw + 12), y, cw, 56, SCENE_SHORT[k] || n, () => openScene(k), { on: X.scene === k, px: 22 }));
   y += 76;

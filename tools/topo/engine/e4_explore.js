@@ -11,6 +11,14 @@ const SCENES = [
   ['map', 'Map', 'The new slide scored cell by cell: one cell\'s neighbourhood and its own bars, every cell a centre, the two groups and their cell types, and sketches of the next steps.'],
 ];
 const SCENE_SHORT = {};
+// the panes' closing notes, the same on the page and in the headset (a pane's intro may be shorter in the headset)
+const NOTE = {
+  patch: 'Pieces are H0 (connected components), loops H1 (holes). An edge appears where two balls meet, a triangle where three do: the alpha complex. The counts are the stored bars alive at this radius; the four stops are the poster\'s snapshots.',
+  cohort: 'Slides are numbered, never named. The scores are how much of each main shape a slide\'s curve has; its held-out result comes from five-fold cross-validation, each slide predicted by a model that never saw it.',
+  scales: 'A window\'s number is its share of the gap, the sum of topocyte\'s stored shares for its radii (fpca_scale_importance), looked up here; the odds factor is e to that share. All of them add up to the gap.',
+  cells: s => (s === 'genes' || s === 'proteins' ? 'The genes and proteins are sketches of the workflow, not data.'
+    : `The local radius is ${FACTS.delta} µm; at 100 µm, as in the poster's figure, only the colours and groups change. The types are the labels of the computer that found the cells, not a pathologist's.`),
+};
 const TABS = [['patch', 'Patch'], ['cohort', 'Cohort'], ['scales', 'Scales'], ['cells', 'Cells'], ['scenes', 'Scenes']];
 // the tour's body set: its network and its disease scan are the tour's illustration, so this story leaves them out; the
 // Liver scene has the engine's own control instead (the liver in the body, lifted out, or its slice)
@@ -345,7 +353,7 @@ function renderPatch() {
     <p class="grp-h">Show</p><div class="chips">${ctlOf('tower', 'view').options.map(([o, n]) => chip(`data-act="view" data-v="tower:${o}"`, esc(n), on && v === o)).join('')}</div>
     <p class="grp-h">Lit</p><div class="chips">${ctlOf('tower', 'lit').options.map(([o, n]) => chip(`data-act="ctl" data-scene="tower" data-ctl="lit" data-v="${o}"`, esc(n), lit === o, o === 'pieces' ? AMBER : o === 'loops' ? ORANGE : null)).join('')}</div>
     <p class="grp-h">Look</p><div class="chips">${LOOKS.map(([c, n]) => chip(`data-act="cam" data-v="${c}"`, n, false)).join('')}</div>
-    <p class="note">Pieces are H0 (connected components), loops H1 (holes). An edge appears where two balls meet, a triangle where three do: the alpha complex. The counts are the stored bars alive at this radius; the four stops are the poster's snapshots.</p>`;
+    <p class="note">${esc(NOTE.patch)}</p>`;
 }
 
 // the cohort and a slide picked, in words (both panels)
@@ -371,7 +379,7 @@ function renderCohort() {
     ${statsHtml(I.rows)}
     <p class="grp-h">Slide</p><div class="chips">${chip('data-act="slide" data-v="-1"', '‹ Previous', false)}${chip('data-act="slide" data-v="1"', 'Next ›', false)}${chip('data-act="slide" data-v="none"', 'None', X.slide < 0)}</div>
     ${I.pick ? `<h3>${esc(I.pick.head)}</h3>${statsHtml(I.pick.rows)}` : '<p class="sub">No slide picked: the classes as a whole.</p>'}
-    <p class="note">Slides are numbered, never named. The scores are how much of each main shape a slide's curve has; its held-out result comes from five-fold cross-validation, each slide predicted by a model that never saw it.</p>`;
+    <p class="note">${esc(NOTE.cohort)}</p>`;
 }
 
 // the windows of radii and your own, looked up (both panels)
@@ -390,7 +398,7 @@ function renderScales() {
     <p class="grp-h">Curves of</p><div class="chips">${DIMS.map(([o, n]) => chip(`data-act="ctl" data-scene="cohort" data-ctl="dim" data-v="${o}"`, n, dim === o, o === '1' ? ORANGE : AMBER)).join('')}</div>
     ${slider('from')}${slider('to')}
     <div data-live="scales">${scalesLive()}</div>
-    <p class="note">A window's number is its share of the gap, the sum of topocyte's stored shares for its radii (fpca_scale_importance), looked up here; the odds factor is e to that share. All of them add up to the gap.</p>`;
+    <p class="note">${esc(NOTE.scales)}</p>`;
 }
 
 // a cell of the new slide in words: its type, its score, its neighbourhood and its own bars (both panels)
@@ -420,7 +428,7 @@ function renderCells() {
     <p class="grp-h">Map at</p><div class="chips">${ctlOf('map', 'delta').options.map(([o, n]) => chip(`data-act="ctl" data-scene="map" data-ctl="delta" data-v="${o}"`, esc(n), d === o)).join('')}</div>
     ${s === 'cell' ? `${slider('mr')}<div class="chips">${chip('data-act="cell"', 'Cell v', X.cell < 0)}</div>` : ''}
     <div data-live="cells">${cellsLive()}</div>
-    <p class="note">${s === 'genes' || s === 'proteins' ? 'The genes and proteins are sketches of the workflow, not data.' : `The local radius is ${FACTS.delta} µm; at 100 µm, as in the poster's figure, only the colours and groups change. The types are the labels of the computer that found the cells.`}</p>`;
+    <p class="note">${esc(NOTE.cells(s))}</p>`;
 }
 function renderScenes() {
   const pane = $('#pane-scenes');
@@ -429,7 +437,8 @@ function renderScenes() {
   pane.innerHTML = `<div class="chips">${SCENES.map(([k, n]) => chip(`data-act="scene" data-v="${k}"`, esc(n), k === X.scene)).join('')}</div>
     <h3>${esc(sc[1])}</h3><p class="sub">${esc(sc[2])}</p>
     ${ctlsOf(X.scene).filter(c => ctlShown(X.scene, c)).map(c => `<p class="grp-h">${esc(c.label)}</p><div class="chips">${c.options.map(([v, n]) => chip(`data-act="ctl" data-ctl="${c.key}" data-v="${v}"`, esc(n), ctlValue(X.scene, c) === v)).join('')}</div>`).join('')}
-    ${Object.keys(NUM).filter(key => numShown(X.scene, key)).map(slider).join('')}`;
+    ${Object.keys(NUM).filter(key => numShown(X.scene, key)).map(slider).join('')}
+    <p class="grp-h">About</p><p class="credits">${esc(ABOUT)}</p>`;
 }
 // labels the panes add (none: the sets label their own picks, the cohort its slide, the map its cell)
 function updateExtraLabels() {}

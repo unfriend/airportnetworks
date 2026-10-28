@@ -4,8 +4,8 @@ Chapters 7 and 8 of the topo story, in the `slide` set's frame over the new slid
 across, centred on the origin while the window lies alone; side by side, `slide_show` 2, everything moves with the
 window to x 0.42). Nothing here is computed but drawing: the cells within 50 µm of a cell are found by their drawn
 positions, the complex is the window's stored one (`TDATA.slide.edges`, `.tris`) filtered by stored radius, the counts
-are of stored bars (`TDATA.deaths`, `TDATA.betti`), the heights and colours are each cell's stored score (`lo50`,
-`lo100`, `TDATA.colour`), the groups are the scores' signs (as many as `comp50.sizes`), the piles' tags are `comp50`'s
+are of stored bars (`TDATA.deaths`, `TDATA.betti`), the colours are each cell's stored score (`lo50`, `lo100`,
+`TDATA.colour`), the relief's heights the stored scores round each cell smoothed for drawing (below), the groups are the scores' signs (as many as `comp50.sizes`), the piles' tags are `comp50`'s
 stored shares.
 
 - **One cell** (the poster's cell v, `TOPO_DATA.slide.e.cell`, at (-0.002, 0, 0.332), a cell the classifier labels a
@@ -19,9 +19,12 @@ stored shares.
   a cyan level marks `map_r` across them. Its stored score stands as a needle beside it, up for cirrhosis-like and
   down for healthy-like, in the map's colour (clamped at the colour map's limit, 17.92).
 - **Every cell a centre** (`map_all`): a dome sweeps the window in rows of 100 µm, back and forth; behind it each cell
-  rises or sinks by its own score (0.15 at the limit) and takes the poster's colour (RdBu_r): the window's stored
-  triangles up to 30 µm lifted into a lit relief with the cells as beads on it, the scars red and up, the healthy-like
-  tissue blue and sunk below the glass. The `slide` set dims its window to a ghost row by row behind the dome.
+  takes the poster's colour (RdBu_r) by its own stored score and rises or sinks with the scores round it (0.15 at the
+  limit): the window's stored triangles up to 30 µm lifted into a lit relief with the cells as beads on it, the scars
+  red and up, the healthy-like tissue blue and sunk below the glass. The height is for drawing only: each cell's
+  clamped score as a Gaussian-weighted mean over the cells within 60 µm (σ 25 µm), so scar bands and lobules read as
+  ridges and hollows rather than a field of single-cell spikes (its sign agrees with the cell's own for 90 % of the
+  cells). The colours, the tags, the needle and explore keep each cell's own stored score. The `slide` set dims its window to a ghost row by row behind the dome.
 - **The split** (`map_split`): the cells fly off in two groups, healthy-like (score below zero: 1,529 at 50 µm) to the
   left and cirrhosis-like (5,187) to the right, each over a tinted glass base, and stack by type into six columns of
   small cells in the legend's colours (comp50's five types and other), a column's cross-section set by its group's
@@ -56,7 +59,7 @@ window (with the `slide` set at `slide_show` 1).
 `cell` (the cell, on the relief if risen), `dome` (beside the dome's top), `net` (by the dome's near side, for the
 network's tag), `bars` (right of its tower, near the top), `score` (the needle's tip), `sweep` (the moving dome),
 `red`, `blue` (the relief's highest and lowest stretches: 150 µm squares with the highest and lowest mean height, four
-squares apart; at (-0.72, 0.116, -0.72) and (0.72, 0.024, 0.56)), `healthy`, `cirrhosis` (the near left corners of the
+squares apart, of the drawn heights; at (-0.72, 0.117, -0.72) and (0.56, 0.024, 0.56)), `healthy`, `cirrhosis` (the near left corners of the
 groups' bases), `h_0` .. `h_5`, `c_0` .. `c_5` (the tops of the healthy-like and cirrhosis-like piles, by comp50's
 type order: Fibroblasts, Apoptotic Body, Epithelial, Lymphocytes, Cancer cell, other), `genes` (above the volcano),
 `proteins` (beside the columns), `window` (the window's far left corner). All follow the cell, the δ and the layout.
@@ -119,19 +122,22 @@ no overview, H&E, no scale or patch): the engine may take or ignore those.
 ## Sizes for framing
 
 The window: 1.6 x 1.6 on the origin. Cell v's dome: 0.053 across its radius at (-0.002, 0.332); its tower 0.3 tall,
-behind it at z 0.244, from x about -0.25 to 0.19 with its ribbons. The relief: y -0.146 to 0.154. The piles: from x
+behind it at z 0.244, from x about -0.25 to 0.19 with its ribbons. The relief: y -0.120 to 0.146. The piles: from x
 -0.86 to 0.96, their bases at y 0.03, tops up to 0.63, 0.1 to 0.14 deep. The volcano: x -0.6 to 0.6, y 0.08 to 0.7, z
 about -0.33 to -0.03; the protein columns: x -0.54 to 0.54 at z -0.2, up to 0.7 tall.
 
 ## Performance (headless Chromium, software GL)
 
-Build 40-75 ms (the cells' heights, colours and visits; the stored complex by cell; the groups and the piles' slots;
-the relief's 13.1k triangles; the spots' groups). Draw calls: 8 for one cell (11 with the slide), 2 for the relief and
-its beads (5 with the slide), 2 for the piles, 3-4 for a sketch. Triangles: 16.5k for one cell (bars, complex, dome),
-27k for the relief and beads, 13.4k for the piles, at most 41k with the slide. The relief and the beads place
-themselves in their shaders from the params (one buffer each, filled once): nothing is refilled for the sweep, the
-split or the sketches. Per frame only the pools of one cell (a few hundred instances) and the sketches' small pools are
-refilled; nothing is allocated except a new cell's neighbourhood and curves when the cell changes.
+Build 70-95 ms (the cells' heights, colours and visits; the relief's smoothed heights; the stored complex by cell; the
+groups and the piles' slots; the relief's 13.1k triangles; the spots' groups). With the slide set under it (`with=slide`)
+its own build, 85-215 ms, dominates: together they stay under the 300 ms budget, but not by much. Draw calls: 8 for one
+cell (11 with the slide), 10 for the relief with the cell (13 with the slide), 2 for the piles (5 with the slide), 6 for
+a sketch with the slide. Triangles: 16.5k for one cell (bars, complex, dome; 30.2k with the slide), 43.1k for the
+relief, its beads and the cell (56.7k with the slide, the most), 13.5k for the piles (27.1k with the slide), 27-30k for
+a sketch with the slide. The relief and the beads place themselves in their shaders from the params (one buffer each,
+filled once): nothing is refilled for the sweep, the split or the sketches. Per frame only the pools of one cell (a few
+hundred instances) and the sketches' small pools are refilled; nothing is allocated except a new cell's neighbourhood
+and curves when the cell changes.
 
 ## For the narrator
 

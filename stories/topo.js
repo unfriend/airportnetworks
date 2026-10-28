@@ -3034,8 +3034,9 @@ void main() {
 // window's stored complex (edges and triangles whose stored radius is at most map_r, among those cells) grows, the cell's
 // own stored bars rise beside it as a small tower (rods on the tower's log ruler, its two curves as ribbons counted from
 // the stored bars), and its stored score stands as a needle. Then a dome sweeps the window row by row and behind it every
-// cell rises or sinks by its own stored score (lo50, clamped at the colour map's limit) and takes the poster's colours: a
-// relief of the window's stored triangles, the scars red and up, the healthy-like tissue blue and down. The cells then
+// cell takes the poster's colour by its own stored score (lo50, clamped at the colour map's limit) and rises or sinks
+// with the scores round it (a smoothed height, for drawing only): a relief of the window's stored triangles, the scars
+// red and up, the healthy-like tissue blue and down. The cells then
 // lift off in two groups by the sign of their score (healthy-like, cirrhosis-like: as many as comp50.sizes) and sort
 // themselves by type into piles (comp50's five types and other), as columns whose heights follow each type's share; and
 // the sketches of the workflow on other modalities (spots and a volcano of genes; a multiplex slide and protein columns:
@@ -3074,6 +3075,23 @@ SETS.map = function (K) {
       if ((W.x[i] - px) ** 2 + (W.y[i] - py) ** 2 <= r * r) out.push(i);
     }
     return out;
+  }
+  // the relief's height, for drawing only: each cell's stored score (H50) as a Gaussian-weighted mean over the cells
+  // within 60 µm (σ 25 µm), so scar bands and lobules read as ridges and hollows, not single spikes. The colours, the
+  // tags, the needle and explore keep each cell's own stored score; a cell with no local curve stays flat.
+  const HS = new Float32Array(N);
+  {
+    const nb = [], s2 = 2 * 25 * 25;
+    for (let i = 0; i < N; i++) {
+      if (isNaN(W.lo50[i])) continue;
+      let s = 0, w = 0;
+      for (const j of near(W.x[i], W.y[i], 60, nb)) {
+        if (isNaN(W.lo50[j])) continue;
+        const q = Math.exp(-((W.x[j] - W.x[i]) ** 2 + (W.y[j] - W.y[i]) ** 2) / s2);
+        s += q * H50[j]; w += q;
+      }
+      HS[i] = s / w;
+    }
   }
   // the stored complex by cell: the edges and triangles each cell is in
   const csr = (n, list) => {
@@ -3138,7 +3156,7 @@ SETS.map = function (K) {
       const vs = [TR.i[t], TR.j[t], TR.k[t]];
       for (let c = 0; c < 3; c++) {
         const i = vs[c], v = o * 3 + c;
-        rel.P[2 * v] = X[i]; rel.P[2 * v + 1] = Z[i]; rel.H[v] = H50[i]; rel.V[v] = VIS[i];
+        rel.P[2 * v] = X[i]; rel.P[2 * v + 1] = Z[i]; rel.H[v] = HS[i]; rel.V[v] = VIS[i];
         for (let j = 0; j < 3; j++) { rel.C[3 * v + j] = C50[3 * i + j]; rel.C2[3 * v + j] = C100[3 * i + j]; }
         rel.B[3 * v + c] = 1;
       }
@@ -3189,7 +3207,7 @@ void main() {
   bg.setAttribute('position', bq.attributes.position); bg.setIndex(bq.index);
   const BP = new Float32Array(4 * N), BC = new Float32Array(3 * N), BT = new Float32Array(3 * N), BG = new Float32Array(6 * N);
   for (let i = 0; i < N; i++) {
-    BP[4 * i] = X[i]; BP[4 * i + 1] = Z[i]; BP[4 * i + 2] = H50[i]; BP[4 * i + 3] = VIS[i];
+    BP[4 * i] = X[i]; BP[4 * i + 1] = Z[i]; BP[4 * i + 2] = HS[i]; BP[4 * i + 3] = VIS[i];
     BC.set(TCOL[TYPE[i]], 3 * i); BT[3 * i] = DELAY[i]; BT[3 * i + 1] = GROUP[0][i]; BT[3 * i + 2] = GROUP[1][i];
   }
   bg.setAttribute('aP', new THREE.InstancedBufferAttribute(BP, 4));
@@ -3345,7 +3363,7 @@ void main() {
   // ---------------------------------------------------------------- the extremes of the relief (for its tags: drawing)
   const ext = (() => {
     const B = 10, bs = side / B, sum = new Float32Array(B * B), cnt = new Float32Array(B * B);
-    for (let i = 0; i < N; i++) { if (isNaN(W.lo50[i])) continue; const q = clamp(Math.floor(W.x[i] / bs), 0, B - 1) + B * clamp(Math.floor(W.y[i] / bs), 0, B - 1); sum[q] += H50[i]; cnt[q]++; }
+    for (let i = 0; i < N; i++) { if (isNaN(W.lo50[i])) continue; const q = clamp(Math.floor(W.x[i] / bs), 0, B - 1) + B * clamp(Math.floor(W.y[i] / bs), 0, B - 1); sum[q] += HS[i]; cnt[q]++; }
     let hi = 0, lo = -1;
     for (let q = 0; q < B * B; q++) if (cnt[q] >= 40 && (!cnt[hi] || sum[q] / cnt[q] > sum[hi] / cnt[hi])) hi = q;
     // (the lowest well away from the highest, so their two tags never meet)
@@ -3361,7 +3379,7 @@ void main() {
   const RIB0 = { glow: 0.9, fill: 1, to: 1 }, RIB1 = { glow: 0.9, fill: 1, to: 1 }, RY1 = [0.06, 0, 0];
   const CYANL = [0.6, 0.93, 1.0], SPOTC = [0, 0, 0], GENEGREY = [0.62, 0.66, 0.74];
   // a cell's height on the relief now (the same as the shader's)
-  const hOf = (i, all, split) => H50[i] * HM * sstep(VIS[i], VIS[i] + 0.05, all) * (1 - sstep(0, 0.35, split)) + LIFT;
+  const hOf = (i, all, split) => HS[i] * HM * sstep(VIS[i], VIS[i] + 0.05, all) * (1 - sstep(0, 0.35, split)) + LIFT;
   function update(S, t) {
     // (only over the window: with the slide set showing the tile alone, nothing of this shows)
     const show = S.slide_show === undefined ? 1 : clamp(S.slide_show, 0, 2), wa = Math.min(1, show), A = set.uA.value * wa;
@@ -4863,7 +4881,19 @@ function updateLight(xr) {
 // between two cues lasts long enough to read what appeared at its start; run
 // it again after the text changes). A recording replaces it with its own times.
 const NARRATION_SYNC = [
-  [0, 0], [340, 340],   // (not paced yet: node tools/pace.mjs writes it from the panel's words)
+  [0, 0], [1.3, 1.2], [2.8, 2.4], [5.1, 4], [13.5, 9], [22.3, 17], [29.1, 21], [38.5, 29.5],
+  [41.2, 31], [41.8, 31.6],                           // Where cells sit
+  [56.4, 34], [57, 34.6], [57.8, 35.2], [62, 38], [82.4, 56.6], [88.6, 59], [91.3, 61], [91.9, 61.6],  // Which scale?
+  [100.4, 62], [101.1, 62.6], [101.8, 63.2], [106.4, 67], [109.7, 70], [118.8, 76], [150.7, 105],
+  [154.1, 108], [154.8, 108.6],                       // Balls grow
+  [168.2, 112], [169.5, 113.18], [170.4, 113.2], [200.5, 140.6], [207.9, 143], [217.8, 152],  // The tower
+  [232.2, 160], [233.5, 161.2], [240, 166], [246.9, 171], [258.5, 181.6], [263.2, 183],
+  [265.5, 184.5], [272.6, 191], [281.7, 198],         // 123 slides
+  [290.9, 206], [291.5, 206.6], [292.7, 207.2], [299.1, 213], [307, 217], [322, 230.6], [326.3, 231],
+  [331.8, 236], [338.2, 240], [342.6, 244],           // Which scales
+  [351.8, 252], [353.1, 253.18], [354, 253.2], [383, 279.6], [386.1, 280], [399.3, 292],  // Every cell
+  [411.1, 302], [411.8, 302.6], [412.9, 303.2], [420.4, 310], [429.2, 314], [441.3, 320], [449, 327],
+  [454, 330], [455.7, 331.6], [472.6, 332], [484.8, 340],  // What next
 ];
 // recording time -> original story time
 function storyT(t) {
@@ -4999,6 +5029,12 @@ const FACTS = (() => {
     lymph: [c50.healthy[ti('Lymphocytes')], c50.cirrhosis[ti('Lymphocytes')]], fib: [c50.healthy[ti('Fibroblasts')], c50.cirrhosis[ti('Fibroblasts')]],
   };
 })();
+// the credits: the last chapter's small print and explore's About note (the Scenes pane, page and headset)
+const AUTH = 'Simon Schindler, André Rendeiro and Jörg Menche';
+const INSTS = 'Ludwig Boltzmann Institute for Network Medicine at the University of Vienna; University of Vienna; CeMM Research Center for Molecular Medicine of the Austrian Academy of Sciences; Medical University of Vienna; Max Perutz Labs, Vienna BioCenter';
+const CELLS_CREDIT = 'The cells: the GTEx project\'s liver slides, segmented by the authors with HistoPLUS (CC BY 4.0); slides are numbered, never named.';
+const SITE = 'topocyte.lab.lbi-netmed.com';
+const ABOUT = `After the poster "topocyte: scale-resolved topological phenotyping of tissue architecture across spatial modalities" by ${AUTH} (${INSTS}). ${CELLS_CREDIT} ${SITE}`;
 // colours as text on the HTML panel, which is light in the light theme: a colour mixed with the panel's ink (darker on
 // a light panel, lighter on a dark one). The headset's panel is dark: its canvas twin takes the colour itself (data-col).
 const inkCol = c => `color-mix(in srgb, ${c} 55%, var(--ink))`;
@@ -5033,7 +5069,7 @@ function buildStory() {
     return `${one ? 'still one piece' : `${fmt(n)} pieces`}, and the big loop has filled`;
   };
   const SNAP_AT = [14, 25, 35, 43];   // (as the radius reaches each snapshot, below)
-  const [wa, wb] = F.w, AUTH = 'Simon Schindler, André Rendeiro and Jörg Menche';
+  const [wa, wb] = F.w;
   const html = {
     title: `<svg class="route-mark" viewBox="0 0 360 44" aria-hidden="true"><path id="titleArc" d="M8 36 Q180 -16 352 36" fill="none" stroke="var(--red)" stroke-width="2.2" stroke-linecap="round" pathLength="1" stroke-dasharray="1" stroke-dashoffset="1"/><circle cx="8" cy="36" r="4.5" fill="var(--red)"/><circle cx="352" cy="36" r="4.5" fill="var(--red)" id="titleDot" opacity="0"/></svg>
       <h1 data-at="1.2">The shape of tissue</h1>
@@ -5084,7 +5120,7 @@ function buildStory() {
         <p data-at="11" data-out="23.5" class="amber">Read back through the shapes, it becomes a weight for every radius: loops alive at ${wa.r0} to ${wb.r1} µm speak for cirrhosis.</p>`,
       `<p data-at="24">What each stretch of radii adds to the difference between the two groups:</p>
         <div class="facts"><div data-at="25">${big(RED, f2s(wa.s))}<small>loops of ${wa.r0} to ${wa.r1} µm</small></div><div data-at="26.5">${big(RED, f2s(wb.s))}<small>${wb.r0} to ${wb.r1} µm</small></div><div data-at="28">${big(BLUE, f2s(F.rest))}<small>the other radii</small></div></div>
-        <p data-at="30">Together: ${f2(F.gap)}, odds of about ${fmt(F.odds)} to 1.</p>
+        <p data-at="30">Together: ${f2(F.gap)} in log-odds: on average, a cirrhotic slide's odds of cirrhosis are about ${fmt(F.odds)} times a healthy slide's.</p>
         <p data-at="34" class="amber">Tested fairly, on slides it never saw, it gets ${F.right} of ${F.slides} right.</p>
         <p class="note" data-at="38">A logistic regression on the first four scores; γ(r) is its weight per radius. Five-fold cross-validation: ${F.hRight} of ${F.hN} healthy and ${F.cRight} of ${F.cN} cirrhotic slides right, accuracy ${F.acc.toFixed(3)}.</p>`)}`,
     cells: `<h2 data-at="0.6">Every cell a centre</h2>
@@ -5103,8 +5139,8 @@ function buildStory() {
       `<p data-at="18">In spatial transcriptomics it would be genes, in spatial proteomics proteins.</p>
         <p data-at="25" class="amber">Four calls of topocyte, and the shape of tissue becomes something to measure.</p>
         <p data-at="28"><button class="btn primary" id="btnGoExplore" type="button">Explore the shape of tissue</button></p>
-        <p class="credits" data-at="29">After the poster by ${AUTH} (Ludwig Boltzmann Institute for Network Medicine at the University of Vienna; University of Vienna; CeMM Research Center for Molecular Medicine of the Austrian Academy of Sciences; Medical University of Vienna; Max Perutz Labs, Vienna BioCenter).</p>
-        <p class="credits" data-at="30">The cells: the GTEx project's liver slides, segmented by the authors with HistoPLUS (CC BY 4.0); slides are numbered, never named. The genes and proteins are sketches of the workflow, not data. topocyte.lab.lbi-netmed.com</p>`)}`,
+        <p class="credits" data-at="29">After the poster by ${AUTH} (${INSTS}).</p>
+        <p class="credits" data-at="30">${esc(CELLS_CREDIT)} The genes and proteins are sketches of the workflow, not data. ${SITE}</p>`)}`,
   };
 
   const story = $('#story');
@@ -5564,6 +5600,14 @@ const SCENES = [
   ['map', 'Map', 'The new slide scored cell by cell: one cell\'s neighbourhood and its own bars, every cell a centre, the two groups and their cell types, and sketches of the next steps.'],
 ];
 const SCENE_SHORT = {};
+// the panes' closing notes, the same on the page and in the headset (a pane's intro may be shorter in the headset)
+const NOTE = {
+  patch: 'Pieces are H0 (connected components), loops H1 (holes). An edge appears where two balls meet, a triangle where three do: the alpha complex. The counts are the stored bars alive at this radius; the four stops are the poster\'s snapshots.',
+  cohort: 'Slides are numbered, never named. The scores are how much of each main shape a slide\'s curve has; its held-out result comes from five-fold cross-validation, each slide predicted by a model that never saw it.',
+  scales: 'A window\'s number is its share of the gap, the sum of topocyte\'s stored shares for its radii (fpca_scale_importance), looked up here; the odds factor is e to that share. All of them add up to the gap.',
+  cells: s => (s === 'genes' || s === 'proteins' ? 'The genes and proteins are sketches of the workflow, not data.'
+    : `The local radius is ${FACTS.delta} µm; at 100 µm, as in the poster's figure, only the colours and groups change. The types are the labels of the computer that found the cells, not a pathologist's.`),
+};
 const TABS = [['patch', 'Patch'], ['cohort', 'Cohort'], ['scales', 'Scales'], ['cells', 'Cells'], ['scenes', 'Scenes']];
 // the tour's body set: its network and its disease scan are the tour's illustration, so this story leaves them out; the
 // Liver scene has the engine's own control instead (the liver in the body, lifted out, or its slice)
@@ -5898,7 +5942,7 @@ function renderPatch() {
     <p class="grp-h">Show</p><div class="chips">${ctlOf('tower', 'view').options.map(([o, n]) => chip(`data-act="view" data-v="tower:${o}"`, esc(n), on && v === o)).join('')}</div>
     <p class="grp-h">Lit</p><div class="chips">${ctlOf('tower', 'lit').options.map(([o, n]) => chip(`data-act="ctl" data-scene="tower" data-ctl="lit" data-v="${o}"`, esc(n), lit === o, o === 'pieces' ? AMBER : o === 'loops' ? ORANGE : null)).join('')}</div>
     <p class="grp-h">Look</p><div class="chips">${LOOKS.map(([c, n]) => chip(`data-act="cam" data-v="${c}"`, n, false)).join('')}</div>
-    <p class="note">Pieces are H0 (connected components), loops H1 (holes). An edge appears where two balls meet, a triangle where three do: the alpha complex. The counts are the stored bars alive at this radius; the four stops are the poster's snapshots.</p>`;
+    <p class="note">${esc(NOTE.patch)}</p>`;
 }
 
 // the cohort and a slide picked, in words (both panels)
@@ -5924,7 +5968,7 @@ function renderCohort() {
     ${statsHtml(I.rows)}
     <p class="grp-h">Slide</p><div class="chips">${chip('data-act="slide" data-v="-1"', '‹ Previous', false)}${chip('data-act="slide" data-v="1"', 'Next ›', false)}${chip('data-act="slide" data-v="none"', 'None', X.slide < 0)}</div>
     ${I.pick ? `<h3>${esc(I.pick.head)}</h3>${statsHtml(I.pick.rows)}` : '<p class="sub">No slide picked: the classes as a whole.</p>'}
-    <p class="note">Slides are numbered, never named. The scores are how much of each main shape a slide's curve has; its held-out result comes from five-fold cross-validation, each slide predicted by a model that never saw it.</p>`;
+    <p class="note">${esc(NOTE.cohort)}</p>`;
 }
 
 // the windows of radii and your own, looked up (both panels)
@@ -5943,7 +5987,7 @@ function renderScales() {
     <p class="grp-h">Curves of</p><div class="chips">${DIMS.map(([o, n]) => chip(`data-act="ctl" data-scene="cohort" data-ctl="dim" data-v="${o}"`, n, dim === o, o === '1' ? ORANGE : AMBER)).join('')}</div>
     ${slider('from')}${slider('to')}
     <div data-live="scales">${scalesLive()}</div>
-    <p class="note">A window's number is its share of the gap, the sum of topocyte's stored shares for its radii (fpca_scale_importance), looked up here; the odds factor is e to that share. All of them add up to the gap.</p>`;
+    <p class="note">${esc(NOTE.scales)}</p>`;
 }
 
 // a cell of the new slide in words: its type, its score, its neighbourhood and its own bars (both panels)
@@ -5973,7 +6017,7 @@ function renderCells() {
     <p class="grp-h">Map at</p><div class="chips">${ctlOf('map', 'delta').options.map(([o, n]) => chip(`data-act="ctl" data-scene="map" data-ctl="delta" data-v="${o}"`, esc(n), d === o)).join('')}</div>
     ${s === 'cell' ? `${slider('mr')}<div class="chips">${chip('data-act="cell"', 'Cell v', X.cell < 0)}</div>` : ''}
     <div data-live="cells">${cellsLive()}</div>
-    <p class="note">${s === 'genes' || s === 'proteins' ? 'The genes and proteins are sketches of the workflow, not data.' : `The local radius is ${FACTS.delta} µm; at 100 µm, as in the poster's figure, only the colours and groups change. The types are the labels of the computer that found the cells.`}</p>`;
+    <p class="note">${esc(NOTE.cells(s))}</p>`;
 }
 function renderScenes() {
   const pane = $('#pane-scenes');
@@ -5982,7 +6026,8 @@ function renderScenes() {
   pane.innerHTML = `<div class="chips">${SCENES.map(([k, n]) => chip(`data-act="scene" data-v="${k}"`, esc(n), k === X.scene)).join('')}</div>
     <h3>${esc(sc[1])}</h3><p class="sub">${esc(sc[2])}</p>
     ${ctlsOf(X.scene).filter(c => ctlShown(X.scene, c)).map(c => `<p class="grp-h">${esc(c.label)}</p><div class="chips">${c.options.map(([v, n]) => chip(`data-act="ctl" data-ctl="${c.key}" data-v="${v}"`, esc(n), ctlValue(X.scene, c) === v)).join('')}</div>`).join('')}
-    ${Object.keys(NUM).filter(key => numShown(X.scene, key)).map(slider).join('')}`;
+    ${Object.keys(NUM).filter(key => numShown(X.scene, key)).map(slider).join('')}
+    <p class="grp-h">About</p><p class="credits">${esc(ABOUT)}</p>`;
 }
 // labels the panes add (none: the sets label their own picks, the cohort its slide, the map its cell)
 function updateExtraLabels() {}
@@ -7247,7 +7292,7 @@ function drawPatchPane(ctx, P, x, y, W, bottom) {
   // (in a headset the view from below would tip the tower over: stand at it instead)
   y += head(ctx, x, y, 'Look');
   y += flow(ctx, P, LOOKS.filter(([c]) => !(XR.on && c === 'up')).map(([c, n]) => ({ id: 'cam:' + c, label: n, fn: () => { if (X.scene !== 'tower') openScene('tower'); flyTo(view('tower', c)); } })), x, y, W, bottom, { px: 22, h: 50 }) + 12;
-  footNote(ctx, 'Pieces are H0 (connected components), loops H1 (holes). An edge appears where two balls meet, a triangle where three do. The counts are the stored bars alive at this radius.', x, y, W, bottom);
+  footNote(ctx, NOTE.patch, x, y, W, bottom);
 }
 function drawCohortPane(ctx, P, x, y, W, bottom) {
   const on = X.scene === 'cohort', v = cohortView(), I = cohortInfo();
@@ -7260,7 +7305,7 @@ function drawCohortPane(ctx, P, x, y, W, bottom) {
   y += head(ctx, x, y, 'Slide');
   y += flow(ctx, P, [{ id: 'sl:-1', label: '‹ Previous', fn: () => stepSlide(-1) }, { id: 'sl:1', label: 'Next ›', fn: () => stepSlide(1) }, { id: 'sl:none', label: 'None', on: X.slide < 0, fn: () => selectSlide(-1) }], x, y, W, bottom, { px: 22, h: 50 }) + 12;
   if (I.pick) { y += textBlock(ctx, I.pick.head, x, y, W, 27, 36, VC.ink, 700, 1) + 4; y += stats(ctx, x, y, W, I.pick.rows) + 10; }
-  footNote(ctx, 'Slides are numbered, never named. Each held-out result comes from five-fold cross-validation: a model that never saw the slide.', x, y, W, bottom);
+  footNote(ctx, NOTE.cohort, x, y, W, bottom);
 }
 function drawScalesPane(ctx, P, x, y, W, bottom) {
   const I = scalesInfo();
@@ -7272,7 +7317,7 @@ function drawScalesPane(ctx, P, x, y, W, bottom) {
   y += stats(ctx, x, y, W, I.rows) + 10;
   y += head(ctx, x, y, 'What each stretch adds');
   y += stats(ctx, x, y, W, I.ws, 260) + 10;
-  footNote(ctx, 'A window\'s number is its share of the gap: the sum of topocyte\'s stored shares for its radii, looked up; the odds factor is e to that share.', x, y, W, bottom);
+  footNote(ctx, NOTE.scales, x, y, W, bottom);
 }
 function drawCellsPane(ctx, P, x, y, W, bottom) {
   const on = X.scene === 'map', s = mapShow(), d = ctlValue('map', ctlOf('map', 'delta')), I = cellsInfo();
@@ -7291,10 +7336,15 @@ function drawCellsPane(ctx, P, x, y, W, bottom) {
     y += head(ctx, x, y, 'Cell types (the classifier\'s labels): cirrhosis-like · healthy-like');
     y += stats(ctx, x, y, W, I.piles.map(r => r.slice(0, 2)), 260) + 10;
   }
-  footNote(ctx, s === 'genes' || s === 'proteins' ? 'The genes and proteins are sketches of the workflow, not data.' : `The local radius is ${FACTS.delta} µm; at 100 µm, as in the poster's figure, only the colours and groups change.`, x, y, W, bottom);
+  footNote(ctx, NOTE.cells(s), x, y, W, bottom);
 }
-// the five scenes, and the chosen scene's own controls (its sliders too)
+// the five scenes, and the chosen scene's own controls (its sliders too); explore's About at its foot, room kept for it
 function drawScenesPane(ctx, P, x, y, W, bottom) {
+  ctx.font = vfont(21);
+  const end = bottom - 34 - wrapLines(ctx, ABOUT, W).length * 29;
+  head(ctx, x, end, 'About');
+  textBlock(ctx, ABOUT, x, end + 34, W, 21, 29, VC.faint);
+  bottom = end - 16;
   const cw = (W - 12 * (SCENES.length - 1)) / SCENES.length;
   SCENES.forEach(([k, n], j) => vButton(ctx, P, 'scene:' + k, x + j * (cw + 12), y, cw, 56, SCENE_SHORT[k] || n, () => openScene(k), { on: X.scene === k, px: 22 }));
   y += 76;
