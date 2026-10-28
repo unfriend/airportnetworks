@@ -153,8 +153,8 @@ const APP = {
     if (best === 'organs' && S.organs_focus > 0.5) X.organ = PD.ids[Math.round(S.organs_focus) - 1] || null;
     if (best === 'organs' && S.organs_net > 0.5) { const w = NET_ALL[Math.round(S.organs_which)]; if (w) { if (NET_EXTRA.includes(w)) X.netX = w; X.cmp = cmpOfNet(w); } }
     X.tab = best === 'organs' ? (S.organs_net > 0.5 ? 'networks' : 'organs') : 'scenes';
-    // from the last chapter (the story's end, or its Explore button): the networks of the paper
-    if (ts >= C.vision.a) openNetworks();
+    // from the closing credits (the story's end, or its Explore button): the networks of the paper
+    if (ts >= C.health.a + 47.5) openNetworks();
     ST.labels.forEach(L => { L.el.style.opacity = 0; L.o = 0; });
     showTab(X.tab); pushState(); renderAll();
     $('#panel').scrollTop = 0;

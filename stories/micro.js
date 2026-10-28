@@ -4390,7 +4390,7 @@ void main() {
   ];
   function explore(c) {
     const v = c.view || 'library';
-    return { atlas_lib: 1, atlas_map: v === 'library' ? 0 : 1, atlas_umap: v === 'tiles' ? 1 : 0, atlas_volcano: v === 'age' ? 1 : 0,
+    return { atlas_lib: v === 'library' ? 1 : 0, atlas_map: v === 'library' ? 0 : 1, atlas_umap: v === 'tiles' ? 1 : 0, atlas_volcano: v === 'age' ? 1 : 0,
       atlas_curves: v === 'pathology' ? 1 : 0, atlas_age: c.age === '70' ? 1 : 0 };
   }
 
@@ -5880,10 +5880,11 @@ function buildStory() {
   // of the mixed descriptions where alike tiles gather and take their domain's colour, and back down onto the slide;
   // then the tile cloud of all slides
   a = C.method.a; b = C.method.b;
-  hide('atlas', a, a + 2);
-  jump('atlas_lib', a, 1, 0);   // the library's wall stays gone after its chapter (the sections still come from its place)
-  jump('slide_domain', a, 1, 0);
-  show('slide', a + 0.5, a + 2.5, a + 37, a + 39);
+  // (the library and the section cross: one fades out as the other fades in, over the camera's move)
+  hide('atlas', a - 0.5, a + 2.5);
+  jump('atlas_lib', a + 2.6, 1, 0);   // the library's wall stays gone after its chapter (the sections still come from its place)
+  jump('slide_domain', a - 0.6, 1, 0);
+  show('slide', a - 0.5, a + 2, a + 37, a + 39);
   ramp('slide_tiles', a + 2, a + 8, 0, 1);
   ramp('slide_feat', a + 9.5, a + 15.5, 0, 1);
   ramp('slide_adj', a + 17.5, a + 24, 0, 1);

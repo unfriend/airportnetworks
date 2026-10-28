@@ -129,7 +129,7 @@ slimmed across by the body set's `XS` = 0.9. Show `body` (same transform) under 
 - With the chart: "density 27 % · disorder 0.13" (density as printed, `nets[i].density`; disorder as printed, the
   net's own or its Table 2 group's; none for FDG, HK2 and GLUT, which Table 3 gives density only), and
   "Strength (axis to 4.5) · sorted".
-- "Tumour · a hot spot" (amber) with the lesion.
+- "Tumour" (amber) with the lesion.
 
 ## Cam views
 

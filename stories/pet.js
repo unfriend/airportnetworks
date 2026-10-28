@@ -3884,7 +3884,7 @@ void main() {
   labels.push({ text: [`${NR} scans × ${NF} organs`, ' · stand-in values'], at: 'matrix', cls: 'amb',
     alpha: S => prog(clamp(S.organs_rows, 0, 1), 0.7, 0.95) * (1 - prog(rise(S), 0, 0.3)) * quietRight(S) });
   labels.push({ text: [`${NR} scans`, ' · stand-ins'], at: 'scatter', cls: '', alpha: S => prog(rise(S), 0.5, 0.9) * quietRight(S) });
-  labels.push({ text: ['Tumour', ' · a hot spot'], at: 'lesion', cls: 'amb', alpha: S => prog(clamp(S.organs_lesion, 0, 1), 0.4, 0.8) * (1 - netOn(S)) });
+  labels.push({ text: ['Tumour', ''], at: 'lesion', cls: 'amb', alpha: S => prog(clamp(S.organs_lesion, 0, 1), 0.4, 0.8) * (1 - netOn(S)) });
   PAIRS.forEach((p, k) => {
     const w = S => pairNear(S, k) * prog(rise(S), 0.5, 0.9) * quietRight(S), part = S => clamp(S.organs_partial, 0, 1);
     const na = ORG[OI[p.a]] ? ORG[OI[p.a]].name : p.a, nb = ORG[OI[p.b]] ? ORG[OI[p.b]].name : p.b;
@@ -4655,18 +4655,16 @@ function updateLight(xr) {
 // between two cues lasts long enough to read what appeared at its start; run
 // it again after the text changes). A recording replaces it with its own times.
 const NARRATION_SYNC = [
-  [0, 0], [1.3, 1.2], [3.1, 2.4], [5.8, 4], [12.9, 9],  // Intro
-  [23.6, 16], [24.2, 16.6], [25.1, 17.2], [25.8, 17.8], [33.6, 20.5], [46.9, 29], [47.6, 29.6],
-  [51.8, 30.5], [52.5, 31.1], [60.3, 33.5], [60.9, 34.1], [68.7, 37], [69.4, 37.6], [83.4, 43],
-  [90.5, 47], [91.2, 47.6],                           // Scanner
-  [108.4, 52], [109.7, 53.18], [110.8, 53.2], [120.5, 62], [139.6, 72],  // Sugar
-  [159.4, 90], [160.7, 91.18], [161.4, 91.2], [199.2, 125.6], [201.3, 126], [201.9, 126.6],  // Organs
-  [205.7, 128], [207, 129.2], [215, 133], [215.7, 133.6], [236, 139], [242.2, 142],  // Network
-  [246.6, 146], [247.9, 147.18], [249, 147.2], [259.3, 153], [267.7, 157], [274.8, 162],
-  [275.5, 162.6], [286.9, 167], [302.9, 177], [310, 181], [310.7, 181.6], [325.6, 185],
-  [326.2, 185.6], [335.8, 188], [336.5, 188.6],       // Health
-  [352.7, 192], [354, 193.18], [355.2, 193.2], [364.5, 198], [365.2, 198.6], [381, 204],
-  [390.8, 209.5], [391.4, 210.1], [405.5, 212], [408.3, 214.6], [422.4, 217],  // Vision
+  [0, 0], [1.3, 1.2], [3.1, 2.4], [5.7, 4], [12.6, 9],  // Intro
+  [21.3, 16], [21.9, 16.6], [23.2, 17.2], [23.9, 17.8], [38, 20.5], [51, 29], [51.6, 29.6],
+  [55.8, 30.5], [56.4, 31.1], [64, 33.5], [85.3, 47], [85.9, 47.6],  // Scanner
+  [102.6, 52], [103.9, 53.18], [105, 53.2], [114.7, 62], [133.8, 72],  // Sugar
+  [153.6, 90], [154.2, 90.6], [155.5, 91.2], [193.4, 125.6], [195.3, 126],  // Organs
+  [199.6, 128], [201, 129.2], [208.8, 133], [209.4, 133.6], [229.2, 139], [235.2, 142],  // Network
+  [239.6, 146], [240.9, 147.18], [242, 147.2], [252, 153], [260.2, 157], [267.2, 162],
+  [267.8, 162.6], [278.9, 167], [294.5, 177], [301.4, 181], [302.1, 181.6], [316.6, 185],
+  [317.3, 185.6], [326.6, 188], [327.3, 188.6], [343.1, 194], [343.7, 194.6], [357.4, 196],
+  [359.7, 198.1], [373.3, 200],                       // Health
 ];
 // recording time -> original story time
 function storyT(t) {
@@ -4692,8 +4690,7 @@ const CH = [
   { key: 'body', name: 'Sugar', a: 52, b: 90 },
   { key: 'organs', name: 'Organs', a: 90, b: 128 },
   { key: 'cohort', name: 'Network', a: 128, b: 146 },
-  { key: 'health', name: 'Health', a: 146, b: 192 },
-  { key: 'vision', name: 'Vision', a: 192, b: 217 },
+  { key: 'health', name: 'Health', a: 146, b: 200 },
 ];
 CH.forEach(c => { c.na = narrT(c.a); c.nb = narrT(c.b); }); // chapter times on the recording's clock
 const C = Object.fromEntries(CH.map(c => [c.key, c]));
@@ -4815,7 +4812,7 @@ const FACTS = (() => {
   const retest = row('Test-retest');
   return {
     scans: c.scans, subjects: c.subjects, healthy: c.healthy, cancer: c.cancer, lung: c.lung, hnscc: c.hnscc, gtex: c.gtex,
-    fasting: p.fasting, dose: p.dose, rest: p.rest, hubZ: p.hub, p: p.p, seg: p.segmentation,
+    fasting: p.fasting, dose: p.dose, rest: p.rest, hubZ: p.hub, p: p.p,
     organs: D.organs.length - 1, f2n: D.f2.organs.length, density: full.density, disorder: full.disorder, links: full.edges.length,
     row: { cancer: row('Cancer'), bmi: row('BMI', /healthy/), crp: row('CRP', /thirds/), tumour: row('Tumour load'), norepi: row('Norepinephrine') },
     weeks: retest ? num((/(\d+)\s*weeks/.exec(retest.cohort) || [])[1]) : null,
@@ -4827,8 +4824,6 @@ const listOf = a => (a.length < 2 ? a.join('') : a.slice(0, -1).join(', ') + ' a
 const word = n => ['no', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve', 'thirteen', 'fourteen'][n] || String(n);
 const Word = n => { const w = word(n); return w.charAt(0).toUpperCase() + w.slice(1); };
 const dis = v => (Number.isFinite(+v) ? (+v).toFixed(2) : '–');
-// 'MOOSE (nnU-Net)' -> 'MOOSE, an nnU-Net model'
-const segName = s => { const m = /^(.*?)\s*\((.*)\)\s*$/.exec(s || ''); return m ? `${m[1]}, an ${m[2]} model` : String(s || ''); };
 // colours as text on the HTML panel, which is light in the light theme: an organ's or a group's colour mixed with the
 // panel's ink (darker on a light panel, lighter on a dark one); the poster's light grey (its black, on our dark ground)
 // is the ink itself. The headset's panel is dark: its canvas twin takes the colour itself (data-col).
@@ -4858,25 +4853,23 @@ function buildStory() {
       <h1 data-at="1.2">One scan, one system</h1>
       <p class="lede" data-at="2.4">the body as a metabolic network</p>
       <p data-at="4">From one PET scan to a network of organs: what it says about health and disease.</p>
-      <p class="note" data-at="9">After a paper in Med${F.year ? ` (${F.year})` : ''} and a poster from the Division of Nuclear Medicine, Medical University of Vienna, and the LBI for Network Medicine.</p>`,
-    scanner: `<h2 data-at="0.6">Seeing sugar</h2>
-      ${turns(`<p data-at="1.2" data-out="12.5">A PET scan (positron emission tomography) starts with a sugar. FDG (fluorodeoxyglucose) is a glucose look-alike carrying radioactive fluorine-18.</p>
+      <p class="note" data-at="9">After a paper in Med${F.year ? ` (${F.year})` : ''} and a poster from the Medical University of Vienna and the LBI for Network Medicine.</p>`,
+    scanner: `<h2 data-at="0.6">How PET sees</h2>
+      ${turns(`<p data-at="1.2" data-out="12.5">A PET scan, short for positron emission tomography, starts with a tracer: a molecule carrying a radioactive atom. The most common, and the one in this story, is FDG, a glucose look-alike carrying fluorine-18.</p>
         <p data-at="4.5" data-out="12.5">After at least ${F.fasting} hours without food, it goes into a vein. For about ${F.rest} minutes the person rests: cells take it up like glucose, and an enzyme, hexokinase, traps it inside.</p>`,
       `<p data-at="13">Then the scan. Around the tunnel sits a ring of detectors.</p>
         <ul class="steps">
-          <li data-at="14.5"><b>A positron</b>fluorine-18 decays and sends one out (the electron's antimatter twin); it travels about a millimetre (drawn larger here)</li>
-          <li data-at="17.5"><b>Two photons</b>it meets an electron and both vanish: two gamma photons of 511 keV (kiloelectronvolts) fly off in opposite directions</li>
-          <li data-at="21"><b>A coincidence</b>two detectors on opposite sides of the ring register both within a few billionths of a second; the line between them, the line of response, passes close to where the sugar is</li>
+          <li data-at="14.5"><b>A positron</b>fluorine-18 decays and sends one out, the electron's antimatter twin; it travels about a millimetre, drawn larger here</li>
+          <li data-at="17.5"><b>Two photons, one line</b>it meets an electron and both vanish: two gamma photons of 511 keV fly off in opposite directions. Two detectors on opposite sides of the ring register both within a few billionths of a second, and the line between them passes close to where the tracer is</li>
         </ul>`)}
-      <p data-at="27" class="amber">Millions of such lines make the image: a map of where the body takes up sugar.</p>
-      <p class="credits" data-at="31">The uptake is measured as the SUV, the standardised uptake value: the tracer in a tissue divided by the dose per kilogram of body weight (1 would be an even spread). Protocol as in the paper: ${F.dose[0]} to ${F.dose[1]} MBq (megabecquerels) of FDG.</p>`,
+      <p class="credits" data-at="31">The uptake is measured as the SUV, the standardised uptake value: the tracer in a tissue divided by the dose per kilogram of body weight, so 1 would be an even spread. Protocol as in the paper: ${F.dose[0]} to ${F.dose[1]} MBq of FDG.</p>`,
     body: `<h2 data-at="0.6">Where the sugar goes</h2>
       <p data-at="1.2">The tracer arrives with the blood, and within the hour it settles where cells use sugar.</p>
-      <p data-at="10">The brain takes up the most, and the heart often does too (how much varies from person to person). The kidneys and the bladder glow too: FDG is filtered into the urine and not taken back, so it leaves the body that way.</p>
-      <p data-at="20">A tumour shows as a hot spot. Such spots are mostly what a scan is read for.</p>
+      <p data-at="10">The brain takes up the most, and the heart often does too, though this varies greatly from person to person. The kidneys and the bladder glow too: FDG is filtered into the urine and not taken back, so it leaves the body that way.</p>
+      <p data-at="20">A tumour shows as a hot spot. This is the main application of PET scans.</p>
       <p data-at="29" class="amber">Yet the scan holds every organ's metabolism at once.</p>`,
     organs: `<h2 data-at="0.6">Every organ, measured</h2>
-      ${turns(`<p data-at="1.2" data-out="22.5">An AI (${esc(segName(F.seg))}) outlines up to ${F.organs} organs in each scan, in 3D, and a doctor checks them (not every organ is in every scan).</p>
+      ${turns(`<p data-at="1.2" data-out="22.5">Segmentation algorithms outline up to ${F.organs} organs in each scan, in 3D, and a doctor checks them.</p>
         <p data-at="14" data-out="22.5">Each organ's uptake is divided by that of the aorta: the blood pool, the same reference in every scan.</p>`,
       `<ul class="steps">
           ${step('brain', 23, `${esc(PD.byId.brain.measure)}: it lives on sugar`)}
@@ -4897,16 +4890,12 @@ function buildStory() {
       `<p data-at="16" data-out="34.5">Two measures. Density: all links' strength together, as a share of the most possible. Disorder: how unevenly that strength is spread, from 0 (even) up (a few hubs).</p>
         ${R.crp ? `<p data-at="21" data-out="34.5" class="amber">Inflammation (CRP, C-reactive protein, a marker of it in the blood; in thirds): density ${listOf(R.crp.groups.map(g => pct(g.density)))}; disorder ${listOf(R.crp.groups.map(g => dis(g.disorder)))}. In the sparse networks of the less healthy groups, muscle and subcutaneous fat dominate${hubsOf('C_high').includes('muscle') ? '; here muscle becomes a hub' : ''}.</p>` : ''}
         ${R.norepi && R.tumour ? `<p data-at="31" data-out="34.5">Stress (norepinephrine, a stress hormone, in ${R.norepi.groups.reduce((s, g) => s + g.n, 0)} healthy people: ${gD(R.norepi, 0)} against ${gD(R.norepi, 1)}) and tumour load (${gD(R.tumour, 0)} against ${gD(R.tumour, 1)}) thin it too.</p>` : ''}`,
-      `${F.robust.every(r => !r.sigD && !r.sigO) ? `<p data-at="35">And it holds: ${F.weeks ? `two scans within ${F.weeks} weeks, ` : ''}an ultra-low dose, another scanner, men and women, the aorta or the vena cava as the reference: none made a significant difference, though some groups were small (${Math.min(...F.robust.flatMap(r => r.groups.map(g => g.n)))} people).</p>` : ''}
-        ${F.hk2 ? `<p data-at="39">Of ${F.tested} networks built from genes' activity in the tissues of ${fmt(F.gtex)} people, only that of hexokinase 2, an enzyme that traps FDG, resembles FDG's (r = ${F.hk2.r}).</p>` : ''}
-        <p class="credits" data-at="42">Table 2 and Figures 3 and 4 of the paper; networks other than that of all scans read off its figures.${R.cancer ? ` Disorder: ${gO(R.cancer, 0)} healthy, ${gO(R.cancer, 1)} with cancer.` : ''} A hub: an organ whose strength is more than ${F.hubZ} standard deviations above the network's average (z-score).</p>`)}`,
-    vision: `<h2 data-at="0.6">One scan, one system</h2>
-      ${turns(`<p data-at="1.2" data-out="17">One day, one routine scan might show how a whole body is doing: what lies ahead, and which medication might help.</p>
-        <p data-at="6" data-out="17">Muscle and fat could become targets for treatment (they respond to GLP-1 drugs, for blood sugar and weight), and the networks a way to follow how drugs such as metformin, statins and SGLT2 inhibitors act on metabolism.</p>
-        <p data-at="12" data-out="17" class="amber">A measure of health, not only of disease. It still has to be proven in larger studies that follow people over time.</p>`,
-      `<p data-at="17.5">Poster: Barbara K Geist, Alexander Grentner, Joel Fischer, Josef Yu, Dato Tsomaia, Adna Smajlovic, Stefan Grünert and Marcus Hacker: Division of Nuclear Medicine, Medical University of Vienna, and the LBI for Network Medicine.</p>
-        <p data-at="20"><button class="btn primary" id="btnGoExplore" type="button">Explore the networks</button></p>
-        <p class="credits" data-at="22">Geist et al., The metabolic organ connectome, Med${F.year ? ` (${F.year})` : ''}; poster: Shaping a New Era in Nuclear Medicine. Networks of all ${fmt(F.scans)} scans: printed in the paper; other networks read off its figures. Organ values: illustrative.</p>`)}`,
+      `${F.robust.every(r => !r.sigD && !r.sigO) ? `<p data-at="35" data-out="47.5">And it holds: ${F.weeks ? `two scans within ${F.weeks} weeks, ` : ''}an ultra-low dose, another scanner, men and women, the aorta or the vena cava as the reference: none made a significant difference, though some groups were small (${Math.min(...F.robust.flatMap(r => r.groups.map(g => g.n)))} people).</p>` : ''}
+        ${F.hk2 ? `<p data-at="39" data-out="47.5">Of ${F.tested} networks built from genes' activity in the tissues of ${fmt(F.gtex)} people, only that of hexokinase 2, an enzyme that traps FDG, resembles FDG's (r = ${F.hk2.r}).</p>` : ''}
+        <p class="credits" data-at="42" data-out="47.5">Table 2 and Figures 3 and 4 of the paper; networks other than that of all scans read off its figures.${R.cancer ? ` Disorder: ${gO(R.cancer, 0)} healthy, ${gO(R.cancer, 1)} with cancer.` : ''} A hub: an organ whose strength is more than ${F.hubZ} standard deviations above the network's average (z-score).</p>`,
+      `<p data-at="48">Poster: Barbara K Geist, Alexander Grentner, Joel Fischer, Josef Yu, Dato Tsomaia, Adna Smajlovic, Stefan Grünert and Marcus Hacker: Division of Nuclear Medicine, Medical University of Vienna, and the LBI for Network Medicine.</p>
+        <p data-at="50"><button class="btn primary" id="btnGoExplore" type="button">Explore the networks</button></p>
+        <p class="credits" data-at="51.5">Geist et al., The metabolic organ connectome, Med${F.year ? ` (${F.year})` : ''}; poster: Shaping a New Era in Nuclear Medicine. Networks of all ${fmt(F.scans)} scans: printed in the paper; other networks read off its figures. Organ values: illustrative.</p>`)}`,
   };
 
   const story = $('#story');
@@ -4939,7 +4928,7 @@ function buildStory() {
   cam(a, 'scan', 'vision', -8);
   cam(a + 9.5, 'scan', 'vision', 4, 'spin');
   cam(b - 0.5, 'scan', 'default', -12);
-  // Seeing sugar: the couch slides in, the skin opens on the ring, events, lines of response, then the image
+  // How PET sees: the couch slides in, the skin opens on the ring, events, lines of response, then the image
   a = C.scanner.a; b = C.scanner.b;
   ramp('scan_bed', a + 1, a + 7, 0, 1);
   ramp('scan_cut', a + 9, a + 12, 0, 1);
@@ -4960,9 +4949,8 @@ function buildStory() {
   // Where the sugar goes: the standing body, the tracer arriving, the hot organs, then a tumour
   a = C.body.a; b = C.body.b;
   show('body', a + 0.3, a + 2.3);
-  ramp('body_a', C.vision.a, C.vision.a + 2, 0.55, 0);   // (dimmed under the organs from their chapter on)
   ramp('body_pet', a + 1.5, a + 10, 0, 1);
-  show('organs', a + 18, a + 20, C.vision.a, C.vision.a + 2);
+  show('organs', a + 18, a + 20);
   ramp('organs_lesion', a + 19, a + 21, 0, 1);
   cam(a + 2.5, 'body', 'front', -12, null, [0, 0, 0.55]);   // (a slow turn from the scanner as it fades)
   cam(a + 9.5, 'body', 'front', 6, 'spin', [0, 0, 0.55]);
@@ -5017,17 +5005,6 @@ function buildStory() {
   cam(a + 34, 'organs', 'strength', 10, 'spin');
   cam(a + 37, 'organs', 'net', 20);
   cam(b - 0.5, 'organs', 'net', 34, 'spin');
-  // One scan, one system: the vision row again
-  a = C.vision.a; b = C.vision.b;
-  show('scan', a + 1.3, a + 3.3);
-  // (the scanner comes back as it was at the start: couch out, closed, no events; and as the row, after the network
-  // has gone: a big scanner fading in through it showed its insides)
-  for (const n of ['scan_bed', 'scan_cut', 'scan_lines', 'scan_image']) jump(n, a, 1, 0);
-  jump('scan_pass', a, 0.6, 0);
-  jump('scan_events', a, 0.4, 0);
-  jump('scan_vision', a, 0, 1);
-  cam(a + 1.5, 'scan', 'vision', -10);
-  cam(b, 'scan', 'vision', 6, 'spin');
   for (const n in TR) TR[n].sort((x, y) => x[0] - y[0]);
   buildCamera(wp);
 
@@ -5036,11 +5013,10 @@ function buildStory() {
   // set labels its organs only with its own network, so its anchors are passed as points)
   const at = (k, n) => () => anchorOf(k, n);
   a = C.body.a;
-  label('body', at('body', 'brain'), '<b>Brain</b>the most sugar', a + 11, a + 18, 'amb');
+  label('body', at('body', 'brain'), '<b>Brain</b>', a + 11, a + 18, 'amb');
   label('body', at('body', 'heart'), '<b>Heart</b>', a + 12, a + 18, 'amb');
-  label('body', at('body', 'kidneys'), '<b>Kidneys</b>into the urine', a + 13.5, a + 18, 'amb');
+  label('body', at('body', 'kidneys'), '<b>Kidneys</b>', a + 13.5, a + 18, 'amb');
   label('body', at('body', 'bladder'), '<b>Bladder</b>', a + 14.5, a + 18, 'amb');
-  label('organs', 'lesion', '<b>A tumour</b>a hot spot', a + 21, a + 30, 'amb');
   // (the health chapter opens on the network of all scans: the paper drew none for healthy against cancer, so the two
   // densities the text quotes stand by its title)
   if (R.cancer) label('organs', at('organs', 'title'), `<b>Healthy ${gD(R.cancer, 0)} · cancer ${gD(R.cancer, 1)}</b>density; no network drawn for them`, C.health.a + 1.5, C.health.a + 7, 'amb');
@@ -7127,8 +7103,8 @@ const APP = {
     if (best === 'organs' && S.organs_focus > 0.5) X.organ = PD.ids[Math.round(S.organs_focus) - 1] || null;
     if (best === 'organs' && S.organs_net > 0.5) { const w = NET_ALL[Math.round(S.organs_which)]; if (w) { if (NET_EXTRA.includes(w)) X.netX = w; X.cmp = cmpOfNet(w); } }
     X.tab = best === 'organs' ? (S.organs_net > 0.5 ? 'networks' : 'organs') : 'scenes';
-    // from the last chapter (the story's end, or its Explore button): the networks of the paper
-    if (ts >= C.vision.a) openNetworks();
+    // from the closing credits (the story's end, or its Explore button): the networks of the paper
+    if (ts >= C.health.a + 47.5) openNetworks();
     ST.labels.forEach(L => { L.el.style.opacity = 0; L.o = 0; });
     showTab(X.tab); pushState(); renderAll();
     $('#panel').scrollTop = 0;

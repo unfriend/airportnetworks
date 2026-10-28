@@ -1366,7 +1366,7 @@ void main() {
   labels.push({ text: [`${NR} scans × ${NF} organs`, ' · stand-in values'], at: 'matrix', cls: 'amb',
     alpha: S => prog(clamp(S.organs_rows, 0, 1), 0.7, 0.95) * (1 - prog(rise(S), 0, 0.3)) * quietRight(S) });
   labels.push({ text: [`${NR} scans`, ' · stand-ins'], at: 'scatter', cls: '', alpha: S => prog(rise(S), 0.5, 0.9) * quietRight(S) });
-  labels.push({ text: ['Tumour', ' · a hot spot'], at: 'lesion', cls: 'amb', alpha: S => prog(clamp(S.organs_lesion, 0, 1), 0.4, 0.8) * (1 - netOn(S)) });
+  labels.push({ text: ['Tumour', ''], at: 'lesion', cls: 'amb', alpha: S => prog(clamp(S.organs_lesion, 0, 1), 0.4, 0.8) * (1 - netOn(S)) });
   PAIRS.forEach((p, k) => {
     const w = S => pairNear(S, k) * prog(rise(S), 0.5, 0.9) * quietRight(S), part = S => clamp(S.organs_partial, 0, 1);
     const na = ORG[OI[p.a]] ? ORG[OI[p.a]].name : p.a, nb = ORG[OI[p.b]] ? ORG[OI[p.b]].name : p.b;

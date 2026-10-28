@@ -1090,7 +1090,7 @@ void main() {
   ];
   function explore(c) {
     const v = c.view || 'library';
-    return { atlas_lib: 1, atlas_map: v === 'library' ? 0 : 1, atlas_umap: v === 'tiles' ? 1 : 0, atlas_volcano: v === 'age' ? 1 : 0,
+    return { atlas_lib: v === 'library' ? 1 : 0, atlas_map: v === 'library' ? 0 : 1, atlas_umap: v === 'tiles' ? 1 : 0, atlas_volcano: v === 'age' ? 1 : 0,
       atlas_curves: v === 'pathology' ? 1 : 0, atlas_age: c.age === '70' ? 1 : 0 };
   }
 
