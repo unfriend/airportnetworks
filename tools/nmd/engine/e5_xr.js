@@ -227,6 +227,11 @@ function xrRecenter() {
 const xrLabelMode = () => (HOST.xr && HOST.xr.labels ? HOST.xr.labels() : 'face');
 const xrFreeOn = () => !!(HOST.xr && HOST.xr.free && HOST.xr.free());
 const xrSig = () => (HOST.xr && HOST.xr.sig ? HOST.xr.sig() : '');
+// a headset in a shared room (the shell's HOST.room): no Stories screen there, a story runs only at its station (reached
+// by walking into its circle), and away from one it is hidden, not pointable, paused and silent. A shell without
+// HOST.room.away: as before (only at a station is the story the station's)
+const xrRoomOnly = () => !!(HOST.room && HOST.room.away && HOST.room.inRoom());
+const xrAway = () => !!(HOST.room && HOST.room.away && HOST.room.away());
 const _fq = new THREE.Quaternion(), _fv = new THREE.Vector3();
 // the yaw of a turn: where its front (+z) points along the floor (def when it points straight up or down)
 function yawOf(q, def) { _fv.set(0, 0, 1).applyQuaternion(q); return Math.hypot(_fv.x, _fv.z) < 1e-4 ? +def || 0 : Math.atan2(_fv.x, _fv.z); }
@@ -524,6 +529,7 @@ function xrPoint(c, dt) {
   // then the shared room's own things (its panel, the other stations, a calibration), if nearer than a panel
   const sh = HOST.collab.ray(c.i, c.o, c.d, hs.length ? hs[0].distance : Infinity);
   if (sh) { hit = sh; dist = sh.dist; }
+  else if (xrAway()) hit = null;   // away from its station in a shared room: nothing of the story to point at
   else if (hs.length) {
     const h = hs[0], P = XR.panels.find(q => q.mesh === h.object);
     hit = { kind: 'panel', P, x: h.uv.x * P.w, y: (1 - h.uv.y) * P.h, point: h.point };
@@ -583,8 +589,12 @@ function xrBegin(frame, dt) {
     // (asked only once the headset has a pose, so a new anchor goes where things really are)
     const A = HOST.anchor.frame(frame, ref);
     if (A) { GL.rig.position.fromArray(A.p); GL.rig.quaternion.setFromAxisAngle(_xUp, A.yaw); }
-    // at its station in a shared room a story is the station's: its Stories screen closes (the panel offers none there)
-    if (XR.stories && HOST.collab.mine() && HOST.room.placing()) xrLandingClose();
+    // in a shared room no Stories screen: a story is reached by walking into its station's circle, and at its station it
+    // is the station's (a shell without HOST.room.away: only there); leaving the room brings it back, as for a new wearer
+    const roomOnly = xrRoomOnly();
+    if (XR.inRoom && !roomOnly) xrFreshStart();
+    XR.inRoom = roomOnly;
+    if (XR.stories && (roomOnly || (HOST.collab.mine() && HOST.room.placing()))) xrLandingClose();
   }
   const bl = XR.session && XR.session.renderState.baseLayer;
   if (bl) {
@@ -597,6 +607,9 @@ function xrBegin(frame, dt) {
   GL.rig.updateMatrixWorld(true);
   _xinv.copy(GL.world.matrixWorld).invert();
   for (const c of XR.ctrls) xrPoint(c, dt);
+  // away from its station in a shared room the story waits, silent (hidden in xrUpdate, not pointable in xrPoint); a
+  // pause made here is not the room's (the shell takes no clock or state from a headset that is not at a station)
+  if (xrAway()) { APP.playing = false; SLIDE.tail = null; }
   for (const P of XR.panels) {
     let hv = null;
     for (const c of XR.ctrls) {
@@ -607,17 +620,17 @@ function xrBegin(frame, dt) {
 }
 function xrUpdate(S) {
   // the Stories screen replaces the story's panels and hides the story
-  const land = !!XR.stories;
+  const land = !!XR.stories, away = xrAway();   // (away from its station in a shared room: the story hidden, only the shell's things)
   if (XR.land) {
     // Sound check takes the place of the story cards while it is open
     for (const P of XR.land) P.mesh.visible = land && (P === XR.land[0] || !XR.soundCheck);
     XR.snd.mesh.visible = land && !!XR.soundCheck;
     // labels hidden: no story panel at all, in story and explore mode (the Stories screen, the shell's menu and its
     // clock stay, and A or X still plays); labels in 3D: the panels stand in the scene, as the labels' signs do
-    XR.main.mesh.visible = XR.foot.mesh.visible = !land && XR.lm !== 'hidden';
+    XR.main.mesh.visible = XR.foot.mesh.visible = !land && !away && XR.lm !== 'hidden';
     panelDepth(XR.main, XR.lm === 'fixed'); panelDepth(XR.foot, XR.lm === 'fixed');
   }
-  GL.world.visible = !land;
+  GL.world.visible = !land && !away;
   if (land !== XR.landShown) { XR.landShown = land; HOST.setUrl(land); }
   GL.rig.updateMatrixWorld(true);
   XR.camLocal.copy(XR.head);
@@ -709,7 +722,9 @@ function xrEnterScene() {
   XR.room = !!X.room;
   for (const L of [...ST.labels, ...LBL.sets, ...LBL.extra]) L.o = -1;
   // every headset session starts the story from the top; entered from the start screen, it shows the Stories menu first
-  const fromStart = HOST.picking || HOST.landingVR;
+  // (not in a shared room: there a story is reached by walking into its station's circle)
+  XR.inRoom = xrRoomOnly();
+  const fromStart = (HOST.picking || HOST.landingVR) && !XR.inRoom;
   HOST.landingVR = false;
   HOST.closePicker();
   if (fromStart) { APP.enterStory(0); APP.playing = false; XR.stories = true; XR.inStory = false; audioSync(); }
@@ -740,8 +755,9 @@ function xrVisibility() {
 function xrFreshStart() {
   XR.kbd.open = false; XR.kbd.q = '';
   for (const c of XR.ctrls) { c.press = null; c.grab = null; c.wantPress = false; }
-  // at a shared room's station the story and its place stay: the room's clock and state go on applying
-  if (HOST.collab.mine()) { lastNow = 0; return; }
+  // in a shared room the story and its place stay (at its station the room's clock and state go on applying; away from
+  // one a new wearer walks up to a station: no Stories screen in a room)
+  if (HOST.collab.mine() || xrRoomOnly()) { lastNow = 0; return; }
   APP.enterStory(0); APP.playing = false; audioSync();
   XR.stories = true; XR.inStory = false; XR.soundCheck = false; // a new wearer lands in the Stories screen
   XR.needRecenter = true; // uses the new wearer's head position and direction on the next frame
@@ -766,6 +782,7 @@ function xrAdopt() {
 }
 function xrEnded() {
   if (!XR.on) return;
+  const away = xrAway();   // (asked while the session is still the shell's)
   XR.on = false; XR.session = null; XR.mode = null; XR.hiddenAt = 0;
   HOST.session = null;
   document.body.classList.remove('xr');
@@ -782,8 +799,9 @@ function xrEnded() {
   for (const P of XR.land || []) P.mesh.visible = false;
   if (XR.snd) XR.snd.mesh.visible = false;
   XR.soundCheck = false;
-  // left the headset from the Stories screen: back to the Stories screen on the page
-  if (XR.stories) { XR.stories = false; HOST.openPicker(); }
+  // left the headset from the Stories screen, or away from a station in a shared room (its story hidden and paused
+  // there): back to the Stories screen on the page
+  if (XR.stories || away) { XR.stories = false; HOST.openPicker(); }
   applyTheme();
   resize();
 }

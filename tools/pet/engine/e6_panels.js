@@ -186,10 +186,11 @@ function xrLandingSetup() {
 // leave the Stories screen: back into this story (resumed, or started if it never ran)
 function xrLandingClose() {
   XR.stories = false;
-  // at a shared room's station the story goes on as the room has it: a restart here would restart it for everyone
-  if (!XR.inStory && !HOST.collab.mine()) APP.enterStory(0);
+  // at a shared room's station the story goes on as the room has it: a restart here would restart it for everyone (in
+  // a room a story runs only at its station, on the station's clock)
+  if (!XR.inStory && !HOST.collab.mine() && !xrRoomOnly()) APP.enterStory(0);
   XR.inStory = true;
-  if (APP.mode === 'story') APP.playing = true;
+  if (APP.mode === 'story' && !xrRoomOnly()) APP.playing = true;
 }
 function drawLandHead(ctx, P) {
   ctx.font = vfont(58, 700); ctx.fillStyle = VC.ink; ctx.fillText(`Networks, in ${['one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve', 'thirteen', 'fourteen', 'fifteen'][HOST.list.length - 1] || HOST.list.length} stories`, 48, 44);
@@ -270,8 +271,9 @@ function drawMain(ctx, P) {
   // (Exit is on the shell's Shared panel, at hand on the left controller)
   if (AUD && AUD.state !== 'none') hb('sound', audioLabel(), () => audioToggle(), 180, { on: AUD.on(), px: 23 });
   if (!HOST.anchor.on) hb('recenter', 'Recenter', () => { XR.needRecenter = true; }, 140); // anchored: nothing moves
-  // at a shared room's station each station keeps its story: another story is another station, so no Stories button
-  if (!(HOST.room && HOST.room.placing())) hb('stories', 'Stories', () => { XR.stories = true; XR.kbd.open = false; APP.playing = false; }, 130);
+  // in a shared room no Stories button: each station keeps its story, and another story is another station (walk into
+  // its circle)
+  if (!(HOST.room && HOST.room.placing()) && !xrRoomOnly()) hb('stories', 'Stories', () => { XR.stories = true; XR.kbd.open = false; APP.playing = false; }, 130);
   if (!XR.stories) hb('mode', story ? 'Explore now' : 'Replay story', () => (story ? APP.enterExplore() : APP.enterStory(0)), 186, { primary: story });
   // the story's name, smaller when the buttons leave it less room
   fitTitle(ctx, 'One scan, one system', 40, 36, x - 40, 30, 36, VC.ink, 700, 24);

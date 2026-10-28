@@ -1057,8 +1057,8 @@ void main() {
     }
     dotU.uImg.value = img * (1 - fb);
     dotU.uLow.value = (pose.tz - ZH) / pose.s;
-    dotU.uGl.value = glow * glow;
-    dots.visible = img > 0.003 && fb < 1 && glow > 0.003;
+    dotU.uGl.value = 1 - smooth(prog(rise, 0.75, 0.9));   // (the tumour's grains go first: they would outlast the cooling image)
+    dots.visible = img > 0.003 && fb < 1 && dotU.uGl.value > 0.003;
     const dark = Math.max(smooth(prog(img, 0, 0.5)), 0.55 * smooth(Math.max(cut, evs)));
     // standing in the row, the shell turns into the slide's warm orange glow under the image (the image blends by
     // maximum, so its hot organs still show above it), with a bright rim round its outline
