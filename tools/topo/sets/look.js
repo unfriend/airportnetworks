@@ -492,7 +492,8 @@ void main() {
   if (vCap > 0.5) {
     gl_FragColor = vec4(c * (0.45 + 0.35 * dif + 0.25 * rim + 0.4 * vG) + vec3(spec * 0.35), vA * 0.95);
   } else {
-    float w = max(fwidth(vT), 1e-5), line = smoothstep(1.0 - 2.5 * w, 1.0 - 0.4 * w, vT);
+    // (the line along the curve; not on the slivers of a step's riser, whose derivatives run wild)
+    float w = max(fwidth(vT), 1e-5), line = smoothstep(1.0 - 2.5 * w, 1.0 - 0.4 * w, vT) * step(w, 0.25);
     float a = vF * (0.06 + 0.3 * pow(vT, 1.5)) + line * (0.55 + 0.45 * vG);
     vec3 col = c * (0.5 + 0.2 * dif + 0.3 * vT * vT) + mix(c, vec3(1.0), 0.25) * line * (0.3 + 0.4 * vG) + vec3(spec * 0.12);
     gl_FragColor = vec4(col, vA * min(1.0, a));
@@ -526,7 +527,8 @@ void main() {
       const m = env.length >> 1, n = Math.min(m, pts), o = r * pts * 4;
       for (let k = 0; k < n; k++) {
         const j = m > pts ? Math.round(k * (m - 1) / (pts - 1)) : k;   // (thinned evenly, the ends kept)
-        tex[o + 4 * k] = env[2 * j]; tex[o + 4 * k + 1] = env[2 * j + 1];
+        // a step's riser (two points at one u) a hair wide: a triangle with no area draws stray pixels
+        tex[o + 4 * k] = k && env[2 * j] <= tex[o + 4 * k - 4] ? tex[o + 4 * k - 4] + 1e-5 : env[2 * j]; tex[o + 4 * k + 1] = env[2 * j + 1];
       }
       cnt[r] = n; T.needsUpdate = true;
     }
