@@ -459,10 +459,14 @@ void main() {
   // One template strip of pts points, drawn once per ribbon: four vertices per point (position.x the point, position.y
   // the part: 0 the base line, 1 the curve on the face, 2 and 3 the top edge's two sides). The envelopes live in a
   // float texture, a row each (u, y per texel); each ribbon's frame, colours and options are per-instance attributes.
+  // (with antialiasing, a sample of a hair-thin triangle is shaded at the pixel's centre, outside it, unless at the
+  // centroid: WebGL 2 only)
+  const CENTROID = '#if __VERSION__ >= 300\ncentroid varying float vT;\n#else\nvarying float vT;\n#endif';
   const VRIB = `
 attribute vec3 aO, aU, aY, aCol, aNeg; attribute vec4 aP, aR;   // aP: alpha, depth, glow, fill; aR: row, points, from, to
 uniform float uA; uniform sampler2D uCurve; uniform vec2 uSize;
-varying vec3 vC, vNg, vN, vV; varying float vA, vT, vYs, vU, vG, vF, vCap; varying vec2 vRange;
+varying vec3 vC, vNg, vN, vV; varying float vA, vYs, vU, vG, vF, vCap; varying vec2 vRange;
+${CENTROID}
 vec2 pt(float i) { i = clamp(i, 0.0, aR.y - 1.0); return texture2D(uCurve, vec2((i + 0.5) / uSize.x, (aR.x + 0.5) / uSize.y)).xy; }
 void main() {
   float i = position.x, part = position.y;
@@ -481,7 +485,8 @@ void main() {
   if (vA < 0.004) gl_Position = vec4(2.0, 2.0, 2.0, 1.0);   // (points past the envelope's end sit on its last: no area)
 }`;
   const FRIB = `
-varying vec3 vC, vNg, vN, vV; varying float vA, vT, vYs, vU, vG, vF, vCap; varying vec2 vRange;
+varying vec3 vC, vNg, vN, vV; varying float vA, vYs, vU, vG, vF, vCap; varying vec2 vRange;
+${CENTROID}
 void main() {
   if (vU < vRange.x || vU > vRange.y) discard;
   vec3 n = normalize(vN), v = normalize(vV);
@@ -494,8 +499,9 @@ void main() {
   } else {
     // (the line along the curve; not on the slivers of a step's riser, whose derivatives run wild)
     float w = max(fwidth(vT), 1e-5), line = smoothstep(1.0 - 2.5 * w, 1.0 - 0.4 * w, vT) * step(w, 0.25);
-    float a = vF * (0.06 + 0.3 * pow(vT, 1.5)) + line * (0.55 + 0.45 * vG);
-    vec3 col = c * (0.5 + 0.2 * dif + 0.3 * vT * vT) + mix(c, vec3(1.0), 0.25) * line * (0.3 + 0.4 * vG) + vec3(spec * 0.12);
+    float t = clamp(vT, 0.0, 1.0);   // (extrapolated past 0..1 on the edge samples of thin slivers)
+    float a = vF * (0.06 + 0.3 * pow(t, 1.5)) + line * (0.55 + 0.45 * vG);
+    vec3 col = c * (0.5 + 0.2 * dif + 0.3 * t * t) + mix(c, vec3(1.0), 0.25) * line * (0.3 + 0.4 * vG) + vec3(spec * 0.12);
     gl_FragColor = vec4(col, vA * min(1.0, a));
   }
 }`;
