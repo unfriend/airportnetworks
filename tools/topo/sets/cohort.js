@@ -119,7 +119,11 @@ SETS.cohort = function (K) {
     // where gamma peaks (its tag) and the means' top (theirs), read off the stored envelopes
     let gu = 0, gy = 0;
     for (let j = 0; j < H.gamma.length; j += 2) if (Math.abs(H.gamma[j + 1]) > Math.abs(gy)) { gy = H.gamma[j + 1]; gu = H.gamma[j]; }
-    return { dim, H, mid, half, CP, a, na, n, b0, AP, lo, hi, ST, SJ, cnt, mids, WIN, rest, restS, gu, gy,
+    // a basis in the wall's plane (to put its outline in order round it)
+    const ex = Math.abs(n[1]) < 0.9 ? [n[2], 0, -n[0]] : [0, -n[2], n[1]], el = Math.hypot(ex[0], ex[1], ex[2]);
+    ex[0] /= el; ex[1] /= el; ex[2] /= el;
+    const ey = [n[1] * ex[2] - n[2] * ex[1], n[2] * ex[0] - n[0] * ex[2], n[0] * ex[1] - n[1] * ex[0]];
+    return { dim, H, mid, half, CP, a, na, n, ex, ey, b0, AP, lo, hi, ST, SJ, cnt, mids, WIN, rest, restS, gu, gy,
       dmax: HS * (Math.abs(n[0]) + Math.abs(n[1]) + Math.abs(n[2])), D0: -b0 / na };
   }
   const M = [model(0), model(1)];
@@ -151,9 +155,7 @@ SETS.cohort = function (K) {
     // in order round the middle (a basis in the plane)
     let mx = 0, my = 0, mz = 0;
     for (let i = 0; i < k; i++) { mx += WP[i][0] / k; my += WP[i][1] / k; mz += WP[i][2] / k; }
-    const ex = Math.abs(n[1]) < 0.9 ? [n[2], 0, -n[0]] : [0, -n[2], n[1]], el = Math.hypot(ex[0], ex[1], ex[2]);
-    ex[0] /= el; ex[1] /= el; ex[2] /= el;
-    const ey = [n[1] * ex[2] - n[2] * ex[1], n[2] * ex[0] - n[0] * ex[2], n[0] * ex[1] - n[1] * ex[0]];
+    const ex = m.ex, ey = m.ey;
     for (let i = 0; i < k; i++) {
       const dx = WP[i][0] - mx, dy = WP[i][1] - my, dz = WP[i][2] - mz;
       WANG[i] = Math.atan2(dx * ey[0] + dy * ey[1] + dz * ey[2], dx * ex[0] + dy * ex[1] + dz * ex[2]); WORD[i] = i;
