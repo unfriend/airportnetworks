@@ -140,7 +140,7 @@ SETS.tower = function (K) {
   const PL = 0.12, CLEAR = PW + 2 * PL, PSX = CLEAR / (1 - plate.dims.label), PTH = 0.045;
   // (turned a quarter about y, so its label end, -x, points to +z; moved so the clear part is centred on the patch)
   const PLATE_Q = LK.quat([0, 0, 0, 1], UP, PI / 2), PLATE_P = [0, -PTH / 2, PSX * plate.dims.label / 2];
-  plate.begin(); plate.add(PLATE_P, PLATE_Q, [PSX, PTH / plate.dims.thick, CLEAR / plate.dims.wid], LK.mix(LK.HEALTHY, LK.GREY, 0.55), 1, 0); plate.end();
+  const PLATE_S = [PSX, PTH / plate.dims.thick, CLEAR / plate.dims.wid], PLATE_T = LK.mix(LK.HEALTHY, LK.GREY, 0.55);
   const LABEL_Z = CLEAR / 2 + PSX * plate.dims.label / 2;   // the label's middle
 
   // ---------------------------------------------------------------- what the frame shows now
@@ -154,6 +154,8 @@ SETS.tower = function (K) {
     for (let i = 0; i < N; i++) { let c = i; while (par[c] >= 0) c = par[c]; rep[i] = c; cnt[c]++; }
   }
   const hOf = r => TH * T.height(r);   // the height of a radius (times tower_rise)
+  // the board's share: it comes once the tower stands (in explore the two are eased together)
+  const barsOf = S => clamp(S.tower_bars, 0, 1) * prog(clamp(S.tower_rise, 0, 1), 0.7, 1);
   const _a = [0, 0, 0], _b = [0, 0, 0], _c = [0, 0, 0], _d = [0, 0, 0], _e = [0, 0, 0], _col = [0, 0, 0], _col2 = [0, 0, 0];
   const WHITE = LK.WHITE, LOOPLIT = LK.mix(LK.LOOP, [1, 0.9, 0.7], 0.25);
   const thick = s => 0.0032 * Math.pow(s, 0.45);
@@ -204,13 +206,17 @@ SETS.tower = function (K) {
 
   function update(S, t) {
     LK.depth();
-    const r = Math.max(0.5, +S.tower_r || 1.5), u = T.u(r), rise = clamp(S.tower_rise, 0, 1), bars = clamp(S.tower_bars, 0, 1);
+    const r = Math.max(0.5, +S.tower_r || 1.5), u = T.u(r), rise = clamp(S.tower_rise, 0, 1), bars = barsOf(S);
     const he = clamp(S.tower_he, 0, 1), lit = Math.round(S.tower_lit) || 0;
+    // while the board is up the tower and its plane step back (the rods flying out and the curves are the news there)
+    const calm = 1 - 0.45 * prog(bars, 0.15, 0.6);
     const pA = lit === 2 ? 0.3 : 1, lA = lit === 1 ? 0.3 : 1;   // pieces or loops lit
     const yp = rise * hOf(r);
     now.r = r; now.u = u; now.rise = rise; now.yp = yp; now.bars = bars; now.lit = lit; now.n0 = pieces(r); now.n1 = loopsAt(r);
     replay(r);
     tubes.begin(); rings.begin(); halos.begin(); sheet.begin(); ribbons.begin(); cells.begin(); discs.begin(); stain.begin();
+    // the plate: its frosted label is the brightest thing at the tower's foot, so it fades back as the tower rises
+    plate.begin(); plate.add(PLATE_P, PLATE_Q, PLATE_S, PLATE_T, 1 - 0.5 * prog(rise, 0.1, 0.8), 0); plate.end();
 
     // ---- the cells on the plate: in H&E (their types), turning into beads tinted by their piece
     const ball = 1 - he, cy = LIFT * 0.5;
@@ -232,7 +238,7 @@ SETS.tower = function (K) {
     }
 
     // ---- the complex at radius r, on the plate or on the radius plane above it
-    const y = yp + LIFT, cA = 1 - he;
+    const y = yp + LIFT, cA = (1 - he) * calm;
     if (cA > 0.003) {
       // the radius plane, once it lifts off the plate: faint glass in a thin frame
       const pa = prog(rise, 0, 0.15);
@@ -284,8 +290,8 @@ SETS.tower = function (K) {
     }
 
     // ---- the tower of scales
-    const tw = prog(rise, 0.02, 0.3);
-    if (tw > 0.003) {
+    const tw0 = prog(rise, 0.02, 0.3), tw = tw0 * calm;
+    if (tw0 > 0.003) {
       // the threads: one per piece from its first cell, thicker as it grows, coloured as its piece
       for (let s = 0; s < NS; s++) {
         const i = SEG[4 * s], n = SEG[4 * s + 3];
@@ -296,17 +302,17 @@ SETS.tower = function (K) {
       for (let k = 0; k < NJ; k++) {
         const yb = rise * hOf(JR[k]), n = BRIDGE[k], c = n > 1 ? COL[JV[k]] : LK.BEAD;
         bridge(k, yb, c, n > 1 ? thick(n) * 0.8 : 0.002, tw * pA * (n > 1 ? 1 : 0.5) * (yb <= now.yp + 1e-4 ? 1 : GHOST));
-        if (yb <= now.yp + 1e-4 && n > 1) { _a[0] = X[JW[k]]; _a[1] = yb; _a[2] = Z[JW[k]]; halos.add(_a, 0.045 + 0.01 * Math.sqrt(n), c, 0.5 * tw * pA); }
+        if (yb <= now.yp + 1e-4 && n > 1) { _a[0] = X[JW[k]]; _a[1] = yb; _a[2] = Z[JW[k]]; halos.add(_a, 0.04 + 0.008 * Math.sqrt(n), c, 0.35 * tw * pA); }
       }
       // the top of the trunk
       _a[0] = X[TRUNK]; _a[1] = rise * (TH + 0.08); _a[2] = Z[TRUNK];
-      halos.add(_a, 0.16, LK.PIECE, 0.6 * tw * pA * (now.yp >= rise * TH - 1e-3 ? 1 : 0.4));
+      halos.add(_a, 0.14, LK.PIECE, 0.45 * tw * pA * (now.yp >= rise * TH - 1e-3 ? 1 : 0.4));
       // the chimneys: every loop's ring from its birth to its death, capped where it fills
       for (const L of LOOPS) {
         const y0 = rise * hOf(L.b), y1 = rise * hOf(L.d), a = tw * lA * (L.main ? 1 : 0.5);
         if (y1 - y0 < 1e-4 && !L.main) continue;
         // (the poster's loop with its edges and rings lit; the short-lived ones as walls and a cap only)
-        for (const [i, j] of L.ring) wall(i, j, y0, y1, LOOPLIT, a * (L.main ? 0.6 : 0.7));
+        for (const [i, j] of L.ring) wall(i, j, y0, y1, LOOPLIT, a * (L.main ? 0.38 : 0.7));
         const capA = a * (y1 <= now.yp ? 1 : GHOST);
         if (L.main) {
           for (const v of L.vs) column(X[v], Z[v], y0, y1, 0.0034, LK.mix(LK.LOOP, WHITE, 0.3, _col2), a);
@@ -314,16 +320,17 @@ SETS.tower = function (K) {
           ringAt(L, y1, 0.0055, LK.mix(LK.LOOP, WHITE, 0.45, _col2), capA);
         }
         fan(L, y1, LOOPLIT, capA * (L.main ? 1 : 0.55), L.main ? 0 : 0.4);
-        // (the poster's loop glows inside, all the way up, brighter where the plane cuts it)
-        if (L.main) for (let q = 0; q <= 8; q++) {
-          _a[0] = L.hx; _a[1] = lerp(y0, y1, q / 8); _a[2] = L.hz;
-          const cut = Math.abs(_a[1] - now.yp) < (y1 - y0) / 8 ? 1.6 : 1;
-          halos.add(_a, L.rad * 1.5, LOOPLIT, 0.28 * a * cut * (_a[1] <= now.yp + 1e-4 ? 1 : 0.35));
+        // (the poster's loop glows softly inside, all the way up, brighter where the plane cuts it; kept faint, so the
+        // threads behind it still read)
+        if (L.main) for (let q = 0; q <= 6; q++) {
+          _a[0] = L.hx; _a[1] = lerp(y0, y1, q / 6); _a[2] = L.hz;
+          const cut = Math.abs(_a[1] - now.yp) < (y1 - y0) / 6 ? 1.8 : 1;
+          halos.add(_a, L.rad * 1.15, LOOPLIT, 0.1 * a * cut * (_a[1] <= now.yp + 1e-4 ? 1 : 0.35));
         }
       }
       // the ruler: a post beside the plate, a mark at 2, 5, 10, 20 and 50 µm, a cyan ring where the plane is and a dashed
       // line from it to the plane's edge
-      const ra = tw;
+      const ra = tw0;
       _a[0] = RULER[0]; _a[1] = 0; _a[2] = RULER[1]; _b[0] = RULER[0]; _b[1] = rise * TH; _b[2] = RULER[1];
       tubes.add(_a, _b, 0.0045, LK.INK, 0.8 * ra, 0);
       for (const m of TICKS) { _a[1] = rise * hOf(m); rings.add(_a, UP, 0.022, 0.0035, LK.INK, 0.85 * ra, 0); }
@@ -394,7 +401,8 @@ SETS.tower = function (K) {
     plane: () => [RULER[0], now.yp + 0.03, RULER[1]],
     trunk: () => [X[TRUNK], now.rise * (TH + 0.08) + 0.04, Z[TRUNK]],
     chimney: () => [MAIN.hx + MAIN.rad, now.rise * (hOf(MAIN.b) + hOf(MAIN.d)) / 2, MAIN.hz],
-    bars: top0, bars1: () => onBoard(S1 + BOARD.lane * LANES * 0.5, 0.03, now.rise * hOf(MAIN.d) + 0.06, [0, 0, 0]),
+    // (the loops' tag starts over the pieces' low end, left of the lanes, so it ends on the board, not past it)
+    bars: top0, bars1: () => onBoard(S1 - 0.6, 0.03, now.rise * hOf(MAIN.d) + 0.08, [0, 0, 0]),
     board: () => onBoard(SEND / 2, 0, now.rise * TH * 0.5, [0, 0, 0]),
   };
   TICKS.forEach((m, k) => { anchors['tick' + k] = () => [RULER[0] + 0.03, now.rise * hOf(m), RULER[1]]; });
@@ -405,21 +413,22 @@ SETS.tower = function (K) {
     { text: () => [`${fmtR(now.r)} µm`, ` · ${plural(now.n0, 'piece', 'pieces')} · ${plural(now.n1, 'loop', 'loops')}`], at: 'plane', cls: 'cyn',
       alpha: S => prog(S.tower_rise, 0.5, 0.9) },
     ...TICKS.map((m, k) => ({ text: [`${m} µm`, ''], at: 'tick' + k, cls: '',
-      alpha: S => prog(S.tower_rise, 0.6, 1) * (1 - clamp(S.tower_bars, 0, 1)) * prog(Math.abs(T.u(Math.max(0.5, +S.tower_r || 1.5)) - T.u(m)), 0.045, 0.08) })),
+      alpha: S => prog(S.tower_rise, 0.6, 1) * (1 - barsOf(S)) * prog(Math.abs(T.u(Math.max(0.5, +S.tower_r || 1.5)) - T.u(m)), 0.045, 0.08) })),
     { text: ['The trunk', ' · one piece left'], at: 'trunk', cls: 'amb',
-      alpha: S => prog(S.tower_rise, 0.8, 1) * (1 - prog(S.tower_bars, 0, 0.3)) * prog(+S.tower_r || 0, 17, 20) * (Math.round(S.tower_lit) === 2 ? 0 : 1) },
+      alpha: S => prog(S.tower_rise, 0.8, 1) * (1 - prog(barsOf(S), 0, 0.3)) * prog(+S.tower_r || 0, 17, 20) * (Math.round(S.tower_lit) === 2 ? 0 : 1) },
     { text: ['The big loop', ' · a chimney from birth to filling'], at: 'chimney', cls: 'amb',
-      alpha: S => prog(S.tower_rise, 0.8, 1) * (1 - prog(S.tower_bars, 0, 0.3)) * prog(+S.tower_r || 0, 13, 15) * (Math.round(S.tower_lit) === 1 ? 0 : 1) },
-    { text: ['Pieces', ` · ${N} rods: their staircase is the count`], at: 'bars', cls: 'amb', alpha: S => prog(S.tower_bars, 0.45, 0.65) * (Math.round(S.tower_lit) === 2 ? 0 : 1) },
-    { text: ['Loops', ` · ${NL} rods, at most ${B1.top} at once`], at: 'bars1', cls: 'amb', alpha: S => prog(S.tower_bars, 0.6, 0.8) * (Math.round(S.tower_lit) === 1 ? 0 : 1) },
+      alpha: S => prog(S.tower_rise, 0.8, 1) * (1 - prog(barsOf(S), 0, 0.3)) * prog(+S.tower_r || 0, 13, 15) * (Math.round(S.tower_lit) === 1 ? 0 : 1) },
+    { text: ['Pieces', ` · ${N}`], at: 'bars', cls: 'amb', alpha: S => prog(barsOf(S), 0.45, 0.65) * (Math.round(S.tower_lit) === 2 ? 0 : 1) },
+    { text: ['Loops', ` · ${NL}`], at: 'bars1', cls: 'amb', alpha: S => prog(barsOf(S), 0.6, 0.8) * (Math.round(S.tower_lit) === 1 ? 0 : 1) },
   ];
   const cam = {
-    default: [18, 16, 4.9, 0, 0.74, 0],            // the tower whole, the plate at its foot
+    default: [18, 20, 4.9, 0, 0.78, 0],            // the tower whole, the plate at its foot (from a little above: the plate
+                                                   // stays a floor, not a wall in front of the threads)
     plate: [8, 52, 3.4, 0, 0, 0.05],               // a close look at the plate: the balls growing (chapter 3)
     snap: [0, 64, 3.0, 0, 0, 0.02],                // from above, as the poster's snapshots
-    tower: [26, 12, 5.0, 0, 0.85, 0],              // the tower rising (chapter 4)
+    tower: [26, 17, 5.0, 0, 0.85, 0],              // the tower rising (chapter 4)
     up: [205, -58, 2.6, 0.05, 0.95, 0],            // from under the plate, up through the tower (screens)
-    bars: [6, 12, 6.0, 1.0, 0.82, -0.15],          // the tower and the board of rods and curves
+    bars: [6, 16, 6.0, 1.0, 0.82, -0.15],          // the tower and the board of rods and curves
     stand: [16, 0, 1.17, 0, 1.06, 0],              // the headset: about 1.55 m tall in front of you (see the manifest)
   };
 

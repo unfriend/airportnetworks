@@ -3037,7 +3037,7 @@ void main() {
 // cell takes the poster's colour by its own stored score (lo50, clamped at the colour map's limit) and rises or sinks
 // with the scores round it (a smoothed height, for drawing only): a relief of the window's stored triangles, the scars
 // red and up, the healthy-like tissue blue and down. The cells then
-// lift off in two groups by the sign of their score (healthy-like, cirrhosis-like: as many as comp50.sizes) and sort
+// lift off in two groups by the sign of their score alone (healthy-like below 0, cirrhosis-like above: comp50.sizes) and sort
 // themselves by type into piles (comp50's five types and other), as columns whose heights follow each type's share; and
 // the sketches of the workflow on other modalities (spots and a volcano of genes; a multiplex slide and protein columns:
 // schematic, labelled so). Nothing is computed here but drawing: look-ups by stored radius, counts of stored bars,
@@ -3106,19 +3106,14 @@ SETS.map = function (K) {
   const edgeOf = csr(E.n, e => { _l2[0] = E.i[e]; _l2[1] = E.j[e]; return _l2; });
   const triOf = csr(TR.n, t => { _l3[0] = TR.i[t]; _l3[1] = TR.j[t]; _l3[2] = TR.k[t]; return _l3; });
 
-  // the two groups by the sign of the score (cells scored exactly 0, after rounding, fill each group up to its stored
-  // size), for 50 and 100 µm; each cell's type among comp's six (five types and other)
+  // the two groups by the sign of the score alone, as the authors' code splits them: 0 healthy-like (below 0),
+  // 1 cirrhosis-like (above 0), 2 neither (a score of exactly 0, or none); for 50 and 100 µm. The counts are
+  // comp50.sizes and comp100.sizes. Each cell's type among comp's six (five types and other)
   const COMP = [SD.comp50, SD.comp100], LOS = [W.lo50, W.lo100];
-  const GROUP = [new Uint8Array(N), new Uint8Array(N)], SIZE = [[0, 0], [0, 0]];
-  for (let d = 0; d < 2; d++) {
-    const lo = LOS[d], want0 = COMP[d].sizes[0];
-    let neg = 0;
-    for (let i = 0; i < N; i++) if (lo[i] < 0) neg++;
-    let spare = want0 - neg;
-    for (let i = 0; i < N; i++) {
-      const g = lo[i] < 0 ? 0 : lo[i] > 0 ? 1 : spare-- > 0 ? 0 : 1;
-      GROUP[d][i] = g; SIZE[d][g]++;
-    }
+  const GROUP = [new Uint8Array(N), new Uint8Array(N)], SIZE = [[0, 0, 0], [0, 0, 0]];
+  for (let d = 0; d < 2; d++) for (let i = 0; i < N; i++) {
+    const v = LOS[d][i], g = v < 0 ? 0 : v > 0 ? 1 : 2;   // (NaN compares false both ways: neither)
+    GROUP[d][i] = g; SIZE[d][g]++;
   }
   const CT = SD.comp50.types, ctIdx = W.types.map(nm => { const j = CT.indexOf(nm); return j < 0 ? CT.indexOf('other') : j; });
   const TYPE = new Uint8Array(N);
@@ -3134,7 +3129,10 @@ SETS.map = function (K) {
     const per = [0, 1].map(g => Math.max(1, Math.round(SIZE[d][g] / LAYERS))), dims = per.map(c => { const nx = Math.ceil(Math.sqrt(c)); return [nx, Math.ceil(c / nx)]; });
     const fill = Array.from({ length: 2 }, () => new Int32Array(6));
     for (let i = 0; i < N; i++) {
-      const g = GROUP[d][i], t = TYPE[i], s = fill[g][t]++, c = per[g], layer = Math.floor(s / c), q = s % c, [nx, nz] = dims[g];
+      const g = GROUP[d][i];
+      // (a cell in neither group stays where it lies, and fades as the others lift off)
+      if (g > 1) { PILE[d][3 * i] = X[i]; PILE[d][3 * i + 1] = LIFT; PILE[d][3 * i + 2] = Z[i]; continue; }
+      const t = TYPE[i], s = fill[g][t]++, c = per[g], layer = Math.floor(s / c), q = s % c, [nx, nz] = dims[g];
       const cx = GX[g] + (t - 2.5) * PSP, ix = q % nx, iz = Math.floor(q / nx);
       PILE[d][3 * i] = cx + (ix - (nx - 1) / 2) * PITCHB; PILE[d][3 * i + 1] = PBASE + (layer + 0.5) * PITCHB; PILE[d][3 * i + 2] = PZ + (iz - (nz - 1) / 2) * PITCHB;
       if (d === 0) DELAY[i] = 0.45 * Math.min(1, layer / 40) + 0.06 * R0();
@@ -3230,10 +3228,10 @@ void main() {
   vec3 q = mix(aQ, aQ2, uDelta), p = mix(p0, q, e) + vec3(0.0, 0.22 * sin(3.14159 * e), 0.0);
   float b = smoothstep(aD.x, aD.x + 0.5, uBack);
   p = mix(p, vec3(aP.x, uLift + 0.003, aP.y), b);
-  // the map's colour on the relief, the type's in the piles, the group's back on the slide
-  float g = mix(aD.y, aD.z, uDelta);
+  // the map's colour on the relief, the type's in the piles, the group's back on the slide (2: in neither, grey, fading)
+  float g = mix(aD.y, aD.z, uDelta), none = smoothstep(1.4, 1.6, g);
   vec3 c = mix(mix(aC, aC2, uDelta), aT, e);
-  c = mix(c, mix(uHC, uCC, g), b);
+  c = mix(c, mix(mix(uHC, uCC, min(g, 1.0)), vec3(0.42, 0.45, 0.52), none), b);
   // under the sweeping dome the cells light
   float dd = length(vec2(aP.x, aP.y) - uDome.xy), lit = uDome.w * (1.0 - smoothstep(uDome.z * 0.85, uDome.z, dd));
   vG = lit;
@@ -3243,7 +3241,7 @@ void main() {
   float px = uR * uPx * projectionMatrix[1][1] / max(-mv.z, 1e-4), gr = max(1.0, 1.4 / max(px, 1e-3));   // never under 1.4 pixels
   mv.xy += position.xy * sz * gr;
   vQ = position.xy;
-  vA = uA * max(rise, e) * (1.0 - uHid * b) / (gr * gr);
+  vA = uA * max(rise, e) * (1.0 - uHid * b) * (1.0 - none * e) / (gr * gr);
   gl_Position = projectionMatrix * mv;
   if (vA < 0.004) gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
 }`,
@@ -3336,9 +3334,9 @@ void main() {
     for (let row = 0, y = 25; y < side; row++, y += 50 * 0.866) for (let x = row % 2 ? 50 : 25; x < side; x += 50) {
       near(x, y, SPR * 1.3, tmp);
       if (!tmp.length) continue;
-      let a = 0, b = 0;
-      for (const i of tmp) { a += GROUP[0][i]; b += GROUP[1][i]; }
-      SPOTS.push([(x - side / 2) * k, (y - side / 2) * k, a / tmp.length, b / tmp.length]);
+      let a = 0, b = 0, na = 0, nb = 0;   // (of the cells in a group)
+      for (const i of tmp) { const g0 = GROUP[0][i], g1 = GROUP[1][i]; if (g0 < 2) { a += g0; na++; } if (g1 < 2) { b += g1; nb++; } }
+      SPOTS.push([(x - side / 2) * k, (y - side / 2) * k, na ? a / na : 0, nb ? b / nb : 0]);
     }
   }
   const spotP = LK.cells(SPOTS.length), geneP = LK.cells(GENES.length);
@@ -3626,6 +3624,7 @@ void main() {
     }
     return best < 0 ? null : { kind: 'cell', cell: best };
   }
+  const GNAME = ['healthy-like', 'cirrhosis-like', 'in neither group'];
   const API = {
     n: N, e: e.cell, drawR: e.drawR, eLogOdds: e.logOdds, limit50: SD.limit50, limit100: SD.limit100, delta: DELTA,
     comp50: SD.comp50, comp100: SD.comp100, types: W.types,
@@ -3635,7 +3634,7 @@ void main() {
       const nb = near(W.x[i], W.y[i], DELTA, []);
       const h0 = i === e.cell ? SD.eBars.h0 : W.localH0(i), h1 = i === e.cell ? SD.eBars.h1 : W.localH1(i);
       return { i, x: W.x[i], y: W.y[i], type: W.types[W.type[i]], lo50: i === e.cell ? e.logOdds : W.lo50[i], lo100: W.lo100[i], near: nb.length,
-        h0, h1, group50: GROUP[0][i] ? 'cirrhosis-like' : 'healthy-like', group100: GROUP[1][i] ? 'cirrhosis-like' : 'healthy-like' };
+        h0, h1, group50: GNAME[GROUP[0][i]], group100: GNAME[GROUP[1][i]] };
     },
     // the counts at radius r for a cell's own bars (pieces: its deaths still alive plus the one living on; loops alive)
     counts(i, r) { const c = API.cell(i); return c.h0 ? { pieces: T.deaths(c.h0, r) + 1, loops: T.betti(c.h1 || [], r) } : null; },
@@ -3791,7 +3790,7 @@ SETS.tower = function (K) {
   const PL = 0.12, CLEAR = PW + 2 * PL, PSX = CLEAR / (1 - plate.dims.label), PTH = 0.045;
   // (turned a quarter about y, so its label end, -x, points to +z; moved so the clear part is centred on the patch)
   const PLATE_Q = LK.quat([0, 0, 0, 1], UP, PI / 2), PLATE_P = [0, -PTH / 2, PSX * plate.dims.label / 2];
-  plate.begin(); plate.add(PLATE_P, PLATE_Q, [PSX, PTH / plate.dims.thick, CLEAR / plate.dims.wid], LK.mix(LK.HEALTHY, LK.GREY, 0.55), 1, 0); plate.end();
+  const PLATE_S = [PSX, PTH / plate.dims.thick, CLEAR / plate.dims.wid], PLATE_T = LK.mix(LK.HEALTHY, LK.GREY, 0.55);
   const LABEL_Z = CLEAR / 2 + PSX * plate.dims.label / 2;   // the label's middle
 
   // ---------------------------------------------------------------- what the frame shows now
@@ -3805,6 +3804,8 @@ SETS.tower = function (K) {
     for (let i = 0; i < N; i++) { let c = i; while (par[c] >= 0) c = par[c]; rep[i] = c; cnt[c]++; }
   }
   const hOf = r => TH * T.height(r);   // the height of a radius (times tower_rise)
+  // the board's share: it comes once the tower stands (in explore the two are eased together)
+  const barsOf = S => clamp(S.tower_bars, 0, 1) * prog(clamp(S.tower_rise, 0, 1), 0.7, 1);
   const _a = [0, 0, 0], _b = [0, 0, 0], _c = [0, 0, 0], _d = [0, 0, 0], _e = [0, 0, 0], _col = [0, 0, 0], _col2 = [0, 0, 0];
   const WHITE = LK.WHITE, LOOPLIT = LK.mix(LK.LOOP, [1, 0.9, 0.7], 0.25);
   const thick = s => 0.0032 * Math.pow(s, 0.45);
@@ -3855,13 +3856,17 @@ SETS.tower = function (K) {
 
   function update(S, t) {
     LK.depth();
-    const r = Math.max(0.5, +S.tower_r || 1.5), u = T.u(r), rise = clamp(S.tower_rise, 0, 1), bars = clamp(S.tower_bars, 0, 1);
+    const r = Math.max(0.5, +S.tower_r || 1.5), u = T.u(r), rise = clamp(S.tower_rise, 0, 1), bars = barsOf(S);
     const he = clamp(S.tower_he, 0, 1), lit = Math.round(S.tower_lit) || 0;
+    // while the board is up the tower and its plane step back (the rods flying out and the curves are the news there)
+    const calm = 1 - 0.45 * prog(bars, 0.15, 0.6);
     const pA = lit === 2 ? 0.3 : 1, lA = lit === 1 ? 0.3 : 1;   // pieces or loops lit
     const yp = rise * hOf(r);
     now.r = r; now.u = u; now.rise = rise; now.yp = yp; now.bars = bars; now.lit = lit; now.n0 = pieces(r); now.n1 = loopsAt(r);
     replay(r);
     tubes.begin(); rings.begin(); halos.begin(); sheet.begin(); ribbons.begin(); cells.begin(); discs.begin(); stain.begin();
+    // the plate: its frosted label is the brightest thing at the tower's foot, so it fades back as the tower rises
+    plate.begin(); plate.add(PLATE_P, PLATE_Q, PLATE_S, PLATE_T, 1 - 0.5 * prog(rise, 0.1, 0.8), 0); plate.end();
 
     // ---- the cells on the plate: in H&E (their types), turning into beads tinted by their piece
     const ball = 1 - he, cy = LIFT * 0.5;
@@ -3883,7 +3888,7 @@ SETS.tower = function (K) {
     }
 
     // ---- the complex at radius r, on the plate or on the radius plane above it
-    const y = yp + LIFT, cA = 1 - he;
+    const y = yp + LIFT, cA = (1 - he) * calm;
     if (cA > 0.003) {
       // the radius plane, once it lifts off the plate: faint glass in a thin frame
       const pa = prog(rise, 0, 0.15);
@@ -3935,8 +3940,8 @@ SETS.tower = function (K) {
     }
 
     // ---- the tower of scales
-    const tw = prog(rise, 0.02, 0.3);
-    if (tw > 0.003) {
+    const tw0 = prog(rise, 0.02, 0.3), tw = tw0 * calm;
+    if (tw0 > 0.003) {
       // the threads: one per piece from its first cell, thicker as it grows, coloured as its piece
       for (let s = 0; s < NS; s++) {
         const i = SEG[4 * s], n = SEG[4 * s + 3];
@@ -3947,17 +3952,17 @@ SETS.tower = function (K) {
       for (let k = 0; k < NJ; k++) {
         const yb = rise * hOf(JR[k]), n = BRIDGE[k], c = n > 1 ? COL[JV[k]] : LK.BEAD;
         bridge(k, yb, c, n > 1 ? thick(n) * 0.8 : 0.002, tw * pA * (n > 1 ? 1 : 0.5) * (yb <= now.yp + 1e-4 ? 1 : GHOST));
-        if (yb <= now.yp + 1e-4 && n > 1) { _a[0] = X[JW[k]]; _a[1] = yb; _a[2] = Z[JW[k]]; halos.add(_a, 0.045 + 0.01 * Math.sqrt(n), c, 0.5 * tw * pA); }
+        if (yb <= now.yp + 1e-4 && n > 1) { _a[0] = X[JW[k]]; _a[1] = yb; _a[2] = Z[JW[k]]; halos.add(_a, 0.04 + 0.008 * Math.sqrt(n), c, 0.35 * tw * pA); }
       }
       // the top of the trunk
       _a[0] = X[TRUNK]; _a[1] = rise * (TH + 0.08); _a[2] = Z[TRUNK];
-      halos.add(_a, 0.16, LK.PIECE, 0.6 * tw * pA * (now.yp >= rise * TH - 1e-3 ? 1 : 0.4));
+      halos.add(_a, 0.14, LK.PIECE, 0.45 * tw * pA * (now.yp >= rise * TH - 1e-3 ? 1 : 0.4));
       // the chimneys: every loop's ring from its birth to its death, capped where it fills
       for (const L of LOOPS) {
         const y0 = rise * hOf(L.b), y1 = rise * hOf(L.d), a = tw * lA * (L.main ? 1 : 0.5);
         if (y1 - y0 < 1e-4 && !L.main) continue;
         // (the poster's loop with its edges and rings lit; the short-lived ones as walls and a cap only)
-        for (const [i, j] of L.ring) wall(i, j, y0, y1, LOOPLIT, a * (L.main ? 0.6 : 0.7));
+        for (const [i, j] of L.ring) wall(i, j, y0, y1, LOOPLIT, a * (L.main ? 0.38 : 0.7));
         const capA = a * (y1 <= now.yp ? 1 : GHOST);
         if (L.main) {
           for (const v of L.vs) column(X[v], Z[v], y0, y1, 0.0034, LK.mix(LK.LOOP, WHITE, 0.3, _col2), a);
@@ -3965,16 +3970,17 @@ SETS.tower = function (K) {
           ringAt(L, y1, 0.0055, LK.mix(LK.LOOP, WHITE, 0.45, _col2), capA);
         }
         fan(L, y1, LOOPLIT, capA * (L.main ? 1 : 0.55), L.main ? 0 : 0.4);
-        // (the poster's loop glows inside, all the way up, brighter where the plane cuts it)
-        if (L.main) for (let q = 0; q <= 8; q++) {
-          _a[0] = L.hx; _a[1] = lerp(y0, y1, q / 8); _a[2] = L.hz;
-          const cut = Math.abs(_a[1] - now.yp) < (y1 - y0) / 8 ? 1.6 : 1;
-          halos.add(_a, L.rad * 1.5, LOOPLIT, 0.28 * a * cut * (_a[1] <= now.yp + 1e-4 ? 1 : 0.35));
+        // (the poster's loop glows softly inside, all the way up, brighter where the plane cuts it; kept faint, so the
+        // threads behind it still read)
+        if (L.main) for (let q = 0; q <= 6; q++) {
+          _a[0] = L.hx; _a[1] = lerp(y0, y1, q / 6); _a[2] = L.hz;
+          const cut = Math.abs(_a[1] - now.yp) < (y1 - y0) / 6 ? 1.8 : 1;
+          halos.add(_a, L.rad * 1.15, LOOPLIT, 0.1 * a * cut * (_a[1] <= now.yp + 1e-4 ? 1 : 0.35));
         }
       }
       // the ruler: a post beside the plate, a mark at 2, 5, 10, 20 and 50 µm, a cyan ring where the plane is and a dashed
       // line from it to the plane's edge
-      const ra = tw;
+      const ra = tw0;
       _a[0] = RULER[0]; _a[1] = 0; _a[2] = RULER[1]; _b[0] = RULER[0]; _b[1] = rise * TH; _b[2] = RULER[1];
       tubes.add(_a, _b, 0.0045, LK.INK, 0.8 * ra, 0);
       for (const m of TICKS) { _a[1] = rise * hOf(m); rings.add(_a, UP, 0.022, 0.0035, LK.INK, 0.85 * ra, 0); }
@@ -4045,7 +4051,8 @@ SETS.tower = function (K) {
     plane: () => [RULER[0], now.yp + 0.03, RULER[1]],
     trunk: () => [X[TRUNK], now.rise * (TH + 0.08) + 0.04, Z[TRUNK]],
     chimney: () => [MAIN.hx + MAIN.rad, now.rise * (hOf(MAIN.b) + hOf(MAIN.d)) / 2, MAIN.hz],
-    bars: top0, bars1: () => onBoard(S1 + BOARD.lane * LANES * 0.5, 0.03, now.rise * hOf(MAIN.d) + 0.06, [0, 0, 0]),
+    // (the loops' tag starts over the pieces' low end, left of the lanes, so it ends on the board, not past it)
+    bars: top0, bars1: () => onBoard(S1 - 0.6, 0.03, now.rise * hOf(MAIN.d) + 0.08, [0, 0, 0]),
     board: () => onBoard(SEND / 2, 0, now.rise * TH * 0.5, [0, 0, 0]),
   };
   TICKS.forEach((m, k) => { anchors['tick' + k] = () => [RULER[0] + 0.03, now.rise * hOf(m), RULER[1]]; });
@@ -4056,21 +4063,22 @@ SETS.tower = function (K) {
     { text: () => [`${fmtR(now.r)} µm`, ` · ${plural(now.n0, 'piece', 'pieces')} · ${plural(now.n1, 'loop', 'loops')}`], at: 'plane', cls: 'cyn',
       alpha: S => prog(S.tower_rise, 0.5, 0.9) },
     ...TICKS.map((m, k) => ({ text: [`${m} µm`, ''], at: 'tick' + k, cls: '',
-      alpha: S => prog(S.tower_rise, 0.6, 1) * (1 - clamp(S.tower_bars, 0, 1)) * prog(Math.abs(T.u(Math.max(0.5, +S.tower_r || 1.5)) - T.u(m)), 0.045, 0.08) })),
+      alpha: S => prog(S.tower_rise, 0.6, 1) * (1 - barsOf(S)) * prog(Math.abs(T.u(Math.max(0.5, +S.tower_r || 1.5)) - T.u(m)), 0.045, 0.08) })),
     { text: ['The trunk', ' · one piece left'], at: 'trunk', cls: 'amb',
-      alpha: S => prog(S.tower_rise, 0.8, 1) * (1 - prog(S.tower_bars, 0, 0.3)) * prog(+S.tower_r || 0, 17, 20) * (Math.round(S.tower_lit) === 2 ? 0 : 1) },
+      alpha: S => prog(S.tower_rise, 0.8, 1) * (1 - prog(barsOf(S), 0, 0.3)) * prog(+S.tower_r || 0, 17, 20) * (Math.round(S.tower_lit) === 2 ? 0 : 1) },
     { text: ['The big loop', ' · a chimney from birth to filling'], at: 'chimney', cls: 'amb',
-      alpha: S => prog(S.tower_rise, 0.8, 1) * (1 - prog(S.tower_bars, 0, 0.3)) * prog(+S.tower_r || 0, 13, 15) * (Math.round(S.tower_lit) === 1 ? 0 : 1) },
-    { text: ['Pieces', ` · ${N} rods: their staircase is the count`], at: 'bars', cls: 'amb', alpha: S => prog(S.tower_bars, 0.45, 0.65) * (Math.round(S.tower_lit) === 2 ? 0 : 1) },
-    { text: ['Loops', ` · ${NL} rods, at most ${B1.top} at once`], at: 'bars1', cls: 'amb', alpha: S => prog(S.tower_bars, 0.6, 0.8) * (Math.round(S.tower_lit) === 1 ? 0 : 1) },
+      alpha: S => prog(S.tower_rise, 0.8, 1) * (1 - prog(barsOf(S), 0, 0.3)) * prog(+S.tower_r || 0, 13, 15) * (Math.round(S.tower_lit) === 1 ? 0 : 1) },
+    { text: ['Pieces', ` · ${N}`], at: 'bars', cls: 'amb', alpha: S => prog(barsOf(S), 0.45, 0.65) * (Math.round(S.tower_lit) === 2 ? 0 : 1) },
+    { text: ['Loops', ` · ${NL}`], at: 'bars1', cls: 'amb', alpha: S => prog(barsOf(S), 0.6, 0.8) * (Math.round(S.tower_lit) === 1 ? 0 : 1) },
   ];
   const cam = {
-    default: [18, 16, 4.9, 0, 0.74, 0],            // the tower whole, the plate at its foot
+    default: [18, 20, 4.9, 0, 0.78, 0],            // the tower whole, the plate at its foot (from a little above: the plate
+                                                   // stays a floor, not a wall in front of the threads)
     plate: [8, 52, 3.4, 0, 0, 0.05],               // a close look at the plate: the balls growing (chapter 3)
     snap: [0, 64, 3.0, 0, 0, 0.02],                // from above, as the poster's snapshots
-    tower: [26, 12, 5.0, 0, 0.85, 0],              // the tower rising (chapter 4)
+    tower: [26, 17, 5.0, 0, 0.85, 0],              // the tower rising (chapter 4)
     up: [205, -58, 2.6, 0.05, 0.95, 0],            // from under the plate, up through the tower (screens)
-    bars: [6, 12, 6.0, 1.0, 0.82, -0.15],          // the tower and the board of rods and curves
+    bars: [6, 16, 6.0, 1.0, 0.82, -0.15],          // the tower and the board of rods and curves
     stand: [16, 0, 1.17, 0, 1.06, 0],              // the headset: about 1.55 m tall in front of you (see the manifest)
   };
 
@@ -5022,6 +5030,9 @@ const FACTS = (() => {
     slides: D.labels.length, healthy: D.src.healthy, cirrhosis: D.src.cirrhosis, cellsM: (D.src.cells / 1e6).toFixed(1),
     minutes: D.src.runtime.minutes, tile: T.tile.n, tileSide: D.tile.side,
     patch: T.patch.n, snaps: P.snaps.map((r, k) => ({ r, pieces: P.betti[k][0], loops: P.betti[k][1] })), loop: P.loop, loops: P.h1.length / 2,
+    // the loops alive at the second snapshot besides the big one (the stored loops, longest first): how many, and the
+    // radius by which they have all filled in
+    others: (() => { const r = P.snaps[1], o = P.loops.slice(1).filter(L => L.b <= r && r < L.d); return { n: o.length, by: Math.max(0, ...o.map(L => L.d)) }; })(),
     fve: H.fve, w, rest: gap - w.reduce((s, x) => s + x.s, 0), gap, odds: Math.exp(gap),
     right: conf[0] + conf[3], hRight: conf[0], cRight: conf[3], hN: conf[0] + conf[1], cN: conf[2] + conf[3], acc: H.accuracy,
     window: T.slide.n, newCells: SD.overview.cells, score: SD.e.logOdds, delta: 50, train: SD.train, limit: SD.limit50,
@@ -5069,6 +5080,8 @@ function buildStory() {
     return `${one ? 'still one piece' : `${fmt(n)} pieces`}, and the big loop has filled`;
   };
   const SNAP_AT = [14, 25, 35, 43];   // (as the radius reaches each snapshot, below)
+  // two stored shares [healthy-like, cirrhosis-like] compared in words, as the percentages shown read
+  const more = ([h, c]) => (Math.round(100 * c) === Math.round(100 * h) ? 'about as many' : c > h ? 'more' : 'fewer');
   const [wa, wb] = F.w;
   const html = {
     title: `<svg class="route-mark" viewBox="0 0 360 44" aria-hidden="true"><path id="titleArc" d="M8 36 Q180 -16 352 36" fill="none" stroke="var(--red)" stroke-width="2.2" stroke-linecap="round" pathLength="1" stroke-dasharray="1" stroke-dashoffset="1"/><circle cx="8" cy="36" r="4.5" fill="var(--red)"/><circle cx="352" cy="36" r="4.5" fill="var(--red)" id="titleDot" opacity="0"/></svg>
@@ -5095,7 +5108,7 @@ function buildStory() {
         <p data-at="5" data-out="13.5">Grow a ball round every cell.</p>
         <p data-at="8" data-out="13.5" class="amber">Where two balls touch, the cells are joined by an edge; where three meet, a triangle fills in: a network that also has triangles.</p>`,
       `<ul class="steps">${F.snaps.map((s, k) => step(SNAP_AT[k], 0, k ? (s.r < ld ? ORANGE : AMBER) : AMBER, `${fmtR2(s.r)} µm`, esc(cap(snapSay(s))))).join('')}</ul>
-        <p class="note" data-at="46">The network with triangles is the alpha complex, a simplicial complex: the higher-order generalisation of a network. The radii and counts are the poster's snapshots; ${word(F.snaps[1].loops)} loops are alive at ${fmtR2(F.snaps[1].r)} µm, most of them small and brief.</p>`)}`,
+        <p class="note" data-at="46">The network with triangles is the alpha complex, a simplicial complex: the higher-order generalisation of a network. The radii and counts are the poster's snapshots; ${word(F.snaps[1].loops)} loops are alive at ${fmtR2(F.snaps[1].r)} µm: the big one, and ${word(F.others.n)} others that have all filled in by ${fmtR(F.others.by)} µm.</p>`)}`,
     tower: `<h2 data-at="0.6">The tower of scales</h2>
       ${turns(`<p data-at="1.2" data-out="27.5">Now let the radius become height.</p>
         <p data-at="4" data-out="27.5">Each piece is a thread rising from its cell; where two pieces join, their threads merge, until one trunk is left.</p>
@@ -5134,7 +5147,7 @@ function buildStory() {
         <p class="note" data-at="40">Local persistent homology: the slide's network restricted to each cell's neighbourhood. The shapes and the classifier were fitted on the other ${F.train} slides (pieces, H0). The colours are the poster's, at most ±${f2(F.limit)}.</p>`)}`,
     next: `<h2 data-at="0.6">Where analysis begins</h2>
       ${turns(`<p data-at="1.2" data-out="17.5">The cells now fall into two groups: ${fmt(F.sizes[1])} cirrhosis-like and ${fmt(F.sizes[0])} healthy-like.</p>
-        <p data-at="8" data-out="17.5">The groups can be compared in whatever was measured: here, the cirrhosis-like cells hold ${F.lymph[1] > F.lymph[0] ? 'more' : 'fewer'} lymphocytes (${pct(F.lymph[1])} against ${pct(F.lymph[0])}) and ${F.fib[1] > F.fib[0] ? 'a few more' : 'fewer'} fibroblasts (${pct(F.fib[1])} against ${pct(F.fib[0])}).</p>
+        <p data-at="8" data-out="17.5">The groups can be compared in whatever was measured: here, the cirrhosis-like cells hold ${more(F.lymph)} lymphocytes (${pct(F.lymph[1])} against ${pct(F.lymph[0])}) and ${more(F.fib)} fibroblasts (${pct(F.fib[1])} against ${pct(F.fib[0])}).</p>
         <p class="note" data-at="12" data-out="17.5">The types are the labels of the computer that found the cells, not a pathologist's. With a radius of 100 µm, as in the poster's figure, the groups have ${fmt(F.sizes100[0])} healthy-like and ${fmt(F.sizes100[1])} cirrhosis-like cells.</p>`,
       `<p data-at="18">In spatial transcriptomics it would be genes, in spatial proteomics proteins.</p>
         <p data-at="25" class="amber">Four calls of topocyte, and the shape of tissue becomes something to measure.</p>
@@ -5832,10 +5845,10 @@ function collabApply(v) {
   const int = (x, lo, hi) => Number.isInteger(x) && x >= lo && x <= hi, num = (x, lo, hi) => Number.isFinite(x) && x >= lo && x <= hi;
   if (num(v.r, 1.5, 60) && v.r !== X.r) setR(v.r, false);
   if (num(v.mr, 1.5, 60) && v.mr !== X.mr) setMR(v.mr, false);
-  // (the window as one: both ends on the grid, the first below the second)
-  if (num(v.from, 0, 100) && num(v.to, 0.5, 100.5) && v.from < v.to && (v.from !== X.from || v.to !== X.to)) {
-    X.from = Math.round(v.from * 2) / 2; X.to = Math.round(v.to * 2) / 2; syncNums();
-  }
+  // (the window as one: both ends rounded onto the grid first, as the sliders do, then the first below the second; so
+  // state() reports what was applied and apply(state()) changes nothing)
+  const grid = x => (Number.isFinite(x) ? Math.round(x * 2) / 2 : NaN), wf = grid(v.from), wt = grid(v.to);
+  if (num(wf, 0, 100) && num(wt, 0.5, 100.5) && wf < wt && (wf !== X.from || wt !== X.to)) { X.from = wf; X.to = wt; syncNums(); }
   if (int(v.slide, -1, (api('cohort').n || 1) - 1) && v.slide !== X.slide) selectSlide(v.slide, false);
   if (int(v.cell, -1, (api('map').n || 1) - 1) && v.cell !== X.cell) selectCell(v.cell, false);
   renderAll();
@@ -5996,8 +6009,9 @@ function cellsInfo() {
   if (!c) return { head: '', rows: [], piles: [] };
   const lo = d === 100 ? c.lo100 : c.lo50, cnt = A.counts ? A.counts(i, X.mr) : null;
   const rows = [['Type', c.type, 'the cell classifier\'s label'], ['Score', Number.isFinite(lo) ? f2s(lo) : 'none', Number.isFinite(lo) ? `${d === 100 ? c.group100 : c.group50} · within ${d} µm` : 'no curve of its own'],
-    ['Within 50 µm', `${fmt(c.near)} cells`, 'itself included'],
-    ['Its bars', c.h0 ? `${plural(c.h0.length + 1, 'piece', 'pieces')}, ${plural(c.h1.length / 2, 'loop', 'loops')}` : 'unpacking…'],
+    // (the neighbourhood drawn, its network and its own bars are the 50 µm ones, whichever radius the map is at)
+    ['Drawn round it', `${fmt(c.near)} cells`, `within ${A.delta} µm, itself included`],
+    ['Its bars', c.h0 ? `${plural(c.h0.length + 1, 'piece', 'pieces')}, ${plural(c.h1.length / 2, 'loop', 'loops')}` : 'unpacking…', `of those ${A.delta} µm`],
     [`At ${fmtR2(X.mr)} µm`, cnt ? `${plural(cnt.pieces, 'piece', 'pieces')}, ${plural(cnt.loops, 'loop', 'loops')}` : '…', 'still alive']];
   const C = d === 100 ? A.comp100 : A.comp50;
   const piles = C ? C.types.map((t, k) => [t, `${pct(C.cirrhosis[k])} · ${pct(C.healthy[k])}`, 'cirrhosis-like · healthy-like']) : [];
@@ -6959,8 +6973,9 @@ function xrLandingSetup() {
     // apart at 1.7 m (0.382 m apart, the outer ones 58° to the side), eleven 0.206 rad apart at 1.85 m (0.381 m apart,
     // the outer ones 59° to the side), twelve 0.19 rad apart at 2 m (0.38 m apart, the outer ones 60° to the side),
     // thirteen 0.177 rad apart at 2.15 m (0.381 m apart, the outer ones 61° to the side), fourteen 0.166 rad apart at
-    // 2.3 m (0.381 m apart, the outer ones 62° to the side)
-    const n = HOST.list.length, a = (k - (n - 1) / 2) * (n > 13 ? 0.166 : n > 12 ? 0.177 : n > 11 ? 0.19 : n > 10 ? 0.206 : n > 9 ? 0.225 : n > 8 ? 0.245 : n > 7 ? 0.272 : 0.31), d = n > 13 ? 2.3 : n > 12 ? 2.15 : n > 11 ? 2 : n > 10 ? 1.85 : n > 9 ? 1.7 : n > 8 ? 1.55 : n > 7 ? 1.4 : 1.25;
+    // 2.3 m (0.381 m apart, the outer ones 62° to the side), fifteen 0.155 rad apart at 2.46 m (0.381 m apart, the outer
+    // ones 62° to the side)
+    const n = HOST.list.length, a = (k - (n - 1) / 2) * (n > 14 ? 0.155 : n > 13 ? 0.166 : n > 12 ? 0.177 : n > 11 ? 0.19 : n > 10 ? 0.206 : n > 9 ? 0.225 : n > 8 ? 0.245 : n > 7 ? 0.272 : 0.31), d = n > 14 ? 2.46 : n > 13 ? 2.3 : n > 12 ? 2.15 : n > 11 ? 2 : n > 10 ? 1.85 : n > 9 ? 1.7 : n > 8 ? 1.55 : n > 7 ? 1.4 : 1.25;
     const P = makePanel(640, 820, 0.36, (ctx, P) => drawLandCard(ctx, P, s), () => 'c' + XR.inStory + s.key);
     P.mesh.position.set(Math.sin(a) * d, -0.105, -Math.cos(a) * d);   // top edge 0.126 m up, under the header
     P.mesh.rotation.y = -a;
@@ -6982,7 +6997,7 @@ function xrLandingClose() {
   if (APP.mode === 'story') APP.playing = true;
 }
 function drawLandHead(ctx, P) {
-  ctx.font = vfont(58, 700); ctx.fillStyle = VC.ink; ctx.fillText(`Networks, in ${['one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve', 'thirteen', 'fourteen'][HOST.list.length - 1] || HOST.list.length} stories`, 48, 44);
+  ctx.font = vfont(58, 700); ctx.fillStyle = VC.ink; ctx.fillText(`Networks, in ${['one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve', 'thirteen', 'fourteen', 'fifteen'][HOST.list.length - 1] || HOST.list.length} stories`, 48, 44);
   // anchored: where the place stands, in place of the hint
   const an = HOST.anchor.status();
   textBlock(ctx, an || 'The same ideas, very different networks. Point at a story and pull the trigger (or pinch).', 48, 128, 860, 27, 38, an ? VC.ink : VC.muted, 400, 2);
