@@ -25,7 +25,7 @@ headsets. Section 10 says what was built and where it differs from this plan.
 0. **This build: shared rooms with one live station per person.** The relay; the session client in the shell;
    the room frame (shared spaces, two-point calibration, saved per headset); stations (a story at a spot in the
    room) whose state is synced; each headset runs live the station it stands at (the others show as previews on
-   the floor and switch over when you walk up or point at them); the story placed at its station for everyone;
+   the floor and switch over when you walk up to them; at first pointing at one did too); the story placed at its station for everyone;
    the station's narration as a sound zone; pointer rays, name tags and (for remote people) simple avatars;
    desktop operators with a room map who follow and steer a station. Nothing changes for a person who is not
    in a shared room.

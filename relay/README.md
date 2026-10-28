@@ -119,8 +119,9 @@ the app's files from the repository over HTTPS, and prints the address to open.
    that calibrates: if another headset's floor is lower or higher (a Guardian floor set wrong), it says so on the
    panel ("Your floor is 28 cm lower than the room's") and allows for it, so things stand at the same height
    for everyone; fix that headset's floor in its boundary settings when you can.
-6. Walk up to a station (or point at its card and pull the trigger): its story runs for everyone there, its
-   narration plays where it stands, and everyone sees everyone's pointer.
+6. Walk into a station's circle: its story runs there, as for everyone there, its narration plays where it
+   stands, and everyone sees everyone's pointer. Stations are walk-in only (the trigger on a card runs nothing),
+   and away from every station a headset shows no story, only the room's rings, cards, people and the menu.
 7. Desktop operators on the same network open the same address in a browser (and accept the warning once),
    join with **Shared**, and follow a station from the room map.
 
