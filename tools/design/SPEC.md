@@ -69,7 +69,7 @@ view; the headset's lists as many params as fit and says how many more.
 
 ## Tests
 
-`node tools/smoke.mjs` (its design block): not on the Stories screen, all 45 miniatures built, a click on one putting
+`node tools/smoke.mjs` (its design block): not on the Stories screen, all 48 miniatures built, a click on one putting
 it on the stage with its card matching `props.json` (every card's params, views and file), a pretend headset's grip
 carrying one and both grips sizing it, the state with it and back, a state from the room taken, bad values ignored,
 Tidy, the headset panels, the intro ending at the table. How it feels in a headset is untested.

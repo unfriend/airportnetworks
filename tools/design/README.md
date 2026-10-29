@@ -1,6 +1,6 @@
 # The design room (`stories/design.js`)
 
-A table standing in the room with a small low-poly model of every prop (3D set) of the fifteen stories, a plate per
+A table standing in the room with a small low-poly model of every prop (3D set) of the sixteen stories, a plate per
 story, and a stage where the one you pick stands bigger and turns, its card on the panel. Not one of the stories: it is
 in `STORY_EXTRA` in `stories/list.js` (not on the Stories screens), opened by `#design` or `HOST.go('design')`. Built
 like the flock: edit the sources here, then

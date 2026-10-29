@@ -10,7 +10,7 @@ Sources: each set's manifest (`tools/<story>/sets/<name>.md`) and code (`tools/<
 - **Views** are named camera views `[az, el, dist, tx, ty, tz]`: degrees, degrees, local units; the camera stands at target + dist * (cos el sin az, sin el, cos el cos az), az 0 looking from +z towards -z, vertical field of view 32 degrees; dist 3.6 frames a radius-1 set. Some views are getters (computed from the set's data) and some change with a param; the values here are the defaults.
 - **Controls** are the explore mode's rows of buttons; `explore(c)` turns the chosen values into param targets (the params it drives are listed).
 - **Anchors** are named points in the set's own frame for labels and camera targets; **labels** are the set's own, each shown by a rule on params.
-- Param names are prefixed with the set key, so the four keys that occur twice (`organs` in the PET and microanatomy stories, `tree` in the endotype and mutation stories, `tower` in the muscle and topology stories, `slide` in the microanatomy and topology stories) need a namespace (use `<story>/<key>` ids, as here) when a player mixes sets of different stories.
+- Param names are prefixed with the set key, so the five keys that occur twice (`organs` in the PET and microanatomy stories, `tree` in the endotype and mutation stories, `tower` in the muscle and topology stories, `slide` in the microanatomy and topology stories, `net` in the endotype and soil stories) need a namespace (use `<story>/<key>` ids, as here) when a player mixes sets of different stories.
 - A story reuses a set by pasting its source into its build; the engine parts (camera, labels, explore, headset code) are each story's own and are not part of a set. A set needs from the engine: the kit `K` (`tools/lbi/kit.js`), the params object every frame (`update(S, t, dt)`), the camera and label machinery for `cam`, `anchors` and `labels`, and, for sets with extra exports (`api`, `idle`, `finish`, `keepClear`, `see`, `setRoom` ...), the calls named in their notes.
 
 ## Overview
@@ -54,6 +54,9 @@ Sources: each set's manifest (`tools/<story>/sets/<name>.md`) and code (`tools/<
 | `topo/map` | topo | The signal back on the tissue: one cell's 50 um neighbourhood and its own network, bars and score; every cell scored as a relief; the two groups (healthy-like,… | 1.6 across | 11 | 10 | real |
 | `topo/tower` | topo | The poster's patch of 110 real cells with glass balls growing round them, edges and triangles appearing, pieces joining and loops opening and closing, then the tower of… | plate 1.5 wide; tower 1.68 units with the trunk | 6 | 7 | real |
 | `topo/cohort` | topo | The 123 slides as a rack of glass slides with their curves (66 healthy, 57 cirrhotic), the classes' means, the main shapes, the cube of scores, the classifier's wall… | rack plus a weights column out to x ~2.05; cube of scores 1.6 across | 15 | 11 | real |
+| `soil/soil` | soil | A cut-away block of soil with a wheat plant (ears, leaves, fibrous roots and root hairs): fertiliser falls and dissolves into amber ammonium, flows of nitrogen climb the… | block 1.2 x 0.8 x 0.7; the plant to 0.83 above it | 15 | 8 | illustrative |
+| `soil/field` | soil | The trial's 24 plots in four blocks (two wheat lines, three regimes) under netting, the wheat growing over five dates with its leaves by each plot's measured… | field ~1.8 x 1.2 (2.2 wide with the bench) | 20 | 8 | mixed |
+| `soil/net` | soil | The soil's crowd of microbes as a deep cloud (20,000 kinds by phylum: the common ones in its core, the rare ones in a faint shell), the nitrifiers flaring in their… | cloud radius ~0.7; network radius ~0.6 | 12 | 7 | real |
 | `pass/fish` | pass | A school of 300 fish (30 to 600, a live simulation) all around you, each watching its seven nearest neighbours; water, seabed with caustics, rocks, seagrass, light… | life size; fish 0.27 m long | 8 | 5 | none |
 | `pass/globe` | pass | The airports story's globe exactly as it is (3,214 airports, 18,858 routes), driven from params, with a seeded S/E/I/R outbreak on its real routes: pick a start… | radius 1 | 8 | 6 | real |
 | `pass/cell` | pass | The cell map story's cell exactly as it is (249 proteins in 13 places, 252 links, 10 organelles, 7 moves): organelles appear one by one, proteins and links by place or… | radius 1 | 21 | 6 | illustrative |
@@ -69,6 +72,7 @@ Data kinds: **real** = the authors' or a public dataset; **figures** = numbers t
 - `micro/organs` (the `ORGAN3D` models of 29 organs) is read by `micro/atlas`, `micro/hier` and the topology story's liver scene.
 - `nmd/motor` (the motor unit and the heart) is used unchanged by the endotype story.
 - `topo/slide` and `topo/map` share the slide's frame (the window of 6,716 cells); `mutation/tree` and `mutation/stem` share the tree's frame; `micro/atlas` hands over to `micro/hier` (`atlas_net` with `hier_grow`, keyed at the same times).
+- `soil/net` is drawn in `soil/field`'s frame (the cloud and the network over the field, centred at (0, 1.3, 0)); the soil story also uses `lbi/web` unchanged, only its globe (with the engine's hop from Vienna to Japan). `soil/net` adapts the endotype story's `net` set, and `soil/field` the flock's swaying reeds (its wheat) and the ovary charts' stacking movement (its cores); the soil story pastes the topology story's look (`TLOOK`) unchanged.
 - `pass/globe` and `pass/cell` are the airports story's globe and the cell map story's cell, cut unchanged out of `stories/airports.js` and `stories/spatial.js` at build time by `tools/pass/build.mjs` (rebuild the pass story after changing either) and wrapped as sets (`tools/pass/sets/globe.js`, `cell.js`). `pass/fish` adapts the flock's simulation. The flock and the robots are life size (1 unit = 1 m); so are `pass/fish` and the PET scanner.
 - `tools/lbi/sets/demo.js` is a tiny example set (points on a sphere) used by the harness; no story uses it, so it is not listed.
 
@@ -184,7 +188,7 @@ Other exports: `counts`.
 Networks are everywhere: first the internet as a tree-like network of 15,938 nodes and 16,359 links in the style of the Opte maps, then a dark globe with the 3,214 airport cities as lights and about 11,800 friendship ties as arcs (mostly local, about 650 long ones with travelling glints).
 
 - **File:** `tools/lbi/sets/web.js`; manifest `tools/lbi/sets/web.md`.
-- **Belongs to:** the lbi story.
+- **Belongs to:** the lbi story; reused by soil (its globe only, with the engine's hop).
 - **Frame:** Centred on the origin; the globe has radius 1 and turns about the polar axis (web_spin).
 - **Size:** globe radius 1; internet about radius 1.
 - **Data (mixed):** reads embedded. Airport city positions are real (the airports story's 3,214 airports). The internet network, the 18,800 fainter lights and all friendship ties are illustrative.
@@ -1641,6 +1645,151 @@ Own labels (29): "(computed text)" at `rowH`; "(computed text)" at `rowC`; "(com
 
 API (`set.api`): `n`, `healthy`, `cirrhosis`, `slide`, `fve`, `accuracy`, `confusion`, `window`, `windows`, `gap`, `grid`, `pick`, `mid`.
 
+### `soil/soil`
+
+A cut-away block of soil with a wheat plant (ears, leaves, fibrous roots and root hairs): fertiliser falls and dissolves into amber ammonium, flows of nitrogen climb the roots or pass through the relay (rose nitrite, blue nitrate washing out, lilac N2O rising); a magnified pore with the relay's microbes (archaea, ammonia-oxidising bacteria, nitrite oxidisers, comammox); the BNI halo round the roots, the wild grass and the piece of chromosome moving into the wheat; one marked atom followed from grain to leaf.
+
+- **File:** `tools/soil/sets/soil.js`; manifest `tools/soil/sets/soil.md`.
+- **Belongs to:** the soil story.
+- **Frame:** The block centred on the origin, its surface at y = 0: 1.2 wide (x), 0.8 deep (z), down to y = -0.7; the wheat at the origin, its awns up to about y = 0.83, its roots down to about -0.62; the wild grass beside it at x = -0.86.
+- **Size:** block 1.2 x 0.8 x 0.7; the plant to 0.83 above it.
+- **Data (illustrative):** reads SLOOK, TLOOK. A drawing: the only number it stands for is the slides' "less than half of the fertiliser ends up in the plant" (soil_plant 0.45); the flows' shares, the pore, the halo and the chromosome are illustrative and labelled so ("Illustration").
+- **Cost and notes:** soil_pick is a step. All glows are one pool of additive points drawn without depth test, so the flows read through the cut-away block. Build 60 to 150 ms; 6 draw calls with the block alone, 9 with the pore open; 81k to 92k triangles. Exports api (pick, guildAt, tracer, roots). Node cold build 107 ms.
+
+| param | range | default | eased | what it does |
+| --- | --- | --- | --- | --- |
+| `soil_a` | 0..1 | 1 | yes | the set's fade, 0 hidden to 1 shown (applied by the engine through setAlpha; a set never applies it itself) |
+| `soil_grow` | 0..1 | 1 | yes | the plant and its roots grow from nothing (roots first, then the stem, the leaves bottom to top, the ears from 0.62; the hairs follow the roots) |
+| `soil_cut` | 0..1 | 1 | yes | 0 a closed block; 1 the faces nearer the viewer turn to glass (whichever side that is) and seven in ten grains in front of the plant shrink away |
+| `soil_fert` | 0..1 | 0 | yes | fertiliser grains fall, land, sink a little and dissolve (0.36 to 0.98) into amber ammonium glowing round them |
+| `soil_flow` | 0..1 | 0 | yes | how many flow particles run: a share (soil_plant) climbs a root as green into the stem; about 12 % turns rose and rises as lilac N2O wisps; the rest turns rose, then blue (nitrate) and sinks out of the bottom |
+| `soil_plant` | 0..1 | 0.45 | yes | the plant's share of the flows (0.45: a drawing of the slides' "less than half") |
+| `soil_inhibit` | 0..1 | 0 | yes | slows the relay's first step: particles stay amber longer, more reach the roots, fewer leave as N2O or nitrate (explore: the BNI wheat 0.6, DCD 0.8) |
+| `soil_halo` | 0..1 | 0 | yes | the BNI halo: a soft teal glow along the roots, seeping outwards |
+| `soil_dcd` | 0..1 | 0 | yes | yellow DCD granules in the top soil (explore only) |
+| `soil_pore` | 0..1 | 0 | yes | a magnified pore grows out of the pore spot (a glass bubble, radius 0.3) while the block dims behind it |
+| `soil_relay` | 0..4 (eased) | 0 | yes | the relay's microbes come in one guild per step (1 archaea, 2 ammonia-oxidising bacteria, 3 nitrite oxidisers, 4 comammox), handing on glowing particles, amber to rose to blue |
+| `soil_grass` | 0..1 | 0 | yes | the wild grass (Leymus racemosus, drawn) grows beside the block |
+| `soil_chrom` | 0..1 | 0 | yes | the grass's and the wheat's chromosomes grow in (to 0.12); the marked segment lifts out (to 0.5) and glides into the wheat's (to 0.92), which glows |
+| `soil_tracer` | 0..1 | 0 | yes | one white atom with a trail: from a fertiliser grain down through the soil, into a microbe (it waits and flickers), out to a root and up into a leaf |
+| `soil_pick` | step, -1 or 0..3 | -1 | **no** | a guild lit in the pore (0 archaea, 1 bacteria, 2 nitrite oxidisers, 3 comammox), the others dimmed; -1 none |
+
+| view | [az, el, dist, tx, ty, tz] | frames |
+| --- | --- | --- |
+| `default` | [-28, 18, 3.2, 0, 0.05, 0] | the block and the plant |
+| `plant` | [-20, 10, 2.4, 0, 0.45, 0] | the shoot |
+| `roots` | [-15, 4, 1.9, 0, -0.3, 0.15] | low: the roots and the halo |
+| `surface` | [-30, 22, 2.2, -0.1, 0.05, 0.1] | from above: the fertiliser, ammonium and N2O |
+| `pore` | [-10, 6, 1.5, 0.18, -0.28, 0.25] | the magnified pore filling most of the view |
+| `relay` | [0, 4, 1.2, 0.18, -0.28, 0.25] | close on the relay's microbes in the pore |
+| `chrom` | [-5, 8, 2.4, -0.1, 0.7, 0.2] | the wild grass, the wheat and the chromosomes above them |
+| `tracer` | [-25, 12, 2.8, 0, 0, 0] | the marked atom's way from grain to leaf |
+
+Explore controls: **View** (`view`: `default` The block, `roots` The roots, `pore` A soil pore, `chrom` The chromosome); **Fertiliser** (`fert`: `on` Spread, `off` None); **Wheat** (`wheat`: `bni` BNI wheat, `ctrl` Control wheat); **Inhibitor** (`dcd`: `off` None, `on` DCD). `explore(c)` drives `soil_grow`, `soil_cut`, `soil_fert`, `soil_flow`, `soil_plant`, `soil_halo`, `soil_dcd`, `soil_inhibit`, `soil_pore`, `soil_relay`, `soil_grass`, `soil_chrom`, `soil_tracer`.
+
+Anchors (21): `surface`, `ear`, `stem`, `roots`, `fert`, `nh4`, `no3`, `n2o`, `halo`, `pore`, `aoa`, `aob`, `nob`, `comammox`, `grass`, `chromGrass`, `chromWheat`, `segment`, `tracer`, `corner`, `uptake`.
+
+Own labels (14): "Ammonium · from the fertiliser" at `nh4`; "Nitrate · washes away" at `no3`; "N2O · a greenhouse gas" at `n2o`; "Taken up by the plant" at `uptake`; "Archaea" at `aoa`; "Bacteria" at `aob`; "Nitrite oxidisers" at `nob`; "Comammox · both steps" at `comammox`; and 6 more.
+
+API (`set.api`): `pick`, `guildAt`, `tracer`, `roots`.
+
+### `soil/field`
+
+The trial's 24 plots in four blocks (two wheat lines, three regimes) under netting, the wheat growing over five dates with its leaves by each plot's measured chlorophyll, ammonium and nitrate under each plot from the data, jars on a bench breathing N2O as read off the slides, 119 soil cores lifting and stacking into the design, and a module of the network lighting the plots where it is strong.
+
+- **File:** `tools/soil/sets/field.js`; manifest `tools/soil/sets/field.md`.
+- **Belongs to:** the soil story; reuses flock/flock (its swaying reeds adapted as the wheat), ovary/charts (its stacking movement adapted for the cores).
+- **Frame:** The plots on the x-z plane at y = 0 (about 1.8 by 1.2), a soil slab under them to y = -0.25, the wheat up to about 0.3, the netting at 0.42, the jars on a bench at x = 1.3 and the stack of cores behind at z = -0.95 (up to 0.75); the net set draws over it, centred at (0, 1.3, 0).
+- **Size:** field ~1.8 x 1.2 (2.2 wide with the bench). Shown together with: `soil/net` (same frame).
+- **Data (mixed):** reads SOIL_DATA, SDATA, SLOOK, TLOOK. Each plot's chlorophyll (days 1, 15, 24), ammonium and nitrate (all five dates), the tags' means and p values, the 119 cores and the modules' scores are the trial's data; day 70's chlorophyll and the jars' N2O curves are read off the slides (approximate); the plots' layout (the real map is not known), the wheat's look and the netting are illustrative.
+- **Cost and notes:** field_jday, field_module, field_pick, field_show, field_line and field_fert are steps; field_life is not built. Build 50 to 150 ms; 7 to 9 draw calls; 47k triangles (62k with all thirty jars and the cores). Exports api (plotXZ, order, pick, plotAt, plot, jar, ppm, chlAt, value, mod). Node cold build 152 ms.
+
+| param | range | default | eased | what it does |
+| --- | --- | --- | --- | --- |
+| `field_a` | 0..1 | 1 | yes | the set's fade, 0 hidden to 1 shown (applied by the engine through setAlpha; a set never applies it itself) |
+| `field_grow` | 0..1 | 1 | yes | the wheat grows from bare soil (each stem staggered) |
+| `field_date` | 0..4 (days 1, 15, 24, 53, 70; eased) | 0 | yes | the sampling date: the wheat's height and stage (the Zadoks stages), the leaves' colour and the measures shown |
+| `field_net` | 0..1 | 1 | yes | the netting, drawn across from left to right; its posts rise first |
+| `field_chl` | 0..1 | 0 | yes | 0 a uniform green; 1 each plot's leaves by its chlorophyll at the date (days 1 to 24 the data's, day 70 read off the slides, day 53 on the line between) |
+| `field_nh4` | 0..1 | 0 | yes | each plot's top soil glows amber with its ammonium at the date |
+| `field_no3` | 0..1 | 0 | yes | blue light seeps down under each plot into the slab, as deep and bright as its nitrate at the date, with drops falling; the slab's near sides turn to glass |
+| `field_jars` | 0..1 | 0 | yes | the bench and the jars (one per regime and line: six, or thirty) |
+| `field_jday` | step, -1..4 | 0 | **no** | the date whose soil is in the jars; -1 all five dates in rows |
+| `field_inc` | 0..1 (0 to 22 days) | 0 | yes | the incubation's time: each jar's lilac N2O plume as high and dense as its curve read off the slides, with its ppm as a tag |
+| `field_cores` | 0..1 | 0 | yes | at each date a core lifts out of every plot sampled: 119 (the missing one never lifts) |
+| `field_stack` | 0..1 | 0 | yes | the cores fly in arcs into the stack of the design (3 regimes along x, the two lines front and back, 5 dates up, 4 cores each) |
+| `field_module` | step, -1..16 | -1 | **no** | a module of the network (the engine keys it with net_focus) |
+| `field_mlit` | 0..1 | 0 | yes | each plot glows in the module's colour as far as the module's score in its sample at the date (negative: darker); light rises towards the cloud |
+| `field_pick` | step, -1..5 (line * 3 + regime) | -1 | **no** | a group of plots lit, the others dimmed; -1 none |
+| `field_tags` | 0..1 | 0 | yes | tags on the picked group's four plots: the measure shown at the date, the group's mean against the other line's, with the p of that date |
+| `field_show` | step, 0..4 | 0 | **no** | the measure: 0 chlorophyll, 1 ammonium, 2 nitrate, 3 N2O (the data's potential, unit not given), 4 pH |
+| `field_life` | 0..1 | 0 | yes | not built (the life-size field was optional): no effect |
+| `field_line` | step, -1, 0, 1 | -1 | **no** | only one wheat line's plots lit (-1 both) |
+| `field_fert` | step, -1..2 | -1 | **no** | only one regime's plots lit (-1 all) |
+
+| view | [az, el, dist, tx, ty, tz] | frames |
+| --- | --- | --- |
+| `default` | [-24, 30, 4.2, 0, 0.05, 0] | the whole field from above a front corner |
+| `low` | [-18, 9, 2.6, 0, 0.12, 0.1] | among the wheat, day 70's colours |
+| `plots` | [-30, 40, 2.4, 0, 0, 0] | from above, for the tags |
+| `under` | [-20, 4, 3.2, 0, -0.12, 0] | the slab's side: the nitrate seeping down |
+| `jars` | [52, 14, 1.75, 1.3, 0.17, 0] | from the bench's side, the field behind |
+| `stack` | [-15, 18, 3.4, 0, 0.45, -0.5] | the stack of 119 cores behind the field |
+| `cloud` | [-20, 12, 4.4, 0, 0.8, 0] | the field small under the cloud |
+| `stand` | [0, 2, 0.6, 0, 0.15, 0.55] | eye level at the front plots |
+
+Explore controls: **View** (`view`: `default` The field, `low` Among the wheat, `under` Under the field, `jars` The jars, `stack` The samples); **Date** (`date`: `0` Day 1, `1` Day 15, `2` Day 24, `3` Day 53, `4` Day 70); **Show** (`show`: `chl` Chlorophyll, `nh4` Ammonium, `no3` Nitrate, `n2o` N2O, `ph` pH); **Wheat** (`line`: `both` Both, `0` BNI wheat, `1` Control wheat); **Regime** (`fert`: `all` All, `0` Not fertilised, `1` Fertilised, `2` Fertilised + DCD). `explore(c)` drives `field_grow`, `field_date`, `field_net`, `field_chl`, `field_no3`, `field_nh4`, `field_jars`, `field_jday`, `field_inc`, `field_cores`, `field_stack`, `field_tags`, `field_show`, `field_line`, `field_fert`, `field_pick`.
+
+Anchors (11): `centre`, `field`, `net`, `under`, `jars`, `stack`, `bni`, `ctrl`, `cloud`, `lit`, `pick`.
+
+Own labels (22): "(computed text)" at a computed place; "Not fertilised" at a computed place; "Fertilised · 250 kg N/ha" at a computed place; "Fertilised + DCD · an inhibitor" at a computed place; "Munal-BNI" at `bni`; "Munal-control" at `ctrl`; "(computed text)" at a computed place; "(computed text)" at a computed place; and 14 more.
+
+API (`set.api`): `plotXZ`, `order`, `pick`, `plotAt`, `plot`, `jar`, `ppm`, `chlAt`, `value`, `mod`.
+
+### `soil/net`
+
+The soil's crowd of microbes as a deep cloud (20,000 kinds by phylum: the common ones in its core, the rare ones in a faint shell), the nitrifiers flaring in their guilds' colours, the co-occurrence network of 1,564 kinds and 22,348 links pulling out of the core, a shuffle dissolving every link, its 17 modules in colour, and the halves' own networks side by side (by wheat line, fertiliser or at random).
+
+- **File:** `tools/soil/sets/net.js`; manifest `tools/soil/sets/net.md`.
+- **Belongs to:** the soil story; reuses endo/net (adapted, not reused).
+- **Frame:** In the field set's frame: the cloud centred at (0, 1.3, 0), radius about 0.7; the network scaled to radius about 0.6; split copies at x -0.6 and 0.6 (three: -0.8, 0, 0.8).
+- **Size:** cloud radius ~0.7; network radius ~0.6. Shown together with: `soil/field` (same frame).
+- **Data (real):** reads SOIL_DATA, SDATA, SLOOK. The trial's 16S kinds (20,000 for the cloud, the 3,384 common ones), the co-occurrence network built for this story (CLR, Spearman |rho| at least 0.6, q under 0.05, Louvain: correlation, not interaction), its modules, the shuffled null and the halves' own networks, all stored; the cloud's places and the network's layout are a drawing.
+- **Cost and notes:** net_focus, net_splitBy and net_kind are steps; net_rho is a plain number (0.6 to 0.8). Adapted from the endotype story's net set (its cloud, the pull-out, the colours, focus and picking), without its walkers, heat and k. Build 55 to 135 ms; 6 draw calls at rest, 10 split in three; 20,260 points and 22,348 lines per copy. Exports api (n, nodes, centre, pick, pos, info, kindText, module, nodeOf, cloudOfNode, members, follows, nodesAt, guildTop). Node cold build 159 ms.
+
+| param | range | default | eased | what it does |
+| --- | --- | --- | --- | --- |
+| `net_a` | 0..1 | 1 | yes | the set's fade, 0 hidden to 1 shown (applied by the engine through setAlpha; a set never applies it itself) |
+| `net_cloud` | 0..1 | 1 | yes | the cloud of 20,000 kinds appears from the centre outwards with a bright front (default 1) |
+| `net_nitro` | 0..1 | 0 | yes | the nitrifiers' kinds flare in their guilds' colours, larger, with their tags; the rest steps back |
+| `net_pull` | 0..1 | 0 | yes | the network's 1,564 kinds fly out of the core to their stored layout (each at its own moment); the rest of the cloud recedes to a faint shell |
+| `net_links` | 0..1 | 0 | yes | the 22,348 links fade in: rising together pale cyan, one up as the other goes down faint warm red |
+| `net_shuffle` | 0..1 | 0 | yes | the links shiver and fade to nothing while the kinds scatter a little: "Shuffled · not one link is left" |
+| `net_mods` | 0..1 | 0 | yes | kinds and links take their module's colour; the big modules' tags (size and what they follow) |
+| `net_rho` | 0.6..0.8 | 0.6 | yes | only the strongest links (a prefix of the stored order); kinds left without a link dim |
+| `net_focus` | step, -1..16 | -1 | **no** | a module lit, the rest dimmed (the engine keys the field's field_module and field_mlit with it); -1 none |
+| `net_split` | 0..1 | 0 | yes | the network's copies move apart and fade in, each showing only the links its half's own network also has, with its tag |
+| `net_splitBy` | step, 0..2 | 0 | **no** | 0 wheat line (two copies), 1 fertiliser (three), 2 at random (two halves) |
+| `net_kind` | step, -1.. (cloud index) | -1 | **no** | one kind picked: its bubble, its links lit, its neighbours cyan, its tag; -1 none |
+
+| view | [az, el, dist, tx, ty, tz] | frames |
+| --- | --- | --- |
+| `default` | [-20, 12, 4.4, 0, 1.3, 0] | the whole cloud over the field |
+| `cloud` | [-20, 12, 4.4, 0, 1.3, 0] | the whole cloud over the field |
+| `core` | [-15, 8, 2.4, 0, 1.3, 0] | close on the cloud's core of common kinds |
+| `net` | [-12, 10, 2.8, 0, 1.3, 0] | the network pulled out of the core |
+| `module` | [-12, 20, 3.8, 0, 0.85, 0] | the network with the field below (a module lighting its plots) |
+| `split` | [0, 8, 3.6, 0, 1.3, 0] | the copies side by side |
+| `over` | [-24, 38, 4.6, 0, 0.6, 0] | from above: the network over the field |
+
+Explore controls: **View** (`view`: `cloud` The crowd, `net` The network, `split` Split); **Colour** (`colour`: `phylum` Phylum, `module` Module, `guild` Nitrifiers); **Split by** (`by`: `line` Wheat line, `fert` Fertiliser, `random` At random). `explore(c)` drives `net_cloud`, `net_nitro`, `net_pull`, `net_links`, `net_shuffle`, `net_mods`, `net_split`, `net_splitBy`.
+
+Anchors (36): `cloud`, `core`, `top`, `net`, `netTop`, `under`, `left`, `mid`, `right`, `pick`, `module`, `g_aoa`, `g_nsp`, `g_nsm`, `g_nit`, `g_mnd`, `m0`, `m1`, `m2`, `m3`, `m4`, `m5`, `m6`, `m7`, `m8`, `m9`, `m10`, `m11`, `m12`, `m13`, `m14`, `m15`, `m16`, `copy0`, `copy1`, `copy2`.
+
+Own labels (35): "About 100,000 kinds · of microbe in this soil" at `cloud`; "3,384 common kinds · 95 % of the reads" at `core`; "Ammonia-oxidising archaea · 293 kinds · 4.5 % of reads" at `g_aoa`; "Nitrosospira · 0.23 % of reads, 0.51 % with fertiliser" at `g_nsp`; "Nitrosomonas · 7 kinds · 0.18 %" at `g_nsm`; "Nitrospira · 631 kinds · 0.88 %" at `g_nit`; "Uncultured Nitrosomonadaceae · 1,345 kinds · role unknown" at `g_mnd`; "(computed text)" at `netTop`; and 27 more.
+
+API (`set.api`): `n`, `nodes`, `centre`, `pick`, `pos`, `info`, `kindText`, `module`, `nodeOf`, `cloudOfNode`, `members`, `follows`, `nodesAt`, `guildTop`.
+
 ### `pass/fish`
 
 A school of 300 fish (30 to 600, a live simulation) all around you, each watching its seven nearest neighbours; water, seabed with caustics, rocks, seagrass, light shafts; a shark you steer or that comes now and then; the school can be pulled apart by watching fewer neighbours.
@@ -1867,6 +2016,9 @@ These files in `tools/*/sets/` are pasted before the sets and are not props them
 - `tools/topo/sets/data.js`: TOPO_DATA, topocyte's numbers (generated)
 - `tools/topo/sets/tdata.js`: TDATA, the decoders and look-ups for TOPO_DATA
 - `tools/topo/sets/look.js`: TLOOK, the topology story's shared look
+- `tools/soil/sets/data.js`: SOIL_DATA, the soil story's field trial data (generated by tools/soil/data/gen_data.py)
+- `tools/soil/sets/sdata.js`: SDATA, the decoders and look-ups for SOIL_DATA
+- `tools/soil/sets/look.js`: SLOOK, the soil story's palette and colour rules
 - `tools/lbi/sets/demo.js`: a tiny example set (points on a sphere) for the set harness; no story uses it
 
 ## Where manifests disagree with the code
@@ -1885,4 +2037,4 @@ Wording differences only (not counted): control labels in the code against names
 
 ## Counts
 
-42 sets (the tour's ten, the muscle story's three, the endotype story's three, PET's three, microanatomy's four, ovary's three, qubits' three, mutation's four, topology's four, pass's three, the flock and the robots), 414 params (every param of every set, counting each set once; the tour's `body` and `tissue`, the muscle story's `motor` and the microanatomy story's `organs` are listed once although other stories reuse them, and the `<key>_a` fade of each set is counted), 284 named camera views. The three hand-written stories (airports, proteins, spatial) have no sets.
+45 sets (the tour's ten, the muscle story's three, the endotype story's three, PET's three, microanatomy's four, ovary's three, qubits' three, mutation's four, topology's four, soil's three, pass's three, the flock and the robots), 461 params (every param of every set, counting each set once; the tour's `body` and `tissue`, the muscle story's `motor` and the microanatomy story's `organs` are listed once although other stories reuse them, and the `<key>_a` fade of each set is counted), 307 named camera views. The three hand-written stories (airports, proteins, spatial) have no sets.

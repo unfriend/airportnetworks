@@ -2,9 +2,9 @@
  "generated": "tools/design/props.json: the catalogue of 3D sets (props); code is authoritative, see docs/props.md",
  "coordinates": "camera views are [az, el, dist, tx, ty, tz]: degrees, degrees, local units; camera = target + dist * (cos el sin az, sin el, cos el cos az); vertical field of view 32 degrees",
  "counts": {
-  "sets": 42,
-  "params": 414,
-  "views": 284
+  "sets": 45,
+  "params": 461,
+  "views": 307
  },
  "sets": [
   {
@@ -1005,7 +1005,9 @@
    "id": "lbi/web",
    "key": "web",
    "story": "lbi",
-   "reusedBy": [],
+   "reusedBy": [
+    "soil (its globe only, with the engine's hop)"
+   ],
    "reuses": [],
    "file": "tools/lbi/sets/web.js",
    "manifest": "tools/lbi/sets/web.md",
@@ -17032,6 +17034,1858 @@
    "notes": "cohort_dim and cohort_pick are steps; cohort_from and cohort_to are plain numbers on the 0.5 um grid. Cheap (8 ms). Exports api (n, healthy, cirrhosis, slide, fve, accuracy, confusion, window, windows, gap, grid, pick, mid)."
   },
   {
+   "id": "soil/soil",
+   "key": "soil",
+   "story": "soil",
+   "reusedBy": [],
+   "reuses": [],
+   "file": "tools/soil/sets/soil.js",
+   "manifest": "tools/soil/sets/soil.md",
+   "shows": "A cut-away block of soil with a wheat plant (ears, leaves, fibrous roots and root hairs): fertiliser falls and dissolves into amber ammonium, flows of nitrogen climb the roots or pass through the relay (rose nitrite, blue nitrate washing out, lilac N2O rising); a magnified pore with the relay's microbes (archaea, ammonia-oxidising bacteria, nitrite oxidisers, comammox); the BNI halo round the roots, the wild grass and the piece of chromosome moving into the wheat; one marked atom followed from grain to leaf.",
+   "frame": "The block centred on the origin, its surface at y = 0: 1.2 wide (x), 0.8 deep (z), down to y = -0.7; the wheat at the origin, its awns up to about y = 0.83, its roots down to about -0.62; the wild grass beside it at x = -0.86.",
+   "size": "block 1.2 x 0.8 x 0.7; the plant to 0.83 above it",
+   "sharesFrameWith": [],
+   "params": [
+    {
+     "name": "soil_a",
+     "range": "0..1",
+     "default": 1,
+     "eased": true,
+     "meaning": "the set's fade, 0 hidden to 1 shown (applied by the engine through setAlpha; a set never applies it itself)"
+    },
+    {
+     "name": "soil_grow",
+     "range": "0..1",
+     "default": 1,
+     "eased": true,
+     "meaning": "the plant and its roots grow from nothing (roots first, then the stem, the leaves bottom to top, the ears from 0.62; the hairs follow the roots)",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "soil_cut",
+     "range": "0..1",
+     "default": 1,
+     "eased": true,
+     "meaning": "0 a closed block; 1 the faces nearer the viewer turn to glass (whichever side that is) and seven in ten grains in front of the plant shrink away"
+    },
+    {
+     "name": "soil_fert",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "fertiliser grains fall, land, sink a little and dissolve (0.36 to 0.98) into amber ammonium glowing round them",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "soil_flow",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "how many flow particles run: a share (soil_plant) climbs a root as green into the stem; about 12 % turns rose and rises as lilac N2O wisps; the rest turns rose, then blue (nitrate) and sinks out of the bottom",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "soil_plant",
+     "range": "0..1",
+     "default": 0.45,
+     "eased": true,
+     "meaning": "the plant's share of the flows (0.45: a drawing of the slides' \"less than half\")"
+    },
+    {
+     "name": "soil_inhibit",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "slows the relay's first step: particles stay amber longer, more reach the roots, fewer leave as N2O or nitrate (explore: the BNI wheat 0.6, DCD 0.8)",
+     "usedInStory": [
+      0,
+      0.7
+     ]
+    },
+    {
+     "name": "soil_halo",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "the BNI halo: a soft teal glow along the roots, seeping outwards",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "soil_dcd",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "yellow DCD granules in the top soil (explore only)"
+    },
+    {
+     "name": "soil_pore",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "a magnified pore grows out of the pore spot (a glass bubble, radius 0.3) while the block dims behind it",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "soil_relay",
+     "range": "0..4 (eased)",
+     "default": 0,
+     "eased": true,
+     "meaning": "the relay's microbes come in one guild per step (1 archaea, 2 ammonia-oxidising bacteria, 3 nitrite oxidisers, 4 comammox), handing on glowing particles, amber to rose to blue",
+     "usedInStory": [
+      0,
+      4
+     ]
+    },
+    {
+     "name": "soil_grass",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "the wild grass (Leymus racemosus, drawn) grows beside the block",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "soil_chrom",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "the grass's and the wheat's chromosomes grow in (to 0.12); the marked segment lifts out (to 0.5) and glides into the wheat's (to 0.92), which glows",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "soil_tracer",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "one white atom with a trail: from a fertiliser grain down through the soil, into a microbe (it waits and flickers), out to a root and up into a leaf",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "soil_pick",
+     "range": "step, -1 or 0..3",
+     "default": -1,
+     "eased": false,
+     "meaning": "a guild lit in the pore (0 archaea, 1 bacteria, 2 nitrite oxidisers, 3 comammox), the others dimmed; -1 none"
+    }
+   ],
+   "views": [
+    {
+     "name": "default",
+     "view": [
+      -28,
+      18,
+      3.2,
+      0,
+      0.05,
+      0
+     ],
+     "frames": "the block and the plant"
+    },
+    {
+     "name": "plant",
+     "view": [
+      -20,
+      10,
+      2.4,
+      0,
+      0.45,
+      0
+     ],
+     "frames": "the shoot"
+    },
+    {
+     "name": "roots",
+     "view": [
+      -15,
+      4,
+      1.9,
+      0,
+      -0.3,
+      0.15
+     ],
+     "frames": "low: the roots and the halo"
+    },
+    {
+     "name": "surface",
+     "view": [
+      -30,
+      22,
+      2.2,
+      -0.1,
+      0.05,
+      0.1
+     ],
+     "frames": "from above: the fertiliser, ammonium and N2O"
+    },
+    {
+     "name": "pore",
+     "view": [
+      -10,
+      6,
+      1.5,
+      0.18,
+      -0.28,
+      0.25
+     ],
+     "frames": "the magnified pore filling most of the view"
+    },
+    {
+     "name": "relay",
+     "view": [
+      0,
+      4,
+      1.2,
+      0.18,
+      -0.28,
+      0.25
+     ],
+     "frames": "close on the relay's microbes in the pore"
+    },
+    {
+     "name": "chrom",
+     "view": [
+      -5,
+      8,
+      2.4,
+      -0.1,
+      0.7,
+      0.2
+     ],
+     "frames": "the wild grass, the wheat and the chromosomes above them"
+    },
+    {
+     "name": "tracer",
+     "view": [
+      -25,
+      12,
+      2.8,
+      0,
+      0,
+      0
+     ],
+     "frames": "the marked atom's way from grain to leaf"
+    }
+   ],
+   "controls": [
+    {
+     "key": "view",
+     "label": "View",
+     "options": [
+      {
+       "value": "default",
+       "label": "The block"
+      },
+      {
+       "value": "roots",
+       "label": "The roots"
+      },
+      {
+       "value": "pore",
+       "label": "A soil pore"
+      },
+      {
+       "value": "chrom",
+       "label": "The chromosome"
+      }
+     ]
+    },
+    {
+     "key": "fert",
+     "label": "Fertiliser",
+     "options": [
+      {
+       "value": "on",
+       "label": "Spread"
+      },
+      {
+       "value": "off",
+       "label": "None"
+      }
+     ]
+    },
+    {
+     "key": "wheat",
+     "label": "Wheat",
+     "options": [
+      {
+       "value": "bni",
+       "label": "BNI wheat"
+      },
+      {
+       "value": "ctrl",
+       "label": "Control wheat"
+      }
+     ]
+    },
+    {
+     "key": "dcd",
+     "label": "Inhibitor",
+     "options": [
+      {
+       "value": "off",
+       "label": "None"
+      },
+      {
+       "value": "on",
+       "label": "DCD"
+      }
+     ]
+    }
+   ],
+   "exploreDrives": [
+    "soil_grow",
+    "soil_cut",
+    "soil_fert",
+    "soil_flow",
+    "soil_plant",
+    "soil_halo",
+    "soil_dcd",
+    "soil_inhibit",
+    "soil_pore",
+    "soil_relay",
+    "soil_grass",
+    "soil_chrom",
+    "soil_tracer"
+   ],
+   "anchors": [
+    "surface",
+    "ear",
+    "stem",
+    "roots",
+    "fert",
+    "nh4",
+    "no3",
+    "n2o",
+    "halo",
+    "pore",
+    "aoa",
+    "aob",
+    "nob",
+    "comammox",
+    "grass",
+    "chromGrass",
+    "chromWheat",
+    "segment",
+    "tracer",
+    "corner",
+    "uptake"
+   ],
+   "anchorCount": 21,
+   "labels": [
+    {
+     "text": "Ammonium · from the fertiliser",
+     "at": "nh4",
+     "cls": "amb",
+     "shows": [
+      "soil_fert",
+      "soil_tracer",
+      "soil_halo"
+     ]
+    },
+    {
+     "text": "Nitrate · washes away",
+     "at": "no3",
+     "cls": "cyn",
+     "shows": [
+      "soil_flow",
+      "soil_tracer"
+     ]
+    },
+    {
+     "text": "N2O · a greenhouse gas",
+     "at": "n2o",
+     "cls": "mag",
+     "shows": [
+      "soil_flow",
+      "soil_tracer",
+      "soil_grass"
+     ]
+    },
+    {
+     "text": "Taken up by the plant",
+     "at": "uptake",
+     "cls": "grn",
+     "shows": [
+      "soil_flow",
+      "soil_tracer",
+      "soil_chrom"
+     ]
+    },
+    {
+     "text": "Archaea",
+     "at": "aoa",
+     "cls": "mag",
+     "shows": [
+      "soil_pore",
+      "soil_relay"
+     ]
+    },
+    {
+     "text": "Bacteria",
+     "at": "aob",
+     "cls": "amb",
+     "shows": [
+      "soil_pore",
+      "soil_relay"
+     ]
+    },
+    {
+     "text": "Nitrite oxidisers",
+     "at": "nob",
+     "cls": "cyn",
+     "shows": [
+      "soil_pore",
+      "soil_relay"
+     ]
+    },
+    {
+     "text": "Comammox · both steps",
+     "at": "comammox",
+     "cls": "cyn",
+     "shows": [
+      "soil_pore",
+      "soil_relay"
+     ]
+    },
+    {
+     "text": "BNI · from the roots",
+     "at": "halo",
+     "cls": "cyn",
+     "shows": [
+      "soil_halo",
+      "soil_tracer"
+     ]
+    },
+    {
+     "text": "Wild grass · Leymus racemosus",
+     "at": "grass",
+     "cls": "grn",
+     "shows": [
+      "soil_grass"
+     ]
+    },
+    {
+     "text": "Wheat · Munal",
+     "at": "chromWheat",
+     "cls": "amb",
+     "shows": [
+      "soil_chrom"
+     ]
+    },
+    {
+     "text": "BNI trait · a piece of chromosome",
+     "at": "segment",
+     "cls": "cyn",
+     "shows": [
+      "soil_chrom"
+     ]
+    },
+    {
+     "text": "One marked atom · followed",
+     "at": "tracer",
+     "cls": "",
+     "shows": [
+      "soil_tracer"
+     ]
+    },
+    {
+     "text": "Illustration",
+     "at": "corner",
+     "cls": "",
+     "shows": [
+      "soil_cut"
+     ]
+    }
+   ],
+   "labelCount": 14,
+   "data": {
+    "kind": "illustrative",
+    "reads": [
+     "SLOOK",
+     "TLOOK"
+    ],
+    "text": "A drawing: the only number it stands for is the slides' \"less than half of the fertiliser ends up in the plant\" (soil_plant 0.45); the flows' shares, the pore, the halo and the chromosome are illustrative and labelled so (\"Illustration\")."
+   },
+   "api": [
+    "pick",
+    "guildAt",
+    "tracer",
+    "roots"
+   ],
+   "otherExports": [],
+   "buildMsNode": 107,
+   "notes": "soil_pick is a step. All glows are one pool of additive points drawn without depth test, so the flows read through the cut-away block. Build 60 to 150 ms; 6 draw calls with the block alone, 9 with the pore open; 81k to 92k triangles. Exports api (pick, guildAt, tracer, roots)."
+  },
+  {
+   "id": "soil/field",
+   "key": "field",
+   "story": "soil",
+   "reusedBy": [],
+   "reuses": [
+    "flock/flock (its swaying reeds adapted as the wheat)",
+    "ovary/charts (its stacking movement adapted for the cores)"
+   ],
+   "file": "tools/soil/sets/field.js",
+   "manifest": "tools/soil/sets/field.md",
+   "shows": "The trial's 24 plots in four blocks (two wheat lines, three regimes) under netting, the wheat growing over five dates with its leaves by each plot's measured chlorophyll, ammonium and nitrate under each plot from the data, jars on a bench breathing N2O as read off the slides, 119 soil cores lifting and stacking into the design, and a module of the network lighting the plots where it is strong.",
+   "frame": "The plots on the x-z plane at y = 0 (about 1.8 by 1.2), a soil slab under them to y = -0.25, the wheat up to about 0.3, the netting at 0.42, the jars on a bench at x = 1.3 and the stack of cores behind at z = -0.95 (up to 0.75); the net set draws over it, centred at (0, 1.3, 0).",
+   "size": "field ~1.8 x 1.2 (2.2 wide with the bench)",
+   "sharesFrameWith": [
+    "soil/net"
+   ],
+   "params": [
+    {
+     "name": "field_a",
+     "range": "0..1",
+     "default": 1,
+     "eased": true,
+     "meaning": "the set's fade, 0 hidden to 1 shown (applied by the engine through setAlpha; a set never applies it itself)"
+    },
+    {
+     "name": "field_grow",
+     "range": "0..1",
+     "default": 1,
+     "eased": true,
+     "meaning": "the wheat grows from bare soil (each stem staggered)",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "field_date",
+     "range": "0..4 (days 1, 15, 24, 53, 70; eased)",
+     "default": 0,
+     "eased": true,
+     "meaning": "the sampling date: the wheat's height and stage (the Zadoks stages), the leaves' colour and the measures shown",
+     "usedInStory": [
+      0,
+      4
+     ]
+    },
+    {
+     "name": "field_net",
+     "range": "0..1",
+     "default": 1,
+     "eased": true,
+     "meaning": "the netting, drawn across from left to right; its posts rise first",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "field_chl",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "0 a uniform green; 1 each plot's leaves by its chlorophyll at the date (days 1 to 24 the data's, day 70 read off the slides, day 53 on the line between)",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "field_nh4",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "each plot's top soil glows amber with its ammonium at the date"
+    },
+    {
+     "name": "field_no3",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "blue light seeps down under each plot into the slab, as deep and bright as its nitrate at the date, with drops falling; the slab's near sides turn to glass",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "field_jars",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "the bench and the jars (one per regime and line: six, or thirty)",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "field_jday",
+     "range": "step, -1..4",
+     "default": 0,
+     "eased": false,
+     "meaning": "the date whose soil is in the jars; -1 all five dates in rows"
+    },
+    {
+     "name": "field_inc",
+     "range": "0..1 (0 to 22 days)",
+     "default": 0,
+     "eased": true,
+     "meaning": "the incubation's time: each jar's lilac N2O plume as high and dense as its curve read off the slides, with its ppm as a tag",
+     "usedInStory": [
+      0,
+      0.409
+     ]
+    },
+    {
+     "name": "field_cores",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "at each date a core lifts out of every plot sampled: 119 (the missing one never lifts)",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "field_stack",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "the cores fly in arcs into the stack of the design (3 regimes along x, the two lines front and back, 5 dates up, 4 cores each)",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "field_module",
+     "range": "step, -1..16",
+     "default": -1,
+     "eased": false,
+     "meaning": "a module of the network (the engine keys it with net_focus)",
+     "usedInStory": [
+      -1,
+      1
+     ]
+    },
+    {
+     "name": "field_mlit",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "each plot glows in the module's colour as far as the module's score in its sample at the date (negative: darker); light rises towards the cloud",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "field_pick",
+     "range": "step, -1..5 (line * 3 + regime)",
+     "default": -1,
+     "eased": false,
+     "meaning": "a group of plots lit, the others dimmed; -1 none",
+     "usedInStory": [
+      -1,
+      1
+     ]
+    },
+    {
+     "name": "field_tags",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "tags on the picked group's four plots: the measure shown at the date, the group's mean against the other line's, with the p of that date",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "field_show",
+     "range": "step, 0..4",
+     "default": 0,
+     "eased": false,
+     "meaning": "the measure: 0 chlorophyll, 1 ammonium, 2 nitrate, 3 N2O (the data's potential, unit not given), 4 pH",
+     "usedInStory": [
+      0,
+      2
+     ]
+    },
+    {
+     "name": "field_life",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "not built (the life-size field was optional): no effect"
+    },
+    {
+     "name": "field_line",
+     "range": "step, -1, 0, 1",
+     "default": -1,
+     "eased": false,
+     "meaning": "only one wheat line's plots lit (-1 both)"
+    },
+    {
+     "name": "field_fert",
+     "range": "step, -1..2",
+     "default": -1,
+     "eased": false,
+     "meaning": "only one regime's plots lit (-1 all)"
+    }
+   ],
+   "views": [
+    {
+     "name": "default",
+     "view": [
+      -24,
+      30,
+      4.2,
+      0,
+      0.05,
+      0
+     ],
+     "frames": "the whole field from above a front corner"
+    },
+    {
+     "name": "low",
+     "view": [
+      -18,
+      9,
+      2.6,
+      0,
+      0.12,
+      0.1
+     ],
+     "frames": "among the wheat, day 70's colours"
+    },
+    {
+     "name": "plots",
+     "view": [
+      -30,
+      40,
+      2.4,
+      0,
+      0,
+      0
+     ],
+     "frames": "from above, for the tags"
+    },
+    {
+     "name": "under",
+     "view": [
+      -20,
+      4,
+      3.2,
+      0,
+      -0.12,
+      0
+     ],
+     "frames": "the slab's side: the nitrate seeping down"
+    },
+    {
+     "name": "jars",
+     "view": [
+      52,
+      14,
+      1.75,
+      1.3,
+      0.17,
+      0
+     ],
+     "frames": "from the bench's side, the field behind"
+    },
+    {
+     "name": "stack",
+     "view": [
+      -15,
+      18,
+      3.4,
+      0,
+      0.45,
+      -0.5
+     ],
+     "frames": "the stack of 119 cores behind the field"
+    },
+    {
+     "name": "cloud",
+     "view": [
+      -20,
+      12,
+      4.4,
+      0,
+      0.8,
+      0
+     ],
+     "frames": "the field small under the cloud"
+    },
+    {
+     "name": "stand",
+     "view": [
+      0,
+      2,
+      0.6,
+      0,
+      0.15,
+      0.55
+     ],
+     "frames": "eye level at the front plots"
+    }
+   ],
+   "controls": [
+    {
+     "key": "view",
+     "label": "View",
+     "options": [
+      {
+       "value": "default",
+       "label": "The field"
+      },
+      {
+       "value": "low",
+       "label": "Among the wheat"
+      },
+      {
+       "value": "under",
+       "label": "Under the field"
+      },
+      {
+       "value": "jars",
+       "label": "The jars"
+      },
+      {
+       "value": "stack",
+       "label": "The samples"
+      }
+     ]
+    },
+    {
+     "key": "date",
+     "label": "Date",
+     "options": [
+      {
+       "value": "0",
+       "label": "Day 1"
+      },
+      {
+       "value": "1",
+       "label": "Day 15"
+      },
+      {
+       "value": "2",
+       "label": "Day 24"
+      },
+      {
+       "value": "3",
+       "label": "Day 53"
+      },
+      {
+       "value": "4",
+       "label": "Day 70"
+      }
+     ]
+    },
+    {
+     "key": "show",
+     "label": "Show",
+     "options": [
+      {
+       "value": "chl",
+       "label": "Chlorophyll"
+      },
+      {
+       "value": "nh4",
+       "label": "Ammonium"
+      },
+      {
+       "value": "no3",
+       "label": "Nitrate"
+      },
+      {
+       "value": "n2o",
+       "label": "N2O"
+      },
+      {
+       "value": "ph",
+       "label": "pH"
+      }
+     ]
+    },
+    {
+     "key": "line",
+     "label": "Wheat",
+     "options": [
+      {
+       "value": "both",
+       "label": "Both"
+      },
+      {
+       "value": "0",
+       "label": "BNI wheat"
+      },
+      {
+       "value": "1",
+       "label": "Control wheat"
+      }
+     ]
+    },
+    {
+     "key": "fert",
+     "label": "Regime",
+     "options": [
+      {
+       "value": "all",
+       "label": "All"
+      },
+      {
+       "value": "0",
+       "label": "Not fertilised"
+      },
+      {
+       "value": "1",
+       "label": "Fertilised"
+      },
+      {
+       "value": "2",
+       "label": "Fertilised + DCD"
+      }
+     ]
+    }
+   ],
+   "exploreDrives": [
+    "field_grow",
+    "field_date",
+    "field_net",
+    "field_chl",
+    "field_no3",
+    "field_nh4",
+    "field_jars",
+    "field_jday",
+    "field_inc",
+    "field_cores",
+    "field_stack",
+    "field_tags",
+    "field_show",
+    "field_line",
+    "field_fert",
+    "field_pick"
+   ],
+   "anchors": [
+    "centre",
+    "field",
+    "net",
+    "under",
+    "jars",
+    "stack",
+    "bni",
+    "ctrl",
+    "cloud",
+    "lit",
+    "pick"
+   ],
+   "anchorCount": 11,
+   "labels": [
+    {
+     "text": "(computed text)",
+     "at": "(computed)",
+     "cls": "",
+     "shows": [
+      "field_grow",
+      "field_jars",
+      "field_stack",
+      "net_cloud"
+     ]
+    },
+    {
+     "text": "Not fertilised",
+     "at": "(computed)",
+     "cls": "grn",
+     "shows": [
+      "field_grow",
+      "field_chl"
+     ]
+    },
+    {
+     "text": "Fertilised · 250 kg N/ha",
+     "at": "(computed)",
+     "cls": "mag",
+     "shows": [
+      "field_grow",
+      "field_chl"
+     ]
+    },
+    {
+     "text": "Fertilised + DCD · an inhibitor",
+     "at": "(computed)",
+     "cls": "amb",
+     "shows": [
+      "field_grow",
+      "field_chl"
+     ]
+    },
+    {
+     "text": "Munal-BNI",
+     "at": "bni",
+     "cls": "cyn",
+     "shows": [
+      "field_chl"
+     ]
+    },
+    {
+     "text": "Munal-control",
+     "at": "ctrl",
+     "cls": "amb",
+     "shows": [
+      "field_chl"
+     ]
+    },
+    {
+     "text": "(computed text)",
+     "at": "(computed)",
+     "cls": "",
+     "shows": [
+      "field_pick",
+      "field_tags",
+      "field_jars"
+     ]
+    },
+    {
+     "text": "(computed text)",
+     "at": "(computed)",
+     "cls": "",
+     "shows": [
+      "field_pick",
+      "field_tags",
+      "field_jars"
+     ]
+    },
+    {
+     "text": "(computed text)",
+     "at": "(computed)",
+     "cls": "",
+     "shows": [
+      "field_pick",
+      "field_tags",
+      "field_jars"
+     ]
+    },
+    {
+     "text": "(computed text)",
+     "at": "(computed)",
+     "cls": "",
+     "shows": [
+      "field_pick",
+      "field_tags",
+      "field_jars"
+     ]
+    },
+    {
+     "text": "(computed text)",
+     "at": "pick",
+     "cls": "cyn",
+     "shows": [
+      "field_pick",
+      "field_tags",
+      "field_jars"
+     ]
+    },
+    {
+     "text": "(computed text)",
+     "at": "(computed)",
+     "cls": "mag",
+     "shows": [
+      "field_jars"
+     ]
+    },
+    {
+     "text": "(computed text)",
+     "at": "(computed)",
+     "cls": "",
+     "shows": [
+      "field_jars",
+      "field_jday",
+      "field_inc"
+     ]
+    },
+    {
+     "text": "(computed text)",
+     "at": "(computed)",
+     "cls": "",
+     "shows": [
+      "field_jars",
+      "field_jday",
+      "field_inc"
+     ]
+    },
+    {
+     "text": "(computed text)",
+     "at": "(computed)",
+     "cls": "",
+     "shows": [
+      "field_jars",
+      "field_jday",
+      "field_inc"
+     ]
+    },
+    {
+     "text": "(computed text)",
+     "at": "(computed)",
+     "cls": "",
+     "shows": [
+      "field_jars",
+      "field_jday",
+      "field_inc"
+     ]
+    },
+    {
+     "text": "(computed text)",
+     "at": "(computed)",
+     "cls": "",
+     "shows": [
+      "field_jars",
+      "field_jday",
+      "field_inc"
+     ]
+    },
+    {
+     "text": "(computed text)",
+     "at": "(computed)",
+     "cls": "",
+     "shows": [
+      "field_jars",
+      "field_jday",
+      "field_inc"
+     ]
+    },
+    {
+     "text": "119 samples · 30 groups of 4, one missing",
+     "at": "stack",
+     "cls": "cyn",
+     "shows": [
+      "field_stack"
+     ]
+    },
+    {
+     "text": "Day 1 · bottom",
+     "at": "(computed)",
+     "cls": "",
+     "shows": [
+      "field_stack"
+     ]
+    },
+    {
+     "text": "Day 70 · top",
+     "at": "(computed)",
+     "cls": "",
+     "shows": [
+      "field_stack"
+     ]
+    },
+    {
+     "text": "(computed text)",
+     "at": "lit",
+     "cls": "cyn",
+     "shows": [
+      "field_mlit",
+      "field_module"
+     ]
+    }
+   ],
+   "labelCount": 22,
+   "data": {
+    "kind": "mixed",
+    "reads": [
+     "SOIL_DATA",
+     "SDATA",
+     "SLOOK",
+     "TLOOK"
+    ],
+    "text": "Each plot's chlorophyll (days 1, 15, 24), ammonium and nitrate (all five dates), the tags' means and p values, the 119 cores and the modules' scores are the trial's data; day 70's chlorophyll and the jars' N2O curves are read off the slides (approximate); the plots' layout (the real map is not known), the wheat's look and the netting are illustrative."
+   },
+   "api": [
+    "plotXZ",
+    "order",
+    "pick",
+    "plotAt",
+    "plot",
+    "jar",
+    "ppm",
+    "chlAt",
+    "value",
+    "mod"
+   ],
+   "otherExports": [],
+   "buildMsNode": 152,
+   "notes": "field_jday, field_module, field_pick, field_show, field_line and field_fert are steps; field_life is not built. Build 50 to 150 ms; 7 to 9 draw calls; 47k triangles (62k with all thirty jars and the cores). Exports api (plotXZ, order, pick, plotAt, plot, jar, ppm, chlAt, value, mod)."
+  },
+  {
+   "id": "soil/net",
+   "key": "net",
+   "story": "soil",
+   "reusedBy": [],
+   "reuses": [
+    "endo/net (adapted, not reused)"
+   ],
+   "file": "tools/soil/sets/net.js",
+   "manifest": "tools/soil/sets/net.md",
+   "shows": "The soil's crowd of microbes as a deep cloud (20,000 kinds by phylum: the common ones in its core, the rare ones in a faint shell), the nitrifiers flaring in their guilds' colours, the co-occurrence network of 1,564 kinds and 22,348 links pulling out of the core, a shuffle dissolving every link, its 17 modules in colour, and the halves' own networks side by side (by wheat line, fertiliser or at random).",
+   "frame": "In the field set's frame: the cloud centred at (0, 1.3, 0), radius about 0.7; the network scaled to radius about 0.6; split copies at x -0.6 and 0.6 (three: -0.8, 0, 0.8).",
+   "size": "cloud radius ~0.7; network radius ~0.6",
+   "sharesFrameWith": [
+    "soil/field"
+   ],
+   "params": [
+    {
+     "name": "net_a",
+     "range": "0..1",
+     "default": 1,
+     "eased": true,
+     "meaning": "the set's fade, 0 hidden to 1 shown (applied by the engine through setAlpha; a set never applies it itself)"
+    },
+    {
+     "name": "net_cloud",
+     "range": "0..1",
+     "default": 1,
+     "eased": true,
+     "meaning": "the cloud of 20,000 kinds appears from the centre outwards with a bright front (default 1)",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "net_nitro",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "the nitrifiers' kinds flare in their guilds' colours, larger, with their tags; the rest steps back",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "net_pull",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "the network's 1,564 kinds fly out of the core to their stored layout (each at its own moment); the rest of the cloud recedes to a faint shell",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "net_links",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "the 22,348 links fade in: rising together pale cyan, one up as the other goes down faint warm red",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "net_shuffle",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "the links shiver and fade to nothing while the kinds scatter a little: \"Shuffled · not one link is left\"",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "net_mods",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "kinds and links take their module's colour; the big modules' tags (size and what they follow)",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "net_rho",
+     "range": "0.6..0.8",
+     "default": 0.6,
+     "eased": true,
+     "meaning": "only the strongest links (a prefix of the stored order); kinds left without a link dim"
+    },
+    {
+     "name": "net_focus",
+     "range": "step, -1..16",
+     "default": -1,
+     "eased": false,
+     "meaning": "a module lit, the rest dimmed (the engine keys the field's field_module and field_mlit with it); -1 none",
+     "usedInStory": [
+      -1,
+      1
+     ]
+    },
+    {
+     "name": "net_split",
+     "range": "0..1",
+     "default": 0,
+     "eased": true,
+     "meaning": "the network's copies move apart and fade in, each showing only the links its half's own network also has, with its tag",
+     "usedInStory": [
+      0,
+      1
+     ]
+    },
+    {
+     "name": "net_splitBy",
+     "range": "step, 0..2",
+     "default": 0,
+     "eased": false,
+     "meaning": "0 wheat line (two copies), 1 fertiliser (three), 2 at random (two halves)"
+    },
+    {
+     "name": "net_kind",
+     "range": "step, -1.. (cloud index)",
+     "default": -1,
+     "eased": false,
+     "meaning": "one kind picked: its bubble, its links lit, its neighbours cyan, its tag; -1 none"
+    }
+   ],
+   "views": [
+    {
+     "name": "default",
+     "view": [
+      -20,
+      12,
+      4.4,
+      0,
+      1.3,
+      0
+     ],
+     "frames": "the whole cloud over the field"
+    },
+    {
+     "name": "cloud",
+     "view": [
+      -20,
+      12,
+      4.4,
+      0,
+      1.3,
+      0
+     ],
+     "frames": "the whole cloud over the field"
+    },
+    {
+     "name": "core",
+     "view": [
+      -15,
+      8,
+      2.4,
+      0,
+      1.3,
+      0
+     ],
+     "frames": "close on the cloud's core of common kinds"
+    },
+    {
+     "name": "net",
+     "view": [
+      -12,
+      10,
+      2.8,
+      0,
+      1.3,
+      0
+     ],
+     "frames": "the network pulled out of the core"
+    },
+    {
+     "name": "module",
+     "view": [
+      -12,
+      20,
+      3.8,
+      0,
+      0.85,
+      0
+     ],
+     "frames": "the network with the field below (a module lighting its plots)"
+    },
+    {
+     "name": "split",
+     "view": [
+      0,
+      8,
+      3.6,
+      0,
+      1.3,
+      0
+     ],
+     "frames": "the copies side by side"
+    },
+    {
+     "name": "over",
+     "view": [
+      -24,
+      38,
+      4.6,
+      0,
+      0.6,
+      0
+     ],
+     "frames": "from above: the network over the field"
+    }
+   ],
+   "controls": [
+    {
+     "key": "view",
+     "label": "View",
+     "options": [
+      {
+       "value": "cloud",
+       "label": "The crowd"
+      },
+      {
+       "value": "net",
+       "label": "The network"
+      },
+      {
+       "value": "split",
+       "label": "Split"
+      }
+     ]
+    },
+    {
+     "key": "colour",
+     "label": "Colour",
+     "options": [
+      {
+       "value": "phylum",
+       "label": "Phylum"
+      },
+      {
+       "value": "module",
+       "label": "Module"
+      },
+      {
+       "value": "guild",
+       "label": "Nitrifiers"
+      }
+     ]
+    },
+    {
+     "key": "by",
+     "label": "Split by",
+     "options": [
+      {
+       "value": "line",
+       "label": "Wheat line"
+      },
+      {
+       "value": "fert",
+       "label": "Fertiliser"
+      },
+      {
+       "value": "random",
+       "label": "At random"
+      }
+     ]
+    }
+   ],
+   "exploreDrives": [
+    "net_cloud",
+    "net_nitro",
+    "net_pull",
+    "net_links",
+    "net_shuffle",
+    "net_mods",
+    "net_split",
+    "net_splitBy"
+   ],
+   "anchors": [
+    "cloud",
+    "core",
+    "top",
+    "net",
+    "netTop",
+    "under",
+    "left",
+    "mid",
+    "right",
+    "pick",
+    "module",
+    "g_aoa",
+    "g_nsp",
+    "g_nsm",
+    "g_nit",
+    "g_mnd",
+    "m0",
+    "m1",
+    "m2",
+    "m3",
+    "m4",
+    "m5",
+    "m6",
+    "m7",
+    "m8",
+    "m9",
+    "m10",
+    "m11",
+    "m12",
+    "m13",
+    "m14",
+    "m15",
+    "m16",
+    "copy0",
+    "copy1",
+    "copy2"
+   ],
+   "anchorCount": 36,
+   "labels": [
+    {
+     "text": "About 100,000 kinds · of microbe in this soil",
+     "at": "cloud",
+     "cls": "cyn",
+     "shows": [
+      "net_cloud",
+      "net_pull",
+      "net_nitro"
+     ]
+    },
+    {
+     "text": "3,384 common kinds · 95 % of the reads",
+     "at": "core",
+     "cls": "amb",
+     "shows": [
+      "net_cloud",
+      "net_pull",
+      "net_nitro"
+     ]
+    },
+    {
+     "text": "Ammonia-oxidising archaea · 293 kinds · 4.5 % of reads",
+     "at": "g_aoa",
+     "cls": "mag",
+     "shows": [
+      "net_nitro",
+      "net_pull"
+     ]
+    },
+    {
+     "text": "Nitrosospira · 0.23 % of reads, 0.51 % with fertiliser",
+     "at": "g_nsp",
+     "cls": "amb",
+     "shows": [
+      "net_nitro",
+      "net_pull"
+     ]
+    },
+    {
+     "text": "Nitrosomonas · 7 kinds · 0.18 %",
+     "at": "g_nsm",
+     "cls": "amb",
+     "shows": [
+      "net_nitro",
+      "net_pull"
+     ]
+    },
+    {
+     "text": "Nitrospira · 631 kinds · 0.88 %",
+     "at": "g_nit",
+     "cls": "cyn",
+     "shows": [
+      "net_nitro",
+      "net_pull"
+     ]
+    },
+    {
+     "text": "Uncultured Nitrosomonadaceae · 1,345 kinds · role unknown",
+     "at": "g_mnd",
+     "cls": "",
+     "shows": [
+      "net_nitro",
+      "net_pull"
+     ]
+    },
+    {
+     "text": "(computed text)",
+     "at": "netTop",
+     "cls": "cyn",
+     "shows": [
+      "net_links",
+      "net_mods"
+     ]
+    },
+    {
+     "text": "Shuffled · not one link is left",
+     "at": "netTop",
+     "cls": "amb",
+     "shows": [
+      "net_shuffle",
+      "net_links"
+     ]
+    },
+    {
+     "text": "438 kinds · follow the fertiliser",
+     "at": "m0",
+     "cls": "",
+     "shows": [
+      "net_mods"
+     ]
+    },
+    {
+     "text": "312 kinds · follow the plots",
+     "at": "m1",
+     "cls": "",
+     "shows": [
+      "net_mods"
+     ]
+    },
+    {
+     "text": "296 kinds · follow the plots",
+     "at": "m2",
+     "cls": "",
+     "shows": [
+      "net_mods"
+     ]
+    },
+    {
+     "text": "213 kinds · follow the plots",
+     "at": "m3",
+     "cls": "",
+     "shows": [
+      "net_mods"
+     ]
+    },
+    {
+     "text": "172 kinds · follow the fertiliser",
+     "at": "m4",
+     "cls": "",
+     "shows": [
+      "net_mods"
+     ]
+    },
+    {
+     "text": "30 kinds · follow the plots",
+     "at": "m5",
+     "cls": "",
+     "shows": [
+      "net_mods"
+     ]
+    },
+    {
+     "text": "5 kinds · follow the fertiliser",
+     "at": "m6",
+     "cls": "",
+     "shows": [
+      "net_mods"
+     ]
+    },
+    {
+     "text": "5 kinds · follow the date",
+     "at": "m7",
+     "cls": "",
+     "shows": [
+      "net_mods"
+     ]
+    },
+    {
+     "text": "4 kinds · follow the plots",
+     "at": "m8",
+     "cls": "",
+     "shows": [
+      "net_mods"
+     ]
+    },
+    {
+     "text": "3 kinds · follow the date",
+     "at": "m9",
+     "cls": "",
+     "shows": [
+      "net_mods"
+     ]
+    },
+    {
+     "text": "3 kinds · follow the fertiliser",
+     "at": "m10",
+     "cls": "",
+     "shows": [
+      "net_mods"
+     ]
+    },
+    {
+     "text": "3 kinds · follow the plots",
+     "at": "m11",
+     "cls": "",
+     "shows": [
+      "net_mods"
+     ]
+    },
+    {
+     "text": "3 kinds · follow the date",
+     "at": "m12",
+     "cls": "",
+     "shows": [
+      "net_mods"
+     ]
+    },
+    {
+     "text": "3 kinds · follow the plots",
+     "at": "m13",
+     "cls": "",
+     "shows": [
+      "net_mods"
+     ]
+    },
+    {
+     "text": "3 kinds · follow the plots",
+     "at": "m14",
+     "cls": "",
+     "shows": [
+      "net_mods"
+     ]
+    },
+    {
+     "text": "3 kinds · follow the plots",
+     "at": "m15",
+     "cls": "",
+     "shows": [
+      "net_mods"
+     ]
+    },
+    {
+     "text": "3 kinds · follow the plots",
+     "at": "m16",
+     "cls": "",
+     "shows": [
+      "net_mods"
+     ]
+    },
+    {
+     "text": "BNI wheat · 38,653 links",
+     "at": "copy0",
+     "cls": "cyn",
+     "shows": [
+      "net_split"
+     ]
+    },
+    {
+     "text": "Control wheat · 30,276 links",
+     "at": "copy1",
+     "cls": "amb",
+     "shows": [
+      "net_split"
+     ]
+    },
+    {
+     "text": "Not fertilised · 72,969 links",
+     "at": "copy0",
+     "cls": "",
+     "shows": [
+      "net_split"
+     ]
+    },
+    {
+     "text": "Fertilised · 66,578 links",
+     "at": "copy1",
+     "cls": "",
+     "shows": [
+      "net_split"
+     ]
+    },
+    {
+     "text": "Fertilised + DCD · 45,387 links",
+     "at": "copy2",
+     "cls": "",
+     "shows": [
+      "net_split"
+     ]
+    },
+    {
+     "text": "Random half A · 45,369 links",
+     "at": "copy0",
+     "cls": "",
+     "shows": [
+      "net_split"
+     ]
+    },
+    {
+     "text": "Random half B · 30,025 links",
+     "at": "copy1",
+     "cls": "",
+     "shows": [
+      "net_split"
+     ]
+    },
+    {
+     "text": "8,377 links apart · random halves: 158 to 27,758",
+     "at": "under",
+     "cls": "amb",
+     "shows": [
+      "net_split"
+     ]
+    },
+    {
+     "text": "(computed text)",
+     "at": "pick",
+     "cls": "cyn",
+     "shows": []
+    }
+   ],
+   "labelCount": 35,
+   "data": {
+    "kind": "real",
+    "reads": [
+     "SOIL_DATA",
+     "SDATA",
+     "SLOOK"
+    ],
+    "text": "The trial's 16S kinds (20,000 for the cloud, the 3,384 common ones), the co-occurrence network built for this story (CLR, Spearman |rho| at least 0.6, q under 0.05, Louvain: correlation, not interaction), its modules, the shuffled null and the halves' own networks, all stored; the cloud's places and the network's layout are a drawing."
+   },
+   "api": [
+    "n",
+    "nodes",
+    "centre",
+    "pick",
+    "pos",
+    "info",
+    "kindText",
+    "module",
+    "nodeOf",
+    "cloudOfNode",
+    "members",
+    "follows",
+    "nodesAt",
+    "guildTop"
+   ],
+   "otherExports": [],
+   "buildMsNode": 159,
+   "notes": "net_focus, net_splitBy and net_kind are steps; net_rho is a plain number (0.6 to 0.8). Adapted from the endotype story's net set (its cloud, the pull-out, the colours, focus and picking), without its walkers, heat and k. Build 55 to 135 ms; 6 draw calls at rest, 10 split in three; 20,260 points and 22,348 lines per copy. Exports api (n, nodes, centre, pick, pos, info, kindText, module, nodeOf, cloudOfNode, members, follows, nodesAt, guildTop)."
+  },
+  {
    "id": "pass/fish",
    "key": "fish",
    "story": "pass",
@@ -18896,6 +20750,18 @@
   {
    "file": "tools/topo/sets/look.js",
    "what": "TLOOK, the topology story's shared look"
+  },
+  {
+   "file": "tools/soil/sets/data.js",
+   "what": "SOIL_DATA, the soil story's field trial data (generated by tools/soil/data/gen_data.py)"
+  },
+  {
+   "file": "tools/soil/sets/sdata.js",
+   "what": "SDATA, the decoders and look-ups for SOIL_DATA"
+  },
+  {
+   "file": "tools/soil/sets/look.js",
+   "what": "SLOOK, the soil story's palette and colour rules"
   },
   {
    "file": "tools/lbi/sets/demo.js",

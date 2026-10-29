@@ -117,6 +117,11 @@ const STORIES = {
     change: "pickTab('cohort'); sceneCtl('cohort', 'dim', '0'); showView('cohort', 'space'); selectSlide(16); setR(30, false)",
     back: "pickTab('cells'); sceneCtl('map', 'delta', '100'); selectCell(1233); setMR(4.8); setFrom(10); setTo(20)",
   },
+  soil: {
+    // (the network: a module, a threshold, split by wheat line; then the field: a date, its nitrate, a group of plots)
+    change: "pickTab('network'); selectModule(2); setRho(0.72); setSplit('line')",
+    back: "pickTab('field'); sceneCtl('field', 'date', '2'); pickShow('no3'); selectPlot(4)",
+  },
   robots: {
     change: "setCtl('robots', 'rule', 'chain'); setCtl('robots', 'robots', '12')", back: "setCtl('robots', 'trails', 'on'); setCtl('robots', 'links', 'on')",
     effect: { quiet: '0', idle: "(window.__c0 = GL.sets.robots.anchors.crumbs().join(), true)", send: 'spillCrumbs()', seen: "GL.sets.robots.anchors.crumbs().join() !== window.__c0" },
