@@ -54,7 +54,8 @@ try { prev = JSON.parse(read('version.json')); } catch (e) { /* the first releas
 let n = vnum;
 if (prev && prev.shell && prev.shell.id === id) n = prev.shell.n;
 else if (prev && prev.shell && vnum <= prev.shell.n) {
-  fail(`The shell changed since version.json was written (release ${prev.shell.n}): bump VERSION in sw.js first, then run this again.`);
+  fail(check ? `version.json is out of date: the shell changed since release ${prev.shell.n} (bump VERSION in sw.js, then run node tools/release.mjs)` :
+    `The shell changed since version.json was written (release ${prev.shell.n}): bump VERSION in sw.js first, then run this again.`);
 }
 const stories = {};
 for (const m of list) {

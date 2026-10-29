@@ -123,8 +123,30 @@ var LOWPOLY_MODELS = LOWPOLY_MODELS || {};
   const cyl = (rt, rb, h, n, p, r, open) => at(cylF(rt, rb, h, n, 1, open), p, r);
   const tor = (R, r, rs, ts, p, rot, arc) => at(torF(R, r, rs, ts, arc || Math.PI * 2), p, rot);
   const disc = (rad, n, p, r) => at(discF(rad, n), p, r);
-  const lathe = (pts, n, p, s, r) => at(new T.LatheGeometry(pts.map(q => new T.Vector2(q[0], q[1])), n), p, r, s);
-  const tube = (pts, seg, rad, n) => { const c = new T.CatmullRomCurve3(pts.map(q => new T.Vector3(q[0], q[1], q[2]))); c.arcLengthDivisions = 4 * seg; return new T.TubeGeometry(c, seg, rad, n, false); };
+  // a profile [[r, y], ...] turned round the y axis (x = r sin a, z = r cos a, as three's LatheGeometry)
+  function latheF(pts, n) {
+    const L = pts.length - 1;
+    return surf(n, L, (u, v) => {
+      const j = Math.round(v * L), a = u * 6.2832, q = pts[j], q0 = pts[Math.max(0, j - 1)], q1 = pts[Math.min(L, j + 1)];
+      const dr = q1[0] - q0[0], dy = q1[1] - q0[1], l = Math.hypot(dr, dy) || 1, nr = dy / l, ny = -dr / l;
+      return [q[0] * Math.sin(a), q[1], q[0] * Math.cos(a), nr * Math.sin(a), ny, nr * Math.cos(a)];
+    });
+  }
+  const lathe = (pts, n, p, s, r) => at(latheF(pts, n), p, r, s);
+  // a tube of n sides through points, along a Catmull-Rom curve, its rings carried along by parallel transport
+  function tube(pts, seg, rad, n) {
+    const S = [], K = pts.length - 1;
+    for (let i = 0; i <= seg; i++) {
+      const t = i / seg * K, k = Math.min(K - 1, Math.floor(t)), u = t - k, p0 = pts[Math.max(0, k - 1)], p1 = pts[k], p2 = pts[k + 1], p3 = pts[Math.min(K, k + 2)];
+      S.push([0, 1, 2].map(c => 0.5 * (2 * p1[c] + (p2[c] - p0[c]) * u + (2 * p0[c] - 5 * p1[c] + 4 * p2[c] - p3[c]) * u * u + (3 * p1[c] - p0[c] - 3 * p2[c] + p3[c]) * u * u * u)));
+    }
+    const Tn = S.map((_, i) => norm3(add3(S[Math.min(seg, i + 1)], mul3(S[Math.max(0, i - 1)], -1)))), Nn = [], Bn = [];
+    let nv = norm3(cross(Tn[0], Math.abs(Tn[0][1]) < 0.9 ? [0, 1, 0] : [1, 0, 0]));
+    for (let i = 0; i <= seg; i++) { nv = norm3(add3(nv, mul3(Tn[i], -(nv[0] * Tn[i][0] + nv[1] * Tn[i][1] + nv[2] * Tn[i][2])))); Nn.push(nv); Bn.push(cross(Tn[i], nv)); }
+    return surf(n, seg, (u, v) => { const i = Math.round(v * seg), a = u * 6.2832, d = add3(mul3(Nn[i], Math.cos(a)), mul3(Bn[i], Math.sin(a))); return [...add3(S[i], mul3(d, rad)), ...d]; });
+  }
+  // a flat sector of a ring in the x-z plane facing up, from angle t0 over tl (x = r sin t, z = r cos t)
+  const ringF = (r0, r1, n, t0, tl) => surf(n, 1, (u, v) => { const t = t0 + u * tl, r = lerp(r0, r1, v); return [r * Math.sin(t), 0, r * Math.cos(t), 0, 1, 0]; });
   // a rod from a to b (radius r1 at a, r2 at b, n sides); open by default, as the thin links are
   function rod(a, b, r1, r2, n, open) {
     n = n || 4; if (r2 === undefined) r2 = r1;
@@ -150,9 +172,9 @@ var LOWPOLY_MODELS = LOWPOLY_MODELS || {};
     shiny: () => std({ roughness: 0.28, metalness: 0.08 }),
     soft: () => glowing(std({ roughness: 0.5, metalness: 0 }), 0.3),
     two: () => glowing(std({ roughness: 0.55, metalness: 0, side: T.DoubleSide }), 0.3),
-    glow: () => glowing(std({ roughness: 0.45, metalness: 0 }), 0.85),
+    glow: () => glowing(std({ color: 0x808080, roughness: 0.45, metalness: 0 }), 0.65),   // half lit, so bright colours keep their hue
     glass: () => glowing(std({ roughness: 0.12, metalness: 0.1, transparent: true, opacity: 0.3, depthWrite: false, side: T.DoubleSide }), 0.4),
-    haze: () => glowing(std({ roughness: 0.3, metalness: 0, transparent: true, opacity: 0.2, depthWrite: false, side: T.DoubleSide }), 1),
+    haze: () => glowing(std({ color: 0x000000, roughness: 1, metalness: 0, transparent: true, opacity: 0.3, depthWrite: false, blending: T.AdditiveBlending }), 1),   // unlit glow
   };
   const ORDER = ['solid', 'shiny', 'soft', 'two', 'glow', 'glass', 'haze'];
 
@@ -205,6 +227,8 @@ var LOWPOLY_MODELS = LOWPOLY_MODELS || {};
     };
   }
 
+  // a soft glow brighter towards its middle: three nested additive shells
+  const glowBall = (b, c, r, outer, inner) => { for (let k = 0; k < 3; k++) b.add('haze', sph(r * [1, 0.68, 0.38][k], 8, 6, c), mix(outer, inner, k / 2)); };
   // a dark round stand with a glowing rim, for the props that float
   const plinth = (b, r, h) => { h = h || 0.04; b.add('solid', cyl(r, r * 1.04, h, 16, [0, h / 2, 0]), '#0f1b2e'); b.add('glow', cyl(r * 1.006, r * 1.006, h * 0.3, 16, [0, h * 0.8, 0], null, true), '#2397c4'); };
   // a long dark stand with glowing top edges, for the props laid out along x
@@ -255,23 +279,22 @@ var LOWPOLY_MODELS = LOWPOLY_MODELS || {};
   // ================================================================ the tour (lbi)
 
   add('lbi.int', 'Interactome', 'A glowing ball of human protein interactions, dense and bright at its centre, with tufts towards the rim.', b => {
-    const r = rng(7), C = [0, 0.56, 0], P = [], cols = [];
+    const r = rng(7), C = [0, 0.5, 0], P = [], cols = [];
     plinth(b, 0.24);
-    const tufts = [0, 1, 2, 3, 4, 5].map(() => mul3(unit(r), 0.34));
+    const tufts = [0, 1, 2, 3, 4, 5, 6].map(() => mul3(unit(r), 0.34));
     const ACC = ['#ff5ad9', '#ffb43b', '#3ee08f', '#46d9ff', '#ff5a4b', '#c84fd0', '#2f9e44', '#4d94ff'];
-    for (let i = 0; i < 56; i++) {
-      const p = i < 20 ? mul3(unit(r), 0.05 + 0.15 * Math.cbrt(r())) : i < 38 ? mul3(unit(r), 0.2 + 0.15 * r()) : add3(tufts[i % 6], mul3(unit(r), 0.07 * r()));
+    for (let i = 0; i < 74; i++) {
+      const p = i < 30 ? mul3(unit(r), 0.03 + 0.17 * Math.cbrt(r())) : i < 50 ? mul3(unit(r), 0.2 + 0.14 * r()) : add3(tufts[i % 7], mul3(unit(r), 0.075 * r()));
       p[1] *= 0.92; P.push(p);
       const d = len3(p) / 0.4;
-      cols.push(i >= 22 && i < 30 ? col(ACC[i - 22]) : d < 0.5 ? mix('#ffffff', '#a9c0ff', d * 2) : mix('#a9c0ff', '#8d7cf5', (d - 0.5) * 2));
-      b.add('glow', octa(i < 4 ? 0.032 : 0.025 - 0.008 * Math.min(1, d), add3(C, p)), cols[i]);
+      cols.push(i >= 32 && i < 40 ? col(ACC[i - 32]) : d < 0.5 ? mix('#eef4ff', '#8fb0ff', d * 2) : mix('#8fb0ff', '#8a74f0', (d - 0.5) * 2));
+      b.add('glow', octa(i < 4 ? 0.03 : 0.022 - 0.007 * Math.min(1, d), add3(C, p)), cols[i]);
     }
-    const link = (i, j) => b.add('glow', rod(add3(C, P[i]), add3(C, P[j]), 0.005, 0.005, 3), mix(cols[i], cols[j], 0.5).multiplyScalar(0.8));
-    for (let i = 1; i < 56; i++) { let best = 0; for (let j = 1; j < i; j++) if (dist(P[i], P[j]) < dist(P[i], P[best])) best = j; link(i, best); }
-    for (let k = 0; k < 14; k++) link(20 + Math.floor(r() * 36), Math.floor(r() * 4));
-    b.add('haze', sph(0.2, 10, 8, C), '#9fbcff');                               // the dense luminous centre
-    b.add('glow', ico(0.085, 0, C), '#f4f8ff');
+    const link = (i, j) => b.add('glow', rod(add3(C, P[i]), add3(C, P[j]), 0.0042, 0.0042, 3), mix(cols[i], cols[j], 0.5).multiplyScalar(0.7));
+    for (let i = 30; i < 74; i++) { let best = 0; for (let j = 0; j < i; j++) if (dist(P[i], P[j]) < dist(P[i], P[best])) best = j; link(i, best); }
+    glowBall(b, C, 0.26, '#26357a', '#dfe8ff');                                  // the dense luminous centre
   });
+
   add('lbi.mac', 'Classic computer', 'A beige all-in-one computer with its keyboard and mouse, before it is taken apart.', b => {
     const BE = '#cdc4ad', BE2 = '#b3aa94', BE3 = '#9a927e', KEY = '#bab19a', DARK = '#1a1b1d', INNER = '#3c3a36';
     b.add('solid', box(0.42, 0.52, 0.46, [0, 0.3, -0.06]), BE);
@@ -298,7 +321,7 @@ var LOWPOLY_MODELS = LOWPOLY_MODELS || {};
   });
 
   add('lbi.web', 'Internet map', 'The internet as trees of links growing out of white-hot hubs into yellow trunks and red twigs.', b => {
-    const r = rng(5), CY = 0.56, COL = ['#ffe27a', '#ff9a2a', '#e0401a'], RAD = [0.009, 0.0065, 0.0045];
+    const r = rng(5), CY = 0.46, COL = ['#ffe27a', '#ff9a2a', '#e0401a'], RAD = [0.009, 0.0065, 0.0045];
     plinth(b, 0.22);
     const flat = d => norm3([d[0], d[1] * 0.7, d[2]]);
     function grow(p, d, len, depth) {
@@ -316,6 +339,7 @@ var LOWPOLY_MODELS = LOWPOLY_MODELS || {};
     }
     for (const [i, j] of [[0, 1], [0, 4], [1, 3], [2, 5]]) b.add('soft', rod(hubs[i], hubs[j], 0.003, 0.003, 3), '#d8763a');
   });
+
   add('lbi.dna', 'DNA double helix', 'A double helix with its coloured base pairs, beside a chromosome it coils up into.', b => {
     const BASE = { A: '#3ee08f', T: '#ff5a4b', G: '#ffb43b', C: '#4f9dff' }, PAIRS = ['AT', 'GC', 'TA', 'CG', 'AT', 'GC', 'CG', 'TA'];
     const X0 = -0.07, Y0 = 0.09, H = 0.86, R = 0.1, TURNS = 2.1, PH = [0, 2.3];
@@ -352,7 +376,7 @@ var LOWPOLY_MODELS = LOWPOLY_MODELS || {};
     b.add('solid', cyl(0.4, 0.41, 0.02, 16, [0, 0.01, 0.06]), '#0b1424');
     const person = (p, red) => {
       const c = red ? '#ff5a4b' : mix('#5f6b7c', '#99a5b6', r()), k = red ? 'glow' : 'solid';
-      b.add(k, lathe([[0, 0], [0.042, 0], [0.036, 0.07], [0.03, 0.095], [0.012, 0.104]], 5, [p[0], 0.02, p[2]]), c);
+      b.add(k, lathe([[0, 0], [0.042, 0], [0.033, 0.08], [0.012, 0.104]], 5, [p[0], 0.02, p[2]]), c);
       b.add(k, sph(0.022, 5, 3, [p[0], 0.149, p[2]]), c);
     };
     ROWS.forEach((n, k) => {
@@ -367,6 +391,7 @@ var LOWPOLY_MODELS = LOWPOLY_MODELS || {};
       }
     });
   });
+
   add('lbi.sankey', 'Sankey diagram', 'Clinical categories on the left flowing as coloured ribbons into molecular clusters on the right.', b => {
     const CL = ['#4bb8d6', '#f39a3c', '#e3534c', '#b07fd9', '#43b6c6', '#a2544f', '#8d8d8d', '#e2c64a', '#e0535b'];
     const MO = ['#8a8f98', '#9b6bd6', '#e0453a', '#3fae5a', '#2f9e44', '#8c3b2e', '#6d7784', '#c84fd0', '#d9c63a', '#2d8fd6', '#7d6b5d', '#a855d8', '#c73fa0', '#1f7ac2', '#8a4b2a', '#5aa86c', '#9aa4ad', '#d6303a', '#c0c4c9'];
@@ -400,11 +425,11 @@ var LOWPOLY_MODELS = LOWPOLY_MODELS || {};
 
   add('lbi.scale', 'Tower of scales', 'A glass tower of eight glowing floors, from DNA at the bottom to the whole body at the top.', b => {
     plinth(b, 0.31);
-    b.add('glass', cyl(0.29, 0.29, 0.92, 14, [0, 0.5, 0], null, true), '#7fe3ff');
+    b.add('glass', cyl(0.29, 0.29, 0.92, 14, [0, 0.5, 0], null, true), '#2a8fb0');
     b.add('glow', cyl(0.292, 0.292, 0.008, 14, [0, 0.96, 0], null, true), '#46d9ff');
-    const Y = k => 0.1 + k * 0.112, G = 'glow', E = (k, d) => add3([0, Y(k) + 0.004, 0], d);
+    const Y = k => 0.1 + k * 0.112, G = 'soft', E = (k, d) => add3([0, Y(k) + 0.004, 0], d);
     for (let k = 0; k < 8; k++) {
-      b.add('glass', cyl(0.25, 0.25, 0.006, 12, [0, Y(k), 0]), '#2bb5d8');
+      b.add('haze', disc(0.25, 12, [0, Y(k), 0], [-Math.PI / 2, 0, 0]), '#0f5f78');          // a holographic floor
       b.add('glow', cyl(0.252, 0.252, 0.01, 12, [0, Y(k), 0], null, true), '#46d9ff');
     }
     // a small lit emblem on each floor
@@ -424,6 +449,7 @@ var LOWPOLY_MODELS = LOWPOLY_MODELS || {};
     b.add(G, cyl(0.015, 0.022, 0.065, 6, E(7, [0, 0.035, 0])), '#e2eaf6');                                      // the body
     b.add(G, ico(0.017, 0, E(7, [0, 0.085, 0])), '#e2eaf6');
   });
+
   add('lbi.body', 'PET body network', 'A whole-body PET scan in glowing hot-iron colours, with the network of its organs wound round it.', b => {
     const HOT = [[[0, 0.9, 0], 0.07, 0.55], [[0.03, 0.69, 0.04], 0.06, 0.35], [[-0.06, 0.6, 0.03], 0.07, 0.15], [[0.06, 0.55, -0.03], 0.05, 0.25], [[-0.06, 0.55, -0.03], 0.05, 0.25], [[0, 0.47, 0.04], 0.05, 0.4]];
     const heat = (x, y, z) => ramp(IRON, 0.31 + HOT.reduce((s, [c, w, a]) => s + a * Math.exp(-((x - c[0]) ** 2 + (y - 0.04 - c[1]) ** 2 + (z - c[2]) ** 2) / (2 * w * w)), 0));
@@ -447,13 +473,14 @@ var LOWPOLY_MODELS = LOWPOLY_MODELS || {};
     const lay = (w0, w1, h, c) => tb.add('solid', slab(band(L, zc, () => w0, x => w1 + (w1 > 0.12 ? 0.008 * Math.sin(x * 70) : 0), 18), h, Y0), c);
     lay(-0.13, -0.075, 0.04, '#cf4f82');       // outer muscle, lengthwise
     lay(-0.075, -0.02, 0.045, '#e2729d');      // inner muscle, circular
-    lay(-0.02, 0.07, 0.05, '#f2bdd5');         // submucosa
+    lay(-0.02, 0.07, 0.05, '#e9a2c3');         // submucosa
     lay(0.07, 0.13, 0.06, '#9b66c2');          // mucosa
     const tp = x => Math.sqrt(Math.max(0, 1 - Math.pow(Math.abs(x) / L, 6)));
     for (let i = 0; i < 24; i++) { const x = (r() * 2 - 1) * 0.4, w = (0.08 + 0.042 * r()) * tp(x); tb.add('solid', octa(0.012, [x, Y0 + 0.061, zc(x) + w], [1, 0.4, 1]), '#4b2a75'); }
     for (let i = 0; i < 5; i++) { const x = (r() * 2 - 1) * 0.36, w = (0.005 + 0.05 * r()) * tp(x); tb.add('solid', octa(0.012, [x, Y0 + 0.051, zc(x) + w], [1, 0.45, 1]), '#b8283c'); }
     tb.add('solid', sph(0.034, 6, 4, [-0.12, Y0 + 0.058, zc(-0.12) + 0.085], [1, 0.35, 1]), '#3d2266');   // a lymphoid aggregate
   });
+
   // ================================================================ the muscle story (nmd)
 
   add('nmd.tower', 'Multiplex tower', 'Seventy-one layers of gene links stacked into a tower, coloured by kind and threaded through by each gene.', b => {
@@ -474,44 +501,45 @@ var LOWPOLY_MODELS = LOWPOLY_MODELS || {};
   });
 
   add('nmd.motor', 'Motor unit', 'The spinal cord, a motor neuron and its axon, and the striated muscle fibres it drives, with the heart above.', b => {
-    plinth(b, 0.5);
-    b.add('glass', cyl(0.11, 0.11, 0.1, 12, [-0.36, 0.38, 0], [Math.PI / 2, 0, 0]), '#dfe8f2');   // the spinal cord, cut face to the front
-    for (const s of [-1, 1]) b.add('solid', box(0.1, 0.026, 0.006, [-0.36, 0.38, 0.052], [0, 0, 0.6 * s]), '#a39cb0');   // grey matter butterfly
-    b.add('glow', sph(0.022, 6, 4, [-0.32, 0.36, 0.056]), '#ffe27a');                                  // motor neuron
-    for (const d of [[-0.05, 0.04], [0.03, 0.05], [-0.04, -0.035], [0.0, -0.05]]) b.add('glow', rod([-0.32, 0.36, 0.056], [-0.32 + d[0], 0.36 + d[1], 0.056], 0.004, 0.002, 3), '#ffe27a');
-    const AX = [[-0.32, 0.36, 0.056], [-0.25, 0.32, 0.06], [-0.18, 0.2, 0.07], [-0.02, 0.15, 0.08], [0.08, 0.2, 0.08], [0.12, 0.27, 0.075]];
-    b.add('glow', tube(AX, 16, 0.006, 3), '#fff1b0');
-    b.add('glass', tube(AX.slice(1), 14, 0.017, 5), '#bfefff');                                         // myelin sheath
-    b.add('glass', sph(0.032, 6, 4, [-0.4, 0.2, 0.04]), '#cfe0f0');                                     // dorsal root ganglion
-    b.add('glow', tube([[-0.4, 0.2, 0.04], [-0.33, 0.21, 0.065], [-0.24, 0.24, 0.07]], 6, 0.004, 3), '#7fe3ff');
-    const HEX = [[0, 0], [0.05, 0], [-0.05, 0], [0.025, 0.043], [-0.025, 0.043], [0.025, -0.043], [-0.025, -0.043]];
-    HEX.forEach(([dy, dz], k) => b.add('solid', cyl(0.03, 0.03, 0.4, 8, [0.27, 0.31 + dy, dz], [0, 0, Math.PI / 2]), k % 2 ? '#e8697c' : '#f07c8a'));
-    for (const e of [[0.17, 0.33, 0.07], [0.25, 0.28, 0.075], [0.33, 0.33, 0.07]]) {                  // neuromuscular junctions
-      b.add('glow', rod([0.12, 0.27, 0.075], e, 0.004, 0.004, 3), '#fff1b0');
-      b.add('glow', octa(0.018, e, [1, 0.6, 0.5]), '#ffb43b');
+    stand(b, 1.0, 0.34);
+    b.add('glass', cyl(0.12, 0.12, 0.11, 12, [-0.36, 0.3, 0], [Math.PI / 2, 0, 0]), '#dfe8f2');      // the spinal cord, cut face to the front
+    for (const s of [-1, 1]) b.add('solid', box(0.13, 0.03, 0.008, [-0.36, 0.3, 0.057], [0, 0, 0.6 * s]), '#8d86a0');   // grey matter butterfly
+    b.add('glow', sph(0.026, 6, 4, [-0.31, 0.27, 0.062]), '#ffe27a');                                   // motor neuron
+    for (const d of [[-0.06, 0.05], [0.03, 0.06], [-0.05, -0.04], [0.0, -0.06]]) b.add('glow', rod([-0.31, 0.27, 0.062], [-0.31 + d[0], 0.27 + d[1], 0.062], 0.005, 0.0025, 3), '#ffe27a');
+    const AX = [[-0.31, 0.27, 0.062], [-0.24, 0.22, 0.065], [-0.17, 0.12, 0.07], [-0.03, 0.09, 0.08], [0.07, 0.14, 0.08], [0.1, 0.21, 0.08]];
+    b.add('glow', tube(AX, 16, 0.007, 3), '#fff1b0');
+    b.add('glass', tube(AX.slice(1), 14, 0.02, 5), '#9fe4ff');                                          // myelin sheath
+    b.add('glass', sph(0.036, 6, 4, [-0.42, 0.13, 0.04]), '#cfe0f0');                                    // dorsal root ganglion
+    b.add('glow', tube([[-0.42, 0.13, 0.04], [-0.34, 0.14, 0.065], [-0.24, 0.17, 0.07]], 6, 0.005, 3), '#7fe3ff');
+    const HEX = [[0, 0], [0.06, 0], [-0.06, 0], [0.03, 0.052], [-0.03, 0.052], [0.03, -0.052], [-0.03, -0.052]];
+    HEX.forEach(([dy, dz], k) => b.add('solid', cyl(0.036, 0.036, 0.44, 8, [0.26, 0.26 + dy, dz], [0, 0, Math.PI / 2]), k % 2 ? '#e8697c' : '#f07c8a'));
+    for (const e of [[0.15, 0.3, 0.083], [0.24, 0.235, 0.088], [0.33, 0.3, 0.083]]) {                  // neuromuscular junctions
+      b.add('glow', rod([0.1, 0.21, 0.08], e, 0.005, 0.005, 3), '#fff1b0');
+      b.add('glow', octa(0.022, e, [1, 0.6, 0.5]), '#ffb43b');
     }
-    const HC = [0.27, 0.6, -0.04];                                                                       // the heart
-    b.add('solid', sph(0.085, 8, 6, HC, [1, 1.2, 0.9], [0, 0, 0.5]), '#c23a44');
-    b.add('solid', sph(0.048, 6, 4, add3(HC, [-0.05, 0.07, -0.01])), '#b33748');
-    b.add('solid', sph(0.045, 6, 4, add3(HC, [0.04, 0.08, -0.03])), '#b33748');
-    b.add('solid', tube([add3(HC, [0, 0.06, 0.02]), add3(HC, [0, 0.15, 0.02]), add3(HC, [0.05, 0.17, 0]), add3(HC, [0.08, 0.12, -0.04])], 8, 0.018, 5), '#dd5a61');
-    b.add('solid', rod(add3(HC, [-0.07, 0.04, 0.02]), add3(HC, [-0.08, 0.17, 0.02]), 0.016, 0.016, 6, false), '#5b6bd2');
+    const HC = [0.26, 0.56, -0.04];                                                                      // the heart
+    b.add('solid', sph(0.1, 8, 6, HC, [1, 1.2, 0.9], [0, 0, 0.5]), '#c23a44');
+    b.add('solid', sph(0.056, 6, 4, add3(HC, [-0.06, 0.085, -0.01])), '#b33748');
+    b.add('solid', sph(0.052, 6, 4, add3(HC, [0.05, 0.095, -0.035])), '#b33748');
+    b.add('solid', tube([add3(HC, [0, 0.07, 0.02]), add3(HC, [0, 0.18, 0.02]), add3(HC, [0.06, 0.2, 0]), add3(HC, [0.095, 0.14, -0.05])], 8, 0.021, 5), '#dd5a61');
+    b.add('solid', rod(add3(HC, [-0.085, 0.05, 0.02]), add3(HC, [-0.095, 0.2, 0.02]), 0.019, 0.019, 6, false), '#5b6bd2');
   });
 
-  add('nmd.hpc', 'Supercomputer', 'A hall of dark computer racks with glowing fronts and a lit cold aisle, and the small towers it computes.', b => {
+  add('nmd.hpc', 'Supercomputer', 'A hall of dark computer racks with blinking blue and green fronts and a lit cold aisle, and the small towers it computes.', b => {
     b.add('solid', box(1.0, 0.03, 0.82, [0, 0.015, 0]), '#0b1626');
     for (const z of [-0.3, -0.1, 0.1, 0.3]) b.add('soft', box(1.0, 0.002, 0.004, [0, 0.031, z]), '#1f5f9a');
     for (const x of [-0.25, 0, 0.25]) b.add('soft', box(0.004, 0.002, 0.82, [x, 0.031, 0]), '#1f5f9a');
-    b.add('glow', box(0.8, 0.004, 0.1, [0, 0.032, 0]), '#2f8fe8');                                  // the cold aisle
+    b.add('glow', box(0.78, 0.004, 0.1, [0, 0.032, 0]), '#2f8fe8');                                 // the cold aisle
     [[-0.27, -1], [-0.11, 1], [0.11, -1], [0.27, 1]].forEach(([z, f], k) => {
-      for (let i = 0; i < 5; i++) {
-        const x = -0.32 + 0.16 * i;
-        b.add('solid', box(0.15, 0.34, 0.12, [x, 0.2, z]), '#151b25');
-        b.add('glow', box(0.11, 0.26, 0.003, [x, 0.21, z + f * 0.061]), (i + k) % 2 ? '#1d5fae' : '#1b8a6a');
+      for (let i = 0; i < 4; i++) {
+        const x = -0.27 + 0.18 * i, fz = z + f * 0.0615;
+        b.add('solid', box(0.17, 0.34, 0.12, [x, 0.2, z]), '#141a24');
+        b.add('glow', box(0.012, 0.27, 0.003, [x - 0.035, 0.205, fz]), '#3a9cff');                 // rows of lights on the front
+        b.add('glow', box(0.012, 0.27, 0.003, [x + 0.035, 0.205, fz]), (i + k) % 2 ? '#3ee08f' : '#3a9cff');
       }
-      b.add('solid', box(0.82, 0.012, 0.04, [0, 0.43, z]), '#3a4250');                              // cable tray
-      b.add('glow', rod([-0.41, 0.442, z - 0.008], [0.41, 0.442, z - 0.008], 0.004, 0.004, 4), '#ffc23a');
-      b.add('glow', rod([-0.41, 0.442, z + 0.008], [0.41, 0.442, z + 0.008], 0.004, 0.004, 4), '#3a8cff');
+      b.add('solid', box(0.76, 0.012, 0.04, [0, 0.43, z]), '#3a4250');                              // cable tray
+      b.add('glow', rod([-0.38, 0.442, z - 0.008], [0.38, 0.442, z - 0.008], 0.004, 0.004, 4), '#ffc23a');
+      b.add('glow', rod([-0.38, 0.442, z + 0.008], [0.38, 0.442, z + 0.008], 0.004, 0.004, 4), '#3a8cff');
     });
     const TC = ['#46d9ff', '#3ee08f', '#a77bff', '#ffb43b', '#ff5ad9'];
     for (let i = 0; i < 6; i++) {                                                                   // tiny towers in the field round the hall
@@ -533,25 +561,27 @@ var LOWPOLY_MODELS = LOWPOLY_MODELS || {};
     }
     b.add('glass', box(0.8, 0.004, 0.44, [0, 0.345, 0]), '#bfe6ff');            // basement membrane in the cleft
     const B0 = [0, 0.36, 0], r = rng(6);
-    b.add('glass', at(sphF(0.27, 12, 5, Math.PI / 2), B0, null, [1, 0.78, 0.85]), '#a8d8ff');   // the bouton
+    b.add('glass', at(sphF(0.27, 12, 5, Math.PI / 2), B0, null, [1, 0.78, 0.85]), '#8fd0ff');   // the bouton
+    b.add('glow', at(torF(0.27, 0.006, 3, 16, Math.PI * 2), B0, [Math.PI / 2, 0, 0], [1, 0.85, 1]), '#7fe3ff');
     for (let i = 0; i < 16; i++) { const a = r() * 6.28, d = 0.2 * Math.sqrt(r()), p = [d * Math.cos(a), 0.385 + 0.12 * r() * r(), d * Math.sin(a) * 0.8]; b.add('glow', ico(0.022, 0, p), '#5d9dff'); }
     b.add('soft', sph(0.035, 6, 4, [-0.08, 0.5, -0.03], [2, 0.8, 0.8], [0, 0.4, 0.2]), '#e05ad0');   // a mitochondrion
     const AX = [[0, 0.56, 0], [-0.1, 0.7, -0.02], [-0.28, 0.84, -0.04], [-0.44, 0.95, -0.05]];
-    b.add('glass', tube(AX, 8, 0.045, 6), '#cfe8ff');
-    b.add('glow', tube(AX, 8, 0.012, 3), '#ffe08a');
+    b.add('glass', tube(AX, 8, 0.045, 6), '#7fc8ff');                            // the motor axon in its myelin
+    b.add('glow', tube(AX, 8, 0.014, 3), '#ffe08a');
   });
 
   add('endo.net', 'Protein network cloud', 'A deep cloud of proteins with the disease genes lit as seeds, their neighbourhoods joined by glowing arcs.', b => {
     const r = rng(12), C = [0, 0.52, 0], core = [];
-    plinth(b, 0.3);
-    for (let i = 0; i < 32; i++) b.add('soft', octa(0.011, add3(C, mul3(unit(r), 0.3 + 0.12 * r()))), '#8ea4cf');
-    for (let i = 0; i < 26; i++) { const p = mul3(unit(r), 0.2 * Math.cbrt(r())); core.push(p); b.add('glow', octa(0.013, add3(C, p)), mix('#9fb3ee', '#dfe7ff', r())); }
-    for (let i = 1; i < 25; i++) { let best = 0; for (let j = 0; j < i; j++) if (dist(core[i], core[j]) < dist(core[i], core[best])) best = j; b.add('soft', rod(add3(C, core[i]), add3(C, core[best]), 0.003, 0.003, 3), '#6f86c8'); }
+    plinth(b, 0.28);
+    for (let i = 0; i < 16; i++) b.add('soft', octa(0.015, add3(C, mul3(unit(r), 0.29 + 0.11 * r()))), '#8ea4cf');
+    for (let i = 0; i < 20; i++) { const p = mul3(unit(r), 0.21 * Math.cbrt(r())); core.push(p); b.add('glow', octa(0.017, add3(C, p)), mix('#9fb3ee', '#e4ebff', r())); }
+    for (let i = 1; i < 20; i++) { let best = 0; for (let j = 0; j < i; j++) if (dist(core[i], core[j]) < dist(core[i], core[best])) best = j; b.add('soft', rod(add3(C, core[i]), add3(C, core[best]), 0.004, 0.004, 3), '#7f96d8'); }
+    glowBall(b, C, 0.41, '#1c2c66', '#7f9ae8');                                  // the cloud's soft glow
     const S = [[0.14, 0.06, 0.05], [0.06, -0.1, 0.12], [-0.12, 0.08, 0.09], [-0.04, 0.15, -0.1], [0.13, -0.08, -0.08], [-0.15, -0.09, -0.04], [-0.17, -0.02, -0.02]].map(p => add3(C, p));
-    S.forEach((p, i) => { const pink = i >= 5; b.add('glow', ico(0.026, 0, p), pink ? '#ff5ad9' : '#ffb43b'); if (!pink) b.add('glass', sph(0.05, 6, 4, p), '#ffb43b'); });
-    for (const [i, j] of [[0, 1], [1, 2], [2, 3], [0, 4], [5, 6]]) {
+    S.forEach((p, i) => { const pink = i >= 5; b.add('glow', ico(0.03, 0, p), pink ? '#ff5ad9' : '#ffb43b'); if (!pink) b.add('haze', sph(0.058, 6, 4, p), '#ffb43b'); });
+    for (const [i, j] of [[0, 1], [1, 2], [2, 3], [5, 6]]) {
       const m = mul3(add3(S[i], S[j]), 0.5), out = norm3(add3(m, mul3(C, -1)));
-      b.add('glow', tube([S[i], add3(m, mul3(out, 0.06)), S[j]], 6, 0.0045, 3), i === 5 ? '#ff5ad9' : '#ffc960');
+      b.add('glow', tube([S[i], add3(m, mul3(out, 0.06)), S[j]], 6, 0.0055, 3), i === 5 ? '#ff5ad9' : '#ffc960');
     }
   });
 
@@ -631,31 +661,31 @@ var LOWPOLY_MODELS = LOWPOLY_MODELS || {};
       if (!inside(x, y) || !inside(x + 0.04, y) || !inside(x - 0.04, y) || !inside(x, y + 0.04) || !inside(x, y - 0.04)) continue;
       const v = 0.45 + 0.18 * Math.sin(5 * x + 2) * Math.cos(6 * y) + (x < -0.2 && y > 0.12 ? 0.22 : 0) + 0.12 * r();
       P.push([x, Y0 + y, z]); V.push(v);
-      b.add('glow', octa(0.014, [x, Y0 + y, z]), ramp(IRON, Math.min(1, v)));
+      b.add('glow', octa(0.019, [x, Y0 + y, z]), ramp(IRON, Math.min(1, v)));
     }
     for (let i = 0; i < P.length; i++) for (let j = i + 1; j < P.length; j++)
-      if (dist(P[i], P[j]) < 0.115 && Math.abs(V[i] - V[j]) > 0.06) b.add('soft', rod(P[i], P[j], 0.003, 0.003, 3), V[i] > V[j] ? '#ffb46a' : '#ff8a4a');
+      if (dist(P[i], P[j]) < 0.115 && Math.abs(V[i] - V[j]) > 0.06) b.add('soft', rod(P[i], P[j], 0.0042, 0.0042, 3), V[i] > V[j] ? '#ffc27a' : '#ff9a5a');
     b.add('soft', sph(0.04, 6, 4, [-0.13, Y0 - 0.07, D / 2 + 0.02], [0.8, 1.2, 0.8]), '#6c9a46');   // gallbladder
   });
 
   // ================================================================ the microanatomy story (micro)
 
   add('micro.slide', 'Section in tiles', 'A tissue section cut into tiles, coloured by the domains a network of neighbouring tiles finds in it.', b => {
-    const zc = x => 0.05 * Math.sin(x * 2.4) + 0.01, slope = x => 0.12 * Math.cos(x * 2.4), Y0 = 0.02;
+    const zc = x => 0.05 * Math.sin(x * 2.4) + 0.01, slope = x => 0.12 * Math.cos(x * 2.4), Y0 = 0.02, tb = easel(b, 0.5, 0.2, 0.44);
     const DOM = [['#52a83c', 0.034], ['#1c7a3c', 0.044], ['#9b2b22', 0.04], ['#b8741f', 0.056]], W = [-0.105, -0.035, 0.035, 0.105];
-    b.add('glass', box(1.0, 0.02, 0.4, [0, 0.01, 0]), '#cfe8f0');
+    tb.add('glass', box(1.0, 0.02, 0.4, [0, 0.01, 0]), '#cfe8f0');
     const top = {}, r = rng(3);
     for (let c = 0; c < 12; c++) for (let w = 0; w < 4; w++) {
       if ((c === 0 || c === 11) && (w === 0 || w === 3)) continue;
       const x = -0.44 + c * 0.08, z = zc(x) + W[w], [colour, h0] = DOM[w], h = h0 + 0.006 * r();
-      b.add('soft', box(0.072, h, 0.066, [x, Y0 + h / 2, z], [0, -Math.atan(slope(x)), 0]), w === 3 && c === 4 ? '#1a78b6' : colour);
-      top[c + ',' + w] = [x, Y0 + 0.13, z];
+      tb.add('soft', box(0.072, h, 0.066, [x, Y0 + h / 2, z], [0, -Math.atan(slope(x)), 0]), w === 3 && c === 4 ? '#1a78b6' : colour);
+      top[c + ',' + w] = [x, Y0 + 0.12, z];
     }
     const N = Object.keys(top).filter(k => +k.split(',')[0] % 2 === 0);
-    for (const k of N) {
+    for (const k of N) {                                                         // the network of neighbouring tiles over the section
       const [c, w] = k.split(',').map(Number), p = top[k], colour = mix(w === 3 && c === 4 ? '#1a78b6' : DOM[w][0], '#ffffff', 0.4);
-      b.add('glow', octa(0.013, p), colour);
-      for (const q of [(c + 2) + ',' + w, c + ',' + (w + 1)]) if (top[q] && N.includes(q)) b.add('soft', rod(p, top[q], 0.0028, 0.0028, 3), '#cfe6ff');
+      tb.add('glow', octa(0.015, p), colour);
+      for (const q of [(c + 2) + ',' + w, c + ',' + (w + 1)]) if (top[q] && N.includes(q)) tb.add('soft', rod(p, top[q], 0.0035, 0.0035, 3), '#cfe6ff');
     }
   });
 
@@ -664,7 +694,7 @@ var LOWPOLY_MODELS = LOWPOLY_MODELS || {};
     const back = at(cylF(RC, RC, 0.8, 12, 2, true, Math.PI - A, 2 * A), [0, 0.4, RC]);
     b.add('two', back, (x, y) => mix('#0e2140', '#284a80', (1 - Math.abs(x) / 0.5) * (1 - Math.abs(y - 0.4) / 0.4)));
     for (const y of SH) {
-      b.add('solid', at(new T.RingGeometry(RC - 0.07, RC, 12, 1, Math.PI / 2 - A, 2 * A), [0, y, RC], [-Math.PI / 2, 0, 0]), '#122440');
+      b.add('solid', at(ringF(RC - 0.07, RC, 12, Math.PI - A, 2 * A), [0, y, RC]), '#122440');
       b.add('glow', at(cylF(RC - 0.07, RC - 0.07, 0.008, 12, 1, true, Math.PI - A, 2 * A), [0, y + 0.004, RC]), '#5f8fd0');   // the shelf's bright lip
     }
     for (const f of [-0.32, -0.16, 0.16, 0.32]) b.add('solid', box(0.012, 0.68, 0.05, [(RC - 0.035) * Math.sin(f), 0.34, RC - (RC - 0.035) * Math.cos(f)], [0, -f, 0]), '#0b1626');
@@ -696,20 +726,21 @@ var LOWPOLY_MODELS = LOWPOLY_MODELS || {};
 
   add('micro.organs', 'Organ models', 'Small 3D models of the organs the slides come from: a heart, a kidney and a brain.', b => {
     plinth(b, 0.42);
-    const H = [-0.18, 0.04, 0.1];                                                   // the heart, apex down and to its left
+    const H = [-0.2, 0.04, 0.08];                                                   // the heart, apex down and to its left
     b.add('solid', lathe([[0, 0], [0.04, 0.025], [0.09, 0.08], [0.12, 0.15], [0.12, 0.21], [0.09, 0.26], [0, 0.28]], 8, add3(H, [0, 0.02, 0]), [1, 1, 0.85], [0, 0, 0.35]), '#c23a44');
     b.add('solid', sph(0.06, 6, 4, add3(H, [-0.03, 0.27, -0.02])), '#b33748');
     b.add('solid', sph(0.055, 6, 4, add3(H, [0.08, 0.25, -0.03])), '#b33748');
     b.add('solid', tube([add3(H, [0.02, 0.24, 0.03]), add3(H, [0.03, 0.36, 0.02]), add3(H, [0.1, 0.39, 0]), add3(H, [0.15, 0.32, -0.03])], 8, 0.03, 5), '#dd5a61');
     for (const d of [-0.015, 0.03, 0.07]) b.add('solid', rod(add3(H, [d + 0.03, 0.37, 0.01]), add3(H, [d + 0.03, 0.44, 0.01]), 0.012, 0.01, 6), '#efe2d2');
     b.add('solid', rod(add3(H, [-0.09, 0.2, 0.03]), add3(H, [-0.1, 0.37, 0.02]), 0.025, 0.025, 6, false), '#6d77d6');
-    const K = [0.2, 0.04, 0.1];                                                      // the kidney, a bean on end
-    b.add('solid', tor(0.075, 0.058, 6, 10, add3(K, [0.0, 0.15, 0]), [0, 0, Math.PI * 0.4], Math.PI * 1.2), '#9d3b37');
-    for (const a of [Math.PI * 0.4, Math.PI * 1.6]) b.add('solid', sph(0.058, 6, 4, add3(K, [0.075 * Math.cos(a), 0.15 + 0.075 * Math.sin(a), 0])), '#9d3b37');
-    b.add('solid', tube([add3(K, [-0.055, 0.13, 0.01]), add3(K, [-0.09, 0.08, 0.02]), add3(K, [-0.08, 0.0, 0.03])], 6, 0.01, 3), '#e8d2ad');
-    const Bn = [0.0, 0.04, -0.16], r = rng(21);                                       // the brain, two hemispheres
+    const K = [0.08, 0.04, 0.2];                                                     // the kidney, a bean on end, its hilum inwards
+    b.add('solid', tor(0.05, 0.066, 6, 10, add3(K, [0.0, 0.14, 0]), [0, 0, Math.PI * 0.2], Math.PI * 1.6), '#8f2f2c');
+    for (const a of [Math.PI * 0.2, Math.PI * 1.8]) b.add('solid', sph(0.066, 6, 4, add3(K, [0.05 * Math.cos(a), 0.14 + 0.05 * Math.sin(a), 0])), '#8f2f2c');
+    b.add('solid', tube([add3(K, [-0.045, 0.12, 0.01]), add3(K, [-0.08, 0.07, 0.02]), add3(K, [-0.07, 0.0, 0.03])], 6, 0.011, 3), '#e8d2ad');
+    const Bn = [0.17, 0.04, -0.14], r = rng(21);                                      // the brain, two hemispheres
     for (const s of [-1, 1]) b.add('solid', sph(0.14, 9, 6, add3(Bn, [0.038 * s, 0.17, 0]), [0.48, 0.72, 1]), () => mix('#e8b2b7', '#c98c95', r() * 0.6));
     b.add('solid', sph(0.06, 6, 4, add3(Bn, [0, 0.09, -0.1]), [1.3, 0.7, 0.9]), '#d49ba3');
     b.add('solid', rod(add3(Bn, [0, 0.11, -0.03]), add3(Bn, [0, 0.0, -0.04]), 0.022, 0.016, 6, false), '#e6c2b6');
   });
+
 })();
