@@ -420,6 +420,8 @@ try {
       '/PEERJS-LICENSE.txt': 'text/plain', '/p2p/': 'text/html', '/p2p/index.html': 'text/html' };
     for (const [p, t] of Object.entries(types)) { r = await req('HEAD', p); ok(r.status === 200 && r.headers['content-type'].startsWith(t), `${p} is ${t}`); }
     ok((await req('GET', '/sw.js')).headers['cache-control'] === 'no-cache', 'files are revalidated (no-cache)');
+    r = await req('GET', '/version.json');
+    ok(r.status === 200 && r.headers['content-type'] === 'application/json' && r.headers['cache-control'] === 'no-store', 'the release\'s version file: never kept (no-store)');
     const mp3 = file('audio/narration.mp3'), size = mp3.length;
     r = await req('HEAD', '/audio/narration.mp3');
     ok(r.headers['content-type'] === 'audio/mpeg' && r.headers['accept-ranges'] === 'bytes' && +r.headers['content-length'] === size, 'the narration: audio/mpeg, ranges');
@@ -628,6 +630,72 @@ try {
     const again = await peerOpen('silent', 'tokother');
     ok(again.open && /peer timeout silent/.test(relay.out), 'the silent one\'s id is free again');
     again.ws.close(); h.s.destroy();
+  });
+
+  await step('--watch: ping says so, /api/watch streams hello, story, list and shell; --build builds a story', async () => {
+    ok(!(await req('GET', '/api/ping')).json().watch && (await req('GET', '/api/watch')).status === 404, 'not watching: no watch in ping, /api/watch 404');
+    const fingerprint = s => {   // (index.html's HOST.fingerprint)
+      let a = 0xdeadbeef, b = 0x41c6ce57;
+      for (let i = 0; i < s.length; i++) { const c = s.charCodeAt(i); a = Math.imul(a ^ c, 2654435761); b = Math.imul(b ^ c, 1597334677); }
+      a = Math.imul(a ^ (a >>> 16), 2246822507) ^ Math.imul(b ^ (b >>> 13), 3266489909);
+      b = Math.imul(b ^ (b >>> 16), 2246822507) ^ Math.imul(a ^ (a >>> 13), 3266489909);
+      return (b >>> 0).toString(16).padStart(8, '0') + (a >>> 0).toString(16).padStart(8, '0');
+    };
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'relay-watch-')), put = (f, t) => { fs.mkdirSync(path.dirname(path.join(dir, f)), { recursive: true }); fs.writeFileSync(path.join(dir, f), t); };
+    put('index.html', '<!doctype html><title>t</title>'); put('shared.js', '// s'); put('sw.js', '// w'); put('stories/a.js', '// a'); put('stories/list.js', 'self.STORY_LIST = [];');
+    // a built story: tools/a/build.mjs writes stories/a.js from its source; tools/b's build fails
+    put('tools/a/build.mjs', "import fs from 'fs'; import path from 'path'; const here = path.dirname(new URL(import.meta.url).pathname);\n" +
+      "fs.writeFileSync(path.join(here, '../../stories/a.js'), '// built from ' + fs.readFileSync(path.join(here, 'sets/src.js'), 'utf8'));\n");
+    put('tools/a/sets/src.js', 'one'); put('tools/b/build.mjs', "throw new Error('broken on purpose');\n"); put('tools/b/x.js', '1');
+    const no = spawn(process.execPath, [path.join(HERE, 'server.mjs'), '--port', '0', '--watch'], { stdio: ['ignore', 'pipe', 'pipe'] });
+    let noOut = ''; no.stdout.on('data', d => { noOut += d; });
+    ok(await new Promise(r => no.on('exit', c => r(c === 1))) && /--watch needs/.test(noOut), '--watch with nothing to watch: says so and stops');
+    const W = await start(['--static', dir, '--watch', '--build', '--quiet']);
+    ok((await req('GET', '/api/ping', { at: W.port })).json().watch === true, 'ping: watch true');
+    ok((await req('POST', '/api/watch', { at: W.port })).status === 405, 'POST /api/watch: 405');
+    const ev = [];
+    let head = null;
+    const sreq = http.get({ host: '127.0.0.1', port: W.port, path: '/api/watch' }, res => {
+      head = res;
+      let buf = '';
+      res.setEncoding('utf8');
+      res.on('data', d => {
+        buf += d;
+        let i;
+        while ((i = buf.indexOf('\n\n')) >= 0) {
+          const block = buf.slice(0, i); buf = buf.slice(i + 2);
+          const e = /^event: (\w+)$/m.exec(block), dl = /^data: (.*)$/m.exec(block);
+          if (e && dl) ev.push({ type: e[1], data: JSON.parse(dl[1]) });
+        }
+      });
+    });
+    const next = async (type, pred = () => true, ms = 3000) => { for (const end = Date.now() + ms; Date.now() < end; await sleep(20)) { const k = ev.findIndex(x => x.type === type && pred(x.data)); if (k >= 0) return ev.splice(k, 1)[0].data; } return null; };
+    const h = await next('hello');
+    ok(head && /^text\/event-stream/.test(head.headers['content-type']) && head.headers['cache-control'] === 'no-store', 'an event stream, never kept');
+    ok(h && h.shell['index.html'] === fingerprint('<!doctype html><title>t</title>') && h.stories.a === fingerprint('// a') && !('list' in h.stories) && h.list === fingerprint('self.STORY_LIST = [];'),
+      'hello: the fingerprints of the shell files, the stories and the list (index.html\'s fingerprint)');
+    put('stories/a.js', '// a, changed');
+    let e = await next('story');
+    ok(e && e.key === 'a' && e.fp === fingerprint('// a, changed'), 'a story file changed: story { key, fp }');
+    put('stories/a.js', '// a, changed'); await sleep(500);
+    ok(!ev.some(x => x.type === 'story'), 'written again unchanged: nothing');
+    put('stories/list.js', 'self.STORY_LIST = [{ key: "a" }];');
+    ok(!!await next('list'), 'the list changed: list');
+    put('index.html', '<!doctype html><title>t2</title>');
+    e = await next('shell');
+    ok(e && e.file === 'index.html' && e.fp === fingerprint('<!doctype html><title>t2</title>'), 'a shell file changed: shell { file, fp }');
+    put('tools/a/sets/src.js', 'two');
+    e = await next('build', d => d.key === 'a', 8000);
+    ok(e && e.ok === true && e.ms >= 0, 'a built story\'s source changed: its build ran (build { key, ok, ms })');
+    e = await next('story', d => d.key === 'a', 3000);
+    ok(e && e.fp === fingerprint('// built from two'), '... and the story it wrote went out');
+    put('tools/a/shots/x.js', 'not a source'); await sleep(800);
+    ok(!ev.some(x => x.type === 'build'), 'a file in shots/: no build');
+    put('tools/b/x.js', '2');
+    e = await next('build', d => d.key === 'b', 8000);
+    ok(e && e.ok === false && /broken on purpose/.test(e.out), 'a build that fails: build { ok: false, out }');
+    sreq.destroy(); W.kill();
+    fs.rmSync(dir, { recursive: true });
   });
 
   await step('--no-peer: no introduction server', async () => {
