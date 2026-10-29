@@ -271,6 +271,9 @@ Before handing over (or making anything more public), someone has to decide thes
    one set of scans"), and the CRP thirds went (they mix healthy people and patients; within either group CRP made no
    clear difference, Table 2): that turn shows the tumour-load networks instead; the credits say the numbers are the
    paper's; explore's liver uses "a rule like the poster's, applied here to patches of one organ, as an illustration".
+   Later that day the strength chart beside the body went (the owner: "remove that from the story and the interactive
+   mode"): the density and disorder stay as a tag under the network's title, explore's Network view replaces Strength,
+   and its Networks pane names the strongest organs in words instead of bars (the story's words and its 6:33 unchanged).
 
    **Open question to the colleague** (the owner is asking): which poster was meant, and was the note about the content
    or how it was drawn? **The rebuild waits for that answer** and for the authors' open points (P4 to P11 in

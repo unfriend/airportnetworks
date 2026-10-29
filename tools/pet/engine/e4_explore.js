@@ -5,7 +5,7 @@
 const SCENES = [
   ['scan', 'Scanner', 'A PET/CT scanner, cut open: the ring of detectors, the events (a positron, two gamma photons, a line of response) and the image they build. Life size stands it in front of you.'],
   ['body', 'Body', 'A whole-body PET scan: the tracer arriving with the blood, settling where cells use sugar and leaving in the urine (the PET body of the tour).'],
-  ['organs', 'Organs', `The paper's organs in the scan: their outlines, their uptakes, the matrix of ${fmt(FACTS.scans)} scans (stand-in values), a partial correlation, the networks and how their strength is spread.`],
+  ['organs', 'Organs', `The paper's organs in the scan: their outlines, their uptakes, the matrix of ${fmt(FACTS.scans)} scans (stand-in values), a partial correlation and the networks.`],
   ['liver', 'Liver', 'An organ is a network too: a liver in a few thousand patches, linked where one patch\'s uptake is more than a set number of times another\'s (a rule like the poster\'s, applied here to patches of one organ, as an illustration); the best connected glow.'],
 ];
 const TABS = [['networks', 'Networks'], ['organs', 'Organs'], ['scenes', 'Scenes']];
@@ -40,7 +40,7 @@ const viewCam = k => { const c = ctlOf(k, 'view'); return c ? camFor(k, ctlValue
 const curNet = () => X.netX || ctlValue('organs', ctlOf('organs', 'network'));
 // whether a set's view on show matches re (by its key or its name)
 const viewIs = (k, re) => { const c = ctlOf(k, 'view'); if (!c) return false; const v = ctlValue(k, c), o = c.options.find(x => x[0] === v); return re.test(v) || (o && re.test(o[1])); };
-const netView = () => viewIs('organs', /net|strength/i);
+const netView = () => viewIs('organs', /net/i);
 // work for the next frame, once the sets have drawn what was just picked (their anchors follow their params)
 const NEXT = [];
 const afterUpdate = f => { NEXT.push(f); };
@@ -56,8 +56,8 @@ function exploreTargets(now = performance.now()) {
   if (k === 'organs') c.network = curNet();   // (a robustness test's network too: the set crossfades to it from the one before)
   if (s.explore) Object.assign(tg, s.explore(c));
   tg.body_net = 0; tg.body_state = 0;   // never the tour's own network or disease scan
-  // (a comparison with no network of its own: the network last shown dims, with the set's labels, and the strength chart goes)
-  if (k === 'organs' && noNet()) { tg.organs_a = 0.5; tg.organs_strength = 0; }
+  // (a comparison with no network of its own: the network last shown dims, with the set's labels, and its measures go)
+  if (k === 'organs' && noNet()) { tg.organs_a = 0.5; tg.organs_measures = 0; }
   if (k === 'organs') {
     tg.organs_focus = X.organ && PD.byId[X.organ] ? PD.byId[X.organ].i + 1 : 0;
     // the body dims under the network, the matrix and the scatter plot
@@ -134,13 +134,13 @@ function pickNet(id) { if (!NET_ALL.includes(id)) return; X.cmp = cmpOfNet(id); 
 function showNet(id) {
   setNet(id);
   if (X.scene !== 'organs') openScene('organs');
-  if (!netView()) { const v = optKey('organs', 'view', /strength/i) || optKey('organs', 'view', /net/i); if (v) setCtl('organs', 'view', v); }
+  if (!netView()) { const v = optKey('organs', 'view', /net/i); if (v) setCtl('organs', 'view', v); }
 }
 // an organ (null none): it glows in the organs set, its bar and links brighter
 function selectOrgan(id, ui = true) {
   X.organ = id && PD.byId[id] ? id : null;
   if (ui && X.organ && X.scene !== 'organs') openScene('organs');
-  if (ui && X.organ && X.scene === 'organs' && !viewIs('organs', /net|strength|matrix|partial|scatter/i)) afterUpdate(() => { if (X.organ === id) flyNear(anchorOf('organs', id), Math.min(orbit.cur[2], 2.6)); });
+  if (ui && X.organ && X.scene === 'organs' && !viewIs('organs', /net|matrix|partial|scatter/i)) afterUpdate(() => { if (X.organ === id) flyNear(anchorOf('organs', id), Math.min(orbit.cur[2], 2.6)); });
   pushState(); renderOrgans(); renderNets();
 }
 // Life size: on screen the scanner from a couple of metres at eye height; in the headset life size on your floor
@@ -322,11 +322,9 @@ function renderNets() {
   }
   h += `<p class="grp-h">Networks drawn in the paper</p><div class="chips">${NET_IDS.map((n, i) => chip(`data-act="net" data-v="${n}"`, esc(NET_SHORT[i]) + (hasNet(n) ? '' : ' <small>(not read yet)</small>'), n === id && X.scene === 'organs')).join('')}</div>
     <h3 style="font-size:20px">${esc(netShort(id))}</h3><p class="sub">${esc(netTitle(id))}. ${esc(ni.text)} ${esc(ni.hubText || '')}</p>`;
-  const st = strengths(id);
-  if (ni.ok && st.length) {
-    const mx = st[0][1] || 1;
-    h += `<p class="grp-h">Strength of each organ: the sum of its links' weights</p><div class="bars">${st.map(([o, v]) => `<div class="bar${(ni.hubs || []).includes(o) ? ' hl' : ''}"><span class="v">${v.toFixed(1)}</span><div class="fill" style="height:${(100 * v / mx).toFixed(0)}%;background:${organCol(o)}${(ni.hubs || []).includes(o) ? ';box-shadow:0 0 0 2px #ffb020' : ''}"></div><span class="k" title="${esc(organName(o))}">${iconImg(o, 18).replace('margin-right:6px', 'margin:2px 0 0')}</span></div>`).join('')}</div>`;
-  }
+  // (the strongest organs in words: no chart of the strengths, the owner's rule against 2D graphs)
+  const st = strengths(id).slice(0, 3);
+  if (ni.ok && st.length) h += `<p class="sub">Strongest: ${st.map(([o, v]) => `${esc(organName(o))} ${v.toFixed(1)}`).join(', ')} (an organ's strength: the sum of its links' weights).</p>`;
   h += `<p class="grp-h">Gene-activity networks (Table 3, GTEx: tissues of ${fmt(FACTS.gtex)} people)</p>
     <dl class="stats">${PD.D.table3.filter(x => x.kind !== 'fdg').map(x => `<dt>${esc(x.name.replace(/ \(.*\)$/, ''))}</dt><dd>${pct(x.density)}<small>${x.r !== null ? `r = ${x.r} with FDG's network · ` : ''}${esc(x.similar)}</small></dd>`).join('')}</dl>
     <div class="chips">${PD.D.table3.filter(PROT_NET).map(x => chip(`data-act="net" data-v="${PROT_NET(x)}"`, `${esc(netShort(PROT_NET(x)))} network`, PROT_NET(x) === id && X.scene === 'organs')).join('')}</div>`;

@@ -257,19 +257,18 @@ and match them), so the engine shows `body` and `organs` together, one over the 
   5 `B_high`, 6 `C_low`, 7 `C_mid`, 8 `C_high`, 9 `HK2`, 10 `GLUT`. A network that is missing or has no edges yet
   shows its nodes only. Hubs (only the network's `hubs`: those the paper colours; never computed ones, which differ: the paper draws no hub in
   the network of all scans) glow orange-yellow and pulse slowly.
-- **Strength and disorder** (`organs_strength` 0..1): below or beside the network, the current network's strength
-  distribution: bars sorted from high to low with organ icons under them and the exponential fit as a glowing curve
-  (`computed.fitA`, `computed.disorder`), and the printed density and disorder as labels ("density 12 %", "disorder
-  0.17"). With `organs_which` changing, bars re-sort smoothly.
+- **Density and disorder** (`organs_measures` 0..1): the current network's printed density and disorder as a tag under
+  its title ("density 12 % · disorder 0.17"). The strength distribution beside the network (bars and an exponential
+  fit) was taken out on 29 October 2026 (the owner: no chart beside the body, in the story or in explore).
 Anchors: each organ id (on the organ while `organs_net` is 0, following its node as the network rises, like the body
-set's), `bars`, `matrix`, `scatter`, `net` (the network's centre), `strength`, `lesion`, `hub` (a function: the
+set's), `bars`, `matrix`, `scatter`, `net` (the network's centre), `measures`, `lesion`, `hub` (a function: the
 current network's strongest hub, or the network's centre).
 Labels: organ names (with `organs_seg` and `organs_suv`; with `organs_net` on the nodes; at most about eight at
 once: the focused one, hubs and the largest), "÷ aorta" at the unit line, "658 scans × 11 organs", the explainer's
 r labels, density and disorder labels, the current network's title (`nets[i].title`, short).
 Cam: `default` (the body from the front, all of it), `seg`, `bars` (body and bars), `matrix`, `scatter`, `net` (the
-network), `strength`, `lesion`.
-Controls: View (Organs / Uptake / Matrix / Partial / Network / Strength), Network (the eleven above, short names:
+network), `lesion`.
+Controls: View (Organs / Uptake / Matrix / Partial / Network), Network (the eleven above, short names:
 All scans / Healthy / BMI low / BMI high / Tumour low / Tumour high / CRP low / CRP mid / CRP high / HK2 / GLUT).
 Explore API `api()`: `pick(raycaster)` -> organ id or null (nodes, shells, bars), `netIds` (the list above),
 `setFocus(id or null)`.
@@ -326,7 +325,7 @@ recorded to these):
 6. `health` 146-200: `organs_which` to 1 (healthy, if read; else stay) then the comparisons: BMI (2 -> 3: 27 % to 7 %,
    in the heavier group the brain is a hub), tumour load (4 -> 5, `B_low` and `B_high`: 18 % to 8 %, among people
    with cancer; "so do groups with more stress hormone", among healthy people; not the CRP thirds, which mix healthy
-   people and patients), with `organs_strength` (density, disorder: an even network vs one with hubs; muscle and fat
+   people and patients), with `organs_measures` (density, disorder: an even network vs one with hubs; muscle and fat
    dominate in sparse networks, muscle a hub); healthy 30 % vs cancer 7 % stated in text, "compared within this one
    set of scans"; group wording throughout, never individual or causal; robustness in one line (6 weeks apart, a tenth of the dose, another scanner: the same network); HK2 in one
    line.
@@ -343,7 +342,7 @@ hard-coded; chapter panels with `data-at` fade-ins as in the endotype story. Sto
 - **Networks** (the paper): a list of comparisons (Table 2's rows, grouped "Is it robust?" (`part` 'test') and "Health
   to disease" (`part` 'health')); picking one shows its groups with n, density and disorder (and which differences
   are significant), and, where a network was drawn (`nets`: full, healthy, BMI, tumour load, CRP thirds), shows it
-  in `organs` (`organs_which`), with the strength distribution; a line on hubs. Also the protein networks (Table 3)
+  in `organs` (`organs_which`), its density and disorder under its title; a line on hubs, one on its strongest organs. Also the protein networks (Table 3)
   as a short list.
 - **Organs**: the 14 organs as chips (icon, colour, name); picking one shows how it is measured (`measure`), its
   links in the network of all scans (Figure 2A, with weights and signs), whether it is a hub in any drawn network,

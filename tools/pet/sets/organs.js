@@ -4,7 +4,7 @@
 // where the body set puts each organ, polygonised once by surface nets); each organ's uptake as a glowing bar; the
 // bars collapse into one person's row and 658 rows stack into a slab; 658 stand-in people show what a partial
 // correlation is; the organs' nodes rise onto a shallow dome in front of the body and the paper's networks draw on
-// (blue positive, red negative, hubs orange-yellow), with the strength distribution and its exponential fit beside.
+// (blue positive, red negative, hubs orange-yellow), each with its density and disorder as a tag under its title.
 SETS.organs = function (K) {
   const { THREE, smooth, clamp, lerp, prog, v3 } = K;
   const set = K.newSet('organs');
@@ -466,7 +466,6 @@ void main() {
   const F2 = SY.organs || (D.f2 && D.f2.organs) || [], NF = F2.length;
   const MAT = { x0: 0.47, cw: 0.06, y: 0.1, z0: 0.17, d0: 0.03, rd: 0.0016 };   // the slab: f2's columns, people going back
   const SCP = { x0: 0.46, y0: 0.24, s: 0.62, z: 0.2 };                          // the partial-correlation panel
-  const CHT = { x0: 0.95, y0: -0.24, w: 0.68, h: 0.64, z: 0.3 };                   // the strength distribution
   const NETZ = 0.46, NETY = 0.27;
   // where each organ's node sits on the dome (x, y): near its organ's height, apart enough for labels on their right
   const LAY = { brain: [0, 0.85], thyroid: [0.3, 0.68], lungs: [-0.4, 0.56], heart: [0.17, 0.46], liver: [-0.52, 0.3], spleen: [0.5, 0.3],
@@ -652,16 +651,12 @@ void main() { if (vS < 0.01) discard; gl_FragColor = vec4(vC * vL, vS * uA * uK)
   const dots = new THREE.Points(dotGeo, dotMat);
   dots.frustumCulled = false; dots.renderOrder = 4;
   set.group.add(dots);
-  // backdrops of the panel and the chart (dark glass, so what is behind does not clutter them)
+  // the panel's backdrop (dark glass, so what is behind does not clutter it)
   const backMat = new THREE.MeshBasicMaterial({ color: 0x050b16, transparent: true, opacity: 0, depthWrite: false, side: THREE.DoubleSide });
-  const backMat2 = backMat.clone();
   const scBack = new THREE.Mesh(new THREE.PlaneGeometry(SCP.s + 0.05, SCP.s + 0.05).translate(SCP.x0 + SCP.s / 2, SCP.y0 + SCP.s / 2, SCP.z - 0.004),
     backMat);
-  // (the chart's icons sit in two staggered rows under it)
-  const chBack = new THREE.Mesh(new THREE.PlaneGeometry(CHT.w + 0.08, CHT.h + 0.24).translate(CHT.x0 + CHT.w / 2, CHT.y0 + CHT.h / 2 - 0.07, CHT.z - 0.012),
-    backMat2);
-  scBack.renderOrder = chBack.renderOrder = 2;
-  set.group.add(scBack, chBack);
+  scBack.renderOrder = 2;
+  set.group.add(scBack);
   // the fitted line (its slope is r, then the partial r): blue positive, red negative, as the network's links; pale near 0
   const fitMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending });
   const fitLine = new THREE.Mesh(new THREE.CylinderGeometry(0.0034, 0.0034, 1, 8, 1).rotateZ(-PI / 2), fitMat);
@@ -696,19 +691,12 @@ void main() { if (vS < 0.01) discard; gl_FragColor = vec4(vC * vL, vS * uA * uK)
     }
   }
   const NL = LINKS.length;
-  // the paper's measures (as the data generator computes them), for networks the data gives without them
-  function measures(ids, edges) {
+  // each organ's strength (the sum of its links' |w|, as the data generator computes it), for networks the data gives
+  // without it
+  function sumStrengths(ids, edges) {
     const s = {}; ids.forEach(i => { s[i] = 0; });
     for (const [a, b, w] of edges) { if (a in s) s[a] += Math.abs(w); if (b in s) s[b] += Math.abs(w); }
-    const v = ids.map(i => s[i]).sort((x, y) => y - x), N = ids.length || 1;
-    let best = [Infinity, 0, 0];
-    for (let b = 0; b <= 2; b += 0.002) {
-      let nu = 0, de = 0;
-      v.forEach((y, x) => { const e = Math.exp(-b * x); nu += y * e; de += e * e; });
-      const a = nu / (de || 1), err = v.reduce((q, y, x) => q + (y - a * Math.exp(-b * x)) ** 2, 0);
-      if (err < best[0]) best = [err, b, a];
-    }
-    return { density: v.reduce((x, y) => x + y, 0) / (N * (N - 1) || 1), disorder: best[1], fitA: best[2], strength: s };
+    return s;
   }
   // the disorder of each group as printed in Table 2, for networks whose own record lacks it
   const T2 = { full: ['Blood pool', 'aorta', 0], vena: ['Blood pool', 'vena', 1], A_low: ['BMI', 'healthy', 0], A_high: ['BMI', 'healthy', 1],
@@ -724,38 +712,27 @@ void main() { if (vS < 0.01) discard; gl_FragColor = vec4(vC * vL, vS * uA * uK)
     const n = netOf(id);
     const ids = n && n.organs && n.organs.length ? n.organs.filter(o => OI[o] !== undefined && LAY[o]) : NN.map(i => ORG[i].id);
     const edges = n ? (n.edges || []).filter(e => OI[e[0]] !== undefined && OI[e[1]] !== undefined && LIDX.has(OI[e[0]] * NO + OI[e[1]])) : [];
-    const cmp = n && n.computed && n.computed.strength ? n.computed : edges.length ? measures(ids, edges) : { strength: {}, fitA: 0, disorder: 0 };
+    const sm = n && n.computed && n.computed.strength ? n.computed.strength : edges.length ? sumStrengths(ids, edges) : {};
     const W = new Float32Array(NL), pres = new Float32Array(NO), str = new Float32Array(NO), hub = new Float32Array(NO);
     for (const [a, b, w] of edges) W[LIDX.get(OI[a] * NO + OI[b])] = w;
-    for (const o of ids) { pres[OI[o]] = 1; str[OI[o]] = (cmp.strength && cmp.strength[o]) || 0; }
+    for (const o of ids) { pres[OI[o]] = 1; str[OI[o]] = sm[o] || 0; }
     // hubs: only those the paper colours (none in the network of all scans); never computed ones
     for (const o of (n && edges.length ? n.hubs || [] : [])) if (OI[o] !== undefined && pres[OI[o]]) hub[OI[o]] = 1;
-    // sorted strengths (for the chart) and which nodes carry a label: hubs, then the strongest, eight at most
-    const order = ids.map(o => OI[o]).sort((a, b) => str[b] - str[a] || RRANK[a] - RRANK[b]), rank = new Float32Array(NO).fill(-1);
-    order.forEach((i, r) => { rank[i] = r; });
+    // which nodes carry a label: hubs, then the strongest, eight at most
+    const order = ids.map(o => OI[o]).sort((a, b) => str[b] - str[a] || RRANK[a] - RRANK[b]);
     const lab = new Float32Array(NO);
     let nl = 0;
     for (const i of order) if (hub[i] && nl < 8) { lab[i] = 1; nl++; }
     for (const i of order) if (!lab[i] && nl < 6 && (str[i] > 0 || !edges.length)) { lab[i] = 1; nl++; }
-    // the disorder as printed; the chart's curve decays at that rate (its height fitted to the bars), so the curve and
-    // its label agree. Networks with nothing printed (Figure 4's) get the curve fitted to their bars, without a number.
+    // the disorder as printed (the net's own, else its Table 2 group's); Figure 4's networks have none
     const g2 = t2g(id), dis = n && typeof n.disorder === 'number' ? n.disorder : g2 && typeof g2.disorder === 'number' ? g2.disorder : null;
-    let A = cmp.fitA || 0, b = cmp.disorder || 0;
-    if (dis !== null && edges.length) {
-      let nu = 0, de = 0;
-      order.forEach((i, r) => { const e = Math.exp(-dis * r); nu += str[i] * e; de += e * e; });
-      A = nu / (de || 1); b = dis;
-    }
     const fill = t => t.replace('{n}', n && n.n ? n.n : '').replace('{k}', ids.length);
     const title = fill(NET_TITLE[id] || (n && n.title) || NET_SHORT[k]);
     const sub = NET_SUB[id] ? fill(NET_SUB[id]) : /^C_/.test(id) && g2 ? `CRP ${g2.label}` : g2 ? g2.label : n && n.n ? `${n.n} people` : '';
-    return { id, n, has: !!(n && edges.length), W, pres, str, hub, order, rank, lab, N: ids.length, A, b, title, sub,
+    return { id, n, W, pres, str, hub, lab, title, sub,
       density: n && n.density !== undefined ? n.density : null, disorder: dis !== null && edges.length ? num(dis) : null };
   });
   const NNET = NETS.length;
-  let SMAX = 2;
-  for (const q of NETS) for (const i of NN) SMAX = Math.max(SMAX, q.str[i]);
-  SMAX = Math.ceil(SMAX * 2) / 2;
   // The networks on show: organs_prev crossfades to organs_which by organs_mix, and a fractional organs_which itself
   // crossfades its two neighbours, so up to three networks with weights. A pure function of the params (labels ask too).
   const NWI = [0, 0, 0], NWW = [1, 0, 0];
@@ -883,51 +860,6 @@ void main() {
   halo.raycast = () => {};   // (its geometry is one quad at the origin: a generic raycast would hit nonsense; pick() knows the nodes)
   set.group.add(halo);
 
-  // ---------------------------------------------------------------- the strength distribution
-  const sbGeo = new THREE.BoxGeometry(1, 1, 1).translate(0, 0.5, 0);
-  sbGeo.setAttribute('aCol', new THREE.InstancedBufferAttribute(new Float32Array(NO * 3), 3));
-  sbGeo.setAttribute('aK', new THREE.InstancedBufferAttribute(new Float32Array(NO), 1));
-  sbGeo.setAttribute('aS', new THREE.InstancedBufferAttribute(new Float32Array(NO * 3), 3));
-  const sbMat = new THREE.ShaderMaterial({
-    uniforms: { uA: set.uA }, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
-    vertexShader: `
-attribute vec3 aCol, aS; attribute float aK;
-varying vec3 vC, vP, vS, vNl; varying float vK;
-void main() {
-  vC = aCol; vK = aK; vP = position - vec3(0.0, 0.5, 0.0); vS = aS; vNl = normal;
-  gl_Position = projectionMatrix * modelViewMatrix * instanceMatrix * vec4(position, 1.0);
-}`,
-    fragmentShader: `
-uniform float uA;
-varying vec3 vC, vP, vS, vNl; varying float vK;
-void main() {
-  if (vK < 0.003) discard;
-  // an outlined bar, as in the paper's figure: a bright rim on each face, a soft glow inside
-  vec3 e = (0.5 - abs(vP)) * vS + step(0.5, abs(vNl)) * 9.0;
-  float m = min(min(e.x, e.y), e.z), rim = 1.0 - smoothstep(0.0018, 0.0042, m);
-  float face = vNl.z > 0.5 ? 1.0 : 0.55;
-  vec3 col = vC * (0.22 + 1.1 * rim) * face + vec3(1.0) * rim * 0.18;
-  gl_FragColor = vec4(col, (0.3 + 0.7 * rim) * vK * uA);
-}`,
-  });
-  set.mats.push(sbMat);
-  const sbars = new THREE.InstancedMesh(sbGeo, sbMat, NO);
-  sbars.frustumCulled = false; sbars.renderOrder = 3;
-  set.group.add(sbars);
-  const SB_ATTRS = ['aCol', 'aK', 'aS'].map(k => sbGeo.attributes[k]);
-  // the exponential fit: a glowing ribbon in the chart's plane
-  const FS = 60, fitGeo = new THREE.BufferGeometry(), FPTS = new Float32Array(2 * (FS + 1));
-  {
-    fitGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array((FS + 1) * 6), 3));
-    const ix = []; for (let i = 0; i < FS; i++) ix.push(2 * i, 2 * i + 1, 2 * i + 2, 2 * i + 2, 2 * i + 1, 2 * i + 3);
-    fitGeo.setIndex(ix);
-  }
-  const curveMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(...K.rgb('#ffd27a')), transparent: true, opacity: 0, depthWrite: false,
-    blending: THREE.AdditiveBlending, side: THREE.DoubleSide });
-  const fitCurve = new THREE.Mesh(fitGeo, curveMat);
-  fitCurve.frustumCulled = false; fitCurve.renderOrder = 4;
-  set.group.add(fitCurve);
-
   // ---------------------------------------------------------------- the lesion: a tumour in the right lung
   const LES = [-0.11 * XS, 0.42, 0.03];
   const lesGeo = K.pointsGeo(61);
@@ -953,40 +885,40 @@ void main() {
   marker.position.set(LES[0], LES[1], LES[2]); marker.renderOrder = 5;
   set.group.add(marker);
 
-  // ---------------------------------------------------------------- icons: bars, column heads, nodes, chart, axes
+  // ---------------------------------------------------------------- icons: bars, column heads, nodes, axes
   // one quad each: a dark disc, a ring in the organ's colour and its line icon (hubs: filled orange-yellow)
-  const IB = 0, IN0 = NO, IC = 2 * NO, IX = 3 * NO, NI = 3 * NO + 2 * Math.max(1, NPR);
-  const icoGeo = quadGeo(NI, [['aUV', 4, 0], ['aHub', 1, 0], ['aDisc', 1, 1]]);
+  const IB = 0, IN0 = NO, IX = 2 * NO, NI = 2 * NO + 2 * Math.max(1, NPR);
+  const icoGeo = quadGeo(NI, [['aUV', 4, 0], ['aHub', 1, 0]]);
   const ATL = PET_ICONS.atlas(THREE, 128);
   {
     const uv = icoGeo.attributes.aUV.array, col = icoGeo.attributes.aCol.array;
     const put = (k, oi) => { uv.set(ATL.uv(ORG[oi].id), 4 * k); col.set(COL[oi], 3 * k); };
-    for (let i = 0; i < NO; i++) { put(IB + i, i); put(IN0 + i, i); put(IC + i, i); }
+    for (let i = 0; i < NO; i++) { put(IB + i, i); put(IN0 + i, i); }
     PAIRS.forEach((p, k) => { put(IX + 2 * k, OI[p.a] || 0); put(IX + 2 * k + 1, OI[p.b] || 0); });
   }
   const icoMat = new THREE.ShaderMaterial({
     uniforms: { uA: set.uA, uMap: { value: ATL.texture }, uHub: { value: new THREE.Color(...HUBC) } },
     transparent: true, depthWrite: false,
     vertexShader: `
-attribute vec3 aP, aCol; attribute float aSize, aA, aHub, aDisc; attribute vec4 aUV;
+attribute vec3 aP, aCol; attribute float aSize, aA, aHub; attribute vec4 aUV;
 uniform float uA;
-varying vec3 vC; varying float vA, vHub, vDisc; varying vec4 vUV; varying vec2 vPC;
+varying vec3 vC; varying float vA, vHub; varying vec4 vUV; varying vec2 vPC;
 void main() {
-  vC = aCol; vA = aA * uA; vHub = aHub; vDisc = aDisc; vUV = aUV;${QUAD_VS}
+  vC = aCol; vA = aA * uA; vHub = aHub; vUV = aUV;${QUAD_VS}
 }`,
     fragmentShader: `
 uniform sampler2D uMap; uniform vec3 uHub;
-varying vec3 vC; varying float vA, vHub, vDisc; varying vec4 vUV; varying vec2 vPC;
+varying vec3 vC; varying float vA, vHub; varying vec4 vUV; varying vec2 vPC;
 void main() {
   float d = length(vPC - 0.5) * 2.0;
   if (d > 1.0) discard;
-  vec2 q = (vPC - 0.5) / mix(0.92, 0.68, vDisc) + 0.5;
+  vec2 q = (vPC - 0.5) / 0.68 + 0.5;
   float ic = 0.0;
   if (q.x > 0.0 && q.x < 1.0 && q.y > 0.0 && q.y < 1.0) ic = texture2D(uMap, vec2(mix(vUV.x, vUV.z, q.x), mix(vUV.w, vUV.y, q.y))).a;
-  float ring = (smoothstep(0.74, 0.8, d) - smoothstep(0.93, 1.0, d)) * vDisc;
-  float disc = (1.0 - smoothstep(0.94, 1.0, d)) * vDisc;
+  float ring = smoothstep(0.74, 0.8, d) - smoothstep(0.93, 1.0, d);
+  float disc = 1.0 - smoothstep(0.94, 1.0, d);
   vec3 fill = mix(vec3(0.025, 0.045, 0.085), uHub, vHub);
-  vec3 ink = mix(mix(vec3(0.95, 0.97, 1.0), vC, 0.3 + 0.5 * (1.0 - vDisc)), vec3(0.16, 0.08, 0.0), vHub);
+  vec3 ink = mix(mix(vec3(0.95, 0.97, 1.0), vC, 0.3), vec3(0.16, 0.08, 0.0), vHub);
   vec3 col = mix(mix(fill, ink, ic), mix(vC, vec3(1.0, 0.86, 0.5), vHub * 0.7), ring);
   gl_FragColor = vec4(col, max(disc * 0.92, max(ic, ring)) * vA);
 }`,
@@ -996,12 +928,12 @@ void main() {
   icons.frustumCulled = false; icons.renderOrder = 7;
   icons.raycast = () => {};
   set.group.add(icons);
-  const ICO_ATTRS = QUAD_ATTRS.concat(['aHub', 'aDisc']).map(k => icoGeo.attributes[k]), HALO_ATTRS = QUAD_ATTRS.map(k => haloGeo.attributes[k]);
+  const ICO_ATTRS = QUAD_ATTRS.concat(['aHub']).map(k => icoGeo.attributes[k]), HALO_ATTRS = QUAD_ATTRS.map(k => haloGeo.attributes[k]);
 
-  // ---------------------------------------------------------------- lines: static (unit, panel, chart) and moving (leaders, tethers)
+  // ---------------------------------------------------------------- lines: static (unit, panel, slab) and moving (leaders, tethers)
   // static lines carry a group per vertex (aT) whose alpha is set per frame
   const SL = [];   // [a, b, colour, alpha, group]
-  const GU = 0, GS = 1, GC = 2, GM = 3;
+  const GU = 0, GS = 1, GM = 2;
   {
     const ux = BAR.xb + BAR.k, y0 = barY(NO - 1) - 0.05, y1 = BAR.top + 0.06;
     for (let y = y1; y > y0; y -= 0.032) SL.push([[ux, y, BAR.z], [ux, Math.max(y0, y - 0.018), BAR.z], [0.85, 0.9, 1], 0.7, GU]);
@@ -1019,12 +951,6 @@ void main() {
     }
     SL.push([[s.x0 + s.s / 2, s.y0, z], [s.x0 + s.s / 2, s.y0 + s.s, z], ink, 0.16, GS]);
     SL.push([[s.x0, s.y0 + s.s / 2, z], [s.x0 + s.s, s.y0 + s.s / 2, z], ink, 0.16, GS]);
-    const c = CHT, cz = c.z;
-    SL.push([[c.x0 - 0.02, c.y0, cz], [c.x0 + c.w + 0.02, c.y0, cz], ink, 0.85, GC], [[c.x0 - 0.02, c.y0, cz], [c.x0 - 0.02, c.y0 + c.h, cz], ink, 0.85, GC]);
-    for (let v = 1; v <= SMAX; v++) {
-      const y = c.y0 + v / SMAX * c.h;
-      SL.push([[c.x0 - 0.035, y, cz], [c.x0 - 0.02, y, cz], ink, 0.8, GC], [[c.x0 - 0.02, y, cz], [c.x0 + c.w + 0.02, y, cz], ink, 0.08, GC]);
-    }
     // the slab's frame: its front edge and sides on the table
     const mx0 = MAT.x0, mx1 = MAT.x0 + NF * MAT.cw, zf = MAT.z0 + MAT.d0 / 2 + 0.004, zb = MAT.z0 - MAT.d0 / 2 - 0.006 - NR * MAT.rd - 0.004;
     const my = MAT.y - 0.002, mc = [0.95, 0.6, 0.3];
@@ -1037,7 +963,7 @@ void main() {
     slGeo.attributes.aCol.array.set(c, 6 * i); slGeo.attributes.aCol.array.set(c, 6 * i + 3);
     slBase[2 * i] = slBase[2 * i + 1] = al; slGrp[2 * i] = slGrp[2 * i + 1] = g;
   });
-  const SLG = [0, 0, 0, 0];   // each group's alpha this frame
+  const SLG = [0, 0, 0];   // each group's alpha this frame
   const sLines = new THREE.LineSegments(slGeo, K.lines(set, {}));
   sLines.frustumCulled = false; sLines.renderOrder = 4;
   set.group.add(sLines);
@@ -1058,7 +984,7 @@ void main() {
   const cur = { net: 0, plane: 10, fw: new Float32Array(NO), apiW: new Float32Array(NO), dim: 0,
     node: ORG.map(() => [0, 0, 0]), nodeA: new Float32Array(NO), nodeS: new Float32Array(NO), hubW: new Float32Array(NO), labW: new Float32Array(NO),
     pres: new Float32Array(NO), str: new Float32Array(NO), barLen: new Float32Array(NO), barA: new Float32Array(NO),
-    pairW: new Float32Array(Math.max(1, NPR)), fitEnd: [0, 0, 0], hub: -1, chartX: new Float32Array(NO), chartR: new Float32Array(NO),
+    pairW: new Float32Array(Math.max(1, NPR)), fitEnd: [0, 0, 0], hub: -1,
     segA: new Float32Array(NO) };
   let apiFocus = 0;
   const _m = new THREE.Matrix4(), _q = new THREE.Quaternion(), _p = new THREE.Vector3(), _s = new THREE.Vector3();
@@ -1081,7 +1007,7 @@ void main() {
   const PWL = new Float32Array(Math.max(1, NPR));   // (for the labels)
   function update(S, t, dt) {
     const seg = clamp(S.organs_seg, 0, 1), suv = clamp(S.organs_suv, 0, 1), rows = clamp(S.organs_rows, 0, 1), net = clamp(S.organs_net, 0, 1);
-    const part = clamp(S.organs_partial, 0, 1), strg = clamp(S.organs_strength, 0, 1), les = clamp(S.organs_lesion, 0, 1), pairIn = rise(S);
+    const part = clamp(S.organs_partial, 0, 1), les = clamp(S.organs_lesion, 0, 1), pairIn = rise(S);
     netMix(S);
     cur.net = net;
     const netOut = 1 - prog(net, 0, 0.35);   // bars, slab and panel make way for the network
@@ -1199,50 +1125,8 @@ void main() {
     for (const at of HALO_ATTRS) at.needsUpdate = true;
     halo.visible = net > 0.3;
 
-    // the strength distribution: bars sorted high to low (they slide to their new places), the exponential fit
-    const chA = prog(strg, 0, 0.5), grow = prog(strg, 0.15, 0.75), bw = CHT.w / 13 * 0.62, hsc = CHT.h / SMAX;
-    const sc = sbars.geometry.attributes.aCol.array, sk = sbars.geometry.attributes.aK.array, ss = sbars.geometry.attributes.aS.array;
-    for (let i = 0; i < NO; i++) {
-      let xs = 0, rs = 0, ws = 0;
-      for (let s = 0; s < 3; s++) {
-        const q = NETS[NWI[s]], w = NWW[s], r = q.rank[i];
-        if (w > 0 && r >= 0) { xs += w * (CHT.x0 + (r + 0.5) * CHT.w / Math.max(1, q.N)); rs += w * (r % 2); ws += w; }
-      }
-      const x = ws > 0 ? xs / ws : CHT.x0, h = Math.max(1e-4, cur.str[i] * hsc * grow), hk = cur.hubW[i] * 0.85, fw = cur.fw[i];
-      cur.chartX[i] = x; cur.chartR[i] = ws > 0 ? rs / ws : 0;
-      _p.set(x, CHT.y0, CHT.z); _s.set(bw, h, 0.02); _m.compose(_p, _q, _s); sbars.setMatrixAt(i, _m);
-      sc[3 * i] = lerp(COL[i][0], HUBC[0], hk); sc[3 * i + 1] = lerp(COL[i][1], HUBC[1], hk); sc[3 * i + 2] = lerp(COL[i][2], HUBC[2], hk);
-      sk[i] = cur.pres[i] * chA * (1 + 0.8 * fw) * (1 - 0.6 * dim * (1 - fw));
-      ss[3 * i] = bw; ss[3 * i + 1] = h; ss[3 * i + 2] = 0.02;
-    }
-    sbars.instanceMatrix.needsUpdate = true;
-    for (const at of SB_ATTRS) at.needsUpdate = true;
-    sbars.visible = chA > 0.003;
-    backMat2.opacity = 0.55 * chA * set.uA.value; chBack.visible = chA > 0.003;
-    {
-      const fp2 = fitGeo.attributes.position.array, draw = prog(strg, 0.5, 1), wd = 0.0042, P = FPTS;
-      for (let s = 0; s <= FS; s++) {
-        const u = s / FS * draw;
-        let x = 0, y = 0;
-        for (let k = 0; k < 3; k++) {
-          const q = NETS[NWI[k]], w = NWW[k], r = u * Math.max(0, q.N - 1);
-          if (!w) continue;
-          x += w * (CHT.x0 + (r + 0.5) * CHT.w / Math.max(1, q.N)); y += w * (CHT.y0 + Math.min(SMAX, q.A * Math.exp(-q.b * r)) * hsc * grow);
-        }
-        P[2 * s] = x; P[2 * s + 1] = y;
-      }
-      for (let s = 0; s <= FS; s++) {
-        const s0 = Math.max(0, s - 1), s1 = Math.min(FS, s + 1), dx = P[2 * s1] - P[2 * s0], dy = P[2 * s1 + 1] - P[2 * s0 + 1], l = Math.hypot(dx, dy) || 1;
-        const nx = -dy / l * wd, ny = dx / l * wd, x = P[2 * s], y = P[2 * s + 1], q = 6 * s;
-        fp2[q] = x + nx; fp2[q + 1] = y + ny; fp2[q + 2] = CHT.z + 0.016; fp2[q + 3] = x - nx; fp2[q + 4] = y - ny; fp2[q + 5] = CHT.z + 0.016;
-      }
-      fitGeo.attributes.position.needsUpdate = true;
-      const fitOn = (N0.has ? w0 : 0) + (N1.has ? w1 : 0) + (N2.has ? w2 : 0);
-      curveMat.opacity = draw * chA * fitOn * set.uA.value; fitCurve.visible = curveMat.opacity > 0.003;
-    }
-
-    // icons: bar icons (moving to head the slab's columns), node discs, chart icons, the panel's axes
-    const ia = icoGeo.attributes, ip = ia.aP.array, iA = ia.aA.array, is = ia.aSize.array, ih = ia.aHub.array, id = ia.aDisc.array;
+    // icons: bar icons (moving to head the slab's columns), node discs, the panel's axes
+    const ia = icoGeo.attributes, ip = ia.aP.array, iA = ia.aA.array, is = ia.aSize.array, ih = ia.aHub.array;
     const headA = prog(rows, 0.2, 0.35) * netOut * (1 - 0.5 * pairIn);
     for (let i = 0; i < NO; i++) {
       const r = BRANK[i], c = F2COL[i], fw = cur.fw[i], foc = 1 - 0.6 * dim * (1 - fw);
@@ -1256,10 +1140,6 @@ void main() {
       const k = IN0 + i, p = cur.node[i];
       ip[3 * k] = p[0]; ip[3 * k + 1] = p[1]; ip[3 * k + 2] = p[2]; iA[k] = cur.nodeA[i]; is[k] = cur.nodeS[i] * (1 + 0.25 * fw);
       ih[k] = cur.hubW[i] * prog(net, 0.5, 0.8);
-      // under the chart, in two staggered rows (so they can be larger than a bar's slot)
-      const q = IC + i;
-      ip[3 * q] = cur.chartX[i]; ip[3 * q + 1] = CHT.y0 - 0.048 - 0.075 * cur.chartR[i]; ip[3 * q + 2] = CHT.z + 0.01;
-      iA[q] = cur.pres[i] * chA * foc; is[q] = 0.072; ih[q] = 0; id[q] = 0;
     }
     for (let k = 0; k < NPR; k++) {
       const a = IX + 2 * k, b = a + 1, al = pw[k] * prog(pairIn, 0.4, 0.9) * netOut;
@@ -1271,7 +1151,7 @@ void main() {
 
     // lines
     const sa = slGeo.attributes.aA.array, ga = SLG;
-    ga[0] = suv * netOut * (1 - coll); ga[1] = prog(pairIn, 0.25, 0.75) * netOut; ga[2] = chA; ga[3] = prog(rows, 0.35, 0.6) * netOut;
+    ga[0] = suv * netOut * (1 - coll); ga[1] = prog(pairIn, 0.25, 0.75) * netOut; ga[2] = prog(rows, 0.35, 0.6) * netOut;
     for (let v = 0; v < sa.length; v++) sa[v] = slBase[v] * ga[slGrp[v]];
     slGeo.attributes.aA.needsUpdate = true;
     const mp = mlGeo.attributes.position.array, ma = mlGeo.attributes.aA.array;
@@ -1315,8 +1195,7 @@ void main() {
     fit: own(o => set3(o, cur.fitEnd[0] + 0.01, cur.fitEnd[1] + 0.02, cur.fitEnd[2])),
     net: [0, NETY, NETZ],
     title: [-0.62, 0.985, NETZ - 0.12],
-    strength: [CHT.x0 - 0.03, CHT.y0 + CHT.h + 0.15, CHT.z],
-    chartAxis: [CHT.x0 - 0.03, CHT.y0 + CHT.h + 0.03, CHT.z],
+    measures: [-0.62, 0.74, NETZ - 0.12],   // (under the title, left of the brain's node and above the lungs')
     lesion: LES.slice(),
     plane: own(o => set3(o, PLW * 0.3, cur.plane, PLD / 2)),   // (its front corner: below the organs' names at the plane)
     hub: own(o => (cur.hub >= 0 ? set3(o, cur.node[cur.hub][0], cur.node[cur.hub][1], cur.node[cur.hub][2]) : set3(o, 0, NETY, NETZ))),
@@ -1379,12 +1258,10 @@ void main() {
   NETS.forEach((q, k) => {
     labels.push({ text: [q.title, q.sub ? ` · ${q.sub}` : ''], at: 'title', cls: '', alpha: S => netOn(S) * near(S, k) });
     if (q.density !== null) {
-      labels.push({ text: [`density ${q.density} %`, q.disorder ? ` · disorder ${q.disorder}` : ''], at: 'strength', cls: 'amb',
-        alpha: S => prog(clamp(S.organs_strength, 0, 1), 0.4, 0.8) * near(S, k) });
+      labels.push({ text: [`density ${q.density} %`, q.disorder ? ` · disorder ${q.disorder}` : ''], at: 'measures', cls: 'amb',
+        alpha: S => netOn(S) * prog(clamp(S.organs_measures, 0, 1), 0.4, 0.8) * near(S, k) });
     }
   });
-  labels.push({ text: ['Strength', ' · the same scale in every network'], at: 'chartAxis', cls: '', minor: true,
-    alpha: S => prog(clamp(S.organs_strength, 0, 1), 0.3, 0.7) });
   const cam = {
     default: [0, 4, 3.75, 0, 0, 0],
     seg: [18, 16, 2.4, 0, 0.28, 0],
@@ -1392,10 +1269,9 @@ void main() {
     matrix: [32, 30, 2.5, 0.76, 0.1, -0.32],
     scatter: [8, 6, 2.1, 0.76, 0.52, 0.2],
     net: [8, 6, 3.1, 0.05, 0.37, 0.4],
-    strength: [-6, 4, 3.4, 0.56, 0.24, 0.36],
     lesion: [-24, 8, 1.15, LES[0], LES[1], LES[2]],
   };
-  const VIEWS = [['organs', 'Organs'], ['uptake', 'Uptake'], ['matrix', 'Matrix'], ['partial', 'Partial'], ['network', 'Network'], ['strength', 'Strength']];
+  const VIEWS = [['organs', 'Organs'], ['uptake', 'Uptake'], ['matrix', 'Matrix'], ['partial', 'Partial'], ['network', 'Network']];
   const controls = [
     { key: 'view', label: 'View', options: VIEWS },
     { key: 'network', label: 'Network', options: NET_IDS.slice(0, 11).map((id, k) => [id, NET_SHORT[k]]) },
@@ -1410,7 +1286,7 @@ void main() {
     else if (w !== EX.last) EX.prev = EX.last;
     else if (tt > 1.4) EX.prev = w;   // (done: a later restart of c.t must not cross again)
     EX.last = w;
-    const o = { organs_seg: 1, organs_suv: 0, organs_rows: 0, organs_pair: 0, organs_scatter: 0, organs_partial: 0, organs_net: 0, organs_strength: 0,
+    const o = { organs_seg: 1, organs_suv: 0, organs_rows: 0, organs_pair: 0, organs_scatter: 0, organs_partial: 0, organs_net: 0, organs_measures: 0,
       organs_which: w, organs_prev: EX.prev, organs_mix: EX.prev === w ? 1 : smooth(tt / 1.2), organs_lesion: 0 };
     if (v === 'uptake') o.organs_suv = 1;
     if (v === 'matrix' || v === 'partial') o.organs_rows = 1;
@@ -1422,8 +1298,7 @@ void main() {
       o.organs_partial = u >= 4 && u < 9 ? 1 : 0;
       o.organs_scatter = v === 'partial' ? 1 : 0;
     }
-    if (v === 'network') o.organs_net = 1;
-    if (v === 'strength') { o.organs_net = 1; o.organs_strength = 1; }
+    if (v === 'network') { o.organs_net = 1; o.organs_measures = 1; }
     return o;
   }
 
@@ -1489,7 +1364,7 @@ void main() {
   };
   return Object.assign(set, {
     params: { organs_a: 1, organs_seg: 1, organs_suv: 0, organs_focus: 0, organs_lesion: 0, organs_rows: 0, organs_pair: 0, organs_scatter: 1,
-      organs_partial: 0, organs_net: 0, organs_which: 0, organs_prev: 0, organs_mix: 1, organs_strength: 0, organs_ghost: 0 },
+      organs_partial: 0, organs_net: 0, organs_which: 0, organs_prev: 0, organs_mix: 1, organs_measures: 0, organs_ghost: 0 },
     update, anchors, labels, cam, controls, explore, api: () => API,
     idle: () => jobStep(4),            // while the set is hidden, the shells go on building
     finish: () => jobStep(Infinity),   // for screenshots and tests: build them now

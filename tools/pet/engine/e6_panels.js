@@ -475,17 +475,6 @@ function vSlider(ctx, P, id, x, y, w, v, lo, hi, col, set) {
   ctx.beginPath(); ctx.arc(x + w * f, y + 24, P.hover === id ? 16 : 13, 0, 7); ctx.fillStyle = col; ctx.fill();
   P.regions.push({ id, x: x - 16, y, w: w + 32, h: 48, drag: px => set(lo + clamp((px - x) / w, 0, 1) * (hi - lo)) });
 }
-// a network's strength per organ as bars, sorted from high to low, the hubs marked
-function drawStrength(ctx, x, y, W, id, hubs) {
-  const st = strengths(id), n = st.length, gap = 6, bw = (W - gap * (n - 1)) / Math.max(1, n), bh = 110, mx = n ? st[0][1] || 1 : 1;
-  st.forEach(([o, v], k) => {
-    const bx = x + k * (bw + gap), hgt = bh * v / mx;
-    ctx.fillStyle = organCol(o); ctx.fillRect(bx, y + bh - hgt, bw, hgt);
-    if (hubs.includes(o)) { ctx.strokeStyle = '#ffb020'; ctx.lineWidth = 3; ctx.strokeRect(bx - 1.5, y + bh - hgt - 1.5, bw + 3, hgt + 3); }
-    PET_ICONS.draw(ctx, o, bx + bw / 2, y + bh + 22, Math.min(36, bw), { color: hubs.includes(o) ? '#ffb020' : VC.muted, width: 2 });
-  });
-  return bh + 48;
-}
 function drawNetsPane(ctx, P, x, y, W, bottom) {
   const T = PD.D.table2, r = T[X.cmp], id = curNet(), ni = netInfo(id);
   y += head(ctx, x, y, 'Table 2: groups of scans compared (amber: a significant difference)');
@@ -512,7 +501,8 @@ function drawNetsPane(ctx, P, x, y, W, bottom) {
   y += flow(ctx, P, NET_IDS.map((n, i) => ({ id: 'net:' + n, label: NET_SHORT[i] + (hasNet(n) ? '' : ' ·'), on: n === id && X.scene === 'organs', fn: () => pickNet(n) })), x, y, W, bottom, { px: 20, h: 40 }) + 12;
   y += textBlock(ctx, `${netShort(id)}: ${netTitle(id)}.`, x, y, W, 22, 30, VC.ink, 400, 2);
   y += textBlock(ctx, `${ni.text} ${ni.hubText || ''}`, x, y, W, 22, 30, VC.muted, 400, 3) + 10;
-  if (ni.ok && y + 170 < bottom - 64) y += drawStrength(ctx, x, y, W, id, ni.hubs || []) + 6;
+  const st = strengths(id).slice(0, 3);   // (the strongest organs in words, as the HTML pane)
+  if (ni.ok && st.length && y + 100 < bottom) y += textBlock(ctx, `Strongest: ${st.map(([o, v]) => `${organName(o)} ${v.toFixed(1)}`).join(', ')} (strength: the sum of an organ's links' weights).`, x, y, W, 22, 30, VC.muted, 400, 2) + 10;
   if (FACTS.hk2 && y + 64 < bottom) textBlock(ctx, `Gene-activity networks (Table 3): of ${FACTS.tested}, only hexokinase 2's network resembles FDG's (r = ${FACTS.hk2.r}): the HK2 and GLUT networks above.`, x, y, W, 21, 29, VC.faint, 400, 2);
 }
 function drawOrgansPane(ctx, P, x, y, W, bottom) {

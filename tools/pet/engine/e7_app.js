@@ -172,10 +172,10 @@ const APP = {
   },
 };
 
-// explore mode's start: the network of all scans with its strength, in the Networks tab
+// explore mode's start: the network of all scans, in the Networks tab
 function openNetworks() {
   openScene('organs', false);
-  const v = optKey('organs', 'view', /strength/i) || optKey('organs', 'view', /net/i);
+  const v = optKey('organs', 'view', /net/i);
   if (v) (X.ctl.organs = X.ctl.organs || {}).view = v;
   setNet('full'); X.tab = 'networks'; showTab('networks');
   orbit.cur = view('organs', viewCam('organs') || 'default'); orbit.to = null;
@@ -337,7 +337,7 @@ function initEnd() {
     // &cmp=7 (a row of Table 2), &net=C_high (or vena, dose_ultralow ...), &organ=muscle, &life (the scanner life size)
     const sc = hp.get('scene');
     if (sc && GL.sets[sc]) { openScene(sc, false); showTab('scenes'); }
-    else if (!hp.has('t')) openNetworks();   // straight in: the network of all scans, with its strength
+    else if (!hp.has('t')) openNetworks();   // straight in: the network of all scans
     orbit.cur = view(X.scene, viewCam(X.scene) || 'default'); orbit.to = null;
     // controls after the default view, so a control's own view wins
     for (const c of ctlsOf(X.scene)) if (hp.get(c.key) && c.options.some(o => o[0] === hp.get(c.key))) setCtl(X.scene, c.key, hp.get(c.key));

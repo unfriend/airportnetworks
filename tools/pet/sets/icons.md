@@ -92,5 +92,5 @@ neon, the atlas and tinted copies by `uv`, and times them; `?big=a,b,c` draws so
 detailed atlas); `?final=0..3` the 640 x 400 pictures. From `tools/pet/shots`:
 `node icons-shot.mjs <prefix> [dpr] [big|cmp=a,b,c|-] [final]`. Final pictures: `shots/icons-final-0.png` (white),
 `-1` (neon), `-2` (24, 40 and 64 px), `-3` (a small neon network, the atlas), `-4` (the atlas in the `organs` set's
-network, from the harness: `node shot.mjs organs "p=organs_a:1,organs_net:1,organs_strength:1&t=3&cam=8,6,2.6,0.06,0.28,0.4"
+network, from the harness: `node shot.mjs organs "p=organs_a:1,organs_net:1,organs_measures:1&t=3&cam=8,6,2.6,0.06,0.28,0.4"
 icons-insitu 900 560`).

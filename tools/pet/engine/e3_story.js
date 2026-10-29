@@ -90,11 +90,11 @@ const fitShift = (k, name) => { const f = GL.sets[k].cam[name] && FIT[k] && FIT[
 // views whose parts reach under the side panel or off the right edge on a landscape screen: a little further back,
 // or their target moved, so they fit beside the panel (added to the set's own view, in story and explore mode alike)
 // (measured at 1280 x 760: each view's parts between the panel's right edge and the screen's, above the timeline)
-const FIT = { scan: { vision: [0, 0, 3.3, -0.75] }, body: { default: [0, 0, 0.55] }, organs: { default: [0, 0, 0.55], strength: [0, 0, 0.9, -0.25] },
+const FIT = { scan: { vision: [0, 0, 3.3, -0.75] }, body: { default: [0, 0, 0.55] }, organs: { default: [0, 0, 0.55] },
   liver: { default: [0, 0, 0.15, -0.22] } };
 // how much further back a view stands on a phone held upright (see narrowK): the wide ones, whose parts reach
-// across the screen (the vision row; the network with its chart)
-const NARROW = { scan: { vision: 1.32 }, body: { front: 1.1 }, organs: { net: 1.3, strength: 1.45, matrix: 1.15, bars: 1.1 } };
+// across the screen (the vision row; the network)
+const NARROW = { scan: { vision: 1.32 }, body: { front: 1.1 }, organs: { net: 1.3, matrix: 1.15, bars: 1.1 } };
 const narrowOf = (k, name) => (NARROW[k] && NARROW[k][name]) || 1;
 // a set's anchor point, in the set's own coordinates
 function anchorOf(k, at) {
@@ -274,7 +274,7 @@ function buildStory() {
   };
   start({ scan_vision: 1, scan_bed: 0, scan_pass: 0, scan_cut: 0, scan_events: 0, scan_lines: 0, scan_image: 0, scan_rise: 0,
     body_pet: 0, body_net: 0, body_state: 0, body_blank: 0,
-    organs_seg: 0, organs_suv: 0, organs_focus: 0, organs_lesion: 0, organs_rows: 0, organs_pair: 0, organs_partial: 0, organs_net: 0, organs_which: 0, organs_prev: 0, organs_mix: 1, organs_strength: 0 });
+    organs_seg: 0, organs_suv: 0, organs_focus: 0, organs_lesion: 0, organs_rows: 0, organs_pair: 0, organs_partial: 0, organs_net: 0, organs_which: 0, organs_prev: 0, organs_mix: 1, organs_measures: 0 });
   let a, b;
   // Intro: the vision row (scanner, body, network, prognosis, medication), then it draws back into the scanner
   a = C.title.a; b = C.title.b;
@@ -341,7 +341,7 @@ function buildStory() {
   ramp('organs_net', a + 3, a + 8, 0, 1);
   cam(a + 3, 'organs', 'net');
   cam(b - 0.5, 'organs', 'net', 18, 'spin');
-  // From health to disease: BMI, the strength distribution, tumour load; robust; hexokinase 2 like FDG
+  // From health to disease: BMI, density and disorder, tumour load; robust; hexokinase 2 like FDG
   a = C.health.a; b = C.health.b;
   // the networks in turn, each from the one before (a network not read off its figure yet is skipped)
   let w = wi('full');
@@ -356,14 +356,15 @@ function buildStory() {
     w = n;
   };
   goNet('A_low', a + 7); goNet('A_high', a + 10);
-  ramp('organs_strength', a + 16, a + 19, 0, 1);
-  ramp('organs_strength', a + 35, a + 37, 1, 0);   // (robustness and hexokinase 2: the network alone)
+  // (each network's density and disorder as a tag under its title while the text explains them)
+  ramp('organs_measures', a + 16, a + 19, 0, 1);
+  ramp('organs_measures', a + 35, a + 37, 1, 0);   // (robustness and hexokinase 2: the network alone)
   goNet('B_low', a + 21); goNet('B_high', a + 27);   // (tumour load; not the CRP thirds: they mix healthy people and patients)
   goNet('FDG_healthy', a + 36); goNet('HK2', a + 41.5);
   cam(a + 1, 'organs', 'net', 18);
   cam(a + 14, 'organs', 'net', 34, 'spin');
-  cam(a + 17, 'organs', 'strength');
-  cam(a + 34, 'organs', 'strength', 10, 'spin');
+  cam(a + 17, 'organs', 'net', -14);   // (from the front while the measures are explained)
+  cam(a + 34, 'organs', 'net', -4, 'spin');
   cam(a + 37, 'organs', 'net', 20);
   cam(b - 0.5, 'organs', 'net', 34, 'spin');
   for (const n in TR) TR[n].sort((x, y) => x[0] - y[0]);
