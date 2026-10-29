@@ -128,7 +128,7 @@ tests use headless Chromium, which draws in software here and is slow, so run th
 
 | Test | Command | Needs | When to run it | Time | A failure usually means |
 | --- | --- | --- | --- | --- | --- |
-| Build check | `for k in lbi nmd endo pet micro ovary qubits mutation topo pass flock robots; do node tools/$k/build.mjs --check; done` | Node | after any change in `tools/`, and before every release | under 1 s | a built story no longer matches its sources: run its `build.mjs` and commit both |
+| Build check | `for k in lbi nmd endo pet micro ovary qubits mutation topo pass flock robots lowpoly design; do node tools/$k/build.mjs --check; done` | Node | after any change in `tools/`, and before every release | under 1 s | a built story no longer matches its sources: run its `build.mjs` and commit both |
 | Smoke | `node tools/smoke.mjs http://127.0.0.1:8123/` | server, Playwright | before every commit | about 5 min | a page or console error in a story (they are printed at the end). A 404 for a missing narration MP3 is expected and ignored |
 | Sound | `node tools/audio.mjs http://127.0.0.1:8123/` | server, Playwright, `audio/narration.mp3` | after touching sound (`HOST.audio` in `index.html`, a story's narration code, how `sw.js` serves the narration) | a few minutes | the narration no longer starts after a tap or a story change, or the `<audio>` fallback no longer takes over |
 | Update | `git worktree add /tmp/old origin/main`, then `node tools/update.mjs /tmp/old .`, then `git worktree remove /tmp/old` | Playwright, port 8125 free (it serves both versions itself) | after changing `sw.js` or how files load, and before every release | under 1 min | `VERSION` was not bumped, a new file is missing from `SHELL`, or the page and its stories came from different versions. If it says the two versions look the same, the old checkout is not older |
@@ -136,7 +136,7 @@ tests use headless Chromium, which draws in software here and is slow, so run th
 | Release file | `node tools/release.mjs --check` | Node | before every release (step 7 below) | under 1 s | `version.json` or `index.html`'s stamp is not current: run `node tools/release.mjs` and commit both |
 | Relay | `node relay/test.mjs` | Node 22 | after touching `shared.js`, `relay/`, or a story's shared-room hooks or `state()`; before every release | seconds | the protocol changed, or the relay does not serve a file that `sw.js` caches (`APP_FILES` and `APP_DIRS` in `relay/server.mjs`) |
 | Introduction server | `node tools/peer.mjs` | Playwright (it starts its own relay) | after touching the relay's `/peerjs` or `p2p/` | seconds | two pages of the test page no longer link through the relay's introduction server |
-| Shared rooms | `node tools/collab.mjs` (`--quick` runs only the last story in the per-story part; `--p2p` only the peer-to-peer part, about 2 min; `--design` only the design room in a room, a few minutes; `--shots <dir>` saves pictures) | Playwright (it starts its own relay; the peer-to-peer part uses its `/peerjs`, never the internet) | as for the relay test | about 15 to 18 min | a story's hooks no longer match its pointer code, a `state()` that changes when it is applied, `FORMAT` not bumped, a timing check (see below), or a peer-to-peer room that no longer hosts, links or takes over |
+| Shared rooms | `node tools/collab.mjs` (`--quick` runs only the last story in the per-story part; `--p2p` only the peer-to-peer part, about 2 min; `--design` only the design room in a room, a few minutes; `--near` only rooms on this network, `--follow` only following a person, `--circles` only the ten-headset round's circles and locks; `--shots <dir>` saves pictures) | Playwright (it starts its own relay; the peer-to-peer part uses its `/peerjs`, never the internet) | as for the relay test | about 15 to 18 min | a story's hooks no longer match its pointer code, a `state()` that changes when it is applied, `FORMAT` not bumped, a timing check (see below), or a peer-to-peer room that no longer hosts, links or takes over |
 | One set | `cd tools/<key> && node shot.mjs <set> "<query>|<query>|..." <prefix> [width height]` | server | while you change a 3D set | short | check the pictures in `tools/<key>/shots/` (git-ignored); page errors are printed |
 | A whole story | `cd tools/<key> && node sweep.mjs <prefix> "t1,t2,..." [width height]` | server | after changing a built story's text, timing or camera | one page load | as for one set |
 
@@ -166,29 +166,32 @@ only after the tests pass. No pull requests are used.
    it prints nothing, merge `origin/main` into your branch first.
 2. **Edit the sources, never a built story.** Twelve stories are built from `tools/<key>/`: lbi, nmd, endo, pet,
    micro, ovary, qubits, mutation, topo, pass, flock and robots (pass also takes its globe and cell from `stories/airports.js` and
-   `stories/spatial.js`: rebuild it after changing either). `stories/airports.js`, `stories/proteins.js` and `stories/spatial.js` are edited by hand.
+   `stories/spatial.js`: rebuild it after changing either). So are the design room (`stories/design.js` from
+   `tools/design/`) and the miniatures (`lowpoly.js` from `tools/lowpoly/`, which the design room's names come from:
+   rebuild the design room after changing them). `stories/airports.js`, `stories/proteins.js` and `stories/spatial.js` are edited by hand.
    Search them rather than reading them whole, because they are large.
 3. **Rebuild.** If the data changed, run the data generator first (see the story's README), then rebuild the
    stories. Some parts feed several stories:
 
    | Source | Stories built from it |
    | --- | --- |
-   | `tools/lbi/kit.js` | all twelve built stories |
+   | `tools/lbi/kit.js` | all twelve built stories, the design room |
+   | `tools/lowpoly/models-a.js`, `models-b.js` | `lowpoly.js`, the design room |
    | `tools/lbi/sets/body.js` | lbi, pet, micro, ovary, topo |
    | `tools/lbi/sets/tissue.js` | lbi, micro |
    | `tools/nmd/sets/motor.js`, `tools/nmd/sets/data.js` | nmd, endo |
    | `tools/pet/sets/icons.js` | pet |
    | `tools/micro/sets/organs.js` | micro, topo |
 
-   Rebuilding all twelve takes about a second:
-   `for k in lbi nmd endo pet micro ovary qubits mutation topo pass flock robots; do node tools/$k/build.mjs; done`
-4. **Bump `VERSION` in `sw.js`** (`networks-v92` now, so `networks-v93` next) after any change to a file the app
+   Rebuilding all of them takes a few seconds:
+   `for k in lbi nmd endo pet micro ovary qubits mutation topo pass flock robots lowpoly design; do node tools/$k/build.mjs; done`
+4. **Bump `VERSION` in `sw.js`** (`networks-v97` now, so `networks-v98` next) after any change to a file the app
    serves: `index.html`, `shared.js`, `sw.js`, `manifest.webmanifest`, `three.min.js`, `three.LICENSE.txt`,
-   `proteins.html`, `spatial.html`, `README.txt`, and anything in `stories/`, `audio/` or `icons/`. For a new file the
+   `proteins.html`, `spatial.html`, `README.txt`, `lowpoly.js`, and anything in `stories/`, `audio/` or `icons/`. For a new file the
    app needs, add it to `SHELL` in `sw.js`. A narration goes in `AUDIO`, which already lists all fifteen file names. If
    the new file is not directly inside `stories/`, `audio/` or `icons/`, also add it to `APP_FILES` in
    `relay/server.mjs`. A new story goes in `stories/list.js` (its card), and `stories/<key>.js` in `SHELL`.
-5. **Bump `FORMAT` in `shared.js`** (`networks-23` now) when the shared keys, or the shape of a story's
+5. **Bump `FORMAT` in `shared.js`** (`networks-25` now) when the shared keys, or the shape of a story's
    `collab.state()`, change. A room refuses pages that have another format, so every device in a room has to update
    together. A new story alone no longer needs it: a device that does not know it yet shows its station as needing an
    update.

@@ -162,8 +162,9 @@ Outside a shared room only (at a station a story ends in explore mode, as for ev
   and reloading. **Place again** sets them in front of you; the grip moves nothing. The Stories screen says how long
   the place holds.
 - A new wearer (headset off for over 3 s) lands on the Stories screen and picks a story with the trigger or a pinch.
-- Sound starts after a first tap or click (**Enter VR** counts; on a screen, click once). Only **Airports** has a
-  narration; the other nine stories are silent by design.
+- Sound starts after a first tap or click (**Enter VR** counts; on a screen, click once). Only **Airports** and **The
+  future** have a narration so far; the other stories are silent until they get one (**Subtitles: on** shows the
+  panel's words low in the view).
 - **TO FILL (owner):** headset settings used for a kiosk (sleep, boundary), if any.
 
 ## 4. When things go wrong
@@ -175,7 +176,7 @@ Outside a shared room only (at a station a story ends in explore mode, as for ev
 | *No shared space (check the WebXR flag ...)*, *No room scan here*, *Shared space switched off here* | Section 1's settings and Space Setup; **Shared space: off** switches it on. Or calibrate on the tape. |
 | Off after standby | Crosses show 30 s (*Check the marks*). *Leave AR and enter it again*: do so. Through the shared space: wait 20 s, then **Re-align**. Still off: **Calibrate**. |
 | Calibrate after every restart, or *Anchors not saved (the store is full)* | Clear Quest Browser's cookies and site data on that headset, then calibrate. |
-| No sound | Only **Airports** has a narration. **Play sound**, or **Sound off** to turn it back on; the headset's volume; stand within 1.5 m of the station's spot. **Sound check**: press both beeps; hearing one, choose it (**Web Audio** or **Audio element**); **Reset** unmutes and goes back to **Automatic**. Photograph its lines for the developer. |
+| No sound | Only **Airports** and **The future** have a narration. **Play sound**, or **Sound off** to turn it back on; the headset's volume; stand within 1.5 m of the station's spot. **Sound check**: press both beeps; hearing one, choose it (**Web Audio** or **Audio element**); **Reset** unmutes and goes back to **Automatic**. Photograph its lines for the developer. |
 | Stuck on its loading line, or *Could not load the ... story* | Check the relay window and `/api/ping`, then reload (headset: **Exit**, reload, enter AR again; the room link rejoins). Pages from the relay have no offline copy. |
 | A headset lost its room | *connecting...*: the relay is not answering (laptop asleep, Wi-Fi, relay stopped); it reconnects by itself. *Room XYZ · this headset*: kept on the headset until the relay answers (asked every 15 s). *There is no room XYZ ...*: **Join** one under **Open rooms**, or start one and **Arrange all** (rooms go 6 hours after the last person leaves). |
 | Peer to peer: *The host has gone: taking over* | Wait: the next device takes over by itself (seconds; up to about a minute when the host vanished without leaving). Bring the host page back, or keep a laptop page in the room as the host. |

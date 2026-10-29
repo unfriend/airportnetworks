@@ -44,8 +44,10 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
 
 - **Tested automatically** before every merge to main: the smoke test (every story, explore mode, headset panels
   with a pretend headset, anchored placement), the sound test, the update test (service worker), the live-update test
-  (`tools/live.mjs`), the relay's protocol test and the shared-room test (three pages and a pretend headset in a room),
-  and each built story's `--check`. All pass on main.
+  (`tools/live.mjs`), the relay's protocol test, the introduction server's test (`tools/peer.mjs`), the tour's
+  recording against its story (`tools/voice/check.mjs lbi --quick`), the shared-room test (three pages and a pretend
+  headset in a room, with its parts for rooms on this network, following a person, the design room and the circles),
+  `node tools/release.mjs --check` and each built story's `--check`. All pass on main (networks-v97).
 - **Built on 29 October 2026 (release networks-v96), tested headlessly only:**
   - *Live updates and hot reload:* a running copy takes a new release by itself without losing its place, and while
     developing follows the files as they are saved (`HOST.live`, `version.json` written by `node tools/release.mjs`,
@@ -65,7 +67,11 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
   - *The PET story's text fixes* after the poster comparison (item 8 below; 6:33).
   - *The tour narrated by a synthetic voice* (Kokoro-82M, `af_heart`; `tools/voice/`, `audio/narration-lbi.mp3`,
     10:42); `node tools/voice/check.mjs lbi` checks the recording against the story.
-- **Built after v96 (29 October 2026), tested headlessly only:** *a loading bar* (the owner: "some rooms like 'the
+- **Released as networks-v97 (29 October 2026; FORMAT networks-25), tested headlessly only:** the loading bar, rooms
+  on this network (with the relay's `--proxy <n>`), panels per story, the design room's part 2, follow a person, the
+  PET story's strength chart removed (item 8 below) and the changes after the ten-headset test, each below. A room
+  needs every device on networks-v97 (a page of v96 is refused by the new format and asked to reload).
+- **In networks-v97:** *a loading bar* (the owner: "some rooms like 'the
   future' take a little time to load"). Every story now builds in steps that yield (the scene, each set with its
   shaders, the story, explore mode, the panels; `LOAD` in each engine and in the three hand-written stories) and
   reports them (`HOST.progress`): the page shows a thin bar and the step under the loading line, and a headset shows
@@ -75,7 +81,7 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
   multi-scene story's load fell from 0.7 to 1.4 s to 0.2 to 0.4 s (at most one shader's compile), while the whole load
   took up to 0.6 s longer: each pause lets the page draw a frame, which software WebGL composites slowly and the next
   shader waits for. How long a load takes on a Quest, and how the card and the ring look there, are untested.
-- **Built after v96 (29 October 2026), tested headlessly only:** *rooms on this network* (FORMAT networks-25). The
+- **In networks-v97:** *rooms on this network* (FORMAT networks-25). The
   owner's priority, in their words: "Rejoin by itself, never join something new by itself." The Shared dialog and the
   headset's menu list *Rooms on this network* (code, its first member's or host's name, people; one press joins): with
   a relay its `GET /api/near` (the relay hashes each device's address; `--proxy` behind Coolify, set in its start
@@ -90,7 +96,7 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
   works: AGENTS.md "Shared rooms"; at an event: [docs/event-runbook.md](docs/event-runbook.md). Tested between pages on
   one machine with pretend networks (`node tools/collab.mjs --near`); real networks (home routers, hotspots, eduroam,
   a relay behind Coolify) and headsets rejoining after a restart are untested.
-- **Built after v96 (29 October 2026), tested headlessly only:** *panels per story* (the owner: "i would want that for
+- **In networks-v97:** *panels per story* (the owner: "i would want that for
   every story as an independent per story toggle maybe inside the clock menu"). A row in the headset's menu for the
   story on show, *Panels: shown* / *controls only* / *hidden*, each press the next: controls only keeps just the foot
   bar (play and pause, the chapter arrows, the clock, Next; good with subtitles on), hidden takes both story panels
@@ -100,7 +106,7 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
   page's Shared dialog too, never refused by the circles lock (key `st.<id>.ui`, part of FORMAT networks-25).
   Independent of Labels (labels hidden still hides both). `HOST.panels` in `index.html`; AGENTS.md "How the shell and
   stories fit together". How it feels on a headset is untested.
-- **Built after v96 (29 October 2026), tested headlessly only:** *the design room, part 2* (the owner's queue). A
+- **In networks-v97:** *the design room, part 2* (the owner's queue). A
   *Design room* row in the headset's menu: outside a shared room it opens the design room; in a room, *Design room
   here* puts the props table at your feet as a circle facing your way (or moves the room's one there), refused while
   the circles are locked as Add is; the page's Shared dialog lists the design room after the stories in its station
@@ -111,7 +117,7 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
   story's colour, with the glowing dodecahedron while they load or for a story without one; the old hand-made models
   are gone from `shared.js`. AGENTS.md "Shared rooms" ("Station icons", "The design room in a room"). How the icons
   read from across a real room and the table at a circle on a headset are untested.
-- **Built after v96 (29 October 2026), tested headlessly only:** *follow a person* (the owner: a laptop for people who
+- **In networks-v97:** *follow a person* (the owner: a laptop for people who
   do not want to wear a headset follows along). In the page's Shared dialog each person in a headset has *Follow* in
   the people list: the page then follows whichever station that person stands at, switching as they walk from one
   circle to the next, and stays on the last one when they step out of every circle (or take the headset off). It stops
@@ -122,7 +128,7 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
   machine (`node tools/collab.mjs --follow`); with real headsets walking a room it is untested.
 - **Tried with ten headsets (29 October 2026):** the owner ran main (v96) with 10 headsets through a local relay on
   their computer and one router on site: "everything worked very well". Their changes, below.
-- **Built after the ten-headset test (29 October 2026), tested headlessly only:** (1) *stay in your story*: "One should
+- **In networks-v97, after the ten-headset test:** (1) *stay in your story*: "One should
   only exit a story when walking into a new circle, otherwise stay in the story even if they move away from the
   story's circle." A headset that has walked into a circle keeps that station wherever it walks (its story shows,
   plays on the station's clock and stays in step with the room; its narration fades with distance); only walking into
@@ -133,8 +139,8 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
   toggle per room for locking its panels and story elements"): *Lock circles* (the old layout lock's key, now only the
   circles: the grip on a ring or card, the map, Arrange all, Add, Move here, Remove, Design room here) and per station
   *Lock this story* (the clock menu at that circle) or *Lock story* (each station's row in the Shared dialog): its
-  scene and panel grips refused for everyone at that circle (in `st.<id>.ui` with its panels, FORMAT networks-25 still,
-  unreleased). A room locked in v96 reads as circles locked only: lock its stories once. (5) *People at your circle*:
+  scene and panel grips refused for everyone at that circle (in `st.<id>.ui` with its panels, FORMAT networks-25). A
+  room locked in v96 reads as circles locked only: lock its stories once. (5) *People at your circle*:
   other people (name tag, head, hands) are drawn only when they are at your circle (everyone before your first circle);
   *People: same circle* / *everyone* in the clock menu (this headset only, never in the room) for debugging. Pages'
   room maps still show everyone. Also: following a person is offered only for people in a headset (`followPerson`
@@ -143,6 +149,12 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
   Tests: `node tools/collab.mjs --circles` (its own room) and the rewritten walk-out checks in the main run. All of it
   is untested on headsets: how a ring's card reads when pointed at, the story heard from out of its circle, the locks
   and the People toggle in use.
+- **Being built (not in networks-v97):** the sixteenth story, *Holding on to nitrogen* (`soil`), after the slides and
+  field-trial data of Marina Montserrat Díez, Christa Schleper and colleagues (the authors' permission given through
+  the owner, 29 October 2026; anything unknown illustrative and labelled so). Its sources are in `tools/soil/` and
+  its data sources in [docs/data-and-permissions.md](docs/data-and-permissions.md); it is not yet in
+  `stories/list.js` or `sw.js`, so the app does not offer it. Integration (its card, `SHELL`, the tests, the docs
+  listed under "Adding a sixteenth story") and a release follow when it is finished.
 - **Tried on real headsets:** the stories and their sound on Quest; shared rooms on two Quest 3 headsets in several
   rounds (what happened is in [docs/quest-shared-space-findings.md](docs/quest-shared-space-findings.md) and AGENTS.md
   "Shared rooms"). All thirteen stories of then, the slideshow and the headset menu on the wrist were tried on a headset
@@ -223,9 +235,10 @@ Before handing over (or making anything more public), someone has to decide thes
      with a German voice and subtitles: about 1.5 to 2 days of agent work; explore mode in German too: about 1 to 1.5
      days more. In a shared room everyone keeps one timeline, so each stretch lasts the longer of its two languages (as
      the pass story, already in English and German, does);
-   - **The queue** (the owner, 29 October 2026): a test round and a release (about 1 h). Rooms on this network, first
-     in it, the loading bar queued alongside, panels per story, the design room's part 2 and follow a person are built
-     (see "Where things stand"). Each is described below;
+   - **The queue** (the owner, 29 October 2026): rooms on this network, first in it, the loading bar queued alongside,
+     panels per story, the design room's part 2, follow a person and the ten-headset round's changes are built and
+     released as networks-v97 (see "Where things stand"). Next: the sixteenth story, on soil, being built, then its
+     integration and a release. Each item is described below;
    - **circles that load code from a link** (on hold, the owner, 29 October 2026; the design agreed, not to build
      yet). The owner's aim: the whole office as one shared room, where colleagues add circles of their own, with their
      own logic, from a web page or a GitHub repository. How: a station whose story is a script from a web address

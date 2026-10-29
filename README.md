@@ -68,17 +68,24 @@ Meta Quest Browser).
   beside the story panel without a left controller or hand): several
   headsets and screens join one room and see the same **stations**, each a
   story at a spot in the room, in step on every device. Anyone can play,
-  pause, jump or change a control; the last action wins. A headset runs the
-  station it stands at; the others show as rings on the floor with a card,
-  and pointing at a card and pulling the trigger goes there too. Each station's
-  narration comes from where it stands, and you see where the others point.
-  People in the room calibrate once (*Calibrate*: touch two tape marks with a
-  controller) unless their headsets share a space; people elsewhere and
-  screens see the stations round their own spot. Screens get a room map and
-  *Follow* a station. The flock's birds and the robots move separately on each
-  device; their controls, falcons and crumbs are shared. `#s=XYZ` in a link
-  joins room XYZ. Nothing changes for anyone not in a room. Tried on two Quest
-  3 headsets in one room several times; what they did, and what is still
+  pause, jump or change a control; the last action wins. A headset takes a
+  station by walking into its circle and keeps it until it walks into another
+  (the other stations show only their rings meanwhile; pointing at a ring shows
+  its card). Each station's narration comes from where it stands, and you see
+  the people at your circle and where they point. *Lock circles* keeps the
+  stations where they are; *Lock this story* (the menu at a circle) keeps its
+  scene and panel; *Panels* in the menu shows a story's panels, only its
+  controls, or none. People in the room calibrate once (*Calibrate*: touch two
+  tape marks with a controller) unless their headsets share a space; people
+  elsewhere and screens see the stations round their own spot. Screens get a
+  room map and *Follow* a station or a person in a headset (the page then
+  follows whichever circle they stand in). *Rooms on this network* lists the
+  rooms nearby, and a device that was in a room joins it again by itself
+  when the app opens on the same network. The flock's birds and the robots
+  move separately on each device; their controls, falcons and crumbs are
+  shared. `#s=XYZ` in a link joins room XYZ. Nothing changes for anyone not in
+  a room. Tried with ten headsets through a local relay (see `HANDOVER.md`), and on two Quest 3
+  headsets in one room several times; what they did, and what is still
   unconfirmed, is in `docs/quest-shared-space-findings.md`.
 - The address shows where you are, so you can share it: `#stories` on the
   Stories screen (on the page or in the headset), `#airports`, `#proteins`,
@@ -102,8 +109,9 @@ Installing:
   the install icon in the address bar.
 - **iPhone / iPad Safari**: Share > Add to Home Screen.
 
-Shared rooms need the relay (`relay/server.mjs`, Node 18 or newer, no
-packages), which GitHub Pages cannot run. For now it runs on a machine on the
+Shared rooms work best through the relay (`relay/server.mjs`, Node 18 or newer, no
+packages), which GitHub Pages cannot run; without one a room runs peer to peer
+(one page hosts it; see `docs/event-runbook.md`). For now the relay runs on a machine on the
 same Wi-Fi as the headsets and serves the app itself:
 `node relay/server.mjs --lan` makes an HTTPS server with a certificate of its
 own and prints the address to open on each headset (accept the certificate
