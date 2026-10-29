@@ -32,7 +32,7 @@ self.STORY_LIST = [
     page: 'Endotypes: one disease, many mechanisms', brand: 'Endotypes', sub: 'one disease, many mechanisms',
     aria: 'Interactive 3D story of how disease endotypes are found, from a nerve-muscle junction to a protein network', thing: 'synapse', loading: 'Opening the synapse', len: 'Story 7:12 · 3D synapse' },
   { key: 'pet', kick: 'Whole-body PET', title: 'One scan, one system', col: '#ffe066',
-    desc: 'A PET scan sees every organ\'s sugar use at once. 658 scans make a network of organs that thins and tips towards a few hubs as health erodes; one scan may soon tell how a body is doing.',
+    desc: 'A PET scan sees every organ\'s sugar use at once. 658 scans make a network of organs that thins and tips towards a few hubs as health erodes; the aim is to read one scan against such a network.',
     page: 'One scan, one system: the body as a metabolic network', brand: 'One scan, one system', sub: 'the body as a metabolic network',
     aria: 'Interactive 3D story of whole-body PET scans and the network of the organs\' metabolism', thing: 'scanner', loading: 'Warming up the scanner', len: 'Story 6:33 · 3D scanner' },
   { key: 'micro', kick: 'Tissue microanatomy', title: 'Tissue and time', col: '#ff9ec4',
