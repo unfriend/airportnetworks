@@ -1,10 +1,5 @@
 
 // ================================================================== STORY ==
-// TODO(soil B): copied from the tissue topology story. Replaced already: NARRATION_SYNC (a 1:1 placeholder), CH (the
-// eight chapters of SPEC.md), LOG, the engine's own defaults (the hop), logMix, the data and FACTS, the credits.
-// Still the topo story's, marked TODO(soil B) where they stand: FIT, NARROW and LOW (measure them for the soil
-// story's views), buildStory (the chapters' text and keys), the story labels, the stand view (here: the field's
-// `stand`, in a headset in chapters 4 and 5, or none: SPEC.md, "The engine").
 // Narration timing: [time in your recording, original story cue]. The story's
 // animation is stretched or squeezed between these points so each cue lands
 // on the matching sentence. Until a narration is recorded, the table sets the
@@ -12,8 +7,7 @@
 // between two cues lasts long enough to read what appeared at its start; run
 // it again after the text changes). A recording replaces it with its own times.
 const NARRATION_SYNC = [
-  [0, 0], [460, 460],   // TODO(soil B): a placeholder; node tools/pace.mjs <url> --write soil sets it once the story
-                        // is in HOST.list (the integrator), from the panel's words
+  [0, 0], [460, 460],   // (a placeholder until the story is in HOST.list: node tools/pace.mjs <url> --write soil)
 ];
 // recording time -> original story time
 function storyT(t) {
@@ -95,25 +89,19 @@ const fitShift = (k, name) => { const f = GL.sets[k].cam[name] && FIT[k] && FIT[
 // views whose parts reach under the side panel or off the right edge on a landscape screen: a little further back,
 // or their target moved, so they fit beside the panel (added to the set's own view, in story and explore mode alike)
 // (measured at 1280 x 760: each view's parts between the panel's right edge and the screen's, above the timeline; the
-// sets' own views fill a whole screen, so most stand back a little and move their target left of the parts' middle)
-// TODO(soil B): FIT, NARROW and LOW below are the topo story's: measure the soil story's views (SPEC.md).
+// sets' own views fill a whole screen, so the wide ones stand back a little and move their target left of the parts'
+// middle: the network split in two or three, the field with its jars on the bench and its stack behind)
 const FIT = {
-  tower: { bars: [0, 0, 0.8, -0.3, 0, 0] },
-  cohort: { stacks: [0, 0, 0.4, -0.25, 0, 0] },
-  map: { relief: [0, 0, 0.3, -0.15, 0, 0] },
+  net: { split: [0, 0, 0.5, -0.1, 0, 0] },
+  field: { default: [0, 0, 0.3, 0.15, 0, 0], jars: [0, 0, 0.2, 0, 0, 0] },
 };
 // how much further back a view stands on a phone held upright (see narrowK): the wide ones, whose parts reach
-// across the screen (measured at 390 x 760, the scene's pixels against the strip above the panel: the patch's 110
-// cells across the width, the tower with its ruler and the board beside it, the cohort's shapes, scores and wall)
-const NARROW = { tower: { plate: 1.15, snap: 1.15, tower: 1.25, default: 1.25, bars: 1.32 },
-  cohort: { shapes: 1.25, space: 1.2, wall: 1.2, odds: 1.2 } };
+// across the screen (the split network, the field with its bench)
+const NARROW = { net: { split: 1.55, module: 1.15 }, field: { default: 1.25, plots: 1.2, stack: 1.2, cloud: 1.15 }, soil: { default: 1.15 } };
 const narrowOf = (k, name) => (NARROW[k] && NARROW[k][name]) || 1;
 // on a screen held sideways but too narrow for the side panel (the panel below, the scene in a strip above it, see
-// lowK) the tall tower comes closer and is centred in the strip: [distance factor, the target's shift up]
-// (measured at 640 x 400: the tower about as tall as the strip, its plate's label end left under the panel; the board
-// and the cohort's low views brought closer)
-const LOW = { tower: { plate: [1, -0.2], snap: [1, -0.2], tower: [0.95, -0.38], default: [0.95, -0.38], bars: [0.72, -0.3] },
-  cohort: { default: [0.7, -0.2], rack: [0.8, -0.1], means: [0.9, 0], shapes: [1, -0.15], stacks: [0.78, -0.1] } };
+// lowK): [distance factor, the target's shift up]
+const LOW = { soil: { default: [0.95, -0.1], plant: [0.9, -0.1] }, field: { stack: [0.9, -0.1] } };
 const LOW1 = [1, 0];
 const lowOf = (k, name) => (LOW[k] && LOW[k][name]) || LOW1;
 // a set's anchor point, in the set's own coordinates
@@ -126,150 +114,138 @@ function anchorOf(k, at) {
 
 // ------------------------------------------------------------------- data --
 // Every number the story shows is the trial's (SOIL_DATA), looked up through SDATA, or read off the slides' charts
-// (SOIL_DATA.figs: say "read off the slides"). Nothing scientific is computed here.
-// TODO(soil B): the helpers below are the topo story's; keep the ones the soil story uses.
+// (SOIL_DATA.figs: said "read off the slides"). Nothing scientific is computed here.
 const D = SOIL_DATA, SD = SDATA;
-const f2 = v => (v < 0 ? '−' : '') + Math.abs(v).toFixed(2);
-const f2s = v => (v < 0 ? '−' : '+') + Math.abs(v).toFixed(2);   // a share or a score with its sign
 const pct = v => (Number.isFinite(+v) ? `${Math.round(100 * v)} %` : '–');
-// a radius in µm as the poster prints its snapshots (two decimals; whole above 60)
-const fmtR = r => (!Number.isFinite(r) ? '∞' : r >= 60 ? String(Math.round(r)) : r >= 10 ? r.toFixed(1).replace(/\.0$/, '') : r.toFixed(2));
-const fmtR2 = r => (!Number.isFinite(r) ? '∞' : r.toFixed(2));
 const word = n => ['no', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve'][n] || String(n);
-const plural = (n, one, many) => `${n === 1 ? 'one' : fmt(n)} ${n === 1 ? one : many}`;
 const cap = s => (s ? String(s).charAt(0).toUpperCase() + String(s).slice(1) : '');
+// a value as the panes print it: a measure to its own precision, '–' where none was measured
+const num = (v, d) => (v === null || v === undefined || !Number.isFinite(+v) ? '–' : (+v).toFixed(d));
+const pTxt = p => (p === null || p === undefined || !Number.isFinite(+p) ? '' : p < 0.001 ? 'p < 0.001' : `p = ${(+p).toFixed(p < 0.01 ? 3 : 2)}`);
+// a whole number of thousands ("about 100,000")
+const thousands = n => fmt(Math.round(n / 1000) * 1000);
 
 // ------------------------------------------------------------------ facts --
 // Numbers the story quotes, all from SOIL_DATA (SPEC.md, "The data")
-// TODO(soil B): extend with every number the text shows; never type one in.
 const FACTS = (() => {
-  const N = D.net, sp = N.splits, F = D.figs;
+  const N = D.net, sp = N.splits, F = D.figs, M = D.meta, ds = D.design;
+  const big = N.mods.map((m, i) => i).filter(i => N.mods[i].n >= 100);
+  const top = m => { const r = N.mods[m].r2; let b = 'fert'; for (const k of ['time', 'line', 'plot']) if (r[k] > r[b]) b = k; return b; };
+  const qp = /p = ([\d.]+)/.exec(F.qpcrNote || '');
   return {
     samples: D.src.samples, kinds: D.src.kinds, reads: D.src.reads, common: D.common.n, readShare: D.common.readShare,
-    plots: D.design.plots, dates: D.design.times.length, dap: D.design.times.map(t => t.dap), days: D.design.times.map(t => t.day),
-    nodes: N.n, links: N.links, pos: N.pos, modules: N.modules, big: N.mods.filter(m => m.n >= 100).length, nullLinks: N.null.links,
+    plots: ds.plots, reps: ds.reps, dates: ds.times.length, dap: ds.times.map(t => t.dap), days: ds.times.map(t => t.day), stages: ds.times.map(t => t.stage),
+    kgN: ds.ferts[1].kgN, nodes: N.n, links: N.links, pos: N.pos, neg: N.neg, modules: N.modules, big: big.length, nullLinks: N.null.links,
+    bigFert: big.filter(m => top(m) === 'fert').length, bigPlot: big.filter(m => top(m) === 'plot').length,
+    lineR2: Math.max(...N.mods.map(m => m.r2.line)),
     byLine: D.common.diff.line, byFert: D.common.diff.fert, byTime: D.common.diff.time, byPlot: D.common.diff.plot,
-    lineLinks: sp.line.map(x => x.links), lineDiff: sp.lineDiff, randomDiff: sp.randomDiff, randomN: sp.random.length,
-    thresholds: N.thresholds, nitrosospira: D.guilds.nsp.byFert, archaea: D.guilds.aoa.byFert,
-    chl70: F.chl70[0].map(o => o.v), n2oPeakDay1: F.n2o.peaks[0][1], n2oMeta: D.meta.n2o.line.byFert[1],
+    lineLinks: sp.line.map(x => x.links), lineDiff: sp.lineDiff, randomDiff: sp.randomDiff, randomN: sp.random.length, randomMore: sp.randomMore,
+    thresholds: N.thresholds, cuts: N.cuts, residual: N.residual, nitrosospira: D.guilds.nsp.byFert, archaea: D.guilds.aoa.byFert,
+    chl70: F.chl70[0].map(o => o.v), no3d24: M.no3.line.byGroup[1 * 5 + 2], n2oPeak: F.n2o.peaks[0][1], n2oDcd: F.n2o.peaks[0][2],
+    n2oMeta: M.n2o.line.byFert[1], n2oMetaDay: [0, 1, 2].map(t => M.n2o.line.byGroup[1 * 5 + t]), qpcrP: qp ? qp[1] : '',
+    incubation: F.n2o.incubation, fertNodes: N.fertNodes, fertAll: N.fertAll,
   };
 })();
 // the credits: the last chapter's small print and explore's About note (the Scenes pane, page and headset)
 const AUTH = 'Marina Montserrat Díez, Tadashi Yoshihashi, Guntur Subbarao Ventaka, Eleftheria Bachtsevani, Dimitrios Karpouzas, Christina Hazard, Melina Kerou and Christa Schleper';
 const INSTS = 'University of Vienna (Vienna Doctoral School of Ecology and Evolution; Archaea Biology and Ecogenomics); University of Thessaly; Université Lyon 1 Claude Bernard; JIRCAS (Japan International Research Center for Agricultural Sciences)';
-const DATA_CREDIT = 'The field trial\'s data (16S amplicon reads, field measurements) used with the authors\' permission; the kinds of microbe are numbered, never named by their ids. Values from the slides\' charts were read off them by two readers. The soil block, the relay, the chromosome and the field\'s layout are illustrative. The co-occurrence network was built for this story with a standard method.';
-// TODO(soil B): the credits as the authors want them (SPEC.md, "Open questions"); the wheat line: Subbarao et al., PNAS (the slides' reference)
-const ABOUT = `After the slides "Exploring the Effects of Biological Nitrification Inhibition on the Rhizosphere Microbiome of a BNI-enabled Winter Wheat" by ${AUTH} (${INSTS}). ${DATA_CREDIT}`;
+const DATA_CREDIT = 'The field trial\'s data (16S amplicon reads, field measurements) used with the authors\' permission; the kinds of microbe are numbered by abundance, never named by their ids. Values from the slides\' charts were read off them by two readers. The soil block, the relay, the chromosome and the field\'s layout are illustrative. The co-occurrence network was built for this story with a standard method; it is not the authors\' analysis.';
+const ABOUT = `After the slides "Exploring the Effects of Biological Nitrification Inhibition on the Rhizosphere Microbiome of a BNI-enabled Winter Wheat" by ${AUTH} (${INSTS}). The BNI wheat: Subbarao et al., PNAS. ${DATA_CREDIT}`;
 // colours as text on the HTML panel, which is light in the light theme: a colour mixed with the panel's ink (darker on
 // a light panel, lighter on a dark one). The headset's panel is dark: its canvas twin takes the colour itself (data-col).
 const inkCol = c => `color-mix(in srgb, ${c} 55%, var(--ink))`;
 const swCol = c => c;   // a swatch or a bar in the same colour
-// the story's colours (SPEC.md, "Look"): balls and highlights cyan, pieces amber, loops orange, the two classes, the
-// second shape green
-const CYAN = '#46d9ff', AMBER = '#ffb43b', ORANGE = '#ff7a3c', RED = '#ff7a6b', BLUE = '#7cc0ff', GREEN = '#3ee08f', GREY = '#8e98ab';
+// the story's colours (SPEC.md, "Look", SLOOK): the two wheat lines, the three regimes, nitrogen as it moves, the guilds
+const CYAN = '#46d9ff', AMBER = '#ffb43b', RED = '#ff7a6b', BLUE = '#7cc0ff', GREEN = '#3ee08f', GREY = '#8e98ab';
+const LINE_COL = SLOOK.LINE, FERT_COL = SLOOK.FERT;
+const LINE_NAME = ['BNI wheat', 'Control wheat'], FERT_NAME = ['Not fertilised', 'Fertilised', 'Fertilised + DCD'];
 
-// TODO(soil B): buildStory below is the topo story's, as the pattern: write the soil story's chapters (SPEC.md,
-// "Chapters"): their panel text from FACTS, the sets' keys and the camera waypoints; then the story labels.
 function buildStory() {
-  const F = FACTS, most = (GL.sets.tower.api().most || {}).loops || 0;
+  const F = FACTS;
   // fade a set in over [t0, t1] and out over [t2, t3]
   const show = (k, t0, t1, t2, t3) => { ramp(k + '_a', t0, t1, 0, 1); if (t2 !== undefined) ramp(k + '_a', t2, t3, 1, 0); };
   const hide = (k, t0, t1) => ramp(k + '_a', t0, t1, 1, 0);
-  // jump an index param (a pick, a layout) at time t
+  // jump an index param (a pick, a date) at time t
   const jump = (n, t, v0, v1) => { key(n, t - 0.01, v0); key(n, t, v1); };
   // values a set starts the story with (keyed at time 0, so a set's resting defaults never leak into the story)
   const start = vals => { for (const n in vals) if (n in DEF) key(n, 0, vals[n]); };
   const step = (at, out, col, b, text) => `<li data-at="${at}"${out ? ` data-out="${out}"` : ''} data-col="${col}" style="border-left-color:${swCol(col)}"><b style="color:${inkCol(col)}">${esc(b)}</b>${text}</li>`;
   // a big number in a colour of its own (the headset's canvas reads data-col)
   const big = (col, v) => `<b data-col="${col}" style="color:${inkCol(col)}">${v}</b>`;
+  const fact = (at, col, v, small) => `<div data-at="${at}">${big(col, v)}<small>${small}</small></div>`;
+  const legend = items => `<ul class="legend">${items.map(([at, col, t]) => `<li data-at="${at}"><span class="sw" style="background:${swCol(col)}"></span>${t}</li>`).join('')}</ul>`;
   // ------------------------------------------------------------ panel copy
   // parts of a chapter that take turns in one place, each fading out (data-out) as the next comes: the headset's
   // panel cannot scroll, so no chapter shows more than fits at once
   const turns = (...parts) => `<div style="display:grid">${parts.map(p => `<div style="grid-area:1/1">${p}</div>`).join('')}</div>`;
-  // the poster's four snapshots in words, from their stored counts and the big loop's stored birth and death
-  const [lb, ld] = F.loop;
-  const snapSay = s => {
-    const n = s.pieces, one = n === 1;
-    if (s.r < lb) return `${fmt(n)} separate pieces`;
-    if (s.r < ld) return T.u(s.r) - T.u(lb) < 0.05 ? `${one ? 'one piece' : `${fmt(n)} pieces`} left, and a big loop has just closed round an empty space`
-      : `${one ? 'it is all one piece' : `${fmt(n)} pieces`}, the big loop still open inside`;
-    return `${one ? 'still one piece' : `${fmt(n)} pieces`}, and the big loop has filled`;
-  };
-  const SNAP_AT = [14, 25, 35, 43];   // (as the radius reaches each snapshot, below)
-  // two stored shares [healthy-like, cirrhosis-like] compared in words, as the percentages shown read
-  const more = ([h, c]) => (Math.round(100 * c) === Math.round(100 * h) ? 'about as many' : c > h ? 'more' : 'fewer');
-  const [wa, wb] = F.w;
+  const G = SLOOK.GUILD, [cB, cC] = F.chl70, [nB, nC] = F.no3d24, [oB, oC] = F.n2oPeak, d1 = F.days[0], dL = F.days[F.days.length - 1];
+  const n1 = v => (Math.round(v * 10) / 10).toFixed(1);
   const html = {
     title: `<svg class="route-mark" viewBox="0 0 360 44" aria-hidden="true"><path id="titleArc" d="M8 36 Q180 -16 352 36" fill="none" stroke="var(--red)" stroke-width="2.2" stroke-linecap="round" pathLength="1" stroke-dasharray="1" stroke-dashoffset="1"/><circle cx="8" cy="36" r="4.5" fill="var(--red)"/><circle cx="352" cy="36" r="4.5" fill="var(--red)" id="titleDot" opacity="0"/></svg>
-      <h1 data-at="1.2">The shape of tissue</h1>
-      <p class="lede" data-at="2.4">Topology of cells in the liver</p>
-      ${turns(`<p data-at="4" data-out="16.5">Under the microscope, a slice of liver is a crowd of cells, and where they sit says how healthy the tissue is.</p>
-        <p data-at="9" data-out="16.5" class="amber">Here a thin slice is cut from a liver and laid on glass.</p>`,
-      `<p data-at="17">A computer can find every cell in a stained slide: ${F.cellsM} million of them in ${F.slides} slides of liver here.</p>
-        <p data-at="21">Other ways of measuring tissue, reading genes in spots or staining proteins in colour, also give where the cells are.</p>
-        <p data-at="29.5" class="amber">From here on, only those positions count.</p>
-        <p class="credits" data-at="31">After the poster by ${AUTH}. The cells were found by the authors with HistoPLUS in the GTEx project's slides; topocyte reads cells from any spatial modality (H&amp;E, spatial transcriptomics, spatial proteomics) as an AnnData.</p>`)}`,
-    scale: `<h2 data-at="0.6">Which scale?</h2>
-      ${turns(`<p data-at="1.2" data-out="21.5">To read how cells are arranged, most tools pick one scale:</p>
+      <h1 data-at="1.2">Holding on to nitrogen</h1>
+      <p class="lede" data-at="2.4">A wheat, its soil and the microbes in between</p>
+      ${turns(`<p data-at="5" data-out="21.5">Less than half of the fertiliser a farmer spreads ends up in the crop.</p>
+        <p data-at="12" data-out="21.5" class="amber">The plant takes up some of it as ammonium; microbes in the soil get to much of the rest first.</p>`,
+      `<p data-at="22">They turn it into nitrate, which washes away, and into nitrous oxide, a strong greenhouse gas.</p>
+        <p data-at="30" class="amber">So farmers spread more.</p>
+        <p class="note" data-at="33">"Less than 50 %", as the slides put it. The flows in this block are a drawing, not measurements: ammonium amber, nitrate blue, nitrous oxide lilac, nitrogen in the plant green.</p>
+        <p class="credits" data-at="35">After the slides by Marina Montserrat Díez and colleagues (Christa Schleper's group, University of Vienna, with JIRCAS, the University of Thessaly and Université Lyon 1), and their field trial's data.</p>`)}`,
+    relay: `<h2 data-at="0.6">The relay underground</h2>
+      ${turns(`<p data-at="1.2" data-out="41.5">Inside the soil, microbes pass the nitrogen on, like runners in a relay.</p>
         <ul class="steps">
-          ${step(4, 21.5, CYAN, 'One patch size', 'cut the tissue into squares, and read each square')}
-          ${step(11, 21.5, CYAN, 'A neighbour count', 'join each cell to its nearest few, here six')}
-          ${step(17, 21.5, CYAN, 'One radius', 'look only at the cells within a fixed distance')}
+          ${step(9, 41.5, G.aoa, 'Archaea', 'turn ammonium into nitrite')}
+          ${step(17, 41.5, G.nsp, 'Bacteria', 'do the same')}
+          ${step(25, 41.5, G.nit, 'Nitrite oxidisers', 'turn nitrite into nitrate')}
+          ${step(34, 41.5, AMBER, 'Comammox', 'does both steps in one microbe')}
         </ul>`,
-      `<p data-at="22">But tissue has structure at every scale, from a cell's neighbours to the shape of a whole lobule.</p>
-        <p data-at="25" class="amber">topocyte reads all of them at once.</p>
-        <p class="note" data-at="27">Scale-resolved: every radius at once, with no size to choose. Next, the ${F.patch} cells of the small square in the middle of this healthy tile.</p>`)}`,
-    balls: `<h2 data-at="0.6">Balls grow</h2>
-      ${turns(`<p data-at="1.2" data-out="13.5">Take the ${F.patch} cells of that square, and keep only where they sit.</p>
-        <p data-at="5" data-out="13.5">Grow a ball round every cell.</p>
-        <p data-at="8" data-out="13.5" class="amber">Where two balls touch, the cells are joined by an edge; where three meet, a triangle fills in: a network that also has triangles.</p>`,
-      `<ul class="steps">${F.snaps.map((s, k) => step(SNAP_AT[k], 0, k ? (s.r < ld ? ORANGE : AMBER) : AMBER, `${fmtR2(s.r)} µm`, esc(cap(snapSay(s))))).join('')}</ul>
-        <p class="note" data-at="46">The network with triangles is the alpha complex, a simplicial complex: the higher-order generalisation of a network. The radii and counts are the poster's snapshots; ${word(F.snaps[1].loops)} loops are alive at ${fmtR2(F.snaps[1].r)} µm: the big one, and ${word(F.others.n)} others that have all filled in by ${fmtR(F.others.by)} µm.</p>`)}`,
-    tower: `<h2 data-at="0.6">The tower of scales</h2>
-      ${turns(`<p data-at="1.2" data-out="27.5">Now let the radius become height.</p>
-        <p data-at="4" data-out="27.5">Each piece is a thread rising from its cell; where two pieces join, their threads merge, until one trunk is left.</p>
-        <p data-at="12" data-out="27.5" class="amber">Each loop is a chimney, from the height where it closes to where it fills.</p>
-        <p data-at="19" data-out="27.5">The glass plane rises with the radius: it cuts the tower where the network is at that radius.</p>`,
-      `<p data-at="28">How long each piece and each loop lives is a bar; how many are alive at each height gives two curves.</p>
-        <div class="facts"><div data-at="31">${big(AMBER, fmt(F.patch))}<small>pieces, a bar each</small></div><div data-at="33">${big(ORANGE, fmt(F.loops))}<small>loops, at most ${word(most)} at once</small></div></div>
-        <p data-at="36" class="amber">Together they describe the tissue at every scale at once.</p>
-        <p class="note" data-at="40">This is persistent homology. Pieces are H0 (connected components), loops H1 (holes); the bars are the barcode, and the counts the Betti curves, exact step functions. The filtration's value is t = r²; the story shows the radius r.</p>`)}`,
-    cohort: `<h2 data-at="0.6">${F.slides} slides</h2>
-      ${turns(`<p data-at="1.2" data-out="20.5">Do this for every slide: ${F.healthy} healthy livers and ${F.cirrhosis} with cirrhosis, where scars cut the liver into knots.</p>
-        <p data-at="6" data-out="20.5">Each slide gets its own curves: here its loops, small radii on the left, large on the right.</p>
-        <p data-at="11" data-out="20.5">Scaled to the same size, only their shape counts.</p>
-        <p data-at="16" data-out="20.5" class="amber">The healthy slides' average in blue, the cirrhotic slides' in red.</p>`,
-      `<p data-at="21">Comparing every slide with every other finds the main shapes the curves vary by:</p>
-        <div class="facts"><div data-at="23">${big(CYAN, pct(F.fve[0]))}<small>of the variation in loops: shape 1</small></div><div data-at="24.5">${big(GREEN, pct(F.fve[1]))}<small>shape 2</small></div></div>
-        <p data-at="31" class="amber">Each slide becomes a point by how much of each shape it has, and healthy and cirrhotic slides fall apart before anything is trained.</p>
-        <p class="note" data-at="38">Cosine normalisation; the functional PCA, computed exactly from the bars' ends (no grid). All ${F.slides} slides and ${F.cellsM} million cells took ${F.minutes} minutes on a laptop's processor.</p>`)}`,
-    scales: `<h2 data-at="0.6">Which scales matter</h2>
-      ${turns(`<p data-at="1.2" data-out="23.5">A classifier draws a wall between the two clouds.</p>
-        <p data-at="7" data-out="23.5">Each slide moves to its log-odds: how far it lies on the cirrhosis side of the wall, or the healthy side.</p>
-        <p data-at="11" data-out="23.5" class="amber">Read back through the shapes, it becomes a weight for every radius: loops alive at ${wa.r0} to ${wb.r1} µm speak for cirrhosis.</p>`,
-      `<p data-at="24">What each stretch of radii adds to the difference between the two groups:</p>
-        <div class="facts"><div data-at="25">${big(RED, f2s(wa.s))}<small>loops of ${wa.r0} to ${wa.r1} µm</small></div><div data-at="26.5">${big(RED, f2s(wb.s))}<small>${wb.r0} to ${wb.r1} µm</small></div><div data-at="28">${big(BLUE, f2s(F.rest))}<small>the other radii</small></div></div>
-        <p data-at="30">Together: ${f2(F.gap)} in log-odds: on average, a cirrhotic slide's odds of cirrhosis are about ${fmt(F.odds)} times a healthy slide's.</p>
-        <p data-at="34" class="amber">Tested fairly, on slides it never saw, it gets ${F.right} of ${F.slides} right.</p>
-        <p class="note" data-at="38">A logistic regression on the first four scores; γ(r) is its weight per radius. Five-fold cross-validation: ${F.hRight} of ${F.hN} healthy and ${F.cRight} of ${F.cN} cirrhotic slides right, accuracy ${F.acc.toFixed(3)}.</p>`)}`,
-    cells: `<h2 data-at="0.6">Every cell a centre</h2>
-      ${turns(`<p data-at="1.2" data-out="26.5">Now a slide the classifier never saw: ${fmt(F.newCells)} cells, and a window of ${fmt(F.window)} of them.</p>
-        <p data-at="10" data-out="26.5">Pick one cell and look only at the cells within ${F.delta} µm of it.</p>
-        <p data-at="15" data-out="26.5">They make their own small network, with its own pieces and loops,</p>
-        <p data-at="21" data-out="26.5" class="amber">and their own curves.</p>`,
-      `<p data-at="27">The classifier gives the cell a score of its own:</p>
-        <div class="facts"><div data-at="28">${big(F.score < 0 ? BLUE : RED, f2s(F.score))}<small>its log-odds: ${F.score < 0 ? 'healthy' : 'cirrhosis'}-like</small></div></div>
-        <p data-at="33" class="amber">Do this for every cell, and the slide becomes a map: the scars light up red, the healthy tissue blue.</p>
-        <p class="note" data-at="40">Local persistent homology: the slide's network restricted to each cell's neighbourhood. The shapes and the classifier were fitted on the other ${F.train} slides (pieces, H0). The colours are the poster's, at most ±${f2(F.limit)}.</p>`)}`,
-    next: `<h2 data-at="0.6">Where analysis begins</h2>
-      ${turns(`<p data-at="1.2" data-out="17.5">The cells now fall into two groups: ${fmt(F.sizes[1])} cirrhosis-like and ${fmt(F.sizes[0])} healthy-like.</p>
-        <p data-at="8" data-out="17.5">The groups can be compared in whatever was measured: here, the cirrhosis-like cells hold ${more(F.lymph)} lymphocytes (${pct(F.lymph[1])} against ${pct(F.lymph[0])}) and ${more(F.fib)} fibroblasts (${pct(F.fib[1])} against ${pct(F.fib[0])}).</p>
-        <p class="note" data-at="12" data-out="17.5">The types are the labels of the computer that found the cells, not a pathologist's. With a radius of 100 µm, as in the poster's figure, the groups have ${fmt(F.sizes100[0])} healthy-like and ${fmt(F.sizes100[1])} cirrhosis-like cells.</p>`,
-      `<p data-at="18">In spatial transcriptomics it would be genes, in spatial proteomics proteins.</p>
-        <p data-at="25" class="amber">Four calls of topocyte, and the shape of tissue becomes something to measure.</p>
-        <p data-at="28"><button class="btn primary" id="btnGoExplore" type="button">Explore the shape of tissue</button></p>
-        <p class="credits" data-at="29">After the poster by ${AUTH} (${INSTS}).</p>
-        <p class="credits" data-at="30">${esc(CELLS_CREDIT)} The genes and proteins are sketches of the workflow, not data. ${SITE}</p>`)}`,
+      `<p data-at="42">Each hand-off is a step in a network of processes, and at each one nitrogen can leak away.</p>
+        <p class="note" data-at="46">This is nitrification: ammonia-oxidising archaea (AOA) and bacteria (AOB) make nitrite, nitrite-oxidising bacteria (NOB) make nitrate, and complete ammonia oxidisers (comammox) do both. Nitrous oxide escapes along the way. The pore and its microbes are an illustration.</p>`)}`,
+    bni: `<h2 data-at="0.6">A wheat that fights back</h2>
+      ${turns(`<p data-at="1.2" data-out="23.5">Some plants release substances from their roots that slow the relay down: biological nitrification inhibition, or BNI.</p>
+        <p data-at="9" data-out="23.5" class="amber">Breeders moved a piece of chromosome from a wild grass into the wheat Munal.</p>`,
+      `<p data-at="24">The new wheat's roots slow the first hand-off, so more ammonium stays where the plant can take it up.</p>
+        <p data-at="35" class="amber">Until now the evidence was one bacterium in a dish and one day in a field.</p>
+        <p class="note" data-at="39">The wild grass is Leymus racemosus; the BNI wheat is Munal-BNI, the control wheat Munal-control, the same wheat without the segment (Subbarao et al., PNAS). The earlier evidence, as the slides list it: root exudates slowed one ammonia-oxidising bacterium in batch cultures, and a field study at a single timepoint found more nitrogen in the plant and fewer ammonia-oxidising archaea.</p>`)}`,
+    trial: `<h2 data-at="0.6">The field trial</h2>
+      ${turns(`<p data-at="1.2" data-out="24.5">To test it, the BNI wheat and the control wheat were grown side by side in a field in Japan:</p>
+        ${legend([[16, FERT_COL[0], 'with no fertiliser'], [17.5, FERT_COL[1], 'with fertiliser'], [19, FERT_COL[2], 'with fertiliser and a synthetic inhibitor']])}`,
+      `<p data-at="25">Five times over ${F.days[F.days.length - 1]} days, soil was taken from the roots in every plot.</p>
+        <div class="facts">${fact(40, AMBER, fmt(F.samples), 'samples')}${fact(41.5, CYAN, fmt(F.plots), 'plots')}${fact(43, GREEN, word(F.dates), 'dates')}</div>
+        <p class="note" data-at="46">The trial is JIRCAS's; its site and year are not given, so the arc ends at JIRCAS's home in Tsukuba. Fertiliser: ${F.kgN} kg of nitrogen per hectare; the inhibitor: DCD (dicyandiamide, our reading). The slides' days ${d1} to ${dL} are ${F.dap[0]} to ${F.dap[F.dap.length - 1]} days after planting, from jointing to ripening. ${cap(word(F.reps))} replicates of each; the soil clinging to the roots (the rhizosphere); one sample is missing. The plots' layout is illustrative.</p>`)}`,
+    leaks: `<h2 data-at="0.6">Greener, fewer leaks</h2>
+      ${turns(`<p data-at="1.2" data-out="21.5">At the end of the season the BNI wheat is still green where the control wheat yellows, most clearly without fertiliser.</p>
+        <div class="facts">${fact(9, LINE_COL[0], Math.round(cB), `BNI wheat, day ${dL}`)}${fact(10.5, LINE_COL[1], Math.round(cC), 'control wheat')}</div>
+        <p class="note" data-at="12" data-out="21.5">Chlorophyll (SPAD) in the leaves of unfertilised plots, read off the slides.</p>`,
+      `<p data-at="22" data-out="41.5">With fertiliser there is less nitrate in the soil under it in mid-season.</p>
+        <div class="facts">${fact(30, LINE_COL[0], Math.round(nB), `mg N per kg, day ${F.days[2]}`)}${fact(31.5, LINE_COL[1], Math.round(nC), 'under the control wheat')}</div>
+        <p class="note" data-at="33" data-out="41.5">Nitrate in fertilised plots, the group means of the data (${pTxt(F.no3d24[2])}). The slides call it lower from day ${F.days[2]} to day ${F.days[3]}; only day ${F.days[2]} is starred.</p>`,
+      `<p data-at="42">And soil from its roots, given ammonium in a jar, gives off far less nitrous oxide, close to what the synthetic inhibitor achieves.</p>
+        <div class="facts">${fact(52, LINE_COL[0], n1(oB), 'ppm at the peak, BNI wheat')}${fact(53.5, LINE_COL[1], n1(oC), `control wheat, day ${d1}`)}</div>
+        <p class="note" data-at="57">Fertilised soil, read off the slides (${esc(F.incubation.replace(/ \(slide text\)$/, ''))}). An open question: the data's own N2O value, "the potential amount of produced nitrous oxide" (unit not given), shows no clear difference over the season (${F.n2oMeta[0].toFixed(2)} against ${F.n2oMeta[1].toFixed(2)}, ${pTxt(F.n2oMeta[2])}); how the two measurements relate is not known yet.</p>`)}`,
+    crowd: `<h2 data-at="0.6">A crowd of ${thousands(F.kinds)}</h2>
+      ${turns(`<p data-at="1.2" data-out="23.5">A spoonful of this soil holds about ${thousands(F.kinds)} kinds of microbe.</p>
+        <p data-at="9" data-out="23.5" class="amber">${fmt(F.common)} of them make up ${pct(F.readShare)} of the DNA read.</p>`,
+      `<p data-at="24">Fertiliser roughly doubles one ammonia-eating bacterium, Nitrosospira.</p>
+        <p data-at="31">The wheat line changes nothing that can be measured: only ${word(F.byLine)} of the ${fmt(F.common)} common kinds differ between the two wheats.</p>
+        <div class="facts">${fact(38, FERT_COL[1], fmt(F.byFert), 'differ by fertiliser')}${fact(39.5, GREY, fmt(F.byTime), 'by date')}${fact(41, LINE_COL[0], fmt(F.byLine), 'by wheat line')}</div>
+        <p class="note" data-at="44">Kinds of microbe: amplicon sequence variants (ASVs) from 16S rRNA gene reads, numbered here by abundance. Nitrosospira: ${F.nitrosospira.map(v => v.toFixed(2)).join(', ')} % of reads without fertiliser, with it, and with DCD. The counts of ammonia oxidisers' genes (qPCR, read off the slides) differ little between the wheats (one marginal p = ${F.qpcrP}).</p>`)}`,
+    together: `<h2 data-at="0.6">Who rises together</h2>
+      ${turns(`<p data-at="1.2" data-out="30.5">Link two kinds of microbe when their numbers rise and fall together across the samples.</p>
+        <div class="facts">${fact(10, CYAN, fmt(F.nodes), 'kinds')}${fact(11.5, CYAN, fmt(F.links), 'links')}</div>
+        <p data-at="19" data-out="30.5" class="amber">Shuffle the samples, and not one link is left: the pattern is real.</p>`,
+      `<p data-at="31" data-out="54.5">Its groups follow the fertiliser and the field's plots, not the wheat.</p>
+        <p class="note" data-at="40" data-out="54.5">About ${word(F.big)} big groups (modules): ${word(F.bigFert)} rise and fall with the fertiliser, ${word(F.bigPlot)} with the plots; the wheat line explains under ${Math.ceil(F.lineR2 * 100)} % of any group's ups and downs.</p>`,
+      `<p data-at="55">Split by wheat line, the two networks differ no more than two random halves of the samples do.</p>
+        <p data-at="64" class="amber">And rising together is not working together.</p>
+        <p class="note" data-at="67">Built for this story, not the authors' analysis: the ${fmt(F.common)} common kinds, centred log-ratios, Spearman's correlation of at least 0.6 (false discovery rate under 5 %), modules by the Louvain method (their number depends on the run). Each half's own network: ${fmt(F.lineLinks[0])} and ${fmt(F.lineLinks[1])} links, ${fmt(F.lineDiff)} apart; ${fmt(F.randomN)} random halves, ${fmt(F.randomDiff[0])} to ${fmt(F.randomDiff[1])} apart. With the plots' means taken out, ${fmt(F.residual.plot.links)} links are left.</p>`)}`,
+    know: `<h2 data-at="0.6">What we know</h2>
+      ${turns(`<p data-at="1.2" data-out="24.5">There are strong indications that the BNI wheat holds on to nitrogen in the soil, and it leaves the soil's microbes undisturbed.</p>
+        <p data-at="10" data-out="24.5" class="amber">It is not yet proof.</p>
+        <p data-at="14" data-out="24.5">Next: following marked nitrogen atoms through soil, microbe and plant, and reading which microbial genes are switched on.</p>`,
+      `<p class="note" data-at="25">Marked atoms: isotope studies (15N); genes switched on: metatranscriptomics. Open questions remain, among them how the two N2O measurements relate and which dates the chlorophyll's last values belong to.</p>
+        <p data-at="28"><button class="btn primary" id="btnGoExplore" type="button">Explore the field and its microbes</button></p>
+        <p class="credits" data-at="29">After the slides by ${AUTH} (${INSTS}). The BNI wheat: Subbarao et al., PNAS.</p>
+        <p class="credits" data-at="30">${esc(DATA_CREDIT)}</p>`)}`,
   };
 
   const story = $('#story');
@@ -290,174 +266,183 @@ function buildStory() {
     if (nudge) for (let i = 0; i < nudge.length; i++) v[i] += nudge[i] || 0;
     wp.push([t, ...v, ease, frameOf(k), narrowOf(k, name), fitShift(k, name), lowOf(k, name)]);
   };
-  start({ body_pet: 1, body_net: 0, body_state: 0, body_blank: 0, liver_lift: 0, liver_slice: 0,
-    slide_show: 0, slide_mode: 0, slide_points: 0, slide_scale: 0, slide_patch: 0, slide_over: 0,
-    map_cell: 0, map_r: 1.5, map_balls: 0, map_bars: 0, map_score: 0, map_all: 0, map_split: 0, map_omics: 0, map_pick: -1, map_delta: 0,
-    tower_r: 1.5, tower_rise: 0, tower_bars: 0, tower_he: 1, tower_lit: 0,
-    cohort_dim: 1, cohort_rack: 0, cohort_means: 0, cohort_shapes: 0, cohort_space: 0, cohort_wall: 0, cohort_odds: 0, cohort_stacks: 0,
-    cohort_gamma: 0, cohort_gap: 0, cohort_win: 0, cohort_from: 5, cohort_to: 15, cohort_pick: -1 });
+  start({ soil_grow: 0, soil_cut: 1, soil_fert: 0, soil_flow: 0, soil_plant: 0.45, soil_inhibit: 0, soil_halo: 0, soil_dcd: 0, soil_pore: 0,
+    soil_relay: 0, soil_grass: 0, soil_chrom: 0, soil_tracer: 0, soil_pick: -1,
+    web_net: 0, web_globe: 1, web_ties: 0, web_spin: SPIN.vienna,
+    field_grow: 0, field_date: 0, field_net: 0, field_chl: 0, field_nh4: 0, field_no3: 0, field_jars: 0, field_jday: 0, field_inc: 0,
+    field_cores: 0, field_stack: 0, field_module: -1, field_mlit: 0, field_pick: -1, field_tags: 0, field_show: 0, field_life: 0,
+    net_cloud: 0, net_nitro: 0, net_pull: 0, net_links: 0, net_shuffle: 0, net_mods: 0, net_rho: 0.6, net_focus: -1, net_split: 0, net_splitBy: 0, net_kind: -1 });
   let a, b;
-  // Where cells sit: the tour's body, its liver lifting out and turning, a thin slice of it standing inside it, falling
-  // flat and growing into the healthy tile on its glass; the cells close; the other modalities sweep in (sketches),
-  // then every cell becomes a bead
+  // Half the sack: the block with its wheat growing from a seedling, fertiliser falling and dissolving into ammonium,
+  // then the flows: some up the roots into the plant, the rest through the relay down out of the block as nitrate, or
+  // up out of it as nitrous oxide
   a = C.title.a; b = C.title.b;
-  show('body', 0.2, 2);
-  hide('body', a + 11.5, a + 14);
-  ramp('liver_a', a + 2.5, a + 3.5, 0, 1);
-  ramp('liver_lift', a + 3.5, a + 8.5, 0, 1);
-  ramp('liver_slice', a + 9, a + 12, 0, 0.5);
-  ramp('liver_slice', a + 12, a + 15.5, 0.5, 1);
-  ramp('liver_a', a + 16, a + 17, 1, 0);
-  show('slide', a + 15, a + 16.5);
-  ramp('slide_mode', a + 21, a + 23.5, 0, 1);
-  ramp('slide_mode', a + 25.5, a + 28, 1, 2);
-  ramp('slide_points', a + 29.5, a + 31.5, 0, 1);
-  jump('slide_mode', a + 33.5, 2, 0);   // (unseen: every cell is a bead by then)
-  const LIV = [0, 6, -2.05, LIVER_OUT[0], LIVER_OUT[1], LIVER_OUT[2]];   // (the body's front view brought close to the lifted liver)
-  cam(a, 'body', 'front', -12);
-  cam(a + 3.5, 'body', 'front', -4, 'spin');
-  cam(a + 8.5, 'body', 'front', -6, null, LIV);
-  cam(a + 12, 'body', 'front', 4, 'spin', LIV);
-  cam(a + 15.5, 'slide', 'tile', 0);
-  cam(a + 18, 'slide', 'close', 0);
-  cam(a + 20.5, 'slide', 'tile', -6);
-  cam(b - 0.5, 'slide', 'tile', 6, 'spin');
-  // Which scale?: back to H&E, the three fixed scales on the tile in turn, then the poster's patch marked
-  a = C.scale.a; b = C.scale.b;
-  ramp('slide_points', a + 1, a + 3, 1, 0);
-  ramp('slide_scale', a + 4, a + 6, 0, 1);
-  ramp('slide_scale', a + 11, a + 13, 1, 2);
-  ramp('slide_scale', a + 17, a + 19, 2, 3);
-  ramp('slide_scale', a + 22, a + 23.5, 3, 0);
-  ramp('slide_patch', a + 23, a + 25, 0, 1);
-  hide('slide', a + 26, a + 28);
-  cam(a + 1.5, 'slide', 'tile', -4);
-  cam(a + 5, 'slide', 'square', 0);
-  cam(a + 10, 'slide', 'square', 6, 'spin');
-  cam(a + 12, 'slide', 'hub', 0);
-  cam(a + 16, 'slide', 'hub', 6, 'spin');
-  cam(a + 18, 'slide', 'circle', 0);
-  cam(a + 21.5, 'slide', 'circle', 6, 'spin');
-  cam(a + 24, 'slide', 'patch', 0);
-  cam(a + 26.5, 'slide', 'patch', 3, 'spin');
-  // Balls grow: the patch's 110 cells in H&E shrink into beads; balls grow round them, the radius stopping at the
-  // poster's four snapshots (eased on its log ruler: tower_r is one of the tower set's log params)
-  a = C.balls.a; b = C.balls.b;
-  show('tower', a - 2, a + 1);
-  ramp('tower_he', a + 3, a + 8, 1, 0);
-  key('tower_r', a + 8, 1.5);
-  F.snaps.forEach((s, k) => ramp('tower_r', a + SNAP_AT[k] - [3, 6, 5, 4][k], a + SNAP_AT[k], k ? F.snaps[k - 1].r : 1.5, s.r));
-  ramp('tower_r', a + 46, a + 48.5, F.snaps[3].r, 60);
-  ST.stand.push([a + 1, a + 4.5, C.tower.b - 4, C.tower.b - 0.5]);   // (in a headset: the tower stands tall through chapters 3 and 4)
-  cam(a + 0.5, 'tower', 'snap', 0);
-  cam(a + 4, 'tower', 'plate', -8);
-  cam(a + 10, 'tower', 'plate', 4, 'spin');
-  cam(a + 13, 'tower', 'snap', -6);
-  cam(b - 1.5, 'tower', 'snap', 10, 'spin');
-  // The tower of scales: the radius back to its start as the tower rises, then the plane sweeping up through it,
-  // stopping where the big loop has just closed and where it is still open; the barcode and the two curves
-  a = C.tower.a; b = C.tower.b;
-  ramp('tower_rise', a + 1, a + 10, 0, 1);
-  ramp('tower_r', a + 2, a + 10, 60, 1.5);
-  ramp('tower_r', a + 12, a + 17, 1.5, F.snaps[1].r);
-  ramp('tower_r', a + 20, a + 24, F.snaps[1].r, F.snaps[2].r);
-  ramp('tower_r', a + 26, a + 29, F.snaps[2].r, 60);
-  ramp('tower_bars', a + 29, a + 40, 0, 1);
-  hide('tower', b - 2, b + 1);
-  cam(a + 1, 'tower', 'tower', -10);
-  cam(a + 10, 'tower', 'tower', 8, 'spin');
-  cam(a + 12, 'tower', 'default', 0);
-  cam(a + 28, 'tower', 'default', 22, 'spin');
-  cam(a + 30, 'tower', 'bars', 0);
-  cam(b - 1.5, 'tower', 'bars', 10, 'spin');
-  // 123 slides: the rack and its curves lighting one after another, the classes' means, the two main shapes, then the
-  // slides fly into the cube of their scores
-  a = C.cohort.a; b = C.cohort.b;
-  show('cohort', a - 2, a + 1);
-  ramp('cohort_rack', a + 1, a + 16, 0, 1);
-  ramp('cohort_means', a + 16, a + 19, 0, 1);
-  ramp('cohort_shapes', a + 22, a + 26, 0, 1);
-  ramp('cohort_space', a + 31, a + 41, 0, 1);
-  cam(a + 0.5, 'cohort', 'default', -10);
-  cam(a + 5, 'cohort', 'rack', -6);
-  cam(a + 15, 'cohort', 'rack', 6, 'spin');
-  cam(a + 17.5, 'cohort', 'means', 0);
-  cam(a + 21, 'cohort', 'means', 4, 'spin');
-  cam(a + 23.5, 'cohort', 'shapes', -4);
-  cam(a + 30, 'cohort', 'shapes', 4, 'spin');
-  cam(a + 33, 'cohort', 'space', -6);
-  cam(b - 0.5, 'cohort', 'space', 10, 'spin');
-  // Which scales matter: the wall, the log-odds, the weight per radius on the column, the windows' bands dropping into
-  // the gap; then the column goes and the slides drop into the four stacks of the held-out test
-  a = C.scales.a; b = C.scales.b;
-  ramp('cohort_wall', a + 1, a + 6, 0, 1);
-  ramp('cohort_odds', a + 7, a + 11, 0, 1);
-  ramp('cohort_gamma', a + 11, a + 23, 0, 1);
-  ramp('cohort_gap', a + 25, a + 32, 0, 1);
-  ramp('cohort_gamma', a + 32, a + 34, 1, 0);
-  ramp('cohort_stacks', a + 34, a + 42, 0, 1);
-  hide('cohort', b - 2, b + 1);
-  cam(a + 1.5, 'cohort', 'wall', 0);
-  cam(a + 6, 'cohort', 'wall', 4, 'spin');
-  cam(a + 7.5, 'cohort', 'odds', 0);
-  cam(a + 11, 'cohort', 'odds', 4, 'spin');
-  cam(a + 13, 'cohort', 'gamma', 0);
-  cam(a + 23, 'cohort', 'gamma', 6, 'spin');
-  cam(a + 25, 'cohort', 'gap', 0);
-  cam(a + 32, 'cohort', 'gap', 4, 'spin');
-  cam(a + 35, 'cohort', 'stacks', -6);
-  cam(b - 1, 'cohort', 'stacks', 8, 'spin');
-  // Every cell a centre: the new slide whole on its glass, the zoom into the window, one cell under its dome (its
-  // network growing with the balls, its bars, its score), then the dome sweeping the window into a relief
-  a = C.cells.a; b = C.cells.b;
-  jump('slide_show', a - 1, 0, 1); jump('slide_over', a - 1, 0, 1); jump('slide_patch', a - 1, 1, 0);
-  show('slide', a, a + 2);
-  ramp('slide_over', a + 4, a + 10, 1, 0);
-  show('map', a + 10, a + 11);
-  ramp('map_cell', a + 11, a + 13.5, 0, 1);
-  key('map_r', a + 11, 1.5);
-  ramp('map_r', a + 13, a + 16.5, 1.5, SD.e.drawR);
-  ramp('map_r', a + 17, a + 21, SD.e.drawR, 30);
-  ramp('map_r', a + 22, a + 26, 30, F.delta);
-  ramp('map_balls', a + 12, a + 14, 0, 1);
-  ramp('map_balls', a + 19, a + 22, 1, 0);
-  ramp('map_bars', a + 21, a + 26, 0, 1);
-  ramp('map_score', a + 27, a + 29, 0, 1);
-  ramp('map_cell', a + 32, a + 34, 1, 0);
-  ramp('map_all', a + 33, a + 46, 0, 1);
-  cam(a + 0.5, 'slide', 'over', -6);
-  cam(a + 10, 'slide', 'window', 0);
-  cam(a + 12, 'map', 'cell', -6);
-  cam(a + 14.5, 'map', 'net', 0);
-  cam(a + 19.5, 'map', 'net', 6, 'spin');
-  cam(a + 23, 'map', 'bars', 0);
-  cam(a + 26.5, 'map', 'bars', 4, 'spin');
-  cam(a + 28, 'map', 'score', 0);
-  cam(a + 32, 'map', 'score', 4, 'spin');
-  cam(a + 34.5, 'map', 'sweep', 0);
-  cam(a + 41, 'map', 'sweep', 4, 'spin');
-  cam(a + 43, 'map', 'relief', -4);
-  cam(b - 0.5, 'map', 'relief', 10, 'spin');
-  // Where analysis begins: the cells lift off into their two groups and their piles by type; then the sketches of the
-  // other modalities (genes, then proteins)
-  a = C.next.a; b = C.next.b;
-  ramp('map_split', a + 2, a + 10, 0, 1);
-  ramp('map_omics', a + 18, a + 22, 0, 1);
-  ramp('map_omics', a + 25, a + 29, 1, 2);
-  cam(a + 2, 'map', 'split', -6);
-  cam(a + 16, 'map', 'split', 8, 'spin');
-  cam(a + 18.5, 'map', 'omics', -4);
-  cam(b - 0.5, 'map', 'omics', 10, 'spin');
+  show('soil', 0.2, 2);
+  ramp('soil_grow', a + 0.5, a + 7, 0, 1);
+  ramp('soil_fert', a + 6, a + 12, 0, 1);
+  ramp('soil_flow', a + 12, a + 22, 0, 1);
+  cam(a, 'soil', 'default', -34);
+  cam(a + 5, 'soil', 'plant', -16);
+  cam(a + 8, 'soil', 'surface', -10);
+  cam(a + 13, 'soil', 'surface', 6, 'spin');
+  cam(a + 17, 'soil', 'default', -6);
+  cam(a + 29, 'soil', 'default', 12, 'spin');
+  cam(a + 33, 'soil', 'roots', -8);
+  cam(b - 0.5, 'soil', 'roots', 6, 'spin');
+  // The relay underground: a pore grows out of the block, magnified; the four relay runners come in one by one, each
+  // handing on glowing particles that change colour as they pass
+  a = C.relay.a; b = C.relay.b;
+  ramp('soil_pore', a + 2, a + 7, 0, 1);
+  ramp('soil_relay', a + 8, a + 10, 0, 1);
+  ramp('soil_relay', a + 16, a + 18, 1, 2);
+  ramp('soil_relay', a + 24, a + 26, 2, 3);
+  ramp('soil_relay', a + 33, a + 35, 3, 4);
+  ramp('soil_pore', b - 6, b - 1, 1, 0);
+  jump('soil_relay', b - 0.5, 4, 0);
+  cam(a + 1, 'soil', 'pore', -10);
+  cam(a + 7, 'soil', 'relay', -12);
+  cam(a + 40, 'soil', 'relay', 12, 'spin');
+  cam(b - 1, 'soil', 'default', -10);
+  // A wheat that fights back: the wild grass beside the block, two chromosomes above, a segment gliding from the grass's
+  // into the wheat's; then the halo round the roots and the relay slowing (the particles stay amber)
+  a = C.bni.a; b = C.bni.b;
+  ramp('soil_grass', a + 2, a + 6, 0, 1);
+  ramp('soil_chrom', a + 9, a + 14, 0, 0.5);
+  ramp('soil_chrom', a + 15, a + 21, 0.5, 1);
+  ramp('soil_grass', a + 24, a + 27, 1, 0);
+  ramp('soil_chrom', a + 24, a + 27, 1, 0);
+  ramp('soil_halo', a + 26, a + 32, 0, 1);
+  ramp('soil_inhibit', a + 28, a + 36, 0, 0.7);
+  cam(a + 2, 'soil', 'chrom', -12);
+  cam(a + 22, 'soil', 'chrom', 10, 'spin');
+  cam(a + 26, 'soil', 'roots', -8);
+  cam(b - 1, 'soil', 'roots', 10, 'spin');
+  // The field trial: the globe facing Vienna, turning east while the hop draws its arc to Japan, the camera diving
+  // towards Japan as the field fades in: the wheat grows on bare plots under netting, the dates pass, and at each a
+  // core lifts out of every plot; then the cores fly into the stack of the design
+  a = C.trial.a; b = C.trial.b;
+  hide('soil', a, a + 2);
+  show('web', a, a + 2);
+  key('web_spin', a + 2, SPIN.vienna);
+  ramp('web_spin', a + 3, a + 12, SPIN.vienna, SPIN.japan);
+  ramp('hop_a', a + 2, a + 3, 0, 1);
+  ramp('hop_t', a + 3, a + 11, 0, 1);
+  hide('web', a + 14.5, a + 17);
+  show('field', a + 14.5, a + 16.5);
+  ramp('field_grow', a + 16, a + 24, 0, 1);
+  ramp('field_net', a + 19, a + 23, 0, 1);
+  // the five dates (the wheat taller, its stage, and the cores lifting at each)
+  [26, 29.5, 33, 36.5].forEach((s, i) => ramp('field_date', a + s, a + s + 2, i, i + 1));
+  ramp('field_cores', a + 25, a + 39, 0, 1);
+  ramp('field_stack', a + 41, a + 50, 0, 1);
+  const jp = SPIN.at(36.05, 140.12, SPIN.japan);
+  cam(a + 0.5, 'web', 'globe', 0, null, [0, -6, 0.6]);
+  cam(a + 3, 'web', 'globe', 0, null, [0, -2, 0]);
+  cam(a + 12, 'web', 'globe', 0, 'spin', [0, 6, -0.4]);
+  cam(a + 16, 'web', 'globe', 0, null, [0, 12, -2.7, jp[0], jp[1], jp[2]]);
+  cam(a + 17, 'field', 'plots', -20);
+  cam(a + 24, 'field', 'default', -10);
+  cam(a + 27, 'field', 'low', -12);
+  cam(a + 38, 'field', 'low', 14, 'spin');
+  cam(a + 41, 'field', 'stack', -8);
+  cam(b - 1, 'field', 'stack', 8, 'spin');
+  // Greener, fewer leaks: the cores back into the ground; the leaves take each plot's measured chlorophyll at day 70
+  // (the unfertilised BNI plots picked, with their tags); back to day 24 and nitrate seeping under the plots (the
+  // fertilised BNI plots picked); then the jars of day 1's soil breathing out N2O over the incubation
+  a = C.leaks.a; b = C.leaks.b;
+  ramp('field_stack', a, a + 3, 1, 0);
+  ramp('field_cores', a + 2, a + 4, 1, 0);
+  ramp('field_chl', a + 3, a + 7, 0, 1);
+  jump('field_pick', a + 8, -1, 0);
+  ramp('field_tags', a + 8, a + 10, 0, 1);
+  ramp('field_tags', a + 19, a + 21, 1, 0);
+  jump('field_pick', a + 21.5, 0, -1);
+  ramp('field_date', a + 22, a + 26, 4, 2);
+  ramp('field_no3', a + 23, a + 28, 0, 1);
+  jump('field_pick', a + 28.5, -1, 1); jump('field_show', a + 28.5, 0, 2);
+  ramp('field_tags', a + 29, a + 31, 0, 1);
+  ramp('field_tags', a + 39, a + 41, 1, 0);
+  jump('field_pick', a + 41.5, 1, -1);
+  ramp('field_no3', a + 40, a + 43, 1, 0);
+  jump('field_jday', a + 41.9, 0, 0);
+  ramp('field_jars', a + 42, a + 45, 0, 1);
+  ramp('field_inc', a + 45, a + 60, 0, 1);
+  cam(a + 1, 'field', 'default', -12);
+  cam(a + 6, 'field', 'low', -14);
+  cam(a + 20, 'field', 'low', 10, 'spin');
+  cam(a + 24, 'field', 'under', -10);
+  cam(a + 40, 'field', 'under', 10, 'spin');
+  cam(a + 44, 'field', 'jars', -6);
+  cam(b - 1, 'field', 'jars', 8, 'spin');
+  // A crowd of 100,000: the field small below; the cloud of kinds appears over it from the centre outwards; the
+  // nitrifiers flare
+  a = C.crowd.a; b = C.crowd.b;
+  ramp('field_jars', a, a + 3, 1, 0);
+  ramp('field_date', a, a + 3, 2, 4);
+  show('net', a + 1, a + 2);
+  ramp('net_cloud', a + 2, a + 9, 0, 1);
+  ramp('net_nitro', a + 24, a + 28, 0, 1);
+  ramp('net_nitro', b - 3, b, 1, 0);
+  cam(a + 0.5, 'field', 'cloud', -10);
+  cam(a + 8, 'net', 'cloud', -6);
+  cam(a + 20, 'net', 'cloud', 10, 'spin');
+  cam(a + 24, 'net', 'core', -6);
+  cam(b - 1, 'net', 'core', 10, 'spin');
+  // Who rises together: the network's kinds fly out of the core to its layout, the links fade in; a shuffle dissolves
+  // them; the modules take their colours, two of them lighting the plots where they thrive below; then the two wheat
+  // lines' networks side by side
+  a = C.together.a; b = C.together.b;
+  ramp('net_pull', a + 2, a + 10, 0, 1);
+  ramp('net_links', a + 7, a + 13, 0, 1);
+  ramp('net_shuffle', a + 19, a + 23, 0, 1);
+  ramp('net_shuffle', a + 26, a + 29.5, 1, 0);
+  ramp('net_mods', a + 31, a + 35, 0, 1);
+  const [mF, mP] = [0, 1].map(want => D.net.mods.findIndex(m => { const r = m.r2; return m.n >= 100 && (want ? r.plot > r.fert : r.fert > r.plot); }));
+  jump('net_focus', a + 38, -1, mF); jump('field_module', a + 38, -1, mF);
+  ramp('field_mlit', a + 38, a + 41, 0, 1);
+  jump('net_focus', a + 45, mF, mP); jump('field_module', a + 45, mF, mP);
+  ramp('field_mlit', a + 51, a + 53, 1, 0);
+  jump('net_focus', a + 53.5, mP, -1); jump('field_module', a + 53.5, mP, -1);
+  ramp('net_mods', a + 53, a + 56, 1, 0);
+  jump('net_splitBy', a + 55, 0, 0);
+  ramp('net_split', a + 56, a + 62, 0, 1);
+  ramp('field_a', a + 54, a + 57, 1, 0.25);
+  cam(a + 1, 'net', 'core', 0);
+  cam(a + 9, 'net', 'net', -8);
+  cam(a + 30, 'net', 'net', 14, 'spin');
+  cam(a + 34, 'net', 'module', -8);
+  cam(a + 52, 'net', 'module', 10, 'spin');
+  cam(a + 57, 'net', 'split', -4);
+  cam(b - 1, 'net', 'split', 4, 'spin');
+  // What we know: back in the block, the halo glowing and the flows held; one marked atom travels from a grain through
+  // the soil, a microbe, a root and into the leaf
+  a = C.know.a; b = C.know.b;
+  hide('net', a, a + 2.5);
+  ramp('field_a', a, a + 2.5, 0.25, 0);
+  show('soil', a + 1, a + 3);
+  ramp('soil_tracer', a + 5, a + 24, 0, 1);
+  cam(a + 1.5, 'soil', 'tracer', -14);
+  cam(a + 24, 'soil', 'tracer', 12, 'spin');
+  cam(b - 0.5, 'soil', 'default', 16, 'spin');
   for (const n in TR) TR[n].sort((x, y) => x[0] - y[0]);
   buildCamera(wp);
 
-  // TODO(soil B): the story's own labels (the hop's Vienna and Japan, the soil block's parts the set does not label).
   // --------------------------------------------------------- story labels
-  // (the sets label their own parts; the story adds what the scene alone does not say: the liver and its slice)
-  a = C.title.a;
-  label('body', () => GL.liver.at.liver, '<b>The liver</b>', a + 5, a + 10.5, '');
-  label('body', () => GL.liver.at.slice, '<b>A thin slice</b> · laid on glass', a + 9.5, a + 12.6, 'amb');
+  // (the sets label their own parts; the story adds the hop's two ends)
+  a = C.trial.a;
+  label('web', () => GL.hop.at.vienna, '<b>Vienna</b> · the lab', a + 2.5, a + 9, 'cyn');
+  label('web', () => GL.hop.at.japan, '<b>Japan</b> · the field trial', a + 10.5, a + 16, 'amb');
 }
+// the globe's turn (web_spin, in turns) that brings a longitude to face +z, and a point of the globe at a turn (the web
+// set's ll() and its turn, as makeHop has them)
+const SPIN = {
+  of: lon => -(lon - HOP.L0) / 360,
+  at(lat, lon, spin) {
+    const A = lat * D2R, B = (lon - HOP.L0) * D2R, p = [Math.cos(A) * Math.sin(B), Math.sin(A), Math.cos(A) * Math.cos(B)], r = spin * Math.PI * 2;
+    return [p[0] * Math.cos(r) + p[2] * Math.sin(r), p[1], -p[0] * Math.sin(r) + p[2] * Math.cos(r)];
+  },
+};
+SPIN.vienna = SPIN.of(HOP.from[1]) + 0.02; SPIN.japan = SPIN.of(HOP.to[1]);
 // camera waypoints: [t, az, el, dist, tx, ty, tz, ease, set, narrow factor, FIT's target shift, LOW]; 'spin' segments turn at
 // a steady pace.
 // When the story hands over from one set to another, the new set is turned about its
@@ -491,7 +476,7 @@ function buildCamera(wp) {
   });
 }
 // the turn a set has at story time t: that of its latest stay on show (it starts fading in a little before its first view)
-// (the slide and the map share one turn: one frame)
+// (the field and the network share one turn: one frame)
 function setYaw(k, t) {
   let c = 0;
   const f = frameOf(k);
@@ -511,7 +496,7 @@ function spinEase(t, D) {
   return v * (t - r / 2);
 }
 // the story's view at time t: [az, el, dist, tx, ty, tz, narrow factor, FIT's target shift x, y, z, and LOW's two]
-// (in a headset the tower of scales stands tall while it is the scene, see standView)
+// (in a headset a set's stand view may take over while it is the scene, see standView: none in this story yet)
 const storyCam = t => (XR.on ? standView(storyView(t), standW(t)) : storyView(t));
 function storyView(t) {
   const wp = ST.wp, end = w => [w[1], w[2], w[3], w[4], w[5], w[6], w[8], ...w[9], ...w[10]];
@@ -527,27 +512,24 @@ function storyView(t) {
   return end(wp[wp.length - 1]);
 }
 
-// TODO(soil B): the stand view below is the topo story's tower: for the soil story either the field set's `stand`
-// (life size: the plots round you, chapters 4 and 5) or nothing (standW returning 0). SPEC.md, "Headset".
-// In a headset the tower of scales stands tall in front of you while it is the scene (chapters 3 and 4): the story's
-// view eases into the tower set's `stand` (about 1.5 m tall, the plate low and the trunk's top above your eyes),
-// keeping the story's turn. Its axis stands STAND_BACK (in the set's units) further off than the view's target, so that
-// nothing of it comes within 0.35 m of your eyes (the tower set's manifest: 0.38 m at the closest for the story's
-// turns from -60 to 60 degrees, the board more than 0.9 m away). The weight follows the story's time alone, so at a
-// shared-room station everyone sees the same size. On a screen nothing changes.
-const STAND_BACK = 0.2;
+// In a headset a set may stand life size round you while it is the scene (the muscle story's Stand inside, the topo
+// story's tower): the story's view eases into that set's STAND view, keeping the story's turn, its axis STAND_BACK
+// further off than the view's target. The soil story keys none (ST.stand is empty: the field's life-size view is the
+// field set's own option, SPEC.md); the lines stay so one can be added by time (ST.stand.push([t0, t1, t2, t3])). The
+// weight follows the story's time alone, so at a shared-room station everyone sees the same size. On a screen nothing
+// changes.
+const STAND = ['field', 'stand'], STAND_BACK = 0;
 // ST.stand: [t0, t1, t2, t3], in over t0..t1 and out over t2..t3 (story time)
 const standW = t => ST.stand.reduce((w, [t0, t1, t2, t3]) => Math.max(w, Math.min(smooth((t - t0) / (t1 - t0)), smooth((t3 - t) / (t3 - t2)))), 0);
 function standView(v, w) {
   if (w <= 0) return v;
-  const s = view('tower', 'stand'), A = v[0] * D2R;
+  const s = view(...STAND), A = v[0] * D2R;
   s[3] += STAND_BACK * Math.sin(A); s[5] += STAND_BACK * Math.cos(A);   // (towards you: the target nearer, the axis further)
   v[1] += (s[1] - v[1]) * w;
   v[2] = Math.exp(Math.log(v[2]) + (Math.log(s[2]) - Math.log(v[2])) * w);
   for (let i = 3; i < 6; i++) v[i] += (s[i] - v[i]) * w;
   return v;
 }
-
 // ---------------------------------------------------------------- labels --
 // Story labels are pinned to a set's anchor for a stretch of story time; each
 // set also brings its own labels, shown whenever its params call for them.
