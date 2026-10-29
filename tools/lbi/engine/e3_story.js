@@ -1,11 +1,12 @@
 
 // ================================================================== STORY ==
-// Narration timing: [time in your recording, original story cue]. The story's
+// Narration timing: [time in the recording, original story cue]. The story's
 // animation is stretched or squeezed between these points so each cue lands
-// on the matching sentence. Until a narration is recorded, the table sets the
-// pace: node tools/pace.mjs writes it from the words on the panel (each stretch
-// between two cues lasts long enough to read what appeared at its start; run
-// it again after the text changes). A recording replaces it with its own times.
+// on the matching sentence. The tour is narrated by a synthetic voice
+// (audio/narration-lbi.mp3, Kokoro's af_heart): node tools/voice/narrate.mjs lbi
+// writes this table and NARRATION_ENDS from the recording it makes (each
+// stretch lasts the longer of 1.1 times its story time and its line's audio
+// plus a pause); run it again after the text changes (see tools/voice/README.md).
 const NARRATION_SYNC = [
   [0, 0], [1.3, 1.2], [2.9, 2.4], [4.2, 3.6], [11.9, 8], [12.6, 8.6], [23.5, 13],  // Intro
   [33.4, 22], [34.7, 23.18], [36.3, 23.2], [62.5, 47], [66.3, 49],  // Parts
@@ -207,7 +208,7 @@ function buildStory() {
         <li data-at="9"><b>Look ahead</b>invent the future of medicine</li>
       </ul>
       <p data-at="15"><button class="btn primary" id="btnGoExplore" type="button">Explore the scenes</button></p>
-      <p class="credits" data-at="17">Thank you! netmed.lbg.ac.at · menchelab.com</p>`,
+      <p class="credits" data-at="17">Thank you! netmed.lbg.ac.at · menchelab.com · Narration: a synthetic voice (Kokoro).</p>`,
   };
   const story = $('#story');
   story.innerHTML = CH.map(c => `<section class="ch" data-ch="${c.key}">${html[c.key]}</section>`).join('');
