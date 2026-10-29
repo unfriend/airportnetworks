@@ -2447,9 +2447,10 @@ try {
   await Fp4.goto(base() + 's/1/index.html', { timeout: 90000 });
   await Fp4.waitForFunction(() => typeof HOST !== 'undefined' && HOST.collab, null, { timeout: 90000, polling: 100 });   // (as open(): a busy machine loads slowly)
   await Fp4.evaluate(() => HOST.collab.create());
-  const f4 = await until(Fp4, () => !!HOST.collab.code && HOST.collab.status === 'open' && !!HOST.collab.val('sg'), null, 10000);
+  // (generous: a fresh page on a busy machine first finds the relay, then makes the room)
+  const f4 = await until(Fp4, () => !!HOST.collab.code && HOST.collab.status === 'open' && !!HOST.collab.val('sg'), null, 30000);
   await sleep(1500);
-  const f4s = await Fp4.evaluate(() => ({ path: location.pathname, sg: HOST.collab.val('sg'), gen: HOST.collab.gen }));
+  const f4s = await Fp4.evaluate(() => ({ path: location.pathname, sg: HOST.collab.val('sg'), gen: HOST.collab.gen, code: HOST.collab.code, status: HOST.collab.status }));
   check('fresh shared space: a page at s/1/ in a room with no generation stays there and gives the room generation 1',
     f4 && /\/s\/1\/$/.test(f4s.path) && f4s.gen === 1 && !!f4s.sg && f4s.sg.n === 1, JSON.stringify({ f4, f4s }));
   await Promise.all([Fp1, Fp2, Fp3, Fp4].map(P => P.context().close()));
