@@ -107,11 +107,11 @@ try {
     write('stories/list.js', read('stories/list.js').replace(/\n\];/, `\n  { key: 'flock2', kick: 'Live test', title: 'Second flock', col: '#ffffff', desc: 'A story added while the app runs.', page: 'Second flock',
     brand: 'Second flock', sub: 'added live', aria: 'A second flock', thing: 'flock', loading: 'Gathering', len: 'Story 1:57', life: true },\n];`));   // (at STORY_LIST's end: STORY_EXTRA follows)
     release();
-    const rev0 = await page.evaluate(() => HOST.listRev);
+    const [rev0, n0] = await page.evaluate(() => [HOST.listRev, HOST.list.length]);   // (the stories before, whatever their number)
     await page.evaluate(() => HOST.live.check('test'));
-    const card = await until(page, () => !!document.querySelector('#picker [data-story="flock2"]') && HOST.list.length === 16, null, 8000);
-    const r = await page.evaluate(() => ({ mark: window.__mark, rev: HOST.listRev, title: document.getElementById('pickTitle').textContent, cards: HOST.cur.peek('xrLandingCards(), XR.land.length') }));
-    report('a story added live: its card appears without a reload (page and headset Stories screens)', card && r.mark === 1 && r.rev > rev0 && r.title === 'Networks, in sixteen stories' && r.cards === 17, r);
+    const card = await until(page, n => !!document.querySelector('#picker [data-story="flock2"]') && HOST.list.length === n, n0 + 1, 8000);
+    const r = await page.evaluate(() => ({ mark: window.__mark, rev: HOST.listRev, title: document.getElementById('pickTitle').textContent, words: HOST.count(), cards: HOST.cur.peek('xrLandingCards(), XR.land.length') }));
+    report('a story added live: its card appears without a reload (page and headset Stories screens)', card && r.mark === 1 && r.rev > rev0 && r.title === `Networks, in ${r.words} stories` && !/\d/.test(r.words) && r.cards === n0 + 2, r);
     await page.evaluate(() => HOST.start('flock2'));
     report('... and it starts', await built(page, 'flock2'));
   }
