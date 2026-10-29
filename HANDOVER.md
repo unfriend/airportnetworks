@@ -70,8 +70,10 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
   reports them (`HOST.progress`): the page shows a thin bar and the step under the loading line, and a headset shows
   a card with the story's name and a bar in its colour in front of you and a ring on the left wrist, from 0.4 s on,
   fading as the story appears (`HOST.loading`; AGENTS.md "How the shell and stories fit together"). The PET story's
-  organ icons are made after the load. The longest single task of a load fell from 1 to 4 s to one shader's compile;
-  how long a load takes on a Quest, and how the card and the ring look there, are untested.
+  organ icons are made after the load. Measured headlessly (software WebGL, a busy machine), the longest task of a
+  multi-scene story's load fell from 0.7 to 1.4 s to 0.2 to 0.4 s (at most one shader's compile), while the whole load
+  took up to 0.6 s longer: each pause lets the page draw a frame, which software WebGL composites slowly and the next
+  shader waits for. How long a load takes on a Quest, and how the card and the ring look there, are untested.
 - **Built after v96 (29 October 2026), tested headlessly only:** *rooms on this network* (FORMAT networks-25). The
   owner's priority, in their words: "Rejoin by itself, never join something new by itself." The Shared dialog and the
   headset's menu list *Rooms on this network* (code, its first member's or host's name, people; one press joins): with
