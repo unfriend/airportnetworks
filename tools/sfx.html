@@ -4,14 +4,18 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Sound board</title>
-<!-- The sound board: every sound effect of the shell (sfx.js, HOST.sfx) with a button and what it is for, the quiet
-     backgrounds of the stories, a 3D demo (a sound circling your head, through the same HRTF panner as in a headset),
-     the ducking demo (a background and clicks dipping 9 dB under the narration) and the voice limit (16 at once).
+<!-- The sound board: every sound effect of the shell (sfx.js, HOST.sfx) with a button and what it is for, the stories'
+     own sounds (phase 2: with their pitch and length) and continuous sounds, a story's whole sound track (its cues at
+     their times, its continuous sounds, its background and its narration where it has one, rendered and played with a
+     seek bar), the quiet backgrounds of the stories, a 3D demo (a sound circling your head, through the same HRTF panner
+     as in a headset), the ducking demo (a background and clicks dipping 9 dB under the narration) and the voice limit
+     (16 at once).
      It loads the engine directly (../sfx.js, SFX_LIB) and runs one of its own on an AudioContext of its own (a tool
      page, not the app: the app's sound is always HOST.audio's one context). Served next to the app:
        http://127.0.0.1:8123/tools/sfx.html
      tools/sfx-render.mjs opens it in headless Chromium and renders every sound to a file (SFX_BOARD.render, an
-     OfflineAudioContext each: no tap needed). -->
+     OfflineAudioContext each: no tap needed), and with --story a story's whole track (SFX_BOARD.storyInfo reads its cues
+     from the app in a frame, SFX_BOARD.renderStory renders a stretch). -->
 <style>
   :root { color-scheme: dark; }
   html, body { margin: 0; background: #040912; color: #e7eef8; font: 15px/1.5 B612, "Segoe UI", "Helvetica Neue", Arial, sans-serif; }
@@ -37,13 +41,19 @@
   .card .row { display: flex; gap: 8px; flex-wrap: wrap; }
   .sw { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; }
   #d3dial { font: 13px ui-monospace, Menlo, Consolas, monospace; color: #a9b8cc; margin-left: 10px; }
+  .card .uses { color: #7f91a8; font-size: 12px; }
+  .card .opt { font-size: 12px; } .card .opt input { width: 110px; } .card .opt output { font: 12px ui-monospace, Menlo, Consolas, monospace; min-width: 3.4em; display: inline-block; }
+  select { font: inherit; font-size: 14px; color: #e7eef8; background: rgba(10, 19, 34, 0.9); border: 1px solid rgba(140, 170, 210, 0.35); border-radius: 8px; padding: 6px 8px; }
+  #trackAudio { width: 100%; max-width: 820px; margin: 8px 0; }
+  #trackCues { font: 12px/1.6 ui-monospace, Menlo, Consolas, monospace; color: #a9b8cc; max-height: 260px; overflow: auto; white-space: pre; margin: 0; }
+  iframe.app { position: absolute; left: 0; top: 0; width: 640px; height: 400px; opacity: 0; border: 0; pointer-events: none; }
   @media (max-width: 520px) { .grid { grid-template-columns: 1fr; } }
 </style>
 </head>
 <body>
 <div class="wrap">
   <h1>Sound board</h1>
-  <p>Every sound effect the app's shell can play (sfx.js), made from Web Audio nodes as the app makes them. In the app they are off until turned on (Sound check on the Stories screen, or the menu on the left wrist in a headset), and they sit well under the narration. Press Start sound first.</p>
+  <p>Every sound effect the app's shell can play (sfx.js), made from Web Audio nodes as the app makes them: the shell's own, and the stories' (phase 2). In the app they are on unless turned off (Sound check on the Stories screen, or the menu on the left wrist in a headset; the Sound button silences them with the narration), and they sit well under the narration. Press Start sound first.</p>
   <div class="bar">
     <button id="start" class="primary" type="button">Start sound</button>
     <label>Volume <input id="vol" type="range" min="0" max="100" step="5" value="100"></label>
@@ -52,6 +62,21 @@
   <h2>Interface and room sounds</h2>
   <p>Left and Right play it panned, as page buttons are by where they sit on the screen. In a headset the room sounds come from where they happen.</p>
   <div class="grid" id="sounds"></div>
+  <h2>Story sounds</h2>
+  <p>The stories' own sounds (phase 2): played at moments of a story's timeline, and for explore mode's picks, results and actions. Each story sets its pitch and length (the sliders); in a headset each comes from where it happens in the scene, on a screen it is panned by where it shows.</p>
+  <div class="grid" id="ssounds"></div>
+  <h2>Continuous sounds</h2>
+  <p>Kept going while a story wants them (a robot vacuum while it moves, a machine while it runs), faded in and out; the pitch follows the story (a robot's speed).</p>
+  <div class="grid" id="drones"></div>
+  <h2>A story's sounds</h2>
+  <p>A story's whole sound track as a visitor hears it with the default volume (75 %): its cues at their times, its continuous sounds, its background, and its narration where it has a recording, the effects 9 dB under the voice while it plays. The cues are read from the app (it loads in a hidden frame, a few seconds). Rendering takes a moment.</p>
+  <div class="bar" style="position:static;border:0">
+    <label>Story <select id="trackKey"></select></label>
+    <button id="trackGo" type="button">Render its sound track</button>
+    <span class="meter" id="trackMsg"></span>
+  </div>
+  <audio id="trackAudio" controls hidden></audio>
+  <pre id="trackCues"></pre>
   <h2>Backgrounds</h2>
   <p>One quiet loop for the story on show, faded in once it is built and out when it goes. Every story without one of its own gets the calm tone, its pitch, brightness and pace from its key.</p>
   <div class="grid" id="beds"></div>
@@ -97,6 +122,38 @@
     const b = ev.target.closest('[data-play]');
     if (!b || !needCtx()) return;
     setTimeout(() => E.play(b.dataset.play, { force: true, pan: +b.dataset.pan || 0 }), B.ctx.state === 'running' ? 0 : 120);
+  });
+  // the stories' sounds, with their pitch and length (dur only where the recipe reads it)
+  const DUR = { grow: 4, whoosh: 0.9, rise: 2, flutter: 0.6, rush: 1.2, patter: 1.5, ratchet: 2 };
+  $('#ssounds').innerHTML = L.ORDER_STORY.map(n => {
+    const R = L.SOUNDS[n];
+    return `<div class="card" data-card="${n}"><b>${n}</b><span class="k">story</span><p>${esc(R.desc)}</p><p class="uses">${esc(R.uses || '')}</p>
+      <div class="row opt"><label>Pitch <input type="range" data-k="pitch" min="0.5" max="2" step="0.05" value="1"><output>1.00</output></label>
+      ${n in DUR ? `<label>Length <input type="range" data-k="dur" min="0.2" max="12" step="0.1" value="${DUR[n]}"><output>${DUR[n].toFixed(1)} s</output></label>` : ''}</div>
+      <div class="row"><button type="button" data-splay="${n}">Play</button><button type="button" data-splay="${n}" data-pan="-0.8">Left</button><button type="button" data-splay="${n}" data-pan="0.8">Right</button></div></div>`;
+  }).join('');
+  $('#ssounds').addEventListener('input', ev => { const i = ev.target.closest('input[data-k]'); if (i) i.nextElementSibling.textContent = i.dataset.k === 'dur' ? (+i.value).toFixed(1) + ' s' : (+i.value).toFixed(2); });
+  $('#ssounds').addEventListener('click', ev => {
+    const b = ev.target.closest('[data-splay]');
+    if (!b || !needCtx()) return;
+    const card = b.closest('.card'), o = { force: true, pan: +b.dataset.pan || 0 };
+    card.querySelectorAll('input[data-k]').forEach(i => { o[i.dataset.k] = +i.value; });
+    setTimeout(() => E.play(b.dataset.splay, o), B.ctx.state === 'running' ? 0 : 120);
+  });
+  // the continuous sounds: started and kept going by asking every 100 ms, as a story asks every frame
+  const DR = {};
+  $('#drones').innerHTML = L.ORDER_DRONE.map(n => `<div class="card"><b>${n}</b><span class="k">continuous</span><p>${esc(L.DRONES[n].desc)}</p><p class="uses">${esc(L.DRONES[n].uses || '')}</p>
+    <div class="row opt"><label>Pitch <input type="range" data-dk="${n}" min="0.5" max="2" step="0.05" value="1"><output>1.00</output></label></div>
+    <div class="row"><button type="button" data-drone="${n}" aria-pressed="false">Start</button></div></div>`).join('');
+  $('#drones').addEventListener('input', ev => { const i = ev.target.closest('input[data-dk]'); if (i) i.nextElementSibling.textContent = (+i.value).toFixed(2); });
+  $('#drones').addEventListener('click', ev => {
+    const b = ev.target.closest('[data-drone]');
+    if (!b || !needCtx()) return;
+    const n = b.dataset.drone;
+    if (DR[n]) { clearInterval(DR[n]); DR[n] = 0; b.textContent = 'Start'; b.setAttribute('aria-pressed', 'false'); return; }
+    const pitch = () => +document.querySelector(`[data-dk="${n}"]`).value;
+    DR[n] = setInterval(() => E.drone('board.' + n, n, { pitch: pitch() }), 100);
+    b.textContent = 'Stop'; b.setAttribute('aria-pressed', 'true');
   });
   // the backgrounds: one per story (and the soil story's and the design room's)
   const stories = (self.STORY_LIST || []).map(s => ({ key: s.key, title: s.title, col: s.col }));
@@ -178,8 +235,22 @@
 
   // ---- renders for tools/sfx-render.mjs: each item into an OfflineAudioContext, back as a 32-bit float WAV (base64)
   const SECS = 20;
+  // a few of the story sounds as the stories use them (a sweep up and down, long textures, a path's hops, a robot's bump)
+  const EXAMPLES = [
+    ['whoosh-up', 'whoosh rising (pitch 1.3, 2 s): a flight up and away', [['whoosh', 0, { pitch: 1.3, dur: 2 }]]],
+    ['whoosh-down', 'whoosh falling (pitch 0.75, 3 s): something settling, a zoom down', [['whoosh', 0, { pitch: 0.75, dur: 3 }]]],
+    ['grow-long', 'grow, long and low (pitch 0.8, 10 s, gain 0.35): the airports\' routes weaving in, under the voice', [['grow', 0, { pitch: 0.8, dur: 10, gain: 0.35 }]]],
+    ['rise-long', 'rise, long (5 s): a tower or a pyramid appearing', [['rise', 0, { dur: 5 }]]],
+    ['path', 'a path\'s hops: step six times, a tone higher each, then a ping (explore mode\'s route found)', [0, 1, 2, 3, 4, 5].map(k => ['step', 0.14 * k, { pitch: Math.pow(2, 2 * k / 12), gain: 0.6 }]).concat([['ping', 0.89, {}]])],
+    ['knock-bump', 'knock at pitch 1.8 and gain 0.25: a robot vacuum bumping into something', [['knock', 0, { pitch: 1.8, gain: 0.25 }], ['knock', 0.7, { pitch: 1.75, gain: 0.25 }]]],
+    ['falcon', 'the flock\'s falcon: a whoosh diving (pitch 1.4, 1.1 s), the flock bursting away 0.4 s later (flutter, 0.9 s)', [['whoosh', 0, { pitch: 1.4, dur: 1.1 }], ['flutter', 0.4, { dur: 0.9 }]]],
+    ['ratchet-rise', 'ratchet, ten clicks rising over 4 s: a sum built brick by brick', [['ratchet', 0, { n: 10, dur: 4, rise: true }]]],
+  ];
   function items() {
     const out = L.ORDER.map(n => ({ id: 'sound:' + n, file: 'sfx-' + n, name: n, kind: L.SOUNDS[n].kind, desc: L.SOUNDS[n].desc, ch: 1 }));
+    for (const n of L.ORDER_STORY) out.push({ id: 'sound:' + n, file: 'sfx-' + n, name: n, kind: 'story', desc: L.SOUNDS[n].desc + ' Used for: ' + (L.SOUNDS[n].uses || ''), ch: 2, phase: 2 });
+    for (const [f, desc] of EXAMPLES) out.push({ id: 'ex:' + f, file: 'sfx-ex-' + f, name: 'example: ' + f, kind: 'story', desc, ch: 2, phase: 2, example: true });
+    for (const n of L.ORDER_DRONE) out.push({ id: 'drone:' + n, file: 'drone-' + n, name: 'continuous: ' + n, kind: 'drone', desc: L.DRONES[n].desc + ' (4 s; its pitch glides from 0.8 to 1.3 in the middle)', ch: 2, phase: 2 });
     for (const [key, what] of [['airports', 'calm'], ['qubits', 'calm'], ['flock', 'dusk'], ['pass', 'sea'], ['robots', 'room'], ['soil', 'wind']]) {
       const c = L.colour(key);
       out.push({ id: 'bed:' + key, file: 'bed-' + what + (what === 'calm' ? '-' + key : ''), name: 'background: ' + what + ' (' + key + ')', kind: 'bed', ch: 2,
@@ -198,16 +269,108 @@
     return new Blob([v], { type: 'audio/wav' });
   }
   const b64 = blob => new Promise(r => { const f = new FileReader(); f.onload = () => r(String(f.result).split(',')[1]); f.readAsDataURL(blob); });
+  // several sounds at their times in one render (EXAMPLES)
+  function renderSeq(list) {
+    const len = Math.max(...list.map(([n, t, o]) => t + L.length(n, o))) + 0.8, c = new OfflineAudioContext(2, Math.ceil(len * 44100), 44100), G = L.graph(c);
+    list.forEach(([n, t, o], i) => L.voice(G, n, 0.02 + t, Object.assign({}, o, { seed: L.hash(n) + i })));
+    return c.startRendering();
+  }
   async function render(id) {
     const [kind, name] = id.split(':');
     let buf;
     if (kind === 'sound') buf = await L.renderSound(name);
+    else if (kind === 'ex') buf = await renderSeq(EXAMPLES.find(e => e[0] === name)[2]);
+    else if (kind === 'drone') buf = await L.renderDrone(name, 4, 0.8, 1.3);
     else if (kind === 'bed') buf = await L.renderBed(name, SECS);
     else if (name === '3d') buf = await L.render3d(6.5);
     else { const v = await voiceBuf(new OfflineAudioContext(2, 44100, 44100)); buf = await L.renderDuck(v.buf, v.from, 7); }
     return { sr: buf.sampleRate, ch: buf.numberOfChannels, len: buf.length, b64: await b64(wav(buf)) };
   }
-  window.SFX_BOARD = { items, render, engine: E };
+  // ---- a story's sound track. Its cues and spans are read from the app in a frame (the story loaded there, paused; for
+  // each cue the story is put at its moment and drawn once, so its pan is where the sound shows on a screen), its
+  // narration fetched and decoded; then any stretch renders on its own (renderStory), so a long story never needs one
+  // huge buffer. Volume: the default (75 %)
+  const TRACK = { info: {}, voice: {}, frame: null };
+  const wait = ms => new Promise(r => setTimeout(r, ms));
+  async function appFor(key) {
+    if (TRACK.frame) TRACK.frame.remove();
+    const f = document.createElement('iframe');
+    f.className = 'app'; f.tabIndex = -1; f.setAttribute('aria-hidden', 'true'); f.src = '../index.html#' + key;
+    document.body.appendChild(f); TRACK.frame = f;
+    for (let i = 0; i < 1200; i++) {
+      await wait(100);
+      try { const H = f.contentWindow.eval('typeof HOST !== "undefined" && HOST'); if (H && H.curKey === key && H.cur && H.cur.collab.scene()) return H; } catch (e) { /* not yet */ }
+    }
+    throw new Error('the app did not load ' + key);
+  }
+  async function storyInfo(key) {
+    if (TRACK.info[key]) return TRACK.info[key];
+    const H = await appFor(key), peek = s => H.cur.peek(s);
+    if (!peek('typeof SFXQ !== "undefined"')) throw new Error(key + ' has no sound cues yet');
+    peek('(APP.playing = false)');
+    const at = q => (typeof q === 'string' || typeof q === 'number' ? String(q) : Array.isArray(q) ? 'a point' : typeof q === 'function' ? 'a moving point' : '');
+    const near = 'const near = t => { APP.seek(t); if (typeof frame === "function") { frame(performance.now()); frame(performance.now() + 17); } };';
+    const cues = [], spans = [];
+    for (let i = 0, n = peek('SFXQ.cues.length'); i < n; i++) {
+      cues.push(peek(`(() => { ${near} const c = SFXQ.cues[${i}]; near(c.n); const w = sfxWhere(c.set, c.at);
+        return { n: c.n, t: c.t, name: c.name, o: c.o, set: c.set || '', pan: w.pan || 0, ch: (CH.find(h => c.t >= h.a && c.t < h.b) || CH[CH.length - 1]).name }; })()`));
+      cues[i].at = at(peek(`SFXQ.cues[${i}].at`));
+    }
+    for (let i = 0, n = peek('SFXQ.spans.length'); i < n; i++) {
+      spans.push(peek(`(() => { ${near} const s = SFXQ.spans[${i}]; near((s.n0 + s.n1) / 2); const w = sfxWhere(s.set, s.at);
+        return { n0: s.n0, n1: s.n1, t0: s.t0, t1: s.t1, name: s.name, o: s.o, set: s.set || '', pan: w.pan || 0 }; })()`));
+    }
+    const chapters = peek('CH.map(c => ({ key: c.key, name: c.name, na: c.na, nb: c.nb }))'), T = peek('T_END'), title = (H.meta(key) || {}).title || key;
+    TRACK.frame.remove(); TRACK.frame = null;
+    // its narration, if it has a recording
+    let voice = null;
+    for (const f of [key === 'airports' ? 'narration.mp3' : 'narration-' + key + '.mp3']) {
+      try { const r = await fetch('../audio/' + f); if (r.ok) voice = await new OfflineAudioContext(2, 44100, 44100).decodeAudioData(await r.arrayBuffer()); } catch (e) { voice = null; }
+    }
+    TRACK.voice[key] = voice;
+    const T2 = Math.max(T, voice ? voice.duration + 0.5 : 0, ...cues.map(c => c.n + L.length(c.name, c.o) + 1));
+    return (TRACK.info[key] = { key, title, T: T2, chapters, cues, spans, voice: !!voice });
+  }
+  // 16-bit stereo WAV of buf from sample `from` on
+  function wav16(buf, from) {
+    const ch = 2, n = buf.length - from, v = new DataView(new ArrayBuffer(44 + n * ch * 2)), w = (o, s) => { for (let i = 0; i < s.length; i++) v.setUint8(o + i, s.charCodeAt(i)); };
+    w(0, 'RIFF'); v.setUint32(4, 36 + n * ch * 2, true); w(8, 'WAVEfmt '); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, ch, true);
+    v.setUint32(24, buf.sampleRate, true); v.setUint32(28, buf.sampleRate * ch * 2, true); v.setUint16(32, ch * 2, true); v.setUint16(34, 16, true); w(36, 'data'); v.setUint32(40, n * ch * 2, true);
+    const d = [buf.getChannelData(0), buf.getChannelData(Math.min(1, buf.numberOfChannels - 1))];
+    for (let i = 0, o = 44; i < n; i++) for (let c = 0; c < ch; c++, o += 2) v.setInt16(o, Math.round(clampS(d[c][from + i]) * 32767), true);
+    return new Blob([v], { type: 'audio/wav' });
+  }
+  const clampS = x => Math.max(-1, Math.min(1, x));
+  async function renderStoryBuf(key, T0, T1) {
+    const info = await storyInfo(key);
+    return L.renderStory({ key, cues: info.cues, spans: info.spans, speaking: info.voice, voice: TRACK.voice[key] }, T0, Math.min(T1, info.T), 3, 0.75);
+  }
+  // a stretch as a 16-bit WAV (base64), for tools/sfx-render.mjs --story
+  async function renderStory(key, T0, T1) { const r = await renderStoryBuf(key, T0, T1); return { b64: await b64(wav16(r.buf, r.cut)) }; }
+  // the board: the whole track, minute by minute, joined and played with a seek bar
+  const keysAll = stories.map(s => s.key);
+  $('#trackKey').innerHTML = keysAll.map(k => `<option value="${k}">${esc((stories.find(s => s.key === k) || {}).title || k)}</option>`).join('');
+  const mmss = t => Math.floor(t / 60) + ':' + (t % 60).toFixed(1).padStart(4, '0');
+  $('#trackGo').addEventListener('click', async () => {
+    const key = $('#trackKey').value, btn = $('#trackGo'), msg = $('#trackMsg');
+    btn.disabled = true;
+    try {
+      msg.textContent = 'reading its cues from the app...';
+      const info = await storyInfo(key), parts = [];
+      for (let t = 0; t < info.T; t += 60) { msg.textContent = `rendering ${mmss(t)} of ${mmss(info.T)}...`; const r = await renderStoryBuf(key, t, t + 60); parts.push([r.buf, r.cut]); }
+      const n = parts.reduce((a, [b, c]) => a + b.length - c, 0), all = new AudioBuffer({ numberOfChannels: 2, length: n, sampleRate: 44100 });
+      let k = 0;
+      for (const [b, c] of parts) { for (let ch = 0; ch < 2; ch++) all.getChannelData(ch).set(b.getChannelData(Math.min(ch, b.numberOfChannels - 1)).subarray(c), k); k += b.length - c; }
+      const a = $('#trackAudio');
+      if (a.src) URL.revokeObjectURL(a.src);
+      a.src = URL.createObjectURL(wav16(all, 0)); a.hidden = false;
+      $('#trackCues').textContent = info.cues.map(c => `${mmss(c.n).padStart(7)}  ${c.ch.padEnd(22)} ${c.name.padEnd(8)} ${JSON.stringify(c.o)}  ${c.set}${c.at ? ': ' + c.at : ''}`).join('\n') +
+        (info.spans.length ? '\n' + info.spans.map(s => `${mmss(s.n0).padStart(7)}  to ${mmss(s.n1)}  ${s.name} (continuous)  ${s.set}`).join('\n') : '');
+      msg.textContent = `${info.cues.length} cues, ${info.spans.length} continuous, ${info.voice ? 'with its narration' : 'no recording (effects not ducked)'}`;
+    } catch (e) { msg.textContent = String(e && e.message || e); }
+    btn.disabled = false;
+  });
+  window.SFX_BOARD = { items, render, engine: E, storyInfo, renderStory };
 })();
 </script>
 </body>
