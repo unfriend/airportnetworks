@@ -12,8 +12,6 @@
 // Runs inside index.html, which owns the page, the renderer and the headset session.
 // Built by tools/soil/build.mjs from the tour's kit and the data, look, sets and engine parts in tools/soil: edit
 // those, not this file.
-// TODO(soil B): this header is final; the rest of the engine (e2..e7) was copied from tools/topo/engine with every
-// story-specific part marked TODO(soil B). See tools/soil/SPEC.md, "The engine".
 HOST.register('soil', function (HOST) {
 'use strict';
 const D2R = Math.PI / 180;

@@ -113,7 +113,6 @@ const APP = {
   mode: 'story', t: 0, playing: true,
   seek(t) { this.t = clamp(t, 0, T_END - 0.01); if (this.mode !== 'story') this.enterStory(this.t); },
   togglePlay() { if (this.mode !== 'story') return; if (this.t >= T_END - 0.05) this.t = 0; this.playing = !this.playing; },
-  // TODO(soil B): the scene and tab explore opens on from the story's moment: the soil story's sets.
   enterExplore() {
     if (this.mode === 'explore') return;
     this.mode = 'explore';
@@ -124,23 +123,18 @@ const APP = {
     for (const n in DEF) XS[n] = S[n];
     // (the set on show, or the one about to come: a short fade between two of the same set's views shows none)
     const S2 = storyState(Math.min(ts + 1.5, T_END));
-    let best = 'tower', ba = 0;
+    let best = 'field', ba = 0;
     for (const k of SET_ORDER) { const a = Math.max(S[k + '_a'], 0.9 * S2[k + '_a']); if (a > ba + 0.01) { ba = a; best = k; } }
-    if (best === 'slide' && S.map_a > 0.5) best = 'map';   // (the map lies on the slide's window)
-    if (best === 'body' && S.slide_a > 0.3) best = 'slide';   // (the liver's slice has become the tile)
+    if (best === 'field' && S.net_a > 0.5) best = 'net';   // (the cloud and the network float over the field)
     // the story's view, taken back into the set's own frame (explore shows sets unturned)
     const v = storyCam(ts).slice(0, 6), r = -setYaw(best, ts) * D2R, x = v[3], z = v[5];
     v[0] += r / D2R; v[3] = x * Math.cos(r) + z * Math.sin(r); v[5] = -x * Math.sin(r) + z * Math.cos(r);
     orbit.cur = v; orbit.to = null;
-    // (in a headset the tall tower's axis stood a little further off than the view's target, see standView: explore
-    // turns a scene round its target, so the target glides back onto the axis)
-    const sb = XR.on && best === 'tower' ? standW(ts) * STAND_BACK : 0;
-    if (sb > 0) { const A = v[0] * D2R; flyTo([v[0], v[1], v[2], v[3] - sb * Math.sin(A), v[4], v[5] - sb * Math.cos(A)]); }
     X.scene = best; X.t0 = performance.now();
-    // the story's numbers carry over to the panes first (the radii), so the controls are matched with them
-    if (best === 'tower') X.r = clamp(Math.round(S.tower_r * 100) / 100, 1.5, 60);
-    if (best === 'map') X.mr = clamp(Math.round(S.map_r * 100) / 100, 1.5, 60);
-    X.slide = -1; X.cell = -1;
+    // the story's picks carry over: a module lit, a group of plots tagged
+    X.mod = best === 'net' && S.net_focus >= 0 ? Math.round(S.net_focus) : -1;
+    X.rho = 0.6; X.shuf = 0; X.kind = -1;
+    X.plot = best === 'field' && S.field_pick >= 0 && S.field_tags > 0.5 ? Math.round(S.field_pick) : -1;
     // and pick the scene's controls that come closest to what the story was showing
     const s = GL.sets[best];
     X.ctl[best] = {};
@@ -156,10 +150,11 @@ const APP = {
       }
       X.ctl[best][ct.key] = bo;
     }
-    X.tab = { tower: 'patch', cohort: S.cohort_gamma > 0.5 ? 'scales' : 'cohort', map: 'cells' }[best] || 'scenes';
-    if (X.tab === 'scales') X.ctl.cohort.view = 'scales';
-    // from the last chapter (the story's end, or its Explore button): the patch, in the Patch tab
-    if (ts >= C.next.a) openStart();
+    // (the field's measure on show: the story's)
+    if (best === 'field' && S.field_tags > 0.5) X.ctl.field.show = SHOWS[clamp(Math.round(S.field_show), 0, 4)];
+    X.tab = { soil: 'nitrogen', field: 'field', net: S.net_pull > 0.5 ? 'network' : 'microbes' }[best] || 'scenes';
+    // from the last chapter (the story's end, or its Explore button): the field, in the Field tab
+    if (ts >= C.know.a) openStart();
     ST.labels.forEach(L => { L.el.style.opacity = 0; L.o = 0; });
     showTab(X.tab); pushState(); renderAll();
     $('#panel').scrollTop = 0;
@@ -168,22 +163,21 @@ const APP = {
     this.mode = 'story';
     document.body.classList.remove('exploring');
     $('#btnMode').textContent = 'Explore now';
-    // the story shows its scenes as it tells them: no slide or cell picked in explore
-    X.slide = -1; X.cell = -1; NEXT.length = 0; pushState();
+    // the story shows its scenes as it tells them: nothing picked in explore
+    X.mod = -1; X.kind = -1; X.plot = -1; X.shuf = 0; NEXT.length = 0; pushState();
     $('#tip').style.opacity = 0;
     this.t = t || 0; this.playing = true; curCh = null;
   },
 };
 
-// explore mode's start: the poster's patch with its tower standing, at the radius where the big loop has just closed,
-// in the Patch tab
-// TODO(soil B): explore straight in: the soil story's opening scene (the field, SPEC.md).
+// explore mode's start: the field at the end of the season (day 70), its leaves by their chlorophyll, both wheats and
+// every regime, in the Field tab
 function openStart() {
-  openScene('tower', false);
-  X.ctl.tower = Object.assign(X.ctl.tower || {}, { view: 'tower' });
-  X.r = Math.round(FACTS.snaps[1].r * 100) / 100; X.slide = -1; X.cell = -1;
-  X.tab = 'patch'; showTab('patch');
-  orbit.cur = view('tower', viewCam('tower') || 'default'); orbit.to = null;
+  openScene('field', false);
+  X.ctl.field = Object.assign(X.ctl.field || {}, { view: 'default', date: '4', show: 'chl', line: 'both', fert: 'all' });
+  X.mod = -1; X.kind = -1; X.plot = -1; X.shuf = 0;
+  X.tab = 'field'; showTab('field');
+  orbit.cur = view('field', viewCam('field') || 'default'); orbit.to = null;
   renderAll();
 }
 
@@ -335,42 +329,37 @@ function initEnd() {
   if (HOST.picking) APP.playing = false;
   window.addEventListener('storypause', () => { APP.playing = false; });
   window.addEventListener('storyrestart', () => { APP.enterStory(0); APP.playing = true; });
-  // TODO(soil B): the hash's explore keys: the soil story's (SPEC.md, "Explore"); the topo story's below.
   const hp = new URLSearchParams(location.hash.slice(1));
   if (hp.has('t')) { APP.t = clamp(parseFloat(hp.get('t')) || 0, 0, T_END - 0.01); APP.playing = false; }
   if (hp.has('explore')) {
     APP.enterExplore();
-    // #topo&explore&scene=slide&look=points (a scene; view: an option by its key or name, or a camera of the scene by
-    // name; mode= for look=), &tab=patch|cohort|scales|cells|scenes (picked by hand: its scene comes up), any control by
-    // its key (lit=loops, dim=0, show=map, delta=100, piece=window, scale=radius, liver=slice; by option or name),
-    // &tower=on|off (the patch's tower or its balls), &r=13.5 (the patch's radius, or in the Cells tab a cell's network's),
-    // &slide=17 (1 to 123), &from=5&to=15 (a window of radii; to=above), &cell=1234 (1 to 6,716)
+    // #soil&explore&scene=net&view=split (a scene; view: an option by its key or name, or a camera of the scene by
+    // name), &tab=field|nitrogen|microbes|network|scenes (picked by hand: its scene comes up), any control by its key
+    // (date=0..4, show=chl|nh4|no3|n2o|ph, line=both|0|1, fert=all|0|1|2, wheat=bni|ctrl, dcd=on|off, colour=phylum|module|guild,
+    // by=line|fert|random; by option or name), &split=line|fert|random|off, &mod=3 (a module, 1 to 17), &rho=0.7,
+    // &shuffle, &kind=215 (a kind by its number), &plot=0..5 (a group of plots: line * 3 + regime)
     const sc = hp.get('scene'), tb = hp.get('tab'), tabOK = TABS.some(t => t[0] === tb);
-    if (hp.has('mode') && !hp.has('look')) hp.set('look', hp.get('mode'));
     if (sc && GL.sets[sc] && SCENES.some(s => s[0] === sc)) { openScene(sc, false); showTab(tabOK ? tb : 'scenes'); }
     else if (tabOK) pickTab(tb);
-    else if (!hp.has('t')) openStart();   // straight in: the patch
+    else if (!hp.has('t')) openStart();   // straight in: the field
     orbit.cur = view(X.scene, viewCam(X.scene) || 'default'); orbit.to = null;
-    // every scene's controls but the views by their keys (no two scenes share one), then the view of the scene on show
+    // every scene's controls but the views by their keys (the soil block's and the field's 'fert' share no option), then
+    // the view of the scene on show
     const opt = (k, c, q) => c.options.find(([v, n]) => v.toLowerCase() === q || String(n).toLowerCase() === q || camFor(k, v) === q || (CAM_ALIAS[k] || {})[v] === q);
     for (const [k] of SCENES) for (const c of ctlsOf(k)) {
       const q = String(hp.get(c.key) || '').toLowerCase(), o = q && c.key !== 'view' && c.key !== viewKey(k) && opt(k, c, q);
       if (o) { if (k === X.scene) setCtl(k, c.key, o[0]); else (X.ctl[k] = X.ctl[k] || {})[c.key] = o[0]; }
     }
-    if (hp.has('tower') && X.scene === 'tower' && !hp.get('view')) setCtl('tower', 'view', hp.get('tower') === 'off' ? 'balls' : 'tower');
     const vk = viewKey(X.scene), vq = String(hp.get('view') || hp.get(vk) || '').toLowerCase(), vc = ctlOf(X.scene, vk), vo = vq && vc && opt(X.scene, vc, vq);
     if (vo) setCtl(X.scene, vk, vo[0]);
-    else if (vq && (GL.sets[X.scene].cam || {})[vq]) { orbit.cur = view(X.scene, vq); orbit.to = null; }   // a camera of its own (the tower's up, stand)
-    const num = k => (hp.get(k) !== null && hp.get(k) !== '' && Number.isFinite(+hp.get(k)) ? +hp.get(k) : null);
-    if (num('r') !== null) { if (X.scene === 'map') setMR(num('r'), false); else setR(num('r'), false); }
-    if (num('slide') !== null) selectSlide(Math.round(num('slide')) - 1, false);
-    if (num('from') !== null) setFrom(num('from'));
-    if (num('to') !== null || /^(above|inf)/i.test(hp.get('to') || '')) setTo(num('to') !== null ? num('to') : 100.5);
-    if (num('cell') !== null) {
-      selectCell(Math.round(num('cell')) - 1, false);
-      // (the cell's own view, round the cell picked)
-      if (X.scene === 'map' && X.cell >= 0) { const p = api('map').pos(X.cell), v = view('map', 'cell'); orbit.cur = [v[0], v[1], v[2], p[0], v[4], p[2]]; orbit.to = null; }
-    }
+    else if (vq && (GL.sets[X.scene].cam || {})[vq]) { orbit.cur = view(X.scene, vq); orbit.to = null; }   // a camera of its own
+    const hnum = k => (hp.get(k) !== null && hp.get(k) !== '' && Number.isFinite(+hp.get(k)) ? +hp.get(k) : null);
+    if (hp.has('split')) setSplit(['line', 'fert', 'random'].includes(hp.get('split')) ? hp.get('split') : 'off');
+    if (hnum('mod') !== null) selectModule(Math.round(hnum('mod')) - 1);
+    if (hnum('rho') !== null) setRho(hnum('rho'));
+    if (hp.has('shuffle')) setShuffle(true);
+    if (hnum('kind') !== null) selectKind(kindOfRank(Math.round(hnum('kind'))), false);
+    if (hnum('plot') !== null) selectPlot(Math.round(hnum('plot')), false);
     if (hp.has('now')) { Object.assign(XS, exploreTargets()); orbit.cur = orbit.to || orbit.cur; orbit.to = null; }
     renderAll();
   }

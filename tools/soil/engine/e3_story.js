@@ -101,7 +101,7 @@ const NARROW = { net: { split: 1.55, module: 1.15 }, field: { default: 1.25, plo
 const narrowOf = (k, name) => (NARROW[k] && NARROW[k][name]) || 1;
 // on a screen held sideways but too narrow for the side panel (the panel below, the scene in a strip above it, see
 // lowK): [distance factor, the target's shift up]
-const LOW = { soil: { default: [0.95, -0.1], plant: [0.9, -0.1] }, field: { stack: [0.9, -0.1] } };
+const LOW = { soil: { default: [0.95, -0.1], plant: [0.9, -0.1] }, field: { stack: [0.9, -0.1] }, net: { cloud: [0.8, 0], core: [0.9, 0], net: [0.85, 0], module: [0.8, 0.1], split: [0.9, 0] } };
 const LOW1 = [1, 0];
 const lowOf = (k, name) => (LOW[k] && LOW[k][name]) || LOW1;
 // a set's anchor point, in the set's own coordinates
@@ -137,7 +137,7 @@ const FACTS = (() => {
     plots: ds.plots, reps: ds.reps, dates: ds.times.length, dap: ds.times.map(t => t.dap), days: ds.times.map(t => t.day), stages: ds.times.map(t => t.stage),
     kgN: ds.ferts[1].kgN, nodes: N.n, links: N.links, pos: N.pos, neg: N.neg, modules: N.modules, big: big.length, nullLinks: N.null.links,
     bigFert: big.filter(m => top(m) === 'fert').length, bigPlot: big.filter(m => top(m) === 'plot').length,
-    lineR2: Math.max(...N.mods.map(m => m.r2.line)),
+    lineR2: Math.max(...big.map(m => N.mods[m].r2.line)),
     byLine: D.common.diff.line, byFert: D.common.diff.fert, byTime: D.common.diff.time, byPlot: D.common.diff.plot,
     lineLinks: sp.line.map(x => x.links), lineDiff: sp.lineDiff, randomDiff: sp.randomDiff, randomN: sp.random.length, randomMore: sp.randomMore,
     thresholds: N.thresholds, cuts: N.cuts, residual: N.residual, nitrosospira: D.guilds.nsp.byFert, archaea: D.guilds.aoa.byFert,
@@ -172,8 +172,9 @@ function buildStory() {
   const step = (at, out, col, b, text) => `<li data-at="${at}"${out ? ` data-out="${out}"` : ''} data-col="${col}" style="border-left-color:${swCol(col)}"><b style="color:${inkCol(col)}">${esc(b)}</b>${text}</li>`;
   // a big number in a colour of its own (the headset's canvas reads data-col)
   const big = (col, v) => `<b data-col="${col}" style="color:${inkCol(col)}">${v}</b>`;
-  const fact = (at, col, v, small) => `<div data-at="${at}">${big(col, v)}<small>${small}</small></div>`;
-  const legend = items => `<ul class="legend">${items.map(([at, col, t]) => `<li data-at="${at}"><span class="sw" style="background:${swCol(col)}"></span>${t}</li>`).join('')}</ul>`;
+  // (out: where a part that takes turns with the next fades out)
+  const fact = (at, col, v, small, out) => `<div data-at="${at}"${out ? ` data-out="${out}"` : ''}>${big(col, v)}<small>${small}</small></div>`;
+  const legend = (items, out) => `<ul class="legend">${items.map(([at, col, t]) => `<li data-at="${at}"${out ? ` data-out="${out}"` : ''}><span class="sw" style="background:${swCol(col)}"></span>${t}</li>`).join('')}</ul>`;
   // ------------------------------------------------------------ panel copy
   // parts of a chapter that take turns in one place, each fading out (data-out) as the next comes: the headset's
   // panel cannot scroll, so no chapter shows more than fits at once
@@ -208,16 +209,16 @@ function buildStory() {
         <p class="note" data-at="39">The wild grass is Leymus racemosus; the BNI wheat is Munal-BNI, the control wheat Munal-control, the same wheat without the segment (Subbarao et al., PNAS). The earlier evidence, as the slides list it: root exudates slowed one ammonia-oxidising bacterium in batch cultures, and a field study at a single timepoint found more nitrogen in the plant and fewer ammonia-oxidising archaea.</p>`)}`,
     trial: `<h2 data-at="0.6">The field trial</h2>
       ${turns(`<p data-at="1.2" data-out="24.5">To test it, the BNI wheat and the control wheat were grown side by side in a field in Japan:</p>
-        ${legend([[16, FERT_COL[0], 'with no fertiliser'], [17.5, FERT_COL[1], 'with fertiliser'], [19, FERT_COL[2], 'with fertiliser and a synthetic inhibitor']])}`,
+        ${legend([[16, FERT_COL[0], 'with no fertiliser'], [17.5, FERT_COL[1], 'with fertiliser'], [19, FERT_COL[2], 'with fertiliser and a synthetic inhibitor']], 24.5)}`,
       `<p data-at="25">Five times over ${F.days[F.days.length - 1]} days, soil was taken from the roots in every plot.</p>
         <div class="facts">${fact(40, AMBER, fmt(F.samples), 'samples')}${fact(41.5, CYAN, fmt(F.plots), 'plots')}${fact(43, GREEN, word(F.dates), 'dates')}</div>
         <p class="note" data-at="46">The trial is JIRCAS's; its site and year are not given, so the arc ends at JIRCAS's home in Tsukuba. Fertiliser: ${F.kgN} kg of nitrogen per hectare; the inhibitor: DCD (dicyandiamide, our reading). The slides' days ${d1} to ${dL} are ${F.dap[0]} to ${F.dap[F.dap.length - 1]} days after planting, from jointing to ripening. ${cap(word(F.reps))} replicates of each; the soil clinging to the roots (the rhizosphere); one sample is missing. The plots' layout is illustrative.</p>`)}`,
     leaks: `<h2 data-at="0.6">Greener, fewer leaks</h2>
       ${turns(`<p data-at="1.2" data-out="21.5">At the end of the season the BNI wheat is still green where the control wheat yellows, most clearly without fertiliser.</p>
-        <div class="facts">${fact(9, LINE_COL[0], Math.round(cB), `BNI wheat, day ${dL}`)}${fact(10.5, LINE_COL[1], Math.round(cC), 'control wheat')}</div>
+        <div class="facts">${fact(9, LINE_COL[0], Math.round(cB), `BNI wheat, day ${dL}`, 21.5)}${fact(10.5, LINE_COL[1], Math.round(cC), 'control wheat', 21.5)}</div>
         <p class="note" data-at="12" data-out="21.5">Chlorophyll (SPAD) in the leaves of unfertilised plots, read off the slides.</p>`,
       `<p data-at="22" data-out="41.5">With fertiliser there is less nitrate in the soil under it in mid-season.</p>
-        <div class="facts">${fact(30, LINE_COL[0], Math.round(nB), `mg N per kg, day ${F.days[2]}`)}${fact(31.5, LINE_COL[1], Math.round(nC), 'under the control wheat')}</div>
+        <div class="facts">${fact(30, LINE_COL[0], Math.round(nB), `mg N per kg, day ${F.days[2]}`, 41.5)}${fact(31.5, LINE_COL[1], Math.round(nC), 'under the control wheat', 41.5)}</div>
         <p class="note" data-at="33" data-out="41.5">Nitrate in fertilised plots, the group means of the data (${pTxt(F.no3d24[2])}). The slides call it lower from day ${F.days[2]} to day ${F.days[3]}; only day ${F.days[2]} is starred.</p>`,
       `<p data-at="42">And soil from its roots, given ammonium in a jar, gives off far less nitrous oxide, close to what the synthetic inhibitor achieves.</p>
         <div class="facts">${fact(52, LINE_COL[0], n1(oB), 'ppm at the peak, BNI wheat')}${fact(53.5, LINE_COL[1], n1(oC), `control wheat, day ${d1}`)}</div>
@@ -231,10 +232,10 @@ function buildStory() {
         <p class="note" data-at="44">Kinds of microbe: amplicon sequence variants (ASVs) from 16S rRNA gene reads, numbered here by abundance. Nitrosospira: ${F.nitrosospira.map(v => v.toFixed(2)).join(', ')} % of reads without fertiliser, with it, and with DCD. The counts of ammonia oxidisers' genes (qPCR, read off the slides) differ little between the wheats (one marginal p = ${F.qpcrP}).</p>`)}`,
     together: `<h2 data-at="0.6">Who rises together</h2>
       ${turns(`<p data-at="1.2" data-out="30.5">Link two kinds of microbe when their numbers rise and fall together across the samples.</p>
-        <div class="facts">${fact(10, CYAN, fmt(F.nodes), 'kinds')}${fact(11.5, CYAN, fmt(F.links), 'links')}</div>
+        <div class="facts">${fact(10, CYAN, fmt(F.nodes), 'kinds', 30.5)}${fact(11.5, CYAN, fmt(F.links), 'links', 30.5)}</div>
         <p data-at="19" data-out="30.5" class="amber">Shuffle the samples, and not one link is left: the pattern is real.</p>`,
       `<p data-at="31" data-out="54.5">Its groups follow the fertiliser and the field's plots, not the wheat.</p>
-        <p class="note" data-at="40" data-out="54.5">About ${word(F.big)} big groups (modules): ${word(F.bigFert)} rise and fall with the fertiliser, ${word(F.bigPlot)} with the plots; the wheat line explains under ${Math.ceil(F.lineR2 * 100)} % of any group's ups and downs.</p>`,
+        <p class="note" data-at="40" data-out="54.5">About ${word(F.big)} big groups (modules): ${word(F.bigFert)} rise and fall with the fertiliser, ${word(F.bigPlot)} with the plots; the wheat line explains under ${Math.max(1, Math.ceil(F.lineR2 * 100))} % of any big group's ups and downs.</p>`,
       `<p data-at="55">Split by wheat line, the two networks differ no more than two random halves of the samples do.</p>
         <p data-at="64" class="amber">And rising together is not working together.</p>
         <p class="note" data-at="67">Built for this story, not the authors' analysis: the ${fmt(F.common)} common kinds, centred log-ratios, Spearman's correlation of at least 0.6 (false discovery rate under 5 %), modules by the Louvain method (their number depends on the run). Each half's own network: ${fmt(F.lineLinks[0])} and ${fmt(F.lineLinks[1])} links, ${fmt(F.lineDiff)} apart; ${fmt(F.randomN)} random halves, ${fmt(F.randomDiff[0])} to ${fmt(F.randomDiff[1])} apart. With the plots' means taken out, ${fmt(F.residual.plot.links)} links are left.</p>`)}`,
@@ -336,9 +337,9 @@ function buildStory() {
   ramp('field_cores', a + 25, a + 39, 0, 1);
   ramp('field_stack', a + 41, a + 50, 0, 1);
   const jp = SPIN.at(36.05, 140.12, SPIN.japan);
-  cam(a + 0.5, 'web', 'globe', 0, null, [0, -6, 0.6]);
-  cam(a + 3, 'web', 'globe', 0, null, [0, -2, 0]);
-  cam(a + 12, 'web', 'globe', 0, 'spin', [0, 6, -0.4]);
+  cam(a + 0.5, 'web', 'globe', 0, null, [0, -6, 2.4]);
+  cam(a + 3, 'web', 'globe', 0, null, [0, -2, 1.9]);
+  cam(a + 12, 'web', 'globe', 0, 'spin', [0, 6, 1.1]);
   cam(a + 16, 'web', 'globe', 0, null, [0, 12, -2.7, jp[0], jp[1], jp[2]]);
   cam(a + 17, 'field', 'plots', -20);
   cam(a + 24, 'field', 'default', -10);

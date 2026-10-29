@@ -149,7 +149,7 @@ vec3 profile(vec3 p) {
         p = inside(K.v3.add(p, K.v3.mul(d, len / (n - 1))));
         pts.push(p);
       }
-      const R = pts.map((q, i) => 0.0085 * (1 - 0.55 * i / (n - 1))), G = pts.map((q, i) => 0.03 + 0.62 * i / (n - 1));
+      const R = pts.map((q, i) => 0.011 * (1 - 0.55 * i / (n - 1))), G = pts.map((q, i) => 0.03 + 0.62 * i / (n - 1));
       ROOTS.push({ pts, R, G, parent: -1, at: 0 });
     }
     for (let k = 0; k < NM; k++) {
@@ -160,14 +160,14 @@ vec3 profile(vec3 p) {
         let d = K.v3.norm(K.v3.add(side, [0, -0.35, 0])), p = p0.slice();
         const pts = [p.slice()];
         for (let i = 1; i < n; i++) { d = K.v3.norm(K.v3.add(d, [(r() - 0.5) * 0.3, -0.12, (r() - 0.5) * 0.3])); p = inside(K.v3.add(p, K.v3.mul(d, len / (n - 1)))); pts.push(p); }
-        const g0 = M.G[at] + 0.02, R = pts.map((q, i) => 0.0038 * (1 - 0.5 * i / (n - 1))), G = pts.map((q, i) => g0 + 0.22 * i / (n - 1));
+        const g0 = M.G[at] + 0.02, R = pts.map((q, i) => 0.0046 * (1 - 0.5 * i / (n - 1))), G = pts.map((q, i) => g0 + 0.22 * i / (n - 1));
         ROOTS.push({ pts, R, G, parent: k, at });
         // a few second-order laterals
         if (r() < 0.55) {
           const a2 = 2 + Math.floor(r() * 3), q0 = pts[a2], d2 = K.v3.norm(K.v3.add(K.unit(r), [0, -0.6, 0])), n2 = 4, l2 = 0.03 + r() * 0.04;
           const p2 = [q0.slice()];
           for (let i = 1; i < n2; i++) p2.push(inside(K.v3.add(p2[i - 1], K.v3.mul(d2, l2 / (n2 - 1)))));
-          ROOTS.push({ pts: p2, R: p2.map((q, i) => 0.0022 * (1 - 0.4 * i / (n2 - 1))), G: p2.map((q, i) => G[a2] + 0.03 + 0.12 * i / (n2 - 1)), parent: ROOTS.length - 1, at: a2 });
+          ROOTS.push({ pts: p2, R: p2.map((q, i) => 0.0026 * (1 - 0.4 * i / (n2 - 1))), G: p2.map((q, i) => Math.min(0.94, G[a2] + 0.03 + 0.12 * i / (n2 - 1))), parent: ROOTS.length - 1, at: a2 });
         }
       }
     }
@@ -239,7 +239,7 @@ uniform float uGrow, uGrass, uTime;
 varying vec3 vC, vN, vV, vP; varying float vRoot;
 void main() {
   float g = aG.w > 0.5 ? uGrass : uGrow;
-  float k = clamp((g - aG.x) / aG.y + 1.0, 0.0, 1.0);
+  float k = clamp((g - aG.x) / aG.y, 0.0, 1.0);
   vec3 p = aBase + (position - aBase) * k;
   float ph = aG.w * 2.3;
   p.x += aG.z * (0.02 * sin(uTime * 1.2 + ph) + 0.006 * sin(uTime * 2.9 + p.y * 9.0 + ph));
@@ -419,7 +419,7 @@ void main() {
         P[i] = x + P[i] * f; P[i + 1] = y + P[i + 1] * f * 0.92; P[i + 2] = z + P[i + 2] * f;
       }
       g.computeVertexNormals();
-      const col = k % 3 === 0 ? C(SLOOK.SOIL.sand) : k % 3 === 1 ? C(SLOOK.SOIL.grain) : C('#5c4632');
+      const col = [C(SLOOK.SOIL.sand), C(SLOOK.SOIL.grain), C('#4a3526'), C('#8a5a3a'), C('#6b5a48')][k % 5];
       list.push(K.paint(g, col));
     });
     const g = K.merge(list.map(x => { x.deleteAttribute('uv'); return x; }));
@@ -431,9 +431,9 @@ ${NOISE}
 void main() {
   if (length(vL) > 1.0) discard;
   ${LITCOL}
-  float gr = vnoise(vL * 14.0) * 0.6 + vnoise(vL * 40.0) * 0.4;
-  vec3 col = vC * (0.6 + 0.6 * gr);
-  col = gl_FrontFacing ? col * (0.32 + 0.6 * dif + 0.2 * hemi) + vec3(spec * 0.25) + uWater * rim * 0.7 : col * 0.25;
+  float gr = vnoise(vL * 14.0) * 0.6 + vnoise(vL * 40.0) * 0.4, sp = step(0.86, vnoise(vL * 90.0));
+  vec3 col = vC * (0.45 + 0.75 * gr) * (1.0 - 0.35 * smoothstep(0.55, 0.3, gr)) + vec3(0.55, 0.5, 0.42) * sp * 0.4;
+  col = gl_FrontFacing ? col * (0.3 + 0.62 * dif + 0.18 * hemi) + vec3(spec * 0.3) + uWater * pow(rim, 1.5) * 0.9 : col * 0.22;
   gl_FragColor = vec4(col, uA * uBA);
 }`,
     });
@@ -577,8 +577,8 @@ void main() { ${LITCOL} vec3 col = vC * (0.4 + 0.6 * dif) + vC * rim * (0.9 + uF
   })();
   // ------------------------------------------------------------------ glows: ammonium, the flows, the relay's particles,
   // the halo, N2O, the tracer (one pool of soft additive points, refilled each frame)
-  const H = LK.halos(1700);
-  H.mesh.renderOrder = 3;
+  const H = LK.halos(2200);
+  H.mesh.renderOrder = 3; H.mesh.material.depthTest = false;   // (glows read through the grains: the block is a cut-away)
   set.group.add(H.mesh);
   const NH4 = C(SLOOK.N.nh4), NO2 = C(SLOOK.N.no2), NO3 = C(SLOOK.N.no3Glow), N2O = C(SLOOK.N.n2o), UP = C(SLOOK.N.plant), WHITE = [1, 1, 1], HALO = C(SLOOK.HALO);
   // the ammonium in the topsoil: two glows round each fertiliser grain's landing spot
@@ -593,13 +593,42 @@ void main() { ${LITCOL} vec3 col = vC * (0.4 + 0.6 * dif) + vC * rim * (0.9 + uF
       const x = (r() - 0.5) * 1.0, z = -0.3 + r() * 0.66, y = -0.02 - r() * 0.1;
       const root = Math.floor(r() * MAINS.length), M = MAINS[root];
       let j = 1; while (j < M.pts.length - 1 && M.pts[j][1] > -0.06 - r() * 0.28) j++;
-      FL.push({ s: [x, y, z], per: 7 + r() * 3, ph: r(), root, j, ex: [x + (r() - 0.5) * 0.12, z + (r() - 0.5) * 0.08], w: [x + (r() - 0.5) * 0.1, z + (r() - 0.5) * 0.08], sd: r() * 100, leaf: 0.18 + r() * 0.3, gate: (i + 0.5) / NF });
+      FL.push({ s: [x, y, z], per: 7 + r() * 3, ph: r(), root, j, ex: [x + (r() - 0.5) * 0.12, z + (r() - 0.5) * 0.08], w: [x + (r() - 0.5) * 0.1, z + (r() - 0.5) * 0.08], sd: r() * 100, leaf: 0.2 + r() * 0.3, lx: (r() - 0.5) * 0.3, lz: (r() - 0.5) * 0.2, gate: (i + 0.5) / NF });
     }
   }
   const hash = (a, b) => { const x = Math.sin(a * 127.1 + b * 311.7) * 43758.5453; return x - Math.floor(x); };
+  // where flow particle i is at phase a of its cycle (route by u): its place into p, its colour, size and alpha into o
+  const FLOW = { plant: 0.45, n2o: 0.12, amber: 0.25 }, FO = { col: null, size: 0, al: 0 }, _q2 = [0, 0, 0];
+  function flowAt(i, F, a, u, t, inh, p, o) {
+    let col = NH4, size = 0.03, al = 0.78, x = F.s[0], y = F.s[1], z = F.s[2];
+    const jx = 0.014 * Math.sin(t * 0.9 + F.sd), jz = 0.012 * Math.cos(t * 0.7 + F.sd * 1.3), ae = FLOW.amber;
+    if (u < FLOW.plant) {
+      // to a root, up the root (now the plant's), up the stem into the leaves
+      const M = MAINS[F.root], rp = M.pts[F.j], e0 = 0.35 + 0.1 * inh;
+      if (a < e0) { const f = smooth(a / e0); x = F.s[0] + (rp[0] - F.s[0]) * f + jx * (1 - f); y = F.s[1] + (rp[1] - F.s[1]) * f; z = F.s[2] + (rp[2] - F.s[2]) * f + jz * (1 - f) + 0.012 * f; }
+      else if (a < 0.8) { rootClimb(M, F.j, (a - e0) / (0.8 - e0), _q2); x = _q2[0]; y = _q2[1]; z = _q2[2] + 0.012; col = UP; size = 0.026; al *= 1 - 0.6 * smooth((y + 0.12) / 0.12); }
+      else { const f = (a - 0.8) / 0.2; x = 0.004 * Math.sin(F.sd) + f * F.lx; y = f * F.leaf; z = 0.012 + f * F.lz; col = UP; size = 0.022; al *= 0.4 * (1 - f * f); }
+      if (a > e0 - 0.05 && a < e0 + 0.05) col = K.v3.lerp(NH4, UP, (a - e0 + 0.05) / 0.1);
+    } else if (u < FLOW.plant + FLOW.n2o) {
+      // the relay, then up and out of the surface as N2O
+      if (a < ae) { x += jx; z += jz; y -= 0.01 * a; }
+      else if (a < ae + 0.15) { const f = (a - ae) / 0.15; col = K.v3.lerp(NH4, NO2, f); x += jx; z += jz; y -= 0.01 * ae + 0.02 * f; }
+      else { const f = (a - ae - 0.15) / (0.85 - ae); col = K.v3.lerp(NO2, N2O, Math.min(1, f * 4)); y = F.s[1] - 0.02 + f * (0.52 - F.s[1]); x = F.s[0] + (F.w[0] - F.s[0]) * f + 0.04 * Math.sin(t * 1.3 + F.sd + f * 4) * f; z = F.s[2] + (F.w[1] - F.s[2]) * f; size = 0.03 + 0.08 * f * f; al = 0.7 * (1 - f * f); }
+    } else {
+      // the relay, then down and out of the block's bottom as nitrate
+      if (a < ae) { x += jx; z += jz; y -= 0.015 * a; }
+      else if (a < ae + 0.12) { const f = (a - ae) / 0.12; col = K.v3.lerp(NH4, NO2, f); x += jx; z += jz; y -= 0.015 * ae + 0.03 * f; }
+      else if (a < ae + 0.22) { const f = (a - ae - 0.12) / 0.1; col = K.v3.lerp(NO2, NO3, f); x += jx; z += jz; y -= 0.015 * ae + 0.03 + 0.03 * f; }
+      else { const f = (a - ae - 0.22) / (0.78 - ae); col = NO3; y = F.s[1] - 0.015 * ae - 0.06 - f * (0.84 + F.s[1]); x = F.s[0] + (F.ex[0] - F.s[0]) * f + 0.015 * Math.sin(f * 9 + F.sd); z = F.s[2] + (F.ex[1] - F.s[2]) * f; al *= 1 - smooth((y + 0.68) / -0.18); }
+    }
+    al *= clamp(a / 0.05, 0, 1) * clamp((1 - a) / 0.06, 0, 1);
+    if (al <= 0.004) return false;
+    p[0] = x; p[1] = y; p[2] = z; o.col = col; o.size = size; o.al = al;
+    return true;
+  }
   // the BNI halo: soft teal glows along the roots, seeping outwards
   const HAL = [];
-  { const r = rng(29); for (let i = 0; i < RPTS.length; i += 3) { const q = RPTS[i]; if (q.p[1] > -0.03) continue; HAL.push([...q.p, ...K.unit(r), q.g, 0.05 + r() * 0.05, r() * TAU]); } }
+  { const r = rng(29); for (let i = 0; i < RPTS.length; i += 4) { const q = RPTS[i]; if (q.p[1] > -0.03) continue; HAL.push([...q.p, ...K.unit(r), q.g, 0.04 + r() * 0.04, r() * TAU]); } }
   // the tracer's path: a fertiliser grain, the soil, a microbe (it waits there), a root, up into a leaf
   const TR = (() => {
     const M = MAINS[0], pts = [];
@@ -682,42 +711,22 @@ void main() { ${LITCOL} vec3 col = vC * (0.4 + 0.6 * dif) + vC * rim * (0.9 + uF
       if (d <= 0) continue;
       _p[0] = a[0]; _p[1] = a[1]; _p[2] = a[2];
       if (pore > 0.01 && PORE.uPc.value.distanceTo(_v.set(_p[0], _p[1], _p[2])) < R) continue;
-      H.add(_p, a[4] * (0.6 + 0.4 * d) * (1 + 0.08 * Math.sin(t * 1.7 + a[5])), NH4, 0.32 * d * dimB * (1 - 0.35 * flow * (1 - inh)));
+      H.add(_p, a[4] * (0.6 + 0.4 * d) * (1 + 0.08 * Math.sin(t * 1.7 + a[5])), NH4, 0.2 * d * dimB * (1 - 0.35 * flow * (1 - inh)));
     }
-    // the flows
+    // the flows (each particle with a short trail behind it)
     if (flow > 0.003) {
-      const plantShare = clamp(S.soil_plant, 0, 1) + (1 - clamp(S.soil_plant, 0, 1)) * 0.55 * inh, n2oShare = 0.12 * (1 - 0.75 * inh);
-      const amberEnd = 0.25 + 0.3 * inh;   // (the relay's first step slows: the nitrogen stays ammonium longer)
+      const ps = clamp(S.soil_plant, 0, 1);
+      FLOW.plant = ps + (1 - ps) * 0.55 * inh; FLOW.n2o = 0.12 * (1 - 0.75 * inh); FLOW.amber = 0.25 + 0.3 * inh;   // (the relay's first step slows: the nitrogen stays ammonium longer)
       const pc = PORE.uPc.value;
       for (let i = 0; i < NF; i++) {
         const F = FL[i], gate = clamp((flow - F.gate) * 12 + 1, 0, 1);
         if (gate <= 0) continue;
-        const c = t / F.per + F.ph, cyc = Math.floor(c), a = c - cyc, u = hash(i, cyc);
-        let col = NH4, size = 0.022, al = 0.85, x = F.s[0], y = F.s[1], z = F.s[2];
-        const jx = 0.012 * Math.sin(t * 0.9 + F.sd), jz = 0.01 * Math.cos(t * 0.7 + F.sd * 1.3);
-        if (u < plantShare) {
-          // to a root, up the root (now the plant's), up the stem
-          const M = MAINS[F.root], rp = M.pts[F.j], e0 = 0.35 + 0.1 * inh;
-          if (a < e0) { const f = smooth(a / e0); x = F.s[0] + (rp[0] - F.s[0]) * f + jx * (1 - f); y = F.s[1] + (rp[1] - F.s[1]) * f; z = F.s[2] + (rp[2] - F.s[2]) * f + jz * (1 - f); }
-          else if (a < 0.8) { rootClimb(M, F.j, (a - e0) / (0.8 - e0), _q); x = _q[0]; y = _q[1]; z = _q[2]; col = UP; size = 0.018; }
-          else { const f = (a - 0.8) / 0.2; x = 0.003 * Math.sin(F.sd); y = f * F.leaf; z = 0.003 * Math.cos(F.sd); col = UP; size = 0.016; al *= 1 - f; }
-          if (a > e0 - 0.04 && a < e0 + 0.04) col = K.v3.lerp(NH4, UP, (a - e0 + 0.04) / 0.08);
-        } else if (u < plantShare + n2oShare) {
-          // the relay, then up and out as N2O
-          if (a < amberEnd) { x += jx; z += jz; y += -0.01 * a; }
-          else if (a < amberEnd + 0.15) { const f = (a - amberEnd) / 0.15; col = K.v3.lerp(NH4, NO2, f); x += jx; z += jz; y -= 0.02 * f; }
-          else { const f = (a - amberEnd - 0.15) / (0.85 - amberEnd); col = N2O; y = F.s[1] - 0.02 + f * (0.5 - F.s[1]); x = F.s[0] + (F.w[0] - F.s[0]) * f + 0.03 * Math.sin(t * 1.3 + F.sd + f * 4) * f; z = F.s[2] + (F.w[1] - F.s[2]) * f; size = 0.025 + 0.06 * f * f; al = 0.55 * (1 - f * f); }
-        } else {
-          // the relay, then down and out of the block's bottom as nitrate
-          if (a < amberEnd) { x += jx; z += jz; y -= 0.015 * a; }
-          else if (a < amberEnd + 0.12) { const f = (a - amberEnd) / 0.12; col = K.v3.lerp(NH4, NO2, f); x += jx; z += jz; y -= 0.03 * f; }
-          else if (a < amberEnd + 0.22) { const f = (a - amberEnd - 0.12) / 0.1; col = K.v3.lerp(NO2, NO3, f); x += jx; z += jz; y -= 0.03 + 0.03 * f; }
-          else { const f = (a - amberEnd - 0.22) / (0.78 - amberEnd); col = NO3; y = F.s[1] - 0.06 - f * (0.84 + F.s[1]); x = F.s[0] + (F.ex[0] - F.s[0]) * f + 0.015 * Math.sin(f * 9 + F.sd); z = F.s[2] + (F.ex[1] - F.s[2]) * f; al *= 1 - smooth((y + 0.66) / -0.2); size = 0.02; }
+        for (let k = 0; k < 3; k++) {
+          const c = (t - k * 0.09) / F.per + F.ph, cyc = Math.floor(c), a = c - cyc;
+          if (!flowAt(i, F, a, hash(i, cyc), t - k * 0.09, inh, _p, FO)) continue;
+          if (pore > 0.01 && (_p[0] - pc.x) ** 2 + (_p[1] - pc.y) ** 2 + (_p[2] - pc.z) ** 2 < R * R) continue;
+          H.add(_p, FO.size * (1 - 0.22 * k), FO.col, FO.al * gate * dimB * (k ? 0.38 / k : 1));
         }
-        al *= gate * clamp(a / 0.05, 0, 1) * clamp((1 - a) / 0.06, 0, 1) * dimB;
-        if (pore > 0.01 && (x - pc.x) ** 2 + (y - pc.y) ** 2 + (z - pc.z) ** 2 < R * R) continue;
-        _p[0] = x; _p[1] = y; _p[2] = z;
-        H.add(_p, size, col, al);
       }
     }
     // the halo: teal round the roots, seeping into the soil
@@ -728,7 +737,7 @@ void main() { ${LITCOL} vec3 col = vC * (0.4 + 0.6 * dif) + vC * rim * (0.9 + uF
         const o = 0.012 + 0.035 * halo;
         _p[0] = h[0] + h[3] * o; _p[1] = h[1] + h[4] * o; _p[2] = h[2] + h[5] * o;
         if (pore > 0.01 && (_p[0] - pc.x) ** 2 + (_p[1] - pc.y) ** 2 + (_p[2] - pc.z) ** 2 < R * R) continue;
-        H.add(_p, h[7] * (0.6 + 0.6 * halo), HALO, 0.2 * halo * (0.8 + 0.2 * Math.sin(t * 1.3 + h[8])) * dimB);
+        H.add(_p, h[7] * (0.6 + 0.6 * halo), HALO, 0.085 * halo * (0.75 + 0.25 * Math.sin(t * 1.3 + h[8])) * dimB);
       }
     }
     // the relay in the pore: particles handed on, changing colour (bubble-local paths)
@@ -750,7 +759,7 @@ void main() { ${LITCOL} vec3 col = vC * (0.4 + 0.6 * dif) + vC * rim * (0.9 + uF
         else { col = NO3; l = K.v3.lerp(orbit(SITE[2], i * 2, _q), X, smooth((a - 0.74) / 0.26)); }
         const al = 0.95 * pv2 * clamp(a / 0.06, 0, 1) * clamp((1 - a) / 0.08, 0, 1) * clamp(relay * 2, 0, 1);
         bubbleP(l, _p);
-        H.add(_p, 0.055 * R, col, al);
+        H.add(_p, 0.09 * R, col, al);
       }
     }
     // the marked atom and its trail
@@ -762,7 +771,7 @@ void main() { ${LITCOL} vec3 col = vC * (0.4 + 0.6 * dif) + vC * rim * (0.9 + uF
       tracerAt(tracer, trOut);
       for (let k = 22; k >= 1; k--) { tracerAt(Math.max(0, tracer - k * 0.006), _p); H.add(_p, 0.012 + 0.01 * (1 - k / 22), WHITE, 0.4 * (1 - k / 22) * prog(tracer, 0, 0.04)); }
       const fl = tracer > 0.32 && tracer < 0.5 ? 0.5 + 0.5 * Math.sin(t * 14) : 1;
-      H.add(trOut, 0.05, WHITE, 0.95 * fl * prog(tracer, 0, 0.03) * (1 - prog(tracer, 0.96, 0.999)));
+      H.add(trOut, 0.075, WHITE, 0.95 * fl * prog(tracer, 0, 0.03) * (1 - prog(tracer, 0.96, 0.999)));
     } else { trOut[0] = TR.pts[0][0]; trOut[1] = TR.pts[0][1]; trOut[2] = TR.pts[0][2]; }
     H.end();
     // the roots dim a little while the flows show (so the particles read)
@@ -785,13 +794,14 @@ void main() { ${LITCOL} vec3 col = vC * (0.4 + 0.6 * dif) + vC * rim * (0.9 + uF
     return hit >= 0 ? { kind: 'guild', g: hit } : null;
   }
   // a guild's microbes' middle (set coordinates, where it is now)
-  const guildAt = g => { const c = SITE[g], out = [0, 0, 0]; return now.R > 0.01 ? bubbleP([c[0], c[1] + 0.12, c[2] + 0.1], out) : [PORE.uPc.value.x, PORE.uPc.value.y, PORE.uPc.value.z]; };
+  const LOFF = [[0, 0.12], [0, 0.12], [0, -0.16], [-0.05, -0.3]];   // (where each guild's label points, off its cluster, so the four never overlap)
+  const guildAt = g => { const c = SITE[g], out = [0, 0, 0]; return now.R > 0.01 ? bubbleP([c[0] + LOFF[g][0], c[1] + LOFF[g][1], c[2] + 0.1], out) : [PORE.uPc.value.x, PORE.uPc.value.y, PORE.uPc.value.z]; };
   const anchors = {
     surface: [0, 0, 0], ear: () => EARTOP.slice(), stem: [0, 0.4, 0], roots: [0.06, -0.2, 0.14], fert: [-0.25, 0.02, 0.15],
     nh4: [-0.22, -0.06, 0.24], no3: [0.28, -0.7, 0.22], n2o: [-0.28, 0.32, 0.12], halo: [0.12, -0.32, 0.16],
     pore: [0.18, -0.28, 0.25], aoa: () => guildAt(0), aob: () => guildAt(1), nob: () => guildAt(2), comammox: () => guildAt(3),
     grass: [GRASS[0], 0.55, GRASS[2]], chromGrass: [CHG[0], CHG[1] + CH_LEN * 0.55, CHG[2]], chromWheat: [CHW[0], CHW[1] - CH_LEN * 0.5, CHW[2]],
-    segment: () => [segPos[0], segPos[1] + 0.05, segPos[2]], tracer: () => trOut.slice(), corner: [0.6, -0.7, 0.4], uptake: [0.03, 0.18, 0.02],
+    segment: () => [segPos[0], segPos[1] + 0.05, segPos[2]], tracer: () => trOut.slice(), corner: [-0.6, -0.7, 0.4], uptake: [0.03, 0.18, 0.02],
   };
   const blockOn = S => 1 - prog(S.soil_pore, 0.15, 0.45);
   const labels = [
@@ -799,9 +809,9 @@ void main() { ${LITCOL} vec3 col = vC * (0.4 + 0.6 * dif) + vC * rim * (0.9 + uF
     { text: ['Nitrate', ' · washes away'], at: 'no3', cls: 'cyn', alpha: S => prog(S.soil_flow, 0.35, 0.6) * blockOn(S) * (1 - prog(S.soil_tracer, 0, 0.05)) },
     { text: ['N2O', ' · a greenhouse gas'], at: 'n2o', cls: 'mag', alpha: S => prog(S.soil_flow, 0.45, 0.7) * blockOn(S) * (1 - prog(S.soil_tracer, 0, 0.05)) * (1 - prog(S.soil_grass, 0, 0.3)) },
     { text: ['Taken up', ' by the plant'], at: 'uptake', cls: 'grn', alpha: S => prog(S.soil_flow, 0.55, 0.8) * blockOn(S) * (1 - prog(S.soil_tracer, 0, 0.05)) * (1 - prog(S.soil_chrom, 0, 0.1)) },
-    { text: ['Archaea', ' · ammonium to nitrite'], at: 'aoa', cls: 'mag', alpha: S => prog(S.soil_pore, 0.7, 0.9) * prog(S.soil_relay, 0.6, 1) * pickOk(S, 0) },
-    { text: ['Bacteria', ' · ammonium to nitrite'], at: 'aob', cls: 'amb', alpha: S => prog(S.soil_pore, 0.7, 0.9) * prog(S.soil_relay, 1.6, 2) * pickOk(S, 1) },
-    { text: ['Nitrite oxidisers', ' · nitrite to nitrate'], at: 'nob', cls: 'cyn', alpha: S => prog(S.soil_pore, 0.7, 0.9) * prog(S.soil_relay, 2.6, 3) * pickOk(S, 2) },
+    { text: ['Archaea', ''], at: 'aoa', cls: 'mag', alpha: S => prog(S.soil_pore, 0.7, 0.9) * prog(S.soil_relay, 0.6, 1) * pickOk(S, 0) },
+    { text: ['Bacteria', ''], at: 'aob', cls: 'amb', alpha: S => prog(S.soil_pore, 0.7, 0.9) * prog(S.soil_relay, 1.6, 2) * pickOk(S, 1) },
+    { text: ['Nitrite oxidisers', ''], at: 'nob', cls: 'cyn', alpha: S => prog(S.soil_pore, 0.7, 0.9) * prog(S.soil_relay, 2.6, 3) * pickOk(S, 2) },
     { text: ['Comammox', ' · both steps'], at: 'comammox', cls: 'cyn', alpha: S => prog(S.soil_pore, 0.7, 0.9) * prog(S.soil_relay, 3.6, 4) * pickOk(S, 3) },
     { text: ['BNI', ' · from the roots'], at: 'halo', cls: 'cyn', alpha: S => prog(S.soil_halo, 0.4, 0.8) * blockOn(S) * (1 - prog(S.soil_tracer, 0, 0.05)) },
     { text: ['Wild grass', ' · Leymus racemosus'], at: 'grass', cls: 'grn', alpha: S => prog(S.soil_grass, 0.6, 0.9) },

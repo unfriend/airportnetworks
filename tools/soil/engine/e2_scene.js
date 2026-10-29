@@ -51,7 +51,7 @@ function sceneJoin() {
 // cities glowing. In the web set's frame: the globe has radius 1 and turns by web_spin turns (its live.spin), and its
 // longitude L0 faces +z at spin 0 (its ll(), copied here: keep the two in step). Params (DEF, the engine's): hop_a (its
 // fade), hop_t (0 nothing; to 1 the arc drawn from Vienna to Japan; the glint then rests on Japan).
-// TODO(soil B): tune the look (width, colours, the glint) and the story's keys; the geometry here is complete.
+// (Keyed in chapter 4 with the globe turning from Vienna to Japan, SPIN in e3_story.js; the Globe scene replays it.)
 const HOP = { from: [48.21, 16.37], to: [36.05, 140.12], L0: -12, lift: 0.16, segs: 48 };
 function makeHop() {
   const set = K.newSet('hop'), LK = TLOOK(K, set), TAU = Math.PI * 2;

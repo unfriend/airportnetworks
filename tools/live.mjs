@@ -233,9 +233,12 @@ try {
   {
     const n0 = await swapsNow(dev), t0 = Date.now();
     touch('stories/airports.js', 'touched while developing');
-    const swapped = await until(dev, n => (HOST.swaps || 0) > n && HOST.cur && HOST.cur.collab.scene(), n0, 8000), ms = Date.now() - t0;
+    // (the swap within about 2 s: the new file fetched and run; its build then takes as long as any load of the story,
+    // its shaders compiled before the scene shows since the loading bar, seconds in software WebGL on a busy machine)
+    const swapped = await until(dev, n => (HOST.swaps || 0) > n, n0, 8000), ms = Date.now() - t0;
+    const ready = swapped && await until(dev, () => HOST.cur && HOST.cur.collab.scene(), null, 20000), ms2 = Date.now() - t0;
     const after = await place(dev);
-    report(`a story file touched: swapped in place within about 2 s (${ms} ms)`, swapped && ms < 3000 && after.mode === 'story' && near(after.t, 60) && !after.playing && await dev.evaluate(() => window.__mark === 1), after);
+    report(`a story file touched: swapped in place within about 2 s (${ms} ms; built at ${ms2} ms)`, swapped && ready && ms < 3000 && after.mode === 'story' && near(after.t, 60) && !after.playing && await dev.evaluate(() => window.__mark === 1), after);
   }
   // --build: a set's source touched builds the story, which then swaps
   {
