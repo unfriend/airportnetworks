@@ -426,7 +426,9 @@ async function headView(H, file, yawRoom, pitch, size) {
     const X = window.__xr, R = HOST.room.internals(), r = HOST.renderer;
     const loop = HOST.cur.peek('frame');
     r.setAnimationLoop(null);
-    HOST.cur.peek('(xrPlace(), xrUpdate(APP.mode === "story" ? storyState(storyT(APP.t)) : XS), XR.panels.forEach(P => { P.last = ""; P.t = -1e9; panelTick(P, performance.now() + 1e6); }))');
+    // (placed as its frame places it in a headset: a story built from sets by its view, a life-size one round you)
+    HOST.cur.peek('(typeof xrPlace === "function" && xrPlace(APP.mode === "story" ? storyCam(storyT(APP.t)) : orbit.cur), (APP.mode === "story" || typeof XS !== "undefined") && ' +
+      'xrUpdate(APP.mode === "story" ? storyState(storyT(APP.t)) : XS), XR.panels.forEach(P => { P.last = ""; P.t = -1e9; panelTick(P, performance.now() + 1e6); }))');
     HOST.collab.internals().pumpAt = 0;
     for (const cb of X.raf.splice(0)) cb(performance.now(), X.frame);
     const hp = new THREE.Vector3().setFromMatrixPosition(X.W.head).applyMatrix4(X.W.local.clone().invert());
@@ -1148,7 +1150,8 @@ async function headsetRound(dir) {
   await A.evaluate(k => k.forEach((s, i) => HOST.collab.add(s, [{ x: 0, z: 0, yaw: 0 }, { x: 1.8, z: -2.6, yaw: -0.3 }, { x: -1.8, z: -2.6, yaw: 0.3 }][i])), KEYS);
   await until(A, () => HOST.collab.stations().length === 3 && !HOST.collab.internals().pending.size, null, 5000);
   const three = p => until(p, () => HOST.collab.status === 'open' && HOST.collab.stations().length === 3, null, 20000);
-  const B = await open('#s=' + rc, { width: 1000, height: 760 }), H = await open('#s=' + rc);
+  // (the headset's page small: its story draws every frame in software, and a scene story is slow at full size)
+  const B = await open('#s=' + rc, { width: 1000, height: 760 }), H = await open('#s=' + rc, { width: 320, height: 200 });
   await three(B); await three(H);
   await ready(H, 'airports');
   const aId = await A.evaluate(() => HOST.collab.id);
@@ -1209,7 +1212,10 @@ async function headsetRound(dir) {
     // few seconds later; the trigger there runs nothing (walk into its circle)
     const at2 = await ringAt(H, S2.id), on2 = await pointAt(H, at2);
     const shown2 = on2 === S2.id && await until(H, ([a, b]) => { window.__xr.step(); const O = HOST.collab.overlay(), c = O.cards.get(a), o = O.rings.get(a);
-      return !!c && c.mesh.visible && c.mesh.material.opacity > 0.95 && O.hit.includes(c.mesh) && o.icon.k > 0.9 && !O.cards.get(b).mesh.visible && O.rings.get(b).icon.k < 0.05; }, [S2.id, S3.id], 4000);
+      return !!c && c.mesh.visible && c.mesh.material.opacity > 0.95 && O.hit.includes(c.mesh) && o.icon.k > 0.9 && !O.cards.get(b).mesh.visible && O.rings.get(b).icon.k < 0.05; }, [S2.id, S3.id], 10000);
+    const d2 = await H.evaluate(([a, b]) => { const O = HOST.collab.overlay(), c = O.cards.get(a), h = HOST.collab.internals().hov.get(0);
+      return { vis: c && c.mesh.visible, op: c && +c.mesh.material.opacity.toFixed(2), hit: c && O.hit.includes(c.mesh), k: +O.rings.get(a).icon.k.toFixed(2), peek: O.rings.get(a).peek,
+        other: O.cards.get(b) && O.cards.get(b).mesh.visible, ok: +O.rings.get(b).icon.k.toFixed(2), hov: h && h.target, age: h && performance.now() - h.at }; }, [S2.id, S3.id]);
     if (dir) { await headView(H, path.join(dir, 'round-2-pointed.png'), Math.atan2(-(S2.x - S1.x), -(S2.z - S1.z)) * 0.6, -0.32, [960, 600]); await pointAt(H, at2); }   // (drawing took a while: pointed at again)
     await H.evaluate(() => window.__xr.ctrl(0, null));
     const t0 = Date.now();
@@ -1217,7 +1223,7 @@ async function headsetRound(dir) {
     const still = await H.evaluate(id => { const c = HOST.collab.overlay().cards.get(id); return c.mesh.visible && HOST.collab.overlay().rings.get(id).icon.k > 0.5; }, S2.id);
     const gone = await until(H, id => { window.__xr.step(); const O = HOST.collab.overlay(); return !O.cards.get(id).mesh.visible && O.rings.get(id).icon.k < 0.05; }, S2.id, 8000), after = (Date.now() - t0) / 1000;
     check(`round: a ray resting on another station's ring shows its card and icon (and no other), still there a second after it moves off, faded about 2 s after (gone after ${after.toFixed(1)} s)`,
-      shown2 && still && gone && after > 1.9, JSON.stringify({ on2, shown2, still, gone, after }));
+      shown2 && still && gone && after > 1.9, JSON.stringify({ on2, shown2, d2, still, gone, after }));
     await pointAt(H, await ringAt(H, S2.id));
     await H.evaluate(() => { HOST.cur.peek('XR.ctrls')[0].wantPress = true; });
     await frames(H, 300);
@@ -1284,17 +1290,18 @@ async function headsetRound(dir) {
       await new Promise(r => setTimeout(r, 200));
       return [was, q() && q().textContent];
     }, S1.id);
-    const hl = await until(H, () => { window.__xr.step(); return HOST.anchor.locked('globe') && HOST.anchor.locked('panel'); }, null, 4000);
+    const hl = await until(H, () => { window.__xr.step(); return HOST.anchor.locked('globe') && HOST.anchor.locked('panel'); }, null, 10000);
     if (dir) {
       await B.evaluate(() => { const e = document.querySelector('#shared .sh-stations'); if (e) e.scrollIntoView({ block: 'start' }); });
       await sleep(400);
       await B.screenshot({ path: path.join(dir, 'round-4-dialog.png') });
     }
     await B.evaluate(ids => { for (const id of ids) document.querySelector(`[data-sh="stlock:${id}"]`).click(); }, [S1.id, S2.id]);
-    const hu = await until(H, () => { window.__xr.step(); return !HOST.anchor.locked('globe') && !HOST.anchor.locked('panel'); }, null, 4000);
+    const hd = await H.evaluate(id => ({ ui: HOST.collab.val('st.' + id + '.ui'), live: HOST.collab.live() && HOST.collab.live().id, placing: HOST.room.placing(), key: HOST.curKey }), S1.id);
+    const hu = await until(H, () => { window.__xr.step(); return !HOST.anchor.locked('globe') && !HOST.anchor.locked('panel'); }, null, 10000);
     const both = await A.evaluate(ids => ids.map(id => HOST.collab.stationLock(id)), [S1.id, S2.id]);
     check('round: Lock story in a page\'s Shared dialog locks that station\'s scene and panel at its circle (the headset there), and unlocks it again',
-      dl.join() === 'Lock story,Story locked' && hl && hu && both.join() === 'false,false', JSON.stringify({ dl, hl, hu, both }));
+      dl.join() === 'Lock story,Story locked' && hl && hu && both.join() === 'false,false', JSON.stringify({ dl, hl, hd, S1: S1.id, hu, both }));
   } finally {
     await H.evaluate(() => window.__xr.end()).catch(() => {});
     for (const p of [A, B, H]) await p.context().close();
