@@ -144,9 +144,9 @@ Before handing over (or making anything more public), someone has to decide thes
      with a German voice and subtitles: about 1.5 to 2 days of agent work; explore mode in German too: about 1 to 1.5
      days more. In a shared room everyone keeps one timeline, so each stretch lasts the longer of its two languages (as
      the pass story, already in English and German, does);
-   - **The queue** (the owner, 29 October 2026), in this order: the design room, part 2 (1 to 1.5 h); a loading bar
-     (2 to 3 h, alongside); rooms on this network (2.5 to 3.5 h); follow a person (about 1 h); then a test round and a
-     release (about 1 h). About 6 to 7 hours of agent work in two lanes, 5 to 6M tokens. Each is described below;
+   - **The queue** (the owner, 29 October 2026), in this order: rooms on this network (2.5 to 3.5 h); the design
+     room, part 2 (1 to 1.5 h); follow a person (about 1 h); a loading bar alongside them (2 to 3 h); then a test round
+     and a release (about 1 h). About 6 to 7 hours of agent work in two lanes, 5 to 6M tokens. Each is described below;
    - **circles that load code from a link** (on hold, the owner, 29 October 2026; the design agreed, not to build
      yet). The owner's aim: the whole office as one shared room, where colleagues add circles of their own, with their
      own logic, from a web page or a GitHub repository. How: a station whose story is a script from a web address
