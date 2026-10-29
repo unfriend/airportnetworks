@@ -34,7 +34,7 @@ Sources: each set's manifest (`tools/<story>/sets/<name>.md`) and code (`tools/<
 | `endo/net` | endo | The authors' protein network (18,306 proteins) as a deep glowing cloud: the 35 congenital-myasthenic seed genes, their neighbourhoods growing and merging as k rises,… | ~4.8 across (larger than the usual radius 1.1) | 11 | 5 | real |
 | `endo/tree` | endo | From neighbourhoods to endotypes: the gene x term matrix (393 x 457) fills row by row, a dendrogram grows beside it, a test pulse runs down the tree (green check at… | not stated in the manifest (see views) | 7 | 18 | real |
 | `pet/scan` | pet | A glossy PET/CT scanner (no brand, no text) with a patient on the couch, shown as a studio product shot. A plane cuts the housing away to show the detector ring of… | gantry 2.02 wide, 2.1 tall; scanner life size | 10 | 7 | mixed |
-| `pet/organs` | pet | Organs, uptake and the cohort network, drawn on the body: a scan plane segments 14 organs (translucent shells with outlines), 14 uptake bars to the body's right (aorta… | body-sized; bars x 0.40 to 1.1; slab 0.47 to 1.13 | 15 | 8 | figures |
+| `pet/organs` | pet | Organs, uptake and the cohort network, drawn on the body: a scan plane segments 14 organs (translucent shells with outlines), 14 uptake bars to the body's right (aorta… | body-sized; bars x 0.40 to 1.1; slab 0.47 to 1.13 | 15 | 7 | figures |
 | `pet/liver` | pet | An organ is a network too: a liver made of 3,000 small patches joined into a network (about 19,700 links) by the poster's rule, with its gallbladder and falciform… | 1.65 wide, 0.99 tall, 0.77 deep (about 1 unit = 13 cm) | 5 | 5 | illustrative |
 | `micro/organs` | micro | Small lit 3D models of the 29 organs of the microanatomy atlas (adipose to vagina), each a signed distance field of a few primitives polygonised by surface nets,… | drawn small (organ nodes on the network ring are radius 0.062 +… | 5 | 1 | none |
 | `micro/slide` | micro | The preprint's method (H&E-UTAG) shown on one section: it is cut into tiles, a vision model describes each as glowing blocks, a network of neighbours passes messages,… | as the tissue slab (~2.1 long) | 10 | 8 | mixed |
@@ -779,7 +779,7 @@ Organs, uptake and the cohort network, drawn on the body: a scan plane segments 
 - **Frame:** The body set's frame (feet y -0.95, 1.9 tall, faces +z, slimmed by XS = 0.9); always shown with body.
 - **Size:** body-sized; bars x 0.40 to 1.1; slab 0.47 to 1.13. Shown together with: `lbi/body` (same frame).
 - **Data (figures):** reads PET_DATA, PET_ICONS. Paper tables typed in (Geist et al., Med 2025), the two weight matrices printed in its Figure 2A and values read off its Figures 3 and 4 by two readers (stand-ins: typical organ uptakes and a synthetic cohort with Figure 2A's partial correlations). No patient data.
-- **Cost and notes:** Many step params (organs_focus, organs_pair, organs_which, organs_prev, organs_mix). 123 labels. Built between frames in part (idle, finish). Exports api (netIds, extraNetIds, pairs, pick, setFocus, stats). Node cold build 48 ms.
+- **Cost and notes:** Many step params (organs_focus, organs_pair, organs_which, organs_prev, organs_mix). 122 labels. Built between frames in part (idle, finish). Exports api (netIds, extraNetIds, pairs, pick, setFocus, stats). Node cold build 48 ms.
 
 | param | range | default | eased | what it does |
 | --- | --- | --- | --- | --- |
@@ -796,7 +796,7 @@ Organs, uptake and the cohort network, drawn on the body: a scan plane segments 
 | `organs_which` | 0..14 (network index) | 0 | **no** | which network: 0 full, 1 FDG_healthy, 2 A_low, 3 A_high, 4 B_low, 5 B_high, 6 C_low, 7 C_mid, 8 C_high, 9 HK2, 10 GLUT; extras 11 vena, 12 dose_standard, 13 |
 | `organs_prev` | 0..14 | 0 | **no** | the network crossfaded from (an index as above, rounded) |
 | `organs_mix` | 0..1 | 1 | **no** | 0 shows organs_prev, 1 shows organs_which, between a direct crossfade of the two |
-| `organs_strength` | 0..1 | 0 | yes | the chart: panel and axes by 0.5, bars grow 0.15-0.75, the fit draws 0.5-1 |
+| `organs_measures` | 0..1 | 0 | yes | the density and disorder tag under the network's title (in by 0.4-0.8, only with the network: organs_net) |
 | `organs_ghost` | 0..1 | 0 | yes | harness only: an instance of SETS.body (body_pet 1) under the shells at this alpha, for checking the fit |
 
 | view | [az, el, dist, tx, ty, tz] | frames |
@@ -807,14 +807,13 @@ Organs, uptake and the cohort network, drawn on the body: a scan plane segments 
 | `matrix` | [32, 30, 2.5, 0.76, 0.1, -0.32] | the cohort slab of 658 x 11 cells beside the body |
 | `scatter` | [8, 6, 2.1, 0.76, 0.52, 0.2] | above the panel |
 | `net` | [8, 6, 3.1, 0.05, 0.37, 0.4] | the network's middle |
-| `strength` | [-6, 4, 3.4, 0.56, 0.24, 0.36] | network and its strength chart together |
 | `lesion` | [-24, 8, 1.15, -0.099, 0.42, 0.03] | close on the lesion |
 
-Explore controls: **View** (`view`: `organs` Organs, `uptake` Uptake, `matrix` Matrix, `partial` Partial, `network` Network, `strength` Strength); **Network** (`network`: `full` All scans, `FDG_healthy` FDG, 9 organs, `A_low` BMI low, `A_high` BMI high, `B_low` Tumour low, `B_high` Tumour high, `C_low` CRP low, `C_mid` CRP mid, `C_high` CRP high, `HK2` HK2, `GLUT` GLUT). `explore(c)` drives `organs_seg`, `organs_suv`, `organs_rows`, `organs_pair`, `organs_scatter`, `organs_partial`, `organs_net`, `organs_strength`, `organs_which`, `organs_prev`, `organs_mix`, `organs_lesion`.
+Explore controls: **View** (`view`: `organs` Organs, `uptake` Uptake, `matrix` Matrix, `partial` Partial, `network` Network); **Network** (`network`: `full` All scans, `FDG_healthy` FDG, 9 organs, `A_low` BMI low, `A_high` BMI high, `B_low` Tumour low, `B_high` Tumour high, `C_low` CRP low, `C_mid` CRP mid, `C_high` CRP high, `HK2` HK2, `GLUT` GLUT). `explore(c)` drives `organs_seg`, `organs_suv`, `organs_rows`, `organs_pair`, `organs_scatter`, `organs_partial`, `organs_net`, `organs_measures`, `organs_which`, `organs_prev`, `organs_mix`, `organs_lesion`.
 
-Anchors (56): `bars`, `unit`, `matrix`, `scatter`, `axisX`, `axisY`, `fit`, `net`, `title`, `strength`, `chartAxis`, `lesion`, `plane`, `hub`, `brain`, `bar_brain`, `seg_brain`, `thyroid`, `bar_thyroid`, `seg_thyroid`, `lungs`, `bar_lungs`, `seg_lungs`, `heart` and 32 more.
+Anchors (55): `bars`, `unit`, `matrix`, `scatter`, `axisX`, `axisY`, `fit`, `net`, `title`, `measures`, `lesion`, `plane`, `hub`, `brain`, `bar_brain`, `seg_brain`, `thyroid`, `bar_thyroid`, `seg_thyroid`, `lungs`, `bar_lungs`, `seg_lungs`, `heart` and 32 more.
 
-Own labels (123): "Brain" at `seg_brain`; "Brain" at `brain`; "Brain" at `brain`; "Brain · hub" at `brain`; "Brain · 4.4×" at `bar_brain`; "Thyroid" at `seg_thyroid`; "Thyroid" at `thyroid`; "Thyroid" at `thyroid`; and 115 more.
+Own labels (122): "Brain" at `seg_brain`; "Brain" at `brain`; "Brain" at `brain`; "Brain · hub" at `brain`; "Brain · 4.4×" at `bar_brain`; "Thyroid" at `seg_thyroid`; "Thyroid" at `thyroid`; "Thyroid" at `thyroid`; and 114 more.
 
 API (`set.api`): `netIds`, `extraNetIds`, `pairs`, `pick`, `setFocus`, `stats`.
 
@@ -1886,4 +1885,4 @@ Wording differences only (not counted): control labels in the code against names
 
 ## Counts
 
-42 sets (the tour's ten, the muscle story's three, the endotype story's three, PET's three, microanatomy's four, ovary's three, qubits' three, mutation's four, topology's four, pass's three, the flock and the robots), 414 params (every param of every set, counting each set once; the tour's `body` and `tissue`, the muscle story's `motor` and the microanatomy story's `organs` are listed once although other stories reuse them, and the `<key>_a` fade of each set is counted), 285 named camera views. The three hand-written stories (airports, proteins, spatial) have no sets.
+42 sets (the tour's ten, the muscle story's three, the endotype story's three, PET's three, microanatomy's four, ovary's three, qubits' three, mutation's four, topology's four, pass's three, the flock and the robots), 414 params (every param of every set, counting each set once; the tour's `body` and `tissue`, the muscle story's `motor` and the microanatomy story's `organs` are listed once although other stories reuse them, and the `<key>_a` fade of each set is counted), 284 named camera views. The three hand-written stories (airports, proteins, spatial) have no sets.

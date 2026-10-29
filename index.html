@@ -360,6 +360,8 @@ body.picking #panel, body.picking #bar { visibility: hidden; }
 #shared li.empty b { color: #7f91a8; }
 #shared .btn.rm { margin-left: 14px; }
 #shared .btn.pn { min-width: 152px; }
+#shared .btn.lk { min-width: 104px; }
+#shared .btn.lk[aria-pressed="true"], #shared [data-sh="lock"][aria-pressed="true"] { border-color: #46d9ff; color: #46d9ff; }
 #shared .btn.armed { border-color: #ffb43b; color: #ffb43b; }
 #shared .btn:disabled { opacity: 0.45; cursor: default; }
 #shared li i { width: 12px; height: 12px; border-radius: 3px; flex: none; }
@@ -502,8 +504,8 @@ body.xr #labels, body.xr #tip { display: none; }
       <p class="hint">Dot: where you stand at a station. Square: where its story floats. Arrows: people. Up is forward.</p>
       <h3>Stations</h3>
       <ul class="sh-stations"></ul>
-      <p class="hint">Panels: what the headsets at a station's circle show of its story's panels (shown, controls only or hidden), for everyone there.</p>
-      <div class="row mt"><button class="btn" type="button" data-sh="arrange">Arrange all</button><select id="shAdd" aria-label="Story for a new station (or the design room)"></select><button class="btn" type="button" data-sh="add">Add a station</button><button class="btn" type="button" data-sh="lock" aria-pressed="false" title="Once the stations are in place: nobody moves one by accident">Lock layout</button><button class="btn" type="button" data-sh="near" aria-pressed="true" title="Listed under Rooms on this network for devices on the network of someone in it">Show on this network: on</button><button class="btn" type="button" data-sh="fresh" hidden title="Every page in the room moves to a new address, where the headsets make a new shared space together">Fresh shared space</button></div>
+      <p class="hint">Panels: what the headsets at a station's circle show of its story's panels (shown, controls only or hidden), for everyone there. Lock story: nobody there can move, turn or resize its scene or move its panel. Lock circles: nobody can move, add or remove a circle.</p>
+      <div class="row mt"><button class="btn" type="button" data-sh="arrange">Arrange all</button><select id="shAdd" aria-label="Story for a new station (or the design room)"></select><button class="btn" type="button" data-sh="add">Add a station</button><button class="btn" type="button" data-sh="lock" aria-pressed="false" title="Once the circles are in place: nobody moves, adds or removes one by accident (the stories' scenes and panels have their own locks)">Lock circles</button><button class="btn" type="button" data-sh="near" aria-pressed="true" title="Listed under Rooms on this network for devices on the network of someone in it">Show on this network: on</button><button class="btn" type="button" data-sh="fresh" hidden title="Every page in the room moves to a new address, where the headsets make a new shared space together">Fresh shared space</button></div>
       <div class="row mt sh-look"><span>In the headsets, for everyone here:</span><select id="shLabels" aria-label="Labels in the headsets"><option value="fixed">Labels: in 3D</option><option value="face">Labels: on top</option><option value="hidden">Labels: hidden</option></select><button class="btn" type="button" data-sh="free" aria-pressed="true" title="Free: the grip turns what it holds with your hand. Facing you: things you move keep facing you">Moving: free</button><button class="btn" type="button" data-sh="subs" aria-pressed="false" title="The narration's words in a strip low in each headset's view">Subtitles: off</button></div>
       <h3>People</h3>
       <ul class="sh-people"></ul>

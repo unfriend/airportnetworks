@@ -4,7 +4,7 @@
  "counts": {
   "sets": 42,
   "params": 414,
-  "views": 285
+  "views": 284
  },
  "sets": [
   {
@@ -7389,11 +7389,11 @@
      ]
     },
     {
-     "name": "organs_strength",
+     "name": "organs_measures",
      "range": "0..1",
      "default": 0,
      "eased": true,
-     "meaning": "the chart: panel and axes by 0.5, bars grow 0.15-0.75, the fit draws 0.5-1",
+     "meaning": "the density and disorder tag under the network's title (in by 0.4-0.8, only with the network: organs_net)",
      "usedInStory": [
       0,
       1
@@ -7481,18 +7481,6 @@
      "frames": "the network's middle"
     },
     {
-     "name": "strength",
-     "view": [
-      -6,
-      4,
-      3.4,
-      0.56,
-      0.24,
-      0.36
-     ],
-     "frames": "network and its strength chart together"
-    },
-    {
      "name": "lesion",
      "view": [
       -24,
@@ -7529,10 +7517,6 @@
       {
        "value": "network",
        "label": "Network"
-      },
-      {
-       "value": "strength",
-       "label": "Strength"
       }
      ]
     },
@@ -7595,7 +7579,7 @@
     "organs_scatter",
     "organs_partial",
     "organs_net",
-    "organs_strength",
+    "organs_measures",
     "organs_which",
     "organs_prev",
     "organs_mix",
@@ -7611,8 +7595,7 @@
     "fit",
     "net",
     "title",
-    "strength",
-    "chartAxis",
+    "measures",
     "lesion",
     "plane",
     "hub",
@@ -7659,7 +7642,7 @@
     "bar_aorta",
     "seg_aorta"
    ],
-   "anchorCount": 56,
+   "anchorCount": 55,
    "labels": [
     {
      "text": "Brain",
@@ -7926,7 +7909,7 @@
      ]
     }
    ],
-   "labelCount": 123,
+   "labelCount": 122,
    "data": {
     "kind": "figures",
     "reads": [
@@ -7948,7 +7931,7 @@
     "finish"
    ],
    "buildMsNode": 48,
-   "notes": "Many step params (organs_focus, organs_pair, organs_which, organs_prev, organs_mix). 123 labels. Built between frames in part (idle, finish). Exports api (netIds, extraNetIds, pairs, pick, setFocus, stats)."
+   "notes": "Many step params (organs_focus, organs_pair, organs_which, organs_prev, organs_mix). 122 labels. Built between frames in part (idle, finish). Exports api (netIds, extraNetIds, pairs, pick, setFocus, stats)."
   },
   {
    "id": "pet/liver",
