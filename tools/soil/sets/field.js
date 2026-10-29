@@ -231,7 +231,7 @@ void main() {
   vec3 leaf = mix(${v3(green)}, uLeaf[pi], uChl) * (0.82 + 0.36 * fract(aB.w * 13.7));
   vec3 ear = mix(${v3(earG)}, ${v3(gold)}, uRipe);
   vC = kind > 1.5 ? ear : kind < 0.5 ? mix(leaf * 1.05, ${v3(straw)}, uRipe * 0.35) : leaf;
-  vC *= Q.z;
+  vC *= mix(1.0, Q.z, 0.7);   // (the plots not picked stay readable: they are the comparison)
   vec4 mv = modelViewMatrix * vec4(p, 1.0);
   vN = normalize(normalMatrix * normal); vV = -mv.xyz;
   gl_Position = projectionMatrix * mv;
@@ -240,7 +240,7 @@ void main() {
       fragment: `uniform float uA; varying vec3 vC, vN, vV;
 void main() {
   ${LITCOL}
-  vec3 col = vC * (0.42 + 0.5 * dif + 0.2 * hemi) + vC * rim * 0.35 + vec3(spec * 0.08);
+  vec3 col = vC * (0.55 + 0.42 * dif + 0.2 * hemi) + vC * rim * 0.35 + vec3(spec * 0.08);
   gl_FragColor = vec4(col, uA);
 }`,
     });
@@ -477,7 +477,7 @@ void main() {
     ground.m.uniforms.uMlit.value = mlit;
     for (let p = 0; p < 24; p++) {
       const Q = UP.uPlot.value[p], lv = Math.pow(clamp(at(NH4[p], date) / 220, 0, 1), 0.6) * nh4, nv = clamp(at(NO3[p], date) / 110, 0, 1.3) * no3;
-      Q.set(lv, sc ? at(sc[p], date) / 0.8 * mlit : 0, lit(p) ? 1 : 0.32, nv);
+      Q.set(lv, sc ? at(sc[p], date) / 0.8 * mlit : 0, lit(p) ? 1 : 0.42, nv);
       const lc = SLOOK.chl(at(CHL[p], date), _p);
       UP.uLeaf.value[p].set(lc[0], lc[1], lc[2]);
     }
