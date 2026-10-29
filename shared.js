@@ -1,7 +1,8 @@
 'use strict';
 // ================================================================= shared space ==
 // Shared rooms (docs/shared-space-plan.md; the rules come from docs/multiplayer.md and docs/shared-spaces.md).
-// Headsets and desktop browsers join a room on the relay (relay/server.mjs). A room holds stations: a story
+// Headsets and desktop browsers join a room on the relay (relay/server.mjs), or, without one, peer to peer (one page
+// hosts the room with the relay's rules, the others link to it: PeerSocket), or on this device alone. A room holds stations: a story
 // at a spot in the room, each with its own clock and explore state, the same on every device. A headset runs
 // live the station it stands at (the others show as previews on the floor), placed at that station for
 // everybody and with its narration coming from there; away from every station it shows only the room (no Stories
@@ -309,6 +310,12 @@
         // a new room under a code someone holds: another code. No introduction server (or no PeerJS): this device only
         // (asked again, probe)
         if (code === 4009 && C.peerNew && C.newTries++ < 5) { log('code taken', { code: C.code }); join(freeCode(), 'new'); return; }
+        // the server answered, but no link to the room's host opened (it is busy, or the networks block direct links), or
+        // its holder has just gone (the next try takes the id): again, later and later
+        if (reason === 'no link to the host' || reason === 'no host') {
+          if (reason !== 'no host') C.note = 'No link to the room\'s host yet: trying again. Devices on networks that block direct links cannot meet peer to peer.';
+          later(); changed(); return;
+        }
         goLocal(reason || 'no introduction server', true); return;
       }
       if (peerLost(code)) return;
@@ -372,7 +379,7 @@
   const rank = k => (ST_RE.test(k) ? 0 : /\.play$/.test(k) ? 1 : /\.x$/.test(k) ? 2 : /\.panel$/.test(k) ? 3 : 4);
   // the whole room, first on every socket (a reconnect refetches everything): the room's values win
   function welcome(m) {
-    C.status = 'open'; C.tries = 0; C.note = ''; C.welcomed = true; C.takeover = false; C.next = ''; C.spareN = 0;
+    C.status = 'open'; C.tries = 0; C.note = ''; C.welcomed = true; C.takeover = false; C.next = ''; C.spareN = 0; C.peerNew = false; C.lastRole = '';
     C.seqMax = Math.max(C.seqMax, +m.seq || 0);
     if (FRESH.page) { FRESH.page = false; C.note = FRESH_TEXT; }
     C.keys = new Map(Object.entries(m.keys || {}));
@@ -661,13 +668,14 @@
       }
       if (bad.length) this.refuse(m, cid, bad, 'not stored');
     }
-    // a guest silent for 20 s is dropped (guests ping every 2 s); after a busy spell here (or a hidden tab) none is
+    // a guest silent for 30 s is dropped (guests ping every 2 s; a page busy loading a story pings late); after a busy
+    // spell here (or a hidden tab) none is
     tick() {
       const t = Date.now(), busy = t - this.tickAt > 5000;
       this.tickAt = t;
       for (const m of [...this.members.values()]) {
         if (busy || m.id === this.host) m.heard = t;
-        else if (t - m.heard > 20000) { this.leave(m); m.end(); }
+        else if (t - m.heard > 30000) { this.leave(m); m.end(); }
       }
     }
     stop() {
@@ -799,9 +807,17 @@
   // host that has just let go of it), take (taking over: this page's copy of the room and its measure of the clock)
   class PeerSocket {
     constructor(code, o) {
-      Object.assign(this, { readyState: 0, code, o, role: '', peer: null, conn: null, hub: null, inner: null, rx: { buf: '', skip: false }, kick: 0, tries: 0, handT: 0, hush: false });
-      this.timer = setTimeout(() => this.fail(1006, 'no introduction server'), (o.wait || 0) + PEER_LIMIT);
+      Object.assign(this, { readyState: 0, code, o, role: '', peer: null, conn: null, hub: null, inner: null, rx: { buf: '', skip: false }, kick: 0, tries: 0, handT: 0, hush: false,
+        spent: 0, last: performance.now(), limit: (o.wait || 0) + PEER_LIMIT, why: 'no introduction server' });
+      this.timer = setInterval(() => this.tick(), 250);
       this.waitT = setTimeout(() => peerLib().then(() => this.claim(), e => this.fail(1006, e.message)), o.wait || 0);
+    }
+    // how long it has tried, counting only the time this page was awake (a page busy loading a story links slowly)
+    tick() {
+      const t = performance.now(), d = t - this.last;
+      this.last = t;
+      if (d < 1500) this.spent += d;
+      if (this.spent > this.limit) this.fail(1006, this.why);
     }
     mine(p) { return this.readyState < 2 && this.peer === p; }
     drop() { const p = this.peer; this.peer = null; if (p) try { p.destroy(); } catch (e) { /* gone */ } }
@@ -849,6 +865,7 @@
     guest() {
       if (this.readyState !== 0) return;
       this.drop(); this.role = 'guest';
+      this.limit = this.spent + 15000; this.why = 'no link to the host';   // (the server answered: the host may be busy, or slow to reach)
       let p;
       try { p = this.peer = new Peer(peerOpts()); } catch (e) { this.fail(1006, 'PeerJS: ' + e.message); return; }
       p.on('open', () => {
@@ -872,7 +889,7 @@
     fatal(s) { try { this.kick = { proto: 4005, version: 4006, replaced: 4008 }[JSON.parse(s).code] || this.kick; } catch (e) { /* not JSON */ } }
     opened() {
       if (this.readyState !== 0) return;
-      clearTimeout(this.timer);
+      clearInterval(this.timer);
       this.readyState = 1;
       if (this.onopen) this.onopen();
     }
@@ -885,7 +902,7 @@
     fail(code, reason) {
       if (this.readyState > 1) return;
       this.readyState = 3;
-      clearTimeout(this.timer); clearTimeout(this.waitT); clearTimeout(this.handT);
+      clearInterval(this.timer); clearTimeout(this.waitT); clearTimeout(this.handT);
       const S = this.inner, H = this.hub, c = this.conn;
       this.inner = this.hub = this.conn = null;
       if (S) { S.onclose = null; S.close(); }
@@ -1915,7 +1932,7 @@
   }
   function panelSig() {
     return J([C.code, C.status, C.note, PNL.open, PNL.page, OV.panel.hover, C.name, C.color, C.hereSet, here(), askHere(), R.status(), C.mine, C.live, armed(C.mine),
-      C.st.map(s => s.id + s.story), C.members.map(m => m.id + m.name + m.color + m.kind + m.here), [...C.pres].map(([id, P]) => id + P.st),
+      C.st.map(s => s.id + s.story), C.members.map(m => m.id + m.name + m.color + m.kind + m.here + (m.host ? 'h' : '')), [...C.pres].map(([id, P]) => id + P.st), C.via, hosting(), C.takeover, C.peer,
       C.code ? 0 : (C.rooms || []).map(r => r.code + r.members), C.roomsErr, C.relay, sharedLine(), sourceLine(), versionNote(), scanNote(), fullNote(), floorNote(), forgetArmed(), freshArmed(), canFresh(), !!(R.saved || R.frame), R.sharedAlign, layoutLocked(),
       C.local, C.code ? 0 : localRooms().map(r => r.code + r.stations), !!R.again, HOST.slides ? HOST.slides.sig() : '', menuHint(), HOST.xr.sig(),
       PNL.page === 'sound' ? Math.floor(performance.now() / 500) + HOST.audio.pref : '']);
@@ -1975,7 +1992,8 @@
         if (!rooms.length) { ctx.font = FONT(24); ctx.fillStyle = MUTED; y += wrapText(ctx, C.roomsErr || (C.rooms ? 'No open rooms. Start one.' : 'Looking for rooms...'), x, y, w, 32, 2) + 12; }
       } else {
         ctx.font = FONT(23); ctx.fillStyle = MUTED;
-        y += wrapText(ctx, 'No relay known, so nobody else can join: a room still places the stories in your room, on this headset, and keeps them.', x, y, w, 31, 3) + 14;
+        y += wrapText(ctx, peerOn() ? 'No relay known: a room you start runs peer to peer, and others join it with its link or code. Best started on a laptop page, which stays awake.' :
+          'No relay known and peer to peer is off, so nobody else can join: a room still places the stories in your room, on this headset, and keeps them.', x, y, w, 31, 3) + 14;
       }
       for (const r of rooms) {
         ctx.font = FONT(30, 700); ctx.fillStyle = INK; ctx.fillText(r.code, x, y + 8);
@@ -1993,7 +2011,7 @@
         button(S, 'open:' + r.code, x + w - 150, y, 150, 56, 'Open', () => join(r.code, true));
         y += 70;
       }
-      button(S, 'start', x, y + 6, (w - 16) / 2, 64, C.relay ? 'Start a room' : 'Start a room here', () => create(), { primary: true, px: 25 });
+      button(S, 'start', x, y + 6, (w - 16) / 2, 64, C.relay || peerOn() ? 'Start a room' : 'Start a room here', () => create(), { primary: true, px: 25 });
       if (C.relay) button(S, 'refresh', x + (w + 16) / 2, y + 6, (w - 16) / 2, 64, 'Refresh', () => listRooms(), { px: 25 });
       y += 92; line();
     } else if (PNL.page === 'add') {
@@ -2019,7 +2037,7 @@
       } else {
         label('The room');
         ctx.font = FONT(22); ctx.fillStyle = MUTED;
-        ctx.fillText(fit(ctx, C.local ? 'On this headset only: no relay was reached.' : here() ? 'You are in the room with the others.' : 'You are elsewhere: the stations stand round you.', w), x, y); y += 36;
+        ctx.fillText(fit(ctx, C.local ? 'On this headset only: ' + whyLocal() + '.' : here() ? 'You are in the room with the others.' : 'You are elsewhere: the stations stand round you.', w), x, y); y += 36;
         // Calibrate, Re-align (this headset lines up again from the start) and, with others, here or elsewhere
         const b3 = C.local ? bw : (w - 32) / 3, ag = !!R.again;
         if (here()) button(S, 'cal', x, y, b3, 60, cal ? 'Stop calibrating' : 'Calibrate', () => (cal ? R.cancel() : R.calibrate()), { on: cal, px: C.local ? 24 : 22 });
@@ -2057,7 +2075,8 @@
       y += 72; line();
       if (C.local) {   // nobody else: what a relay would add, and that the room is kept here
         ctx.font = FONT(22); ctx.fillStyle = MUTED;
-        y += wrapText(ctx, 'Kept on this headset. Once a relay answers, the room moves there and others can join.', x, y, w, 30, 2) + 14;
+        y += wrapText(ctx, C.peerFail ? 'Kept on this headset. Once a relay or the peer-to-peer server answers, the room goes there and others can join.' :
+          'Kept on this headset. Once a relay answers, the room moves there and others can join.', x, y, w, 30, 2) + 14;
         line();
       } else if (S.h - y - YOU - 26 - 36 >= 38) {   // (as many people as fit above You; none when nothing fits: the title counts them)
         label('People');
@@ -2070,7 +2089,7 @@
           ctx.fillText(fit(ctx, (m.name || 'Someone') + (m.id === C.id ? ' (you)' : ''), 250), x + 36, y);
           ctx.font = FONT(21); ctx.fillStyle = MUTED;
           const bv = m.id === C.id ? BROWSER : (P && P.bv) || '';   // (Quest Browser's version: the same on every headset, or no shared space)
-          ctx.fillText(fit(ctx, ({ ar: 'headset', vr: 'headset (VR)', desktop: 'screen' }[m.kind] || '') + (bv ? ' ' + bv : '') + (m.kind !== 'desktop' ? (m.here ? ', here' : ', elsewhere') : '') + (s ? ' · ' + meta(s.story).title : ''), w - 300), x + 300, y + 2);
+          ctx.fillText(fit(ctx, ({ ar: 'headset', vr: 'headset (VR)', desktop: 'screen' }[m.kind] || '') + (bv ? ' ' + bv : '') + (m.kind !== 'desktop' ? (m.here ? ', here' : ', elsewhere') : '') + (m.host ? ', host' : '') + (s ? ' · ' + meta(s.story).title : ''), w - 300), x + 300, y + 2);
           y += 38;
         }
         if (C.members.length > shown) { ctx.font = FONT(21); ctx.fillStyle = MUTED; ctx.fillText(`and ${C.members.length - shown} more`, x + 36, y + 2); y += 38; }
@@ -2146,8 +2165,15 @@
   }
   function connLine() {
     if (C.local) return 'on this device';
+    if (C.via === 'peer') {   // (peer to peer: who hosts it)
+      if (C.status !== 'open') return C.status === 'refused' ? 'peer to peer · refused' : C.takeover ? 'peer to peer · the host has gone: taking over' : 'peer to peer · connecting...';
+      const h = C.members.find(m => m.host);
+      return 'peer to peer · ' + (hosting() ? 'hosted here' : h ? 'hosted by ' + (h.name || 'someone') : 'connected');
+    }
     return { open: 'connected', connecting: 'connecting...', refused: 'refused', off: 'not connected' }[C.status] || C.status;
   }
+  // a room on this device: why (shown in the dialog and the headset's menu)
+  const whyLocal = () => (C.peer === 'off' && !C.relay ? 'peer to peer is off and no relay is known' : C.peerFail ? 'neither a relay nor the peer-to-peer introduction server answered' : 'no relay was reached');
   function setMe(o) {
     if (o.name) { C.name = String(o.name).slice(0, 32); put('collabName', C.name); }
     if (o.color) { C.color = o.color; put('collabColor', C.color); }
@@ -3656,7 +3682,7 @@
       if (!b) return;
       const [act, arg] = b.dataset.sh.split(':');
       if (act === 'close') dialog(false);
-      else if (act === 'relay') { setRelay($('#shRelay').value, 'typed'); listRooms(); }
+      else if (act === 'relay') typed($('#shRelay').value);
       else if (act === 'relay2') { const v = $('#shRelay2') && $('#shRelay2').value; if (v) { setRelay(v, 'typed'); probe(performance.now(), true); } }
       else if (act === 'refresh') listRooms();
       else if (act === 'start') create();
@@ -3678,7 +3704,7 @@
     });
     $('#shName').addEventListener('change', ev => setMe({ name: ev.target.value.trim() || C.name }));
     $('#shLabels').addEventListener('change', ev => { HOST.xr.setLabels(ev.target.value); renderDialog(); });
-    $('#shRelay').addEventListener('keydown', ev => { if (ev.key === 'Enter') { setRelay(ev.target.value, 'typed'); listRooms(); } });
+    $('#shRelay').addEventListener('keydown', ev => { if (ev.key === 'Enter') { typed(ev.target.value); renderDialog(); } });
     $('#shCode').addEventListener('keydown', ev => { if (ev.key === 'Enter') join(ev.target.value); });
     DLG.map = $('#shMap');
     DLG.map.style.touchAction = 'none';
@@ -3723,6 +3749,12 @@
     DLG.map.addEventListener('pointercancel', end);
     DLG.map.addEventListener('lostpointercapture', end);
   }
+  // the relay field: a relay's address, or peer:host[:port][/path] (another introduction server for peer to peer; peer:off
+  // turns it off, peer:public goes back to PeerJS's own)
+  function typed(v) {
+    if (/^\s*peer:/i.test(v)) { setPeer(v, 'typed'); $('#shRelay').value = C.relay.replace(/^http/, 'ws'); return; }
+    setRelay(v, 'typed'); listRooms();
+  }
   // a desktop's new station: on the arc's free side, so it does not land on another one
   function freeSpot() {
     for (let k = 0; k < 24; k++) {
@@ -3739,10 +3771,13 @@
     const joined = !!C.code;
     DLG.el.classList.toggle('joined', joined);
     const st = $('.sh-status');
-    st.textContent = C.note || (joined ? (C.local ? `Room ${C.code} is on this device only: no relay was reached. Its stations and their places are kept here, and the room moves to the relay once it answers.` :
-      `Room ${C.code}: ${connLine()}. ${C.members.length} ${C.members.length === 1 ? 'person' : 'people'} in it.`) :
+    const n = C.members.length, people = `${n} ${n === 1 ? 'person' : 'people'} in it.`;
+    st.textContent = C.note || (joined ? (C.local ? `Room ${C.code} is on this device only: ${whyLocal()}. Its stations and their places are kept here, and the room moves to the relay once it answers${C.peerFail ? ' (or peer to peer, once its server does)' : ''}.` :
+      C.via === 'peer' ? `Room ${C.code} · ${connLine()} · ${people} The devices talk to each other directly.${hosting() && IS_HEADSET ? ' A laptop or desktop page that joins takes the room over: a headset sleeps when taken off.' : ' Best hosted by a laptop or desktop page that stays awake, not a headset.'}` :
+        `Room ${C.code}: ${connLine()}. ${people}`) :
       C.relay ? (C.served ? 'This page comes from the relay, so it knows where the rooms are.' : 'Rooms on ' + host() + '.') :
-        'Shared rooms need a relay: a small server on your network that keeps a room in step. Enter its address. Without one, a room works on this device alone.');
+        peerOn() ? `No relay known: a room you start runs peer to peer. The devices talk to each other directly; ${peerServer().name} only introduces them. Start the room on a laptop or desktop page that stays awake, and send the others its link. Or enter a relay's address.` :
+          'Shared rooms need a relay: a small server on your network that keeps a room in step. Enter its address. Without one (peer to peer is off), a room works on this device alone.');
     st.classList.toggle('warn', !!C.note);
     $('.sh-relay').hidden = !!C.served && !C.note;
     if (!joined) {
@@ -3773,10 +3808,10 @@
       const fb = $('[data-sh="fresh"]'), fa = freshArmed();
       if (fb) { fb.hidden = !canFresh(); fb.textContent = fa ? 'Fresh space for everyone? Press again' : 'Fresh shared space'; fb.classList.toggle('armed', fa); }
       for (const q of DLG.el.querySelectorAll('[data-sh="arrange"], [data-sh="add"], #shAdd, [data-sh^="remove:"]')) q.disabled = lk;
-      $('.sh-people').innerHTML = C.local ? '<li class="none">Only you: others can join once the room is on a relay.</li>' : C.members.map(m => {
+      $('.sh-people').innerHTML = C.local ? `<li class="none">Only you: others can join once the room is on a relay${C.peerFail ? ' or peer to peer' : ''}.</li>` : C.members.map(m => {
         const P = m.id === C.id ? { st: C.follow } : C.pres.get(m.id), s = P && C.stById.get(P.st), bv = m.id === C.id ? BROWSER : (P && P.bv) || '';
         return `<li><i style="background:${esc(m.color || '#888')}"></i><b>${esc(m.name || 'Someone')}${m.id === C.id ? ' (you)' : ''}</b><span>${
-          { ar: 'headset', vr: 'headset (VR)', desktop: 'screen' }[m.kind] || ''}${bv ? ' (Quest Browser ' + esc(bv) + ')' : ''}${m.kind && m.kind !== 'desktop' ? (m.here ? ', in the room' : ', elsewhere') : ''}${s ? ' · at ' + esc(meta(s.story).title) : ''}</span></li>`;
+          { ar: 'headset', vr: 'headset (VR)', desktop: 'screen' }[m.kind] || ''}${bv ? ' (Quest Browser ' + esc(bv) + ')' : ''}${m.kind && m.kind !== 'desktop' ? (m.here ? ', in the room' : ', elsewhere') : ''}${m.host ? ', hosts the room' : ''}${s ? ' · at ' + esc(meta(s.story).title) : ''}</span></li>`;
       }).join('');
       drawMap();
     }
@@ -3868,7 +3903,8 @@
   function hash() {
     if (!C.code) return '';
     const relay = C.linked || (!C.served && C.relay) ? '&relay=' + encodeURIComponent(C.relay.replace(/^http/, 'ws')) : '';
-    return '#s=' + C.code + relay;
+    const peer = C.peer ? '&peer=' + encodeURIComponent(C.peer).replace(/%3A/gi, ':').replace(/%2F/gi, '/') : '';   // (another introduction server, or off)
+    return '#s=' + C.code + relay + peer;
   }
   // the UI follows the session: the page's dialog and the Shared buttons, at most a few times a second
   let changing = 0;
@@ -3891,6 +3927,9 @@
     get id() { return C.id; }, get code() { return C.code; }, get joined() { return !!C.code; }, get status() { return C.status; },
     get relay() { return C.relay; }, get members() { return C.members; }, get name() { return C.name; }, get color() { return C.color; },
     get local() { return C.local; }, kept: () => localRooms(),   // a room on this device (no relay reached); the rooms kept here
+    // how the room runs ('relay', 'peer' or 'local'), this page's part in a peer-to-peer room ('host' or 'guest') and the
+    // introduction server ('' PeerJS's public one, 'off', or host[:port][/path])
+    get via() { return C.via; }, get role() { return (C.ws && C.ws.role) || ''; }, get peer() { return C.peer; }, setPeer: s => setPeer(s, 'typed'),
     stations: () => C.st, station: id => C.stById.get(id) || null, mine: () => C.mine, live: () => liveSt(), following: () => C.follow,
     val, now, publish: pairs => publish(pairs), fx, setRelay: s => setRelay(s, 'typed'), detect, list: listRooms, create, join, leave,
     arrange, add, move, remove, follow: id => choose(id, 'follow'), pick: id => choose(id, 'pick'), unfollow, me: setMe, setHere,
@@ -3905,14 +3944,16 @@
     // a story is about to start (HOST.start): in a headset at its station, it takes the station's place and panel
     starting,
     debug(on) { DEBUG = !!on; put('collabDebug', on ? '1' : null); },
-    // links: #s=XYZ joins room XYZ (&relay=wss://host:port when the relay is elsewhere); #debug logs to the console
+    // links: #s=XYZ joins room XYZ (&relay=wss://host:port when the relay is elsewhere; &peer=host[:port][/path] another
+    // introduction server for peer to peer, &peer=off none); #debug logs to the console
     boot(hp) {
       if (hp.has('debug')) DEBUG = true;
       if (hp.get('relay')) setRelay(hp.get('relay'), 'link');
+      if (hp.has('peer')) setPeer(hp.get('peer'), 'link');
       const code = (hp.get('s') || '').toUpperCase();
       if (!/^[A-Z]{3}$/.test(code)) return;
       log('boot', { code });
-      // (no relay known: the room on this device, as last kept here; it goes to a relay once one is entered)
+      // (no relay known: peer to peer, else the room on this device, as last kept here; it goes to a relay once one is entered)
       detect().then(() => {
         join(code);
         if (!HOST.session && !/OculusBrowser|Quest|Pico|Wolvic/i.test(navigator.userAgent)) setTimeout(() => { if (C.code && !C.follow) dialog(true); }, 600);

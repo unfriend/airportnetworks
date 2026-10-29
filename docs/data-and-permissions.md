@@ -23,6 +23,7 @@ decides on data and privacy questions.
 | Only well-documented interactions and locations (complexes, textbook pathways, Human Protein Atlas / UniProt). | The content is illustrative but must be correct. | `AGENTS.md` ("Conventions") |
 | A stand-in is called a stand-in in the story itself. | So that nobody quotes it as a result. | each story's `SPEC.md` and `README.md` |
 | Headset logs (`relay/logs/`) never go into the repository. | File names and contents hold people's first names and room codes. | `.gitignore`, [relay/README.md](../relay/README.md) ("Logs") |
+| A shared room without a relay runs peer to peer, and then third parties see each device's IP address (below). Agreed by the owner on 28 October 2026. | The devices are introduced by PeerJS's public server and learn their own addresses from Cloudflare's STUN server; then they talk to each other directly. | `AGENTS.md` ("Shared rooms"), [event-runbook.md](event-runbook.md) |
 
 ## Story by story
 
@@ -143,6 +144,26 @@ undone for clones and forks made before (GitHub showed no forks on 22 October 20
 - [ ] **The web font.** `index.html` loads B612 from Google Fonts, so every visitor's browser contacts Google's
   servers. Decide whether that is acceptable for an Institute site, or serve the font with the app.
 
+### Who sees what in a peer-to-peer room
+
+A shared room that runs without a relay (the copy on GitHub Pages, or a relay that cannot be reached) runs peer to
+peer. The owner agreed on 28 October 2026 that these see each device's IP address:
+
+- **PeerJS's public introduction server** (`0.peerjs.com`, run by the PeerJS project): every device in such a room
+  connects to it to be introduced to the others. It sees the device's IP address, the room's id there
+  (`lbinet-<format>-<room code>`, for example `lbinet-networks-23-ABC`) and a random id for each guest, and passes on
+  the offers and network candidates the devices swap to link up (these hold their local and public addresses). It
+  never sees what the room holds: stations, names, positions and effects go over the direct links. A link with
+  `&peer=` uses another server instead, such as the relay's own (`/peerjs`), and `&peer=off` turns peer to peer off.
+- **Cloudflare's STUN server** (`stun.cloudflare.com:3478`): each device asks it for its public address once a link
+  is made. It sees the device's IP address and nothing else.
+- **The other devices in the room**: they link to each other directly and so see each other's IP addresses (on a
+  local network the local ones). Everything a room shares goes between them: names and colours, the stations, where
+  each headset is and points, the clock and the stories' controls, as with a relay.
+
+There is no TURN server (nothing relays the traffic): devices on networks that block direct links cannot meet. The
+owner brings a router for events.
+
 ## Licence
 
 **The project has no licence.** There is no `LICENSE` file, and GitHub reports none, so nobody else has a clear right
@@ -155,6 +176,7 @@ Third-party material:
 | What | Where | Licence or terms |
 | --- | --- | --- |
 | three.js r128 | `three.min.js` | MIT; the notice is `three.LICENSE.txt` and must ship with it |
+| PeerJS 1.5.5 | `peerjs.min.js` (loaded only for a peer-to-peer room) | MIT; the notice is `PEERJS-LICENSE.txt` and must ship with it |
 | B612 font | loaded from Google Fonts (`index.html`), cached by `sw.js` | Google Fonts lists it under the SIL Open Font License; the repository does not say so |
 | App icons | `icons/` | **TO FILL (owner):** who made them, and on what terms |
 | OpenFlights routes, 2014 | embedded in `stories/airports.js`; positions reused in `stories/lbi.js` | ODbL: credit OpenFlights (the story does), and a database adapted from it and used in public, such as the embedded routes, has to be offered under the ODbL too. Check how this fits the project licence |

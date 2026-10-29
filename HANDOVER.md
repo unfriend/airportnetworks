@@ -54,6 +54,18 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
   moving, everything in 3D by default and the same for a whole room): the labels, the story panels and the station
   cards in 3D, hidden taking every story panel away, and the grip moving and turning scenes and panels, alone and at a
   station in a shared room (the grip moves things there only at your station, by design).
+- **Shared rooms without a relay (peer to peer): built on 28 October 2026** (it was on the deferred list), so the copy
+  on GitHub Pages has multiplayer too. A room runs on the relay when there is one, else peer to peer (PeerJS 1.5.5,
+  vendored; its public introduction server and Cloudflare's STUN server, which with the other devices see each
+  device's IP address, as the owner agreed: [docs/data-and-permissions.md](docs/data-and-permissions.md)), else on
+  this device only. The page that holds the room's id hosts it with the relay's rules; when it leaves, the one longest
+  in the room takes over with its own copy and the room's clock; a headset that hosts hands the room to the first
+  laptop or desktop page that joins. No Fresh shared space and no stored logs without the relay. How it works:
+  AGENTS.md "Shared rooms"; at an event: [docs/event-runbook.md](docs/event-runbook.md); a network checked first with
+  the test page `p2p/`. Tested between headless pages on one machine (`node tools/collab.mjs --p2p`, through the
+  relay's own introduction server). **Untested on devices:** links between real headsets, laptops and phones, inside
+  VR and AR, a host change and a hand-over at an event, and how long PeerJS's public server holds the id of a host
+  that went to sleep (up to about a minute, by its documentation).
 - **Untested on a device:** lining headsets up again after standby or a night; how a scene moved or turned at a
   station looks on the other headsets; persistent anchors restored after a restart; sound zones; comfort and frame
   rate with other people drawn; whether the connection to the relay keeps running inside a headset session; people's
@@ -128,23 +140,6 @@ Before handing over (or making anything more public), someone has to decide thes
      - **Size:** estimated at about 3 to 4 hours of agent work and 2 to 3M tokens, the tests included (the update test
        would cover a story added live, a story swapped in place, the dialogue and the restore). Most useful for a kiosk
        or headsets at an event.
-   - **shared rooms without a relay (peer to peer)**, so the copy on GitHub Pages has multiplayer too.
-     - **How:** the page that starts a room plays the relay's part for everyone, reusing `LocalSocket`'s rules. The
-       others connect to it over WebRTC with PeerJS (MIT, vendored like three.js, loaded only when needed) in a
-       `PeerSocket` with the same interface. If the host leaves, the next device takes over from its own copy of the
-       room.
-     - **Order to try:** the relay first, then peer to peer, then this device only.
-     - **Catches:**
-       - PeerJS still needs a server to introduce the devices: its free public one, with no guarantees, or one we
-         host ourselves.
-       - University and event Wi-Fi often blocks direct links between devices; getting through then needs a TURN
-         server, another third party. For events the laptop relay stays the reliable choice.
-       - Without a relay there is no "Fresh shared space" and no stored alignment logs.
-       - The introduction server and the other devices see each device's IP address: record it in
-         `docs/data-and-permissions.md`, and the owner decides whether that is acceptable.
-       - WebRTC inside an immersive session on Quest is untested.
-     - **Size:** estimated at about 3 to 5 hours of agent work and 2 to 4M tokens, the tests included (a peer-to-peer
-       run of the shared-room test with a pretend introduction server).
    - **subtitles in the headset**, chosen per person from the headset's menu (Subtitles: off / follow / placed).
      - **Follow:** a little below the line of sight, about 1.5 m ahead. Not stuck to the head (uncomfortable): they
        stay put until you turn more than about 25 degrees, then glide back in front of you, as the wrist clock turns to

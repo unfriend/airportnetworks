@@ -22,10 +22,18 @@
 // headset asks once whether it is in the room, and takes its own floor when elsewhere; the headset's menu (closed
 // at first, only its clock on the left wrist; opened by the left stick's click, a touch of the right controller or
 // index fingertip, or the trigger on the clock; Exit inside); a headset in an empty room sees only the menu, opened by
-// itself, and leaving the room brings its Stories screen back. --shots also saves pictures (the Shared dialog on a
-// desktop and a phone, six pretend headset views). --quick runs only the last
-// story of STORIES in the per-story part (for a quicker run while working on the rest); --port N runs the relay on
-// port N (default: any free port).
+// itself, and leaving the room brings its Stories screen back. Then peer to peer (no relay: pages whose relay calls go
+// nowhere, as on GitHub Pages, introduced by the relay's own introduction server at /peerjs, so nothing goes to the
+// internet): a page starts a room and hosts it, two more join by its link (the dialog says who hosts it); Arrange all,
+// presence, play, pause and a
+// jump at a station, an explore state both ways; the host leaves and the page longest in the room takes it over (the
+// stations and keys kept, the station's clock without a jump though the new host's own clock is 3 s off), the other
+// follows it, the old host comes back as a guest; a host that falls silent (its id still held) is replaced once its id
+// is free; an introduction server that cannot be reached leaves the room on this device; a relay that cannot be
+// reached as a room is joined makes it peer to peer; a headset that hosts hands the room to the first screen that
+// joins. --shots also saves pictures (the Shared dialog on a desktop and a phone, six pretend headset views). --quick
+// runs only the last story of STORIES in the per-story part (for a quicker run while working on the rest); --p2p runs
+// only the peer-to-peer part; --port N runs the relay on port N (default: any free port).
 // Needs Playwright as tools/smoke.mjs does (PLAYWRIGHT_MODULE, CHROMIUM_PATH). Exits 1 on any failure.
 //
 // Adding a story: give it its hooks (the plan's section 7, as the flock has them), then an entry in STORIES:
@@ -138,12 +146,14 @@ const HEADSET_STORY = 'flock', OTHER_STORY = 'spatial', PICK_STORY = 'proteins',
 
 const root = path.join(path.dirname(new URL(import.meta.url).pathname), '..');
 const argv = process.argv.slice(2), shots = argv.includes('--shots') ? argv[argv.indexOf('--shots') + 1] : '';
+const P2P = argv.includes('--p2p'), P2P_KEY = 'proteins', P2P_T = STORIES[P2P_KEY];   // (peer to peer: the station followed there)
 if (argv.includes('--quick')) for (const k of Object.keys(STORIES).slice(0, -1)) delete STORIES[k];
 const relayPort = argv.includes('--port') ? +argv[argv.indexOf('--port') + 1] : 0;
 const { chromium } = await import(process.env.PLAYWRIGHT_MODULE || 'playwright');
 const browser = await chromium.launch({
   executablePath: process.env.CHROMIUM_PATH || undefined,
-  args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'],
+  // (peer to peer: host candidates as plain addresses, not mDNS names, and links between pages on this machine)
+  args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist', '--disable-features=WebRtcHideLocalIpsWithMdns', '--allow-loopback-in-peer-connection'],
 });
 const fails = [], errors = [];
 const check = (name, ok, detail) => {
@@ -325,10 +335,171 @@ async function walk(page, s, story, yaw) {
   return ok && !early;
 }
 
+// ---- peer to peer: pages whose relay calls go nowhere (as on GitHub Pages), introduced by the relay's own
+// introduction server (&peer=, its /peerjs), so nothing goes to the internet
+async function p2p() {
+  const server = `127.0.0.1:${port}/peerjs`, all = [];
+  const popen = async (hash, o = {}) => {
+    const ctx = await browser.newContext(Object.assign({ viewport: { width: 640, height: 400 } }, o.ctx));
+    await ctx.route('**/api/**', r => r.abort());   // (no relay here)
+    if (o.skew) await ctx.addInitScript(ms => { const n = Date.now; Date.now = () => n() + ms; }, o.skew);   // (this device's clock is off)
+    const page = await ctx.newPage();
+    page.on('pageerror', e => errors.push(e.stack || e.message));
+    page.on('console', m => { if (m.type() === 'error' && !/404|Failed to load resource|ERR_FAILED|WebSocket connection/.test(m.text())) errors.push(m.text()); });
+    await page.goto(base() + 'index.html' + hash, { timeout: 90000 });
+    await page.waitForFunction(() => typeof HOST !== 'undefined' && HOST.collab, null, { timeout: 90000, polling: 100 });
+    all.push(ctx);
+    return page;
+  };
+  const way = p => p.evaluate(() => ({ code: HOST.collab.code, via: HOST.collab.via, role: HOST.collab.role, status: HOST.collab.status, members: HOST.collab.members.map(m => m.name + (m.host ? ' (host)' : '')),
+    stations: HOST.collab.stations().length, note: HOST.collab.internals().note, log: window.__collabLog.filter(e => /peer|take|host|close|local|link|join/.test(e.ev)).slice(-6).map(e => e.ev + (e.reason ? ' ' + e.reason : '') + (e.type ? ' ' + e.type : '')).join(', ') }));
+  const inRoom = (p, role, n, ms) => until(p, ([role, n]) => HOST.collab.status === 'open' && HOST.collab.via === 'peer' && (!role || HOST.collab.role === role) && (!n || HOST.collab.members.length === n), [role, n], ms || 30000);
+  const idOf = p => p.evaluate(() => HOST.collab.id);
+  try {
+    // A starts a room and hosts it; B (whose clock is 3 s off) and C join by its link
+    const PA = await popen('#stories&peer=' + server);
+    await PA.evaluate(() => HOST.collab.create());
+    const aHost = await inRoom(PA, 'host');
+    const link = await PA.evaluate(() => location.hash), pcode = await PA.evaluate(() => HOST.collab.code);
+    check('peer to peer: with no relay a page starts a room and hosts it, and its link carries the introduction server', aHost && link === `#s=${pcode}&peer=${server}`, JSON.stringify([await way(PA), link]));
+    const PB = await popen(link, { skew: 3000 });
+    const bIn = await inRoom(PB, 'guest', 2);
+    const PC = await popen(link);
+    const cIn = await inRoom(PC, 'guest', 3);
+    const aId = await idOf(PA), hostIs = (p, id) => p.evaluate(id => { const h = HOST.collab.members.filter(m => m.host); return h.length === 1 && h[0].id === id; }, id);
+    check('peer to peer: two more pages join by the link as guests, and every page lists the three with the host marked', bIn && cIn && await inRoom(PA, 'host', 3, 5000) &&
+      await hostIs(PA, aId) && await hostIs(PB, aId) && await hostIs(PC, aId), JSON.stringify([await way(PA), await way(PB), await way(PC)]));
+    // the Shared dialog: how the room runs and who hosts it, the people (the host marked) and Copy link
+    const dlgOf = p => p.evaluate(async () => {
+      HOST.collab.dialog(true); await new Promise(r => setTimeout(r, 300));
+      const out = { status: document.querySelector('#shared .sh-status').textContent, copy: !!document.querySelector('[data-sh="copy"]'),
+        people: [...document.querySelectorAll('#shared .sh-people li')].map(l => l.textContent.replace(/\s+/g, ' ').trim()) };
+      HOST.collab.dialog(false);
+      return out;
+    });
+    const [dA, dB] = [await dlgOf(PA), await dlgOf(PB)];
+    check('peer to peer: the Shared dialog says how the room runs (hosted here, hosted by), lists the three with the host marked and offers Copy link',
+      /peer to peer · hosted here/.test(dA.status) && /peer to peer · hosted by /.test(dB.status) && dA.copy && dB.copy && dB.people.length === 3 && dB.people.filter(l => /hosts the room/.test(l)).length === 1,
+      JSON.stringify({ dA, dB }));
+    // the stations, from the host and from a guest
+    await PA.evaluate(() => HOST.collab.arrange({ x: 0, z: 0, yaw: 0 }));
+    const full = p => until(p, () => HOST.collab.stations().length === HOST.list.length && !HOST.collab.internals().pending.size, null, 10000);
+    const arranged = await full(PA) && await full(PB) && await full(PC);
+    const mid = await stationOf(PC, 'nmd');
+    await PC.evaluate(id => HOST.collab.move(id, { x: 0.5, z: -6, yaw: 0.3 }), mid);
+    const moved = p => until(p, id => { const s = HOST.collab.station(id); return !!s && s.z === -6; }, mid, 5000);
+    check('peer to peer: Arrange all on the host and a station moved on a guest reach every page', arranged && await moved(PA) && await moved(PB), JSON.stringify([await way(PB), await way(PC)]));
+    const seen = p => until(p, () => HOST.collab.people().size === 2, null, 8000);
+    check('peer to peer: presence goes round (every page hears the other two)', await seen(PA) && await seen(PB) && await seen(PC),
+      JSON.stringify(await Promise.all([PA, PB, PC].map(p => p.evaluate(() => HOST.collab.people().size)))));
+    // a station followed on every page: play, pause and a jump reach the others within 5 s
+    const sid = await stationOf(PA, P2P_KEY);
+    for (const p of [PA, PB, PC]) await p.evaluate(i => HOST.collab.follow(i), sid);
+    const rd = (await Promise.all([PA, PB, PC].map(p => ready(p, P2P_KEY, 60000)))).every(Boolean);
+    check('peer to peer: Follow shows the station\'s story on every page', rd, (await Promise.all([PA, PB, PC].map(p => p.evaluate(() => HOST.curKey)))).join(', '));
+    await until(PB, () => !HOST.cur.peek('APP.playing'), null, 3000);
+    await peek(PA, 'APP.playing || APP.togglePlay()');
+    const playing = p => until(p, () => HOST.cur.peek('APP.mode === "story" && APP.playing'), null, 5000);
+    check('peer to peer: play on the host reaches the guests', await playing(PB) && await playing(PC), JSON.stringify([await clockOf(PB), await clockOf(PC)]));
+    await sleep(1500);
+    await peek(PB, 'APP.togglePlay()');
+    const still = p => until(p, () => !HOST.cur.peek('APP.playing'), null, 5000);
+    const ps = await still(PA) && await still(PC);
+    const [ca, cb, cc] = [await clockOf(PA), await clockOf(PB), await clockOf(PC)];
+    check('peer to peer: a pause on a guest reaches the host and the other guest, at the same moment', ps && Math.abs(ca[2] - cb[2]) < 0.3 && Math.abs(cc[2] - cb[2]) < 0.3, JSON.stringify([ca, cb, cc]));
+    await peek(PA, 'APP.seek(20)');
+    const at20 = p => until(p, () => Math.abs(HOST.cur.peek('APP.t') - 20) < 0.3, null, 5000);
+    check('peer to peer: a jump reaches them', await at20(PB) && await at20(PC), JSON.stringify([await clockOf(PB), await clockOf(PC)]));
+    // an explore state, both ways
+    await peek(PA, 'APP.enterExplore()');
+    const exploring = p => until(p, () => HOST.cur.peek('APP.mode') === 'explore', null, 5000);
+    await exploring(PB); await exploring(PC);
+    await sleep(500);
+    const same = (p, s) => until(p, s => JSON.stringify(HOST.cur.collab.state()) === s, s, 6000);
+    const s0 = await stateOf(PA);
+    await peek(PA, P2P_T.change);
+    const s1 = await stateOf(PA);
+    const sOut = s1 !== s0 && await same(PB, s1) && await same(PC, s1);
+    await peek(PC, P2P_T.back);
+    const s2 = await stateOf(PC);
+    check('peer to peer: an explore state reaches the others, and comes back the other way', sOut && s2 !== s1 && await same(PA, s2) && await same(PB, s2), `${s1} / ${s2} / A ${await stateOf(PA)}`);
+    // the station playing again; then the host leaves
+    await peek(PA, 'APP.enterStory(0)');
+    await until(PC, () => HOST.cur.peek('APP.mode') === 'story', null, 5000);
+    await peek(PA, 'APP.playing || APP.togglePlay()');
+    await playing(PB); await playing(PC);
+    await sleep(1500);
+    // the station's clock as a page reckons it from the room (and its own time), and the story's
+    const stClock = (p, id) => p.evaluate(id => { const v = HOST.collab.val('st.' + id + '.play'); return { at: Date.now(), t: v.t + (v.playing ? (HOST.collab.now() - v.at) / 1000 : 0), app: HOST.cur.peek('APP.t'), keys: HOST.collab.internals().keys.size }; }, id);
+    const [b0, c0] = [await stClock(PB, sid), await stClock(PC, sid)];
+    const t0 = Date.now();
+    await PA.evaluate(() => HOST.collab.leave());
+    const hosted = await until(PB, () => HOST.collab.role === 'host' && HOST.collab.status === 'open', null, 20000);
+    const tTake = (Date.now() - t0) / 1000;
+    const followed = await inRoom(PC, 'guest', 2, 20000) && await hostIs(PC, await idOf(PB));
+    check(`peer to peer: the host leaves, and the page longest in the room takes the room over (in ${tTake.toFixed(1)} s) and hosts it; the other follows it`, hosted && followed,
+      JSON.stringify([await way(PB), await way(PC)]));
+    await sleep(2500);   // (a few round trips: the clock measured against the new host)
+    const [b1, c1] = [await stClock(PB, sid), await stClock(PC, sid)];
+    const jump = (x0, x1) => x1.t - (x0.t + (x1.at - x0.at) / 1000);
+    const [jb, jc] = [jump(b0, b1), jump(c0, c1)];
+    check(`peer to peer: the stations and keys are kept, and the station's clock goes on without a jump (${jb.toFixed(2)} s, ${jc.toFixed(2)} s; the new host's own clock is 3 s off)`,
+      Math.abs(jb) < 0.5 && Math.abs(jc) < 0.5 && Math.abs(c1.app - c1.t) < 0.5 && b1.keys === b0.keys && c1.keys === c0.keys &&
+      (await PB.evaluate(() => HOST.collab.stations().length)) === (await PC.evaluate(() => HOST.collab.stations().length)), JSON.stringify({ b0, b1, c0, c1 }));
+    await peek(PC, 'APP.togglePlay()');
+    const cPaused = await still(PB);
+    await peek(PB, 'APP.enterExplore()');
+    await exploring(PC);
+    await peek(PB, P2P_T.change);
+    const s3 = await stateOf(PB);
+    check('peer to peer: the room goes on with the new host (a pause from the guest, an explore state from the host)', cPaused && await same(PC, s3), `${s3} / C ${await stateOf(PC)}`);
+    // the old host comes back: as a guest
+    await PA.evaluate(c => HOST.collab.join(c), pcode);
+    check('peer to peer: the old host comes back as a guest', await inRoom(PA, 'guest', 3) && await hostIs(PA, await idOf(PB)), JSON.stringify(await way(PA)));
+    // the host falls silent with its id still held (asleep): the others try now and then, and the one longest in the room
+    // takes the room over once the introduction server lets go of the id (here a second later; PeerJS's: up to a minute)
+    await PB.evaluate(() => HOST.collab.internals().ws.vanish());
+    const t1 = Date.now();
+    await sleep(1000);
+    await PB.evaluate(() => HOST.collab.internals().ws.peer.disconnect());
+    const silentNew = await until(PC, () => HOST.collab.role === 'host' && HOST.collab.status === 'open', null, 40000);
+    const tSilent = (Date.now() - t1) / 1000;
+    const aFollows = await until(PA, cid => HOST.collab.status === 'open' && HOST.collab.role === 'guest' && HOST.collab.members.some(m => m.host && m.id === cid), await idOf(PC), 30000);
+    check(`peer to peer: a host that falls silent is replaced (in ${tSilent.toFixed(1)} s) by the page longest in the room, once its id is free; the other follows`,
+      silentNew && aFollows && tSilent > 5, JSON.stringify([await way(PC), await way(PA)]));
+    await PB.context().close();
+    // an introduction server that cannot be reached: the room on this device only, as before
+    const PU = await popen('#s=ZZQ&peer=127.0.0.1:9/peerjs');
+    check('peer to peer: an introduction server that cannot be reached leaves the room on this device only', await until(PU, () => HOST.collab.code === 'ZZQ' && HOST.collab.local && HOST.collab.status === 'open', null, 20000),
+      JSON.stringify(await way(PU)));
+    await PU.context().close();
+    // a relay that cannot be reached as a room is joined: peer to peer
+    const PR = await popen('#s=QQR&relay=' + encodeURIComponent('ws://127.0.0.1:9') + '&peer=' + server);
+    check('peer to peer: a relay that cannot be reached as a room is joined makes the room peer to peer', await until(PR, () => HOST.collab.code === 'QQR' && HOST.collab.via === 'peer' && HOST.collab.status === 'open', null, 30000),
+      JSON.stringify(await way(PR)));
+    await PR.context().close();
+    // a headset that hosts hands the room to the first screen that joins (a screen stays awake)
+    const ua = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) OculusBrowser/40.0 SamsungBrowser/4.0 Chrome/130.0.0.0 VR Safari/537.36';
+    const PH = await popen('#stories&peer=' + server, { ctx: { userAgent: ua } });
+    await PH.evaluate(() => HOST.collab.create());
+    const hHost = await inRoom(PH, 'host');
+    await PH.evaluate(() => HOST.collab.arrange({ x: 0, z: 0, yaw: 0 }));
+    await full(PH);
+    const PS = await popen(await PH.evaluate(() => location.hash));
+    const handed = hHost && await until(PS, () => HOST.collab.role === 'host' && HOST.collab.status === 'open' && HOST.collab.members.length === 2 && HOST.collab.stations().length === HOST.list.length, null, 30000) &&
+      await until(PH, () => HOST.collab.role === 'guest' && HOST.collab.status === 'open' && HOST.collab.members.length === 2, null, 30000);
+    check('peer to peer: a headset that hosts hands the room (its stations) to the first screen that joins', handed, JSON.stringify([await way(PH), await way(PS)]));
+  } finally {
+    for (const c of all) await c.close().catch(() => {});
+  }
+}
+
 let code = '', NST = 0;   // the room's code; how many stories (one station each after Arrange all)
 let slidesSeen = false;   // the slideshow's stop and Next in a room: checked on the first story followed
 try {
   await startRelay(relayPort);
+  main: {   // (--p2p: only the peer-to-peer part, after this block)
+  if (P2P) break main;
   // ------------------------------------------------------------ rooms --
   const A = await open('#stories');
   check('a page served by the relay finds it', await A.evaluate(async () => { await HOST.collab.detect(); return HOST.collab.relay === location.origin; }));
@@ -2014,16 +2185,16 @@ try {
   await Promise.all([Fp1, Fp2, Fp3, Fp4].map(P => P.context().close()));
 
   // ------------------------------------------- a room on this device --
-  // no relay known (a copy on a plain web host): a room still works on the page alone, kept in its storage
+  // no relay known (a copy on a plain web host) and peer to peer off: a room still works on the page alone, kept in its storage
   const lctx = await browser.newContext({ viewport: { width: 640, height: 400 } });
   await lctx.route('**/api/**', r => r.abort());   // this host answers no relay calls
   const Lp = await lctx.newPage();
   Lp.on('pageerror', e => errors.push(e.stack || e.message));
   Lp.on('console', m => { if (m.type() === 'error' && !/404|Failed to load resource|ERR_FAILED/.test(m.text())) errors.push(m.text()); });
   const lopen = async () => { await Lp.waitForFunction(() => typeof HOST !== 'undefined' && HOST.collab, null, { timeout: 90000, polling: 100 }); };
-  await Lp.goto(base() + 'index.html#s=LCL', { timeout: 90000 }); await lopen();
+  await Lp.goto(base() + 'index.html#s=LCL&peer=off', { timeout: 90000 }); await lopen();   // (peer to peer off: the room on this device)
   const lj = await until(Lp, () => HOST.collab.code === 'LCL' && HOST.collab.local && HOST.collab.status === 'open', null, 8000);
-  check('no relay known: a link opens its room on this device', lj, JSON.stringify(await Lp.evaluate(() => [HOST.collab.code, HOST.collab.local, HOST.collab.status, HOST.collab.relay])));
+  check('no relay known, peer to peer off: a link opens its room on this device', lj, JSON.stringify(await Lp.evaluate(() => [HOST.collab.code, HOST.collab.local, HOST.collab.status, HOST.collab.relay])));
   await Lp.evaluate(() => { HOST.collab.arrange({ x: 0, z: 0, yaw: 0 }); });
   await until(Lp, () => HOST.collab.stations().length === HOST.list.length && !HOST.collab.internals().pending.size, null, 3000);
   const lsid = await stationOf(Lp, OTHER_STORY);
@@ -2095,13 +2266,13 @@ try {
   check('and another device joins it there', await st7(Lo));
   await Lo.context().close();
   await lctx.close();
-  // a relay that cannot be reached as the room is joined: the room goes on, on this device
+  // a relay that cannot be reached as the room is joined, peer to peer off: the room goes on, on this device
   const uctx = await browser.newContext({ viewport: { width: 640, height: 400 } });
   const Up = await uctx.newPage();
   Up.on('pageerror', e => errors.push(e.stack || e.message));
-  await Up.goto(base() + 'index.html#s=QQQ&relay=' + encodeURIComponent('ws://127.0.0.1:9'), { timeout: 90000 });
+  await Up.goto(base() + 'index.html#s=QQQ&relay=' + encodeURIComponent('ws://127.0.0.1:9') + '&peer=off', { timeout: 90000 });
   await Up.waitForFunction(() => typeof HOST !== 'undefined' && HOST.collab, null, { timeout: 90000, polling: 100 });
-  check('a relay that cannot be reached: the room opens on this device instead', await until(Up, () => HOST.collab.code === 'QQQ' && HOST.collab.local && HOST.collab.status === 'open', null, 10000),
+  check('a relay that cannot be reached, peer to peer off: the room opens on this device instead', await until(Up, () => HOST.collab.code === 'QQQ' && HOST.collab.local && HOST.collab.status === 'open', null, 10000),
     JSON.stringify(await Up.evaluate(() => [HOST.collab.code, HOST.collab.local, HOST.collab.status, window.__collabLog.filter(e => /local|close|join/.test(e.ev)).slice(-5)])));
   await uctx.close();
 
@@ -2204,6 +2375,8 @@ try {
     await P.screenshot({ path: path.join(shots, 'dialog-phone-2.png') });
     console.log('pictures in ' + shots);
   }
+  }   // (main)
+  await p2p();
 } catch (e) {
   console.log('FAIL ' + (e.stack || e.message));
   fails.push('exception');

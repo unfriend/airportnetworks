@@ -30,7 +30,8 @@ Quest Browser, WebXR).
 | Robot gang | `stories/robots.js` | 6 to 24 robot vacuums (a live simulation) in a model living room, or in a headset your own room; who follows whom (you, or the one ahead) is the network |
 
 No build step, no framework, no package.json. Plain HTML/JS plus
-`three.min.js` (three.js r128, vendored, MIT). The app is deployed by copying
+`three.min.js` (three.js r128, vendored, MIT) and `peerjs.min.js` (PeerJS 1.5.5,
+vendored, MIT, loaded only when a shared room runs peer to peer). The app is deployed by copying
 the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
 
 ## Layout
@@ -56,12 +57,20 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
   missing files are fine.
 - `manifest.webmanifest`, `icons/` - PWA install metadata.
 - `shared.js` - the shell's shared-room client (`HOST.collab`, `HOST.room`; it plays
-  the relay's part itself for a room on this device), loaded by `index.html`
-  between its two scripts (see "Shared rooms" below).
+  the relay's part itself for a room on this device and, as a peer-to-peer room's
+  host, for everyone in it), loaded by `index.html` between its two scripts (see
+  "Shared rooms" below).
+- `peerjs.min.js` (PeerJS 1.5.5, MIT, licence in `PEERJS-LICENSE.txt`) - the
+  links of a peer-to-peer room, loaded by `shared.js` only then. `p2p/` - a test
+  page (not part of the app) for checking a network before an event: do two
+  devices link directly, how fast, and inside VR or AR (`&peer=` picks another
+  introduction server).
 - `relay/` - the shared rooms' server (`server.mjs`, Node, no packages; it can serve
   the app too, and `--lan` makes it an HTTPS server for the headsets on one
   Wi-Fi that keeps their alignment logs in `relay/logs/`), its test (`test.mjs`)
-  and Dockerfile; see its `README.md`.
+  and Dockerfile; see its `README.md`. It is also an introduction server for peer
+  to peer at `/peerjs` (PeerJS's server protocol; `--no-peer` turns it off), for
+  the tests and for an event that wants its own.
 - `docs/` - the shared rooms' plan (`shared-space-plan.md`, with what phase 0
   built) and the lessons from another project it applies (`multiplayer.md`:
   syncing; `shared-spaces.md`: one room frame for several headsets), and
@@ -342,11 +351,68 @@ generation, `{ n, by, at }`; FORMAT networks-10; networks-11 when the eighth sto
   room back after a relay restart; its pump runs from a timer and from
   animation frames (long frames starve timers). Log: `window.__collabLog` (and
   `#debug`).
-- A room on this device: when no relay is known, or the relay cannot be
-  reached as a room is joined (no answer within 6 s), the room works on the
+- Peer to peer (no relay; owner, 28 October 2026: so the copy on GitHub Pages has
+  rooms too). A room runs on the relay when the page knows one (or is served by
+  one); when no relay is known, or the relay cannot be reached as the room is
+  joined (no answer within 6 s), it runs peer to peer (`C.via`: `'relay'`,
+  `'peer'` or `'local'`; `C.local` still means this device only). PeerJS
+  (`peerjs.min.js`, loaded on demand from `appRoot()`) and its introduction
+  server (PeerJS's public one, `0.peerjs.com`, by default; `&peer=host[:port][/path]`
+  in a link, or `peer:host...` typed in the Shared dialog's relay field, picks
+  another, such as the relay's `/peerjs`; `&peer=off` turns peer to peer off;
+  kept as `collabPeer` in `localStorage`, and a room's link carries it)
+  introduce the devices, which then talk directly over WebRTC data channels
+  (Cloudflare's STUN server, `stun:stun.cloudflare.com:3478`, is the only ICE
+  server; no TURN, so the devices need a network that allows direct links). The
+  room's id there is `lbinet-<FORMAT>-<code>` (devices of another version never
+  meet). Whoever holds the id hosts: a new room takes a free code whose id is
+  free; a link or a kept room takes the id when nobody holds it (hosting this
+  device's kept copy) or links to its holder. The host runs a `Hub` (the relay's
+  rules, as for a room on this device: the welcome, a batch as one seq, the epoch
+  and stale rules, refusals, members on hello and leave, `fx` passed on with
+  `by`, pong with the room's time, the relay's limits on sizes and rates; keys
+  kept in `localStorage` as a room on this device) with its own page through an
+  in-page socket (`LocalSocket`) and each guest through its link; a guest's
+  `PeerSocket` has the WebSocket face the shell uses and carries the relay's
+  JSON (long texts in pieces), so join, connect and recv barely changed. Guests
+  ping every 2 s. The host goes (Leave, `pagehide`): it destroys its PeerJS peer,
+  freeing the id at once; the guests' links close and the one longest in the
+  room (members' `since`; the others 1.5 s later each) takes the id over with
+  its own copy (`C.keys`, seq from the highest seen) and its measure of the old
+  host's clock as the hub's (`Hub.off`), so stations play on without a jump; the
+  others find the id taken and link to it. A host not heard from for 6 s (a
+  headset taken off): each guest keeps its link and tries now and then (in that
+  order, then backing off) to take the id or link to whoever holds it, and a new
+  link that opens replaces the old one. Known limit: a host that vanishes without
+  letting go (asleep, out of Wi-Fi) holds the id until the introduction server
+  times it out (PeerJS's public server: up to about a minute; the relay's:
+  `--timeout`, 40 s), so the room waits that long. Meanwhile the room stays as
+  it is on every page and the menu and dialog say "The host has gone: taking
+  over"; writes made meanwhile give way to the room's when it is back, as with
+  a relay that was away. A headset that hosts hands the room to the first screen
+  (a laptop or desktop page, `dev` in its hello) that joins: it tells everyone
+  who is next (`host`), lets go of the id, that screen takes it at once and the
+  headset links back as a guest. A host whose id lapsed while its server link was
+  away and was taken by someone else steps down (its guests link to the new
+  one; writes made on the old host meanwhile are lost). Off peer to peer: Fresh
+  shared space (`canFresh`) and the headsets' logs (`POST /api/log`). A room
+  that runs peer to peer stays so until everyone has left (no move to a relay
+  found later: every member would have to move at once); a room on this device
+  that fell back because peer to peer failed asks again (probe, with the
+  relay). When PeerJS cannot be loaded or its introduction server does not
+  answer within 8 s (counting only time the page was awake), the room is on this
+  device only, as below; when the server answered but no link to the host opens
+  (15 s), it keeps trying. Recommended (and said in the dialog): start a
+  peer-to-peer room on a laptop or desktop page that stays awake. The shell's
+  listener bookkeeping must not take PeerJS's: `shared.js` makes
+  `RTCPeerConnection` and `RTCDataChannel` add their listeners with `HOST.quiet`
+  set. Test page for a network: `p2p/`.
+- A room on this device: when no relay is known and peer to peer cannot be had
+  (no introduction server, or `&peer=off`), or the relay cannot be
+  reached as a room is joined and peer to peer cannot be had, the room works on the
   device alone (starting a room first asks whether the page's own server is a
   relay, 5 s at most: a room started before that was known stayed on the
-  device until the next probe, and links to it were refused). `LocalSocket` in `shared.js` plays the relay's part in the page
+  device until the next probe, and links to it were refused). A `Hub` with an in-page `LocalSocket` in `shared.js` plays the relay's part in the page
   (the same messages and the same rules for keys, a station's epoch and stale
   writes; presence and effects go nowhere, no log is sent). Its keys are kept
   in `localStorage` (`collabRoom.<code>`, the last 8 rooms), and a room joined
@@ -1386,8 +1452,9 @@ is the contract between them.
   that uses the space (the numbers on the body or the organ they belong to, a
   network standing in the room, things that move, grow or flow). The owner's
   rule, from the feedback on the PET story (October 2026).
-- External scripts: none beyond the vendored three.js. Fonts come from Google
-  Fonts (cached by the service worker).
+- External scripts: none beyond the vendored three.js and PeerJS (the latter
+  loaded only for a peer-to-peer room). Fonts come from Google Fonts (cached by
+  the service worker).
 
 ## Things that are easy to forget
 
@@ -1491,8 +1558,9 @@ on the first visit after the update, on the next visit and offline.
 
 After touching `shared.js`, the relay or a story's shared-room hooks, run
 `node relay/test.mjs` (the protocol: rooms, writes and their order, the epoch
-rule, `fx`, timeouts, bad frames, static serving, `--logs`; no browser,
-seconds) and
+rule, `fx`, timeouts, bad frames, static serving, `--logs`, the introduction
+server at `/peerjs`; no browser, seconds; `node tools/peer.mjs` links two pages of
+the test page `p2p/` through it) and
 `node tools/collab.mjs` (about a quarter of an hour; it starts its own relay with
 `--static .`, so no server is needed). For every story in its `STORIES` table,
 three pages in a room follow its station and check play, pause, jumps, mode
@@ -1583,10 +1651,24 @@ menu on top in every mode); Re-align
 and after a night: a headset still outside the space asking for it again, a
 follower holding against a space made again and following the room's frame
 once written again, this headset's own frame written into a space made again;
-a room on this device (no relay known: a link opens it, Arrange all, a moved
+a room on this device (no relay known and `&peer=off`: a link opens it, Arrange all, a moved
 station, the lock and the headsets' settings kept across a reload, a headset alone on its floor with
 Re-align, a station played there, the room taken to a relay that answers and
-joined there by another page; a relay that cannot be reached). `--quick` runs only the last story in the per-story part. A new story needs an entry in `STORIES`
+joined there by another page; a relay that cannot be reached); then peer to peer
+(pages whose `/api` goes nowhere, as on GitHub Pages, introduced by the test
+relay's own `/peerjs` through `&peer=`, so nothing goes to the internet): a page
+starts a room and hosts it, its link carrying the introduction server; two more
+join by the link as guests (the host marked in every list, the Shared dialog saying
+*peer to peer · hosted here* or *hosted by*, with Copy link); Arrange all and a
+station moved on a guest; presence; play, pause from a guest and a jump at a
+station within 5 s; an explore state both ways; the host leaves and the page
+longest in the room takes it over, its stations and keys kept and the station's
+clock without a jump (the new host's own clock 3 s off); the room goes on; the
+old host back as a guest; a host fallen silent with its id held, replaced once
+its id is free (after the 6 s); an introduction server that cannot be reached
+(the room on this device); a relay that cannot be reached as a room is joined
+(peer to peer); a headset (by its user agent) that hosts handing the room to the
+first screen that joins. `--p2p` runs only that part (about two minutes). `--quick` runs only the last story in the per-story part. A new story needs an entry in `STORIES`
 (`change` and `back`: code that changes its `state()`, and optional `effect`
 and `more`); the headset's story (`HEADSET_STORY`) stays the last entry.
 `--shots <dir>` also saves pictures of the dialog and six headset views (with the menu's clock on the left wrist, the menu open, its Sound check, and

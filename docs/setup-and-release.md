@@ -98,7 +98,11 @@ Open `http://127.0.0.1:8123/`. A hash opens a story at a given point, for exampl
 treats `127.0.0.1` as a secure address, so the service worker (the script that keeps the offline copy) runs here too.
 It asks the server first for every file, so a reload shows your edits.
 
-Shared rooms need the relay, and the relay can serve the app as well:
+Shared rooms run on the relay when there is one, and the relay can serve the app as well. Without one they run peer
+to peer (PeerJS's public introduction server, which needs the internet); to try that on one machine without it, serve
+the app from the plain server and point the pages at the relay's own introduction server: run
+`node relay/server.mjs --static .` too and open `http://127.0.0.1:8123/#stories&peer=127.0.0.1:8787/peerjs` in two
+browser profiles (the plain server's page knows no relay, so its rooms run peer to peer).
 
 | You want | Run | Then open |
 | --- | --- | --- |
@@ -106,7 +110,14 @@ Shared rooms need the relay, and the relay can serve the app as well:
 | headsets on the same Wi-Fi | `node relay/server.mjs --lan` (HTTPS, with a certificate it makes itself) | the address it prints |
 | one headset over USB, no certificate | `node relay/server.mjs --static .`, then `adb reverse tcp:8787 tcp:8787` | `http://localhost:8787/` on the headset |
 
-The flags and troubleshooting are in [relay/README.md](../relay/README.md).
+The flags and troubleshooting are in [relay/README.md](../relay/README.md). The relay's introduction server for peer
+to peer is at `/peerjs` (on by default; `--no-peer` turns it off): the tests use it, and so can an event that wants
+its own (`&peer=<address>:8787/peerjs` in a room's link).
+
+**The peer-to-peer test page** `p2p/` (not part of the app; served by GitHub Pages and by the relay) checks a network
+before an event: open it on two or more devices, give them the same code and press **Start**. It shows whether they
+link directly, how fast, and whether the link keeps running inside VR or AR, with a report to copy. `&peer=host:port`
+(path `/peerjs` by default) points it at another introduction server, such as the relay's.
 
 ## 3. Tests
 
@@ -121,7 +132,8 @@ tests use headless Chromium, which draws in software here and is slow, so run th
 | Sound | `node tools/audio.mjs http://127.0.0.1:8123/` | server, Playwright, `audio/narration.mp3` | after touching sound (`HOST.audio` in `index.html`, a story's narration code, how `sw.js` serves the narration) | a few minutes | the narration no longer starts after a tap or a story change, or the `<audio>` fallback no longer takes over |
 | Update | `git worktree add /tmp/old origin/main`, then `node tools/update.mjs /tmp/old .`, then `git worktree remove /tmp/old` | Playwright, port 8125 free (it serves both versions itself) | after changing `sw.js` or how files load, and before every release | under 1 min | `VERSION` was not bumped, a new file is missing from `SHELL`, or the page and its stories came from different versions. If it says the two versions look the same, the old checkout is not older |
 | Relay | `node relay/test.mjs` | Node 22 | after touching `shared.js`, `relay/`, or a story's shared-room hooks or `state()`; before every release | seconds | the protocol changed, or the relay does not serve a file that `sw.js` caches (`APP_FILES` and `APP_DIRS` in `relay/server.mjs`) |
-| Shared rooms | `node tools/collab.mjs` (`--quick` runs only the last story in the per-story part; `--shots <dir>` saves pictures) | Playwright (it starts its own relay) | as for the relay test | about 12 to 15 min | a story's hooks no longer match its pointer code, a `state()` that changes when it is applied, `FORMAT` not bumped, or a timing check (see below) |
+| Introduction server | `node tools/peer.mjs` | Playwright (it starts its own relay) | after touching the relay's `/peerjs` or `p2p/` | seconds | two pages of the test page no longer link through the relay's introduction server |
+| Shared rooms | `node tools/collab.mjs` (`--quick` runs only the last story in the per-story part; `--p2p` only the peer-to-peer part, about 2 min; `--shots <dir>` saves pictures) | Playwright (it starts its own relay; the peer-to-peer part uses its `/peerjs`, never the internet) | as for the relay test | about 15 to 18 min | a story's hooks no longer match its pointer code, a `state()` that changes when it is applied, `FORMAT` not bumped, a timing check (see below), or a peer-to-peer room that no longer hosts, links or takes over |
 | One set | `cd tools/<key> && node shot.mjs <set> "<query>|<query>|..." <prefix> [width height]` | server | while you change a 3D set | short | check the pictures in `tools/<key>/shots/` (git-ignored); page errors are printed |
 | A whole story | `cd tools/<key> && node sweep.mjs <prefix> "t1,t2,..." [width height]` | server | after changing a built story's text, timing or camera | one page load | as for one set |
 
@@ -241,8 +253,10 @@ saved settings and headset calibrations do not carry over from one address to an
 - **For an event**, see [relay/README.md](../relay/README.md) ("A session on one Wi-Fi, step by step") and
   [event-runbook.md](event-runbook.md). The relay serves the app from its own checkout. Bring it up to date with
   `git pull` before an event, not during one.
-- **The Pages copy** can join a relay somewhere else (`&relay=wss://...` in the room link). Both must have the same
-  `FORMAT`. It cannot use a relay with a self-signed certificate.
+- **The Pages copy** runs its rooms peer to peer (PeerJS's public introduction server and Cloudflare's STUN server; see
+  [data-and-permissions.md](data-and-permissions.md) for what they see), or joins a relay somewhere else
+  (`&relay=wss://...` in the room link). Both must have the same `FORMAT`. It cannot use a relay, or a relay's
+  introduction server (`&peer=`), with a self-signed certificate.
 - **Public hosting** with Docker or Coolify: see [relay/README.md](../relay/README.md) ("Later: public hosting
   (Coolify)"). Locally: `docker build -f relay/Dockerfile -t networks-relay .`, then
   `docker run -p 8787:8787 networks-relay`.

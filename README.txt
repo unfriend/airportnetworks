@@ -145,7 +145,20 @@ machine on the same Wi-Fi as the headsets and serves the app itself (node
 relay/server.mjs --lan prints the https:// address to open on each headset; see
 relay/README.md). GitHub Pages serves everything else; a copy there can join a
 relay elsewhere with &relay=wss://... in the room link. #s=XYZ in a link joins
-room XYZ. Without a relay (none known, or none answers) a room still works on
+room XYZ. Without a relay (none known, or none answers) a room runs peer to
+peer: one page hosts it and the others link to it directly (PeerJS, vendored;
+its public introduction server and Cloudflare's STUN server introduce the
+devices, and they and the other devices see each device's IP address). The
+dialog and the menu say "peer to peer · hosted here" or "hosted by" a name.
+Start such a room on a laptop or desktop page that stays awake (a headset that
+starts one hands it to the first such page that joins); when the host leaves,
+the one longest in the room takes over within seconds (up to about a minute
+when it vanished without leaving). It needs internet access and a network that
+lets devices reach each other directly (bring your own router; the test page
+p2p/ checks a network first). There is no Fresh shared space and no stored logs
+then. &peer=host:port/path in a link uses another introduction server (the
+relay has one at /peerjs), &peer=off none. When peer to peer cannot be had
+either, a room still works on
 the device alone: Start a room here in the headset's menu places the stories in
 your room (Arrange all, moving them, Lock layout, calibrating); the room is kept
 on the device, and once a relay answers it moves there and others can join it.
@@ -321,9 +334,10 @@ crumbs. Speeds and cleaning times are tuned to look right, not measured.
 
 Files: index.html (the app), stories/ (the fifteen stories), proteins.html and
 spatial.html (forward to the app), manifest.webmanifest, sw.js (offline cache), audio/,
-shared.js (shared rooms), relay/ (the shared rooms' server), docs/ (the shared rooms' plan and the handover notes), HANDOVER.md (start here when taking the project over),
+shared.js (shared rooms), peerjs.min.js (PeerJS, MIT: peer-to-peer rooms), p2p/ (a test page: do devices link
+directly?), relay/ (the shared rooms' server), docs/ (the shared rooms' plan and the handover notes), HANDOVER.md (start here when taking the project over),
 AGENTS.md and CLAUDE.md (notes for AI coding agents), tools/smoke.mjs (headless test),
-tools/collab.mjs (headless test of shared rooms; node relay/test.mjs tests the relay),
+tools/collab.mjs (headless test of shared rooms, peer to peer too; node relay/test.mjs tests the relay),
 tools/lbi/ (sources of the tour; node tools/lbi/build.mjs writes stories/lbi.js),
 tools/nmd/ and ikerdata/ (sources and data of the muscle story; node tools/nmd/build.mjs
 writes stories/nmd.js), tools/endo/ (sources of the endotype story; node

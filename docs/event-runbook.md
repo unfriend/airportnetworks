@@ -1,6 +1,7 @@
 # Event runbook
 
-A checklist for showing the stories at an event: headsets in one shared room through the relay, and perhaps a kiosk.
+A checklist for showing the stories at an event: headsets in one shared room, peer to peer on your own router or
+through the laptop relay, and perhaps a kiosk.
 No code needed. **Bold** words are what the app shows on its buttons and panels. Details:
 [relay/README.md](../relay/README.md) ("A session on one Wi-Fi" and "If something does not work"); the rules behind
 them: [AGENTS.md](../AGENTS.md) ("Shared rooms", "Placement in the headset").
@@ -15,6 +16,30 @@ them: [AGENTS.md](../AGENTS.md) ("Shared rooms", "Placement in the headset").
 
 **Remove**, **Forget calibration** and **Fresh shared space** act only on a second press within 3 s. **Fresh shared
 space** shows only on a page that comes from the relay.
+
+## Two ways to run a room
+
+- **Peer to peer** (no laptop relay): the devices open the live copy (GitHub Pages), a page starts a room and the
+  others open its link. A public server only introduces them (PeerJS's, `0.peerjs.com`; Cloudflare's STUN server tells
+  each its address); then they talk directly. It needs internet access to be introduced, and a network that lets the
+  devices reach each other directly: **bring your own router** (eduroam and guest networks keep devices apart).
+  Calibrations, Anchor places and shared spaces belong to the live copy's address. **Fresh shared space** and the
+  headsets' logs need the relay, so they are not there.
+- **The laptop relay** (section 2): the fallback when peer to peer does not work on the network, and the way to collect
+  the headsets' alignment logs. A page that comes from the relay always uses it.
+
+Peer to peer, one page **hosts** the room: the first that started it, and later the one longest in it. **Start the room
+on a laptop or desktop page that stays awake** (mains power, no sleep, the page visible): a headset sleeps when taken
+off. A headset that started a room hands it to the first laptop or desktop page that joins. When the host leaves, the
+next one takes over by itself within a few seconds (*The host has gone: taking over*); when it vanishes without leaving
+(asleep, out of Wi-Fi), the others wait until the public server lets go of it, up to about a minute. The dialog and the
+menu say *peer to peer · hosted here* or *hosted by* a name.
+
+**Check the network first** with the test page: open `<live copy>/p2p/` on two or more devices on the router, give
+them the same code, press **Start**: the links should open within a second or two and keep running inside VR or AR
+for a minute (it reports how fast). To test without the internet, run the relay and add
+`&peer=<laptop address>:8787/peerjs` to the test page's address (it uses the relay's own introduction server; a page
+on https needs the relay's certificate trusted).
 
 ## 1. The day before
 
@@ -42,6 +67,11 @@ space** shows only on a page that comes from the relay.
 - [ ] Firewall allows port 8787 (allow it on private networks when asked).
 - [ ] Mains power, no sleep while the relay runs. **TO FILL (owner):** the power and sleep settings you use.
 
+**Peer to peer** (if you use it)
+
+- [ ] Your router, with internet access, and every device on it. The test page `p2p/` links them (above).
+- [ ] The laptop or desktop page that will host: mains power, no sleep, the browser in front.
+
 **Wi-Fi and floor**
 
 - [ ] A network where devices reach each other: eduroam and guest networks usually do not; bring a router or use a
@@ -60,7 +90,9 @@ space** shows only on a page that comes from the relay.
    address). Accept the certificate warning once per headset and per desktop browser.
 3. Once: **Shared** on a page (also in Quest Browser before AR) or a headset's menu (touch the clock on the left wrist), then **Start
    a room**. The address now ends in `#s=` and three letters. Others **Join** it under **Open rooms**, or open the link
-   from **Copy link** (not shown for a room that lives on one device only).
+   from **Copy link** (not shown for a room that lives on one device only). Peer to peer (steps 1 and 2 skipped: every
+   device opens the live copy): start the room on the laptop page; there are no **Open rooms**, so open its link on
+   the others (or **Join by code** on a page).
 4. **Enter AR** on one headset; after about ten seconds (*Shared space found*, or *Room calibration from last time*)
    the others, one by one. In VR, answer *Are you in the same room as the others?* with **In this room** (the menu
    opens by itself for it).
@@ -111,6 +143,9 @@ Outside a shared room only (at a station a story ends in explore mode, as for ev
 | No sound | Only **Airports** has a narration. **Play sound**, or **Sound off** to turn it back on; the headset's volume; stand within 1.5 m of the station's spot. **Sound check**: press both beeps; hearing one, choose it (**Web Audio** or **Audio element**); **Reset** unmutes and goes back to **Automatic**. Photograph its lines for the developer. |
 | Stuck on its loading line, or *Could not load the ... story* | Check the relay window and `/api/ping`, then reload (headset: **Exit**, reload, enter AR again; the room link rejoins). Pages from the relay have no offline copy. |
 | A headset lost its room | *connecting...*: the relay is not answering (laptop asleep, Wi-Fi, relay stopped); it reconnects by itself. *Room XYZ · this headset*: kept on the headset until the relay answers (asked every 15 s). *There is no room XYZ ...*: **Join** one under **Open rooms**, or start one and **Arrange all** (rooms go 6 hours after the last person leaves). |
+| Peer to peer: *The host has gone: taking over* | Wait: the next device takes over by itself (seconds; up to about a minute when the host vanished without leaving). Bring the host page back, or keep a laptop page in the room as the host. |
+| Peer to peer: *No link to the room's host yet* | The network keeps the devices apart: check with the test page `p2p/`; your own router; else the laptop relay. |
+| Peer to peer: *Room XYZ is on this device only* | The public introduction server was not reached (no internet, or blocked): it asks again every 15 s. Else the laptop relay. |
 | *This room runs another version of the app* | Reload on every device, then join again. |
 | The relay restarted | Rooms come back by themselves from any device that was in them. Calibrations stay if the laptop's address did not change; a new address means a new certificate and calibrating again. |
 | No page, or no **Enter VR** / **Enter AR** | `/api/ping` from the headset; the `https://` address on the Wi-Fi; devices kept apart by the network; the firewall. |
@@ -140,7 +175,10 @@ and the end of AGENTS.md "Shared rooms". Not yet confirmed on a device:
 - moving and resizing scenes with the grips at a station (comfort, and how it looks to others);
 - sound zones: each station's narration heard from where it stands;
 - comfort and frame rate with other people drawn;
-- whether the link to the relay keeps running inside a headset session.
+- whether the link to the relay keeps running inside a headset session;
+- peer to peer: rooms between real devices (two Quest 3s, a laptop and a phone), links that keep running inside VR and
+  AR, a host change at an event, a headset host handing over to a laptop, and how long PeerJS's public server keeps the
+  id of a headset that went to sleep (tested only between pages on one machine).
 
 **If there is time, a test round for the logs**, on fresh headsets (**TO FILL (owner):** new or reset headsets, or only
 their site data cleared). Note the time and headset for every step.

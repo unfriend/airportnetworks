@@ -48,7 +48,9 @@
   `node relay/test.mjs` and `node tools/collab.mjs` as well as the smoke test
   (and bump `FORMAT` in `shared.js` when a `state()` changes shape). Shared
   spaces, calibration and sound zones only exist on headsets: report them as
-  untested.
+  untested. Peer-to-peer rooms (no relay) are tested only between pages on one
+  machine through the relay's `/peerjs`: tests never use PeerJS's public server
+  (no internet), and links between real devices are untested until tried there.
 - `stories/lbi.js` is built from `tools/lbi/`: edit there and run
   `node tools/lbi/build.mjs`. `stories/nmd.js` likewise from `tools/nmd/`
   (`node tools/nmd/build.mjs`; data from `ikerdata/` via
