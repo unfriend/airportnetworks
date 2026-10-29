@@ -1,7 +1,7 @@
 // Offline support: the app shell is cached on install, so the installed app
 // opens without a network connection. Bump VERSION when you change any file.
 const VERSION = 'networks-v95';
-const SHELL = ['./', './index.html', './shared.js', './proteins.html', './spatial.html', './stories/airports.js', './stories/proteins.js', './stories/spatial.js', './stories/lbi.js', './stories/nmd.js', './stories/endo.js', './stories/pet.js', './stories/micro.js', './stories/ovary.js', './stories/qubits.js', './stories/mutation.js', './stories/topo.js', './stories/pass.js', './stories/flock.js', './stories/robots.js', './three.min.js', './peerjs.min.js', './manifest.webmanifest',
+const SHELL = ['./', './index.html', './shared.js', './proteins.html', './spatial.html', './stories/list.js', './stories/airports.js', './stories/proteins.js', './stories/spatial.js', './stories/lbi.js', './stories/nmd.js', './stories/endo.js', './stories/pet.js', './stories/micro.js', './stories/ovary.js', './stories/qubits.js', './stories/mutation.js', './stories/topo.js', './stories/pass.js', './stories/flock.js', './stories/robots.js', './three.min.js', './peerjs.min.js', './manifest.webmanifest',
   './icons/icon-192.png', './icons/icon-512.png', './icons/maskable-512.png', './icons/apple-touch-icon.png', './icons/favicon-32.png'];
 
 const AUDIO = ['./audio/narration.mp3', './audio/narration-proteins.mp3', './audio/narration-spatial.mp3', './audio/narration-lbi.mp3', './audio/narration-nmd.mp3', './audio/narration-endo.mp3', './audio/narration-pet.mp3', './audio/narration-micro.mp3', './audio/narration-ovary.mp3', './audio/narration-qubits.mp3', './audio/narration-mutation.mp3', './audio/narration-topo.mp3', './audio/narration-pass.mp3', './audio/narration-flock.mp3', './audio/narration-robots.mp3'];
@@ -84,6 +84,9 @@ self.addEventListener('fetch', e => {
   }
   // the shared rooms' relay (when it serves the app): its API is live, never cached
   if (url.origin === self.location.origin && /\/api\//.test(url.pathname)) return;
+  // the latest release's version file (tools/release.mjs): always the server's, never kept (HOST.live compares it
+  // with what this page runs)
+  if (url.origin === self.location.origin && /\/version\.json$/.test(url.pathname)) return;
   // everything else from this app (story files, three.js, icons): network first, checked with the server
   if (url.origin === self.location.origin) {
     e.respondWith(fresh(fetch(req, { cache: 'no-cache' }), url.origin + url.pathname));

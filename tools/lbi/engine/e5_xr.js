@@ -454,6 +454,7 @@ function xrUpdate(S) {
   // the Stories screen replaces the story's panels and hides the story
   const land = !!XR.stories, away = xrAway();   // (away from its station in a shared room: the story hidden, only the shell's things)
   if (XR.land) {
+    if (XR.landRev !== HOST.listRev) xrLandingCards();   // a story added while the app runs: its card joins the arc
     // Sound check takes the place of the story cards while it is open
     for (const P of XR.land) P.mesh.visible = land && (P === XR.land[0] || !XR.soundCheck);
     XR.snd.mesh.visible = land && !!XR.soundCheck;

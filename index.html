@@ -382,6 +382,16 @@ a.btn { text-decoration: none; display: inline-flex; align-items: center; }
   padding: 8px 12px; font-size: 14px; box-shadow: 0 2px 12px rgba(0, 0, 0, 0.35);
 }
 body.xr #labels, body.xr #tip { display: none; }
+/* live updates (HOST.live): the question, Reload now or Later, and a note while developing; after a reload that ended a
+   headset session, one button to go back in */
+#livebar {
+  position: fixed; left: 50%; top: calc(66px + env(safe-area-inset-top, 0px)); transform: translateX(-50%); z-index: 12; display: flex;
+  align-items: center; gap: 10px; flex-wrap: wrap; max-width: min(40rem, calc(100vw - 24px)); background: var(--panel-solid); color: var(--ink);
+  border: 1px solid var(--cyan); border-radius: 8px; padding: 8px 10px 8px 14px; font-size: 14px; box-shadow: 0 2px 14px rgba(0, 0, 0, 0.4);
+}
+#livebar[hidden], #xrgo[hidden] { display: none; }
+#livebar span { flex: 1 1 14rem; }
+#xrgo { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 12; font-size: 20px; padding: 16px 28px; }
 
 @media (max-width: 899px) {
   body { font-size: 16px; }
@@ -492,6 +502,8 @@ body.xr #labels, body.xr #tip { display: none; }
     <div class="row"><input id="shName" maxlength="32" autocomplete="nickname" aria-label="Your name"><div class="sh-colors" role="group" aria-label="Your colour"></div></div>
   </div>
 </div>
+<div id="livebar" hidden role="alert"><span></span><button class="btn primary" type="button" data-live="reload">Reload now</button><button class="btn" type="button" data-live="later">Later</button></div>
+<button class="btn primary" id="xrgo" type="button" hidden>Enter VR to continue</button>
 <div id="loading">Loading</div>
 <div id="nogl">This app needs WebGL, which this browser has turned off.</div>
 <script src="stories/list.js"></script>
@@ -511,7 +523,7 @@ const HOST = {
   list: (self.STORY_LIST || []).slice(), listRev: 0,
   // this shell's release (written by tools/release.mjs): n, the release whose shell files these are; id, their
   // fingerprint; format, the shared rooms' FORMAT. version.json says the same of the latest release
-  shell: { n: 0, id: '', format: '' },
+  shell: { n: 95, id: 'ef2bb33da5b591a8', format: 'networks-23' },
   factories: {}, loaded: {}, cur: null, curKey: null, busy: false, queued: '',
   renderer: null, session: null, mode: null, inputs: [], quiet: false,
   // the one renderer all stories draw with; its internal listeners belong to it, not to a story
@@ -1696,14 +1708,422 @@ HOST.closePicker = function () {
   HOST.soundCheck(false);
   HOST.setUrl(false);
 };
+// ---------------------------------------------------------------- hot reload and live updates --
+// The app follows its files while it runs (AGENTS.md, "Hot reload and live updates"):
+//  - while developing, the relay started with --watch says at once what changed (Server-Sent Events at api/watch;
+//    the page learns from api/ping that the relay watches): a story file on show is swapped in place (HOST.swap) at
+//    once, one not on show is fetched fresh the next time it starts, the list of stories is read again, and a shell
+//    file (index.html, shared.js, sw.js, three.js, PeerJS) reloads the page with its place kept;
+//  - on the live site, version.json (written by tools/release.mjs, never cached) is asked for about once a minute,
+//    when the page comes back into view and when a new service worker takes over. Taken without asking: a new
+//    story's card (the page's and the headset's Stories screens), a changed story not on show (fetched fresh next
+//    time), the story on show (swapped in place at a quiet moment: paused, in explore mode, on a Stories screen, or
+//    just after a chapter's end; never in the middle of a playing chapter). Asked first (a bar on the page, a panel
+//    with two buttons in the headset: Reload now, the place kept, or Later): another shell, another shared-room
+//    FORMAT, a story that needs a newer shell, a shared room's station whose story this copy does not have yet. On the
+//    page's Stories screen, outside a headset, a waiting new shell is taken by itself (nothing is lost there): what
+//    HOST.reloadIfUpdated did when a new service worker took over, now one path with the rest.
+// A reload keeps the place (sessionStorage livePlace: the story, mode, clock, explore state, view, the station
+// followed); a headset session cannot survive one, so the page then shows one button, Enter VR (or AR) to continue.
+HOST.live = (function () {
+  const L = {
+    v: null, seen: {}, stale: new Set(), pending: '', urgent: false, ask: null, later: '', note: '', missing: {},
+    checking: null, checkAt: -1e9, listFp: '', rereading: null, watch: null, watching: false, shellSeen: null,
+    endsFor: null, ends: [], timer: 0, back: null,
+  };
+  const ses = { get: k => { try { return sessionStorage.getItem(k); } catch (e) { return null; } },
+    put: (k, v) => { try { if (v == null) sessionStorage.removeItem(k); else sessionStorage.setItem(k, v); } catch (e) { /* storage blocked */ } } };
+  const quietly = fn => { const q = HOST.quiet; HOST.quiet = true; try { return fn(); } finally { HOST.quiet = q; } };
+  const KEY = /^[a-z][a-z0-9-]{0,31}$/;
+  const known = key => HOST.list.some(m => m.key === key);
+  const title = key => { const m = HOST.list.find(s => s.key === key); return m ? m.title : key; };
+  // the app's root: the relay serves it under s/<n>/ too (a room's fresh shared space, shared.js)
+  const root = () => new URL(/\/s\/\d{1,4}\/(?:index\.html)?$/.test(location.pathname) ? '../../' : './', location.href).href;
+  const listFp = () => HOST.fingerprint(JSON.stringify(HOST.list));
+
+  // ---- the list of stories, read again: new and changed cards; a new story that needs a newer shell is asked about
+  function reread() {
+    if (L.rereading) return L.rereading;
+    return (L.rereading = new Promise(res => {
+      const s = document.createElement('script');
+      s.src = 'stories/list.js?t=' + Date.now();
+      s.onload = () => { s.remove(); res(true); }; s.onerror = () => { s.remove(); res(false); };
+      document.head.appendChild(s);
+    }).then(ok => { L.rereading = null; if (ok) take(self.STORY_LIST); }));
+  }
+  function take(list) {
+    if (!Array.isArray(list)) return;
+    const v = L.v, me = HOST.shell, next = [];
+    for (const m of list) {
+      if (!m || typeof m !== 'object' || !KEY.test(m.key) || next.some(x => x.key === m.key)) continue;
+      const e = v && v.stories && v.stories[m.key];
+      if (!known(m.key) && e && me.id && +e.needs > me.n) { ask('needs', m.key); continue; }   // not in this shell
+      next.push(m);
+    }
+    // (the story on show keeps its card, whatever the list now says)
+    if (HOST.curKey && !next.some(m => m.key === HOST.curKey)) { const m = HOST.list.find(s => s.key === HOST.curKey); if (m) next.push(m); }
+    if (!next.length || JSON.stringify(next) === JSON.stringify(HOST.list)) return;
+    HOST.list.splice(0, HOST.list.length, ...next);
+    HOST.listRev++;
+    HOST.cards();
+    HOST.chrome(HOST.picking);
+  }
+
+  // ---- version.json: what the latest release has, against what this page runs
+  function check(why) {
+    if (L.watching || location.protocol === 'file:') return Promise.resolve(null);
+    if (L.checking) return L.checking;
+    L.checkAt = performance.now();
+    return (L.checking = (async () => {
+      let v = null;
+      try { const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' }); if (r.ok) v = await r.json(); } catch (e) { /* offline, or no version file */ }
+      L.checking = null;
+      // no version file: a new service worker that took over still means a new release (asked, as before)
+      if (!v || v.app !== 'networks' || !v.stories || !v.shell) { if (HOST.updated) ask('shell'); return null; }
+      L.v = v;
+      await compare(v, why);
+      return v;
+    })());
+  }
+  async function compare(v) {
+    const me = HOST.shell;
+    if (me.id && v.shell.id !== me.id) ask(v.format && me.format && v.format !== me.format ? 'format' : 'shell');
+    if (v.list && v.list !== L.listFp) { L.listFp = v.list; await reread(); }
+    for (const [key, e] of Object.entries(v.stories)) {
+      if (!e || typeof e.fp !== 'string' || L.seen[key] === e.fp) continue;
+      L.seen[key] = e.fp;
+      // never loaded here: its next start fetches it (asked first if it needs a newer shell: allowed)
+      if (HOST.fp[key] === e.fp || !HOST.factories[key]) continue;
+      if (me.id && +e.needs > me.n) { ask('needs', key); continue; }   // the old file runs on until a reload
+      story(key, false);
+    }
+  }
+  // a story file changed: the one on show is swapped in place (now, or at a quiet moment), another fetched fresh
+  // next time it starts
+  function story(key, now) {
+    if (key === HOST.curKey && HOST.cur) { L.pending = key; L.urgent = L.urgent || now; tick(); } else L.stale.add(key);
+  }
+  // a quiet moment for a swap: paused, explore mode, a Stories screen, or within a second after a chapter's end (story
+  // time CH[i].b, on the recording's clock: narrT)
+  function quiet() {
+    const c = HOST.cur && HOST.cur.collab, A = c && c.APP;
+    if (!A || HOST.busy) return false;
+    if (HOST.picking || A.mode !== 'story' || !A.playing) return true;
+    try { if (HOST.session && HOST.cur.peek('XR.stories')) return true; } catch (e) { /* no headset code */ }
+    if (L.endsFor !== HOST.cur) { L.endsFor = HOST.cur; try { L.ends = HOST.cur.peek('CH.map(c => narrT(c.b))'); } catch (e) { L.ends = []; } }
+    return (L.ends || []).some(e => A.t >= e && A.t < e + 1);
+  }
+
+  // ---- the question (a bar on the page, a panel in the headset) and notes
+  const RANK = { missing: 1, needs: 2, shell: 3, format: 4 };
+  function ask(kind, key, again) {
+    if (L.ask && RANK[L.ask.kind] > RANK[kind]) return;
+    const text = {
+      shell: 'A new version of the app is ready.',
+      format: 'A new version of the app is ready. Shared rooms need it: devices on different versions cannot share a room.',
+      needs: `The ${title(key)} story needs a new version of the app.`,
+      missing: `A station in this room has a story this device does not know yet (${key}): this device needs an update.`,
+    }[kind];
+    if (L.ask && L.ask.text === text && !(again && L.ask.hidden)) return;
+    L.ask = { kind, key: key || '', text, hidden: L.later === text && !again };
+    show();
+  }
+  function later() {
+    if (L.ask && !L.ask.hidden) { L.later = L.ask.text; L.ask.hidden = true; } else L.note = '';
+    show();
+  }
+  function note(text) { L.note = text; show(); if (text) console.warn(text); }
+  function show() {
+    const bar = document.getElementById('livebar');
+    if (!bar) return;
+    const q = L.ask && !L.ask.hidden;
+    bar.hidden = !q && !L.note;
+    bar.querySelector('span').textContent = q ? L.ask.text : L.note;
+    bar.querySelector('[data-live="reload"]').hidden = !q;
+    bar.querySelector('[data-live="later"]').textContent = q ? 'Later' : 'Close';
+    XQ.sig = '';
+  }
+  // a reload that keeps this device's place (put back as the story starts: restoring)
+  function reload(why) {
+    const P = HOST.place() || { key: HOST.curKey, picking: HOST.picking };
+    P.xr = HOST.session ? HOST.mode || 'immersive-vr' : '';
+    P.at = Date.now(); P.why = why;
+    ses.put('livePlace', JSON.stringify(P));
+    if (why !== 'asked') ses.put('liveReloadAt', String(Date.now()));
+    location.reload();
+  }
+  // a story asked for that this device does not know (a shared room's station): the list is read again, and if it is
+  // still unknown, this device needs an update (asked); at most every half a minute per story
+  function missing(key) {
+    if (!KEY.test(key) || known(key)) return;
+    const t = performance.now();
+    if (L.missing[key] && t - L.missing[key] < 30000) return;
+    L.missing[key] = t;
+    (L.watching ? reread() : check('missing')).then(() => {
+      if (known(key)) { const st = HOST.collab && HOST.collab.live && HOST.collab.live(); if (st && st.story === key) HOST.go(key); }
+      else ask('missing', key);
+    });
+  }
+
+  // ---- the headset's panel for the question: in front of you when it appears, drawn over everything; pointed at
+  // through the shell's pointer hooks (HOST.collab.ray and press, which every story calls before its own scene)
+  const XQ = { mesh: null, cv: null, tex: null, hov: new Map(), btn: [], sig: '', placed: false, moving: false, loopFor: null, cam: null, camFor: null };
+  const W = 1024, H = 400, MW = 0.72;
+  const _h = new THREE.Vector3(), _f = new THREE.Vector3(), _to = new THREE.Vector3(), _d = new THREE.Vector3(), RC = new THREE.Raycaster();
+  function panel() {
+    if (XQ.mesh) return XQ.mesh;
+    XQ.cv = document.createElement('canvas'); XQ.cv.width = W; XQ.cv.height = H;
+    XQ.tex = new THREE.CanvasTexture(XQ.cv);
+    XQ.mesh = new THREE.Mesh(new THREE.PlaneGeometry(MW, MW * H / W), new THREE.MeshBasicMaterial({ map: XQ.tex, transparent: true, depthTest: false, depthWrite: false }));
+    XQ.mesh.renderOrder = 60; XQ.mesh.visible = false;
+    return XQ.mesh;
+  }
+  function rr(c, x, y, w, h, r) { c.beginPath(); c.moveTo(x + r, y); c.arcTo(x + w, y, x + w, y + h, r); c.arcTo(x + w, y + h, x, y + h, r); c.arcTo(x, y + h, x, y, r); c.arcTo(x, y, x + w, y, r); c.closePath(); }
+  function draw(hv) {
+    const c = XQ.cv.getContext('2d');
+    c.clearRect(0, 0, W, H);
+    rr(c, 6, 6, W - 12, H - 12, 28); c.fillStyle = 'rgba(7, 14, 27, 0.95)'; c.fill(); c.lineWidth = 4; c.strokeStyle = '#46d9ff'; c.stroke();
+    c.textBaseline = 'top'; c.fillStyle = '#e7eef8'; c.font = '700 46px B612, "Segoe UI", Arial, sans-serif'; c.fillText('Update', 44, 34);
+    c.font = '400 32px B612, "Segoe UI", Arial, sans-serif'; c.fillStyle = '#c5d2e3';
+    let line = '', y = 100;
+    for (const w of L.ask.text.split(' ')) {
+      if (c.measureText(line + w).width > W - 88 && line) { c.fillText(line.trim(), 44, y); y += 44; line = ''; }
+      line += w + ' ';
+    }
+    c.fillText(line.trim(), 44, y);
+    XQ.btn = [{ id: 'reload', label: 'Reload now', x: 44, fn: () => reload('asked') }, { id: 'later', label: 'Later', x: 532, fn: later }];
+    for (const b of XQ.btn) {
+      Object.assign(b, { y: H - 128, w: 448, h: 88 });
+      rr(c, b.x, b.y, b.w, b.h, 18);
+      c.fillStyle = b.id === 'reload' ? (hv === b.id ? '#8debff' : '#46d9ff') : hv === b.id ? 'rgba(70, 217, 255, 0.28)' : 'rgba(140, 170, 210, 0.14)';
+      c.fill(); c.lineWidth = 3; c.strokeStyle = 'rgba(140, 170, 210, 0.5)'; c.stroke();
+      c.fillStyle = b.id === 'reload' ? '#04101e' : '#e7eef8'; c.font = '700 36px B612, "Segoe UI", Arial, sans-serif';
+      c.textAlign = 'center'; c.fillText(b.label, b.x + b.w / 2, b.y + 24); c.textAlign = 'left';
+    }
+    XQ.tex.needsUpdate = true;
+  }
+  const hovered = () => {
+    const t = performance.now();
+    for (const h of XQ.hov.values()) {
+      if (t - h.at > 250) continue;
+      const b = XQ.btn.find(b => h.x >= b.x && h.x <= b.x + b.w && h.y >= b.y && h.y <= b.y + b.h);
+      if (b) return b.id;
+    }
+    return '';
+  };
+  function xrTick() {
+    const on = !!(L.ask && !L.ask.hidden && HOST.session && HOST.cur);
+    if (!on) { if (XQ.mesh) XQ.mesh.visible = false; XQ.placed = false; return; }
+    let sc = null;
+    try { sc = HOST.cur.collab.scene(); } catch (e) { /* not built yet */ }
+    if (!sc) return;
+    const m = panel();
+    if (m.parent !== sc) sc.add(m);
+    if (XQ.camFor !== HOST.cur) { XQ.camFor = HOST.cur; try { XQ.cam = HOST.cur.peek('GL.camera'); } catch (e) { XQ.cam = null; } }
+    if (!XQ.cam) return;
+    // the head as last drawn (three.js puts the headset's pose on the story's camera as it draws)
+    _h.setFromMatrixPosition(XQ.cam.matrixWorld);
+    _f.set(0, 0, -1).transformDirection(XQ.cam.matrixWorld); _f.y = 0;
+    if (_f.lengthSq() < 1e-6) _f.set(0, 0, -1);
+    _f.normalize();
+    _to.copy(_h).addScaledVector(_f, 0.85); _to.y -= 0.12;
+    // in front of you when it appears; it glides back there once well out of view
+    _d.copy(m.position).sub(_h);
+    if (!XQ.placed) { m.position.copy(_to); XQ.placed = true; } else if (_d.lengthSq() > 4 || _d.normalize().dot(_f) < 0.45) XQ.moving = true;
+    if (XQ.moving) { m.position.lerp(_to, 0.12); if (m.position.distanceTo(_to) < 0.02) XQ.moving = false; }
+    m.lookAt(_h);
+    m.visible = true;
+    const hv = hovered(), sig = L.ask.text + '|' + hv;
+    if (sig !== XQ.sig) { XQ.sig = sig; draw(hv); }
+  }
+  function xrLoop(s) {
+    if (XQ.loopFor === s || typeof s.requestAnimationFrame !== 'function') return;
+    XQ.loopFor = s;
+    const cb = () => {
+      if (HOST.session !== s) { XQ.loopFor = null; if (XQ.mesh) XQ.mesh.visible = false; return; }
+      s.requestAnimationFrame(cb);
+      try { xrTick(); } catch (e) { /* the next frame */ }
+    };
+    try { s.requestAnimationFrame(cb); } catch (e) { XQ.loopFor = null; }
+  }
+  // the panel wins over everything it covers (it is drawn over everything); a press on it never goes behind it
+  function xrRay(i, o, d) {
+    if (!XQ.mesh || !XQ.mesh.visible || !XQ.mesh.parent) return null;
+    RC.set(o, d); RC.far = 30;
+    const h = RC.intersectObject(XQ.mesh, false)[0];
+    if (!h || !h.uv) { XQ.hov.delete(i); return null; }
+    XQ.hov.set(i, { x: h.uv.x * W, y: (1 - h.uv.y) * H, at: performance.now() });
+    return { kind: 'shell', point: h.point, dist: h.distance };
+  }
+  function xrPress(i) {
+    const h = XQ.hov.get(i);
+    if (!h || performance.now() - h.at > 250) return false;
+    const b = XQ.btn.find(b => h.x >= b.x && h.x <= b.x + b.w && h.y >= b.y && h.y <= b.y + b.h);
+    if (b) b.fn();
+    return true;
+  }
+
+  // ---- while developing: the relay's --watch
+  function watch() {
+    if (L.watch || typeof EventSource === 'undefined' || location.protocol === 'file:') return;
+    fetch(root() + 'api/ping', { cache: 'no-store' }).then(r => (r.ok ? r.json() : null)).catch(() => null).then(j => {
+      if (!j || !j.watch || L.watch) return;
+      L.watching = true;
+      const es = L.watch = new EventSource(root() + 'api/watch');
+      quietly(() => { for (const t of ['hello', 'story', 'list', 'shell', 'build']) es.addEventListener(t, ev => heard(t, ev)); });
+    });
+  }
+  function heard(type, ev) {
+    let d;
+    try { d = JSON.parse(ev.data); } catch (e) { return; }
+    if (!d || typeof d !== 'object') return;
+    if (type === 'hello') {
+      // the first: the shell's files as this page has them; after a lost connection (the relay restarted, the
+      // laptop slept): anything changed meanwhile
+      const first = !L.shellSeen, sh = d.shell || {};
+      if (first) L.shellSeen = sh;
+      else if (Object.keys(sh).some(f => sh[f] !== L.shellSeen[f])) return reload('shell');
+      if (!first) reread();
+      for (const [k, fp] of Object.entries(d.stories || {})) if (HOST.factories[k] && HOST.fp[k] !== fp) story(k, true);
+    } else if (type === 'story') { if (HOST.factories[d.key] && HOST.fp[d.key] !== d.fp) story(d.key, true); }
+    else if (type === 'list') reread();
+    else if (type === 'shell') { if (!L.shellSeen || L.shellSeen[d.file] !== d.fp) reload('shell'); }
+    else if (type === 'build') {
+      if (!d.ok) note(`Building the ${d.key} story failed: ` + String(d.out || '').trim().split('\n').slice(-3).join(' '));
+      else if (/^Building the /.test(L.note)) note('');
+    }
+  }
+
+  // ---- every quarter of a second (a timer: in a headset the page's frames stop)
+  function tick() {
+    if (L.pending) {
+      const k = L.pending;
+      if (k !== HOST.curKey || !HOST.cur) { L.pending = ''; L.urgent = false; L.stale.add(k); }   // gone meanwhile
+      else if (!HOST.busy && (L.urgent || quiet())) { L.pending = ''; L.urgent = false; HOST.swap(k); }
+    }
+    if (L.ask && !L.ask.hidden && HOST.session) xrLoop(HOST.session);
+    const t = performance.now();
+    if (t - L.checkAt > 60000 && document.visibilityState !== 'hidden') check('minute');
+    // a shared room's station whose story this device does not know yet (its card says so: shared.js's meta)
+    const C = HOST.collab, st = C && C.code && C.stations ? C.stations() : [];
+    for (const s of st) if (!known(s.story)) missing(s.story);
+    const go = document.getElementById('xrgo');
+    if (go && !go.hidden && HOST.session) go.hidden = true;
+  }
+
+  return {
+    // once, from the boot (after shared.js): the pointer hooks, the bar, the timers, the watch
+    init() {
+      L.listFp = listFp();
+      const C = HOST.collab;
+      if (C && !C.__live) {
+        C.__live = true;
+        const ray0 = C.ray, press0 = C.press;
+        C.ray = (i, o, d, near) => { const h = ray0(i, o, d, near); return xrRay(i, o, d) || h; };
+        C.press = i => { if (!xrPress(i)) press0(i); };
+      }
+      quietly(() => {
+        document.getElementById('livebar').addEventListener('click', ev => {
+          const b = ev.target.closest('[data-live]');
+          if (b && b.dataset.live === 'reload') reload('asked'); else if (b) later();
+        });
+        document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && performance.now() - L.checkAt > 5000) check('visible'); });
+      });
+      L.checkAt = performance.now() - 57000;   // (the first look 3 s after the start)
+      L.timer = setInterval(tick, 250);
+      watch();
+    },
+    // a place kept across a reload (once, at the boot), or null; a headset's session is not: Enter VR to continue
+    restoring() {
+      const s = ses.get('livePlace');
+      ses.put('livePlace', null);
+      let P = null;
+      try { P = JSON.parse(s); } catch (e) { /* none */ }
+      if (!P || !P.key || Date.now() - (+P.at || 0) > 120000 || !known(P.key)) return null;
+      if (P.xr) { P.resume = P.playing; P.playing = false; if (P.landing) P.picking = true; }
+      L.back = P;
+      return P;
+    },
+    // after the boot started the story: the headset's button and the station followed
+    restored(P) {
+      if (!P) return;
+      if (P.xr) {
+        const b = document.getElementById('xrgo');
+        b.textContent = P.xr === 'immersive-ar' ? 'Enter AR to continue' : 'Enter VR to continue';
+        b.hidden = false;
+        b.onclick = () => {
+          b.hidden = true;
+          document.getElementById(P.xr === 'immersive-ar' ? 'btnAR' : 'btnVR').click();
+          // (entering a headset carries a story on playing: as it was)
+          let n = 0;
+          const iv = setInterval(() => {
+            const A = HOST.cur && HOST.cur.collab && HOST.cur.collab.APP;
+            if (++n > 150 || (HOST.session && A)) { clearInterval(iv); if (HOST.session && A && A.mode === 'story' && !P.landing) A.playing = !!P.resume; }
+          }, 100);
+        };
+      }
+      if (P.follow) {
+        let n = 0;
+        const iv = setInterval(() => {
+          const C = HOST.collab;
+          if (++n > 80) clearInterval(iv);
+          else if (C && C.code && C.station(P.follow)) { clearInterval(iv); C.follow(P.follow); C.dialog(false); }
+        }, 250);
+      }
+    },
+    check, reread, missing, note, reload, later,
+    ask: (kind, key) => ask(kind, key, true),
+    // may this story start? (one never loaded here that needs a newer shell is asked about first)
+    allowed(key) {
+      const e = L.v && L.v.stories && L.v.stories[key], me = HOST.shell;
+      if (HOST.factories[key] || !e || !me.id || !(+e.needs > me.n)) return true;
+      ask('needs', key, true);
+      return false;
+    },
+    // is this story's file to be fetched fresh as it starts? (asked once)
+    stale: key => L.stale.delete(key),
+    // a reload is waiting (HOST.reloadIfUpdated takes it on the Stories screen, at most once in ten minutes: a host
+    // that still serves an old page from a cache must not reload it in a loop)
+    waiting() {
+      if (!L.ask || L.ask.kind === 'missing') return false;
+      return Date.now() - (+ses.get('liveReloadAt') || 0) > 600000;
+    },
+    // the shell is about to tear the story down: the headset's panel leaves its scene
+    detach() { if (XQ.mesh && XQ.mesh.parent) XQ.mesh.parent.remove(XQ.mesh); XQ.camFor = null; },
+    get watching() { return L.watching; }, get pending() { return L.pending; }, get question() { return L.ask && !L.ask.hidden ? L.ask.text : ''; },
+    state: () => L, xr: () => XQ,   // (for tests)
+  };
+})();
+// a story a shared room shows that this device's list does not have (another device runs a newer copy of the app):
+// its station's card says this device needs an update (shared.js's meta), and HOST.live offers it
+HOST.unknown = (function () {
+  const made = new Map();
+  return key => {
+    if (typeof key !== 'string' || !/^[a-z][a-z0-9-]{0,31}$/.test(key)) return undefined;
+    if (!made.has(key)) {
+      made.set(key, { key, unknown: true, kick: 'Update needed', title: 'A newer story', col: '#8796ad',
+        desc: 'This device needs an update to show this story: reload the app (the bar on the page, or the panel in the headset).',
+        page: 'Update needed', brand: 'Update needed', sub: '', aria: 'A story this device needs an update for', thing: 'story',
+        loading: 'This device needs an update', len: '' });
+    }
+    return made.get(key);
+  };
+})();
 </script>
 <script src="shared.js"></script>
 <script>
 'use strict';
+// the Stories screen's cards, one per story (again when the list changes while the app runs: HOST.live)
+HOST.cards = function () {
+  const box = document.querySelector('#picker .cards'), had = document.activeElement && document.activeElement.closest && document.activeElement.closest('#picker .card');
+  box.innerHTML = this.list.map(s => `<button class="card${s.key === this.curKey ? ' here' : ''}" type="button" data-story="${s.key}">
+    <span class="k" style="color:${s.col}">${s.kick}</span><b>${s.title}</b><span class="d">${s.desc}</span><em>${s.len}</em></button>`).join('');
+  if (had) { const c = box.querySelector(`[data-story="${had.dataset.story}"]`); if (c) c.focus(); }
+};
 (function boot() {
   const pk = document.getElementById('picker');
-  pk.querySelector('.cards').innerHTML = HOST.list.map(s => `<button class="card" type="button" data-story="${s.key}">
-    <span class="k" style="color:${s.col}">${s.kick}</span><b>${s.title}</b><span class="d">${s.desc}</span><em>${s.len}</em></button>`).join('');
+  HOST.cards();
+  HOST.chrome(true);
   pk.addEventListener('click', ev => {
     if (ev.target.closest('[data-open-shared]')) { HOST.collab.dialog(true); return; }
     const r = ev.target.closest('[data-repeat]');
@@ -1742,10 +2162,14 @@ HOST.closePicker = function () {
   if (hp.has('free')) HOST.xr.setFree(hp.get('free') !== 'off');
   if (hp.has('soundcheck')) HOST.soundCheck(true);
   HOST.collab.boot(hp); // #s=XYZ joins a shared room
-  const key = HOST.list.map(s => s.key).find(k => hp.has(k)) || 'airports';
+  HOST.live.init();
+  // a place kept across a reload (HOST.live: an update, or a shell file changed while developing) wins over the address
+  const back = HOST.live.restoring();
+  const key = (back && back.key) || HOST.list.map(s => s.key).find(k => hp.has(k)) || HOST.list[0].key;
   // the Stories screen is the landing page (no address, or #stories); a shared story link opens that story
-  HOST.start(key, true).then(() => {
-    if (!HOST.list.some(s => hp.has(s.key)) && !hp.has('t') && !hp.has('explore')) HOST.openPicker();
+  HOST.start(key, true, back).then(() => {
+    if (back ? back.picking : !HOST.list.some(s => hp.has(s.key)) && !hp.has('t') && !hp.has('explore')) HOST.openPicker();
+    HOST.live.restored(back);
   });
 })();
 
@@ -1757,15 +2181,17 @@ if ('serviceWorker' in navigator && window.isSecureContext && location.protocol 
   // An update took over while this page runs: the stories already loaded may be from the old
   // version. Reload at the next quiet moment (the Stories screen, not in a headset) so the page
   // and its stories match. Not on a first visit, when the worker simply starts looking after the page.
+  // (Whatever came with the new version is HOST.live's to judge: it asks for version.json at once.)
   let hadWorker = !!navigator.serviceWorker.controller;
   navigator.serviceWorker.addEventListener('controllerchange', () => {
     if (!hadWorker) { hadWorker = true; return; }
     HOST.updated = true;
-    HOST.reloadIfUpdated();
+    HOST.live.check('worker').then(() => HOST.reloadIfUpdated());
   });
 }
+// a new shell waiting (HOST.live asked about it): taken on the Stories screen by itself, outside a headset
 HOST.reloadIfUpdated = function () {
-  if (this.updated && this.picking && !this.session && !this.landingVR && !this.busy) location.reload();
+  if (this.live.waiting() && this.picking && !this.session && !this.landingVR && !this.busy) this.live.reload('quiet');
 };
 let installPrompt = null;
 window.addEventListener('beforeinstallprompt', ev => {

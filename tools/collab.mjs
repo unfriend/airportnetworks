@@ -31,7 +31,7 @@
 // follows it, the old host comes back as a guest; a host that falls silent (its id still held) is replaced once its id
 // is free; an introduction server that cannot be reached leaves the room on this device; a relay that cannot be
 // reached as a room is joined makes it peer to peer; a headset that hosts hands the room to the first screen that
-// joins. --shots also saves pictures (the Shared dialog on a desktop and a phone, six pretend headset views). --quick
+// joins. --shots also saves pictures (the Shared dialog on a desktop and a phone, seven pretend headset views). --quick
 // runs only the last story of STORIES in the per-story part (for a quicker run while working on the rest); --p2p runs
 // only the peer-to-peer part; --port N runs the relay on port N (default: any free port).
 // Needs Playwright as tools/smoke.mjs does (PLAYWRIGHT_MODULE, CHROMIUM_PATH). Exits 1 on any failure.
@@ -995,6 +995,18 @@ try {
   const shownAt = await H.evaluate(() => { HOST.cur.peek('xrUpdate(APP.mode === "story" ? storyState(storyT(APP.t)) : XS)');
     return { away: HOST.room.away(), world: HOST.cur.peek('GL.world.visible'), main: HOST.cur.peek('XR.main.mesh.visible'), card: HOST.collab.overlay().cards.has(HOST.collab.mine()) }; });
   check('headset: and there its story shows (scene and panel; its own card gone)', !shownAt.away && shownAt.world && shownAt.main && !shownAt.card, JSON.stringify(shownAt));
+  // every station shows its story's icon over its ring, in the story's colour and turning; at your own station it is gone
+  const iconsSeen = () => H.evaluate(() => [...HOST.collab.overlay().rings].map(([id, o]) => {
+    const I = o.icon, s = HOST.collab.station(id), m = s && HOST.list.find(x => x.key === s.story);
+    return { id, story: s && s.story, key: I && I.key, col: I && '#' + I.halo.material.color.getHexString(), want: m && m.col.toLowerCase(), a: I && I.spin.rotation.y,
+      on: !!I && I.g.visible && I.k > 0.9, y: I && +(I.g.position.y * o.g.scale.y).toFixed(3), mine: id === HOST.collab.mine() };
+  }));
+  const ic0 = await iconsSeen();
+  await frames(H, 400);
+  const ic1 = await iconsSeen(), nSt = await H.evaluate(() => HOST.collab.stations().length);
+  const iconOk = (x, i) => x.key === x.story && x.col === x.want && x.y > 1.9 && (x.mine ? !x.on : x.on && angle(x.a, ic0[i].a) > 0.05);
+  check('headset: every station shows its story\'s icon over its ring (in its colour, turning), but not your own station', ic1.length === nSt && ic1.some(x => x.mine) &&
+    ic1.every(iconOk), JSON.stringify(ic1.filter((x, i) => !iconOk(x, i))));
   // the headset recentres (its local origin moves; the story's own reset listener asks to recentre): the story
   // stays at its station, placed there again every frame
   const relocal = L => H.evaluate(L => {
@@ -1046,7 +1058,8 @@ try {
   await frames(H, 600);
   const seen1 = id => H.evaluate(id => { HOST.cur.peek('xrUpdate(APP.mode === "story" ? storyState(storyT(APP.t)) : XS)');
     return { away: HOST.room.away(), mine: HOST.collab.mine(), live: !!HOST.collab.live(), mode: HOST.cur.peek('APP.mode'), playing: HOST.cur.peek('APP.playing'), t: HOST.cur.peek('APP.t'),
-      world: HOST.cur.peek('GL.world.visible'), main: HOST.cur.peek('XR.main.mesh.visible'), stories: HOST.cur.peek('XR.stories'), card: HOST.collab.overlay().cards.has(id) }; }, id);
+      world: HOST.cur.peek('GL.world.visible'), main: HOST.cur.peek('XR.main.mesh.visible'), stories: HOST.cur.peek('XR.stories'), card: HOST.collab.overlay().cards.has(id),
+      icon: (I => I.g.visible && I.k > 0.9)(HOST.collab.overlay().rings.get(id).icon) }; }, id);
   const out1 = await seen1(S1.id);
   await frames(H, 800);
   const out1b = await seen1(S1.id);
@@ -1066,6 +1079,7 @@ try {
   const out3 = await seen1(S1.id), q9 = (await roomInfo(code)).seq, want3 = await A.evaluate(k => { const P = HOST.collab.val(k); return P.t + (HOST.collab.now() - P.at) / 1000; }, kP1);
   check('headset: walking back in shows the story again and runs it on the station\'s clock (nothing written)', backIn && !out3.away && out3.world && out3.main && !out3.card &&
     out3.mode === 'story' && out3.playing && Math.abs(out3.t - want3) < 1.5 && q9 === q7, JSON.stringify({ backIn, out3, want3, writes: q9 - q7 }));
+  check('headset: its own station\'s icon is back over the ring out of the circle, and goes again when it walks back in', out1.icon && !out3.icon, JSON.stringify([out1.icon, out3.icon]));
   await A.evaluate(([k, v]) => HOST.collab.publish([[k, v]]), [kP1, play1]);   // (the station back in explore mode, as the rest expects)
   await until(H, () => { window.__xr.step(); return HOST.cur.peek('APP.mode') === 'explore'; }, null, 6000);
   // a ray: the others see it in room coordinates
@@ -2357,6 +2371,10 @@ try {
       await frames(H, 800);
       await view('headset-away.png', toward, -0.08);
     }
+    // the stations' icons over their rings, from 3.8 m behind the first row (away from every station, so all of them show)
+    await goRoom(H, 0, 1.6, 2.6, 0);
+    await frames(H, 800);
+    await view('headset-icons.png', 0, 0.05);
     // the page's dialog with the room map, on a desktop and on a phone
     await A.setViewportSize({ width: 1000, height: 760 });
     const alive = Promise.all([frames(H, 3500), frames(C, 3500)]);   // the two headsets keep sending where they are

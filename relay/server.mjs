@@ -7,6 +7,7 @@
 //   node relay/server.mjs [--port 8787] [--host 0.0.0.0] [--cert c.pem --key k.pem] [--static .] [--logs dir]
 //   node relay/server.mjs --lan    (for headsets on the same Wi-Fi: HTTPS with a certificate of its own, the app
 //                                   served, the headsets' logs kept in relay/logs/)
+//   node relay/server.mjs --static . --watch [--build]   (while developing: the pages follow the app's files)
 import http from 'node:http';
 import https from 'node:https';
 import crypto from 'node:crypto';
@@ -15,12 +16,12 @@ import path from 'node:path';
 import zlib from 'node:zlib';
 import { promisify } from 'node:util';
 import os from 'node:os';
-import { execFileSync } from 'node:child_process';
+import { execFileSync, execFile } from 'node:child_process';
 import { pipeline } from 'node:stream';
 import { fileURLToPath } from 'node:url';
 
 const PROTO = 1;
-const OPT = { port: 8787, host: '0.0.0.0', cert: '', key: '', static: '', timeout: 40, expire: 6 * 3600, ping: 20, quiet: false, lan: false, logs: '', 'no-peer': false };
+const OPT = { port: 8787, host: '0.0.0.0', cert: '', key: '', static: '', timeout: 40, expire: 6 * 3600, ping: 20, quiet: false, lan: false, logs: '', 'no-peer': false, watch: '', build: false };
 const HELP = `usage: node relay/server.mjs [options]
   --port <n>       port (8787; 0 picks a free one)       --host <addr>   address (0.0.0.0)
   --cert <file>    with --key: speak HTTPS and WSS       --static <dir>  also serve the app from <dir>
@@ -30,10 +31,14 @@ const HELP = `usage: node relay/server.mjs [options]
   --no-peer        no introduction server for peer to peer (PeerJS's protocol, at /peerjs: on by default)
   --lan            for headsets on the same Wi-Fi: HTTPS with a self-signed certificate made once with openssl for
                    this machine's addresses (in relay/.lan/), the app served from the repository, and the headsets'
-                   logs kept in relay/logs/`;
+                   logs kept in relay/logs/
+  --watch [<dir>]  while developing: watch the app's files (the --static folder, or <dir>, then also served); the
+                   pages it serves swap a changed story in place and reload, their place kept, when a shell file changes
+  --build          with --watch: run a built story's build (tools/<key>/build.mjs) when its sources change`;
 for (let i = 2; i < process.argv.length; i++) {
   const name = process.argv[i].replace(/^--/, '');
   if (name === 'help' || !(name in OPT) || name === process.argv[i]) { console.log(HELP); process.exit(name === 'help' ? 0 : 1); }
+  if (name === 'watch') { const v = process.argv[i + 1]; if (v !== undefined && !v.startsWith('--')) { OPT.watch = v; i++; } else OPT.watch = true; continue; }
   if (typeof OPT[name] === 'boolean') { OPT[name] = true; continue; }
   const v = process.argv[++i];
   OPT[name] = typeof OPT[name] === 'number' ? Number(v) : v;
@@ -75,6 +80,11 @@ if (OPT.lan) {
     }
   }
 }
+
+// --watch without a folder watches the app the relay serves; with one, it serves that folder too (when --static is not given)
+if (OPT.watch === true && !OPT.static) { console.log('--watch needs the folder it serves: --static <dir> (or --lan), or --watch <dir>'); process.exit(1); }
+if (OPT.watch && OPT.watch !== true && !OPT.static) OPT.static = OPT.watch;
+if (OPT.build && !OPT.watch) { console.log('--build goes with --watch'); process.exit(1); }
 
 const MAX_MSG = 1 << 20;            // one WebSocket message, reassembled
 const MAX_VALUE = 256 << 10;        // one stored value, as JSON
@@ -462,7 +472,8 @@ function cors(req, res) {   // the API and the introduction server, for pages on
 function api(req, res, url) {
   if (cors(req, res)) return;
   const p = url.pathname, room = /^\/api\/rooms\/([A-Za-z]{3})$/.exec(p);
-  if (p === '/api/ping' && req.method === 'GET') return json(res, 200, { now: Date.now(), proto: PROTO });
+  if (p === '/api/ping' && req.method === 'GET') return json(res, 200, { now: Date.now(), proto: PROTO, ...(WATCH ? { watch: true } : {}) });
+  if (p === '/api/watch' && req.method === 'GET') return watchStream(req, res);
   if (p === '/api/rooms' && req.method === 'GET') {
     return json(res, 200, [...rooms.values()].map(r => ({ code: r.code, members: r.members.size, names: [...r.members.values()].map(m => m.name), stations: stations(r), idle: idle(r), version: r.version })));
   }
@@ -473,7 +484,7 @@ function api(req, res, url) {
     if (!r) return json(res, 404, { error: 'no such room' });
     return json(res, 200, { code: r.code, app: r.app, version: r.version, created: r.created, seq: r.seq, idle: idle(r), members: people(r), keys: keysOut(r) });
   }
-  if (p === '/api/ping' || p === '/api/rooms' || p === '/api/log' || room) return json(res, 405, { error: 'method not allowed' });
+  if (p === '/api/ping' || p === '/api/rooms' || p === '/api/log' || p === '/api/watch' || room) return json(res, 405, { error: 'method not allowed' });
   json(res, 404, { error: 'not found' });
 }
 // the introduction server's HTTP side: PeerJS asks {path}{key}/id for a new id (a page that brings its own id does not)
@@ -560,7 +571,7 @@ const REAL = ROOT ? fs.realpathSync(ROOT) : '';
 // folders. Everything index.html, sw.js (SHELL, AUDIO) and the stories load is here; add what the app gains.
 // (p2p/ is the peer-to-peer test page, at /p2p/: with &peer= it can use this relay's introduction server.)
 const APP_FILES = new Set(['index.html', 'shared.js', 'sw.js', 'manifest.webmanifest', 'three.min.js', 'three.LICENSE.txt',
-  'peerjs.min.js', 'PEERJS-LICENSE.txt', 'proteins.html', 'spatial.html', 'README.txt']);
+  'peerjs.min.js', 'PEERJS-LICENSE.txt', 'proteins.html', 'spatial.html', 'README.txt', 'version.json']);
 const APP_DIRS = new Set(['stories', 'audio', 'icons', 'p2p']);
 const appFile = segs => (segs.length === 1 && APP_FILES.has(segs[0])) || (segs.length === 2 && APP_DIRS.has(segs[0]));
 
@@ -592,7 +603,8 @@ async function serve(req, res, url) {
   const useRange = range && (range[1] || range[2]) && (!req.headers['if-range'] || req.headers['if-range'] === base);
   const zip = !useRange && SQUEEZE.test(type) && st.size > 1024 && st.size < 32 * MAX_MSG && /\bgzip\b/.test(req.headers['accept-encoding'] || '');
   const etag = zip ? base.slice(0, -1) + '-gz"' : base;
-  const head = { 'Content-Type': type, 'Cache-Control': 'no-cache', ETag: etag, 'Last-Modified': st.mtime.toUTCString(), 'Accept-Ranges': 'bytes', 'X-Content-Type-Options': 'nosniff',
+  // (the release's version file is never kept: live updates compare it with what a page runs)
+  const head = { 'Content-Type': type, 'Cache-Control': segs.join('/') === 'version.json' ? 'no-store' : 'no-cache', ETag: etag, 'Last-Modified': st.mtime.toUTCString(), 'Accept-Ranges': 'bytes', 'X-Content-Type-Options': 'nosniff',
     ...(SQUEEZE.test(type) ? { Vary: 'Accept-Encoding' } : {}) };
   if (String(req.headers['if-none-match'] || '').split(',').some(t => t.trim().replace(/^W\//, '') === etag)) { res.writeHead(304, head); return res.end(); }
   const stream = (opts, status, extra) => {

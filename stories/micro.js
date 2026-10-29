@@ -7392,6 +7392,7 @@ function xrUpdate(S) {
   // the Stories screen replaces the story's panels and hides the story
   const land = !!XR.stories, away = xrAway();   // (away from its station in a shared room: the story hidden, only the shell's things)
   if (XR.land) {
+    if (XR.landRev !== HOST.listRev) xrLandingCards();   // a story added while the app runs: its card joins the arc
     // Sound check takes the place of the story cards while it is open
     for (const P of XR.land) P.mesh.visible = land && (P === XR.land[0] || !XR.soundCheck);
     XR.snd.mesh.visible = land && !!XR.soundCheck;
@@ -7756,29 +7757,34 @@ function xrLandingSetup() {
   XR.land = [];
   XR.landGroup = new THREE.Group();
   GL.rig.add(XR.landGroup);
-  const head = makePanel(1400, 300, 1.02, drawLandHead, () => 'h' + XR.inStory + audioLabel() + HOST.repeat + XR.soundCheck + HOST.audio.muted + HOST.anchor.status());
+  const head = makePanel(1400, 300, 1.02, drawLandHead, () => 'h' + XR.inStory + audioLabel() + HOST.repeat + XR.soundCheck + HOST.audio.muted + HOST.anchor.status() + HOST.list.length);
   head.mesh.position.set(0, 0.36, -1.22);
-  XR.landGroup.add(head.mesh); XR.land.push(head);
-  HOST.list.forEach((s, k) => {
-    // cards 0.36 m wide on an arc: seven 0.31 rad apart at 1.25 m (neighbours 0.386 m apart, the outer ones 53° to the
-    // side), eight 0.272 rad apart at 1.4 m (0.379 m apart, the outer ones 55° to the side), nine 0.245 rad apart at
-    // 1.55 m (0.379 m apart, the outer ones 56° to the side), ten 0.225 rad
-    // apart at 1.7 m (0.382 m apart, the outer ones 58° to the side), eleven 0.206 rad apart at 1.85 m (0.381 m apart,
-    // the outer ones 59° to the side), twelve 0.19 rad apart at 2 m (0.38 m apart, the outer ones 60° to the side),
-    // thirteen 0.177 rad apart at 2.15 m (0.381 m apart, the outer ones 61° to the side), fourteen 0.166 rad apart at
-    // 2.3 m (0.381 m apart, the outer ones 62° to the side), fifteen 0.155 rad apart at 2.46 m (0.381 m apart, the
-    // outer ones 62° to the side)
-    const n = HOST.list.length, a = (k - (n - 1) / 2) * (n > 14 ? 0.155 : n > 13 ? 0.166 : n > 12 ? 0.177 : n > 11 ? 0.19 : n > 10 ? 0.206 : n > 9 ? 0.225 : n > 8 ? 0.245 : n > 7 ? 0.272 : 0.31), d = n > 14 ? 2.46 : n > 13 ? 2.3 : n > 12 ? 2.15 : n > 11 ? 2 : n > 10 ? 1.85 : n > 9 ? 1.7 : n > 8 ? 1.55 : n > 7 ? 1.4 : 1.25;
-    const P = makePanel(640, 820, 0.36, (ctx, P) => drawLandCard(ctx, P, s), () => 'c' + XR.inStory + s.key);
-    P.mesh.position.set(Math.sin(a) * d, -0.105, -Math.cos(a) * d);   // top edge 0.126 m up, under the header
-    P.mesh.rotation.y = -a;
-    XR.landGroup.add(P.mesh); XR.land.push(P);
-  });
-  for (const P of XR.land) XR.panels.push(P);
+  XR.landGroup.add(head.mesh); XR.land.push(head); XR.panels.push(head);
+  xrLandingCards();
   // Sound check (opened from the header), in the place of the story cards
   XR.snd = makePanel(1400, 860, 1.02, drawSoundCheck, () => (XR.snd.mesh.visible ? 'snd' + Math.floor(performance.now() / 500) : 'off'));
   XR.snd.mesh.position.set(0, -0.17, -1.2);
   XR.landGroup.add(XR.snd.mesh); XR.panels.push(XR.snd);
+  XR.panelMeshes = XR.panels.map(P => P.mesh);
+}
+// One card per story, 0.36 m wide, on an arc for any number of stories: neighbours 0.381 m apart and the outer ones at
+// most 62° to the side (fifteen: 0.155 rad apart at 2.46 m), never nearer than 1.25 m (a few stories stand closer
+// together in angle). Built again when the shell's list of stories changes while the app runs (HOST.listRev: a story
+// added in a release gets its card)
+function xrLandingCards() {
+  for (const P of XR.land.splice(1)) {
+    XR.landGroup.remove(P.mesh); XR.panels.splice(XR.panels.indexOf(P), 1);
+    P.tex.dispose(); P.mesh.geometry.dispose(); P.mesh.material.dispose();
+  }
+  const n = HOST.list.length, d = Math.max(1.25, n > 1 ? 0.1905 / Math.sin(1.085 / (n - 1)) : 0), step = 2 * Math.asin(0.1905 / d);
+  XR.landRev = HOST.listRev;
+  HOST.list.forEach((s, k) => {
+    const a = (k - (n - 1) / 2) * step;
+    const P = makePanel(640, 820, 0.36, (ctx, P) => drawLandCard(ctx, P, s), () => 'c' + XR.inStory + s.key);
+    P.mesh.position.set(Math.sin(a) * d, -0.105, -Math.cos(a) * d);   // top edge 0.126 m up, under the header
+    P.mesh.rotation.y = -a;
+    XR.landGroup.add(P.mesh); XR.land.push(P); XR.panels.push(P);
+  });
   XR.panelMeshes = XR.panels.map(P => P.mesh);
 }
 // leave the Stories screen: back into this story (resumed, or started if it never ran)
@@ -7791,7 +7797,8 @@ function xrLandingClose() {
   if (APP.mode === 'story' && !xrRoomOnly()) APP.playing = true;
 }
 function drawLandHead(ctx, P) {
-  ctx.font = vfont(58, 700); ctx.fillStyle = VC.ink; ctx.fillText(`Networks, in ${['one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve', 'thirteen', 'fourteen', 'fifteen'][HOST.list.length - 1] || HOST.list.length} stories`, 48, 44);
+  ctx.font = vfont(58, 700); ctx.fillStyle = VC.ink; ctx.fillText(`Networks, in ${['one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve', 'thirteen', 'fourteen', 'fifteen',
+    'sixteen', 'seventeen', 'eighteen', 'nineteen', 'twenty'][HOST.list.length - 1] || HOST.list.length} stories`, 48, 44);
   // anchored: where the place stands, in place of the hint
   const an = HOST.anchor.status();
   textBlock(ctx, an || 'The same ideas, very different networks. Point at a story and pull the trigger (or pinch).', 48, 128, 860, 27, 38, an ? VC.ink : VC.muted, 400, 2);

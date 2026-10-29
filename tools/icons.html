@@ -10,6 +10,7 @@
        &cols=3                     columns (default: 5)
        &t=3.5                      time in seconds, frozen (default: turning)
        &fallback                   adds a story with no model of its own
+       &turns=4                    each icon four times, a quarter of a turn apart (a row each with &cols=4)
      The app runs in a hidden frame (its HOST.list and HOST.collab.icon), so the icons are exactly the shell's. -->
 <style>
   html, body { margin: 0; height: 100%; background: #040912; color: #e7eef8; overflow: hidden;
@@ -43,54 +44,49 @@
   const T = frame.contentWindow.THREE, list = W.list;
   let keys = q.get('keys') ? q.get('keys').split(',').map(s => s.trim()).filter(Boolean) : list.map(m => m.key);
   if (q.has('fallback')) keys = keys.concat('sixteenth');
-  const cols = +q.get('cols') || Math.min(5, keys.length), rows = Math.ceil(keys.length / cols), frozen = q.has('t') ? +q.get('t') : null;
+  const turns = Math.max(1, +q.get('turns') || 1), shown = keys.flatMap(k => Array.from({ length: turns }, (_, j) => [k, j * 12 / turns]));
+  const cols = +q.get('cols') || Math.min(5, shown.length), rows = Math.ceil(shown.length / cols), frozen = q.has('t') ? +q.get('t') : null;
   const r = new T.WebGLRenderer({ canvas: cv, antialias: true, preserveDrawingBuffer: true });
   r.setPixelRatio(Math.min(2, devicePixelRatio || 1));
   r.setClearColor(0x040912, 1);
-  // as seen from about 4 m away by a standing person: the icon over its ring (2.1 m) a little above the eyes (1.6 m),
-  // leant back as it is in the room (shared.js: iconStep)
-  const elev = Math.atan2(0.5, 4), lean = Math.min(0.7, Math.max(0.1, elev + 0.2));
-  const cells = keys.map((key, i) => {
-    const m = list.find(x => x.key === key), I = W.collab.icon(key), sc = new T.Scene();
+  // all in one scene (their glows overlap as they would in a room), side by side, seen through a long lens; posed as
+  // in the room (shared.js: iconStep) the top of each is tipped 0.2 rad towards you beyond your line of sight, and
+  // its light is in view space, so a level camera sees what someone below it sees
+  const sc = new T.Scene(), cam = new T.PerspectiveCamera(10, 1, 1, 100), CELL = 0.5;
+  const cells = shown.map(([key, dt], i) => {
+    const m = list.find(x => x.key === key), I = W.collab.icon(key);
     sc.add(I.g);
-    const cam = new T.PerspectiveCamera(30, 1, 0.05, 50), d = 0.8;
-    cam.position.set(0, -d * Math.sin(elev), d * Math.cos(elev)); cam.lookAt(0, 0, 0);
     const el = document.createElement('div');
     el.className = 'name';
     el.innerHTML = m ? `<b>${m.title}</b><span style="color:${m.col}">${key} &middot; ${m.col}</span>` : `<b>A new story</b><span>${key} &middot; fallback</span>`;
     document.body.appendChild(el);
-    return { key, I, sc, cam, el, i, tris: I.mesh.geometry.attributes.position.count / 3 };
+    return { key, I, el, i, dt, tris: I.mesh.geometry.attributes.position.count / 3 };
   });
-  document.getElementById('note').textContent = `${keys.length} icons, ${cells.map(c => c.tris).reduce((a, b) => a + b, 0)} triangles in all ` +
-    `(${Math.min(...cells.map(c => c.tris))} to ${Math.max(...cells.map(c => c.tris))} each), one turn in 12 s` + (frozen !== null ? `, at ${frozen} s` : '');
-  window.__icons = cells.map(c => ({ key: c.key, tris: c.tris }));
+  const one = cells.filter(c => !c.dt);
+  document.getElementById('note').textContent = `${keys.length} icons, ${one.map(c => c.tris).reduce((a, b) => a + b, 0)} triangles in all ` +
+    `(${Math.min(...one.map(c => c.tris))} to ${Math.max(...one.map(c => c.tris))} each), one turn in 12 s` + (frozen !== null ? `, at ${frozen} s` : '') +
+    (turns > 1 ? `, ${turns} views a ${turns === 4 ? 'quarter' : '1/' + turns} of a turn apart` : '');
+  window.__icons = one.map(c => ({ key: c.key, tris: c.tris }));
   function layout() {
-    const w = innerWidth, h = innerHeight;
+    const w = innerWidth, h = innerHeight, cw = w / cols, ch = (h - HEAD) / rows, px = Math.min(cw, ch - 44), s = CELL / px;   // (metres per pixel)
     r.setSize(w, h, false);
-    const cw = w / cols, ch = (h - HEAD) / rows;
+    cam.aspect = w / h; cam.updateProjectionMatrix();
+    cam.position.set(0, 0, h * s / 2 / Math.tan(5 * Math.PI / 180)); cam.lookAt(0, 0, 0);
     cells.forEach(c => {
-      const x = (c.i % cols) * cw, y = HEAD + Math.floor(c.i / cols) * ch, lab = 40, side = Math.min(cw, ch - lab);
-      c.box = [x + (cw - side) / 2, y + 4, side, side - 4];
-      c.cam.aspect = 1; c.cam.updateProjectionMatrix();
-      c.el.style.left = (x + cw / 2) + 'px'; c.el.style.top = (y + side + 2) + 'px';
+      const x = (c.i % cols + 0.5) * cw, y = HEAD + Math.floor(c.i / cols) * ch + (ch - 44) / 2 + 4;
+      c.I.g.position.set((x - w / 2) * s, (h / 2 - y) * s, 0);
+      c.el.style.left = x + 'px'; c.el.style.top = (y + px / 2 - 6) + 'px';
     });
   }
-  addEventListener('resize', () => { layout(); if (frozen !== null) requestAnimationFrame(draw); });
-  layout();
   function draw(now) {
-    const t = frozen !== null ? frozen : now / 1000, H = innerHeight;
-    r.setScissorTest(false); r.clear();
-    r.setScissorTest(true);
-    for (const c of cells) {
-      const [x, y, w, h] = c.box;
-      c.I.pose(0, lean, t);
-      r.setViewport(x, H - y - h, w, h); r.setScissor(x, H - y - h, w, h);
-      c.cam.aspect = w / h; c.cam.updateProjectionMatrix();
-      r.render(c.sc, c.cam);
-    }
+    const t = frozen !== null ? frozen : now / 1000;
+    for (const c of cells) c.I.pose(0, 0.2, t + c.dt);
+    r.render(sc, cam);
     document.body.dataset.ready = '1';
     if (frozen === null) requestAnimationFrame(draw);
   }
+  addEventListener('resize', () => { layout(); if (frozen !== null) requestAnimationFrame(draw); });
+  layout();
   requestAnimationFrame(draw);
 })();
 </script>

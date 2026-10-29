@@ -1714,7 +1714,7 @@
   // covers neither from across the room); size: 1 model unit in metres (the models fit in a ball of 0.5); turn: s
   const ICON = { y: 2.1, size: 0.3, turn: 12, defs: new Map(), mat: null, tex: null };
   // the flat ones lie down and turn about their own axis, leant back towards you, so their top always shows
-  const ICON_FLAT = { micro: 0.95, topo: 0.95, robots: 0.75 };
+  const ICON_FLAT = { micro: 0.95, topo: 0.95, robots: 0.75, spatial: 0.55 };
   const V3 = (x, y, z) => new THREE.Vector3(x, y, z);
   const at = (x, y, z, rx, ry, rz, sx, sy, sz) => new THREE.Matrix4().compose(V3(x, y, z), new THREE.Quaternion().setFromEuler(new THREE.Euler(rx || 0, ry || 0, rz || 0)),
     V3(sx || 1, sy || sx || 1, sz || sx || 1));
@@ -1751,11 +1751,12 @@
       for (const [i, j] of [[0, 1], [0, 2], [0, 3], [0, 4], [0, 5], [1, 6], [2, 6], [3, 4], [1, 5], [2, 4]]) add(rod(P[i], P[j], 0.019, 5), T.l, 0.6);
       P.forEach((p, i) => add(ball(R[i], 1), i ? T.b : T.l, i ? 0.12 : 0.35, at(p.x, p.y, p.z)));
     },
-    spatial(add, T) {   // a cell cut open: the membrane with a quarter taken out, the nucleus, the reticulum round it, organelles
-      add(new THREE.SphereGeometry(0.42, 14, 9, Math.PI * 0.3, Math.PI * 1.4), T.b, 0.06);
-      add(ball(0.165, 1), T.l, 0.4, at(0.02, 0.02, 0));
-      add(new THREE.TorusGeometry(0.235, 0.014, 3, 18), T.w, 0.7, at(0.02, 0.02, 0, 1.2, 0.3, 0));
-      for (const [x, y, z, r] of [[-0.25, 0.14, 0.12, 0.6], [0.12, -0.27, -0.12, 2.1], [-0.18, -0.22, -0.16, 1.1], [0.24, 0.2, -0.1, 2.6]]) add(ball(0.05), T.w, 0.9, at(x, y, z, 0, r, 0.5, 1.8, 0.8, 0.8));
+    spatial(add, T) {   // a cell cut open across the top (it leans towards you, so you look in): the nucleus, the reticulum round it, organelles
+      add(new THREE.SphereGeometry(0.42, 16, 9, 0, Math.PI * 2, 1.15, Math.PI - 1.15), T.b, 0.06);
+      add(new THREE.TorusGeometry(0.43 * Math.sin(1.15), 0.012, 3, 24), T.w, 1, at(0, 0.42 * Math.cos(1.15), 0, Math.PI / 2));
+      add(ball(0.16, 1), T.l, 0.4, at(0, 0.03, 0));
+      add(new THREE.TorusGeometry(0.235, 0.014, 3, 18), T.w, 0.7, at(0, 0.0, 0, 1.45, 0, 0.15));
+      for (const [x, y, z, r] of [[-0.27, 0.02, 0.1, 0.6], [0.12, -0.02, -0.27, 2.1], [-0.12, 0.0, -0.25, 1.1], [0.26, 0.04, 0.12, 2.6]]) add(ball(0.05), T.w, 0.9, at(x, y, z, 0, r, 0.3, 1.8, 0.8, 0.8));
     },
     lbi(add, T) {   // a glowing network on a sphere, each node linked to its nearest, round a bright core
       const P = [];
@@ -1772,7 +1773,7 @@
       const G = [[0.13, 0.05], [-0.1, 0.14], [-0.06, -0.15], [0.16, -0.12]];
       for (let k = 0; k < 6; k++) {
         const y = -0.36 + k * 0.144;
-        add(new THREE.BoxGeometry(0.5, 0.022, 0.5), k % 2 ? T.l : T.b, 0.12, at(0, y, 0, 0, Math.PI / 4));
+        add(new THREE.BoxGeometry(0.5, 0.022, 0.5), k % 2 ? T.d : T.b, 0.1, at(0, y, 0, 0, Math.PI / 4));
         for (const [x, z] of G) add(new THREE.OctahedronGeometry(0.032), T.w, 1, at(x, y + 0.03, z));
         const [a, b] = [G[k % 4], G[(k + 1 + (k & 1)) % 4]];
         add(rod(V3(a[0], y + 0.03, a[1]), V3(b[0], y + 0.03, b[1]), 0.009), T.w, 0.8);
@@ -1853,20 +1854,20 @@
       };
       fish(at(0.07, 0.02, 0)); fish(at(-0.3, 0.24, 0.24, 0, 0.2, 0, 0.45)); fish(at(-0.28, -0.22, -0.2, 0, -0.15, 0, 0.4));
     },
-    flock(add, T) {   // a bird gliding, its wings raised in a shallow M, and two smaller ones behind it
+    flock(add, T) {   // a bird with its wings raised in a broad V, and two smaller ones behind it
       const bird = F => {
-        add(ball(0.11, 1), T.b, 0.15, mul(F, at(0, 0, 0, 0, 0, 0, 1.9, 0.85, 0.85)));
-        add(ball(0.075, 1), T.b, 0.15, mul(F, at(0.19, 0.04, 0)));
-        add(new THREE.ConeGeometry(0.026, 0.08, 4), T.w, 0.6, mul(F, at(0.29, 0.03, 0, 0, 0, -Math.PI / 2)));
+        add(ball(0.11, 1), T.b, 0.15, mul(F, at(0, 0, 0, 0, 0, 0, 1.6, 0.95, 0.95)));
+        add(ball(0.08, 1), T.b, 0.15, mul(F, at(0.17, 0.06, 0)));
+        add(new THREE.ConeGeometry(0.028, 0.08, 4), T.w, 0.6, mul(F, at(0.27, 0.05, 0, 0, 0, -Math.PI / 2)));
         for (const s of [1, -1]) {
-          // the inner wing rises from the body, the outer one (the hand) sweeps back and dips a little
-          const W = mul(F, at(0.02, 0.03, 0.04 * s, -0.5 * s));
-          add(plate([[0.1, 0], [-0.1, 0], [-0.08, 0.22], [0.06, 0.22]].map(([x, z]) => [x, z * s]), 0.018), T.l, 0.35, W);
-          add(plate([[0.06, 0], [-0.08, 0], [-0.25, 0.27]].map(([x, z]) => [x, z * s]), 0.016), T.l, 0.35, mul(W, at(0, 0, 0.22 * s, 0.75 * s)));
+          // the inner wing rises steeply from the body, the outer one (the hand) spreads out wider and sweeps back
+          const W = mul(F, at(0.0, 0.04, 0.05 * s, -0.75 * s));
+          add(plate([[0.12, 0], [-0.12, 0], [-0.1, 0.2], [0.08, 0.2]].map(([x, z]) => [x, z * s]), 0.02), T.l, 0.35, W);
+          add(plate([[0.08, 0], [-0.1, 0], [-0.2, 0.2], [-0.06, 0.24]].map(([x, z]) => [x, z * s]), 0.018), T.l, 0.35, mul(W, at(0, 0, 0.2 * s, 0.45 * s)));
         }
-        add(plate([[-0.12, 0], [-0.3, 0.08], [-0.3, -0.08]], 0.014), T.b, 0.2, F);
+        add(plate([[-0.1, 0], [-0.26, 0.09], [-0.22, 0], [-0.26, -0.09]], 0.016), T.b, 0.2, mul(F, at(0, 0.01, 0, 0, 0, 0.15)));
       };
-      bird(at(0.14, 0.02, 0, 0, 0, 0, 0.82)); bird(at(-0.33, 0.18, 0.28, 0, 0.1, 0, 0.42)); bird(at(-0.3, -0.14, -0.3, 0, -0.1, 0, 0.4));
+      bird(at(0.1, -0.06, 0, 0, 0, 0, 0.9)); bird(at(-0.32, 0.2, 0.3, 0, 0.1, 0, 0.42)); bird(at(-0.3, -0.18, -0.32, 0, -0.1, 0, 0.38));
     },
     robots(add, T) {   // a robot vacuum: its disc, the lid with a glowing edge, the bumper, the laser turret, a light, a side brush
       add(new THREE.CylinderGeometry(0.36, 0.36, 0.09, 20), T.b, 0.06);

@@ -1,0 +1,72 @@
+{
+  "app": "networks",
+  "version": "networks-v95",
+  "format": "networks-23",
+  "shell": {
+    "n": 95,
+    "id": "ef2bb33da5b591a8"
+  },
+  "list": "19ae1fef68e2d44a",
+  "stories": {
+    "airports": {
+      "fp": "63eb86c492fa018b",
+      "needs": 95
+    },
+    "proteins": {
+      "fp": "d99fc0062c1b2566",
+      "needs": 95
+    },
+    "spatial": {
+      "fp": "541e0e016cb97297",
+      "needs": 95
+    },
+    "lbi": {
+      "fp": "569e670327c13e50",
+      "needs": 95
+    },
+    "nmd": {
+      "fp": "e875a2f00cede000",
+      "needs": 95
+    },
+    "endo": {
+      "fp": "45b822fcf6b07315",
+      "needs": 95
+    },
+    "pet": {
+      "fp": "ec14d1860045211f",
+      "needs": 95
+    },
+    "micro": {
+      "fp": "b69c1b8339f896a6",
+      "needs": 95
+    },
+    "ovary": {
+      "fp": "b62a9c2345922aa8",
+      "needs": 95
+    },
+    "qubits": {
+      "fp": "a70af07961b24a8c",
+      "needs": 95
+    },
+    "mutation": {
+      "fp": "0f25e26b3c1e70db",
+      "needs": 95
+    },
+    "topo": {
+      "fp": "7ffa1d2d7fa178a7",
+      "needs": 95
+    },
+    "pass": {
+      "fp": "fb4ce03d0a263a3c",
+      "needs": 95
+    },
+    "flock": {
+      "fp": "ce82491b9a56cee8",
+      "needs": 95
+    },
+    "robots": {
+      "fp": "00fb9d73bb3e6268",
+      "needs": 95
+    }
+  }
+}
