@@ -103,7 +103,7 @@ it, and here it is built from the audio:
   cuts a line; `NARRATION_ENDS` (where each chapter's words end, to 0.05 s) lets the voice finish there anyway, as the
   airports' recording needs.
 
-The recording is the lines placed on that timeline (24 kHz from Kokoro), levelled to -16 LUFS (ffmpeg's loudnorm, two
+The recording is the lines placed on that timeline (24 kHz from Kokoro), levelled to -16 LUFS, peaks under -2.5 dB (ffmpeg's loudnorm, two
 passes), as a mono 44.1 kHz MP3 at 64 kbps, padded with silence to the end of the story. The script checks the words'
 ends against the recording itself (silencedetect) and that no line runs into the next.
 

@@ -8947,31 +8947,35 @@ function updateLight(xr) {
 }
 
 // ================================================================== STORY ==
-// Narration timing: [time in your recording, original story cue]. The story's
+// Narration timing: [time in the recording, original story cue]. The story's
 // animation is stretched or squeezed between these points so each cue lands
-// on the matching sentence. Until a narration is recorded, the table sets the
-// pace: node tools/pace.mjs writes it from the words on the panel (each stretch
-// between two cues lasts long enough to read what appeared at its start; run
-// it again after the text changes). A recording replaces it with its own times.
+// on the matching sentence. The tour is narrated by a synthetic voice
+// (audio/narration-lbi.mp3, Kokoro's af_heart): node tools/voice/narrate.mjs lbi
+// writes this table and NARRATION_ENDS from the recording it makes (each
+// stretch lasts the longer of 1.1 times its story time and its line's audio
+// plus a pause); run it again after the text changes (see tools/voice/README.md).
 const NARRATION_SYNC = [
-  [0, 0], [1.3, 1.2], [2.9, 2.4], [4.2, 3.6], [11.9, 8], [12.6, 8.6], [23.5, 13],  // Intro
-  [33.4, 22], [34.7, 23.18], [36.3, 23.2], [62.5, 47], [66.3, 49],  // Parts
-  [72.1, 54], [72.7, 54.6], [73.7, 55.2], [91.1, 71], [94.6, 73],  // Networks
-  [100.7, 78], [102, 79.18], [103, 79.2], [103.6, 79.8], [108.1, 81], [133.4, 104], [138.2, 108],  // Life
-  [145.6, 114], [146.2, 114.6], [147.5, 115.2], [156.1, 123], [166.4, 132], [189, 152.6],
-  [193.8, 154],                                       // Complexes
-  [202.6, 162], [203.9, 163.18], [204.9, 163.2], [219.6, 176.6], [221.8, 177], [236.1, 190],
-  [238.1, 191], [257.9, 209], [265.2, 214],           // Map
-  [274, 222], [274.7, 222.6], [275.7, 223.2], [284.3, 228], [293.1, 236], [300.5, 240],  // Disease
-  [309.3, 248], [310, 248.6], [311.2, 249.2], [312.6, 250.4], [314.5, 251.6],  // Immunity
-  [356.7, 290], [357.4, 290.6], [358.7, 291.2], [383.7, 314], [392.1, 318],  // Treatment
-  [396.5, 322], [397.1, 322.6], [398.1, 323.2],       // Scales
-  [434.2, 356], [434.8, 356.6], [436.4, 358], [437.1, 358.6], [442.5, 360], [445.7, 362],
-  [449.6, 364],                                       // Institute
-  [471.6, 384], [472.9, 385.2], [484.8, 394],         // Body
-  [502.4, 410], [503, 410.6], [504.3, 411.2],         // Tissue
-  [536, 440], [538, 441.8], [543.4, 443], [546.9, 445], [549.5, 447], [553.4, 449], [574.3, 468],  // Mission
+  [0, 0], [1.32, 1.2], [5.12, 3.6], [14.21, 8], [14.87, 8.6], [35.39, 13],  // Intro
+  [45.29, 22], [46.59, 23.18], [48.83, 23.2], [55.3, 29],  // Parts
+  [82.8, 54], [84.1, 55.18], [86.17, 55.2], [96.95, 65], [104.9, 71],  // Networks
+  [112.6, 78], [113.89, 79.18], [116.09, 79.2], [116.75, 79.8], [123.33, 81],  // Life
+  [159.63, 114], [160.93, 115.18], [163.05, 115.2], [173.81, 123], [188.24, 132],  // Complexes
+  [221.24, 162], [222.54, 163.18], [224.8, 163.2], [239.54, 176.6], [243.71, 177], [258.67, 190.6],
+  [261.86, 191],                                      // Map
+  [295.96, 222], [297.26, 223.18], [299.8, 223.2], [300.46, 223.8], [311.97, 228],  // Disease
+  [333.97, 248], [335.27, 249.18], [337.55, 249.2], [338.21, 249.8], [340.36, 250.4], [341.02, 251],
+  [344.93, 251.6], [349.23, 254], [355.83, 260], [367.23, 269],  // Immunity
+  [390.33, 290], [391.63, 291.18], [394.58, 291.2], [419.66, 314], [432.05, 321.3],  // Treatment
+  [432.82, 322], [434.12, 323.18], [436.21, 323.2],   // Scales
+  [472.29, 356], [473.61, 357.2], [476.81, 358], [477.47, 358.6], [486.76, 360], [487.42, 360.6],
+  [493.89, 362], [494.55, 362.6], [501.5, 364], [509.92, 371],  // Institute
+  [524.22, 384], [525.51, 385.18], [527.48, 385.2], [540.65, 394],  // Body
+  [558.25, 410], [559.55, 411.18], [561.53, 411.2],   // Tissue
+  [593.21, 440], [594.51, 441.18], [596.03, 441.2], [596.69, 441.8], [604.29, 443], [604.95, 443.6],
+  [610.58, 445], [611.24, 445.6], [615.47, 447], [616.13, 447.6], [621.63, 449], [642.53, 468],  // Mission
 ];
+// where each chapter's words end in the recording (seconds by chapter key): the slideshow lets the voice finish there
+const NARRATION_ENDS = { title: 42.95, whole: 79.4, everywhere: 108.7, blocks: 154.35, complex: 216.9, map: 293.2, rare: 328.75, iei: 376.35, treat: 431.8, scales: 466.8, lbi: 516.55, body: 549.95, tissue: 585.95, mission: 624.35 };
 // recording time -> original story time
 function storyT(t) {
   const W = NARRATION_SYNC;
@@ -9154,7 +9158,7 @@ function buildStory() {
         <li data-at="9"><b>Look ahead</b>invent the future of medicine</li>
       </ul>
       <p data-at="15"><button class="btn primary" id="btnGoExplore" type="button">Explore the scenes</button></p>
-      <p class="credits" data-at="17">Thank you! netmed.lbg.ac.at · menchelab.com</p>`,
+      <p class="credits" data-at="17">Thank you! netmed.lbg.ac.at · menchelab.com · Narration: a synthetic voice (Kokoro).</p>`,
   };
   const story = $('#story');
   story.innerHTML = CH.map(c => `<section class="ch" data-ch="${c.key}">${html[c.key]}</section>`).join('');

@@ -218,8 +218,8 @@ console.log(`ends at ${mmss(T_END)} (${T_END} s); the old table ended at ${story
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'narrate-')), wav = path.join(tmp, 'mix.wav'), mp3 = path.join(tmp, 'narration.mp3');
 const m = spawnSync(PY, [KPY, 'mix', '--out', wav, '--length', String(T_END)], { input: JSON.stringify(read.map(l => ({ file: l.file, at: l.at }))), stdio: ['pipe', 'pipe', 'inherit'] });
 if (m.status !== 0) { console.error('kokoro.py mix failed'); process.exit(1); }
-// loudness to -16 LUFS in two passes (measure, then apply linearly), 44.1 kHz mono MP3 at 64 kbps
-const ln = 'loudnorm=I=-16:TP=-1.5:LRA=11';
+// loudness to -16 LUFS in two passes (measure, then apply), true peaks under -2.5 dB, 44.1 kHz mono MP3 at 64 kbps
+const ln = 'loudnorm=I=-16:TP=-2.5:LRA=11';
 const meas = spawnSync('ffmpeg', ['-hide_banner', '-nostats', '-i', wav, '-af', ln + ':print_format=json', '-f', 'null', '-']).stderr.toString();
 const J = JSON.parse(meas.slice(meas.lastIndexOf('{'), meas.lastIndexOf('}') + 1));
 const af = `${ln}:measured_I=${J.input_i}:measured_TP=${J.input_tp}:measured_LRA=${J.input_lra}:measured_thresh=${J.input_thresh}:offset=${J.target_offset}:linear=true`;
