@@ -262,7 +262,7 @@ All under `/api/`, JSON, `Cache-Control: no-store`, `Access-Control-Allow-Origin
 With `--static <dir>`, every other path may be a file of the app, and only that: `index.html` (also at `/`),
 `shared.js`, `sw.js`, `manifest.webmanifest`, `three.min.js`, `three.LICENSE.txt`, `proteins.html`,
 `spatial.html`, `README.txt`, `peerjs.min.js`, `PEERJS-LICENSE.txt`, `version.json` (the release's version file, for
-live updates: sent with `Cache-Control: no-store`), and the files directly in `stories/`, `audio/`,
+live updates: sent with `Cache-Control: no-store`), `lowpoly.js` (the miniatures), and the files directly in `stories/`, `audio/`,
 `icons/` and `p2p/` (the peer-to-peer test page, at `/p2p/`: a path ending in `/` is that folder's `index.html`)
 (`APP_FILES` and `APP_DIRS` in `server.mjs`: add to them when the app needs a new file or folder). Everything else is 404: the
 authors' data (`ikerdata/`), `tools/`, `docs/`, the relay itself, folders (no listings), anything whose path has

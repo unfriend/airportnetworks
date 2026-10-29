@@ -1,72 +1,76 @@
 {
   "app": "networks",
-  "version": "networks-v95",
-  "format": "networks-23",
+  "version": "networks-v96",
+  "format": "networks-24",
   "shell": {
-    "n": 95,
-    "id": "ef2bb33da5b591a8"
+    "n": 96,
+    "id": "5c133ab080c2e1f9"
   },
-  "list": "19ae1fef68e2d44a",
+  "list": "9907badb428db94a",
   "stories": {
     "airports": {
-      "fp": "63eb86c492fa018b",
-      "needs": 95
+      "fp": "a3f24bc60d5a18e5",
+      "needs": 96
     },
     "proteins": {
-      "fp": "d99fc0062c1b2566",
-      "needs": 95
+      "fp": "58384fd793f00103",
+      "needs": 96
     },
     "spatial": {
-      "fp": "541e0e016cb97297",
-      "needs": 95
+      "fp": "5d7e59fd34df2a30",
+      "needs": 96
     },
     "lbi": {
-      "fp": "569e670327c13e50",
-      "needs": 95
+      "fp": "0991c179b06251bb",
+      "needs": 96
     },
     "nmd": {
-      "fp": "e875a2f00cede000",
-      "needs": 95
+      "fp": "3e362958777c4fa2",
+      "needs": 96
     },
     "endo": {
-      "fp": "45b822fcf6b07315",
-      "needs": 95
+      "fp": "354745b368ae3519",
+      "needs": 96
     },
     "pet": {
-      "fp": "ec14d1860045211f",
-      "needs": 95
+      "fp": "19742a42b72aa798",
+      "needs": 96
     },
     "micro": {
-      "fp": "b69c1b8339f896a6",
-      "needs": 95
+      "fp": "2f7e291b9224716e",
+      "needs": 96
     },
     "ovary": {
-      "fp": "b62a9c2345922aa8",
-      "needs": 95
+      "fp": "faaf576a60c8d5ae",
+      "needs": 96
     },
     "qubits": {
-      "fp": "a70af07961b24a8c",
-      "needs": 95
+      "fp": "ca5ea28b1f9b3152",
+      "needs": 96
     },
     "mutation": {
-      "fp": "0f25e26b3c1e70db",
-      "needs": 95
+      "fp": "506b049f411c4f8a",
+      "needs": 96
     },
     "topo": {
-      "fp": "7ffa1d2d7fa178a7",
-      "needs": 95
+      "fp": "c9dcd597f3b52a4f",
+      "needs": 96
     },
     "pass": {
-      "fp": "fb4ce03d0a263a3c",
-      "needs": 95
+      "fp": "f0e026cf8cf9a653",
+      "needs": 96
     },
     "flock": {
-      "fp": "ce82491b9a56cee8",
-      "needs": 95
+      "fp": "d15581be030bb93c",
+      "needs": 96
     },
     "robots": {
-      "fp": "00fb9d73bb3e6268",
-      "needs": 95
+      "fp": "d50e687ee20e860a",
+      "needs": 96
+    },
+    "design": {
+      "fp": "89e12fcc19502557",
+      "needs": 96
     }
   }
 }

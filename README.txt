@@ -114,7 +114,8 @@ make a new one: start AR on one headset first, then the others. The relay keeps 
 relay/logs/ for checking alignment. People elsewhere and
 screens
 see the stations round their own spot. Screens get a room map and Follow a
-station. A station moves with the grip on its ring or card in a headset (point
+station. Over each station's ring a small 3D model of its story turns, in its
+colour, so you can tell the circles apart from across the room. A station moves with the grip on its ring or card in a headset (point
 to swing it round, raise or lower to push or pull, twist to turn it), or by
 dragging its dot (or its square, to turn it) on the room map; everyone sees it
 move. Lock layout (headset menu or Shared dialog) then keeps them where they are,
@@ -195,8 +196,9 @@ Narration: put your recordings at audio/narration.mp3 (airports),
 audio/narration-proteins.mp3 (proteins), audio/narration-spatial.mp3
 (cell map), audio/narration-lbi.mp3 (the tour), audio/narration-nmd.mp3,
 audio/narration-endo.mp3, audio/narration-pet.mp3, audio/narration-micro.mp3,
-audio/narration-ovary.mp3, audio/narration-qubits.mp3, audio/narration-mutation.mp3, audio/narration-topo.mp3, audio/narration-pass.mp3, audio/narration-flock.mp3 and audio/narration-robots.mp3 (only the airports
-one is recorded so far); see the note in the audio folder for chapter timings
+audio/narration-ovary.mp3, audio/narration-qubits.mp3, audio/narration-mutation.mp3, audio/narration-topo.mp3, audio/narration-pass.mp3, audio/narration-flock.mp3 and audio/narration-robots.mp3 (the airports
+one is recorded; the tour's is a synthetic voice, made by tools/voice/, which
+can narrate the others too); see the note in the audio folder for chapter timings
 and how to record one, and docs/narration.md for the words. It plays in
 sync with the story, follows pause, seeking and chapter jumps, and has a Sound
 on/off button (top bar and VR panel). Browsers only start sound after a tap or
@@ -211,9 +213,14 @@ element) and lets you choose the one you hear. Reset clears the saved choices.
 A link ending in #soundcheck opens it.
 
 After changing any file (including adding or replacing a narration file),
-bump VERSION in sw.js so installed copies update. Online, the app always fetches
-its files fresh (the cache is for offline use); a copy that is open while an
-update arrives reloads itself the next time you are on the Stories screen.
+bump VERSION in sw.js so installed copies update, then run node
+tools/release.mjs (it writes version.json). Online, the app always fetches
+its files fresh (the cache is for offline use). A copy that is open picks up
+a release by itself, about once a minute: new and changed stories are taken
+without losing your place (the story on show is swapped at a quiet moment),
+and a new shell asks first (Reload now or Later; on the Stories screen it
+reloads by itself). While developing, node relay/server.mjs --static . --watch swaps a
+saved story in place on every page and headset showing it.
 
 Protein data: an illustrative, hand-curated subnetwork of 254 well-documented
 human proteins and 375 interactions (complexes and pathways from the
@@ -346,7 +353,7 @@ version.json (the latest release: running copies pick up new and changed stories
 tools/release.mjs), proteins.html and
 spatial.html (forward to the app), manifest.webmanifest, sw.js (offline cache), audio/,
 shared.js (shared rooms), peerjs.min.js (PeerJS, MIT: peer-to-peer rooms), p2p/ (a test page: do devices link
-directly?), relay/ (the shared rooms' server), docs/ (the shared rooms' plan and the handover notes), HANDOVER.md (start here when taking the project over),
+directly? Two laptops on a local network did, 29 October 2026), relay/ (the shared rooms' server), docs/ (the shared rooms' plan and the handover notes), HANDOVER.md (start here when taking the project over),
 AGENTS.md and CLAUDE.md (notes for AI coding agents), tools/smoke.mjs (headless test),
 tools/collab.mjs (headless test of shared rooms, peer to peer too; node relay/test.mjs tests the relay),
 tools/lbi/ (sources of the tour; node tools/lbi/build.mjs writes stories/lbi.js),
@@ -364,5 +371,7 @@ tools/pass/build.mjs writes stories/pass.js from them and from the airports and 
 writes stories/flock.js), tools/robots/ (sources of the robot gang;
 node tools/robots/build.mjs writes stories/robots.js), tools/design/ (sources of the design room; node
 tools/design/build.mjs writes stories/design.js), tools/lowpoly/ (the miniatures; node tools/lowpoly/build.mjs writes
-lowpoly.js),
+lowpoly.js, the miniatures the design room and the stations' icons use), tools/voice/ (a
+synthetic narration: node tools/voice/narrate.mjs <story>), tools/release.mjs (writes version.json), tools/live.mjs
+(headless test of live updates), tools/icons.html (the stations' icons side by side),
 icons/, three.min.js (three.js r128, MIT licence, see three.LICENSE.txt).

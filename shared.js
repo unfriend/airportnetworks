@@ -64,9 +64,10 @@
   // wall-clock ms (a monotonic clock may stand still while a device sleeps; the relay's offset absorbs any jump)
   const clock = () => Date.now();
   const r3 = x => Math.round(x * 1000) / 1000;
-  // a story's entry in the list; one this device does not know yet (a newer copy of the app put it in the room) gets a
-  // stand-in whose card says this device needs an update (HOST.unknown; HOST.live offers the update)
-  const meta = key => HOST.list.find(s => s.key === key) || (HOST.unknown ? HOST.unknown(key) : undefined);
+  // a story's entry in the list (HOST.meta: also a page that is not one of the stories, as the design room); one this
+  // device does not know yet (a newer copy of the app put it in the room) gets a stand-in whose card says this device
+  // needs an update (HOST.unknown; HOST.live offers the update)
+  const meta = key => (HOST.meta ? HOST.meta(key) : HOST.list.find(s => s.key === key)) || (HOST.unknown ? HOST.unknown(key) : undefined);
   const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const mmss = t => { t = Math.max(0, Math.floor(t)); return Math.floor(t / 60) + ':' + String(t % 60).padStart(2, '0'); };
   const fwd = yaw => [-Math.sin(yaw), -Math.cos(yaw)];   // a yaw's forward on the floor (x, z): yaw 0 faces -z
@@ -2511,7 +2512,7 @@
   // stop): the last caption of a stretch holds until the next cue. It follows the head with lag: still while you look
   // round within 15 degrees, eased back in front of you beyond
   const SUBS = { w: 1280, h: 200, mw: 0.9, dist: 1.4, drop: 16 * Math.PI / 180, turn: 15 * Math.PI / 180, rate: 2.1, chars: 42, px: 56 };   // (42 characters of B612 at 56 px: about 1,090 of the 1,280)
-  const SUB = { key: '', caps: null, want: '', wantId: '', shown: '', shownId: '', a: 0, txt: new WeakMap(), dir: new THREE.Vector3(), o: new THREE.Vector3(), placed: false, turning: false, moving: false };
+  const SUB = { key: '', keyA: NaN, caps: null, capsW: null, W: 0, res: ['', ''], id: '', idAt: NaN, idK: -1, want: '', wantId: '', shown: '', shownId: '', a: 0, txt: new WeakMap(), dir: new THREE.Vector3(), o: new THREE.Vector3(), placed: false, turning: false, moving: false };
   // one cue's words as tools/narration.mjs reads them (not inside an svg, a button or a cue of its own; a bold name run
   // straight into its text gets a colon), kept a quarter of a second (a live number in a line is read again)
   function subText(el, t) {
@@ -2555,24 +2556,29 @@
     return caps;
   }
   // the caption on show now from the story's hook, or '' (and which one it is, so a live number in it redraws in place)
+  // (one result array and the split's key kept between frames: this runs every frame while subtitles are on)
   function subNow(c, t) {
+    const res = SUB.res;
+    res[0] = res[1] = '';
     let at = -Infinity;
     for (const e of c.els) if (e.at <= c.s + 1e-6 && e.at > at && subText(e.el, t)) at = e.at;
-    if (at === -Infinity) return ['', ''];
-    let next = c.end, out = Infinity;
-    const txt = [];
+    if (at === -Infinity) return res;
+    let next = c.end, out = Infinity, text = '', n = 0;
     for (const e of c.els) {
-      if (e.at === at) { const s = subText(e.el, t); if (s) { txt.push(s); out = Math.min(out, e.out); } }
+      if (e.at === at) { const s = subText(e.el, t); if (s) { text = n++ ? text + '\n' + s : s; out = Math.min(out, e.out); } }
       else if (e.at > at && e.at < next && subText(e.el, t)) next = e.at;
     }
-    if (c.s >= out) return ['', ''];   // (its line went early: data-out)
+    if (c.s >= out) return res;   // (its line went early: data-out)
     // the stretch on the clock: a chapter's last line ends before a slideshow would stop it (0.7 s before the end)
-    const T = c.narrT, a = T(at), b = Math.max(a + 0.1, T(Math.min(out, next === c.end ? c.end - 0.75 : next))), text = txt.join('\n'), key = a + '|' + text;
-    if (key !== SUB.key) { SUB.key = key; SUB.caps = subSplit(text); }
-    const caps = SUB.caps, W = caps.reduce((s, x) => s + x.words, 0), r = Math.max(SUBS.rate, W / (b - a)), now = T(c.s);
+    const T = c.narrT, a = T(at), b = Math.max(a + 0.1, T(Math.min(out, next === c.end ? c.end - 0.75 : next)));
+    if (a !== SUB.keyA || text !== SUB.key) { SUB.keyA = a; SUB.key = text; SUB.caps = subSplit(text); }
+    const caps = SUB.caps, W = SUB.capsW !== caps ? (SUB.capsW = caps, SUB.W = caps.reduce((s, x) => s + x.words, 0)) : SUB.W;
+    const r = Math.max(SUBS.rate, W / (b - a)), now = T(c.s);
     let k = 0;
     for (let i = 1, w = caps[0].words; i < caps.length; w += caps[i].words, i++) if (a + w / r <= now + 1e-6) k = i;
-    return [caps[k].s, at + ':' + k];
+    if (SUB.idAt !== at || SUB.idK !== k) { SUB.idAt = at; SUB.idK = k; SUB.id = at + ':' + k; }
+    res[0] = caps[k].s; res[1] = SUB.id;
+    return res;
   }
   // the strip: one canvas, drawn again only when the caption changes; white text on a dark band as wide as the text, its
   // lower edge kept (a second line goes above), two lines balanced
@@ -2607,7 +2613,7 @@
     let c = null;
     if (on && HOST.cur && typeof HOST.cur.caption === 'function') { try { c = HOST.cur.caption(); } catch (e) { c = null; } }
     let want = '', id = '';
-    if (c && c.els && c.narrT) { try { [want, id] = subNow(c, t); } catch (e) { want = ''; } }
+    if (c && c.els && c.narrT) { try { const r = subNow(c, t); want = r[0]; id = r[1]; } catch (e) { want = id = ''; } }
     S.want = want; S.wantId = id;
     // fading between captions (a live number changing in the one on show redraws it in place)
     if (want && want !== SUB.shown && id === SUB.shownId) { subDraw(want); SUB.shown = want; }

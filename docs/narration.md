@@ -11,12 +11,12 @@ MP3 at the file named under each story; if your chapters start at other times, c
 [time in the recording, story time]) in the story's source (`tools/<story>/engine/e3_story.js`, then rebuild; in
 `stories/<story>.js` for the airports, proteins and spatial stories) and run the smoke test.
 
-| Story | File | Recorded | Length |
+| Story | File | Narration | Length |
 | --- | --- | --- | --- |
-| Network theory: Airports | `audio/narration.mp3` | yes | 3:51 |
+| Network theory: Airports | `audio/narration.mp3` | recorded | 3:51 |
 | Network medicine: Proteins | `audio/narration-proteins.mp3` | not yet | 4:38 |
 | Spatial interactome: Cell map | `audio/narration-spatial.mp3` | not yet | 5:09 |
-| LBI Network Medicine: The future | `audio/narration-lbi.mp3` | yes | 10:42 |
+| LBI Network Medicine: The future | `audio/narration-lbi.mp3` | synthetic voice | 10:42 |
 | Rare muscle diseases: Muscle and heart | `audio/narration-nmd.mp3` | not yet | 7:47 |
 | Disease endotypes: Endotypes | `audio/narration-endo.mp3` | not yet | 7:12 |
 | Whole-body PET: One scan, one system | `audio/narration-pet.mp3` | not yet | 6:33 |
@@ -286,7 +286,7 @@ File: `audio/narration-spatial.mp3` (not recorded yet). Chapters: 0:00 Intro, 0:
 
 ## LBI Network Medicine: The future (`#lbi`)
 
-File: `audio/narration-lbi.mp3` (recorded). Chapters: 0:00 Intro, 0:45 Parts, 1:22 Networks, 1:52 Life, 2:39 Complexes, 3:41 Map, 4:55 Disease, 5:33 Immunity, 6:30 Treatment, 7:12 Scales, 7:52 Institute, 8:44 Body, 9:18 Tissue, 9:53 Mission; it ends at 10:42.
+File: `audio/narration-lbi.mp3` (synthetic voice). Chapters: 0:00 Intro, 0:45 Parts, 1:22 Networks, 1:52 Life, 2:39 Complexes, 3:41 Map, 4:55 Disease, 5:33 Immunity, 6:30 Treatment, 7:12 Scales, 7:52 Institute, 8:44 Body, 9:18 Tissue, 9:53 Mission; it ends at 10:42.
 
 ### 0:00 Intro
 

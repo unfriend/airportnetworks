@@ -1081,7 +1081,11 @@ station, were checked on a Quest 3, 28 October 2026),
 persistent anchors restored (one headset's handles were refused; the log now
 says why), whether a recentre fires a reset, sound zones heard, comfort and
 frame rate with presence drawn, and whether the socket keeps running inside an
-immersive session.
+immersive session. Peer to peer on real devices (the owner, 29 October 2026):
+two laptops found each other on a local network with the test page `p2p/`, and
+two laptops were in one peer-to-peer room; not yet tried: headsets and phones in
+such a room, links inside VR and AR, a host change and a headset's hand-over at
+an event, and how long PeerJS's public server keeps a sleeping host's id.
 
 ## Inside a story (all fifteen follow the same pattern)
 
@@ -1667,7 +1671,9 @@ is the contract. Rebuild it after changing `props.json` or the miniatures' names
 
 - Bump `VERSION` in `sw.js` whenever any app file changes, or installed copies
   (and headsets) keep serving the old cache. If you add a file the app needs,
-  also add it to `SHELL`.
+  also add it to `SHELL`, and to `APP_FILES` (or `APP_DIRS`) in
+  `relay/server.mjs`, or the relay serving the app answers 404 for it
+  (`node relay/test.mjs` checks every file `SHELL` names).
 - When releasing (after bumping `VERSION`), run `node tools/release.mjs`: it
   writes `version.json` and stamps the shell's release into `index.html`
   (`HOST.shell`); commit both. `node tools/release.mjs --check` says whether

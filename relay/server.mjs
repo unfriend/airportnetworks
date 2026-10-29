@@ -571,7 +571,7 @@ const REAL = ROOT ? fs.realpathSync(ROOT) : '';
 // folders. Everything index.html, sw.js (SHELL, AUDIO) and the stories load is here; add what the app gains.
 // (p2p/ is the peer-to-peer test page, at /p2p/: with &peer= it can use this relay's introduction server.)
 const APP_FILES = new Set(['index.html', 'shared.js', 'sw.js', 'manifest.webmanifest', 'three.min.js', 'three.LICENSE.txt',
-  'peerjs.min.js', 'PEERJS-LICENSE.txt', 'proteins.html', 'spatial.html', 'README.txt', 'version.json']);
+  'peerjs.min.js', 'PEERJS-LICENSE.txt', 'proteins.html', 'spatial.html', 'README.txt', 'version.json', 'lowpoly.js']);
 const APP_DIRS = new Set(['stories', 'audio', 'icons', 'p2p']);
 const appFile = segs => (segs.length === 1 && APP_FILES.has(segs[0])) || (segs.length === 2 && APP_DIRS.has(segs[0]));
 

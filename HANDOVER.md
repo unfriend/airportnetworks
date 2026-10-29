@@ -43,8 +43,27 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
 ## Where things stand
 
 - **Tested automatically** before every merge to main: the smoke test (every story, explore mode, headset panels
-  with a pretend headset, anchored placement), the update test (service worker), the relay's protocol test and the
-  shared-room test (three pages and a pretend headset in a room). All pass on main.
+  with a pretend headset, anchored placement), the sound test, the update test (service worker), the live-update test
+  (`tools/live.mjs`), the relay's protocol test and the shared-room test (three pages and a pretend headset in a room),
+  and each built story's `--check`. All pass on main.
+- **Built on 29 October 2026 (release networks-v96), tested headlessly only:**
+  - *Live updates and hot reload:* a running copy takes a new release by itself without losing its place, and while
+    developing follows the files as they are saved (`HOST.live`, `version.json` written by `node tools/release.mjs`,
+    the relay's `--watch` and `--build`; AGENTS.md "Hot reload and live updates").
+  - *Station icons:* a small low-poly model of each station's story, in its colour, turning over its ring in a shared
+    room (`ICONS` in `shared.js`; `tools/icons.html` shows them all).
+  - *45 low-poly miniatures* of the stories' 3D sets (`lowpoly.js`, built by `node tools/lowpoly/build.mjs`), from
+    the catalogue of props ([docs/props.md](docs/props.md), `tools/design/props.json`).
+  - *The design room, part 1* (`#design`, `stories/design.js` from `tools/design/`; not one of the stories, so on no
+    Stories screen): a round table with every story's miniatures on a plate in its colour; pick one for the stage and
+    its card, pick it up with the grip in a headset; shared like a story in a room.
+  - *Subtitles in the headset:* a setting for the whole room (*Subtitles: on/off* in the headset's menu and the
+    Shared dialog; off by default; the device's own outside a room; `#subs=on`), the narration's words in a strip low in
+    the view that follows the head loosely. All in the shell, fed by a small caption hook in each of the fifteen stories
+    (FORMAT networks-24). How they read and follow on a headset is untested.
+  - *The PET story's text fixes* after the poster comparison (item 8 below; 6:33).
+  - *The tour narrated by a synthetic voice* (Kokoro-82M, `af_heart`; `tools/voice/`, `audio/narration-lbi.mp3`,
+    10:42); `node tools/voice/check.mjs lbi` checks the recording against the story.
 - **Tried on real headsets:** the stories and their sound on Quest; shared rooms on two Quest 3 headsets in several
   rounds (what happened is in [docs/quest-shared-space-findings.md](docs/quest-shared-space-findings.md) and AGENTS.md
   "Shared rooms"). All thirteen stories of then, the slideshow and the headset menu on the wrist were tried on a headset
@@ -63,9 +82,11 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
   laptop or desktop page that joins. No Fresh shared space and no stored logs without the relay. How it works:
   AGENTS.md "Shared rooms"; at an event: [docs/event-runbook.md](docs/event-runbook.md); a network checked first with
   the test page `p2p/`. Tested between headless pages on one machine (`node tools/collab.mjs --p2p`, through the
-  relay's own introduction server). **Untested on devices:** links between real headsets, laptops and phones, inside
-  VR and AR, a host change and a hand-over at an event, and how long PeerJS's public server holds the id of a host
-  that went to sleep (up to about a minute, by its documentation).
+  relay's own introduction server). **First tried on real devices (owner, 29 October 2026):** two laptops found each
+  other on a local network with the test page `p2p/`, and two laptops were in one peer-to-peer room. **Still untested
+  on devices:** headsets and phones in a peer-to-peer room, links inside VR and AR, a host change and a hand-over at an
+  event, and how long PeerJS's public server holds the id of a host that went to sleep (up to about a minute, by its
+  documentation).
 - **Untested on a device:** lining headsets up again after standby or a night; how a scene moved or turned at a
   station looks on the other headsets; persistent anchors restored after a restart; sound zones; comfort and frame
   rate with other people drawn; whether the connection to the relay keeps running inside a headset session; people's
@@ -116,69 +137,47 @@ Before handing over (or making anything more public), someone has to decide thes
      carried by the room link) and a room list without names; either would cover the peer-to-peer rooms too. Once it is
      up, its address can become the app's default relay (in `shared.js`), so the GitHub Pages copy uses it with no setup.
 6. **Who to ask**: **TO FILL (owner):** the people for the code, each story's science, the headsets and the relay.
-7. **Deferred** (after the next two stories and their reviews):
+7. **Deferred** (and what of the earlier list was built):
    - whether to add a voice assistant;
    - collecting alignment logs from fresh headsets (a test plan is in the runbook);
-   - **station icons**: built on 29 October 2026 (the owner said go). Over each station's ring in a shared room, 2.1 m
-     up, a small low-poly 3D model of its story in its colour, slowly turning (`ICONS` in `shared.js`; "Shared rooms"
-     in [AGENTS.md](AGENTS.md)); gone at your own station; a story without one gets a glowing polyhedron. **For the
-     owner:** approve the contact sheet of all fifteen (open `tools/icons.html` next to the app; `&turns=4` shows each
-     from four sides) or say which to change. How they read from across a real room is untested on a headset;
-   - **a story design room**: a room in the headset where the owner talks to Claude about a new story. Claude would
-     show the props (the 3D sets) that fit, draft a skeleton story that plays at once with them, build what is missing
-     and reload it live. It would run as Claude Code on a laptop next to the headset, with the relay serving the
-     working folder, and take the voice with what the person looks at and points at. The steps:
-     1. a catalogue of the props;
-     2. a player for stories written as data;
-     3. the room itself, with live reload;
-     4. a bridge on the laptop (the Claude Agent SDK and local speech-to-text, kept outside the app);
-     5. push-to-talk in the headset, with what you look at, point at and see.
-
-     It was estimated at 4 to 6M tokens to build. The microphone inside a headset session is untested on Quest.
-   - **live updates and hot reload**: built on 29 October 2026 (the owner said go). The app picks up a release by
-     itself without losing its place, and while developing it follows the files as they are saved (AGENTS.md "Hot
-     reload and live updates"; [docs/setup-and-release.md](docs/setup-and-release.md), step 5b and the table in
-     section 2).
-     - **A release step:** `node tools/release.mjs` after bumping `VERSION` writes `version.json` (each story file's
-       fingerprint and the oldest shell it needs, the shell's fingerprint and release, `FORMAT`, the list's
-       fingerprint) and stamps the shell's release into `index.html`. Pages ask for it about once a minute and when
-       they come back into view.
-     - **Taken without asking:** a new story's card (page and headset Stories screens), a changed story not on show
-       (fetched fresh next time), the story on show swapped in place at a quiet moment (paused, explore mode, a
-       Stories screen, a chapter's end), keeping mode, chapter, time, explore state and view, the slideshow and the
-       headset's placement.
-     - **Asked first** (a bar on the page, a panel with two buttons in the headset: Reload now or Later): a new shell,
-       a new `FORMAT`, a story that needs a newer shell, a shared room's station whose story the device does not know
-       (its card says "Update needed"). Reload now keeps the place; a headset then shows one button, Enter VR to
-       continue. On the page's Stories screen a new shell is taken by itself, as the service worker's update did
-       before.
-     - **While developing:** `node relay/server.mjs --lan --watch --build` (or `--static . --watch`): a saved story
-       swaps in place on every page and headset showing it, a set's source is built first, a shell file reloads the
-       pages with their place. This is the ground for the story design room's live reload.
-     - **Groundwork done with it:** the list of stories is `stories/list.js`; the headset Stories screen in all fifteen
-       stories spaces its cards from their number (neighbours 0.381 m apart, the outer ones at most 62 degrees to the
-       side) and names it in words up to twenty, so a sixteenth story changes none of the fifteen.
-     - **Untested on a headset:** a swap in place inside a session, the question's panel and its buttons, Enter VR to
-       continue, and the watch channel in Quest Browser. Tested headlessly by `node tools/live.mjs`.
-   - **subtitles in the headset**, chosen per person from the headset's menu (Subtitles: off / follow / placed).
-     - **Follow:** a little below the line of sight, about 1.5 m ahead. Not stuck to the head (uncomfortable): they
-       stay put until you turn more than about 25 degrees, then glide back in front of you, as the wrist clock turns to
-       your eyes.
-     - **Placed:** picked up with the grip and left anywhere in the room, on this headset only, remembered for next
-       time.
-     - Per device, never in `collab.state()`: nothing changes for the shared rooms.
-     - **How:** all in the shell, no change to the fifteen stories. The words come from each story's panel (its
-       `section.ch` chapters and their `data-at` lines, read as `tools/narration.mjs` reads them), split into short
-       two-line captions spread over the time until the next line by word count. The pass story's follow its
-       language. The panel is drawn like the shell's menu and clock, and the grip reuses the code that carries
-       stations.
-     - **To know:** only the airports story has a recorded voice, so in the other fourteen the subtitles repeat the
-       panel's words (useful when the panel is out of view: in the flock or among the fish, at a station, the panel
-       behind you). Each line starts with the voice; the captions within a long line are timed by word count, not
-       matched word by word.
-     - **Size:** estimated at about 2 to 3 hours of agent work and 1 to 1.5M tokens, the tests included, plus a short
-       round of tuning (size, distance, follow speed) after the owner tries it on a Quest. A caption bar under the
-       scene on screens and phones would add about half an hour.
+   - **German for every story** (on hold, the owner, 29 October 2026: keep it low for now). The stories' text in German
+     with a German voice and subtitles: about 1.5 to 2 days of agent work; explore mode in German too: about 1 to 1.5
+     days more. In a shared room everyone keeps one timeline, so each stretch lasts the longer of its two languages (as
+     the pass story, already in English and German, does);
+   - **circles that load code from a link** (on hold; the design agreed, not to build yet): a station whose story is
+     code from a web page, loaded into the running room, with a question once per address on each device before it
+     runs. A whole other page cannot run inside the headset session, so it has to be a story file the shell loads;
+     placing such circles at office scale; a walk test with headsets first;
+   - **"follow a person" and "see through their eyes" for laptops** (proposed, not decided; not built): a laptop in a
+     room follows whichever circle a chosen headset wearer stands in, switching as they walk; later perhaps its camera
+     follows that wearer's head at their circle (a view for a projector);
+   - **the design room, part 2**: a *Design room* button in the headset's menu, the table as a circle (a station) in a
+     shared room, and the stations' icons made from the miniatures instead of their own models. Part 1 (the table) is
+     built (AGENTS.md "The design room"). Of the first plan (a catalogue of the props, a player for stories written as
+     data, the room with live reload, a bridge to Claude on a laptop, push-to-talk in the headset) the catalogue, the
+     room's table and live reload are built and the player was dropped; the bridge and push-to-talk wait for the owner
+     (the microphone inside a headset session is untested on Quest);
+   - **a loading bar in the headset** (above the wrist clock and in front of you while a story loads): profiled; a
+     story's load is one long task (its factory building the scene) once its file has arrived, so a true bar needs the
+     factories split into steps that yield between frames. Not started;
+   - **station icons**: built (see "Where things stand"). **For the owner:** approve the contact sheet of all fifteen
+     (open `tools/icons.html` next to the app; `&turns=4` shows each from four sides) or say which to change. How they
+     read from across a real room is untested on a headset;
+   - **live updates and hot reload**: built (see "Where things stand"; AGENTS.md "Hot reload and live updates";
+     [docs/setup-and-release.md](docs/setup-and-release.md), step 5b and the table in section 2). A release now ends
+     with `node tools/release.mjs` after bumping `VERSION` (it writes `version.json` and stamps the shell's release into
+     `index.html`). Taken without asking: a new story's card, a changed story (the one on show swapped in place at a
+     quiet moment, keeping its place); asked first (Reload now or Later): a new shell, a new `FORMAT`, a story that
+     needs a newer shell, a station whose story the device does not know (its card says "Update needed"). While
+     developing: `node relay/server.mjs --lan --watch --build`. **Untested on a headset:** a swap in place inside a
+     session, the question's panel and its buttons, Enter VR to continue, and the watch channel in Quest Browser;
+   - **subtitles in the headset**: built as a setting for the whole room, on or off (the owner, 29 October: "a
+     switchable option per room"), replacing the earlier plan of a per-person choice (off / follow / placed, a strip
+     picked up and left in the room). The strip follows the head loosely (it stays until you turn about 15 degrees
+     away, then glides back); the words are the panel's, timed by word count from each line's start. Only the airports
+     and the tour have a voice so far, so elsewhere they repeat the panel's words (useful when the panel is out of
+     view). A caption bar on screens and phones, and placing the strip by hand, were not built. How they read and
+     follow on a headset is untested.
 8. **The PET story ("One scan, one system"): its second half waits for the poster** (October 2026). Done on 28 October:
    the scanner hands its patient to the body in one move (the scanner goes, the body stands up, its glow fades, then
    the sugar), the organ labels are names only, the Vision chapter is gone, the second chapter is "How PET sees" with

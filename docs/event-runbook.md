@@ -39,7 +39,8 @@ menu say *peer to peer · hosted here* or *hosted by* a name.
 them the same code, press **Start**: the links should open within a second or two and keep running inside VR or AR
 for a minute (it reports how fast). To test without the internet, run the relay and add
 `&peer=<laptop address>:8787/peerjs` to the test page's address (it uses the relay's own introduction server; a page
-on https needs the relay's certificate trusted).
+on https needs the relay's certificate trusted). First real devices (the owner, 29 October 2026): two laptops on a
+local network found each other this way, and then shared a peer-to-peer room; headsets and phones are still to try.
 
 ## 1. The day before
 
@@ -177,9 +178,10 @@ and the end of AGENTS.md "Shared rooms". Not yet confirmed on a device:
 - sound zones: each station's narration heard from where it stands;
 - comfort and frame rate with other people drawn;
 - whether the link to the relay keeps running inside a headset session;
-- peer to peer: rooms between real devices (two Quest 3s, a laptop and a phone), links that keep running inside VR and
+- peer to peer: rooms with headsets and phones (so far two laptops: they found each other on a local network with the
+  test page `p2p/` and were in one peer-to-peer room, the owner, 29 October 2026), links that keep running inside VR and
   AR, a host change at an event, a headset host handing over to a laptop, and how long PeerJS's public server keeps the
-  id of a headset that went to sleep (tested only between pages on one machine).
+  id of a headset that went to sleep (tested otherwise only between pages on one machine).
 
 **If there is time, a test round for the logs**, on fresh headsets (**TO FILL (owner):** new or reset headsets, or only
 their site data cleared). Note the time and headset for every step.
