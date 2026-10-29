@@ -1810,8 +1810,8 @@ its id is free (after the 6 s); an introduction server that cannot be reached
 first screen that joins. `--p2p` runs only that part (about two minutes). `--quick` runs only the last story in the per-story part. A new story needs an entry in `STORIES`
 (`change` and `back`: code that changes its `state()`, and optional `effect`
 and `more`); the headset's story (`HEADSET_STORY`) stays the last entry.
-`--shots <dir>` also saves pictures of the dialog and seven headset views (with the menu's clock on the left wrist, the menu open, its Sound check,
-stepped out of a station's circle: no story, only the room and the clock in front, and the stations' icons from behind the first row).
+`--shots <dir>` also saves pictures of the dialog and eight headset views (with the menu's clock on the left wrist, the menu open, its Sound check,
+stepped out of a station's circle: no story, only the room and the clock in front, and the stations' icons from behind the first row and along it, at 1280 x 800).
 
 For the tour, test a changed set on its own in the set harness first
 (`tools/lbi/shot.mjs`, much cheaper than the whole story), then the story at a

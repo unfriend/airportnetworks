@@ -11,15 +11,16 @@ var LOWPOLY_MODELS = LOWPOLY_MODELS || {};
   const rng = s => () => { s |= 0; s = s + 0x6D2B79F5 | 0; let t = Math.imul(s ^ s >>> 15, 1 | s); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
   const add3 = (a, b) => [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
   const mul3 = (a, s) => [a[0] * s, a[1] * s, a[2] * s];
-  const len3 = a => Math.hypot(a[0], a[1], a[2]);
-  const dist = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
+  const len3 = a => Math.sqrt(a[0] * a[0] + a[1] * a[1] + a[2] * a[2]);         // not Math.hypot: it is slow, and these run per vertex
+  const dist = (a, b) => { const x = a[0] - b[0], y = a[1] - b[1], z = a[2] - b[2]; return Math.sqrt(x * x + y * y + z * z); };
   const norm3 = a => mul3(a, 1 / (len3(a) || 1));
   const lerp = (a, b, t) => a + (b - a) * t;
   const smooth = t => (t = Math.max(0, Math.min(1, t)), t * t * (3 - 2 * t));
   const unit = r => { const z = 2 * r() - 1, a = 6.2832 * r(), s = Math.sqrt(1 - z * z); return [s * Math.cos(a), z, s * Math.sin(a)]; };
   const CC = new Map();                 // parsed colour strings: parsing one per vertex was the slowest part of a build
-  const col = c => (c instanceof T.Color ? c.clone() : Array.isArray(c) ? new T.Color(c[0], c[1], c[2]) : (CC.get(c) || (CC.set(c, new T.Color(c)), CC.get(c))).clone());
-  const mix = (a, b, t) => col(a).lerp(col(b), Math.max(0, Math.min(1, t)));
+  const raw = c => (c instanceof T.Color ? c : Array.isArray(c) ? new T.Color(c[0], c[1], c[2]) : CC.get(c) || (CC.set(c, new T.Color(c)), CC.get(c)));   // never changed
+  const col = c => raw(c).clone();
+  const mix = (a, b, t) => col(a).lerp(raw(b), Math.max(0, Math.min(1, t)));
   const ramp = (stops, v) => { for (let i = 1; i < stops.length; i++) if (v <= stops[i][0] || i === stops.length - 1) return mix(stops[i - 1][1], stops[i][1], (v - stops[i - 1][0]) / (stops[i][0] - stops[i - 1][0])); };
   // the body set's hot-iron map, as the PET scans are drawn
   const IRON = [[0, '#160303'], [0.3, '#6a0d06'], [0.5, '#c22a0a'], [0.68, '#ff7414'], [0.85, '#ffd25a'], [1, '#fff8e2']];
@@ -41,7 +42,7 @@ var LOWPOLY_MODELS = LOWPOLY_MODELS || {};
     for (let i = 0; i < P.length; i += 3) {
       const x = P[i], y = P[i + 1], z = P[i + 2], a = N[i], b = N[i + 1], c = N[i + 2];
       P[i] = e[0] * x + e[4] * y + e[8] * z + e[12]; P[i + 1] = e[1] * x + e[5] * y + e[9] * z + e[13]; P[i + 2] = e[2] * x + e[6] * y + e[10] * z + e[14];
-      const nx = nm[0] * a + nm[3] * b + nm[6] * c, ny = nm[1] * a + nm[4] * b + nm[7] * c, nz = nm[2] * a + nm[5] * b + nm[8] * c, l = Math.hypot(nx, ny, nz) || 1;
+      const nx = nm[0] * a + nm[3] * b + nm[6] * c, ny = nm[1] * a + nm[4] * b + nm[7] * c, nz = nm[2] * a + nm[5] * b + nm[8] * c, l = Math.sqrt(nx * nx + ny * ny + nz * nz) || 1;
       N[i] = nx / l; N[i + 1] = ny / l; N[i + 2] = nz / l;
     }
     return g;
@@ -147,17 +148,66 @@ var LOWPOLY_MODELS = LOWPOLY_MODELS || {};
   // a flat sector of a ring in the x-z plane facing up, from angle t0 over tl (x = r sin t, z = r cos t)
   const ringF = (r0, r1, n, t0, tl) => surf(n, 1, (u, v) => { const t = t0 + u * tl, r = lerp(r0, r1, v); return [r * Math.sin(t), 0, r * Math.cos(t), 0, 1, 0]; });
   // a rod from a to b (radius r1 at a, r2 at b, n sides); open by default, as the thin links are
+  // (written straight along the axis, with no matrix: the links are most of the parts)
   function rod(a, b, r1, r2, n, open) {
     n = n || 4; if (r2 === undefined) r2 = r1;
-    const d = [b[0] - a[0], b[1] - a[1], b[2] - a[2]], L = len3(d) || 1e-6;
-    const q = new T.Quaternion().setFromUnitVectors(new T.Vector3(0, 1, 0), new T.Vector3(d[0] / L, d[1] / L, d[2] / L));
-    return at(cylF(r2, r1, L, n, 1, open !== false), mul3(add3(a, b), 0.5), q);
+    const d = [b[0] - a[0], b[1] - a[1], b[2] - a[2]], L = len3(d) || 1e-6, t = [d[0] / L, d[1] / L, d[2] / L];
+    const u = norm3(cross(t, Math.abs(t[1]) < 0.9 ? [0, 1, 0] : [1, 0, 0])), v = cross(t, u), k = (r1 - r2) / L, l = Math.sqrt(1 + k * k), m = mesh(), A = [], B = [];
+    for (let i = 0; i <= n; i++) {
+      const th = 6.2832 * i / n, c = Math.cos(th), s = Math.sin(th), w0 = c * u[0] + s * v[0], w1 = c * u[1] + s * v[1], w2 = c * u[2] + s * v[2];
+      const nx = (w0 + k * t[0]) / l, ny = (w1 + k * t[1]) / l, nz = (w2 + k * t[2]) / l;
+      A.push([a[0] + r1 * w0, a[1] + r1 * w1, a[2] + r1 * w2, nx, ny, nz]); B.push([b[0] + r2 * w0, b[1] + r2 * w1, b[2] + r2 * w2, nx, ny, nz]);
+    }
+    for (let i = 0; i < n; i++) { m.tri(B[i], B[i + 1], A[i + 1]); m.tri(B[i], A[i + 1], A[i]); }
+    if (open === false) for (const [E, p, r, sg] of [[B, b, r2, 1], [A, a, r1, -1]]) if (r > 0) {
+      const nn = [sg * t[0], sg * t[1], sg * t[2]], cap = q => [q[0], q[1], q[2], nn[0], nn[1], nn[2]];
+      for (let i = 0; i < n; i++) m.tri([p[0], p[1], p[2], nn[0], nn[1], nn[2]], cap(E[i]), cap(E[i + 1]));
+    }
+    return m;
   }
-  // a flat shape (points [x, s], s = -z) extruded up from y0 by h
-  function slab(pts, h, y0, opt) {
-    const sh = new T.Shape(pts.map(q => new T.Vector2(q[0], q[1])));
-    return at(new T.ExtrudeGeometry(sh, Object.assign({ depth: h, bevelEnabled: false, steps: 1 }, opt || {})), [0, y0, 0], [-Math.PI / 2, 0, 0]);
+  // a flat-shaded triangle, turned to face along the hint h when given (three's ExtrudeGeometry and a ribbon's
+  // computeVertexNormals were most of a cold build, so outlines are extruded here)
+  const ftri = (m, a, b, c, h) => {
+    let n = norm3(cross([b[0] - a[0], b[1] - a[1], b[2] - a[2]], [c[0] - a[0], c[1] - a[1], c[2] - a[2]]));
+    if (h && n[0] * h[0] + n[1] * h[1] + n[2] * h[2] < 0) n = mul3(n, -1);
+    m.tri([a[0], a[1], a[2], n[0], n[1], n[2]], [b[0], b[1], b[2], n[0], n[1], n[2]], [c[0], c[1], c[2], n[0], n[1], n[2]]);
+  };
+  // an outline [[x, y], ...] extruded along z from 0 to d, flat-shaded, as three's ExtrudeGeometry: o.bt, o.bs, o.k
+  // round its edges with a bevel (that deep and wide, in k steps); the caps are fanned from o.c (the outline must be
+  // star-shaped from it), or ring round a hole of radius o.hole about o.c, or (o.strip) join the outline's first half
+  // to its second, for a band whose two edges share their x
+  function extrude(pts, d, o) {
+    o = o || {};
+    const n = pts.length, bt = o.bt || 0, bs = o.bs || 0, k = bt ? o.k || 1 : 1, c = o.c || [0, 0], rh = o.hole || 0, m = mesh();
+    let A = 0; for (let i = 0; i < n; i++) { const p = pts[i], q = pts[(i + 1) % n]; A += p[0] * q[1] - q[0] * p[1]; }
+    const sg = A > 0 ? 1 : -1, en = pts.map((p, i) => { const q = pts[(i + 1) % n], l = Math.hypot(q[0] - p[0], q[1] - p[1]) || 1; return [sg * (q[1] - p[1]) / l, -sg * (q[0] - p[0]) / l]; });
+    const mit = pts.map((_, i) => { const a = en[(i + n - 1) % n], e = en[i], x = a[0] + e[0], y = a[1] + e[1], l = Math.hypot(x, y) || 1, cs = Math.max(0.35, (x * e[0] + y * e[1]) / l); return [x / l / cs, y / l / cs]; });
+    const th = pts.map(p => Math.atan2(p[1] - c[1], p[0] - c[0]));
+    const ring = [];                           // [z, offset] from the front cap round the side to the back cap
+    for (let t = 0; t <= k; t++) ring.push([d + bt * Math.cos(t / k * Math.PI / 2), bs * Math.sin(t / k * Math.PI / 2)]);
+    for (let t = k; t >= 0; t--) ring.push([-bt * Math.cos(t / k * Math.PI / 2), bs * Math.sin(t / k * Math.PI / 2)]);
+    const out = ([z, s]) => pts.map((p, i) => [p[0] + s * mit[i][0], p[1] + s * mit[i][1], z]);
+    const hol = ([z, s]) => th.map(a => [c[0] + (rh - s) * Math.cos(a), c[1] + (rh - s) * Math.sin(a), z]);
+    for (let j = 0; j + 1 < ring.length; j++) {
+      const R0 = out(ring[j]), R1 = out(ring[j + 1]), H0 = rh && hol(ring[j]), H1 = rh && hol(ring[j + 1]);
+      for (let i = 0; i < n; i++) {
+        const i1 = (i + 1) % n, h = [en[i][0], en[i][1], 0];
+        ftri(m, R0[i], R0[i1], R1[i1], h); ftri(m, R0[i], R1[i1], R1[i], h);
+        if (rh) { const a = (th[i] + th[i1]) / 2, hh = [-Math.cos(a), -Math.sin(a), 0]; ftri(m, H0[i], H0[i1], H1[i1], hh); ftri(m, H0[i], H1[i1], H1[i], hh); }
+      }
+    }
+    for (const [z, hz] of [[d + bt, 1], [-bt, -1]]) {
+      const R = out([z, 0]), H = rh && hol([z, 0]), h = [0, 0, hz];
+      if (o.strip) for (let i = 0; i + 1 < n / 2; i++) { const a = R[i], b2 = R[i + 1], c2 = R[n - 2 - i], e = R[n - 1 - i]; ftri(m, a, b2, c2, h); ftri(m, a, c2, e, h); }
+      else for (let i = 0; i < n; i++) {
+        const i1 = (i + 1) % n;
+        if (rh) { ftri(m, R[i], R[i1], H[i1], h); ftri(m, R[i], H[i1], H[i], h); } else ftri(m, [c[0], c[1], z], R[i], R[i1], h);
+      }
+    }
+    return m;
   }
+  // a band outline (points [x, s], s = -z, from band()) extruded up from y0 by h
+  const slab = (pts, h, y0) => at(extrude(pts, h, { strip: true }), [0, y0, 0], [-Math.PI / 2, 0, 0]);
 
   // the materials: lit, with vertex colours; 'glow' and 'soft' add the vertex colour as light, as the app's props glow
   function glowing(m, k) {
@@ -177,31 +227,40 @@ var LOWPOLY_MODELS = LOWPOLY_MODELS || {};
   };
   const ORDER = ['solid', 'shiny', 'soft', 'two', 'glow', 'glass', 'haze'];
 
-  // a bag of parts, merged per material, then scaled and moved into the unit box standing on y = 0
+  // a bag of parts, merged per material, then scaled and moved into the unit box standing on y = 0. Parts are kept by
+  // reference and copied once into typed arrays at the end: pushing every vertex through growing arrays made most of a
+  // build's garbage (so a part must not be changed after it is added)
   function bag() {
     const parts = {}, c = new T.Color();
     const setc = v => (v instanceof T.Color ? c.copy(v) : Array.isArray(v) ? c.setRGB(v[0], v[1], v[2]) : c.copy(CC.get(v) || (CC.set(v, new T.Color(v)), CC.get(v))));
     return {
       add(kind, g, colour) {
-        const L = parts[kind] || (parts[kind] = { p: [], n: [], c: [] }), fn = typeof colour === 'function';
-        let P, N;
+        let P, N, C;
         if (g.fast) { P = g.P; N = g.N; } else {
           const geo = g.index ? g.toNonIndexed() : g;
           if (!geo.attributes.normal) geo.computeVertexNormals();
           P = geo.attributes.position.array; N = geo.attributes.normal.array; g.dispose();
         }
-        if (!fn) setc(colour);
-        for (let i = 0; i < P.length; i += 3) {
-          if (fn) setc(colour(P[i], P[i + 1], P[i + 2]));
-          L.p.push(P[i], P[i + 1], P[i + 2]); L.n.push(N[i], N[i + 1], N[i + 2]); L.c.push(c.r, c.g, c.b);
-        }
+        if (typeof colour === 'function') {        // per vertex, now, so seeded colours keep their order
+          C = new Float32Array(P.length);
+          for (let i = 0; i < P.length; i += 3) { setc(colour(P[i], P[i + 1], P[i + 2])); C[i] = c.r; C[i + 1] = c.g; C[i + 2] = c.b; }
+        } else { setc(colour); C = [c.r, c.g, c.b]; }
+        (parts[kind] || (parts[kind] = [])).push(P, N, C);
         return this;
       },
       done() {
         let x0 = 1e9, y0 = 1e9, z0 = 1e9, x1 = -1e9, y1 = -1e9, z1 = -1e9;
         const merged = {};
         for (const k of ORDER) if (parts[k]) {
-          const P = new Float32Array(parts[k].p), N = new Float32Array(parts[k].n), C = new Float32Array(parts[k].c), n = P.length;
+          const L = parts[k]; let n = 0, o = 0;
+          for (let j = 0; j < L.length; j += 3) n += L[j].length;
+          const P = new Float32Array(n), N = new Float32Array(n), C = new Float32Array(n);
+          for (let j = 0; j < L.length; j += 3) {          // copied natively (set); a cold build spent most of its time here
+            const m = L[j].length, cc = L[j + 2];
+            P.set(L[j], o); N.set(L[j + 1], o);
+            if (cc.length === m) C.set(cc, o); else for (let i = o; i < o + m; i += 3) { C[i] = cc[0]; C[i + 1] = cc[1]; C[i + 2] = cc[2]; }
+            o += m;
+          }
           for (let i = 0; i < n; i += 3) {
             const x = P[i], y = P[i + 1], z = P[i + 2];
             if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; if (z < z0) z0 = z; if (z > z1) z1 = z;
@@ -277,21 +336,32 @@ var LOWPOLY_MODELS = LOWPOLY_MODELS || {};
 
   // ================================================================ the tour (lbi)
 
-  add('lbi.int', 'Interactome', 'A glowing ball of human protein interactions, dense and bright at its centre, with tufts towards the rim.', b => {
-    const r = rng(7), C = [0, 0.5, 0], P = [], cols = [];
-    plinth(b, 0.24);
-    const tufts = [0, 1, 2, 3, 4, 5, 6].map(() => mul3(unit(r), 0.34));
-    const ACC = ['#ff5ad9', '#ffb43b', '#3ee08f', '#46d9ff', '#ff5a4b', '#c84fd0', '#2f9e44', '#4d94ff'];
-    for (let i = 0; i < 74; i++) {
-      const p = i < 30 ? mul3(unit(r), 0.03 + 0.17 * Math.cbrt(r())) : i < 50 ? mul3(unit(r), 0.2 + 0.14 * r()) : add3(tufts[i % 7], mul3(unit(r), 0.075 * r()));
-      p[1] *= 0.92; P.push(p);
-      const d = len3(p) / 0.4;
-      cols.push(i >= 32 && i < 40 ? col(ACC[i - 32]) : d < 0.5 ? mix('#eef4ff', '#8fb0ff', d * 2) : mix('#8fb0ff', '#8a74f0', (d - 0.5) * 2));
-      b.add('glow', octa(i < 4 ? 0.03 : 0.022 - 0.007 * Math.min(1, d), add3(C, p)), cols[i]);
+  add('lbi.int', 'Interactome', 'A cloud of human protein interactions with no edge to it: a white-hot centre, knots of proteins out to the rim, the curated modules in their colours and TP53 the biggest hub.', b => {
+    const r = rng(7), C = [0, 0.36, 0], P = [], cols = [];
+    // the set's module colours (p53's gold is TP53's own, below)
+    const MODS = ['#ff6b38', '#4d94ff', '#40e673', '#cc61ff', '#ff61ad'];
+    plinth(b, 0.2);
+    const node = (p, c, s, big) => { P.push(p); cols.push(col(c)); b.add('glow', big ? ico(s, add3(C, p)) : octa(s, add3(C, p)), c); return P.length - 1; };
+    const link = (i, j, k, w) => b.add('glow', rod(add3(C, P[i]), add3(C, P[j]), w || 0.005, w || 0.005, 3), mix(cols[i], cols[j], 0.5).multiplyScalar(k || 0.7));
+    const near = (p, i0, n) => { let best = i0; for (let j = i0 + 1; j < n; j++) if (dist(p, P[j]) < dist(p, P[best])) best = j; return best; };
+    const shade = d => d < 0.5 ? mix('#f4f8ff', '#8fb0ff', d * 2) : mix('#8fb0ff', '#8a74f0', (d - 0.5) * 2);   // white-hot to violet, as the set
+    for (let i = 0; i < 30; i++) { const p = mul3(unit(r), 0.015 + 0.085 * Math.cbrt(r())); node(p, i % 4 ? '#f4f8ff' : '#c9d8ff', 0.021); if (i % 4 === 1) link(i, near(p, 0, i), 1); }   // the dense white-hot centre
+    // no shell round it: seven knots of proteins stand out from the centre on faint filaments, so its outline is lumpy
+    for (let f = 0; f < 7; f++) {
+      const y = 0.8 - (f + 0.5) / 7 * 1.6, a = f * 2.39996 + 0.4, s = Math.sqrt(1 - y * y), dir = [s * Math.cos(a), y * 0.85, s * Math.sin(a)];
+      const tip = mul3(dir, 0.25 + 0.06 * r()), mid = add3(mul3(dir, 0.15), mul3(unit(r), 0.025));
+      const m = node(mid, shade(0.4), 0.017), t0 = P.length;
+      link(near(mid, 0, 30), m, 0.5);
+      for (let k = 0; k < 6; k++) { const i = node(add3(tip, mul3(unit(r), 0.01 + 0.035 * r())), shade(0.72 + 0.28 * r()), 0.019); if (k < 3) link(k ? near(P[i], t0, i) : m, i, 0.5); }
     }
-    const link = (i, j) => b.add('glow', rod(add3(C, P[i]), add3(C, P[j]), 0.0042, 0.0042, 3), mix(cols[i], cols[j], 0.5).multiplyScalar(0.7));
-    for (let i = 30; i < 74; i++) { let best = 0; for (let j = 0; j < i; j++) if (dist(P[i], P[j]) < dist(P[i], P[best])) best = j; link(i, best); }
-    glowBall(b, C, 0.26, '#26357a', '#dfe8ff');                                  // the dense luminous centre
+    // the curated modules half way out, three proteins each in their colour
+    for (let q = 0; q < 5; q++) {
+      const c = mul3(unit(r), 0.15), t0 = P.length;
+      for (let k = 0; k < 3; k++) { const i = node(add3(c, mul3(unit(r), 0.028)), MODS[q], 0.023); link(k ? near(P[i], t0, i) : near(P[i], 0, 30), i, 1.1, 0.0055); }
+    }
+    // TP53, the biggest curated hub, in p53's gold beside the centre, with its spokes
+    const p53 = [0.06, 0.05, 0.07], h = node(p53, '#ffd62e', 0.042, true), by = P.map((q, i) => [dist(p53, q), i]).filter(([, i]) => i !== h).sort((u, v) => u[0] - v[0]);
+    for (let k = 0; k < 4; k++) link(h, by[k * 3 + 2][1], 1, 0.006);
   });
 
   add('lbi.mac', 'Classic computer', 'A beige all-in-one computer with its keyboard and mouse, before it is taken apart.', b => {
@@ -414,12 +484,12 @@ var LOWPOLY_MODELS = LOWPOLY_MODELS || {};
       M[i][j] = [M[i][j], offR[j]]; offR[j] += M[i][j][0] * uR;
     }
     for (let i = 0; i < 9; i++) for (let j = 0; j < 19; j++) if (M[i][j]) {
-      const [m, oR] = M[i][j], yl = topL[i] - offL[i] - m * uL / 2, yr = topR[j] - oR - m * uR / 2, z0 = (4 - i) * 0.024, SEG = 6, P = [];
+      const [m, oR] = M[i][j], yl = topL[i] - offL[i] - m * uL / 2, yr = topR[j] - oR - m * uR / 2, z0 = (4 - i) * 0.024, SEG = 6;
       offL[i] += m * uL;
       const pt = t => { const s = smooth(t), e = t < 0.35 ? smooth(t / 0.35) : t > 0.65 ? smooth((1 - t) / 0.35) : 1, h = lerp(m * uL, m * uR, s) / 2, yc = lerp(yl, yr, s);
         return [[-0.38 + 0.76 * t, yc + h, z0 * e], [-0.38 + 0.76 * t, yc - h, z0 * e]]; };
-      for (let k = 0; k < SEG; k++) { const [a, c] = pt(k / SEG), [d, e] = pt((k + 1) / SEG); P.push(...a, ...c, ...d, ...d, ...c, ...e); }
-      const g = new T.BufferGeometry(); g.setAttribute('position', new T.BufferAttribute(new Float32Array(P), 3)); g.computeVertexNormals();
+      const g = mesh();
+      for (let k = 0; k < SEG; k++) { const [a, c] = pt(k / SEG), [d, e] = pt((k + 1) / SEG); ftri(g, a, c, d); ftri(g, d, c, e); }
       b.add('two', g, CL[i]);
     }
   });
@@ -571,13 +641,16 @@ var LOWPOLY_MODELS = LOWPOLY_MODELS || {};
     b.add('glow', tube(AX, 8, 0.014, 3), '#ffe08a');
   });
 
-  add('endo.net', 'Protein network cloud', 'A deep cloud of proteins with the disease genes lit as seeds, their neighbourhoods joined by glowing arcs.', b => {
+  add('endo.net', 'Protein network cloud', 'A deep, round cloud of proteins in a glass shell, the disease genes lit inside as seeds with halos, their groups joined by glowing arcs.', b => {
     const r = rng(12), C = [0, 0.52, 0], core = [];
     plinth(b, 0.28);
     for (let i = 0; i < 15; i++) b.add('soft', octa(0.015, add3(C, mul3(unit(r), 0.29 + 0.11 * r()))), '#8ea4cf');
     for (let i = 0; i < 20; i++) { const p = mul3(unit(r), 0.21 * Math.cbrt(r())); core.push(p); b.add('glow', octa(0.017, add3(C, p)), mix('#9fb3ee', '#e4ebff', r())); }
     for (let i = 1; i < 20; i++) { let best = 0; for (let j = 0; j < i; j++) if (dist(core[i], core[j]) < dist(core[i], core[best])) best = j; b.add('soft', rod(add3(C, core[i]), add3(C, core[best]), 0.004, 0.004, 3), '#7f96d8'); }
-    glowBall(b, C, 0.41, '#1c2c66', '#7f9ae8');                                  // the cloud's soft glow
+    // the cloud is round and deep: a glass shell with a bright equator round its far shell of genes, haze inside
+    b.add('glass', sph(0.42, 10, 7, C), '#34509c');
+    b.add('glow', cyl(0.422, 0.422, 0.006, 16, C, null, true), '#4f8fe0');
+    b.add('haze', sph(0.3, 8, 6, C), '#2a3f8f');
     const S = [[0.14, 0.06, 0.05], [0.06, -0.1, 0.12], [-0.12, 0.08, 0.09], [-0.04, 0.15, -0.1], [0.13, -0.08, -0.08], [-0.15, -0.09, -0.04], [-0.17, -0.02, -0.02]].map(p => add3(C, p));
     S.forEach((p, i) => { const pink = i >= 5; b.add('glow', ico(0.03, p), pink ? '#ff5ad9' : '#ffb43b'); if (!pink) b.add('haze', sph(0.058, 6, 4, p), '#ffb43b'); });
     for (const [i, j] of [[0, 1], [1, 2], [2, 3], [5, 6]]) {
@@ -611,12 +684,12 @@ var LOWPOLY_MODELS = LOWPOLY_MODELS || {};
   // ================================================================ the PET story (pet)
 
   add('pet.scan', 'PET/CT scanner', 'A glossy white scanner with its ring-shaped gantry, the blue band round the bore and the couch that slides the patient in.', b => {
-    const W = 0.29, B = 0.06, TOP = 0.66, BC = 0.36, sh = new T.Shape();
-    sh.moveTo(-W + 0.05, B); sh.lineTo(W - 0.05, B); sh.quadraticCurveTo(W, B, W, B + 0.05);
-    sh.lineTo(W, TOP - 0.17); sh.quadraticCurveTo(W, TOP, 0, TOP); sh.quadraticCurveTo(-W, TOP, -W, TOP - 0.17);
-    sh.lineTo(-W, B + 0.05); sh.quadraticCurveTo(-W, B, -W + 0.05, B);
-    const hole = new T.Path(); hole.absarc(0, BC, 0.15, 0, Math.PI * 2, true); sh.holes.push(hole);
-    b.add('shiny', at(new T.ExtrudeGeometry(sh, { depth: 0.36, bevelEnabled: true, bevelThickness: 0.02, bevelSize: 0.018, bevelSegments: 1, curveSegments: 5 }), [0, 0, -0.2]), '#eef1f5');
+    const W = 0.29, B = 0.06, TOP = 0.66, BC = 0.36, sh = [[-W + 0.05, B]];
+    // the gantry's outline: lines cut so the bore's ring of points stays round, and quadratic corners and dome
+    const L = (x, y, n) => { const [x0, y0] = sh[sh.length - 1]; for (let i = 1; i <= n; i++) sh.push([lerp(x0, x, i / n), lerp(y0, y, i / n)]); };
+    const Q = (cx, cy, x, y, n) => { const [x0, y0] = sh[sh.length - 1]; for (let i = 1; i <= n; i++) { const t = i / n, u = 1 - t; sh.push([u * u * x0 + 2 * u * t * cx + t * t * x, u * u * y0 + 2 * u * t * cy + t * t * y]); } };
+    L(W - 0.05, B, 4); Q(W, B, W, B + 0.05, 2); L(W, TOP - 0.17, 4); Q(W, TOP, 0, TOP, 5); Q(-W, TOP, -W, TOP - 0.17, 5); L(-W, B + 0.05, 4); Q(-W, B, -W + 0.05, B, 2); sh.pop();
+    b.add('shiny', at(extrude(sh, 0.36, { bt: 0.02, bs: 0.018, k: 1, c: [0, BC], hole: 0.15 }), [0, 0, -0.2]), '#eef1f5');
     b.add('solid', cyl(0.131, 0.131, 0.4, 16, [0, BC, -0.02], [Math.PI / 2, 0, 0], true), '#c3cedb');   // bore lining (the bevel narrows the hole)
     b.add('shiny', tor(0.178, 0.03, 4, 20, [0, BC, 0.18]), '#4e7fc4');                                   // the satin blue band
     for (const s of [-1, 1]) b.add('shiny', sph(0.06, 6, 4, [0.205 * s, BC, 0.185], [0.5, 1, 0.35]), '#5c86c0');
@@ -653,8 +726,7 @@ var LOWPOLY_MODELS = LOWPOLY_MODELS || {};
     const r = rng(8), OUT = [[-0.42, 0.04], [-0.4, 0.18], [-0.3, 0.28], [-0.12, 0.32], [0.08, 0.3], [0.25, 0.24], [0.38, 0.16], [0.45, 0.1], [0.3, 0.07], [0.12, 0.03], [0.02, -0.01], [-0.1, -0.04], [-0.14, -0.08], [-0.27, -0.11], [-0.38, -0.08]];
     const Y0 = 0.22, D = 0.2;
     plinth(b, 0.3);
-    const sh = new T.Shape(OUT.map(q => new T.Vector2(q[0], q[1])));
-    b.add('glass', at(new T.ExtrudeGeometry(sh, { depth: D, bevelEnabled: true, bevelThickness: 0.05, bevelSize: 0.045, bevelSegments: 2 }), [0, Y0, -D / 2]), '#f97316');
+    b.add('glass', at(extrude(OUT, D, { bt: 0.05, bs: 0.045, k: 2, c: [-0.1, 0.12] }), [0, Y0, -D / 2]), '#f97316');
     const inside = (x, y) => { let c = false; for (let i = 0, j = OUT.length - 1; i < OUT.length; j = i++) { const [xi, yi] = OUT[i], [xj, yj] = OUT[j]; if ((yi > y) !== (yj > y) && x < (xj - xi) * (y - yi) / (yj - yi) + xi) c = !c; } return c; };
     const P = [], V = [];
     while (P.length < 46) {
@@ -746,10 +818,10 @@ var LOWPOLY_MODELS = LOWPOLY_MODELS || {};
 
   // triangles of each build, measured (the harness lists any that no longer match)
   const TRIS = {
-    'lbi.int': 1192, 'lbi.mac': 940, 'lbi.web': 1104, 'lbi.dna': 1024, 'lbi.atp': 808, 'lbi.crowd': 996,
+    'lbi.int': 1198, 'lbi.mac': 940, 'lbi.web': 1104, 'lbi.dna': 1024, 'lbi.atp': 808, 'lbi.crowd': 996,
     'lbi.sankey': 1056, 'lbi.scale': 800, 'lbi.body': 1048, 'lbi.tissue': 860, 'nmd.tower': 992, 'nmd.motor': 1022,
-    'nmd.hpc': 1012, 'endo.syn': 1108, 'endo.net': 1194, 'endo.tree': 760, 'pet.scan': 672, 'pet.organs': 1142,
-    'pet.liver': 976, 'micro.slide': 940, 'micro.atlas': 960, 'micro.hier': 1148, 'micro.organs': 856
+    'nmd.hpc': 1012, 'endo.syn': 1108, 'endo.net': 1186, 'endo.tree': 760, 'pet.scan': 816, 'pet.organs': 1142,
+    'pet.liver': 980, 'micro.slide': 940, 'micro.atlas': 960, 'micro.hier': 1148, 'micro.organs': 856
   };
   for (const k in TRIS) LOWPOLY_MODELS[k].tris = TRIS[k];
 })();

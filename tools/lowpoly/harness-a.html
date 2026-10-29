@@ -22,7 +22,8 @@ canvas { display: block; }
 //   const p = await b.newPage({ viewport: { width: 1280, height: 760 } });
 //   await p.goto('http://127.0.0.1:8123/tools/lowpoly/harness-a.html?still&page=0&per=12');
 //   await p.waitForFunction('window.__ready === true'); await p.screenshot({ path: 'sheet-0.png' }); await b.close();
-// window.__stats has each miniature's triangles, meshes, size and build time.
+// window.__stats has each miniature's triangles, meshes, size and build time: cold (the first build in the page, which
+// pays for compiling the code) and warm (the best of 5 more builds).
 window.__errors = [];
 window.addEventListener('error', e => window.__errors.push(String(e.message)));
 const Q = new URLSearchParams(location.search), STILL = Q.has('still');
@@ -46,7 +47,7 @@ sun.position.copy(dir).multiplyScalar(3).add(new THREE.Vector3(-Math.cos(az), 0,
 scene.add(sun);
 const unitBox = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(1, 1, 1)), new THREE.LineBasicMaterial({ color: 0x24324a }));
 unitBox.position.y = 0.5; unitBox.visible = false; scene.add(unitBox);
-const cells = [], stats = { models: [], buildMs: 0 };
+const cells = [], labs = [], stats = { models: [], buildMs: 0 };
 keys.forEach((k, i) => {
   const t0 = performance.now(), g = LOWPOLY_MODELS[k].build(THREE), ms = performance.now() - t0;
   stats.buildMs += ms;
@@ -64,11 +65,15 @@ keys.forEach((k, i) => {
   lab.style.left = x + 'px'; lab.style.width = cw + 'px'; lab.style.top = (y + ch - LH + 2) + 'px';
   const off = LOWPOLY_MODELS[k].tris !== tris ? ` <i style="color:#ff5a4b">(listed ${LOWPOLY_MODELS[k].tris})</i>` : '';
   lab.innerHTML = `<b>${LOWPOLY_MODELS[k].name}</b><span>${k} · ${tris} tris${off} · ${ms.toFixed(1)} ms</span>`;
-  document.body.appendChild(lab);
+  document.body.appendChild(lab); labs.push([lab, tris, off]);
   const fr = document.createElement('div'); fr.className = 'cell'; Object.assign(fr.style, { left: x + 'px', top: y + 'px', width: cw + 'px', height: ch + 'px' }); document.body.appendChild(fr);
   cells.push({ g, cam, x, y, phase: i * 0.7 });
 });
-document.getElementById('info').textContent = `${keys.length} miniatures · built in ${stats.buildMs.toFixed(1)} ms`;
+// warm: each built 5 more times, the best kept (a cold build is mostly the browser compiling the code once)
+stats.warmMs = 0;
+stats.models.forEach(m => { let best = 1e9; for (let i = 0; i < 5; i++) { const t0 = performance.now(); LOWPOLY_MODELS[m.key].build(THREE); best = Math.min(best, performance.now() - t0); } m.warm = +best.toFixed(2); stats.warmMs += best; });
+stats.models.forEach((m, i) => { const [lab, tris, off] = labs[i]; lab.querySelector('span').innerHTML = `${m.key} · ${tris} tris${off} · ${m.ms.toFixed(1)} / ${m.warm.toFixed(1)} ms`; });
+document.getElementById('info').textContent = `${keys.length} miniatures · built in ${stats.buildMs.toFixed(1)} ms cold, ${stats.warmMs.toFixed(1)} ms warm`;
 window.__stats = stats;
 let frames = 0;
 function frame(now) {

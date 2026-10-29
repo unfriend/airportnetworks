@@ -31,7 +31,7 @@
 // follows it, the old host comes back as a guest; a host that falls silent (its id still held) is replaced once its id
 // is free; an introduction server that cannot be reached leaves the room on this device; a relay that cannot be
 // reached as a room is joined makes it peer to peer; a headset that hosts hands the room to the first screen that
-// joins. --shots also saves pictures (the Shared dialog on a desktop and a phone, seven pretend headset views). --quick
+// joins. --shots also saves pictures (the Shared dialog on a desktop and a phone, eight pretend headset views). --quick
 // runs only the last story of STORIES in the per-story part (for a quicker run while working on the rest); --p2p runs
 // only the peer-to-peer part; --port N runs the relay on port N (default: any free port).
 // Needs Playwright as tools/smoke.mjs does (PLAYWRIGHT_MODULE, CHROMIUM_PATH). Exits 1 on any failure.
@@ -2317,8 +2317,9 @@ try {
     await frames(C, 600);
     await frames(H, 400);
     // render what H sees from its head, looking at yaw (room) and pitch
-    const view = async (file, yawRoom, pitch) => {
-      const url = await H.evaluate(([yawRoom, pitch]) => {
+    // (size [w, h]: drawn at twice that off screen and scaled down, instead of at the page's size)
+    const view = async (file, yawRoom, pitch, size) => {
+      const url = await H.evaluate(([yawRoom, pitch, size]) => {
         const X = window.__xr, R = HOST.room.internals(), r = HOST.renderer;
         const loop = HOST.cur.peek('frame');
         r.setAnimationLoop(null);
@@ -2326,16 +2327,26 @@ try {
         HOST.collab.internals().pumpAt = 0;
         for (const cb of X.raf.splice(0)) cb(performance.now(), X.frame);
         const hp = new THREE.Vector3().setFromMatrixPosition(X.W.head).applyMatrix4(X.W.local.clone().invert());
-        const cam = new THREE.PerspectiveCamera(84, r.domElement.width / r.domElement.height, 0.05, 2000);
+        const cam = new THREE.PerspectiveCamera(84, size ? size[0] / size[1] : r.domElement.width / r.domElement.height, 0.05, 2000);
         cam.position.copy(hp);
         cam.quaternion.setFromEuler(new THREE.Euler(pitch, yawRoom + R.yaw, 0, 'YXZ'));
         const sc = HOST.cur.peek('GL.scene');
         sc.updateMatrixWorld(true);
-        r.render(sc, cam);
-        const u = r.domElement.toDataURL('image/png');
+        let u;
+        if (size) {
+          const w = size[0] * 2, h = size[1] * 2, rt = new THREE.WebGLRenderTarget(w, h), px = new Uint8Array(w * h * 4);
+          r.setRenderTarget(rt); r.render(sc, cam); r.readRenderTargetPixels(rt, 0, 0, w, h, px); r.setRenderTarget(null); rt.dispose();
+          const big = document.createElement('canvas'), out = document.createElement('canvas'), id = new ImageData(w, h);
+          for (let y = 0; y < h; y++) id.data.set(px.subarray((h - 1 - y) * w * 4, (h - y) * w * 4), y * w * 4);   // (its rows come bottom up)
+          big.width = w; big.height = h; big.getContext('2d').putImageData(id, 0, 0);
+          out.width = size[0]; out.height = size[1];
+          const ctx = out.getContext('2d');
+          ctx.fillStyle = '#040912'; ctx.fillRect(0, 0, size[0], size[1]); ctx.drawImage(big, 0, 0, size[0], size[1]);
+          u = out.toDataURL('image/png');
+        } else { r.render(sc, cam); u = r.domElement.toDataURL('image/png'); }
         r.setAnimationLoop(loop);
         return u;
-      }, [yawRoom, pitch]);
+      }, [yawRoom, pitch, size || null]);
       fs.writeFileSync(path.join(shots, file), Buffer.from(url.split(',')[1], 'base64'));
     };
     const face = Math.atan2(-(0.4 - Sf.x), -(-0.3 - Sf.z));
@@ -2371,10 +2382,14 @@ try {
       await frames(H, 800);
       await view('headset-away.png', toward, -0.08);
     }
-    // the stations' icons over their rings, from 3.8 m behind the first row (away from every station, so all of them show)
+    // the stations' icons over their rings, from 3.8 m behind the first row and from near its left end, along it (away
+    // from every station, so all of them show)
     await goRoom(H, 0, 1.6, 2.6, 0);
     await frames(H, 800);
-    await view('headset-icons.png', 0, 0.05);
+    await view('headset-icons.png', 0, 0.05, [1280, 800]);
+    await goRoom(H, -4.8, 1.6, 0.6, -0.67);
+    await frames(H, 800);
+    await view('headset-icons-near.png', -0.67, 0.1, [1280, 800]);
     // the page's dialog with the room map, on a desktop and on a phone
     await A.setViewportSize({ width: 1000, height: 760 });
     const alive = Promise.all([frames(H, 3500), frames(C, 3500)]);   // the two headsets keep sending where they are
