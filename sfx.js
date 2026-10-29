@@ -182,8 +182,15 @@
     hiss(x, at, { kind: 'pink', type: 'bandpass', f: f0, f1, glide: dur, q: 1.4, peak, a: dur * 0.4, d: dur * 0.6, send: wet });
   }
 
-  // ---- the sounds. kind: 'ui' (interface), 'room' (the shared room); gap: the least time between two of them (ms);
-  // level: how loud it is, roughly (the voice limit makes room by it); make(x) returns when it has ended (s, the context's)
+  // a place inside a sound: grains of a texture spread left and right, on a screen only (a sound from a place in a
+  // headset stays one point)
+  function spot(x, pan) { if (x.sp || !x.c.createStereoPanner) return x.out; const p = x.c.createStereoPanner(); p.pan.value = clamp(pan, -1, 1); p.connect(x.out); return p; }
+  // two octaves of A major's pentatonic scale from A5 (the grains of a network growing)
+  const PENTA = [880, 987.77, 1108.73, 1318.51, 1479.98, 1760, 1975.53, 2217.46, 2637.02, 2959.96];
+
+  // ---- the sounds. kind: 'ui' (interface), 'room' (the shared room), 'story' (inside the stories, phase 2); gap: the
+  // least time between two of them (ms); level: how loud it is, roughly (the voice limit makes room by it); make(x)
+  // returns when it has ended (s, the context's)
   const N = { A5: 880, B5: 987.77, Cs6: 1108.73, E6: 1318.51, E5: 659.26, A4: 440, Fs5: 739.99 };
   const SOUNDS = {
     click: { kind: 'ui', gap: 35, level: 0.35, desc: 'A quiet click: a button on the page or in the headset\'s menu.',
@@ -249,12 +256,186 @@
     // (the sound board's 3D demo: a bright little shake that is easy to place)
     circle: { kind: 'demo', gap: 0, level: 0.4, desc: 'The 3D demo\'s sound: a small bright shake, easy to place by ear.',
       make(x) { hiss(x, 0, { type: 'bandpass', f: 3200, q: 0.6, peak: 0.3, a: 0.004, d: 0.05 }); tone(x, 1250, 0, { peak: 0.08, a: 0.002, d: 0.05 }); return x.t + 0.1; } },
-  };
-  // the order the sound board and the samples list them in
-  const ORDER = ['click', 'toggleOn', 'toggleOff', 'hover', 'open', 'close', 'lock', 'unlock', 'notice', 'ready', 'enter', 'grab', 'drop', 'place', 'join', 'leave'];
 
+    // ---- story sounds (phase 2): inside the stories, at moments of their timelines and for their explore actions. x.k is
+    // the pitch (a frequency factor: play's `pitch`), x.dur a length in seconds (play's `dur`; each recipe has its own
+    // default), x.o play's own options (`n`, a count; `rise`). Soft and rounded, mostly above 150 Hz, and a little
+    // quieter than the interface's: they play under the voice, and ten headsets at one station play them within a
+    // quarter of a second of each other (open-ear speakers)
+    grow: { kind: 'story', gap: 400, level: 0.5, desc: 'A network growing: a soft shimmer of glassy grains that thickens and rises over its length (dur, 4 s by default).',
+      uses: 'Nodes and links appearing in every network story (the airports lighting up, the routes weaving in, an interactome, a co-occurrence network).',
+      make(x) {
+        const D = x.dur || 4, k = x.k, r = x.r, n = Math.round(10 + 6 * D);
+        for (let i = 0; i < n; i++) {   // more grains as it goes (t = D * sqrt(u)), and higher
+          const u = (i + r() * 0.9) / n, at = D * Math.sqrt(u), j = Math.min(PENTA.length - 1, Math.floor((0.1 + 0.68 * u + 0.22 * r()) * PENTA.length));
+          const f = PENTA[j] * k, pk = (0.011 + 0.011 * r()) * (0.55 + 0.45 * u), d = 0.2 + 0.3 * r(), out = spot(x, (r() * 2 - 1) * 0.6);
+          tone(x, f, at, { peak: pk, a: 0.003, d, send: 0.25, dest: out });
+          tone(x, f * 2.76, at, { peak: pk * 0.16, a: 0.002, d: d * 0.35, dest: out });
+        }
+        hiss(x, 0, { kind: 'pink', type: 'bandpass', f: 2400 * k, f1: 4000 * k, glide: D, q: 0.8, peak: 0.011, a: D * 0.75, d: D * 0.25 + 0.6 });
+        return x.t + D + 0.8;
+      } },
+    link: { kind: 'story', gap: 60, level: 0.35, desc: 'A link snapping on: a bright tick with a short glassy ring.',
+      uses: 'One edge drawn (London to New York), two things meeting, a part clicking into place, drugs docking.',
+      make(x) { const k = x.k; tap(x, 0, 0.075, 1150 * k); bell(x, 1760 * k, 0.004, 0.042, 0.24, 0.08); return x.t + 0.32; } },
+    snap: { kind: 'story', gap: 120, level: 0.4, desc: 'A link breaking: a dry crack and a short falling tone.',
+      uses: 'A pair breaking, a network cut in two, the shuffle, CFTR stuck on its way.',
+      make(x) {
+        const k = x.k;
+        hiss(x, 0, { type: 'highpass', f: 3200 * k, q: 0.7, peak: 0.15, a: 0.0004, d: 0.018 });
+        hiss(x, 0.011, { type: 'bandpass', f: 1900 * k, q: 1.2, peak: 0.1, a: 0.0004, d: 0.02 });
+        tone(x, 900 * k, 0.006, { type: 'triangle', peak: 0.07, a: 0.002, d: 0.24, f1: 300 * k, glide: 0.2 });
+        return x.t + 0.32;
+      } },
+    whoosh: { kind: 'story', gap: 150, level: 0.5, desc: 'Air moving past: a swish whose band sweeps up (pitch above 1) or down (below 1) over its length (dur, 0.9 s by default).',
+      uses: 'Flights between scenes, things flying in or apart, a set opening, a scene changed in explore mode.',
+      make(x) {
+        const D = x.dur || 0.9, k = x.k, ratio = 1.5 * Math.pow(k, 4), mid = 1000 * Math.sqrt(k);
+        const f0 = clamp(mid / Math.sqrt(ratio), 160, 7000), f1 = clamp(mid * Math.sqrt(ratio), 160, 7000);
+        swish(x, 0, D, f0, f1, 0.06, 0.14); swish(x, 0.02, D, f0 * 1.07, f1 * 1.07, 0.045, 0.14);
+        return x.t + D + 0.1;
+      } },
+    bubble: { kind: 'story', gap: 50, level: 0.3, desc: 'A bubble: a quick rising blip with a soft pop.',
+      uses: 'Things appearing one by one: the cell\'s compartments, the jars, the robots added, the fish.',
+      make(x) {
+        const k = x.k;
+        tone(x, 420 * k, 0, { peak: 0.085, a: 0.003, d: 0.08, f1: 900 * k, glide: 0.06 });
+        hiss(x, 0.055, { type: 'bandpass', f: 2600 * k, q: 2, peak: 0.03, a: 0.0005, d: 0.008 });
+        return x.t + 0.14;
+      } },
+    pick: { kind: 'story', gap: 60, level: 0.35, desc: 'Something picked: a soft pluck with a short ring.',
+      uses: 'Explore mode\'s picks (an airport, a gene, a cell, a plot, an organ), a thing singled out in the story.',
+      make(x) {
+        const k = x.k;
+        tone(x, 587.33 * k * 1.015, 0, { type: 'triangle', peak: 0.095, a: 0.0015, d: 0.17, f1: 587.33 * k, glide: 0.02 });
+        tone(x, 1174.66 * k, 0, { peak: 0.028, a: 0.001, d: 0.06 });
+        hiss(x, 0, { type: 'bandpass', f: 2800 * k, q: 1.5, peak: 0.05, a: 0.0005, d: 0.01 });
+        return x.t + 0.24;
+      } },
+    ping: { kind: 'story', gap: 300, level: 0.5, desc: 'A result: a small two-note chime going up a fifth (higher and drier than a notice).',
+      uses: 'A path found, a top candidate, a score, an answer shown, the end of a story.',
+      make(x) { const k = x.k; bell(x, 1760 * k, 0, 0.04, 0.6, 0.08); bell(x, 2637.02 * k, 0.11, 0.036, 0.75, 0.1); return x.t + 1.0; } },
+    step: { kind: 'story', gap: 60, level: 0.3, desc: 'One step of a sequence: a short glassy tick (its pitch set per step).',
+      uses: 'The hops of a path, the codes on a chip, a circuit\'s gates, dates, decades, a slider passing a named stop.',
+      make(x) { const k = x.k; tone(x, 1320 * k, 0, { type: 'triangle', peak: 0.05, a: 0.0015, d: 0.07 }); tap(x, 0, 0.032, 1320 * k); return x.t + 0.12; } },
+    rise: { kind: 'story', gap: 600, level: 0.8, desc: 'A reveal: a soft chord that swells, opens and rises a fourth over its length (dur, 2 s by default), then fades.',
+      uses: 'A set or a big structure appearing: the globe, the tower of scales, the pyramid, every airport open again.',
+      make(x) {
+        const c = x.c, t = x.t, D = x.dur || 2, k = x.k, lp = c.createBiquadFilter();
+        lp.type = 'lowpass'; lp.Q.value = 0.7;
+        lp.frequency.setValueAtTime(320 * k, t); lp.frequency.exponentialRampToValueAtTime(3400 * k, t + D * 0.6); lp.frequency.exponentialRampToValueAtTime(1000 * k, t + D * 1.15);
+        const g = amp(x, 0.045, 0, D * 0.45, D * 0.65, D * 0.08);
+        lp.connect(g); g.connect(x.out); send(x, g, 0.3);
+        for (const [f, kk] of [[220, 0.5], [329.63, 0.36], [440, 0.3], [554.37, 0.2], [659.26, 0.14], [880, 0.06]]) for (const dt of [-6, 6]) {
+          const s = c.createOscillator(), sg = c.createGain();
+          s.type = 'triangle'; s.detune.value = dt; sg.gain.value = kk;
+          s.frequency.setValueAtTime(f * k, t); s.frequency.exponentialRampToValueAtTime(f * k * 4 / 3, t + D * 0.85);
+          s.connect(sg); sg.connect(lp); track(x, s, 0, D * 1.2 + 0.05);
+        }
+        return t + D * 1.2 + 0.1;
+      } },
+    knock: { kind: 'story', gap: 200, level: 0.55, desc: 'A closure or a knockout: a soft low thud with a dull knock (a robot\'s bump at pitch 1.8).',
+      uses: 'Airports closing, layers knocked out, cores lifting, a slice falling flat, a robot bumping into something.',
+      make(x) { const k = x.k; thud(x, 0, 0.17, 190 * k, 95 * k, 0.28); tone(x, 380 * k, 0.002, { type: 'triangle', peak: 0.05, a: 0.002, d: 0.06, f1: 300 * k, glide: 0.05 }); return x.t + 0.4; } },
+    heart: { kind: 'story', gap: 800, level: 0.5, desc: 'A heartbeat: lub-dub, two low soft thuds.',
+      uses: 'The heart in the motor unit.',
+      make(x) {
+        const k = x.k;
+        for (const [at, pk, f] of [[0, 0.17, 150], [0.16, 0.12, 175]]) {
+          tone(x, f * k, at, { peak: pk, a: 0.006, d: 0.15, f1: f * 0.6 * k, glide: 0.12 });
+          tone(x, f * 2.4 * k, at, { type: 'triangle', peak: pk * 0.28, a: 0.003, d: 0.05 });
+          hiss(x, at, { kind: 'pink', type: 'lowpass', f: 520, q: 0.7, peak: pk * 0.35, a: 0.002, d: 0.05 });
+        }
+        return x.t + 0.5;
+      } },
+    flutter: { kind: 'story', gap: 300, level: 0.5, desc: 'Wings: a fast flutter of feathered air passing by (dur, 0.6 s by default).',
+      uses: 'The flock passing near you, the flock bursting away from a falcon, the birds\' number changed.',
+      make(x) {
+        const c = x.c, t = x.t, D = x.dur || 0.6, k = x.k, r = x.r, env = amp(x, 0.11, 0, D * 0.35, D * 0.65);
+        env.connect(x.out); send(x, env, 0.12);
+        for (const [f0, f1, lv, rate] of [[900, 1700, 1, 14 + r() * 2], [2600, 3800, 0.45, 16 + r() * 2]]) {   // two bands, each beating 14 to 18 times a second
+          const s = c.createBufferSource(), bp = c.createBiquadFilter(), fl = c.createGain(), w = c.createOscillator(), wg = c.createGain();
+          s.buffer = noise(c, 'pink'); s.loop = true;
+          bp.type = 'bandpass'; bp.Q.value = 0.9; bp.frequency.setValueAtTime(f0 * k, t); bp.frequency.exponentialRampToValueAtTime(f1 * k, t + D);
+          fl.gain.value = 0.5 * lv; w.frequency.value = rate; wg.gain.value = 0.5 * lv; w.connect(wg); wg.connect(fl.gain);
+          s.connect(bp); bp.connect(fl); fl.connect(env);
+          track(x, s, 0, D + 0.05, r() * 5); track(x, w, 0, D + 0.05);
+        }
+        return t + D + 0.1;
+      } },
+    rush: { kind: 'story', gap: 300, level: 0.6, desc: 'Water rushing: a deep swell of noise that opens and closes (dur, 1.2 s by default).',
+      uses: 'The shark, the school turning, flows (the Sankey diagram, the nitrogen seeping, the soil\'s flows).',
+      make(x) {
+        const c = x.c, t = x.t, D = x.dur || 1.2, k = x.k, r = x.r, lp = c.createBiquadFilter(), hp = c.createBiquadFilter(), env = amp(x, 0.2, 0, D * 0.45, D * 0.55);
+        hp.type = 'highpass'; hp.frequency.value = 150; hp.Q.value = 0.7;
+        lp.type = 'lowpass'; lp.Q.value = 0.8;
+        lp.frequency.setValueAtTime(300 * k, t); lp.frequency.exponentialRampToValueAtTime(1400 * k, t + D * 0.45); lp.frequency.exponentialRampToValueAtTime(400 * k, t + D);
+        lp.connect(hp); hp.connect(env); env.connect(x.out); send(x, env, 0.1);
+        for (const [kind, lv] of [['brown', 1], ['pink', 0.35]]) {
+          const s = c.createBufferSource(), g = c.createGain();
+          s.buffer = noise(c, kind); s.loop = true; g.gain.value = lv; s.connect(g); g.connect(lp); track(x, s, 0, D + 0.05, r() * 5);
+        }
+        return t + D + 0.1;
+      } },
+    patter: { kind: 'story', gap: 300, level: 0.45, desc: 'Many small things landing: a patter of tiny clicks over its length (dur, 1.5 s by default), thinning at the end.',
+      uses: 'Fertiliser falling, crumbs spilled, slides flying onto a wall, read-outs piling up, random closures.',
+      make(x) {
+        const D = x.dur || 1.5, k = x.k, r = x.r, n = Math.max(3, Math.round(25 * D));
+        for (let i = 0; i < n; i++) {   // (t = D * u^1.3: fewer as it goes)
+          const u = (i + r()) / n, at = D * Math.pow(u, 1.3), f = (2000 + 3000 * r()) * k;
+          hiss(x, at, { type: 'bandpass', f, q: 2.2, peak: (0.02 + 0.045 * r()) * (1 - 0.6 * u), a: 0.0005, d: 0.005 + 0.01 * r(), dest: spot(x, (r() * 2 - 1) * 0.7) });
+        }
+        return x.t + D + 0.1;
+      } },
+    spark: { kind: 'story', gap: 120, level: 0.35, desc: 'A nerve impulse or a signal: a quick crackle and a falling zap.',
+      uses: 'Impulses running down a nerve, a junction firing, a signal starting its relay.',
+      make(x) {
+        const c = x.c, k = x.k, lp = c.createBiquadFilter();
+        lp.type = 'lowpass'; lp.frequency.value = 3600 * k; lp.Q.value = 0.7; lp.connect(x.out);
+        for (const [at, pk] of [[0, 0.12], [0.012, 0.08], [0.03, 0.06]]) hiss(x, at, { type: 'highpass', f: 2800 * k, q: 0.8, peak: pk, a: 0.0004, d: 0.003 });
+        tone(x, 2400 * k, 0.004, { type: 'square', peak: 0.03, a: 0.002, d: 0.2, f1: 600 * k, glide: 0.18, dest: lp });
+        return x.t + 0.3;
+      } },
+    pulse: { kind: 'story', gap: 400, level: 0.45, desc: 'A signal spreading: a soft round ping with a slight fall and a long tail.',
+      uses: 'A module glowing, walkers setting out, a disease neighbourhood lighting up, an outbreak started.',
+      make(x) {
+        const k = x.k;
+        tone(x, 660 * k, 0, { peak: 0.065, a: 0.008, d: 1.1, f1: 620 * k, glide: 1.0, send: 0.3 });
+        tone(x, 990 * k, 0, { peak: 0.015, a: 0.01, d: 0.8, send: 0.3 });
+        return x.t + 1.3;
+      } },
+    clink: { kind: 'story', gap: 80, level: 0.35, desc: 'Glass: a high, bright clink with an inharmonic ring.',
+      uses: 'Glass slides, the qubits\' little cubes, a slide picked.',
+      make(x) {
+        const k = x.k;
+        for (const [m, g, dk] of [[1, 1, 1], [2.76, 0.5, 0.6], [5.4, 0.25, 0.35], [8.9, 0.12, 0.2]]) if (2100 * k * m < 16000) tone(x, 2100 * k * m, 0, { peak: 0.042 * g, a: 0.0015, d: 0.35 * dk, send: 0.1 });
+        hiss(x, 0, { type: 'highpass', f: 6000, q: 0.7, peak: 0.03, a: 0.0003, d: 0.004 });
+        return x.t + 0.45;
+      } },
+    ratchet: { kind: 'story', gap: 300, level: 0.4, desc: 'A mechanism turning: n small clicks with a body, evenly over its length (dur, 2 s and n 8 by default), each a little higher with rise.',
+      uses: 'Gears, slices scanned, stacks filling, a sum built brick by brick, trees voting.',
+      make(x) {
+        const D = x.dur || 2, k = x.k, n = clamp(Math.round(+x.o.n || 8), 1, 64), up = !!x.o.rise;
+        for (let i = 0; i < n; i++) {
+          const at = D * i / n, f = (i % 2 ? 1450 : 1100) * k * (up ? Math.pow(1.04, i) : 1);
+          tap(x, at, 0.05, f); tone(x, f * 0.5, at, { type: 'triangle', peak: 0.028, a: 0.001, d: 0.03 });
+        }
+        return x.t + D + 0.15;
+      } },
+  };
+  // the order the sound board and the samples list them in: the shell's sounds, then the stories'
+  const ORDER = ['click', 'toggleOn', 'toggleOff', 'hover', 'open', 'close', 'lock', 'unlock', 'notice', 'ready', 'enter', 'grab', 'drop', 'place', 'join', 'leave'];
+  const ORDER_STORY = ['grow', 'link', 'snap', 'whoosh', 'bubble', 'pick', 'ping', 'step', 'rise', 'knock', 'heart', 'flutter', 'rush', 'patter', 'spark', 'pulse', 'clink', 'ratchet'];
+
+  // what a recipe reads (x): its context, where it goes (out, and its reverb send wet), its start, its sources, its random
+  // numbers, and play's options: pitch (k, a frequency factor), dur (its length, s; 0: the recipe's own), o (all of them:
+  // n, rise ...); sp: it comes from a place in a headset (one point: no stereo inside it)
+  function xOf(c, out, wet, t, r, o, sp) {
+    o = o || {};
+    return { c, out, wet, t, srcs: [], r, k: clamp(+o.pitch || 1, 0.25, 4), dur: +o.dur > 0 ? clamp(+o.dur, 0.05, 40) : 0, o, sp: !!sp };
+  }
   // one sound: its recipe into a dry gain (through an HRTF panner at a place in a headset, or a stereo panner on a
-  // screen) and a reverb send. o: { gain, at: [x, y, z], spatial, pan (-1 left .. 1 right), seed }
+  // screen) and a reverb send. o: { gain, at: [x, y, z], spatial, pan (-1 left .. 1 right), seed, pitch, dur, n ... }
   function voice(G, name, t, o) {
     const R = SOUNDS[name], c = G.c, k = o.gain == null ? 1 : o.gain;
     const g = c.createGain(), w = c.createGain();
@@ -267,9 +448,94 @@
     } else if (o.pan && c.createStereoPanner) { p = c.createStereoPanner(); p.pan.value = clamp(o.pan, -1, 1); }
     if (p) { g.connect(p); p.connect(G.fx); } else g.connect(G.fx);
     w.connect(G.verb);
-    const x = { c, out: g, wet: w, t, srcs: [], r: rng(o.seed == null ? hash(name) : o.seed) };
+    const sp = !!(p && p.panningModel), x = xOf(c, g, w, t, rng(o.seed == null ? hash(name) : o.seed), o, sp);
     const end = R.make(x);
-    return { name, g, w, p, srcs: x.srcs, t0: t, end, level: (R.level || 0.5) * k, spatial: !!(p && p.panningModel) };
+    return { name, g, w, p, srcs: x.srcs, t0: t, end, level: (R.level || 0.5) * k, spatial: sp };
+  }
+  // a stand-in context that records nothing, for a dry run of a recipe (its length): nodes that do nothing, buffers
+  // that keep nothing, at a low rate (its noise is made once)
+  let DRY = null;
+  function dry() {
+    if (DRY) return DRY;
+    const param = () => ({ value: 0, setValueAtTime() {}, linearRampToValueAtTime() {}, exponentialRampToValueAtTime() {}, setTargetAtTime() {}, cancelScheduledValues() {} });
+    const node = () => ({ connect() {}, disconnect() {}, start() {}, stop() {}, setPosition() {}, gain: param(), frequency: param(), detune: param(), Q: param(), pan: param(),
+      positionX: param(), positionY: param(), positionZ: param() });
+    const buf = new Float32Array(1);
+    return (DRY = { sampleRate: 8000, currentTime: 0, createGain: node, createOscillator: node, createBiquadFilter: node, createBufferSource: node, createStereoPanner: node,
+      createPanner: node, createBuffer: () => ({ getChannelData: () => buf }) });
+  }
+  // how long a sound lasts (s) with these options (pitch, dur, n ...): from a dry run, as renderSound sizes its render;
+  // the tests' overlap check. 0 for a name it does not know
+  function length(name, o) {
+    const R = SOUNDS[name];
+    if (!R) return 0;
+    const c = dry();
+    return R.make(xOf(c, c.createGain(), null, 0, rng(1), o || {}, false));
+  }
+
+  // ---- continuous sounds (drones): a story keeps one going by asking for it every frame (HOST.sfx.drone); it fades in,
+  // follows its gain, pitch and place smoothly, and fades out once nobody asks. d: { c, out (the recipe's output),
+  // srcs, t, r, tune (the [AudioParam, value at pitch 1] pairs its pitch moves) }; level: its gain at full
+  const DRONES = {
+    vacuum: { level: 1, desc: 'A robot vacuum: a soft motor whine and brushed air; its pitch follows the robot\'s speed.',
+      uses: 'The robot gang: the two robots nearest you while they move.',
+      make(d) {
+        const c = d.c, s = osc(d, 'sawtooth', 220), lp = filter(c, 'lowpass', 900, 0.8), g = gain(c, 0.04);
+        s.connect(lp); lp.connect(g); g.connect(d.out);
+        lfo(d, 5.3, 2.5, s.frequency);   // (a little wobble in the motor)
+        const n = loop(d, 'white'), bp = filter(c, 'bandpass', 1500, 1.2), ng = gain(c, 0.02);
+        n.connect(bp); bp.connect(ng); ng.connect(d.out);
+        lfo(d, 0.7, 0.006, ng.gain);
+        d.tune.push([s.frequency, 220], [bp.frequency, 1500], [lp.frequency, 900]);
+      } },
+    machine: { level: 1, desc: 'A machine running: a low-mid hum with air and a slow beat; its pitch sets its speed.',
+      uses: 'The supercomputer\'s hall, the PET scanner\'s ring, ATP synthase\'s rotor, the mutation machine\'s turn.',
+      make(d) {
+        const c = d.c, beat = gain(c, 0.7), lp = filter(c, 'lowpass', 1500, 0.6);
+        beat.connect(lp); lp.connect(d.out);
+        const b = lfo(d, 2, 0.3, beat.gain);
+        for (const [f, k, det] of [[180, 0.045, -5], [180, 0.045, 5], [270, 0.032, 3]]) { const s = osc(d, 'triangle', f, det), g = gain(c, k); s.connect(g); g.connect(beat); d.tune.push([s.frequency, f]); }
+        const n = loop(d, 'pink'), bp = filter(c, 'bandpass', 600, 1), ng = gain(c, 0.05);
+        n.connect(bp); bp.connect(ng); ng.connect(beat);
+        d.tune.push([b.frequency, 2], [bp.frequency, 600]);
+      } },
+  };
+  const ORDER_DRONE = ['vacuum', 'machine'];
+  // one continuous sound on G from t: its gain (lv, from 0: the caller fades it), its panner (HRTF at a place in a
+  // headset, stereo on a screen) into G.fx, a little reverb. o: { at, spatial, pan, pitch }
+  function droneVoice(G, name, t, o, seed) {
+    const c = G.c, R = DRONES[name], lv = gain(c, 0), out = gain(c, R.level || 1), wet = gain(c, 0.12);
+    out.connect(lv); lv.connect(wet); wet.connect(G.verb);
+    let p = null;
+    if (o.spatial && o.at && c.createPanner) {
+      p = c.createPanner();
+      p.panningModel = 'HRTF'; p.distanceModel = 'inverse'; p.refDistance = 1; p.rolloffFactor = 0.8; p.maxDistance = 100;
+      if (p.positionX) { p.positionX.value = o.at[0]; p.positionY.value = o.at[1]; p.positionZ.value = o.at[2]; } else p.setPosition(o.at[0], o.at[1], o.at[2]);
+    } else if (c.createStereoPanner) { p = c.createStereoPanner(); p.pan.value = clamp(+o.pan || 0, -1, 1); }
+    if (p) { lv.connect(p); p.connect(G.fx); } else lv.connect(G.fx);
+    const d = { c, name, out, lv, p, wet, t, srcs: [], r: rng(seed == null ? hash(name) : seed), tune: [], k: 1, gn: 0, at: o.at ? o.at.slice() : null, pan: +o.pan || 0,
+      sp: !!(p && p.panningModel) };
+    R.make(d);
+    const k = clamp(+o.pitch || 1, 0.25, 4);
+    if (k !== 1) { for (const [q, b] of d.tune) q.value = b * k; d.k = k; }
+    return d;
+  }
+  // a drone follows what it is asked for, smoothly (0.08 s), changed only where it changed (few automation events)
+  function droneFollow(d, o, t) {
+    const gn = clamp(o.gain == null ? 1 : +o.gain || 0, 0, 2), k = clamp(+o.pitch || 1, 0.25, 4);
+    if (Math.abs(gn - d.gn) > 0.004) { d.lv.gain.setTargetAtTime(gn, t, d.gn ? 0.08 : 0.1); d.gn = gn; }
+    if (Math.abs(k - d.k) > 0.002) { for (const [q, b] of d.tune) q.setTargetAtTime(b * k, t, 0.08); d.k = k; }
+    if (d.sp && o.at && d.p.positionX && (!d.at || Math.hypot(o.at[0] - d.at[0], o.at[1] - d.at[1], o.at[2] - d.at[2]) > 0.01)) {
+      d.p.positionX.setTargetAtTime(o.at[0], t, 0.08); d.p.positionY.setTargetAtTime(o.at[1], t, 0.08); d.p.positionZ.setTargetAtTime(o.at[2], t, 0.08); d.at = o.at.slice();
+    } else if (!d.sp && d.p && d.p.pan && o.pan != null && Math.abs(o.pan - d.pan) > 0.01) { d.p.pan.setTargetAtTime(clamp(+o.pan || 0, -1, 1), t, 0.08); d.pan = +o.pan || 0; }
+  }
+  function droneOff(d, t, secs) {
+    try {
+      const p = d.lv.gain;
+      p.cancelScheduledValues(t); p.setValueAtTime(p.value, t); p.linearRampToValueAtTime(0, t + secs);
+      for (const s of d.srcs) { try { s.stop(t + secs + 0.05); } catch (e) { /* stopped */ } }
+    } catch (e) { /* its context is gone */ }
+    d.gone = t + secs + 0.1;
   }
 
   // ---- the beds: loops that run until faded out. b: { c, out (the bed's gain), wet (its reverb send), r, next }. level:
@@ -435,13 +701,15 @@
 
   // ---- the engine. A: { fx() (the context to play through now, or null), speaking() (the narration sounds now),
   // bed() (the story key whose bed should play, '' none), spatial() (in a headset: sounds come from places), get(k),
-  // put(k, v) (this device's settings; null keeps them in memory) }
+  // put(k, v) (this device's settings; null keeps them in memory), muted() (optional: the sound is off, Sound line) }
+  const MAXD = 4;                                  // continuous sounds at once (besides the 16 voices)
   function engine(A) {
-    const S = { on: false, vol: 0.75, c: null, G: null, voices: [], gone: [], last: {}, played: 0, cut: 0, lastAt: 0, lastName: '', lastSpatial: false,
-      speak: false, bed: null, bedKey: '', old: [], head: null, n: 0, an: null, buf: null };
+    const S = { on: true, vol: 0.75, c: null, G: null, voices: [], gone: [], last: {}, played: 0, cut: 0, lastAt: 0, lastName: '', lastSpatial: false,
+      speak: false, bed: null, bedKey: '', old: [], head: null, n: 0, an: null, buf: null, drones: new Map(), dold: [] };
     const get = k => { try { return A.get ? A.get(k) : null; } catch (e) { return null; } };
     const put = (k, v) => { try { if (A.put) A.put(k, v); } catch (e) { /* storage blocked */ } };
-    S.on = get('sfxOn') === 'on';
+    // on by default (the owner approved the sounds, 29 October 2026): only a device that turned them off keeps them off
+    S.on = get('sfxOn') !== 'off';
     { const v = parseFloat(get('sfxVolume')); if (isFinite(v)) S.vol = clamp(v, 0, 1); }
     const taper = v => v * v;
     // the context to play through, the graph built on it (again when HOST.audio started a new one); null while off or silent
@@ -453,7 +721,8 @@
       return c;
     }
     function build(c) {
-      S.voices = []; S.gone = []; S.bed = null; S.bedKey = ''; S.old = []; S.an = null; S.speak = false;
+      for (const d of S.drones.values()) droneOff(d, d.c.currentTime, 0.05);   // (on the context before, if it still runs)
+      S.voices = []; S.gone = []; S.bed = null; S.bedKey = ''; S.old = []; S.an = null; S.speak = false; S.drones.clear(); S.dold = [];
       S.c = c; S.G = graph(c);
       S.G.vol.gain.value = taper(S.vol);
       listener();
@@ -464,6 +733,7 @@
       for (let i = S.voices.length - 1; i >= 0; i--) if (S.voices[i].end + 0.1 < t) { off(S.voices[i]); S.voices.splice(i, 1); }
       for (let i = S.gone.length - 1; i >= 0; i--) if (S.gone[i].end + 0.1 < t) { off(S.gone[i]); S.gone.splice(i, 1); }
       for (let i = S.old.length - 1; i >= 0; i--) if (S.old[i].gone < t) { try { S.old[i].out.disconnect(); S.old[i].wet.disconnect(); } catch (e) { /* gone */ } S.old.splice(i, 1); }
+      for (let i = S.dold.length - 1; i >= 0; i--) if (S.dold[i].gone < t) { const d = S.dold[i]; try { d.lv.disconnect(); d.wet.disconnect(); if (d.p) d.p.disconnect(); } catch (e) { /* gone */ } S.dold.splice(i, 1); }
     }
     function off(v) { try { v.g.disconnect(); v.w.disconnect(); if (v.p) v.p.disconnect(); } catch (e) { /* gone */ } }
     // make room: the voice quietest now (its level times what is left of it), the oldest of equals, fades in 25 ms
@@ -478,7 +748,9 @@
       v.end = t + 0.03; S.voices.splice(S.voices.indexOf(v), 1); S.gone.push(v); S.cut++;
     }
     // play a sound now. o: { at: [x, y, z] (where, in the headset's reference space; used in a headset), pan (on a screen,
-    // -1 .. 1), gain, delay (s), force (no minimum gap: the sound board's and the tests' bursts) }. The voice, or null
+    // -1 .. 1), gain, delay (s), force (no minimum gap: the sound board's and the tests' bursts), pitch (a frequency
+    // factor), dur (s: a texture's or a sweep's length), n (a count: the ratchet's clicks) }. The voice, or null (off,
+    // silent, too soon after the last, or a name this shell does not know: an older shell plays nothing for a newer story)
     function play(name, o) {
       o = o || {};
       const R = SOUNDS[name], c = R && ctx();
@@ -491,13 +763,47 @@
       while (S.voices.length >= MAX) cut(quietest(t), t);
       let sp = false;
       try { sp = !!(o.at && A.spatial()); } catch (e) { /* no headset */ }
-      const v = voice(S.G, name, t + LEAD + Math.max(0, +o.delay || 0), { gain: o.gain, at: o.at, spatial: sp, pan: o.pan, seed: hash(name) + (++S.n) });
+      const v = voice(S.G, name, t + LEAD + Math.max(0, +o.delay || 0), Object.assign({}, o, { spatial: sp, seed: hash(name) + (++S.n) }));
       S.voices.push(v); S.played++; S.lastAt = t0; S.lastName = name; S.lastSpatial = v.spatial;
       return v;
+    }
+    // a continuous sound (DRONES) that goes on while it is asked for: call it every frame (at least every 250 ms) with the
+    // same id; o: { at, pan, gain, pitch }, followed smoothly. Made on the first call (faded in over 0.3 s), faded out over
+    // 0.4 s once not asked for 0.3 s (step), at once (0.3 s) when the effects go off or silent. At most 4 at once (a fifth
+    // replaces the quietest); not counted in the 16 voices. The drone, or null
+    function drone(id, name, o) {
+      o = o || {};
+      const R = DRONES[name], c = R && ctx();
+      if (!c || !id) return null;
+      id = String(id);
+      let sp = false;
+      try { sp = !!(o.at && A.spatial()); } catch (e) { /* no headset */ }
+      const t = c.currentTime;
+      let d = S.drones.get(id);
+      if (d && (d.name !== name || d.sp !== sp)) { droneOff(d, t, 0.3); S.dold.push(d); S.drones.delete(id); d = null; }   // (another sound, or a headset came or went)
+      if (!d) {
+        if (S.drones.size >= MAXD) {
+          let q = null;
+          for (const x of S.drones.values()) if (!q || x.gn < q.gn) q = x;
+          droneOff(q, t, 0.3); S.dold.push(q); S.drones.delete(q.id);
+        }
+        d = droneVoice(S.G, name, t + LEAD, Object.assign({}, o, { spatial: sp }), hash(id) + (++S.n));
+        d.id = id; S.drones.set(id, d);
+      }
+      droneFollow(d, o, t);
+      d.seen = now();
+      return d;
+    }
+    function dronesOff(secs, all) {
+      const tn = now();
+      for (const d of [...S.drones.values()]) if (all || tn - d.seen > 300) {
+        droneOff(d, d.c.state === 'closed' ? 0 : d.c.currentTime, secs); S.dold.push(d); S.drones.delete(d.id);
+      }
     }
     // every 100 ms (and at once on a change): the bed wanted now, the duck, the voices that have ended
     function step() {
       const c = ctx();
+      if (S.drones.size) dronesOff(c ? 0.4 : 0.3, !c);   // (not asked for lately; or all, the effects off or silent)
       let want = '';
       if (c) { try { want = A.bed() || ''; } catch (e) { want = ''; } }
       if (S.bed && (want !== S.bedKey || !c)) {
@@ -568,30 +874,80 @@
     function demo() {
       ['click', 'toggleOn', 'toggleOff', 'hover', 'open', 'close', 'lock', 'unlock', 'notice', 'grab', 'drop', 'place', 'join', 'leave', 'enter', 'ready']
         .forEach((n, i) => play(n, { delay: i * 0.75, force: true }));
+      // and six of the stories' (phase 2)
+      [['grow', { dur: 2.5 }], ['link'], ['whoosh', { pitch: 1.2 }], ['pulse'], ['rise'], ['knock']]
+        .forEach(([n, o], i) => play(n, Object.assign({ delay: 12.6 + i * 1.6, force: true }, o)));
     }
     const pct = () => Math.round(S.vol * 100) + ' %';
+    const muted = () => { try { return !!(A.muted && A.muted()); } catch (e) { return false; } };
     return {
-      play, step, listen, set, setVolume, nextVolume, level, demo,
+      play, drone, step, listen, set, setVolume, nextVolume, level, demo,
       on: () => S.on, volume: () => S.vol, count: () => S.played, context: () => S.c,
       sig: () => (S.on ? 'F' : 'f') + Math.round(S.vol * 100),
       // the line in Sound check (page and headset)
-      line: () => 'Sound effects: ' + (S.on ? 'on, volume ' + pct() + (S.c && S.G && S.c === (A.fx() || null) ? ', ' + S.voices.length + ' playing' +
-        (S.bedKey ? ', background ' + bedOf(S.bedKey) + ' (' + S.bedKey + ')' : '') + (S.speak ? ', ducked under the voice' : '') : ', silent (Web Audio not running here yet)') : 'off (volume ' + pct() + ')'),
+      line: () => 'Sound effects: ' + (S.on ? 'on, volume ' + pct() + (muted() ? ', silent while the sound is off (the Sound button)' : S.c && S.G && S.c === (A.fx() || null) ? ', ' + S.voices.length + ' playing' +
+        (S.drones.size ? ', ' + S.drones.size + ' continuous' : '') + (S.bedKey ? ', background ' + bedOf(S.bedKey) + ' (' + S.bedKey + ')' : '') + (S.speak ? ', ducked under the voice' : '') : ', silent (Web Audio not running here yet)') : 'off (volume ' + pct() + ')'),
       state: () => ({ on: S.on, volume: S.vol, voices: S.voices.length, played: S.played, cut: S.cut, last: S.lastName, spatial: S.lastSpatial, bed: S.bedKey,
-        bedKind: S.bedKey ? bedOf(S.bedKey) : '', speak: S.speak, duck: S.G ? S.G.duck.gain.value : 1, ctx: S.c ? S.c.state : '', head: S.head }),
+        bedKind: S.bedKey ? bedOf(S.bedKey) : '', speak: S.speak, duck: S.G ? S.G.duck.gain.value : 1, ctx: S.c ? S.c.state : '', head: S.head,
+        drones: [...S.drones.values()].map(d => ({ id: d.id, name: d.name, gain: d.gn, pitch: d.k, spatial: d.sp })) }),
     };
   }
 
   // ---- renders (the sound board and tools/sfx-render.mjs): each into an OfflineAudioContext through the same graph
   const SR = 44100;
   function offline(secs, ch) { const C = root.OfflineAudioContext || root.webkitOfflineAudioContext; return new C(ch || 2, Math.ceil(secs * SR), SR); }
+  // one sound with play's options (pitch, dur, n ...), its reverb's tail after it
   function renderSound(name, o) {
     o = o || {};
-    const R = SOUNDS[name], probe = offline(0.1), x0 = { c: probe, out: probe.createGain(), wet: null, t: 0, srcs: [], r: rng(1) };
-    const len = R.make(x0) + 0.6;   // (its length, from a dry run; the reverb's tail after it)
-    const c = offline(len, 2), G = graph(c);
-    voice(G, name, 0.02, { seed: o.seed == null ? hash(name) : o.seed });
+    const c = offline(length(name, o) + 0.6, 2), G = graph(c);
+    voice(G, name, 0.02, Object.assign({}, o, { seed: o.seed == null ? hash(name) : o.seed }));
     return c.startRendering();
+  }
+  // a continuous sound on G from t0 to t1 (faded in and out as the engine fades it); o: { gain, pitch, pan }
+  function droneSpan(G, name, t0, t1, o, seed) {
+    o = o || {};
+    const d = droneVoice(G, name, t0, { pan: o.pan, pitch: o.pitch }, seed), p = d.lv.gain;
+    p.setValueAtTime(0, t0); p.setTargetAtTime(clamp(o.gain == null ? 1 : +o.gain || 0, 0, 2), t0, 0.1);
+    p.setTargetAtTime(0, t1, 0.13);
+    for (const s of d.srcs) s.stop(t1 + 0.8);
+    return d;
+  }
+  // a continuous sound for secs, its pitch gliding from p0 to p1 over the middle (the sound board's samples)
+  function renderDrone(name, secs, p0, p1) {
+    const c = offline(secs + 0.5, 2), G = graph(c), d = droneSpan(G, name, 0.05, secs - 0.45, { pitch: p0 || 1 });
+    if (p1 && p1 !== p0) for (const [q, b] of d.tune) { q.setValueAtTime(b * (p0 || 1), secs * 0.3); q.exponentialRampToValueAtTime(b * p1, secs * 0.7); }
+    return c.startRendering();
+  }
+  // a stretch of a story's sound track (tools/sfx-render.mjs --story, the sound board's A story's sounds): from T0 to T1
+  // on the story's clock (the recording's), with `pre` seconds before it rendered and cut off (sounds that started
+  // earlier ring on into it). info: { key, cues: [{ n, name, o, pan }], spans: [{ n0, n1, name, o, pan }], speaking (the
+  // narration plays throughout: everything ducked under it, as in the app), voice (its decoded AudioBuffer, or null) };
+  // vol: the effects volume (1: full, as the samples). Each cue's random numbers come from its place in the list, so a
+  // stretch sounds the same however the track is cut
+  function renderStory(info, T0, T1, pre, vol) {
+    pre = pre == null ? 3 : pre;
+    const s0 = Math.max(0, T0 - pre), secs = T1 - s0, c = offline(secs, 2), G = graph(c), at = n => n - s0;
+    G.vol.gain.value = vol == null ? 1 : vol * vol;
+    if (info.speaking) G.duck.gain.value = DUCK;
+    const b = bed(G, info.key, 0, hash(info.key) + Math.floor(s0 / 60));   // (the bed's random numbers: its own per minute)
+    b.out.gain.setValueAtTime(s0 < 0.5 ? 0 : 1, 0); if (s0 < 0.5) b.out.gain.linearRampToValueAtTime(1, BED_IN);
+    b.fill(secs);
+    for (const s of b.srcs) s.stop(secs);
+    info.cues.forEach((q, i) => {
+      if (q.n < s0 - 40 || q.n >= T1 || !SOUNDS[q.name]) return;
+      if (q.n + length(q.name, q.o) + 0.6 < s0) return;
+      voice(G, q.name, at(q.n) + LEAD, Object.assign({}, q.o, { pan: q.pan || 0, seed: hash(q.name) + i * 7919 }));
+    });
+    (info.spans || []).forEach((q, i) => {
+      if (q.n1 < s0 || q.n0 >= T1 || !DRONES[q.name]) return;
+      droneSpan(G, q.name, Math.max(0, at(q.n0)), at(q.n1), Object.assign({}, q.o, { pan: q.pan || 0 }), hash(q.name) + i);
+    });
+    if (info.voice) {
+      const v = c.createBufferSource();
+      v.buffer = info.voice; v.connect(c.destination);
+      if (s0 < info.voice.duration) v.start(0, s0, Math.min(secs, info.voice.duration - s0));
+    }
+    return c.startRendering().then(buf => ({ buf, cut: Math.round((T0 - s0) * SR) }));
   }
   function renderBed(key, secs) {
     const c = offline(secs, 2), G = graph(c), b = bed(G, key, 0);
@@ -627,8 +983,8 @@
     return c.startRendering();
   }
 
-  const LIB = { SOUNDS, ORDER, BEDS, MAX, DUCK, DUCK_IN, DUCK_OUT, BED_IN, BED_OUT, VOLS, bedOf, colour, graph, voice, bed, bedIn, bedOut, engine,
-    renderSound, renderBed, render3d, renderDuck, hash };
+  const LIB = { SOUNDS, ORDER, ORDER_STORY, DRONES, ORDER_DRONE, BEDS, MAX, MAXD, DUCK, DUCK_IN, DUCK_OUT, BED_IN, BED_OUT, VOLS, bedOf, colour, graph, voice, bed, bedIn,
+    bedOut, engine, length, droneVoice, droneSpan, renderSound, renderDrone, renderBed, render3d, renderDuck, renderStory, hash };
   root.SFX_LIB = LIB;
 
   // ---- in the app: HOST.sfx, on HOST.audio's context
@@ -637,7 +993,10 @@
   if (!H || !H.audio || typeof document === 'undefined') return;
   const quiet = fn => { const q = H.quiet; H.quiet = true; try { return fn(); } finally { H.quiet = q; } };
   const E = engine({
-    fx: () => (H.audio.fx ? H.audio.fx() : null),
+    // the bar's Sound button (and the headset panel's) silences the effects and the background too, not only the voice:
+    // a visitor who turns the sound off expects silence (Sound check keeps the finer switch, effects on or off)
+    fx: () => (H.audio.muted ? null : H.audio.fx ? H.audio.fx() : null),
+    muted: () => !!H.audio.muted,
     speaking: () => !!(H.audio.speaking && H.audio.speaking()),
     spatial: () => !!H.session,
     // the story on show, once built (its frame loop given), not behind a Stories screen (page or headset), nor in a shared

@@ -124,6 +124,10 @@ function buildStory() {
   ramp('flock_links', C.seven.a + 7, C.seven.a + 9, 0, 1);
   ramp('flock_links', C.wave.a - 2, C.wave.a, 1, 0);
   jump('flock_hunt', C.wave.a + 1, 0, 1);
+  // sound effects (sfxCue: story time, a sound, where it comes from, its options); the falcon's dive and the flock bursting
+  // away, and the flock passing near you, are live (sfxLive in e4_explore.js), so the story's falcon is not cued
+  sfxCue(C.seven.a + 6.8, 'grow', 'flock', 'flock', { dur: 2, pitch: 1.2, gain: 0.35 });   // each bird's seven links
+  sfxCue(C.around.a + 0.3, 'rise', 'flock', 'flock', { gain: 0.4 });                        // all around you
   // standing among them (the camera turns to the flock); from afar while the wave runs; back among them
   cam(0, 'flock', 'default');
   cam(C.wave.a + 3, 'flock', 'default');

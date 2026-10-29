@@ -43,6 +43,7 @@ function openScene(k, fly = true) {
 }
 function setCtl(k, key, v) {
   const s = GL.sets[k], c = (s.controls || []).find(x => x.key === key);
+  if (key === 'birds' && ctlValue(k, c) !== v) sfxAct('flutter', 'flock', 'flock', { dur: 0.9 });   // (sound effects: more birds, or fewer)
   (X.ctl[k] = X.ctl[k] || {})[key] = v;
   X.t0 = performance.now();
   if (key === 'view' && s.cam && s.cam[v]) flyTo(view(k, v));
@@ -83,6 +84,19 @@ function flockSync() {
   if (lead) { const age = clamp((now - lead.at) / 1000, 0, 2); s.follow({ t: lead.t + age, m: lead.m.map((x, j) => x + lead.v[j] * age), v: lead.v }, Math.min(gap, 1000) / 1000); }
   else if (s.following()) s.follow(null);
   return true;
+}
+// sound effects, live (the shared block's sfxStep calls this every frame, story and explore mode alike, unless the story is
+// hidden): each falcon's dive and, 0.4 s later, the flock bursting away, heard on every device as it sees that falcon
+// (the story's, Now and then, one you send, one from another device: all found by watching the falcon start), and the
+// flock passing near you (its middle coming within 7 m of your head after being more than 10 m off; at most every 6 s)
+const SFL = { fo: false, far: true, near: 0 };
+function sfxLive() {
+  const s = GL.sets.flock, fo = s.falconOn(), pn = performance.now();
+  if (fo && !SFL.fo) { sfxPlay('whoosh', 'flock', 'falcon', { pitch: 1.4, dur: 1.1 }); sfxPlay('flutter', 'flock', 'flock', { delay: 0.4, dur: 0.9 }); }
+  SFL.fo = fo;
+  const h = s.state().me.head, f = s.anchors.flock(), d = Math.hypot(f[0] - h[0], f[1] - h[1], f[2] - h[2]);
+  if (d > 10) SFL.far = true;
+  else if (d < 7 && SFL.far && pn - SFL.near > 6000) { SFL.far = false; SFL.near = pn; sfxPlay('flutter', 'flock', 'flock', { gain: clamp(1.25 - d / 7, 0.3, 1) * 0.8 }); }
 }
 // what another device at the station sent: where its flock is, or a falcon
 const v3ok = a => Array.isArray(a) && a.length === 3 && a.every(Number.isFinite);
