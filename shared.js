@@ -83,7 +83,7 @@
     if (LOG.length > 1000) LOG.splice(0, LOG.length - 1000);
     if (DEBUG) console.log('[shared]', ev, data || '');
   }
-  // the shell's sound effects (sfx.js, HOST.sfx; off until turned on): in a headset each comes from where it happens
+  // the shell's sound effects (sfx.js, HOST.sfx; on unless turned off): in a headset each comes from where it happens
   // (scene coordinates: the menu, a station's spot, a person), on a screen plain stereo (pan, -1 .. 1). sfxN counts the
   // sounds played, so a press that made a sound of its own (a lock, the menu closing) gets no click on top
   const sfx = (name, at, o) => {

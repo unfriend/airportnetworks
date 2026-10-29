@@ -165,7 +165,7 @@ if (storyKeys) {
       `its cues at their times, its continuous sounds, its background, and ${info.voice ? 'its narration (the effects 9 dB under it while it plays)' : 'no narration (no recording yet: nothing ducks the effects)'}.`,
       `Pans as on a screen at that moment of the story (in a headset each sound comes from its place in the scene instead).`,
       `Live sounds (the flock's falcons and passes, the robots' vacuums and bumps, the fish) and explore mode's are not in it: they come as things happen.`,
-      `Loudness of the whole: integrated ${f1(L.I)} LUFS, loudest 400 ms ${f1(L.M)} LUFS, true peak ${f1(L.TP)} dBTP.`, '',
+      `Loudness of the whole: integrated ${f1(L.I)} LUFS, loudest 400 ms ${f1(L.M)} LUFS, true peak ${f1(L.TP)} dBTP (all of it 1 dB down, so the narration's peaks never clip).`, '',
       'm:ss     chapter                 sound     options                           where',
       ...info.cues.map(c => `${mmss(c.n).padStart(7)}  ${String(c.ch).padEnd(22)}  ${c.name.padEnd(8)}  ${fx(c.o).padEnd(32)}  ${c.set}${c.at ? (c.set ? ': ' : '') + c.at : ''}`),
       ...(info.spans.length ? ['', 'continuous sounds:', ...info.spans.map(q => `${mmss(q.n0).padStart(7)} to ${mmss(q.n1)}  ${q.name}  ${fx(q.o)}  ${q.set}`)] : []), ''].join('\n'));

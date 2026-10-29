@@ -337,14 +337,14 @@
       } },
     knock: { kind: 'story', gap: 200, level: 0.55, desc: 'A closure or a knockout: a soft low thud with a dull knock (a robot\'s bump at pitch 1.8).',
       uses: 'Airports closing, layers knocked out, cores lifting, a slice falling flat, a robot bumping into something.',
-      make(x) { const k = x.k; thud(x, 0, 0.17, 190 * k, 95 * k, 0.28); tone(x, 380 * k, 0.002, { type: 'triangle', peak: 0.05, a: 0.002, d: 0.06, f1: 300 * k, glide: 0.05 }); return x.t + 0.4; } },
+      make(x) { const k = x.k; thud(x, 0, 0.16, 230 * k, 135 * k, 0.26); tone(x, 400 * k, 0.002, { type: 'triangle', peak: 0.06, a: 0.002, d: 0.07, f1: 310 * k, glide: 0.05 }); return x.t + 0.4; } },
     heart: { kind: 'story', gap: 800, level: 0.5, desc: 'A heartbeat: lub-dub, two low soft thuds.',
       uses: 'The heart in the motor unit.',
       make(x) {
         const k = x.k;
-        for (const [at, pk, f] of [[0, 0.17, 150], [0.16, 0.12, 175]]) {
-          tone(x, f * k, at, { peak: pk, a: 0.006, d: 0.15, f1: f * 0.6 * k, glide: 0.12 });
-          tone(x, f * 2.4 * k, at, { type: 'triangle', peak: pk * 0.28, a: 0.003, d: 0.05 });
+        for (const [at, pk, f] of [[0, 0.16, 180], [0.16, 0.115, 205]]) {   // (above 150 Hz, where a headset's speakers still give)
+          tone(x, f * k, at, { peak: pk, a: 0.006, d: 0.15, f1: f * 0.65 * k, glide: 0.12 });
+          tone(x, f * 2.4 * k, at, { type: 'triangle', peak: pk * 0.4, a: 0.003, d: 0.06 });
           hiss(x, at, { kind: 'pink', type: 'lowpass', f: 520, q: 0.7, peak: pk * 0.35, a: 0.002, d: 0.05 });
         }
         return x.t + 0.5;
@@ -367,11 +367,10 @@
     rush: { kind: 'story', gap: 300, level: 0.6, desc: 'Water rushing: a deep swell of noise that opens and closes (dur, 1.2 s by default).',
       uses: 'The shark, the school turning, flows (the Sankey diagram, the nitrogen seeping, the soil\'s flows).',
       make(x) {
-        const c = x.c, t = x.t, D = x.dur || 1.2, k = x.k, r = x.r, lp = c.createBiquadFilter(), hp = c.createBiquadFilter(), env = amp(x, 0.2, 0, D * 0.45, D * 0.55);
-        hp.type = 'highpass'; hp.frequency.value = 150; hp.Q.value = 0.7;
+        const c = x.c, t = x.t, D = x.dur || 1.2, k = x.k, r = x.r, lp = c.createBiquadFilter(), hp = filter(c, 'highpass', 160, 0.7), hp2 = filter(c, 'highpass', 160, 0.7), env = amp(x, 0.2, 0, D * 0.45, D * 0.55);
         lp.type = 'lowpass'; lp.Q.value = 0.8;
         lp.frequency.setValueAtTime(300 * k, t); lp.frequency.exponentialRampToValueAtTime(1400 * k, t + D * 0.45); lp.frequency.exponentialRampToValueAtTime(400 * k, t + D);
-        lp.connect(hp); hp.connect(env); env.connect(x.out); send(x, env, 0.1);
+        lp.connect(hp); hp.connect(hp2); hp2.connect(env); env.connect(x.out); send(x, env, 0.1);
         for (const [kind, lv] of [['brown', 1], ['pink', 0.35]]) {
           const s = c.createBufferSource(), g = c.createGain();
           s.buffer = noise(c, kind); s.loop = true; g.gain.value = lv; s.connect(g); g.connect(lp); track(x, s, 0, D + 0.05, r() * 5);
@@ -930,7 +929,9 @@
     // (earlier still while a cue that is still sounding then started before: a sound renders from its start)
     let s0 = Math.max(0, T0 - pre);
     for (let more = true; more;) { more = false; for (const q of info.cues) if (SOUNDS[q.name] && q.n < s0 && q.n + length(q.name, q.o) + 0.6 > s0) { s0 = q.n; more = true; } }
-    const secs = T1 - s0, c = offline(secs, 2), G = graph(c), at = n => n - s0;
+    // (all of it 1 dB down: the recorded narration peaks at -0.2 dBFS, and the effects on top must not clip it)
+    const secs = T1 - s0, c = offline(secs, 2), all = gain(c, 0.89), G = graph(c, all), at = n => n - s0;
+    all.connect(c.destination);
     G.vol.gain.value = vol == null ? 1 : vol * vol;
     if (info.speaking) G.duck.gain.value = DUCK;
     const b = bed(G, info.key, 0, hash(info.key) + Math.floor(s0 / 60));   // (the bed's random numbers: its own per minute)
@@ -947,7 +948,7 @@
     });
     if (info.voice) {
       const v = c.createBufferSource();
-      v.buffer = info.voice; v.connect(c.destination);
+      v.buffer = info.voice; v.connect(all);
       if (s0 < info.voice.duration) v.start(0, s0, Math.min(secs, info.voice.duration - s0));
     }
     return c.startRendering().then(buf => ({ buf, cut: Math.round((T0 - s0) * SR) }));
