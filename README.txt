@@ -150,7 +150,12 @@ turn away; #subs=on in a link turns them on). In a shared room all three
 settings are the room's, the same for everyone in it (also set in the Shared
 dialog; the layout lock does not stop them), and a scene turned at a station is
 turned for everyone there.
-#labels=face|fixed|hidden and #free=on|off in a link set them.
+#labels=face|fixed|hidden and #free=on|off in a link set them. Panels, a fourth
+row, is for the story on show only: shown, controls only (just the play bar
+under the panel, good with subtitles) or hidden (A or X still plays); each story
+keeps its own, in a shared room each station's, for everyone at its circle (also
+per station in the Shared dialog); #panels=controls in a link sets it for the
+story the link opens.
 At a station the flock flies round the station's spot, roughly in the same place for everyone (one device leads, the others follow it), with the
 same falcons. The robots move separately on each device; their controls and crumbs are shared. Others join a room through the relay
 (relay/, Node, no packages), which GitHub Pages cannot run: for now it runs on a

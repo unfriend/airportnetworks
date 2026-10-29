@@ -1649,7 +1649,7 @@
     return true;
   }
   // for HOST.panels: at a station of this story (a headset in its circle, a page following it), the station's; else null
-  const panelsAt = key => { const L = liveSt(); return C.code && C.welcomed && L && L.story === key ? stPanels(L) : null; };
+  const panelsAt = key => { const L = liveSt(); return C.code && L && L.story === key ? stPanels(L) : null; };   // (kept while a link moves or reconnects)
   const setPanels = (key, v) => !!panelsAt(key) && setStPanels(C.live, v);
   // Arrange all: every story in two rows in front of you (half, rounded up, in front), spots 2.4 m apart,
   // every station facing away from you, so its content floats beyond its spot and faces your side; a story that
@@ -2646,7 +2646,7 @@
     y += 76;
     if (pm) {
       ctx.font = FONT(21); ctx.fillStyle = MUTED;
-      ctx.fillText(fit(ctx, C.code ? 'Panels: for everyone at this circle. The rest: for the whole room' : 'Panels: for ' + ((meta(pk) || {}).title || 'this story') + ' only', w), x, y - 4);
+      ctx.fillText(fit(ctx, C.code ? 'Panels for this circle, the rest for the room' : 'Panels: for ' + ((meta(pk) || {}).title || 'this story') + ' only', w), x, y - 4);
       y += 30;
     }
     line();

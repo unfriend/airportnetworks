@@ -10,9 +10,9 @@ them: [AGENTS.md](../AGENTS.md) ("Shared rooms", "Placement in the headset").
 
 | Where | How to get there | On it |
 | --- | --- | --- |
-| Menu (headset) | closed at first: only a clock (**Open menu**) on the left wrist (on the controller, or the wrist with hand tracking; beside the story panel without either). Touch it with the right controller's tip or right index finger, click the left stick, or point at it and pull the trigger; the same, or **Close**, closes it | **Exit** (leaves VR or AR), **Slideshow: on/off** (every story), **Sound check**; **Join**, **Start a room**; in a room **Calibrate**, **Re-align**, **Forget calibration**, **Shared space: on**, **Fresh shared space**, **Move here**, **Add here**, **Arrange all**, **Remove**, **Lock the layout**, **Leave** |
+| Menu (headset) | closed at first: only a clock (**Open menu**) on the left wrist (on the controller, or the wrist with hand tracking; beside the story panel without either). Touch it with the right controller's tip or right index finger, click the left stick, or point at it and pull the trigger; the same, or **Close**, closes it | **Exit** (leaves VR or AR), **Slideshow: on/off** (every story), **Sound check**; **Labels**, **Moving**, **Subtitles** (every story; in a room the room's); **Panels: shown / controls only / hidden** (the story on show; in a room for everyone at its circle); **Join**, **Start a room**; in a room **Calibrate**, **Re-align**, **Forget calibration**, **Shared space: on**, **Fresh shared space**, **Move here**, **Add here**, **Arrange all**, **Remove**, **Lock the layout**, **Leave** |
 | Stories screen (headset) | outside a shared room only: after **Enter VR** / **Enter AR** from the start screen, or **Stories** on a story panel | **Sound**, **Sound check**, **Anchor**, **Recenter** (**Place again** when anchored), **Exit**, **Repeat all**, **Repeat one**, a card per story |
-| Shared dialog (page) | **Shared** in the top bar or on the Stories screen | **Start a room**, **Join**, **Join by code**, room map, **Follow**, **Arrange all**, **Add a station**, **Lock layout**, **Fresh shared space**, **Copy link** |
+| Shared dialog (page) | **Shared** in the top bar or on the Stories screen | **Start a room**, **Join**, **Join by code**, room map, **Follow**, **Panels** (per station: what the headsets at its circle show of the story's panels), **Arrange all**, **Add a station**, **Lock layout**, **Fresh shared space**, **Copy link** |
 
 **Remove**, **Forget calibration** and **Fresh shared space** act only on a second press within 3 s. **Fresh shared
 space** shows only on a page that comes from the relay.
@@ -124,6 +124,9 @@ local network found each other this way, and then shared a peer-to-peer room; he
    settings later.
 9. **Lock the layout** (**Lock layout** on the page): nobody can move, add or remove a station, or move a scene or
    panel, until someone unlocks it.
+   Panels per station stay free: at a circle, **Panels** in the menu (or the station's **Panels** button in the page's
+   Shared dialog) goes **shown**, **controls only** (only the play bar under the panel: good with **Subtitles: on**) and
+   **hidden** (A or X still plays and pauses), for everyone at that circle; each station keeps its own.
 10. Walk into a station's circle (a second there): its story runs there, as it does for everyone there. Pointing at a
     card and pulling the trigger does not go there. Away from every station a headset shows no story, only the rings,
     cards, people and the menu; walking out of a circle hides and pauses the story on that headset only (it plays on
@@ -189,6 +192,8 @@ and the end of AGENTS.md "Shared rooms". Not yet confirmed on a device:
 - what a recentre (long press on the Meta button) does to the room;
 - moving and resizing scenes with the grips at a station (comfort, and how it looks to others);
 - subtitles (**Subtitles: on** in the menu, the same for the whole room): how they read and how they follow the head;
+- panels per station (**Panels: controls only** or **hidden** in the menu or the Shared dialog): whether a circle
+  reads better with only the play bar (with subtitles on) or none, and that everyone at that circle gets it;
 - sound zones: each station's narration heard from where it stands;
 - comfort and frame rate with other people drawn;
 - whether the link to the relay keeps running inside a headset session;

@@ -89,6 +89,16 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
   works: AGENTS.md "Shared rooms"; at an event: [docs/event-runbook.md](docs/event-runbook.md). Tested between pages on
   one machine with pretend networks (`node tools/collab.mjs --near`); real networks (home routers, hotspots, eduroam,
   a relay behind Coolify) and headsets rejoining after a restart are untested.
+- **Built after v96 (29 October 2026), tested headlessly only:** *panels per story* (the owner: "i would want that for
+  every story as an independent per story toggle maybe inside the clock menu"). A row in the headset's menu for the
+  story on show, *Panels: shown* / *controls only* / *hidden*, each press the next: controls only keeps just the foot
+  bar (play and pause, the chapter arrows, the clock, Next; good with subtitles on), hidden takes both story panels
+  away (A or X still plays and pauses; the menu stays to switch back; the Stories screen is never affected). Each story
+  (and the design room) keeps its own value: the device's outside a shared room (`#panels=controls` in a link sets it
+  for the story it opens), the station's in a room, for everyone at that circle, and settable per station in the
+  page's Shared dialog too, never refused by the layout lock (key `st.<id>.ui`, part of FORMAT networks-25).
+  Independent of Labels (labels hidden still hides both). `HOST.panels` in `index.html`; AGENTS.md "How the shell and
+  stories fit together". How it feels on a headset is untested.
 - **Tried on real headsets:** the stories and their sound on Quest; shared rooms on two Quest 3 headsets in several
   rounds (what happened is in [docs/quest-shared-space-findings.md](docs/quest-shared-space-findings.md) and AGENTS.md
   "Shared rooms"). All thirteen stories of then, the slideshow and the headset menu on the wrist were tried on a headset
@@ -170,8 +180,9 @@ Before handing over (or making anything more public), someone has to decide thes
      days more. In a shared room everyone keeps one timeline, so each stretch lasts the longer of its two languages (as
      the pass story, already in English and German, does);
    - **The queue** (the owner, 29 October 2026), in this order: the design room, part 2 (1 to 1.5 h); follow a person
-     (about 1 h); then a test round and a release (about 1 h). Rooms on this network, first in it, and the loading
-     bar queued alongside are built (see "Where things stand"). Each is described below;
+     (about 1 h); then a test round and a release (about 1 h). Rooms on this network, first in it, the loading bar
+     queued alongside, and panels per story, queued before the design room's part 2, are built (see "Where things
+     stand"). Each is described below;
    - **circles that load code from a link** (on hold, the owner, 29 October 2026; the design agreed, not to build
      yet). The owner's aim: the whole office as one shared room, where colleagues add circles of their own, with their
      own logic, from a web page or a GitHub repository. How: a station whose story is a script from a web address

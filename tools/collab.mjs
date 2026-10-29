@@ -10,7 +10,9 @@
 // (labels, free moving) are the room's: everything in 3D in a room without them, set on one page, in the Shared
 // dialog or the headset's menu for every page and headset, never refused by the layout lock, kept across a relay
 // restart and in a room on this device, free moving off taking the turns out of places and panels, and a free grip
-// at a station turning the scene and the panel for everyone; a pretend headset (fake local-floor and shared spaces,
+// at a station turning the scene and the panel for everyone; a station's panels (shown, controls only, hidden: key
+// st.<id>.ui) set in a page's Shared dialog or a headset's menu, with the layout locked too, for everyone at that circle
+// and no other, kept across a relay restart; a pretend headset (fake local-floor and shared spaces,
 // as tools/smoke.mjs pretends) aligns from a published frame, shows no story and no Stories screen away from every
 // station (the story hidden, not pointable, paused, nothing written), stands at its station once it walks into its
 // circle, stays there when taken off and on again, never shows a Stories screen in a room, hides and pauses the story

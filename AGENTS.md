@@ -360,6 +360,25 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
     end 0.75 s before the chapter does, so a slideshow stop shows its last
     caption. The pass story's captions are in the device's language (its
     panel is). How they read and follow on a headset is untested.
+- Panels per story (`HOST.panels` in `index.html`; the owner, 29 October 2026:
+  "i would want that for every story as an independent per story toggle maybe
+  inside the clock menu"): `'shown'` (as ever), `'controls'` (only the foot bar,
+  `XR.foot`: play and pause, the chapter arrows, the clock, Next; good with
+  subtitles on) or `'hidden'` (no story panel; A or X still plays and pauses).
+  Each story keeps its own value, the design room too: `get(key)`,
+  `set(key, v)`, `next(key)`, `sig(key)`. Outside a shared room it is the
+  device's (`xrPanels` in `localStorage`, `{ key: value }`, shown left out); at a
+  station in a room the station's, for everyone at that circle (key
+  `st.<id>.ui`, below; a station without it: shown), whatever a device keeps of
+  its own. Set in the headset's menu (a *Panels: shown* / *controls only* /
+  *hidden* row for the story on show, each press the next; no row on the
+  Stories screen or away from a station) and, in a room, per station in the
+  page's Shared dialog; never refused by the layout lock. `#panels=shown|controls|hidden`
+  in a link sets it for the story the link opens. Stories read it every frame
+  in `xrUpdate` beside the labels mode (`xrPanels()`, next to `xrSig`, which
+  carries `HOST.panels.sig(XR_HERE)`): labels hidden still hides both panels
+  (the two are independent), and the Stories screen never changes with it.
+  Not in a story's `state()`. How it feels on a headset is untested.
 - Sound belongs to the shell (`HOST.audio` in `index.html`); stories only say
   what should play. A story asks for its file with
   `AUD = HOST.audio.narration(url, { ready, error })` and calls
@@ -501,6 +520,9 @@ spot, y over the floor) and `st.<id>.place` (the scene: `{ x, y, z }` moved from
 where the story puts it, and `s` its size, a factor on the story's own; FORMAT
 networks-8; both gain `q`, `[x, y, z, w]` to 4 decimals, the scene's turn and the
 panel's tilt left by a free grip, absent when there is none; FORMAT networks-22),
+`st.<id>.ui` (the station's panels, `{ panels, story, by, at }`: `'shown'`, `'controls'` or `'hidden'`, for every
+headset at that circle; set from a headset's menu there or a page's Shared dialog, never refused by the layout lock;
+absent: shown; gone with the station's other keys when it shows another story; FORMAT networks-25),
 `look` (the headsets' three settings, `{ labels, free, subs, by, at }`: set by anyone,
 from a page's Shared dialog or a headset's menu, never refused by the layout
 lock; a room without it gives everything in 3D and no subtitles; free moving turned off takes
@@ -510,7 +532,7 @@ generation, `{ n, by, at }`), `near` (*Show on this network*, `{ on, by, at }`: 
 *Rooms on this network*; set by anyone in the room, never refused by the layout lock) and `rid` (the room's own id, ten
 letters written once by the page that made or holds it: a room joined again by itself can be told from another room
 under the same code) (FORMAT networks-10; networks-11 when the eighth story came, networks-12 the ninth, networks-13 the tenth, networks-14 the eleventh, networks-15 the twelfth, networks-16 the thirteenth, networks-17 when the PET story's `state()` lost its one-scan fields, networks-18 when its liver scene came back, networks-19 when the ovary story's charts went, networks-20 when the pass story's school got a shared place at a station, networks-21 when the fourteenth story came, networks-22 when the scene's and the panel's turn joined a station's place, networks-23 when the fifteenth story came, networks-24 when subtitles joined `look`, networks-25 when `near` and `rid`
-came with rooms on this network). The plan is `docs/shared-space-plan.md`.
+came with rooms on this network, and `st.<id>.ui` with panels per story in the same round). The plan is `docs/shared-space-plan.md`.
 
 - `HOST.collab` keeps the room's keys (echo suppression by value, optimistic
   writes acknowledged by the relay, apply order stations > clock > state >
@@ -754,12 +776,15 @@ came with rooms on this network). The plan is `docs/shared-space-plan.md`.
   every story, shown when `HOST.slides` exists) and *Sound check* (a page in
   place of the rest: the two beeps, the engine choice, Reset the sound and
   `HOST.audio.report()`, redrawn twice a second; Back); *Labels*, *Moving* and
-  *Subtitles* (the three headset settings, `HOST.xr`; in a room a line beside
-  Subtitles says they are the same for everyone there); then the shared room (its
+  *Subtitles* (the three headset settings, `HOST.xr`) and *Panels* (the story on
+  show's, `HOST.panels`, beside Subtitles; with a line under them: in a room
+  that the panels are for everyone at this circle and the rest for the room,
+  else for that story only; with no story on show the room's line takes
+  its place); then the shared room (its
   code and people as the section's heading, the rooms, the question, the
-  room's alignment, stations, people, You; the canvas holds the tallest case,
-  a room on this headset with a three-line note, and People shows only as many
-  as leave room for You). A right index fingertip also presses its buttons
+  room's alignment, stations, people, You; the canvas, 1480 px tall, holds the
+  tallest case, a room on this headset with a three-line note at a station, and
+  People shows only as many as leave room for You). A right index fingertip also presses its buttons
   (`poke`: within 1.5 cm of the panel over one, again once pulled back 3 cm;
   a pinch on the ray at the same button within 0.7 s counts once with it,
   `twice`). The once-per-room question still opens it by itself, and so does
@@ -1064,7 +1089,9 @@ reference, `tools/flock/engine/`):
   station then). The scene's offset and size at a station come from the room
   (`placeSync`), not from before.
 - `xrUpdate`: `const land = !!XR.stories, away = xrAway();`, the story panels
-  `!land && !away && XR.lm !== 'hidden'` and `GL.world.visible = !land && !away;`.
+  `const pm = xrPanels(), pv = !land && !away && XR.lm !== 'hidden';` (`XR.main`
+  `pv && pm === 'shown'`, `XR.foot` `pv && pm !== 'hidden'`: panels per story) and
+  `GL.world.visible = !land && !away;`.
 - `xrEnterScene`: `XR.inRoom = xrRoomOnly(); const fromStart = (HOST.picking || HOST.landingVR) && !XR.inRoom;`.
 - `xrEnded`: `const away = xrAway();` first, and
   `if (XR.stories || away) { XR.stories = false; HOST.openPicker(); }`.
@@ -1839,7 +1866,14 @@ kept across a reload, set by `#subs=on`, the caption the words of the line on
 show (several captions for a long line) changing with the clock, holding while
 paused, none in explore mode or on the Stories screen, still for a 10 degree
 turn of the head and following a 40 degree one with lag, the pass story's in
-German, the hook in all fifteen), and fails on console errors:
+German, the hook in all fifteen; panels per story: shown by default, the menu's
+Panels row going round (controls only, hidden, shown) with the story following,
+no row on the Stories screen (its panels staying), each value in story and
+explore mode (controls only: the foot bar alone, the text panel neither drawn
+nor pointable; hidden: neither, A or X still playing), labels hidden still
+hiding both, each story its own (the qubits, the flock, the airports, the
+design room), kept per story across a reload, set by a link for the story it
+opens, the lines in all fifteen and the design room), and fails on console errors:
 
 ```sh
 npx http-server -p 8123 -c-1 .          # or: python3 -m http.server 8123
@@ -1908,7 +1942,9 @@ layout is locked), the headsets' three settings as the room's (everything in 3D
 and no subtitles in a room without them; set on one page, or in another's Shared
 dialog with the layout locked, for every page; free moving off taking the turns
 out of the stations' places and panels; kept across the relay restart and, in a
-room on this device, across a reload),
+room on this device, across a reload), a station's panels set in a page's
+Shared dialog with the layout locked (reaching the pages at that station,
+another station keeping its own; kept across the relay restart),
 two controls changed at once on two pages (both kept), two stations
 followed back to back (the second not lost), a story picked by hand (stops
 following), no writes while idle (no ping-pong), a late joiner, a relay restart, and
@@ -1920,7 +1956,11 @@ recentre, taken off and on again (it stays in its story), a Stories screen
 opened at a station closing at once (restarting nothing), walking out of the
 circle (the story hidden and paused here while the station plays on, nothing
 written; no Stories screen for a new wearer out there) and back in (shown and
-running on the station's clock), the hold and the lock,
+running on the station's clock), the hold and the lock, a station's panels
+set on a page reaching the headset at its circle (controls only: the foot bar
+alone; the station it is not at keeping its own) and set from its menu's Panels
+row for everyone there with the layout locked (hidden), its own station's back
+again (shown) when it walks there,
 the station's clock and state, rays and head in room coordinates, another
 person drawn, the sound zone, the trigger on the menu's clock, the trigger on
 another station's card running nothing (a notice: walk into its circle), the story
@@ -2057,7 +2097,7 @@ second), `#lbi&explore&scene=atp&view=network&now=1` (a scene with its controls)
 `#pass&explore&protein=CFTR&move=cf`, `#pass&explore&scene=globe&pillars=on`, `#flock&explore&view=afar&links=on&birds=400`
 (`&hunt` sends a falcon), `#robots&explore&rule=chain&robots=12&trails=on&links=on&view=low`
 (`&crumbs` spills a pile, `&walk=1.5,1.2` walks you there), `#airports&repeat=all` (a kiosk that plays
-every story in turn), `#airports&slides=on` (every story as a slideshow), `#anchor=on` (anchored headset placement), `#stories&net=home` (pretend to be on a network, without a relay: rooms on this network in tests),
+every story in turn), `#airports&slides=on` (every story as a slideshow), `#anchor=on` (anchored headset placement), `#qubits&panels=controls` (that story's panels in the headset: only the foot bar), `#stories&net=home` (pretend to be on a network, without a relay: rooms on this network in tests),
 `#design` (the design room's table), `#design&pick=lbi.atp&view=stage` (a prop on the stage, its card; `view=above`,
 `view=group:pet` a story's plate, `&tab=all`, `&now`). In the console,
 `HOST.cur.peek('expression')` evaluates inside the current story
