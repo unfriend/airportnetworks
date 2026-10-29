@@ -40,6 +40,16 @@
   const NAMES = ['Ada', 'Alan', 'Barbara', 'Dorothy', 'Emmy', 'Erwin', 'Grace', 'Hedy', 'Karl', 'Lise', 'Marie',
     'Niels', 'Paul', 'Rosalind', 'Tim', 'Vera'];
   const ST_RE = /^st\.([\w-]{1,32})$/;
+  // peer to peer (no relay): PeerJS's introduction server knows the room by an id with this app's prefix and the shared
+  // state's format (devices of another version never meet); Cloudflare's STUN server is the only ICE server (no TURN:
+  // the devices share a network that lets them link directly). The device holding the id hosts the room.
+  const PEER_PREFIX = 'lbinet-', ICE = [{ urls: 'stun:stun.cloudflare.com:3478' }];
+  const PEER_LIMIT = 8000;       // the introduction server must answer within this as a room is joined, else this device only
+  const SILENT = 6000;           // a host not heard from for this long may have gone (guests ping it every 2 s)
+  const TAKE = 1500;             // taking over: each waits this long for every member in the room longer than it
+  const IS_HEADSET = /OculusBrowser|Quest|Pico|Wolvic/i.test(navigator.userAgent);
+  const DEV = IS_HEADSET ? 'headset' : /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent) ? 'phone' : 'screen';   // (a headset hosting hands over to a screen)
+  const peerId = code => PEER_PREFIX + FORMAT + '-' + code;
   const kPlay = id => 'st.' + id + '.play', kX = id => 'st.' + id + '.x', kPanel = id => 'st.' + id + '.panel', kView = id => 'st.' + id + '.view';
   const kPlace = id => 'st.' + id + '.place';   // where the station's scene floats ({ x, y, z } from where the story puts it) and its size (s)
 
@@ -73,6 +83,10 @@
     id: rid(12), relay: get('collabRelay') || '', linked: false, served: null, detecting: null,
     code: '', ws: null, status: 'off', note: '', want: false, welcomed: false, refill: null, tries: 0, timer: 0, heard: 0, pingAt: 0,
     local: false, probeAt: 0, probing: false, openTimer: 0, creating: false,   // a room on this device (no relay reached): see LocalSocket
+    // how the room runs: 'relay', 'peer' (peer to peer: see PeerSocket) or 'local' (C.local: this device only); peer: the
+    // introduction server ('' PeerJS's public one, 'off', or host[:port][/path]); the rest: a peer-to-peer room's host change
+    via: '', peer: get('collabPeer') || '', peerNew: false, newTries: 0, peerFail: false, peerWait: 0, peerRetake: 0, lastRole: '',
+    takeover: false, next: '', spare: null, spareAt: 0, spareN: 0, seqMax: 0, busy: 0,
     keys: new Map(), synced: new Map(), pending: new Map(), cid: 0, members: [], xb: null, clockAt: 0, clockT: 0, rm: null,
     offset: 0, samples: [], rtt: 0,
     name: get('collabName') || any(NAMES), color: get('collabColor') || any(COLORS), hereSet: null,
@@ -157,33 +171,37 @@
     }, () => { C.rooms = []; C.roomsErr = unreachable(); changed(); return null; });
   }
   const peopleIn = r => (r.members ? `${r.members} ${r.members === 1 ? 'person' : 'people'}${r.names && r.names.length ? ': ' + r.names.join(', ') : ''}` : 'empty');
-  // a new room: on the relay, or on this device when no relay is known or the relay cannot be reached
+  // a new room: on the relay; peer to peer when no relay is known or it cannot be reached (or this device only, when
+  // peer to peer cannot be had either)
   async function create() {
     // a page the relay serves may not know it yet (a quick click, or a test): asked first (5 s at most), else the
-    // room starts on this device and reaches the relay only with the next probe, and links to it are refused till then
+    // room starts without it
     if (C.creating) return;
-    C.creating = true;
+    C.creating = true; C.newTries = 0;
     if (!C.relay && C.served === null) await Promise.race([detect(), new Promise(r => setTimeout(r, 5000))]);
-    if (!C.relay) { C.creating = false; join(freeCode(), true); return; }
+    if (!C.relay) { C.creating = false; join(freeCode(), 'new'); return; }
     C.note = 'Asking the relay for a room...'; changed();
     let r = null;
-    try { r = await api('rooms', { app: 'networks', version: FORMAT }, 5000); } catch (e) { log('create failed', { e: e.message }); C.creating = false; join(freeCode(), true); return; }
+    try { r = await api('rooms', { app: 'networks', version: FORMAT }, 5000); } catch (e) { log('create failed', { e: e.message }); C.creating = false; join(freeCode(), 'new'); return; }
     C.creating = false; C.note = '';
     if (!r.ok || !r.j || !r.j.code) { C.note = 'Could not start a room: the relay answered ' + r.status + '.'; changed(); return; }
     log('created', { code: r.j.code });
     join(r.j.code);
   }
-  // local: the room on this device (no relay known, or none reached; it goes to the relay when one answers)
-  function join(code, local) {
+  // how: none (a room by its code or a link: on the relay when one is known, else peer to peer, else this device only),
+  // 'new' (a room started without a relay: peer to peer under a code nobody holds, else this device only) or true (a room
+  // kept on this device: opened here when a relay is known, and taken to it once it answers; else peer to peer)
+  function join(code, how) {
     code = String(code || '').trim().toUpperCase();
     if (!/^[A-Z]{3}$/.test(code)) return false;
     if (C.code) leave(true);
-    const h = heres()[code];
-    Object.assign(C, { code, local: !!local || !C.relay, probeAt: 0, want: true, welcomed: false, note: '', tries: 0, status: 'connecting', keys: new Map(), synced: new Map(), pending: new Map(),
+    const h = heres()[code], via = how === 'new' ? (peerOn() ? 'peer' : 'local') : C.relay ? (how ? 'local' : 'relay') : peerOn() ? 'peer' : 'local';
+    Object.assign(C, { code, via, local: via === 'local', peerNew: how === 'new' && via === 'peer', peerFail: false, takeover: false, next: '', seqMax: 0, lastRole: '', spareN: 0,
+      probeAt: 0, want: true, welcomed: false, note: '', tries: 0, status: 'connecting', keys: new Map(), synced: new Map(), pending: new Map(),
       members: [], st: [], stById: new Map(), mine: '', live: '', picked: false, follow: '', zone: '', cand: '', xb: null, rm: null,
       hereSet: typeof h === 'boolean' ? h : null });
     C.pres.clear();
-    log('join', { code, relay: C.relay, local: C.local });
+    log('join', { code, relay: C.relay, via });
     HOST.setUrl(HOST.picking);
     connect();
     R.joined();
@@ -194,11 +212,11 @@
     if (!C.code) return;
     log('leave', { code: C.code });
     C.want = false; clearTimeout(C.timer); clearTimeout(C.openTimer);
-    const ws = C.ws;
-    C.ws = null;
-    if (ws) try { ws.close(1000); } catch (e) { /* closed */ }
+    const ws = C.ws, sp = C.spare;
+    C.ws = null; C.spare = null;
+    for (const s of [ws, sp]) if (s) try { s.close(1000); } catch (e) { /* closed */ }   // (a host lets go of the room's id at once)
     locFlush();
-    Object.assign(C, { code: '', status: 'off', local: false, welcomed: false, keys: new Map(), synced: new Map(), pending: new Map(), members: [], st: [], stById: new Map(),
+    Object.assign(C, { code: '', status: 'off', local: false, via: '', peerNew: false, peerFail: false, takeover: false, next: '', welcomed: false, keys: new Map(), synced: new Map(), pending: new Map(), members: [], st: [], stById: new Map(),
       mine: '', live: '', follow: '', zone: '', cand: '', refill: null, xb: null, rm: null, hereSet: null });
     C.pres.clear();
     R.left();
@@ -210,25 +228,34 @@
     try { C.ws.send(JSON.stringify(m)); return true; } catch (e) { return false; }
   }
   function connect() {
-    if (!C.want || !C.code || (!C.relay && !C.local) || (C.ws && C.ws.readyState < 2)) return;
+    if (!C.want || !C.code || (C.via === 'relay' && !C.relay) || (C.ws && C.ws.readyState < 2) || C.spare) return;
     clearTimeout(C.timer); clearTimeout(C.openTimer);
     let ws;
-    if (C.local) ws = new LocalSocket(C.code, C.id);
-    else {
+    if (C.via === 'local') ws = new LocalSocket(new Hub(C.code, locLoad(C.code)), C.id, true);
+    else if (C.via === 'peer') {
+      // (a page that has the room takes it over with its copy, should it get the id)
+      ws = new PeerSocket(C.code, { id: C.id, create: C.peerNew, wait: C.peerWait, retake: C.peerRetake, take: C.welcomed ? takeCopy : null });
+      C.peerWait = C.peerRetake = 0;
+    } else {
       try { ws = new WebSocket(C.relay.replace(/^http/, 'ws') + '/api/ws?room=' + C.code + '&id=' + C.id + '&proto=' + PROTO); } catch (e) {
         log('socket failed', { e: e.message });
-        if (!C.welcomed) { goLocal('socket failed'); return; }
+        if (!C.welcomed) { fallback('socket failed'); return; }
         C.note = 'Could not reach the relay.' + mixed(); later(); return;
       }
-      // a relay that does not answer as the room is joined: the room goes on, on this device (closed)
-      if (!C.welcomed) C.openTimer = setTimeout(() => { if (C.ws !== ws || C.welcomed || ws.readyState !== 0) return; log('no answer', {}); C.ws = null; try { ws.close(); } catch (e) { /* gone */ } closed(1006, 'no answer'); }, 6000);
+      // a relay that does not answer as the room is joined: the room goes on, peer to peer or on this device (closed)
+      if (!C.welcomed) C.openTimer = setTimeout(() => { if (C.ws !== ws || C.welcomed || ws.readyState !== 0) return; log('no answer', {}); drop('no answer'); }, 6000);
     }
     C.ws = ws; C.status = 'connecting'; C.heard = clock();
-    log('connect', { code: C.code });
+    log('connect', { code: C.code, via: C.via });
+    wire(ws);
+    changed();
+  }
+  // a socket's events (the relay's WebSocket, a room on this device, a peer-to-peer link)
+  function wire(ws) {
     // pings: a few at once, then every 2 s for 20 s (a page that is busy loading a story delays them all), then every 15 s
     ws.onopen = () => {
       if (C.ws !== ws) return;
-      log('open'); hello(); ping(); C.openAt = performance.now();
+      log('open', { role: ws.role || '' }); hello(); ping(); C.openAt = performance.now();
       for (const ms of [300, 900]) setTimeout(() => { if (C.ws === ws) ping(); }, ms);
     };
     ws.onmessage = ev => {
@@ -238,8 +265,14 @@
       try { m = JSON.parse(ev.data); } catch (e) { /* not JSON */ }
       if (m && m.t) recv(m);
     };
-    ws.onclose = ev => { if (C.ws !== ws) return; C.ws = null; closed(ev.code, ev.reason); };
-    changed();
+    ws.onclose = ev => { if (C.ws !== ws) return; C.ws = null; C.lastRole = ws.role || ''; closed(ev.code, ev.reason); };
+  }
+  // give up on the socket now (it would not say so itself): one that did not answer in time, or fell silent
+  function drop(why) {
+    const ws = C.ws;
+    C.ws = null; C.lastRole = (ws && ws.role) || '';
+    if (ws) try { ws.close(); } catch (e) { /* gone */ }
+    closed(1006, why);
   }
   // reconnect with backoff: 1, 2, 4, 8, 15 s (and at once when the page or the headset comes back)
   function later() {
@@ -248,7 +281,7 @@
     C.timer = setTimeout(connect, Math.min(15000, 1000 * Math.pow(2, Math.min(4, C.tries++))));
   }
   function closed(code, reason) {
-    log('close', { code, reason });
+    log('close', { code, reason, via: C.via });
     if (!C.want) { C.status = 'off'; changed(); return; }
     C.status = 'connecting';
     // no such room: after a relay restart (this page was in it) bring it back; on a first join (a mistyped code,
@@ -268,8 +301,18 @@
       C.note = code === 4000 ? 'The relay refused this room code.' : 'This room runs another version of the app. Reload the page on every device, then join again.';
       changed(); return;
     }
-    // never reached the relay in this room: the room goes on, on this device (the relay is asked again, probe)
-    if (!C.welcomed && !C.local) { goLocal(reason || 'no relay'); return; }
+    if (C.via === 'relay') {
+      // never reached the relay in this room: peer to peer, else on this device (the relay is asked again, probe)
+      if (!C.welcomed) { fallback(reason || 'no relay'); return; }
+    } else if (C.via === 'peer') {
+      if (!C.welcomed) {
+        // a new room under a code someone holds: another code. No introduction server (or no PeerJS): this device only
+        // (asked again, probe)
+        if (code === 4009 && C.peerNew && C.newTries++ < 5) { log('code taken', { code: C.code }); join(freeCode(), 'new'); return; }
+        goLocal(reason || 'no introduction server', true); return;
+      }
+      if (peerLost(code)) return;
+    }
     later(); changed();
   }
   // the relay restarted and forgot the room: bring it back under its code, with what this page knew
@@ -297,13 +340,12 @@
     setTimeout(() => {
       if (C.ws !== ws || C.heard !== h) return;
       log('no answer after waking', { why });
-      C.ws = null;
-      try { ws.close(); } catch (e) { /* gone */ }
-      closed(1006, 'no answer');
+      drop('no answer');
     }, 3000);
   }
+  // (dev: a headset, a phone or a screen; a headset hosting a peer-to-peer room hands it to a screen)
   function hello() {
-    send({ t: 'hello', name: C.name, color: C.color, kind: kind(), here: here(), version: FORMAT, proto: PROTO });
+    send({ t: 'hello', name: C.name, color: C.color, kind: kind(), here: here(), version: FORMAT, proto: PROTO, dev: DEV });
   }
   function ping() { if (send({ t: 'ping', c: clock() })) C.pingAt = performance.now(); }
   // the relay's clock: of the last few round trips, the shortest gives the offset (half of it each way). A
@@ -324,12 +366,14 @@
     else if (m.t === 'members') { C.members = m.members || []; changed(); }
     else if (m.t === 'pong') pong(m);
     else if (m.t === 'error') onError(m);
+    else if (m.t === 'host') { C.next = typeof m.to === 'string' ? m.to : ''; log('handing over', { to: C.next }); }   // (peer to peer: who takes the room next)
   }
   // dependencies first: stations, then their clocks, their explore states, their panels, then the rest
   const rank = k => (ST_RE.test(k) ? 0 : /\.play$/.test(k) ? 1 : /\.x$/.test(k) ? 2 : /\.panel$/.test(k) ? 3 : 4);
   // the whole room, first on every socket (a reconnect refetches everything): the room's values win
   function welcome(m) {
-    C.status = 'open'; C.tries = 0; C.note = ''; C.welcomed = true;
+    C.status = 'open'; C.tries = 0; C.note = ''; C.welcomed = true; C.takeover = false; C.next = ''; C.spareN = 0;
+    C.seqMax = Math.max(C.seqMax, +m.seq || 0);
     if (FRESH.page) { FRESH.page = false; C.note = FRESH_TEXT; }
     C.keys = new Map(Object.entries(m.keys || {}));
     C.pending.clear();
@@ -372,6 +416,7 @@
   const X_RE = /^st\.[\w-]+\.x$/;
   function onSet(m) {
     const me = m.by === C.id, keys = [];
+    C.seqMax = Math.max(C.seqMax, +m.seq || 0);
     for (const [k, v] of m.batch || []) {
       if (v === null) C.keys.delete(k); else C.keys.set(k, { v, seq: m.seq, by: m.by });
       const p = C.pending.get(k);
@@ -422,13 +467,14 @@
   }
 
   // ----------------------------------------------------- a room on this device --
-  // A room works without a relay too, on this device alone: when no relay is known, or the relay cannot be reached
-  // as a room is joined, the relay's part is played in the page (LocalSocket: the same messages and the same rules
-  // for keys, a station's epoch and stale writes; nobody else gets presence or effects). Its keys are kept in
-  // localStorage (collabRoom.<code>), so the stations, their layout, the lock and the room's floor survive a reload,
-  // and a room joined through a relay is kept there too (as last seen), so its layout is still there on a day the
-  // relay is not. A room on this device goes to the relay when one answers (probe): made there from this copy when
-  // the relay has no such room, else joined as the relay has it.
+  // A room works without a relay too: peer to peer (below), or on this device alone when that cannot be had either (no
+  // introduction server answers, or peer to peer is off). Then the relay's part is played in the page (a Hub with only
+  // this page in it: the same messages and the same rules for keys, a station's epoch and stale writes; nobody else gets
+  // presence or effects). Its keys are kept in localStorage (collabRoom.<code>), so the stations, their layout, the lock
+  // and the room's floor survive a reload, and a room joined through a relay or peer to peer is kept there too (as last
+  // seen), so its layout is still there on a day nobody else is. A room on this device goes to the relay when one
+  // answers (probe): made there from this copy when the relay has no such room, else joined as the relay has it; with no
+  // relay, it goes peer to peer once the introduction server answers (when that is what failed).
   const LR = 'collabRoom.', LR_MAX = 8;   // the last few rooms are kept
   const LKEY = /^[\w-]+(?:\.[\w:-]+)*$/, LST = /^st\.([\w-]{1,32})(?:\.|$)/;   // as the relay's KEY and STATION
   const LOC = { code: '', seq: 0, keys: new Map(), timer: 0, mirror: false, list: null };
@@ -448,7 +494,7 @@
   function locFlush() {
     clearTimeout(LOC.timer); LOC.timer = 0;
     if (!LOC.code) return;
-    if (LOC.mirror && !C.local && C.code === LOC.code) {   // a relay's room: as this page has it now
+    if (LOC.mirror && !C.local && !hosting() && C.code === LOC.code) {   // a relay's room or a guest's: as this page has it now
       LOC.keys = new Map([...C.keys].map(([k, e]) => [k, { v: e.v, seq: +e.seq || 0, by: e.by || '' }]));
       for (const e of LOC.keys.values()) if (e.seq > LOC.seq) LOC.seq = e.seq;
     }
@@ -473,21 +519,24 @@
     } catch (e) { /* storage blocked */ }
     return (LOC.list = out.sort((a, b) => b.at - a.at));
   }
-  // a code for a new room on this device: none of the kept ones
+  // a code for a new room on this device: none of the kept ones (peer to peer, also none whose id someone holds: 4009)
   function freeCode() {
     const kept = new Set(localRooms().map(r => r.code));
     let code = '';
     do { code = ''; for (const b of crypto.getRandomValues(new Uint8Array(3))) code += String.fromCharCode(65 + b % 26); } while (kept.has(code));
     return code;
   }
-  // a relay's room is kept here as it changes (written at most every 0.4 s)
+  // a relay's room (or a peer-to-peer guest's) is kept here as it changes (written at most every 0.4 s); a host's hub
+  // keeps its own
   function mirror() {
-    if (C.local || !C.code || !C.welcomed) return;
+    if (C.local || hosting() || !C.code || !C.welcomed) return;
     locLoad(C.code);
     LOC.mirror = true;
     locSave();
   }
-  window.addEventListener('pagehide', () => locFlush());
+  // the page goes: its copy is written, and a peer-to-peer host lets go of the room's id at once (the others take over)
+  window.addEventListener('pagehide', () => { locFlush(); for (const s of [C.ws, C.spare]) if (s && s.bye) s.bye(); });
+  window.addEventListener('pageshow', e => { if (e.persisted) wake('page'); });
   // another tab wrote a room kept here: the list is read again, and a room on this device open here takes its copy
   // (its own writes still on their way win)
   window.addEventListener('storage', e => {
@@ -503,45 +552,86 @@
     }
     changed();
   });
-  // the relay's part, played in the page (relay/server.mjs: join, set, ping, hello)
-  class LocalSocket {
-    constructor(code, id) {
-      this.readyState = 0; this.id = id; this.L = locLoad(code);
-      this.me = { id, name: '', color: '', kind: 'desktop', here: false, version: FORMAT, since: Date.now() };
-      setTimeout(() => {
-        if (this.readyState !== 0) return;
-        this.readyState = 1;
-        this.out({ t: 'welcome', you: id, room: code, app: 'networks', version: FORMAT, seq: this.L.seq, keys: Object.fromEntries(this.L.keys), members: [this.me], now: Date.now(), proto: PROTO });
-        if (this.onopen) this.onopen();
-      }, 0);
+
+  // --------------------------------------------------------------- the hub --
+  // The relay's part played in a page (relay/server.mjs): for a room on this device (this page alone) and for a
+  // peer-to-peer room's host (its own page through an in-page socket, every guest through its link). The relay's rules:
+  // a welcome with the keys and the members; a batch stored as one seq; a station's state keys need the station (and its
+  // story, when they name one); a station given another story, or removed, loses its state keys in the same seq;
+  // refusals that name the keys; members on every hello and leave; fx passed on to the others with by; pong with the
+  // room's time; and the relay's limits on sizes and rates. Its keys are LOC: kept in localStorage as a room on this
+  // device is.
+  const LIM = { value: 256 << 10, fx: 64 << 10, batch: 500, keys: 5000, fxRate: 60, setRate: 120 };
+  const over = (r, cap) => { const t = Date.now(); if (t - r.t0 >= 1000) { r.t0 = t; r.n = 0; } return ++r.n > cap; };   // a one-second window
+  class Hub {
+    // off: the room's clock against this page's (a host taking over keeps the old host's, so stations play on without a
+    // jump); since: when the members came (kept across a host change: the order in which they take over)
+    constructor(code, L, off, since) {
+      Object.assign(this, { code, L, off: off || 0, since: since || new Map(), members: new Map(), host: '', stopped: false, mute: false, tickAt: Date.now() });
+      L.mirror = false;
+      this.iv = setInterval(() => this.tick(), 2000);
     }
-    out(m) { const s = JSON.stringify(m); setTimeout(() => { if (this.readyState === 1 && this.onmessage) this.onmessage({ data: s }); }, 0); }
-    send(text) {
-      if (this.readyState !== 1) throw new Error('not open');
-      let m = null;
-      try { m = JSON.parse(text); } catch (e) { return; }
-      if (!m || typeof m !== 'object') return;
-      if (m.t === 'ping') this.out({ t: 'pong', c: Number.isFinite(m.c) ? m.c : null, now: Date.now() });
-      else if (m.t === 'hello') {
-        Object.assign(this.me, { name: typeof m.name === 'string' ? m.name.trim().slice(0, 32) : '', color: /^#[0-9a-f]{3,8}$/i.test(m.color) ? m.color : '',
-          kind: ['ar', 'vr', 'desktop'].includes(m.kind) ? m.kind : 'desktop', here: m.here === true });
-        this.out({ t: 'members', members: [Object.assign({}, this.me)] });
-      } else if (m.t === 'set') this.set(m);
+    now() { return Date.now() + this.off; }
+    people() { return [...this.members.values()].map(m => Object.assign({ id: m.id, name: m.name, color: m.color, kind: m.kind, here: m.here, version: m.version, since: m.since }, m.id === this.host ? { host: true } : {})); }
+    to(m, msg) { if (!this.mute) m.out(JSON.stringify(msg)); }
+    cast(msg, except) { if (this.mute) return; const s = JSON.stringify(msg); for (const m of this.members.values()) if (m !== except) m.out(s); }
+    // w: { id, out(text), end() }. The same page again (a new link while its old one hangs on): the new one wins
+    join(w) {
+      const old = this.members.get(w.id);
+      if (old) { this.to(old, { t: 'error', code: 'replaced', text: 'connected again elsewhere' }); this.members.delete(w.id); old.end(); }
+      const m = Object.assign(w, { name: '', color: '', kind: 'desktop', here: false, version: '', dev: '', since: this.since.get(w.id) || this.now(), fx: { n: 0, t0: 0 }, sets: { n: 0, t0: 0 }, heard: Date.now() });
+      this.since.set(m.id, m.since);
+      this.members.set(m.id, m);
+      this.to(m, { t: 'welcome', you: m.id, room: this.code, app: 'networks', version: FORMAT, seq: this.L.seq, keys: Object.fromEntries(this.L.keys), members: this.people(), now: this.now(), proto: PROTO });
+      this.cast({ t: 'members', members: this.people() }, m);
+      return m;
     }
-    close(code, reason) {
-      if (this.readyState > 1) return;
-      this.readyState = 3;
-      setTimeout(() => { if (this.onclose) this.onclose({ code: code || 1000, reason: reason || '' }); }, 0);
+    leave(m) {
+      if (this.members.get(m.id) !== m) return;
+      this.members.delete(m.id);
+      if (!this.stopped) this.cast({ t: 'members', members: this.people() });
     }
-    // a batch as the relay stores it: one seq; a station's state keys need the station (and its story, when they
-    // name one); a station given another story, or removed, loses its state keys in the same seq
-    set(m) {
-      const L = this.L, cid = m.cid, good = [], bad = [], st = new Map();
-      for (const p of Array.isArray(m.batch) ? m.batch : []) {
+    kick(m, code, text) { this.to(m, { t: 'error', code, text }); this.leave(m); m.end(); }
+    refuse(m, cid, keys, text, code) { this.to(m, { t: 'error', code: code || 'refused', text, cid, keys }); }
+    message(m, text) {
+      if (this.stopped || this.mute || this.members.get(m.id) !== m) return;
+      m.heard = Date.now();
+      let msg = null;
+      try { msg = JSON.parse(text); } catch (e) { /* not JSON */ }
+      if (!msg || typeof msg !== 'object' || Array.isArray(msg)) return this.refuse(m, null, [], 'bad message', 'bad');
+      if (msg.t === 'set') return this.set(m, msg);
+      if (msg.t === 'fx') {
+        if (typeof msg.k !== 'string' || msg.k.length > 128 || !LKEY.test(msg.k) || msg.v === undefined || text.length > LIM.fx) return this.refuse(m, null, [], 'bad fx', 'bad');
+        if (!over(m.fx, LIM.fxRate)) this.cast({ t: 'fx', k: msg.k, v: msg.v, by: m.id }, m);
+        return;
+      }
+      if (msg.t === 'ping') return this.to(m, { t: 'pong', c: Number.isFinite(msg.c) ? msg.c : null, now: this.now() });
+      if (msg.t === 'hello') {
+        if (msg.proto !== undefined && msg.proto !== PROTO) return this.kick(m, 'proto', 'this room speaks protocol ' + PROTO);
+        const version = typeof msg.version === 'string' ? msg.version.slice(0, 64) : '';
+        if (version && version !== FORMAT) return this.kick(m, 'version', 'the room runs version ' + FORMAT);
+        Object.assign(m, { name: typeof msg.name === 'string' ? msg.name.trim().slice(0, 32) : '', color: /^#[0-9a-f]{3,8}$/i.test(msg.color) ? msg.color : '',
+          kind: ['ar', 'vr', 'desktop'].includes(msg.kind) ? msg.kind : 'desktop', here: msg.here === true, version, dev: typeof msg.dev === 'string' ? msg.dev.slice(0, 8) : '' });
+        this.cast({ t: 'members', members: this.people() });
+        if (this.onhello) this.onhello(m);
+        return;
+      }
+      this.refuse(m, null, [], 'bad message: unknown t', 'bad');
+    }
+    // a batch as the relay stores it: one seq; a station's state keys need the station (and its story, when they name
+    // one); a station given another story, or removed, loses its state keys in the same seq
+    set(m, msg) {
+      const L = this.L, cid = typeof msg.cid === 'string' || Number.isFinite(msg.cid) ? msg.cid : null, all = msg.batch;
+      if (!Array.isArray(all) || !all.length || all.length > LIM.batch) return this.refuse(m, cid, [], 'bad batch', 'bad');
+      const named = all.map(p => (Array.isArray(p) ? String(p[0]).slice(0, 128) : '?'));
+      if (over(m.sets, LIM.setRate)) return this.refuse(m, cid, named, 'more than ' + LIM.setRate + ' writes a second', 'rate');
+      const good = [], bad = [], st = new Map();
+      for (const p of all) {
         const [k, v] = Array.isArray(p) && p.length === 2 ? p : [], s = typeof k === 'string' ? LST.exec(k) : null;
         const bare = !!s && k === 'st.' + s[1];
         const why = typeof k !== 'string' || k.length > 128 || !LKEY.test(k) || (k.startsWith('st.') && !s) || v === undefined ? 'bad' :
-          v === null ? (/^(st|pose)\./.test(k) ? '' : 'bad') : bare && !(typeof v === 'object' && !Array.isArray(v) && typeof v.story === 'string' && v.story) ? 'bad' : '';
+          v === null ? (/^(st|pose)\./.test(k) ? '' : 'bad') : bare && !(typeof v === 'object' && !Array.isArray(v) && typeof v.story === 'string' && v.story) ? 'bad' :
+            J(v).length > LIM.value ? 'too big' : '';
         if (why) { bad.push(typeof k === 'string' ? k.slice(0, 128) : '?'); continue; }
         good.push([k, v]);
         if (bare) st.set(s[1], v);
@@ -560,60 +650,388 @@
         if (old && v && old.v.story === v.story) continue;
         for (const k of L.keys.keys()) if (k.startsWith('st.' + id + '.')) gone.push(k);
       }
+      const more = ok.filter(([k, v]) => v !== null && !L.keys.has(k)).length;
+      if (more && L.keys.size + more > LIM.keys) return this.refuse(m, cid, named, 'the room is full');
       if (ok.length) {
         const seq = ++L.seq, out = [];
         for (const k of gone) { L.keys.delete(k); out.push([k, null]); }
-        for (const [k, v] of ok) { if (v === null) L.keys.delete(k); else L.keys.set(k, { v, seq, by: this.id }); out.push([k, v]); }
-        this.out({ t: 'set', batch: out, seq, by: this.id, cid });
+        for (const [k, v] of ok) { if (v === null) L.keys.delete(k); else L.keys.set(k, { v, seq, by: m.id }); out.push([k, v]); }
+        this.cast({ t: 'set', batch: out, seq, by: m.id, cid });
         locSave();
       }
-      if (bad.length) this.out({ t: 'error', code: 'refused', text: 'not stored', cid, keys: bad });
+      if (bad.length) this.refuse(m, cid, bad, 'not stored');
+    }
+    // a guest silent for 20 s is dropped (guests ping every 2 s); after a busy spell here (or a hidden tab) none is
+    tick() {
+      const t = Date.now(), busy = t - this.tickAt > 5000;
+      this.tickAt = t;
+      for (const m of [...this.members.values()]) {
+        if (busy || m.id === this.host) m.heard = t;
+        else if (t - m.heard > 20000) { this.leave(m); m.end(); }
+      }
+    }
+    stop() {
+      if (this.stopped) return;
+      this.stopped = true; clearInterval(this.iv);
+      for (const m of [...this.members.values()]) if (m.id !== this.host) m.end();
+      this.members.clear();
+    }
+    // a guest's link (PeerJS): its member id is in the link's metadata; long texts come in pieces
+    link(c) {
+      const id = String((c.metadata && c.metadata.id) || ''), rx = { buf: '', skip: false };
+      if (this.stopped || this.mute || !/^[\w-]{1,64}$/.test(id) || id === this.host) { try { c.close(); } catch (e) { /* gone */ } return; }
+      let m = null;
+      const w = { id, out: s => pieces(c, s), end: () => { try { c.close(); } catch (e) { /* gone */ } } };
+      c.on('open', () => { if (!this.stopped && !this.mute) m = this.join(w); });
+      c.on('data', d => { const s = whole(rx, d, 1 << 20); if (m && s !== null) this.message(m, s); });
+      c.on('close', () => { if (m) this.leave(m); });
+      c.on('error', () => w.end());
     }
   }
-  // the relay cannot be reached as the room is joined: the room goes on, on this device (as last kept here)
-  function goLocal(why) {
+  // a page's own link to the hub in it (a room on this device; a peer-to-peer host's own page), with a WebSocket's face.
+  // owns: the hub is this socket's alone (a room on this device), and stops with it
+  class LocalSocket {
+    constructor(hub, id, owns) {
+      Object.assign(this, { readyState: 0, hub, owns });
+      hub.host = hub.host || id;
+      this.me = { id, out: s => setTimeout(() => { if (this.readyState === 1 && this.onmessage) this.onmessage({ data: s }); }, 0), end: () => this.close(1000) };
+      setTimeout(() => {
+        if (this.readyState !== 0) return;
+        this.readyState = 1;
+        hub.join(this.me);   // (its welcome comes next)
+        if (this.onopen) this.onopen();
+      }, 0);
+    }
+    send(text) { if (this.readyState !== 1) throw new Error('not open'); this.hub.message(this.me, text); }
+    close(code, reason) {
+      if (this.readyState > 1) return;
+      this.readyState = 3;
+      if (this.owns) this.hub.stop(); else this.hub.leave(this.me);
+      setTimeout(() => { if (this.onclose) this.onclose({ code: code || 1000, reason: reason || '' }); }, 0);
+    }
+  }
+
+  // --------------------------------------------------------- peer to peer --
+  // Without a relay (a copy on GitHub Pages, or a relay that cannot be reached as a room is joined) a room runs peer to
+  // peer: PeerJS (vendored, loaded only then) and its introduction server (PeerJS's public one, or &peer=host[:port][/path]
+  // in a link, such as the relay's own at /peerjs) introduce the devices, which then talk directly (WebRTC data channels).
+  // The room's id there is peerId(code): the device that holds it hosts the room (a Hub, with the relay's rules) and the
+  // others link to it as guests with the relay's messages (PeerSocket), so the rest of the shell hardly knows the
+  // difference.
+  //  - The host goes (Leave, the page closed): it lets go of the id at once, the guests' links close, and the one longest
+  //    in the room takes the id over with its copy of the room and its measure of the room's clock (so stations play on
+  //    without a jump); the others wait a moment each, find the id taken and link to whoever took it. Meanwhile the room
+  //    stays as it is on every page and writes wait.
+  //  - A host not heard from for 6 s (a headset taken off and asleep): the guests keep their link and try now and then to
+  //    take the id over the same way, which works once the introduction server lets go of it (PeerJS's public server: up
+  //    to about a minute after the host vanished; until then the id is taken and the host cannot be reached).
+  //  - A headset that hosts hands the room to the first screen that joins (a laptop or desktop page: a headset sleeps
+  //    when taken off).
+  //  - What needs the relay stays off: a fresh shared space and the headsets' logs. A room that runs peer to peer stays
+  //    so until everyone has left it (a relay found later is used for the next room).
+  const hosting = () => !!(C.ws && C.ws.role === 'host' && C.ws.readyState === 1);
+  const peerOn = () => C.peer !== 'off' && typeof RTCPeerConnection === 'function';
+  // the introduction server: '' (PeerJS's public one; also typed as public), 'off' (no peer to peer: this device only),
+  // or host[:port][/path] (kept like the relay's address; a room's link carries it)
+  function setPeer(s, why) {
+    s = String(s || '').trim().replace(/^peer:\s*/i, '');
+    if (/^(public|default|0\.peerjs\.com)$/i.test(s)) s = '';
+    if (/^off$/i.test(s)) s = 'off';
+    if (s === C.peer) return;
+    C.peer = s; put('collabPeer', s);
+    log('peer server', { peer: s || 'public', why });
+    changed();
+  }
+  // the introduction server as PeerJS takes it ({} for its public one), and its name; a page on https needs wss
+  function peerServer() {
+    const m = C.peer && C.peer !== 'off' ? /^(?:(https?|wss?):\/\/)?(\[[0-9A-Fa-f:.]+\]|[A-Za-z0-9.-]+)(?::(\d{1,5}))?(\/[^?#\s]*)?$/.exec(C.peer) : null;
+    if (!m) return { name: '0.peerjs.com', opts: {} };
+    const secure = m[1] ? /s$/.test(m[1]) : location.protocol === 'https:', port = m[3] ? +m[3] : secure ? 443 : 80, path = m[4] || '/peerjs';
+    return { name: m[2] + (m[3] ? ':' + m[3] : '') + path, opts: { host: m[2], port, path, secure } };
+  }
+  const peerOpts = () => Object.assign({}, peerServer().opts, { config: { iceServers: ICE }, debug: 0 });
+  // does the introduction server answer? (a room on this device asks before it goes peer to peer again)
+  function peerUp() {
+    const o = Object.assign({ host: '0.peerjs.com', port: 443, path: '/', secure: true }, peerServer().opts), ab = new AbortController(), to = setTimeout(() => ab.abort(), 5000);
+    const url = (o.secure ? 'https://' : 'http://') + o.host + ':' + o.port + o.path.replace(/\/?$/, '/') + 'peerjs/id?ts=' + Date.now();
+    return fetch(url, { cache: 'no-store', signal: ab.signal }).then(r => r.ok, () => false).finally(() => clearTimeout(to));
+  }
+  // PeerJS, loaded the first time a room goes peer to peer. Its links must outlive every story: the shell removes the
+  // listeners added while a story is current when it goes, and PeerJS adds its links' own (a data channel's messages)
+  // later, from the network's callbacks, so these two classes add theirs as the shell's (HOST.quiet)
+  let PJ = null;
+  function peerLib() {
+    if (window.Peer) return Promise.resolve(window.Peer);
+    if (PJ) return PJ;
+    for (const K of [window.RTCPeerConnection, window.RTCDataChannel]) {
+      if (!K || Object.prototype.hasOwnProperty.call(K.prototype, 'addEventListener')) continue;
+      const add = K.prototype.addEventListener;
+      K.prototype.addEventListener = function () { return quiet(() => add.apply(this, arguments)); };
+    }
+    return (PJ = new Promise((res, rej) => {
+      const s = document.createElement('script');
+      s.src = appRoot() + 'peerjs.min.js'; s.async = true;
+      s.onload = () => (window.Peer ? res(window.Peer) : rej(new Error('PeerJS did not load')));
+      s.onerror = () => rej(new Error('PeerJS did not load'));
+      document.head.appendChild(s);
+    }).catch(e => { PJ = null; throw e; }));
+  }
+  // a link carries texts of any length: one longer than PIECE goes in pieces, '+' before each but the last and '=' before
+  // the last (the relay's messages are JSON objects, which start with neither)
+  const PIECE = 16000;
+  function pieces(c, s) {
+    if (s.length <= PIECE) { c.send(s); return; }
+    for (let i = 0; i < s.length; i += PIECE) c.send((i + PIECE >= s.length ? '=' : '+') + s.slice(i, i + PIECE));
+  }
+  function whole(rx, d, max) {
+    if (typeof d !== 'string') return null;
+    if (d[0] !== '+' && d[0] !== '=') { rx.buf = ''; rx.skip = false; return d; }
+    if (!rx.skip) { rx.buf += d.slice(1); if (rx.buf.length > max) { rx.buf = ''; rx.skip = true; } }   // (too long: dropped whole)
+    if (d[0] === '+') return null;
+    const s = rx.skip ? null : rx.buf;
+    rx.buf = ''; rx.skip = false;
+    return s;
+  }
+  // A peer-to-peer room's link, with a WebSocket's face (readyState, send, close, onopen, onmessage, onclose) and the
+  // relay's messages. It takes the room's id and hosts (role 'host': this page through its own socket to the hub), or
+  // finds the id taken and links to whoever holds it (role 'guest'). o: id (this page's member id), create (a new room: a
+  // taken id fails with 4009), wait (ms before it starts), retake (more tries for the id, 0.4 s apart, before linking: a
+  // host that has just let go of it), take (taking over: this page's copy of the room and its measure of the clock)
+  class PeerSocket {
+    constructor(code, o) {
+      Object.assign(this, { readyState: 0, code, o, role: '', peer: null, conn: null, hub: null, inner: null, rx: { buf: '', skip: false }, kick: 0, tries: 0, handT: 0, hush: false });
+      this.timer = setTimeout(() => this.fail(1006, 'no introduction server'), (o.wait || 0) + PEER_LIMIT);
+      this.waitT = setTimeout(() => peerLib().then(() => this.claim(), e => this.fail(1006, e.message)), o.wait || 0);
+    }
+    mine(p) { return this.readyState < 2 && this.peer === p; }
+    drop() { const p = this.peer; this.peer = null; if (p) try { p.destroy(); } catch (e) { /* gone */ } }
+    claim() {
+      if (this.readyState !== 0) return;
+      this.drop();
+      let p;
+      try { p = this.peer = new Peer(peerId(this.code), peerOpts()); } catch (e) { this.fail(1006, 'PeerJS: ' + e.message); return; }
+      p.on('open', () => { if (this.mine(p)) this.host(); });
+      p.on('connection', c => { if (this.mine(p) && this.hub) this.hub.link(c); else try { c.close(); } catch (e) { /* gone */ } });
+      p.on('error', e => this.error(p, e));
+      p.on('disconnected', () => this.lost(p));
+    }
+    error(p, e) {
+      if (!this.mine(p)) return;
+      const t = (e && e.type) || 'error';
+      log('peer error', { type: t, role: this.role, open: this.readyState === 1 });
+      if (t === 'unavailable-id') {
+        if (this.role === 'host') return this.fail(4010, 'superseded');   // (its id lapsed while the server was away, and someone took it)
+        if (this.o.create) return this.fail(4009, 'taken');
+        if (this.tries++ < (this.o.retake || 0)) { this.drop(); setTimeout(() => this.claim(), 400); return; }
+        return this.guest();
+      }
+      if (this.readyState === 0) this.fail(1006, t === 'peer-unavailable' ? 'no host' : t);   // (once open, the links go on without the server)
+    }
+    // the host lost the introduction server: the links go on, and it asks again every few seconds (new guests need it)
+    lost(p) {
+      if (!this.mine(p) || this.role !== 'host' || this.hush) return;
+      log('peer server lost');
+      setTimeout(() => { if (this.mine(p) && !this.hush && p.disconnected && !p.destroyed) try { p.reconnect(); } catch (e) { /* not yet */ } }, 3000);
+    }
+    host() {
+      const t = this.o.take && this.o.take(), L = locLoad(this.code);
+      if (t) { L.keys = new Map([...t.keys].map(([k, e]) => [k, { v: e.v, seq: +e.seq || 0, by: e.by || '' }])); for (const e of L.keys.values()) L.seq = Math.max(L.seq, e.seq); L.seq = Math.max(L.seq, t.seq); locSave(); }
+      const H = this.hub = new Hub(this.code, L, t ? t.off : 0, t ? t.since : null);
+      H.host = this.o.id;
+      H.onhello = m => this.handover(m);
+      this.role = 'host';
+      log('hosting', { code: this.code, took: !!t, keys: L.keys.size, off: Math.round(H.off) });
+      const S = this.inner = new LocalSocket(H, this.o.id, false);
+      S.onopen = () => this.opened();
+      S.onmessage = ev => { if (this.readyState === 1 && this.onmessage) this.onmessage(ev); };
+      S.onclose = ev => this.fail(ev.code, ev.reason);
+    }
+    guest() {
+      if (this.readyState !== 0) return;
+      this.drop(); this.role = 'guest';
+      let p;
+      try { p = this.peer = new Peer(peerOpts()); } catch (e) { this.fail(1006, 'PeerJS: ' + e.message); return; }
+      p.on('open', () => {
+        if (!this.mine(p)) return;
+        const c = this.conn = p.connect(peerId(this.code), { reliable: true, serialization: 'raw', metadata: { id: this.o.id } });
+        c.on('open', () => { if (this.conn === c) this.opened(); });
+        c.on('data', d => {
+          if (this.conn !== c || this.readyState > 1) return;
+          if (this.readyState === 0) this.opened();
+          const s = whole(this.rx, d, 16 << 20);
+          if (s === null) return;
+          if (s.startsWith('{"t":"error"')) this.fatal(s);
+          if (this.onmessage) this.onmessage({ data: s });
+        });
+        c.on('close', () => { if (this.conn === c) this.fail(this.kick || 1006, this.readyState === 1 ? 'host gone' : 'no host'); });
+        c.on('error', () => { if (this.conn === c && this.readyState === 0) this.fail(1006, 'no link'); });
+      });
+      p.on('error', e => this.error(p, e));
+    }
+    // the hub's last word before it closes the link (as the relay's close codes)
+    fatal(s) { try { this.kick = { proto: 4005, version: 4006, replaced: 4008 }[JSON.parse(s).code] || this.kick; } catch (e) { /* not JSON */ } }
+    opened() {
+      if (this.readyState !== 0) return;
+      clearTimeout(this.timer);
+      this.readyState = 1;
+      if (this.onopen) this.onopen();
+    }
+    send(text) {
+      if (this.readyState !== 1) throw new Error('not open');
+      if (this.inner) this.inner.send(text); else pieces(this.conn, text);
+    }
+    close(code, reason) { this.fail(code || 1000, reason || ''); }
+    bye() { this.fail(1001, 'page gone'); }   // (pagehide: a host's id goes at once)
+    fail(code, reason) {
+      if (this.readyState > 1) return;
+      this.readyState = 3;
+      clearTimeout(this.timer); clearTimeout(this.waitT); clearTimeout(this.handT);
+      const S = this.inner, H = this.hub, c = this.conn;
+      this.inner = this.hub = this.conn = null;
+      if (S) { S.onclose = null; S.close(); }
+      if (H) H.stop();
+      if (c) try { c.close(); } catch (e) { /* gone */ }
+      this.drop();   // (a host's id: let go of at once)
+      log('peer link closed', { role: this.role, code, reason });
+      setTimeout(() => { if (this.onclose) this.onclose({ code, reason }); }, 0);
+    }
+    // a headset that hosts gives the room to the first screen that joins (a laptop or desktop page stays awake, a headset
+    // sleeps when taken off): it says who is next, lets go of the id, and that screen takes it over at once with its copy
+    handover(m) {
+      if (!IS_HEADSET || m.dev !== 'screen' || this.handT || this.readyState !== 1) return;
+      log('hand over', { to: m.id });
+      this.handT = setTimeout(() => {
+        if (this.readyState !== 1 || !this.hub || this.hub.members.get(m.id) !== m) { this.handT = 0; return; }
+        this.hub.cast({ t: 'host', to: m.id });
+        this.handT = setTimeout(() => this.fail(4011, 'handed over'), 600);
+      }, 1500);
+    }
+    vanish() { this.hush = true; if (this.hub) this.hub.mute = true; }   // (for tests: a host gone without a word, its id still held)
+  }
+  // what this page hands a hub when it takes a peer-to-peer room over: its copy of the room, the highest seq seen, its
+  // measure of the room's clock and when the others came
+  const takeCopy = () => ({ keys: C.keys, seq: C.seqMax, off: C.offset, since: new Map(C.members.map(m => [m.id, +m.since || 0])) });
+  // the order in which pages take a room over: those longest in it first (a page that let go of it last; the screen a
+  // headset hands it to first)
+  function takeRank() {
+    if (C.lastRole === 'host') return C.members.length;
+    const me = member(C.id), since = m => +m.since || 0;
+    const r = me ? C.members.filter(m => !m.host && m.id !== C.id && (since(m) < since(me) || (since(m) === since(me) && m.id < C.id))).length : 0;
+    return C.next ? (C.next === C.id ? 0 : r + 1) : r;
+  }
+  // a peer-to-peer room's link has closed (its host has gone, or this page let go of the room): the first try takes the
+  // room over in order, or links to whoever did; later tries back off. True when handled here
+  function peerLost(code) {
+    if (code === 1001) { changed(); return true; }   // (this page goes: back with it, pageshow)
+    if (C.spare) { changed(); return true; }         // (a try is on its way already: the host had fallen silent)
+    if (C.takeover) return false;
+    const r = takeRank();
+    Object.assign(C, { takeover: true, peerWait: r * TAKE, peerRetake: r ? 0 : 4 });
+    if (C.lastRole !== 'host') C.note = 'The host has gone: taking over. The room stays as it is meanwhile.';
+    log('take over', { rank: r, code });
+    connect(); changed();
+    return true;
+  }
+  // a guest that has not heard its host for 6 s keeps its link and tries now and then (in takeRank's order, then backing
+  // off) to take the room's id over, or to link to whoever holds it now: a new link that opens replaces the old one, and
+  // its welcome brings the room as it is there
+  function spareTry(t) {
+    if (C.spare || !C.want || t < C.spareAt) return;
+    const first = !C.takeover, r = first ? takeRank() : 0;
+    if (first) { C.takeover = true; C.note = 'The host is not answering: taking over if it has gone. The room stays as it is meanwhile.'; changed(); }
+    log('host silent', { rank: r, tries: C.spareN });
+    const S = C.spare = new PeerSocket(C.code, { id: C.id, wait: r * TAKE, retake: first && !r ? 4 : 0, take: takeCopy });
+    S.onopen = () => {
+      if (C.spare !== S) return;
+      C.spare = null;
+      const old = C.ws;
+      if (old) { old.onopen = old.onmessage = old.onclose = null; try { old.close(); } catch (e) { /* gone */ } }
+      log('link replaced', { role: S.role });
+      C.ws = S; C.heard = clock(); wire(S); S.onopen();
+    };
+    S.onclose = () => {
+      if (C.spare !== S) return;
+      C.spare = null; C.spareAt = performance.now() + Math.min(15000, 1000 * Math.pow(2, Math.min(4, C.spareN++)));
+      if (!C.ws && C.want) later();   // (the old link closed meanwhile)
+    };
+  }
+  // the host answers again (it was busy): a try not yet linked is called off
+  function spareOff() {
+    const S = C.spare;
+    if (!S || S.readyState !== 0) return;
+    C.spare = null; S.onopen = S.onclose = null; S.close();
+    C.takeover = false; C.spareAt = 0; C.spareN = 0;
+    if (/^The host/.test(C.note)) C.note = '';
+    log('host answers again'); changed();
+  }
+  // the relay cannot be reached as the room is joined: peer to peer, else on this device (as last kept here)
+  const fallback = why => (peerOn() ? goPeer(why) : goLocal(why));
+  function goPeer(why) {
+    log('peer to peer', { code: C.code, why });
+    clearTimeout(C.openTimer);
+    Object.assign(C, { via: 'peer', local: false, note: '', tries: 0 });
+    connect(); changed();
+  }
+  // failed: peer to peer could not be had (asked again, probe)
+  function goLocal(why, failed) {
     log('local room', { code: C.code, why });
     clearTimeout(C.openTimer);
-    C.local = true; C.note = ''; C.tries = 0; C.probeAt = performance.now();
+    Object.assign(C, { via: 'local', local: true, peerNew: false, peerFail: !!failed && peerOn(), note: '', tries: 0, probeAt: performance.now() });
     connect(); changed();
   }
   // a room on this device: does a relay answer now? Asked every 15 s, and at once when an address is entered. Then
   // the room goes there: made from this device's copy when the relay has no such room, else joined as it is there
-  // (a room there of another version of the app is left alone)
+  // (a room there of another version of the app is left alone). With no relay, peer to peer once its introduction
+  // server answers (when that is what failed)
   function probe(t, now) {
     if (!C.local || !C.code || C.probing || (!now && t - C.probeAt < 15000)) return;
     C.probeAt = t; C.probing = true;
     const code = C.code;
     if (!C.relay) C.detecting = null;   // a page from a relay that was away: is it back?
     (C.relay ? Promise.resolve() : detect()).then(async () => {
-      if (!C.relay) return;
-      const p = await api('ping');
-      if (!p.ok || !p.j || !p.j.proto) return;
-      const r = await api('rooms/' + code);
-      if (r.ok && r.j && r.j.version && r.j.version !== FORMAT) {   // another version of the app there: asked again in 2 minutes
-        log('relay back', { code, other: r.j.version }); C.probeAt = performance.now() + 105000;
-        C.note = 'The relay has a room ' + code + ' of another version of the app: this one stays on this device.'; changed(); return;
-      }
-      let made = false;
-      if (r.status === 404) {
-        const c = await api('rooms', { app: 'networks', version: FORMAT, code });
-        if (!c.ok && c.status !== 409) return;
-        made = c.ok;
-      } else if (!r.ok) return;
-      // a room there with no stations (made by an earlier try that did not get through) gets this device's copy too
-      else if (!Object.keys((r.j && r.j.keys) || {}).some(k => ST_RE.test(k))) made = true;
-      if (C.local && C.code === code) toRelay(made);
+      if (C.relay && await relayBack(code)) return;
+      if (C.peerFail && peerOn() && await peerUp() && C.local && C.code === code) toPeer();
     }).catch(e => log('probe failed', { e: e && e.message })).then(() => { C.probing = false; });
+  }
+  // true when the relay answered (and the room went there, or stays here: another version of the app there)
+  async function relayBack(code) {
+    const p = await api('ping').catch(() => null);
+    if (!p || !p.ok || !p.j || !p.j.proto) return false;
+    const r = await api('rooms/' + code);
+    if (r.ok && r.j && r.j.version && r.j.version !== FORMAT) {   // another version of the app there: asked again in 2 minutes
+      log('relay back', { code, other: r.j.version }); C.probeAt = performance.now() + 105000;
+      C.note = 'The relay has a room ' + code + ' of another version of the app: this one stays on this device.'; changed(); return true;
+    }
+    let made = false;
+    if (r.status === 404) {
+      const c = await api('rooms', { app: 'networks', version: FORMAT, code });
+      if (!c.ok && c.status !== 409) return true;
+      made = c.ok;
+    } else if (!r.ok) return true;
+    // a room there with no stations (made by an earlier try that did not get through) gets this device's copy too
+    else if (!Object.keys((r.j && r.j.keys) || {}).some(k => ST_RE.test(k))) made = true;
+    if (C.local && C.code === code) toRelay(made);
+    return true;
   }
   function toRelay(made) {
     log('relay back', { code: C.code, made });
     locFlush();
     C.refill = made ? new Map(C.keys) : null;   // a room made there gets this device's keys (welcome)
     const ws = C.ws;
-    C.ws = null; C.local = false; C.welcomed = false; C.tries = 0;
+    C.ws = null; Object.assign(C, { via: 'relay', local: false, peerFail: false, welcomed: false, tries: 0 });
     if (C.hereSet === null) C.hereSet = true;   // (placed in this room alone so far: not asked whether it is with the others)
     if (ws) try { ws.close(1000); } catch (e) { /* closed */ }
     connect(); changed();   // (the placement stays: a 'floor' frame gives way once the shared space gives one, align)
+  }
+  // the introduction server answers again: the room goes peer to peer (this copy hosts it, or the host's room is joined)
+  function toPeer() {
+    log('peer to peer again', { code: C.code });
+    locFlush();
+    const ws = C.ws;
+    C.ws = null; Object.assign(C, { via: 'peer', local: false, peerFail: false, peerNew: false, welcomed: false, tries: 0 });
+    if (C.hereSet === null) C.hereSet = true;
+    if (ws) try { ws.close(1000); } catch (e) { /* closed */ }
+    connect(); changed();
   }
 
   // ----------------------------------------------------------- ephemeral --
@@ -1117,13 +1535,18 @@
   function pump() {
     const t = performance.now();
     if (t - C.pumpAt < 190) return;
+    if (t - C.pumpAt > 1500) C.busy = clock();   // (this page was busy, or hidden: nothing heard meanwhile is no sign of silence)
     C.pumpAt = t;
     attachCheck();
     if (!C.code) return;
     if (C.local) probe(t);
     if (C.ws && C.ws.readyState === 1) {
-      if (t - C.pingAt > (t - C.openAt < 20000 ? 2000 : 15000)) ping();
-      if (clock() - C.heard > 40000) { log('silent socket'); const ws = C.ws; C.ws = null; try { ws.close(); } catch (e) { /* gone */ } closed(1006, 'silent'); }
+      // (peer to peer every 2 s: a guest knows within 6 s that its host has stopped answering)
+      const peer = C.via === 'peer', still = clock() - Math.max(C.heard, C.busy);
+      if (t - C.pingAt > (peer || t - C.openAt < 20000 ? 2000 : 15000)) ping();
+      if (peer && C.ws.role === 'guest' && still > SILENT) spareTry(t);
+      else if (C.spare && still < SILENT) spareOff();
+      if (clock() - C.heard > 40000) { log('silent socket'); drop('silent'); }
     }
     const L = liveSt();
     if (synced(L) && !HOST.picking) { if (!C.clockT) clockApply(false); statePoll(); viewSync(); }
@@ -2975,7 +3398,7 @@
   // when the new address answers (an older relay does not serve s/<n>/)
   const FR = { until: 0 };
   const freshArmed = () => performance.now() < FR.until;
-  const canFresh = () => !!(C.code && !C.local && C.served);
+  const canFresh = () => !!(C.code && C.via === 'relay' && C.served);   // (the relay serves the app at s/<n>/: never peer to peer)
   const roomGen = () => { const G = val('sg'); return G && Number.isInteger(G.n) && G.n >= 0 && G.n < 10000 ? G.n : 0; };
   function freshAsk() {
     if (!canFresh()) return;
@@ -2990,11 +3413,11 @@
     // stays where it is, and one at a fresh address gives the room its generation, so the others come there too
     const G = val('sg');
     if (!G || !Number.isInteger(G.n)) {
-      if (SG && C.code && !C.local && C.welcomed && C.genSent !== C.code) { C.genSent = C.code; publish([['sg', { n: SG, by: C.id, at: Math.round(now()) }]]); }
+      if (SG && C.code && C.via === 'relay' && C.welcomed && C.genSent !== C.code) { C.genSent = C.code; publish([['sg', { n: SG, by: C.id, at: Math.round(now()) }]]); }
       return;
     }
     const n = roomGen();
-    if (!C.code || C.local || n === SG || C.moving === n) return;
+    if (!C.code || C.via !== 'relay' || n === SG || C.moving === n) return;
     if (C.served === null) { detect().then(() => spaceMove()); return; }
     if (!C.served) return;
     C.moving = n;
@@ -3092,7 +3515,7 @@
   // whether two headsets line up can only be judged from both headsets' numbers
   const UP = { n: 0, at: 0, off: false, busy: false };
   function upload(t, now) {
-    if (UP.off || UP.busy || !C.code || !C.relay || C.local || (!now && t - UP.at < 10000)) return;
+    if (UP.off || UP.busy || !C.code || !C.relay || C.via !== 'relay' || (!now && t - UP.at < 10000)) return;   // (only a relay keeps them)
     UP.at = t;
     const entries = LOG.filter(e => e.n > UP.n);
     if (!entries.length) return;
