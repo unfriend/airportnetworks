@@ -36,8 +36,8 @@ function narrT(o) {
 let T_END = NARRATION_SYNC[NARRATION_SYNC.length - 1][0];
 const CH = [
   { key: 'title', name: 'Half the sack', a: 0, b: 45 },
-  { key: 'relay', name: 'The relay underground', a: 45, b: 100 },
-  { key: 'bni', name: 'A wheat that fights back', a: 100, b: 150 },
+  { key: 'relay', name: 'The relay', a: 45, b: 100 },
+  { key: 'bni', name: 'A wheat fights back', a: 100, b: 150 },
   { key: 'trial', name: 'The field trial', a: 150, b: 210 },
   { key: 'leaks', name: 'Greener, fewer leaks', a: 210, b: 285 },
   { key: 'crowd', name: 'A crowd of 100,000', a: 285, b: 340 },
@@ -151,6 +151,8 @@ const FACTS = (() => {
     chl70: F.chl70[0].map(o => o.v), no3d24: M.no3.line.byGroup[1 * 5 + 2], n2oPeak: F.n2o.peaks[0][1], n2oDcd: F.n2o.peaks[0][2],
     n2oMeta: M.n2o.line.byFert[1], n2oMetaDay: [0, 1, 2].map(t => M.n2o.line.byGroup[1 * 5 + t]), qpcrP: qp ? qp[1] : '',
     incubation: F.n2o.incubation, fertNodes: N.fertNodes, fertAll: N.fertAll,
+    // when the control wheat's fertilised soil of day 1 peaks in its jar, as a share of the incubation (the jars' clock)
+    n2oPeakInc: (c => F.n2o.times[c.indexOf(Math.max(...c))] / F.n2o.times[F.n2o.times.length - 1])(SD.n2o(0, 1, 1)),
   };
 })();
 // the credits: the last chapter's small print and explore's About note (the Scenes pane, page and headset)
@@ -374,7 +376,8 @@ function buildStory() {
   ramp('field_no3', a + 40, a + 43, 1, 0);
   jump('field_jday', a + 41.9, 0, 0);
   ramp('field_jars', a + 42, a + 45, 0, 1);
-  ramp('field_inc', a + 45, a + 60, 0, 1);
+  // (the incubation runs to the curves' peak, about day 9 of 22, and holds there: the text's numbers)
+  ramp('field_inc', a + 45, a + 56, 0, F.n2oPeakInc);
   cam(a + 1, 'field', 'default', -12);
   cam(a + 6, 'field', 'low', -14);
   cam(a + 20, 'field', 'low', 10, 'spin');
