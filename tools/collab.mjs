@@ -2450,7 +2450,8 @@ try {
   // (generous: a fresh page on a busy machine first finds the relay, then makes the room)
   const f4 = await until(Fp4, () => !!HOST.collab.code && HOST.collab.status === 'open' && !!HOST.collab.val('sg'), null, 30000);
   await sleep(1500);
-  const f4s = await Fp4.evaluate(() => ({ path: location.pathname, sg: HOST.collab.val('sg'), gen: HOST.collab.gen, code: HOST.collab.code, status: HOST.collab.status }));
+  const f4s = await Fp4.evaluate(() => ({ path: location.pathname, sg: HOST.collab.val('sg'), gen: HOST.collab.gen, code: HOST.collab.code, status: HOST.collab.status,
+    via: HOST.collab.via, log: window.__collabLog.slice(-14).map(e => e.ev + (e.keys ? ' ' + e.keys : '') + (e.served !== undefined ? ' ' + e.served : '') + (e.via ? ' ' + e.via : '')).join(', ') }));
   check('fresh shared space: a page at s/1/ in a room with no generation stays there and gives the room generation 1',
     f4 && /\/s\/1\/$/.test(f4s.path) && f4s.gen === 1 && !!f4s.sg && f4s.sg.n === 1, JSON.stringify({ f4, f4s }));
   await Promise.all([Fp1, Fp2, Fp3, Fp4].map(P => P.context().close()));
