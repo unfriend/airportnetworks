@@ -16,7 +16,7 @@ MP3 at the file named under each story; if your chapters start at other times, c
 | Network theory: Airports | `audio/narration.mp3` | yes | 3:51 |
 | Network medicine: Proteins | `audio/narration-proteins.mp3` | not yet | 4:38 |
 | Spatial interactome: Cell map | `audio/narration-spatial.mp3` | not yet | 5:09 |
-| LBI Network Medicine: The future | `audio/narration-lbi.mp3` | not yet | 9:34 |
+| LBI Network Medicine: The future | `audio/narration-lbi.mp3` | yes | 10:42 |
 | Rare muscle diseases: Muscle and heart | `audio/narration-nmd.mp3` | not yet | 7:47 |
 | Disease endotypes: Endotypes | `audio/narration-endo.mp3` | not yet | 7:12 |
 | Whole-body PET: One scan, one system | `audio/narration-pet.mp3` | not yet | 6:33 |
@@ -286,136 +286,136 @@ File: `audio/narration-spatial.mp3` (not recorded yet). Chapters: 0:00 Intro, 0:
 
 ## LBI Network Medicine: The future (`#lbi`)
 
-File: `audio/narration-lbi.mp3` (not recorded yet). Chapters: 0:00 Intro, 0:33 Parts, 1:12 Networks, 1:40 Life, 2:25 Complexes, 3:22 Map, 4:34 Disease, 5:09 Immunity, 5:56 Treatment, 6:36 Scales, 7:14 Institute, 7:51 Body, 8:22 Tissue, 8:56 Mission; it ends at 9:34.
+File: `audio/narration-lbi.mp3` (recorded). Chapters: 0:00 Intro, 0:45 Parts, 1:22 Networks, 1:52 Life, 2:39 Complexes, 3:41 Map, 4:55 Disease, 5:33 Immunity, 6:30 Treatment, 7:12 Scales, 7:52 Institute, 8:44 Body, 9:18 Tissue, 9:53 Mission; it ends at 10:42.
 
 ### 0:00 Intro
 
 - **0:01** A glimpse into the future
-- **0:02** of network medicine
-- **0:04** Welcome to the Ludwig Boltzmann Institute for Network Medicine in Vienna: a tour from the parts of a protein machine to the whole body.
-- **0:11** Each dot stands for a human protein, each line for a physical interaction between two of them. This illustrative map has 9,125 dots and 22,116 lines; real maps of the human interactome hold more than 13,000 proteins and 140,000 interactions.
-- **0:23** The lights are groups of proteins that work together: the proteasome, growth-factor signalling, cell death and DNA repair.
+- **0:03** of network medicine
+- **0:05** Welcome to the Ludwig Boltzmann Institute for Network Medicine in Vienna: a tour from the parts of a protein machine to the whole body.
+- **0:14** Each dot stands for a human protein, each line for a physical interaction between two of them. This illustrative map has 9,125 dots and 22,116 lines; real maps of the human interactome hold more than 13,000 proteins and 140,000 interactions.
+- **0:35** The lights are groups of proteins that work together: the proteasome, growth-factor signalling, cell death and DNA repair.
 
-### 0:33 Parts
+### 0:45 Parts
 
-- **0:34** More than the sum of its parts
-- **0:36** A computer is built from a few hundred parts: chips full of transistors, resistors, screws.
-- **0:42** Take it apart and lay out every piece, and you have the complete parts list. It still does not tell you how the computer works.
-- **0:52** What makes it work is how the parts are wired together.
-- **1:02** Parts joined by wires: a network. Life is built the same way.
-- **1:06** After Todd McLellan, Things Come Apart (2013), and the Apple I schematic (Apple Computer Company, 1976), designed by Steve Wozniak.
+- **0:45** More than the sum of its parts
+- **0:48** A computer is built from a few hundred parts: chips full of transistors, resistors, screws.
+- **0:55** Take it apart and lay out every piece, and you have the complete parts list. It still does not tell you how the computer works.
+- **1:05** What makes it work is how the parts are wired together.
+- **1:15** Parts joined by wires: a network. Life is built the same way.
+- **1:17** After Todd McLellan, Things Come Apart (2013), and the Apple I schematic (Apple Computer Company, 1976), designed by Steve Wozniak.
 
-### 1:12 Networks
+### 1:22 Networks
 
-- **1:12** Networks are everywhere
-- **1:13** Once you look for the wiring, you find it everywhere. The internet is a network of computers and cables, held together by a few giant hubs.
-- **1:24** Friendships form a network too. Each bright light is a city; most ties join nearby cities, a few cross oceans.
-- **1:31** The first story in this app follows the world's airline network.
-- **1:34** Friendship map after Paul Butler, Facebook (December 2010). Bright city lights from the airports story; fainter lights and ties illustrative.
+- **1:23** Networks are everywhere
+- **1:26** Once you look for the wiring, you find it everywhere. The internet is a network of computers and cables, held together by a few giant hubs.
+- **1:36** Friendships form a network too. Each bright light is a city; most ties join nearby cities, a few cross oceans.
+- **1:44** The first story in this app follows the world's airline network.
+- **1:47** Friendship map after Paul Butler, Facebook (December 2010). Bright city lights from the airports story; fainter lights and ties illustrative.
 
-### 1:40 Life
+### 1:52 Life
 
-- **1:41** The building blocks of life
-- **1:43** In 2001 a first draft of the human genome was published. One copy of our DNA holds
-- **1:48** 23: chromosomes
-- **1:50** 3 billion: letters (base pairs)
-- **1:54** 20,000: protein-coding genes
-- **2:02** Each of these genes is the recipe for a protein. In 2021 AlphaFold predicted the shape of nearly every human protein.
-- **2:13** Here are 25 of them. There are about 20,000 kinds, each with its own shape and job.
-- **2:18** International Human Genome Sequencing Consortium, Nature (2001, 2004); Jumper et al. and Tunyasuvunakool et al., Nature (2021). Shapes in the AlphaFold style, coloured by confidence; illustrative.
+- **1:53** The building blocks of life
+- **1:56** In 2001 a first draft of the human genome was published. One copy of our DNA holds
+- **2:03** 23: chromosomes
+- **2:06** 3 billion: letters (base pairs)
+- **2:09** 20,000: protein-coding genes
+- **2:17** Each of these genes is the recipe for a protein. In 2021 AlphaFold predicted the shape of nearly every human protein.
+- **2:28** Here are 25 of them. There are about 20,000 kinds, each with its own shape and job.
+- **2:33** International Human Genome Sequencing Consortium, Nature (2001, 2004); Jumper et al. and Tunyasuvunakool et al., Nature (2021). Shapes in the AlphaFold style, coloured by confidence; illustrative.
 
-### 2:25 Complexes
+### 2:39 Complexes
 
-- **2:26** Putting the pieces together
-- **2:27** Proteins rarely work alone. Here are 13 of the proteins that build ATP synthase, the machine that makes most of the cell's energy currency, ATP.
-- **2:36** Assembled, they form a rotary motor in the inner membrane of mitochondria. Two helpers, ATPAF1 and ATPAF2, keep the alpha and beta parts from clumping until they join the head, then leave.
-- **2:46** In action: protons flowing through the membrane turn the rotor. Each turn takes 8 protons and makes 3 ATP.
-- **2:59** As a network, each protein is a node and each contact a link.
-- **3:08** The whole machine is one small neighbourhood in the map of all human protein interactions: the interactome.
-- **3:13** The complex in action after the animation by Drew Berry and Franck Tétaz (WEHI). Structure illustrative.
+- **2:40** Putting the pieces together
+- **2:43** Proteins rarely work alone. Here are 13 of the proteins that build ATP synthase, the machine that makes most of the cell's energy currency, ATP.
+- **2:53** Assembled, they form a rotary motor in the inner membrane of mitochondria. Two helpers, ATPAF1 and ATPAF2, keep the alpha and beta parts from clumping until they join the head, then leave.
+- **3:08** In action: protons flowing through the membrane turn the rotor. Each turn takes 8 protons and makes 3 ATP.
+- **3:21** As a network, each protein is a node and each contact a link.
+- **3:30** The whole machine is one small neighbourhood in the map of all human protein interactions: the interactome.
+- **3:32** The complex in action after the animation by Drew Berry and Franck Tétaz (WEHI). Structure illustrative.
 
-### 3:22 Map
+### 3:41 Map
 
-- **3:23** The interactome as a map
-- **3:24** Read it like the map of a city.
-- **3:27** Shape: A city's layout shapes its life; the network's shape was set by evolution.
-- **3:38** Location: Central proteins matter most, like the centre of town.
-- **3:56** Neighbourhoods: Proteins that work together sit together.
-- **4:12** Distance: Close in the network means related.
-- **3:41** In yeast, proteins with many partners are about three times as likely to be essential for life as those with few.
-- **3:58** In yeast, map which genes depend on which, and the cell's jobs fall into districts.
-- **4:17** Diseases whose modules overlap, like multiple sclerosis and rheumatoid arthritis, tend to share symptoms and to occur together. Peroxisomal disorders lie far away.
-- **4:25** Köberlin et al., Cell (2015); Jeong et al., Nature (2001); Costanzo et al., Science (2016); Menche et al., Science (2015). Disease modules illustrative.
+- **3:41** The interactome as a map
+- **3:44** Read it like the map of a city.
+- **3:47** Shape: A city's layout shapes its life; the network's shape was set by evolution.
+- **3:58** Location: Central proteins matter most, like the centre of town.
+- **4:18** Neighbourhoods: Proteins that work together sit together.
+- **4:36** Distance: Close in the network means related.
+- **4:03** In yeast, proteins with many partners are about three times as likely to be essential for life as those with few.
+- **4:21** In yeast, map which genes depend on which, and the cell's jobs fall into districts.
+- **4:41** Diseases whose modules overlap, like multiple sclerosis and rheumatoid arthritis, tend to share symptoms and to occur together. Peroxisomal disorders lie far away.
+- **4:47** Köberlin et al., Cell (2015); Jeong et al., Nature (2001); Costanzo et al., Science (2016); Menche et al., Science (2015). Disease modules illustrative.
 
-### 4:34 Disease
+### 4:55 Disease
 
-- **4:34** Understand, diagnose, treat
-- **4:35** More than 6,000 rare diseases have a known genetic cause; about four in five rare diseases are genetic. Each is rare, but together they affect some 300 million people.
-- **4:44** For every patient the same questions: which gene is broken? What does that do to the cell? How can we treat it?
-- **4:53** A broken gene sits in a neighbourhood of the interactome. Drugs act on neighbourhoods too: where the two overlap, a drug may help.
-- **5:00** Nguengang Wakap et al., European Journal of Human Genetics (2020). Disease and drug neighbourhoods illustrative.
+- **4:56** Understand, diagnose, treat
+- **4:59** More than 6,000 rare diseases have a known genetic cause; about four in five rare diseases are genetic. Each is rare, but together they affect some 300 million people.
+- **5:11** For every patient the same questions: which gene is broken? What does that do to the cell? How can we treat it?
+- **5:20** A broken gene sits in a neighbourhood of the interactome. Drugs act on neighbourhoods too: where the two overlap, a drug may help.
+- **5:25** Nguengang Wakap et al., European Journal of Human Genetics (2020). Disease and drug neighbourhoods illustrative.
 
-### 5:09 Immunity
+### 5:33 Immunity
 
-- **5:10** Inborn errors of immunity
-- **5:11** 430: rare diseases
-- **5:12** 1 in 1,000: to 1 in 5,000 people, all together
-- **5:14** 95%of patients get non-specific treatment
-- **5:17** Diagnosis is often missing or late, and the diseases are poorly understood.
-- **5:23** On the interactome, the genes of those that mainly cause autoimmunity or autoinflammation fall into clusters. Each cluster is a shared mechanism: an endotype.
-- **5:33** The 9 clinical categories doctors use cut across their 19 molecular clusters. Endotypes define diseases by their mechanism.
-- **5:47** Guthrie et al., Science Advances (2023): 173 genes of inborn errors with mainly autoimmunity or autoinflammation; flows between categories illustrative. Zhang et al. 2017; Picard et al. 2017; Bousfiha et al. 2018.
+- **5:34** Inborn errors of immunity
+- **5:37** 430: rare diseases
+- **5:40** 1 in 1,000: to 1 in 5,000 people, all together
+- **5:44** 95%of patients get non-specific treatment
+- **5:49** Diagnosis is often missing or late, and the diseases are poorly understood.
+- **5:55** On the interactome, the genes of those that mainly cause autoimmunity or autoinflammation fall into clusters. Each cluster is a shared mechanism: an endotype.
+- **6:07** The 9 clinical categories doctors use cut across their 19 molecular clusters. Endotypes define diseases by their mechanism.
+- **6:21** Guthrie et al., Science Advances (2023): 173 genes of inborn errors with mainly autoimmunity or autoinflammation; flows between categories illustrative. Zhang et al. 2017; Picard et al. 2017; Bousfiha et al. 2018.
 
-### 5:56 Treatment
+### 6:30 Treatment
 
-- **5:57** Better treatments, faster diagnoses
-- **5:58** Drugs already used for a cluster sit closer to it in the network than other drugs. That points to old drugs worth repurposing, and to new targeted ones.
-- **6:10** Diagnosis: a patient's genome holds many rare variants. Let a signal spread through the network from genes that match the patient's symptoms, and it ranks the candidate genes.
-- **6:23** Here the broken gene comes out on top. In 139 patients with rare neurological disorders, informed network propagation ranked the right gene better than any single clue.
-- **6:32** Guthrie et al., Science Advances (2023); Buphamalai et al., Nature Communications (2021). Patient illustrative.
+- **6:30** Better treatments, faster diagnoses
+- **6:34** Drugs already used for a cluster sit closer to it in the network than other drugs. That points to old drugs worth repurposing, and to new targeted ones.
+- **6:46** Diagnosis: a patient's genome holds many rare variants. Let a signal spread through the network from genes that match the patient's symptoms, and it ranks the candidate genes.
+- **6:59** Here the broken gene comes out on top. In 139 patients with rare neurological disorders, informed network propagation ranked the right gene better than any single clue.
+- **7:06** Guthrie et al., Science Advances (2023); Buphamalai et al., Nature Communications (2021). Patient illustrative.
 
-### 6:36 Scales
+### 7:12 Scales
 
-- **6:37** Networks across scales
-- **6:38** From a billionth of a metre to a whole body, from a millionth of a second to a lifetime, life is built from networks.
-- **6:53** Proteins bind proteins, cells signal to cells, organs talk to organs, and diseases spread from person to person.
-- **7:03** Medicine reaches into all of them: diagnosis, treatment, nutrition and lifestyle.
-- **7:09** After Sin and Menche (2021).
+- **7:13** Networks across scales
+- **7:16** From a billionth of a metre to a whole body, from a millionth of a second to a lifetime, life is built from networks.
+- **7:31** Proteins bind proteins, cells signal to cells, organs talk to organs, and diseases spread from person to person.
+- **7:41** Medicine reaches into all of them: diagnosis, treatment, nutrition and lifestyle.
+- **7:47** After Sin and Menche (2021).
 
-### 7:14 Institute
+### 7:52 Institute
 
-- **7:14** Network medicine at the LBI-NetMed
-- **7:16** RG1: The geometry of molecular networks in health and disease: the mathematics of how perturbations mix and evolve over time.
-- **7:22** RG2: Intra- and inter-cellular networks: the human network architecture across scales.
-- **7:25** RG3: Disease patterns and treatment outcomes across the population, from health registry data.
-- **7:29** RG4: DataDiVR: the future of data exploration, with virtual reality, machine learning and AI.
-- **7:37** Led by Julia Guthrie, André Rendeiro and Jörg Menche, the groups work together across every scale.
+- **7:52** Network medicine at the LBI-NetMed
+- **7:56** RG1: The geometry of molecular networks in health and disease: the mathematics of how perturbations mix and evolve over time.
+- **8:06** RG2: Intra- and inter-cellular networks: the human network architecture across scales.
+- **8:13** RG3: Disease patterns and treatment outcomes across the population, from health registry data.
+- **8:21** RG4: DataDiVR: the future of data exploration, with virtual reality, machine learning and AI.
+- **8:29** Led by Julia Guthrie, André Rendeiro and Jörg Menche, the groups work together across every scale.
 
-### 7:51 Body
+### 8:44 Body
 
-- **7:52** Whole-body networks
-- **7:52** A total-body PET scan follows a tracer sugar through every organ at once. The brain takes up the most, and often the heart; the kidneys and bladder glow because the tracer leaves the body in the urine.
-- **8:04** Organs that rise and fall together form a network of organs.
-- **8:12** Disease rewires it.
-- **8:16** Reed et al., NeuroImage (2023); Geist et al., Med (2025). Organ network illustrative.
+- **8:44** Whole-body networks
+- **8:47** A total-body PET scan follows a tracer sugar through every organ at once. The brain takes up the most, and often the heart; the kidneys and bladder glow because the tracer leaves the body in the urine.
+- **9:00** Organs that rise and fall together form a network of organs.
+- **9:08** Disease rewires it.
+- **9:12** Reed et al., NeuroImage (2023); Geist et al., Med (2025). Organ network illustrative.
 
-### 8:22 Tissue
+### 9:18 Tissue
 
-- **8:23** From tissue to cells
-- **8:24** A slice of stomach wall, stained pink and purple: glands at the surface, loose tissue with blood vessels, muscle below.
-- **8:32** Zoom in and it is made of cells. Join each cell to its neighbours, and the tissue becomes a network.
-- **8:40** Imaging dozens of proteins at once tells the cell types apart, and every sample becomes a point we can compare with the others.
-- **8:49** Rendeiro et al., Nature (2021); Abila et al., Nature Medicine (2026).
+- **9:18** From tissue to cells
+- **9:21** A slice of stomach wall, stained pink and purple: glands at the surface, loose tissue with blood vessels, muscle below.
+- **9:30** Zoom in and it is made of cells. Join each cell to its neighbours, and the tissue becomes a network.
+- **9:37** Imaging dozens of proteins at once tells the cell types apart, and every sample becomes a point we can compare with the others.
+- **9:46** Rendeiro et al., Nature (2021); Abila et al., Nature Medicine (2026).
 
-### 8:56 Mission
+### 9:53 Mission
 
-- **8:56** Our mission
-- **8:57** We are more than 40 researchers from many disciplines at the Ludwig Boltzmann Institute for Network Medicine. We want to
-- **9:03** Understand: gain fundamental insights into the network architecture of health and disease
-- **9:06** Help patients: turn these insights into concrete patient benefit
-- **9:09** Build in Vienna: make Vienna an international centre of excellence for network medicine
-- **9:13** Look ahead: invent the future of medicine
-- **9:22** Thank you! netmed.lbg.ac.at · menchelab.com
+- **9:53** Our mission
+- **9:56** We are more than 40 researchers from many disciplines at the Ludwig Boltzmann Institute for Network Medicine. We want to
+- **10:04** Understand: gain fundamental insights into the network architecture of health and disease
+- **10:10** Help patients: turn these insights into concrete patient benefit
+- **10:15** Build in Vienna: make Vienna an international centre of excellence for network medicine
+- **10:21** Look ahead: invent the future of medicine
+- **10:30** Thank you! netmed.lbg.ac.at · menchelab.com · Narration: a synthetic voice (Kokoro).
 
 ## Rare muscle diseases: Muscle and heart (`#nmd`)
 
