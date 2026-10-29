@@ -36,10 +36,15 @@
       "vs.": "versus",
       "vs": "versus",
       "approx.": "about",
-      "ATP": "A T P",
+      "ATP": "A-T-P",
       "PET": "pet",
       "H&E": "H and E",
-      "GTEx": "G Tex"
+      "GTEx": "G Tex",
+      "proteasome": "proteazome",
+      "proteasomes": "proteazomes",
+      "Peroxisomal": "Per-oxi-somal",
+      "peroxisomal": "per-oxi-somal",
+      "Menche": "Mensha"
     },
     "symbols": {
       "%": " percent",
@@ -76,7 +81,8 @@
       "Ω": " omega "
     },
     "patterns": {
-      "(\\d)\\s*[–-]\\s*(\\d)": "$1 to $2"
+      "(\\d)\\s*[–-]\\s*(\\d)": "$1 to $2",
+      "\\b([Ii]n|[Ss]ince|[Uu]ntil|[Bb]y|[Ff]rom) 20([1-9]\\d)\\b": "$1 twenty $2"
     }
   },
   "stories": {
@@ -87,8 +93,8 @@
         "RG3": "Research group 3",
         "RG4": "Research group 4",
         "DataDiVR": "Data Diver",
-        "ATPAF1": "A T P A F 1",
-        "ATPAF2": "A T P A F 2"
+        "ATPAF1": "A-T-P A-F 1",
+        "ATPAF2": "A-T-P A-F 2"
       }
     }
   }
