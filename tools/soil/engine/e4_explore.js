@@ -39,7 +39,7 @@ const X = { tab: 'field', scene: 'field', t0: 0, turn: 'on',
   mod: -1, rho: 0.6, shuf: 0, kind: -1, plot: -1 };
 const XS = {};
 // params that pick something by number jump to their new value instead of easing through the ones in between
-const STEP = new Set(['field_jday', 'field_module', 'field_pick', 'field_show', 'net_focus', 'net_splitBy', 'net_kind', 'soil_pick']);
+const STEP = new Set(['field_jday', 'field_module', 'field_pick', 'field_show', 'field_line', 'field_fert', 'net_focus', 'net_splitBy', 'net_kind', 'soil_pick']);
 const orbit = { cur: [0, 12, 3.6, 0, 0, 0], from: null, to: null, t0: 0, dur: 1.6 };
 const ctlValue = (k, c) => (X.ctl[k] && X.ctl[k][c.key] !== undefined ? X.ctl[k][c.key] : c.options[0][0]);
 const ctlOf = (k, key) => ctlsOf(k).find(c => c.key === key);
@@ -93,7 +93,8 @@ function exploreTargets(now = performance.now()) {
   if (k === 'web') Object.assign(tg, { web_net: 0, web_globe: K.prog(c.t, 0, 1.2), web_ties: 0, web_spin: SPIN.vienna + (SPIN.japan - SPIN.vienna) * K.prog(c.t, 1, 7),
     hop_a: 1, hop_t: K.prog(c.t, 1.2, 6.5) });
   // the field: a plot group picked by hand
-  if (k === 'field' && X.plot >= 0) Object.assign(tg, { field_pick: X.plot, field_tags: 1 });
+  // (the group picked lit whatever the wheat and regime chosen: those only dim plots while none is picked)
+  if (k === 'field' && X.plot >= 0) Object.assign(tg, { field_pick: X.plot, field_tags: 1, field_line: -1, field_fert: -1 });
   if (k === 'net') {
     Object.assign(tg, { net_rho: X.rho, net_shuffle: X.shuf, net_focus: X.mod, net_kind: X.kind });
     if (X.mod >= 0 && netView() !== 'cloud') tg.net_mods = 1;
@@ -101,7 +102,7 @@ function exploreTargets(now = performance.now()) {
     const fs = GL.sets.field, fc = ctlArgs('field', now);
     fc.t = 1e3;
     Object.assign(tg, fs.params, fs.explore ? fs.explore(fc) : {}, { field_a: netView() === 'split' ? 0.2 : X.mod >= 0 ? 1 : 0.7, field_jars: 0, field_cores: 0,
-      field_stack: 0, field_tags: 0, field_pick: -1, field_module: X.mod, field_mlit: X.mod >= 0 && netView() !== 'cloud' ? 1 : 0 });
+      field_stack: 0, field_tags: 0, field_pick: -1, field_line: -1, field_fert: -1, field_module: X.mod, field_mlit: X.mod >= 0 && netView() !== 'cloud' ? 1 : 0 });
   }
   const out = {};
   for (const n in DEF) out[n] = n in tg ? tg[n] : n.endsWith('_a') ? 0 : XS[n];
@@ -128,6 +129,8 @@ function setCtl(k, key, v) {
   if (!c || !c.options.some(o => o[0] === v)) return;
   (X.ctl[k] = X.ctl[k] || {})[key] = v;
   X.t0 = performance.now();
+  // (a wheat or a regime chosen: the group picked by hand gives way to it)
+  if (k === 'field' && (key === 'line' || key === 'fert')) X.plot = -1;
   // a view has its own best camera
   if (key === viewKey(k) && k === X.scene) { const n = camFor(k, v); flyTo(view(k, n || 'default')); }
   renderAll();
