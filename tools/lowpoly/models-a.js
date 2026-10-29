@@ -311,6 +311,8 @@ var LOWPOLY_MODELS = LOWPOLY_MODELS || {};
     b.add('solid', box(0.09, 0.009, 0.006, [0.07, 0.19, 0.172]), DARK);           // floppy slot
     b.add('solid', box(0.42, 0.004, 0.004, [0, 0.13, 0.171]), BE3);
     b.add('solid', box(0.2, 0.006, 0.05, [0, 0.561, -0.2]), INNER);              // carrying handle
+    b.add('solid', box(0.3, 0.06, 0.006, [0, 0.12, -0.291]), INNER);             // the port panel and vents at the back
+    for (let k = 0; k < 4; k++) b.add('solid', box(0.26, 0.008, 0.006, [0, 0.4 + 0.03 * k, -0.291]), BE3);
     b.add('solid', box(0.44, 0.022, 0.17, [0, 0.011, 0.37], [0.05, 0, 0]), BE);  // keyboard
     for (let k = 0; k < 4; k++) for (let c = 0; c < 10; c++) b.add('solid', box(0.032, 0.012, 0.028, [-0.171 + c * 0.038, 0.027 - 0.0017 * k, 0.306 + k * 0.034]), KEY);
     b.add('solid', box(0.2, 0.012, 0.028, [0, 0.02, 0.442]), KEY);
