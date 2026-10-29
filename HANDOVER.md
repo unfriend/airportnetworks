@@ -158,7 +158,19 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
   [docs/data-and-permissions.md](docs/data-and-permissions.md). Made for the Global Peter Drucker Forum in Vienna. Integrated on 29 October 2026 (its card in `stories/list.js`, `sw.js`, its miniatures, the design
   room's catalogue, the smoke and shared-room tests, the docs: item 11 under "Decisions for the owner"). Untested on a
   headset.
-- **Sound effects, phase 1: released in networks-v98, off by default until the owner approves the sounds** (the owner, 29 October
+- **Sound effects, phase 2: sounds inside the stories, on by default** (the owner, 29 October 2026, after listening to
+  phase 1: "sounds are fine, go on", and explore mode too). Each story plays its own sound cues as its clock crosses
+  them (a network growing, a link snapping on, a flight whooshing past, a path's hops, a closure's knock, a reveal
+  rising: 18 sounds and 2 continuous ones, made in code like phase 1's), explore mode's picks, results and actions sound
+  too, the headset's story panels click, and the live simulations sound as things happen (the flock's falcon and
+  wings). In a shared room every device at a station plays the same cues at the same moment off the station's clock.
+  Effects are **on by default** (a device that turned them off keeps them off), and the bar's Sound button silences
+  them with the narration. The flock and the airports are the references (AGENTS.md, "Sounds inside the stories");
+  the other stories were wired by two builders in the same round. Tested headlessly (`tools/sfx-cues.mjs`, the smoke,
+  audio and shared-room tests); **nobody has heard them**: each story's whole track can be rendered for listening
+  (`node tools/sfx-render.mjs <url> <folder> --story <key>`), and how they sound on a headset, through HRTF and with ten
+  headsets at one station is untested.
+- **Sound effects, phase 1: released in networks-v98, off by default until the owner approved the sounds** (the owner, 29 October
   2026: "nice sound effects to everything"). `sfx.js` (`HOST.sfx`) plays the shell's own sounds through the narration's
   one Web Audio context (clicks and switches on the page and in the headset's menu, a tick when pointing at the shell's
   things, the menu opening and closing, circles picked up, let go and placed, the locks, notices, a chime when a story
@@ -427,8 +439,12 @@ Before handing over (or making anything more public), someone has to decide thes
       measurements, the tables behind slides 6, 7 and 9, the chlorophyll's dates, DCD, the dates, the plot map, the other
       microbes, our network, and whether the story may be public before the work is published: **TO FILL (owner)** in
       [docs/data-and-permissions.md](docs/data-and-permissions.md)).
-12. **Sound effects: listen, then approve or change (phase 1 built, 29 October 2026).** The shell's sounds and the
-    stories' backgrounds are built and off by default (see "Where things stand"). Nobody has heard them yet: the
+12. **Sound effects: listen to the stories' tracks (phase 2 built, 29 October 2026).** Phase 1 was approved ("sounds
+    are fine, go on"): effects are on by default and phase 2 is built (see "Where things stand"). **TO FILL (owner):**
+    listen to each story's track (`node tools/sfx-render.mjs <url> <folder> --story all`: `story-<key>.mp3` with its cue
+    list, at the default volume, under the narration where there is one) and to the new sounds (`sfx2-all.mp3` and its
+    index), and say which cues to keep, move or drop and whether any story is too busy or too quiet. Phase 1's notes
+    follow. The shell's sounds and the stories' backgrounds were built off by default (see "Where things stand"). Nobody has heard them yet: the
     recipes were judged by measurement only (levels, spectra, no clipping). To listen: the sound board
     (`tools/sfx.html`, served next to the app: every sound with a button, every story's background, a 3D demo for
     headphones, the ducking demo, the voice limit), or the rendered files (`node tools/sfx-render.mjs [url] [folder]`:

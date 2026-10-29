@@ -5,8 +5,10 @@
 // pages see the same stations; Remove asks first; per story in STORIES (below) play, pause, a jump and mode
 // changes reach a following page (within 5 s: a busy machine is slow), the explore state round-trips both ways
 // and the story's effect reaches the others; two people changing different controls at once both keep their
-// change; a switch asked for while a story loads is not lost; a story picked by hand stops following; no writes
-// while idle (no ping-pong); a late joiner gets everything; a page follows a pretend person in a headset (from the
+// change; a switch asked for while a story loads is not lost; a story picked by hand stops following; the stories'
+// sound effects (on the first story followed: every page at the station plays the same cues at the same moment, a pause
+// on one stops them on all, a page joining mid-play plays none of the past ones, a slideshow stop plays none past it;
+// the flock's falcon and the robots' crumbs sounding on the others: STORIES' sound); no writes while idle (no ping-pong); a late joiner gets everything; a page follows a pretend person in a headset (from the
 // people list's Follow: the station they walk into, switching as they walk, staying when they step out of every circle,
 // stopping when they leave, or when the page follows a station or picks a story by hand; the dialog's line "Following
 // <name> (at <story>)"); a relay restart is survived; the headsets' two settings
@@ -53,6 +55,7 @@
 //   effect (optional): quiet stops the story's own effects, idle is true when none is playing, send causes one
 //                  (calling HOST.collab.effect), seen is true on the other page once it plays there
 //   more (optional): async (A, B, C) => more checks of its own, after the effect (A changed things, B and C follow)
+//   sound (optional): the sound effects the effect plays on the others (their SFXQ.log), e.g. the flock's falcon
 // The first entry starts on every page's Stories screen with its story already loaded (Follow must close it);
 // the last is the station page A follows last, so it is the pretend headset's (HEADSET_STORY).
 import { spawn } from 'child_process';
@@ -125,6 +128,7 @@ const STORIES = {
   robots: {
     change: "setCtl('robots', 'rule', 'chain'); setCtl('robots', 'robots', '12')", back: "setCtl('robots', 'trails', 'on'); setCtl('robots', 'links', 'on')",
     effect: { quiet: '0', idle: "(window.__c0 = GL.sets.robots.anchors.crumbs().join(), true)", send: 'spillCrumbs()', seen: "GL.sets.robots.anchors.crumbs().join() !== window.__c0" },
+    sound: ['patter'],   // (sound effects: crumbs spilled on one page patter on the others)
     // the pile lands at the same spot everywhere, and a dusty floor again (a counter, not state) dusts the others' too
     async more(A, B) {
       const pile = p => peek(p, 'GL.sets.robots.anchors.crumbs().join()');
@@ -139,6 +143,7 @@ const STORIES = {
   flock: {
     change: "setCtl('flock', 'birds', '400')", back: "setCtl('flock', 'birds', '100')",
     effect: { quiet: "setCtl('flock', 'falcon', 'off')", idle: '!GL.sets.flock.falconOn()', send: 'sendFalcon(null)', seen: 'GL.sets.flock.falconOn()' },
+    sound: ['whoosh', 'flutter'],   // (sound effects: each falcon's dive and the flock bursting away, on every page)
     // the flock belongs to the station: the same falcon everywhere; one page leads, the others take its flight time
     // and fly with its flock (positions in the set's frame, the same on every page)
     async more(A, B, C) {
@@ -1501,12 +1506,56 @@ try {
     // at that t, and its Next plays it again (once, on the first story followed here)
     if (!slidesSeen) {
       slidesSeen = true;
+      // sound effects (phase 2): every page at the station plays the same story cues at the same moment (each its own,
+      // off the station's clock: SFXQ.log, what each asked for); a pause on one page stops them on all; a page that joins
+      // mid-play plays none of the cues it missed
+      if (await peek(A, 'typeof SFXQ !== "undefined"')) {
+        const cues = await peek(A, 'SFXQ.cues.map(c => [c.name, Math.round(c.n * 1000) / 1000]).sort((a, b) => a[1] - b[1])');
+        const busy = cues.find(c => cues.filter(d => d[1] >= c[1] && d[1] < c[1] + 6).length >= 3) || cues[0];
+        const w0 = Math.max(0, busy[1] - 2), w1 = w0 + 9, n = p => peek(p, 'SFXQ.n');
+        const cueOf = e => cues.find(c => c[0] === e[0] && e[1] >= c[1] - 1e-6 && e[1] - c[1] < 1.6);
+        const logOf = (p, a, b) => peek(p, `SFXQ.log.filter(e => e[2] === 'story' && e[1] > ${a} && e[1] <= ${b})`);
+        const gaps = await Promise.all([A, B, C].map(p => p.evaluate(async () => { const f0 = window.__frames; await new Promise(r => setTimeout(r, 1000)); return 1 / Math.max(1, window.__frames - f0); })));
+        await peek(A, `(APP.seek(${w0}), APP.playing || APP.togglePlay())`);
+        for (const p of [A, B, C]) await until(p, w => HOST.cur.peek('APP.t') > w, w1, 25000);
+        const logs = await Promise.all([A, B, C].map(p => logOf(p, w0, w1 + 1.6)));
+        const want = cues.filter(c => c[1] > w0 + 0.4 && c[1] <= w1), seqs = logs.map(l => l.map(cueOf).filter(Boolean).map(c => c.join(' ')));
+        const same = seqs.every(q => q.join() === seqs[0].join()), covered = want.every(c => seqs[0].includes(c.join(' ')));
+        // how far apart the pages saw each cue (each sees it at its next frame: a busy machine's software frames are slow)
+        const spread = seqs[0].map(k => { const ts = logs.map(l => (l.find(e => cueOf(e) && cueOf(e).join(' ') === k) || [0, NaN])[1]); return +(Math.max(...ts) - Math.min(...ts)).toFixed(2); });
+        check(`${key}: sound effects: every page at the station plays the same cues at the same moment`, want.length >= 1 && same && covered && spread.every(d => d < 0.3 + 2 * Math.max(...gaps)),
+          JSON.stringify({ want, seqs, spread, frames: gaps.map(g => +g.toFixed(2)) }));
+        await peek(B, 'APP.togglePlay()');
+        for (const p of [A, C]) await until(p, () => !HOST.cur.peek('APP.playing'), null, 5000);
+        const p0 = await Promise.all([A, B, C].map(n));
+        await sleep(1500);
+        const p1 = await Promise.all([A, B, C].map(n));
+        check(`${key}: sound effects: a pause on one page stops the cues on every page`, p0.join() === p1.join(), `${p0} -> ${p1}`);
+        // C leaves the station, A plays the stretch again, C comes back in the middle of it
+        await C.evaluate(() => HOST.collab.unfollow());
+        await peek(A, `(APP.seek(${w0}), APP.playing || APP.togglePlay())`);
+        await until(A, w => HOST.cur.peek('APP.t') > w, busy[1] + 1, 20000);
+        const c0 = await n(C), at = await peek(A, 'APP.t');
+        await C.evaluate(i => HOST.collab.follow(i), id);
+        await until(C, a => HOST.cur.peek('APP.playing') && HOST.cur.peek('APP.t') > a, at, 10000);
+        await sleep(1000);
+        const late = (await peek(C, `SFXQ.log.slice(-${Math.max(1, Math.min(64, (await n(C)) - c0))})`)).filter(e => e[2] === 'story' && cueOf(e) && cueOf(e)[1] < at - 0.3);
+        check(`${key}: sound effects: a page that joins mid-play plays none of the cues it missed`, (await n(C)) === c0 || !late.length, JSON.stringify({ at, late }));
+        await peek(A, 'APP.togglePlay()');
+        for (const p of [B, C]) await until(p, () => !HOST.cur.peek('APP.playing'), null, 5000);
+      }
       await A.evaluate(k => HOST.slides.set(k, true), key);
       const s = await peek(A, 'slideStop(1)');
       await peek(A, `(APP.seek(${s} - 2), APP.playing || APP.togglePlay())`);
       const stopped = await until(A, s => !HOST.cur.peek('APP.playing') && HOST.cur.peek('APP.t') === s, s, 20000) && await until(B, () => !HOST.cur.peek('APP.playing'), null, 5000);
       const [ca, cb] = [await clockOf(A), await clockOf(B)];
       check(`${key}: a slideshow stop on one page pauses the station at the end of the chapter`, stopped && Math.abs(cb[2] - s) < 0.3, `stop ${s}, A ${ca}, B ${cb}`);
+      // (sound effects: no cue past the stop on either page while the station waits there)
+      if (await peek(A, 'typeof SFXQ !== "undefined"')) {
+        await sleep(800);
+        const hi = [await peek(A, 'SFXQ.hi'), await peek(B, 'SFXQ.hi')];
+        check(`${key}: sound effects: at a slideshow stop no page plays a cue past it`, hi.every(h => h <= s + 0.3), `stop ${s}, latest cues ${hi}`);
+      }
       await A.evaluate(() => document.getElementById('btnNext').click());
       check(`${key}: Next on that page plays the station again`, await until(B, s => HOST.cur.peek('APP.playing') && HOST.cur.peek('APP.t') > s - 0.3, s, 5000), JSON.stringify(await clockOf(B)));
       await A.evaluate(() => HOST.slides.setGlobal(false));
@@ -1529,8 +1578,15 @@ try {
       await peek(A, E.quiet);
       await sleep(400);
       const calm = await until(B, s => HOST.cur.peek(s), E.idle, 20000) && await until(A, s => HOST.cur.peek(s), E.idle, 20000);
+      const sn = T.sound ? await Promise.all([B, C].map(p => peek(p, 'typeof SFXQ !== "undefined" ? SFXQ.n : -1'))) : null;
       await peek(A, E.send);
       check(`${key}: its effect plays at the others`, calm && await until(B, s => HOST.cur.peek(s), E.seen, 5000));
+      // (sound effects: the others hear it too, as it arrives: each page's own live sounds)
+      if (T.sound) {
+        await sleep(1200);
+        const heard = await Promise.all([B, C].map(async (p, i) => sn[i] < 0 ? 'no SFXQ' : (await peek(p, `SFXQ.log.slice(-${Math.max(1, Math.min(64, (await peek(p, 'SFXQ.n')) - sn[i]))}).map(e => e[0])`)).join(' ')));
+        check(`${key}: sound effects: the others play its sounds (${T.sound.join(', ')})`, heard.every(h => T.sound.every(nm => h.split(' ').includes(nm))), JSON.stringify(heard));
+      }
     }
     if (T.more) await T.more(A, B, C);
     await peek(B, 'APP.enterStory(0)');

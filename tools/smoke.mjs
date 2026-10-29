@@ -20,6 +20,12 @@ await page.waitForTimeout(4000);
 await step('start screen is the landing page', async () => {
   if (!await page.evaluate(() => HOST.picking)) errors.push('start screen not shown on load');
 });
+// sound effects (phase 2): one explore action per story and the sound it asks for (code run inside the story, the name);
+// a story without an entry is checked without one. Builders add theirs
+const SFX_PICK = {
+  airports: ['selectAirport(A("SYD"))', 'pick'],
+  flock: ['setCtl("flock", "birds", ctlValue("flock", GL.sets.flock.controls[1]) === "400" ? "100" : "400")', 'flutter'],
+};
 for (const key of ['airports', 'proteins', 'spatial', 'lbi', 'nmd', 'endo', 'pet', 'micro', 'ovary', 'qubits', 'mutation', 'topo', 'soil', 'pass', 'flock', 'robots']) {
   await step(`load ${key}`, async () => {
     await page.click(`#picker [data-story="${key}"]`).catch(async () => { await page.click('#btnOther'); await page.click(`#picker [data-story="${key}"]`); });
@@ -64,8 +70,13 @@ for (const key of ['airports', 'proteins', 'spatial', 'lbi', 'nmd', 'endo', 'pet
           await until(() => !peek('slideSound()[0]'), 30000);
           if (peek('slideSound()[0]') || peek('APP.playing') || peek('APP.t') !== s) out.push(`chapter ${i + 1}: the voice did not stop at the chapter's end while the story waits (${peek('slideSound()')}, t ${peek('APP.t')})`);
         }
+        // sound effects: no cue past the stop while the story waits there (SFXQ.hi: the latest cue played)
+        if (peek('typeof SFXQ !== "undefined"') && peek('SFXQ.hi') > s + 0.001) out.push(`chapter ${i + 1}: a sound cue past the stop played while the story waits (${peek('SFXQ.hi')}, stop ${s})`);
+        const nextCue = peek(`typeof SFXQ !== "undefined" ? SFXQ.cues.map(c => c.n).filter(n => n > ${s}).sort((a, b) => a - b)[0] : undefined`);
         nb.click();
         if (!await until(() => peek('APP.playing') && peek('APP.t') > s, 30000)) out.push(`Next did not go on (playing ${peek('APP.playing')}, t ${peek('APP.t')})`);
+        // after Next, the next cue as the clock passes it (when it comes soon)
+        if (nextCue !== undefined && nextCue < s + 3 && i !== last && (!await until(() => peek('APP.t') > nextCue + 0.2 || !peek('APP.playing'), 20000) || peek('SFXQ.hi') < nextCue - 0.001)) out.push(`chapter ${i + 1}: after Next the next cue (${nextCue.toFixed(2)} s) did not play (latest ${peek('SFXQ.hi')}, t ${peek('APP.t')})`);
         if (tail && peek('APP.t') < T.v - 0.2 && peek('slideSound()[0]')) out.push(`chapter ${i + 1}: after Next the narration says the chapter's end again (t ${peek('APP.t')}, voice ended ${T.v})`);
         if (tail && !await until(() => !peek('SLIDE.tail') && peek('APP.t') >= T.v, 30000)) out.push(`chapter ${i + 1}: the narration does not follow the story again past the voice's end (t ${peek('APP.t')})`);
         if (bar && !bar.hidden && peek('APP.mode') === 'story') out.push('Next still in the bar once playing');
@@ -81,6 +92,63 @@ for (const key of ['airports', 'proteins', 'spatial', 'lbi', 'nmd', 'endo', 'pet
       return out;
     }, key);
     if (bad.length) errors.push(...bad.map(b => `${key}: ${b}`));
+  });
+  // Sound effects (phase 2): the story's cue table (names the shell knows, places that resolve, times within the story),
+  // none over a scrub, exactly the cues the clock crosses while it plays, an explore action's sound (SFX_PICK) and a
+  // pretend headset's press on a story panel button clicking (the log of what was asked for: SFXQ.log)
+  await step(`${key}: sound effects: its cues, a scrub, a stretch played, a pick, a panel press`, async () => {
+    const bad = await page.evaluate(async ([k, pick]) => {
+      const sleep = ms => new Promise(r => setTimeout(r, ms)), peek = src => HOST.cur.peek(src), out = [];
+      const until = async (f, ms) => { for (let n = 0; n < ms / 50 && !f(); n++) await sleep(50); return f(); };
+      const frames = n => until(((f0) => () => window.__frames >= f0 + n)(window.__frames), 30000);
+      if (!peek('typeof SFXQ !== "undefined"')) return ['no sound effects block (SFXQ, sfxStep) in this story'];
+      const T = peek('T_END'), cues = peek('SFXQ.cues.map(c => [c.name, c.n, c.o]).sort((a, b) => a[1] - b[1])');
+      const where = peek('SFXQ.cues.map(c => { const v = new THREE.Vector3(); return sfxPos(c.set, c.at, v) && [v.x, v.y, v.z].every(Number.isFinite); })');
+      cues.forEach(c => { if (!window.SFX_LIB.SOUNDS[c[0]]) out.push(`unknown sound ${c[0]} at ${c[1]}`); if (!(c[1] >= 0 && c[1] <= T)) out.push(`a cue outside the story: ${c[0]} at ${c[1]}`); });
+      if (where.some(w => !w)) out.push(`${where.filter(w => !w).length} cues without a place`);
+      if (peek('SFXQ.spans.some(s => !SFX_LIB.DRONES[s.name])')) out.push('a span of an unknown continuous sound');
+      if (!cues.length) return out.concat(['no cues']);
+      const back = peek('APP.t'), n0 = () => peek('SFXQ.n');
+      // a scrub across cues while paused adds none
+      peek('(APP.mode === "story" || APP.enterStory(0), APP.playing = false)'); await frames(2);
+      let k0 = n0();
+      for (const c of cues.slice(0, 6)) { peek(`APP.seek(${c[1]} + 0.05)`); await frames(1); }
+      const live = peek('typeof sfxLive === "function"');
+      if (!live && n0() !== k0) out.push(`a scrub played ${n0() - k0} sounds: ${JSON.stringify(peek('SFXQ.log.slice(-3)'))}`);
+      // a stretch played: exactly the cues it crosses (a live story's own sounds aside)
+      const c = cues.find(c => c[1] >= 1.5) || cues[0], a = Math.max(0, c[1] - 0.5);
+      peek(`(APP.seek(${a}), APP.playing = true)`);
+      k0 = n0();
+      if (!await until(() => peek('APP.t') >= c[1] + 0.4 || !peek('APP.playing'), 30000)) out.push('the story did not play on');
+      peek('APP.playing = false');
+      const t1 = peek('APP.t'), got = peek(`SFXQ.log.slice(-${Math.min(64, Math.max(1, n0() - k0))})`).filter(e => e[2] === 'story');
+      const want = cues.filter(q => q[1] > a && q[1] <= t1 + 1e-6), match = (e, q) => e[0] === q[0] && e[1] >= q[1] - 1e-6 && e[1] - q[1] < 1.6;
+      const cueLike = got.filter(e => cues.some(q => match(e, q)));
+      if (n0() === k0 || cueLike.length !== want.length || want.some(q => !cueLike.some(e => match(e, q)))) out.push(`played ${a.toFixed(2)} to ${t1.toFixed(2)} s: logged ${JSON.stringify(cueLike)}, expected ${JSON.stringify(want.map(q => [q[0], q[1]]))}`);
+      // an explore action's sound (where the table names one)
+      if (pick) {
+        peek('APP.enterExplore()'); await frames(2);
+        const k1 = n0();
+        peek(pick[0]); await frames(2);
+        const l = peek(`SFXQ.log.slice(-${Math.min(64, Math.max(1, n0() - k1))})`);
+        if (n0() === k1 || !l.some(e => e[0] === pick[1] && e[2] === 'explore')) out.push(`explore: ${pick[0]} did not ask for ${pick[1]} (${JSON.stringify(l)})`);
+        peek('APP.enterStory(0)'); peek('APP.playing = false'); await frames(1);
+      }
+      // a pretend headset's press on a story panel button: a click (its own sound aside)
+      const r = peek(`(() => {
+        XR.on = true; for (const P of XR.panels) { P.last = ''; P.t = -1e9; panelTick(P, performance.now() + 1e6); }
+        const P = XR.foot, r = P.regions.find(x => x.id === 'next' && x.fn) || P.regions.find(x => x.fn && !x.drag), c = XR.ctrls[0];
+        if (!r) { XR.on = false; return 'no button'; }
+        const n = SFXQ.n;
+        c.hover = { kind: 'panel', P, x: r.x + r.w / 2, y: r.y + r.h / 2, point: new THREE.Vector3(0, 1.4, -0.8) };
+        xrPress(c); xrRelease(c); c.hover = null; c.press = null; XR.on = false;
+        return SFXQ.n > n ? SFXQ.log[SFXQ.log.length - 1][0] : 'nothing';
+      })()`);
+      if (r !== 'click') out.push(`a press on the story panel's button: ${r}`);
+      peek(`(APP.enterStory(${back}), APP.playing = false)`);
+      return out;
+    }, [key, SFX_PICK[key]]);
+    if (bad.length) errors.push(...bad.map(b => `${key}: sound effects: ${b}`));
   });
   await step(`${key}: explore mode and headset panels`, () => page.evaluate(() => HOST.cur.peek(`(() => {
     APP.enterExplore();

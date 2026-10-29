@@ -34,10 +34,17 @@
   `node tools/audio.mjs` as well as the smoke test, and report audible output
   on a headset as untested (Sound check is the on-device tool). Sound effects
   are the shell's too (`HOST.sfx`, `sfx.js`): they play only through
-  `HOST.audio`'s context (`HOST.audio.fx()`), off by default until the owner
-  approves them; phase 2 (sounds inside the stories) waits for that approval.
-  After changing a sound, render it (`node tools/sfx-render.mjs`) and check its
-  levels; nobody here can hear them, so report how they sound as unheard.
+  `HOST.audio`'s context (`HOST.audio.fx()`), on by default (the owner approved
+  them; a device that turned them off keeps them off; the Sound button silences
+  them with the narration). Stories ask for them through the same lines in all
+  sixteen and the design room (the sound effects block after the slideshow block,
+  `sfxCue`/`sfxHold` beside the keys, `sfxAct` for explore actions, `sfxLive` in
+  the live simulations; the flock and the airports are the references): keep them
+  identical, and never put a sound in `collab.state()`. After changing a sound,
+  render it (`node tools/sfx-render.mjs`) and check its levels; after changing a
+  story's cues, run `node tools/sfx-cues.mjs <url> <key>` and render its track
+  (`node tools/sfx-render.mjs <url> <out> --story <key>`); nobody here can hear
+  them, so report how they sound as unheard.
 - Synthetic narrations come from `tools/voice/` (Kokoro-82M; the tour's, voice
   `af_heart`, the owner's choice; model and Python outside the repository, see
   its README). After a narrated story's text changes, run
