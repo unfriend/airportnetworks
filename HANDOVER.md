@@ -172,8 +172,8 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
 - **Tried on real headsets:** the stories and their sound on Quest; shared rooms on two Quest 3 headsets in several
   rounds (what happened is in [docs/quest-shared-space-findings.md](docs/quest-shared-space-findings.md) and AGENTS.md
   "Shared rooms"). All thirteen stories of then, the slideshow and the headset menu on the wrist were tried on a headset
-  in October 2026, after the tests had passed on every change; the fourteenth and the fifteenth, the mutation machine
-  and the shape of tissue, came after.
+  in October 2026, after the tests had passed on every change; the fourteenth, the fifteenth and the sixteenth, the
+  mutation machine, the shape of tissue and holding on to nitrogen, came after.
 - **Checked on a Quest 3 (28 October 2026):** the two headset settings (labels in 3D, on top or hidden, and free
   moving, everything in 3D by default and the same for a whole room): the labels, the story panels and the station
   cards in 3D, hidden taking every story panel away, and the grip moving and turning scenes and panels, alone and at a

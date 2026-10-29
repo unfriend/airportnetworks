@@ -56,7 +56,7 @@ self.STORY_LIST = [
     desc: 'Where cells sit in a slide of liver, read at every scale at once: balls grow round the cells, pieces join and loops open and close. From 123 slides, a classifier learns which scales tell cirrhosis from healthy tissue, and maps it back onto every cell.',
     page: 'The shape of tissue: topology of cells in the liver', brand: 'The shape of tissue', sub: 'Topology of cells in the liver',
     aria: 'Interactive 3D story of how the arrangement of cells in liver tissue is read at every scale with persistent homology, and how it tells cirrhosis from healthy tissue', thing: 'tower', loading: 'Growing the balls', len: 'Story 8:07 · 3D tower' },
-  { key: 'soil', kick: 'Soil microbes', title: 'Holding on to nitrogen', col: '#6fd65c', icon: 'soil.soil',
+  { key: 'soil', kick: 'Soil microbes', title: 'Holding on to nitrogen', col: '#b0a83c', icon: 'soil.soil',
     desc: 'Less than half of the fertiliser a farmer spreads ends up in the crop. In a field trial in Japan, a wheat with a trait from a wild grass stays greener and leaks less nitrate, while the soil\'s microbes follow the fertiliser far more than the wheat.',
     page: 'Holding on to nitrogen: a wheat, its soil and the microbes in between', brand: 'Holding on to nitrogen', sub: 'a wheat, its soil and its microbes',
     aria: 'Interactive 3D story of how soil microbes turn fertiliser into nitrate and nitrous oxide, a wheat bred to slow them down, and the network of microbes in a field trial', thing: 'field', loading: 'Spreading the fertiliser', len: 'Story 8:42 · 3D field' },
