@@ -33,7 +33,7 @@ function fingerprint(s) {   // (index.html's HOST.fingerprint)
 
 // ---- a copy of the app (and, for --build, the flock's sources and the tour's kit)
 const T = fs.mkdtempSync(path.join(os.tmpdir(), 'networks-live-'));
-for (const f of ['index.html', 'shared.js', 'sw.js', 'manifest.webmanifest', 'three.min.js', 'peerjs.min.js', 'proteins.html', 'spatial.html']) fs.copyFileSync(path.join(REPO, f), path.join(T, f));
+for (const f of ['index.html', 'shared.js', 'sw.js', 'manifest.webmanifest', 'three.min.js', 'peerjs.min.js', 'lowpoly.js', 'proteins.html', 'spatial.html']) fs.copyFileSync(path.join(REPO, f), path.join(T, f));
 for (const d of ['stories', 'icons', 'audio', 'tools/flock/engine', 'tools/flock/sets']) fs.cpSync(path.join(REPO, d), path.join(T, d), { recursive: true });
 fs.copyFileSync(path.join(REPO, 'tools/flock/build.mjs'), path.join(T, 'tools/flock/build.mjs'));
 fs.mkdirSync(path.join(T, 'tools/lbi'), { recursive: true });
