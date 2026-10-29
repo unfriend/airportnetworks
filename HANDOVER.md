@@ -101,6 +101,16 @@ Before handing over (or making anything more public), someone has to decide thes
    [docs/data-and-permissions.md](docs/data-and-permissions.md).
 5. **The live site**: GitHub Pages publishes `main` at https://unfriend.github.io/airportnetworks/ (no custom domain
    found). Confirm the settings and who may change them (see [docs/setup-and-release.md](docs/setup-and-release.md)).
+   - **The relay on a public server** (the owner's Coolify, considered on 29 October 2026; `relay/Dockerfile` is ready
+     for it: Dockerfile location `/relay/Dockerfile`, port 8787, a domain with HTTPS). It works wherever web pages do
+     (eduroam, hotspots), serves the app too, and peer to peer stays the fallback when it is down. **It has no login:**
+     anyone with its address can list the open rooms with the names of the people in them, read and change any room by
+     its 3-letter code, see names and positions, start rooms (at most 2,000) and use its introduction server. Rates,
+     sizes and room expiry are capped; no patient data passes through it; its alignment logs stay off unless `--logs`.
+     Two options were offered and set aside for now (owner: "no pins for now, I'll host this privately or think about
+     it"): an optional PIN for the relay (set in Coolify; asked once per page, a number pad in the headset's menu, or
+     carried by the room link) and a room list without names; either would cover the peer-to-peer rooms too. Once it is
+     up, its address can become the app's default relay (in `shared.js`), so the GitHub Pages copy uses it with no setup.
 6. **Who to ask**: **TO FILL (owner):** the people for the code, each story's science, the headsets and the relay.
 7. **Deferred** (after the next two stories and their reviews):
    - whether to add a voice assistant;
