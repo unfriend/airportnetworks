@@ -8,7 +8,18 @@ body (no matrix of all scans, no scatter plot); the vision row's chevron arrows 
 in the intro), the second chapter is "How PET sees" (FDG as one tracer among others, no brackets in its text, the
 photons and the line in one step, no "Millions of such lines"), the organ labels of the third are names only, the AI is
 "Segmentation algorithms", the intro's note is shorter, and the scanner hands its patient over to the body set in one
-move (below). The story is now six chapters, about six minutes (6:13). This spec says what is built now; the parts taken out are in git history.
+move (below). **Changed again on 29 October 2026**, after two comparisons with the poster (`docs/pet-poster-comparison.md`):
+the intro says "From PET scans to a network of organs" and captions the vision row as the aim (prognosis and
+medication: goals, not yet shown; the row's labels say "a goal"); FDG is "mostly" not taken back; a tumour as a hot
+spot is "the main application of PET scans in routine care: finding and staging cancer"; the Network chapter opens with
+"a network like this needs many scans" (the paper's networks, each of a group of scans; "across scans", not people); the
+Health chapter speaks of groups ("in the heavier group, the brain is a hub"; "groups with more tumour load have thinner
+networks"; healthy against cancer "compared within this one set of scans"), shows the tumour-load networks (`B_low`,
+`B_high`) instead of the CRP thirds (they mix healthy people and patients; within either group CRP made no clear
+difference, Table 2) and drops the CRP line; the credits say the numbers are the paper's and the intro's pictures the
+vision slide's; the liver scene's rule is "a rule like the poster's, applied here to patches of one organ, as an
+illustration". The story is now six chapters, about six and a half minutes (6:33). This spec says what is built now;
+the parts taken out are in git history.
 
 We are adding a ninth story to the web app in `/home/user/airportnetworks`: `stories/pet.js`, built from `tools/pet/`
 like the endotype story `stories/endo.js` is built from `tools/endo/`. It turns a paper, a poster and a vision slide
@@ -78,7 +89,7 @@ labels, controls, camera views, performance budget, harness, palette), with thes
 - Protocol (the paper): at least 6 h fasting, 250 to 300 MBq of FDG, about 60 min resting, then the scan; the image
   is a map of glucose uptake (SUV, the standardised uptake value).
 - Brain and heart take up the most sugar; the kidneys and the bladder glow because FDG leaves the body in the urine
-  (it is filtered, not reabsorbed). A tumour shows as a hot spot: usually that is all a scan is read for.
+  (it is filtered, mostly not reabsorbed). A tumour shows as a hot spot: usually that is all a scan is read for.
 - The paper: 658 scans of 548 people: 241 scans of healthy volunteers, 417 of people with cancer (165 lung cancer,
   252 head and neck cancer). Organs found by an AI (MOOSE, an nnU-Net model), checked by a doctor; every organ's
   uptake divided by the aorta's (the blood pool).
@@ -94,15 +105,19 @@ labels, controls, camera views, performance budget, harness, palette), with thes
   and subcutaneous fat dominate (the hubs). Robust: test-retest (6 weeks), dose (down to a tenth), scanner, sex,
   aorta or vena cava: no significant differences. Hexokinase 2's network (from GTEx tissue of 946 people) is the
   only one of the proteins tested that resembles the FDG network (r = 0.42).
-- The poster (no longer shown; kept for the record): 630 baseline scans (healthy 80, obese 36, after a heart attack 45, lung cancer 162, head and neck cancer
+- The poster (no longer shown): 630 baseline scans (healthy 80, obese 36, after a heart attack 45, lung cancer 162, head and neck cancer
   250, prostate cancer 57) and 84 follow-up scans (no intervention 47, bariatric surgery 18, immunotherapy before
-  surgery 19; check `PET_DATA.poster.cohort`). One network per scan: seven organs (liver, aorta, spleen, pancreas,
+  surgery 19). One network per scan: seven organs (liver, aorta, spleen, pancreas,
   kidneys, fat, muscle), pairwise uptake ratios, a threshold. Clearance and Heterogeneity; the metabolic
   displacement index (MDI) separates cancer, dyslipidaemia and health; its thirds (near healthy, intermediate,
   remote) differ in survival (median not reached, 79 and 27 months; 1-year survival 80 %, 84 %, 63 %); in 19 people
   with lung cancer given immune checkpoint inhibitors before surgery it told good from poor responders better than
-  CRP, tumour stage or age (AUCs from `PET_DATA.poster.prognosis`; a first test in 19 people: say so). After surgery
-  and immunotherapy the index moved towards the healthy range.
+  CRP, tumour stage or age (a first test in 19 people: say so). After surgery and immunotherapy the index moved towards
+  the healthy range. **`PET_DATA.poster.cohort` and `PET_DATA.poster.prognosis` are gone**: the current `data.js` keeps
+  only the poster's citation. They are in git as they were before commit b7053fb (`git show b7053fb^:tools/pet/sets/data.js`,
+  under `poster`; the generator that wrote them: `git show b7053fb^:tools/pet/data/gen_data.mjs`). A rebuild of the
+  second half around the poster would take them from there (HANDOVER.md item 8; the open points are in
+  `docs/questions-for-authors.md`, P4 to P11).
 - Stand-ins (say so where they show): typical organ uptakes; the 658 synthetic people behind explore's matrix and
   scatter views.
 
@@ -280,11 +295,12 @@ the poster and the authors above), `audio/narration-pet.mp3`, `SET_ORDER = ['sca
 `body` and `organs` share one frame: wherever the story or explore mode shows `organs`, show `body` too (same
 transform), with `body_pet` at 1 unless the story says otherwise.
 
-**Chapters** (about 6:13 at the pace `tools/pace.mjs` sets; `CH` keys and story times; the narration may later be
+**Chapters** (about 6:33 at the pace `tools/pace.mjs` sets; `CH` keys and story times; the narration may later be
 recorded to these):
 1. `title` 0-16: `scan` with `scan_vision` 1 (the vision row); title card "One scan, one system" with the tagline
-   "the body as a metabolic network" and the line "From one PET scan to a network of organs: what it says about
-   health and disease". Then the row draws back into the scanner (`scan_vision` 1 -> 0).
+   "the body as a metabolic network", the line "From PET scans to a network of organs, from health to disease" and the
+   row's caption "The aim: from a scan to one network of the body, then prognosis and medication (goals, not yet
+   shown)". Then the row draws back into the scanner (`scan_vision` 1 -> 0).
 2. `scanner` 16-52, "How PET sees": `scan`: the couch slides in (`scan_bed`), the tracer explained (FDG, the most
    common, a glucose look-alike carrying fluorine-18; fasting, an hour's rest), `scan_cut` shows the ring, `scan_events` on: positron, annihilation, two photons,
    coincidence, line of response (one step: "Two photons, one line"); lines accumulate (`scan_lines`), then
@@ -296,23 +312,28 @@ recorded to these):
    the turn `buildCamera` gives `body` at the hand-over), then its glow cools to dark (0.75-1, 1.5 s) while `body` fades
    in, dark at `body_pet` 0, and `scan` out; then `body_pet` 0 -> 1 over about 8 s (the tracer arriving, from 6.5 s,
    with the first paragraph), with `organs` (`organs_lesion` on later). Text: where the sugar goes (brain and heart most; kidneys and bladder because
-   FDG leaves in the urine); a tumour shows as a hot spot: "This is the main application of PET scans". Labels: Brain, Heart, Kidneys,
+   FDG leaves in the urine, mostly not taken back); a tumour shows as a hot spot: "This is the main application of PET scans in routine care: finding and staging cancer". Labels: Brain, Heart, Kidneys,
    Bladder, Tumour, names only. "Yet the scan holds
    every organ's metabolism at once."
 4. `organs` 90-128: `organs_seg` (segmentation algorithms outline up to 13 organs, a doctor checks), `organs_suv` (each organ's uptake divided
    by the aorta's), a moment of focus on two or three organs (brain, liver, muscle).
 5. `cohort` 128-146: the organs' bars make way (`organs_suv` 1 -> 0) and the network of all 658 scans grows on the
-   body (`organs_net` 0 -> 1, `organs_which` 0); text: the paper's 658 scans (241 of healthy volunteers, 417 with
-   cancer), what a link means (a partial correlation, significant, blue or red) in one paragraph, then the network
-   (11 organs, 25 links, density 12 %).
+   body (`organs_net` 0 -> 1, `organs_which` 0); text: a network like this needs many scans (one scan gives one row of
+   numbers; these networks are the paper's, each of a group of scans), the paper's 658 scans (241 of healthy
+   volunteers, 417 with cancer), what a link means (organs rising and falling together across scans; a partial
+   correlation, unlikely to be chance, blue or red) in one paragraph, then the network (11 organs, 25 links, density
+   12 %).
 6. `health` 146-200: `organs_which` to 1 (healthy, if read; else stay) then the comparisons: BMI (2 -> 3: 27 % to 7 %,
-   the brain becomes a hub), CRP thirds (6 -> 7 -> 8: 11 %, 7 %, 3 %), with `organs_strength` (density, disorder: an
-   even network vs one with hubs; muscle and fat dominate when health erodes); healthy 30 % vs cancer 7 % stated in
-   text; robustness in one line (6 weeks apart, a tenth of the dose, another scanner: the same network); HK2 in one
+   in the heavier group the brain is a hub), tumour load (4 -> 5, `B_low` and `B_high`: 18 % to 8 %, among people
+   with cancer; "so do groups with more stress hormone", among healthy people; not the CRP thirds, which mix healthy
+   people and patients), with `organs_strength` (density, disorder: an even network vs one with hubs; muscle and fat
+   dominate in sparse networks, muscle a hub); healthy 30 % vs cancer 7 % stated in text, "compared within this one
+   set of scans"; group wording throughout, never individual or causal; robustness in one line (6 weeks apart, a tenth of the dose, another scanner: the same network); HK2 in one
    line.
    It ends (from 47.5 s into the chapter, 200 in all) with the credits: the poster's authors, the Division of Nuclear
    Medicine (Medical University of Vienna) and the LBI for Network Medicine, the Explore button, and the small print
-   "Networks of all 658 scans: printed in the paper; other networks read off its figures. Organ values: illustrative."
+   "Numbers and networks: the paper ... (of all 658 scans printed there, the others read off its figures). Poster: ...
+   The intro's pictures: the vision slide. Organ values: illustrative."
    (The Vision chapter that followed, the row again with prognosis and medication, went on 28 October 2026.)
 
 Text: plain British English, short sentences, no jargon without a gloss; every number from `PET_DATA` (`FACTS`), none

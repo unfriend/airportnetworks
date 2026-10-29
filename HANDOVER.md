@@ -182,16 +182,39 @@ Before handing over (or making anything more public), someone has to decide thes
    - The text from the Network chapter on (about 3:52 then) "does not match the poster" (owner, 28 October; set aside
      for now). The poster's PDF is needed in the session to rewrite it.
    - The network and the prognosis need far more 3D.
-   - The story is a bit dry: less statistics, more story.
+   - The story is a bit dry: less statistics, more story (the 29 October fixes took a few numbers out).
 
-   Open question: it follows the paper (Geist et al., Med 2025: the Network and Health chapters are its statistics);
-   of the poster it keeps only the title, the authors and the vision row. The poster's own story (one network per scan,
-   the metabolic displacement index, survival, the response to immunotherapy) was taken out in October after the
-   colleague's note that it "did not match the poster". The owner is asking the colleague which poster was meant, and
-   whether the note was about the content or how it was drawn. The suggestion on the table: rebuild the second half
-   around the poster's one-scan story in 3D (a person's network on their body, many people side by side by how far
-   their network has drifted from healthy, a patient's network moving back after treatment), with only the paper's
-   two or three key numbers.
+   **Compared with the poster (29 October).** Two independent comparisons of the story with the poster "Shaping a New
+   Era in Nuclear Medicine" ([docs/pet-poster-comparison.md](docs/pet-poster-comparison.md)) found that the story
+   follows the poster up to the Organs chapter and then tells the paper (Geist et al., Med 2025); every number it gives
+   is right for the paper. None of the poster's own results is in it (one network per scan from seven tissues, Clearance
+   and Heterogeneity, the metabolic displacement index, the four groups on its scale, survival by thirds, the response
+   to immunotherapy, the follow-up scans); of the poster it keeps the title, the authors and the general framing (the
+   vision row is the vision slide's). The version before commit b7053fb (23 October) told this poster's story with its
+   numbers (`git show b7053fb^:tools/pet/sets/data.js`, under `poster`), so the colleague's note that it "did not
+   match the poster" may have meant another poster, or the made-up formulas and profiles of that version.
+
+   **Fixed now (29 October, the owner's go; 6:33 in all):** the intro says "From PET scans to a network of organs" and
+   captions the vision row as the aim (prognosis and medication: goals, not yet shown); FDG is "mostly" not taken back;
+   PET's main use is "in routine care: finding and staging cancer"; the Network chapter opens with "a network like this
+   needs many scans" (one scan gives one row of numbers; these networks are the paper's, each of a group of scans;
+   "across scans", since the 658 include repeat scans); the Health chapter speaks of groups ("in the heavier group, the
+   brain is a hub", "groups with more tumour load have thinner networks", healthy against cancer "compared within this
+   one set of scans"), and the CRP thirds went (they mix healthy people and patients; within either group CRP made no
+   clear difference, Table 2): that turn shows the tumour-load networks instead; the credits say the numbers are the
+   paper's; explore's liver uses "a rule like the poster's, applied here to patches of one organ, as an illustration".
+
+   **Open question to the colleague** (the owner is asking): which poster was meant, and was the note about the content
+   or how it was drawn? **The rebuild waits for that answer** and for the authors' open points (P4 to P11 in
+   [docs/questions-for-authors.md](docs/questions-for-authors.md): the threshold and the ratios' direction, the formulas,
+   the index scale's direction, the dashed lines, means or medians, the counts, the p values, the follow-up results).
+   **The plan, in short:** keep the story to the Organs chapter; one bridge line with the paper's two or three key
+   numbers (healthy groups dense, cancer sparse); then the poster in 3D: a person's network from seven tissues on their
+   body (pairwise ratios, a threshold, links; labelled illustrative), Clearance and Heterogeneity folding into the
+   index, the four groups standing along its scale, the cancer patients' thirds and their survival as crowds that thin,
+   the 19 people's response (all p above 0.05: a first hint) and the follow-up claim labelled "the poster reports";
+   group summaries only, never a single patient's points. The poster's numbers come back from `b7053fb^`; explore's
+   old One scan and People tabs are the starting point there.
 9. **The fourteenth story: "The mutation machine" (built, October 2026).** From the poster "Converting Mutation into a
    Machinery: DNA Substitution Models as Quantum Circuits" (Enes Berk Sakalli, Arndt von Haeseler; a draft, its footer
    still has placeholders), with the first author's answers on the values, the turn and how to word the result (MM2 to

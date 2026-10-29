@@ -1,0 +1,95 @@
+{
+  "about": "How the synthetic voice says what the panels write (tools/voice/narrate.mjs). The panels keep their text; this only changes what is spoken. units: after a number ('511 keV'); words: whole words, case as written; symbols: anywhere; patterns: regular expressions ($1 for a group). A story's own entries (stories.<key>) come before the global ones, the longest first. The voice is American (en-us), so units are spelled the American way here; the text on screen stays British. Check new entries with node tools/voice/narrate.mjs <key> --phonemes.",
+  "global": {
+    "units": {
+      "keV": "kilo electron volts",
+      "MeV": "mega electron volts",
+      "MBq": "megabecquerels",
+      "GBq": "gigabecquerels",
+      "kBq": "kilobecquerels",
+      "mSv": "millisieverts",
+      "µm": "micrometers",
+      "μm": "micrometers",
+      "nm": "nanometers",
+      "mm": "millimeters",
+      "cm": "centimeters",
+      "km": "kilometers",
+      "kDa": "kilodaltons",
+      "Da": "daltons",
+      "mg": "milligrams",
+      "kg": "kilograms",
+      "mL": "milliliters",
+      "ml": "milliliters",
+      "ms": "milliseconds",
+      "kHz": "kilohertz",
+      "MHz": "megahertz",
+      "Hz": "hertz",
+      "°C": "degrees Celsius",
+      "GB": "gigabytes",
+      "TB": "terabytes"
+    },
+    "words": {
+      "NF-κB": "N F kappa B",
+      "e.g.": "for example",
+      "i.e.": "that is",
+      "et al.": "and colleagues",
+      "vs.": "versus",
+      "vs": "versus",
+      "approx.": "about",
+      "ATP": "A T P",
+      "PET": "pet",
+      "H&E": "H and E",
+      "GTEx": "G Tex"
+    },
+    "symbols": {
+      "%": " percent",
+      "×": " times ",
+      "≈": " about ",
+      "±": " plus or minus ",
+      "≤": " at most ",
+      "≥": " at least ",
+      "<": " less than ",
+      ">": " more than ",
+      "=": " equals ",
+      "→": " to ",
+      "·": ", ",
+      "&": " and ",
+      "α": " alpha ",
+      "β": " beta ",
+      "γ": " gamma ",
+      "δ": " delta ",
+      "Δ": " delta ",
+      "ε": " epsilon ",
+      "θ": " theta ",
+      "κ": " kappa ",
+      "λ": " lambda ",
+      "μ": " mu ",
+      "µ": " mu ",
+      "π": " pi ",
+      "σ": " sigma ",
+      "Σ": " sigma ",
+      "τ": " tau ",
+      "φ": " phi ",
+      "χ": " chi ",
+      "ψ": " psi ",
+      "ω": " omega ",
+      "Ω": " omega "
+    },
+    "patterns": {
+      "(\\d)\\s*[–-]\\s*(\\d)": "$1 to $2"
+    }
+  },
+  "stories": {
+    "lbi": {
+      "words": {
+        "RG1": "Research group 1",
+        "RG2": "Research group 2",
+        "RG3": "Research group 3",
+        "RG4": "Research group 4",
+        "DataDiVR": "Data Diver",
+        "ATPAF1": "A T P A F 1",
+        "ATPAF2": "A T P A F 2"
+      }
+    }
+  }
+}

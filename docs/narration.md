@@ -19,7 +19,7 @@ MP3 at the file named under each story; if your chapters start at other times, c
 | LBI Network Medicine: The future | `audio/narration-lbi.mp3` | not yet | 9:34 |
 | Rare muscle diseases: Muscle and heart | `audio/narration-nmd.mp3` | not yet | 7:47 |
 | Disease endotypes: Endotypes | `audio/narration-endo.mp3` | not yet | 7:12 |
-| Whole-body PET: One scan, one system | `audio/narration-pet.mp3` | not yet | 6:13 |
+| Whole-body PET: One scan, one system | `audio/narration-pet.mp3` | not yet | 6:33 |
 | Tissue microanatomy: Tissue and time | `audio/narration-micro.mp3` | not yet | 7:36 |
 | Ovarian aging: The aging ovary | `audio/narration-ovary.mp3` | not yet | 7:04 |
 | Quantum network compression: Three qubits | `audio/narration-qubits.mp3` | not yet | 9:04 |
@@ -611,66 +611,68 @@ File: `audio/narration-endo.mp3` (not recorded yet). Chapters: 0:00 Intro, 0:22 
 
 ## Whole-body PET: One scan, one system (`#pet`)
 
-File: `audio/narration-pet.mp3` (not recorded yet). Chapters: 0:00 Intro, 0:21 Scanner, 1:43 Sugar, 2:32 Organs, 3:19 Network, 3:59 Health; it ends at 6:13.
+File: `audio/narration-pet.mp3` (not recorded yet). Chapters: 0:00 Intro, 0:28 Scanner, 1:50 Sugar, 2:41 Organs, 3:27 Network, 4:16 Health; it ends at 6:33.
 
 ### 0:00 Intro
 
 - **0:01** One scan, one system
 - **0:03** the body as a metabolic network
-- **0:05** From one PET scan to a network of organs: what it says about health and disease.
-- **0:12** After a paper in Med (2025) and a poster from the Medical University of Vienna and the LBI for Network Medicine.
+- **0:05** From PET scans to a network of organs, from health to disease.
+- **0:11** The aim: from a scan to one network of the body, then prognosis and medication (goals, not yet shown).
+- **0:19** After a paper in Med (2025) and a poster from the Medical University of Vienna and the LBI for Network Medicine.
 
-### 0:21 Scanner
+### 0:28 Scanner
 
-- **0:22** How PET sees
-- **0:23** A PET scan, short for positron emission tomography, starts with a tracer: a molecule carrying a radioactive atom. The most common, and the one in this story, is FDG, a glucose look-alike carrying fluorine-18.
-- **0:38** After at least 6 hours without food, it goes into a vein. For about 60 minutes the person rests: cells take it up like glucose, and an enzyme, hexokinase, traps it inside.
-- **0:51** Then the scan. Around the tunnel sits a ring of detectors.
-- **0:56** A positron: fluorine-18 decays and sends one out, the electron's antimatter twin; it travels about a millimetre, drawn larger here
-- **1:04** Two photons, one line: it meets an electron and both vanish: two gamma photons of 511 keV fly off in opposite directions. Two detectors on opposite sides of the ring register both within a few billionths of a second, and the line between them passes close to where the tracer is
-- **1:25** The uptake is measured as the SUV, the standardised uptake value: the tracer in a tissue divided by the dose per kilogram of body weight, so 1 would be an even spread. Protocol as in the paper: 250 to 300 MBq of FDG.
+- **0:28** How PET sees
+- **0:30** A PET scan, short for positron emission tomography, starts with a tracer: a molecule carrying a radioactive atom. The most common, and the one in this story, is FDG, a glucose look-alike carrying fluorine-18.
+- **0:45** After at least 6 hours without food, it goes into a vein. For about 60 minutes the person rests: cells take it up like glucose, and an enzyme, hexokinase, traps it inside.
+- **0:58** Then the scan. Around the tunnel sits a ring of detectors.
+- **1:03** A positron: fluorine-18 decays and sends one out, the electron's antimatter twin; it travels about a millimetre, drawn larger here
+- **1:11** Two photons, one line: it meets an electron and both vanish: two gamma photons of 511 keV fly off in opposite directions. Two detectors on opposite sides of the ring register both within a few billionths of a second, and the line between them passes close to where the tracer is
+- **1:33** The uptake is measured as the SUV, the standardised uptake value: the tracer in a tissue divided by the dose per kilogram of body weight, so 1 would be an even spread. Protocol as in the paper: 250 to 300 MBq of FDG.
 
-### 1:43 Sugar
+### 1:50 Sugar
 
-- **1:43** Where the sugar goes
-- **1:50** The tracer arrives with the blood, and within the hour it settles where cells use sugar.
-- **1:59** The brain takes up the most, and the heart often does too, though this varies greatly from person to person. The kidneys and the bladder glow too: FDG is filtered into the urine and not taken back, so it leaves the body that way.
-- **2:18** A tumour shows as a hot spot. This is the main application of PET scans.
-- **2:28** Yet the scan holds every organ's metabolism at once.
+- **1:51** Where the sugar goes
+- **1:57** The tracer arrives with the blood, and within the hour it settles where cells use sugar.
+- **2:07** The brain takes up the most, and the heart often does too, though this varies greatly from person to person. The kidneys and the bladder glow too: FDG is filtered into the urine and mostly not taken back, so it leaves the body that way.
+- **2:26** A tumour shows as a hot spot. This is the main application of PET scans in routine care: finding and staging cancer.
+- **2:36** Yet the scan holds every organ's metabolism at once.
 
-### 2:32 Organs
+### 2:41 Organs
 
-- **2:33** Every organ, measured
-- **2:34** Segmentation algorithms outline up to 13 organs in each scan, in 3D, and a doctor checks them.
-- **2:48** Each organ's uptake is divided by that of the aorta: the blood pool, the same reference in every scan.
-- **2:58** Brain: mean of the whole brain: it lives on sugar
-- **3:03** Liver: mean of the whole liver
-- **3:07** Muscle: mean of the gluteus maximus (the buttock muscle)
-- **3:12** One scan, one row of numbers.
-- **3:14** The organs' values shown here are typical uptakes, for illustration.
+- **2:41** Every organ, measured
+- **2:43** Segmentation algorithms outline up to 13 organs in each scan, in 3D, and a doctor checks them.
+- **2:57** Each organ's uptake is divided by that of the aorta: the blood pool, the same reference in every scan.
+- **3:07** Brain: mean of the whole brain: it lives on sugar
+- **3:11** Liver: mean of the whole liver
+- **3:15** Muscle: mean of the gluteus maximus (the buttock muscle)
+- **3:20** One scan, one row of numbers.
+- **3:23** The organs' values shown here are typical uptakes, for illustration.
 
-### 3:19 Network
+### 3:27 Network
 
-- **3:19** 658 scans
-- **3:20** The paper used 658 scans of 548 people: 241 of healthy volunteers and 417 of people with cancer (165 lung, 252 head and neck).
-- **3:28** Which organs rise and fall together across people? Two are linked when they still do once all the others are taken into account (a partial correlation), and that is unlikely to be chance (p < 0.05): blue where they rise together, red where one rises as the other falls.
-- **3:48** The network of all 658 scans: 11 organs, 25 links, a density of 12% (more on that next).
-- **3:54** Figure 2A of the paper.
+- **3:28** 658 scans
+- **3:28** A network like this needs many scans: one scan gives only one row of numbers. These networks are the paper's, each of a group of scans.
+- **3:40** In all, 658 scans of 548 people: 241 of healthy volunteers, 417 of people with cancer.
+- **3:45** Which organs rise and fall together across scans? Two are linked when they still do once all the others are taken into account (a partial correlation), and that is unlikely to be chance: blue where they rise together, red where one rises as the other falls.
+- **4:05** The network of all 658 scans: 11 organs, 25 links, a density of 12% (more on that next).
+- **4:11** Figure 2A of the paper.
 
-### 3:59 Health
+### 4:16 Health
 
-- **3:59** From health to disease
-- **4:01** Split the scans into groups, and give each group its own network. Healthy people's is dense: 30% of the most possible, against 7% with cancer.
-- **4:11** Weight, in healthy people: a density of 27% below the median BMI (body mass index: weight for height), 7% above it.
-- **4:19** Above it, the brain becomes a hub: an organ with far stronger links than the rest.
-- **4:26** Two measures. Density: all links' strength together, as a share of the most possible. Disorder: how unevenly that strength is spread, from 0 (even) up (a few hubs).
-- **4:38** Inflammation (CRP, C-reactive protein, a marker of it in the blood; in thirds): density 11%, 7% and 3%; disorder 0.10, 0.17 and 0.27. In the sparse networks of the less healthy groups, muscle and subcutaneous fat dominate; here muscle becomes a hub.
-- **4:54** Stress (norepinephrine, a stress hormone, in 40 healthy people: 14% against 4%) and tumour load (18% against 8%) thin it too.
-- **5:01** And it holds: two scans within 6 weeks, an ultra-low dose, another scanner, men and women, the aorta or the vena cava as the reference: none made a significant difference, though some groups were small (21 people).
-- **5:16** Of 18 networks built from genes' activity in the tissues of 946 people, only that of hexokinase 2, an enzyme that traps FDG, resembles FDG's (r = 0.42).
-- **5:26** Table 2 and Figures 3 and 4 of the paper; networks other than that of all scans read off its figures. Disorder: 0.19 healthy, 0.29 with cancer. A hub: an organ whose strength is more than 1.7 standard deviations above the network's average (z-score).
-- **5:43** Poster: Barbara K Geist, Alexander Grentner, Joel Fischer, Josef Yu, Dato Tsomaia, Adna Smajlovic, Stefan Grünert and Marcus Hacker: Division of Nuclear Medicine, Medical University of Vienna, and the LBI for Network Medicine.
-- **5:58** Geist et al., The metabolic organ connectome, Med (2025); poster: Shaping a New Era in Nuclear Medicine. Networks of all 658 scans: printed in the paper; other networks read off its figures. Organ values: illustrative.
+- **4:16** From health to disease
+- **4:18** Split the scans into groups, and give each group its own network. The healthy group's is dense: 30% of the most possible, against 7% with cancer (compared within this one set of scans).
+- **4:32** Weight, in healthy people: a density of 27% below the median BMI (body mass index: weight for height), 7% above it.
+- **4:40** In the heavier group, the brain is a hub: an organ with far stronger links than the rest.
+- **4:48** Two measures. Density: all links' strength together, as a share of the most possible. Disorder: how unevenly that strength is spread, from 0 (even) up (a few hubs).
+- **5:00** Groups with more tumour load have thinner networks: 18% against 8%, among people with cancer. So do groups with more stress hormone (norepinephrine), among healthy people.
+- **5:11** In such sparse networks, muscle and subcutaneous fat dominate; here muscle is a hub.
+- **5:18** And it holds: two scans within 6 weeks, an ultra-low dose, another scanner, men and women, the aorta or the vena cava as the reference: none made a significant difference, though some groups were small (21 people).
+- **5:34** Of 18 networks built from genes' activity in the tissues of 946 people, only that of hexokinase 2, an enzyme that traps FDG, resembles FDG's (r = 0.42).
+- **5:44** Table 2 and Figures 3 and 4 of the paper; networks other than that of all scans read off its figures. A hub: an organ whose strength is more than 1.7 standard deviations above the network's average (z-score).
+- **5:59** Poster: Barbara K Geist, Alexander Grentner, Joel Fischer, Josef Yu, Dato Tsomaia, Adna Smajlovic, Stefan Grünert and Marcus Hacker: Division of Nuclear Medicine, Medical University of Vienna, and the LBI for Network Medicine.
+- **6:15** Numbers and networks: the paper, Geist et al., The metabolic organ connectome, Med (2025) (of all 658 scans printed there, the others read off its figures). Poster: Shaping a New Era in Nuclear Medicine. The intro's pictures: the vision slide. Organ values: illustrative.
 
 ## Tissue microanatomy: Tissue and time (`#micro`)
 
