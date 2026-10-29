@@ -494,6 +494,7 @@ body.xr #labels, body.xr #tip { display: none; }
 </div>
 <div id="loading">Loading</div>
 <div id="nogl">This app needs WebGL, which this browser has turned off.</div>
+<script src="stories/list.js"></script>
 <script src="three.min.js"></script>
 <script>
 'use strict';
@@ -504,73 +505,28 @@ if (/\/index\.html$/.test(location.pathname)) history.replaceState(null, '', loc
 // first picked. Stories share this page, its renderer and any running headset
 // session, so changing story never ends VR or AR.
 const HOST = {
-  list: [
-    { key: 'airports', kick: 'Network theory', title: 'Airports', col: '#46d9ff',
-      desc: '3,214 airports and 18,858 routes. Hubs, communities, shortest paths and what happens when airports close.',
-      page: "Network theory, told with the world's airports", brand: 'Network theory', sub: "told with the world's airports",
-      aria: 'Interactive globe of the world airline network', thing: 'globe', loading: 'Plotting 3,214 airports and 18,858 routes', len: 'Story 3:51 · globe' },
-    { key: 'proteins', kick: 'Network medicine', title: 'Proteins', col: '#ff5fd2',
-      desc: '254 proteins inside a human cell. Essential hubs, disease modules, drug targets and knockouts.',
-      page: 'Network medicine, told with the proteins in a cell', brand: 'Network medicine', sub: 'told with the proteins in a cell',
-      aria: 'Interactive 3D cell of protein interactions', thing: 'cell', loading: 'Placing 254 proteins and 375 interactions', len: 'Story 4:38 · cell' },
-    { key: 'spatial', kick: 'Spatial interactome', title: 'Cell map', col: '#3ee08f',
-      desc: '249 proteins in the compartments of a model cell. Proteins that move, signals that cross the cell, proteins in the wrong place.',
-      page: 'Spatial interactome, where proteins meet in a cell', brand: 'Spatial interactome', sub: 'where proteins meet in a cell',
-      aria: 'Interactive 3D model of a human cell and its protein network', thing: 'cell', loading: 'Building the cell', len: 'Story 5:09 · cell model' },
-    { key: 'lbi', kick: 'LBI Network Medicine', title: 'The future', col: '#ffb43b',
-      desc: 'A 3D tour of the Ludwig Boltzmann Institute for Network Medicine: protein machines, the interactome as a map, rare diseases, organs and tissues.',
-      page: 'A glimpse into the future of network medicine', brand: 'LBI NetMed', sub: 'a glimpse into the future',
-      aria: 'Interactive 3D tour of network medicine, from proteins to the whole body', thing: 'scene', loading: 'Building the scenes', len: 'Story 9:34 · 3D tour' },
-    { key: 'nmd', kick: 'Rare muscle diseases', title: 'Muscle and heart', col: '#ff7a59',
-      desc: 'Rare diseases of nerves and muscles in a 71-layer network: a random walk, disease modules, endotypes, and what muscle and heart share.',
-      page: 'Rare muscle diseases, seen through 71 layers', brand: 'Muscle and heart', sub: 'rare diseases in 71 layers',
-      aria: 'Interactive 3D multiplex network of rare neuromuscular diseases', thing: 'tower', loading: 'Stacking 71 layers', len: 'Story 7:47 · 3D tower' },
-    { key: 'endo', kick: 'Disease endotypes', title: 'Endotypes', col: '#c08cff',
-      desc: 'A group of rare diseases of the junction between nerve and muscle, 35 genes and 12 endotypes: how a random walk and a tree that splits only when the data say so find them.',
-      page: 'Endotypes: one disease, many mechanisms', brand: 'Endotypes', sub: 'one disease, many mechanisms',
-      aria: 'Interactive 3D story of how disease endotypes are found, from a nerve-muscle junction to a protein network', thing: 'synapse', loading: 'Opening the synapse', len: 'Story 7:12 · 3D synapse' },
-    { key: 'pet', kick: 'Whole-body PET', title: 'One scan, one system', col: '#ffe066',
-      desc: 'A PET scan sees every organ\'s sugar use at once. 658 scans make a network of organs that thins and tips towards a few hubs as health erodes; one scan may soon tell how a body is doing.',
-      page: 'One scan, one system: the body as a metabolic network', brand: 'One scan, one system', sub: 'the body as a metabolic network',
-      aria: 'Interactive 3D story of whole-body PET scans and the network of the organs\' metabolism', thing: 'scanner', loading: 'Warming up the scanner', len: 'Story 6:13 · 3D scanner' },
-    { key: 'micro', kick: 'Tissue microanatomy', title: 'Tissue and time', col: '#ff9ec4',
-      desc: 'Organs are built from small working units of cells. 24,945 slides of 40 tissues show which ones there are, how they connect, and which change as we age.',
-      page: 'Tissue and time: how organs are built, and how they age', brand: 'Tissue and time', sub: 'how organs are built, and how they age',
-      aria: 'Interactive 3D story of the microanatomy of human tissues and how it changes with age', thing: 'slide', loading: 'Staining the slides', len: 'Story 7:36 · 3D slides' },
-    { key: 'ovary', kick: 'Ovarian aging', title: 'The aging ovary', col: '#ff6f91',
-      desc: 'Sections of 255 ovaries from donors aged 20 to 70, read by deep learning: follicles run out, scars pile up and blood vessels grow fewer. Two methods, one picture of aging.',
-      page: 'The aging ovary: what 255 ovaries show about aging', brand: 'The aging ovary', sub: 'what 255 ovaries show about aging',
-      aria: 'Interactive 3D story of how the human ovary changes with age, seen through deep learning on 255 tissue sections', thing: 'ovary', loading: 'Staining the sections', len: 'Story 7:04 · 3D ovary' },
-    { key: 'qubits', kick: 'Quantum network compression', title: 'Three qubits', col: '#7d74ff',
-      desc: 'Some diseases need two genes broken at once. To search the pairs on a quantum computer, a gene network is cut down to eight cells on three qubits, and its moves into a few building blocks.',
-      page: 'Three qubits: how a gene network fits on a tiny quantum computer', brand: 'Three qubits', sub: 'a gene network on a tiny quantum computer',
-      aria: 'Interactive 3D story of how a gene network is shrunk onto three qubits and broken into building blocks a quantum computer runs', thing: 'cube', loading: 'Cutting the network', len: 'Story 9:04 · 3D cube' },
-    { key: 'mutation', kick: 'Quantum phylogenetics', title: 'The mutation machine', col: '#4d8dff',
-      desc: 'DNA changes letter by letter as it is copied. A rule for those changes becomes a machine of gears on a quantum computer, one per branch of a family tree, and pairs of letters that change together are coupled.',
-      page: 'The mutation machine: DNA\'s changes as a quantum circuit', brand: 'The mutation machine', sub: 'DNA\'s changes as a quantum circuit',
-      aria: 'Interactive 3D story of how DNA letters change along a family tree and how a quantum circuit models it, from a rule of change to an RNA stem', thing: 'machine', loading: 'Winding up the gears', len: 'Story 8:39 · 3D machine' },
-    { key: 'topo', kick: 'Tissue topology', title: 'The shape of tissue', col: '#ff5c5c',
-      desc: 'Where cells sit in a slide of liver, read at every scale at once: balls grow round the cells, pieces join and loops open and close. From 123 slides, a classifier learns which scales tell cirrhosis from healthy tissue, and maps it back onto every cell.',
-      page: 'The shape of tissue: topology of cells in the liver', brand: 'The shape of tissue', sub: 'Topology of cells in the liver',
-      aria: 'Interactive 3D story of how the arrangement of cells in liver tissue is read at every scale with persistent homology, and how it tells cirrhosis from healthy tissue', thing: 'tower', loading: 'Growing the balls', len: 'Story 8:07 · 3D tower' },
-    { key: 'pass', kick: 'Networks for everyone', title: 'Pass it on', col: '#5fe0c8',
-      desc: 'A school of fish, the world\'s flights and a cell: how a warning, an infection and a signal pass from neighbour to neighbour. In English and German.',
-      page: 'Pass it on: how warnings, viruses and signals spread', brand: 'Pass it on', sub: 'how warnings, viruses and signals spread',
-      aria: 'Interactive 3D story of how warnings, viruses and signals spread through networks: a school of fish, the airline network and a cell', thing: 'school', loading: 'Gathering the school', len: 'Story 6:53 · fish, globe, cell' },
-    { key: 'flock', kick: 'Collective motion', title: 'Flock', col: '#9db4ff',
-      desc: '200 starlings at dusk, flying all around you. Each follows its seven nearest neighbours: a network that never stands still.',
-      page: 'A flock of starlings, all around you', brand: 'Flock', sub: 'starlings at dusk',
-      aria: 'Interactive 3D flock of starlings flying around you at dusk', thing: 'flock', loading: 'Gathering the flock', len: 'Story 1:57 · then on and on', life: true },
-    { key: 'robots', kick: 'Swarm robotics', title: 'Robot gang', col: '#c3e85a',
-      desc: 'A gang of robot vacuums in your room. In a headset they find your floor and walls, follow you about and bounce off the walls.',
-      page: 'A gang of robot vacuums in your room', brand: 'Robot gang', sub: 'vacuums in your room',
-      aria: 'Interactive 3D room with a gang of robot vacuums that follow you about', thing: 'room', loading: 'Waking the robots', len: 'Story 2:01 · then free play', life: true },
-  ],
+  // the stories (stories/list.js, read before this script and again while the app runs: HOST.live). Always this one
+  // array, changed in place, as stories keep it (XR_STORIES); listRev counts its changes (a headset Stories screen
+  // builds its cards again when it moves on)
+  list: (self.STORY_LIST || []).slice(), listRev: 0,
+  // this shell's release (written by tools/release.mjs): n, the release whose shell files these are; id, their
+  // fingerprint; format, the shared rooms' FORMAT. version.json says the same of the latest release
+  shell: { n: 0, id: '', format: '' },
   factories: {}, loaded: {}, cur: null, curKey: null, busy: false, queued: '',
   renderer: null, session: null, mode: null, inputs: [], quiet: false,
   // the one renderer all stories draw with; its internal listeners belong to it, not to a story
   makeRenderer(opts) {
-    if (!this.renderer) { this.quiet = true; try { this.renderer = new THREE.WebGLRenderer(opts); } finally { this.quiet = false; } }
+    if (!this.renderer) {
+      this.quiet = true; try { this.renderer = new THREE.WebGLRenderer(opts); } finally { this.quiet = false; }
+      // a story's start ends by giving the renderer its frame loop: it is built then, and a place kept across a swap
+      // or a reload (HOST.built) goes back right after, before any other task (the shared room's pump) sees the story
+      const r = this.renderer, loop = r.setAnimationLoop;
+      r.setAnimationLoop = fn => {
+        loop(fn);
+        const f = fn && this.built;
+        if (f) queueMicrotask(() => { if (this.built !== f) return; this.built = null; try { f(); } catch (e) { console.warn('The place was not put back:', e); } });
+      };
+    }
     return this.renderer;
   },
   register(key, fn) { this.factories[key] = fn; },
@@ -1457,15 +1413,58 @@ HOST.anchor = (function () {
     watch, state: () => N,
   };
 })();
-HOST.load = key => HOST.loaded[key] || (HOST.loaded[key] = new Promise((res, rej) => {
-  const s = document.createElement('script');
-  s.src = 'stories/' + key + '.js';
-  s.onload = () => res(); s.onerror = () => rej(new Error('Could not load the ' + key + ' story'));
-  document.body.appendChild(s);
-}));
+// a file's fingerprint (a 64-bit hash of its text, as hex): the same function in tools/release.mjs (version.json) and
+// relay/server.mjs (--watch), so the three agree on what a story file is
+HOST.fingerprint = function (s) {
+  let a = 0xdeadbeef, b = 0x41c6ce57;
+  for (let i = 0; i < s.length; i++) { const c = s.charCodeAt(i); a = Math.imul(a ^ c, 2654435761); b = Math.imul(b ^ c, 1597334677); }
+  a = Math.imul(a ^ (a >>> 16), 2246822507) ^ Math.imul(b ^ (b >>> 13), 3266489909);
+  b = Math.imul(b ^ (b >>> 16), 2246822507) ^ Math.imul(a ^ (a >>> 13), 3266489909);
+  return (b >>> 0).toString(16).padStart(8, '0') + (a >>> 0).toString(16).padStart(8, '0');
+};
+// A story's file: fetched as text (fresh: past every cache, for a swap or a story updated meanwhile), its fingerprint
+// noted (HOST.fp, compared with version.json and the relay's --watch), then run as a script, which registers its
+// factory (HOST.register). Resolves true when a new file ran, false when a fresh fetch brought the file already
+// running. A file that does not register (a syntax error while it is being edited) is refused, and the factory before
+// it stays.
+HOST.fp = {};
+HOST.load = function (key, fresh) {
+  if (!fresh && this.loaded[key]) return this.loaded[key];
+  const url = 'stories/' + key + '.js';
+  const p = (async () => {
+    let txt;
+    try {
+      const r = await fetch(fresh ? url + '?fresh=' + Date.now() : url, { cache: fresh ? 'no-store' : 'default' });
+      if (!r.ok) throw new Error(String(r.status));
+      txt = await r.text();
+    } catch (e) { throw new Error('Could not load the ' + key + ' story'); }
+    const fp = this.fingerprint(txt), was = this.factories[key];
+    if (fresh && was && fp === this.fp[key]) return false;
+    delete this.factories[key];
+    let err = '';
+    const onErr = ev => { err = (ev.error && ev.error.message) || ev.message || 'an error'; };
+    this.quiet = true;
+    try { window.addEventListener('error', onErr); } finally { this.quiet = false; }
+    const s = document.createElement('script');
+    s.textContent = txt + '\n//# sourceURL=' + new URL(url, location.href).href;
+    document.body.appendChild(s); s.remove();
+    window.removeEventListener('error', onErr);
+    if (!this.factories[key]) {
+      if (was) this.factories[key] = was;
+      throw new Error(`The ${key} story's file did not run (${err || 'it registered no story'})`);
+    }
+    this.fp[key] = fp;
+    return true;
+  })();
+  this.loaded[key] = p;
+  p.catch(() => { if (this.loaded[key] === p) delete this.loaded[key]; });   // (asked again next time)
+  return p;
+};
 HOST.teardown = function () {
   const r = this.renderer;
   this.audio.drop();
+  this.built = null;
+  if (this.live) this.live.detach();   // (its headset panel leaves the old scene before it is disposed)
   if (this.cur) {
     try { this.inputs = this.cur.inputs(); } catch (e) { this.inputs = []; }
     try { this.xrPose = this.cur.xrPose(); } catch (e) { this.xrPose = null; }
@@ -1485,16 +1484,27 @@ HOST.teardown = function () {
   document.getElementById('xrmsg').style.display = 'none';
   this.cur = null;
 };
-HOST.start = async function (key, keepHash) {
+// place: a place to put back once the story is built (a swap, a reload: HOST.live)
+HOST.start = async function (key, keepHash, place) {
   // a story still loading: in a shared room the last story asked for meanwhile follows (the room's switches
   // must not get lost); outside a room the request is dropped as before
   if (this.busy) { if (this.collab && this.collab.joined) this.queued = key; return; }
-  const meta = this.list.find(s => s.key === key) || this.list[0];
+  const meta = this.list.find(s => s.key === key);
+  // a story this device does not know (a shared room's station, from a newer copy of the app): it says so, and offers
+  // the update (HOST.live)
+  if (!meta) { if (key) this.live.missing(key); return; }
   if (this.curKey === meta.key && this.cur) { this.closePicker(); return; }
+  if (!this.live.allowed(meta.key)) return;   // it needs a newer shell: asked first (HOST.live)
   this.busy = true;
   const ld = document.getElementById('loading');
   ld.textContent = meta.loading; ld.classList.remove('gone');
-  try { await this.load(meta.key); } catch (e) { ld.textContent = e.message; this.busy = false; this.queued = ''; return; }
+  try { await this.load(meta.key, this.live.stale(meta.key)); } catch (e) { ld.textContent = e.message; this.busy = false; this.queued = ''; return; }
+  this.run(meta, keepHash, place);
+  this.closePicker();
+  this.next();
+};
+// the story's factory runs (the old story torn down first); a place given goes back once the story is built
+HOST.run = function (meta, keepHash, place) {
   this.teardown();
   // in a shared room, a story started at your station takes the station's place in the headset
   const at = this.collab && this.collab.starting(meta.key);
@@ -1506,12 +1516,64 @@ HOST.start = async function (key, keepHash) {
   document.querySelectorAll('#picker .card').forEach(c => c.classList.toggle('here', c.dataset.story === meta.key));
   this.curKey = meta.key;
   this.chrome(this.picking);
+  this.built = place ? () => this.putPlace(place) : null;
   this.cur = this.factories[meta.key](this);
   this.busy = false;
-  this.closePicker();
+};
+// a story asked for while another was loading
+HOST.next = function () {
   const q = this.queued;
   this.queued = '';
   if (q && q !== this.curKey) this.go(q);
+};
+// The story on show, swapped in place for its file as it is now (hot reload, live updates: HOST.live). This device's
+// place stays (HOST.place: mode, clock, explore state and view, the slideshow; the headset's placement as for any
+// story change, and its Stories screen). At a station in a shared room the room's clock, state and view apply as the
+// new story attaches, as for any story there; the swap writes nothing to the room (the shell publishes a person's
+// play, pause, jumps and mode changes, and none happens here). A file that does not run keeps the story before it.
+// Resolves true once swapped.
+HOST.swap = async function (key) {
+  if (this.busy || !this.cur || this.curKey !== key) return false;
+  const meta = this.list.find(s => s.key === key);
+  if (!meta) return false;
+  this.busy = true;
+  let fresh = false;
+  try { fresh = await this.load(key, true); } catch (e) { this.busy = false; this.live.note(e.message); this.next(); return false; }
+  if (!fresh || this.curKey !== key || !this.cur) { this.busy = false; this.next(); return false; }
+  const place = this.place();
+  // (the address as it is, without a deep link's &t= or &explore, which the story would take at its start)
+  history.replaceState(null, '', (this.collab && this.collab.hash()) || (this.picking || place.landing ? '#stories' : '#' + key));
+  this.run(meta, true, place);
+  this.swaps = (this.swaps || 0) + 1;
+  console.info('Swapped in place: stories/' + key + '.js');
+  this.next();
+  return true;
+};
+// where this device is in the story on show: its mode, clock (playing or not), explore state and view (the story's
+// shared-room hooks: state() and apply() give the same state back), whether its headset Stories screen is open, the
+// Stories screen on the page and the station it follows in a shared room
+HOST.place = function () {
+  const c = this.cur && this.cur.collab, A = c && c.APP;
+  if (!A) return null;
+  const P = { key: this.curKey, mode: A.mode, t: +A.t || 0, playing: !!A.playing, state: null, view: null, picking: this.picking,
+    landing: false, inStory: true, follow: (this.collab && this.collab.following && this.collab.following()) || '' };
+  try { P.state = c.state ? JSON.parse(JSON.stringify(c.state())) : null; } catch (e) { /* not ready */ }
+  try { P.view = c.view ? JSON.parse(JSON.stringify(c.view())) : null; } catch (e) { /* not ready */ }
+  try { P.landing = !!this.cur.peek('XR.on && XR.stories'); P.inStory = !!this.cur.peek('XR.inStory'); } catch (e) { /* no headset code */ }
+  return P;
+};
+// put a place back (HOST.place) once the story is built: its mode and clock, then its explore state and view; at a
+// station in a shared room nothing (the room's clock, state and view apply as the story attaches)
+HOST.putPlace = function (P) {
+  const c = this.cur && this.cur.collab, A = c && c.APP;
+  if (!A || !P) return;
+  if (P.landing && this.session) try { this.cur.peek('XR.stories = true; XR.inStory = ' + !!P.inStory); } catch (e) { /* no headset code */ }
+  const st = this.collab && this.collab.live && this.collab.live();
+  if (st && st.story === this.curKey) return;
+  if (P.mode === 'explore') { A.t = P.t; if (A.mode !== 'explore') A.enterExplore(); } else A.enterStory(P.t);
+  A.playing = P.mode === 'story' && P.playing && !this.picking && !P.landing;
+  if (P.state != null && c.apply) try { c.apply(P.state); } catch (e) { console.warn('The story did not take its explore state back:', e); }
+  if (P.view != null && c.setView) try { c.setView(P.view); } catch (e) { /* no view to take */ }
 };
 // from the headset menu: change story after the click that asked for it has finished
 HOST.go = key => setTimeout(() => HOST.start(key), 0);
@@ -1525,9 +1587,16 @@ HOST.setUrl = function (stories) {
 };
 // the title in the tab and the top bar: the app on the Stories screen, the story inside a story
 HOST.chrome = function (stories) {
-  const meta = this.list.find(s => s.key === this.curKey), app = stories || !meta;
-  document.title = app ? 'Networks, in fifteen stories' : meta.page;
-  document.querySelector('#top .brand').innerHTML = app ? 'Networks<span>in fifteen stories</span>' : `${meta.brand}<span>${meta.sub}</span>`;
+  const meta = this.list.find(s => s.key === this.curKey), app = stories || !meta, n = this.count();
+  document.title = app ? `Networks, in ${n} stories` : meta.page;
+  document.querySelector('#top .brand').innerHTML = app ? `Networks<span>in ${n} stories</span>` : `${meta.brand}<span>${meta.sub}</span>`;
+  document.getElementById('pickTitle').textContent = `Networks, in ${n} stories`;
+};
+// how many stories, in words up to twenty (the title, the Stories screen; the headsets' Stories screens say the same)
+HOST.count = function () {
+  const n = this.list.length;
+  return ['one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve', 'thirteen', 'fourteen',
+    'fifteen', 'sixteen', 'seventeen', 'eighteen', 'nineteen', 'twenty'][n - 1] || String(n);
 };
 // Sound check on the page's Stories screen (the headset has its own panel): what the sound
 // system is doing, refreshed twice a second while open; #soundcheck in a link opens it
