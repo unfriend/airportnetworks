@@ -5924,7 +5924,11 @@ function xrRecenter() {
 // real object.
 const xrLabelMode = () => (HOST.xr && HOST.xr.labels ? HOST.xr.labels() : 'face');
 const xrFreeOn = () => !!(HOST.xr && HOST.xr.free && HOST.xr.free());
-const xrSig = () => (HOST.xr && HOST.xr.sig ? HOST.xr.sig() : '');
+const xrSig = () => (HOST.xr && HOST.xr.sig ? HOST.xr.sig() : '') + (HOST.panels && HOST.panels.sig ? HOST.panels.sig(XR_HERE) : '');
+// this story's panels in a headset (the shell's HOST.panels, each story its own; at a station in a shared room the
+// station's, for everyone at that circle): 'shown', 'controls' (only the foot bar) or 'hidden' (neither: A or X still
+// plays); a shell without it: shown
+const xrPanels = () => (HOST.panels && HOST.panels.get ? HOST.panels.get(XR_HERE) : 'shown');
 // a headset in a shared room (the shell's HOST.room): no Stories screen there, a story runs only at its station (reached
 // by walking into its circle), and away from one it is hidden, not pointable, paused and silent. A shell without
 // HOST.room.away: as before (only at a station is the story the station's)
@@ -6379,8 +6383,11 @@ function xrUpdate(S) {
     for (const P of XR.land) P.mesh.visible = land && (P === XR.land[0] || !XR.soundCheck);
     XR.snd.mesh.visible = land && !!XR.soundCheck;
     // labels hidden: no story panel at all, in story and explore mode (the Stories screen, the shell's menu and its
-    // clock stay, and A or X still plays); labels in 3D: the panels stand in the scene, as the labels' signs do
-    XR.main.mesh.visible = XR.foot.mesh.visible = !land && !away && XR.lm !== 'hidden';
+    // clock stay, and A or X still plays); labels in 3D: the panels stand in the scene, as the labels' signs do. And
+    // this story's panels (xrPanels): controls only keeps just the foot bar, hidden neither
+    const pm = xrPanels(), pv = !land && !away && XR.lm !== 'hidden';
+    XR.main.mesh.visible = pv && pm === 'shown';
+    XR.foot.mesh.visible = pv && pm !== 'hidden';
     panelDepth(XR.main, XR.lm === 'fixed'); panelDepth(XR.foot, XR.lm === 'fixed');
   }
   GL.world.visible = !land && !away;

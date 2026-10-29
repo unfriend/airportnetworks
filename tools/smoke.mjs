@@ -1380,6 +1380,87 @@ for (const key of ['airports', 'proteins', 'spatial', 'lbi', 'nmd', 'endo', 'pet
     await sp.evaluate(() => HOST.xr.setSubs(false));
     if (bad.length) errors.push(...bad.map(b => 'subtitles: ' + b));
   });
+  // panels per story, the menu's row for the story on show: shown (as ever), controls only (the foot bar alone: the text
+  // and explore panel neither drawn nor pointable) or hidden (neither; A or X still plays), in story and explore mode;
+  // each story its own (the design room too), kept across a reload, set by a link for the story it opens; labels hidden
+  // still hides both; no row on the Stories screen, whose panels stay
+  await step('panels per story in the headset: shown, controls only, hidden through the menu; each story its own, kept, set by a link; labels hidden hides both', async () => {
+    const bad = [];
+    const press = async id => { await tick(2); const ok = await sp.evaluate(id => { const r = HOST.collab.overlay().panel.regions.find(x => x.id === id); if (r && r.fn) r.fn(); return !!(r && r.fn); }, id); await tick(2); return ok; };
+    const row = () => sp.evaluate(() => { const r = HOST.collab.overlay().panel.regions.find(x => x.id === 'panels'); return !!(r && r.fn); });
+    const vis = async () => { await tick(2); return sx('(XR.main.mesh.visible ? "main" : "-") + "," + (XR.foot.mesh.visible ? "foot" : "-")'); };
+    const want = { shown: 'main,foot', controls: '-,foot', hidden: '-,-' }, hits = { shown: 'panel:main,panel:foot', controls: 'x,panel:foot', hidden: 'x,x' };
+    const pointed = async () => (await pointBoth()).map(h => (h.startsWith('panel') ? h : 'x')).join();
+    const btn = on => sx(`(() => { const c = XR.ctrls[0]; c.src = { targetRayMode: 'tracked-pointer', gamepad: { axes: [0, 0, 0, 0], buttons: [0, 1, 2, 3, 4].map(i => ({ pressed: i === 4 && ${on}, touched: false, value: 0 })) } }; c.g.visible = true; return 0; })()`);
+    const free = () => sx('(XR.ctrls[0].src = null, XR.ctrls[0].g.visible = false, XR.ctrls[0].hover = null, 0)');
+    const ready = k => sp.waitForFunction(k => typeof HOST !== 'undefined' && HOST.panels && HOST.curKey === k, k, { timeout: 30000 });
+    await openXR('qubits');
+    if (!(await sp.evaluate(() => HOST.panels.get('qubits')) === 'shown' && await vis() === want.shown)) bad.push('not shown by default: ' + await vis());
+    // the menu's row goes round, the story following at once
+    await sp.evaluate(() => HOST.collab.panelOpen(true));
+    const seen = [];
+    for (let k = 0; k < 3; k++) { if (!await press('panels')) { bad.push('no Panels row in the menu'); break; } seen.push(await sp.evaluate(() => HOST.panels.get('qubits')) + '/' + await vis()); }
+    if (seen.join(' ') !== 'controls/-,foot hidden/-,- shown/main,foot') bad.push('the menu\'s Panels row went ' + seen.join(' ') + ' (not controls only, hidden, shown, with the panels following)');
+    // on the Stories screen: no row (no story on show), and its panels stay whatever this story's are
+    await sp.evaluate(() => HOST.panels.set('qubits', 'hidden'));
+    await sx('(XR.stories = true, 0)'); await tick(3);
+    const land = await sx('XR.land.every(P => P.mesh.visible)');
+    if (await row() || !land) bad.push(`on the Stories screen: a Panels row ${await row()}, its panels shown ${land}`);
+    await sx('(XR.stories = false, APP.enterStory(0), APP.playing = false, 0)'); await tick(3);
+    await sp.evaluate(() => HOST.collab.panelOpen(false)); await tick(2);
+    // each value in story and explore mode: what shows and what the pointer reaches; A or X still plays while hidden
+    for (const m of ['shown', 'controls', 'hidden']) {
+      await sp.evaluate(m => HOST.panels.set('qubits', m), m);
+      await sx('(APP.mode === "story" || APP.enterStory(0), APP.playing = false, 0)');
+      const v = await vis(), h = await pointed();
+      if (v !== want[m] || h !== hits[m]) bad.push(`${m} (story): ${v}, the pointer at each panel ${h}`);
+      if (m === 'hidden') {
+        const was = await sx('APP.playing');
+        await btn(true); await tick(1); await btn(false); await tick(1);
+        const now = await sx('APP.playing');
+        await sx('(APP.playing = false, 0)'); await free(); await tick(1);
+        if (!(was === false && now === true)) bad.push(`hidden: A or X does not play (${was} -> ${now})`);
+      }
+      await sx('APP.enterExplore()'); await tick(3);
+      const vx = await vis(), hx = await pointed();
+      if (vx !== want[m] || hx !== hits[m]) bad.push(`${m} (explore): ${vx}, the pointer at each panel ${hx}`);
+    }
+    // labels hidden still hides both, whatever the panels; back again with labels in 3D
+    await sp.evaluate(() => HOST.panels.set('qubits', 'controls'));
+    await setLook('hidden');
+    const lh = await vis();
+    await setLook('fixed');
+    const lf = await vis();
+    if (lh !== '-,-' || lf !== '-,foot') bad.push(`labels hidden with controls only: ${lh}; labels in 3D again: ${lf}`);
+    // each story its own: the flock and the airports shown, the flock then hidden; the qubits' stays
+    await openXR('flock');
+    const fl = await vis();
+    await sp.evaluate(() => HOST.collab.panelOpen(true));
+    await press('panels'); await press('panels');
+    await sp.evaluate(() => HOST.collab.panelOpen(false));
+    const fl2 = [await sp.evaluate(() => [HOST.panels.get('flock'), HOST.panels.get('qubits'), HOST.panels.get('airports')].join()), await vis()];
+    if (fl !== want.shown || fl2.join(' ') !== 'hidden,controls,shown -,-') bad.push(`each story its own: the flock at first ${fl}, after two presses ${fl2.join(' ')} (flock, qubits, airports)`);
+    // kept across a reload, per story
+    await sp.reload(); await ready('flock');
+    const kept = await sp.evaluate(() => ['qubits', 'flock', 'airports', 'design'].map(k => HOST.panels.get(k)).join());
+    if (kept !== 'controls,hidden,shown,shown') bad.push('not kept per story across a reload: ' + kept);
+    // a link sets it for the story it opens (a hand-written story and the design room read it as the others do)
+    await openXR('airports', '&panels=controls');
+    const al = [await sp.evaluate(() => ['airports', 'qubits', 'flock'].map(k => HOST.panels.get(k)).join()), await vis()];
+    if (al.join(' ') !== 'controls,controls,hidden -,foot') bad.push('#airports&panels=controls gave ' + al.join(' '));
+    await openXR('design', '&panels=hidden');
+    const dl = [await sp.evaluate(() => ['design', 'airports'].map(k => HOST.panels.get(k)).join()), await vis()];
+    if (dl.join(' ') !== 'hidden,controls -,-') bad.push('#design&panels=hidden gave ' + dl.join(' '));
+    await sp.evaluate(() => HOST.panels.set('design', 'shown'));
+    if (await vis() !== want.shown) bad.push('the design room shown again: ' + await vis());
+    // the same lines in all fifteen stories and the design room
+    const miss = await sp.evaluate(async keys => (await Promise.all(keys.map(async k => { const s = await (await fetch('stories/' + k + '.js')).text();
+      return s.includes("const pm = xrPanels(), pv = !land && !away && XR.lm !== 'hidden';") && s.includes('HOST.panels.sig(XR_HERE)') ? '' : k; }))).filter(Boolean),
+    ['airports', 'proteins', 'spatial', 'lbi', 'nmd', 'endo', 'pet', 'micro', 'ovary', 'qubits', 'mutation', 'topo', 'pass', 'flock', 'robots', 'design']);
+    if (miss.length) bad.push('no panels lines in ' + miss.join(', '));
+    await sp.evaluate(() => { try { localStorage.removeItem('xrPanels'); } catch (e) { /* storage blocked */ } });
+    if (bad.length) errors.push(...bad.map(b => 'panels: ' + b));
+  });
   await sp.close();
 }
 await step('old links forward to the app', async () => {

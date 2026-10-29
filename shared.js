@@ -1631,6 +1631,26 @@
     changed();
     return true;
   }
+  // Panels per story (HOST.panels: shown, controls only or hidden): in a room each station's, for everyone at its circle
+  // (key st.<id>.ui: { panels, story, by, at }; a station without it, or with one written for its story before it changed:
+  // shown), set from a headset's menu at that station or from the page's dialog for any station, and never refused by the
+  // layout lock. A station given another story loses it with its other keys (the relay's epoch rule)
+  const PANELS = ['shown', 'controls', 'hidden'], kUi = id => 'st.' + id + '.ui';
+  function stPanels(s) {
+    const v = s && val(kUi(s.id));
+    return v && typeof v === 'object' && PANELS.includes(v.panels) && ofStory(v, s) ? v.panels : 'shown';
+  }
+  function setStPanels(id, v) {
+    const s = C.stById.get(id);
+    if (!C.code || !s || !PANELS.includes(v)) return false;
+    publish([[kUi(id), { panels: v, story: s.story, by: C.id, at: Math.round(now()) }]]);
+    log('panels', { st: id, panels: v });
+    changed();
+    return true;
+  }
+  // for HOST.panels: at a station of this story (a headset in its circle, a page following it), the station's; else null
+  const panelsAt = key => { const L = liveSt(); return C.code && C.welcomed && L && L.story === key ? stPanels(L) : null; };
+  const setPanels = (key, v) => !!panelsAt(key) && setStPanels(C.live, v);
   // Arrange all: every story in two rows in front of you (half, rounded up, in front), spots 2.4 m apart,
   // every station facing away from you, so its content floats beyond its spot and faces your side; a story that
   // already has a station keeps it (moved, its state kept)
@@ -2001,7 +2021,7 @@
     OV.room = new THREE.Group(); OV.room.matrixAutoUpdate = false;
     OV.root.add(OV.room);
     OV.panelG = new THREE.Group();
-    OV.panel = sheet(720, 1440, 0.42, 53);   // (the tallest it gets: a room on this headset with a three-line note, 1433 px)
+    OV.panel = sheet(720, 1480, 0.42, 53);   // (the tallest it gets: a room on this headset with a three-line note, at a station, 1463 px)
     OV.panelG.add(OV.panel.mesh); OV.root.add(OV.panelG);
     OV.panel.mesh.userData.shell = { kind: 'panel' };
     // the menu's clock: the group's origin is the face's middle
@@ -2566,11 +2586,15 @@
     changed();
     return false;
   }
+  // the story on show in this headset (the menu's Panels row): none on its Stories screen, away from every station in a
+  // room, or while a story loads
+  const showing = () => (HOST.session && HOST.panels && HOST.cur && HOST.curKey && !HOST.busy && !HOST.onStories && !away() ? HOST.curKey : '');
+  const PANELS_SAY = { shown: 'shown', controls: 'controls only', hidden: 'hidden' };
   function panelSig() {
     return J([C.code, C.status, C.note, PNL.open, PNL.page, OV.panel.hover, C.name, C.color, C.hereSet, here(), askHere(), R.status(), C.mine, C.live, armed(C.mine),
       C.st.map(s => s.id + s.story), C.members.map(m => m.id + m.name + m.color + m.kind + m.here + (m.host ? 'h' : '')), [...C.pres].map(([id, P]) => id + P.st), C.via, hosting(), C.takeover, C.peer,
       C.code ? 0 : (C.rooms || []).map(r => r.code + r.members), C.roomsErr, C.relay, C.code ? nearShown() : [(C.near || []).map(r => r.code + r.members + r.name), C.netState, C.nearBusy, C.nearErr, (offer() || {}).code], sharedLine(), sourceLine(), versionNote(), scanNote(), fullNote(), floorNote(), forgetArmed(), freshArmed(), canFresh(), !!(R.saved || R.frame), R.sharedAlign, layoutLocked(),
-      C.local, C.code ? 0 : localRooms().map(r => r.code + r.stations), !!R.again, HOST.slides ? HOST.slides.sig() : '', menuHint(), HOST.xr.sig(),
+      C.local, C.code ? 0 : localRooms().map(r => r.code + r.stations), !!R.again, HOST.slides ? HOST.slides.sig() : '', menuHint(), HOST.xr.sig(), showing(), showing() && HOST.panels.sig(showing()),
       PNL.page === 'sound' ? Math.floor(performance.now() / 500) + HOST.audio.pref : '']);
   }
   function drawPanel() {
@@ -2614,8 +2638,17 @@
     button(S, 'free', x + bw + 16, y, bw, 60, fr ? 'Moving: free' : 'Moving: facing you', () => HOST.xr.setFree(!fr), { on: fr });
     y += 76;
     button(S, 'subs', x, y, bw, 60, su ? 'Subtitles: on' : 'Subtitles: off', () => HOST.xr.setSubs(!su), { on: su });
-    if (C.code) { ctx.font = FONT(21); ctx.fillStyle = MUTED; wrapText(ctx, 'Labels, moving and subtitles: the same for everyone in this room', x + bw + 16, y + 2, bw, 28, 2); }
+    // the story on show's panels (shown, controls only, hidden: each press the next), that story's alone; in a room its
+    // station's, for everyone at that circle. No row on the Stories screen or away from a station (no story on show)
+    const pk = showing(), pm = pk ? HOST.panels.get(pk) : '';
+    if (pm) button(S, 'panels', x + bw + 16, y, bw, 60, 'Panels: ' + PANELS_SAY[pm], () => HOST.panels.set(pk, HOST.panels.next(pk)), { on: pm === 'shown' });
+    else if (C.code) { ctx.font = FONT(21); ctx.fillStyle = MUTED; wrapText(ctx, 'Labels, moving and subtitles: the same for everyone in this room', x + bw + 16, y + 2, bw, 28, 2); }
     y += 76;
+    if (pm) {
+      ctx.font = FONT(21); ctx.fillStyle = MUTED;
+      ctx.fillText(fit(ctx, C.code ? 'Panels: for everyone at this circle. The rest: for the whole room' : 'Panels: for ' + ((meta(pk) || {}).title || 'this story') + ' only', w), x, y - 4);
+      y += 30;
+    }
     line();
     // the shared room: its code, how many are in it, the connection
     const n = C.members.length, title = !C.code ? 'Shared room' : C.local ? `Room ${C.code} · this headset` : `Shared room ${C.code} · ${n} ${n === 1 ? 'person' : 'people'}`;
@@ -4497,6 +4530,7 @@
       else if (act === 'lock') setLock(!layoutLocked());
       else if (act === 'free') HOST.xr.setFree(!HOST.xr.free());
       else if (act === 'subs') HOST.xr.setSubs(!HOST.xr.subs());
+      else if (act === 'panels') { const v = stPanels(C.stById.get(arg)); setStPanels(arg, PANELS[(PANELS.indexOf(v) + 1) % 3]); }   // (not locked with the layout)
       else if (act === 'fresh') { freshAsk(); setTimeout(renderDialog, 3050); }
       else if (act === 'add') { const k = $('#shAdd').value, id = add(k, freeSpot()); if (id) log('added', { st: id, story: k }); }
       else if (act === 'color') setMe({ color: arg });
@@ -4603,9 +4637,10 @@
         ${C.local ? '' : '<button class="btn" type="button" data-sh="copy">Copy link</button>'}<button class="btn" type="button" data-sh="leave">Leave</button>` +
         (C.local ? `<div class="row"><input id="shRelay2" type="url" inputmode="url" autocomplete="off" spellcheck="false" placeholder="wss://relay.example.org" aria-label="Relay address" value="${esc(C.relay.replace(/^http/, 'ws'))}"><button class="btn" type="button" data-sh="relay2">Move to this relay</button></div>` : '');
       $('.sh-stations').innerHTML = C.st.length ? C.st.map(s => {
-        const m = meta(s.story), on = C.follow === s.id, who = whoAt(s.id).filter(w => w !== 'you');
+        const m = meta(s.story), on = C.follow === s.id, who = whoAt(s.id).filter(w => w !== 'you'), pm = stPanels(s);
         return `<li class="${on ? 'on' : ''}"><i style="background:${m.col}"></i><b>${esc(m.title)}</b><span>${esc(stationLine(s))}${who.length ? ' · ' + esc(who.join(', ')) : ''}</span>
           ${on ? '<button class="btn" type="button" data-sh="unfollow">Stop following</button>' : `<button class="btn primary" type="button" data-sh="follow:${s.id}">Follow</button>`}
+          <button class="btn pn" type="button" data-sh="panels:${s.id}" aria-pressed="${pm === 'shown'}" title="What the headsets at this circle show of its story's panels: shown, controls only (the foot bar) or hidden. Press for the next" aria-label="Panels at the ${esc(m.title)} station: ${PANELS_SAY[pm]}. Press for ${PANELS_SAY[PANELS[(PANELS.indexOf(pm) + 1) % 3]]}">Panels: ${PANELS_SAY[pm]}</button>
           <button class="btn rm${armed(s.id) ? ' armed' : ''}" type="button" data-sh="remove:${s.id}" aria-label="${armed(s.id) ? 'Remove the ' + esc(m.title) + ' station for everyone? Press again to remove it' : 'Remove the ' + esc(m.title) + ' station'}">${armed(s.id) ? 'Remove for everyone?' : 'Remove'}</button></li>`;
       }).join('') : '<li class="none">No stations yet. Arrange all puts every story in two rows; a headset in the room can then move them.</li>';
       const sel = $('#shAdd'), lk = layoutLocked(), lb = $('[data-sh="lock"]');
@@ -4753,6 +4788,9 @@
     lock: on => setLock(on), get locked() { return layoutLocked(); },
     // the room's labels and moving ({ labels, free }; null outside a room), set for everyone there (HOST.xr calls these)
     look, setLook,
+    // panels per story (HOST.panels calls the first two): at a station of the story, the station's (null elsewhere), set for
+    // everyone at its circle; any station's, read and set by its id (the page's dialog)
+    panels: key => panelsAt(key), setPanels, stationPanels: id => stPanels(C.stById.get(id)), setStationPanels: (id, v) => setStPanels(id, v),
     fresh: () => freshAsk(), get gen() { return SG; },   // a fresh shared space (two calls: the first arms it); this page's generation
     ray, press, effect, detach, hash, dialog, people: () => C.pres, log,
     // rooms on this network: this device's network (its id, never the address; '' unknown), the rooms found on it (null:

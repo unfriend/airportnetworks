@@ -1031,6 +1031,29 @@ try {
     `A ${sA}, D ${await stateOf(D)}`);
   await D.context().close();
 
+  // ------------------------------------------------ panels per station --
+  // (key st.<id>.ui) set in a page's Shared dialog for one station, with the layout locked (never refused by it): the
+  // pages at that station have it, another station keeps its own (shown)
+  const idOther = await stationOf(B, OTHER_STORY), kUi = id => 'st.' + id + '.ui';
+  await B.evaluate(() => HOST.collab.lock(true));
+  await until(A, () => HOST.collab.locked, null, 3000);
+  const pclick = await B.evaluate(id => {
+    HOST.collab.dialog(true);
+    const q = () => document.querySelector(`[data-sh="panels:${id}"]`), was = q() && q().textContent;
+    if (q()) q().click();
+    return [was, q() && q().textContent, q() && q().getAttribute('aria-label')];
+  }, id0);
+  const pA = await until(A, id => HOST.collab.stationPanels(id) === 'controls' && HOST.panels.get(HOST.curKey) === 'controls', id0, 3000);
+  const pO = await A.evaluate(id => [HOST.collab.stationPanels(id), HOST.panels.get(HOST.collab.station(id).story)], idOther);
+  let rkU = {};
+  for (let k = 0; k < 15 && !(rkU[kUi(id0)]); k++) { rkU = (await roomInfo(code)).keys; if (!rkU[kUi(id0)]) await sleep(200); }
+  check('panels per station: set in a page\'s Shared dialog (with the layout locked), the pages at that station have them; another station keeps its own',
+    pclick[0] === 'Panels: shown' && pclick[1] === 'Panels: controls only' && /hidden/.test(pclick[2] || '') && pA && pO.join() === 'shown,shown' &&
+      !!rkU[kUi(id0)] && rkU[kUi(id0)].v.panels === 'controls' && rkU[kUi(id0)].v.story === key0 && !rkU[kUi(idOther)],
+    JSON.stringify({ pclick, pA, pO, ui: rkU[kUi(id0)], other: rkU[kUi(idOther)] }));
+  await B.evaluate(() => { HOST.collab.dialog(false); HOST.collab.lock(false); });
+  await until(A, () => !HOST.collab.locked, null, 3000);
+
   // ---------------------------------------------------- relay restart --
   // (the headsets' labels on top and subtitles on first: the restarted relay gets the room's settings back too)
   await A.evaluate(() => { HOST.xr.setLabels('face'); HOST.xr.setSubs(true); });
@@ -1054,6 +1077,11 @@ try {
     await lookIs(B, 'face,true') && await lookIs(C, 'face,true') && await subsIs(B, true) && await subsIs(C, true), JSON.stringify({ lookR, B: await lookOf(B), subs: await subsOf(B) }));
   await A.evaluate(() => { HOST.xr.setLabels('fixed'); HOST.xr.setSubs(false); });
   await lookIs(B, 'fixed,true'); await lookIs(C, 'fixed,true'); await subsIs(B, false); await subsIs(C, false);
+  let uiR = null;
+  for (let k = 0; k < 25 && !uiR; k++) { const r = await roomInfo(code).catch(() => ({ keys: {} })); uiR = r.keys && r.keys[kUi(id0)] && r.keys[kUi(id0)].v; if (!uiR) await sleep(200); }
+  check('a relay restart keeps a station\'s panels', !!uiR && uiR.panels === 'controls' && await until(C, id => HOST.collab.stationPanels(id) === 'controls', id0, 3000), JSON.stringify(uiR));
+  await C.evaluate(id => HOST.collab.setStationPanels(id, 'shown'), id0);   // (shown again: the headset below arrives at that station)
+  await until(A, id => HOST.collab.stationPanels(id) === 'shown', id0, 3000);
 
   // ------------------------------------------------- a pretend headset --
   const H = await open('#s=' + code);
@@ -1841,6 +1869,15 @@ try {
     ['face', 'fixed', 'hidden'].every(m => LK[m] && LK[m].menu.every(Boolean)),
     JSON.stringify({ face: LK.face && Object.assign({}, LK.face, { cards: LK.face.cards.slice(0, 2) }), fixed: LK.fixed && Object.assign({}, LK.fixed, { cards: LK.fixed.cards.slice(0, 2) }),
       hidden: LK.hidden && Object.assign({}, LK.hidden, { cards: LK.hidden.cards.slice(0, 2) }) }));
+  // panels per station: set on a page for the station the headset stands at, it follows (controls only: the foot bar
+  // alone); the station it is not at keeps its own
+  const hPanels = () => H.evaluate(() => { window.__xr.step(); HOST.cur.peek('xrUpdate(APP.mode === "story" ? storyState(storyT(APP.t)) : XS)');
+    return [HOST.curKey, HOST.panels.get(HOST.curKey), HOST.cur.peek('XR.main.mesh.visible') ? 'main' : '-', HOST.cur.peek('XR.foot.mesh.visible') ? 'foot' : '-'].join(); });
+  await B.evaluate(id => HOST.collab.setStationPanels(id, 'controls'), S2.id);
+  const hp1 = await until(H, () => { window.__xr.step(); return HOST.panels.get(HOST.curKey) === 'controls'; }, null, 3000) && await hPanels();
+  const hp1o = await H.evaluate(id => HOST.collab.stationPanels(id), S1.id);
+  check('headset: a station\'s panels set on a page reach the headset at its circle (controls only: the foot bar alone); another station keeps its own',
+    hp1 === `${OTHER_STORY},controls,-,foot` && hp1o === 'shown', JSON.stringify({ hp1, hp1o }));
   await H.evaluate(() => HOST.collab.panelOpen(false));
   await A.evaluate(() => HOST.xr.setFree(true));
   check('headset: and free moving on again from a page', await until(H, () => { window.__xr.step(); return HOST.xr.free() && HOST.cur.peek('XR.free'); }, null, 3000));
@@ -1855,9 +1892,20 @@ try {
     HOST.cur.peek('xrGrab(XR.ctrls[0], false)'); X.ctrl(0, null);
     return { locked: HOST.anchor.locked('globe') && HOST.anchor.locked('panel'), grabbed: g, hint: HOST.room.gripHint };
   });
+  // (and the menu's Panels row, not locked with the layout, sets this station's for everyone at its circle: hidden)
+  await H.evaluate(() => HOST.collab.panelOpen(true));
+  const pp = await menuPress('panels');
+  await H.evaluate(() => HOST.collab.panelOpen(false));
+  const hp2 = pp && await until(A, id => HOST.collab.stationPanels(id) === 'hidden', S2.id, 3000) && await hPanels();
   await A.evaluate(() => HOST.collab.lock(false));
   check('headset: while the layout is locked the grip moves no scene and no panel (and the panel says so)', lockG.locked && !lockG.grabbed && /locked/.test(lockG.hint), JSON.stringify(lockG));
+  check('headset: the menu\'s Panels row sets its station\'s panels for everyone at its circle, also with the layout locked (hidden: neither panel)',
+    hp2 === `${OTHER_STORY},hidden,-,-` && (await roomInfo(code)).keys['st.' + S2.id + '.ui'].v.panels === 'hidden', JSON.stringify({ pp, hp2 }));
   check('headset: and back again', await walk(H, S1, HEADSET_STORY, 0));
+  const hp3 = await hPanels();
+  check('headset: at the other station its own panels (shown), the first station\'s kept (hidden)', hp3 === `${HEADSET_STORY},shown,main,foot` &&
+    await A.evaluate(id => HOST.collab.stationPanels(id), S2.id) === 'hidden', hp3);
+  await A.evaluate(id => HOST.collab.setStationPanels(id, 'shown'), S2.id);
   // Remove on the headset panel asks first: the first press only arms it (for 3 s), the station stays
   await H.evaluate(() => HOST.collab.panelOpen(true));
   await frames(H, 150);

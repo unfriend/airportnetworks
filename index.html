@@ -359,6 +359,7 @@ body.picking #panel, body.picking #bar { visibility: hidden; }
 #shared li.on b { color: #46d9ff; }
 #shared li.empty b { color: #7f91a8; }
 #shared .btn.rm { margin-left: 14px; }
+#shared .btn.pn { min-width: 152px; }
 #shared .btn.armed { border-color: #ffb43b; color: #ffb43b; }
 #shared .btn:disabled { opacity: 0.45; cursor: default; }
 #shared li i { width: 12px; height: 12px; border-radius: 3px; flex: none; }
@@ -501,6 +502,7 @@ body.xr #labels, body.xr #tip { display: none; }
       <p class="hint">Dot: where you stand at a station. Square: where its story floats. Arrows: people. Up is forward.</p>
       <h3>Stations</h3>
       <ul class="sh-stations"></ul>
+      <p class="hint">Panels: what the headsets at a station's circle show of its story's panels (shown, controls only or hidden), for everyone there.</p>
       <div class="row mt"><button class="btn" type="button" data-sh="arrange">Arrange all</button><select id="shAdd" aria-label="Story for a new station"></select><button class="btn" type="button" data-sh="add">Add a station</button><button class="btn" type="button" data-sh="lock" aria-pressed="false" title="Once the stations are in place: nobody moves one by accident">Lock layout</button><button class="btn" type="button" data-sh="near" aria-pressed="true" title="Listed under Rooms on this network for devices on the network of someone in it">Show on this network: on</button><button class="btn" type="button" data-sh="fresh" hidden title="Every page in the room moves to a new address, where the headsets make a new shared space together">Fresh shared space</button></div>
       <div class="row mt sh-look"><span>In the headsets, for everyone here:</span><select id="shLabels" aria-label="Labels in the headsets"><option value="fixed">Labels: in 3D</option><option value="face">Labels: on top</option><option value="hidden">Labels: hidden</option></select><button class="btn" type="button" data-sh="free" aria-pressed="true" title="Free: the grip turns what it holds with your hand. Facing you: things you move keep facing you">Moving: free</button><button class="btn" type="button" data-sh="subs" aria-pressed="false" title="The narration's words in a strip low in each headset's view">Subtitles: off</button></div>
       <h3>People</h3>
@@ -1800,6 +1802,7 @@ HOST.go = key => setTimeout(() => HOST.start(key), 0);
 // screen (page or headset), #airports, #proteins or #spatial in a story; in a shared
 // room #s=XYZ (the same on every headset there: Quest shared spaces are per page URL)
 HOST.setUrl = function (stories) {
+  this.onStories = !!stories;   // (the Stories screen, page or headset: no story on show, for the menu's Panels row)
   const h = (this.collab && this.collab.hash()) || (stories ? '#stories' : '#' + this.curKey);
   if (location.hash !== h) history.replaceState(null, '', h);
   this.chrome(stories);
@@ -1881,6 +1884,40 @@ HOST.slides = (function () {
     on: key => (typeof per[key] === 'boolean' ? per[key] : all),
     set(key, on) { per[key] = !!on; save(); },
     sig: () => sig,
+  };
+})();
+// Panels per story in the headset (the owner, 29 October 2026: "i would want that for every story as an independent per
+// story toggle maybe inside the clock menu"): 'shown' (the text and explore panel and the foot bar, as ever), 'controls'
+// (only the foot bar: play and pause, the chapter arrows, the clock, Next; good with subtitles on) or 'hidden' (no story
+// panel; A or X still plays and pauses, and the menu stays, to switch back). Each story (and the design room) keeps its
+// own. Outside a shared room this device's (xrPanels in localStorage); at a station in a room the station's, for everyone
+// at that circle (shared.js, key st.<id>.ui; a station without it: shown). The menu's Panels row sets it for the story on
+// show (each press the next), the page's Shared dialog per station. Stories read get(key) every frame in xrUpdate, beside
+// the labels mode (labels hidden still hides both panels: the two are independent), and put sig(key) in their panels'
+// signatures. #panels=shown|controls|hidden in a link sets it for the story the link opens. The Stories screen never
+// changes with it.
+HOST.panels = (function () {
+  const MODES = ['shown', 'controls', 'hidden'], KEY = 'xrPanels', per = {};
+  try {
+    const p = JSON.parse(localStorage.getItem(KEY) || '{}');
+    if (p && typeof p === 'object') for (const k of Object.keys(p)) if (MODES.includes(p[k])) per[k] = p[k];
+  } catch (e) { /* storage blocked, or a bad value */ }
+  // at a station of this story in a shared room: the station's ('shown' when it has none); else null (this device's own)
+  const room = key => (HOST.collab && HOST.collab.panels ? HOST.collab.panels(key) : null);
+  const get = key => room(key) || per[key] || 'shown';
+  return {
+    MODES,
+    get,
+    set(key, v) {
+      if (!key || !MODES.includes(v)) return false;
+      if (HOST.collab && HOST.collab.setPanels && HOST.collab.setPanels(key, v)) return true;   // at its station: for everyone at that circle
+      if (v === 'shown') delete per[key]; else per[key] = v;
+      try { localStorage.setItem(KEY, JSON.stringify(per)); } catch (e) { /* storage blocked */ }
+      return true;
+    },
+    next: key => MODES[(MODES.indexOf(get(key)) + 1) % MODES.length],   // (each press of the menu's row: the next)
+    own: key => per[key] || 'shown',   // (this device's own, also in a room)
+    sig: key => get(key),
   };
 })();
 // a story calls this when it reaches its end; true means Repeat takes over (after a moment on
@@ -2376,6 +2413,7 @@ HOST.cards = function () {
   const back = HOST.live.restoring();
   const keys = HOST.list.concat(self.STORY_EXTRA || []).map(s => s.key);   // (#design opens the design room)
   const key = (back && back.key) || keys.find(k => hp.has(k)) || HOST.list[0].key;
+  if (hp.has('panels')) HOST.panels.set(key, hp.get('panels'));   // (for the story the link opens)
   // the Stories screen is the landing page (no address, or #stories); a shared story link opens that story
   HOST.start(key, true, back).then(() => {
     if (back ? back.picking : !keys.some(k => hp.has(k)) && !hp.has('t') && !hp.has('explore')) HOST.openPicker();
