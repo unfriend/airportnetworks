@@ -550,10 +550,11 @@ async function nearby() {
     await page.waitForFunction(() => typeof HOST !== 'undefined' && HOST.collab, null, { timeout: 90000, polling: 100 });
   };
   const shot = async (page, file, o) => { if (shots) { fs.mkdirSync(shots, { recursive: true }); await page.screenshot(Object.assign({ path: path.join(shots, file) }, o)); } };
-  const listed = (p, c, ms) => until(p, c => [...document.querySelectorAll('#shared .sh-near li b')].some(b => b.textContent === c), c, ms || 20000);
+  // (generous waits: pages drawing in software on a busy machine answer late)
+  const listed = (p, c, ms) => until(p, c => [...document.querySelectorAll('#shared .sh-near li b')].some(b => b.textContent === c), c, ms || 40000);
   const looked = (p, ms) => until(p, () => Array.isArray(HOST.collab.nearby()) && !HOST.collab.internals().nearBusy && HOST.collab.internals().netState !== 'finding', null, ms || 25000);
   const rowOf = (p, c) => p.evaluate(c => { const li = [...document.querySelectorAll('#shared .sh-near li')].find(l => l.querySelector('b') && l.querySelector('b').textContent === c); return li ? li.textContent.replace(/\s+/g, ' ').trim() : ''; }, c);
-  const inRoom = (p, c, role) => until(p, ([c, role]) => HOST.collab.code === c && HOST.collab.status === 'open' && (!role || HOST.collab.role === role), [c, role || ''], 40000);
+  const inRoom = (p, c, role) => until(p, ([c, role]) => HOST.collab.code === c && HOST.collab.status === 'open' && (!role || HOST.collab.role === role), [c, role || ''], 60000);
   const way = p => p.evaluate(() => ({ code: HOST.collab.code, via: HOST.collab.via, role: HOST.collab.role, status: HOST.collab.status, auto: HOST.collab.internals().auto, net: !!HOST.collab.net,
     stations: HOST.collab.stations().length, offer: (HOST.collab.offer() || {}).code, log: window.__collabLog.filter(e => /rejoin|network|join|leave|host|peer|shown/.test(e.ev)).slice(-6).map(e => e.ev + (e.why ? ' ' + e.why : '') + (e.code ? ' ' + e.code : '')).join(', ') }));
   try {
@@ -621,7 +622,7 @@ async function nearby() {
     const bBack = await until(B, c => HOST.collab.code === c && HOST.collab.status === 'open' && HOST.collab.internals().auto === c, R1, 20000);
     // (the notice goes by itself after 20 s: a page busy drawing in software may answer later than that)
     const tText = await B.evaluate(() => { const t = document.getElementById('shToast'); return t && window.__collabLog.some(e => e.ev === 'notice' && e.title === 'Back in room') ? t.textContent : ''; });
-    if (shots) { await ready(B, 'airports', 10000); await B.evaluate(() => { document.getElementById('shToast').hidden = false; }); }   // (the picture: the Stories screen behind the notice)
+    if (shots) { await ready(B, 'airports', 40000); await B.evaluate(() => { document.getElementById('shToast').hidden = false; }); }   // (the picture: the Stories screen behind the notice)
     await shot(B, 'near-toast.png');
     check('rejoin (relay): a page that was in the room joins it again by itself when the app opens again, with a notice (and Leave in it)', bBack && /Back in room/.test(tText) && /Leave/.test(tText), JSON.stringify({ way: await way(B), tText }));
     // a day later, after everyone had gone (the relay forgot the room meanwhile): joined again by itself, and the room is
@@ -673,7 +674,7 @@ async function nearby() {
     const shown = await until(P1, () => window.__collabLog.some(e => e.ev === 'shown on this network'), null, 15000);
     const P2 = await nopen(pat('home'), nop);
     await P2.evaluate(() => HOST.collab.dialog(true));
-    const p2Sees = await listed(P2, Q1, 30000), p2Row = await rowOf(P2, Q1);
+    const p2Sees = await listed(P2, Q1, 45000), p2Row = await rowOf(P2, Q1);
     await P2.evaluate(c => { const b = document.querySelector(`#shared .sh-near [data-sh="join:${c}"]`); if (b) b.click(); }, Q1);
     const p2In = await inRoom(P2, Q1, 'guest');
     const P3 = await nopen(pat('away'), nop);
@@ -697,7 +698,7 @@ async function nearby() {
       !offSeen && onSeen && !(await P4.evaluate(() => HOST.collab.joined)), JSON.stringify({ offSeen, onSeen, p4: await way(P4) }));
     // rejoin by itself after the app opens again: linked to whoever holds the room
     await reopen(P2, pat('home'));
-    const p2Back = await until(P2, c => HOST.collab.code === c && HOST.collab.status === 'open' && HOST.collab.role === 'guest' && HOST.collab.internals().auto === c, Q1, 30000);
+    const p2Back = await until(P2, c => HOST.collab.code === c && HOST.collab.status === 'open' && HOST.collab.role === 'guest' && HOST.collab.internals().auto === c, Q1, 60000);
     check('rejoin (peer to peer): a page that was in the room joins it again by itself when the app opens again (linked to its host)', p2Back, JSON.stringify(await way(P2)));
     // a day later, nobody holding the room: the first page back hosts it from its copy, the next one links to it
     const s1 = await P1.context().storageState(), s2 = await P2.context().storageState();

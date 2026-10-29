@@ -289,7 +289,7 @@ body.exploring #viewctl { display: flex; }
 /* a story's load step by step (HOST.progress): a thin bar in the story's colour and the step under its loading line */
 #loading > div { display: grid; justify-items: center; gap: 12px; padding: 0 16px; text-align: center; }
 #ldBar { width: min(260px, 64vw); height: 3px; border-radius: 2px; background: rgba(197, 210, 227, 0.16); overflow: hidden; visibility: hidden; }
-#ldBar > i { display: block; width: 0; height: 100%; border-radius: inherit; background: #46d9ff; transition: width 0.2s; }
+#ldBar > i { display: block; height: 100%; border-radius: inherit; background: #46d9ff; transform: scaleX(0); transform-origin: left; }
 #ldStep { min-height: 1.3em; font-size: 13px; color: #8d9db4; }
 
 /* start screen: pick a story */
@@ -417,7 +417,7 @@ body.xr #labels, body.xr #tip { display: none; }
   /* one group of view controls fits in one row: the pane comes down to the bar (no empty strip) */
   body.exploring:has(#viewctl > .grp:only-child) #panel { bottom: calc(66px + env(safe-area-inset-bottom, 0px)); height: calc(46% + 46px); }
 }
-@media (prefers-reduced-motion: reduce) { #tip { transition: none; } #loading, #ldBar > i { transition: none; } }
+@media (prefers-reduced-motion: reduce) { #tip { transition: none; } #loading { transition: none; } }
 </style>
 </head>
 <body>
@@ -1519,13 +1519,19 @@ HOST.loading = (() => {
   const L = { meta: null, done: 0, total: 0, label: '', on: false, ran: false, fade: false, t0: 0, last: 0, a: 0, placed: false, sc: null, cam: null, card: null, ring: null, sig: '', scam: null };
   const el = id => document.getElementById(id), FONT = (px, w) => `${w || 400} ${px}px B612, "Segoe UI", Arial, sans-serif`;
   const head = new THREE.Vector3(), hq = new THREE.Quaternion(), to = new THREE.Vector3(), fw = new THREE.Vector3(), wm = new THREE.Matrix4(), wr = new THREE.Vector3();
-  // the page: the bar and the step under the story's loading line
-  function page() {
-    const f = L.total ? Math.max(0, Math.min(1, L.done / L.total)) : 0, bar = el('ldBar');
-    bar.style.visibility = L.total ? 'visible' : 'hidden';
-    bar.firstElementChild.style.width = (100 * f).toFixed(1) + '%';
-    bar.setAttribute('aria-valuenow', String(Math.round(100 * f)));
-    el('ldStep').textContent = L.total && L.done < L.total ? L.label : '';
+  // the page: the bar and the step under the story's loading line, changed at most every 150 ms and only where they
+  // change (each change costs the page a frame, which a slow device composites in software while the story builds)
+  const P = { at: 0, t: 0 };
+  function page(now) {
+    const t = performance.now();
+    if (!now && t - P.at < 150) { if (!P.t) P.t = setTimeout(() => { P.t = 0; page(true); }, 150 - (t - P.at)); return; }
+    P.at = t; clearTimeout(P.t); P.t = 0;
+    const f = L.total ? Math.max(0, Math.min(1, L.done / L.total)) : 0, bar = el('ldBar'), step = L.total && L.done < L.total ? L.label : '';
+    const set = (o, k, v) => { if (o[k] !== v) o[k] = v; };
+    set(bar.style, 'visibility', L.total ? 'visible' : 'hidden');
+    set(bar.firstElementChild.style, 'transform', `scaleX(${f.toFixed(3)})`);
+    if (bar.getAttribute('aria-valuenow') !== String(Math.round(100 * f))) bar.setAttribute('aria-valuenow', String(Math.round(100 * f)));
+    set(el('ldStep'), 'textContent', step);
   }
   const col = () => (L.meta && L.meta.col) || '#46d9ff';
   function make() {
@@ -1637,14 +1643,14 @@ HOST.loading = (() => {
     begin(meta) {
       L.meta = meta; L.done = L.total = 0; L.label = '';
       el('ldLine').textContent = meta.loading; el('ldBar').firstElementChild.style.background = col();
-      page(); el('loading').classList.remove('gone');
+      page(true); el('loading').classList.remove('gone');
     },
-    fail(msg) { L.total = 0; el('ldLine').textContent = msg; page(); },
-    progress(done, total, label) { L.done = +done || 0; L.total = +total || 0; L.label = label ? String(label) : ''; page(); },
+    fail(msg) { L.total = 0; el('ldLine').textContent = msg; page(true); },
+    progress(done, total, label) { L.done = +done || 0; L.total = +total || 0; L.label = label ? String(label) : ''; page(!L.done || L.done >= L.total); },
     // HOST.teardown: the frame loop while the next story builds (in a headset), or none
     start(xr) {
       L.done = L.total = 0; L.label = ''; L.ran = false; L.fade = false; L.on = !!xr; L.t0 = performance.now(); L.last = 0; L.a = 0; L.placed = false; L.sig = '';
-      page();
+      page(true);
       if (!xr) return null;
       make();
       return loop;

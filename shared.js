@@ -4764,7 +4764,8 @@
     starting,
     debug(on) { DEBUG = !!on; put('collabDebug', on ? '1' : null); },
     // links: #s=XYZ joins room XYZ (&relay=wss://host:port when the relay is elsewhere; &peer=host[:port][/path] another
-    // introduction server for peer to peer, &peer=off none); #debug logs to the console
+    // introduction server for peer to peer, &peer=off none); #net=<word> pretends a network (tests, no relay); #debug logs to
+    // the console. With no room in the link, a room used on this network in the last week is joined again by itself
     boot(hp) {
       if (hp.has('debug')) DEBUG = true;
       if (hp.get('relay')) setRelay(hp.get('relay'), 'link');
