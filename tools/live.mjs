@@ -104,8 +104,8 @@ try {
   // a story added in a release: its card, without a reload
   {
     write('stories/flock2.js', read('stories/flock.js').replace("HOST.register('flock',", "HOST.register('flock2',").replace("const XR_HERE = 'flock';", "const XR_HERE = 'flock2';"));
-    write('stories/list.js', read('stories/list.js').replace(/\n\];\s*$/, `\n  { key: 'flock2', kick: 'Live test', title: 'Second flock', col: '#ffffff', desc: 'A story added while the app runs.', page: 'Second flock',
-    brand: 'Second flock', sub: 'added live', aria: 'A second flock', thing: 'flock', loading: 'Gathering', len: 'Story 1:57', life: true },\n];\n`));
+    write('stories/list.js', read('stories/list.js').replace(/\n\];/, `\n  { key: 'flock2', kick: 'Live test', title: 'Second flock', col: '#ffffff', desc: 'A story added while the app runs.', page: 'Second flock',
+    brand: 'Second flock', sub: 'added live', aria: 'A second flock', thing: 'flock', loading: 'Gathering', len: 'Story 1:57', life: true },\n];`));   // (at STORY_LIST's end: STORY_EXTRA follows)
     release();
     const rev0 = await page.evaluate(() => HOST.listRev);
     await page.evaluate(() => HOST.live.check('test'));
