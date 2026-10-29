@@ -1,6 +1,7 @@
 // One scan, one system: the body as a metabolic network. A PET scanner and how it sees sugar, the organs of 658
 // whole-body FDG-PET scans and their partial-correlation network, how it thins and tips towards a few hubs from health
-// to disease, and the next step: one network per scan, and an index that may tell how a body is doing. After Geist
+// to disease (the paper's networks, each of a group of scans; the poster's next step, one network per scan and an
+// index, is not told yet: see HANDOVER.md item 8 and docs/pet-poster-comparison.md). After Geist
 // et al., "The metabolic organ connectome: A novel approach to measure allostatic load during health-to-disease
 // transition", Med (2025) (CC BY 4.0), and the poster "Shaping a New Era in Nuclear Medicine" by Barbara K Geist,
 // Alexander Grentner, Joel Fischer, Josef Yu, Dato Tsomaia, Adna Smajlovic, Stefan Grünert and Marcus Hacker (Division

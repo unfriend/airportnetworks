@@ -4,7 +4,7 @@
 // ligament, the gallbladder in its bed underneath, the falciform ligament on the front) is filled with about 3,000
 // patches on a regular grid, each with a stand-in uptake (smooth noise, a cooler and a warmer patch, a little noise
 // per patch as in any scan). Two patches a few grid steps apart are linked when one outshines the other by more than
-// a threshold (the poster's rule for organs, applied to patches): about 20,000 links. The best-connected 5 % stand out
+// a threshold (a rule like the poster's for organs, applied here to patches of one organ, as an illustration): about 20,000 links. The best-connected 5 % stand out
 // (each keeps its own colour, in an amber ring). Everything is built once at load; update only sets uniforms (and hides
 // what is not drawn), so the picture follows the params and the time alone.
 // Frame: x the patient's left (so the right lobe is on your left when you face it), y up, z forward; about 1.6 wide.

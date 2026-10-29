@@ -788,8 +788,9 @@ await step('design: a pretend headset picks a miniature up, both grips size it; 
     collabApply(st); tidyTable();
     if (Object.keys(collabState()).join() !== 'pick') out.push('Tidy left moved miniatures in the state');
     // bad values are ignored
+    const was = JSON.stringify(collabState());
     collabApply({ pick: 'nope.nope', 'pet.scan': [1, 2, 3], 'lbi.int': [0, 0, 0, 0, 0, 0, 0, 9] });
-    if (JSON.stringify(collabState()) !== '{"pick":"lbi.atp"}') out.push('bad values were taken: ' + JSON.stringify(collabState()));
+    if (JSON.stringify(collabState()) !== was) out.push('bad values were taken: ' + JSON.stringify(collabState()));
     for (const c of XR.ctrls) { c.src = null; c.g.visible = false; c.hover = null; c.grab = null; }
     XR.on = false; setHover(null);
     return out;

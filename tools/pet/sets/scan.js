@@ -1192,8 +1192,8 @@ void main() {
       { text: ['PET scan', ''], at: 'vision_scan', minor: true, alpha: S => rowA(S, 0.3) },
       { text: ['One body', ''], at: 'vision_body', minor: true, alpha: S => rowA(S, 0.4) },
       { text: ['One network', ''], at: 'vision_net', minor: true, alpha: S => rowA(S, 0.6) },
-      { text: ['Prognosis', ''], at: 'vision_prog', minor: true, alpha: S => rowA(S, 0.74) },
-      { text: ['Medication', ''], at: 'vision_med', minor: true, alpha: S => rowA(S, 0.8) },
+      { text: ['Prognosis', ' · a goal'], at: 'vision_prog', minor: true, alpha: S => rowA(S, 0.74) },
+      { text: ['Medication', ' · a goal'], at: 'vision_med', minor: true, alpha: S => rowA(S, 0.8) },
     ],
     cam: {
       default: [34, 13, 7.2, 0, -0.25, 0.95], front: [0, 4, 6.4, 0, -0.1, 0.4], ring: [28, 22, 2.4, 0, -0.02, 0], side: [90, 6, 7.6, 0, -0.25, 0.9],

@@ -6,7 +6,7 @@ const SCENES = [
   ['scan', 'Scanner', 'A PET/CT scanner, cut open: the ring of detectors, the events (a positron, two gamma photons, a line of response) and the image they build. Life size stands it in front of you.'],
   ['body', 'Body', 'A whole-body PET scan: the tracer arriving with the blood, settling where cells use sugar and leaving in the urine (the PET body of the tour).'],
   ['organs', 'Organs', `The paper's organs in the scan: their outlines, their uptakes, the matrix of ${fmt(FACTS.scans)} scans (stand-in values), a partial correlation, the networks and how their strength is spread.`],
-  ['liver', 'Liver', 'An organ is a network too: an illustrative liver in a few thousand patches, linked where one patch\'s uptake is more than a set number of times another\'s (the poster\'s rule); the best connected glow.'],
+  ['liver', 'Liver', 'An organ is a network too: a liver in a few thousand patches, linked where one patch\'s uptake is more than a set number of times another\'s (a rule like the poster\'s, applied here to patches of one organ, as an illustration); the best connected glow.'],
 ];
 const TABS = [['networks', 'Networks'], ['organs', 'Organs'], ['scenes', 'Scenes']];
 // the tour's body set: its network and its disease scan are the tour's illustration, so this story leaves them out

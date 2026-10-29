@@ -1,7 +1,7 @@
 # `liver`: an organ is a network too (file `sets/liver.js`)
 
 The authors' VR viewer also shows a single organ as a network of small patches. This set is an illustrative stand-in
-built from scratch: a liver filled with 3,000 patches, linked into a network by the poster's rule. It uses no patient
+built from scratch: a liver filled with 3,000 patches, linked into a network by a rule like the poster's (which is for organs), as an illustration. It uses no patient
 data. It reads only the liver's colour from `PET_DATA.organs`; everything else is generated, seeded and deterministic.
 
 ## How it is built
@@ -35,8 +35,8 @@ data. It reads only the liver's colour from `PET_DATA.organs`; everything else i
   and a cooler one where the lobes meet (−0.28), plus a little noise per patch, as in any scan. Nodes are coloured in
   the hot-iron map, as the body set draws the scan.
 - **Links**: two patches up to 2.45 grid steps apart (80 grid neighbours each; 96,077 pairs inside the organ) are
-  linked when one's uptake exceeds the other's by more than a ratio threshold θ. This is the poster's rule for organs,
-  applied to patches. A link is directed from the brighter patch to the dimmer one. θ is the two-decimal ratio that
+  linked when one's uptake exceeds the other's by more than a ratio threshold θ. This is a rule like the poster's for organs,
+  applied here to patches of one organ, as an illustration. A link is directed from the brighter patch to the dimmer one. θ is the two-decimal ratio that
   leaves closest to 20,000 links: **θ = 1.14, 19,715 links** (96,071 candidate pairs), on average 13.1 per patch
   (most 65). Links are faint additive lines in the paper's link blue (`#4c7cff`), brighter the more the ratio exceeds
   θ. A glint runs along each one from the brighter end to the dimmer end. Links crowd where uptake changes: round the
