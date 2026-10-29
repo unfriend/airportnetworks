@@ -350,7 +350,7 @@ function initEnd() {
   }
   GL.renderer.setAnimationLoop(frame); // also drives the headset's frame loop
   if (HOST.session && GL.renderer.xr.isPresenting) xrAdopt();
-  setTimeout(() => $('#loading').classList.add('gone'), 120);
+  LOAD.t = setTimeout(() => $('#loading').classList.add('gone'), 120);   // (dispose clears it: a story picked meanwhile keeps its loading screen)
 }
 LOAD.t = setTimeout(init, 40);
 

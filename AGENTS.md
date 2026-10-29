@@ -181,7 +181,8 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
 - Loading (29 October 2026, the owner: "some rooms like 'the future' take a little time to load"). A story builds in
   steps, each a task of its own (its `LOAD` queue, see "Inside a story"), and reports each with
   `HOST.progress(done, total, label)` (stories guard it, `if (HOST.progress)`, so an older shell still works). The
-  page's `#loading` shows a thin bar in the story's colour (`#ldBar`) and the step (`#ldStep`) under the story's
+  page's `#loading` shows a thin bar in the story's colour (`#ldBar`, changed at most every 150 ms and only where it
+  changes: each change costs the page a frame, which a slow device composites in software) and the step (`#ldStep`) under the story's
   loading line (`#ldLine`; `HOST.loading.begin(meta)` in `HOST.start`). In a headset the old story's scene is gone
   while the next one builds, so `HOST.teardown` gives the renderer the shell's loading scene as its frame loop
   (`HOST.loading`, in `index.html`, in place of the blank loop that kept the session alive): a card with the story's
@@ -1156,19 +1157,20 @@ an event, and how long PeerJS's public server keeps a sleeping host's id.
   at load time by `LAYOUT`).
 - The start runs in steps (`LOAD`, the same lines in every built engine's `e7_app.js`; the hand-written three keep the
   same `loadStep` and `warm` with their own list): `init` (from `setTimeout(init, 40)` as before) lists the steps
-  `[label, fn, scene]` and runs them one by one (`loadStep`), each in a task of its own, the next from a timer (not an
-  animation frame: the window's frames stop in a headset), calling `HOST.progress` after each; a step that returns
-  true runs again. Built stories: `buildScene` (the renderer, scene, lights and stars only), then per set `buildSet(k)`
+  `[label, fn, scene]` and runs them one by one (`loadStep`), calling `HOST.progress` after each; short steps run on
+  in one task, and after 40 ms, or a step left half done (a step that returns true runs again), the next runs from a
+  timer (not an animation frame: the window's frames stop in a headset). Built stories: `buildScene` (the renderer, scene, lights and stars only), then per set `buildSet(k)`
   and `warm(group)`, then `sceneJoin()` (what joins the sets: the microanatomy story's colours, network and dots, the
   tissue topology story's liver, the design room's plates and first view; empty elsewhere) and `warm(GL.scene)`, then
   the story (`resize`, `buildDefaults`, `buildStory`, labels, timeline), explore mode (`buildExplore`, `bindCanvas`)
   and the panels (`audioInit`, `xrSetup`, `LOAD.done`, then `initEnd`: the old start's rest, listeners, a link's
   place, the frame loop). The hand-written three: `buildScene`, `warm(GL.scene)`, story, explore, panels. `warm`
   compiles each material once (`LOAD.seen`) with the scene's lights, as when drawn (`renderer.compile` on a stand-in
-  scene holding the lights and one object without its children), until a slice has taken 100 ms; its floor is one
+  scene holding the lights and one object without its children), until a slice has taken 50 ms; its floor is one
   shader program (in SwiftShader up to about 0.5 s on a quiet machine, more on a loaded one; three.js r128 cannot use
   `KHR_parallel_shader_compile`). A failure in a step marked `scene` shows that WebGL is missing, as before;
-  `dispose` sets `LOAD.gone` and clears `LOAD.t`. `LOAD.ms` keeps each step's time (`HOST.cur.peek('LOAD.ms')`).
+  `dispose` sets `LOAD.gone` and clears `LOAD.t` (also the timer that hides the loading screen 120 ms after the first
+  frame, so a story picked meanwhile keeps it). `LOAD.ms` keeps each step's time (`HOST.cur.peek('LOAD.ms')`).
   Nothing else changed: the sets, the first frame, seeking, the clock and the shared-room hooks are as they were.
 - `CH` lists chapters with story-time ranges; `buildStory()` writes the panel
   HTML (elements with `data-at` fade in at that second of the chapter) and the
