@@ -1444,7 +1444,7 @@
       if (!v || typeof v !== 'object' || !meta(v.story)) continue;
       out.push({ id: m[1], story: v.story, x: +v.x || 0, z: +v.z || 0, yaw: +v.yaw || 0 });
     }
-    const order = s => HOST.list.findIndex(x => x.key === s.story);
+    const order = s => { const i = HOST.list.findIndex(x => x.key === s.story); return i < 0 ? HOST.list.length : i; };   // (the design room's after the stories)
     out.sort((a, b) => order(a) - order(b) || a.id.localeCompare(b.id));
     C.st = out; C.stById = new Map(out.map(s => [s.id, s]));
     // a station that is missing for a moment (a relay restart: the room comes back empty, then refilled) stays
@@ -1666,10 +1666,16 @@
       pairs.push(['st.' + id, { story: m.key, x: r3(b.x + ahead * fx + side * rx), z: r3(b.z + ahead * fz + side * rz), yaw: r3(b.yaw) }]);
       if (!old) pairs.push([kPlay(id), startClock()]);
     });
-    for (const s of C.st) { const m = meta(s.story); if (!used.has(s.id) && !(m && m.unknown)) pairs.push(['st.' + s.id, null]); }   // (not a story this device does not know)
+    // (a second station of a story goes; one of a story this device does not know, or of a page that is not a story, such
+    // as the design room's table, stays where it is: never part of Arrange all)
+    for (const s of C.st) if (!used.has(s.id) && HOST.list.some(m => m.key === s.story)) pairs.push(['st.' + s.id, null]);
     log('arrange', { stations: n });
     publish(pairs);
   }
+  // what Add offers (the page's picker, the headset's Add page): every story, then the pages that are not stories (the
+  // design room's table), which only Add and the menu's Design room button place, never Arrange all
+  const addable = () => HOST.list.concat((self.STORY_EXTRA || []).filter(m => m && m.key && !HOST.list.some(x => x.key === m.key)));
+  const addName = m => (HOST.list.includes(m) ? m.title : m.kick || m.title);
   // Add a station here: one story at your feet, facing where you face
   function add(story, b) {
     if (!meta(story) || meta(story).unknown || refused('add')) return '';
@@ -1685,6 +1691,17 @@
     publish([['st.' + id, { story: s.story, x: r3(b.x), z: r3(b.z), yaw: r3(b.yaw) }]]);
   }
   function remove(id) { if (C.stById.has(id) && !refused('remove')) publish([['st.' + id, null]]); }
+  // the design room's table here (the menu's Design room button in a room): a station of it at your feet, facing your
+  // way, or the room's one moved here when it has one (one table, not a pile of them); refused while the layout is locked
+  const DESIGN = 'design';
+  function designHere(b) {
+    const has = C.st.find(s => s.story === DESIGN);
+    if (!C.code || refused(has ? 'move' : 'add')) return '';
+    if (!has) { const id = add(DESIGN, b); if (id) log('design here', { st: id, added: true }); return id; }
+    move(has.id, b);
+    log('design here', { st: has.id, moved: true });
+    return has.id;
+  }
 
   // ----------------------------------------------------- the story's hooks --
   // A story's object: collab: { APP, scene, state, apply, effect, hover, panel }. The shell wraps APP's
@@ -2021,7 +2038,7 @@
     OV.room = new THREE.Group(); OV.room.matrixAutoUpdate = false;
     OV.root.add(OV.room);
     OV.panelG = new THREE.Group();
-    OV.panel = sheet(720, 1480, 0.42, 53);   // (the tallest it gets: a room on this headset with a three-line note, at a station, 1463 px)
+    OV.panel = sheet(720, 1560, 0.42, 53);   // (the tallest it gets: a room on this headset with a three-line note, at a station, 1539 px)
     OV.panelG.add(OV.panel.mesh); OV.root.add(OV.panelG);
     OV.panel.mesh.userData.shell = { kind: 'panel' };
     // the menu's clock: the group's origin is the face's middle
@@ -2082,217 +2099,160 @@
   function hang(sc) { build(); if (OV.root.parent !== sc) sc.add(OV.root); }
 
   // ------------------------------------------------------------ station icons --
-  // Over each station's ring a small low-poly model of its story, in the story's colour and slowly turning, so people
-  // can tell from across the room which circle is which story (in a room a story is reached only by walking into its
-  // circle). Each is built once per story from simple shapes merged into one mesh (one draw call), with a soft glow
-  // behind it (a second), and lit by its own shader (a light from over your shoulder and a rim, in view space), so it
-  // looks the same in every story's scene whatever lights that has. It follows the rings, not the cards: it is part
-  // of the station, not a label, and with labels hidden it is all that tells the circles apart. A story without a
-  // model of its own gets a glowing polyhedron in its colour, so a new story needs nothing here.
+  // Over each station's ring its story's main miniature (the icon of its entry in stories/list.js: a key of
+  // LOWPOLY_MODELS, lowpoly.js, loaded once through HOST.lowpoly()), small, in the story's colour and slowly turning, so
+  // people can tell from across the room which circle is which story (in a room a story is reached only by walking into
+  // its circle). Each story's is built once, the first time a station of it shows (one a frame), and kept: the
+  // miniature's parts merged into one mesh (one draw call; its see-through parts, glass and haze, in a second), with a
+  // soft glow behind it, and lit by its own shader (a light from over your shoulder and a rim, in view space), so it
+  // looks the same in every story's scene whatever lights that has. Its colours are the miniature's own drawn towards the
+  // story's (ICON.tint: by lightness, from a dark tone of it to a nearly white one). It follows the rings, not the cards:
+  // it is part of the station, not a label, and with labels hidden it is all that tells the circles apart. While
+  // lowpoly.js loads, and for a key without a miniature, a glowing polyhedron in the story's colour stands there, so a
+  // new story needs only its icon in the list.
   // y: its middle over the floor (above the heads of people in the circle and the card's top edge, 1.6 m, so it
-  // covers neither from across the room); size: 1 model unit in metres (the models fit in a ball of 0.5); turn: s
-  const ICON = { y: 2.1, size: 0.3, turn: 12, defs: new Map(), mat: null, tex: null };
-  // the flat ones lie down and turn about their own axis, leant back towards you, so their top always shows
-  const ICON_FLAT = { micro: 0.95, topo: 0.95, robots: 0.75, spatial: 0.55 };
-  const V3 = (x, y, z) => new THREE.Vector3(x, y, z);
-  const at = (x, y, z, rx, ry, rz, sx, sy, sz) => new THREE.Matrix4().compose(V3(x, y, z), new THREE.Quaternion().setFromEuler(new THREE.Euler(rx || 0, ry || 0, rz || 0)),
-    V3(sx || 1, sy || sx || 1, sz || sx || 1));
-  const mul = (A, B) => new THREE.Matrix4().multiplyMatrices(A, B);
-  const ball = (r, d) => new THREE.IcosahedronGeometry(r, d || 0);
-  // a cylinder from a to b (open: its ends are hidden in what it joins)
-  function rod(a, b, r, seg) {
-    const d = b.clone().sub(a), g = new THREE.CylinderGeometry(r, r, d.length(), seg || 4, 1, true);
-    return g.applyMatrix4(new THREE.Matrix4().compose(a.clone().add(b).multiplyScalar(0.5), new THREE.Quaternion().setFromUnitVectors(_Y, d.normalize()), V3(1, 1, 1)));
+  // covers neither from across the room); size: 1 model unit in metres (miniDef fits each miniature); turn: s; tint:
+  // how far the miniature's colours go to the story's
+  const ICON = { y: 2.1, size: 0.3, turn: 12, tint: 0.55, defs: new Map(), mat: null, see: null, tex: null, halos: new Map(), models: null, askAt: 0, built: -1 };
+  // the miniatures, once lowpoly.js is here (asked for the first time an icon wants one; a failed load again 30 s later)
+  function iconModels() {
+    if (ICON.models) return ICON.models;
+    const M = self.LOWPOLY_MODELS;
+    if (M && Object.keys(M).length) return (ICON.models = M);
+    if (HOST.lowpoly && performance.now() >= ICON.askAt) {
+      ICON.askAt = performance.now() + 30000;
+      HOST.lowpoly().then(L => { ICON.models = L; }, e => log('icons', { err: String(e && e.message || e) }));
+    }
+    return null;
   }
-  const tube = (pts, n, r, seg) => new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), n, r, seg || 4);
-  // a thin plate from a polygon in the xz plane ([x, z] points), t thick
-  function plate(pts, t) {
-    const g = new THREE.ExtrudeGeometry(new THREE.Shape(pts.map(([x, z]) => new THREE.Vector2(x, z))), { depth: t, bevelEnabled: false });
-    return g.translate(0, 0, -t / 2).rotateX(Math.PI / 2);
+  const iconOf = key => { const m = meta(key); return (m && typeof m.icon === 'string' && m.icon) || ''; };
+  // the story's tones: its colour, a dark one and a nearly white one
+  function tones(key) {
+    const m = meta(key), b = new THREE.Color((m && m.col) || CYAN), white = new THREE.Color(1, 1, 1);
+    return { b, l: b.clone().lerp(white, 0.4), w: b.clone().lerp(white, 0.75), d: b.clone().multiplyScalar(0.42) };
   }
-  // the models: add(geometry, tone, glow 0 (lit) to 1 (glowing), matrix); tones b (the story's colour), l (lighter),
-  // w (nearly white) and d (dark)
-  const ICONS = {
-    airports(add, T) {   // a globe with routes arcing between cities
-      const ll = (la, lo) => V3(Math.cos(la / 57.3) * Math.sin(lo / 57.3), Math.sin(la / 57.3), Math.cos(la / 57.3) * Math.cos(lo / 57.3));
-      const C = [ll(51, 0), ll(41, -74), ll(36, 140), ll(-34, 151), ll(1, 104), ll(-23, -46), ll(-26, 28)];
-      add(ball(0.34, 1), T.d, 0.15);
-      for (const [i, j] of [[0, 1], [0, 4], [4, 3], [4, 2], [1, 5], [2, 1], [0, 6], [6, 4]]) {
-        const pts = [];
-        for (let k = 0; k <= 8; k++) pts.push(C[i].clone().lerp(C[j], k / 8).normalize().multiplyScalar(0.345 + 0.1 * Math.sin(Math.PI * k / 8)));
-        add(tube(pts, 8, 0.019, 3), T.l, 0.85);
-      }
-      for (const c of C) add(ball(0.038), T.w, 1, at(c.x * 0.35, c.y * 0.35, c.z * 0.35));
-    },
-    proteins(add, T) {   // a cluster of proteins, linked
-      const P = [V3(0, 0.02, 0), V3(0.27, 0.17, 0.05), V3(-0.25, 0.19, -0.1), V3(0.07, -0.28, 0.15), V3(-0.22, -0.17, 0.18), V3(0.23, -0.13, -0.21), V3(-0.02, 0.33, 0.17)];
-      const R = [0.125, 0.085, 0.095, 0.085, 0.075, 0.08, 0.07];
-      for (const [i, j] of [[0, 1], [0, 2], [0, 3], [0, 4], [0, 5], [1, 6], [2, 6], [3, 4], [1, 5], [2, 4]]) add(rod(P[i], P[j], 0.019, 5), T.l, 0.6);
-      P.forEach((p, i) => add(ball(R[i], 1), i ? T.b : T.l, i ? 0.12 : 0.35, at(p.x, p.y, p.z)));
-    },
-    spatial(add, T) {   // a cell cut open across the top (it leans towards you, so you look in): the nucleus, the reticulum round it, organelles
-      add(new THREE.SphereGeometry(0.42, 16, 9, 0, Math.PI * 2, 1.15, Math.PI - 1.15), T.b, 0.06);
-      add(new THREE.TorusGeometry(0.43 * Math.sin(1.15), 0.012, 3, 24), T.w, 1, at(0, 0.42 * Math.cos(1.15), 0, Math.PI / 2));
-      add(ball(0.16, 1), T.l, 0.4, at(0, 0.03, 0));
-      add(new THREE.TorusGeometry(0.235, 0.014, 3, 18), T.w, 0.7, at(0, 0.0, 0, 1.45, 0, 0.15));
-      for (const [x, y, z, r] of [[-0.27, 0.02, 0.1, 0.6], [0.12, -0.02, -0.27, 2.1], [-0.12, 0.0, -0.25, 1.1], [0.26, 0.04, 0.12, 2.6]]) add(ball(0.05), T.w, 0.9, at(x, y, z, 0, r, 0.3, 1.8, 0.8, 0.8));
-    },
-    lbi(add, T) {   // a glowing network on a sphere, each node linked to its nearest, round a bright core
-      const P = [];
-      for (let i = 0; i < 16; i++) { const y = 1 - 2 * (i + 0.5) / 16, r = Math.sqrt(1 - y * y), a = i * 2.39996; P.push(V3(r * Math.cos(a), y, r * Math.sin(a)).multiplyScalar(0.38)); }
-      const seen = new Set();
-      P.forEach((p, i) => P.map((q, j) => [p.distanceTo(q), j]).sort((a, b) => a[0] - b[0]).slice(1, 4).forEach(([, j]) => {
-        const k = Math.min(i, j) + ',' + Math.max(i, j);
-        if (!seen.has(k)) { seen.add(k); add(rod(p, P[j], 0.012), T.b, 0.7); }
-      }));
-      for (const p of P) add(ball(0.045), T.w, 1, at(p.x, p.y, p.z));
-      add(ball(0.12, 1), T.l, 0.9);
-    },
-    nmd(add, T) {   // a tower of thin layers: the same genes on every layer, threaded through them, and links within layers
-      const G = [[0.13, 0.05], [-0.1, 0.14], [-0.06, -0.15], [0.16, -0.12]];
-      for (let k = 0; k < 6; k++) {
-        const y = -0.36 + k * 0.144;
-        add(new THREE.BoxGeometry(0.5, 0.022, 0.5), k % 2 ? T.d : T.b, 0.1, at(0, y, 0, 0, Math.PI / 4));
-        for (const [x, z] of G) add(new THREE.OctahedronGeometry(0.032), T.w, 1, at(x, y + 0.03, z));
-        const [a, b] = [G[k % 4], G[(k + 1 + (k & 1)) % 4]];
-        add(rod(V3(a[0], y + 0.03, a[1]), V3(b[0], y + 0.03, b[1]), 0.009), T.w, 0.8);
-      }
-      for (const [x, z] of G) add(rod(V3(x, -0.33, z), V3(x, 0.4, z), 0.008), T.l, 0.6);
-    },
-    endo(add, T) {   // a nerve ending on a muscle fibre: the striped fibre, the axon coming down and splitting into boutons
-      for (let k = 0; k < 7; k++) add(new THREE.CylinderGeometry(0.13, 0.13, 0.116, 10, 1, k > 0 && k < 6), k % 2 ? T.d : T.b, 0.06, at(-0.348 + k * 0.116, -0.16, 0, 0, 0, Math.PI / 2));
-      const top = V3(0, 0.12, 0);
-      add(tube([V3(0.06, 0.46, 0.05), V3(0.03, 0.3, 0.02), top], 8, 0.032, 5), T.w, 0.6);
-      for (const [x, z] of [[-0.2, 0.03], [0.01, -0.05], [0.19, 0.03]]) {
-        const e = V3(x, -0.005, z);
-        add(tube([top, V3(x * 0.6, 0.07, z * 0.6), e], 6, 0.019), T.w, 0.6);
-        add(ball(0.058), T.w, 0.85, at(e.x, e.y, e.z, 0, 0, 0, 1.25, 0.6, 1.25));
-      }
-    },
-    pet(add, T) {   // a PET scanner's ring with its glowing detectors, and a glowing patient lying on the bed through it
-      add(new THREE.TorusGeometry(0.29, 0.085, 6, 20), T.b, 0.1, at(0, 0.05, 0, 0, Math.PI / 2));
-      add(new THREE.TorusGeometry(0.205, 0.013, 3, 20), T.w, 0.9, at(0.0, 0.05, 0, 0, Math.PI / 2));
-      add(new THREE.BoxGeometry(0.94, 0.035, 0.17), T.d, 0.05, at(-0.02, -0.1, 0));
-      add(ball(0.07, 1), T.w, 0.85, at(-0.05, -0.04, 0, 0, 0, 0, 3.2, 0.75, 1.15));
-      add(ball(0.055, 1), T.w, 0.85, at(0.27, -0.035, 0));
-    },
-    micro(add, T) {   // a glass slide with a section of tissue on it in tiles (the method's), three domains in three tones
-      add(new THREE.BoxGeometry(0.9, 0.03, 0.42), T.l, 0.2);
-      add(new THREE.BoxGeometry(0.2, 0.036, 0.42), T.d, 0.05, at(-0.35, 0.002, 0));
-      const r = 0.043, w = r * Math.sqrt(3);
-      for (let q = -2; q <= 2; q++) for (let s = Math.max(-2, -q - 2); s <= Math.min(2, -q + 2); s++) {
-        const d = q + 2 * s, tone = d < -1 ? T.b : d > 1 ? T.d : T.w, h = 0.02 + 0.012 * ((q * 7 + s * 3 + 9) % 3);
-        add(new THREE.CylinderGeometry(r, r, h, 6), tone, d < -1 || d > 1 ? 0.15 : 0.5, at(0.1 + w * (q + s / 2), 0.015 + h / 2, s * 1.5 * r));
-      }
-    },
-    ovary(add, T) {   // an ovary with follicles swelling on its surface, a scar and its vessels
-      const E = at(0, 0, 0, 0, 0, 0.25), A = [0.39, 0.26, 0.27];
-      add(ball(0.3, 1), T.b, 0.08, mul(E, at(0, 0, 0, 0, 0, 0, 1.3, 0.86, 0.9)));
-      const on = (x, y, z) => { const k = 1 / Math.hypot(x / A[0], y / A[1], z / A[2]); return V3(x * k, y * k, z * k).applyMatrix4(E); };
-      for (const [x, y, z, r] of [[0.3, 0.6, 0.45, 0.115], [-0.5, 0.4, 0.7, 0.08], [0.15, -0.45, 0.8, 0.07], [-0.2, 0.3, -0.95, 0.09], [0.7, -0.1, -0.5, 0.06], [-0.85, -0.3, -0.2, 0.065]]) {
-        const p = on(x, y, z); add(ball(r, 1), T.l, 0.35, at(p.x, p.y, p.z));
-      }
-      const c = on(0.1, 0.9, -0.3); add(ball(0.05), T.w, 0.8, at(c.x, c.y, c.z, 0, 0, 0, 1, 0.5, 1));
-      add(tube([on(0.95, 0.1, 0).multiplyScalar(0.9), V3(0.5, 0.06, 0.1), V3(0.55, -0.15, 0.2)], 8, 0.022), T.d, 0.1);
-    },
-    qubits(add, T) {   // a Bloch sphere: the equator and two meridians, the axis, its poles and the state's arrow
-      add(new THREE.TorusGeometry(0.36, 0.013, 3, 28), T.l, 0.65, at(0, 0, 0, Math.PI / 2));
-      add(new THREE.TorusGeometry(0.36, 0.01, 3, 28), T.b, 0.45);
-      add(new THREE.TorusGeometry(0.36, 0.01, 3, 28), T.b, 0.45, at(0, 0, 0, 0, Math.PI / 2));
-      add(rod(V3(0, -0.36, 0), V3(0, 0.36, 0), 0.007), T.d, 0.3);
-      for (const y of [-0.36, 0.36]) add(ball(0.036), T.w, 1, at(0, y, 0));
-      const d = V3(0.45, 0.68, 0.36).normalize();
-      add(rod(V3(0, 0, 0), d.clone().multiplyScalar(0.25), 0.022, 6), T.w, 0.95);
-      add(new THREE.ConeGeometry(0.058, 0.11, 8), T.w, 0.95, new THREE.Matrix4().compose(d.clone().multiplyScalar(0.3), new THREE.Quaternion().setFromUnitVectors(_Y, d), V3(1, 1, 1)));
-      add(ball(0.032), T.w, 1);
-    },
-    mutation(add, T) {   // a DNA helix: two backbones and the pairs between them in two tones
-      const H = 0.84, R = 0.17, turn = 1.3 * 2 * Math.PI, pt = (f, ph) => V3(R * Math.cos(f * turn + ph), -H / 2 + H * f, R * Math.sin(f * turn + ph));
-      for (const ph of [0, Math.PI]) { const pts = []; for (let k = 0; k <= 24; k++) pts.push(pt(k / 24, ph)); add(tube(pts, 26, 0.027), T.l, 0.35); }
-      for (let k = 0; k < 9; k++) {
-        const f = (k + 0.5) / 9, p = pt(f, 0), q = pt(f, Math.PI), m = p.clone().lerp(q, 0.5);
-        add(rod(p, m, 0.018), k % 2 ? T.b : T.w, 0.55); add(rod(m, q, 0.018), k % 3 ? T.w : T.b, 0.55);
-      }
-    },
-    topo(add, T) {   // balls grown round seven cells until they join in a ring round a hole, and the network's loop on top
-      const P = [];
-      for (let i = 0; i < 7; i++) P.push(V3(0.27 * Math.cos(i * 2 * Math.PI / 7), 0, 0.27 * Math.sin(i * 2 * Math.PI / 7)));
-      P.forEach((p, i) => {
-        add(new THREE.CylinderGeometry(0.135, 0.135, 0.014, 14), T.b, 0.25, at(p.x, i * 0.0035, p.z));
-        const q = P[(i + 1) % 7];
-        add(rod(V3(p.x, 0.04, p.z), V3(q.x, 0.04, q.z), 0.012), T.l, 0.8);
-        add(ball(0.04), T.w, 1, at(p.x, 0.04, p.z));
-      });
-    },
-    pass(add, T) {   // a small fish and two smaller ones following it (a school)
-      const fish = F => {
-        add(ball(0.22, 1), T.b, 0.2, mul(F, at(0, 0, 0, 0, 0, 0, 1.5, 0.82, 0.5)));
-        add(new THREE.ConeGeometry(0.13, 0.18, 4), T.l, 0.35, mul(F, at(-0.4, 0, 0, Math.PI / 4, 0, -Math.PI / 2, 1, 1, 0.3)));
-        add(new THREE.ConeGeometry(0.075, 0.13, 3), T.l, 0.35, mul(F, at(0, 0.19, 0, 0, 0, 0.5, 1, 1, 0.3)));
-        for (const z of [-0.08, 0.08]) add(ball(0.03), T.d, 0, mul(F, at(0.21, 0.04, z)));
-      };
-      fish(at(0.07, 0.02, 0)); fish(at(-0.3, 0.24, 0.24, 0, 0.2, 0, 0.45)); fish(at(-0.28, -0.22, -0.2, 0, -0.15, 0, 0.4));
-    },
-    flock(add, T) {   // a bird with its wings raised in a broad V, and two smaller ones behind it
-      const bird = F => {
-        add(ball(0.11, 1), T.b, 0.15, mul(F, at(0, 0, 0, 0, 0, 0, 1.6, 0.95, 0.95)));
-        add(ball(0.08, 1), T.b, 0.15, mul(F, at(0.17, 0.06, 0)));
-        add(new THREE.ConeGeometry(0.028, 0.08, 4), T.w, 0.6, mul(F, at(0.27, 0.05, 0, 0, 0, -Math.PI / 2)));
-        for (const s of [1, -1]) {
-          // the inner wing rises steeply from the body, the outer one (the hand) spreads out wider and sweeps back
-          const W = mul(F, at(0.0, 0.04, 0.05 * s, -0.75 * s));
-          add(plate([[0.12, 0], [-0.12, 0], [-0.1, 0.2], [0.08, 0.2]].map(([x, z]) => [x, z * s]), 0.02), T.l, 0.35, W);
-          add(plate([[0.08, 0], [-0.1, 0], [-0.2, 0.2], [-0.06, 0.24]].map(([x, z]) => [x, z * s]), 0.018), T.l, 0.35, mul(W, at(0, 0, 0.2 * s, 0.45 * s)));
-        }
-        add(plate([[-0.1, 0], [-0.26, 0.09], [-0.22, 0], [-0.26, -0.09]], 0.016), T.b, 0.2, mul(F, at(0, 0.01, 0, 0, 0, 0.15)));
-      };
-      bird(at(0.1, -0.06, 0, 0, 0, 0, 0.9)); bird(at(-0.32, 0.2, 0.3, 0, 0.1, 0, 0.42)); bird(at(-0.3, -0.18, -0.32, 0, -0.1, 0, 0.38));
-    },
-    robots(add, T) {   // a robot vacuum: its disc, the lid with a glowing edge, the bumper, the laser turret, a light, a side brush
-      add(new THREE.CylinderGeometry(0.36, 0.36, 0.09, 20), T.b, 0.06);
-      add(new THREE.CylinderGeometry(0.3, 0.3, 0.02, 20), T.l, 0.15, at(0, 0.05, 0));
-      add(new THREE.TorusGeometry(0.33, 0.009, 3, 24), T.w, 1, at(0, 0.047, 0, Math.PI / 2));
-      add(new THREE.CylinderGeometry(0.372, 0.372, 0.06, 12, 1, true, -0.95, 1.9), T.d, 0.05, at(0, -0.005, 0));
-      add(new THREE.CylinderGeometry(0.07, 0.078, 0.06, 10), T.d, 0.15, at(0, 0.09, -0.09));
-      add(ball(0.03), T.w, 1, at(0, 0.07, 0.17));
-      for (let k = 0; k < 3; k++) { const a = k * 2.1 + 0.3, o = V3(0.24, -0.04, 0.24); add(rod(o, o.clone().add(V3(0.14 * Math.cos(a), 0, 0.14 * Math.sin(a))), 0.006), T.w, 0.4); }
-    },
-    _(add, T) {   // any other story: a glowing polyhedron with a ring round it
-      add(new THREE.DodecahedronGeometry(0.3), T.b, 0.3);
-      add(new THREE.TorusGeometry(0.42, 0.013, 3, 28), T.l, 0.9, at(0, 0, 0, 1.2, 0, 0.3));
-    },
-  };
-  // the parts merged into one geometry: flat shaded (the low-poly look), each vertex with its tone and glow
-  function mergeParts(parts) {
+  // the glow behind it, in the story's colour (one material per colour)
+  function haloFor(col) {
+    const k = col.getHex();
+    if (!ICON.halos.has(k)) ICON.halos.set(k, new THREE.SpriteMaterial({ map: glowTex(), color: col, transparent: true, opacity: 0.4, blending: THREE.AdditiveBlending, depthWrite: false }));
+    return ICON.halos.get(k);
+  }
+  // geometry from parts { g (non-indexed: position, normal), c (a colour, or per vertex as an array), e (glow 0 lit to 1
+  // glowing), a (see-through: opacity), m (a matrix) }, merged into one; null when there are none
+  function mergeParts(parts, see) {
+    if (!parts.length) return null;
     let n = 0;
-    const gs = parts.map(p => { const g = (p.g.index ? p.g.toNonIndexed() : p.g).applyMatrix4(p.m); g.computeVertexNormals(); n += g.attributes.position.count; return g; });
-    const pos = new Float32Array(n * 3), nor = new Float32Array(n * 3), col = new Float32Array(n * 3), glow = new Float32Array(n);
+    for (const p of parts) n += p.g.attributes.position.count;
+    const pos = new Float32Array(n * 3), nor = new Float32Array(n * 3), col = new Float32Array(n * 3), glow = new Float32Array(n), alpha = see ? new Float32Array(n) : null;
+    const v = new THREE.Vector3(), nm = new THREE.Matrix3();
     let o = 0;
-    gs.forEach((g, k) => {
-      const c = g.attributes.position.count, p = parts[k];
-      pos.set(g.attributes.position.array, o * 3); nor.set(g.attributes.normal.array, o * 3);
-      for (let i = 0; i < c; i++) { p.c.toArray(col, (o + i) * 3); glow[o + i] = p.e; }
-      o += c; g.dispose(); p.g.dispose();
-    });
+    for (const p of parts) {
+      const P = p.g.attributes.position, N = p.g.attributes.normal, c = p.g.attributes.color, cnt = P.count;
+      nm.getNormalMatrix(p.m);
+      for (let i = 0; i < cnt; i++, o++) {
+        v.fromBufferAttribute(P, i).applyMatrix4(p.m).toArray(pos, o * 3);
+        v.fromBufferAttribute(N, i).applyMatrix3(nm).normalize().toArray(nor, o * 3);
+        if (p.c) p.c.toArray(col, o * 3); else { col[o * 3] = c.getX(i); col[o * 3 + 1] = c.getY(i); col[o * 3 + 2] = c.getZ(i); }
+        glow[o] = p.e; if (alpha) alpha[o] = p.a;
+      }
+    }
     const geo = new THREE.BufferGeometry();
     geo.setAttribute('position', new THREE.BufferAttribute(pos, 3)); geo.setAttribute('normal', new THREE.BufferAttribute(nor, 3));
     geo.setAttribute('color', new THREE.BufferAttribute(col, 3)); geo.setAttribute('glow', new THREE.BufferAttribute(glow, 1));
+    if (alpha) geo.setAttribute('alpha', new THREE.BufferAttribute(alpha, 1));
     geo.computeBoundingSphere();
     return geo;
   }
+  // a story's icon from its miniature: every mesh of it, centred and sized as the first models were (its box in a ball of
+  // 0.6, its longest side at most 0.9: a globe about 0.2 m across), its colours drawn towards the story's; the parts
+  // that glow (emissive) stay nearly unlit; the see-through ones (glass, haze) apart
+  function miniDef(key, mk, model) {
+    const grp = model.build(THREE), T = tones(key), solid = [], see = [], c = new THREE.Color(), t = new THREE.Color();
+    grp.updateMatrixWorld(true);
+    const box = new THREE.Box3().setFromObject(grp), size = box.getSize(new THREE.Vector3()), mid = box.getCenter(new THREE.Vector3());
+    const s = Math.min(0.9 / Math.max(1e-6, size.x, size.y, size.z), 0.6 / Math.max(1e-6, size.length() / 2)), fit = new THREE.Matrix4().makeScale(s, s, s).multiply(new THREE.Matrix4().makeTranslation(-mid.x, -mid.y, -mid.z));
+    // its own colour by lightness to the story's tones (dark, the colour, nearly white), then mixed in by ICON.tint
+    const tint = (r, g, b) => {
+      const L = Math.min(1, 0.2126 * r + 0.7152 * g + 0.0722 * b + 0.1);
+      if (L < 0.5) t.copy(T.d).lerp(T.b, L / 0.5); else t.copy(T.b).lerp(T.w, (L - 0.5) / 0.5);
+      return c.setRGB(r, g, b).lerp(t, ICON.tint);
+    };
+    grp.traverse(o => {
+      if (!o.isMesh) return;
+      const m = o.material, g0 = o.geometry.index ? o.geometry.toNonIndexed() : o.geometry;
+      if (!g0.attributes.normal) g0.computeVertexNormals();
+      const vc = g0.attributes.color, cnt = g0.attributes.position.count, own = m.color || new THREE.Color(1, 1, 1);
+      // per vertex: its colour tinted (a copy, so the miniature's own stays as it was built)
+      const tc = new THREE.BufferAttribute(new Float32Array(cnt * 3), 3);
+      for (let i = 0; i < cnt; i++) { const k = tint(vc ? vc.getX(i) : own.r, vc ? vc.getY(i) : own.g, vc ? vc.getZ(i) : own.b); tc.setXYZ(i, k.r, k.g, k.b); }
+      g0.setAttribute('color', tc);
+      const e = m.emissive && m.emissive.getHex() ? Math.min(1, m.emissiveIntensity || 0) : 0, a = m.transparent ? Math.max(0.12, m.opacity) : 1;
+      (a < 1 || m.blending === THREE.AdditiveBlending ? see : solid).push({ g: g0, c: null, e, a: Math.min(a, 0.6), m: fit.clone().multiply(o.matrixWorld), own: g0 !== o.geometry });
+    });
+    const geo = mergeParts(solid, false), seeGeo = mergeParts(see, true);
+    for (const p of solid.concat(see)) if (p.own) p.g.dispose();
+    grp.traverse(o => { if (o.isMesh) { o.geometry.dispose(); o.material.dispose(); } });
+    // the flat ones (a slide, a room) lean back further, so their top always shows: by how low they are
+    const flat = Math.max(0, Math.min(0.95, 1.6 * (0.6 - size.y / Math.max(size.x, size.z, 1e-6))));
+    return { model: mk, geo: geo || new THREE.BufferGeometry(), see: seeGeo, flat, halo: haloFor(T.b) };
+  }
+  // any key without its miniature (or before lowpoly.js is here): a glowing polyhedron with a ring round it
+  function fallbackDef(key) {
+    const T = tones(key), parts = [];
+    const add = (g, col, e, mx) => { const n = g.toNonIndexed(); n.computeVertexNormals(); parts.push({ g: n, c: col, e, a: 1, m: mx || new THREE.Matrix4() }); g.dispose(); };
+    add(new THREE.DodecahedronGeometry(0.3), T.b, 0.3);
+    add(new THREE.TorusGeometry(0.42, 0.013, 3, 28), T.l, 0.9, new THREE.Matrix4().makeRotationFromEuler(new THREE.Euler(1.2, 0, 0.3)));
+    const geo = mergeParts(parts, false);
+    for (const p of parts) p.g.dispose();
+    return { model: '', geo, see: null, flat: 0, halo: haloFor(T.b) };
+  }
+  // a story's icon, built the first time asked and kept: its miniature once lowpoly.js is here, else the fallback. soon:
+  // a miniature only if none was built this frame (a room's first view would build every one at once)
+  function iconDef(key, soon) {
+    const mk = iconOf(key), M = mk ? iconModels() : null, want = M && M[mk] ? mk : '', f = C.frameN || 0;
+    let D = ICON.defs.get(key + '|' + want);
+    if (D) return D;
+    if (!want || (soon && ICON.built === f)) {   // (the miniature, if any, next frame)
+      if (!ICON.defs.has(key + '|')) ICON.defs.set(key + '|', fallbackDef(key));
+      return ICON.defs.get(key + '|');
+    }
+    try {
+      D = miniDef(key, mk, M[mk]);
+      log('icon built', { key, model: mk, tris: D.geo.attributes.position.count / 3 + (D.see ? D.see.attributes.position.count / 3 : 0) });
+    } catch (e) { log('icon failed', { key, model: mk, err: String(e && e.message || e) }); D = fallbackDef(key); }   // (kept: not tried every frame)
+    ICON.built = f;
+    ICON.defs.set(key + '|' + want, D);
+    return D;
+  }
   // one material for every icon: the tone lit from over your shoulder (view space, so every side looks alike), glowing
-  // parts nearly unlit, and a rim in a paler tone all round (the rings' glow)
-  function iconMat() {
-    return ICON.mat || (ICON.mat = new THREE.ShaderMaterial({
-      vertexColors: true, side: THREE.DoubleSide,
+  // parts nearly unlit, and a rim in a paler tone all round (the rings' glow); see: the see-through parts' (their
+  // opacity, more at the rim, written after the rest without depth)
+  function iconMat(see) {
+    const k = see ? 'see' : 'mat';
+    return ICON[k] || (ICON[k] = new THREE.ShaderMaterial({
+      vertexColors: true, side: THREE.DoubleSide, transparent: !!see, depthWrite: !see, defines: see ? { SEE: '' } : {},
       vertexShader: `attribute float glow; varying vec3 vN, vV, vC; varying float vG;
-        void main() { vec4 p = modelViewMatrix * vec4(position, 1.0); vN = normalMatrix * normal; vV = -p.xyz; vC = color; vG = glow; gl_Position = projectionMatrix * p; }`,
+        #ifdef SEE
+        attribute float alpha; varying float vA;
+        #endif
+        void main() { vec4 p = modelViewMatrix * vec4(position, 1.0); vN = normalMatrix * normal; vV = -p.xyz; vC = color; vG = glow;
+          #ifdef SEE
+          vA = alpha;
+          #endif
+          gl_Position = projectionMatrix * p; }`,
       fragmentShader: `varying vec3 vN, vV, vC; varying float vG;
+        #ifdef SEE
+        varying float vA;
+        #endif
         void main() {
           vec3 n = normalize(vN) * (gl_FrontFacing ? 1.0 : -1.0), v = normalize(vV);
           float d = max(dot(n, normalize(vec3(-0.45, 0.7, 0.55))), 0.0), rim = pow(1.0 - abs(dot(n, v)), 2.0);
           vec3 c = mix(vC * (0.24 + 0.16 * n.y + 0.72 * d), vC * 1.15, vG) + mix(vC, vec3(1.0), 0.3) * rim * 0.7;
+          #ifdef SEE
+          gl_FragColor = vec4(c, clamp(vA * (0.6 + 1.4 * rim), 0.0, 0.9));
+          #else
           gl_FragColor = vec4(c, 1.0);
+          #endif
         }`,
     }));
   }
@@ -2306,38 +2266,34 @@
     ctx.fillStyle = gr; ctx.fillRect(0, 0, 64, 64);
     return (ICON.tex = new THREE.CanvasTexture(cv));
   }
-  // a story's model and glow, built the first time a station of it shows (kept: a few hundred triangles each)
-  function iconDef(key) {
-    let D = ICON.defs.get(key);
-    if (D) return D;
-    const m = meta(key), col = new THREE.Color((m && m.col) || CYAN), white = new THREE.Color(1, 1, 1);
-    const T = { b: col, l: col.clone().lerp(white, 0.4), w: col.clone().lerp(white, 0.75), d: col.clone().multiplyScalar(0.42) }, parts = [];
-    (ICONS[key] || ICONS._)((g, c, e, mx) => parts.push({ g, c, e, m: mx || new THREE.Matrix4() }), T);
-    D = { geo: mergeParts(parts), flat: ICON_FLAT[key] || 0,
-      halo: new THREE.SpriteMaterial({ map: glowTex(), color: col, transparent: true, opacity: 0.4, blending: THREE.AdditiveBlending, depthWrite: false }) };
-    ICON.defs.set(key, D);
-    return D;
-  }
   // an icon: g turned to you (the glow behind the model, from where you are), lean tipping the model's top towards
-  // you, spin turning it about its own axis
-  function makeIcon(key, ph) {
-    const D = iconDef(key), I = { key, g: new THREE.Group(), lean: new THREE.Group(), spin: new THREE.Group(), mesh: new THREE.Mesh(D.geo, iconMat()),
-      halo: new THREE.Sprite(D.halo), flat: D.flat, ph: ph || 0, k: 1 };
+  // you, spin turning it about its own axis. soon: as iconDef (the fallback until its miniature is built)
+  function makeIcon(key, ph, soon) {
+    const I = { key, g: new THREE.Group(), lean: new THREE.Group(), spin: new THREE.Group(), mesh: new THREE.Mesh(undefined, iconMat(false)), see: null,
+      halo: new THREE.Sprite(), flat: 0, ph: ph || 0, k: 1, D: null, model: '' };
     I.mesh.scale.setScalar(ICON.size); I.halo.scale.setScalar(ICON.size * 2.3); I.halo.position.z = -ICON.size * 0.6;
     I.spin.add(I.mesh); I.lean.add(I.spin); I.g.add(I.halo, I.lean);
+    iconUse(I, iconDef(key, soon));
     return I;
+  }
+  // an icon takes a def (its miniature in place of the fallback, once built)
+  function iconUse(I, D) {
+    I.D = D; I.model = D.model; I.flat = D.flat; I.mesh.geometry = D.geo; I.halo.material = D.halo;
+    if (I.see) { I.spin.remove(I.see); I.see = null; }
+    if (D.see) { I.see = new THREE.Mesh(D.see, iconMat(true)); I.see.scale.setScalar(ICON.size); I.spin.add(I.see); }
   }
   function poseIcon(I, yaw, lean, t) {
     I.g.rotation.y = yaw; I.lean.rotation.x = lean + I.flat; I.spin.rotation.y = I.ph + t * 2 * Math.PI / ICON.turn;
   }
   // over a station's ring (o its ring's group, at its spot, turned its way): turned to your head and leant back as far
   // as you look up at it, plus a little, so its top shows; it shrinks away at your own station (its story is in front of
-  // you) and grows back when you leave it
+  // you) and grows back when you leave it. Its miniature takes the fallback's place once built
   function iconStep(o, S, live, dt) {
     const I = o.icon;
     I.k += ((live ? 0 : 1) - I.k) * (1 - Math.exp(-dt * 6));
     I.g.visible = I.k > 0.02;
     if (!I.g.visible) return;
+    if (!I.model && iconOf(I.key)) { const D = iconDef(I.key, true); if (D !== I.D) iconUse(I, D); }
     I.g.scale.setScalar(I.k); I.g.position.y = ICON.y / o.g.scale.y;
     let yaw = 0, lean = 0.3;
     if (R.headOK) {
@@ -2361,13 +2317,13 @@
       g.add(ring, tip);
       ring.userData.shell = { kind: 'station', id: s.id };
       // its icon turns in its own phase (not in step with the others)
-      o = { g, ring, mat, story: s.story, icon: makeIcon(s.story, [...s.id].reduce((a, ch) => a + ch.charCodeAt(0) * 2.39996, 0) % (2 * Math.PI)) };
+      o = { g, ring, mat, story: s.story, icon: makeIcon(s.story, [...s.id].reduce((a, ch) => a + ch.charCodeAt(0) * 2.39996, 0) % (2 * Math.PI), true) };
       g.add(o.icon.g);
       OV.rings.set(s.id, o); OV.room.add(g);
     }
     if (o.story !== s.story) {
       o.mat.color.set(meta(s.story).col); o.story = s.story;
-      const I = makeIcon(s.story, o.icon.ph);
+      const I = makeIcon(s.story, o.icon.ph, true);
       I.k = o.icon.k; o.g.remove(o.icon.g); o.g.add(I.g); o.icon = I;
     }
     const S = shown(s), held = MV.id === s.id;
@@ -2558,7 +2514,8 @@
   // A clock over the back of the left wrist (a controller's grip, or a tracked hand's wrist; beside the story panel
   // without either) opens the menu: touch it with the other controller's tip or index fingertip, click the left
   // stick, or point at it and pull the trigger (or pinch). The menu stands above the clock: Exit, the slideshow for
-  // every story and Sound check, then the shared room: join one from the list (no typing), leave, your name and colour,
+  // every story and Sound check, the headsets' settings, the story's panels, the design room (opened, or in a room its
+  // table put at your feet), then the shared room: join one from the list (no typing), leave, your name and colour,
   // calibrate, the alignment, the stations (Arrange all, Add a station here, Move here, Remove) and the people.
   // It is closed at the start of every session, and opens by itself the first time in a room with no stations.
   const PNL = { open: false, page: 'main', asked: '', empty: '' };
@@ -2595,7 +2552,19 @@
       C.st.map(s => s.id + s.story), C.members.map(m => m.id + m.name + m.color + m.kind + m.here + (m.host ? 'h' : '')), [...C.pres].map(([id, P]) => id + P.st), C.via, hosting(), C.takeover, C.peer,
       C.code ? 0 : (C.rooms || []).map(r => r.code + r.members), C.roomsErr, C.relay, C.code ? nearShown() : [(C.near || []).map(r => r.code + r.members + r.name), C.netState, C.nearBusy, C.nearErr, (offer() || {}).code], sharedLine(), sourceLine(), versionNote(), scanNote(), fullNote(), floorNote(), forgetArmed(), freshArmed(), canFresh(), !!(R.saved || R.frame), R.sharedAlign, layoutLocked(),
       C.local, C.code ? 0 : localRooms().map(r => r.code + r.stations), !!R.again, HOST.slides ? HOST.slides.sig() : '', menuHint(), HOST.xr.sig(), showing(), showing() && HOST.panels.sig(showing()),
-      PNL.page === 'sound' ? Math.floor(performance.now() / 500) + HOST.audio.pref : '']);
+      PNL.page === 'sound' ? Math.floor(performance.now() / 500) + HOST.audio.pref : '', HOST.curKey]);
+  }
+  // the menu's Design room row: its button (label, what a press does, or null) and a note beside it
+  function designRow() {
+    const m = meta(DESIGN);
+    if (!m || m.unknown) return { label: 'Design room', fn: null, note: 'Not in this version of the app' };
+    if (!C.code) {
+      const at = HOST.curKey === DESIGN;
+      return { label: 'Design room', fn: at ? null : () => { menuOpen(false, 'design'); log('design', { open: true }); HOST.go(DESIGN); },
+        note: at ? 'You are at the props table' : 'Every story\'s props on one table' };
+    }
+    const lk = layoutLocked(), has = C.st.some(s => s.story === DESIGN);
+    return { label: 'Design room here', fn: lk ? null : () => designHere(), note: lk ? 'Not while the layout is locked' : has ? 'Moves the room\'s props table to your feet' : 'The props table as a circle at your feet' };
   }
   function drawPanel() {
     const S = OV.panel, sig = panelSig();
@@ -2649,6 +2618,12 @@
       ctx.fillText(fit(ctx, C.code ? 'Panels for this circle, the rest for the room' : 'Panels: for ' + ((meta(pk) || {}).title || 'this story') + ' only', w), x, y - 4);
       y += 30;
     }
+    // the design room: outside a room it opens (the props table); in a room it puts the table at your feet as a circle,
+    // facing your way (the room's one moved here when it has one), as Add does: not while the layout is locked
+    const dz = designRow();
+    button(S, 'design', x, y, bw, 60, dz.label, dz.fn, { px: 24, color: '#f0d58c' });
+    ctx.font = FONT(21); ctx.fillStyle = MUTED; wrapText(ctx, dz.note, x + bw + 16, y + 2, bw, 28, 2);
+    y += 76;
     line();
     // the shared room: its code, how many are in it, the connection
     const n = C.members.length, title = !C.code ? 'Shared room' : C.local ? `Room ${C.code} · this headset` : `Shared room ${C.code} · ${n} ${n === 1 ? 'person' : 'people'}`;
@@ -2708,11 +2683,12 @@
       y += 92; line();
     } else if (PNL.page === 'add') {
       label('Add a station here: which story?');
-      HOST.list.forEach((m, i) => {
+      const ad = addable();   // (the stories, then the design room)
+      ad.forEach((m, i) => {
         const bx = x + (i % 2) * (bw + 16), by = y + Math.floor(i / 2) * 72;
-        button(S, 'add:' + m.key, bx, by, bw, 60, m.title, () => { add(m.key); PNL.page = 'main'; }, { color: m.col, px: 25 });
+        button(S, 'add:' + m.key, bx, by, bw, 60, addName(m), () => { add(m.key); PNL.page = 'main'; }, { color: m.col, px: 25 });
       });
-      y += Math.ceil(HOST.list.length / 2) * 72 + 8;
+      y += Math.ceil(ad.length / 2) * 72 + 8;
       button(S, 'add:cancel', x, y, 200, 58, 'Cancel', () => { PNL.page = 'main'; });
       y += 82; line();
     } else {
@@ -4644,7 +4620,8 @@
           <button class="btn rm${armed(s.id) ? ' armed' : ''}" type="button" data-sh="remove:${s.id}" aria-label="${armed(s.id) ? 'Remove the ' + esc(m.title) + ' station for everyone? Press again to remove it' : 'Remove the ' + esc(m.title) + ' station'}">${armed(s.id) ? 'Remove for everyone?' : 'Remove'}</button></li>`;
       }).join('') : '<li class="none">No stations yet. Arrange all puts every story in two rows; a headset in the room can then move them.</li>';
       const sel = $('#shAdd'), lk = layoutLocked(), lb = $('[data-sh="lock"]');
-      if (sel.options.length !== HOST.list.length) sel.innerHTML = HOST.list.map(m => `<option value="${m.key}">${esc(m.title)}</option>`).join('');
+      const ad = addable();   // (the stories, then the design room)
+      if (sel.options.length !== ad.length) sel.innerHTML = ad.map(m => `<option value="${m.key}">${esc(addName(m))}</option>`).join('');
       if (lb) { lb.textContent = lk ? 'Unlock layout' : 'Lock layout'; lb.setAttribute('aria-pressed', String(lk)); lb.classList.toggle('on', lk); }
       // shown on this network or not: the room's (anyone sets it; not locked with the layout); a room on this device is on no network
       const nb = $('[data-sh="near"]'), ns = nearShown();
@@ -4783,7 +4760,7 @@
     stations: () => C.st, station: id => C.stById.get(id) || null, mine: () => C.mine, live: () => liveSt(), following: () => C.follow,
     val, now, publish: pairs => publish(pairs), fx, setRelay: s => setRelay(s, 'typed'), detect, list: listRooms, create, join,
     leave: () => leave(false, true),   // (on purpose: not joined again by itself until joined again by hand)
-    arrange, add, move, remove, follow: id => choose(id, 'follow'), pick: id => choose(id, 'pick'), unfollow, me: setMe, setHere,
+    arrange, add, move, remove, design: b => designHere(b), follow: id => choose(id, 'follow'), pick: id => choose(id, 'pick'), unfollow, me: setMe, setHere,
     mapView: () => MAP.tf,   // the room map's room <-> pixel transform (X, Y, ix, iz), once drawn
     lock: on => setLock(on), get locked() { return layoutLocked(); },
     // the room's labels and moving ({ labels, free }; null outside a room), set for everyone there (HOST.xr calls these)
@@ -4801,7 +4778,8 @@
     panelOpen(on) { menuOpen(on, 'api'); }, get menu() { return PNL.open; },   // the headset's menu, open or closed
     overlay: () => OV,   // for tests: the overlay's objects (panel, cards, rings and their icons, people)
     subtitles: { split: s => subSplit(s), state: () => SUB },   // for tests: how a line is cut into captions, and where the strip is
-    // a station's icon on its own (tools/icons.html): { g, lean, spin, mesh, halo }, posed with pose(yaw, lean, t in s)
+    // a station's icon on its own (tools/icons.html, after HOST.lowpoly()): { g, lean, spin, mesh, see, halo, model: its
+    // miniature's key ('' the fallback) }, posed with pose(yaw, lean, t in s)
     icon: key => { const I = makeIcon(key); I.pose = (yaw, lean, t) => poseIcon(I, yaw, lean, t); return I; },
     // a story is about to start (HOST.start): in a headset at its station, it takes the station's place and panel
     starting,

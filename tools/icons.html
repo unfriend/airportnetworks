@@ -4,14 +4,16 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Station icons</title>
-<!-- The stations' icons (shared.js, "station icons") in a grid, lit as in a headset, on the app's dark background.
+<!-- The stations' icons (shared.js, "station icons": each story's miniature from lowpoly.js, its entry's icon in
+     stories/list.js) in a grid, lit as in a headset, on the app's dark background: every story's, then the design room's.
      Served next to the app: http://127.0.0.1:8123/tools/icons.html
-       ?keys=airports,pet,qubits   only these (any key without a model of its own shows the fallback)
+       ?keys=airports,pet,qubits   only these (any key without a miniature shows the fallback)
        &cols=3                     columns (default: 5)
        &t=3.5                      time in seconds, frozen (default: turning)
-       &fallback                   adds a story with no model of its own
+       &fallback                   adds a story with no miniature of its own
        &turns=4                    each icon four times, a quarter of a turn apart (a row each with &cols=4)
-     The app runs in a hidden frame (its HOST.list and HOST.collab.icon), so the icons are exactly the shell's. -->
+     The app runs in a hidden frame (its HOST.list, STORY_EXTRA, HOST.lowpoly and HOST.collab.icon), so the icons are
+     exactly the shell's. -->
 <style>
   html, body { margin: 0; height: 100%; background: #040912; color: #e7eef8; overflow: hidden;
     font: 14px B612, "Segoe UI", "Helvetica Neue", Arial, sans-serif; }
@@ -41,7 +43,9 @@
     try { const H = frame.contentWindow.eval('typeof HOST !== "undefined" && HOST'); if (H && H.collab && H.collab.icon && H.list) W = H; } catch (e) { /* not yet */ }
   }
   if (!W) { document.getElementById('note').textContent = 'The app did not load (or its shell has no station icons).'; return; }
-  const T = frame.contentWindow.THREE, list = W.list;
+  // (the miniatures first: an icon made before lowpoly.js is here is the fallback)
+  try { if (W.lowpoly) await W.lowpoly(); } catch (e) { document.getElementById('note').textContent = 'lowpoly.js did not load: the icons are the fallback.'; }
+  const T = frame.contentWindow.THREE, list = W.list.concat(frame.contentWindow.STORY_EXTRA || []);
   let keys = q.get('keys') ? q.get('keys').split(',').map(s => s.trim()).filter(Boolean) : list.map(m => m.key);
   if (q.has('fallback')) keys = keys.concat('sixteenth');
   const turns = Math.max(1, +q.get('turns') || 1), shown = keys.flatMap(k => Array.from({ length: turns }, (_, j) => [k, j * 12 / turns]));
@@ -58,15 +62,15 @@
     sc.add(I.g);
     const el = document.createElement('div');
     el.className = 'name';
-    el.innerHTML = m ? `<b>${m.title}</b><span style="color:${m.col}">${key} &middot; ${m.col}</span>` : `<b>A new story</b><span>${key} &middot; fallback</span>`;
+    el.innerHTML = m ? `<b>${m.title}</b><span style="color:${m.col}">${I.model || 'fallback'} &middot; ${m.col}</span>` : `<b>A new story</b><span>${key} &middot; fallback</span>`;
     document.body.appendChild(el);
-    return { key, I, el, i, dt, tris: I.mesh.geometry.attributes.position.count / 3 };
+    return { key, I, el, i, dt, tris: (I.mesh.geometry.attributes.position.count + (I.see ? I.see.geometry.attributes.position.count : 0)) / 3 };
   });
   const one = cells.filter(c => !c.dt);
   document.getElementById('note').textContent = `${keys.length} icons, ${one.map(c => c.tris).reduce((a, b) => a + b, 0)} triangles in all ` +
     `(${Math.min(...one.map(c => c.tris))} to ${Math.max(...one.map(c => c.tris))} each), one turn in 12 s` + (frozen !== null ? `, at ${frozen} s` : '') +
     (turns > 1 ? `, ${turns} views a ${turns === 4 ? 'quarter' : '1/' + turns} of a turn apart` : '');
-  window.__icons = one.map(c => ({ key: c.key, tris: c.tris }));
+  window.__icons = one.map(c => ({ key: c.key, model: c.I.model, tris: c.tris }));
   function layout() {
     const w = innerWidth, h = innerHeight, cw = w / cols, ch = (h - HEAD) / rows, px = Math.min(cw, ch - 44), s = CELL / px;   // (metres per pixel)
     r.setSize(w, h, false);

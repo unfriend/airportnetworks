@@ -1462,6 +1462,27 @@ for (const key of ['airports', 'proteins', 'spatial', 'lbi', 'nmd', 'endo', 'pet
     await sp.evaluate(() => { try { localStorage.removeItem('xrPanels'); } catch (e) { /* storage blocked */ } });
     if (bad.length) errors.push(...bad.map(b => 'panels: ' + b));
   });
+  // the menu's Design room button outside a shared room opens the design room (the props table) in the headset: the menu
+  // closes, the table opens in explore mode, and the button greys while you are there (nothing to press)
+  await step('the headset menu\'s Design room button opens the design room outside a room', async () => {
+    const bad = [];
+    const btn = () => sp.evaluate(() => { const r = HOST.collab.overlay().panel.regions.find(x => x.id === 'design'); return r && r.fn ? 'on' : 'off'; });   // (a greyed button has no region)
+    await openXR('qubits');
+    await sp.evaluate(() => HOST.collab.panelOpen(true));
+    for (let k = 0; k < 40 && await btn() !== 'on'; k++) { await sp.waitForTimeout(50); await tick(1); }
+    const was = await btn();
+    await sp.evaluate(() => { const r = HOST.collab.overlay().panel.regions.find(x => x.id === 'design'); if (r && r.fn) r.fn(); });
+    const opened = await sp.waitForFunction(() => HOST.curKey === 'design' && HOST.cur && HOST.cur.peek('typeof GL !== "undefined" && !!XR.panelGroup && typeof ST !== "undefined" && ST.items.length > 0'), null, { timeout: 60000 })
+      .then(() => true, () => false);
+    if (opened) { await sp.evaluate(() => HOST.cur.peek('xrAdopt()')); await tick(3); }   // (as a story adopts a real session: the pretend one is not presenting)
+    const after = opened && await sp.evaluate(() => ({ menu: HOST.collab.menu, mode: HOST.cur.peek('APP.mode'), stories: HOST.cur.peek('XR.stories'), world: HOST.cur.peek('GL.world.visible'), hash: location.hash }));
+    await sp.evaluate(() => HOST.collab.panelOpen(true)); await tick(3);
+    const there = await btn();
+    await sp.evaluate(() => HOST.collab.panelOpen(false));
+    if (was !== 'on' || !opened || !after || after.menu || after.stories || !after.world || after.hash !== '#design' || there !== 'off')
+      bad.push(JSON.stringify({ was, opened, after, there }));
+    if (bad.length) errors.push(...bad.map(b => 'design button: ' + b));
+  });
   await sp.close();
 }
 await step('old links forward to the app', async () => {

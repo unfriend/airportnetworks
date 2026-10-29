@@ -27,6 +27,7 @@ const NOTES = {
 };
 const CARDS = {};
 for (const key of Object.keys(lp.M)) {
+  if (lp.M[key].story === 'design') continue;   // (the design room's own miniature: its station icon, not a prop)
   const m = lp.M[key], s = props.sets.find(x => x.story === m.story && x.key === m.set), hw = props.handwrittenStories.find(x => x.story === m.story);
   if (s) {
     const twins = props.sets.filter(x => x !== s && x.file === s.file).map(x => x.story + '/' + x.key);

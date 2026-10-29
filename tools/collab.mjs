@@ -35,7 +35,9 @@
 // reached as a room is joined makes it peer to peer; a headset that hosts hands the room to the first screen that
 // joins. --shots also saves pictures (the Shared dialog on a desktop and a phone, eight pretend headset views). --quick
 // runs only the last story of STORIES in the per-story part (for a quicker run while working on the rest); --p2p runs
-// only the peer-to-peer part; --port N runs the relay on port N (default: any free port).
+// only the peer-to-peer part; --design only the design room in a room (its station from the page's dialog and the
+// headset menu's button, the lock, Arrange all, the icons from the miniatures; with --shots its pictures); --port N runs
+// the relay on port N (default: any free port).
 // Needs Playwright as tools/smoke.mjs does (PLAYWRIGHT_MODULE, CHROMIUM_PATH). Exits 1 on any failure.
 //
 // Adding a story: give it its hooks (the plan's section 7, as the flock has them), then an entry in STORIES:
@@ -152,6 +154,7 @@ const root = path.join(path.dirname(new URL(import.meta.url).pathname), '..');
 const argv = process.argv.slice(2), shots = argv.includes('--shots') ? argv[argv.indexOf('--shots') + 1] : '';
 const P2P = argv.includes('--p2p'), P2P_KEY = 'proteins', P2P_T = STORIES[P2P_KEY];   // (peer to peer: the station followed there)
 const NEAR_ONLY = argv.includes('--near');   // (only rooms on this network)
+const DESIGN_ONLY = argv.includes('--design');   // (only the design room in a room: designOnly)
 if (argv.includes('--quick')) for (const k of Object.keys(STORIES).slice(0, -1)) delete STORIES[k];
 const relayPort = argv.includes('--port') ? +argv[argv.indexOf('--port') + 1] : 0;
 const { chromium } = await import(process.env.PLAYWRIGHT_MODULE || 'playwright');
@@ -338,6 +341,220 @@ async function walk(page, s, story, yaw) {
   ok = ok && await ready(page, story, 40000);
   if (ok) { await page.evaluate(() => HOST.cur.peek('xrAdopt()')); await frames(page, 200); }
   return ok && !early;
+}
+
+// ---- the design room in a room (not a story): the Shared dialog's station picker lists it after the stories, and adding
+// it there makes a station every page sees; refused while the layout is locked (Add, and the headset menu's Design room
+// button through HOST.collab.design); Arrange all leaves it where it is, never moving or removing it. Removed at the end
+// (the rest counts one station per story). The headset's button is checked with the pretend headset (headsetDesign)
+async function designRoom(A, B, C) {
+  const n0 = await A.evaluate(() => HOST.collab.stations().length);
+  const dsg = await A.evaluate(async () => {
+    HOST.collab.dialog(true); await new Promise(r => setTimeout(r, 300));
+    const sel = document.querySelector('#shAdd'), opts = [...sel.options].map(o => o.value), last = sel.options[sel.options.length - 1];
+    sel.value = 'design'; document.querySelector('[data-sh="add"]').click();
+    for (let k = 0; k < 20 && !HOST.collab.stations().some(x => x.story === 'design'); k++) await new Promise(r => setTimeout(r, 100));
+    const st = HOST.collab.stations().find(x => x.story === 'design');
+    HOST.collab.dialog(false);
+    return { opts, n: HOST.list.length, last: last && last.textContent, st };
+  });
+  const id = dsg.st && dsg.st.id, same = (p, want) => until(p, w => { const s = HOST.collab.station(w.id); return !!s && s.story === 'design' && Math.abs(s.x - w.x) < 1e-6 && Math.abs(s.z - w.z) < 1e-6 && Math.abs(s.yaw - w.yaw) < 1e-6; }, want, 5000);
+  const seen = !!id && await same(B, dsg.st) && await same(C, dsg.st);
+  check('the design room: the Shared dialog\'s station picker lists it after the stories, and Add makes its station for every page',
+    dsg.opts.length === dsg.n + 1 && dsg.opts[dsg.n] === 'design' && dsg.opts.indexOf('design') === dsg.n && /design room/i.test(dsg.last) && seen, JSON.stringify(dsg));
+  // locked: Add and the menu's button (HOST.collab.design) refused; nothing added or moved
+  await A.evaluate(() => HOST.collab.lock(true));
+  await until(B, () => HOST.collab.locked, null, 3000);
+  const lk = await B.evaluate(async () => {
+    const a = HOST.collab.add('design', { x: 1, z: 1, yaw: 0 }), d = HOST.collab.design({ x: -1, z: 2, yaw: 1 });
+    await new Promise(r => setTimeout(r, 400));
+    return { a, d, n: HOST.collab.stations().length };
+  });
+  const lkSame = !!id && await same(A, dsg.st);
+  await A.evaluate(() => HOST.collab.lock(false));
+  await until(B, () => !HOST.collab.locked, null, 3000);
+  check('the design room: while the layout is locked neither Add nor the Design room button places it (nothing added or moved)', lk.a === '' && lk.d === '' && lk.n === n0 + 1 && lkSame, JSON.stringify(lk));
+  // Arrange all: the stories in their rows as before, the design room's table left where it is
+  await A.evaluate(() => HOST.collab.arrange({ x: 0, z: 0, yaw: 0 }));
+  await until(A, () => !HOST.collab.internals().pending.size, null, 3000);
+  await sleep(300);
+  const arr = await B.evaluate(() => ({ n: HOST.collab.stations().length, stories: HOST.collab.stations().filter(s => HOST.list.some(m => m.key === s.story)).length }));
+  check('the design room: Arrange all leaves its station where it is (never part of Arrange all)', !!id && await same(B, dsg.st) && arr.n === n0 + 1 && arr.stories === n0,
+    JSON.stringify(arr));
+  // the menu's button in a room when the room has a table: it moves that one to your feet (one table, not a pile)
+  const mv = await B.evaluate(async id => { const d = HOST.collab.design({ x: 3.5, z: 1.25, yaw: 0.5 }); await new Promise(r => setTimeout(r, 400)); return { d, n: HOST.collab.stations().length, s: HOST.collab.station(id) }; }, id);
+  const moved = await same(A, { id, x: 3.5, z: 1.25, yaw: 0.5 });
+  check('the design room: with a table in the room, the Design room button moves it to your feet for everyone (no second table)', mv.d === id && mv.n === n0 + 1 && moved, JSON.stringify(mv));
+  await A.evaluate(id => HOST.collab.remove(id), id);
+  await until(B, id => !HOST.collab.station(id), id, 5000); await until(C, id => !HOST.collab.station(id), id, 5000);
+}
+
+// a pretend headset's head put at (x, y, z) in room coordinates, looking along yaw (room)
+const goRoom = (p, x, y, z, yaw) => p.evaluate(([x, y, z, yaw]) => {
+  const X = window.__xr, R = HOST.room.internals(), v = new THREE.Vector3(x, y, z).applyMatrix4(R.m).applyMatrix4(X.W.local);
+  const a = yaw + R.yaw + Math.atan2(-X.W.local.elements[2], X.W.local.elements[0]);
+  X.head([v.x, v.y, v.z, a]);
+}, [x, y, z, yaw]);
+// render what H sees from its head, looking at yaw (room) and pitch
+// (size [w, h]: drawn at twice that off screen and scaled down, instead of at the page's size)
+async function headView(H, file, yawRoom, pitch, size) {
+  const url = await H.evaluate(([yawRoom, pitch, size]) => {
+    const X = window.__xr, R = HOST.room.internals(), r = HOST.renderer;
+    const loop = HOST.cur.peek('frame');
+    r.setAnimationLoop(null);
+    HOST.cur.peek('(xrPlace(), xrUpdate(APP.mode === "story" ? storyState(storyT(APP.t)) : XS), XR.panels.forEach(P => { P.last = ""; P.t = -1e9; panelTick(P, performance.now() + 1e6); }))');
+    HOST.collab.internals().pumpAt = 0;
+    for (const cb of X.raf.splice(0)) cb(performance.now(), X.frame);
+    const hp = new THREE.Vector3().setFromMatrixPosition(X.W.head).applyMatrix4(X.W.local.clone().invert());
+    const cam = new THREE.PerspectiveCamera(84, size ? size[0] / size[1] : r.domElement.width / r.domElement.height, 0.05, 2000);
+    cam.position.copy(hp);
+    cam.quaternion.setFromEuler(new THREE.Euler(pitch, yawRoom + R.yaw, 0, 'YXZ'));
+    const sc = HOST.cur.peek('GL.scene');
+    sc.updateMatrixWorld(true);
+    let u;
+    if (size) {
+      const w = size[0] * 2, h = size[1] * 2, rt = new THREE.WebGLRenderTarget(w, h), px = new Uint8Array(w * h * 4);
+      r.setRenderTarget(rt); r.render(sc, cam); r.readRenderTargetPixels(rt, 0, 0, w, h, px); r.setRenderTarget(null); rt.dispose();
+      const big = document.createElement('canvas'), out = document.createElement('canvas'), id = new ImageData(w, h);
+      for (let y = 0; y < h; y++) id.data.set(px.subarray((h - 1 - y) * w * 4, (h - y) * w * 4), y * w * 4);   // (its rows come bottom up)
+      big.width = w; big.height = h; big.getContext('2d').putImageData(id, 0, 0);
+      out.width = size[0]; out.height = size[1];
+      const ctx = out.getContext('2d');
+      ctx.fillStyle = '#040912'; ctx.fillRect(0, 0, size[0], size[1]); ctx.drawImage(big, 0, 0, size[0], size[1]);
+      u = out.toDataURL('image/png');
+    } else { r.render(sc, cam); u = r.domElement.toDataURL('image/png'); }
+    r.setAnimationLoop(loop);
+    return u;
+  }, [yawRoom, pitch, size || null]);
+  fs.writeFileSync(file, Buffer.from(url.split(',')[1], 'base64'));
+}
+
+// ---- the design room in a headset in a room (after designRoom, with a pretend headset H aligned in the room; S any
+// station, to find a spot away from them all): every station's icon built from its story's miniature (lowpoly.js, the
+// entry's icon), in its colour and turning; with the layout locked the menu's Design room button is greyed and places
+// nothing; pressed, it puts the props table at the headset's feet as a circle facing its way, which every page sees; the
+// headset standing in it, it becomes its station and the design room opens there, its icon gone over it; walked out,
+// the icon (the table's miniature) is back; Add here lists the design room after the stories. The station is removed at
+// the end. shots: pictures of the menu and the table at its station (design-*.png)
+async function headsetDesign(A, B, H, S, shots) {
+  const step = n => frames(H, n);
+  const press = id => H.evaluate(async id => {
+    const X = window.__xr; X.step(); X.step();
+    const r = HOST.collab.overlay().panel.regions.find(x => x.id === id); if (r && r.fn) r.fn();
+    for (let k = 0; k < 3; k++) { X.step(); await new Promise(res => setTimeout(res, 20)); }
+    return !!(r && r.fn);
+  }, id);
+  const ids = () => H.evaluate(() => { window.__xr.step(); window.__xr.step(); return HOST.collab.overlay().panel.regions.map(r => r.id); });
+  // away from every station, facing the room's origin
+  const sp = await awaySpot(H, S);
+  await goRoom(H, sp[0], 1.6, sp[1], Math.atan2(sp[0], sp[1]));
+  await step(800);
+  // every station's icon: its miniature, in its colour, turning
+  const icons = () => H.evaluate(() => [...HOST.collab.overlay().rings].map(([id, o]) => {
+    const I = o.icon, s = HOST.collab.station(id), m = s && HOST.meta(s.story);
+    return { id, story: s && s.story, model: I.model, want: m && m.icon, col: '#' + I.halo.material.color.getHexString(), wcol: m && m.col.toLowerCase(), a: I.spin.rotation.y,
+      tris: (I.mesh.geometry.attributes.position.count + (I.see ? I.see.geometry.attributes.position.count : 0)) / 3, on: I.g.visible && I.k > 0.9 };
+  }));
+  const built = await until(H, () => { window.__xr.step(); return [...HOST.collab.overlay().rings.values()].every(o => o.icon.model); }, null, 20000);
+  const i0 = await icons();
+  await step(400);
+  const i1 = await icons(), bad = i1.filter((x, k) => !(x.on && x.model && x.model === x.want && x.col === x.wcol && x.tris > 300 && angle(x.a, i0[k].a) > 0.05));
+  check('design room: every station\'s icon is built from its story\'s miniature (lowpoly.js), in its colour and turning', built && i1.length > 5 && !bad.length,
+    JSON.stringify({ built, n: i1.length, bad }));
+  // locked: the button greyed, nothing placed
+  const n0 = await H.evaluate(() => HOST.collab.stations().length);
+  await A.evaluate(() => HOST.collab.lock(true));
+  await until(H, () => HOST.collab.locked, null, 3000);
+  await H.evaluate(() => HOST.collab.panelOpen(true));
+  const lockedIds = await ids(), lockedPress = await press('design');
+  await step(300);
+  const nL = await H.evaluate(() => HOST.collab.stations().length);
+  await A.evaluate(() => HOST.collab.lock(false));
+  await until(H, () => !HOST.collab.locked, null, 3000);
+  check('design room: with the layout locked the menu\'s Design room button is greyed and places nothing', !lockedIds.includes('design') && !lockedPress && nL === n0,
+    JSON.stringify({ lockedIds: lockedIds.slice(0, 12), lockedPress, nL, n0 }));
+  // Add here lists it after the stories
+  await press('addpage');
+  const addIds = (await ids()).filter(x => x.startsWith('add:'));
+  await press('add:cancel');
+  const nStories = await H.evaluate(() => HOST.list.length);
+  check('design room: the menu\'s Add here lists the design room after the stories', addIds.length === nStories + 2 && addIds[nStories] === 'add:design', addIds.join());
+  // pressed: the props table at its feet, facing its way, for every page
+  const at = await H.evaluate(() => { window.__xr.step(); const R = HOST.room.internals(); return { x: R.hr.x, z: R.hr.z, yaw: R.hyaw }; });
+  const menuShot = shots && await H.evaluate(() => { const S = HOST.collab.overlay().panel, c = document.createElement('canvas'); c.width = S.w; c.height = S.vis; c.getContext('2d').drawImage(S.cv, 0, 0); return c.toDataURL('image/png'); });
+  if (menuShot) fs.writeFileSync(path.join(shots, 'design-menu.png'), Buffer.from(menuShot.split(',')[1], 'base64'));
+  const pd = await press('design');
+  let id = '';
+  for (let k = 0; k < 30 && !id; k++) { await step(100); id = await H.evaluate(() => (HOST.collab.stations().find(s => s.story === 'design') || {}).id || ''); }
+  const st = id && await H.evaluate(id => HOST.collab.station(id), id);
+  const seen = !!id && await until(A, id => !!HOST.collab.station(id), id, 5000) && await until(B, id => !!HOST.collab.station(id), id, 5000);
+  check('design room: the menu\'s Design room button in a room puts the props table at its feet as a circle, facing its way, for every page',
+    pd && !!st && Math.hypot(st.x - at.x, st.z - at.z) < 0.02 && angle(st.yaw, at.yaw) < 0.02 && seen, JSON.stringify({ pd, at, st, seen }));
+  await H.evaluate(() => HOST.collab.panelOpen(false));
+  // standing in it: its station, the design room opens there, its own icon gone
+  let inD = false;
+  for (let k = 0; k < 40 && !inD; k++) { await step(300); inD = await H.evaluate(() => HOST.curKey === 'design'); }
+  inD = inD && await ready(H, 'design', 60000);
+  if (inD) {
+    await H.evaluate(() => HOST.cur.peek('xrAdopt()'));
+    // (the table's miniatures, built a few a frame)
+    await until(H, () => { window.__xr.step(); return HOST.cur.peek('GL.sets.table.built() === GL.sets.table.total()'); }, null, 60000);
+    await step(600);
+  }
+  const there = await H.evaluate(id => { HOST.cur.peek('xrUpdate(XS)'); const o = HOST.collab.overlay().rings.get(id);
+    return { mine: HOST.collab.mine() === id, key: HOST.curKey, away: HOST.room.away(), world: HOST.cur.peek('GL.world.visible'), mode: HOST.cur.peek('APP.mode'),
+      icon: !!o && o.icon.g.visible && o.icon.k > 0.9, card: HOST.collab.overlay().cards.has(id), table: HOST.cur.peek('GL.sets.table.built() + "/" + GL.sets.table.total()'),
+      ready: HOST.collab.internals().ready, dbg: HOST.cur.peek('[GL.sets.table.group.visible, GL.world.visible, GL.world.getWorldPosition(new THREE.Vector3()).toArray().map(v => +v.toFixed(2)), GL.rig.position.toArray().map(v => +v.toFixed(2)), APP.mode, typeof XS, XS && XS.table_a]') }; }, id);
+  console.log(JSON.stringify(there));
+  check('design room: standing in it the headset takes it as its station and the design room opens there (its icon and card gone)',
+    inD && there.mine && there.key === 'design' && !there.away && there.world && !there.icon && !there.card, JSON.stringify({ inD, there }));
+  if (shots && inD) {
+    await headView(H, path.join(shots, 'design-station.png'), st.yaw, -0.32, [1280, 800]);
+    // from outside its circle, looking at it among the others
+    const back = [st.x + 3.2 * Math.sin(st.yaw), st.z + 3.2 * Math.cos(st.yaw)];
+    await goRoom(H, back[0], 1.6, back[1], st.yaw);
+    await step(900);
+    await headView(H, path.join(shots, 'design-circle.png'), st.yaw, -0.05, [1280, 800]);
+  }
+  // walked out: its icon (the table's miniature) back over the ring
+  const sp2 = await awaySpot(H, st);
+  await goRoom(H, sp2[0], 1.6, sp2[1], 0);
+  const out = await until(H, id => { window.__xr.step(); const o = HOST.collab.overlay().rings.get(id); return HOST.collab.mine() !== id && !!o && o.icon.g.visible && o.icon.k > 0.9 && o.icon.model === 'design.table'; }, id, 15000);
+  check('design room: walked out of its circle, its icon (the props table\'s miniature) is back over the ring', out,
+    JSON.stringify(await H.evaluate(id => { const o = HOST.collab.overlay().rings.get(id); return o && { model: o.icon.model, k: o.icon.k, mine: HOST.collab.mine() }; }, id)));
+  await A.evaluate(id => HOST.collab.remove(id), id);
+  await until(H, id => !HOST.collab.station(id), id, 5000);
+}
+
+// ---- --design: only the design room in a room (a quicker run while working on it): three pages and Arrange all,
+// designRoom, then a pretend headset aligned as in the main run, and headsetDesign; --shots also saves its pictures
+async function designOnly() {
+  const A = await open('#stories');
+  await A.evaluate(async () => { await HOST.collab.detect(); HOST.collab.create(); });
+  await until(A, () => HOST.collab.status === 'open', null, 10000);
+  const code = await A.evaluate(() => HOST.collab.code);
+  await A.evaluate(() => HOST.collab.arrange({ x: 0, z: 0, yaw: 0 }));
+  const all = p => until(p, () => HOST.collab.status === 'open' && HOST.collab.stations().length === HOST.list.length, null, 20000);
+  await all(A);
+  const B = await open('#s=' + code), C = await open('#s=' + code);
+  await all(B); await all(C);
+  await designRoom(A, B, C);
+  const H = await open('#s=' + code);
+  await all(H);
+  await ready(H, 'airports');
+  const aId = await A.evaluate(() => HOST.collab.id);
+  await A.evaluate(f => HOST.collab.publish([[HOST.room.frameKey('U1'), f]]), frameFor(ROOM, 'U1', aId, Date.now() - 60000));
+  await until(A, () => !HOST.collab.internals().pending.size, null, 3000);
+  await H.evaluate(() => HOST.room.sharedAlign(true));
+  await H.evaluate(installXR, { mode: 'immersive-ar', features: ['local-floor', 'anchors', 'shared'], local: LOCAL, floor: FLOOR, shared: SHARED, sharedId: '', head: [-6, 1.6, 6, 0] });
+  await H.evaluate(() => window.__xr.begin());
+  await frames(H, 400);
+  await H.evaluate(() => { const X = window.__xr; X.spaces.shared.UUId = 'U1'; for (const fn of X.resets.shared || []) fn({ transform: null }); });
+  await frames(H, 300);
+  check('design room: the pretend headset aligns in the room', await H.evaluate(() => HOST.room.aligned && HOST.room.src === 'adopted'));
+  if (shots) fs.mkdirSync(shots, { recursive: true });
+  await headsetDesign(A, B, H, (await H.evaluate(() => HOST.collab.stations()))[0], shots);
+  await H.evaluate(() => window.__xr.end());
 }
 
 // ---- peer to peer: pages whose relay calls go nowhere (as on GitHub Pages), introduced by the relay's own
@@ -760,6 +977,7 @@ try {
   await startRelay(relayPort);
   main: {   // (--p2p: only the peer-to-peer part, after this block; --near: only rooms on this network)
   if (P2P || NEAR_ONLY) break main;
+  if (DESIGN_ONLY) { await designOnly(); break main; }
   // ------------------------------------------------------------ rooms --
   const A = await open('#stories');
   check('a page served by the relay finds it', await A.evaluate(async () => { await HOST.collab.detect(); return HOST.collab.relay === location.origin; }));
@@ -841,6 +1059,7 @@ try {
     mapT.locked.kept && mapT.locked.arrOff && mapT.locked.label === 'Unlock layout' && !mapT.locked.followed && mapT.locked.unlocked, JSON.stringify(mapT.locked));
   await A.evaluate(() => { HOST.collab.dialog(false); HOST.collab.arrange({ x: 0, z: 0, yaw: 0 }); });
   await st7(B); await st7(C);
+  await designRoom(A, B, C);
 
   // ----------------------------------------- the headsets' three settings --
   // labels (in 3D, hidden, on top), free moving and subtitles are the room's, the same on every page and headset in it
@@ -1292,17 +1511,20 @@ try {
   const shownAt = await H.evaluate(() => { HOST.cur.peek('xrUpdate(APP.mode === "story" ? storyState(storyT(APP.t)) : XS)');
     return { away: HOST.room.away(), world: HOST.cur.peek('GL.world.visible'), main: HOST.cur.peek('XR.main.mesh.visible'), card: HOST.collab.overlay().cards.has(HOST.collab.mine()) }; });
   check('headset: and there its story shows (scene and panel; its own card gone)', !shownAt.away && shownAt.world && shownAt.main && !shownAt.card, JSON.stringify(shownAt));
-  // every station shows its story's icon over its ring, in the story's colour and turning; at your own station it is gone
+  // every station shows its story's icon over its ring: its miniature (lowpoly.js, its entry's icon; built one a frame,
+  // the fallback until then), in the story's colour and turning; at your own station it is gone
   const iconsSeen = () => H.evaluate(() => [...HOST.collab.overlay().rings].map(([id, o]) => {
-    const I = o.icon, s = HOST.collab.station(id), m = s && HOST.list.find(x => x.key === s.story);
-    return { id, story: s && s.story, key: I && I.key, col: I && '#' + I.halo.material.color.getHexString(), want: m && m.col.toLowerCase(), a: I && I.spin.rotation.y,
+    const I = o.icon, s = HOST.collab.station(id), m = s && HOST.meta(s.story);
+    return { id, story: s && s.story, key: I && I.key, model: I && I.model, wantModel: m && m.icon, tris: I && I.mesh.geometry.attributes.position.count / 3,
+      col: I && '#' + I.halo.material.color.getHexString(), want: m && m.col.toLowerCase(), a: I && I.spin.rotation.y,
       on: !!I && I.g.visible && I.k > 0.9, y: I && +(I.g.position.y * o.g.scale.y).toFixed(3), mine: id === HOST.collab.mine() };
   }));
+  const built = await until(H, () => { window.__xr.step(); return [...HOST.collab.overlay().rings.values()].every(o => o.icon.model || o.icon.k < 0.05); }, null, 20000);
   const ic0 = await iconsSeen();
   await frames(H, 400);
   const ic1 = await iconsSeen(), nSt = await H.evaluate(() => HOST.collab.stations().length);
-  const iconOk = (x, i) => x.key === x.story && x.col === x.want && x.y > 1.9 && (x.mine ? !x.on : x.on && angle(x.a, ic0[i].a) > 0.05);
-  check('headset: every station shows its story\'s icon over its ring (in its colour, turning), but not your own station', ic1.length === nSt && ic1.some(x => x.mine) &&
+  const iconOk = (x, i) => x.key === x.story && x.col === x.want && x.y > 1.9 && (x.mine ? !x.on : x.on && angle(x.a, ic0[i].a) > 0.05 && x.model === x.wantModel && x.tris > 300);
+  check('headset: every station shows its story\'s icon over its ring (its miniature, in its colour, turning), but not your own station', built && ic1.length === nSt && ic1.some(x => x.mine) &&
     ic1.every(iconOk), JSON.stringify(ic1.filter((x, i) => !iconOk(x, i))));
   // the headset recentres (its local origin moves; the story's own reset listener asks to recentre): the story
   // stays at its station, placed there again every frame
@@ -1908,6 +2130,9 @@ try {
   check('headset: at the other station its own panels (shown), the first station\'s kept (hidden)', hp3 === `${HEADSET_STORY},shown,main,foot` &&
     await A.evaluate(id => HOST.collab.stationPanels(id), S2.id) === 'hidden', hp3);
   await A.evaluate(id => HOST.collab.setStationPanels(id, 'shown'), S2.id);
+  // the design room: the menu's button in a room, its station, the icons from the miniatures (then back to S1)
+  await headsetDesign(A, B, H, S1, '');
+  check('headset: back at its station after the design room', await walk(H, S1, HEADSET_STORY, 0));
   // Remove on the headset panel asks first: the first press only arms it (for 3 s), the station stays
   await H.evaluate(() => HOST.collab.panelOpen(true));
   await frames(H, 150);
@@ -2624,11 +2849,6 @@ try {
     await frames(C, 300);
     // both in their own frames (made from the same spot): room coordinates agree
     await H.evaluate(() => { HOST.collab.me({ name: 'Ada', color: '#3ee08f' }); });
-    const goRoom = (p, x, y, z, yaw) => p.evaluate(([x, y, z, yaw]) => {
-      const X = window.__xr, R = HOST.room.internals(), v = new THREE.Vector3(x, y, z).applyMatrix4(R.m).applyMatrix4(X.W.local);
-      const a = yaw + R.yaw + Math.atan2(-X.W.local.elements[2], X.W.local.elements[0]);
-      X.head([v.x, v.y, v.z, a]);
-    }, [x, y, z, yaw]);
     await goRoom(H, Sf.x, 1.6, Sf.z, Sf.yaw);
     await frames(H, 1300);
     await ready(H, HEADSET_STORY, 40000);
@@ -2640,39 +2860,7 @@ try {
     }, [Sf.x * 0.5 + 1.2, Sf.z * 0.5 - 1.2]);   // pointing at the floor, off to the side (seen from H)
     await frames(C, 600);
     await frames(H, 400);
-    // render what H sees from its head, looking at yaw (room) and pitch
-    // (size [w, h]: drawn at twice that off screen and scaled down, instead of at the page's size)
-    const view = async (file, yawRoom, pitch, size) => {
-      const url = await H.evaluate(([yawRoom, pitch, size]) => {
-        const X = window.__xr, R = HOST.room.internals(), r = HOST.renderer;
-        const loop = HOST.cur.peek('frame');
-        r.setAnimationLoop(null);
-        HOST.cur.peek('(xrPlace(), xrUpdate(APP.mode === "story" ? storyState(storyT(APP.t)) : XS), XR.panels.forEach(P => { P.last = ""; P.t = -1e9; panelTick(P, performance.now() + 1e6); }))');
-        HOST.collab.internals().pumpAt = 0;
-        for (const cb of X.raf.splice(0)) cb(performance.now(), X.frame);
-        const hp = new THREE.Vector3().setFromMatrixPosition(X.W.head).applyMatrix4(X.W.local.clone().invert());
-        const cam = new THREE.PerspectiveCamera(84, size ? size[0] / size[1] : r.domElement.width / r.domElement.height, 0.05, 2000);
-        cam.position.copy(hp);
-        cam.quaternion.setFromEuler(new THREE.Euler(pitch, yawRoom + R.yaw, 0, 'YXZ'));
-        const sc = HOST.cur.peek('GL.scene');
-        sc.updateMatrixWorld(true);
-        let u;
-        if (size) {
-          const w = size[0] * 2, h = size[1] * 2, rt = new THREE.WebGLRenderTarget(w, h), px = new Uint8Array(w * h * 4);
-          r.setRenderTarget(rt); r.render(sc, cam); r.readRenderTargetPixels(rt, 0, 0, w, h, px); r.setRenderTarget(null); rt.dispose();
-          const big = document.createElement('canvas'), out = document.createElement('canvas'), id = new ImageData(w, h);
-          for (let y = 0; y < h; y++) id.data.set(px.subarray((h - 1 - y) * w * 4, (h - y) * w * 4), y * w * 4);   // (its rows come bottom up)
-          big.width = w; big.height = h; big.getContext('2d').putImageData(id, 0, 0);
-          out.width = size[0]; out.height = size[1];
-          const ctx = out.getContext('2d');
-          ctx.fillStyle = '#040912'; ctx.fillRect(0, 0, size[0], size[1]); ctx.drawImage(big, 0, 0, size[0], size[1]);
-          u = out.toDataURL('image/png');
-        } else { r.render(sc, cam); u = r.domElement.toDataURL('image/png'); }
-        r.setAnimationLoop(loop);
-        return u;
-      }, [yawRoom, pitch, size || null]);
-      fs.writeFileSync(path.join(shots, file), Buffer.from(url.split(',')[1], 'base64'));
-    };
+    const view = (file, yawRoom, pitch, size) => headView(H, path.join(shots, file), yawRoom, pitch, size);
     const face = Math.atan2(-(0.4 - Sf.x), -(-0.3 - Sf.z));
     await view('headset-people.png', face, -0.12);
     await H.evaluate(() => HOST.collab.panelOpen(true));
@@ -2733,8 +2921,8 @@ try {
     console.log('pictures in ' + shots);
   }
   }   // (main)
-  if (!NEAR_ONLY) await p2p();
-  if (!P2P) await nearby();
+  if (!NEAR_ONLY && !DESIGN_ONLY) await p2p();
+  if (!P2P && !DESIGN_ONLY) await nearby();
 } catch (e) {
   console.log('FAIL ' + (e.stack || e.message));
   fails.push('exception');
