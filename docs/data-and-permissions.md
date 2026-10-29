@@ -172,8 +172,9 @@ address as it is; a private one by its /24; IPv6 by its /64). One id stands for 
 not name an address; but anyone who knows an address can work out its id, so it is a convenience, not a secret.
 
 - **No address is kept.** With a relay, the relay hashes the address it sees for each request and socket and keeps
-  only the ids, in memory, with the rooms (gone when a room expires or the relay restarts); no answer and no log line
-  holds an address or an id (a slot's id shows with `******` in the log). Behind a reverse proxy it reads the
+  only the ids, in memory, with the rooms (gone when a room expires or the relay restarts); no answer holds an address (a
+  device is told only its own id), and no log line holds an address or an id (a slot's id shows with `******` in the
+  log). Behind a reverse proxy it reads the
   address from `X-Forwarded-For` only when started with `--proxy`.
 - **Without a relay** the page asks Cloudflare's STUN server for its public address (as in a peer-to-peer room
   above), hashes it at once and forgets it. It asks only when the Shared dialog or the headset's menu lists rooms,
