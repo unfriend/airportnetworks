@@ -2396,6 +2396,7 @@ try {
   // told to start one headset first; a page opened at the old address later is moved too, and the log has the
   // whole address. In a room of its own, so the other pages stay where they are
   const Fp1 = await open('');
+  await Fp1.evaluate(() => HOST.collab.detect());   // (the relay found first, as for Fp4 below)
   await Fp1.evaluate(() => HOST.collab.create());
   await until(Fp1, () => !!HOST.collab.code && HOST.collab.status === 'open', null, 8000);
   const fcode = await Fp1.evaluate(() => HOST.collab.code);
@@ -2446,6 +2447,9 @@ try {
   Fp4.on('pageerror', e => errors.push(e.stack || e.message));
   await Fp4.goto(base() + 's/1/index.html', { timeout: 90000 });
   await Fp4.waitForFunction(() => typeof HOST !== 'undefined' && HOST.collab, null, { timeout: 90000, polling: 100 });   // (as open(): a busy machine loads slowly)
+  // (the relay found first: on a busy machine the page's first question can wait behind its files for more than the 5 s
+  // a room's start waits for it, and the room then starts peer to peer, where no generation is given)
+  await Fp4.evaluate(() => HOST.collab.detect());
   await Fp4.evaluate(() => HOST.collab.create());
   // (generous: a fresh page on a busy machine first finds the relay, then makes the room)
   const f4 = await until(Fp4, () => !!HOST.collab.code && HOST.collab.status === 'open' && !!HOST.collab.val('sg'), null, 30000);
