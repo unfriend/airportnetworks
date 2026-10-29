@@ -216,7 +216,10 @@ console.log(`ends at ${mmss(T_END)} (${T_END} s); the old table ended at ${story
 
 // ------------------------------------------------------------------ the recording
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'narrate-')), wav = path.join(tmp, 'mix.wav'), mp3 = path.join(tmp, 'narration.mp3');
-const m = spawnSync(PY, [KPY, 'mix', '--out', wav, '--length', String(T_END)], { input: JSON.stringify(read.map(l => ({ file: l.file, at: l.at }))), stdio: ['pipe', 'pipe', 'inherit'] });
+// the recording ends with the story's last words and a pause, at most 1.1 s before the story does: a recording longer
+// than the story less a second would stretch its timeline (audioInit's ready)
+const LEN = Math.max(T_END - 1.1, Math.max(...read.map(l => l.end)) + 0.5);
+const m = spawnSync(PY, [KPY, 'mix', '--out', wav, '--length', String(LEN)], { input: JSON.stringify(read.map(l => ({ file: l.file, at: l.at }))), stdio: ['pipe', 'pipe', 'inherit'] });
 if (m.status !== 0) { console.error('kokoro.py mix failed'); process.exit(1); }
 // loudness to -16 LUFS in two passes (measure, then apply), true peaks under -2.5 dB, 44.1 kHz mono MP3 at 64 kbps
 const ln = 'loudnorm=I=-16:TP=-2.5:LRA=11';

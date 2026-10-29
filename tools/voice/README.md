@@ -60,6 +60,12 @@ Then, as after any change to a story's timing: `len` in `stories/list.js`, the c
 `audio/PUT-narration.mp3-HERE.txt`, `VERSION` in `sw.js`, `node tools/smoke.mjs` and `node tools/audio.mjs`, and
 `node tools/narration.mjs` (it rewrites `docs/narration.md` with the new times). The script prints the new length.
 
+`node tools/voice/check.mjs <key>` (about five minutes; `--quick` three slideshow stops instead of all) checks the
+story in headless Chromium with the recording the page decodes: every line's words start 0.3 s after its cue and
+nothing else is spoken, each chapter starts with its heading and its words end where `NARRATION_ENDS` says, before its
+slideshow stop; the clock follows the sound; a jump to a line lands the sound there; the slideshow waits at every
+chapter's end with the voice finished, and Next goes on in step. How it sounds can only be heard.
+
 **After a story's text changes**, run it again: only the lines whose words changed are spoken again (each line is cached
 by a hash of what is said, the voice, the speed and the language), the timeline is laid out afresh, and the tables and
 the MP3 are replaced. `tools/pace.mjs` leaves a story with an MP3 alone, so this is how a narrated story is re-timed.
@@ -103,9 +109,10 @@ it, and here it is built from the audio:
   cuts a line; `NARRATION_ENDS` (where each chapter's words end, to 0.05 s) lets the voice finish there anyway, as the
   airports' recording needs.
 
-The recording is the lines placed on that timeline (24 kHz from Kokoro), levelled to -16 LUFS, peaks under -2.5 dB (ffmpeg's loudnorm, two
-passes), as a mono 44.1 kHz MP3 at 64 kbps, padded with silence to the end of the story. The script checks the words'
-ends against the recording itself (silencedetect) and that no line runs into the next.
+The recording is the lines placed on that timeline (24 kHz from Kokoro), levelled to -16 LUFS with peaks under
+-2.5 dB (ffmpeg's loudnorm, two passes), as a mono 44.1 kHz MP3 at 64 kbps, padded with silence to 1.1 s before the
+story ends (a longer file would stretch the story's timeline). The script checks the words' ends against the recording
+itself (silencedetect) and that no line runs into the next.
 
 ## Licences
 

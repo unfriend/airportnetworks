@@ -33,6 +33,12 @@
   narration went silent on the Quest. After touching sound, run
   `node tools/audio.mjs` as well as the smoke test, and report audible output
   on a headset as untested (Sound check is the on-device tool).
+- Synthetic narrations come from `tools/voice/` (Kokoro-82M; the tour's, voice
+  `af_heart`, the owner's choice; model and Python outside the repository, see
+  its README). After a narrated story's text changes, run
+  `node tools/voice/narrate.mjs <key>` (it re-times the story from the audio;
+  not `tools/pace.mjs`), then `node tools/voice/check.mjs <key>`; check new
+  words with `--phonemes` and `say.json`, and report how it sounds as untested.
 - Headset placement can be anchored in the room (`HOST.anchor`, see
   "Placement in the headset" in `AGENTS.md`): story code must never move
   `GL.rig` past it, so check `HOST.anchor.held()` before re-placing and

@@ -184,3 +184,4 @@ Third-party material:
 | Geist et al., Med 2025 | `tools/pet/` | CC BY 4.0: credit the authors (the story does) |
 | Buljan et al., bioRxiv 2025 | `tools/micro/` | CC BY-NC: credit, and no commercial use |
 | EndotypY | used by `tools/endo/data/gen_data.py` only, not shipped | MIT |
+| Kokoro-82M v1.0 (hexgrad), its American voice `af_heart` | the tour's narration, `audio/narration-lbi.mp3`, made by `tools/voice/` (the model is not shipped) | Apache-2.0: the recordings it makes are ours to use; no speaker to ask. The story's credits say the narration is a synthetic voice (Kokoro). kokoro-onnx (MIT), espeak-ng and phonemizer (GPL-3) only run offline to make it: nothing of them ships |

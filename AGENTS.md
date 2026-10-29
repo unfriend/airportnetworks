@@ -103,6 +103,11 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
   shared rooms test (see Testing); `tools/narration.mjs` - writes
   `docs/narration.md` from the running stories; `tools/pace.mjs` - writes the
   `NARRATION_SYNC` that paces a story without a recording (see "Inside a story").
+- `tools/voice/` - a synthetic narration (Kokoro-82M through kokoro-onnx; the model, its Python and the spoken lines
+  stay outside the repository, see its `README.md`): `node tools/voice/narrate.mjs <key>` speaks a story's lines (how
+  each word is said: `say.json`), lays them out and writes `audio/narration-<key>.mp3`, `NARRATION_SYNC` and
+  `NARRATION_ENDS`; `node tools/voice/check.mjs <key>` checks the result in a browser. The tour's narration is made
+  so (the American voice `af_heart`, the owner's choice, 29 October 2026).
 - `tools/nmd/` - the sources of `stories/nmd.js` (data generator, data block, sets,
   engine parts, build script, set harness; it uses `tools/lbi/kit.js`); see its
   `README.md`. `ikerdata/` holds the authors' analysis files it reads.
@@ -220,8 +225,9 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
   it. The voice: a chapter's last words often run on past its stop (the
   airports' recording by up to 2.4 s, so a plain pause cut them). A story with a
   recording lists where each chapter's words end in it (`NARRATION_ENDS`, seconds
-  by chapter key, measured from the file; only `stories/airports.js` has one, and
-  it is independent of `NARRATION_SYNC`): at a stop the narration plays on, on
+  by chapter key, measured from the file; `stories/airports.js` has one, independent
+  of `NARRATION_SYNC`, and the tour has one, written with its table by
+  `tools/voice/narrate.mjs`, whose words always end before each stop): at a stop the narration plays on, on
   its own clock, to that point (`slideTail`, `slideSound`, which `audioSync`
   plays), and after Next it stays quiet, the story not following it
   (`audioFollow`), until the story is back there, so nothing is cut or said
@@ -1103,7 +1109,10 @@ immersive session.
   `docs/narration.md`; the flock's first swoop (flight time, `roost` in its
   set) is timed to its last chapter at this pace. A recorded narration replaces
   the table with its own times (the airports' is): `pace.mjs` leaves a story
-  with an MP3 in `audio/` alone. A story in two languages (`LANGS` and `setLang(l, false)`, the pass story) is read in
+  with an MP3 in `audio/` alone. A synthetic narration (`tools/voice/`, the tour's) is laid out from its audio instead:
+  each stretch lasts the longer of 1.1 times its story time and its line plus a pause, and a chapter's words end
+  before its slideshow stop; after such a story's text changes, run `node tools/voice/narrate.mjs <key>` again (only
+  changed lines are spoken again), not `pace.mjs`. A story in two languages (`LANGS` and `setLang(l, false)`, the pass story) is read in
   each, and each stretch takes the reading time of its longer text (by words); `tools/narration.mjs` writes both into
   `docs/narration.md`. `slideStep` (slideshow, see above)
   runs in `frame()` after the clock moves and before the end check.

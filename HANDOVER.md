@@ -12,7 +12,7 @@ and where to read on.
 | --- | --- |
 | show the stories (screens, kiosk, headsets) | [README.md](README.md) (installing, using), [docs/event-runbook.md](docs/event-runbook.md), [relay/README.md](relay/README.md) for shared rooms |
 | check or answer for the science | [docs/data-and-permissions.md](docs/data-and-permissions.md), [docs/questions-for-authors.md](docs/questions-for-authors.md), the story's `tools/<story>/SPEC.md` |
-| record a narration | [docs/narration.md](docs/narration.md) (the words and times), [audio/PUT-narration.mp3-HERE.txt](audio/PUT-narration.mp3-HERE.txt) |
+| record a narration | [docs/narration.md](docs/narration.md) (the words and times), [audio/PUT-narration.mp3-HERE.txt](audio/PUT-narration.mp3-HERE.txt); a synthetic voice: [tools/voice/README.md](tools/voice/README.md) |
 | change the code | this page, then [docs/setup-and-release.md](docs/setup-and-release.md) and [AGENTS.md](AGENTS.md) (the full guide: structure, conventions, every shared-room rule, testing) |
 | work with an AI coding agent | [CLAUDE.md](CLAUDE.md) and [AGENTS.md](AGENTS.md) are written for agents too; see "Working with AI agents" below |
 
@@ -23,7 +23,7 @@ and where to read on.
 | Network theory: Airports | `airports` | `stories/airports.js` (hand-written) | recorded | real (OpenFlights routes) |
 | Network medicine: Proteins | `proteins` | `stories/proteins.js` (hand-written) | not yet | curated proteins and interactions |
 | Spatial interactome: Cell map | `spatial` | `stories/spatial.js` (hand-written) | not yet | curated, laid out at load time |
-| LBI Network Medicine: The future | `lbi` | `tools/lbi/` (built) | not yet | illustrative scenes, some real data |
+| LBI Network Medicine: The future | `lbi` | `tools/lbi/` (built) | synthetic (Kokoro, `af_heart`) | illustrative scenes, some real data |
 | Rare muscle diseases: Muscle and heart | `nmd` | `tools/nmd/` (built) | not yet | the authors' files in `ikerdata/`, some stand-ins |
 | Disease endotypes: Endotypes | `endo` | `tools/endo/` (built) | not yet | the authors' EndotypY run (kept out of the repository) |
 | Whole-body PET: One scan, one system | `pet` | `tools/pet/` (built) | not yet | the paper's tables and figures, some stand-ins |
@@ -72,7 +72,11 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
   name tags in each label mode; the story panels in 3D in the life-size and stand-inside views (passing birds, fish or
   layers hide parts of them). The full list ends AGENTS.md "Shared rooms"; [docs/event-runbook.md](docs/event-runbook.md)
   says what to try at an event.
-- **Unfinished:** narration for fourteen stories (scripts ready in [docs/narration.md](docs/narration.md)); the muscle
+- **Unfinished:** narration for thirteen stories (scripts ready in [docs/narration.md](docs/narration.md)). The airports
+  story has a human recording; the tour (*The future*) a synthetic one, made by `tools/voice/` with Kokoro-82M's
+  American voice `af_heart`, which the owner picked from samples of several voices (29 October 2026). The others can
+  follow with the same command on the owner's go (`node tools/voice/narrate.mjs <key>`, see
+  [tools/voice/README.md](tools/voice/README.md)); how the tour sounds was not heard here. The muscle
   story's layer z-scores, walks and endotype names are stand-ins until its authors send their own; the questions in
   [docs/questions-for-authors.md](docs/questions-for-authors.md) are open.
 - **Known quirk of the tests:** the shared-room test checks timing, and a heavily loaded machine (software WebGL draws

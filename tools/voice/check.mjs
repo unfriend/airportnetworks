@@ -96,14 +96,30 @@ for (const [i, c] of R.CH.entries()) {
   ok(d.length >= 14 && d[d.length - 1] < 0.3 + gap && q[q.length - 1].pos > q[0].pos + 3, `the clock follows the sound: ${q[0].t.toFixed(2)} -> ${q[q.length - 1].t.toFixed(2)} s, ${d[d.length >> 1].toFixed(2)} s apart (median), at most ${d[d.length - 1].toFixed(2)} (frames up to ${gap.toFixed(2)} s apart)`);
 }
 
+// the clock and the sound in step within 8 s: no further apart than 0.3 s and the longest time between two frames in
+// the last 0.8 s (the clock eases onto the sound over a few frames)
+async function inStep() {
+  const t0 = Date.now();
+  let p, gap;
+  do {
+    await page.evaluate(() => { window.__gap = 0; });
+    await wait(800);
+    p = await probe(); gap = await page.evaluate(() => window.__gap);
+  } while (!(p.pos !== null && Math.abs(p.pos - p.t) < 0.3 + gap) && Date.now() - t0 < 8000);
+  return [p, gap];
+}
+
 // ------------------------------------------------------------------ jumps
 const pick = R.cues.filter((c, i) => i % Math.max(1, Math.floor(R.cues.length / 6)) === 3).slice(0, 6);
 for (const c of pick) {
   await page.evaluate(t => HOST.cur.peek(`(APP.seek(${t}), APP.playing || APP.togglePlay())`), c.rec);
   try {
-    const p = await until('sound at the line', p => p.pos !== null && p.pos > c.rec + 0.6 && Math.abs(p.pos - p.t) < 0.3, 8000);
-    const span = R.spans.find(([a, b]) => a <= p.pos && p.pos <= b + 0.1);
-    ok(span && near(span[0], c.rec + 0.3, 0.15), `a jump to "${c.text}" (${c.rec.toFixed(2)} s): the sound at ${p.pos.toFixed(2)}, the clock at ${p.t.toFixed(2)}, inside its words (from ${span ? span[0].toFixed(2) : '-'})`);
+    // the sound starts where the story jumped to (its line's words 0.3 s on), then the two keep in step
+    const a = await until('sound after the jump', p => p.pos !== null && p.t >= c.rec - 0.05 && p.t < c.rec + 3, 8000);
+    const [b, gap] = await inStep();
+    const span = R.spans.find(([x]) => near(x, c.rec + 0.3, 0.15));
+    ok(span && a.pos >= c.rec - 0.15 && a.pos < c.rec + 1 && Math.abs(b.pos - b.t) < 0.3 + gap,
+      `a jump to "${c.text}" (${c.rec.toFixed(2)} s, its words from ${span ? span[0].toFixed(2) : '-'}): the sound from ${a.pos.toFixed(2)}, then ${b.pos.toFixed(2)} with the clock at ${b.t.toFixed(2)}`);
   } catch (e) { ok(false, `a jump to "${c.text}": ${e.message}`); }
 }
 
@@ -123,9 +139,8 @@ for (const i of which) {
     await page.evaluate(() => document.getElementById('btnNext').click());
     if (i < R.CH.length - 1) {
       await until('Next', p => p.playing && p.pos !== null && p.t > c.stop + 0.3, 10000);
-      await page.evaluate(() => { window.__gap = 0; });
-      await wait(1000);
-      const n = await probe(), gap = await page.evaluate(() => window.__gap);
+      // the clock eases onto the sound over a few frames
+      const [n, gap] = await inStep();
       ok(n.playing && n.pos !== null && Math.abs(n.pos - n.t) < 0.3 + gap, `  Next: playing on, the sound at ${n.pos === null ? '-' : n.pos.toFixed(2)} with the clock at ${n.t.toFixed(2)} (frames up to ${gap.toFixed(2)} s apart)`);
     }
   } catch (err) { ok(false, `${c.name}: ${err.message}`); }

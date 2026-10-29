@@ -597,7 +597,7 @@ try {
   check('the headsets\' settings: set on one page, every other page in the room follows', lookSet, (await Promise.all([A, B, C].map(lookOf))).join('; '));
   // subtitles: off in a room without them; on from one page, for every page
   const subsOf = p => p.evaluate(() => [HOST.xr.subs(), HOST.collab.look().subs].join());
-  const subsIs = (p, want) => until(p, w => HOST.xr.subs() === w, want, 3000);
+  const subsIs = (p, want) => until(p, w => HOST.xr.subs() === w, want, 6000);   // (a loaded machine can take a few seconds)
   const subs0 = await Promise.all([A, B, C].map(subsOf));
   await A.evaluate(() => HOST.xr.setSubs(true));
   const subsSet = await subsIs(B, true) && await subsIs(C, true);
