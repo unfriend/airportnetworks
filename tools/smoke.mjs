@@ -1,4 +1,4 @@
-// Headless smoke test for the fifteen stories and the design room.
+// Headless smoke test for the sixteen stories and the design room.
 //   node tools/smoke.mjs [base-url]     (default http://127.0.0.1:8123/)
 // Serve the folder first (npx http-server -p 8123 -c-1 .). Needs Playwright;
 // set PLAYWRIGHT_MODULE to its path if it is installed globally, and
@@ -20,7 +20,7 @@ await page.waitForTimeout(4000);
 await step('start screen is the landing page', async () => {
   if (!await page.evaluate(() => HOST.picking)) errors.push('start screen not shown on load');
 });
-for (const key of ['airports', 'proteins', 'spatial', 'lbi', 'nmd', 'endo', 'pet', 'micro', 'ovary', 'qubits', 'mutation', 'topo', 'pass', 'flock', 'robots']) {
+for (const key of ['airports', 'proteins', 'spatial', 'lbi', 'nmd', 'endo', 'pet', 'micro', 'ovary', 'qubits', 'mutation', 'topo', 'soil', 'pass', 'flock', 'robots']) {
   await step(`load ${key}`, async () => {
     await page.click(`#picker [data-story="${key}"]`).catch(async () => { await page.click('#btnOther'); await page.click(`#picker [data-story="${key}"]`); });
     await page.waitForFunction(k => HOST.curKey === k && HOST.cur && HOST.cur.collab.scene() && HOST.cur.peek('typeof ST !== "undefined" && ST.items.length > 0'), key, { timeout: 30000 });
@@ -650,6 +650,113 @@ for (const key of ['airports', 'proteins', 'spatial', 'lbi', 'nmd', 'endo', 'pet
       }
     } finally { await lp.close(); }
   });
+  if (key === 'soil') await step('soil: every explore tool, on the page and in the headset', async () => {
+    const bad = await page.evaluate(async () => {
+      const sleep = ms => new Promise(r => setTimeout(r, ms)), peek = src => HOST.cur.peek(src);
+      const until = async (f, ms) => { for (let n = 0; n < ms / 50 && !f(); n++) await sleep(50); return f(); };
+      const out = peek(`(() => {
+        const out = [], txt = k => document.getElementById('pane-' + k).textContent, f1 = v => num(v, 1);
+        // Field: every date with every measure, both wheats and every regime, every view; each group of plots picked
+        pickTab('field'); if (X.scene !== 'field') out.push('the Field tab did not bring up the field');
+        for (const [d] of DATE_OPTS()) for (const s of SHOWS) {
+          sceneCtl('field', 'date', d); pickShow(s);
+          if (fieldDate() !== +d || fieldShow() !== s || !txt('field').includes(MEASURE[s][0] + ' · Day ' + FACTS.days[+d])) out.push('the field on day ' + FACTS.days[+d] + ' with ' + s + ' not shown');
+        }
+        for (const c of ['line', 'fert']) for (const [v] of ctlOf('field', c).options) sceneCtl('field', c, v);
+        for (const [v] of ctlOf('field', 'view').options) { showView('field', v); if (!viewIs('field', v)) out.push('the field\\'s view ' + v + ' not shown'); }
+        for (let g = 0; g < 6; g++) { selectPlot(g); if (X.plot !== g || !txt('field').includes(LINE_NAME[Math.floor(g / 3)] + ', ' + FERT_NAME[g % 3].toLowerCase())) out.push('the group of plots ' + g + ' not picked'); }
+        selectPlot(-1); showView('field', 'default');
+        // the data's numbers in the pane: nitrate on day 24 in fertilised soil (BNI · control); day 70's chlorophyll read
+        // off the slides; the jars' N2O peaks
+        sceneCtl('field', 'date', '2'); pickShow('no3');
+        if (!txt('field').includes(f1(SD.meta('no3', 0, 1, 2).mean) + ' · ' + f1(SD.meta('no3', 1, 1, 2).mean))) out.push('nitrate on day 24 is not the data\\'s ' + f1(SD.meta('no3', 0, 1, 2).mean) + ' · ' + f1(SD.meta('no3', 1, 1, 2).mean));
+        sceneCtl('field', 'date', '4'); pickShow('chl');
+        if (!txt('field').includes(f1(SD.chl70(0, 0).v) + ' · ' + f1(SD.chl70(0, 1).v)) || !txt('field').includes('read off the slides')) out.push('day 70\\'s chlorophyll is not the slides\\' reading');
+        sceneCtl('field', 'date', '0'); pickShow('n2o');
+        if (!viewIs('field', 'jars') || !txt('field').includes('ppm') || !txt('field').includes('unit not given')) out.push('N2O did not bring the jars and both measurements');
+        sceneCtl('field', 'date', '4'); pickShow('chl'); showView('field', 'default');
+        // Nitrogen: every switch of the sketch, said to be a sketch
+        pickTab('nitrogen'); if (X.scene !== 'soil') out.push('the Nitrogen tab did not bring up the soil block');
+        for (const c of ctlsOf('soil')) for (const [v] of c.options) { sceneCtl('soil', c.key, v); if (ctlv('soil', c.key) !== v) out.push('the sketch\\'s ' + c.key + ' ' + v + ' not set'); }
+        if (!txt('nitrogen').includes('A sketch, not data')) out.push('the Nitrogen pane does not say it is a sketch');
+        // Microbes: the cloud by phylum and the nitrifiers, their shares; a kind by its number
+        pickTab('microbes'); if (X.scene !== 'net' || netView() !== 'cloud') out.push('the Microbes tab did not bring up the cloud');
+        for (const v of ['guild', 'phylum']) sceneCtl('net', 'colour', v);
+        for (const k of D.guilds.keys) if (!txt('microbes').includes(D.guilds[k].name)) out.push('the guild ' + k + ' is not in the Microbes pane');
+        const k215 = kindOfRank(215); selectKind(k215);
+        if (X.kind !== k215 || !txt('microbes').includes('Kind 215')) out.push('kind 215 not picked');
+        selectKind(-1);
+        // Network: every big module, the threshold's ends and its counts, the shuffle, the split three ways
+        pickTab('network'); if (X.scene !== 'net' || netView() !== 'net') out.push('the Network tab did not bring up the network');
+        for (const m of BIG) { selectModule(m); if (X.mod !== m || !txt('network').includes('Module ' + (m + 1) + ' · ' + fmt(D.net.mods[m].n) + ' kinds')) out.push('module ' + (m + 1) + ' not shown'); }
+        stepModule(1); stepModule(-1); selectModule(-1);
+        for (const r of [0.6, 0.7, 0.8]) {
+          setRho(r); const want = (D.net.thresholds.find(x => Math.abs(x.rho - r) < 1e-9) || {}).links;
+          if (X.rho !== r || SD.net.cut(r) !== want || !txt('network').includes(fmt(want))) out.push('at ρ ' + r + ' the network has ' + SD.net.cut(r) + ' links, the data ' + want);
+        }
+        setRho(0.6);
+        setShuffle(true); if (!X.shuf || !txt('network').includes(fmt(D.net.null.links) + ' (shuffled)')) out.push('the shuffle does not leave the data\\'s ' + D.net.null.links + ' links'); setShuffle(false);
+        for (const [by] of SPLIT_OPTS) { setSplit(by); if (splitNow() !== by) out.push('the split ' + by + ' not shown'); }
+        setSplit('line');
+        const sp = D.net.splits;
+        if (!txt('network').includes(fmt(sp.line[0].links)) || !txt('network').includes(fmt(sp.line[1].links)) || !txt('network').includes(fmt(sp.lineDiff))) out.push('the split by wheat line does not show the data\\'s networks');
+        setSplit('off');
+        // Scenes: every scene's every control; the shared state round trip
+        for (const [k] of SCENES) { openScene(k); for (const c of ctlsOf(k)) for (const [v] of c.options) setCtl(k, c.key, v); }
+        const st = JSON.stringify(collabState()); collabApply(JSON.parse(st));
+        if (JSON.stringify(collabState()) !== st) out.push('apply(state()) changed the state');
+        // the headset's panels, every tab
+        XR.on = true;
+        for (const [k] of TABS) { pickTab(k); for (const P of XR.panels) { P.last = ''; P.t = -1e9; panelTick(P, performance.now() + 1e6); } }
+        XR.on = false;
+        // ready to pick: the field from above
+        pickTab('field'); showView('field', 'plots'); orbit.cur = view('field', viewCam('field')); orbit.to = null; Object.assign(XS, exploreTargets());
+        return out;
+      })()`);
+      // picks with the pointer, once the sets have drawn: a plot of the field, then a kind of the network
+      const f0 = window.__frames; await until(() => window.__frames >= f0 + 3, 30000);
+      // (the first point on a grid over the scene, beside the side panel, that picks a thing of that kind)
+      const pickOn = kind => peek(`(() => { applyCamera(orbit.cur); GL.camera.updateMatrixWorld(); GL.world.updateMatrixWorld(true);
+        for (let y = 0.15; y < 0.9; y += 0.03) for (let x = 0.3; x < 0.95; x += 0.03) { const p = pickAt(innerWidth * x, innerHeight * y); if (p && p.${kind} !== undefined) return p; }
+        return null; })()`);
+      const pp = pickOn('plot');
+      if (!pp) out.push('no plot picked on the field');
+      else { peek(`(pickText(${JSON.stringify(pp)}), choosePick(${JSON.stringify(pp)}))`); const o = peek(`SD.ofPlot(${pp.plot})`); if (peek('X.plot') !== o.line * 3 + o.fert) out.push('a plot clicked did not pick its group'); }
+      peek(`(selectPlot(-1), pickTab('network'), showView('net', 'net'), orbit.cur = view('net', viewCam('net')), orbit.to = null, Object.assign(XS, exploreTargets()))`);
+      const f1 = window.__frames; await until(() => window.__frames >= f1 + 3, 30000);
+      const pk = pickOn('kind');
+      if (!pk) out.push('no kind picked in the network');
+      else { peek(`(pickText(${JSON.stringify(pk)}), choosePick(${JSON.stringify(pk)}))`); if (peek('X.kind') !== pk.kind) out.push('a kind clicked was not picked'); }
+      peek(`(selectKind(-1), pickTab('field'))`);
+      return out;
+    });
+    if (bad.length) errors.push(...bad.map(b => 'soil: ' + b));
+  });
+  if (key === 'soil') await step('soil: its links open explore mode on what they say', async () => {
+    // (a page of its own: a link differing only in its hash would not load the story again)
+    const lp = await browser.newPage({ viewport: { width: 1280, height: 760 } });
+    lp.on('pageerror', e => errors.push('soil link: ' + (e.stack || e.message)));
+    lp.on('console', m => { if (m.type() === 'error' && !/404|Failed to load resource/.test(m.text())) errors.push('soil link: ' + m.text()); });
+    const LINKS = [
+      ['tab=field&date=4&show=chl', "X.tab === 'field' && X.scene === 'field' && fieldDate() === 4 && fieldShow() === 'chl' && txt('field').includes('Chlorophyll · Day ' + FACTS.days[4])"],
+      ['tab=field&plot=1', "X.tab === 'field' && X.plot === 1 && txt('field').includes(LINE_NAME[0] + ', ' + FERT_NAME[1].toLowerCase())"],
+      ['tab=nitrogen&wheat=bni&dcd=on', "X.tab === 'nitrogen' && X.scene === 'soil' && ctlv('soil', 'wheat') === 'bni' && ctlv('soil', 'dcd') === 'on'"],
+      ['tab=microbes&colour=guild&kind=215', "X.tab === 'microbes' && X.scene === 'net' && ctlv('net', 'colour') === 'guild' && X.kind === kindOfRank(215) && txt('microbes').includes('Kind 215')"],
+      ['tab=network&mod=3&rho=0.7', "X.tab === 'network' && X.mod === 2 && X.rho === 0.7 && txt('network').includes('Module 3 · ')"],
+      ['tab=network&split=line', "X.tab === 'network' && netView() === 'split' && ctlv('net', 'by') === 'line' && txt('network').includes(fmt(D.net.splits.lineDiff))"],
+      ['tab=network&shuffle', "X.tab === 'network' && X.shuf === 1 && txt('network').includes('(shuffled)')"],
+      ['scene=web', "X.tab === 'scenes' && X.scene === 'web'"],
+    ];
+    try {
+      for (const [h, ok] of LINKS) {
+        await lp.goto('about:blank');
+        await lp.goto(base + 'index.html#soil&explore&' + h);
+        await lp.waitForFunction(() => typeof HOST !== 'undefined' && HOST.curKey === 'soil' && HOST.cur && HOST.cur.peek('APP.mode') === 'explore', null, { timeout: 60000 });
+        const shown = await lp.evaluate(ok => HOST.cur.peek(`(() => { const txt = k => document.getElementById('pane-' + k).textContent; return ${ok}; })()`), ok);
+        if (!shown) errors.push(`soil: the link #soil&explore&${h} does not show what it says (${await lp.evaluate(() => JSON.stringify(HOST.cur.collab.state()))})`);
+      }
+    } finally { await lp.close(); }
+  });
   if (key === 'pass') await step('pass: both languages and their switch, every explore tool, on the page and in the headset', () => page.evaluate(async () => {
     const sleep = ms => new Promise(r => setTimeout(r, ms)), peek = src => HOST.cur.peek(src), out = [];
     const panels = () => peek(`(() => { XR.on = true; for (const P of XR.panels) { P.last = ''; P.t = -1e9; panelTick(P, performance.now() + 1e6); } XR.on = false; return XR.main.regions.map(r => r.id); })()`);
@@ -722,7 +829,7 @@ for (const key of ['airports', 'proteins', 'spatial', 'lbi', 'nmd', 'endo', 'pet
 // run's longest was about 0.5 s, a loaded one's 2.9 s), and the shared-room hooks see the scene only once all of it is
 // built. A story picked while another builds stops that one's steps and keeps the headset's controllers and place
 const LOAD_LIMIT = 4000;
-for (const key of ['airports', 'proteins', 'spatial', 'lbi', 'nmd', 'endo', 'pet', 'micro', 'ovary', 'qubits', 'mutation', 'topo', 'pass', 'flock', 'robots', 'design']) await step(`${key}: loads in steps, the page's bar shows and goes`, async () => {
+for (const key of ['airports', 'proteins', 'spatial', 'lbi', 'nmd', 'endo', 'pet', 'micro', 'ovary', 'qubits', 'mutation', 'topo', 'soil', 'pass', 'flock', 'robots', 'design']) await step(`${key}: loads in steps, the page's bar shows and goes`, async () => {
   const built = k => page.waitForFunction(k => HOST.curKey === k && HOST.cur && HOST.cur.collab.scene(), k, { timeout: 60000 });
   if (await page.evaluate(k => HOST.curKey === k, key)) { const o = key === 'flock' ? 'robots' : 'flock'; await page.evaluate(o => HOST.start(o), o); await built(o); }
   const bad = await page.evaluate(async ([k, limit]) => {
@@ -843,13 +950,13 @@ await step('a story picked while another builds: its steps stop, the headset\'s 
 // The design room (#design, not one of the stories: not on the Stories screen): every miniature built on the table, a
 // click putting one on the stage with its card as tools/design/props.json has it, the shared state (a miniature moved
 // by a pretend headset's grip, both grips sizing it, apply(state()) giving the same state back, Tidy), the headset panels
-await step('design: not on the Stories screen; #design opens the table and all 45 miniatures are built', async () => {
+await step('design: not on the Stories screen; #design opens the table and all 48 miniatures are built', async () => {
   if (await page.$('#picker [data-story="design"]')) errors.push('design: the design room has a card on the Stories screen');
-  if (await page.evaluate(() => HOST.list.some(s => s.key === 'design') || HOST.count() !== 'fifteen')) errors.push('design: the design room is in the list of stories');
+  if (await page.evaluate(() => HOST.list.some(s => s.key === 'design') || HOST.count() !== 'sixteen')) errors.push('design: the design room is in the list of stories');
   await page.evaluate(() => HOST.start('design'));
   await page.waitForFunction(() => HOST.curKey === 'design' && HOST.cur && HOST.cur.peek('typeof GL !== "undefined" && !!XR.panelGroup && GL.sets.table.built() === GL.sets.table.total()'), null, { timeout: 60000 });
   const n = await page.evaluate(() => [HOST.cur.peek('GL.sets.table.total()'), HOST.cur.peek('APP.mode'), location.hash, document.title]);
-  if (n[0] !== 45 || n[1] !== 'explore' || n[2] !== '#design' || !/design room/i.test(n[3])) errors.push('design: ' + JSON.stringify(n) + ' (not 45 miniatures in explore mode at #design)');
+  if (n[0] !== 48 || n[1] !== 'explore' || n[2] !== '#design' || !/design room/i.test(n[3])) errors.push('design: ' + JSON.stringify(n) + ' (not 48 miniatures in explore mode at #design)');
 });
 await step('design: a click on a miniature puts it on the stage, its card matching props.json', async () => {
   const fs = await import('fs');
@@ -962,7 +1069,7 @@ await step('Repeat one and Repeat all', async () => {
 });
 // Anchored mode with a pretend headset: a room whose tracking origin can jump (recentring) and
 // anchors that keep their place in it, saved under a handle (Quest's persistent anchors)
-for (const key of ['airports', 'proteins', 'spatial', 'lbi', 'nmd', 'endo', 'pet', 'micro', 'ovary', 'qubits', 'mutation', 'topo', 'pass', 'flock', 'robots']) await step(`${key}: anchored placement`, async () => {
+for (const key of ['airports', 'proteins', 'spatial', 'lbi', 'nmd', 'endo', 'pet', 'micro', 'ovary', 'qubits', 'mutation', 'topo', 'soil', 'pass', 'flock', 'robots']) await step(`${key}: anchored placement`, async () => {
   await page.evaluate(k => HOST.start(k), key);
   await page.waitForFunction(k => HOST.curKey === k && HOST.cur && HOST.cur.collab.scene() && HOST.cur.peek('typeof ST !== "undefined" && ST.items.length > 0'), key, { timeout: 30000 });
   const bad = await page.evaluate(async () => {
@@ -1370,12 +1477,12 @@ for (const key of ['airports', 'proteins', 'spatial', 'lbi', 'nmd', 'endo', 'pet
     if (!(de === 'de' && d1.vis && await sx('(setLang("de", false), 0)') === 0 && d1.text && e1.text && d1.text !== e1.text)) bad.push(`the pass story: German ${JSON.stringify(d1.text)}, English ${JSON.stringify(e1.text)}`);
     await sx('setLang("de", false)'); await settle(2);
     if (!await inPanel(d1.text)) bad.push('the pass story\'s German caption is not its panel\'s words: ' + d1.text);
-    // a hand-written story too, and the hook in all fifteen
+    // a hand-written story too, and the hook in all sixteen
     await openXR('airports');
     const a1 = await at(140);
     if (!(a1.vis && await inPanel(a1.text))) bad.push('the airports at 140 s: no caption of its line: ' + JSON.stringify(a1));
     const miss = await sp.evaluate(async keys => (await Promise.all(keys.map(async k => (await (await fetch('stories/' + k + '.js')).text()).includes('caption: xrCaption') ? '' : k))).filter(Boolean),
-      ['airports', 'proteins', 'spatial', 'lbi', 'nmd', 'endo', 'pet', 'micro', 'ovary', 'qubits', 'mutation', 'topo', 'pass', 'flock', 'robots']);
+      ['airports', 'proteins', 'spatial', 'lbi', 'nmd', 'endo', 'pet', 'micro', 'ovary', 'qubits', 'mutation', 'topo', 'soil', 'pass', 'flock', 'robots']);
     if (miss.length) bad.push('no caption hook in ' + miss.join(', '));
     await sp.evaluate(() => HOST.xr.setSubs(false));
     if (bad.length) errors.push(...bad.map(b => 'subtitles: ' + b));
@@ -1454,10 +1561,10 @@ for (const key of ['airports', 'proteins', 'spatial', 'lbi', 'nmd', 'endo', 'pet
     if (dl.join(' ') !== 'hidden,controls -,-') bad.push('#design&panels=hidden gave ' + dl.join(' '));
     await sp.evaluate(() => HOST.panels.set('design', 'shown'));
     if (await vis() !== want.shown) bad.push('the design room shown again: ' + await vis());
-    // the same lines in all fifteen stories and the design room
+    // the same lines in all sixteen stories and the design room
     const miss = await sp.evaluate(async keys => (await Promise.all(keys.map(async k => { const s = await (await fetch('stories/' + k + '.js')).text();
       return s.includes("const pm = xrPanels(), pv = !land && !away && XR.lm !== 'hidden';") && s.includes('HOST.panels.sig(XR_HERE)') ? '' : k; }))).filter(Boolean),
-    ['airports', 'proteins', 'spatial', 'lbi', 'nmd', 'endo', 'pet', 'micro', 'ovary', 'qubits', 'mutation', 'topo', 'pass', 'flock', 'robots', 'design']);
+    ['airports', 'proteins', 'spatial', 'lbi', 'nmd', 'endo', 'pet', 'micro', 'ovary', 'qubits', 'mutation', 'topo', 'soil', 'pass', 'flock', 'robots', 'design']);
     if (miss.length) bad.push('no panels lines in ' + miss.join(', '));
     await sp.evaluate(() => { try { localStorage.removeItem('xrPanels'); } catch (e) { /* storage blocked */ } });
     if (bad.length) errors.push(...bad.map(b => 'panels: ' + b));

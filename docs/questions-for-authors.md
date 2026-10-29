@@ -1,6 +1,6 @@
 # Questions for the authors
 
-Open items found while building the eight stories that rest on colleagues' work: places where the sources disagree,
+Open items found while building the nine stories that rest on colleagues' work: places where the sources disagree,
 and stand-ins waiting for the authors' own values. Each item says where it is in the source, what the story shows now
 and where that is in the code or data. Whether the authors agreed to their material being shown at all is a separate
 matter: see [data-and-permissions.md](data-and-permissions.md).
@@ -155,6 +155,29 @@ Contact person: **TO FILL (owner)**.
 | T3 | The local radius round each cell for the map of every cell: the poster's figure uses 100 µm. | the poster's map of the new slide | 50 µm throughout; 100 µm only in small print and as explore's map at 100 µm (`FACTS.delta` in `tools/topo/engine/e3_story.js`; `lo50`, `lo100` in the data) | answered 28 Oct 2026: 50 µm |
 | T4 | Three details: show the poster's split at 100 µm (1,000 and 5,716 cells)? Show the new slide's id? Keep the cell classifier's label "Cancer cell" in healthy and cirrhotic livers? | the poster's map of the new slide and its legend | the split in small print ("with a radius of 100 µm, as in the poster's figure"); the slide numbered, never named; "Cancer cell" as the classifier's label, which the story says once are the labels of the computer that found the cells | answered 28 Oct 2026: show the split, leave out the id, keep "Cancer cell" |
 | T5 | The poster's panel e prints the score of its cell v as 26.57, but the figure's own data and topocyte give 6.97. Which is right? | panel e | the data's 6.97, as "its score" (`TOPO_DATA.slide.e.logOdds`); 26.57 is never shown | open |
+
+## Holding on to nitrogen (`soil`)
+
+Sources: the slides "Exploring the Effects of Biological Nitrification Inhibition on the Rhizosphere Microbiome of a
+BNI-enabled Winter Wheat" (Marina Montserrat Díez, Tadashi Yoshihashi, Guntur Subbarao Ventaka, Eleftheria Bachtsevani,
+Dimitrios Karpouzas, Christina Hazard, Melina Kerou, Christa Schleper; University of Vienna, University of Thessaly,
+Université Lyon 1, JIRCAS; unpublished), the authors' notes on the data, and the field trial's data behind them (16S read
+counts, their taxonomy, field metadata; not in the repository). Permission was given through the owner on 29 October 2026,
+with the rule that anything unknown is shown as illustrative and said so; the points below are what is unknown or
+disagrees now (`SOIL_DATA.open` in `tools/soil/sets/data.js`, written by `tools/soil/data/gen_data.py`; `tools/soil/SPEC.md`,
+"Decisions"). Who to ask: Marina Montserrat Díez (Christa Schleper's group). Contact person: **TO FILL (owner)**.
+
+| # | Item | Where in the source | What the story shows now | Status |
+| --- | --- | --- | --- | --- |
+| S1 | The two N2O measurements disagree. The metadata's value is "the potential amount of produced nitrous oxide" (one number per sample, unit not given): in fertilised soil over the season BNI 0.81 against control 0.98 (p = 0.58), lower for BNI on days 1 and 24 but higher on day 15. The slides' incubations (N2O in ppm over 20 to 22 days of each date's soil, a mixed model) find the wheat line significant on days 1 to 53, up to about 3-fold less (day 1: about 0.4 against 1.3 ppm). Which measurement is the metadata's, and how do the two relate? | slide 7; `Field_Metadata.csv` | both, each named for what it is, and the difference called an open question (chapter 5's small print; explore's Field pane on N2O, `NOTE.field` in `tools/soil/engine/e4_explore.js`; the jars read off the slides, `SOIL_DATA.figs.n2o`) | open |
+| S2 | The tables behind slides 6, 7 and 9 (chlorophyll, ammonium and nitrate; the N2O incubations; the amoA qPCR counts): every chart in the deck is a picture, so the story reads them off (two readers, reconciled; one point of 450 flagged). May the story have the numbers themselves? And are the error bars SD or SE (the notes' caption of slide 6 says SD; slides 7 and 9 do not say)? | slides 6, 7 and 9 | the readings, "read off the slides" wherever they show (`tools/soil/data/figures.json`, `tools/soil/data/reconcile.py`, `SOIL_DATA.figs`): day 70's chlorophyll, the jars' N2O curves and peaks, the qPCR counts | open |
+| S3 | The chlorophyll's dates: the metadata has it at T1 to T4 (T5 almost empty), and its T4 values match the slides' day 70 for the unfertilised and fertilised plots; for fertilised + DCD the two nearly swap (metadata T4: BNI 56.89 from 3 plots, control 59.3; slide, day 70: BNI about 60.4, control about 56.0). Which date is the metadata's T4? | slide 6; `Field_Metadata.csv` | days 1, 15 and 24 from the data; day 70 read off the slides; none on day 53 (the leaves ease from day 24 to day 70, as the slides draw it: `field_chl` in `tools/soil/sets/field.js`) | open |
+| S4 | DCD: the story takes it to be dicyandiamide, a synthetic nitrification inhibitor (the slides do not spell it out). Right? | slides 4 and 7 | "fertilised + DCD (a synthetic inhibitor)", dicyandiamide in small print | open |
+| S5 | The dates: the slides' days 1, 15, 24, 53 and 70 are taken as T1 to T5 (129, 144, 153, 182 and 199 days after planting; by that count day 15 would be day 16). The incubation ran 20 days (slide 7) or 22 (its caption in the notes). Nitrate is said to be lower under the BNI wheat on days 24 to 53 in fertilised soil, but only day 24 is starred. | slides 6 and 7; the notes | the slides' days; "20 to 22 days"; only day 24's nitrate difference (`FACTS` in `tools/soil/engine/e3_story.js`) | open |
+| S6 | The field: the trial's site and year are not given, and the plot map is not known. | slide 4 | the 24 plots in four blocks (a replicate taken as a block) in a seeded order, illustrative and said so (`plotXZ` in `tools/soil/sets/field.js`); the hop from Vienna ends at JIRCAS's home in Tsukuba | open |
+| S7 | Only the prokaryotes (16S) were sent; the slides also show fungi, arbuscular mycorrhizal fungi and protists. And 42 of the 293 kinds of ammonia-oxidising archaea are Group 1.1c, not known to oxidise ammonia: count them with the archaea or not? | slide 8; `ASV_Identifiers.csv` | prokaryotes only (the cloud, the nitrifiers and the network are all 16S; the other groups are not mentioned); the 293 kinds counted with the archaea, Group 1.1c not singled out (the data keeps them apart: `SOIL_DATA.guilds.aoa1c`) | open |
+| S8 | The co-occurrence network is ours, built for this story with a standard method (centred log-ratios, Spearman's rho of at least 0.6, false discovery rate under 5 %, Louvain modules; about five big ones, the count depends on the run). Do the authors agree with the method and with how the story words it ("rising together is not working together"; no hub called a keystone; the two wheat lines' networks differ no more than random halves do)? | the notes ask for correlations among the kinds | the network as ours, said so in chapter 7's small print and explore's Network pane (`tools/soil/data/gen_data.py`, `SOIL_DATA.net`) | open |
+| S9 | May the story be public (on GitHub Pages) before the work is published, or only shown at the Global Peter Drucker Forum from the local relay? And is the credit right (the slides' title, the eight authors and their institutes, Subbarao et al., PNAS, for the wheat line)? | the title slide | the credits in chapter 8's small print and explore's notes | open (also **TO FILL (owner)** in [data-and-permissions.md](data-and-permissions.md)) |
 
 ## Pass it on (`pass`)
 

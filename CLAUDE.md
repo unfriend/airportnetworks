@@ -10,7 +10,7 @@
 - The story files are large (`stories/airports.js` is ~640 KB because of its
   embedded data). Search with Grep and read line ranges; never read them whole.
 - Prefer small, exact edits. When a change touches the headset code, apply it
-  to all fifteen stories: their XR, panel and landing-screen code is meant to
+  to all sixteen stories: their XR, panel and landing-screen code is meant to
   stay identical apart from story-specific panes.
 - Verify visual changes by serving the folder and taking headless Chromium
   screenshots (hashes such as `#spatial&t=60` jump straight to a moment), and
@@ -49,12 +49,12 @@
   `HOST.xr.free()`, `HOST.xr.subs()`, in a room the room's key `look`), the same
   for every story: never put them in a story's `state()`. Stories read the first
   two every frame through the shared lines (`xrSettings`, `placeLabelXR`,
-  `xrFace`), the same in all fifteen; the shell draws the subtitles from each
-  story's caption hook (`caption: xrCaption`, the same lines in all fifteen).
+  `xrFace`), the same in all sixteen; the shell draws the subtitles from each
+  story's caption hook (`caption: xrCaption`, the same lines in all sixteen).
   How the signs read, how the free grip feels and how the subtitles read and
   follow the head can only be checked on a headset: report them as untested.
 - Shared rooms (`shared.js`, `relay/`, see "Shared rooms" in `AGENTS.md`): keep
-  the shared hooks in all fifteen stories, the same lines in each (the `collab`
+  the shared hooks in all sixteen stories, the same lines in each (the `collab`
   object, the ray and press lines, the grip line, the optional features from
   `HOST.xr.features(mode)` (AR asks for `'shared'`, VR for less), the `HOST.collab.mine()` lines in `xrFreshStart` and
   `xrLandingClose`, and the walk-in lines: `xrRoomOnly` and `xrAway` (no Stories screen in a room; away from its station
@@ -74,7 +74,7 @@
   `node tools/nmd/data/gen_data.mjs`). Never show patient or variant data in it.
   `stories/flock.js` likewise from `tools/flock/` (`node tools/flock/build.mjs`),
   and `stories/robots.js` from `tools/robots/` (`node tools/robots/build.mjs`).
-  `stories/design.js` (the design room, not one of the fifteen: `STORY_EXTRA`) likewise from `tools/design/`
+  `stories/design.js` (the design room, not one of the sixteen: `STORY_EXTRA`) likewise from `tools/design/`
   (`node tools/design/build.mjs`; its cards from `tools/design/props.json`), its models from `lowpoly.js`, built from
   `tools/lowpoly/` (`node tools/lowpoly/build.mjs`; every miniature under 1,200 triangles, its `tris` exact).
   `stories/endo.js` likewise from `tools/endo/` (`node tools/endo/build.mjs`; data
@@ -110,6 +110,16 @@
   and none of the poster's pictures (slides are numbered); "Cancer cell" stays (the cell classifier's label, the
   author's wish). It includes `tools/lbi/sets/body.js` and `tools/micro/sets/organs.js`, so rebuild it after changing
   those. British spelling.
+  `stories/soil.js` likewise from `tools/soil/` (`node tools/soil/build.mjs`; its data, decoders and key numbers checked
+  by `node tools/soil/test-data.mjs`; data from the authors' three CSVs via `tools/soil/data/gen_data.py` and the
+  slides' readings via `tools/soil/data/reconcile.py`, none of those files in the repository). Look numbers up in
+  `SOIL_DATA` through `SDATA`; compute nothing scientific in the app. Unknowns are illustrative and say so; keep its
+  hedges (the BNI wheat greener and leaking less in the slides' measurements; the microbes and their network follow the
+  fertiliser and the plots, not the wheat line; rising together is not working together; strong indications, not yet
+  proof) and the two N2O measurements as an open question. The network is ours, built for the story: never call a link
+  an interaction or a hub a keystone. Kinds numbered, never named by their ids; no sequences, no pictures from the
+  slides, no e-mail addresses. It includes `tools/topo/sets/look.js` and `tools/lbi/sets/web.js`, so rebuild it after
+  changing those. British spelling.
   `stories/pass.js` likewise from `tools/pass/` (`node tools/pass/build.mjs`; its sets checked by
   `node tools/pass/test-sets.mjs`). Its globe and cell are cut, unchanged, out of `stories/airports.js` and
   `stories/spatial.js` at build time, so rebuild it after changing either. It is in English and German: every word in

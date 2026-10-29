@@ -83,6 +83,16 @@
     if (LOG.length > 1000) LOG.splice(0, LOG.length - 1000);
     if (DEBUG) console.log('[shared]', ev, data || '');
   }
+  // the shell's sound effects (sfx.js, HOST.sfx; off until turned on): in a headset each comes from where it happens
+  // (scene coordinates: the menu, a station's spot, a person), on a screen plain stereo (pan, -1 .. 1). sfxN counts the
+  // sounds played, so a press that made a sound of its own (a lock, the menu closing) gets no click on top
+  const sfx = (name, at, o) => {
+    if (!HOST.sfx) return null;
+    try { return HOST.sfx.play(name, Object.assign({ at: HOST.session && at ? [at.x, at.y, at.z] : null }, o)); } catch (e) { return null; }
+  };
+  const sfxN = () => (HOST.sfx ? HOST.sfx.count() : 0);
+  // a point in room coordinates in the headset's scene (null on a screen, or before the room is aligned)
+  const roomAt = (x, y, z) => (HOST.session && R.aligned ? new THREE.Vector3(x, y, z).applyMatrix4(R.m) : null);
 
   // -------------------------------------------------------------- session --
   const C = {
@@ -409,10 +419,19 @@
     if (m.t === 'welcome') welcome(m);
     else if (m.t === 'set') onSet(m);
     else if (m.t === 'fx') onFx(m);
-    else if (m.t === 'members') { C.members = m.members || []; changed(); }
+    else if (m.t === 'members') { const was = C.members; C.members = m.members || []; comeGo(was, C.members); changed(); }
     else if (m.t === 'pong') pong(m);
     else if (m.t === 'error') onError(m);
     else if (m.t === 'host') { C.next = typeof m.to === 'string' ? m.to : ''; log('handing over', { to: C.next }); }   // (peer to peer: who takes the room next)
+  }
+  // someone joined or left the room (not this page; at most three sounds at once): soft notes from where they stand in a
+  // headset (a newcomer's place once its presence has come, a second later; one who left where they were last seen)
+  function comeGo(was, is) {
+    if (!C.welcomed || !HOST.sfx) return;
+    const ids = a => new Set(a.map(m => m.id)), w = ids(was), n = ids(is);
+    const at = id => { const P = C.pres.get(id); return P && P.head ? roomAt(P.head[0], P.head[1], P.head[2]) : null; };
+    is.filter(m => m.id !== C.id && !w.has(m.id)).slice(0, 3).forEach((m, k) => setTimeout(() => { if (C.members.some(x => x.id === m.id)) sfx('join', at(m.id)); }, 1000 + k * 450));
+    was.filter(m => m.id !== C.id && !n.has(m.id)).slice(0, 3).forEach((m, k) => { const p = at(m.id); setTimeout(() => sfx('leave', p), k * 450); });
   }
   // dependencies first: stations, then their clocks, their explore states, their panels, then the rest
   const rank = k => (ST_RE.test(k) ? 0 : /\.play$/.test(k) ? 1 : /\.x$/.test(k) ? 2 : /\.panel$/.test(k) ? 3 : 4);
@@ -1405,6 +1424,7 @@
       '<button class="btn" type="button" data-toast="open">Shared</button><button class="btn" type="button" data-toast="leave">Leave</button>';
     TOAST.el.hidden = false;
     log('notice', { title: 'Back in room' });
+    sfx('notice');
     clearTimeout(TOAST.timer); TOAST.timer = setTimeout(toastOff, 20000);
   }
   function toastOff() { clearTimeout(TOAST.timer); if (TOAST.el) TOAST.el.hidden = true; }
@@ -1581,13 +1601,14 @@
     Object.assign(MV, { id: h.target.id, src: e.inputSource, a: null, pose: null, at: 0, sent: '', t0: performance.now() });
     log('station grab', { st: MV.id });
     pulse(e.inputSource, 0.4, 25);
+    { const s = C.stById.get(MV.id); sfx('grab', roomAt(s.x, 1, s.z)); }
     changed();
   }
   function dropStation(e) {
     if (!MV.src || (e && e.inputSource !== MV.src)) return;
     if (MV.pose) sendStation(true);
     log('station put', { st: MV.id, at: MV.pose ? [r3(MV.pose.x), r3(MV.pose.z), r3(MV.pose.yaw)] : null });
-    if (MV.pose) pulse(MV.src, 0.25, 15);
+    if (MV.pose) { pulse(MV.src, 0.25, 15); sfx('drop', roomAt(MV.pose.x, 0.3, MV.pose.z)); }
     Object.assign(MV, { id: '', src: null, a: null, pose: null });
     changed();
   }
@@ -1658,6 +1679,7 @@
   function setLock(on) {
     publish([['lock', { on: !!on, by: C.id, at: Math.round(now()) }]]);
     log('circles lock', { on: !!on });
+    sfx(on ? 'lock' : 'unlock', menuAt());
     changed();
   }
   const refused = what => { if (!circlesLocked()) return false; log('circles locked', { what }); return true; };
@@ -1714,7 +1736,7 @@
     return true;
   }
   const setStPanels = (id, v) => PANELS.includes(v) && setUi(id, { panels: v }, 'panels');
-  const setStLock = (id, on) => setUi(id, { lock: !!on }, 'story lock');
+  const setStLock = (id, on) => { const ok = setUi(id, { lock: !!on }, 'story lock'); if (ok) sfx(on ? 'lock' : 'unlock', menuAt()); return ok; };
   // for HOST.panels: at a station of this story (a headset in its circle, a page following it), the station's; else null
   const panelsAt = key => { const L = liveSt(); return C.code && L && L.story === key ? stPanels(L) : null; };   // (kept while a link moves or reconnects)
   const setPanels = (key, v) => !!panelsAt(key) && setStPanels(C.live, v);
@@ -1738,6 +1760,11 @@
     for (const s of C.st) if (!used.has(s.id) && HOST.list.some(m => m.key === s.story)) pairs.push(['st.' + s.id, null]);
     log('arrange', { stations: n });
     publish(pairs);
+    // a soft thunk at each new spot, one after another along the rows (on a screen from left to right)
+    pairs.filter(([k, v]) => ST_RE.test(k) && v).forEach(([, v], i) => {
+      const side = (i % front - (front - 1) / 2) / Math.max(1, front / 2);
+      sfx('place', roomAt(v.x, 0.05, v.z), { delay: i * 0.07, gain: 0.7, force: true, pan: side * 0.5 });
+    });
   }
   // what Add offers (the page's picker, the headset's Add page): every story, then the pages that are not stories (the
   // design room's table), which only Add and the menu's Design room button place, never Arrange all
@@ -1749,6 +1776,7 @@
     b = b || base();
     const id = rid(5);
     publish([['st.' + id, { story, x: r3(b.x), z: r3(b.z), yaw: r3(b.yaw) }], [kPlay(id), startClock(story)]]);
+    sfx('place', roomAt(b.x, 0.05, b.z));
     return id;
   }
   function move(id, b) {
@@ -1756,6 +1784,7 @@
     if (!s || refused('move')) return;
     b = b || base();
     publish([['st.' + id, { story: s.story, x: r3(b.x), z: r3(b.z), yaw: r3(b.yaw) }]]);
+    sfx('place', roomAt(b.x, 0.05, b.z));
   }
   function remove(id) { if (C.stById.has(id) && !refused('remove')) publish([['st.' + id, null]]); }
   // the design room's table here (the menu's Design room button in a room): a station of it at your feet, facing your
@@ -2098,7 +2127,8 @@
     ctx.textBaseline = 'middle'; ctx.textAlign = 'center';
     ctx.fillText(fit(ctx, label, w - 16), x + w / 2, y + h / 2 + 1);
     ctx.textAlign = 'left'; ctx.textBaseline = 'top';
-    if (fn) S.regions.push({ id, x, y, w, h, fn });
+    // (a switch, drawn lit or not: its press sounds as turning it off or on; tog null: a plain button)
+    if (fn) S.regions.push({ id, x, y, w, h, fn, tog: typeof o.on === 'boolean' ? o.on : null });
   }
   function build() {
     if (OV.root) return;
@@ -2106,7 +2136,7 @@
     OV.room = new THREE.Group(); OV.room.matrixAutoUpdate = false;
     OV.root.add(OV.room);
     OV.panelG = new THREE.Group();
-    OV.panel = sheet(720, 1640, 0.42, 53);   // (the tallest it gets: a room on this headset with a three-line note, at a station, 1611 px)
+    OV.panel = sheet(720, 1716, 0.42, 53);   // (the tallest it gets: a room on this headset with a three-line note, at a station, 1687 px)
     OV.panelG.add(OV.panel.mesh); OV.root.add(OV.panelG);
     OV.panel.mesh.userData.shell = { kind: 'panel' };
     // the menu's clock: the group's origin is the face's middle
@@ -2616,10 +2646,14 @@
   function menuOpen(on, why) {
     on = !!on;
     if (on !== PNL.open) log('menu', { open: on, by: why || '' });
+    // (opened or closed by hand: a sound from the clock; not when it opens by itself or for a test)
+    if (on !== PNL.open && HOST.session && /^(trigger|touch|finger|stick|close)$/.test(why || '')) sfx(on ? 'open' : 'close', OV.clockG && OV.clockG.position);
     PNL.open = on; PNL.page = 'main'; C.listing.menu = on;
     if (on && !C.code) { listRooms(); nearFind('menu'); }
   }
   const toggleMenu = why => menuOpen(!PNL.open, why);
+  // where a press on the open menu sounds from (a headset; null on a screen)
+  function menuAt() { return HOST.session && PNL.open && OV.panelG && OV.panelG.visible ? OV.panelG.position : null; }
   // where the menu is and how it closes, for the notices and its header
   const menuWhere = () => (HAND.ok ? 'the clock on your left wrist' : away() ? 'the clock in front of you' : 'the clock beside the story panel');
   const menuHint = () => (!HAND.ok ? 'Point at the clock to close it' : HAND.hand ? 'Touch the clock to close it' : 'Touch the clock or click the left stick to close');
@@ -2642,7 +2676,7 @@
       C.st.map(s => s.id + s.story), C.members.map(m => m.id + m.name + m.color + m.kind + m.here + (m.host ? 'h' : '')), [...C.pres].map(([id, P]) => id + P.st), C.via, hosting(), C.takeover, C.peer,
       C.code ? 0 : (C.rooms || []).map(r => r.code + r.members), C.roomsErr, C.relay, C.code ? nearShown() : [(C.near || []).map(r => r.code + r.members + r.name), C.netState, C.nearBusy, C.nearErr, (offer() || {}).code], sharedLine(), sourceLine(), versionNote(), scanNote(), fullNote(), floorNote(), forgetArmed(), freshArmed(), canFresh(), !!(R.saved || R.frame), R.sharedAlign, circlesLocked(), stLocked(liveSt()), peopleAll(),
       C.local, C.code ? 0 : localRooms().map(r => r.code + r.stations), !!R.again, HOST.slides ? HOST.slides.sig() : '', menuHint(), HOST.xr.sig(), showing(), showing() && HOST.panels.sig(showing()),
-      PNL.page === 'sound' ? Math.floor(performance.now() / 500) + HOST.audio.pref : '', HOST.curKey]);
+      PNL.page === 'sound' ? Math.floor(performance.now() / 500) + HOST.audio.pref : '', HOST.curKey, HOST.sfx ? HOST.sfx.sig() : '']);
   }
   // the menu's Design room row: its button (label, what a press does, or null) and a note beside it
   function designRow() {
@@ -2707,6 +2741,13 @@
       ctx.font = FONT(21); ctx.fillStyle = MUTED;
       ctx.fillText(fit(ctx, C.code ? 'Panels for this circle, the rest for the room' : 'Panels: for ' + ((meta(pk) || {}).title || 'this story') + ' only', w), x, y - 4);
       y += 30;
+    }
+    // sound effects (sfx.js): on or off and their volume (each press the next step), this headset's own, never the room's
+    if (HOST.sfx) {
+      const so = HOST.sfx.on();
+      button(S, 'sfx', x, y, bw, 60, so ? 'Sound effects: on' : 'Sound effects: off', () => HOST.sfx.set(!so), { on: so, px: 23 });
+      button(S, 'sfxvol', x + bw + 16, y, bw, 60, 'Effects volume: ' + Math.round(HOST.sfx.volume() * 100) + '%', () => HOST.sfx.setVolume(HOST.sfx.nextVolume()), { px: 22 });
+      y += 76;
     }
     // the design room: outside a room it opens (the props table); in a room it puts the table at your feet as a circle,
     // facing your way (the room's one moved here when it has one), as Add does: not while the circles are locked
@@ -2892,6 +2933,12 @@
     [['auto', 'Automatic'], ['webaudio', 'Web Audio'], ['media', 'Audio element']].forEach(([k, l], i) =>
       button(S, 'snd:' + k, x + i * (cw + 16), y, cw, 56, l, () => A.setEngine(k), { on: A.pref === k, px: 22 }));
     y += 74;
+    // the sound effects, all of them in turn (only when they are on: Sound effects in the menu)
+    if (HOST.sfx) {
+      button(S, 'snd:sfxtry', x, y, bw, 56, 'Try the sound effects', HOST.sfx.on() ? () => HOST.sfx.demo() : null, { px: 22 });
+      ctx.font = FONT(21); ctx.fillStyle = MUTED; wrapText(ctx, HOST.sfx.on() ? 'Every sound, one after another' : 'Turn Sound effects on in the menu first', x + bw + 16, y + 2, bw, 27, 2);
+      y += 72;
+    }
     ctx.font = FONT(19); ctx.fillStyle = MUTED;
     for (const l of A.report()) { if (y > S.h - 160) break; y += wrapText(ctx, l, x, y, w, 25, 3) + 6; }
     y += 12;
@@ -2956,7 +3003,11 @@
   // notices: a small panel in front of you that closes by itself ("Aligned automatically", "Calibrate the room")
   const NOTE = { title: '', text: '', until: 0, sig: '' };
   function notice(title, text, ms) {
-    NOTE.title = title; NOTE.text = text || ''; NOTE.until = ms === 0 ? Infinity : performance.now() + (ms || 4500);
+    // (a soft chime from where it shows, a metre ahead; not again for the same notice within 2 s)
+    const t = performance.now();
+    if (HOST.session && HD.ok && !(NOTE.title === title && t - (NOTE.at || -1e9) < 2000)) sfx('notice', new THREE.Vector3(0, -0.22, -1).applyQuaternion(HD.q).add(HD.p));
+    NOTE.at = t;
+    NOTE.title = title; NOTE.text = text || ''; NOTE.until = ms === 0 ? Infinity : t + (ms || 4500);
     log('notice', { title });
   }
   function drawNote(head, hq) {
@@ -3135,15 +3186,23 @@
       if (!t) continue;
       if ((x.object === OV.panel.mesh || x.object === OV.clock.mesh) && OV.onHand && i === HAND.i && x.distance < 0.4) continue;   // the left hand's own menu and clock
       if (!R.calib && near != null && x.distance > near) break;   // the story's own panel is in front
-      const S = x.object.userData.sheet;
-      C.hov.set(i, { target: t, x: S && x.uv ? x.uv.x * S.w : 0, y: S && x.uv ? (1 - x.uv.y) * S.vis : 0, at: h.at });
+      const S = x.object.userData.sheet, hx = S && x.uv ? x.uv.x * S.w : 0, hy = S && x.uv ? (1 - x.uv.y) * S.vis : 0;
+      C.hov.set(i, { target: t, x: hx, y: hy, at: h.at, p: x.point });
+      // a soft tick as the pointer comes onto something new: a button of the menu, the clock, a station
+      const r = t.kind === 'panel' && S ? S.at(hx, hy) : null, key = t.kind === 'panel' ? (r && r.fn ? 'p:' + r.id : '') : t.kind === 'station' ? 's:' + t.id : t.kind;
+      if (key && key !== h.hk) sfx('hover', x.point);
+      h.hk = key;
       return { kind: 'shell', point: x.point, dist: x.distance };
     }
+    h.hk = '';
     // calibrating: the trigger anywhere else takes a mark at the controller's tip
     if (R.calib) { C.hov.set(i, { target: { kind: 'mark' }, at: h.at }); return { kind: 'shell', point: _v2.copy(d).multiplyScalar(0.03).add(o).clone(), dist: 0.03 }; }
     C.hov.set(i, null);
     return null;
   }
+  // a press on the menu: a click, or a switch turned on or off, unless the press made a sound of its own (n: the count
+  // before it)
+  function pressSound(r, n, at) { if (sfxN() === n) sfx(r.tog === true ? 'toggleOff' : r.tog === false ? 'toggleOn' : 'click', at); }
   // what controller i points at now (a hover older than a few frames is gone: the controller left)
   const hovOf = i => { const h = C.hov.get(i); return h && performance.now() - h.at < 250 ? h : null; };
   function press(i) {
@@ -3155,7 +3214,7 @@
       if (TCH.near) { if (!TCH.armed) return; TCH.armed = false; }
       toggleMenu('trigger'); return;
     }
-    if (h.target.kind === 'panel') { const r = OV.panel.at(h.x, h.y); if (r && r.fn && !twice(r.id, 'ray')) { log('panel', { id: r.id }); r.fn(); OV.panel.sig = ''; } }
+    if (h.target.kind === 'panel') { const r = OV.panel.at(h.x, h.y); if (r && r.fn && !twice(r.id, 'ray')) { log('panel', { id: r.id }); const n = sfxN(); r.fn(); OV.panel.sig = ''; pressSound(r, n, h.p); } }
     // a station runs only where it stands: the trigger on its card or ring says so (the grip still moves it)
     else if (h.target.kind === 'station' && !h.target.live && !MV.src) notice('Walk into its circle', 'A story plays where its station stands: walk up to it to see it.', 3500);
   }
@@ -3207,9 +3266,10 @@
     if (!POKE.ok || !PNL.open || !OV.panelG.visible) { POKE.armed = true; POKE.hov = null; return; }
     const lp = S.mesh.worldToLocal(_v2.copy(POKE.tip)), u = lp.x / S.mw + 0.5, v = 0.5 - lp.y / (S.mw * S.h / S.w), dz = lp.z * OV.panelG.scale.x;
     const on = u >= 0 && u <= 1 && v >= 0 && v <= 1, r = on && dz > -0.03 && dz < 0.05 ? S.at(u * S.w, v * S.vis) : null;
+    if (r && r.fn && r.id !== POKE.hov) sfx('hover', POKE.tip);   // (the fingertip over a new button)
     POKE.hov = r ? r.id : null;
     if (dz > 0.03 || (!on && dz > 0)) POKE.armed = true;   // (pulled back, or beside it in front: not from behind)
-    else if (POKE.armed && dz < 0.015 && r && r.fn) { POKE.armed = false; if (!twice(r.id, 'finger')) { log('panel', { id: r.id, by: 'finger' }); r.fn(); S.sig = ''; } }
+    else if (POKE.armed && dz < 0.015 && r && r.fn) { POKE.armed = false; if (!twice(r.id, 'finger')) { log('panel', { id: r.id, by: 'finger' }); const n = sfxN(); r.fn(); S.sig = ''; pressSound(r, n, POKE.tip); } }
   }
 
   // ---------------------------------------------------------- every frame --
@@ -3256,6 +3316,7 @@
       try { vp = f.getViewerPose(local); } catch (e) { /* not in this frame */ }
       if (vp) { const p = vp.transform.position, q = vp.transform.orientation; HD.p.set(p.x, p.y, p.z); HD.q.set(q.x, q.y, q.z, q.w); HD.ok = true; }
     }
+    if (HD.ok && HOST.sfx) HOST.sfx.listen(HD.p, HD.q);   // (the sound effects hear from your head)
     if (C.code) R.update(f);
     if (C.code && R.session && R.lfOK && HD.ok) { R.originCheck(t); R.sample(t); }
     if (C.code && R.session) R.upload(t);
@@ -3299,6 +3360,7 @@
       C.zone = cand; C.cand = '';
       log('zone', { st: cand });
       choose(cand, 'walk');
+      sfx('enter');   // (a gentle swell all round you)
     }
   }
   function presenceOut(t) {
@@ -4483,7 +4545,7 @@
     PNL.open = false; PNL.page = 'main'; TCH.armed = false; C.listing.menu = false;   // the menu starts closed: only its clock shows
     // what a story does by itself when a session starts or a headset wakes is not a person's action: not published
     holdTask();
-    if (!s) { dropStation(null); letGo(); setState('off'); HOST.audio.zone(null); if (C.code) { upload(performance.now(), true); hello(); connect(); } changed(); return; }
+    if (!s) { dropStation(null); letGo(); setState('off'); HOST.audio.zone(null); if (HOST.sfx) HOST.sfx.listen(null); if (C.code) { upload(performance.now(), true); hello(); connect(); } changed(); return; }
     // in a headset a station is reached only by walking into its circle: one this page followed (or a session ended at)
     // is not its station
     if (C.live || C.follow) { log('station dropped for the headset', { st: C.live || C.follow }); C.follow = ''; C.mine = ''; C.live = ''; C.picked = false; C.zone = ''; C.cand = ''; }
@@ -4646,7 +4708,7 @@
       MAP.drag = null;
       if (ev.type === 'pointercancel' || ev.type === 'lostpointercapture') {   // interrupted: back where it was
         if (D.moved) { D.pose = D.from; D.sent = ''; mapSend(D, true); }
-      } else if (D.moved) mapSend(D, true);
+      } else if (D.moved) { mapSend(D, true); if (!D.locked) sfx('place', null, { pan: (ev.clientX / Math.max(1, innerWidth) * 2 - 1) * 0.35 }); }
       else if (ev.type === 'pointerup') { choose(D.id, 'follow'); renderDialog(); }   // a click
       drawMap();
     }

@@ -5,7 +5,7 @@
 //                                   node tools/release.mjs --check  -> exits 1 if either is not current
 //                                   --root <dir>: another copy of the app (the live test's)
 // version.json: { app, version (sw.js VERSION), format (shared.js FORMAT), shell: { n, id }, list, stories: { <key>:
-// { fp, needs } } }. The shell is index.html, shared.js, three.min.js and peerjs.min.js; its id is their fingerprint
+// { fp, needs } } }. The shell is index.html, shared.js, three.min.js, peerjs.min.js and sfx.js; its id is their fingerprint
 // (index.html without its stamp and its head's title and link-preview lines, which a running page never shows), and n
 // the release in which they last changed (VERSION's number: a new shell needs a new VERSION). sw.js is not part of it:
 // the service worker updates itself, and adding a story changes its list of files. list: the fingerprint of the list of
@@ -47,7 +47,7 @@ const index = read('index.html');
 if (!STAMP.test(index)) fail("index.html has no shell stamp (shell: { n: 0, id: '', format: '' }, in HOST)");
 const shellText = [
   index.replace(STAMP, 'shell: {},').replace(/^<(title>|meta (name="(description|twitter:[^"]*)"|property="og:[^"]*"))[^\n]*$/gm, ''),
-  read('shared.js'), read('three.min.js'), read('peerjs.min.js'),
+  read('shared.js'), read('three.min.js'), read('peerjs.min.js'), read('sfx.js'),
 ].join('\n\u0000\n');
 const id = fingerprint(shellText);
 

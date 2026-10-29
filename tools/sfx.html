@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sound board</title>
+<!-- The sound board: every sound effect of the shell (sfx.js, HOST.sfx) with a button and what it is for, the quiet
+     backgrounds of the stories, a 3D demo (a sound circling your head, through the same HRTF panner as in a headset),
+     the ducking demo (a background and clicks dipping 9 dB under the narration) and the voice limit (16 at once).
+     It loads the engine directly (../sfx.js, SFX_LIB) and runs one of its own on an AudioContext of its own (a tool
+     page, not the app: the app's sound is always HOST.audio's one context). Served next to the app:
+       http://127.0.0.1:8123/tools/sfx.html
+     tools/sfx-render.mjs opens it in headless Chromium and renders every sound to a file (SFX_BOARD.render, an
+     OfflineAudioContext each: no tap needed). -->
+<style>
+  :root { color-scheme: dark; }
+  html, body { margin: 0; background: #040912; color: #e7eef8; font: 15px/1.5 B612, "Segoe UI", "Helvetica Neue", Arial, sans-serif; }
+  .wrap { max-width: 1100px; margin: 0 auto; padding: 20px 16px 60px; }
+  h1 { margin: 0 0 4px; font-size: 26px; }
+  h2 { margin: 30px 0 6px; font-size: 18px; color: #46d9ff; }
+  p { margin: 4px 0 10px; color: #a9b8cc; max-width: 820px; }
+  .bar { position: sticky; top: 0; z-index: 2; display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; padding: 10px 0; background: #040912;
+    border-bottom: 1px solid rgba(140, 170, 210, 0.2); }
+  button { font: inherit; font-size: 14px; color: #e7eef8; background: rgba(10, 19, 34, 0.9); border: 1px solid rgba(140, 170, 210, 0.35);
+    border-radius: 8px; padding: 6px 12px; cursor: pointer; }
+  button:hover, button:focus-visible { border-color: #46d9ff; outline: none; }
+  button.primary { background: #46d9ff; color: #04131c; border-color: #46d9ff; font-weight: 700; }
+  button[aria-pressed="true"] { background: rgba(70, 217, 255, 0.2); border-color: #46d9ff; font-weight: 700; }
+  button:disabled { opacity: 0.45; cursor: default; }
+  label { color: #a9b8cc; display: inline-flex; align-items: center; gap: 8px; }
+  input[type=range] { accent-color: #46d9ff; width: 150px; }
+  .meter { font: 13px ui-monospace, Menlo, Consolas, monospace; color: #a9b8cc; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 10px; }
+  .card { background: rgba(10, 19, 34, 0.92); border: 1px solid rgba(140, 170, 210, 0.22); border-radius: 10px; padding: 10px 12px; }
+  .card b { font-size: 16px; } .card .k { font-size: 12px; color: #7f91a8; margin-left: 6px; text-transform: uppercase; letter-spacing: 0.05em; }
+  .card p { margin: 4px 0 8px; font-size: 13px; }
+  .card .row { display: flex; gap: 8px; flex-wrap: wrap; }
+  .sw { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; }
+  #d3dial { font: 13px ui-monospace, Menlo, Consolas, monospace; color: #a9b8cc; margin-left: 10px; }
+  @media (max-width: 520px) { .grid { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Sound board</h1>
+  <p>Every sound effect the app's shell can play (sfx.js), made from Web Audio nodes as the app makes them. In the app they are off until turned on (Sound check on the Stories screen, or the menu on the left wrist in a headset), and they sit well under the narration. Press Start sound first.</p>
+  <div class="bar">
+    <button id="start" class="primary" type="button">Start sound</button>
+    <label>Volume <input id="vol" type="range" min="0" max="100" step="5" value="100"></label>
+    <span class="meter" id="meter">not started</span>
+  </div>
+  <h2>Interface and room sounds</h2>
+  <p>Left and Right play it panned, as page buttons are by where they sit on the screen. In a headset the room sounds come from where they happen.</p>
+  <div class="grid" id="sounds"></div>
+  <h2>Backgrounds</h2>
+  <p>One quiet loop for the story on show, faded in once it is built and out when it goes. Every story without one of its own gets the calm tone, its pitch, brightness and pace from its key.</p>
+  <div class="grid" id="beds"></div>
+  <h2>3D demo</h2>
+  <p>A small sound circling your head at ear height, 1.5 m away, through the same HRTF panner a headset uses (the listener at your head). Use headphones: on speakers it is only left and right.</p>
+  <button id="d3" type="button" aria-pressed="false">Start the 3D demo</button><span id="d3dial"></span>
+  <h2>Ducking demo</h2>
+  <p>A background and a few clicks; after two seconds seven seconds of the airports' narration play, and everything else dips 9 dB under the voice (down in about 0.4 s, back in about 1.5 s). Without the recording a stand-in voice plays.</p>
+  <button id="duck" type="button">Play the ducking demo</button>
+  <h2>Voice limit</h2>
+  <p>At most 16 sounds at once: the one quietest now makes room for the next.</p>
+  <button id="burst" type="button">Fire 40 at once</button>
+</div>
+<script src="../stories/list.js"></script>
+<script src="../sfx.js"></script>
+<script>
+'use strict';
+(function () {
+  const L = window.SFX_LIB, $ = s => document.querySelector(s);
+  const B = { ctx: null, speaking: false, bed: '', spatial: false, mem: {}, voice: null, d3: 0 };
+  const E = L.engine({ fx: () => (B.ctx && B.ctx.state === 'running' ? B.ctx : null), speaking: () => B.speaking, bed: () => B.bed, spatial: () => B.spatial,
+    get: k => (k in B.mem ? B.mem[k] : null), put: (k, v) => { B.mem[k] = v; } });   // (in memory: never the app's own settings)
+  E.set(true); E.setVolume(1);
+  setInterval(E.step, 100);
+  const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const needCtx = () => { if (!B.ctx) start(); return !!B.ctx; };
+  function start() {
+    if (B.ctx) return;
+    const AC = window.AudioContext || window.webkitAudioContext;
+    B.ctx = new AC();
+    B.ctx.resume();
+    $('#start').textContent = 'Sound on'; $('#start').disabled = true;
+  }
+  $('#start').addEventListener('click', start);
+  $('#vol').addEventListener('input', ev => E.setVolume(ev.target.value / 100));
+  // the sounds
+  $('#sounds').innerHTML = L.ORDER.concat('circle').map(n => {
+    const R = L.SOUNDS[n];
+    return `<div class="card"><b>${n}</b><span class="k">${R.kind}</span><p>${esc(R.desc)}</p><div class="row">
+      <button type="button" data-play="${n}">Play</button><button type="button" data-play="${n}" data-pan="-0.8">Left</button><button type="button" data-play="${n}" data-pan="0.8">Right</button></div></div>`;
+  }).join('');
+  $('#sounds').addEventListener('click', ev => {
+    const b = ev.target.closest('[data-play]');
+    if (!b || !needCtx()) return;
+    setTimeout(() => E.play(b.dataset.play, { force: true, pan: +b.dataset.pan || 0 }), B.ctx.state === 'running' ? 0 : 120);
+  });
+  // the backgrounds: one per story (and the soil story's and the design room's)
+  const stories = (self.STORY_LIST || []).map(s => ({ key: s.key, title: s.title, col: s.col }));
+  for (const x of [{ key: 'soil', title: 'Soil', col: '#b98a4e' }, { key: 'design', title: 'Design room', col: '#f0d58c' }]) if (!stories.some(s => s.key === x.key)) stories.push(x);
+  $('#beds').innerHTML = stories.map(s => {
+    const k = L.bedOf(s.key), c = L.colour(s.key);
+    return `<div class="card"><span class="sw" style="background:${s.col}"></span><b>${esc(s.title)}</b><span class="k">${k}</span><p>${esc(L.BEDS[k].desc)}${k === 'calm' ? ` Root ${c.f0} Hz, brightness ${c.bright} Hz, a sway every ${Math.round(1 / c.move)} s.` : ''}</p>
+      <div class="row"><button type="button" data-bed="${s.key}" aria-pressed="false">Play</button></div></div>`;
+  }).join('');
+  function bedShown() { document.querySelectorAll('[data-bed]').forEach(b => { const on = b.dataset.bed === B.bed; b.setAttribute('aria-pressed', on ? 'true' : 'false'); b.textContent = on ? 'Stop' : 'Play'; }); }
+  $('#beds').addEventListener('click', ev => {
+    const b = ev.target.closest('[data-bed]');
+    if (!b || !needCtx()) return;
+    B.bed = B.bed === b.dataset.bed ? '' : b.dataset.bed;
+    bedShown();
+  });
+  // the 3D demo: the listener at the origin looking along -z, the sound stepping round it a twelfth of a turn at a time
+  $('#d3').addEventListener('click', () => {
+    if (!needCtx()) return;
+    const b = $('#d3');
+    if (B.d3) { clearInterval(B.d3); B.d3 = 0; B.spatial = false; E.listen(null); b.setAttribute('aria-pressed', 'false'); b.textContent = 'Start the 3D demo'; $('#d3dial').textContent = ''; return; }
+    B.spatial = true; E.listen({ x: 0, y: 0, z: 0 }, { x: 0, y: 0, z: 0, w: 1 });
+    b.setAttribute('aria-pressed', 'true'); b.textContent = 'Stop the 3D demo';
+    let i = 0;
+    B.d3 = setInterval(() => {
+      const a = i * Math.PI / 6, deg = (i * 30) % 360;
+      E.play('circle', { at: [1.5 * Math.sin(a), 0, -1.5 * Math.cos(a)], force: true });
+      $('#d3dial').textContent = deg + '° ' + (['in front', 'front right', 'front right', 'right', 'behind right', 'behind right', 'behind', 'behind left', 'behind left', 'left', 'front left', 'front left'][i % 12]);
+      i++;
+    }, 250);
+  });
+  // the ducking demo: a background, then the voice; the engine ducks while B.speaking
+  async function voiceBuf(c) {
+    try {
+      const r = await fetch('../audio/narration.mp3');
+      if (!r.ok) throw new Error('missing');
+      return { buf: await c.decodeAudioData(await r.arrayBuffer()), from: 26, real: true };
+    } catch (e) {   // a stand-in voice: a buzz through two moving formants, in syllables
+      const sr = c.sampleRate, n = sr * 8, b = c.createBuffer(1, n, sr), d = b.getChannelData(0);
+      let ph = 0, y1 = 0, y2 = 0;
+      for (let i = 0; i < n; i++) {
+        const t = i / sr, f0 = 120 + 15 * Math.sin(t * 2.1), syl = Math.max(0, Math.sin(t * Math.PI * 4.2)) ** 0.6 * (Math.sin(t * 0.9) > -0.8 ? 1 : 0);
+        ph += f0 / sr; const saw = (ph % 1) * 2 - 1;
+        y1 += 0.12 * (saw - y1); y2 += 0.5 * (y1 - y2);
+        d[i] = (y1 * 0.6 - y2 * 0.3) * syl * 0.5;
+      }
+      return { buf: b, from: 0, real: false };
+    }
+  }
+  $('#duck').addEventListener('click', async () => {
+    if (!needCtx() || B.voice) return;
+    const c = B.ctx, btn = $('#duck');
+    btn.disabled = true; btn.textContent = 'Loading the narration...';
+    const v = await voiceBuf(c);
+    btn.textContent = 'Playing' + (v.real ? '' : ' (a stand-in voice)');
+    const hadBed = B.bed;
+    if (!B.bed) { B.bed = 'airports'; bedShown(); }
+    E.play('click', { force: true, delay: 1 });
+    setTimeout(() => {
+      const s = c.createBufferSource(); s.buffer = v.buf; s.connect(c.destination); s.start(c.currentTime + 0.02, v.from, 7);
+      B.voice = s; B.speaking = true;
+      E.play('click', { force: true, delay: 1.5 }); E.play('toggleOn', { force: true, delay: 3.5 });
+      s.onended = () => {
+        B.voice = null; B.speaking = false;
+        E.play('click', { force: true, delay: 2 });
+        setTimeout(() => { if (!hadBed) { B.bed = ''; bedShown(); } btn.disabled = false; btn.textContent = 'Play the ducking demo'; }, 4500);
+      };
+    }, 2000);
+  });
+  $('#burst').addEventListener('click', () => {
+    if (!needCtx()) return;
+    for (let i = 0; i < 40; i++) E.play(['circle', 'click', 'hover', 'place'][i % 4], { force: true, delay: i * 0.012 });
+  });
+  setInterval(() => {
+    if (!B.ctx) return;
+    const s = E.state(), pk = E.level();
+    $('#meter').textContent = `voices ${String(s.voices).padStart(2)} of ${L.MAX}, cut ${s.cut} · duck ${(20 * Math.log10(Math.max(1e-4, s.duck))).toFixed(1)} dB${s.speak ? ' (voice)' : ''} · peak ${pk > 1e-4 ? (20 * Math.log10(pk)).toFixed(1) + ' dBFS' : 'silent'}${s.bed ? ' · background ' + s.bedKind + ' (' + s.bed + ')' : ''}`;
+  }, 100);
+
+  // ---- renders for tools/sfx-render.mjs: each item into an OfflineAudioContext, back as a 32-bit float WAV (base64)
+  const SECS = 20;
+  function items() {
+    const out = L.ORDER.map(n => ({ id: 'sound:' + n, file: 'sfx-' + n, name: n, kind: L.SOUNDS[n].kind, desc: L.SOUNDS[n].desc, ch: 1 }));
+    for (const [key, what] of [['airports', 'calm'], ['qubits', 'calm'], ['flock', 'dusk'], ['pass', 'sea'], ['robots', 'room'], ['soil', 'wind']]) {
+      const c = L.colour(key);
+      out.push({ id: 'bed:' + key, file: 'bed-' + what + (what === 'calm' ? '-' + key : ''), name: 'background: ' + what + ' (' + key + ')', kind: 'bed', ch: 2,
+        desc: L.BEDS[what].desc + (what === 'calm' ? ` This one is ${key}'s: root ${c.f0} Hz, brightness ${c.bright} Hz.` : '') + ` (${SECS} s of the loop, faded in and out here)` });
+    }
+    out.push({ id: 'demo:3d', file: 'demo-3d', name: '3D demo', kind: 'demo', ch: 2, desc: 'A small sound circling your head twice at ear height, 1.5 m away (HRTF, as in a headset; headphones).' });
+    out.push({ id: 'demo:duck', file: 'demo-duck', name: 'ducking demo', kind: 'demo', ch: 2, desc: 'A background and clicks; at 3 s seven seconds of the airports\' narration, everything else 9 dB under it, then back.' });
+    return out;
+  }
+  function wav(buf) {
+    const ch = buf.numberOfChannels, n = buf.length, v = new DataView(new ArrayBuffer(44 + n * ch * 4)), w = (o, s) => { for (let i = 0; i < s.length; i++) v.setUint8(o + i, s.charCodeAt(i)); };
+    w(0, 'RIFF'); v.setUint32(4, 36 + n * ch * 4, true); w(8, 'WAVEfmt '); v.setUint32(16, 16, true); v.setUint16(20, 3, true); v.setUint16(22, ch, true);
+    v.setUint32(24, buf.sampleRate, true); v.setUint32(28, buf.sampleRate * ch * 4, true); v.setUint16(32, ch * 4, true); v.setUint16(34, 32, true); w(36, 'data'); v.setUint32(40, n * ch * 4, true);
+    const d = []; for (let c = 0; c < ch; c++) d.push(buf.getChannelData(c));
+    for (let i = 0, o = 44; i < n; i++) for (let c = 0; c < ch; c++, o += 4) v.setFloat32(o, d[c][i], true);
+    return new Blob([v], { type: 'audio/wav' });
+  }
+  const b64 = blob => new Promise(r => { const f = new FileReader(); f.onload = () => r(String(f.result).split(',')[1]); f.readAsDataURL(blob); });
+  async function render(id) {
+    const [kind, name] = id.split(':');
+    let buf;
+    if (kind === 'sound') buf = await L.renderSound(name);
+    else if (kind === 'bed') buf = await L.renderBed(name, SECS);
+    else if (name === '3d') buf = await L.render3d(6.5);
+    else { const v = await voiceBuf(new OfflineAudioContext(2, 44100, 44100)); buf = await L.renderDuck(v.buf, v.from, 7); }
+    return { sr: buf.sampleRate, ch: buf.numberOfChannels, len: buf.length, b64: await b64(wav(buf)) };
+  }
+  window.SFX_BOARD = { items, render, engine: E };
+})();
+</script>
+</body>
+</html>

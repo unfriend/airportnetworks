@@ -4,10 +4,10 @@ Guidance for AI coding agents (and humans) working on this repository.
 
 ## What this is
 
-An installable web app that teaches network science in fifteen narrated stories
+An installable web app that teaches network science in sixteen narrated stories
 (the airports about four minutes, the proteins and the cell map about five, the tour about nine and a half, the muscle
 story about eight, the endotype story about seven, the PET story about six, the microanatomy story about seven
-and a half, the ovary story about seven, the qubits story about nine, the mutation story about eight and a half, the tissue topology story about eight, the pass story about seven, the flock and the robot gang about two), each
+and a half, the ovary story about seven, the qubits story about nine, the mutation story about eight and a half, the tissue topology story about eight, the soil story about eight and a half, the pass story about seven, the flock and the robot gang about two), each
 followed by an explore mode. Everything works on desktop, phones and in VR/AR headsets (built for Meta
 Quest Browser, WebXR).
 
@@ -25,6 +25,7 @@ Quest Browser, WebXR).
 | Quantum network compression | `stories/qubits.js` | example gene networks (320 genes in 8 hidden groups, at three strengths of mixing, and a random one) cut into 8 cells on 3 qubits; the coarse operator A_c on a cube, its Pauli strings, the toolbox (a Lie algebra, so(6) or so(7)) and what it drops; the real run's residual by depth and its 3-qubit circuit (Joel Hancock's method and figures) |
 | Quantum phylogenetics | `stories/mutation.js` | a text in four letters copied with swaps; a family tree in 3D (8 tips, 14 branches, every swap simulated) you walk round and look up into; a letter's two qubits and their read-outs; a rule of change (three example substitution models) as balls and arrows and a path through the pyramid of mixes; the machine for one branch (copy and turn), its circuit, one machine per branch; an RNA stem, its pairs and their coupling; the ancestor of three species rebuilt 2,000 times three ways (Enes Berk Sakalli and Arndt von Haeseler's poster; example numbers computed live, the poster's only as the authors' test) |
 | Tissue topology | `stories/topo.js` | 110 real cells of a healthy liver (the poster's patch) with balls growing round them, the network with triangles, pieces joining and loops opening and closing, and the tower of scales; 123 GTEx liver slides (66 healthy, 57 with cirrhosis, 30.8 million cells found by HistoPLUS), their curves, main shapes, scores, a classifier's wall, its held-out test and its weight for every radius; a new slide's window of 6,716 cells, every cell scored, the two groups and their cell types (Simon Schindler, André Rendeiro and Jörg Menche's poster; every number computed by their package topocyte on their data) |
+| Soil microbes | `stories/soil.js` | a cut-away block of soil with a wheat plant, its nitrogen's flows and the microbes' relay; a field trial in Japan (a BNI wheat and its control, three fertiliser regimes, 24 plots, five dates, 119 samples) with each plot's chlorophyll and nitrate and the jars' N2O read off the slides; about 100,000 kinds of soil microbe (a cloud of 20,000) and the co-occurrence network of 1,564 kinds and 22,348 links, its modules and the two wheat lines' networks side by side (the slides and field trial of Marina Montserrat Díez, Christa Schleper and colleagues; the network built for this story) |
 | Networks for everyone (outreach; English and German) | `stories/pass.js` | a school of fish (300, a live simulation) all around you, each watching its 7 nearest neighbours; the airports story's globe (3,214 airports, 18,858 routes, taken unchanged) with a seeded S/E/I/R outbreak on its routes; the cell map story's cell (249 proteins in 13 places, taken unchanged), its NF-κB relay and CFTR in the wrong place |
 | Flock | `stories/flock.js` | 200 starlings (a live simulation) flying all around you at dusk, each following its seven nearest neighbours |
 | Robot gang | `stories/robots.js` | 6 to 24 robot vacuums (a live simulation) in a model living room, or in a headset your own room; who follows whom (you, or the one ahead) is the network |
@@ -134,6 +135,10 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
   the data it writes and its decoders and their test, the shared look, four sets, engine parts adapted from the mutation
   story's, build script, set harness; it uses `tools/lbi/kit.js`, the tour's body set and the microanatomy story's organ
   models); see its `README.md` and `SPEC.md`.
+- `tools/soil/` - the sources of `stories/soil.js` (the data generator, which reads the authors' files, and the slides'
+  readings reconciled, the data it writes, its decoders and their test, the story's palette, three sets, engine parts
+  adapted from the tissue topology story's, build script, set harness; it uses `tools/lbi/kit.js`, the tour's `web` set
+  and the tissue topology story's look); see its `README.md` and `SPEC.md`.
 - `tools/pass/` - the sources of `stories/pass.js` (the build that cuts the airports story's globe and the cell map
   story's cell out of `stories/airports.js` and `stories/spatial.js`, unchanged; three sets, `fish`, `globe` and `cell`;
   the story's words in two languages; engine parts adapted from the qubits and flock stories'; set checks, harness); see
@@ -752,7 +757,7 @@ layout lock became two locks after the ten-headset test). The plan is `docs/shar
   page's presence already says where it is), so no `FORMAT` change. A reload in
   place (`HOST.place`, `who`) follows them again.
 - Arrange all: two rows in front of you, half the stories (rounded up: eight of
-  fifteen) 1.2 m ahead and the rest 2.6 m further on (behind them; in the gaps when the second row is shorter), 2.4 m apart, every
+  sixteen) 1.2 m ahead and the rest 2.6 m further on (behind them; in the gaps when the second row is shorter), 2.4 m apart, every
   station facing away from you (its content floats 1.4 m beyond its spot); it
   needs about 17 m x 4 m of floor from 1.2 m in front of you. It leaves the design room's table where it is (not a
   story). Remove asks first ("Remove for everyone?", 3 s), on the page and in the headset.
@@ -780,7 +785,7 @@ layout lock became two locks after the ten-headset test). The plan is `docs/shar
   station (`SHOWN`) and grows with it while carried; not pointable (the ring and card are). Built once per story, the
   first time a station of it shows, at most one a frame (a room's first view would build every one at once), and
   kept; until then, while `lowpoly.js` loads (or if it cannot), and for a key whose entry names no miniature, a glowing
-  dodecahedron with a ring in its colour stands there: a sixteenth story needs only its `icon`. 600 to 1,200
+  dodecahedron with a ring in its colour stands there: a seventeenth story needs only its `icon`. 600 to 1,200
   triangles each. `tools/icons.html` (served next to the app) renders them all, every story's and then the design
   room's, in a grid as a headset sees them (`?keys=a,b`, `&cols=`, `&t=` frozen, `&turns=4` four sides, `&fallback`),
   from the app in a hidden frame through `HOST.lowpoly()` and `HOST.collab.icon(key)` (its `model` says which
@@ -1129,7 +1134,7 @@ layout lock became two locks after the ten-headset test). The plan is `docs/shar
   A page following a station (Follow) leaves its Stories screen: while that
   shows, nothing syncs.
 
-The hooks every story keeps (all fifteen, the same lines; the flock is the
+The hooks every story keeps (all sixteen, the same lines; the flock is the
 reference, `tools/flock/engine/`):
 
 - `collab: { APP, scene: () => (LOAD.done ? GL.scene : null), state, apply, view, setView, effect, hover, panel, place }`
@@ -1222,6 +1227,7 @@ What each story shares:
 | qubits | tab, scene, every scene's controls (pairs; cube: view, network, cut, bits, algebra; chart: view, example, angles), the brick shown (a Pauli string by name), how many strings are added up, the gallery (kinds or largest) | none |
 | mutation | tab, scene, every scene's controls (letters: view, letter or mix; rule: view, rule, start and parent letters; tree: view, tree, how fast letters change, machines; stem: view, numbers (the authors' test or this example), method), the branch length (`time`, to the hundredth), the read-outs and their seed, the branch picked, the pair favour (`w`), the rebuild's seed (never the camera or how far the read-outs have played) | none |
 | topo | tab, scene, every scene's controls (the liver: lifted out, in the body or a slice; the slide: tissue, look, one scale; the tower: view, what is lit; the cohort: view, pieces or loops; the map: show, 50 or 100 µm), the patch's radius (`r`, µm to the hundredth), a cell's network radius (`mr`), the slide picked (`slide`, -1 none), the window of radii (`from`, `to`, on the 0.5 µm grid; `to` 100.5 is "and above"), the cell picked (`cell`, -1 the poster's cell v) | none |
+| soil | tab, scene, every scene's controls (the soil block: view, fertiliser, wheat, DCD; the field: view, date, measure, wheat line, regime; the microbes: view, colour, split by), the module picked (`mod`, -1 none), the threshold (`rho`, to the hundredth), the shuffle (`shuf`, 0 or 1), the kind picked (`kind`, a cloud index, -1 none), the group of plots picked (`plot`, line * 3 + regime, -1 none) | none |
 | pass | tab, scene, every scene's controls but the fish's view (the fish: neighbours watched, links, shark now and then; the globe: view, colour, pillars, outbreak on; the cell: view, organelles, colour, move), the school's size, the outbreak's start (an airport's code) and settings (incubation, infectious days, spread, flights cut), the city looked up, the protein picked, the school's place at a station (`sea`, moved with the grip there) (never the language, the outbreak's day, the steered shark or the sea moved outside a room) | `shark` (as the flock's falcon, in the set's frame), `school` (quiet, twice a second, as the flock's `flock`) |
 | flock | birds, links, falcon | `falcon` (where it starts, its velocity and aim, in the set's frame), `flock` (quiet, twice a second: where the flock is, see the flock's notes) |
 | robots | rule, robots, trails, links | `crumbs` (a pile: in room coordinates in a headset with an aligned frame, else in the station's frame), `dust` |
@@ -1283,7 +1289,7 @@ circle with a card on pointing, two locks, people at your circle only) are
 untested on headsets: how a ring's card reads when pointed at, the story and its
 narration heard from out of the circle, the locks and the People toggle in use.
 
-## Inside a story (all fifteen follow the same pattern)
+## Inside a story (all sixteen follow the same pattern)
 
 - Data at the top (airports and proteins: precomputed constants; spatial: the
   editable `PLACES`, `PROTEINS`, `LINKS`, `TOGETHER`, `MOVES` lists, laid out
@@ -1672,6 +1678,74 @@ engine parts adapted from the mutation story's. `tools/topo/SPEC.md` is the cont
 - **British spelling** (colour, centre, grey, haematoxylin, neighbourhood, tumour), English only. No patient data, no
   donor details, no GTEx ids or images, and never the poster's pictures.
 
+## The soil story (`stories/soil.js`) is built the same way
+
+`stories/soil.js` ("Holding on to nitrogen", after the slides "Exploring the Effects of Biological Nitrification
+Inhibition on the Rhizosphere Microbiome of a BNI-enabled Winter Wheat" by Marina Montserrat Díez, Tadashi Yoshihashi,
+Guntur Subbarao Ventaka, Eleftheria Bachtsevani, Dimitrios Karpouzas, Christina Hazard, Melina Kerou and Christa Schleper,
+and their field trial's data; made for the Global Peter Drucker Forum in Vienna, a lay, business audience) is generated
+from `tools/soil/` (`node tools/soil/build.mjs`, `--check` as for the tour): the tour's kit, three shared parts pasted
+before the sets (`SOIL_DATA`, the trial's numbers, `sets/data.js`, generated; `SDATA`, its decoders and look-ups,
+`sets/sdata.js`, checked with the data and the story's key numbers by `node tools/soil/test-data.mjs`; `SLOOK`, the
+story's palette and colour rules, `sets/look.js`), the tissue topology story's look (`TLOOK`) and the tour's `web` set
+(only its globe), both unchanged, three sets (`soil`, the cut-away block of soil with its wheat: fertiliser, the
+nitrogen's flows, a magnified pore with the relay's microbes, the BNI halo round the roots, the wild grass and the piece
+of chromosome, one marked atom; `field`, the trial's 24 plots under netting over five dates, the leaves by their
+chlorophyll, nitrate under the plots, jars breathing N2O, the 119 cores stacking into the design and a module lighting
+its plots; `net`, in `field`'s frame: the cloud of 20,000 kinds of microbe, the nitrifiers, the co-occurrence network
+pulled out of its core, the shuffle, the modules and the halves' own networks side by side; each with a manifest) and
+engine parts adapted from the tissue topology story's (with the hop from Vienna to Japan on the globe, `makeHop` in
+`engine/e2_scene.js`). `tools/soil/SPEC.md` is the contract, with the owner's decisions.
+
+- **The data**: `tools/soil/data/gen_data.py` (Python with numpy, pandas, scipy and networkx,
+  `tools/soil/data/requirements.txt`; about five minutes) reads the authors' three CSVs (the 16S read counts of 100,116
+  kinds in 119 samples, their taxonomy, the field metadata) from a folder given on the command line, builds the
+  co-occurrence network and writes `tools/soil/sets/data.js` (`SOIL_DATA`, about 425 KB, documented in its header), with
+  what the story uses of `tools/soil/data/figures.json` (the slides' charts read off by two readers and reconciled by
+  `tools/soil/data/reconcile.py`; the readers' files are not kept). The authors' files are not in the repository: only
+  derived numbers go in, and `sets/data.js` is never edited by hand. `SDATA` only decodes and looks things up: the app
+  computes nothing scientific. Permission: the authors, through the owner, 29 October 2026, with the rule that anything
+  unknown is shown as illustrative and said so (`docs/data-and-permissions.md`).
+- **Real, read off, illustrative** (each said so where it shows). Real: every field measure per plot and date, the
+  groups' means and tests, the phyla, the nitrifier guilds, the cloud's kinds and the network, built for this story with
+  a standard method (centred log-ratios, Spearman's rho of at least 0.6, false discovery rate under 5 %, Louvain modules;
+  "about five big groups", since the count depends on the run): correlation, not interaction, and not the authors'
+  analysis. Read off the slides (approximate): day 70's chlorophyll, the N2O incubation curves, the qPCR counts.
+  Illustrative: the soil block and its flows (only the slides' "less than half reaches the plant" is theirs), the relay
+  in the pore, the halo, the chromosome, the field's plot layout (the real map is not known: four blocks of six in a
+  seeded order), the wheat's look at each date (only its leaf colour is data), the hop's end (JIRCAS's home in Tsukuba:
+  the site is not given) and explore's Nitrogen sketch ("a sketch, not data").
+- **The hedges** (the data's verdict, `tools/soil/README.md`): in the slides' measurements the BNI wheat stays greener
+  and leaks less nitrate and N2O; the soil's microbes and their network follow the fertiliser and the field's plots, not
+  the wheat line (2 of 3,384 common kinds differ by line; the two lines' own networks, 38,653 and 30,276 links, differ
+  less than some random halves do, 158 to 27,758 apart); rising together is not working together; strong indications,
+  not yet proof. Never say the wheat "changes the microbiome" or "rewires the network", never call a hub a keystone or a
+  link an interaction, and never say the line changes nothing (a test that finds no difference does not show there is
+  none). The two N2O measurements disagree (the metadata's "potential" N2O in fertilised soil over the season, 0.81
+  against 0.98, p = 0.58, against up to about 3-fold less in the slides' jars): an open question, said in chapter 5's
+  small print and explore's Field pane. The other open points are `SOIL_DATA.open` and S1 to S9 in
+  `docs/questions-for-authors.md`.
+- Kinds of microbe are numbered by abundance, never named by their ids; no sequences, no ASV ids, no pictures or photos
+  from the slides (everything is redrawn in 3D), no e-mail addresses. The two kinds that differ by line (a Denitratisoma
+  and a Kitasatospora) are named only in explore's small print, never as an effect of the wheat.
+- Eight chapters, 8:42 at the pace `tools/pace.mjs` set (no recording yet): Half the sack, The relay, A wheat fights
+  back, The field trial (the globe and the hop, then the field), Greener, fewer leaks, A crowd of 100,000, Who rises
+  together, What we know. Every number the text shows comes from `SOIL_DATA` (`FACTS` in `engine/e3_story.js`). In a
+  headset no set stands life size (`field_life` was optional and is not built). A set label's `text` may be a function
+  (`labelText`); step params (never eased) are listed in each manifest and in `STEP` (`engine/e4_explore.js`).
+- Explore: Field (a date, a measure: chlorophyll, ammonium, nitrate, N2O or pH, a wheat line and a regime, the views;
+  a group of plots picked by click or ray, with tags; N2O brings the jars), Nitrogen (the soil block's sketch with
+  three switches: fertiliser, the BNI wheat, DCD), Microbes (the cloud by phylum or the nitrifiers, their shares by
+  regime and line, a kind picked by click or ray), Network (a module and the plots where it thrives, the threshold from
+  0.6 to 0.8 with the counts at 0.5 and 0.55 in words, Shuffle, Split by wheat line, fertiliser or at random) and
+  Scenes (Soil, Globe, Field, Microbes).
+- To rebuild the data (only with the authors' files, which are not in the repository):
+  `python -I tools/soil/data/gen_data.py <folder with Soil_ASVs.csv, ASV_Identifiers.csv, Field_Metadata.csv>`, then
+  `node tools/soil/test-data.mjs` and `node tools/soil/build.mjs`; the slides' readings again only through
+  `tools/soil/data/reconcile.py`.
+- **British spelling** (colour, fertiliser, centre, grey, neighbourhood), English only; plain words for a business
+  audience, the technical layer in small print.
+
 ## The pass story (`stories/pass.js`) is built the same way
 
 `stories/pass.js` ("Pass it on", in German "Weitersagen!", the institute's outreach story for about 12 and up) is
@@ -1919,7 +1993,10 @@ is the contract. Rebuild it after changing `props.json` or the miniatures' names
   `stories/mutation.js` (run `node tools/mutation/test-mmath.mjs` after changing its maths), and `tools/topo/` and
   `stories/topo.js` (run `node tools/topo/test-data.mjs` after its data or decoders change; its data only from the
   authors' files through `tools/topo/data/gen_data.py`; and after changing `tools/lbi/sets/body.js` or
-  `tools/micro/sets/organs.js`, which it uses), and `tools/pass/` and
+  `tools/micro/sets/organs.js`, which it uses), and `tools/soil/` and `stories/soil.js` (run
+  `node tools/soil/test-data.mjs` after its data or decoders change; its data only from the authors' files through
+  `tools/soil/data/gen_data.py`; and after changing `tools/topo/sets/look.js` or `tools/lbi/sets/web.js`, which it
+  uses), and `tools/pass/` and
   `stories/pass.js` (and after changing `stories/airports.js` or `stories/spatial.js`, whose globe and cell it takes).
   And `tools/design/` and `stories/design.js` (also after changing `tools/design/props.json` or a miniature's name), and
   `tools/lowpoly/` and `lowpoly.js` (`node tools/lowpoly/build.mjs`; keep each miniature under 1,200 triangles and its
@@ -1934,16 +2011,18 @@ is the contract. Rebuild it after changing `props.json` or the miniatures' names
 ## Testing
 
 There is no unit-test suite. Before committing, serve the folder and run the
-smoke test, which loads every story (and the design room: its 45 miniatures built, a click putting one on the stage
+smoke test, which loads every story (and the design room: its 48 miniatures built, a click putting one on the stage
 with its card as `props.json` has it, a pretend headset's grip, its shared state, Tidy), scrubs through it, plays it as a slideshow
 (a paused scrub near a stop holding, a stop exactly at a chapter's end and at the
 last one, the voice finishing the chapter there where a story has a recording,
 Next on the page, in the bar and on the headset panel beside the chapter arrows,
 Next going on), exercises explore
-mode and the headset panels (for the muscle, endotype, PET, microanatomy, ovary, qubits, mutation, tissue topology and pass stories every explore tool too,
+mode and the headset panels (for the muscle, endotype, PET, microanatomy, ovary, qubits, mutation, tissue topology, soil and pass stories every explore tool too,
 for the tissue topology story the panes' numbers against its data (the patch's counts at the poster's snapshots, the
-held-out test, a window's share of the gap, the two groups, cell v's score), for the mutation and tissue topology
-stories also their links (each opens explore mode on what it says), for the pass story in both languages with its switch; for
+held-out test, a window's share of the gap, the two groups, cell v's score), for the soil story the panes' numbers
+against its data (nitrate on day 24, day 70's chlorophyll read off the slides, the network's links at three thresholds,
+none left shuffled, the wheat lines' own networks) and a plot and a kind picked with the pointer, for the mutation,
+tissue topology and soil stories also their links (each opens explore mode on what it says), for the pass story in both languages with its switch; for
 the robot gang every rule, a click to walk, crumbs, a big open floor and one
 with no area, and a pretend headset room from detected planes),
 loads every story again watching its load (`HOST.progress` rising from 0 to its total once per step, the page's bar
@@ -1972,14 +2051,14 @@ kept across a reload, set by `#subs=on`, the caption the words of the line on
 show (several captions for a long line) changing with the clock, holding while
 paused, none in explore mode or on the Stories screen, still for a 10 degree
 turn of the head and following a 40 degree one with lag, the pass story's in
-German, the hook in all fifteen; panels per story: shown by default, the menu's
+German, the hook in all sixteen; panels per story: shown by default, the menu's
 Panels row going round (controls only, hidden, shown) with the story following,
 no row on the Stories screen (its panels staying), each value in story and
 explore mode (controls only: the foot bar alone, the text panel neither drawn
 nor pointable; hidden: neither, A or X still playing), labels hidden still
 hiding both, each story its own (the qubits, the flock, the airports, the
 design room), kept per story across a reload, set by a link for the story it
-opens, the lines in all fifteen and the design room; the menu's Design room
+opens, the lines in all sixteen and the design room; the menu's Design room
 button outside a room opening the design room, the menu closing and the button
 greyed there), and fails on console errors:
 
@@ -2221,7 +2300,7 @@ For the tour, test a changed set on its own in the set harness first
 (`tools/lbi/shot.mjs`, much cheaper than the whole story), then the story at a
 few seconds (`tools/lbi/sweep.mjs`), then the smoke test. The muscle story has
 the same tools in `tools/nmd/` (`shot.mjs`, `sweep.mjs`), and so have the
-endotype story in `tools/endo/`, the PET story in `tools/pet/`, the microanatomy story in `tools/micro/`, the ovary story in `tools/ovary/`, the qubits story in `tools/qubits/`, the mutation story in `tools/mutation/`, the tissue topology story in `tools/topo/` (also `test-data.mjs`: its data and decoders against the poster's numbers, a second), the pass story in `tools/pass/` and the robot gang in `tools/robots/`.
+endotype story in `tools/endo/`, the PET story in `tools/pet/`, the microanatomy story in `tools/micro/`, the ovary story in `tools/ovary/`, the qubits story in `tools/qubits/`, the mutation story in `tools/mutation/`, the tissue topology story in `tools/topo/` (also `test-data.mjs`: its data and decoders against the poster's numbers, a second), the soil story in `tools/soil/` (also `test-data.mjs`: its data, decoders and the story's key numbers, a second), the pass story in `tools/pass/` and the robot gang in `tools/robots/`.
 
 Useful URL hashes: `#spatial&t=95` (open at that second of the timeline, paused),
 `#proteins&explore&q=TP53` (explore mode with a search),
@@ -2244,6 +2323,10 @@ second), `#lbi&explore&scene=atp&view=network&now=1` (a scene with its controls)
 `#topo&explore&tab=scales&dim=1&from=5&to=15` (`to=above`), `#topo&explore&tab=cells&cell=1234&r=4.8&delta=50`
 (`show=map|split|genes|proteins`), `#topo&explore&scene=slide&mode=points`, `#topo&explore&scene=body&liver=slice`,
 `#topo&explore&scene=tower&view=up` (the tower's own cameras: `up`, `stand`),
+`#soil&t=100`, `#soil&explore&tab=field&date=4&show=chl` (`show=nh4|no3|n2o|ph`, `line=0|1`, `fert=0|1|2`, `view=jars`;
+`plot=1` a group of plots, line * 3 + regime), `#soil&explore&tab=nitrogen&wheat=bni&dcd=on`,
+`#soil&explore&tab=microbes&colour=guild&kind=215` (a kind by its number), `#soil&explore&tab=network&mod=3&rho=0.7`
+(`&shuffle`, `&split=line|fert|random`), `#soil&explore&scene=web` (the globe and the hop; `&now=1` skips the glide),
 `#pass&t=180&lang=de` (German), `#pass&explore&tab=fish&k=1&links=on&shark`, `#pass&explore&start=LHR&spread=high&cut=50&day=20&city=SYD`,
 `#pass&explore&protein=CFTR&move=cf`, `#pass&explore&scene=globe&pillars=on`, `#flock&explore&view=afar&links=on&birds=400`
 (`&hunt` sends a falcon), `#robots&explore&rule=chain&robots=12&trails=on&links=on&view=low`

@@ -329,6 +329,8 @@ body.picking #panel, body.picking #bar { visibility: hidden; }
 #sndcheck b { color: #f2f6fc; font-size: 16px; margin-right: 6px; }
 #sndcheck .hint { color: #a9b8cc; font-size: 13px; line-height: 1.4; }
 #sndcheck .sep { width: 10px; }
+#sndcheck .vol { display: inline-flex; align-items: center; gap: 8px; color: #a9b8cc; font-size: 14px; }
+#sndcheck .vol input { width: 140px; accent-color: #46d9ff; }
 #sndcheck pre { margin: 4px 0 0; white-space: pre-wrap; word-break: break-word; color: #a9b8cc; font: 12px/1.55 ui-monospace, Menlo, Consolas, monospace; }
 /* the shared space: the Shared buttons and their dialog (shared.js fills it in) */
 #top .btn.on, #picker .rep.on { border-color: #46d9ff; }
@@ -467,13 +469,19 @@ body.xr #labels, body.xr #tip { display: none; }
     <div id="sndcheck" hidden>
       <div class="row"><b>Sound check</b><span class="hint">No narration? Press both beeps. If you hear only one, choose that way to play.</span></div>
       <div class="row">
-        <button class="rep" type="button" data-snd="beep:webaudio">Beep through Web Audio</button>
-        <button class="rep" type="button" data-snd="beep:media">Beep through an audio element</button>
+        <button class="rep" type="button" data-snd="beep:webaudio" data-sfx="none">Beep through Web Audio</button>
+        <button class="rep" type="button" data-snd="beep:media" data-sfx="none">Beep through an audio element</button>
         <span class="sep"></span>
         <button class="rep" type="button" data-snd="auto" aria-pressed="false">Automatic</button>
         <button class="rep" type="button" data-snd="webaudio" aria-pressed="false">Web Audio</button>
         <button class="rep" type="button" data-snd="media" aria-pressed="false">Audio element</button>
         <button class="rep" type="button" data-snd="reset">Reset</button>
+      </div>
+      <div class="row">
+        <button class="rep" type="button" data-snd="sfx" aria-pressed="false">Sound effects: off</button>
+        <label class="vol">Volume <input id="sfxVol" type="range" min="0" max="100" step="5" value="75" aria-label="Sound effects volume"></label>
+        <button class="rep" type="button" data-snd="sfx:try">Try them</button>
+        <span class="hint">Clicks and chimes for buttons and the shared room, and a quiet background for each story. Off unless turned on here.</span>
       </div>
       <pre aria-live="off"></pre>
     </div>
@@ -1124,15 +1132,22 @@ HOST.audio = (function () {
         (ua ? '. Page has had a tap: ' + (ua.hasBeenActive ? 'yes' : 'no') : ''),
       'Page ' + document.visibilityState + (A.session ? ', headset view ' + A.session.visibilityState : ', no headset session'),
       ...(HOST.xr ? [HOST.xr.line()] : []),
+      ...(HOST.sfx ? [HOST.sfx.line()] : []),
       ...A.log.slice(-4),
     ];
   }
   // the shell calls this when a story is swapped out
   function drop() { hush(); A.cur = null; changed(); }
+  // the sound effects (HOST.sfx, sfx.js) play through this engine's one context: it, while Web Audio may play (running
+  // after a tap, the page or the headset in view, not out, not set aside for the audio element in Sound check, not being
+  // reopened), else null: silent before the first tap and while only the <audio> element plays
+  const fx = () => (A.ctx && running() && activated() && !away() && !A.bad.webaudio && A.pref !== 'media' && !A.cycling ? A.ctx : null);
+  // the narration sounds now, through either engine (the effects duck under it)
+  const speaking = () => !!A.cur && !A.muted && (!!(A.cur.src && running()) || (A.mediaOn && !A.el.paused && A.elFor === A.cur.url));
   document.getElementById('btnSound').addEventListener('click', toggle);
   return {
     get ctx() { return A.ctx; }, get el() { return A.el; }, get muted() { return A.muted; }, get pref() { return A.pref; },
-    running, narration, unlock, toggle, watch, drop, beep, setEngine, reset, report, zone, engine: () => engine(A.cur), state: () => A,
+    running, narration, unlock, toggle, watch, drop, beep, setEngine, reset, report, zone, fx, speaking, engine: () => engine(A.cur), state: () => A,
   };
 })();
 // ------------------------------------------------------------- what a headset session asks for --
@@ -1664,6 +1679,7 @@ HOST.loading = (() => {
     // a frame loop given to the renderer: a story's own while the loading scene shows gets the fade drawn after it
     wrap(fn) {
       if (!fn || fn === loop) return fn;
+      if (!L.ran && HOST.sfx) try { HOST.sfx.ready(); } catch (e) { /* no chime */ }   // (the story is built: a soft chime, if sound effects are on)
       L.ran = true;
       if (!L.on) return fn;
       L.on = false;
@@ -1839,6 +1855,13 @@ HOST.soundCheckShown = function () {
   if (!el || el.hidden || HOST.picking === false) return;
   const p = HOST.audio.pref;
   el.querySelectorAll('[data-snd]').forEach(b => { if (/^(auto|webaudio|media)$/.test(b.dataset.snd)) b.setAttribute('aria-pressed', b.dataset.snd === p ? 'true' : 'false'); });
+  // the sound effects (sfx.js): on or off and their volume, this device's own
+  const fx = el.querySelector('[data-snd="sfx"]'), vol = el.querySelector('#sfxVol');
+  if (fx && HOST.sfx) {
+    const on = HOST.sfx.on(), t = 'Sound effects: ' + (on ? 'on' : 'off');
+    fx.setAttribute('aria-pressed', on ? 'true' : 'false'); if (fx.textContent !== t) fx.textContent = t;
+    if (document.activeElement !== vol) vol.value = String(Math.round(HOST.sfx.volume() * 100));
+  }
   const t = HOST.audio.report().join('\n');
   const pre = el.querySelector('pre');
   if (pre.textContent !== t) pre.textContent = t;
@@ -2363,6 +2386,7 @@ HOST.unknown = (function () {
   };
 })();
 </script>
+<script src="sfx.js"></script>
 <script src="shared.js"></script>
 <script>
 'use strict';
@@ -2386,7 +2410,9 @@ HOST.cards = function () {
     const sc = ev.target.closest('[data-snd]');
     if (sc) {
       const v = sc.dataset.snd;
-      if (v.startsWith('beep:')) HOST.audio.beep(v.slice(5)); else if (v === 'reset') HOST.audio.reset(); else HOST.audio.setEngine(v);
+      if (v === 'sfx') HOST.sfx.set(!HOST.sfx.on());   // (turned on, the click's own sound says so)
+      else if (v === 'sfx:try') HOST.sfx.demo();
+      else if (v.startsWith('beep:')) HOST.audio.beep(v.slice(5)); else if (v === 'reset') HOST.audio.reset(); else HOST.audio.setEngine(v);
       HOST.soundCheckShown();
       return;
     }
@@ -2394,6 +2420,10 @@ HOST.cards = function () {
     if (!c) return;
     if (c.dataset.story === HOST.curKey) { HOST.closePicker(); window.dispatchEvent(new Event('storyrestart')); } else HOST.start(c.dataset.story);
   });
+  // the sound effects' volume: as it moves, and a click at the new volume once let go
+  const sv = document.getElementById('sfxVol');
+  sv.addEventListener('input', () => HOST.sfx.setVolume(sv.value / 100));
+  sv.addEventListener('change', () => { HOST.sfx.setVolume(sv.value / 100); HOST.sfx.play('click', { force: true }); HOST.soundCheckShown(); });
   document.getElementById('btnOther').addEventListener('click', () => HOST.openPicker());
   // top-bar buttons close the start screen; Enter VR/AR leaves it to the headset, which then shows the Stories menu
   document.getElementById('top').addEventListener('click', ev => {
@@ -2414,6 +2444,7 @@ HOST.cards = function () {
   if (hp.has('labels')) HOST.xr.setLabels(hp.get('labels'));
   if (hp.has('free')) HOST.xr.setFree(hp.get('free') !== 'off');
   if (hp.has('subs')) HOST.xr.setSubs(hp.get('subs') !== 'off');
+  if (hp.has('sfx')) HOST.sfx.set(hp.get('sfx') !== 'off');
   if (hp.has('soundcheck')) HOST.soundCheck(true);
   HOST.collab.boot(hp); // #s=XYZ joins a shared room
   HOST.live.init();
