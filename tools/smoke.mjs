@@ -1077,6 +1077,85 @@ for (const key of ['airports', 'proteins', 'spatial', 'lbi', 'nmd', 'endo', 'pet
     const bad = (await labelModes(key)).concat(await freeMoving(key));
     if (bad.length) errors.push(...bad.map(b => `${key}: ${b}`));
   });
+  // subtitles, the third setting: off by default (nothing drawn); on through the menu's row, kept across a reload, set by
+  // a link; the strip shows the words of the line on show, changes as the clock moves on (within a line too), holds while
+  // paused and shows nothing in explore mode; it stays for a small turn of the head and follows a larger one with lag;
+  // the pass story's in German. Every story gives its line (the caption hook)
+  await step('subtitles in the headset: off by default; on through the menu, kept, set by a link; the line on show in step with the clock; following the head with lag; German', async () => {
+    const bad = [];
+    const SUB = () => sp.evaluate(() => { const S = HOST.collab.overlay().sub, U = HOST.collab.subtitles.state(), m = S.mesh.material;
+      return { vis: S.mesh.visible, text: S.text, want: S.want, id: S.wantId, op: m.opacity, top: !m.depthTest && S.mesh.renderOrder > 50, dir: U.dir.toArray() }; });
+    const settle = async (n = 8) => { for (let k = 0; k < n; k++) { await sp.waitForTimeout(50); await tick(1); } };
+    const at = async (t, n) => { await sx(`(APP.seek(${t}), APP.playing = false)`); await settle(n); return SUB(); };
+    // the chapter on show's words, as its panel shows them (every word of a caption is there)
+    const inPanel = async s => { const all = await sx(`(() => { const s = storyT(APP.t), c = CH.find(x => s >= x.a && s < x.b) || CH[CH.length - 1]; return ST.items.find(x => x.ch === c).sec.textContent.replace(/\\s+/g, ' '); })()`);
+      return !!s && s.split(' ').every(w => all.includes(w.replace(/:$/, ''))); };
+    const press = async id => { await tick(2); const ok = await sp.evaluate(id => { const r = HOST.collab.overlay().panel.regions.find(x => x.id === id); if (r && r.fn) r.fn(); return !!(r && r.fn); }, id); await tick(2); return ok; };
+    const deg = (a, b) => Math.acos(Math.max(-1, Math.min(1, a[0] * b[0] + a[1] * b[1] + a[2] * b[2]))) * 180 / Math.PI;
+    const ahead = yaw => { const d = 16 * Math.PI / 180; return [-Math.sin(yaw) * Math.cos(d), -Math.sin(d), -Math.cos(yaw) * Math.cos(d)]; };
+    await openXR('qubits');
+    // off by default: nothing drawn at a line
+    const s0 = await at(60);
+    if (await sp.evaluate(() => HOST.xr.subs()) || s0.vis || s0.want) bad.push('subtitles are not off by default: ' + JSON.stringify(s0));
+    // on through the menu's row (the story goes on drawing nothing of its own for it)
+    await sp.evaluate(() => HOST.collab.panelOpen(true));
+    if (!await press('subs') || !await sp.evaluate(() => HOST.xr.subs())) bad.push('the menu\'s Subtitles row did not turn them on');
+    await sp.evaluate(() => HOST.collab.panelOpen(false));
+    const s1 = await at(60);
+    if (!(s1.vis && s1.op > 0.99 && s1.top && s1.text && s1.text === s1.want && await inPanel(s1.text))) bad.push('on, no caption of the line on show at 60 s: ' + JSON.stringify(s1));
+    // the clock moving on: captions change, each from the line on show, a line in several captions one after the other
+    const seen = [];
+    for (let t = 1; t < 200; t += 1) { await sx(`(APP.seek(${t}), APP.playing = false)`); await tick(1); const u = await SUB(); if (u.want && (!seen.length || seen[seen.length - 1].want !== u.want)) seen.push(Object.assign(u, { t, ok: await inPanel(u.want) })); }
+    const within = seen.some((u, i) => i && u.id.split(':')[0] === seen[i - 1].id.split(':')[0]);
+    if (seen.length < 12 || !seen.every(u => u.ok) || !within) bad.push(`over 200 s: ${seen.length} captions, all from the panel's words ${seen.every(u => u.ok)}, a line cut in several ${within}: ` + JSON.stringify(seen.filter(u => !u.ok).slice(0, 3)));
+    if (seen.some(u => u.want.length > 90 && u.want.includes(' '))) bad.push('a caption longer than two lines: ' + seen.find(u => u.want.length > 90).want);
+    // paused, it holds
+    const h0 = await at(60), t0 = await sx('APP.t');
+    await settle(20);
+    const h1 = await SUB();
+    if (!(h1.text === h0.text && h1.vis && h1.op > 0.99 && await sx('APP.t') === t0)) bad.push('paused, the caption did not hold: ' + JSON.stringify([h0.text, h1.text, h1.op]));
+    // a small turn of the head leaves it where it is; a larger one is followed, with lag
+    await head([0, 1.6, 0], 0); await settle(30);
+    const f0 = await SUB();
+    await head([0, 1.6, 0], 10 * Math.PI / 180); await settle(10);
+    const f1 = await SUB();
+    if (deg(f1.dir, f0.dir) > 0.01) bad.push(`a 10 degree turn of the head moved the caption ${deg(f1.dir, f0.dir).toFixed(3)} deg`);
+    await head([0, 1.6, 0], 40 * Math.PI / 180); await settle(1);
+    const f2 = await SUB();
+    await settle(40);
+    const f3 = await SUB();
+    if (!(deg(f2.dir, f0.dir) > 0.01 && deg(f2.dir, ahead(40 * Math.PI / 180)) > 10 && deg(f3.dir, ahead(40 * Math.PI / 180)) < 2)) bad.push(`a 40 degree turn: after a moment ${deg(f2.dir, ahead(0.698)).toFixed(1)} deg off the new view (it should lag), after 2 s ${deg(f3.dir, ahead(0.698)).toFixed(2)} deg`);
+    await head([0, 1.6, 0], 0); await settle(40);
+    // explore mode, the Stories screen: nothing
+    await sx('APP.enterExplore()'); await settle(10);
+    const x1 = await SUB();
+    if (x1.vis || x1.want) bad.push('a caption in explore mode: ' + JSON.stringify(x1));
+    if (await sx('(() => { APP.enterStory(0); APP.playing = false; const w = XR.stories; XR.stories = true; const c = xrCaption(); XR.stories = w; return c; })()') !== null) bad.push('the caption hook gives a line on the Stories screen');
+    // kept across a reload, and a link sets it
+    await sp.reload(); await sp.waitForFunction(() => typeof HOST !== 'undefined' && HOST.xr && HOST.curKey === 'qubits', null, { timeout: 30000 });
+    if (!await sp.evaluate(() => HOST.xr.subs() && HOST.xr.sig().endsWith('s'))) bad.push('subtitles on were not kept across a reload');
+    await sp.evaluate(() => HOST.xr.setSubs(false));
+    await sp.goto('about:blank'); await sp.goto(base + 'index.html#qubits&subs=on');
+    await sp.waitForFunction(() => typeof HOST !== 'undefined' && HOST.xr && HOST.curKey === 'qubits', null, { timeout: 30000 });
+    if (!await sp.evaluate(() => HOST.xr.subs())) bad.push('#subs=on did not turn them on');
+    // the pass story's captions in the device's language (its panel is), English after the switch
+    await openXR('pass', '&lang=de');
+    const d1 = await at(20), de = await sx('LANG');
+    await sx('setLang("en", false)'); await settle(10);
+    const e1 = await SUB();
+    if (!(de === 'de' && d1.vis && await sx('(setLang("de", false), 0)') === 0 && d1.text && e1.text && d1.text !== e1.text)) bad.push(`the pass story: German ${JSON.stringify(d1.text)}, English ${JSON.stringify(e1.text)}`);
+    await sx('setLang("de", false)'); await settle(2);
+    if (!await inPanel(d1.text)) bad.push('the pass story\'s German caption is not its panel\'s words: ' + d1.text);
+    // a hand-written story too, and the hook in all fifteen
+    await openXR('airports');
+    const a1 = await at(140);
+    if (!(a1.vis && await inPanel(a1.text))) bad.push('the airports at 140 s: no caption of its line: ' + JSON.stringify(a1));
+    const miss = await sp.evaluate(async keys => (await Promise.all(keys.map(async k => (await (await fetch('stories/' + k + '.js')).text()).includes('caption: xrCaption') ? '' : k))).filter(Boolean),
+      ['airports', 'proteins', 'spatial', 'lbi', 'nmd', 'endo', 'pet', 'micro', 'ovary', 'qubits', 'mutation', 'topo', 'pass', 'flock', 'robots']);
+    if (miss.length) bad.push('no caption hook in ' + miss.join(', '));
+    await sp.evaluate(() => HOST.xr.setSubs(false));
+    if (bad.length) errors.push(...bad.map(b => 'subtitles: ' + b));
+  });
   await sp.close();
 }
 await step('old links forward to the app', async () => {

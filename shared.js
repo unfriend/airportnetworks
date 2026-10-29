@@ -2608,7 +2608,7 @@
     if (on && HOST.cur && typeof HOST.cur.caption === 'function') { try { c = HOST.cur.caption(); } catch (e) { c = null; } }
     let want = '', id = '';
     if (c && c.els && c.narrT) { try { [want, id] = subNow(c, t); } catch (e) { want = ''; } }
-    S.want = want;
+    S.want = want; S.wantId = id;
     // fading between captions (a live number changing in the one on show redraws it in place)
     if (want && want !== SUB.shown && id === SUB.shownId) { subDraw(want); SUB.shown = want; }
     if (want !== SUB.shown) { SUB.a = Math.max(0, SUB.a - dt / 0.15); if (SUB.a === 0) { subDraw(want); SUB.shown = want; SUB.shownId = id; } }
