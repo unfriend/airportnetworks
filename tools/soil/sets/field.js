@@ -290,7 +290,7 @@ void main() {
   const putI = (mesh, i, pos, scl, col) => { _m.compose(_t.set(pos[0], pos[1], pos[2]), _q.set(0, 0, 0, 1), _s.set(scl[0], scl[1], scl[2])); mesh.setMatrixAt(i, _m); mesh.setColorAt(i, _col.setRGB(col[0], col[1], col[2])); };
   // the jars: one per regime and line for a date (six), or all five dates in rows (thirty)
   const BX = 1.3, JR = 0.042, JH = 0.11;
-  const jarXZ = (time, fert, line, all) => [all ? BX + (time - 2) * 0.115 : BX, (fert * 2 + line - 2.5) * 0.13];
+  const _jx = [0, 0], jarXZ = (time, fert, line, all, out = _jx) => { out[0] = all ? BX + (time - 2) * 0.115 : BX; out[1] = (fert * 2 + line - 2.5) * 0.13; return out; };
   const jarGeo = (() => {
     const prof = [[0.001, 0], [0.9, 0], [1, 0.06], [1, 0.82], [0.88, 0.93], [0.72, 0.97], [0.72, 1.0]].map(([r, y]) => new THREE.Vector2(r * JR, y * JH));
     return new THREE.LatheGeometry(prof, 28);
@@ -458,6 +458,7 @@ void main() {
   for (let i = 0; i < 6; i++) now.jar.push({ v: 0, top: [BX, 0.2, 0] });
   const lit = p => { const { line, fert } = SDATA.ofPlot(p); return (now.line < 0 || now.line === line) && (now.fert < 0 || now.fert === fert) && (now.pick < 0 || now.pick === line * 3 + fert); };
   // ------------------------------------------------------------------ update: everything from the params and t
+  const Hd = [0.13, 0.205, 0.27, 0.285, 0.285];   // the wheat's height at each date (jointing to ripening; a drawing)
   function update(S, t) {
     LK.depth();
     const grow = clamp(S.field_grow, 0, 1), date = clamp(S.field_date, 0, 4), chl = clamp(S.field_chl, 0, 1), no3 = clamp(S.field_no3, 0, 1), nh4 = clamp(S.field_nh4, 0, 1);
@@ -467,7 +468,6 @@ void main() {
     now.date = date; now.pick = pick; now.show = Math.round(S.field_show || 0); now.tags = clamp(S.field_tags, 0, 1); now.jday = jday; now.inc = inc; now.mod = mod; now.mlit = mlit;
     now.line = Math.round(S.field_line === undefined ? -1 : S.field_line); now.fert = Math.round(S.field_fert === undefined ? -1 : S.field_fert);
     // the wheat by date: its height (jointing, booting, heading, grain filling, ripening), its ears and their colour
-    const Hd = [0.13, 0.205, 0.27, 0.285, 0.285];
     wheat.m.uniforms.uH.value = at(Hd, date); wheat.m.uniforms.uGrow.value = grow;
     wheat.m.uniforms.uEar.value = prog(date, 1.4, 2.05) * (0.85 + 0.15 * prog(date, 2.5, 3.2)); wheat.m.uniforms.uRipe.value = prog(date, 3.1, 4);
     wheat.m.uniforms.uChl.value = chl;

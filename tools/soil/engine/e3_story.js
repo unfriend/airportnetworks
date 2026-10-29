@@ -211,7 +211,7 @@ function buildStory() {
       ${turns(`<p data-at="1.2" data-out="24.5">To test it, the BNI wheat and the control wheat were grown side by side in a field in Japan:</p>
         ${legend([[16, FERT_COL[0], 'with no fertiliser'], [17.5, FERT_COL[1], 'with fertiliser'], [19, FERT_COL[2], 'with fertiliser and a synthetic inhibitor']], 24.5)}`,
       `<p data-at="25">Five times over ${F.days[F.days.length - 1]} days, soil was taken from the roots in every plot.</p>
-        <div class="facts">${fact(40, AMBER, fmt(F.samples), 'samples')}${fact(41.5, CYAN, fmt(F.plots), 'plots')}${fact(43, GREEN, word(F.dates), 'dates')}</div>
+        <div class="facts">${fact(40, AMBER, fmt(F.samples), 'samples')}${fact(41.5, CYAN, fmt(F.plots), 'plots')}${fact(43, GREEN, fmt(F.dates), 'dates')}</div>
         <p class="note" data-at="46">The trial is JIRCAS's; its site and year are not given, so the arc ends at JIRCAS's home in Tsukuba. Fertiliser: ${F.kgN} kg of nitrogen per hectare; the inhibitor: DCD (dicyandiamide, our reading). The slides' days ${d1} to ${dL} are ${F.dap[0]} to ${F.dap[F.dap.length - 1]} days after planting, from jointing to ripening. ${cap(word(F.reps))} replicates of each; the soil clinging to the roots (the rhizosphere); one sample is missing. The plots' layout is illustrative.</p>`)}`,
     leaks: `<h2 data-at="0.6">Greener, fewer leaks</h2>
       ${turns(`<p data-at="1.2" data-out="21.5">At the end of the season the BNI wheat is still green where the control wheat yellows, most clearly without fertiliser.</p>
@@ -244,7 +244,7 @@ function buildStory() {
         <p data-at="10" data-out="24.5" class="amber">It is not yet proof.</p>
         <p data-at="14" data-out="24.5">Next: following marked nitrogen atoms through soil, microbe and plant, and reading which microbial genes are switched on.</p>`,
       `<p class="note" data-at="25">Marked atoms: isotope studies (15N); genes switched on: metatranscriptomics. Open questions remain, among them how the two N2O measurements relate and which dates the chlorophyll's last values belong to.</p>
-        <p data-at="28"><button class="btn primary" id="btnGoExplore" type="button">Explore the field and its microbes</button></p>
+        <p data-at="28"><button class="btn primary" id="btnGoExplore" type="button">Explore the trial</button></p>
         <p class="credits" data-at="29">After the slides by ${AUTH} (${INSTS}). The BNI wheat: Subbarao et al., PNAS.</p>
         <p class="credits" data-at="30">${esc(DATA_CREDIT)}</p>`)}`,
   };

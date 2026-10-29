@@ -421,7 +421,8 @@ const R2W = [['fert', 'fertiliser'], ['time', 'date'], ['line', 'wheat line'], [
 function moduleInfo(m) {
   const M = D.net.mods[m];
   if (!M) return null;
-  const gk = Object.entries(M.guilds || {}).filter(([, n]) => n > 0).map(([k, n]) => `${n} ${D.guilds[k].name}`);
+  const GSHORT = { aoa: 'archaea', nsp: 'Nitrosospira', nsm: 'Nitrosomonas', nit: 'Nitrospira', mnd: 'of unknown role' };
+  const gk = Object.entries(M.guilds || {}).filter(([, n]) => n > 0).map(([k, n]) => `${n} ${GSHORT[k] || D.guilds[k].name}`);
   return { head: `Module ${m + 1} · ${fmt(M.n)} kinds`, col: SLOOK.module(m), rows: [
     ['Follows', api('net').follows ? api('net').follows(m) : '', R2W.map(([k, w]) => `${w} ${pct(M.r2[k])}`).join(', ')],
     ['Phyla', M.phyla.map(([p, n]) => `${p} ${n}`).join(', ')],

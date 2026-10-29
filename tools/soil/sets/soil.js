@@ -499,20 +499,24 @@ void main() {
   })();
   // ------------------------------------------------------------------ the chromosomes: the wild grass's (blue) and the
   // wheat's (orange), each two sister chromatids with bands; a segment of the blue one moves into the orange one
-  const CHG = [-0.55, 0.7, 0.2], CHW = [0.35, 0.7, 0.2], CH_LEN = 0.34, SEG = [0.6, 0.8];   // (where along it the segment lies)
+  const CHG = [-0.55, 0.7, 0.2], CHW = [0.38, 0.7, 0.2], CH_LEN = 0.44, SEG = [0.6, 0.8];   // (where along it the segment lies)
   const BLUE = C('#4f86e8'), ORANGE = C(SLOOK.LINE[1]);
   const chromMat = shader({
     uniforms: { uGap: { value: new THREE.Vector2(1, 0) }, uSegLit: { value: 0 }, uWheatGlow: { value: 0 }, uIn: { value: 0 } },
     vertex: `attribute vec3 aCol, aBase; attribute vec4 aG;
-uniform float uIn;
-varying vec3 vC, vN, vV; varying float vU, vW, vSeg;
+uniform float uIn; uniform vec2 uGap;
+varying vec3 vC, vN, vV; varying float vU, vW, vSeg, vGone;
 void main() {
   vec3 cc = aG.w < 0.5 ? vec3(${CHG.join(', ')}) : vec3(${CHW.join(', ')});
-  vec4 mv = modelViewMatrix * vec4(cc + (position - cc) * uIn, 1.0);
+  // where the segment left (the grass's) or is replaced (the wheat's), the chromatids thin to a thread
+  float inSeg = step(${SEG[0].toFixed(2)}, aG.x) * step(aG.x, ${SEG[1].toFixed(2)});
+  vGone = inSeg * (aG.w < 0.5 ? uGap.x : uGap.y);
+  vec3 q = aBase + (position - aBase) * (1.0 - 0.8 * vGone);
+  vec4 mv = modelViewMatrix * vec4(cc + (q - cc) * uIn, 1.0);
   vN = normalize(normalMatrix * normal); vV = -mv.xyz; vC = aCol; vU = aG.x; vW = aG.w; vSeg = aG.z;
   gl_Position = projectionMatrix * mv;
 }`,
-    fragment: `uniform float uA; uniform vec2 uGap; uniform float uSegLit, uWheatGlow; varying vec3 vC, vN, vV; varying float vU, vW, vSeg;
+    fragment: `uniform float uA; uniform vec2 uGap; uniform float uSegLit, uWheatGlow; varying vec3 vC, vN, vV; varying float vU, vW, vSeg, vGone;
 void main() {
   ${LITCOL}
   // bands (Giemsa-like, drawn): dark and light stripes along the chromatid
@@ -520,11 +524,11 @@ void main() {
   vec3 base = vC * mix(0.55, 1.1, band);
   float inSeg = step(${SEG[0].toFixed(2)}, vU) * step(vU, ${SEG[1].toFixed(2)});
   // the grass's segment glows while it is marked; the place it leaves fades; the wheat's piece it replaces fades
-  float gone = inSeg * (vW < 0.5 ? uGap.x : uGap.y);
+  float gone = vGone;
   base += inSeg * (1.0 - vW) * vec3(0.5, 0.7, 1.0) * uSegLit * 0.5;
   vec3 col = base * (0.35 + 0.6 * dif + 0.2 * hemi) + base * rim * (0.6 + uWheatGlow * vW * 1.4) + vec3(spec * 0.3);
   col += vW * uWheatGlow * vec3(1.0, 0.65, 0.3) * rim * 0.6;
-  gl_FragColor = vec4(col, uA * (1.0 - 0.82 * gone));
+  gl_FragColor = vec4(col * (1.0 - 0.5 * gone), uA);
 }`,
   });
   function chromatids(b, c, col, which, from, to) {
@@ -533,10 +537,10 @@ void main() {
       const n = 26, pts = [], R = [], U = [];
       for (let i = 0; i < n; i++) {
         const u = from + (to - from) * i / (n - 1), y = (u - 0.5) * CH_LEN, cen = Math.exp(-Math.pow((u - 0.42) / 0.06, 2));
-        const x = sx * (0.019 - 0.012 * cen + 0.006 * Math.pow(Math.abs(u - 0.42) * 2, 2));
+        const x = sx * (0.025 - 0.016 * cen + 0.008 * Math.pow(Math.abs(u - 0.42) * 2, 2));
         pts.push([c[0] + x, c[1] + y, c[2]]);
         const edge = Math.min(1, Math.min(u - from, to - u) / ((to - from) * (from > 0 || to < 1 ? 0.25 : 0.06)));
-        R.push(0.017 * (1 - 0.35 * cen) * Math.sqrt(Math.max(0, edge)) + 1e-4);
+        R.push(0.022 * (1 - 0.35 * cen) * Math.sqrt(Math.max(0, 1 - (1 - edge) * (1 - edge))) + 1e-4);
         U.push(u);
       }
       tube(b, pts, R, U, pts.map(() => col), U.map(u => +(u >= SEG[0] && u <= SEG[1])), which, 1, 12);
@@ -563,7 +567,7 @@ void main() { ${LITCOL}
   const TRM = [-0.08, -0.2, 0.27];
   const tracerBug = (() => {
     const b = GB(), n = 9, pts = [], R = [];
-    for (let i = 0; i < n; i++) { const s = i / (n - 1); pts.push([TRM[0] + (s - 0.5) * 0.04, TRM[1] + (s - 0.5) * 0.012, TRM[2]]); R.push(0.008 * Math.pow(Math.max(0, 1 - Math.pow(Math.abs(2 * s - 1), 4)), 0.25) + 1e-4); }
+    for (let i = 0; i < n; i++) { const s = i / (n - 1); pts.push([TRM[0] + (s - 0.5) * 0.075, TRM[1] + (s - 0.5) * 0.02, TRM[2]]); R.push(0.014 * Math.pow(Math.max(0, 1 - Math.pow(Math.abs(2 * s - 1), 4)), 0.25) + 1e-4); }
     tube(b, pts, R, pts.map(() => 0), pts.map(() => C(SLOOK.GUILD.nsp)), pts.map(() => 0), 0, 1, 10);
     const m = shader({
       uniforms: { uS: { value: 0 }, uF: { value: 0 } },
@@ -580,7 +584,7 @@ void main() { ${LITCOL} vec3 col = vC * (0.4 + 0.6 * dif) + vC * rim * (0.9 + uF
   const H = LK.halos(2200);
   H.mesh.renderOrder = 3; H.mesh.material.depthTest = false;   // (glows read through the grains: the block is a cut-away)
   set.group.add(H.mesh);
-  const NH4 = C(SLOOK.N.nh4), NO2 = C(SLOOK.N.no2), NO3 = C(SLOOK.N.no3Glow), N2O = C(SLOOK.N.n2o), UP = C(SLOOK.N.plant), WHITE = [1, 1, 1], HALO = C(SLOOK.HALO);
+  const NSPC = C(SLOOK.GUILD.nsp), NH4 = C(SLOOK.N.nh4), NO2 = C(SLOOK.N.no2), NO3 = C(SLOOK.N.no3Glow), N2O = C(SLOOK.N.n2o), UP = C(SLOOK.N.plant), WHITE = [1, 1, 1], HALO = C(SLOOK.HALO);
   // the ammonium in the topsoil: two glows round each fertiliser grain's landing spot
   const AMM = [];
   { const r = rng(17); for (const f of FERT) for (let k = 0; k < 2; k++) AMM.push([f[0] + (r() - 0.5) * 0.08, -0.015 - r() * 0.08, f[2] + (r() - 0.5) * 0.07, f[9], 0.05 + r() * 0.05, r() * TAU]); }
@@ -592,13 +596,14 @@ void main() { ${LITCOL} vec3 col = vC * (0.4 + 0.6 * dif) + vC * rim * (0.9 + uF
     for (let i = 0; i < NF; i++) {
       const x = (r() - 0.5) * 1.0, z = -0.3 + r() * 0.66, y = -0.02 - r() * 0.1;
       const root = Math.floor(r() * MAINS.length), M = MAINS[root];
-      let j = 1; while (j < M.pts.length - 1 && M.pts[j][1] > -0.06 - r() * 0.28) j++;
+      let j = 1; const yc = -0.12 - r() * 0.3; while (j < M.pts.length - 1 && M.pts[j][1] > yc) j++;
       FL.push({ s: [x, y, z], per: 7 + r() * 3, ph: r(), root, j, ex: [x + (r() - 0.5) * 0.12, z + (r() - 0.5) * 0.08], w: [x + (r() - 0.5) * 0.1, z + (r() - 0.5) * 0.08], sd: r() * 100, leaf: 0.2 + r() * 0.3, lx: (r() - 0.5) * 0.3, lz: (r() - 0.5) * 0.2, gate: (i + 0.5) / NF });
     }
   }
   const hash = (a, b) => { const x = Math.sin(a * 127.1 + b * 311.7) * 43758.5453; return x - Math.floor(x); };
   // where flow particle i is at phase a of its cycle (route by u): its place into p, its colour, size and alpha into o
-  const FLOW = { plant: 0.45, n2o: 0.12, amber: 0.25 }, FO = { col: null, size: 0, al: 0 }, _q2 = [0, 0, 0];
+  const FLOW = { plant: 0.45, n2o: 0.12, amber: 0.25 }, FO = { col: null, size: 0, al: 0 }, _q2 = [0, 0, 0], _mc = [0, 0, 0];
+  const mixC = (a, b, f) => SLOOK.mix(a, b, clamp(f, 0, 1), _mc);
   function flowAt(i, F, a, u, t, inh, p, o) {
     let col = NH4, size = 0.03, al = 0.78, x = F.s[0], y = F.s[1], z = F.s[2];
     const jx = 0.014 * Math.sin(t * 0.9 + F.sd), jz = 0.012 * Math.cos(t * 0.7 + F.sd * 1.3), ae = FLOW.amber;
@@ -606,19 +611,19 @@ void main() { ${LITCOL} vec3 col = vC * (0.4 + 0.6 * dif) + vC * rim * (0.9 + uF
       // to a root, up the root (now the plant's), up the stem into the leaves
       const M = MAINS[F.root], rp = M.pts[F.j], e0 = 0.35 + 0.1 * inh;
       if (a < e0) { const f = smooth(a / e0); x = F.s[0] + (rp[0] - F.s[0]) * f + jx * (1 - f); y = F.s[1] + (rp[1] - F.s[1]) * f; z = F.s[2] + (rp[2] - F.s[2]) * f + jz * (1 - f) + 0.012 * f; }
-      else if (a < 0.8) { rootClimb(M, F.j, (a - e0) / (0.8 - e0), _q2); x = _q2[0]; y = _q2[1]; z = _q2[2] + 0.012; col = UP; size = 0.026; al *= 1 - 0.6 * smooth((y + 0.12) / 0.12); }
-      else { const f = (a - 0.8) / 0.2; x = 0.004 * Math.sin(F.sd) + f * F.lx; y = f * F.leaf; z = 0.012 + f * F.lz; col = UP; size = 0.022; al *= 0.4 * (1 - f * f); }
-      if (a > e0 - 0.05 && a < e0 + 0.05) col = K.v3.lerp(NH4, UP, (a - e0 + 0.05) / 0.1);
+      else if (a < 0.8) { rootClimb(M, F.j, (a - e0) / (0.8 - e0), _q2); x = _q2[0]; y = _q2[1]; z = _q2[2] + 0.012; col = UP; size = 0.026; al *= 1 - 0.85 * smooth((y + 0.15) / 0.15); }
+      else { const f = (a - 0.8) / 0.2; x = 0.004 * Math.sin(F.sd) + f * F.lx; y = f * F.leaf; z = 0.012 + f * F.lz; col = UP; size = 0.022; al *= 0.22 * (1 - f * f); }
+      if (a > e0 - 0.05 && a < e0 + 0.05) col = mixC(NH4, UP, (a - e0 + 0.05) / 0.1);
     } else if (u < FLOW.plant + FLOW.n2o) {
       // the relay, then up and out of the surface as N2O
       if (a < ae) { x += jx; z += jz; y -= 0.01 * a; }
-      else if (a < ae + 0.15) { const f = (a - ae) / 0.15; col = K.v3.lerp(NH4, NO2, f); x += jx; z += jz; y -= 0.01 * ae + 0.02 * f; }
-      else { const f = (a - ae - 0.15) / (0.85 - ae); col = K.v3.lerp(NO2, N2O, Math.min(1, f * 4)); y = F.s[1] - 0.02 + f * (0.52 - F.s[1]); x = F.s[0] + (F.w[0] - F.s[0]) * f + 0.04 * Math.sin(t * 1.3 + F.sd + f * 4) * f; z = F.s[2] + (F.w[1] - F.s[2]) * f; size = 0.03 + 0.08 * f * f; al = 0.7 * (1 - f * f); }
+      else if (a < ae + 0.15) { const f = (a - ae) / 0.15; col = mixC(NH4, NO2, f); x += jx; z += jz; y -= 0.01 * ae + 0.02 * f; }
+      else { const f = (a - ae - 0.15) / (0.85 - ae); col = mixC(NO2, N2O, f * 4); y = F.s[1] - 0.02 + f * (0.52 - F.s[1]); x = F.s[0] + (F.w[0] - F.s[0]) * f + 0.04 * Math.sin(t * 1.3 + F.sd + f * 4) * f; z = F.s[2] + (F.w[1] - F.s[2]) * f; size = 0.03 + 0.08 * f * f; al = 0.7 * (1 - f * f); }
     } else {
       // the relay, then down and out of the block's bottom as nitrate
       if (a < ae) { x += jx; z += jz; y -= 0.015 * a; }
-      else if (a < ae + 0.12) { const f = (a - ae) / 0.12; col = K.v3.lerp(NH4, NO2, f); x += jx; z += jz; y -= 0.015 * ae + 0.03 * f; }
-      else if (a < ae + 0.22) { const f = (a - ae - 0.12) / 0.1; col = K.v3.lerp(NO2, NO3, f); x += jx; z += jz; y -= 0.015 * ae + 0.03 + 0.03 * f; }
+      else if (a < ae + 0.12) { const f = (a - ae) / 0.12; col = mixC(NH4, NO2, f); x += jx; z += jz; y -= 0.015 * ae + 0.03 * f; }
+      else if (a < ae + 0.22) { const f = (a - ae - 0.12) / 0.1; col = mixC(NO2, NO3, f); x += jx; z += jz; y -= 0.015 * ae + 0.03 + 0.03 * f; }
       else { const f = (a - ae - 0.22) / (0.78 - ae); col = NO3; y = F.s[1] - 0.015 * ae - 0.06 - f * (0.84 + F.s[1]); x = F.s[0] + (F.ex[0] - F.s[0]) * f + 0.015 * Math.sin(f * 9 + F.sd); z = F.s[2] + (F.ex[1] - F.s[2]) * f; al *= 1 - smooth((y + 0.68) / -0.18); }
     }
     al *= clamp(a / 0.05, 0, 1) * clamp((1 - a) / 0.06, 0, 1);
@@ -642,6 +647,11 @@ void main() { ${LITCOL} vec3 col = vC * (0.4 + 0.6 * dif) + vC * rim * (0.9 + uF
     return { pts, L, wait: 3 };   // (the microbe is point 3)
   })();
   const trOut = [0, 0, 0];
+  // the relay's particles: where each enters the pore and leaves it (bubble-local)
+  const RL = [];
+  for (let i = 0; i < 40; i++) RL.push({ E: [(hash(i, 1) - 0.5) * 0.4, 0.95, 0.35], X: [(hash(i, 2) - 0.5) * 0.4, -0.95, 0.35] });
+  const _l = [0, 0, 0], lerp3 = (a, b, f, out) => { out[0] = a[0] + (b[0] - a[0]) * f; out[1] = a[1] + (b[1] - a[1]) * f; out[2] = a[2] + (b[2] - a[2]) * f; return out; };
+  const orbit = (s, ph, t, out) => { out[0] = s[0] + 0.1 * Math.cos(t * 2.1 + ph); out[1] = s[1] + 0.08 * Math.sin(t * 2.1 + ph); out[2] = s[2] + 0.1; return out; };
   // where along the path the atom is at tracer progress s (it waits in the microbe from 0.32 to 0.5)
   function tracerAt(s, out) {
     const lw = TR.L[TR.wait], tot = TR.L[TR.L.length - 1];
@@ -725,7 +735,7 @@ void main() { ${LITCOL} vec3 col = vC * (0.4 + 0.6 * dif) + vC * rim * (0.9 + uF
           const c = (t - k * 0.09) / F.per + F.ph, cyc = Math.floor(c), a = c - cyc;
           if (!flowAt(i, F, a, hash(i, cyc), t - k * 0.09, inh, _p, FO)) continue;
           if (pore > 0.01 && (_p[0] - pc.x) ** 2 + (_p[1] - pc.y) ** 2 + (_p[2] - pc.z) ** 2 < R * R) continue;
-          H.add(_p, FO.size * (1 - 0.22 * k), FO.col, FO.al * gate * dimB * (k ? 0.38 / k : 1));
+          H.add(_p, FO.size * (1 - 0.22 * k), FO.col, FO.al * gate * dimB * (k ? 0.3 / k : 1));
         }
       }
     }
@@ -747,16 +757,15 @@ void main() { ${LITCOL} vec3 col = vC * (0.4 + 0.6 * dif) + vC * rim * (0.9 + uF
         const per = 8 + hash(i, 7) * 3, c = t / per + hash(i, 3), cyc = Math.floor(c), a = c - cyc, u = hash(i, cyc + 11);
         // the route: archaea or bacteria, then the nitrite oxidisers; or comammox straight to nitrate
         const useB = relay > 1.5 && u < 0.45, comm = relay > 3.5 && u > 0.78, toNob = relay > 2.5, bounce = hash(i, cyc + 5) < inh * 0.7;
-        const s1 = comm ? SITE[3] : useB ? SITE[1] : SITE[0], E = [(hash(i, 1) - 0.5) * 0.4, 0.95, 0.35], X = [(hash(i, 2) - 0.5) * 0.4, -0.95, 0.35];
-        let col = NH4, l;
-        const orbit = (s, ph, out) => { out[0] = s[0] + 0.1 * Math.cos(t * 2.1 + ph); out[1] = s[1] + 0.08 * Math.sin(t * 2.1 + ph); out[2] = s[2] + 0.1; return out; };
-        if (a < 0.22) l = K.v3.lerp(E, orbit(s1, i, _c), smooth(a / 0.22));
-        else if (a < 0.38) { l = orbit(s1, i, _c); if (!bounce) col = comm ? K.v3.lerp(NH4, NO3, smooth((a - 0.22) / 0.16)) : K.v3.lerp(NH4, NO2, smooth((a - 0.22) / 0.16)); }
-        else if (bounce) { col = NH4; l = K.v3.lerp(orbit(s1, i, _q), E, smooth((a - 0.38) / 0.4)); }
-        else if (comm || !toNob) { col = comm ? NO3 : NO2; l = K.v3.lerp(orbit(s1, i, _q), X, smooth((a - 0.38) / 0.5)); }
-        else if (a < 0.6) { col = NO2; l = K.v3.lerp(orbit(s1, i, _q), orbit(SITE[2], i * 2, _c), smooth((a - 0.38) / 0.22)); }
-        else if (a < 0.74) { l = orbit(SITE[2], i * 2, _c); col = K.v3.lerp(NO2, NO3, smooth((a - 0.6) / 0.14)); }
-        else { col = NO3; l = K.v3.lerp(orbit(SITE[2], i * 2, _q), X, smooth((a - 0.74) / 0.26)); }
+        const s1 = comm ? SITE[3] : useB ? SITE[1] : SITE[0], E = RL[i].E, X = RL[i].X;
+        let col = NH4, l = _l;
+        if (a < 0.22) lerp3(E, orbit(s1, i, t, _c), smooth(a / 0.22), _l);
+        else if (a < 0.38) { l = orbit(s1, i, t, _c); if (!bounce) col = mixC(NH4, comm ? NO3 : NO2, smooth((a - 0.22) / 0.16)); }
+        else if (bounce) { col = NH4; lerp3(orbit(s1, i, t, _q), E, smooth((a - 0.38) / 0.4), _l); }
+        else if (comm || !toNob) { col = comm ? NO3 : NO2; lerp3(orbit(s1, i, t, _q), X, smooth((a - 0.38) / 0.5), _l); }
+        else if (a < 0.6) { col = NO2; lerp3(orbit(s1, i, t, _q), orbit(SITE[2], i * 2, t, _c), smooth((a - 0.38) / 0.22), _l); }
+        else if (a < 0.74) { l = orbit(SITE[2], i * 2, t, _c); col = mixC(NO2, NO3, smooth((a - 0.6) / 0.14)); }
+        else { col = NO3; lerp3(orbit(SITE[2], i * 2, t, _q), X, smooth((a - 0.74) / 0.26), _l); }
         const al = 0.95 * pv2 * clamp(a / 0.06, 0, 1) * clamp((1 - a) / 0.08, 0, 1) * clamp(relay * 2, 0, 1);
         bubbleP(l, _p);
         H.add(_p, 0.09 * R, col, al);
@@ -765,13 +774,14 @@ void main() { ${LITCOL} vec3 col = vC * (0.4 + 0.6 * dif) + vC * rim * (0.9 + uF
     // the marked atom and its trail
     const trBug = prog(tracer, 0.05, 0.2) * (1 - prog(tracer, 0.93, 1));
     tracerBug.m.uniforms.uS.value = trBug;
-    tracerBug.m.uniforms.uF.value = tracer > 0.32 && tracer < 0.5 ? 0.5 + 0.5 * Math.sin(t * 14) : 0;
+    tracerBug.m.uniforms.uF.value = tracer > 0.32 && tracer < 0.5 ? 0.6 + 0.4 * Math.sin(t * 14) : 0;
     tracerBug.mesh.visible = trBug > 0.004;
     if (tracer > 0.003 && tracer < 0.999) {
       tracerAt(tracer, trOut);
       for (let k = 22; k >= 1; k--) { tracerAt(Math.max(0, tracer - k * 0.006), _p); H.add(_p, 0.012 + 0.01 * (1 - k / 22), WHITE, 0.4 * (1 - k / 22) * prog(tracer, 0, 0.04)); }
-      const fl = tracer > 0.32 && tracer < 0.5 ? 0.5 + 0.5 * Math.sin(t * 14) : 1;
-      H.add(trOut, 0.075, WHITE, 0.95 * fl * prog(tracer, 0, 0.03) * (1 - prog(tracer, 0.96, 0.999)));
+      const fl = tracer > 0.32 && tracer < 0.5 ? 0.7 + 0.3 * Math.sin(t * 14) : 1;
+      if (trBug > 0.01) H.add(TRM, 0.09, NSPC, 0.35 * trBug * (tracer > 0.32 && tracer < 0.5 ? 1.6 : 1));
+      H.add(trOut, 0.085, WHITE, 0.95 * fl * prog(tracer, 0, 0.03) * (1 - prog(tracer, 0.96, 0.999)));
     } else { trOut[0] = TR.pts[0][0]; trOut[1] = TR.pts[0][1]; trOut[2] = TR.pts[0][2]; }
     H.end();
     // the roots dim a little while the flows show (so the particles read)
