@@ -78,8 +78,8 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
 - **Built after v96 (29 October 2026), tested headlessly only:** *rooms on this network* (FORMAT networks-25). The
   owner's priority, in their words: "Rejoin by itself, never join something new by itself." The Shared dialog and the
   headset's menu list *Rooms on this network* (code, its first member's or host's name, people; one press joins): with
-  a relay its `GET /api/near` (the relay hashes each device's address; `--proxy` behind Coolify, set in the
-  Dockerfile); without one, a room's host holds one of eight slots named after a hash of the network's public address
+  a relay its `GET /api/near` (the relay hashes each device's address; `--proxy` behind Coolify, set in its start
+  command, `--proxy 2` with a CDN such as Cloudflare in front: see `relay/README.md`); without one, a room's host holds one of eight slots named after a hash of the network's public address
   (as Cloudflare's STUN server reports it) on the introduction server, and seekers ask there. A device that was in a
   room joins it again by itself when the app opens on the same network within a week (a notice says so, with Leave):
   by its code on the relay (a relay that forgot it gets it back from the device's copy; a code given to another room
@@ -111,6 +111,15 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
   story's colour, with the glowing dodecahedron while they load or for a story without one; the old hand-made models
   are gone from `shared.js`. AGENTS.md "Shared rooms" ("Station icons", "The design room in a room"). How the icons
   read from across a real room and the table at a circle on a headset are untested.
+- **Built after v96 (29 October 2026), tested headlessly only:** *follow a person* (the owner: a laptop for people who
+  do not want to wear a headset follows along). In the page's Shared dialog each person in a headset has *Follow* in
+  the people list: the page then follows whichever station that person stands at, switching as they walk from one
+  circle to the next, and stays on the last one when they step out of every circle (or take the headset off). It stops
+  when they leave the room (the page stays at their last station), or when the page follows a station or picks a story
+  by hand, as following a station stops now. The dialog says "Following Ann (at The flock)". Pages only (a headset
+  walks); nothing new is written to the room (no `FORMAT` change). AGENTS.md "Shared rooms"; at an event:
+  [docs/event-runbook.md](docs/event-runbook.md). Tested with a pretend person in a headset between pages on one
+  machine (`node tools/collab.mjs --follow`); with real headsets walking a room it is untested.
 - **Tried on real headsets:** the stories and their sound on Quest; shared rooms on two Quest 3 headsets in several
   rounds (what happened is in [docs/quest-shared-space-findings.md](docs/quest-shared-space-findings.md) and AGENTS.md
   "Shared rooms"). All thirteen stories of then, the slideshow and the headset menu on the wrist were tried on a headset
@@ -191,9 +200,9 @@ Before handing over (or making anything more public), someone has to decide thes
      with a German voice and subtitles: about 1.5 to 2 days of agent work; explore mode in German too: about 1 to 1.5
      days more. In a shared room everyone keeps one timeline, so each stretch lasts the longer of its two languages (as
      the pass story, already in English and German, does);
-   - **The queue** (the owner, 29 October 2026), in this order: follow a person (about 1 h); then a test round and a
-     release (about 1 h). Rooms on this network, first in it, the loading bar queued alongside, panels per story and
-     the design room's part 2 are built (see "Where things stand"). Each is described below;
+   - **The queue** (the owner, 29 October 2026): a test round and a release (about 1 h). Rooms on this network, first
+     in it, the loading bar queued alongside, panels per story, the design room's part 2 and follow a person are built
+     (see "Where things stand"). Each is described below;
    - **circles that load code from a link** (on hold, the owner, 29 October 2026; the design agreed, not to build
      yet). The owner's aim: the whole office as one shared room, where colleagues add circles of their own, with their
      own logic, from a web page or a GitHub repository. How: a station whose story is a script from a web address
@@ -209,8 +218,7 @@ Before handing over (or making anything more public), someone has to decide thes
      room map; a walk test with a headset first (does one calibration hold across rooms and doorways; Quest's
      passthrough outside the scanned room). About 5 to 6 hours, plus 1 to 2 hours for office-scale placing;
    - **rooms on this network**: built (see "Where things stand");
-   - **follow a person** (queued; the owner, 29 October 2026): a laptop in a room follows whichever circle a chosen
-     headset wearer stands in, switching as they walk (people without a headset follow a guide). About 1 hour;
+   - **follow a person**: built (see "Where things stand");
    - **see through their eyes** (optional, later; the owner, 29 October 2026): a laptop's camera follows that wearer's
      head at their circle (a view for a projector). About 3 to 4 hours (each story places its scene differently in a
      headset);

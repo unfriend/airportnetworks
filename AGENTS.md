@@ -629,7 +629,9 @@ came with rooms on this network, and `st.<id>.ui` with panels per story in the s
     network's name (one id stands for about 256 public addresses). With a relay, the relay's (`/api/ping` and
     `/api/near` say it): it hashes the address it sees, a private one by its /24 (a relay on the LAN sees the headsets'
     own addresses), IPv6 by its /64; behind a reverse proxy such as Coolify's it takes the last address in
-    `X-Forwarded-For`, only when started with `--proxy`. Without a relay (or one that does not answer), the public
+    `X-Forwarded-For`, only when started with `--proxy` (behind `n` proxies, `--proxy n`, the `n`-th from the right:
+    `--proxy 2` with a CDN such as Cloudflare in front; the Dockerfile leaves it off, Coolify's start command sets it,
+    see `relay/README.md`). Without a relay (or one that does not answer), the public
     IPv4 address Cloudflare's STUN server reports (the srflx candidate of a throwaway `RTCPeerConnection`, its listener
     added with `HOST.quiet`), hashed in the page (`netName`, `netHash`: the relay's rules and salt, so both agree). For
     tests `#net=<word>` pretends one (no relay; kept for the tab in `sessionStorage`, `collabNet`; `off` drops it). None
@@ -708,6 +710,24 @@ came with rooms on this network, and `st.<id>.ui` with panels per story in the s
   follows one from the Shared dialog (a page cannot walk). A story the person
   starts themselves leaves the station (no longer following, not pulled
   back).
+- Follow a person (pages only; the owner, 29 October 2026: a laptop for people
+  who do not want to wear a headset follows along): in the Shared dialog's
+  people list each person in a headset (`kind` `ar` or `vr`) has *Follow*
+  (`HOST.collab.followPerson(id)`, `followingWho()`; `C.who`). The page then
+  follows whichever station that person stands at, as their presence says
+  (`st`), switching as they walk from one circle to the next (`whoStep` in the
+  pump; `choose(id, 'person')`); out of every circle, or with their presence
+  quiet (a headset taken off), it stays on the last one. It stops when they
+  leave the room (gone from the members for 15 s while this page is connected,
+  `WHO_GONE`, so a socket of theirs back within it, as after a relay restart,
+  keeps them; the page stays at their last station, following it as by hand),
+  or when this page follows a station by hand (a station's Follow, the map),
+  picks a story by hand, presses Stop following, leaves the room or starts a
+  headset session. The dialog says "Following <name> (at <story>)", "(last at
+  <story>; in no circle now)" or "(not at a station yet)"; Follow on someone not
+  at a station yet keeps the dialog open. Nothing is written to the room (each
+  page's presence already says where it is), so no `FORMAT` change. A reload in
+  place (`HOST.place`, `who`) follows them again.
 - Arrange all: two rows in front of you, half the stories (rounded up: eight of
   fifteen) 1.2 m ahead and the rest 2.6 m further on (behind them; in the gaps when the second row is shorter), 2.4 m apart, every
   station facing away from you (its content floats 1.4 m beyond its spot); it
@@ -1952,7 +1972,8 @@ After touching `shared.js`, the relay or a story's shared-room hooks, run
 `node relay/test.mjs` (the protocol: rooms, writes and their order, the epoch
 rule, `fx`, timeouts, bad frames, static serving, `--logs`, the introduction
 server at `/peerjs`, rooms on this network: `/api/near` by the asker's network, a private address by its /24, IPv6 by its
-/64, `--proxy` and `X-Forwarded-For` ignored without it, an empty room still listed on its members' networks, `near`
+/64, `--proxy` and `X-Forwarded-For` ignored without it, `--proxy 2` taking the second address from the right (the first
+when there is only one) and `--proxy` alone the last, an empty room still listed on its members' networks, `near`
 off, and no address in any answer or log line, nor a network's id in the log; no browser, seconds; `node tools/peer.mjs` links two pages of
 the test page `p2p/` through it) and
 `node tools/collab.mjs` (about a quarter of an hour; it starts its own relay with
@@ -1977,7 +1998,14 @@ Shared dialog with the layout locked (reaching the pages at that station,
 another station keeping its own; kept across the relay restart),
 two controls changed at once on two pages (both kept), two stations
 followed back to back (the second not lost), a story picked by hand (stops
-following), no writes while idle (no ping-pong), a late joiner, a relay restart, and
+following), no writes while idle (no ping-pong), a late joiner, a page following a
+pretend person in a headset (a socket of its own speaking as a headset's page:
+the people list's Follow for them and none for a screen or for you; not at a
+station yet, the dialog open and saying so; the station they walk into, then the
+next, the line "Following Guide (at <story>)"; out of every circle and their
+presence quiet, the last one kept; a station followed by hand, Stop following in
+their row and a story picked by hand each stopping it; they leave, it stops after
+15 s and the page stays at their last station), a relay restart, and
 a pretend headset with fake `local-floor` and `shared` spaces: alignment,
 away from every station no story (no Stories screen, the scene and panels
 hidden, nothing to point at, paused, no Stories button, the clock in front),
@@ -2097,7 +2125,10 @@ it, the first page back hosting it from its copy and the next linking to it; on 
 *Start room XYZ again* hosting it with one press; Leave on purpose, nothing by itself; the relay's log naming none of
 the pretend addresses. `--quick` runs only the last story in the per-story part. `--design` runs only the design room
 in a room (three pages and a pretend headset, a minute or two; with `--shots` its pictures: `design-menu.png`, the menu's
-canvas, `design-station.png`, the table at its circle, `design-circle.png`, its ring, card and icon among the others). A new story needs an entry in `STORIES`
+canvas, `design-station.png`, the table at its circle, `design-circle.png`, its ring, card and icon among the others).
+`--follow` runs only following a person (a room of its own with two stations, a minute or two; with `--shots` the
+people list with Follow, `follow-person-1-people.png`, and the dialog following someone, `follow-person-2-following.png`
+and `follow-person-3-people-following.png`). A new story needs an entry in `STORIES`
 (`change` and `back`: code that changes its `state()`, and optional `effect`
 and `more`); the headset's story (`HEADSET_STORY`) stays the last entry.
 `--shots <dir>` also saves pictures of rooms on this network (`near-dialog.png`, `near-toast.png`, `near-again.png`,

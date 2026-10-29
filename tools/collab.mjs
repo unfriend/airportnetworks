@@ -993,13 +993,13 @@ async function nearby() {
 // the page stays at their last station). dir: pictures of the people list with Follow and the dialog following them
 const FORMAT = /const FORMAT = '([^']+)'/.exec(fs.readFileSync(path.join(root, 'shared.js'), 'utf8'))[1];
 function person(code, id, name) {
-  const G = { id, st: '', on: true, timer: 0, ws: new WebSocket(`ws://127.0.0.1:${port}/api/ws?room=${code}&id=${id}&proto=1`) };
+  const G = { id, st: '', head: [0, 1.6, 0], on: true, timer: 0, ws: new WebSocket(`ws://127.0.0.1:${port}/api/ws?room=${code}&id=${id}&proto=1`) };
   G.open = new Promise((res, rej) => { G.ws.onopen = res; G.ws.onerror = () => rej(new Error('the person\'s socket failed')); });
   G.ws.onmessage = () => {};
   G.open.then(() => {
     G.ws.send(JSON.stringify({ t: 'hello', name, color: '#ff7a59', kind: 'ar', here: true, version: FORMAT, proto: 1, dev: 'headset' }));
     G.timer = setInterval(() => {
-      if (G.on && G.ws.readyState === 1) G.ws.send(JSON.stringify({ t: 'fx', k: 'p.' + id, v: { st: G.st, head: [0, 1.6, 0, 0, 0, 0, 1], hands: [], bv: '', sp: '', al: '' } }));
+      if (G.on && G.ws.readyState === 1) G.ws.send(JSON.stringify({ t: 'fx', k: 'p.' + id, v: { st: G.st, head: [...G.head, 0, 0, 0, 1], hands: [], bv: '', sp: '', al: '' } }));
     }, 100);
   }, () => {});
   G.close = () => { clearInterval(G.timer); try { G.ws.close(1000); } catch (e) { /* closed */ } };
@@ -1012,6 +1012,9 @@ async function personFollow(code, dir) {
   const [t1, t2] = await D.evaluate(k => k.map(x => HOST.meta(x).title), [PICK_STORY, OTHER_STORY]);
   const G = person(code, 'guide' + Math.random().toString(36).slice(2, 7), 'Guide');
   await G.open;
+  // (where they stand: on a station's spot, or a step back from it)
+  const spot = await D.evaluate(ids => ids.map(id => { const s = HOST.collab.station(id); return [s.x, 1.6, s.z]; }), [s1, s2]);
+  const go = (st, i, off) => { G.st = st; G.head = [spot[i][0], 1.6, spot[i][2] + (off || 0)]; };
   const line = () => D.evaluate(() => { const e = document.querySelector('#shared .sh-room span'); return e ? e.textContent : ''; });
   const fol = () => D.evaluate(() => [HOST.collab.followingWho(), HOST.collab.following(), HOST.curKey]);
   const at = (id, k) => until(D, ([i, k]) => HOST.collab.following() === i && HOST.curKey === k && !HOST.busy, [id, k], 60000).then(ok => ok && ready(D, k, 60000));
@@ -1030,7 +1033,7 @@ async function personFollow(code, dir) {
     const w0 = await until(D, () => !document.getElementById('shared').hidden && document.querySelector('#shared .sh-room span').textContent === 'Following Guide (not at a station yet)', null, 5000);
     check('follow a person not at a station yet: the dialog stays open and says so', w0 && (await fol())[0] === G.id, JSON.stringify([await line(), await fol()]));
     // they walk into a circle: the page follows that station, and the dialog says where they are
-    G.st = s1;
+    go(s1, 0);
     const a1 = await at(s1, PICK_STORY), l1 = await line();
     check('following a person: the page follows the station they walk into, and the dialog says "Following Guide (at <story>)"', a1 && l1 === `Following Guide (at ${t1})`, JSON.stringify({ f: await fol(), l1 }));
     await D.evaluate(() => HOST.collab.dialog(true));
@@ -1039,12 +1042,12 @@ async function personFollow(code, dir) {
     const stopRow = await D.evaluate(id => { const b = document.querySelector('#shared .sh-people li.on [data-sh="unfollow"]'); return !!b && /Guide/.test(b.closest('li').textContent); }, G.id);
     check('... and their row in the people list says Stop following', stopRow);
     // on to the next circle: it switches
-    G.st = s2;
+    go(s2, 1);
     const a2 = await at(s2, OTHER_STORY), l2 = await line();
     check('... and switches as they walk to the next circle', a2 && l2 === `Following Guide (at ${t2})`, JSON.stringify({ f: await fol(), l2 }));
     // out of every circle: it stays on the last one; their presence quiet too (a headset taken off)
-    G.st = '';
-    await sleep(1500);
+    go('', 1, 1.8);
+    await until(D, () => /; in no circle now\)$/.test(document.querySelector('#shared .sh-room span').textContent), null, 6000);   // (a busy page: its pump waits for frames)
     const [f3, l3] = [await fol(), await line()];
     G.on = false;
     await sleep(4500);
@@ -1055,7 +1058,7 @@ async function personFollow(code, dir) {
     // a station followed by hand stops it: their walking no longer moves the page
     const hb = await click(`[data-sh="follow:${s1}"]`);
     const h1 = await at(s1, PICK_STORY);
-    G.st = s2;
+    go(s2, 1);
     await sleep(3500);
     const f5 = await fol();
     check('a station followed by hand stops following the person (their walking no longer moves the page)', hb && h1 && f5.join() === ['', s1, PICK_STORY].join(), JSON.stringify(f5));
@@ -1070,7 +1073,7 @@ async function personFollow(code, dir) {
     await until(D, id => HOST.collab.following() === id, s2, 5000);
     await D.evaluate(k => HOST.start(k), PICK_STORY);
     await ready(D, PICK_STORY, 60000);
-    G.st = s1; await sleep(500); G.st = s2;
+    go(s1, 0); await sleep(500); go(s2, 1);
     await sleep(3000);
     const f7 = await fol();
     check('a story picked by hand stops following the person (and the station), and their walking no longer moves the page', f7.join() === ['', '', PICK_STORY].join(), JSON.stringify(f7));
@@ -1096,7 +1099,7 @@ async function followOnly() {
   await A.evaluate(async () => { await HOST.collab.detect(); HOST.collab.create(); });
   await until(A, () => HOST.collab.status === 'open', null, 10000);
   const c = await A.evaluate(() => HOST.collab.code);
-  await A.evaluate(k => { for (const s of k) HOST.collab.add(s); }, [PICK_STORY, OTHER_STORY]);
+  await A.evaluate(k => { k.forEach((s, i) => HOST.collab.add(s, { x: i ? 1.2 : -1.2, z: -1.2, yaw: 0 })); }, [PICK_STORY, OTHER_STORY]);
   await until(A, () => HOST.collab.stations().length === 2 && !HOST.collab.internals().pending.size, null, 5000);
   if (shots) fs.mkdirSync(shots, { recursive: true });
   await personFollow(c, shots);

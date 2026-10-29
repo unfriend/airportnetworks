@@ -121,7 +121,9 @@ make a new one: start AR on one headset first, then the others. The relay keeps 
 relay/logs/ for checking alignment. People elsewhere and
 screens
 see the stations round their own spot. Screens get a room map and Follow a
-station. Over each station's ring a small 3D model of its story turns, in its
+station, or Follow a person in a headset (in the Shared dialog's people list:
+the screen shows whichever station they stand at, switching as they walk, for
+people watching without a headset). Over each station's ring a small 3D model of its story turns, in its
 colour, so you can tell the circles apart from across the room. A station moves with the grip on its ring or card in a headset (point
 to swing it round, raise or lower to push or pull, twist to turn it), or by
 dragging its dot (or its square, to turn it) on the room map; everyone sees it
