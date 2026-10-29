@@ -2586,9 +2586,9 @@
     changed();
     return false;
   }
-  // the story on show in this headset (the menu's Panels row): none on its Stories screen, away from every station in a
-  // room, or while a story loads
-  const showing = () => (HOST.session && HOST.panels && HOST.cur && HOST.curKey && !HOST.busy && !HOST.onStories && !away() ? HOST.curKey : '');
+  // the story on show in this headset (the menu's Panels row): none on its Stories screen or away from every station in
+  // a room
+  const showing = () => (HOST.session && HOST.panels && HOST.cur && HOST.curKey && !HOST.onStories && !away() ? HOST.curKey : '');
   const PANELS_SAY = { shown: 'shown', controls: 'controls only', hidden: 'hidden' };
   function panelSig() {
     return J([C.code, C.status, C.note, PNL.open, PNL.page, OV.panel.hover, C.name, C.color, C.hereSet, here(), askHere(), R.status(), C.mine, C.live, armed(C.mine),

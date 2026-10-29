@@ -1398,8 +1398,9 @@ for (const key of ['airports', 'proteins', 'spatial', 'lbi', 'nmd', 'endo', 'pet
     if (!(await sp.evaluate(() => HOST.panels.get('qubits')) === 'shown' && await vis() === want.shown)) bad.push('not shown by default: ' + await vis());
     // the menu's row goes round, the story following at once
     await sp.evaluate(() => HOST.collab.panelOpen(true));
+    for (let k = 0; k < 40 && !await row(); k++) { await sp.waitForTimeout(50); await tick(1); }   // (a busy machine: the menu drawn with its row)
     const seen = [];
-    for (let k = 0; k < 3; k++) { if (!await press('panels')) { bad.push('no Panels row in the menu'); break; } seen.push(await sp.evaluate(() => HOST.panels.get('qubits')) + '/' + await vis()); }
+    for (let k = 0; k < 3; k++) { if (!await press('panels')) { bad.push('no Panels row in the menu: ' + JSON.stringify(await sp.evaluate(() => [!!HOST.session, HOST.curKey, HOST.busy, HOST.onStories, HOST.room.away(), HOST.collab.code, HOST.collab.overlay().panel.regions.map(r => r.id).slice(0, 12)]))); break; } seen.push(await sp.evaluate(() => HOST.panels.get('qubits')) + '/' + await vis()); }
     if (seen.join(' ') !== 'controls/-,foot hidden/-,- shown/main,foot') bad.push('the menu\'s Panels row went ' + seen.join(' ') + ' (not controls only, hidden, shown, with the panels following)');
     // on the Stories screen: no row (no story on show), and its panels stay whatever this story's are
     await sp.evaluate(() => HOST.panels.set('qubits', 'hidden'));
