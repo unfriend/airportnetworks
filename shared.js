@@ -1294,7 +1294,7 @@
       pairs.push(['st.' + id, { story: m.key, x: r3(b.x + ahead * fx + side * rx), z: r3(b.z + ahead * fz + side * rz), yaw: r3(b.yaw) }]);
       if (!old) pairs.push([kPlay(id), startClock()]);
     });
-    for (const s of C.st) if (!used.has(s.id) && !meta(s.story).unknown) pairs.push(['st.' + s.id, null]);   // (not a story this device does not know)
+    for (const s of C.st) { const m = meta(s.story); if (!used.has(s.id) && !(m && m.unknown)) pairs.push(['st.' + s.id, null]); }   // (not a story this device does not know)
     log('arrange', { stations: n });
     publish(pairs);
   }

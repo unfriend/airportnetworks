@@ -404,7 +404,7 @@ headset as it changes). One path in the shell, `HOST.live` in `index.html`:
   front of you over everything, pointed at through `HOST.collab.ray` and
   `press` (which every story calls before its own scene: the shell wraps them).
   A question waiting is taken by itself on the page's Stories screen outside a
-  headset (`HOST.reloadIfUpdated`, which the service worker's takeover used to
+  headset unless Later was pressed (Later holds until it is asked again) (`HOST.reloadIfUpdated`, which the service worker's takeover used to
   trigger directly), at most once in ten minutes (a host that serves an old
   page from a cache must not cause a loop). Without `version.json` a worker
   that took over still means a new shell, as before.

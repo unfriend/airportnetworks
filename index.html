@@ -1721,8 +1721,8 @@ HOST.closePicker = function () {
 //    just after a chapter's end; never in the middle of a playing chapter). Asked first (a bar on the page, a panel
 //    with two buttons in the headset: Reload now, the place kept, or Later): another shell, another shared-room
 //    FORMAT, a story that needs a newer shell, a shared room's station whose story this copy does not have yet. On the
-//    page's Stories screen, outside a headset, a waiting new shell is taken by itself (nothing is lost there): what
-//    HOST.reloadIfUpdated did when a new service worker took over, now one path with the rest.
+//    page's Stories screen, outside a headset, a waiting new shell is taken by itself unless Later was pressed (nothing
+//    is lost there): what HOST.reloadIfUpdated did when a new service worker took over, now one path with the rest.
 // A reload keeps the place (sessionStorage livePlace: the story, mode, clock, explore state, view, the station
 // followed); a headset session cannot survive one, so the page then shows one button, Enter VR (or AR) to continue.
 HOST.live = (function () {
@@ -2086,7 +2086,7 @@ HOST.live = (function () {
     // a reload is waiting (HOST.reloadIfUpdated takes it on the Stories screen, at most once in ten minutes: a host
     // that still serves an old page from a cache must not reload it in a loop)
     waiting() {
-      if (!L.ask || L.ask.kind === 'missing') return false;
+      if (!L.ask || L.ask.kind === 'missing' || L.ask.hidden) return false;   // (Later holds until it is asked again)
       return Date.now() - (+ses.get('liveReloadAt') || 0) > 600000;
     },
     // the shell is about to tear the story down: the headset's panel leaves its scene
