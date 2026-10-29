@@ -160,6 +160,7 @@ const P2P = argv.includes('--p2p'), P2P_KEY = 'proteins', P2P_T = STORIES[P2P_KE
 const NEAR_ONLY = argv.includes('--near');   // (only rooms on this network)
 const DESIGN_ONLY = argv.includes('--design');   // (only the design room in a room: designOnly)
 const FOLLOW_ONLY = argv.includes('--follow');   // (only following a person: personFollow, in a room of its own)
+const CIRCLES_ONLY = argv.includes('--circles');   // (only the ten-headset round: headsetRound, in a room of its own)
 if (argv.includes('--quick')) for (const k of Object.keys(STORIES).slice(0, -1)) delete STORIES[k];
 const relayPort = argv.includes('--port') ? +argv[argv.indexOf('--port') + 1] : 0;
 const { chromium } = await import(process.env.PLAYWRIGHT_MODULE || 'playwright');
@@ -343,12 +344,12 @@ const ringAt = (page, id) => page.evaluate(id => {
   const c = o.ring.getWorldPosition(new THREE.Vector3()), head = new THREE.Vector3().setFromMatrixPosition(X.W.head).applyMatrix4(X.W.local.clone().invert());
   return c.addScaledVector(head.sub(c).setY(0).normalize(), 0.48).toArray();
 }, id);
-// controller 0 of a pretend headset pointing from just below its head at t (the story's space), for a few frames
+// controller 0 of a pretend headset pointing from just below its head at t (the story's space), for a couple of frames
+// (the session's input source too, whose grip the shell hears)
 const pointAt = (page, t) => page.evaluate(t => {
-  const X = window.__xr, c = HOST.cur.peek('XR.ctrls')[0], V = THREE.Vector3;
+  const X = window.__xr, V = THREE.Vector3;
   const head = new V().setFromMatrixPosition(X.W.head).applyMatrix4(X.W.local.clone().invert()), o = head.clone().add(new V(0.12, -0.3, -0.1));
-  c.src = c.src || { targetRayMode: 'tracked-pointer', handedness: 'right', gamepad: null }; c.g.visible = true;
-  c.g.matrix.compose(o, new THREE.Quaternion().setFromUnitVectors(new V(0, 0, -1), new V(...t).sub(o).normalize()), new V(1, 1, 1));
+  X.aim(0, new THREE.Matrix4().compose(o, new THREE.Quaternion().setFromUnitVectors(new V(0, 0, -1), new V(...t).sub(o).normalize()), new V(1, 1, 1)));
   X.step(); X.step();
   const h = HOST.collab.internals().hov.get(0);
   return h && h.target.kind === 'station' ? h.target.id : '';
@@ -1129,6 +1130,182 @@ async function followOnly() {
   await personFollow(c, shots);
 }
 
+// ---- the owner's ten-headset round (29 October 2026), in a room of its own with three stations: a pretend headset H
+// before any circle sees every card and icon and everyone; in a circle the other stations show their rings only (a ray
+// resting on a ring shows its card and icon, which fade about 2 s after it moves off; the trigger there runs nothing),
+// and only the people at its circle are drawn (People: everyone in the menu, this headset's own, draws them all);
+// walked out of its circle it stays in its story, and walking into another circle switches; the circles lock refuses
+// the circle moves and nothing else; a story's lock (the menu's Lock this story at its circle, Lock story in a page's
+// dialog) refuses the scene and panel grips at that circle for everyone, and nothing at other circles. (The rest of
+// walking out, and both locks across a relay restart, are in the main run.) dir: the pictures for the owner
+async function headsetRound(dir) {
+  const K1 = 'qubits', KEYS = [K1, HEADSET_STORY, PICK_STORY];   // (first a story built from sets, with a scene to stand at in the pictures)
+  const A = await open('#stories');
+  await A.evaluate(async () => { await HOST.collab.detect(); HOST.collab.create(); });
+  await until(A, () => HOST.collab.status === 'open', null, 10000);
+  const rc = await A.evaluate(() => HOST.collab.code);
+  // (the first in front of the room's origin, the other two further on to either side: seen from the first, in view)
+  await A.evaluate(k => k.forEach((s, i) => HOST.collab.add(s, [{ x: 0, z: 0, yaw: 0 }, { x: 1.8, z: -2.6, yaw: -0.3 }, { x: -1.8, z: -2.6, yaw: 0.3 }][i])), KEYS);
+  await until(A, () => HOST.collab.stations().length === 3 && !HOST.collab.internals().pending.size, null, 5000);
+  const three = p => until(p, () => HOST.collab.status === 'open' && HOST.collab.stations().length === 3, null, 20000);
+  const B = await open('#s=' + rc, { width: 1000, height: 760 }), H = await open('#s=' + rc);
+  await three(B); await three(H);
+  await ready(H, 'airports');
+  const aId = await A.evaluate(() => HOST.collab.id);
+  await A.evaluate(f => HOST.collab.publish([[HOST.room.frameKey('U1'), f]]), frameFor(ROOM, 'U1', aId, Date.now() - 60000));
+  await until(A, () => !HOST.collab.internals().pending.size, null, 3000);
+  await H.evaluate(() => { HOST.room.sharedAlign(true); localStorage.removeItem('collabPeople'); });
+  await H.evaluate(installXR, { mode: 'immersive-ar', features: ['local-floor', 'anchors', 'shared'], local: LOCAL, floor: FLOOR, shared: SHARED, sharedId: '', head: [-6, 1.6, 6, 0] });
+  await H.evaluate(() => window.__xr.begin());
+  await frames(H, 400);
+  await H.evaluate(() => { const X = window.__xr; X.spaces.shared.UUId = 'U1'; for (const fn of X.resets.shared || []) fn({ transform: null }); });
+  await frames(H, 300);
+  const sts = await A.evaluate(() => HOST.collab.stations()), [S1, S2, S3] = KEYS.map(k => sts.find(s => s.story === k)), ids = [S1.id, S2.id, S3.id];
+  check('round: the pretend headset aligns in a room of its own with three stations', await H.evaluate(() => HOST.room.aligned) && !!S1 && !!S2 && !!S3);
+  const seenRound = () => H.evaluate(ids => { window.__xr.step(); const O = HOST.collab.overlay();
+    return { cards: ids.map(id => { const c = O.cards.get(id); return !!c && c.mesh.visible && c.mesh.material.opacity > 0.9 && O.hit.includes(c.mesh); }),
+      icons: ids.map(id => { const o = O.rings.get(id); return !!o && o.icon.g.visible && o.icon.k > 0.9; }),
+      rings: ids.map(id => { const o = O.rings.get(id); return !!o && o.g.visible && O.hit.includes(o.ring); }), away: HOST.room.away(), mine: HOST.collab.mine() }; }, ids);
+  // three people injected for a few frames, at the stations given ('' none): which of them are drawn
+  const crowd = at => H.evaluate(async at => {
+    const C = HOST.collab.internals();
+    for (let k = 0; k < 6; k++) {
+      at.forEach((st, i) => {
+        const id = 'zz-p' + i;
+        if (!C.members.some(m => m.id === id)) C.members.push({ id, name: 'Person ' + (i + 1), color: '#ff7a59', kind: 'ar', here: true });
+        C.pres.set(id, { id, at: performance.now(), st, head: [i - 1, 1.6, 1.5, 0, 0, 0, 1], hands: [] });
+      });
+      window.__xr.step(); await new Promise(r => setTimeout(r, 15));
+    }
+    return at.map((st, i) => { const o = HOST.collab.overlay().people.get('zz-p' + i); return !!o && o.g.visible; });
+  }, at);
+  const menu = id => H.evaluate(async id => {
+    const X = window.__xr; HOST.collab.panelOpen(true); X.step(); X.step();
+    const r = HOST.collab.overlay().panel.regions.find(x => x.id === id); if (r && r.fn) r.fn();
+    for (let k = 0; k < 3; k++) { X.step(); await new Promise(res => setTimeout(res, 20)); }
+    HOST.collab.panelOpen(false); X.step();
+    return !!(r && r.fn);
+  }, id);
+  try {
+    // before any circle: every card and icon, and everyone
+    await until(H, () => { window.__xr.step(); return [...HOST.collab.overlay().rings.values()].every(o => o.icon.k > 0.9); }, null, 8000);
+    const r0 = await seenRound(), p0 = await crowd([S1.id, S2.id, '']);
+    check('round: before any circle the headset sees every station\'s card, icon and ring, and draws everyone', r0.away && !r0.mine && r0.cards.every(Boolean) && r0.icons.every(Boolean) &&
+      r0.rings.every(Boolean) && p0.every(Boolean), JSON.stringify({ r0, p0 }));
+    // in its circle: the others' rings only; only the people at its circle drawn
+    const in1 = await walk(H, S1, K1, 0);
+    await until(H, ids => { window.__xr.step(); const O = HOST.collab.overlay(); return ids.slice(1).every(id => O.rings.get(id).icon.k < 0.05 && !O.cards.get(id).mesh.visible); }, ids, 8000);
+    const r1 = await seenRound(), p1 = await crowd([S1.id, S2.id, '']);
+    check('round: in its circle the other stations show their rings only (no card, no icon; the rings pointable)', in1 && r1.mine === S1.id && !r1.cards[1] && !r1.cards[2] &&
+      !r1.icons.some(Boolean) && r1.rings.every(Boolean), JSON.stringify(r1));
+    check('round: in its circle only the people at its circle are drawn (not those at another circle or at none)', p1.join() === 'true,false,false', JSON.stringify(p1));
+    // People in the menu: everyone (this headset's own: kept on it, nothing written to the room), and back
+    const q0 = (await roomInfo(rc)).seq;
+    const m1 = await menu('people'), p2 = await crowd([S1.id, S2.id, '']), kept = await H.evaluate(() => [localStorage.getItem('collabPeople'), HOST.collab.seeAll()]);
+    const m2 = await menu('people'), p3 = await crowd([S1.id, S2.id, '']), q1 = (await roomInfo(rc)).seq;
+    check('round: People in the clock menu draws everyone (kept on this headset, never written to the room) and the same circle again', m1 && m2 && p2.every(Boolean) &&
+      kept.join() === 'all,true' && p3.join() === 'true,false,false' && q1 === q0 && !Object.keys((await roomInfo(rc)).keys).some(k => /people|see/i.test(k)), JSON.stringify({ p2, kept, p3, writes: q1 - q0 }));
+    // a ray resting on another station's ring: its card and icon while it points, still there a second after, gone a
+    // few seconds later; the trigger there runs nothing (walk into its circle)
+    const at2 = await ringAt(H, S2.id), on2 = await pointAt(H, at2);
+    const shown2 = on2 === S2.id && await until(H, ([a, b]) => { window.__xr.step(); const O = HOST.collab.overlay(), c = O.cards.get(a), o = O.rings.get(a);
+      return !!c && c.mesh.visible && c.mesh.material.opacity > 0.95 && O.hit.includes(c.mesh) && o.icon.k > 0.9 && !O.cards.get(b).mesh.visible && O.rings.get(b).icon.k < 0.05; }, [S2.id, S3.id], 4000);
+    if (dir) { await headView(H, path.join(dir, 'round-2-pointed.png'), Math.atan2(-(S2.x - S1.x), -(S2.z - S1.z)) * 0.6, -0.32, [960, 600]); await pointAt(H, at2); }   // (drawing took a while: pointed at again)
+    await H.evaluate(() => window.__xr.ctrl(0, null));
+    const t0 = Date.now();
+    await frames(H, 1000);
+    const still = await H.evaluate(id => { const c = HOST.collab.overlay().cards.get(id); return c.mesh.visible && HOST.collab.overlay().rings.get(id).icon.k > 0.5; }, S2.id);
+    const gone = await until(H, id => { window.__xr.step(); const O = HOST.collab.overlay(); return !O.cards.get(id).mesh.visible && O.rings.get(id).icon.k < 0.05; }, S2.id, 8000), after = (Date.now() - t0) / 1000;
+    check(`round: a ray resting on another station's ring shows its card and icon (and no other), still there a second after it moves off, faded about 2 s after (gone after ${after.toFixed(1)} s)`,
+      shown2 && still && gone && after > 1.9, JSON.stringify({ on2, shown2, still, gone, after }));
+    await pointAt(H, await ringAt(H, S2.id));
+    await H.evaluate(() => { HOST.cur.peek('XR.ctrls')[0].wantPress = true; });
+    await frames(H, 300);
+    const tr = await H.evaluate(() => ({ key: HOST.curKey, mine: HOST.collab.mine(), note: (window.__collabLog.filter(e => e.ev === 'notice').slice(-1)[0] || {}).title }));
+    await H.evaluate(() => window.__xr.ctrl(0, null));
+    check('round: the trigger on another station\'s ring runs nothing (a notice: walk into its circle)', tr.key === K1 && tr.mine === S1.id && tr.note === 'Walk into its circle', JSON.stringify(tr));
+    if (dir) {
+      // in its circle, the others as rings only (looking between them), and the menu with its two locks and People
+      await frames(H, 4000);
+      await headView(H, path.join(dir, 'round-1-rings.png'), 0, -0.3, [960, 600]);
+      const shot = await H.evaluate(async () => { const X = window.__xr; HOST.collab.panelOpen(true); for (let k = 0; k < 3; k++) { X.step(); await new Promise(r => setTimeout(r, 20)); }
+        const S = HOST.collab.overlay().panel, c = document.createElement('canvas'); c.width = S.w; c.height = S.vis; c.getContext('2d').drawImage(S.cv, 0, 0); HOST.collab.panelOpen(false); X.step(); return c.toDataURL('image/png'); });
+      fs.writeFileSync(path.join(dir, 'round-3-menu.png'), Buffer.from(shot.split(',')[1], 'base64'));
+    }
+    // walked out of its circle: still in its story; then into another circle: it switches
+    const sp = await awaySpot(H, S1);
+    await goRoom(H, sp[0], 1.6, sp[1], 0);
+    await frames(H, 1500);
+    const out = await H.evaluate(() => { HOST.cur.peek('xrUpdate(APP.mode === "story" ? storyState(storyT(APP.t)) : XS)'); return { mine: HOST.collab.mine(), key: HOST.curKey, away: HOST.room.away(), world: HOST.cur.peek('GL.world.visible') }; });
+    check('round: walked out of its circle the headset stays in its story (its station, shown)', out.mine === S1.id && out.key === K1 && !out.away && out.world, JSON.stringify(out));
+    const in2 = await walk(H, S2, HEADSET_STORY, 0), m3 = await H.evaluate(() => HOST.collab.mine());
+    check('round: walking into another circle switches to its story', in2 && m3 === S2.id, JSON.stringify({ in2, m3 }));
+    // the circles lock: the grip on another station's ring and Arrange all refused; the grip at its own station free (the
+    // flock is life size: its panel), and its story's lock still set from the menu
+    // (the grip on the scene, or on the panel: in a life-size story such as the flock only the panel moves)
+    const tryGrip = kind => H.evaluate(kind => {
+      const X = window.__xr;
+      X.aim(0, new THREE.Matrix4().makeTranslation(0, 1.4, -0.4)); X.step();
+      HOST.cur.peek(`(c => { c.hover = ${kind === 'panel' ? '{ kind: "panel", P: XR.main, x: 10, y: 10, point: XR.main.mesh.getWorldPosition(new THREE.Vector3()) }' : '{ kind: "globe", i: -1, point: c.o.clone() }'}; xrGrab(c, true); })(XR.ctrls[0])`);
+      const g = HOST.cur.peek('!!XR.ctrls[0].grab');
+      HOST.cur.peek('xrGrab(XR.ctrls[0], false)'); X.ctrl(0, null); X.step();
+      return { locked: HOST.anchor.locked('globe') || HOST.anchor.locked('panel'), grabbed: g, hint: HOST.room.gripHint };
+    }, kind || 'globe');
+    await A.evaluate(() => HOST.collab.lock(true));
+    await until(H, () => HOST.collab.locked, null, 3000);
+    const hov3 = await pointAt(H, await ringAt(H, S3.id));
+    const gr = await H.evaluate(async id => {
+      const X = window.__xr, before = JSON.stringify(HOST.collab.station(id));
+      X.fire('squeezestart', { inputSource: X.session.inputSources[0] });
+      for (let k = 0; k < 4; k++) { X.step(); await new Promise(r => setTimeout(r, 30)); }
+      const moving = HOST.room.moving;
+      X.fire('squeezeend', { inputSource: X.session.inputSources[0] }); X.ctrl(0, null);
+      const st = JSON.stringify(HOST.collab.stations());
+      HOST.collab.arrange({ x: 4, z: 4, yaw: 1 });
+      return { moving, same: before === JSON.stringify(HOST.collab.station(id)), arranged: st !== JSON.stringify(HOST.collab.stations()), note: (window.__collabLog.filter(e => e.ev === 'notice').slice(-1)[0] || {}).title };
+    }, S3.id);
+    const free = await tryGrip('panel'), lockedMenu = await menu('stlock');
+    const sl = lockedMenu && await until(B, id => HOST.collab.stationLock(id), S2.id, 3000);
+    check('round: the circles lock refuses the grip on a station\'s ring and Arrange all, and nothing else (the scene grip at its station free, Lock this story in the menu works)',
+      hov3 === S3.id && !gr.moving && gr.same && !gr.arranged && gr.note === 'The circles are locked' && !free.locked && free.grabbed && sl, JSON.stringify({ hov3, gr, free, sl }));
+    // its story locked from the menu: the grips refused at its circle for everyone (the room has it), the panel says so
+    const lockedG = await tryGrip('panel'), kv = (await roomInfo(rc)).keys['st.' + S2.id + '.ui'];
+    check('round: Lock this story in the clock menu at its circle refuses the scene and panel grips there (the panel says so) and goes to the room for everyone',
+      lockedG.locked && !lockedG.grabbed && /locked/.test(lockedG.hint) && !!kv && kv.v.lock === true && kv.v.story === HEADSET_STORY, JSON.stringify({ lockedG, ui: kv && kv.v }));
+    const un = await menu('lock'), unA = un && await until(A, () => !HOST.collab.locked, null, 3000);
+    // at another circle nothing is locked; a page's dialog locks that one (Lock story), and unlocks both
+    const in3 = await walk(H, S1, K1, 0), other = await tryGrip('globe'), s2still = await B.evaluate(id => HOST.collab.stationLock(id), S2.id);
+    check('round: the menu\'s Lock circles unlocks the circles for everyone; at another circle the scene and panel grips are free (only the locked story\'s circle is locked)',
+      unA && in3 && !other.locked && other.grabbed && s2still, JSON.stringify({ un, unA, in3, other, s2still }));
+    const dl = await B.evaluate(async id => {
+      HOST.collab.dialog(true); await new Promise(r => setTimeout(r, 200));
+      const q = () => document.querySelector(`[data-sh="stlock:${id}"]`), was = q() && q().textContent;
+      if (q()) q().click();
+      await new Promise(r => setTimeout(r, 200));
+      return [was, q() && q().textContent];
+    }, S1.id);
+    const hl = await until(H, () => { window.__xr.step(); return HOST.anchor.locked('globe') && HOST.anchor.locked('panel'); }, null, 4000);
+    if (dir) {
+      await B.evaluate(() => { const e = document.querySelector('#shared .sh-stations'); if (e) e.scrollIntoView({ block: 'start' }); });
+      await sleep(400);
+      await B.screenshot({ path: path.join(dir, 'round-4-dialog.png') });
+    }
+    await B.evaluate(ids => { for (const id of ids) document.querySelector(`[data-sh="stlock:${id}"]`).click(); }, [S1.id, S2.id]);
+    const hu = await until(H, () => { window.__xr.step(); return !HOST.anchor.locked('globe') && !HOST.anchor.locked('panel'); }, null, 4000);
+    const both = await A.evaluate(ids => ids.map(id => HOST.collab.stationLock(id)), [S1.id, S2.id]);
+    check('round: Lock story in a page\'s Shared dialog locks that station\'s scene and panel at its circle (the headset there), and unlocks it again',
+      dl.join() === 'Lock story,Story locked' && hl && hu && both.join() === 'false,false', JSON.stringify({ dl, hl, hu, both }));
+  } finally {
+    await H.evaluate(() => window.__xr.end()).catch(() => {});
+    for (const p of [A, B, H]) await p.context().close();
+  }
+}
+// --circles: only the ten-headset round, in a room of its own (with --shots, its pictures)
+async function circlesOnly() {
+  if (shots) fs.mkdirSync(shots, { recursive: true });
+  await headsetRound(shots);
+}
+
 let code = '', NST = 0;   // the room's code; how many stories (one station each after Arrange all)
 let slidesSeen = false;   // the slideshow's stop and Next in a room: checked on the first story followed
 try {
@@ -1137,6 +1314,7 @@ try {
   if (P2P || NEAR_ONLY) break main;
   if (DESIGN_ONLY) { await designOnly(); break main; }
   if (FOLLOW_ONLY) { await followOnly(); break main; }
+  if (CIRCLES_ONLY) { await circlesOnly(); break main; }
   // ------------------------------------------------------------ rooms --
   const A = await open('#stories');
   check('a page served by the relay finds it', await A.evaluate(async () => { await HOST.collab.detect(); return HOST.collab.relay === location.origin; }));
@@ -3063,6 +3241,10 @@ try {
     JSON.stringify(await Up.evaluate(() => [HOST.collab.code, HOST.collab.local, HOST.collab.status, window.__collabLog.filter(e => /local|close|join/.test(e.ev)).slice(-5)])));
   await uctx.close();
 
+  // ------------------------------------- the ten-headset round (a room of its own) --
+  if (shots) fs.mkdirSync(shots, { recursive: true });
+  await headsetRound(shots);
+
   // ------------------------------------------------------ pictures --
   if (shots) {
     fs.mkdirSync(shots, { recursive: true });
@@ -3148,8 +3330,8 @@ try {
     console.log('pictures in ' + shots);
   }
   }   // (main)
-  if (!NEAR_ONLY && !DESIGN_ONLY && !FOLLOW_ONLY) await p2p();
-  if (!P2P && !DESIGN_ONLY && !FOLLOW_ONLY) await nearby();
+  if (!NEAR_ONLY && !DESIGN_ONLY && !FOLLOW_ONLY && !CIRCLES_ONLY) await p2p();
+  if (!P2P && !DESIGN_ONLY && !FOLLOW_ONLY && !CIRCLES_ONLY) await nearby();
 } catch (e) {
   console.log('FAIL ' + (e.stack || e.message));
   fails.push('exception');
