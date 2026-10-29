@@ -217,11 +217,12 @@
   // 'new' (a room started without a relay: peer to peer under a code nobody holds, else this device only), true (a room
   // kept on this device: opened here when a relay is known, and taken to it once it answers; else peer to peer) or 'auto'
   // (joined again by itself, as by its code: rejoin)
-  function join(code, how) {
+  // rid: a room joined by itself (how 'auto') is known by its own id, set before the socket opens (welcome checks it)
+  function join(code, how, rid) {
     code = String(code || '').trim().toUpperCase();
     if (!/^[A-Z]{3}$/.test(code)) return false;
     if (C.code) leave(true);
-    C.auto = how === 'auto' ? code : ''; C.autoRid = ''; C.stranger = '';
+    C.auto = how === 'auto' ? code : ''; C.autoRid = how === 'auto' && typeof rid === 'string' ? rid : ''; C.stranger = '';
     if (how === 'new') C.made = code;
     const h = heres()[code], via = how === 'new' ? (peerOn() ? 'peer' : 'local') : C.relay ? (how === true ? 'local' : 'relay') : peerOn() ? 'peer' : 'local';
     Object.assign(C, { code, via, local: via === 'local', peerNew: how === 'new' && via === 'peer', peerFail: false, takeover: false, next: '', seqMax: 0, lastRole: '', spareN: 0,
@@ -416,10 +417,11 @@
     C.seqMax = Math.max(C.seqMax, +m.seq || 0);
     if (FRESH.page) { FRESH.page = false; C.note = FRESH_TEXT; }
     C.keys = new Map(Object.entries(m.keys || {}));
-    // a room joined by itself that turns out to be another room under the same code (its rid): left at once, and nothing
-    // of it is kept here (this device's copy of its own room stays)
+    // a room joined by itself that turns out to be another room under the same code (its rid), or one joined by itself
+    // with no id to tell it by (never: rejoinable asks for one): left at once, and nothing of it is kept here (this
+    // device's copy of its own room stays). No rid there yet is the room come back from a copy (revive): joined
     const rk0 = C.keys.get('rid');
-    if (C.auto === C.code && C.autoRid && rk0 && rk0.v !== C.autoRid) { C.stranger = C.code; LOC.mirror = false; const c = C.code; setTimeout(() => notMine(c), 0); return; }
+    if (C.auto === C.code && (!C.autoRid || (rk0 && rk0.v !== C.autoRid))) { C.stranger = C.code; LOC.mirror = false; const c = C.code; setTimeout(() => notMine(c), 0); return; }
     C.pending.clear();
     C.synced = new Map();
     for (const [k, e] of C.keys) C.synced.set(k, J(e.v));
@@ -1214,18 +1216,21 @@
     netFind(why).then(() => { rejoin(why); changed(); });
   }
   // the room this device would join again by itself: the one it used last on this network (through this relay, or none),
-  // within a week, unless it was left on purpose
+  // within a week, unless it was left on purpose, and only when its copy here has the room's own id (rid): without it
+  // another room given the same code could not be told from it, so it is offered instead (a page that went before its
+  // id came back)
+  const sameHere = r => !!C.net && r.net === C.net && r.relay === C.relay;
   function rejoinable() {
     if (!C.net) return null;
-    const r = localRooms().find(o => o.net === C.net && o.relay === C.relay && Date.now() - o.at < WEEK);
-    return r && !r.left && !r.gone ? r : null;
+    const r = localRooms().find(o => sameHere(o) && Date.now() - o.at < WEEK);
+    return r && !r.left && !r.gone && r.rid ? r : null;
   }
   // the room to offer again (Start room XYZ again): the one used last, within a week, when it is not joined by itself here
   // (not one whose code turned out to be another room's: gone)
   function offer() {
     if (C.code) return null;
     const r = localRooms().find(o => Date.now() - o.at < WEEK);
-    return r && !r.left && !r.gone && !(C.net && r.net === C.net && r.relay === C.relay) ? r : null;
+    return r && !r.left && !r.gone && !(sameHere(r) && r.rid) ? r : null;
   }
   // with a relay the room is looked at first: one there under this code with another id (rid) is another room (the relay
   // forgot this one and gave its code again), never joined by itself; none there: joined, and it comes back from this
@@ -1238,11 +1243,11 @@
     const go = () => {
       C.rejoining = false;
       if (C.code || C.creating || !rejoinable() || rejoinable().code !== r.code) return;
-      join(r.code, 'auto'); C.autoRid = r.rid;
+      join(r.code, 'auto', r.rid);
       if (HOST.session) notice('Back in room ' + r.code, 'This headset was in it on this network, so it joined it again. To leave it, open the menu: ' + menuWhere() + '.', 9000);
       else toast(r.code);
     };
-    if (!C.relay || !r.rid) { go(); return true; }
+    if (!C.relay) { go(); return true; }
     C.rejoining = true;
     api('rooms/' + r.code, undefined, 5000).then(x => {
       const there = x.ok && x.j && x.j.keys && x.j.keys.rid ? x.j.keys.rid.v : '';
@@ -1262,7 +1267,7 @@
   const ago = at => { const h = (Date.now() - at) / 3600000; return h < 1 ? 'less than an hour ago' : h < 24 ? Math.floor(h) + (h < 2 ? ' hour ago' : ' hours ago') : h < 48 ? 'yesterday' : Math.floor(h / 24) + ' days ago'; };
   // why a room kept here is offered rather than joined by itself
   const offerWhy = r => (!C.net ? 'this device\'s network is not known' : r.relay !== C.relay ? (r.relay ? 'it was on another relay' : 'it was used without a relay') :
-    r.net ? 'it was used on another network' : 'its network is not known');
+    r.net !== C.net ? (r.net ? 'it was used on another network' : 'its network is not known') : 'this device did not keep its id');
   // the room's own switch (key near): shown on its network unless switched off; anyone in the room sets it
   const nearShown = () => { const v = val('near'); return !(v && typeof v === 'object' && v.on === false); };
   function setNear(on) {

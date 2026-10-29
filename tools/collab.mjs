@@ -661,6 +661,17 @@ async function nearby() {
     const xKept = await Bx.evaluate(c => { try { const o = JSON.parse(localStorage.getItem('collabRoom.' + c)); return !!o && !!o.gone && !o.keys['st.zz']; } catch (e) { return false; } }, R1);
     check('rejoin (relay): a code the relay gave to another room meanwhile (another id) is never joined by itself, nor offered; this device keeps its own copy, not the other room\'s',
       made === 201 && !bx.code && !bx.offer && /another room/.test(bx.note || '') && xKept, JSON.stringify({ made, bx, xKept }));
+    // a copy kept without the room's own id (the page went before its rid came back): another room under the code could
+    // not be told from it, so it is never joined by itself (here the code is another room's), only offered
+    const noRid = JSON.parse(JSON.stringify(bState));
+    for (const o of noRid.origins || []) for (const e of o.localStorage || []) if (e.name === 'collabRoom.' + R1) { const v = JSON.parse(e.value); delete v.keys.rid; delete v.gone; delete v.left; e.value = JSON.stringify(v); }
+    const Bn = await nopen(at(HP, '#stories'), { state: noRid, skew: DAY });
+    await sleep(6000);
+    const bn = await way(Bn);
+    await Bn.evaluate(() => HOST.collab.dialog(true));
+    const bnRow = (await until(Bn, c => !!document.querySelector(`#shared .sh-near [data-sh="again:${c}"]`), R1, 15000)) ? await Bn.evaluate(() => document.querySelector('#shared .sh-near li.again').textContent) : '';
+    check('rejoin (relay): a room kept without its own id (rid) is never joined by itself (its code is another room\'s here), only offered: Join room XYZ again, saying why',
+      !bn.code && !/rejoin/.test(bn.log) && bn.offer === R1 && /did not keep its id/.test(bnRow), JSON.stringify({ bn, bnRow }));
     X.close();
     for (const c of all.splice(0)) await c.close().catch(() => {});
     // ---- peer to peer (no relay): pretend networks, the relay's introduction server

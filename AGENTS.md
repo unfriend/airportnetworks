@@ -622,7 +622,9 @@ came with rooms on this network). The plan is `docs/shared-space-plan.md`.
   - Rejoin (`rejoin`, `netAgain`): each room kept on the device (`collabRoom.<code>`, the last 8, as before) also keeps
     when it was last used (`at`), the network (`net`) and relay (`relay`, '' none) it was used through, and `left`
     (left on purpose) or `gone` (its code is another room's now). A device in no room joins again by itself the room
-    it used last on the current network through the same relay (or none), within a week of its last use, at page load
+    it used last on the current network through the same relay (or none), within a week of its last use, when its copy
+    holds the room's own id (`rid`; a copy without one, as when the page went before the id came back, is only offered,
+    since another room under the code could not be told from it), at page load
     (no `#s=` in the link) and when the network or the relay becomes known (also on `online`, and when the page shows
     again a minute after the network was last found), with a notice (`#shToast` on a page, with *Shared* and *Leave*;
     the shell's notice in a headset session) and *joined again by itself* in the dialog's status. With a relay: the
@@ -2011,7 +2013,8 @@ a page on another network does not (only among the open rooms); a page never in 
 that was in the room joining it again by itself when the app opens again (the notice); a day later (the page's clock
 moved on, its storage kept) with the relay having forgotten the room, joined again and the room back from its copy;
 Leave on purpose, then nothing by itself; more than a week later, nothing; a code the relay gave to another room
-meanwhile (another `rid`), never joined, nothing of it kept. Peer to peer: the host holding a slot, a page on its
+meanwhile (another `rid`), never joined, nothing of it kept; a copy kept without the room's `rid`, never joined by
+itself, only offered. Peer to peer: the host holding a slot, a page on its
 network seeing the room (hosted by) and joining with one press, a page on another not; *Show on this network* off
 (the slot let go) and on; a page that was in the room rejoining its host by itself; a day later with nobody holding
 it, the first page back hosting it from its copy and the next linking to it; on another network nothing by itself,
