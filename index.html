@@ -507,6 +507,7 @@ body.xr #labels, body.xr #tip { display: none; }
       <div class="row mt sh-look"><span>In the headsets, for everyone here:</span><select id="shLabels" aria-label="Labels in the headsets"><option value="fixed">Labels: in 3D</option><option value="face">Labels: on top</option><option value="hidden">Labels: hidden</option></select><button class="btn" type="button" data-sh="free" aria-pressed="true" title="Free: the grip turns what it holds with your hand. Facing you: things you move keep facing you">Moving: free</button><button class="btn" type="button" data-sh="subs" aria-pressed="false" title="The narration's words in a strip low in each headset's view">Subtitles: off</button></div>
       <h3>People</h3>
       <ul class="sh-people"></ul>
+      <p class="hint">Follow a person in a headset: this page shows whichever station they stand at, switching as they walk (for people watching on a screen instead of wearing a headset).</p>
     </div>
     <h3>You</h3>
     <div class="row"><input id="shName" maxlength="32" autocomplete="nickname" aria-label="Your name"><div class="sh-colors" role="group" aria-label="Your colour"></div></div>
@@ -1777,7 +1778,8 @@ HOST.place = function () {
   const c = this.cur && this.cur.collab, A = c && c.APP;
   if (!A) return null;
   const P = { key: this.curKey, mode: A.mode, t: +A.t || 0, playing: !!A.playing, state: null, view: null, picking: this.picking,
-    landing: false, inStory: true, follow: (this.collab && this.collab.following && this.collab.following()) || '' };
+    landing: false, inStory: true, follow: (this.collab && this.collab.following && this.collab.following()) || '',
+    who: (this.collab && this.collab.followingWho && this.collab.followingWho()) || '' };
   try { P.state = c.state ? JSON.parse(JSON.stringify(c.state())) : null; } catch (e) { /* not ready */ }
   try { P.view = c.view ? JSON.parse(JSON.stringify(c.view())) : null; } catch (e) { /* not ready */ }
   try { P.landing = !!this.cur.peek('XR.on && XR.stories'); P.inStory = !!this.cur.peek('XR.inStory'); } catch (e) { /* no headset code */ }
@@ -2307,12 +2309,15 @@ HOST.live = (function () {
           }, 100);
         };
       }
-      if (P.follow) {
-        let n = 0;
+      // the station followed, then the person followed (once they are back among the room's members)
+      if (P.follow || P.who) {
+        let n = 0, fol = P.follow, who = P.who;
         const iv = setInterval(() => {
           const C = HOST.collab;
-          if (++n > 80) clearInterval(iv);
-          else if (C && C.code && C.station(P.follow)) { clearInterval(iv); C.follow(P.follow); C.dialog(false); }
+          if (++n > 80 || (!fol && !who)) clearInterval(iv);
+          else if (!C || !C.code) return;
+          else if (fol) { if (C.station(fol)) { C.follow(fol); C.dialog(false); fol = ''; } }
+          else if (C.followPerson && C.members.some(m => m.id === who)) { C.followPerson(who); C.dialog(false); who = ''; }
         }, 250);
       }
     },

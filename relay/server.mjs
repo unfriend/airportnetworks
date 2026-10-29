@@ -4,7 +4,7 @@
 // Node 18 or newer and no packages: its own minimal WebSocket code (RFC 6455). It can serve the
 // app as well (--static), so the page and the relay share one address. It is also an introduction server for
 // devices that link to each other directly (PeerJS's server protocol, at /peerjs; --no-peer turns it off).
-//   node relay/server.mjs [--port 8787] [--host 0.0.0.0] [--cert c.pem --key k.pem] [--static .] [--logs dir] [--proxy]
+//   node relay/server.mjs [--port 8787] [--host 0.0.0.0] [--cert c.pem --key k.pem] [--static .] [--logs dir] [--proxy [n]]
 //   node relay/server.mjs --lan    (for headsets on the same Wi-Fi: HTTPS with a certificate of its own, the app
 //                                   served, the headsets' logs kept in relay/logs/)
 //   node relay/server.mjs --static . --watch [--build]   (while developing: the pages follow the app's files)
@@ -21,7 +21,7 @@ import { pipeline } from 'node:stream';
 import { fileURLToPath } from 'node:url';
 
 const PROTO = 1;
-const OPT = { port: 8787, host: '0.0.0.0', cert: '', key: '', static: '', timeout: 40, expire: 6 * 3600, ping: 20, quiet: false, lan: false, logs: '', 'no-peer': false, watch: '', build: false, proxy: false };
+const OPT = { port: 8787, host: '0.0.0.0', cert: '', key: '', static: '', timeout: 40, expire: 6 * 3600, ping: 20, quiet: false, lan: false, logs: '', 'no-peer': false, watch: '', build: false, proxy: 0 };
 const HELP = `usage: node relay/server.mjs [options]
   --port <n>       port (8787; 0 picks a free one)       --host <addr>   address (0.0.0.0)
   --cert <file>    with --key: speak HTTPS and WSS       --static <dir>  also serve the app from <dir>
@@ -29,7 +29,8 @@ const HELP = `usage: node relay/server.mjs [options]
   --ping <s>       WebSocket ping to every member (20)   --quiet         no log lines
   --logs <dir>     keep the logs headsets send (their room alignment, one JSON line per entry) in <dir>
   --no-peer        no introduction server for peer to peer (PeerJS's protocol, at /peerjs: on by default)
-  --proxy          behind a reverse proxy (Coolify, nginx): a client's address is the last one in X-Forwarded-For
+  --proxy [<n>]    behind n reverse proxies (1 when no number is given: Coolify's or nginx alone; 2 with a CDN such
+                   as Cloudflare in front of it): a client's address is the n-th from the right in X-Forwarded-For
                    (rooms on this network; without it the header is ignored)
   --lan            for headsets on the same Wi-Fi: HTTPS with a self-signed certificate made once with openssl for
                    this machine's addresses (in relay/.lan/), the app served from the repository, and the headsets'
@@ -41,6 +42,7 @@ for (let i = 2; i < process.argv.length; i++) {
   const name = process.argv[i].replace(/^--/, '');
   if (name === 'help' || !(name in OPT) || name === process.argv[i]) { console.log(HELP); process.exit(name === 'help' ? 0 : 1); }
   if (name === 'watch') { const v = process.argv[i + 1]; if (v !== undefined && !v.startsWith('--')) { OPT.watch = v; i++; } else OPT.watch = true; continue; }
+  if (name === 'proxy') { const v = process.argv[i + 1]; if (v !== undefined && /^\d+$/.test(v)) { OPT.proxy = +v; i++; } else OPT.proxy = 1; continue; }
   if (typeof OPT[name] === 'boolean') { OPT[name] = true; continue; }
   const v = process.argv[++i];
   OPT[name] = typeof OPT[name] === 'number' ? Number(v) : v;
@@ -462,9 +464,10 @@ setInterval(() => {
 function parseUrl(req) { try { return req.url.startsWith('/') ? new URL('http://relay' + req.url) : null; } catch { return null; } }
 
 // ---- rooms on this network: a client's network as a short hash, never its address (neither kept nor logged: the
-// relay's log names no address). Behind a reverse proxy (--proxy) the address is the last one the proxy put in
-// X-Forwarded-For (anything before it came from the client and could be made up); without --proxy the header is
-// ignored. A private address stands for its /24 (one network: a relay on the LAN sees the headsets' own addresses),
+// relay's log names no address). Behind n reverse proxies (--proxy n) the address is the n-th from the right in
+// X-Forwarded-For: each proxy adds the address it was reached from, so that is the one the outermost proxy saw
+// (anything before it came from the client and could be made up; with fewer entries, the first); without --proxy the
+// header is ignored. A private address stands for its /24 (one network: a relay on the LAN sees the headsets' own addresses),
 // IPv6 for its /64, this machine for itself. The hash is the page's own (shared.js, netHash: the same salt): the public
 // address the STUN server tells a page without a relay gives the same id, so a room used on a network through a relay
 // on the internet is on that network peer to peer too. 24 bits: one id stands for about 256 public addresses.
@@ -486,7 +489,8 @@ function netName(a) {
   return all.slice(0, 4).map(g => parseInt(g, 16).toString(16)).join(':') + '::/64';
 }
 const netHash = name => (name ? crypto.createHash('sha256').update(NET_SALT + '|' + name).digest('hex').slice(0, 6) : '');
-const netOf = req => netHash(netName((OPT.proxy && String(req.headers['x-forwarded-for'] || '').split(',').map(s => s.trim()).filter(Boolean).pop()) || req.socket.remoteAddress));
+const forwarded = req => { const a = String(req.headers['x-forwarded-for'] || '').split(',').map(s => s.trim()).filter(Boolean); return a.length ? a[Math.max(0, a.length - OPT.proxy)] : ''; };
+const netOf = req => netHash(netName((OPT.proxy && forwarded(req)) || req.socket.remoteAddress));
 // a room shows on a network while someone in it is on that network (an empty one: while its members were), unless the
 // room says otherwise (its key near, { on: false }: Show on this network, off)
 const shownOn = (r, net) => !!net && !(r.keys.get('near')?.v?.on === false) &&
@@ -826,7 +830,8 @@ server.listen(OPT.port, OPT.host, () => {
     console.log(`On this machine: ${scheme}://localhost:${a.port}/`);
   }
   if (OPT.logs) console.log(`Headsets' logs (room alignment) go to ${OPT.logs}`);
-  if (OPT.proxy) console.log('Behind a reverse proxy: a client\'s address is the last one in X-Forwarded-For (rooms on this network)');
+  if (OPT.proxy) console.log(OPT.proxy === 1 ? 'Behind a reverse proxy: a client\'s address is the last one in X-Forwarded-For (rooms on this network)' :
+    `Behind ${OPT.proxy} reverse proxies: a client's address is the ${OPT.proxy === 2 ? 'second' : OPT.proxy === 3 ? 'third' : OPT.proxy + 'th'} from the right in X-Forwarded-For (rooms on this network)`);
   if (WATCH) console.log(`Watching ${WATCH}: pages swap a changed story in place, and reload for a shell file` + (OPT.build ? '; a built story is built again when its sources change' : ''));
 });
 for (const sig of ['SIGINT', 'SIGTERM']) {

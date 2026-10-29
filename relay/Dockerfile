@@ -10,6 +10,7 @@ USER node
 EXPOSE 8787
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
   CMD node -e "fetch('http://127.0.0.1:8787/api/ping').then(r => process.exit(r.ok ? 0 : 1), () => process.exit(1))"
-# --proxy: behind Coolify's proxy, a device's own address is the last in X-Forwarded-For (rooms on this network); run
-# without it where clients reach the relay directly (docker run ... node relay/server.mjs --port 8787 --static .)
-CMD ["node", "relay/server.mjs", "--port", "8787", "--static", ".", "--proxy"]
+# No --proxy here: how many proxies stand in front is the deployment's to say (Coolify's start command adds --proxy 1,
+# or --proxy 2 with a CDN such as Cloudflare in front; see relay/README.md). Run directly (docker run -p), clients
+# could write any address into X-Forwarded-For, so the header is ignored unless the start command asks for it
+CMD ["node", "relay/server.mjs", "--port", "8787", "--static", "."]

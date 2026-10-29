@@ -774,6 +774,20 @@ try {
     P.kill();
   });
 
+  await step('--proxy <n>: behind n proxies, the n-th address from the right of X-Forwarded-For (--proxy alone: 1)', async () => {
+    const h = name => crypto.createHash('sha256').update('networks-near-1|' + name).digest('hex').slice(0, 6);
+    const HOME = '198.51.100.7', CDN = '172.70.1.9', MADE = '203.0.113.50';   // (a device, a CDN's server, an address a client made up)
+    const P2 = await start(['--proxy', '2']), P1 = await start(['--proxy', '1', '--quiet']);
+    const net = async (P, xff) => (await req('GET', '/api/ping', { at: P.port, headers: xff ? { 'X-Forwarded-For': xff } : {} })).json().net;
+    ok(await net(P2, HOME + ', ' + CDN) === h(HOME), '--proxy 2: the second from the right, the address the CDN added (the last is the CDN\'s own)');
+    ok(await net(P2, MADE + ', ' + HOME + ', ' + CDN) === h(HOME), '--proxy 2: anything further left came from the client and is ignored');
+    ok(await net(P2, HOME) === h(HOME), '--proxy 2: with fewer addresses than proxies, the first');
+    ok(await net(P2, '') === h('loopback'), '--proxy 2: no header, the socket\'s own address');
+    ok(await net(P1, HOME + ', ' + CDN) === h(CDN) && await net(P1, MADE + ', ' + HOME) === h(HOME), '--proxy 1: the last, as --proxy alone (the step before)');
+    ok(/Behind 2 reverse proxies: a client's address is the second from the right in X-Forwarded-For/.test(P2.out), 'the start line says how many');
+    P2.kill(); P1.kill();
+  });
+
   await step('the log has a line per write and per refusal', async () => {
     ok(new RegExp(`${R} set #1 by a1: st\\.s1 st\\.s1\\.play`).test(relay.out), 'a write');
     ok(new RegExp(`${R} refused a1 \\(roomFrameShared: null outside the deletable families\\)`).test(relay.out), 'a refusal');

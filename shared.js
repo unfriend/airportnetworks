@@ -48,6 +48,7 @@
   const PEER_LIMIT = 8000;       // the introduction server must answer within this as a room is joined, else this device only
   const SILENT = 6000;           // a host not heard from for this long may have gone (guests ping it every 2 s)
   const TAKE = 1500;             // taking over: each waits this long for every member in the room longer than it
+  const WHO_GONE = 15000;        // a person followed (a page) gone from the members this long while this page is connected has left
   const IS_HEADSET = /OculusBrowser|Quest|Pico|Wolvic/i.test(navigator.userAgent);
   const DEV = IS_HEADSET ? 'headset' : /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent) ? 'phone' : 'screen';   // (a headset hosting hands over to a screen)
   const peerId = code => PEER_PREFIX + FORMAT + '-' + code;
@@ -101,6 +102,9 @@
     net: '', netSrc: '', netState: '', netBusy: null, netAt: 0, pretend: '', near: null, nearErr: '', nearAt: 0, nearBusy: false, auto: '', autoRid: '', made: '', rejoining: false, stranger: '',
     listing: { dialog: false, menu: false },   // (the dialog and the headset's menu, open: what pump may update)
     st: [], stById: new Map(), mine: '', live: '', picked: false, follow: '', zone: '', cand: '', candAt: 0, going: new Map(), goAt: 0,
+    // a person followed (a page only): their member id and name, where their presence last put them, since when they are
+    // gone from the members (0: there), and the name of one who left (said in the dialog while their last station stays)
+    who: '', whoName: '', whoSt: '', whoGone: 0, whoLeft: '',
     pres: new Map(), rays: new Map(), hov: new Map(), presAt: 0, deskAt: 0,
     cur: null, hook: null, ready: false, guard: 0, hush: false, pumpAt: 0, viewSeen: '',
   };
@@ -252,7 +256,7 @@
     if (C.stranger === C.code) LOC.mirror = false;   // (another room under this code: nothing of it kept)
     locFlush();
     Object.assign(C, { code: '', status: 'off', local: false, via: '', peerNew: false, peerFail: false, takeover: false, next: '', welcomed: false, keys: new Map(), synced: new Map(), pending: new Map(), members: [], st: [], stById: new Map(),
-      mine: '', live: '', follow: '', zone: '', cand: '', refill: null, xb: null, rm: null, hereSet: null });
+      mine: '', live: '', follow: '', zone: '', cand: '', refill: null, xb: null, rm: null, hereSet: null, who: '', whoSt: '', whoGone: 0, whoLeft: '' });
     C.pres.clear();
     R.left();
     HOST.audio.zone(null);
@@ -1473,23 +1477,69 @@
       C.follow = ''; C.mine = ''; C.live = ''; C.picked = false;
       changed();
     }
+    // (following a person not yet at a station: a story picked by hand stops it too)
+    if (!asked && C.who && key !== HOST.curKey) whoStop('own story');
     return adopt(key);
   }
-  // make a station yours (walking into its circle in a headset, Follow on a page): its story runs live here
+  // make a station yours (walking into its circle in a headset, Follow on a page, or the station of a person this page
+  // follows: 'person'): its story runs live here
   function choose(id, how) {
     const s = C.stById.get(id);
     if (!s) return;
+    const fol = how === 'follow' || how === 'person';
+    if (how !== 'person') { C.whoLeft = ''; if (C.who) whoStop(how === 'follow' ? 'a station followed by hand' : how); }
     C.mine = id; C.live = id; C.picked = how === 'pick';
     C.viewSeen = '';   // (the room's view is taken again on arriving: one turned here while away is not the room's)
-    if (how === 'follow') C.follow = id;
+    if (fol) C.follow = id;
     log('station', { st: id, story: s.story, how });
     // following from a page shows the station: its Stories screen closes (while it shows, the pump stands still)
-    if (how === 'follow') HOST.closePicker();
+    if (fol) HOST.closePicker();
     if (HOST.curKey !== s.story) goTo(s);
     else if (C.ready) { clockApply(true); stateApply(); PL.id = ''; }
     changed();
   }
-  function unfollow() { log('unfollow', { st: C.follow }); C.follow = ''; C.mine = ''; C.live = ''; C.picked = false; changed(); }
+  function unfollow() { log('unfollow', { st: C.follow, who: C.who }); C.follow = ''; C.mine = ''; C.live = ''; C.picked = false; C.who = ''; C.whoLeft = ''; changed(); }
+  // follow a person (a page only; the owner, 29 October 2026: a laptop for people who do not want to wear a headset follows
+  // along): this page follows whichever station that person stands at, as their presence says (st), switching as they
+  // walk from one circle to the next; out of every circle (or their presence quiet: a headset taken off) the last one
+  // stays. It stops when they leave the room (the station stays followed, as by hand), or when this page follows a station
+  // by hand, picks a story by hand, stops following, leaves the room or starts a headset session
+  function followPerson(id) {
+    const m = member(id);
+    if (!m || id === C.id || HOST.session || !C.code) return false;
+    C.who = id; C.whoName = m.name || 'Someone'; C.whoSt = ''; C.whoGone = 0; C.whoLeft = '';
+    log('follow person', { who: id, kind: m.kind });
+    whoStep(performance.now());
+    changed();
+    return true;
+  }
+  function whoStop(why) {
+    if (!C.who) return;
+    log('follow person off', { who: C.who, why });
+    if (why === 'left the room') C.whoLeft = C.whoName;
+    C.who = ''; C.whoSt = ''; C.whoGone = 0;
+    changed();
+  }
+  // every pump: the followed person's station, from their presence (gone from the members for WHO_GONE while this page
+  // is connected: they have left; a socket of theirs back within it, as after a relay restart, keeps them followed)
+  function whoStep(t) {
+    if (!C.who) return;
+    if (HOST.session) { whoStop('headset'); return; }
+    const m = member(C.who);
+    if (m) { C.whoGone = 0; C.whoName = m.name || C.whoName; }
+    else if (C.status === 'open' && C.welcomed) {
+      if (!C.whoGone) { C.whoGone = t; changed(); } else if (t - C.whoGone > WHO_GONE) { whoStop('left the room'); return; }
+    }
+    const P = C.pres.get(C.who), id = P && P.st && C.stById.has(P.st) ? P.st : '';
+    if (id !== C.whoSt) { C.whoSt = id; log('person moved', { who: C.who, st: id }); changed(); }
+    if (id && C.follow !== id) choose(id, 'person');
+  }
+  // the dialog's line: "Following Ann (at The flock)"; out of every circle, where they were last
+  function whoLine() {
+    const m = member(C.who), name = (m && m.name) || C.whoName || 'Someone', at = C.stById.get(C.whoSt), L = C.stById.get(C.follow);
+    return 'Following ' + name + (at ? ` (at ${meta(at.story).title})` : L ? ` (last at ${meta(L.story).title}; in no circle now)` : ' (not at a station yet)') +
+      (m ? '' : ': not in the room just now');
+  }
   // the stories' station: its spot (x, z), facing yaw; the content floats 1.4 m ahead
   const content = s => { const [fx, fz] = fwd(s.yaw); return [s.x + AHEAD * fx, s.z + AHEAD * fz]; };
   // where a station is drawn and placed in a headset: it glides to where the room has it (a station someone moves
@@ -1960,6 +2010,7 @@
       else if (C.spare && still < SILENT) spareOff();
       if (clock() - C.heard > 40000) { log('silent socket'); drop('silent'); }
     }
+    whoStep(t);   // (a person followed: their station first)
     const L = liveSt();
     if (synced(L) && !HOST.picking) { if (!C.clockT) clockApply(false); statePoll(); viewSync(); }
     // a switch the room asked for that got lost (a story still loading drops a second request): ask again
@@ -4402,6 +4453,7 @@
     // in a headset a station is reached only by walking into its circle: one this page followed (or a session ended at)
     // is not its station
     if (C.live || C.follow) { log('station dropped for the headset', { st: C.live || C.follow }); C.follow = ''; C.mine = ''; C.live = ''; C.picked = false; C.zone = ''; C.cand = ''; }
+    whoStop('headset');   // (a headset walks: following a person is for pages)
     quiet(() => s.addEventListener('visibilitychange', () => {
       holdTask();
       log('headset', { visibility: s.visibilityState });
@@ -4505,6 +4557,7 @@
       else if (act === 'leave') leave(false, true);
       else if (act === 'follow') { choose(arg, 'follow'); dialog(false); HOST.closePicker(); }
       else if (act === 'unfollow') unfollow();
+      else if (act === 'who') { if (followPerson(arg) && C.whoSt) dialog(false); }   // (not at a station yet: the dialog stays, saying so)
       else if (act === 'remove') removeAsk(arg);
       else if (act === 'arrange') arrange({ x: 0, z: 0, yaw: 0 });
       else if (act === 'lock') setLock(!layoutLocked());
@@ -4613,7 +4666,7 @@
       if (rf) rf.hidden = !C.relay && !peerOn();
     } else {
       const L = C.stById.get(C.follow);
-      $('.sh-room').innerHTML = `<b>${esc(C.code)}</b><span>${L ? 'Following ' + esc(meta(L.story).title) + ' on this page' : 'Follow a station to see its story here, in step with the room'}</span>
+      $('.sh-room').innerHTML = `<b>${esc(C.code)}</b><span>${C.who ? esc(whoLine()) : L ? 'Following ' + esc(meta(L.story).title) + ' on this page' + (C.whoLeft ? ` (${esc(C.whoLeft)} has left the room)` : '') : 'Follow a station or a person in a headset to see the story here, in step with the room'}</span>
         ${C.local ? '' : '<button class="btn" type="button" data-sh="copy">Copy link</button>'}<button class="btn" type="button" data-sh="leave">Leave</button>` +
         (C.local ? `<div class="row"><input id="shRelay2" type="url" inputmode="url" autocomplete="off" spellcheck="false" placeholder="wss://relay.example.org" aria-label="Relay address" value="${esc(C.relay.replace(/^http/, 'ws'))}"><button class="btn" type="button" data-sh="relay2">Move to this relay</button></div>` : '');
       $('.sh-stations').innerHTML = C.st.length ? C.st.map(s => {
@@ -4640,8 +4693,11 @@
       for (const q of DLG.el.querySelectorAll('[data-sh="arrange"], [data-sh="add"], #shAdd, [data-sh^="remove:"]')) q.disabled = lk;
       $('.sh-people').innerHTML = C.local ? `<li class="none">Only you: others can join once the room is on a relay${C.peerFail ? ' or peer to peer' : ''}.</li>` : C.members.map(m => {
         const P = m.id === C.id ? { st: C.follow } : C.pres.get(m.id), s = P && C.stById.get(P.st), bv = m.id === C.id ? BROWSER : (P && P.bv) || '';
-        return `<li><i style="background:${esc(m.color || '#888')}"></i><b>${esc(m.name || 'Someone')}${m.id === C.id ? ' (you)' : ''}</b><span>${
-          { ar: 'headset', vr: 'headset (VR)', desktop: 'screen' }[m.kind] || ''}${bv ? ' (Quest Browser ' + esc(bv) + ')' : ''}${m.kind && m.kind !== 'desktop' ? (m.here ? ', in the room' : ', elsewhere') : ''}${m.host ? ', hosts the room' : ''}${s ? ' · at ' + esc(meta(s.story).title) : ''}</span></li>`;
+        // Follow: a person in a headset, followed from this page (a headset walks); the one followed: Stop following
+        const on = C.who === m.id, nm = m.name || 'Someone', fb = m.id === C.id || HOST.session ? '' : on ? '<button class="btn" type="button" data-sh="unfollow">Stop following</button>' :
+          m.kind === 'ar' || m.kind === 'vr' ? `<button class="btn primary" type="button" data-sh="who:${esc(m.id)}" title="This page follows whichever station ${esc(nm)} stands at, switching as they walk" aria-label="Follow ${esc(nm)}">Follow</button>` : '';
+        return `<li class="${on ? 'on' : ''}"><i style="background:${esc(m.color || '#888')}"></i><b>${esc(nm)}${m.id === C.id ? ' (you)' : ''}</b><span>${
+          { ar: 'headset', vr: 'headset (VR)', desktop: 'screen' }[m.kind] || ''}${bv ? ' (Quest Browser ' + esc(bv) + ')' : ''}${m.kind && m.kind !== 'desktop' ? (m.here ? ', in the room' : ', elsewhere') : ''}${m.host ? ', hosts the room' : ''}${s ? ' · at ' + esc(meta(s.story).title) : ''}${on ? ' · followed here' : ''}</span>${fb}</li>`;
       }).join('');
       drawMap();
     }
@@ -4762,6 +4818,8 @@
     // introduction server ('' PeerJS's public one, 'off', or host[:port][/path])
     get via() { return C.via; }, get role() { return (C.ws && C.ws.role) || ''; }, get peer() { return C.peer; }, setPeer: s => setPeer(s, 'typed'),
     stations: () => C.st, station: id => C.stById.get(id) || null, mine: () => C.mine, live: () => liveSt(), following: () => C.follow,
+    // a person followed from this page (their member id; '' none): whichever station they stand at, switching as they walk
+    followPerson: id => followPerson(id), followingWho: () => C.who,
     val, now, publish: pairs => publish(pairs), fx, setRelay: s => setRelay(s, 'typed'), detect, list: listRooms, create, join,
     leave: () => leave(false, true),   // (on purpose: not joined again by itself until joined again by hand)
     arrange, add, move, remove, design: b => designHere(b), follow: id => choose(id, 'follow'), pick: id => choose(id, 'pick'), unfollow, me: setMe, setHere,

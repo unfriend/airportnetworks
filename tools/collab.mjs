@@ -6,7 +6,10 @@
 // changes reach a following page (within 5 s: a busy machine is slow), the explore state round-trips both ways
 // and the story's effect reaches the others; two people changing different controls at once both keep their
 // change; a switch asked for while a story loads is not lost; a story picked by hand stops following; no writes
-// while idle (no ping-pong); a late joiner gets everything; a relay restart is survived; the headsets' two settings
+// while idle (no ping-pong); a late joiner gets everything; a page follows a pretend person in a headset (from the
+// people list's Follow: the station they walk into, switching as they walk, staying when they step out of every circle,
+// stopping when they leave, or when the page follows a station or picks a story by hand; the dialog's line "Following
+// <name> (at <story>)"); a relay restart is survived; the headsets' two settings
 // (labels, free moving) are the room's: everything in 3D in a room without them, set on one page, in the Shared
 // dialog or the headset's menu for every page and headset, never refused by the layout lock, kept across a relay
 // restart and in a room on this device, free moving off taking the turns out of places and panels, and a free grip
@@ -36,8 +39,9 @@
 // joins. --shots also saves pictures (the Shared dialog on a desktop and a phone, eight pretend headset views). --quick
 // runs only the last story of STORIES in the per-story part (for a quicker run while working on the rest); --p2p runs
 // only the peer-to-peer part; --design only the design room in a room (its station from the page's dialog and the
-// headset menu's button, the lock, Arrange all, the icons from the miniatures; with --shots its pictures); --port N runs
-// the relay on port N (default: any free port).
+// headset menu's button, the lock, Arrange all, the icons from the miniatures; with --shots its pictures); --follow only
+// following a person (a room of its own with two stations; with --shots the people list with Follow and the dialog
+// following someone); --port N runs the relay on port N (default: any free port).
 // Needs Playwright as tools/smoke.mjs does (PLAYWRIGHT_MODULE, CHROMIUM_PATH). Exits 1 on any failure.
 //
 // Adding a story: give it its hooks (the plan's section 7, as the flock has them), then an entry in STORIES:
@@ -155,6 +159,7 @@ const argv = process.argv.slice(2), shots = argv.includes('--shots') ? argv[argv
 const P2P = argv.includes('--p2p'), P2P_KEY = 'proteins', P2P_T = STORIES[P2P_KEY];   // (peer to peer: the station followed there)
 const NEAR_ONLY = argv.includes('--near');   // (only rooms on this network)
 const DESIGN_ONLY = argv.includes('--design');   // (only the design room in a room: designOnly)
+const FOLLOW_ONLY = argv.includes('--follow');   // (only following a person: personFollow, in a room of its own)
 if (argv.includes('--quick')) for (const k of Object.keys(STORIES).slice(0, -1)) delete STORIES[k];
 const relayPort = argv.includes('--port') ? +argv[argv.indexOf('--port') + 1] : 0;
 const { chromium } = await import(process.env.PLAYWRIGHT_MODULE || 'playwright');
@@ -980,6 +985,122 @@ async function nearby() {
   }
 }
 
+// ---- follow a person (a page only): a pretend person in a headset (a socket of its own speaking as a headset's page
+// does: hello as 'ar', presence ten times a second with the station it stands at, st) and a page D that follows them from
+// its Shared dialog: not at a station yet (the dialog stays, saying so), into a circle (the page follows that station),
+// on to the next (it switches), out of every circle and their presence quiet (it stays on the last one); a station
+// followed by hand, Stop following in their row and a story picked by hand each stop it; they leave the room (it stops,
+// the page stays at their last station). dir: pictures of the people list with Follow and the dialog following them
+const FORMAT = /const FORMAT = '([^']+)'/.exec(fs.readFileSync(path.join(root, 'shared.js'), 'utf8'))[1];
+function person(code, id, name) {
+  const G = { id, st: '', on: true, timer: 0, ws: new WebSocket(`ws://127.0.0.1:${port}/api/ws?room=${code}&id=${id}&proto=1`) };
+  G.open = new Promise((res, rej) => { G.ws.onopen = res; G.ws.onerror = () => rej(new Error('the person\'s socket failed')); });
+  G.ws.onmessage = () => {};
+  G.open.then(() => {
+    G.ws.send(JSON.stringify({ t: 'hello', name, color: '#ff7a59', kind: 'ar', here: true, version: FORMAT, proto: 1, dev: 'headset' }));
+    G.timer = setInterval(() => {
+      if (G.on && G.ws.readyState === 1) G.ws.send(JSON.stringify({ t: 'fx', k: 'p.' + id, v: { st: G.st, head: [0, 1.6, 0, 0, 0, 0, 1], hands: [], bv: '', sp: '', al: '' } }));
+    }, 100);
+  }, () => {});
+  G.close = () => { clearInterval(G.timer); try { G.ws.close(1000); } catch (e) { /* closed */ } };
+  return G;
+}
+async function personFollow(code, dir) {
+  const D = await open('#s=' + code, { width: 760, height: 900 });
+  await until(D, () => HOST.collab.status === 'open' && HOST.collab.stations().length > 1, null, 30000);
+  const [s1, s2] = [await stationOf(D, PICK_STORY), await stationOf(D, OTHER_STORY)];
+  const [t1, t2] = await D.evaluate(k => k.map(x => HOST.meta(x).title), [PICK_STORY, OTHER_STORY]);
+  const G = person(code, 'guide' + Math.random().toString(36).slice(2, 7), 'Guide');
+  await G.open;
+  const line = () => D.evaluate(() => { const e = document.querySelector('#shared .sh-room span'); return e ? e.textContent : ''; });
+  const fol = () => D.evaluate(() => [HOST.collab.followingWho(), HOST.collab.following(), HOST.curKey]);
+  const at = (id, k) => until(D, ([i, k]) => HOST.collab.following() === i && HOST.curKey === k && !HOST.busy, [id, k], 60000).then(ok => ok && ready(D, k, 60000));
+  const click = q => D.evaluate(q => { HOST.collab.dialog(true); const b = document.querySelector('#shared ' + q); if (b) b.click(); return !!b; }, q);
+  const see = async (q, file) => { if (!dir) return; await D.evaluate(q => { const e = document.querySelector('#shared ' + q); if (e) e.scrollIntoView({ block: 'center' }); }, q); await sleep(300); await D.screenshot({ path: path.join(dir, file) }); };
+  try {
+    // the people list: Follow for a person in a headset; none for a screen or for you
+    await D.evaluate(() => HOST.collab.dialog(true));
+    const btn = await until(D, id => !!document.querySelector(`#shared [data-sh="who:${id}"]`), G.id, 15000);
+    const rows = await D.evaluate(() => [...document.querySelectorAll('#shared .sh-people li')].map(li => [li.textContent.replace(/\s+/g, ' ').trim(), !!li.querySelector('[data-sh^="who:"]')]));
+    check('follow a person: the people list has Follow for a person in a headset, none for a screen or for you',
+      btn && rows.filter(r => r[1]).length === 1 && rows.some(r => /Guide/.test(r[0]) && /headset/.test(r[0]) && r[1]) && rows.some(r => /\(you\)/.test(r[0]) && !r[1]) && rows.some(r => /screen/.test(r[0]) && !/\(you\)/.test(r[0]) && !r[1]), JSON.stringify(rows));
+    await see('.sh-people', 'follow-person-1-people.png');
+    // not at a station yet: the dialog stays open and says so
+    await click(`[data-sh="who:${G.id}"]`);
+    const w0 = await until(D, () => !document.getElementById('shared').hidden && document.querySelector('#shared .sh-room span').textContent === 'Following Guide (not at a station yet)', null, 5000);
+    check('follow a person not at a station yet: the dialog stays open and says so', w0 && (await fol())[0] === G.id, JSON.stringify([await line(), await fol()]));
+    // they walk into a circle: the page follows that station, and the dialog says where they are
+    G.st = s1;
+    const a1 = await at(s1, PICK_STORY), l1 = await line();
+    check('following a person: the page follows the station they walk into, and the dialog says "Following Guide (at <story>)"', a1 && l1 === `Following Guide (at ${t1})`, JSON.stringify({ f: await fol(), l1 }));
+    await D.evaluate(() => HOST.collab.dialog(true));
+    await see('.sh-room', 'follow-person-2-following.png');
+    await see('.sh-people', 'follow-person-3-people-following.png');
+    const stopRow = await D.evaluate(id => { const b = document.querySelector('#shared .sh-people li.on [data-sh="unfollow"]'); return !!b && /Guide/.test(b.closest('li').textContent); }, G.id);
+    check('... and their row in the people list says Stop following', stopRow);
+    // on to the next circle: it switches
+    G.st = s2;
+    const a2 = await at(s2, OTHER_STORY), l2 = await line();
+    check('... and switches as they walk to the next circle', a2 && l2 === `Following Guide (at ${t2})`, JSON.stringify({ f: await fol(), l2 }));
+    // out of every circle: it stays on the last one; their presence quiet too (a headset taken off)
+    G.st = '';
+    await sleep(1500);
+    const [f3, l3] = [await fol(), await line()];
+    G.on = false;
+    await sleep(4500);
+    const f4 = await fol();
+    G.on = true;
+    check('... and stays on the last one when they step out of every circle (and when their presence goes quiet)',
+      f3.join() === [G.id, s2, OTHER_STORY].join() && l3 === `Following Guide (last at ${t2}; in no circle now)` && f4.join() === f3.join(), JSON.stringify({ f3, l3, f4 }));
+    // a station followed by hand stops it: their walking no longer moves the page
+    const hb = await click(`[data-sh="follow:${s1}"]`);
+    const h1 = await at(s1, PICK_STORY);
+    G.st = s2;
+    await sleep(3500);
+    const f5 = await fol();
+    check('a station followed by hand stops following the person (their walking no longer moves the page)', hb && h1 && f5.join() === ['', s1, PICK_STORY].join(), JSON.stringify(f5));
+    // followed again (now at the second station): the page goes there and the dialog closes; Stop following in their row
+    await click(`[data-sh="who:${G.id}"]`);
+    const a6 = await at(s2, OTHER_STORY), shut = await D.evaluate(() => document.getElementById('shared').hidden);
+    await click('.sh-people [data-sh="unfollow"]');
+    const f6 = await fol();
+    check('followed again: the page goes to their station (the dialog closes); Stop following in their row stops it', a6 && shut && f6[0] === '' && f6[1] === '', JSON.stringify({ a6, shut, f6 }));
+    // a story picked by hand stops it
+    await D.evaluate(id => HOST.collab.followPerson(id), G.id);
+    await until(D, id => HOST.collab.following() === id, s2, 5000);
+    await D.evaluate(k => HOST.start(k), PICK_STORY);
+    await ready(D, PICK_STORY, 60000);
+    G.st = s1; await sleep(500); G.st = s2;
+    await sleep(3000);
+    const f7 = await fol();
+    check('a story picked by hand stops following the person (and the station), and their walking no longer moves the page', f7.join() === ['', '', PICK_STORY].join(), JSON.stringify(f7));
+    // they leave the room: following them stops after a moment (a socket back within it keeps them), the page stays at their last station
+    await D.evaluate(id => HOST.collab.followPerson(id), G.id);
+    const a8 = await at(s2, OTHER_STORY);
+    G.close();
+    await sleep(4000);
+    const mid = await fol();
+    const gone = await until(D, () => !HOST.collab.followingWho(), null, 25000);
+    const [f8, l8] = [await fol(), await line()];
+    check('they leave the room: following them stops after a moment, the page stays at their last station and the dialog says they have left',
+      a8 && mid[0] === G.id && gone && f8.join() === ['', s2, OTHER_STORY].join() && l8 === `Following ${t2} on this page (Guide has left the room)`, JSON.stringify({ mid, f8, l8 }));
+  } finally {
+    G.close();
+    await D.context().close();
+  }
+}
+// --follow: only following a person, in a room of its own with the two stations it needs (and --shots its pictures)
+async function followOnly() {
+  const A = await open('#stories');
+  await A.evaluate(async () => { await HOST.collab.detect(); HOST.collab.create(); });
+  await until(A, () => HOST.collab.status === 'open', null, 10000);
+  const c = await A.evaluate(() => HOST.collab.code);
+  await A.evaluate(k => { for (const s of k) HOST.collab.add(s); }, [PICK_STORY, OTHER_STORY]);
+  await until(A, () => HOST.collab.stations().length === 2 && !HOST.collab.internals().pending.size, null, 5000);
+  if (shots) fs.mkdirSync(shots, { recursive: true });
+  await personFollow(c, shots);
+}
+
 let code = '', NST = 0;   // the room's code; how many stories (one station each after Arrange all)
 let slidesSeen = false;   // the slideshow's stop and Next in a room: checked on the first story followed
 try {
@@ -987,6 +1108,7 @@ try {
   main: {   // (--p2p: only the peer-to-peer part, after this block; --near: only rooms on this network)
   if (P2P || NEAR_ONLY) break main;
   if (DESIGN_ONLY) { await designOnly(); break main; }
+  if (FOLLOW_ONLY) { await followOnly(); break main; }
   // ------------------------------------------------------------ rooms --
   const A = await open('#stories');
   check('a page served by the relay finds it', await A.evaluate(async () => { await HOST.collab.detect(); return HOST.collab.relay === location.origin; }));
@@ -1260,6 +1382,9 @@ try {
   check('a late joiner gets the stations, the clock and the explore state', await until(D, s => HOST.cur.peek('APP.mode') === 'explore' && JSON.stringify(HOST.cur.collab.state()) === s, sA, 5000),
     `A ${sA}, D ${await stateOf(D)}`);
   await D.context().close();
+
+  // --------------------------------------------------- follow a person --
+  await personFollow(code, '');
 
   // ------------------------------------------------ panels per station --
   // (key st.<id>.ui) set in a page's Shared dialog for one station, with the layout locked (never refused by it): the
@@ -2932,8 +3057,8 @@ try {
     console.log('pictures in ' + shots);
   }
   }   // (main)
-  if (!NEAR_ONLY && !DESIGN_ONLY) await p2p();
-  if (!P2P && !DESIGN_ONLY) await nearby();
+  if (!NEAR_ONLY && !DESIGN_ONLY && !FOLLOW_ONLY) await p2p();
+  if (!P2P && !DESIGN_ONLY && !FOLLOW_ONLY) await nearby();
 } catch (e) {
   console.log('FAIL ' + (e.stack || e.message));
   fails.push('exception');

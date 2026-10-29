@@ -35,7 +35,7 @@ node relay/server.mjs [--lan] [--port 8787] [--host 0.0.0.0] [--static .] [--cer
 | `--ping <s>` | 20 | how often the relay pings every member (keeps proxies from closing idle sockets) |
 | `--quiet` | off | no log lines |
 | `--no-peer` | off | no introduction server for peer to peer (`/peerjs`, on by default; it costs nothing while unused) |
-| `--proxy` | off | behind a reverse proxy (Coolify's, nginx): a client's address is the last one in `X-Forwarded-For`, for [rooms on this network](#rooms-on-this-network). Without it the header is ignored (a client could write anything there); never turn it on for a relay that clients reach directly |
+| `--proxy [<n>]` | off | behind `n` reverse proxies (1 when no number is given: Coolify's or nginx alone; 2 with a CDN such as Cloudflare in front of it): a client's address is the `n`-th from the right in `X-Forwarded-For`, for [rooms on this network](#rooms-on-this-network). Without it the header is ignored (a client could write anything there); never turn it on for a relay that clients reach directly |
 | `--lan` | off | for headsets on the same Wi-Fi: HTTPS with a certificate of its own (made with `openssl` in `relay/.lan/`) and the app's files served from the repository; prints the address to open on the headsets |
 | `--watch [<dir>]` | off | while developing (hot reload): watch the app's files, the `--static` folder (or `<dir>`, then also served when `--static` is not given). The pages it serves swap a changed story in place, keeping their place, and reload (place kept) when a shell file changes; see [Hot reload](#hot-reload---watch) |
 | `--build` | off | with `--watch`: run a built story's `tools/<key>/build.mjs` when its sources change, so editing a set shows by itself |
@@ -237,9 +237,15 @@ certificate if you have one.
 5. Give it that **domain** (`https://networks.example.org`); Coolify's proxy gets a certificate for it and
    passes WebSocket upgrades through without further settings (the relay's pings every 20 s keep an idle socket
    open through any proxy timeout above that).
-6. The Dockerfile starts the relay with `--proxy`, so *Rooms on this network* sees each device's own address rather
-   than the proxy's (without it every device would be on one network, the proxy's). Run the image without `--proxy`
-   where clients reach the relay directly (a client could then write any address in the header).
+6. Set the start command to `node relay/server.mjs --port 8787 --static . --proxy 1`, or `--proxy 2` when a CDN
+   such as Cloudflare stands in front of Coolify's proxy. Why: *Rooms on this network* needs each device's own
+   address, and behind proxies the relay sees only the nearest one's. Each proxy adds the address it was reached
+   from to `X-Forwarded-For`, so the device's own is the `n`-th from the right, `n` being the number of proxies:
+   with Cloudflare in front the last one is a Cloudflare server's, and with `--proxy 1` every device would seem to
+   be on one of Cloudflare's networks. The Dockerfile itself leaves `--proxy` off, since only the deployment knows
+   how many proxies there are, and an image run where clients reach it directly must ignore the header (a client
+   could write any address there). With a CDN in front, let only the CDN reach the server: a device that reached
+   Coolify's proxy directly could name its own network.
 7. Deploy. Check `https://networks.example.org/api/ping` (the image's health check uses it too): with `--proxy` its
    `net` differs between two devices on different networks.
 
@@ -443,8 +449,10 @@ through a relay on the internet is on that network peer to peer too. One id stan
   whatever its network, as before: the network list is a convenience, not a lock; a room's code is all it takes to
   join.)
 - Behind a reverse proxy the relay sees only the proxy's address: start it with `--proxy`, and it takes the last
-  address in `X-Forwarded-For` (the one the proxy added; anything before it came from the client). Without `--proxy`
-  the header is ignored.
+  address in `X-Forwarded-For` (the one the proxy added; anything before it came from the client). Behind two (a CDN
+  such as Cloudflare in front of Coolify's proxy) start it with `--proxy 2`: it takes the second from the right, the
+  one the CDN added (the first when the header has only one). Without `--proxy` the header is ignored. The Dockerfile
+  does not turn it on: Coolify's start command does (step 6 of [public hosting](#later-public-hosting-coolify)).
 
 ## Testing
 
@@ -464,6 +472,7 @@ server: ids over HTTP (CORS, bad requests refused), `OPEN`, `ID-TAKEN` for anoth
 messages passed on with `src`, kept for an id that comes a moment later and `EXPIRE` for one that never comes,
 heartbeats, a silent id dropped, a closed socket freeing its id, the log (ids only) and `--no-peer`; rooms on this
 network (`/api/near` and `/api/ping` by the asker's network with `--proxy`, only the last address of `X-Forwarded-For`,
+and with `--proxy 2` only the second from the right (the first when there is only one),
 a private address by its /24 and IPv6 by its /64, `near` off and on, a member from another network, an empty room,
 the header ignored without `--proxy`, no address in any answer or log line and no network's id in the log); and `--watch`
 (ping, the event stream's `hello` with the right fingerprints, `story`, `list` and `shell` as files change, nothing for
