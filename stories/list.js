@@ -1,4 +1,5 @@
-// The stories, in the order of the Stories screen (on the page and in the headset) and of Arrange all. The shell reads
+// The stories, in the order of the Stories screen (on the page and in the headset) and of Arrange all (pages that are not
+// stories, such as the design room, are in STORY_EXTRA at the end). The shell reads
 // this file at start (index.html: HOST.list) and again while it runs (HOST.live: a story added in a release gets its
 // card without a reload); tools/release.mjs lists it in version.json. Each entry: key (the file stories/<key>.js), kick,
 // title, col and desc (its card), page, brand and sub (the tab's and the top bar's title), aria, thing and loading (the
@@ -66,4 +67,13 @@ self.STORY_LIST = [
     desc: 'A gang of robot vacuums in your room. In a headset they find your floor and walls, follow you about and bounce off the walls.',
     page: 'A gang of robot vacuums in your room', brand: 'Robot gang', sub: 'vacuums in your room',
     aria: 'Interactive 3D room with a gang of robot vacuums that follow you about', thing: 'room', loading: 'Waking the robots', len: 'Story 2:01 · then free play', life: true },
+];
+// Pages that are not stories (the same fields): started by their key (#design, HOST.go) and swapped and titled like a
+// story, but never listed (the Stories screens, Arrange all, the station picker, the count, Repeat see only
+// STORY_LIST). tools/release.mjs lists them in version.json too, so live updates reach them.
+self.STORY_EXTRA = [
+  { key: 'design', kick: 'Design room', title: 'The props table', col: '#f0d58c',
+    desc: 'Every prop of the stories as a small model on one table, by story. Pick one up, or put it on the stage to see what it is made of: its params, its views and its source.',
+    page: 'The design room: every prop of the stories on one table', brand: 'Design room', sub: 'the props table',
+    aria: 'Interactive 3D table with small models of every 3D set of the stories', thing: 'table', loading: 'Laying the table', len: 'No story · a table to explore', life: true },
 ];

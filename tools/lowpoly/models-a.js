@@ -392,7 +392,8 @@ var LOWPOLY_MODELS = LOWPOLY_MODELS || {};
   });
 
   add('lbi.web', 'Internet map', 'The internet as trees of links growing out of white-hot hubs into yellow trunks and red twigs.', b => {
-    const r = rng(5), CY = 0.46, COL = ['#ffe27a', '#ff9a2a', '#e0401a'], RAD = [0.009, 0.0065, 0.0045];
+    // thick, bright links and white-hot hubs over a faint glowing core, so it reads at 12 cm (thin and dark before)
+    const r = rng(5), CY = 0.46, COL = ['#fff0a0', '#ffb040', '#ff5a2a'], RAD = [0.015, 0.011, 0.0078];
     plinth(b, 0.22);
     const flat = d => norm3([d[0], d[1] * 0.7, d[2]]);
     function grow(p, d, len, depth) {
@@ -405,10 +406,11 @@ var LOWPOLY_MODELS = LOWPOLY_MODELS || {};
     for (const [x, y, z, n, d0, len] of hubs) {
       const a0 = r() * 6.28;
       for (let k = 0; k < n; k++) { const a = a0 + 6.2832 * k / n; grow([x, y, z], flat([Math.cos(a), (r() - 0.5) * 0.8, Math.sin(a)]), len, d0); }
-      b.add('glow', ico(d0 ? 0.02 : 0.032, [x, y, z]), '#fff6dc');
-      if (!d0) b.add('haze', sph(0.065, 6, 4, [x, y, z]), '#ffcf70');            // the white-hot glow of a big hub
+      b.add('glow', ico(d0 ? 0.03 : 0.046, [x, y, z]), '#ffffff');
+      if (!d0) b.add('haze', sph(0.09, 6, 4, [x, y, z]), '#ffd27a');            // the white-hot glow of a big hub
     }
-    for (const [i, j] of [[0, 1], [0, 4], [1, 3], [2, 5]]) b.add('soft', rod(hubs[i], hubs[j], 0.003, 0.003, 3), '#d8763a');
+    b.add('haze', sph(0.24, 8, 6, [0.01, CY, 0], [1.2, 0.5, 0.9]), '#d89040');      // a faint glowing core
+    for (const [i, j] of [[0, 1], [0, 4], [1, 3], [2, 5]]) b.add('soft', rod(hubs[i], hubs[j], 0.005, 0.005, 3), '#ff9a50');
   });
 
   add('lbi.dna', 'DNA double helix', 'A double helix with its coloured base pairs, beside a chromosome it coils up into.', b => {
@@ -498,27 +500,28 @@ var LOWPOLY_MODELS = LOWPOLY_MODELS || {};
     plinth(b, 0.31);
     b.add('glass', cyl(0.29, 0.29, 0.92, 14, [0, 0.5, 0], null, true), '#2a8fb0');
     b.add('glow', cyl(0.292, 0.292, 0.008, 14, [0, 0.96, 0], null, true), '#46d9ff');
-    const Y = k => 0.1 + k * 0.112, G = 'soft', E = (k, d) => add3([0, Y(k) + 0.004, 0], d);
+    // the emblems 1.5 times their first size (1.25 times upwards, so each stays under the floor above)
+    const Y = k => 0.1 + k * 0.112, G = 'soft', Z = 1.5, ZY = 1.25, E = (k, d) => add3([0, Y(k) + 0.004, 0], [d[0] * Z, d[1] * ZY, d[2] * Z]);
     for (let k = 0; k < 8; k++) {
       b.add('haze', disc(0.25, 12, [0, Y(k), 0], [-Math.PI / 2, 0, 0]), '#0f5f78');          // a holographic floor
       b.add('glow', cyl(0.252, 0.252, 0.01, 12, [0, Y(k), 0], null, true), '#46d9ff');
     }
     // a small lit emblem on each floor
-    b.add(G, rod(E(0, [-0.04, 0.005, 0]), E(0, [0.04, 0.09, 0]), 0.011, 0.011, 4), '#3ee08f');                  // DNA bases
-    b.add(G, rod(E(0, [0.04, 0.005, 0]), E(0, [-0.04, 0.09, 0]), 0.011, 0.011, 4), '#ff5a4b');
-    for (const y of [0.025, 0.07]) b.add(G, rod(E(0, [-0.03, y, 0]), E(0, [0.03, y, 0]), 0.008, 0.008, 4), y < 0.05 ? '#ffb43b' : '#4f9dff');
-    b.add(G, ico(0.045, E(1, [0, 0.05, 0]), [1, 1.15, 1]), '#3a7bd5');                                       // a protein
-    b.add(G, rod(E(1, [0.03, 0.07, 0]), E(1, [0.07, 0.095, 0.01]), 0.008, 0.005, 4), '#ffd23a');
-    b.add(G, cyl(0.032, 0.032, 0.025, 6, E(2, [0, 0.014, 0])), '#ec8396');                                     // a complex
-    b.add(G, rod(E(2, [0, 0.025, 0]), E(2, [0, 0.05, 0]), 0.009, 0.009, 4), '#5adcc7');
-    b.add(G, sph(0.034, 6, 4, E(2, [0, 0.068, 0])), '#1db0a2');
-    b.add(G, sph(0.04, 6, 4, E(3, [0, 0.04, 0]), [1.7, 0.8, 0.8]), '#ffa36b');                                 // a mitochondrion
-    b.add('haze', sph(0.052, 6, 4, E(4, [0, 0.052, 0])), '#7fe3ff');                                          // a cell
-    b.add(G, ico(0.022, E(4, [0, 0.052, 0])), '#b98bff');
-    b.add(G, cyl(0.052, 0.052, 0.03, 6, E(5, [0, 0.016, 0])), '#f19aa7');                                      // tissue
-    for (const s of [-1, 1]) b.add(G, sph(0.042, 6, 4, E(6, [0.022 * s, 0.045, 0]), [0.8, 0.85, 1.15]), '#f2a7b5');   // a brain
-    b.add(G, cyl(0.015, 0.022, 0.065, 6, E(7, [0, 0.035, 0])), '#e2eaf6');                                      // the body
-    b.add(G, ico(0.017, E(7, [0, 0.085, 0])), '#e2eaf6');
+    b.add(G, rod(E(0, [-0.04, 0.005, 0]), E(0, [0.04, 0.09, 0]), 0.011 * Z, 0.011 * Z, 4), '#3ee08f');                  // DNA bases
+    b.add(G, rod(E(0, [0.04, 0.005, 0]), E(0, [-0.04, 0.09, 0]), 0.011 * Z, 0.011 * Z, 4), '#ff5a4b');
+    for (const y of [0.025, 0.07]) b.add(G, rod(E(0, [-0.03, y, 0]), E(0, [0.03, y, 0]), 0.008 * Z, 0.008 * Z, 4), y < 0.05 ? '#ffb43b' : '#4f9dff');
+    b.add(G, ico(0.045 * Z, E(1, [0, 0.05, 0]), [1, 1.15 * ZY / Z, 1]), '#3a7bd5');                                       // a protein
+    b.add(G, rod(E(1, [0.03, 0.07, 0]), E(1, [0.07, 0.095, 0.01]), 0.008 * Z, 0.005 * Z, 4), '#ffd23a');
+    b.add(G, cyl(0.032 * Z, 0.032 * Z, 0.025 * ZY, 6, E(2, [0, 0.014, 0])), '#ec8396');                                     // a complex
+    b.add(G, rod(E(2, [0, 0.025, 0]), E(2, [0, 0.05, 0]), 0.009 * Z, 0.009 * Z, 4), '#5adcc7');
+    b.add(G, sph(0.034 * Z, 6, 4, E(2, [0, 0.068, 0]), [1, ZY / Z, 1]), '#1db0a2');
+    b.add(G, sph(0.04 * Z, 6, 4, E(3, [0, 0.04, 0]), [1.7, 0.8 * ZY / Z, 0.8]), '#ffa36b');                                 // a mitochondrion
+    b.add('haze', sph(0.052 * Z, 6, 4, E(4, [0, 0.052, 0]), [1, ZY / Z, 1]), '#7fe3ff');                                    // a cell
+    b.add(G, ico(0.022 * Z, E(4, [0, 0.052, 0])), '#b98bff');
+    b.add(G, cyl(0.052 * Z, 0.052 * Z, 0.03 * ZY, 6, E(5, [0, 0.016, 0])), '#f19aa7');                                      // tissue
+    for (const s of [-1, 1]) b.add(G, sph(0.042 * Z, 6, 4, E(6, [0.022 * s, 0.045, 0]), [0.8, 0.85 * ZY / Z, 1.15]), '#f2a7b5');   // a brain
+    b.add(G, cyl(0.015 * Z, 0.022 * Z, 0.065 * ZY, 6, E(7, [0, 0.035, 0])), '#e2eaf6');                                      // the body
+    b.add(G, ico(0.017 * Z, E(7, [0, 0.085, 0])), '#e2eaf6');
   });
 
   add('lbi.body', 'PET body network', 'A whole-body PET scan in glowing hot-iron colours, with the network of its organs wound round it.', b => {
@@ -818,7 +821,7 @@ var LOWPOLY_MODELS = LOWPOLY_MODELS || {};
 
   // triangles of each build, measured (the harness lists any that no longer match)
   const TRIS = {
-    'lbi.int': 1198, 'lbi.mac': 940, 'lbi.web': 1104, 'lbi.dna': 1024, 'lbi.atp': 808, 'lbi.crowd': 996,
+    'lbi.int': 1198, 'lbi.mac': 940, 'lbi.web': 1184, 'lbi.dna': 1024, 'lbi.atp': 808, 'lbi.crowd': 996,
     'lbi.sankey': 1056, 'lbi.scale': 800, 'lbi.body': 1048, 'lbi.tissue': 860, 'nmd.tower': 992, 'nmd.motor': 1022,
     'nmd.hpc': 1012, 'endo.syn': 1108, 'endo.net': 1186, 'endo.tree': 760, 'pet.scan': 816, 'pet.organs': 1142,
     'pet.liver': 980, 'micro.slide': 940, 'micro.atlas': 960, 'micro.hier': 1148, 'micro.organs': 856

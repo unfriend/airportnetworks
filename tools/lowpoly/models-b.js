@@ -473,76 +473,82 @@ var LOWPOLY_MODELS = LOWPOLY_MODELS || {};
     M.add('veil', g.sph(1, 14, 5, 0, 2 * PI, 0, PI / 2), '#2a8fb8', [0, 0.1, 0]);
   });
 
-  // the airports' globe: land drawn from rough continents (per face, low-poly), lon0 facing you
-  const LAND = [[55, -105, 20], [40, -95, 15], [35, -115, 9], [65, -150, 9], [62, -80, 10], [20, -100, 7], [12, -86, 4], [73, -40, 9],
-    [-5, -62, 15], [-20, -55, 11], [-35, -66, 8], [5, -70, 6], [-50, -70, 4], [50, 10, 10], [60, 25, 8], [45, 25, 6], [40, -4, 5], [63, 13, 6], [54, -2, 3],
-    [10, 15, 17], [20, 8, 12], [-5, 25, 13], [-22, 25, 11], [25, 30, 8], [8, 38, 7], [60, 90, 25], [62, 130, 18], [45, 80, 15], [35, 105, 13], [30, 80, 9],
-    [22, 78, 9], [25, 45, 9], [35, 55, 8], [40, 65, 10], [15, 102, 6], [48, 140, 6], [36, 138, 4], [-2, 110, 5], [-4, 138, 5], [12, 122, 3],
-    [-25, 134, 14], [-32, 147, 6], [-42, 173, 3], [-19, 46, 4]];
+  // the airports' globe: land from a few large rough continents (per face, low-poly: small islands only made specks,
+  // so both globes read as continents), lon0 facing you
+  const LAND = [[52, -100, 21], [38, -97, 14], [64, -148, 10], [66, -85, 12], [30, -110, 8], [18, -100, 7], [13, -87, 5], [72, -42, 10],   // North America, Greenland
+    [-5, -62, 16], [-20, -55, 12], [-35, -65, 8], [5, -70, 7], [-48, -70, 5],                                                             // South America
+    [50, 12, 12], [60, 25, 10], [44, 25, 7], [41, -4, 7], [64, 14, 7],                                                                  // Europe
+    [8, 18, 18], [20, 8, 13], [-6, 25, 14], [-22, 25, 11], [25, 30, 9], [8, 38, 8],                                                      // Africa
+    [60, 90, 26], [62, 130, 19], [45, 80, 15], [35, 105, 14], [38, 60, 12], [25, 47, 10], [22, 79, 10], [15, 102, 7], [46, 135, 9],      // Asia
+    [-2, 112, 7], [-4, 138, 6], [-25, 134, 15], [-32, 146, 7]];                                                                          // the islands, Australia
   const D2R = PI / 180;
   const ll = (lat, lon, lon0, rad) => { const c = Math.cos(lat * D2R); return [rad * c * Math.sin((lon - lon0) * D2R), rad * Math.sin(lat * D2R), rad * c * Math.cos((lon - lon0) * D2R)]; };
   const unit = (lat, lon) => [Math.cos(lat * D2R) * Math.cos(lon * D2R), Math.sin(lat * D2R), Math.cos(lat * D2R) * Math.sin(lon * D2R)];
   const LANDV = LAND.map(([a, b, rr]) => [unit(a, b), Math.cos(rr * D2R)]);
   const isLand = (lat, lon) => { if (lat < -72) return true; const v = unit(lat, lon); return LANDV.some(([u, c]) => v[0] * u[0] + v[1] * u[1] + v[2] * u[2] > c); };
   const AP = { ATL: [33.6, -84.4], ORD: [42, -87.9], LAX: [33.9, -118.4], JFK: [40.6, -73.8], DFW: [32.9, -97], YYZ: [43.7, -79.6], MEX: [19.4, -99.1], GRU: [-23.4, -46.5],
+    MIA: [25.8, -80.3], SFO: [37.6, -122.4], SEA: [47.4, -122.3], BOG: [4.7, -74.1],
     LHR: [51.5, -0.5], CDG: [49, 2.5], FRA: [50, 8.6], AMS: [52.3, 4.8], MAD: [40.5, -3.6], MUC: [48.4, 11.8], ZRH: [47.5, 8.6], VIE: [48.1, 16.6], IST: [41.3, 28.8], DME: [55.4, 37.9],
-    CAI: [30.1, 31.4], JNB: [-26.1, 28.2], DXB: [25.3, 55.4], DEL: [28.6, 77.1], PEK: [40.1, 116.6], PVG: [31.1, 121.8], ICN: [37.5, 126.4], NRT: [35.8, 140.4], SIN: [1.4, 104], SYD: [-33.9, 151.2] };
-  const globe = (M, g, lon0, routes, rcol) => {
+    LIS: [38.8, -9.1], FCO: [41.8, 12.2], ARN: [59.7, 17.9], PRG: [50.1, 14.3], BUD: [47.4, 19.3], MXP: [45.6, 8.7], WAW: [52.2, 20.9],
+    CAI: [30.1, 31.4], JNB: [-26.1, 28.2], NBO: [-1.3, 36.9], DXB: [25.3, 55.4], DEL: [28.6, 77.1], BOM: [19.1, 72.9], PEK: [40.1, 116.6], PVG: [31.1, 121.8], ICN: [37.5, 126.4],
+    NRT: [35.8, 140.4], HKG: [22.3, 113.9], BKK: [13.7, 100.7], SIN: [1.4, 104], SYD: [-33.9, 151.2] };
+  // the globe, tilted so the northern hubs face you; tint(lat, lon, land) may colour a face its own way. Routes are
+  // great-circle arcs lifted as the original's are
+  const globe = (M, g, lon0, routes, rcol, tint) => {
     const cy = 1.2;
-    M.frame([0, cy, 0], [0.35, 0, 0]);   // tilted so the northern hubs face you
+    M.frame([0, cy, 0], [0.35, 0, 0]);
     const ico = g.ball(1, 4); ico.computeVertexNormals();   // a faceted planet: flat faces, coloured land or sea
     M.add('mat', ico, (w, n, lc) => {
-      const lat = Math.asin(Math.max(-1, Math.min(1, lc.y / lc.length()))) / D2R, lon = lon0 + Math.atan2(lc.x, lc.z) / D2R;
-      return isLand(lat, lon) ? M.jit('#4a7696', 0.04)() : '#061328';
+      const lat = Math.asin(Math.max(-1, Math.min(1, lc.y / lc.length()))) / D2R, lon = lon0 + Math.atan2(lc.x, lc.z) / D2R, land = isLand(lat, lon);
+      return (tint && tint(lat, lon, land)) || (land ? M.jit('#4a7696', 0.04)() : '#061328');
     });
-    for (const [a, b, col] of routes) {   // great-circle arcs, lifted as the original's routes are
+    for (const [a, b, col] of routes) {
       const A = ll(...AP[a], lon0, 1), B = ll(...AP[b], lon0, 1), ang = Math.acos(Math.min(1, A[0] * B[0] + A[1] * B[1] + A[2] * B[2])), pts = [];
       for (let k = 0; k <= 6; k++) { const t = k / 6, s = Math.sin(ang), wa = Math.sin((1 - t) * ang) / s, wb = Math.sin(t * ang) / s, h = 1.005 + 0.22 * ang / PI * Math.sin(PI * t) * 2; pts.push([(A[0] * wa + B[0] * wb) * h, (A[1] * wa + B[1] * wb) * h, (A[2] * wa + B[2] * wb) * h]); }
-      M.add('glow', g.tube(pts, 0.009, 7), col || rcol);
+      M.add('glow', g.tube(pts, 0.009, 5), col || rcol);
     }
     return cy;
   };
   const globeStand = (M, g, cy) => { M.frame(); plinth(M, 0.32, 0.08); M.add('gloss', g.rod([0, 0.08, 0], [0, cy - 0.95, 0], 0.03, 6), NAVY); };
+  // a ring lying on the globe round the point p (on its surface), th radians out from it
+  const ringOn = (M, g, p, th, rr, col) => M.add('glow', g.tor(Math.sin(th) * 1.012, rr, 3, 16), col, p.map(v => v * Math.cos(th) * 1.012), [-Math.asin(p[1]), Math.atan2(p[0], p[2]), 0, 'YXZ']);
 
-  def('pass.globe', 'Globe with an outbreak', 'The airports\' globe with an outbreak spreading from Vienna along its routes: infectious cities red, exposed amber, recovered grey.', 1076, (M, g) => {
-    const lon0 = 25, R = '#ff5a3c', A = '#ffb43b';
-    const cy = globe(M, g, lon0, [['VIE', 'LHR', R], ['VIE', 'FRA', R], ['VIE', 'IST', R], ['IST', 'DXB', R], ['LHR', 'JFK', R], ['DXB', 'DEL', A], ['IST', 'CAI', A], ['FRA', 'PEK', A], ['SIN', 'SYD'], ['MAD', 'GRU']], '#bfe0ff');
-    const city = (k, col, rad) => M.add('glow', g.oct(rad), col, ll(...AP[k], lon0, 1.01));
-    city('VIE', R, 0.065); for (const k of ['LHR', 'FRA', 'IST', 'DXB', 'JFK']) city(k, R, 0.05);
-    for (const k of ['DEL', 'CAI', 'PEK']) city(k, A, 0.045);
-    for (const k of ['MUC', 'ZRH', 'AMS']) city(k, '#8a94a3', 0.032);
+  def('pass.globe', 'Globe with an outbreak', 'The airports\' globe with an outbreak spreading from Vienna: a red cluster of infectious cities round it and a ring of spread moving out, exposed cities amber along the routes, recovered grey.', 1156, (M, g) => {
+    const lon0 = 25, R = '#ff3b2a', O = '#ff8a2a', A = '#ffb43b', vu = unit(...AP.VIE), V = ll(...AP.VIE, lon0, 1);
+    const from = (lat, lon) => { const u = unit(lat, lon); return Math.acos(Math.min(1, u[0] * vu[0] + u[1] * vu[1] + u[2] * vu[2])) / D2R; };   // degrees from Vienna
+    // the land round Vienna glows red, then orange, where the infection has reached
+    const cy = globe(M, g, lon0, [['VIE', 'LHR', R], ['VIE', 'IST', R], ['VIE', 'CDG', O], ['IST', 'DXB', O], ['LHR', 'JFK', A], ['DXB', 'DEL', A], ['IST', 'CAI', A], ['VIE', 'PEK', A], ['SIN', 'SYD'], ['MAD', 'GRU']], '#bfe0ff',
+      (lat, lon, land) => { const d = from(lat, lon); return !land ? null : d < 9 ? '#d8402a' : d < 16 ? '#c8763a' : null; });
+    const city = (k, col, rad) => M.add('glow', g.oct(rad), col, ll(...AP[k], lon0, 1.012));
+    city('VIE', R, 0.07); for (const k of ['MUC', 'ZRH', 'PRG', 'BUD', 'FRA', 'MXP']) city(k, R, 0.048);
+    for (const k of ['LHR', 'IST', 'CDG']) city(k, A, 0.045);
+    for (const k of ['WAW', 'AMS', 'MAD']) city(k, '#8a94a3', 0.034);
+    ringOn(M, g, V, 0.2, 0.013, '#ff5a2a'); ringOn(M, g, V, 0.34, 0.008, '#ffa060');   // the spread, moving out
     globeStand(M, g, cy);
   });
 
-  // the cell map's cell: membrane, nucleus, the organelles in their places' colours, proteins at their places
-  const cell = (M, g, r, extra) => {
+  // the cell map's cell: an ellipsoid membrane (cut open at the front when cut is given), on a stand
+  const PL = { pm: '#4dc7ff', nuc: '#a385ff', nucl: '#f59eff', er: '#43e08f', golgi: '#ff9e38', mito: '#ff5c54', lyso: '#ff5cc2', endo: '#29dbcc', perox: '#c2ed42', cyto: '#ffd14d', cytosk: '#b3c2db' };
+  const CUT = [PI / 2 + 0.95, 2 * PI - 1.9];   // the membrane's sweep, leaving out a wedge at the front (+z)
+  const cellStand = (M, g, cy) => { M.frame(); plinth(M, 0.3, 0.07); M.add('gloss', g.rod([0, 0.07, 0], [0, cy - 0.73, 0], 0.03, 6), NAVY); };
+  def('pass.cell', 'The cell, a relay', 'The cell map\'s cell, its organelles dim, with the NF-kB relay lit: a signal caught at the membrane, passed hand to hand and carried into the nucleus; CFTR stuck on its way (red).', 1016, (M, g, r) => {
     const cy = 1.0;
     M.frame([0, cy, 0]);
-    M.add('veil', g.sph(1, 12, 7), '#4dc7ff', 0, 0, [1, 0.74, 1]);   // a slightly flattened ellipsoid
-    M.add('glass', g.sph(0.37, 10, 6), '#a385ff', [0.05, 0.02, -0.05]);
-    M.add('gloss', g.ball(0.12), '#f59eff', [0.1, 0.06, -0.02]);
-    M.add('glass', g.sph(0.52, 12, 5, 0.4, 1.4 * PI, 0.55, 2.0), '#2fbf6e', [0.05, 0.02, -0.05], [0.3, 0, 0], [1, 0.8, 1]);   // ER round the nucleus
-    for (let k = 0; k < 3; k++) M.add('gloss', g.tor(0.2 + 0.055 * k, 0.034, 3, 6, 1.3), '#ff9e38', [0.52, -0.05, 0.36], [0.2, 0.75, -0.6], [1, 1, 0.5]);   // Golgi
-    for (let k = 0; k < 3; k++) { const a = 2.2 + k * 1.3, p = [0.68 * Math.cos(a), (r() - 0.5) * 0.4, 0.68 * Math.sin(a)]; M.add('gloss', g.sph(1, 6, 4), '#ff5c54', p, [r() * 3, r() * 3, r() * 3], [0.13, 0.05, 0.05]); }   // mitochondria
-    const blob = (n, col, rad) => { for (let k = 0; k < n; k++) { const a = r() * 2 * PI, b = (r() - 0.5) * 1.6, d = 0.55 + 0.25 * r(); M.add('gloss', g.ball(rad), col, [d * Math.cos(a) * Math.cos(b), d * 0.74 * Math.sin(b), d * Math.sin(a) * Math.cos(b)]); } };
-    blob(3, '#ff5cc2', 0.05); blob(3, '#29dbcc', 0.055); blob(2, '#c2ed42', 0.04);   // lysosomes, vesicles, peroxisomes
-    const prot = [];
-    const put = (n, col, d0, d1) => { for (let k = 0; k < n; k++) { const a = r() * 2 * PI, b = (r() - 0.5) * 2.2, d = d0 + (d1 - d0) * r(), p = [d * Math.cos(a) * Math.cos(b), d * 0.74 * Math.sin(b), d * Math.sin(a) * Math.cos(b)]; prot.push(p); M.add('glow', g.oct(0.042), col, p); } };
-    put(8, '#4dc7ff', 0.98, 1.0); put(6, '#ffd14d', 0.45, 0.85); put(5, '#c9b8ff', 0.05, 0.28); put(3, '#43e08f', 0.5, 0.6);
-    if (!extra) prot.forEach((p, k) => {   // each protein linked to its nearest partner
-      let best = -1, bd = 1e9; prot.forEach((q, j) => { const d = Math.hypot(p[0] - q[0], p[1] - q[1], p[2] - q[2]); if (j !== k && d < bd) { bd = d; best = j; } });
-      if (best > k || prot.length < 3) M.add('glow', g.rod(p, prot[best], 0.005, 3), '#e7eef8');
-    });
-    if (extra) extra(cy);
-    M.frame();
-    plinth(M, 0.3, 0.07); M.add('gloss', g.rod([0, 0.07, 0], [0, cy - 0.73, 0], 0.03, 6), NAVY);
-  };
-  def('pass.cell', 'The cell, a relay', 'The cell map\'s cell with its organelles, a signal relayed hand to hand from the membrane into the nucleus, and CFTR stuck on its way (red).', 1116, (M, g, r) => cell(M, g, r, () => {
-    const relay = [[0.2, 0.84, 0.3], [0.32, 0.58, 0.35], [0.4, 0.38, 0.22], [0.28, 0.24, 0.12], [0.12, 0.14, 0.02]];   // TNF towards NF-kB
-    M.add('glow', g.tube(relay, 0.014, 10), '#2fd2c0');
-    relay.forEach(p => M.add('glow', g.oct(0.036), '#7df0e0', p));
-    M.add('glow', g.ball(0.05), '#ff3b30', [-0.55, -0.3, 0.5]);   // CFTR, failed a third of the way to the membrane
-  }));
+    M.add('veil', g.sph(1, 12, 8), PL.pm, 0, 0, [1, 0.74, 1]);
+    M.add('glass', g.sph(0.37, 10, 6), PL.nuc, [0.05, -0.04, -0.05]);
+    M.add('glass', g.sph(0.52, 12, 5, 0.4, 1.4 * PI, 0.55, 2.0), PL.er, [0.05, -0.04, -0.05], [0.3, 0, 0], [1, 0.8, 1]);   // the organelles dim, as glass
+    for (let k = 0; k < 3; k++) M.add('glass', g.tor(0.2 + 0.055 * k, 0.034, 3, 6, 1.3), PL.golgi, [-0.5, -0.1, 0.34], [0.2, -0.75, 0.6], [1, 1, 0.5]);
+    for (let k = 0; k < 3; k++) { const a = 3.4 + k * 1.1, p = [0.66 * Math.cos(a), -0.25 + 0.2 * k, 0.66 * Math.sin(a)]; M.add('glass', g.sph(1, 6, 4), PL.mito, p, [r() * 3, r() * 3, r() * 3], [0.13, 0.05, 0.05]); }
+    // the relay: TNF outside, its receptor in the membrane, hand to hand through the cytoplasm, NF-kB into the nucleus
+    const relay = [[0.38, 0.82, 0.32], [0.36, 0.66, 0.3], [0.42, 0.46, 0.3], [0.34, 0.28, 0.22], [0.22, 0.16, 0.12], [0.1, 0.06, 0.04]];
+    M.add('glow', g.ball(0.07), '#ffe08a', [0.42, 0.98, 0.36]);
+    M.add('glow', g.tube(relay, 0.02, 12, 4), '#2fd2c0');
+    relay.forEach((p, k) => M.add('glow', g.ball(k ? 0.045 : 0.06), k === relay.length - 1 ? '#b8fff4' : '#7df0e0', p));
+    M.add('glow', g.tor(0.11, 0.012, 3, 12), '#7df0e0', [0.13, 0.08, 0.06], [-0.5, 0.6, 0, 'YXZ']);   // where it enters the nucleus
+    M.add('glow', g.ball(0.06), '#ff3b30', [-0.55, -0.3, 0.5]);   // CFTR, failed a third of the way to the membrane
+    for (let k = 1; k <= 3; k++) M.add('glow', g.oct(0.018), '#ff8a80', [-0.55 + 0.1 * k, -0.3 - 0.04 * k, 0.5 - 0.09 * k]);
+    cellStand(M, g, cy);
+  });
 
   // ================================================================== flock and robots
   def('flock.flock', 'Starlings at dusk', 'A murmuration of starlings over a dark field with reeds, a lake and a ring of trees, against a dusk sky glowing low where the sun sets.', 609, (M, g, r) => {
@@ -598,34 +604,54 @@ var LOWPOLY_MODELS = LOWPOLY_MODELS || {};
   });
 
   // ================================================================== the three hand-written stories
-  def('airports.globe', 'Globe of flights', 'The globe of airports: hubs as pillars coloured by their number of routes, blue through cyan to amber, and routes arcing between them.', 1156, (M, g) => {
-    const lon0 = -20, deg = { AMS: 250, FRA: 240, CDG: 230, IST: 230, ATL: 215, PEK: 210, ORD: 200, MUC: 190, DME: 185, DFW: 180, DXB: 180, LHR: 170, MAD: 160, JFK: 160, LAX: 150, PVG: 145, SIN: 120, NRT: 100, YYZ: 100, MEX: 90, DEL: 90, GRU: 80 };
-    const cy = globe(M, g, lon0, [['JFK', 'LHR'], ['LHR', 'DXB'], ['ATL', 'GRU'], ['CDG', 'JNB'], ['ORD', 'FRA'], ['IST', 'DEL'], ['MAD', 'MEX'], ['FRA', 'PEK'], ['DXB', 'SIN'], ['LAX', 'JFK']], '#cfe7ff');
-    for (const k in deg) { const x = deg[k] / 250, p = ll(...AP[k], lon0, 1); M.add('glow', g.rod(p, p.map(v => v * (1.02 + 0.3 * x)), 0.018, 4), degCol(x)); }
+  def('airports.globe', 'Globe of flights', 'The globe of airports as hubs and spokes: hubs as pillars coloured by their number of routes, blue through cyan to amber, and routes fanning out from the biggest.', 1190, (M, g) => {
+    const lon0 = -20, deg = { FRA: 250, ATL: 245, DXB: 230, LHR: 220, CDG: 215, AMS: 210, IST: 205, ORD: 200, JFK: 175, MUC: 170, DFW: 165, MAD: 160, LAX: 150, PEK: 150,
+      FCO: 140, MIA: 130, DEL: 120, SIN: 120, SFO: 120, GRU: 110, MEX: 110, YYZ: 105, LIS: 95, BOM: 95, SEA: 90, ARN: 90, BOG: 85, JNB: 85, CAI: 80, NBO: 70 };
+    const spokes = { FRA: ['JFK', 'ORD', 'DXB', 'PEK', 'GRU'], ATL: ['LAX', 'MEX', 'LHR', 'BOG', 'SEA'], DXB: ['SIN', 'DEL', 'JNB', 'NBO', 'LHR'] }, routes = [];
+    for (const h in spokes) for (const k of spokes[h]) routes.push([h, k]);
+    const cy = globe(M, g, lon0, routes, '#cfe7ff');
+    for (const k in deg) { const x = deg[k] / 250, p = ll(...AP[k], lon0, 1); M.add('glow', g.rod(p, p.map(v => v * (1.02 + 0.34 * x * x)), 0.02, 3), degCol(x)); }
     globeStand(M, g, cy);
   });
 
-  def('proteins.cell', 'Cell of proteins', 'A see-through cell with its nucleus, the proteins as dots coloured by their community, linked where they interact.', 912, (M, g, r) => {
+  def('proteins.cell', 'Cell of proteins', 'A see-through cell with a faint nucleus and a loose cloud of proteins through it, coloured by their community and linked where they interact.', 1058, (M, g, r) => {
     const COMM = [[1.00, 0.42, 0.22], [0.30, 0.58, 1.00], [1.00, 0.84, 0.18], [0.25, 0.90, 0.45], [0.80, 0.38, 1.00], [0.15, 0.92, 0.92], [1.00, 0.38, 0.68], [0.62, 1.00, 0.25], [1.00, 0.70, 0.52], [0.92, 0.94, 1.00]];
-    const where = [[0.15, 0.3], [0.15, 0.3], [0.1, 0.28], [0.95, 1], [0.6, 0.9], [0.55, 0.8], [0.12, 0.3], [0.55, 0.85], [0.9, 1], [0.1, 0.3]];   // nuclear, cytoplasm or membrane, by community
     const cy = 1.0;
     M.frame([0, cy, 0]);
     M.add('veil', g.sph(1, 12, 8), '#59bff2');
-    M.add('glass', g.sph(0.37, 10, 6), '#bf8cff');
+    M.add('glass', g.sph(0.3, 10, 6), '#bf8cff');
+    // no organelles: the communities spread loosely through the whole cell, linked within and across
     const P = [];
     COMM.forEach((c, k) => {
-      const a = k * 2.4 + 0.3, b = Math.sin(k * 1.7) * 0.9, [d0, d1] = where[k], d = (d0 + d1) / 2, ctr = [d * Math.cos(a) * Math.cos(b), d * Math.sin(b), d * Math.sin(a) * Math.cos(b)];
-      for (let i = 0; i < 4; i++) {
-        let p = add3(ctr, [(r() - 0.5) * 0.24, (r() - 0.5) * 0.24, (r() - 0.5) * 0.24]);
-        const l = Math.hypot(...p), dl = Math.max(d0, Math.min(d1, l)); p = p.map(v => v * dl / l);
-        P.push([p, k]); M.add('glow', g.oct(0.046), c, p);
-        if (i) M.add('glow', g.rod(P[P.length - 2][0], p, 0.007, 3), '#c4d3f0');
+      const y = 1 - (k + 0.5) / 10 * 2, a = k * 2.39996, s = Math.sqrt(1 - y * y), d = 0.42 + 0.3 * (k % 3) / 2;
+      const ctr = [d * s * Math.cos(a), d * y * 0.7, d * s * Math.sin(a)], g0 = P.length;
+      for (let i = 0; i < 5; i++) {
+        const p = add3(ctr, [(r() - 0.5) * 0.3, (r() - 0.5) * 0.24, (r() - 0.5) * 0.3]);
+        P.push(p); M.add('glow', g.oct(0.05), c, p);
+        if (i) M.add('glow', g.rod(P[g0 + Math.floor(r() * i)], p, 0.008, 3), '#c4d3f0');
       }
     });
-    for (let k = 0; k < 14; k++) { const a = P[Math.floor(r() * P.length)], b = P[Math.floor(r() * P.length)]; if (a !== b) M.add('glow', g.rod(a[0], b[0], 0.004, 3), '#5c6a86'); }
-    M.frame();
-    plinth(M, 0.3, 0.07); M.add('gloss', g.rod([0, 0.07, 0], [0, cy - 0.98, 0], 0.03, 6), NAVY);
+    for (let k = 0; k < 16; k++) { const a = P[(k * 7 + 3) % P.length], b = P[(k * 13 + 11) % P.length]; if (a !== b) M.add('glow', g.rod(a, b, 0.005, 3), '#7d8cad'); }
+    cellStand(M, g, cy);
   });
 
-  def('spatial.cell', 'Model cell', 'The model cell with its compartments: nucleus and nucleolus, ER, Golgi, mitochondria, vesicles and lysosomes, proteins in their places\' colours.', 1068, (M, g, r) => cell(M, g, r, null));
+  def('spatial.cell', 'Model cell', 'The model cell cut open to its compartments, each in its own colour: the nucleus and its nucleolus, the ER, the Golgi, mitochondria, vesicles, lysosomes and peroxisomes, a few proteins at their places.', 1148, (M, g, r) => {
+    const cy = 1.0;
+    M.frame([0, cy, 0]);
+    // solid compartments in the cell map's colours, the membrane and the nucleus cut open at the front to show them
+    M.add('glass', g.sph(1, 14, 8, CUT[0], CUT[1]), PL.pm, 0, 0, [1, 0.74, 1]);
+    M.add('flat', g.sph(0.36, 12, 8, CUT[0], CUT[1]), PL.nuc, [0, -0.02, -0.06]);
+    M.add('gloss', g.ball(0.14, 1), PL.nucl, [0.02, 0.02, 0.0]);
+    for (let k = 0; k < 3; k++) M.add('flat', g.cyl(0.47 + 0.06 * k, 0.47 + 0.06 * k, 0.07, 10, true, 1.2 + 0.4 * k, 2.4), PL.er, [0, -0.02 + 0.13 * (k - 1), -0.06]);   // ER sheets round the nucleus
+    for (let k = 0; k < 4; k++) M.add('gloss', g.tor(0.17 + 0.05 * k, 0.03, 3, 6, 1.3), PL.golgi, [0.54, -0.08, 0.3], [0.2, 0.75, -0.6], [1, 1, 0.5]);
+    for (let k = 0; k < 3; k++) { const a = 2.5 + k * 1.2, p = [0.72 * Math.cos(a), (k - 1) * 0.2, 0.72 * Math.sin(a)]; M.add('gloss', g.sph(1, 6, 4), PL.mito, p, [0.4 * k, a, 0.3], [0.15, 0.06, 0.06]); }
+    const blob = (n, col, rad, a0) => { for (let k = 0; k < n; k++) { const a = a0 + k * 0.7, b = (k - n / 2) * 0.35, d = 0.62 + 0.1 * (k % 2); M.add('gloss', g.ball(rad), col, [d * Math.cos(a) * Math.cos(b), d * 0.74 * Math.sin(b), d * Math.sin(a) * Math.cos(b)]); } };
+    blob(3, PL.lyso, 0.06, 4.2); blob(4, PL.endo, 0.05, 0.2); blob(2, PL.perox, 0.045, 5.6);   // lysosomes, vesicles, peroxisomes
+    for (let k = 0; k < 6; k++) { const a = k * 1.05 + 0.3, b = (k % 3 - 1) * 0.5, d = [Math.cos(a) * Math.cos(b), 0.74 * Math.sin(b), Math.sin(a) * Math.cos(b)]; M.add('mat', g.rod(d.map(v => v * 0.38), d.map(v => v * 0.97), 0.008), PL.cytosk); }   // the cytoskeleton
+    const prot = [[0.6, 0.62, 0.3, PL.pm], [-0.7, 0.4, 0.4, PL.pm], [0.3, 0.45, 0.1, PL.cyto], [-0.35, -0.4, 0.3, PL.cyto], [0.1, 0.38, -0.02, PL.nuc], [-0.2, -0.3, -0.1, PL.nuc],
+      [0.45, -0.12, 0.22, PL.er], [0.55, 0.1, 0.42, PL.golgi], [-0.62, 0.05, -0.38, PL.mito], [0.15, -0.55, 0.45, PL.cyto]];
+    prot.forEach(([x, y, z, c]) => M.add('glow', g.oct(0.04), c, [x, y, z]));
+    for (const [i, j] of [[0, 2], [2, 4], [1, 3], [6, 7]]) M.add('glow', g.rod(prot[i].slice(0, 3), prot[j].slice(0, 3), 0.006, 3), '#e7eef8');
+    cellStand(M, g, cy);
+  });
 })();

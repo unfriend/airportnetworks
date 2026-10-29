@@ -24,7 +24,7 @@
 // (or #debug in a link) prints them as well.
 (function () {
   const PROTO = 1;
-  const FORMAT = 'networks-23';   // the shared state's format (keys, the stories' state()): bump when it changes shape
+  const FORMAT = 'networks-24';   // the shared state's format (keys, the stories' state()): bump when it changes shape
   const BROWSER = (/OculusBrowser\/(\d+)/.exec(navigator.userAgent) || [])[1] || '';   // Quest Browser's version (shared spaces differ by it)
   const EYE = 1.6;               // a standing eye height (m): a station's rig hangs this high over its spot
   const AHEAD = 1.4;             // a station's content floats this far in front of its spot
@@ -1252,21 +1252,22 @@
     changed();
   }
   const refused = what => { if (!layoutLocked()) return false; log('layout locked', { what }); return true; };
-  // the headsets' two settings (HOST.xr: labels in 3D (turned to you, in the scene), on top or hidden; free moving on or off) are the room's in a
-  // room, for everyone in it (key look: { labels, free, by, at }; a room without it: everything in 3D), set from a
-  // headset's menu or the page's dialog, and never refused by the layout lock. Null outside a room (the device's own)
-  const LOOKS = ['face', 'fixed', 'hidden'], LOOK0 = { labels: 'fixed', free: true };
+  // the headsets' three settings (HOST.xr: labels in 3D (turned to you, in the scene), on top or hidden; free moving on or off;
+  // subtitles on or off) are the room's in a room, for everyone in it (key look: { labels, free, subs, by, at }; a room
+  // without it: everything in 3D, no subtitles), set from a headset's menu or the page's dialog, and never refused by
+  // the layout lock. Null outside a room (the device's own)
+  const LOOKS = ['face', 'fixed', 'hidden'], LOOK0 = { labels: 'fixed', free: true, subs: false };
   function look() {
     if (!C.code || !C.welcomed) return null;
-    const v = val('look');
-    return { labels: v && LOOKS.includes(v.labels) ? v.labels : LOOK0.labels, free: v && typeof v.free === 'boolean' ? v.free : LOOK0.free };
+    const v = val('look'), b = k => (v && typeof v[k] === 'boolean' ? v[k] : LOOK0[k]);
+    return { labels: v && LOOKS.includes(v.labels) ? v.labels : LOOK0.labels, free: b('free'), subs: b('subs') };
   }
   const freeNow = () => (HOST.xr && HOST.xr.free ? HOST.xr.free() : true);
   function setLook(o) {
     const L = look();
     if (!L) return false;
-    const v = { labels: LOOKS.includes(o.labels) ? o.labels : L.labels, free: typeof o.free === 'boolean' ? o.free : L.free };
-    const pairs = [['look', { labels: v.labels, free: v.free, by: C.id, at: Math.round(now()) }]];
+    const v = { labels: LOOKS.includes(o.labels) ? o.labels : L.labels, free: typeof o.free === 'boolean' ? o.free : L.free, subs: typeof o.subs === 'boolean' ? o.subs : L.subs };
+    const pairs = [['look', { labels: v.labels, free: v.free, subs: v.subs, by: C.id, at: Math.round(now()) }]];
     // free moving off: every station's scene and panel stand as without it (no turn, the panel upright at its yaw)
     if (L.free && !v.free) {
       for (const k of new Set([...C.keys.keys(), ...C.pending.keys()])) {
@@ -1647,7 +1648,7 @@
     OV.room = new THREE.Group(); OV.room.matrixAutoUpdate = false;
     OV.root.add(OV.room);
     OV.panelG = new THREE.Group();
-    OV.panel = sheet(720, 1400, 0.42, 53);   // (the tallest it gets: a room on this headset with a three-line note, 1383 px)
+    OV.panel = sheet(720, 1440, 0.42, 53);   // (the tallest it gets: a room on this headset with a three-line note, 1433 px)
     OV.panelG.add(OV.panel.mesh); OV.root.add(OV.panelG);
     OV.panel.mesh.userData.shell = { kind: 'panel' };
     // the menu's clock: the group's origin is the face's middle
@@ -2251,11 +2252,14 @@
     if (HOST.slides) { const on = !!HOST.slides.global(); button(S, 'slides', x + ew + 16, y, sw, 60, on ? 'Slideshow: on' : 'Slideshow: off', () => HOST.slides.setGlobal(!on), { on, px: 23 }); }
     button(S, 'sound', x + ew + sw + 32, y, sw, 60, 'Sound check', () => { PNL.page = 'sound'; }, { px: 23 });
     y += 76;
-    // labels (in 3D, hidden, on top: each press the next) and free moving, for every story; in a room the room's
-    const lm = HOST.xr.labels(), fr = HOST.xr.free(), LBL = { fixed: 'in 3D', hidden: 'hidden', face: 'on top' };
+    // labels (in 3D, hidden, on top: each press the next), free moving and subtitles, for every story; in a room the room's
+    const lm = HOST.xr.labels(), fr = HOST.xr.free(), su = HOST.xr.subs(), LBL = { fixed: 'in 3D', hidden: 'hidden', face: 'on top' };
     button(S, 'labels', x, y, bw, 60, 'Labels: ' + LBL[lm], () => HOST.xr.setLabels({ fixed: 'hidden', hidden: 'face', face: 'fixed' }[lm]), { on: lm === 'fixed' });
     button(S, 'free', x + bw + 16, y, bw, 60, fr ? 'Moving: free' : 'Moving: facing you', () => HOST.xr.setFree(!fr), { on: fr });
-    if (C.code) { y += 70; ctx.font = FONT(21); ctx.fillStyle = MUTED; ctx.fillText(fit(ctx, 'Labels and moving: the same for everyone in this room', w), x, y); y += 32; } else y += 76;
+    y += 76;
+    button(S, 'subs', x, y, bw, 60, su ? 'Subtitles: on' : 'Subtitles: off', () => HOST.xr.setSubs(!su), { on: su });
+    if (C.code) { ctx.font = FONT(21); ctx.fillStyle = MUTED; wrapText(ctx, 'Labels, moving and subtitles: the same for everyone in this room', x + bw + 16, y + 2, bw, 28, 2); }
+    y += 76;
     line();
     // the shared room: its code, how many are in it, the connection
     const n = C.members.length, title = !C.code ? 'Shared room' : C.local ? `Room ${C.code} · this headset` : `Shared room ${C.code} · ${n} ${n === 1 ? 'person' : 'people'}`;
@@ -3975,6 +3979,7 @@
       else if (act === 'arrange') arrange({ x: 0, z: 0, yaw: 0 });
       else if (act === 'lock') setLock(!layoutLocked());
       else if (act === 'free') HOST.xr.setFree(!HOST.xr.free());
+      else if (act === 'subs') HOST.xr.setSubs(!HOST.xr.subs());
       else if (act === 'fresh') { freshAsk(); setTimeout(renderDialog, 3050); }
       else if (act === 'add') { const k = $('#shAdd').value, id = add(k, freeSpot()); if (id) log('added', { st: id, story: k }); }
       else if (act === 'color') setMe({ color: arg });
@@ -4080,10 +4085,11 @@
       const sel = $('#shAdd'), lk = layoutLocked(), lb = $('[data-sh="lock"]');
       if (sel.options.length !== HOST.list.length) sel.innerHTML = HOST.list.map(m => `<option value="${m.key}">${esc(m.title)}</option>`).join('');
       if (lb) { lb.textContent = lk ? 'Unlock layout' : 'Lock layout'; lb.setAttribute('aria-pressed', String(lk)); lb.classList.toggle('on', lk); }
-      // the headsets' labels and moving, the room's (not locked with the layout)
-      const sl = $('#shLabels'), fb2 = $('[data-sh="free"]'), lm = HOST.xr.labels(), fr = HOST.xr.free();
+      // the headsets' labels, moving and subtitles, the room's (not locked with the layout)
+      const sl = $('#shLabels'), fb2 = $('[data-sh="free"]'), sb = $('[data-sh="subs"]'), lm = HOST.xr.labels(), fr = HOST.xr.free(), su = HOST.xr.subs();
       if (sl && sl.value !== lm) sl.value = lm;
       if (fb2) { fb2.textContent = fr ? 'Moving: free' : 'Moving: facing you'; fb2.setAttribute('aria-pressed', String(fr)); }
+      if (sb) { sb.textContent = su ? 'Subtitles: on' : 'Subtitles: off'; sb.setAttribute('aria-pressed', String(su)); }
       const fb = $('[data-sh="fresh"]'), fa = freshArmed();
       if (fb) { fb.hidden = !canFresh(); fb.textContent = fa ? 'Fresh space for everyone? Press again' : 'Fresh shared space'; fb.classList.toggle('armed', fa); }
       for (const q of DLG.el.querySelectorAll('[data-sh="arrange"], [data-sh="add"], #shAdd, [data-sh^="remove:"]')) q.disabled = lk;

@@ -494,7 +494,7 @@ body.xr #labels, body.xr #tip { display: none; }
       <h3>Stations</h3>
       <ul class="sh-stations"></ul>
       <div class="row mt"><button class="btn" type="button" data-sh="arrange">Arrange all</button><select id="shAdd" aria-label="Story for a new station"></select><button class="btn" type="button" data-sh="add">Add a station</button><button class="btn" type="button" data-sh="lock" aria-pressed="false" title="Once the stations are in place: nobody moves one by accident">Lock layout</button><button class="btn" type="button" data-sh="fresh" hidden title="Every page in the room moves to a new address, where the headsets make a new shared space together">Fresh shared space</button></div>
-      <div class="row mt sh-look"><span>In the headsets, for everyone here:</span><select id="shLabels" aria-label="Labels in the headsets"><option value="fixed">Labels: in 3D</option><option value="face">Labels: on top</option><option value="hidden">Labels: hidden</option></select><button class="btn" type="button" data-sh="free" aria-pressed="true" title="Free: the grip turns what it holds with your hand. Facing you: things you move keep facing you">Moving: free</button></div>
+      <div class="row mt sh-look"><span>In the headsets, for everyone here:</span><select id="shLabels" aria-label="Labels in the headsets"><option value="fixed">Labels: in 3D</option><option value="face">Labels: on top</option><option value="hidden">Labels: hidden</option></select><button class="btn" type="button" data-sh="free" aria-pressed="true" title="Free: the grip turns what it holds with your hand. Facing you: things you move keep facing you">Moving: free</button><button class="btn" type="button" data-sh="subs" aria-pressed="false" title="The narration's words in a strip low in each headset's view">Subtitles: off</button></div>
       <h3>People</h3>
       <ul class="sh-people"></ul>
     </div>
@@ -1153,24 +1153,26 @@ HOST.xr = (function () {
       if (X.open && t < SOON) down('VR closed by itself after ' + (t / 1000).toFixed(1) + ' s');
     });
   }
-  // Two settings for every story in the headset (the menu's Labels and Moving rows): labels 'face' (sprites turned to
+  // Three settings for every story in the headset (the menu's Labels, Moving and Subtitles rows): labels 'face' (sprites turned to
   // you, drawn over everything, and the story panels on top), 'fixed' (in 3D: upright signs in the scene, turned to
   // you and hidden by what stands in front of them; the story panels, the station cards and the name tags stand in
   // the scene too) or 'hidden' (no labels and no story panels; the Stories screen, the menu and its clock stay, so
   // the setting can be changed back); free moving on (the grip holds what it takes like a
-  // real object, turning it with the hand) or off (it moves things but they keep facing you). One setting for the
-  // whole system, everything in 3D by default: in a shared room the room's, for everyone in it (shared.js, key look),
-  // else this device's own (xrLabels, xrFree), which keeps a room's last value after leaving it. Stories read
-  // labels() and free() every frame and put sig() in their panels' signatures. #labels=face|fixed|hidden and
-  // #free=on|off in a link set them.
-  const LABELS = ['face', 'fixed', 'hidden'], own = { labels: 'fixed', free: true };
+  // real object, turning it with the hand) or off (it moves things but they keep facing you); subtitles on (the
+  // narration's words in a strip low in your view, drawn by shared.js from the story's caption hook) or off, the
+  // default. One setting for the whole system, everything in 3D by default: in a shared room the room's, for everyone
+  // in it (shared.js, key look), else this device's own (xrLabels, xrFree, xrSubs), which keeps a room's last value
+  // after leaving it. Stories read labels() and free() every frame and put sig() in their panels' signatures.
+  // #labels=face|fixed|hidden, #free=on|off and #subs=on|off in a link set them.
+  const LABELS = ['face', 'fixed', 'hidden'], own = { labels: 'fixed', free: true, subs: false };
   try {
-    const l = localStorage.getItem('xrLabels'), f = localStorage.getItem('xrFree');
+    const l = localStorage.getItem('xrLabels'), f = localStorage.getItem('xrFree'), u = localStorage.getItem('xrSubs');
     if (LABELS.includes(l)) own.labels = l;
     if (f === 'on' || f === 'off') own.free = f === 'on';
+    if (u === 'on' || u === 'off') own.subs = u === 'on';
   } catch (e) { /* storage blocked */ }
-  const keepOwn = () => { try { localStorage.setItem('xrLabels', own.labels); localStorage.setItem('xrFree', own.free ? 'on' : 'off'); } catch (e) { /* storage blocked */ } };
-  // in a shared room the room's ({ labels, free }), else null
+  const keepOwn = () => { try { localStorage.setItem('xrLabels', own.labels); localStorage.setItem('xrFree', own.free ? 'on' : 'off'); localStorage.setItem('xrSubs', own.subs ? 'on' : 'off'); } catch (e) { /* storage blocked */ } };
+  // in a shared room the room's ({ labels, free, subs }), else null
   const room = () => (HOST.collab && HOST.collab.look ? HOST.collab.look() : null);
   const look = () => room() || own;
   function setLook(o) {
@@ -1185,11 +1187,13 @@ HOST.xr = (function () {
     setLabels(m) { if (LABELS.includes(m)) setLook({ labels: m }); },
     free: () => look().free,
     setFree(on) { setLook({ free: !!on }); },
-    sig: () => { const L = look(); return L.labels + (L.free ? '+' : '-'); },
+    subs: () => !!look().subs,
+    setSubs(on) { setLook({ subs: !!on }); },
+    sig: () => { const L = look(); return L.labels + (L.free ? '+' : '-') + (L.subs ? 's' : ''); },
     // the room's value, kept as this device's own (shared.js, when the room's changes): it stays after leaving
     keep(o) {
-      if (!o || !LABELS.includes(o.labels) || (o.labels === own.labels && !!o.free === own.free)) return;
-      own.labels = o.labels; own.free = !!o.free; keepOwn();
+      if (!o || !LABELS.includes(o.labels) || (o.labels === own.labels && !!o.free === own.free && !!o.subs === own.subs)) return;
+      own.labels = o.labels; own.free = !!o.free; own.subs = !!o.subs; keepOwn();
     },
   };
 })();
@@ -1472,6 +1476,26 @@ HOST.load = function (key, fresh) {
   p.catch(() => { if (this.loaded[key] === p) delete this.loaded[key]; });   // (asked again next time)
   return p;
 };
+// The low-poly miniatures of every story's sets (lowpoly.js, built by tools/lowpoly/build.mjs): loaded once, when first
+// asked for (the design room's table, the shared rooms' station icons). Its load listener is the shell's (added with
+// HOST.quiet set: a story change removes the listeners a story adds), so it survives a change of story. Resolves to
+// LOWPOLY_MODELS; a failed load is asked again next time.
+HOST.lowpoly = function () {
+  if (this.lowpolyP) return this.lowpolyP;
+  const p = this.lowpolyP = new Promise((res, rej) => {
+    if (self.LOWPOLY_MODELS && Object.keys(self.LOWPOLY_MODELS).length) { res(self.LOWPOLY_MODELS); return; }
+    const s = document.createElement('script'), q = this.quiet;
+    s.src = 'lowpoly.js';
+    this.quiet = true;
+    try {
+      s.addEventListener('load', () => (self.LOWPOLY_MODELS ? res(self.LOWPOLY_MODELS) : rej(new Error('lowpoly.js registered no miniatures'))));
+      s.addEventListener('error', () => rej(new Error('Could not load the miniatures')));
+    } finally { this.quiet = q; }
+    document.head.appendChild(s);
+  });
+  p.catch(() => { if (this.lowpolyP === p) this.lowpolyP = null; });
+  return p;
+};
 HOST.teardown = function () {
   const r = this.renderer;
   this.audio.drop();
@@ -1496,12 +1520,16 @@ HOST.teardown = function () {
   document.getElementById('xrmsg').style.display = 'none';
   this.cur = null;
 };
+// a key's entry: one of the stories (HOST.list), or a page that is not one of them (self.STORY_EXTRA in
+// stories/list.js: the design room), started, loaded, swapped and titled the same way but never listed (the Stories
+// screens, Arrange all, the station picker, the count, Repeat's next story see only HOST.list)
+HOST.meta = function (key) { return this.list.find(s => s.key === key) || (self.STORY_EXTRA || []).find(s => s && s.key === key); };
 // place: a place to put back once the story is built (a swap, a reload: HOST.live)
 HOST.start = async function (key, keepHash, place) {
   // a story still loading: in a shared room the last story asked for meanwhile follows (the room's switches
   // must not get lost); outside a room the request is dropped as before
   if (this.busy) { if (this.collab && this.collab.joined) this.queued = key; return; }
-  const meta = this.list.find(s => s.key === key);
+  const meta = this.meta(key);
   // a story this device does not know (a shared room's station, from a newer copy of the app): it says so, and offers
   // the update (HOST.live)
   if (!meta) { if (key) this.live.missing(key); return; }
@@ -1546,7 +1574,7 @@ HOST.next = function () {
 // Resolves true once swapped.
 HOST.swap = async function (key) {
   if (this.busy || !this.cur || this.curKey !== key) return false;
-  const meta = this.list.find(s => s.key === key);
+  const meta = this.meta(key);
   if (!meta) return false;
   this.busy = true;
   let fresh = false;
@@ -1599,7 +1627,7 @@ HOST.setUrl = function (stories) {
 };
 // the title in the tab and the top bar: the app on the Stories screen, the story inside a story
 HOST.chrome = function (stories) {
-  const meta = this.list.find(s => s.key === this.curKey), app = stories || !meta, n = this.count();
+  const meta = this.meta(this.curKey), app = stories || !meta, n = this.count();
   document.title = app ? `Networks, in ${n} stories` : meta.page;
   document.querySelector('#top .brand').innerHTML = app ? `Networks<span>in ${n} stories</span>` : `${meta.brand}<span>${meta.sub}</span>`;
   document.getElementById('pickTitle').textContent = `Networks, in ${n} stories`;
@@ -1736,7 +1764,7 @@ HOST.live = (function () {
   const quietly = fn => { const q = HOST.quiet; HOST.quiet = true; try { return fn(); } finally { HOST.quiet = q; } };
   const KEY = /^[a-z][a-z0-9-]{0,31}$/;
   const known = key => HOST.list.some(m => m.key === key);
-  const title = key => { const m = HOST.list.find(s => s.key === key) || (self.STORY_LIST || []).find(s => s && s.key === key); return m ? m.title : key; };
+  const title = key => { const m = HOST.meta(key) || (self.STORY_LIST || []).find(s => s && s.key === key); return m ? m.title : key; };
   // the app's root: the relay serves it under s/<n>/ too (a room's fresh shared space, shared.js)
   const root = () => new URL(/\/s\/\d{1,4}\/(?:index\.html)?$/.test(location.pathname) ? '../../' : './', location.href).href;
   const listFp = () => HOST.fingerprint(JSON.stringify(HOST.list));
@@ -2161,15 +2189,17 @@ HOST.cards = function () {
   if (hp.has('anchor')) HOST.anchor.set(hp.get('anchor') !== 'off');
   if (hp.has('labels')) HOST.xr.setLabels(hp.get('labels'));
   if (hp.has('free')) HOST.xr.setFree(hp.get('free') !== 'off');
+  if (hp.has('subs')) HOST.xr.setSubs(hp.get('subs') !== 'off');
   if (hp.has('soundcheck')) HOST.soundCheck(true);
   HOST.collab.boot(hp); // #s=XYZ joins a shared room
   HOST.live.init();
   // a place kept across a reload (HOST.live: an update, or a shell file changed while developing) wins over the address
   const back = HOST.live.restoring();
-  const key = (back && back.key) || HOST.list.map(s => s.key).find(k => hp.has(k)) || HOST.list[0].key;
+  const keys = HOST.list.concat(self.STORY_EXTRA || []).map(s => s.key);   // (#design opens the design room)
+  const key = (back && back.key) || keys.find(k => hp.has(k)) || HOST.list[0].key;
   // the Stories screen is the landing page (no address, or #stories); a shared story link opens that story
   HOST.start(key, true, back).then(() => {
-    if (back ? back.picking : !HOST.list.some(s => hp.has(s.key)) && !hp.has('t') && !hp.has('explore')) HOST.openPicker();
+    if (back ? back.picking : !keys.some(k => hp.has(k)) && !hp.has('t') && !hp.has('explore')) HOST.openPicker();
     HOST.live.restored(back);
   });
 })();

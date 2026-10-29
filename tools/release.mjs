@@ -9,7 +9,8 @@
 // (index.html without its stamp and its head's title and link-preview lines, which a running page never shows), and n
 // the release in which they last changed (VERSION's number: a new shell needs a new VERSION). sw.js is not part of it:
 // the service worker updates itself, and adding a story changes its list of files. list: the fingerprint of the list of
-// stories (stories/list.js), as the page computes it. Each story: its file's fingerprint and the oldest shell it needs
+// stories (stories/list.js's STORY_LIST), as the page computes it. Each story (and each page in STORY_EXTRA, such as the
+// design room, so live updates reach it too): its file's fingerprint and the oldest shell it needs
 // (its entry's own needs, else the shell of the release in which its file last changed). A page compares: another shell
 // or format, or a story that needs a newer shell, is asked about (Reload now or Later); a new or changed story is taken.
 // The fingerprint is index.html's HOST.fingerprint (and relay/server.mjs's), so the three agree.
@@ -39,6 +40,7 @@ const ctx = { self: {} };
 vm.runInNewContext(read('stories/list.js'), ctx, { filename: 'stories/list.js' });
 const list = ctx.self.STORY_LIST;
 if (!Array.isArray(list) || !list.length) fail('stories/list.js gives no STORY_LIST');
+const extra = Array.isArray(ctx.self.STORY_EXTRA) ? ctx.self.STORY_EXTRA : [];
 
 const STAMP = /shell: \{ n: \d+, id: '[0-9a-f]*', format: '[^']*' \},/;
 const index = read('index.html');
@@ -58,7 +60,7 @@ else if (prev && prev.shell && vnum <= prev.shell.n) {
     `The shell changed since version.json was written (release ${prev.shell.n}): bump VERSION in sw.js first, then run this again.`);
 }
 const stories = {};
-for (const m of list) {
+for (const m of list.concat(extra)) {
   const f = `stories/${m.key}.js`;
   if (!fs.existsSync(path.join(root, f))) fail(`${f} is in the list but not there`);
   const fp = fingerprint(read(f)), was = prev && prev.stories && prev.stories[m.key];
