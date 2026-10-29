@@ -41,9 +41,19 @@ SETS.net = function (K) {
       P[3 * i] = C[0] + r * s * Math.sin(az); P[3 * i + 1] = C[1] + r * y; P[3 * i + 2] = C[2] + r * s * Math.cos(az);
     }
   }
-  // the network's own layout (stored: linked kinds sit close, modules apart), scaled to radius RN round the centre
+  // the network's own layout (stored: linked kinds sit close, modules apart), scaled to radius RN round the centre; each
+  // module spread out round its middle (the stored modules are tight balls, whose links between them drew thick bars:
+  // still a drawing where linked kinds sit close)
   const LAY = new Float32Array(3 * NN);
-  for (let i = 0; i < NN; i++) for (let a = 0; a < 3; a++) LAY[3 * i + a] = C[a] + RN * NT.xyz[3 * i + a];
+  {
+    const mc = Array.from({ length: NM }, () => [0, 0, 0, 0]);
+    for (let i = 0; i < NN; i++) { const m = NT.mod[i]; if (m >= NM) continue; for (let a = 0; a < 3; a++) mc[m][a] += NT.xyz[3 * i + a]; mc[m][3]++; }
+    for (const v of mc) for (let a = 0; a < 3; a++) v[a] /= v[3] || 1;
+    for (let i = 0; i < NN; i++) {
+      const m = NT.mod[i], c = m < NM ? mc[m] : null, f = !c ? 1 : c[3] >= 30 ? 1.85 : 1.4;
+      for (let a = 0; a < 3; a++) { const x = NT.xyz[3 * i + a]; LAY[3 * i + a] = C[a] + RN * (c ? c[a] + (x - c[a]) * f : x); }
+    }
+  }
   // each kind leaves the core at its own moment as the network pulls out (the far travellers last)
   const ST = new Float32Array(NN);
   {
@@ -233,7 +243,7 @@ void main() {
     for (let e = 0; e < NL; e++) {
       const a = NT.ij[2 * e], b = NT.ij[2 * e + 1], ma = NT.mod[a], mb = NT.mod[b];
       const len = Math.hypot(LAY[3 * a] - LAY[3 * b], LAY[3 * a + 1] - LAY[3 * b + 1], LAY[3 * a + 2] - LAY[3 * b + 2]);
-      const al = (0.05 + 0.14 / (1 + (len / 0.12) ** 2)) * dimL(0.5 * (CROWD[a] + CROWD[b])) * (0.55 + 0.6 * (Math.abs(NT.rho[e]) - 0.6) / 0.4);
+      const al = (ma === mb ? 0.03 + 0.14 / (1 + (len / 0.1) ** 2) : 0.014 + 0.05 / (1 + (len / 0.1) ** 2)) * dimL(0.5 * (CROWD[a] + CROWD[b])) * (0.55 + 0.6 * (Math.abs(NT.rho[e]) - 0.6) / 0.4);
       for (let j = 0; j < 2; j++) {
         const s = j ? b : a, o = j ? a : b, v = 2 * e + j, ca = 3 * NT.cloudOf(s);
         pos.set(LAY.subarray(3 * s, 3 * s + 3), 3 * v); cl.set(P.subarray(ca, ca + 3), 3 * v); sc.set(SC.subarray(3 * s, 3 * s + 3), 3 * v);
@@ -403,7 +413,20 @@ void main() {
   const copyTopAt = (k, o) => { const p = copyPose(cur.by, k, cur.split, _cp); o[0] = C[0] + p.x; o[1] = C[1] + RN * p.s * 1.02; o[2] = C[2]; return o; };
   const copyTop = k => own(o => copyTopAt(k, o));
   // each guild's tag hangs on its most abundant kind in the cloud
-  const GTOP = GK.map((_, g) => { for (let i = 0; i < NCL; i++) if (CL.guild[i] === g + 1) return i; return 0; });
+  // (among its 40 most abundant kinds, the one farthest from the tags placed before, so the five tags spread round the
+  // cloud; the most abundant itself for the first)
+  const GTOP = [];
+  GK.forEach((_, g) => {
+    const cand = [];
+    for (let i = 0; i < NCL && cand.length < 40; i++) if (CL.guild[i] === g + 1) cand.push(i);
+    let best = cand[0] || 0, bd = -1;
+    if (GTOP.length) for (const c of cand) {
+      let d = Infinity;
+      for (const o of GTOP) d = Math.min(d, Math.hypot(P[3 * c] - P[3 * o], P[3 * c + 1] - P[3 * o + 1], P[3 * c + 2] - P[3 * o + 2]));
+      if (d > bd) { bd = d; best = c; }
+    }
+    GTOP.push(best);
+  });
   const anchors = {
     cloud: [C[0] + 0.32, C[1] + 0.62, C[2] + 0.18], core: [C[0] + 0.12, C[1] + 0.2, C[2] + 0.1], top: [C[0], C[1] + 0.72, C[2]],
     net: [C[0], C[1], C[2]], netTop: [C[0] - 0.1, C[1] + 0.66, C[2] + 0.1], under: [C[0], C[1] - 0.68, C[2]],
