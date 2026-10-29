@@ -8,8 +8,9 @@
 //   sfx-all.mp3, sfx-all.txt     everything in one file, 1.5 s of silence between (no voice announcing them), and its index
 //   sfx2-all.mp3, sfx2-all.txt   the same for phase 2 alone: the stories' sounds, a few examples of their use, the
 //                                continuous sounds
-//   levels.txt                   the measurements, with the narration's for comparison; a story sound whose loudest
-//                                400 ms lies outside -32 to -20 LUFS is flagged (the plan aims at about -24)
+//   levels.txt                   the measurements, with the narration's for comparison; a story sound out of its
+//                                range is flagged (its loudest 400 ms above -20 LUFS, or below -32 with a peak under
+//                                -18 dBFS: accents aim at about -27 LUFS, short sounds at a peak of -9 to -15 dBFS)
 // Levels are as the app plays them at full effects volume (its default, 75 %, is 5 dB lower): every file gets the same
 // gain, so they stay matched to each other and to the voice as in the app.
 // With --story <keys, comma separated, or all>, a story's whole sound track instead, as a visitor hears it at the default
@@ -127,13 +128,15 @@ for (const f of ['audio/narration.mp3', 'audio/narration-lbi.mp3']) if (fs.exist
   const I = (/I:\s+(-?[\d.]+) LUFS\s*\n\s*Threshold/.exec(r.stderr) || [])[1], P = (/Peak:\s+(-?[\d.]+) dBFS/.exec(r.stderr) || [])[1];
   voice.push(`  ${f}: integrated ${I} LUFS, true peak ${P} dBFS (first 2 minutes)`);
 }
-// a story sound (not an example) whose loudest 400 ms lies outside -32 to -20 LUFS (the plan aims at about -24)
-const flag = r => r.it.kind === 'story' && !r.it.example && !(r.M >= -32 && r.M <= -20);
-const table = rows.map(r => `${r.it.file.padEnd(22)} ${r.it.kind.padEnd(5)} ${r.secs.toFixed(2).padStart(6)} s  ${f1(r.peak).padStart(6)}  ${f1(r.TP).padStart(6)}  ${f1(r.M).padStart(6)}  ${f1(r.S).padStart(6)}  ${r.it.kind === 'bed' || r.it.kind === 'demo' ? f1(r.I).padStart(6) : '     -'}${r.clip ? '  CLIPS' : ''}${flag(r) ? '  OUTSIDE -32 to -20' : ''}`);
+// a story sound (not an example) out of its range: its loudest 400 ms above -20 LUFS (too loud), or below -32 LUFS with
+// a sample peak under -18 dBFS (too soft: neither a swell nor a clear short sound). Accents aim at about -27 LUFS (a
+// little over the shell's notice and ready, -32), short ones by their peak (-9 to -15 dBFS, as the shell's place and drop)
+const flag = r => r.it.kind === 'story' && !r.it.example && (r.M > -20 || (r.M < -32 && r.peak < -18));
+const table = rows.map(r => `${r.it.file.padEnd(22)} ${r.it.kind.padEnd(5)} ${r.secs.toFixed(2).padStart(6)} s  ${f1(r.peak).padStart(6)}  ${f1(r.TP).padStart(6)}  ${f1(r.M).padStart(6)}  ${f1(r.S).padStart(6)}  ${r.it.kind === 'bed' || r.it.kind === 'demo' ? f1(r.I).padStart(6) : '     -'}${r.clip ? '  CLIPS' : ''}${flag(r) ? '  OUT OF RANGE' : ''}`);
 if (rows.length) fs.writeFileSync(path.join(OUT, 'levels.txt'), [
   'Sound effects (sfx.js) at full effects volume (the default, 75 %, plays them 5 dB lower; under the narration everything is 9 dB lower still).',
   'Peak: sample peak (dBFS). TP: true peak (dBTP). M max: the loudest 400 ms (LUFS). S max: the loudest 3 s. I: integrated (backgrounds and demos).',
-  'The stories\' sounds (kind story) aim at an M max of about -24 LUFS (-32 to -20 allowed), their textures lower.',
+  'The stories\' sounds (kind story): accents at an M max of about -27 LUFS, short sounds by their peak (-9 to -15 dBFS); flagged above -20 LUFS, or below -32 LUFS with a peak under -18 dBFS.',
   'The narration for comparison:', ...voice, '',
   'file                   kind     length   peak      TP   M max   S max       I', ...table, ''].join('\n'));
 
@@ -174,5 +177,5 @@ if (!keepWav) fs.rmSync(WAV, { recursive: true, force: true });
 if (errors.length) { console.log('page errors:\n  ' + errors.join('\n  ')); process.exit(1); }
 if (rows.length) console.log(`\n${rows.length} files, sfx-all.mp3 (${mmss(at)}), sfx2-all.mp3 (${mmss(at2)}), their indexes and levels.txt in ${OUT}`);
 if (tracks.length) console.log(`\n${tracks.length} story tracks (story-<key>.mp3 and .txt) in ${OUT}`);
-if (rows.some(flag)) console.log('story sounds outside -32 to -20 LUFS (loudest 400 ms): ' + rows.filter(flag).map(r => `${r.it.file} ${f1(r.M)}`).join(', '));
+if (rows.some(flag)) console.log('story sounds out of range (above -20 LUFS, or below -32 with a peak under -18 dBFS): ' + rows.filter(flag).map(r => `${r.it.file} ${f1(r.M)} LUFS, peak ${f1(r.peak)}`).join(', '));
 if (rows.some(r => r.clip)) { console.log('CLIPPING in: ' + rows.filter(r => r.clip).map(r => r.it.file).join(', ')); process.exit(1); }

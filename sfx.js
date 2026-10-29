@@ -33,6 +33,7 @@
   const DUCK_IN = 0.14, DUCK_OUT = 0.5;            // the duck's ramps (time constants, s): down quickly, back gently
   const BED_IN = 3, BED_OUT = 1.5;                 // a bed's fades (s)
   const LEAD = 0.03;                               // a sound starts this far ahead of the context's clock (s)
+  const STORY = 1.41;                              // the stories' sounds over their recipes' own levels (+3 dB: one knob for all)
   const VOLS = [0.25, 0.5, 0.75, 1];               // the headset menu's volume steps
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
   // ---- seeded randomness: the same sound each time it is made with the same seed (renders do), a little different each play
@@ -268,23 +269,23 @@
         const D = x.dur || 4, k = x.k, r = x.r, n = Math.round(10 + 6 * D);
         for (let i = 0; i < n; i++) {   // more grains as it goes (t = D * sqrt(u)), and higher
           const u = (i + r() * 0.9) / n, at = D * Math.sqrt(u), j = Math.min(PENTA.length - 1, Math.floor((0.1 + 0.68 * u + 0.22 * r()) * PENTA.length));
-          const f = PENTA[j] * k, pk = (0.011 + 0.011 * r()) * (0.55 + 0.45 * u), d = 0.2 + 0.3 * r(), out = spot(x, (r() * 2 - 1) * 0.6);
+          const f = PENTA[j] * k, pk = (0.03 + 0.03 * r()) * (0.55 + 0.45 * u), d = 0.2 + 0.3 * r(), out = spot(x, (r() * 2 - 1) * 0.6);
           tone(x, f, at, { peak: pk, a: 0.003, d, send: 0.25, dest: out });
           tone(x, f * 2.76, at, { peak: pk * 0.16, a: 0.002, d: d * 0.35, dest: out });
         }
-        hiss(x, 0, { kind: 'pink', type: 'bandpass', f: 2400 * k, f1: 4000 * k, glide: D, q: 0.8, peak: 0.011, a: D * 0.75, d: D * 0.25 + 0.6 });
+        hiss(x, 0, { kind: 'pink', type: 'bandpass', f: 2400 * k, f1: 4000 * k, glide: D, q: 0.8, peak: 0.03, a: D * 0.75, d: D * 0.25 + 0.6 });
         return x.t + D + 0.8;
       } },
     link: { kind: 'story', gap: 60, level: 0.35, desc: 'A link snapping on: a bright tick with a short glassy ring.',
       uses: 'One edge drawn (London to New York), two things meeting, a part clicking into place, drugs docking.',
-      make(x) { const k = x.k; tap(x, 0, 0.075, 1150 * k); bell(x, 1760 * k, 0.004, 0.042, 0.24, 0.08); return x.t + 0.32; } },
+      make(x) { const k = x.k; tap(x, 0, 0.18, 1150 * k); bell(x, 1760 * k, 0.004, 0.1, 0.24, 0.08); return x.t + 0.32; } },
     snap: { kind: 'story', gap: 120, level: 0.4, desc: 'A link breaking: a dry crack and a short falling tone.',
       uses: 'A pair breaking, a network cut in two, the shuffle, CFTR stuck on its way.',
       make(x) {
         const k = x.k;
-        hiss(x, 0, { type: 'highpass', f: 3200 * k, q: 0.7, peak: 0.15, a: 0.0004, d: 0.018 });
-        hiss(x, 0.011, { type: 'bandpass', f: 1900 * k, q: 1.2, peak: 0.1, a: 0.0004, d: 0.02 });
-        tone(x, 900 * k, 0.006, { type: 'triangle', peak: 0.07, a: 0.002, d: 0.24, f1: 300 * k, glide: 0.2 });
+        hiss(x, 0, { type: 'highpass', f: 3200 * k, q: 0.7, peak: 0.19, a: 0.0004, d: 0.018 });
+        hiss(x, 0.011, { type: 'bandpass', f: 1900 * k, q: 1.2, peak: 0.13, a: 0.0004, d: 0.02 });
+        tone(x, 900 * k, 0.006, { type: 'triangle', peak: 0.09, a: 0.002, d: 0.24, f1: 300 * k, glide: 0.2 });
         return x.t + 0.32;
       } },
     whoosh: { kind: 'story', gap: 150, level: 0.5, desc: 'Air moving past: a swish whose band sweeps up (pitch above 1) or down (below 1) over its length (dur, 0.9 s by default).',
@@ -292,32 +293,32 @@
       make(x) {
         const D = x.dur || 0.9, k = x.k, ratio = 1.5 * Math.pow(k, 4), mid = 1000 * Math.sqrt(k);
         const f0 = clamp(mid / Math.sqrt(ratio), 160, 7000), f1 = clamp(mid * Math.sqrt(ratio), 160, 7000);
-        swish(x, 0, D, f0, f1, 0.06, 0.14); swish(x, 0.02, D, f0 * 1.07, f1 * 1.07, 0.045, 0.14);
+        swish(x, 0, D, f0, f1, 0.42, 0.14); swish(x, 0.02, D, f0 * 1.07, f1 * 1.07, 0.32, 0.14);
         return x.t + D + 0.1;
       } },
     bubble: { kind: 'story', gap: 50, level: 0.3, desc: 'A bubble: a quick rising blip with a soft pop.',
       uses: 'Things appearing one by one: the cell\'s compartments, the jars, the robots added, the fish.',
       make(x) {
         const k = x.k;
-        tone(x, 420 * k, 0, { peak: 0.085, a: 0.003, d: 0.08, f1: 900 * k, glide: 0.06 });
-        hiss(x, 0.055, { type: 'bandpass', f: 2600 * k, q: 2, peak: 0.03, a: 0.0005, d: 0.008 });
+        tone(x, 420 * k, 0, { peak: 0.15, a: 0.003, d: 0.08, f1: 900 * k, glide: 0.06 });
+        hiss(x, 0.055, { type: 'bandpass', f: 2600 * k, q: 2, peak: 0.055, a: 0.0005, d: 0.008 });
         return x.t + 0.14;
       } },
     pick: { kind: 'story', gap: 60, level: 0.35, desc: 'Something picked: a soft pluck with a short ring.',
       uses: 'Explore mode\'s picks (an airport, a gene, a cell, a plot, an organ), a thing singled out in the story.',
       make(x) {
         const k = x.k;
-        tone(x, 587.33 * k * 1.015, 0, { type: 'triangle', peak: 0.095, a: 0.0015, d: 0.17, f1: 587.33 * k, glide: 0.02 });
-        tone(x, 1174.66 * k, 0, { peak: 0.028, a: 0.001, d: 0.06 });
-        hiss(x, 0, { type: 'bandpass', f: 2800 * k, q: 1.5, peak: 0.05, a: 0.0005, d: 0.01 });
+        tone(x, 587.33 * k * 1.015, 0, { type: 'triangle', peak: 0.135, a: 0.0015, d: 0.17, f1: 587.33 * k, glide: 0.02 });
+        tone(x, 1174.66 * k, 0, { peak: 0.04, a: 0.001, d: 0.06 });
+        hiss(x, 0, { type: 'bandpass', f: 2800 * k, q: 1.5, peak: 0.07, a: 0.0005, d: 0.01 });
         return x.t + 0.24;
       } },
     ping: { kind: 'story', gap: 300, level: 0.5, desc: 'A result: a small two-note chime going up a fifth (higher and drier than a notice).',
       uses: 'A path found, a top candidate, a score, an answer shown, the end of a story.',
-      make(x) { const k = x.k; bell(x, 1760 * k, 0, 0.04, 0.6, 0.08); bell(x, 2637.02 * k, 0.11, 0.036, 0.75, 0.1); return x.t + 1.0; } },
+      make(x) { const k = x.k; bell(x, 1760 * k, 0, 0.05, 0.6, 0.08); bell(x, 2637.02 * k, 0.11, 0.045, 0.75, 0.1); return x.t + 1.0; } },
     step: { kind: 'story', gap: 60, level: 0.3, desc: 'One step of a sequence: a short glassy tick (its pitch set per step).',
       uses: 'The hops of a path, the codes on a chip, a circuit\'s gates, dates, decades, a slider passing a named stop.',
-      make(x) { const k = x.k; tone(x, 1320 * k, 0, { type: 'triangle', peak: 0.05, a: 0.0015, d: 0.07 }); tap(x, 0, 0.032, 1320 * k); return x.t + 0.12; } },
+      make(x) { const k = x.k; tone(x, 1320 * k, 0, { type: 'triangle', peak: 0.09, a: 0.0015, d: 0.07 }); tap(x, 0, 0.055, 1320 * k); return x.t + 0.12; } },
     rise: { kind: 'story', gap: 600, level: 0.8, desc: 'A reveal: a soft chord that swells, opens and rises a fourth over its length (dur, 2 s by default), then fades.',
       uses: 'A set or a big structure appearing: the globe, the tower of scales, the pyramid, every airport open again.',
       make(x) {
@@ -351,7 +352,7 @@
     flutter: { kind: 'story', gap: 300, level: 0.5, desc: 'Wings: a fast flutter of feathered air passing by (dur, 0.6 s by default).',
       uses: 'The flock passing near you, the flock bursting away from a falcon, the birds\' number changed.',
       make(x) {
-        const c = x.c, t = x.t, D = x.dur || 0.6, k = x.k, r = x.r, env = amp(x, 0.11, 0, D * 0.35, D * 0.65);
+        const c = x.c, t = x.t, D = x.dur || 0.6, k = x.k, r = x.r, env = amp(x, 0.7, 0, D * 0.35, D * 0.65);
         env.connect(x.out); send(x, env, 0.12);
         for (const [f0, f1, lv, rate] of [[900, 1700, 1, 14 + r() * 2], [2600, 3800, 0.45, 16 + r() * 2]]) {   // two bands, each beating 14 to 18 times a second
           const s = c.createBufferSource(), bp = c.createBiquadFilter(), fl = c.createGain(), w = c.createOscillator(), wg = c.createGain();
@@ -383,7 +384,7 @@
         const D = x.dur || 1.5, k = x.k, r = x.r, n = Math.max(3, Math.round(25 * D));
         for (let i = 0; i < n; i++) {   // (t = D * u^1.3: fewer as it goes)
           const u = (i + r()) / n, at = D * Math.pow(u, 1.3), f = (2000 + 3000 * r()) * k;
-          hiss(x, at, { type: 'bandpass', f, q: 2.2, peak: (0.02 + 0.045 * r()) * (1 - 0.6 * u), a: 0.0005, d: 0.005 + 0.01 * r(), dest: spot(x, (r() * 2 - 1) * 0.7) });
+          hiss(x, at, { type: 'bandpass', f, q: 2.2, peak: (0.14 + 0.3 * r()) * (1 - 0.6 * u), a: 0.0005, d: 0.008 + 0.014 * r(), dest: spot(x, (r() * 2 - 1) * 0.7) });
         }
         return x.t + D + 0.1;
       } },
@@ -392,23 +393,23 @@
       make(x) {
         const c = x.c, k = x.k, lp = c.createBiquadFilter();
         lp.type = 'lowpass'; lp.frequency.value = 3600 * k; lp.Q.value = 0.7; lp.connect(x.out);
-        for (const [at, pk] of [[0, 0.12], [0.012, 0.08], [0.03, 0.06]]) hiss(x, at, { type: 'highpass', f: 2800 * k, q: 0.8, peak: pk, a: 0.0004, d: 0.003 });
-        tone(x, 2400 * k, 0.004, { type: 'square', peak: 0.03, a: 0.002, d: 0.2, f1: 600 * k, glide: 0.18, dest: lp });
+        for (const [at, pk] of [[0, 0.19], [0.012, 0.13], [0.03, 0.095]]) hiss(x, at, { type: 'highpass', f: 2800 * k, q: 0.8, peak: pk, a: 0.0004, d: 0.003 });
+        tone(x, 2400 * k, 0.004, { type: 'square', peak: 0.048, a: 0.002, d: 0.2, f1: 600 * k, glide: 0.18, dest: lp });
         return x.t + 0.3;
       } },
     pulse: { kind: 'story', gap: 400, level: 0.45, desc: 'A signal spreading: a soft round ping with a slight fall and a long tail.',
       uses: 'A module glowing, walkers setting out, a disease neighbourhood lighting up, an outbreak started.',
       make(x) {
         const k = x.k;
-        tone(x, 660 * k, 0, { peak: 0.065, a: 0.008, d: 1.1, f1: 620 * k, glide: 1.0, send: 0.3 });
-        tone(x, 990 * k, 0, { peak: 0.015, a: 0.01, d: 0.8, send: 0.3 });
+        tone(x, 660 * k, 0, { peak: 0.077, a: 0.008, d: 1.1, f1: 620 * k, glide: 1.0, send: 0.3 });
+        tone(x, 990 * k, 0, { peak: 0.018, a: 0.01, d: 0.8, send: 0.3 });
         return x.t + 1.3;
       } },
     clink: { kind: 'story', gap: 80, level: 0.35, desc: 'Glass: a high, bright clink with an inharmonic ring.',
       uses: 'Glass slides, the qubits\' little cubes, a slide picked.',
       make(x) {
         const k = x.k;
-        for (const [m, g, dk] of [[1, 1, 1], [2.76, 0.5, 0.6], [5.4, 0.25, 0.35], [8.9, 0.12, 0.2]]) if (2100 * k * m < 16000) tone(x, 2100 * k * m, 0, { peak: 0.042 * g, a: 0.0015, d: 0.35 * dk, send: 0.1 });
+        for (const [m, g, dk] of [[1, 1, 1], [2.76, 0.5, 0.6], [5.4, 0.25, 0.35], [8.9, 0.12, 0.2]]) if (2100 * k * m < 16000) tone(x, 2100 * k * m, 0, { peak: 0.066 * g, a: 0.0015, d: 0.35 * dk, send: 0.1 });
         hiss(x, 0, { type: 'highpass', f: 6000, q: 0.7, peak: 0.03, a: 0.0003, d: 0.004 });
         return x.t + 0.45;
       } },
@@ -418,7 +419,7 @@
         const D = x.dur || 2, k = x.k, n = clamp(Math.round(+x.o.n || 8), 1, 64), up = !!x.o.rise;
         for (let i = 0; i < n; i++) {
           const at = D * i / n, f = (i % 2 ? 1450 : 1100) * k * (up ? Math.pow(1.04, i) : 1);
-          tap(x, at, 0.05, f); tone(x, f * 0.5, at, { type: 'triangle', peak: 0.028, a: 0.001, d: 0.03 });
+          tap(x, at, 0.125, f); tone(x, f * 0.5, at, { type: 'triangle', peak: 0.07, a: 0.001, d: 0.03 });
         }
         return x.t + D + 0.15;
       } },
@@ -437,7 +438,7 @@
   // one sound: its recipe into a dry gain (through an HRTF panner at a place in a headset, or a stereo panner on a
   // screen) and a reverb send. o: { gain, at: [x, y, z], spatial, pan (-1 left .. 1 right), seed, pitch, dur, n ... }
   function voice(G, name, t, o) {
-    const R = SOUNDS[name], c = G.c, k = o.gain == null ? 1 : o.gain;
+    const R = SOUNDS[name], c = G.c, k = (o.gain == null ? 1 : o.gain) * (R.kind === 'story' ? STORY : 1);
     const g = c.createGain(), w = c.createGain();
     g.gain.value = k; w.gain.value = k;
     let p = null;
