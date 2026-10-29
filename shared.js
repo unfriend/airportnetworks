@@ -1588,7 +1588,9 @@
     publish([['st.' + MV.id, v]]);
     if (final) log('station moved', { st: MV.id, x: v.x, z: v.z, yaw: v.yaw });
   }
-  const startClock = () => ({ mode: 'story', t: 0, playing: false, at: 0 });
+  // a new station's clock: a story at its start, paused; a page that is not a story (the design room: no chapters) at
+  // its table, in explore mode
+  const startClock = story => ({ mode: !story || HOST.list.some(m => m.key === story) ? 'story' : 'explore', t: 0, playing: false, at: 0 });
   // where you are in the room and which way you face: a headset's head, a desktop's room origin
   function base() {
     if (R.aligned && R.headOK) return { x: R.hr.x, z: R.hr.z, yaw: R.hyaw };
@@ -1681,7 +1683,7 @@
     if (!meta(story) || meta(story).unknown || refused('add')) return '';
     b = b || base();
     const id = rid(5);
-    publish([['st.' + id, { story, x: r3(b.x), z: r3(b.z), yaw: r3(b.yaw) }], [kPlay(id), startClock()]]);
+    publish([['st.' + id, { story, x: r3(b.x), z: r3(b.z), yaw: r3(b.yaw) }], [kPlay(id), startClock(story)]]);
     return id;
   }
   function move(id, b) {
@@ -2106,7 +2108,7 @@
   // miniature's parts merged into one mesh (one draw call; its see-through parts, glass and haze, in a second), with a
   // soft glow behind it, and lit by its own shader (a light from over your shoulder and a rim, in view space), so it
   // looks the same in every story's scene whatever lights that has. Its colours are the miniature's own drawn towards the
-  // story's (ICON.tint: by lightness, from a dark tone of it to a nearly white one). It follows the rings, not the cards:
+  // story's (ICON.tint: by lightness, from a dark tone of it through the colour to a lighter one). It follows the rings, not the cards:
   // it is part of the station, not a label, and with labels hidden it is all that tells the circles apart. While
   // lowpoly.js loads, and for a key without a miniature, a glowing polyhedron in the story's colour stands there, so a
   // new story needs only its icon in the list.
@@ -2171,10 +2173,11 @@
     grp.updateMatrixWorld(true);
     const box = new THREE.Box3().setFromObject(grp), size = box.getSize(new THREE.Vector3()), mid = box.getCenter(new THREE.Vector3());
     const s = Math.min(0.9 / Math.max(1e-6, size.x, size.y, size.z), 0.6 / Math.max(1e-6, size.length() / 2)), fit = new THREE.Matrix4().makeScale(s, s, s).multiply(new THREE.Matrix4().makeTranslation(-mid.x, -mid.y, -mid.z));
-    // its own colour by lightness to the story's tones (dark, the colour, nearly white), then mixed in by ICON.tint
+    // its own colour by lightness to the story's tones (dark, the colour, a lighter one: white parts too take the
+    // story's colour), then mixed in by ICON.tint
     const tint = (r, g, b) => {
       const L = Math.min(1, 0.2126 * r + 0.7152 * g + 0.0722 * b + 0.1);
-      if (L < 0.5) t.copy(T.d).lerp(T.b, L / 0.5); else t.copy(T.b).lerp(T.w, (L - 0.5) / 0.5);
+      if (L < 0.45) t.copy(T.d).lerp(T.b, L / 0.45); else t.copy(T.b).lerp(T.l, (L - 0.45) / 0.55);
       return c.setRGB(r, g, b).lerp(t, ICON.tint);
     };
     grp.traverse(o => {

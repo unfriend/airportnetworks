@@ -7,8 +7,8 @@ shared-room, headset-setting and subtitle lines are the same as in every story.
 
 - Its entry is in `self.STORY_EXTRA` (`stories/list.js`), with the card fields of the others and `life: true`. The shell
   finds a key in either list when it starts, loads, swaps or titles a story (`HOST.meta`); everything that lists the
-  stories (the Stories screens, Arrange all, the station picker, `HOST.count`, Repeat's next story) sees only
-  `STORY_LIST`. `tools/release.mjs` lists it in `version.json`, so live updates swap it like a story.
+  stories (the Stories screens, Arrange all, `HOST.count`, Repeat's next story) sees only `STORY_LIST`; the station
+  picker (the page's Add a station, the headset's Add here) lists it after the stories. `tools/release.mjs` lists it in `version.json`, so live updates swap it like a story.
 - No narration and no chapters to sit through: one chapter (`table`, 6 s: the table fades in, the camera walks up to
   it, one line of text) that the room opens past (`APP.enterExplore()` at start unless `#design&t=` asks for it); a
   new wearer or Intro plays it. Its end opens explore mode, never Repeat (`HOST.ended()` is not called).
@@ -50,6 +50,11 @@ view; the headset's lists as many params as fit and says how many more.
   values (a wrong key, a record of the wrong length, outside 6 m, below the floor, a size outside half to four
   times) are ignored. Tidy clears every record (all go home, for everyone at the station).
 - Effects: none. `view()` is null (life size). `place` and `panel` as the flock's: only the panel moves.
+- Its station (the shell's, `shared.js`): placed by the headset menu's *Design room here* (at your feet, facing your
+  way; the room's one moved there when it has one) or the page's Add a station, refused while the layout is locked;
+  never by Arrange all, which leaves it where it is. Its clock starts in explore mode (at the table), and its icon over
+  the ring is its own miniature, `design.table` (`icon` in its entry; skipped by `build.mjs`: not a prop). Outside a
+  room the menu's *Design room* opens it (`HOST.go('design')`).
 
 ## In a headset
 

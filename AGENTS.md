@@ -41,7 +41,8 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
   renderer and any running XR session, and loads stories on demand (and swaps
   one in place: "Hot reload and live updates").
 - `stories/list.js` - the list of stories (`HOST.list`: key, kick, title,
-  colour, card text, titles, loading line, length, `life`; optional `needs`),
+  colour, its miniature for the stations' icons (`icon`, a key of `LOWPOLY_MODELS`),
+  card text, titles, loading line, length, `life`; optional `needs`),
   in the order of the Stories screen and Arrange all. Read before the shell's
   script and again while the app runs. `STORY_EXTRA` at its end holds pages that
   are not stories (the design room), with the same fields: `HOST.meta(key)`
@@ -149,7 +150,8 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
   build script that also makes the props' cards); see its `README.md` and `SPEC.md`.
 - `tools/lowpoly/` - the miniatures (`models-a.js`, `models-b.js`: each
   `LOWPOLY_MODELS['<story>.<set>'] = { story, set, name, shows, tris, build(THREE) }`,
-  under 1,200 triangles, `tris` exact), their harnesses (`harness-a.html`,
+  under 1,200 triangles, `tris` exact; 45 props and, last, the design room's own
+  `design.table`, only its station icon), their harnesses (`harness-a.html`,
   `harness-b.html`) and `build.mjs` (writes `lowpoly.js`; `--check`).
 
 ## How the shell and stories fit together
@@ -709,27 +711,46 @@ came with rooms on this network, and `st.<id>.ui` with panels per story in the s
 - Arrange all: two rows in front of you, half the stories (rounded up: eight of
   fifteen) 1.2 m ahead and the rest 2.6 m further on (behind them; in the gaps when the second row is shorter), 2.4 m apart, every
   station facing away from you (its content floats 1.4 m beyond its spot); it
-  needs about 17 m x 4 m of floor from 1.2 m in front of you. Remove asks first ("Remove for
-  everyone?", 3 s), on the page and in the headset.
-- Station icons (`ICONS` in `shared.js`, built by `makeIcon`, placed by `iconStep`; 29 October 2026, the owner's go):
-  over each station's ring, its middle 2.1 m above the floor (over the heads of people in the circle and above the
-  card's top edge at 1.6 m, so from across the room it covers neither), a small low-poly 3D model of its story (about
-  0.3 m across, 350 to 700 triangles merged into one mesh: one draw call, plus a soft additive glow behind it), in its
-  colour (`col` in `HOST.list`, with a lighter, a nearly white and a dark tone of it), so people can tell from across
-  the room which circle is which story. It is turned to your head and leant back as far as you look up at it plus
-  0.2 rad (so its top shows), and turns about its own axis once in 12 s, each station in its own phase; the flat ones
-  (`ICON_FLAT`: the slide, the ring of discs, the vacuum, the opened cell) lie back further, so their top always shows.
-  Lit by its own shader in view space (a light over your shoulder, a rim in a paler tone), so it looks the same in
-  every story's scene whatever its lights. It follows the rings, not the cards: shown in every label mode, opaque,
-  depth-tested and writing depth in the room, since it is part of the station rather than a label, and with labels
-  hidden it is what tells the circles apart. At your own (live) station it shrinks away (your story is in front of
-  you) and grows back when you walk out. A child of its ring's group, so it eases with the station (`SHOWN`) and
-  grows with it while carried; not pointable (the ring and card are). A story key without a model gets a glowing
-  dodecahedron with a ring in its colour: a sixteenth story needs nothing here. The models are built once per story,
-  the first time a station of it shows, and kept. `tools/icons.html` (served next to the app) renders them all in a
-  grid as a headset sees them (`?keys=a,b`, `&cols=`, `&t=` frozen, `&turns=4` four sides, `&fallback`), from the
-  app in a hidden frame through `HOST.collab.icon(key)`. How they read from across a real room is untested on a
-  headset.
+  needs about 17 m x 4 m of floor from 1.2 m in front of you. It leaves the design room's table where it is (not a
+  story). Remove asks first ("Remove for everyone?", 3 s), on the page and in the headset.
+- Station icons (`makeIcon`, `iconDef`, `miniDef`, placed by `iconStep` in `shared.js`; 29 October 2026, the owner's
+  go; made from the miniatures the same day, the design room's part 2): over each station's ring, its middle 2.1 m
+  above the floor (over the heads of people in the circle and above the card's top edge at 1.6 m, so from across the
+  room it covers neither), its story's main miniature: the `icon` of its entry in `stories/list.js` (a key of
+  `LOWPOLY_MODELS`: the tour's interactome, the PET scanner, the airports' globe; the design room's own `design.table`,
+  a small round table with props on plates in the stories' colours, which is only its icon, not a prop on the table),
+  from `lowpoly.js`, loaded once through `HOST.lowpoly()` the first time an icon wants one. Its parts are merged into
+  one mesh (one draw call; its see-through parts, glass and haze, in a second, drawn after without writing depth),
+  centred and sized as the first hand-made models were (its box in a ball of 0.6 units, its longest side at most 0.9:
+  a globe about 0.2 m across, `ICON.size` 0.3 m a unit), with a soft additive glow behind it in the story's colour
+  (`col` in `HOST.list`), and its own colours drawn towards the story's (`ICON.tint` 0.55: by lightness, from a dark
+  tone of the colour through the colour to a lighter one, so white parts take it too), so people can tell from across the room which circle
+  is which story. It is turned to your head and leant back as far as you look up at it plus 0.2 rad (so its top
+  shows), and turns about its own axis once in 12 s, each station in its own phase; the flat ones (lower than about
+  0.6 of their width: the slide, the room, the table) lie back further, by how flat they are, so their top always
+  shows. Lit by its own shader in view space (a light over your shoulder, a rim in a paler tone; glowing parts nearly
+  unlit), so it looks the same in every story's scene whatever its lights. It follows the rings, not the cards: shown
+  in every label mode, opaque, depth-tested and writing depth in the room, since it is part of the station rather than
+  a label, and with labels hidden it is what tells the circles apart. At your own (live) station it shrinks away
+  (your story is in front of you) and grows back when you walk out. A child of its ring's group, so it eases with the
+  station (`SHOWN`) and grows with it while carried; not pointable (the ring and card are). Built once per story, the
+  first time a station of it shows, at most one a frame (a room's first view would build every one at once), and
+  kept; until then, while `lowpoly.js` loads (or if it cannot), and for a key whose entry names no miniature, a glowing
+  dodecahedron with a ring in its colour stands there: a sixteenth story needs only its `icon`. 600 to 1,200
+  triangles each. `tools/icons.html` (served next to the app) renders them all, every story's and then the design
+  room's, in a grid as a headset sees them (`?keys=a,b`, `&cols=`, `&t=` frozen, `&turns=4` four sides, `&fallback`),
+  from the app in a hidden frame through `HOST.lowpoly()` and `HOST.collab.icon(key)` (its `model` says which
+  miniature, '' the fallback). How they read from across a real room is untested on a headset.
+- The design room in a room (the design room's part 2, 29 October 2026): not one of the stories, so never part of
+  Arrange all (it neither places nor moves nor removes a station of it), but a station like any other once placed: the
+  page's Shared dialog lists it after the stories in its station picker (Add), the headset's Add here page too, and the
+  headset's menu has a *Design room* row (below the settings and Panels, above the shared room): outside a room it
+  opens the design room (`HOST.go('design')`, the menu closing; greyed while you are there); in a room, *Design room
+  here* puts the props table at your feet as a circle facing your way, or moves the room's one there when it has one
+  (one table, not a pile of them; `designHere`, `HOST.collab.design(b)`), refused while the layout is locked as Add is
+  (greyed). A new station of a page that is not a story starts its clock at its table, in explore mode (a story's at
+  its start, paused). Standing at it (it is at your feet) the headset takes it as its station and the table stands
+  life size in front of you (its middle 1.55 m ahead of the spot), shared like a story at its station.
 - Moving a station by hand: in a headset the grip on a station's ring or card
   picks it up (the shell hears the session's own `squeezestart` and
   `squeezeend`, controller i being `session.inputSources[i]` in three.js r128,
@@ -751,7 +772,7 @@ came with rooms on this network, and `st.<id>.ui` with panels per story in the s
   stations are in place anyone locks them (a button on the headset's Shared
   panel and in the page's Shared dialog) and anyone unlocks them. While on,
   the grip on a station, a scene or a panel, the map drag, Arrange all, Add,
-  Move here and Remove are refused (`refused()`), a station, scene or panel
+  Move here, Design room here and Remove are refused (`refused()`), a station, scene or panel
   being carried stops where it was last sent, and the cards say so.
 - The headset's menu (the shell's panel, `PNL`, `drawPanel`) is closed at the
   start of every session: only a clock shows (`drawClock`: the local time, a
@@ -780,11 +801,13 @@ came with rooms on this network, and `st.<id>.ui` with panels per story in the s
   show's, `HOST.panels`, beside Subtitles; with a line under them: in a room
   that the panels are for everyone at this circle and the rest for the room,
   else for that story only; with no story on show the room's line takes
-  its place); then the shared room (its
+  its place); *Design room* (outside a room it opens the design room; in a room
+  *Design room here* puts its table at your feet: "The design room in a room"), a
+  note beside it; then the shared room (its
   code and people as the section's heading, the rooms, the question, the
-  room's alignment, stations, people, You; the canvas, 1480 px tall, holds the
-  tallest case, a room on this headset with a three-line note at a station, and
-  People shows only as many as leave room for You). A right index fingertip also presses its buttons
+  room's alignment, stations, people, You; the canvas, 1560 px tall, holds the
+  tallest case, a room on this headset with a three-line note at a station (1539
+  px), and People shows only as many as leave room for You). A right index fingertip also presses its buttons
   (`poke`: within 1.5 cm of the panel over one, again once pulled back 3 cm;
   a pinch on the ray at the same button within 0.7 s counts once with it,
   `twice`). The once-per-room question still opens it by itself, and so does
@@ -1751,8 +1774,10 @@ is the contract. Rebuild it after changing `props.json` or the miniatures' names
   table (drag, wheel; View: the table, the stage, from above; a story's heading flies to its plate).
 - **Shared rooms**: the same hook lines as every story. `state()` is the prop on the stage and one top-level field per
   miniature moved by hand (`[x, y, z, qx, qy, qz, qw, s]` in the table's frame, rounded), so two people moving two
-  miniatures both keep theirs; no effects; `view()` null. Wiring it into rooms (a station for it, the stations' icons
-  from the miniatures) is a later step.
+  miniatures both keep theirs; no effects; `view()` null. In a room it is a station like a story's, placed from the
+  headset's menu (*Design room here*) or the page's Shared dialog, never by Arrange all ("Shared rooms": "The design
+  room in a room"); outside a room the menu's *Design room* opens it. Its station's icon is its own miniature,
+  `design.table` (skipped by `tools/design/build.mjs`: not a prop on the table).
 
 ## Conventions
 
@@ -1873,7 +1898,9 @@ explore mode (controls only: the foot bar alone, the text panel neither drawn
 nor pointable; hidden: neither, A or X still playing), labels hidden still
 hiding both, each story its own (the qubits, the flock, the airports, the
 design room), kept per story across a reload, set by a link for the story it
-opens, the lines in all fifteen and the design room), and fails on console errors:
+opens, the lines in all fifteen and the design room; the menu's Design room
+button outside a room opening the design room, the menu closing and the button
+greyed there), and fails on console errors:
 
 ```sh
 npx http-server -p 8123 -c-1 .          # or: python3 -m http.server 8123
@@ -1938,7 +1965,10 @@ on the first story followed, also a slideshow stop on one page pausing the
 station for the others at the chapter's end, and its Next playing it again.
 Before that: Arrange all's rows, a code with no room, Remove asking first.
 After: a station moved and turned on the room map (and refused while the
-layout is locked), the headsets' three settings as the room's (everything in 3D
+layout is locked), the design room (the Shared dialog's picker listing it after
+the stories, its station added there for every page, refused while locked from
+Add and the Design room button, left where it is by Arrange all, the button
+moving the room's one to your feet rather than adding a second), the headsets' three settings as the room's (everything in 3D
 and no subtitles in a room without them; set on one page, or in another's Shared
 dialog with the layout locked, for every page; free moving off taking the turns
 out of the stations' places and panels; kept across the relay restart and, in a
@@ -1960,12 +1990,18 @@ running on the station's clock), the hold and the lock, a station's panels
 set on a page reaching the headset at its circle (controls only: the foot bar
 alone; the station it is not at keeping its own) and set from its menu's Panels
 row for everyone there with the layout locked (hidden), its own station's back
-again (shown) when it walks there,
+again (shown) when it walks there, the design room in the headset (every
+station's icon built from its story's miniature, in its colour and turning; the
+menu's Design room button greyed while locked; Add here listing the design room
+after the stories; the button putting the props table at its feet facing its
+way for every page; standing in it, its station, the design room open there at
+its table in explore mode, its icon and card gone; walked out, its icon, the
+table's miniature, back),
 the station's clock and state, rays and head in room coordinates, another
 person drawn, the sound zone, the trigger on the menu's clock, the trigger on
 another station's card running nothing (a notice: walk into its circle), the story
-panel winning over a card behind it, every station's icon over its ring (its story's colour, turning; gone at
-its own station and back once it walks out), a station moved with the grip on its
+panel winning over a card behind it, every station's icon over its ring (its story's miniature, in its colour,
+turning; gone at its own station and back once it walks out), a station moved with the grip on its
 card (swung, pushed further, turned; the others see it while it moves) and
 gliding into place when someone else moves it, the layout lock (the grip and
 Arrange all refused; unlocked from the headset's menu), the menu (closed at
@@ -2059,7 +2095,9 @@ network seeing the room (hosted by) and joining with one press, a page on anothe
 (the slot let go) and on; a page that was in the room rejoining its host by itself; a day later with nobody holding
 it, the first page back hosting it from its copy and the next linking to it; on another network nothing by itself,
 *Start room XYZ again* hosting it with one press; Leave on purpose, nothing by itself; the relay's log naming none of
-the pretend addresses. `--quick` runs only the last story in the per-story part. A new story needs an entry in `STORIES`
+the pretend addresses. `--quick` runs only the last story in the per-story part. `--design` runs only the design room
+in a room (three pages and a pretend headset, a minute or two; with `--shots` its pictures: `design-menu.png`, the menu's
+canvas, `design-station.png`, the table at its circle, `design-circle.png`, its ring, card and icon among the others). A new story needs an entry in `STORIES`
 (`change` and `back`: code that changes its `state()`, and optional `effect`
 and `more`); the headset's story (`HEADSET_STORY`) stays the last entry.
 `--shots <dir>` also saves pictures of rooms on this network (`near-dialog.png`, `near-toast.png`, `near-again.png`,

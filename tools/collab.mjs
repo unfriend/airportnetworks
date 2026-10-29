@@ -504,17 +504,27 @@ async function headsetDesign(A, B, H, S, shots) {
   const there = await H.evaluate(id => { HOST.cur.peek('xrUpdate(XS)'); const o = HOST.collab.overlay().rings.get(id);
     return { mine: HOST.collab.mine() === id, key: HOST.curKey, away: HOST.room.away(), world: HOST.cur.peek('GL.world.visible'), mode: HOST.cur.peek('APP.mode'),
       icon: !!o && o.icon.g.visible && o.icon.k > 0.9, card: HOST.collab.overlay().cards.has(id), table: HOST.cur.peek('GL.sets.table.built() + "/" + GL.sets.table.total()'),
-      ready: HOST.collab.internals().ready, dbg: HOST.cur.peek('[GL.sets.table.group.visible, GL.world.visible, GL.world.getWorldPosition(new THREE.Vector3()).toArray().map(v => +v.toFixed(2)), GL.rig.position.toArray().map(v => +v.toFixed(2)), APP.mode, typeof XS, XS && XS.table_a]') }; }, id);
-  console.log(JSON.stringify(there));
-  check('design room: standing in it the headset takes it as its station and the design room opens there (its icon and card gone)',
-    inD && there.mine && there.key === 'design' && !there.away && there.world && !there.icon && !there.card, JSON.stringify({ inD, there }));
+      ready: HOST.collab.internals().ready }; }, id);
+
+  check('design room: standing in it the headset takes it as its station and the design room opens there at its table (explore mode; its icon and card gone)',
+    inD && there.mine && there.key === 'design' && !there.away && there.world && there.mode === 'explore' && !there.icon && !there.card, JSON.stringify({ inD, there }));
   if (shots && inD) {
-    await headView(H, path.join(shots, 'design-station.png'), st.yaw, -0.32, [1280, 800]);
-    // from outside its circle, looking at it among the others
-    const back = [st.x + 3.2 * Math.sin(st.yaw), st.z + 3.2 * Math.cos(st.yaw)];
-    await goRoom(H, back[0], 1.6, back[1], st.yaw);
-    await step(900);
-    await headView(H, path.join(shots, 'design-circle.png'), st.yaw, -0.05, [1280, 800]);
+    // (the menu's clock on a left controller held low, out of the way)
+    const lowClock = () => H.evaluate(() => {
+      const X = window.__xr, V = THREE.Vector3, R = HOST.room.internals(), Y = R.hyaw + R.yaw;
+      const hp = new V().setFromMatrixPosition(X.W.head).applyMatrix4(X.W.local.clone().invert());
+      const lp = hp.add(new V(-Math.sin(Y), 0, -Math.cos(Y)).multiplyScalar(0.3)).add(new V(-Math.cos(Y), -9, Math.sin(Y)).multiplyScalar(0.06));
+      X.aim(1, new THREE.Matrix4().compose(lp, new THREE.Quaternion().setFromAxisAngle(new V(0, 1, 0), Y), new V(1, 1, 1)));
+    });
+    await lowClock(); await step(300);
+    await headView(H, path.join(shots, 'design-station.png'), st.yaw, -0.42, [1280, 800]);
+    // from outside its circle (behind it and to one side), looking at its ring, card and icon among the others
+    const back = [st.x + 2.6 * Math.sin(st.yaw) + 0.8 * Math.cos(st.yaw), st.z + 2.6 * Math.cos(st.yaw) - 0.8 * Math.sin(st.yaw)];
+    const look = Math.atan2(-(st.x - back[0]), -(st.z - back[1]));
+    await goRoom(H, back[0], 1.6, back[1], look);
+    await step(900); await lowClock(); await step(300);
+    await headView(H, path.join(shots, 'design-circle.png'), look, 0.02, [1280, 800]);
+    await H.evaluate(() => { const c = HOST.cur.peek('XR.ctrls')[1]; c.g.visible = false; c.src = null; window.__xr.session.inputSources.length = 0; });
   }
   // walked out: its icon (the table's miniature) back over the ring
   const sp2 = await awaySpot(H, st);

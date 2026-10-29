@@ -70,8 +70,9 @@ self.STORY_LIST = [
     aria: 'Interactive 3D room with a gang of robot vacuums that follow you about', thing: 'room', loading: 'Waking the robots', len: 'Story 2:01 · then free play', life: true },
 ];
 // Pages that are not stories (the same fields): started by their key (#design, HOST.go) and swapped and titled like a
-// story, but never listed (the Stories screens, Arrange all, the station picker, the count, Repeat see only
-// STORY_LIST). tools/release.mjs lists them in version.json too, so live updates reach them.
+// story, but not one of them (the Stories screens, Arrange all, the count, Repeat see only STORY_LIST; the station
+// picker lists them after the stories, and the headset's menu has a Design room button). tools/release.mjs lists them
+// in version.json too, so live updates reach them.
 self.STORY_EXTRA = [
   { key: 'design', kick: 'Design room', title: 'The props table', col: '#f0d58c', icon: 'design.table',
     desc: 'Every prop of the stories as a small model on one table, by story. Pick one up, or put it on the stage to see what it is made of: its params, its views and its source.',

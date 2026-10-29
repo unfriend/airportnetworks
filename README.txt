@@ -43,6 +43,10 @@ Besides the stories, the design room (#design, stories/design.js; not on the
 Stories screen) is a table with a small model of every prop of the stories,
 a plate per story: point at one for its name, put it on the stage for its card
 (what it shows, its params, views and source), and in a headset pick it up.
+In a headset, Design room in the menu (the clock on the left wrist) opens it;
+in a shared room, Design room here puts the table at your feet as a circle
+(Add a station on the page offers it too; Arrange all leaves it alone), and
+over every circle its story's small model turns, so circles tell apart.
 
 index.html is the app: it shows a start screen to pick a story, and the Stories
 button (top bar, and the panel in VR/AR) brings it back. Stories are loaded into

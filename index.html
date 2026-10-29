@@ -1702,8 +1702,8 @@ HOST.teardown = function () {
   this.cur = null;
 };
 // a key's entry: one of the stories (HOST.list), or a page that is not one of them (self.STORY_EXTRA in
-// stories/list.js: the design room), started, loaded, swapped and titled the same way but never listed (the Stories
-// screens, Arrange all, the station picker, the count, Repeat's next story see only HOST.list)
+// stories/list.js: the design room), started, loaded, swapped and titled the same way but not one of them (the Stories
+// screens, Arrange all, the count, Repeat's next story see only HOST.list; a shared room's station picker lists it last)
 HOST.meta = function (key) { return this.list.find(s => s.key === key) || (self.STORY_EXTRA || []).find(s => s && s.key === key); };
 // place: a place to put back once the story is built (a swap, a reload: HOST.live)
 HOST.start = async function (key, keepHash, place) {

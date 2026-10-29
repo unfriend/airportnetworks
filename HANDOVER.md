@@ -51,7 +51,8 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
     developing follows the files as they are saved (`HOST.live`, `version.json` written by `node tools/release.mjs`,
     the relay's `--watch` and `--build`; AGENTS.md "Hot reload and live updates").
   - *Station icons:* a small low-poly model of each station's story, in its colour, turning over its ring in a shared
-    room (`ICONS` in `shared.js`; `tools/icons.html` shows them all).
+    room (since the design room's part 2, below, each story's main miniature from `lowpoly.js`; `tools/icons.html`
+    shows them all).
   - *45 low-poly miniatures* of the stories' 3D sets (`lowpoly.js`, built by `node tools/lowpoly/build.mjs`), from
     the catalogue of props ([docs/props.md](docs/props.md), `tools/design/props.json`).
   - *The design room, part 1* (`#design`, `stories/design.js` from `tools/design/`; not one of the stories, so on no
@@ -99,6 +100,17 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
   page's Shared dialog too, never refused by the layout lock (key `st.<id>.ui`, part of FORMAT networks-25).
   Independent of Labels (labels hidden still hides both). `HOST.panels` in `index.html`; AGENTS.md "How the shell and
   stories fit together". How it feels on a headset is untested.
+- **Built after v96 (29 October 2026), tested headlessly only:** *the design room, part 2* (the owner's queue). A
+  *Design room* row in the headset's menu: outside a shared room it opens the design room; in a room, *Design room
+  here* puts the props table at your feet as a circle facing your way (or moves the room's one there), refused while
+  the layout is locked as Add is; the page's Shared dialog lists the design room after the stories in its station
+  picker (and the headset's Add here page too). Arrange all never places, moves or removes it; its station starts at
+  the table, in explore mode. The stations' icons are now each story's main miniature (`icon` in `stories/list.js`:
+  the tour's interactome, the PET scanner, the airports' globe and so on; the design room's own icon is a new small
+  miniature of its table, `design.table`), loaded once from `lowpoly.js`, built once per story and kept, in the
+  story's colour, with the glowing dodecahedron while they load or for a story without one; the old hand-made models
+  are gone from `shared.js`. AGENTS.md "Shared rooms" ("Station icons", "The design room in a room"). How the icons
+  read from across a real room and the table at a circle on a headset are untested.
 - **Tried on real headsets:** the stories and their sound on Quest; shared rooms on two Quest 3 headsets in several
   rounds (what happened is in [docs/quest-shared-space-findings.md](docs/quest-shared-space-findings.md) and AGENTS.md
   "Shared rooms"). All thirteen stories of then, the slideshow and the headset menu on the wrist were tried on a headset
@@ -179,10 +191,9 @@ Before handing over (or making anything more public), someone has to decide thes
      with a German voice and subtitles: about 1.5 to 2 days of agent work; explore mode in German too: about 1 to 1.5
      days more. In a shared room everyone keeps one timeline, so each stretch lasts the longer of its two languages (as
      the pass story, already in English and German, does);
-   - **The queue** (the owner, 29 October 2026), in this order: the design room, part 2 (1 to 1.5 h); follow a person
-     (about 1 h); then a test round and a release (about 1 h). Rooms on this network, first in it, the loading bar
-     queued alongside, and panels per story, queued before the design room's part 2, are built (see "Where things
-     stand"). Each is described below;
+   - **The queue** (the owner, 29 October 2026), in this order: follow a person (about 1 h); then a test round and a
+     release (about 1 h). Rooms on this network, first in it, the loading bar queued alongside, panels per story and
+     the design room's part 2 are built (see "Where things stand"). Each is described below;
    - **circles that load code from a link** (on hold, the owner, 29 October 2026; the design agreed, not to build
      yet). The owner's aim: the whole office as one shared room, where colleagues add circles of their own, with their
      own logic, from a web page or a GitHub repository. How: a station whose story is a script from a web address
@@ -203,9 +214,9 @@ Before handing over (or making anything more public), someone has to decide thes
    - **see through their eyes** (optional, later; the owner, 29 October 2026): a laptop's camera follows that wearer's
      head at their circle (a view for a projector). About 3 to 4 hours (each story places its scene differently in a
      headset);
-   - **the design room, part 2**: a *Design room* button in the headset's menu, the table as a circle (a station) in a
-     shared room, and the stations' icons made from the miniatures instead of their own models. Part 1 (the table) is
-     built (AGENTS.md "The design room"). Of the first plan (a catalogue of the props, a player for stories written as
+   - **the design room, part 2**: built (see "Where things stand": the menu's *Design room* button, the table as a
+     circle in a shared room, the stations' icons from the miniatures). Part 1 (the table) is built too (AGENTS.md "The
+     design room"). Of the first plan (a catalogue of the props, a player for stories written as
      data, the room with live reload, a bridge to Claude on a laptop, push-to-talk in the headset) the catalogue, the
      room's table and live reload are built and the player was dropped; the bridge and push-to-talk wait for the owner
      (the microphone inside a headset session is untested on Quest);
@@ -213,9 +224,10 @@ Before handing over (or making anything more public), someone has to decide thes
      things stand"; AGENTS.md "How the shell and stories fit together" and "Inside a story"). What could come next: a
      single shader's compile is still one task (three.js r128 cannot compile in parallel), and a few sets take 0.2 to
      0.5 s to build here; both would need changes inside three.js or the sets;
-   - **station icons**: built (see "Where things stand"). **For the owner:** approve the contact sheet of all fifteen
-     (open `tools/icons.html` next to the app; `&turns=4` shows each from four sides) or say which to change. How they
-     read from across a real room is untested on a headset;
+   - **station icons**: built, and since the design room's part 2 made from the miniatures (see "Where things
+     stand"). **For the owner:** approve the contact sheet of all sixteen (open `tools/icons.html` next to the app;
+     `&turns=4` shows each from four sides) or say which miniature should stand for a story (its `icon` in
+     `stories/list.js`). How they read from across a real room is untested on a headset;
    - **live updates and hot reload**: built (see "Where things stand"; AGENTS.md "Hot reload and live updates";
      [docs/setup-and-release.md](docs/setup-and-release.md), step 5b and the table in section 2). A release now ends
      with `node tools/release.mjs` after bumping `VERSION` (it writes `version.json` and stamps the shell's release into
@@ -335,7 +347,8 @@ data, `tools/mutation/` or `tools/qubits/` for a story whose numbers are compute
 1. `tools/<key>/`: `SPEC.md` (the contract), `README.md`, the sets (each with a manifest `sets/<name>.md`), the engine
    (`engine/e1_head.js` to `e7_app.js`), `build.mjs`, `harness.html`, `shot.mjs`, `sweep.mjs`, a data generator if it has
    data. Build `stories/<key>.js` and check it with `--check`. Add `tools/<key>/shots/` to `.gitignore`.
-2. `stories/list.js`: an entry (key, kick, title, colour, loading text, length: pace the story first with
+2. `stories/list.js`: an entry (key, kick, title, colour, `icon`: its main miniature in `tools/lowpoly/` for the
+   stations' icons, made there first (each miniature under 1,200 triangles); loading text, length: pace the story first with
    `node tools/pace.mjs <url> --write <key>`, which prints it). The count on the start screen, in the title and on
    every headset Stories screen follows the list by itself; `index.html`'s head (title, meta description, link
    previews) and `manifest.webmanifest` say it in words for search engines and installs: update them, and the card
