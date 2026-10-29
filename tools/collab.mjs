@@ -1081,6 +1081,7 @@ async function personFollow(code, dir) {
     await sleep(4000);
     const mid = await fol();
     const gone = await until(D, () => !HOST.collab.followingWho(), null, 25000);
+    await until(D, () => / has left the room\)$/.test(document.querySelector('#shared .sh-room span').textContent), null, 3000);   // (the dialog redrawn)
     const [f8, l8] = [await fol(), await line()];
     check('they leave the room: following them stops after a moment, the page stays at their last station and the dialog says they have left',
       a8 && mid[0] === G.id && gone && f8.join() === ['', s2, OTHER_STORY].join() && l8 === `Following ${t2} on this page (Guide has left the room)`, JSON.stringify({ mid, f8, l8 }));
