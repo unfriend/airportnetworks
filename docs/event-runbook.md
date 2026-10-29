@@ -173,6 +173,7 @@ and the end of AGENTS.md "Shared rooms". Not yet confirmed on a device:
 - saved anchors found again after a restart (the calibration's, and **Anchor**'s kiosk place);
 - what a recentre (long press on the Meta button) does to the room;
 - moving and resizing scenes with the grips at a station (comfort, and how it looks to others);
+- subtitles (**Subtitles: on** in the menu, the same for the whole room): how they read and how they follow the head;
 - sound zones: each station's narration heard from where it stands;
 - comfort and frame rate with other people drawn;
 - whether the link to the relay keeps running inside a headset session;

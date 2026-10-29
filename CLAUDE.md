@@ -38,13 +38,15 @@
   `GL.rig` past it, so check `HOST.anchor.held()` before re-placing and
   `HOST.anchor.locked(kind)` before letting the grip move anything. Real anchors
   only exist on a headset: report their behaviour as untested.
-- The headset's two settings (labels in 3D, on top or hidden; free moving) are
-  the shell's (`HOST.xr.labels()`, `HOST.xr.free()`, in a room the room's key
-  `look`), the same for every story: never put them in a story's `state()`.
-  Stories read them every frame through the shared lines (`xrSettings`,
-  `placeLabelXR`, `xrFace`), the same in all fifteen. How the signs read and
-  how the free grip feels can only be checked on a headset: report them as
-  untested.
+- The headset's three settings (labels in 3D, on top or hidden; free moving;
+  subtitles, off by default) are the shell's (`HOST.xr.labels()`,
+  `HOST.xr.free()`, `HOST.xr.subs()`, in a room the room's key `look`), the same
+  for every story: never put them in a story's `state()`. Stories read the first
+  two every frame through the shared lines (`xrSettings`, `placeLabelXR`,
+  `xrFace`), the same in all fifteen; the shell draws the subtitles from each
+  story's caption hook (`caption: xrCaption`, the same lines in all fifteen).
+  How the signs read, how the free grip feels and how the subtitles read and
+  follow the head can only be checked on a headset: report them as untested.
 - Shared rooms (`shared.js`, `relay/`, see "Shared rooms" in `AGENTS.md`): keep
   the shared hooks in all fifteen stories, the same lines in each (the `collab`
   object, the ray and press lines, the grip line, the optional features from

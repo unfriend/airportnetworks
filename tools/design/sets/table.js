@@ -27,12 +27,12 @@ SETS.table = function (K) {
   const glowMat = (col, o) => basic({ map: glowTex, color: col, transparent: true, opacity: o, depthWrite: false, blending: THREE.AdditiveBlending });
 
   // ---- the floor (hidden in passthrough: table_floor 0) and the table
-  const floor = new THREE.Group();
-  floor.add(mesh(flat(new THREE.CircleGeometry(5, 72)), std({ color: 0x070d19, roughness: 0.95, metalness: 0 })));
+  const floor = new THREE.Group(), floorDisc = mesh(flat(new THREE.CircleGeometry(5, 72)), std({ color: 0x070d19, roughness: 0.95, metalness: 0 }));
+  floor.add(floorDisc);
   for (const [r, o] of [[1.6, 0.3], [2.7, 0.16]]) { const m = mesh(flat(new THREE.RingGeometry(r, r + 0.014, 120)), basic({ color: 0x46d9ff, transparent: true, opacity: o, depthWrite: false })); m.position.y = 0.002; floor.add(m); }
   group.add(floor);
-  const table = new THREE.Group();
-  table.add(mesh(new THREE.CylinderGeometry(R, R, 0.045, 96), std({ color: NAVY, roughness: 0.55, metalness: 0.2 }), [0, TOP - 0.0225, 0]));
+  const table = new THREE.Group(), tableTop = mesh(new THREE.CylinderGeometry(R, R, 0.045, 96), std({ color: NAVY, roughness: 0.55, metalness: 0.2 }), [0, TOP - 0.0225, 0]);
+  table.add(tableTop);
   table.add(mesh(new THREE.CylinderGeometry(R + 0.004, R + 0.004, 0.01, 96, 1, true), basic({ color: 0x2397c4 }), [0, TOP - 0.006, 0]));   // the glowing rim
   table.add(mesh(new THREE.CylinderGeometry(0.11, 0.17, TOP - 0.07, 24), std({ color: 0x0e1828 }), [0, (TOP - 0.07) / 2 + 0.03, 0]));
   table.add(mesh(new THREE.CylinderGeometry(0.5, 0.56, 0.03, 48), std({ color: 0x0e1828 }), [0, 0.015, 0]));
@@ -96,7 +96,7 @@ SETS.table = function (K) {
       const col = new THREE.Color(g.col), plate = mesh(sector(rin - 0.085, R - 0.075, a0 + m, a1 - m, PLATE), std({ color: col.clone().lerp(NAVY, 0.7), roughness: 0.5 }), [0, TOP, 0]);
       group.add(plate);
       const edge = mesh(flat(new THREE.RingGeometry(R - 0.083, R - 0.075, Math.max(8, Math.round(span * 40)), 1, a0 + m - Math.PI / 2, span - 2 * m)), basic({ color: col }), [0, TOP + PLATE + 0.0008, 0]);
-      edge.rotation.y = 0; group.add(edge);
+      group.add(edge);
       // the place card at the rim, leaning back, facing out
       const cw = Math.min(CARD_W, (span - 2 * m) * CARD_R - 0.02);
       g.cardW = cw;
@@ -259,6 +259,7 @@ SETS.table = function (K) {
     groupView(key) { const p = plates.find(x => x.key === key); if (!p) return null; const d = p.mid / D2R; return [d, 36, 1.05, Math.sin(p.mid) * p.r * 0.92, TOP + 0.04, Math.cos(p.mid) * p.r * 0.92]; },
     plateOf: key => plates.find(x => x.key === key) || null,
     dispose() { for (const x of disposable) x.dispose(); },
+    solid: [tableTop, floorDisc],   // (the pointer's dot lands on these)
     TOP, STAGE_Y,
   };
 };

@@ -49,8 +49,9 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
 - `stories/<key>.js` - one story each, wrapped in
   `HOST.register('<key>', function (HOST) { ... })`. Everything a story
   defines is local to that function. Each returns
-  `{ inputs, xrPose, collab, peek, dispose }` to the shell (`collab`: its
-  shared-room hooks, see "Shared rooms").
+  `{ inputs, caption, xrPose, collab, peek, dispose }` to the shell (`collab`: its
+  shared-room hooks, see "Shared rooms"; `caption`: its line on show, for the
+  headset's subtitles).
 - `proteins.html`, `spatial.html` - redirect stubs to `index.html#proteins`
   / `#spatial` so old links keep working. Do not put code there.
 - `sw.js` - service worker. Pages and app files come from the network first,
@@ -247,19 +248,23 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
   `local-floor`, then `local-floor`, then nothing; `xrSteps` in `localStorage`,
   back to the start in another browser version): Sound check says what VR asks
   for and why. Ending VR on purpose within 10 s counts too.
-- Two headset settings, one for the whole system (the owner, October 2026:
-  "the settings systemwide, with the default being that everything is 3D"):
+- Three headset settings, one for the whole system (the owner, October 2026:
+  "the settings systemwide, with the default being that everything is 3D"; 29
+  October: "add subtitles in the headsets as a switchable option per room"):
   `HOST.xr.labels()` (`'fixed'`, the default: labels in 3D; `'face'`: on top;
-  `'hidden'`) and `HOST.xr.free()` (free moving, on by default), set with
-  `HOST.xr.setLabels(m)` and `HOST.xr.setFree(on)`, `HOST.xr.sig()` for panel
-  signatures; a row in the headset's menu (*Labels: in 3D* -> *hidden* -> *on
-  top*, each press the next; *Moving: free* / *Moving: facing you*) and, in a
-  room, in the page's Shared dialog. In a shared room they are the room's (key
-  `look`, below), for every headset and page in it; otherwise the device's own
-  (`xrLabels`, `xrFree` in `localStorage`), which keeps a room's last value
-  after leaving it. `#labels=face|fixed|hidden` and `#free=on|off` in a link
-  set them. Stories read them every frame (`xrSettings` in `xrBegin`; a shell
-  without them means on top and nothing free) and put `xrSig()` in `sigMain`.
+  `'hidden'`), `HOST.xr.free()` (free moving, on by default) and
+  `HOST.xr.subs()` (subtitles, off by default), set with
+  `HOST.xr.setLabels(m)`, `HOST.xr.setFree(on)` and `HOST.xr.setSubs(on)`,
+  `HOST.xr.sig()` for panel signatures; rows in the headset's menu (*Labels: in
+  3D* -> *hidden* -> *on top*, each press the next; *Moving: free* / *Moving:
+  facing you*; *Subtitles: on* / *off*) and, in a room, in the page's Shared
+  dialog. In a shared room they are the room's (key `look`, below), for every
+  headset and page in it; otherwise the device's own (`xrLabels`, `xrFree`,
+  `xrSubs` in `localStorage`), which keeps a room's last value after leaving
+  it. `#labels=face|fixed|hidden`, `#free=on|off` and `#subs=on|off` in a link
+  set them. Stories read the first two every frame (`xrSettings` in `xrBegin`;
+  a shell without them means on top and nothing free) and put `xrSig()` in
+  `sigMain`; the shell alone draws the subtitles.
   - Labels in 3D: every scene label is a flat sign at its sprite's place and
     size, upright and turned to you (about the vertical, in the rig's frame:
     `placeLabelXR` with `XR.signL` and `XR.signH`), but in the scene:
@@ -295,6 +300,28 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
     life-size stories (the flock, the robots, the pass story's fish) move only
     their panel. Stations stay level (room furniture). The anchored
     arrangement keeps `q` (the scene's turn) and `pq` (the panel's) too.
+  - Subtitles (`drawSubs` in `shared.js`): only in a headset, in story mode
+    with a line on show (playing or paused; nothing in explore mode, on the
+    Stories screen, away from a station, or for a story without the hook), the
+    narration's words in a strip low in the view (16 degrees under the gaze),
+    1.4 m away and 0.9 m wide, white B612 on a dark rounded band, drawn on top
+    of everything in every label mode (`renderOrder` 51: over the story panels,
+    under the menu and the notices), one canvas redrawn only when the caption
+    changes, fading between captions. It stays while the head turns less than
+    15 degrees from it (or moves less than 12 cm) and eases back in front
+    beyond. The words come from the story's caption hook (`caption`, below):
+    the cues of the chapter on show, read as `tools/narration.mjs` reads them
+    (so a recording and the captions say the same; a cue with no word of two
+    letters, such as a chart's numbers, is not read), the latest cue passed
+    with words cut into captions of at most two lines of about 42 characters
+    (at a sentence's end, then a clause's, then a word; a new cue element
+    always breaks), spread over the stretch to the next cue at reading pace
+    (2.1 words a second, by word count), or faster only where the stretch is
+    shorter than that (as the narration goes there); the last caption of a
+    stretch holds until the next cue, and a chapter's last line is spread to
+    end 0.75 s before the chapter does, so a slideshow stop shows its last
+    caption. The pass story's captions are in the device's language (its
+    panel is). How they read and follow on a headset is untested.
 - Sound belongs to the shell (`HOST.audio` in `index.html`); stories only say
   what should play. A story asks for its file with
   `AUD = HOST.audio.narration(url, { ready, error })` and calls
@@ -436,12 +463,12 @@ spot, y over the floor) and `st.<id>.place` (the scene: `{ x, y, z }` moved from
 where the story puts it, and `s` its size, a factor on the story's own; FORMAT
 networks-8; both gain `q`, `[x, y, z, w]` to 4 decimals, the scene's turn and the
 panel's tilt left by a free grip, absent when there is none; FORMAT networks-22),
-`look` (the headsets' two settings, `{ labels, free, by, at }`: set by anyone,
+`look` (the headsets' three settings, `{ labels, free, subs, by, at }`: set by anyone,
 from a page's Shared dialog or a headset's menu, never refused by the layout
-lock; a room without it gives everything in 3D; free moving turned off takes
+lock; a room without it gives everything in 3D and no subtitles; free moving turned off takes
 every `q` out of the stations' places and panels in the same write), and per shared space `rf.<space id>` (the room's frame in it) and
 `rs.<space id>` (found split; FORMAT networks-9), and `sg` (the room's shared-space
-generation, `{ n, by, at }`; FORMAT networks-10; networks-11 when the eighth story came, networks-12 the ninth, networks-13 the tenth, networks-14 the eleventh, networks-15 the twelfth, networks-16 the thirteenth, networks-17 when the PET story's `state()` lost its one-scan fields, networks-18 when its liver scene came back, networks-19 when the ovary story's charts went, networks-20 when the pass story's school got a shared place at a station, networks-21 when the fourteenth story came, networks-22 when the scene's and the panel's turn joined a station's place, networks-23 when the fifteenth story came). The plan is `docs/shared-space-plan.md`.
+generation, `{ n, by, at }`; FORMAT networks-10; networks-11 when the eighth story came, networks-12 the ninth, networks-13 the tenth, networks-14 the eleventh, networks-15 the twelfth, networks-16 the thirteenth, networks-17 when the PET story's `state()` lost its one-scan fields, networks-18 when its liver scene came back, networks-19 when the ovary story's charts went, networks-20 when the pass story's school got a shared place at a station, networks-21 when the fourteenth story came, networks-22 when the scene's and the panel's turn joined a station's place, networks-23 when the fifteenth story came, networks-24 when subtitles joined `look`). The plan is `docs/shared-space-plan.md`.
 
 - `HOST.collab` keeps the room's keys (echo suppression by value, optimistic
   writes acknowledged by the relay, apply order stations > clock > state >
@@ -642,9 +669,9 @@ generation, `{ n, by, at }`; FORMAT networks-10; networks-11 when the eighth sto
   Exit, the headset Stories screen keeps its own), *Slideshow: on/off* (`HOST.slides.setGlobal`, for
   every story, shown when `HOST.slides` exists) and *Sound check* (a page in
   place of the rest: the two beeps, the engine choice, Reset the sound and
-  `HOST.audio.report()`, redrawn twice a second; Back); *Labels* and *Moving* (the
-  two headset settings, `HOST.xr`; in a room a line under them says they are
-  the same for everyone there); then the shared room (its
+  `HOST.audio.report()`, redrawn twice a second; Back); *Labels*, *Moving* and
+  *Subtitles* (the three headset settings, `HOST.xr`; in a room a line beside
+  Subtitles says they are the same for everyone there); then the shared room (its
   code and people as the section's heading, the rooms, the question, the
   room's alignment, stations, people, You; the canvas holds the tallest case,
   a room on this headset with a three-line note, and People shows only as many
@@ -922,6 +949,14 @@ reference, `tools/flock/engine/`):
   `const xrAway = () => !!(HOST.room && HOST.room.away && HOST.room.away());`
   (away from its station: the story hidden and paused); a shell without
   `HOST.room.away` gives the old behaviour.
+- The caption hook for the shell's subtitles, next to `xrAway`:
+  `const xrCaption = () => { ... }` (null in explore mode, on the Stories
+  screen and away from a station; else `{ s, end, els, narrT }`: the story time
+  now, the chapter on show's end, its cues as `ST.items` keeps them, each
+  `{ el, at, out }` in story time, and `narrT` to the clock's time), and
+  `caption: xrCaption,` in the returned object, after `inputs`. The shell does
+  the reading, splitting, timing and drawing; a story without it (the design
+  room) simply has no subtitles.
 - `xrPoint`: after raycasting its own panels (`hs`),
   `const sh = HOST.collab.ray(c.i, c.o, c.d, hs.length ? hs[0].distance : Infinity);`;
   a hit (`kind: 'shell'`: the shell's menu and its clock, the other stations' cards and
@@ -1634,7 +1669,7 @@ the robot gang every rule, a click to walk, crumbs, a big open floor and one
 with no area, and a pretend headset room from detected planes),
 switches stories, runs anchored placement in each
 story with a pretend headset (an origin that jumps, anchors that stay, saved
-handles), checks the two headset settings with a pretend headset in a page of
+handles), checks the three headset settings with a pretend headset in a page of
 its own (everything in 3D by default; the menu's Labels and Moving buttons
 going round, kept across a reload, set by a link; for the qubits, the flock and
 the airports: labels on top as sprites, in 3D as depth-tested upright signs
@@ -1646,7 +1681,12 @@ in story and explore mode, A or X still playing; back again from hidden; the
 Stories screen's panels on top throughout; a free grip turning the scene 90 degrees with the hand, the
 point held staying in it, staying when let go and facing you again with free
 moving off; the panel tilting with the hand; the flock's grip taking only the
-panel), and fails on console errors:
+panel; subtitles: off by default with nothing drawn, on through the menu's row,
+kept across a reload, set by `#subs=on`, the caption the words of the line on
+show (several captions for a long line) changing with the clock, holding while
+paused, none in explore mode or on the Stories screen, still for a 10 degree
+turn of the head and following a 40 degree one with lag, the pass story's in
+German, the hook in all fifteen), and fails on console errors:
 
 ```sh
 npx http-server -p 8123 -c-1 .          # or: python3 -m http.server 8123
@@ -1709,10 +1749,11 @@ on the first story followed, also a slideshow stop on one page pausing the
 station for the others at the chapter's end, and its Next playing it again.
 Before that: Arrange all's rows, a code with no room, Remove asking first.
 After: a station moved and turned on the room map (and refused while the
-layout is locked), the headsets' two settings as the room's (everything in 3D
-in a room without them; set on one page, or in another's Shared dialog with the
-layout locked, for every page; free moving off taking the turns out of the
-stations' places and panels; kept across the relay restart),
+layout is locked), the headsets' three settings as the room's (everything in 3D
+and no subtitles in a room without them; set on one page, or in another's Shared
+dialog with the layout locked, for every page; free moving off taking the turns
+out of the stations' places and panels; kept across the relay restart and, in a
+room on this device, across a reload),
 two controls changed at once on two pages (both kept), two stations
 followed back to back (the second not lost), a story picked by hand (stops
 following), no writes while idle (no ping-pong), a late joiner, a relay restart, and

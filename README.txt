@@ -124,7 +124,7 @@ hand tracking; beside the story panel without either). Touch it with the right
 controller's tip or your right index finger, click the left stick, or point at
 it and pull the trigger, to open the menu above it; the same closes it again.
 Inside: Exit (leaves VR or AR; the story panels have none), Slideshow for every
-story, Sound check, two headset settings for every story, and the shared room. With hand
+story, Sound check, three headset settings for every story, and the shared room. With hand
 tracking a fingertip presses its buttons too, or pinch while pointing. Labels:
 in 3D (the default: the scene's labels stand in the scene as signs turned to
 you, and the story panels, the stations' cards and people's name tags stand in
@@ -135,9 +135,12 @@ panels drawn over everything, as before); each press goes to the next. Moving:
 free (the default: the grip holds the scene like a real object and turns it
 with your hand, two hands turn it too; the story panel can tilt; Recenter
 puts things back) or facing you (things you move keep facing you and the
-panel stays upright). In a shared room both settings are the room's, the
-same for everyone in it (also set in the Shared dialog; the layout lock does
-not stop them), and a scene turned at a station is turned for everyone there.
+panel stays upright). Subtitles: off (the default) or on (the narration's words
+in a strip low in your view while a story plays, following your head when you
+turn away; #subs=on in a link turns them on). In a shared room all three
+settings are the room's, the same for everyone in it (also set in the Shared
+dialog; the layout lock does not stop them), and a scene turned at a station is
+turned for everyone there.
 #labels=face|fixed|hidden and #free=on|off in a link set them.
 At a station the flock flies round the station's spot, roughly in the same place for everyone (one device leads, the others follow it), with the
 same falcons. The robots move separately on each device; their controls and crumbs are shared. Others join a room through the relay
