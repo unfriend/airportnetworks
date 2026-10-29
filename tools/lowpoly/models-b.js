@@ -221,18 +221,18 @@ var LOWPOLY_MODELS = LOWPOLY_MODELS || {};
     const h = (x, z) => Y0 - 0.2 * Math.exp(-((x - V1[0]) ** 2 + (z - V1[1]) ** 2) / 0.09) - 0.2 * Math.exp(-((x - V2[0]) ** 2 + (z - V2[1]) ** 2) / 0.09) + 0.012 * Math.sin(7 * x) * Math.cos(6 * z);
     const ground = g.plane(2, 2, 10, 10); ground.rotateX(-PI / 2);
     const gp = ground.attributes.position; for (let i = 0; i < gp.count; i++) gp.setY(i, h(gp.getX(i), gp.getZ(i))); ground.computeVertexNormals();
-    M.add('glow', ground, w => lerp(M.rgb('#26304c'), M.rgb('#e0b54e'), Math.min(1, Math.max(0, (Y0 - w.y) / 0.17)) ** 1.5));   // valleys glow amber
+    M.add('glow', ground, w => lerp(M.rgb('#1a2238'), M.rgb('#e0b54e'), Math.min(1, Math.max(0, (Y0 - w.y) / 0.17)) ** 1.5));   // valleys glow amber
     for (const [x, z, sx, sz] of [[0, 1.01, 2.04, 0.02], [0, -1.01, 2.04, 0.02], [1.01, 0, 0.02, 2], [-1.01, 0, 0.02, 2]]) M.add('mat', g.box(sx, Y0, sz), '#2a3552', [x, Y0 / 2, z]);
     const N = [];
-    for (let i = 0; i < 30; i++) {   // genes: most gathered round the valleys, the rest on the streets
-      const c = i < 12 ? V1 : i < 24 ? V2 : [(r() - 0.5) * 1.6, (r() - 0.5) * 1.6], s = i < 24 ? 0.32 : 0;
+    for (let i = 0; i < 40; i++) {   // genes: some gathered round the valleys, the rest across the map
+      const c = i < 10 ? V1 : i < 20 ? V2 : [(r() - 0.5) * 1.7, (r() - 0.5) * 1.7], s = i < 20 ? 0.3 : 0;
       const x = Math.max(-0.92, Math.min(0.92, c[0] + (r() - 0.5) * 2 * s)), z = Math.max(-0.92, Math.min(0.92, c[1] + (r() - 0.5) * 2 * s));
       N.push([x, h(x, z) + 0.03, z]);
       M.add('glow', g.oct(0.045), '#c9d2ff', N[i]);
     }
     const seen = new Set();
     N.forEach((p, i) => N.map((q, j) => [j, (p[0] - q[0]) ** 2 + (p[2] - q[2]) ** 2]).filter(d => d[0] !== i).sort((a, b) => a[1] - b[1]).slice(0, 2).forEach(([j]) => {
-      const k = Math.min(i, j) + ',' + Math.max(i, j); if (seen.has(k) || seen.size >= 40) return; seen.add(k);
+      const k = Math.min(i, j) + ',' + Math.max(i, j); if (seen.has(k) || seen.size >= 32) return; seen.add(k);
       M.add('glow', g.rod(p, N[j], 0.008, 3), '#8a93e8');
     }));
     const W1 = [V1[0], h(V1[0], V1[1]) + 0.07, V1[1]], W2 = [V2[0], h(V2[0], V2[1]) + 0.07, V2[1]];
@@ -352,7 +352,7 @@ var LOWPOLY_MODELS = LOWPOLY_MODELS || {};
     tiles.push(lerp(t5, [0, up, 0], 0.55), [t5[0] * 0.5, up + 0.1, t5[2] * 0.5 + 0.12], [b5[0] * 0.5, up + 0.1, b5[2] * 0.5 + 0.12], lerp(b5, [0, up, 0], 0.55));   // the loop
     for (let k = 5; k >= 0; k--) tiles.push(at(k, 1));
     M.add('gloss', g.tube(tiles, 0.028, 40, 4), '#9fb6d6');
-    tiles.forEach((p, i) => M.add('gloss', g.box(0.12, 0.12, 0.04), LET[seq[i]], [p[0] * 1.25, p[1], p[2] * 1.25], [0, Math.atan2(p[0], p[2]), 0]));
+    tiles.forEach((p, i) => M.add('gloss', g.box(0.12, 0.12, 0.04), LET[seq[i]], [p[0] * 1.1, p[1], p[2] * 1.1], [0, Math.atan2(p[0], p[2]), 0]));
     for (let k = 0; k < 6; k++) M.add('glow', g.rod(at(k, 0), at(k, 1), 0.016, 4), '#f2f6ff');
     const c4 = lerp(at(4, 0), at(4, 1), 0.5);   // the pair that changes together: the coupling gear and its double band
     M.add('glow', g.gear(0.11, 8, 0.03), '#0072b2', [c4[0], c4[1] + 0.07, c4[2]]);
@@ -362,20 +362,20 @@ var LOWPOLY_MODELS = LOWPOLY_MODELS || {};
 
   // ================================================================== the shape of tissue
   def('topo.slide', 'Liver on a glass slide', 'A piece of liver drawn in H&E from its cells, pink plates of hepatocytes round a white central vein, on a glass slide with its frosted label.', 560, (M, g, r) => {
-    M.add('gloss', g.ext([[-0.6, 0], [0.62, 0], [0.62, 0.58], [-0.6, 0.06]], 2.8), NAVY, [-1.4, 0, 0], [0, PI / 2, 0]);   // a wedge stand that tilts it to you
+    M.add('gloss', g.ext([[-0.68, 0], [0.7, 0], [0.7, 0.62], [-0.68, 0.06]], 2.5), NAVY, [-1.25, 0, 0], [0, PI / 2, 0]);   // a wedge stand that tilts it to you
     M.frame([0, 0.34, -0.04], [0.4, 0, 0]);
-    M.add('glass', g.box(3.0, 0.04, 1.2), '#cfefff', [0, 0.02, 0]);
-    M.add('mat', g.box(0.75, 0.044, 1.18), '#dfe6ee', [-1.12, 0.022, 0]);
-    const vx = 0.5, vz = -0.05, Y = 0.044;
-    const tis = g.plane(1.1, 1.1, 8, 8); tis.rotateX(-PI / 2);
-    M.add('flat', tis, w => Math.hypot(w.x - vx, w.z - vz) < 0.1 ? '#fbf4f7' : lerp(M.rgb('#e7a3c0'), M.rgb('#f2c4d6'), r()), [0.55, Y, 0]);
-    for (let k = 0; k < 9; k++) {   // cords of hepatocytes run out from the vein, their nuclei along them
-      const a = k / 9 * 2 * PI + 0.2, d = [Math.cos(a), 0, Math.sin(a)], len = 0.32 + 0.12 * r();
+    M.add('glass', g.box(2.6, 0.04, 1.36), '#cfefff', [0, 0.02, 0]);
+    M.add('mat', g.box(0.62, 0.044, 1.34), '#c9d3dd', [-0.98, 0.022, 0]);
+    const vx = 0.55, vz = -0.05, Y = 0.044;
+    const tis = g.plane(1.26, 1.26, 8, 8); tis.rotateX(-PI / 2);
+    M.add('flat', tis, w => Math.hypot(w.x - vx, w.z - vz) < 0.1 ? '#fbf4f7' : lerp(M.rgb('#de8db2'), M.rgb('#efb6cd'), r()), [0.6, Y, 0]);
+    for (let k = 0; k < 12; k++) {   // cords of hepatocytes run out from the vein, their nuclei along them
+      const a = k / 12 * 2 * PI + 0.2, d = [Math.cos(a), 0, Math.sin(a)], len = 0.42 + 0.14 * r();
       const p0 = [vx + d[0] * 0.12, Y + 0.003, vz + d[2] * 0.12], p1 = [vx + d[0] * len, Y + 0.003, vz + d[2] * len];
-      M.add('flat', g.strip([p0, lerp(p0, p1, 0.5), p1], [-d[2], 0, d[0]], 0.06), '#d98fb0');
-      for (let j = 0; j < 4; j++) M.add('flat', g.disc(0.021, 6), '#3b2a7a', lerp(p0, p1, (j + 0.5) / 4).map((v, i) => i === 1 ? Y + 0.006 : v), [-PI / 2, 0, 0]);
+      M.add('flat', g.strip([p0, lerp(p0, p1, 0.5), p1], [-d[2], 0, d[0]], 0.07), '#cf7aa2');
+      for (let j = 0; j < 5; j++) M.add('flat', g.disc(0.024, 6), '#3b2a7a', lerp(p0, p1, (j + 0.5) / 5).map((v, i) => i === 1 ? Y + 0.006 : v), [-PI / 2, 0, 0]);
     }
-    for (let k = 0; k < 8; k++) M.add('flat', g.disc(0.016, 5), k < 5 ? '#2a1d5c' : '#d9455f', [0.05 + r() * 1.0, Y + 0.006, -0.5 + r() * 1.0], [-PI / 2, 0, 0]);   // lymphocytes and red cells
+    for (let k = 0; k < 10; k++) M.add('flat', g.disc(0.018, 5), k < 6 ? '#2a1d5c' : '#d9455f', [0.02 + r() * 1.16, Y + 0.006, -0.6 + r() * 1.16], [-PI / 2, 0, 0]);   // lymphocytes and red cells
     M.frame();
   });
 

@@ -1736,7 +1736,7 @@ HOST.live = (function () {
   const quietly = fn => { const q = HOST.quiet; HOST.quiet = true; try { return fn(); } finally { HOST.quiet = q; } };
   const KEY = /^[a-z][a-z0-9-]{0,31}$/;
   const known = key => HOST.list.some(m => m.key === key);
-  const title = key => { const m = HOST.list.find(s => s.key === key); return m ? m.title : key; };
+  const title = key => { const m = HOST.list.find(s => s.key === key) || (self.STORY_LIST || []).find(s => s && s.key === key); return m ? m.title : key; };
   // the app's root: the relay serves it under s/<n>/ too (a room's fresh shared space, shared.js)
   const root = () => new URL(/\/s\/\d{1,4}\/(?:index\.html)?$/.test(location.pathname) ? '../../' : './', location.href).href;
   const listFp = () => HOST.fingerprint(JSON.stringify(HOST.list));
@@ -1827,6 +1827,7 @@ HOST.live = (function () {
     if (L.ask && L.ask.text === text && !(again && L.ask.hidden)) return;
     L.ask = { kind, key: key || '', text, hidden: L.later === text && !again };
     show();
+    setTimeout(() => HOST.reloadIfUpdated(), 0);   // (on the page's Stories screen it is taken at once)
   }
   function later() {
     if (L.ask && !L.ask.hidden) { L.later = L.ask.text; L.ask.hidden = true; } else L.note = '';

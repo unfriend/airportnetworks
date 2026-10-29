@@ -24,17 +24,20 @@ var LOWPOLY_MODELS = LOWPOLY_MODELS || {};
   // the body set's hot-iron map, as the PET scans are drawn
   const IRON = [[0, '#160303'], [0.3, '#6a0d06'], [0.5, '#c22a0a'], [0.68, '#ff7414'], [0.85, '#ffd25a'], [1, '#fff8e2']];
 
-  // a part placed by position, Euler turn and scale (number or [x, y, z]); scratch objects, as builds make hundreds
+  // a part placed by position, turn (Euler [x, y, z] or a quaternion) and scale (number or [x, y, z])
   let SM, SV, SS, SQ, SE;
   const M4 = (p, r, s) => {
     if (!SM || SM.constructor !== T.Matrix4) { SM = new T.Matrix4(); SV = new T.Vector3(); SS = new T.Vector3(); SQ = new T.Quaternion(); SE = new T.Euler(); }
     p = p || [0, 0, 0]; r = r || [0, 0, 0]; s = s === undefined ? 1 : s;
-    return SM.compose(SV.set(p[0], p[1], p[2]), SQ.setFromEuler(SE.set(r[0], r[1], r[2])), typeof s === 'number' ? SS.set(s, s, s) : SS.set(s[0], s[1], s[2]));
+    return SM.compose(SV.set(p[0], p[1], p[2]), r.isQuaternion ? SQ.copy(r) : SQ.setFromEuler(SE.set(r[0], r[1], r[2])), typeof s === 'number' ? SS.set(s, s, s) : SS.set(s[0], s[1], s[2]));
   };
+  let SN = null;
   const at = (g, p, r, s) => {
+    if (g.fast && !r && (s === undefined || s === 1)) { const P = g.P; if (p) for (let i = 0; i < P.length; i += 3) { P[i] += p[0]; P[i + 1] += p[1]; P[i + 2] += p[2]; } return g; }
     const m = M4(p, r, s);
     if (!g.fast) return g.applyMatrix4(m);
-    const e = m.elements, nm = new T.Matrix3().getNormalMatrix(m).elements, P = g.P, N = g.N;
+    if (!SN || SN.constructor !== T.Matrix3) SN = new T.Matrix3();
+    const e = m.elements, nm = SN.getNormalMatrix(m).elements, P = g.P, N = g.N;
     for (let i = 0; i < P.length; i += 3) {
       const x = P[i], y = P[i + 1], z = P[i + 2], a = N[i], b = N[i + 1], c = N[i + 2];
       P[i] = e[0] * x + e[4] * y + e[8] * z + e[12]; P[i + 1] = e[1] * x + e[5] * y + e[9] * z + e[13]; P[i + 2] = e[2] * x + e[6] * y + e[10] * z + e[14];
@@ -43,39 +46,91 @@ var LOWPOLY_MODELS = LOWPOLY_MODELS || {};
     }
     return g;
   };
-  const box = (w, h, d, p, r) => at(new T.BoxGeometry(w, h, d), p, r);
-  const sph = (rad, ws, hs, p, s, r) => at(new T.SphereGeometry(rad, ws, hs), p, r, s);
-  const ico = (rad, det, p, s) => at(new T.IcosahedronGeometry(rad, det), p, null, s);
-  const cyl = (rt, rb, h, n, p, r, open) => at(new T.CylinderGeometry(rt, rb, h, n, 1, !!open), p, r);
-  const tor = (R, r, rs, ts, p, rot, arc) => at(new T.TorusGeometry(R, r, rs, ts, arc || Math.PI * 2), p, rot);
-  const disc = (rad, n, p, r) => at(new T.CircleGeometry(rad, n), p, r);
+
+  // the common shapes are written straight into arrays ({ fast, P, N }): a three.js geometry for every node, link and
+  // box made a build slow. Each triangle is wound to face along its points' normals, and empty ones are dropped.
+  const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+  function mesh() {
+    const P = [], N = [];
+    return {
+      P, N, fast: true,
+      tri(a, b, c) {                             // points [x, y, z, nx, ny, nz]
+        const ux = b[0] - a[0], uy = b[1] - a[1], uz = b[2] - a[2], vx = c[0] - a[0], vy = c[1] - a[1], vz = c[2] - a[2];
+        const x = uy * vz - uz * vy, y = uz * vx - ux * vz, z = ux * vy - uy * vx;
+        if (Math.abs(x) + Math.abs(y) + Math.abs(z) < 1e-12) return;
+        if (x * (a[3] + b[3] + c[3]) + y * (a[4] + b[4] + c[4]) + z * (a[5] + b[5] + c[5]) < 0) { const t = b; b = c; c = t; }
+        P.push(a[0], a[1], a[2], b[0], b[1], b[2], c[0], c[1], c[2]); N.push(a[3], a[4], a[5], b[3], b[4], b[5], c[3], c[4], c[5]);
+      },
+      flat(a, b, c) { const n = norm3(cross([b[0] - a[0], b[1] - a[1], b[2] - a[2]], [c[0] - a[0], c[1] - a[1], c[2] - a[2]])); this.tri([...a, ...n], [...b, ...n], [...c, ...n]); },
+    };
+  }
+  function surf(nu, nv, f, m) {                  // a grid of nu x nv cells, f(u, v) -> [x, y, z, nx, ny, nz]
+    m = m || mesh();
+    const G = [];
+    for (let j = 0; j <= nv; j++) for (let i = 0; i <= nu; i++) G.push(f(i / nu, j / nv));
+    for (let j = 0; j < nv; j++) for (let i = 0; i < nu; i++) {
+      const a = G[j * (nu + 1) + i], b = G[j * (nu + 1) + i + 1], c = G[(j + 1) * (nu + 1) + i + 1], d = G[(j + 1) * (nu + 1) + i];
+      m.tri(a, b, c); m.tri(a, c, d);
+    }
+    return m;
+  }
+  const sphF = (r, ws, hs, tl) => surf(ws, hs, (u, v) => { const ph = u * 6.2832, th = v * (tl || Math.PI), x = -Math.cos(ph) * Math.sin(th), y = Math.cos(th), z = Math.sin(ph) * Math.sin(th); return [r * x, r * y, r * z, x, y, z]; });
+  function cylF(rt, rb, h, n, hs, open, t0, tl) {  // as three's CylinderGeometry: x = r sin t, z = r cos t
+    t0 = t0 || 0; tl = tl || 6.2832;
+    const k = (rb - rt) / h, l = Math.hypot(1, k);
+    const m = surf(n, hs || 1, (u, v) => { const t = t0 + u * tl, r = lerp(rt, rb, v), si = Math.sin(t), co = Math.cos(t); return [r * si, h / 2 - v * h, r * co, si / l, k / l, co / l]; });
+    if (!open) for (const [y, r, ny] of [[h / 2, rt, 1], [-h / 2, rb, -1]]) if (r > 0) for (let i = 0; i < n; i++) {
+      const a = t0 + tl * i / n, c = t0 + tl * (i + 1) / n;
+      m.tri([0, y, 0, 0, ny, 0], [r * Math.sin(a), y, r * Math.cos(a), 0, ny, 0], [r * Math.sin(c), y, r * Math.cos(c), 0, ny, 0]);
+    }
+    return m;
+  }
+  const torF = (R, r, rs, ts, arc) => surf(ts, rs, (u, v) => { const a = u * arc, b = v * 6.2832, cb = Math.cos(b); return [(R + r * cb) * Math.cos(a), (R + r * cb) * Math.sin(a), r * Math.sin(b), cb * Math.cos(a), cb * Math.sin(a), Math.sin(b)]; });
+  function discF(r, n) {                         // in the x-y plane, facing +z
+    const m = mesh();
+    for (let i = 0; i < n; i++) { const a = 6.2832 * i / n, c = 6.2832 * (i + 1) / n; m.tri([0, 0, 0, 0, 0, 1], [r * Math.cos(a), r * Math.sin(a), 0, 0, 0, 1], [r * Math.cos(c), r * Math.sin(c), 0, 0, 0, 1]); }
+    return m;
+  }
+  function boxF(w, h, d) {
+    const m = mesh(), x = w / 2, y = h / 2, z = d / 2;
+    for (const [n, u, v] of [[[1, 0, 0], [0, 1, 0], [0, 0, 1]], [[-1, 0, 0], [0, 1, 0], [0, 0, 1]], [[0, 1, 0], [1, 0, 0], [0, 0, 1]], [[0, -1, 0], [1, 0, 0], [0, 0, 1]], [[0, 0, 1], [1, 0, 0], [0, 1, 0]], [[0, 0, -1], [1, 0, 0], [0, 1, 0]]]) {
+      const q = (a, b) => [n[0] * x + (u[0] * a + v[0] * b) * x, n[1] * y + (u[1] * a + v[1] * b) * y, n[2] * z + (u[2] * a + v[2] * b) * z, ...n];
+      m.tri(q(-1, -1), q(1, -1), q(1, 1)); m.tri(q(-1, -1), q(1, 1), q(-1, 1));
+    }
+    return m;
+  }
+  const ICO = (() => { const t = (1 + Math.sqrt(5)) / 2, l = Math.hypot(1, t); return [[-1, t, 0], [1, t, 0], [-1, -t, 0], [1, -t, 0], [0, -1, t], [0, 1, t], [0, -1, -t], [0, 1, -t], [t, 0, -1], [t, 0, 1], [-t, 0, -1], [-t, 0, 1]].map(p => p.map(c => c / l)); })();
+  const ICOF = [0, 11, 5, 0, 5, 1, 0, 1, 7, 0, 7, 10, 0, 10, 11, 1, 5, 9, 5, 11, 4, 11, 10, 2, 10, 7, 6, 7, 1, 8, 3, 9, 4, 3, 4, 2, 3, 2, 6, 3, 6, 8, 3, 8, 9, 4, 9, 5, 2, 4, 11, 6, 2, 10, 8, 6, 7, 9, 8, 1];
+  function icoF(r) {                             // 20 flat faces, as three's IcosahedronGeometry at detail 0
+    const m = mesh();
+    for (let f = 0; f < 60; f += 3) {
+      const [a, b, c] = [ICOF[f], ICOF[f + 1], ICOF[f + 2]].map(i => mul3(ICO[i], r)), n = norm3(add3(add3(a, b), c));
+      m.tri([...a, ...n], [...b, ...n], [...c, ...n]);
+    }
+    return m;
+  }
+  function octa(rad, p, s) {                     // an octahedron (8 flat faces), scaled by s
+    const k = Array.isArray(s) ? s : [s || 1, s || 1, s || 1], m = mesh();
+    for (const a of [-1, 1]) for (const b of [-1, 1]) for (const c of [-1, 1]) {
+      const n = norm3([a / k[0], b / k[1], c / k[2]]);
+      m.tri([p[0] + a * rad * k[0], p[1], p[2], ...n], [p[0], p[1] + b * rad * k[1], p[2], ...n], [p[0], p[1], p[2] + c * rad * k[2], ...n]);
+    }
+    return m;
+  }
+  const box = (w, h, d, p, r) => at(boxF(w, h, d), p, r);
+  const sph = (rad, ws, hs, p, s, r) => at(sphF(rad, ws, hs), p, r, s);
+  const ico = (rad, det, p, s) => at(icoF(rad), p, null, s);
+  const cyl = (rt, rb, h, n, p, r, open) => at(cylF(rt, rb, h, n, 1, open), p, r);
+  const tor = (R, r, rs, ts, p, rot, arc) => at(torF(R, r, rs, ts, arc || Math.PI * 2), p, rot);
+  const disc = (rad, n, p, r) => at(discF(rad, n), p, r);
   const lathe = (pts, n, p, s, r) => at(new T.LatheGeometry(pts.map(q => new T.Vector2(q[0], q[1])), n), p, r, s);
   const tube = (pts, seg, rad, n) => { const c = new T.CatmullRomCurve3(pts.map(q => new T.Vector3(q[0], q[1], q[2]))); c.arcLengthDivisions = 4 * seg; return new T.TubeGeometry(c, seg, rad, n, false); };
-  // the small parts (nodes and links) are written straight into arrays: a three.js geometry each made networks slow
-  const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
-  function octa(rad, p, s) {                     // an octahedron (8 triangles), flat-shaded, scaled by s
-    const k = Array.isArray(s) ? s : [s || 1, s || 1, s || 1], sx = rad * k[0], sy = rad * k[1], sz = rad * k[2], P = [], N = [];
-    for (const a of [-1, 1]) for (const b of [-1, 1]) for (const c of [-1, 1]) {
-      const A = [p[0] + a * sx, p[1], p[2]], B = [p[0], p[1] + b * sy, p[2]], C = [p[0], p[1], p[2] + c * sz], n = norm3([a / sx, b / sy, c / sz]);
-      if (a * b * c > 0) P.push(...A, ...B, ...C); else P.push(...A, ...C, ...B);
-      N.push(...n, ...n, ...n);
-    }
-    return { fast: true, P, N };
-  }
   // a rod from a to b (radius r1 at a, r2 at b, n sides); open by default, as the thin links are
   function rod(a, b, r1, r2, n, open) {
     n = n || 4; if (r2 === undefined) r2 = r1;
-    if (open === false) {
-      const A = new T.Vector3(...a), B = new T.Vector3(...b), d = B.clone().sub(A), L = d.length() || 1e-6;
-      return new T.CylinderGeometry(r2, r1, L, n, 1, false).applyMatrix4(new T.Matrix4().compose(A.add(B).multiplyScalar(0.5), new T.Quaternion().setFromUnitVectors(new T.Vector3(0, 1, 0), d.normalize()), new T.Vector3(1, 1, 1)));
-    }
-    const d = norm3([b[0] - a[0], b[1] - a[1], b[2] - a[2]]), u = norm3(cross(d, Math.abs(d[1]) < 0.9 ? [0, 1, 0] : [1, 0, 0])), v = cross(d, u), P = [], N = [];
-    for (let k = 0; k < n; k++) {             // u x v = d, so the sides wind counter-clockwise seen from outside
-      const t0 = 6.2832 * k / n, t1 = 6.2832 * (k + 1) / n, e0 = add3(mul3(u, Math.cos(t0)), mul3(v, Math.sin(t0))), e1 = add3(mul3(u, Math.cos(t1)), mul3(v, Math.sin(t1)));
-      const a0 = add3(a, mul3(e0, r1)), a1 = add3(a, mul3(e1, r1)), b0 = add3(b, mul3(e0, r2)), b1 = add3(b, mul3(e1, r2));
-      P.push(...a0, ...a1, ...b1, ...a0, ...b1, ...b0); N.push(...e0, ...e1, ...e1, ...e0, ...e1, ...e0);
-    }
-    return { fast: true, P, N };
+    const d = [b[0] - a[0], b[1] - a[1], b[2] - a[2]], L = len3(d) || 1e-6;
+    const q = new T.Quaternion().setFromUnitVectors(new T.Vector3(0, 1, 0), new T.Vector3(d[0] / L, d[1] / L, d[2] / L));
+    return at(cylF(r2, r1, L, n, 1, open !== false), mul3(add3(a, b), 0.5), q);
   }
   // a flat shape (points [x, s], s = -z) extruded up from y0 by h
   function slab(pts, h, y0, opt) {
@@ -253,7 +308,7 @@ var LOWPOLY_MODELS = LOWPOLY_MODELS || {};
     }
     const CC = [0.17, 0.22, 0.06];                                                // an X-shaped chromosome, banded
     for (const [dx, dy] of [[-0.045, 0.13], [0.045, 0.13], [-0.055, -0.13], [0.055, -0.13]]) {
-      const g = at(new T.CylinderGeometry(0.026, 0.026, Math.hypot(dx, dy), 6, 3, false), [CC[0] + dx / 2, CC[1] + dy / 2, CC[2]], [0, 0, -Math.atan2(dx, dy)]);
+      const g = at(cylF(0.026, 0.026, Math.hypot(dx, dy), 6, 3, false), [CC[0] + dx / 2, CC[1] + dy / 2, CC[2]], [0, 0, -Math.atan2(dx, dy)]);
       b.add('soft', g, (x, y) => (Math.floor(Math.abs(y - CC[1]) / 0.03) % 2 ? '#b9a6ff' : '#5aa0ff'));
     }
   });
@@ -443,7 +498,7 @@ var LOWPOLY_MODELS = LOWPOLY_MODELS || {};
     });
     const TC = ['#46d9ff', '#3ee08f', '#a77bff', '#ffb43b', '#ff5ad9'];
     for (let i = 0; i < 6; i++) {                                                                   // tiny towers in the field round the hall
-      const x = -0.42 + i * 0.168, z = i % 2 ? 0.385 : -0.385, g = new T.CylinderGeometry(0.022, 0.022, 0.1, 6, 3, true);
+      const x = -0.42 + i * 0.168, z = i % 2 ? 0.385 : -0.385, g = cylF(0.022, 0.022, 0.1, 6, 3, true);
       b.add('glow', at(g, [x, 0.08, z]), (px, py) => TC[Math.max(0, Math.min(4, Math.floor((py - 0.03) / 0.022)))]);
     }
   });
@@ -461,7 +516,7 @@ var LOWPOLY_MODELS = LOWPOLY_MODELS || {};
     }
     b.add('glass', box(0.8, 0.004, 0.44, [0, 0.345, 0]), '#bfe6ff');            // basement membrane in the cleft
     const B0 = [0, 0.36, 0], r = rng(6);
-    b.add('glass', at(new T.SphereGeometry(0.27, 12, 5, 0, Math.PI * 2, 0, Math.PI / 2), B0, null, [1, 0.78, 0.85]), '#a8d8ff');   // the bouton
+    b.add('glass', at(sphF(0.27, 12, 5, Math.PI / 2), B0, null, [1, 0.78, 0.85]), '#a8d8ff');   // the bouton
     for (let i = 0; i < 16; i++) { const a = r() * 6.28, d = 0.2 * Math.sqrt(r()), p = [d * Math.cos(a), 0.385 + 0.12 * r() * r(), d * Math.sin(a) * 0.8]; b.add('glow', ico(0.022, 0, p), '#5d9dff'); }
     b.add('soft', sph(0.035, 6, 4, [-0.08, 0.5, -0.03], [2, 0.8, 0.8], [0, 0.4, 0.2]), '#e05ad0');   // a mitochondrion
     const AX = [[0, 0.56, 0], [-0.1, 0.7, -0.02], [-0.28, 0.84, -0.04], [-0.44, 0.95, -0.05]];
@@ -589,16 +644,16 @@ var LOWPOLY_MODELS = LOWPOLY_MODELS || {};
 
   add('micro.atlas', 'Slide library', 'A curved wall of glass slides with their tissue on shelves, one shelf for each decade of age.', b => {
     const r = rng(14), RC = 1.0, A = 0.48, SH = [0.0, 0.17, 0.34, 0.51, 0.68], TIS = ['#d986b0', '#b46aa8', '#e8a0a0', '#c45a7a', '#d79a6a', '#a77bd0'];
-    const back = at(new T.CylinderGeometry(RC, RC, 0.8, 12, 2, true, Math.PI - A, 2 * A), [0, 0.4, RC]);
+    const back = at(cylF(RC, RC, 0.8, 12, 2, true, Math.PI - A, 2 * A), [0, 0.4, RC]);
     b.add('two', back, (x, y) => mix('#0e2140', '#284a80', (1 - Math.abs(x) / 0.5) * (1 - Math.abs(y - 0.4) / 0.4)));
     for (const y of SH) {
       b.add('solid', at(new T.RingGeometry(RC - 0.07, RC, 12, 1, Math.PI / 2 - A, 2 * A), [0, y, RC], [-Math.PI / 2, 0, 0]), '#122440');
-      b.add('glow', at(new T.CylinderGeometry(RC - 0.07, RC - 0.07, 0.008, 12, 1, true, Math.PI - A, 2 * A), [0, y + 0.004, RC]), '#5f8fd0');   // the shelf's bright lip
+      b.add('glow', at(cylF(RC - 0.07, RC - 0.07, 0.008, 12, 1, true, Math.PI - A, 2 * A), [0, y + 0.004, RC]), '#5f8fd0');   // the shelf's bright lip
     }
     for (const f of [-0.32, -0.16, 0.16, 0.32]) b.add('solid', box(0.012, 0.68, 0.05, [(RC - 0.035) * Math.sin(f), 0.34, RC - (RC - 0.035) * Math.cos(f)], [0, -f, 0]), '#0b1626');
     for (let k = 0; k < 4; k++) for (let j = 0; j < 13; j++) {
       const f = -0.44 + j * 0.88 / 12 + (r() - 0.5) * 0.01, R = RC - 0.035, yc = SH[k] + 0.065, tis = TIS[Math.floor(j / 13 * 6)];
-      b.add('soft', at(new T.BoxGeometry(0.042, 0.1, 0.007), [R * Math.sin(f), yc, RC - R * Math.cos(f)], [(r() - 0.5) * 0.15, -f + (r() - 0.5) * 0.25, (r() - 0.5) * 0.1]),
+      b.add('soft', at(boxF(0.042, 0.1, 0.007), [R * Math.sin(f), yc, RC - R * Math.cos(f)], [(r() - 0.5) * 0.15, -f + (r() - 0.5) * 0.25, (r() - 0.5) * 0.1]),
         (x, y) => (y > yc + 0.026 ? '#e3eaf0' : mix(tis, '#9fd0d8', 0.25)));
     }
   });
