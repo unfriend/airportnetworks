@@ -8,10 +8,10 @@ If you re-record with different timings, change NARRATION_SYNC near the top of
 stories/airports.js (pairs of [time in recording, original story cue]).
 Without the file the story plays silently on the same timing.
 
-The other stories have no recording yet. Their times below are the pace
-NARRATION_SYNC gives them now, set from the words on their panels by
-node tools/pace.mjs (so that each line can be read); a recording replaces it
-with its own times (see Recording a narration, step 3).
+The stories below have no recording yet, except the tour (synthetic, see
+below). Their times are the pace NARRATION_SYNC gives them now, set from the
+words on their panels by node tools/pace.mjs (so that each line can be read);
+a recording replaces it with its own times (see Recording a narration, step 3).
 
 The network-medicine story (#proteins) looks for narration-proteins.mp3. Its
 chapters start at 0:00, 0:15, 0:37, 1:01, 1:30, 1:52, 2:27, 2:58, 3:33 and
@@ -22,10 +22,15 @@ The cell map story (#spatial) looks for narration-spatial.mp3. Its chapters
 start at 0:00, 0:16, 0:50, 1:16, 1:50, 2:22, 3:00, 3:31, 4:04 and 4:37, ending
 at 5:09; change NARRATION_SYNC in stories/spatial.js if your recording differs.
 
-The tour of the Ludwig Boltzmann Institute (#lbi) looks for narration-lbi.mp3.
-Its chapters start at 0:00, 0:33, 1:12, 1:40, 2:25, 3:22, 4:34, 5:09, 5:56,
-6:36, 7:14, 7:51, 8:22 and 8:56, ending at 9:34; change NARRATION_SYNC in
-tools/lbi/engine/e3_story.js (then rebuild) if your recording differs.
+The tour of the Ludwig Boltzmann Institute (#lbi) has narration-lbi.mp3, a
+synthetic voice (Kokoro-82M, the American voice af_heart, chosen by the
+owner on 29 October 2026), made with node tools/voice/narrate.mjs lbi. Its
+chapters start at 0:00, 0:45, 1:22, 1:52, 2:39, 3:41, 4:55, 5:33, 6:30, 7:12,
+7:52, 8:44, 9:18 and 9:53, ending at 10:42. The script wrote NARRATION_SYNC
+and NARRATION_ENDS in tools/lbi/engine/e3_story.js from the recording; after
+the tour's text changes, run it again (see tools/voice/README.md) rather than
+tools/pace.mjs. A human recording can replace the file: then change both
+tables to it.
 
 The muscle story (#nmd) looks for narration-nmd.mp3. Its chapters start at
 0:00, 0:22, 1:21, 1:47, 2:45, 3:44, 4:27, 5:17, 6:25 and 7:08, ending at 7:47;
@@ -84,7 +89,9 @@ explore mode); change NARRATION_SYNC in tools/robots/engine/e3_story.js (then
 rebuild) if your recording differs.
 
 Recording a narration
-So far only the airports story has one (narration.mp3).
+So far the airports story has one (narration.mp3, recorded) and the tour has a
+synthetic one (narration-lbi.mp3). A synthetic voice for another story: see
+tools/voice/README.md (node tools/voice/narrate.mjs <key> does steps 1 to 3).
 1. Record from docs/narration.md: the words on each story's panel, chapter by
    chapter, with the time each line appears. It is made by
    node tools/narration.mjs http://127.0.0.1:8123/ (serve the folder first);

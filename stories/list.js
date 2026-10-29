@@ -22,7 +22,7 @@ self.STORY_LIST = [
   { key: 'lbi', kick: 'LBI Network Medicine', title: 'The future', col: '#ffb43b',
     desc: 'A 3D tour of the Ludwig Boltzmann Institute for Network Medicine: protein machines, the interactome as a map, rare diseases, organs and tissues.',
     page: 'A glimpse into the future of network medicine', brand: 'LBI NetMed', sub: 'a glimpse into the future',
-    aria: 'Interactive 3D tour of network medicine, from proteins to the whole body', thing: 'scene', loading: 'Building the scenes', len: 'Story 9:34 · 3D tour' },
+    aria: 'Interactive 3D tour of network medicine, from proteins to the whole body', thing: 'scene', loading: 'Building the scenes', len: 'Story 10:42 · 3D tour' },
   { key: 'nmd', kick: 'Rare muscle diseases', title: 'Muscle and heart', col: '#ff7a59',
     desc: 'Rare diseases of nerves and muscles in a 71-layer network: a random walk, disease modules, endotypes, and what muscle and heart share.',
     page: 'Rare muscle diseases, seen through 71 layers', brand: 'Muscle and heart', sub: 'rare diseases in 71 layers',
