@@ -884,8 +884,8 @@ function buildStory() {
   sfxCue(C.degree.a + 3, 'grow', null, 'AMS', { dur: 4, pitch: 1.3, gain: 0.4 });              // Amsterdam's routes fan out
   sfxCue(C.degree.a + 6, 'rise', null, null, { dur: 5, pitch: 1.2 });                          // pillars grow by degree
   if (path) {
-    sfxCue(C.paths.a + 3.2, 'pick', null, path[0]);                                            // the path's first airport
-    ST.hopEnds.forEach((t, k) => sfxCue(t, 'step', null, path[k + 1], { pitch: Math.pow(2, 2 * k / 12), gain: 0.5, seq: true }));   // each flight lands, a tone higher
+    sfxCue(C.paths.a + 3.2, 'pick', null, code[path[0]]);                                      // the path's first airport
+    ST.hopEnds.forEach((t, k) => sfxCue(t, 'step', null, code[path[k + 1]], { pitch: Math.pow(2, 2 * k / 12), gain: 0.5, seq: true }));   // each flight lands, a tone higher
   }
   sfxCue(C.betweenness.a + 6, 'whoosh', null, null, { dur: 4, pitch: 0.8 });                   // the pillars switch to betweenness
   sfxCue(C.betweenness.a + 19.2, 'link', null, 'ANC', { pitch: 0.8 });                         // Anchorage, the bridge, lights up

@@ -927,7 +927,10 @@
   // stretch sounds the same however the track is cut
   function renderStory(info, T0, T1, pre, vol) {
     pre = pre == null ? 3 : pre;
-    const s0 = Math.max(0, T0 - pre), secs = T1 - s0, c = offline(secs, 2), G = graph(c), at = n => n - s0;
+    // (earlier still while a cue that is still sounding then started before: a sound renders from its start)
+    let s0 = Math.max(0, T0 - pre);
+    for (let more = true; more;) { more = false; for (const q of info.cues) if (SOUNDS[q.name] && q.n < s0 && q.n + length(q.name, q.o) + 0.6 > s0) { s0 = q.n; more = true; } }
+    const secs = T1 - s0, c = offline(secs, 2), G = graph(c), at = n => n - s0;
     G.vol.gain.value = vol == null ? 1 : vol * vol;
     if (info.speaking) G.duck.gain.value = DUCK;
     const b = bed(G, info.key, 0, hash(info.key) + Math.floor(s0 / 60));   // (the bed's random numbers: its own per minute)
@@ -935,8 +938,7 @@
     b.fill(secs);
     for (const s of b.srcs) s.stop(secs);
     info.cues.forEach((q, i) => {
-      if (q.n < s0 - 40 || q.n >= T1 || !SOUNDS[q.name]) return;
-      if (q.n + length(q.name, q.o) + 0.6 < s0) return;
+      if (q.n < s0 || q.n >= T1 || !SOUNDS[q.name]) return;
       voice(G, q.name, at(q.n) + LEAD, Object.assign({}, q.o, { pan: q.pan || 0, seed: hash(q.name) + i * 7919 }));
     });
     (info.spans || []).forEach((q, i) => {
