@@ -30,20 +30,20 @@ var LOWPOLY_MODELS = LOWPOLY_MODELS || {};
   // A colour is a hex string, [r, g, b] or a function (centroid, normal, local centroid) -> colour, asked per triangle
   // (or per vertex when wrapped in smooth()).
   function Mini(T, r) {
-    const parts = {}, P = new T.Matrix4(), q = new T.Quaternion(), e = new T.Euler(), C = new T.Color();
-    const v3 = a => new T.Vector3(a[0], a[1], a[2]);
-    const m4 = (at, rot, sc) => new T.Matrix4().compose(v3(at || [0, 0, 0]), q.setFromEuler(rot ? e.set(rot[0], rot[1], rot[2], rot[3] || 'XYZ') : e.set(0, 0, 0)), v3(typeof sc === 'number' ? [sc, sc, sc] : sc || [1, 1, 1]));
-    const rgb = c => Array.isArray(c) ? c : (C.set(c), [C.r, C.g, C.b]);
+    const parts = {}, P = new T.Matrix4(), L = new T.Matrix4(), W = new T.Matrix4(), q = new T.Quaternion(), e = new T.Euler(), C = new T.Color();
+    const pa = new T.Vector3(), ps = new T.Vector3(), cache = new Map();
+    const m4 = (at, rot, sc, out) => out.compose(at ? pa.set(at[0], at[1], at[2]) : pa.set(0, 0, 0), q.setFromEuler(rot ? e.set(rot[0], rot[1], rot[2], rot[3] || 'XYZ') : e.set(0, 0, 0)), typeof sc === 'number' ? ps.set(sc, sc, sc) : sc ? ps.set(sc[0], sc[1], sc[2]) : ps.set(1, 1, 1));
+    const rgb = c => { if (Array.isArray(c)) return c; let v = cache.get(c); if (!v) { C.set(c); cache.set(c, v = [C.r, C.g, C.b]); } return v; };
     const M = {
-      r, rgb, over: null,
-      frame(at, rot, sc) { if (at === undefined) P.identity(); else P.copy(m4(at, rot, sc)); },
+      r, rgb,
+      frame(at, rot, sc) { if (at === undefined) P.identity(); else m4(at, rot, sc, P); },
       jit: (c, a) => () => { const v = rgb(c), d = (r() - 0.5) * a; return [v[0] + d, v[1] + d, v[2] + d]; },
       add(kind, g, col, at, rot, sc) {
         g = g.index ? g.toNonIndexed() : g.clone();
         for (const k of Object.keys(g.attributes)) if (k !== 'position' && k !== 'normal') g.deleteAttribute(k);
         if (!g.attributes.normal) g.computeVertexNormals();
         const p = g.attributes.position, n = p.count, loc = typeof col === 'function' ? p.array.slice() : null;
-        g.applyMatrix4(new T.Matrix4().multiplyMatrices(P, m4(at, rot, sc)));
+        g.applyMatrix4(W.multiplyMatrices(P, m4(at, rot, sc, L)));
         const c = new Float32Array(n * 3), a = p.array;
         if (loc && col.smooth) {   // per vertex: soft gradients (a sky)
           const w = new T.Vector3(), lc = new T.Vector3(), nn = new T.Vector3(), na = g.attributes.normal.array;
@@ -80,9 +80,7 @@ var LOWPOLY_MODELS = LOWPOLY_MODELS || {};
           geo.setAttribute('normal', new T.BufferAttribute(nor, 3));
           geo.setAttribute('color', new T.BufferAttribute(col, 3));
           geo.applyMatrix4(fit);
-          const mat = MAT[k](T);
-          if (M.over && M.over[k]) Object.assign(mat, M.over[k]);
-          const mesh = new T.Mesh(geo, mat);
+          const mesh = new T.Mesh(geo, MAT[k](T));
           mesh.name = k;
           grp.add(mesh);
         }
@@ -150,7 +148,7 @@ var LOWPOLY_MODELS = LOWPOLY_MODELS || {};
   };
 
   // ================================================================== the aging ovary
-  def('ovary.organ', 'Cut-away ovary', 'An ovary cut open on its hilum: cortex round the medulla, follicles, a golden corpus luteum, pale scars and coiled vessels.', 960, (M, g) => {
+  def('ovary.organ', 'Cut-away ovary', 'An ovary cut open on its hilum: cortex round the medulla, follicles, a golden corpus luteum, pale scars and coiled vessels.', 1070, (M, g) => {
     const ax = 0.95, ay = 0.55, az = 0.45, cy = 0.8, COR = '#b98ab0', MED = '#e2a3a6';
     M.add('mat', g.sph(1, 14, 8, PI, PI), M.jit('#d9adb2', 0.06), [0, cy, 0], 0, [ax, ay, az]);           // the back, intact
     M.add('mat', g.sph(1, 7, 8, 0, PI / 2), M.jit('#d9adb2', 0.06), [0, cy, 0], 0, [ax, ay, az]);         // the front left
@@ -175,7 +173,7 @@ var LOWPOLY_MODELS = LOWPOLY_MODELS || {};
     plinth(M, 0.34, 0.04);
   });
 
-  def('ovary.section', 'Ovary section', 'A drawn H&E section in relief: eosin-pink stroma with follicles, vessels, macrophages, corpora albicantia and a cyst.', 900, (M, g, r) => {
+  def('ovary.section', 'Ovary section', 'A drawn H&E section in relief: eosin-pink stroma with follicles, vessels, macrophages, corpora albicantia and a cyst.', 1016, (M, g, r) => {
     const out = [], inn = [];
     for (let i = 0; i < 22; i++) {
       const a = i / 22 * 2 * PI, k = 1 + 0.06 * Math.sin(3 * a + 0.4) + 0.04 * Math.cos(5 * a);
@@ -208,7 +206,7 @@ var LOWPOLY_MODELS = LOWPOLY_MODELS || {};
 
   def('ovary.charts', 'Donors histogram', 'The donors\' glass slides stacked into the age histogram, 20 bars from 21 to 70, in front of its backdrop.', 1080, (M, g) => {
     const counts = [9, 6, 10, 5, 7, 6, 3, 5, 13, 10, 9, 25, 15, 25, 15, 14, 12, 21, 25, 20];   // OVARY_DATA.hist
-    const slide = (w, nn) => nn.y > 0.5 ? '#e8a2c4' : '#e3ebf7';   // the tissue shows from above, the glass from the side
+    const slide = (w, nn) => nn.y > 0.5 ? '#efcfe0' : '#e3ebf7';   // the tissue shows from above, the glass from the side
     counts.forEach((c, i) => { for (let k = 0; k < Math.max(1, Math.round(c / 3)); k++) M.add('gloss', g.box(0.082, 0.045, 0.16), slide, [-0.95 + i * 0.1, 0.0925 + k * 0.062, 0]); });
     M.add('mat', g.box(2.08, 0.75, 0.03), '#141c2c', [0, 0.445, -0.14]);
     for (let k = 0; k < 4; k++) M.add('glow', g.box(2.0, 0.008, 0.01), '#34405a', [0, 0.22 + k * 0.15, -0.12]);
@@ -216,7 +214,7 @@ var LOWPOLY_MODELS = LOWPOLY_MODELS || {};
   });
 
   // ================================================================== qubits
-  def('qubits.pairs', 'City map and chip', 'The gene network as a city map with two amber valleys, two walkers settled in them as a pair, and the three-qubit chip.', 1000, (M, g, r) => {
+  def('qubits.pairs', 'City map and chip', 'The gene network as a city map with two amber valleys, two walkers settled in them as a pair, and the three-qubit chip.', 1052, (M, g, r) => {
     const V1 = [-0.5, -0.35], V2 = [0.55, 0.4], Y0 = 0.32;
     const h = (x, z) => Y0 - 0.2 * Math.exp(-((x - V1[0]) ** 2 + (z - V1[1]) ** 2) / 0.09) - 0.2 * Math.exp(-((x - V2[0]) ** 2 + (z - V2[1]) ** 2) / 0.09) + 0.012 * Math.sin(7 * x) * Math.cos(6 * z);
     const ground = g.plane(2, 2, 10, 10); ground.rotateX(-PI / 2);
@@ -243,7 +241,7 @@ var LOWPOLY_MODELS = LOWPOLY_MODELS || {};
     for (let k = 0; k < 3; k++) M.add('glow', g.ball(0.06), '#9a90ff', [1.27 + k * 0.13, 0.37, 0.55]);
   });
 
-  def('qubits.cube', 'Coarse operator cube', 'The coarse operator on a cube: eight neighbourhoods at the corners in their colours, a loop at each, and couplings as purple edges.', 830, (M, g, r) => {
+  def('qubits.cube', 'Coarse operator cube', 'The coarse operator on a cube: eight neighbourhoods at the corners in their colours, a loop at each, and couplings as purple edges.', 824, (M, g, r) => {
     const CELL = ['#46d9ff', '#3ee08f', '#ffd166', '#ff8fd8', '#b9a6ff', '#7df0c8', '#ff9e6b', '#8fb8ff'];   // QMATH.CELL_COLORS
     const P = [];
     for (let c = 0; c < 8; c++) P.push([c & 4 ? 0.8 : -0.8, c & 1 ? 0.17 : 1.77, c & 2 ? -0.8 : 0.8]);   // left/right, front/back, top/bottom
@@ -258,7 +256,7 @@ var LOWPOLY_MODELS = LOWPOLY_MODELS || {};
     });
   });
 
-  def('qubits.chart', 'Residual chart and circuit', 'The residual by depth, our cuts in cyan under the random ones in grey, beside the three-wire circuit of six gates.', 820, (M, g) => {
+  def('qubits.chart', 'Residual chart and circuit', 'The residual by depth, our cuts in cyan under the random ones in grey, beside the three-wire circuit of six gates.', 740, (M, g) => {
     const ours = [0, 0.44, 0.52, 0.56, 0.68, 0.74, 0.81, 0.88], rand = [0, 0.57, 0.75, 0.86, 0.92, 0.95, 0.97, 0.99];   // QUBITS_DATA.residual
     const X = b => -1.0 + b * 0.18, Y = v => 0.24 + v * 0.85;
     M.add('mat', g.box(1.62, 1.18, 0.03), '#121a2a', [-0.37, 0.7, -0.06]);
@@ -277,7 +275,7 @@ var LOWPOLY_MODELS = LOWPOLY_MODELS || {};
   });
 
   // ================================================================== the mutation machine
-  def('mutation.letters', 'DNA helix and letters', 'A double helix with rungs in the four letters\' colours, the ancestor\'s eight letter tiles, and a letter opened into its two qubits.', 1040, (M, g, r) => {
+  def('mutation.letters', 'DNA helix and letters', 'A double helix with rungs in the four letters\' colours, the ancestor\'s eight letter tiles, and a letter opened into its two qubits.', 1036, (M, g) => {
     const R = 0.28, cy = 0.62, turn = 2 * PI / 10.5, n = 16, off = 140 / 180 * PI;   // B-DNA: 10.5 pairs a turn, grooves
     const at = (x, a) => [x, cy + R * Math.cos(a), R * Math.sin(a)];
     const s1 = [], s2 = [];
@@ -298,7 +296,7 @@ var LOWPOLY_MODELS = LOWPOLY_MODELS || {};
     for (const x of [-1.08, 1.08]) M.add('gloss', g.rod([x, 0.05, 0], [x, cy, 0], 0.022, 6), NAVY);
   });
 
-  def('mutation.tree', 'Family tree in 3D', 'The family tree grown up out of its root in all directions: glass branches with a machine gear on each first branch and the tips\' new sequences.', 1000, (M, g, r) => {
+  def('mutation.tree', 'Family tree in 3D', 'The family tree grown up out of its root in all directions: glass branches with a machine gear on each first branch and the tips\' new sequences.', 1064, (M, g, r) => {
     const root = [0, 0.1, 0], nodes = [], pos = (az, rad, y) => [rad * Math.sin(az), y, rad * Math.cos(az)];
     const branch = (P, Q, rad, letter) => {
       const mid = [P[0] + (Q[0] - P[0]) * 0.3, P[1] + (Q[1] - P[1]) * 0.7, P[2] + (Q[2] - P[2]) * 0.3];   // up first, then out
@@ -327,7 +325,7 @@ var LOWPOLY_MODELS = LOWPOLY_MODELS || {};
     plinth(M, 0.4, 0.05);
   });
 
-  def('mutation.rule', 'Pyramid of mixes', 'The four letters at the corners of a glass pyramid, the mix gliding along its green path to the long-run mix, on the compiler drum.', 920, (M, g) => {
+  def('mutation.rule', 'Pyramid of mixes', 'The four letters at the corners of a glass pyramid, the mix gliding along its green path to the long-run mix, on the compiler drum.', 952, (M, g) => {
     const lift = 0.62, C = [[0, 0.98, 0], [-0.8, -0.327, 0.462], [0, -0.327, -0.924], [0.8, -0.327, 0.462]].map(p => [p[0], p[1] + lift, p[2]]);   // MMATH.CORNERS: A, C, G, T
     const L = 'ACGT', cen = lerp(lerp(C[0], C[1], 0.5), lerp(C[2], C[3], 0.5), 0.5);
     [0.17, 0.15, 0.16, 0.14].forEach((rad, i) => M.add('gloss', g.ball(rad, 1), LET[L[i]], C[i]));   // as big as each letter's long-run share
@@ -344,8 +342,8 @@ var LOWPOLY_MODELS = LOWPOLY_MODELS || {};
     M.add('glow', g.gear(0.6, 10, 0.04), '#0072b2', [0, 0.2, 0]);
   });
 
-  def('mutation.stem', 'RNA stem', 'An RNA strand folded back into a stem of six pairs and a loop, white rungs, and the coupling gear over the pair that changes together.', 760, (M, g) => {
-    const R = 0.24, seq = 'GTTACTGAAAAGTAGT', pts = [], tiles = [];
+  def('mutation.stem', 'RNA stem', 'An RNA strand folded back into a stem of six pairs and a loop, white rungs, and the coupling gear over the pair that changes together.', 748, (M, g) => {
+    const R = 0.24, seq = 'GTTACTGAAAAGTAGT', tiles = [];
     const at = (k, side) => { const a = k * 2 * PI / 11 + side * PI; return [R * Math.cos(a), 0.22 + k * 0.2, R * Math.sin(a)]; };
     for (let k = 0; k < 6; k++) tiles.push(at(k, 0));
     const t5 = at(5, 0), b5 = at(5, 1), up = 1.38;
@@ -361,14 +359,14 @@ var LOWPOLY_MODELS = LOWPOLY_MODELS || {};
   });
 
   // ================================================================== the shape of tissue
-  def('topo.slide', 'Liver on a glass slide', 'A piece of liver drawn in H&E from its cells, pink plates of hepatocytes round a white central vein, on a glass slide with its frosted label.', 560, (M, g, r) => {
+  def('topo.slide', 'Liver on a glass slide', 'A piece of liver drawn in H&E from its cells, pink plates of hepatocytes round a white central vein, on a glass slide with its frosted label.', 622, (M, g, r) => {
     M.add('gloss', g.ext([[-0.68, 0], [0.7, 0], [0.7, 0.62], [-0.68, 0.06]], 2.5), NAVY, [-1.25, 0, 0], [0, PI / 2, 0]);   // a wedge stand that tilts it to you
     M.frame([0, 0.34, -0.04], [0.4, 0, 0]);
     M.add('glass', g.box(2.6, 0.04, 1.36), '#cfefff', [0, 0.02, 0]);
     M.add('mat', g.box(0.62, 0.044, 1.34), '#c9d3dd', [-0.98, 0.022, 0]);
     const vx = 0.55, vz = -0.05, Y = 0.044;
     const tis = g.plane(1.26, 1.26, 8, 8); tis.rotateX(-PI / 2);
-    M.add('flat', tis, w => Math.hypot(w.x - vx, w.z - vz) < 0.1 ? '#fbf4f7' : lerp(M.rgb('#de8db2'), M.rgb('#efb6cd'), r()), [0.6, Y, 0]);
+    M.add('flat', tis, w => Math.hypot(w.x - vx, w.z - vz) < 0.1 ? '#fbf4f7' : lerp(M.rgb('#d4779f'), M.rgb('#e597ba'), r()), [0.6, Y, 0]);
     for (let k = 0; k < 12; k++) {   // cords of hepatocytes run out from the vein, their nuclei along them
       const a = k / 12 * 2 * PI + 0.2, d = [Math.cos(a), 0, Math.sin(a)], len = 0.42 + 0.14 * r();
       const p0 = [vx + d[0] * 0.12, Y + 0.003, vz + d[2] * 0.12], p1 = [vx + d[0] * len, Y + 0.003, vz + d[2] * len];
@@ -379,7 +377,7 @@ var LOWPOLY_MODELS = LOWPOLY_MODELS || {};
     M.frame();
   });
 
-  def('topo.map', 'Scored cells relief', 'Every cell of the new slide scored and raised as a relief, red for cirrhosis-like and blue for healthy-like, with one cell\'s glass dome and bars.', 760, (M, g) => {
+  def('topo.map', 'Scored cells relief', 'Every cell of the new slide scored and raised as a relief, red for cirrhosis-like and blue for healthy-like, with one cell\'s glass dome and bars.', 758, (M, g) => {
     const f = (x, z) => Math.max(-1, Math.min(1, 0.55 * Math.sin(3.1 * x + 0.7) * Math.cos(2.7 * z - 0.4) + 0.4 * Math.sin(5.3 * x + 4.1 * z) + 0.3));
     const Y0 = 0.14, H = 0.12, hy = (x, z) => Y0 + H * f(x, z), col = (x, z) => ramp(RDBU, (f(x, z) + 1) / 2);
     const rel = g.plane(1.6, 1.6, 14, 14); rel.rotateX(-PI / 2);
@@ -402,7 +400,7 @@ var LOWPOLY_MODELS = LOWPOLY_MODELS || {};
     [[0.12, 0.2], [0.18, 0.3]].forEach(([b, d], i) => M.add('glow', g.rod([cx + 0.17 + i * 0.05, cyy + 0.05 + b, cz - 0.38], [cx + 0.17 + i * 0.05, cyy + 0.05 + d, cz - 0.38], 0.01, 4), '#ff7a3c'));
   });
 
-  def('topo.tower', 'Tower of scales', 'The patch\'s cells on a glass plate with their balls, and the tower above: threads joining piece by piece into one amber trunk, loops as orange rings.', 1060, (M, g, r) => {
+  def('topo.tower', 'Tower of scales', 'The patch\'s cells on a glass plate with their balls, and the tower above: threads joining piece by piece into one amber trunk, loops as orange rings.', 1064, (M, g, r) => {
     M.add('glass', g.box(1.5, 0.04, 1.5), '#8cc6ff', [0, 0.02, 0]);
     M.add('mat', g.box(1.5, 0.046, 0.2), '#5f7fa6', [0, 0.023, 0.68]);   // frosted label, tinted as the healthy slides
     const cells = [];
@@ -417,7 +415,7 @@ var LOWPOLY_MODELS = LOWPOLY_MODELS || {};
     for (const [d, i, j] of E) { const a = find(i), b = find(j); if (a !== b) { joins.push([d, a, b]); if (size[a] < size[b] || (size[a] === size[b] && a > b)) { up[a] = b; size[b] += size[a]; joins[joins.length - 1].push(a, b); } else { up[b] = a; size[a] += size[b]; joins[joins.length - 1].push(b, a); } } }
     const d0 = joins[0][0], d1 = joins[joins.length - 1][0], hy = d => 0.12 + 1.2 * Math.log(d / d0) / Math.log(d1 / d0);
     const sz = cells.map(() => 1);
-    joins.forEach(([d, , , young, elder], k) => {
+    joins.forEach(([d, , , young, elder]) => {
       const y = hy(d), A = cells[young], B = cells[elder], col = PAL[young % PAL.length];
       M.add('glow', g.rod([A[0], 0.07, A[1]], [A[0], y, A[1]], 0.006 + 0.003 * Math.sqrt(sz[young]), 3), col);
       M.add('glow', g.tube([[A[0], y, A[1]], [(A[0] + B[0]) / 2, y + 0.05, (A[1] + B[1]) / 2], [B[0], y, B[1]]], 0.007, 4, 3), col);
@@ -435,7 +433,7 @@ var LOWPOLY_MODELS = LOWPOLY_MODELS || {};
     for (let k = 0; k < 5; k++) M.add('glow', g.box(0.08, 0.008, 0.008), '#e7eef8', [-0.81, 0.12 + k * 0.33, -0.7]);
   });
 
-  def('topo.cohort', 'Slide rack', 'The cohort\'s glass slides standing in two stepped rows, healthy with blue labels and cirrhotic with red, each with its orange curve; the mean curves in front.', 930, (M, g, r) => {
+  def('topo.cohort', 'Slide rack', 'The cohort\'s glass slides standing in two stepped rows, healthy with blue labels and cirrhotic with red, each with its orange curve; the mean curves in front.', 920, (M, g, r) => {
     const curve = (u, peak, h) => h * Math.exp(-((u - peak) ** 2) / 0.05) + 0.12 * h * u;
     [[-0.5, '#4d9de0', '#7cc0ff', 0.3, 0.75], [0.5, '#e0504d', '#ff7a6b', 0.5, 1.0]].forEach(([gx, lab, mean, peak, hh]) => {
       const prof = [[0.56, 0]];
@@ -463,7 +461,7 @@ var LOWPOLY_MODELS = LOWPOLY_MODELS || {};
     M.add('flat', g.tri([-0.065 * s, 0, 0], [-0.11 * s, 0.032 * s, 0], [-0.11 * s, -0.032 * s, 0]), c[0], p, rot);
     if (fin) M.add('flat', g.tri([0.012 * s, 0.022 * s, 0], [-0.03 * s, 0.022 * s, 0], [-0.022 * s, 0.06 * s, 0]), c[0], p, rot);
   };
-  def('pass.fish', 'School of fish', 'A school of fish swirling round under a dome of sea over sand, rocks and seagrass, a shark passing on the outside.', 760, (M, g, r) => {
+  def('pass.fish', 'School of fish', 'A school of fish swirling round under a dome of sea over sand, rocks and seagrass, a shark passing on the outside.', 802, (M, g, r) => {
     M.add('mat', g.cyl(1, 1.04, 0.1, 16), (w, n) => n.y > 0.5 ? M.jit('#4c564c', 0.06)() : NAVY, [0, 0.05, 0]);
     for (let k = 0; k < 4; k++) { const a = r() * 2 * PI, d = 0.3 + 0.5 * r(); M.add('mat', g.ball(1), M.jit('#3a4248', 0.08), [d * Math.cos(a), 0.12, d * Math.sin(a)], [r(), r(), r()], [0.14, 0.09, 0.12]); }
     for (let k = 0; k < 14; k++) { const a = r() * 2 * PI, d = 0.2 + 0.7 * r(), h = 0.2 + 0.18 * r(); M.add('mat', g.cone(0.025, h, 3), k % 2 ? '#3f6b4a' : '#4f7f52', [d * Math.cos(a), 0.1 + h / 2, d * Math.sin(a)], [(r() - 0.5) * 0.4, 0, (r() - 0.5) * 0.4]); }
@@ -506,7 +504,7 @@ var LOWPOLY_MODELS = LOWPOLY_MODELS || {};
   };
   const globeStand = (M, g, cy) => { M.frame(); plinth(M, 0.32, 0.08); M.add('gloss', g.rod([0, 0.08, 0], [0, cy - 0.95, 0], 0.03, 6), NAVY); };
 
-  def('pass.globe', 'Globe with an outbreak', 'The airports\' globe with an outbreak spreading from Vienna along its routes: infectious cities red, exposed amber, recovered grey.', 1130, (M, g) => {
+  def('pass.globe', 'Globe with an outbreak', 'The airports\' globe with an outbreak spreading from Vienna along its routes: infectious cities red, exposed amber, recovered grey.', 1076, (M, g) => {
     const lon0 = 25, R = '#ff5a3c', A = '#ffb43b';
     const cy = globe(M, g, lon0, [['VIE', 'LHR', R], ['VIE', 'FRA', R], ['VIE', 'IST', R], ['IST', 'DXB', R], ['LHR', 'JFK', R], ['DXB', 'DEL', A], ['IST', 'CAI', A], ['FRA', 'PEK', A], ['SIN', 'SYD'], ['MAD', 'GRU']], '#bfe0ff');
     const city = (k, col, rad) => M.add('glow', g.oct(rad), col, ll(...AP[k], lon0, 1.01));
@@ -539,7 +537,7 @@ var LOWPOLY_MODELS = LOWPOLY_MODELS || {};
     M.frame();
     plinth(M, 0.3, 0.07); M.add('gloss', g.rod([0, 0.07, 0], [0, cy - 0.73, 0], 0.03, 6), NAVY);
   };
-  def('pass.cell', 'The cell, a relay', 'The cell map\'s cell with its organelles, a signal relayed hand to hand from the membrane into the nucleus, and CFTR stuck on its way (red).', 1150, (M, g, r) => cell(M, g, r, () => {
+  def('pass.cell', 'The cell, a relay', 'The cell map\'s cell with its organelles, a signal relayed hand to hand from the membrane into the nucleus, and CFTR stuck on its way (red).', 1116, (M, g, r) => cell(M, g, r, () => {
     const relay = [[0.2, 0.84, 0.3], [0.32, 0.58, 0.35], [0.4, 0.38, 0.22], [0.28, 0.24, 0.12], [0.12, 0.14, 0.02]];   // TNF towards NF-kB
     M.add('glow', g.tube(relay, 0.014, 10), '#2fd2c0');
     relay.forEach(p => M.add('glow', g.oct(0.036), '#7df0e0', p));
@@ -547,7 +545,7 @@ var LOWPOLY_MODELS = LOWPOLY_MODELS || {};
   }));
 
   // ================================================================== flock and robots
-  def('flock.flock', 'Starlings at dusk', 'A murmuration of starlings over a dark field with reeds, a lake and a ring of trees, against a dusk sky glowing low where the sun sets.', 640, (M, g, r) => {
+  def('flock.flock', 'Starlings at dusk', 'A murmuration of starlings over a dark field with reeds, a lake and a ring of trees, against a dusk sky glowing low where the sun sets.', 609, (M, g, r) => {
     M.add('mat', g.cyl(1, 1.03, 0.06, 16), (w, n) => n.y > 0.5 ? M.jit('#22201a', 0.03)() : NAVY, [0, 0.03, 0]);
     M.add('glow', g.disc(1, 12), '#8a4f3c', [0.15, 0.062, -0.45], [-PI / 2, 0, 0], [0.45, 0.25, 1]);   // the lake mirrors the sunset
     for (let k = 0; k < 9; k++) { const a = PI / 2 + 0.25 + k * (PI - 0.5) / 8, h = 0.16 + 0.08 * r(); M.add('mat', g.cone(0.06, h, 5), '#0f1410', [0.9 * Math.sin(a), 0.06 + h / 2, 0.9 * Math.cos(a)]); }
@@ -565,7 +563,7 @@ var LOWPOLY_MODELS = LOWPOLY_MODELS || {};
     }
   });
 
-  def('robots.robots', 'Robot vacuum gang', 'A model living room cut away like a doll\'s house, six robot vacuums with their coloured LED rings following each other in a conga line.', 830, (M, g) => {
+  def('robots.robots', 'Robot vacuum gang', 'A model living room cut away like a doll\'s house, six robot vacuums with their coloured LED rings following each other in a conga line.', 864, (M, g) => {
     const F = 0.08;
     const floor = g.plane(2.4, 2.0, 8, 1); floor.rotateX(-PI / 2);
     M.add('mat', floor, w => Math.floor((w.x + 1.2) / 0.3) % 2 ? '#b98a5a' : '#a97c4f', [0, F + 0.001, 0]);
@@ -600,14 +598,14 @@ var LOWPOLY_MODELS = LOWPOLY_MODELS || {};
   });
 
   // ================================================================== the three hand-written stories
-  def('airports.globe', 'Globe of flights', 'The globe of airports: hubs as pillars coloured by their number of routes, blue through cyan to amber, and routes arcing between them.', 1050, (M, g) => {
+  def('airports.globe', 'Globe of flights', 'The globe of airports: hubs as pillars coloured by their number of routes, blue through cyan to amber, and routes arcing between them.', 1156, (M, g) => {
     const lon0 = -20, deg = { AMS: 250, FRA: 240, CDG: 230, IST: 230, ATL: 215, PEK: 210, ORD: 200, MUC: 190, DME: 185, DFW: 180, DXB: 180, LHR: 170, MAD: 160, JFK: 160, LAX: 150, PVG: 145, SIN: 120, NRT: 100, YYZ: 100, MEX: 90, DEL: 90, GRU: 80 };
     const cy = globe(M, g, lon0, [['JFK', 'LHR'], ['LHR', 'DXB'], ['ATL', 'GRU'], ['CDG', 'JNB'], ['ORD', 'FRA'], ['IST', 'DEL'], ['MAD', 'MEX'], ['FRA', 'PEK'], ['DXB', 'SIN'], ['LAX', 'JFK']], '#cfe7ff');
     for (const k in deg) { const x = deg[k] / 250, p = ll(...AP[k], lon0, 1); M.add('glow', g.rod(p, p.map(v => v * (1.02 + 0.3 * x)), 0.018, 4), degCol(x)); }
     globeStand(M, g, cy);
   });
 
-  def('proteins.cell', 'Cell of proteins', 'A see-through cell with its nucleus, the proteins as dots coloured by their community, linked where they interact.', 900, (M, g, r) => {
+  def('proteins.cell', 'Cell of proteins', 'A see-through cell with its nucleus, the proteins as dots coloured by their community, linked where they interact.', 912, (M, g, r) => {
     const COMM = [[1.00, 0.42, 0.22], [0.30, 0.58, 1.00], [1.00, 0.84, 0.18], [0.25, 0.90, 0.45], [0.80, 0.38, 1.00], [0.15, 0.92, 0.92], [1.00, 0.38, 0.68], [0.62, 1.00, 0.25], [1.00, 0.70, 0.52], [0.92, 0.94, 1.00]];
     const where = [[0.15, 0.3], [0.15, 0.3], [0.1, 0.28], [0.95, 1], [0.6, 0.9], [0.55, 0.8], [0.12, 0.3], [0.55, 0.85], [0.9, 1], [0.1, 0.3]];   // nuclear, cytoplasm or membrane, by community
     const cy = 1.0;
@@ -629,5 +627,5 @@ var LOWPOLY_MODELS = LOWPOLY_MODELS || {};
     plinth(M, 0.3, 0.07); M.add('gloss', g.rod([0, 0.07, 0], [0, cy - 0.98, 0], 0.03, 6), NAVY);
   });
 
-  def('spatial.cell', 'Model cell', 'The model cell with its compartments: nucleus and nucleolus, ER, Golgi, mitochondria, vesicles and lysosomes, proteins in their places\' colours.', 1150, (M, g, r) => cell(M, g, r, null));
+  def('spatial.cell', 'Model cell', 'The model cell with its compartments: nucleus and nucleolus, ER, Golgi, mitochondria, vesicles and lysosomes, proteins in their places\' colours.', 1068, (M, g, r) => cell(M, g, r, null));
 })();

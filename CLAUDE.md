@@ -18,6 +18,15 @@
   be checked on a real headset as untested.
 - After any change to app files, bump `VERSION` in `sw.js`. After changing
   `sw.js` or how files load, run `tools/update.mjs` (see Testing in `AGENTS.md`).
+- Releasing: after the `VERSION` bump, run `node tools/release.mjs` (it writes
+  `version.json` and stamps the shell's release into `index.html`; commit both;
+  `--check` says whether they are current). Running pages take a release from
+  it ("Hot reload and live updates" in `AGENTS.md`). The list of stories is
+  `stories/list.js`. After touching `HOST.live`, `HOST.swap`, `HOST.load`, the
+  release script or the relay's `--watch`, run `node tools/live.mjs`; a swap in
+  a headset and the update panel there are untested until tried on one.
+- While developing, `node relay/server.mjs --lan --watch --build` (or
+  `--static . --watch`) swaps a saved story in place on every page and headset.
 - Sound belongs to the shell (`HOST.audio` in `index.html`); stories never
   create or close an `AudioContext`. Keep both engines, the hum and the
   watchdog (see the sound notes in `AGENTS.md`): each guards against a way the

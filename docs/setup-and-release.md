@@ -109,6 +109,7 @@ browser profiles (the plain server's page knows no relay, so its rooms run peer 
 | rooms between desktop pages on this machine | `node relay/server.mjs --static .` | `http://localhost:8787/` |
 | headsets on the same Wi-Fi | `node relay/server.mjs --lan` (HTTPS, with a certificate it makes itself) | the address it prints |
 | one headset over USB, no certificate | `node relay/server.mjs --static .`, then `adb reverse tcp:8787 tcp:8787` | `http://localhost:8787/` on the headset |
+| your edits to show by themselves while you work (hot reload) | add `--watch` (and `--build` for the built stories) to any of these, for example `node relay/server.mjs --lan --watch --build` | the same address: a story you save is swapped in place on every page and headset showing it (its place kept), a source in `tools/<key>/` is built first, and a change to `index.html`, `shared.js`, `sw.js`, three.js or PeerJS reloads the pages with their place (a headset then shows Enter VR to continue) |
 
 The flags and troubleshooting are in [relay/README.md](../relay/README.md). The relay's introduction server for peer
 to peer is at `/peerjs` (on by default; `--no-peer` turns it off): the tests use it, and so can an event that wants
@@ -131,6 +132,8 @@ tests use headless Chromium, which draws in software here and is slow, so run th
 | Smoke | `node tools/smoke.mjs http://127.0.0.1:8123/` | server, Playwright | before every commit | about 5 min | a page or console error in a story (they are printed at the end). A 404 for a missing narration MP3 is expected and ignored |
 | Sound | `node tools/audio.mjs http://127.0.0.1:8123/` | server, Playwright, `audio/narration.mp3` | after touching sound (`HOST.audio` in `index.html`, a story's narration code, how `sw.js` serves the narration) | a few minutes | the narration no longer starts after a tap or a story change, or the `<audio>` fallback no longer takes over |
 | Update | `git worktree add /tmp/old origin/main`, then `node tools/update.mjs /tmp/old .`, then `git worktree remove /tmp/old` | Playwright, port 8125 free (it serves both versions itself) | after changing `sw.js` or how files load, and before every release | under 1 min | `VERSION` was not bumped, a new file is missing from `SHELL`, or the page and its stories came from different versions. If it says the two versions look the same, the old checkout is not older |
+| Live updates | `node tools/live.mjs` | Playwright, ports 8126 and 8127 free (it copies the app to a temporary folder, serves it like Pages and through a relay with `--watch --build`) | after touching `HOST.live`, `HOST.swap` or `HOST.load` in `index.html`, `tools/release.mjs`, `stories/list.js`'s shape or the relay's `--watch`; before every release | a few minutes | a story added live without its card, a swap that loses the place or happens mid-chapter, a shell change not asked about, a reload that loses the place, `version.json` cached, or the watch channel silent |
+| Release file | `node tools/release.mjs --check` | Node | before every release (step 7 below) | under 1 s | `version.json` or `index.html`'s stamp is not current: run `node tools/release.mjs` and commit both |
 | Relay | `node relay/test.mjs` | Node 22 | after touching `shared.js`, `relay/`, or a story's shared-room hooks or `state()`; before every release | seconds | the protocol changed, or the relay does not serve a file that `sw.js` caches (`APP_FILES` and `APP_DIRS` in `relay/server.mjs`) |
 | Introduction server | `node tools/peer.mjs` | Playwright (it starts its own relay) | after touching the relay's `/peerjs` or `p2p/` | seconds | two pages of the test page no longer link through the relay's introduction server |
 | Shared rooms | `node tools/collab.mjs` (`--quick` runs only the last story in the per-story part; `--p2p` only the peer-to-peer part, about 2 min; `--shots <dir>` saves pictures) | Playwright (it starts its own relay; the peer-to-peer part uses its `/peerjs`, never the internet) | as for the relay test | about 15 to 18 min | a story's hooks no longer match its pointer code, a `state()` that changes when it is applied, `FORMAT` not bumped, a timing check (see below), or a peer-to-peer room that no longer hosts, links or takes over |
@@ -139,7 +142,7 @@ tests use headless Chromium, which draws in software here and is slow, so run th
 
 Worked examples of `shot.mjs` and `sweep.mjs` are in [tools/lbi/README.md](../tools/lbi/README.md) ("Changing
 something"). After changing a story's text, also run `node tools/pace.mjs http://127.0.0.1:8123/ --write <key>` (a
-story without a recording: its pace follows its words; update its length in `HOST.list` from what it prints) and then
+story without a recording: its pace follows its words; update its length in `stories/list.js` from what it prints) and then
 `node tools/narration.mjs http://127.0.0.1:8123/`. Neither is a test: they write the story's `NARRATION_SYNC` and
 [narration.md](narration.md) again from the running stories.
 
@@ -184,18 +187,26 @@ only after the tests pass. No pull requests are used.
    `proteins.html`, `spatial.html`, `README.txt`, and anything in `stories/`, `audio/` or `icons/`. For a new file the
    app needs, add it to `SHELL` in `sw.js`. A narration goes in `AUDIO`, which already lists all fifteen file names. If
    the new file is not directly inside `stories/`, `audio/` or `icons/`, also add it to `APP_FILES` in
-   `relay/server.mjs`.
+   `relay/server.mjs`. A new story goes in `stories/list.js` (its card), and `stories/<key>.js` in `SHELL`.
 5. **Bump `FORMAT` in `shared.js`** (`networks-23` now) when the shared keys, or the shape of a story's
    `collab.state()`, change. A room refuses pages that have another format, so every device in a room has to update
-   together.
+   together. A new story alone no longer needs it: a device that does not know it yet shows its station as needing an
+   update.
+5b. **Write the release file:** `node tools/release.mjs`, after the `VERSION` bump. It writes `version.json` (the
+   release, the format, the shell's fingerprint and per story its file's fingerprint and the oldest shell it needs)
+   and stamps the shell's release into `index.html` (`HOST.shell`); commit both. Running pages read it about once a
+   minute and take the release: new and changed stories by themselves (a changed story on show at a quiet moment),
+   a new shell or format after asking (Reload now or Later). It refuses a changed shell without a new `VERSION`. A
+   story that only works with the new shell gets it as its `needs` by itself; give a story an older `needs` in
+   `stories/list.js` only when you know it runs on older shells.
 6. **Update the docs.**
    - AGENTS.md first: it is the single source of truth for structure.
    - README.md and README.txt: they hold the same notes, so keep them in step.
    - The story's `tools/<key>/README.md`, its `SPEC.md` and the set manifests.
    - The chapter timings in `audio/PUT-narration.mp3-HERE.txt`.
    - [narration.md](narration.md) (with `tools/narration.mjs`) if a story's text changed.
-7. **Run the tests**: the build check, smoke, update, relay and shared rooms, plus sound if you touched sound. All of
-   them must pass.
+7. **Run the tests**: the build check, `node tools/release.mjs --check`, smoke, update, live updates, relay and shared
+   rooms, plus sound if you touched sound. All of them must pass.
 8. **Commit on the working branch**, sources and built files together.
 9. **Fast-forward main, then push the branch:**
 
@@ -209,13 +220,14 @@ only after the tests pass. No pull requests are used.
     deployment" run, and `curl -s https://unfriend.github.io/airportnetworks/sw.js | sed -n 3p` shows the new
     `VERSION`.
 
-**What visitors and headsets then get** (see `sw.js`, and `HOST.reloadIfUpdated` in `index.html`):
+**What visitors and headsets then get** (see `sw.js`, and `HOST.live` and `HOST.reloadIfUpdated` in `index.html`;
+AGENTS.md "Hot reload and live updates"):
 
 | Who | What happens |
 | --- | --- |
 | a new visitor | the new version |
 | a returning visitor who is online | the new version on the first load. The page and story files are checked with the server on every load (Pages lets browsers keep files for ten minutes, but the service worker asks anyway). The new service worker installs, takes over at once and deletes the old offline copy |
-| a page left open (a kiosk, an installed app, a headset browser) | it runs the old version until it next shows the Stories screen outside a headset session, then reloads by itself. A headset in VR or AR updates once it leaves the session and reaches the Stories screen |
+| a page left open (a kiosk, an installed app, a headset browser) | within about a minute (or as it comes back into view): a new story's card appears, a changed story is fetched fresh next time it starts, and the story on show is swapped in place at a quiet moment (paused, explore mode, a Stories screen, a chapter's end), keeping its place. A new shell or format (or a story that needs one) is asked about first, on the page as a bar and in a headset as a panel: Reload now keeps the place (in a headset the reload ends VR or AR, so the page shows one button, Enter VR to continue); on the page's Stories screen outside a headset it reloads by itself |
 | someone offline | the copy saved at their last visit online |
 | headsets that use a relay's `--lan` address | they get no service worker there (the certificate is self-signed), so they get whatever files the relay machine's checkout holds. Update that checkout with `git pull`: the relay reads each file from disk when it is asked for |
 

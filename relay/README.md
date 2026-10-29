@@ -36,6 +36,8 @@ node relay/server.mjs [--lan] [--port 8787] [--host 0.0.0.0] [--static .] [--cer
 | `--quiet` | off | no log lines |
 | `--no-peer` | off | no introduction server for peer to peer (`/peerjs`, on by default; it costs nothing while unused) |
 | `--lan` | off | for headsets on the same Wi-Fi: HTTPS with a certificate of its own (made with `openssl` in `relay/.lan/`) and the app's files served from the repository; prints the address to open on the headsets |
+| `--watch [<dir>]` | off | while developing (hot reload): watch the app's files, the `--static` folder (or `<dir>`, then also served when `--static` is not given). The pages it serves swap a changed story in place, keeping their place, and reload (place kept) when a shell file changes; see [Hot reload](#hot-reload---watch) |
+| `--build` | off | with `--watch`: run a built story's `tools/<key>/build.mjs` when its sources change, so editing a set shows by itself |
 
 It prints `relay listening on http://<host>:<port>` when it starts and, when it serves the app on every address
 (`--host 0.0.0.0`), what to open: over HTTPS the `https://<address>:<port>/` for the headsets; over plain HTTP
@@ -250,7 +252,8 @@ All under `/api/`, JSON, `Cache-Control: no-store`, `Access-Control-Allow-Origin
 
 | request | answer |
 | --- | --- |
-| `GET /api/ping` | `{ now, proto }`: relay time (ms) and protocol number (1) |
+| `GET /api/ping` | `{ now, proto }`: relay time (ms) and protocol number (1); with `--watch` also `watch: true` |
+| `GET /api/watch` | with `--watch`: a stream of Server-Sent Events (see [Hot reload](#hot-reload---watch)); 404 without, 503 at 200 pages |
 | `POST /api/rooms` `{ app, version, code? }` | 201 `{ code }`: a new room, 3 letters A-Z. With `code`, that code if it is free (409 `{ error: 'taken' }` if not): how a client brings back its room after a relay restart. 400 for a body that is not JSON or a bad code, 413 over 16 KB, 503 at 2000 rooms |
 | `GET /api/rooms` | `[{ code, members, names, stations, idle, version }]`: `members` a count, `names` theirs, `stations` how many `st.<id>` keys, `idle` seconds since the last member left (0 while anyone is in) |
 | `GET /api/rooms/XYZ` | `{ code, app, version, created, seq, idle, members, keys }` (for debugging), or 404 |
@@ -258,7 +261,8 @@ All under `/api/`, JSON, `Cache-Control: no-store`, `Access-Control-Allow-Origin
 
 With `--static <dir>`, every other path may be a file of the app, and only that: `index.html` (also at `/`),
 `shared.js`, `sw.js`, `manifest.webmanifest`, `three.min.js`, `three.LICENSE.txt`, `proteins.html`,
-`spatial.html`, `README.txt`, `peerjs.min.js`, `PEERJS-LICENSE.txt`, and the files directly in `stories/`, `audio/`,
+`spatial.html`, `README.txt`, `peerjs.min.js`, `PEERJS-LICENSE.txt`, `version.json` (the release's version file, for
+live updates: sent with `Cache-Control: no-store`), and the files directly in `stories/`, `audio/`,
 `icons/` and `p2p/` (the peer-to-peer test page, at `/p2p/`: a path ending in `/` is that folder's `index.html`)
 (`APP_FILES` and `APP_DIRS` in `server.mjs`: add to them when the app needs a new file or folder). Everything else is 404: the
 authors' data (`ikerdata/`), `tools/`, `docs/`, the relay itself, folders (no listings), anything whose path has
@@ -267,6 +271,29 @@ service worker expects), gzip for text when asked, single byte ranges on every f
 unsatisfiable; the narration's `<audio>` element asks for them), types for `.html .js .mjs .json .webmanifest
 .css .txt .md .svg .png .jpg .webp .ico .gif .mp3 .ogg .wav .mp4 .wasm .woff2 .glb .pdf`. Without `--static`,
 `/` answers a line of text.
+
+## Hot reload (`--watch`)
+
+While you work on the app, `node relay/server.mjs --static . --watch --build` (or `--lan --watch --build` for
+headsets) makes every page and headset it serves follow your edits (index.html's `HOST.live`; AGENTS.md "Hot reload
+and live updates"). The page asks `/api/ping`; when it says `watch: true` it opens `/api/watch`, a stream of
+Server-Sent Events (`text/event-stream`, `Cache-Control: no-store`, `retry: 2000`, a comment line every 20 s):
+
+| event | data | the page |
+| --- | --- | --- |
+| `hello` | `{ shell: { 'index.html': fp, 'shared.js': fp, 'sw.js': fp, 'three.min.js': fp, 'peerjs.min.js': fp }, stories: { <key>: fp }, list: fp, build }`, at once on every connection | the first: the shell as it is; after a lost connection (the relay restarted, the laptop slept): a shell file changed meanwhile reloads, a story changed meanwhile is swapped or marked, the list is read again |
+| `story` | `{ key, fp }`: `stories/<key>.js` changed | swaps it in place at once where it is on show (its place kept: mode, time, explore state, view, the headset's placement; at a station the room's clock and state, nothing written to the room); fetched fresh next time elsewhere |
+| `list` | `{ fp }`: `stories/list.js` changed | reads the list again: new and changed cards, no reload |
+| `shell` | `{ file, fp }`: a shell file changed | reloads with its place kept (a headset session ends: the page shows Enter VR to continue) |
+| `build` | `{ key, ok, ms, out }` (with `--build`): a built story's build ran (`out`: the end of its output) | a failed build shows in the page's bar |
+
+`fp` is a fingerprint of the file's text (index.html's `HOST.fingerprint`, the same in `tools/release.mjs`). A file is
+looked at 150 ms after its last change and told only when its text changed. With `--build`, a change to a `.js` file
+under `tools/<dir>/` runs the build of every story whose `build.mjs` names that folder (its own, and `../lbi/` and the
+like) or a story file it cuts from (the pass story from `stories/airports.js` and `stories/spatial.js`); files in
+`shots/`, `gen/` and `data/` are not sources. One build runs at a time, 300 ms after the last change; the story file it
+writes then goes out as `story`. Watching `tools/` needs Node 20 or newer on Linux (macOS and Windows: any). For
+development only: `--build` runs the build scripts of the folder it watches.
 
 ## WebSocket protocol (version 1)
 
@@ -407,8 +434,10 @@ attempts, every file `sw.js` caches served and nothing else of the repository, l
 download cut short), the start lines (no `http://` address for headsets), `--lan`, the log, and the introduction
 server: ids over HTTP (CORS, bad requests refused), `OPEN`, `ID-TAKEN` for another token, the same token reconnecting,
 messages passed on with `src`, kept for an id that comes a moment later and `EXPIRE` for one that never comes,
-heartbeats, a silent id dropped, a closed socket freeing its id, the log (ids only) and `--no-peer`. It exits 1 on a
-failure. The shared-room client in the app has its own test (`tools/collab.mjs`).
+heartbeats, a silent id dropped, a closed socket freeing its id, the log (ids only) and `--no-peer`; and `--watch`
+(ping, the event stream's `hello` with the right fingerprints, `story`, `list` and `shell` as files change, nothing for
+a file written unchanged, `--build` running a story's build when its source changes and reporting a failed one, not
+for `shots/`). It exits 1 on a failure. The shared-room client in the app has its own test (`tools/collab.mjs`).
 
 `node tools/peer.mjs` (Playwright and Chromium, as `tools/smoke.mjs`; seconds) is the end-to-end check: it starts the
 relay, opens the peer-to-peer test page from it in two headless pages with `&peer=` pointing at the relay, and checks

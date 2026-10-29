@@ -306,6 +306,8 @@ The protein data is meant for teaching, not research.
 | --- | --- |
 | `index.html` | the app: Stories screen, shared page layout, loads and swaps the stories |
 | `stories/airports.js`, `stories/proteins.js`, `stories/spatial.js`, `stories/lbi.js`, `stories/nmd.js`, `stories/endo.js`, `stories/pet.js`, `stories/micro.js`, `stories/ovary.js`, `stories/qubits.js`, `stories/mutation.js`, `stories/topo.js`, `stories/pass.js`, `stories/flock.js`, `stories/robots.js` | the fifteen stories, with their data, explore modes and headset panels |
+| `stories/list.js` | the list of stories (their cards), read at the start and again while the app runs |
+| `version.json` | the latest release, written by `node tools/release.mjs`: running copies take new and changed stories from it, and ask before a new shell (see `AGENTS.md`, "Hot reload and live updates") |
 | `proteins.html`, `spatial.html` | forward old links to the app |
 | `sw.js`, `manifest.webmanifest`, `icons/` | offline cache and app install |
 | `audio/` | optional narrations |
@@ -317,6 +319,8 @@ The protein data is meant for teaching, not research.
 | `tools/smoke.mjs` | headless test: loads every story and fails on page errors |
 | `tools/collab.mjs` | headless test of shared rooms: a relay and several pages, and a pretend headset, in one room |
 | `tools/update.mjs` | update test: an older version installed, then this one deployed (see `AGENTS.md`) |
+| `tools/release.mjs` | a release step: writes `version.json` and stamps the shell's release into `index.html` (`--check` says whether they are current) |
+| `tools/live.mjs` | test of hot reload and live updates: a copy of the app changed as a release or an editor would, on a static host and through the relay's `--watch` |
 | `tools/audio.mjs` | narration test under the headset browsers' sound rule, with faults that make the fallback take over (needs `audio/narration.mp3`) |
 | `tools/narration.mjs` | writes `docs/narration.md` from the running stories (serve the folder first) |
 | `tools/pace.mjs` | paces the stories without a recording: writes their `NARRATION_SYNC` from the words on their panels (`--write`; serve the folder first) |

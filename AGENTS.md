@@ -344,6 +344,85 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
     session) are added with `HOST.quiet` set, so story changes do not remove
     them.
 
+## Hot reload and live updates (`HOST.live`, `HOST.swap`, `tools/release.mjs`, the relay's `--watch`)
+
+The app follows its files while it runs (the owner said go, 29 October 2026; it is
+also the ground for a story design room, where a draft story reloads in the
+headset as it changes). One path in the shell, `HOST.live` in `index.html`:
+
+- **Swapping a story in place** (`HOST.swap(key)`): the story's file fetched
+  fresh (past every cache), and only when its fingerprint differs from the one
+  running, `HOST.place()` taken (mode, `APP.t` and playing, the explore state by
+  the story's own `collab.state()`, its `view()`, whether its headset Stories
+  screen is open, the page's Stories screen, the station followed), the old
+  story torn down and the new factory run as for any story change (`HOST.run`:
+  listeners removed, the renderer and a headset session kept, the headset's
+  placement by `xrPose()` and `xrAdopt`), and the place put back by
+  `HOST.putPlace` right after the story's start gives the renderer its frame
+  loop (`HOST.built`, a microtask: before any other task, such as the shared
+  room's pump, sees the new story). The slideshow is the shell's and stays; a
+  paused clock right at a chapter's stop waits there again. At a station in a
+  shared room nothing is put back: the room's clock, state and view apply as the
+  story attaches, as for any story there, and nothing is written to the room
+  (the shell publishes a person's play, pause, jumps and mode changes only). A
+  file that registers no story (a syntax error mid-edit) is refused and the old
+  story runs on, the error in the page's bar.
+- **While developing**: `node relay/server.mjs --static . --watch [--build]`
+  (or with `--lan`). `/api/ping` says `watch: true`; `/api/watch` is a stream of
+  Server-Sent Events (`hello` with every fingerprint, then `story`, `list`,
+  `shell`, `build`; protocol in `relay/README.md`). A story file changed swaps
+  in place at once on every page showing it (also mid-chapter) and is fetched
+  fresh next time on the others; the list is read again (cards appear or change,
+  no reload); a shell file (`index.html`, `shared.js`, `sw.js`, `three.min.js`,
+  `peerjs.min.js`) reloads the page with its place kept. `--build` also runs a
+  built story's `tools/<key>/build.mjs` when its sources change (the folders its
+  build names, `../lbi/` and the like, and the story files it cuts from; not
+  `shots/`, `gen/`, `data/`), one build at a time, a moment after the last
+  change; a failed build shows in the page's bar. A page served by a watching
+  relay does not ask for `version.json`.
+- **On the live site** (GitHub Pages, the relay on Coolify): `version.json`,
+  written by `node tools/release.mjs` (a release step), is asked for 3 s after
+  the start, about once a minute, when the page comes back into view and when a
+  new service worker takes over (always the server's: `?t=` and `no-store`, and
+  the worker passes it through). It holds `version` (sw.js), `format` (shared.js),
+  `shell: { n, id }` (the shell's fingerprint, and the release in which it last
+  changed), `list` (the list's fingerprint, over `JSON.stringify(HOST.list)`) and
+  per story `{ fp, needs }` (its file's fingerprint and the oldest shell it
+  needs: its list entry's `needs`, else the shell of the release that last
+  changed it). The page compares with its own stamp (`HOST.shell`, written into
+  `index.html` by the same script) and the stories it loaded (`HOST.fp`). Taken
+  without asking: a new story's card (`take`; on the page and, through
+  `HOST.listRev`, in every story's headset Stories screen), a changed story not
+  on show (fetched fresh next time it starts: `HOST.live.stale`), the story on
+  show (swapped at a quiet moment: paused, explore mode, a Stories screen, or
+  within a second after a chapter's end, `CH[i].b` on the recording's clock;
+  never in the middle of a playing chapter). Asked first, with Reload now (the
+  place kept) or Later: another shell, another `FORMAT`, a story that needs a
+  newer shell (one never loaded here is not started until then; one loaded runs
+  on in its old version), a station whose story this device does not know. On
+  the page it is a bar (`#livebar`); in a headset a panel the shell draws in
+  front of you over everything, pointed at through `HOST.collab.ray` and
+  `press` (which every story calls before its own scene: the shell wraps them).
+  A question waiting is taken by itself on the page's Stories screen outside a
+  headset (`HOST.reloadIfUpdated`, which the service worker's takeover used to
+  trigger directly), at most once in ten minutes (a host that serves an old
+  page from a cache must not cause a loop). Without `version.json` a worker
+  that took over still means a new shell, as before.
+- **A reload keeps the place**: `HOST.place()` in `sessionStorage`
+  (`livePlace`, for two minutes), put back as the boot starts its story, the
+  station followed again. A headset session cannot survive a reload, so the page
+  then shows one button, *Enter VR to continue* (or AR), which enters as Enter VR
+  does and plays on as before.
+- **A shared room with an older device**: a station whose story this device's
+  list does not have shows on its card and in the page's dialog as *A newer
+  story*, "Update needed" (`shared.js`'s `meta` takes `HOST.unknown`), cannot be
+  run here (`HOST.start` asks instead), and the question offers the update;
+  Arrange all on such a device leaves that station where it is. So a new story
+  no longer needs a new `FORMAT`.
+- Untested on a headset: a swap in place in a session (the story's `xrAdopt` as
+  for a story change), the question's panel and its buttons, *Enter VR to
+  continue*, `EventSource` in Quest Browser.
+
 ## Shared rooms (`shared.js`, `relay/`)
 
 Several headsets and desktop pages join a room on the relay (`#s=XYZ` in the

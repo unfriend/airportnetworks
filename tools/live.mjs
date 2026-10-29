@@ -290,6 +290,15 @@ try {
     const after = await place(dev);
     report('a shell file touched: the page reloads with its place', back && after.state === before.state && /JFK/.test(after.state), { before, after });
   }
+  // a reload that ended a headset session: one button to go back in, the story waiting
+  {
+    await dev.evaluate(() => { const A = HOST.cur.collab.APP; A.enterStory(30); A.playing = true; });
+    await dev.evaluate(() => { const P = HOST.place(); P.xr = 'immersive-vr'; P.at = Date.now(); sessionStorage.setItem('livePlace', JSON.stringify(P)); location.reload(); });
+    const back = await until(dev, () => typeof HOST !== 'undefined' && HOST.curKey === 'airports' && HOST.cur && HOST.cur.collab.scene() && !document.getElementById('xrgo').hidden, null, 30000);
+    await wait(1000);
+    const r = await dev.evaluate(() => ({ text: document.getElementById('xrgo').textContent, mode: HOST.cur.collab.APP.mode, t: HOST.cur.collab.APP.t, playing: HOST.cur.collab.APP.playing }));
+    report('after a reload that ended a headset session: "Enter VR to continue", the story waiting where it was', back && r.text === 'Enter VR to continue' && r.mode === 'story' && !r.playing && near(r.t, 30, 0.5), r);
+  }
 } catch (err) { failed = true; console.log('FAIL while developing:', err.stack || err); }
 await browser.close();
 relay.kill();

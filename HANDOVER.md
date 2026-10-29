@@ -131,27 +131,31 @@ Before handing over (or making anything more public), someone has to decide thes
      5. push-to-talk in the headset, with what you look at, point at and see.
 
      It was estimated at 4 to 6M tokens to build. The microphone inside a headset session is untested on Quest.
-   - **live updates**: the app picks up a release by itself without losing its place.
-     - **How it notices:** a small version file, written by a release script, lists each story file's fingerprint, the
-       shell's version, the shared-room format and the list of stories. The app checks it every minute or so, and when
-       the page comes back into view.
-     - **Taken without asking:**
-       - a new story's card appears on the Stories screen, on the page and in the headset;
-       - a changed story not on show updates quietly;
-       - the story on show is swapped in place, keeping its chapter, time, mode, explore choices and placement, or at
-         its next pause if preferred.
-     - **A dialogue first, on the page and as a headset panel**, for breaking changes: the shell (`index.html`,
-       `shared.js`, `sw.js`), a new shared-room `FORMAT`, or a story that needs a newer shell than the one running
-       (each story would say which it needs).
-     - **After a full reload:** the app saves its place, reloads and restores it. A full reload always ends a headset
-       session (entering VR needs a tap), so the headset then shows one "Enter VR to continue" button.
-     - **Groundwork:**
-       - the list of stories moves out of `index.html` into its own file;
-       - the headset Stories screen in all fifteen stories reads the number of stories instead of having it written
-         in (today "fifteen" and the card spacing are in every story's panel code).
-     - **Size:** estimated at about 3 to 4 hours of agent work and 2 to 3M tokens, the tests included (the update test
-       would cover a story added live, a story swapped in place, the dialogue and the restore). Most useful for a kiosk
-       or headsets at an event.
+   - **live updates and hot reload**: built on 29 October 2026 (the owner said go). The app picks up a release by
+     itself without losing its place, and while developing it follows the files as they are saved (AGENTS.md "Hot
+     reload and live updates"; [docs/setup-and-release.md](docs/setup-and-release.md), step 5b and the table in
+     section 2).
+     - **A release step:** `node tools/release.mjs` after bumping `VERSION` writes `version.json` (each story file's
+       fingerprint and the oldest shell it needs, the shell's fingerprint and release, `FORMAT`, the list's
+       fingerprint) and stamps the shell's release into `index.html`. Pages ask for it about once a minute and when
+       they come back into view.
+     - **Taken without asking:** a new story's card (page and headset Stories screens), a changed story not on show
+       (fetched fresh next time), the story on show swapped in place at a quiet moment (paused, explore mode, a
+       Stories screen, a chapter's end), keeping mode, chapter, time, explore state and view, the slideshow and the
+       headset's placement.
+     - **Asked first** (a bar on the page, a panel with two buttons in the headset: Reload now or Later): a new shell,
+       a new `FORMAT`, a story that needs a newer shell, a shared room's station whose story the device does not know
+       (its card says "Update needed"). Reload now keeps the place; a headset then shows one button, Enter VR to
+       continue. On the page's Stories screen a new shell is taken by itself, as the service worker's update did
+       before.
+     - **While developing:** `node relay/server.mjs --lan --watch --build` (or `--static . --watch`): a saved story
+       swaps in place on every page and headset showing it, a set's source is built first, a shell file reloads the
+       pages with their place. This is the ground for the story design room's live reload.
+     - **Groundwork done with it:** the list of stories is `stories/list.js`; the headset Stories screen in all fifteen
+       stories spaces its cards from their number (neighbours 0.381 m apart, the outer ones at most 62 degrees to the
+       side) and names it in words up to twenty, so a sixteenth story changes none of the fifteen.
+     - **Untested on a headset:** a swap in place inside a session, the question's panel and its buttons, Enter VR to
+       continue, and the watch channel in Quest Browser. Tested headlessly by `node tools/live.mjs`.
    - **subtitles in the headset**, chosen per person from the headset's menu (Subtitles: off / follow / placed).
      - **Follow:** a little below the line of sight, about 1.5 m ahead. Not stuck to the head (uncomfortable): they
        stay put until you turn more than about 25 degrees, then glide back in front of you, as the wrist clock turns to
@@ -252,22 +256,25 @@ data, `tools/mutation/` or `tools/qubits/` for a story whose numbers are compute
 1. `tools/<key>/`: `SPEC.md` (the contract), `README.md`, the sets (each with a manifest `sets/<name>.md`), the engine
    (`engine/e1_head.js` to `e7_app.js`), `build.mjs`, `harness.html`, `shot.mjs`, `sweep.mjs`, a data generator if it has
    data. Build `stories/<key>.js` and check it with `--check`. Add `tools/<key>/shots/` to `.gitignore`.
-2. `index.html`: an entry in `HOST.list` (key, kick, title, colour, loading text, length: pace the story first with
-   `node tools/pace.mjs <url> --write <key>`, which prints it), the count in the start
-   screen's text and meta description, and the card rows' CSS if the rows change.
-3. The headset Stories screen in **every** story: the arc's spacing for n cards (a step for the new n, the outer cards
-   kept within about 62 degrees) and the number word ("fifteen") in each
-   story's panel code (`stories/airports.js`, `proteins.js`, `spatial.js`, and `tools/*/engine/e6_panels.js`, then
-   rebuild those).
-4. `shared.js`: bump `FORMAT`; the Arrange all comment (two rows of n/2). `sw.js`: bump `VERSION`, add
-   `stories/<key>.js` to `SHELL` and `narration-<key>.mp3` to `AUDIO`.
+2. `stories/list.js`: an entry (key, kick, title, colour, loading text, length: pace the story first with
+   `node tools/pace.mjs <url> --write <key>`, which prints it). The count on the start screen, in the title and on
+   every headset Stories screen follows the list by itself; `index.html`'s head (title, meta description, link
+   previews) and `manifest.webmanifest` say it in words for search engines and installs: update them, and the card
+   rows' CSS if the rows change.
+3. Nothing in the other fifteen stories: their headset Stories screens space the cards and name the count from the
+   list (`xrLandingCards`, `drawLandHead`).
+4. `sw.js`: bump `VERSION`, add `stories/<key>.js` to `SHELL` and `narration-<key>.mp3` to `AUDIO`; then
+   `node tools/release.mjs` (version.json: running pages get the new card within a minute). `shared.js`: `FORMAT` only
+   if the shared keys change (a device that does not know the new story yet shows its station as needing an update);
+   the Arrange all comment (two rows of n/2).
 5. Tests: the story's keys and count in `tools/smoke.mjs` plus an explore step; an entry in `STORIES` in
    `tools/collab.mjs` (its `HEADSET_STORY` stays last).
 6. Docs: AGENTS.md (the story table, Layout, a section of its own, the shared-state table, URL hashes), CLAUDE.md
    (the build line), README.md and README.txt, the audio note, [docs/data-and-permissions.md](docs/data-and-permissions.md),
    [docs/questions-for-authors.md](docs/questions-for-authors.md); regenerate [docs/narration.md](docs/narration.md) with
    `node tools/narration.mjs`; relay/README.md if Arrange all needs more floor.
-7. Run every test (smoke, update, relay, shared-room; audio after touching sound), then merge as above.
+7. Run every test (smoke, update, live, relay, shared-room; audio after touching sound;
+   `node tools/release.mjs --check`), then merge as above.
 
 ## Working with AI agents
 
