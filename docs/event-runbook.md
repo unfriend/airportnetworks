@@ -35,6 +35,19 @@ next one takes over by itself within a few seconds (*The host has gone: taking o
 (asleep, out of Wi-Fi), the others wait until the public server lets go of it, up to about a minute. The dialog and the
 menu say *peer to peer · hosted here* or *hosted by* a name.
 
+**Rooms on this network**: the first time, **one press**. Each device opens the app (the live copy, or the laptop
+relay's address), **Shared** on a page or the menu (the clock on the left wrist) in a headset, and **Join** next to
+the room under **Rooms on this network** (*On this network* in the menu): the rooms with someone on the same network
+(the same router, or the same address on the internet). **After that, by itself**: a device that was in a room joins it
+again on its own when the app opens on that network within a week (after a restart, a sleep, the next day), with a
+short notice (*Back in room XYZ*, with **Leave**). Peer to peer, when nobody holds the room yet, the first device back
+hosts it from its own copy (stations and their places) and the others link to it; two at once do not split it. A
+device never joins by itself a room it was never in, nor one it left with **Leave** (until it is joined again by hand),
+nor on another network: there it offers one button, **Start room XYZ again**. **Show on this network** (in the room's
+Shared dialog and menu) takes a room off the list for everyone. On a big shared network (eduroam, a campus, a
+conference's Wi-Fi) strangers share the address: the list may show their rooms too, and nobody joins anything new by
+itself.
+
 **Check the network first** with the test page: open `<live copy>/p2p/` on two or more devices on the router, give
 them the same code, press **Start**: the links should open within a second or two and keep running inside VR or AR
 for a minute (it reports how fast). To test without the internet, run the relay and add
@@ -90,10 +103,11 @@ local network found each other this way, and then shared a peer-to-peer room; he
 2. Open **exactly that address** in Quest Browser on every headset and bookmark it (shared spaces need the same
    address). Accept the certificate warning once per headset and per desktop browser.
 3. Once: **Shared** on a page (also in Quest Browser before AR) or a headset's menu (touch the clock on the left wrist), then **Start
-   a room**. The address now ends in `#s=` and three letters. Others **Join** it under **Open rooms**, or open the link
-   from **Copy link** (not shown for a room that lives on one device only). Peer to peer (steps 1 and 2 skipped: every
-   device opens the live copy): start the room on the laptop page; there are no **Open rooms**, so open its link on
-   the others (or **Join by code** on a page).
+   a room**. The address now ends in `#s=` and three letters. Others **Join** it under **Rooms on this network** (or
+   **Open rooms**), or open the link from **Copy link** (not shown for a room that lives on one device only). Peer to
+   peer (steps 1 and 2 skipped: every device opens the live copy): start the room on the laptop page; the others find
+   it under **Rooms on this network** (or open its link, or **Join by code** on a page). From then on each device
+   rejoins the room by itself when the app opens again (a restart, the next morning): nothing to press.
 4. **Enter AR** on one headset; after about ten seconds (*Shared space found*, or *Room calibration from last time*)
    the others, one by one. In VR, answer *Are you in the same room as the others?* with **In this room** (the menu
    opens by itself for it).
@@ -178,6 +192,10 @@ and the end of AGENTS.md "Shared rooms". Not yet confirmed on a device:
 - sound zones: each station's narration heard from where it stands;
 - comfort and frame rate with other people drawn;
 - whether the link to the relay keeps running inside a headset session;
+- rooms on this network on real networks: the STUN server's address on a home router, a mobile hotspot, eduroam or a
+  conference Wi-Fi (devices behind one address should see each other's rooms; IPv6-only networks and VPNs untried), a
+  relay behind Coolify with `--proxy`, a headset rejoining by itself after a restart or the next morning (and its
+  calibration found by its anchors), a headset that ends up hosting handing over to the first laptop page;
 - peer to peer: rooms with headsets and phones (so far two laptops: they found each other on a local network with the
   test page `p2p/` and were in one peer-to-peer room, the owner, 29 October 2026), links that keep running inside VR and
   AR, a host change at an event, a headset host handing over to a laptop, and how long PeerJS's public server keeps the

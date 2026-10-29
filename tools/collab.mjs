@@ -606,12 +606,12 @@ async function nearby() {
     await frames(Hm, 400);
     await until(Hm, c => (HOST.collab.nearby() || []).some(r => r.code === c), R1, 15000);
     await frames(Hm, 400);
-    const hReg = await Hm.evaluate(c => HOST.collab.overlay().panel.regions.some(r => r.id === 'join:' + c), R1);
+    const hReg = await Hm.evaluate(c => HOST.collab.overlay().panel.regions.some(r => r.id === 'near:' + c), R1);
     if (shots) {
       const u = await Hm.evaluate(() => HOST.collab.overlay().panel.ctx.canvas.toDataURL('image/png'));
       fs.mkdirSync(shots, { recursive: true }); fs.writeFileSync(path.join(shots, 'near-menu.png'), Buffer.from(u.split(',')[1], 'base64'));
     }
-    await Hm.evaluate(c => { const r = HOST.collab.overlay().panel.regions.find(x => x.id === 'join:' + c); if (r && r.fn) r.fn(); }, R1);
+    await Hm.evaluate(c => { const r = HOST.collab.overlay().panel.regions.find(x => x.id === 'near:' + c); if (r && r.fn) r.fn(); }, R1);
     check('rooms on this network (relay): the headset\'s menu lists the room under On this network, and one press there joins it', hReg && await inRoom(Hm, R1), JSON.stringify(await way(Hm)));
     await Hm.evaluate(() => window.__xr.end());
     await Hm.context().close();
@@ -619,8 +619,9 @@ async function nearby() {
     await B.evaluate(() => HOST.collab.dialog(false));
     await reopen(B, at(HP, '#stories'));
     const bBack = await until(B, c => HOST.collab.code === c && HOST.collab.status === 'open' && HOST.collab.internals().auto === c, R1, 20000);
-    await until(B, () => { const t = document.getElementById('shToast'); return !!t && !t.hidden; }, null, 3000);
-    const tText = await B.evaluate(() => { const t = document.getElementById('shToast'); return t && !t.hidden ? t.textContent : ''; });
+    // (the notice goes by itself after 20 s: a page busy drawing in software may answer later than that)
+    const tText = await B.evaluate(() => { const t = document.getElementById('shToast'); return t && window.__collabLog.some(e => e.ev === 'notice' && e.title === 'Back in room') ? t.textContent : ''; });
+    if (shots) { await ready(B, 'airports', 10000); await B.evaluate(() => { document.getElementById('shToast').hidden = false; }); }   // (the picture: the Stories screen behind the notice)
     await shot(B, 'near-toast.png');
     check('rejoin (relay): a page that was in the room joins it again by itself when the app opens again, with a notice (and Leave in it)', bBack && /Back in room/.test(tText) && /Leave/.test(tText), JSON.stringify({ way: await way(B), tText }));
     // a day later, after everyone had gone (the relay forgot the room meanwhile): joined again by itself, and the room is
@@ -646,6 +647,20 @@ async function nearby() {
     await sleep(5000);
     const b8 = await way(B8);
     check('rejoin (relay): more than a week after its last use, a room is not joined again by itself', !b8.code && !b8.offer, JSON.stringify(b8));
+    // the relay forgot the room and gave its code to another room (which has its own id, rid): never joined by itself
+    for (let k = 0; k < 40 && (await fetch(`http://127.0.0.1:${N.port}/api/rooms/${R1}`)).status !== 404; k++) await sleep(250);
+    const made = (await fetch(`http://127.0.0.1:${N.port}/api/rooms`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ app: 'networks', code: R1 }) })).status;
+    const X = new WebSocket(`ws://127.0.0.1:${N.port}/api/ws?room=${R1}&id=someoneelse1`);
+    await new Promise(r => { X.onmessage = r; X.onerror = r; });
+    X.send(JSON.stringify({ t: 'set', batch: [['rid', 'anotherroom'], ['st.zz', { story: 'flock', x: 0, z: 0, yaw: 0 }]], cid: 1 }));
+    await sleep(300);
+    const Bx = await nopen(at(HP, '#stories'), { state: bState, skew: DAY });
+    await sleep(6000);
+    const bx = Object.assign(await way(Bx), { note: await Bx.evaluate(() => HOST.collab.internals().note) });
+    const xKept = await Bx.evaluate(c => { try { const o = JSON.parse(localStorage.getItem('collabRoom.' + c)); return !!o && !!o.gone && !o.keys['st.zz']; } catch (e) { return false; } }, R1);
+    check('rejoin (relay): a code the relay gave to another room meanwhile (another id) is never joined by itself, nor offered; this device keeps its own copy, not the other room\'s',
+      made === 201 && !bx.code && !bx.offer && /another room/.test(bx.note || '') && xKept, JSON.stringify({ made, bx, xKept }));
+    X.close();
     for (const c of all.splice(0)) await c.close().catch(() => {});
     // ---- peer to peer (no relay): pretend networks, the relay's introduction server
     const server = `127.0.0.1:${N.port}/peerjs`, pat = net => `http://127.0.0.1:${N.port}/index.html#stories&peer=${server}&net=${net}`, nop = { noApi: true };

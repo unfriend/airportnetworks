@@ -787,7 +787,7 @@ await step('a story picked while another builds: its steps stop, the headset\'s 
   await step('headset: the loading scene in front of you and at the wrist, gone as the story starts (VR and AR)', async () => {
     await hp.goto(base + 'index.html#flock');
     await hp.waitForFunction(() => typeof HOST !== 'undefined' && HOST.curKey === 'flock' && HOST.cur && HOST.cur.collab.scene(), null, { timeout: 60000 });
-    for (const [mode, key] of [['immersive-vr', 'lbi'], ['immersive-ar', 'nmd']]) {
+    for (const [mode, key] of [['immersive-vr', 'lbi'], ['immersive-ar', 'lbi']]) {
       const bad = await hp.evaluate(async ([mode, key]) => {
         const out = [], sleep = ms => new Promise(r => setTimeout(r, ms)), L = HOST.loading, r = HOST.renderer, xr = r.xr;
         const keep = { render: r.render, sal: xr.setAnimationLoop, ref: xr.getReferenceSpace, mode: HOST.mode }, drawn = [];

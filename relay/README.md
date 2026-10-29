@@ -35,6 +35,7 @@ node relay/server.mjs [--lan] [--port 8787] [--host 0.0.0.0] [--static .] [--cer
 | `--ping <s>` | 20 | how often the relay pings every member (keeps proxies from closing idle sockets) |
 | `--quiet` | off | no log lines |
 | `--no-peer` | off | no introduction server for peer to peer (`/peerjs`, on by default; it costs nothing while unused) |
+| `--proxy` | off | behind a reverse proxy (Coolify's, nginx): a client's address is the last one in `X-Forwarded-For`, for [rooms on this network](#rooms-on-this-network). Without it the header is ignored (a client could write anything there); never turn it on for a relay that clients reach directly |
 | `--lan` | off | for headsets on the same Wi-Fi: HTTPS with a certificate of its own (made with `openssl` in `relay/.lan/`) and the app's files served from the repository; prints the address to open on the headsets |
 | `--watch [<dir>]` | off | while developing (hot reload): watch the app's files, the `--static` folder (or `<dir>`, then also served when `--static` is not given). The pages it serves swap a changed story in place, keeping their place, and reload (place kept) when a shell file changes; see [Hot reload](#hot-reload---watch) |
 | `--build` | off | with `--watch`: run a built story's `tools/<key>/build.mjs` when its sources change, so editing a set shows by itself |
@@ -46,7 +47,8 @@ the address for desktops only and how to reach it from a headset (`--lan`, or `a
 join, a hello, every stored write (`XYZ set #12 by k7f2: st.a1.play`, deletions as `key=null`), every refusal
 with its reason, dropped ephemeral messages (counted), a leave, a timeout, an expired room; and for the introduction
 server an id joining, coming back, refused, leaving or timing out and an id that never came (ids only, `peer join
-<id>`). `X-Forwarded-For` is used for the rooms' lines only. It stops cleanly on SIGTERM (telling every member, close code 1001).
+<id>`; a slot of rooms on this network shows with `******` in place of its network's id). No line names a client's
+address or its network's id. It stops cleanly on SIGTERM (telling every member, close code 1001).
 
 Headsets need a secure context for WebXR (`https://`, or `http://localhost`), and a page on `https://` can only
 open `wss://` sockets. `--lan` takes care of both on a local network: it makes a certificate of its own for
@@ -235,7 +237,11 @@ certificate if you have one.
 5. Give it that **domain** (`https://networks.example.org`); Coolify's proxy gets a certificate for it and
    passes WebSocket upgrades through without further settings (the relay's pings every 20 s keep an idle socket
    open through any proxy timeout above that).
-6. Deploy. Check `https://networks.example.org/api/ping` (the image's health check uses it too).
+6. The Dockerfile starts the relay with `--proxy`, so *Rooms on this network* sees each device's own address rather
+   than the proxy's (without it every device would be on one network, the proxy's). Run the image without `--proxy`
+   where clients reach the relay directly (a client could then write any address in the header).
+7. Deploy. Check `https://networks.example.org/api/ping` (the image's health check uses it too): with `--proxy` its
+   `net` differs between two devices on different networks.
 
 Then open `https://networks.example.org/` on every headset and desktop: the relay serves the app, and the
 app's shared-room client talks to the relay on the same origin (`wss://networks.example.org/api/ws`). The image
@@ -252,7 +258,8 @@ All under `/api/`, JSON, `Cache-Control: no-store`, `Access-Control-Allow-Origin
 
 | request | answer |
 | --- | --- |
-| `GET /api/ping` | `{ now, proto }`: relay time (ms) and protocol number (1); with `--watch` also `watch: true` |
+| `GET /api/ping` | `{ now, proto, net }`: relay time (ms), protocol number (1) and the asker's network id (see [Rooms on this network](#rooms-on-this-network)); with `--watch` also `watch: true` |
+| `GET /api/near` | `{ net, rooms: [{ code, name, members, stations, version }] }`: the rooms on the asker's network, those with people first (at most 20): `name` the first member's (by when they came), `members` a count. Never an address |
 | `GET /api/watch` | with `--watch`: a stream of Server-Sent Events (see [Hot reload](#hot-reload---watch)); 404 without, 503 at 200 pages |
 | `POST /api/rooms` `{ app, version, code? }` | 201 `{ code }`: a new room, 3 letters A-Z. With `code`, that code if it is free (409 `{ error: 'taken' }` if not): how a client brings back its room after a relay restart. 400 for a body that is not JSON or a bad code, 413 over 16 KB, 503 at 2000 rooms |
 | `GET /api/rooms` | `[{ code, members, names, stations, idle, version }]`: `members` a count, `names` theirs, `stations` how many `st.<id>` keys, `idle` seconds since the last member left (0 while anyone is in) |
@@ -418,6 +425,27 @@ without an answer, as PeerJS's own server does (an `ERROR` would end the client)
 closes, or once silent for `--timeout` (40 s; closed with 4009): the relay pings every socket every `--ping` seconds
 and a browser answers by itself, so only a device that has gone falls silent. 1001: the relay is stopping.
 
+## Rooms on this network
+
+Browsers cannot search the local network, so devices meet through the address they share on the internet (the app's
+*Rooms on this network*, in AGENTS.md "Shared rooms"). The relay hashes the address it sees for each request and socket
+into a **network id**: the first 6 hex digits (24 bits) of SHA-256 of `networks-near-1|<name>`, where the name is the
+address itself (a public IPv4 address), its /24 for a private one (`192.168.1.0/24`: a relay on the LAN sees each
+headset's own address, and one Wi-Fi is one network), its /64 for IPv6, `loopback` for this machine. The page makes the
+same hash of the public address Cloudflare's STUN server reports when there is no relay, so a room used on a network
+through a relay on the internet is on that network peer to peer too. One id stands for about 256 public addresses.
+
+- `GET /api/ping` and `GET /api/near` say the asker's id (`net`); `/api/near` lists the rooms shown on it: those with a
+  member on that network (each member's id is taken from its socket), an empty room on the networks of the members it
+  had (the last 8), unless the room's key `near` is `{ on: false }` (*Show on this network: off*).
+- Privacy: no address is kept or logged, only these ids, in memory, with the rooms (gone when the room expires or the
+  relay restarts), and the log names neither. No answer contains an address. (`GET /api/rooms` lists every room
+  whatever its network, as before: the network list is a convenience, not a lock; a room's code is all it takes to
+  join.)
+- Behind a reverse proxy the relay sees only the proxy's address: start it with `--proxy`, and it takes the last
+  address in `X-Forwarded-For` (the one the proxy added; anything before it came from the client). Without `--proxy`
+  the header is ignored.
+
 ## Testing
 
 ```sh
@@ -434,7 +462,10 @@ attempts, every file `sw.js` caches served and nothing else of the repository, l
 download cut short), the start lines (no `http://` address for headsets), `--lan`, the log, and the introduction
 server: ids over HTTP (CORS, bad requests refused), `OPEN`, `ID-TAKEN` for another token, the same token reconnecting,
 messages passed on with `src`, kept for an id that comes a moment later and `EXPIRE` for one that never comes,
-heartbeats, a silent id dropped, a closed socket freeing its id, the log (ids only) and `--no-peer`; and `--watch`
+heartbeats, a silent id dropped, a closed socket freeing its id, the log (ids only) and `--no-peer`; rooms on this
+network (`/api/near` and `/api/ping` by the asker's network with `--proxy`, only the last address of `X-Forwarded-For`,
+a private address by its /24 and IPv6 by its /64, `near` off and on, a member from another network, an empty room,
+the header ignored without `--proxy`, no address in any answer or log line and no network's id in the log); and `--watch`
 (ping, the event stream's `hello` with the right fingerprints, `story`, `list` and `shell` as files change, nothing for
 a file written unchanged, `--build` running a story's build when its source changes and reporting a failed one, not
 for `shots/`). It exits 1 on a failure. The shared-room client in the app has its own test (`tools/collab.mjs`).

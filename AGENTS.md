@@ -178,6 +178,23 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
   story change, look here first.
 - Stories must create the renderer with `HOST.makeRenderer(...)`, never
   `new THREE.WebGLRenderer`.
+- Loading (29 October 2026, the owner: "some rooms like 'the future' take a little time to load"). A story builds in
+  steps, each a task of its own (its `LOAD` queue, see "Inside a story"), and reports each with
+  `HOST.progress(done, total, label)` (stories guard it, `if (HOST.progress)`, so an older shell still works). The
+  page's `#loading` shows a thin bar in the story's colour (`#ldBar`) and the step (`#ldStep`) under the story's
+  loading line (`#ldLine`; `HOST.loading.begin(meta)` in `HOST.start`). In a headset the old story's scene is gone
+  while the next one builds, so `HOST.teardown` gives the renderer the shell's loading scene as its frame loop
+  (`HOST.loading`, in `index.html`, in place of the blank loop that kept the session alive): a card with the story's
+  kicker, title and a bar in its colour and the step, 1.2 m in front of you and 15 cm below your eyes, easing with your
+  head (upright, turned to you), and a ring with the share done on the left wrist where the menu's clock sits (a
+  controller's grip or a tracked hand's wrist, placed as `shared.js` places the clock; the menu is out of the scenes
+  while a story builds). Both are placed from the frame in the renderer's reference space (where three.js puts the
+  camera), shown only once a load has taken 0.4 s, and fade out over the new story's first frames (`HOST.loading.wrap`,
+  in `makeRenderer`'s `setAnimationLoop`: drawn after the story's frame with its camera's near and far, so the
+  session's depth range does not flip). The loading scene is a scene of its own, never in a story's, made once with
+  `HOST.quiet` set; the clear colour stays as the story before left it (see-through in AR). A headset draws it between
+  the story's steps only, so no step may run long. A story torn down while it still builds (its frame loop not yet
+  given: `HOST.loading.ran`) never took the headset: `HOST.inputs` and `HOST.xrPose` from the story before stay.
 - In a headset session, a newly started story calls `xrAdopt()` to take over
   the running session, the controllers (`HOST.inputs`) and the previous
   placement (`HOST.xrPose`).
@@ -487,8 +504,12 @@ panel's tilt left by a free grip, absent when there is none; FORMAT networks-22)
 from a page's Shared dialog or a headset's menu, never refused by the layout
 lock; a room without it gives everything in 3D and no subtitles; free moving turned off takes
 every `q` out of the stations' places and panels in the same write), and per shared space `rf.<space id>` (the room's frame in it) and
-`rs.<space id>` (found split; FORMAT networks-9), and `sg` (the room's shared-space
-generation, `{ n, by, at }`; FORMAT networks-10; networks-11 when the eighth story came, networks-12 the ninth, networks-13 the tenth, networks-14 the eleventh, networks-15 the twelfth, networks-16 the thirteenth, networks-17 when the PET story's `state()` lost its one-scan fields, networks-18 when its liver scene came back, networks-19 when the ovary story's charts went, networks-20 when the pass story's school got a shared place at a station, networks-21 when the fourteenth story came, networks-22 when the scene's and the panel's turn joined a station's place, networks-23 when the fifteenth story came, networks-24 when subtitles joined `look`). The plan is `docs/shared-space-plan.md`.
+`rs.<space id>` (found split; FORMAT networks-9), `sg` (the room's shared-space
+generation, `{ n, by, at }`), `near` (*Show on this network*, `{ on, by, at }`: absent or on, the room is listed under
+*Rooms on this network*; set by anyone in the room, never refused by the layout lock) and `rid` (the room's own id, ten
+letters written once by the page that made or holds it: a room joined again by itself can be told from another room
+under the same code) (FORMAT networks-10; networks-11 when the eighth story came, networks-12 the ninth, networks-13 the tenth, networks-14 the eleventh, networks-15 the twelfth, networks-16 the thirteenth, networks-17 when the PET story's `state()` lost its one-scan fields, networks-18 when its liver scene came back, networks-19 when the ovary story's charts went, networks-20 when the pass story's school got a shared place at a station, networks-21 when the fourteenth story came, networks-22 when the scene's and the panel's turn joined a station's place, networks-23 when the fifteenth story came, networks-24 when subtitles joined `look`, networks-25 when `near` and `rid`
+came with rooms on this network). The plan is `docs/shared-space-plan.md`.
 
 - `HOST.collab` keeps the room's keys (echo suppression by value, optimistic
   writes acknowledged by the relay, apply order stations > clock > state >
@@ -576,6 +597,46 @@ generation, `{ n, by, at }`; FORMAT networks-10; networks-11 when the eighth sto
   panel says so). The placement stays as it moves; a `'floor'` frame then gives
   way once the shared space gives a frame. Another tab's writes to a room on
   this device are taken (the `storage` event).
+- Rooms on this network (the owner, 29 October 2026; "Rejoin by itself, never join something new by itself"). Browsers
+  cannot search the local network, so devices meet through the address they share on the internet.
+  - The network's id (`C.net`): a short hash, never the address itself (kept only on the device, with its rooms, and
+    never logged by the page or the relay): the first 24 bits of SHA-256 of a fixed salt (`networks-near-1`) and the
+    network's name (one id stands for about 256 public addresses). With a relay, the relay's (`/api/ping` and
+    `/api/near` say it): it hashes the address it sees, a private one by its /24 (a relay on the LAN sees the headsets'
+    own addresses), IPv6 by its /64; behind a reverse proxy such as Coolify's it takes the last address in
+    `X-Forwarded-For`, only when started with `--proxy`. Without a relay (or one that does not answer), the public
+    IPv4 address Cloudflare's STUN server reports (the srflx candidate of a throwaway `RTCPeerConnection`, its listener
+    added with `HOST.quiet`), hashed in the page (`netName`, `netHash`: the relay's rules and salt, so both agree). For
+    tests `#net=<word>` pretends one (no relay; kept for the tab in `sessionStorage`, `collabNet`; `off` drops it). None
+    found: nothing listed and nothing joined by itself, and the dialog says so. It is asked only when the dialog or the
+    menu lists rooms, when a room is joined (kept with it), or at load when a room was used in the last week.
+  - *Rooms on this network* (the Shared dialog above *Open rooms*, the headset's menu as *On this network*; one press
+    joins; looked for again every 15 s while either is open): the relay lists the rooms with someone on the asker's
+    network (an empty room: on its last members' networks) unless their `near` is off (`GET /api/near`: code, the first
+    member's name, people, stations; never an address). Peer to peer, a room's host holds the first free of eight slots
+    named after the network on the introduction server (`lbinet-near-<FORMAT>-<net>-<0..7>`, `slotStep`, in the pump;
+    let go when it no longer hosts, the room is hidden or left, or the page goes) and answers whoever links to it there
+    with its code, its name, people and stations; a seeker (`seek`) links to all eight at once through a throwaway
+    peer (a free slot answers after the introduction server's 5 s).
+  - Rejoin (`rejoin`, `netAgain`): each room kept on the device (`collabRoom.<code>`, the last 8, as before) also keeps
+    when it was last used (`at`), the network (`net`) and relay (`relay`, '' none) it was used through, and `left`
+    (left on purpose) or `gone` (its code is another room's now). A device in no room joins again by itself the room
+    it used last on the current network through the same relay (or none), within a week of its last use, at page load
+    (no `#s=` in the link) and when the network or the relay becomes known (also on `online`, and when the page shows
+    again a minute after the network was last found), with a notice (`#shToast` on a page, with *Shared* and *Leave*;
+    the shell's notice in a headset session) and *joined again by itself* in the dialog's status. With a relay: the
+    room there is looked at first (`GET /api/rooms/<code>`): another room under the code (its `rid` differs: the relay
+    forgot ours and gave the code again) is never joined (`notMine`: marked `gone`, a note says so); none there: joined
+    by its code, and the relay gets it back from this device's copy (`revive`). Peer to peer: joined by its id, which is
+    unique, so linked to whoever holds it, else hosted here from this device's copy (the existing rule for a kept room),
+    so the others find it; two at once never split it (the second links to the first); a headset that ends up hosting
+    hands the room to the first laptop page as before. A welcome from another room under the code (its `rid`) is left
+    at once, and nothing of it is kept. Never: a room left on purpose (*Leave* in the dialog, the menu or the notice,
+    and `HOST.collab.leave()`), until it is joined again by hand; a room the device was never in; one last used more
+    than a week ago. Used last on another network, through another relay, or with no network found: nothing by itself,
+    but one button, *Start room XYZ again* (*Join room XYZ again* with a relay; `offer`), in the dialog and the menu.
+    In a headset the join is any join: the room's frame comes back as on any join, a calibration from last time is
+    found by its anchors.
 - A fresh shared space (*Fresh shared space* in the headset's menu and in
   the page's Shared dialog, two presses, only where the relay serves the page):
   Quest Browser keeps one shared space per page address, and two Quest 3s each
@@ -946,8 +1007,9 @@ generation, `{ n, by, at }`; FORMAT networks-10; networks-11 when the eighth sto
 The hooks every story keeps (all fifteen, the same lines; the flock is the
 reference, `tools/flock/engine/`):
 
-- `collab: { APP, scene: () => GL.scene, state, apply, view, setView, effect, hover, panel, place }`
-  in its returned object: `APP` is its own clock object, `effect(type, data)`
+- `collab: { APP, scene: () => (LOAD.done ? GL.scene : null), state, apply, view, setView, effect, hover, panel, place }`
+  in its returned object (`scene()` is null until the story is all built, so the shell attaches to it, applies the
+  room's clock and state and hangs its overlay only then): `APP` is its own clock object, `effect(type, data)`
   plays a one-shot effect another person caused (without sending it again),
   `hover(i)` is how far controller i's ray reaches now (or 0), `panel(p, yaw, q)`
   puts the story panel where another person moved it (upright at `yaw`, or
@@ -1092,6 +1154,22 @@ an event, and how long PeerJS's public server keeps a sleeping host's id.
 - Data at the top (airports and proteins: precomputed constants; spatial: the
   editable `PLACES`, `PROTEINS`, `LINKS`, `TOGETHER`, `MOVES` lists, laid out
   at load time by `LAYOUT`).
+- The start runs in steps (`LOAD`, the same lines in every built engine's `e7_app.js`; the hand-written three keep the
+  same `loadStep` and `warm` with their own list): `init` (from `setTimeout(init, 40)` as before) lists the steps
+  `[label, fn, scene]` and runs them one by one (`loadStep`), each in a task of its own, the next from a timer (not an
+  animation frame: the window's frames stop in a headset), calling `HOST.progress` after each; a step that returns
+  true runs again. Built stories: `buildScene` (the renderer, scene, lights and stars only), then per set `buildSet(k)`
+  and `warm(group)`, then `sceneJoin()` (what joins the sets: the microanatomy story's colours, network and dots, the
+  tissue topology story's liver, the design room's plates and first view; empty elsewhere) and `warm(GL.scene)`, then
+  the story (`resize`, `buildDefaults`, `buildStory`, labels, timeline), explore mode (`buildExplore`, `bindCanvas`)
+  and the panels (`audioInit`, `xrSetup`, `LOAD.done`, then `initEnd`: the old start's rest, listeners, a link's
+  place, the frame loop). The hand-written three: `buildScene`, `warm(GL.scene)`, story, explore, panels. `warm`
+  compiles each material once (`LOAD.seen`) with the scene's lights, as when drawn (`renderer.compile` on a stand-in
+  scene holding the lights and one object without its children), until a slice has taken 100 ms; its floor is one
+  shader program (in SwiftShader up to about 0.5 s on a quiet machine, more on a loaded one; three.js r128 cannot use
+  `KHR_parallel_shader_compile`). A failure in a step marked `scene` shows that WebGL is missing, as before;
+  `dispose` sets `LOAD.gone` and clears `LOAD.t`. `LOAD.ms` keeps each step's time (`HOST.cur.peek('LOAD.ms')`).
+  Nothing else changed: the sets, the first frame, seeking, the clock and the shared-room hooks are as they were.
 - `CH` lists chapters with story-time ranges; `buildStory()` writes the panel
   HTML (elements with `data-at` fade in at that second of the chapter) and the
   animation tracks via `ramp()`/`key()` over the names in `DEF`; `storyCam()`
@@ -1731,6 +1809,13 @@ held-out test, a window's share of the gap, the two groups, cell v's score), for
 stories also their links (each opens explore mode on what it says), for the pass story in both languages with its switch; for
 the robot gang every rule, a click to walk, crumbs, a big open floor and one
 with no area, and a pretend headset room from detected planes),
+loads every story again watching its load (`HOST.progress` rising from 0 to its total once per step, the page's bar
+and step shown and gone, no task of the load longer than `LOAD_LIMIT`, 4 s: generous, as SwiftShader compiles one
+shader at a time in software; the shared-room hooks seeing the scene only once it is built; a story picked while
+another builds stopping that one's steps and keeping the controllers and place), and with a pretend headset (its
+frames driven, the drawing recorded) the loading scene in VR and AR: nothing before 0.4 s, then the card 1.2 m in
+front and 15 cm below the eyes and the ring at the left wrist, drawn in a scene of its own (not the story's, no
+listener of the story's), the clear colour kept, the card fading out over the story's first frames,
 switches stories, runs anchored placement in each
 story with a pretend headset (an origin that jumps, anchors that stay, saved
 handles), checks the three headset settings with a pretend headset in a page of
@@ -1801,7 +1886,9 @@ on the first visit after the update, on the next visit and offline.
 After touching `shared.js`, the relay or a story's shared-room hooks, run
 `node relay/test.mjs` (the protocol: rooms, writes and their order, the epoch
 rule, `fx`, timeouts, bad frames, static serving, `--logs`, the introduction
-server at `/peerjs`; no browser, seconds; `node tools/peer.mjs` links two pages of
+server at `/peerjs`, rooms on this network: `/api/near` by the asker's network, a private address by its /24, IPv6 by its
+/64, `--proxy` and `X-Forwarded-For` ignored without it, an empty room still listed on its members' networks, `near`
+off, and no address in any answer or log line, nor a network's id in the log; no browser, seconds; `node tools/peer.mjs` links two pages of
 the test page `p2p/` through it) and
 `node tools/collab.mjs` (about a quarter of an hour; it starts its own relay with
 `--static .`, so no server is needed). For every story in its `STORIES` table,
@@ -1912,10 +1999,26 @@ old host back as a guest; a host fallen silent with its id held, replaced once
 its id is free (after the 6 s); an introduction server that cannot be reached
 (the room on this device); a relay that cannot be reached as a room is joined
 (peer to peer); a headset (by its user agent) that hosts handing the room to the
-first screen that joins. `--p2p` runs only that part (about two minutes). `--quick` runs only the last story in the per-story part. A new story needs an entry in `STORIES`
+first screen that joins. `--p2p` runs only that part (about two minutes). Then rooms on this network (`--near` runs
+only that part, about five minutes; its own relay with `--proxy`, and in front of it one small proxy per pretend
+network that puts that network's address in `X-Forwarded-For`, as Coolify's does; peer to peer, `#net=home` and
+`#net=away` with the relay's `/peerjs`): with a relay, the page's network id the same as its own hash of the address;
+two pages on one network see each other's room (the first member's name, people) in the dialog and one press joins,
+a page on another network does not (only among the open rooms); a page never in the room is never joined by itself;
+*Show on this network* off and on; the headset's menu listing it under *On this network*, one press joining; a page
+that was in the room joining it again by itself when the app opens again (the notice); a day later (the page's clock
+moved on, its storage kept) with the relay having forgotten the room, joined again and the room back from its copy;
+Leave on purpose, then nothing by itself; more than a week later, nothing; a code the relay gave to another room
+meanwhile (another `rid`), never joined, nothing of it kept. Peer to peer: the host holding a slot, a page on its
+network seeing the room (hosted by) and joining with one press, a page on another not; *Show on this network* off
+(the slot let go) and on; a page that was in the room rejoining its host by itself; a day later with nobody holding
+it, the first page back hosting it from its copy and the next linking to it; on another network nothing by itself,
+*Start room XYZ again* hosting it with one press; Leave on purpose, nothing by itself; the relay's log naming none of
+the pretend addresses. `--quick` runs only the last story in the per-story part. A new story needs an entry in `STORIES`
 (`change` and `back`: code that changes its `state()`, and optional `effect`
 and `more`); the headset's story (`HEADSET_STORY`) stays the last entry.
-`--shots <dir>` also saves pictures of the dialog and eight headset views (with the menu's clock on the left wrist, the menu open, its Sound check,
+`--shots <dir>` also saves pictures of rooms on this network (`near-dialog.png`, `near-toast.png`, `near-again.png`,
+the menu's canvas `near-menu.png`), of the dialog and eight headset views (with the menu's clock on the left wrist, the menu open, its Sound check,
 stepped out of a station's circle: no story, only the room and the clock in front, and the stations' icons from behind the first row and along it, at 1280 x 800).
 
 For the tour, test a changed set on its own in the set harness first
@@ -1949,7 +2052,7 @@ second), `#lbi&explore&scene=atp&view=network&now=1` (a scene with its controls)
 `#pass&explore&protein=CFTR&move=cf`, `#pass&explore&scene=globe&pillars=on`, `#flock&explore&view=afar&links=on&birds=400`
 (`&hunt` sends a falcon), `#robots&explore&rule=chain&robots=12&trails=on&links=on&view=low`
 (`&crumbs` spills a pile, `&walk=1.5,1.2` walks you there), `#airports&repeat=all` (a kiosk that plays
-every story in turn), `#airports&slides=on` (every story as a slideshow), `#anchor=on` (anchored headset placement),
+every story in turn), `#airports&slides=on` (every story as a slideshow), `#anchor=on` (anchored headset placement), `#stories&net=home` (pretend to be on a network, without a relay: rooms on this network in tests),
 `#design` (the design room's table), `#design&pick=lbi.atp&view=stage` (a prop on the stage, its card; `view=above`,
 `view=group:pet` a story's plate, `&tab=all`, `&now`). In the console,
 `HOST.cur.peek('expression')` evaluates inside the current story

@@ -45,7 +45,9 @@ where real data would be too much, but whatever the science says must be correct
   calls; use `InstancedMesh` or merged geometry for many objects. Do not rebuild big buffers every frame (updating a
   few hundred values is fine; `needsUpdate` on a big attribute every frame is not). No shadows, no render targets.
   Build time at load below ~400 ms in headless Chromium (software GL is slow, so the harness's frame time is not a
-  guide to real speed; the build time is).
+  guide to real speed; the build time is). Each set is built as a step of the load of its own (`buildSet`, then its
+  shaders compiled, `warm`), and a headset draws the shell's loading scene only between steps, so keep a set's build
+  short; a slow part can be built in slices instead (`idle` and `finish`, see `tools/nmd/SPEC.md`).
 - Text inside the 3D scene: avoid it (labels are drawn by the engine, see `labels`). A small amount of canvas-texture
   text is allowed where the text is part of an object (a computer screen), but no paragraphs.
 

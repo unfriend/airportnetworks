@@ -98,7 +98,8 @@
     // rooms on this network: the network's id (a short hash, never the address; where it came from: 'relay', 'stun' or
     // 'pretend'; whether it was found: '', 'finding', 'found' or 'none'), the rooms found on it, and the room this device
     // joined by itself (auto: its code)
-    net: '', netSrc: '', netState: '', netBusy: null, netAt: 0, pretend: '', near: null, nearErr: '', nearAt: 0, nearBusy: false, auto: '',
+    net: '', netSrc: '', netState: '', netBusy: null, netAt: 0, pretend: '', near: null, nearErr: '', nearAt: 0, nearBusy: false, auto: '', autoRid: '', made: '', rejoining: false, stranger: '',
+    listing: { dialog: false, menu: false },   // (the dialog and the headset's menu, open: what pump may update)
     st: [], stById: new Map(), mine: '', live: '', picked: false, follow: '', zone: '', cand: '', candAt: 0, going: new Map(), goAt: 0,
     pres: new Map(), rays: new Map(), hov: new Map(), presAt: 0, deskAt: 0,
     cur: null, hook: null, ready: false, guard: 0, hush: false, pumpAt: 0, viewSeen: '',
@@ -142,7 +143,8 @@
     if (why !== 'served') put('collabRelay', s);
     log('relay', { relay: s, why });
     if (C.local && C.code && s) setTimeout(() => probe(performance.now(), true), 0);   // a room on this device: to this relay?
-    setTimeout(() => netAgain('relay'), 0);   // a room kept here to rejoin through it?
+    // a room kept here to rejoin through it? And the rooms on this network as this relay sees them, if they show
+    setTimeout(() => { netAgain('relay'); if (!C.code && (C.listing.dialog || C.listing.menu)) { listRooms(); nearFind('relay'); } }, 0);
     changed();
   }
   // does the relay serve this page? Asked once, and only when the shared space is used
@@ -208,6 +210,7 @@
     C.creating = false; C.note = '';
     if (!r.ok || !r.j || !r.j.code) { C.note = 'Could not start a room: the relay answered ' + r.status + '.'; changed(); return; }
     log('created', { code: r.j.code });
+    C.made = r.j.code;   // (this page made it: it gives the room its id, rid)
     join(r.j.code);
   }
   // how: none (a room by its code or a link: on the relay when one is known, else peer to peer, else this device only),
@@ -218,7 +221,8 @@
     code = String(code || '').trim().toUpperCase();
     if (!/^[A-Z]{3}$/.test(code)) return false;
     if (C.code) leave(true);
-    C.auto = how === 'auto' ? code : '';
+    C.auto = how === 'auto' ? code : ''; C.autoRid = ''; C.stranger = '';
+    if (how === 'new') C.made = code;
     const h = heres()[code], via = how === 'new' ? (peerOn() ? 'peer' : 'local') : C.relay ? (how === true ? 'local' : 'relay') : peerOn() ? 'peer' : 'local';
     Object.assign(C, { code, via, local: via === 'local', peerNew: how === 'new' && via === 'peer', peerFail: false, takeover: false, next: '', seqMax: 0, lastRole: '', spareN: 0,
       probeAt: 0, want: true, welcomed: false, note: '', tries: 0, status: 'connecting', keys: new Map(), synced: new Map(), pending: new Map(),
@@ -244,6 +248,7 @@
     slotDrop();
     if (purpose) keptMark(C.code, { left: true });
     C.auto = ''; toastOff();
+    if (C.stranger === C.code) LOC.mirror = false;   // (another room under this code: nothing of it kept)
     locFlush();
     Object.assign(C, { code: '', status: 'off', local: false, via: '', peerNew: false, peerFail: false, takeover: false, next: '', welcomed: false, keys: new Map(), synced: new Map(), pending: new Map(), members: [], st: [], stById: new Map(),
       mine: '', live: '', follow: '', zone: '', cand: '', refill: null, xb: null, rm: null, hereSet: null });
@@ -411,6 +416,10 @@
     C.seqMax = Math.max(C.seqMax, +m.seq || 0);
     if (FRESH.page) { FRESH.page = false; C.note = FRESH_TEXT; }
     C.keys = new Map(Object.entries(m.keys || {}));
+    // a room joined by itself that turns out to be another room under the same code (its rid): left at once, and nothing
+    // of it is kept here (this device's copy of its own room stays)
+    const rk0 = C.keys.get('rid');
+    if (C.auto === C.code && C.autoRid && rk0 && rk0.v !== C.autoRid) { C.stranger = C.code; LOC.mirror = false; const c = C.code; setTimeout(() => notMine(c), 0); return; }
     C.pending.clear();
     C.synced = new Map();
     for (const [k, e] of C.keys) C.synced.set(k, J(e.v));
@@ -432,6 +441,11 @@
     mirror();
     // the network this room is used on, kept with it (rejoin): found once per room, or again a minute after none was
     if (!C.net && !C.netBusy && (C.netState !== 'none' || performance.now() - C.netAt > 60000)) netFind('room');
+    // the room's own id (key rid), written once by the page that made it or holds it: a room joined again by itself can be
+    // told from another room under the same code (a code given again by a relay that forgot the room; someone elsewhere
+    // peer to peer). One joined by itself that turns out to be another room is left at once
+    const rk = C.keys.get('rid');
+    if (!rk && !C.pending.has('rid') && (C.made === C.code || C.local || hosting())) publish([['rid', rid(10)]]);
   }
   // stored writes: one batch, one seq; the value shown here at once (optimistic), acknowledged when it comes back
   function publish(pairs, force) {
@@ -516,7 +530,7 @@
   // whether it was left on purpose: what rejoin needs (a room used within a week on this network is joined again by itself).
   const LR = 'collabRoom.', LR_MAX = 8;   // the last few rooms are kept
   const LKEY = /^[\w-]+(?:\.[\w:-]+)*$/, LST = /^st\.([\w-]{1,32})(?:\.|$)/;   // as the relay's KEY and STATION
-  const LOC = { code: '', seq: 0, keys: new Map(), timer: 0, mirror: false, list: null, net: '', relay: '', left: false };
+  const LOC = { code: '', seq: 0, keys: new Map(), timer: 0, mirror: false, list: null, net: '', relay: '', left: false, gone: false };
   function locLoad(code) {
     if (LOC.code === code) return LOC;
     locFlush();
@@ -527,7 +541,7 @@
       for (const [k, e] of Object.entries(o.keys)) if (LKEY.test(k) && e && typeof e === 'object' && e.v !== undefined && e.v !== null) keys.set(k, { v: e.v, seq: +e.seq || 0, by: String(e.by || '') });
     }
     Object.assign(LOC, { code, seq: (o && +o.seq) || 0, keys, mirror: false, net: o && typeof o.net === 'string' ? o.net : '',
-      relay: o && typeof o.relay === 'string' ? o.relay : '', left: !!(o && o.left) });
+      relay: o && typeof o.relay === 'string' ? o.relay : '', left: !!(o && o.left), gone: !!(o && o.gone) });
     return LOC;
   }
   function locSave() { if (!LOC.timer) LOC.timer = setTimeout(locFlush, 400); }
@@ -540,8 +554,8 @@
     }
     LOC.mirror = false;
     // in the room now: used now, on this network, through this relay, and no longer left (joined again by hand)
-    if (C.code === LOC.code && C.want && C.welcomed) { LOC.left = false; LOC.relay = C.relay; if (C.net) LOC.net = C.net; }
-    put(LR + LOC.code, J({ seq: LOC.seq, at: Date.now(), keys: Object.fromEntries(LOC.keys), net: LOC.net || undefined, relay: LOC.relay || undefined, left: LOC.left || undefined }));
+    if (C.code === LOC.code && C.want && C.welcomed && C.stranger !== C.code) { LOC.left = LOC.gone = false; LOC.relay = C.relay; if (C.net) LOC.net = C.net; }
+    put(LR + LOC.code, J({ seq: LOC.seq, at: Date.now(), keys: Object.fromEntries(LOC.keys), net: LOC.net || undefined, relay: LOC.relay || undefined, left: LOC.left || undefined, gone: LOC.gone || undefined }));
     LOC.list = null;
     for (const r of localRooms().slice(LR_MAX)) put(LR + r.code, null);
     LOC.list = null;
@@ -566,7 +580,7 @@
         let o = null;
         try { o = JSON.parse(localStorage.getItem(k)); } catch (e) { /* broken */ }
         if (o && o.keys && typeof o.keys === 'object') out.push({ code, stations: Object.keys(o.keys).filter(x => ST_RE.test(x)).length, at: +o.at || 0,
-          net: typeof o.net === 'string' ? o.net : '', relay: typeof o.relay === 'string' ? o.relay : '', left: !!o.left });
+          net: typeof o.net === 'string' ? o.net : '', relay: typeof o.relay === 'string' ? o.relay : '', left: !!o.left, gone: !!o.gone, rid: o.keys.rid && typeof o.keys.rid.v === 'string' ? o.keys.rid.v : '' });
       }
     } catch (e) { /* storage blocked */ }
     return (LOC.list = out.sort((a, b) => b.at - a.at));
@@ -581,7 +595,7 @@
   // a relay's room (or a peer-to-peer guest's) is kept here as it changes (written at most every 0.4 s); a host's hub
   // keeps its own
   function mirror() {
-    if (C.local || hosting() || !C.code || !C.welcomed) return;
+    if (C.local || hosting() || !C.code || !C.welcomed || C.stranger === C.code) return;
     locLoad(C.code);
     LOC.mirror = true;
     locSave();
@@ -1204,23 +1218,46 @@
   function rejoinable() {
     if (!C.net) return null;
     const r = localRooms().find(o => o.net === C.net && o.relay === C.relay && Date.now() - o.at < WEEK);
-    return r && !r.left ? r : null;
+    return r && !r.left && !r.gone ? r : null;
   }
   // the room to offer again (Start room XYZ again): the one used last, within a week, when it is not joined by itself here
+  // (not one whose code turned out to be another room's: gone)
   function offer() {
     if (C.code) return null;
     const r = localRooms().find(o => Date.now() - o.at < WEEK);
-    return r && !r.left && !(C.net && r.net === C.net && r.relay === C.relay) ? r : null;
+    return r && !r.left && !r.gone && !(C.net && r.net === C.net && r.relay === C.relay) ? r : null;
   }
+  // with a relay the room is looked at first: one there under this code with another id (rid) is another room (the relay
+  // forgot this one and gave its code again), never joined by itself; none there: joined, and it comes back from this
+  // device's copy (revive). Peer to peer the first answer is the welcome (welcome: notMine)
   function rejoin(why) {
-    if (C.code || C.creating) return false;
+    if (C.code || C.creating || C.rejoining) return false;
     const r = rejoinable();
     if (!r) return false;
     log('rejoin', { code: r.code, why });
-    join(r.code, 'auto');
-    if (HOST.session) notice('Back in room ' + r.code, 'This headset was in it on this network, so it joined it again. To leave it, open the menu: ' + menuWhere() + '.', 9000);
-    else toast(r.code);
+    const go = () => {
+      C.rejoining = false;
+      if (C.code || C.creating || !rejoinable() || rejoinable().code !== r.code) return;
+      join(r.code, 'auto'); C.autoRid = r.rid;
+      if (HOST.session) notice('Back in room ' + r.code, 'This headset was in it on this network, so it joined it again. To leave it, open the menu: ' + menuWhere() + '.', 9000);
+      else toast(r.code);
+    };
+    if (!C.relay || !r.rid) { go(); return true; }
+    C.rejoining = true;
+    api('rooms/' + r.code, undefined, 5000).then(x => {
+      const there = x.ok && x.j && x.j.keys && x.j.keys.rid ? x.j.keys.rid.v : '';
+      if (there && there !== r.rid) { C.rejoining = false; notMine(r.code); return; }
+      go();
+    }, go);
     return true;
+  }
+  // a room kept here whose code is now another room's: not joined by itself again, nor offered (still kept, and opened by hand)
+  function notMine(code) {
+    log('rejoin: another room', { code });
+    if (C.code === code && C.auto === code) leave();
+    keptMark(code, { gone: true });
+    C.note = 'Room ' + code + ', which this device was in, is not there any more: its code is another room\'s now, so it was not joined by itself.';
+    changed();
   }
   const ago = at => { const h = (Date.now() - at) / 3600000; return h < 1 ? 'less than an hour ago' : h < 24 ? Math.floor(h) + (h < 2 ? ' hour ago' : ' hours ago') : h < 48 ? 'yesterday' : Math.floor(h / 24) + ' days ago'; };
   // why a room kept here is offered rather than joined by itself
@@ -1238,6 +1275,8 @@
   function nearFind(why) {
     if (C.code) return;
     C.nearAt = performance.now(); C.nearErr = '';
+    // (a page the relay may serve asks first whether it does: a headset's menu can open before that is known)
+    if (!C.relay && C.served === null) { C.nearBusy = true; changed(); detect().then(() => { C.nearBusy = false; nearFind(why); }); return; }
     if (C.relay) {
       C.nearBusy = true; changed();
       api('near', undefined, 6000).then(r => {
@@ -1256,7 +1295,8 @@
     }
     if (!peerOn()) { C.near = []; changed(); return; }
     C.nearBusy = true; changed();
-    netFind(why).then(net => { if (net && !C.code) seek(); else { C.nearBusy = false; C.near = []; changed(); } });
+    (C.net && performance.now() - C.netAt < 300000 ? Promise.resolve(C.net) : netFind(why))   // (a network found lately stands)
+      .then(net => { if (net && !C.code) seek(); else { C.nearBusy = false; C.near = []; changed(); } });
   }
   // peer to peer: whoever holds one of this network's slots says who it is (a throwaway peer asks all eight at once; a slot
   // nobody holds answers after the introduction server's 5 s)
@@ -1354,7 +1394,8 @@
     TOAST.el.innerHTML = `<span style="flex:1 1 240px">Back in room <b>${esc(code)}</b>: this device was in it on this network, so it joined it again by itself.</span>` +
       '<button class="btn" type="button" data-toast="open">Shared</button><button class="btn" type="button" data-toast="leave">Leave</button>';
     TOAST.el.hidden = false;
-    clearTimeout(TOAST.timer); TOAST.timer = setTimeout(toastOff, 15000);
+    log('notice', { title: 'Back in room' });
+    clearTimeout(TOAST.timer); TOAST.timer = setTimeout(toastOff, 20000);
   }
   function toastOff() { clearTimeout(TOAST.timer); if (TOAST.el) TOAST.el.hidden = true; }
 
@@ -1863,7 +1904,8 @@
     if (t - C.pumpAt > 1500) C.busy = clock();   // (this page was busy, or hidden: nothing heard meanwhile is no sign of silence)
     C.pumpAt = t;
     attachCheck();
-    if (!C.code) return;
+    // (in no room, with the dialog or the menu open: the rooms on this network looked for again now and then)
+    if (!C.code) { if ((C.listing.dialog || (C.listing.menu && HOST.session)) && C.nearAt && t - C.nearAt > 15000 && !C.nearBusy) nearFind('again'); return; }
     if (C.local) probe(t);
     slotStep(t);   // (a peer-to-peer host: shown on its network)
     if (C.ws && C.ws.readyState === 1) {
@@ -2502,7 +2544,7 @@
   function menuOpen(on, why) {
     on = !!on;
     if (on !== PNL.open) log('menu', { open: on, by: why || '' });
-    PNL.open = on; PNL.page = 'main';
+    PNL.open = on; PNL.page = 'main'; C.listing.menu = on;
     if (on && !C.code) { listRooms(); nearFind('menu'); }
   }
   const toggleMenu = why => menuOpen(!PNL.open, why);
@@ -2596,7 +2638,7 @@
         ctx.font = FONT(30, 700); ctx.fillStyle = INK; ctx.fillText(r.code, x, y + 8);
         ctx.font = FONT(21); ctx.fillStyle = MUTED;
         ctx.fillText(fit(ctx, nearLine(r), w - 260), x + 90, y + 14);
-        button(S, 'join:' + r.code, x + w - 150, y, 150, 56, 'Join', () => join(r.code), { primary: true });
+        button(S, 'near:' + r.code, x + w - 150, y, 150, 56, 'Join', () => join(r.code), { primary: true });
         y += 70;
       }
       if (C.relay) {
@@ -4335,7 +4377,7 @@
   function watch(s) {
     if (s === R.session) return;
     R.session = s; R.begun = null; R.aligned = false; R.frame = null; R.src = ''; R.calib = null;
-    PNL.open = false; PNL.page = 'main'; TCH.armed = false;   // the menu starts closed: only its clock shows
+    PNL.open = false; PNL.page = 'main'; TCH.armed = false; C.listing.menu = false;   // the menu starts closed: only its clock shows
     // what a story does by itself when a session starts or a headset wakes is not a person's action: not published
     holdTask();
     if (!s) { dropStation(null); letGo(); setState('off'); HOST.audio.zone(null); if (C.code) { upload(performance.now(), true); hello(); connect(); } changed(); return; }
@@ -4415,7 +4457,7 @@
   function dialog(open) {
     DLG.el = DLG.el || document.getElementById('shared');
     if (!DLG.el) return;
-    DLG.open = open;
+    DLG.open = open; C.listing.dialog = open;
     DLG.el.hidden = !open;
     document.querySelectorAll('[data-open-shared]').forEach(b => b.setAttribute('aria-expanded', open ? 'true' : 'false'));
     if (!open) return;

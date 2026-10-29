@@ -64,6 +64,29 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
   - *The PET story's text fixes* after the poster comparison (item 8 below; 6:33).
   - *The tour narrated by a synthetic voice* (Kokoro-82M, `af_heart`; `tools/voice/`, `audio/narration-lbi.mp3`,
     10:42); `node tools/voice/check.mjs lbi` checks the recording against the story.
+- **Built after v96 (29 October 2026), tested headlessly only:** *a loading bar* (the owner: "some rooms like 'the
+  future' take a little time to load"). Every story now builds in steps that yield (the scene, each set with its
+  shaders, the story, explore mode, the panels; `LOAD` in each engine and in the three hand-written stories) and
+  reports them (`HOST.progress`): the page shows a thin bar and the step under the loading line, and a headset shows
+  a card with the story's name and a bar in its colour in front of you and a ring on the left wrist, from 0.4 s on,
+  fading as the story appears (`HOST.loading`; AGENTS.md "How the shell and stories fit together"). The PET story's
+  organ icons are made after the load. The longest single task of a load fell from 1 to 4 s to one shader's compile;
+  how long a load takes on a Quest, and how the card and the ring look there, are untested.
+- **Built after v96 (29 October 2026), tested headlessly only:** *rooms on this network* (FORMAT networks-25). The
+  owner's priority, in their words: "Rejoin by itself, never join something new by itself." The Shared dialog and the
+  headset's menu list *Rooms on this network* (code, its first member's or host's name, people; one press joins): with
+  a relay its `GET /api/near` (the relay hashes each device's address; `--proxy` behind Coolify, set in the
+  Dockerfile); without one, a room's host holds one of eight slots named after a hash of the network's public address
+  (as Cloudflare's STUN server reports it) on the introduction server, and seekers ask there. A device that was in a
+  room joins it again by itself when the app opens on the same network within a week (a notice says so, with Leave):
+  by its code on the relay (a relay that forgot it gets it back from the device's copy; a code given to another room
+  meanwhile is told apart by the room's own id, `rid`, and never joined), by its id peer to peer (linked to whoever
+  holds it, else hosted from the device's copy). Never after Leave until joined again by hand, never a room it was
+  never in; on another network, one button, *Start room XYZ again*. A switch per room, *Show on this network*. No
+  address is kept or logged (only a 24-bit hash; [docs/data-and-permissions.md](docs/data-and-permissions.md)). How it
+  works: AGENTS.md "Shared rooms"; at an event: [docs/event-runbook.md](docs/event-runbook.md). Tested between pages on
+  one machine with pretend networks (`node tools/collab.mjs --near`); real networks (home routers, hotspots, eduroam,
+  a relay behind Coolify) and headsets rejoining after a restart are untested.
 - **Tried on real headsets:** the stories and their sound on Quest; shared rooms on two Quest 3 headsets in several
   rounds (what happened is in [docs/quest-shared-space-findings.md](docs/quest-shared-space-findings.md) and AGENTS.md
   "Shared rooms"). All thirteen stories of then, the slideshow and the headset menu on the wrist were tried on a headset
@@ -144,9 +167,9 @@ Before handing over (or making anything more public), someone has to decide thes
      with a German voice and subtitles: about 1.5 to 2 days of agent work; explore mode in German too: about 1 to 1.5
      days more. In a shared room everyone keeps one timeline, so each stretch lasts the longer of its two languages (as
      the pass story, already in English and German, does);
-   - **The queue** (the owner, 29 October 2026), in this order: rooms on this network (2.5 to 3.5 h); the design
-     room, part 2 (1 to 1.5 h); follow a person (about 1 h); a loading bar alongside them (2 to 3 h); then a test round
-     and a release (about 1 h). About 6 to 7 hours of agent work in two lanes, 5 to 6M tokens. Each is described below;
+   - **The queue** (the owner, 29 October 2026), in this order: the design room, part 2 (1 to 1.5 h); follow a person
+     (about 1 h); then a test round and a release (about 1 h). Rooms on this network, first in it, and the loading
+     bar queued alongside are built (see "Where things stand"). Each is described below;
    - **circles that load code from a link** (on hold, the owner, 29 October 2026; the design agreed, not to build
      yet). The owner's aim: the whole office as one shared room, where colleagues add circles of their own, with their
      own logic, from a web page or a GitHub repository. How: a station whose story is a script from a web address
@@ -161,18 +184,7 @@ Before handing over (or making anything more public), someone has to decide thes
      bump, tests with a local example circle. Office scale: "Add a circle here" where you stand and an office-sized
      room map; a walk test with a headset first (does one calibration hold across rooms and doorways; Quest's
      passthrough outside the scanned room). About 5 to 6 hours, plus 1 to 2 hours for office-scale placing;
-   - **rooms on this network** (queued, before follow a person; the owner, 29 October 2026). Browsers cannot search
-     the local network, so devices meet through the address they share on the internet: the relay lists the rooms
-     started from the asking device's address (on a laptop relay, its local network); without a relay, devices learn
-     their network's public address from the STUN server and meet at a lobby named after a hash of it on the
-     introduction server. The Shared dialog and the headset's menu list *Rooms on this network* (code, host, people);
-     one press joins. **The owner's priority:** a device rejoins a room it was already in by itself when it finds it on
-     its network (after a restart, the next day), and never joins a new room by itself (one public address can hold
-     strangers: eduroam, a campus, conference Wi-Fi). Not found, on the network where it was last used: the device
-     starts the room again from its own copy, so the others find it (the code is unique: two at once do not split it; a
-     headset that hosts hands it to the first laptop); on another network, one button, *Start room XYZ again*. A
-     device remembers 8 rooms for a week; the most recent wins. A switch per room, *Show on this network*. About 2.5 to
-     3.5 hours;
+   - **rooms on this network**: built (see "Where things stand");
    - **follow a person** (queued; the owner, 29 October 2026): a laptop in a room follows whichever circle a chosen
      headset wearer stands in, switching as they walk (people without a headset follow a guide). About 1 hour;
    - **see through their eyes** (optional, later; the owner, 29 October 2026): a laptop's camera follows that wearer's
@@ -184,9 +196,10 @@ Before handing over (or making anything more public), someone has to decide thes
      data, the room with live reload, a bridge to Claude on a laptop, push-to-talk in the headset) the catalogue, the
      room's table and live reload are built and the player was dropped; the bridge and push-to-talk wait for the owner
      (the microphone inside a headset session is untested on Quest);
-   - **a loading bar in the headset** (above the wrist clock and in front of you while a story loads): profiled; a
-     story's load is one long task (its factory building the scene) once its file has arrived, so a true bar needs the
-     factories split into steps that yield between frames. Not started;
+   - **a loading bar in the headset** (at the wrist clock and in front of you while a story loads): built (see "Where
+     things stand"; AGENTS.md "How the shell and stories fit together" and "Inside a story"). What could come next: a
+     single shader's compile is still one task (three.js r128 cannot compile in parallel), and a few sets take 0.2 to
+     0.5 s to build here; both would need changes inside three.js or the sets;
    - **station icons**: built (see "Where things stand"). **For the owner:** approve the contact sheet of all fifteen
      (open `tools/icons.html` next to the app; `&turns=4` shows each from four sides) or say which to change. How they
      read from across a real room is untested on a headset;

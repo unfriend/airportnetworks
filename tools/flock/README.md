@@ -13,7 +13,7 @@ and bump `VERSION` in `sw.js`.
 | Path | What it is |
 | --- | --- |
 | `sets/flock.js` | the one set: the simulation, the birds and the falcon, the sky, the land, the reeds, the network links (manifest: `sets/flock.md`) |
-| `engine/` | the tour's engine parts, adapted: one scene and no Proteins tab, life-size placement in a headset, a camera that follows the flock on a screen, the trigger or a click sends a falcon |
+| `engine/` | the tour's engine parts, adapted: one scene and no Proteins tab, life-size placement in a headset, a camera that follows the flock on a screen, the trigger or a click sends a falcon; the start in steps for the shell's loading bar (`LOAD` in `e7_app.js`, as in every engine) |
 | `build.mjs` | puts the tour's kit (`../lbi/kit.js`), the set and the engine parts together |
 | `harness.html`, `shot.mjs`, `sweep.mjs` | the set on its own (`harness.html?set=flock&cam=0,-26,0.25,0,1.6,0&follow=1&anim=1`; `follow` aims at the flock, `fov` sets the lens) and screenshots, as in `tools/lbi` |
 

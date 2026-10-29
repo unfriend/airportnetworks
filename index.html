@@ -1620,8 +1620,8 @@ HOST.loading = (() => {
   // far, so the session's depth range is not changed back and forth)
   function over(f) {
     const r = HOST.renderer;
-    if (!L.fade) return;
-    if (!r || !r.xr.isPresenting || !f || !L.scam) { L.fade = false; return; }
+    if (!L.fade || !f) return;
+    if (!r || !r.xr.isPresenting || !L.scam) { L.fade = false; L.card.m.visible = L.ring.m.visible = false; return; }
     place(f, true);
     if (L.a <= 0) { L.fade = false; return; }
     L.cam.near = L.scam.near; L.cam.far = L.scam.far;

@@ -55,6 +55,9 @@ follows you: #stories on the Stories screen (page or headset), #airports,
 #proteins, #spatial, #lbi, #nmd, #endo, #pet, #micro, #ovary, #qubits, #mutation, #topo, #pass, #flock or #robots in a story, so links can be shared and open that story
 directly (proteins.html and spatial.html forward there). Taking the headset off and on returns to the Stories menu
 (and, unless Anchor is on, places everything in front of the next wearer).
+A story builds in steps while it loads: the page shows a thin bar and the step
+under its loading line, and a headset shows a card with the story's name and a
+bar in front of you and a ring on your left wrist until the story appears.
 Repeat all and Repeat one on the Stories screen (page and headset) keep the app
 playing for an exhibition: Repeat all plays the stories one after another
 without end, Repeat one plays the story you pick again and again. Press the lit
@@ -172,6 +175,12 @@ either, a room still works on
 the device alone: Start a room here in the headset's menu places the stories in
 your room (Arrange all, moving them, Lock layout, calibrating); the room is kept
 on the device, and once a relay answers it moves there and others can join it.
+Rooms on this network (the same router or internet address) are listed in the
+Shared dialog and the headset's menu, one press to join; a device that was in a
+room joins it again by itself when the app opens on that network within a week
+(never one it left or was never in; elsewhere it offers Start room XYZ again,
+and Show on this network hides a room). Only a short hash of the network's
+address is used, never the address itself.
 Nothing changes for anyone not in a room. Tried on two Quest 3 headsets in one
 room several times; what they did, and what is still unconfirmed, is in
 docs/quest-shared-space-findings.md.

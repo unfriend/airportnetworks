@@ -23,7 +23,7 @@ decides on data and privacy questions.
 | Only well-documented interactions and locations (complexes, textbook pathways, Human Protein Atlas / UniProt). | The content is illustrative but must be correct. | `AGENTS.md` ("Conventions") |
 | A stand-in is called a stand-in in the story itself. | So that nobody quotes it as a result. | each story's `SPEC.md` and `README.md` |
 | Headset logs (`relay/logs/`) never go into the repository. | File names and contents hold people's first names and room codes. | `.gitignore`, [relay/README.md](../relay/README.md) ("Logs") |
-| A shared room without a relay runs peer to peer, and then third parties see each device's IP address (below). Agreed by the owner on 28 October 2026. | The devices are introduced by PeerJS's public server and learn their own addresses from Cloudflare's STUN server; then they talk to each other directly. | `AGENTS.md` ("Shared rooms"), [event-runbook.md](event-runbook.md) |
+| A shared room without a relay runs peer to peer, and then third parties see each device's IP address (below). Agreed by the owner on 28 October 2026. Rooms on this network (29 October 2026) use a 24-bit hash of the network's address, never the address itself (below). | The devices are introduced by PeerJS's public server and learn their own addresses from Cloudflare's STUN server; then they talk to each other directly. | `AGENTS.md` ("Shared rooms"), [event-runbook.md](event-runbook.md) |
 
 ## Story by story
 
@@ -163,6 +163,28 @@ peer. The owner agreed on 28 October 2026 that these see each device's IP addres
 
 There is no TURN server (nothing relays the traffic): devices on networks that block direct links cannot meet. The
 owner brings a router for events.
+
+### Rooms on this network: the network id
+
+To list the rooms on a device's network and to join a room again by itself (AGENTS.md "Shared rooms"), the app works
+out a **network id**: the first 6 hex digits (24 bits) of SHA-256 of a fixed salt and the network's address (a public
+address as it is; a private one by its /24; IPv6 by its /64). One id stands for about 256 public addresses, so it does
+not name an address; but anyone who knows an address can work out its id, so it is a convenience, not a secret.
+
+- **No address is kept.** With a relay, the relay hashes the address it sees for each request and socket and keeps
+  only the ids, in memory, with the rooms (gone when a room expires or the relay restarts); no answer and no log line
+  holds an address or an id (a slot's id shows with `******` in the log). Behind a reverse proxy it reads the
+  address from `X-Forwarded-For` only when started with `--proxy`.
+- **Without a relay** the page asks Cloudflare's STUN server for its public address (as in a peer-to-peer room
+  above), hashes it at once and forgets it. It asks only when the Shared dialog or the headset's menu lists rooms,
+  when a room is joined, or when the app opens with a room used in the last week.
+- **On the device**, the id is kept with each of the 8 rooms it keeps (`localStorage`, `collabRoom.<code>`), with when
+  it was last used.
+- **Peer to peer**, a room's host holds a slot named after the id on the introduction server
+  (`lbinet-near-<format>-<id>-<0..7>`, PeerJS's public one by default) while the room is shown on its network, and
+  tells whoever asks there its code, its name, how many people and stations; *Show on this network: off* (a switch
+  per room) takes it off. On a big shared network (eduroam, a campus, a conference's Wi-Fi) strangers share the address,
+  so they may see such a room listed; nobody joins a room by itself that it was never in.
 
 ## Licence
 

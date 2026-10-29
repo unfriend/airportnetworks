@@ -10,4 +10,6 @@ USER node
 EXPOSE 8787
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
   CMD node -e "fetch('http://127.0.0.1:8787/api/ping').then(r => process.exit(r.ok ? 0 : 1), () => process.exit(1))"
-CMD ["node", "relay/server.mjs", "--port", "8787", "--static", "."]
+# --proxy: behind Coolify's proxy, a device's own address is the last in X-Forwarded-For (rooms on this network); run
+# without it where clients reach the relay directly (docker run ... node relay/server.mjs --port 8787 --static .)
+CMD ["node", "relay/server.mjs", "--port", "8787", "--static", ".", "--proxy"]

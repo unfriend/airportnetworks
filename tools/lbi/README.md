@@ -13,7 +13,7 @@ node tools/lbi/build.mjs --check   # exits 1 if stories/lbi.js is out of date
 | `kit.js` | `makeKit(THREE)`: the shared helpers and materials every set uses |
 | `sets/<name>.js` | one 3D set each (`crowd` and `sankey` share `clinic.js`); `sets/<name>.md` is its manifest: params, anchors, labels, views, controls, sources, what a narrator may say |
 | `sets/demo.js` | a tiny example set |
-| `engine/e1_head.js` ... `e7_app.js` | the story engine: scene and camera, story text and keyframes (`e3_story.js`), explore mode, headset code, headset panels, narration and the frame loop |
+| `engine/e1_head.js` ... `e7_app.js` | the story engine: scene and camera, story text and keyframes (`e3_story.js`), explore mode, headset code, headset panels, narration and the frame loop; the start in steps that yield, each set built (`buildSet`) and its shaders compiled (`warm`) on its own, reported to the shell's loading bar (`LOAD` in `e7_app.js`, the same lines in every engine; AGENTS.md "Inside a story") |
 | `SPEC.md` | the contract for sets: API, rules, performance budget, palette, shared facts. Read it before adding or changing a set |
 | `build.mjs` | the assembler |
 | `harness.html`, `shot.mjs` | render one set on its own with chosen params and camera; screenshots |

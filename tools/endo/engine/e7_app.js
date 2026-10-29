@@ -241,27 +241,31 @@ function init() {
   if (HOST.progress) HOST.progress(0, S.length, S[0][0]);
   loadStep();
 }
+// (short steps run on in one task, as each yield costs a frame; a step left half done, or 40 ms gone, yields)
 function loadStep() {
   LOAD.t = 0;
-  if (LOAD.gone) return;
-  const [label, fn, scene] = LOAD.steps[LOAD.i], t0 = performance.now();
-  let more = false;
-  try { more = fn() === true; } catch (err) {
-    if (!scene) throw err;
-    console.error(err);
-    $('#nogl').style.display = 'grid';
-    $('#loading').classList.add('gone');
-    return;
+  const t0 = performance.now();
+  while (!LOAD.gone && LOAD.i < LOAD.steps.length) {
+    const [label, fn, scene] = LOAD.steps[LOAD.i], t1 = performance.now();
+    let more = false;
+    try { more = fn() === true; } catch (err) {
+      if (!scene) throw err;
+      console.error(err);
+      $('#nogl').style.display = 'grid';
+      $('#loading').classList.add('gone');
+      return;
+    }
+    LOAD.ms.push([label, Math.round(performance.now() - t1)]);
+    if (!more) LOAD.i++;
+    const n = LOAD.steps.length, next = LOAD.steps[LOAD.i];
+    if (HOST.progress) HOST.progress(LOAD.i + (LOAD.warm ? LOAD.warm.i / LOAD.warm.list.length : 0), n, next ? next[0] : '');
+    if (more || performance.now() - t0 > 40) break;
   }
-  LOAD.ms.push([label, Math.round(performance.now() - t0)]);
-  if (!more) LOAD.i++;
-  const n = LOAD.steps.length, next = LOAD.steps[LOAD.i];
-  if (HOST.progress) HOST.progress(LOAD.i + (LOAD.warm ? LOAD.warm.i / LOAD.warm.list.length : 0), n, next ? next[0] : '');
-  if (next && !LOAD.gone) LOAD.t = setTimeout(loadStep, 0);
+  if (!LOAD.gone && LOAD.i < LOAD.steps.length) LOAD.t = setTimeout(loadStep, 0);
 }
 // shaders compiled now, so a set's first appearance does not stall the story: each material once (LOAD.seen), with
 // the scene's lights as when it is drawn (renderer.compile on a stand-in scene that holds the lights and one object,
-// not its children), until a slice has taken 100 ms; true while some are left
+// not its children), until a slice has taken 50 ms; true while some are left
 function warm(root) {
   const t0 = performance.now();
   if (!LOAD.warm) {
@@ -274,7 +278,7 @@ function warm(root) {
   }
   const W = LOAD.warm, lights = GL.scene.children.filter(o => o.isLight);
   try {
-    while (W.i < W.list.length && performance.now() - t0 < 100) {
+    while (W.i < W.list.length && performance.now() - t0 < 50) {
       const o = W.list[W.i++];
       W.sc.children = lights.concat({ traverse: f => f(o), traverseVisible() {} });
       GL.renderer.compile(W.sc, GL.camera);
