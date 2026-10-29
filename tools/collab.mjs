@@ -505,7 +505,6 @@ async function headsetDesign(A, B, H, S, shots) {
     return { mine: HOST.collab.mine() === id, key: HOST.curKey, away: HOST.room.away(), world: HOST.cur.peek('GL.world.visible'), mode: HOST.cur.peek('APP.mode'),
       icon: !!o && o.icon.g.visible && o.icon.k > 0.9, card: HOST.collab.overlay().cards.has(id), table: HOST.cur.peek('GL.sets.table.built() + "/" + GL.sets.table.total()'),
       ready: HOST.collab.internals().ready }; }, id);
-
   check('design room: standing in it the headset takes it as its station and the design room opens there at its table (explore mode; its icon and card gone)',
     inD && there.mine && there.key === 'design' && !there.away && there.world && there.mode === 'explore' && !there.icon && !there.card, JSON.stringify({ inD, there }));
   if (shots && inD) {
