@@ -10285,7 +10285,7 @@ const _gq = new THREE.Quaternion(), _gv = new THREE.Vector3(), _gh = new THREE.V
 function carry(c, dt) {
   const G = c.grab, gp = c.src.gamepad;
   // both hands on the scene resize it (xrResize, once a frame); when one lets go, the other carries on from there
-  if (HOST.anchor.locked(G.target === 'panel' ? 'panel' : 'globe')) { c.grab = null; return; }   // locked meanwhile (a shared room's layout lock)
+  if (HOST.anchor.locked(G.target === 'panel' ? 'panel' : 'globe')) { c.grab = null; return; }   // locked meanwhile (a shared room's story lock: Lock this story)
   const o = G.target === 'globe' ? XR.ctrls.find(k => k !== c && k.grab && k.grab.target === 'globe' && k.src && k.g.visible) : null;
   if (o) { if (c.i > o.i) xrResize(o, c); return; }
   if (G.two) { G.two = null; G.q0.setFromRotationMatrix(c.g.matrix).invert(); G.o0.copy(c.o); G.p0.copy(GL.rig.localToWorld(XR.globeBase.clone().add(XR.globeOff))); G.reach = 1; G.r0.copy(XR.rot); }

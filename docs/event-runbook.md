@@ -10,9 +10,9 @@ them: [AGENTS.md](../AGENTS.md) ("Shared rooms", "Placement in the headset").
 
 | Where | How to get there | On it |
 | --- | --- | --- |
-| Menu (headset) | closed at first: only a clock (**Open menu**) on the left wrist (on the controller, or the wrist with hand tracking; beside the story panel without either). Touch it with the right controller's tip or right index finger, click the left stick, or point at it and pull the trigger; the same, or **Close**, closes it | **Exit** (leaves VR or AR), **Slideshow: on/off** (every story), **Sound check**; **Labels**, **Moving**, **Subtitles** (every story; in a room the room's); **Panels: shown / controls only / hidden** (the story on show; in a room for everyone at its circle); **Design room** (opens the props table; in a room **Design room here** puts it at your feet as a circle); **Join**, **Start a room**; in a room **Calibrate**, **Re-align**, **Forget calibration**, **Shared space: on**, **Fresh shared space**, **Move here**, **Add here**, **Arrange all**, **Remove**, **Lock the layout**, **Leave** |
+| Menu (headset) | closed at first: only a clock (**Open menu**) on the left wrist (on the controller, or the wrist with hand tracking; beside the story panel without either). Touch it with the right controller's tip or right index finger, click the left stick, or point at it and pull the trigger; the same, or **Close**, closes it | **Exit** (leaves VR or AR), **Slideshow: on/off** (every story), **Sound check**; **Labels**, **Moving**, **Subtitles** (every story; in a room the room's); **Panels: shown / controls only / hidden** (the story on show; in a room for everyone at its circle); **Design room** (opens the props table; in a room **Design room here** puts it at your feet as a circle); **Join**, **Start a room**; in a room **Calibrate**, **Re-align**, **Forget calibration**, **Shared space: on**, **Fresh shared space**, **Move here**, **Add here**, **Arrange all**, **Remove**, **Lock circles** (for the whole room), **Lock this story** (at a circle: its scene and panels, for everyone there), **People: same circle / everyone** (this headset only: whom it draws), **Leave** |
 | Stories screen (headset) | outside a shared room only: after **Enter VR** / **Enter AR** from the start screen, or **Stories** on a story panel | **Sound**, **Sound check**, **Anchor**, **Recenter** (**Place again** when anchored), **Exit**, **Repeat all**, **Repeat one**, a card per story |
-| Shared dialog (page) | **Shared** in the top bar or on the Stories screen | **Start a room**, **Join**, **Join by code**, room map, **Follow** (a station, or a person in a headset in the people list), **Panels** (per station: what the headsets at its circle show of the story's panels), **Arrange all**, **Add a station** (the design room is the last choice), **Lock layout**, **Fresh shared space**, **Copy link** |
+| Shared dialog (page) | **Shared** in the top bar or on the Stories screen | **Start a room**, **Join**, **Join by code**, room map, **Follow** (a station, or a person in a headset in the people list), **Panels** and **Lock story** (per station: what the headsets at its circle show of the story's panels, and whether they can move its scene and panels), **Arrange all**, **Add a station** (the design room is the last choice), **Lock circles**, **Fresh shared space**, **Copy link** |
 
 **Remove**, **Forget calibration** and **Fresh shared space** act only on a second press within 3 s. **Fresh shared
 space** shows only on a page that comes from the relay.
@@ -125,19 +125,26 @@ local network found each other this way, and then shared a peer-to-peer room; he
    open), and others' rays start at their real controllers. *Your marks are ... than the room's* or *Marks at different
    heights*: calibrate again. *Your floor is ... than the room's (allowed for)*: fix that floor in the boundary
    settings later.
-9. **Lock the layout** (**Lock layout** on the page): nobody can move, add or remove a station, or move a scene or
-   panel, until someone unlocks it.
+9. Two locks. **Lock circles** (in the menu, or on the page): nobody can move, add or remove a circle until someone
+   unlocks it; the stories' scenes and panels stay free. **Lock this story** (in the menu at a circle, or the
+   station's **Lock story** on the page): nobody at that circle can move, turn or resize its scene or move its panel;
+   each circle has its own, and the circles lock does not touch it. Lock the circles once they are placed, and a story
+   once its scene and panel stand where you want them. (A room locked in v96 comes back with only its circles locked:
+   lock its stories once.)
    Panels per station stay free: at a circle, **Panels** in the menu (or the station's **Panels** button in the page's
    Shared dialog) goes **shown**, **controls only** (only the play bar under the panel: good with **Subtitles: on**) and
    **hidden** (A or X still plays and pauses), for everyone at that circle; each station keeps its own.
-10. Walk into a station's circle (a second there): its story runs there, as it does for everyone there. Pointing at a
-    card and pulling the trigger does not go there. Away from every station a headset shows no story, only the rings,
-    cards, people and the menu; walking out of a circle hides and pauses the story on that headset only (it plays on
-    for the others), walking back in carries on with the station. Screens **Follow** a station from the room map.
-    **Leave** in the menu brings the headset's Stories screen back.
+10. Walk into a station's circle (a second there): its story runs there, as it does for everyone there. You stay in that
+    story wherever you walk afterwards (it keeps playing, in step with the room; its sound fades with distance) until
+    you walk into another circle. Pointing at a card or ring and pulling the trigger does not go there. In a circle the
+    other circles show only their rings: point at a ring and its card and model come up, and fade 2 s after you look
+    away. Before a headset has walked into any circle it shows no story, only the rings, cards, models, people and the
+    menu. Screens **Follow** a station from the room map. **Leave** in the menu brings the headset's Stories screen back.
+    Other people are drawn (name tag, head, hands) only when they are at your circle (everyone before your first
+    circle). For debugging, **People: everyone** in a headset's menu draws them all again (that headset only).
 11. **A laptop for people without a headset** (a guide leads): in its Shared dialog, under **People**, press
-    **Follow** beside the guide (any person in a headset). The laptop then shows whichever station the guide stands at,
-    switching as they walk from circle to circle; between circles it stays on the last one. The dialog says
+    **Follow** beside the guide (any person in a headset). The laptop then shows the guide's story, switching when they
+    walk into the next circle; between circles it stays on the last one (as the guide's headset does). The dialog says
     *Following Ann (at The flock)*. It stops when the guide leaves the room (the laptop stays at their last station), or
     when someone at the laptop follows a station or picks a story by hand; **Stop following** ends it. Tell the laptop
     which name is the guide's (shown under **You** in the headset's menu; typed in the Shared dialog on the headset's
@@ -206,6 +213,10 @@ and the end of AGENTS.md "Shared rooms". Not yet confirmed on a device:
   room; the design room's table at its circle (**Design room here**): its size and height, and picking props up there;
 - follow a person: a laptop following a guide in a headset as they walk from circle to circle (how quickly it
   switches, and that it stays put between circles);
+- after the ten-headset test (29 October 2026, which went very well): staying in your story out of its circle (and
+  its narration heard from there), the other circles as rings only with a card on pointing (how it reads, the 2 s
+  fade), **Lock circles** and **Lock this story** in use, and other people shown only at your circle (**People:
+  everyone** to see them all);
 - panels per station (**Panels: controls only** or **hidden** in the menu or the Shared dialog): whether a circle
   reads better with only the play bar (with subtitles on) or none, and that everyone at that circle gets it;
 - sound zones: each station's narration heard from where it stands;

@@ -97,13 +97,13 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
   away (A or X still plays and pauses; the menu stays to switch back; the Stories screen is never affected). Each story
   (and the design room) keeps its own value: the device's outside a shared room (`#panels=controls` in a link sets it
   for the story it opens), the station's in a room, for everyone at that circle, and settable per station in the
-  page's Shared dialog too, never refused by the layout lock (key `st.<id>.ui`, part of FORMAT networks-25).
+  page's Shared dialog too, never refused by the circles lock (key `st.<id>.ui`, part of FORMAT networks-25).
   Independent of Labels (labels hidden still hides both). `HOST.panels` in `index.html`; AGENTS.md "How the shell and
   stories fit together". How it feels on a headset is untested.
 - **Built after v96 (29 October 2026), tested headlessly only:** *the design room, part 2* (the owner's queue). A
   *Design room* row in the headset's menu: outside a shared room it opens the design room; in a room, *Design room
   here* puts the props table at your feet as a circle facing your way (or moves the room's one there), refused while
-  the layout is locked as Add is; the page's Shared dialog lists the design room after the stories in its station
+  the circles are locked as Add is; the page's Shared dialog lists the design room after the stories in its station
   picker (and the headset's Add here page too). Arrange all never places, moves or removes it; its station starts at
   the table, in explore mode. The stations' icons are now each story's main miniature (`icon` in `stories/list.js`:
   the tour's interactome, the PET scanner, the airports' globe and so on; the design room's own icon is a new small
@@ -120,6 +120,29 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
   walks); nothing new is written to the room (no `FORMAT` change). AGENTS.md "Shared rooms"; at an event:
   [docs/event-runbook.md](docs/event-runbook.md). Tested with a pretend person in a headset between pages on one
   machine (`node tools/collab.mjs --follow`); with real headsets walking a room it is untested.
+- **Tried with ten headsets (29 October 2026):** the owner ran main (v96) with 10 headsets through a local relay on
+  their computer and one router on site: "everything worked very well". Their changes, below.
+- **Built after the ten-headset test (29 October 2026), tested headlessly only:** (1) *stay in your story*: "One should
+  only exit a story when walking into a new circle, otherwise stay in the story even if they move away from the
+  story's circle." A headset that has walked into a circle keeps that station wherever it walks (its story shows,
+  plays on the station's clock and stays in step with the room; its narration fades with distance); only walking into
+  another circle switches. Leaving the room, Leave, a new session and a station removed end it; before any circle a
+  headset sees no story, as before. (2) *Rings only in a circle*: while a headset has a station, the other stations
+  show their rings only (no card, no model over it). (3) Pointing at a ring brings up its card and model for as long as
+  you point, fading about 2 s after. (4) *Two locks* ("one toggle for locking the circles' movement globally and one
+  toggle per room for locking its panels and story elements"): *Lock circles* (the old layout lock's key, now only the
+  circles: the grip on a ring or card, the map, Arrange all, Add, Move here, Remove, Design room here) and per station
+  *Lock this story* (the clock menu at that circle) or *Lock story* (each station's row in the Shared dialog): its
+  scene and panel grips refused for everyone at that circle (in `st.<id>.ui` with its panels, FORMAT networks-25 still,
+  unreleased). A room locked in v96 reads as circles locked only: lock its stories once. (5) *People at your circle*:
+  other people (name tag, head, hands) are drawn only when they are at your circle (everyone before your first circle);
+  *People: same circle* / *everyone* in the clock menu (this headset only, never in the room) for debugging. Pages'
+  room maps still show everyone. Also: following a person is offered only for people in a headset (`followPerson`
+  checks it too), and the props catalogue's PET organs entry lost the removed strength chart (`organs_measures`
+  instead; the design room rebuilt). AGENTS.md "Shared rooms"; at an event: [docs/event-runbook.md](docs/event-runbook.md).
+  Tests: `node tools/collab.mjs --circles` (its own room) and the rewritten walk-out checks in the main run. All of it
+  is untested on headsets: how a ring's card reads when pointed at, the story heard from out of its circle, the locks
+  and the People toggle in use.
 - **Tried on real headsets:** the stories and their sound on Quest; shared rooms on two Quest 3 headsets in several
   rounds (what happened is in [docs/quest-shared-space-findings.md](docs/quest-shared-space-findings.md) and AGENTS.md
   "Shared rooms"). All thirteen stories of then, the slideshow and the headset menu on the wrist were tried on a headset

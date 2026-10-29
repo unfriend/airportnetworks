@@ -11,15 +11,16 @@
 // stopping when they leave, or when the page follows a station or picks a story by hand; the dialog's line "Following
 // <name> (at <story>)"); a relay restart is survived; the headsets' two settings
 // (labels, free moving) are the room's: everything in 3D in a room without them, set on one page, in the Shared
-// dialog or the headset's menu for every page and headset, never refused by the layout lock, kept across a relay
+// dialog or the headset's menu for every page and headset, never refused by the circles lock, kept across a relay
 // restart and in a room on this device, free moving off taking the turns out of places and panels, and a free grip
 // at a station turning the scene and the panel for everyone; a station's panels (shown, controls only, hidden: key
-// st.<id>.ui) set in a page's Shared dialog or a headset's menu, with the layout locked too, for everyone at that circle
-// and no other, kept across a relay restart; a pretend headset (fake local-floor and shared spaces,
+// st.<id>.ui) and its story's lock set in a page's Shared dialog or a headset's menu, with the circles locked too, for
+// everyone at that circle and no other, kept across a relay restart; a pretend headset (fake local-floor and shared spaces,
 // as tools/smoke.mjs pretends) aligns from a published frame, shows no story and no Stories screen away from every
 // station (the story hidden, not pointable, paused, nothing written), stands at its station once it walks into its
-// circle, stays there when taken off and on again, never shows a Stories screen in a room, hides and pauses the story
-// when it walks out (the station plays on for the others) and runs it again on the station's clock when it walks back,
+// circle (the others then rings only), stays there when taken off and on again, never shows a Stories screen in a room,
+// stays in its story when it walks out (shown, playing, in step both ways; a story is left only by walking into another
+// circle) and nothing happens when it walks back in,
 // sends its rays in room coordinates, re-aligns when the frame moves, switches story by walking to another station
 // (and takes its state; the trigger on a card runs nothing from afar), lets the story's own panel win over a card
 // behind it, has Sound check in its menu; a headset without a shared space calibrates from two marks (its panel's
@@ -41,7 +42,9 @@
 // only the peer-to-peer part; --design only the design room in a room (its station from the page's dialog and the
 // headset menu's button, the lock, Arrange all, the icons from the miniatures; with --shots its pictures); --follow only
 // following a person (a room of its own with two stations; with --shots the people list with Follow and the dialog
-// following someone); --port N runs the relay on port N (default: any free port).
+// following someone); --circles only the ten-headset round (headsetRound: a room of its own with three stations; rings
+// only in a circle and a ring's card on pointing, people at your circle, the two locks; with --shots its pictures);
+// --port N runs the relay on port N (default: any free port).
 // Needs Playwright as tools/smoke.mjs does (PLAYWRIGHT_MODULE, CHROMIUM_PATH). Exits 1 on any failure.
 //
 // Adding a story: give it its hooks (the plan's section 7, as the flock has them), then an entry in STORIES:
@@ -1197,17 +1200,22 @@ async function headsetRound(dir) {
       r0.rings.every(Boolean) && p0.every(Boolean), JSON.stringify({ r0, p0 }));
     // in its circle: the others' rings only; only the people at its circle drawn
     const in1 = await walk(H, S1, K1, 0);
+    // (its station in explore mode, so its scene shows in the pictures)
+    await A.evaluate(id => HOST.collab.publish([['st.' + id + '.play', { mode: 'explore', t: 0, playing: false, at: Math.round(HOST.collab.now()) }]]), S1.id);
+    await until(H, () => { window.__xr.step(); return HOST.cur.peek('APP.mode') === 'explore'; }, null, 8000);
     await until(H, ids => { window.__xr.step(); const O = HOST.collab.overlay(); return ids.slice(1).every(id => O.rings.get(id).icon.k < 0.05 && !O.cards.get(id).mesh.visible); }, ids, 8000);
     const r1 = await seenRound(), p1 = await crowd([S1.id, S2.id, '']);
     check('round: in its circle the other stations show their rings only (no card, no icon; the rings pointable)', in1 && r1.mine === S1.id && !r1.cards[1] && !r1.cards[2] &&
       !r1.icons.some(Boolean) && r1.rings.every(Boolean), JSON.stringify(r1));
     check('round: in its circle only the people at its circle are drawn (not those at another circle or at none)', p1.join() === 'true,false,false', JSON.stringify(p1));
     // People in the menu: everyone (this headset's own: kept on it, nothing written to the room), and back
-    const q0 = (await roomInfo(rc)).seq;
+    // (what the headset writes meanwhile but its explore view at its station: nothing)
+    const q0 = (await roomInfo(rc)).seq, hId = await H.evaluate(() => HOST.collab.id);
     const m1 = await menu('people'), p2 = await crowd([S1.id, S2.id, '']), kept = await H.evaluate(() => [localStorage.getItem('collabPeople'), HOST.collab.seeAll()]);
-    const m2 = await menu('people'), p3 = await crowd([S1.id, S2.id, '']), q1 = (await roomInfo(rc)).seq;
+    const m2 = await menu('people'), p3 = await crowd([S1.id, S2.id, '']);
+    const wrote = Object.entries((await roomInfo(rc)).keys).filter(([k, e]) => e.seq > q0 && e.by === hId && !/\.view$/.test(k)).map(([k]) => k);
     check('round: People in the clock menu draws everyone (kept on this headset, never written to the room) and the same circle again', m1 && m2 && p2.every(Boolean) &&
-      kept.join() === 'all,true' && p3.join() === 'true,false,false' && q1 === q0 && !Object.keys((await roomInfo(rc)).keys).some(k => /people|see/i.test(k)), JSON.stringify({ p2, kept, p3, writes: q1 - q0 }));
+      kept.join() === 'all,true' && p3.join() === 'true,false,false' && !wrote.length && !Object.keys((await roomInfo(rc)).keys).some(k => /people|see/i.test(k)), JSON.stringify({ p2, kept, p3, wrote }));
     // a ray resting on another station's ring: its card and icon while it points, still there a second after, gone a
     // few seconds later; the trigger there runs nothing (walk into its circle)
     const at2 = await ringAt(H, S2.id), on2 = await pointAt(H, at2);
@@ -1216,7 +1224,7 @@ async function headsetRound(dir) {
     const d2 = await H.evaluate(([a, b]) => { const O = HOST.collab.overlay(), c = O.cards.get(a), h = HOST.collab.internals().hov.get(0);
       return { vis: c && c.mesh.visible, op: c && +c.mesh.material.opacity.toFixed(2), hit: c && O.hit.includes(c.mesh), k: +O.rings.get(a).icon.k.toFixed(2), peek: O.rings.get(a).peek,
         other: O.cards.get(b) && O.cards.get(b).mesh.visible, ok: +O.rings.get(b).icon.k.toFixed(2), hov: h && h.target, age: h && performance.now() - h.at }; }, [S2.id, S3.id]);
-    if (dir) { await headView(H, path.join(dir, 'round-2-pointed.png'), Math.atan2(-(S2.x - S1.x), -(S2.z - S1.z)) * 0.6, -0.32, [960, 600]); await pointAt(H, at2); }   // (drawing took a while: pointed at again)
+    if (dir) { await headView(H, path.join(dir, 'round-2-pointed.png'), -0.55, -0.25, [960, 600]); await pointAt(H, at2); }   // (drawing took a while: pointed at again)
     await H.evaluate(() => window.__xr.ctrl(0, null));
     const t0 = Date.now();
     await frames(H, 1000);

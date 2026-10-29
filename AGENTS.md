@@ -326,9 +326,10 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
     always a sprite. In the shell, station cards are drawn on top (after the
     scenes, before the story's panels, depth-tested) or, in 3D, as the labels'
     signs are (`renderOrder` -1, writing depth, `alphaTest` 0.1, both faces),
-    and not at all when hidden (the ring stays, pointable and grabbable);
-    people's name tags are sprites, signs over the head drawn the same way,
-    or nothing.
+    and not at all when hidden (the ring stays, pointable and grabbable; in a
+    circle the other stations' cards show only while their ring is pointed at,
+    see "Shared rooms"); people's name tags are sprites, signs over the head
+    drawn the same way, or nothing.
   - Free moving: the grip holds the scene like a real object, the point you
     hold the pivot. One hand moves it and turns it with the hand (`XR.rot`, a
     turn in the rig's frame; the facing comes from `XR.globeBase`, not from
@@ -375,7 +376,7 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
   its own. Set in the headset's menu (a *Panels: shown* / *controls only* /
   *hidden* row for the story on show, each press the next; no row on the
   Stories screen or away from a station) and, in a room, per station in the
-  page's Shared dialog; never refused by the layout lock. `#panels=shown|controls|hidden`
+  page's Shared dialog; never refused by the circles lock. `#panels=shown|controls|hidden`
   in a link sets it for the story the link opens. Stories read it every frame
   in `xrUpdate` beside the labels mode (`xrPanels()`, next to `xrSig`, which
   carries `HOST.panels.sig(XR_HERE)`): labels hidden still hides both panels
@@ -522,19 +523,22 @@ spot, y over the floor) and `st.<id>.place` (the scene: `{ x, y, z }` moved from
 where the story puts it, and `s` its size, a factor on the story's own; FORMAT
 networks-8; both gain `q`, `[x, y, z, w]` to 4 decimals, the scene's turn and the
 panel's tilt left by a free grip, absent when there is none; FORMAT networks-22),
-`st.<id>.ui` (the station's panels, `{ panels, story, by, at }`: `'shown'`, `'controls'` or `'hidden'`, for every
-headset at that circle; set from a headset's menu there or a page's Shared dialog, never refused by the layout lock;
-absent: shown; gone with the station's other keys when it shows another story; FORMAT networks-25),
+`st.<id>.ui` (the station's panels and its story's lock, `{ panels, lock, story, by, at }`: `'shown'`, `'controls'` or
+`'hidden'`, and `lock` true for *Lock this story*, for every headset at that circle; set from a headset's menu there or a
+page's Shared dialog, never refused by the circles lock; a write keeps the other field; absent: shown, not locked; gone
+with the station's other keys when it shows another story; FORMAT networks-25), `lock` (the circles lock, `{ on, by, at }`,
+below; FORMAT networks-6),
 `look` (the headsets' three settings, `{ labels, free, subs, by, at }`: set by anyone,
-from a page's Shared dialog or a headset's menu, never refused by the layout
+from a page's Shared dialog or a headset's menu, never refused by the circles
 lock; a room without it gives everything in 3D and no subtitles; free moving turned off takes
 every `q` out of the stations' places and panels in the same write), and per shared space `rf.<space id>` (the room's frame in it) and
 `rs.<space id>` (found split; FORMAT networks-9), `sg` (the room's shared-space
 generation, `{ n, by, at }`), `near` (*Show on this network*, `{ on, by, at }`: absent or on, the room is listed under
-*Rooms on this network*; set by anyone in the room, never refused by the layout lock) and `rid` (the room's own id, ten
+*Rooms on this network*; set by anyone in the room, never refused by the circles lock) and `rid` (the room's own id, ten
 letters written once by the page that made or holds it: a room joined again by itself can be told from another room
 under the same code) (FORMAT networks-10; networks-11 when the eighth story came, networks-12 the ninth, networks-13 the tenth, networks-14 the eleventh, networks-15 the twelfth, networks-16 the thirteenth, networks-17 when the PET story's `state()` lost its one-scan fields, networks-18 when its liver scene came back, networks-19 when the ovary story's charts went, networks-20 when the pass story's school got a shared place at a station, networks-21 when the fourteenth story came, networks-22 when the scene's and the panel's turn joined a station's place, networks-23 when the fifteenth story came, networks-24 when subtitles joined `look`, networks-25 when `near` and `rid`
-came with rooms on this network, and `st.<id>.ui` with panels per story in the same round). The plan is `docs/shared-space-plan.md`.
+came with rooms on this network, and `st.<id>.ui` with panels per story in the same round, and its `lock` when the
+layout lock became two locks after the ten-headset test). The plan is `docs/shared-space-plan.md`.
 
 - `HOST.collab` keeps the room's keys (echo suppression by value, optimistic
   writes acknowledged by the relay, apply order stations > clock > state >
@@ -688,36 +692,55 @@ came with rooms on this network, and `st.<id>.ui` with panels per story in the s
   space again (`q.frame`, passed on like presence) and takes it (waiting up to
   3 s). The frame held so far stays until another is found ("Re-aligned", or
   "Nothing to re-align to").
-- A headset runs live only the station it stands at (within 1.1 m for 1 s,
-  left beyond 1.5 m): stations are walk-in only (the owner, October 2026: "the
-  stories can only be visited by going to their circle"). The trigger or a
-  pinch on another station's card or ring runs nothing (a notice says to walk
-  into its circle); the grip there still moves the station. `HOST.go` switches
-  story (in a room `HOST.start` queues a request made while a story loads, and
-  the pump retries a lost one). Away from every station (`HOST.room.away()`: a
-  headset in a room not at a station, its story not yet loaded there, or the
-  room not yet aligned) no story shows: the stories hide their scene
+- A headset runs live the station whose circle it walked into last (within
+  1.1 m of its spot for 1 s): stations are walk-in only (the owner, October
+  2026: "the stories can only be visited by going to their circle"), and a
+  story is left only by walking into another circle (the owner, 29 October
+  2026, after ten headsets: "One should only exit a story when walking into a
+  new circle, otherwise stay in the story even if they move away from the
+  story's circle"). Walked out of its circle, the headset keeps the station
+  live (`C.mine`, `C.live`; `zoneStep`): its story shows where the station has
+  it, plays on the station's clock and goes on syncing both ways (state, view,
+  place, panel, the clock), and the narration fades with distance (the sound
+  zone). Leaving the room, Leave, a new session (walk-in only: a session that
+  starts drops a station the page followed or a session had) and a station
+  removed end it; a station given another story takes the headset there. The
+  trigger or a pinch on another station's card or ring runs nothing (a notice
+  says to walk into its circle); the grip there still moves the station.
+  `HOST.go` switches story (in a room `HOST.start` queues a request made while
+  a story loads, and the pump retries a lost one). Away from every station
+  (`HOST.room.away()`: a headset in a room that has walked into no circle yet
+  this session, its story not yet loaded there, the room not yet aligned, or
+  its station removed) no story shows: the stories hide their scene
   (`GL.world`, with the life-size holders in it), their story panels and
   labels, leave nothing of them to point at, and pause the story, silent
-  (`xrAway`); only the shell's things show (the other stations' rings and
-  cards, people, the menu and its clock, calibration marks; the clock hangs in
-  front of you without a left controller or hand). Walking out of a circle
-  drops the station (`C.mine` and `C.live`), so nothing of the story goes out
-  to the room while away (no clock, no state, no view, no place: a pause there
-  is not the room's) and the station plays on for the others; walking back in
-  takes the station's clock, state, view, place and panel again. A session
-  that starts drops a station the page followed (walk-in only). A desktop page
-  follows one from the Shared dialog (a page cannot walk). A story the person
-  starts themselves leaves the station (no longer following, not pulled
-  back).
+  (`xrAway`); only the shell's things show (the stations' rings, cards and
+  icons, people, the menu and its clock, calibration marks; the clock hangs in
+  front of you without a left controller or hand), and nothing of a story
+  goes out to the room. A desktop page follows one from the Shared dialog (a
+  page cannot walk). A story the person starts themselves leaves the station
+  (no longer following, not pulled back).
+- In a circle, rings only (the owner, 29 October 2026: "when you are in a
+  circle the other circles' cards and 3D models should not be visible, just
+  the circles"): while a headset has a live station, every other station
+  shows its ring only, its card and icon hidden (the rings stay pointable and
+  grabbable; its own station as before: a faint ring, no card, no icon).
+  Pointing at a ring (a controller's ray or a hand's pinch ray resting on it,
+  or on the card it brought up) shows that station's card and icon for as
+  long as it points; they stay 2 s after and fade (`PEEK` in `drawPreviews`:
+  the ring's `seenAt` and `peek`, the card's opacity and the icon's size), so
+  you can tell which story it is without walking over. Before any circle
+  everything shows as before.
 - Follow a person (pages only; the owner, 29 October 2026: a laptop for people
   who do not want to wear a headset follows along): in the Shared dialog's
   people list each person in a headset (`kind` `ar` or `vr`) has *Follow*
-  (`HOST.collab.followPerson(id)`, `followingWho()`; `C.who`). The page then
-  follows whichever station that person stands at, as their presence says
-  (`st`), switching as they walk from one circle to the next (`whoStep` in the
-  pump; `choose(id, 'person')`); out of every circle, or with their presence
-  quiet (a headset taken off), it stays on the last one. It stops when they
+  (`HOST.collab.followPerson(id)`, `followingWho()`; `C.who`; refused for
+  anyone not in a headset). The page then follows whichever station that
+  person's headset runs, as their presence says (`st`: the circle they walked
+  into last, which stays theirs when they walk out of it), switching as they
+  walk into the next circle (`whoStep` in the pump; `choose(id, 'person')`);
+  with their presence quiet (a headset taken off), or one that says no
+  station, it stays on the last one. It stops when they
   leave the room (gone from the members for 15 s while this page is connected,
   `WHO_GONE`, so a socket of theirs back within it, as after a relay restart,
   keeps them; the page stays at their last station, following it as by hand),
@@ -752,7 +775,8 @@ came with rooms on this network, and `st.<id>.ui` with panels per story in the s
   unlit), so it looks the same in every story's scene whatever its lights. It follows the rings, not the cards: shown
   in every label mode, opaque, depth-tested and writing depth in the room, since it is part of the station rather than
   a label, and with labels hidden it is what tells the circles apart. At your own (live) station it shrinks away
-  (your story is in front of you) and grows back when you walk out. A child of its ring's group, so it eases with the
+  (your story is in front of you), and while you are in a circle the other stations' icons shrink away too, growing
+  back while their ring is pointed at ("In a circle, rings only"). A child of its ring's group, so it eases with the
   station (`SHOWN`) and grows with it while carried; not pointable (the ring and card are). Built once per story, the
   first time a station of it shows, at most one a frame (a room's first view would build every one at once), and
   kept; until then, while `lowpoly.js` loads (or if it cannot), and for a key whose entry names no miniature, a glowing
@@ -767,8 +791,8 @@ came with rooms on this network, and `st.<id>.ui` with panels per story in the s
   headset's menu has a *Design room* row (below the settings and Panels, above the shared room): outside a room it
   opens the design room (`HOST.go('design')`, the menu closing; greyed while you are there); in a room, *Design room
   here* puts the props table at your feet as a circle facing your way, or moves the room's one there when it has one
-  (one table, not a pile of them; `designHere`, `HOST.collab.design(b)`), refused while the layout is locked as Add is
-  (greyed). A new station of a page that is not a story starts its clock at its table, in explore mode (a story's at
+  (one table, not a pile of them; `designHere`, `HOST.collab.design(b)`), refused while the circles are locked as Add
+  is (greyed). A new station of a page that is not a story starts its clock at its table, in explore mode (a story's at
   its start, paused). Standing at it (it is at your feet) the headset takes it as its station and the table stands
   life size in front of you (its middle 1.55 m ahead of the spot), shared like a story at its station.
 - Moving a station by hand: in a headset the grip on a station's ring or card
@@ -783,17 +807,33 @@ came with rooms on this network, and `st.<id>.ui` with panels per story in the s
   station's ring can be grabbed too (a trigger on it does nothing). Every
   headset draws rings, cards and its live station's placement where `SHOWN`
   eases them to the room's value, so a moved station glides, and the people at
-  a moved station keep it: they leave it by walking away from where it is now
-  (`C.zoneD`). On a page the room map does the same: a station's dot dragged
+  a moved station keep it (a station is left only by walking into another
+  circle). On a page the room map does the same: a station's dot dragged
   moves it, its square (where its content floats) dragged turns it; a click
   still follows it, the map keeps its scale while dragging, and an interrupted
   drag (`pointercancel`) puts it back.
-- The layout lock (key `lock`, `{ on, by, at }`, FORMAT networks-6): once the
-  stations are in place anyone locks them (a button on the headset's Shared
-  panel and in the page's Shared dialog) and anyone unlocks them. While on,
-  the grip on a station, a scene or a panel, the map drag, Arrange all, Add,
-  Move here, Design room here and Remove are refused (`refused()`), a station, scene or panel
-  being carried stops where it was last sent, and the cards say so.
+- Two locks (the owner, 29 October 2026: "one toggle for locking the circles'
+  movement globally and one toggle per room for locking its panels and story
+  elements"; a "room" there is a story's circle):
+  - The circles lock (key `lock`, `{ on, by, at }`, FORMAT networks-6, the
+    layout lock of v96): once the stations are in place anyone locks them
+    (*Lock circles* in the headset's menu and the page's Shared dialog) and
+    anyone unlocks them. While on, the grip on a station's ring or card, the
+    room map's drag and turn, Arrange all, Add, Move here, Design room here
+    and Remove are refused (`refused()`, `circlesLocked()`), a station being
+    carried stops where it was last sent, and the cards say so. It never
+    locks a scene or a panel. A room from v96 locked then reads as circles
+    locked only: its stories need locking once.
+  - A story's lock (*Lock this story*; `lock` in `st.<id>.ui`, with its
+    panels; `stLocked`, `setStLock`, `HOST.collab.stationLock(id)`,
+    `setStationLock(id, on)`): the grip moving, turning or resizing the
+    station's scene and moving or tilting its panel is refused for everyone
+    at its circle (`HOST.room.gripLocked()` there, and the story panels'
+    hint: "This story is locked"); a scene or panel held when it locks stops
+    where it was last sent and glides back to the room's. Set in the clock
+    menu at that station (beside *Lock circles*) and per station in the
+    page's Shared dialog (*Lock story* / *Story locked* on each station's
+    row); never refused by the circles lock, nor the other way round.
 - The headset's menu (the shell's panel, `PNL`, `drawPanel`) is closed at the
   start of every session: only a clock shows (`drawClock`: the local time, a
   face 6.5 cm across in the app's cyan rim, *Open menu* under it, redrawn when
@@ -825,15 +865,28 @@ came with rooms on this network, and `st.<id>.ui` with panels per story in the s
   *Design room here* puts its table at your feet: "The design room in a room"), a
   note beside it; then the shared room (its
   code and people as the section's heading, the rooms, the question, the
-  room's alignment, stations, people, You; the canvas, 1560 px tall, holds the
-  tallest case, a room on this headset with a three-line note at a station (1539
-  px), and People shows only as many as leave room for You). A right index fingertip also presses its buttons
+  room's alignment, stations (Move here, Add here; Arrange all, Remove; *Lock
+  circles* and *Lock this story* side by side, the latter at a station only;
+  *On this network* and *People: same circle* / *everyone*), people, You; the
+  canvas, 1640 px tall, holds the tallest case, a room on this headset with a
+  three-line note at a station (1611 px), and People shows only as many as
+  leave room for You). A right index fingertip also presses its buttons
   (`poke`: within 1.5 cm of the panel over one, again once pulled back 3 cm;
   a pinch on the ray at the same button within 0.7 s counts once with it,
   `twice`). The once-per-room question still opens it by itself, and so does
   the first time in a room with no stations (once per room: its Stations
   section says "None yet: Arrange all puts every story in front of you").
   `HOST.collab.panelOpen(on)` and `HOST.collab.menu` are for tests.
+- Other people in a headset (`drawPeople`: from their presence, in room
+  coordinates: their rays and the dots at their ends, a name tag over the head,
+  and in VR or for someone elsewhere a simple head and hands) are drawn only
+  when they are at the same station as you (their presence's `st` is your live
+  station; the owner, 29 October 2026: "can we not show other people's name
+  tags and hands if they are not in the same circle"); before you have walked
+  into any circle you see everyone. *People: same circle* / *everyone* in the
+  clock menu draws everyone (this headset's own setting, `collabPeople` in
+  `localStorage`, never in the room; default same circle; for debugging;
+  `HOST.collab.seeAll(on)`). Pages' room maps still show everyone.
 - At its station in a shared room a headset moves the scene and the panel for
   everyone: the grip on the scene moves it (`XR.globeOff`), both grips on it
   resize it (`xrResize`: the distance between the hands, a quarter to four times
@@ -849,9 +902,10 @@ came with rooms on this network, and `st.<id>.ui` with panels per story in the s
   quaternion), and puts both there at once when
   a station is reached. Both values carry the story they were written for, so
   a late one from before the station changed story is refused by the relay. `HOST.anchor.locked(kind)` is
-  `HOST.room.gripLocked()` in a room: true away from the headset's station and
-  while the layout is locked (then nothing moves, and the panels say so:
-  `HOST.room.gripHint`, which `sigMain` includes, so the panel redraws). The
+  `HOST.room.gripLocked()` in a room: true away from any station and while
+  the station's story is locked (*Lock this story*; then nothing moves, and the
+  panels say so: `HOST.room.gripHint`, which `sigMain` includes, so the panel
+  redraws); the circles lock does not lock it. The
   flock and the robots are life size (`life: true` in `HOST.list`): only their
   panel moves. Outside a room both grips resize the scene too, for this device
   only (kept with an anchored place, reset by Recenter).
@@ -1100,8 +1154,9 @@ reference, `tools/flock/engine/`):
   `const xrRoomOnly = () => !!(HOST.room && HOST.room.away && HOST.room.inRoom());`
   (a headset in a shared room: no Stories screen) and
   `const xrAway = () => !!(HOST.room && HOST.room.away && HOST.room.away());`
-  (away from its station: the story hidden and paused); a shell without
-  `HOST.room.away` gives the old behaviour.
+  (away from any station: in no circle yet this session, the story hidden and
+  paused; walked out of its circle a headset keeps its station, so it is not
+  away); a shell without `HOST.room.away` gives the old behaviour.
 - The caption hook for the shell's subtitles, next to `xrAway`:
   `const xrCaption = () => { ... }` (null in explore mode, on the Stories
   screen and away from a station; else `{ s, end, els, narrT }`: the story time
@@ -1118,7 +1173,7 @@ reference, `tools/flock/engine/`):
   (nothing of the story to point at). `xrPress`:
   `if (h.kind === 'shell') { HOST.collab.press(c.i); return; }`.
 - `xrGrab`: `if (XR.stories || HOST.anchor.locked(h.kind)) return;` (in a
-  shared room only at its station and unless the layout is locked; the shell's
+  shared room only at its station and unless its story is locked; the shell's
   own things never move the scene, and the grip on a station's preview moves
   that station, done by the shell); `carry` lets go when that turns locked, and
   a controller that disappears lets go too.
@@ -1220,7 +1275,13 @@ immersive session. Peer to peer on real devices (the owner, 29 October 2026):
 two laptops found each other on a local network with the test page `p2p/`, and
 two laptops were in one peer-to-peer room; not yet tried: headsets and phones in
 such a room, links inside VR and AR, a host change and a headset's hand-over at
-an event, and how long PeerJS's public server keeps a sleeping host's id.
+an event, and how long PeerJS's public server keeps a sleeping host's id. Ten
+headsets (the owner, 29 October 2026, main v96 through a local relay on the
+owner's computer and one router on site): "everything worked very well"; the
+changes it asked for (stay in your story out of its circle, rings only in a
+circle with a card on pointing, two locks, people at your circle only) are
+untested on headsets: how a ring's card reads when pointed at, the story and its
+narration heard from out of the circle, the locks and the People toggle in use.
 
 ## Inside a story (all fifteen follow the same pattern)
 
@@ -1986,16 +2047,18 @@ on the first story followed, also a slideshow stop on one page pausing the
 station for the others at the chapter's end, and its Next playing it again.
 Before that: Arrange all's rows, a code with no room, Remove asking first.
 After: a station moved and turned on the room map (and refused while the
-layout is locked), the design room (the Shared dialog's picker listing it after
+circles are locked), the design room (the Shared dialog's picker listing it after
 the stories, its station added there for every page, refused while locked from
 Add and the Design room button, left where it is by Arrange all, the button
 moving the room's one to your feet rather than adding a second), the headsets' three settings as the room's (everything in 3D
 and no subtitles in a room without them; set on one page, or in another's Shared
-dialog with the layout locked, for every page; free moving off taking the turns
+dialog with the circles locked, for every page; free moving off taking the turns
 out of the stations' places and panels; kept across the relay restart and, in a
 room on this device, across a reload), a station's panels set in a page's
-Shared dialog with the layout locked (reaching the pages at that station,
-another station keeping its own; kept across the relay restart),
+Shared dialog with the circles locked (reaching the pages at that station,
+another station keeping its own; kept across the relay restart), and its
+story's lock there (*Lock story*, also with the circles locked; every page has
+it, another station not; kept across the relay restart),
 two controls changed at once on two pages (both kept), two stations
 followed back to back (the second not lost), a story picked by hand (stops
 following), no writes while idle (no ping-pong), a late joiner, a page following a
@@ -2009,29 +2072,35 @@ their row and a story picked by hand each stopping it; they leave, it stops afte
 a pretend headset with fake `local-floor` and `shared` spaces: alignment,
 away from every station no story (no Stories screen, the scene and panels
 hidden, nothing to point at, paused, no Stories button, the clock in front),
-placement at its station once it walks into its circle (the story shown), a
-recentre, taken off and on again (it stays in its story), a Stories screen
-opened at a station closing at once (restarting nothing), walking out of the
-circle (the story hidden and paused here while the station plays on, nothing
-written; no Stories screen for a new wearer out there) and back in (shown and
-running on the station's clock), the hold and the lock, a station's panels
-set on a page reaching the headset at its circle (controls only: the foot bar
-alone; the station it is not at keeping its own) and set from its menu's Panels
-row for everyone there with the layout locked (hidden), its own station's back
-again (shown) when it walks there, the design room in the headset (every
-station's icon built from its story's miniature, in its colour and turning; the
-menu's Design room button greyed while locked; Add here listing the design room
-after the stories; the button putting the props table at its feet facing its
-way for every page; standing in it, its station, the design room open there at
-its table in explore mode, its icon and card gone; walked out, its icon, the
-table's miniature, back),
+before any circle every station's icon over its ring (its story's miniature, in
+its colour, turning) and its card, placement at its station once it walks into
+its circle (the story shown; the other stations' rings only, no card or icon,
+its own icon gone), a recentre, taken off and on again (it stays in its story),
+a Stories screen opened at a station closing at once (restarting nothing),
+walking out of the circle into no other (still its station and shown, playing
+on the station's clock, the others still rings only, the walk writing nothing;
+in step both ways out there: a change on a page following the station taken, a
+pause on the headset reaching the room; taken off and on again out there,
+still in its story) and back in (nothing happens: no second arrival), the hold
+and the lock, a station's panels set on a page reaching the headset at its
+circle (controls only: the foot bar alone; the station it is not at keeping its
+own) and set from its menu's Panels row for everyone there with the story
+locked (hidden), its own station's back again (shown) when it walks there, the
+design room in the headset (every station's icon built from its story's
+miniature, in its colour, hidden in a circle; the menu's Design room button
+greyed while the circles are locked; Add here listing the design room after the
+stories; the button putting the props table at its feet facing its way for
+every page; standing in it, its station, the design room open there at its
+table in explore mode, its icon and card gone; walked out, still at the design
+room, its icon still gone and built from the table's miniature),
 the station's clock and state, rays and head in room coordinates, another
-person drawn, the sound zone, the trigger on the menu's clock, the trigger on
-another station's card running nothing (a notice: walk into its circle), the story
-panel winning over a card behind it, every station's icon over its ring (its story's miniature, in its colour,
-turning; gone at its own station and back once it walks out), a station moved with the grip on its
-card (swung, pushed further, turned; the others see it while it moves) and
-gliding into place when someone else moves it, the layout lock (the grip and
+person at its circle drawn (one at another circle or at none not; all with
+People: everyone), the sound zone, the trigger on the menu's clock, the trigger on
+another station's card running nothing (its ring pointed at first, bringing
+the card up; a notice: walk into its circle), the story panel winning over a
+card behind it, a station moved with the grip on its card (its ring pointed at
+first; swung, pushed further, turned; the others see it while it moves) and
+gliding into place when someone else moves it, the circles lock (the grip and
 Arrange all refused; unlocked from the headset's menu), the menu (closed at
 first, only its clock; on the left controller and on a tracked hand's wrist;
 opened by the left stick, a touch of the right controller or fingertip and
@@ -2077,21 +2146,22 @@ full anchor store (cleaned and asked again; still full: the marks hold and the
 panel says so), the mark taken where the
 controller was held still, VR elsewhere with its in-room question; in a
 room no Stories button (at a station either) and a Stories screen closing by itself, the grip on
-the scene and the panel unlocked there (locked by the layout lock), both grips
+the scene and the panel unlocked there (not locked by the circles lock; locked by
+its story's lock, set on a page), both grips
 resizing the scene and one hand carrying on, the place, size and panel going
 out to the room and gliding in from it, a free grip turning the scene 90 degrees
 and tilting the panel (the turns in the room, the other pages holding the same
 `q`), Moving in the headset's menu turning free moving off for everyone (the
 turns gone, the scene facing you again, the panel upright) and Labels going
-round there for every page (the other stations' cards and a person's name tag
-on top as before, drawn as the labels' signs in 3D, not drawn when hidden; the
+round there for every page (the other stations' cards, as if their rings had
+been pointed at, and the name tag of a person at its circle on top as before, drawn as the labels' signs in 3D, not drawn when hidden; the
 menu on top in every mode); Re-align
 (an offset headset back on the room's frame, the shared space asked for again),
 and after a night: a headset still outside the space asking for it again, a
 follower holding against a space made again and following the room's frame
 once written again, this headset's own frame written into a space made again;
 a room on this device (no relay known and `&peer=off`: a link opens it, Arrange all, a moved
-station, the lock and the headsets' settings kept across a reload, a headset alone on its floor with
+station, the circles lock and the headsets' settings kept across a reload, a headset alone on its floor with
 Re-align, a station played there, the room taken to a relay that answers and
 joined there by another page; a relay that cannot be reached); then peer to peer
 (pages whose `/api` goes nowhere, as on GitHub Pages, introduced by the test
@@ -2128,12 +2198,24 @@ in a room (three pages and a pretend headset, a minute or two; with `--shots` it
 canvas, `design-station.png`, the table at its circle, `design-circle.png`, its ring, card and icon among the others).
 `--follow` runs only following a person (a room of its own with two stations, a minute or two; with `--shots` the
 people list with Follow, `follow-person-1-people.png`, and the dialog following someone, `follow-person-2-following.png`
-and `follow-person-3-people-following.png`). A new story needs an entry in `STORIES`
+and `follow-person-3-people-following.png`). The ten-headset round (`headsetRound`, also in the main run, after the
+room on this device; `--circles` runs only it, a room of its own with three stations, about four minutes): a pretend
+headset sees every card and icon and everyone before any circle; in its circle the others' rings only and only the
+people at its circle; *People* in the clock menu drawing everyone and back (kept on the headset, nothing written); a ray
+resting on another ring bringing up its card and icon (no other), still there a second after it moves off, gone about
+2 s later; the trigger there running nothing; walked out, still in its story; walking into another circle switching;
+the circles lock refusing the grip on a ring and Arrange all and nothing else (the grip at its station free, *Lock this
+story* in the menu still working); *Lock this story* refusing the scene and panel grips there, for the room; *Lock
+circles* in the menu unlocking; at another circle nothing locked; *Lock story* in a page's dialog locking and unlocking
+the headset's circle. With `--shots` its pictures: `round-1-rings.png` (in a circle, the others as rings only),
+`round-2-pointed.png` (a ring pointed at, its card and icon up), `round-3-menu.png` (the menu's canvas with *Lock
+circles*, *Lock this story* and *People*) and `round-4-dialog.png` (the Shared dialog with *Lock circles* and each
+station's *Lock story*). A new story needs an entry in `STORIES`
 (`change` and `back`: code that changes its `state()`, and optional `effect`
 and `more`); the headset's story (`HEADSET_STORY`) stays the last entry.
 `--shots <dir>` also saves pictures of rooms on this network (`near-dialog.png`, `near-toast.png`, `near-again.png`,
 the menu's canvas `near-menu.png`), of the dialog and eight headset views (with the menu's clock on the left wrist, the menu open, its Sound check,
-stepped out of a station's circle: no story, only the room and the clock in front, and the stations' icons from behind the first row and along it, at 1280 x 800).
+stepped out of a station's circle: still in its story, the others as rings only, and the stations' icons from behind the first row and along it, as a headset in no circle sees them, at 1280 x 800), and the ten-headset round's four.
 
 For the tour, test a changed set on its own in the set harness first
 (`tools/lbi/shot.mjs`, much cheaper than the whole story), then the story at a

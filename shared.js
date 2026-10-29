@@ -1503,8 +1503,9 @@
   // follow a person (a page only; the owner, 29 October 2026: a laptop for people who do not want to wear a headset follows
   // along): this page follows whichever station that person's headset runs, as their presence says (st: the circle they
   // walked into last, which stays theirs out of every circle), switching as they walk into the next circle (their
-  // presence quiet, a headset taken off: the last one stays). It stops when they leave the room (the station stays followed, as by hand), or when this page follows a station
-  // by hand, picks a story by hand, stops following, leaves the room or starts a headset session
+  // presence quiet, a headset taken off: the last one stays). It stops when they leave the room (the station stays
+  // followed, as by hand), or when this page follows a station by hand, picks a story by hand, stops following, leaves
+  // the room or starts a headset session
   function followPerson(id) {
     const m = member(id);
     if (!m || id === C.id || HOST.session || !C.code || (m.kind !== 'ar' && m.kind !== 'vr')) return false;   // (a person in a headset, as the dialog offers)

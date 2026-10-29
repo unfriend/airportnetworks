@@ -51,7 +51,7 @@ view; the headset's lists as many params as fit and says how many more.
   times) are ignored. Tidy clears every record (all go home, for everyone at the station).
 - Effects: none. `view()` is null (life size). `place` and `panel` as the flock's: only the panel moves.
 - Its station (the shell's, `shared.js`): placed by the headset menu's *Design room here* (at your feet, facing your
-  way; the room's one moved there when it has one) or the page's Add a station, refused while the layout is locked;
+  way; the room's one moved there when it has one) or the page's Add a station, refused while the circles are locked;
   never by Arrange all, which leaves it where it is. Its clock starts in explore mode (at the table), and its icon over
   the ring is its own miniature, `design.table` (`icon` in its entry; skipped by `build.mjs`: not a prop). Outside a
   room the menu's *Design room* opens it (`HOST.go('design')`).
@@ -60,7 +60,7 @@ view; the headset's lists as many params as fit and says how many more.
 
 - The trigger or a pinch on a miniature puts it on the stage; pointing lights it (its name over it).
 - The grip picks it up (`xrGrab`, after the shared line `if (XR.stories || HOST.anchor.locked(h.kind)) return;`, so
-  not when anchored, away from its station or with the layout locked): it keeps its offset from the hand and, with
+  not when anchored, away from its station or with its story locked): it keeps its offset from the hand and, with
   free moving on, turns with it (off: it stays upright and turns only about the vertical); the right stick pushes it
   away or pulls it in. Both grips on it size it (half to four times) and move it with their middle; when one lets go
   the other carries on. Let go, it stays where it was put (`drop`: its record).

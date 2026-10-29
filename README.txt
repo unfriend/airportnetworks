@@ -123,14 +123,19 @@ screens
 see the stations round their own spot. Screens get a room map and Follow a
 station, or Follow a person in a headset (in the Shared dialog's people list:
 the screen shows whichever station they stand at, switching as they walk, for
-people watching without a headset). Over each station's ring a small 3D model of its story turns, in its
+people watching without a headset). In a headset you stay in a story once you
+have walked into its circle, wherever you walk, until you walk into another
+circle; while you are in one, the other circles show only their rings (point at
+a ring to see its card and model), and other people are drawn only when they are
+at your circle (People: everyone in the menu shows them all). Over each station's ring a small 3D model of its story turns, in its
 colour, so you can tell the circles apart from across the room. A station moves with the grip on its ring or card in a headset (point
 to swing it round, raise or lower to push or pull, twist to turn it), or by
 dragging its dot (or its square, to turn it) on the room map; everyone sees it
-move. Lock layout (headset menu or Shared dialog) then keeps them where they are,
+move. Lock circles (headset menu or Shared dialog) then keeps them where they are,
 until someone unlocks it. At a station in a headset the grip moves the scene
 or the story panel and both grips resize the scene, during the story too, for
-everyone at once (unless the layout is locked; among the fish of Pass it on the
+everyone at once (unless that story is locked: Lock this story in the menu at its
+circle, or Lock story per station in the Shared dialog; among the fish of Pass it on the
 grip in the sea moves the school, for everyone there too); each station keeps
 its story, so the story panel has no Stories button there: another story is
 another station. In a headset the menu is closed at first: only a clock shows, worn
@@ -154,7 +159,7 @@ panel stays upright). Subtitles: off (the default) or on (the narration's words
 in a strip low in your view while a story plays, following your head when you
 turn away; #subs=on in a link turns them on). In a shared room all three
 settings are the room's, the same for everyone in it (also set in the Shared
-dialog; the layout lock does not stop them), and a scene turned at a station is
+dialog; the locks do not stop them), and a scene turned at a station is
 turned for everyone there.
 #labels=face|fixed|hidden and #free=on|off in a link set them. Panels, a fourth
 row, is for the story on show only: shown, controls only (just the play bar
@@ -184,7 +189,7 @@ then. &peer=host:port/path in a link uses another introduction server (the
 relay has one at /peerjs), &peer=off none. When peer to peer cannot be had
 either, a room still works on
 the device alone: Start a room here in the headset's menu places the stories in
-your room (Arrange all, moving them, Lock layout, calibrating); the room is kept
+your room (Arrange all, moving them, Lock circles, calibrating); the room is kept
 on the device, and once a relay answers it moves there and others can join it.
 Rooms on this network (the same router or internet address) are listed in the
 Shared dialog and the headset's menu, one press to join; a device that was in a
