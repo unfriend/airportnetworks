@@ -243,7 +243,7 @@ void main() {
     for (let e = 0; e < NL; e++) {
       const a = NT.ij[2 * e], b = NT.ij[2 * e + 1], ma = NT.mod[a], mb = NT.mod[b];
       const len = Math.hypot(LAY[3 * a] - LAY[3 * b], LAY[3 * a + 1] - LAY[3 * b + 1], LAY[3 * a + 2] - LAY[3 * b + 2]);
-      const al = (ma === mb ? 0.03 + 0.14 / (1 + (len / 0.1) ** 2) : 0.014 + 0.05 / (1 + (len / 0.1) ** 2)) * dimL(0.5 * (CROWD[a] + CROWD[b])) * (0.55 + 0.6 * (Math.abs(NT.rho[e]) - 0.6) / 0.4);
+      const al = (ma === mb ? 0.05 + 0.2 / (1 + (len / 0.1) ** 2) : 0.016 + 0.06 / (1 + (len / 0.1) ** 2)) * dimL(0.5 * (CROWD[a] + CROWD[b])) * (0.55 + 0.6 * (Math.abs(NT.rho[e]) - 0.6) / 0.4);
       for (let j = 0; j < 2; j++) {
         const s = j ? b : a, o = j ? a : b, v = 2 * e + j, ca = 3 * NT.cloudOf(s);
         pos.set(LAY.subarray(3 * s, 3 * s + 3), 3 * v); cl.set(P.subarray(ca, ca + 3), 3 * v); sc.set(SC.subarray(3 * s, 3 * s + 3), 3 * v);

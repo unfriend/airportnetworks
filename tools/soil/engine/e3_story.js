@@ -100,7 +100,8 @@ const fitShift = (k, name) => { const f = GL.sets[k].cam[name] && FIT[k] && FIT[
 // middle: the network split in two or three, the field with its jars on the bench and its stack behind)
 const FIT = {
   net: { split: [0, 0, 0.5, -0.1, 0, 0] },
-  field: { default: [0, 0, 0.3, 0.15, 0, 0], jars: [0, 0, 0.2, 0, 0, 0] },
+  field: { default: [0, 0, 0.35, -0.2, 0, 0.05], jars: [0, 0, 0.2, 0, 0, 0] },
+  web: { globe: [0, 0, 1.8, 0, 0, 0] },
 };
 // how much further back a view stands on a phone held upright (see narrowK): the wide ones, whose parts reach
 // across the screen (the split network, the field with its bench)
@@ -346,10 +347,10 @@ function buildStory() {
   ramp('field_cores', a + 25, a + 39, 0, 1);
   ramp('field_stack', a + 41, a + 50, 0, 1);
   const jp = SPIN.at(36.05, 140.12, SPIN.japan);
-  cam(a + 0.5, 'web', 'globe', 0, null, [0, -6, 2.4]);
-  cam(a + 3, 'web', 'globe', 0, null, [0, -2, 1.9]);
-  cam(a + 12, 'web', 'globe', 0, 'spin', [0, 6, 1.1]);
-  cam(a + 16, 'web', 'globe', 0, null, [0, 12, -2.7, jp[0], jp[1], jp[2]]);
+  cam(a + 0.5, 'web', 'globe', 0, null, [0, -6, 0.6]);
+  cam(a + 3, 'web', 'globe', 0, null, [0, -2, 0.1]);
+  cam(a + 12, 'web', 'globe', 0, 'spin', [0, 6, -0.7]);
+  cam(a + 16, 'web', 'globe', 0, null, [0, 12, -4.5, jp[0], jp[1], jp[2]]);
   cam(a + 17, 'field', 'plots', -20);
   cam(a + 24, 'field', 'default', -10);
   cam(a + 27, 'field', 'low', -12);

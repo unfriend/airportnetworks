@@ -208,6 +208,11 @@ function selectPlot(g, ui = true) {
   if (ui && X.plot >= 0 && X.scene !== 'field') openScene('field');
   renderAll();
 }
+// the field's measure picked by hand: N2O brings the jars into view (the data's N2O is the jars' soil, see NOTE.field)
+function pickShow(v) {
+  sceneCtl('field', 'show', v);
+  if (v === 'n2o' && !viewIs('field', 'jars')) showView('field', 'jars');
+}
 // a control of a scene picked from a tab: its scene brought up
 function sceneCtl(k, key, v) {
   if (X.scene !== k) openScene(k);
@@ -281,7 +286,7 @@ function buildExplore() {
     const v = b.dataset.v;
     ({
       view: () => { const [k, w] = v.split(':'); showView(k, w); }, scene: () => openScene(v),
-      ctl: () => sceneCtl(b.dataset.scene || X.scene, b.dataset.ctl, v),
+      ctl: () => ((b.dataset.scene || X.scene) === 'field' && b.dataset.ctl === 'show' && X.tab === 'field' ? pickShow(v) : sceneCtl(b.dataset.scene || X.scene, b.dataset.ctl, v)),
       mod: () => (v === 'none' ? selectModule(-1) : v === 'prev' ? stepModule(-1) : v === 'next' ? stepModule(1) : selectModule(+v)),
       shuf: () => setShuffle(!X.shuf), split: () => setSplit(v), kind: () => selectKind(v === 'none' ? -1 : +v), plot: () => selectPlot(v === 'none' ? -1 : +v),
       replay: () => { X.t0 = performance.now(); },

@@ -507,7 +507,7 @@ function drawFieldPane(ctx, P, x, y, W, bottom) {
   y += head(ctx, x, y, 'Date');
   y += flow(ctx, P, ctlChips('field', 'date'), x, y, W, bottom, o) + 8;
   y += head(ctx, x, y, 'Show');
-  y += flow(ctx, P, ctlChips('field', 'show'), x, y, W, bottom, o) + 8;
+  y += flow(ctx, P, ctlChips('field', 'show').map(c => Object.assign(c, { fn: () => pickShow(c.id.split(':')[2]) })), x, y, W, bottom, o) + 8;
   y += head(ctx, x, y, 'Wheat and regime');
   y += flow(ctx, P, ctlChips('field', 'line', v => (v === '0' ? LINE_COL[0] : v === '1' ? LINE_COL[1] : null)).concat(
     ctlChips('field', 'fert', v => (v === 'all' ? null : FERT_COL[+v]))), x, y, W, bottom, o) + 8;

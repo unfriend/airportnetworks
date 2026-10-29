@@ -4154,7 +4154,8 @@ const fitShift = (k, name) => { const f = GL.sets[k].cam[name] && FIT[k] && FIT[
 // middle: the network split in two or three, the field with its jars on the bench and its stack behind)
 const FIT = {
   net: { split: [0, 0, 0.5, -0.1, 0, 0] },
-  field: { default: [0, 0, 0.3, 0.15, 0, 0], jars: [0, 0, 0.2, 0, 0, 0] },
+  field: { default: [0, 0, 0.35, -0.2, 0, 0.05], jars: [0, 0, 0.2, 0, 0, 0] },
+  web: { globe: [0, 0, 1.8, 0, 0, 0] },
 };
 // how much further back a view stands on a phone held upright (see narrowK): the wide ones, whose parts reach
 // across the screen (the split network, the field with its bench)
@@ -4400,10 +4401,10 @@ function buildStory() {
   ramp('field_cores', a + 25, a + 39, 0, 1);
   ramp('field_stack', a + 41, a + 50, 0, 1);
   const jp = SPIN.at(36.05, 140.12, SPIN.japan);
-  cam(a + 0.5, 'web', 'globe', 0, null, [0, -6, 2.4]);
-  cam(a + 3, 'web', 'globe', 0, null, [0, -2, 1.9]);
-  cam(a + 12, 'web', 'globe', 0, 'spin', [0, 6, 1.1]);
-  cam(a + 16, 'web', 'globe', 0, null, [0, 12, -2.7, jp[0], jp[1], jp[2]]);
+  cam(a + 0.5, 'web', 'globe', 0, null, [0, -6, 0.6]);
+  cam(a + 3, 'web', 'globe', 0, null, [0, -2, 0.1]);
+  cam(a + 12, 'web', 'globe', 0, 'spin', [0, 6, -0.7]);
+  cam(a + 16, 'web', 'globe', 0, null, [0, 12, -4.5, jp[0], jp[1], jp[2]]);
   cam(a + 17, 'field', 'plots', -20);
   cam(a + 24, 'field', 'default', -10);
   cam(a + 27, 'field', 'low', -12);
@@ -4976,6 +4977,11 @@ function selectPlot(g, ui = true) {
   if (ui && X.plot >= 0 && X.scene !== 'field') openScene('field');
   renderAll();
 }
+// the field's measure picked by hand: N2O brings the jars into view (the data's N2O is the jars' soil, see NOTE.field)
+function pickShow(v) {
+  sceneCtl('field', 'show', v);
+  if (v === 'n2o' && !viewIs('field', 'jars')) showView('field', 'jars');
+}
 // a control of a scene picked from a tab: its scene brought up
 function sceneCtl(k, key, v) {
   if (X.scene !== k) openScene(k);
@@ -5049,7 +5055,7 @@ function buildExplore() {
     const v = b.dataset.v;
     ({
       view: () => { const [k, w] = v.split(':'); showView(k, w); }, scene: () => openScene(v),
-      ctl: () => sceneCtl(b.dataset.scene || X.scene, b.dataset.ctl, v),
+      ctl: () => ((b.dataset.scene || X.scene) === 'field' && b.dataset.ctl === 'show' && X.tab === 'field' ? pickShow(v) : sceneCtl(b.dataset.scene || X.scene, b.dataset.ctl, v)),
       mod: () => (v === 'none' ? selectModule(-1) : v === 'prev' ? stepModule(-1) : v === 'next' ? stepModule(1) : selectModule(+v)),
       shuf: () => setShuffle(!X.shuf), split: () => setSplit(v), kind: () => selectKind(v === 'none' ? -1 : +v), plot: () => selectPlot(v === 'none' ? -1 : +v),
       replay: () => { X.t0 = performance.now(); },
@@ -6537,7 +6543,7 @@ function drawFieldPane(ctx, P, x, y, W, bottom) {
   y += head(ctx, x, y, 'Date');
   y += flow(ctx, P, ctlChips('field', 'date'), x, y, W, bottom, o) + 8;
   y += head(ctx, x, y, 'Show');
-  y += flow(ctx, P, ctlChips('field', 'show'), x, y, W, bottom, o) + 8;
+  y += flow(ctx, P, ctlChips('field', 'show').map(c => Object.assign(c, { fn: () => pickShow(c.id.split(':')[2]) })), x, y, W, bottom, o) + 8;
   y += head(ctx, x, y, 'Wheat and regime');
   y += flow(ctx, P, ctlChips('field', 'line', v => (v === '0' ? LINE_COL[0] : v === '1' ? LINE_COL[1] : null)).concat(
     ctlChips('field', 'fert', v => (v === 'all' ? null : FERT_COL[+v]))), x, y, W, bottom, o) + 8;
