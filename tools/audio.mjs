@@ -383,7 +383,9 @@ await page.close();
 // a Web Audio engine that never starts: the audio element plays the narration, and the sound effects stay silent
 page = await open(base + '#sfx=on', 'nostart');
 await step('sound effects: silent when Web Audio never starts', async () => {
-  await until('file found', p => p.story === 'airports' && p.state === 'ok');
+  // decoded first: while Web Audio decodes, the element plays anyway, and a decode ending between the two looks
+  // handed the narration to the stuck Web Audio for the watchdog's 3 s, so the element seen was not yet the fallback
+  await ready();
   await page.click('#picker .card[data-story="airports"]');
   await playing('Web Audio never starts -> fallback', 'media', 30000);
   const s = await page.evaluate(() => [HOST.sfx.play('notice', { force: true }), HOST.sfx.state()]);
