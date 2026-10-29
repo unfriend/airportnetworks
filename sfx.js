@@ -1,27 +1,32 @@
 'use strict';
 // ================================================================== sound effects ==
-// HOST.sfx: the shell's sound effects (the owner, 29 October 2026: "nice sound effects to everything"). Phase 1 is here:
-// the shell's own sounds (the headset menu, pointing at the shell's things, the circles, the locks, notices, a story
-// loaded, walking into a circle, people coming and going) and a quiet background per story. Phase 2 (sounds inside the
-// stories, tied to their timelines) waits until the owner has listened to these and approved them. Every sound is made
-// here from Web Audio nodes and short generated buffers: no files. The rules:
+// HOST.sfx: the shell's sound effects (the owner, 29 October 2026: "nice sound effects to everything"; after listening to
+// phase 1: "sounds are fine, go on"). Phase 1: the shell's own sounds (the headset menu, pointing at the shell's things,
+// the circles, the locks, notices, a story loaded, walking into a circle, people coming and going) and a quiet
+// background per story. Phase 2: sounds inside the stories (their story sounds, tied to their timelines and explore
+// actions, kind 'story', played through the same HOST.sfx.play with pitch, dur and n; the stories' cue lines are in
+// AGENTS.md, "Sound effects") and continuous sounds a story keeps going while it wants them (HOST.sfx.drone: a robot
+// vacuum, a machine). Every sound is made here from Web Audio nodes and short generated buffers: no files. The rules:
 //  - it plays through HOST.audio's one AudioContext (HOST.audio.fx()), never a context of its own: nothing before the
-//    first tap, nothing while the page or the headset is out of view, and nothing while only the <audio> element engine
-//    runs (Web Audio out, or the element chosen in Sound check);
+//    first tap, nothing while the page or the headset is out of view, nothing while only the <audio> element engine
+//    runs (Web Audio out, or the element chosen in Sound check), and nothing while the sound is off (the bar's Sound
+//    button, or the headset panel's: it silences the narration, the effects and the background alike);
 //  - in a headset a sound can come from a place in the room (an HRTF panner; the listener follows your head every frame
 //    from shared.js's tick, HOST.sfx.listen); on a screen it is plain stereo;
 //  - it ducks under the narration (-9 dB, down in about 0.4 s, back in about 1.5 s) while HOST.audio.speaking();
 //  - at most 16 voices at once (the one quietest now makes room, the oldest of equals), and each sound a minimum gap;
-//  - per device, never shared in a room and never in a story's collab.state(): on or off (sfxOn, OFF by default until
-//    the owner approves the sounds) and a volume (sfxVolume, 0 to 1, squared as a loudness taper; 0.75 by default);
-//    #sfx=on|off in a link; a row in Sound check on the page and in the headset's menu;
+//    at most 4 continuous sounds besides (a fifth replaces the quietest);
+//  - per device, never shared in a room and never in a story's collab.state(): on or off (sfxOn; ON by default since
+//    the owner approved the sounds, a device that saved 'off' stays off) and a volume (sfxVolume, 0 to 1, squared as a
+//    loudness taper; 0.75 by default); #sfx=on|off in a link; a row in Sound check on the page and in the headset's menu;
 //  - a quiet looping background (a bed) for the story on show, chosen from its key: the flock dusk air and distant
 //    birds, the pass story a deep sea hush, the robots room tone, the soil story wind over a field, every other a calm
 //    low tone with a slight movement whose colour (pitch, brightness, pace) comes from the key, so a new story gets one
 //    by itself. Faded in once the story is built, out when it goes (another story, the Stories screen, a headset in a
 //    shared room away from every station), ducked under the voice, off with the effects.
 // SFX_LIB holds the recipes, the beds and the engine for any context: tools/sfx.html (the sound board) plays them
-// with an engine of its own and renders every one to a file with an OfflineAudioContext (tools/sfx-render.mjs).
+// with an engine of its own and renders every one to a file with an OfflineAudioContext (tools/sfx-render.mjs, which
+// also renders a story's whole sound track with --story).
 (function (root) {
   const MAX = 16;                                  // voices at once
   const DUCK = Math.pow(10, -9 / 20);              // under the voice: -9 dB
