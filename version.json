@@ -1,12 +1,12 @@
 {
   "app": "networks",
-  "version": "networks-v97",
+  "version": "networks-v98",
   "format": "networks-25",
   "shell": {
-    "n": 97,
-    "id": "8ed2a5a478897485"
+    "n": 98,
+    "id": "568b0eab28aa3abb"
   },
-  "list": "1806080629f7944b",
+  "list": "f8f71ae5b2ab6cb1",
   "stories": {
     "airports": {
       "fp": "6367961df76ea68d",
@@ -56,6 +56,10 @@
       "fp": "dada8621eb36c032",
       "needs": 97
     },
+    "soil": {
+      "fp": "e35fb89d32bd20f5",
+      "needs": 98
+    },
     "pass": {
       "fp": "4b602cc949766ff7",
       "needs": 97
@@ -69,8 +73,8 @@
       "needs": 97
     },
     "design": {
-      "fp": "894ec768b4064299",
-      "needs": 97
+      "fp": "1c112c61459609a3",
+      "needs": 98
     }
   }
 }

@@ -48,7 +48,7 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
   (`tools/live.mjs`), the relay's protocol test, the introduction server's test (`tools/peer.mjs`), the tour's
   recording against its story (`tools/voice/check.mjs lbi --quick`), the shared-room test (three pages and a pretend
   headset in a room, with its parts for rooms on this network, following a person, the design room and the circles),
-  `node tools/release.mjs --check` and each built story's `--check`. All pass on main (networks-v97).
+  `node tools/release.mjs --check` and each built story's `--check`. All pass on networks-v98.
 - **Built on 29 October 2026 (release networks-v96), tested headlessly only:**
   - *Live updates and hot reload:* a running copy takes a new release by itself without losing its place, and while
     developing follows the files as they are saved (`HOST.live`, `version.json` written by `node tools/release.mjs`,
@@ -150,14 +150,15 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
   Tests: `node tools/collab.mjs --circles` (its own room) and the rewritten walk-out checks in the main run. All of it
   is untested on headsets: how a ring's card reads when pointed at, the story heard from out of its circle, the locks
   and the People toggle in use.
-- **Built and integrated, not yet released (not in networks-v97):** the sixteenth story, *Holding on to nitrogen* (`soil`), after the slides and
-  field-trial data of Marina Montserrat Díez, Christa Schleper and colleagues (the authors' permission given through
-  the owner, 29 October 2026; anything unknown illustrative and labelled so). Its sources are in `tools/soil/` and
-  its data sources in [docs/data-and-permissions.md](docs/data-and-permissions.md). Made for the Global Peter Drucker
-  Forum in Vienna. Integrated on 29 October 2026 (its card in `stories/list.js`, `sw.js`, its miniatures, the design
-  room's catalogue, the smoke and shared-room tests, the docs: item 11 under "Decisions for the owner"); the release
-  (`VERSION`, `node tools/release.mjs`, the word "sixteen" in `index.html`'s head) follows. Untested on a headset.
-- **Sound effects, phase 1: built, not yet released, off until the owner approves the sounds** (the owner, 29 October
+- **Released as networks-v98 (29 October 2026; FORMAT networks-25 unchanged, so a room still takes a page of v97,
+  which shows the soil station as *A newer story* until it updates), tested headlessly only:** the sixteenth story,
+  *Holding on to nitrogen* (`soil`), after the slides and field-trial data of Marina Montserrat Díez, Christa
+  Schleper and colleagues (the authors' permission given through the owner, 29 October 2026; anything unknown
+  illustrative and labelled so). Its sources are in `tools/soil/` and its data sources in
+  [docs/data-and-permissions.md](docs/data-and-permissions.md). Made for the Global Peter Drucker Forum in Vienna. Integrated on 29 October 2026 (its card in `stories/list.js`, `sw.js`, its miniatures, the design
+  room's catalogue, the smoke and shared-room tests, the docs: item 11 under "Decisions for the owner"). Untested on a
+  headset.
+- **Sound effects, phase 1: released in networks-v98, off by default until the owner approves the sounds** (the owner, 29 October
   2026: "nice sound effects to everything"). `sfx.js` (`HOST.sfx`) plays the shell's own sounds through the narration's
   one Web Audio context (clicks and switches on the page and in the headset's menu, a tick when pointing at the shell's
   things, the menu opening and closing, circles picked up, let go and placed, the locks, notices, a chime when a story
@@ -251,8 +252,9 @@ Before handing over (or making anything more public), someone has to decide thes
      the pass story, already in English and German, does);
    - **The queue** (the owner, 29 October 2026): rooms on this network, first in it, the loading bar queued alongside,
      panels per story, the design room's part 2, follow a person and the ten-headset round's changes are built and
-     released as networks-v97 (see "Where things stand"). Next: the sixteenth story, on soil, built and integrated (item 11 below), then its
-     integration and a release. Each item is described below;
+     released as networks-v97, and the sixteenth story, on soil (item 11 below), and sound effects' phase 1 (item 12) as
+     networks-v98 (see "Where things stand"). Phase 2 of the sound effects waits for the owner's listening round. Each
+     item is described below;
    - **circles that load code from a link** (on hold, the owner, 29 October 2026; the design agreed, not to build
      yet). The owner's aim: the whole office as one shared room, where colleagues add circles of their own, with their
      own logic, from a web page or a GitHub repository. How: a station whose story is a script from a web address
@@ -396,7 +398,7 @@ Before handing over (or making anything more public), someone has to decide thes
     - **Still open:** T5 (the poster's panel e prints its cell v's score as 26.57; the figure's own data and topocyte
       give 6.97, which the story shows).
 
-11. **The sixteenth story: "Holding on to nitrogen" (built, October 2026; in the app after the next release).** For
+11. **The sixteenth story: "Holding on to nitrogen" (built, October 2026; released in networks-v98).** For
     the Global Peter Drucker Forum in Vienna (a lay, business audience), from Christa Schleper's soil microbiology group
     at the University of Vienna: a PhD student's project, Marina Montserrat Díez's, with partners at JIRCAS in Japan, the
     University of Thessaly and Université Lyon 1. After the slides "Exploring the Effects of Biological Nitrification
@@ -417,9 +419,8 @@ Before handing over (or making anything more public), someone has to decide thes
     - **Integrated** (29 October 2026): its card (`stories/list.js`, icon `soil.soil`), `sw.js` (`SHELL` and `AUDIO`),
       three miniatures (`soil.soil`, `soil.field`, `soil.net` in `tools/lowpoly/`), the design room's catalogue
       (`tools/design/props.json`, [docs/props.md](docs/props.md)), the smoke test (every explore tool and its links)
-      and the shared-room test (`STORIES`), the docs. **For the release round:** bump `VERSION`, run
-      `node tools/release.mjs`, and say sixteen in `index.html`'s head (title, description, link previews, the brand
-      and the start screen's title still say fifteen) and in `shared.js`'s Arrange all comment (two rows of eight).
+      and the shared-room test (`STORIES`), the docs; released in networks-v98 (`index.html`'s head, the brand and the
+      start screen's title say sixteen).
     - **Untested:** everything in a headset (the panels, picking plots and kinds with the ray, the pore's bubble and the
       network at their close views); so far only the headless tests have run it.
     - **Still open:** S1 to S9 in [docs/questions-for-authors.md](docs/questions-for-authors.md) (the two N2O

@@ -33,7 +33,7 @@
   // 2.4 m apart, so two stations never compete for one person
   const NEAR = 1.1, DWELL = 1000;
   const DRIFT = 0.25;            // a story further than this from its station's clock jumps
-  // Arrange all: two rows in front of you (fifteen stories: 8, and 7 behind them in the gaps), spots 2.4 m apart, the first row
+  // Arrange all: two rows in front of you (sixteen stories: 8, and 8 right behind them; a shorter second row stands in the gaps), spots 2.4 m apart, the first row
   // 1.2 m ahead, the second 2.6 m behind it (about 17 m x 4 m of floor); every station faces away from you, so its content
   // floats beyond its spot
   const ROW = { gap: 2.4, ahead: 1.2, back: 2.6 };

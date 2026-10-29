@@ -888,6 +888,9 @@ await step('a story picked while another builds: its steps stop, the headset\'s 
 // the shell's); it fades out over the story's first frames; in AR the room still shows through (the clear colour stays
 // see-through)
 {
+  // the main page parked meanwhile (the Stories screen, its story paused and its frame loop stopped): a story left
+  // running there shares the GPU process with this page and slowed its frames so much that the card's fade timed out
+  await page.evaluate(() => { HOST.openPicker(); HOST.cur.peek('GL.renderer.setAnimationLoop(null)'); });
   const hp = await browser.newPage({ viewport: { width: 640, height: 400 } });
   hp.on('pageerror', e => errors.push('loading scene: ' + (e.stack || e.message)));
   hp.on('console', m => { if (m.type() === 'error' && !/404|Failed to load resource/.test(m.text())) errors.push('loading scene: ' + m.text()); });
@@ -946,6 +949,7 @@ await step('a story picked while another builds: its steps stop, the headset\'s 
     }
   });
   await hp.close();
+  await page.evaluate(() => { HOST.cur.peek('GL.renderer.setAnimationLoop(frame)'); HOST.closePicker(); });
 }
 // The design room (#design, not one of the stories: not on the Stories screen): every miniature built on the table, a
 // click putting one on the stage with its card as tools/design/props.json has it, the shared state (a miniature moved
