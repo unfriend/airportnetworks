@@ -2413,6 +2413,7 @@ try {
   const fcode = await Fp1.evaluate(() => HOST.collab.code);
   const Fp2 = await open('#s=' + fcode);
   await until(Fp2, c => HOST.collab.code === c && HOST.collab.status === 'open' && HOST.collab.members.length === 2 && HOST.collab.internals().served === true, fcode, 8000);   // (Fresh needs to know the relay serves the page)
+  const fVia = await Promise.all([Fp1, Fp2].map(P => P.evaluate(() => HOST.collab.via)));   // (for the report: Fresh needs the relay)
   const fOnce = await Fp2.evaluate(() => { HOST.collab.fresh(); return HOST.collab.val('sg'); });   // armed only
   await Fp2.evaluate(() => HOST.collab.fresh());
   const fMoved = await Promise.all([Fp1, Fp2].map(P => P.waitForURL(/\/s\/1\/(index\.html)?#/, { timeout: 15000 }).then(() => true, () => false)));
@@ -2421,7 +2422,7 @@ try {
   const fFin = await Fp1.evaluate(() => ({ gen: HOST.collab.gen, path: location.pathname, relay: HOST.collab.relay, note: HOST.collab.internals().note, story: HOST.curKey }));
   check('fresh shared space: two presses move every page in the room to the app under s/1/, where they join the room again (the relay still at the root)',
     !fOnce && fMoved.every(Boolean) && fBack.every(Boolean) && fFin.gen === 1 && /\/s\/1\/$/.test(fFin.path) && !/\/s\//.test(fFin.relay) && /fresh shared space/.test(fFin.note || ''),
-    JSON.stringify({ fOnce, fMoved, fBack, fFin }));
+    JSON.stringify({ fVia, fOnce, fMoved, fBack, fFin }));
   await Fp2.evaluate(() => HOST.start('airports'));
   await ready(Fp2, 'airports');
   await Fp2.evaluate(installXR, Object.assign({}, xrOpts, { sharedId: 'U9', shared: SHARED }));
