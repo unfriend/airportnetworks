@@ -1354,8 +1354,9 @@ HOST.anchor = (function () {
     // while true, a story must not re-place anything (headset taken off, recentring); also while it stands at
     // its station in a shared room (shared.js)
     held: () => (N.on && N.placed) || room(),
-    // while true, the grip moves nothing: anchored; in a shared room away from its station or while the room's
-    // layout is locked (at its station what the grip moves goes out to the room, alike for everyone: shared.js); the
+    // while true, the grip moves nothing: anchored; in a shared room away from its station or while this station's
+    // story is locked (Lock this story; the circles lock never locks the scene or panel; at its station what the grip
+    // moves goes out to the room, alike for everyone: shared.js); the
     // shell's own things (kind 'shell': its panel, previews, marks) never move the scene behind them (the grip on a
     // station's preview moves that station)
     locked: kind => kind === 'shell' || (HOST.room && HOST.room.inRoom && HOST.room.inRoom() ? HOST.room.gripLocked() : N.on),
