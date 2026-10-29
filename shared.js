@@ -64,7 +64,9 @@
   // wall-clock ms (a monotonic clock may stand still while a device sleeps; the relay's offset absorbs any jump)
   const clock = () => Date.now();
   const r3 = x => Math.round(x * 1000) / 1000;
-  const meta = key => HOST.list.find(s => s.key === key);
+  // a story's entry in the list; one this device does not know yet (a newer copy of the app put it in the room) gets a
+  // stand-in whose card says this device needs an update (HOST.unknown; HOST.live offers the update)
+  const meta = key => HOST.list.find(s => s.key === key) || (HOST.unknown ? HOST.unknown(key) : undefined);
   const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const mmss = t => { t = Math.max(0, Math.floor(t)); return Math.floor(t / 60) + ':' + String(t % 60).padStart(2, '0'); };
   const fwd = yaw => [-Math.sin(yaw), -Math.cos(yaw)];   // a yaw's forward on the floor (x, z): yaw 0 faces -z
@@ -1292,13 +1294,13 @@
       pairs.push(['st.' + id, { story: m.key, x: r3(b.x + ahead * fx + side * rx), z: r3(b.z + ahead * fz + side * rz), yaw: r3(b.yaw) }]);
       if (!old) pairs.push([kPlay(id), startClock()]);
     });
-    for (const s of C.st) if (!used.has(s.id)) pairs.push(['st.' + s.id, null]);
+    for (const s of C.st) if (!used.has(s.id) && !meta(s.story).unknown) pairs.push(['st.' + s.id, null]);   // (not a story this device does not know)
     log('arrange', { stations: n });
     publish(pairs);
   }
   // Add a station here: one story at your feet, facing where you face
   function add(story, b) {
-    if (!meta(story) || refused('add')) return '';
+    if (!meta(story) || meta(story).unknown || refused('add')) return '';
     b = b || base();
     const id = rid(5);
     publish([['st.' + id, { story, x: r3(b.x), z: r3(b.z), yaw: r3(b.yaw) }], [kPlay(id), startClock()]]);
@@ -4076,7 +4078,7 @@
           <button class="btn rm${armed(s.id) ? ' armed' : ''}" type="button" data-sh="remove:${s.id}" aria-label="${armed(s.id) ? 'Remove the ' + esc(m.title) + ' station for everyone? Press again to remove it' : 'Remove the ' + esc(m.title) + ' station'}">${armed(s.id) ? 'Remove for everyone?' : 'Remove'}</button></li>`;
       }).join('') : '<li class="none">No stations yet. Arrange all puts every story in two rows; a headset in the room can then move them.</li>';
       const sel = $('#shAdd'), lk = layoutLocked(), lb = $('[data-sh="lock"]');
-      if (!sel.options.length) sel.innerHTML = HOST.list.map(m => `<option value="${m.key}">${esc(m.title)}</option>`).join('');
+      if (sel.options.length !== HOST.list.length) sel.innerHTML = HOST.list.map(m => `<option value="${m.key}">${esc(m.title)}</option>`).join('');
       if (lb) { lb.textContent = lk ? 'Unlock layout' : 'Lock layout'; lb.setAttribute('aria-pressed', String(lk)); lb.classList.toggle('on', lk); }
       // the headsets' labels and moving, the room's (not locked with the layout)
       const sl = $('#shLabels'), fb2 = $('[data-sh="free"]'), lm = HOST.xr.labels(), fr = HOST.xr.free();

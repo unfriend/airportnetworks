@@ -81,7 +81,8 @@ room and see the same stations, a story each at a spot in the room, in step on
 every device (anyone can play, pause, jump or change a control; the last action
 wins). A headset runs only the station it stands at: walk into a station's
 circle and after a second its story plays there; the others show as rings on the
-floor with a card. Away from every station no story shows, only the rings, the
+floor with a card, and over each ring a small turning model of its story in its
+colour, so you can tell the circles apart from across the room. Away from every station no story shows, only the rings, the
 cards, the other people and the menu; walk out of a circle and its story hides
 and pauses on your headset (it plays on for the others), walk back in and it
 carries on as the station has it. Pointing at a card and pulling the trigger

@@ -626,6 +626,133 @@ async function serve(req, res, url) {
   stream({}, 200, { 'Content-Length': st.size });
 }
 
+// ---- --watch: while developing, the pages the relay serves follow the app's files (index.html's HOST.live). /api/ping
+// says watch: true; /api/watch is a stream of Server-Sent Events: hello (the fingerprints of the shell's files and the
+// stories, at once: a page that connects again after a restart catches up), then as files change story { key, fp }
+// (swapped in place where it is on show), list (the list of stories, read again), shell { file, fp } (the page reloads
+// with its place kept) and, with --build, build { key, ok, ms, out } (a built story's build ran: its sources in tools/
+// changed; one build at a time, a moment after the last change). The fingerprint is index.html's HOST.fingerprint.
+function fingerprint(s) {
+  let a = 0xdeadbeef, b = 0x41c6ce57;
+  for (let i = 0; i < s.length; i++) { const c = s.charCodeAt(i); a = Math.imul(a ^ c, 2654435761); b = Math.imul(b ^ c, 1597334677); }
+  a = Math.imul(a ^ (a >>> 16), 2246822507) ^ Math.imul(b ^ (b >>> 13), 3266489909);
+  b = Math.imul(b ^ (b >>> 16), 2246822507) ^ Math.imul(a ^ (a >>> 13), 3266489909);
+  return (b >>> 0).toString(16).padStart(8, '0') + (a >>> 0).toString(16).padStart(8, '0');
+}
+const WATCH = OPT.watch ? fs.realpathSync(path.resolve(OPT.watch === true ? OPT.static : OPT.watch)) : '';
+const SHELL_FILES = ['index.html', 'shared.js', 'sw.js', 'three.min.js', 'peerjs.min.js'];
+const STORY_FILE = /^([a-z][a-z0-9-]{0,31})\.js$/;
+const W = { fps: new Map(), timers: new Map(), clients: new Set(), builds: new Map(), queue: new Set(), building: '', buildT: 0 };
+const MAX_WATCHERS = 200;
+const sse = (res, event, data) => { try { res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`); } catch { /* gone */ } };
+const tell = (event, data) => { for (const res of W.clients) sse(res, event, data); };
+const fpOf = f => { try { return fingerprint(fs.readFileSync(f, 'utf8').replace(/^﻿/, '')); } catch { return ''; } };
+function hello() {
+  const shell = {}, stories = {};
+  for (const f of SHELL_FILES) shell[f] = W.fps.get(path.join(WATCH, f)) || '';
+  for (const [f, fp] of W.fps) {
+    const m = path.dirname(f) === path.join(WATCH, 'stories') && STORY_FILE.exec(path.basename(f));
+    if (m && m[1] !== 'list') stories[m[1]] = fp;
+  }
+  return { shell, stories, list: W.fps.get(path.join(WATCH, 'stories', 'list.js')) || '', build: OPT.build };
+}
+function watchStream(req, res) {
+  if (!WATCH) return json(res, 404, { error: 'not watching (start the relay with --watch)' });
+  if (W.clients.size >= MAX_WATCHERS) return json(res, 503, { error: 'too many pages watching' });
+  res.writeHead(200, { 'Content-Type': 'text/event-stream; charset=utf-8', 'Cache-Control': 'no-store', Connection: 'keep-alive', 'X-Accel-Buffering': 'no' });
+  res.write('retry: 2000\n\n');
+  sse(res, 'hello', hello());
+  W.clients.add(res);
+  req.on('close', () => W.clients.delete(res));
+}
+// a file changed (an editor may write it in parts, or replace it): looked at once it has been quiet for a moment, and
+// told only when its text really changed
+function changedFile(f, kind) {
+  clearTimeout(W.timers.get(f));
+  W.timers.set(f, setTimeout(() => {
+    W.timers.delete(f);
+    const fp = fpOf(f);
+    if (!fp || fp === W.fps.get(f)) return;
+    W.fps.set(f, fp);
+    const name = path.basename(f);
+    if (kind === 'shell') { log(`watch: ${name} changed (pages reload)`); tell('shell', { file: name, fp }); return; }
+    const key = STORY_FILE.exec(name)[1];
+    if (key === 'list') { log('watch: the list of stories changed'); tell('list', { fp }); }
+    else { log(`watch: stories/${name} changed`); tell('story', { key, fp }); }
+    if (OPT.build) for (const [k, b] of W.builds) if (b.files.has('stories/' + name)) wantBuild(k);
+  }, 150));
+}
+// --build: which sources each built story reads, from its build script: its own folder, the folders it names as
+// ../<dir>/ (the tour's kit and sets, the muscle story's motor set...) and the story files it takes in (the pass story
+// cuts the globe and the cell out of the airports and cell map stories). Folders whose files a build or a tool writes
+// (shots, gen) and the data generators' folders are not sources.
+function buildMap() {
+  const dir = path.join(WATCH, 'tools');
+  let names = [];
+  try { names = fs.readdirSync(dir); } catch { return; }
+  for (const k of names) {
+    const f = path.join(dir, k, 'build.mjs');
+    let src;
+    try { src = fs.readFileSync(f, 'utf8'); } catch { continue; }
+    const dirs = new Set([k]), files = new Set();
+    for (const m of src.matchAll(/['"`]\.\.\/([\w-]+)\//g)) dirs.add(m[1]);
+    for (const m of src.matchAll(/['"`]stories\/([\w-]+\.js)['"`]/g)) if (m[1] !== k + '.js') files.add('stories/' + m[1]);
+    W.builds.set(k, { dirs, files });
+  }
+}
+const SKIP = /(^|[\\/])(shots|gen|data|node_modules)([\\/]|$)/;
+function sourceChanged(rel) {
+  const parts = rel.split(/[\\/]/);
+  if (parts.length < 2 || !/\.js$/.test(rel) || SKIP.test(parts.slice(1, -1).join('/'))) return;
+  const f = path.join(WATCH, 'tools', rel), fp = fpOf(f);
+  if (!fp || fp === W.fps.get(f)) return;
+  W.fps.set(f, fp);
+  for (const [k, b] of W.builds) if (b.dirs.has(parts[0])) wantBuild(k);
+}
+function wantBuild(k) {
+  W.queue.add(k);
+  clearTimeout(W.buildT);
+  W.buildT = setTimeout(nextBuild, 300);
+}
+function nextBuild() {
+  if (W.building || !W.queue.size) return;
+  const k = W.queue.values().next().value;
+  W.queue.delete(k);
+  W.building = k;
+  const t0 = Date.now();
+  log(`build: ${k}...`);
+  execFile(process.execPath, [path.join(WATCH, 'tools', k, 'build.mjs')], { cwd: WATCH, timeout: 180000, maxBuffer: 4 << 20 }, (err, out, errOut) => {
+    W.building = '';
+    const ms = Date.now() - t0, text = (String(out || '') + String(errOut || '')).slice(-2000);
+    log(`build: ${k} ${err ? 'failed' : 'done'} in ${ms} ms${err ? ': ' + text.trim().split('\n').slice(-1)[0] : ''}`);
+    tell('build', { key: k, ok: !err, ms, out: text });
+    nextBuild();
+  });
+}
+function startWatch() {
+  if (!WATCH) return;
+  const stories = path.join(WATCH, 'stories');
+  for (const f of SHELL_FILES) { const fp = fpOf(path.join(WATCH, f)); if (fp) W.fps.set(path.join(WATCH, f), fp); }
+  for (const n of fs.readdirSync(stories)) if (STORY_FILE.test(n)) W.fps.set(path.join(stories, n), fpOf(path.join(stories, n)));
+  // (the folders, not the files: editors often save by writing a new file in the old one's place)
+  const lost = err => console.log('--watch stopped watching a folder: ' + err.message);
+  fs.watch(WATCH, (ev, name) => { if (name && SHELL_FILES.includes(String(name))) changedFile(path.join(WATCH, String(name)), 'shell'); }).on('error', lost);
+  fs.watch(stories, (ev, name) => { if (name && STORY_FILE.test(String(name))) changedFile(path.join(stories, String(name)), 'story'); }).on('error', lost);
+  if (OPT.build) {
+    buildMap();
+    try {
+      fs.watch(path.join(WATCH, 'tools'), { recursive: true }, (ev, name) => {
+        if (!name) return;
+        const rel = String(name);
+        clearTimeout(W.timers.get(rel));
+        W.timers.set(rel, setTimeout(() => { W.timers.delete(rel); if (/(^|[\\/])build\.mjs$/.test(rel)) buildMap(); else sourceChanged(rel); }, 150));
+      }).on('error', lost);
+    } catch (err) { console.log('--build cannot watch tools/ here (' + err.message + '): it needs Node 20 or newer on Linux'); }
+  }
+  setInterval(() => { for (const res of W.clients) { try { res.write(': still here\n\n'); } catch { /* gone */ } } }, 20000).unref();
+}
+startWatch();
+
 function request(req, res) {
   const url = parseUrl(req);
   if (!url) return plain(res, 400, 'Bad request');
@@ -656,11 +783,13 @@ server.listen(OPT.port, OPT.host, () => {
     console.log(`On this machine: ${scheme}://localhost:${a.port}/`);
   }
   if (OPT.logs) console.log(`Headsets' logs (room alignment) go to ${OPT.logs}`);
+  if (WATCH) console.log(`Watching ${WATCH}: pages swap a changed story in place, and reload for a shell file` + (OPT.build ? '; a built story is built again when its sources change' : ''));
 });
 for (const sig of ['SIGINT', 'SIGTERM']) {
   process.on(sig, () => {   // say goodbye, so clients reconnect at once (a container stop sends SIGTERM)
     for (const r of rooms.values()) for (const m of r.members.values()) m.ws.close(1001, 'relay stopping');
     for (const p of peers.values()) p.ws.close(1001, 'relay stopping');
+    for (const res of W.clients) res.end();
     server.close();
     setTimeout(() => process.exit(0), 200);
   });

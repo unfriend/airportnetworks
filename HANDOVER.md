@@ -115,9 +115,11 @@ Before handing over (or making anything more public), someone has to decide thes
 7. **Deferred** (after the next two stories and their reviews):
    - whether to add a voice assistant;
    - collecting alignment logs from fresh headsets (a test plan is in the runbook);
-   - **station icons**: a small low-poly 3D icon for each story, floating above its station's ring in a shared room
-     (built from simple shapes in the shell's shared-room code, the story's colour, slowly turning). Estimated at
-     about an hour of agent work, with the owner approving a contact sheet of all fifteen before they go in;
+   - **station icons**: built on 29 October 2026 (the owner said go). Over each station's ring in a shared room, 2.1 m
+     up, a small low-poly 3D model of its story in its colour, slowly turning (`ICONS` in `shared.js`; "Shared rooms"
+     in [AGENTS.md](AGENTS.md)); gone at your own station; a story without one gets a glowing polyhedron. **For the
+     owner:** approve the contact sheet of all fifteen (open `tools/icons.html` next to the app; `&turns=4` shows each
+     from four sides) or say which to change. How they read from across a real room is untested on a headset;
    - **a story design room**: a room in the headset where the owner talks to Claude about a new story. Claude would
      show the props (the 3D sets) that fit, draft a skeleton story that plays at once with them, build what is missing
      and reload it live. It would run as Claude Code on a laptop next to the headset, with the relay serving the

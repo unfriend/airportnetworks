@@ -479,6 +479,25 @@ generation, `{ n, by, at }`; FORMAT networks-10; networks-11 when the eighth sto
   station facing away from you (its content floats 1.4 m beyond its spot); it
   needs about 17 m x 4 m of floor from 1.2 m in front of you. Remove asks first ("Remove for
   everyone?", 3 s), on the page and in the headset.
+- Station icons (`ICONS` in `shared.js`, built by `makeIcon`, placed by `iconStep`; 29 October 2026, the owner's go):
+  over each station's ring, its middle 2.1 m above the floor (over the heads of people in the circle and above the
+  card's top edge at 1.6 m, so from across the room it covers neither), a small low-poly 3D model of its story (about
+  0.3 m across, 350 to 700 triangles merged into one mesh: one draw call, plus a soft additive glow behind it), in its
+  colour (`col` in `HOST.list`, with a lighter, a nearly white and a dark tone of it), so people can tell from across
+  the room which circle is which story. It is turned to your head and leant back as far as you look up at it plus
+  0.2 rad (so its top shows), and turns about its own axis once in 12 s, each station in its own phase; the flat ones
+  (`ICON_FLAT`: the slide, the ring of discs, the vacuum, the opened cell) lie back further, so their top always shows.
+  Lit by its own shader in view space (a light over your shoulder, a rim in a paler tone), so it looks the same in
+  every story's scene whatever its lights. It follows the rings, not the cards: shown in every label mode, opaque,
+  depth-tested and writing depth in the room, since it is part of the station rather than a label, and with labels
+  hidden it is what tells the circles apart. At your own (live) station it shrinks away (your story is in front of
+  you) and grows back when you walk out. A child of its ring's group, so it eases with the station (`SHOWN`) and
+  grows with it while carried; not pointable (the ring and card are). A story key without a model gets a glowing
+  dodecahedron with a ring in its colour: a sixteenth story needs nothing here. The models are built once per story,
+  the first time a station of it shows, and kept. `tools/icons.html` (served next to the app) renders them all in a
+  grid as a headset sees them (`?keys=a,b`, `&cols=`, `&t=` frozen, `&turns=4` four sides, `&fallback`), from the
+  app in a hidden frame through `HOST.collab.icon(key)`. How they read from across a real room is untested on a
+  headset.
 - Moving a station by hand: in a headset the grip on a station's ring or card
   picks it up (the shell hears the session's own `squeezestart` and
   `squeezeend`, controller i being `session.inputSources[i]` in three.js r128,
@@ -1590,7 +1609,8 @@ running on the station's clock), the hold and the lock,
 the station's clock and state, rays and head in room coordinates, another
 person drawn, the sound zone, the trigger on the menu's clock, the trigger on
 another station's card running nothing (a notice: walk into its circle), the story
-panel winning over a card behind it, a station moved with the grip on its
+panel winning over a card behind it, every station's icon over its ring (its story's colour, turning; gone at
+its own station and back once it walks out), a station moved with the grip on its
 card (swung, pushed further, turned; the others see it while it moves) and
 gliding into place when someone else moves it, the layout lock (the grip and
 Arrange all refused; unlocked from the headset's menu), the menu (closed at
@@ -1671,8 +1691,8 @@ its id is free (after the 6 s); an introduction server that cannot be reached
 first screen that joins. `--p2p` runs only that part (about two minutes). `--quick` runs only the last story in the per-story part. A new story needs an entry in `STORIES`
 (`change` and `back`: code that changes its `state()`, and optional `effect`
 and `more`); the headset's story (`HEADSET_STORY`) stays the last entry.
-`--shots <dir>` also saves pictures of the dialog and six headset views (with the menu's clock on the left wrist, the menu open, its Sound check, and
-stepped out of a station's circle: no story, only the room and the clock in front).
+`--shots <dir>` also saves pictures of the dialog and seven headset views (with the menu's clock on the left wrist, the menu open, its Sound check,
+stepped out of a station's circle: no story, only the room and the clock in front, and the stations' icons from behind the first row).
 
 For the tour, test a changed set on its own in the set harness first
 (`tools/lbi/shot.mjs`, much cheaper than the whole story), then the story at a
