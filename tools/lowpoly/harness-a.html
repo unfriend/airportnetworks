@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Miniatures, batch a</title>
+<style>
+html, body { margin: 0; background: #040912; overflow: hidden; font-family: sans-serif; }
+canvas { display: block; }
+.n { position: absolute; color: #e7eef8; font: 13px/1.25 sans-serif; text-align: center; pointer-events: none; white-space: nowrap; }
+.n b { display: block; } .n span { color: #6c7d94; font: 11px monospace; }
+.cell { position: absolute; border: 1px solid #0f1b2e; box-sizing: border-box; pointer-events: none; }
+#info { position: absolute; right: 8px; bottom: 6px; color: #6c7d94; font: 12px monospace; }
+</style>
+<script src="../../three.min.js"></script>
+<script src="models-a.js"></script>
+</head><body>
+<div id="info"></div>
+<script>
+'use strict';
+// The miniatures of models-a.js in a grid, lit as the app's scenes are, turning slowly (serve the repository root,
+// open /tools/lowpoly/harness-a.html). Query: still (no turning, for screenshots), page=0&per=12 (one sheet of a
+// longer list), cols=4, only=pet.scan,lbi.mac (these keys), az=30&el=18 (the view), box (a faint 1 x 1 x 1 box).
+// Screenshots (Node, with Playwright):
+//   const { chromium } = require('playwright'); const b = await chromium.launch({ args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
+//   const p = await b.newPage({ viewport: { width: 1280, height: 760 } });
+//   await p.goto('http://127.0.0.1:8123/tools/lowpoly/harness-a.html?still&page=0&per=12');
+//   await p.waitForFunction('window.__ready === true'); await p.screenshot({ path: 'sheet-0.png' }); await b.close();
+// window.__stats has each miniature's triangles, meshes, size and build time.
+window.__errors = [];
+window.addEventListener('error', e => window.__errors.push(String(e.message)));
+const Q = new URLSearchParams(location.search), STILL = Q.has('still');
+const W = innerWidth, H = innerHeight, LH = 38;
+let keys = Object.keys(LOWPOLY_MODELS);
+if (Q.get('only')) keys = Q.get('only').split(',').filter(k => LOWPOLY_MODELS[k]);
+const per = +(Q.get('per') || keys.length), page = +(Q.get('page') || 0);
+keys = keys.slice(page * per, page * per + per);
+const cols = +(Q.get('cols') || Math.ceil(Math.sqrt(keys.length * W / H * 0.75))), rows = Math.ceil(keys.length / cols);
+const cw = W / cols, ch = H / rows;
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(2, devicePixelRatio)); renderer.setSize(W, H);
+renderer.setClearColor(0x040912, 1);
+document.body.appendChild(renderer.domElement);
+const scene = new THREE.Scene();
+scene.add(new THREE.HemisphereLight(0xdde8ff, 0x1a2233, 0.85));
+const az = +(Q.get('az') || 30) * Math.PI / 180, el = +(Q.get('el') || 18) * Math.PI / 180;
+const dir = new THREE.Vector3(Math.cos(el) * Math.sin(az), Math.sin(el), Math.cos(el) * Math.cos(az));
+const sun = new THREE.DirectionalLight(0xffffff, 0.85);       // over the viewer's left shoulder, as in the stories
+sun.position.copy(dir).multiplyScalar(3).add(new THREE.Vector3(-Math.cos(az), 0, Math.sin(az)).multiplyScalar(1.6)).add(new THREE.Vector3(0, 1.8, 0));
+scene.add(sun);
+const unitBox = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(1, 1, 1)), new THREE.LineBasicMaterial({ color: 0x24324a }));
+unitBox.position.y = 0.5; unitBox.visible = false; scene.add(unitBox);
+const cells = [], stats = { models: [], buildMs: 0 };
+keys.forEach((k, i) => {
+  const t0 = performance.now(), g = LOWPOLY_MODELS[k].build(THREE), ms = performance.now() - t0;
+  stats.buildMs += ms;
+  scene.add(g); g.visible = false;
+  let tris = 0, meshes = 0; g.traverse(o => { if (o.isMesh) { meshes++; tris += o.geometry.attributes.position.count / 3; } });
+  const bb = new THREE.Box3().setFromObject(g), sz = bb.getSize(new THREE.Vector3());
+  stats.models.push({ key: k, tris, meshes, ms: +ms.toFixed(2), size: [sz.x, sz.y, sz.z].map(v => +v.toFixed(3)), minY: +bb.min.y.toFixed(3), listed: LOWPOLY_MODELS[k].tris });
+  // frame the bounding sphere of the turning model (radius from the axis), so each fills its cell
+  const rXZ = Math.max(Math.hypot(bb.max.x, bb.max.z), Math.hypot(bb.min.x, bb.min.z), Math.hypot(bb.max.x, bb.min.z), Math.hypot(bb.min.x, bb.max.z));
+  const R = Math.hypot(rXZ, sz.y / 2), cam = new THREE.PerspectiveCamera(30, cw / (ch - LH), 0.01, 50);
+  const tgt = new THREE.Vector3(0, sz.y / 2, 0), d = R / Math.sin(15 * Math.PI / 180) * 0.92 / Math.min(1, cw / (ch - LH));
+  cam.position.copy(dir).multiplyScalar(d).add(tgt); cam.lookAt(tgt);
+  const x = (i % cols) * cw, y = Math.floor(i / cols) * ch;
+  const lab = document.createElement('div'); lab.className = 'n';
+  lab.style.left = x + 'px'; lab.style.width = cw + 'px'; lab.style.top = (y + ch - LH + 2) + 'px';
+  lab.innerHTML = `<b>${LOWPOLY_MODELS[k].name}</b><span>${k} · ${tris} tris · ${ms.toFixed(1)} ms</span>`;
+  document.body.appendChild(lab);
+  const fr = document.createElement('div'); fr.className = 'cell'; Object.assign(fr.style, { left: x + 'px', top: y + 'px', width: cw + 'px', height: ch + 'px' }); document.body.appendChild(fr);
+  cells.push({ g, cam, x, y, phase: i * 0.7 });
+});
+document.getElementById('info').textContent = `${keys.length} miniatures · built in ${stats.buildMs.toFixed(1)} ms`;
+window.__stats = stats;
+let frames = 0;
+function frame(now) {
+  const t = now / 1000;
+  renderer.setScissorTest(true);
+  renderer.setScissor(0, 0, W, H); renderer.setViewport(0, 0, W, H); renderer.clear();
+  for (const c of cells) {
+    for (const o of cells) o.g.visible = o === c;
+    unitBox.visible = Q.has('box');
+    c.g.rotation.y = STILL ? 0 : t * 0.35 + c.phase;
+    const vy = H - c.y - (ch - LH);
+    renderer.setViewport(c.x, vy, cw, ch - LH); renderer.setScissor(c.x, vy, cw, ch - LH);
+    renderer.render(scene, c.cam);
+  }
+  renderer.setScissorTest(false);
+  if (++frames === 2) window.__ready = true;
+  if (!STILL || frames < 3) requestAnimationFrame(frame);
+}
+renderer.autoClear = false;
+requestAnimationFrame(frame);
+</script>
+</body></html>

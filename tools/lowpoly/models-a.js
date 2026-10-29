@@ -17,30 +17,65 @@ var LOWPOLY_MODELS = LOWPOLY_MODELS || {};
   const lerp = (a, b, t) => a + (b - a) * t;
   const smooth = t => (t = Math.max(0, Math.min(1, t)), t * t * (3 - 2 * t));
   const unit = r => { const z = 2 * r() - 1, a = 6.2832 * r(), s = Math.sqrt(1 - z * z); return [s * Math.cos(a), z, s * Math.sin(a)]; };
-  const col = c => (c instanceof T.Color ? c.clone() : Array.isArray(c) ? new T.Color(c[0], c[1], c[2]) : new T.Color(c));
+  const CC = new Map();                 // parsed colour strings: parsing one per vertex was the slowest part of a build
+  const col = c => (c instanceof T.Color ? c.clone() : Array.isArray(c) ? new T.Color(c[0], c[1], c[2]) : (CC.get(c) || (CC.set(c, new T.Color(c)), CC.get(c))).clone());
   const mix = (a, b, t) => col(a).lerp(col(b), Math.max(0, Math.min(1, t)));
   const ramp = (stops, v) => { for (let i = 1; i < stops.length; i++) if (v <= stops[i][0] || i === stops.length - 1) return mix(stops[i - 1][1], stops[i][1], (v - stops[i - 1][0]) / (stops[i][0] - stops[i - 1][0])); };
   // the body set's hot-iron map, as the PET scans are drawn
   const IRON = [[0, '#160303'], [0.3, '#6a0d06'], [0.5, '#c22a0a'], [0.68, '#ff7414'], [0.85, '#ffd25a'], [1, '#fff8e2']];
 
-  // a part placed by position, Euler turn and scale (number or [x, y, z])
-  const M4 = (p, r, s) => new T.Matrix4().compose(new T.Vector3(...(p || [0, 0, 0])), new T.Quaternion().setFromEuler(new T.Euler(...(r || [0, 0, 0]))),
-    new T.Vector3(...(s === undefined ? [1, 1, 1] : typeof s === 'number' ? [s, s, s] : s)));
-  const at = (g, p, r, s) => g.applyMatrix4(M4(p, r, s));
+  // a part placed by position, Euler turn and scale (number or [x, y, z]); scratch objects, as builds make hundreds
+  let SM, SV, SS, SQ, SE;
+  const M4 = (p, r, s) => {
+    if (!SM || SM.constructor !== T.Matrix4) { SM = new T.Matrix4(); SV = new T.Vector3(); SS = new T.Vector3(); SQ = new T.Quaternion(); SE = new T.Euler(); }
+    p = p || [0, 0, 0]; r = r || [0, 0, 0]; s = s === undefined ? 1 : s;
+    return SM.compose(SV.set(p[0], p[1], p[2]), SQ.setFromEuler(SE.set(r[0], r[1], r[2])), typeof s === 'number' ? SS.set(s, s, s) : SS.set(s[0], s[1], s[2]));
+  };
+  const at = (g, p, r, s) => {
+    const m = M4(p, r, s);
+    if (!g.fast) return g.applyMatrix4(m);
+    const e = m.elements, nm = new T.Matrix3().getNormalMatrix(m).elements, P = g.P, N = g.N;
+    for (let i = 0; i < P.length; i += 3) {
+      const x = P[i], y = P[i + 1], z = P[i + 2], a = N[i], b = N[i + 1], c = N[i + 2];
+      P[i] = e[0] * x + e[4] * y + e[8] * z + e[12]; P[i + 1] = e[1] * x + e[5] * y + e[9] * z + e[13]; P[i + 2] = e[2] * x + e[6] * y + e[10] * z + e[14];
+      const nx = nm[0] * a + nm[3] * b + nm[6] * c, ny = nm[1] * a + nm[4] * b + nm[7] * c, nz = nm[2] * a + nm[5] * b + nm[8] * c, l = Math.hypot(nx, ny, nz) || 1;
+      N[i] = nx / l; N[i + 1] = ny / l; N[i + 2] = nz / l;
+    }
+    return g;
+  };
   const box = (w, h, d, p, r) => at(new T.BoxGeometry(w, h, d), p, r);
   const sph = (rad, ws, hs, p, s, r) => at(new T.SphereGeometry(rad, ws, hs), p, r, s);
   const ico = (rad, det, p, s) => at(new T.IcosahedronGeometry(rad, det), p, null, s);
-  const octa = (rad, p, s) => at(new T.OctahedronGeometry(rad, 0), p, null, s);
   const cyl = (rt, rb, h, n, p, r, open) => at(new T.CylinderGeometry(rt, rb, h, n, 1, !!open), p, r);
   const tor = (R, r, rs, ts, p, rot, arc) => at(new T.TorusGeometry(R, r, rs, ts, arc || Math.PI * 2), p, rot);
   const disc = (rad, n, p, r) => at(new T.CircleGeometry(rad, n), p, r);
   const lathe = (pts, n, p, s, r) => at(new T.LatheGeometry(pts.map(q => new T.Vector2(q[0], q[1])), n), p, r, s);
-  const tube = (pts, seg, rad, n) => new T.TubeGeometry(new T.CatmullRomCurve3(pts.map(q => new T.Vector3(...q))), seg, rad, n, false);
-  // a rod from a to b (radius r1 at a, r2 at b); open by default, as the thin links are
+  const tube = (pts, seg, rad, n) => { const c = new T.CatmullRomCurve3(pts.map(q => new T.Vector3(q[0], q[1], q[2]))); c.arcLengthDivisions = 4 * seg; return new T.TubeGeometry(c, seg, rad, n, false); };
+  // the small parts (nodes and links) are written straight into arrays: a three.js geometry each made networks slow
+  const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+  function octa(rad, p, s) {                     // an octahedron (8 triangles), flat-shaded, scaled by s
+    const k = Array.isArray(s) ? s : [s || 1, s || 1, s || 1], sx = rad * k[0], sy = rad * k[1], sz = rad * k[2], P = [], N = [];
+    for (const a of [-1, 1]) for (const b of [-1, 1]) for (const c of [-1, 1]) {
+      const A = [p[0] + a * sx, p[1], p[2]], B = [p[0], p[1] + b * sy, p[2]], C = [p[0], p[1], p[2] + c * sz], n = norm3([a / sx, b / sy, c / sz]);
+      if (a * b * c > 0) P.push(...A, ...B, ...C); else P.push(...A, ...C, ...B);
+      N.push(...n, ...n, ...n);
+    }
+    return { fast: true, P, N };
+  }
+  // a rod from a to b (radius r1 at a, r2 at b, n sides); open by default, as the thin links are
   function rod(a, b, r1, r2, n, open) {
-    const A = new T.Vector3(...a), B = new T.Vector3(...b), d = B.clone().sub(A), L = d.length() || 1e-6;
-    const g = new T.CylinderGeometry(r2 === undefined ? r1 : r2, r1, L, n || 4, 1, open !== false);
-    return g.applyMatrix4(new T.Matrix4().compose(A.add(B).multiplyScalar(0.5), new T.Quaternion().setFromUnitVectors(new T.Vector3(0, 1, 0), d.normalize()), new T.Vector3(1, 1, 1)));
+    n = n || 4; if (r2 === undefined) r2 = r1;
+    if (open === false) {
+      const A = new T.Vector3(...a), B = new T.Vector3(...b), d = B.clone().sub(A), L = d.length() || 1e-6;
+      return new T.CylinderGeometry(r2, r1, L, n, 1, false).applyMatrix4(new T.Matrix4().compose(A.add(B).multiplyScalar(0.5), new T.Quaternion().setFromUnitVectors(new T.Vector3(0, 1, 0), d.normalize()), new T.Vector3(1, 1, 1)));
+    }
+    const d = norm3([b[0] - a[0], b[1] - a[1], b[2] - a[2]]), u = norm3(cross(d, Math.abs(d[1]) < 0.9 ? [0, 1, 0] : [1, 0, 0])), v = cross(d, u), P = [], N = [];
+    for (let k = 0; k < n; k++) {             // u x v = d, so the sides wind counter-clockwise seen from outside
+      const t0 = 6.2832 * k / n, t1 = 6.2832 * (k + 1) / n, e0 = add3(mul3(u, Math.cos(t0)), mul3(v, Math.sin(t0))), e1 = add3(mul3(u, Math.cos(t1)), mul3(v, Math.sin(t1)));
+      const a0 = add3(a, mul3(e0, r1)), a1 = add3(a, mul3(e1, r1)), b0 = add3(b, mul3(e0, r2)), b1 = add3(b, mul3(e1, r2));
+      P.push(...a0, ...a1, ...b1, ...a0, ...b1, ...b0); N.push(...e0, ...e1, ...e1, ...e0, ...e1, ...e0);
+    }
+    return { fast: true, P, N };
   }
   // a flat shape (points [x, s], s = -z) extruded up from y0 by h
   function slab(pts, h, y0, opt) {
@@ -68,35 +103,43 @@ var LOWPOLY_MODELS = LOWPOLY_MODELS || {};
   // a bag of parts, merged per material, then scaled and moved into the unit box standing on y = 0
   function bag() {
     const parts = {}, c = new T.Color();
+    const setc = v => (v instanceof T.Color ? c.copy(v) : Array.isArray(v) ? c.setRGB(v[0], v[1], v[2]) : c.copy(CC.get(v) || (CC.set(v, new T.Color(v)), CC.get(v))));
     return {
       add(kind, g, colour) {
-        const geo = g.index ? g.toNonIndexed() : g;
-        if (!geo.attributes.normal) geo.computeVertexNormals();
-        const pos = geo.attributes.position, n = pos.count, cols = new Float32Array(3 * n), fn = typeof colour === 'function';
-        if (!fn) c.copy(col(colour));
-        for (let i = 0; i < n; i++) {
-          if (fn) c.copy(col(colour(pos.getX(i), pos.getY(i), pos.getZ(i))));
-          cols[3 * i] = c.r; cols[3 * i + 1] = c.g; cols[3 * i + 2] = c.b;
+        const L = parts[kind] || (parts[kind] = { p: [], n: [], c: [] }), fn = typeof colour === 'function';
+        let P, N;
+        if (g.fast) { P = g.P; N = g.N; } else {
+          const geo = g.index ? g.toNonIndexed() : g;
+          if (!geo.attributes.normal) geo.computeVertexNormals();
+          P = geo.attributes.position.array; N = geo.attributes.normal.array; g.dispose();
         }
-        (parts[kind] = parts[kind] || []).push([pos.array, geo.attributes.normal.array, cols]);
-        g.dispose(); if (geo !== g) geo.dispose();
+        if (!fn) setc(colour);
+        for (let i = 0; i < P.length; i += 3) {
+          if (fn) setc(colour(P[i], P[i + 1], P[i + 2]));
+          L.p.push(P[i], P[i + 1], P[i + 2]); L.n.push(N[i], N[i + 1], N[i + 2]); L.c.push(c.r, c.g, c.b);
+        }
         return this;
       },
       done() {
-        const lo = [1e9, 1e9, 1e9], hi = [-1e9, -1e9, -1e9];
-        for (const k in parts) for (const [p] of parts[k]) for (let i = 0; i < p.length; i += 3) for (let a = 0; a < 3; a++) { lo[a] = Math.min(lo[a], p[i + a]); hi[a] = Math.max(hi[a], p[i + a]); }
-        const s = 1 / Math.max(hi[0] - lo[0], hi[1] - lo[1], hi[2] - lo[2]), o = [(lo[0] + hi[0]) / 2, lo[1], (lo[2] + hi[2]) / 2];
-        const grp = new T.Group(); let tris = 0;
+        let x0 = 1e9, y0 = 1e9, z0 = 1e9, x1 = -1e9, y1 = -1e9, z1 = -1e9;
+        const merged = {};
         for (const k of ORDER) if (parts[k]) {
-          const n = parts[k].reduce((m, q) => m + q[0].length, 0), P = new Float32Array(n), N = new Float32Array(n), C = new Float32Array(n);
-          let j = 0;
-          for (const [p, nn, cc] of parts[k]) {
-            for (let i = 0; i < p.length; i++) P[j + i] = (p[i] - o[i % 3]) * s;
-            N.set(nn, j); C.set(cc, j); j += p.length;
+          const P = new Float32Array(parts[k].p), N = new Float32Array(parts[k].n), C = new Float32Array(parts[k].c), n = P.length;
+          for (let i = 0; i < n; i += 3) {
+            const x = P[i], y = P[i + 1], z = P[i + 2];
+            if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; if (z < z0) z0 = z; if (z > z1) z1 = z;
           }
+          merged[k] = [P, N, C];
+        }
+        const s = 1 / Math.max(x1 - x0, y1 - y0, z1 - z0), ox = (x0 + x1) / 2, oz = (z0 + z1) / 2;
+        const sphere = new T.Sphere(new T.Vector3(0, (y1 - y0) * s / 2, 0), 0.5 * s * Math.hypot(x1 - x0, y1 - y0, z1 - z0));
+        const grp = new T.Group(); let tris = 0;
+        for (const k of ORDER) if (merged[k]) {
+          const [P, N, C] = merged[k], n = P.length;
+          for (let i = 0; i < n; i += 3) { P[i] = (P[i] - ox) * s; P[i + 1] = (P[i + 1] - y0) * s; P[i + 2] = (P[i + 2] - oz) * s; }
           const g = new T.BufferGeometry();
           g.setAttribute('position', new T.BufferAttribute(P, 3)); g.setAttribute('normal', new T.BufferAttribute(N, 3)); g.setAttribute('color', new T.BufferAttribute(C, 3));
-          g.computeBoundingSphere();
+          g.boundingSphere = sphere.clone();
           const m = new T.Mesh(g, MAT[k]()); m.name = k; if (k === 'glass') m.renderOrder = 1;
           grp.add(m); tris += n / 9;
         }

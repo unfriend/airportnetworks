@@ -24,9 +24,11 @@ var LOWPOLY_MODELS = LOWPOLY_MODELS || {};
   };
   const ORDER = ['mat', 'gloss', 'flat', 'glow', 'glass', 'veil'];   // opaque first; see-through last
 
+  const smooth = f => (f.smooth = true, f);   // a colour function asked per vertex instead of per triangle
   // Mini(T, r): add(kind, geometry, colour, at, rot, scale) collects parts per material; frame(at, rot, scale) sets a
   // parent transform for the parts that follow (frame() clears it); done() merges, fits the unit box, returns the group.
-  // A colour is a hex string, [r, g, b] or a function (centroid, normal, local centroid) -> colour, asked per triangle.
+  // A colour is a hex string, [r, g, b] or a function (centroid, normal, local centroid) -> colour, asked per triangle
+  // (or per vertex when wrapped in smooth()).
   function Mini(T, r) {
     const parts = {}, P = new T.Matrix4(), q = new T.Quaternion(), e = new T.Euler(), C = new T.Color();
     const v3 = a => new T.Vector3(a[0], a[1], a[2]);
@@ -43,7 +45,10 @@ var LOWPOLY_MODELS = LOWPOLY_MODELS || {};
         const p = g.attributes.position, n = p.count, loc = typeof col === 'function' ? p.array.slice() : null;
         g.applyMatrix4(new T.Matrix4().multiplyMatrices(P, m4(at, rot, sc)));
         const c = new Float32Array(n * 3), a = p.array;
-        if (loc) {
+        if (loc && col.smooth) {   // per vertex: soft gradients (a sky)
+          const w = new T.Vector3(), lc = new T.Vector3(), nn = new T.Vector3(), na = g.attributes.normal.array;
+          for (let i = 0; i < n; i++) { const j = i * 3; c.set(rgb(col(w.fromArray(a, j), nn.fromArray(na, j), lc.fromArray(loc, j))), j); }
+        } else if (loc) {
           const w = new T.Vector3(), lc = new T.Vector3(), u = new T.Vector3(), nn = new T.Vector3();
           for (let i = 0; i < n; i += 3) {
             const j = i * 3;
@@ -106,7 +111,8 @@ var LOWPOLY_MODELS = LOWPOLY_MODELS || {};
         g.applyMatrix4(new T.Matrix4().compose(A.add(B).multiplyScalar(0.5), new T.Quaternion().setFromUnitVectors(new T.Vector3(0, 1, 0), d.normalize()), new T.Vector3(1, 1, 1)));
         return g;
       },
-      tri(a, b, c) { const g = new T.BufferGeometry(); g.setAttribute('position', new T.BufferAttribute(new Float32Array([...a, ...b, ...c]), 3)); g.computeVertexNormals(); return g; },
+      mesh(xyz) { const g = new T.BufferGeometry(); g.setAttribute('position', new T.BufferAttribute(new Float32Array(xyz), 3)); g.computeVertexNormals(); return g; },
+      tri: (a, b, c) => M.g.mesh([...a, ...b, ...c]),
       // a ribbon along points, w wide along the vector up
       strip(pts, up, w) {
         const out = [], h = up.map(v => v * w / 2);
@@ -114,7 +120,7 @@ var LOWPOLY_MODELS = LOWPOLY_MODELS || {};
           const a0 = add3(pts[i], h, -1), a1 = add3(pts[i], h), b0 = add3(pts[i + 1], h, -1), b1 = add3(pts[i + 1], h);
           out.push(...a0, ...b0, ...a1, ...a1, ...b0, ...b1);
         }
-        const g = new T.BufferGeometry(); g.setAttribute('position', new T.BufferAttribute(new Float32Array(out), 3)); g.computeVertexNormals(); return g;
+        return M.g.mesh(out);
       },
       // a gear lying flat (axis y), radius rad, n teeth
       gear(rad, n, depth) {
@@ -215,19 +221,19 @@ var LOWPOLY_MODELS = LOWPOLY_MODELS || {};
     const h = (x, z) => Y0 - 0.2 * Math.exp(-((x - V1[0]) ** 2 + (z - V1[1]) ** 2) / 0.09) - 0.2 * Math.exp(-((x - V2[0]) ** 2 + (z - V2[1]) ** 2) / 0.09) + 0.012 * Math.sin(7 * x) * Math.cos(6 * z);
     const ground = g.plane(2, 2, 10, 10); ground.rotateX(-PI / 2);
     const gp = ground.attributes.position; for (let i = 0; i < gp.count; i++) gp.setY(i, h(gp.getX(i), gp.getZ(i))); ground.computeVertexNormals();
-    M.add('glow', ground, w => lerp(M.rgb('#161d2c'), M.rgb('#d9b45a'), Math.min(1, Math.max(0, (Y0 - w.y) / 0.17)) ** 1.5));   // valleys glow amber
+    M.add('glow', ground, w => lerp(M.rgb('#26304c'), M.rgb('#e0b54e'), Math.min(1, Math.max(0, (Y0 - w.y) / 0.17)) ** 1.5));   // valleys glow amber
     for (const [x, z, sx, sz] of [[0, 1.01, 2.04, 0.02], [0, -1.01, 2.04, 0.02], [1.01, 0, 0.02, 2], [-1.01, 0, 0.02, 2]]) M.add('mat', g.box(sx, Y0, sz), '#2a3552', [x, Y0 / 2, z]);
     const N = [];
     for (let i = 0; i < 30; i++) {   // genes: most gathered round the valleys, the rest on the streets
       const c = i < 12 ? V1 : i < 24 ? V2 : [(r() - 0.5) * 1.6, (r() - 0.5) * 1.6], s = i < 24 ? 0.32 : 0;
       const x = Math.max(-0.92, Math.min(0.92, c[0] + (r() - 0.5) * 2 * s)), z = Math.max(-0.92, Math.min(0.92, c[1] + (r() - 0.5) * 2 * s));
       N.push([x, h(x, z) + 0.03, z]);
-      M.add('glow', g.oct(0.032), '#c9d2ff', N[i]);
+      M.add('glow', g.oct(0.045), '#c9d2ff', N[i]);
     }
     const seen = new Set();
     N.forEach((p, i) => N.map((q, j) => [j, (p[0] - q[0]) ** 2 + (p[2] - q[2]) ** 2]).filter(d => d[0] !== i).sort((a, b) => a[1] - b[1]).slice(0, 2).forEach(([j]) => {
       const k = Math.min(i, j) + ',' + Math.max(i, j); if (seen.has(k) || seen.size >= 40) return; seen.add(k);
-      M.add('glow', g.rod(p, N[j], 0.006, 3), '#5a63b8');
+      M.add('glow', g.rod(p, N[j], 0.008, 3), '#8a93e8');
     }));
     const W1 = [V1[0], h(V1[0], V1[1]) + 0.07, V1[1]], W2 = [V2[0], h(V2[0], V2[1]) + 0.07, V2[1]];
     M.add('glow', g.ball(0.07), '#ff5ad9', W1); M.add('glow', g.ball(0.07), '#46d9ff', W2);
@@ -248,7 +254,7 @@ var LOWPOLY_MODELS = LOWPOLY_MODELS || {};
     P.forEach((p, c) => {
       const s = [Math.sign(p[0]), p[1] > 1 ? 1 : -1, Math.sign(p[2])];
       M.add('gloss', g.ball(0.14), CELL[c], p);
-      M.add('glow', g.tor(0.11, 0.02, 3, 8), CELL[c], add3(p, s, 0.19), [0, Math.atan2(s[0], s[2]) + PI / 2, 0]);
+      M.add('glow', g.tor(0.11, 0.02, 3, 8), CELL[c], add3(p, s, 0.13), [0, Math.atan2(s[0], s[2]) + PI / 2, 0]);
     });
   });
 
@@ -277,7 +283,7 @@ var LOWPOLY_MODELS = LOWPOLY_MODELS || {};
     const s1 = [], s2 = [];
     for (let i = 0; i <= 24; i++) { const u = i / 24, x = -1 + 2 * u, a = u * n * turn; s1.push(at(x, a)); s2.push(at(x, a + off)); }
     M.add('gloss', g.tube(s1, 0.035, 28, 4), '#9fb6d6'); M.add('gloss', g.tube(s2, 0.035, 28, 4), '#9fb6d6');
-    const top = 'GTCACGTTAGCATGCA', pair = { A: 'T', T: 'A', C: 'G', G: 'C' };   // the ancestor ACGTTAGC in the middle
+    const top = 'GTCAACGTTAGCATGC', pair = { A: 'T', T: 'A', C: 'G', G: 'C' };   // the ancestor ACGTTAGC in the middle
     for (let k = 0; k < n; k++) {
       const x = -1 + 2 * (k + 0.5) / n, a = (k + 0.5) / n * n * turn, p = at(x, a), q = at(x, a + off), m = lerp(p, q, 0.5);
       M.add('glow', g.rod(p, m, 0.022, 4), LET[top[k]]); M.add('glow', g.rod(m, q, 0.022, 4), LET[pair[top[k]]]);
@@ -356,6 +362,8 @@ var LOWPOLY_MODELS = LOWPOLY_MODELS || {};
 
   // ================================================================== the shape of tissue
   def('topo.slide', 'Liver on a glass slide', 'A piece of liver drawn in H&E from its cells, pink plates of hepatocytes round a white central vein, on a glass slide with its frosted label.', 560, (M, g, r) => {
+    M.add('gloss', g.ext([[-0.6, 0], [0.62, 0], [0.62, 0.58], [-0.6, 0.06]], 2.8), NAVY, [-1.4, 0, 0], [0, PI / 2, 0]);   // a wedge stand that tilts it to you
+    M.frame([0, 0.34, -0.04], [0.4, 0, 0]);
     M.add('glass', g.box(3.0, 0.04, 1.2), '#cfefff', [0, 0.02, 0]);
     M.add('mat', g.box(0.75, 0.044, 1.18), '#dfe6ee', [-1.12, 0.022, 0]);
     const vx = 0.5, vz = -0.05, Y = 0.044;
@@ -368,6 +376,7 @@ var LOWPOLY_MODELS = LOWPOLY_MODELS || {};
       for (let j = 0; j < 4; j++) M.add('flat', g.disc(0.021, 6), '#3b2a7a', lerp(p0, p1, (j + 0.5) / 4).map((v, i) => i === 1 ? Y + 0.006 : v), [-PI / 2, 0, 0]);
     }
     for (let k = 0; k < 8; k++) M.add('flat', g.disc(0.016, 5), k < 5 ? '#2a1d5c' : '#d9455f', [0.05 + r() * 1.0, Y + 0.006, -0.5 + r() * 1.0], [-PI / 2, 0, 0]);   // lymphocytes and red cells
+    M.frame();
   });
 
   def('topo.map', 'Scored cells relief', 'Every cell of the new slide scored and raised as a relief, red for cirrhosis-like and blue for healthy-like, with one cell\'s glass dome and bars.', 760, (M, g) => {
@@ -378,10 +387,10 @@ var LOWPOLY_MODELS = LOWPOLY_MODELS || {};
     M.add('mat', rel, w => col(w.x, w.z));
     for (const [ax, s] of [['x', -0.8], ['x', 0.8], ['z', -0.8], ['z', 0.8]]) {   // the relief's sides down to the slide
       const pts = [];
-      for (let i = 0; i <= 14; i++) { const u = -0.8 + i * 1.6 / 14, x = ax === 'x' ? s : u, z = ax === 'x' ? u : s, y = hy(x, z); pts.push([x, (y + 0.04) / 2, z]); }
+      for (let i = 0; i <= 14; i++) { const u = -0.8 + i * 1.6 / 14, x = ax === 'x' ? s : u, z = ax === 'x' ? u : s; pts.push([x, hy(x, z), z]); }
       const sk = [];
-      for (let i = 0; i < 14; i++) { const a = pts[i], b = pts[i + 1], ya = 2 * a[1] - 0.04, yb = 2 * b[1] - 0.04; sk.push([a[0], 0.04, a[2]], [b[0], 0.04, b[2]], [a[0], ya, a[2]], [a[0], ya, a[2]], [b[0], 0.04, b[2]], [b[0], yb, b[2]]); }
-      for (let i = 0; i < sk.length; i += 3) M.add('flat', g.tri(sk[i], sk[i + 1], sk[i + 2]), w => lerp(col(w.x, w.z), [0.35, 0.3, 0.38], 0.45));
+      for (let i = 0; i < 14; i++) { const a = pts[i], b = pts[i + 1], a0 = [a[0], 0.04, a[2]], b0 = [b[0], 0.04, b[2]]; sk.push(...a0, ...b0, ...a, ...a, ...b0, ...b); }
+      M.add('flat', g.mesh(sk), w => lerp(col(w.x, w.z), [0.35, 0.3, 0.38], 0.45));
     }
     M.add('glass', g.box(2.1, 0.04, 1.9), '#cfefff', [0, 0.02, 0]);
     const cx = -0.2, cz = 0.3, cyy = hy(cx, cz);   // the poster's cell: its 50 um dome, its bars behind it
@@ -395,7 +404,7 @@ var LOWPOLY_MODELS = LOWPOLY_MODELS || {};
 
   def('topo.tower', 'Tower of scales', 'The patch\'s cells on a glass plate with their balls, and the tower above: threads joining piece by piece into one amber trunk, loops as orange rings.', 1060, (M, g, r) => {
     M.add('glass', g.box(1.5, 0.04, 1.5), '#8cc6ff', [0, 0.02, 0]);
-    M.add('mat', g.box(1.5, 0.046, 0.2), '#a9c8e8', [0, 0.023, 0.68]);   // frosted label, tinted as the healthy slides
+    M.add('mat', g.box(1.5, 0.046, 0.2), '#5f7fa6', [0, 0.023, 0.68]);   // frosted label, tinted as the healthy slides
     const cells = [];
     while (cells.length < 16) { const p = [(r() - 0.5) * 1.2, (r() - 0.5) * 1.05 - 0.08]; if (cells.every(q => Math.hypot(p[0] - q[0], p[1] - q[1]) > 0.17)) cells.push(p); }
     const PAL = ['#7cc0ff', '#3ee08f', '#ff8fd8', '#b9a6ff', '#ffd166', '#7df0c8', '#ff9e6b', '#c9d2ff'];
@@ -406,7 +415,7 @@ var LOWPOLY_MODELS = LOWPOLY_MODELS || {};
     E.sort((a, b) => a[0] - b[0]);
     const up = cells.map((_, i) => i), find = i => up[i] === i ? i : (up[i] = find(up[i])), size = cells.map(() => 1), joins = [];
     for (const [d, i, j] of E) { const a = find(i), b = find(j); if (a !== b) { joins.push([d, a, b]); if (size[a] < size[b] || (size[a] === size[b] && a > b)) { up[a] = b; size[b] += size[a]; joins[joins.length - 1].push(a, b); } else { up[b] = a; size[a] += size[b]; joins[joins.length - 1].push(b, a); } } }
-    const d0 = joins[0][0], d1 = joins[joins.length - 1][0], hy = d => 0.12 + 1.2 * Math.log(d / d0) / Math.log(d1 / d0) ** 1;
+    const d0 = joins[0][0], d1 = joins[joins.length - 1][0], hy = d => 0.12 + 1.2 * Math.log(d / d0) / Math.log(d1 / d0);
     const sz = cells.map(() => 1);
     joins.forEach(([d, , , young, elder], k) => {
       const y = hy(d), A = cells[young], B = cells[elder], col = PAL[young % PAL.length];
@@ -429,7 +438,9 @@ var LOWPOLY_MODELS = LOWPOLY_MODELS || {};
   def('topo.cohort', 'Slide rack', 'The cohort\'s glass slides standing in two stepped rows, healthy with blue labels and cirrhotic with red, each with its orange curve; the mean curves in front.', 930, (M, g, r) => {
     const curve = (u, peak, h) => h * Math.exp(-((u - peak) ** 2) / 0.05) + 0.12 * h * u;
     [[-0.5, '#4d9de0', '#7cc0ff', 0.3, 0.75], [0.5, '#e0504d', '#ff7a6b', 0.5, 1.0]].forEach(([gx, lab, mean, peak, hh]) => {
-      const steps = [];
+      const prof = [[0.56, 0]];
+      for (let i = 0; i <= 8; i++) prof.push([0.56 - i * 0.12, 0.06 + i * 0.045], [0.44 - i * 0.12, 0.06 + i * 0.045]);   // the rack's steps, z against y
+      prof.push([0.44 - 8 * 0.12, 0]);
       for (let i = 8; i >= 0; i--) {   // back rows first: their glass is drawn behind the front's
         const z = 0.5 - i * 0.12, y0 = 0.06 + i * 0.045;
         M.add('glass', g.box(0.85, 0.28, 0.012), '#cfefff', [gx, y0 + 0.14, z]);
@@ -437,10 +448,8 @@ var LOWPOLY_MODELS = LOWPOLY_MODELS || {};
         const pts = [];
         for (let k = 0; k <= 6; k++) { const u = k / 6; pts.push([gx - 0.25 + u * 0.62, y0 + 0.03 + curve(u, peak + (r() - 0.5) * 0.08, hh * (0.18 + 0.06 * r())), z + 0.009]); }
         M.add('glow', g.strip(pts, [0, 1, 0], 0.022), '#ff7a3c');
-        steps.push([-(z + 0.06), y0], [-(z - 0.06), y0]);
       }
-      const prof = [[-0.62, 0], ...steps.reverse(), [steps[0][0], 0]];
-      M.add('mat', g.ext(prof, 0.88), '#202a3e', [gx - 0.44, 0, 0], [0, PI / 2, 0]);
+      M.add('mat', g.ext(prof, 0.88), '#202a3e', [gx + 0.44, 0, 0], [0, -PI / 2, 0]);
       const mp = []; for (let k = 0; k <= 8; k++) { const u = k / 8; mp.push([gx - 0.3 + u * 0.66, 0.04 + curve(u, peak, hh * 0.24), 0.72]); }
       M.add('glow', g.tube(mp, 0.016, 10), mean);
     });
@@ -448,22 +457,21 @@ var LOWPOLY_MODELS = LOWPOLY_MODELS || {};
 
   // ================================================================== pass it on
   // fish: a body (a stretched diamond) and a tail fin, counter-shaded as the set's: dark back, silver flanks, pale belly
-  const fish = (M, g, p, head, bank, s, cols) => {
-    const rot = [bank, head, 0, 'YXZ'], c = cols || ['#2d4152', '#a9bcc6', '#dfe9ec'];
-    M.add('gloss', g.oct(1), (w, n) => n.y > 0.35 ? c[0] : n.y < -0.35 ? c[2] : c[1], p, rot, [0.075 * s, 0.028 * s, 0.015 * s]);
+  const fish = (M, g, p, head, bank, s, cols, fin) => {
+    const rot = [bank, head, 0, 'YXZ'], c = cols || ['#3d6a86', '#cfdde6', '#eef4f6'];
+    M.add('gloss', g.oct(1), (w, n) => n.y > 0.35 ? c[0] : n.y < -0.35 ? c[2] : c[1], p, rot, [0.075 * s, 0.028 * s, 0.02 * s]);
     M.add('flat', g.tri([-0.065 * s, 0, 0], [-0.11 * s, 0.032 * s, 0], [-0.11 * s, -0.032 * s, 0]), c[0], p, rot);
+    if (fin) M.add('flat', g.tri([0.012 * s, 0.022 * s, 0], [-0.03 * s, 0.022 * s, 0], [-0.022 * s, 0.06 * s, 0]), c[0], p, rot);
   };
   def('pass.fish', 'School of fish', 'A school of fish swirling round under a dome of sea over sand, rocks and seagrass, a shark passing on the outside.', 760, (M, g, r) => {
-    M.add('mat', g.cyl(1, 1.04, 0.1, 16), (w, n) => n.y > 0.5 ? M.jit('#5b6a62', 0.06)() : NAVY, [0, 0.05, 0]);
+    M.add('mat', g.cyl(1, 1.04, 0.1, 16), (w, n) => n.y > 0.5 ? M.jit('#4c564c', 0.06)() : NAVY, [0, 0.05, 0]);
     for (let k = 0; k < 4; k++) { const a = r() * 2 * PI, d = 0.3 + 0.5 * r(); M.add('mat', g.ball(1), M.jit('#3a4248', 0.08), [d * Math.cos(a), 0.12, d * Math.sin(a)], [r(), r(), r()], [0.14, 0.09, 0.12]); }
     for (let k = 0; k < 14; k++) { const a = r() * 2 * PI, d = 0.2 + 0.7 * r(), h = 0.2 + 0.18 * r(); M.add('mat', g.cone(0.025, h, 3), k % 2 ? '#3f6b4a' : '#4f7f52', [d * Math.cos(a), 0.1 + h / 2, d * Math.sin(a)], [(r() - 0.5) * 0.4, 0, (r() - 0.5) * 0.4]); }
     for (let i = 0; i < 44; i++) {   // the school circles: each fish heads along the ring
       const a = i / 44 * 2 * PI + r() * 0.2, rad = 0.42 + (r() - 0.5) * 0.28, y = 0.72 + (r() - 0.5) * 0.3 + 0.08 * Math.sin(3 * a);
-      fish(M, g, [rad * Math.cos(a), y, rad * Math.sin(a)], -a - PI / 2, (r() - 0.5) * 0.6, 1);
+      fish(M, g, [rad * Math.cos(a), y, rad * Math.sin(a)], -a - PI / 2, (r() - 0.5) * 0.6, 1.45);
     }
-    fish(M, g, [0.84 * Math.cos(2.4), 0.5, 0.84 * Math.sin(2.4)], -2.4 - PI / 2, 0.3, 3.4, ['#4a5560', '#7d8994', '#c9d1d6']);   // the shark
-    M.add('flat', g.tri([0.05, 0.6, 0.84 * Math.sin(2.4) * 0 + 0], [0, 0, 0], [0, 0, 0]), '#4a5560');
-    for (const [x, z] of [[-0.3, -0.2], [0.25, 0.1], [0.05, -0.45]]) M.add('glow', g.tri([x - 0.05, 1.05, z], [x + 0.05, 1.05, z], [x + 0.18, 0.12, z + 0.05]), '#2d6f78');   // light shafts
+    fish(M, g, [0.84 * Math.cos(2.4), 0.5, 0.84 * Math.sin(2.4)], -2.4 - PI / 2, 0.3, 3.4, ['#4a5560', '#7d8994', '#c9d1d6'], true);   // the shark
     M.add('veil', g.sph(1, 14, 5, 0, 2 * PI, 0, PI / 2), '#2a8fb8', [0, 0.1, 0]);
   });
 
@@ -475,16 +483,19 @@ var LOWPOLY_MODELS = LOWPOLY_MODELS || {};
     [-25, 134, 14], [-32, 147, 6], [-42, 173, 3], [-19, 46, 4]];
   const D2R = PI / 180;
   const ll = (lat, lon, lon0, rad) => { const c = Math.cos(lat * D2R); return [rad * c * Math.sin((lon - lon0) * D2R), rad * Math.sin(lat * D2R), rad * c * Math.cos((lon - lon0) * D2R)]; };
-  const isLand = (lat, lon) => lat < -72 || LAND.some(([a, b, rr]) => { const c = Math.sin(lat * D2R) * Math.sin(a * D2R) + Math.cos(lat * D2R) * Math.cos(a * D2R) * Math.cos((lon - b) * D2R); return Math.acos(Math.min(1, c)) / D2R < rr; });
+  const unit = (lat, lon) => [Math.cos(lat * D2R) * Math.cos(lon * D2R), Math.sin(lat * D2R), Math.cos(lat * D2R) * Math.sin(lon * D2R)];
+  const LANDV = LAND.map(([a, b, rr]) => [unit(a, b), Math.cos(rr * D2R)]);
+  const isLand = (lat, lon) => { if (lat < -72) return true; const v = unit(lat, lon); return LANDV.some(([u, c]) => v[0] * u[0] + v[1] * u[1] + v[2] * u[2] > c); };
   const AP = { ATL: [33.6, -84.4], ORD: [42, -87.9], LAX: [33.9, -118.4], JFK: [40.6, -73.8], DFW: [32.9, -97], YYZ: [43.7, -79.6], MEX: [19.4, -99.1], GRU: [-23.4, -46.5],
     LHR: [51.5, -0.5], CDG: [49, 2.5], FRA: [50, 8.6], AMS: [52.3, 4.8], MAD: [40.5, -3.6], MUC: [48.4, 11.8], ZRH: [47.5, 8.6], VIE: [48.1, 16.6], IST: [41.3, 28.8], DME: [55.4, 37.9],
     CAI: [30.1, 31.4], JNB: [-26.1, 28.2], DXB: [25.3, 55.4], DEL: [28.6, 77.1], PEK: [40.1, 116.6], PVG: [31.1, 121.8], ICN: [37.5, 126.4], NRT: [35.8, 140.4], SIN: [1.4, 104], SYD: [-33.9, 151.2] };
   const globe = (M, g, lon0, routes, rcol) => {
     const cy = 1.2;
     M.frame([0, cy, 0], [0.35, 0, 0]);   // tilted so the northern hubs face you
-    M.add('mat', g.sph(1, 18, 13), (w, n, lc) => {
-      const lat = Math.asin(Math.max(-1, Math.min(1, lc.y))) / D2R, lon = lon0 + Math.atan2(lc.x, lc.z) / D2R;
-      return isLand(lat, lon) ? M.jit('#2f5370', 0.05)() : M.jit('#0a2140', 0.025)();
+    const ico = g.ball(1, 4); ico.computeVertexNormals();   // a faceted planet: flat faces, coloured land or sea
+    M.add('mat', ico, (w, n, lc) => {
+      const lat = Math.asin(Math.max(-1, Math.min(1, lc.y / lc.length()))) / D2R, lon = lon0 + Math.atan2(lc.x, lc.z) / D2R;
+      return isLand(lat, lon) ? M.jit('#4a7696', 0.04)() : '#061328';
     });
     for (const [a, b, col] of routes) {   // great-circle arcs, lifted as the original's routes are
       const A = ll(...AP[a], lon0, 1), B = ll(...AP[b], lon0, 1), ang = Math.acos(Math.min(1, A[0] * B[0] + A[1] * B[1] + A[2] * B[2])), pts = [];
@@ -498,10 +509,10 @@ var LOWPOLY_MODELS = LOWPOLY_MODELS || {};
   def('pass.globe', 'Globe with an outbreak', 'The airports\' globe with an outbreak spreading from Vienna along its routes: infectious cities red, exposed amber, recovered grey.', 1130, (M, g) => {
     const lon0 = 25, R = '#ff5a3c', A = '#ffb43b';
     const cy = globe(M, g, lon0, [['VIE', 'LHR', R], ['VIE', 'FRA', R], ['VIE', 'IST', R], ['IST', 'DXB', R], ['LHR', 'JFK', R], ['DXB', 'DEL', A], ['IST', 'CAI', A], ['FRA', 'PEK', A], ['SIN', 'SYD'], ['MAD', 'GRU']], '#bfe0ff');
-    const city = (k, col, rad) => M.add('glow', g.ball(rad), col, ll(...AP[k], lon0, 1.01));
-    city('VIE', R, 0.05); for (const k of ['LHR', 'FRA', 'IST', 'DXB', 'JFK']) city(k, R, 0.04);
-    for (const k of ['DEL', 'CAI', 'PEK']) city(k, A, 0.035);
-    for (const k of ['MUC', 'ZRH', 'AMS']) city(k, '#8a94a3', 0.025);
+    const city = (k, col, rad) => M.add('glow', g.oct(rad), col, ll(...AP[k], lon0, 1.01));
+    city('VIE', R, 0.065); for (const k of ['LHR', 'FRA', 'IST', 'DXB', 'JFK']) city(k, R, 0.05);
+    for (const k of ['DEL', 'CAI', 'PEK']) city(k, A, 0.045);
+    for (const k of ['MUC', 'ZRH', 'AMS']) city(k, '#8a94a3', 0.032);
     globeStand(M, g, cy);
   });
 
@@ -509,23 +520,24 @@ var LOWPOLY_MODELS = LOWPOLY_MODELS || {};
   const cell = (M, g, r, extra) => {
     const cy = 1.0;
     M.frame([0, cy, 0]);
-    M.add('veil', g.sph(1, 12, 7), '#4dc7ff', 0, 0, [1, 0.86, 1]);
+    M.add('veil', g.sph(1, 12, 7), '#4dc7ff', 0, 0, [1, 0.74, 1]);   // a slightly flattened ellipsoid
     M.add('glass', g.sph(0.37, 10, 6), '#a385ff', [0.05, 0.02, -0.05]);
     M.add('gloss', g.ball(0.12), '#f59eff', [0.1, 0.06, -0.02]);
-    M.add('mat', g.tor(0.52, 0.032, 3, 16, 1.5 * PI), '#43e08f', [0.05, 0.02, -0.05], [1.2, 0, 0.3]);   // ER round the nucleus
-    if (!extra) M.add('mat', g.tor(0.6, 0.028, 3, 14, 1.2 * PI), '#43e08f', [0.05, 0.02, -0.05], [1.45, 0.8, 0]);
-    for (let k = 0; k < 3; k++) M.add('gloss', g.tor(0.2 + 0.05 * k, 0.025, 3, 6, 1.3), '#ff9e38', [0.5, -0.05, 0.38], [0.2, 0.75, -0.6], [1, 1, 0.5]);   // Golgi
-    for (let k = 0; k < 3; k++) { const a = 2.2 + k * 1.3, p = [0.68 * Math.cos(a), (r() - 0.5) * 0.5, 0.68 * Math.sin(a)]; M.add('gloss', g.sph(1, 6, 4), '#ff5c54', p, [r() * 3, r() * 3, r() * 3], [0.13, 0.05, 0.05]); }   // mitochondria
-    const blob = (n, col, rad) => { for (let k = 0; k < n; k++) { const a = r() * 2 * PI, b = (r() - 0.5) * 1.6, d = 0.55 + 0.25 * r(); M.add('gloss', g.ball(rad), col, [d * Math.cos(a) * Math.cos(b), d * 0.86 * Math.sin(b), d * Math.sin(a) * Math.cos(b)]); } };
+    M.add('glass', g.sph(0.52, 12, 5, 0.4, 1.4 * PI, 0.55, 2.0), '#2fbf6e', [0.05, 0.02, -0.05], [0.3, 0, 0], [1, 0.8, 1]);   // ER round the nucleus
+    for (let k = 0; k < 3; k++) M.add('gloss', g.tor(0.2 + 0.055 * k, 0.034, 3, 6, 1.3), '#ff9e38', [0.52, -0.05, 0.36], [0.2, 0.75, -0.6], [1, 1, 0.5]);   // Golgi
+    for (let k = 0; k < 3; k++) { const a = 2.2 + k * 1.3, p = [0.68 * Math.cos(a), (r() - 0.5) * 0.4, 0.68 * Math.sin(a)]; M.add('gloss', g.sph(1, 6, 4), '#ff5c54', p, [r() * 3, r() * 3, r() * 3], [0.13, 0.05, 0.05]); }   // mitochondria
+    const blob = (n, col, rad) => { for (let k = 0; k < n; k++) { const a = r() * 2 * PI, b = (r() - 0.5) * 1.6, d = 0.55 + 0.25 * r(); M.add('gloss', g.ball(rad), col, [d * Math.cos(a) * Math.cos(b), d * 0.74 * Math.sin(b), d * Math.sin(a) * Math.cos(b)]); } };
     blob(3, '#ff5cc2', 0.05); blob(3, '#29dbcc', 0.055); blob(2, '#c2ed42', 0.04);   // lysosomes, vesicles, peroxisomes
-    for (let k = 0; k < 5; k++) { const a = k * 1.25 + 0.3, b = (r() - 0.5) * 1.2; M.add('glow', g.rod([0.4 * Math.cos(a), 0.3 * Math.sin(b), 0.4 * Math.sin(a)], [0.95 * Math.cos(a) * Math.cos(b), 0.82 * Math.sin(b), 0.95 * Math.sin(a) * Math.cos(b)], 0.006, 3), '#b3c2db'); }   // cytoskeleton
     const prot = [];
-    const put = (n, col, d0, d1) => { for (let k = 0; k < n; k++) { const a = r() * 2 * PI, b = (r() - 0.5) * 2.2, d = d0 + (d1 - d0) * r(), p = [d * Math.cos(a) * Math.cos(b), d * 0.86 * Math.sin(b), d * Math.sin(a) * Math.cos(b)]; prot.push(p); M.add('glow', g.oct(0.032), col, p); } };
+    const put = (n, col, d0, d1) => { for (let k = 0; k < n; k++) { const a = r() * 2 * PI, b = (r() - 0.5) * 2.2, d = d0 + (d1 - d0) * r(), p = [d * Math.cos(a) * Math.cos(b), d * 0.74 * Math.sin(b), d * Math.sin(a) * Math.cos(b)]; prot.push(p); M.add('glow', g.oct(0.042), col, p); } };
     put(8, '#4dc7ff', 0.98, 1.0); put(6, '#ffd14d', 0.45, 0.85); put(5, '#c9b8ff', 0.05, 0.28); put(3, '#43e08f', 0.5, 0.6);
-    if (!extra) for (let k = 0; k < 10; k++) M.add('glow', g.rod(prot[k], prot[(k * 7 + 3) % prot.length], 0.005, 3), '#e7eef8');
+    if (!extra) prot.forEach((p, k) => {   // each protein linked to its nearest partner
+      let best = -1, bd = 1e9; prot.forEach((q, j) => { const d = Math.hypot(p[0] - q[0], p[1] - q[1], p[2] - q[2]); if (j !== k && d < bd) { bd = d; best = j; } });
+      if (best > k || prot.length < 3) M.add('glow', g.rod(p, prot[best], 0.005, 3), '#e7eef8');
+    });
     if (extra) extra(cy);
     M.frame();
-    plinth(M, 0.3, 0.07); M.add('gloss', g.rod([0, 0.07, 0], [0, cy - 0.84, 0], 0.03, 6), NAVY);
+    plinth(M, 0.3, 0.07); M.add('gloss', g.rod([0, 0.07, 0], [0, cy - 0.73, 0], 0.03, 6), NAVY);
   };
   def('pass.cell', 'The cell, a relay', 'The cell map\'s cell with its organelles, a signal relayed hand to hand from the membrane into the nucleus, and CFTR stuck on its way (red).', 1150, (M, g, r) => cell(M, g, r, () => {
     const relay = [[0.2, 0.84, 0.3], [0.32, 0.58, 0.35], [0.4, 0.38, 0.22], [0.28, 0.24, 0.12], [0.12, 0.14, 0.02]];   // TNF towards NF-kB
@@ -537,11 +549,11 @@ var LOWPOLY_MODELS = LOWPOLY_MODELS || {};
   // ================================================================== flock and robots
   def('flock.flock', 'Starlings at dusk', 'A murmuration of starlings over a dark field with reeds, a lake and a ring of trees, against a dusk sky glowing low where the sun sets.', 640, (M, g, r) => {
     M.add('mat', g.cyl(1, 1.03, 0.06, 16), (w, n) => n.y > 0.5 ? M.jit('#22201a', 0.03)() : NAVY, [0, 0.03, 0]);
-    M.add('glow', g.disc(1, 12), '#c47a5a', [0.15, 0.062, -0.45], [-PI / 2, 0, 0], [0.45, 0.25, 1]);   // the lake mirrors the sunset
+    M.add('glow', g.disc(1, 12), '#8a4f3c', [0.15, 0.062, -0.45], [-PI / 2, 0, 0], [0.45, 0.25, 1]);   // the lake mirrors the sunset
     for (let k = 0; k < 9; k++) { const a = PI / 2 + 0.25 + k * (PI - 0.5) / 8, h = 0.16 + 0.08 * r(); M.add('mat', g.cone(0.06, h, 5), '#0f1410', [0.9 * Math.sin(a), 0.06 + h / 2, 0.9 * Math.cos(a)]); }
     for (let k = 0; k < 16; k++) { const x = (r() - 0.5) * 1.1, z = 0.45 + r() * 0.4, h = 0.1 + 0.1 * r(); M.add('mat', g.cone(0.012, h, 3), '#3a3020', [x, 0.06 + h / 2, z], [(r() - 0.5) * 0.5, 0, (r() - 0.5) * 0.5]); }
     const sky = [[0, '#ff9a58'], [0.14, '#e88a6a'], [0.3, '#9a7a9a'], [0.5, '#4a5888'], [0.75, '#26336a'], [1, '#121c42']].map(([t, c]) => [t, M.rgb(c)]);
-    M.add('glow', g.cyl(0.98, 0.98, 1.1, 12, true, PI / 2 + 0.15, PI - 0.3), (w, n, lc) => { const t = (lc.y + 0.55) / 1.1; let i = 0; while (i < sky.length - 2 && t > sky[i + 1][0]) i++; return lerp(sky[i][1], sky[i + 1][1], Math.min(1, (t - sky[i][0]) / (sky[i + 1][0] - sky[i][0]))); }, [0, 0.61, 0]);
+    M.add('glow', g.cyl(0.98, 0.98, 1.1, 12, true, PI / 2 + 0.15, PI - 0.3), smooth((w, n, lc) => { const t = (lc.y + 0.55) / 1.1; let i = 0; while (i < sky.length - 2 && t > sky[i + 1][0]) i++; return lerp(sky[i][1], sky[i + 1][1], Math.min(1, (t - sky[i][0]) / (sky[i + 1][0] - sky[i][0]))); }), [0, 0.61, 0]);
     const sa = PI - 0.25;   // the sun sets towards -z, a little to the right
     M.add('glow', g.disc(0.08, 10), '#ffe0a8', [0.95 * Math.sin(sa), 0.2, 0.95 * Math.cos(sa)], [0, sa + PI, 0]);
     for (let i = 0; i < 110; i++) {   // the murmuration: a bent, swelling cloud of birds flying one way
@@ -577,14 +589,13 @@ var LOWPOLY_MODELS = LOWPOLY_MODELS || {};
     M.add('gloss', g.box(0.32, 0.06, 0.1), '#2b2f36', [0.05, F + 0.03, -0.95]); M.add('glow', g.box(0.2, 0.012, 0.02), '#46d9ff', [0.05, F + 0.06, -0.89]);   // dock
     const GANG = ['#46d9ff', '#ff5ad9', '#ffb43b', '#3ee08f', '#ff5a4b', '#9d7bff'];
     GANG.forEach((c, i) => {   // a conga line across the rug, each following the one ahead
-      const a = 3.6 + i * 0.42, x = 0.2 + 0.62 * Math.cos(a), z = 0.15 - 0.55 * Math.sin(a), head = -(a + PI / 2);
-      M.frame([x, F, z], [0, Math.atan2(-Math.sin(a) * 0.55, Math.cos(a) * 0.62) + PI, 0]);
+      const a = 3.6 + i * 0.42, x = 0.2 + 0.62 * Math.cos(a), z = 0.15 - 0.55 * Math.sin(a);
+      M.frame([x, F, z], [0, Math.atan2(-0.55 * Math.cos(a), 0.62 * Math.sin(a)), 0]);   // heading along the line
       M.add('gloss', g.cyl(0.12, 0.12, 0.05, 10), '#2b2f36', [0, 0.025, 0]);
       M.add('glow', g.cyl(0.123, 0.123, 0.012, 10, true), c, [0, 0.045, 0]);
       M.add('mat', g.cyl(0.126, 0.126, 0.03, 8, true, 0, PI), '#8a96a3', [0, 0.02, 0], [0, -PI / 2, 0]);   // bumper round the front
       M.add('glow', g.box(0.025, 0.018, 0.07), '#e7f6ff', [0.07, 0.055, 0]);   // the eyes' visor
       M.frame();
-      void head;
     });
   });
 
@@ -609,8 +620,8 @@ var LOWPOLY_MODELS = LOWPOLY_MODELS || {};
       for (let i = 0; i < 4; i++) {
         let p = add3(ctr, [(r() - 0.5) * 0.24, (r() - 0.5) * 0.24, (r() - 0.5) * 0.24]);
         const l = Math.hypot(...p), dl = Math.max(d0, Math.min(d1, l)); p = p.map(v => v * dl / l);
-        P.push([p, k]); M.add('glow', g.oct(0.036), c, p);
-        if (i) M.add('glow', g.rod(P[P.length - 2][0], p, 0.005, 3), '#9fb3d9');
+        P.push([p, k]); M.add('glow', g.oct(0.046), c, p);
+        if (i) M.add('glow', g.rod(P[P.length - 2][0], p, 0.007, 3), '#c4d3f0');
       }
     });
     for (let k = 0; k < 14; k++) { const a = P[Math.floor(r() * P.length)], b = P[Math.floor(r() * P.length)]; if (a !== b) M.add('glow', g.rod(a[0], b[0], 0.004, 3), '#5c6a86'); }

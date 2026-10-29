@@ -131,13 +131,14 @@ try {
   // the story on show, swapped in place: explore mode (its state and view kept)
   {
     await page.evaluate(() => { const c = HOST.cur.collab; c.APP.enterExplore(); const s = c.state(); s.sel = 'TP53'; c.apply(s); });
-    await wait(1500);
+    await until(page, () => HOST.cur.collab.view() != null, null, 10000);   // (null while the camera flies)
     const before = await place(page);
     const n0 = await swapsNow(page), cur0 = await page.evaluateHandle(() => HOST.cur);
     touch('stories/proteins.js', 'changed on show'); release();
     await page.evaluate(() => HOST.live.check('test'));
     const swapped = await until(page, n => (HOST.swaps || 0) > n && HOST.cur && HOST.cur.collab.scene(), n0, 10000);
-    await wait(1200);
+    await until(page, () => HOST.cur.collab.view() != null, null, 10000);
+    await wait(500);
     const after = await place(page), fresh = await page.evaluate(c => HOST.cur !== c, cur0);
     report('the story on show, swapped in place: explore mode, its state and view kept', swapped && fresh && /TP53/.test(before.state) && after.mode === 'explore' && after.state === before.state && sameView(after.view, before.view), { before, after });
     report('... with no reload', await page.evaluate(() => window.__mark === 1));
@@ -185,6 +186,23 @@ try {
     const asked = await until(page, () => !document.getElementById('livebar').hidden && /new version of the app/.test(document.querySelector('#livebar span').textContent), null, 8000);
     const stayed = await page.evaluate(() => window.__mark === 1 && HOST.curKey === 'airports');
     report('another shell: asked first (Reload now or Later), nothing reloaded by itself', asked && stayed);
+    // the headset's panel for the question (drawn by the shell; no headset here: its test switch), pointed at and
+    // pressed through the shell's pointer hooks (HOST.collab.ray and press, which every story calls): Later
+    const xq = await page.evaluate(() => {
+      const X = HOST.live.xr();
+      X.test = true; HOST.live.xrTick(); HOST.live.xrTick();
+      const m = X.mesh, v = new THREE.Vector3(0.171, -0.0815, 0), n = new THREE.Vector3(0, 0, 1);   // (the middle of Later)
+      if (!m || !m.visible || !m.parent) return { shown: false };
+      m.updateMatrixWorld(true);
+      m.localToWorld(v); n.transformDirection(m.matrixWorld);
+      const o = v.clone().addScaledVector(n, 0.6), d = n.clone().negate();
+      const h = HOST.collab.ray(0, o, d, Infinity);
+      HOST.collab.press(0);
+      X.test = false; HOST.live.xrTick();
+      return { shown: true, hit: h && h.kind, near: h ? Math.abs(h.dist - 0.6) < 0.01 : false, after: HOST.live.question, bar: document.getElementById('livebar').hidden, gone: !m.visible };
+    });
+    report('... the headset\'s panel: in front, pointed at and pressed (Later) through the shell\'s pointer hooks', xq.shown && xq.hit === 'shell' && xq.near && xq.after === '' && xq.bar && xq.gone, xq);
+    await page.evaluate(() => HOST.live.ask('shell'));
     await page.click('#livebar [data-live="reload"]');
     const back = await until(page, () => typeof HOST !== 'undefined' && !window.__mark && HOST.curKey === 'airports' && HOST.cur && HOST.cur.collab.scene() && HOST.cur.collab.APP.mode === 'explore', null, 30000);
     await wait(2000);

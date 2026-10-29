@@ -1912,7 +1912,7 @@ HOST.live = (function () {
     return '';
   };
   function xrTick() {
-    const on = !!(L.ask && !L.ask.hidden && HOST.session && HOST.cur);
+    const on = !!(L.ask && !L.ask.hidden && (HOST.session || XQ.test) && HOST.cur);   // (test: a test without a headset)
     if (!on) { if (XQ.mesh) XQ.mesh.visible = false; XQ.placed = false; return; }
     let sc = null;
     try { sc = HOST.cur.collab.scene(); } catch (e) { /* not built yet */ }
@@ -2091,7 +2091,7 @@ HOST.live = (function () {
     // the shell is about to tear the story down: the headset's panel leaves its scene
     detach() { if (XQ.mesh && XQ.mesh.parent) XQ.mesh.parent.remove(XQ.mesh); XQ.camFor = null; },
     get watching() { return L.watching; }, get pending() { return L.pending; }, get question() { return L.ask && !L.ask.hidden ? L.ask.text : ''; },
-    state: () => L, xr: () => XQ,   // (for tests)
+    state: () => L, xr: () => XQ, xrTick,   // (for tests)
   };
 })();
 // a story a shared room shows that this device's list does not have (another device runs a newer copy of the app):
