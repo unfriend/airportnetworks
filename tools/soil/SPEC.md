@@ -15,7 +15,7 @@ afterwards (`stories/list.js`, `sw.js`, `shared.js`'s `FORMAT`, the smoke and sh
 Card (`HOST.list`, for the integrator): key `soil`, kick "Soil microbes", title **Holding on to nitrogen**, colour
 `#9ccc65`, desc "Half of a farm's fertiliser is lost through the soil's microbes. A wheat with a trait from a wild grass
 slows them down: in a field trial in Japan it stays greener and leaks less, while the soil's crowd of microbes follows
-the fertiliser, not the wheat.", page "Holding on to nitrogen: a wheat, its soil and the microbes in between", brand
+the fertiliser far more than the wheat.", page "Holding on to nitrogen: a wheat, its soil and the microbes in between", brand
 "Holding on to nitrogen", sub "a wheat, its soil and its microbes", aria "Interactive 3D story of how soil microbes turn
 fertiliser into nitrate and nitrous oxide, a wheat that slows them down, and the network of microbes in a field trial",
 thing `field`, loading "Spreading the fertiliser", icon a wheat ear (the integrator's, `lowpoly.js`), len from pacing.
@@ -367,8 +367,8 @@ and its plainness, shorten freely.
    incubations (250 mg N/kg, 70 % water, 20 to 22 days); **the N2O discrepancy** (Decisions); chlorophyll's dates.
 6. `crowd` 285-340, **A crowd of 100,000** (`net`: `net_cloud`, `net_nitro`, over the field). "A spoonful of this soil
    holds about 100,000 kinds of microbe; 3,384 of them make up 95 % of the DNA read. Fertiliser roughly doubles one
-   ammonia-eating bacterium. The wheat line changes nothing that can be measured: only 2 of the 3,384 kinds differ
-   between the two wheats." Small print: 16S amplicons, kinds (ASVs) numbered; the guilds and their shares; the qPCR
+   ammonia-eating bacterium. The wheat line barely shows: only 2 of the 3,384 kinds differ between the two wheats."
+   (A test that finds no difference does not show there is none: never say the line changes nothing.) Small print: 16S amplicons, kinds (ASVs) numbered; the guilds and their shares; the qPCR
    counts (read off: no major effect); differ: fertiliser 1,646, date 580, line 2.
 7. `together` 340-415, **Who rises together** (`net_pull`, `net_links`, `net_shuffle`, `net_mods` with `field_module`,
    then `net_split`). "Link two microbes when their numbers rise and fall together across the samples: 1,564 kinds and
@@ -378,9 +378,9 @@ and its plainness, shorten freely.
    big groups; the count depends on the run); built for this story, not the authors' analysis; thresholds; the residual
    networks.
 8. `know` 415-460, **What we know** (`soil`: `soil_tracer`, the halo). "There are strong indications that the BNI wheat
-   holds nitrogen in the soil, and it leaves the soil's microbes undisturbed. It is not yet proof. Next: following
-   marked nitrogen atoms, and reading which microbial genes are switched on." Small print: isotope studies,
-   metatranscriptomics; the open questions; the credits (authors, institutes, the PNAS paper; the data used with the
+   stays greener and loses less nitrate, and that the soil's microbe community and network show no clear change from
+   the wheat line. It is not yet proof. Next: following marked nitrogen atoms, and reading which microbial genes are
+   switched on." Small print: isotope studies, metatranscriptomics; the open questions, the N2O discrepancy named; the credits (authors, institutes, the PNAS paper; the data used with the
    authors' permission; what is illustrative).
 
 **Explore mode** tabs (HTML and canvas twins, as every story):

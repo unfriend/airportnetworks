@@ -408,7 +408,7 @@ function kindInfo() {
   const I = api('net').info(X.kind), sh = I.share;
   const rows = [['Phylum', I.phylum], ['In samples', `${I.prev} of ${I.samples}`], ['Share of reads', `${sh >= 0.01 ? sh.toFixed(sh >= 1 ? 1 : 2) : sh.toPrecision(1)} %`, 'on average']];
   if (I.guild) rows.push(['Nitrifier', I.guild]);
-  rows.push(['Differs by', I.differs ? (I.differs.length ? I.differs.join(', ') : 'nothing measurable') : 'not tested', I.differs ? 'fertiliser, date, wheat line or plot' : 'a rare kind']);
+  rows.push(['Differs by', I.differs ? (I.differs.length ? I.differs.join(', ') : 'none found') : 'not tested', I.differs ? 'fertiliser, date, wheat line or plot' : 'a rare kind']);
   rows.push(['Network', I.node >= 0 ? `${fmt(I.links)} links${I.module >= 0 ? `, module ${I.module + 1}` : ''}` : 'not in it']);
   return { head: `Kind ${fmt(I.rank)}${I.name ? ' · ' + I.name : ''}`, rows };
 }

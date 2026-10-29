@@ -8,13 +8,13 @@
 // it again after the text changes). A recording replaces it with its own times.
 const NARRATION_SYNC = [
   [0, 0], [37, 33.6], [41.7, 35],                     // Half the sack
-  [52.7, 45],                                         // The relay underground
-  [113.2, 100], [113.9, 100.6], [114.9, 101.2],       // A wheat that fights back
+  [52.7, 45],                                         // The relay
+  [113.2, 100], [113.9, 100.6], [114.9, 101.2],       // A wheat fights back
   [168.5, 150],                                       // The field trial
   [234.5, 210],                                       // Greener, fewer leaks
   [317, 285],                                         // A crowd of 100,000
   [377.5, 340],                                       // Who rises together
-  [460, 415], [487.5, 440], [491.5, 443], [493.3, 444.6], [500.6, 445], [517.1, 460],  // What we know
+  [460, 415], [488.2, 440.6], [496.9, 443], [498.7, 444.6], [506, 445], [522.5, 460],  // What we know
 ];
 // recording time -> original story time
 function storyT(t) {
@@ -141,7 +141,7 @@ const FACTS = (() => {
   const top = m => { const r = N.mods[m].r2; let b = 'fert'; for (const k of ['time', 'line', 'plot']) if (r[k] > r[b]) b = k; return b; };
   const qp = /p = ([\d.]+)/.exec(F.qpcrNote || '');
   return {
-    samples: D.src.samples, kinds: D.src.kinds, reads: D.src.reads, common: D.common.n, readShare: D.common.readShare,
+    samples: D.src.samples, kinds: D.src.kinds, perSample: D.src.kindsPerSample, reads: D.src.reads, common: D.common.n, readShare: D.common.readShare,
     plots: ds.plots, reps: ds.reps, dates: ds.times.length, dap: ds.times.map(t => t.dap), days: ds.times.map(t => t.day), stages: ds.times.map(t => t.stage),
     kgN: ds.ferts[1].kgN, nodes: N.n, links: N.links, pos: N.pos, neg: N.neg, modules: N.modules, big: big.length, nullLinks: N.null.links,
     bigFert: big.filter(m => top(m) === 'fert').length, bigPlot: big.filter(m => top(m) === 'plot').length,
@@ -196,7 +196,7 @@ function buildStory() {
       <h1 data-at="1.2">Holding on to nitrogen</h1>
       <p class="lede" data-at="2.4">A wheat, its soil and the microbes in between</p>
       ${turns(`<p data-at="5" data-out="21.5">Less than half of the fertiliser a farmer spreads ends up in the crop.</p>
-        <p data-at="12" data-out="21.5" class="amber">The plant takes up some of it as ammonium; microbes in the soil get to much of the rest first.</p>`,
+        <p data-at="12" data-out="21.5" class="amber">The plant takes up some of it; microbes in the soil get to much of the rest first.</p>`,
       `<p data-at="22">They turn it into nitrate, which washes away, and into nitrous oxide, a strong greenhouse gas.</p>
         <p data-at="30" class="amber">So farmers spread more.</p>
         <p class="note" data-at="33">"Less than 50 %", as the slides put it. The flows in this block are a drawing: ammonium amber, nitrate blue, nitrous oxide lilac, nitrogen in the plant green.</p>
@@ -214,7 +214,7 @@ function buildStory() {
     bni: `<h2 data-at="0.6">A wheat that fights back</h2>
       ${turns(`<p data-at="1.2" data-out="23.5">Some plants release substances from their roots that slow the relay down: biological nitrification inhibition, or BNI.</p>
         <p data-at="9" data-out="23.5" class="amber">Breeders moved a piece of chromosome from a wild grass into the wheat Munal.</p>`,
-      `<p data-at="24">The new wheat's roots slow the first hand-off, so more ammonium stays where the plant can take it up.</p>
+      `<p data-at="24">The new wheat's roots are meant to slow the first hand-off, so that more ammonium stays where the plant can take it up.</p>
         <p data-at="35" class="amber">Until now the evidence was one bacterium in a dish and one day in a field.</p>
         <p class="note" data-at="39">The wild grass is Leymus racemosus; the BNI wheat is Munal-BNI, the control wheat Munal-control, the same wheat without the segment (Subbarao et al., PNAS). The earlier evidence: root exudates slowed one ammonia-oxidising bacterium in a culture; one field sampling found more nitrogen in the plant and fewer ammonia-oxidising archaea.</p>`)}`,
     trial: `<h2 data-at="0.6">The field trial</h2>
@@ -234,26 +234,26 @@ function buildStory() {
         <div class="facts">${fact(52, LINE_COL[0], n1(oB), 'ppm at the peak, BNI wheat')}${fact(53.5, LINE_COL[1], n1(oC), `control wheat, day ${d1}`)}</div>
         <p class="note" data-at="57">Fertilised soil, read off the slides (${esc(F.incubation.replace(/ \(slide text\)$/, ''))}). An open question: the data's own N2O value, "the potential amount of produced nitrous oxide" (unit not given), shows no clear difference over the season (${F.n2oMeta[0].toFixed(2)} against ${F.n2oMeta[1].toFixed(2)}, ${pTxt(F.n2oMeta[2])}); how the two measurements relate is not known yet.</p>`)}`,
     crowd: `<h2 data-at="0.6">A crowd of ${thousands(F.kinds)}</h2>
-      ${turns(`<p data-at="1.2" data-out="23.5">A spoonful of this soil holds about ${thousands(F.kinds)} kinds of microbe.</p>
+      ${turns(`<p data-at="1.2" data-out="23.5">Across the ${fmt(F.samples)} samples, this soil holds about ${thousands(F.kinds)} kinds of microbe, some ${fmt(Math.round(F.perSample / 100) * 100)} in a typical sample.</p>
         <p data-at="9" data-out="23.5" class="amber">${fmt(F.common)} of them make up ${pct(F.readShare)} of the DNA read.</p>`,
       `<p data-at="24">Fertiliser roughly doubles one ammonia-eating bacterium, Nitrosospira.</p>
-        <p data-at="31">The wheat line changes nothing that can be measured: only ${word(F.byLine)} of the ${fmt(F.common)} common kinds differ between the two wheats.</p>
+        <p data-at="31">The wheat line barely shows: only ${word(F.byLine)} of the ${fmt(F.common)} common kinds differ between the two wheats.</p>
         <div class="facts">${fact(38, FERT_COL[1], fmt(F.byFert), 'differ by fertiliser')}${fact(39.5, GREY, fmt(F.byTime), 'by date')}${fact(41, LINE_COL[0], fmt(F.byLine), 'by wheat line')}</div>
         <p class="note" data-at="44">Kinds of microbe: amplicon sequence variants (ASVs) from 16S rRNA gene reads, numbered by abundance. Nitrosospira: ${F.nitrosospira.map(v => v.toFixed(2)).join(', ')} % of reads without fertiliser, with it, with DCD. Gene counts of the ammonia oxidisers (qPCR, read off the slides) differ little between the wheats (one marginal p = ${F.qpcrP}).</p>`)}`,
     together: `<h2 data-at="0.6">Who rises together</h2>
       ${turns(`<p data-at="1.2" data-out="30.5">Link two kinds of microbe when their numbers rise and fall together across the samples.</p>
         <div class="facts">${fact(10, CYAN, fmt(F.nodes), 'kinds', 30.5)}${fact(11.5, CYAN, fmt(F.links), 'links', 30.5)}</div>
         <p data-at="19" data-out="30.5" class="amber">Shuffle the samples, and not one link is left: the pattern is real.</p>`,
-      `<p data-at="31" data-out="54.5">Its groups follow the fertiliser and the field's plots, not the wheat.</p>
+      `<p data-at="31" data-out="54.5">Its groups follow the fertiliser and the field's plots; the wheat barely shows.</p>
         <p class="note" data-at="40" data-out="54.5">About ${word(F.big)} big groups (modules): ${word(F.bigFert)} rise and fall with the fertiliser, ${word(F.bigPlot)} with the plots; the wheat line explains under ${Math.max(1, Math.ceil(F.lineR2 * 100))} % of any big group's ups and downs.</p>`,
       `<p data-at="55">Split by wheat line, the two networks differ no more than two random halves of the samples do.</p>
         <p data-at="64" class="amber">And rising together is not working together.</p>
         <p class="note" data-at="67">Built for this story, not the authors' analysis: the ${fmt(F.common)} common kinds, centred log-ratios, Spearman's correlation of at least 0.6 (false discovery rate under 5 %), Louvain modules. Each half's own network: ${fmt(F.lineLinks[0])} and ${fmt(F.lineLinks[1])} links; ${fmt(F.randomN)} random halves differ by ${fmt(F.randomDiff[0])} to ${fmt(F.randomDiff[1])}.</p>`)}`,
     know: `<h2 data-at="0.6">What we know</h2>
-      ${turns(`<p data-at="1.2" data-out="24.5">There are strong indications that the BNI wheat holds on to nitrogen in the soil, and it leaves the soil's microbes undisturbed.</p>
+      ${turns(`<p data-at="1.2" data-out="24.5">There are strong indications that the BNI wheat stays greener and loses less nitrate, and that the soil's microbe community and network show no clear change from the wheat line.</p>
         <p data-at="10" data-out="24.5" class="amber">It is not yet proof.</p>
         <p data-at="14" data-out="24.5">Next: following marked nitrogen atoms through soil, microbe and plant, and reading which microbial genes are switched on.</p>`,
-      `<p class="note" data-at="25">Marked atoms: isotope studies (15N); genes switched on: metatranscriptomics. Open questions remain, such as how the two N2O measurements relate.</p>
+      `<p class="note" data-at="25">Marked atoms: isotope studies (15N); genes switched on: metatranscriptomics. Still open: the jars show far less nitrous oxide from the BNI wheat's soil, while the data's own N2O value shows no clear difference over the season (${F.n2oMeta[0].toFixed(2)} against ${F.n2oMeta[1].toFixed(2)}, ${pTxt(F.n2oMeta[2])}); how the two measurements relate is not known yet.</p>
         <p data-at="28"><button class="btn primary" id="btnGoExplore" type="button">Explore the trial</button></p>
         <p class="credits" data-at="29">After the slides by ${AUTH} (University of Vienna; University of Thessaly; Université Lyon 1; JIRCAS, Japan). The BNI wheat: Subbarao et al., PNAS.</p>
         <p class="credits" data-at="30">The trial's data used with the authors' permission. The soil block, the relay, the chromosome and the field's layout are illustrative.</p>`)}`,
