@@ -359,13 +359,13 @@ const pointAt = (page, t) => page.evaluate(t => {
 }, t);
 // walk a pretend headset to station s: after a second there its story starts (frames go on until it has), and
 // takes over the session as a story does in its init (xrAdopt). Returns whether it switched, and not too early.
-async function walk(page, s, story, yaw) {
+async function walk(page, s, story, yaw, ms) {
   await page.evaluate(h => window.__xr.head(h), headAt(s, yaw));
   await frames(page, 500);
   const early = await page.evaluate(k => HOST.curKey === k, story);
   let ok = false;
   for (let i = 0; i < 40 && !ok; i++) { await frames(page, 300); ok = await page.evaluate(k => HOST.curKey === k, story); }
-  ok = ok && await ready(page, story, 40000);
+  ok = ok && await ready(page, story, ms || 40000);   // (ms: a scene story on a machine busy with other pages loads slowly)
   if (ok) { await page.evaluate(() => HOST.cur.peek('xrAdopt()')); await frames(page, 200); }
   return ok && !early;
 }
@@ -1199,7 +1199,7 @@ async function headsetRound(dir) {
     check('round: before any circle the headset sees every station\'s card, icon and ring, and draws everyone', r0.away && !r0.mine && r0.cards.every(Boolean) && r0.icons.every(Boolean) &&
       r0.rings.every(Boolean) && p0.every(Boolean), JSON.stringify({ r0, p0 }));
     // in its circle: the others' rings only; only the people at its circle drawn
-    const in1 = await walk(H, S1, K1, 0);
+    const in1 = await walk(H, S1, K1, 0, 150000);
     // (its station in explore mode, so its scene shows in the pictures)
     await A.evaluate(id => HOST.collab.publish([['st.' + id + '.play', { mode: 'explore', t: 0, playing: false, at: Math.round(HOST.collab.now()) }]]), S1.id);
     await until(H, () => { window.__xr.step(); return HOST.cur.peek('APP.mode') === 'explore'; }, null, 8000);
@@ -1252,7 +1252,7 @@ async function headsetRound(dir) {
     await frames(H, 1500);
     const out = await H.evaluate(() => { HOST.cur.peek('xrUpdate(APP.mode === "story" ? storyState(storyT(APP.t)) : XS)'); return { mine: HOST.collab.mine(), key: HOST.curKey, away: HOST.room.away(), world: HOST.cur.peek('GL.world.visible') }; });
     check('round: walked out of its circle the headset stays in its story (its station, shown)', out.mine === S1.id && out.key === K1 && !out.away && out.world, JSON.stringify(out));
-    const in2 = await walk(H, S2, HEADSET_STORY, 0), m3 = await H.evaluate(() => HOST.collab.mine());
+    const in2 = await walk(H, S2, HEADSET_STORY, 0, 150000), m3 = await H.evaluate(() => HOST.collab.mine());
     check('round: walking into another circle switches to its story', in2 && m3 === S2.id, JSON.stringify({ in2, m3 }));
     // the circles lock: the grip on another station's ring and Arrange all refused; the grip at its own station free (the
     // flock is life size: its panel), and its story's lock still set from the menu
@@ -1288,7 +1288,7 @@ async function headsetRound(dir) {
       lockedG.locked && !lockedG.grabbed && /locked/.test(lockedG.hint) && !!kv && kv.v.lock === true && kv.v.story === HEADSET_STORY, JSON.stringify({ lockedG, ui: kv && kv.v }));
     const un = await menu('lock'), unA = un && await until(A, () => !HOST.collab.locked, null, 3000);
     // at another circle nothing is locked; a page's dialog locks that one (Lock story), and unlocks both
-    const in3 = await walk(H, S1, K1, 0), other = await tryGrip('globe'), s2still = await B.evaluate(id => HOST.collab.stationLock(id), S2.id);
+    const in3 = await walk(H, S1, K1, 0, 150000), other = await tryGrip('globe'), s2still = await B.evaluate(id => HOST.collab.stationLock(id), S2.id);
     check('round: the menu\'s Lock circles unlocks the circles for everyone; at another circle the scene and panel grips are free (only the locked story\'s circle is locked)',
       unA && in3 && !other.locked && other.grabbed && s2still, JSON.stringify({ un, unA, in3, other, s2still }));
     const dl = await B.evaluate(async id => {
