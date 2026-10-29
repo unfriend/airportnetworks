@@ -1,4 +1,4 @@
-// Headless smoke test for the fifteen stories.
+// Headless smoke test for the fifteen stories and the design room.
 //   node tools/smoke.mjs [base-url]     (default http://127.0.0.1:8123/)
 // Serve the folder first (npx http-server -p 8123 -c-1 .). Needs Playwright;
 // set PLAYWRIGHT_MODULE to its path if it is installed globally, and
@@ -716,6 +716,105 @@ for (const key of ['airports', 'proteins', 'spatial', 'lbi', 'nmd', 'endo', 'pet
   }));
   await page.click('#btnOther');
 }
+// The design room (#design, not one of the stories: not on the Stories screen): every miniature built on the table, a
+// click putting one on the stage with its card as tools/design/props.json has it, the shared state (a miniature moved
+// by a pretend headset's grip, both grips sizing it, apply(state()) giving the same state back, Tidy), the headset panels
+await step('design: not on the Stories screen; #design opens the table and all 45 miniatures are built', async () => {
+  if (await page.$('#picker [data-story="design"]')) errors.push('design: the design room has a card on the Stories screen');
+  if (await page.evaluate(() => HOST.list.some(s => s.key === 'design') || HOST.count() !== 'fifteen')) errors.push('design: the design room is in the list of stories');
+  await page.evaluate(() => HOST.start('design'));
+  await page.waitForFunction(() => HOST.curKey === 'design' && HOST.cur && HOST.cur.peek('typeof GL !== "undefined" && !!XR.panelGroup && GL.sets.table.built() === GL.sets.table.total()'), null, { timeout: 60000 });
+  const n = await page.evaluate(() => [HOST.cur.peek('GL.sets.table.total()'), HOST.cur.peek('APP.mode'), location.hash, document.title]);
+  if (n[0] !== 45 || n[1] !== 'explore' || n[2] !== '#design' || !/design room/i.test(n[3])) errors.push('design: ' + JSON.stringify(n) + ' (not 45 miniatures in explore mode at #design)');
+});
+await step('design: a click on a miniature puts it on the stage, its card matching props.json', async () => {
+  const fs = await import('fs');
+  const props = JSON.parse(fs.readFileSync(new URL('./design/props.json', import.meta.url), 'utf8'));
+  await page.evaluate(() => HOST.cur.peek('(showView("default"), orbit.cur = orbit.to, orbit.to = null, 0)'));
+  await page.waitForTimeout(400);
+  // a miniature the mouse can reach (clear of the side panel), found by the same ray as the click
+  const at = await page.evaluate(() => HOST.cur.peek(`(() => { const pr = $('#panel').getBoundingClientRect();
+    for (const k of GL.sets.table.keys()) { const m = GL.sets.table.mini(k), v = m.holder.getWorldPosition(new THREE.Vector3()); v.y += 0.05; v.project(GL.camera);
+      const x = (v.x * 0.5 + 0.5) * innerWidth, y = (-v.y * 0.5 + 0.5) * innerHeight;
+      if (x > pr.right + 30 && x < innerWidth - 30 && y > 80 && y < innerHeight - 80 && miniAt(x, y) === k && GL.sets.table.plateOf(DESIGN_CARDS[k].story)) return [k, x, y]; }
+    return null; })()`));
+  if (!at) { errors.push('design: no miniature to click in view'); return; }
+  await page.mouse.move(at[1], at[2]); await page.waitForTimeout(150);
+  if (await page.evaluate(() => HOST.cur.peek('GL.sets.table.hovered()')) !== at[0]) errors.push('design: the mouse over ' + at[0] + ' did not light it');
+  await page.mouse.click(at[1], at[2]); await page.waitForTimeout(300);
+  const got = await page.evaluate(() => { const c = document.querySelector('#pane-prop .dz-card'); return { pick: HOST.cur.peek('X.pick'), tab: HOST.cur.peek('X.tab'), stage: HOST.cur.peek('!!GL.sets.table.stageModel()'),
+    card: c && { key: c.dataset.key, params: +c.dataset.params, views: +c.dataset.views, text: c.textContent, rows: c.querySelectorAll('.dz-params tr').length, li: c.querySelectorAll('.dz-views li').length } }; });
+  if (got.pick !== at[0] || got.tab !== 'prop' || !got.stage || !got.card || got.card.key !== at[0]) errors.push('design: the click did not put ' + at[0] + ' on the stage with its card: ' + JSON.stringify(got).slice(0, 300));
+  // every card against the catalogue: params, views and the source file (the hand-written stories: none, their file)
+  const bad = await page.evaluate(() => HOST.cur.peek(`(() => { const out = []; for (const k of CARD_KEYS) { pickProp(k); const c = document.querySelector('#pane-prop .dz-card');
+    out.push([k, +c.dataset.params, +c.dataset.views, c.querySelectorAll('.dz-params tr').length, c.querySelectorAll('.dz-views li').length, c.textContent.includes(DESIGN_CARDS[k].file)]); } return out; })()`));
+  for (const [k, np, nv, rows, li, file] of bad) {
+    const [st, key] = k.split('.'), e = props.sets.find(x => x.story === st && x.key === key), hw = props.handwrittenStories.find(x => x.story === st);
+    const want = e ? [e.params.length, e.views.length, e.file] : hw ? [0, 0, hw.file] : null;
+    if (!want || np !== want[0] || nv !== want[1] || rows !== np || li !== nv || !file) errors.push(`design: ${k}'s card has ${np} params (${rows} rows), ${nv} views (${li}), file shown ${file}; props.json: ${JSON.stringify(want)}`);
+  }
+  await page.evaluate(k => HOST.cur.peek(`pickProp('${k}')`), at[0]);
+});
+await step('design: a pretend headset picks a miniature up, both grips size it; shared state, apply and Tidy', async () => {
+  const bad = await page.evaluate(() => HOST.cur.peek(`(() => {
+    const out = [], T = GL.sets.table, k = 'pet.scan', m = T.mini(k), same = () => { const a = JSON.stringify(collabState()); collabApply(JSON.parse(a)); return JSON.stringify(collabState()) === a; };
+    T.tidy(); for (let i = 0; i < 200; i++) T.update(XS, 0, 0.05);
+    if (Object.keys(collabState()).join() !== 'pick' || !same()) out.push('at rest the state is not just the pick, or apply changed it: ' + JSON.stringify(collabState()));
+    XR.on = true; GL.world.updateMatrixWorld(true);
+    const ctl = (c, p) => { c.src = { targetRayMode: 'tracked-pointer', gamepad: null }; c.g.visible = true; c.g.matrix.compose(new THREE.Vector3(...p), new THREE.Quaternion(), new THREE.Vector3(1, 1, 1)); c.o.setFromMatrixPosition(c.g.matrix); };
+    const [a, b] = XR.ctrls, w0 = m.holder.getWorldPosition(new THREE.Vector3());
+    ctl(a, [w0.x, w0.y + 0.2, w0.z + 0.3]); a.hover = { kind: 'mini', key: k }; xrGrab(a, true);
+    if (!a.grab || a.grab.key !== k) out.push('the grip did not take the miniature');
+    ctl(a, [w0.x + 0.3, w0.y + 0.4, w0.z + 0.3]); carry(a, 0.016);
+    const w1 = m.holder.getWorldPosition(new THREE.Vector3());
+    if (Math.abs(w1.x - w0.x - 0.3) > 1e-3 || Math.abs(w1.y - w0.y - 0.2) > 1e-3) out.push('the miniature did not follow the hand: moved ' + w1.clone().sub(w0).toArray().map(v => v.toFixed(3)));
+    const s1 = collabState()[k];
+    if (!s1 || !same()) out.push('a miniature in the hand is not in the state, or apply changed it: ' + JSON.stringify(s1));
+    // the other hand takes it too: both size it with the distance between them
+    ctl(b, [w1.x + 0.1, w1.y, w1.z]); b.hover = { kind: 'mini', key: k }; xrGrab(b, true);
+    ctl(a, [w1.x - 0.1, w1.y, w1.z]); carry(a, 0.016); carry(b, 0.016);
+    ctl(b, [w1.x + 0.2, w1.y, w1.z]); ctl(a, [w1.x - 0.2, w1.y, w1.z]); carry(a, 0.016); carry(b, 0.016);
+    if (Math.abs(m.s - 2) > 0.01) out.push('both grips did not size it twice as big: ' + m.s);
+    xrGrab(b, false); xrGrab(a, false);
+    const r = m.rec;
+    if (!r || Math.abs(r[7] - 2) > 0.01 || m.carry) out.push('let go, it did not stay where it was put: ' + JSON.stringify(r));
+    for (let i = 0; i < 30; i++) T.update(XS, 0, 0.05);
+    if (!same() || JSON.stringify(collabState()[k]) !== JSON.stringify(r)) out.push('the moved miniature: its state does not come back the same');
+    // from the room: another miniature moved, and back home
+    const st = collabState(); st['flock.flock'] = [0.5, 1.2, 0.4, 0, 0, 0, 1, 1.5]; collabApply(st);
+    if (JSON.stringify(collabState()['flock.flock']) !== '[0.5,1.2,0.4,0,0,0,1,1.5]' || !same()) out.push('a miniature moved in the room was not taken');
+    collabApply({ pick: 'lbi.atp' });
+    if (collabState().pick !== 'lbi.atp' || 'flock.flock' in collabState() || k in collabState()) out.push('a state from the room without the moved miniatures did not send them home: ' + JSON.stringify(collabState()));
+    collabApply(st); tidyTable();
+    if (Object.keys(collabState()).join() !== 'pick') out.push('Tidy left moved miniatures in the state');
+    // bad values are ignored
+    collabApply({ pick: 'nope.nope', 'pet.scan': [1, 2, 3], 'lbi.int': [0, 0, 0, 0, 0, 0, 0, 9] });
+    if (JSON.stringify(collabState()) !== '{"pick":"lbi.atp"}') out.push('bad values were taken: ' + JSON.stringify(collabState()));
+    for (const c of XR.ctrls) { c.src = null; c.g.visible = false; c.hover = null; c.grab = null; }
+    XR.on = false; setHover(null);
+    return out;
+  })()`));
+  if (bad.length) errors.push(...bad.map(b => 'design: ' + b));
+});
+await step('design: explore mode and headset panels', () => page.evaluate(() => HOST.cur.peek(`(() => {
+  APP.enterExplore();
+  document.querySelectorAll('.tabs button').forEach(b => b.click());
+  XR.on = true;
+  for (const tab of ['prop', 'all']) { pickTab(tab); for (const P of XR.panels) { P.last = ''; P.t = -1e9; panelTick(P, performance.now() + 1e6); } }
+  if (XR.main.regions.some(r => r.id === 'exit')) throw new Error('Exit is on the story panel (it belongs in the menu on the left wrist)');
+  if (!XR.main.regions.some(r => r.id === 'pick:lbi.int') && !XR.main.regions.some(r => r.id.startsWith('pick:'))) throw new Error('no props to pick on the headset panel');
+  XR.stories = true;
+  for (const P of XR.panels) { P.last = ''; P.t = -1e9; panelTick(P, performance.now() + 1e6); }
+  XR.soundCheck = true; xrUpdate(storyState(0));
+  for (const P of XR.panels) { P.last = ''; P.t = -1e9; panelTick(P, performance.now() + 1e6); }
+  if (!XR.snd.mesh.visible || XR.land[1].mesh.visible) throw new Error('Sound check panel not shown in place of the cards');
+  XR.soundCheck = false; XR.stories = false; XR.on = false;
+  APP.enterStory(0); APP.seek(T_END - 0.1); APP.playing = true;
+})()`)));
+await step('design: the intro ends at the table', async () => {
+  await page.waitForFunction(() => HOST.cur.peek('APP.mode') === 'explore', null, { timeout: 20000 }).catch(() => errors.push('design: the intro did not end in explore mode'));
+  await page.evaluate(() => HOST.openPicker());
+});
 // Repeat on the Stories screen: one story again and again, or all of them in turn (the last leads to the first)
 await step('Repeat one and Repeat all', async () => {
   const ready = k => page.waitForFunction(k => HOST.curKey === k && !HOST.picking && HOST.cur && HOST.cur.peek('typeof ST !== "undefined" && ST.items.length > 0'), k, { timeout: 30000 });

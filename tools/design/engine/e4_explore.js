@@ -6,7 +6,7 @@
 const TABS = [['prop', 'Prop'], ['all', 'All props']];
 const X = { tab: 'all', pick: '', story: STORIES.length ? STORIES[0].key : '', viewName: 'default', minis: 'loading', t0: 0 };
 const XS = {};
-const orbit = { cur: [0, 34, 3.5, 0, 0.72, 0.1], from: null, to: null, t0: 0, dur: 1.4 };
+const orbit = { cur: [0, 38, 4.3, 0, 0.66, 0.05], from: null, to: null, t0: 0, dur: 1.4 };
 
 function exploreTargets() {
   const out = {};

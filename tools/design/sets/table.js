@@ -73,7 +73,7 @@ SETS.table = function (K) {
     cardsTex.needsUpdate = true;
   }
   // groups: [{ key, col, kick, title, keys: [miniature keys] }] in their order round the table, from the front (+z),
-  // the viewer's side, round to the left. Each story's share of the rim grows with its count; its miniatures stand on
+  // the viewer's side, round to the right. Each story's share of the rim grows with its count; its miniatures stand on
   // rings from the rim inwards, 16 cm apart
   function layout(G) {
     groups = G;
@@ -81,10 +81,10 @@ SETS.table = function (K) {
     cardsCv = document.createElement('canvas'); cardsCv.width = 512; cardsCv.height = 128 * Math.max(1, G.length);
     cardsTex = keep(new THREE.CanvasTexture(cardsCv)); cardsTex.anisotropy = 4;
     const cardMat = basic({ map: cardsTex }), backMat = std({ color: 0x0b1526 });
-    let a = unit * (G[0] ? (G[0].keys.length + 1.2) / 2 : 0);   // the first story's middle at the front
+    let a = -unit * (G[0] ? (G[0].keys.length + 1.2) / 2 : 0);   // the first story's middle at the front
     G.forEach((g, gi) => {
-      const span = unit * (g.keys.length + 1.2), a1 = a, a0 = a - span, mid = (a0 + a1) / 2, m = 0.018;
-      a -= span;
+      const span = unit * (g.keys.length + 1.2), a0 = a, a1 = a + span, mid = (a0 + a1) / 2, m = 0.018;
+      a += span;
       // fill the rings from the rim inwards
       const slots = [];
       let left = g.keys.length, ri = 0, rin = RINGS[0];
@@ -245,7 +245,7 @@ SETS.table = function (K) {
     },
     labels: [],
     // views [az, el, dist, tx, ty, tz]: the whole table from the front, the stage close, from above
-    cam: { default: [0, 34, 3.5, 0, 0.72, 0.1], stage: [0, 16, 1.35, 0, STAGE_Y + 0.17, 0], above: [0, 78, 3.6, 0, TOP, 0] },
+    cam: { default: [0, 38, 4.3, 0, 0.66, 0.05], stage: [0, 16, 1.35, 0, STAGE_Y + 0.17, 0], above: [0, 78, 3.6, 0, TOP, 0] },
     controls: [], explore: () => ({}),
     // the table's own
     layout, feed, buildSome, built, total: () => order.length, keys: () => order.slice(), drawCards,

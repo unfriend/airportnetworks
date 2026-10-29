@@ -436,7 +436,8 @@ function drawExplorePane(ctx, P, x, y, W) {
   y += 78;
   if (X.minis === 'failed') textBlock(ctx, 'The models could not be loaded: the cards still work.', x, bottom - 30, W, 21, 28, VC.amber, 400, 1);
   else if (T.built() < T.total()) textBlock(ctx, `Laying the table: ${T.built()} of ${T.total()} models.`, x, bottom - 30, W, 21, 28, VC.faint, 400, 1);
-  if (X.tab === 'prop') drawCardPane(ctx, P, x, y, W, bottom - 40); else drawAllPane(ctx, P, x, y, W, bottom - 40);
+  const foot = X.minis === 'failed' || T.built() < T.total() ? 40 : 0;   // (room for the line above)
+  if (X.tab === 'prop') drawCardPane(ctx, P, x, y, W, bottom - foot); else drawAllPane(ctx, P, x, y, W, bottom - foot);
 }
 function drawCardPane(ctx, P, x, y, W, bottom) {
   const k = X.pick;
