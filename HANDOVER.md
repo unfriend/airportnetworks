@@ -144,13 +144,40 @@ Before handing over (or making anything more public), someone has to decide thes
      with a German voice and subtitles: about 1.5 to 2 days of agent work; explore mode in German too: about 1 to 1.5
      days more. In a shared room everyone keeps one timeline, so each stretch lasts the longer of its two languages (as
      the pass story, already in English and German, does);
-   - **circles that load code from a link** (on hold; the design agreed, not to build yet): a station whose story is
-     code from a web page, loaded into the running room, with a question once per address on each device before it
-     runs. A whole other page cannot run inside the headset session, so it has to be a story file the shell loads;
-     placing such circles at office scale; a walk test with headsets first;
-   - **"follow a person" and "see through their eyes" for laptops** (proposed, not decided; not built): a laptop in a
-     room follows whichever circle a chosen headset wearer stands in, switching as they walk; later perhaps its camera
-     follows that wearer's head at their circle (a view for a projector);
+   - **The queue** (the owner, 29 October 2026), in this order: the design room, part 2 (1 to 1.5 h); a loading bar
+     (2 to 3 h, alongside); rooms on this network (2.5 to 3.5 h); follow a person (about 1 h); then a test round and a
+     release (about 1 h). About 6 to 7 hours of agent work in two lanes, 5 to 6M tokens. Each is described below;
+   - **circles that load code from a link** (on hold, the owner, 29 October 2026; the design agreed, not to build
+     yet). The owner's aim: the whole office as one shared room, where colleagues add circles of their own, with their
+     own logic, from a web page or a GitHub repository. How: a station whose story is a script from a web address
+     (their own site, GitHub Pages or jsDelivr), loaded into the running page as our stories are, so nobody leaves AR;
+     it gets the circle, the room's clock, the controllers and hands, a shared state, subtitles and the people. A whole
+     other web page cannot run inside the headset session (one page owns it; opening another ends it), so their page
+     carries one script written for the circle; a starter template that also runs on its own as a normal page. Trust:
+     the code runs with the app's rights on each device (it can see the room's people and positions and move circles),
+     so each device asks once per address ("Load code from this address? It can see and change this room") and the
+     circle shows where its code comes from; a sealed sandbox for strangers' code is a bigger step (about 2 days). Also:
+     "Add a circle from a link" in the page's Shared dialog (the headset lists the room's saved links), a `FORMAT`
+     bump, tests with a local example circle. Office scale: "Add a circle here" where you stand and an office-sized
+     room map; a walk test with a headset first (does one calibration hold across rooms and doorways; Quest's
+     passthrough outside the scanned room). About 5 to 6 hours, plus 1 to 2 hours for office-scale placing;
+   - **rooms on this network** (queued, before follow a person; the owner, 29 October 2026). Browsers cannot search
+     the local network, so devices meet through the address they share on the internet: the relay lists the rooms
+     started from the asking device's address (on a laptop relay, its local network); without a relay, devices learn
+     their network's public address from the STUN server and meet at a lobby named after a hash of it on the
+     introduction server. The Shared dialog and the headset's menu list *Rooms on this network* (code, host, people);
+     one press joins. **The owner's priority:** a device rejoins a room it was already in by itself when it finds it on
+     its network (after a restart, the next day), and never joins a new room by itself (one public address can hold
+     strangers: eduroam, a campus, conference Wi-Fi). Not found, on the network where it was last used: the device
+     starts the room again from its own copy, so the others find it (the code is unique: two at once do not split it; a
+     headset that hosts hands it to the first laptop); on another network, one button, *Start room XYZ again*. A
+     device remembers 8 rooms for a week; the most recent wins. A switch per room, *Show on this network*. About 2.5 to
+     3.5 hours;
+   - **follow a person** (queued; the owner, 29 October 2026): a laptop in a room follows whichever circle a chosen
+     headset wearer stands in, switching as they walk (people without a headset follow a guide). About 1 hour;
+   - **see through their eyes** (optional, later; the owner, 29 October 2026): a laptop's camera follows that wearer's
+     head at their circle (a view for a projector). About 3 to 4 hours (each story places its scene differently in a
+     headset);
    - **the design room, part 2**: a *Design room* button in the headset's menu, the table as a circle (a station) in a
      shared room, and the stations' icons made from the miniatures instead of their own models. Part 1 (the table) is
      built (AGENTS.md "The design room"). Of the first plan (a catalogue of the props, a player for stories written as
