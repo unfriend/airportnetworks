@@ -61,7 +61,6 @@ var LOWPOLY_MODELS = LOWPOLY_MODELS || {};
         if (x * (a[3] + b[3] + c[3]) + y * (a[4] + b[4] + c[4]) + z * (a[5] + b[5] + c[5]) < 0) { const t = b; b = c; c = t; }
         P.push(a[0], a[1], a[2], b[0], b[1], b[2], c[0], c[1], c[2]); N.push(a[3], a[4], a[5], b[3], b[4], b[5], c[3], c[4], c[5]);
       },
-      flat(a, b, c) { const n = norm3(cross([b[0] - a[0], b[1] - a[1], b[2] - a[2]], [c[0] - a[0], c[1] - a[1], c[2] - a[2]])); this.tri([...a, ...n], [...b, ...n], [...c, ...n]); },
     };
   }
   function surf(nu, nv, f, m) {                  // a grid of nu x nv cells, f(u, v) -> [x, y, z, nx, ny, nz]
@@ -119,7 +118,7 @@ var LOWPOLY_MODELS = LOWPOLY_MODELS || {};
   }
   const box = (w, h, d, p, r) => at(boxF(w, h, d), p, r);
   const sph = (rad, ws, hs, p, s, r) => at(sphF(rad, ws, hs), p, r, s);
-  const ico = (rad, det, p, s) => at(icoF(rad), p, null, s);
+  const ico = (rad, p, s) => at(icoF(rad), p, null, s);
   const cyl = (rt, rb, h, n, p, r, open) => at(cylF(rt, rb, h, n, 1, open), p, r);
   const tor = (R, r, rs, ts, p, rot, arc) => at(torF(R, r, rs, ts, arc || Math.PI * 2), p, rot);
   const disc = (rad, n, p, r) => at(discF(rad, n), p, r);
@@ -336,7 +335,7 @@ var LOWPOLY_MODELS = LOWPOLY_MODELS || {};
     for (const [x, y, z, n, d0, len] of hubs) {
       const a0 = r() * 6.28;
       for (let k = 0; k < n; k++) { const a = a0 + 6.2832 * k / n; grow([x, y, z], flat([Math.cos(a), (r() - 0.5) * 0.8, Math.sin(a)]), len, d0); }
-      b.add('glow', ico(d0 ? 0.02 : 0.032, 0, [x, y, z]), '#fff6dc');
+      b.add('glow', ico(d0 ? 0.02 : 0.032, [x, y, z]), '#fff6dc');
       if (!d0) b.add('haze', sph(0.065, 6, 4, [x, y, z]), '#ffcf70');            // the white-hot glow of a big hub
     }
     for (const [i, j] of [[0, 1], [0, 4], [1, 3], [2, 5]]) b.add('soft', rod(hubs[i], hubs[j], 0.003, 0.003, 3), '#d8763a');
@@ -438,18 +437,18 @@ var LOWPOLY_MODELS = LOWPOLY_MODELS || {};
     b.add(G, rod(E(0, [-0.04, 0.005, 0]), E(0, [0.04, 0.09, 0]), 0.011, 0.011, 4), '#3ee08f');                  // DNA bases
     b.add(G, rod(E(0, [0.04, 0.005, 0]), E(0, [-0.04, 0.09, 0]), 0.011, 0.011, 4), '#ff5a4b');
     for (const y of [0.025, 0.07]) b.add(G, rod(E(0, [-0.03, y, 0]), E(0, [0.03, y, 0]), 0.008, 0.008, 4), y < 0.05 ? '#ffb43b' : '#4f9dff');
-    b.add(G, ico(0.045, 0, E(1, [0, 0.05, 0]), [1, 1.15, 1]), '#3a7bd5');                                       // a protein
+    b.add(G, ico(0.045, E(1, [0, 0.05, 0]), [1, 1.15, 1]), '#3a7bd5');                                       // a protein
     b.add(G, rod(E(1, [0.03, 0.07, 0]), E(1, [0.07, 0.095, 0.01]), 0.008, 0.005, 4), '#ffd23a');
     b.add(G, cyl(0.032, 0.032, 0.025, 6, E(2, [0, 0.014, 0])), '#ec8396');                                     // a complex
     b.add(G, rod(E(2, [0, 0.025, 0]), E(2, [0, 0.05, 0]), 0.009, 0.009, 4), '#5adcc7');
     b.add(G, sph(0.034, 6, 4, E(2, [0, 0.068, 0])), '#1db0a2');
     b.add(G, sph(0.04, 6, 4, E(3, [0, 0.04, 0]), [1.7, 0.8, 0.8]), '#ffa36b');                                 // a mitochondrion
     b.add('haze', sph(0.052, 6, 4, E(4, [0, 0.052, 0])), '#7fe3ff');                                          // a cell
-    b.add(G, ico(0.022, 0, E(4, [0, 0.052, 0])), '#b98bff');
+    b.add(G, ico(0.022, E(4, [0, 0.052, 0])), '#b98bff');
     b.add(G, cyl(0.052, 0.052, 0.03, 6, E(5, [0, 0.016, 0])), '#f19aa7');                                      // tissue
     for (const s of [-1, 1]) b.add(G, sph(0.042, 6, 4, E(6, [0.022 * s, 0.045, 0]), [0.8, 0.85, 1.15]), '#f2a7b5');   // a brain
     b.add(G, cyl(0.015, 0.022, 0.065, 6, E(7, [0, 0.035, 0])), '#e2eaf6');                                      // the body
-    b.add(G, ico(0.017, 0, E(7, [0, 0.085, 0])), '#e2eaf6');
+    b.add(G, ico(0.017, E(7, [0, 0.085, 0])), '#e2eaf6');
   });
 
   add('lbi.body', 'PET body network', 'A whole-body PET scan in glowing hot-iron colours, with the network of its organs wound round it.', b => {
@@ -462,7 +461,7 @@ var LOWPOLY_MODELS = LOWPOLY_MODELS || {};
     b.add('glow', sph(0.032, 6, 4, add3(F, [0.035, 0.69, 0.06])), '#ff9a2a');     // heart
     b.add('glow', sph(0.028, 6, 4, add3(F, [0, 0.47, 0.055])), '#ffe680');        // bladder
     const N = [[0.3, 0.5], [1.4, 0.62], [2.4, 0.46], [3.3, 0.7], [4.3, 0.54], [5.3, 0.78], [0.8, 0.82], [2.9, 0.38]].map(([a, y]) => add3(F, [0.21 * Math.sin(a), y, 0.17 * Math.cos(a)]));
-    for (const p of N) b.add('glow', ico(0.018, 0, p), '#f6f8ff');
+    for (const p of N) b.add('glow', ico(0.018, p), '#f6f8ff');
     for (const [i, j] of [[0, 1], [1, 2], [2, 3], [3, 4], [4, 5], [5, 6], [6, 0], [0, 4], [7, 2]]) {
       const m = mul3(add3(N[i], N[j]), 0.5), out = norm3([m[0], 0, m[2]]);           // bands bow outwards round the body
       b.add('glow', tube([N[i], add3(m, add3(mul3(out, 0.07), [0, 0.03, 0])), N[j]], 6, 0.0045, 3), '#e9eef8');
@@ -565,7 +564,7 @@ var LOWPOLY_MODELS = LOWPOLY_MODELS || {};
     const B0 = [0, 0.36, 0], r = rng(6);
     b.add('glass', at(sphF(0.27, 12, 5, Math.PI / 2), B0, null, [1, 0.78, 0.85]), '#8fd0ff');   // the bouton
     b.add('glow', at(torF(0.27, 0.006, 3, 16, Math.PI * 2), B0, [Math.PI / 2, 0, 0], [1, 0.85, 1]), '#7fe3ff');
-    for (let i = 0; i < 16; i++) { const a = r() * 6.28, d = 0.2 * Math.sqrt(r()), p = [d * Math.cos(a), 0.385 + 0.12 * r() * r(), d * Math.sin(a) * 0.8]; b.add('glow', ico(0.022, 0, p), '#5d9dff'); }
+    for (let i = 0; i < 16; i++) { const a = r() * 6.28, d = 0.2 * Math.sqrt(r()), p = [d * Math.cos(a), 0.385 + 0.12 * r() * r(), d * Math.sin(a) * 0.8]; b.add('glow', ico(0.022, p), '#5d9dff'); }
     b.add('soft', sph(0.035, 6, 4, [-0.08, 0.5, -0.03], [2, 0.8, 0.8], [0, 0.4, 0.2]), '#e05ad0');   // a mitochondrion
     const AX = [[0, 0.56, 0], [-0.1, 0.7, -0.02], [-0.28, 0.84, -0.04], [-0.44, 0.95, -0.05]];
     b.add('glass', tube(AX, 8, 0.045, 6), '#7fc8ff');                            // the motor axon in its myelin
@@ -575,12 +574,12 @@ var LOWPOLY_MODELS = LOWPOLY_MODELS || {};
   add('endo.net', 'Protein network cloud', 'A deep cloud of proteins with the disease genes lit as seeds, their neighbourhoods joined by glowing arcs.', b => {
     const r = rng(12), C = [0, 0.52, 0], core = [];
     plinth(b, 0.28);
-    for (let i = 0; i < 16; i++) b.add('soft', octa(0.015, add3(C, mul3(unit(r), 0.29 + 0.11 * r()))), '#8ea4cf');
+    for (let i = 0; i < 15; i++) b.add('soft', octa(0.015, add3(C, mul3(unit(r), 0.29 + 0.11 * r()))), '#8ea4cf');
     for (let i = 0; i < 20; i++) { const p = mul3(unit(r), 0.21 * Math.cbrt(r())); core.push(p); b.add('glow', octa(0.017, add3(C, p)), mix('#9fb3ee', '#e4ebff', r())); }
     for (let i = 1; i < 20; i++) { let best = 0; for (let j = 0; j < i; j++) if (dist(core[i], core[j]) < dist(core[i], core[best])) best = j; b.add('soft', rod(add3(C, core[i]), add3(C, core[best]), 0.004, 0.004, 3), '#7f96d8'); }
     glowBall(b, C, 0.41, '#1c2c66', '#7f9ae8');                                  // the cloud's soft glow
     const S = [[0.14, 0.06, 0.05], [0.06, -0.1, 0.12], [-0.12, 0.08, 0.09], [-0.04, 0.15, -0.1], [0.13, -0.08, -0.08], [-0.15, -0.09, -0.04], [-0.17, -0.02, -0.02]].map(p => add3(C, p));
-    S.forEach((p, i) => { const pink = i >= 5; b.add('glow', ico(0.03, 0, p), pink ? '#ff5ad9' : '#ffb43b'); if (!pink) b.add('haze', sph(0.058, 6, 4, p), '#ffb43b'); });
+    S.forEach((p, i) => { const pink = i >= 5; b.add('glow', ico(0.03, p), pink ? '#ff5ad9' : '#ffb43b'); if (!pink) b.add('haze', sph(0.058, 6, 4, p), '#ffb43b'); });
     for (const [i, j] of [[0, 1], [1, 2], [2, 3], [5, 6]]) {
       const m = mul3(add3(S[i], S[j]), 0.5), out = norm3(add3(m, mul3(C, -1)));
       b.add('glow', tube([S[i], add3(m, mul3(out, 0.06)), S[j]], 6, 0.0055, 3), i === 5 ? '#ff5ad9' : '#ffc960');
@@ -602,7 +601,7 @@ var LOWPOLY_MODELS = LOWPOLY_MODELS || {};
       const h = Math.max(a.h || 0, c.h || 0) + 1, n = { x: -0.05 - 0.085 * h, y: (a.y + c.y) / 2, z: 0.03 * h, h, kids: [a, c] };
       b.add('soft', rod([n.x, a.y, n.z], [n.x, c.y, n.z], 0.004, 0.004, 4), '#5fd7c0');
       for (const k of n.kids) b.add('soft', rod([n.x, k.y, n.z], [k.x, k.y, k.z], 0.004, 0.004, 4), k.leaf ? k.c : '#5fd7c0');
-      b.add('glow', ico(0.015, 0, [n.x, n.y, n.z]), '#9ff5e2');
+      b.add('glow', ico(0.015, [n.x, n.y, n.z]), '#9ff5e2');
       return n;
     };
     node(0, 12, 0);
@@ -717,7 +716,7 @@ var LOWPOLY_MODELS = LOWPOLY_MODELS || {};
     LV.forEach(([y, R, c, n, s], l) => {
       b.add('glow', cyl(R, R, 0.006, 20, [0, y, 0], null, true), c);
       b.add('glass', disc(R, 20, [0, y, 0], [-Math.PI / 2, 0, 0]), c);
-      pos[l].forEach(p => b.add(l === 3 ? 'glow' : 'soft', l === 3 ? octa(s, p) : ico(s, 0, p), c));
+      pos[l].forEach(p => b.add(l === 3 ? 'glow' : 'soft', l === 3 ? octa(s, p) : ico(s, p), c));
     });
     const link = (l, i, j) => { const a = pos[l][i], c = pos[l + 1][j], ca = LV[l][2], cc = LV[l + 1][2];
       b.add('soft', rod(a, c, 0.004, 0.004, 3), (x, y) => mix(cc, ca, (y - c[1]) / (a[1] - c[1]))); };
@@ -745,4 +744,12 @@ var LOWPOLY_MODELS = LOWPOLY_MODELS || {};
     b.add('solid', rod(add3(Bn, [0, 0.11, -0.03]), add3(Bn, [0, 0.0, -0.04]), 0.022, 0.016, 6, false), '#e6c2b6');
   });
 
+  // triangles of each build, measured (the harness lists any that no longer match)
+  const TRIS = {
+    'lbi.int': 1192, 'lbi.mac': 940, 'lbi.web': 1104, 'lbi.dna': 1024, 'lbi.atp': 808, 'lbi.crowd': 996,
+    'lbi.sankey': 1056, 'lbi.scale': 800, 'lbi.body': 1048, 'lbi.tissue': 860, 'nmd.tower': 992, 'nmd.motor': 1022,
+    'nmd.hpc': 1012, 'endo.syn': 1108, 'endo.net': 1194, 'endo.tree': 760, 'pet.scan': 672, 'pet.organs': 1142,
+    'pet.liver': 976, 'micro.slide': 940, 'micro.atlas': 960, 'micro.hier': 1148, 'micro.organs': 856
+  };
+  for (const k in TRIS) LOWPOLY_MODELS[k].tris = TRIS[k];
 })();

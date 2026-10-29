@@ -62,7 +62,8 @@ keys.forEach((k, i) => {
   const x = (i % cols) * cw, y = Math.floor(i / cols) * ch;
   const lab = document.createElement('div'); lab.className = 'n';
   lab.style.left = x + 'px'; lab.style.width = cw + 'px'; lab.style.top = (y + ch - LH + 2) + 'px';
-  lab.innerHTML = `<b>${LOWPOLY_MODELS[k].name}</b><span>${k} · ${tris} tris · ${ms.toFixed(1)} ms</span>`;
+  const off = LOWPOLY_MODELS[k].tris !== tris ? ` <i style="color:#ff5a4b">(listed ${LOWPOLY_MODELS[k].tris})</i>` : '';
+  lab.innerHTML = `<b>${LOWPOLY_MODELS[k].name}</b><span>${k} · ${tris} tris${off} · ${ms.toFixed(1)} ms</span>`;
   document.body.appendChild(lab);
   const fr = document.createElement('div'); fr.className = 'cell'; Object.assign(fr.style, { left: x + 'px', top: y + 'px', width: cw + 'px', height: ch + 'px' }); document.body.appendChild(fr);
   cells.push({ g, cam, x, y, phase: i * 0.7 });
