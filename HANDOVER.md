@@ -222,6 +222,16 @@ Before handing over (or making anything more public), someone has to decide thes
    - **see through their eyes** (optional, later; the owner, 29 October 2026): a laptop's camera follows that wearer's
      head at their circle (a view for a projector). About 3 to 4 hours (each story places its scene differently in a
      headset);
+   - **a real-world-to-virtual slider** (later; the owner, 29 October 2026: "when I am in a circle I have a slider on
+     my watch where I can fade out the real world and fade into VR"): inside the same AR session, so the room's
+     alignment, the circle, the people, the sync and the sound carry on. A slider in the clock menu while at a circle
+     (*Real world ↔ Virtual*: drag with a fingertip or the ray, or steps of 0, 25, 50, 75 and 100 %) fades the story's
+     own surroundings in over the passthrough (the dark backdrop; the flock's dusk sky and land, the fish's sea, the
+     robots' model room), per headset and remembered per story. Safety: walking out of your circle (beyond about
+     1.5 m) fades the real world back in by itself, and stepping back in returns to the setting (the Quest may not show
+     its boundary in an AR session, and a room may hold ten people). Untested until tried on a headset: how partial
+     passthrough looks, and whether the boundary shows. About 2 to 3 hours (the slider, the same few lines in all
+     fifteen stories and the design room, tests, docs);
    - **the design room, part 2**: built (see "Where things stand": the menu's *Design room* button, the table as a
      circle in a shared room, the stations' icons from the miniatures). Part 1 (the table) is built too (AGENTS.md "The
      design room"). Of the first plan (a catalogue of the props, a player for stories written as
