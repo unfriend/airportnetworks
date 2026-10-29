@@ -26,15 +26,18 @@ function buildScene(canvas) {
   sg.setAttribute('position', new THREE.BufferAttribute(sp, 3)); sg.setAttribute('color', new THREE.BufferAttribute(sc, 3));
   GL.stars = new THREE.Points(sg, new THREE.PointsMaterial({ size: 1.3, sizeAttenuation: false, vertexColors: true }));
   scene.add(GL.stars);
-  // the sets themselves, all hidden until the story fades them in
+  // the sets themselves: each built on its own, a step of the load (buildSet, LOAD)
   GL.sets = {};
-  for (const k of SET_ORDER) {
-    const s = SETS[k](K);
-    GL.sets[k] = s;
-    GL.world.add(s.group);
-    s.setAlpha(0);
-  }
 }
+// one set, built as a step of the load (LOAD) and hidden until the story fades it in
+function buildSet(k) {
+  const s = SETS[k](K);
+  GL.sets[k] = s;
+  GL.world.add(s.group);
+  s.setAlpha(0);
+}
+// once every set is built (a step of the load): what joins them (nothing here)
+function sceneJoin() {}
 // show each set as far as S fades it in, and let the visible ones update (the hidden ones idle); in the story a set
 // may be turned to meet the camera (see buildCamera)
 function updateSets(S, t, dt, story) {

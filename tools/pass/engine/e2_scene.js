@@ -33,19 +33,22 @@ function buildScene(canvas) {
   GL.stars = new THREE.Points(sg, new THREE.PointsMaterial({ size: 1.3, sizeAttenuation: false, vertexColors: true }));
   GL.stars.material.transparent = true;
   scene.add(GL.stars);
-  // the sets themselves, all hidden until the story fades them in. The fish are life size: in a headset their holder
-  // undoes the scale and turn xrPlace gives GL.world for the globe and the cell (placeLife), so the school stays round
-  // you while the other sets float in front of you; on a screen it changes nothing
+  // the sets themselves: each built on its own, a step of the load (buildSet, LOAD). The fish are life size: in a
+  // headset their holder undoes the scale and turn xrPlace gives GL.world for the globe and the cell (placeLife), so the
+  // school stays round you while the other sets float in front of you; on a screen it changes nothing
   GL.sets = {};
   GL.life = new THREE.Group(); GL.world.add(GL.life);
-  for (const k of SET_ORDER) {
-    const s = SETS[k](K);
-    GL.sets[k] = s;
-    (k === 'fish' ? GL.life : GL.world).add(s.group);
-    s.setAlpha(0);
-    if (s.setLang) s.setLang(LANG);
-  }
 }
+// one set, built as a step of the load (LOAD) and hidden until the story fades it in
+function buildSet(k) {
+  const s = SETS[k](K);
+  GL.sets[k] = s;
+  (k === 'fish' ? GL.life : GL.world).add(s.group);
+  s.setAlpha(0);
+  if (s.setLang) s.setLang(LANG);
+}
+// once every set is built (a step of the load): what joins them (nothing here)
+function sceneJoin() {}
 // show each set as far as S fades it in, and let the visible ones update (the hidden ones idle); in the story a set
 // may be turned to meet the camera (see buildCamera)
 function updateSets(S, t, dt, story) {

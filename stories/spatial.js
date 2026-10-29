@@ -4459,18 +4459,67 @@ function applyTheme() {
   if (XR.on && !XR.clear) GL.renderer.setClearColor(0x000000, 0); // passthrough AR shows the room
   else GL.renderer.setClearColor(new THREE.Color(css('--scene') || '#040912'), 1);
 }
+// The story builds in steps, each a task of its own (LOAD): the scene, its shaders compiled a slice at a time (warm),
+// the story, explore mode and the panels. Between the steps the page shows how far it is and a headset draws the
+// shell's loading scene (HOST.progress); the next step runs from a timer, not an animation frame (the window's frames
+// stop in a headset). A step that returns true runs again. The shared-room hooks see the scene only once all of it is
+// built (collab.scene). A failure while the scene is built says that WebGL is missing, as before.
+const LOAD = { steps: [], i: 0, t: 0, gone: false, done: false, warm: null, seen: new Set(), ms: [] };
 function init() {
-  try {
-    buildScene($('#gl'));
-  } catch (err) {
+  const S = LOAD.steps;
+  S.push(['Setting up the scene', () => buildScene($('#gl')), true], ['Preparing the scene', () => warm(GL.scene)],
+    ['Writing the story', () => { resize(); window.addEventListener('resize', resize); buildStory(); buildTimeline(); }],
+    ['Setting up explore mode', () => { buildExplore(); bindCanvas(); }],
+    ['Making the headset panels', () => { audioInit(); xrSetup(); LOAD.done = true; initEnd(); }]);
+  if (HOST.progress) HOST.progress(0, S.length, S[0][0]);
+  loadStep();
+}
+function loadStep() {
+  LOAD.t = 0;
+  if (LOAD.gone) return;
+  const [label, fn, scene] = LOAD.steps[LOAD.i], t0 = performance.now();
+  let more = false;
+  try { more = fn() === true; } catch (err) {
+    if (!scene) throw err;
     console.error(err);
     $('#nogl').style.display = 'grid';
     $('#loading').classList.add('gone');
     return;
   }
-  resize();
-  window.addEventListener('resize', resize);
-  buildStory(); buildTimeline(); buildExplore(); bindCanvas(); audioInit(); xrSetup();
+  LOAD.ms.push([label, Math.round(performance.now() - t0)]);
+  if (!more) LOAD.i++;
+  const n = LOAD.steps.length, next = LOAD.steps[LOAD.i];
+  if (HOST.progress) HOST.progress(LOAD.i + (LOAD.warm ? LOAD.warm.i / LOAD.warm.list.length : 0), n, next ? next[0] : '');
+  if (next && !LOAD.gone) LOAD.t = setTimeout(loadStep, 0);
+}
+// shaders compiled now, so the scene's first frames do not stall the story: each material once (LOAD.seen), with
+// the scene's lights as when it is drawn (renderer.compile on a stand-in scene that holds the lights and one object,
+// not its children), until a slice has taken 100 ms; true while some are left
+function warm(root) {
+  const t0 = performance.now();
+  if (!LOAD.warm) {
+    const list = [];
+    root.traverse(o => {
+      const id = o.material && [].concat(o.material).map(m => m.uuid).join() + (o.isInstancedMesh ? 'i' : '') + (o.isSkinnedMesh ? 's' : '');
+      if (id && !LOAD.seen.has(id)) { LOAD.seen.add(id); list.push(o); }
+    });
+    LOAD.warm = { list, i: 0, sc: new THREE.Scene() };
+  }
+  const W = LOAD.warm, lights = GL.scene.children.filter(o => o.isLight);
+  try {
+    while (W.i < W.list.length && performance.now() - t0 < 100) {
+      const o = W.list[W.i++];
+      W.sc.children = lights.concat({ traverse: f => f(o), traverseVisible() {} });
+      GL.renderer.compile(W.sc, GL.camera);
+    }
+  } catch (e) { W.i = W.list.length; /* compiled on first use instead */ }
+  W.sc.children = [];
+  if (W.i < W.list.length) return true;
+  LOAD.warm = null;
+  return false;
+}
+// the rest of the start, the load's last step: the story's listeners, a link's place, the frame loop
+function initEnd() {
   setFocus(null);
   applyTheme();
   matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applyTheme);
@@ -4504,7 +4553,7 @@ function init() {
   if (HOST.session && GL.renderer.xr.isPresenting) xrAdopt();
   setTimeout(() => $('#loading').classList.add('gone'), 120);
 }
-const initT = setTimeout(init, 40);
+LOAD.t = setTimeout(init, 40);
 
 // what the app shell needs to change story
 return {
@@ -4514,7 +4563,7 @@ return {
     pp: XR.panelGroup.position.clone(), pr: yawOf(XR.panelGroup.quaternion, XR.panelGroup.rotation.y), rot: XR.rot.clone(), pq: XR.panelGroup.quaternion.clone() } : null),
   // shared rooms (shared.js): the clock is APP's, the shared state the explore tabs and controls (no one-shot effects)
   collab: {
-    APP, scene: () => GL.scene, state: collabState, apply: collabApply, view: collabView, setView: collabSetView,
+    APP, scene: () => (LOAD.done ? GL.scene : null), state: collabState, apply: collabApply, view: collabView, setView: collabSetView,
     hover: i => { const c = XR.ctrls[i]; return c && c.hover ? c.ray.scale.z : 0; },
     panel(p, yaw, q) { xrPanelPose(p, yaw, q); },
     place(o, s, q) { XR.globeOff.fromArray(o); XR.size = s; xrSceneRot(q); },
@@ -4523,7 +4572,7 @@ return {
   peek: src => eval(src),
   dispose() {
     // timers left running must not write into the next story's panes (they share ids) or build this one after all
-    clearTimeout(initT); clearTimeout(xrMsg.t); clearTimeout(setMove.t);
+    LOAD.gone = true; clearTimeout(LOAD.t); clearTimeout(xrMsg.t); clearTimeout(setMove.t);
     if (GL.mo) GL.mo.disconnect();
     if (XR.session) XR.session.removeEventListener('visibilitychange', xrVisibility);
     if (GL.scene) GL.scene.traverse(o => {

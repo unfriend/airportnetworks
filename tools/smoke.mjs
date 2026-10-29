@@ -23,7 +23,7 @@ await step('start screen is the landing page', async () => {
 for (const key of ['airports', 'proteins', 'spatial', 'lbi', 'nmd', 'endo', 'pet', 'micro', 'ovary', 'qubits', 'mutation', 'topo', 'pass', 'flock', 'robots']) {
   await step(`load ${key}`, async () => {
     await page.click(`#picker [data-story="${key}"]`).catch(async () => { await page.click('#btnOther'); await page.click(`#picker [data-story="${key}"]`); });
-    await page.waitForFunction(k => HOST.curKey === k && HOST.cur && HOST.cur.peek('typeof ST !== "undefined" && ST.items.length > 0'), key, { timeout: 30000 });
+    await page.waitForFunction(k => HOST.curKey === k && HOST.cur && HOST.cur.collab.scene() && HOST.cur.peek('typeof ST !== "undefined" && ST.items.length > 0'), key, { timeout: 30000 });
   });
   await step(`${key}: scrub through the story`, () => page.evaluate(async () => {
     const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -716,6 +716,130 @@ for (const key of ['airports', 'proteins', 'spatial', 'lbi', 'nmd', 'endo', 'pet
   }));
   await page.click('#btnOther');
 }
+// Each story builds in steps (its LOAD queue, HOST.progress): the reports rise from 0 to the total, the page shows its
+// bar and the step under the loading line and hides them once the story is built, no task of the load runs longer than
+// LOAD_LIMIT (generous: the machine is slow and SwiftShader compiles each shader in software, one at a time; a quiet
+// run's longest was about 0.5 s, a loaded one's 2.9 s), and the shared-room hooks see the scene only once all of it is
+// built. A story picked while another builds stops that one's steps and keeps the headset's controllers and place
+const LOAD_LIMIT = 4000;
+for (const key of ['airports', 'proteins', 'spatial', 'lbi', 'nmd', 'endo', 'pet', 'micro', 'ovary', 'qubits', 'mutation', 'topo', 'pass', 'flock', 'robots', 'design']) await step(`${key}: loads in steps, the page's bar shows and goes`, async () => {
+  const built = k => page.waitForFunction(k => HOST.curKey === k && HOST.cur && HOST.cur.collab.scene(), k, { timeout: 60000 });
+  if (await page.evaluate(k => HOST.curKey === k, key)) { const o = key === 'flock' ? 'robots' : 'flock'; await page.evaluate(o => HOST.start(o), o); await built(o); }
+  const bad = await page.evaluate(async ([k, limit]) => {
+    const out = [], rep = [], seen = { bar: false, step: false, early: false }, tasks = [], el = id => document.getElementById(id);
+    const po = new PerformanceObserver(l => { for (const e of l.getEntries()) tasks.push(Math.round(e.duration)); });
+    try { po.observe({ entryTypes: ['longtask'] }); } catch (e) { /* no long tasks reported here */ }
+    const p = HOST.progress, t0 = performance.now();
+    HOST.progress = (d, n, l) => {
+      p(d, n, l);
+      rep.push([d, n]);
+      if (getComputedStyle(el('ldBar')).visibility === 'visible' && !el('loading').classList.contains('gone')) seen.bar = true;
+      if (el('ldStep').textContent) seen.step = true;
+      if (d < n && HOST.curKey === k && HOST.cur && HOST.cur.collab.scene()) seen.early = true;
+    };
+    try {
+      HOST.start(k);
+      while (!(HOST.curKey === k && HOST.cur && HOST.cur.collab.scene()) && performance.now() - t0 < 60000) await new Promise(r => setTimeout(r, 30));
+      await new Promise(r => setTimeout(r, 900));   // (the loading screen goes 120 ms after the first frame)
+    } finally { HOST.progress = p; po.disconnect(); }
+    const n = rep.length ? rep[0][1] : 0, ms = HOST.cur.peek('LOAD.ms').map(x => x[1]);
+    if (rep.length < 5 || rep[0][0] !== 0) out.push(`${rep.length} progress reports, the first ${JSON.stringify(rep[0])}`);
+    if (rep.some((r, i) => r[1] !== n || (i && r[0] < rep[i - 1][0]))) out.push('the reports do not rise steadily to one total: ' + JSON.stringify(rep));
+    if (rep.length && rep[rep.length - 1][0] !== n) out.push(`the last report is ${JSON.stringify(rep[rep.length - 1])}, not the total`);
+    if (rep.length !== ms.length + 1) out.push(`${rep.length} reports for ${ms.length} steps`);
+    if (!seen.bar || !seen.step) out.push(`the page's bar ${seen.bar ? 'showed' : 'never showed'}, its step ${seen.step ? 'showed' : 'never showed'}`);
+    if (!el('loading').classList.contains('gone')) out.push('the loading screen did not go');
+    if (seen.early) out.push('the shared-room hooks saw the scene before it was all built');
+    if (Math.max(0, ...tasks) > limit || Math.max(...ms) > limit) out.push(`a task of ${Math.max(0, ...tasks)} ms (steps up to ${Math.max(...ms)} ms) while it loaded`);
+    return out;
+  }, [key, LOAD_LIMIT]);
+  if (bad.length) errors.push(...bad.map(b => `${key} load: ${b}`));
+});
+await step('a story picked while another builds: its steps stop, the headset\'s controllers and place stay', async () => {
+  const bad = await page.evaluate(async () => {
+    const out = [], sleep = ms => new Promise(r => setTimeout(r, ms)), keep = [HOST.inputs, HOST.xrPose], mark = { mark: 1 }, src = { src: 1 };
+    try {
+      HOST.start('nmd');
+      for (let n = 0; n < 600 && !(HOST.curKey === 'nmd' && HOST.cur && HOST.cur.peek('LOAD.i') >= 2); n++) await sleep(10);
+      const half = HOST.cur;
+      if (!half || HOST.curKey !== 'nmd' || half.collab.scene()) { out.push('could not catch the muscle story half built'); return out; }
+      HOST.inputs = [src]; HOST.xrPose = mark;   // (the story before's, as a headset session would have left them)
+      HOST.start('flock');
+      for (let n = 0; n < 600 && !(HOST.curKey === 'flock' && HOST.cur && HOST.cur.collab.scene()); n++) await sleep(25);
+      const i = half.peek('LOAD.i');
+      await sleep(300);
+      if (!half.peek('LOAD.gone') || half.peek('LOAD.i') !== i || half.peek('LOAD.done')) out.push('the half-built story went on building');
+      if (HOST.inputs[0] !== src || HOST.xrPose !== mark) out.push('a half-built story took the controllers or the place with it');
+    } finally { [HOST.inputs, HOST.xrPose] = keep; }
+    return out;
+  });
+  if (bad.length) errors.push(...bad.map(b => 'switch while loading: ' + b));
+});
+// The headset's loading scene with a pretend headset (its frames driven by the test, the renderer's drawing recorded): a
+// story that takes a while to build shows a card with its name and a bar 1.2 m in front of you and a little below your
+// eyes, and a ring on the left wrist, from 0.4 s on, drawn in a scene of its own (never in the story's, its listeners
+// the shell's); it fades out over the story's first frames; in AR the room still shows through (the clear colour stays
+// see-through)
+{
+  const hp = await browser.newPage({ viewport: { width: 640, height: 400 } });
+  hp.on('pageerror', e => errors.push('loading scene: ' + (e.stack || e.message)));
+  hp.on('console', m => { if (m.type() === 'error' && !/404|Failed to load resource/.test(m.text())) errors.push('loading scene: ' + m.text()); });
+  await step('headset: the loading scene in front of you and at the wrist, gone as the story starts (VR and AR)', async () => {
+    await hp.goto(base + 'index.html#flock');
+    await hp.waitForFunction(() => typeof HOST !== 'undefined' && HOST.curKey === 'flock' && HOST.cur && HOST.cur.collab.scene(), null, { timeout: 60000 });
+    for (const [mode, key] of [['immersive-vr', 'lbi'], ['immersive-ar', 'nmd']]) {
+      const bad = await hp.evaluate(async ([mode, key]) => {
+        const out = [], sleep = ms => new Promise(r => setTimeout(r, ms)), L = HOST.loading, r = HOST.renderer, xr = r.xr;
+        const keep = { render: r.render, sal: xr.setAnimationLoop, ref: xr.getReferenceSpace, mode: HOST.mode }, drawn = [];
+        let cb = null;
+        r.render = s => { drawn.push(s); };
+        xr.setAnimationLoop = f => { cb = f; };   // (the loop three would run on the session's frames)
+        xr.getReferenceSpace = () => ({});
+        xr.isPresenting = true; HOST.mode = mode;
+        r.setClearColor(0x000000, mode === 'immersive-ar' ? 0 : 1);   // (as the story before left it)
+        const grip = new THREE.Matrix4().makeTranslation(-0.2, 1.1, -0.3);
+        const frame = { session: { inputSources: [{ handedness: 'left', gripSpace: { grip: 1 } }] },
+          getViewerPose: () => ({ transform: { position: { x: 0, y: 1.6, z: 0 }, orientation: { x: 0, y: 0, z: 0, w: 1 } } }),
+          getPose: s => (s && s.grip ? { transform: { matrix: grip.elements }, emulatedPosition: false } : null) };
+        const near = (a, b, what) => { if (!a || a.some((v, i) => Math.abs(v - b[i]) > 0.01)) out.push(`${what} at ${JSON.stringify(a && a.map(v => +v.toFixed(3)))}, not ${JSON.stringify(b)}`); };
+        const t0 = performance.now();
+        let early = false, shown = null, alpha = 1, inStory = 0;
+        try {
+          HOST.start(key);
+          while (performance.now() - t0 < 60000 && !(HOST.curKey === key && HOST.cur && HOST.cur.collab.scene())) {
+            if (cb) cb(performance.now(), frame);
+            const S = L.state();
+            if (S.on && S.since < 350 && (S.card || S.ring)) early = true;
+            if (S.on && S.since > 700 && S.card && !shown) { shown = S; alpha = r.getClearAlpha(); }
+            await sleep(25);
+          }
+          if (early) out.push('the loading scene showed before 0.4 s');
+          if (!shown) out.push('no card while the story built');
+          else {
+            near(shown.cardAt, [0, 1.45, -1.2], 'the card');
+            if (!shown.ring) out.push('no ring at the wrist'); else near(shown.ringAt, [-0.2, 1.15, -0.25], 'the ring');
+            if (!drawn.includes(L.parts().scene)) out.push('the loading scene was not drawn');
+            if (alpha !== (mode === 'immersive-ar' ? 0 : 1)) out.push(`the clear colour's alpha was ${alpha} while it loaded`);
+            HOST.cur.peek('GL.scene').traverse(o => { if (o === L.parts().card || o === L.parts().ring) inStory++; });
+            if (inStory) out.push('the loading scene is in the story\'s scene');
+            if (HOST_REC.some(([t]) => t === L.parts().card || t === L.parts().card.material || t === L.parts().card.material.map)) out.push('a listener of the loading scene is the story\'s');
+            // the story's first frames: the card fades out over them, drawn after them
+            if (!L.state().fade) out.push('the card did not fade over the story\'s first frames');
+            const d0 = drawn.length;
+            for (let i = 0; i < 60 && L.state().fade; i++) { cb(performance.now(), frame); await sleep(25); }
+            if (L.state().fade || L.state().card) out.push('the card did not go once the story started');
+            if (!drawn.slice(d0).includes(L.parts().scene) || !drawn.slice(d0).includes(HOST.cur.peek('GL.scene'))) out.push('the story and the fading card were not both drawn');
+          }
+        } finally { r.render = keep.render; xr.setAnimationLoop = keep.sal; xr.getReferenceSpace = keep.ref; xr.isPresenting = false; HOST.mode = keep.mode; }
+        return out;
+      }, [mode, key]);
+      if (bad.length) errors.push(...bad.map(b => `loading scene (${mode}): ${b}`));
+      await hp.evaluate(() => HOST.start('flock'));
+      await hp.waitForFunction(() => HOST.curKey === 'flock' && HOST.cur && HOST.cur.collab.scene(), null, { timeout: 60000 });
+    }
+  });
+  await hp.close();
+}
 // The design room (#design, not one of the stories: not on the Stories screen): every miniature built on the table, a
 // click putting one on the stage with its card as tools/design/props.json has it, the shared state (a miniature moved
 // by a pretend headset's grip, both grips sizing it, apply(state()) giving the same state back, Tidy), the headset panels
@@ -818,7 +942,7 @@ await step('design: the intro ends at the table', async () => {
 });
 // Repeat on the Stories screen: one story again and again, or all of them in turn (the last leads to the first)
 await step('Repeat one and Repeat all', async () => {
-  const ready = k => page.waitForFunction(k => HOST.curKey === k && !HOST.picking && HOST.cur && HOST.cur.peek('typeof ST !== "undefined" && ST.items.length > 0'), k, { timeout: 30000 });
+  const ready = k => page.waitForFunction(k => HOST.curKey === k && !HOST.picking && HOST.cur && HOST.cur.collab.scene() && HOST.cur.peek('typeof ST !== "undefined" && ST.items.length > 0'), k, { timeout: 30000 });
   const toEnd = () => page.evaluate(() => HOST.cur.peek('(APP.seek(T_END - 0.5), APP.playing = true)'));
   const playsFromTop = (k, what) => page.waitForFunction(k => HOST.curKey === k && HOST.cur.peek('APP.mode === "story" && APP.playing && APP.t < 10'), k, { timeout: 30000 })
     .catch(() => errors.push(what));
@@ -840,7 +964,7 @@ await step('Repeat one and Repeat all', async () => {
 // anchors that keep their place in it, saved under a handle (Quest's persistent anchors)
 for (const key of ['airports', 'proteins', 'spatial', 'lbi', 'nmd', 'endo', 'pet', 'micro', 'ovary', 'qubits', 'mutation', 'topo', 'pass', 'flock', 'robots']) await step(`${key}: anchored placement`, async () => {
   await page.evaluate(k => HOST.start(k), key);
-  await page.waitForFunction(k => HOST.curKey === k && HOST.cur && HOST.cur.peek('typeof ST !== "undefined" && ST.items.length > 0'), key, { timeout: 30000 });
+  await page.waitForFunction(k => HOST.curKey === k && HOST.cur && HOST.cur.collab.scene() && HOST.cur.peek('typeof ST !== "undefined" && ST.items.length > 0'), key, { timeout: 30000 });
   const bad = await page.evaluate(async () => {
     const sleep = ms => new Promise(r => setTimeout(r, ms)), out = [];
     const grip = ['flock', 'robots'].includes(HOST.curKey) ? 'panel' : 'globe';   // in the flock and the robot gang the grip moves only the panel

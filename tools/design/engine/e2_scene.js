@@ -23,18 +23,25 @@ function buildScene(canvas) {
   sg.setAttribute('position', new THREE.BufferAttribute(new Float32Array(3), 3));
   GL.stars = new THREE.Points(sg, new THREE.PointsMaterial({ size: 1.3, sizeAttenuation: false }));
   scene.add(GL.stars); GL.stars.visible = false;
+  // (the table, built on its own as a step of the load: buildSet, LOAD)
   GL.sets = {};
-  for (const k of SET_ORDER) {
-    const s = SETS[k](K);
-    GL.sets[k] = s;
-    GL.world.add(s.group);
-    s.setAlpha(0);
-  }
+}
+// one set, built as a step of the load (LOAD) and hidden until the story fades it in
+function buildSet(k) {
+  const s = SETS[k](K);
+  GL.sets[k] = s;
+  GL.world.add(s.group);
+  s.setAlpha(0);
+}
+// once every set is built (a step of the load): what joins them
+function sceneJoin() {
   // the plates, by story round the table; a story's colour for its picked miniature's ring
   const T = GL.sets.table;
   T.layout(STORIES);
   T.colours(k => storyOf(k).col);
   if (document.fonts) document.fonts.ready.then(() => { if (!GL.gone) T.drawCards(); }).catch(() => {});
+  // the room's first view (the story and explore mode, built next, start from it)
+  orbit.cur = view('table', 'default');
 }
 // show each set as far as S fades it in, and let the visible ones update
 function updateSets(S, t, dt) {

@@ -45,6 +45,8 @@
 // The first entry starts on every page's Stories screen with its story already loaded (Follow must close it);
 // the last is the station page A follows last, so it is the pretend headset's (HEADSET_STORY).
 import { spawn } from 'child_process';
+import { connect as tcpConnect } from 'net';
+import http from 'http';
 import path from 'path';
 import fs from 'fs';
 
@@ -147,6 +149,7 @@ const HEADSET_STORY = 'flock', OTHER_STORY = 'spatial', PICK_STORY = 'proteins',
 const root = path.join(path.dirname(new URL(import.meta.url).pathname), '..');
 const argv = process.argv.slice(2), shots = argv.includes('--shots') ? argv[argv.indexOf('--shots') + 1] : '';
 const P2P = argv.includes('--p2p'), P2P_KEY = 'proteins', P2P_T = STORIES[P2P_KEY];   // (peer to peer: the station followed there)
+const NEAR_ONLY = argv.includes('--near');   // (only rooms on this network)
 if (argv.includes('--quick')) for (const k of Object.keys(STORIES).slice(0, -1)) delete STORIES[k];
 const relayPort = argv.includes('--port') ? +argv[argv.indexOf('--port') + 1] : 0;
 const { chromium } = await import(process.env.PLAYWRIGHT_MODULE || 'playwright');
@@ -494,12 +497,240 @@ async function p2p() {
   }
 }
 
+// ---- rooms on this network (--near runs only this part). Its own relay, told it is behind a proxy (--proxy), and in
+// front of it one small proxy per pretend network that puts that network's address in X-Forwarded-For, as Coolify's
+// does: pages of one network open the app through its proxy (the relay hashes the address it is given). Peer to peer
+// (no relay: pages whose /api goes nowhere) the pages pretend a network (#net=<word>) and meet at the relay's own
+// introduction server. Nothing goes to the internet.
+const HOME = '198.51.100.7', AWAY = '203.0.113.50', DAY = 86400000;
+async function nearby() {
+  const N = { proc: null, port: 0, out: '' }, servers = [], all = [];
+  N.proc = spawn(process.execPath, ['relay/server.mjs', '--port', '0', '--host', '127.0.0.1', '--static', '.', '--proxy', '--expire', '3'], { cwd: root });
+  await new Promise((res, rej) => {
+    const t = setTimeout(() => rej(new Error('the relay for rooms on this network did not start: ' + N.out)), 10000);
+    N.proc.stdout.on('data', d => { N.out += d; const m = /listening on http:\/\/[^:]+:(\d+)/.exec(N.out); if (m && !N.port) { N.port = +m[1]; clearTimeout(t); res(); } });
+    N.proc.stderr.on('data', d => { N.out += d; });
+  });
+  // a reverse proxy in front of the relay for one pretend network: every request and socket carries its address
+  const proxy = addr => new Promise(res => {
+    const srv = http.createServer((q, s) => {
+      const up = http.request({ host: '127.0.0.1', port: N.port, method: q.method, path: q.url, headers: Object.assign({}, q.headers, { 'x-forwarded-for': addr }) }, r => { s.writeHead(r.statusCode, r.headers); r.pipe(s); });
+      up.on('error', () => { try { s.writeHead(502); s.end(); } catch (e) { /* gone */ } });
+      q.pipe(up);
+    });
+    srv.on('upgrade', (q, sock, head) => {
+      const up = tcpConnect(N.port, '127.0.0.1', () => {
+        const lines = [`${q.method} ${q.url} HTTP/1.1`];
+        for (let i = 0; i < q.rawHeaders.length; i += 2) if (!/^x-forwarded-for$/i.test(q.rawHeaders[i])) lines.push(q.rawHeaders[i] + ': ' + q.rawHeaders[i + 1]);
+        up.write(lines.concat('X-Forwarded-For: ' + addr, '', '').join('\r\n'));
+        if (head && head.length) up.write(head);
+        sock.pipe(up); up.pipe(sock);
+      });
+      up.on('error', () => sock.destroy()); sock.on('error', () => up.destroy());
+    });
+    servers.push(srv);
+    srv.listen(0, '127.0.0.1', () => res(srv.address().port));
+  });
+  const nopen = async (url, o = {}) => {
+    const ctx = await browser.newContext(Object.assign({ viewport: { width: 760, height: 640 } }, o.state ? { storageState: o.state } : {}));
+    if (o.noApi) await ctx.route('**/api/**', r => r.abort());   // (no relay here)
+    if (o.skew) await ctx.addInitScript(ms => { const n = Date.now; Date.now = () => n() + ms; }, o.skew);   // (days later)
+    const page = await ctx.newPage();
+    page.on('pageerror', e => errors.push(e.stack || e.message));
+    page.on('console', m => { if (m.type() === 'error' && !/404|Failed to load resource|ERR_FAILED|WebSocket connection/.test(m.text())) errors.push(m.text()); });
+    await page.goto(url, { timeout: 90000 });
+    await page.waitForFunction(() => typeof HOST !== 'undefined' && HOST.collab, null, { timeout: 90000, polling: 100 });
+    all.push(ctx);
+    return page;
+  };
+  // the app opened again with no room in its link (a restart)
+  const reopen = async (page, url) => {
+    await page.goto('about:blank');
+    await page.goto(url, { timeout: 90000 });
+    await page.waitForFunction(() => typeof HOST !== 'undefined' && HOST.collab, null, { timeout: 90000, polling: 100 });
+  };
+  const shot = async (page, file, o) => { if (shots) { fs.mkdirSync(shots, { recursive: true }); await page.screenshot(Object.assign({ path: path.join(shots, file) }, o)); } };
+  const listed = (p, c, ms) => until(p, c => [...document.querySelectorAll('#shared .sh-near li b')].some(b => b.textContent === c), c, ms || 20000);
+  const looked = (p, ms) => until(p, () => Array.isArray(HOST.collab.nearby()) && !HOST.collab.internals().nearBusy && HOST.collab.internals().netState !== 'finding', null, ms || 25000);
+  const rowOf = (p, c) => p.evaluate(c => { const li = [...document.querySelectorAll('#shared .sh-near li')].find(l => l.querySelector('b') && l.querySelector('b').textContent === c); return li ? li.textContent.replace(/\s+/g, ' ').trim() : ''; }, c);
+  const inRoom = (p, c, role) => until(p, ([c, role]) => HOST.collab.code === c && HOST.collab.status === 'open' && (!role || HOST.collab.role === role), [c, role || ''], 40000);
+  const way = p => p.evaluate(() => ({ code: HOST.collab.code, via: HOST.collab.via, role: HOST.collab.role, status: HOST.collab.status, auto: HOST.collab.internals().auto, net: !!HOST.collab.net,
+    stations: HOST.collab.stations().length, offer: (HOST.collab.offer() || {}).code, log: window.__collabLog.filter(e => /rejoin|network|join|leave|host|peer|shown/.test(e.ev)).slice(-6).map(e => e.ev + (e.why ? ' ' + e.why : '') + (e.code ? ' ' + e.code : '')).join(', ') }));
+  try {
+    // ---- with a relay
+    const HP = await proxy(HOME), AP = await proxy(AWAY), at = (pp, hash) => `http://127.0.0.1:${pp}/index.html${hash}`;
+    const nearOf = async pp => (await (await fetch(`http://127.0.0.1:${pp}/api/near`)).json());
+    const A = await nopen(at(HP, '#stories'));
+    await A.evaluate(() => HOST.collab.create());
+    await until(A, () => HOST.collab.status === 'open' && !!HOST.collab.net, null, 15000);
+    const R1 = await A.evaluate(() => HOST.collab.code), NS = await A.evaluate(() => HOST.list.length);
+    await A.evaluate(() => HOST.collab.arrange({ x: 0, z: 0, yaw: 0 }));
+    await until(A, () => HOST.collab.stations().length === HOST.list.length && !HOST.collab.internals().pending.size, null, 8000);
+    const aNet = await A.evaluate(() => HOST.collab.net), aHash = await A.evaluate(a => HOST.collab.netHash(a), HOME), aName = await A.evaluate(() => HOST.collab.name);
+    check('rooms on this network: the page knows its network from the relay, the same id as its own hash of the address (as the STUN server would give it)', !!aNet && aNet === aHash, `${aNet} ${aHash}`);
+    const B = await nopen(at(HP, '#stories'));
+    await B.evaluate(() => HOST.collab.dialog(true));
+    const bSees = await listed(B, R1), bRow = await rowOf(B, R1);
+    await shot(B, 'near-dialog.png');
+    await B.evaluate(c => { const b = document.querySelector(`#shared .sh-near [data-sh="join:${c}"]`); if (b) b.click(); }, R1);
+    const bIn = await inRoom(B, R1);
+    const Cp = await nopen(at(AP, '#stories'));
+    await Cp.evaluate(() => HOST.collab.dialog(true));
+    const cLooked = await looked(Cp), cNear = await Cp.evaluate(() => (HOST.collab.nearby() || []).map(r => r.code));
+    const cOpen = await until(Cp, c => [...document.querySelectorAll('#shared .sh-rooms li b')].some(b => b.textContent === c), R1, 5000);
+    check('rooms on this network (relay): a page on the same network sees the room (with its first member\'s name and people), one press on Join joins it; a page on another network does not see it there (only among the relay\'s open rooms)',
+      bSees && bRow.includes('with ' + aName) && /1 person/.test(bRow) && bIn && cLooked && !cNear.includes(R1) && cOpen, JSON.stringify({ bSees, bRow, bIn: await way(B), cLooked, cNear, cOpen }));
+    // a page on this network that was never in the room: listed, never joined by itself
+    const E = await nopen(at(HP, '#stories'));
+    await E.evaluate(() => HOST.collab.dialog(true));
+    const eSees = await listed(E, R1);
+    await sleep(3000);
+    check('rooms on this network (relay): a room this device was never in is listed but never joined by itself', eSees && !(await E.evaluate(() => HOST.collab.joined)), JSON.stringify(await way(E)));
+    await E.context().close();
+    // Show on this network: off (for everyone in the room, from the dialog), and on again
+    await A.evaluate(() => { HOST.collab.dialog(true); });
+    await sleep(300);
+    await A.evaluate(() => document.querySelector('#shared [data-sh="near"]').click());
+    const bOff = await until(B, () => HOST.collab.nearOn === false, null, 5000);
+    const offList = (await nearOf(HP)).rooms.map(r => r.code);
+    await A.evaluate(() => HOST.collab.setNear(true));
+    await until(A, () => HOST.collab.nearOn && !HOST.collab.internals().pending.size, null, 5000);
+    const onList = (await nearOf(HP)).rooms.map(r => r.code);
+    check('rooms on this network (relay): Show on this network off (a room key, for everyone in it) takes the room off the list, on puts it back',
+      bOff && !offList.includes(R1) && onList.includes(R1), JSON.stringify({ bOff, offList, onList }));
+    // the headset's menu lists the rooms on this network too, and one press there joins
+    const Hm = await nopen(at(HP, '#airports'));
+    await ready(Hm, 'airports');
+    await Hm.evaluate(installXR, { mode: 'immersive-ar', features: ['local-floor', 'anchors', 'shared'], local: LOCAL, floor: FLOOR, shared: SHARED, sharedId: '', head: [0, 1.6, 0, 0] });
+    await Hm.evaluate(() => { window.__xr.begin(); HOST.collab.panelOpen(true); });
+    await frames(Hm, 400);
+    await until(Hm, c => (HOST.collab.nearby() || []).some(r => r.code === c), R1, 15000);
+    await frames(Hm, 400);
+    const hReg = await Hm.evaluate(c => HOST.collab.overlay().panel.regions.some(r => r.id === 'join:' + c), R1);
+    if (shots) {
+      const u = await Hm.evaluate(() => HOST.collab.overlay().panel.ctx.canvas.toDataURL('image/png'));
+      fs.mkdirSync(shots, { recursive: true }); fs.writeFileSync(path.join(shots, 'near-menu.png'), Buffer.from(u.split(',')[1], 'base64'));
+    }
+    await Hm.evaluate(c => { const r = HOST.collab.overlay().panel.regions.find(x => x.id === 'join:' + c); if (r && r.fn) r.fn(); }, R1);
+    check('rooms on this network (relay): the headset\'s menu lists the room under On this network, and one press there joins it', hReg && await inRoom(Hm, R1), JSON.stringify(await way(Hm)));
+    await Hm.evaluate(() => window.__xr.end());
+    await Hm.context().close();
+    // rejoin by itself: the app opened again with no room in its link (a restart)
+    await B.evaluate(() => HOST.collab.dialog(false));
+    await reopen(B, at(HP, '#stories'));
+    const bBack = await until(B, c => HOST.collab.code === c && HOST.collab.status === 'open' && HOST.collab.internals().auto === c, R1, 20000);
+    await until(B, () => { const t = document.getElementById('shToast'); return !!t && !t.hidden; }, null, 3000);
+    const tText = await B.evaluate(() => { const t = document.getElementById('shToast'); return t && !t.hidden ? t.textContent : ''; });
+    await shot(B, 'near-toast.png');
+    check('rejoin (relay): a page that was in the room joins it again by itself when the app opens again, with a notice (and Leave in it)', bBack && /Back in room/.test(tText) && /Leave/.test(tText), JSON.stringify({ way: await way(B), tText }));
+    // a day later, after everyone had gone (the relay forgot the room meanwhile): joined again by itself, and the room is
+    // back from this device's copy (its stations)
+    const bState = await B.context().storageState();
+    await A.context().close(); await B.context().close(); await Cp.context().close();
+    let gone = false;
+    for (let k = 0; k < 40 && !gone; k++) { await sleep(250); gone = (await fetch(`http://127.0.0.1:${N.port}/api/rooms/${R1}`)).status === 404; }
+    const B2 = await nopen(at(HP, '#stories'), { state: bState, skew: DAY });
+    const b2Back = await until(B2, ([c, n]) => HOST.collab.code === c && HOST.collab.status === 'open' && HOST.collab.stations().length === n, [R1, NS], 25000);
+    check('rejoin (relay): a day later, the relay having forgotten the room overnight, the page joins it again by itself and the room comes back from its copy (its stations)', gone && b2Back, JSON.stringify({ gone, way: await way(B2) }));
+    // Leave on purpose: not joined again by itself (nor offered)
+    await B2.evaluate(() => HOST.collab.dialog(true));
+    await sleep(300);
+    await B2.evaluate(() => document.querySelector('#shared [data-sh="leave"]').click());
+    await until(B2, () => !HOST.collab.joined, null, 5000);
+    await reopen(B2, at(HP, '#stories'));
+    await sleep(5000);
+    const b2Out = await way(B2);
+    check('rejoin (relay): a room left on purpose (Leave) is not joined again by itself when the app opens again, nor offered', !b2Out.code && !b2Out.offer && b2Out.net, JSON.stringify(b2Out));
+    // more than a week later: nothing by itself
+    const B8 = await nopen(at(HP, '#stories'), { state: bState, skew: 8 * DAY });
+    await sleep(5000);
+    const b8 = await way(B8);
+    check('rejoin (relay): more than a week after its last use, a room is not joined again by itself', !b8.code && !b8.offer, JSON.stringify(b8));
+    for (const c of all.splice(0)) await c.close().catch(() => {});
+    // ---- peer to peer (no relay): pretend networks, the relay's introduction server
+    const server = `127.0.0.1:${N.port}/peerjs`, pat = net => `http://127.0.0.1:${N.port}/index.html#stories&peer=${server}&net=${net}`, nop = { noApi: true };
+    const P1 = await nopen(pat('home'), nop);
+    await P1.evaluate(() => HOST.collab.create());
+    await until(P1, () => HOST.collab.status === 'open' && HOST.collab.role === 'host' && !!HOST.collab.net, null, 30000);
+    const Q1 = await P1.evaluate(() => HOST.collab.code), p1Name = await P1.evaluate(() => HOST.collab.name);
+    await P1.evaluate(() => HOST.collab.arrange({ x: 0, z: 0, yaw: 0 }));
+    await until(P1, () => HOST.collab.stations().length === HOST.list.length && !HOST.collab.internals().pending.size, null, 8000);
+    const shown = await until(P1, () => window.__collabLog.some(e => e.ev === 'shown on this network'), null, 15000);
+    const P2 = await nopen(pat('home'), nop);
+    await P2.evaluate(() => HOST.collab.dialog(true));
+    const p2Sees = await listed(P2, Q1, 30000), p2Row = await rowOf(P2, Q1);
+    await P2.evaluate(c => { const b = document.querySelector(`#shared .sh-near [data-sh="join:${c}"]`); if (b) b.click(); }, Q1);
+    const p2In = await inRoom(P2, Q1, 'guest');
+    const P3 = await nopen(pat('away'), nop);
+    await P3.evaluate(() => HOST.collab.dialog(true));
+    const p3Looked = await looked(P3), p3Near = await P3.evaluate(() => (HOST.collab.nearby() || []).map(r => r.code));
+    check('rooms on this network (peer to peer): the host holds a slot on its network; a page on the same network sees the room (hosted by), one press joins it; a page on another network does not see it',
+      shown && p2Sees && p2Row.includes('hosted by ' + p1Name) && p2In && p3Looked && !p3Near.includes(Q1), JSON.stringify({ shown, p2Sees, p2Row, p1: await way(P1), p2: await way(P2), p3Looked, p3Near }));
+    // Show on this network off: the host lets go of its slot; on again: found again. A page never in the room: never joined
+    await P1.evaluate(() => HOST.collab.setNear(false));
+    await until(P2, () => HOST.collab.nearOn === false, null, 5000);
+    await sleep(1000);
+    const P4 = await nopen(pat('home'), nop);
+    await P4.evaluate(() => HOST.collab.dialog(true));
+    await looked(P4);
+    const offSeen = await P4.evaluate(c => (HOST.collab.nearby() || []).some(r => r.code === c), Q1);
+    await P1.evaluate(() => HOST.collab.setNear(true));
+    await until(P1, () => window.__collabLog.filter(e => e.ev === 'shown on this network').length >= 2, null, 10000);
+    await P4.evaluate(() => HOST.collab.findNear());
+    const onSeen = await until(P4, c => (HOST.collab.nearby() || []).some(r => r.code === c), Q1, 25000);
+    check('rooms on this network (peer to peer): Show on this network off takes the room off the list (the host lets go of its slot), on puts it back; a page never in it is never joined by itself',
+      !offSeen && onSeen && !(await P4.evaluate(() => HOST.collab.joined)), JSON.stringify({ offSeen, onSeen, p4: await way(P4) }));
+    // rejoin by itself after the app opens again: linked to whoever holds the room
+    await reopen(P2, pat('home'));
+    const p2Back = await until(P2, c => HOST.collab.code === c && HOST.collab.status === 'open' && HOST.collab.role === 'guest' && HOST.collab.internals().auto === c, Q1, 30000);
+    check('rejoin (peer to peer): a page that was in the room joins it again by itself when the app opens again (linked to its host)', p2Back, JSON.stringify(await way(P2)));
+    // a day later, nobody holding the room: the first page back hosts it from its copy, the next one links to it
+    const s1 = await P1.context().storageState(), s2 = await P2.context().storageState();
+    for (const c of all.splice(0)) await c.close().catch(() => {});
+    await sleep(1500);
+    const P2b = await nopen(pat('home'), Object.assign({ state: s2, skew: DAY }, nop));
+    const p2Host = await until(P2b, ([c, n]) => HOST.collab.code === c && HOST.collab.status === 'open' && HOST.collab.role === 'host' && HOST.collab.stations().length === n, [Q1, NS], 40000);
+    const P1b = await nopen(pat('home'), Object.assign({ state: s1, skew: DAY }, nop));
+    const p1Guest = await until(P1b, c => HOST.collab.code === c && HOST.collab.status === 'open' && HOST.collab.role === 'guest' && HOST.collab.members.length === 2, Q1, 40000);
+    check('rejoin (peer to peer): a day later with nobody holding the room, the first page back on its network hosts it from its copy (its stations), and the next one links to it',
+      p2Host && p1Guest, JSON.stringify([await way(P2b), await way(P1b)]));
+    // on another network: nothing by itself, but Start room XYZ again, which hosts it from this device's copy
+    const s1b = await P1b.context().storageState();
+    for (const c of all.splice(0)) await c.close().catch(() => {});
+    await sleep(1500);
+    const P1c = await nopen(pat('away'), Object.assign({ state: s1b, skew: DAY }, nop));
+    await sleep(6000);
+    const p1cOut = await way(P1c);
+    await P1c.evaluate(() => HOST.collab.dialog(true));
+    const again = await until(P1c, c => !!document.querySelector(`#shared .sh-near [data-sh="again:${c}"]`), Q1, 15000);
+    await looked(P1c);
+    await shot(P1c, 'near-again.png');
+    await P1c.evaluate(c => document.querySelector(`#shared [data-sh="again:${c}"]`).click(), Q1);
+    const p1cHost = await until(P1c, ([c, n]) => HOST.collab.code === c && HOST.collab.status === 'open' && HOST.collab.role === 'host' && HOST.collab.stations().length === n, [Q1, NS], 40000);
+    check('rejoin (peer to peer): on another network nothing by itself; the dialog offers Start room XYZ again, whose one press hosts it from this device\'s copy',
+      !p1cOut.code && p1cOut.offer === Q1 && again && p1cHost, JSON.stringify({ p1cOut, again, now: await way(P1c) }));
+    // Leave on purpose: not joined again by itself (this network is now where it was used last)
+    await P1c.evaluate(() => document.querySelector('#shared [data-sh="leave"]').click());
+    await until(P1c, () => !HOST.collab.joined, null, 5000);
+    await reopen(P1c, pat('away'));
+    await sleep(6000);
+    const p1cLeft = await way(P1c);
+    check('rejoin (peer to peer): a room left on purpose is not joined again by itself', !p1cLeft.code && !p1cLeft.offer, JSON.stringify(p1cLeft));
+    // the relay's log names no address it was given (nor any network's id)
+    check('rooms on this network: the relay\'s log names none of the pretend addresses', !N.out.includes(HOME) && !N.out.includes(AWAY) && !N.out.includes(aNet), N.out.split('\n').filter(l => l.includes(HOME) || l.includes(AWAY)).slice(0, 3).join(' / '));
+  } finally {
+    for (const c of all) await c.close().catch(() => {});
+    for (const s of servers) s.close();
+    N.proc.kill();
+  }
+}
+
 let code = '', NST = 0;   // the room's code; how many stories (one station each after Arrange all)
 let slidesSeen = false;   // the slideshow's stop and Next in a room: checked on the first story followed
 try {
   await startRelay(relayPort);
-  main: {   // (--p2p: only the peer-to-peer part, after this block)
-  if (P2P) break main;
+  main: {   // (--p2p: only the peer-to-peer part, after this block; --near: only rooms on this network)
+  if (P2P || NEAR_ONLY) break main;
   // ------------------------------------------------------------ rooms --
   const A = await open('#stories');
   check('a page served by the relay finds it', await A.evaluate(async () => { await HOST.collab.detect(); return HOST.collab.relay === location.origin; }));
@@ -2418,7 +2649,8 @@ try {
     console.log('pictures in ' + shots);
   }
   }   // (main)
-  await p2p();
+  if (!NEAR_ONLY) await p2p();
+  if (!P2P) await nearby();
 } catch (e) {
   console.log('FAIL ' + (e.stack || e.message));
   fails.push('exception');

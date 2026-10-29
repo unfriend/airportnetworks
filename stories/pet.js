@@ -4589,15 +4589,18 @@ function buildScene(canvas) {
   sg.setAttribute('position', new THREE.BufferAttribute(sp, 3)); sg.setAttribute('color', new THREE.BufferAttribute(sc, 3));
   GL.stars = new THREE.Points(sg, new THREE.PointsMaterial({ size: 1.3, sizeAttenuation: false, vertexColors: true }));
   scene.add(GL.stars);
-  // the sets themselves, all hidden until the story fades them in
+  // the sets themselves: each built on its own, a step of the load (buildSet, LOAD)
   GL.sets = {};
-  for (const k of SET_ORDER) {
-    const s = SETS[k](K);
-    GL.sets[k] = s;
-    GL.world.add(s.group);
-    s.setAlpha(0);
-  }
 }
+// one set, built as a step of the load (LOAD) and hidden until the story fades it in
+function buildSet(k) {
+  const s = SETS[k](K);
+  GL.sets[k] = s;
+  GL.world.add(s.group);
+  s.setAlpha(0);
+}
+// once every set is built (a step of the load): what joins them (nothing here)
+function sceneJoin() {}
 // show each set as far as S fades it in, and let the visible ones update (the hidden ones idle); in the story a set
 // may be turned to meet the camera (see buildCamera)
 function updateSets(S, t, dt, story) {
@@ -5482,22 +5485,36 @@ function collabApply(v) {
 // (a lit chip as the shell's primary button: its text in the panel's colour, readable in either theme)
 const chip = (attrs, label, on, col) => `<button type="button" ${attrs} aria-pressed="${!!on}"${on ? ' style="background:var(--cyan);color:var(--panel-solid)"' : ''}>${col ? `<span class="sw" style="background:${swCol(col)}"></span>` : ''}${label}</button>`;
 // the organ icons (PET_ICONS) as small pictures for the HTML panes: in the organ's colour on a dark disc, as the
-// network's nodes are (light organ colours would vanish on the light theme's panel); drawn at 64 px, shown at 18 to 26
-const ICON = {};
+// network's nodes are (light organ colours would vanish on the light theme's panel); drawn at 64 px, shown at 18 to 26.
+// Made once the story is built (iconStep, from a timer; not while a headset session runs, where the panes do not show),
+// never during the load: there the first picture read back from a canvas held the page for seconds. A pane drawn before
+// its icons are made holds empty pictures of their size (data-icon), filled in as they are made. The canvas is drawn
+// on the processor (willReadFrequently: it is read back once), so reading it back waits for nothing.
+const ICON = {}, ICONQ = { want: [], t: 0 };
 function iconUrl(id) {
-  if (ICON[id] === undefined) {
+  if (ICON[id] === undefined && !ICONQ.want.includes(id)) { ICONQ.want.push(id); if (!ICONQ.t) ICONQ.t = setTimeout(iconStep, 300); }
+  return ICON[id] || '';
+}
+function iconStep() {
+  ICONQ.t = 0;
+  if (LOAD.gone) return;
+  if (!LOAD.done || XR.on) { ICONQ.t = setTimeout(iconStep, 500); return; }
+  const t0 = performance.now();
+  while (ICONQ.want.length && performance.now() - t0 < 20) {
+    const id = ICONQ.want.shift();
     try {
-      const cv = document.createElement('canvas'), ctx = cv.getContext('2d');
+      const cv = document.createElement('canvas'), ctx = cv.getContext('2d', { willReadFrequently: true });
       cv.width = cv.height = 64;
       ctx.beginPath(); ctx.arc(32, 32, 31, 0, 7); ctx.fillStyle = '#0a1322'; ctx.fill();
       ctx.lineWidth = 2.5; ctx.strokeStyle = organCol(id); ctx.globalAlpha = 0.55; ctx.stroke(); ctx.globalAlpha = 1;
       PET_ICONS.draw(ctx, id, 32, 32, 42, { color: organCol(id), width: 42 * 0.085, detail: false });
       ICON[id] = cv.toDataURL();
     } catch (e) { ICON[id] = ''; }
+    if (ICON[id]) document.querySelectorAll(`#explore img[data-icon="${id}"]`).forEach(im => { im.src = ICON[id]; });
   }
-  return ICON[id];
+  if (ICONQ.want.length) ICONQ.t = setTimeout(iconStep, 30);
 }
-const iconImg = (id, px) => (iconUrl(id) ? `<img src="${iconUrl(id)}" alt="" width="${px || 20}" height="${px || 20}" style="vertical-align:-5px;margin-right:6px">` : '');
+const iconImg = (id, px) => { const u = iconUrl(id); return `<img${u ? ` src="${u}"` : ''} data-icon="${id}" alt="" width="${px || 20}" height="${px || 20}" style="vertical-align:-5px;margin-right:6px">`; };
 // a network in words: organs, links, density and disorder (as printed), hubs (printed, or computed from its links)
 function netInfo(id) {
   const n = netOf(id), e = edgesOf(id), h = hubsOf(id).filter(x => x !== 'aorta');
@@ -7259,25 +7276,76 @@ function applyTheme() {
   if (XR.on && !XR.clear) GL.renderer.setClearColor(0x000000, 0); // passthrough AR shows the room
   else GL.renderer.setClearColor(new THREE.Color(css('--scene') || '#040912'), 1);
 }
+// The story builds in steps, each a task of its own (LOAD): the scene, then each set (built, then its shaders compiled
+// a slice at a time: warm), what joins the sets, the story, explore mode and the panels. Between the steps the page
+// shows how far it is and a headset draws the shell's loading scene (HOST.progress); the next step runs from a timer,
+// not an animation frame (the window's frames stop in a headset). A step that returns true runs again. The shared-room
+// hooks see the scene only once all of it is built (collab.scene). A failure while the scene is built says that WebGL
+// is missing, as before.
+const LOAD = { steps: [], i: 0, t: 0, gone: false, done: false, warm: null, seen: new Set(), ms: [] };
 function init() {
-  try {
-    buildScene($('#gl'));
-  } catch (err) {
+  const S = LOAD.steps, n = SET_ORDER.length;
+  S.push(['Setting up the scene', () => buildScene($('#gl')), true]);
+  SET_ORDER.forEach((k, i) => { const l = `Building the scenes: ${i + 1} of ${n}`; S.push([l, () => buildSet(k), true], [l, () => warm(GL.sets[k].group)]); });
+  S.push(['Putting the scenes together', sceneJoin, true], ['Putting the scenes together', () => warm(GL.scene)],
+    ['Writing the story', () => {
+      resize();
+      window.addEventListener('resize', resize);
+      buildDefaults(); Object.assign(XS, DEF);
+      for (const k of SET_ORDER) GL.sets[k].setAlpha(0);
+      buildStory(); buildSetLabels(); buildTimeline();
+    }],
+    ['Setting up explore mode', () => { buildExplore(); bindCanvas(); }],
+    ['Making the headset panels', () => { audioInit(); xrSetup(); LOAD.done = true; initEnd(); }]);
+  if (HOST.progress) HOST.progress(0, S.length, S[0][0]);
+  loadStep();
+}
+function loadStep() {
+  LOAD.t = 0;
+  if (LOAD.gone) return;
+  const [label, fn, scene] = LOAD.steps[LOAD.i], t0 = performance.now();
+  let more = false;
+  try { more = fn() === true; } catch (err) {
+    if (!scene) throw err;
     console.error(err);
     $('#nogl').style.display = 'grid';
     $('#loading').classList.add('gone');
     return;
   }
-  resize();
-  window.addEventListener('resize', resize);
-  buildDefaults(); Object.assign(XS, DEF);
-  // compile every set's shaders now, so a scene's first appearance does not stall the story
+  LOAD.ms.push([label, Math.round(performance.now() - t0)]);
+  if (!more) LOAD.i++;
+  const n = LOAD.steps.length, next = LOAD.steps[LOAD.i];
+  if (HOST.progress) HOST.progress(LOAD.i + (LOAD.warm ? LOAD.warm.i / LOAD.warm.list.length : 0), n, next ? next[0] : '');
+  if (next && !LOAD.gone) LOAD.t = setTimeout(loadStep, 0);
+}
+// shaders compiled now, so a set's first appearance does not stall the story: each material once (LOAD.seen), with
+// the scene's lights as when it is drawn (renderer.compile on a stand-in scene that holds the lights and one object,
+// not its children), until a slice has taken 100 ms; true while some are left
+function warm(root) {
+  const t0 = performance.now();
+  if (!LOAD.warm) {
+    const list = [];
+    root.traverse(o => {
+      const id = o.material && [].concat(o.material).map(m => m.uuid).join() + (o.isInstancedMesh ? 'i' : '') + (o.isSkinnedMesh ? 's' : '');
+      if (id && !LOAD.seen.has(id)) { LOAD.seen.add(id); list.push(o); }
+    });
+    LOAD.warm = { list, i: 0, sc: new THREE.Scene() };
+  }
+  const W = LOAD.warm, lights = GL.scene.children.filter(o => o.isLight);
   try {
-    for (const k of SET_ORDER) GL.sets[k].group.visible = true;
-    GL.renderer.compile(GL.scene, GL.camera);
-  } catch (e) { /* compiled on first use instead */ }
-  for (const k of SET_ORDER) GL.sets[k].setAlpha(0);
-  buildStory(); buildSetLabels(); buildTimeline(); buildExplore(); bindCanvas(); audioInit(); xrSetup();
+    while (W.i < W.list.length && performance.now() - t0 < 100) {
+      const o = W.list[W.i++];
+      W.sc.children = lights.concat({ traverse: f => f(o), traverseVisible() {} });
+      GL.renderer.compile(W.sc, GL.camera);
+    }
+  } catch (e) { W.i = W.list.length; /* compiled on first use instead */ }
+  W.sc.children = [];
+  if (W.i < W.list.length) return true;
+  LOAD.warm = null;
+  return false;
+}
+// the rest of the start, the load's last step: the story's listeners, a link's place, the frame loop
+function initEnd() {
   LBL.storyAll = ST.labels.concat(LBL.sets);
   LBL.exploreAll = () => LBL.sets.concat(LBL.extra);
   applyTheme();
@@ -7317,7 +7385,7 @@ function init() {
   if (HOST.session && GL.renderer.xr.isPresenting) xrAdopt();
   setTimeout(() => $('#loading').classList.add('gone'), 120);
 }
-const initT = setTimeout(init, 40);
+LOAD.t = setTimeout(init, 40);
 
 // what the app shell needs to change story
 return {
@@ -7327,7 +7395,7 @@ return {
     pp: XR.panelGroup.position.clone(), pr: yawOf(XR.panelGroup.quaternion, XR.panelGroup.rotation.y), rot: XR.rot.clone(), pq: XR.panelGroup.quaternion.clone() } : null),
   // shared rooms (shared.js): the clock is APP's, the shared state the explore panes, and there are no effects
   collab: {
-    APP, scene: () => GL.scene, state: collabState, apply: collabApply, view: collabView, setView: collabSetView,
+    APP, scene: () => (LOAD.done ? GL.scene : null), state: collabState, apply: collabApply, view: collabView, setView: collabSetView,
     hover: i => { const c = XR.ctrls[i]; return c && c.hover ? c.ray.scale.z : 0; },
     panel(p, yaw, q) { xrPanelPose(p, yaw, q); },
     place(o, s, q) { XR.globeOff.fromArray(o); XR.size = s; xrSceneRot(q); },
@@ -7336,7 +7404,7 @@ return {
   peek: src => eval(src),
   dispose() {
     // timers left running must not write into the next story's panes (they share ids) or build this one after all
-    clearTimeout(initT); clearTimeout(xrMsg.t);
+    LOAD.gone = true; clearTimeout(LOAD.t); clearTimeout(xrMsg.t);
     if (GL.mo) GL.mo.disconnect();
     if (XR.session) XR.session.removeEventListener('visibilitychange', xrVisibility);
     if (GL.scene) GL.scene.traverse(o => {

@@ -30,14 +30,18 @@ function buildScene(canvas) {
   sg.setAttribute('position', new THREE.BufferAttribute(sp, 3)); sg.setAttribute('color', new THREE.BufferAttribute(sc, 3));
   GL.stars = new THREE.Points(sg, new THREE.PointsMaterial({ size: 1.3, sizeAttenuation: false, vertexColors: true }));
   scene.add(GL.stars);
-  // the sets themselves, all hidden until the story fades them in
+  // the sets themselves: each built on its own, a step of the load (buildSet, LOAD)
   GL.sets = {};
-  for (const k of SET_ORDER) {
-    const s = SETS[k](K);
-    GL.sets[k] = s;
-    GL.world.add(s.group);
-    s.setAlpha(0);
-  }
+}
+// one set, built as a step of the load (LOAD) and hidden until the story fades it in
+function buildSet(k) {
+  const s = SETS[k](K);
+  GL.sets[k] = s;
+  GL.world.add(s.group);
+  s.setAlpha(0);
+}
+// once every set is built (a step of the load): what joins them
+function sceneJoin() {
   // one colour per domain in every set: the atlas set's (from the talk's figures), handed to the sets that take it
   const dc = GL.sets.atlas.api && GL.sets.atlas.api().domainColour;
   if (dc) for (const k of SET_ORDER) { const A = GL.sets[k].api && GL.sets[k].api(), f = A && (A.useColours || A.recolour); if (f && k !== 'atlas') f(dc); }

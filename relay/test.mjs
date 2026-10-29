@@ -707,6 +707,73 @@ try {
     N.kill();
   });
 
+  await step('rooms on this network: /api/near by the asker\'s network, --proxy, no address in any answer or log', async () => {
+    // the page's hash of a network (shared.js, netHash): the first 24 bits of SHA-256 of the salt and the network's name
+    const h = name => crypto.createHash('sha256').update('networks-near-1|' + name).digest('hex').slice(0, 6);
+    const HOME = '198.51.100.7', AWAY = '203.0.113.50', ADDRS = [HOME, AWAY, '192.168.1.23', '192.168.1.99', '192.168.2.5', '2001:db8:1:2::5', '10.9.8.7'];
+    const P = await start(['--proxy', '--expire', '2']);
+    const via = (xff, p, o = {}) => req(o.method || 'GET', p, Object.assign({ at: P.port, headers: xff ? { 'X-Forwarded-For': xff } : {} }, o));
+    const near = async xff => (await via(xff, '/api/near')).json();
+    const sock = (room, id, xff) => {
+      const c = { q: [], ws: new WebSocket(`ws://127.0.0.1:${P.port}/api/ws?room=${room}&id=${id}`, { headers: { 'X-Forwarded-For': xff } }) };
+      c.ws.onmessage = e => c.q.push(JSON.parse(e.data));
+      c.done = new Promise(r => { c.ws.onclose = r; });
+      c.next = async (pred, ms = 2000) => { for (const end = Date.now() + ms; Date.now() < end; await sleep(10)) { const i = c.q.findIndex(pred); if (i >= 0) return c.q.splice(i, 1)[0]; } return null; };
+      c.send = m => c.ws.send(JSON.stringify(m));
+      return c;
+    };
+    const ping = (await via(HOME, '/api/ping')).json();
+    ok(ping.net === h(HOME), 'ping says the network: the page\'s hash of the address the proxy put last in X-Forwarded-For');
+    ok((await via('10.0.0.1, ' + HOME, '/api/ping')).json().net === h(HOME), 'only the last address counts (the ones before it came from the client)');
+    ok((await via('192.168.1.23', '/api/ping')).json().net === (await via('192.168.1.99', '/api/ping')).json().net &&
+      (await via('192.168.1.23', '/api/ping')).json().net === h('192.168.1.0/24') && (await via('192.168.2.5', '/api/ping')).json().net !== h('192.168.1.0/24'), 'a private address stands for its /24');
+    ok((await via('2001:db8:1:2::5', '/api/ping')).json().net === (await via('2001:db8:1:2:aaaa::9', '/api/ping')).json().net, 'an IPv6 address for its /64');
+    const code = (await via(HOME, '/api/rooms', { method: 'POST', body: { app: 'networks', version: 'v1' } })).json().code;
+    const a = sock(code, 'na1', HOME);
+    await a.next(is('welcome'));
+    a.send({ t: 'hello', name: 'Ann', version: 'v1' });
+    await a.next(is('members', m => m.members.some(x => x.name === 'Ann')));
+    a.send({ t: 'set', batch: [['st.s1', { story: 'flock', x: 0, z: 0, yaw: 0 }]], cid: 1 });
+    await a.next(is('set'));
+    const nh = await near(HOME), na = await near(AWAY);
+    ok(nh.net === h(HOME) && na.net === h(AWAY), 'near says the asker\'s network');
+    const row = nh.rooms.find(r => r.code === code);
+    ok(row && row.name === 'Ann' && row.members === 1 && row.stations === 1 && row.version === 'v1' && Object.keys(row).sort().join() === 'code,members,name,stations,version',
+      'a room with someone on the asker\'s network is listed: code, the first member\'s name, people, stations');
+    ok(!na.rooms.some(r => r.code === code), 'not on another network');
+    // Show on this network: off (key near), and on again
+    a.send({ t: 'set', batch: [['near', { on: false, by: 'na1', at: 1 }]], cid: 2 });
+    await a.next(is('set'));
+    ok(!(await near(HOME)).rooms.some(r => r.code === code), 'a room that says Show on this network: off is not listed');
+    a.send({ t: 'set', batch: [['near', { on: true, by: 'na1', at: 2 }]], cid: 3 });
+    await a.next(is('set'));
+    ok((await near(HOME)).rooms.some(r => r.code === code), 'listed again once on');
+    // someone from another network joins: listed on both; when everyone has left, the room stays listed on their networks
+    const b = sock(code, 'nb1', AWAY);
+    await b.next(is('welcome'));
+    ok((await near(AWAY)).rooms.some(r => r.code === code && r.members === 2), 'someone from another network joins: listed there too');
+    a.ws.close(); b.ws.close(); await a.done; await b.done; await sleep(100);
+    const empty = (await near(HOME)).rooms.find(r => r.code === code);
+    ok(empty && empty.members === 0 && empty.name === '' && !(await near('192.0.2.1')).rooms.some(r => r.code === code), 'an empty room stays listed on its members\' networks (only)');
+    // without --proxy the header is ignored: every client of the test relay is this machine
+    const R2 = await newRoom(), c = await joined(R2, 'nc1', { name: 'Cy', version: 'v1' });
+    const plain = (await req('GET', '/api/near', { headers: { 'X-Forwarded-For': AWAY } })).json();
+    ok(plain.net === h('loopback') && plain.rooms.some(r => r.code === R2), 'without --proxy, X-Forwarded-For is ignored (the socket\'s own address counts)');
+    c.ws.close();
+    // a slot of rooms on this network (shared.js, slotId) carries the network's hash: the log hides it
+    const sl = peer('lbinet-near-networks-25-' + h(HOME) + '-0', 'tok');
+    await sl.next(ty('OPEN')); sl.ws.close();
+    await sleep(200);
+    // no address in any answer, and none in the log (besides where the relay itself listens); no network's id in the log
+    const answers = [JSON.stringify(nh), JSON.stringify(na), JSON.stringify(ping), (await via(HOME, '/api/rooms')).text, (await via(HOME, '/api/rooms/' + code)).text, JSON.stringify(plain)].join('\n');
+    ok(!ADDRS.some(x => answers.includes(x)) && !/127\.0\.0\.1/.test(answers), 'no address in any answer');
+    const logs = (P.out + relay.out).split('\n').filter(l => !/listening on|On this machine|Desktops on the same network|On every headset/.test(l)).join('\n');
+    ok(!ADDRS.some(x => logs.includes(x)) && !/127\.0\.0\.1|::ffff|\bfrom \d/.test(logs), 'no address in the log');
+    ok(!logs.includes(h(HOME)) && !logs.includes(h(AWAY)) && /peer join lbinet-near-networks-25-\*{6}-0/.test(relay.out), 'no network\'s id in the log (a slot\'s id shows without it)');
+    ok(/Behind a reverse proxy/.test(P.out) && !/Behind a reverse proxy/.test(relay.out), '--proxy says so as the relay starts');
+    P.kill();
+  });
+
   await step('the log has a line per write and per refusal', async () => {
     ok(new RegExp(`${R} set #1 by a1: st\\.s1 st\\.s1\\.play`).test(relay.out), 'a write');
     ok(new RegExp(`${R} refused a1 \\(roomFrameShared: null outside the deletable families\\)`).test(relay.out), 'a refusal');

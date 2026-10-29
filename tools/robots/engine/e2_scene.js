@@ -16,15 +16,18 @@ function buildScene(canvas) {
   scene.add(new THREE.HemisphereLight(0xdde8ff, 0x1a2233, 0.85));
   GL.sun = new THREE.DirectionalLight(0xffffff, 0.85);
   scene.add(GL.sun); scene.add(GL.sun.target);
-  // the sets themselves, all hidden until the story fades them in
+  // the sets themselves: each built on its own, a step of the load (buildSet, LOAD)
   GL.sets = {};
-  for (const k of SET_ORDER) {
-    const s = SETS[k](K);
-    GL.sets[k] = s;
-    GL.world.add(s.group);
-    s.setAlpha(0);
-  }
 }
+// one set, built as a step of the load (LOAD) and hidden until the story fades it in
+function buildSet(k) {
+  const s = SETS[k](K);
+  GL.sets[k] = s;
+  GL.world.add(s.group);
+  s.setAlpha(0);
+}
+// once every set is built (a step of the load): what joins them (nothing here)
+function sceneJoin() {}
 // show each set as far as S fades it in, and let the visible ones update; in the story a set
 // may be turned to meet the camera (see buildCamera)
 function updateSets(S, t, dt, story) {

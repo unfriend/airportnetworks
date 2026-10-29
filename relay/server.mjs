@@ -4,7 +4,7 @@
 // Node 18 or newer and no packages: its own minimal WebSocket code (RFC 6455). It can serve the
 // app as well (--static), so the page and the relay share one address. It is also an introduction server for
 // devices that link to each other directly (PeerJS's server protocol, at /peerjs; --no-peer turns it off).
-//   node relay/server.mjs [--port 8787] [--host 0.0.0.0] [--cert c.pem --key k.pem] [--static .] [--logs dir]
+//   node relay/server.mjs [--port 8787] [--host 0.0.0.0] [--cert c.pem --key k.pem] [--static .] [--logs dir] [--proxy]
 //   node relay/server.mjs --lan    (for headsets on the same Wi-Fi: HTTPS with a certificate of its own, the app
 //                                   served, the headsets' logs kept in relay/logs/)
 //   node relay/server.mjs --static . --watch [--build]   (while developing: the pages follow the app's files)
@@ -21,7 +21,7 @@ import { pipeline } from 'node:stream';
 import { fileURLToPath } from 'node:url';
 
 const PROTO = 1;
-const OPT = { port: 8787, host: '0.0.0.0', cert: '', key: '', static: '', timeout: 40, expire: 6 * 3600, ping: 20, quiet: false, lan: false, logs: '', 'no-peer': false, watch: '', build: false };
+const OPT = { port: 8787, host: '0.0.0.0', cert: '', key: '', static: '', timeout: 40, expire: 6 * 3600, ping: 20, quiet: false, lan: false, logs: '', 'no-peer': false, watch: '', build: false, proxy: false };
 const HELP = `usage: node relay/server.mjs [options]
   --port <n>       port (8787; 0 picks a free one)       --host <addr>   address (0.0.0.0)
   --cert <file>    with --key: speak HTTPS and WSS       --static <dir>  also serve the app from <dir>
@@ -29,6 +29,8 @@ const HELP = `usage: node relay/server.mjs [options]
   --ping <s>       WebSocket ping to every member (20)   --quiet         no log lines
   --logs <dir>     keep the logs headsets send (their room alignment, one JSON line per entry) in <dir>
   --no-peer        no introduction server for peer to peer (PeerJS's protocol, at /peerjs: on by default)
+  --proxy          behind a reverse proxy (Coolify, nginx): a client's address is the last one in X-Forwarded-For
+                   (rooms on this network; without it the header is ignored)
   --lan            for headsets on the same Wi-Fi: HTTPS with a self-signed certificate made once with openssl for
                    this machine's addresses (in relay/.lan/), the app served from the repository, and the headsets'
                    logs kept in relay/logs/
@@ -200,14 +202,15 @@ function upgrade(req, socket, head) {
   const accept = crypto.createHash('sha1').update(key + GUID).digest('base64');
   socket.write(`HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: ${accept}\r\n\r\n`);
   const ws = new Ws(socket);
-  if (peer) peerJoin(ws, url.searchParams); else join(ws, url.searchParams, clientIp(req));
+  if (peer) peerJoin(ws, url.searchParams); else join(ws, url.searchParams, netOf(req));
   if (head && head.length) ws.data(head);
 }
 
 // ---- rooms and members
 const rooms = new Map();
 function makeRoom(code, app, version) {
-  const r = { code, app, version, created: Date.now(), seq: 0, keys: new Map(), size: 0, members: new Map(), empty: Date.now() };
+  // (nets: the networks of the members it has had, the last few: an empty room stays listed on its network)
+  const r = { code, app, version, created: Date.now(), seq: 0, keys: new Map(), size: 0, members: new Map(), empty: Date.now(), nets: new Set() };
   rooms.set(code, r);
   return r;
 }
@@ -223,9 +226,10 @@ function broadcast(room, msg, except) {
 const send = (m, msg) => m.ws.text(JSON.stringify(msg));
 const cut = keys => (keys.length > 12 ? keys.slice(0, 12).join(' ') + ` +${keys.length - 12} more` : keys.join(' '));
 
-function join(ws, q, ip) {
+// (net: the member's network, a hash: netOf; never its address, which is neither kept nor logged)
+function join(ws, q, net) {
   const code = (q.get('room') || '').toUpperCase(), id = q.get('id') || '';
-  const fatal = (c, text, close) => { log(`refused a socket from ${ip} (${text})`); ws.text(JSON.stringify({ t: 'error', code: c, text })); ws.close(close, c); };
+  const fatal = (c, text, close) => { log(`refused a socket (${text})`); ws.text(JSON.stringify({ t: 'error', code: c, text })); ws.close(close, c); };
   if (!CODE.test(code) || !ID.test(id)) return fatal('bad', 'a room code and a client id are needed', 4000);
   if (q.has('proto') && q.get('proto') !== String(PROTO)) return fatal('proto', `this relay speaks protocol ${PROTO}`, 4005);
   const room = rooms.get(code);
@@ -236,11 +240,12 @@ function join(ws, q, ip) {
     old.onmessage = old.onclose = () => {};
     old.text(JSON.stringify({ t: 'error', code: 'replaced', text: 'connected again elsewhere' }));
     old.close(4008, 'replaced');
-    m.ws = ws;
+    m.ws = ws; m.net = net;
   } else {
-    m = { id, ws, name: '', color: '', kind: 'desktop', here: false, version: '', since: Date.now(), fx: { n: 0, t0: 0 }, sets: { n: 0, t0: 0 }, fxDropped: 0 };
+    m = { id, ws, net, name: '', color: '', kind: 'desktop', here: false, version: '', since: Date.now(), fx: { n: 0, t0: 0 }, sets: { n: 0, t0: 0 }, fxDropped: 0 };
     room.members.set(id, m);
   }
+  if (net) { room.nets.delete(net); room.nets.add(net); if (room.nets.size > 8) room.nets.delete(room.nets.values().next().value); }
   room.empty = 0;
   ws.onmessage = text => {   // a value nested too deeply for JSON.stringify must not stop the relay
     try { message(room, m, text); } catch (err) { refuse(room, m, null, [], `bad message: ${err.message}`, 'bad'); }
@@ -248,7 +253,7 @@ function join(ws, q, ip) {
   ws.onclose = () => leave(room, m);
   send(m, { t: 'welcome', you: id, room: code, app: room.app, version: room.version, seq: room.seq, keys: keysOut(room), members: people(room), now: Date.now(), proto: PROTO });
   broadcast(room, { t: 'members', members: people(room) });
-  log(`${code} join ${id} from ${ip} (${room.members.size} in the room)`);
+  log(`${code} join ${id} (${room.members.size} in the room)`);
 }
 function leave(room, m, why = 'leave') {
   if (room.members.get(m.id) !== m) return;
@@ -374,10 +379,12 @@ const PEER_MAX = 5000, PEER_WAIT = 5000, PEER_RATE = 200, PEER_MSG = 64 << 10, P
 const PEER_PASS = new Set(['OFFER', 'ANSWER', 'CANDIDATE', 'LEAVE']);   // passed on from src to dst; HEARTBEAT is life only
 const peers = new Map(), waiting = new Map();   // id -> { id, token, ws }; an absent id -> { msgs, size, from, timer }
 const peerOut = (ws, type, payload) => ws.text(JSON.stringify(payload ? { type, payload } : { type }));
+// an id as the log shows it: a slot of rooms on this network (shared.js, slotId) carries the network's hash, never logged
+const pid = id => String(id).replace(/^(\w+-near-.+-)[0-9a-f]{6}(-\d+)$/, '$1******$2');
 
 function peerJoin(ws, q) {
   const id = q.get('id') || '', token = q.get('token') || '', key = q.get('key') || '';
-  const shut = (type, msg, code, why) => { if (why) log(`peer refused ${id.slice(0, 64) || '(no id)'} (${why})`); peerOut(ws, type, { msg }); ws.close(code, why || msg); };
+  const shut = (type, msg, code, why) => { if (why) log(`peer refused ${pid(id.slice(0, 64)) || '(no id)'} (${why})`); peerOut(ws, type, { msg }); ws.close(code, why || msg); };
   if (!id || !token || !key) return shut('ERROR', 'No id, token, or key supplied to websocket server', 4000, 'no id, token or key');
   if (key !== PEER_KEY) return shut('INVALID-KEY', 'Invalid key provided', 4003, 'another key');
   if (id.length > 64 || !PEER_ID.test(id) || token.length > 64) return shut('ERROR', 'Invalid id or token', 4000, 'a bad id or token');
@@ -396,7 +403,7 @@ function peerJoin(ws, q) {
   ws.onmessage = text => peerMessage(p, text);
   ws.onclose = () => peerLeave(p);
   peerOut(ws, 'OPEN');
-  log(`peer ${back ? 'back' : 'join'} ${id} (${peers.size} connected)`);
+  log(`peer ${back ? 'back' : 'join'} ${pid(id)} (${peers.size} connected)`);
   const w = waiting.get(id);   // what came for it meanwhile, in order
   if (w) { clearTimeout(w.timer); waiting.delete(id); for (const m of w.msgs) ws.text(m); }
 }
@@ -404,7 +411,7 @@ function peerLeave(p, why = 'leave') {
   if (peers.get(p.id) !== p) return;
   p.ws.onmessage = p.ws.onclose = () => {};
   peers.delete(p.id);   // the id is free at once
-  log(`peer ${why} ${p.id} (${peers.size} connected)`);
+  log(`peer ${why} ${pid(p.id)} (${peers.size} connected)`);
 }
 function peerMessage(p, text) {   // anything else is ignored, as PeerJS's own server does (a reply of ERROR would end the client)
   if (peers.get(p.id) !== p || text.length > PEER_MSG) return;
@@ -430,7 +437,7 @@ function peerExpire(dst) {   // nobody came for these: each sender hears it once
   if (!w) return;
   waiting.delete(dst);
   for (const src of w.from) { const p = peers.get(src); if (p) p.ws.text(JSON.stringify({ type: 'EXPIRE', src: dst, dst: src })); }
-  log(`peer ${dst} never came (${w.msgs.length} messages for it from ${[...w.from].join(' ')})`);
+  log(`peer ${pid(dst)} never came (${w.msgs.length} messages for it from ${[...w.from].map(pid).join(' ')})`);
 }
 
 // silent members time out, everybody gets a WebSocket ping, rooms without members expire
@@ -439,7 +446,7 @@ setInterval(() => {
   for (const p of peers.values()) {   // a browser answers pings by itself, so only a device that has gone falls silent
     if (now - p.ws.last > OPT.timeout * 1000) { p.ws.close(4009, 'timeout'); peerLeave(p, 'timeout'); continue; }
     if (now - p.ws.pinged >= OPT.ping * 1000) { p.ws.send(9, EMPTY); p.ws.pinged = now; }
-    if (p.dropped) { log(`peer dropped ${p.dropped} messages from ${p.id} (more than ${PEER_RATE} a second)`); p.dropped = 0; }
+    if (p.dropped) { log(`peer dropped ${p.dropped} messages from ${pid(p.id)} (more than ${PEER_RATE} a second)`); p.dropped = 0; }
   }
   for (const room of rooms.values()) {
     for (const m of room.members.values()) {
@@ -453,7 +460,42 @@ setInterval(() => {
 
 // ---- HTTP: the API (with CORS, for the app on another origin) and the app's files
 function parseUrl(req) { try { return req.url.startsWith('/') ? new URL('http://relay' + req.url) : null; } catch { return null; } }
-function clientIp(req) { return String(req.headers['x-forwarded-for'] || '').split(',')[0].trim() || req.socket.remoteAddress; }   // for the log only
+
+// ---- rooms on this network: a client's network as a short hash, never its address (neither kept nor logged: the
+// relay's log names no address). Behind a reverse proxy (--proxy) the address is the last one the proxy put in
+// X-Forwarded-For (anything before it came from the client and could be made up); without --proxy the header is
+// ignored. A private address stands for its /24 (one network: a relay on the LAN sees the headsets' own addresses),
+// IPv6 for its /64, this machine for itself. The hash is the page's own (shared.js, netHash: the same salt): the public
+// address the STUN server tells a page without a relay gives the same id, so a room used on a network through a relay
+// on the internet is on that network peer to peer too. 24 bits: one id stands for about 256 public addresses.
+const NET_SALT = 'networks-near-1';
+function netName(a) {
+  a = String(a || '').trim().replace(/^\[|\](:\d+)?$/g, '').replace(/%.*$/, '').replace(/^::ffff:(?=\d+\.)/i, '').replace(/^(\d+\.\d+\.\d+\.\d+):\d+$/, '$1');
+  const v4 = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(a);
+  if (v4) {
+    const [b0, b1] = [+v4[1], +v4[2]];
+    if (b0 === 127) return 'loopback';
+    if (b0 === 10 || (b0 === 172 && b1 >= 16 && b1 < 32) || (b0 === 192 && b1 === 168) || (b0 === 169 && b1 === 254)) return `${+v4[1]}.${+v4[2]}.${+v4[3]}.0/24`;
+    return v4.slice(1).map(Number).join('.');
+  }
+  if (!a.includes(':')) return '';
+  if (a === '::1') return 'loopback';
+  const [h, t] = a.split('::'), hs = h ? h.split(':') : [], ts = t === undefined ? [] : t ? t.split(':') : [];
+  const all = t === undefined ? hs : hs.concat(Array(Math.max(0, 8 - hs.length - ts.length)).fill('0'), ts);
+  if (all.length !== 8 || !all.every(g => /^[0-9a-f]{1,4}$/i.test(g))) return '';
+  return all.slice(0, 4).map(g => parseInt(g, 16).toString(16)).join(':') + '::/64';
+}
+const netHash = name => (name ? crypto.createHash('sha256').update(NET_SALT + '|' + name).digest('hex').slice(0, 6) : '');
+const netOf = req => netHash(netName((OPT.proxy && String(req.headers['x-forwarded-for'] || '').split(',').map(s => s.trim()).filter(Boolean).pop()) || req.socket.remoteAddress));
+// a room shows on a network while someone in it is on that network (an empty one: while its members were), unless the
+// room says otherwise (its key near, { on: false }: Show on this network, off)
+const shownOn = (r, net) => !!net && !(r.keys.get('near')?.v?.on === false) &&
+  (r.members.size ? [...r.members.values()].some(m => m.net === net) : r.nets.has(net));
+// the rooms on the asking device's network: code, the first member's name, how many are in it (never an address)
+function nearRooms(net) {
+  return [...rooms.values()].filter(r => shownOn(r, net)).sort((a, b) => (b.members.size > 0) - (a.members.size > 0) || b.seq - a.seq).slice(0, 20)
+    .map(r => ({ code: r.code, name: ([...r.members.values()].sort((a, b) => a.since - b.since).find(m => m.name) || {}).name || '', members: r.members.size, stations: stations(r), version: r.version }));
+}
 function reply(res, status, body, type, extra = {}) {
   res.writeHead(status, { 'Content-Type': type, 'Content-Length': Buffer.byteLength(body), 'Cache-Control': 'no-store', ...extra });
   res.end(body);
@@ -472,7 +514,8 @@ function cors(req, res) {   // the API and the introduction server, for pages on
 function api(req, res, url) {
   if (cors(req, res)) return;
   const p = url.pathname, room = /^\/api\/rooms\/([A-Za-z]{3})$/.exec(p);
-  if (p === '/api/ping' && req.method === 'GET') return json(res, 200, { now: Date.now(), proto: PROTO, ...(WATCH ? { watch: true } : {}) });
+  if (p === '/api/ping' && req.method === 'GET') return json(res, 200, { now: Date.now(), proto: PROTO, net: netOf(req), ...(WATCH ? { watch: true } : {}) });
+  if (p === '/api/near' && req.method === 'GET') { const net = netOf(req); return json(res, 200, { net, rooms: nearRooms(net) }); }
   if (p === '/api/watch' && req.method === 'GET') return watchStream(req, res);
   if (p === '/api/rooms' && req.method === 'GET') {
     return json(res, 200, [...rooms.values()].map(r => ({ code: r.code, members: r.members.size, names: [...r.members.values()].map(m => m.name), stations: stations(r), idle: idle(r), version: r.version })));
@@ -484,7 +527,7 @@ function api(req, res, url) {
     if (!r) return json(res, 404, { error: 'no such room' });
     return json(res, 200, { code: r.code, app: r.app, version: r.version, created: r.created, seq: r.seq, idle: idle(r), members: people(r), keys: keysOut(r) });
   }
-  if (p === '/api/ping' || p === '/api/rooms' || p === '/api/log' || p === '/api/watch' || room) return json(res, 405, { error: 'method not allowed' });
+  if (p === '/api/ping' || p === '/api/near' || p === '/api/rooms' || p === '/api/log' || p === '/api/watch' || room) return json(res, 405, { error: 'method not allowed' });
   json(res, 404, { error: 'not found' });
 }
 // the introduction server's HTTP side: PeerJS asks {path}{key}/id for a new id (a page that brings its own id does not)
@@ -516,7 +559,7 @@ function createRoom(req, res) {
     if (rooms.size >= MAX_ROOMS) return json(res, 503, { error: 'too many rooms' });
     while (!code || rooms.has(code)) code = Array.from({ length: 3 }, () => String.fromCharCode(65 + crypto.randomInt(26))).join('');
     const r = makeRoom(code, str(b.app, 32), str(b.version, 64));
-    log(`${code} created by ${clientIp(req)} (${r.app || 'no app'} ${r.version || 'no version'})`);
+    log(`${code} created (${r.app || 'no app'} ${r.version || 'no version'})`);
     json(res, 201, { code });
   });
 }
@@ -783,6 +826,7 @@ server.listen(OPT.port, OPT.host, () => {
     console.log(`On this machine: ${scheme}://localhost:${a.port}/`);
   }
   if (OPT.logs) console.log(`Headsets' logs (room alignment) go to ${OPT.logs}`);
+  if (OPT.proxy) console.log('Behind a reverse proxy: a client\'s address is the last one in X-Forwarded-For (rooms on this network)');
   if (WATCH) console.log(`Watching ${WATCH}: pages swap a changed story in place, and reload for a shell file` + (OPT.build ? '; a built story is built again when its sources change' : ''));
 });
 for (const sig of ['SIGINT', 'SIGTERM']) {

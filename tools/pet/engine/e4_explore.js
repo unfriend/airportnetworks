@@ -200,22 +200,36 @@ function collabApply(v) {
 // (a lit chip as the shell's primary button: its text in the panel's colour, readable in either theme)
 const chip = (attrs, label, on, col) => `<button type="button" ${attrs} aria-pressed="${!!on}"${on ? ' style="background:var(--cyan);color:var(--panel-solid)"' : ''}>${col ? `<span class="sw" style="background:${swCol(col)}"></span>` : ''}${label}</button>`;
 // the organ icons (PET_ICONS) as small pictures for the HTML panes: in the organ's colour on a dark disc, as the
-// network's nodes are (light organ colours would vanish on the light theme's panel); drawn at 64 px, shown at 18 to 26
-const ICON = {};
+// network's nodes are (light organ colours would vanish on the light theme's panel); drawn at 64 px, shown at 18 to 26.
+// Made once the story is built (iconStep, from a timer; not while a headset session runs, where the panes do not show),
+// never during the load: there the first picture read back from a canvas held the page for seconds. A pane drawn before
+// its icons are made holds empty pictures of their size (data-icon), filled in as they are made. The canvas is drawn
+// on the processor (willReadFrequently: it is read back once), so reading it back waits for nothing.
+const ICON = {}, ICONQ = { want: [], t: 0 };
 function iconUrl(id) {
-  if (ICON[id] === undefined) {
+  if (ICON[id] === undefined && !ICONQ.want.includes(id)) { ICONQ.want.push(id); if (!ICONQ.t) ICONQ.t = setTimeout(iconStep, 300); }
+  return ICON[id] || '';
+}
+function iconStep() {
+  ICONQ.t = 0;
+  if (LOAD.gone) return;
+  if (!LOAD.done || XR.on) { ICONQ.t = setTimeout(iconStep, 500); return; }
+  const t0 = performance.now();
+  while (ICONQ.want.length && performance.now() - t0 < 20) {
+    const id = ICONQ.want.shift();
     try {
-      const cv = document.createElement('canvas'), ctx = cv.getContext('2d');
+      const cv = document.createElement('canvas'), ctx = cv.getContext('2d', { willReadFrequently: true });
       cv.width = cv.height = 64;
       ctx.beginPath(); ctx.arc(32, 32, 31, 0, 7); ctx.fillStyle = '#0a1322'; ctx.fill();
       ctx.lineWidth = 2.5; ctx.strokeStyle = organCol(id); ctx.globalAlpha = 0.55; ctx.stroke(); ctx.globalAlpha = 1;
       PET_ICONS.draw(ctx, id, 32, 32, 42, { color: organCol(id), width: 42 * 0.085, detail: false });
       ICON[id] = cv.toDataURL();
     } catch (e) { ICON[id] = ''; }
+    if (ICON[id]) document.querySelectorAll(`#explore img[data-icon="${id}"]`).forEach(im => { im.src = ICON[id]; });
   }
-  return ICON[id];
+  if (ICONQ.want.length) ICONQ.t = setTimeout(iconStep, 30);
 }
-const iconImg = (id, px) => (iconUrl(id) ? `<img src="${iconUrl(id)}" alt="" width="${px || 20}" height="${px || 20}" style="vertical-align:-5px;margin-right:6px">` : '');
+const iconImg = (id, px) => { const u = iconUrl(id); return `<img${u ? ` src="${u}"` : ''} data-icon="${id}" alt="" width="${px || 20}" height="${px || 20}" style="vertical-align:-5px;margin-right:6px">`; };
 // a network in words: organs, links, density and disorder (as printed), hubs (printed, or computed from its links)
 function netInfo(id) {
   const n = netOf(id), e = edgesOf(id), h = hubsOf(id).filter(x => x !== 'aorta');

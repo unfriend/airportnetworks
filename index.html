@@ -286,6 +286,11 @@ body.exploring #viewctl { display: flex; }
 
 #loading { position: fixed; inset: 0; display: grid; place-items: center; background: var(--scene); color: #c5d2e3; z-index: 10; font-size: 15px; transition: opacity 0.6s; }
 #loading.gone { opacity: 0; pointer-events: none; }
+/* a story's load step by step (HOST.progress): a thin bar in the story's colour and the step under its loading line */
+#loading > div { display: grid; justify-items: center; gap: 12px; padding: 0 16px; text-align: center; }
+#ldBar { width: min(260px, 64vw); height: 3px; border-radius: 2px; background: rgba(197, 210, 227, 0.16); overflow: hidden; visibility: hidden; }
+#ldBar > i { display: block; width: 0; height: 100%; border-radius: inherit; background: #46d9ff; transition: width 0.2s; }
+#ldStep { min-height: 1.3em; font-size: 13px; color: #8d9db4; }
 
 /* start screen: pick a story */
 #picker { position: fixed; inset: 0; z-index: 8; display: grid; place-items: center; padding: 80px 20px 30px;
@@ -412,7 +417,7 @@ body.xr #labels, body.xr #tip { display: none; }
   /* one group of view controls fits in one row: the pane comes down to the bar (no empty strip) */
   body.exploring:has(#viewctl > .grp:only-child) #panel { bottom: calc(66px + env(safe-area-inset-bottom, 0px)); height: calc(46% + 46px); }
 }
-@media (prefers-reduced-motion: reduce) { #tip { transition: none; } #loading { transition: none; } }
+@media (prefers-reduced-motion: reduce) { #tip { transition: none; } #loading, #ldBar > i { transition: none; } }
 </style>
 </head>
 <body>
@@ -482,6 +487,9 @@ body.xr #labels, body.xr #tip { display: none; }
         <div class="row"><input id="shRelay" type="url" inputmode="url" autocomplete="off" spellcheck="false" placeholder="wss://relay.example.org" aria-label="Relay address"><button class="btn" type="button" data-sh="relay">Use</button></div>
         <p class="hint">Whoever runs the relay has its address. A page that comes from the relay finds it by itself.</p>
       </div>
+      <h3>Rooms on this network</h3>
+      <ul class="sh-near"></ul>
+      <p class="hint">Rooms with someone on this network (the same Wi-Fi, or the same address on the internet). A room this device was in on this network is joined again by itself, within a week of its last use; one you left is not, and a room it was never in never is.</p>
       <h3>Open rooms</h3>
       <ul class="sh-rooms"></ul>
       <div class="row mt"><button class="btn primary" type="button" data-sh="start">Start a room</button><button class="btn" type="button" data-sh="refresh">Refresh</button>
@@ -493,7 +501,7 @@ body.xr #labels, body.xr #tip { display: none; }
       <p class="hint">Dot: where you stand at a station. Square: where its story floats. Arrows: people. Up is forward.</p>
       <h3>Stations</h3>
       <ul class="sh-stations"></ul>
-      <div class="row mt"><button class="btn" type="button" data-sh="arrange">Arrange all</button><select id="shAdd" aria-label="Story for a new station"></select><button class="btn" type="button" data-sh="add">Add a station</button><button class="btn" type="button" data-sh="lock" aria-pressed="false" title="Once the stations are in place: nobody moves one by accident">Lock layout</button><button class="btn" type="button" data-sh="fresh" hidden title="Every page in the room moves to a new address, where the headsets make a new shared space together">Fresh shared space</button></div>
+      <div class="row mt"><button class="btn" type="button" data-sh="arrange">Arrange all</button><select id="shAdd" aria-label="Story for a new station"></select><button class="btn" type="button" data-sh="add">Add a station</button><button class="btn" type="button" data-sh="lock" aria-pressed="false" title="Once the stations are in place: nobody moves one by accident">Lock layout</button><button class="btn" type="button" data-sh="near" aria-pressed="true" title="Listed under Rooms on this network for devices on the network of someone in it">Show on this network: on</button><button class="btn" type="button" data-sh="fresh" hidden title="Every page in the room moves to a new address, where the headsets make a new shared space together">Fresh shared space</button></div>
       <div class="row mt sh-look"><span>In the headsets, for everyone here:</span><select id="shLabels" aria-label="Labels in the headsets"><option value="fixed">Labels: in 3D</option><option value="face">Labels: on top</option><option value="hidden">Labels: hidden</option></select><button class="btn" type="button" data-sh="free" aria-pressed="true" title="Free: the grip turns what it holds with your hand. Facing you: things you move keep facing you">Moving: free</button><button class="btn" type="button" data-sh="subs" aria-pressed="false" title="The narration's words in a strip low in each headset's view">Subtitles: off</button></div>
       <h3>People</h3>
       <ul class="sh-people"></ul>
@@ -504,7 +512,7 @@ body.xr #labels, body.xr #tip { display: none; }
 </div>
 <div id="livebar" hidden role="alert"><span></span><button class="btn primary" type="button" data-live="reload">Reload now</button><button class="btn" type="button" data-live="later">Later</button></div>
 <button class="btn primary" id="xrgo" type="button" hidden>Enter VR to continue</button>
-<div id="loading">Loading</div>
+<div id="loading"><div><span id="ldLine">Loading</span><div id="ldBar" role="progressbar" aria-label="Loading" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><i></i></div><span id="ldStep"></span></div></div>
 <div id="nogl">This app needs WebGL, which this browser has turned off.</div>
 <script src="stories/list.js"></script>
 <script src="three.min.js"></script>
@@ -531,10 +539,11 @@ const HOST = {
     if (!this.renderer) {
       this.quiet = true; try { this.renderer = new THREE.WebGLRenderer(opts); } finally { this.quiet = false; }
       // a story's start ends by giving the renderer its frame loop: it is built then, and a place kept across a swap
-      // or a reload (HOST.built) goes back right after, before any other task (the shared room's pump) sees the story
+      // or a reload (HOST.built) goes back right after, before any other task (the shared room's pump) sees the story;
+      // in a headset the shell's loading scene fades out over its first frames (HOST.loading.wrap)
       const r = this.renderer, loop = r.setAnimationLoop;
       r.setAnimationLoop = fn => {
-        loop(fn);
+        loop(this.loading ? this.loading.wrap(fn) : fn);
         const f = fn && this.built;
         if (f) queueMicrotask(() => { if (this.built !== f) return; this.built = null; try { f(); } catch (e) { console.warn('The place was not put back:', e); } });
       };
@@ -1496,24 +1505,188 @@ HOST.lowpoly = function () {
   p.catch(() => { if (this.lowpolyP === p) this.lowpolyP = null; });
   return p;
 };
+// ---------------------------------------------------------------- loading --
+// A story builds in steps (its LOAD queue, each step a task of its own) and reports each one with
+// HOST.progress(done, total, label): the page shows a thin bar in the story's colour and the step under its loading
+// line. In a headset the old story's scene is gone while the next one builds, so the shell draws a loading scene of its
+// own (the frame loop HOST.teardown gives the renderer): a card with the story's name and a bar in its colour, 1.2 m in
+// front of you and a little below your eyes, easing with your head, and a ring at the left wrist where the menu's clock
+// sits (the menu is out of the scenes while a story builds). It shows only once a load has taken 0.4 s, fades out over
+// the new story's first frames (drawn over them, HOST.loading.wrap) and lives in a scene of its own, never in a story's,
+// made once with HOST.quiet set. It is placed in the renderer's reference space (where three.js puts the camera); in AR
+// the room shows through. The headset draws it between the story's steps, so a step must not run long.
+HOST.loading = (() => {
+  const L = { meta: null, done: 0, total: 0, label: '', on: false, ran: false, fade: false, t0: 0, last: 0, a: 0, placed: false, sc: null, cam: null, card: null, ring: null, sig: '', scam: null };
+  const el = id => document.getElementById(id), FONT = (px, w) => `${w || 400} ${px}px B612, "Segoe UI", Arial, sans-serif`;
+  const head = new THREE.Vector3(), hq = new THREE.Quaternion(), to = new THREE.Vector3(), fw = new THREE.Vector3(), wm = new THREE.Matrix4(), wr = new THREE.Vector3();
+  // the page: the bar and the step under the story's loading line
+  function page() {
+    const f = L.total ? Math.max(0, Math.min(1, L.done / L.total)) : 0, bar = el('ldBar');
+    bar.style.visibility = L.total ? 'visible' : 'hidden';
+    bar.firstElementChild.style.width = (100 * f).toFixed(1) + '%';
+    bar.setAttribute('aria-valuenow', String(Math.round(100 * f)));
+    el('ldStep').textContent = L.total && L.done < L.total ? L.label : '';
+  }
+  const col = () => (L.meta && L.meta.col) || '#46d9ff';
+  function make() {
+    if (L.sc) return;
+    const q = HOST.quiet;
+    HOST.quiet = true;
+    try {
+      L.sc = new THREE.Scene(); L.cam = new THREE.PerspectiveCamera(70, 1, 0.05, 100);
+      const card = (w, cw, ch) => {
+        const cv = document.createElement('canvas'), tex = new THREE.CanvasTexture(cv);
+        cv.width = cw; cv.height = ch;
+        const m = new THREE.Mesh(new THREE.PlaneGeometry(w, w * ch / cw), new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthTest: false, depthWrite: false }));
+        m.renderOrder = 1000; m.frustumCulled = false; m.visible = false;
+        L.sc.add(m);
+        return { cv, ctx: cv.getContext('2d'), tex, m };
+      };
+      L.card = card(0.5, 768, 232); L.ring = card(0.07, 192, 192);
+    } finally { HOST.quiet = q; }
+  }
+  const rr = (c, x, y, w, h, r) => { c.beginPath(); c.moveTo(x + r, y); c.arcTo(x + w, y, x + w, y + h, r); c.arcTo(x + w, y + h, x, y + h, r); c.arcTo(x, y + h, x, y, r); c.arcTo(x, y, x + w, y, r); c.closePath(); };
+  function draw() {
+    const f = L.total ? Math.max(0, Math.min(1, L.done / L.total)) : 0, m = L.meta || {}, sig = [m.key, f.toFixed(3), L.label].join('|');
+    if (sig === L.sig) return;
+    L.sig = sig;
+    let c = L.card.ctx;
+    const W = L.card.cv.width, H = L.card.cv.height, C = col();
+    c.clearRect(0, 0, W, H);
+    rr(c, 4, 4, W - 8, H - 8, 28); c.fillStyle = 'rgba(8,15,28,0.92)'; c.fill();
+    c.lineWidth = 3; c.strokeStyle = C; c.globalAlpha = 0.6; c.stroke(); c.globalAlpha = 1;
+    c.textAlign = 'left'; c.textBaseline = 'alphabetic';
+    c.font = FONT(24, 700); c.fillStyle = C; c.fillText(String(m.kick || '').toUpperCase(), 40, 56);
+    const title = m.title || 'Loading';
+    let px = 52;
+    c.font = FONT(px, 700);
+    while (px > 30 && c.measureText(title).width > W - 80) { px -= 2; c.font = FONT(px, 700); }
+    c.fillStyle = '#e8f1ff'; c.fillText(title, 40, 116);
+    rr(c, 40, 146, W - 80, 12, 6); c.fillStyle = 'rgba(255,255,255,0.14)'; c.fill();
+    if (f > 0) { rr(c, 40, 146, Math.max(12, (W - 80) * f), 12, 6); c.fillStyle = C; c.fill(); }
+    c.font = FONT(24); c.fillStyle = '#9fb0c8'; c.fillText(L.label || (m.loading || 'Loading'), 40, 198);
+    L.card.tex.needsUpdate = true;
+    // the ring at the wrist: how far, round from twelve o'clock
+    c = L.ring.ctx;
+    const R = L.ring.cv.width / 2;
+    c.clearRect(0, 0, 2 * R, 2 * R);
+    c.beginPath(); c.arc(R, R, R - 6, 0, 2 * Math.PI); c.fillStyle = 'rgba(8,15,28,0.92)'; c.fill();
+    c.lineCap = 'round'; c.lineWidth = 16;
+    c.beginPath(); c.arc(R, R, R - 30, 0, 2 * Math.PI); c.strokeStyle = 'rgba(255,255,255,0.16)'; c.stroke();
+    if (f > 0) { c.beginPath(); c.arc(R, R, R - 30, -Math.PI / 2, -Math.PI / 2 + 2 * Math.PI * f); c.strokeStyle = C; c.stroke(); }
+    c.font = FONT(40, 700); c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillStyle = '#e8f1ff'; c.fillText(Math.round(100 * f) + '%', R, R + 2);
+    L.ring.tex.needsUpdate = true;
+  }
+  // this frame: the card in front of your head (eased), the ring on the left wrist as the menu's clock sits there (a
+  // controller's grip, or a tracked hand's wrist), both turned to your eyes; fading in after 0.4 s, or out (fading)
+  function place(f, fading) {
+    const r = HOST.renderer, ref = r && r.xr.getReferenceSpace(), now = performance.now(), dt = Math.min(0.1, (now - (L.last || now)) / 1000);
+    L.last = now;
+    const want = !fading && now - L.t0 > 400 ? 1 : 0;
+    L.a += (want - L.a) * (1 - Math.exp(-dt * (want ? 6 : 10)));
+    if (L.a < 0.01 && !want) L.a = 0;
+    let vp = null;
+    try { vp = ref && f.getViewerPose(ref); } catch (e) { /* not this frame */ }
+    if (!vp || L.a <= 0) { L.card.m.visible = L.ring.m.visible = false; return; }
+    draw();
+    const p = vp.transform.position, o = vp.transform.orientation;
+    head.set(p.x, p.y, p.z); hq.set(o.x, o.y, o.z, o.w);
+    fw.set(0, 0, -1).applyQuaternion(hq); fw.y = 0;
+    if (fw.lengthSq() < 1e-6) fw.set(0, 0, -1);
+    to.copy(head).addScaledVector(fw.normalize(), 1.2); to.y -= 0.15;
+    if (!L.placed) { L.card.m.position.copy(to); L.placed = true; } else L.card.m.position.lerp(to, 1 - Math.exp(-dt * 3));
+    L.card.m.lookAt(head);
+    L.card.m.material.opacity = L.a; L.card.m.visible = true;
+    // the left wrist, as shared.js places the menu's clock (HAND)
+    let src = null, wp = null;
+    try { for (const x of f.session.inputSources) if (x && x.handedness === 'left') { src = x; break; } } catch (e) { /* gone */ }
+    if (src && src.hand) try { wp = f.getJointPose(src.hand.get('wrist'), ref); } catch (e) { /* not tracked now */ }
+    else if (src) try { wp = f.getPose(src.gripSpace || src.targetRaySpace, ref); } catch (e) { /* not tracked now */ }
+    if (wp && !wp.emulatedPosition) {
+      wm.fromArray(wp.transform.matrix);
+      if (src.hand) wr.set(0, 0.03, 0.035).applyMatrix4(wm); else { wr.set(0, 0, 0.05).applyMatrix4(wm); wr.y += 0.05; }
+      L.ring.m.position.copy(wr); L.ring.m.lookAt(head);
+      L.ring.m.material.opacity = L.a; L.ring.m.visible = true;
+    } else L.ring.m.visible = false;
+  }
+  // the frame loop while a story builds in a headset
+  function loop(t, f) {
+    const r = HOST.renderer;
+    if (!r || !r.xr.isPresenting || !f) return;
+    place(f, false);
+    r.render(L.sc, L.cam);
+  }
+  // over a new story's first frames: the card and ring fading out (drawn after the story, with its camera's near and
+  // far, so the session's depth range is not changed back and forth)
+  function over(f) {
+    const r = HOST.renderer;
+    if (!L.fade) return;
+    if (!r || !r.xr.isPresenting || !f || !L.scam) { L.fade = false; return; }
+    place(f, true);
+    if (L.a <= 0) { L.fade = false; return; }
+    L.cam.near = L.scam.near; L.cam.far = L.scam.far;
+    const ac = r.autoClear;
+    r.autoClear = false;
+    try { r.render(L.sc, L.cam); } finally { r.autoClear = ac; }
+  }
+  return {
+    get meta() { return L.meta; }, set meta(m) { L.meta = m; },
+    // the story on show has given its frame loop (it is built)
+    get ran() { return L.ran; },
+    // a load asked for (HOST.start): the page's loading line, its bar reset
+    begin(meta) {
+      L.meta = meta; L.done = L.total = 0; L.label = '';
+      el('ldLine').textContent = meta.loading; el('ldBar').firstElementChild.style.background = col();
+      page(); el('loading').classList.remove('gone');
+    },
+    fail(msg) { L.total = 0; el('ldLine').textContent = msg; page(); },
+    progress(done, total, label) { L.done = +done || 0; L.total = +total || 0; L.label = label ? String(label) : ''; page(); },
+    // HOST.teardown: the frame loop while the next story builds (in a headset), or none
+    start(xr) {
+      L.done = L.total = 0; L.label = ''; L.ran = false; L.fade = false; L.on = !!xr; L.t0 = performance.now(); L.last = 0; L.a = 0; L.placed = false; L.sig = '';
+      page();
+      if (!xr) return null;
+      make();
+      return loop;
+    },
+    // a frame loop given to the renderer: a story's own while the loading scene shows gets the fade drawn after it
+    wrap(fn) {
+      if (!fn || fn === loop) return fn;
+      L.ran = true;
+      if (!L.on) return fn;
+      L.on = false;
+      try { L.scam = HOST.cur && HOST.cur.peek('GL.camera'); } catch (e) { L.scam = null; }
+      if (L.a <= 0 || !L.scam) return fn;
+      L.fade = true;
+      return (t, f) => { fn(t, f); over(f); };
+    },
+    // for tests and pictures: what shows now, and the scene itself
+    state: () => ({ on: L.on, fade: L.fade, a: L.a, since: performance.now() - L.t0, done: L.done, total: L.total, label: L.label,
+      card: !!(L.card && L.card.m.visible), ring: !!(L.ring && L.ring.m.visible), cardAt: L.card ? L.card.m.position.toArray() : null, ringAt: L.ring ? L.ring.m.position.toArray() : null }),
+    parts: () => ({ scene: L.sc, cam: L.cam, card: L.card && L.card.m, ring: L.ring && L.ring.m }),
+  };
+})();
+HOST.progress = (done, total, label) => HOST.loading.progress(done, total, label);
 HOST.teardown = function () {
   const r = this.renderer;
   this.audio.drop();
   this.built = null;
   if (this.live) this.live.detach();   // (its headset panel leaves the old scene before it is disposed)
   if (this.cur) {
-    try { this.inputs = this.cur.inputs(); } catch (e) { this.inputs = []; }
-    try { this.xrPose = this.cur.xrPose(); } catch (e) { this.xrPose = null; }
+    // (a story still building never took the headset: the controllers and the place from the story before stay)
+    if (this.loading.ran) {
+      try { this.inputs = this.cur.inputs(); } catch (e) { this.inputs = []; }
+      try { this.xrPose = this.cur.xrPose(); } catch (e) { this.xrPose = null; }
+    }
     if (this.collab) this.collab.detach(); // the shared room's overlay leaves the old scene before it is disposed
     try { this.cur.dispose(); } catch (e) { console.warn(e); }
   }
   for (const [t, type, fn, opts] of HOST_REC.splice(0)) t.removeEventListener(type, fn, opts);
   if (r) {
-    // keep a running headset session alive while the next story builds
-    const blank = new THREE.Scene(), cam = new THREE.PerspectiveCamera();
-    r.setAnimationLoop(r.xr.isPresenting ? () => r.render(blank, cam) : null);
+    // keep a running headset session alive while the next story builds: the shell's loading scene (HOST.loading)
+    r.setAnimationLoop(this.loading.start(r.xr.isPresenting));
     for (let i = 0; i < 2; i++) { const g = r.xr.getController(i); if (g.parent) g.parent.remove(g); g.clear(); }
-  }
+  } else this.loading.start(false);
   for (const id of ['labels', 'story', 'explore', 'viewctl', 'track']) document.getElementById(id).innerHTML = '';
   document.body.classList.remove('exploring');
   document.getElementById('tip').style.opacity = 0;
@@ -1536,15 +1709,15 @@ HOST.start = async function (key, keepHash, place) {
   if (this.curKey === meta.key && this.cur) { this.closePicker(); return; }
   if (!this.live.allowed(meta.key)) return;   // it needs a newer shell: asked first (HOST.live)
   this.busy = true;
-  const ld = document.getElementById('loading');
-  ld.textContent = meta.loading; ld.classList.remove('gone');
-  try { await this.load(meta.key, this.live.stale(meta.key)); } catch (e) { ld.textContent = e.message; this.busy = false; this.queued = ''; return; }
+  this.loading.begin(meta);
+  try { await this.load(meta.key, this.live.stale(meta.key)); } catch (e) { this.loading.fail(e.message); this.busy = false; this.queued = ''; return; }
   this.run(meta, keepHash, place);
   this.closePicker();
   this.next();
 };
 // the story's factory runs (the old story torn down first); a place given goes back once the story is built
 HOST.run = function (meta, keepHash, place) {
+  this.loading.meta = meta;   // (the headset's loading scene names it)
   this.teardown();
   // in a shared room, a story started at your station takes the station's place in the headset
   const at = this.collab && this.collab.starting(meta.key);
