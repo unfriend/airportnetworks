@@ -8,7 +8,8 @@
 //   levels.txt                 the measurements, with the narration's for comparison
 // Levels are as the app plays them at full effects volume (its default, 75 %, is 5 dB lower): every file gets the same
 // gain, so they stay matched to each other and to the voice as in the app.
-// Usage: serve the folder, then node tools/sfx-render.mjs [http://127.0.0.1:8123/] [out folder]
+// Usage: serve the folder, then node tools/sfx-render.mjs [http://127.0.0.1:8123/] [out folder] [--wav]
+// (--wav keeps the renders as 32-bit WAV files in <out>/wav; without it they are deleted at the end)
 // Needs ffmpeg (with libmp3lame) and Playwright's Chromium (PLAYWRIGHT_MODULE and CHROMIUM_PATH as in smoke.mjs).
 import fs from 'node:fs';
 import os from 'node:os';
@@ -17,8 +18,9 @@ import { execFileSync, spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 const { chromium } = await import(process.env.PLAYWRIGHT_MODULE || 'playwright');
 const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const base = process.argv[2] || 'http://127.0.0.1:8123/';
-const OUT = path.resolve(process.argv[3] || path.join(os.tmpdir(), 'sfx-out'));
+const args = process.argv.slice(2).filter(a => !a.startsWith('--')), keepWav = process.argv.includes('--wav');
+const base = args[0] || 'http://127.0.0.1:8123/';
+const OUT = path.resolve(args[1] || path.join(os.tmpdir(), 'sfx-out'));
 const WAV = path.join(OUT, 'wav');
 fs.mkdirSync(WAV, { recursive: true });
 const GAP = 1.5, SR = 44100;
@@ -105,6 +107,7 @@ fs.writeFileSync(path.join(OUT, 'levels.txt'), [
   'The narration for comparison:', ...voice, '',
   'file                   kind     length   peak      TP   M max   S max       I', ...table, ''].join('\n'));
 await browser.close();
+if (!keepWav) fs.rmSync(WAV, { recursive: true, force: true });
 if (errors.length) { console.log('page errors:\n  ' + errors.join('\n  ')); process.exit(1); }
 console.log(`\n${rows.length} files, sfx-all.mp3 (${mmss(at)}), sfx-all.txt and levels.txt in ${OUT}`);
 if (rows.some(r => r.clip)) { console.log('CLIPPING in: ' + rows.filter(r => r.clip).map(r => r.it.file).join(', ')); process.exit(1); }

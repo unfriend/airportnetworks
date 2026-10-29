@@ -11,7 +11,7 @@ version, and undo one. Start with [HANDOVER.md](../HANDOVER.md). [AGENTS.md](../
 | --- | --- | --- |
 | Node | 22 (the relay alone runs on 18 or newer) | the build scripts, the data generators (all but one), the relay and every test. `relay/test.mjs` uses Node's own WebSocket client, which is on by default from Node 22 |
 | Playwright, with its Chromium | 1.56 | every browser test: smoke, sound, update, shared rooms, the set harnesses, and `tools/narration.mjs` |
-| Python 3 | 3.13 | optional: serving the folder (`python3 -m http.server`). Needed for the data generators of the endotype story (3.11 or newer) and the tissue topology story (3.10 or newer), see below |
+| Python 3 | 3.13 | optional: serving the folder (`python3 -m http.server`). Needed for the data generators of the endotype story (3.11 or newer) the tissue topology and soil stories (3.10 or newer), see below |
 | `http-server` | any | optional: another way to serve the folder (`npx` fetches it) |
 | `openssl` | any | only for the relay's `--lan` mode (see [relay/README.md](../relay/README.md)) |
 | git | any | a checkout. The update test also needs a second, older checkout |
@@ -84,6 +84,21 @@ node tools/topo/test-data.mjs                            # the data and its deco
 node tools/topo/build.mjs
 ```
 
+**Python for the soil story's data.** Only when the authors send new data. The script is `tools/soil/data/gen_data.py`
+(Python 3.10 or newer with numpy, pandas, scipy and networkx: `tools/soil/data/requirements.txt`); it reads the authors'
+three CSVs (`Soil_ASVs.csv`, `ASV_Identifiers.csv`, `Field_Metadata.csv`, kept out of the repository: ask the owner for
+them) from a folder, builds the co-occurrence network and takes about five minutes. The slides' readings are
+reconciled by `tools/soil/data/reconcile.py` from two readers' files (not kept). Only the numbers go into the
+repository: kinds numbered, no ASV ids or sequences, no pictures from the slides.
+
+```sh
+python3 -m venv ~/venvs/soil && . ~/venvs/soil/bin/activate
+pip install -r tools/soil/data/requirements.txt
+python -I tools/soil/data/gen_data.py <folder with the three CSVs>   # writes tools/soil/sets/data.js
+node tools/soil/test-data.mjs                                       # the data, its decoders and the story's key numbers
+node tools/soil/build.mjs
+```
+
 The other data generators are Node scripts (each story's `tools/<key>/README.md` lists them). The microanatomy
 generator also needs Iva Buljan's GraphML file, which is kept out of the repository.
 
@@ -128,7 +143,7 @@ tests use headless Chromium, which draws in software here and is slow, so run th
 
 | Test | Command | Needs | When to run it | Time | A failure usually means |
 | --- | --- | --- | --- | --- | --- |
-| Build check | `for k in lbi nmd endo pet micro ovary qubits mutation topo pass flock robots lowpoly design; do node tools/$k/build.mjs --check; done` | Node | after any change in `tools/`, and before every release | under 1 s | a built story no longer matches its sources: run its `build.mjs` and commit both |
+| Build check | `for k in lbi nmd endo pet micro ovary qubits mutation topo soil pass flock robots lowpoly design; do node tools/$k/build.mjs --check; done` | Node | after any change in `tools/`, and before every release | under 1 s | a built story no longer matches its sources: run its `build.mjs` and commit both |
 | Smoke | `node tools/smoke.mjs http://127.0.0.1:8123/` | server, Playwright | before every commit | about 5 min | a page or console error in a story (they are printed at the end). A 404 for a missing narration MP3 is expected and ignored |
 | Sound | `node tools/audio.mjs http://127.0.0.1:8123/` | server, Playwright, `audio/narration.mp3` | after touching sound (`HOST.audio` in `index.html`, a story's narration code, how `sw.js` serves the narration) | a few minutes | the narration no longer starts after a tap or a story change, or the `<audio>` fallback no longer takes over |
 | Update | `git worktree add /tmp/old origin/main`, then `node tools/update.mjs /tmp/old .`, then `git worktree remove /tmp/old` | Playwright, port 8125 free (it serves both versions itself) | after changing `sw.js` or how files load, and before every release | under 1 min | `VERSION` was not bumped, a new file is missing from `SHELL`, or the page and its stories came from different versions. If it says the two versions look the same, the old checkout is not older |
@@ -164,8 +179,8 @@ only after the tests pass. No pull requests are used.
 
 1. **Start up to date.** Run `git fetch origin`, then `git merge-base --is-ancestor origin/main HEAD && echo ok`. If
    it prints nothing, merge `origin/main` into your branch first.
-2. **Edit the sources, never a built story.** Twelve stories are built from `tools/<key>/`: lbi, nmd, endo, pet,
-   micro, ovary, qubits, mutation, topo, pass, flock and robots (pass also takes its globe and cell from `stories/airports.js` and
+2. **Edit the sources, never a built story.** Thirteen stories are built from `tools/<key>/`: lbi, nmd, endo, pet,
+   micro, ovary, qubits, mutation, topo, soil, pass, flock and robots (pass also takes its globe and cell from `stories/airports.js` and
    `stories/spatial.js`: rebuild it after changing either). So are the design room (`stories/design.js` from
    `tools/design/`) and the miniatures (`lowpoly.js` from `tools/lowpoly/`, which the design room's names come from:
    rebuild the design room after changing them). `stories/airports.js`, `stories/proteins.js` and `stories/spatial.js` are edited by hand.
@@ -175,20 +190,22 @@ only after the tests pass. No pull requests are used.
 
    | Source | Stories built from it |
    | --- | --- |
-   | `tools/lbi/kit.js` | all twelve built stories, the design room |
+   | `tools/lbi/kit.js` | all thirteen built stories, the design room |
    | `tools/lowpoly/models-a.js`, `models-b.js` | `lowpoly.js`, the design room |
    | `tools/lbi/sets/body.js` | lbi, pet, micro, ovary, topo |
    | `tools/lbi/sets/tissue.js` | lbi, micro |
    | `tools/nmd/sets/motor.js`, `tools/nmd/sets/data.js` | nmd, endo |
    | `tools/pet/sets/icons.js` | pet |
    | `tools/micro/sets/organs.js` | micro, topo |
+   | `tools/lbi/sets/web.js` | lbi, soil (its globe) |
+   | `tools/topo/sets/look.js` | topo, soil |
 
    Rebuilding all of them takes a few seconds:
-   `for k in lbi nmd endo pet micro ovary qubits mutation topo pass flock robots lowpoly design; do node tools/$k/build.mjs; done`
+   `for k in lbi nmd endo pet micro ovary qubits mutation topo soil pass flock robots lowpoly design; do node tools/$k/build.mjs; done`
 4. **Bump `VERSION` in `sw.js`** (`networks-v97` now, so `networks-v98` next) after any change to a file the app
    serves: `index.html`, `shared.js`, `sw.js`, `manifest.webmanifest`, `three.min.js`, `three.LICENSE.txt`,
    `proteins.html`, `spatial.html`, `README.txt`, `lowpoly.js`, and anything in `stories/`, `audio/` or `icons/`. For a new file the
-   app needs, add it to `SHELL` in `sw.js`. A narration goes in `AUDIO`, which already lists all fifteen file names. If
+   app needs, add it to `SHELL` in `sw.js`. A narration goes in `AUDIO`, which already lists all sixteen file names. If
    the new file is not directly inside `stories/`, `audio/` or `icons/`, also add it to `APP_FILES` in
    `relay/server.mjs`. A new story goes in `stories/list.js` (its card), and `stories/<key>.js` in `SHELL`.
 5. **Bump `FORMAT` in `shared.js`** (`networks-25` now) when the shared keys, or the shape of a story's

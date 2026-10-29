@@ -1,4 +1,4 @@
-Networks, in fifteen stories - installable web app
+Networks, in sixteen stories - installable web app
   1. Network theory, told with the world's airports  (stories/airports.js)
   2. Network medicine, told with the proteins in a cell  (stories/proteins.js)
   3. Spatial interactome, where proteins meet in a cell  (stories/spatial.js)
@@ -30,12 +30,17 @@ Networks, in fifteen stories - installable web app
      scale at once (persistent homology), and which scales tell cirrhosis from
      healthy tissue, down to every cell; after the poster by Simon Schindler,
      André Rendeiro and Jörg Menche, on their data  (stories/topo.js)
-  13. Pass it on (Weitersagen!): how warnings, viruses and signals spread, from
+  13. Holding on to nitrogen: a wheat, its soil and the microbes in between;
+     a wheat that slows the soil's microbes stays greener and leaks less
+     nitrate in a field trial in Japan, while the crowd of microbes follows the
+     fertiliser far more than the wheat; after the slides and field trial of
+     Marina Montserrat Díez, Christa Schleper and colleagues  (stories/soil.js)
+  14. Pass it on (Weitersagen!): how warnings, viruses and signals spread, from
      a school of fish to the world's flights to a cell; for everyone, in
      English and German  (stories/pass.js)
-  14. Flock: 200 starlings at dusk flying all around you, each following its
+  15. Flock: 200 starlings at dusk flying all around you, each following its
      seven nearest neighbours  (stories/flock.js)
-  15. Robot gang: robot vacuums in your room that bump and turn, follow you
+  16. Robot gang: robot vacuums in your room that bump and turn, follow you
      about or form a conga line; in a headset they find your floor and walls
      (stories/robots.js)
 
@@ -56,7 +61,7 @@ story); entering from inside a story resumes it where you were. In a shared
 room a headset has no Stories screen: you walk to a story's station instead.
 The start screen is the landing page (no hash, or #stories). The address
 follows you: #stories on the Stories screen (page or headset), #airports,
-#proteins, #spatial, #lbi, #nmd, #endo, #pet, #micro, #ovary, #qubits, #mutation, #topo, #pass, #flock or #robots in a story, so links can be shared and open that story
+#proteins, #spatial, #lbi, #nmd, #endo, #pet, #micro, #ovary, #qubits, #mutation, #topo, #soil, #pass, #flock or #robots in a story, so links can be shared and open that story
 directly (proteins.html and spatial.html forward there). Taking the headset off and on returns to the Stories menu
 (and, unless Anchor is on, places everything in front of the next wearer).
 A story builds in steps while it loads: the page shows a thin bar and the step
@@ -221,7 +226,7 @@ Narration: put your recordings at audio/narration.mp3 (airports),
 audio/narration-proteins.mp3 (proteins), audio/narration-spatial.mp3
 (cell map), audio/narration-lbi.mp3 (the tour), audio/narration-nmd.mp3,
 audio/narration-endo.mp3, audio/narration-pet.mp3, audio/narration-micro.mp3,
-audio/narration-ovary.mp3, audio/narration-qubits.mp3, audio/narration-mutation.mp3, audio/narration-topo.mp3, audio/narration-pass.mp3, audio/narration-flock.mp3 and audio/narration-robots.mp3 (the airports
+audio/narration-ovary.mp3, audio/narration-qubits.mp3, audio/narration-mutation.mp3, audio/narration-topo.mp3, audio/narration-soil.mp3, audio/narration-pass.mp3, audio/narration-flock.mp3 and audio/narration-robots.mp3 (the airports
 one is recorded; the tour's is a synthetic voice, made by tools/voice/, which
 can narrate the others too); see the note in the audio folder for chapter timings
 and how to record one, and docs/narration.md for the words. It plays in
@@ -236,6 +241,10 @@ under the title; in a shared room in the headset's menu): it shows what the soun
 through each of the app's two ways to play sound (Web Audio and an audio
 element) and lets you choose the one you hear. Reset clears the saved choices.
 A link ending in #soundcheck opens it.
+Sound effects (clicks and chimes for buttons and the shared room, and a quiet
+background for each story, all made in code) are off until turned on in Sound
+check (with a volume), in the headset's menu, or with #sfx=on in a link; they
+dip under the narration. tools/sfx.html is a sound board that plays every one.
 
 After changing any file (including adding or replacing a narration file),
 bump VERSION in sw.js so installed copies update, then run node
@@ -349,6 +358,21 @@ topocyte (GPL-3) is run offline only, none of its code is in the app. The cell
 types are the cell classifier's labels; the genes and proteins of the last
 chapter are sketches of the workflow, not data.
 
+Holding on to nitrogen (stories/soil.js): after the slides "Exploring the
+Effects of Biological Nitrification Inhibition on the Rhizosphere Microbiome of
+a BNI-enabled Winter Wheat" by Marina Montserrat Díez, Tadashi Yoshihashi,
+Guntur Subbarao Ventaka, Eleftheria Bachtsevani, Dimitrios Karpouzas, Christina
+Hazard, Melina Kerou and Christa Schleper (University of Vienna, University of
+Thessaly, Université Lyon 1, JIRCAS), and their field trial's data, shown with
+the authors' permission (made for the Global Peter Drucker Forum in Vienna).
+The field measures, the microbes and the network are the trial's data (the
+network built for this story with a standard method: correlation, not
+interaction); day 70's chlorophyll, the jars' nitrous oxide and the qPCR counts
+are read off the slides; the soil block, its flows, the relay and the field's
+layout are illustrative, and the story says so. The authors' files are not in
+the repository (tools/soil/data/gen_data.py reads them); kinds of microbe are
+numbered, and none of the slides' pictures is shown.
+
 Pass it on (stories/pass.js): an outreach story of the Ludwig Boltzmann
 Institute for Network Medicine, in English and German (a switch, EN | DE, on the
 story panel and above the explore tabs; German when the device's language is,
@@ -373,7 +397,7 @@ it). Without a room setup they get a virtual room round you, and the panel
 offers Set up your room. Point at the floor and pull the trigger to spill
 crumbs. Speeds and cleaning times are tuned to look right, not measured.
 
-Files: index.html (the app), stories/ (the fifteen stories, and list.js: the list of them),
+Files: index.html (the app), stories/ (the sixteen stories, and list.js: the list of them),
 version.json (the latest release: running copies pick up new and changed stories from it, written by
 tools/release.mjs), proteins.html and
 spatial.html (forward to the app), manifest.webmanifest, sw.js (offline cache), audio/,
@@ -391,6 +415,8 @@ tools/ovary/build.mjs writes stories/ovary.js), tools/qubits/ (sources of the qu
 tools/qubits/build.mjs writes stories/qubits.js), tools/mutation/ (sources of the mutation story;
 node tools/mutation/build.mjs writes stories/mutation.js), tools/topo/ (sources of the tissue topology
 story; node tools/topo/build.mjs writes stories/topo.js; its data from the authors' files, not in the repository),
+tools/soil/ (sources of the soil story; node tools/soil/build.mjs writes stories/soil.js; its data from the
+authors' files, not in the repository),
 tools/pass/ (sources of the pass story; node
 tools/pass/build.mjs writes stories/pass.js from them and from the airports and cell map stories), tools/flock/ (sources of the flock; node tools/flock/build.mjs
 writes stories/flock.js), tools/robots/ (sources of the robot gang;

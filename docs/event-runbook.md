@@ -93,7 +93,7 @@ local network found each other this way, and then shared a peer-to-peer room; he
   accepted certificate per address.
 - [ ] From a headset, `https://<address>:8787/api/ping` answers `{"now":...}`.
 - [ ] Two tape crosses, A and B, a metre or more apart (50 cm at least), left down all day. A is the room's origin.
-- [ ] Floor for **Arrange all**: fifteen stations in two rows, eight and seven behind them, about 17 m by 4 m starting 1.2 m in front of you.
+- [ ] Floor for **Arrange all**: sixteen stations in two rows, eight and eight behind them, about 17 m by 4 m starting 1.2 m in front of you.
   Less room: place a few with **Add here** (headset) or **Add a station** (page).
 
 ## 2. Setting up

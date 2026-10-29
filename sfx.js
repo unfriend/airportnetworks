@@ -165,10 +165,12 @@
     tone(x, f, at, { peak: peak * 0.55, a: 0.001, d: 0.034, f1: f * 0.72, glide: 0.03 });
     tone(x, f * 0.32, at, { peak: peak * 0.3, a: 0.002, d: 0.028, type: 'triangle' });
   }
-  // a soft low thud with a falling pitch (things set down on the floor)
+  // a soft thud with a falling pitch and a short wooden knock over it (things set down on the floor). Kept above about
+  // 150 Hz: a headset's speakers give little below that
   function thud(x, at, peak, f0, f1, d) {
     tone(x, f0, at, { peak, a: 0.003, d, f1, glide: d * 0.6 });
-    hiss(x, at, { kind: 'pink', type: 'lowpass', f: 620, q: 0.7, peak: peak * 0.55, a: 0.001, d: 0.045 });
+    tone(x, f0 * 2.37, at, { peak: peak * 0.35, a: 0.002, d: d * 0.3, f1: f1 * 2.37, glide: d * 0.3, type: 'triangle' });
+    hiss(x, at, { kind: 'pink', type: 'bandpass', f: 900, q: 0.8, peak: peak * 0.6, a: 0.001, d: 0.035 });
   }
   // air moving: noise through a band that sweeps from f0 to f1, swelling over its first 40 %
   function swish(x, at, dur, f0, f1, peak, wet) {
@@ -180,7 +182,7 @@
   const N = { A5: 880, B5: 987.77, Cs6: 1108.73, E6: 1318.51, E5: 659.26, A4: 440, Fs5: 739.99 };
   const SOUNDS = {
     click: { kind: 'ui', gap: 35, level: 0.35, desc: 'A quiet click: a button on the page or in the headset\'s menu.',
-      make(x) { const v = 1 + (x.r() - 0.5) * 0.05; tap(x, 0, 0.11, 1650 * v); return x.t + 0.09; } },
+      make(x) { const v = 1 + (x.r() - 0.5) * 0.05; tap(x, 0, 0.13, 1650 * v); return x.t + 0.09; } },
     toggleOn: { kind: 'ui', gap: 35, level: 0.45, desc: 'A switch turned on: a tap and two blips going up.',
       make(x) { tap(x, 0, 0.055, 1500); blip(x, N.B5, 0.004, 0.06, 0.12); blip(x, N.E6, 0.06, 0.07, 0.16); return x.t + 0.3; } },
     toggleOff: { kind: 'ui', gap: 35, level: 0.4, desc: 'A switch turned off: a tap and two blips going down.',
@@ -194,25 +196,25 @@
     lock: { kind: 'ui', gap: 120, level: 0.55, desc: 'Locked (the circles, or a story): a crisp two-part latch closing.',
       make(x) {
         hiss(x, 0, { type: 'highpass', f: 2600, q: 0.8, peak: 0.12, a: 0.0006, d: 0.012 });
-        tone(x, 2350, 0, { peak: 0.028, a: 0.001, d: 0.04 });
+        tone(x, 2350, 0, { peak: 0.03, a: 0.001, d: 0.04 });
         hiss(x, 0.032, { type: 'bandpass', f: 1800, q: 1.1, peak: 0.13, a: 0.0006, d: 0.016 });
-        tone(x, 230, 0.032, { peak: 0.13, a: 0.002, d: 0.07, f1: 120, glide: 0.06 });
+        tone(x, 430, 0.032, { peak: 0.09, a: 0.002, d: 0.06, f1: 270, glide: 0.05, type: 'triangle' });
         return x.t + 0.16;
       } },
     unlock: { kind: 'ui', gap: 120, level: 0.45, desc: 'Unlocked: a lighter latch opening and a small note going up.',
       make(x) {
-        hiss(x, 0, { type: 'bandpass', f: 2200, q: 1, peak: 0.11, a: 0.0006, d: 0.014 });
-        tone(x, 180, 0, { peak: 0.07, a: 0.002, d: 0.05, f1: 260, glide: 0.04 });
-        tone(x, 1900, 0.03, { peak: 0.03, a: 0.003, d: 0.08, f1: 2600, glide: 0.05 });
-        hiss(x, 0.055, { type: 'highpass', f: 4200, q: 0.8, peak: 0.07, a: 0.0006, d: 0.01 });
+        hiss(x, 0, { type: 'bandpass', f: 2200, q: 1, peak: 0.17, a: 0.0006, d: 0.014 });
+        tone(x, 300, 0, { peak: 0.075, a: 0.002, d: 0.05, f1: 430, glide: 0.04, type: 'triangle' });
+        tone(x, 1900, 0.03, { peak: 0.05, a: 0.003, d: 0.08, f1: 2600, glide: 0.05 });
+        hiss(x, 0.055, { type: 'highpass', f: 4200, q: 0.8, peak: 0.11, a: 0.0006, d: 0.01 });
         return x.t + 0.2;
       } },
     notice: { kind: 'ui', gap: 600, level: 0.8, desc: 'A notice in front of you: a soft two-note chime.',
-      make(x) { bell(x, N.Cs6, 0, 0.07, 0.9, 0.22); bell(x, N.A5, 0.15, 0.07, 1.1, 0.25); return x.t + 1.4; } },
+      make(x) { bell(x, N.Cs6, 0, 0.06, 0.9, 0.22); bell(x, N.A5, 0.15, 0.06, 1.1, 0.25); return x.t + 1.4; } },
     ready: { kind: 'ui', gap: 1500, level: 0.85, desc: 'A story has loaded: three soft notes going up.',
       make(x) {
-        bell(x, N.A5, 0, 0.055, 1.1, 0.28); bell(x, N.Cs6, 0.1, 0.05, 1.2, 0.3); bell(x, N.E6, 0.2, 0.05, 1.4, 0.32);
-        tone(x, N.A4, 0, { peak: 0.03, a: 0.06, d: 1.3, send: 0.2 });
+        bell(x, N.A5, 0, 0.047, 1.1, 0.28); bell(x, N.Cs6, 0.1, 0.043, 1.2, 0.3); bell(x, N.E6, 0.2, 0.043, 1.4, 0.32);
+        tone(x, N.A4, 0, { peak: 0.026, a: 0.06, d: 1.3, send: 0.2 });
         return x.t + 1.8;
       } },
     enter: { kind: 'room', gap: 1500, level: 0.9, desc: 'Walking into a circle: a gentle swell, opening and fading.',
@@ -220,7 +222,7 @@
         const c = x.c, t = x.t, lp = c.createBiquadFilter();
         lp.type = 'lowpass'; lp.Q.value = 0.7;
         lp.frequency.setValueAtTime(260, t); lp.frequency.exponentialRampToValueAtTime(2300, t + 0.95); lp.frequency.exponentialRampToValueAtTime(650, t + 2.6);
-        const g = amp(x, 0.07, 0, 0.9, 1.6, 0.25);
+        const g = amp(x, 0.05, 0, 0.9, 1.6, 0.25);
         lp.connect(g); g.connect(x.out); send(x, g, 0.35);
         for (const [f, k] of [[220, 0.55], [329.63, 0.38], [440, 0.3], [554.37, 0.17], [659.26, 0.1]]) for (const d of [-5, 5]) {
           const s = c.createOscillator(), sg = c.createGain();
@@ -230,18 +232,18 @@
         return t + 2.9;
       } },
     grab: { kind: 'room', gap: 150, level: 0.55, desc: 'A circle picked up: air rising and a soft lift.',
-      make(x) { swish(x, 0, 0.2, 280, 1500, 0.09); tone(x, 150, 0.02, { peak: 0.12, a: 0.02, d: 0.16, f1: 245, glide: 0.12 }); tap(x, 0, 0.04, 900); return x.t + 0.3; } },
+      make(x) { swish(x, 0, 0.2, 320, 1700, 0.09); tone(x, 210, 0.02, { peak: 0.1, a: 0.02, d: 0.16, f1: 340, glide: 0.12 }); tone(x, 420, 0.02, { peak: 0.03, a: 0.02, d: 0.12, f1: 680, glide: 0.12 }); tap(x, 0, 0.04, 900); return x.t + 0.3; } },
     drop: { kind: 'room', gap: 150, level: 0.6, desc: 'A circle let go: air falling and a soft landing.',
-      make(x) { swish(x, 0, 0.18, 1500, 320, 0.08); thud(x, 0.12, 0.22, 140, 62, 0.22); return x.t + 0.45; } },
+      make(x) { swish(x, 0, 0.18, 1500, 320, 0.08); thud(x, 0.12, 0.15, 210, 105, 0.2); return x.t + 0.45; } },
     place: { kind: 'room', gap: 30, level: 0.6, desc: 'A circle placed (Arrange all, Add here, Move here, the room map): a soft wooden thunk.',
-      make(x) { thud(x, 0, 0.26, 118, 56, 0.26); tone(x, 330, 0, { peak: 0.045, a: 0.002, d: 0.06, f1: 280, glide: 0.05, type: 'triangle', send: 0.12 }); return x.t + 0.38; } },
+      make(x) { thud(x, 0, 0.17, 175, 88, 0.24); tone(x, 520, 0, { peak: 0.035, a: 0.002, d: 0.05, f1: 450, glide: 0.04, type: 'triangle', send: 0.12 }); return x.t + 0.38; } },
     join: { kind: 'room', gap: 400, level: 0.5, desc: 'Someone joins the room: two soft wooden notes going up, from where they stand.',
       make(x) { mallet(x, N.E5, 0, 0.09, 0.32, 0.18); mallet(x, N.A5, 0.11, 0.1, 0.4, 0.2); return x.t + 0.7; } },
     leave: { kind: 'room', gap: 400, level: 0.45, desc: 'Someone leaves: the same two notes going down, softer.',
       make(x) { mallet(x, N.A5, 0, 0.075, 0.26, 0.15); mallet(x, N.E5, 0.12, 0.08, 0.36, 0.18); return x.t + 0.65; } },
     // (the sound board's 3D demo: a bright little shake that is easy to place)
     circle: { kind: 'demo', gap: 0, level: 0.4, desc: 'The 3D demo\'s sound: a small bright shake, easy to place by ear.',
-      make(x) { hiss(x, 0, { type: 'bandpass', f: 3200, q: 0.6, peak: 0.16, a: 0.004, d: 0.05 }); tone(x, 1250, 0, { peak: 0.04, a: 0.002, d: 0.05 }); return x.t + 0.1; } },
+      make(x) { hiss(x, 0, { type: 'bandpass', f: 3200, q: 0.6, peak: 0.3, a: 0.004, d: 0.05 }); tone(x, 1250, 0, { peak: 0.08, a: 0.002, d: 0.05 }); return x.t + 0.1; } },
   };
   // the order the sound board and the samples list them in
   const ORDER = ['click', 'toggleOn', 'toggleOff', 'hover', 'open', 'close', 'lock', 'unlock', 'notice', 'ready', 'enter', 'grab', 'drop', 'place', 'join', 'leave'];
@@ -265,12 +267,13 @@
     return { name, g, w, p, srcs: x.srcs, t0: t, end, level: (R.level || 0.5) * k, spatial: !!(p && p.panningModel) };
   }
 
-  // ---- the beds: loops that run until faded out. b: { c, out (the bed's gain), wet (its reverb send), r, next }
+  // ---- the beds: loops that run until faded out. b: { c, out (the bed's gain), wet (its reverb send), r, next }. level:
+  // each made about -35 LUFS at full effects volume (measured: tools/sfx-render.mjs), some 20 dB under the narration
   const BEDS = {
-    calm: { desc: 'A calm low tone with a slight movement (every story without a bed of its own; its pitch, brightness and pace come from the story\'s key).', level: 1 },
-    dusk: { desc: 'The flock: dusk air, swaying, and distant birds now and then.', level: 1 },
-    sea: { desc: 'Pass it on (the fish): a deep sea hush that swells slowly, and a bubble now and then.', level: 1 },
-    room: { desc: 'The robot gang: soft room tone with a slow movement of air.', level: 1 },
+    calm: { desc: 'A calm low tone with a slight movement (every story without a bed of its own; its pitch, brightness and pace come from the story\'s key).', level: 0.076 },
+    dusk: { desc: 'The flock: dusk air, swaying, and distant birds now and then.', level: 1.66 },
+    sea: { desc: 'Pass it on (the fish): a deep sea hush that swells slowly, and a bubble now and then.', level: 0.172 },
+    room: { desc: 'The robot gang: soft room tone with a slow movement of air.', level: 0.79 },
     wind: { desc: 'The soil story: wind over a field, gusting, and grass rustling when it blows.', level: 1 },
   };
   const bedOf = key => ({ flock: 'dusk', pass: 'sea', robots: 'room', soil: 'wind' }[key] || 'calm');
@@ -335,16 +338,16 @@
   }
   const MAKE = {
     calm(b) {
-      const c = b.c, { f0, bright, move } = colour(b.key), lp = filter(c, 'lowpass', bright, 0.6), a = gain(c, 0.85);
+      const c = b.c, { f0, bright, move } = colour(b.key), lp = filter(c, 'lowpass', bright * 1.4, 0.6), a = gain(c, 0.85);
       lp.connect(a); a.connect(b.out);
       lfo(b, move, bright * 0.3, lp.frequency); lfo(b, move * 1.618, 0.16, a.gain);
-      for (const [f, k, type, pan] of [[f0, 0.5, 'sine', -0.1], [f0 * 2 + 0.13, 0.2, 'sine', 0.35], [f0 * 1.5 - 0.07, 0.1, 'triangle', -0.35], [f0 * 3 + 0.05, 0.03, 'sine', 0.2]]) {
+      for (const [f, k, type, pan] of [[f0, 0.34, 'sine', -0.1], [f0 * 2 + 0.13, 0.3, 'triangle', 0.35], [f0 * 3 - 0.07, 0.16, 'sine', -0.35], [f0 * 4 + 0.05, 0.08, 'sine', 0.2], [f0 * 5 - 0.04, 0.035, 'sine', -0.2]]) {
         const s = osc(b, type, f), g = gain(c, k);
         s.connect(g);
         if (c.createStereoPanner) { const p = c.createStereoPanner(); p.pan.value = pan; g.connect(p); p.connect(lp); } else g.connect(lp);
       }
-      const air = loop(b, 'pink', 0.3), bp = filter(c, 'bandpass', 1500, 0.5), ag = gain(c, 0.014);
-      air.connect(bp); bp.connect(ag); ag.connect(b.out); drift(b, 11, 3, 0.008, ag.gain);
+      const air = loop(b, 'pink', 0.3), bp = filter(c, 'bandpass', 1500, 0.5), ag = gain(c, 0.03);
+      air.connect(bp); bp.connect(ag); ag.connect(b.out); drift(b, 11, 3, 0.018, ag.gain);
     },
     dusk(b) {
       const c = b.c;
@@ -368,13 +371,13 @@
     sea(b) {
       const c = b.c;
       for (const [pan, seed] of [[-0.6, 31], [0.6, 32]]) {
-        const n = loop(b, 'brown', pan), lp = filter(c, 'lowpass', 380, 0.5), g = gain(c, 0.28);
-        n.connect(lp); lp.connect(g); g.connect(b.out);
-        lfo(b, 0.07 + (seed - 31) * 0.013, 140, lp.frequency); drift(b, seed, 6, 90, lp.frequency);
+        const n = loop(b, 'brown', pan), hp = filter(c, 'highpass', 140, 0.6), lp = filter(c, 'lowpass', 560, 0.5), g = gain(c, 0.5);
+        n.connect(hp); hp.connect(lp); lp.connect(g); g.connect(b.out);
+        lfo(b, 0.07 + (seed - 31) * 0.013, 200, lp.frequency); drift(b, seed, 6, 120, lp.frequency);
         lfo(b, 0.09 + (seed - 31) * 0.011, 0.07, g.gain);
       }
-      const sh = loop(b, 'pink'), bp = filter(c, 'bandpass', 900, 0.7), sg = gain(c, 0.01);
-      sh.connect(bp); bp.connect(sg); sg.connect(b.out); drift(b, 33, 4, 0.007, sg.gain);
+      const sh = loop(b, 'pink'), bp = filter(c, 'bandpass', 900, 0.7), sg = gain(c, 0.02);
+      sh.connect(bp); bp.connect(sg); sg.connect(b.out); drift(b, 33, 4, 0.014, sg.gain);
       b.next = b.t + 1.5 + b.r() * 2;
       b.fill = until => {   // a bubble or a little run of them, every one to four seconds
         while (b.next < until) {
@@ -388,12 +391,12 @@
     room(b) {
       const c = b.c;
       for (const [pan, seed] of [[-0.5, 41], [0.5, 42]]) {
-        const n = loop(b, 'pink', pan), lp = filter(c, 'lowpass', 900), hp = filter(c, 'highpass', 70), g = gain(c, 0.05);
+        const n = loop(b, 'pink', pan), lp = filter(c, 'lowpass', 1300), hp = filter(c, 'highpass', 150), g = gain(c, 0.06);
         n.connect(hp); hp.connect(lp); lp.connect(g); g.connect(b.out);
         drift(b, seed, 7, 0.008, g.gain); drift(b, seed + 5, 9, 160, lp.frequency);
       }
-      const lo = loop(b, 'brown'), ll = filter(c, 'lowpass', 220), lg = gain(c, 0.1);
-      lo.connect(ll); ll.connect(lg); lg.connect(b.out);
+      const lo = loop(b, 'brown'), lh = filter(c, 'highpass', 120), ll = filter(c, 'lowpass', 320), lg = gain(c, 0.1);
+      lo.connect(lh); lh.connect(ll); ll.connect(lg); lg.connect(b.out);
     },
     wind(b) {
       const c = b.c, gust = 51;   // (one gust drift moves the band, the strength and the rustle together)
@@ -405,8 +408,8 @@
       const ru = loop(b, 'white', 0.2), hp = filter(c, 'highpass', 2600), bp2 = filter(c, 'bandpass', 5600, 0.4), rg = gain(c, 0.012);
       ru.connect(hp); hp.connect(bp2); bp2.connect(rg); rg.connect(b.out);
       drift(b, gust, 2.6, 0.009, rg.gain); lfo(b, 3.1, 0.004, rg.gain);
-      const lo = loop(b, 'brown'), ll = filter(c, 'lowpass', 160), lg = gain(c, 0.08);
-      lo.connect(ll); ll.connect(lg); lg.connect(b.out); drift(b, gust + 7, 3.3, 0.04, lg.gain);
+      const lo = loop(b, 'brown'), lh = filter(c, 'highpass', 90), ll = filter(c, 'lowpass', 240), lg = gain(c, 0.05);
+      lo.connect(lh); lh.connect(ll); ll.connect(lg); lg.connect(b.out); drift(b, gust + 7, 3.3, 0.025, lg.gain);
     },
   };
   // a bed for a story's key, starting at t (silent until faded in)

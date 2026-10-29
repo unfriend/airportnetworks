@@ -72,6 +72,11 @@ at 0:00, 0:56, 1:40, 2:51, 3:55, 4:53, 5:54 and 6:54, ending at 8:07; change
 NARRATION_SYNC in tools/topo/engine/e3_story.js (then rebuild) if your
 recording differs.
 
+The soil story, Holding on to nitrogen (#soil), looks for narration-soil.mp3.
+Its chapters start at 0:00, 0:52, 1:53, 2:48, 3:54, 5:17, 6:17 and 7:40,
+ending at 8:42; change NARRATION_SYNC in tools/soil/engine/e3_story.js (then
+rebuild) if your recording differs.
+
 The pass story (#pass) looks for narration-pass.mp3 (one recording, in English:
 the German reads its own words, docs/narration.md lists both). Its chapters
 start at 0:00, 0:44, 1:53, 2:43, 4:18 and 5:46, ending at 6:53 (paced from the
@@ -103,7 +108,7 @@ tools/voice/README.md (node tools/voice/narrate.mjs <key> does steps 1 to 3).
    stories, rebuild with node tools/<story>/build.mjs. A recorded story's
    table follows the recording: tools/pace.mjs leaves it alone from then on.
 4. Bump VERSION in sw.js. sw.js lists the narration files it caches in AUDIO
-   (all fifteen names are there already).
+   (all sixteen names are there already).
 5. Serve the folder and run node tools/smoke.mjs and node tools/audio.mjs
    (both take the address, e.g. http://127.0.0.1:8123/). Whether it is heard
    in a headset can only be checked there (Sound check on the Stories screen).

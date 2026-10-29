@@ -32,7 +32,12 @@
   watchdog (see the sound notes in `AGENTS.md`): each guards against a way the
   narration went silent on the Quest. After touching sound, run
   `node tools/audio.mjs` as well as the smoke test, and report audible output
-  on a headset as untested (Sound check is the on-device tool).
+  on a headset as untested (Sound check is the on-device tool). Sound effects
+  are the shell's too (`HOST.sfx`, `sfx.js`): they play only through
+  `HOST.audio`'s context (`HOST.audio.fx()`), off by default until the owner
+  approves them; phase 2 (sounds inside the stories) waits for that approval.
+  After changing a sound, render it (`node tools/sfx-render.mjs`) and check its
+  levels; nobody here can hear them, so report how they sound as unheard.
 - Synthetic narrations come from `tools/voice/` (Kokoro-82M; the tour's, voice
   `af_heart`, the owner's choice; model and Python outside the repository, see
   its README). After a narrated story's text changes, run

@@ -1,6 +1,6 @@
 # Start here: handing over Networks
 
-An installable web app that teaches network science in fifteen narrated 3D stories, each followed by an explore mode,
+An installable web app that teaches network science in sixteen narrated 3D stories, each followed by an explore mode,
 on desktops, phones and VR/AR headsets (built for Meta Quest Browser). Several headsets can share one room. There is
 no build step and no framework: plain HTML and JavaScript with a vendored three.js, deployed by copying the folder to
 any HTTPS host. This page is for the colleagues taking it over: what there is, what state it is in, what is still open,
@@ -16,7 +16,7 @@ and where to read on.
 | change the code | this page, then [docs/setup-and-release.md](docs/setup-and-release.md) and [AGENTS.md](AGENTS.md) (the full guide: structure, conventions, every shared-room rule, testing) |
 | work with an AI coding agent | [CLAUDE.md](CLAUDE.md) and [AGENTS.md](AGENTS.md) are written for agents too; see "Working with AI agents" below |
 
-## The fifteen stories
+## The sixteen stories
 
 | Story | Key | Source | Narration | Data |
 | --- | --- | --- | --- | --- |
@@ -32,6 +32,7 @@ and where to read on.
 | Quantum network compression: Three qubits | `qubits` | `tools/qubits/` (built) | not yet | example networks computed live; the real run's summary numbers from Joel Hancock's brief (his method and figures) |
 | Quantum phylogenetics: The mutation machine | `mutation` | `tools/mutation/` (built) | not yet | example numbers computed live, as in the authors' own test; the poster's numbers typed in, shown only as "in the authors' test"; the coupling computed live is our stand-in for their circuit |
 | Tissue topology: The shape of tissue | `topo` | `tools/topo/` (built) | not yet | every number computed by the authors' package topocyte on their GTEx liver cohort (the files kept out of the repository; only the numbers in it); the poster's numbers all reproduced; the genes and proteins of the last chapter are sketches |
+| Soil microbes: Holding on to nitrogen | `soil` | `tools/soil/` (built) | not yet | the field trial's data (16S read counts, their taxonomy, the field metadata; the files kept out of the repository, only the numbers in it); the slides' charts read off (approximate); the soil block, its flows and the field's layout illustrative; the co-occurrence network built for this story |
 | Networks for everyone: Pass it on | `pass` | `tools/pass/` (built; its globe and cell cut out of `stories/airports.js` and `stories/spatial.js` at build time) | not yet | the airports' routes and the cell map's proteins as in those stories; the fish and the outbreak are simulations; English and German |
 | Collective motion: Flock | `flock` | `tools/flock/` (built) | not yet | a live simulation |
 | Swarm robotics: Robot gang | `robots` | `tools/robots/` (built) | not yet | a live simulation |
@@ -62,7 +63,7 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
     its card, pick it up with the grip in a headset; shared like a story in a room.
   - *Subtitles in the headset:* a setting for the whole room (*Subtitles: on/off* in the headset's menu and the
     Shared dialog; off by default; the device's own outside a room; `#subs=on`), the narration's words in a strip low in
-    the view that follows the head loosely. All in the shell, fed by a small caption hook in each of the fifteen stories
+    the view that follows the head loosely. All in the shell, fed by a small caption hook in each of the stories
     (FORMAT networks-24). How they read and follow on a headset is untested.
   - *The PET story's text fixes* after the poster comparison (item 8 below; 6:33).
   - *The tour narrated by a synthetic voice* (Kokoro-82M, `af_heart`; `tools/voice/`, `audio/narration-lbi.mp3`,
@@ -149,12 +150,24 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
   Tests: `node tools/collab.mjs --circles` (its own room) and the rewritten walk-out checks in the main run. All of it
   is untested on headsets: how a ring's card reads when pointed at, the story heard from out of its circle, the locks
   and the People toggle in use.
-- **Being built (not in networks-v97):** the sixteenth story, *Holding on to nitrogen* (`soil`), after the slides and
+- **Built and integrated, not yet released (not in networks-v97):** the sixteenth story, *Holding on to nitrogen* (`soil`), after the slides and
   field-trial data of Marina Montserrat Díez, Christa Schleper and colleagues (the authors' permission given through
   the owner, 29 October 2026; anything unknown illustrative and labelled so). Its sources are in `tools/soil/` and
-  its data sources in [docs/data-and-permissions.md](docs/data-and-permissions.md); it is not yet in
-  `stories/list.js` or `sw.js`, so the app does not offer it. Integration (its card, `SHELL`, the tests, the docs
-  listed under "Adding a sixteenth story") and a release follow when it is finished.
+  its data sources in [docs/data-and-permissions.md](docs/data-and-permissions.md). Made for the Global Peter Drucker
+  Forum in Vienna. Integrated on 29 October 2026 (its card in `stories/list.js`, `sw.js`, its miniatures, the design
+  room's catalogue, the smoke and shared-room tests, the docs: item 11 under "Decisions for the owner"); the release
+  (`VERSION`, `node tools/release.mjs`, the word "sixteen" in `index.html`'s head) follows. Untested on a headset.
+- **Sound effects, phase 1: built, not yet released, off until the owner approves the sounds** (the owner, 29 October
+  2026: "nice sound effects to everything"). `sfx.js` (`HOST.sfx`) plays the shell's own sounds through the narration's
+  one Web Audio context (clicks and switches on the page and in the headset's menu, a tick when pointing at the shell's
+  things, the menu opening and closing, circles picked up, let go and placed, the locks, notices, a chime when a story
+  has loaded, a swell when walking into a circle, people joining and leaving, from where they stand) and a quiet
+  background for each story (dusk and birds for the flock, a sea hush for the pass story, room tone for the robots,
+  wind for the soil story, a calm tone coloured by the story for the rest). In a headset the sounds come from places
+  (HRTF); everything ducks 9 dB under the narration; at most 16 sounds at once. Per device: *Sound effects* and a volume
+  in Sound check (page) and in the headset's menu, `#sfx=on`; **off by default**. All made in code, no files. Item 12
+  below: the owner's listening round decides phase 2 (sounds inside the stories). AGENTS.md, the sound notes. Tested
+  headlessly (`node tools/audio.mjs`); nobody has heard them, and the 3D sound and the levels on a headset are untested.
 - **Tried on real headsets:** the stories and their sound on Quest; shared rooms on two Quest 3 headsets in several
   rounds (what happened is in [docs/quest-shared-space-findings.md](docs/quest-shared-space-findings.md) and AGENTS.md
   "Shared rooms"). All thirteen stories of then, the slideshow and the headset menu on the wrist were tried on a headset
@@ -203,8 +216,9 @@ Before handing over (or making anything more public), someone has to decide thes
 1. **Licence.** The project has no `LICENSE` file, so nobody else has the right to reuse it. Choose one, with the
    Institute if it owns the work. See [docs/data-and-permissions.md](docs/data-and-permissions.md).
 2. **The authors' permission** to show their data, figures, posters and talks publicly (muscle, endotype, PET,
-   microanatomy, mutation machine (a draft poster), tissue topology (the authors' cohort data and code) and tour
-   stories). Record what was agreed, and with whom, in the same
+   microanatomy, mutation machine (a draft poster), tissue topology (the authors' cohort data and code), soil (the
+   slides and the field trial's data, unpublished: given through the owner on 29 October 2026; whether it may be public
+   before publication is still to say) and tour stories). Record what was agreed, and with whom, in the same
    document.
 3. **The repository**: it is public, on a personal GitHub account (`unfriend/airportnetworks`), with no licence.
    Every pushed branch is public too, the working branch included. Decide whether it moves to an Institute
@@ -237,7 +251,7 @@ Before handing over (or making anything more public), someone has to decide thes
      the pass story, already in English and German, does);
    - **The queue** (the owner, 29 October 2026): rooms on this network, first in it, the loading bar queued alongside,
      panels per story, the design room's part 2, follow a person and the ten-headset round's changes are built and
-     released as networks-v97 (see "Where things stand"). Next: the sixteenth story, on soil, being built, then its
+     released as networks-v97 (see "Where things stand"). Next: the sixteenth story, on soil, built and integrated (item 11 below), then its
      integration and a release. Each item is described below;
    - **circles that load code from a link** (on hold, the owner, 29 October 2026; the design agreed, not to build
      yet). The owner's aim: the whole office as one shared room, where colleagues add circles of their own, with their
@@ -267,7 +281,7 @@ Before handing over (or making anything more public), someone has to decide thes
      1.5 m) fades the real world back in by itself, and stepping back in returns to the setting (the Quest may not show
      its boundary in an AR session, and a room may hold ten people). Untested until tried on a headset: how partial
      passthrough looks, and whether the boundary shows. About 2 to 3 hours (the slider, the same few lines in all
-     fifteen stories and the design room, tests, docs);
+     sixteen stories and the design room, tests, docs);
    - **the design room, part 2**: built (see "Where things stand": the menu's *Design room* button, the table as a
      circle in a shared room, the stations' icons from the miniatures). Part 1 (the table) is built too (AGENTS.md "The
      design room"). Of the first plan (a catalogue of the props, a player for stories written as
@@ -279,7 +293,7 @@ Before handing over (or making anything more public), someone has to decide thes
      single shader's compile is still one task (three.js r128 cannot compile in parallel), and a few sets take 0.2 to
      0.5 s to build here; both would need changes inside three.js or the sets;
    - **station icons**: built, and since the design room's part 2 made from the miniatures (see "Where things
-     stand"). **For the owner:** approve the contact sheet of all sixteen (open `tools/icons.html` next to the app;
+     stand"). **For the owner:** approve the contact sheet of all seventeen, the sixteen stories' and the design room's (open `tools/icons.html` next to the app;
      `&turns=4` shows each from four sides) or say which miniature should stand for a story (its `icon` in
      `stories/list.js`). How they read from across a real room is untested on a headset;
    - **live updates and hot reload**: built (see "Where things stand"; AGENTS.md "Hot reload and live updates";
@@ -382,6 +396,48 @@ Before handing over (or making anything more public), someone has to decide thes
     - **Still open:** T5 (the poster's panel e prints its cell v's score as 26.57; the figure's own data and topocyte
       give 6.97, which the story shows).
 
+11. **The sixteenth story: "Holding on to nitrogen" (built, October 2026; in the app after the next release).** For
+    the Global Peter Drucker Forum in Vienna (a lay, business audience), from Christa Schleper's soil microbiology group
+    at the University of Vienna: a PhD student's project, Marina Montserrat Díez's, with partners at JIRCAS in Japan, the
+    University of Thessaly and Université Lyon 1. After the slides "Exploring the Effects of Biological Nitrification
+    Inhibition on the Rhizosphere Microbiome of a BNI-enabled Winter Wheat" and the field trial's data behind them,
+    shown with the authors' permission given through the owner (29 October 2026; anything unknown illustrative and
+    labelled so). Sources in `tools/soil/` (`SPEC.md` with the owner's decisions, `README.md`, the sets' manifests). Its
+    data is written by `tools/soil/data/gen_data.py` from the authors' three CSVs (kept out of the repository; see
+    [docs/setup-and-release.md](docs/setup-and-release.md)), with the slides' charts read off by two readers
+    (`tools/soil/data/reconcile.py`), and checked by `node tools/soil/test-data.mjs`.
+    - **What it is** (8:42, 8 chapters, then explore): a cut-away block of soil with a wheat plant, where less than half
+      the fertiliser reaches the crop and the microbes' relay turns the rest into nitrate and nitrous oxide; a wheat
+      given a piece of chromosome from a wild grass that slows the relay (BNI); the globe and the hop to the field trial
+      in Japan (24 plots, three regimes, five dates, 119 samples); the BNI wheat greener and leaking less nitrate, and
+      the jars' nitrous oxide read off the slides; a crowd of about 100,000 kinds of microbe and the network of those
+      that rise and fall together, which follows the fertiliser and the plots far more than the wheat. Explore: Field,
+      Nitrogen (a sketch), Microbes, Network and Scenes. Its hedges: strong indications, not yet proof; rising together
+      is not working together; the network is ours, built for the story. British spelling.
+    - **Integrated** (29 October 2026): its card (`stories/list.js`, icon `soil.soil`), `sw.js` (`SHELL` and `AUDIO`),
+      three miniatures (`soil.soil`, `soil.field`, `soil.net` in `tools/lowpoly/`), the design room's catalogue
+      (`tools/design/props.json`, [docs/props.md](docs/props.md)), the smoke test (every explore tool and its links)
+      and the shared-room test (`STORIES`), the docs. **For the release round:** bump `VERSION`, run
+      `node tools/release.mjs`, and say sixteen in `index.html`'s head (title, description, link previews, the brand
+      and the start screen's title still say fifteen) and in `shared.js`'s Arrange all comment (two rows of eight).
+    - **Untested:** everything in a headset (the panels, picking plots and kinds with the ray, the pore's bubble and the
+      network at their close views); so far only the headless tests have run it.
+    - **Still open:** S1 to S9 in [docs/questions-for-authors.md](docs/questions-for-authors.md) (the two N2O
+      measurements, the tables behind slides 6, 7 and 9, the chlorophyll's dates, DCD, the dates, the plot map, the other
+      microbes, our network, and whether the story may be public before the work is published: **TO FILL (owner)** in
+      [docs/data-and-permissions.md](docs/data-and-permissions.md)).
+12. **Sound effects: listen, then approve or change (phase 1 built, 29 October 2026).** The shell's sounds and the
+    stories' backgrounds are built and off by default (see "Where things stand"). Nobody has heard them yet: the
+    recipes were judged by measurement only (levels, spectra, no clipping). To listen: the sound board
+    (`tools/sfx.html`, served next to the app: every sound with a button, every story's background, a 3D demo for
+    headphones, the ducking demo, the voice limit), or the rendered files (`node tools/sfx-render.mjs [url] [folder]`:
+    one MP3 per sound, `sfx-all.mp3` with its index, `levels.txt`), or in the app with `#sfx=on` (in a headset:
+    *Sound effects* in the menu on the left wrist, and *Try the sound effects* on its Sound check page). Levels: the
+    interface sounds peak at -30 to -15 dBFS (the loudest 400 ms -54 to -30 LUFS), the backgrounds -35 LUFS, against the
+    narration's -13 to -16 LUFS; the default volume is 75 % (5 dB lower). **TO FILL (owner):** which sounds to keep,
+    change or drop, whether the backgrounds are wanted, and then whether sound effects go on by default. **Phase 2**
+    (sounds inside the stories, tied to their timelines) starts only after that.
+
 ## How work is done
 
 - One working branch; `main` is what visitors get. Main moves forward only after the smoke, update, relay and
@@ -392,9 +448,10 @@ Before handing over (or making anything more public), someone has to decide thes
 - The story files are large (`stories/airports.js` is about 640 KB with its data): search them, never read them whole.
 - Headset behaviour can only be confirmed on a device: say so when reporting a change.
 
-## Adding a sixteenth story
+## Adding a seventeenth story
 
-The fifteenth story (`topo`) is the most recent example: `git show --stat` on its commits shows every file it touched
+The sixteenth story (`soil`) is the most recent example (item 11 above; its integration touched every file the steps
+below name); the fifteenth (`topo`) too: `git show --stat` on its commits shows every file it touched
 (the fourteenth, `mutation`, computes its numbers live; the thirteenth, `ovary`, is a data story typed in and read off
 figures; the twelfth, `pass`, shows how a story reuses another's models unchanged, and a story in two languages). Start
 from the closest existing story (`tools/topo/` for a story whose numbers come from the authors' own code run on their
@@ -410,7 +467,7 @@ data, `tools/mutation/` or `tools/qubits/` for a story whose numbers are compute
    every headset Stories screen follows the list by itself; `index.html`'s head (title, meta description, link
    previews) and `manifest.webmanifest` say it in words for search engines and installs: update them, and the card
    rows' CSS if the rows change.
-3. Nothing in the other fifteen stories: their headset Stories screens space the cards and name the count from the
+3. Nothing in the other sixteen stories: their headset Stories screens space the cards and name the count from the
    list (`xrLandingCards`, `drawLandHead`).
 4. `sw.js`: bump `VERSION`, add `stories/<key>.js` to `SHELL` and `narration-<key>.mp3` to `AUDIO`; then
    `node tools/release.mjs` (version.json: running pages get the new card within a minute). `shared.js`: `FORMAT` only

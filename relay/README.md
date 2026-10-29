@@ -89,7 +89,7 @@ the app's files from the repository over HTTPS, and prints the address to open.
    marks (that never depends on the shared space). See [docs/shared-spaces.md](../docs/shared-spaces.md).
 4. Two marks for calibration: two crosses of tape on the floor or a table, a metre or more apart (at least
    50 cm; the further apart, the better the room lines up). Mark A is the room's origin.
-5. Floor space: Arrange all needs about 17 m wide and 4 m deep for all fifteen (two rows: eight, and seven behind them in the gaps,
+5. Floor space: Arrange all needs about 17 m wide and 4 m deep for all sixteen (two rows of eight, the second right behind the first,
    starting 1.2 m in front of where you stand); in a smaller room add 2-4 stations with **Add here** (headset) or **Add a station**
    (page).
 
@@ -103,7 +103,7 @@ the app's files from the repository over HTTPS, and prints the address to open.
    choose to continue (it is this machine's own certificate).
 3. Open **Shared**: on the page, the **Shared** button in the top bar or on the Stories screen; in the headset,
    the menu: touch the clock on your left wrist (**Open menu**; or click the left stick, or point at it and pull the trigger; beside the story panel without a left controller). The first person: **Start a room**,
-   then **Arrange all** puts the fifteen stories as stations in two rows (eight, and seven behind them) in front of you (or one story where you
+   then **Arrange all** puts the sixteen stories as stations in two rows (eight, and eight behind them) in front of you (or one story where you
    stand: **Add here** in the headset, **Add a station** on the page). Arrange all from a page, without a
    headset, puts the rows round the room's origin (mark A). Everyone else: **Shared**, then pick the room under
    **Open rooms**. To move a station, point at its ring or card in the headset and hold the grip: point to swing

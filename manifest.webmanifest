@@ -1,7 +1,7 @@
 {
-  "name": "Networks, in fifteen stories",
+  "name": "Networks, in sixteen stories",
   "short_name": "Networks",
-  "description": "Network science in fifteen short interactive stories: airports on a globe, proteins and disease in a cell, where proteins meet in a model human cell, a 3D tour of network medicine, rare muscle diseases in a 71-layer network, the endotypes of one rare disease, the body's organs as a network in a PET scan, the microanatomy of tissues and how it ages, how the ovary ages, a gene network on three qubits, DNA's changes as a quantum circuit, the shape of liver tissue at every scale, how things spread from fish to flights to cells (in English and German), a flock of starlings around you, and a gang of robot vacuums in your room. Works in VR and AR headsets.",
+  "description": "Network science in sixteen short interactive stories: airports on a globe, proteins and disease in a cell, where proteins meet in a model human cell, a 3D tour of network medicine, rare muscle diseases in a 71-layer network, the endotypes of one rare disease, the body's organs as a network in a PET scan, the microanatomy of tissues and how it ages, how the ovary ages, a gene network on three qubits, DNA's changes as a quantum circuit, the shape of liver tissue at every scale, a wheat that holds on to nitrogen and the soil's microbes, how things spread from fish to flights to cells (in English and German), a flock of starlings around you, and a gang of robot vacuums in your room. Works in VR and AR headsets.",
   "id": "./",
   "start_url": "./",
   "scope": "./",

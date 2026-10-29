@@ -25,6 +25,7 @@ MP3 at the file named under each story; if your chapters start at other times, c
 | Quantum network compression: Three qubits | `audio/narration-qubits.mp3` | not yet | 9:04 |
 | Quantum phylogenetics: The mutation machine | `audio/narration-mutation.mp3` | not yet | 8:39 |
 | Tissue topology: The shape of tissue | `audio/narration-topo.mp3` | not yet | 8:07 |
+| Soil microbes: Holding on to nitrogen | `audio/narration-soil.mp3` | not yet | 8:42 |
 | Networks for everyone: Pass it on | `audio/narration-pass.mp3` | not yet | 6:53 |
 | Collective motion: Flock | `audio/narration-flock.mp3` | not yet | 1:57 |
 | Swarm robotics: Robot gang | `audio/narration-robots.mp3` | not yet | 2:01 |
@@ -1139,6 +1140,105 @@ File: `audio/narration-topo.mp3` (not recorded yet). Chapters: 0:00 Where cells 
 - **7:31** Four calls of topocyte, and the shape of tissue becomes something to measure.
 - **7:37** After the poster by Simon Schindler, André Rendeiro and Jörg Menche (Ludwig Boltzmann Institute for Network Medicine at the University of Vienna; University of Vienna; CeMM Research Center for Molecular Medicine of the Austrian Academy of Sciences; Medical University of Vienna; Max Perutz Labs, Vienna BioCenter).
 - **7:55** The cells: the GTEx project's liver slides, segmented by the authors with HistoPLUS (CC BY 4.0); slides are numbered, never named. The genes and proteins are sketches of the workflow, not data. topocyte.lab.lbi-netmed.com
+
+## Soil microbes: Holding on to nitrogen (`#soil`)
+
+File: `audio/narration-soil.mp3` (not recorded yet). Chapters: 0:00 Half the sack, 0:52 The relay, 1:53 A wheat fights back, 2:48 The field trial, 3:54 Greener, fewer leaks, 5:17 A crowd of 100,000, 6:17 Who rises together, 7:40 What we know; it ends at 8:42.
+
+### 0:00 Half the sack
+
+- **0:01** Holding on to nitrogen
+- **0:02** A wheat, its soil and the microbes in between
+- **0:05** Less than half of the fertiliser a farmer spreads ends up in the crop.
+- **0:13** The plant takes up some of it; microbes in the soil get to much of the rest first.
+- **0:24** They turn it into nitrate, which washes away, and into nitrous oxide, a strong greenhouse gas.
+- **0:33** So farmers spread more.
+- **0:36** "Less than 50 %", as the slides put it. The flows in this block are a drawing: ammonium amber, nitrate blue, nitrous oxide lilac, nitrogen in the plant green.
+- **0:41** After the slides by Marina Montserrat Díez and colleagues (University of Vienna, JIRCAS, University of Thessaly, Université Lyon 1) and their field trial's data.
+
+### 0:52 The relay
+
+- **0:53** The relay underground
+- **0:54** Inside the soil, microbes pass the nitrogen on, like runners in a relay.
+- **1:02** Archaea: turn ammonium into nitrite
+- **1:11** Bacteria: do the same
+- **1:20** Nitrite oxidisers: turn nitrite into nitrate
+- **1:30** Comammox: does both steps in one microbe
+- **1:38** Each hand-off is a step in a network of processes, and at each one nitrogen can leak away.
+- **1:43** Nitrification: ammonia-oxidising archaea (AOA) and bacteria (AOB), nitrite-oxidising bacteria (NOB), complete ammonia oxidisers (comammox). Nitrous oxide escapes along the way. The pore is an illustration.
+
+### 1:53 A wheat fights back
+
+- **1:53** A wheat that fights back
+- **1:54** Some plants release substances from their roots that slow the relay down: biological nitrification inhibition, or BNI.
+- **2:03** Breeders moved a piece of chromosome from a wild grass into the wheat Munal.
+- **2:19** The new wheat's roots are meant to slow the first hand-off, so that more ammonium stays where the plant can take it up.
+- **2:32** Until now the evidence was one bacterium in a dish and one day in a field.
+- **2:36** The wild grass is Leymus racemosus; the BNI wheat is Munal-BNI, the control wheat Munal-control, the same wheat without the segment (Subbarao et al., PNAS). The earlier evidence: root exudates slowed one ammonia-oxidising bacterium in a culture; one field sampling found more nitrogen in the plant and fewer ammonia-oxidising archaea.
+
+### 2:48 The field trial
+
+- **2:49** The field trial
+- **2:49** To test it, the BNI wheat and the control wheat were grown side by side in a field in Japan:
+- **3:06** with no fertiliser
+- **3:07** with fertiliser
+- **3:09** with fertiliser and a synthetic inhibitor
+- **3:16** Five times over 70 days, soil was taken from the roots in every plot.
+- **3:32** 119: samples
+- **3:34** 24: plots
+- **3:35** 5: dates
+- **3:39** A JIRCAS trial: its site and year are not given, so the arc ends at JIRCAS's home in Tsukuba. Fertiliser: 250 kg of nitrogen per hectare; the inhibitor: DCD (dicyandiamide, our reading). Days 1 to 70 are 129 to 199 days after planting. Four replicates; soil clinging to the roots (the rhizosphere); one sample is missing. The plots' layout is illustrative.
+
+### 3:54 Greener, fewer leaks
+
+- **3:55** Greener, fewer leaks
+- **3:55** At the end of the season the BNI wheat is still green where the control wheat yellows, most clearly without fertiliser.
+- **4:04** 62: BNI wheat, day 70
+- **4:06** 49: control wheat
+- **4:07** Chlorophyll (SPAD) in the leaves of unfertilised plots, read off the slides.
+- **4:18** With fertiliser there is less nitrate in the soil under it in mid-season.
+- **4:27** 40: mg N per kg, day 24
+- **4:29** 61: under the control wheat
+- **4:30** Nitrate in fertilised plots, the group means of the data (p = 0.03). The slides call it lower from day 24 to day 53; only day 24 is starred.
+- **4:40** And soil from its roots, given ammonium in a jar, gives off far less nitrous oxide, close to what the synthetic inhibitor achieves.
+- **4:51** 0.4: ppm at the peak, BNI wheat
+- **4:53** 1.3: control wheat, day 1
+- **4:57** Fertilised soil, read off the slides (250 mg N/kg soil (NH4)2SO4, 70% water content, 20 days incubation). An open question: the data's own N2O value, "the potential amount of produced nitrous oxide" (unit not given), shows no clear difference over the season (0.81 against 0.98, p = 0.58); how the two measurements relate is not known yet.
+
+### 5:17 A crowd of 100,000
+
+- **5:17** A crowd of 100,000
+- **5:18** Across the 119 samples, this soil holds about 100,000 kinds of microbe, some 3,200 in a typical sample.
+- **5:26** 3,384 of them make up 95 % of the DNA read.
+- **5:43** Fertiliser roughly doubles one ammonia-eating bacterium, Nitrosospira.
+- **5:51** The wheat line barely shows: only two of the 3,384 common kinds differ between the two wheats.
+- **5:58** 1,646: differ by fertiliser
+- **6:00** 580: by date
+- **6:02** 2: by wheat line
+- **6:05** Kinds of microbe: amplicon sequence variants (ASVs) from 16S rRNA gene reads, numbered by abundance. Nitrosospira: 0.23, 0.51, 0.42 % of reads without fertiliser, with it, with DCD. Gene counts of the ammonia oxidisers (qPCR, read off the slides) differ little between the wheats (one marginal p = 0.057).
+
+### 6:17 Who rises together
+
+- **6:18** Who rises together
+- **6:18** Link two kinds of microbe when their numbers rise and fall together across the samples.
+- **6:28** 1,564: kinds
+- **6:30** 22,348: links
+- **6:38** Shuffle the samples, and not one link is left: the pattern is real.
+- **6:51** Its groups follow the fertiliser and the field's plots; the wheat barely shows.
+- **7:01** About five big groups (modules): two rise and fall with the fertiliser, three with the plots; the wheat line explains under 1 % of any big group's ups and downs.
+- **7:18** Split by wheat line, the two networks differ no more than two random halves of the samples do.
+- **7:27** And rising together is not working together.
+- **7:31** Built for this story, not the authors' analysis: the 3,384 common kinds, centred log-ratios, Spearman's correlation of at least 0.6 (false discovery rate under 5 %), Louvain modules. Each half's own network: 38,653 and 30,276 links; 20 random halves differ by 158 to 27,758.
+
+### 7:40 What we know
+
+- **7:40** What we know
+- **7:41** There are strong indications that the BNI wheat stays greener and loses less nitrate, and that the soil's microbe community and network show no clear change from the wheat line.
+- **7:51** It is not yet proof.
+- **7:55** Next: following marked nitrogen atoms through soil, microbe and plant, and reading which microbial genes are switched on.
+- **8:07** Marked atoms: isotope studies (15N); genes switched on: metatranscriptomics. Still open: the jars show far less nitrous oxide from the BNI wheat's soil, while the data's own N2O value shows no clear difference over the season (0.81 against 0.98, p = 0.58); how the two measurements relate is not known yet.
+- **8:18** After the slides by Marina Montserrat Díez, Tadashi Yoshihashi, Guntur Subbarao Ventaka, Eleftheria Bachtsevani, Dimitrios Karpouzas, Christina Hazard, Melina Kerou and Christa Schleper (University of Vienna; University of Thessaly; Université Lyon 1; JIRCAS, Japan). The BNI wheat: Subbarao et al., PNAS.
+- **8:26** The trial's data used with the authors' permission. The soil block, the relay, the chromosome and the field's layout are illustrative.
 
 ## Networks for everyone: Pass it on (`#pass`)
 
