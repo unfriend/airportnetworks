@@ -47,7 +47,7 @@ view; the headset's lists as many params as fit and says how many more.
   size, a factor on its own, 2 decimals), so two people moving two miniatures at once both keep theirs. A miniature
   without a field stands at home. Never the camera, the hover, the tab or anything per device.
 - `apply(state())` gives the same state back: a record is kept exactly as given, and a miniature glides to it. Bad
-  values (a wrong key, a record of the wrong length, outside 6 m, below the floor, a size outside a quarter to four
+  values (a wrong key, a record of the wrong length, outside 6 m, below the floor, a size outside half to four
   times) are ignored. Tidy clears every record (all go home, for everyone at the station).
 - Effects: none. `view()` is null (life size). `place` and `panel` as the flock's: only the panel moves.
 

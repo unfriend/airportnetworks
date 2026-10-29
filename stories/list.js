@@ -34,7 +34,7 @@ self.STORY_LIST = [
   { key: 'pet', kick: 'Whole-body PET', title: 'One scan, one system', col: '#ffe066',
     desc: 'A PET scan sees every organ\'s sugar use at once. 658 scans make a network of organs that thins and tips towards a few hubs as health erodes; one scan may soon tell how a body is doing.',
     page: 'One scan, one system: the body as a metabolic network', brand: 'One scan, one system', sub: 'the body as a metabolic network',
-    aria: 'Interactive 3D story of whole-body PET scans and the network of the organs\' metabolism', thing: 'scanner', loading: 'Warming up the scanner', len: 'Story 6:13 · 3D scanner' },
+    aria: 'Interactive 3D story of whole-body PET scans and the network of the organs\' metabolism', thing: 'scanner', loading: 'Warming up the scanner', len: 'Story 6:33 · 3D scanner' },
   { key: 'micro', kick: 'Tissue microanatomy', title: 'Tissue and time', col: '#ff9ec4',
     desc: 'Organs are built from small working units of cells. 24,945 slides of 40 tissues show which ones there are, how they connect, and which change as we age.',
     page: 'Tissue and time: how organs are built, and how they age', brand: 'Tissue and time', sub: 'how organs are built, and how they age',

@@ -7,17 +7,17 @@
 // between two cues lasts long enough to read what appeared at its start; run
 // it again after the text changes). A recording replaces it with its own times.
 const NARRATION_SYNC = [
-  [0, 0], [1.3, 1.2], [3.1, 2.4], [5.7, 4], [6.4, 4.6], [12.8, 6.5], [13.5, 7.1], [24.3, 9],  // Intro
-  [33.1, 16], [34.4, 17.18], [35.1, 17.2], [35.7, 17.8], [50.1, 20.5], [63.3, 29], [64, 29.6],
-  [68.2, 30.5], [68.8, 31.1], [76.6, 33.5], [98.2, 47], [98.9, 47.6],  // Scanner
-  [115.9, 52], [132.4, 67], [152.2, 77],              // Sugar
-  [166.5, 90], [167.8, 91.18], [168.5, 91.2], [206.3, 125.6], [208.3, 126], [209, 126.6],  // Organs
-  [212.7, 128], [214.7, 129.8], [226, 131], [226.6, 131.6], [231.7, 133], [232.4, 133.6], [252, 139],
-  [258.2, 142],                                       // Network
-  [262.6, 146], [263.9, 147.18], [265, 147.2], [265.7, 147.8], [280, 153], [288.4, 157],
-  [297.2, 162], [297.9, 162.6], [309.2, 167], [319.8, 174], [328.1, 181.6], [342.9, 185],
-  [343.6, 185.6], [353.1, 188], [353.7, 188.6], [369.8, 194], [370.5, 194.6], [384.4, 196],
-  [386.7, 198.1], [408.5, 200],                       // Health
+  [0, 0], [1.3, 1.2], [3.1, 2.4], [5.7, 4], [11, 6.5], [11.7, 7.1], [19.4, 9],  // Intro
+  [28.1, 16], [28.8, 16.6], [30.1, 17.2], [30.8, 17.8], [45.1, 20.5], [58.3, 29], [58.9, 29.6],
+  [63.1, 30.5], [63.8, 31.1], [71.5, 33.5], [93, 47], [93.7, 47.6],  // Scanner
+  [110.6, 52], [127.1, 67], [146.9, 77],              // Sugar
+  [161.2, 90], [161.9, 90.6], [163.2, 91.2], [201, 125.6], [203, 126],  // Organs
+  [207.4, 128], [209.4, 129.8], [220.2, 131], [220.8, 131.6], [225.4, 133], [226.1, 133.6],
+  [245.7, 139], [251.8, 142],                         // Network
+  [256.2, 146], [257.5, 147.18], [258.6, 147.2], [259.3, 147.8], [272.3, 153], [280.6, 157],
+  [288.6, 162], [289.2, 162.6], [300.4, 167], [311, 174], [319.3, 181.6], [334.1, 185],
+  [334.7, 185.6], [344.2, 188], [344.9, 188.6], [359.2, 194], [359.8, 194.6], [373.7, 196],
+  [376, 198.1], [393.3, 200],                         // Health
 ];
 // recording time -> original story time
 function storyT(t) {
@@ -195,7 +195,7 @@ function buildStory() {
   const start = vals => { for (const n in vals) if (n in DEF) key(n, 0, vals[n]); };
   const oi = id => (PD.byId[id] ? PD.byId[id].i + 1 : 0);   // organs_focus for an organ
   const wi = id => NET_ALL.indexOf(id);                      // organs_which for a network
-  const gD = (r, i) => (r && r.groups[i] ? pct(r.groups[i].density) : '–'), gO = (r, i) => (r && r.groups[i] ? dis(r.groups[i].disorder) : '–');
+  const gD = (r, i) => (r && r.groups[i] ? pct(r.groups[i].density) : '–');
   const step = (id, at, text) => `<li data-at="${at}" data-col="${organCol(id)}" style="border-left-color:${swCol(organCol(id))}"><b style="color:${inkCol(organCol(id))}">${esc(organName(id))}</b>${text}</li>`;
   // ------------------------------------------------------------ panel copy
   // parts of a chapter that take turns in one place, each fading out (data-out) as the next comes: the headset's
@@ -205,8 +205,8 @@ function buildStory() {
     title: `<svg class="route-mark" viewBox="0 0 360 44" aria-hidden="true"><path id="titleArc" d="M8 36 Q180 -16 352 36" fill="none" stroke="var(--red)" stroke-width="2.2" stroke-linecap="round" pathLength="1" stroke-dasharray="1" stroke-dashoffset="1"/><circle cx="8" cy="36" r="4.5" fill="var(--red)"/><circle cx="352" cy="36" r="4.5" fill="var(--red)" id="titleDot" opacity="0"/></svg>
       <h1 data-at="1.2">One scan, one system</h1>
       <p class="lede" data-at="2.4">the body as a metabolic network</p>
-      <p data-at="4">From PET scans to a network of organs, and how it changes from health to disease.</p>
-      <p data-at="6.5"><b>The aim</b>, in the pictures: from a scan to the body as one network, then to prognosis and medication. Those two are goals, not yet shown.</p>
+      <p data-at="4">From PET scans to a network of organs, from health to disease.</p>
+      <p data-at="6.5"><b>The aim</b>: from a scan to one network of the body, then prognosis and medication (goals, not yet shown).</p>
       <p class="note" data-at="9">After a paper in Med${F.year ? ` (${F.year})` : ''} and a poster from the Medical University of Vienna and the LBI for Network Medicine.</p>`,
     scanner: `<h2 data-at="0.6">How PET sees</h2>
       ${turns(`<p data-at="1.2" data-out="12.5">A PET scan, short for positron emission tomography, starts with a tracer: a molecule carrying a radioactive atom. The most common, and the one in this story, is FDG, a glucose look-alike carrying fluorine-18.</p>
@@ -233,24 +233,24 @@ function buildStory() {
       <p data-at="35" class="amber">One scan, one row of numbers.</p>
       <p class="credits" data-at="36">The organs' values shown here are typical uptakes, for illustration.</p>`,
     cohort: `<h2 data-at="0.6">${fmt(F.scans)} scans</h2>
-      ${turns(`<p data-at="1.2" data-out="4.5">A network like this needs many scans: one scan gives only one row of numbers. The networks here are the paper's, each of a group of scans.</p>
-        <p data-at="3" data-out="4.5">It used ${fmt(F.scans)} scans of ${fmt(F.subjects)} people: ${F.healthy} of healthy volunteers and ${F.cancer} of people with cancer.</p>`,
+      ${turns(`<p data-at="1.2" data-out="4.5">A network like this needs many scans: one scan gives only one row of numbers. These networks are the paper's, each of a group of scans.</p>
+        <p data-at="3" data-out="4.5">In all, ${fmt(F.scans)} scans of ${fmt(F.subjects)} people: ${F.healthy} of healthy volunteers, ${F.cancer} of people with cancer.</p>`,
       `<p data-at="5">Which organs rise and fall together across scans? Two are linked when they still do once all the others are taken into account (a partial correlation), and that is unlikely to be chance: blue where they rise together, red where one rises as the other falls.</p>
         <p data-at="11" class="amber">The network of all ${fmt(F.scans)} scans: ${F.f2n} organs, ${F.links} links${Number.isFinite(+F.density) ? `, a density of ${pct(F.density)} (more on that next)` : ''}.</p>
         <p class="credits" data-at="14">Figure 2A of the paper.</p>`)}`,
     health: `<h2 data-at="0.6">From health to disease</h2>
-      ${turns(`<p data-at="1.2" data-out="15.5">Split the scans into groups, and give each group its own network.${R.cancer ? ` The healthy group's is dense: ${gD(R.cancer, 0)} of the most possible, against ${gD(R.cancer, 1)} for the group with cancer, compared within this one set of scans.` : ''}</p>
+      ${turns(`<p data-at="1.2" data-out="15.5">Split the scans into groups, and give each group its own network.${R.cancer ? ` The healthy group's is dense: ${gD(R.cancer, 0)} of the most possible, against ${gD(R.cancer, 1)} with cancer (compared within this one set of scans).` : ''}</p>
         ${R.bmi ? `<p data-at="7" data-out="15.5">Weight, in healthy people: a density of ${gD(R.bmi, 0)} below the median BMI (body mass index: weight for height), ${gD(R.bmi, 1)} above it.</p>
-        ${hubsOf('A_high').includes('brain') ? '<p data-at="11" data-out="15.5">In the group above the median, the brain is a hub: an organ with far stronger links than the rest.</p>' : ''}` : ''}`,
+        ${hubsOf('A_high').includes('brain') ? '<p data-at="11" data-out="15.5">In the heavier group, the brain is a hub: an organ with far stronger links than the rest.</p>' : ''}` : ''}`,
       `<p data-at="16" data-out="34.5">Two measures. Density: all links' strength together, as a share of the most possible. Disorder: how unevenly that strength is spread, from 0 (even) up (a few hubs).</p>
         ${R.tumour ? `<p data-at="21" data-out="34.5" class="amber">Groups with more tumour load have thinner networks: ${gD(R.tumour, 0)} against ${gD(R.tumour, 1)}, among people with cancer.${R.norepi ? ' So do groups with more stress hormone (norepinephrine), among healthy people.' : ''}</p>
         <p data-at="28" data-out="34.5">In such sparse networks, muscle and subcutaneous fat dominate${hubsOf('B_high').includes('muscle') ? '; here muscle is a hub' : ''}.</p>` : ''}`,
       `${F.robust.every(r => !r.sigD && !r.sigO) ? `<p data-at="35" data-out="47.5">And it holds: ${F.weeks ? `two scans within ${F.weeks} weeks, ` : ''}an ultra-low dose, another scanner, men and women, the aorta or the vena cava as the reference: none made a significant difference, though some groups were small (${Math.min(...F.robust.flatMap(r => r.groups.map(g => g.n)))} people).</p>` : ''}
         ${F.hk2 ? `<p data-at="39" data-out="47.5">Of ${F.tested} networks built from genes' activity in the tissues of ${fmt(F.gtex)} people, only that of hexokinase 2, an enzyme that traps FDG, resembles FDG's (r = ${F.hk2.r}).</p>` : ''}
-        <p class="credits" data-at="42" data-out="47.5">Table 2 and Figures 3 and 4 of the paper; networks other than that of all scans read off its figures.${R.cancer ? ` Disorder: ${gO(R.cancer, 0)} healthy, ${gO(R.cancer, 1)} with cancer.` : ''} A hub: an organ whose strength is more than ${F.hubZ} standard deviations above the network's average (z-score).</p>`,
+        <p class="credits" data-at="42" data-out="47.5">Table 2 and Figures 3 and 4 of the paper; networks other than that of all scans read off its figures. A hub: an organ whose strength is more than ${F.hubZ} standard deviations above the network's average (z-score).</p>`,
       `<p data-at="48">Poster: Barbara K Geist, Alexander Grentner, Joel Fischer, Josef Yu, Dato Tsomaia, Adna Smajlovic, Stefan Grünert and Marcus Hacker: Division of Nuclear Medicine, Medical University of Vienna, and the LBI for Network Medicine.</p>
         <p data-at="50"><button class="btn primary" id="btnGoExplore" type="button">Explore the networks</button></p>
-        <p class="credits" data-at="51.5">The numbers and networks are the paper's: Geist et al., The metabolic organ connectome, Med${F.year ? ` (${F.year})` : ''}; those of all ${fmt(F.scans)} scans printed there, the others read off its figures. Poster: Shaping a New Era in Nuclear Medicine. The intro's pictures: after the slide The vision of One Scan, One System. Organ values: illustrative.</p>`)}`,
+        <p class="credits" data-at="51.5">Numbers and networks: the paper, Geist et al., The metabolic organ connectome, Med${F.year ? ` (${F.year})` : ''} (of all ${fmt(F.scans)} scans printed there, the others read off its figures). Poster: Shaping a New Era in Nuclear Medicine. The intro's pictures: the vision slide. Organ values: illustrative.</p>`)}`,
   };
 
   const story = $('#story');

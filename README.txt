@@ -39,6 +39,11 @@ Networks, in fifteen stories - installable web app
      about or form a conga line; in a headset they find your floor and walls
      (stories/robots.js)
 
+Besides the stories, the design room (#design, stories/design.js; not on the
+Stories screen) is a table with a small model of every prop of the stories,
+a plate per story: point at one for its name, put it on the stage for its card
+(what it shows, its params, views and source), and in a headset pick it up.
+
 index.html is the app: it shows a start screen to pick a story, and the Stories
 button (top bar, and the panel in VR/AR) brings it back. Stories are loaded into
 the same page, so changing story never ends a VR or AR session; entering VR or
@@ -357,5 +362,7 @@ story; node tools/topo/build.mjs writes stories/topo.js; its data from the autho
 tools/pass/ (sources of the pass story; node
 tools/pass/build.mjs writes stories/pass.js from them and from the airports and cell map stories), tools/flock/ (sources of the flock; node tools/flock/build.mjs
 writes stories/flock.js), tools/robots/ (sources of the robot gang;
-node tools/robots/build.mjs writes stories/robots.js),
+node tools/robots/build.mjs writes stories/robots.js), tools/design/ (sources of the design room; node
+tools/design/build.mjs writes stories/design.js), tools/lowpoly/ (the miniatures; node tools/lowpoly/build.mjs writes
+lowpoly.js),
 icons/, three.min.js (three.js r128, MIT licence, see three.LICENSE.txt).

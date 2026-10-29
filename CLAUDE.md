@@ -68,6 +68,9 @@
   `node tools/nmd/data/gen_data.mjs`). Never show patient or variant data in it.
   `stories/flock.js` likewise from `tools/flock/` (`node tools/flock/build.mjs`),
   and `stories/robots.js` from `tools/robots/` (`node tools/robots/build.mjs`).
+  `stories/design.js` (the design room, not one of the fifteen: `STORY_EXTRA`) likewise from `tools/design/`
+  (`node tools/design/build.mjs`; its cards from `tools/design/props.json`), its models from `lowpoly.js`, built from
+  `tools/lowpoly/` (`node tools/lowpoly/build.mjs`; every miniature under 1,200 triangles, its `tris` exact).
   `stories/endo.js` likewise from `tools/endo/` (`node tools/endo/build.mjs`; data
   from the authors' files via `tools/endo/data/gen_data.py`, which are not in the
   repository); it includes `tools/nmd/sets/motor.js`, so rebuild it after changing that.

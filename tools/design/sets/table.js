@@ -179,7 +179,7 @@ SETS.table = function (K) {
   // ---- moved miniatures: records, glides and carrying
   const r3 = v => Math.round(v * 1000) / 1000, r2 = v => Math.round(v * 100) / 100;
   const okRec = a => Array.isArray(a) && a.length === 8 && a.every(Number.isFinite) && Math.abs(a[0]) <= 6 && Math.abs(a[2]) <= 6 && a[1] >= 0 && a[1] <= 3 &&
-    a[7] >= 0.25 && a[7] <= 4 && Math.hypot(a[3], a[4], a[5], a[6]) > 0.5;
+    a[7] >= 0.5 && a[7] <= 4 && Math.hypot(a[3], a[4], a[5], a[6]) > 0.5;
   const poseRec = m => { const p = m.holder.position, q = m.holder.quaternion; return [r3(p.x), r3(p.y), r3(p.z), r3(q.x), r3(q.y), r3(q.z), r3(q.w), r2(m.s)]; };
   // a miniature's record: where it was put, as the room has it (while carried here, where it is now)
   const recOf = k => { const m = minis.get(k); return !m ? null : m.carry ? poseRec(m) : m.rec; };
@@ -188,7 +188,7 @@ SETS.table = function (K) {
   function carryTo(k, p, q, s) {
     const m = minis.get(k);
     if (!m) return;
-    m.carry = true; m.holder.position.copy(p); m.holder.quaternion.copy(q); m.s = clamp(s, 0.25, 4);
+    m.carry = true; m.holder.position.copy(p); m.holder.quaternion.copy(q); m.s = clamp(s, 0.5, 4);
     if (m.holder.position.y < 0) m.holder.position.y = 0;
   }
   // let go: it stays where it is (rounded, as the room keeps it)
