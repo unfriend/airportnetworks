@@ -335,6 +335,24 @@ const awaySpot = (page, s) => page.evaluate(s => {
   }
   return null;
 }, s);
+// a point on station id's ring on the floor (its near side, seen from the pretend headset's head), in the story's space:
+// where a ray rests on the ring
+const ringAt = (page, id) => page.evaluate(id => {
+  const X = window.__xr, o = HOST.collab.overlay().rings.get(id);
+  if (!o) return null;
+  const c = o.ring.getWorldPosition(new THREE.Vector3()), head = new THREE.Vector3().setFromMatrixPosition(X.W.head).applyMatrix4(X.W.local.clone().invert());
+  return c.addScaledVector(head.sub(c).setY(0).normalize(), 0.48).toArray();
+}, id);
+// controller 0 of a pretend headset pointing from just below its head at t (the story's space), for a few frames
+const pointAt = (page, t) => page.evaluate(t => {
+  const X = window.__xr, c = HOST.cur.peek('XR.ctrls')[0], V = THREE.Vector3;
+  const head = new V().setFromMatrixPosition(X.W.head).applyMatrix4(X.W.local.clone().invert()), o = head.clone().add(new V(0.12, -0.3, -0.1));
+  c.src = c.src || { targetRayMode: 'tracked-pointer', handedness: 'right', gamepad: null }; c.g.visible = true;
+  c.g.matrix.compose(o, new THREE.Quaternion().setFromUnitVectors(new V(0, 0, -1), new V(...t).sub(o).normalize()), new V(1, 1, 1));
+  X.step(); X.step();
+  const h = HOST.collab.internals().hov.get(0);
+  return h && h.target.kind === 'station' ? h.target.id : '';
+}, t);
 // walk a pretend headset to station s: after a second there its story starts (frames go on until it has), and
 // takes over the session as a story does in its init (xrAdopt). Returns whether it switched, and not too early.
 async function walk(page, s, story, yaw) {
@@ -436,11 +454,12 @@ async function headView(H, file, yawRoom, pitch, size) {
 
 // ---- the design room in a headset in a room (after designRoom, with a pretend headset H aligned in the room; S any
 // station, to find a spot away from them all): every station's icon built from its story's miniature (lowpoly.js, the
-// entry's icon), in its colour and turning; with the layout locked the menu's Design room button is greyed and places
-// nothing; pressed, it puts the props table at the headset's feet as a circle facing its way, which every page sees; the
-// headset standing in it, it becomes its station and the design room opens there, its icon gone over it; walked out,
-// the icon (the table's miniature) is back; Add here lists the design room after the stories. The station is removed at
-// the end. shots: pictures of the menu and the table at its station (design-*.png)
+// entry's icon), in its colour and turning (hidden but built when the headset is in a circle already); with the circles
+// locked the menu's Design room button is greyed and places nothing; pressed, it puts the props table at the headset's
+// feet as a circle facing its way, which every page sees; the headset standing in it, it becomes its station and the
+// design room opens there, its icon gone over it; walked out, the headset stays at the design room (its icon still gone,
+// built from the table's miniature); Add here lists the design room after the stories. The station is removed at the
+// end. shots: pictures of the menu and the table at its station (design-*.png)
 async function headsetDesign(A, B, H, S, shots) {
   const step = n => frames(H, n);
   const press = id => H.evaluate(async id => {
@@ -463,9 +482,11 @@ async function headsetDesign(A, B, H, S, shots) {
   const built = await until(H, () => { window.__xr.step(); return [...HOST.collab.overlay().rings.values()].every(o => o.icon.model); }, null, 20000);
   const i0 = await icons();
   await step(400);
-  const i1 = await icons(), bad = i1.filter((x, k) => !(x.on && x.model && x.model === x.want && x.col === x.wcol && x.tris > 300 && angle(x.a, i0[k].a) > 0.05));
-  check('design room: every station\'s icon is built from its story\'s miniature (lowpoly.js), in its colour and turning', built && i1.length > 5 && !bad.length,
-    JSON.stringify({ built, n: i1.length, bad }));
+  // (a headset that has walked into a circle sees the others' rings only: their icons built all the same, hidden)
+  const inCircle = await H.evaluate(() => !!HOST.collab.live());
+  const i1 = await icons(), bad = i1.filter((x, k) => !(x.model && x.model === x.want && x.col === x.wcol && x.tris > 300 && (inCircle ? !x.on : x.on && angle(x.a, i0[k].a) > 0.05)));
+  check(`design room: every station's icon is built from its story's miniature (lowpoly.js), in its colour${inCircle ? ' (hidden: the headset is in a circle)' : ' and turning'}`,
+    built && i1.length > 5 && !bad.length, JSON.stringify({ built, n: i1.length, bad }));
   // locked: the button greyed, nothing placed
   const n0 = await H.evaluate(() => HOST.collab.stations().length);
   await A.evaluate(() => HOST.collab.lock(true));
@@ -476,7 +497,7 @@ async function headsetDesign(A, B, H, S, shots) {
   const nL = await H.evaluate(() => HOST.collab.stations().length);
   await A.evaluate(() => HOST.collab.lock(false));
   await until(H, () => !HOST.collab.locked, null, 3000);
-  check('design room: with the layout locked the menu\'s Design room button is greyed and places nothing', !lockedIds.includes('design') && !lockedPress && nL === n0,
+  check('design room: with the circles locked the menu\'s Design room button is greyed and places nothing', !lockedIds.includes('design') && !lockedPress && nL === n0,
     JSON.stringify({ lockedIds: lockedIds.slice(0, 12), lockedPress, nL, n0 }));
   // Add here lists it after the stories
   await press('addpage');
@@ -530,12 +551,15 @@ async function headsetDesign(A, B, H, S, shots) {
     await headView(H, path.join(shots, 'design-circle.png'), look, 0.02, [1280, 800]);
     await H.evaluate(() => { const c = HOST.cur.peek('XR.ctrls')[1]; c.g.visible = false; c.src = null; window.__xr.session.inputSources.length = 0; });
   }
-  // walked out: its icon (the table's miniature) back over the ring
+  // walked out: still at the design room (a story is left only by walking into another circle), its icon still gone,
+  // built from the table's miniature all the same
   const sp2 = await awaySpot(H, st);
   await goRoom(H, sp2[0], 1.6, sp2[1], 0);
-  const out = await until(H, id => { window.__xr.step(); const o = HOST.collab.overlay().rings.get(id); return HOST.collab.mine() !== id && !!o && o.icon.g.visible && o.icon.k > 0.9 && o.icon.model === 'design.table'; }, id, 15000);
-  check('design room: walked out of its circle, its icon (the props table\'s miniature) is back over the ring', out,
-    JSON.stringify(await H.evaluate(id => { const o = HOST.collab.overlay().rings.get(id); return o && { model: o.icon.model, k: o.icon.k, mine: HOST.collab.mine() }; }, id)));
+  await step(1500);
+  const out = await H.evaluate(id => { window.__xr.step(); HOST.cur.peek('xrUpdate(XS)'); const o = HOST.collab.overlay().rings.get(id);
+    return { mine: HOST.collab.mine() === id, key: HOST.curKey, away: HOST.room.away(), world: HOST.cur.peek('GL.world.visible'), model: o && o.icon.model, k: o && +o.icon.k.toFixed(2) }; }, id);
+  check('design room: walked out of its circle the headset stays at the design room (its station, shown; its icon still gone, built from the props table\'s miniature)',
+    out.mine && out.key === 'design' && !out.away && out.world && out.model === 'design.table' && out.k < 0.05, JSON.stringify(out));
   await A.evaluate(id => HOST.collab.remove(id), id);
   await until(H, id => !HOST.collab.station(id), id, 5000);
 }
@@ -1190,8 +1214,8 @@ try {
     [mapT.id, mapT.from[0] + 1, mapT.from[1] + 0.6, mapT.from[2] + Math.PI / 2], 3000);
   check('the room map: a station\'s dot dragged moves it and its square dragged turns it, for everyone (a drag follows nothing)', !mapT.err &&
     near(mapT.moved, [mapT.from[0] + 1, mapT.from[1] + 0.6], 0.005) && Math.abs(Math.sin(mapT.turned - mapT.from[2] - Math.PI / 2)) < 0.005 && !mapT.follow && mapB, JSON.stringify(mapT));
-  check('the room map: with the layout locked (its button) a station cannot be dragged and Arrange all is off; unlocked again', !mapT.err &&
-    mapT.locked.kept && mapT.locked.arrOff && mapT.locked.label === 'Unlock layout' && !mapT.locked.followed && mapT.locked.unlocked, JSON.stringify(mapT.locked));
+  check('the room map: with the circles locked (Lock circles) a station cannot be dragged and Arrange all is off; unlocked again', !mapT.err &&
+    mapT.locked.kept && mapT.locked.arrOff && mapT.locked.label === 'Unlock circles' && !mapT.locked.followed && mapT.locked.unlocked, JSON.stringify(mapT.locked));
   await A.evaluate(() => { HOST.collab.dialog(false); HOST.collab.arrange({ x: 0, z: 0, yaw: 0 }); });
   await st7(B); await st7(C);
   await designRoom(A, B, C);
@@ -1391,8 +1415,9 @@ try {
   await personFollow(code, '');
 
   // ------------------------------------------------ panels per station --
-  // (key st.<id>.ui) set in a page's Shared dialog for one station, with the layout locked (never refused by it): the
-  // pages at that station have it, another station keeps its own (shown)
+  // (key st.<id>.ui) set in a page's Shared dialog for one station, with the circles locked (never refused by it): the
+  // pages at that station have it, another station keeps its own (shown); and the story's lock there (Lock story, in the
+  // same key), also with the circles locked, for every page
   const idOther = await stationOf(B, OTHER_STORY), kUi = id => 'st.' + id + '.ui';
   await B.evaluate(() => HOST.collab.lock(true));
   await until(A, () => HOST.collab.locked, null, 3000);
@@ -1406,10 +1431,22 @@ try {
   const pO = await A.evaluate(id => [HOST.collab.stationPanels(id), HOST.panels.get(HOST.collab.station(id).story)], idOther);
   let rkU = {};
   for (let k = 0; k < 15 && !(rkU[kUi(id0)]); k++) { rkU = (await roomInfo(code)).keys; if (!rkU[kUi(id0)]) await sleep(200); }
-  check('panels per station: set in a page\'s Shared dialog (with the layout locked), the pages at that station have them; another station keeps its own',
+  check('panels per station: set in a page\'s Shared dialog (with the circles locked), the pages at that station have them; another station keeps its own',
     pclick[0] === 'Panels: shown' && pclick[1] === 'Panels: controls only' && /hidden/.test(pclick[2] || '') && pA && pO.join() === 'shown,shown' &&
       !!rkU[kUi(id0)] && rkU[kUi(id0)].v.panels === 'controls' && rkU[kUi(id0)].v.story === key0 && !rkU[kUi(idOther)],
     JSON.stringify({ pclick, pA, pO, ui: rkU[kUi(id0)], other: rkU[kUi(idOther)] }));
+  const lclick = await B.evaluate(async id => {
+    const q = () => document.querySelector(`[data-sh="stlock:${id}"]`), was = q() && q().textContent;
+    if (q()) q().click();
+    await new Promise(r => setTimeout(r, 200));
+    return [was, q() && q().textContent, q() && q().getAttribute('aria-pressed')];
+  }, id0);
+  const lA = await until(A, id => HOST.collab.stationLock(id) && HOST.collab.stationPanels(id) === 'controls', id0, 3000), lO = await A.evaluate(id => HOST.collab.stationLock(id), idOther);
+  let rkL = {};
+  for (let k = 0; k < 15 && !(rkL[kUi(id0)] && rkL[kUi(id0)].v.lock); k++) { rkL = (await roomInfo(code)).keys; await sleep(100); }
+  check('a story\'s lock: Lock story in a page\'s Shared dialog (with the circles locked) locks that station for every page, its panels kept; another station not',
+    lclick[0] === 'Lock story' && lclick[1] === 'Story locked' && lclick[2] === 'true' && lA && !lO && !!rkL[kUi(id0)] && rkL[kUi(id0)].v.lock === true && rkL[kUi(id0)].v.panels === 'controls',
+    JSON.stringify({ lclick, lA, lO, ui: rkL[kUi(id0)] && rkL[kUi(id0)].v }));
   await B.evaluate(() => { HOST.collab.dialog(false); HOST.collab.lock(false); });
   await until(A, () => !HOST.collab.locked, null, 3000);
 
@@ -1438,9 +1475,10 @@ try {
   await lookIs(B, 'fixed,true'); await lookIs(C, 'fixed,true'); await subsIs(B, false); await subsIs(C, false);
   let uiR = null;
   for (let k = 0; k < 25 && !uiR; k++) { const r = await roomInfo(code).catch(() => ({ keys: {} })); uiR = r.keys && r.keys[kUi(id0)] && r.keys[kUi(id0)].v; if (!uiR) await sleep(200); }
-  check('a relay restart keeps a station\'s panels', !!uiR && uiR.panels === 'controls' && await until(C, id => HOST.collab.stationPanels(id) === 'controls', id0, 3000), JSON.stringify(uiR));
-  await C.evaluate(id => HOST.collab.setStationPanels(id, 'shown'), id0);   // (shown again: the headset below arrives at that station)
-  await until(A, id => HOST.collab.stationPanels(id) === 'shown', id0, 3000);
+  check('a relay restart keeps a station\'s panels and its story\'s lock', !!uiR && uiR.panels === 'controls' && uiR.lock === true &&
+    await until(C, id => HOST.collab.stationPanels(id) === 'controls' && HOST.collab.stationLock(id), id0, 3000), JSON.stringify(uiR));
+  await C.evaluate(id => { HOST.collab.setStationPanels(id, 'shown'); HOST.collab.setStationLock(id, false); }, id0);   // (shown and unlocked again: the headset below arrives at that station)
+  await until(A, id => HOST.collab.stationPanels(id) === 'shown' && !HOST.collab.stationLock(id), id0, 3000);
 
   // ------------------------------------------------- a pretend headset --
   const H = await open('#s=' + code);
@@ -1639,18 +1677,9 @@ try {
   check('headset: away from every station in a room no story shows (no Stories screen, the scene and panels hidden, nothing to point at, paused, no Stories button; the clock in front of you)',
     away0.away && !away0.mine && !away0.stories && !away0.playing && !away0.world && !away0.panels && !away0.land && !away0.kind && away0.control === 'globe' && !away0.button &&
     away0.still && away0.clock && away0.front > 0.85, JSON.stringify(away0));
-  // walk to the headset story's station: after a second there it becomes this headset's story, placed at the station
+  // before any circle every station shows its story's icon over its ring: its miniature (lowpoly.js, its entry's icon;
+  // built one a frame, the fallback until then), in the story's colour and turning, and its card
   const stationFor = async k => { const s = await H.evaluate(k => HOST.collab.stations().find(s => s.story === k) || null, k); if (!s) throw new Error('no station for ' + k); return s; };
-  const S1 = await stationFor(HEADSET_STORY);
-  const switched = await walk(H, S1, HEADSET_STORY, 0.4);
-  const rig = await rigOf(H), want = rigAt(S1);
-  check('headset: a second at a station switches to its story, which stands at the station', switched && near(rig.slice(0, 3), want.slice(0, 3), 1e-4) && angle(rig[3], want[3]) < 1e-4,
-    `story ${await H.evaluate(() => HOST.curKey)}, rig ${fmt(rig)}, want ${fmt(want)}`);
-  const shownAt = await H.evaluate(() => { HOST.cur.peek('xrUpdate(APP.mode === "story" ? storyState(storyT(APP.t)) : XS)');
-    return { away: HOST.room.away(), world: HOST.cur.peek('GL.world.visible'), main: HOST.cur.peek('XR.main.mesh.visible'), card: HOST.collab.overlay().cards.has(HOST.collab.mine()) }; });
-  check('headset: and there its story shows (scene and panel; its own card gone)', !shownAt.away && shownAt.world && shownAt.main && !shownAt.card, JSON.stringify(shownAt));
-  // every station shows its story's icon over its ring: its miniature (lowpoly.js, its entry's icon; built one a frame,
-  // the fallback until then), in the story's colour and turning; at your own station it is gone
   const iconsSeen = () => H.evaluate(() => [...HOST.collab.overlay().rings].map(([id, o]) => {
     const I = o.icon, s = HOST.collab.station(id), m = s && HOST.meta(s.story);
     return { id, story: s && s.story, key: I && I.key, model: I && I.model, wantModel: m && m.icon, tris: I && I.mesh.geometry.attributes.position.count / 3,
@@ -1661,9 +1690,28 @@ try {
   const ic0 = await iconsSeen();
   await frames(H, 400);
   const ic1 = await iconsSeen(), nSt = await H.evaluate(() => HOST.collab.stations().length);
-  const iconOk = (x, i) => x.key === x.story && x.col === x.want && x.y > 1.9 && (x.mine ? !x.on : x.on && angle(x.a, ic0[i].a) > 0.05 && x.model === x.wantModel && x.tris > 300);
-  check('headset: every station shows its story\'s icon over its ring (its miniature, in its colour, turning), but not your own station', built && ic1.length === nSt && ic1.some(x => x.mine) &&
-    ic1.every(iconOk), JSON.stringify(ic1.filter((x, i) => !iconOk(x, i))));
+  const iconOk = (x, i) => x.key === x.story && x.col === x.want && x.y > 1.9 && x.on && angle(x.a, ic0[i].a) > 0.05 && x.model === x.wantModel && x.tris > 300;
+  const cards0 = await H.evaluate(() => [...HOST.collab.overlay().cards.values()].filter(c => c.mesh.visible).length);
+  check('headset: before any circle every station shows its story\'s icon over its ring (its miniature, in its colour, turning) and its card', built && ic1.length === nSt &&
+    !ic1.some(x => x.mine) && ic1.every(iconOk) && cards0 === nSt, JSON.stringify({ cards0, bad: ic1.filter((x, i) => !iconOk(x, i)) }));
+  // walk to the headset story's station: after a second there it becomes this headset's story, placed at the station
+  const S1 = await stationFor(HEADSET_STORY);
+  const switched = await walk(H, S1, HEADSET_STORY, 0.4);
+  const rig = await rigOf(H), want = rigAt(S1);
+  check('headset: a second at a station switches to its story, which stands at the station', switched && near(rig.slice(0, 3), want.slice(0, 3), 1e-4) && angle(rig[3], want[3]) < 1e-4,
+    `story ${await H.evaluate(() => HOST.curKey)}, rig ${fmt(rig)}, want ${fmt(want)}`);
+  const shownAt = await H.evaluate(() => { HOST.cur.peek('xrUpdate(APP.mode === "story" ? storyState(storyT(APP.t)) : XS)');
+    return { away: HOST.room.away(), world: HOST.cur.peek('GL.world.visible'), main: HOST.cur.peek('XR.main.mesh.visible'), card: HOST.collab.overlay().cards.has(HOST.collab.mine()) }; });
+  check('headset: and there its story shows (scene and panel; its own card gone)', !shownAt.away && shownAt.world && shownAt.main && !shownAt.card, JSON.stringify(shownAt));
+  // in a circle the other stations show their rings only (no card, no icon; the rings still there to point at and grab),
+  // and its own icon is gone too
+  const ringsOnly = () => H.evaluate(() => { const O = HOST.collab.overlay(), id = HOST.collab.mine();
+    return { icons: [...O.rings].filter(([, o]) => o.icon.k > 0.05).map(([k]) => k), cards: [...O.cards].filter(([, c]) => c.mesh.visible).map(([k]) => k),
+      rings: [...O.rings.values()].filter(o => o.g.visible && O.hit.includes(o.ring)).length, own: !!O.rings.get(id) }; });
+  const inRing = await until(H, () => { window.__xr.step(); const O = HOST.collab.overlay(); return [...O.rings.values()].every(o => o.icon.k < 0.05) && [...O.cards.values()].every(c => !c.mesh.visible); }, null, 8000);
+  const ro = await ringsOnly();
+  check('headset: in its circle the other stations show their rings only (no card, no icon; every ring still pointable), and its own icon is gone', inRing && !ro.icons.length &&
+    !ro.cards.length && ro.rings === nSt && ro.own, JSON.stringify(ro));
   // the headset recentres (its local origin moves; the story's own reset listener asks to recentre): the story
   // stays at its station, placed there again every frame
   const relocal = L => H.evaluate(L => {
@@ -1704,41 +1752,51 @@ try {
   const q6 = (await roomInfo(code)).seq, card = await H.evaluate(() => HOST.cur.peek('[APP.mode, XR.stories]')), modeA = (await clockOf(A))[0];
   check('headset: in a room a Stories screen opened at a station closes at once and restarts nothing (no writes, still exploring)', q6 === q5 && card[0] === 'explore' &&
     card[1] === false && modeA === 'explore', `${q6 - q5} writes, headset ${card}, A ${modeA}`);
-  // walking out of the circle (beyond 1.5 m, into no other): the story is hidden and paused here while the station plays
-  // on for the others, and nothing is written; taken off and put on again out there, no Stories screen for the new
-  // wearer; walking back in, the story shows again and runs on the station's clock
+  // walking out of the circle (into no other) the headset stays in its story (the owner, 29 October 2026, after ten
+  // headsets: "one should only exit a story when walking into a new circle"): shown, still its station, playing on the
+  // station's clock and in step with the room both ways (a change on a page following the station taken, a pause here
+  // sent), the walk itself writing nothing; the others' cards and icons stay hidden, its own icon gone; taken off and put
+  // on again out there, still in its story; walking back in changes nothing (no second arrival)
   const kP1 = 'st.' + S1.id + '.play', play1 = (await roomInfo(code)).keys[kP1].v;
   await A.evaluate(k => HOST.collab.publish([[k, { mode: 'story', t: 20, playing: true, at: Math.round(HOST.collab.now()) }]]), kP1);
   const playsH = await until(H, () => { window.__xr.step(); return HOST.cur.peek('APP.mode === "story" && APP.playing'); }, null, 6000);
-  const spot = await awaySpot(H, S1), q7 = (await roomInfo(code)).seq;
+  const arrivals = () => H.evaluate(id => window.__collabLog.filter(e => e.ev === 'station' && e.st === id).length, S1.id);
+  const spot = await awaySpot(H, S1), q7 = (await roomInfo(code)).seq, n7 = await arrivals();
   await H.evaluate(h => window.__xr.head(h), [...apply(ROOM, [spot[0], 1.6, spot[1]]), 0]);
-  await frames(H, 600);
-  const seen1 = id => H.evaluate(id => { HOST.cur.peek('xrUpdate(APP.mode === "story" ? storyState(storyT(APP.t)) : XS)');
+  await frames(H, 1500);
+  const seen1 = id => H.evaluate(id => { HOST.cur.peek('xrUpdate(APP.mode === "story" ? storyState(storyT(APP.t)) : XS)'); const O = HOST.collab.overlay();
     return { away: HOST.room.away(), mine: HOST.collab.mine(), live: !!HOST.collab.live(), mode: HOST.cur.peek('APP.mode'), playing: HOST.cur.peek('APP.playing'), t: HOST.cur.peek('APP.t'),
-      world: HOST.cur.peek('GL.world.visible'), main: HOST.cur.peek('XR.main.mesh.visible'), stories: HOST.cur.peek('XR.stories'), card: HOST.collab.overlay().cards.has(id),
-      icon: (I => I.g.visible && I.k > 0.9)(HOST.collab.overlay().rings.get(id).icon), ik: (I => [+I.k.toFixed(2), I.g.visible, I.model])(HOST.collab.overlay().rings.get(id).icon) }; }, id);
-  const out1 = await seen1(S1.id);
-  await frames(H, 800);
-  const out1b = await seen1(S1.id);
+      world: HOST.cur.peek('GL.world.visible'), main: HOST.cur.peek('XR.main.mesh.visible'), stories: HOST.cur.peek('XR.stories'), card: O.cards.has(id),
+      icon: (I => I.g.visible && I.k > 0.05)(O.rings.get(id).icon), others: [...O.rings].filter(([k, o]) => k !== id && o.icon.k > 0.05).length + [...O.cards.values()].filter(c => c.mesh.visible).length,
+      zone: (R => Math.hypot(R.hr.x - HOST.collab.station(id).x, R.hr.z - HOST.collab.station(id).z))(HOST.room.internals()) }; }, id);   // (zone: how far out it stands)
+  const out1 = await seen1(S1.id), q8 = (await roomInfo(code)).seq, want1 = await A.evaluate(k => { const P = HOST.collab.val(k); return P.t + (HOST.collab.now() - P.at) / 1000; }, kP1);
+  check('headset: walking out of its circle (into no other) it stays in its story: still its station, shown (scene and panel), playing on the station\'s clock, the others\' cards and icons still hidden, the walk writing nothing',
+    playsH && !!spot && out1.zone > 1.6 && !out1.away && out1.mine === S1.id && out1.live && out1.playing && out1.mode === 'story' && out1.world && out1.main && !out1.card && !out1.icon &&
+    !out1.others && Math.abs(out1.t - want1) < 1.5 && q8 === q7, JSON.stringify({ playsH, spot, out1, want1, writes: q8 - q7 }));
+  // in step both ways while out there: a change on A (which follows the station) reaches the headset; a pause on the
+  // headset reaches the room and A
+  await peek(A, STORIES[HEADSET_STORY].change);
+  const sOut = await stateOf(A);
+  const tookOut = await until(H, s => { window.__xr.step(); return JSON.stringify(HOST.cur.collab.state()) === s; }, sOut, 6000);
+  await H.evaluate(() => HOST.cur.peek('APP.togglePlay()'));
+  const [, pausedA] = await Promise.all([frames(H, 1500), until(A, () => !HOST.cur.peek('APP.playing'), null, 6000)]);
+  const room9 = (await roomInfo(code)).keys[kP1].v;
+  check('headset: out of its circle it stays in step with the room both ways (a change on a page following the station reaches it; a pause on it reaches the room and the page)',
+    tookOut && pausedA && !room9.playing && room9.mode === 'story', JSON.stringify({ tookOut, state: await stateOf(H), want: sOut, pausedA, room9 }));
   await H.evaluate(() => window.__xr.visibility('hidden'));
   await sleep(3300);
   await H.evaluate(() => window.__xr.visibility('visible'));
   await frames(H, 600);
-  const out2 = await seen1(S1.id), q8 = (await roomInfo(code)).seq, room8 = (await roomInfo(code)).keys[kP1].v;
-  check('headset: walking out of its circle hides the story (scene and panels; the station\'s card back) and pauses it here, writing nothing: the station plays on for the others',
-    playsH && !!spot && out1.away && !out1.mine && !out1.live && !out1.playing && !out1.world && !out1.main && out1.card && out1b.t === out1.t && q8 === q7 && room8.playing && room8.mode === 'story',
-    JSON.stringify({ playsH, spot, out1, t1b: out1b.t, writes: q8 - q7, room8 }));
-  check('headset: taken off and put on again away from a station, no Stories screen for the new wearer (still hidden and paused)', !out2.stories && out2.away && !out2.world && !out2.playing,
-    JSON.stringify(out2));
+  const out2 = await seen1(S1.id);
+  check('headset: taken off and put on again out there, it is still in its story (no Stories screen, still its station, shown)', !out2.stories && !out2.away && out2.mine === S1.id &&
+    out2.world && out2.main, JSON.stringify(out2));
+  // back in: it never left, so nothing happens (no second arrival, nothing written)
+  const q9a = (await roomInfo(code)).seq;
   await H.evaluate(h => window.__xr.head(h), headAt(S1, 0.4));
-  const backIn = await until(H, id => { window.__xr.step(); return HOST.collab.mine() === id && !HOST.room.away(); }, S1.id, 6000);
-  await frames(H, 300);
-  const out3 = await seen1(S1.id), q9 = (await roomInfo(code)).seq, want3 = await A.evaluate(k => { const P = HOST.collab.val(k); return P.t + (HOST.collab.now() - P.at) / 1000; }, kP1);
-  check('headset: walking back in shows the story again and runs it on the station\'s clock (nothing written)', backIn && !out3.away && out3.world && out3.main && !out3.card &&
-    out3.mode === 'story' && out3.playing && Math.abs(out3.t - want3) < 1.5 && q9 === q7, JSON.stringify({ backIn, out3, want3, writes: q9 - q7 }));
-  // (back by the second look, 1.4 s out: a slow software frame eases it less per frame)
-  check('headset: its own station\'s icon is back over the ring out of the circle, and goes again when it walks back in', (out1.icon || out1b.icon) && !out3.icon,
-    JSON.stringify([out1.ik, out1b.ik, out3.ik]));
+  await frames(H, 1500);
+  const out3 = await seen1(S1.id), q9 = (await roomInfo(code)).seq, n9 = await arrivals();
+  check('headset: walking back into its circle changes nothing (still its station and shown, no second arrival, nothing written)', !out3.away && out3.mine === S1.id && out3.world &&
+    out3.main && !out3.icon && n9 === n7 && q9 === q9a, JSON.stringify({ out3, arrivals: n9 - n7, writes: q9 - q9a }));
   await A.evaluate(([k, v]) => HOST.collab.publish([[k, v]]), [kP1, play1]);   // (the station back in explore mode, as the rest expects)
   await until(H, () => { window.__xr.step(); return HOST.cur.peek('APP.mode') === 'explore'; }, null, 6000);
   // a ray: the others see it in room coordinates
@@ -1754,27 +1812,36 @@ try {
   check('headset: its rays reach the others in room coordinates', seen && seen.hands.length === 1 && near(seen.hands[0].slice(0, 6), wantRay, 3e-3) && seen.hands[0][6] > 0,
     seen ? `got ${fmt(seen.hands[0] || [])}, want ${fmt(wantRay)}` : 'no presence');
   check('headset: and its head, and the station it is at', seen && near(seen.head.slice(0, 3), headRoom, 3e-3) && seen.st === S1.id);
-  // another person's presence (a headset elsewhere, in room coordinates) is drawn in this headset's room: the
-  // ray from its hand along its direction to its length, a dot at the end, a name tag; an avatar (not here)
+  // another person's presence (a headset elsewhere, in room coordinates, at this headset's station) is drawn in this
+  // headset's room: the ray from its hand along its direction to its length, a dot at the end, a name tag; an avatar (not
+  // here). At another circle, or at none, nobody is drawn (the people at your circle only), unless People: everyone
   const drawn = await H.evaluate(async () => {
     const C = HOST.collab.internals(), R = HOST.room.internals(), id = 'zz-test';
-    const put = () => {
+    const put = st => {
       if (!C.members.some(m => m.id === id)) C.members.push({ id, name: 'Test', color: '#ff7a59', kind: 'vr', here: false });
-      C.pres.set(id, { id, at: performance.now(), st: '', head: [1, 1.6, -2, 0, 0, 0, 1], hands: [[1.2, 1.3, -2.1, 0.6, 0, -0.8, 2]] });
+      C.pres.set(id, { id, at: performance.now(), st, head: [1, 1.6, -2, 0, 0, 0, 1], hands: [[1.2, 1.3, -2.1, 0.6, 0, -0.8, 2]] });
     };
-    for (let k = 0; k < 30; k++) { put(); window.__xr.step(); await new Promise(r => setTimeout(r, 10)); }
-    const o = HOST.collab.overlay().people.get(id);
+    const run = async st => { for (let k = 0; k < 30; k++) { put(st); window.__xr.step(); await new Promise(r => setTimeout(r, 10)); } return HOST.collab.overlay().people.get(id); };
+    const o = await run(HOST.collab.mine());
     if (!o) return null;
     o.g.updateMatrixWorld(true);
     const a = new THREE.Vector3(0, 0, 0).applyMatrix4(o.rays[0].matrixWorld), b = new THREE.Vector3(0, 0, 1).applyMatrix4(o.rays[0].matrixWorld);
     const toRoom = v => v.clone().applyMatrix4(R.mi).toArray();
-    const out = { from: toRoom(a), to: toRoom(b), dot: toRoom(o.dots[0].getWorldPosition(new THREE.Vector3())), avatar: o.avatar.visible, tag: o.name };
+    const out = { from: toRoom(a), to: toRoom(b), dot: toRoom(o.dots[0].getWorldPosition(new THREE.Vector3())), avatar: o.avatar.visible, tag: o.name, vis: o.g.visible };
+    const other = HOST.collab.stations().find(s => s.id !== HOST.collab.mine()).id;
+    out.other = (await run(other)).g.visible; out.none = (await run('')).g.visible;
+    HOST.collab.seeAll(true);
+    out.all = (await run(other)).g.visible && (await run('')).g.visible; out.kept = localStorage.getItem('collabPeople');
+    HOST.collab.seeAll(false);
+    out.back = (await run(other)).g.visible;
     C.pres.delete(id); C.members = C.members.filter(m => m.id !== id);
     return out;
   });
   const rayEnd = [1.2 + 0.6 * 2, 1.3, -2.1 - 0.8 * 2];
-  check('headset: another person\'s ray, dot, tag and avatar are drawn where they are in the room', drawn && near(drawn.from, [1.2, 1.3, -2.1], 1e-3) && near(drawn.to, rayEnd, 1e-3) &&
-    near(drawn.dot, rayEnd, 1e-3) && drawn.avatar && drawn.tag === 'Test', JSON.stringify(drawn));
+  check('headset: another person at its circle: their ray, dot, tag and avatar are drawn where they are in the room', drawn && drawn.vis && near(drawn.from, [1.2, 1.3, -2.1], 1e-3) &&
+    near(drawn.to, rayEnd, 1e-3) && near(drawn.dot, rayEnd, 1e-3) && drawn.avatar && drawn.tag === 'Test', JSON.stringify(drawn));
+  check('headset: a person at another circle or at none is not drawn; People: everyone (this headset\'s, kept here) draws them, and back again',
+    drawn && !drawn.other && !drawn.none && drawn.all && drawn.kept === 'all' && !drawn.back, JSON.stringify(drawn));
   // the sound zone: the narration comes from the station's content (a panner there, the listener at your head)
   // and the <audio> element plays fainter with distance
   const cz = [S1.x - 1.4 * Math.sin(S1.yaw), 1.4, S1.z - 1.4 * Math.cos(S1.yaw)], czLocal = unapply(LOCAL, apply(ROOM, cz));
@@ -1818,8 +1885,12 @@ try {
     const yaw = Math.atan2(dir.x, dir.z), id = 'zzdepth', st = { id, story: 'robots', x: cc.x + 1.4 * Math.sin(yaw), z: cc.z + 1.4 * Math.cos(yaw), yaw };
     C.st.push(st); C.stById.set(id, st);
     for (let k = 0; k < 3; k++) { X.step(); await new Promise(r => setTimeout(r, 20)); }
+    // (in a circle another station's card shows only while its ring is pointed at: as if it just had been)
+    const rg = HOST.collab.overlay().rings.get(id);
+    if (rg) { rg.seenAt = performance.now() + 60000; rg.peek = 1; }
+    for (let k = 0; k < 2; k++) { X.step(); await new Promise(r => setTimeout(r, 20)); }
     const card = HOST.collab.overlay().cards.get(id);
-    if (!card) return { err: 'no card' };
+    if (!card || !card.mesh.visible) return { err: 'no card' };
     const cw = card.mesh.getWorldPosition(new V()), d = cw.clone().sub(pc).normalize(), o = pc.clone().addScaledVector(d, -0.6);
     const c = HOST.cur.peek('XR.ctrls')[0];
     c.src = c.src || { targetRayMode: 'tracked-pointer', handedness: 'right', gamepad: null };
@@ -1834,26 +1905,20 @@ try {
   check('headset: the story\'s own panel in front of a station\'s card takes the ray (the card alone would)', depth.kind === 'panel' && depth.alone && Math.abs(depth.alone - depth.toCard) < 0.05 && !depth.behind,
     JSON.stringify(depth));
   // stations are walk-in only: the trigger on another station's card runs nothing from afar (a notice says to walk into
-  // its circle), and the headset stays at its own
+  // its circle), and the headset stays at its own. In a circle that card shows once its ring is pointed at
   const SP = await stationFor(PICK_STORY);
+  const ringP = await ringAt(H, SP.id), hovRing = !!ringP && await pointAt(H, ringP) === SP.id;
+  const peeked = hovRing && await until(H, id => { window.__xr.step(); const O = HOST.collab.overlay(), c = O.cards.get(id); return !!c && c.mesh.visible && O.hit.includes(c.mesh); }, SP.id, 3000);
   const cardAt = await H.evaluate(id => { const c = HOST.collab.overlay().cards.get(id); return c ? c.mesh.getWorldPosition(new THREE.Vector3()).toArray() : null; }, SP.id);
-  const hovCard = !!cardAt && await H.evaluate(([id, t]) => {
-    const X = window.__xr, c = HOST.cur.peek('XR.ctrls')[0], V = THREE.Vector3;
-    const head = new V().setFromMatrixPosition(X.W.head).applyMatrix4(X.W.local.clone().invert()), o = head.clone().add(new V(0.12, -0.3, -0.1));
-    c.src = c.src || { targetRayMode: 'tracked-pointer', handedness: 'right', gamepad: null }; c.g.visible = true;
-    c.g.matrix.compose(o, new THREE.Quaternion().setFromUnitVectors(new V(0, 0, -1), new V(...t).sub(o).normalize()), new V(1, 1, 1));
-    X.step(); X.step();
-    const h = HOST.collab.internals().hov.get(0);
-    return !!h && h.target.kind === 'station' && h.target.id === id;
-  }, [SP.id, cardAt]);
+  const hovCard = peeked && !!cardAt && await pointAt(H, cardAt) === SP.id;
   if (cardAt) await press(cardAt);
   const went = await until(H, k => HOST.curKey === k || HOST.busy, PICK_STORY, 3000);
   await frames(H, 200);
   const pk = await H.evaluate(() => ({ key: HOST.curKey, mine: HOST.collab.mine(), note: (window.__collabLog.filter(e => e.ev === 'notice').slice(-1)[0] || {}).title }));
   const rigP = await rigOf(H), wantP = rigAt(S1, LOCAL);
   check(`headset: the trigger on another station's card runs nothing from afar (${PICK_STORY}): a notice says to walk into its circle, and the headset stays at its own`,
-    hovCard && !went && pk.key === HEADSET_STORY && pk.mine === S1.id && pk.note === 'Walk into its circle' && near(rigP.slice(0, 3), wantP.slice(0, 3), 1e-4),
-    JSON.stringify({ hovCard, went, pk, rig: rigP, want: wantP }));
+    hovRing && peeked && hovCard && !went && pk.key === HEADSET_STORY && pk.mine === S1.id && pk.note === 'Walk into its circle' && near(rigP.slice(0, 3), wantP.slice(0, 3), 1e-4),
+    JSON.stringify({ hovRing, peeked, hovCard, went, pk, rig: rigP, want: wantP }));
   // the grip on another station's card picks it up: pointed 20 degrees further left it swings round the hand, raised
   // 10 degrees it goes further, a twist of the wrist turns it; the room has it while it moves (ten times a second)
   // and where it is put down; when someone else moves it, its ring here glides there
@@ -1862,7 +1927,11 @@ try {
     const X = window.__xr, V = THREE.Vector3, Q = THREE.Quaternion, rad = deg * Math.PI / 180;
     const run = async ms => { const t0 = performance.now(); while (performance.now() - t0 < ms) { X.step(); await new Promise(r => setTimeout(r, 16)); } };
     const G = window.__grab = window.__grab || {};
-    if (what === 'aim') {
+    if (what === 'peek') {   // (in a circle another station's card shows once its ring is pointed at: the near side of the ring first)
+      const o = HOST.collab.overlay().rings.get(id), head = new V().setFromMatrixPosition(X.W.head).applyMatrix4(X.W.local.clone().invert());
+      const c = o.ring.getWorldPosition(new V()), p = c.clone().addScaledVector(head.clone().sub(c).setY(0).normalize(), 0.48);
+      G.o = head.clone().add(new V(0.12, -0.3, -0.1)); G.q = new Q().setFromUnitVectors(new V(0, 0, -1), p.sub(G.o).normalize());
+    } else if (what === 'aim') {
       const card = HOST.collab.overlay().cards.get(id);
       if (!card) return { err: 'no card' };
       const head = new V().setFromMatrixPosition(X.W.head).applyMatrix4(X.W.local.clone().invert());
@@ -1874,10 +1943,11 @@ try {
     if (G.o) X.aim(0, new THREE.Matrix4().compose(G.o, G.q, new V(1, 1, 1)));
     if (what === 'grip') { X.step(); X.fire('squeezestart', { inputSource: X.session.inputSources[0] }); }   // (a grip comes between frames, on a fresh hover)
     if (what === 'let go') X.fire('squeezeend', { inputSource: X.session.inputSources[0] });
-    await run(what === 'aim' ? 200 : 400);
+    await run(what === 'aim' || what === 'peek' ? 200 : 400);
     const h = HOST.collab.internals().hov.get(0), o = HOST.room.toRoom(G.o.clone());
     return { hov: h && h.target.kind === 'station' ? h.target.id : '', moving: HOST.room.moving, hand: [o.x, o.z], st: HOST.collab.station(id) };
   }, [SM.id, what, deg || 0]);
+  await grabStep('peek');
   const g0 = await grabStep('aim'), g1 = await grabStep('grip');
   const sM0 = g1.st, vM0 = [sM0.x - g1.hand[0], 0, sM0.z - g1.hand[1]], deg = d => d * Math.PI / 180;
   const g2 = await grabStep('swing', 20);
@@ -1903,10 +1973,11 @@ try {
     return { before, one, after: ring(), frames: n };
   }, [SM.id, sM0.x, sM0.z]);
   check('headset: a station someone else moves glides to its new place here', glide.before > 0.5 && glide.one > 0.02 && glide.one < glide.before && glide.after < 0.002 && glide.frames > 2, JSON.stringify(glide));
-  // the layout lock: locked from a page, the grip moves no station and Arrange all is refused; unlocked with the
+  // the circles lock: locked from a page, the grip moves no station and Arrange all is refused; unlocked with the
   // headset panel's button, for everyone
   await A.evaluate(() => HOST.collab.lock(true));
   const lockSeen = await until(H, () => HOST.collab.locked, null, 3000);
+  await grabStep('peek');
   const lk0 = await grabStep('aim'), lk1 = await grabStep('grip');
   await grabStep('let go');
   const arrRefused = await H.evaluate(() => { const before = JSON.stringify(HOST.collab.stations()); HOST.collab.arrange({ x: 5, z: 5, yaw: 0 }); return before === JSON.stringify(HOST.collab.stations()); });
@@ -1915,7 +1986,7 @@ try {
   const unlockBtn = await H.evaluate(() => { const r = HOST.collab.overlay().panel.regions.find(x => x.id === 'lock'); if (!r || !r.fn) return false; r.fn(); return true; });
   const unlocked = await until(A, () => !HOST.collab.locked, null, 3000);
   await H.evaluate(() => HOST.collab.panelOpen(false));
-  check('headset: the layout lock (from a page) stops the grip moving a station and Arrange all; the headset panel\'s button unlocks it for everyone',
+  check('headset: the circles lock (from a page) stops the grip moving a station and Arrange all; the menu\'s Lock circles button unlocks it for everyone',
     lockSeen && lk0.hov === SM.id && !lk1.moving && !!lk1.st && Math.abs(lk1.st.x - lk0.st.x) < 1e-6 && arrRefused && unlockBtn && unlocked,
     JSON.stringify({ lockSeen, hov: lk0.hov, moving: lk1.moving, arrRefused, unlockBtn, unlocked }));
   // Sound check in the menu (the stories have theirs on the Stories screen, which a room never shows): a page in place of
@@ -2197,13 +2268,15 @@ try {
   const hOff = await H.evaluate(() => ({ free: HOST.cur.peek('XR.free'), rot: HOST.cur.peek('XR.rot.toArray()'), up: HOST.cur.peek('new THREE.Vector3(0, 1, 0).applyQuaternion(XR.panelGroup.quaternion).y') }));
   check('headset: Moving in the headset\'s menu turns free moving off for everyone: the turns leave the room, the scene faces you again and the panel stands upright',
     pf && offAB && !rk4[kPl].v.q && !rk4[kPn].v.q && !hOff.free && qang(hOff.rot, [0, 0, 0, 1]) < 1e-6 && Math.abs(hOff.up - 1) < 1e-6, JSON.stringify({ pf, offAB, place: rk4[kPl], panel: rk4[kPn], hOff }));
-  // what the headset draws of the room in each: the other stations' cards and a person's name tag (someone injected
-  // for a few frames)
+  // what the headset draws of the room in each: the other stations' cards (all of them as if their rings had just been
+  // pointed at: in a circle they show only then) and a person's name tag (someone at its circle, injected for a few frames)
   const roomLook = () => H.evaluate(async () => {
-    const C = HOST.collab.internals(), id = 'zz-look';
+    const C = HOST.collab.internals(), id = 'zz-look', O = HOST.collab.overlay();
     if (!C.members.some(m => m.id === id)) C.members.push({ id, name: 'Look', color: '#ff7a59', kind: 'vr', here: false });
-    for (let k = 0; k < 4; k++) { C.pres.set(id, { id, at: performance.now(), st: '', head: [1, 1.6, -2, 0, 0, 0, 1], hands: [] }); window.__xr.step(); await new Promise(r => setTimeout(r, 10)); }
-    const O = HOST.collab.overlay(), o = O.people.get(id), f = m => ({ vis: m.visible, dt: m.material.depthTest, dw: m.material.depthWrite, at: m.material.alphaTest, ro: m.renderOrder });
+    for (const r of O.rings.values()) { r.seenAt = performance.now() + 60000; r.peek = 1; }
+    for (let k = 0; k < 4; k++) { C.pres.set(id, { id, at: performance.now(), st: HOST.collab.mine(), head: [1, 1.6, -2, 0, 0, 0, 1], hands: [] }); window.__xr.step(); await new Promise(r => setTimeout(r, 10)); }
+    for (const r of O.rings.values()) r.seenAt = 0;
+    const o = O.people.get(id), f = m => ({ vis: m.visible, dt: m.material.depthTest, dw: m.material.depthWrite, at: m.material.alphaTest, ro: m.renderOrder });
     const out = { cards: [...O.cards.values()].map(c => Object.assign(f(c.mesh), { back: c.back.renderOrder, same: c.back.material === c.mesh.material, v: c.mesh.material.version })),
       tag: o ? f(o.tag) : null, sign: o ? { vis: o.sign.visible, faces: o.sign.children.map(f) } : null,
       menu: [O.clock, O.panel, O.note].map(S => !S.mesh.material.depthTest && S.mesh.renderOrder > 50) };
@@ -2245,26 +2318,35 @@ try {
   await H.evaluate(() => HOST.collab.panelOpen(false));
   await A.evaluate(() => HOST.xr.setFree(true));
   check('headset: and free moving on again from a page', await until(H, () => { window.__xr.step(); return HOST.xr.free() && HOST.cur.peek('XR.free'); }, null, 3000));
-  // the layout lock stops the grip on scenes and panels too
-  await A.evaluate(() => HOST.collab.lock(true));
-  await until(H, () => HOST.collab.locked, null, 3000);
-  const lockG = await H.evaluate(() => {
+  // the circles lock never locks a scene or a panel; the story's own lock (set on a page for this station: for everyone
+  // at its circle) stops the grip on both
+  const tryGrip = () => H.evaluate(() => {
     const X = window.__xr;
     X.aim(0, new THREE.Matrix4().makeTranslation(0, 1.4, -0.4)); X.step();
     HOST.cur.peek('(c => { c.hover = { kind: "globe", i: -1, point: c.o.clone() }; xrGrab(c, true); })(XR.ctrls[0])');
     const g = HOST.cur.peek('!!XR.ctrls[0].grab');
     HOST.cur.peek('xrGrab(XR.ctrls[0], false)'); X.ctrl(0, null);
-    return { locked: HOST.anchor.locked('globe') && HOST.anchor.locked('panel'), grabbed: g, hint: HOST.room.gripHint };
+    return { locked: HOST.anchor.locked('globe') || HOST.anchor.locked('panel'), grabbed: g, hint: HOST.room.gripHint };
   });
-  // (and the menu's Panels row, not locked with the layout, sets this station's for everyone at its circle: hidden)
+  await A.evaluate(() => HOST.collab.lock(true));
+  await until(H, () => HOST.collab.locked, null, 3000);
+  const freeG = await tryGrip();
+  await A.evaluate(() => HOST.collab.lock(false));
+  await A.evaluate(id => HOST.collab.setStationLock(id, true), S2.id);
+  const lockSeenG = await until(H, id => HOST.collab.stationLock(id), S2.id, 3000);
+  const lockG = await tryGrip();
+  // (and the menu's Panels row, not locked with the story, sets this station's for everyone at its circle: hidden)
   await H.evaluate(() => HOST.collab.panelOpen(true));
   const pp = await menuPress('panels');
   await H.evaluate(() => HOST.collab.panelOpen(false));
   const hp2 = pp && await until(A, id => HOST.collab.stationPanels(id) === 'hidden', S2.id, 3000) && await hPanels();
-  await A.evaluate(() => HOST.collab.lock(false));
-  check('headset: while the layout is locked the grip moves no scene and no panel (and the panel says so)', lockG.locked && !lockG.grabbed && /locked/.test(lockG.hint), JSON.stringify(lockG));
-  check('headset: the menu\'s Panels row sets its station\'s panels for everyone at its circle, also with the layout locked (hidden: neither panel)',
-    hp2 === `${OTHER_STORY},hidden,-,-` && (await roomInfo(code)).keys['st.' + S2.id + '.ui'].v.panels === 'hidden', JSON.stringify({ pp, hp2 }));
+  const uiL = (await roomInfo(code)).keys['st.' + S2.id + '.ui'].v;
+  await A.evaluate(id => HOST.collab.setStationLock(id, false), S2.id);
+  check('headset: the circles lock leaves the grip on the scene and the panel free at its station', !freeG.locked && freeG.grabbed && !/locked/.test(freeG.hint), JSON.stringify(freeG));
+  check('headset: while its story is locked (from a page) the grip moves no scene and no panel (and the panel says so)', lockSeenG && lockG.locked && !lockG.grabbed && /locked/.test(lockG.hint),
+    JSON.stringify(lockG));
+  check('headset: the menu\'s Panels row sets its station\'s panels for everyone at its circle, also with the story locked (hidden: neither panel; the lock kept)',
+    hp2 === `${OTHER_STORY},hidden,-,-` && uiL.panels === 'hidden' && uiL.lock === true, JSON.stringify({ pp, hp2, uiL }));
   check('headset: and back again', await walk(H, S1, HEADSET_STORY, 0));
   const hp3 = await hPanels();
   check('headset: at the other station its own panels (shown), the first station\'s kept (hidden)', hp3 === `${HEADSET_STORY},shown,main,foot` &&
@@ -2296,6 +2378,8 @@ try {
   await H.evaluate(() => window.__xr.begin());
   await frames(H, 300);
   check('calibration: a headset with no shared space and no marks asks to calibrate', await H.evaluate(() => HOST.room.state === 'calibrate'), await H.evaluate(() => HOST.room.state));
+  check('a new session sees no story until it walks into a circle (the last session\'s station is not its own)', await H.evaluate(() => !HOST.collab.mine() && !HOST.collab.live() && HOST.room.away()),
+    JSON.stringify(await H.evaluate(() => [HOST.collab.mine(), !!HOST.collab.live(), HOST.room.away()])));
   const markA = [1.0, 0.75, -0.4], markB = [2.2, 0.75, 0.9];
   const touch = async p => {   // held still on the mark, then the trigger (a second pull within 0.6 s would be ignored)
     await H.evaluate(p => window.__xr.ctrl(0, p, [0, -1, 0]), p); await frames(H, 650);
@@ -2987,8 +3071,9 @@ try {
     await C.evaluate(installXR, Object.assign({}, xrOpts, { mode: 'immersive-vr', head: [0.3, 1.7, -0.2, 0.6] }));
     await C.evaluate(() => { HOST.collab.me({ name: 'Grace', color: '#ff5ad9' }); window.__xr.begin(); });
     await frames(C, 300);
-    // both in their own frames (made from the same spot): room coordinates agree
-    await H.evaluate(() => { HOST.collab.me({ name: 'Ada', color: '#3ee08f' }); });
+    // both in their own frames (made from the same spot): room coordinates agree. (Grace stands at no circle: H draws her
+    // with People: everyone, as for debugging; at its circle it would draw only the people there)
+    await H.evaluate(() => { HOST.collab.me({ name: 'Ada', color: '#3ee08f' }); HOST.collab.seeAll(true); });
     await goRoom(H, Sf.x, 1.6, Sf.z, Sf.yaw);
     await frames(H, 1300);
     await ready(H, HEADSET_STORY, 40000);
@@ -3025,8 +3110,8 @@ try {
     await view('headset-sound.png', Sf.yaw, -0.13);
     await H.evaluate(() => HOST.collab.panelOpen(false));
     await H.evaluate(() => { const c = HOST.cur.peek('XR.ctrls')[1]; c.g.visible = false; c.src = null; window.__xr.session.inputSources.length = 0; });
-    // stepped out of the station's circle, facing the stations: no story, only the room (rings, cards, the other person)
-    // and the menu's clock in front (no left controller)
+    // stepped out of the station's circle, facing the stations: still in its story (the scene and its panel where the
+    // station has them), the others as rings only, the other person, and the menu's clock beside the story panel
     const sp = await awaySpot(H, Sf);
     if (sp) {
       const toward = Math.atan2(-(Sf.x - sp[0]), -(Sf.z - sp[1]));
@@ -3034,14 +3119,16 @@ try {
       await frames(H, 800);
       await view('headset-away.png', toward, -0.08);
     }
-    // the stations' icons over their rings, from 3.8 m behind the first row and from near its left end, along it (away
-    // from every station, so all of them show)
-    await goRoom(H, 0, 1.6, 2.6, 0);
-    await frames(H, 800);
-    await view('headset-icons.png', 0, 0.05, [1280, 800]);
-    await goRoom(H, -4.8, 1.6, 0.6, -0.67);
-    await frames(H, 800);
-    await view('headset-icons-near.png', -0.67, 0.1, [1280, 800]);
+    // the stations' icons over their rings, from 3.8 m behind the first row and from near its left end, along it, seen by
+    // C (in VR, in no circle yet: everything shows; in a circle only the rings would)
+    await H.evaluate(() => HOST.collab.seeAll(false));
+    await C.evaluate(() => window.__xr.ctrl(0, null));
+    await goRoom(C, 0, 1.6, 2.6, 0);
+    await frames(C, 800);
+    await headView(C, path.join(shots, 'headset-icons.png'), 0, 0.05, [1280, 800]);
+    await goRoom(C, -4.8, 1.6, 0.6, -0.67);
+    await frames(C, 800);
+    await headView(C, path.join(shots, 'headset-icons-near.png'), -0.67, 0.1, [1280, 800]);
     // the page's dialog with the room map, on a desktop and on a phone
     await A.setViewportSize({ width: 1000, height: 760 });
     const alive = Promise.all([frames(H, 3500), frames(C, 3500)]);   // the two headsets keep sending where they are
