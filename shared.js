@@ -2108,10 +2108,10 @@
   // miniature's parts merged into one mesh (one draw call; its see-through parts, glass and haze, in a second), with a
   // soft glow behind it, and lit by its own shader (a light from over your shoulder and a rim, in view space), so it
   // looks the same in every story's scene whatever lights that has. Its colours are the miniature's own drawn towards the
-  // story's (ICON.tint: by lightness, from a dark tone of it through the colour to a lighter one). It follows the rings, not the cards:
-  // it is part of the station, not a label, and with labels hidden it is all that tells the circles apart. While
-  // lowpoly.js loads, and for a key without a miniature, a glowing polyhedron in the story's colour stands there, so a
-  // new story needs only its icon in the list.
+  // story's (ICON.tint: by lightness, from a dark tone of it through the colour to a lighter one). It follows the rings,
+  // not the cards: it is part of the station, not a label, and with labels hidden it is all that tells the circles
+  // apart. While lowpoly.js loads, and for a key without a miniature, a glowing polyhedron in the story's colour stands
+  // there, so a new story needs only its icon in the list.
   // y: its middle over the floor (above the heads of people in the circle and the card's top edge, 1.6 m, so it
   // covers neither from across the room); size: 1 model unit in metres (miniDef fits each miniature); turn: s; tint:
   // how far the miniature's colours go to the story's
@@ -2290,13 +2290,14 @@
   }
   // over a station's ring (o its ring's group, at its spot, turned its way): turned to your head and leant back as far
   // as you look up at it, plus a little, so its top shows; it shrinks away at your own station (its story is in front of
-  // you) and grows back when you leave it. Its miniature takes the fallback's place once built
+  // you) and grows back when you leave it. Its miniature takes the fallback's place once built (also while it is hidden
+  // at your own station, so walking out costs no build)
   function iconStep(o, S, live, dt) {
     const I = o.icon;
+    if (!I.model && iconOf(I.key)) { const D = iconDef(I.key, true); if (D !== I.D) iconUse(I, D); }
     I.k += ((live ? 0 : 1) - I.k) * (1 - Math.exp(-dt * 6));
     I.g.visible = I.k > 0.02;
     if (!I.g.visible) return;
-    if (!I.model && iconOf(I.key)) { const D = iconDef(I.key, true); if (D !== I.D) iconUse(I, D); }
     I.g.scale.setScalar(I.k); I.g.position.y = ICON.y / o.g.scale.y;
     let yaw = 0, lean = 0.3;
     if (R.headOK) {

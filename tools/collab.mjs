@@ -1528,7 +1528,7 @@ try {
       col: I && '#' + I.halo.material.color.getHexString(), want: m && m.col.toLowerCase(), a: I && I.spin.rotation.y,
       on: !!I && I.g.visible && I.k > 0.9, y: I && +(I.g.position.y * o.g.scale.y).toFixed(3), mine: id === HOST.collab.mine() };
   }));
-  const built = await until(H, () => { window.__xr.step(); return [...HOST.collab.overlay().rings.values()].every(o => o.icon.model || o.icon.k < 0.05); }, null, 20000);
+  const built = await until(H, () => { window.__xr.step(); return [...HOST.collab.overlay().rings.values()].every(o => o.icon.model); }, null, 20000);
   const ic0 = await iconsSeen();
   await frames(H, 400);
   const ic1 = await iconsSeen(), nSt = await H.evaluate(() => HOST.collab.stations().length);
@@ -1587,7 +1587,7 @@ try {
   const seen1 = id => H.evaluate(id => { HOST.cur.peek('xrUpdate(APP.mode === "story" ? storyState(storyT(APP.t)) : XS)');
     return { away: HOST.room.away(), mine: HOST.collab.mine(), live: !!HOST.collab.live(), mode: HOST.cur.peek('APP.mode'), playing: HOST.cur.peek('APP.playing'), t: HOST.cur.peek('APP.t'),
       world: HOST.cur.peek('GL.world.visible'), main: HOST.cur.peek('XR.main.mesh.visible'), stories: HOST.cur.peek('XR.stories'), card: HOST.collab.overlay().cards.has(id),
-      icon: (I => I.g.visible && I.k > 0.9)(HOST.collab.overlay().rings.get(id).icon) }; }, id);
+      icon: (I => I.g.visible && I.k > 0.9)(HOST.collab.overlay().rings.get(id).icon), ik: (I => [+I.k.toFixed(2), I.g.visible, I.model])(HOST.collab.overlay().rings.get(id).icon) }; }, id);
   const out1 = await seen1(S1.id);
   await frames(H, 800);
   const out1b = await seen1(S1.id);
@@ -1607,7 +1607,9 @@ try {
   const out3 = await seen1(S1.id), q9 = (await roomInfo(code)).seq, want3 = await A.evaluate(k => { const P = HOST.collab.val(k); return P.t + (HOST.collab.now() - P.at) / 1000; }, kP1);
   check('headset: walking back in shows the story again and runs it on the station\'s clock (nothing written)', backIn && !out3.away && out3.world && out3.main && !out3.card &&
     out3.mode === 'story' && out3.playing && Math.abs(out3.t - want3) < 1.5 && q9 === q7, JSON.stringify({ backIn, out3, want3, writes: q9 - q7 }));
-  check('headset: its own station\'s icon is back over the ring out of the circle, and goes again when it walks back in', out1.icon && !out3.icon, JSON.stringify([out1.icon, out3.icon]));
+  // (back by the second look, 1.4 s out: a slow software frame eases it less per frame)
+  check('headset: its own station\'s icon is back over the ring out of the circle, and goes again when it walks back in', (out1.icon || out1b.icon) && !out3.icon,
+    JSON.stringify([out1.ik, out1b.ik, out3.ik]));
   await A.evaluate(([k, v]) => HOST.collab.publish([[k, v]]), [kP1, play1]);   // (the station back in explore mode, as the rest expects)
   await until(H, () => { window.__xr.step(); return HOST.cur.peek('APP.mode') === 'explore'; }, null, 6000);
   // a ray: the others see it in room coordinates
