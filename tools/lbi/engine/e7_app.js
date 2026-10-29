@@ -271,6 +271,7 @@ const initT = setTimeout(init, 40);
 // what the app shell needs to change story
 return {
   inputs: () => XR.ctrls.map(c => c.src),
+  caption: xrCaption,
   xrPose: () => (XR.on ? { rp: GL.rig.position.clone(), rq: GL.rig.quaternion.clone(), off: XR.globeOff.clone(), s: XR.size, held: XR.ctrls.map(c => (c.grab ? c.grab.target : '')).join(' '),
     pp: XR.panelGroup.position.clone(), pr: yawOf(XR.panelGroup.quaternion, XR.panelGroup.rotation.y), rot: XR.rot.clone(), pq: XR.panelGroup.quaternion.clone() } : null),
   // shared rooms (shared.js): the clock is APP's, the shared state the scene, its controls and the proteins (no one-shot effects)

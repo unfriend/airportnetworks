@@ -7001,6 +7001,14 @@ const xrSig = () => (HOST.xr && HOST.xr.sig ? HOST.xr.sig() : '');
 // HOST.room.away: as before (only at a station is the story the station's)
 const xrRoomOnly = () => !!(HOST.room && HOST.room.away && HOST.room.inRoom());
 const xrAway = () => !!(HOST.room && HOST.room.away && HOST.room.away());
+// the line on show, for the shell's subtitles in a headset (HOST.xr.subs, drawn by shared.js): the chapter on show's cues
+// (ST.items: els with at and out), the story time now, the chapter's end and narrT (to the clock's time); null in
+// explore mode, on the Stories screen and away from a station
+const xrCaption = () => {
+  if (APP.mode !== 'story' || XR.stories || xrAway()) return null;
+  const s = storyT(APP.t), c = CH.find(x => s >= x.a && s < x.b) || CH[CH.length - 1], it = ST.items.find(x => x.ch === c);
+  return it ? { s, end: c.b, els: it.els, narrT } : null;
+};
 const _fq = new THREE.Quaternion(), _fv = new THREE.Vector3();
 // the yaw of a turn: where its front (+z) points along the floor (def when it points straight up or down)
 function yawOf(q, def) { _fv.set(0, 0, 1).applyQuaternion(q); return Math.hypot(_fv.x, _fv.z) < 1e-4 ? +def || 0 : Math.atan2(_fv.x, _fv.z); }
@@ -8528,6 +8536,7 @@ const initT = setTimeout(init, 40);
 // what the app shell needs to change story
 return {
   inputs: () => XR.ctrls.map(c => c.src),
+  caption: xrCaption,
   xrPose: () => (XR.on ? { rp: GL.rig.position.clone(), rq: GL.rig.quaternion.clone(), off: XR.globeOff.clone(), s: XR.size, held: XR.ctrls.map(c => (c.grab ? c.grab.target : '')).join(' '),
     pp: XR.panelGroup.position.clone(), pr: yawOf(XR.panelGroup.quaternion, XR.panelGroup.rotation.y), rot: XR.rot.clone(), pq: XR.panelGroup.quaternion.clone() } : null),
   // shared rooms (shared.js): the clock is APP's, the shared state the explore panes, and there are no effects

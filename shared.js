@@ -1659,6 +1659,9 @@
     OV.clock.mesh.userData.shell = { kind: 'clock' };
     OV.note = sheet(720, 170, 0.5, 54);
     OV.root.add(OV.note.mesh); OV.note.mesh.visible = false;
+    // the subtitles' strip (drawSubs): over the story's panels, under the menu and the notices
+    OV.sub = sheet(SUBS.w, SUBS.h, SUBS.mw, 51);
+    OV.root.add(OV.sub.mesh); OV.sub.mesh.visible = false; OV.sub.text = ''; OV.sub.want = '';
     // the tape marks where this headset puts them (in the room), and while calibrating a bright ring at each
     // controller's ray origin (the point a mark takes) and a cross at mark A once taken (scene coordinates)
     OV.marks = new THREE.Group(); OV.marks.visible = false;
@@ -2495,6 +2498,137 @@
     S.mesh.lookAt(head);
   }
 
+  // ------------------------------------------------------------- subtitles --
+  // HOST.xr.subs() (the menu's Subtitles row; in a room the room's): the narration's words in a strip low in the view,
+  // about 1.4 m away and 0.9 m wide, white on a dark band, drawn on top of everything in every label mode (subtitles
+  // are their own setting), over whatever story runs; only in a headset, in story mode, with a line on show (nothing in
+  // explore mode, on the Stories screen, away from a station, or for a story without the hook). The story gives its
+  // line through its caption hook (HOST.cur.caption(): the chapter on show's cues as ST.items keeps them, the story time
+  // now, the chapter's end and narrT); the words are read here as tools/narration.mjs reads the panel (so a recording
+  // and the captions say the same), split into captions of at most two lines of about 42 characters (at sentence, then
+  // clause ends) and spread over the stretch until the next cue at reading pace, 2.1 words a second, or faster only
+  // where the stretch is shorter than that (as the narration goes there; a chapter's last line ends before a slideshow's
+  // stop): the last caption of a stretch holds until the next cue. It follows the head with lag: still while you look
+  // round within 15 degrees, eased back in front of you beyond
+  const SUBS = { w: 1280, h: 200, mw: 0.9, dist: 1.4, drop: 16 * Math.PI / 180, turn: 15 * Math.PI / 180, rate: 2.1, chars: 42, px: 56 };   // (42 characters of B612 at 56 px: about 1,090 of the 1,280)
+  const SUB = { key: '', caps: null, want: '', wantId: '', shown: '', shownId: '', a: 0, txt: new WeakMap(), dir: new THREE.Vector3(), o: new THREE.Vector3(), placed: false, turning: false, moving: false };
+  // one cue's words as tools/narration.mjs reads them (not inside an svg, a button or a cue of its own; a bold name run
+  // straight into its text gets a colon), kept a quarter of a second (a live number in a line is read again)
+  function subText(el, t) {
+    const k = SUB.txt.get(el);
+    if (k && t - k.at < 250) return k.s;
+    let s = '', lp = null;
+    const w = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+    for (let n = w.nextNode(); n; n = w.nextNode()) {
+      const p = n.parentElement;
+      if (!p || p.closest('svg, script, style, button') || p.closest('[data-at]') !== el) continue;
+      const x = n.textContent.replace(/\s+/g, ' ');
+      if (!x.trim()) { s += ' '; continue; }
+      if (lp && lp !== p && /^(B|STRONG)$/.test(lp.tagName) && /^[A-Za-z0-9(]/.test(x) && /[A-Za-z0-9)]$/.test(s)) s += ': ';
+      s += x; lp = p;
+    }
+    s = s.replace(/\s+/g, ' ').trim();
+    if (!/\p{L}{2}/u.test(s)) s = '';   // (a chart's numbers are not read)
+    SUB.txt.set(el, { s, at: t });
+    return s;
+  }
+  // a line (its cues' texts joined by a new line, which always breaks) in captions: as few as fit two lines each, broken
+  // where it reads best (a sentence's end, then a clause's, then any word); each with its words counted
+  function subSplit(text) {
+    const tok = [], MAX = 2 * SUBS.chars;
+    text.split('\n').forEach((part, i) => part.split(' ').filter(Boolean).forEach((w, j) => tok.push({ w, hard: i > 0 && j === 0 })));
+    const n = tok.length;
+    // how well a caption ends before token j: a new cue or a sentence's end, a clause's, or only a word's
+    const cost = j => j >= n || tok[j].hard || /[.!?…]["'”’)]?$/.test(tok[j - 1].w) ? 0 : /[,;:]$/.test(tok[j - 1].w) || /^[–—-]$/.test(tok[j].w) ? 3 : 10;
+    const best = [0], from = [0];
+    for (let j = 1; j <= n; j++) {
+      best[j] = Infinity;
+      for (let i = j - 1, L = -1; i >= 0; i--) {
+        L += tok[i].w.length + 1;
+        if (i < j - 1 && (L > MAX || tok[i + 1].hard)) break;   // (a word longer than two lines goes alone)
+        const c = best[i] + 4 + cost(j) + ((MAX - Math.min(MAX, L)) / MAX) ** 2;
+        if (c < best[j]) { best[j] = c; from[j] = i; }
+      }
+    }
+    const caps = [];
+    for (let j = n; j > 0; j = from[j]) { const ws = tok.slice(from[j], j).map(x => x.w); caps.unshift({ s: ws.join(' '), words: Math.max(1, ws.filter(x => /[\p{L}\p{N}]/u.test(x)).length) }); }
+    return caps;
+  }
+  // the caption on show now from the story's hook, or '' (and which one it is, so a live number in it redraws in place)
+  function subNow(c, t) {
+    let at = -Infinity;
+    for (const e of c.els) if (e.at <= c.s + 1e-6 && e.at > at && subText(e.el, t)) at = e.at;
+    if (at === -Infinity) return ['', ''];
+    let next = c.end, out = Infinity;
+    const txt = [];
+    for (const e of c.els) {
+      if (e.at === at) { const s = subText(e.el, t); if (s) { txt.push(s); out = Math.min(out, e.out); } }
+      else if (e.at > at && e.at < next && subText(e.el, t)) next = e.at;
+    }
+    if (c.s >= out) return ['', ''];   // (its line went early: data-out)
+    // the stretch on the clock: a chapter's last line ends before a slideshow would stop it (0.7 s before the end)
+    const T = c.narrT, a = T(at), b = Math.max(a + 0.1, T(Math.min(out, next === c.end ? c.end - 0.75 : next))), text = txt.join('\n'), key = a + '|' + text;
+    if (key !== SUB.key) { SUB.key = key; SUB.caps = subSplit(text); }
+    const caps = SUB.caps, W = caps.reduce((s, x) => s + x.words, 0), r = Math.max(SUBS.rate, W / (b - a)), now = T(c.s);
+    let k = 0;
+    for (let i = 1, w = caps[0].words; i < caps.length; w += caps[i].words, i++) if (a + w / r <= now + 1e-6) k = i;
+    return [caps[k].s, at + ':' + k];
+  }
+  // the strip: one canvas, drawn again only when the caption changes; white text on a dark band as wide as the text, its
+  // lower edge kept (a second line goes above), two lines balanced
+  function subDraw(s) {
+    const S = OV.sub, ctx = S.ctx, pad = 36, lw = S.w - 2 * pad - 40;
+    S.text = s;
+    ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, S.w, S.h);
+    if (s) {
+      let px = SUBS.px, lines = [s];
+      for (;;) {
+        ctx.font = FONT(px, 400);
+        const ws = s.split(' ');
+        lines = [s];
+        if (ctx.measureText(s).width > lw && ws.length > 1) {
+          let bi = 1, bw = Infinity;
+          for (let i = 1; i < ws.length; i++) { const m = Math.max(ctx.measureText(ws.slice(0, i).join(' ')).width, ctx.measureText(ws.slice(i).join(' ')).width) + (/[,;:.!?]$/.test(ws[i - 1]) ? -30 : 0); if (m < bw) { bw = m; bi = i; } }
+          lines = [ws.slice(0, bi).join(' '), ws.slice(bi).join(' ')];
+        }
+        if (px <= 34 || lines.every(l => ctx.measureText(l).width <= lw)) break;
+        px -= 2;
+      }
+      const lh = Math.round(px * 1.3), bw = Math.min(S.w - 4, Math.max(...lines.map(l => ctx.measureText(l).width)) + 2 * pad), bh = lines.length * lh + 26;
+      rr(ctx, (S.w - bw) / 2, S.h - 2 - bh, bw, bh, 22); ctx.fillStyle = 'rgba(8,15,28,0.74)'; ctx.fill();
+      ctx.fillStyle = '#ffffff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      lines.forEach((l, i) => ctx.fillText(fit(ctx, l, S.w - 2 * pad), S.w / 2, S.h - 2 - bh + 13 + lh * (i + 0.5)));
+      ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+    }
+    S.tex.needsUpdate = true;
+  }
+  function drawSubs(dt) {
+    const S = OV.sub, on = !!(HOST.xr && HOST.xr.subs && HOST.xr.subs()) && HD.ok && !away(), t = performance.now();
+    let c = null;
+    if (on && HOST.cur && typeof HOST.cur.caption === 'function') { try { c = HOST.cur.caption(); } catch (e) { c = null; } }
+    let want = '', id = '';
+    if (c && c.els && c.narrT) { try { [want, id] = subNow(c, t); } catch (e) { want = ''; } }
+    S.want = want;
+    // fading between captions (a live number changing in the one on show redraws it in place)
+    if (want && want !== SUB.shown && id === SUB.shownId) { subDraw(want); SUB.shown = want; }
+    if (want !== SUB.shown) { SUB.a = Math.max(0, SUB.a - dt / 0.15); if (SUB.a === 0) { subDraw(want); SUB.shown = want; SUB.shownId = id; } }
+    else if (want) SUB.a = Math.min(1, SUB.a + dt / 0.2);
+    S.mesh.visible = SUB.a > 0 && !!SUB.shown;
+    S.mesh.material.opacity = SUB.a * SUB.a * (3 - 2 * SUB.a);
+    if (!on) { SUB.placed = false; return; }
+    // where: low in the view (16 degrees under the gaze), still while the gaze stays within 15 degrees of it and the head
+    // within 12 cm, eased back beyond, until nearly in front again (so small head moves never shake it)
+    _v2.set(0, -Math.sin(SUBS.drop), -Math.cos(SUBS.drop)).applyQuaternion(HD.q);
+    if (!SUB.placed) { SUB.dir.copy(_v2); SUB.o.copy(HD.p); SUB.placed = true; SUB.turning = SUB.moving = false; }
+    const ang = SUB.dir.angleTo(_v2), far = SUB.o.distanceTo(HD.p), k = 1 - Math.exp(-dt * 4);
+    if (ang > SUBS.turn) SUB.turning = true;
+    if (SUB.turning) { SUB.dir.lerp(_v2, k).normalize(); if (SUB.dir.angleTo(_v2) < 0.02) SUB.turning = false; }
+    if (far > 0.12) SUB.moving = true;
+    if (SUB.moving) { SUB.o.lerp(HD.p, k); if (SUB.o.distanceTo(HD.p) < 0.01) SUB.moving = false; }
+    S.mesh.position.copy(SUB.o).addScaledVector(SUB.dir, SUBS.dist);
+    S.mesh.lookAt(SUB.o);
+  }
+
   // ----------------------------------------- pointing (the stories' pointer code) --
   // HOST.collab.ray(i, o, d, near): controller i's ray (scene coordinates), after the story has raycast its own
   // panels (near: how far the nearest one is along the ray, or Infinity) and before its scene. A hit on the
@@ -2785,6 +2919,7 @@
     } else OV.onHand = false;
     OV.ahead = OV.clockG.visible && !HAND.ok && !p;
     drawNote(HD.ok ? HD.p : null, HD.q);
+    drawSubs(dt);
     // what the controllers can point at
     OV.hit.length = 0;
     if (OV.clockG.visible) OV.hit.push(OV.clock.mesh);
@@ -4226,6 +4361,7 @@
     ray, press, effect, detach, hash, dialog, people: () => C.pres, log,
     panelOpen(on) { menuOpen(on, 'api'); }, get menu() { return PNL.open; },   // the headset's menu, open or closed
     overlay: () => OV,   // for tests: the overlay's objects (panel, cards, rings and their icons, people)
+    subtitles: { split: s => subSplit(s), state: () => SUB },   // for tests: how a line is cut into captions, and where the strip is
     // a station's icon on its own (tools/icons.html): { g, lean, spin, mesh, halo }, posed with pose(yaw, lean, t in s)
     icon: key => { const I = makeIcon(key); I.pose = (yaw, lean, t) => poseIcon(I, yaw, lean, t); return I; },
     // a story is about to start (HOST.start): in a headset at its station, it takes the station's place and panel
