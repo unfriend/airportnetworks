@@ -75,7 +75,12 @@
   device, and `apply(state())` gives the same `state()` back. After touching
   `shared.js`, the relay or a story's hooks or its `state()`, run
   `node relay/test.mjs` and `node tools/collab.mjs` as well as the smoke test
-  (and bump `FORMAT` in `shared.js` when a `state()` changes shape). Shared
+  (and bump `FORMAT` in `shared.js` when a `state()` changes shape). Others' moves
+  are smoothed in `shared.js` ("Others' moves, smooth" in `AGENTS.md`): a write of a
+  move by hand carries `ts` and, while held, `h`, and every comparison of such a value
+  leaves them out (or writes and echoes go back and forth); `setView(v, now)` keeps the
+  same lines in every story; after touching it run `node tools/collab.mjs --smooth`, and
+  report how smooth it feels on headsets as untested. Shared
   spaces, calibration and sound zones only exist on headsets: report them as
   untested. Peer-to-peer rooms (no relay) are tested only between pages on one
   machine through the relay's `/peerjs`: tests never use PeerJS's public server

@@ -707,6 +707,9 @@ spot, y over the floor) and `st.<id>.place` (the scene: `{ x, y, z }` moved from
 where the story puts it, and `s` its size, a factor on the story's own; FORMAT
 networks-8; both gain `q`, `[x, y, z, w]` to 4 decimals, the scene's turn and the
 panel's tilt left by a free grip, absent when there is none; FORMAT networks-22),
+`st.<id>.view` (the explore view there, `{ v, story }`, `v` the story's `collab.view()`; FORMAT networks-26; a write of
+any of these, or of `st.<id>` itself, that carries a move by hand also has `ts`, the relay's time when it was written in
+whole ms, and `h: 1` while it is still held: "Others' moves, smooth" below),
 `st.<id>.ui` (the station's panels and its story's lock, `{ panels, lock, story, by, at }`: `'shown'`, `'controls'` or
 `'hidden'`, and `lock` true for *Lock this story*, for every headset at that circle; set from a headset's menu there or a
 page's Shared dialog, never refused by the circles lock; a write keeps the other field; absent: shown, not locked; gone
@@ -722,12 +725,13 @@ generation, `{ n, by, at }`), `near` (*Show on this network*, `{ on, by, at }`: 
 letters written once by the page that made or holds it: a room joined again by itself can be told from another room
 under the same code) (FORMAT networks-10; networks-11 when the eighth story came, networks-12 the ninth, networks-13 the tenth, networks-14 the eleventh, networks-15 the twelfth, networks-16 the thirteenth, networks-17 when the PET story's `state()` lost its one-scan fields, networks-18 when its liver scene came back, networks-19 when the ovary story's charts went, networks-20 when the pass story's school got a shared place at a station, networks-21 when the fourteenth story came, networks-22 when the scene's and the panel's turn joined a station's place, networks-23 when the fifteenth story came, networks-24 when subtitles joined `look`, networks-25 when `near` and `rid`
 came with rooms on this network, and `st.<id>.ui` with panels per story in the same round, and its `lock` when the
-layout lock became two locks after the ten-headset test). The plan is `docs/shared-space-plan.md`.
+layout lock became two locks after the ten-headset test, networks-26 when moves by hand gained `ts` and `h` and the
+explore view became `{ v, story }`, for motion smoothing). The plan is `docs/shared-space-plan.md`.
 
 - `HOST.collab` keeps the room's keys (echo suppression by value, optimistic
   writes acknowledged by the relay, apply order stations > clock > state >
-  panel), members, the relay's clock (ping/pong), presence (`p.<member>` at
-  15 Hz) and effects (`e.<station>`); it reconnects with backoff and brings the
+  panel; a moving thing's value compared without its `ts` and `h`), members, the relay's clock (ping/pong), presence
+  (`p.<member>` at 15 Hz, with `ts`) and effects (`e.<station>`); it reconnects with backoff and brings the
   room back after a relay restart; its pump runs from a timer and from
   animation frames (long frames starve timers). Log: `window.__collabLog` (and
   `#debug`).
@@ -985,8 +989,10 @@ layout lock became two locks after the ten-headset test). The plan is `docs/shar
   so the stories need nothing); it swings round your hand as you point, its
   distance from the hand grows as you raise the controller and shrinks as you
   lower it (`exp(2 x the pitch's change)`), and twisting your wrist turns it
-  (`carryStation`). It goes out to the room at most every 100 ms and once more
-  when let go (`MV`); it is also put down when its controller goes, its grip
+  (`carryStation`). It goes out to the room at most every 66 ms while it moves
+  (with `ts` and `h: 1`), once more as it comes to rest and once more without `h` when let go (`MV`; a carry the
+  circles lock stops lands where it was last sent), and the others draw it as it moved, a moment later (`SHOWN` from
+  its samples: "Others' moves, smooth"); it is also put down when its controller goes, its grip
   is up or the headset is taken off (no `squeezeend` may come then). Your own
   station's ring can be grabbed too (a trigger on it does nothing). Every
   headset draws rings, cards and its live station's placement where `SHOWN`
@@ -1071,7 +1077,9 @@ layout lock became two locks after the ten-headset test). The plan is `docs/shar
   into any circle you see everyone. *People: same circle* / *everyone* in the
   clock menu draws everyone (this headset's own setting, `collabPeople` in
   `localStorage`, never in the room; default same circle; for debugging;
-  `HOST.collab.seeAll(on)`). Pages' room maps still show everyone.
+  `HOST.collab.seeAll(on)`). Pages' room maps still show everyone. Heads, hands and rays are drawn where the
+  presence put them `SMOOTH.DELAY` ago, between its samples (`ts` in each); presence without `ts` eases to the latest
+  (a 60 ms time constant), as before.
 - At its station in a shared room a headset moves the scene and the panel for
   everyone: the grip on the scene moves it (`XR.globeOff`), both grips on it
   resize it (`xrResize`: the distance between the hands, a quarter to four times
@@ -1080,9 +1088,11 @@ layout lock became two locks after the ten-headset test). The plan is `docs/shar
   (the room's setting) the grip turns the scene and tilts the panel too, and the
   turn is the station's, for everyone there whatever their own setting
   (`q` in the place and the panel; ignored while free moving is off). `placeSync` (every
-  frame, from the shell's tick) sends what is held out at most every 100 ms
-  (`xrPose().held`) and once more when let go, glides each to the room's value
-  otherwise (`collab.panel`, `collab.place`; a turn by slerp, sent when it
+  frame, from the shell's tick) sends what is held out at most every 66 ms while it moves (`xrPose().held`; `ts` and
+  `h: 1`), once more as it comes to rest (so the others see it stop, rather than carry it on) and once more without
+  `h` when let go (also when the story's lock stops it: it lands where it was last sent); someone else's move it puts
+  exactly where their samples say it was `SMOOTH.DELAY` ago, every frame ("Others' moves, smooth"); otherwise it
+  glides each to the room's value (`collab.panel`, `collab.place`; a turn by slerp, sent when it
   changed by more than 0.004 rad, the panel's `yaw` worked out from its
   quaternion), and puts both there at once when
   a station is reached. Both values carry the story they were written for, so
@@ -1292,10 +1302,41 @@ layout lock became two locks after the ten-headset test). The plan is `docs/shar
   `locked(kind)` is true (in a room it is anyway); `HOST.audio.zone()` pans the
   narration from the station (full volume within 1.5 m, so at the station's
   spot; nothing changes outside a room).
-- The explore view at a station (`st.<id>.view`): headsets at the station share
-  it (`viewSync` in the pump: a view from the room glides in, one turned here
-  goes out, by value like the rest), so the scene stands turned and sized alike
-  for everyone there; screens following the station keep their own camera.
+- The explore view at a station (`st.<id>.view`, `{ v, story }`): headsets at the station share
+  it (`viewSync`, every frame from the shell's tick: one turned here goes out while it changes frame by frame, at most
+  every 66 ms with `ts` and `h: 1`, and once more without `h` when it rests; one that came at once here, after a flight
+  (`collab.view()` is null while the camera flies), goes out plain; someone else's turn is put exactly where their
+  samples say it was `SMOOTH.DELAY` ago, every frame, through `collab.setView(v, true)`, and nothing goes out
+  meanwhile, so nothing applied from the room is written back; once it has landed where they let go and shows so here,
+  turns made here go out again; a view from the room without `ts` glides in, the story's 0.25 s glide), so the scene
+  stands turned and sized alike for everyone there; screens following the station keep their own camera.
+- Others' moves, smooth (the owner, 30 October 2026: "can you interpolate movements that others are doing in
+  multiplayer to smooth them out? like i was standing inside a large network and my colleague spun that and it was a
+  bit jerky on my side"; then "make it smooth"). Snapshot interpolation, as games do it (`SMOOTH`, `BUF`, `RT`,
+  `bufPush`, `bufAt`, `MIX`, `smoothIn` in `shared.js`). Before, each new value (ten a second, the view five) started
+  a glide from where the thing stood, so a steady spin sped up and slowed down at every arrival, and inside a large
+  network a small step of a spin is a big jump at its far side. Now every write of a move by hand (a station's
+  scene, panel and explore view, a station carried by the grip) and every presence carries `ts`, the relay's time
+  (`now()`, whole ms) when it was written, and, while still held, `h: 1`; held writes go out at most every 66 ms (15
+  a second, `SMOOTH.SEND`). Each device keeps the last 8 samples of every thing someone else moves (a gap of more
+  than 1 s starts it again, as do a station reached, its story changed, a welcome, and a value without `ts`) and draws
+  it where it was `SMOOTH.DELAY` (120 ms: two send intervals and a little, so the next sample is nearly always there
+  already, even one 25 ms late) before the relay's time now, between the two samples around that moment: places in
+  a straight line, sizes geometrically, turns by slerp (the shortest way), yaws by the shortest angle, a view
+  component by component (its angles, in degrees in [-180, 180), unwrapped where they cross the seam). A new move
+  starts from where the thing is shown (a sample there one send interval before its first). Past the last sample a
+  held thing carries on as it went for at most 100 ms (`CARRY`: a late sample), then holds; a sample without `h` is
+  where it was let go, and it lands exactly there. The render time (`RT`) runs on by each frame's own time and is
+  eased towards the relay's clock less `DELAY` by at most 2 ms a frame, so a new measure of the relay's clock never
+  jolts what moves. With nothing newer than 1 s (`LIVE`) plus `DELAY` the old behaviour returns: the glide to the
+  room's value, a station just reached put at once, and a value from a write by hand (Arrange all, the map, a view
+  after a flight) with no `ts` glides as before. Echo suppression and every "changed?" check compare a moving
+  thing's value without `ts` and `h`; the rest and the letting go are forced writes (the same place again). A held
+  move is neither logged nor redraws the page's dialog (it changes nothing the dialog says; the room map follows it
+  from the pump). Known limit: moves carried inside a story's `collab.state()` (the pass story's school, `sea`, and
+  the design room's miniatures) are not smoothed: they still come with the five-a-second state poll and the story's
+  own glide. How smooth it feels can only be judged on headsets (untested there); the test is `node tools/collab.mjs
+  --smooth`.
 - The relay (`relay/server.mjs`) keeps per room a map key -> `{ v, seq, by }`
   (every stored write takes the next seq; the last writer wins), the members,
   and passes on ephemeral `fx` messages (presence, effects) without storing
@@ -1331,8 +1372,10 @@ reference, `tools/flock/engine/`):
   from it (`yawOf`); `xrAdopt` takes `rot` and `pq` across a story change. `view()` is the scene's
   view in explore mode (`orbit.cur`, rounded; the longitude or azimuth
   normalised), which in a headset turns and sizes the scene in the room, or
-  null (story mode, or while it flies somewhere); `setView(v)` glides there in
-  0.25 s (`orbit.fast`). The flock and the robots are life size in a headset:
+  null (story mode, or while it flies somewhere); `setView(v, now)` glides there in
+  0.25 s (`orbit.fast`), or with `now` (someone else turning it, smoothed by the shell) puts `orbit.cur` there at once
+  (its angle unwrapped as for the glide; `orbit.to` null), the same lines in all sixteen (the flock, the robots and
+  the design room take the argument and set nothing). The flock and the robots are life size in a headset:
   their `view()` is always null. While a headset stands at its station the
   explore sway rests (`HOST.room.placing()`).
 - Two helpers next to `xrSig`:
@@ -2512,7 +2555,18 @@ circles* in the menu unlocking; at another circle nothing locked; *Lock story* i
 the headset's circle. With `--shots` its pictures: `round-1-rings.png` (in a circle, the others as rings only),
 `round-2-pointed.png` (a ring pointed at, its card and icon up), `round-3-menu.png` (the menu's canvas with *Lock
 circles*, *Lock this story* and *People*) and `round-4-dialog.png` (the Shared dialog with *Lock circles* and each
-station's *Lock story*). A new story needs an entry in `STORIES`
+station's *Lock story*). Others' moves drawn smoothly (`smoothRound`, also in the main run, after the ten-headset round;
+`--smooth` runs only it, a room of its own with one station, two or three minutes): a raw socket at the station (speaking
+as the follow-a-person test's pretend person does) turns its scene about the vertical at 90 degrees a second, 15 writes
+a second with `ts` and `h`, each sent up to 25 ms late, then lets go; a pretend headset standing there in explore mode
+records its scene's turn every frame (by the frame's own time: the page renders in between, slowly and unevenly in
+software): after 0.5 s no frame without motion, the speed per frame within 35 % of the writer's in at least 85 % of
+frames, the turn about `SMOOTH.DELAY` behind (within 80 ms), landing where it was let go with no overshoot; a place with
+no `ts` still gliding in; the same for the explore view (and the headset writing nothing to the room meanwhile, its view
+ending exactly as let go) and a person's head walking at 0.5 m/s; a grip held on the scene there writing at most 16
+place values in any second (66 ms apart at the closest), each with `ts` and `h`, and the last without `h`. It prints
+what it measured (frames, the share within 35 %, the speeds' 5th, 50th and 95th percentile, the lag, how far from where
+it was let go). A new story needs an entry in `STORIES`
 (`change` and `back`: code that changes its `state()`, and optional `effect`
 and `more`); the headset's story (`HEADSET_STORY`) stays the last entry.
 `--shots <dir>` also saves pictures of rooms on this network (`near-dialog.png`, `near-toast.png`, `near-again.png`,

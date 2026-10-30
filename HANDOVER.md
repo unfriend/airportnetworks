@@ -49,6 +49,18 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
   recording against its story (`tools/voice/check.mjs lbi --quick`), the shared-room test (three pages and a pretend
   headset in a room, with its parts for rooms on this network, following a person, the design room and the circles),
   `node tools/release.mjs --check` and each built story's `--check`. All pass on networks-v98.
+- **Built on 30 October 2026, not yet released, tested headlessly only: others' moves drawn smoothly** (the owner:
+  "my colleague spun that and it was a bit jerky on my side"; "make it smooth"). In a shared room what someone moves
+  by hand (a station's scene and panel, the explore view there, a station carried by the grip, a person's head and
+  hands) now goes out 15 times a second stamped with the relay's time, and every other device draws it 120 ms behind,
+  between the two samples around that moment (snapshot interpolation, `SMOOTH` in `shared.js`; AGENTS.md "Others'
+  moves, smooth"), so a spin turns at the spinner's own pace instead of in pulses, and lands exactly where it was let
+  go. FORMAT networks-26 (a room needs every device on the release that brings it); every story's `setView` takes a
+  second argument (`now`). The test (`node tools/collab.mjs --smooth`) measured, with a pretend headset: every frame
+  moving, 97 to 100 % of frames within 35 % of the spinner's speed (the median exactly it), about 120 ms behind, landing
+  within 0.002 degrees of where it was let go. **How smooth it feels can only be judged on headsets: untested there.**
+  Not smoothed (a known limit): moves inside a story's shared state (the pass story's school, the design room's
+  miniatures), which still come five times a second with the story's own glide.
 - **Built on 29 October 2026 (release networks-v96), tested headlessly only:**
   - *Live updates and hot reload:* a running copy takes a new release by itself without losing its place, and while
     developing follows the files as they are saved (`HOST.live`, `version.json` written by `node tools/release.mjs`,
