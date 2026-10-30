@@ -2417,8 +2417,8 @@ function slideDOM() {
 // A sound comes from a place (a set's anchor, sfxPos): in a headset through an HRTF panner, on a screen panned by where
 // it shows. An older shell (no HOST.sfx, or a sound it does not know) plays nothing. Never in collab.state(): each
 // device plays its own. SFXQ.log keeps what was asked for (also when nothing can play: before a tap), for the tests
-const SFXQ = { cues: [], spans: [], hi: -1, t: 0, n: 0, log: [] };
-const sfxCue = (t, name, set, at, o) => { SFXQ.cues.push({ t, n: narrT(t), name, set, at, o: o || {} }); };
+const SFXQ = { cues: [], spans: [], hi: -1, t: 0, n: 0, log: [], quiet: 0 };   // quiet: a room's state being applied (silent)
+const sfxCue = (t, name, set, at, o) => { SFXQ.cues.push({ t, n: Math.max(0.05, narrT(t)), name, set, at, o: o || {} }); };
 const sfxHold = (t0, t1, name, set, at, o) => { SFXQ.spans.push({ id: XR_HERE + '.' + SFXQ.spans.length, t0, t1, n0: narrT(t0), n1: narrT(t1), name, set, at, o: o || {} }); };
 const sfxN = () => SFXQ.n + (HOST.sfx && HOST.sfx.count ? HOST.sfx.count() : 0);
 const _sfv = new THREE.Vector3();
@@ -2440,7 +2440,7 @@ function sfxPlay(name, set, at, o) {
 const sfxHidden = () => !!(HOST.picking || XR.stories || xrAway());
 // an explore action's sound (a pick, a result, a knockout): only in explore mode (a room's state applied while the story
 // plays is silent)
-const sfxAct = (name, set, at, o) => (APP.mode === 'explore' && !sfxHidden() ? sfxPlay(name, set, at, o) : null);
+const sfxAct = (name, set, at, o) => (APP.mode === 'explore' && !SFXQ.quiet && !sfxHidden() ? sfxPlay(name, set, at, o) : null);
 // every frame, right after slideStep (`was`: the story was playing as the frame began): the cues crossed since the
 // slideshow's `from` (at most 1.5 s back: the narration's clock can leap ahead as it starts after a jump, and its cues
 // then play a moment late, not a burst of old ones; never twice: the narration or a room's clock may pull the clock back
@@ -2676,7 +2676,7 @@ return {
   // shared rooms (shared.js): the clock is APP's, the shared state the prop on the stage and the miniatures moved by
   // hand (no effects)
   collab: {
-    APP, scene: () => (LOAD.done ? GL.scene : null), state: collabState, apply: collabApply, view: collabView, setView: collabSetView,
+    APP, scene: () => (LOAD.done ? GL.scene : null), state: collabState, apply: v => { SFXQ.quiet++; try { return collabApply(v); } finally { SFXQ.quiet--; } }, view: collabView, setView: collabSetView,
     effect: designEffect,
     hover: i => { const c = XR.ctrls[i]; return c && c.hover ? c.ray.scale.z : 0; },
     panel(p, yaw, q) { xrPanelPose(p, yaw, q); },

@@ -482,7 +482,7 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
     `o: { at, pan, gain, pitch }` followed smoothly (0.08 s); faded in over
     0.3 s, out over 0.4 s once not asked for 0.3 s (the engine's step), at once
     when the effects go off or silent; at most 4 (a fifth replaces the
-    quietest), not counted in the 16 voices; `state().drones` lists them.
+    quietest only when it is louder), not counted in the 16 voices; `state().drones` lists them.
     Nothing in a story stops them: it stops asking (a pause, a jump out of the
     span, explore mode, another story); a hot swap keeps the ids
     (`<key>.<n>`), so one running through a swap carries on.

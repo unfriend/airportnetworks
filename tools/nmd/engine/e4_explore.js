@@ -159,9 +159,9 @@ function setLayers(fn) {
 // knock out k more layers that still have links, in a fixed shuffled order (the same each time)
 function knockRandom(k) {
   const live = ND.layers.map((_, l) => l).filter(l => !X.off.has(l) && ND.count[l] > 0);
-  let s = 7 + X.off.size;
+  let s = 7 + X.off.size; const n0 = X.off.size;
   for (let n = 0; n < k && live.length > 1; n++) { s = (s * 9301 + 49297) % 233280; X.off.add(live.splice(Math.floor(s / 233280 * live.length), 1)[0]); }
-  sfxAct('knock', 'tower', null);   // (sound effects: layers knocked out)
+  if (X.off.size > n0) sfxAct('knock', 'tower', null);   // (sound effects: layers knocked out, if any were)
   pushState(); if (X.walk) runWalk(X.walk.from, true); renderLayers();
 }
 // a random walk from a group's seeds (from = group index) or from your own genes (from = 'mine'; own: those genes

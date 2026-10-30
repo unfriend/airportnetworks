@@ -15,7 +15,7 @@
 //    from shared.js's tick, HOST.sfx.listen); on a screen it is plain stereo;
 //  - it ducks under the narration (-9 dB, down in about 0.4 s, back in about 1.5 s) while HOST.audio.speaking();
 //  - at most 16 voices at once (the one quietest now makes room, the oldest of equals), and each sound a minimum gap;
-//    at most 4 continuous sounds besides (a fifth replaces the quietest);
+//    at most 4 continuous sounds besides (a fifth replaces the quietest when it is louder);
 //  - per device, never shared in a room and never in a story's collab.state(): on or off (sfxOn; ON by default since
 //    the owner approved the sounds, a device that saved 'off' stays off) and a volume (sfxVolume, 0 to 1, squared as a
 //    loudness taper; 0.75 by default); #sfx=on|off in a link; a row in Sound check on the page and in the headset's menu;
@@ -785,6 +785,8 @@
         if (S.drones.size >= MAXD) {
           let q = null;
           for (const x of S.drones.values()) if (!q || x.gn < q.gn) q = x;
+          // (only a louder one replaces it: five asked for every frame must not take turns, a new voice built each frame)
+          if (q.gn >= clamp(o.gain == null ? 1 : +o.gain || 0, 0, 2)) return null;
           droneOff(q, t, 0.3); S.dold.push(q); S.drones.delete(q.id);
         }
         d = droneVoice(S.G, name, t + LEAD, Object.assign({}, o, { spatial: sp }), hash(id) + (++S.n));
@@ -871,12 +873,14 @@
       return m;
     }
     // a taste of every interface and room sound, one after another (Sound check's Try them)
+    // (from timers, each as it is due: scheduled all at once, the 22 would be over the 16 voices and six cut before they sounded)
     function demo() {
-      ['click', 'toggleOn', 'toggleOff', 'hover', 'open', 'close', 'lock', 'unlock', 'notice', 'grab', 'drop', 'place', 'join', 'leave', 'enter', 'ready']
-        .forEach((n, i) => play(n, { delay: i * 0.75, force: true }));
-      // and six of the stories' (phase 2)
-      [['grow', { dur: 2.5 }], ['link'], ['whoosh', { pitch: 1.2 }], ['pulse'], ['rise'], ['knock']]
-        .forEach(([n, o], i) => play(n, Object.assign({ delay: 12.6 + i * 1.6, force: true }, o)));
+      (S.demoT || []).forEach(clearTimeout);
+      const list = ['click', 'toggleOn', 'toggleOff', 'hover', 'open', 'close', 'lock', 'unlock', 'notice', 'grab', 'drop', 'place', 'join', 'leave', 'enter', 'ready']
+        .map((n, i) => [n, {}, i * 0.75])
+        // and six of the stories' (phase 2)
+        .concat([['grow', { dur: 2.5 }], ['link'], ['whoosh', { pitch: 1.2 }], ['pulse'], ['rise'], ['knock']].map(([n, o], i) => [n, o || {}, 12.6 + i * 1.6]));
+      S.demoT = list.map(([n, o, d]) => setTimeout(() => play(n, Object.assign({ force: true }, o)), d * 1000));
     }
     const pct = () => Math.round(S.vol * 100) + ' %';
     const muted = () => { try { return !!(A.muted && A.muted()); } catch (e) { return false; } };

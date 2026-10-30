@@ -21,7 +21,8 @@ await step('start screen is the landing page', async () => {
   if (!await page.evaluate(() => HOST.picking)) errors.push('start screen not shown on load');
 });
 // sound effects (phase 2): one explore action per story and the sound it asks for (code run inside the story, the name);
-// a story without an entry is checked without one. Builders add theirs
+// a built story with more than one scene and no entry here is checked with another scene opened (a whoosh), and every
+// story with a scene in its state with that scene applied as from the room (silent)
 const SFX_PICK = {
   airports: ['selectAirport(A("SYD"))', 'pick'],
   flock: ['setCtl("flock", "birds", ctlValue("flock", GL.sets.flock.controls[1]) === "400" ? "100" : "400")', 'flutter'],
@@ -122,16 +123,24 @@ for (const key of ['airports', 'proteins', 'spatial', 'lbi', 'nmd', 'endo', 'pet
       if (!await until(() => peek('APP.t') >= c[1] + 0.4 || !peek('APP.playing'), 30000)) out.push('the story did not play on');
       peek('APP.playing = false');
       const t1 = peek('APP.t'), got = peek(`SFXQ.log.slice(-${Math.min(64, Math.max(1, n0() - k0))})`).filter(e => e[2] === 'story');
-      const want = cues.filter(q => q[1] > a && q[1] <= t1 + 1e-6), match = (e, q) => e[0] === q[0] && e[1] >= q[1] - 1e-6 && e[1] - q[1] < 1.6;
+      const want = cues.filter(q => q[1] > a && q[1] <= t1 + 1e-6), match = (e, q) => e[0] === q[0] && e[1] >= q[1] - 0.006 && e[1] - q[1] < 1.6;   // (the log keeps APP.t to the hundredth)
       const cueLike = got.filter(e => cues.some(q => match(e, q)));
       if (n0() === k0 || cueLike.length !== want.length || want.some(q => !cueLike.some(e => match(e, q)))) out.push(`played ${a.toFixed(2)} to ${t1.toFixed(2)} s: logged ${JSON.stringify(cueLike)}, expected ${JSON.stringify(want.map(q => [q[0], q[1]]))}`);
-      // an explore action's sound (where the table names one)
+      // an explore action's sound (the table's, else another scene), and a room's state applied in silence
+      if (!pick && peek('typeof openScene === "function" && typeof GL !== "undefined" && !!GL.sets && Object.keys(GL.sets).length > 1')) pick = ['openScene(Object.keys(GL.sets).find(k => k !== X.scene))', 'whoosh'];
       if (pick) {
         peek('APP.enterExplore()'); await frames(2);
         const k1 = n0();
         peek(pick[0]); await frames(2);
         const l = peek(`SFXQ.log.slice(-${Math.min(64, Math.max(1, n0() - k1))})`);
         if (n0() === k1 || !l.some(e => e[0] === pick[1] && e[2] === 'explore')) out.push(`explore: ${pick[0]} did not ask for ${pick[1]} (${JSON.stringify(l)})`);
+        const quiet = peek(`(() => {
+          const C = HOST.cur.collab, s = JSON.parse(JSON.stringify(C.state()));
+          const k = s && 'scene' in s && typeof GL !== 'undefined' && GL.sets ? Object.keys(GL.sets).find(k => k !== s.scene) : null;
+          if (!k) return -1;
+          s.scene = k; const n = SFXQ.n; C.apply(s); return SFXQ.n - n;
+        })()`);
+        if (quiet > 0) out.push(`a room's state applied in explore mode asked for ${quiet} sound(s): ${JSON.stringify(peek('SFXQ.log.slice(-' + quiet + ')'))}`);
         peek('APP.enterStory(0)'); peek('APP.playing = false'); await frames(1);
       }
       // a pretend headset's press on a story panel button: a click (its own sound aside)

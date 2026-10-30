@@ -56,7 +56,9 @@ for (const key of keys) {
       const where = peek('SFXQ.cues.map(c => { const v = new THREE.Vector3(); return sfxPos(c.set, c.at, v) ? [v.x, v.y, v.z] : null; })');
       const spans = peek('SFXQ.spans.map(s => ({ id: s.id, n0: s.n0, n1: s.n1, name: s.name, set: s.set, o: s.o }))');
       const swhere = peek('SFXQ.spans.map(s => { const v = new THREE.Vector3(); return sfxPos(s.set, s.at, v) ? [v.x, v.y, v.z] : null; })');
-      const out = { T, n: cues.length, spans: spans.length, bad: [], busy: { t: 0, k: 0 }, dense: { t: 0, k: 0 } };
+      // (a named anchor the set does not have would sound from the set's middle: finite, so look it up)
+      const lost = peek('typeof GL === "undefined" || !GL.sets ? [] : SFXQ.cues.concat(SFXQ.spans).filter(c => typeof c.at === "string" && !(GL.sets[c.set] && GL.sets[c.set].anchors && c.at in GL.sets[c.set].anchors)).map(c => c.name + " at " + c.set + "." + c.at)');
+      const out = { T, n: cues.length, spans: spans.length, bad: lost.map(l => `no such anchor: ${l}`), busy: { t: 0, k: 0 }, dense: { t: 0, k: 0 } };
       const fmtT = t => Math.floor(t / 60) + ':' + (t % 60).toFixed(1).padStart(4, '0');
       const what = c => `${c.name} at ${fmtT(c.n)} (story time ${c.t.toFixed(1)})`;
       cues.forEach((c, i) => {

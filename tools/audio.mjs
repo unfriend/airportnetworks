@@ -251,7 +251,7 @@ for (const [fault, what, ms] of [['decode', 'Web Audio cannot decode the file', 
   });
   await page.close();
 }
-// 6. sound effects (HOST.sfx, sfx.js): off by default; turned on (Sound check, a link), nothing before a tap, then through
+// 6. sound effects (HOST.sfx, sfx.js): on by default; turned off and on (Sound check, a link), nothing before a tap, then through
 // HOST.audio's one context, ducked under the narration, at most 16 voices, silent with the audio element engine; a
 // background for the story on show; the headset menu's row and the listener following the head
 const fxs = () => page.evaluate(() => HOST.sfx.state());

@@ -1513,7 +1513,7 @@ try {
         const cues = await peek(A, 'SFXQ.cues.map(c => [c.name, Math.round(c.n * 1000) / 1000]).sort((a, b) => a[1] - b[1])');
         const busy = cues.find(c => cues.filter(d => d[1] >= c[1] && d[1] < c[1] + 6).length >= 3) || cues[0];
         const w0 = Math.max(0, busy[1] - 2), w1 = w0 + 9, n = p => peek(p, 'SFXQ.n');
-        const cueOf = e => cues.find(c => c[0] === e[0] && e[1] >= c[1] - 1e-6 && e[1] - c[1] < 1.6);
+        const cueOf = e => cues.find(c => c[0] === e[0] && e[1] >= c[1] - 0.006 && e[1] - c[1] < 1.6);   // (the log keeps APP.t to the hundredth)
         const logOf = (p, a, b) => peek(p, `SFXQ.log.filter(e => e[2] === 'story' && e[1] > ${a} && e[1] <= ${b})`);
         const gaps = await Promise.all([A, B, C].map(p => p.evaluate(async () => { const f0 = window.__frames; await new Promise(r => setTimeout(r, 1000)); return 1 / Math.max(1, window.__frames - f0); })));
         await peek(A, `(APP.seek(${w0}), APP.playing || APP.togglePlay())`);

@@ -158,15 +158,16 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
   [docs/data-and-permissions.md](docs/data-and-permissions.md). Made for the Global Peter Drucker Forum in Vienna. Integrated on 29 October 2026 (its card in `stories/list.js`, `sw.js`, its miniatures, the design
   room's catalogue, the smoke and shared-room tests, the docs: item 11 under "Decisions for the owner"). Untested on a
   headset.
-- **Paused (30 October 2026, the owner's token limit): sound effects phase 2 is built in every story but not released.**
-  Done: the shell side (`sfx.js`: 18 new sounds and 2 continuous ones, on by default, the Sound button muting all), the
-  shared cue lines in all sixteen stories and the design room (cues: airports 15, proteins 17, spatial 17, lbi 39, nmd
-  23, endo 22, pet 15, micro 27, ovary 23, qubits 24, mutation 32, topo 33, soil 36, pass 20, flock 2 plus its live
-  sounds, robots 7 plus their hums, design 1), every built story up to date (`--check`), tracks rendered for airports,
-  flock, proteins and ovary. To do, in this order: the story builders' last checks (`node tools/sfx-cues.mjs`, a track
-  for every story with `node tools/sfx-render.mjs --story <key>`, the smoke test), one review and one fix round, then
-  release v99 (VERSION, `node tools/release.mjs`, the whole test round as for v98). The plan and the shared lines are
-  `docs/sfx-phase2-plan.md` and `docs/sfx-phase2-lines.md`; AGENTS.md describes the mechanism.
+- **Sound effects phase 2 (30 October 2026): built in every story, reviewed and fixed; release v99 in progress.** The
+  shell side (`sfx.js`: 18 new sounds and 2 continuous ones, on by default, the Sound button muting all) and the shared
+  cue lines in all sixteen stories and the design room (`node tools/sfx-cues.mjs <url> all` prints each story's count
+  and busiest moment: about one sound every 10 to 18 s; the flock and the robots also have live sounds). The review's
+  fixes: a room's state applied in explore mode is silent (`SFXQ.quiet` around the `apply` hook, the same lines in
+  all seventeen), Sound check's Try them plays from timers (22 sounds at once were over the 16 voices), a fifth
+  continuous sound replaces the quietest only when louder, the muscle story's random knockout sounds only when it
+  knocked something out; the tests check a silent apply and a built story's scene change, cue anchors that exist, and
+  match the log to the hundredth. The plan and the shared lines are `docs/sfx-phase2-plan.md` and
+  `docs/sfx-phase2-lines.md`; AGENTS.md describes the mechanism.
 - **Sound effects, phase 2: sounds inside the stories, on by default** (the owner, 29 October 2026, after listening to
   phase 1: "sounds are fine, go on", and explore mode too). Each story plays its own sound cues as its clock crosses
   them (a network growing, a link snapping on, a flight whooshing past, a path's hops, a closure's knock, a reveal
