@@ -3914,10 +3914,11 @@ function collabView() {
   const c = orbit.cur, r = (x, k) => Math.round(x * k) / k;
   return [r((((c[0] + 180) % 360) + 360) % 360 - 180, 10), r(c[1], 10), r(c[2], 100), r(c[3], 100), r(c[4], 100), r(c[5], 100)];
 }
-function collabSetView(v) {
+function collabSetView(v, now) {
   if (APP.mode !== 'explore' || !Array.isArray(v) || v.length !== 6 || !v.every(Number.isFinite)) return;
   const c = orbit.cur, to = v.slice();
   to[0] += 360 * Math.round((c[0] - to[0]) / 360);
+  if (now) { orbit.cur = to; orbit.to = null; return; }   // someone else turning it: there at once (shared.js smooths it)
   Object.assign(orbit, { from: c.slice(), to, t0: performance.now(), fast: true });   // a short glide there
 }
 function collabState() {

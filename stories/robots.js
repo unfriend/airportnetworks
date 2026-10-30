@@ -2890,7 +2890,7 @@ function dustAgain() { dustNow(); HOST.collab.effect('dust'); }
 const SHARED_CTL = ['rule', 'robots', 'trails', 'links'];
 // shared rooms: life size in a headset, so no view places anything there (none to share)
 function collabView() { return null; }
-function collabSetView() { /* nothing to set */ }
+function collabSetView(v, now) { /* nothing to set */ }
 function collabState() {
   return Object.fromEntries(GL.sets.robots.controls.filter(c => SHARED_CTL.includes(c.key)).map(c => [c.key, ctlValue('robots', c)]));
 }

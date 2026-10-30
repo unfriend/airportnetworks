@@ -979,7 +979,7 @@ function pickTab(k) { if (!TABS.some(t => t[0] === k)) return; X.tab = k; render
 // it was put and its turn, rounded, and its size), one top-level field each, so two people moving two miniatures at once
 // both keep theirs. Nothing per device (the camera, the hover, the tab). Life size in a headset: no view to share.
 function collabView() { return null; }
-function collabSetView() { /* nothing to set */ }
+function collabSetView(v, now) { /* nothing to set */ }
 function collabState() {
   const T = GL.sets.table, s = { pick: X.pick || '' };
   for (const k of CARD_KEYS) { const r = T.recOf(k); if (r) s[k] = r; }

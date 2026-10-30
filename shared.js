@@ -25,7 +25,7 @@
 // (or #debug in a link) prints them as well.
 (function () {
   const PROTO = 1;
-  const FORMAT = 'networks-25';   // the shared state's format (keys, the stories' state()): bump when it changes shape
+  const FORMAT = 'networks-26';   // the shared state's format (keys, the stories' state()): bump when it changes shape
   const BROWSER = (/OculusBrowser\/(\d+)/.exec(navigator.userAgent) || [])[1] || '';   // Quest Browser's version (shared spaces differ by it)
   const EYE = 1.6;               // a standing eye height (m): a station's rig hangs this high over its spot
   const AHEAD = 1.4;             // a station's content floats this far in front of its spot
@@ -117,10 +117,15 @@
     // gone from the members (0: there), and the name of one who left (said in the dialog while their last station stays)
     who: '', whoName: '', whoSt: '', whoGone: 0, whoLeft: '',
     pres: new Map(), rays: new Map(), hov: new Map(), presAt: 0, deskAt: 0,
-    cur: null, hook: null, ready: false, guard: 0, hush: false, pumpAt: 0, viewSeen: '',
+    cur: null, hook: null, ready: false, guard: 0, hush: false, pumpAt: 0,
   };
   // what is shown for a key: our own unacknowledged write, else the room's value
   const val = k => { const p = C.pending.get(k); if (p) return p.v; const e = C.keys.get(k); return e ? e.v : undefined; };
+  // a value as echo suppression compares it: a moving thing's (a station, its scene, panel and view: SM_RE) without when it
+  // was written and whether it was still held (ts, h: smoothing, below), so the same place written again is no change
+  const SM_RE = /^st\.([\w-]{1,32})(?:\.(place|panel|view))?$/;
+  const bare = v => { if (!v || typeof v !== 'object' || Array.isArray(v) || !('ts' in v || 'h' in v)) return v; const o = Object.assign({}, v); delete o.ts; delete o.h; return o; };
+  const sig = (k, v) => J(SM_RE.test(k) ? bare(v) : v);
   const now = () => clock() + C.offset;   // the relay's clock
   const kind = () => (HOST.session ? (HOST.mode === 'immersive-ar' ? 'ar' : 'vr') : 'desktop');
   // in the room with the others, or elsewhere (a desktop always): only people here calibrate. Passthrough (AR)
@@ -448,7 +453,8 @@
     if (C.auto === C.code && (!C.autoRid || (rk0 && rk0.v !== C.autoRid))) { C.stranger = C.code; LOC.mirror = false; const c = C.code; setTimeout(() => notMine(c), 0); return; }
     C.pending.clear();
     C.synced = new Map();
-    for (const [k, e] of C.keys) C.synced.set(k, J(e.v));
+    for (const [k, e] of C.keys) C.synced.set(k, sig(k, e.v));
+    BUF.clear();   // (others' moves start again from what comes next)
     C.members = m.members || [];
     // a new socket (perhaps after a sleep, or to another relay): the clock is measured again from its pings
     C.samples = [];
@@ -477,7 +483,7 @@
   function publish(pairs, force) {
     const out = [];
     for (const [k, v] of pairs) {
-      const s = J(v);
+      const s = sig(k, v);
       if (!force && C.synced.get(k) === s && !C.pending.has(k)) continue;   // echo suppression by value
       if (v === null) C.synced.delete(k); else C.synced.set(k, s);
       out.push([k, v]);
@@ -486,7 +492,7 @@
     const cid = ++C.cid;
     for (const [k, v] of out) C.pending.set(k, { cid, v });
     const sent = send({ t: 'set', batch: out, cid });
-    log('publish', { cid, keys: out.map(p => p[0]), sent });
+    if (!out.every(p => p[1] && p[1].h === 1)) log('publish', { cid, keys: out.map(p => p[0]), sent });   // (a move still held, 15 a second: not logged)
     roomChanged(out.map(p => p[0]), true);
     return true;
   }
@@ -504,10 +510,11 @@
       // our own later write is on its way: it wins everywhere. Not for an explore state: that merges (stateApply),
       // or the other person's change to another control would be lost
       if (p && !X_RE.test(k)) { log('kept', { k, seq: m.seq, by: m.by }); continue; }
-      if (!p) { if (v === null) C.synced.delete(k); else C.synced.set(k, J(v)); }
+      if (!p) { if (v === null) C.synced.delete(k); else C.synced.set(k, sig(k, v)); }
+      if (!me) smoothIn(k, v);   // (someone else's move: its samples, drawn smoothly)
       keys.push(k);
     }
-    log('recv', { seq: m.seq, by: m.by, keys: (m.batch || []).map(p => p[0]) });
+    if (!(m.batch || []).every(p => p && p[1] && p[1].h === 1)) log('recv', { seq: m.seq, by: m.by, keys: (m.batch || []).map(p => p[0]) });
     if (keys.length) roomChanged(keys, false);
     mirror();
   }
@@ -521,7 +528,7 @@
       if (!p || (m.cid != null && p.cid !== m.cid)) continue;
       C.pending.delete(k);
       const e = C.keys.get(k);
-      if (e) C.synced.set(k, J(e.v)); else C.synced.delete(k);
+      if (e) C.synced.set(k, sig(k, e.v)); else C.synced.delete(k);
       back.push(k);
     }
     if (back.length) roomChanged(back, false, true);   // shown as the room has them (no merge: ours was refused)
@@ -535,12 +542,12 @@
       // (not while our own clock write waits for its turn: it follows, and wins as an unacknowledged write would)
       if ((all || keys.includes(kPlay(L.id))) && !C.clockT) clockApply(true);
       if (all || keys.includes(kX(L.id))) stateApply(!all && !plain);
-      if (all || keys.includes(kView(L.id))) viewSync();
     }
     if (!local && has(/^r[fs]\./)) R.recAt = 0;   // a frame published for a shared space, or one found split: checked on the next frame
     if (has(/^sg$/)) spaceMove();
     if (has(/^look$/)) { const L = look(); if (L && HOST.xr && HOST.xr.keep) HOST.xr.keep(L); }   // (kept after leaving the room)
-    changed();
+    // (a move still held, 15 a second, changes nothing the dialog says: the room map follows it from the pump)
+    if (all || !keys.every(k => { const v = SM_RE.test(k) && val(k); return v && v.h === 1; })) changed();
   }
 
   // ----------------------------------------------------- a room on this device --
@@ -1443,6 +1450,8 @@
       P.sp = typeof v.sp === 'string' ? v.sp.slice(0, 64) : ''; P.al = typeof v.al === 'string' ? v.al.slice(0, 8) : '';   // its shared space and what aligns it (alignedHere)
       P.head = Array.isArray(v.head) && v.head.length === 7 && v.head.every(Number.isFinite) ? v.head : null;
       P.hands = Array.isArray(v.hands) ? v.hands.filter(h => Array.isArray(h) && h.length === 7 && h.every(Number.isFinite)).slice(0, 2) : [];
+      // (where the head and hands were when it was sent: drawn smoothly from the samples, drawPeople; always moving, so held)
+      if (P.head && Number.isFinite(v.ts)) bufPush(P.buf || (P.buf = { s: [], seed: false }), v.ts, { head: P.head, hands: P.hands }, true); else P.buf = null;
     } else if (m.k === 'q.frame') { R.asked(m.v, m.by);   // someone's Re-align: the room's frame written into the space again
     } else if (m.k.startsWith('e.')) {
       const L = liveSt(), v = m.v || {};
@@ -1510,7 +1519,7 @@
     const fol = how === 'follow' || how === 'person';
     if (how !== 'person') { C.whoLeft = ''; if (C.who) whoStop(how === 'follow' ? 'a station followed by hand' : how); }
     C.mine = id; C.live = id; C.picked = how === 'pick';
-    C.viewSeen = '';   // (the room's view is taken again on arriving: one turned here while away is not the room's)
+    VW.id = '';   // (the room's view is taken again on arriving: one turned here while away is not the room's)
     if (fol) C.follow = id;
     log('station', { st: id, story: s.story, how });
     // following from a page shows the station: its Stories screen closes (while it shows, the pump stands still)
@@ -1564,8 +1573,8 @@
   }
   // the stories' station: its spot (x, z), facing yaw; the content floats 1.4 m ahead
   const content = s => { const [fx, fz] = fwd(s.yaw); return [s.x + AHEAD * fx, s.z + AHEAD * fz]; };
-  // where a station is drawn and placed in a headset: it glides to where the room has it (a station someone moves
-  // by hand arrives ten times a second), and the one carried here follows the hand at once
+  // where a station is drawn and placed in a headset: it glides to where the room has it, and the one carried here follows
+  // the hand at once. One someone else carries (its writes have ts) moves as they moved it, a moment later (smoothing)
   const SHOWN = new Map();
   const shown = s => SHOWN.get(s.id) || s;
   function easeStations(dt) {
@@ -1576,6 +1585,12 @@
       if (!E) { SHOWN.set(s.id, { id: s.id, story: s.story, x: s.x, z: s.z, yaw: s.yaw }); continue; }
       E.story = s.story;
       if (MV.id === s.id && MV.pose) { Object.assign(E, MV.pose); continue; }
+      const B = BUF.get('st.' + s.id);
+      if (B && B.story === s.story) {
+        bufSeed(B, { x: E.x, z: E.z, yaw: E.yaw });
+        const v = bufAt(B, MIX.station);
+        if (v) { E.x = v.x; E.z = v.z; E.yaw = v.yaw; continue; }
+      }
       let a = (s.yaw - E.yaw) % (2 * Math.PI);
       if (a > Math.PI) a -= 2 * Math.PI; else if (a < -Math.PI) a += 2 * Math.PI;
       if (Math.hypot(s.x - E.x, s.z - E.z) < 0.002 && Math.abs(a) < 0.002) { E.x = s.x; E.z = s.z; E.yaw = s.yaw; continue; }
@@ -1586,9 +1601,10 @@
   // ------------------------------------------------- moving a station by hand --
   // In a headset the grip on a station's ring or card picks it up: it swings round you as you point, goes further
   // as you raise the controller and comes nearer as you lower it, turns as you twist your wrist, and goes out to
-  // the room ten times a second, so everybody sees it move; letting go of the grip puts it down. The grip comes
-  // from the session itself (controller i is session.inputSources[i] in three.js), so the stories need nothing
-  const MV = { id: '', src: null, a: null, pose: null, at: 0, sent: '' };
+  // the room 15 times a second while it moves (with ts and h, smoothing), so everybody sees it move; letting go of the
+  // grip puts it down. The grip comes from the session itself (controller i is session.inputSources[i] in three.js), so
+  // the stories need nothing
+  const MV = { id: '', src: null, a: null, pose: null, at: 0, sent: '', moved: false };
   function pulse(src, v, ms) { try { const a = src && src.gamepad && src.gamepad.hapticActuators; if (a && a[0] && a[0].pulse) a[0].pulse(v, ms); } catch (e) { /* no haptics */ } }
   function grabStation(e) {
     const s = R.session;
@@ -1598,7 +1614,7 @@
     const h = i >= 0 ? hovOf(i) : null;
     if (!h || h.target.kind !== 'station' || !C.stById.has(h.target.id)) return;
     if (refused('grab')) { notice('The circles are locked', 'Unlock them in the menu (' + menuWhere() + ') to move the circles.', 3000); pulse(e.inputSource, 0.15, 10); return; }
-    Object.assign(MV, { id: h.target.id, src: e.inputSource, a: null, pose: null, at: 0, sent: '', t0: performance.now() });
+    Object.assign(MV, { id: h.target.id, src: e.inputSource, a: null, pose: null, at: 0, sent: '', moved: false, t0: performance.now() });
     log('station grab', { st: MV.id });
     pulse(e.inputSource, 0.4, 25);
     { const s = C.stById.get(MV.id); sfx('grab', roomAt(s.x, 1, s.z)); }
@@ -1618,7 +1634,12 @@
   function carryStation(f, t) {
     const s = C.stById.get(MV.id), local = refSpace();
     if (!s || !R.aligned || !local || !R.session) { dropStation(null); return; }
-    if (circlesLocked()) { log('station locked while carried', { st: MV.id }); Object.assign(MV, { id: '', src: null, a: null, pose: null }); changed(); return; }   // someone locked it meanwhile: it stays where it was last sent
+    if (circlesLocked()) {   // someone locked it meanwhile: it stays where it was last sent (and lands there for the others)
+      log('station locked while carried', { st: MV.id });
+      const k = 'st.' + MV.id, v = val(k);
+      if (v && v.h === 1) publish([[k, Object.assign(bare(v), { ts: Math.round(now()) })]], true);
+      Object.assign(MV, { id: '', src: null, a: null, pose: null }); changed(); return;
+    }
     // put down when its controller is gone or its grip is up, though no squeezeend came (the controller slept, or
     // the headset was taken off with the grip held)
     let here = false;
@@ -1650,15 +1671,19 @@
     if (roll !== null) { if (A.roll !== null) A.twist += turnTo(roll - A.roll); A.roll = roll; }   // (a twist counts from the first one known)
     const d = Math.min(12, Math.max(Math.min(0.3, A.d), A.d * Math.exp(2 * (pitch - A.pitch)))), al = phi + A.da;
     MV.pose = { x: o[0] - d * Math.sin(al), z: o[2] - d * Math.cos(al), yaw: turnTo(phi + A.yaw - A.twist) };
-    if (t - MV.at > 100) sendStation(false, t);
+    if (t - MV.at >= SMOOTH.SEND) sendStation(false, t);
   }
+  // held: out while it moves, and once more when it comes to rest (so the others see it stop there rather than carry on);
+  // let go: once more without h, where it lands (always after a write that had h)
   function sendStation(final, t) {
     const s = C.stById.get(MV.id), P = MV.pose;
     if (!s || !P) return;
-    const v = { story: s.story, x: r3(P.x), z: r3(P.z), yaw: r3(P.yaw) }, k = J(v);
-    if (k === MV.sent) return;
-    MV.sent = k; MV.at = t || performance.now();
-    publish([['st.' + MV.id, v]]);
+    const v = { story: s.story, x: r3(P.x), z: r3(P.z), yaw: r3(P.yaw) }, k = J(v), moved = k !== MV.sent;
+    if (final ? !MV.sent && k === J({ story: s.story, x: r3(s.x), z: r3(s.z), yaw: r3(s.yaw) }) : !moved && !MV.moved) return;
+    MV.moved = !final && moved; MV.sent = k; MV.at = t || performance.now();
+    v.ts = Math.round(now());
+    if (!final) v.h = 1;
+    publish([['st.' + MV.id, v]], true);
     if (final) log('station moved', { st: MV.id, x: v.x, z: v.z, yaw: v.yaw });
   }
   // a new station's clock: a story at its start, paused; a page that is not a story (the design room: no chapters) at
@@ -1703,7 +1728,7 @@
     if (L.free && !v.free) {
       for (const k of new Set([...C.keys.keys(), ...C.pending.keys()])) {
         const x = /^st\.[\w-]+\.(place|panel)$/.test(k) && val(k);
-        if (x && typeof x === 'object' && x.q !== undefined) { const y = Object.assign({}, x); delete y.q; pairs.push([k, y]); }
+        if (x && typeof x === 'object' && x.q !== undefined) { const y = Object.assign({}, bare(x)); delete y.q; pairs.push([k, y]); }   // (a plain write: no ts, no h)
       }
     }
     publish(pairs);
@@ -1933,10 +1958,11 @@
   }
   // The station's panel (relative to its spot: x, y over the floor, z, yaw, and with free moving its rotation q) and its
   // scene (moved from where the story puts it, x, y, z, sized, s, and with free moving turned, q), moved here with the
-  // grip (both hands on the scene resize it): they go out to the room ten times a second while held and once more when
-  // let go, so the others see them move; otherwise they glide to the room's values (and are put there at once when a
-  // station is reached). Every frame, from the shell's tick.
-  const PL = { id: '', held: { panel: false, globe: false }, quiet: { panel: 0, globe: 0 }, at: 0 };
+  // grip (both hands on the scene resize it): they go out to the room 15 times a second while they move and are held
+  // (with ts and h: 1), once more as they come to rest and once more when let go (no h), so the others see them move;
+  // someone else's moves come in smoothly (below), and otherwise they glide to the room's values (and are put there at
+  // once when a station is reached). Every frame, from the shell's tick.
+  const PL = { id: '', held: { panel: false, globe: false }, moved: { panel: false, globe: false }, quiet: { panel: 0, globe: 0 }, at: 0 };
   const PLACE0 = { x: 0, y: 0, z: 0, s: 1, q: null };
   const SIZE = [0.25, 4];   // a scene's size: a quarter to four times the story's own
   const clampS = v => Math.min(SIZE[1], Math.max(SIZE[0], v));
@@ -1960,6 +1986,90 @@
   const roomQ = v => (freeNow() && validQ(v.q) ? v.q.slice() : null);
   const roomPanel = L => { const v = val(kPanel(L.id)); return validPanel(v, L) ? { x: v.x, y: v.y, z: v.z, yaw: v.yaw, q: roomQ(v) } : panelHome(); };
   const roomPlace = L => { const v = val(kPlace(L.id)); return validPlace(v, L) ? { x: v.x, y: v.y, z: v.z, s: clampS(v.s), q: roomQ(v) } : PLACE0; };
+  // the room's explore view at a station: { v: [...], story } (an array alone, or one written for another story: none)
+  const viewOf = (raw, L) => { const v = raw && typeof raw === 'object' && !Array.isArray(raw) ? (ofStory(raw, L) ? raw.v : null) : raw; return Array.isArray(v) && v.length && v.every(Number.isFinite) ? v : null; };
+
+  // ------------------------------------------------------- others' moves, smooth --
+  // Snapshot interpolation (the owner, 30 October 2026: "my colleague spun that and it was a bit jerky on my side"). What
+  // someone moves by hand (a station's scene and panel and the explore view there, a station carried by the grip, a
+  // person's head and hands) goes out at most 15 times a second (SEND), each write stamped with the relay's time (ts,
+  // whole ms) and, while still held, h: 1 (the write on letting go has none). Every device keeps the last few samples of
+  // each thing someone else moves and draws it where it was DELAY ago, between the two samples around that moment, so it
+  // moves at the sender's own pace. (A new value chased by a glide sped up and slowed down at every arrival, and inside a
+  // large network a small step of a spin is a big jump at its far side.) DELAY is two send intervals and a little: the
+  // next sample is nearly always here already, even one 25 ms late. Past the last sample a held thing carries on as it
+  // went for at most CARRY, then holds; one let go lands exactly where it was let go. A value without ts (a write by
+  // hand: Arrange all, the map, a view after a flight), a new station, its story changed or nothing newer than LIVE
+  // leave it to the glide as before. Moves inside a story's collab.state() (the pass story's sea, the design room's
+  // miniatures) are not smoothed here: they come with the state, five times a second, and the story's own glide.
+  const SMOOTH = { DELAY: 120, SEND: 66, KEEP: 8, GAP: 1000, LIVE: 1000, CARRY: 100 };
+  const BUF = new Map();   // a moving key's samples (st.<id> carried, st.<id>.place, .panel, .view): { s: [{ ts, v, h }], seed, story }
+  function bufPush(B, ts, v, h) {
+    const s = B.s, last = s[s.length - 1];
+    if (last && ts <= last.ts) return;   // (late, or twice: older than the newest)
+    if (last && ts - last.ts > SMOOTH.GAP) s.length = 0;   // (a new move after a pause)
+    if (!s.length) B.seed = true;
+    s.push({ ts, v, h: !!h });
+    if (s.length > SMOOTH.KEEP) s.shift();
+  }
+  // a new move starts from where the thing is shown here (one send interval before its first sample), not with a jump
+  function bufSeed(B, v) { if (B.seed && B.s.length && v) B.s.unshift({ ts: B.s[0].ts - SMOOTH.SEND, v, h: true }); B.seed = false; }
+  // the value at the render time (RT.t), mixed by mix(a, b, f) (f past 1 carries on as it went), or null: nothing newer than LIVE
+  function bufAt(B, mix) {
+    const s = B && B.s, n = s ? s.length : 0, t = RT.t;
+    if (!n || t - s[n - 1].ts > SMOOTH.LIVE) return null;
+    const last = s[n - 1];
+    if (t >= last.ts) return !last.h || n < 2 ? last.v : mix(s[n - 2].v, last.v, 1 + Math.min(t - last.ts, SMOOTH.CARRY) / Math.max(1, last.ts - s[n - 2].ts));
+    let i = n - 1;
+    while (i > 0 && s[i - 1].ts > t) i--;
+    return i ? mix(s[i - 1].v, s[i].v, (t - s[i - 1].ts) / (s[i].ts - s[i - 1].ts)) : s[0].v;
+  }
+  const bufDone = B => { const L = B.s[B.s.length - 1]; return !!L && !L.h && RT.t >= L.ts; };   // (landed where it was let go)
+  // the render time: the relay's clock DELAY ago, run on by each frame's own time and eased towards that by at most 2 ms
+  // a frame, so a new measure of the relay's clock never jolts what moves (more than 250 ms off: at once). Every frame
+  const RT = { at: 0, t: 0 };
+  function renderStep() {
+    const p = performance.now(), want = now() - SMOOTH.DELAY;
+    let t = RT.t + (p - RT.at);
+    if (!RT.at || Math.abs(want - t) > 250) t = want; else t += Math.max(-2, Math.min(2, (want - t) * 0.1));
+    RT.at = p; RT.t = t;
+  }
+  // how two samples mix: places in a straight line, sizes geometrically, turns by slerp (the shortest way), yaws by the
+  // shortest angle, a view component by component (its angles in degrees in [-180, 180): unwrapped where they cross)
+  const lerp = (a, b, f) => a + (b - a) * f;
+  const turnBy = (a, b) => { const d = (b - a) % (2 * Math.PI); return d > Math.PI ? d - 2 * Math.PI : d < -Math.PI ? d + 2 * Math.PI : d; };
+  const MIX = {
+    place: (a, b, f) => ({ x: lerp(a.x, b.x, f), y: lerp(a.y, b.y, f), z: lerp(a.z, b.z, f), s: a.s * Math.pow(b.s / a.s, f), q: a.q || b.q ? qSlerp(a.q || Q1, b.q || Q1, f) : null }),
+    panel: (a, b, f) => ({ x: lerp(a.x, b.x, f), y: lerp(a.y, b.y, f), z: lerp(a.z, b.z, f), yaw: a.yaw + turnBy(a.yaw, b.yaw) * f,
+      q: a.q || b.q ? qSlerp(a.q || yawQ(a.yaw), b.q || yawQ(b.yaw), f) : null }),
+    station: (a, b, f) => ({ x: lerp(a.x, b.x, f), z: lerp(a.z, b.z, f), yaw: a.yaw + turnBy(a.yaw, b.yaw) * f }),
+    view: (a, b, f) => a.map((x, k) => { const y = b[k], w = Math.abs(x) <= 180 && Math.abs(y) <= 180 ? (y - x > 180 ? -360 : x - y > 180 ? 360 : 0) : 0; return lerp(x, y + w, f); }),
+    person: (a, b, f) => ({ head: [lerp(a.head[0], b.head[0], f), lerp(a.head[1], b.head[1], f), lerp(a.head[2], b.head[2], f), ...qSlerp(a.head.slice(3), b.head.slice(3), f)],
+      hands: b.hands.map((H, i) => {
+        const A = a.hands[i];
+        if (!A) return H;
+        const d = [lerp(A[3], H[3], f), lerp(A[4], H[4], f), lerp(A[5], H[5], f)], l = Math.hypot(...d) || 1;
+        return [lerp(A[0], H[0], f), lerp(A[1], H[1], f), lerp(A[2], H[2], f), d[0] / l, d[1] / l, d[2] / l, lerp(A[6], H[6], f)];
+      }) }),
+  };
+  // a moving key's value as it is drawn (its story is checked where it is used), or null: not a move (no ts), so the glide
+  const SAMPLE = {
+    place: v => (validPlace(v, v) ? { x: v.x, y: v.y, z: v.z, s: clampS(v.s), q: roomQ(v) } : null),
+    panel: v => (validPanel(v, v) ? { x: v.x, y: v.y, z: v.z, yaw: v.yaw, q: roomQ(v) } : null),
+    view: v => (Array.isArray(v.v) && v.v.length && v.v.every(Number.isFinite) ? v.v.slice() : null),
+    station: v => (['x', 'z', 'yaw'].every(k => Number.isFinite(v[k])) ? { x: v.x, z: v.z, yaw: v.yaw } : null),
+  };
+  // someone else's write of a moving key (onSet): a sample, or the end of its samples
+  function smoothIn(k, v) {
+    const m = SM_RE.exec(k), w = m && (m[2] || 'station');
+    if (!w) return;
+    const p = v && typeof v === 'object' && Number.isFinite(v.ts) ? SAMPLE[w](v) : null;
+    if (!p) { BUF.delete(k); return; }
+    let B = BUF.get(k);
+    if (!B || B.story !== v.story) BUF.set(k, (B = { s: [], seed: false, story: v.story }));   // (another story: anew)
+    bufPush(B, v.ts, p, v.h === 1);
+  }
+
   function placeSync(dt, t) {
     const L = liveSt();
     if (!synced(L) || !R.placing() || HOST.picking || !C.hook.panel) { PL.id = ''; return; }
@@ -1974,39 +2084,50 @@
     if (pq) { _v.set(0, 0, 1).applyQuaternion(_q.fromArray(pq)); if (Math.hypot(_v.x, _v.z) > 0.1) pyaw = Math.atan2(_v.x, _v.z); }
     const cur = { panel: { x: p.pp.x, y: p.pp.y + EYE, z: p.pp.z, yaw: pyaw, q: pq && qAng(pq, yawQ(pyaw)) > 0.001 ? pq : null },
       globe: { x: p.off.x, y: p.off.y, z: p.off.z, s: clampS(+p.s || 1), q: rot && qAng(rot, Q1) > 0.001 ? rot : null } };
-    const room = { panel: roomPanel(L), globe: roomPlace(L) };
+    const room = { panel: roomPanel(L), globe: roomPlace(L) }, key = { panel: kPanel(L.id), globe: kPlace(L.id) };
     const put = (w, v) => {
       try { if (w === 'panel') C.hook.panel([v.x, v.y - EYE, v.z], v.yaw, v.q || null); else if (C.hook.place) C.hook.place([v.x, v.y, v.z], v.s, v.q || null); } catch (e) { /* story not ready */ }
     };
-    if (PL.id !== L.id) { PL.id = L.id; PL.held = { panel: false, globe: false }; put('panel', room.panel); put('globe', room.globe); return; }   // a station reached: as the room has it
-    const lk = stLocked(L), hs = String(p.held || ''), out = [];   // held: what a grip holds there ('panel', 'globe'); lk: this story's lock
+    if (PL.id !== L.id) {   // a station reached: as the room has it
+      Object.assign(PL, { id: L.id, held: { panel: false, globe: false }, moved: { panel: false, globe: false } });
+      BUF.delete(key.panel); BUF.delete(key.globe);
+      put('panel', room.panel); put('globe', room.globe);
+      return;
+    }
+    const lk = stLocked(L), hs = String(p.held || ''), out = [], ts = Math.round(now());   // held: what a grip holds there ('panel', 'globe'); lk: this story's lock
     for (const w of ['panel', 'globe']) {
       const held = !lk && hs.includes(w), a = cur[w], b = room[w];
       // the turns compared and eased: the panel's upright at its yaw when it has none, the scene's none
       const qa = a.q || (w === 'panel' ? yawQ(a.yaw) : Q1), qb = b.q || (w === 'panel' ? yawQ(b.yaw) : Q1), dq = qAng(qa, qb);
-      // held: out to the room ten times a second, and once more when let go (locked meanwhile: nothing more goes out,
-      // and it goes back to where the room has it); the other one, not held, goes on following the room
+      // held: out to the room 15 times a second while it moves and once more as it comes to rest (h: 1: the others see
+      // where it stopped rather than carry it on), and once more without h when let go (locked meanwhile: it lands where
+      // it was last sent, and goes back there here); the other one, not held, goes on following the room
       if (held || PL.held[w]) {
         PL.held[w] = held;
         if (!held) PL.quiet[w] = t + 400;   // (our last write on its way)
-        if ((held && t - PL.at < 100) || (!held && lk)) continue;
-        if (w === 'panel') {
-          const v = { x: r3(a.x), y: r3(a.y), z: r3(a.z), yaw: r3(a.yaw) };
-          if (a.q) v.q = qOut(a.q);
-          if (Math.hypot(v.x - b.x, v.y - b.y, v.z - b.z) > 0.002 || Math.abs(v.yaw - b.yaw) > 0.004 || dq > 0.004) out.push([kPanel(L.id), Object.assign(v, { story: L.story })]);
-        } else {
-          const v = { x: r3(a.x), y: r3(a.y), z: r3(a.z), s: r3(a.s) };
-          if (a.q) v.q = qOut(a.q);
-          if (Math.hypot(v.x - b.x, v.y - b.y, v.z - b.z) > 0.002 || Math.abs(v.s - b.s) > 0.002 || dq > 0.004) out.push([kPlace(L.id), Object.assign(v, { story: L.story })]);
-        }
+        const was = val(key[w]);
+        if (!held && lk) { if (was && was.h === 1) out.push([key[w], Object.assign(bare(was), { ts })]); continue; }   // (locked: it lands where it was last sent)
+        if (held && t - PL.at < SMOOTH.SEND) continue;
+        const v = w === 'panel' ? { x: r3(a.x), y: r3(a.y), z: r3(a.z), yaw: r3(a.yaw) } : { x: r3(a.x), y: r3(a.y), z: r3(a.z), s: r3(a.s) };
+        if (a.q) v.q = qOut(a.q);
+        const moved = Math.hypot(v.x - b.x, v.y - b.y, v.z - b.z) > 0.002 || dq > 0.004 || (w === 'panel' ? Math.abs(v.yaw - b.yaw) > 0.004 : Math.abs(v.s - b.s) > 0.002);
+        if (held ? !moved && !PL.moved[w] : !moved && !(was && was.h === 1)) continue;
+        PL.moved[w] = held && moved;
+        out.push([key[w], Object.assign(v, { story: L.story, ts }, held ? { h: 1 } : {})]);
         continue;
       }
       if (t < PL.quiet[w]) continue;
+      // someone else moving it: where they had it DELAY ago, exactly, every frame (no glide on top)
+      const B = BUF.get(key[w]);
+      if (B && B.story === L.story) {
+        bufSeed(B, a);
+        const v = bufAt(B, w === 'panel' ? MIX.panel : MIX.place);
+        if (v) { put(w, v); continue; }
+      }
       // the room's value glides in (the last couple of millimetres at once); a turn by slerp
       const k = 1 - Math.exp(-dt * 12), d = Math.hypot(b.x - a.x, b.y - a.y, b.z - a.z), q = a.q || b.q ? qSlerp(qa, qb, k) : null;
       if (w === 'panel') {
-        let y = (b.yaw - a.yaw) % (2 * Math.PI);
-        if (y > Math.PI) y -= 2 * Math.PI; else if (y < -Math.PI) y += 2 * Math.PI;
+        const y = turnBy(a.yaw, b.yaw);
         if (d < 1e-6 && Math.abs(y) < 1e-6 && dq < 1e-6) continue;
         put(w, d < 0.002 && Math.abs(y) < 0.003 && dq < 0.003 ? b : { x: a.x + (b.x - a.x) * k, y: a.y + (b.y - a.y) * k, z: a.z + (b.z - a.z) * k, yaw: a.yaw + y * k, q });
       } else {
@@ -2015,24 +2136,52 @@
         put(w, d < 0.002 && ds < 0.001 && dq < 0.003 ? b : { x: a.x + (b.x - a.x) * k, y: a.y + (b.y - a.y) * k, z: a.z + (b.z - a.z) * k, s: a.s * Math.pow(b.s / a.s, k), q });
       }
     }
-    if (out.length) { PL.at = t; publish(out); }
+    if (out.length) { PL.at = t; publish(out, true); }   // (the rest and the letting go are no new value: forced)
   }
 
-  // the scene's view at a station in a headset (explore mode: how the story turns and sizes its scene, which is
-  // where it stands in the room): shared by the headsets there, so they see it alike (a view from the room glides
-  // in; one turned here goes out). Screens keep their own camera; story mode follows the clock.
-  function viewSync() {
+  // The scene's view at a station in a headset (explore mode: how the story turns and sizes its scene, which is where it
+  // stands in the room): shared by the headsets there, so they see it alike. A view turned here goes out while it changes
+  // frame by frame (at most 15 times a second, with ts and h: 1) and once more without h when it rests; someone else's
+  // comes in smoothly (put exactly where it was DELAY ago, every frame, through the story's setView(v, true), and nothing
+  // goes out meanwhile, so nothing applied from the room is written back; once it has landed, turns made here go out
+  // again). A view that changed at once here (after a flight: collabView is null while the camera flies) goes out plain,
+  // and one from the room without ts glides in (the story's own 0.25 s glide). Screens keep their own camera; story mode
+  // follows the clock. Every frame, from the shell's tick.
+  const VW = { id: '', seen: '', at: 0, moving: false, gap: true };
+  function viewSync(t) {
     const L = liveSt();
-    if (!synced(L) || !R.placing() || !C.hook.view || !C.hook.setView) return;
-    const k = kView(L.id), room = val(k), seen = k + J(room);
+    if (!synced(L) || !R.placing() || HOST.picking || !C.hook.view || !C.hook.setView) { VW.id = ''; return; }
+    const k = kView(L.id), room = viewOf(val(k), L);
+    const set = (v, at) => guarded(() => { try { C.hook.setView(v, at); } catch (e) { log('view failed', { e: e.message }); } });
+    if (VW.id !== L.id) { Object.assign(VW, { id: L.id, seen: '', at: 0, moving: false, gap: true }); BUF.delete(k); }   // a station reached: as the room has it
     let cur = null;
     try { cur = C.hook.view(); } catch (e) { return; }
-    if (room != null && seen !== C.viewSeen && !C.pending.has(k)) {   // new from the room (or a station just reached)
-      C.viewSeen = seen;
-      if (J(cur) !== J(room)) { log('view', { st: L.id }); guarded(() => { try { C.hook.setView(room); } catch (e) { log('view failed', { e: e.message }); } }); }
+    if (!cur) VW.gap = true;   // (flying, or in story mode: what comes after is no turn)
+    const B = BUF.get(k);
+    if (B && B.story === L.story && !C.pending.has(k)) {   // someone else turning it
+      if (cur) bufSeed(B, cur);
+      const v = bufAt(B, MIX.view);
+      VW.seen = k + J(room); VW.moving = false; VW.gap = !cur;
+      if (v && !(bufDone(B) && J(cur) === J(room))) { set(v, true); return; }
+      BUF.delete(k);   // (landed, and shown so here; or nothing newer: put where the room has it)
+      if (!v && room) set(room, true);
       return;
     }
-    if (cur != null && J(cur) !== J(room)) { publish([[k, cur]]); C.viewSeen = k + J(cur); }
+    // from the room without ts (a view after a flight, the first at a station, a write by hand): it glides in
+    const seen = k + J(room);
+    if (room && seen !== VW.seen && !C.pending.has(k)) { VW.seen = seen; VW.moving = false; if (J(cur) !== J(room)) { log('view', { st: L.id }); set(room); } return; }
+    // turned here
+    if (!cur || t - VW.at < SMOOTH.SEND) return;
+    const moved = J(cur) !== J(room);
+    if (VW.gap) {   // (after a flight, or the first here: plain, the others glide to it)
+      VW.gap = false; VW.moving = false;
+      if (moved) { VW.at = t; publish([[k, { v: cur, story: L.story }]]); VW.seen = k + J(cur); }
+      return;
+    }
+    if (!moved && !VW.moving) return;
+    VW.at = t; VW.moving = moved;
+    publish([[k, Object.assign({ v: cur, story: L.story, ts: Math.round(now()) }, moved ? { h: 1 } : {})]], true);
+    VW.seen = k + J(cur);
   }
 
   // ------------------------------------------- the pump: five times a second --
@@ -2056,7 +2205,7 @@
     }
     whoStep(t);   // (a person followed: their station first)
     const L = liveSt();
-    if (synced(L) && !HOST.picking) { if (!C.clockT) clockApply(false); statePoll(); viewSync(); }
+    if (synced(L) && !HOST.picking) { if (!C.clockT) clockApply(false); statePoll(); }   // (the view: every frame, viewSync)
     // a switch the room asked for that got lost (a story still loading drops a second request): ask again
     else if (L && L.story !== HOST.curKey && (C.mine === L.id || C.follow === L.id) && !HOST.busy && t - C.goAt > 3000) goTo(L);
     for (const [id, P] of C.pres) if (t - P.at > (P.head ? 3000 : 8000)) C.pres.delete(id);
@@ -2540,7 +2689,7 @@
     OV.people.delete(id);
   }
   function drawPeople(dt) {
-    const k = 1 - Math.exp(-dt / 0.06);   // ease towards the latest presence (time constant 60 ms)
+    const k0 = 1 - Math.exp(-dt / 0.06);   // without ts: eased towards the latest presence (time constant 60 ms)
     const vr = HOST.mode !== 'immersive-ar', lm = HOST.xr.labels();
     for (const id of OV.people.keys()) if (!C.pres.has(id) || !C.pres.get(id).head) dropPerson(id);
     const L = liveSt(), all = !L || peopleAll();
@@ -2562,7 +2711,8 @@
         ctx.font = FONT(40, 700); ctx.fillStyle = INK; ctx.textBaseline = 'middle'; ctx.fillText(fit(ctx, name, 340), 28, 44);
         o.tagTex.needsUpdate = true;
       }
-      const h = P.head, hands = P.hands;
+      // where they were DELAY ago, between the samples around that moment (smoothing), exactly; else eased to the latest
+      const S = bufAt(P.buf, MIX.person), k = S ? 1 : k0, h = S ? S.head : P.head, hands = S ? S.hands : P.hands;
       if (!o.e) o.e = { p: new THREE.Vector3(h[0], h[1], h[2]), q: new THREE.Quaternion(h[3], h[4], h[5], h[6]), hands: [] };
       o.e.p.lerp(_v.set(h[0], h[1], h[2]), k); o.e.q.slerp(_q.set(h[3], h[4], h[5], h[6]), k);
       o.avatar.position.copy(o.e.p); o.avatar.quaternion.copy(o.e.q);
@@ -3308,6 +3458,7 @@
   function tick(f) {
     const t = performance.now(), dt = Math.min(0.1, (t - (C.tickAt || t)) / 1000);
     C.tickAt = t; C.frameN = (C.frameN || 0) + 1;
+    if (C.code) renderStep();   // (the time others' moves are drawn at, smoothed)
     attachCheck();
     const local = refSpace();
     HD.ok = false;
@@ -3338,7 +3489,7 @@
     // all in it (once per room)
     if (HOST.session && C.code && C.welcomed && !C.st.length && PNL.empty !== C.code && OV.root && OV.root.visible) { PNL.empty = C.code; menuOpen(true, 'empty'); }
     if (MV.src && f) carryStation(f, t);
-    if (C.code) placeSync(dt, t);
+    if (C.code) { placeSync(dt, t); viewSync(t); }
     leftHand(f, local);
     touch(f, local);
     easeStations(dt);
@@ -3375,7 +3526,7 @@
       _v.copy(h.o).applyMatrix4(R.mi); _v2.copy(h.d).transformDirection(R.mi);
       hands.push([r3(_v.x), r3(_v.y), r3(_v.z), r3(_v2.x), r3(_v2.y), r3(_v2.z), r3(len)]);
     }
-    fx('p.' + C.id, { st: C.mine || '', head, hands, bv: BROWSER, sp: (R.sharedOK && R.sharedId) || '', al: R.aligned && !R.aloneAt ? R.src : '' });
+    fx('p.' + C.id, { st: C.mine || '', head, hands, bv: BROWSER, sp: (R.sharedOK && R.sharedId) || '', al: R.aligned && !R.aloneAt ? R.src : '', ts: Math.round(now()) });
   }
   // the narration comes from the live station's content and fades with distance (nothing changes outside a room)
   const ZN = { p: [0, 0, 0], head: [0, 0, 0], f: [0, 0, 0], u: [0, 0, 0] }, _u = new THREE.Vector3();
@@ -4969,5 +5120,6 @@
       });
     },
     internals: () => C,
+    smooth: () => ({ SMOOTH, BUF, RT }),   // (for tests: others' moves, smoothed)
   };
 })();
