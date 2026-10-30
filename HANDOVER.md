@@ -43,6 +43,14 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
 
 ## Where things stand
 
+- **Released as networks-v101 (30 October 2026; FORMAT networks-27 as v100, so v100 and v101 devices share rooms),
+  tested headlessly only:** the owner's four notes after testing v100 (the bullet below). Reviewed once from three sides
+  (two low findings, fixed). Tests: smoke, audio, live, peer, relay (243) and the update test from v100 all good; the
+  full shared-rooms run 408 good and 2 failed: the room map's move seen late on another page (the check now waits 6 s;
+  it passed again) and the ten-headset round's *Lock story* from a page's dialog, which failed the same way in v100's
+  full run. That round passes in full on its own (`--circles`, three times today, every new check in it too); inside a
+  long run the pretend headset's frames can stall for seconds on this 4-CPU machine (in one quick run 11 s), so its
+  waits time out. Known flake of the test, not of the app.
 - **Released in v101 (30 October 2026), tested headlessly only: the owner's notes after testing v100.** (1) The
   page's "Back in room" notice never went away: its own `display: flex` outranked the `hidden` attribute that its 20 s,
   Shared and Leave set; it is now shown and hidden by its display, and has a close button. (2) In a circle the other
@@ -80,7 +88,7 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
   (`tools/live.mjs`), the relay's protocol test, the introduction server's test (`tools/peer.mjs`), the tour's
   recording against its story (`tools/voice/check.mjs lbi --quick`), the shared-room test (three pages and a pretend
   headset in a room, with its parts for rooms on this network, following a person, the design room and the circles),
-  `node tools/release.mjs --check` and each built story's `--check`. All pass on networks-v100.
+  `node tools/release.mjs --check` and each built story's `--check`. All pass on networks-v101 (one known flake in the long shared-rooms run, above).
 - **Released in v100 (30 October 2026), tested headlessly only: labels and cards, two switches**
   (the owner: "can we have an independent switch for the small labels that are shown inside the 3d models and one for
   the larger ones like the play pause cards? the smaller models should be on top by default and the other ones should be
