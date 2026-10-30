@@ -2375,8 +2375,10 @@ try {
     return { icons: [...O.rings].filter(([k, o]) => k !== id && o.icon.k > 0.9 && O.hit.includes(o.ball)).length, ownIcon: O.rings.get(id).icon.k > 0.05,
       cards: [...O.cards].filter(([, c]) => c.mesh.visible).map(([k]) => k), own: O.hit.includes(O.rings.get(id).ring),
       farRings: HOST.collab.stations().filter(s => far(s) && O.hit.includes(O.rings.get(s.id).ring)).map(s => s.id) }; });
-  const inRing = await until(H, () => { window.__xr.step(); const O = HOST.collab.overlay(), id = HOST.collab.mine();
-    return [...O.rings].every(([k, o]) => (k === id ? o.icon.k < 0.05 : o.icon.k > 0.9)) && [...O.cards.values()].every(c => !c.mesh.visible); }, null, 8000);
+  // (the rings fade out over a second or so of frames)
+  const inRing = await until(H, () => { window.__xr.step(); const O = HOST.collab.overlay(), id = HOST.collab.mine(), R = HOST.room.internals();
+    return [...O.rings].every(([k, o]) => (k === id ? o.icon.k < 0.05 : o.icon.k > 0.9)) && [...O.cards.values()].every(c => !c.mesh.visible) &&
+      HOST.collab.stations().every(s => Math.hypot(R.hr.x - s.x, R.hr.z - s.z) < 2.2 || !O.rings.get(s.id).ring.visible); }, null, 10000);
   const ro = await iconsOnly();
   check('headset: in its circle the other stations show their icons only (pointable; no card, no ring further than 2 m off), and its own its ring alone (no icon)', inRing &&
     ro.icons === nSt - 1 && !ro.ownIcon && !ro.cards.length && !ro.farRings.length && ro.own, JSON.stringify(ro));
@@ -2938,7 +2940,7 @@ try {
   const rcD = await H.evaluate(() => HOST.cur.recenter());
   const rcBack = await until(H, v => { window.__xr.step(); return JSON.stringify(HOST.cur.collab.view()) === JSON.stringify(v); }, rcV0, 6000);
   const rcRoom = rcBack && await until(A, ([k, v]) => { const x = HOST.collab.val(k); return !!x && JSON.stringify(x.v) === JSON.stringify(v); }, [rcKv, rcV0], 4000);
-  check('headset: in explore mode Recenter also puts the view back where the story put it there (not where the room had rcTurned it), for everyone at its circle',
+  check('headset: in explore mode Recenter also puts the view back where the story put it there (not where the room had turned it), for everyone at its circle',
     !!rcV0 && rcThere && rcD === true && rcBack && rcRoom, JSON.stringify({ rcV0, rcTurned, rcThere, rcD, rcBack, rcRoom, now: await H.evaluate(() => HOST.cur.collab.view()) }));
   await A.evaluate(([k, v]) => HOST.collab.publish([[k, Object.assign({}, v, { at: Math.round(HOST.collab.now()) })]]), [rcKp, rcPlay]);
   await until(H, m => { window.__xr.step(); return HOST.cur.peek('APP.mode') === m; }, rcPlay.mode, 8000);

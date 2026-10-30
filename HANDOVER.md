@@ -43,7 +43,7 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
 
 ## Where things stand
 
-- **Built on 30 October 2026 for v101, tested headlessly only: the owner's notes after testing v100.** (1) The
+- **Released in v101 (30 October 2026), tested headlessly only: the owner's notes after testing v100.** (1) The
   page's "Back in room" notice never went away: its own `display: flex` outranked the `hidden` attribute that its 20 s,
   Shared and Leave set; it is now shown and hidden by its display, and has a close button. (2) In a circle the other
   stations show their 3D icons only, and a station's ring (your own too) fades in within 2 m of its spot and out beyond
