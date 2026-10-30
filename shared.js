@@ -1715,20 +1715,24 @@
   // each on top, in 3D (turned to you, in the scene) or hidden; free moving on or off; subtitles on or off) and the two
   // sound switches for pages and headsets alike (sound effects and narration on or off) are the room's in a room, for
   // everyone in it (key look: { labels, cards, free, subs, sfx, voice, by, at }; a room without it: labels on top, cards in
-  // 3D, no subtitles, sound effects and narration on; FORMAT networks-27 for cards, sfx and voice), set from a headset's
-  // menu or the page's dialog, and never refused by either lock. Null outside a room (the device's own)
+  // 3D, no subtitles; FORMAT networks-27 for cards, sfx and voice), set from a headset's menu or the page's dialog, and
+  // never refused by either lock. A sound switch the room never wrote stays each device's own (HOST.xr.mine), so a device
+  // that turned it off keeps it off. Null outside a room (the device's own)
   const LOOKS = ['face', 'fixed', 'hidden'], LOOK0 = { labels: 'face', cards: 'fixed', free: true, subs: false, sfx: true, voice: true };
+  const SOUNDS = ['sfx', 'voice'], mine = k => (HOST.xr && HOST.xr.mine ? HOST.xr.mine(k) !== false : LOOK0[k]);
   function look() {
     if (!C.code || !C.welcomed) return null;
-    const v = val('look'), b = k => (v && typeof v[k] === 'boolean' ? v[k] : LOOK0[k]), m = k => (v && LOOKS.includes(v[k]) ? v[k] : LOOK0[k]);
+    const v = val('look'), b = k => (v && typeof v[k] === 'boolean' ? v[k] : SOUNDS.includes(k) ? mine(k) : LOOK0[k]), m = k => (v && LOOKS.includes(v[k]) ? v[k] : LOOK0[k]);
     return { labels: m('labels'), cards: m('cards'), free: b('free'), subs: b('subs'), sfx: b('sfx'), voice: b('voice') };
   }
   const freeNow = () => (HOST.xr && HOST.xr.free ? HOST.xr.free() : true);
   function setLook(o) {
-    const L = look();
+    const L = look(), was = val('look');
     if (!L) return false;
     const bo = k => (typeof o[k] === 'boolean' ? o[k] : L[k]), mo = k => (LOOKS.includes(o[k]) ? o[k] : L[k]);
     const v = { labels: mo('labels'), cards: mo('cards'), free: bo('free'), subs: bo('subs'), sfx: bo('sfx'), voice: bo('voice') };
+    // (a sound switch neither set now nor written before stays out: another setting must not hand this device's own to all)
+    for (const k of SOUNDS) if (typeof o[k] !== 'boolean' && !(was && typeof was[k] === 'boolean')) delete v[k];
     const pairs = [['look', Object.assign({}, v, { by: C.id, at: Math.round(now()) })]];
     // free moving off: every station's scene and panel stand as without it (no turn, the panel upright at its yaw)
     if (L.free && !v.free) {

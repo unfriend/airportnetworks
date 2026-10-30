@@ -251,7 +251,8 @@ switches, each for every story at once: Sound effects and Narration (off: the
 narration is silent and the story runs on its own clock; subtitles and effects
 go on). They are in the headset's menu, the page's Shared dialog and Sound check,
 and #sfx=off or #voice=off in a link sets them; in a shared room they are the
-room's, for every page and headset in it. The effects' volume (Sound check, the
+room's, for every page and headset in it, once someone there sets them (until
+then each device keeps its own). The effects' volume (Sound check, the
 headset's menu) is each device's own. The Sound button silences the narration
 and the effects together on that device, and the effects dip under the
 narration while it plays. tools/sfx.html is a sound board that plays every one and renders a

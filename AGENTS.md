@@ -538,7 +538,9 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
     on its own clock as when muted; the effects and the subtitles go on, nothing
     ducks). Both on by default. In a shared room they are the room's, for every
     headset and page in it (key `look`, `sfx` and `voice`, beside the headsets'
-    four settings; absent: on; set by anyone, never refused by either lock),
+    four settings; set by anyone, never refused by either lock; one the room
+    never wrote stays each device's own, so a device that turned it off keeps it
+    off, and another setting written leaves it out of the key),
     else this device's own (`sfxOn`, only `'off'` saved keeps them off;
     `narrationOn` likewise), which keeps a room's last value after leaving it,
     as the headsets' settings do. `#sfx=on|off` and `#voice=on|off` in a link.
@@ -774,7 +776,7 @@ with the station's other keys when it shows another story; FORMAT networks-25), 
 below; FORMAT networks-6),
 `look` (the headsets' four settings and the two sound switches, `{ labels, cards, free, subs, sfx, voice, by, at }`: set by anyone,
 from a page's Shared dialog or a headset's menu, never refused by the circles
-lock; a room without it gives labels on top, cards in 3D, no subtitles, and sound effects and narration on; free moving turned off takes
+lock; a room without it gives labels on top, cards in 3D and no subtitles, and leaves a sound switch it never wrote to each device; free moving turned off takes
 every `q` out of the stations' places and panels in the same write), and per shared space `rf.<space id>` (the room's frame in it) and
 `rs.<space id>` (found split; FORMAT networks-9), `sg` (the room's shared-space
 generation, `{ n, by, at }`), `near` (*Show on this network*, `{ on, by, at }`: absent or on, the room is listed under
@@ -2471,7 +2473,7 @@ circles are locked), the design room (the Shared dialog's picker listing it afte
 the stories, its station added there for every page, refused while locked from
 Add and the Design room button, left where it is by Arrange all, the button
 moving the room's one to your feet rather than adding a second), the headsets' four settings and the two sound switches
-as the room's (labels on top, cards in 3D, no subtitles, sound effects and narration on in a room without them; set on one
+as the room's (labels on top, cards in 3D, no subtitles, sound effects and narration on for pages that have them on, in a room without them; set on one
 page (the labels from one, the cards from another, each leaving the other), or in another's Shared dialog (both pickers)
 with the circles locked, for every page; free moving off taking the turns
 out of the stations' places and panels; kept across the relay restart and, in a
@@ -2583,7 +2585,8 @@ menu on top in every mode); Re-align
 and after a night: a headset still outside the space asking for it again, a
 follower holding against a space made again and following the room's frame
 once written again, this headset's own frame written into a space made again;
-a room on this device (no relay known and `&peer=off`: a link opens it, Arrange all, a moved
+a room on this device (no relay known and `&peer=off`: a link opens it, the link's sound switches turned off on the
+device staying off there while the room never wrote them (subtitles written leaving them out), Arrange all, a moved
 station, the circles lock and the headsets' settings kept across a reload, a headset alone on its floor with
 Re-align, a station played there, the room taken to a relay that answers and
 joined there by another page; a relay that cannot be reached); then peer to peer

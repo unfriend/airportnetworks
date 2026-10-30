@@ -39,7 +39,7 @@
   for every story at once: Sound effects (`HOST.xr.sfx()`, through `HOST.sfx.on()`
   and `set()`) and Narration (`HOST.xr.voice()`: off, the narration is silent and
   the story runs on its clock; effects and subtitles go on); in a room the room's
-  (key `look`), else the device's own (`sfxOn`, `narrationOn`); the effects'
+  (key `look`; one the room never wrote stays the device's own), else the device's own (`sfxOn`, `narrationOn`); the effects'
   volume is always the device's own. Only the flock and the pass story have a
   background, and `vacuum` is the only continuous sound (the owner, 30 October
   2026: the other backgrounds and the machines' hum went; never bring them back

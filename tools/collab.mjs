@@ -3577,9 +3577,17 @@ try {
   Lp.on('pageerror', e => errors.push(e.stack || e.message));
   Lp.on('console', m => { if (m.type() === 'error' && !/404|Failed to load resource|ERR_FAILED/.test(m.text())) errors.push(m.text()); });
   const lopen = async () => { await Lp.waitForFunction(() => typeof HOST !== 'undefined' && HOST.collab, null, { timeout: 90000, polling: 100 }); };
-  await Lp.goto(base() + 'index.html#s=LCL&peer=off', { timeout: 90000 }); await lopen();   // (peer to peer off: the room on this device)
+  // (peer to peer off: the room on this device; the link turns this device's own sound switches off before it joins)
+  await Lp.goto(base() + 'index.html#s=LCL&peer=off&sfx=off&voice=off', { timeout: 90000 }); await lopen();
   const lj = await until(Lp, () => HOST.collab.code === 'LCL' && HOST.collab.local && HOST.collab.status === 'open', null, 8000);
   check('no relay known, peer to peer off: a link opens its room on this device', lj, JSON.stringify(await Lp.evaluate(() => [HOST.collab.code, HOST.collab.local, HOST.collab.status, HOST.collab.relay])));
+  // a device that turned the sound switches off keeps them off in a room that never wrote them, and saves them on nowhere;
+  // another setting written meanwhile leaves them out of the room's key (it must not hand this device's own to everyone)
+  await Lp.evaluate(() => HOST.xr.setSubs(true));
+  const lown = await until(Lp, () => { const v = HOST.collab.val('look'); return !!v && v.subs === true && !('sfx' in v) && !('voice' in v) && !HOST.xr.sfx() && !HOST.xr.voice() &&
+    !HOST.sfx.on() && localStorage.getItem('sfxOn') === 'off' && localStorage.getItem('narrationOn') === 'off'; }, null, 3000);
+  check('a room on this device: a device that turned the sound switches off keeps them off in a room that never wrote them (another setting written leaves them out)', lown,
+    JSON.stringify(await Lp.evaluate(() => [HOST.collab.val('look'), HOST.xr.sfx(), HOST.xr.voice(), HOST.sfx.on(), localStorage.getItem('sfxOn'), localStorage.getItem('narrationOn')])));
   await Lp.evaluate(() => { HOST.collab.arrange({ x: 0, z: 0, yaw: 0 }); });
   await until(Lp, () => HOST.collab.stations().length === HOST.list.length && !HOST.collab.internals().pending.size, null, 3000);
   const lsid = await stationOf(Lp, OTHER_STORY);

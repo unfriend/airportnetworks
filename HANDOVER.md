@@ -43,6 +43,13 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
 
 ## Where things stand
 
+- **Fixed on 30 October 2026 for v100, after the review of the two v100 builds:** a shared room that never wrote a
+  sound switch (`look`'s `sfx` or `voice`) used to give both on and save that as the device's own, so a device that had
+  turned the effects or the narration off had them on again, also after leaving. Now such a switch stays each device's
+  own (`HOST.xr.mine`), and another setting written to the room (labels, subtitles) leaves it out of the key, so nobody
+  hands their own choice to everyone by changing something else. The shared-room test checks it in its room on this
+  device. Not a reason to bump `FORMAT` (the key's shape is the same, its sound fields only optional). Release
+  (`VERSION` networks-v100, `version.json`) left to the integrator.
 - **Tested automatically** before every merge to main: the smoke test (every story, explore mode, headset panels
   with a pretend headset, anchored placement), the sound test, the update test (service worker), the live-update test
   (`tools/live.mjs`), the relay's protocol test, the introduction server's test (`tools/peer.mjs`), the tour's
