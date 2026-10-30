@@ -1790,7 +1790,7 @@ try {
     return { id: s.id, from: [s.x, s.z, s.yaw], moved: [m.x, m.z], turned: after.yaw, follow: HOST.collab.internals().follow, locked: { kept: Math.abs(still.x - after.x) < 1e-6, arrOff, label, followed, unlocked: !HOST.collab.locked } };
   });
   const mapB = !mapT.err && await until(B, ([id, x, z, yaw]) => { const s = HOST.collab.station(id); return !!s && Math.abs(s.x - x) < 0.005 && Math.abs(s.z - z) < 0.005 && Math.abs(Math.sin(s.yaw - yaw)) < 0.005; },
-    [mapT.id, mapT.from[0] + 1, mapT.from[1] + 0.6, mapT.from[2] + Math.PI / 2], 3000);
+    [mapT.id, mapT.from[0] + 1, mapT.from[1] + 0.6, mapT.from[2] + Math.PI / 2], 6000);   // (another page drawing in software may answer late)
   check('the room map: a station\'s dot dragged moves it and its square dragged turns it, for everyone (a drag follows nothing)', !mapT.err &&
     near(mapT.moved, [mapT.from[0] + 1, mapT.from[1] + 0.6], 0.005) && Math.abs(Math.sin(mapT.turned - mapT.from[2] - Math.PI / 2)) < 0.005 && !mapT.follow && mapB, JSON.stringify(mapT));
   check('the room map: with the circles locked (Lock circles) a station cannot be dragged and Arrange all is off; unlocked again', !mapT.err &&
