@@ -4958,6 +4958,37 @@ function buildStory() {
   ramp('cell_shell', a, a + 3, 1, 0.35);
   cam(a + 3, 'cell', 'default');
   cam(b, 'cell', 'default', 40, 'spin');
+  // ---- sound effects (sfxCue: story time, a sound, where it comes from, its options), beside the keys above: a cue just
+  // before the line it goes with, textures under the voice soft; sequences from the keys (when a ramp reaches a share).
+  // The sharks (the story's at watch + 20 among them) and the school passing close are live (sfxLive in e4_explore.js),
+  // so the story's shark is not cued
+  const rampAt = (t0, t1, f) => { let lo = 0, hi = 1; for (let i = 0; i < 24; i++) { const m = (lo + hi) / 2; if (smooth(m) < f) lo = m; else hi = m; } return t0 + (t1 - t0) * lo; };
+  a = C.fish.a;
+  sfxCue(a + 6, 'bubble', 'fish', 'school', { gain: 0.3 });                          // the school named
+  a = C.watch.a;
+  sfxCue(a + 4, 'grow', 'fish', 'school', { dur: 3 });                               // who watches whom
+  a = C.links.a;
+  sfxCue(a + 5, 'snap', 'fish', 'school');                                           // one neighbour each: the school falls apart
+  sfxCue(a + 5.4, 'rush', 'fish', 'school', { pitch: 1.2, dur: 1 });
+  sfxCue(a + 23.8, 'link', 'fish', 'school');                                        // seven again
+  sfxCue(a + 24.2, 'rise', 'fish', 'school', { dur: 3 });                            // it comes together
+  a = C.sky.a;
+  sfxCue(a + 2, 'whoosh', 'fish', 'school', { dur: 7, pitch: 1.3 });                 // out of the water
+  sfxCue(a + 7.8, 'grow', 'globe', null, { dur: 6 });                                // the globe
+  sfxCue(a + 17.8, 'pulse', 'globe', 'start');                                       // the outbreak starts in Vienna
+  sfxCue(a + 22, 'grow', 'globe', 'start', { dur: 12, pitch: 0.7, gain: 0.3 });      // it spreads along the routes
+  [28, 36].forEach((s, i) => sfxCue(a + s - 0.2, 'step', 'globe', null, { pitch: Math.pow(2, 2 * i / 12), gain: 0.35 }));   // cities reached by day 10, 20
+  sfxCue(a + 44, 'rise', 'globe', null, { dur: 3 });                                 // the hubs' pillars
+  a = C.cell.a;
+  sfxCue(a + 2, 'whoosh', 'cell', null, { dur: 3 });                                 // into the cell
+  [0, 2, 4, 7, 9, 12, 14, 16, 19, 21].forEach((s, i) => sfxCue(rampAt(a + 3, a + 15, (i + 0.3) / 10), 'bubble', 'cell', 'org_' + ['pm', 'nuc', 'nucl', 'er', 'golgi', 'mito', 'lyso', 'endo', 'perox', 'cytosk'][i], { pitch: 0.75 * Math.pow(2, s / 12), gain: 0.25, seq: true }));   // organelles one by one
+  sfxCue(a + 14.8, 'link', 'cell', 'EGFR@pm');                                       // two proteins meet
+  sfxCue(a + 22.8, 'spark', 'cell', 'EGF');                                          // the relay begins
+  sfxCue(a + 28.8, 'whoosh', 'cell', 'org_nuc', { dur: 4, pitch: 0.9 });             // NF-kB into the nucleus
+  sfxCue(a + 41.8, 'snap', 'cell', 'CFTR');                                          // CFTR stuck on its way
+  a = C.med.a;
+  sfxCue(a + 0.3, 'pulse', 'cell', null, { pitch: 0.8 });                            // the network stands out, CFTR's links lost
+  [4, 6, 8].forEach((s, i) => sfxCue(a + s - 0.2, 'step', 'cell', null, { pitch: Math.pow(2, 2 * i / 12), gain: 0.35, seq: true }));   // three steps
   for (const n in TR) TR[n].sort((x, y) => x[0] - y[0]);
   buildCamera(wp);
 }
@@ -5292,13 +5323,15 @@ function openScene(k, fly = true) {
   const same = X.scene === k;
   X.scene = k; X.t0 = performance.now();
   if (k === 'fish' && !same) FOL.az = null;   // (the camera finds the school afresh)
-  if (fly && !same) flyTo(view(k, viewCam(k) || 'default'));
+  if (fly && !same) { flyTo(view(k, viewCam(k) || 'default')); sfxAct('whoosh', k, null, { dur: 0.8 }); }   // (sound effects: another scene)
   if (k === 'globe') outApply();
   renderAll();
 }
 function setCtl(k, key, v, ui = true) {
   const c = ctlOf(k, key);
   if (!c || !c.options.some(o => o[0] === v)) return;
+  // (sound effects: a view, the outbreak switched on, a control)
+  if (ctlValue(k, c) !== v) sfxAct(...(key === 'view' ? ['whoosh', k, null, { dur: 0.7, pitch: 1.1 }] : k === 'globe' && key === 'out' && v === 'on' ? ['pulse', k, 'start'] : ['step', k, null]));
   (X.ctl[k] = X.ctl[k] || {})[key] = v;
   X.t0 = performance.now();
   // a view has its own best camera
@@ -5331,12 +5364,16 @@ function flyNear(p, d) { if (p) flyTo([orbit.cur[0], orbit.cur[1], d, p[0], p[1]
 // hand (ui true) it also brings up the scene that shows it.
 // the fish: neighbours watched (1 to 12), the school's size (100 to 600), being the shark, a shark sent
 function setFishK(n, ui = true) {
+  const k0 = fishK();
   (X.ctl.fish = X.ctl.fish || {}).k = String(clamp(Math.round(+n) || 7, 1, 12));
+  if (fishK() !== k0) sfxAct('step', 'fish', 'school', { pitch: Math.pow(2, (fishK() - 1) / 12) });   // (sound effects: neighbours watched)
   if (ui && X.scene !== 'fish') openScene('fish');
   syncFish();
 }
 function setFishN(n, ui = true) {
+  const n0 = X.n;
   X.n = clamp(Math.round((+n || 300) / 50) * 50, 100, 600);
+  if (X.n !== n0) sfxAct('patter', 'fish', 'school', { dur: 0.8, pitch: X.n > n0 ? 1.2 : 0.8, gain: 0.7 });   // (sound effects: fish come, or go)
   if (ui && X.scene !== 'fish') openScene('fish');
   syncFish();
 }
@@ -5363,6 +5400,7 @@ function outApply() {
 }
 function setStart(code, ui = true) {
   if (outIndex(code) < 0) return;
+  if (ui) sfxAct('pulse', 'globe', api('globe').pos(outIndex(code), 0.02));   // (sound effects: the outbreak starts there)
   X.out.start = code;
   if (ui) {
     X.out.day = 0; X.out.playing = true; X.out.click = 'look';   // (picked by hand: it plays, and the next click looks a city up)
@@ -5371,7 +5409,9 @@ function setStart(code, ui = true) {
   outApply(); renderOutbreak();
 }
 function selectCity(code, ui = true) {
+  const was = X.city;
   X.city = code && outIndex(code) >= 0 ? code : '';
+  if (X.city && X.city !== was) sfxAct('pick', 'globe', api('globe').pos(outIndex(X.city), 0.02));   // (sound effects: a city looked up)
   if (ui) showOutbreak();
   api('globe').select(X.city ? outIndex(X.city) : -1);
   renderOutbreak();
@@ -5391,6 +5431,7 @@ function setOut(k, v, ui = true) {
 function playOut(on) {
   const O = X.out, end = api('globe').end();
   if (on && O.day >= end) O.day = 0;
+  if (on && !O.playing) sfxAct('pulse', 'globe', 'start');   // (sound effects: the outbreak plays)
   O.playing = !!on;
   if (O.playing) showOutbreak();
   syncOut();
@@ -5406,13 +5447,16 @@ function selectProtein(p, copy, ui = true) {
   const A = api('cell');
   p = typeof p === 'string' ? A.protein(p) : p;
   if (!(Number.isInteger(p) && p >= 0)) p = -1;
+  const was = X.prot;
   X.prot = p >= 0 ? A.info(p).sym : '';
+  if (X.prot && X.prot !== was) sfxAct('pick', 'cell', Number.isInteger(copy) ? A.pos(copy) : X.prot);   // (sound effects: a protein picked)
   A.select(p, copy);
   if (ui && X.scene !== 'cell') openScene('cell');
   renderCell(); updateExtraLabels();
 }
 function setMove(key, ui = true) {
   if (key !== 'none' && !MOVE_KEYS().includes(key)) return;
+  if (key !== 'none' && key !== ctlVal('cell', 'move')) sfxAct(...(key === 'cf' ? ['snap', 'cell', 'CFTR'] : ['whoosh', 'cell', 'org_nuc', { dur: 1.5, pitch: 0.9 }]));   // (sound effects: a move played)
   (X.ctl.cell = X.ctl.cell || {}).move = key;
   if (ui && X.scene !== 'cell') openScene('cell');
   renderAll();
@@ -5504,6 +5548,21 @@ function fishSync() {
   if (lead) { const age = clamp((now - lead.at) / 1000, 0, 2); s.follow({ t: lead.t + age, m: lead.m.map((x, j) => x + lead.v[j] * age), v: lead.v }, Math.min(gap, 1000) / 1000); }
   else if (s.following()) s.follow(null);
   return true;
+}
+// sound effects, live (the shared block's sfxStep calls this every frame, story and explore mode alike, unless the story is
+// hidden): a shark arriving (a rush where it is) and, half a second later, the warning racing through the school; your own
+// steering starting; the school's middle coming within 3 m of your head after being more than 5 m off (at most every
+// 10 s). Polled, not hooked, so sharks from other devices sound too; only while the fish show (GL.lifeOn)
+const SFL = { so: false, st: false, far: true, near: 0 };
+function sfxLive() {
+  const s = GL.sets.fish, so = s.sharkOn(), z = s.state(), st = !!(so && z.shark.steer), pn = performance.now();
+  if (!GL.lifeOn) { SFL.so = so; SFL.st = st; SFL.far = true; return; }
+  if (so && !SFL.so) { sfxPlay('rush', 'fish', 'shark', { dur: 1.4 }); sfxPlay('rush', 'fish', 'school', { delay: 0.5, pitch: 1.3, dur: 1, force: true }); }
+  else if (st && !SFL.st) sfxPlay('rush', 'fish', 'shark', { dur: 0.8, pitch: 1.2, gain: 0.7 });
+  SFL.so = so; SFL.st = st;
+  const h = z.me.head, f = s.flight().m, d = Math.hypot(f[0] - h[0], f[1] - h[1], f[2] - h[2]);
+  if (d > 5) SFL.far = true;
+  else if (d < 3 && SFL.far && pn - SFL.near > 10000) { SFL.far = false; SFL.near = pn; sfxPlay('rush', 'fish', 'school', { dur: 1.6, pitch: 0.8, gain: 0.3 }); }
 }
 // what another device at the station sent: where its school is, or a shark
 const v3ok = a => Array.isArray(a) && a.length === 3 && a.every(Number.isFinite);
@@ -6184,7 +6243,8 @@ function xrRelease(c) {
     const h = c.hover;
     if (h && h.kind === 'panel' && h.P === p.P) {
       const r = h.P.at(h.x, h.y);
-      if (r && r.id === p.id && r.fn) { buzz(c); r.fn(); }
+      // (a soft click at the button, unless the press made a sound of its own: the shell's rule for page buttons)
+      if (r && r.id === p.id && r.fn) { buzz(c); const n = sfxN(); r.fn(); if (sfxN() === n) sfxPlay('click', 'world', h.point); }
     }
   } else if (!p.moved && p.pk) { buzz(c); xrClickPick(p.pk); }
 }
@@ -6304,6 +6364,10 @@ function xrPoint(c, dt) {
     }
   }
   c.hover = hit;
+  // a soft tick as the ray comes onto a button of the story's panels (as on the shell's menu)
+  const hr = hit && hit.kind === 'panel' && hit.P.at(hit.x, hit.y), hk = hr && hr.fn ? XR.panels.indexOf(hit.P) + '.' + hr.id : '';
+  if (hk && hk !== c.hk) sfxPlay('hover', 'world', hit.point);
+  c.hk = hk;
   if (c.wantPress) { c.wantPress = false; xrPress(c); }
   if (c.press && c.press.kind === 'globe') dragGlobe(c, c.press);
   if (c.press && c.press.kind === 'sea') { if (sharking()) steerRay(c); else { c.press = null; GL.sets.fish.steer(null); } }
@@ -7314,7 +7378,7 @@ function audioToggle() { HOST.audio.toggle(); }
 // Slideshow (HOST.slides: on for this story, or for all): the story waits at the end of each chapter, all its text
 // shown, until Next (or Play) goes on. The stop is a pause and a seek, Next a play, so in a shared room they reach
 // the station's clock like a pause and a play by hand, at the same t on every device.
-const SLIDE = { at: -1, go: -1, last: 0, lt: 0, lp: false, tail: null };
+const SLIDE = { at: -1, go: -1, last: 0, lt: 0, lp: false, tail: null, from: 0 };
 const slidesOn = () => !!(HOST.slides && HOST.slides.on(XR_HERE));
 // where chapter i waits: just before its text starts to fade out (0.65 s before its end in story time), on the
 // recording's clock; the same on every device
@@ -7331,6 +7395,7 @@ const slideVoice = i => (typeof NARRATION_ENDS === 'object' && +NARRATION_ENDS[C
 function slideStep(t0) {
   const was = SLIDE.at, now = performance.now(), st = HOST.collab && HOST.collab.live && HOST.collab.live();
   const from = st && st.story === XR_HERE && SLIDE.lp && APP.t >= SLIDE.last && APP.t - SLIDE.last < (now - SLIDE.lt) / 1000 + 0.35 ? SLIDE.last : t0;
+  SLIDE.from = from;   // (the sound effects' cues cross by the same rule: sfxStep)
   SLIDE.at = -1;
   if (slidesOn() && APP.mode === 'story') {
     for (let i = 0; i < CH.length; i++) {
@@ -7384,6 +7449,66 @@ function slideDOM() {
   const p = $('#panel'), r = p.getBoundingClientRect(), cs = getComputedStyle(p), sec = $('#story .ch.on');
   const over = Math.min(row.getBoundingClientRect().bottom - (r.bottom - parseFloat(cs.paddingBottom)), sec ? sec.getBoundingClientRect().top - r.top - parseFloat(cs.paddingTop) : 0);
   if (over > 0) p.scrollTo({ top: p.scrollTop + over, behavior: 'smooth' });
+}
+
+// ---------------------------------------------------------- sound effects --
+// Sounds inside the story (the shell's HOST.sfx, sfx.js; phase 2). Cues are set beside the keys in buildStory, in story
+// time (sfxCue), and play as the clock crosses them while the story plays, by the slideshow's crossing rule
+// (SLIDE.from): the same cues at the same moment on every device at a station, none on a jump, a scrub, a slideshow
+// stop's seek or a late joiner's start. A span (sfxHold) keeps a continuous sound while the clock is inside it and
+// playing. Explore and headset actions call sfxAct (explore mode only) or sfxPlay where the story already handles them.
+// A sound comes from a place (a set's anchor, sfxPos): in a headset through an HRTF panner, on a screen panned by where
+// it shows. An older shell (no HOST.sfx, or a sound it does not know) plays nothing. Never in collab.state(): each
+// device plays its own. SFXQ.log keeps what was asked for (also when nothing can play: before a tap), for the tests
+const SFXQ = { cues: [], spans: [], hi: -1, t: 0, n: 0, log: [] };
+const sfxCue = (t, name, set, at, o) => { SFXQ.cues.push({ t, n: narrT(t), name, set, at, o: o || {} }); };
+const sfxHold = (t0, t1, name, set, at, o) => { SFXQ.spans.push({ id: XR_HERE + '.' + SFXQ.spans.length, t0, t1, n0: narrT(t0), n1: narrT(t1), name, set, at, o: o || {} }); };
+const sfxN = () => SFXQ.n + (HOST.sfx && HOST.sfx.count ? HOST.sfx.count() : 0);
+const _sfv = new THREE.Vector3();
+// where a sound comes from: [x, y, z] in the scene's (the reference space's) coordinates and, on a screen, a pan
+function sfxWhere(set, at) {
+  if (set === 'world') { if (!at) return {}; if (Array.isArray(at)) _sfv.fromArray(at); else _sfv.copy(at); }   // a point already in the scene's coordinates (a ray's hit)
+  else if (!sfxPos(set, at, _sfv)) return {};
+  const o = { at: [_sfv.x, _sfv.y, _sfv.z] };
+  if (!(XR.on && GL.renderer.xr.isPresenting)) { _sfv.project(GL.camera); o.pan = clamp(_sfv.x, -1, 1) * 0.6 * (_sfv.z > 1 ? -1 : 1); }
+  return o;
+}
+function sfxPlay(name, set, at, o) {
+  SFXQ.n++;
+  if (name !== 'hover') { SFXQ.log.push([name, Math.round(APP.t * 100) / 100, APP.mode]); if (SFXQ.log.length > 64) SFXQ.log.shift(); }
+  if (!HOST.sfx || !HOST.sfx.play) return null;
+  try { return HOST.sfx.play(name, Object.assign(sfxWhere(set, at), o)); } catch (e) { return null; }
+}
+// nothing of the story sounds while it is hidden: behind a Stories screen (page or headset), or a headset away from its station
+const sfxHidden = () => !!(HOST.picking || XR.stories || xrAway());
+// an explore action's sound (a pick, a result, a knockout): only in explore mode (a room's state applied while the story
+// plays is silent)
+const sfxAct = (name, set, at, o) => (APP.mode === 'explore' && !sfxHidden() ? sfxPlay(name, set, at, o) : null);
+// every frame, right after slideStep (`was`: the story was playing as the frame began): the cues crossed since the
+// slideshow's `from` (at most 1.5 s back: the narration's clock can leap ahead as it starts after a jump, and its cues
+// then play a moment late, not a burst of old ones; never twice: the narration or a room's clock may pull the clock back
+// a hair, SFXQ.hi, forgotten once the clock is put back further), the spans the clock is in, and the live parts
+// (sfxLive, where a story has them)
+function sfxStep(was, dt) {
+  const t = APP.t, from = SLIDE.from, quiet = APP.mode !== 'story' || sfxHidden();
+  if (from < SFXQ.t - 0.5 || t < SFXQ.hi - 0.5) SFXQ.hi = -1;   // back to earlier: Replay, Repeat, a jump back
+  if (was && !quiet && t > from) {
+    const hi = SFXQ.hi;
+    for (const c of SFXQ.cues) if (c.n > from && c.n <= t && c.n > hi && t - c.n < 1.5) { SFXQ.hi = Math.max(SFXQ.hi, c.n); sfxPlay(c.name, c.set, c.at, c.o); }
+  }
+  if (APP.playing && !quiet && HOST.sfx && HOST.sfx.drone) {
+    for (const s of SFXQ.spans) if (t >= s.n0 && t < s.n1) { try { HOST.sfx.drone(s.id, s.name, Object.assign(sfxWhere(s.set, s.at), s.o)); } catch (e) { /* an older shell */ } }
+  }
+  if (typeof sfxLive === 'function' && !sfxHidden()) sfxLive(dt);
+  SFXQ.t = t;
+}
+// a sound's place (sound effects): a set's anchor (a name, a function, or [x, y, z] in its frame) in the scene's
+// coordinates; no set: GL.world's origin. Sets may hang under a life-size holder: each group's own world matrix
+function sfxPos(set, at, out) {
+  const s = set && GL.sets[set];
+  if (!s) out.set(0, 0, 0).applyMatrix4(GL.world.matrixWorld);
+  else { const p = anchorOf(set, at); out.set(p[0], p[1], p[2]).applyMatrix4(s.group.matrixWorld); }
+  return isFinite(out.x + out.y + out.z);
 }
 
 // ================================================================== APP ==
@@ -7478,11 +7603,13 @@ function frame(now, xrFrame) {
   if (xr) xrBegin(xrFrame, dt);
   let S, tSet;
   const t0 = APP.t;
+  const was = APP.mode === 'story' && APP.playing;   // (sound effects: the story was playing as the frame began)
   if (APP.mode === 'story' && APP.playing) {
     APP.t += dt;
     audioFollow();
   }
   slideStep(t0);   // slideshow: the story waits at the end of each chapter
+  sfxStep(was, dt);   // sound effects: the cues the clock crossed, the spans it is in, the live sounds
   // the end: Repeat (shell) starts this story or the next one again, else explore mode opens
   if (APP.mode === 'story' && APP.playing && APP.t >= T_END) { APP.t = T_END; if (HOST.ended()) APP.playing = false; else APP.enterExplore(); }
   audioSync();

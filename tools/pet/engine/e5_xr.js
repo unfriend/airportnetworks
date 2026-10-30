@@ -318,7 +318,8 @@ function xrRelease(c) {
     const h = c.hover;
     if (h && h.kind === 'panel' && h.P === p.P) {
       const r = h.P.at(h.x, h.y);
-      if (r && r.id === p.id && r.fn) { buzz(c); r.fn(); }
+      // (a soft click at the button, unless the press made a sound of its own: the shell's rule for page buttons)
+      if (r && r.id === p.id && r.fn) { buzz(c); const n = sfxN(); r.fn(); if (sfxN() === n) sfxPlay('click', 'world', h.point); }
     }
   } else if (!p.moved && p.pk) { buzz(c); xrClickPick(p.pk); }
 }
@@ -410,6 +411,10 @@ function xrPoint(c, dt) {
     }
   }
   c.hover = hit;
+  // a soft tick as the ray comes onto a button of the story's panels (as on the shell's menu)
+  const hr = hit && hit.kind === 'panel' && hit.P.at(hit.x, hit.y), hk = hr && hr.fn ? XR.panels.indexOf(hit.P) + '.' + hr.id : '';
+  if (hk && hk !== c.hk) sfxPlay('hover', 'world', hit.point);
+  c.hk = hk;
   if (c.wantPress) { c.wantPress = false; xrPress(c); }
   if (c.press && c.press.kind === 'globe') dragGlobe(c, c.press);
   if (c.grab) carry(c, dt);

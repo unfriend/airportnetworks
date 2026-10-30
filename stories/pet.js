@@ -4892,7 +4892,7 @@ function buildStory() {
   // From health to disease: BMI, density and disorder, tumour load; robust; hexokinase 2 like FDG
   a = C.health.a; b = C.health.b;
   // the networks in turn, each from the one before (a network not read off its figure yet is skipped)
-  let w = wi('full');
+  let w = wi('full'), nets = 0;
   // (a direct crossfade over 2 s from the network before, organs_prev, to the new one: easing organs_which would pass
   // through the networks between them in the list)
   const goNet = (id, t) => {
@@ -4902,6 +4902,7 @@ function buildStory() {
     jump('organs_which', t, w, n);
     jump('organs_mix', t, 1, 0); key('organs_mix', t + 2, 1);
     w = n;
+    sfxCue(t, 'grow', 'organs', 'net', { dur: 1.8, gain: 0.35, pitch: nets++ % 2 ? 1.15 : 0.85 });   // (sound effects: each network from the one before)
   };
   goNet('A_low', a + 7); goNet('A_high', a + 10);
   // (each network's density and disorder as a tag under its title while the text explains them)
@@ -4916,6 +4917,28 @@ function buildStory() {
   cam(a + 37, 'organs', 'net', 20);
   cam(b - 0.5, 'organs', 'net', 34, 'spin');
   for (const n in TR) TR[n].sort((x, y) => x[0] - y[0]);
+
+  // ------------------------------------------------------------ sound effects
+  // (sfxCue: story time, a sound, where it comes from: a set and one of its anchors; its options. sfxHold: a continuous
+  // sound while the clock is inside a span. The health chapter's networks are cued in goNet, above)
+  sfxCue(C.title.a + 0.3, 'rise', 'scan', 'vision_scan');                                 // the vision row
+  sfxCue(C.title.a + 10, 'whoosh', 'scan', 'centre', { dur: 5, pitch: 0.8 });             // it draws back into the scanner
+  a = C.scanner.a;
+  sfxHold(a + 9, a + 34, 'machine', 'scan', 'ring', { pitch: 1.3, gain: 0.22 });          // the scanner's ring, once the scan begins
+  sfxCue(a + 1, 'whoosh', 'scan', 'couch', { dur: 6, pitch: 0.6, gain: 0.4 });            // the couch slides in
+  sfxCue(a + 9, 'whoosh', 'scan', 'ring', { dur: 2, pitch: 1.3 });                        // the skin opens on the ring
+  sfxCue(a + 12, 'patter', 'scan', 'event', { dur: 1.5, pitch: 1.4, gain: 0.3 });         // the first coincidences
+  sfxCue(a + 16, 'grow', 'scan', 'lor', { dur: 11, pitch: 1.3, gain: 0.3 });              // lines of response
+  sfxCue(a + 27, 'rise', 'scan', 'patient', { dur: 5 });                                  // the image forms
+  a = C.body.a;
+  sfxCue(a + 1.5, 'whoosh', 'body', null, { dur: 3.5, pitch: 0.8 });                      // the patient stands up and turns
+  sfxCue(a + 6.5, 'grow', 'body', null, { dur: 8, pitch: 0.9 });                          // the tracer arrives: hot organs
+  sfxCue(a + 24, 'pulse', 'organs', 'lesion', { pitch: 0.8 });                            // a tumour
+  a = C.organs.a;
+  sfxCue(a + 1, 'ratchet', 'organs', null, { n: 20, dur: 10, pitch: 1.5, gain: 0.22 });   // outlined slice by slice
+  sfxCue(a + 15, 'rise', 'organs', 'bars', { dur: 6 });                                   // each organ's uptake as a bar
+  ['brain', 'liver', 'muscle'].forEach((id, k) => sfxCue(a + 23 + 4 * k, 'pick', 'organs', id, { seq: true }));   // three organs in turn
+  sfxCue(C.cohort.a + 3, 'grow', 'organs', 'net', { dur: 5 });                            // the network of all scans grows on the body
   buildCamera(wp);
   // the scan set's patient stands up where the body set stands: no move, the same size, and the body set's turn (taken
   // from the camera's hand-over above) less its own
@@ -5232,6 +5255,7 @@ function exploreTargets(now = performance.now()) {
 }
 function exploreStep(dt, now) {
   const tg = exploreTargets(now), k = 1 - Math.exp(-dt * 3.5);
+  sfxScanner();
   for (const n in DEF) XS[n] = STEP.has(n) ? tg[n] : XS[n] + (tg[n] - XS[n]) * k;
   // a gently swaying scene, unless you are steering it, standing by the scanner life size, or a set asks for stillness
   if (X.turn === 'on' && !(X.life && X.scene === 'scan') && !orbit.to && !orbit.held && !GL.still && !HOST.room.placing()) { X.sway = (X.sway || 0) + dt; orbit.cur[0] += dt * 6 * Math.cos(X.sway * 0.25); }
@@ -5243,6 +5267,7 @@ function openScene(k, fly = true) {
   if (!GL.sets[k]) return;
   const same = X.scene === k;
   X.scene = k; X.t0 = performance.now();
+  if (!same) sfxAct('whoosh', k, null, { dur: 1.2 });   // (sound effects: another scene)
   if (X.life && k !== 'scan') setLife(false);   // (life size is the scanner's)
   if (fly && !same) flyTo(view(k, X.life && k === 'scan' ? 'life' : viewCam(k) || 'default'));
   lifeCtl();
@@ -5286,6 +5311,7 @@ function selectCmp(i, ui = true) {
 // the network on show in the organs set: one of its Network control's, or a robustness test's (X.netX)
 function setNet(id) {
   if (!NET_ALL.includes(id)) return;
+  if (id !== curNet()) sfxAct('grow', 'organs', 'net', { dur: 1.2, gain: 0.5 });   // (sound effects: another network)
   if (NET_IDS.includes(id)) { (X.ctl.organs = X.ctl.organs || {}).network = id; X.netX = null; } else X.netX = id;
   X.t0 = performance.now();
   renderNets(); renderOrgans(); renderScenes();
@@ -5300,12 +5326,14 @@ function showNet(id) {
 // an organ (null none): it glows in the organs set, its bar and links brighter
 function selectOrgan(id, ui = true) {
   X.organ = id && PD.byId[id] ? id : null;
+  if (ui && X.organ) sfxAct('pick', 'organs', X.organ);   // (sound effects: an organ picked)
   if (ui && X.organ && X.scene !== 'organs') openScene('organs');
   if (ui && X.organ && X.scene === 'organs' && !viewIs('organs', /net|matrix|partial|scatter/i)) afterUpdate(() => { if (X.organ === id) flyNear(anchorOf('organs', id), Math.min(orbit.cur[2], 2.6)); });
   pushState(); renderOrgans(); renderNets();
 }
 // Life size: on screen the scanner from a couple of metres at eye height; in the headset life size on your floor
 function setLife(on) {
+  if (on && !X.life) sfxAct('rise', 'scan', 'ring', { dur: 1.5 });   // (sound effects: the scanner life size round you)
   X.life = on;
   if (XR.on) xrRoom(on);
   if (on && X.scene !== 'scan') openScene('scan', false);
@@ -5622,6 +5650,12 @@ function bindCanvas() {
     orbit.to = null;
     orbit.cur[2] = clamp(orbit.cur[2] * Math.exp(ev.deltaY * 0.0012), 0.05, 40);
   }, { passive: false });
+}
+// sound effects: the scanner's ring hums while it is the scene in explore mode, as it does in the story (from exploreStep,
+// every frame in explore mode; the drone fades by itself once nobody calls it)
+function sfxScanner() {
+  if (X.scene !== 'scan' || sfxHidden() || !HOST.sfx || !HOST.sfx.drone) return;
+  try { HOST.sfx.drone(XR_HERE + '.ring', 'machine', Object.assign(sfxWhere('scan', 'ring'), { pitch: 1.3, gain: 0.22 })); } catch (e) { /* an older shell */ }
 }
 // ================================================================= WEBXR ==
 // Headset mode (built for Meta Quest, works in any WebXR browser). Each scene
@@ -5943,7 +5977,8 @@ function xrRelease(c) {
     const h = c.hover;
     if (h && h.kind === 'panel' && h.P === p.P) {
       const r = h.P.at(h.x, h.y);
-      if (r && r.id === p.id && r.fn) { buzz(c); r.fn(); }
+      // (a soft click at the button, unless the press made a sound of its own: the shell's rule for page buttons)
+      if (r && r.id === p.id && r.fn) { buzz(c); const n = sfxN(); r.fn(); if (sfxN() === n) sfxPlay('click', 'world', h.point); }
     }
   } else if (!p.moved && p.pk) { buzz(c); xrClickPick(p.pk); }
 }
@@ -6035,6 +6070,10 @@ function xrPoint(c, dt) {
     }
   }
   c.hover = hit;
+  // a soft tick as the ray comes onto a button of the story's panels (as on the shell's menu)
+  const hr = hit && hit.kind === 'panel' && hit.P.at(hit.x, hit.y), hk = hr && hr.fn ? XR.panels.indexOf(hit.P) + '.' + hr.id : '';
+  if (hk && hk !== c.hk) sfxPlay('hover', 'world', hit.point);
+  c.hk = hk;
   if (c.wantPress) { c.wantPress = false; xrPress(c); }
   if (c.press && c.press.kind === 'globe') dragGlobe(c, c.press);
   if (c.grab) carry(c, dt);
@@ -6944,7 +6983,7 @@ function audioToggle() { HOST.audio.toggle(); }
 // Slideshow (HOST.slides: on for this story, or for all): the story waits at the end of each chapter, all its text
 // shown, until Next (or Play) goes on. The stop is a pause and a seek, Next a play, so in a shared room they reach
 // the station's clock like a pause and a play by hand, at the same t on every device.
-const SLIDE = { at: -1, go: -1, last: 0, lt: 0, lp: false, tail: null };
+const SLIDE = { at: -1, go: -1, last: 0, lt: 0, lp: false, tail: null, from: 0 };
 const slidesOn = () => !!(HOST.slides && HOST.slides.on(XR_HERE));
 // where chapter i waits: just before its text starts to fade out (0.65 s before its end in story time), on the
 // recording's clock; the same on every device
@@ -6961,6 +7000,7 @@ const slideVoice = i => (typeof NARRATION_ENDS === 'object' && +NARRATION_ENDS[C
 function slideStep(t0) {
   const was = SLIDE.at, now = performance.now(), st = HOST.collab && HOST.collab.live && HOST.collab.live();
   const from = st && st.story === XR_HERE && SLIDE.lp && APP.t >= SLIDE.last && APP.t - SLIDE.last < (now - SLIDE.lt) / 1000 + 0.35 ? SLIDE.last : t0;
+  SLIDE.from = from;   // (the sound effects' cues cross by the same rule: sfxStep)
   SLIDE.at = -1;
   if (slidesOn() && APP.mode === 'story') {
     for (let i = 0; i < CH.length; i++) {
@@ -7014,6 +7054,66 @@ function slideDOM() {
   const p = $('#panel'), r = p.getBoundingClientRect(), cs = getComputedStyle(p), sec = $('#story .ch.on');
   const over = Math.min(row.getBoundingClientRect().bottom - (r.bottom - parseFloat(cs.paddingBottom)), sec ? sec.getBoundingClientRect().top - r.top - parseFloat(cs.paddingTop) : 0);
   if (over > 0) p.scrollTo({ top: p.scrollTop + over, behavior: 'smooth' });
+}
+
+// ---------------------------------------------------------- sound effects --
+// Sounds inside the story (the shell's HOST.sfx, sfx.js; phase 2). Cues are set beside the keys in buildStory, in story
+// time (sfxCue), and play as the clock crosses them while the story plays, by the slideshow's crossing rule
+// (SLIDE.from): the same cues at the same moment on every device at a station, none on a jump, a scrub, a slideshow
+// stop's seek or a late joiner's start. A span (sfxHold) keeps a continuous sound while the clock is inside it and
+// playing. Explore and headset actions call sfxAct (explore mode only) or sfxPlay where the story already handles them.
+// A sound comes from a place (a set's anchor, sfxPos): in a headset through an HRTF panner, on a screen panned by where
+// it shows. An older shell (no HOST.sfx, or a sound it does not know) plays nothing. Never in collab.state(): each
+// device plays its own. SFXQ.log keeps what was asked for (also when nothing can play: before a tap), for the tests
+const SFXQ = { cues: [], spans: [], hi: -1, t: 0, n: 0, log: [] };
+const sfxCue = (t, name, set, at, o) => { SFXQ.cues.push({ t, n: narrT(t), name, set, at, o: o || {} }); };
+const sfxHold = (t0, t1, name, set, at, o) => { SFXQ.spans.push({ id: XR_HERE + '.' + SFXQ.spans.length, t0, t1, n0: narrT(t0), n1: narrT(t1), name, set, at, o: o || {} }); };
+const sfxN = () => SFXQ.n + (HOST.sfx && HOST.sfx.count ? HOST.sfx.count() : 0);
+const _sfv = new THREE.Vector3();
+// where a sound comes from: [x, y, z] in the scene's (the reference space's) coordinates and, on a screen, a pan
+function sfxWhere(set, at) {
+  if (set === 'world') { if (!at) return {}; if (Array.isArray(at)) _sfv.fromArray(at); else _sfv.copy(at); }   // a point already in the scene's coordinates (a ray's hit)
+  else if (!sfxPos(set, at, _sfv)) return {};
+  const o = { at: [_sfv.x, _sfv.y, _sfv.z] };
+  if (!(XR.on && GL.renderer.xr.isPresenting)) { _sfv.project(GL.camera); o.pan = clamp(_sfv.x, -1, 1) * 0.6 * (_sfv.z > 1 ? -1 : 1); }
+  return o;
+}
+function sfxPlay(name, set, at, o) {
+  SFXQ.n++;
+  if (name !== 'hover') { SFXQ.log.push([name, Math.round(APP.t * 100) / 100, APP.mode]); if (SFXQ.log.length > 64) SFXQ.log.shift(); }
+  if (!HOST.sfx || !HOST.sfx.play) return null;
+  try { return HOST.sfx.play(name, Object.assign(sfxWhere(set, at), o)); } catch (e) { return null; }
+}
+// nothing of the story sounds while it is hidden: behind a Stories screen (page or headset), or a headset away from its station
+const sfxHidden = () => !!(HOST.picking || XR.stories || xrAway());
+// an explore action's sound (a pick, a result, a knockout): only in explore mode (a room's state applied while the story
+// plays is silent)
+const sfxAct = (name, set, at, o) => (APP.mode === 'explore' && !sfxHidden() ? sfxPlay(name, set, at, o) : null);
+// every frame, right after slideStep (`was`: the story was playing as the frame began): the cues crossed since the
+// slideshow's `from` (at most 1.5 s back: the narration's clock can leap ahead as it starts after a jump, and its cues
+// then play a moment late, not a burst of old ones; never twice: the narration or a room's clock may pull the clock back
+// a hair, SFXQ.hi, forgotten once the clock is put back further), the spans the clock is in, and the live parts
+// (sfxLive, where a story has them)
+function sfxStep(was, dt) {
+  const t = APP.t, from = SLIDE.from, quiet = APP.mode !== 'story' || sfxHidden();
+  if (from < SFXQ.t - 0.5 || t < SFXQ.hi - 0.5) SFXQ.hi = -1;   // back to earlier: Replay, Repeat, a jump back
+  if (was && !quiet && t > from) {
+    const hi = SFXQ.hi;
+    for (const c of SFXQ.cues) if (c.n > from && c.n <= t && c.n > hi && t - c.n < 1.5) { SFXQ.hi = Math.max(SFXQ.hi, c.n); sfxPlay(c.name, c.set, c.at, c.o); }
+  }
+  if (APP.playing && !quiet && HOST.sfx && HOST.sfx.drone) {
+    for (const s of SFXQ.spans) if (t >= s.n0 && t < s.n1) { try { HOST.sfx.drone(s.id, s.name, Object.assign(sfxWhere(s.set, s.at), s.o)); } catch (e) { /* an older shell */ } }
+  }
+  if (typeof sfxLive === 'function' && !sfxHidden()) sfxLive(dt);
+  SFXQ.t = t;
+}
+// a sound's place (sound effects): a set's anchor (a name, a function, or [x, y, z] in its frame) in the scene's
+// coordinates; no set: GL.world's origin. Sets may hang under a life-size holder: each group's own world matrix
+function sfxPos(set, at, out) {
+  const s = set && GL.sets[set];
+  if (!s) out.set(0, 0, 0).applyMatrix4(GL.world.matrixWorld);
+  else { const p = anchorOf(set, at); out.set(p[0], p[1], p[2]).applyMatrix4(s.group.matrixWorld); }
+  return isFinite(out.x + out.y + out.z);
 }
 
 // ================================================================== APP ==
@@ -7098,11 +7198,13 @@ function frame(now, xrFrame) {
   if (xr) xrBegin(xrFrame, dt);
   let S, tSet;
   const t0 = APP.t;
+  const was = APP.mode === 'story' && APP.playing;   // (sound effects: the story was playing as the frame began)
   if (APP.mode === 'story' && APP.playing) {
     APP.t += dt;
     audioFollow();
   }
   slideStep(t0);   // slideshow: the story waits at the end of each chapter
+  sfxStep(was, dt);   // sound effects: the cues the clock crossed, the spans it is in, the live sounds
   // the end: Repeat (shell) starts this story or the next one again, else explore mode opens
   if (APP.mode === 'story' && APP.playing && APP.t >= T_END) { APP.t = T_END; if (HOST.ended()) APP.playing = false; else APP.enterExplore(); }
   audioSync();

@@ -82,6 +82,8 @@ function buildStory() {
   });
   // the table fades in; the camera comes up to it from across the room
   ramp('table_a', 0, 0.8, 0, 1);
+  // sound effects (sfxCue: story time, a sound, where it comes from, its options); the rest is explore's (e4_explore.js)
+  sfxCue(0.2, 'rise', 'table', 'centre', { dur: 2, gain: 0.4 });   // the table fades in
   const wp = [];
   const cam = (t, name, nudge) => { const v = view('table', name); if (nudge) for (let i = 0; i < nudge.length; i++) v[i] += nudge[i] || 0; wp.push([t, ...v, '', 'table']); };
   cam(0, 'default', [-30, -16, 2.4, 0, 0.2, 0]);

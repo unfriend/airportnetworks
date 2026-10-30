@@ -436,6 +436,53 @@ function buildStory() {
   cam(a + 1.5, 'soil', 'tracer', -14);
   cam(a + 24, 'soil', 'tracer', 12, 'spin');
   cam(b - 0.5, 'soil', 'default', 16, 'spin');
+  // ---- sound effects (sfxCue: story time, a sound, where it comes from, its options), beside the keys above: a cue just
+  // before the line it goes with, textures under the voice soft; sequences from the keys (when a ramp reaches a share)
+  const rampAt = (t0, t1, f) => { let lo = 0, hi = 1; for (let i = 0; i < 24; i++) { const m = (lo + hi) / 2; if (smooth(m) < f) lo = m; else hi = m; } return t0 + (t1 - t0) * lo; };
+  a = C.title.a;
+  sfxCue(a + 0.5, 'rise', 'soil', 'stem', { dur: 6 });                               // the wheat grows from a seedling
+  sfxCue(a + 6, 'patter', 'soil', 'fert', { dur: 5, gain: 0.45 });                   // fertiliser falls
+  sfxCue(a + 11.8, 'rush', 'soil', 'nh4', { dur: 10, pitch: 0.8, gain: 0.3 });       // the flows: up, down, out
+  a = C.relay.a;
+  sfxCue(a + 2, 'whoosh', 'soil', 'pore', { dur: 5 });                               // a pore, magnified
+  ['aoa', 'aob', 'nob', 'comammox'].forEach((k, i) => sfxCue(a + [8, 16, 24, 33][i] + 0.2, 'pick', 'soil', k, { pitch: Math.pow(2, 2 * i / 12) }));   // the four relay runners
+  sfxCue(a + 49, 'whoosh', 'soil', 'pore', { dur: 4, pitch: 0.7 });                 // the pore shrinks back
+  a = C.bni.a;
+  sfxCue(a + 2, 'rise', 'soil', 'grass');                                            // the wild grass
+  sfxCue(a + 8.8, 'whoosh', 'soil', 'chromGrass');                                   // two chromosomes
+  sfxCue(a + 21, 'link', 'soil', 'chromWheat');                                      // the segment lands in the wheat's
+  sfxCue(a + 26, 'pulse', 'soil', 'halo');                                           // the halo round the roots
+  sfxCue(a + 28.5, 'pulse', 'soil', 'pore', { pitch: 0.7, gain: 0.35 });             // the relay slows
+  a = C.trial.a;
+  sfxCue(a + 2.5, 'whoosh', 'web', 'europe', { dur: 9, pitch: 0.6 });                // the globe turns east, the hop to Japan
+  sfxCue(a + 11, 'ping', 'web', 'asia');                                             // Japan
+  sfxCue(a + 14.5, 'whoosh', 'field', 'field');                                      // down to the field
+  sfxCue(a + 16, 'rise', 'field', 'field', { dur: 8 });                              // the wheat grows
+  [26, 29.5, 33, 36.5].forEach((s, i) => sfxCue(a + s, 'knock', 'field', 'field', { pitch: 1.4 * Math.pow(2, i / 12), gain: 0.35 }));   // each date, a core lifts from every plot
+  sfxCue(a + 41, 'patter', 'field', 'stack', { dur: 9, gain: 0.4 });                 // the cores fly into the stack
+  a = C.leaks.a;
+  sfxCue(a + 3, 'rise', 'field', 'field', { dur: 4, pitch: 1.2 });                   // leaves by their chlorophyll
+  sfxCue(a + 8, 'pick', 'field', 'bni');                                             // the unfertilised BNI plots picked
+  sfxCue(a + 21.8, 'whoosh', 'field', 'field', { dur: 4, pitch: 0.7 });              // back to day 24
+  sfxCue(a + 23, 'rush', 'field', 'under', { dur: 5, pitch: 0.6, gain: 0.3 });       // nitrate seeping
+  sfxCue(a + 28.5, 'pick', 'field', 'bni');                                          // the fertilised BNI plots
+  [41.8, 42.2, 42.6].forEach((s, i) => sfxCue(a + s, 'bubble', 'field', 'jars', { pitch: Math.pow(2, 2 * i / 12), seq: true }));   // the jars
+  [45, 48, 51, 54].forEach(s => sfxCue(a + s, 'bubble', 'field', 'jars', { pitch: 0.7, gain: 0.3 }));   // breathing out N2O
+  a = C.crowd.a;
+  sfxCue(a + 2, 'grow', 'net', 'cloud', { dur: 7, pitch: 0.9 });                     // 20,000 kinds
+  sfxCue(a + 23.8, 'pulse', 'net', 'cloud', { pitch: 1.2 });                         // the nitrifiers flare
+  a = C.together.a;
+  sfxCue(a + 2, 'whoosh', 'net', 'net', { dur: 8 });                                 // kinds fly out to their layout
+  sfxCue(a + 7, 'grow', 'net', 'net', { dur: 6 });                                   // links fade in
+  sfxCue(a + 18.8, 'snap', 'net', 'net');                                            // the shuffle
+  sfxCue(a + 19.1, 'patter', 'net', 'net', { dur: 3.5, gain: 0.3 });                 // the links dissolve
+  sfxCue(a + 30.8, 'grow', 'net', 'net', { dur: 4, pitch: 1.2 });                    // modules take colours
+  [38, 45].forEach((s, i) => sfxCue(a + s, 'pulse', 'field', 'lit', { pitch: i ? 0.8 : 1 }));   // a module lights its plots
+  sfxCue(a + 55.8, 'whoosh', 'net', 'mid', { dur: 6 });                              // the two wheat lines' networks
+  a = C.know.a;
+  sfxCue(a + 1, 'rise', 'soil', null, { gain: 0.4 });                                // back in the block
+  [0.02, 0.32, 0.5, 0.75].forEach((f, i) => sfxCue(rampAt(a + 5, a + 24, f), 'step', 'soil', 'tracer', { pitch: Math.pow(2, 2 * i / 12), seq: true }));   // one marked atom: grain, microbe, root, stem
+  sfxCue(a + 24, 'ping', 'soil', 'ear');                                             // into the leaf
   for (const n in TR) TR[n].sort((x, y) => x[0] - y[0]);
   buildCamera(wp);
 

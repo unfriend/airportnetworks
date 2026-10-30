@@ -1910,6 +1910,8 @@ function buildStory() {
     const p = orgAnchor(k, t, used);
     used.push(p);
     labelAt(p, `<b>${ORGS[k]}</b>`, t, b - 0.6, 'cyn');
+    // (sound effects: each compartment pops in, a step up a pentatonic scale)
+    sfxCue(a + 1.5 + 2 * (k - 1), 'bubble', null, p, { pitch: Math.pow(2, [0, 2, 4, 7, 9, 12, 14, 16, 19, 21][k - 1] / 12), gain: 0.25, seq: true });
   }
   ramp('cell_a', b - 1, b + 2, 1, 0.75);
   a = C.address.a; b = C.address.b;
@@ -1968,6 +1970,27 @@ function buildStory() {
   label(CP('TARDBP@nuc'), '<b>TDP-43</b>leaves the nucleus', a + 12.5, a + 16, 'amb');
   label(CP('TARDBP@cyto'), '<b>TDP-43</b>clumps in the cytoplasm', a + 16.5, b - 1, 'amb');
   for (const n in TR) TR[n].sort((x, y) => x[0] - y[0]);
+
+  // ------------------------------------------------------------ sound effects
+  // (sfxCue: story time, a sound, where it comes from: a protein's copy by index or 'SYM@place', an organelle as
+  // { org: k }, [x, y, z] in the cell, none the cell's middle; its options; the compartments' bubbles are above)
+  sfxCue(C.title.a + 0.4, 'rise', null, null, { dur: 2.5, gain: 0.5 });                      // the organelles appear
+  sfxCue(C.address.a + 1.8, 'grow', null, null, { dur: 7, gain: 0.4 });                      // proteins arrive at their addresses
+  sfxCue(C.local.a + 2.8, 'grow', null, null, { dur: 9, pitch: 0.85, gain: 0.35 });           // links only where proteins meet
+  sfxCue(C.local.a + 10.3, 'link', null, 'EGFR@pm');                                         // EGF meets its receptor
+  sfxCue(C.multi.a + 6.8, 'pulse', null, 'CTNNB1');                                          // beta-catenin's three copies glow
+  sfxCue(C.signal.a + 5.3, 'spark', null, path[0]);                                          // the growth signal starts
+  ST.hopEnds.forEach((t, k) => cProt[path[k + 1]] === cProt[path[k]]
+    ? sfxCue(t - 0.7, 'whoosh', null, path[k + 1], { dur: 0.8, pitch: 1.1, seq: true })      // ERK moves into the nucleus
+    : sfxCue(t, 'step', null, path[k + 1], { pitch: Math.pow(2, 2 * k / 12), gain: 0.35, seq: true }));   // each hand-over, a tone higher
+  sfxCue(C.move.a + 7, 'spark', null, 'TNF', { pitch: 0.8 });                                 // the inflammation signal arrives
+  sfxCue(C.move.a + 13, 'whoosh', null, 'RELA@nuc', { dur: 4, pitch: 0.9 });                  // NF-kB travels into the nucleus
+  sfxCue(C.move.a + 17.4, 'ping', null, 'RELA@nuc');                                         // new partners there
+  sfxCue(C.prox.a + 4, 'pulse', null, bait, { pitch: 0.8 });                                  // the labelling bubble spreads
+  sfxCue(C.disease.a + 5, 'snap', null, 'CFTR@er');                                          // CFTR caught in the ER
+  sfxCue(C.disease.a + 13, 'whoosh', null, 'TARDBP@nuc', { dur: 4, pitch: 0.8 });             // TDP-43 leaves the nucleus
+  sfxCue(C.disease.a + 16.8, 'knock', null, 'TARDBP@cyto', { pitch: 1.3, gain: 0.5 });        // and clumps
+  sfxCue(C.outro.a + 0.6, 'rise', null, null, { gain: 0.5 });                                // the recap
 
   // which proteins glow when the story focuses on a set
   ST.focusSets = { multi: NET.pCopies[A('CTNNB1')], signal: path };
@@ -2279,6 +2302,11 @@ function exploreStep(dt, now) {
 function setMove(j, on) {
   if (!!X.scen[j] === !!on) return;
   X.scen[j] = on ? 1 : 0;
+  // (sound effects: a move starts: a whoosh where its protein goes, a snap where a failing one is caught; undone: a swell)
+  const mv = MOVES[j], tr = mv.travelers[0], fl = mv.fails[0];
+  if (!on) sfxAct('rise', null, null, { dur: 1 });
+  else if (tr) sfxAct('whoosh', null, tr[1], { dur: 1.6 });
+  else if (fl) sfxAct('snap', null, fl[0]);
   X.moveT[j] = on ? performance.now() : -1;
   renderMoves();
   // paths and the selected protein may change once the proteins have moved
@@ -2552,6 +2580,7 @@ function selectProtein(i, fly = true, copy) {
   if (i >= 0) {
     const cs = NET.pCopies[i];
     X.selCopy = copy !== undefined ? copy : cs.find(isThere) ?? cs[0];
+    if (fly) sfxAct('pick', null, X.selCopy);   // (sound effects: a protein picked)
     const pairs = [];
     for (const c of cs) for (let k = NET.adjS[c]; k < NET.adjS[c + 1]; k++) if (NET.adjT[k] === 0) pairs.push([c, NET.adj[k]]);
     setHighlight('sel', pairs, [0.30, 0.88, 1.0], { radius: 0.0016, spread: 0.5, seed: i + 1 });
@@ -2567,6 +2596,7 @@ function selectProtein(i, fly = true, copy) {
   updateExtraLabels();
 }
 function runPath(s, t, fly = true) {
+  const before = X.path ? X.path.join() : '';
   X.pathErr = null;
   if (s < 0 || t < 0) X.pathErr = 'Pick two proteins from the suggestions, for example EGF and SRF.';
   else if (s === t) X.pathErr = 'Pick two different proteins.';
@@ -2578,6 +2608,12 @@ function runPath(s, t, fly = true) {
   setHighlight('xpath', X.path ? X.path.slice(0, -1).map((p, k) => [p, X.path[k + 1]]) : null, SIG,
     { radius: 0.0042, fade: SIG_A, hops: X.path ? X.path.slice(0, -1).map((_, k) => k + 1) : null });
   renderPathResult(); updateExtraLabels();
+  // (sound effects: a new path found: its steps one after another, a tone higher each, then a chime at its end)
+  if (X.path && X.path.join() !== before) {
+    const L = X.path.length - 1;
+    for (let k = 0; k < L; k++) sfxAct('step', null, X.path[k + 1], { delay: 0.14 * k, force: true, pitch: Math.pow(2, 2 * k / 12), gain: 0.6 });
+    sfxAct('ping', null, X.path[L], { delay: 0.14 * L + 0.05 });
+  }
   if (X.path && fly) {
     const cen = X.path.reduce((a, c) => v3.add(a, cpos(c)), [0, 0, 0]), n = X.path.length, m = v3.mul(cen, 1 / n);
     const spread = Math.max(...X.path.map(c => v3.len(v3.sub(cpos(c), m))));
@@ -2668,6 +2704,7 @@ function renderMoves() {
 }
 function setBait(c, render = true) {
   X.bait = c;
+  if (c >= 0) sfxAct('pulse', null, c, { pitch: 0.8 });   // (sound effects: the labelling bubble round a new bait)
   if (render) renderProx();
   updateExtraLabels();
   if (c >= 0) { const [la, lo] = latLonOf(cpos(c)); flyTo(la, lo, 1.25); }
@@ -3171,7 +3208,8 @@ function xrRelease(c) {
     const h = c.hover;
     if (h && h.kind === 'panel' && h.P === p.P) {
       const r = h.P.at(h.x, h.y);
-      if (r && r.id === p.id && r.fn) { buzz(c); r.fn(); }
+      // (a soft click at the button, unless the press made a sound of its own: the shell's rule for page buttons)
+      if (r && r.id === p.id && r.fn) { buzz(c); const n = sfxN(); r.fn(); if (sfxN() === n) sfxPlay('click', 'world', h.point); }
     }
   } else if (!p.moved && p.i >= 0) { buzz(c); xrClickCopy(p.i); }
 }
@@ -3258,6 +3296,10 @@ function xrPoint(c, dt) {
     }
   }
   c.hover = hit;
+  // a soft tick as the ray comes onto a button of the story's panels (as on the shell's menu)
+  const hr = hit && hit.kind === 'panel' && hit.P.at(hit.x, hit.y), hk = hr && hr.fn ? XR.panels.indexOf(hit.P) + '.' + hr.id : '';
+  if (hk && hk !== c.hk) sfxPlay('hover', 'world', hit.point);
+  c.hk = hk;
   if (c.wantPress) { c.wantPress = false; xrPress(c); }
   if (c.press && c.press.kind === 'globe') dragGlobe(c, c.press);
   if (c.grab) carry(c, dt);
@@ -4315,7 +4357,7 @@ function audioToggle() { HOST.audio.toggle(); }
 // Slideshow (HOST.slides: on for this story, or for all): the story waits at the end of each chapter, all its text
 // shown, until Next (or Play) goes on. The stop is a pause and a seek, Next a play, so in a shared room they reach
 // the station's clock like a pause and a play by hand, at the same t on every device.
-const SLIDE = { at: -1, go: -1, last: 0, lt: 0, lp: false, tail: null };
+const SLIDE = { at: -1, go: -1, last: 0, lt: 0, lp: false, tail: null, from: 0 };
 const slidesOn = () => !!(HOST.slides && HOST.slides.on(XR_HERE));
 // where chapter i waits: just before its text starts to fade out (0.65 s before its end in story time), on the
 // recording's clock; the same on every device
@@ -4332,6 +4374,7 @@ const slideVoice = i => (typeof NARRATION_ENDS === 'object' && +NARRATION_ENDS[C
 function slideStep(t0) {
   const was = SLIDE.at, now = performance.now(), st = HOST.collab && HOST.collab.live && HOST.collab.live();
   const from = st && st.story === XR_HERE && SLIDE.lp && APP.t >= SLIDE.last && APP.t - SLIDE.last < (now - SLIDE.lt) / 1000 + 0.35 ? SLIDE.last : t0;
+  SLIDE.from = from;   // (the sound effects' cues cross by the same rule: sfxStep)
   SLIDE.at = -1;
   if (slidesOn() && APP.mode === 'story') {
     for (let i = 0; i < CH.length; i++) {
@@ -4387,6 +4430,69 @@ function slideDOM() {
   if (over > 0) p.scrollTo({ top: p.scrollTop + over, behavior: 'smooth' });
 }
 
+// ---------------------------------------------------------- sound effects --
+// Sounds inside the story (the shell's HOST.sfx, sfx.js; phase 2). Cues are set beside the keys in buildStory, in story
+// time (sfxCue), and play as the clock crosses them while the story plays, by the slideshow's crossing rule
+// (SLIDE.from): the same cues at the same moment on every device at a station, none on a jump, a scrub, a slideshow
+// stop's seek or a late joiner's start. A span (sfxHold) keeps a continuous sound while the clock is inside it and
+// playing. Explore and headset actions call sfxAct (explore mode only) or sfxPlay where the story already handles them.
+// A sound comes from a place (a set's anchor, sfxPos): in a headset through an HRTF panner, on a screen panned by where
+// it shows. An older shell (no HOST.sfx, or a sound it does not know) plays nothing. Never in collab.state(): each
+// device plays its own. SFXQ.log keeps what was asked for (also when nothing can play: before a tap), for the tests
+const SFXQ = { cues: [], spans: [], hi: -1, t: 0, n: 0, log: [] };
+const sfxCue = (t, name, set, at, o) => { SFXQ.cues.push({ t, n: narrT(t), name, set, at, o: o || {} }); };
+const sfxHold = (t0, t1, name, set, at, o) => { SFXQ.spans.push({ id: XR_HERE + '.' + SFXQ.spans.length, t0, t1, n0: narrT(t0), n1: narrT(t1), name, set, at, o: o || {} }); };
+const sfxN = () => SFXQ.n + (HOST.sfx && HOST.sfx.count ? HOST.sfx.count() : 0);
+const _sfv = new THREE.Vector3();
+// where a sound comes from: [x, y, z] in the scene's (the reference space's) coordinates and, on a screen, a pan
+function sfxWhere(set, at) {
+  if (set === 'world') { if (!at) return {}; if (Array.isArray(at)) _sfv.fromArray(at); else _sfv.copy(at); }   // a point already in the scene's coordinates (a ray's hit)
+  else if (!sfxPos(set, at, _sfv)) return {};
+  const o = { at: [_sfv.x, _sfv.y, _sfv.z] };
+  if (!(XR.on && GL.renderer.xr.isPresenting)) { _sfv.project(GL.camera); o.pan = clamp(_sfv.x, -1, 1) * 0.6 * (_sfv.z > 1 ? -1 : 1); }
+  return o;
+}
+function sfxPlay(name, set, at, o) {
+  SFXQ.n++;
+  if (name !== 'hover') { SFXQ.log.push([name, Math.round(APP.t * 100) / 100, APP.mode]); if (SFXQ.log.length > 64) SFXQ.log.shift(); }
+  if (!HOST.sfx || !HOST.sfx.play) return null;
+  try { return HOST.sfx.play(name, Object.assign(sfxWhere(set, at), o)); } catch (e) { return null; }
+}
+// nothing of the story sounds while it is hidden: behind a Stories screen (page or headset), or a headset away from its station
+const sfxHidden = () => !!(HOST.picking || XR.stories || xrAway());
+// an explore action's sound (a pick, a result, a knockout): only in explore mode (a room's state applied while the story
+// plays is silent)
+const sfxAct = (name, set, at, o) => (APP.mode === 'explore' && !sfxHidden() ? sfxPlay(name, set, at, o) : null);
+// every frame, right after slideStep (`was`: the story was playing as the frame began): the cues crossed since the
+// slideshow's `from` (at most 1.5 s back: the narration's clock can leap ahead as it starts after a jump, and its cues
+// then play a moment late, not a burst of old ones; never twice: the narration or a room's clock may pull the clock back
+// a hair, SFXQ.hi, forgotten once the clock is put back further), the spans the clock is in, and the live parts
+// (sfxLive, where a story has them)
+function sfxStep(was, dt) {
+  const t = APP.t, from = SLIDE.from, quiet = APP.mode !== 'story' || sfxHidden();
+  if (from < SFXQ.t - 0.5 || t < SFXQ.hi - 0.5) SFXQ.hi = -1;   // back to earlier: Replay, Repeat, a jump back
+  if (was && !quiet && t > from) {
+    const hi = SFXQ.hi;
+    for (const c of SFXQ.cues) if (c.n > from && c.n <= t && c.n > hi && t - c.n < 1.5) { SFXQ.hi = Math.max(SFXQ.hi, c.n); sfxPlay(c.name, c.set, c.at, c.o); }
+  }
+  if (APP.playing && !quiet && HOST.sfx && HOST.sfx.drone) {
+    for (const s of SFXQ.spans) if (t >= s.n0 && t < s.n1) { try { HOST.sfx.drone(s.id, s.name, Object.assign(sfxWhere(s.set, s.at), s.o)); } catch (e) { /* an older shell */ } }
+  }
+  if (typeof sfxLive === 'function' && !sfxHidden()) sfxLive(dt);
+  SFXQ.t = t;
+}
+// a sound's place (sound effects): a protein's copy (its index, or 'SYM' or 'SYM@place') or an organelle ({ org: k }: its
+// anchor) in the cell, or [x, y, z] in the cell's frame; none: the cell's middle
+function sfxPos(set, at, out) {
+  const c = typeof at === 'string' ? CP(at) : at;
+  if (Number.isInteger(c) && c >= 0 && c < NET.NC) nodePos(c, 0, out);
+  else if (at && at.org !== undefined && GL.orgAnchor && GL.orgAnchor[at.org]) out.fromArray(GL.orgAnchor[at.org]);
+  else if (Array.isArray(at)) out.fromArray(at);
+  else out.set(0, 0, 0);
+  out.applyMatrix4(GL.world.matrixWorld);
+  return isFinite(out.x + out.y + out.z);
+}
+
 // ================================================================== APP ==
 const APP = {
   mode: 'story', t: 0, playing: true,
@@ -4430,11 +4536,13 @@ function frame(now, xrFrame) {
   if (xr) xrBegin(xrFrame, dt);
   let S;
   const t0 = APP.t;
+  const was = APP.mode === 'story' && APP.playing;   // (sound effects: the story was playing as the frame began)
   if (APP.mode === 'story' && APP.playing) {
     APP.t += dt;
     audioFollow();
   }
   slideStep(t0);   // slideshow: the story waits at the end of each chapter
+  sfxStep(was, dt);   // sound effects: the cues the clock crossed, the spans it is in, the live sounds
   // the end: Repeat (shell) starts this story or the next one again, else explore mode opens
   if (APP.mode === 'story' && APP.playing && APP.t >= T_END) { APP.t = T_END; if (HOST.ended()) APP.playing = false; else APP.enterExplore(); }
   audioSync();

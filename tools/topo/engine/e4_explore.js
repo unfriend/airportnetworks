@@ -120,12 +120,13 @@ function openScene(k, fly = true) {
   if (!GL.sets[k] || !SCENES.some(s => s[0] === k)) return;
   const same = X.scene === k;
   X.scene = k; X.t0 = performance.now();
-  if (fly && !same) flyTo(view(k, viewCam(k) || 'default'));
+  if (fly && !same) { flyTo(view(k, viewCam(k) || 'default')); sfxAct('whoosh', k, null, { dur: 0.8 }); }   // (sound effects: another scene)
   renderAll();
 }
 function setCtl(k, key, v) {
   const c = ctlOf(k, key);
   if (!c || !c.options.some(o => o[0] === v)) return;
+  if (ctlValue(k, c) !== v) sfxAct(...(key === viewKey(k) ? ['whoosh', k, null, { dur: 0.7, pitch: 1.1 }] : ['step', k, null]));   // (sound effects: a view, a control)
   (X.ctl[k] = X.ctl[k] || {})[key] = v;
   X.t0 = performance.now();
   // a view has its own best camera
@@ -157,6 +158,8 @@ function flyNear(p, d) { if (p) flyTo([orbit.cur[0], orbit.cur[1], d, p[0], p[1]
 function setR(v, ui = true) {
   const r = clamp(Math.round(+v * 100) / 100, 1.5, 60);
   if (!Number.isFinite(r) || r === X.r) return;
+  // (sound effects: the radius reaching or passing one of the poster's four snapshots, a tone higher each)
+  FACTS.snaps.forEach((s, k) => { const q = Math.round(s.r * 100) / 100; if (X.r !== q && Math.min(X.r, r) <= q && q <= Math.max(X.r, r)) sfxAct('step', 'tower', 'plate', { pitch: Math.pow(2, 2 * k / 12) }); });
   X.r = r;
   if (ui && X.scene !== 'tower') openScene('tower');
   syncNums();
@@ -165,6 +168,7 @@ function setR(v, ui = true) {
 function setMR(v, ui = true) {
   const r = clamp(Math.round(+v * 100) / 100, 1.5, 60);
   if (!Number.isFinite(r) || r === X.mr) return;
+  if (Math.floor(r / 10) !== Math.floor(X.mr / 10)) sfxAct('step', 'map', 'dome', { pitch: Math.pow(2, r / 60) });   // (sound effects: each 10 µm crossed)
   X.mr = r;
   if (ui && !(X.scene === 'map' && mapShow() === 'cell')) showView('map', 'cell');
   syncNums();
@@ -173,12 +177,14 @@ function setMR(v, ui = true) {
 function setFrom(v) {
   const f = clamp(Math.round(+v * 2) / 2, 0, 100);
   if (!Number.isFinite(f) || f === X.from) return;
+  if (Math.floor(f / 5) !== Math.floor(X.from / 5)) sfxAct('step', 'cohort', 'ruler', { pitch: Math.pow(2, f / 100) });   // (sound effects: each 5 µm crossed)
   X.from = f; if (X.to <= f) X.to = f + 0.5;
   syncNums();
 }
 function setTo(v) {
   const t = clamp(Math.round(+v * 2) / 2, 0.5, 100.5);
   if (!Number.isFinite(t) || t === X.to) return;
+  if (Math.floor(t / 5) !== Math.floor(X.to / 5)) sfxAct('step', 'cohort', 'ruler', { pitch: Math.pow(2, t / 100) });   // (sound effects: each 5 µm crossed)
   X.to = t; if (X.from >= t) X.from = t - 0.5;
   syncNums();
 }
@@ -186,7 +192,9 @@ const setNum = (key, v, ui) => ({ r: setR, mr: setMR, from: setFrom, to: setTo }
 // a slide of the cohort (-1 none): its curve lit, its numbers in the Cohort tab
 function selectSlide(i, ui = true) {
   const n = api('cohort').n || 0;
+  const was = X.slide;
   X.slide = Number.isInteger(i) && i >= 0 && i < n ? i : -1;
+  if (X.slide >= 0 && X.slide !== was) sfxAct('clink', 'cohort', 'rack');   // (sound effects: a slide picked)
   if (ui && X.slide >= 0 && X.scene !== 'cohort') openScene('cohort');
   renderAll();
 }
@@ -194,7 +202,9 @@ const stepSlide = d => { const n = api('cohort').n || 1; selectSlide(X.slide < 0
 // a cell of the new slide's window (-1: the poster's cell v): its dome, its own network and bars, its score
 function selectCell(i, ui = true) {
   const n = api('map').n || 0;
+  const was = X.cell;
   X.cell = Number.isInteger(i) && i >= 0 && i < n && i !== api('map').e ? i : -1;
+  if (X.cell !== was) sfxAct('pick', 'map', 'cell');   // (sound effects: a cell picked)
   if (ui) {
     if (!(X.scene === 'map' && mapShow() === 'cell')) showView('map', 'cell');
     // (fly to it once the set shows it flat again; not if another scene or view was picked meanwhile)

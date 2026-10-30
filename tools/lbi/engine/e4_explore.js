@@ -33,6 +33,7 @@ function exploreTargets(now = performance.now()) {
 }
 function exploreStep(dt, now) {
   const tg = exploreTargets(now), k = 1 - Math.exp(-dt * 3.5);
+  sfxRotor();
   for (const n in DEF) XS[n] += (tg[n] - XS[n]) * k;
   // a gently swaying scene (about 25 degrees either way, so flat ones never turn edge-on), unless you are steering it
   if (X.turn === 'on' && !orbit.to && !orbit.held && !HOST.room.placing()) { X.sway = (X.sway || 0) + dt; orbit.cur[0] += dt * 6 * Math.cos(X.sway * 0.25); }
@@ -42,6 +43,7 @@ function openScene(k, fly = true) {
   if (!GL.sets[k]) return;
   const same = X.scene === k;
   X.scene = k; X.t0 = performance.now();
+  if (!same) sfxAct('whoosh', k, null, { dur: 1.2 });   // (sound effects: another scene)
   if (!same && k !== 'int') { selectProtein(-1, false); clearRoute(); }
   if (fly && !same) flyTo(exploreView(k, 'default'));
   renderScenes();
@@ -137,6 +139,7 @@ function needInt() { if (X.scene !== 'int') openScene('int'); }
 function selectProtein(i, show = true) {
   X.sel = i;
   if (INT().select) INT().select(i);
+  if (i >= 0 && show) sfxAct('pick', 'int', () => INT().anchors.protein && INT().anchors.protein(INT().core[i].sym));   // (sound effects: a protein picked)
   if (i >= 0 && show) { needInt(); if (INT().anchors.protein) { const p = INT().anchors.protein(INT().core[i].sym); if (p) flyTo([orbit.cur[0], 18, 2.2, p[0], p[1], p[2]]); } }
   renderProtein(i);
   updateExtraLabels();
@@ -151,7 +154,13 @@ function runRoute(s, t) {
     X.pathEnds = [s, t];
     X.path = INT().route ? INT().route(s, t) : null;
     if (!X.path) X.pathErr = 'No route between these two proteins.';
-    else flyTo(view('int', 'default'));
+    else {
+      flyTo(view('int', 'default'));
+      // (sound effects: the route's steps one after another, a tone higher each, then a chime at its end)
+      const P = X.path, at = p => () => (p.sym && INT().anchors.protein ? INT().anchors.protein(p.sym) : null);
+      for (let k = 1; k < P.length; k++) sfxAct('step', 'int', at(P[k]), { delay: 0.14 * (k - 1), force: true, pitch: Math.pow(2, 2 * (k - 1) / 12), gain: 0.6 });
+      sfxAct('ping', 'int', at(P[P.length - 1]), { delay: 0.14 * (P.length - 1) + 0.05 });
+    }
   }
   renderRoute();
   updateExtraLabels();
@@ -368,4 +377,11 @@ function bindCanvas() {
     orbit.to = null;
     orbit.cur[2] = clamp(orbit.cur[2] * Math.exp(ev.deltaY * 0.0012), 0.3, 40);
   }, { passive: false });
+}
+// sound effects: ATP synthase's rotor hums while it runs in explore mode (View: Running), as it does in the story (from
+// exploreStep, every frame in explore mode; the drone fades by itself once nobody calls it)
+function sfxRotor() {
+  if (X.scene !== 'atp' || sfxHidden() || !HOST.sfx || !HOST.sfx.drone) return;
+  const c = (GL.sets.atp.controls || []).find(x => x.key === 'view');
+  if (c && ctlValue('atp', c) === 'running') { try { HOST.sfx.drone(XR_HERE + '.rotor', 'machine', Object.assign(sfxWhere('atp', 'rotor'), { pitch: 1.4, gain: 0.35 })); } catch (e) { /* an older shell */ } }
 }

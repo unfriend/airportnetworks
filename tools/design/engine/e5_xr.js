@@ -250,7 +250,8 @@ function xrRelease(c) {
     const h = c.hover;
     if (h && h.kind === 'panel' && h.P === p.P) {
       const r = h.P.at(h.x, h.y);
-      if (r && r.id === p.id && r.fn) { buzz(c); r.fn(); }
+      // (a soft click at the button, unless the press made a sound of its own: the shell's rule for page buttons)
+      if (r && r.id === p.id && r.fn) { buzz(c); const n = sfxN(); r.fn(); if (sfxN() === n) sfxPlay('click', 'world', h.point); }
     }
   }
 }
@@ -266,7 +267,7 @@ function xrGrab(c, on) {
     c.grab = { target: 'mini', key: h.key, q0: new THREE.Quaternion().setFromRotationMatrix(c.g.matrix).invert(), o0: c.o.clone(),
       p0: m.holder.getWorldPosition(new THREE.Vector3()), reach: 1, r0: m.holder.getWorldQuaternion(new THREE.Quaternion()) };
     GL.sets.table.carryTo(h.key, m.holder.position, m.holder.quaternion, m.s);
-    setHover(h.key); buzz(c, 0.4, 25);
+    setHover(h.key); buzz(c, 0.4, 25); sfxAct('grab', 'table', miniPos(h.key));   // (sound effects: picked up)
     return;
   }
   if (h.kind !== 'panel') return;   // the table stays where it is: only the panel and the miniatures move
@@ -280,7 +281,7 @@ function xrGrab(c, on) {
 function xrLetGo(c) {
   const G = c.grab;
   c.grab = null;
-  if (G && G.target === 'mini' && !XR.ctrls.some(k => k !== c && k.grab && k.grab.target === 'mini' && k.grab.key === G.key)) GL.sets.table.drop(G.key);
+  if (G && G.target === 'mini' && !XR.ctrls.some(k => k !== c && k.grab && k.grab.target === 'mini' && k.grab.key === G.key)) { GL.sets.table.drop(G.key); sfxAct('drop', 'table', miniPos(G.key)); }   // (sound effects: let go)
   else if (G && G.target === 'mini') { const o = XR.ctrls.find(k => k !== c && k.grab && k.grab.key === G.key); if (o) xrRegrip(o); }
 }
 // a hand that holds a miniature alone again (the other let go) carries on from where it is now
@@ -388,6 +389,10 @@ function xrPoint(c, dt) {
     }
   }
   c.hover = hit;
+  // a soft tick as the ray comes onto a button of the story's panels (as on the shell's menu)
+  const hr = hit && hit.kind === 'panel' && hit.P.at(hit.x, hit.y), hk = hr && hr.fn ? XR.panels.indexOf(hit.P) + '.' + hr.id : '';
+  if (hk && hk !== c.hk) sfxPlay('hover', 'world', hit.point);
+  c.hk = hk;
   if (c.wantPress) { c.wantPress = false; xrPress(c); }
   if (c.grab) carry(c, dt);
   if (c.press && c.press.kind === 'panel' && c.press.r.drag && hit && hit.kind === 'panel' && hit.P === c.press.P) c.press.r.drag(hit.x, hit.y);

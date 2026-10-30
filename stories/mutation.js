@@ -4049,6 +4049,51 @@ function buildStory() {
   ramp('tree_flow', a + 2, a + 6, 0, 1);
   cam(a + 2, 'tree', 'what', -6);
   cam(b - 0.5, 'tree', 'what', 16, 'spin');
+  // ---- sound effects (sfxCue: story time, a sound, where it comes from, its options; sfxHold: a continuous sound),
+  // beside the keys above: a cue just before the line it goes with, textures under the voice soft; sequences from the
+  // keys (when a ramp reaches a share)
+  const rampAt = (t0, t1, f) => { let lo = 0, hi = 1; for (let i = 0; i < 24; i++) { const m = (lo + hi) / 2; if (smooth(m) < f) lo = m; else hi = m; } return t0 + (t1 - t0) * lo; };
+  a = C.title.a;
+  sfxCue(a + 0.3, 'rise', 'letters', 'helix', { gain: 0.5 });                        // the helix
+  sfxCue(a + 6, 'whoosh', 'letters', 'ancestor', { dur: 5, pitch: 1.1 });            // the strand peels into the ancestor's row
+  sfxCue(a + 12.8, 'patter', 'letters', 'copy1', { dur: 2, gain: 0.4 });             // copy one
+  sfxCue(a + 15.2, 'pick', 'letters', 'swap1', { pitch: 1.5 });                      // a swap
+  sfxCue(a + 18.4, 'patter', 'letters', 'copy2', { dur: 2, gain: 0.4 });             // copy two
+  sfxCue(a + 20.7, 'pick', 'letters', 'swap2', { pitch: 1.5 });                      // a swap
+  a = C.tree.a;
+  sfxCue(a + 4, 'grow', 'tree', 'root', { dur: 18, pitch: 0.9, gain: 0.35 });        // the family tree grows
+  sfxCue(a + 23.8, 'ping', 'tree', 'long');                                          // a long and a short branch
+  a = C.qubits.a;
+  sfxCue(a + 2, 'whoosh', 'letters', 'tile', { dur: 1.5 });                          // a tile opens into two qubits
+  for (let i = 0; i < 4; i++) sfxCue(a + 5.8 + 3 * i, 'step', 'letters', 'qubit1', { pitch: Math.pow(2, 2 * i / 12), seq: true });   // the four codes
+  sfxCue(a + 18.8, 'whoosh', 'letters', 'qubit2', { pitch: 1.3 });                   // the tilt into a mix
+  for (let k = 1; k <= 4; k++) sfxCue(rampAt(a + 24, a + 28, k / 4), 'step', 'letters', 'piles', { pitch: 1.2, gain: 0.5, seq: true });   // the first read-outs, one by one
+  sfxCue(a + 28.3, 'patter', 'letters', 'piles', { dur: 5.7, gain: 0.3 });           // then many pile up
+  a = C.rule.a;
+  sfxCue(a + 1, 'grow', 'rule', 'pyramid', { dur: 5 });                              // balls and arrows
+  sfxCue(a + 16, 'rise', 'rule', 'pyramid', { dur: 5 });                             // the pyramid of mixes
+  sfxCue(a + 21.8, 'pick', 'rule', 'ballA');                                         // the path starts at A
+  sfxCue(a + 35, 'ping', 'rule', 'mix');                                             // it nears the long-run mix
+  a = C.machine.a;
+  sfxCue(a + 0.3, 'ratchet', 'rule', 'compiler', { n: 8, dur: 4 });                  // the compiler
+  sfxCue(a + 4, 'rise', 'rule', 'machine', { dur: 4 });                              // the machine
+  sfxCue(a + 7.8, 'whoosh', 'rule', 'copyGates');                                    // the copy
+  sfxHold(a + 13, a + 20, 'machine', 'rule', 'turn1', { pitch: 1.2, gain: 0.3 });    // the turn
+  sfxCue(a + 19.8, 'link', 'rule', 'circuit');                                       // the circuit
+  sfxCue(a + 29, 'ratchet', 'tree', 'crown', { n: 14, dur: 3 });                     // a machine on every branch
+  sfxCue(a + 33.8, 'patter', 'tree', 'tips', { dur: 2, pitch: 1.3, gain: 0.3 });     // read at the tips
+  a = C.pairs.a;
+  sfxCue(a + 6, 'whoosh', 'stem', 'stem', { dur: 6, pitch: 0.8 });                   // the strand folds into a stem
+  sfxCue(a + 13.8, 'snap', 'stem', 'brk');                                           // a pair breaks
+  sfxCue(a + 20.8, 'link', 'stem', 'gear');                                          // the coupling keeps one
+  [28, 31, 33].forEach((s, i) => sfxCue(a + s, 'step', 'stem', 'square', { pitch: Math.pow(2, 3 * i / 12), seq: true }));   // the count of combinations
+  a = C.rebuild.a;
+  sfxCue(a + 0.3, 'grow', 'tree', 'n1', { dur: 6 });                                 // the species tree
+  sfxCue(a + 14, 'patter', 'stem', 'cloud', { dur: 10, gain: 0.3 });                 // fields of rebuilt ancestors
+  FIELDS.forEach((m, i) => sfxCue(a + 17.8 + 3 * i, 'step', 'stem', 'field_' + m, { pitch: Math.pow(2, 2 * i / 12) }));   // each field lit
+  sfxCue(a + 30.8, 'ping', 'stem', 'truth');                                         // the true ancestor
+  a = C.what.a;
+  sfxCue(a + 2, 'ratchet', 'tree', 'crown', { n: 10, dur: 4, gain: 0.25 });          // the machines running
   for (const n in TR) TR[n].sort((x, y) => x[0] - y[0]);
   buildCamera(wp);
 
@@ -4443,17 +4488,25 @@ function openScene(k, fly = true) {
   if (!GL.sets[k] || !SCENES.some(s => s[0] === k)) return;
   const same = X.scene === k;
   X.scene = k; X.t0 = performance.now();
-  if (fly && !same) flyTo(view(k, viewCam(k) || 'default'));
+  if (fly && !same) { flyTo(view(k, viewCam(k) || 'default')); sfxAct('whoosh', k, null, { dur: 0.8 }); }   // (sound effects: another scene)
   renderAll();
 }
 function setCtl(k, key, v) {
   const c = ctlOf(k, key);
   if (!c || !c.options.some(o => o[0] === v)) return;
+  if (ctlValue(k, c) !== v) ctlSound(k, key, v);
   (X.ctl[k] = X.ctl[k] || {})[key] = v;
   X.t0 = performance.now();
   // a view has its own best camera
   if (key === 'view' && k === X.scene) { const n = camFor(k, v); flyTo(view(k, n || 'default')); }
   renderAll();
+}
+// (sound effects: a control changed: another rule or tree grows, the machines start, a field or a letter is picked)
+function ctlSound(k, key, v) {
+  const o = key === 'view' ? ['whoosh', k, null, { dur: 0.7, pitch: 1.1 }] : key === 'model' ? ['grow', k, 'pyramid', { dur: 1.5 }]
+    : key === 'seed' ? ['grow', k, 'root', { dur: 1.5, pitch: 0.9 }] : key === 'run' ? (v === 'on' ? ['ratchet', k, 'crown', { n: 6, dur: 1.5 }] : null)
+    : key === 'method' ? ['pick', k, v !== 'all' ? 'field_' + v : 'cloud'] : key === 'start' || key === 'parent' || key === 'mix' ? ['pick', k, null, { pitch: 1.3 }] : ['step', k, null];
+  if (o) sfxAct(...o);
 }
 // a view of a set, its scene brought up
 function showView(k, v) { if (X.scene !== k) openScene(k); if (!viewIs(k, v)) setCtl(k, 'view', v); }
@@ -4480,6 +4533,7 @@ function flyNear(p, d) { if (p) flyTo([orbit.cur[0], orbit.cur[1], d, p[0], p[1]
 function setTime(v, ui = true) {
   const t = clamp(Math.round(+v * 100) / 100, 0, 2);
   if (!Number.isFinite(t) || t === X.time) return;
+  if (Math.floor(t * 4) !== Math.floor(X.time * 4)) sfxAct('step', X.scene, null, { pitch: Math.pow(2, t / 2) });   // (sound effects: each quarter crossed)
   X.time = t;
   if (ui && letMix() === 'rule') X.reads = 0;   // (another mix: its read-outs start again)
   syncNums();
@@ -4488,6 +4542,7 @@ function setTime(v, ui = true) {
 function setW(v, ui = true) {
   const w = clamp(Math.round(+v) || 1, 1, 30);
   if (w === X.w) return;
+  sfxAct('step', 'stem', 'gear', { pitch: Math.pow(2, Math.log(w) / Math.log(30)) });   // (sound effects: the pair favour, higher the stronger)
   X.w = w;
   if (ui && !stemLive()) { (X.ctl.stem = X.ctl.stem || {}).src = 'live'; renderAll(); return; }   // (the authors' test is w = 8)
   syncNums();
@@ -4501,7 +4556,9 @@ function setMix(v) {
 }
 // read out n more (up to the piles' most), or clear them (0); read again: a new seed, the piles cleared
 function readOut(n, ui = true) {
+  const r0 = X.reads;
   X.reads = n > 0 ? clamp(X.reads + n, 0, READ_MAX()) : 0;
+  if (X.reads > r0) sfxAct(...(X.reads - r0 > 1 ? ['patter', 'letters', 'piles', { dur: 1.5 }] : ['step', 'letters', 'piles', { pitch: 1.2 }]));   // (sound effects: one read-out, or many)
   if (ui && !(X.scene === 'letters' && viewIs('letters', 'qubits'))) showView('letters', 'qubits');
   renderAll();
 }
@@ -4509,14 +4566,16 @@ function readAgain() { X.rseed = X.rseed % 999 + 1; X.reads = 0; renderAll(); }
 // a branch of the family tree (-1 none): lit, its rise measured, its machine lit
 function selectBranch(b, ui = true) {
   const n = treeNow().branches.length;
+  const was = X.branch;
   X.branch = Number.isInteger(b) && b >= 0 && b < n ? b : -1;
+  if (X.branch >= 0 && X.branch !== was) sfxAct('pick', 'tree', 'crown');   // (sound effects: a branch picked)
   if (ui && X.branch >= 0 && !(X.scene === 'tree' && treeView() !== 'species')) { if (X.scene !== 'tree') openScene('tree'); if (treeView() === 'species') setCtl('tree', 'view', 'tree'); }
   renderAll();
 }
 // a new family tree: the next of the five
 function nextTree() { const o = ctlOf('tree', 'seed').options, i = o.findIndex(x => x[0] === ctlValue('tree', ctlOf('tree', 'seed'))); X.branch = -1; sceneCtl('tree', 'seed', o[(i + 1) % o.length][0]); }
 // rebuild again: another 2,000 ancestors per method (this example, live)
-function rebuildAgain() { X.sseed = X.sseed % 999 + 1; if (!stemLive()) (X.ctl.stem = X.ctl.stem || {}).src = 'live'; if (X.scene !== 'stem') openScene('stem'); renderAll(); }
+function rebuildAgain() { sfxAct('patter', 'stem', 'cloud', { dur: 1.5 }); X.sseed = X.sseed % 999 + 1; if (!stemLive()) (X.ctl.stem = X.ctl.stem || {}).src = 'live'; if (X.scene !== 'stem') openScene('stem'); renderAll(); }
 // a control of a scene picked from a tab: its scene brought up (a new tree drops the branch picked)
 function sceneCtl(k, key, v) {
   if (X.scene !== k) openScene(k);
@@ -5178,7 +5237,8 @@ function xrRelease(c) {
     const h = c.hover;
     if (h && h.kind === 'panel' && h.P === p.P) {
       const r = h.P.at(h.x, h.y);
-      if (r && r.id === p.id && r.fn) { buzz(c); r.fn(); }
+      // (a soft click at the button, unless the press made a sound of its own: the shell's rule for page buttons)
+      if (r && r.id === p.id && r.fn) { buzz(c); const n = sfxN(); r.fn(); if (sfxN() === n) sfxPlay('click', 'world', h.point); }
     }
   } else if (!p.moved && p.pk) { buzz(c); xrClickPick(p.pk); }
 }
@@ -5269,6 +5329,10 @@ function xrPoint(c, dt) {
     }
   }
   c.hover = hit;
+  // a soft tick as the ray comes onto a button of the story's panels (as on the shell's menu)
+  const hr = hit && hit.kind === 'panel' && hit.P.at(hit.x, hit.y), hk = hr && hr.fn ? XR.panels.indexOf(hit.P) + '.' + hr.id : '';
+  if (hk && hk !== c.hk) sfxPlay('hover', 'world', hit.point);
+  c.hk = hk;
   if (c.wantPress) { c.wantPress = false; xrPress(c); }
   if (c.press && c.press.kind === 'globe') dragGlobe(c, c.press);
   if (c.grab) carry(c, dt);
@@ -6216,7 +6280,7 @@ function audioToggle() { HOST.audio.toggle(); }
 // Slideshow (HOST.slides: on for this story, or for all): the story waits at the end of each chapter, all its text
 // shown, until Next (or Play) goes on. The stop is a pause and a seek, Next a play, so in a shared room they reach
 // the station's clock like a pause and a play by hand, at the same t on every device.
-const SLIDE = { at: -1, go: -1, last: 0, lt: 0, lp: false, tail: null };
+const SLIDE = { at: -1, go: -1, last: 0, lt: 0, lp: false, tail: null, from: 0 };
 const slidesOn = () => !!(HOST.slides && HOST.slides.on(XR_HERE));
 // where chapter i waits: just before its text starts to fade out (0.65 s before its end in story time), on the
 // recording's clock; the same on every device
@@ -6233,6 +6297,7 @@ const slideVoice = i => (typeof NARRATION_ENDS === 'object' && +NARRATION_ENDS[C
 function slideStep(t0) {
   const was = SLIDE.at, now = performance.now(), st = HOST.collab && HOST.collab.live && HOST.collab.live();
   const from = st && st.story === XR_HERE && SLIDE.lp && APP.t >= SLIDE.last && APP.t - SLIDE.last < (now - SLIDE.lt) / 1000 + 0.35 ? SLIDE.last : t0;
+  SLIDE.from = from;   // (the sound effects' cues cross by the same rule: sfxStep)
   SLIDE.at = -1;
   if (slidesOn() && APP.mode === 'story') {
     for (let i = 0; i < CH.length; i++) {
@@ -6286,6 +6351,66 @@ function slideDOM() {
   const p = $('#panel'), r = p.getBoundingClientRect(), cs = getComputedStyle(p), sec = $('#story .ch.on');
   const over = Math.min(row.getBoundingClientRect().bottom - (r.bottom - parseFloat(cs.paddingBottom)), sec ? sec.getBoundingClientRect().top - r.top - parseFloat(cs.paddingTop) : 0);
   if (over > 0) p.scrollTo({ top: p.scrollTop + over, behavior: 'smooth' });
+}
+
+// ---------------------------------------------------------- sound effects --
+// Sounds inside the story (the shell's HOST.sfx, sfx.js; phase 2). Cues are set beside the keys in buildStory, in story
+// time (sfxCue), and play as the clock crosses them while the story plays, by the slideshow's crossing rule
+// (SLIDE.from): the same cues at the same moment on every device at a station, none on a jump, a scrub, a slideshow
+// stop's seek or a late joiner's start. A span (sfxHold) keeps a continuous sound while the clock is inside it and
+// playing. Explore and headset actions call sfxAct (explore mode only) or sfxPlay where the story already handles them.
+// A sound comes from a place (a set's anchor, sfxPos): in a headset through an HRTF panner, on a screen panned by where
+// it shows. An older shell (no HOST.sfx, or a sound it does not know) plays nothing. Never in collab.state(): each
+// device plays its own. SFXQ.log keeps what was asked for (also when nothing can play: before a tap), for the tests
+const SFXQ = { cues: [], spans: [], hi: -1, t: 0, n: 0, log: [] };
+const sfxCue = (t, name, set, at, o) => { SFXQ.cues.push({ t, n: narrT(t), name, set, at, o: o || {} }); };
+const sfxHold = (t0, t1, name, set, at, o) => { SFXQ.spans.push({ id: XR_HERE + '.' + SFXQ.spans.length, t0, t1, n0: narrT(t0), n1: narrT(t1), name, set, at, o: o || {} }); };
+const sfxN = () => SFXQ.n + (HOST.sfx && HOST.sfx.count ? HOST.sfx.count() : 0);
+const _sfv = new THREE.Vector3();
+// where a sound comes from: [x, y, z] in the scene's (the reference space's) coordinates and, on a screen, a pan
+function sfxWhere(set, at) {
+  if (set === 'world') { if (!at) return {}; if (Array.isArray(at)) _sfv.fromArray(at); else _sfv.copy(at); }   // a point already in the scene's coordinates (a ray's hit)
+  else if (!sfxPos(set, at, _sfv)) return {};
+  const o = { at: [_sfv.x, _sfv.y, _sfv.z] };
+  if (!(XR.on && GL.renderer.xr.isPresenting)) { _sfv.project(GL.camera); o.pan = clamp(_sfv.x, -1, 1) * 0.6 * (_sfv.z > 1 ? -1 : 1); }
+  return o;
+}
+function sfxPlay(name, set, at, o) {
+  SFXQ.n++;
+  if (name !== 'hover') { SFXQ.log.push([name, Math.round(APP.t * 100) / 100, APP.mode]); if (SFXQ.log.length > 64) SFXQ.log.shift(); }
+  if (!HOST.sfx || !HOST.sfx.play) return null;
+  try { return HOST.sfx.play(name, Object.assign(sfxWhere(set, at), o)); } catch (e) { return null; }
+}
+// nothing of the story sounds while it is hidden: behind a Stories screen (page or headset), or a headset away from its station
+const sfxHidden = () => !!(HOST.picking || XR.stories || xrAway());
+// an explore action's sound (a pick, a result, a knockout): only in explore mode (a room's state applied while the story
+// plays is silent)
+const sfxAct = (name, set, at, o) => (APP.mode === 'explore' && !sfxHidden() ? sfxPlay(name, set, at, o) : null);
+// every frame, right after slideStep (`was`: the story was playing as the frame began): the cues crossed since the
+// slideshow's `from` (at most 1.5 s back: the narration's clock can leap ahead as it starts after a jump, and its cues
+// then play a moment late, not a burst of old ones; never twice: the narration or a room's clock may pull the clock back
+// a hair, SFXQ.hi, forgotten once the clock is put back further), the spans the clock is in, and the live parts
+// (sfxLive, where a story has them)
+function sfxStep(was, dt) {
+  const t = APP.t, from = SLIDE.from, quiet = APP.mode !== 'story' || sfxHidden();
+  if (from < SFXQ.t - 0.5 || t < SFXQ.hi - 0.5) SFXQ.hi = -1;   // back to earlier: Replay, Repeat, a jump back
+  if (was && !quiet && t > from) {
+    const hi = SFXQ.hi;
+    for (const c of SFXQ.cues) if (c.n > from && c.n <= t && c.n > hi && t - c.n < 1.5) { SFXQ.hi = Math.max(SFXQ.hi, c.n); sfxPlay(c.name, c.set, c.at, c.o); }
+  }
+  if (APP.playing && !quiet && HOST.sfx && HOST.sfx.drone) {
+    for (const s of SFXQ.spans) if (t >= s.n0 && t < s.n1) { try { HOST.sfx.drone(s.id, s.name, Object.assign(sfxWhere(s.set, s.at), s.o)); } catch (e) { /* an older shell */ } }
+  }
+  if (typeof sfxLive === 'function' && !sfxHidden()) sfxLive(dt);
+  SFXQ.t = t;
+}
+// a sound's place (sound effects): a set's anchor (a name, a function, or [x, y, z] in its frame) in the scene's
+// coordinates; no set: GL.world's origin. Sets may hang under a life-size holder: each group's own world matrix
+function sfxPos(set, at, out) {
+  const s = set && GL.sets[set];
+  if (!s) out.set(0, 0, 0).applyMatrix4(GL.world.matrixWorld);
+  else { const p = anchorOf(set, at); out.set(p[0], p[1], p[2]).applyMatrix4(s.group.matrixWorld); }
+  return isFinite(out.x + out.y + out.z);
 }
 
 // ================================================================== APP ==
@@ -6374,11 +6499,13 @@ function frame(now, xrFrame) {
   if (xr) xrBegin(xrFrame, dt);
   let S, tSet;
   const t0 = APP.t;
+  const was = APP.mode === 'story' && APP.playing;   // (sound effects: the story was playing as the frame began)
   if (APP.mode === 'story' && APP.playing) {
     APP.t += dt;
     audioFollow();
   }
   slideStep(t0);   // slideshow: the story waits at the end of each chapter
+  sfxStep(was, dt);   // sound effects: the cues the clock crossed, the spans it is in, the live sounds
   // the end: Repeat (shell) starts this story or the next one again, else explore mode opens
   if (APP.mode === 'story' && APP.playing && APP.t >= T_END) { APP.t = T_END; if (HOST.ended()) APP.playing = false; else APP.enterExplore(); }
   audioSync();

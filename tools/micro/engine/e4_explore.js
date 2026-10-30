@@ -103,6 +103,7 @@ function openScene(k, fly = true) {
   if (!GL.sets[k] || !SCENES.some(s => s[0] === k)) return;
   const same = X.scene === k;
   X.scene = k; X.t0 = performance.now();
+  if (!same) sfxAct('whoosh', k, null, { dur: 1.2 });   // (sound effects: another scene)
   if (fly && !same) flyTo(view(k, viewCam(k) || 'default'));
   renderAll();
 }
@@ -149,6 +150,7 @@ function selectOrgan(v, ui = true) {
     else if (X.scene !== 'hier' || !viewIs('hier', VIEW.net)) { if (atlasIdx(X.organ)) { if (!(X.scene === 'atlas' && (viewIs('atlas', VIEW.volcano) || viewIs('atlas', VIEW.curves)))) showView('atlas', VIEW.map); flyTo(view('atlas', viewCam('atlas') || 'focus')); } }
   }
   if (ui && !X.organ && X.scene === 'atlas') flyTo(view('atlas', viewCam('atlas') || 'default'));   // (back from the section)
+  if (ui && X.organ) sfxAct('pick', X.scene, X.scene === 'body' ? O.pos : null);   // (sound effects: an organ picked)
   pushState(); renderAll();
 }
 // a domain of the network (null none): it lights up in the network, and on the section if it is one of its domains
@@ -157,13 +159,17 @@ function selectDomain(v, ui = true) {
   X.domain = d >= 0 ? nodeName(d) : null;
   if (X.domain) { X.organ = null; X.kind = nodeName(MD.typeOfDomain(d)) || X.kind; }
   if (ui && X.domain && !(X.scene === 'slide' && slideIdx(X.domain))) showView('hier', VIEW.net);
+  if (ui && X.domain) sfxAct('pick', X.scene, null);   // (sound effects: a domain picked)
   pushState(); renderAll();
 }
 // a tissue type: the Domains panes list its domains (this device's own choice, not shared)
 function pickKind(v) { X.kind = MD.type(v) >= 0 ? nodeName(MD.type(v)) : null; renderAll(); }
 // the age (20 to 70): the sections, the domains on the slide and the contacts follow it
 function setAge(v, ui = false) {
+  const a0 = X.age;
   X.age = Math.round(clamp(+v, AGE0, AGE1));
+  // (sound effects: the slider moved by hand across a decade, a tone higher each decade)
+  if (ui && Math.floor(a0 / 10) !== Math.floor(X.age / 10)) sfxAct('step', X.scene, null, { pitch: Math.pow(2, 2 * (Math.floor(X.age / 10) - 2) / 12) });
   // (moved by hand where nothing shows the age: the gut's example on the slide)
   if (ui && !(X.scene === 'slide' && viewIs('slide', /age|domain/i)) && !(X.scene === 'atlas' && X.organ && viewIs('atlas', VIEW.map)) && !(X.scene === 'hier' && viewIs('hier', VIEW.contacts))) showExample(FACTS.ex.findIndex((x, i) => !exOrgan(i)), false);
   syncAge();
@@ -172,6 +178,7 @@ function setAge(v, ui = false) {
 function setStep(n, ui = true) {
   X.step = clamp(n | 0, 1, STEPS.length);
   if (ui) showView('slide', STEPS[X.step - 1][1]);
+  if (ui) sfxAct('step', 'slide', null, { pitch: Math.pow(2, 2 * (X.step - 1) / 12) });   // (sound effects: the method's step, a tone higher each)
   renderAll();
 }
 // a worked example of change with age: its section in the atlas (or on the slide), at 70 unless asked otherwise

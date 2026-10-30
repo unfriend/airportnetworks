@@ -71,6 +71,7 @@ function exploreTargets(now = performance.now()) {
 }
 function exploreStep(dt, now) {
   const tg = exploreTargets(now), k = 1 - Math.exp(-dt * 3.5);
+  sfxScanner();
   for (const n in DEF) XS[n] = STEP.has(n) ? tg[n] : XS[n] + (tg[n] - XS[n]) * k;
   // a gently swaying scene, unless you are steering it, standing by the scanner life size, or a set asks for stillness
   if (X.turn === 'on' && !(X.life && X.scene === 'scan') && !orbit.to && !orbit.held && !GL.still && !HOST.room.placing()) { X.sway = (X.sway || 0) + dt; orbit.cur[0] += dt * 6 * Math.cos(X.sway * 0.25); }
@@ -82,6 +83,7 @@ function openScene(k, fly = true) {
   if (!GL.sets[k]) return;
   const same = X.scene === k;
   X.scene = k; X.t0 = performance.now();
+  if (!same) sfxAct('whoosh', k, null, { dur: 1.2 });   // (sound effects: another scene)
   if (X.life && k !== 'scan') setLife(false);   // (life size is the scanner's)
   if (fly && !same) flyTo(view(k, X.life && k === 'scan' ? 'life' : viewCam(k) || 'default'));
   lifeCtl();
@@ -125,6 +127,7 @@ function selectCmp(i, ui = true) {
 // the network on show in the organs set: one of its Network control's, or a robustness test's (X.netX)
 function setNet(id) {
   if (!NET_ALL.includes(id)) return;
+  if (id !== curNet()) sfxAct('grow', 'organs', 'net', { dur: 1.2, gain: 0.5 });   // (sound effects: another network)
   if (NET_IDS.includes(id)) { (X.ctl.organs = X.ctl.organs || {}).network = id; X.netX = null; } else X.netX = id;
   X.t0 = performance.now();
   renderNets(); renderOrgans(); renderScenes();
@@ -139,12 +142,14 @@ function showNet(id) {
 // an organ (null none): it glows in the organs set, its bar and links brighter
 function selectOrgan(id, ui = true) {
   X.organ = id && PD.byId[id] ? id : null;
+  if (ui && X.organ) sfxAct('pick', 'organs', X.organ);   // (sound effects: an organ picked)
   if (ui && X.organ && X.scene !== 'organs') openScene('organs');
   if (ui && X.organ && X.scene === 'organs' && !viewIs('organs', /net|matrix|partial|scatter/i)) afterUpdate(() => { if (X.organ === id) flyNear(anchorOf('organs', id), Math.min(orbit.cur[2], 2.6)); });
   pushState(); renderOrgans(); renderNets();
 }
 // Life size: on screen the scanner from a couple of metres at eye height; in the headset life size on your floor
 function setLife(on) {
+  if (on && !X.life) sfxAct('rise', 'scan', 'ring', { dur: 1.5 });   // (sound effects: the scanner life size round you)
   X.life = on;
   if (XR.on) xrRoom(on);
   if (on && X.scene !== 'scan') openScene('scan', false);
@@ -461,4 +466,10 @@ function bindCanvas() {
     orbit.to = null;
     orbit.cur[2] = clamp(orbit.cur[2] * Math.exp(ev.deltaY * 0.0012), 0.05, 40);
   }, { passive: false });
+}
+// sound effects: the scanner's ring hums while it is the scene in explore mode, as it does in the story (from exploreStep,
+// every frame in explore mode; the drone fades by itself once nobody calls it)
+function sfxScanner() {
+  if (X.scene !== 'scan' || sfxHidden() || !HOST.sfx || !HOST.sfx.drone) return;
+  try { HOST.sfx.drone(XR_HERE + '.ring', 'machine', Object.assign(sfxWhere('scan', 'ring'), { pitch: 1.3, gain: 0.22 })); } catch (e) { /* an older shell */ }
 }

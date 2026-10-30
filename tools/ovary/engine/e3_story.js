@@ -378,6 +378,40 @@ function buildStory() {
   cam(a + 14, 'section', 'kinds', 0, null, [0, 10, -0.3, 0, -0.3]);   // (the slab tipped back and sunk: from a little above)
   cam(a + 19.5, 'section', 'kinds', -4);
   cam(b, 'section', 'kinds', 10, 'spin');
+  // ---- sound effects (sfxCue: story time, a sound, where it comes from, its options), beside the keys above: a cue just
+  // before the line it goes with, textures under the voice soft; sequences from the keys (when a ramp reaches a share)
+  const rampAt = (t0, t1, f) => { let lo = 0, hi = 1; for (let i = 0; i < 24; i++) { const m = (lo + hi) / 2; if (smooth(m) < f) lo = m; else hi = m; } return t0 + (t1 - t0) * lo; };
+  a = C.title.a;
+  sfxCue(a + 0.3, 'rise', 'body', null, { gain: 0.4 });                          // the body
+  sfxCue(a + 9.5, 'rise', 'organ', 'small', { dur: 9, pitch: 0.9 });              // the ovary grows out of it
+  sfxCue(a + 19.8, 'whoosh', 'organ', 'cortex', { dur: 7, pitch: 0.7 });          // it opens
+  sfxCue(a + 27.2, 'ping', 'organ', 'follicle');                                  // its parts named
+  a = C.donors.a;
+  sfxCue(a + 0.9, 'clink', 'charts', 'slides');                                   // the first slide
+  sfxCue(a + 1.5, 'patter', 'charts', 'fan', { dur: 9, gain: 0.35 });             // 255 slides fly in and fan out
+  sfxCue(a + 13, 'ratchet', 'charts', 'hist', { n: 12, dur: 10, pitch: 0.8, gain: 0.3 });   // they stack into the histogram
+  a = C.section.a;
+  [['vessel', 6], ['macrophage', 12], ['albicans', 18], ['follicle', 24]].forEach(([k, s], j) => sfxCue(a + s - 0.2, 'pick', 'section', k, { pitch: Math.pow(2, 2 * j / 12) }));   // each kind
+  sfxCue(a + 30.5, 'grow', 'section', 'center', { dur: 1.5 });                    // all four
+  sfxCue(a + 34.7, 'whoosh', 'section', 'young');                                 // a younger and an older section
+  a = C.methods.a;
+  sfxCue(a + 1.8, 'grow', 'section', 'tiles', { dur: 5, pitch: 1.2 });            // tiles
+  sfxCue(a + 7.8, 'grow', 'section', 'feat', { dur: 6, pitch: 1.5, gain: 0.35 });   // UNI2's features
+  sfxCue(a + 15.8, 'patter', 'section', 'forest', { dur: 4, pitch: 0.8, gain: 0.3 });   // the grove grows
+  { const v0 = rampAt(a + 16, a + 33, 0.35), v1 = rampAt(a + 16, a + 33, 0.85);   // (the trees answer, the set's section_forest 0.35 to 0.85)
+    sfxCue(v0, 'ratchet', 'section', 'forest', { n: 10, dur: v1 - v0, gain: 0.3 }); }
+  sfxCue(a + 32.8, 'ping', 'section', 'pred');                                    // the predictions
+  sfxCue(a + 39.3, 'whoosh', 'section', 'mask', { dur: 3 });                      // SegFormer's masks wash in
+  [['follicle', 49.5], ['vessel', 50.3], ['macrophage', 51.1], ['albicans', 51.9], ['cyst', 53.5]].forEach(([k, s], j) =>
+    sfxCue(a + s, 'step', 'section', 'tag_' + k, { pitch: Math.pow(2, 2 * j / 12), gain: 0.3, seq: true }));   // the scores as tags
+  a = C.trends.a;
+  sfxCue(a + 3, 'pick', 'organ', 'age');                                          // the count tags
+  for (let k = 0; k <= 5; k++) sfxCue(rampAt(a + 5, a + 37, k / 5), 'step', 'organ', 'follicle', { pitch: Math.pow(2, -2 * k / 12), gain: 0.3 });   // each decade, 20 to 70
+  a = C.network.a;
+  sfxCue(a + 2, 'grow', 'section', 'center', { dur: 7 });                         // the neighbor network
+  sfxCue(a + 10, 'whoosh', 'section', 'net', { dur: 4, pitch: 1.2 });             // it tips up off the section
+  sfxCue(a + 14.5, 'rise', 'section', 'kinds', { dur: 4.5 });                     // it gathers into hubs by kind
+  [30, 40, 50, 60].forEach((y, k) => sfxCue(rampAt(a + 20, a + 36, (y - 25) / 40), 'step', 'section', 'kinds', { pitch: Math.pow(2, -2 * (k + 1) / 12), gain: 0.25 }));   // it ages, 25 to 65
   for (const n in TR) TR[n].sort((x, y) => x[0] - y[0]);
   buildCamera(wp);
 

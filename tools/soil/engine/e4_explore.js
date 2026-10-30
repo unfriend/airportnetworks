@@ -121,12 +121,13 @@ function openScene(k, fly = true) {
   if (!GL.sets[k] || !SCENES.some(s => s[0] === k)) return;
   const same = X.scene === k;
   X.scene = k; X.t0 = performance.now();
-  if (fly && !same) flyTo(view(k, viewCam(k) || 'default'));
+  if (fly && !same) { flyTo(view(k, viewCam(k) || 'default')); sfxAct('whoosh', k, null, { dur: 0.8 }); }   // (sound effects: another scene)
   renderAll();
 }
 function setCtl(k, key, v) {
   const c = ctlOf(k, key);
   if (!c || !c.options.some(o => o[0] === v)) return;
+  if (ctlValue(k, c) !== v) ctlSound(k, key, v);
   (X.ctl[k] = X.ctl[k] || {})[key] = v;
   X.t0 = performance.now();
   // (a wheat or a regime chosen: the group picked by hand gives way to it)
@@ -134,6 +135,14 @@ function setCtl(k, key, v) {
   // a view has its own best camera
   if (key === viewKey(k) && k === X.scene) { const n = camFor(k, v); flyTo(view(k, n || 'default')); }
   renderAll();
+}
+// (sound effects: a control changed: the jars bubble, the split swings out, a measure washes over the field, the soil
+// block's flows change, a date steps on)
+function ctlSound(k, key, v) {
+  const o = key === viewKey(k) ? (v === 'jars' ? ['bubble', k, 'jars'] : ['whoosh', k, v === 'split' ? 'mid' : null, { dur: 0.7, pitch: 1.1 }])
+    : k === 'soil' ? ['rush', k, 'nh4', { dur: 1.5, gain: 0.7 }] : key === 'show' ? ['grow', k, 'field', { dur: 1 }] : key === 'colour' ? ['grow', k, 'net', { dur: 1, pitch: 1.2 }]
+    : key === 'by' ? ['whoosh', k, 'mid', { dur: 0.7 }] : key === 'date' ? ['step', k, 'field', { pitch: Math.pow(2, 2 * (+v) / 12) }] : ['step', k, null];
+  sfxAct(...o);
 }
 // a view of a set, its scene brought up
 function showView(k, v) { if (X.scene !== k) openScene(k); if (!viewIs(k, v)) setCtl(k, viewKey(k), v); }
@@ -160,6 +169,7 @@ function flyNear(p, d) { if (p) flyTo([orbit.cur[0], orbit.cur[1], d, p[0], p[1]
 function setRho(v, ui = true) {
   const r = clamp(Math.round(+v * 100) / 100, 0.6, 0.8);
   if (!Number.isFinite(r) || r === X.rho) return;
+  if (Math.floor(r * 50 + 1e-6) !== Math.floor(X.rho * 50 + 1e-6)) sfxAct('step', 'net', 'net', { pitch: Math.pow(2, (r - 0.6) * 5) });   // (sound effects: each 0.02 crossed)
   X.rho = r;
   if (ui) { if (X.scene !== 'net') openScene('net'); if (netView() === 'cloud') setCtl('net', 'view', 'net'); }
   syncNums();
@@ -168,7 +178,9 @@ const setNum = (key, v, ui) => ({ rho: setRho }[key] || (() => {}))(v, ui);
 // a module (-1 none): its kinds lit, the rest dimmed, and the plots where it thrives lit below
 function selectModule(m, ui = true) {
   const n = D.net.mods.length;
+  const was = X.mod;
   X.mod = Number.isInteger(m) && m >= 0 && m < n ? m : -1;
+  if (X.mod >= 0 && X.mod !== was) sfxAct('pulse', 'net', 'm' + X.mod);   // (sound effects: a module lit)
   if (ui && X.mod >= 0) {
     if (X.scene !== 'net') openScene('net');
     if (netView() !== 'net') setCtl('net', 'view', 'net');
@@ -179,6 +191,8 @@ function selectModule(m, ui = true) {
 const stepModule = d => { const n = D.net.mods.length; selectModule(X.mod < 0 ? (d > 0 ? 0 : n - 1) : (X.mod + d + n) % n); };
 // the shuffle (0 the network, 1 the samples shuffled: not one link left)
 function setShuffle(on, ui = true) {
+  // (sound effects: the links snap and fall away; shuffled back, they come again)
+  if ((on ? 1 : 0) !== X.shuf) { if (on) { sfxAct('snap', 'net', 'net'); sfxAct('patter', 'net', 'net', { dur: 1.5, delay: 0.1, gain: 0.6 }); } else sfxAct('rise', 'net', 'net', { dur: 1 }); }
   X.shuf = on ? 1 : 0;
   if (ui) { if (X.scene !== 'net') openScene('net'); if (netView() === 'cloud') setCtl('net', 'view', 'net'); }
   renderAll();
@@ -193,7 +207,9 @@ function setSplit(by) {
 // a kind of the cloud (-1 none): its bubble, its links and its numbers
 function selectKind(i, ui = true) {
   const n = api('net').n || 0;
+  const was = X.kind;
   X.kind = Number.isInteger(i) && i >= 0 && i < n ? i : -1;
+  if (X.kind >= 0 && X.kind !== was) sfxAct('pick', 'net', api('net').pos ? api('net').pos(X.kind) : null);   // (sound effects: a kind picked, at it)
   if (ui && X.kind >= 0) {
     if (X.scene !== 'net') openScene('net');
     if (netView() === 'split') setCtl('net', 'view', api('net').nodeOf(X.kind) >= 0 ? 'net' : 'cloud');
@@ -204,7 +220,9 @@ function selectKind(i, ui = true) {
 }
 // a group of plots (line * 3 + fert, -1 none): lit, the others dimmed, with tags of the measure on show
 function selectPlot(g, ui = true) {
+  const was = X.plot;
   X.plot = Number.isInteger(g) && g >= 0 && g < 6 ? g : -1;
+  if (X.plot >= 0 && X.plot !== was) sfxAct('pick', 'field', X.plot < 3 ? 'bni' : 'ctrl');   // (sound effects: a group of plots picked)
   if (ui && X.plot >= 0 && X.scene !== 'field') openScene('field');
   renderAll();
 }

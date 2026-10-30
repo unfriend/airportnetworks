@@ -336,6 +336,38 @@ function buildStory() {
   cam(a + 10, 'tower', 'default', 60, 'spin', [0, 0, 0.3]);
   cam(b, 'tower', 'default', 140, 'spin', [0, 0, 0.3]);
   for (const n in TR) TR[n].sort((x, y) => x[0] - y[0]);
+
+  // ------------------------------------------------------------ sound effects
+  // (sfxCue: story time, a sound, where it comes from: a set and one of its anchors; its options. sfxHold: a continuous
+  // sound while the clock is inside a span)
+  const cmAt = () => T.anchors.group(CMg - 1);   // the congenital myopathies' genes in the tower
+  sfxCue(C.title.a + 0.5, 'rise', 'tower', 'mid', { dur: 9.5, gain: 0.5 });              // the tower rises layer by layer
+  a = C.motor.a;
+  sfxCue(a + 0.3, 'grow', 'motor', 'cord', { dur: 6, pitch: 0.9 });                      // the motor unit builds
+  sfxCue(a + 7, 'spark', 'motor', 'axon', { seq: true });                                // impulses run down the axon
+  sfxCue(a + 7.6, 'spark', 'motor', 'junction', { seq: true });                          // and reach the junction
+  sfxCue(a + 17, 'whoosh', 'motor', 'sarcomere', { dur: 4, pitch: 1.2 });                // the sarcomere opens
+  sfxCue(a + 23, 'whoosh', 'motor', 'fibre', { dur: 1.5, pitch: 0.7 });                  // the muscle contracts
+  sfxCue(a + 31, 'pulse', 'motor', 'junction');                                          // disease groups light on the unit
+  sfxCue(a + 40, 'heart', 'motor', 'heart', { gain: 0.5, seq: true });                   // the heart lights
+  sfxCue(a + 41, 'heart', 'motor', 'heart', { gain: 0.5, seq: true });
+  sfxCue(C.why.a + 0.3, 'whoosh', 'tower', null);                                        // back to the tower, from above
+  sfxCue(C.tower.a + 2, 'grow', 'tower', null, { dur: 3, pitch: 0.8 });                  // the categories come up
+  a = C.walk.a;
+  sfxCue(a + 1, 'pulse', 'tower', cmAt);                                                 // the seeds of congenital myopathies
+  sfxCue(a + 8, 'patter', 'tower', cmAt, { dur: 3, pitch: 1.3, gain: 0.3 });             // walkers set out
+  sfxCue(a + 18, 'grow', 'tower', cmAt, { dur: 12, pitch: 0.7, gain: 0.3 });             // the heat spreads
+  sfxCue(a + 34, 'rise', 'tower', cmAt, { dur: 10 });                                    // the module grows
+  [3, 15, 24].forEach((t, k) => sfxCue(C.layers.a + t, 'step', 'tower', null, { pitch: [1, 1.12, 1.26][k], seq: true }));   // each group's z-scores
+  sfxCue(C.endo.a + 2, 'grow', 'tower', null, { dur: 4, pitch: 1.1 });                   // endotypes in colour
+  sfxCue(C.endo.a + 12, 'ratchet', 'tower', null, { n: 8, dur: 6, gain: 0.3 });          // gathered on a grid
+  sfxCue(C.overlap.a + 2, 'whoosh', 'tower', 'pairMid', { dur: 5 });                     // two towers
+  sfxCue(C.overlap.a + 34, 'pulse', 'tower', 'pairMid', { pitch: 0.8 });                 // the known genes alone
+  a = C.stress.a;
+  [1, 0.94, 0.89].forEach((p, k) => sfxCue(a + 2 + 3 * k, 'knock', 'tower', null, { pitch: p, seq: true }));   // layers fall away; the module holds
+  sfxHold(a + 13, a + 33, 'machine', 'hpc', 'racks', { pitch: 0.9, gain: 0.3 });         // the supercomputer's hall
+  sfxCue(a + 18, 'grow', 'hpc', 'field', { dur: 5 });                                    // the sea of towers
+  sfxCue(C.next.a + 2, 'rise', 'tower', null, { dur: 6 });                               // the tower opens round you
   buildCamera(wp);
 
   // --------------------------------------------------------- story labels

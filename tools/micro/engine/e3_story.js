@@ -495,6 +495,43 @@ function buildStory() {
   cam(a + 1, 'body', 'front', -16);
   cam(b, 'body', 'front', 10, 'spin');
   for (const n in TR) TR[n].sort((x, y) => x[0] - y[0]);
+
+  // ------------------------------------------------------------ sound effects
+  // (sfxCue: story time, a sound, where it comes from: a set and one of its anchors, or a point in its frame; its options)
+  a = C.title.a;
+  sfxCue(a + 0.3, 'rise', 'body', null);                                                  // the PET body
+  sfxCue(a + 3, 'patter', 'body', null, { dur: 4, pitch: 1.4, gain: 0.3 });               // the organs' points light one by one
+  sfxCue(C.slide.a - 2.5, 'pick', 'body', st);                                            // the stomach's point glows
+  a = C.slide.a;
+  sfxCue(a + 1.2, 'whoosh', 'slide', null, { dur: 2 });                                   // into the stomach: the section
+  ['mucosa', 'submucosa', 'inner', 'outer', 'lymphoid'].forEach((d, k) => sfxCue(a + [22.5, 24.5, 26.5, 27.5, 28.5][k], 'step', 'slide', d, { pitch: Math.pow(2, 2 * k / 12), seq: true }));   // its domains wash in
+  a = C.library.a;
+  sfxCue(a + 1, 'clink', 'atlas', 'library');                                             // the first slide
+  sfxCue(a + 1.5, 'patter', 'atlas', 'library', { dur: 11, gain: 0.35 });                 // the slides burst onto the wall
+  a = C.method.a;
+  sfxCue(a + 2, 'grow', 'slide', 'tiles', { dur: 6, pitch: 1.2 });                       // tiles
+  sfxCue(a + 9.5, 'grow', 'slide', 'feat', { dur: 6, pitch: 1.5, gain: 0.35 });          // their features light up
+  [18, 20, 22].forEach(t => sfxCue(a + t, 'pulse', 'slide', 'listen', { gain: 0.3, seq: true }));   // messages along the links
+  sfxCue(a + 26.5, 'whoosh', 'slide', 'cloudC', { dur: 4, pitch: 1.2 });                  // the lift into a map
+  sfxCue(a + 33, 'whoosh', 'slide', null, { dur: 2.5, pitch: 0.7 });                      // back down onto the slide
+  sfxCue(a + 37.5, 'rise', 'atlas', 'umap', { dur: 5 });                                  // the tile cloud of all slides
+  a = C.atlas.a;
+  sfxCue(a + 15, 'rise', 'hier', 'top', { dur: 16, gain: 0.4 });                          // the atlas turns into the network
+  sfxCue(a + 20, 'whoosh', 'hier', 'top', { dur: 3 });                                    // the organs fly up to their nodes
+  if (wideN >= 0) sfxCue(a + 30, 'ping', 'hier', 'focus');                                // the tissue type shared most widely
+  a = C.age.a;
+  sfxCue(a + 0.3, 'grow', 'atlas', 'volcano', { dur: 6 });                                // the volcano
+  sfxCue(a + 14, 'pick', 'atlas', 'ex0');                                                 // the first example
+  sfxCue(a + 17, 'rise', 'atlas', 'focus', { dur: 6, pitch: 0.8 });                       // from 20 to 70
+  sfxCue(a + 27, 'rise', 'slide', 'submucosa', { dur: 6, pitch: 0.8 });                   // the gut ages
+  sfxCue(a + 37, 'rise', 'atlas', 'focus', { dur: 5, pitch: 0.8 });                       // the third example ages
+  sfxCue(C.pathology.a + 1.5, 'grow', 'atlas', 'curves', { dur: 5, pitch: 0.8 });         // the trajectories
+  a = C.contacts.a;
+  sfxCue(a + 0.5, 'whoosh', 'hier', 'contacts');                                          // the colon's contacts
+  sfxCue(a + 7, 'rise', 'hier', 'change', { dur: 7, pitch: 0.8 });                        // from 20 to 70
+  sfxCue(a + 16, 'whoosh', 'hier', null, { dur: 1.5 });                                   // the switch to the artery
+  sfxCue(a + 19, 'rise', 'hier', 'change', { dur: 7, pitch: 0.75 });                      // from 20 to 70
+  sfxCue(C.next.a + 0.5, 'rise', 'body', null, { gain: 0.4 });                            // tissue and time
   buildCamera(wp);
 
   // --------------------------------------------------------- story labels

@@ -152,6 +152,15 @@ function buildStory() {
   jump('robots_rule', C.gang.a, 3, 2);
   jump('robots_walk', C.gang.a, 1, 0);
   ramp('robots_links', C.gang.a, C.gang.a + 2, 1, 0);
+  // sound effects (sfxCue: story time, a sound, where it comes from, its options); the vacuums, the bumps and the crumbs
+  // (the story's pile at chain + 12 among them) are live (sfxLive in e4_explore.js), so the story's pile is not cued
+  sfxCue(2, 'grow', 'robots', 'floor', { dur: 9, pitch: 0.8, gain: 0.3 });               // the room is found
+  sfxCue(10.4, 'ping', 'robots', 'dock', { gain: 0.4 });                                 // the dock
+  sfxCue(C.bump.a + 0.3, 'rise', 'robots', 'dock', { dur: 1.5, pitch: 1.2 });            // the gang wakes
+  sfxCue(C.follow.a + 0.3, 'ping', 'robots', 'you', { pitch: 1.2, gain: 0.35 });         // follow you
+  sfxCue(C.follow.a + 6, 'grow', 'robots', 'gang', { dur: 2 });                          // the links: a star
+  sfxCue(C.chain.a + 0.3, 'ping', 'robots', 'gang', { pitch: 0.9, gain: 0.35 });         // follow the one ahead
+  sfxCue(C.gang.a + 0.3, 'ping', 'robots', 'you', { gain: 0.35 });                       // your gang
   label('robots', 'dock', '<b>Dock</b>', 10.4, C.bump.a + 0.5, 'grn');
   label('robots', 'crumbs', '<b>Crumbs</b>', C.chain.a + 12.3, C.chain.a + 17, 'amb');
   // the doll's house from above, drifting slowly; down among the robots for a while as they bounce about

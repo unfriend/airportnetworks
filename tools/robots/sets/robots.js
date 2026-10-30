@@ -1202,6 +1202,7 @@ void main() {
   function bump(i, nx, nz, why) {
     if (simT - LASTB[i] < 0.25 && MODE[i] !== M_DRIVE && MODE[i] !== M_SPIRAL && MODE[i] !== M_REST) return;
     BUMPS++; LASTB[i] = simT; WHY[i] = why;
+    if (set.onBump) set.onBump(i, X[i], Z[i], why);   // (the engine's sound effects: a bump, where it happened)
     SQ[i] = 0.15; SQT[i] = 0.32; FLASH[i] = 1;
     V[i] = Math.min(V[i], 0);
     const base = Math.atan2(nz, nx), crumbs = PILE[i] >= 0;

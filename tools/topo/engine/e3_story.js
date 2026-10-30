@@ -456,6 +456,49 @@ function buildStory() {
   cam(a + 16, 'map', 'split', 8, 'spin');
   cam(a + 18.5, 'map', 'omics', -4);
   cam(b - 0.5, 'map', 'omics', 10, 'spin');
+  // ---- sound effects (sfxCue: story time, a sound, where it comes from, its options), beside the keys above: a cue just
+  // before the line it goes with, textures under the voice soft
+  a = C.title.a;
+  sfxCue(a + 0.3, 'rise', 'body', null, { gain: 0.4 });                              // the body
+  sfxCue(a + 3.5, 'whoosh', 'body', 'liver', { dur: 5, pitch: 0.8 });                // the liver lifts out and turns
+  sfxCue(a + 8.8, 'whoosh', 'body', 'liver', { dur: 0.6, pitch: 1.5 });              // a thin slice
+  sfxCue(a + 15.2, 'knock', 'slide', 'tile', { pitch: 1.4, gain: 0.4 });             // it lies flat on its glass
+  sfxCue(a + 20.8, 'whoosh', 'slide', 'spots', { dur: 1.5 });                        // other modalities sweep in
+  sfxCue(a + 25.3, 'whoosh', 'slide', 'fluo', { dur: 1.5, pitch: 1.15 });
+  sfxCue(a + 29.3, 'patter', 'slide', 'points', { dur: 2, pitch: 1.3 });             // every cell becomes a bead
+  a = C.scale.a;
+  [4, 11, 17].forEach((s, i) => sfxCue(a + s - 0.2, 'step', 'slide', 'square', { pitch: Math.pow(2, 3 * i / 12) }));   // three fixed scales
+  sfxCue(a + 23, 'pick', 'slide', 'patch');                                          // the poster's patch
+  a = C.balls.a;
+  sfxCue(a + 3, 'grow', 'tower', 'plate', { dur: 5, pitch: 1.4 });                   // cells shrink into beads
+  SNAP_AT.forEach((s, k) => sfxCue(a + s - 0.2, 'pulse', 'tower', 'plate', { pitch: Math.pow(2, 2 * k / 12) }));   // the balls stop at the poster's four snapshots
+  sfxCue(a + 45.8, 'whoosh', 'tower', 'plate');                                      // the radius to 60 µm
+  a = C.tower.a;
+  sfxCue(a + 1, 'rise', 'tower', 'top', { dur: 9 });                                 // the tower rises
+  sfxCue(a + 11.8, 'whoosh', 'tower', 'plane', { dur: 5, pitch: 1.2 });              // the plane sweeps up
+  sfxCue(a + 17, 'link', 'tower', 'hole');                                           // the big loop just closed
+  sfxCue(a + 29, 'grow', 'tower', 'bars', { dur: 11, pitch: 0.8, gain: 0.35 });      // the barcode
+  a = C.cohort.a;
+  sfxCue(a + 0.4, 'clink', 'cohort', 'rack');                                        // 123 glass slides
+  sfxCue(a + 1.5, 'grow', 'cohort', 'rack', { dur: 14, gain: 0.3 });                 // their curves light one after another
+  sfxCue(a + 21.8, 'whoosh', 'cohort', 'phi1');                                      // the two main shapes
+  sfxCue(a + 30.8, 'patter', 'cohort', 'cube', { dur: 6, gain: 0.4 });               // slides fly into the cube of scores
+  a = C.scales.a;
+  sfxCue(a + 0.8, 'rise', 'cohort', 'wall');                                         // the classifier's wall
+  sfxCue(a + 11, 'grow', 'cohort', 'ruler', { dur: 12, gain: 0.3 });                 // the weight for every radius
+  sfxCue(a + 25, 'patter', 'cohort', 'zero', { dur: 7, pitch: 0.7, gain: 0.3 });     // bands drop into the gap
+  sfxCue(a + 34, 'ratchet', 'cohort', 'stack1', { n: 12, dur: 8, gain: 0.4 });       // the held-out stacks
+  a = C.cells.a;
+  sfxCue(a + 0.3, 'clink', 'slide', 'window');                                       // a new slide
+  sfxCue(a + 4, 'whoosh', 'slide', 'window', { dur: 6 });                            // the zoom
+  sfxCue(a + 11, 'pick', 'map', 'cell');                                             // one cell
+  sfxCue(a + 13, 'grow', 'map', 'dome', { dur: 8, pitch: 1.2, gain: 0.4 });          // its network grows with the balls
+  sfxCue(a + 26.8, 'ping', 'map', 'score');                                          // its score
+  sfxCue(a + 32.8, 'rise', 'map', 'sweep', { dur: 10, gain: 0.4 });                  // every cell scored, a relief
+  a = C.next.a;
+  sfxCue(a + 2, 'whoosh', 'map', 'healthy', { dur: 8 });                             // the two groups and their piles
+  sfxCue(a + 17.8, 'whoosh', 'map', 'genes', { dur: 2 });                            // the genes sketch
+  sfxCue(a + 24.8, 'whoosh', 'map', 'proteins', { dur: 2, pitch: 1.15 });            // the proteins sketch
   for (const n in TR) TR[n].sort((x, y) => x[0] - y[0]);
   buildCamera(wp);
 

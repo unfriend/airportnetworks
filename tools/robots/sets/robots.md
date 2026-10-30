@@ -155,6 +155,9 @@ With `robots_links` (follow and chain only): from each robot to whom it follows 
   nobody knows how they moved, so the robots start again from the dock and the piles go.
 - `coverage()`, `robots()` (how many), `bumps()` (so far), `state()` (positions, headings, speeds, modes, goals,
   piles, player, room, dock places).
+- `onBump(i, x, z, why)`: optional, set by the engine (as `onLaunch` is on the flock's): called at each bump, as
+  `bumps()` counts it, with the robot, where it is in the set's frame and why (the engine's sound effects play a
+  small knock there).
 
 ## Anchors, labels, views, controls
 

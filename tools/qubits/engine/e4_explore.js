@@ -77,17 +77,25 @@ function openScene(k, fly = true) {
   if (!GL.sets[k] || !SCENES.some(s => s[0] === k)) return;
   const same = X.scene === k;
   X.scene = k; X.t0 = performance.now();
-  if (fly && !same) flyTo(view(k, viewCam(k) || 'default'));
+  if (fly && !same) { flyTo(view(k, viewCam(k) || 'default')); sfxAct('whoosh', k, null, { dur: 0.8 }); }   // (sound effects: another scene)
   renderAll();
 }
 function setCtl(k, key, v) {
   const c = ctlOf(k, key);
   if (!c || !c.options.some(o => o[0] === v)) return;
+  if (ctlValue(k, c) !== v) ctlSound(k, key, v);
   (X.ctl[k] = X.ctl[k] || {})[key] = v;
   X.t0 = performance.now();
   // a view has its own best camera
   if (key === 'view' && k === X.scene) { const n = camFor(k, v); flyTo(view(k, n || 'default')); }
   renderAll();
+}
+// (sound effects: a control changed: another network grows, a cut snaps, the bits step, the example's point chimes)
+function ctlSound(k, key, v) {
+  const o = key === 'view' ? ['whoosh', k, null, { dur: 0.7, pitch: 1.1 }] : key === 'net' ? ['grow', k, 'genes', { dur: 1.5 }]
+    : key === 'cut' || key === 'alg' ? ['snap', k, 'cube', { pitch: v === '1' ? 1 : 0.8 }] : key === 'bits' ? ['step', k, 'cube', { pitch: Math.pow(2, 2 * (+v - 1) / 12) }]
+    : key === 'ex' ? (v === 'on' ? ['ping', k, 'ex3'] : null) : ['step', k, null];
+  if (o) sfxAct(...o);
 }
 // a view of a set, its scene brought up
 function showView(k, v) { if (X.scene !== k) openScene(k); if (!viewIs(k, v)) setCtl(k, 'view', v); }
@@ -113,7 +121,9 @@ function flyNear(p, d) { if (p) flyTo([orbit.cur[0], orbit.cur[1], d, p[0], p[1]
 // a brick (a Pauli string by name, 'X2X1'; null none), shown on the big cube; gal: the gallery it was picked from (the
 // kinds of the reference figure, or this network's largest)
 function selectBrick(nm, gal, ui = true) {
+  const was = X.brick;
   X.brick = isBrick(nm) ? nm : null;
+  if (X.brick && X.brick !== was) sfxAct('clink', 'cube', 'top');   // (sound effects: a brick picked)
   if (gal === 'kinds' || gal === 'largest') X.gal = gal;
   if (ui) {
     // (picked without its gallery: the network's largest if it is one of them, else the kinds)
@@ -125,7 +135,9 @@ function selectBrick(nm, gal, ui = true) {
 }
 // how many of the network's largest strings are added up (0 to 10): the big cube rebuilt from them, and the error left
 function setSum(n, ui = true) {
+  const s0 = X.sum;
   X.sum = clamp(Math.round(+n) || 0, 0, NB());
+  if (X.sum !== s0) sfxAct('step', 'cube', 'cube', { pitch: Math.pow(2, X.sum / 12) });   // (sound effects: a brick added or taken away)
   if (ui) {
     X.brick = null; X.gal = 'largest';
     if (!(X.scene === 'cube' && viewIs('cube', 'bricks'))) { showView('cube', 'bricks'); renderAll(); }
@@ -135,6 +147,7 @@ function setSum(n, ui = true) {
 // the gallery beside the big cube: the kinds of brick (the reference figure) or this network's ten largest
 function setGal(g, ui = true) {
   if (g !== 'kinds' && g !== 'largest') return;
+  if (g !== X.gal) sfxAct('whoosh', 'cube', 'gallery', { dur: 0.6, pitch: 1.2 });   // (sound effects: the other gallery)
   X.gal = g;
   if (ui) { if (g === 'kinds') X.sum = 0; if (X.scene !== 'cube' || !(viewIs('cube', 'bricks') || viewIs('cube', 'toolbox'))) showView('cube', 'bricks'); }
   renderAll();

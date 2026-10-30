@@ -43,8 +43,14 @@ function openScene(k, fly = true) {
   renderScenes();
 }
 function setCtl(k, key, v) {
-  const s = GL.sets[k], c = (s.controls || []).find(x => x.key === key);
+  const s = GL.sets[k], c = (s.controls || []).find(x => x.key === key), was = c ? ctlValue(k, c) : v;
   (X.ctl[k] = X.ctl[k] || {})[key] = v;
+  // (sound effects: a new rule chimes at you, each robot added pops out of the dock, a view swings)
+  if (v !== was) {
+    if (key === 'rule') sfxAct('ping', k, 'you', { pitch: { follow: 1.2, chain: 0.9, flee: 0.8, bounce: 1 }[v] || 1, gain: 0.6 });
+    else if (key === 'robots') for (let j = 0; j < Math.min(6, (+v || 0) - (+was || 0)); j++) sfxAct('bubble', k, 'dock', { delay: 0.09 * j, force: true, pitch: 0.9 + 0.08 * j, gain: 0.6 });
+    else if (key === 'view') sfxAct('whoosh', k, null, { dur: 0.7, pitch: 1.1 });
+  }
   X.t0 = performance.now();
   if (key === 'view') { CAMV.hold = 0; if (s.cam && s.cam[v] && v !== 'eyes') flyTo(view(k, v)); }
   if (c) renderScenes();
@@ -154,8 +160,50 @@ function floorAt(mx, my) {
   return F.floorPoint(_ro.toArray(), _rd.toArray());
 }
 function walkHere(mx, my) {
-  const p = floorAt(mx, my);
-  return p ? GL.sets.robots.walkTo(p[0], p[1]) : false;
+  const p = floorAt(mx, my), w = p ? GL.sets.robots.walkTo(p[0], p[1]) : false;
+  if (w) sfxAct('pick', 'robots', [w[0], 0.05, w[1]]);   // (sound effects: where you walk to)
+  return w;
+}
+// sound effects, live (the shared block's sfxStep calls this every frame, story and explore mode alike, unless the story is
+// hidden): the two moving robots nearest you hum as vacuums (continuous sounds, their gain and pitch by speed; read every
+// 100 ms, kept going every frame); each bump a small knock (at most one a robot in 0.3 s, four a second in all); a pile
+// spilled (yours, the story's, explore's or another device's: watched, not hooked) a patter, a crumb eaten a "nom" (at
+// most twice a second); the floor dusty again a low patter
+const SFR = { t: 0, near: [], piles: new Map(), nom: 0, cov: 0, bump: [], bumpT: new Float64Array(24) };
+function sfxBump(i, x, z) {
+  const pn = performance.now();
+  if (sfxHidden() || pn - (SFR.bumpT[i] || 0) < 300) return;
+  while (SFR.bump.length && pn - SFR.bump[0] > 1000) SFR.bump.shift();
+  if (SFR.bump.length >= 4) return;
+  SFR.bumpT[i] = pn; SFR.bump.push(pn);
+  sfxPlay('knock', 'robots', [x, 0.08, z], { pitch: 1.8, gain: 0.25 });
+}
+function sfxLive() {
+  const s = GL.sets.robots, pn = performance.now();
+  s.onBump = sfxBump;
+  if (pn - SFR.t > 100) {
+    SFR.t = pn;
+    const st = s.state(), me = st.player;
+    // the two nearest robots that are moving
+    SFR.near = st.robots.filter(r => Math.abs(r.v) > 0.03).map(r => [Math.hypot(r.x - me.x, r.z - me.z), r]).sort((p, q) => p[0] - q[0]).slice(0, 2).map(p => p[1]);
+    // piles: new ones, and crumbs eaten
+    const seen = new Set();
+    for (const p of st.piles) {
+      const id = p.t.toFixed(3) + ':' + p.x.toFixed(2) + ':' + p.z.toFixed(2), left = SFR.piles.get(id);
+      seen.add(id);
+      if (left === undefined) sfxPlay('patter', 'robots', [p.x, 0.05, p.z], { dur: 1.2 });
+      else if (p.left < left && pn - SFR.nom > 500) { SFR.nom = pn; sfxPlay('bubble', 'robots', [p.x, 0.05, p.z], { pitch: 1.6, gain: 0.5 }); }
+      SFR.piles.set(id, p.left);
+    }
+    for (const id of [...SFR.piles.keys()]) if (!seen.has(id)) SFR.piles.delete(id);
+    if (SFR.cov > 0.02 && st.coverage < SFR.cov * 0.3) sfxPlay('patter', 'robots', 'floor', { dur: 1.5, pitch: 0.6, gain: 0.6 });
+    SFR.cov = st.coverage;
+  }
+  if (!HOST.sfx || !HOST.sfx.drone) return;
+  SFR.near.forEach((r, k) => {
+    const f = clamp(Math.abs(r.v) / 0.5, 0, 1);
+    try { HOST.sfx.drone('robots.v' + k, 'vacuum', Object.assign(sfxWhere('robots', [r.x, 0.06, r.z]), { gain: 0.35 + 0.65 * f, pitch: 0.85 + 0.35 * f })); } catch (e) { /* an older shell */ }
+  });
 }
 function bindCanvas() {
   const cv = GL.canvas, pts = new Map();

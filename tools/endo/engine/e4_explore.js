@@ -74,6 +74,7 @@ function openScene(k, fly = true) {
   if (!GL.sets[k]) return;
   const same = X.scene === k;
   X.scene = k; X.t0 = performance.now();
+  if (!same) sfxAct('whoosh', k, null, { dur: 1.2 });   // (sound effects: another scene)
   if (fly && !same) flyTo(view(k, X.gap && k === 'syn' ? 'gap' : viewCam(k) || 'default'));
   renderScenes();
   updateExtraLabels();
@@ -112,6 +113,7 @@ function selectEndo(id, fly = true) {
   if (id >= 0 && X.scene === 'motor') openScene('tree');
   pushState(); renderAll();
   if (fly && id >= 0) flyToEndo();
+  if (fly && id >= 0) sfxAct('ping', X.scene, X.scene === 'syn' && GL.sets.syn.anchors['e' + id] ? 'e' + id : null);   // (sound effects: an endotype picked)
 }
 function flyToEndo() {
   const id = X.endo, s = GL.sets[X.scene], tv = ctlOf('tree', 'view');
@@ -128,12 +130,15 @@ function selectGene(i, fly = true) {
   if (i >= 0 && (X.scene === 'motor' || (fly && X.scene !== 'net'))) openScene('net');
   pushState(); renderGene(i); renderMethod();
   if (fly && i >= 0 && X.scene === 'net') afterUpdate(flyToGene);
+  // (sound effects: a gene picked, at its place in the network)
+  if (fly && i >= 0) sfxAct('pick', 'net', () => { const A = setApi('net'), v = A && A.geneView ? A.geneView(i) : null; return v ? v.slice(3, 6) : null; });
 }
 // the method's step i: its scene, and the view that suits it
 function showStep(i, quiet) {
   X.step = clamp(i | 0, 0, METHOD.length - 1);
   if (!quiet) {
     const st = METHOD[X.step];
+    sfxAct('step', st[2], null, { pitch: Math.pow(2, 2 * X.step / 12) });   // (sound effects: the method's next step, a tone higher)
     if (X.scene !== st[2]) openScene(st[2]);
     if (st[0] === 'groups' || st[0] === 'hood') { const v = optKey('net', 'view', /net|cloud/i); if (v && ctlValue('net', ctlOf('net', 'view')) !== v) setCtl('net', 'view', v); }
     if (st[0] === 'tree') { const v = optKey('tree', 'view', /^tree$/i); if (v && ctlValue('tree', ctlOf('tree', 'view')) !== v) setCtl('tree', 'view', v); else X.t0 = performance.now(); }
@@ -161,6 +166,7 @@ function replayTests() {
 }
 // Stand in the gap: on screen a view from inside the cleft; in the headset the synapse life size around you
 function setGap(on) {
+  if (on && !X.gap) sfxAct('rise', 'syn', 'gap', { dur: 1.5 });   // (sound effects: the junction round you)
   X.gap = on;
   if (XR.on) xrRoom(on);
   if (on && X.scene !== 'syn') openScene('syn', false);

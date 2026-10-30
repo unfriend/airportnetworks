@@ -78,12 +78,14 @@ function openScene(k, fly = true) {
   if (!GL.sets[k] || !SCENES.some(s => s[0] === k)) return;
   const same = X.scene === k;
   X.scene = k; X.t0 = performance.now();
-  if (fly && !same) flyTo(view(k, viewCam(k) || 'default'));
+  if (fly && !same) { flyTo(view(k, viewCam(k) || 'default')); sfxAct('whoosh', k, null, { dur: 0.8 }); }   // (sound effects: another scene)
   pushState(); renderAll();
 }
 function setCtl(k, key, v) {
   const c = ctlOf(k, key);
   if (!c || !c.options.some(o => o[0] === v)) return;
+  // (sound effects: a view, By kind's hubs, a kind picked out, an age)
+  if (ctlValue(k, c) !== v) sfxAct(...(key === 'view' ? (v === 'kinds' ? ['rise', k, 'kinds', { dur: 2 }] : ['whoosh', k, null, { dur: 0.7, pitch: 1.1 }]) : key === 'show' ? ['pick', k, v !== 'none' && GL.sets[k].anchors[v] ? v : null] : ['step', k, null, { pitch: 1.2 }]));
   (X.ctl[k] = X.ctl[k] || {})[key] = v;
   X.t0 = performance.now();
   // a view has its own best camera
@@ -112,6 +114,7 @@ function orbitStep(now) {
 // a kind of object (null none): picked out on the section and in the ovary (where it has it); a kind the ovary on show
 // lacks (macrophages, cysts) brings up the section
 function selectKind(v, ui = true) {
+  const was = X.kind;
   X.kind = KD[v] ? v : null;
   if (ui) {
     const k = X.kind;
@@ -119,16 +122,22 @@ function selectKind(v, ui = true) {
     (X.ctl.organ = X.ctl.organ || {}).show = k && hasOpt('organ', 'show', k) ? k : 'none';
     if (k && X.scene === 'organ' && !hasOpt('organ', 'show', k)) openScene('section');
   }
+  if (X.kind && X.kind !== was) sfxAct('pick', X.scene, GL.sets[X.scene].anchors[X.kind] ? X.kind : null);   // (sound effects: a kind picked)
   pushState(); renderAll();
 }
 // the age (20 to 70): the ovary and the section follow it
 function setAge(v) {
+  const d0 = Math.floor(X.age / 10);
   X.age = Math.round(clamp(+v, AGE0, AGE1));
+  // (sound effects: each decade the slider crosses, a tone lower the older)
+  const d1 = Math.floor(X.age / 10);
+  if (d1 !== d0) sfxAct('step', X.scene === 'section' ? 'section' : 'organ', X.scene === 'section' ? 'center' : 'age', { pitch: Math.pow(2, -2 * (d1 - 2) / 12), gain: 0.6 });
   syncAge();
 }
 // one of the two methods: tiles and the random forest (the vote plays again), or SegFormer's masks (swept again)
 function setMethod(m, ui = true) {
   if (!METHOD[m]) return;
+  if (m !== X.method) sfxAct('whoosh', 'section', 'center', { dur: 1.2, pitch: m === 'seg' ? 1.2 : 0.85 });   // (sound effects: the other method)
   X.method = m;
   if (ui) { showView('section', m === 'rf' ? 'forest' : 'masks'); X.t0 = performance.now(); }
   renderAll();

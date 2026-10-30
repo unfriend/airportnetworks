@@ -365,6 +365,36 @@ function buildStory() {
   cam(a + 5, 'syn', 'wide', 20);
   cam(b, 'syn', 'wide', 60, 'spin');
   for (const n in TR) TR[n].sort((x, y) => x[0] - y[0]);
+
+  // ------------------------------------------------------------ sound effects
+  // (sfxCue: story time, a sound, where it comes from: a set and one of its anchors; its options)
+  sfxCue(C.title.a + 0.5, 'grow', 'motor', null, { dur: 7.5, pitch: 0.9 });              // the motor unit builds
+  sfxCue(C.title.a + 5, 'spark', 'motor', 'axon');                                       // its impulses run
+  a = C.tired.a;
+  sfxCue(a + 7, 'whoosh', 'motor', 'junction', { dur: 1.6 });                            // the dive into an end plate
+  sfxCue(a + 11, 'spark', 'syn', 'activezone', { seq: true });                           // the junction fires
+  sfxCue(a + 11.6, 'spark', 'syn', 'activezone', { seq: true });
+  [0.45, 0.28, 0.15].forEach((g, k) => sfxCue(a + 17 + 2 * k, 'spark', 'syn', 'activezone', { gain: g, seq: true }));   // and tires
+  ['terminal', 'cleft', 'receptors', 'channels', 'nucleus'].forEach((p, k) => sfxCue(C.genes.a + [4, 10, 13, 17, 22][k], 'step', 'syn', p, { pitch: Math.pow(2, 2 * k / 12), seq: true }));   // gene groups light where they act
+  a = C.cloud.a;
+  sfxCue(a + 0.3, 'grow', 'net', 'cloud', { dur: 6 });                                   // the proteins
+  sfxCue(a + 9, 'pulse', 'net', 'seeds');                                                // the seeds
+  sfxCue(a + 17, 'grow', 'net', 'seeds', { dur: 12, pitch: 1.2, gain: 0.3 });            // their neighbourhoods grow
+  a = C.walk.a;
+  sfxCue(a + 2, 'pulse', 'net', 'seeds');                                                // walkers set out
+  sfxCue(a + 10, 'grow', 'net', 'module', { dur: 10, pitch: 0.7, gain: 0.3 });           // the heat they leave
+  sfxCue(a + 23, 'rise', 'net', 'module', { dur: 8 });                                   // the module pulls together
+  a = C.hood.a;
+  sfxCue(a + 2, 'pick', 'net', 'gene');                                                  // one gene
+  sfxCue(a + 16, 'whoosh', 'tree', 'matrix');                                            // to the matrix
+  sfxCue(a + 18, 'patter', 'tree', 'matrix', { dur: 10, gain: 0.25 });                   // its marks fill in
+  sfxCue(C.split.a + 1, 'grow', 'tree', 'tree', { dur: 8, pitch: 0.8 });                 // the tree grows from its leaves
+  sfxCue(C.split.a + 28, 'whoosh', 'tree', 'mds');                                       // the genes by tree distance
+  a = C.endotypes.a;
+  sfxCue(a + 1, 'rise', 'tree', 'meta', { dur: 4 });                                     // the endotype network
+  four.forEach((id, j) => sfxCue(a + 9 + 10 * j - (j === 3 ? 1 : 0), 'ping', 'tree', 'meta', { gain: 0.4 }));   // each endotype told
+  four.forEach((id, j) => sfxCue(a + 50 + 2.6 * j, 'bubble', 'syn', 'e' + id, { gain: 0.3, seq: true }));   // each flies to its place
+  sfxCue(C.next.a + 3, 'rise', 'syn', null, { gain: 0.4 });                              // every endotype in place
   buildCamera(wp);
 
   // --------------------------------------------------------- story labels

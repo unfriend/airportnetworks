@@ -124,17 +124,25 @@ function openScene(k, fly = true) {
   if (!GL.sets[k] || !SCENES.some(s => s[0] === k)) return;
   const same = X.scene === k;
   X.scene = k; X.t0 = performance.now();
-  if (fly && !same) flyTo(view(k, viewCam(k) || 'default'));
+  if (fly && !same) { flyTo(view(k, viewCam(k) || 'default')); sfxAct('whoosh', k, null, { dur: 0.8 }); }   // (sound effects: another scene)
   renderAll();
 }
 function setCtl(k, key, v) {
   const c = ctlOf(k, key);
   if (!c || !c.options.some(o => o[0] === v)) return;
+  if (ctlValue(k, c) !== v) ctlSound(k, key, v);
   (X.ctl[k] = X.ctl[k] || {})[key] = v;
   X.t0 = performance.now();
   // a view has its own best camera
   if (key === 'view' && k === X.scene) { const n = camFor(k, v); flyTo(view(k, n || 'default')); }
   renderAll();
+}
+// (sound effects: a control changed: another rule or tree grows, the machines start, a field or a letter is picked)
+function ctlSound(k, key, v) {
+  const o = key === 'view' ? ['whoosh', k, null, { dur: 0.7, pitch: 1.1 }] : key === 'model' ? ['grow', k, 'pyramid', { dur: 1.5 }]
+    : key === 'seed' ? ['grow', k, 'root', { dur: 1.5, pitch: 0.9 }] : key === 'run' ? (v === 'on' ? ['ratchet', k, 'crown', { n: 6, dur: 1.5 }] : null)
+    : key === 'method' ? ['pick', k, v !== 'all' ? 'field_' + v : 'cloud'] : key === 'start' || key === 'parent' || key === 'mix' ? ['pick', k, null, { pitch: 1.3 }] : ['step', k, null];
+  if (o) sfxAct(...o);
 }
 // a view of a set, its scene brought up
 function showView(k, v) { if (X.scene !== k) openScene(k); if (!viewIs(k, v)) setCtl(k, 'view', v); }
@@ -161,6 +169,7 @@ function flyNear(p, d) { if (p) flyTo([orbit.cur[0], orbit.cur[1], d, p[0], p[1]
 function setTime(v, ui = true) {
   const t = clamp(Math.round(+v * 100) / 100, 0, 2);
   if (!Number.isFinite(t) || t === X.time) return;
+  if (Math.floor(t * 4) !== Math.floor(X.time * 4)) sfxAct('step', X.scene, null, { pitch: Math.pow(2, t / 2) });   // (sound effects: each quarter crossed)
   X.time = t;
   if (ui && letMix() === 'rule') X.reads = 0;   // (another mix: its read-outs start again)
   syncNums();
@@ -169,6 +178,7 @@ function setTime(v, ui = true) {
 function setW(v, ui = true) {
   const w = clamp(Math.round(+v) || 1, 1, 30);
   if (w === X.w) return;
+  sfxAct('step', 'stem', 'gear', { pitch: Math.pow(2, Math.log(w) / Math.log(30)) });   // (sound effects: the pair favour, higher the stronger)
   X.w = w;
   if (ui && !stemLive()) { (X.ctl.stem = X.ctl.stem || {}).src = 'live'; renderAll(); return; }   // (the authors' test is w = 8)
   syncNums();
@@ -182,7 +192,9 @@ function setMix(v) {
 }
 // read out n more (up to the piles' most), or clear them (0); read again: a new seed, the piles cleared
 function readOut(n, ui = true) {
+  const r0 = X.reads;
   X.reads = n > 0 ? clamp(X.reads + n, 0, READ_MAX()) : 0;
+  if (X.reads > r0) sfxAct(...(X.reads - r0 > 1 ? ['patter', 'letters', 'piles', { dur: 1.5 }] : ['step', 'letters', 'piles', { pitch: 1.2 }]));   // (sound effects: one read-out, or many)
   if (ui && !(X.scene === 'letters' && viewIs('letters', 'qubits'))) showView('letters', 'qubits');
   renderAll();
 }
@@ -190,14 +202,16 @@ function readAgain() { X.rseed = X.rseed % 999 + 1; X.reads = 0; renderAll(); }
 // a branch of the family tree (-1 none): lit, its rise measured, its machine lit
 function selectBranch(b, ui = true) {
   const n = treeNow().branches.length;
+  const was = X.branch;
   X.branch = Number.isInteger(b) && b >= 0 && b < n ? b : -1;
+  if (X.branch >= 0 && X.branch !== was) sfxAct('pick', 'tree', 'crown');   // (sound effects: a branch picked)
   if (ui && X.branch >= 0 && !(X.scene === 'tree' && treeView() !== 'species')) { if (X.scene !== 'tree') openScene('tree'); if (treeView() === 'species') setCtl('tree', 'view', 'tree'); }
   renderAll();
 }
 // a new family tree: the next of the five
 function nextTree() { const o = ctlOf('tree', 'seed').options, i = o.findIndex(x => x[0] === ctlValue('tree', ctlOf('tree', 'seed'))); X.branch = -1; sceneCtl('tree', 'seed', o[(i + 1) % o.length][0]); }
 // rebuild again: another 2,000 ancestors per method (this example, live)
-function rebuildAgain() { X.sseed = X.sseed % 999 + 1; if (!stemLive()) (X.ctl.stem = X.ctl.stem || {}).src = 'live'; if (X.scene !== 'stem') openScene('stem'); renderAll(); }
+function rebuildAgain() { sfxAct('patter', 'stem', 'cloud', { dur: 1.5 }); X.sseed = X.sseed % 999 + 1; if (!stemLive()) (X.ctl.stem = X.ctl.stem || {}).src = 'live'; if (X.scene !== 'stem') openScene('stem'); renderAll(); }
 // a control of a scene picked from a tab: its scene brought up (a new tree drops the branch picked)
 function sceneCtl(k, key, v) {
   if (X.scene !== k) openScene(k);

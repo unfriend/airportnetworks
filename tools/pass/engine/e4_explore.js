@@ -79,13 +79,15 @@ function openScene(k, fly = true) {
   const same = X.scene === k;
   X.scene = k; X.t0 = performance.now();
   if (k === 'fish' && !same) FOL.az = null;   // (the camera finds the school afresh)
-  if (fly && !same) flyTo(view(k, viewCam(k) || 'default'));
+  if (fly && !same) { flyTo(view(k, viewCam(k) || 'default')); sfxAct('whoosh', k, null, { dur: 0.8 }); }   // (sound effects: another scene)
   if (k === 'globe') outApply();
   renderAll();
 }
 function setCtl(k, key, v, ui = true) {
   const c = ctlOf(k, key);
   if (!c || !c.options.some(o => o[0] === v)) return;
+  // (sound effects: a view, the outbreak switched on, a control)
+  if (ctlValue(k, c) !== v) sfxAct(...(key === 'view' ? ['whoosh', k, null, { dur: 0.7, pitch: 1.1 }] : k === 'globe' && key === 'out' && v === 'on' ? ['pulse', k, 'start'] : ['step', k, null]));
   (X.ctl[k] = X.ctl[k] || {})[key] = v;
   X.t0 = performance.now();
   // a view has its own best camera
@@ -118,12 +120,16 @@ function flyNear(p, d) { if (p) flyTo([orbit.cur[0], orbit.cur[1], d, p[0], p[1]
 // hand (ui true) it also brings up the scene that shows it.
 // the fish: neighbours watched (1 to 12), the school's size (100 to 600), being the shark, a shark sent
 function setFishK(n, ui = true) {
+  const k0 = fishK();
   (X.ctl.fish = X.ctl.fish || {}).k = String(clamp(Math.round(+n) || 7, 1, 12));
+  if (fishK() !== k0) sfxAct('step', 'fish', 'school', { pitch: Math.pow(2, (fishK() - 1) / 12) });   // (sound effects: neighbours watched)
   if (ui && X.scene !== 'fish') openScene('fish');
   syncFish();
 }
 function setFishN(n, ui = true) {
+  const n0 = X.n;
   X.n = clamp(Math.round((+n || 300) / 50) * 50, 100, 600);
+  if (X.n !== n0) sfxAct('patter', 'fish', 'school', { dur: 0.8, pitch: X.n > n0 ? 1.2 : 0.8, gain: 0.7 });   // (sound effects: fish come, or go)
   if (ui && X.scene !== 'fish') openScene('fish');
   syncFish();
 }
@@ -150,6 +156,7 @@ function outApply() {
 }
 function setStart(code, ui = true) {
   if (outIndex(code) < 0) return;
+  if (ui) sfxAct('pulse', 'globe', api('globe').pos(outIndex(code), 0.02));   // (sound effects: the outbreak starts there)
   X.out.start = code;
   if (ui) {
     X.out.day = 0; X.out.playing = true; X.out.click = 'look';   // (picked by hand: it plays, and the next click looks a city up)
@@ -158,7 +165,9 @@ function setStart(code, ui = true) {
   outApply(); renderOutbreak();
 }
 function selectCity(code, ui = true) {
+  const was = X.city;
   X.city = code && outIndex(code) >= 0 ? code : '';
+  if (X.city && X.city !== was) sfxAct('pick', 'globe', api('globe').pos(outIndex(X.city), 0.02));   // (sound effects: a city looked up)
   if (ui) showOutbreak();
   api('globe').select(X.city ? outIndex(X.city) : -1);
   renderOutbreak();
@@ -178,6 +187,7 @@ function setOut(k, v, ui = true) {
 function playOut(on) {
   const O = X.out, end = api('globe').end();
   if (on && O.day >= end) O.day = 0;
+  if (on && !O.playing) sfxAct('pulse', 'globe', 'start');   // (sound effects: the outbreak plays)
   O.playing = !!on;
   if (O.playing) showOutbreak();
   syncOut();
@@ -193,13 +203,16 @@ function selectProtein(p, copy, ui = true) {
   const A = api('cell');
   p = typeof p === 'string' ? A.protein(p) : p;
   if (!(Number.isInteger(p) && p >= 0)) p = -1;
+  const was = X.prot;
   X.prot = p >= 0 ? A.info(p).sym : '';
+  if (X.prot && X.prot !== was) sfxAct('pick', 'cell', Number.isInteger(copy) ? A.pos(copy) : X.prot);   // (sound effects: a protein picked)
   A.select(p, copy);
   if (ui && X.scene !== 'cell') openScene('cell');
   renderCell(); updateExtraLabels();
 }
 function setMove(key, ui = true) {
   if (key !== 'none' && !MOVE_KEYS().includes(key)) return;
+  if (key !== 'none' && key !== ctlVal('cell', 'move')) sfxAct(...(key === 'cf' ? ['snap', 'cell', 'CFTR'] : ['whoosh', 'cell', 'org_nuc', { dur: 1.5, pitch: 0.9 }]));   // (sound effects: a move played)
   (X.ctl.cell = X.ctl.cell || {}).move = key;
   if (ui && X.scene !== 'cell') openScene('cell');
   renderAll();
@@ -291,6 +304,21 @@ function fishSync() {
   if (lead) { const age = clamp((now - lead.at) / 1000, 0, 2); s.follow({ t: lead.t + age, m: lead.m.map((x, j) => x + lead.v[j] * age), v: lead.v }, Math.min(gap, 1000) / 1000); }
   else if (s.following()) s.follow(null);
   return true;
+}
+// sound effects, live (the shared block's sfxStep calls this every frame, story and explore mode alike, unless the story is
+// hidden): a shark arriving (a rush where it is) and, half a second later, the warning racing through the school; your own
+// steering starting; the school's middle coming within 3 m of your head after being more than 5 m off (at most every
+// 10 s). Polled, not hooked, so sharks from other devices sound too; only while the fish show (GL.lifeOn)
+const SFL = { so: false, st: false, far: true, near: 0 };
+function sfxLive() {
+  const s = GL.sets.fish, so = s.sharkOn(), z = s.state(), st = !!(so && z.shark.steer), pn = performance.now();
+  if (!GL.lifeOn) { SFL.so = so; SFL.st = st; SFL.far = true; return; }
+  if (so && !SFL.so) { sfxPlay('rush', 'fish', 'shark', { dur: 1.4 }); sfxPlay('rush', 'fish', 'school', { delay: 0.5, pitch: 1.3, dur: 1, force: true }); }
+  else if (st && !SFL.st) sfxPlay('rush', 'fish', 'shark', { dur: 0.8, pitch: 1.2, gain: 0.7 });
+  SFL.so = so; SFL.st = st;
+  const h = z.me.head, f = s.flight().m, d = Math.hypot(f[0] - h[0], f[1] - h[1], f[2] - h[2]);
+  if (d > 5) SFL.far = true;
+  else if (d < 3 && SFL.far && pn - SFL.near > 10000) { SFL.far = false; SFL.near = pn; sfxPlay('rush', 'fish', 'school', { dur: 1.6, pitch: 0.8, gain: 0.3 }); }
 }
 // what another device at the station sent: where its school is, or a shark
 const v3ok = a => Array.isArray(a) && a.length === 3 && a.every(Number.isFinite);

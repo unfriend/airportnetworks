@@ -91,6 +91,7 @@ function openScene(k, fly = true) {
   if (!GL.sets[k]) return;
   const same = X.scene === k;
   X.scene = k; X.t0 = performance.now();
+  if (!same) sfxAct('whoosh', k, null, { dur: 1.2 });   // (sound effects: another scene)
   if (fly && !same) flyTo(view(k, X.room && k === 'tower' ? 'inside' : 'default'));
   renderScenes();
   updateExtraLabels();
@@ -125,6 +126,7 @@ function selectGroup(g) {
   X.group = g;
   if (g >= 0) X.egroup = X.walkFrom = g;
   needTower(); pushState(); renderAll();
+  if (g >= 0) sfxAct('pick', 'tower', () => TW().anchors.group(g));   // (sound effects: a disease group picked)
 }
 function selectGene(i, fly = true) {
   X.gene = i;
@@ -132,6 +134,7 @@ function selectGene(i, fly = true) {
     needTower();
     const a = TW() && TW().anchors && TW().anchors.gene ? TW().anchors.gene(i) : null;
     if (fly && a && !X.room) flyTo([orbit.cur[0], 14, 2.6, a[0], a[1], a[2]]);
+    if (fly && a) sfxAct('pick', 'tower', a);   // (sound effects: a gene picked)
   }
   pushState(); renderGene(i); renderWalk();
 }
@@ -139,14 +142,18 @@ function togglePick(g, c) {
   const k = X.pick.findIndex(([a, b]) => a === g && b === c);
   if (k >= 0) X.pick.splice(k, 1); else if (X.pick.length < 8) X.pick.push([g, c]);
   needTower(); pushState(); renderEndo();
+  if (k < 0 && X.pick.some(([a, b]) => a === g && b === c)) sfxAct('pick', 'tower', () => TW().anchors.endo(g, c));   // (sound effects: an endotype picked)
 }
 function clearPick() { X.pick = []; pushState(); renderEndo(); }
 function setLayer(l, on) {
+  if (on !== !X.off.has(l)) sfxAct(on ? 'rise' : 'knock', 'tower', () => TW().anchors.layer(l), on ? { dur: 1 } : {});   // (sound effects: a layer back, or knocked out)
   if (on) X.off.delete(l); else X.off.add(l);
   pushState(); if (X.walk) runWalk(X.walk.from, true); renderLayers();
 }
 function setLayers(fn) {
+  const n0 = X.off.size;
   X.off = new Set(ND.layers.map((L, l) => l).filter(l => !fn(ND.layers[l], l)));
+  if (X.off.size > n0) sfxAct('knock', 'tower', null); else if (X.off.size < n0) sfxAct('rise', 'tower', null, { dur: 1 });   // (sound effects: layers out, or back)
   pushState(); if (X.walk) runWalk(X.walk.from, true); renderLayers();
 }
 // knock out k more layers that still have links, in a fixed shuffled order (the same each time)
@@ -154,6 +161,7 @@ function knockRandom(k) {
   const live = ND.layers.map((_, l) => l).filter(l => !X.off.has(l) && ND.count[l] > 0);
   let s = 7 + X.off.size;
   for (let n = 0; n < k && live.length > 1; n++) { s = (s * 9301 + 49297) % 233280; X.off.add(live.splice(Math.floor(s / 233280 * live.length), 1)[0]); }
+  sfxAct('knock', 'tower', null);   // (sound effects: layers knocked out)
   pushState(); if (X.walk) runWalk(X.walk.from, true); renderLayers();
 }
 // a random walk from a group's seeds (from = group index) or from your own genes (from = 'mine'; own: those genes
@@ -171,10 +179,13 @@ function runWalk(from, quiet, own) {
   }
   if (!quiet) needTower();
   pushState(); renderWalk();
+  // (sound effects: a walk started: a pulse at its seeds as the walkers set out)
+  if (!quiet && X.walk) { const at = from === 'mine' ? () => TW().anchors.gene(X.walk.seeds[0]) : () => TW().anchors.group(from); sfxAct('pulse', 'tower', at); sfxAct('patter', 'tower', at, { dur: 2, pitch: 1.3, gain: 0.3, delay: 0.3 }); }
 }
 function clearWalk() { X.walk = null; X.err = ''; pushState(); renderWalk(); }
 function addMine(i) { if (i >= 0 && !X.mine.includes(i) && X.mine.length < 12) X.mine.push(i); X.walkFrom = 'mine'; renderWalk(); }
 function setRoom(on) {
+  if (on && !X.room) sfxAct('rise', 'tower', 'mid', { dur: 1.5 });   // (sound effects: the tower opens round you)
   X.room = on;
   if (XR.on) xrRoom(on);
   // on screen the camera goes into the middle; in the headset the tower comes round you, and leaving it the usual view returns

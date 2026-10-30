@@ -274,6 +274,37 @@ function buildStory() {
   ramp('cell_shell', a, a + 3, 1, 0.35);
   cam(a + 3, 'cell', 'default');
   cam(b, 'cell', 'default', 40, 'spin');
+  // ---- sound effects (sfxCue: story time, a sound, where it comes from, its options), beside the keys above: a cue just
+  // before the line it goes with, textures under the voice soft; sequences from the keys (when a ramp reaches a share).
+  // The sharks (the story's at watch + 20 among them) and the school passing close are live (sfxLive in e4_explore.js),
+  // so the story's shark is not cued
+  const rampAt = (t0, t1, f) => { let lo = 0, hi = 1; for (let i = 0; i < 24; i++) { const m = (lo + hi) / 2; if (smooth(m) < f) lo = m; else hi = m; } return t0 + (t1 - t0) * lo; };
+  a = C.fish.a;
+  sfxCue(a + 6, 'bubble', 'fish', 'school', { gain: 0.3 });                          // the school named
+  a = C.watch.a;
+  sfxCue(a + 4, 'grow', 'fish', 'school', { dur: 3 });                               // who watches whom
+  a = C.links.a;
+  sfxCue(a + 5, 'snap', 'fish', 'school');                                           // one neighbour each: the school falls apart
+  sfxCue(a + 5.4, 'rush', 'fish', 'school', { pitch: 1.2, dur: 1 });
+  sfxCue(a + 23.8, 'link', 'fish', 'school');                                        // seven again
+  sfxCue(a + 24.2, 'rise', 'fish', 'school', { dur: 3 });                            // it comes together
+  a = C.sky.a;
+  sfxCue(a + 2, 'whoosh', 'fish', 'school', { dur: 7, pitch: 1.3 });                 // out of the water
+  sfxCue(a + 7.8, 'grow', 'globe', null, { dur: 6 });                                // the globe
+  sfxCue(a + 17.8, 'pulse', 'globe', 'start');                                       // the outbreak starts in Vienna
+  sfxCue(a + 22, 'grow', 'globe', 'start', { dur: 12, pitch: 0.7, gain: 0.3 });      // it spreads along the routes
+  [28, 36].forEach((s, i) => sfxCue(a + s - 0.2, 'step', 'globe', null, { pitch: Math.pow(2, 2 * i / 12), gain: 0.35 }));   // cities reached by day 10, 20
+  sfxCue(a + 44, 'rise', 'globe', null, { dur: 3 });                                 // the hubs' pillars
+  a = C.cell.a;
+  sfxCue(a + 2, 'whoosh', 'cell', null, { dur: 3 });                                 // into the cell
+  [0, 2, 4, 7, 9, 12, 14, 16, 19, 21].forEach((s, i) => sfxCue(rampAt(a + 3, a + 15, (i + 0.3) / 10), 'bubble', 'cell', 'org_' + ['pm', 'nuc', 'nucl', 'er', 'golgi', 'mito', 'lyso', 'endo', 'perox', 'cytosk'][i], { pitch: 0.75 * Math.pow(2, s / 12), gain: 0.25, seq: true }));   // organelles one by one
+  sfxCue(a + 14.8, 'link', 'cell', 'EGFR@pm');                                       // two proteins meet
+  sfxCue(a + 22.8, 'spark', 'cell', 'EGF');                                          // the relay begins
+  sfxCue(a + 28.8, 'whoosh', 'cell', 'org_nuc', { dur: 4, pitch: 0.9 });             // NF-kB into the nucleus
+  sfxCue(a + 41.8, 'snap', 'cell', 'CFTR');                                          // CFTR stuck on its way
+  a = C.med.a;
+  sfxCue(a + 0.3, 'pulse', 'cell', null, { pitch: 0.8 });                            // the network stands out, CFTR's links lost
+  [4, 6, 8].forEach((s, i) => sfxCue(a + s - 0.2, 'step', 'cell', null, { pitch: Math.pow(2, 2 * i / 12), gain: 0.35, seq: true }));   // three steps
   for (const n in TR) TR[n].sort((x, y) => x[0] - y[0]);
   buildCamera(wp);
 }

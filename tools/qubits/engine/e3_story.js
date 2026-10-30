@@ -369,6 +369,41 @@ function buildStory() {
   ramp('chart_gates', a + 3, a + 13, 0, 6);
   cam(a + 2, 'chart', 'circuit', -4);
   cam(b, 'chart', 'circuit', 8, 'spin');
+  // ---- sound effects (sfxCue: story time, a sound, where it comes from, its options), beside the keys above: a cue just
+  // before the line it goes with, textures under the voice soft; sequences from the keys (when a ramp reaches a share)
+  const rampAt = (t0, t1, f) => { let lo = 0, hi = 1; for (let i = 0; i < 24; i++) { const m = (lo + hi) / 2; if (smooth(m) < f) lo = m; else hi = m; } return t0 + (t1 - t0) * lo; };
+  a = C.title.a;
+  sfxCue(a + 1, 'patter', 'pairs', 'genes0', { dur: 2, pitch: 1.3, gain: 0.3 });      // a few genes
+  sfxCue(a + 6, 'grow', 'pairs', 'tri', { dur: 12, gain: 0.35 });                    // the grid of all pairs grows
+  sfxCue(a + 18, 'rise', 'pairs', 'tri', { dur: 5, gain: 0.6 });                     // until it fills the view
+  a = C.walkers.a;
+  sfxCue(a + 0.2, 'whoosh', 'pairs', 'map');                                         // the map
+  sfxCue(a + 4.8, 'pulse', 'pairs', 'walker0', { seq: true });                       // two walkers set out
+  sfxCue(a + 5.4, 'pulse', 'pairs', 'walker1', { pitch: 1.12, seq: true });
+  sfxCue(a + 13.8, 'grow', 'pairs', 'valley0', { dur: 4, pitch: 0.6 });              // the valleys (illustrative)
+  sfxCue(a + 21.9, 'rise', 'pairs', 'valley1', { dur: 6, pitch: 0.8 });              // where they settle
+  a = C.shrink.a;
+  sfxCue(a + 2, 'rise', 'pairs', 'chip');                                            // the chip with three qubits
+  sfxCue(a + 9.8, 'whoosh', 'pairs', 'map', { dur: 8, pitch: 0.7 });                 // the map folds into eight
+  [0, 2, 4, 5, 7, 9, 11, 12].forEach((s, c) => sfxCue(a + 18 + 1.1 * c, 'step', 'pairs', 'hood' + c, { pitch: Math.pow(2, s / 12), gain: 0.5, seq: true }));   // each code, 000 to 111
+  a = C.cut.a;
+  sfxCue(a + 0.5, 'whoosh', 'cube', 'genes');                                        // the network in 3D
+  [8, 18, 28].forEach((s, i) => sfxCue(a + s - 0.2, 'snap', 'cube', 'cut' + (i + 1), { pitch: Math.pow(2, 3 * i / 12) }));   // cut in two, four, eight
+  a = C.coarse.a;
+  sfxCue(a + 0.3, 'rise', 'cube', 'cube', { dur: 8 });                               // A_c grows on the cube
+  a = C.bricks.a;
+  for (let i = 0; i < 8; i++) sfxCue(a + 5 + 3 * i, 'clink', 'cube', 'top', { gain: 0.3, pitch: i ? 1 + 0.06 * i : 0.85 });   // each Pauli string in turn
+  for (let i = 1; i <= 10; i++) sfxCue(rampAt(a + 34, a + 50, i / 10), 'step', 'cube', 'cube', { pitch: Math.pow(2, i / 12), gain: 0.3, seq: true });   // the ten largest added one by one
+  a = C.toolbox.a;
+  sfxCue(a + 2, 'snap', 'cube', 'cube', { pitch: 0.7 });                             // strings outside the algebra go gray
+  sfxCue(a + 8.8, 'whoosh', 'cube', 'cube', { dur: 6, pitch: 0.8 });                 // the cube keeps only those inside
+  sfxCue(a + 22.8, 'whoosh', 'chart', 'chart');                                      // the chart
+  sfxCue(a + 27, 'grow', 'chart', 'ours', { dur: 10, pitch: 0.8, gain: 0.35 });      // the residual by depth
+  sfxCue(a + 37.8, 'ping', 'chart', 'ex3');                                          // the example's point
+  a = C.circuit.a;
+  sfxCue(a + 0.2, 'whoosh', 'chart', 'circuit');                                     // the circuit
+  RL.gates.forEach((g, i) => sfxCue(rampAt(a + 3, a + 13, i / 6), 'step', 'chart', 'q' + Math.max(...g.qubits), { pitch: Math.pow(2, 4 * Math.max(...g.qubits) / 12) * (g.type === 'RX' ? 1 : 0.84), gain: 0.5, seq: true }));   // six gates, by wire
+  sfxCue(a + 14, 'ping', 'chart', 'circuit');                                        // the recipe
   for (const n in TR) TR[n].sort((x, y) => x[0] - y[0]);
   buildCamera(wp);
 

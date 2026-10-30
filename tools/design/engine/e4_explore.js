@@ -35,6 +35,7 @@ function orbitStep(now) {
 }
 // the camera's views: the whole table, the stage close, from above, or a story's plate
 function showView(name) {
+  if (name !== X.viewName) sfxAct('whoosh', 'table', name.startsWith('group:') ? null : 'centre', { dur: 0.8 });   // (sound effects: off to another view, or a story's plate)
   X.viewName = name;
   const T = GL.sets.table, v = name.startsWith('group:') ? T.groupView(name.slice(6)) : view('table', name);
   if (v) flyTo(v);
@@ -46,20 +47,29 @@ function showView(name) {
 function pickProp(k, tab = true) {
   k = DESIGN_CARDS[k] ? k : '';
   const changed = k !== X.pick;
+  // (sound effects: a pluck at the miniature, and the prop rising onto the stage)
+  if (changed && k) { sfxAct('pick', 'table', miniPos(k)); sfxAct('rise', 'table', 'stage', { dur: 0.8, pitch: 1.3, delay: 0.1, gain: 0.7 }); }
   X.pick = k; X.story = k ? DESIGN_CARDS[k].story : X.story;
   GL.sets.table.setPick(k || null);
   if (tab && k) X.tab = 'prop';
   if (changed || tab) renderPanes();
   updateExtraLabels();
 }
+// where a miniature stands, in the table's frame (sound effects)
+const miniPos = k => { const m = GL.sets.table.mini(k); return m ? m.holder.position.toArray() : 'centre'; };
 function setHover(k) {
   const T = GL.sets.table;
   if ((k || null) === T.hovered()) return;
+  if (k) sfxAct('hover', 'table', miniPos(k));   // (sound effects: the shell's soft tick, at the miniature)
   T.setHover(k || null);
   updateExtraLabels();
 }
 // every miniature back on its plate (for everyone at a station: the records go out with the state)
-function tidyTable() { GL.sets.table.tidy(); renderPanes(); }
+function tidyTable() {
+  // (sound effects: a soft thunk for each miniature put back, one after another, as Arrange all places circles)
+  GL.sets.table.moved().slice(0, 12).forEach((k, j) => sfxAct('place', 'table', GL.sets.table.mini(k).home.toArray(), { delay: 0.07 * j, force: true }));
+  GL.sets.table.tidy(); renderPanes();
+}
 function pickTab(k) { if (!TABS.some(t => t[0] === k)) return; X.tab = k; renderPanes(); }
 
 // --------------------------------------------------------- shared rooms --

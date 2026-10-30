@@ -344,7 +344,7 @@ function buildStory() {
   // From health to disease: BMI, density and disorder, tumour load; robust; hexokinase 2 like FDG
   a = C.health.a; b = C.health.b;
   // the networks in turn, each from the one before (a network not read off its figure yet is skipped)
-  let w = wi('full');
+  let w = wi('full'), nets = 0;
   // (a direct crossfade over 2 s from the network before, organs_prev, to the new one: easing organs_which would pass
   // through the networks between them in the list)
   const goNet = (id, t) => {
@@ -354,6 +354,7 @@ function buildStory() {
     jump('organs_which', t, w, n);
     jump('organs_mix', t, 1, 0); key('organs_mix', t + 2, 1);
     w = n;
+    sfxCue(t, 'grow', 'organs', 'net', { dur: 1.8, gain: 0.35, pitch: nets++ % 2 ? 1.15 : 0.85 });   // (sound effects: each network from the one before)
   };
   goNet('A_low', a + 7); goNet('A_high', a + 10);
   // (each network's density and disorder as a tag under its title while the text explains them)
@@ -368,6 +369,28 @@ function buildStory() {
   cam(a + 37, 'organs', 'net', 20);
   cam(b - 0.5, 'organs', 'net', 34, 'spin');
   for (const n in TR) TR[n].sort((x, y) => x[0] - y[0]);
+
+  // ------------------------------------------------------------ sound effects
+  // (sfxCue: story time, a sound, where it comes from: a set and one of its anchors; its options. sfxHold: a continuous
+  // sound while the clock is inside a span. The health chapter's networks are cued in goNet, above)
+  sfxCue(C.title.a + 0.3, 'rise', 'scan', 'vision_scan');                                 // the vision row
+  sfxCue(C.title.a + 10, 'whoosh', 'scan', 'centre', { dur: 5, pitch: 0.8 });             // it draws back into the scanner
+  a = C.scanner.a;
+  sfxHold(a + 9, a + 34, 'machine', 'scan', 'ring', { pitch: 1.3, gain: 0.22 });          // the scanner's ring, once the scan begins
+  sfxCue(a + 1, 'whoosh', 'scan', 'couch', { dur: 6, pitch: 0.6, gain: 0.4 });            // the couch slides in
+  sfxCue(a + 9, 'whoosh', 'scan', 'ring', { dur: 2, pitch: 1.3 });                        // the skin opens on the ring
+  sfxCue(a + 12, 'patter', 'scan', 'event', { dur: 1.5, pitch: 1.4, gain: 0.3 });         // the first coincidences
+  sfxCue(a + 16, 'grow', 'scan', 'lor', { dur: 11, pitch: 1.3, gain: 0.3 });              // lines of response
+  sfxCue(a + 27, 'rise', 'scan', 'patient', { dur: 5 });                                  // the image forms
+  a = C.body.a;
+  sfxCue(a + 1.5, 'whoosh', 'body', null, { dur: 3.5, pitch: 0.8 });                      // the patient stands up and turns
+  sfxCue(a + 6.5, 'grow', 'body', null, { dur: 8, pitch: 0.9 });                          // the tracer arrives: hot organs
+  sfxCue(a + 24, 'pulse', 'organs', 'lesion', { pitch: 0.8 });                            // a tumour
+  a = C.organs.a;
+  sfxCue(a + 1, 'ratchet', 'organs', null, { n: 20, dur: 10, pitch: 1.5, gain: 0.22 });   // outlined slice by slice
+  sfxCue(a + 15, 'rise', 'organs', 'bars', { dur: 6 });                                   // each organ's uptake as a bar
+  ['brain', 'liver', 'muscle'].forEach((id, k) => sfxCue(a + 23 + 4 * k, 'pick', 'organs', id, { seq: true }));   // three organs in turn
+  sfxCue(C.cohort.a + 3, 'grow', 'organs', 'net', { dur: 5 });                            // the network of all scans grows on the body
   buildCamera(wp);
   // the scan set's patient stands up where the body set stands: no move, the same size, and the body set's turn (taken
   // from the camera's hand-over above) less its own

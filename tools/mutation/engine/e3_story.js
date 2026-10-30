@@ -451,6 +451,51 @@ function buildStory() {
   ramp('tree_flow', a + 2, a + 6, 0, 1);
   cam(a + 2, 'tree', 'what', -6);
   cam(b - 0.5, 'tree', 'what', 16, 'spin');
+  // ---- sound effects (sfxCue: story time, a sound, where it comes from, its options; sfxHold: a continuous sound),
+  // beside the keys above: a cue just before the line it goes with, textures under the voice soft; sequences from the
+  // keys (when a ramp reaches a share)
+  const rampAt = (t0, t1, f) => { let lo = 0, hi = 1; for (let i = 0; i < 24; i++) { const m = (lo + hi) / 2; if (smooth(m) < f) lo = m; else hi = m; } return t0 + (t1 - t0) * lo; };
+  a = C.title.a;
+  sfxCue(a + 0.3, 'rise', 'letters', 'helix', { gain: 0.5 });                        // the helix
+  sfxCue(a + 6, 'whoosh', 'letters', 'ancestor', { dur: 5, pitch: 1.1 });            // the strand peels into the ancestor's row
+  sfxCue(a + 12.8, 'patter', 'letters', 'copy1', { dur: 2, gain: 0.4 });             // copy one
+  sfxCue(a + 15.2, 'pick', 'letters', 'swap1', { pitch: 1.5 });                      // a swap
+  sfxCue(a + 18.4, 'patter', 'letters', 'copy2', { dur: 2, gain: 0.4 });             // copy two
+  sfxCue(a + 20.7, 'pick', 'letters', 'swap2', { pitch: 1.5 });                      // a swap
+  a = C.tree.a;
+  sfxCue(a + 4, 'grow', 'tree', 'root', { dur: 18, pitch: 0.9, gain: 0.35 });        // the family tree grows
+  sfxCue(a + 23.8, 'ping', 'tree', 'long');                                          // a long and a short branch
+  a = C.qubits.a;
+  sfxCue(a + 2, 'whoosh', 'letters', 'tile', { dur: 1.5 });                          // a tile opens into two qubits
+  for (let i = 0; i < 4; i++) sfxCue(a + 5.8 + 3 * i, 'step', 'letters', 'qubit1', { pitch: Math.pow(2, 2 * i / 12), seq: true });   // the four codes
+  sfxCue(a + 18.8, 'whoosh', 'letters', 'qubit2', { pitch: 1.3 });                   // the tilt into a mix
+  for (let k = 1; k <= 4; k++) sfxCue(rampAt(a + 24, a + 28, k / 4), 'step', 'letters', 'piles', { pitch: 1.2, gain: 0.5, seq: true });   // the first read-outs, one by one
+  sfxCue(a + 28.3, 'patter', 'letters', 'piles', { dur: 5.7, gain: 0.3 });           // then many pile up
+  a = C.rule.a;
+  sfxCue(a + 1, 'grow', 'rule', 'pyramid', { dur: 5 });                              // balls and arrows
+  sfxCue(a + 16, 'rise', 'rule', 'pyramid', { dur: 5 });                             // the pyramid of mixes
+  sfxCue(a + 21.8, 'pick', 'rule', 'ballA');                                         // the path starts at A
+  sfxCue(a + 35, 'ping', 'rule', 'mix');                                             // it nears the long-run mix
+  a = C.machine.a;
+  sfxCue(a + 0.3, 'ratchet', 'rule', 'compiler', { n: 8, dur: 4 });                  // the compiler
+  sfxCue(a + 4, 'rise', 'rule', 'machine', { dur: 4 });                              // the machine
+  sfxCue(a + 7.8, 'whoosh', 'rule', 'copyGates');                                    // the copy
+  sfxHold(a + 13, a + 20, 'machine', 'rule', 'turn1', { pitch: 1.2, gain: 0.3 });    // the turn
+  sfxCue(a + 19.8, 'link', 'rule', 'circuit');                                       // the circuit
+  sfxCue(a + 29, 'ratchet', 'tree', 'crown', { n: 14, dur: 3 });                     // a machine on every branch
+  sfxCue(a + 33.8, 'patter', 'tree', 'tips', { dur: 2, pitch: 1.3, gain: 0.3 });     // read at the tips
+  a = C.pairs.a;
+  sfxCue(a + 6, 'whoosh', 'stem', 'stem', { dur: 6, pitch: 0.8 });                   // the strand folds into a stem
+  sfxCue(a + 13.8, 'snap', 'stem', 'brk');                                           // a pair breaks
+  sfxCue(a + 20.8, 'link', 'stem', 'gear');                                          // the coupling keeps one
+  [28, 31, 33].forEach((s, i) => sfxCue(a + s, 'step', 'stem', 'square', { pitch: Math.pow(2, 3 * i / 12), seq: true }));   // the count of combinations
+  a = C.rebuild.a;
+  sfxCue(a + 0.3, 'grow', 'tree', 'n1', { dur: 6 });                                 // the species tree
+  sfxCue(a + 14, 'patter', 'stem', 'cloud', { dur: 10, gain: 0.3 });                 // fields of rebuilt ancestors
+  FIELDS.forEach((m, i) => sfxCue(a + 17.8 + 3 * i, 'step', 'stem', 'field_' + m, { pitch: Math.pow(2, 2 * i / 12) }));   // each field lit
+  sfxCue(a + 30.8, 'ping', 'stem', 'truth');                                         // the true ancestor
+  a = C.what.a;
+  sfxCue(a + 2, 'ratchet', 'tree', 'crown', { n: 10, dur: 4, gain: 0.25 });          // the machines running
   for (const n in TR) TR[n].sort((x, y) => x[0] - y[0]);
   buildCamera(wp);
 

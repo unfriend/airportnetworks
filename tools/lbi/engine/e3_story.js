@@ -411,6 +411,64 @@ function buildStory() {
   cam(a + 14.5, 'int', 'paths', 0, null, [0, 0, 0.6]);
   cam(b, 'int', 'paths', 120, 'spin');
   for (const n in TR) TR[n].sort((x, y) => x[0] - y[0]);
+
+  // ------------------------------------------------------------ sound effects
+  // (sfxCue: story time, a sound, where it comes from: a set and one of its anchors; its options. sfxHold: a continuous
+  // sound while the clock is inside a span)
+  a = C.title.a;
+  sfxCue(a + 0.5, 'grow', 'int', 'core', { dur: 6.5 });                                  // the interactome grows
+  [[5, 7], [3, 10], [8, 13], [1, 16]].forEach(([m, t]) => sfxCue(a + t, 'pulse', 'int', 'mod' + m, { gain: 0.3 }));   // pathways light up
+  a = C.whole.a;
+  sfxCue(a + 7, 'whoosh', 'mac', 'board', { dur: 5.5, pitch: 0.9 });                     // the computer comes apart
+  sfxCue(a + 11.5, 'patter', 'mac', 'screws', { dur: 1.5 });                             // its pieces land on the table
+  sfxCue(a + 16, 'spark', 'mac', 'wires');                                               // the circuit is wired
+  sfxCue(a + 25, 'grow', 'mac', 'wires', { dur: 4.5 });                                  // a network remains
+  a = C.everywhere.a;
+  sfxCue(a + 0.5, 'grow', 'web', 'hub', { dur: 7.5 });                                   // the internet
+  sfxCue(a + 10, 'whoosh', 'web', 'globe', { dur: 2.5 });                                // the globe comes
+  sfxCue(a + 12, 'grow', 'web', 'tuft', { dur: 8, pitch: 0.8, gain: 0.35 });             // friendships round the world
+  a = C.blocks.a;
+  sfxCue(a + 0.3, 'rise', 'dna', 'helix', { dur: 3 });                                   // the helix
+  sfxCue(a + 8, 'whoosh', 'dna', 'chrom1', { dur: 5, pitch: 0.8 });                      // chromosomes
+  sfxCue(a + 16, 'grow', 'dna', null, { dur: 5, pitch: 1.4 });                           // proteins fold
+  a = C.complex.a;
+  sfxCue(a + 0.3, 'patter', 'atp', 'matrix', { dur: 2 });                                // 13 parts arrive
+  ['head', 'stalk', 'ring'].forEach((p, k) => sfxCue(a + 10 + 2.5 * k, 'link', 'atp', p, { seq: true }));   // the machine assembles
+  sfxHold(a + 18, a + 30, 'machine', 'atp', 'rotor', { pitch: 1.4, gain: 0.35 });        // protons turn the rotor
+  sfxCue(a + 30, 'grow', 'atp', null, { dur: 3 });                                       // as a network
+  sfxCue(a + 36, 'whoosh', 'int', 'atp', { dur: 4, pitch: 0.7 });                        // it shrinks into the interactome
+  a = C.map.a;
+  sfxCue(a + 2, 'rise', 'int', 'core', { dur: 8 });                                      // the city builds
+  sfxCue(a + 14, 'pulse', 'int', 'pinRed');                                              // a hub in the centre
+  sfxCue(a + 28, 'grow', 'int', 'mod0', { dur: 3, pitch: 0.8 });                         // neighbourhoods
+  sfxCue(a + 42, 'whoosh', 'int', null, { dur: 5, pitch: 1.2 });                         // a route across town
+  a = C.rare.a;
+  sfxCue(a + 3, 'pick', 'crowd', 'red');                                                 // one patient
+  sfxCue(a + 5, 'patter', 'crowd', 'far', { dur: 5, pitch: 0.7, gain: 0.3 });            // the crowd grows
+  sfxCue(a + 13, 'pulse', 'int', 'rare');                                                // the disease neighbourhood
+  a = C.iei.a;
+  sfxCue(a + 1, 'grow', 'int', null, { dur: 4 });                                        // the clusters
+  sfxCue(a + 21, 'whoosh', 'sankey', null);                                              // the diagram
+  sfxCue(a + 26, 'rush', 'sankey', null, { dur: 6, pitch: 1.3, gain: 0.35 });            // flows between categories and clusters
+  a = C.treat.a;
+  [3, 5.5, 8].forEach(t => sfxCue(a + t, 'link', 'int', 'treat', { pitch: 1.2, seq: true }));   // drugs dock
+  sfxCue(a + 11, 'grow', 'int', 'seed', { dur: 10, pitch: 0.7, gain: 0.35 });            // the signal spreads
+  sfxCue(a + 22, 'ping', 'int', 'causal');                                               // the broken gene on top
+  a = C.scales.a;
+  sfxCue(a + 0.3, 'rise', 'scale', 'floor0', { dur: 9 });                                // the tower of scales
+  sfxCue(a + 15, 'grow', 'scale', 'floor4', { dur: 7 });                                 // networks on every floor
+  a = C.lbi.a;
+  sfxCue(a + 2, 'grow', 'scale', null, { dur: 8, pitch: 1.2 });                          // four research groups
+  a = C.body.a;
+  sfxCue(a + 0.5, 'rise', 'body', 'heart', { dur: 5, pitch: 0.9 });                      // the PET body glows
+  sfxCue(a + 10, 'grow', 'body', null, { dur: 3 });                                      // the network of organs
+  a = C.tissue.a;
+  sfxCue(a + 11, 'grow', 'tissue', 'zoom', { dur: 5, pitch: 1.2 });                      // cells joined into a network
+  sfxCue(a + 22, 'whoosh', 'tissue', 'embed', { dur: 4.5 });                             // each sample a point
+  a = C.mission.a;
+  sfxCue(a + 12.5, 'whoosh', 'int', null);                                               // back to the interactome
+  sfxCue(a + 14, 'grow', 'int', 'core', { dur: 6.5, pitch: 1.2 });                       // every pathway alight
+  sfxCue(a + 20.5, 'ping', 'int', 'core');                                               // the end
   buildCamera(wp);
 
   // --------------------------------------------------------- story labels
