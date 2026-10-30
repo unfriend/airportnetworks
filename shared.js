@@ -1409,7 +1409,8 @@
     try { if (C.pretend) sessionStorage.setItem('collabNet', C.pretend); else sessionStorage.removeItem('collabNet'); } catch (e) { /* storage blocked */ }
     if (!C.relay) { C.net = ''; C.netState = ''; C.near = null; }
   }
-  // the page's notice after a rejoin (a headset in a session gets the shell's notice instead): Leave at hand
+  // the page's notice after a rejoin (a headset in a session gets the shell's notice instead): Leave at hand. Shown and
+  // hidden by its display (its own display: flex outranks the hidden attribute, so that alone left it up for good)
   const TOAST = { el: null, timer: 0 };
   function toast(code) {
     if (!document.body) return;
@@ -1428,13 +1429,14 @@
       document.body.appendChild(el);
     }
     TOAST.el.innerHTML = `<span style="flex:1 1 240px">Back in room <b>${esc(code)}</b>: this device was in it on this network, so it joined it again by itself.</span>` +
-      '<button class="btn" type="button" data-toast="open">Shared</button><button class="btn" type="button" data-toast="leave">Leave</button>';
-    TOAST.el.hidden = false;
+      '<button class="btn" type="button" data-toast="open">Shared</button><button class="btn" type="button" data-toast="leave">Leave</button>' +
+      '<button class="btn" type="button" data-toast="close" aria-label="Close" title="Close">\u00d7</button>';
+    TOAST.el.hidden = false; TOAST.el.style.display = 'flex';
     log('notice', { title: 'Back in room' });
     sfx('notice');
     clearTimeout(TOAST.timer); TOAST.timer = setTimeout(toastOff, 20000);
   }
-  function toastOff() { clearTimeout(TOAST.timer); if (TOAST.el) TOAST.el.hidden = true; }
+  function toastOff() { clearTimeout(TOAST.timer); if (TOAST.el) { TOAST.el.hidden = true; TOAST.el.style.display = 'none'; } }
 
   // ----------------------------------------------------------- ephemeral --
   function fx(k, v) { return send({ t: 'fx', k, v }); }
@@ -1772,6 +1774,22 @@
   }
   const setStPanels = (id, v) => PANELS.includes(v) && setUi(id, { panels: v }, 'panels');
   const setStLock = (id, on) => { const ok = setUi(id, { lock: !!on }, 'story lock'); if (ok) sfx(on ? 'lock' : 'unlock', menuAt()); return ok; };
+  // Recenter at a station (the story panel's button and the menu's; the owner, 30 October 2026: "Recenter in ar room mode
+  // with the circles should bring panel and 3d model to the starting position"): the station's place and panel keys go
+  // (absent, they are where the story puts them), so its scene (offset, size, turn) and its panel glide back there for
+  // everyone at its circle, as any move from the room does; in explore mode the view goes back to where the story itself
+  // put it here (VW.home) and goes out as a view after a flight does. Refused while its story is locked, as the grip is
+  function recenterStation() {
+    const L = liveSt();
+    if (!L || !placing()) return false;
+    if (stLocked(L)) { notice('This story is locked', 'Unlock it in the menu (Story locked: unlock) to recenter it.', 3500); return false; }
+    BUF.delete(kPlace(L.id)); BUF.delete(kPanel(L.id));
+    publish([[kPlace(L.id), null], [kPanel(L.id), null]]);
+    const H = VW.home, A = C.hook && C.hook.APP;
+    if (H && H.id === L.id && H.story === L.story && A && A.mode === 'explore' && C.hook.setView) guarded(() => { try { C.hook.setView(H.v.slice()); } catch (e) { /* not now */ } });
+    log('recenter', { st: L.id });
+    return true;
+  }
   // for HOST.panels: at a station of this story (a headset in its circle, a page following it), the station's; else null
   const panelsAt = key => { const L = liveSt(); return C.code && L && L.story === key ? stPanels(L) : null; };   // (kept while a link moves or reconnects)
   const setPanels = (key, v) => !!panelsAt(key) && setStPanels(C.live, v);
@@ -2162,16 +2180,21 @@
   // again). A view that changed at once here (after a flight: collabView is null while the camera flies) goes out plain,
   // and one from the room without ts glides in (the story's own 0.25 s glide). Screens keep their own camera; story mode
   // follows the clock. Every frame, from the shell's tick.
-  const VW = { id: '', seen: '', at: 0, moving: false, gap: true, here: '' };
+  // (home: where this story itself put the view here, for Recenter: the first view after none, that is explore mode begun
+  // or a flight of its own landed, never one glided to from the room (glide) or turned by hand)
+  const VW = { id: '', seen: '', at: 0, moving: false, gap: true, here: '', none: true, glide: '', home: null };
   function viewSync(t) {
     const L = liveSt();
     if (!synced(L) || !R.placing() || HOST.picking || !C.hook.view || !C.hook.setView) { VW.id = ''; return; }
     const k = kView(L.id), room = viewOf(val(k), L);
-    const set = (v, at) => guarded(() => { try { C.hook.setView(v, at); } catch (e) { log('view failed', { e: e.message }); } });
-    if (VW.id !== L.id) { Object.assign(VW, { id: L.id, seen: '', at: 0, moving: false, gap: true, here: '' }); BUF.delete(k); }   // a station reached: as the room has it
+    const set = (v, at) => { if (!at) VW.glide = J(v); guarded(() => { try { C.hook.setView(v, at); } catch (e) { log('view failed', { e: e.message }); } }); };
+    if (VW.id !== L.id) { Object.assign(VW, { id: L.id, seen: '', at: 0, moving: false, gap: true, here: '', none: true, glide: '', home: null }); BUF.delete(k); }   // a station reached: as the room has it
     let cur = null;
     try { cur = C.hook.view(); } catch (e) { return; }
     if (!cur) VW.gap = true;   // (flying, or in story mode: what comes after is no turn)
+    if (cur && VW.none && VW.glide !== J(cur)) VW.home = { id: L.id, story: L.story, v: cur.slice() };
+    if (cur && (VW.none || VW.glide === J(cur))) VW.glide = '';
+    VW.none = !cur;
     const B = BUF.get(k);
     if (B && B.story === L.story && !C.pending.has(k)) {   // someone else turning it
       if (cur) bufSeed(B, cur);
@@ -2304,7 +2327,7 @@
     OV.room = new THREE.Group(); OV.room.matrixAutoUpdate = false;
     OV.root.add(OV.room);
     OV.panelG = new THREE.Group();
-    OV.panel = sheet(720, 1840, 0.42, 53);   // (the tallest it gets: a room on this headset with a three-line note, at a station, 1809 px)
+    OV.panel = sheet(720, 1920, 0.42, 53);   // (the tallest it gets: a room on this headset with a three-line note, at a station, 1885 px)
     OV.panelG.add(OV.panel.mesh); OV.root.add(OV.panelG);
     OV.panel.mesh.userData.shell = { kind: 'panel' };
     // the menu's clock: the group's origin is the face's middle
@@ -2379,7 +2402,7 @@
   // y: its middle over the floor (above the heads of people in the circle and the card's top edge, 1.6 m, so it
   // covers neither from across the room); size: 1 model unit in metres (miniDef fits each miniature); turn: s; tint:
   // how far the miniature's colours go to the story's
-  const ICON = { y: 2.1, size: 0.3, turn: 12, tint: 0.55, defs: new Map(), mat: null, see: null, tex: null, halos: new Map(), models: null, askAt: 0, built: -1 };
+  const ICON = { y: 2.1, size: 0.3, ball: 0.2, turn: 12, tint: 0.55, defs: new Map(), mat: null, see: null, tex: null, halos: new Map(), models: null, askAt: 0, built: -1 };
   // the miniatures, once lowpoly.js is here (asked for the first time an icon wants one; a failed load again 30 s later)
   function iconModels() {
     if (ICON.models) return ICON.models;
@@ -2554,7 +2577,7 @@
   }
   // over a station's ring (o its ring's group, at its spot, turned its way): turned to your head and leant back as far
   // as you look up at it, plus a little, so its top shows; it shrinks away at your own station (its story is in front of
-  // you) and over the other stations while you are in a circle (seen: grown back while pointed at). Its miniature takes
+  // you; seen false). Its miniature takes
   // the fallback's place once built (also while it is hidden, so showing it again costs no build)
   function iconStep(o, S, seen, dt) {
     const I = o.icon;
@@ -2584,8 +2607,13 @@
       tip.rotation.set(-Math.PI / 2, 0, Math.PI / 2); tip.position.set(0, 0.011, -0.62);
       g.add(ring, tip);
       ring.userData.shell = { kind: 'station', id: s.id };
+      // an unseen ball round its icon: pointed at like the ring (in a circle the icon stands for the station: the ring is
+      // gone there until you come near it)
+      const ball = new THREE.Mesh(new THREE.SphereGeometry(ICON.ball, 10, 8), new THREE.MeshBasicMaterial({ visible: false }));
+      ball.position.y = ICON.y; ball.userData.shell = ring.userData.shell;
+      g.add(ball);
       // its icon turns in its own phase (not in step with the others)
-      o = { g, ring, mat, story: s.story, icon: makeIcon(s.story, [...s.id].reduce((a, ch) => a + ch.charCodeAt(0) * 2.39996, 0) % (2 * Math.PI), true) };
+      o = { g, ring, tip, ball, mat, story: s.story, icon: makeIcon(s.story, [...s.id].reduce((a, ch) => a + ch.charCodeAt(0) * 2.39996, 0) % (2 * Math.PI), true) };
       g.add(o.icon.g);
       OV.rings.set(s.id, o); OV.room.add(g);
     }
@@ -2762,13 +2790,16 @@
       }
     }
   }
-  // the previews of the stations that are not live here (the live one keeps only its ring, fainter). In a circle (a live
-  // station here) the others show their rings only (the owner, 29 October 2026: "when you are in a circle the other
-  // circles' cards and 3D models should not be visible, just the circles"): a ray resting on a ring (or on the card it
-  // brought up) shows its card and icon for as long as it points, and they fade about 2 s after (PEEK), so you can tell
-  // which story it is without walking over. Before any circle everything shows
+  // the previews of the stations that are not live here (the live one keeps only its ring, fainter, and no icon). In a
+  // circle (a live station here) the others show their icons only (the owner, 30 October 2026, after v100: "Once inside a
+  // story hide the circles and show only the 3d icons, show circle once a person moves close to the 3d icon of that
+  // story"; before, 29 October, rings only): a station's ring (your own too) comes back within RING.near of its spot, so
+  // you see where to step in, and a ray resting on an icon, a ring or the card it brought up shows that station's card for
+  // as long as it points, fading about 2 s after (PEEK), so you can tell which story it is without walking over. Before
+  // any circle everything shows
   const HOV = [];   // what the controllers point at, this frame
   const PEEK = { hold: 2000, in: 12, out: 5 };   // (ms shown after the pointing stops; how fast it comes and goes, per s)
+  const RING = { near: 2, far: 2.2, in: 6, out: 4 };   // (m from its spot: in a circle a ring shows within near and goes beyond far; how fast)
   function drawPreviews(dt) {
     const ids = new Set(C.st.map(s => s.id)), cm = cardMode(), L = liveSt(), t = performance.now();
     for (const [id, o] of OV.rings) if (!ids.has(id)) {
@@ -2780,17 +2811,23 @@
     }
     for (const s of C.st) {
       const r = ringFor(s), live = s.id === C.live && s.story === HOST.curKey, hov = HOV.some(h => h.target.kind === 'station' && h.target.id === s.id);
-      r.mat.opacity = live ? 0.3 : MV.id === s.id ? 1 : 0.75;
-      r.ring.userData.shell = { kind: 'station', id: s.id, live };   // (the live one: only to move it)
+      // its ring: always before any circle (and while carried); in a circle only near its spot
+      const S = shown(s), d = R.headOK ? Math.hypot(R.hr.x - S.x, R.hr.z - S.z) : 0;
+      const nw = !L || MV.id === s.id || d < (r.near > 0.5 ? RING.far : RING.near) ? 1 : 0;
+      if (r.near === undefined) r.near = nw;
+      r.near += (nw - r.near) * (1 - Math.exp(-dt * (nw ? RING.in : RING.out)));
+      if (Math.abs(nw - r.near) < 0.01) r.near = nw;
+      r.mat.opacity = (live ? 0.3 : MV.id === s.id ? 1 : 0.75) * r.near;
+      r.ring.visible = r.tip.visible = r.near > 0.02;
+      r.ring.userData.shell = r.ball.userData.shell = { kind: 'station', id: s.id, live };   // (the live one: only to move it)
       // in a circle, another station's card and icon only while pointed at (or carried), fading after
       if (hov || MV.id === s.id) r.seenAt = t;
       const peek = !L || s.id === L.id || t - (r.seenAt || -1e9) < PEEK.hold, want = peek ? 1 : 0;
       if (r.peek === undefined) r.peek = want;
       r.peek += (want - r.peek) * (1 - Math.exp(-dt * (peek ? PEEK.in : PEEK.out)));
       if (Math.abs(want - r.peek) < 0.01) r.peek = want;
-      // its icon in every mode, as the ring (not a card: with cards hidden it tells the circles apart, and a ring pointed
-      // at in a circle brings up its icon alone)
-      iconStep(r, shown(s), !live && peek, dt);
+      // its icon in every mode (not a card: with cards hidden it tells the circles apart), but not over your own station
+      iconStep(r, S, !live, dt);
       if (live) continue;
       // cards hidden: no card (the ring stays, to walk up to, point at and move); in a circle none unless pointed at
       const c = cardFor(s, cm);
@@ -2810,7 +2847,7 @@
   // table put at your feet), then the shared room: join one from the list (no typing), leave, your name and colour,
   // calibrate, the alignment, the stations (Arrange all, Add a station here, Move here, Remove) and the people.
   // It is closed at the start of every session, and opens by itself the first time in a room with no stations.
-  const PNL = { open: false, page: 'main', asked: '', empty: '' };
+  const PNL = { open: false, page: 'main', asked: '', empty: '', code: '' };   // (code: the letters typed on its keypad page)
   // the clock's canvas (px) and its width in the room (m): a face 6.5 cm across with "Open menu" under it; top and
   // below: how far its face reaches above its middle and its caption below it (m)
   const CLOCK = { w: 300, h: 380, cy: 150, r: 140, mw: 0.07 };
@@ -2820,7 +2857,7 @@
     if (on !== PNL.open) log('menu', { open: on, by: why || '' });
     // (opened or closed by hand: a sound from the clock; not when it opens by itself or for a test)
     if (on !== PNL.open && HOST.session && /^(trigger|touch|finger|stick|close)$/.test(why || '')) sfx(on ? 'open' : 'close', OV.clockG && OV.clockG.position);
-    PNL.open = on; PNL.page = 'main'; C.listing.menu = on;
+    PNL.open = on; PNL.page = 'main'; PNL.code = ''; C.listing.menu = on;
     if (on && !C.code) { listRooms(); nearFind('menu'); }
   }
   const toggleMenu = why => menuOpen(!PNL.open, why);
@@ -2848,7 +2885,48 @@
       C.st.map(s => s.id + s.story), C.members.map(m => m.id + m.name + m.color + m.kind + m.here + (m.host ? 'h' : '')), [...C.pres].map(([id, P]) => id + P.st), C.via, hosting(), C.takeover, C.peer,
       C.code ? 0 : (C.rooms || []).map(r => r.code + r.members), C.roomsErr, C.relay, C.code ? nearShown() : [(C.near || []).map(r => r.code + r.members + r.name), C.netState, C.nearBusy, C.nearErr, (offer() || {}).code], sharedLine(), sourceLine(), versionNote(), scanNote(), fullNote(), floorNote(), forgetArmed(), freshArmed(), canFresh(), !!(R.saved || R.frame), R.sharedAlign, circlesLocked(), stLocked(liveSt()), peopleAll(),
       C.local, C.code ? 0 : localRooms().map(r => r.code + r.stations), !!R.again, HOST.slides ? HOST.slides.sig() : '', menuHint(), HOST.xr.sig(), showing(), showing() && HOST.panels.sig(showing()),
-      PNL.page === 'sound' ? Math.floor(performance.now() / 500) + HOST.audio.pref : '', HOST.curKey, HOST.sfx ? HOST.sfx.sig() : '', HOST.xr.voice ? HOST.xr.voice() : '']);
+      PNL.page === 'sound' ? Math.floor(performance.now() / 500) + HOST.audio.pref : '', HOST.curKey, HOST.sfx ? HOST.sfx.sig() : '', HOST.xr.voice ? HOST.xr.voice() : '',
+      PNL.code, (r => r.label + !!r.fn)(recenterRow())]);
+  }
+  // the menu's Recenter (the owner, 30 October 2026): as the story panel's (its recenter hook: you in front again, or
+  // Place again while anchored); at a station its scene and panel back where the story puts them, for everyone at its
+  // circle, greyed while its story is locked (a story without the hook: the station's alone). Greyed away from every
+  // station or with no story on show
+  function recenterRow() {
+    const cur = HOST.cur, own = !!(cur && typeof cur.recenter === 'function');
+    if (placing()) return { label: 'Recenter', fn: stLocked(liveSt()) ? null : () => (own ? cur.recenter() : recenterStation()) };
+    if (!HOST.session || !own || away()) return { label: 'Recenter', fn: null };
+    return { label: HOST.anchor && HOST.anchor.on ? 'Place again' : 'Recenter', fn: () => cur.recenter() };
+  }
+  // a room by its code (the owner, 30 October 2026: "Joining a room with code not possible in ar/vr?"): a keypad of the
+  // 26 letters, the code so far, Delete, Join (three letters) and Back; joined as a code typed on a page is (a code with
+  // no room says so on the menu, as on the page). In a room it joins another one
+  function codePage(S, x, y, w) {
+    const ctx = S.ctx, code = PNL.code || '', bw = (w - 16) / 2;
+    ctx.font = FONT(28, 700); ctx.fillStyle = INK; ctx.fillText(C.code ? 'Join another room' : 'Join a room by its code', x, y); y += 42;
+    ctx.font = FONT(21); ctx.fillStyle = MUTED;
+    y += wrapText(ctx, 'Its three letters, as a screen\'s Shared dialog shows them, or a link after #s=' + (C.code ? '. You leave room ' + C.code + '.' : '.'), x, y, w, 28, 2) + 14;
+    for (let i = 0; i < 3; i++) {   // the code: three boxes, the next one lit
+      const bx = x + i * 112;
+      rr(ctx, bx, y, 96, 96, 12); ctx.fillStyle = i === code.length ? 'rgba(70,217,255,0.20)' : 'rgba(149,166,189,0.13)'; ctx.fill();
+      if (i === code.length) { ctx.lineWidth = 2; ctx.strokeStyle = CYAN; ctx.stroke(); }
+      ctx.font = FONT(56, 700); ctx.fillStyle = INK; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(code[i] || '', bx + 48, y + 50);
+      ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+    }
+    y += 116;
+    const kw = (w - 60) / 7, kh = 66;   // seven keys to a row
+    for (let i = 0; i < 26; i++) {
+      const ch = String.fromCharCode(65 + i);
+      button(S, 'key:' + ch, x + (i % 7) * (kw + 10), y + Math.floor(i / 7) * (kh + 10), kw, kh, ch, code.length < 3 ? () => { PNL.code = (PNL.code || '') + ch; } : null, { px: 30 });
+    }
+    y += 4 * (kh + 10) + 8;
+    const ok = code.length === 3 && code !== C.code;
+    button(S, 'code:del', x, y, bw, 60, 'Delete', code ? () => { PNL.code = code.slice(0, -1); } : null);
+    button(S, 'code:join', x + bw + 16, y, bw, 60, ok ? 'Join ' + code : 'Join', ok ? () => { PNL.page = 'main'; PNL.code = ''; log('code', { code }); join(code); } : null, { primary: ok });
+    y += 76;
+    button(S, 'code:back', x, y, bw, 58, 'Back', () => { PNL.page = 'main'; PNL.code = ''; }, { px: 23 });
+    return y + 58 + 24;
   }
   // the menu's Design room row: its button (label, what a press does, or null) and a note beside it
   function designRow() {
@@ -2888,14 +2966,19 @@
       S.tex.needsUpdate = true;
     };
     line();
-    // Sound check: in place of the rest of the menu
+    // Sound check, or a room's code typed in: in place of the rest of the menu
     if (PNL.page === 'sound') { finish(soundPage(S, x, y, w)); return; }
-    // Exit (leave VR or AR), the slideshow for every story and Sound check: at hand on the left wrist, not on the story
-    // panels (Sound check is here too because a shared room never shows the Stories screen, where the stories have theirs)
-    const ew = 150, sw = (w - ew - 32) / 2;
-    button(S, 'exit', x, y, ew, 60, 'Exit', () => { if (HOST.session && HOST.session.end) HOST.session.end(); });
-    if (HOST.slides) { const on = !!HOST.slides.global(); button(S, 'slides', x + ew + 16, y, sw, 60, on ? 'Slideshow: on' : 'Slideshow: off', () => HOST.slides.setGlobal(!on), { on, px: 23 }); }
-    button(S, 'sound', x + ew + sw + 32, y, sw, 60, 'Sound check', () => { PNL.page = 'sound'; }, { px: 23 });
+    if (PNL.page === 'code') { finish(codePage(S, x, y, w)); return; }
+    // Exit (leave VR or AR) and Recenter (as the story panel's: at a station its scene and panel back where the story puts
+    // them, for everyone at its circle; greyed while its story is locked), then the slideshow for every story and Sound
+    // check: at hand on the left wrist, not on the story panels (Sound check is here too because a shared room never shows
+    // the Stories screen, where the stories have theirs)
+    const rc = recenterRow();
+    button(S, 'exit', x, y, bw, 60, 'Exit', () => { if (HOST.session && HOST.session.end) HOST.session.end(); });
+    button(S, 'recenter', x + bw + 16, y, bw, 60, rc.label, rc.fn);
+    y += 76;
+    if (HOST.slides) { const on = !!HOST.slides.global(); button(S, 'slides', x, y, bw, 60, on ? 'Slideshow: on' : 'Slideshow: off', () => HOST.slides.setGlobal(!on), { on, px: 23 }); }
+    button(S, 'sound', x + bw + 16, y, bw, 60, 'Sound check', () => { PNL.page = 'sound'; }, { px: 23 });
     y += 76;
     // the scenes' small labels and the cards (the story panels, station cards and name tags), each on top, in 3D or hidden
     // (each press the next, from its default: labels on top, cards in 3D; lit while shown, and a press that hides sounds
@@ -2941,7 +3024,9 @@
     line();
     // the shared room: its code, how many are in it, the connection
     const n = C.members.length, title = !C.code ? 'Shared room' : C.local ? `Room ${C.code} · this headset` : `Shared room ${C.code} · ${n} ${n === 1 ? 'person' : 'people'}`;
-    ctx.font = FONT(28, 700); ctx.fillStyle = C.code ? CYAN : INK; ctx.fillText(fit(ctx, title, w), x, y); y += 40;
+    ctx.font = FONT(28, 700); ctx.fillStyle = C.code ? CYAN : INK; ctx.fillText(fit(ctx, title, C.code ? w - 216 : w), x, y);
+    if (C.code) button(S, 'codepage', x + w - 200, y - 8, 200, 48, 'Another room', () => { PNL.page = 'code'; PNL.code = ''; }, { px: 21 });   // (by its code)
+    y += 40;
     ctx.font = FONT(21); ctx.fillStyle = MUTED;
     ctx.fillText(fit(ctx, C.code ? connLine() + (R.status() ? ' · ' + R.status() : '') : C.relay ? 'Join others in a room' : 'Place the stories in your room', w), x, y); y += 42;
     if (C.note) { ctx.font = FONT(23); ctx.fillStyle = '#ffb43b'; y += wrapText(ctx, C.note, x, y, w, 31, 3) + 10; }
@@ -2992,8 +3077,11 @@
         button(S, 'open:' + r.code, x + w - 150, y, 150, 56, 'Open', () => join(r.code, true));
         y += 70;
       }
-      button(S, 'start', x, y + 6, (w - 16) / 2, 64, C.relay || peerOn() ? 'Start a room' : 'Start a room here', () => create(), { primary: true, px: 25 });
-      if (C.relay) button(S, 'refresh', x + (w + 16) / 2, y + 6, (w - 16) / 2, 64, 'Refresh', () => listRooms(), { px: 25 });
+      // (and a room by its code: a keypad, as headsets cannot type)
+      const b3 = C.relay ? (w - 32) / 3 : bw;
+      button(S, 'start', x, y + 6, b3, 64, C.relay || peerOn() ? 'Start a room' : 'Start a room here', () => create(), { primary: true, px: C.relay ? 22 : 25 });
+      button(S, 'codepage', x + b3 + 16, y + 6, b3, 64, 'Join with a code', () => { PNL.page = 'code'; PNL.code = ''; }, { px: C.relay ? 22 : 25 });
+      if (C.relay) button(S, 'refresh', x + 2 * (b3 + 16), y + 6, b3, 64, 'Refresh', () => listRooms(), { px: 22 });
       y += 92; line();
     } else if (PNL.page === 'add') {
       label('Add a station here: which story?');
@@ -3650,7 +3738,10 @@
     if (OV.panelG.visible) OV.hit.push(OV.panel.mesh);
     if (OV.room.visible) {
       for (const o of OV.cards.values()) if (o.mesh.visible) OV.hit.push(o.mesh, o.back);
-      for (const o of OV.rings.values()) if (o.ring.userData.shell) OV.hit.push(o.ring);
+      for (const o of OV.rings.values()) {
+        if (o.ring.visible && o.ring.userData.shell) OV.hit.push(o.ring);
+        if (o.icon.g.visible && o.icon.k > 0.5) OV.hit.push(o.ball);
+      }
     }
     OV.root.updateMatrixWorld(true);
   }
@@ -4778,6 +4869,9 @@
     // locked (Lock this story; the circles lock never locks them): what it moves goes out to the room, so everybody sees
     // it alike (placeSync)
     gripLocked: () => !placing() || stLocked(liveSt()),
+    // Recenter at the headset's station (the story panel's button and the menu's): its scene and panel back where the
+    // story puts them, for everyone at its circle; refused while its story is locked (says so). False when not at one
+    recenter: () => recenterStation(),
     get gripHint() {
       // (the flock and the robots are life size: only their panel moves)
       const m = meta(HOST.curKey) || {};

@@ -214,8 +214,8 @@ function drawLandHead(ctx, P) {
   const hb = (id, label, fn, w, o) => { x -= w; vButton(ctx, P, id, x, 40, w, 64, label, fn, o); x -= 14; };
   hb('exit', 'Exit', () => { if (XR.session) XR.session.end(); }, 110, { px: 27 });
   // anchored, Recenter becomes Place again: everything in front of you, then anchored there
-  if (HOST.anchor.on) hb('again', 'Place again', () => { HOST.anchor.again(); XR.needRecenter = true; }, 210, { px: 27 });
-  else hb('recenter', 'Recenter', () => { XR.needRecenter = true; }, 170, { px: 27 });
+  if (HOST.anchor.on) hb('again', 'Place again', xrRecenterAsk, 210, { px: 27 });
+  else hb('recenter', 'Recenter', xrRecenterAsk, 170, { px: 27 });
   if (XR.inStory) vButton(ctx, P, 'back', P.w - 44 - 294, 128, 294, 64, 'Back to the story', xrLandingClose, { px: 26 });
   // Repeat: all stories one after another, or the one you pick again and again (pressing a lit one turns it off)
   vButton(ctx, P, 'rep:all', P.w - 44 - 414, 212, 200, 64, 'Repeat all', () => HOST.toggleRepeat('all'), { on: HOST.repeat === 'all', px: 26 });
@@ -277,7 +277,7 @@ function drawMain(ctx, P) {
   const hb = (id, label, fn, w, o) => { x -= w; vButton(ctx, P, id, x, 26, w, 54, label, fn, o); x -= 12; };
   // (Exit is on the shell's Shared panel, at hand on the left controller)
   if (AUD && AUD.state !== 'none') hb('sound', audioLabel(), () => audioToggle(), 180, { on: AUD.on(), px: 23 });
-  if (!HOST.anchor.on) hb('recenter', 'Recenter', () => { XR.needRecenter = true; }, 140); // anchored: nothing moves
+  if (!HOST.anchor.on) hb('recenter', 'Recenter', xrRecenterAsk, 140); // anchored: nothing moves
   // in a shared room no Stories button: each station keeps its story, and another story is another station (walk into
   // its circle)
   if (!(HOST.room && HOST.room.placing()) && !xrRoomOnly()) hb('stories', 'Stories', () => { XR.stories = true; XR.kbd.open = false; APP.playing = false; }, 130);

@@ -434,6 +434,7 @@ LOAD.t = setTimeout(init, 40);
 return {
   inputs: () => XR.ctrls.map(c => c.src),
   caption: xrCaption,
+  recenter: xrRecenterAsk,
   xrPose: () => (XR.on ? { rp: GL.rig.position.clone(), rq: GL.rig.quaternion.clone(), off: XR.globeOff.clone(), s: XR.size, held: XR.ctrls.map(c => (c.grab ? c.grab.target : '')).join(' '),
     pp: XR.panelGroup.position.clone(), pr: yawOf(XR.panelGroup.quaternion, XR.panelGroup.rotation.y), rot: XR.rot.clone(), pq: XR.panelGroup.quaternion.clone() } : null),
   // shared rooms (shared.js): the clock is APP's, the shared state the explore panes, and there are no effects

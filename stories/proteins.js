@@ -1681,6 +1681,15 @@ function xrPlaceGlobe(p) {
   GL.world.quaternion.copy(_xq2).multiply(_xq);
   GL.world.scale.setScalar(XR.R);
 }
+// Recenter (the panel's button and the shell's menu, through recenter in the object the story returns): you in front of
+// it again (anchored: Place again); at a station in a shared room the station's scene and panel go back where the story
+// puts them instead, for everyone at its circle (the shell's HOST.room.recenter, refused while its story is locked)
+function xrRecenterAsk() {
+  if (HOST.room && HOST.room.recenter && HOST.room.placing && HOST.room.placing()) return HOST.room.recenter();
+  if (HOST.anchor.on) HOST.anchor.again();
+  XR.needRecenter = true;
+  return true;
+}
 function xrRecenter() {
   XR.globeOff.set(0, 0, 0); XR.size = 1; XR.rot.identity();
   if (XR.panelGroup) xrPanelPose(XR.panelHome.p, XR.panelHome.yaw);
@@ -2604,8 +2613,8 @@ function drawLandHead(ctx, P) {
   const hb = (id, label, fn, w, o) => { x -= w; vButton(ctx, P, id, x, 40, w, 64, label, fn, o); x -= 14; };
   hb('exit', 'Exit', () => { if (XR.session) XR.session.end(); }, 110, { px: 27 });
   // anchored, Recenter becomes Place again: everything in front of you, then anchored there
-  if (HOST.anchor.on) hb('again', 'Place again', () => { HOST.anchor.again(); XR.needRecenter = true; }, 210, { px: 27 });
-  else hb('recenter', 'Recenter', () => { XR.needRecenter = true; }, 170, { px: 27 });
+  if (HOST.anchor.on) hb('again', 'Place again', xrRecenterAsk, 210, { px: 27 });
+  else hb('recenter', 'Recenter', xrRecenterAsk, 170, { px: 27 });
   if (XR.inStory) vButton(ctx, P, 'back', P.w - 44 - 294, 128, 294, 64, 'Back to the story', xrLandingClose, { px: 26 });
   // Repeat: all stories one after another, or the one you pick again and again (pressing a lit one turns it off)
   vButton(ctx, P, 'rep:all', P.w - 44 - 414, 212, 200, 64, 'Repeat all', () => HOST.toggleRepeat('all'), { on: HOST.repeat === 'all', px: 26 });
@@ -2667,7 +2676,7 @@ function drawMain(ctx, P) {
   const hb = (id, label, fn, w, o) => { x -= w; vButton(ctx, P, id, x, 26, w, 54, label, fn, o); x -= 12; };
   // (Exit is on the shell's Shared panel, at hand on the left controller)
   if (AUD && AUD.state !== 'none') hb('sound', audioLabel(), () => audioToggle(), 180, { on: AUD.on(), px: 23 });
-  if (!HOST.anchor.on) hb('recenter', 'Recenter', () => { XR.needRecenter = true; }, 140); // anchored: nothing moves
+  if (!HOST.anchor.on) hb('recenter', 'Recenter', xrRecenterAsk, 140); // anchored: nothing moves
   // in a shared room no Stories button: each station keeps its story, and another story is another station (walk into
   // its circle)
   if (!(HOST.room && HOST.room.placing()) && !xrRoomOnly()) hb('stories', 'Stories', () => { XR.stories = true; XR.kbd.open = false; APP.playing = false; }, 130);
@@ -3467,6 +3476,7 @@ LOAD.t = setTimeout(init, 40);
 return {
   inputs: () => XR.ctrls.map(c => c.src),
   caption: xrCaption,
+  recenter: xrRecenterAsk,
   xrPose: () => (XR.on ? { rp: GL.rig.position.clone(), rq: GL.rig.quaternion.clone(), off: XR.globeOff.clone(), s: XR.size, held: XR.ctrls.map(c => (c.grab ? c.grab.target : '')).join(' '),
     pp: XR.panelGroup.position.clone(), pr: yawOf(XR.panelGroup.quaternion, XR.panelGroup.rotation.y), rot: XR.rot.clone(), pq: XR.panelGroup.quaternion.clone() } : null),
   // shared rooms (shared.js): the clock is APP's, the shared state explore mode's tab, controls and picks

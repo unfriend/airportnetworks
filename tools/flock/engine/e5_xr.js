@@ -30,6 +30,15 @@ function xrPlace(v) {
   GL.world.position.set(0, -eye, 0);
   XR.globeBase.set(0, -eye, 0);
 }
+// Recenter (the panel's button and the shell's menu, through recenter in the object the story returns): you in front of
+// it again (anchored: Place again); at a station in a shared room the station's scene and panel go back where the story
+// puts them instead, for everyone at its circle (the shell's HOST.room.recenter, refused while its story is locked)
+function xrRecenterAsk() {
+  if (HOST.room && HOST.room.recenter && HOST.room.placing && HOST.room.placing()) return HOST.room.recenter();
+  if (HOST.anchor.on) HOST.anchor.again();
+  XR.needRecenter = true;
+  return true;
+}
 function xrRecenter() {
   XR.globeOff.set(0, 0, 0); XR.size = 1; XR.rot.identity();
   if (XR.panelGroup) xrPanelPose(XR.panelHome.p, XR.panelHome.yaw);
