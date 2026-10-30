@@ -46,9 +46,10 @@
 // following a person (a room of its own with two stations; with --shots the people list with Follow and the dialog
 // following someone); --circles only the ten-headset round (headsetRound: a room of its own with three stations; rings
 // only in a circle and a ring's card on pointing, people at your circle, the two locks; with --shots its pictures);
-// --smooth only others' moves drawn smoothly (smoothRound: a raw socket turning a station's scene and its explore view and
-// walking a person's head at 15 Hz with ts, a pretend headset there moving steadily, about DELAY behind, landing where
-// it was let go; a value with no ts gliding; a held grip writing at most 16 place values a second);
+// --smooth only others' moves drawn smoothly (smoothRound: a raw socket turning a station's scene and its explore view,
+// moving its panel, carrying another station and walking a person's head at 15 Hz with ts, a pretend headset there
+// moving steadily, about DELAY behind, landing where it was let go; a grip there right after never pulled back; a value
+// with no ts gliding; one for another story moving nothing; a held grip writing at most 16 place values a second);
 // --port N runs the relay on port N (default: any free port).
 // Needs Playwright as tools/smoke.mjs does (PLAYWRIGHT_MODULE, CHROMIUM_PATH). Exits 1 on any failure.
 //
@@ -1340,8 +1341,11 @@ async function circlesOnly() {
 // at 15 Hz with ts and h, each send up to 25 ms late, then lets go; a pretend headset standing at that station records
 // its scene's turn every frame. Pass: after 0.5 s no frame without motion while the writer turns, the speed per frame
 // within 35 % of the writer's in at least 85 % of frames, about DELAY behind (within 80 ms), and landing exactly where it
-// was let go with no overshoot. The same for the explore view (the headset writing nothing meanwhile) and a person's head
-// (0.5 m/s). A value with no ts still glides; a held grip on the headset writes at most 16 place values a second
+// was let go with no overshoot, at the frame that reaches it (no glide on top). The same for the station's panel, another
+// station carried by the grip (its ring), the explore view (the headset writing nothing meanwhile) and a person's head
+// (0.5 m/s). A place or view with no ts still glides; a sample written for another story moves nothing; a grip here right
+// after someone else let go is never pulled back to where they left it; a held grip on the headset writes at most 16
+// place values a second
 function writer(code, id) {
   const W = { id, sets: [], cid: 0, ws: new WebSocket(`ws://127.0.0.1:${port}/api/ws?room=${code}&id=${id}&proto=1`) };
   W.open = new Promise((res, rej) => { W.ws.onopen = res; W.ws.onerror = () => rej(new Error('the writer\'s socket failed')); });
@@ -1379,7 +1383,10 @@ const record = (page, ms, what) => page.evaluate(async ([ms, what]) => {
   const get = () => {
     if (what === 'rot') { const q = HOST.cur.xrPose().rot; return 2 * Math.atan2(q.y, q.w); }
     if (what === 'size') return HOST.cur.xrPose().s;
+    if (what === 'x') return HOST.cur.xrPose().off.x;
+    if (what === 'panel') return HOST.cur.xrPose().pp.x;
     if (what === 'view') return HOST.cur.peek('orbit.cur[0]');
+    if (what.startsWith('ring:')) { const o = HOST.collab.overlay().rings.get(what.slice(5)); return o ? o.g.position.x : null; }
     const o = HOST.collab.overlay().people.get(what.slice(5));
     return o && o.e ? o.e.p.x : null;
   };
@@ -1426,10 +1433,11 @@ async function smoothRound() {
   await until(A, () => HOST.collab.status === 'open', null, 10000);
   const rc = await A.evaluate(() => HOST.collab.code);
   await A.evaluate(k => HOST.collab.add(k, { x: 0, z: 0, yaw: 0 }), K);
-  await until(A, () => HOST.collab.stations().length === 1 && !HOST.collab.internals().pending.size, null, 5000);
-  const S = (await A.evaluate(() => HOST.collab.stations()))[0];
+  await A.evaluate(() => HOST.collab.add('flock', { x: 3, z: 0, yaw: 0 }));   // (another station, carried by someone else)
+  await until(A, () => HOST.collab.stations().length === 2 && !HOST.collab.internals().pending.size, null, 5000);
+  const SS = await A.evaluate(() => HOST.collab.stations()), S = SS.find(s => s.story === K), S2 = SS.find(s => s.story === 'flock');
   const H = await open('#s=' + rc, { width: 320, height: 200 });
-  await until(H, () => HOST.collab.status === 'open' && HOST.collab.stations().length === 1, null, 20000);
+  await until(H, () => HOST.collab.status === 'open' && HOST.collab.stations().length === 2, null, 20000);
   await ready(H, 'airports');
   const aId = await A.evaluate(() => HOST.collab.id);
   await A.evaluate(f => HOST.collab.publish([[HOST.room.frameKey('U1'), f]]), frameFor(ROOM, 'U1', aId, Date.now() - 60000));
@@ -1463,9 +1471,68 @@ async function smoothRound() {
     const r1b = await record(H, 300, 'rot'), RR = turnNear(r1.concat(r1b), W2, sp.t0, a0, sp.end, 2 * Math.PI);
     const st1 = steadiness(RR, W2, sp.t0, a0, sp.held[sp.held.length - 1]);
     const endA = a0 + (sp.end - sp.t0) / 1000 * W2, fin = RR[RR.length - 1][3], over = Math.max(...RR.map(f => f[3])) - endA;
-    line('the scene\'s turn', st1, `; let go, ${((fin - endA) * 180 / Math.PI).toFixed(3)} degrees from where it was let go, ${(Math.max(0, over) * 180 / Math.PI).toFixed(3)} past it at most`);
-    check('smooth: a station\'s scene turned steadily by someone else turns steadily here (moving every frame, within 35 % of their speed in 85 % of frames, about DELAY behind) and lands where it was let go, no further',
-      st1.frames >= 12 && st1.still === 0 && st1.share >= 0.85 && Math.abs(st1.lag - DELAY) <= 80 && Math.abs(fin - endA) < 0.003 && over < 0.003, JSON.stringify({ st1, endA, fin, over }));
+    // (landed at the frame whose render time reaches the let-go, not glided there: every frame from then on exactly there)
+    const after1 = RR.filter(f => f[2] >= sp.end + 1), off1 = Math.max(...after1.map(f => Math.abs(f[3] - endA)));
+    line('the scene\'s turn', st1, `; let go, ${((fin - endA) * 180 / Math.PI).toFixed(3)} degrees from where it was let go, ${(Math.max(0, over) * 180 / Math.PI).toFixed(3)} past it at most, ${(off1 * 180 / Math.PI).toFixed(3)} off at most in the ${after1.length} frames from the let-go's render time on`);
+    check('smooth: a station\'s scene turned steadily by someone else turns steadily here (moving every frame, within 35 % of their speed in 85 % of frames, about DELAY behind) and lands where it was let go, no further, at the frame that reaches it',
+      st1.frames >= 12 && st1.still === 0 && st1.share >= 0.85 && Math.abs(st1.lag - DELAY) <= 80 && Math.abs(fin - endA) < 0.003 && over < 0.003 && after1.length >= 2 && off1 < 0.003, JSON.stringify({ st1, endA, fin, over, off1, n: after1.length }));
+    // someone else turns it for a second and lets go, and the headset grips it at once and lets go a moment later: it stays
+    // where the headset left it (their samples dropped as the grip takes it, never put again once it is let go here)
+    // (the headset's frames run on meanwhile, and it grips as soon as their let-go has come)
+    const rgP = H.evaluate(async kPl => {
+      const X = window.__xr, V = (x, y, z) => new THREE.Vector3(x, y, z), R = HOST.cur.peek('GL.rig');
+      const at = p => X.aim(0, new THREE.Matrix4().compose(V(...p).applyMatrix4(R.matrixWorld), R.quaternion.clone(), V(1, 1, 1)));
+      const grab = on => HOST.cur.peek(`(c => { if (${on}) c.hover = { kind: "globe", i: -1, point: c.o.clone() }; xrGrab(c, ${on}); })(XR.ctrls[0])`);
+      const B = () => HOST.collab.smooth().BUF.get(kPl), w0 = performance.now();
+      while (!(B() && B().s.length > 3 && !B().s[B().s.length - 1].h) && performance.now() - w0 < 8000) { X.step(); await new Promise(r => setTimeout(r, 4)); }
+      at([0.1, -0.2, -0.6]); X.step();
+      const x0 = HOST.cur.xrPose().off.x, gripAt = Date.now();
+      const had = HOST.collab.smooth().BUF.has(kPl);
+      grab(true); X.step();
+      const dropped = !HOST.collab.smooth().BUF.has(kPl);
+      // (its frames back to back, without yielding: the page draws the story's own frames in software in between, which
+      // can take a second, and the let-go must come well within their samples' second)
+      const t0 = performance.now();
+      for (let i = 1; i <= 10; i++) { at([0.1 + 0.03 * i, -0.2, -0.6]); X.step(); }
+      grab(false); X.step();
+      X.ctrl(0, null); X.step();
+      return { x0, x1: HOST.cur.xrPose().off.x, had, dropped, ms: performance.now() - t0, gripAt, at: Date.now() };
+    }, kPl);
+    await sleep(200);
+    const sr = await drive((a, ts, h) => W.set(kPl, Object.assign({ x: 0, y: 0, z: 0, s: 1, q: qAt(a), story: K, ts }, h ? { h: 1 } : {})), 1000, s => s * W2);
+    const rg = await rgP;
+    const regrip = await record(H, 1500, 'x'), back = Math.max(...regrip.map(f => Math.abs(f[3] - rg.x1)));
+    console.log(`      a grip right after someone else let go: gripped ${rg.gripAt - sr.end} ms after they let go, held ${rg.ms.toFixed(0)} ms, moved ${(rg.x1 - rg.x0).toFixed(3)} m, let go ${rg.at - sr.end} ms after them; then at most ${back.toFixed(4)} m from there in ${regrip.length} frames`);
+    check('smooth: a grip here right after someone else let go drops their samples and stays where it is let go (never pulled back to theirs)',
+      rg.had && rg.dropped && rg.x1 - rg.x0 > 0.2 && back < 0.005, JSON.stringify({ rg, back, end: sr.end }));
+    // a sample written for another story (from before the station changed story) moves nothing: the relay refuses it
+    const xNow = await H.evaluate(() => HOST.cur.xrPose().off.x);
+    for (let i = 0; i < 4; i++) { W.set(kPl, { x: xNow + 1, y: 0, z: 0, s: 1, story: 'airports', ts: Date.now(), h: 1 }); await sleep(66); }
+    await frames(H, 600);
+    const xOther = await H.evaluate(() => HOST.cur.xrPose().off.x);
+    check('smooth: a place written for another story moves nothing', Math.abs(xOther - xNow) < 0.001, JSON.stringify({ xNow, xOther }));
+    // the station's panel moved steadily sideways (0.3 m/s) by someone else, then let go
+    const recPn = record(H, 4300, 'panel');
+    await sleep(300);
+    const pp = await drive((x, ts, h) => W.set('st.' + S.id + '.panel', Object.assign({ x, y: 1.3, z: -0.7, yaw: 0, story: K, ts }, h ? { h: 1 } : {})), 3000, s => -0.3 + 0.3 * s);
+    const rpn = await recPn;
+    await drawnPast(H, pp.end + 30);
+    const RP = rpn.concat(await record(H, 300, 'panel')), st4 = steadiness(RP, 0.3, pp.t0, -0.3, pp.held[pp.held.length - 1]);
+    const pAfter = RP.filter(f => f[2] >= pp.end + 1), pOff = Math.max(...pAfter.map(f => Math.abs(f[3] - pp.last))), pOver = Math.max(...RP.map(f => f[3])) - pp.last;
+    line('the panel', st4, `; lands ${pOff.toFixed(4)} m off at most in the ${pAfter.length} frames from the let-go on, ${Math.max(0, pOver).toFixed(4)} m past it at most`);
+    check('smooth: the station\'s panel moved steadily by someone else moves steadily here (every frame, within 35 % in 85 % of frames, about DELAY behind) and lands where it was let go, no further',
+      st4.frames >= 12 && st4.still === 0 && st4.share >= 0.85 && Math.abs(st4.lag - DELAY) <= 80 && pAfter.length >= 2 && pOff < 0.002 && pOver < 0.002, JSON.stringify({ st4, pOff, pOver, n: pAfter.length }));
+    // another station carried by the grip (0.5 m/s) by someone else: its ring moves steadily here, and lands where it is put down
+    const recSt = record(H, 4300, 'ring:' + S2.id);
+    await sleep(300);
+    const cs = await drive((x, ts, h) => W.set('st.' + S2.id, Object.assign({ story: 'flock', x, z: 0, yaw: 0, ts }, h ? { h: 1 } : {})), 3000, s => 3 + 0.5 * s);
+    const rst = await recSt;
+    await drawnPast(H, cs.end + 30);
+    const RS = rst.concat(await record(H, 300, 'ring:' + S2.id)).filter(f => f[3] !== null), st5 = steadiness(RS, 0.5, cs.t0, 3, cs.held[cs.held.length - 1]);
+    const sAfter = RS.filter(f => f[2] >= cs.end + 1), sOff = Math.max(...sAfter.map(f => Math.abs(f[3] - cs.last))), sOver = Math.max(...RS.map(f => f[3])) - cs.last;
+    line('a station carried', st5, `; put down ${sOff.toFixed(4)} m off at most in the ${sAfter.length} frames from then on, ${Math.max(0, sOver).toFixed(4)} m past it at most`);
+    check('smooth: a station carried by someone else moves steadily here (every frame, within 35 % in 85 % of frames, about DELAY behind) and lands where it is put down, no further',
+      st5.frames >= 12 && st5.still === 0 && st5.share >= 0.85 && Math.abs(st5.lag - DELAY) <= 80 && sAfter.length >= 2 && sOff < 0.002 && sOver < 0.002, JSON.stringify({ st5, sOff, sOver, n: sAfter.length }));
     // a value with no ts (a write by hand, an older device): it glides in as before
     await A.evaluate(([k, s]) => HOST.collab.publish([[k, { x: 0.2, y: 0.1, z: -0.3, s: 0.5, story: s }]]), [kPl, K]);
     const rs = (await record(H, 1200, 'size')).map(f => f[3]);
@@ -1487,6 +1554,17 @@ async function smoothRound() {
     line('the explore view', st2, `; ends ${JSON.stringify(vEnd)} (let go at ${JSON.stringify(sv.last)}), ${wroteV} writes from the headset`);
     check('smooth: the explore view turned by someone else turns steadily here (every frame, within 35 % in 85 % of frames, about DELAY behind), ends exactly where it was let go, and the headset writes nothing meanwhile',
       st2.frames >= 12 && st2.still === 0 && st2.share >= 0.85 && Math.abs(st2.lag - DELAY) <= 80 && JSON.stringify(vEnd) === JSON.stringify(sv.last) && vOver < 0.15 && !wroteV, JSON.stringify({ st2, vEnd, last: sv.last, vOver, wroteV }));
+    // a view with no ts (a write by hand, an older device): the story's own glide (its short glide started, not put there
+    // at once; the pretend headset's page draws the story's own frames only now and then, so the glide is seen starting
+    // rather than sampled), then exactly there, and nothing written back
+    const vTo = vEnd.map((c, k) => (k ? c : norm(c + 60))), nFrom = Date.now();
+    await A.evaluate(([k, v, s]) => HOST.collab.publish([[k, { v, story: s }]]), [kV, vTo, K]);
+    const vGlide = await until(H, () => { window.__xr.step(); return !!HOST.cur.peek('orbit.to && orbit.fast'); }, null, 5000);
+    const vLanded = await until(H, to => { window.__xr.step(); return JSON.stringify(HOST.cur.collab.view()) === JSON.stringify(to); }, vTo, 8000);
+    await frames(H, 600);
+    const wroteN = mine(nFrom, Date.now(), kV).length;
+    check('smooth: a view with no ts still glides in (the story\'s glide, then exactly there) and the headset writes nothing back',
+      vGlide && vLanded && !wroteN, JSON.stringify({ vGlide, vLanded, wroteN, vEnd, vTo }));
     // a person's head moving at 0.5 m/s (presence, 15 a second with ts), at this circle
     const hx = s => -1 + 0.5 * s, hp = (x, ts) => W.fx('p.' + W.id, { st: S.id, head: [S.x + x, 1.6, S.z - 1.2, 0, 0, 0, 1], hands: [], ts });
     const rhP = record(H, 4300, 'head:' + W.id);

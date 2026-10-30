@@ -1326,7 +1326,11 @@ explore view became `{ v, story }`, for motion smoothing). The plan is `docs/sha
   component by component (its angles, in degrees in [-180, 180), unwrapped where they cross the seam). A new move
   starts from where the thing is shown (a sample there one send interval before its first). Past the last sample a
   held thing carries on as it went for at most 100 ms (`CARRY`: a late sample), then holds; a sample without `h` is
-  where it was let go, and it lands exactly there. The render time (`RT`) runs on by each frame's own time and is
+  where it was let go, and it lands exactly there (stamped no later than the last held one, as by a clock measured
+  again meanwhile, it takes that one's place rather than being dropped as late), and once landed its samples are done
+  with (the room's value from then on). A grip here (on the scene, the panel, or a station carried) drops the samples
+  of someone else's move of the same thing, so letting go never pulls it back to where they left it. A view landed is
+  what the story shows here, never a turn made here, even if it reads a little differently (`VW.here`). The render time (`RT`) runs on by each frame's own time and is
   eased towards the relay's clock less `DELAY` by at most 2 ms a frame, so a new measure of the relay's clock never
   jolts what moves. With nothing newer than 1 s (`LIVE`) plus `DELAY` the old behaviour returns: the glide to the
   room's value, a station just reached put at once, and a value from a write by hand (Arrange all, the map, a view
@@ -2556,14 +2560,18 @@ the headset's circle. With `--shots` its pictures: `round-1-rings.png` (in a cir
 `round-2-pointed.png` (a ring pointed at, its card and icon up), `round-3-menu.png` (the menu's canvas with *Lock
 circles*, *Lock this story* and *People*) and `round-4-dialog.png` (the Shared dialog with *Lock circles* and each
 station's *Lock story*). Others' moves drawn smoothly (`smoothRound`, also in the main run, after the ten-headset round;
-`--smooth` runs only it, a room of its own with one station, two or three minutes): a raw socket at the station (speaking
+`--smooth` runs only it, a room of its own with two stations, three or four minutes): a raw socket at the station (speaking
 as the follow-a-person test's pretend person does) turns its scene about the vertical at 90 degrees a second, 15 writes
 a second with `ts` and `h`, each sent up to 25 ms late, then lets go; a pretend headset standing there in explore mode
 records its scene's turn every frame (by the frame's own time: the page renders in between, slowly and unevenly in
 software): after 0.5 s no frame without motion, the speed per frame within 35 % of the writer's in at least 85 % of
 frames, the turn about `SMOOTH.DELAY` behind (within 80 ms), landing where it was let go with no overshoot; a place with
-no `ts` still gliding in; the same for the explore view (and the headset writing nothing to the room meanwhile, its view
-ending exactly as let go) and a person's head walking at 0.5 m/s; a grip held on the scene there writing at most 16
+no `ts` still gliding in; landing at the frame whose render time reaches the let-go (not glided there); someone else
+turning it and letting go, the headset gripping it at once (their samples dropped) and letting go a moment later, and
+it staying where the headset left it; a place written for another story moving nothing (the relay refuses it); the same
+for the station's panel moved sideways at 0.3 m/s, for a second station carried by the writer at 0.5 m/s (its ring),
+for the explore view (and the headset writing nothing to the room meanwhile, its view ending exactly as let go; a view
+with no `ts` gliding in by the story's own glide, nothing written back) and a person's head walking at 0.5 m/s; a grip held on the scene there writing at most 16
 place values in any second (66 ms apart at the closest), each with `ts` and `h`, and the last without `h`. It prints
 what it measured (frames, the share within 35 %, the speeds' 5th, 50th and 95th percentile, the lag, how far from where
 it was let go). A new story needs an entry in `STORIES`

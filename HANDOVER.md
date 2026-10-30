@@ -58,7 +58,9 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
   go. FORMAT networks-26 (a room needs every device on the release that brings it); every story's `setView` takes a
   second argument (`now`). The test (`node tools/collab.mjs --smooth`) measured, with a pretend headset: every frame
   moving, 97 to 100 % of frames within 35 % of the spinner's speed (the median exactly it), about 120 ms behind, landing
-  within 0.002 degrees of where it was let go. **How smooth it feels can only be judged on headsets: untested there.**
+  within 0.002 degrees of where it was let go; the same for the panel, a station carried and the explore view, and a grip
+  right after someone else let go never pulled back to where they left it (a review's finding, fixed the same day).
+  **How smooth it feels can only be judged on headsets: untested there.**
   Not smoothed (a known limit): moves inside a story's shared state (the pass story's school, the design room's
   miniatures), which still come five times a second with the story's own glide.
 - **Built on 29 October 2026 (release networks-v96), tested headlessly only:**

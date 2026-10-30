@@ -1584,12 +1584,15 @@
       let E = SHOWN.get(s.id);
       if (!E) { SHOWN.set(s.id, { id: s.id, story: s.story, x: s.x, z: s.z, yaw: s.yaw }); continue; }
       E.story = s.story;
-      if (MV.id === s.id && MV.pose) { Object.assign(E, MV.pose); continue; }
+      if (MV.id === s.id) {   // (carried here: someone else's last move must not pull it back once put down)
+        BUF.delete('st.' + s.id);
+        if (MV.pose) { Object.assign(E, MV.pose); continue; }
+      }
       const B = BUF.get('st.' + s.id);
       if (B && B.story === s.story) {
         bufSeed(B, { x: E.x, z: E.z, yaw: E.yaw });
         const v = bufAt(B, MIX.station);
-        if (v) { E.x = v.x; E.z = v.z; E.yaw = v.yaw; continue; }
+        if (v) { E.x = v.x; E.z = v.z; E.yaw = v.yaw; if (bufDone(B)) BUF.delete('st.' + s.id); continue; }
       }
       let a = (s.yaw - E.yaw) % (2 * Math.PI);
       if (a > Math.PI) a -= 2 * Math.PI; else if (a < -Math.PI) a += 2 * Math.PI;
@@ -1998,15 +2001,19 @@
   // moves at the sender's own pace. (A new value chased by a glide sped up and slowed down at every arrival, and inside a
   // large network a small step of a spin is a big jump at its far side.) DELAY is two send intervals and a little: the
   // next sample is nearly always here already, even one 25 ms late. Past the last sample a held thing carries on as it
-  // went for at most CARRY, then holds; one let go lands exactly where it was let go. A value without ts (a write by
-  // hand: Arrange all, the map, a view after a flight), a new station, its story changed or nothing newer than LIVE
-  // leave it to the glide as before. Moves inside a story's collab.state() (the pass story's sea, the design room's
+  // went for at most CARRY, then holds; one let go lands exactly where it was let go, and its samples are done with. A
+  // grip here drops someone else's samples of the same thing (or letting go would pull it back). A value without ts (a
+  // write by hand: Arrange all, the map, a view after a flight), a new station, its story changed or nothing newer than
+  // LIVE leave it to the glide as before. Moves inside a story's collab.state() (the pass story's sea, the design room's
   // miniatures) are not smoothed here: they come with the state, five times a second, and the story's own glide.
   const SMOOTH = { DELAY: 120, SEND: 66, KEEP: 8, GAP: 1000, LIVE: 1000, CARRY: 100 };
   const BUF = new Map();   // a moving key's samples (st.<id> carried, st.<id>.place, .panel, .view): { s: [{ ts, v, h }], seed, story }
   function bufPush(B, ts, v, h) {
     const s = B.s, last = s[s.length - 1];
-    if (last && ts <= last.ts) return;   // (late, or twice: older than the newest)
+    if (last && ts <= last.ts) {   // (late, or twice: older than the newest; but a let-go always lands, even stamped no later
+      if (!h && last.h) s[s.length - 1] = { ts: last.ts, v, h: false };   // than the last held one by a clock measured again)
+      return;
+    }
     if (last && ts - last.ts > SMOOTH.GAP) s.length = 0;   // (a new move after a pause)
     if (!s.length) B.seed = true;
     s.push({ ts, v, h: !!h });
@@ -2103,6 +2110,7 @@
       // where it stopped rather than carry it on), and once more without h when let go (locked meanwhile: it lands where
       // it was last sent, and goes back there here); the other one, not held, goes on following the room
       if (held || PL.held[w]) {
+        BUF.delete(key[w]);   // (held here: someone else's last move must not pull it back once let go)
         PL.held[w] = held;
         if (!held) PL.quiet[w] = t + 400;   // (our last write on its way)
         const was = val(key[w]);
@@ -2122,7 +2130,7 @@
       if (B && B.story === L.story) {
         bufSeed(B, a);
         const v = bufAt(B, w === 'panel' ? MIX.panel : MIX.place);
-        if (v) { put(w, v); continue; }
+        if (v) { put(w, v); if (bufDone(B)) BUF.delete(key[w]); continue; }   // (landed: the room's value from now on)
       }
       // the room's value glides in (the last couple of millimetres at once); a turn by slerp
       const k = 1 - Math.exp(-dt * 12), d = Math.hypot(b.x - a.x, b.y - a.y, b.z - a.z), q = a.q || b.q ? qSlerp(qa, qb, k) : null;
@@ -2147,13 +2155,13 @@
   // again). A view that changed at once here (after a flight: collabView is null while the camera flies) goes out plain,
   // and one from the room without ts glides in (the story's own 0.25 s glide). Screens keep their own camera; story mode
   // follows the clock. Every frame, from the shell's tick.
-  const VW = { id: '', seen: '', at: 0, moving: false, gap: true };
+  const VW = { id: '', seen: '', at: 0, moving: false, gap: true, here: '' };
   function viewSync(t) {
     const L = liveSt();
     if (!synced(L) || !R.placing() || HOST.picking || !C.hook.view || !C.hook.setView) { VW.id = ''; return; }
     const k = kView(L.id), room = viewOf(val(k), L);
     const set = (v, at) => guarded(() => { try { C.hook.setView(v, at); } catch (e) { log('view failed', { e: e.message }); } });
-    if (VW.id !== L.id) { Object.assign(VW, { id: L.id, seen: '', at: 0, moving: false, gap: true }); BUF.delete(k); }   // a station reached: as the room has it
+    if (VW.id !== L.id) { Object.assign(VW, { id: L.id, seen: '', at: 0, moving: false, gap: true, here: '' }); BUF.delete(k); }   // a station reached: as the room has it
     let cur = null;
     try { cur = C.hook.view(); } catch (e) { return; }
     if (!cur) VW.gap = true;   // (flying, or in story mode: what comes after is no turn)
@@ -2162,9 +2170,12 @@
       if (cur) bufSeed(B, cur);
       const v = bufAt(B, MIX.view);
       VW.seen = k + J(room); VW.moving = false; VW.gap = !cur;
-      if (v && !(bufDone(B) && J(cur) === J(room))) { set(v, true); return; }
-      BUF.delete(k);   // (landed, and shown so here; or nothing newer: put where the room has it)
-      if (!v && room) set(room, true);
+      if (v && !bufDone(B)) { set(v, true); return; }
+      // landed: exactly where it was let go, and the buffer done with (a turn here goes out again from the next frame).
+      // What the story shows then is the room's view here (here), never a turn made here, even if it reads a little
+      // differently. Nothing newer (lapsed): it glides to the room's
+      BUF.delete(k); VW.here = '';
+      if (v) { set(v, true); try { VW.here = J(C.hook.view()); } catch (e) { /* not now */ } } else if (room) set(room);
       return;
     }
     // from the room without ts (a view after a flight, the first at a station, a write by hand): it glides in
@@ -2172,14 +2183,14 @@
     if (room && seen !== VW.seen && !C.pending.has(k)) { VW.seen = seen; VW.moving = false; if (J(cur) !== J(room)) { log('view', { st: L.id }); set(room); } return; }
     // turned here
     if (!cur || t - VW.at < SMOOTH.SEND) return;
-    const moved = J(cur) !== J(room);
+    const moved = J(cur) !== J(room) && J(cur) !== VW.here;
     if (VW.gap) {   // (after a flight, or the first here: plain, the others glide to it)
       VW.gap = false; VW.moving = false;
-      if (moved) { VW.at = t; publish([[k, { v: cur, story: L.story }]]); VW.seen = k + J(cur); }
+      if (moved) { VW.at = t; VW.here = ''; publish([[k, { v: cur, story: L.story }]]); VW.seen = k + J(cur); }
       return;
     }
     if (!moved && !VW.moving) return;
-    VW.at = t; VW.moving = moved;
+    VW.at = t; VW.moving = moved; VW.here = '';
     publish([[k, Object.assign({ v: cur, story: L.story, ts: Math.round(now()) }, moved ? { h: 1 } : {})]], true);
     VW.seen = k + J(cur);
   }
