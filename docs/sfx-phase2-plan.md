@@ -1,5 +1,9 @@
 # Sound effects, phase 2: sounds inside the stories (plan)
 
+> **Since v100 (30 October 2026, the owner after listening):** the continuous `machine` hum and every background but
+> the flock's (`dusk`) and the pass story's (`sea`) are gone; `vacuum` is the only continuous sound left. The `machine`
+> spans and beds below are history: a story that asks for them now hears nothing. AGENTS.md ("Sound effects") is current.
+
 Written 29 October 2026, read-only against the repository as it stood during the v98 release round. The owner listened
 to phase 1 ("sounds are fine, go on"): effects are **on by default** from the next release (v99), and phase 2 adds
 sounds inside the sixteen stories and the design room ("nice sound effects to everything"). Build after v98 lands.

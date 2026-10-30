@@ -1,5 +1,9 @@
 # Sound effects, phase 2: the lines every story keeps (for builders B and C)
 
+> **Since v100 (30 October 2026, the owner after listening):** the continuous `machine` hum and every background but
+> the flock's (`dusk`) and the pass story's (`sea`) are gone; `vacuum` is the only continuous sound left. The `machine`
+> spans and beds below are history: a story that asks for them now hears nothing. AGENTS.md ("Sound effects") is current.
+
 Written by builder A, 29 October 2026. The references are **the flock** (`tools/flock/engine/`, built engines) and **the
 airports** (`stories/airports.js`, hand-written). Copy the lines below **character for character**; only `sfxPos` of
 the hand-written three, the cue calls, the explore action lines and `sfxLive` are each story's own. The plan

@@ -241,7 +241,8 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
   things, the menu opening and closing, circles picked up, let go and placed, the locks, notices, a chime when a story
   has loaded, a swell when walking into a circle, people joining and leaving, from where they stand) and a quiet
   background for each story (dusk and birds for the flock, a sea hush for the pass story, room tone for the robots,
-  wind for the soil story, a calm tone coloured by the story for the rest). In a headset the sounds come from places
+  wind for the soil story, a calm tone coloured by the story for the rest; since v100 only the flock's and the pass
+  story's are left, see the v100 bullet above). In a headset the sounds come from places
   (HRTF); everything ducks 9 dB under the narration; at most 16 sounds at once. Per device: *Sound effects* and a volume
   in Sound check (page) and in the headset's menu, `#sfx=on`; **off by default**. All made in code, no files. Item 12
   below: the owner's listening round decides phase 2 (sounds inside the stories). AGENTS.md, the sound notes. Tested
