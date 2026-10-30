@@ -117,7 +117,7 @@ All poses are in **room coordinates** (metres, y up, the floor at y = 0; see the
 | `st.<id>.play` | `{ mode: 'story' | 'explore', t, playing, at }`: the story clock: at relay time `at` the story was at `t`; while playing it runs on from there | whoever plays, pauses, jumps, changes mode (or the story reaches its end) |
 | `st.<id>.x` | the story's explore state (opaque JSON, from the story's `collab.state()`) | whoever changes a control |
 | `st.<id>.panel` | `{ x, y, z, yaw }`: the station's panel, relative to its spot | whoever moves the panel |
-| `st.<id>.view` | the story's `collab.view()`: its explore view, shared by the headsets at the station | the scene placed alike |
+| `st.<id>.view` | `{ v, story }`, `v` the story's `collab.view()`: its explore view, shared by the headsets at the station (since networks-26; with `ts` and `h` while someone turns it: AGENTS.md "Others' moves, smooth") | the scene placed alike |
 | `rm` | `{ a, d, by, at }`: mark A's height over the floor of the first headset that calibrated, and the marks' distance | the room's floor, alike on every headset |
 | `rf.<space id>` | `{ uuid, o, x, g, by, at, m }` (shared-spaces.md): a room frame in a shared space's coordinates, `g` `marks` or `shared`, `m` the marks to draw | the alignment |
 
