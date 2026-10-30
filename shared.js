@@ -2192,7 +2192,7 @@
     let cur = null;
     try { cur = C.hook.view(); } catch (e) { return; }
     if (!cur) VW.gap = true;   // (flying, or in story mode: what comes after is no turn)
-    if (cur && VW.none && VW.glide !== J(cur)) VW.home = { id: L.id, story: L.story, v: cur.slice() };
+    if (cur && VW.none && !VW.glide) VW.home = { id: L.id, story: L.story, v: cur.slice() };   // (none while a view from the room glides in)
     if (cur && (VW.none || VW.glide === J(cur))) VW.glide = '';
     VW.none = !cur;
     const B = BUF.get(k);

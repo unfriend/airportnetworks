@@ -158,7 +158,7 @@ asks the session for `local-floor` and, when granted, `shared` spaces of its own
 
 - **Your station**: the nearest station whose spot is within 1.1 m of you for 1 s (spots 2.4 m apart never compete;
   until 29 October 2026 you left it beyond 1.5 m, since then you keep it until you walk into another circle, and
-  the other stations show their rings only while you have one: AGENTS.md "Shared rooms"). Your station's story is the live story on your headset (`HOST.go(key)` when it
+  the other stations showed their rings only while you had one; since v101 their icons only, a ring within 2 m of its spot: AGENTS.md "In a circle, icons only"). Your station's story is the live story on your headset (`HOST.go(key)` when it
   differs) and is placed at its station; all other stations show as **previews** drawn by the shell: a ring on
   the floor at the spot in the story's colour, and a small upright card (title, kick, who is there, its state:
   playing at 1:23 / exploring) where the content would float. (Built at first: pointing at a preview and pulling
