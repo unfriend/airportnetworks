@@ -43,20 +43,30 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
 
 ## Where things stand
 
-- **Fixed on 30 October 2026 for v100, after the review of the two v100 builds:** a shared room that never wrote a
+- **Released as networks-v100 (30 October 2026; FORMAT networks-27, so every device in a room needs v100), tested
+  headlessly only:** the owner's sound notes (backgrounds only for the flock and Pass it on, no machine hum, the
+  vacuum kept; *Sound effects* and *Narration* switches, the room's in a room) and Labels and Cards as two settings
+  (labels on top, cards and name tags in 3D by default), the three bullets below. Reviewed twice (one fix, below; a
+  second review from five sides found nothing above low, two stale doc lines, fixed). Tests: smoke, audio, live, peer,
+  relay (243) and the update test from v99 all good; the full shared-rooms run 399 good and 3 failed, each passing again:
+  the ten-headset round and peer to peer on their own (`--circles`, `--p2p`), and the station's sound check after a test
+  fix. That check had failed the same way in v99: three pages drawing the airports' globe in software drew a frame only
+  every 1 to 4 s, and a story drops a cue more than 1.5 s late by design (a headset draws 72 to 90 frames a second), so
+  the slowest page missed some; it now asks each page for exactly the cues its own frames reach (and says when a page
+  was too slow to be asked for any), checked on a slow run of the airports station and in the test on the flock.
+- **Fixed on 30 October 2026 in v100, after the review of the two v100 builds:** a shared room that never wrote a
   sound switch (`look`'s `sfx` or `voice`) used to give both on and save that as the device's own, so a device that had
   turned the effects or the narration off had them on again, also after leaving. Now such a switch stays each device's
   own (`HOST.xr.mine`), and another setting written to the room (labels, subtitles) leaves it out of the key, so nobody
   hands their own choice to everyone by changing something else. The shared-room test checks it in its room on this
-  device. Not a reason to bump `FORMAT` (the key's shape is the same, its sound fields only optional). Release
-  (`VERSION` networks-v100, `version.json`) left to the integrator.
+  device. Not a reason to bump `FORMAT` (the key's shape is the same, its sound fields only optional).
 - **Tested automatically** before every merge to main: the smoke test (every story, explore mode, headset panels
   with a pretend headset, anchored placement), the sound test, the update test (service worker), the live-update test
   (`tools/live.mjs`), the relay's protocol test, the introduction server's test (`tools/peer.mjs`), the tour's
   recording against its story (`tools/voice/check.mjs lbi --quick`), the shared-room test (three pages and a pretend
   headset in a room, with its parts for rooms on this network, following a person, the design room and the circles),
-  `node tools/release.mjs --check` and each built story's `--check`. All pass on networks-v98.
-- **Built on 30 October 2026 for v100, not yet released, tested headlessly only: labels and cards, two switches**
+  `node tools/release.mjs --check` and each built story's `--check`. All pass on networks-v100.
+- **Released in v100 (30 October 2026), tested headlessly only: labels and cards, two switches**
   (the owner: "can we have an independent switch for the small labels that are shown inside the 3d models and one for
   the larger ones like the play pause cards? the smaller models should be on top by default and the other ones should be
   3d by default"; "the name tags go into the same category as the cards and are 3d by default, keep all choices 3d, on
@@ -72,7 +82,7 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
   Cards picker beside Labels in the Shared dialog. The same lines in all sixteen stories and the design room
   (`xrCardMode`, `XR.cm`: `panelDepth` and the panels' visibility follow it, `placeLabelXR` the labels). Untested on a
   headset: how labels on top and cards in 3D read together, and the name tags and station cards in each mode.
-- **Built on 30 October 2026 for v100, not yet released, tested headlessly only: the owner's sound notes** (after
+- **Released in v100 (30 October 2026), tested headlessly only: the owner's sound notes** (after
   listening to every story's track: "remove the background hums, they are not good, i like the interaction feedback and
   the small woshes and beeps. make it so that we have a switch for sound effects and one for narration, both global in
   the clock menu and the shared menu on the desktop"; "flock and pass it on can keep their sounds as is, all other
@@ -86,10 +96,10 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
   page's Shared dialog (a Sound row, in a room for everyone, outside a room for this device) and Sound check; in a
   shared room they are the room's (`look`'s `sfx` and `voice`, FORMAT networks-27), else the device's own (`sfxOn`,
   `narrationOn`), with `#sfx=` and `#voice=` in links. The Sound button stays each device's quick mute of everything.
-  Tests: `tools/audio.mjs`, `tools/sfx-cues.mjs all`, the relay's, every build's `--check`; the smoke test and the
-  shared-rooms run (with its new checks of the switches) are the integrator's. **Unheard:** how it sounds without the
+  Tests: `tools/audio.mjs`, `tools/sfx-cues.mjs all`, the relay's, every build's `--check`, the smoke test and the
+  shared-rooms run (with its new checks of the switches). **Unheard:** how it sounds without the
   backgrounds, and a room's switch on a hall of headsets.
-- **Built on 30 October 2026, not yet released, tested headlessly only: others' moves drawn smoothly** (the owner:
+- **Released in v99 (30 October 2026), tested headlessly only: others' moves drawn smoothly** (the owner:
   "my colleague spun that and it was a bit jerky on my side"; "make it smooth"). In a shared room what someone moves
   by hand (a station's scene and panel, the explore view there, a station carried by the grip, a person's head and
   hands) now goes out 15 times a second stamped with the relay's time, and every other device draws it 120 ms behind,

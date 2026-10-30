@@ -1845,16 +1845,31 @@ try {
         const w0 = Math.max(0, busy[1] - 2), w1 = w0 + 9, n = p => peek(p, 'SFXQ.n');
         const cueOf = e => cues.find(c => c[0] === e[0] && e[1] >= c[1] - 0.006 && e[1] - c[1] < 1.6);   // (the log keeps APP.t to the hundredth)
         const logOf = (p, a, b) => peek(p, `SFXQ.log.filter(e => e[2] === 'story' && e[1] > ${a} && e[1] <= ${b})`);
-        const gaps = await Promise.all([A, B, C].map(p => p.evaluate(async () => { const f0 = window.__frames; await new Promise(r => setTimeout(r, 1000)); return 1 / Math.max(1, window.__frames - f0); })));
+        // each page's frames as it drew them (requestAnimationFrame: the time, its clock, playing), so that a page is
+        // asked for exactly the cues its own frames reach: a cue more than 1.5 s late is dropped by design (sfxStep), and
+        // three pages drawing the globe in software on a busy machine can draw one frame every few seconds (a headset
+        // draws 72 to 90 a second); a page too slow for every cue is said so, not counted as hearing them
+        for (const p of [A, B, C]) await p.evaluate(() => { const F = window.__sfxF = []; const f = () => { if (window.__sfxF !== F) return; F.push([performance.now(), HOST.cur.peek('APP.t'), HOST.cur.peek('APP.mode === "story" && APP.playing') ? 1 : 0]); requestAnimationFrame(f); }; requestAnimationFrame(f); });
         await peek(A, `(APP.seek(${w0}), APP.playing || APP.togglePlay())`);
         for (const p of [A, B, C]) await until(p, w => HOST.cur.peek('APP.t') > w, w1, 25000);
         const logs = await Promise.all([A, B, C].map(p => logOf(p, w0, w1 + 1.6)));
+        const fr = await Promise.all([A, B, C].map(p => p.evaluate(() => { const F = window.__sfxF || []; window.__sfxF = null; return F; })));
         const want = cues.filter(c => c[1] > w0 + 0.4 && c[1] <= w1), seqs = logs.map(l => l.map(cueOf).filter(Boolean).map(c => c.join(' ')));
-        const same = seqs.every(q => q.join() === seqs[0].join()), covered = want.every(c => seqs[0].includes(c.join(' ')));
-        // how far apart the pages saw each cue (each sees it at its next frame: a busy machine's software frames are slow)
-        const spread = seqs[0].map(k => { const ts = logs.map(l => (l.find(e => cueOf(e) && cueOf(e).join(' ') === k) || [0, NaN])[1]); return +(Math.max(...ts) - Math.min(...ts)).toFixed(2); });
-        check(`${key}: sound effects: every page at the station plays the same cues at the same moment`, want.length >= 1 && same && covered && spread.every(d => d < 0.3 + 2 * Math.max(...gaps)),
-          JSON.stringify({ want, seqs, spread, frames: gaps.map(g => +g.toFixed(2)) }));
+        // a cue a page's frames reach: two frames in a row while playing, its clock before the cue and at most 1.2 s past
+        // it after (the rule's 1.5 s less a frame's step), moved no further than the time between them and the room's drift
+        const reach = (F, c) => F.some((f, i) => i > 0 && F[i - 1][2] && f[2] && F[i - 1][1] < c[1] && f[1] > c[1] && f[1] - c[1] <= 1.2 &&
+          f[1] - F[i - 1][1] <= (f[0] - F[i - 1][0]) / 1000 + 0.25);
+        const asked = fr.map(F => want.filter(c => reach(F, c)).map(c => c.join(' ')));
+        const heard = seqs.map(q => q.filter(k => want.some(c => c.join(' ') === k)));
+        const once = seqs.every(q => new Set(q).size === q.length), all = asked.every((q, i) => q.every(k => heard[i].includes(k)));
+        // how far apart the pages that played a cue saw it (each at its next frame)
+        const gap = Math.max(...fr.map(F => Math.max(0, ...F.slice(1).map((f, i) => (f[0] - F[i][0]) / 1000))));
+        const spread = want.map(c => c.join(' ')).map(k => { const ts = logs.map(l => (l.find(e => cueOf(e) && cueOf(e).join(' ') === k) || [0, NaN])[1]).filter(x => !isNaN(x)); return ts.length > 1 ? +(Math.max(...ts) - Math.min(...ts)).toFixed(2) : 0; });
+        const judged = asked.map(q => q.length);
+        check(`${key}: sound effects: every page at the station plays the same cues at the same moment (each every cue its frames reach, none twice)`,
+          want.length >= 1 && judged.reduce((a, b) => a + b, 0) >= 1 && once && all && spread.every(d => d < 0.3 + 2 * gap),
+          JSON.stringify({ want, asked, seqs, spread, slowest: +gap.toFixed(2) }));
+        if (judged.some(n => n === 0)) console.log(`     (${['A', 'B', 'C'].filter((_, i) => !judged[i]).join(', ')} drew too few frames to be asked for any cue: longest gap between frames ${gap.toFixed(1)} s)`);
         await peek(B, 'APP.togglePlay()');
         for (const p of [A, C]) await until(p, () => !HOST.cur.peek('APP.playing'), null, 5000);
         const p0 = await Promise.all([A, B, C].map(n));

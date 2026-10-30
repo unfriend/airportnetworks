@@ -2464,7 +2464,9 @@ ways and the story's effect (for the robots also the pile's spot and dust, and t
 crumbs' patter on the others; for the flock the same falcon, one page leading, the
 same flight time and the flocks together, and its dive and flutter on the others);
 on the first story followed, also its sound cues (every page playing the same cues at
-the same moment, a pause on one stopping them on all, a page joining mid-play playing
+the same moment, each every cue its own frames reach, none twice: a cue more than 1.5 s
+late is dropped by design, and three pages drawing in software can draw a frame only
+every few seconds; a pause on one stopping them on all, a page joining mid-play playing
 none it missed, none past a slideshow stop), a slideshow stop on one page pausing the
 station for the others at the chapter's end, and its Next playing it again.
 Before that: Arrange all's rows, a code with no room, Remove asking first.
