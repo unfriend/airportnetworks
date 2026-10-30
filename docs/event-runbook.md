@@ -220,9 +220,13 @@ and the end of AGENTS.md "Shared rooms". Not yet confirmed on a device:
 - follow a person: a laptop following a guide in a headset as they walk from circle to circle (how quickly it
   switches, and that it stays put between circles);
 - after the ten-headset test (29 October 2026, which went very well): staying in your story out of its circle (and
-  its narration heard from there), the other circles as rings only with a card on pointing (how it reads, the 2 s
-  fade), **Lock circles** and **Lock this story** in use, and other people shown only at your circle (**People:
-  everyone** to see them all);
+  its narration heard from there), **Lock circles** and **Lock this story** in use, and other people shown only at your
+  circle (**People: everyone** to see them all);
+- after the owner's notes of 30 October 2026 (v101): in a circle the other stations as their 3D models only, a ring
+  appearing within 2 m of its spot (whether 2 m feels right), a card on pointing at a model (how it reads, the 2 s
+  fade); **Recenter** at a station (on the story panel and beside Exit in the menu: the scene and panel back where the
+  story starts them, for everyone at that circle, refused while the story is locked); joining a room by its code from
+  the menu (**Join with a code**, or **Another room** in a room: the keypad);
 - panels per station (**Panels: controls only** or **hidden** in the menu or the Shared dialog): whether a circle
   reads better with only the play bar (with subtitles on) or none, and that everyone at that circle gets it;
 - sound zones: each station's narration heard from where it stands;

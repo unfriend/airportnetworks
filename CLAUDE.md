@@ -81,7 +81,7 @@
 - Shared rooms (`shared.js`, `relay/`, see "Shared rooms" in `AGENTS.md`): keep
   the shared hooks in all sixteen stories, the same lines in each (the `collab`
   object, the ray and press lines, the grip line, the optional features from
-  `HOST.xr.features(mode)` (AR asks for `'shared'`, VR for less), the `HOST.collab.mine()` lines in `xrFreshStart` and
+  `HOST.xr.features(mode)` (AR asks for `'shared'`, VR for less), the Recenter lines (`xrRecenterAsk` and `recenter` in the returned object), the `HOST.collab.mine()` lines in `xrFreshStart` and
   `xrLandingClose`, and the walk-in lines: `xrRoomOnly` and `xrAway` (no Stories screen in a room; away from its station
   the story hidden, not pointable, paused) read in `xrBegin`, `xrPoint`, `xrUpdate`, `xrEnterScene`, `xrFreshStart`,
   `xrEnded`, `xrLandingClose` and the panel footer). `state()` never holds the camera, hover or anything per

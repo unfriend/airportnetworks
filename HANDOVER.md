@@ -43,6 +43,21 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
 
 ## Where things stand
 
+- **Built on 30 October 2026 for v101, tested headlessly only: the owner's notes after testing v100.** (1) The
+  page's "Back in room" notice never went away: its own `display: flex` outranked the `hidden` attribute that its 20 s,
+  Shared and Leave set; it is now shown and hidden by its display, and has a close button. (2) In a circle the other
+  stations show their 3D icons only, and a station's ring (your own too) fades in within 2 m of its spot and out beyond
+  2.2 m ("Once inside a story hide the circles and show only the 3d icons, show circle once a person moves close"; until
+  v100 it was rings only); the icons are pointable (an unseen ball round each): a card on pointing, the trigger saying to
+  walk into its circle, the grip moving the station. (3) Recenter at a station (the story panel's button, and a new
+  *Recenter* beside Exit in the clock menu, as asked) puts the station's scene (offset, size, turn) and panel back where
+  the story starts them, for everyone at that circle, and in explore mode the view back where the story put it; refused
+  while the story is locked (as the owner chose). Outside a room it recentres as before (Place again while anchored).
+  (4) A headset joins a room by its code: *Join with a code* in the menu (*Another room* in a room) opens a keypad page.
+  No `FORMAT` change (v100 and v101 devices share rooms). The same Recenter lines in all sixteen stories and the design
+  room (`xrRecenterAsk`, `recenter` in the returned object). Untested on a headset: whether 2 m feels right, the icons
+  as the only sign of a circle from inside one, Recenter for several people at one circle, typing a code with the ray
+  or a fingertip.
 - **Released as networks-v100 (30 October 2026; FORMAT networks-27, so every device in a room needs v100), tested
   headlessly only:** the owner's sound notes (backgrounds only for the flock and Pass it on, no machine hum, the
   vacuum kept; *Sound effects* and *Narration* switches, the room's in a room) and Labels and Cards as two settings
@@ -199,7 +214,7 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
   plays on the station's clock and stays in step with the room; its narration fades with distance); only walking into
   another circle switches. Leaving the room, Leave, a new session and a station removed end it; before any circle a
   headset sees no story, as before. (2) *Rings only in a circle*: while a headset has a station, the other stations
-  show their rings only (no card, no model over it). (3) Pointing at a ring brings up its card and model for as long as
+  show their rings only (no card, no model over it; since v101 the other way round: icons only, a ring within 2 m). (3) Pointing at a ring brings up its card and model for as long as
   you point, fading about 2 s after. (4) *Two locks* ("one toggle for locking the circles' movement globally and one
   toggle per room for locking its panels and story elements"): *Lock circles* (the old layout lock's key, now only the
   circles: the grip on a ring or card, the map, Arrange all, Add, Move here, Remove, Design room here) and per station

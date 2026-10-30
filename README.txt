@@ -130,14 +130,19 @@ station, or Follow a person in a headset (in the Shared dialog's people list:
 the screen shows whichever station they stand at, switching as they walk, for
 people watching without a headset). In a headset you stay in a story once you
 have walked into its circle, wherever you walk, until you walk into another
-circle; while you are in one, the other circles show only their rings (point at
-a ring to see its card and model), and other people are drawn only when they are
+circle; while you are in one, the other stations show only their small 3D
+models (point at one to see its card), and a circle's ring appears as you come
+within 2 m of it; other people are drawn only when they are
 at your circle (People: everyone in the menu shows them all). Over each station's ring a small 3D model of its story turns, in its
-colour, so you can tell the circles apart from across the room. A station moves with the grip on its ring or card in a headset (point
+colour, so you can tell the circles apart from across the room. A station moves with the grip on its ring, model or card in a headset (point
 to swing it round, raise or lower to push or pull, twist to turn it), or by
 dragging its dot (or its square, to turn it) on the room map; everyone sees it
 move. Lock circles (headset menu or Shared dialog) then keeps them where they are,
-until someone unlocks it. At a station in a headset the grip moves the scene
+until someone unlocks it. Recenter (on the story panel and next to Exit in the
+headset's menu) at a station puts its scene and panel back where the story
+starts them, for everyone at that circle (not while the story is locked). A
+headset joins a room by its code from the menu: Join with a code (Another room
+when already in one) opens a keypad for its three letters. At a station in a headset the grip moves the scene
 or the story panel and both grips resize the scene, during the story too, for
 everyone at once (unless that story is locked: Lock this story in the menu at its
 circle, or Lock story per station in the Shared dialog; among the fish of Pass it on the
