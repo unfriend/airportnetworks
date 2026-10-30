@@ -314,7 +314,11 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
   it. `#labels=face|fixed|hidden`, `#free=on|off` and `#subs=on|off` in a link
   set them. Stories read the first two every frame (`xrSettings` in `xrBegin`;
   a shell without them means on top and nothing free) and put `xrSig()` in
-  `sigMain`; the shell alone draws the subtitles.
+  `sigMain`; the shell alone draws the subtitles. The two sound switches (v100,
+  `HOST.xr.sfx()` and `HOST.xr.voice()`, for pages and headsets alike) go the
+  same way, in `look` beside these (see "The two sound switches" under "Sound
+  effects"); `HOST.xr.sig()` leaves them out (the stories' panels do not show
+  them).
   - Labels in 3D: every scene label is a flat sign at its sprite's place and
     size, upright and turned to you (about the vertical, in the rig's frame:
     `placeLabelXR` with `XR.signL` and `XR.signH`), but in the scene:
@@ -430,7 +434,12 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
     freezes a story.
   - The mute is saved under `narrationMuted2`: older versions saved a mute
     when *Play sound* was pressed in the headset. *Play sound* (and any press
-    while loading) only starts the engines; it never mutes.
+    while loading) only starts the engines; it never mutes. The Narration
+    switch (v100, `HOST.xr.voice()`, in a room the room's; see "The two sound
+    switches" under "Sound effects") is a second, finer way to silence it:
+    `sync` plays nothing and `speaking()` is false while it is off, so the story
+    runs on its own clock and the effects do not duck; the mute (the Sound
+    button) stays this device's quick mute of everything.
   - Sound check (`#soundcheck`, a button on the Stories screen; in the headset
     a panel that takes the place of the story cards, `drawSoundCheck`, and a
     page of the headset's menu, the shell's `soundPage`, so it is there in a
@@ -446,7 +455,15 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
   background per story. Phase 2: sounds inside the stories (cues on their
   timelines, explore and headset actions, the live simulations' own) and
   continuous sounds, below ("Sounds inside the stories"). **On by default** since
-  phase 2 (a device that saved them off keeps them off). The rules:
+  phase 2 (a device that saved them off keeps them off). v100 (the owner, 30
+  October 2026, after listening to every story's track: "remove the background
+  hums, they are not good, i like the interaction feedback and the small woshes
+  and beeps. make it so that we have a switch for sound effects and one for
+  narration, both global in the clock menu and the shared menu on the desktop";
+  "flock and pass it on can keep their sounds as is, all other background noise
+  can go"; "vacuum sounds keep"): only the flock and the pass story keep a
+  background, the machines' hum went (the robots' vacuum stays), and the two
+  switches below ("The two sound switches"). The rules:
   - Everything is made in `sfx.js` from Web Audio nodes and short generated
     buffers (seeded noise, smooth random drifts, a small reverb): no files.
   - It plays through HOST.audio's one context (`HOST.audio.fx()`: the context
@@ -456,10 +473,11 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
     the first tap and nothing while only the `<audio>` element plays. It builds
     its graph again on a new context (the watchdog's `renew`). The hum, both
     engines and the watchdog are untouched. While the sound is off (the bar's
-    Sound button, or the headset panel's: `HOST.audio.muted`) the effects and
-    the background are silent too (the app's adapter gives no context then: a
-    visitor who turns the sound off expects silence); Sound check keeps the finer
-    switch (the narration without effects).
+    Sound button, or the headset panel's: `HOST.audio.muted`, this device's quick
+    mute of everything) the effects and the background are silent too (the app's
+    adapter gives no context then: a visitor who turns the sound off expects
+    silence); the two switches are the finer ones (the narration without
+    effects, or the other way round).
   - In a headset a sound can come from a place (`play(name, { at: [x, y, z] })`,
     the scene's coordinates, which are the reference space's): an HRTF
     `PannerNode` (inverse distance, full level within 1 m), the listener at your
@@ -477,8 +495,10 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
     `pitch` (a frequency factor), `dur` (a texture's or a sweep's length, s) and
     `n` (a count: the ratchet's clicks; `rise` makes each a little higher); a
     name it does not know plays nothing (an older shell, a newer story).
-  - Continuous sounds (`HOST.sfx.drone(id, name, o)`, `DRONES`: `vacuum`,
-    `machine`): kept going while asked for every frame (at least every 250 ms),
+  - Continuous sounds (`HOST.sfx.drone(id, name, o)`, `DRONES`: `vacuum` only;
+    the machines' hum, `machine`, went in v100 with its four spans in the tour,
+    the muscle, PET and mutation stories and its two explore-mode uses, ATP
+    synthase's rotor and the PET scanner's ring): kept going while asked for every frame (at least every 250 ms),
     `o: { at, pan, gain, pitch }` followed smoothly (0.08 s); faded in over
     0.3 s, out over 0.4 s once not asked for 0.3 s (the engine's step), at once
     when the effects go off or silent; at most 4 (a fifth replaces the
@@ -488,15 +508,31 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
     (`<key>.<n>`), so one running through a swap carries on.
     `SFX_LIB.length(name, o)` is a sound's length from a dry run of its recipe
     on a stand-in context (the cue checker's overlap; renders are sized by it).
-  - Per device, never shared and never in a story's `collab.state()`: on or off
-    (`sfxOn`, ON by default: only `'off'` saved keeps them off) and a volume
-    (`sfxVolume`, 0 to 1, 0.75 by default, squared as a loudness taper, so 75 %
-    is 5 dB down). `#sfx=on` or `#sfx=off` in a link. On the page a row in Sound
-    check (Sound effects: on/off, a volume slider, Try them, which plays every
-    sound in turn); in the headset's menu a row under Labels, Moving, Subtitles
-    and Panels (*Sound effects: on/off*, *Effects volume* stepping 25, 50, 75,
-    100 %) and *Try the sound effects* on its Sound check page; Sound check's
-    report has a line for them (`HOST.sfx.line()`).
+  - The two sound switches (v100), each for every story at once, pages and
+    headsets alike: **Sound effects** (`HOST.xr.sfx()`, `HOST.xr.setSfx(on)`;
+    `HOST.sfx.on()` and `HOST.sfx.set(on)` read and write the same setting
+    through the engine's `on`/`set` hooks) and **Narration** (`HOST.xr.voice()`,
+    `HOST.xr.setVoice(on)`: off, the narration is silent on both engines,
+    `HOST.audio`'s `voiceOff()` in its `sync` and `speaking`, and the story runs
+    on its own clock as when muted; the effects and the subtitles go on, nothing
+    ducks). Both on by default. In a shared room they are the room's, for every
+    headset and page in it (key `look`, `sfx` and `voice`, beside the headsets'
+    three settings; absent: on; set by anyone, never refused by either lock),
+    else this device's own (`sfxOn`, only `'off'` saved keeps them off;
+    `narrationOn` likewise), which keeps a room's last value after leaving it,
+    as the headsets' settings do. `#sfx=on|off` and `#voice=on|off` in a link.
+    Rows: the headset's menu (*Sound effects: on/off* and *Narration: on/off*
+    side by side under Subtitles and Panels, then *Effects volume* with a note),
+    the page's Shared dialog (a Sound row under the room's parts, shown in a
+    room for everyone there and outside a room for this device) and Sound check
+    (Sound effects: on/off, a volume slider, Try them, Narration: on/off). The
+    volume (`sfxVolume`, 0 to 1, 0.75 by default, squared as a loudness taper,
+    so 75 % is 5 dB down; the menu steps 25, 50, 75, 100 %) is always this
+    device's own. The Sound button stays this device's quick mute of
+    everything. Never in a story's `collab.state()`. *Try the sound effects* is
+    on the menu's Sound check page; Sound check's report has a line for the
+    effects (`HOST.sfx.line()`) and says when the narration is switched off.
+    How a room's switch sounds on a hall of headsets is untested on devices.
   - What plays when (all from the shell): a page button (any `button`, after its
     own handlers): a quiet click, or a switch's on or off sound by its new
     `aria-pressed`, unless the press made a sound of its own (`HOST.sfx.count()`
@@ -514,12 +550,12 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
     Stories screen); walking into a circle (enter, a gentle swell); someone
     joining or leaving the room (join, leave, from where they stand: a newcomer
     a second later, once its presence has come).
-  - The background (a bed) of the story on show, chosen from its key: the flock
-    dusk air and distant birds (`dusk`), the pass story a deep sea hush with
-    bubbles (`sea`), the robots soft room tone (`room`), the soil story wind over
-    a field (`wind`), every other (and the design room) a calm low tone with a
-    slight movement (`calm`) whose root, brightness and pace come from a hash of
-    the key, so a new story gets one by itself. Each made about -35 LUFS at full
+  - The background (a bed) of the story on show, chosen from its key, only for
+    two stories since v100: the flock dusk air and distant birds (`dusk`), the
+    pass story a deep sea hush with bubbles (`sea`), both as they were. Every
+    other story and the design room has none (`SFX_LIB.bedOf(key)` is `''`; the
+    calm tone, the robots' room tone and the soil story's wind went), and a new
+    story gets none. Each made about -35 LUFS at full
     volume, some 20 dB under the narration (-13 to -16 LUFS), with no energy
     worth the name below 100 Hz (a headset's speakers give little there). Faded
     in over 3 s once the story is built (`HOST.loading.ran`), out over 1.5 s when
@@ -535,10 +571,10 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
     (start, stop, pitch), *A story's sounds* (a story's whole sound track: its
     cues read from the app in a hidden frame, rendered a minute at a time with
     its background, its continuous sounds and its narration where it has a
-    recording, played with a seek bar, its cue list beside it), every story's
-    background, a 3D demo (a sound circling your head through the HRTF panner;
+    recording, played with a seek bar, its cue list beside it), the two
+    backgrounds (the flock's and the pass story's), a 3D demo (a sound circling your head through the HRTF panner;
     headphones), the ducking demo (seven seconds of the airports' narration over
-    a background and clicks) and the voice limit. `node tools/sfx-render.mjs
+    the flock's background and clicks) and the voice limit. `node tools/sfx-render.mjs
     [url] [out folder]` renders each in headless Chromium through an
     `OfflineAudioContext` (the same graph), converts them with ffmpeg to MP3
     (44.1 kHz; mono for the interface and room sounds, stereo for the stories'
@@ -610,7 +646,7 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
     `heart`, `flutter` (wings), `rush` (water, flows), `patter` (many small
     things landing), `spark` (an impulse), `pulse` (a signal spreading), `clink`
     (glass), `ratchet` (a mechanism turning); continuous `vacuum` (a robot
-    vacuum, its pitch its speed) and `machine` (a hum with a slow beat). How
+    vacuum, its pitch its speed; the only one since the machines' hum went). How
     they sound in a story, on a Quest's speakers, through HRTF, and with ten
     headsets at one station (open-ear speakers may let neighbours hear a slight
     flam) is unheard and untested until tried.
@@ -715,9 +751,9 @@ whole ms, and `h: 1` while it is still held: "Others' moves, smooth" below),
 page's Shared dialog, never refused by the circles lock; a write keeps the other field; absent: shown, not locked; gone
 with the station's other keys when it shows another story; FORMAT networks-25), `lock` (the circles lock, `{ on, by, at }`,
 below; FORMAT networks-6),
-`look` (the headsets' three settings, `{ labels, free, subs, by, at }`: set by anyone,
+`look` (the headsets' three settings and the two sound switches, `{ labels, free, subs, sfx, voice, by, at }`: set by anyone,
 from a page's Shared dialog or a headset's menu, never refused by the circles
-lock; a room without it gives everything in 3D and no subtitles; free moving turned off takes
+lock; a room without it gives everything in 3D, no subtitles, and sound effects and narration on; free moving turned off takes
 every `q` out of the stations' places and panels in the same write), and per shared space `rf.<space id>` (the room's frame in it) and
 `rs.<space id>` (found split; FORMAT networks-9), `sg` (the room's shared-space
 generation, `{ n, by, at }`), `near` (*Show on this network*, `{ on, by, at }`: absent or on, the room is listed under
@@ -726,7 +762,8 @@ letters written once by the page that made or holds it: a room joined again by i
 under the same code) (FORMAT networks-10; networks-11 when the eighth story came, networks-12 the ninth, networks-13 the tenth, networks-14 the eleventh, networks-15 the twelfth, networks-16 the thirteenth, networks-17 when the PET story's `state()` lost its one-scan fields, networks-18 when its liver scene came back, networks-19 when the ovary story's charts went, networks-20 when the pass story's school got a shared place at a station, networks-21 when the fourteenth story came, networks-22 when the scene's and the panel's turn joined a station's place, networks-23 when the fifteenth story came, networks-24 when subtitles joined `look`, networks-25 when `near` and `rid`
 came with rooms on this network, and `st.<id>.ui` with panels per story in the same round, and its `lock` when the
 layout lock became two locks after the ten-headset test, networks-26 when moves by hand gained `ts` and `h` and the
-explore view became `{ v, story }`, for motion smoothing). The plan is `docs/shared-space-plan.md`.
+explore view became `{ v, story }`, for motion smoothing, networks-27 when the two sound switches, `sfx` and `voice`,
+joined `look` in v100). The plan is `docs/shared-space-plan.md`.
 
 - `HOST.collab` keeps the room's keys (echo suppression by value, optimistic
   writes acknowledged by the relay, apply order stations > clock > state >
@@ -1051,16 +1088,18 @@ explore view became `{ v, story }`, for motion smoothing). The plan is `docs/sha
   show's, `HOST.panels`, beside Subtitles; with a line under them: in a room
   that the panels are for everyone at this circle and the rest for the room,
   else for that story only; with no story on show the room's line takes
-  its place); *Sound effects: on/off* and *Effects volume* (`HOST.sfx`, this
-  headset's own; the canvas is 1716 px tall for it); *Design room* (outside a room it opens the design room; in a room
+  its place); *Sound effects: on/off* and *Narration: on/off* side by side (the
+  two sound switches, for every story; in a room the room's: "The two sound
+  switches"), then *Effects volume* (`HOST.sfx`, this headset's own, with a note
+  saying so); *Design room* (outside a room it opens the design room; in a room
   *Design room here* puts its table at your feet: "The design room in a room"), a
   note beside it; then the shared room (its
   code and people as the section's heading, the rooms, the question, the
   room's alignment, stations (Move here, Add here; Arrange all, Remove; *Lock
   circles* and *Lock this story* side by side, the latter at a station only;
   *On this network* and *People: same circle* / *everyone*), people, You; the
-  canvas, 1640 px tall, holds the tallest case, a room on this headset with a
-  three-line note at a station (1611 px), and People shows only as many as
+  canvas, 1792 px tall, holds the tallest case, a room on this headset with a
+  three-line note at a station (1763 px), and People shows only as many as
   leave room for You). A right index fingertip also presses its buttons
   (`poke`: within 1.5 cm of the panel over one, again once pulled back 3 cm;
   a pinch on the ray at the same button within 0.7 s counts once with it,
@@ -2326,13 +2365,20 @@ ignored, Play sound never mutes and the hum runs; Sound check's beeps and engine
 choice; and that the `<audio>` element takes over when Web Audio cannot decode,
 never starts, or its clock stops. For the sound effects (`HOST.sfx`): on by
 default (a device that saved them off keeps them off); the bar's Sound button
-silencing them and the background with the narration, and bringing them back;
-turned off and on in Sound check (with its volume kept, Try them) or by
-`#sfx=off` and `#sfx=on`; nothing before a tap; a sound really going through the
-narration's one context (the output's level); a page button's click; the story's
-background; ducked 9 dB under the narration and back; at most 16 voices; none
-with the `<audio>` element engine or when Web Audio never starts; the headset
-menu's row and its volume steps, and in a pretend headset the listener at the
+silencing them with the narration, and bringing them back; turned off and on in
+Sound check (with its volume kept, Try them) or by `#sfx=off` and `#sfx=on`;
+nothing before a tap; a sound really going through the narration's one context
+(the output's level); a page button's click; a background only for the flock and
+the pass story (the library's, and the flock's heard, gone with the sound off and
+on the Stories screen; none for the airports), and `vacuum` the only continuous
+sound; ducked 9 dB under the narration and back; at most 16 voices; none with the
+`<audio>` element engine or when Web Audio never starts; the two switches (the
+Narration switch silencing the narration only, the story's clock running on, the
+effects playing and nothing ducked; the Sound effects switch the effects only;
+both from the Shared dialog's Sound row outside a room, kept across a reload and
+shown so in Sound check, whose buttons turn them on again; `#voice=off`,
+`#voice=on` and `#sfx=off` in a link); the headset menu's rows (Sound effects,
+Narration, the effects' volume steps), and in a pretend headset the listener at the
 head, a sound from a place through an HRTF panner, and a press on a story panel's
 button clicking at it. The stories' sounds: a cue at its time (the log, the
 engine, the output), none while paused or over a jump, the next one as the clock
@@ -2399,9 +2445,9 @@ After: a station moved and turned on the room map (and refused while the
 circles are locked), the design room (the Shared dialog's picker listing it after
 the stories, its station added there for every page, refused while locked from
 Add and the Design room button, left where it is by Arrange all, the button
-moving the room's one to your feet rather than adding a second), the headsets' three settings as the room's (everything in 3D
-and no subtitles in a room without them; set on one page, or in another's Shared
-dialog with the circles locked, for every page; free moving off taking the turns
+moving the room's one to your feet rather than adding a second), the headsets' three settings and the two sound switches
+as the room's (everything in 3D, no subtitles, sound effects and narration on in a room without them; set on one page,
+or in another's Shared dialog with the circles locked, for every page; free moving off taking the turns
 out of the stations' places and panels; kept across the relay restart and, in a
 room on this device, across a reload), a station's panels set in a page's
 Shared dialog with the circles locked (reaching the pages at that station,

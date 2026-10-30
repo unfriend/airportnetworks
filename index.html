@@ -377,7 +377,7 @@ body.picking #panel, body.picking #bar { visibility: hidden; }
 #shared .sh-room b { font-size: 26px; letter-spacing: 0.08em; }
 #shared .sh-room span { flex: 1 1 200px; color: #a9b8cc; font-size: 13px; }
 #shMap { display: block; width: 100%; aspect-ratio: 16 / 10; max-height: 45vh; border-radius: 8px; margin-top: 10px; cursor: pointer; background: #071021; }
-#shared .sh-look span { color: #a9b8cc; font-size: 13px; }
+#shared .sh-look span, #shared .sh-sound span { color: #a9b8cc; font-size: 13px; }
 #shared .sh-colors { display: flex; gap: 8px; flex-wrap: wrap; }
 #shared .sh-colors button { width: 30px; height: 30px; border-radius: 7px; border: 2px solid transparent; padding: 0; }
 #shared .sh-colors button[aria-pressed="true"] { border-color: #f2f6fc; }
@@ -481,7 +481,8 @@ body.xr #labels, body.xr #tip { display: none; }
         <button class="rep" type="button" data-snd="sfx" aria-pressed="false">Sound effects: off</button>
         <label class="vol">Volume <input id="sfxVol" type="range" min="0" max="100" step="5" value="75" aria-label="Sound effects volume"></label>
         <button class="rep" type="button" data-snd="sfx:try">Try them</button>
-        <span class="hint">Clicks and chimes for buttons and the shared room, and a quiet background for each story. Off unless turned on here.</span>
+        <button class="rep" type="button" data-snd="voice" aria-pressed="true">Narration: on</button>
+        <span class="hint">Sound effects: clicks and chimes for buttons and the shared room, the stories' own sounds, and a quiet background for the flock and Pass it on. Both switches are for every story; in a shared room they are the room's, for everyone in it.</span>
       </div>
       <pre aria-live="off"></pre>
     </div>
@@ -519,6 +520,8 @@ body.xr #labels, body.xr #tip { display: none; }
       <ul class="sh-people"></ul>
       <p class="hint">Follow a person in a headset: this page shows whichever station they stand at, switching as they walk (for people watching on a screen instead of wearing a headset).</p>
     </div>
+    <h3>Sound</h3>
+    <div class="row sh-sound"><span>On this device (in a shared room, the room's):</span><button class="btn" type="button" data-sh="sfx" aria-pressed="true" title="Clicks, chimes and the stories' own sounds (whooshes, beeps, picks), for every story">Sound effects: on</button><button class="btn" type="button" data-sh="voice" aria-pressed="true" title="The stories' spoken narration, for every story (subtitles and sound effects go on without it)">Narration: on</button></div>
     <h3>You</h3>
     <div class="row"><input id="shName" maxlength="32" autocomplete="nickname" aria-label="Your name"><div class="sh-colors" role="group" aria-label="Your colour"></div></div>
   </div>
@@ -618,6 +621,9 @@ HOST.audio = (function () {
   // listeners added here belong to the shell, not to the story that happens to be running
   const quiet = fn => { const q = HOST.quiet; HOST.quiet = true; try { return fn(); } finally { HOST.quiet = q; } };
   const running = () => !!A.ctx && A.ctx.state === 'running';
+  // the Narration switch (HOST.xr.voice(): in a shared room the room's, else this device's narrationOn) turned off: the
+  // narration is silent on both engines and the story runs on its own clock, as when muted; the effects and subtitles go on
+  const voiceOff = () => !!(HOST.xr && HOST.xr.voice && !HOST.xr.voice());
   // the headset's view when a session is on, else the page's
   const away = () => (A.session ? A.session.visibilityState === 'hidden' : document.hidden);
   const activated = () => A.tapped || !!(navigator.userActivation && navigator.userActivation.hasBeenActive);
@@ -999,7 +1005,7 @@ HOST.audio = (function () {
       if (A.cur !== N) return;
       check();
       if (N.state !== 'ok') return;
-      want = want && !A.muted && !away() && (!N.duration || t < N.duration - 0.05);
+      want = want && !A.muted && !voiceOff() && !away() && (!N.duration || t < N.duration - 0.05);
       const e = engine(N);
       if (!want || e !== 'webaudio' || !running()) stopSource(N);
       if (!want || e !== 'media') { if (A.mediaOn) mediaStop(); }
@@ -1128,7 +1134,7 @@ HOST.audio = (function () {
       'File: ' + (N ? N.url + ' - ' + ({ loading: 'loading', none: 'none for this story', ok: 'found' }[N.state]) +
         (N.state === 'ok' ? ', decoding ' + ({ idle: 'not needed', loading: 'running', ok: 'done', failed: 'failed' }[N.decode] || '-') : '') +
         (N.duration ? ', ' + Math.round(N.duration) + ' s long' : '') : 'no story'),
-      'Narration ' + (A.muted ? 'turned off here' : 'on') + '. Taps: ' + (A.tapped ? 'yes, last ' + (A.lastTap || '-') : 'none yet') +
+      'Narration ' + (A.muted ? 'turned off here (the Sound button)' : voiceOff() ? 'switched off (Narration: off' + (HOST.collab && HOST.collab.look && HOST.collab.look() ? ', for everyone in this room)' : ')') : 'on') + '. Taps: ' + (A.tapped ? 'yes, last ' + (A.lastTap || '-') : 'none yet') +
         (ua ? '. Page has had a tap: ' + (ua.hasBeenActive ? 'yes' : 'no') : ''),
       'Page ' + document.visibilityState + (A.session ? ', headset view ' + A.session.visibilityState : ', no headset session'),
       ...(HOST.xr ? [HOST.xr.line()] : []),
@@ -1143,7 +1149,7 @@ HOST.audio = (function () {
   // reopened), else null: silent before the first tap and while only the <audio> element plays
   const fx = () => (A.ctx && running() && activated() && !away() && !A.bad.webaudio && A.pref !== 'media' && !A.cycling ? A.ctx : null);
   // the narration sounds now, through either engine (the effects duck under it)
-  const speaking = () => !!A.cur && !A.muted && (!!(A.cur.src && running()) || (A.mediaOn && !A.el.paused && A.elFor === A.cur.url));
+  const speaking = () => !!A.cur && !A.muted && !voiceOff() && (!!(A.cur.src && running()) || (A.mediaOn && !A.el.paused && A.elFor === A.cur.url));
   document.getElementById('btnSound').addEventListener('click', toggle);
   return {
     get ctx() { return A.ctx; }, get el() { return A.el; }, get muted() { return A.muted; }, get pref() { return A.pref; },
@@ -1193,15 +1199,28 @@ HOST.xr = (function () {
   // in it (shared.js, key look), else this device's own (xrLabels, xrFree, xrSubs), which keeps a room's last value
   // after leaving it. Stories read labels() and free() every frame and put sig() in their panels' signatures.
   // #labels=face|fixed|hidden, #free=on|off and #subs=on|off in a link set them.
-  const LABELS = ['face', 'fixed', 'hidden'], own = { labels: 'fixed', free: true, subs: false };
+  // Two sound switches go the same way, for pages and headsets alike (the owner, 30 October 2026: "a switch for sound
+  // effects and one for narration, both global in the clock menu and the shared menu on the desktop"): sfx() (the sound
+  // effects, sfx.js; this device's own is sfxOn) and voice() (the narration: off, it is silent on both engines and the
+  // story runs on its own clock, as when muted; the effects and subtitles go on; this device's own is narrationOn), both
+  // on unless turned off; #sfx=on|off and #voice=on|off in a link. The Sound button (the bar's, the headset panel's) stays
+  // this device's quick mute of everything, and the effects' volume this device's own.
+  const LABELS = ['face', 'fixed', 'hidden'], own = { labels: 'fixed', free: true, subs: false, sfx: true, voice: true };
   try {
     const l = localStorage.getItem('xrLabels'), f = localStorage.getItem('xrFree'), u = localStorage.getItem('xrSubs');
     if (LABELS.includes(l)) own.labels = l;
     if (f === 'on' || f === 'off') own.free = f === 'on';
     if (u === 'on' || u === 'off') own.subs = u === 'on';
+    // (on by default: only a device that turned them off keeps them off)
+    own.sfx = localStorage.getItem('sfxOn') !== 'off'; own.voice = localStorage.getItem('narrationOn') !== 'off';
   } catch (e) { /* storage blocked */ }
-  const keepOwn = () => { try { localStorage.setItem('xrLabels', own.labels); localStorage.setItem('xrFree', own.free ? 'on' : 'off'); localStorage.setItem('xrSubs', own.subs ? 'on' : 'off'); } catch (e) { /* storage blocked */ } };
-  // in a shared room the room's ({ labels, free, subs }), else null
+  const keepOwn = () => {
+    try {
+      localStorage.setItem('xrLabels', own.labels); localStorage.setItem('xrFree', own.free ? 'on' : 'off'); localStorage.setItem('xrSubs', own.subs ? 'on' : 'off');
+      localStorage.setItem('sfxOn', own.sfx ? 'on' : 'off'); localStorage.setItem('narrationOn', own.voice ? 'on' : 'off');
+    } catch (e) { /* storage blocked */ }
+  };
+  // in a shared room the room's ({ labels, free, subs, sfx, voice }), else null
   const room = () => (HOST.collab && HOST.collab.look ? HOST.collab.look() : null);
   const look = () => room() || own;
   function setLook(o) {
@@ -1218,11 +1237,18 @@ HOST.xr = (function () {
     setFree(on) { setLook({ free: !!on }); },
     subs: () => !!look().subs,
     setSubs(on) { setLook({ subs: !!on }); },
+    // the sound switches (absent, as from an older shared.js: on)
+    sfx: () => look().sfx !== false,
+    setSfx(on) { setLook({ sfx: !!on }); },
+    voice: () => look().voice !== false,
+    setVoice(on) { setLook({ voice: !!on }); },
     sig: () => { const L = look(); return L.labels + (L.free ? '+' : '-') + (L.subs ? 's' : ''); },
     // the room's value, kept as this device's own (shared.js, when the room's changes): it stays after leaving
     keep(o) {
-      if (!o || !LABELS.includes(o.labels) || (o.labels === own.labels && !!o.free === own.free && !!o.subs === own.subs)) return;
-      own.labels = o.labels; own.free = !!o.free; own.subs = !!o.subs; keepOwn();
+      if (!o || !LABELS.includes(o.labels)) return;
+      const n = { labels: o.labels, free: !!o.free, subs: !!o.subs, sfx: o.sfx !== false, voice: o.voice !== false };
+      if (Object.keys(n).every(k => n[k] === own[k])) return;
+      Object.assign(own, n); keepOwn();
     },
   };
 })();
@@ -1855,13 +1881,15 @@ HOST.soundCheckShown = function () {
   if (!el || el.hidden || HOST.picking === false) return;
   const p = HOST.audio.pref;
   el.querySelectorAll('[data-snd]').forEach(b => { if (/^(auto|webaudio|media)$/.test(b.dataset.snd)) b.setAttribute('aria-pressed', b.dataset.snd === p ? 'true' : 'false'); });
-  // the sound effects (sfx.js): on or off and their volume, this device's own
-  const fx = el.querySelector('[data-snd="sfx"]'), vol = el.querySelector('#sfxVol');
+  // the sound effects (sfx.js) on or off and the narration on or off (in a shared room the room's), and the effects'
+  // volume (this device's own)
+  const fx = el.querySelector('[data-snd="sfx"]'), vol = el.querySelector('#sfxVol'), vo = el.querySelector('[data-snd="voice"]');
   if (fx && HOST.sfx) {
     const on = HOST.sfx.on(), t = 'Sound effects: ' + (on ? 'on' : 'off');
     fx.setAttribute('aria-pressed', on ? 'true' : 'false'); if (fx.textContent !== t) fx.textContent = t;
     if (document.activeElement !== vol) vol.value = String(Math.round(HOST.sfx.volume() * 100));
   }
+  if (vo) { const on = HOST.xr.voice(), t = 'Narration: ' + (on ? 'on' : 'off'); vo.setAttribute('aria-pressed', on ? 'true' : 'false'); if (vo.textContent !== t) vo.textContent = t; }
   const t = HOST.audio.report().join('\n');
   const pre = el.querySelector('pre');
   if (pre.textContent !== t) pre.textContent = t;
@@ -2411,6 +2439,7 @@ HOST.cards = function () {
     if (sc) {
       const v = sc.dataset.snd;
       if (v === 'sfx') HOST.sfx.set(!HOST.sfx.on());   // (turned on, the click's own sound says so)
+      else if (v === 'voice') HOST.xr.setVoice(!HOST.xr.voice());
       else if (v === 'sfx:try') HOST.sfx.demo();
       else if (v.startsWith('beep:')) HOST.audio.beep(v.slice(5)); else if (v === 'reset') HOST.audio.reset(); else HOST.audio.setEngine(v);
       HOST.soundCheckShown();
@@ -2445,6 +2474,7 @@ HOST.cards = function () {
   if (hp.has('free')) HOST.xr.setFree(hp.get('free') !== 'off');
   if (hp.has('subs')) HOST.xr.setSubs(hp.get('subs') !== 'off');
   if (hp.has('sfx')) HOST.sfx.set(hp.get('sfx') !== 'off');
+  if (hp.has('voice')) HOST.xr.setVoice(hp.get('voice') !== 'off');
   if (hp.has('soundcheck')) HOST.soundCheck(true);
   HOST.collab.boot(hp); // #s=XYZ joins a shared room
   HOST.live.init();

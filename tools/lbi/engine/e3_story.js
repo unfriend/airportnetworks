@@ -434,7 +434,6 @@ function buildStory() {
   a = C.complex.a;
   sfxCue(a + 0.3, 'patter', 'atp', 'matrix', { dur: 2 });                                // 13 parts arrive
   ['head', 'stalk', 'ring'].forEach((p, k) => sfxCue(a + 10 + 2.5 * k, 'link', 'atp', p, { seq: true }));   // the machine assembles
-  sfxHold(a + 18, a + 30, 'machine', 'atp', 'rotor', { pitch: 1.4, gain: 0.35 });        // protons turn the rotor
   sfxCue(a + 30, 'grow', 'atp', null, { dur: 3 });                                       // as a network
   sfxCue(a + 36, 'whoosh', 'int', 'atp', { dur: 4, pitch: 0.7 });                        // it shrinks into the interactome
   a = C.map.a;

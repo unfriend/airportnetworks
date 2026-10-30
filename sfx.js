@@ -3,10 +3,10 @@
 // HOST.sfx: the shell's sound effects (the owner, 29 October 2026: "nice sound effects to everything"; after listening to
 // phase 1: "sounds are fine, go on"). Phase 1: the shell's own sounds (the headset menu, pointing at the shell's things,
 // the circles, the locks, notices, a story loaded, walking into a circle, people coming and going) and a quiet
-// background per story. Phase 2: sounds inside the stories (their story sounds, tied to their timelines and explore
+// background for two stories. Phase 2: sounds inside the stories (their story sounds, tied to their timelines and explore
 // actions, kind 'story', played through the same HOST.sfx.play with pitch, dur and n; the stories' cue lines are in
-// AGENTS.md, "Sound effects") and continuous sounds a story keeps going while it wants them (HOST.sfx.drone: a robot
-// vacuum, a machine). Every sound is made here from Web Audio nodes and short generated buffers: no files. The rules:
+// AGENTS.md, "Sound effects") and a continuous sound a story keeps going while it wants it (HOST.sfx.drone: a robot
+// vacuum). Every sound is made here from Web Audio nodes and short generated buffers: no files. The rules:
 //  - it plays through HOST.audio's one AudioContext (HOST.audio.fx()), never a context of its own: nothing before the
 //    first tap, nothing while the page or the headset is out of view, nothing while only the <audio> element engine
 //    runs (Web Audio out, or the element chosen in Sound check), and nothing while the sound is off (the bar's Sound
@@ -16,14 +16,16 @@
 //  - it ducks under the narration (-9 dB, down in about 0.4 s, back in about 1.5 s) while HOST.audio.speaking();
 //  - at most 16 voices at once (the one quietest now makes room, the oldest of equals), and each sound a minimum gap;
 //    at most 4 continuous sounds besides (a fifth replaces the quietest when it is louder);
-//  - per device, never shared in a room and never in a story's collab.state(): on or off (sfxOn; ON by default since
-//    the owner approved the sounds, a device that saved 'off' stays off) and a volume (sfxVolume, 0 to 1, squared as a
-//    loudness taper; 0.75 by default); #sfx=on|off in a link; a row in Sound check on the page and in the headset's menu;
-//  - a quiet looping background (a bed) for the story on show, chosen from its key: the flock dusk air and distant
-//    birds, the pass story a deep sea hush, the robots room tone, the soil story wind over a field, every other a calm
-//    low tone with a slight movement whose colour (pitch, brightness, pace) comes from the key, so a new story gets one
-//    by itself. Faded in once the story is built, out when it goes (another story, the Stories screen, a headset in a
-//    shared room away from every station), ducked under the voice, off with the effects.
+//  - on or off for every story at once (the Sound effects switch: the headset menu, the page's Shared dialog and Sound
+//    check): in a shared room the room's, for everyone in it (HOST.xr.sfx(), key look), else this device's own (sfxOn;
+//    ON by default since the owner approved the sounds, a device that saved 'off' stays off); #sfx=on|off in a link.
+//    The volume (sfxVolume, 0 to 1, squared as a loudness taper; 0.75 by default) is always this device's own. Never in
+//    a story's collab.state();
+//  - a quiet looping background (a bed) for two stories only, chosen from the key: the flock dusk air and distant birds,
+//    the pass story a deep sea hush with bubbles (the owner, 30 October 2026, after listening to every story's track:
+//    "remove the background hums, they are not good ... flock and pass it on can keep their sounds as is, all other
+//    background noise can go"). Faded in once the story is built, out when it goes (another story, the Stories screen,
+//    a headset in a shared room away from every station), ducked under the voice, off with the effects.
 // SFX_LIB holds the recipes, the beds and the engine for any context: tools/sfx.html (the sound board) plays them
 // with an engine of its own and renders every one to a file with an OfflineAudioContext (tools/sfx-render.mjs, which
 // also renders a story's whole sound track with --story).
@@ -488,19 +490,8 @@
         lfo(d, 0.7, 0.006, ng.gain);
         d.tune.push([s.frequency, 220], [bp.frequency, 1500], [lp.frequency, 900]);
       } },
-    machine: { level: 1, desc: 'A machine running: a low-mid hum with air and a slow beat; its pitch sets its speed.',
-      uses: 'The supercomputer\'s hall, the PET scanner\'s ring, ATP synthase\'s rotor, the mutation machine\'s turn.',
-      make(d) {
-        const c = d.c, beat = gain(c, 0.7), lp = filter(c, 'lowpass', 1500, 0.6);
-        beat.connect(lp); lp.connect(d.out);
-        const b = lfo(d, 2, 0.3, beat.gain);
-        for (const [f, k, det] of [[180, 0.045, -5], [180, 0.045, 5], [270, 0.032, 3]]) { const s = osc(d, 'triangle', f, det), g = gain(c, k); s.connect(g); g.connect(beat); d.tune.push([s.frequency, f]); }
-        const n = loop(d, 'pink'), bp = filter(c, 'bandpass', 600, 1), ng = gain(c, 0.05);
-        n.connect(bp); bp.connect(ng); ng.connect(beat);
-        d.tune.push([b.frequency, 2], [bp.frequency, 600]);
-      } },
   };
-  const ORDER_DRONE = ['vacuum', 'machine'];
+  const ORDER_DRONE = ['vacuum'];   // (the machine's hum went with the backgrounds, 30 October 2026)
   // one continuous sound on G from t: its gain (lv, from 0: the caller fades it), its panner (HRTF at a place in a
   // headset, stereo on a screen) into G.fx, a little reverb. o: { at, spatial, pan, pitch }
   function droneVoice(G, name, t, o, seed) {
@@ -541,18 +532,12 @@
   // ---- the beds: loops that run until faded out. b: { c, out (the bed's gain), wet (its reverb send), r, next }. level:
   // each made about -35 LUFS at full effects volume (measured: tools/sfx-render.mjs), some 20 dB under the narration
   const BEDS = {
-    calm: { desc: 'A calm low tone with a slight movement (every story without a bed of its own; its pitch, brightness and pace come from the story\'s key).', level: 0.076 },
     dusk: { desc: 'The flock: dusk air, swaying, and distant birds now and then.', level: 1.66 },
     sea: { desc: 'Pass it on (the fish): a deep sea hush that swells slowly, and a bubble now and then.', level: 0.172 },
-    room: { desc: 'The robot gang: soft room tone with a slow movement of air.', level: 0.79 },
-    wind: { desc: 'The soil story: wind over a field, gusting, and grass rustling when it blows.', level: 1 },
   };
-  const bedOf = key => ({ flock: 'dusk', pass: 'sea', robots: 'room', soil: 'wind' }[key] || 'calm');
-  // the calm bed's colour from the story's key: its root note, how bright, how fast it moves
-  function colour(key) {
-    const h = hash(key || 'calm'), roots = [98, 110, 123.47, 130.81, 146.83, 87.31, 103.83, 116.54];
-    return { f0: roots[h % roots.length], bright: 520 + ((h >>> 5) % 5) * 150, move: 0.03 + ((h >>> 9) % 4) * 0.012 };
-  }
+  // only the flock and the pass story have one (the owner: "flock and pass it on can keep their sounds as is, all other
+  // background noise can go"); every other story, and the design room, none ('')
+  const bedOf = key => ({ flock: 'dusk', pass: 'sea' }[key] || '');
   function loop(b, kind, pan) {
     const c = b.c, s = c.createBufferSource();
     s.buffer = noise(c, kind); s.loop = true;
@@ -608,18 +593,6 @@
     s.start(t); s.stop(t + d + 0.05);
   }
   const MAKE = {
-    calm(b) {
-      const c = b.c, { f0, bright, move } = colour(b.key), lp = filter(c, 'lowpass', bright * 1.4, 0.6), a = gain(c, 0.85);
-      lp.connect(a); a.connect(b.out);
-      lfo(b, move, bright * 0.3, lp.frequency); lfo(b, move * 1.618, 0.16, a.gain);
-      for (const [f, k, type, pan] of [[f0, 0.34, 'sine', -0.1], [f0 * 2 + 0.13, 0.3, 'triangle', 0.35], [f0 * 3 - 0.07, 0.16, 'sine', -0.35], [f0 * 4 + 0.05, 0.08, 'sine', 0.2], [f0 * 5 - 0.04, 0.035, 'sine', -0.2]]) {
-        const s = osc(b, type, f), g = gain(c, k);
-        s.connect(g);
-        if (c.createStereoPanner) { const p = c.createStereoPanner(); p.pan.value = pan; g.connect(p); p.connect(lp); } else g.connect(lp);
-      }
-      const air = loop(b, 'pink', 0.3), bp = filter(c, 'bandpass', 1500, 0.5), ag = gain(c, 0.03);
-      air.connect(bp); bp.connect(ag); ag.connect(b.out); drift(b, 11, 3, 0.018, ag.gain);
-    },
     dusk(b) {
       const c = b.c;
       for (const [pan, seed] of [[-0.7, 21], [0.7, 22]]) {
@@ -659,33 +632,12 @@
         }
       };
     },
-    room(b) {
-      const c = b.c;
-      for (const [pan, seed] of [[-0.5, 41], [0.5, 42]]) {
-        const n = loop(b, 'pink', pan), lp = filter(c, 'lowpass', 1300), hp = filter(c, 'highpass', 150), g = gain(c, 0.06);
-        n.connect(hp); hp.connect(lp); lp.connect(g); g.connect(b.out);
-        drift(b, seed, 7, 0.008, g.gain); drift(b, seed + 5, 9, 160, lp.frequency);
-      }
-      const lo = loop(b, 'brown'), lh = filter(c, 'highpass', 120), ll = filter(c, 'lowpass', 320), lg = gain(c, 0.1);
-      lo.connect(lh); lh.connect(ll); ll.connect(lg); lg.connect(b.out);
-    },
-    wind(b) {
-      const c = b.c, gust = 51;   // (one gust drift moves the band, the strength and the rustle together)
-      for (const [pan, off] of [[-0.6, 0], [0.6, 1]]) {
-        const n = loop(b, 'white', pan), bp = filter(c, 'bandpass', 520 + off * 90, 0.9), g = gain(c, 0.06);
-        n.connect(bp); bp.connect(g); g.connect(b.out);
-        drift(b, gust + off, 2.6, 300, bp.frequency); drift(b, gust + off, 2.6, 0.04, g.gain);
-      }
-      const ru = loop(b, 'white', 0.2), hp = filter(c, 'highpass', 2600), bp2 = filter(c, 'bandpass', 5600, 0.4), rg = gain(c, 0.012);
-      ru.connect(hp); hp.connect(bp2); bp2.connect(rg); rg.connect(b.out);
-      drift(b, gust, 2.6, 0.009, rg.gain); lfo(b, 3.1, 0.004, rg.gain);
-      const lo = loop(b, 'brown'), lh = filter(c, 'highpass', 90), ll = filter(c, 'lowpass', 240), lg = gain(c, 0.05);
-      lo.connect(lh); lh.connect(ll); ll.connect(lg); lg.connect(b.out); drift(b, gust + 7, 3.3, 0.025, lg.gain);
-    },
   };
-  // a bed for a story's key, starting at t (silent until faded in)
+  // a bed for a story's key, starting at t (silent until faded in), or null for a story without one
   function bed(G, key, t, seed) {
-    const c = G.c, kind = bedOf(key), out = gain(c, 0), lv = gain(c, BEDS[kind].level), wet = gain(c, 1);
+    const kind = bedOf(key);
+    if (!kind) return null;
+    const c = G.c, out = gain(c, 0), lv = gain(c, BEDS[kind].level), wet = gain(c, 1);
     out.connect(lv); lv.connect(G.bed); wet.connect(G.verb);
     const b = { c, key, kind, out, lv, wet, t, srcs: [], r: rng(seed == null ? hash(key) : seed), next: Infinity, fill: () => {} };
     MAKE[kind](b);
@@ -700,23 +652,27 @@
   }
 
   // ---- the engine. A: { fx() (the context to play through now, or null), speaking() (the narration sounds now),
-  // bed() (the story key whose bed should play, '' none), spatial() (in a headset: sounds come from places), get(k),
-  // put(k, v) (this device's settings; null keeps them in memory), muted() (optional: the sound is off, Sound line) }
+  // bed() (the story on show, whose bed plays if it has one; '' none), spatial() (in a headset: sounds come from places),
+  // get(k), put(k, v) (this device's settings; null keeps them in memory), muted() (optional: the sound is off, Sound
+  // line), on() and set(on) (optional: the Sound effects switch kept elsewhere, the app's HOST.xr: in a shared room the
+  // room's; on() gives a boolean, set(on) true once it took it; without them the engine keeps its own, sfxOn) }
   const MAXD = 4;                                  // continuous sounds at once (besides the 16 voices)
   function engine(A) {
     const S = { on: true, vol: 0.75, c: null, G: null, voices: [], gone: [], last: {}, played: 0, cut: 0, lastAt: 0, lastName: '', lastSpatial: false,
-      speak: false, bed: null, bedKey: '', old: [], head: null, n: 0, an: null, buf: null, drones: new Map(), dold: [] };
+      speak: false, bed: null, bedKey: '', old: [], head: null, n: 0, an: null, buf: null, drones: new Map(), dold: [], was: null };
     const get = k => { try { return A.get ? A.get(k) : null; } catch (e) { return null; } };
     const put = (k, v) => { try { if (A.put) A.put(k, v); } catch (e) { /* storage blocked */ } };
     // on by default (the owner approved the sounds, 29 October 2026): only a device that turned them off keeps them off
     S.on = get('sfxOn') !== 'off';
     { const v = parseFloat(get('sfxVolume')); if (isFinite(v)) S.vol = clamp(v, 0, 1); }
+    // on or off now: the switch kept elsewhere when there is one (the app's: a shared room's, or this device's), else ours
+    const isOn = () => { try { const v = A.on ? A.on() : null; if (typeof v === 'boolean') return v; } catch (e) { /* ours */ } return S.on; };
     const taper = v => v * v;
     // the context to play through, the graph built on it (again when HOST.audio started a new one); null while off or silent
     function ctx() {
       let c = null;
       try { c = A.fx(); } catch (e) { c = null; }
-      if (!S.on || !c) return null;
+      if (!isOn() || !c) return null;
       if (c !== S.c) build(c);
       return c;
     }
@@ -804,6 +760,9 @@
     }
     // every 100 ms (and at once on a change): the bed wanted now, the duck, the voices that have ended
     function step() {
+      // turned off (here, or by someone else in a shared room): what still sounds stops at once
+      const o = isOn();
+      if (o !== S.was) { S.was = o; if (!o && S.c && S.c.state !== 'closed') { const t = S.c.currentTime; while (S.voices.length) cut(S.voices[0], t); } }
       const c = ctx();
       if (S.drones.size) dronesOff(c ? 0.4 : 0.3, !c);   // (not asked for lately; or all, the effects off or silent)
       let want = '';
@@ -812,7 +771,7 @@
         bedOut(S.bed, S.bed.c.currentTime, c ? BED_OUT : 0.3); S.old.push(S.bed); S.bed = null; S.bedKey = '';
       }
       if (!c) { if (S.c && S.c.state !== 'closed') prune(S.c); return; }
-      if (want && !S.bed) {
+      if (want && !S.bed && bedOf(want)) {   // (a story without a bed of its own: none)
         S.bed = bed(S.G, want, c.currentTime + LEAD, hash(want) + (++S.n)); S.bedKey = want;
         bedIn(S.bed, c.currentTime + LEAD, BED_IN);
       }
@@ -849,11 +808,12 @@
       S.head = { p: [p.x, p.y, p.z], f: rot(0, 0, -1), u: rot(0, 1, 0) };
       listener();
     }
+    // the Sound effects switch: kept where A keeps it (a shared room's, or this device's), else here (sfxOn)
     function set(on) {
       on = !!on;
-      if (on === S.on) return;
-      S.on = on; put('sfxOn', on ? 'on' : 'off');
-      if (!on && S.c && S.c.state !== 'closed') { const t = S.c.currentTime; while (S.voices.length) cut(S.voices[0], t); }
+      let took = false;
+      try { took = !!(A.set && A.set(on)); } catch (e) { took = false; }
+      if (!took) { if (on === S.on) return; S.on = on; put('sfxOn', on ? 'on' : 'off'); }
       step();
     }
     function setVolume(v) {
@@ -886,12 +846,12 @@
     const muted = () => { try { return !!(A.muted && A.muted()); } catch (e) { return false; } };
     return {
       play, drone, step, listen, set, setVolume, nextVolume, level, demo,
-      on: () => S.on, volume: () => S.vol, count: () => S.played, context: () => S.c,
-      sig: () => (S.on ? 'F' : 'f') + Math.round(S.vol * 100),
+      on: isOn, volume: () => S.vol, count: () => S.played, context: () => S.c,
+      sig: () => (isOn() ? 'F' : 'f') + Math.round(S.vol * 100),
       // the line in Sound check (page and headset)
-      line: () => 'Sound effects: ' + (S.on ? 'on, volume ' + pct() + (muted() ? ', silent while the sound is off (the Sound button)' : S.c && S.G && S.c === (A.fx() || null) ? ', ' + S.voices.length + ' playing' +
+      line: () => 'Sound effects: ' + (isOn() ? 'on, volume ' + pct() + (muted() ? ', silent while the sound is off (the Sound button)' : S.c && S.G && S.c === (A.fx() || null) ? ', ' + S.voices.length + ' playing' +
         (S.drones.size ? ', ' + S.drones.size + ' continuous' : '') + (S.bedKey ? ', background ' + bedOf(S.bedKey) + ' (' + S.bedKey + ')' : '') + (S.speak ? ', ducked under the voice' : '') : ', silent (Web Audio not running here yet)') : 'off (volume ' + pct() + ')'),
-      state: () => ({ on: S.on, volume: S.vol, voices: S.voices.length, played: S.played, cut: S.cut, last: S.lastName, spatial: S.lastSpatial, bed: S.bedKey,
+      state: () => ({ on: isOn(), volume: S.vol, voices: S.voices.length, played: S.played, cut: S.cut, last: S.lastName, spatial: S.lastSpatial, bed: S.bedKey,
         bedKind: S.bedKey ? bedOf(S.bedKey) : '', speak: S.speak, duck: S.G ? S.G.duck.gain.value : 1, ctx: S.c ? S.c.state : '', head: S.head,
         drones: [...S.drones.values()].map(d => ({ id: d.id, name: d.name, gain: d.gn, pitch: d.k, spatial: d.sp })) }),
     };
@@ -938,10 +898,12 @@
     all.connect(c.destination);
     G.vol.gain.value = vol == null ? 1 : vol * vol;
     if (info.speaking) G.duck.gain.value = DUCK;
-    const b = bed(G, info.key, 0, hash(info.key) + Math.floor(s0 / 60));   // (the bed's random numbers: its own per minute)
-    b.out.gain.setValueAtTime(s0 < 0.5 ? 0 : 1, 0); if (s0 < 0.5) b.out.gain.linearRampToValueAtTime(1, BED_IN);
-    b.fill(secs);
-    for (const s of b.srcs) s.stop(secs);
+    const b = bed(G, info.key, 0, hash(info.key) + Math.floor(s0 / 60));   // (the bed's random numbers: its own per minute; none for most stories)
+    if (b) {
+      b.out.gain.setValueAtTime(s0 < 0.5 ? 0 : 1, 0); if (s0 < 0.5) b.out.gain.linearRampToValueAtTime(1, BED_IN);
+      b.fill(secs);
+      for (const s of b.srcs) s.stop(secs);
+    }
     info.cues.forEach((q, i) => {
       if (q.n < s0 || q.n >= T1 || !SOUNDS[q.name]) return;
       voice(G, q.name, at(q.n) + LEAD, Object.assign({}, q.o, { pan: q.pan || 0, seed: hash(q.name) + i * 7919 }));
@@ -972,11 +934,12 @@
     }
     return c.startRendering();
   }
-  // the duck: a calm bed and a few clicks, with the narration (a decoded AudioBuffer, from `from` s for `len` s) speaking
-  // in the middle; the duck moves exactly as the engine moves it
+  // the duck: the flock's bed and a few clicks, with the narration (a decoded AudioBuffer, from `from` s for `len` s)
+  // speaking in the middle; the duck moves exactly as the engine moves it
   function renderDuck(voiceBuf, from, len) {
-    const secs = len + 7.5, c = offline(secs, 2), G = graph(c), b = bed(G, 'airports', 0);
+    const secs = len + 7.5, c = offline(secs, 2), G = graph(c), b = bed(G, 'flock', 0);
     b.out.gain.setValueAtTime(0, 0); b.out.gain.linearRampToValueAtTime(1, 1.2);
+    b.fill(secs);
     for (const s of b.srcs) s.stop(secs);
     const on = 3, offT = 3 + len, p = G.duck.gain;
     p.setValueAtTime(1, 0); p.setTargetAtTime(DUCK, on, DUCK_IN); p.setTargetAtTime(1, offT, DUCK_OUT);
@@ -991,7 +954,7 @@
     return c.startRendering();
   }
 
-  const LIB = { SOUNDS, ORDER, ORDER_STORY, DRONES, ORDER_DRONE, BEDS, MAX, MAXD, DUCK, DUCK_IN, DUCK_OUT, BED_IN, BED_OUT, VOLS, bedOf, colour, graph, voice, bed, bedIn,
+  const LIB = { SOUNDS, ORDER, ORDER_STORY, DRONES, ORDER_DRONE, BEDS, MAX, MAXD, DUCK, DUCK_IN, DUCK_OUT, BED_IN, BED_OUT, VOLS, bedOf, graph, voice, bed, bedIn,
     bedOut, engine, length, droneVoice, droneSpan, renderSound, renderDrone, renderBed, render3d, renderDuck, renderStory, hash };
   root.SFX_LIB = LIB;
 
@@ -1007,6 +970,10 @@
     muted: () => !!H.audio.muted,
     speaking: () => !!(H.audio.speaking && H.audio.speaking()),
     spatial: () => !!H.session,
+    // the Sound effects switch: HOST.xr's (in a shared room the room's, for everyone in it, key look; else this device's
+    // sfxOn); an older shell without it: the engine's own
+    on: () => (H.xr && H.xr.sfx ? H.xr.sfx() : null),
+    set: on => { if (!H.xr || !H.xr.setSfx) return false; H.xr.setSfx(on); return true; },
     // the story on show, once built (its frame loop given), not behind a Stories screen (page or headset), nor in a shared
     // room while the headset is away from every station (the story hidden)
     bed: () => (H.cur && H.curKey && !H.busy && H.loading && H.loading.ran && !H.picking && !H.onStories && !(H.room && H.room.away && H.room.away()) ? H.curKey : ''),

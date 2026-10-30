@@ -165,9 +165,11 @@ Outside a shared room only (at a station a story ends in explore mode, as for ev
 - Sound starts after a first tap or click (**Enter VR** counts; on a screen, click once). Only **Airports** and **The
   future** have a narration so far; the other stories have no voice until they get one (**Subtitles: on** shows the
   panel's words low in the view), but every story has its sound effects (on by default: soft sounds at its moments,
-  in explore mode and on its panel's buttons, and a quiet background). Too much in a busy hall, or neighbours hearing
-  each other's headsets: in the menu on the left wrist **Effects volume** (25, 50, 75, 100 %) or **Sound effects:
-  off**, per headset; the story panel's **Sound** button silences the narration and the effects together.
+  in explore mode and on its panel's buttons; a quiet background only for the flock and Pass it on). Too much in a busy
+  hall, or neighbours hearing each other's headsets: in the menu on the left wrist **Effects volume** (25, 50, 75,
+  100 %, per headset), or **Sound effects: off** and **Narration: off** (in a shared room for everyone in it, pages
+  too; also in the page's Shared dialog, so a guide can switch them from a laptop); the story panel's **Sound** button
+  silences the narration and the effects together on that headset only.
 - **TO FILL (owner):** headset settings used for a kiosk (sleep, boundary), if any.
 
 ## 4. When things go wrong

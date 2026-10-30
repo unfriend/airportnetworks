@@ -35,8 +35,15 @@
   on a headset as untested (Sound check is the on-device tool). Sound effects
   are the shell's too (`HOST.sfx`, `sfx.js`): they play only through
   `HOST.audio`'s context (`HOST.audio.fx()`), on by default (the owner approved
-  them; a device that turned them off keeps them off; the Sound button silences
-  them with the narration). Stories ask for them through the same lines in all
+  them; the Sound button silences them with the narration). Two switches, each
+  for every story at once: Sound effects (`HOST.xr.sfx()`, through `HOST.sfx.on()`
+  and `set()`) and Narration (`HOST.xr.voice()`: off, the narration is silent and
+  the story runs on its clock; effects and subtitles go on); in a room the room's
+  (key `look`), else the device's own (`sfxOn`, `narrationOn`); the effects'
+  volume is always the device's own. Only the flock and the pass story have a
+  background, and `vacuum` is the only continuous sound (the owner, 30 October
+  2026: the other backgrounds and the machines' hum went; never bring them back
+  unasked). Stories ask for them through the same lines in all
   sixteen and the design room (the sound effects block after the slideshow block,
   `sfxCue`/`sfxHold` beside the keys, `sfxAct` for explore actions, `sfxLive` in
   the live simulations; the flock and the airports are the references): keep them
@@ -58,7 +65,8 @@
   only exist on a headset: report their behaviour as untested.
 - The headset's three settings (labels in 3D, on top or hidden; free moving;
   subtitles, off by default) are the shell's (`HOST.xr.labels()`,
-  `HOST.xr.free()`, `HOST.xr.subs()`, in a room the room's key `look`), the same
+  `HOST.xr.free()`, `HOST.xr.subs()`, in a room the room's key `look`, which also
+  holds the two sound switches, `sfx` and `voice`), the same
   for every story: never put them in a story's `state()`. Stories read the first
   two every frame through the shared lines (`xrSettings`, `placeLabelXR`,
   `xrFace`), the same in all sixteen; the shell draws the subtitles from each

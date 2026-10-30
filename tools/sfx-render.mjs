@@ -1,4 +1,4 @@
-// Renders every sound effect and background of the shell (sfx.js) to files, for listening before they are approved:
+// Renders every sound effect and background (the flock's and the pass story's) of the shell (sfx.js) to files, for listening before they are approved:
 // tools/sfx.html (the sound board) renders each through an OfflineAudioContext in headless Chromium (no tap needed, the
 // same graph and recipes as the app), ffmpeg converts it to MP3 (44.1 kHz; mono for the interface and room sounds,
 // stereo for the stories' sounds, the continuous sounds, the backgrounds and the demos), and each is measured from the
@@ -15,7 +15,7 @@
 // gain, so they stay matched to each other and to the voice as in the app.
 // With --story <keys, comma separated, or all>, a story's whole sound track instead, as a visitor hears it at the default
 // volume: its cues at their times (read from the app: the story loads in a frame of the sound board), its continuous
-// sounds, its background, and its narration where it has a recording (the effects 9 dB under it while it plays):
+// sounds (the robots' vacuums are live, not in it), its background (only the flock and the pass story have one), and its narration where it has a recording (the effects 9 dB under it while it plays):
 //   story-<key>.mp3, story-<key>.txt   the track (rendered a minute at a time, with 3 s before each minute so sounds
 //                                      ring on across the joins) and its cue list (m:ss, chapter, sound, options, where)
 // Usage: serve the folder, then node tools/sfx-render.mjs [http://127.0.0.1:8123/] [out folder] [--wav] [--story keys]

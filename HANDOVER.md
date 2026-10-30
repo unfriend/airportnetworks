@@ -49,6 +49,23 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
   recording against its story (`tools/voice/check.mjs lbi --quick`), the shared-room test (three pages and a pretend
   headset in a room, with its parts for rooms on this network, following a person, the design room and the circles),
   `node tools/release.mjs --check` and each built story's `--check`. All pass on networks-v98.
+- **Built on 30 October 2026 for v100, not yet released, tested headlessly only: the owner's sound notes** (after
+  listening to every story's track: "remove the background hums, they are not good, i like the interaction feedback and
+  the small woshes and beeps. make it so that we have a switch for sound effects and one for narration, both global in
+  the clock menu and the shared menu on the desktop"; "flock and pass it on can keep their sounds as is, all other
+  background noise can go"; "vacuum sounds keep"). Only the flock (dusk air, distant birds) and Pass it on (the sea)
+  keep a background, unchanged; the calm tone of every other story, the robots' room tone and the soil story's wind are
+  gone from `sfx.js`, and so is the machines' hum (its four spans in the tour, the muscle, PET and mutation stories, and
+  ATP synthase's and the PET scanner's in explore mode);
+  the robots' vacuums, the interface sounds and every story cue stay. Two switches, each for every story at once:
+  **Sound effects** and **Narration** (off: the narration is silent on both engines, the story runs on its own clock,
+  the effects and subtitles go on), in the headset's clock menu (side by side, the effects' volume under them), the
+  page's Shared dialog (a Sound row, in a room for everyone, outside a room for this device) and Sound check; in a
+  shared room they are the room's (`look`'s `sfx` and `voice`, FORMAT networks-27), else the device's own (`sfxOn`,
+  `narrationOn`), with `#sfx=` and `#voice=` in links. The Sound button stays each device's quick mute of everything.
+  Tests: `tools/audio.mjs`, `tools/sfx-cues.mjs all`, the relay's, every build's `--check`; the smoke test and the
+  shared-rooms run (with its new checks of the switches) are the integrator's. **Unheard:** how it sounds without the
+  backgrounds, and a room's switch on a hall of headsets.
 - **Built on 30 October 2026, not yet released, tested headlessly only: others' moves drawn smoothly** (the owner:
   "my colleague spun that and it was a bit jerky on my side"; "make it smooth"). In a shared room what someone moves
   by hand (a station's scene and panel, the explore view there, a station carried by the grip, a person's head and
@@ -465,7 +482,9 @@ Before handing over (or making anything more public), someone has to decide thes
       microbes, our network, and whether the story may be public before the work is published: **TO FILL (owner)** in
       [docs/data-and-permissions.md](docs/data-and-permissions.md)).
 12. **Sound effects: listen to the stories' tracks (phase 2 built, 29 October 2026).** Phase 1 was approved ("sounds
-    are fine, go on"): effects are on by default and phase 2 is built (see "Where things stand"). **TO FILL (owner):**
+    are fine, go on"): effects are on by default and phase 2 is built (see "Where things stand"). The owner listened on
+    30 October: the backgrounds and the machines' hum went (but the flock's and Pass it on's), and the two switches came
+    (v100, see "Where things stand"). **TO FILL (owner):**
     listen to each story's track (`node tools/sfx-render.mjs <url> <folder> --story all`: `story-<key>.mp3` with its cue
     list, at the default volume, under the narration where there is one) and to the new sounds (`sfx2-all.mp3` and its
     index), and say which cues to keep, move or drop and whether any story is too busy or too quiet. Phase 1's notes

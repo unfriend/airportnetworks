@@ -33,7 +33,6 @@ function exploreTargets(now = performance.now()) {
 }
 function exploreStep(dt, now) {
   const tg = exploreTargets(now), k = 1 - Math.exp(-dt * 3.5);
-  sfxRotor();
   for (const n in DEF) XS[n] += (tg[n] - XS[n]) * k;
   // a gently swaying scene (about 25 degrees either way, so flat ones never turn edge-on), unless you are steering it
   if (X.turn === 'on' && !orbit.to && !orbit.held && !HOST.room.placing()) { X.sway = (X.sway || 0) + dt; orbit.cur[0] += dt * 6 * Math.cos(X.sway * 0.25); }
@@ -378,11 +377,4 @@ function bindCanvas() {
     orbit.to = null;
     orbit.cur[2] = clamp(orbit.cur[2] * Math.exp(ev.deltaY * 0.0012), 0.3, 40);
   }, { passive: false });
-}
-// sound effects: ATP synthase's rotor hums while it runs in explore mode (View: Running), as it does in the story (from
-// exploreStep, every frame in explore mode; the drone fades by itself once nobody calls it)
-function sfxRotor() {
-  if (X.scene !== 'atp' || sfxHidden() || !HOST.sfx || !HOST.sfx.drone) return;
-  const c = (GL.sets.atp.controls || []).find(x => x.key === 'view');
-  if (c && ctlValue('atp', c) === 'running') { try { HOST.sfx.drone(XR_HERE + '.rotor', 'machine', Object.assign(sfxWhere('atp', 'rotor'), { pitch: 1.4, gain: 0.35 })); } catch (e) { /* an older shell */ } }
 }

@@ -4924,7 +4924,6 @@ function buildStory() {
   sfxCue(C.title.a + 0.3, 'rise', 'scan', 'vision_scan');                                 // the vision row
   sfxCue(C.title.a + 10, 'whoosh', 'scan', 'centre', { dur: 5, pitch: 0.8 });             // it draws back into the scanner
   a = C.scanner.a;
-  sfxHold(a + 9, a + 34, 'machine', 'scan', 'ring', { pitch: 1.3, gain: 0.22 });          // the scanner's ring, once the scan begins
   sfxCue(a + 1, 'whoosh', 'scan', 'couch', { dur: 6, pitch: 0.6, gain: 0.4 });            // the couch slides in
   sfxCue(a + 9, 'whoosh', 'scan', 'ring', { dur: 2, pitch: 1.3 });                        // the skin opens on the ring
   sfxCue(a + 12, 'patter', 'scan', 'event', { dur: 1.5, pitch: 1.4, gain: 0.3 });         // the first coincidences
@@ -5255,7 +5254,6 @@ function exploreTargets(now = performance.now()) {
 }
 function exploreStep(dt, now) {
   const tg = exploreTargets(now), k = 1 - Math.exp(-dt * 3.5);
-  sfxScanner();
   for (const n in DEF) XS[n] = STEP.has(n) ? tg[n] : XS[n] + (tg[n] - XS[n]) * k;
   // a gently swaying scene, unless you are steering it, standing by the scanner life size, or a set asks for stillness
   if (X.turn === 'on' && !(X.life && X.scene === 'scan') && !orbit.to && !orbit.held && !GL.still && !HOST.room.placing()) { X.sway = (X.sway || 0) + dt; orbit.cur[0] += dt * 6 * Math.cos(X.sway * 0.25); }
@@ -5651,12 +5649,6 @@ function bindCanvas() {
     orbit.to = null;
     orbit.cur[2] = clamp(orbit.cur[2] * Math.exp(ev.deltaY * 0.0012), 0.05, 40);
   }, { passive: false });
-}
-// sound effects: the scanner's ring hums while it is the scene in explore mode, as it does in the story (from exploreStep,
-// every frame in explore mode; the drone fades by itself once nobody calls it)
-function sfxScanner() {
-  if (X.scene !== 'scan' || sfxHidden() || !HOST.sfx || !HOST.sfx.drone) return;
-  try { HOST.sfx.drone(XR_HERE + '.ring', 'machine', Object.assign(sfxWhere('scan', 'ring'), { pitch: 1.3, gain: 0.22 })); } catch (e) { /* an older shell */ }
 }
 // ================================================================= WEBXR ==
 // Headset mode (built for Meta Quest, works in any WebXR browser). Each scene

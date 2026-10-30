@@ -241,12 +241,17 @@ under the title; in a shared room in the headset's menu): it shows what the soun
 through each of the app's two ways to play sound (Web Audio and an audio
 element) and lets you choose the one you hear. Reset clears the saved choices.
 A link ending in #soundcheck opens it.
-Sound effects (clicks and chimes for buttons and the shared room, a quiet
-background for each story, and each story's own sounds at its moments and in
-explore mode, all made in code) are on unless turned off in Sound check (with a
-volume), in the headset's menu, or with #sfx=off in a link; the Sound button
-silences them with the narration, and they dip under the narration while it
-plays. tools/sfx.html is a sound board that plays every one and renders a
+Sound effects (clicks and chimes for buttons and the shared room, each story's
+own sounds at its moments and in explore mode, and a quiet background for the
+flock and Pass it on only, all made in code) are on unless turned off. Two
+switches, each for every story at once: Sound effects and Narration (off: the
+narration is silent and the story runs on its own clock; subtitles and effects
+go on). They are in the headset's menu, the page's Shared dialog and Sound check,
+and #sfx=off or #voice=off in a link sets them; in a shared room they are the
+room's, for every page and headset in it. The effects' volume (Sound check, the
+headset's menu) is each device's own. The Sound button silences the narration
+and the effects together on that device, and the effects dip under the
+narration while it plays. tools/sfx.html is a sound board that plays every one and renders a
 story's whole sound track; node tools/sfx-render.mjs writes them to files
 (--story <key> for a story's track), and node tools/sfx-cues.mjs checks every
 story's sound cues.

@@ -53,7 +53,7 @@
 <body>
 <div class="wrap">
   <h1>Sound board</h1>
-  <p>Every sound effect the app's shell can play (sfx.js), made from Web Audio nodes as the app makes them: the shell's own, and the stories' (phase 2). In the app they are on unless turned off (Sound check on the Stories screen, or the menu on the left wrist in a headset; the Sound button silences them with the narration), and they sit well under the narration. Press Start sound first.</p>
+  <p>Every sound effect the app's shell can play (sfx.js), made from Web Audio nodes as the app makes them: the shell's own, and the stories' (phase 2). In the app they are on unless turned off (the Sound effects switch: the menu on the left wrist in a headset, the page's Shared dialog or Sound check; in a shared room the room's, for everyone in it; the Sound button silences them with the narration), and they sit well under the narration. Press Start sound first.</p>
   <div class="bar">
     <button id="start" class="primary" type="button">Start sound</button>
     <label>Volume <input id="vol" type="range" min="0" max="100" step="5" value="100"></label>
@@ -66,10 +66,10 @@
   <p>The stories' own sounds (phase 2): played at moments of a story's timeline, and for explore mode's picks, results and actions. Each story sets its pitch and length (the sliders); in a headset each comes from where it happens in the scene, on a screen it is panned by where it shows.</p>
   <div class="grid" id="ssounds"></div>
   <h2>Continuous sounds</h2>
-  <p>Kept going while a story wants them (a robot vacuum while it moves, a machine while it runs), faded in and out; the pitch follows the story (a robot's speed).</p>
+  <p>Kept going while a story wants them (a robot vacuum while it moves), faded in and out; the pitch follows the story (a robot's speed).</p>
   <div class="grid" id="drones"></div>
   <h2>A story's sounds</h2>
-  <p>A story's whole sound track as a visitor hears it with the default volume (75 %): its cues at their times, its continuous sounds, its background, and its narration where it has a recording, the effects 9 dB under the voice while it plays. The cues are read from the app (it loads in a hidden frame, a few seconds). Rendering takes a moment.</p>
+  <p>A story's whole sound track as a visitor hears it with the default volume (75 %): its cues at their times, its continuous sounds, its background (the flock's and Pass it on's only), and its narration where it has a recording, the effects 9 dB under the voice while it plays. The cues are read from the app (it loads in a hidden frame, a few seconds). Rendering takes a moment.</p>
   <div class="bar" style="position:static;border:0">
     <label>Story <select id="trackKey"></select></label>
     <button id="trackGo" type="button">Render its sound track</button>
@@ -78,13 +78,13 @@
   <audio id="trackAudio" controls hidden></audio>
   <pre id="trackCues"></pre>
   <h2>Backgrounds</h2>
-  <p>One quiet loop for the story on show, faded in once it is built and out when it goes. Every story without one of its own gets the calm tone, its pitch, brightness and pace from its key.</p>
+  <p>One quiet loop for the story on show, faded in once it is built and out when it goes: only the flock and Pass it on have one (the owner, 30 October 2026, after listening to every story's track: the other backgrounds and the machines' hum went). Every other story is quiet between its sounds.</p>
   <div class="grid" id="beds"></div>
   <h2>3D demo</h2>
   <p>A small sound circling your head at ear height, 1.5 m away, through the same HRTF panner a headset uses (the listener at your head). Use headphones: on speakers it is only left and right.</p>
   <button id="d3" type="button" aria-pressed="false">Start the 3D demo</button><span id="d3dial"></span>
   <h2>Ducking demo</h2>
-  <p>A background and a few clicks; after two seconds seven seconds of the airports' narration play, and everything else dips 9 dB under the voice (down in about 0.4 s, back in about 1.5 s). Without the recording a stand-in voice plays.</p>
+  <p>The flock's background and a few clicks; after two seconds seven seconds of the airports' narration play, and everything else dips 9 dB under the voice (down in about 0.4 s, back in about 1.5 s). Without the recording a stand-in voice plays.</p>
   <button id="duck" type="button">Play the ducking demo</button>
   <h2>Voice limit</h2>
   <p>At most 16 sounds at once: the one quietest now makes room for the next.</p>
@@ -155,12 +155,12 @@
     DR[n] = setInterval(() => E.drone('board.' + n, n, { pitch: pitch() }), 100);
     b.textContent = 'Stop'; b.setAttribute('aria-pressed', 'true');
   });
-  // the backgrounds: one per story (and the soil story's and the design room's)
+  // every story and the design room (the tracks), and the backgrounds of those that have one (the flock and the pass story)
   const stories = (self.STORY_LIST || []).map(s => ({ key: s.key, title: s.title, col: s.col }));
-  for (const x of [{ key: 'soil', title: 'Soil', col: '#b98a4e' }, { key: 'design', title: 'Design room', col: '#f0d58c' }]) if (!stories.some(s => s.key === x.key)) stories.push(x);
-  $('#beds').innerHTML = stories.map(s => {
-    const k = L.bedOf(s.key), c = L.colour(s.key);
-    return `<div class="card"><span class="sw" style="background:${s.col}"></span><b>${esc(s.title)}</b><span class="k">${k}</span><p>${esc(L.BEDS[k].desc)}${k === 'calm' ? ` Root ${c.f0} Hz, brightness ${c.bright} Hz, a sway every ${Math.round(1 / c.move)} s.` : ''}</p>
+  for (const x of (self.STORY_EXTRA || [])) if (!stories.some(s => s.key === x.key)) stories.push({ key: x.key, title: x.title, col: x.col });
+  $('#beds').innerHTML = stories.filter(s => L.bedOf(s.key)).map(s => {
+    const k = L.bedOf(s.key);
+    return `<div class="card"><span class="sw" style="background:${s.col}"></span><b>${esc(s.title)}</b><span class="k">${k}</span><p>${esc(L.BEDS[k].desc)}</p>
       <div class="row"><button type="button" data-bed="${s.key}" aria-pressed="false">Play</button></div></div>`;
   }).join('');
   function bedShown() { document.querySelectorAll('[data-bed]').forEach(b => { const on = b.dataset.bed === B.bed; b.setAttribute('aria-pressed', on ? 'true' : 'false'); b.textContent = on ? 'Stop' : 'Play'; }); }
@@ -210,7 +210,7 @@
     const v = await voiceBuf(c);
     btn.textContent = 'Playing' + (v.real ? '' : ' (a stand-in voice)');
     const hadBed = B.bed;
-    if (!B.bed) { B.bed = 'airports'; bedShown(); }
+    if (!B.bed) { B.bed = 'flock'; bedShown(); }
     E.play('click', { force: true, delay: 1 });
     setTimeout(() => {
       const s = c.createBufferSource(); s.buffer = v.buf; s.connect(c.destination); s.start(c.currentTime + 0.02, v.from, 7);
@@ -251,13 +251,12 @@
     for (const n of L.ORDER_STORY) out.push({ id: 'sound:' + n, file: 'sfx-' + n, name: n, kind: 'story', desc: L.SOUNDS[n].desc + ' Used for: ' + (L.SOUNDS[n].uses || ''), ch: 2, phase: 2 });
     for (const [f, desc] of EXAMPLES) out.push({ id: 'ex:' + f, file: 'sfx-ex-' + f, name: 'example: ' + f, kind: 'story', desc, ch: 2, phase: 2, example: true });
     for (const n of L.ORDER_DRONE) out.push({ id: 'drone:' + n, file: 'drone-' + n, name: 'continuous: ' + n, kind: 'drone', desc: L.DRONES[n].desc + ' (4 s; its pitch glides from 0.8 to 1.3 in the middle)', ch: 2, phase: 2 });
-    for (const [key, what] of [['airports', 'calm'], ['qubits', 'calm'], ['flock', 'dusk'], ['pass', 'sea'], ['robots', 'room'], ['soil', 'wind']]) {
-      const c = L.colour(key);
-      out.push({ id: 'bed:' + key, file: 'bed-' + what + (what === 'calm' ? '-' + key : ''), name: 'background: ' + what + ' (' + key + ')', kind: 'bed', ch: 2,
-        desc: L.BEDS[what].desc + (what === 'calm' ? ` This one is ${key}'s: root ${c.f0} Hz, brightness ${c.bright} Hz.` : '') + ` (${SECS} s of the loop, faded in and out here)` });
+    for (const [key, what] of [['flock', 'dusk'], ['pass', 'sea']]) {
+      out.push({ id: 'bed:' + key, file: 'bed-' + what, name: 'background: ' + what + ' (' + key + ')', kind: 'bed', ch: 2,
+        desc: L.BEDS[what].desc + ` (${SECS} s of the loop, faded in and out here)` });
     }
     out.push({ id: 'demo:3d', file: 'demo-3d', name: '3D demo', kind: 'demo', ch: 2, desc: 'A small sound circling your head twice at ear height, 1.5 m away (HRTF, as in a headset; headphones).' });
-    out.push({ id: 'demo:duck', file: 'demo-duck', name: 'ducking demo', kind: 'demo', ch: 2, desc: 'A background and clicks; at 3 s seven seconds of the airports\' narration, everything else 9 dB under it, then back.' });
+    out.push({ id: 'demo:duck', file: 'demo-duck', name: 'ducking demo', kind: 'demo', ch: 2, desc: 'The flock\'s background and clicks; at 3 s seven seconds of the airports\' narration, everything else 9 dB under it, then back.' });
     return out;
   }
   function wav(buf) {

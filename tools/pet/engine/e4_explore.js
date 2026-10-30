@@ -71,7 +71,6 @@ function exploreTargets(now = performance.now()) {
 }
 function exploreStep(dt, now) {
   const tg = exploreTargets(now), k = 1 - Math.exp(-dt * 3.5);
-  sfxScanner();
   for (const n in DEF) XS[n] = STEP.has(n) ? tg[n] : XS[n] + (tg[n] - XS[n]) * k;
   // a gently swaying scene, unless you are steering it, standing by the scanner life size, or a set asks for stillness
   if (X.turn === 'on' && !(X.life && X.scene === 'scan') && !orbit.to && !orbit.held && !GL.still && !HOST.room.placing()) { X.sway = (X.sway || 0) + dt; orbit.cur[0] += dt * 6 * Math.cos(X.sway * 0.25); }
@@ -467,10 +466,4 @@ function bindCanvas() {
     orbit.to = null;
     orbit.cur[2] = clamp(orbit.cur[2] * Math.exp(ev.deltaY * 0.0012), 0.05, 40);
   }, { passive: false });
-}
-// sound effects: the scanner's ring hums while it is the scene in explore mode, as it does in the story (from exploreStep,
-// every frame in explore mode; the drone fades by itself once nobody calls it)
-function sfxScanner() {
-  if (X.scene !== 'scan' || sfxHidden() || !HOST.sfx || !HOST.sfx.drone) return;
-  try { HOST.sfx.drone(XR_HERE + '.ring', 'machine', Object.assign(sfxWhere('scan', 'ring'), { pitch: 1.3, gain: 0.22 })); } catch (e) { /* an older shell */ }
 }

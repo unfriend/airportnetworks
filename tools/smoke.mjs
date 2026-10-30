@@ -94,7 +94,8 @@ for (const key of ['airports', 'proteins', 'spatial', 'lbi', 'nmd', 'endo', 'pet
     }, key);
     if (bad.length) errors.push(...bad.map(b => `${key}: ${b}`));
   });
-  // Sound effects (phase 2): the story's cue table (names the shell knows, places that resolve, times within the story),
+  // Sound effects (phase 2): the story's cue table (names the shell knows, places that resolve, times within the story;
+  // a background only for the flock and the pass story),
   // none over a scrub, exactly the cues the clock crosses while it plays, an explore action's sound (SFX_PICK) and a
   // pretend headset's press on a story panel button clicking (the log of what was asked for: SFXQ.log)
   await step(`${key}: sound effects: its cues, a scrub, a stretch played, a pick, a panel press`, async () => {
@@ -108,6 +109,8 @@ for (const key of ['airports', 'proteins', 'spatial', 'lbi', 'nmd', 'endo', 'pet
       cues.forEach(c => { if (!window.SFX_LIB.SOUNDS[c[0]]) out.push(`unknown sound ${c[0]} at ${c[1]}`); if (!(c[1] >= 0 && c[1] <= T)) out.push(`a cue outside the story: ${c[0]} at ${c[1]}`); });
       if (where.some(w => !w)) out.push(`${where.filter(w => !w).length} cues without a place`);
       if (peek('SFXQ.spans.some(s => !SFX_LIB.DRONES[s.name])')) out.push('a span of an unknown continuous sound');
+      // a background only for the flock and the pass story (the owner, 30 October 2026: the others went)
+      if (!!window.SFX_LIB.bedOf(k) !== (k === 'flock' || k === 'pass')) out.push(`a background where none belongs, or none for the flock or pass: '${window.SFX_LIB.bedOf(k)}'`);
       if (!cues.length) return out.concat(['no cues']);
       const back = peek('APP.t'), n0 = () => peek('SFXQ.n');
       // a scrub across cues while paused adds none

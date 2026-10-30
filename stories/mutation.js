@@ -4078,7 +4078,6 @@ function buildStory() {
   sfxCue(a + 0.3, 'ratchet', 'rule', 'compiler', { n: 8, dur: 4 });                  // the compiler
   sfxCue(a + 4, 'rise', 'rule', 'machine', { dur: 4 });                              // the machine
   sfxCue(a + 7.8, 'whoosh', 'rule', 'copyGates');                                    // the copy
-  sfxHold(a + 13, a + 20, 'machine', 'rule', 'turn1', { pitch: 1.2, gain: 0.3 });    // the turn
   sfxCue(a + 19.8, 'link', 'rule', 'circuit');                                       // the circuit
   sfxCue(a + 29, 'ratchet', 'tree', 'crown', { n: 14, dur: 3 });                     // a machine on every branch
   sfxCue(a + 33.8, 'patter', 'tree', 'tips', { dur: 2, pitch: 1.3, gain: 0.3 });     // read at the tips

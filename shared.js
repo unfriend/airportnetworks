@@ -25,7 +25,7 @@
 // (or #debug in a link) prints them as well.
 (function () {
   const PROTO = 1;
-  const FORMAT = 'networks-26';   // the shared state's format (keys, the stories' state()): bump when it changes shape
+  const FORMAT = 'networks-27';   // the shared state's format (keys, the stories' state()): bump when it changes shape
   const BROWSER = (/OculusBrowser\/(\d+)/.exec(navigator.userAgent) || [])[1] || '';   // Quest Browser's version (shared spaces differ by it)
   const EYE = 1.6;               // a standing eye height (m): a station's rig hangs this high over its spot
   const AHEAD = 1.4;             // a station's content floats this far in front of its spot
@@ -1712,21 +1712,23 @@
   }
   const refused = what => { if (!circlesLocked()) return false; log('circles locked', { what }); return true; };
   // the headsets' three settings (HOST.xr: labels in 3D (turned to you, in the scene), on top or hidden; free moving on or off;
-  // subtitles on or off) are the room's in a room, for everyone in it (key look: { labels, free, subs, by, at }; a room
-  // without it: everything in 3D, no subtitles), set from a headset's menu or the page's dialog, and never refused by
-  // either lock. Null outside a room (the device's own)
-  const LOOKS = ['face', 'fixed', 'hidden'], LOOK0 = { labels: 'fixed', free: true, subs: false };
+  // subtitles on or off) and the two sound switches for pages and headsets alike (sound effects and narration on or off)
+  // are the room's in a room, for everyone in it (key look: { labels, free, subs, sfx, voice, by, at }; a room without it:
+  // everything in 3D, no subtitles, sound effects and narration on; FORMAT networks-27 for sfx and voice), set from a
+  // headset's menu or the page's dialog, and never refused by either lock. Null outside a room (the device's own)
+  const LOOKS = ['face', 'fixed', 'hidden'], LOOK0 = { labels: 'fixed', free: true, subs: false, sfx: true, voice: true };
   function look() {
     if (!C.code || !C.welcomed) return null;
     const v = val('look'), b = k => (v && typeof v[k] === 'boolean' ? v[k] : LOOK0[k]);
-    return { labels: v && LOOKS.includes(v.labels) ? v.labels : LOOK0.labels, free: b('free'), subs: b('subs') };
+    return { labels: v && LOOKS.includes(v.labels) ? v.labels : LOOK0.labels, free: b('free'), subs: b('subs'), sfx: b('sfx'), voice: b('voice') };
   }
   const freeNow = () => (HOST.xr && HOST.xr.free ? HOST.xr.free() : true);
   function setLook(o) {
     const L = look();
     if (!L) return false;
-    const v = { labels: LOOKS.includes(o.labels) ? o.labels : L.labels, free: typeof o.free === 'boolean' ? o.free : L.free, subs: typeof o.subs === 'boolean' ? o.subs : L.subs };
-    const pairs = [['look', { labels: v.labels, free: v.free, subs: v.subs, by: C.id, at: Math.round(now()) }]];
+    const bo = k => (typeof o[k] === 'boolean' ? o[k] : L[k]);
+    const v = { labels: LOOKS.includes(o.labels) ? o.labels : L.labels, free: bo('free'), subs: bo('subs'), sfx: bo('sfx'), voice: bo('voice') };
+    const pairs = [['look', Object.assign({}, v, { by: C.id, at: Math.round(now()) })]];
     // free moving off: every station's scene and panel stand as without it (no turn, the panel upright at its yaw)
     if (L.free && !v.free) {
       for (const k of new Set([...C.keys.keys(), ...C.pending.keys()])) {
@@ -2296,7 +2298,7 @@
     OV.room = new THREE.Group(); OV.room.matrixAutoUpdate = false;
     OV.root.add(OV.room);
     OV.panelG = new THREE.Group();
-    OV.panel = sheet(720, 1716, 0.42, 53);   // (the tallest it gets: a room on this headset with a three-line note, at a station, 1687 px)
+    OV.panel = sheet(720, 1792, 0.42, 53);   // (the tallest it gets: a room on this headset with a three-line note, at a station, 1763 px)
     OV.panelG.add(OV.panel.mesh); OV.root.add(OV.panelG);
     OV.panel.mesh.userData.shell = { kind: 'panel' };
     // the menu's clock: the group's origin is the face's middle
@@ -2837,7 +2839,7 @@
       C.st.map(s => s.id + s.story), C.members.map(m => m.id + m.name + m.color + m.kind + m.here + (m.host ? 'h' : '')), [...C.pres].map(([id, P]) => id + P.st), C.via, hosting(), C.takeover, C.peer,
       C.code ? 0 : (C.rooms || []).map(r => r.code + r.members), C.roomsErr, C.relay, C.code ? nearShown() : [(C.near || []).map(r => r.code + r.members + r.name), C.netState, C.nearBusy, C.nearErr, (offer() || {}).code], sharedLine(), sourceLine(), versionNote(), scanNote(), fullNote(), floorNote(), forgetArmed(), freshArmed(), canFresh(), !!(R.saved || R.frame), R.sharedAlign, circlesLocked(), stLocked(liveSt()), peopleAll(),
       C.local, C.code ? 0 : localRooms().map(r => r.code + r.stations), !!R.again, HOST.slides ? HOST.slides.sig() : '', menuHint(), HOST.xr.sig(), showing(), showing() && HOST.panels.sig(showing()),
-      PNL.page === 'sound' ? Math.floor(performance.now() / 500) + HOST.audio.pref : '', HOST.curKey, HOST.sfx ? HOST.sfx.sig() : '']);
+      PNL.page === 'sound' ? Math.floor(performance.now() / 500) + HOST.audio.pref : '', HOST.curKey, HOST.sfx ? HOST.sfx.sig() : '', HOST.xr.voice ? HOST.xr.voice() : '']);
   }
   // the menu's Design room row: its button (label, what a press does, or null) and a note beside it
   function designRow() {
@@ -2896,18 +2898,23 @@
     // station's, for everyone at that circle. No row on the Stories screen or away from a station (no story on show)
     const pk = showing(), pm = pk ? HOST.panels.get(pk) : '';
     if (pm) button(S, 'panels', x + bw + 16, y, bw, 60, 'Panels: ' + PANELS_SAY[pm], () => HOST.panels.set(pk, HOST.panels.next(pk)), { on: pm === 'shown' });
-    else if (C.code) { ctx.font = FONT(21); ctx.fillStyle = MUTED; wrapText(ctx, 'Labels, moving and subtitles: the same for everyone in this room', x + bw + 16, y + 2, bw, 28, 2); }
+    else if (C.code) { ctx.font = FONT(21); ctx.fillStyle = MUTED; wrapText(ctx, 'These settings and the sound: the same for everyone in this room', x + bw + 16, y + 2, bw, 28, 2); }
     y += 76;
     if (pm) {
       ctx.font = FONT(21); ctx.fillStyle = MUTED;
       ctx.fillText(fit(ctx, C.code ? 'Panels for this circle, the rest for the room' : 'Panels: for ' + ((meta(pk) || {}).title || 'this story') + ' only', w), x, y - 4);
       y += 30;
     }
-    // sound effects (sfx.js): on or off and their volume (each press the next step), this headset's own, never the room's
+    // the sound switches for every story: sound effects (sfx.js) and narration on or off (the owner, 30 October 2026); in
+    // a room the room's, for everyone in it (pages too), else this headset's own. The effects' volume (each press the next
+    // step) is always this headset's own
     if (HOST.sfx) {
-      const so = HOST.sfx.on();
+      const so = HOST.sfx.on(), vo = !HOST.xr.voice || HOST.xr.voice();
       button(S, 'sfx', x, y, bw, 60, so ? 'Sound effects: on' : 'Sound effects: off', () => HOST.sfx.set(!so), { on: so, px: 23 });
-      button(S, 'sfxvol', x + bw + 16, y, bw, 60, 'Effects volume: ' + Math.round(HOST.sfx.volume() * 100) + '%', () => HOST.sfx.setVolume(HOST.sfx.nextVolume()), { px: 22 });
+      if (HOST.xr.setVoice) button(S, 'voice', x + bw + 16, y, bw, 60, vo ? 'Narration: on' : 'Narration: off', () => HOST.xr.setVoice(!vo), { on: vo, px: 23 });
+      y += 76;
+      button(S, 'sfxvol', x, y, bw, 60, 'Effects volume: ' + Math.round(HOST.sfx.volume() * 100) + '%', () => HOST.sfx.setVolume(HOST.sfx.nextVolume()), { px: 22 });
+      ctx.font = FONT(21); ctx.fillStyle = MUTED; wrapText(ctx, C.code ? 'The volume is this headset\'s own; both switches the room\'s' : 'The volume: this headset\'s own', x + bw + 16, y + 2, bw, 28, 2);
       y += 76;
     }
     // the design room: outside a room it opens (the props table); in a room it puts the table at your feet as a circle,
@@ -4823,6 +4830,8 @@
       else if (act === 'lock') setLock(!circlesLocked());
       else if (act === 'free') HOST.xr.setFree(!HOST.xr.free());
       else if (act === 'subs') HOST.xr.setSubs(!HOST.xr.subs());
+      else if (act === 'sfx') { if (HOST.sfx) HOST.sfx.set(!HOST.sfx.on()); }   // (in a room the room's; turned on, the click's own sound says so)
+      else if (act === 'voice') HOST.xr.setVoice(!HOST.xr.voice());
       else if (act === 'panels') { const v = stPanels(C.stById.get(arg)); setStPanels(arg, PANELS[(PANELS.indexOf(v) + 1) % 3]); }   // (not locked with the circles)
       else if (act === 'stlock') setStLock(arg, !stLocked(C.stById.get(arg)));   // (a story's lock: neither is the circles')
       else if (act === 'fresh') { freshAsk(); setTimeout(renderDialog, 3050); }
@@ -4963,6 +4972,11 @@
       }).join('');
       drawMap();
     }
+    // the sound switches, for every story: in a room the room's (anyone sets them; not locked with the circles), else this device's
+    const sfb = $('[data-sh="sfx"]'), vob = $('[data-sh="voice"]'), sso = $('.sh-sound span');
+    if (sso) sso.textContent = joined ? 'For everyone in this room, pages and headsets:' : 'On this device (in a shared room, the room\'s):';
+    if (sfb) { const on = !!HOST.sfx && HOST.sfx.on(); sfb.hidden = !HOST.sfx; sfb.textContent = on ? 'Sound effects: on' : 'Sound effects: off'; sfb.setAttribute('aria-pressed', String(on)); }
+    if (vob) { const on = HOST.xr.voice(); vob.textContent = on ? 'Narration: on' : 'Narration: off'; vob.setAttribute('aria-pressed', String(on)); }
     $('.sh-colors').innerHTML = COLORS.map(c => `<button type="button" data-sh="color:${c}" style="background:${c}" aria-label="Colour ${c}" aria-pressed="${c === C.color}"></button>`).join('');
   }
   // the room from above: stations (dots in their colours, a line to where the content floats, titles), people

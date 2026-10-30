@@ -376,7 +376,6 @@ function buildStory() {
   sfxCue(C.title.a + 0.3, 'rise', 'scan', 'vision_scan');                                 // the vision row
   sfxCue(C.title.a + 10, 'whoosh', 'scan', 'centre', { dur: 5, pitch: 0.8 });             // it draws back into the scanner
   a = C.scanner.a;
-  sfxHold(a + 9, a + 34, 'machine', 'scan', 'ring', { pitch: 1.3, gain: 0.22 });          // the scanner's ring, once the scan begins
   sfxCue(a + 1, 'whoosh', 'scan', 'couch', { dur: 6, pitch: 0.6, gain: 0.4 });            // the couch slides in
   sfxCue(a + 9, 'whoosh', 'scan', 'ring', { dur: 2, pitch: 1.3 });                        // the skin opens on the ring
   sfxCue(a + 12, 'patter', 'scan', 'event', { dur: 1.5, pitch: 1.4, gain: 0.3 });         // the first coincidences

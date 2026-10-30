@@ -3485,7 +3485,6 @@ function buildStory() {
   sfxCue(C.overlap.a + 34, 'pulse', 'tower', 'pairMid', { pitch: 0.8 });                 // the known genes alone
   a = C.stress.a;
   [1, 0.94, 0.89].forEach((p, k) => sfxCue(a + 2 + 3 * k, 'knock', 'tower', null, { pitch: p, seq: true }));   // layers fall away; the module holds
-  sfxHold(a + 13, a + 33, 'machine', 'hpc', 'racks', { pitch: 0.9, gain: 0.3 });         // the supercomputer's hall
   sfxCue(a + 18, 'grow', 'hpc', 'field', { dur: 5 });                                    // the sea of towers
   sfxCue(C.next.a + 2, 'rise', 'tower', null, { dur: 6 });                               // the tower opens round you
   buildCamera(wp);

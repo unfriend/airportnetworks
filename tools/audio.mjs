@@ -9,11 +9,16 @@
 // never mutes; Esc is not a tap; the hum runs only in a headset session (hidden and visible
 // again); each fault falls back to the <audio> element, which also plays while a slow decode
 // runs; Sound check (beeps, engine choice). The sound effects (HOST.sfx, sfx.js): on by default (a device that saved
-// 'off' stays off); the bar's Sound button silences them and the background with the narration, and brings them back;
-// turned off and on in Sound check (its volume kept, Try them) or by #sfx=off and #sfx=on; nothing before a tap; a sound
-// really going through the narration's one context; a page button's click; the story's background; ducked under the
-// narration and back; at most 16 voices; none with the audio element engine or when Web Audio never starts; the headset
-// menu's row and its volume steps, the listener following a pretend headset's head and a sound from a place panned (HRTF).
+// 'off' stays off); the bar's Sound button silences them with the narration, and brings them back; turned off and on in
+// Sound check (its volume kept, Try them) or by #sfx=off and #sfx=on; nothing before a tap; a sound really going through
+// the narration's one context; a page button's click; a background only for the flock and the pass story (the flock's
+// heard, gone with the sound off and on the Stories screen; none for the airports); ducked under the narration and back;
+// at most 16 voices; none with the audio element engine or when Web Audio never starts; the headset menu's rows (Sound
+// effects, Narration, the volume's steps), the listener following a pretend headset's head and a sound from a place
+// panned (HRTF). The two switches (HOST.xr.sfx and HOST.xr.voice, for every story; in a shared room the room's): the
+// Narration switch silencing the narration only (the story's clock running on, the effects playing, nothing ducked),
+// the Sound effects switch the effects only, both from the Shared dialog's row, kept across a reload, and set by
+// #voice=off|on and #sfx=off in a link.
 // The stories' sounds (phase 2): a cue at its time (the log, the engine, the output), none while paused or over a jump,
 // the next one playing on, the first again after Replay; a continuous sound while the clock is inside its span, gone
 // after a pause and after a jump out; the voice limit kept in the busiest moment of the airports, the tour, the soil
@@ -259,26 +264,24 @@ const fxUntil = async (what, ok, ms = 5000) => { const t0 = Date.now(); let s; w
 // the output's loudest sample over the next second (a sound really went through the context)
 const heard = () => page.evaluate(async () => { let m = 0; for (let i = 0; i < 20; i++) { await new Promise(r => setTimeout(r, 50)); m = Math.max(m, HOST.sfx.level()); } return m; });
 page = await open(base);
-await step('sound effects: on by default', async () => {
-  const d = await page.evaluate(() => [HOST.sfx.on(), localStorage.getItem('sfxOn'), HOST.sfx.volume()]);
-  if (d[0] !== true || d[1] !== null || d[2] !== 0.75) throw new Error('defaults: ' + JSON.stringify(d));
+await step('sound effects: on by default, and the narration', async () => {
+  const d = await page.evaluate(() => [HOST.sfx.on(), localStorage.getItem('sfxOn'), HOST.sfx.volume(), HOST.xr.sfx(), HOST.xr.voice(), localStorage.getItem('narrationOn')]);
+  if (d.join() !== 'true,,0.75,true,true,') throw new Error('defaults: ' + JSON.stringify(d));
   await page.click('#picker .card[data-story="airports"]');
   await playing('sound effects on: the narration as ever');
-  const s = await fxUntil('the card\'s click and the background', s => s.played >= 1 && s.bed === 'airports', 5000);
-  console.log(`ok   sound effects on by default (nothing saved): sounds play (the last: ${s.last}) and the background (${s.bedKind})`);
+  const s = await fxUntil('the card\'s click (and no background for the airports)', s => s.played >= 1 && !s.bed, 5000);
+  console.log(`ok   sound effects and the narration on by default (nothing saved): sounds play (the last: ${s.last}), no background for the airports`);
 });
-await step('sound effects: the Sound button silences them and the background too', async () => {
+await step('sound effects: the Sound button silences them too', async () => {
   await wait(1200);   // (the Sound button mutes once the narration has been on a moment)
   await page.click('#btnSound');
   await until('the narration off', p => p.pos === null && p.label === 'Sound off', 3000);
-  const s = await fxUntil('no background while the sound is off', s => !s.bed, 3000);
   const v = await page.evaluate(() => [HOST.sfx.play('notice', { force: true }), HOST.sfx.line()]);
-  if (v[0] !== null || !/silent while the sound is off/.test(v[1])) throw new Error('a sound while the sound is off: ' + JSON.stringify([s, v[1]]));
+  if (v[0] !== null || !/silent while the sound is off/.test(v[1])) throw new Error('a sound while the sound is off: ' + JSON.stringify(v));
   await page.click('#btnSound');
   await playing('on again');
-  await fxUntil('the background back', s => s.bed === 'airports', 5000);
   if (!await page.evaluate(() => !!HOST.sfx.play('notice', { force: true }))) throw new Error('no sound after the sound is on again');
-  console.log('ok   the Sound button silences the effects and the background with the narration, and brings them back');
+  console.log('ok   the Sound button silences the effects with the narration, and brings them back');
 });
 await step('sound effects: turned off and on in Sound check, with a volume', async () => {
   await page.click('#btnOther');
@@ -301,6 +304,25 @@ await step('sound effects: turned off and on in Sound check, with a volume', asy
   if (!/^Sound effects: on, volume 50 %/m.test(await lines())) throw new Error('Sound check\'s line:\n' + await lines());
   console.log(`ok   Sound check turns them off (saved) and on (a switch sound: ${s.last}), the volume is kept, Try them plays them, its line says so`);
 });
+// a background only for the flock and the pass story (the owner, 30 October 2026: "flock and pass it on can keep their
+// sounds as is, all other background noise can go"); the machines' hum went too, the robots' vacuum stays
+await step('backgrounds: only the flock and the pass story', async () => {
+  const lib = await page.evaluate(() => {
+    const L = window.SFX_LIB, keys = HOST.list.map(s => s.key).concat((self.STORY_EXTRA || []).map(s => s.key));
+    return { with: keys.filter(k => L.bedOf(k)).map(k => k + ':' + L.bedOf(k)).join(), beds: Object.keys(L.BEDS).join(), drones: Object.keys(L.DRONES).join(), n: keys.length };
+  });
+  if (lib.with !== 'pass:sea,flock:dusk' || lib.beds !== 'dusk,sea' || lib.drones !== 'vacuum') throw new Error(JSON.stringify(lib));
+  await page.click('#picker .card[data-story="flock"]');
+  await page.waitForFunction(() => HOST.curKey === 'flock' && HOST.cur && HOST.cur.collab.scene(), null, { timeout: 90000 });
+  const b = await fxUntil('the flock\'s background', s => s.bed === 'flock' && s.bedKind === 'dusk', 8000);
+  await page.evaluate(() => { HOST.audio.state().muted = true; });   // (as the Sound button sets it: the flock has no recording, so no button)
+  await fxUntil('no background while the sound is off', s => !s.bed, 4000);
+  await page.evaluate(() => { HOST.audio.state().muted = false; });
+  await fxUntil('the background back', s => s.bed === 'flock', 6000);
+  await page.click('#btnOther');
+  await fxUntil('no background on the Stories screen', s => !s.bed, 4000);
+  console.log(`ok   backgrounds only for ${lib.with} (of ${lib.n} pages), continuous sounds: ${lib.drones}; the flock's ${b.bedKind} plays, goes with the sound off and on the Stories screen`);
+});
 await step('sound effects: through HOST.audio\'s one context', async () => {
   const same = await page.evaluate(() => HOST.sfx.context() === HOST.audio.ctx && HOST.audio.ctx.state === 'running');
   await page.evaluate(() => HOST.sfx.play('notice', { force: true }));
@@ -308,16 +330,48 @@ await step('sound effects: through HOST.audio\'s one context', async () => {
   if (!same || !(m > 0.001)) throw new Error(`same context ${same}, output peak ${m}`);
   console.log(`ok   a sound plays through the narration's context (output peak ${(20 * Math.log10(m)).toFixed(1)} dBFS at 50 %)`);
 });
-await step('sound effects: a page button\'s click, the story\'s background, ducked under the narration', async () => {
+await step('sound effects: a page button\'s click, ducked under the narration', async () => {
   const n0 = (await fxs()).played;
   await page.click('#picker .card[data-story="airports"]');
   await fxUntil('a click for the card', s => s.played > n0);
   await playing('the narration with sound effects on');
-  const d = await fxUntil('ducked while the voice plays', s => s.speak && s.duck < 0.4 && s.bed === 'airports' && s.bedKind === 'calm', 4000);
+  const d = await fxUntil('ducked while the voice plays', s => s.speak && s.duck < 0.4 && !s.bed, 4000);
   await page.evaluate(() => HOST.cur.peek('APP.togglePlay()'));
   const u = await fxUntil('back up once the voice stops', s => !s.speak && s.duck > 0.9, 5000);
   await page.evaluate(() => HOST.cur.peek('APP.togglePlay()'));
-  console.log(`ok   a card's click sounds; the calm background plays for the airports; ducked to ${(20 * Math.log10(d.duck)).toFixed(1)} dB under the voice, back to ${(20 * Math.log10(u.duck)).toFixed(1)} dB after`);
+  console.log(`ok   a card's click sounds; ducked to ${(20 * Math.log10(d.duck)).toFixed(1)} dB under the voice, back to ${(20 * Math.log10(u.duck)).toFixed(1)} dB after`);
+});
+// the two switches, for every story (outside a room this device's own): Narration off silences the narration only (the
+// story runs on its clock, the effects play, nothing is ducked); Sound effects off silences the effects only; both from
+// the Shared dialog's row (outside a room: this device's)
+await step('the Narration switch silences the narration only; the Sound effects switch the effects only', async () => {
+  await playing('the narration before the switches');
+  await page.evaluate(() => HOST.xr.setVoice(false));
+  await until('the narration silent', p => p.pos === null, 3000);
+  const t1 = await page.evaluate(() => HOST.cur.peek('APP.t'));
+  await wait(1500);
+  const a = await page.evaluate(() => ({ t: HOST.cur.peek('APP.t'), playing: HOST.cur.peek('APP.playing'), fx: !!HOST.sfx.play('notice', { force: true }), speaking: HOST.audio.speaking(),
+    saved: localStorage.getItem('narrationOn'), label: HOST.cur.peek('AUD.label()'), line: HOST.audio.report().find(l => /^Narration (on|switched|turned)/.test(l)) }));
+  const s = await fxs();
+  // (the clock on its own runs by the frames, a slow software page's few: on, not by how far)
+  if (!(a.t > t1 + 0.1) || !a.playing || !a.fx || a.speaking || s.speak || a.saved !== 'off' || !/switched off/.test(a.line)) throw new Error(JSON.stringify([t1, a, s.speak]));
+  // the Shared dialog's row (outside a room: this device's): Narration on again, Sound effects off
+  const d = await page.evaluate(async () => {
+    HOST.collab.dialog(true); await new Promise(r => setTimeout(r, 300));
+    const sb = document.querySelector('[data-sh="sfx"]'), vb = document.querySelector('[data-sh="voice"]'), span = document.querySelector('.sh-sound span');
+    const out = { shown: [sb.textContent, vb.textContent, sb.getAttribute('aria-pressed'), vb.getAttribute('aria-pressed')].join(), span: span.textContent, visible: !!(vb.offsetParent) };
+    vb.click(); sb.click(); await new Promise(r => setTimeout(r, 300));
+    out.after = [sb.textContent, vb.textContent, HOST.xr.voice(), HOST.sfx.on(), localStorage.getItem('sfxOn'), localStorage.getItem('narrationOn')].join();
+    HOST.collab.dialog(false);
+    return out;
+  });
+  if (d.shown !== 'Sound effects: on,Narration: off,true,false' || !d.visible || !/On this device/.test(d.span) || d.after !== 'Sound effects: off,Narration: on,true,false,off,on') throw new Error(JSON.stringify(d));
+  await playing('the narration on again (the dialog\'s row), the effects off');
+  const b = await page.evaluate(() => [HOST.sfx.play('notice', { force: true }), HOST.audio.speaking()]);
+  if (b[0] !== null || !b[1]) throw new Error('the effects off: ' + JSON.stringify(b));
+  await page.evaluate(() => HOST.sfx.set(true));
+  if (!await page.evaluate(() => !!HOST.sfx.play('notice', { force: true }))) throw new Error('no sound once the effects are on again');
+  console.log(`ok   Narration off: silent, the clock ran on (${t1.toFixed(1)} -> ${a.t.toFixed(1)} s), the effects played, nothing ducked, saved; the Shared dialog's row (${d.span.replace(/:$/, '')}) turned it on and the effects off (the narration playing on its own); effects on again`);
 });
 await step('sound effects: at most 16 voices', async () => {
   const s = await page.evaluate(() => { const c0 = HOST.sfx.state().cut; for (let i = 0; i < 40; i++) HOST.sfx.play(['click', 'hover', 'place', 'join'][i % 4], { force: true }); const s = HOST.sfx.state(); s.cut -= c0; return s; });
@@ -327,14 +381,41 @@ await step('sound effects: at most 16 voices', async () => {
 await step('sound effects: silent with the audio element engine, back with Web Audio', async () => {
   await page.click('#btnOther');
   await page.click('#btnSndCheck');
-  await fxUntil('no background on the Stories screen', s => !s.bed, 3000);
   await page.click('[data-snd="media"]');
   const v = await page.evaluate(() => [HOST.sfx.play('notice', { force: true }), HOST.audio.fx()]);
   if (v[0] !== null || v[1] !== null) throw new Error('a sound with the audio element chosen');
   await page.click('[data-snd="auto"]');
   const w = await page.evaluate(() => !!HOST.sfx.play('notice', { force: true }));
   if (!w) throw new Error('no sound back with Web Audio');
-  console.log('ok   none with the audio element engine (and no background on the Stories screen); back with Web Audio');
+  console.log('ok   none with the audio element engine; back with Web Audio');
+});
+// the two switches kept across a reload, with Sound check's own buttons saying so
+await step('the two switches: kept across a reload', async () => {
+  await page.evaluate(() => { HOST.xr.setVoice(false); HOST.sfx.set(false); });
+  await page.reload({ waitUntil: 'load' });
+  await page.waitForFunction(() => typeof HOST !== 'undefined' && HOST.sfx && HOST.xr && HOST.cur, null, { timeout: 60000 });
+  await page.evaluate(() => { HOST.openPicker(); HOST.soundCheck(true); });
+  const k = await page.evaluate(() => [HOST.xr.voice(), HOST.sfx.on(), document.querySelector('[data-snd="voice"]').textContent, document.querySelector('[data-snd="sfx"]').textContent].join());
+  if (k !== 'false,false,Narration: off,Sound effects: off') throw new Error(k);
+  await page.click('[data-snd="voice"]'); await page.click('[data-snd="sfx"]');
+  const k2 = await page.evaluate(() => [HOST.xr.voice(), HOST.sfx.on(), localStorage.getItem('narrationOn'), localStorage.getItem('sfxOn')].join());
+  if (k2 !== 'true,true,on,on') throw new Error(k2);
+  console.log('ok   Narration and Sound effects off kept across a reload (Sound check says so); its buttons turn them on again');
+});
+await page.close();
+// links: #voice=off and #sfx=off turn them off (saved); #voice=on back on
+page = await open(base + '#airports&voice=off&sfx=off');
+await step('the two switches: #voice=off and #sfx=off in a link', async () => {
+  const k = await page.evaluate(() => [HOST.xr.voice(), HOST.sfx.on(), localStorage.getItem('narrationOn'), localStorage.getItem('sfxOn')].join());
+  if (k !== 'false,false,off,off') throw new Error(k);
+  console.log('ok   #voice=off and #sfx=off turn both off');
+});
+await page.close();
+page = await open(base + '#airports&voice=on', '', { narrationOn: 'off' });
+await step('the two switches: #voice=on in a link', async () => {
+  const k = await page.evaluate(() => [HOST.xr.voice(), localStorage.getItem('narrationOn')].join());
+  if (k !== 'true,on') throw new Error(k);
+  console.log('ok   #voice=on turns the narration on again');
 });
 await page.close();
 // a link turns them on (or off); nothing before a tap
@@ -345,9 +426,8 @@ await step('sound effects: #sfx=on in a link, nothing before a tap', async () =>
   if (a[0] !== true || a[1] !== null || a[2] !== 0 || a[3]) throw new Error('before a tap: ' + JSON.stringify(a));
   await page.click('#btnSound');
   await playing('Play sound');
-  await fxUntil('the background once tapped', s => s.bed === 'airports');
   if (!await page.evaluate(() => !!HOST.sfx.play('notice', { force: true }))) throw new Error('no sound after the tap');
-  console.log('ok   #sfx=on turns them on; silent until a tap, then the background and sounds');
+  console.log('ok   #sfx=on turns them on; silent until a tap, then sounds');
 });
 // a pretend headset (as the smoke test's): the menu's row, and the listener following the head for sounds from places
 await step('sound effects: the headset menu\'s row, sounds from places', async () => {
@@ -380,8 +460,9 @@ await step('sound effects: the headset menu\'s row, sounds from places', async (
   const r = await page.evaluate(() => {
     const ids = () => HOST.collab.overlay().panel.regions.map(x => x.id), tap = id => { const x = HOST.collab.overlay().panel.regions.find(y => y.id === id); if (x && x.fn) x.fn(); window.__tick(2); return !!(x && x.fn); };
     HOST.collab.panelOpen(true); window.__tick(3);
-    const out = { row: ids().includes('sfx') && ids().includes('sfxvol'), v0: HOST.sfx.volume() };
+    const out = { row: ids().includes('sfx') && ids().includes('sfxvol') && ids().includes('voice'), v0: HOST.sfx.volume() };
     out.vol = tap('sfxvol') && HOST.sfx.volume(); out.off = tap('sfx') && HOST.sfx.on(); out.on = tap('sfx') && HOST.sfx.on();
+    out.voff = tap('voice') && HOST.xr.voice(); out.von = tap('voice') && HOST.xr.voice();
     HOST.collab.panelOpen(false);
     window.__head.p = [0.5, 1.7, -0.2]; window.__tick(2);
     const L = HOST.audio.ctx.listener;
@@ -402,8 +483,8 @@ await step('sound effects: the headset menu\'s row, sounds from places', async (
     out.flat = !!HOST.sfx.play('click', { at: [1.5, 1.7, -0.2], force: true }) && HOST.sfx.state().spatial;
     return out;
   });
-  if (!r.row || r.v0 !== 0.75 || r.vol !== 1 || r.off !== false || r.on !== true || r.listener.join() !== '0.5,1.7,-0.2' || r.spatial !== 'HRTF' || r.flat !== false || !/^\w+,1,click,true,click$/.test(r.press)) throw new Error(JSON.stringify(r));
-  console.log(`ok   the headset menu has Sound effects and its volume (0.75 -> ${r.vol}); the listener follows the head (${r.listener}); a sound from a place goes through an ${r.spatial} panner, none on a screen; a press on the story panel's ${r.press.split(',')[0]} clicks at the button (HRTF)`);
+  if (!r.row || r.v0 !== 0.75 || r.vol !== 1 || r.off !== false || r.on !== true || r.voff !== false || r.von !== true || r.listener.join() !== '0.5,1.7,-0.2' || r.spatial !== 'HRTF' || r.flat !== false || !/^\w+,1,click,true,click$/.test(r.press)) throw new Error(JSON.stringify(r));
+  console.log(`ok   the headset menu has Sound effects, Narration (off and on again) and the effects' volume (0.75 -> ${r.vol}); the listener follows the head (${r.listener}); a sound from a place goes through an ${r.spatial} panner, none on a screen; a press on the story panel's ${r.press.split(',')[0]} clicks at the button (HRTF)`);
 });
 await page.close();
 page = await open(base + '#airports&sfx=off', '', { sfxOn: 'on' });
@@ -471,8 +552,8 @@ await step('story sounds: a cue at its time, none while paused or over a jump, t
 });
 await step('story sounds: a continuous sound while the clock is inside its span', async () => {
   const at = 60;
-  await peekP(`(SFXQ.spans.push({ id: XR_HERE + '.test', t0: storyT(${at}), t1: storyT(${at + 8}), n0: ${at}, n1: ${at + 8}, name: 'machine', set: null, at: null, o: { gain: 0.5, pitch: 1.2 } }), APP.seek(${at + 0.5}), APP.playing || APP.togglePlay())`);
-  const on = await fxUntil('the drone inside its span', s => s.drones.some(d => d.id === 'airports.test' && d.name === 'machine'), 3000);
+  await peekP(`(SFXQ.spans.push({ id: XR_HERE + '.test', t0: storyT(${at}), t1: storyT(${at + 8}), n0: ${at}, n1: ${at + 8}, name: 'vacuum', set: null, at: null, o: { gain: 0.5, pitch: 1.2 } }), APP.seek(${at + 0.5}), APP.playing || APP.togglePlay())`);
+  const on = await fxUntil('the drone inside its span', s => s.drones.some(d => d.id === 'airports.test' && d.name === 'vacuum'), 3000);
   await peekP('APP.togglePlay()');
   await fxUntil('gone after a pause', s => !s.drones.length, 2000);
   await peekP('APP.togglePlay()');
