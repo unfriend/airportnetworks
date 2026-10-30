@@ -127,7 +127,7 @@ for (const key of ['airports', 'proteins', 'spatial', 'lbi', 'nmd', 'endo', 'pet
       const cueLike = got.filter(e => cues.some(q => match(e, q)));
       if (n0() === k0 || cueLike.length !== want.length || want.some(q => !cueLike.some(e => match(e, q)))) out.push(`played ${a.toFixed(2)} to ${t1.toFixed(2)} s: logged ${JSON.stringify(cueLike)}, expected ${JSON.stringify(want.map(q => [q[0], q[1]]))}`);
       // an explore action's sound (the table's, else another scene), and a room's state applied in silence
-      if (!pick && peek('typeof openScene === "function" && typeof GL !== "undefined" && !!GL.sets && Object.keys(GL.sets).length > 1')) pick = ['openScene(Object.keys(GL.sets).find(k => k !== X.scene))', 'whoosh'];
+      if (!pick && peek('typeof openScene === "function" && typeof GL !== "undefined" && !!GL.sets && Object.keys(GL.sets).length > 1')) pick = ['openScene((typeof SCENES !== "undefined" ? SCENES.map(s => s[0]) : Object.keys(GL.sets)).find(k => GL.sets[k] && k !== X.scene))', 'whoosh'];
       if (pick) {
         peek('APP.enterExplore()'); await frames(2);
         const k1 = n0();
@@ -136,7 +136,7 @@ for (const key of ['airports', 'proteins', 'spatial', 'lbi', 'nmd', 'endo', 'pet
         if (n0() === k1 || !l.some(e => e[0] === pick[1] && e[2] === 'explore')) out.push(`explore: ${pick[0]} did not ask for ${pick[1]} (${JSON.stringify(l)})`);
         const quiet = peek(`(() => {
           const C = HOST.cur.collab, s = JSON.parse(JSON.stringify(C.state()));
-          const k = s && 'scene' in s && typeof GL !== 'undefined' && GL.sets ? Object.keys(GL.sets).find(k => k !== s.scene) : null;
+          const k = s && 'scene' in s && typeof GL !== 'undefined' && GL.sets ? (typeof SCENES !== 'undefined' ? SCENES.map(s => s[0]) : Object.keys(GL.sets)).find(k => GL.sets[k] && k !== s.scene) : null;
           if (!k) return -1;
           s.scene = k; const n = SFXQ.n; C.apply(s); return SFXQ.n - n;
         })()`);
