@@ -172,7 +172,8 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
   [docs/data-and-permissions.md](docs/data-and-permissions.md). Made for the Global Peter Drucker Forum in Vienna. Integrated on 29 October 2026 (its card in `stories/list.js`, `sw.js`, its miniatures, the design
   room's catalogue, the smoke and shared-room tests, the docs: item 11 under "Decisions for the owner"). Untested on a
   headset.
-- **Sound effects phase 2 (30 October 2026): built in every story, reviewed and fixed; release v99 in progress.** The
+- **Released as networks-v99 (30 October 2026; FORMAT networks-26, so every device in a room needs v99), tested headlessly only:** sound effects phase 2 and the motion smoothing (its own bullet). Tests: smoke, audio, live, peer, relay (243) and the update test from v98 all good; the full shared-rooms run 391 good and 6 failed, each passing again on its own (peer to peer, rooms on this network) or after a test fix (the explore view check now drives the headset's frames), the station sound check again on the flock.
+- **Sound effects phase 2 (30 October 2026): built in every story, reviewed and fixed.** The
   shell side (`sfx.js`: 18 new sounds and 2 continuous ones, on by default, the Sound button muting all) and the shared
   cue lines in all sixteen stories and the design room (`node tools/sfx-cues.mjs <url> all` prints each story's count
   and busiest moment: about one sound every 10 to 18 s; the flock and the robots also have live sounds). The review's
