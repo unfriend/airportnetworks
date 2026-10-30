@@ -2674,7 +2674,8 @@ try {
   // made here goes out (the room's value: { v, story }, with ts while it turns)
   const kv = 'st.' + S2.id + '.view', viewV = e => (e && e.v && e.v.v) || null;
   await H.evaluate(() => { if (HOST.cur.peek('APP.mode') !== 'explore') HOST.cur.peek('APP.enterExplore()'); });
-  const viewIs = want => until(H, w => { const v = HOST.cur.collab.view(); return !!v && JSON.stringify(v) === w; }, JSON.stringify(want), 6000);
+  // (the view syncs on the headset's frames: wait while driving them)
+  const viewIs = async want => { for (let k = 0; k < 24; k++) { if (await H.evaluate(w => { const v = HOST.cur.collab.view(); return !!v && JSON.stringify(v) === w; }, JSON.stringify(want))) return true; await frames(H, 250); } return false; };
   let v0 = null;
   for (let k = 0; k < 20 && !v0; k++) { await frames(H, 250); v0 = await H.evaluate(() => HOST.cur.collab.view()); }
   for (let k = 0; k < 12 && JSON.stringify(viewV((await roomInfo(code)).keys[kv])) !== JSON.stringify(v0); k++) await frames(H, 250);
