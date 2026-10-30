@@ -1742,7 +1742,7 @@ try {
   // of the stations' places and panels
   const LOOKS = () => [HOST.xr.labels(), HOST.xr.cards(), HOST.xr.free()].join();
   const lookOf = p => p.evaluate(LOOKS);
-  const lookIs = (p, want) => until(p, w => [HOST.xr.labels(), HOST.xr.cards(), HOST.xr.free()].join() === w, want, 3000);
+  const lookIs = (p, want) => until(p, w => [HOST.xr.labels(), HOST.xr.cards(), HOST.xr.free()].join() === w, want, 6000);   // (as subsIs: a loaded machine)
   const look0 = await Promise.all([A, B, C].map(lookOf));
   check('the headsets\' settings: a room without them gives labels on top, cards in 3D and free moving on every page',
     !(await roomInfo(code)).keys.look && look0.every(l => l === 'face,fixed,true'), look0.join('; '));
