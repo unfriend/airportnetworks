@@ -106,7 +106,7 @@ function makePanel(w, h, mw, draw, sig) {
   };
   return P;
 }
-// a story panel in the scene or on top, as the labels are: labels in 3D, it stands in the scene as their signs do
+// a story panel in the scene or on top, as the cards setting says: in 3D, it stands in the scene as the labels' signs do
 // (depth-tested and writing depth, drawn first of the see-through things, its clear corners cut away), so what stands
 // in front of it hides it and it hides what is behind it; otherwise it is drawn over everything. Set only when that
 // changes (a new alphaTest needs the material built again)

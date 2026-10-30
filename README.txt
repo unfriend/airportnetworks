@@ -149,24 +149,27 @@ hand tracking; beside the story panel without either). Touch it with the right
 controller's tip or your right index finger, click the left stick, or point at
 it and pull the trigger, to open the menu above it; the same closes it again.
 Inside: Exit (leaves VR or AR; the story panels have none), Slideshow for every
-story, Sound check, three headset settings for every story, and the shared room. With hand
-tracking a fingertip presses its buttons too, or pinch while pointing. Labels:
-in 3D (the default: the scene's labels stand in the scene as signs turned to
-you, and the story panels, the stations' cards and people's name tags stand in
-it too, all hidden by what is in front of them), hidden (no labels and no story
-panels at all, in the story and in explore mode; A or X still plays and pauses,
-and the menu on your wrist brings them back), or on top (labels and story
-panels drawn over everything, as before); each press goes to the next. Moving:
+story, Sound check, four headset settings for every story, and the shared room. With hand
+tracking a fingertip presses its buttons too, or pinch while pointing. Labels,
+the small labels inside the scenes: on top (the default: drawn over
+everything), in 3D (signs in the scene turned to you, hidden by what is in
+front of them) or hidden. Cards, the larger ones (the story's text panel and
+its play and pause bar, the stations' cards over the circles and people's name
+tags): in 3D (the default: they stand in the scene, hidden by what is in front
+of them), on top (drawn over everything, as before) or hidden (no story panels
+at all, in the story and in explore mode, no station cards and no name tags; A
+or X still plays and pauses, and the menu on your wrist brings them back). The
+two are independent; each press goes to the next. Moving:
 free (the default: the grip holds the scene like a real object and turns it
 with your hand, two hands turn it too; the story panel can tilt; Recenter
 puts things back) or facing you (things you move keep facing you and the
 panel stays upright). Subtitles: off (the default) or on (the narration's words
 in a strip low in your view while a story plays, following your head when you
-turn away; #subs=on in a link turns them on). In a shared room all three
+turn away; #subs=on in a link turns them on). In a shared room all four
 settings are the room's, the same for everyone in it (also set in the Shared
 dialog; the locks do not stop them), and a scene turned at a station is
 turned for everyone there.
-#labels=face|fixed|hidden and #free=on|off in a link set them. Panels, a fourth
+#labels=face|fixed|hidden, #cards=face|fixed|hidden and #free=on|off in a link set them. Panels, a fifth
 row, is for the story on show only: shown, controls only (just the play bar
 under the panel, good with subtitles) or hidden (A or X still plays); each story
 keeps its own, in a shared room each station's, for everyone at its circle (also

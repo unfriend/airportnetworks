@@ -66,11 +66,13 @@ function xrRecenter() {
 }
 
 // ------------------------------------------------- labels and free moving --
-// The shell's two headset settings, the same for everyone in a shared room (HOST.xr; read every frame, and a shell
-// without them means labels on top and nothing free): labels 'face' (on top: sprites turned to you, over everything),
-// 'fixed' (in 3D: upright signs in the scene, turned to you) or 'hidden'; free moving holds what the grip takes like a
-// real object.
+// The shell's headset settings, the same for everyone in a shared room (HOST.xr; read every frame, and a shell
+// without them means labels on top and nothing free): the scene's small labels 'face' (on top: sprites turned to you,
+// over everything), 'fixed' (in 3D: upright signs in the scene, turned to you) or 'hidden'; the cards (the story panels
+// here, the station cards and name tags in the shell) the same three ways, independent of the labels (a shell without
+// them: as the labels); free moving holds what the grip takes like a real object.
 const xrLabelMode = () => (HOST.xr && HOST.xr.labels ? HOST.xr.labels() : 'face');
+const xrCardMode = () => (HOST.xr && HOST.xr.cards ? HOST.xr.cards() : xrLabelMode());
 const xrFreeOn = () => !!(HOST.xr && HOST.xr.free && HOST.xr.free());
 const xrSig = () => (HOST.xr && HOST.xr.sig ? HOST.xr.sig() : '') + (HOST.panels && HOST.panels.sig ? HOST.panels.sig(XR_HERE) : '');
 // this story's panels in a headset (the shell's HOST.panels, each story its own; at a station in a shared room the
@@ -121,7 +123,7 @@ function xrFace(q, gx, gy, gz) {
 // once a frame: the settings as they are now; free moving turned off gives the scene back its facing and stands the
 // panel up again (its yaw kept), and turned on it keeps the scene's facing as it is (no jump)
 function xrSettings() {
-  XR.lm = xrLabelMode();
+  XR.lm = xrLabelMode(); XR.cm = xrCardMode();
   const free = xrFreeOn();
   if (free === XR.free) return;
   if (!free) { XR.rot.identity(); XR.panelGroup.rotation.set(0, yawOf(XR.panelGroup.quaternion, 0), 0); }
@@ -491,13 +493,14 @@ function xrUpdate(S) {
     // Sound check takes the place of the story cards while it is open
     for (const P of XR.land) P.mesh.visible = land && (P === XR.land[0] || !XR.soundCheck);
     XR.snd.mesh.visible = land && !!XR.soundCheck;
-    // labels hidden: no story panel at all, in story and explore mode (the Stories screen, the shell's menu and its
-    // clock stay, and A or X still plays); labels in 3D: the panels stand in the scene, as the labels' signs do. And
-    // this story's panels (xrPanels): controls only keeps just the foot bar, hidden neither
-    const pm = xrPanels(), pv = !land && !away && XR.lm !== 'hidden';
+    // cards hidden: no story panel at all, in story and explore mode (the Stories screen, the shell's menu and its
+    // clock stay, and A or X still plays); cards in 3D: the panels stand in the scene, as the labels' signs do (the
+    // labels have their own setting). And this story's panels (xrPanels): controls only keeps just the foot bar, hidden
+    // neither
+    const pm = xrPanels(), pv = !land && !away && XR.cm !== 'hidden';
     XR.main.mesh.visible = pv && pm === 'shown';
     XR.foot.mesh.visible = pv && pm !== 'hidden';
-    panelDepth(XR.main, XR.lm === 'fixed'); panelDepth(XR.foot, XR.lm === 'fixed');
+    panelDepth(XR.main, XR.cm === 'fixed'); panelDepth(XR.foot, XR.cm === 'fixed');
   }
   GL.world.visible = !land && !away;
   if (land !== XR.landShown) { XR.landShown = land; HOST.setUrl(land); }
@@ -578,7 +581,7 @@ async function xrStart(mode) {
 function xrEnterScene() {
   XR.stories = false;
   XR.on = true; XR.needRecenter = true; XR.fov = false; XR.tipI = -1;
-  XR.free = xrFreeOn(); XR.lm = xrLabelMode();   // (as the shell has them: nothing to turn off or on at the first frame)
+  XR.free = xrFreeOn(); XR.lm = xrLabelMode(); XR.cm = xrCardMode();   // (as the shell has them: nothing to turn off or on at the first frame)
   document.body.classList.add('xr');
   GL.rig.position.set(0, 0, 0); GL.rig.quaternion.identity();
   XR.clear = !(XR.session.environmentBlendMode && XR.session.environmentBlendMode !== 'opaque') && XR.mode !== 'immersive-ar';

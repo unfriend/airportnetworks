@@ -1251,13 +1251,14 @@ for (const key of ['airports', 'proteins', 'spatial', 'lbi', 'nmd', 'endo', 'pet
   if (bad.length) errors.push(...bad.map(b => `${key}: ${b}`));
   await page.evaluate(() => HOST.openPicker());
 });
-// The headset's two settings (the shell's menu, for every story; in a shared room the room's): labels on top
-// (sprites and the story panels over everything), in 3D (upright signs in the scene, depth-tested, turned to you, and
-// the story panels in the scene as they are) or hidden (none, and no story panel at all, in story and explore mode),
-// and free moving (the grip holds the scene and the panel like a real object, what
-// you hold staying in your hand). Everything in 3D by default, kept across a reload, set by a link. In a page of its
-// own (its own storage, as a new device), with a pretend headset whose frames the test drives: a scene story
-// (qubits), a life-size one (flock) and a hand-written one (airports)
+// The headset's settings (the shell's menu, for every story; in a shared room the room's), two of them independent of
+// each other: the scenes' small labels on top (sprites over everything; the default), in 3D (upright signs in the
+// scene, depth-tested, turned to you) or hidden; the cards (the story panels here) in 3D (in the scene as the labels'
+// signs are; the default), on top (over everything, as before) or hidden (no story panel at all, in story and explore
+// mode; A or X still plays); and free moving (the grip holds the scene and the panel like a real object, what you hold
+// staying in your hand). Kept across a reload (a device's old labels choice, under the old key, left behind), set by a
+// link. In a page of its own (its own storage, as a new device), with a pretend headset whose frames the test drives: a
+// scene story (qubits), a life-size one (flock) and a hand-written one (airports)
 {
   const sp = await browser.newPage({ viewport: { width: 640, height: 400 } });
   sp.on('pageerror', e => errors.push('settings: ' + (e.stack || e.message)));
@@ -1265,7 +1266,8 @@ for (const key of ['airports', 'proteins', 'spatial', 'lbi', 'nmd', 'endo', 'pet
   const sx = s => sp.evaluate(s => HOST.cur.peek(s), s);
   const tick = n => sp.evaluate(n => window.__tick(n), n || 1);
   const qa = (a, b) => 2 * Math.acos(Math.min(1, Math.abs(a[0] * b[0] + a[1] * b[1] + a[2] * b[2] + a[3] * b[3]))) * 180 / Math.PI;   // degrees between two turns
-  const setLook = (l, f) => sp.evaluate(([l, f]) => { if (l) HOST.xr.setLabels(l); if (f !== undefined) HOST.xr.setFree(f); }, [l, f]);
+  const setLook = (l, f, c) => sp.evaluate(([l, f, c]) => { if (l) HOST.xr.setLabels(l); if (c) HOST.xr.setCards(c); if (f !== undefined && f !== null) HOST.xr.setFree(f); }, [l, f, c]);
+  const setCards = c => setLook(null, null, c);
   const head = (p, yaw) => sp.evaluate(([p, yaw]) => { window.__head = { p, q: [0, Math.sin(yaw / 2), 0, Math.cos(yaw / 2)] }; }, [p, yaw || 0]);
   // a story with the pretend headset: its own frame loop stopped; one headset frame as its frame() runs it while
   // presenting, then the shell's own frame callback (where the menu is drawn)
@@ -1313,7 +1315,7 @@ for (const key of ['airports', 'proteins', 'spatial', 'lbi', 'nmd', 'endo', 'pet
       face: Math.max(0, ...sg.map(face)), main: XR.main.mesh.visible, foot: XR.foot.mesh.visible, panels: [XR.main, XR.foot].map(look), land: XR.land.concat(XR.snd).map(look) };
   })()`;
   const labels = () => sx(LABELS);
-  // the story panels (text, foot) in each label mode: on top as before (drawn over everything), in 3D in the scene as
+  // the story panels (text, foot) in each cards mode: on top as before (drawn over everything), in 3D in the scene as
   // the labels' signs are (depth-tested, writing depth, drawn first of the see-through things, the clear corners cut
   // away), hidden not drawn at all; the Stories screen's panels stay on top in every mode
   const PANEL = { face: p => p.vis && !p.dt && !p.dw && !p.at && p.ro === 50, fixed: p => p.vis && p.dt && p.dw && p.at > 0 && p.ro === -1, hidden: p => !p.vis };
@@ -1340,15 +1342,16 @@ for (const key of ['airports', 'proteins', 'spatial', 'lbi', 'nmd', 'endo', 'pet
   const POSE = `(() => { GL.scene.updateMatrixWorld(true); return { wq: GL.world.getWorldQuaternion(new THREE.Quaternion()).toArray(), rot: XR.rot.toArray(),
     pq: XR.panelGroup.quaternion.toArray(), up: new THREE.Vector3(0, 1, 0).applyQuaternion(XR.panelGroup.quaternion).y }; })()`;
 
-  // each label mode, at the moment with the most labels (the flock: explore mode with a falcon)
+  // each mode of each setting, at the moment with the most labels (the flock: explore mode with a falcon): the labels
+  // follow Labels only, the story panels Cards only
   const labelModes = async key => {
     const bad = [];
     if (key === 'flock') {   // (the falcon's label shows once it is on its way)
-      await setLook('face'); await sx('(APP.enterExplore(), sendFalcon([0.2, 0.1, -1]), 0)');
+      await setLook('face', null, 'fixed'); await sx('(APP.enterExplore(), sendFalcon([0.2, 0.1, -1]), 0)');
       for (let k = 0; k < 100 && !(await labels()).sprites; k++) await tick(1);
     }
     else {
-      await setLook('face'); await tick(1);
+      await setLook('face', null, 'fixed'); await tick(1);
       const t = await sp.evaluate(() => { let bt = 0, bn = -1;
         for (let t = 5; t < HOST.cur.peek('T_END'); t += 5) {
           HOST.cur.peek(`(APP.seek(${t}), APP.playing = false)`); window.__tick(1);
@@ -1359,14 +1362,40 @@ for (const key of ['airports', 'proteins', 'spatial', 'lbi', 'nmd', 'endo', 'pet
       await sx(`(APP.seek(${t}), APP.playing = false)`);
     }
     const story = await sx('APP.mode') === 'story', where = story ? 'story' : 'explore';
-    await setLook('face'); await tick(3);
+    // the defaults: labels on top, the story panels in 3D
+    await setLook('face', null, 'fixed'); await tick(3);
     const F = await labels();
-    if (!(F.sprites > 0 && !F.signs && F.onTop)) bad.push(`on top: ${F.sprites} sprites (over everything: ${F.onTop}), ${F.signs} signs`);
-    if (!F.panels.every(PANEL.face)) bad.push(`on top (${where}): the story panels are not drawn over everything as before: ${JSON.stringify(F.panels)}`);
+    if (!(F.sprites > 0 && !F.signs && F.onTop)) bad.push(`labels on top: ${F.sprites} sprites (over everything: ${F.onTop}), ${F.signs} signs`);
+    if (!F.panels.every(PANEL.fixed)) bad.push(`labels on top, cards in 3D (${where}): the story panels are not in the scene: ${JSON.stringify(F.panels)}`);
+    // cards hidden, labels on top: the labels stay; neither panel drawn or pointable; A or X still plays
+    await setCards('hidden'); await tick(3);
+    const CH = await labels(), hitCH = await pointBoth();
+    if (!(CH.sprites === F.sprites && CH.onTop && !CH.signs)) bad.push(`cards hidden: the labels went (${CH.sprites} sprites for ${F.sprites}, ${CH.signs} signs)`);
+    if (CH.main || CH.foot || hitCH.some(h => h.startsWith('panel'))) bad.push(`cards hidden (${where}): text panel shown ${CH.main}, foot ${CH.foot}, a ray at each hovers ${hitCH}`);
+    if (!landOnTop(CH)) bad.push('cards hidden: the Stories screen\'s panels are not on top: ' + JSON.stringify(CH.land));
+    if (story) {
+      const btn = on => sx(`(() => { const c = XR.ctrls[0]; c.src = { targetRayMode: 'tracked-pointer', gamepad: { axes: [0, 0, 0, 0], buttons: [0, 1, 2, 3, 4].map(i => ({ pressed: i === 4 && ${on}, touched: false, value: 0 })) } }; c.g.visible = true; return 0; })()`);
+      const was = await sx('APP.playing');
+      await btn(true); await tick(1); await btn(false); await tick(1);
+      const now = await sx('APP.playing');
+      await sx('(APP.playing = false, XR.ctrls[0].src = null, XR.ctrls[0].g.visible = false, XR.ctrls[0].hover = null, 0)'); await tick(1);
+      if (!(was === false && now === true)) bad.push(`cards hidden: A or X does not play with the panels gone (${was} -> ${now})`);
+    }
+    // cards on top, labels on top: the panels over everything as before
+    await setCards('face'); await tick(3);
+    const CF = await labels(), hitCF = await pointBoth();
+    if (!CF.panels.every(PANEL.face) || !landOnTop(CF)) bad.push(`cards on top (${where}): the story panels are not drawn over everything as before: ${JSON.stringify(CF.panels)}`);
+    if (hitCF.join() !== 'panel:main,panel:foot') bad.push(`cards on top (${where}): a ray at each story panel's middle hovers ${hitCF}`);
+    // labels in 3D, cards still on top: signs for the labels, the panels as they were
     await setLook('fixed'); await tick(3);
+    const D0 = await labels();
+    if (!(D0.signs === CF.sprites && !D0.sprites && D0.inDepth && D0.up > 1 - 1e-6 && D0.face < 1)) bad.push(`labels in 3D: ${D0.signs} signs for ${CF.sprites} labels, ${D0.sprites} sprites, depth-tested ${D0.inDepth}, upright ${D0.up}, turned to you within ${D0.face} deg`);
+    if (!D0.panels.every(PANEL.face)) bad.push(`labels in 3D, cards on top (${where}): the story panels changed with the labels: ${JSON.stringify(D0.panels)}`);
+    // cards in 3D too
+    await setCards('fixed'); await tick(3);
     const D1 = await labels();
-    if (!(D1.signs === F.sprites && !D1.sprites && D1.inDepth && D1.up > 1 - 1e-6 && D1.face < 1)) bad.push(`in 3D: ${D1.signs} signs for ${F.sprites} labels, ${D1.sprites} sprites, depth-tested ${D1.inDepth}, upright ${D1.up}, turned to you within ${D1.face} deg`);
-    if (!D1.panels.every(PANEL.fixed)) bad.push(`in 3D (${where}): the story panels are not in the scene: ${JSON.stringify(D1.panels)}`);
+    if (!(D1.signs === D0.signs && D1.inDepth)) bad.push(`cards in 3D: the labels' signs changed with the cards (${D0.signs} -> ${D1.signs})`);
+    if (!D1.panels.every(PANEL.fixed)) bad.push(`cards in 3D (${where}): the story panels are not in the scene: ${JSON.stringify(D1.panels)}`);
     if (!landOnTop(D1)) bad.push('in 3D: the Stories screen\'s panels are not on top: ' + JSON.stringify(D1.land));
     // the head moves 0.67 m sideways and turns: each sign turns to it again, upright
     await head([0.6, 1.6, 0.3], 0.5); await tick(3);
@@ -1377,32 +1406,25 @@ for (const key of ['airports', 'proteins', 'spatial', 'lbi', 'nmd', 'endo', 'pet
     await head([0, 1.6, 0]); await tick(1);
     // the pointer reaches each panel in 3D (the ray order is as on top)
     const hitD = await pointBoth();
-    if (hitD.join() !== 'panel:main,panel:foot') bad.push(`in 3D (${where}): a ray at each story panel's middle hovers ${hitD}`);
+    if (hitD.join() !== 'panel:main,panel:foot') bad.push(`cards in 3D (${where}): a ray at each story panel's middle hovers ${hitD}`);
+    // labels hidden, cards in 3D: no labels; both panels drawn and pointable
     await setLook('hidden'); await tick(3);
     const H = await labels(), hitH = await pointBoth();
-    if (!(!H.sprites && !H.signs && !H.main && !H.foot)) bad.push(`hidden (${where}): ${H.sprites + H.signs} labels, text panel shown ${H.main}, foot ${H.foot}`);
-    if (hitH.some(h => h.startsWith('panel'))) bad.push(`hidden (${where}): a ray at a hidden story panel hovers ${hitH}`);
-    if (story) {
-      // A or X still plays and pauses with no panel
-      const btn = on => sx(`(() => { const c = XR.ctrls[0]; c.src = { targetRayMode: 'tracked-pointer', gamepad: { axes: [0, 0, 0, 0], buttons: [0, 1, 2, 3, 4].map(i => ({ pressed: i === 4 && ${on}, touched: false, value: 0 })) } }; c.g.visible = true; return 0; })()`);
-      const was = await sx('APP.playing');
-      await btn(true); await tick(1); await btn(false); await tick(1);
-      const now = await sx('APP.playing');
-      await sx('(APP.playing = false, XR.ctrls[0].src = null, XR.ctrls[0].g.visible = false, XR.ctrls[0].hover = null, 0)'); await tick(1);
-      if (!(was === false && now === true)) bad.push(`hidden: A or X does not play with the panels gone (${was} -> ${now})`);
-      await sx('APP.enterExplore()'); await tick(3);
-      const HX = await labels(), hitX = await pointBoth();
-      if (!(!HX.sprites && !HX.signs && !HX.main && !HX.foot)) bad.push(`hidden in explore mode: ${HX.sprites + HX.signs} labels, its panels ${HX.main} ${HX.foot}`);
-      if (hitX.some(h => h.startsWith('panel'))) bad.push(`hidden in explore mode: a ray at a hidden panel hovers ${hitX}`);
-    }
-    // back from hidden (now in explore mode): the panels show again, in the scene in 3D and over everything on top
-    await setLook('fixed'); await tick(3);
+    if (H.sprites || H.signs) bad.push(`labels hidden (${where}): ${H.sprites + H.signs} labels`);
+    if (!H.panels.every(PANEL.fixed) || hitH.join() !== 'panel:main,panel:foot') bad.push(`labels hidden (${where}): the story panels went with them (${JSON.stringify(H.panels)}, a ray at each hovers ${hitH})`);
+    // in explore mode: cards hidden there too (no panel, nothing to point at), and back again in 3D and on top
+    if (story) { await sx('APP.enterExplore()'); await tick(3); }
+    await setLook('face', null, 'hidden'); await tick(3);
+    const HX = await labels(), hitX = await pointBoth();
+    if (HX.main || HX.foot || hitX.some(h => h.startsWith('panel'))) bad.push(`cards hidden in explore mode: its panels ${HX.main} ${HX.foot}, a ray at a hidden panel hovers ${hitX}`);
+    await setCards('fixed'); await tick(3);
     const B1 = await labels();
-    if (!B1.panels.every(PANEL.fixed)) bad.push(`in 3D again (explore): the story panels are not back in the scene: ${JSON.stringify(B1.panels)}`);
-    await setLook('face'); await tick(3);
+    if (!B1.panels.every(PANEL.fixed)) bad.push(`cards in 3D again (explore): the story panels are not back in the scene: ${JSON.stringify(B1.panels)}`);
+    await setCards('face'); await tick(3);
     const B2 = await labels(), hitB = await pointBoth();
-    if (!B2.panels.every(PANEL.face) || !landOnTop(B2)) bad.push(`on top again (explore): the story panels are not drawn over everything: ${JSON.stringify(B2.panels)}`);
-    if (hitB.join() !== 'panel:main,panel:foot') bad.push(`on top again (explore): a ray at each story panel's middle hovers ${hitB}`);
+    if (!B2.panels.every(PANEL.face) || !landOnTop(B2)) bad.push(`cards on top again (explore): the story panels are not drawn over everything: ${JSON.stringify(B2.panels)}`);
+    if (hitB.join() !== 'panel:main,panel:foot') bad.push(`cards on top again (explore): a ray at each story panel's middle hovers ${hitB}`);
+    await setCards('fixed');
     // the pointer's tip stays a sprite on top in every mode
     const tip = await sx(`(() => { const L = { set: typeof SET_ORDER !== 'undefined' ? SET_ORDER[0] : '', at: [0, 0, 0], i: 0, txt: ['Tip', 'here', 'tip'] }, was = XR.tip, out = [];
       XR.tip = L; for (const m of ['fixed', 'hidden', 'face']) { XR.lm = m; placeLabelXR(L, 1, XS); out.push(!!(L.sprite && L.sprite.visible) && !L.sign); }
@@ -1463,31 +1485,36 @@ for (const key of ['airports', 'proteins', 'spatial', 'lbi', 'nmd', 'endo', 'pet
     return bad;
   };
 
-  // a new device: everything in 3D; the menu's two buttons go round (Labels: in 3D, hidden, on top; Moving: free,
-  // facing you), the story follows, and the choice is kept across a reload; a link sets them
-  await step('headset settings: everything in 3D by default; the menu\'s two buttons go round, kept across a reload, set by a link', async () => {
+  // a new device (also one that chose its labels under the old key): labels on top and cards in 3D; the menu's buttons
+  // go round (Labels: in 3D, hidden, on top; Cards: on top, hidden, in 3D; Moving: free, facing you), the story
+  // following, and the choice is kept across a reload; a link sets them
+  await step('headset settings: labels on top and cards in 3D by default; the menu\'s buttons go round, kept across a reload, set by a link', async () => {
     const bad = [];
     await openXR('qubits');
-    const d0 = await sp.evaluate(() => [HOST.xr.labels(), HOST.xr.free(), HOST.cur.peek('XR.lm'), HOST.cur.peek('XR.free'), localStorage.getItem('xrLabels')]);
-    if (!(d0[0] === 'fixed' && d0[1] === true && d0[2] === 'fixed' && d0[3] === true && d0[4] === null)) bad.push('the defaults are not labels in 3D and free moving: ' + JSON.stringify(d0));
+    await sp.evaluate(() => localStorage.setItem('xrLabels', 'hidden'));   // (an older version's choice: left behind)
+    await openXR('qubits');
+    const d0 = await sp.evaluate(() => [HOST.xr.labels(), HOST.xr.cards(), HOST.xr.free(), HOST.cur.peek('XR.lm'), HOST.cur.peek('XR.cm'), HOST.cur.peek('XR.free'), localStorage.getItem('xrLabels2'), localStorage.getItem('xrCards')]);
+    if (d0.join() !== 'face,fixed,true,face,fixed,true,,') bad.push('the defaults are not labels on top, cards in 3D and free moving: ' + JSON.stringify(d0));
     await sp.evaluate(() => HOST.collab.panelOpen(true)); await tick(2);
     const press = async id => { await tick(2); const ok = await sp.evaluate(id => { const r = HOST.collab.overlay().panel.regions.find(x => x.id === id); if (r && r.fn) r.fn(); return !!(r && r.fn); }, id); await tick(2); return ok; };
-    const seen = [];
-    for (let k = 0; k < 3; k++) { if (!await press('labels')) { bad.push('no Labels button in the menu'); break; } seen.push(await sp.evaluate(() => HOST.xr.labels() + '/' + HOST.cur.peek('XR.lm'))); }
-    if (seen.join() !== 'hidden/hidden,face/face,fixed/fixed') bad.push('Labels went ' + seen.join(', ') + ' (not hidden, on top, in 3D, with the story following)');
+    const seen = [], seenC = [];
+    for (let k = 0; k < 3; k++) { if (!await press('labels')) { bad.push('no Labels button in the menu'); break; } seen.push(await sp.evaluate(() => HOST.xr.labels() + '/' + HOST.cur.peek('XR.lm') + '/' + HOST.xr.cards())); }
+    if (seen.join() !== 'fixed/fixed/fixed,hidden/hidden/fixed,face/face/fixed') bad.push('Labels went ' + seen.join(', ') + ' (not in 3D, hidden, on top, with the story following and the cards staying)');
+    for (let k = 0; k < 3; k++) { if (!await press('cards')) { bad.push('no Cards button in the menu'); break; } seenC.push(await sp.evaluate(() => HOST.xr.cards() + '/' + HOST.cur.peek('XR.cm') + '/' + HOST.xr.labels())); }
+    if (seenC.join() !== 'face/face/face,hidden/hidden/face,fixed/fixed/face') bad.push('Cards went ' + seenC.join(', ') + ' (not on top, hidden, in 3D, with the story following and the labels staying)');
     if (!await press('free') || await sp.evaluate(() => HOST.xr.free() || HOST.cur.peek('XR.free'))) bad.push('Moving did not turn free moving off');
-    await press('labels');
+    await press('labels'); await press('labels'); await press('cards');   // (labels hidden, cards on top)
     await sp.reload(); await sp.waitForFunction(() => typeof HOST !== 'undefined' && HOST.xr && HOST.curKey === 'qubits', null, { timeout: 30000 });
-    const kept = await sp.evaluate(() => [HOST.xr.labels(), HOST.xr.free()]);
-    if (kept[0] !== 'hidden' || kept[1] !== false) bad.push('not kept across a reload: ' + kept);
-    await sp.goto('about:blank'); await sp.goto(base + 'index.html#qubits&labels=face&free=on');
+    const kept = await sp.evaluate(() => [HOST.xr.labels(), HOST.xr.cards(), HOST.xr.free()]);
+    if (kept.join() !== 'hidden,face,false') bad.push('not kept across a reload: ' + kept);
+    await sp.goto('about:blank'); await sp.goto(base + 'index.html#qubits&labels=fixed&cards=hidden&free=on');
     await sp.waitForFunction(() => typeof HOST !== 'undefined' && HOST.xr && HOST.curKey === 'qubits', null, { timeout: 30000 });
-    const link = await sp.evaluate(() => [HOST.xr.labels(), HOST.xr.free(), HOST.xr.sig()]);
-    if (link.join() !== 'face,true,face+') bad.push('#labels=face&free=on gave ' + link);
-    await setLook('fixed', true);
+    const link = await sp.evaluate(() => [HOST.xr.labels(), HOST.xr.cards(), HOST.xr.free(), HOST.xr.sig()]);
+    if (link.join() !== 'fixed,hidden,true,fixed/hidden+') bad.push('#labels=fixed&cards=hidden&free=on gave ' + link);
+    await setLook('face', true, 'fixed');
     if (bad.length) errors.push(...bad.map(b => 'settings: ' + b));
   });
-  for (const key of ['qubits', 'flock', 'airports']) await step(`${key}: labels and story panels on top, in 3D and hidden in the headset; free moving with the grip`, async () => {
+  for (const key of ['qubits', 'flock', 'airports']) await step(`${key}: labels and the story panels (cards) each on top, in 3D and hidden in the headset, independently; free moving with the grip`, async () => {
     await openXR(key);
     const bad = (await labelModes(key)).concat(await freeMoving(key));
     if (bad.length) errors.push(...bad.map(b => `${key}: ${b}`));
@@ -1573,9 +1600,9 @@ for (const key of ['airports', 'proteins', 'spatial', 'lbi', 'nmd', 'endo', 'pet
   });
   // panels per story, the menu's row for the story on show: shown (as ever), controls only (the foot bar alone: the text
   // and explore panel neither drawn nor pointable) or hidden (neither; A or X still plays), in story and explore mode;
-  // each story its own (the design room too), kept across a reload, set by a link for the story it opens; labels hidden
-  // still hides both; no row on the Stories screen, whose panels stay
-  await step('panels per story in the headset: shown, controls only, hidden through the menu; each story its own, kept, set by a link; labels hidden hides both', async () => {
+  // each story its own (the design room too), kept across a reload, set by a link for the story it opens; cards hidden
+  // still hides both, labels hidden neither; no row on the Stories screen, whose panels stay
+  await step('panels per story in the headset: shown, controls only, hidden through the menu; each story its own, kept, set by a link; cards hidden hides both', async () => {
     const bad = [];
     const press = async id => { await tick(2); const ok = await sp.evaluate(id => { const r = HOST.collab.overlay().panel.regions.find(x => x.id === id); if (r && r.fn) r.fn(); return !!(r && r.fn); }, id); await tick(2); return ok; };
     const row = () => sp.evaluate(() => { const r = HOST.collab.overlay().panel.regions.find(x => x.id === 'panels'); return !!(r && r.fn); });
@@ -1617,13 +1644,16 @@ for (const key of ['airports', 'proteins', 'spatial', 'lbi', 'nmd', 'endo', 'pet
       const vx = await vis(), hx = await pointed();
       if (vx !== want[m] || hx !== hits[m]) bad.push(`${m} (explore): ${vx}, the pointer at each panel ${hx}`);
     }
-    // labels hidden still hides both, whatever the panels; back again with labels in 3D
+    // cards hidden still hides both, whatever the panels; back again with cards in 3D; labels hidden hides neither
     await sp.evaluate(() => HOST.panels.set('qubits', 'controls'));
+    await setCards('hidden');
+    const ch = await vis();
+    await setCards('fixed');
+    const cf = await vis();
     await setLook('hidden');
     const lh = await vis();
-    await setLook('fixed');
-    const lf = await vis();
-    if (lh !== '-,-' || lf !== '-,foot') bad.push(`labels hidden with controls only: ${lh}; labels in 3D again: ${lf}`);
+    await setLook('face');
+    if (ch !== '-,-' || cf !== '-,foot' || lh !== '-,foot') bad.push(`cards hidden with controls only: ${ch}; cards in 3D again: ${cf}; labels hidden: ${lh}`);
     // each story its own: the flock and the airports shown, the flock then hidden; the qubits' stays
     await openXR('flock');
     const fl = await vis();
@@ -1647,9 +1677,11 @@ for (const key of ['airports', 'proteins', 'spatial', 'lbi', 'nmd', 'endo', 'pet
     if (await vis() !== want.shown) bad.push('the design room shown again: ' + await vis());
     // the same lines in all sixteen stories and the design room
     const miss = await sp.evaluate(async keys => (await Promise.all(keys.map(async k => { const s = await (await fetch('stories/' + k + '.js')).text();
-      return s.includes("const pm = xrPanels(), pv = !land && !away && XR.lm !== 'hidden';") && s.includes('HOST.panels.sig(XR_HERE)') ? '' : k; }))).filter(Boolean),
+      return s.includes("const pm = xrPanels(), pv = !land && !away && XR.cm !== 'hidden';") && s.includes('HOST.panels.sig(XR_HERE)') &&
+        s.includes("const xrCardMode = () => (HOST.xr && HOST.xr.cards ? HOST.xr.cards() : xrLabelMode());") && s.includes("XR.lm = xrLabelMode(); XR.cm = xrCardMode();") &&
+        s.includes("panelDepth(XR.main, XR.cm === 'fixed'); panelDepth(XR.foot, XR.cm === 'fixed');") ? '' : k; }))).filter(Boolean),
     ['airports', 'proteins', 'spatial', 'lbi', 'nmd', 'endo', 'pet', 'micro', 'ovary', 'qubits', 'mutation', 'topo', 'soil', 'pass', 'flock', 'robots', 'design']);
-    if (miss.length) bad.push('no panels lines in ' + miss.join(', '));
+    if (miss.length) bad.push('no panels or cards lines in ' + miss.join(', '));
     await sp.evaluate(() => { try { localStorage.removeItem('xrPanels'); } catch (e) { /* storage blocked */ } });
     if (bad.length) errors.push(...bad.map(b => 'panels: ' + b));
   });

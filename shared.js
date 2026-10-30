@@ -1711,23 +1711,24 @@
     changed();
   }
   const refused = what => { if (!circlesLocked()) return false; log('circles locked', { what }); return true; };
-  // the headsets' three settings (HOST.xr: labels in 3D (turned to you, in the scene), on top or hidden; free moving on or off;
-  // subtitles on or off) and the two sound switches for pages and headsets alike (sound effects and narration on or off)
-  // are the room's in a room, for everyone in it (key look: { labels, free, subs, sfx, voice, by, at }; a room without it:
-  // everything in 3D, no subtitles, sound effects and narration on; FORMAT networks-27 for sfx and voice), set from a
-  // headset's menu or the page's dialog, and never refused by either lock. Null outside a room (the device's own)
-  const LOOKS = ['face', 'fixed', 'hidden'], LOOK0 = { labels: 'fixed', free: true, subs: false, sfx: true, voice: true };
+  // the headsets' four settings (HOST.xr: the scenes' small labels and the cards (story panels, station cards, name tags),
+  // each on top, in 3D (turned to you, in the scene) or hidden; free moving on or off; subtitles on or off) and the two
+  // sound switches for pages and headsets alike (sound effects and narration on or off) are the room's in a room, for
+  // everyone in it (key look: { labels, cards, free, subs, sfx, voice, by, at }; a room without it: labels on top, cards in
+  // 3D, no subtitles, sound effects and narration on; FORMAT networks-27 for cards, sfx and voice), set from a headset's
+  // menu or the page's dialog, and never refused by either lock. Null outside a room (the device's own)
+  const LOOKS = ['face', 'fixed', 'hidden'], LOOK0 = { labels: 'face', cards: 'fixed', free: true, subs: false, sfx: true, voice: true };
   function look() {
     if (!C.code || !C.welcomed) return null;
-    const v = val('look'), b = k => (v && typeof v[k] === 'boolean' ? v[k] : LOOK0[k]);
-    return { labels: v && LOOKS.includes(v.labels) ? v.labels : LOOK0.labels, free: b('free'), subs: b('subs'), sfx: b('sfx'), voice: b('voice') };
+    const v = val('look'), b = k => (v && typeof v[k] === 'boolean' ? v[k] : LOOK0[k]), m = k => (v && LOOKS.includes(v[k]) ? v[k] : LOOK0[k]);
+    return { labels: m('labels'), cards: m('cards'), free: b('free'), subs: b('subs'), sfx: b('sfx'), voice: b('voice') };
   }
   const freeNow = () => (HOST.xr && HOST.xr.free ? HOST.xr.free() : true);
   function setLook(o) {
     const L = look();
     if (!L) return false;
-    const bo = k => (typeof o[k] === 'boolean' ? o[k] : L[k]);
-    const v = { labels: LOOKS.includes(o.labels) ? o.labels : L.labels, free: bo('free'), subs: bo('subs'), sfx: bo('sfx'), voice: bo('voice') };
+    const bo = k => (typeof o[k] === 'boolean' ? o[k] : L[k]), mo = k => (LOOKS.includes(o[k]) ? o[k] : L[k]);
+    const v = { labels: mo('labels'), cards: mo('cards'), free: bo('free'), subs: bo('subs'), sfx: bo('sfx'), voice: bo('voice') };
     const pairs = [['look', Object.assign({}, v, { by: C.id, at: Math.round(now()) })]];
     // free moving off: every station's scene and panel stand as without it (no turn, the panel upright at its yaw)
     if (L.free && !v.free) {
@@ -2289,8 +2290,9 @@
     ctx.textBaseline = 'middle'; ctx.textAlign = 'center';
     ctx.fillText(fit(ctx, label, w - 16), x + w / 2, y + h / 2 + 1);
     ctx.textAlign = 'left'; ctx.textBaseline = 'top';
-    // (a switch, drawn lit or not: its press sounds as turning it off or on; tog null: a plain button)
-    if (fn) S.regions.push({ id, x, y, w, h, fn, tog: typeof o.on === 'boolean' ? o.on : null });
+    // (a switch, drawn lit or not: its press sounds as turning it off or on (o.tog, when that is not what lit says: true
+    // sounds as off); tog null: a plain button)
+    if (fn) S.regions.push({ id, x, y, w, h, fn, tog: typeof o.tog === 'boolean' ? o.tog : typeof o.on === 'boolean' ? o.on : null });
   }
   function build() {
     if (OV.root) return;
@@ -2298,7 +2300,7 @@
     OV.room = new THREE.Group(); OV.room.matrixAutoUpdate = false;
     OV.root.add(OV.room);
     OV.panelG = new THREE.Group();
-    OV.panel = sheet(720, 1792, 0.42, 53);   // (the tallest it gets: a room on this headset with a three-line note, at a station, 1763 px)
+    OV.panel = sheet(720, 1840, 0.42, 53);   // (the tallest it gets: a room on this headset with a three-line note, at a station, 1809 px)
     OV.panelG.add(OV.panel.mesh); OV.root.add(OV.panelG);
     OV.panel.mesh.userData.shell = { kind: 'panel' };
     // the menu's clock: the group's origin is the face's middle
@@ -2367,7 +2369,7 @@
   // soft glow behind it, and lit by its own shader (a light from over your shoulder and a rim, in view space), so it
   // looks the same in every story's scene whatever lights that has. Its colours are the miniature's own drawn towards the
   // story's (ICON.tint: by lightness, from a dark tone of it through the colour to a lighter one). It follows the rings,
-  // not the cards: it is part of the station, not a label, and with labels hidden it is all that tells the circles
+  // not the cards: it is part of the station, not a card, and with cards hidden it is all that tells the circles
   // apart. While lowpoly.js loads, and for a key without a miniature, a glowing polyhedron in the story's colour stands
   // there, so a new story needs only its icon in the list.
   // y: its middle over the floor (above the heads of people in the circle and the card's top edge, 1.6 m, so it
@@ -2592,7 +2594,7 @@
     o.g.position.set(S.x, 0, S.z); o.g.rotation.set(0, S.yaw, 0); o.g.scale.setScalar(held ? 1.12 : 1);
     return o;
   }
-  function cardFor(s, lm) {
+  function cardFor(s, cm) {
     let o = OV.cards.get(s.id);
     if (!o) {
       o = sheet(560, 330, 0.5, 49);   // on top: drawn before the story's panels (50), so a panel in front stays on top
@@ -2605,10 +2607,10 @@
       o.mesh.add(o.back);
       OV.cards.set(s.id, o); OV.room.add(o.mesh);
     }
-    // labels in 3D: in the scene as the labels' signs are (drawn first of the see-through things, writing depth, its
-    // clear corners cut away), so a glowing or glass model in front hides it; on top: drawn after the scenes. Set only
-    // when the mode changes (a new alphaTest needs the material built again)
-    const fixed = lm === 'fixed';
+    // cards in 3D (HOST.xr.cards): in the scene as the labels' signs are (drawn first of the see-through things, writing
+    // depth, its clear corners cut away), so a glowing or glass model in front hides it; on top: drawn after the scenes.
+    // Set only when the mode changes (a new alphaTest needs the material built again)
+    const fixed = cm === 'fixed';
     if (o.fixed !== fixed) {
       const m = o.mesh.material;
       o.fixed = m.depthWrite = fixed; m.alphaTest = fixed ? 0.1 : 0; m.needsUpdate = true;
@@ -2685,7 +2687,7 @@
     o.tagTex = new THREE.CanvasTexture(o.tagCv);
     o.tag = new THREE.Sprite(new THREE.SpriteMaterial({ map: o.tagTex, transparent: true, depthTest: false, depthWrite: false }));
     o.tag.renderOrder = 57; o.tag.scale.set(0.3, 0.066, 1);
-    // labels in 3D: the tag as a sign turned with the head, two faces back to back (each reads the right way round),
+    // cards in 3D: the tag as a sign turned with the head, two faces back to back (each reads the right way round),
     // in the scene as the labels' signs are (drawn first of the see-through things, writing depth, corners cut away)
     const sm = new THREE.MeshBasicMaterial({ map: o.tagTex, transparent: true, alphaTest: 0.1 }), sg = new THREE.PlaneGeometry(0.3, 0.066);
     o.sign = new THREE.Group(); o.sign.visible = false;
@@ -2701,9 +2703,11 @@
     o.g.traverse(x => { if (x.geometry) x.geometry.dispose(); if (x.material) { if (x.material.map) x.material.map.dispose(); x.material.dispose(); } });
     OV.people.delete(id);
   }
+  // the cards' mode (HOST.xr.cards: the station cards and the name tags with the story panels; an older shell: its labels)
+  const cardMode = () => (HOST.xr.cards ? HOST.xr.cards() : HOST.xr.labels());
   function drawPeople(dt) {
     const k0 = 1 - Math.exp(-dt / 0.06);   // without ts: eased towards the latest presence (time constant 60 ms)
-    const vr = HOST.mode !== 'immersive-ar', lm = HOST.xr.labels();
+    const vr = HOST.mode !== 'immersive-ar', cm = cardMode();
     for (const id of OV.people.keys()) if (!C.pres.has(id) || !C.pres.get(id).head) dropPerson(id);
     const L = liveSt(), all = !L || peopleAll();
     for (const [id, P] of C.pres) {
@@ -2730,10 +2734,10 @@
       o.e.p.lerp(_v.set(h[0], h[1], h[2]), k); o.e.q.slerp(_q.set(h[3], h[4], h[5], h[6]), k);
       o.avatar.position.copy(o.e.p); o.avatar.quaternion.copy(o.e.q);
       o.avatar.visible = vr || !m.here;
-      // the name: on top of everything (a sprite), in 3D (a sign over the head, upright and turned to you, hidden by
-      // what stands in front of it) or hidden
+      // the name, a card as the station cards are (HOST.xr.cards): on top of everything (a sprite), in 3D (a sign over the
+      // head, upright and turned to you, hidden by what stands in front of it) or hidden
       o.tag.position.set(o.e.p.x, o.e.p.y + 0.24, o.e.p.z);
-      o.tag.visible = lm === 'face'; o.sign.visible = lm === 'fixed';
+      o.tag.visible = cm === 'face'; o.sign.visible = cm === 'fixed';
       if (o.sign.visible) {
         o.sign.position.copy(o.tag.position);
         if (R.headOK) o.sign.rotation.set(0, Math.atan2(R.hr.x - o.sign.position.x, R.hr.z - o.sign.position.z), 0);
@@ -2762,7 +2766,7 @@
   const HOV = [];   // what the controllers point at, this frame
   const PEEK = { hold: 2000, in: 12, out: 5 };   // (ms shown after the pointing stops; how fast it comes and goes, per s)
   function drawPreviews(dt) {
-    const ids = new Set(C.st.map(s => s.id)), lm = HOST.xr.labels(), L = liveSt(), t = performance.now();
+    const ids = new Set(C.st.map(s => s.id)), cm = cardMode(), L = liveSt(), t = performance.now();
     for (const [id, o] of OV.rings) if (!ids.has(id)) {
       o.g.remove(o.icon.g);   // (its model and glow are the story's, kept for the next station of it)
       o.g.parent.remove(o.g); o.g.traverse(x => { if (x.geometry) x.geometry.dispose(); }); o.mat.dispose(); OV.rings.delete(id);
@@ -2780,12 +2784,13 @@
       if (r.peek === undefined) r.peek = want;
       r.peek += (want - r.peek) * (1 - Math.exp(-dt * (peek ? PEEK.in : PEEK.out)));
       if (Math.abs(want - r.peek) < 0.01) r.peek = want;
-      // its icon in every label mode, as the ring (not a label: with labels hidden it tells the circles apart)
+      // its icon in every mode, as the ring (not a card: with cards hidden it tells the circles apart, and a ring pointed
+      // at in a circle brings up its icon alone)
       iconStep(r, shown(s), !live && peek, dt);
       if (live) continue;
-      // labels hidden: no card (the ring stays, to walk up to, point at and move); in a circle none unless pointed at
-      const c = cardFor(s, lm);
-      c.mesh.visible = lm !== 'hidden' && r.peek > 0.02;
+      // cards hidden: no card (the ring stays, to walk up to, point at and move); in a circle none unless pointed at
+      const c = cardFor(s, cm);
+      c.mesh.visible = cm !== 'hidden' && r.peek > 0.02;
       c.mesh.material.opacity = r.peek;
       if (!c.mesh.visible) continue;
       c.hover = hov;
@@ -2888,22 +2893,28 @@
     if (HOST.slides) { const on = !!HOST.slides.global(); button(S, 'slides', x + ew + 16, y, sw, 60, on ? 'Slideshow: on' : 'Slideshow: off', () => HOST.slides.setGlobal(!on), { on, px: 23 }); }
     button(S, 'sound', x + ew + sw + 32, y, sw, 60, 'Sound check', () => { PNL.page = 'sound'; }, { px: 23 });
     y += 76;
-    // labels (in 3D, hidden, on top: each press the next), free moving and subtitles, for every story; in a room the room's
-    const lm = HOST.xr.labels(), fr = HOST.xr.free(), su = HOST.xr.subs(), LBL = { fixed: 'in 3D', hidden: 'hidden', face: 'on top' };
-    button(S, 'labels', x, y, bw, 60, 'Labels: ' + LBL[lm], () => HOST.xr.setLabels({ fixed: 'hidden', hidden: 'face', face: 'fixed' }[lm]), { on: lm === 'fixed' });
-    button(S, 'free', x + bw + 16, y, bw, 60, fr ? 'Moving: free' : 'Moving: facing you', () => HOST.xr.setFree(!fr), { on: fr });
+    // the scenes' small labels and the cards (the story panels, station cards and name tags), each on top, in 3D or hidden
+    // (each press the next, from its default: labels on top, cards in 3D; lit while shown, and a press that hides sounds
+    // as turning off), free moving and subtitles, for every story; in a room the room's
+    const lm = HOST.xr.labels(), cm = cardMode(), fr = HOST.xr.free(), su = HOST.xr.subs(), SAY = { fixed: 'in 3D', hidden: 'hidden', face: 'on top' };
+    const nl = { face: 'fixed', fixed: 'hidden', hidden: 'face' }[lm], nc = { fixed: 'face', face: 'hidden', hidden: 'fixed' }[cm];
+    button(S, 'labels', x, y, bw, 60, 'Labels: ' + SAY[lm], () => HOST.xr.setLabels(nl), { on: lm !== 'hidden', tog: nl === 'hidden' });
+    if (HOST.xr.setCards) button(S, 'cards', x + bw + 16, y, bw, 60, 'Cards: ' + SAY[cm], () => HOST.xr.setCards(nc), { on: cm !== 'hidden', tog: nc === 'hidden' });
     y += 76;
-    button(S, 'subs', x, y, bw, 60, su ? 'Subtitles: on' : 'Subtitles: off', () => HOST.xr.setSubs(!su), { on: su });
+    button(S, 'free', x, y, bw, 60, fr ? 'Moving: free' : 'Moving: facing you', () => HOST.xr.setFree(!fr), { on: fr });
+    button(S, 'subs', x + bw + 16, y, bw, 60, su ? 'Subtitles: on' : 'Subtitles: off', () => HOST.xr.setSubs(!su), { on: su });
+    y += 76;
     // the story on show's panels (shown, controls only, hidden: each press the next), that story's alone; in a room its
     // station's, for everyone at that circle. No row on the Stories screen or away from a station (no story on show)
     const pk = showing(), pm = pk ? HOST.panels.get(pk) : '';
-    if (pm) button(S, 'panels', x + bw + 16, y, bw, 60, 'Panels: ' + PANELS_SAY[pm], () => HOST.panels.set(pk, HOST.panels.next(pk)), { on: pm === 'shown' });
-    else if (C.code) { ctx.font = FONT(21); ctx.fillStyle = MUTED; wrapText(ctx, 'These settings and the sound: the same for everyone in this room', x + bw + 16, y + 2, bw, 28, 2); }
-    y += 76;
     if (pm) {
+      button(S, 'panels', x, y, bw, 60, 'Panels: ' + PANELS_SAY[pm], () => HOST.panels.set(pk, HOST.panels.next(pk)), { on: pm === 'shown' });
       ctx.font = FONT(21); ctx.fillStyle = MUTED;
-      ctx.fillText(fit(ctx, C.code ? 'Panels for this circle, the rest for the room' : 'Panels: for ' + ((meta(pk) || {}).title || 'this story') + ' only', w), x, y - 4);
-      y += 30;
+      wrapText(ctx, C.code ? 'Panels for this circle, the rest for the room' : 'Panels: for ' + ((meta(pk) || {}).title || 'this story') + ' only', x + bw + 16, y + 2, bw, 28, 2);
+      y += 76;
+    } else if (C.code) {
+      ctx.font = FONT(21); ctx.fillStyle = MUTED;
+      ctx.fillText(fit(ctx, 'These settings and the sound: the same for everyone in this room', w), x, y - 4); y += 30;
     }
     // the sound switches for every story: sound effects (sfx.js) and narration on or off (the owner, 30 October 2026); in
     // a room the room's, for everyone in it (pages too), else this headset's own. The effects' volume (each press the next
@@ -4842,6 +4853,7 @@
     });
     $('#shName').addEventListener('change', ev => setMe({ name: ev.target.value.trim() || C.name }));
     $('#shLabels').addEventListener('change', ev => { HOST.xr.setLabels(ev.target.value); renderDialog(); });
+    $('#shCards').addEventListener('change', ev => { HOST.xr.setCards(ev.target.value); renderDialog(); });
     $('#shRelay').addEventListener('keydown', ev => { if (ev.key === 'Enter') { typed(ev.target.value); renderDialog(); } });
     $('#shCode').addEventListener('keydown', ev => { if (ev.key === 'Enter') join(ev.target.value); });
     DLG.map = $('#shMap');
@@ -4954,9 +4966,10 @@
       // shown on this network or not: the room's (anyone sets it; not locked with the circles); a room on this device is on no network
       const nb = $('[data-sh="near"]'), ns = nearShown();
       if (nb) { nb.hidden = C.local; nb.textContent = ns ? 'Show on this network: on' : 'Show on this network: off'; nb.setAttribute('aria-pressed', String(ns)); }
-      // the headsets' labels, moving and subtitles, the room's (not locked with the circles)
-      const sl = $('#shLabels'), fb2 = $('[data-sh="free"]'), sb = $('[data-sh="subs"]'), lm = HOST.xr.labels(), fr = HOST.xr.free(), su = HOST.xr.subs();
+      // the headsets' labels, cards, moving and subtitles, the room's (not locked with the circles)
+      const sl = $('#shLabels'), sc = $('#shCards'), fb2 = $('[data-sh="free"]'), sb = $('[data-sh="subs"]'), lm = HOST.xr.labels(), cm = cardMode(), fr = HOST.xr.free(), su = HOST.xr.subs();
       if (sl && sl.value !== lm) sl.value = lm;
+      if (sc && sc.value !== cm) sc.value = cm;
       if (fb2) { fb2.textContent = fr ? 'Moving: free' : 'Moving: facing you'; fb2.setAttribute('aria-pressed', String(fr)); }
       if (sb) { sb.textContent = su ? 'Subtitles: on' : 'Subtitles: off'; sb.setAttribute('aria-pressed', String(su)); }
       const fb = $('[data-sh="fresh"]'), fa = freshArmed();
@@ -5105,7 +5118,8 @@
     stationLock: id => stLocked(C.stById.get(id)), setStationLock: (id, on) => setStLock(id, on),
     // whose figures this headset draws: false, the people at its circle (or everyone before any circle); true, everyone
     seeAll: on => { if (on !== undefined) setPeopleAll(on); return peopleAll(); },
-    // the room's labels and moving ({ labels, free }; null outside a room), set for everyone there (HOST.xr calls these)
+    // the room's headset settings and sound switches ({ labels, cards, free, subs, sfx, voice }; null outside a room), set
+    // for everyone there (HOST.xr calls these)
     look, setLook,
     // panels per story (HOST.panels calls the first two): at a station of the story, the station's (null elsewhere), set for
     // everyone at its circle; any station's, read and set by its id (the page's dialog)

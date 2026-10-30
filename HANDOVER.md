@@ -49,6 +49,22 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
   recording against its story (`tools/voice/check.mjs lbi --quick`), the shared-room test (three pages and a pretend
   headset in a room, with its parts for rooms on this network, following a person, the design room and the circles),
   `node tools/release.mjs --check` and each built story's `--check`. All pass on networks-v98.
+- **Built on 30 October 2026 for v100, not yet released, tested headlessly only: labels and cards, two switches**
+  (the owner: "can we have an independent switch for the small labels that are shown inside the 3d models and one for
+  the larger ones like the play pause cards? the smaller models should be on top by default and the other ones should be
+  3d by default"; "the name tags go into the same category as the cards and are 3d by default, keep all choices 3d, on
+  top, hidden for both"). The one Labels setting became two, each in 3D, on top or hidden: **Labels**, the scenes'
+  small labels (on top by default), and **Cards**, the story's text panel and play bar, the station cards over the
+  circles and people's name tags (in 3D by default). They are independent (labels hidden leaves the cards, cards hidden
+  leaves the labels); cards hidden hides both story panels (A or X still plays), every station card (the rings and
+  icons stay; a ring pointed at in a circle brings up its icon alone) and every name tag, and the Panels row applies on
+  top while cards show. `HOST.xr.cards()` / `setCards(m)` beside `labels()`; in a room both are the room's (`look.cards`
+  beside `look.labels`, FORMAT still networks-27), outside one this device's own under new keys (`xrLabels2`, `xrCards`),
+  so every device starts once on the new defaults; `#cards=` in a link. Rows: *Labels* and *Cards* side by side in the
+  clock menu (Moving and Subtitles under them, then Panels with its note beside it; the canvas grew to 1840 px), and a
+  Cards picker beside Labels in the Shared dialog. The same lines in all sixteen stories and the design room
+  (`xrCardMode`, `XR.cm`: `panelDepth` and the panels' visibility follow it, `placeLabelXR` the labels). Untested on a
+  headset: how labels on top and cards in 3D read together, and the name tags and station cards in each mode.
 - **Built on 30 October 2026 for v100, not yet released, tested headlessly only: the owner's sound notes** (after
   listening to every story's track: "remove the background hums, they are not good, i like the interaction feedback and
   the small woshes and beeps. make it so that we have a switch for sound effects and one for narration, both global in

@@ -298,52 +298,72 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
   `local-floor`, then `local-floor`, then nothing; `xrSteps` in `localStorage`,
   back to the start in another browser version): Sound check says what VR asks
   for and why. Ending VR on purpose within 10 s counts too.
-- Three headset settings, one for the whole system (the owner, October 2026:
-  "the settings systemwide, with the default being that everything is 3D"; 29
-  October: "add subtitles in the headsets as a switchable option per room"):
-  `HOST.xr.labels()` (`'fixed'`, the default: labels in 3D; `'face'`: on top;
-  `'hidden'`), `HOST.xr.free()` (free moving, on by default) and
-  `HOST.xr.subs()` (subtitles, off by default), set with
-  `HOST.xr.setLabels(m)`, `HOST.xr.setFree(on)` and `HOST.xr.setSubs(on)`,
-  `HOST.xr.sig()` for panel signatures; rows in the headset's menu (*Labels: in
-  3D* -> *hidden* -> *on top*, each press the next; *Moving: free* / *Moving:
-  facing you*; *Subtitles: on* / *off*) and, in a room, in the page's Shared
-  dialog. In a shared room they are the room's (key `look`, below), for every
-  headset and page in it; otherwise the device's own (`xrLabels`, `xrFree`,
-  `xrSubs` in `localStorage`), which keeps a room's last value after leaving
-  it. `#labels=face|fixed|hidden`, `#free=on|off` and `#subs=on|off` in a link
-  set them. Stories read the first two every frame (`xrSettings` in `xrBegin`;
-  a shell without them means on top and nothing free) and put `xrSig()` in
-  `sigMain`; the shell alone draws the subtitles. The two sound switches (v100,
+- Four headset settings, one each for the whole system (the owner, October
+  2026: "the settings systemwide, with the default being that everything is
+  3D"; 29 October: "add subtitles in the headsets as a switchable option per
+  room"; 30 October: "an independent switch for the small labels that are shown
+  inside the 3d models and one for the larger ones like the play pause cards?
+  the smaller models should be on top by default and the other ones should be 3d
+  by default", and "the name tags go into the same category as the cards and
+  are 3d by default, keep all choices 3d, on top, hidden for both"):
+  `HOST.xr.labels()`, the scenes' small labels (`'face'`, the default: on top;
+  `'fixed'`: in 3D; `'hidden'`), `HOST.xr.cards()`, the larger ones: the
+  story's two panels (its text and explore panes and its play and pause bar),
+  the shell's station cards over the circles and people's name tags (`'fixed'`,
+  the default: in 3D; `'face'`: on top; `'hidden'`), `HOST.xr.free()` (free
+  moving, on by default) and `HOST.xr.subs()` (subtitles, off by default), set
+  with `HOST.xr.setLabels(m)`, `HOST.xr.setCards(m)`, `HOST.xr.setFree(on)` and
+  `HOST.xr.setSubs(on)`, `HOST.xr.sig()` for panel signatures (labels, cards,
+  free moving and subtitles); rows in the headset's menu (*Labels: on top* ->
+  *in 3D* -> *hidden* and *Cards: in 3D* -> *on top* -> *hidden*, side by side,
+  each press the next, each lit while shown; *Moving: free* / *Moving: facing
+  you*; *Subtitles: on* / *off*) and, in a room, in the page's Shared dialog
+  (a Labels and a Cards picker). Labels and cards are independent: labels
+  hidden leaves the cards, cards hidden leaves the labels. In a shared room
+  they are the room's (key `look`, below), for every headset and page in it;
+  otherwise the device's own (`xrLabels2`, `xrCards`, `xrFree`, `xrSubs` in
+  `localStorage`; the labels under a new key since v100, so every device started
+  once on the new defaults whatever it chose before; `xrLabels` is left
+  behind), which keeps a room's last value after leaving it.
+  `#labels=face|fixed|hidden`, `#cards=face|fixed|hidden`, `#free=on|off` and
+  `#subs=on|off` in a link set them. Stories read labels, cards and free moving
+  every frame (`xrSettings` in `xrBegin`: `XR.lm`, `XR.cm`, `XR.free`; a shell
+  without them means labels on top and nothing free, and a shell without
+  `cards()` the labels' mode for the cards) and put `xrSig()` in `sigMain`; the
+  shell alone draws the subtitles. The two sound switches (v100,
   `HOST.xr.sfx()` and `HOST.xr.voice()`, for pages and headsets alike) go the
   same way, in `look` beside these (see "The two sound switches" under "Sound
   effects"); `HOST.xr.sig()` leaves them out (the stories' panels do not show
   them).
-  - Labels in 3D: every scene label is a flat sign at its sprite's place and
-    size, upright and turned to you (about the vertical, in the rig's frame:
-    `placeLabelXR` with `XR.signL` and `XR.signH`), but in the scene:
-    depth-tested, so what stands in front hides it, readable from both sides.
-    The two story panels (`XR.main`, the text and explore's panes, and
-    `XR.foot`) stand in the scene the same way (`panelDepth`, set only when
-    the mode changes: depth-tested and writing depth, drawn first of the
-    see-through things at `renderOrder` -1, their clear corners cut away by
-    `alphaTest` 0.1), so whatever stands in front hides them, glass and
-    glowing points too, and they hide what is behind them; the pointer still
-    reaches a panel first, even one partly hidden behind the scene.
-    On top: sprites and both story panels over everything, as before
-    (`renderOrder` 50). Hidden: no scene labels and no story panel at all,
-    neither `XR.main` nor `XR.foot`, in story and explore mode (not drawn and
-    not pointable); the headset Stories screen stays (never stuck), the
-    shell's menu and its clock stay (to switch back), and A or X still plays
-    and pauses. The Stories screen's panels, the menu, its clock and the
-    shell's notes are on top in every mode. The pointer's tip (`XR.tip`) is
-    always a sprite. In the shell, station cards are drawn on top (after the
-    scenes, before the story's panels, depth-tested) or, in 3D, as the labels'
-    signs are (`renderOrder` -1, writing depth, `alphaTest` 0.1, both faces),
-    and not at all when hidden (the ring stays, pointable and grabbable; in a
-    circle the other stations' cards show only while their ring is pointed at,
-    see "Shared rooms"); people's name tags are sprites, signs over the head
-    drawn the same way, or nothing.
+  - Labels (`XR.lm`): on top, every scene label is a sprite over everything.
+    In 3D, a flat sign at its sprite's place and size, upright and turned to
+    you (about the vertical, in the rig's frame: `placeLabelXR` with
+    `XR.signL` and `XR.signH`), but in the scene: depth-tested, so what stands
+    in front hides it, readable from both sides. Hidden: no scene labels. The
+    pointer's tip (`XR.tip`) is always a sprite.
+  - Cards (`XR.cm`): in 3D, the two story panels (`XR.main`, the text and
+    explore's panes, and `XR.foot`) stand in the scene as the labels' signs do
+    (`panelDepth`, set only when the mode changes: depth-tested and writing
+    depth, drawn first of the see-through things at `renderOrder` -1, their
+    clear corners cut away by `alphaTest` 0.1), so whatever stands in front
+    hides them, glass and glowing points too, and they hide what is behind
+    them; the pointer still reaches a panel first, even one partly hidden
+    behind the scene. On top: both story panels over everything, as before
+    (`renderOrder` 50). Hidden: no story panel at all, neither `XR.main` nor
+    `XR.foot`, in story and explore mode (not drawn and not pointable); the
+    headset Stories screen stays (never stuck), the shell's menu and its clock
+    stay (to switch back), and A or X still plays and pauses. Shown, the story's
+    Panels row (below) applies on top. In the shell, station cards are drawn on
+    top (after the scenes, before the story's panels, depth-tested) or, in 3D,
+    as the labels' signs are (`renderOrder` -1, writing depth, `alphaTest` 0.1,
+    both faces), and not at all when hidden (the ring stays, pointable and
+    grabbable, and its icon; in a circle the other stations' cards show only
+    while their ring is pointed at, see "Shared rooms", and with cards hidden a
+    ring pointed at brings up its icon alone); people's name tags are sprites,
+    signs over the head drawn the same way, or nothing.
+  - In every mode of both: the Stories screen's panels, the menu, its clock,
+    the shell's notes and the subtitles are on top, and the stations' icons
+    are as ever.
   - Free moving: the grip holds the scene like a real object, the point you
     hold the pivot. One hand moves it and turns it with the hand (`XR.rot`, a
     turn in the rig's frame; the facing comes from `XR.globeBase`, not from
@@ -360,7 +380,7 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
     Stories screen, away from a station, or for a story without the hook), the
     narration's words in a strip low in the view (16 degrees under the gaze),
     1.4 m away and 0.9 m wide, white B612 on a dark rounded band, drawn on top
-    of everything in every label mode (`renderOrder` 51: over the story panels,
+    of everything in every labels and cards mode (`renderOrder` 51: over the story panels,
     under the menu and the notices), one canvas redrawn only when the caption
     changes, fading between captions. It stays while the head turns less than
     15 degrees from it (or moves less than 12 cm) and eases back in front
@@ -392,9 +412,10 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
   Stories screen or away from a station) and, in a room, per station in the
   page's Shared dialog; never refused by the circles lock. `#panels=shown|controls|hidden`
   in a link sets it for the story the link opens. Stories read it every frame
-  in `xrUpdate` beside the labels mode (`xrPanels()`, next to `xrSig`, which
-  carries `HOST.panels.sig(XR_HERE)`): labels hidden still hides both panels
-  (the two are independent), and the Stories screen never changes with it.
+  in `xrUpdate` beside the cards mode (`xrPanels()`, next to `xrSig`, which
+  carries `HOST.panels.sig(XR_HERE)`): cards hidden still hides both panels
+  (the two are independent; labels hidden hides neither), and the Stories
+  screen never changes with it.
   Not in a story's `state()`. How it feels on a headset is untested.
 - Sound belongs to the shell (`HOST.audio` in `index.html`); stories only say
   what should play. A story asks for its file with
@@ -517,7 +538,7 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
     on its own clock as when muted; the effects and the subtitles go on, nothing
     ducks). Both on by default. In a shared room they are the room's, for every
     headset and page in it (key `look`, `sfx` and `voice`, beside the headsets'
-    three settings; absent: on; set by anyone, never refused by either lock),
+    four settings; absent: on; set by anyone, never refused by either lock),
     else this device's own (`sfxOn`, only `'off'` saved keeps them off;
     `narrationOn` likewise), which keeps a room's last value after leaving it,
     as the headsets' settings do. `#sfx=on|off` and `#voice=on|off` in a link.
@@ -751,9 +772,9 @@ whole ms, and `h: 1` while it is still held: "Others' moves, smooth" below),
 page's Shared dialog, never refused by the circles lock; a write keeps the other field; absent: shown, not locked; gone
 with the station's other keys when it shows another story; FORMAT networks-25), `lock` (the circles lock, `{ on, by, at }`,
 below; FORMAT networks-6),
-`look` (the headsets' three settings and the two sound switches, `{ labels, free, subs, sfx, voice, by, at }`: set by anyone,
+`look` (the headsets' four settings and the two sound switches, `{ labels, cards, free, subs, sfx, voice, by, at }`: set by anyone,
 from a page's Shared dialog or a headset's menu, never refused by the circles
-lock; a room without it gives everything in 3D, no subtitles, and sound effects and narration on; free moving turned off takes
+lock; a room without it gives labels on top, cards in 3D, no subtitles, and sound effects and narration on; free moving turned off takes
 every `q` out of the stations' places and panels in the same write), and per shared space `rf.<space id>` (the room's frame in it) and
 `rs.<space id>` (found split; FORMAT networks-9), `sg` (the room's shared-space
 generation, `{ n, by, at }`), `near` (*Show on this network*, `{ on, by, at }`: absent or on, the room is listed under
@@ -763,7 +784,7 @@ under the same code) (FORMAT networks-10; networks-11 when the eighth story came
 came with rooms on this network, and `st.<id>.ui` with panels per story in the same round, and its `lock` when the
 layout lock became two locks after the ten-headset test, networks-26 when moves by hand gained `ts` and `h` and the
 explore view became `{ v, story }`, for motion smoothing, networks-27 when the two sound switches, `sfx` and `voice`,
-joined `look` in v100). The plan is `docs/shared-space-plan.md`.
+and the cards' setting, `cards`, joined `look` in v100). The plan is `docs/shared-space-plan.md`.
 
 - `HOST.collab` keeps the room's keys (echo suppression by value, optimistic
   writes acknowledged by the relay, apply order stations > clock > state >
@@ -998,8 +1019,8 @@ joined `look` in v100). The plan is `docs/shared-space-plan.md`.
   0.6 of their width: the slide, the room, the table) lie back further, by how flat they are, so their top always
   shows. Lit by its own shader in view space (a light over your shoulder, a rim in a paler tone; glowing parts nearly
   unlit), so it looks the same in every story's scene whatever its lights. It follows the rings, not the cards: shown
-  in every label mode, opaque, depth-tested and writing depth in the room, since it is part of the station rather than
-  a label, and with labels hidden it is what tells the circles apart. At your own (live) station it shrinks away
+  in every labels and cards mode, opaque, depth-tested and writing depth in the room, since it is part of the station
+  rather than a card, and with cards hidden it is what tells the circles apart. At your own (live) station it shrinks away
   (your story is in front of you), and while you are in a circle the other stations' icons shrink away too, growing
   back while their ring is pointed at ("In a circle, rings only"). A child of its ring's group, so it eases with the
   station (`SHOWN`) and grows with it while carried; not pointable (the ring and card are). Built once per story, the
@@ -1083,12 +1104,11 @@ joined `look` in v100). The plan is `docs/shared-space-plan.md`.
   Exit, the headset Stories screen keeps its own), *Slideshow: on/off* (`HOST.slides.setGlobal`, for
   every story, shown when `HOST.slides` exists) and *Sound check* (a page in
   place of the rest: the two beeps, the engine choice, Reset the sound and
-  `HOST.audio.report()`, redrawn twice a second; *Try the sound effects*; Back); *Labels*, *Moving* and
-  *Subtitles* (the three headset settings, `HOST.xr`) and *Panels* (the story on
-  show's, `HOST.panels`, beside Subtitles; with a line under them: in a room
-  that the panels are for everyone at this circle and the rest for the room,
-  else for that story only; with no story on show the room's line takes
-  its place); *Sound effects: on/off* and *Narration: on/off* side by side (the
+  `HOST.audio.report()`, redrawn twice a second; *Try the sound effects*; Back); *Labels* and *Cards* side by
+  side, *Moving* and *Subtitles* side by side (the four headset settings, `HOST.xr`), then *Panels* (the story
+  on show's, `HOST.panels`, with a note beside it: in a room that the panels are for everyone at this circle and
+  the rest for the room, else for that story only; with no story on show, in a room, a line that these settings
+  and the sound are the room's takes its place); *Sound effects: on/off* and *Narration: on/off* side by side (the
   two sound switches, for every story; in a room the room's: "The two sound
   switches"), then *Effects volume* (`HOST.sfx`, this headset's own, with a note
   saying so); *Design room* (outside a room it opens the design room; in a room
@@ -1098,8 +1118,8 @@ joined `look` in v100). The plan is `docs/shared-space-plan.md`.
   room's alignment, stations (Move here, Add here; Arrange all, Remove; *Lock
   circles* and *Lock this story* side by side, the latter at a station only;
   *On this network* and *People: same circle* / *everyone*), people, You; the
-  canvas, 1792 px tall, holds the tallest case, a room on this headset with a
-  three-line note at a station (1763 px), and People shows only as many as
+  canvas, 1840 px tall, holds the tallest case, a room on this headset with a
+  three-line note at a station (1809 px), and People shows only as many as
   leave room for You). A right index fingertip also presses its buttons
   (`poke`: within 1.5 cm of the panel over one, again once pulled back 3 cm;
   a pinch on the ray at the same button within 0.7 s counts once with it,
@@ -1458,8 +1478,8 @@ reference, `tools/flock/engine/`):
   station then). The scene's offset and size at a station come from the room
   (`placeSync`), not from before.
 - `xrUpdate`: `const land = !!XR.stories, away = xrAway();`, the story panels
-  `const pm = xrPanels(), pv = !land && !away && XR.lm !== 'hidden';` (`XR.main`
-  `pv && pm === 'shown'`, `XR.foot` `pv && pm !== 'hidden'`: panels per story) and
+  `const pm = xrPanels(), pv = !land && !away && XR.cm !== 'hidden';` (`XR.main`
+  `pv && pm === 'shown'`, `XR.foot` `pv && pm !== 'hidden'`: panels per story; the cards' mode, not the labels') and
   `GL.world.visible = !land && !away;`.
 - `xrEnterScene`: `XR.inRoom = xrRoomOnly(); const fromStart = (HOST.picking || HOST.landingVR) && !XR.inRoom;`.
 - `xrEnded`: `const away = xrAway();` first, and
@@ -1541,10 +1561,11 @@ after a night, lined them up. Not confirmed on headsets yet: whether they line u
 standby (and a night) now, whether asking for the shared space again (Re-align,
 or 15 s after waking) joins the others' space,
 how a scene moved, resized or turned at a station looks for the others, people's
-name tags in each label mode, the story panels in 3D in the life-size and
+name tags in each cards mode, the story panels in 3D in the life-size and
 stand-inside views (the labels, the story panels and the station cards in 3D,
 hidden, and the grip moving and turning scenes and panels, alone and at a
-station, were checked on a Quest 3, 28 October 2026),
+station, were checked on a Quest 3, 28 October 2026, as one setting; labels and
+cards as two independent ones, labels on top by default, are untested there),
 persistent anchors restored (one headset's handles were refused; the log now
 says why), whether a recentre fires a reset, sound zones heard, comfort and
 frame rate with presence drawn, and whether the socket keeps running inside an
@@ -2308,16 +2329,20 @@ front and 15 cm below the eyes and the ring at the left wrist, drawn in a scene 
 listener of the story's), the clear colour kept, the card fading out over the story's first frames,
 switches stories, runs anchored placement in each
 story with a pretend headset (an origin that jumps, anchors that stay, saved
-handles), checks the three headset settings with a pretend headset in a page of
-its own (everything in 3D by default; the menu's Labels and Moving buttons
-going round, kept across a reload, set by a link; for the qubits, the flock and
-the airports: labels on top as sprites, in 3D as depth-tested upright signs
-turned to the head, also after it moves, and hidden; the two story panels on top
-as before, in 3D in the scene (depth-tested, writing depth, `renderOrder` -1,
-`alphaTest` above 0, their materials built again only when the mode changes,
-the ray still reaching each), and hidden with neither panel drawn or pointable
-in story and explore mode, A or X still playing; back again from hidden; the
-Stories screen's panels on top throughout; a free grip turning the scene 90 degrees with the hand, the
+handles), checks the headset settings with a pretend headset in a page of
+its own (labels on top and cards in 3D by default, also on a device that chose
+its labels under the old key; the menu's Labels, Cards and Moving buttons
+going round, each leaving the other, kept across a reload, set by `#labels=`
+and `#cards=`; for the qubits, the flock and
+the airports, each mode of each switch on its own: labels on top as sprites, in
+3D as depth-tested upright signs turned to the head, also after it moves, and
+hidden, the story panels staying as the cards have them (labels hidden leaving
+both panels drawn and pointable); the two story panels in 3D in the scene
+(depth-tested, writing depth, `renderOrder` -1, `alphaTest` above 0, their
+materials built again only when the mode changes, the ray still reaching each),
+on top as before, and with cards hidden neither panel drawn or pointable in
+story and explore mode, the labels staying, A or X still playing; back again
+from hidden; the Stories screen's panels on top throughout; a free grip turning the scene 90 degrees with the hand, the
 point held staying in it, staying when let go and facing you again with free
 moving off; the panel tilting with the hand; the flock's grip taking only the
 panel; subtitles: off by default with nothing drawn, on through the menu's row,
@@ -2329,10 +2354,10 @@ German, the hook in all sixteen; panels per story: shown by default, the menu's
 Panels row going round (controls only, hidden, shown) with the story following,
 no row on the Stories screen (its panels staying), each value in story and
 explore mode (controls only: the foot bar alone, the text panel neither drawn
-nor pointable; hidden: neither, A or X still playing), labels hidden still
-hiding both, each story its own (the qubits, the flock, the airports, the
+nor pointable; hidden: neither, A or X still playing), cards hidden still
+hiding both and labels hidden neither, each story its own (the qubits, the flock, the airports, the
 design room), kept per story across a reload, set by a link for the story it
-opens, the lines in all sixteen and the design room; the menu's Design room
+opens, the panels and cards lines in all sixteen and the design room; the menu's Design room
 button outside a room opening the design room, the menu closing and the button
 greyed there), the stories' sound effects (per story: its cue table, names the
 shell knows, places that resolve, times within the story; a paused scrub across
@@ -2445,9 +2470,10 @@ After: a station moved and turned on the room map (and refused while the
 circles are locked), the design room (the Shared dialog's picker listing it after
 the stories, its station added there for every page, refused while locked from
 Add and the Design room button, left where it is by Arrange all, the button
-moving the room's one to your feet rather than adding a second), the headsets' three settings and the two sound switches
-as the room's (everything in 3D, no subtitles, sound effects and narration on in a room without them; set on one page,
-or in another's Shared dialog with the circles locked, for every page; free moving off taking the turns
+moving the room's one to your feet rather than adding a second), the headsets' four settings and the two sound switches
+as the room's (labels on top, cards in 3D, no subtitles, sound effects and narration on in a room without them; set on one
+page (the labels from one, the cards from another, each leaving the other), or in another's Shared dialog (both pickers)
+with the circles locked, for every page; free moving off taking the turns
 out of the stations' places and panels; kept across the relay restart and, in a
 room on this device, across a reload), a station's panels set in a page's
 Shared dialog with the circles locked (reaching the pages at that station,
@@ -2547,9 +2573,11 @@ resizing the scene and one hand carrying on, the place, size and panel going
 out to the room and gliding in from it, a free grip turning the scene 90 degrees
 and tilting the panel (the turns in the room, the other pages holding the same
 `q`), Moving in the headset's menu turning free moving off for everyone (the
-turns gone, the scene facing you again, the panel upright) and Labels going
-round there for every page (the other stations' cards, as if their rings had
-been pointed at, and the name tag of a person at its circle on top as before, drawn as the labels' signs in 3D, not drawn when hidden; the
+turns gone, the scene facing you again, the panel upright), Labels going
+round there for every page (the cards staying in 3D) and Cards going round
+there for every page (the labels staying on top; the other stations' cards, as
+if their rings had been pointed at, and the name tag of a person at its circle
+on top as before, drawn as the labels' signs in 3D, not drawn when hidden; the
 menu on top in every mode); Re-align
 (an offset headset back on the room's frame, the shared space asked for again),
 and after a night: a headset still outside the space asking for it again, a
@@ -2595,7 +2623,8 @@ canvas, `design-station.png`, the table at its circle, `design-circle.png`, its 
 people list with Follow, `follow-person-1-people.png`, and the dialog following someone, `follow-person-2-following.png`
 and `follow-person-3-people-following.png`). The ten-headset round (`headsetRound`, also in the main run, after the
 room on this device; `--circles` runs only it, a room of its own with three stations, about four minutes): a pretend
-headset sees every card and icon and everyone before any circle; in its circle the others' rings only and only the
+headset sees every card and icon and everyone before any circle, the station cards and a person's name tag following
+Cards (in 3D by default, on top, hidden with the rings and icons staying) and not Labels (hidden, still in 3D); in its circle the others' rings only and only the
 people at its circle; *People* in the clock menu drawing everyone and back (kept on the headset, nothing written); a ray
 resting on another ring bringing up its card and icon (no other), still there a second after it moves off, gone about
 2 s later; the trigger there running nothing; walked out, still in its story; walking into another circle switching;

@@ -515,7 +515,7 @@ body.xr #labels, body.xr #tip { display: none; }
       <ul class="sh-stations"></ul>
       <p class="hint">Panels: what the headsets at a station's circle show of its story's panels (shown, controls only or hidden), for everyone there. Lock story: nobody there can move, turn or resize its scene or move its panel. Lock circles: nobody can move, add or remove a circle.</p>
       <div class="row mt"><button class="btn" type="button" data-sh="arrange">Arrange all</button><select id="shAdd" aria-label="Story for a new station (or the design room)"></select><button class="btn" type="button" data-sh="add">Add a station</button><button class="btn" type="button" data-sh="lock" aria-pressed="false" title="Once the circles are in place: nobody moves, adds or removes one by accident (the stories' scenes and panels have their own locks)">Lock circles</button><button class="btn" type="button" data-sh="near" aria-pressed="true" title="Listed under Rooms on this network for devices on the network of someone in it">Show on this network: on</button><button class="btn" type="button" data-sh="fresh" hidden title="Every page in the room moves to a new address, where the headsets make a new shared space together">Fresh shared space</button></div>
-      <div class="row mt sh-look"><span>In the headsets, for everyone here:</span><select id="shLabels" aria-label="Labels in the headsets"><option value="fixed">Labels: in 3D</option><option value="face">Labels: on top</option><option value="hidden">Labels: hidden</option></select><button class="btn" type="button" data-sh="free" aria-pressed="true" title="Free: the grip turns what it holds with your hand. Facing you: things you move keep facing you">Moving: free</button><button class="btn" type="button" data-sh="subs" aria-pressed="false" title="The narration's words in a strip low in each headset's view">Subtitles: off</button></div>
+      <div class="row mt sh-look"><span>In the headsets, for everyone here:</span><select id="shLabels" aria-label="Labels in the headsets: the small labels inside the scenes" title="The small labels inside the scenes"><option value="face">Labels: on top</option><option value="fixed">Labels: in 3D</option><option value="hidden">Labels: hidden</option></select><select id="shCards" aria-label="Cards in the headsets: the story panels, the station cards and the name tags" title="The larger ones: the story's text panel and play bar, the station cards over the circles and people's name tags"><option value="fixed">Cards: in 3D</option><option value="face">Cards: on top</option><option value="hidden">Cards: hidden</option></select><button class="btn" type="button" data-sh="free" aria-pressed="true" title="Free: the grip turns what it holds with your hand. Facing you: things you move keep facing you">Moving: free</button><button class="btn" type="button" data-sh="subs" aria-pressed="false" title="The narration's words in a strip low in each headset's view">Subtitles: off</button></div>
       <h3>People</h3>
       <ul class="sh-people"></ul>
       <p class="hint">Follow a person in a headset: this page shows whichever station they stand at, switching as they walk (for people watching on a screen instead of wearing a headset).</p>
@@ -1188,27 +1188,32 @@ HOST.xr = (function () {
       if (X.open && t < SOON) down('VR closed by itself after ' + (t / 1000).toFixed(1) + ' s');
     });
   }
-  // Three settings for every story in the headset (the menu's Labels, Moving and Subtitles rows): labels 'face' (sprites turned to
-  // you, drawn over everything, and the story panels on top), 'fixed' (in 3D: upright signs in the scene, turned to
-  // you and hidden by what stands in front of them; the story panels, the station cards and the name tags stand in
-  // the scene too) or 'hidden' (no labels and no story panels; the Stories screen, the menu and its clock stay, so
-  // the setting can be changed back); free moving on (the grip holds what it takes like a
-  // real object, turning it with the hand) or off (it moves things but they keep facing you); subtitles on (the
-  // narration's words in a strip low in your view, drawn by shared.js from the story's caption hook) or off, the
-  // default. One setting for the whole system, everything in 3D by default: in a shared room the room's, for everyone
-  // in it (shared.js, key look), else this device's own (xrLabels, xrFree, xrSubs), which keeps a room's last value
-  // after leaving it. Stories read labels() and free() every frame and put sig() in their panels' signatures.
-  // #labels=face|fixed|hidden, #free=on|off and #subs=on|off in a link set them.
+  // Four settings for every story in the headset (the menu's Labels, Cards, Moving and Subtitles rows). Labels, the small
+  // labels inside the scenes: 'face' (on top: sprites turned to you, drawn over everything; the default), 'fixed' (in 3D:
+  // upright signs in the scene, turned to you and hidden by what stands in front of them) or 'hidden'. Cards, the larger
+  // ones (the story's text panel and its play and pause bar, the station cards over the circles, people's name tags), in
+  // the same three ways: 'fixed' (in 3D, standing in the scene; the default), 'face' (on top) or 'hidden' (no story panel,
+  // no station card, no name tag; A or X still plays). The two are independent (the owner, 30 October 2026: "an
+  // independent switch for the small labels ... and one for the larger ones like the play pause cards"); the Stories
+  // screen, the menu, its clock, the notices and the subtitles stay on top in every mode, so a setting can be changed back.
+  // Free moving on (the grip holds what it takes like a real object, turning it with the hand) or off (it moves things but
+  // they keep facing you); subtitles on (the narration's words in a strip low in your view, drawn by shared.js from the
+  // story's caption hook) or off, the default. One setting each for the whole system: in a shared room the room's, for
+  // everyone in it (shared.js, key look), else this device's own (xrLabels2, xrCards, xrFree, xrSubs; the labels under a
+  // new key, so every device starts once on the new defaults), which keeps a room's last value after leaving it. Stories
+  // read labels(), cards() and free() every frame and put sig() in their panels' signatures.
+  // #labels=face|fixed|hidden, #cards=face|fixed|hidden, #free=on|off and #subs=on|off in a link set them.
   // Two sound switches go the same way, for pages and headsets alike (the owner, 30 October 2026: "a switch for sound
   // effects and one for narration, both global in the clock menu and the shared menu on the desktop"): sfx() (the sound
   // effects, sfx.js; this device's own is sfxOn) and voice() (the narration: off, it is silent on both engines and the
   // story runs on its own clock, as when muted; the effects and subtitles go on; this device's own is narrationOn), both
   // on unless turned off; #sfx=on|off and #voice=on|off in a link. The Sound button (the bar's, the headset panel's) stays
   // this device's quick mute of everything, and the effects' volume this device's own.
-  const LABELS = ['face', 'fixed', 'hidden'], own = { labels: 'fixed', free: true, subs: false, sfx: true, voice: true };
+  const LABELS = ['face', 'fixed', 'hidden'], own = { labels: 'face', cards: 'fixed', free: true, subs: false, sfx: true, voice: true };
   try {
-    const l = localStorage.getItem('xrLabels'), f = localStorage.getItem('xrFree'), u = localStorage.getItem('xrSubs');
+    const l = localStorage.getItem('xrLabels2'), c = localStorage.getItem('xrCards'), f = localStorage.getItem('xrFree'), u = localStorage.getItem('xrSubs');
     if (LABELS.includes(l)) own.labels = l;
+    if (LABELS.includes(c)) own.cards = c;
     if (f === 'on' || f === 'off') own.free = f === 'on';
     if (u === 'on' || u === 'off') own.subs = u === 'on';
     // (on by default: only a device that turned them off keeps them off)
@@ -1216,11 +1221,11 @@ HOST.xr = (function () {
   } catch (e) { /* storage blocked */ }
   const keepOwn = () => {
     try {
-      localStorage.setItem('xrLabels', own.labels); localStorage.setItem('xrFree', own.free ? 'on' : 'off'); localStorage.setItem('xrSubs', own.subs ? 'on' : 'off');
+      localStorage.setItem('xrLabels2', own.labels); localStorage.setItem('xrCards', own.cards); localStorage.setItem('xrFree', own.free ? 'on' : 'off'); localStorage.setItem('xrSubs', own.subs ? 'on' : 'off');
       localStorage.setItem('sfxOn', own.sfx ? 'on' : 'off'); localStorage.setItem('narrationOn', own.voice ? 'on' : 'off');
     } catch (e) { /* storage blocked */ }
   };
-  // in a shared room the room's ({ labels, free, subs, sfx, voice }), else null
+  // in a shared room the room's ({ labels, cards, free, subs, sfx, voice }), else null
   const room = () => (HOST.collab && HOST.collab.look ? HOST.collab.look() : null);
   const look = () => room() || own;
   function setLook(o) {
@@ -1233,6 +1238,8 @@ HOST.xr = (function () {
     line: () => 'VR asks for: ' + (VR[X.vr].join(', ') || 'nothing extra') + (X.vr ? ' (less than at first: ' + X.note + ')' : ''),
     labels: () => look().labels,
     setLabels(m) { if (LABELS.includes(m)) setLook({ labels: m }); },
+    cards: () => look().cards,
+    setCards(m) { if (LABELS.includes(m)) setLook({ cards: m }); },
     free: () => look().free,
     setFree(on) { setLook({ free: !!on }); },
     subs: () => !!look().subs,
@@ -1242,11 +1249,11 @@ HOST.xr = (function () {
     setSfx(on) { setLook({ sfx: !!on }); },
     voice: () => look().voice !== false,
     setVoice(on) { setLook({ voice: !!on }); },
-    sig: () => { const L = look(); return L.labels + (L.free ? '+' : '-') + (L.subs ? 's' : ''); },
+    sig: () => { const L = look(); return L.labels + '/' + L.cards + (L.free ? '+' : '-') + (L.subs ? 's' : ''); },
     // the room's value, kept as this device's own (shared.js, when the room's changes): it stays after leaving
     keep(o) {
-      if (!o || !LABELS.includes(o.labels)) return;
-      const n = { labels: o.labels, free: !!o.free, subs: !!o.subs, sfx: o.sfx !== false, voice: o.voice !== false };
+      if (!o || !LABELS.includes(o.labels) || !LABELS.includes(o.cards)) return;
+      const n = { labels: o.labels, cards: o.cards, free: !!o.free, subs: !!o.subs, sfx: o.sfx !== false, voice: o.voice !== false };
       if (Object.keys(n).every(k => n[k] === own[k])) return;
       Object.assign(own, n); keepOwn();
     },
@@ -1949,7 +1956,7 @@ HOST.slides = (function () {
 // own. Outside a shared room this device's (xrPanels in localStorage); at a station in a room the station's, for everyone
 // at that circle (shared.js, key st.<id>.ui; a station without it: shown). The menu's Panels row sets it for the story on
 // show (each press the next), the page's Shared dialog per station. Stories read get(key) every frame in xrUpdate, beside
-// the labels mode (labels hidden still hides both panels: the two are independent), and put sig(key) in their panels'
+// the cards mode (cards hidden still hides both panels: the two are independent), and put sig(key) in their panels'
 // signatures. #panels=shown|controls|hidden in a link sets it for the story the link opens. The Stories screen never
 // changes with it.
 HOST.panels = (function () {
@@ -2471,6 +2478,7 @@ HOST.cards = function () {
   if (hp.has('slides')) HOST.slides.setGlobal(hp.get('slides') !== 'off');
   if (hp.has('anchor')) HOST.anchor.set(hp.get('anchor') !== 'off');
   if (hp.has('labels')) HOST.xr.setLabels(hp.get('labels'));
+  if (hp.has('cards')) HOST.xr.setCards(hp.get('cards'));
   if (hp.has('free')) HOST.xr.setFree(hp.get('free') !== 'off');
   if (hp.has('subs')) HOST.xr.setSubs(hp.get('subs') !== 'off');
   if (hp.has('sfx')) HOST.sfx.set(hp.get('sfx') !== 'off');

@@ -63,13 +63,18 @@
   `GL.rig` past it, so check `HOST.anchor.held()` before re-placing and
   `HOST.anchor.locked(kind)` before letting the grip move anything. Real anchors
   only exist on a headset: report their behaviour as untested.
-- The headset's three settings (labels in 3D, on top or hidden; free moving;
-  subtitles, off by default) are the shell's (`HOST.xr.labels()`,
-  `HOST.xr.free()`, `HOST.xr.subs()`, in a room the room's key `look`, which also
-  holds the two sound switches, `sfx` and `voice`), the same
-  for every story: never put them in a story's `state()`. Stories read the first
-  two every frame through the shared lines (`xrSettings`, `placeLabelXR`,
-  `xrFace`), the same in all sixteen; the shell draws the subtitles from each
+- The headset's four settings (the scenes' small labels on top, in 3D or
+  hidden, on top by default; the cards, meaning the story panels, the station
+  cards and people's name tags, in 3D, on top or hidden, in 3D by default; the
+  two independent of each other; free moving; subtitles, off by default) are the
+  shell's (`HOST.xr.labels()`, `HOST.xr.cards()`, `HOST.xr.free()`,
+  `HOST.xr.subs()`, in a room the room's key `look`, which also holds the two
+  sound switches, `sfx` and `voice`), the same
+  for every story: never put them in a story's `state()`. Stories read labels,
+  cards and free moving every frame through the shared lines (`xrSettings`:
+  `XR.lm`, `XR.cm`; `placeLabelXR` follows the labels only, `panelDepth` and the
+  story panels' visibility the cards only; `xrFace`), the same in all sixteen and
+  the design room; the shell draws the subtitles from each
   story's caption hook (`caption: xrCaption`, the same lines in all sixteen).
   How the signs read, how the free grip feels and how the subtitles read and
   follow the head can only be checked on a headset: report them as untested.
