@@ -1262,7 +1262,8 @@ async function headsetRound(dir) {
     // (its station in explore mode, so its scene shows in the pictures)
     await A.evaluate(id => HOST.collab.publish([['st.' + id + '.play', { mode: 'explore', t: 0, playing: false, at: Math.round(HOST.collab.now()) }]]), S1.id);
     await until(H, () => { window.__xr.step(); return HOST.cur.peek('APP.mode') === 'explore'; }, null, 8000);
-    await until(H, ids => { window.__xr.step(); const O = HOST.collab.overlay(); return ids.slice(1).every(id => O.rings.get(id).icon.k > 0.9 && !O.rings.get(id).ring.visible && !O.cards.get(id).mesh.visible); }, ids, 8000);
+    // (the rings fade by each frame's time, at most 0.1 s a frame: a slow page in a long run takes a while)
+    await until(H, ids => { window.__xr.step(); const O = HOST.collab.overlay(); return !O.rings.get(ids[0]).ring.visible && ids.slice(1).every(id => O.rings.get(id).icon.k > 0.9 && !O.rings.get(id).ring.visible && !O.cards.get(id).mesh.visible); }, ids, 30000);
     const r1 = await seenRound(), p1 = await crowd([S1.id, S2.id, '']);
     const balls = await H.evaluate(ids => { const O = HOST.collab.overlay(); return ids.map(id => O.hit.includes(O.rings.get(id).ball)); }, ids);
     check('round: in its circle the other stations show their icons only (no ring, no card; the icons pointable), and of its own nothing (no ring, not pointable)', in1 && r1.mine === S1.id && !r1.cards[1] && !r1.cards[2] &&
