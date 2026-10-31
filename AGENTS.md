@@ -1158,8 +1158,8 @@ and the cards' setting, `cards`, joined `look` in v100). The plan is `docs/share
     the engine choice, Reset the sound and `HOST.audio.report()`, redrawn twice a second; *Try the sound effects*;
     Back), then read-outs (`debugLines`: the release and `FORMAT`, the room's code, relay or peer to peer and its round
     trip, Quest Browser's version, the frame rate, `FPS`, once a second).
-  The canvas is 1920 px tall (the tallest tab, Circles in a room on this headset with a three-line note at a station,
-  is about TALLEST px). A right index fingertip also presses its buttons (`poke`: within 1.5 cm of the panel over one,
+  The canvas is 1920 px tall, more than any tab needs (Circles in a room with six people is about 1150 px; Settings
+  about 820, Debug about 760). A right index fingertip also presses its buttons (`poke`: within 1.5 cm of the panel over one,
   again once pulled back 3 cm; a pinch on the ray at the same button within 0.7 s counts once with it, `twice`). The
   once-per-room question still opens it by itself (on Circles), and so does the first time in a room with no stations
   (once per room: its Stations section says "None yet: Arrange all puts every story in front of you"). The notices

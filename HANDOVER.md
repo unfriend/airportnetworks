@@ -44,7 +44,21 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
 ## Where things stand
 
 - **Released as networks-v102 (31 October 2026; FORMAT networks-27 as v100 and v101, so they all share rooms), tested
-  headlessly only:** the owner's six notes after a day's testing (the bullet below). TESTS_V102
+  headlessly only:** the owner's six notes after a day's testing (the bullet below). Reviewed once (two Sonnet reviewers,
+  two skeptics per finding): the 20 s close dropped the once-per-room question for good (now it waits until it is
+  answered, and a menu that opened by itself until it is used), and both sticks at once toggled twice; both fixed. A
+  test found that in the flock, the robots and the pass story the scene is everywhere the ray goes, so the double pinch
+  could never be "at nothing": the scene now counts as nothing (only the menu, a station or a story panel on the left
+  ray stop it), and the story gets those two pinches too (two falcons in the flock's explore mode). Tests: relay 243
+  good; the update test from v101 good; smoke 146 good and 1 failed (one load step of the proteins story took 4.16 s
+  against the 4 s limit; alone each of its steps takes under 0.1 s); audio 52 good and 1 failed (the narration moving to
+  the audio element when the Web Audio clock stops: v101 fails it the same way on this machine today); shared rooms:
+  every per-story part good in a full run, the ten-headset round (`--circles`) all good, the final `--quick` run 251
+  good and 4 failed, all timing on a machine whose pretend headset drew about a frame a second: two calibration checks
+  (a double pull 0.6 s apart came slower than that) and two peer-to-peer checks (a silent host replaced after 43 s, a
+  headset's hand-over), which pass on their own (`--p2p` 18 good, the host replaced in 6.1 s; `--near` 19 good). The
+  tests gained checks for every point and were made sturdier on a busy machine (the rings' fade waited for, the icons'
+  turn over two frames, rooms on this network finding the relay before starting their room).
 - **Released in v102 (31 October 2026), tested headlessly only: the owner's notes after testing v101.** (1) The station
   rings float 0.5 m over the floor ("Circles sollten ca 50 cm in der luft sein": a headset that finds the floor a
   little wrong no longer sinks them into it). (2) A station's card stands over its ring's middle (it stood where the
