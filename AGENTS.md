@@ -1114,9 +1114,11 @@ and the cards' setting, `cards`, joined `look` in v100). The plan is `docs/share
   the clock, the trigger on it or the left stick opened it). The menu opens and closes with a click of either stick
   (`sticks`: `buttons[3]`, rising edge, per input source; a stick held down as its controller appears is no click; no
   story uses it: they use the stick's axes and `buttons[4]`), or with tracked hands two pinches of the left hand within
-  0.4 s while its ray points at nothing (`pinched`, from the session's `selectstart`: not at the menu, a station, a
-  story panel or the scene, the story's `hover(i)` 0, so a double pinch meant for a story stays the story's; not the
-  right hand's, not while calibrating; the owner: "only left double pinch"), and by Close in its header. Unused for
+  0.4 s while its ray points at none of the panels (`pinched`, from the session's `selectstart`: not at the menu, a
+  station (the shell's hover) or a story panel (the `near` the story passes to `HOST.collab.ray`), so two pinches
+  meant for a panel's button stay the button's; the scene counts as nothing, since in the flock, the robots and the
+  pass story's sea the scene is everywhere the ray goes, and the story gets those two pinches too; not the right
+  hand's, not while calibrating; the owner: "only left double pinch"), and by Close in its header. Unused for
   20 s (`IDLE`; no press, no ray resting on it, no fingertip at it) it closes by itself, not while calibrating, not
   while it asks its once-per-room question, and when it opened by itself (`PNL.self`) not until it has been used
   (neither opens again by itself). It
@@ -2581,7 +2583,7 @@ opened and closed by a click of the left stick or the right, floating in front o
 to you; Close and its three tabs at its top); a touch of the clock doing nothing; closing by itself unused (not with a
 ray resting on it, not while calibrating); staying put as you look about a little and gliding back in front once you
 have turned further; with tracked hands two quick pinches of the left hand pointing at nothing opening and closing it
-(not one pinch, not two slow ones, not the right hand's, not the left's on the menu); Exit under Settings; buttons
+(not one pinch, not two slow ones, not the right hand's, not the left's on the story's panel or the menu); Exit under Settings; buttons
 pressed by a fingertip, a poke and a pinch at once pressing once; at its tallest, You still on it; Sound check under
 Debug: both beeps, the engine choice, Back), re-alignment, walking to another station
 and back, Remove asking first; calibration from two marks (Stop calibrating

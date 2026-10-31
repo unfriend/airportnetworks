@@ -2373,7 +2373,7 @@ try {
   }));
   const built = await until(H, () => { window.__xr.step(); return [...HOST.collab.overlay().rings.values()].every(o => o.icon.model); }, null, 20000);
   const ic0 = await iconsSeen();
-  await frames(H, 400);
+  await frames(H, 400); await frames(H, 200);   // (twice: one slow frame can fill a whole wait, drawn at its start)
   const ic1 = await iconsSeen(), nSt = await H.evaluate(() => HOST.collab.stations().length);
   const iconOk = (x, i) => x.key === x.story && x.col === x.want && x.y > 1.9 && x.on && angle(x.a, ic0[i].a) > 0.05 && x.model === x.wantModel && x.tris > 300;
   const cards0 = await H.evaluate(() => [...HOST.collab.overlay().cards.values()].filter(c => c.mesh.visible).length);
@@ -2803,6 +2803,15 @@ try {
     await wait(500);
     pinch(rightH); await wait(120); pinch(rightH); await steps(2); out.pinchRight = HOST.collab.menu;
     await wait(500);
+    // two pinches with the left hand's ray on the story's own panel are the panel's, not a toggle (the scene, the
+    // flock's sky here, counts as nothing: the double pinches above pointed up into it)
+    const pm = HOST.cur.peek('XR.main && XR.main.mesh.visible ? XR.main.mesh.getWorldPosition(new THREE.Vector3()) : null');
+    if (pm) {
+      const m = new M4().compose(lp, new THREE.Quaternion().setFromUnitVectors(new V(0, 0, -1), pm.clone().sub(lp).normalize()), new V(1, 1, 1));
+      X.aim(1, m); left.targetRaySpace = J(m); await steps(3);
+      pinch(left); await wait(120); pinch(left); await steps(2); out.pinchOnPanel = HOST.collab.menu;
+      X.aim(1, up); left.targetRaySpace = J(up); await steps(3); await wait(500);
+    } else out.pinchOnPanel = 'no panel';
     // open (by two pinches), the left hand's ray on the menu: two pinches there are the menu's, not a toggle
     pinch(left); await wait(120); pinch(left); await steps(3);
     const lo = headNow().add(new V(-0.15, -0.25, -0.1)), onMenu = () => { const m = new M4().compose(lo, new THREE.Quaternion().setFromUnitVectors(new V(0, 0, -1), mid().sub(lo).normalize()), new V(1, 1, 1)); X.aim(1, m); left.targetRaySpace = J(m); };
@@ -2814,6 +2823,7 @@ try {
     out.finger = HOST.collab.menu && O.panelG.visible;
     const s = X.session, e0 = s.end; let n = 0; s.end = () => { n++; };
     const r = S.regions.find(x => x.id === 'exit'), Hh = S.mw * S.h / S.w;
+    if (!r) { out.noExit = HOST.collab.menuIds(); HOST.collab.panelOpen(false); return out; }   // (the menu not open: say so, not crash)
     const onExit = d => S.mesh.localToWorld(new V((r.x + r.w / 2) / S.w * S.mw - S.mw / 2, (0.5 - (r.y + r.h / 2) / S.vis) * Hh, d / O.panelG.scale.x));
     tipAt(onExit(0.04)); await steps(2); out.pokeHover = S.hover;
     tipAt(onExit(0.005)); await steps(2); out.poke1 = n; await steps(2); out.poke1b = n;
@@ -2845,8 +2855,8 @@ try {
   check('headset: touching the clock with the right controller\'s tip does nothing', !hand.touch, JSON.stringify(hand));
   check('headset: unused, the menu closes by itself; a ray resting on it keeps it open; it stays open while calibrating', hand.idleClosed && hand.idleHeld && hand.idleAfter && hand.idleCalib, JSON.stringify(hand));
   check('headset: the menu stays put as you look about a little and glides back in front once you have turned further', hand.still < 1e-3 && hand.follow.ahead > 0.95 && hand.follow.faces > 0.95, JSON.stringify(hand));
-  check('headset: with tracked hands the clock sits on the left wrist; two quick pinches of the left hand pointing at nothing open and close the menu (not one, not two slow ones, not the right hand\'s, not the left\'s on the menu)',
-    hand.handClosed && near(hand.wrist, hand.wristWant, 2e-3) && hand.pinch2 && hand.pinch2Closed && !hand.pinch1 && !hand.pinchSlow && !hand.pinchRight && hand.pinchOnMenu, JSON.stringify(hand));
+  check('headset: with tracked hands the clock sits on the left wrist; two quick pinches of the left hand pointing at no panel (the scene counts as nothing) open and close the menu (not one, not two slow ones, not the right hand\'s, not the left\'s on the story\'s panel or on the menu)',
+    hand.handClosed && near(hand.wrist, hand.wristWant, 2e-3) && hand.pinch2 && hand.pinch2Closed && !hand.pinch1 && !hand.pinchSlow && !hand.pinchRight && hand.pinchOnPanel === false && hand.pinchOnMenu, JSON.stringify(hand));
   check('headset: the right index fingertip presses the menu\'s buttons by touch (once, again after pulling back)',
     hand.finger && hand.pokeHover === 'exit' && hand.poke1 === 1 && hand.poke1b === 1 && hand.poke2 === 2, JSON.stringify(hand));
   check('headset: a fingertip poke and a pinch on the ray at the same button press it once (a pinch a second later again)', hand.pokePinch === 1 && hand.pinchLater === 2, JSON.stringify(hand));

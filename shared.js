@@ -3522,7 +3522,7 @@
   function ray(i, o, d, near) {
     let h = C.rays.get(i);
     if (!h) C.rays.set(i, (h = { o: new THREE.Vector3(), d: new THREE.Vector3(), at: 0 }));
-    h.o.copy(o); h.d.copy(d); h.at = performance.now(); h.n = C.frameN;
+    h.o.copy(o); h.d.copy(d); h.at = performance.now(); h.n = C.frameN; h.near = near != null ? near : Infinity;   // (near: a story panel on the ray)
     (h.hist = h.hist || []).push([h.at, o.x, o.y, o.z]);   // the last half second, for a calibration mark (steady)
     while (h.hist.length && h.at - h.hist[0][0] > 500) h.hist.shift();
     if (!OV.root || !OV.root.visible || !OV.root.parent) return null;
@@ -3600,18 +3600,18 @@
     if (click && HOST.session) toggleMenu('stick');   // (both sticks clicked at once: one toggle)
   }
   // with tracked hands, two quick pinches of the left hand (the clock's) open and close it (the owner, 31 October 2026:
-  // "only left double pinch"), but only while its ray points at nothing: not at the menu, a station, a story panel or
-  // the scene (the stories get the pinches too, so a double pinch meant for them stays theirs)
+  // "only left double pinch"), but only while its ray points at none of the panels: not at the menu, a station or a
+  // story panel (the stories get the pinches too, so two meant for a panel's button stay the button's). The scene
+  // counts as nothing: in the flock, the robots and the pass story's sea the scene is everywhere the ray goes, so a
+  // double pinch there reaches the story too (two falcons in the flock's explore mode)
   const PINCH = { at: 0, gap: 400 };
   function pinched(e) {
     const src = e && e.inputSource, s = R.session;
     if (!src || !src.hand || src.handedness !== 'left' || !s || !HOST.session) return;
     let i = -1;
     try { i = [...s.inputSources].indexOf(src); } catch (e2) { /* gone */ }
-    let story = 0;
-    try { story = C.hook && C.hook.hover ? +C.hook.hover(i) || 0 : 0; } catch (e2) { /* story not ready */ }
-    const t = performance.now();
-    if (i < 0 || hovOf(i) || story > 0 || R.calib) { PINCH.at = 0; return; }   // (pointing at something: the story's, or the shell's)
+    const t = performance.now(), h = C.rays.get(i), panel = !!h && t - h.at < 250 && h.near < Infinity;
+    if (i < 0 || hovOf(i) || panel || R.calib) { PINCH.at = 0; return; }   // (pointing at a panel: the story's, or the shell's)
     if (PINCH.at && t - PINCH.at < PINCH.gap) { PINCH.at = 0; toggleMenu('pinch'); return; }
     PINCH.at = t;
   }
