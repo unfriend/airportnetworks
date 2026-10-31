@@ -1123,8 +1123,8 @@ and the cards' setting, `cards`, joined `look` in v100). The plan is `docs/share
   while it asks its once-per-room question, and when it opened by itself (`PNL.self`) not until it has been used
   (neither opens again by itself). It
   floats in front of you (the owner: "just make it float in front of the headset"; until v101 it stood above the
-  clock): put there as it opens (`floatMenu`, `FLOAT`: its middle 0.48 m ahead of your eyes along your gaze, the gaze's
-  pitch held between -23 and +9 degrees, 8 cm under it, about 30 cm wide (0.72 of the panel's 0.42 m), within a
+  clock): put there as it opens (`floatMenu`, `FLOAT`: its middle 0.5 m ahead of your eyes along your gaze, the gaze's
+  pitch held between -23 and +9 degrees, 8 cm under it, about 28 cm wide (0.66 of the panel's 0.42 m), within a
   fingertip's reach, turned to you), it hangs from its top edge, so the tabs stay put while the tab below them changes
   height; it stays put while you use it and glides back in front once your head has turned more than 30 degrees from
   it, walked off (nearer than 0.25 m or further than 0.85 m along the floor) or moved 25 cm up or down, never while a
@@ -1147,7 +1147,7 @@ and the cards' setting, `cards`, joined `look` in v100). The plan is `docs/share
   - **Circles**: the shared room (its code and people as the heading, with *Another room* beside them in a room; in no
     room the rooms, then *Start a room*, *Join with a code* and *Refresh*; the question; stations (Move here, Add here;
     Arrange all, Remove; *Lock circles* and *Lock this story* side by side, the latter at a station only; *Show all
-    rings* and *On this network*), people (at most `PEOPLE_ROWS`, 8, and as many as leave room for You), You (name,
+    rings* and *On this network*), people (at most `PEOPLE_ROWS`, 6, and as many as leave room for You), You (name,
     colour, Leave). *Join with a code* and *Another room* (the owner, 30 October 2026: "Joining a room with code not
     possible in ar/vr?") open a page in place of the rest of the tab (`codePage`, `PNL.code`): the code so far in three
     boxes, a keypad of the 26 letters (seven to a row; a fourth letter refused), Delete, Join (once there are three
@@ -2579,7 +2579,7 @@ first; swung, pushed further, turned; the others see it while it moves) and
 gliding into place when someone else moves it, the circles lock (the grip and
 Arrange all refused; unlocked from the headset's menu), the menu (closed at
 first, only its clock, not pointable; on the left controller and on a tracked hand's wrist;
-opened and closed by a click of the left stick or the right, floating in front of you (0.48 m along your gaze, turned
+opened and closed by a click of the left stick or the right, floating in front of you (0.5 m along your gaze, turned
 to you; Close and its three tabs at its top); a touch of the clock doing nothing; closing by itself unused (not with a
 ray resting on it, not while calibrating); staying put as you look about a little and gliding back in front once you
 have turned further; with tracked hands two quick pinches of the left hand pointing at nothing opening and closing it

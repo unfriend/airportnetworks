@@ -2867,14 +2867,14 @@
   // It is closed at the start of every session, and opens by itself (on Circles) for the question in VR and the first
   // time in a room with no stations.
   const TABS = [['settings', 'Settings'], ['circles', 'Circles'], ['debug', 'Debug']];
-  const PEOPLE_ROWS = 8;   // people listed under Circles at most (the rest as a count): the menu floats in front of you
+  const PEOPLE_ROWS = 6;   // people listed under Circles at most (the rest as a count): the menu floats in front of you
   const FPS = { v: 0, n: 0, t0: 0 };   // the headset's frame rate, for the Debug tab
   const tab0 = () => { const t = get('xrMenuTab'); return TABS.some(x => x[0] === t) ? t : 'settings'; };
   // where it floats: its middle d m ahead of your eyes along your gaze (its pitch held within pitch, rad) and below m
-  // under that, turned to you, at scale (the panel is 0.42 m wide at 1: about 30 cm, within a fingertip's reach); it
+  // under that, turned to you, at scale (the panel is 0.42 m wide at 1: about 28 cm, within a fingertip's reach); it
   // stays put while you use it and glides back in front once your head has turned more than turn (rad) from it, gone
   // further than far or nearer than near (m, along the floor) or moved up or down by rise (m)
-  const FLOAT = { d: 0.48, below: 0.08, pitch: [-0.4, 0.15], scale: 0.72, turn: 30 * Math.PI / 180, far: 0.85, near: 0.25, rise: 0.25, ease: 6,
+  const FLOAT = { d: 0.5, below: 0.08, pitch: [-0.4, 0.15], scale: 0.66, turn: 30 * Math.PI / 180, far: 0.85, near: 0.25, rise: 0.25, ease: 6,
     placed: false, glide: false, y: 0, at: new THREE.Vector3() };
   const PNL = { open: false, page: 'main', asked: '', empty: '', code: '', tab: tab0(), used: 0, self: false };   // (code: the letters typed on its keypad page)
   const IDLE = { ms: 20000 }, _vs = new THREE.Vector3();   // the menu closes by itself after this long unused (a press, or a ray or fingertip on it)
@@ -2902,7 +2902,7 @@
   function menuAt() { return HOST.session && PNL.open && OV.panelG && OV.panelG.visible ? OV.panelG.position : null; }
   // how the menu opens, for the notices, and how it closes, for its header
   const menuWhere = () => (HAND.hand ? 'pinch twice with your left hand' : 'click a stick');
-  const menuHint = () => (HAND.hand ? 'Pinch twice (left hand) to close' : 'Click a stick to close') + ' · closes by itself after ' + Math.round(IDLE.ms / 1000) + ' s';
+  const menuHint = () => (HAND.hand ? 'Pinch twice (left hand)' : 'Click a stick') + ' to close; unused, it closes after ' + Math.round(IDLE.ms / 1000) + ' s';
   // Remove takes two presses (page and headset): the first arms it for 3 s ("Remove for everyone?")
   const armed = id => !!(C.rm && C.rm.id === id && performance.now() < C.rm.until);
   function removeAsk(id) {
@@ -2987,7 +2987,7 @@
     S.regions = [];
     // the header: Menu, how it closes again, and Close
     ctx.font = FONT(34, 700); ctx.fillStyle = INK; ctx.fillText('Menu', x, 24);
-    ctx.font = FONT(21); ctx.fillStyle = MUTED; ctx.fillText(fit(ctx, menuHint(), w - 180), x, 72);
+    ctx.font = FONT(20); ctx.fillStyle = MUTED; ctx.fillText(fit(ctx, menuHint(), w - 170), x, 72);
     button(S, 'close', W - 34 - 150, 26, 150, 60, 'Close', () => menuOpen(false, 'close'));
     let y = 118;
     const line = () => { ctx.fillStyle = 'rgba(149,166,189,0.22)'; ctx.fillRect(x, y, w, 2); y += 18; };
@@ -3256,13 +3256,13 @@
   }
   // the Debug tab's read-outs
   function debugLines() {
-    const sh = HOST.shell || {}, via = C.local ? 'this headset only' : C.via === 'peer' ? 'peer to peer' : C.relay ? 'relay ' + String(C.relay).replace(/^wss?:\/\//, '') : 'no relay known';
+    const sh = HOST.shell || {}, via = C.local ? 'this headset only' : C.via === 'peer' ? 'peer to peer' : C.relay ? 'relay ' + String(C.relay).replace(/^\w+:\/\//, '').replace(/\/.*$/, '') : 'no relay known';
     const ua = (/(Chrome|Firefox|Safari)\/\d+/.exec(navigator.userAgent) || [''])[0];
     return [
       'App: release ' + (sh.n || '?') + ' · rooms ' + FORMAT,
-      'Room: ' + (C.code ? C.code + ' · ' + via + ' · ' + connLine() + (C.rtt > 0 ? ' · ' + Math.round(C.rtt) + ' ms there and back' : '') : 'none · ' + via),
+      'Room: ' + (C.code ? C.code + ' · ' + via + ' · ' + connLine() + (C.rtt > 0 ? ' · ' + Math.round(C.rtt) + ' ms' : '') : 'none · ' + via),
       'Browser: ' + (BROWSER ? 'Quest Browser ' + BROWSER : ua || 'unknown'),
-      'Frame rate: ' + (FPS.v ? FPS.v + ' frames a second' : 'measuring...'),
+      'Frame rate: ' + (FPS.v ? FPS.v + (FPS.v === 1 ? ' frame' : ' frames') + ' a second' : 'measuring...'),
     ];
   }
   // Sound check in the menu, as the stories have it on their Stories screen (which a shared room never shows): a beep

@@ -2850,8 +2850,8 @@ try {
   });
   check('headset: the menu\'s clock rides on the left controller (behind its grip and above it, turned to your eyes)', hand.closed && near(hand.c, hand.want, 2e-3) &&
     hand.scale === 1 && hand.facing > 0.99, JSON.stringify(hand));
-  check('headset: a click of the left stick opens the menu floating in front of you (about 0.48 m along your gaze, turned to you; Close and the tabs at its top) and closes it again; so does the right stick\'s',
-    hand.stick && hand.float.dist > 0.38 && hand.float.dist < 0.6 && hand.float.ahead > 0.95 && hand.float.faces > 0.95 && Math.abs(hand.pscale - 0.72) < 1e-6 &&
+  check('headset: a click of the left stick opens the menu floating in front of you (about 0.5 m along your gaze, turned to you; Close and the tabs at its top) and closes it again; so does the right stick\'s',
+    hand.stick && hand.float.dist > 0.38 && hand.float.dist < 0.6 && hand.float.ahead > 0.95 && hand.float.faces > 0.95 && Math.abs(hand.pscale - 0.66) < 1e-6 &&
     hand.ids.join() === 'close,tab:settings,tab:circles,tab:debug' && hand.stickClosed && hand.rstick && hand.rstickClosed, JSON.stringify(hand));
   check('headset: touching the clock with the right controller\'s tip does nothing', !hand.touch, JSON.stringify(hand));
   check('headset: unused, the menu closes by itself; a ray resting on it keeps it open; it stays open while calibrating', hand.idleClosed && hand.idleHeld && hand.idleAfter && hand.idleCalib, JSON.stringify(hand));

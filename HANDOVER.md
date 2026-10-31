@@ -58,7 +58,7 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
   Show all rings) and Debug (calibration and alignment, People, Sound check, the version, the connection, the frame
   rate); it opens on the tab used last, on Circles when it opens by itself. No `FORMAT` change, no story touched.
   Untested on a headset: the rings' height and the cards over them from across a room, the floating menu's distance
-  and size (0.48 m, 30 cm wide) for reading and for a fingertip, its follow (30 degrees), the double pinch next to the
+  and size (0.5 m, 28 cm wide) for reading and for a fingertip, its follow (30 degrees), the double pinch next to the
   stories' own pinches, and whether 20 s is right.
 - **Released as networks-v101 (30 October 2026; FORMAT networks-27 as v100, so v100 and v101 devices share rooms),
   tested headlessly only:** the owner's four notes after testing v100 (the bullet below). Reviewed once from three sides
