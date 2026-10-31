@@ -1117,7 +1117,9 @@ and the cards' setting, `cards`, joined `look` in v100). The plan is `docs/share
   0.4 s while its ray points at nothing (`pinched`, from the session's `selectstart`: not at the menu, a station, a
   story panel or the scene, the story's `hover(i)` 0, so a double pinch meant for a story stays the story's; not the
   right hand's, not while calibrating; the owner: "only left double pinch"), and by Close in its header. Unused for
-  20 s (`IDLE`; no press, no ray resting on it, no fingertip at it) it closes by itself, not while calibrating. It
+  20 s (`IDLE`; no press, no ray resting on it, no fingertip at it) it closes by itself, not while calibrating, not
+  while it asks its once-per-room question, and when it opened by itself (`PNL.self`) not until it has been used
+  (neither opens again by itself). It
   floats in front of you (the owner: "just make it float in front of the headset"; until v101 it stood above the
   clock): put there as it opens (`floatMenu`, `FLOAT`: its middle 0.48 m ahead of your eyes along your gaze, the gaze's
   pitch held between -23 and +9 degrees, 8 cm under it, about 30 cm wide (0.72 of the panel's 0.42 m), within a

@@ -2876,7 +2876,7 @@
   // further than far or nearer than near (m, along the floor) or moved up or down by rise (m)
   const FLOAT = { d: 0.48, below: 0.08, pitch: [-0.4, 0.15], scale: 0.72, turn: 30 * Math.PI / 180, far: 0.85, near: 0.25, rise: 0.25, ease: 6,
     placed: false, glide: false, y: 0, at: new THREE.Vector3() };
-  const PNL = { open: false, page: 'main', asked: '', empty: '', code: '', tab: tab0(), used: 0 };   // (code: the letters typed on its keypad page)
+  const PNL = { open: false, page: 'main', asked: '', empty: '', code: '', tab: tab0(), used: 0, self: false };   // (code: the letters typed on its keypad page)
   const IDLE = { ms: 20000 }, _vs = new THREE.Vector3();   // the menu closes by itself after this long unused (a press, or a ray or fingertip on it)
   // the clock's canvas (px) and its width in the room (m): a face 6.5 cm across with "Open menu" under it; top and
   // below: how far its face reaches above its middle and its caption below it (m)
@@ -2891,7 +2891,8 @@
       sfx(on ? 'open' : 'close', at);
     }
     PNL.open = on; PNL.page = 'main'; PNL.code = ''; C.listing.menu = on; PNL.used = performance.now(); FLOAT.placed = false;
-    if (on && /^(question|empty)$/.test(why || '')) PNL.tab = 'circles';   // (opened by itself: for the room)
+    PNL.self = on && /^(question|empty)$/.test(why || '');   // (opened by itself, for the room: on Circles, and kept open until used)
+    if (PNL.self) PNL.tab = 'circles';
     if (on && !C.code) { listRooms(); nearFind('menu'); }
   }
   const toggleMenu = why => menuOpen(!PNL.open, why);
@@ -3588,13 +3589,15 @@
   function sticks() {
     let list = [];
     try { list = R.session ? [...R.session.inputSources] : []; } catch (e) { /* gone */ }
+    let click = false;
     for (const src of list) {
       const gp = src && !src.hand && src.gamepad, b = !!(gp && gp.buttons && gp.buttons[3] && gp.buttons[3].pressed);
       if (!src) continue;
       const was = STK.get(src);
       STK.set(src, b);
-      if (b && was === false && HOST.session) toggleMenu('stick');
+      if (b && was === false) click = true;
     }
+    if (click && HOST.session) toggleMenu('stick');   // (both sticks clicked at once: one toggle)
   }
   // with tracked hands, two quick pinches of the left hand (the clock's) open and close it (the owner, 31 October 2026:
   // "only left double pinch"), but only while its ray points at nothing: not at the menu, a station, a story panel or
@@ -3769,9 +3772,11 @@
       drawPanel();
       if (!C.code && t - C.roomsAt > 4000) listRooms();
       // in use while a ray or a fingertip is at it, or while calibrating (the tip goes to the tape marks); unused for
-      // IDLE.ms, it closes by itself
-      const busy = POKE.near || R.calib || HOV.some(h => h.target.kind === 'panel');
-      if (busy) PNL.used = t;
+      // IDLE.ms, it closes by itself, but not while it asks its once-per-room question, nor when it opened by itself
+      // (the question, a room with no stations) until it has been used: neither opens again by itself
+      const at = POKE.near || HOV.some(h => h.target.kind === 'panel');
+      if (at) PNL.self = false;
+      if (at || R.calib || askHere() || PNL.self) PNL.used = t;
       else if (t - PNL.used > IDLE.ms) menuOpen(false, 'idle');
     } else if (OV.panel.regions.length) { OV.panel.regions = []; OV.panel.sig = ''; }   // (closed: nothing on it to press)
     if (OV.clockG.visible) drawClock();

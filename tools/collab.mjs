@@ -3660,7 +3660,7 @@ try {
 
   // ------------------------------------------ a VR headset elsewhere --
   await H.evaluate(installXR, Object.assign({}, xrOpts, { mode: 'immersive-vr', head: [0.3, 1.7, -0.2, 0.6] }));
-  await H.evaluate(() => window.__xr.begin());
+  await H.evaluate(() => { HOST.collab.menuIdle(400); window.__xr.begin(); });   // (closing by itself soon: but not while it asks)
   await frames(H, 300);
   const own = await H.evaluate(() => ({ frame: HOST.room.frame, src: HOST.room.src, here: HOST.collab.members.find(m => m.id === HOST.collab.id).here }));
   const oh = unapply(FLOOR, [0.3, 1.7, -0.2]);
@@ -3669,7 +3669,9 @@ try {
   // in VR the shell's panel asks once per room whether you are in the room with the others; the answer is kept
   const regionIds = () => H.evaluate(() => HOST.collab.menuIds());
   const pressRegion = id => H.evaluate(id => { const r = HOST.collab.menuFind(id); if (r) r.fn(); return !!r; }, id);
-  const asked = (await regionIds()).includes('ask:in') && await H.evaluate(() => HOST.collab.menu && (window.__collabLog.filter(e => e.ev === 'notice').slice(-1)[0] || {}).title === 'One question');
+  await frames(H, 900);   // (longer than it waits unused: the question keeps it open, on Circles)
+  const asked = (await regionIds()).includes('ask:in') && await H.evaluate(() => HOST.collab.menu && HOST.collab.menuTab() === 'circles' && (window.__collabLog.filter(e => e.ev === 'notice').slice(-1)[0] || {}).title === 'One question');
+  await H.evaluate(() => HOST.collab.menuIdle(20000));
   await pressRegion('ask:in');
   await frames(H, 300);
   const inRoom = await H.evaluate(() => [HOST.collab.internals().hereSet, HOST.room.src, HOST.room.state]);
@@ -3685,7 +3687,7 @@ try {
   await H.evaluate(() => HOST.collab.panelOpen(true));
   await frames(H, 150);
   const again = !shut || (await regionIds()).some(id => id.startsWith('ask:'));
-  check('VR: the panel asks once whether you are in the room with the others (In this room: aligned with them; Say I am elsewhere: your own floor; kept for the room)',
+  check('VR: the panel asks once whether you are in the room with the others (opened by itself on Circles, kept open until answered; In this room: aligned with them; Say I am elsewhere: your own floor; kept for the room)',
     asked && inRoom[0] === true && inRoom[1] !== 'own' && sayAway && away[0] === false && away[1] === 'own' && away[2] === false && !again,
     JSON.stringify({ asked, inRoom, sayAway, away, again }));
   // Exit (leaving VR or AR) is inside the headset's menu, and not on the story panel; closed, only the clock shows
