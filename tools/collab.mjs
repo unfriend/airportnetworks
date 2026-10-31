@@ -844,8 +844,10 @@ async function nearby() {
     const HP = await proxy(HOME), AP = await proxy(AWAY), at = (pp, hash) => `http://127.0.0.1:${pp}/index.html${hash}`;
     const nearOf = async pp => (await (await fetch(`http://127.0.0.1:${pp}/api/near`)).json());
     const A = await nopen(at(HP, '#stories'));
-    await A.evaluate(() => HOST.collab.create());
-    await until(A, () => HOST.collab.status === 'open' && !!HOST.collab.net, null, 15000);
+    // (the relay found first, as the other parts do: on a busy machine its 5 s probe can lapse, and the room is then made
+    // peer to peer or on the page alone, where no relay lists it)
+    await A.evaluate(async () => { await HOST.collab.detect(); HOST.collab.create(); });
+    await until(A, () => HOST.collab.status === 'open' && HOST.collab.via === 'relay' && !!HOST.collab.net, null, 15000);
     const R1 = await A.evaluate(() => HOST.collab.code), NS = await A.evaluate(() => HOST.list.length);
     await A.evaluate(() => HOST.collab.arrange({ x: 0, z: 0, yaw: 0 }));
     await until(A, () => HOST.collab.stations().length === HOST.list.length && !HOST.collab.internals().pending.size, null, 8000);
