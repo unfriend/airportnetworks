@@ -458,7 +458,7 @@ await step('sound effects: the headset menu\'s row, sounds from places', async (
     window.__tick(3);
   });
   const r = await page.evaluate(() => {
-    const ids = () => HOST.collab.overlay().panel.regions.map(x => x.id), tap = id => { const x = HOST.collab.overlay().panel.regions.find(y => y.id === id); if (x && x.fn) x.fn(); window.__tick(2); return !!(x && x.fn); };
+    const ids = () => HOST.collab.menuIds(), tap = id => { const x = HOST.collab.menuFind(id); if (x && x.fn) x.fn(); window.__tick(2); return !!(x && x.fn); };
     HOST.collab.panelOpen(true); window.__tick(3);
     const out = { row: ids().includes('sfx') && ids().includes('sfxvol') && ids().includes('voice'), v0: HOST.sfx.volume() };
     out.vol = tap('sfxvol') && HOST.sfx.volume(); out.off = tap('sfx') && HOST.sfx.on(); out.on = tap('sfx') && HOST.sfx.on();

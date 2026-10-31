@@ -102,7 +102,7 @@ the app's files from the repository over HTTPS, and prints the address to open.
    same page address on every headset). The first time, the browser warns that the certificate is not trusted:
    choose to continue (it is this machine's own certificate).
 3. Open **Shared**: on the page, the **Shared** button in the top bar or on the Stories screen; in the headset,
-   the menu: touch the clock on your left wrist (**Open menu**; or click the left stick, or point at it and pull the trigger; beside the story panel without a left controller). The first person: **Start a room**,
+   the menu: click either stick (with hand tracking, two quick pinches of the left hand pointing at nothing); it floats in front of you, and the shared room is under **Circles**. The first person: **Start a room**,
    then **Arrange all** puts the sixteen stories as stations in two rows (eight, and eight behind them) in front of you (or one story where you
    stand: **Add here** in the headset, **Add a station** on the page). Arrange all from a page, without a
    headset, puts the rows round the room's origin (mark A). Everyone else: **Shared**, then pick the room under

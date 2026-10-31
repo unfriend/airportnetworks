@@ -10,7 +10,7 @@ them: [AGENTS.md](../AGENTS.md) ("Shared rooms", "Placement in the headset").
 
 | Where | How to get there | On it |
 | --- | --- | --- |
-| Menu (headset) | closed at first: only a clock (**Open menu**) on the left wrist (on the controller, or the wrist with hand tracking; beside the story panel without either). Touch it with the right controller's tip or right index finger, click the left stick, or point at it and pull the trigger; the same, or **Close**, closes it | **Exit** (leaves VR or AR), **Slideshow: on/off** (every story), **Sound check**; **Labels** (the scenes' small labels: on top / in 3D / hidden), **Cards** (story panels, station cards, name tags: in 3D / on top / hidden), **Moving**, **Subtitles** (every story; in a room the room's); **Panels: shown / controls only / hidden** (the story on show; in a room for everyone at its circle); **Design room** (opens the props table; in a room **Design room here** puts it at your feet as a circle); **Join**, **Start a room**; in a room **Calibrate**, **Re-align**, **Forget calibration**, **Shared space: on**, **Fresh shared space**, **Move here**, **Add here**, **Arrange all**, **Remove**, **Lock circles** (for the whole room), **Lock this story** (at a circle: its scene and panels, for everyone there), **People: same circle / everyone** (this headset only: whom it draws), **Leave** |
+| Menu (headset) | closed at first: only a clock on the left wrist that shows the time (on the controller, or the wrist with hand tracking; beside the story panel without either). Click either stick to open it (hand tracking: two quick pinches of the left hand while it points at nothing); it floats in front of you; the same, or **Close**, closes it, and it closes by itself after 20 s unused | Three tabs. **Settings**: **Exit** (leaves VR or AR), **Recenter**, **Slideshow: on/off** (every story); **Labels** (the scenes' small labels: on top / in 3D / hidden), **Cards** (story panels, station cards, name tags: in 3D / on top / hidden), **Moving**, **Subtitles** (every story; in a room the room's); **Panels: shown / controls only / hidden** (the story on show; in a room for everyone at its circle); **Sound effects**, **Narration**, **Effects volume**; **Design room** (opens the props table; in a room **Design room here** puts it at your feet as a circle). **Circles**: **Join**, **Start a room**, **Join with a code**; in a room **Another room**, **Move here**, **Add here**, **Arrange all**, **Remove**, **Lock circles** (for the whole room), **Lock this story** (at a circle: its scene and panels, for everyone there), **Show all rings** (this headset only), **On this network**, the people, **Leave**. **Debug**: **Calibrate**, **Re-align**, **Forget calibration**, **Shared space: on**, **Fresh shared space**, **People: same circle / everyone** (this headset only: whom it draws), **Sound check**, the version, the connection and the frame rate |
 | Stories screen (headset) | outside a shared room only: after **Enter VR** / **Enter AR** from the start screen, or **Stories** on a story panel | **Sound**, **Sound check**, **Anchor**, **Recenter** (**Place again** when anchored), **Exit**, **Repeat all**, **Repeat one**, a card per story |
 | Shared dialog (page) | **Shared** in the top bar or on the Stories screen | **Start a room**, **Join**, **Join by code**, room map, **Follow** (a station, or a person in a headset in the people list), **Panels** and **Lock story** (per station: what the headsets at its circle show of the story's panels, and whether they can move its scene and panels), **Arrange all**, **Add a station** (the design room is the last choice), **Lock circles**, **Fresh shared space**, **Copy link** |
 
@@ -36,7 +36,7 @@ next one takes over by itself within a few seconds (*The host has gone: taking o
 menu say *peer to peer · hosted here* or *hosted by* a name.
 
 **Rooms on this network**: the first time, **one press**. Each device opens the app (the live copy, or the laptop
-relay's address), **Shared** on a page or the menu (the clock on the left wrist) in a headset, and **Join** next to
+relay's address), **Shared** on a page or the menu (click a stick; **Circles**) in a headset, and **Join** next to
 the room under **Rooms on this network** (*On this network* in the menu): the rooms with someone on the same network
 (the same router, or the same address on the internet). **After that, by itself**: a device that was in a room joins it
 again on its own when the app opens on that network within a week (after a restart, a sleep, the next day), with a
@@ -102,7 +102,7 @@ local network found each other this way, and then shared a peer-to-peer room; he
    headsets' Wi-Fi if there are several) and leave the window open.
 2. Open **exactly that address** in Quest Browser on every headset and bookmark it (shared spaces need the same
    address). Accept the certificate warning once per headset and per desktop browser.
-3. Once: **Shared** on a page (also in Quest Browser before AR) or a headset's menu (touch the clock on the left wrist), then **Start
+3. Once: **Shared** on a page (also in Quest Browser before AR) or a headset's menu (click a stick; the **Circles** tab), then **Start
    a room**. The address now ends in `#s=` and three letters. Others **Join** it under **Rooms on this network** (or
    **Open rooms**), or open the link from **Copy link** (not shown for a room that lives on one device only). Peer to
    peer (steps 1 and 2 skipped: every device opens the live copy): start the room on the laptop page; the others find
@@ -119,7 +119,7 @@ local network found each other this way, and then shared a peer-to-peer room; he
    go, facing the way it should face, and press **Design room here** in the menu (or choose **Design room** under
    **Add a station** on the page); Arrange all leaves it where it is. Over each ring its story's small model turns
    (the design room's: a little table), so circles can be told apart from across the room.
-7. **Calibrate** each headset in the room, one after another: put the bright ring at the controller's tip on mark A,
+7. **Calibrate** (the menu's **Debug** tab) each headset in the room, one after another: put the bright ring at the controller's tip on mark A,
    hold still, pull the trigger; then mark B. It never depends on the shared space and nothing overrides it.
 8. Check each headset: the **orange crosses** sit on the tape (shown 30 s after aligning, and while the menu is
    open), and others' rays start at their real controllers. *Your marks are ... than the room's* or *Marks at different

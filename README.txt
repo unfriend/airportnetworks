@@ -92,17 +92,20 @@ move them with the grip, then press Anchor. It uses the Quest Browser's room
 anchors (not in private browsing; clearing the site's data forgets the place);
 without them the place holds until you leave VR. #anchor=on (or #anchor=off) in
 a link sets it.
-Shared rooms (Shared button, top bar and Stories screen; in a headset the menu:
-the clock on your left wrist): several headsets and screens join one
+Shared rooms (Shared button, top bar and Stories screen; in a headset the
+menu's Circles tab: click a stick): several headsets and screens join one
 room and see the same stations, a story each at a spot in the room, in step on
 every device (anyone can play, pause, jump or change a control; the last action
 wins). A headset runs only the station it stands at: walk into a station's
-circle and after a second its story plays there; the others show as rings on the
-floor with a card, and over each ring a small turning model of its story in its
-colour, so you can tell the circles apart from across the room. Away from every station no story shows, only the rings, the
-cards, the other people and the menu; walk out of a circle and its story hides
-and pauses on your headset (it plays on for the others), walk back in and it
-carries on as the station has it. Pointing at a card and pulling the trigger
+circle and after a second its story plays there; the others show as rings
+floating half a metre over the floor with a card over each, and above each ring a
+small turning model of its story in its colour, so you can tell the circles apart
+from across the room. Away from every station no story shows, only the rings, the
+cards, the other people and the menu. Inside a circle the other stations show
+only their models (a ring comes back when you come within 2 m of it, and pointing
+at a model shows its card), and your own ring is hidden (Show all rings in the
+menu shows every ring); walk out of a circle and you stay in its story until you
+walk into another. Pointing at a card and pulling the trigger
 does not take you there: walk into its circle. A headset in a room never shows
 the Stories screen (leave the room in the menu and it comes back); in a room
 with no stations yet the menu opens by itself, with Arrange all.
@@ -148,14 +151,19 @@ everyone at once (unless that story is locked: Lock this story in the menu at it
 circle, or Lock story per station in the Shared dialog; among the fish of Pass it on the
 grip in the sea moves the school, for everyone there too); each station keeps
 its story, so the story panel has no Stories button there: another story is
-another station. In a headset the menu is closed at first: only a clock shows, worn
-like a watch on your left wrist (on the left controller, or on your wrist with
-hand tracking; beside the story panel without either). Touch it with the right
-controller's tip or your right index finger, click the left stick, or point at
-it and pull the trigger, to open the menu above it; the same closes it again.
-Inside: Exit (leaves VR or AR; the story panels have none), Slideshow for every
-story, Sound check, four headset settings for every story, and the shared room. With hand
-tracking a fingertip presses its buttons too, or pinch while pointing. Labels,
+another station. In a headset the menu is closed at first: only a clock shows the
+time, worn like a watch on your left wrist (on the left controller, or on your
+wrist with hand tracking; beside the story panel without either). Click either
+stick to open the menu (with hand tracking, pinch twice quickly with your left
+hand while it points at nothing); it floats in front of you, and the same, or
+Close, closes it again; unused for 20 seconds it closes by itself. It has three
+tabs: Settings (Exit, which leaves VR or AR, as the story panels have none;
+Recenter; Slideshow for every story; four headset settings for every story; the
+sound switches; the design room), Circles (the shared room: rooms to join, a
+room by its code, the stations, the locks, Show all rings, the people, your
+name) and Debug (calibration and alignment, People, Sound check, the version,
+the connection and the frame rate). With hand tracking a fingertip presses its
+buttons too, or pinch while pointing. Labels,
 the small labels inside the scenes: on top (the default: drawn over
 everything), in 3D (signs in the scene turned to you, hidden by what is in
 front of them) or hidden. Cards, the larger ones (the story's text panel and
@@ -163,7 +171,7 @@ its play and pause bar, the stations' cards over the circles and people's name
 tags): in 3D (the default: they stand in the scene, hidden by what is in front
 of them), on top (drawn over everything, as before) or hidden (no story panels
 at all, in the story and in explore mode, no station cards and no name tags; A
-or X still plays and pauses, and the menu on your wrist brings them back). The
+or X still plays and pauses, and the menu brings them back). The
 two are independent; each press goes to the next. Moving:
 free (the default: the grip holds the scene like a real object and turns it
 with your hand, two hands turn it too; the story panel can tilt; Recenter

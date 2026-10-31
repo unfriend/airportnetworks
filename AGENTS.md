@@ -969,14 +969,27 @@ and the cards' setting, `cards`, joined `look` in v100). The plan is `docs/share
   goes out to the room. A desktop page follows one from the Shared dialog (a
   page cannot walk). A story the person starts themselves leaves the station
   (no longer following, not pulled back).
+- A station in a headset (`ringFor`, `cardFor`, `drawPreviews`): a ring in its story's colour (0.44 to 0.52 m across
+  its middle, a triangle at the front for its facing) floating 0.5 m over the room's floor (`RING.y`; the owner, 31
+  October 2026: "Circles sollten ca 50 cm in der luft sein": a headset that finds the floor a little wrong sank a ring
+  on the floor into it or lifted it off it), its card standing over the ring's middle (its middle at 1.45 m, `CARD_Y`,
+  its top edge at 1.6 m; the owner: "Circle card soll mittig ueber circle sein"; until v101 it stood where the content
+  floats, 1.4 m ahead), turned to you and fading as your head comes within 0.8 m of the middle (gone within 0.45 m,
+  `CARD_NEAR`: walking in, it would be in your face), and its icon above both (2.1 m). Walking in still goes by where
+  you stand on the floor (within 1.1 m of its spot).
 - In a circle, icons only (the owner, 30 October 2026, after v100: "Once
   inside a story hide the circles and show only the 3d icons, show circle once
   a person moves close to the 3d icon of that story"; from 29 October to v100
   it was the other way round, rings only): while a headset has a live station,
-  every other station shows its icon only, its card and ring hidden; a
-  station's ring (its own too: faint, and no icon there) fades in within 2 m of
-  its spot and out beyond 2.2 m (`RING` in `drawPreviews`, the ring's `near`),
-  so you see where to step in. The icons stand for their stations: pointable
+  every other station shows its icon only, its card and ring hidden; another
+  station's ring fades in within 2 m of its spot and out beyond 2.2 m (`RING` in
+  `drawPreviews`, the ring's `near`), so you see where to step in. Your own
+  station shows nothing (the owner, 31 October 2026: "just hide it once i am
+  inside, only show it if i turn on the show all rings in the menu"): no card, no
+  icon and no ring, wherever you walk while it is yours, and nothing of it to
+  point at. *Show all rings* (the menu's Circles tab; this headset's own, kept as
+  `collabRings`, never in the room; `HOST.collab.allRings(on)`) shows every ring
+  at any distance, yours too (faint), to find the circles or grab your own. The icons stand for their stations: pointable
   through an unseen ball round each (`ICON.ball`, 0.2 m), grabbable, and the
   trigger there says to walk into its circle, as on a ring. Pointing at an
   icon, a ring or the card it brought up (a controller's ray or a hand's pinch
@@ -1059,7 +1072,8 @@ and the cards' setting, `cards`, joined `look` in v100). The plan is `docs/share
   circles lock stops lands where it was last sent), and the others draw it as it moved, a moment later (`SHOWN` from
   its samples: "Others' moves, smooth"); it is also put down when its controller goes, its grip
   is up or the headset is taken off (no `squeezeend` may come then). Your own
-  station's ring can be grabbed too (a trigger on it does nothing). Every
+  station's ring can be grabbed too while *Show all rings* shows it (a trigger on
+  it does nothing; else *Move here* in the menu moves it). Every
   headset draws rings, cards and its live station's placement where `SHOWN`
   eases them to the room's value, so a moved station glides, and the people at
   a moved station keep it (a station is left only by walking into another
@@ -1091,56 +1105,63 @@ and the cards' setting, `cards`, joined `look` in v100). The plan is `docs/share
     row); never refused by the circles lock, nor the other way round.
 - The headset's menu (the shell's panel, `PNL`, `drawPanel`) is closed at the
   start of every session: only a clock shows (`drawClock`: the local time, a
-  face 6.5 cm across in the app's cyan rim, *Open menu* under it, redrawn when
-  the minute changes), worn like a watch on the left wrist (`HAND`, each
-  frame: a controller's grip, the clock 5 cm behind it and 5 cm above; a
-  tracked hand's `wrist` joint, the clock 3 cm off the back of the wrist and
-  3.5 cm up the forearm), turned to your eyes and eased; without a left
-  controller or hand it hangs, twice the size, beside the story panel. It
-  opens and closes with a touch of the clock (`touch`: the first 4 cm of the
-  right controller's ray, or the right `index-finger-tip`, within 4 cm of its
-  middle; another touch counts once moved 7 cm away; a short pulse on a
-  controller; none while that controller's grip is held, as when carrying or
-  resizing with both hands, or while calibrating), a click of the left stick
-  (`buttons[3]`, rising edge: the stories use the stick's axes and
-  `buttons[4]`), the trigger or a pinch on the clock (`kind: 'clock'` through
-  `ray`/`press`; pulled while the tip touches it, it counts once with the
-  touch), or Close in its header. Open, it stands above the clock (its lower
-  edge 6.5 cm over the clock's middle, at 0.62 of its size), as tall as what
-  it shows: *Menu*, Close; Exit (ends the session: the story panels have no
-  Exit, the headset Stories screen keeps its own) and *Recenter* side by side (the owner, 30 October 2026: the story's
-  own, `HOST.cur.recenter`, as the story panel's button: you in front of it again, *Place again* while anchored; at a
-  station the station's scene and panel back where the story puts them, for everyone at its circle, greyed while its
-  story is locked; greyed away from every station), then *Slideshow: on/off* (`HOST.slides.setGlobal`, for
-  every story, shown when `HOST.slides` exists) and *Sound check* (a page in
-  place of the rest: the two beeps, the engine choice, Reset the sound and
-  `HOST.audio.report()`, redrawn twice a second; *Try the sound effects*; Back); *Labels* and *Cards* side by
-  side, *Moving* and *Subtitles* side by side (the four headset settings, `HOST.xr`), then *Panels* (the story
-  on show's, `HOST.panels`, with a note beside it: in a room that the panels are for everyone at this circle and
-  the rest for the room, else for that story only; with no story on show, in a room, a line that these settings
-  and the sound are the room's takes its place); *Sound effects: on/off* and *Narration: on/off* side by side (the
-  two sound switches, for every story; in a room the room's: "The two sound
-  switches"), then *Effects volume* (`HOST.sfx`, this headset's own, with a note
-  saying so); *Design room* (outside a room it opens the design room; in a room
-  *Design room here* puts its table at your feet: "The design room in a room"), a
-  note beside it; then the shared room (its
-  code and people as the section's heading, with *Another room* beside them in a room; in no room the rooms, then
-  *Start a room*, *Join with a code* and *Refresh*; the question, the
-  room's alignment, stations (Move here, Add here; Arrange all, Remove; *Lock
-  circles* and *Lock this story* side by side, the latter at a station only;
-  *On this network* and *People: same circle* / *everyone*), people, You; the
-  canvas, 1920 px tall, holds the tallest case, a room on this headset with a
-  three-line note at a station (1885 px), and People shows only as many as
-  leave room for You). *Join with a code* and *Another room* (the owner, 30 October 2026: "Joining a room with code
-  not possible in ar/vr?") open a page in place of the rest (`codePage`, `PNL.code`): the code so far in three boxes,
-  a keypad of the 26 letters (seven to a row; a fourth letter refused), Delete, Join (once there are three letters,
-  and not the room you are in; a code with no room says so, as on a page) and Back. A right index fingertip also presses its buttons
-  (`poke`: within 1.5 cm of the panel over one, again once pulled back 3 cm;
-  a pinch on the ray at the same button within 0.7 s counts once with it,
-  `twice`). The once-per-room question still opens it by itself, and so does
-  the first time in a room with no stations (once per room: its Stations
-  section says "None yet: Arrange all puts every story in front of you").
-  `HOST.collab.panelOpen(on)` and `HOST.collab.menu` are for tests.
+  face 6.5 cm across in the app's cyan rim, how the menu opens under it, *Click a stick* or with tracked hands *Pinch
+  twice*, lit *Menu open* while it is open; redrawn when the minute or that changes), worn like a watch on the left
+  wrist (`HAND`, each frame: a controller's grip, the clock 5 cm behind it and 5 cm above; a tracked hand's `wrist`
+  joint, the clock 3 cm off the back of the wrist and 3.5 cm up the forearm), turned to your eyes and eased; without a
+  left controller or hand it hangs, twice the size, beside the story panel. The clock only shows the time: it is not
+  pointed at or touched (the owner, 31 October 2026: "Clock menu nur aufmachen mit stick click"; until v101 a touch of
+  the clock, the trigger on it or the left stick opened it). The menu opens and closes with a click of either stick
+  (`sticks`: `buttons[3]`, rising edge, per input source; a stick held down as its controller appears is no click; no
+  story uses it: they use the stick's axes and `buttons[4]`), or with tracked hands two pinches of the left hand within
+  0.4 s while its ray points at nothing (`pinched`, from the session's `selectstart`: not at the menu, a station, a
+  story panel or the scene, the story's `hover(i)` 0, so a double pinch meant for a story stays the story's; not the
+  right hand's, not while calibrating; the owner: "only left double pinch"), and by Close in its header. Unused for
+  20 s (`IDLE`; no press, no ray resting on it, no fingertip at it) it closes by itself, not while calibrating. It
+  floats in front of you (the owner: "just make it float in front of the headset"; until v101 it stood above the
+  clock): put there as it opens (`floatMenu`, `FLOAT`: its middle 0.48 m ahead of your eyes along your gaze, the gaze's
+  pitch held between -23 and +9 degrees, 8 cm under it, about 30 cm wide (0.72 of the panel's 0.42 m), within a
+  fingertip's reach, turned to you), it hangs from its top edge, so the tabs stay put while the tab below them changes
+  height; it stays put while you use it and glides back in front once your head has turned more than 30 degrees from
+  it, walked off (nearer than 0.25 m or further than 0.85 m along the floor) or moved 25 cm up or down, never while a
+  ray or a fingertip is at it. It shows *Menu*, how it closes, Close, and three tabs (the owner: "A tab in clock menu
+  for debug settings etc, one that shows the current circles menu"; `TABS`, `PNL.tab`, `setTab`; it opens on the tab
+  used last, kept as `xrMenuTab`, and on Circles when it opens by itself), each as tall as what it shows:
+  - **Settings**: Exit (ends the session: the story panels have no Exit, the headset Stories screen keeps its own) and
+    *Recenter* side by side (the owner, 30 October 2026: the story's own, `HOST.cur.recenter`, as the story panel's
+    button: you in front of it again, *Place again* while anchored; at a station the station's scene and panel back
+    where the story puts them, for everyone at its circle, greyed while its story is locked; greyed away from every
+    station), *Slideshow: on/off* (`HOST.slides.setGlobal`, for every story, shown when `HOST.slides` exists, a note
+    beside it), *Labels* and *Cards* side by side, *Moving* and *Subtitles* side by side (the four headset settings,
+    `HOST.xr`), then *Panels* (the story on show's, `HOST.panels`, with a note beside it: in a room that the panels are
+    for everyone at this circle and the rest for the room, else for that story only; with no story on show, in a room,
+    a line that these settings and the sound are the room's takes its place); *Sound effects: on/off* and *Narration:
+    on/off* side by side (the two sound switches, for every story; in a room the room's: "The two sound switches"),
+    then *Effects volume* (`HOST.sfx`, this headset's own, with a note saying so); *Design room* (outside a room it
+    opens the design room; in a room *Design room here* puts its table at your feet: "The design room in a room"), a
+    note beside it.
+  - **Circles**: the shared room (its code and people as the heading, with *Another room* beside them in a room; in no
+    room the rooms, then *Start a room*, *Join with a code* and *Refresh*; the question; stations (Move here, Add here;
+    Arrange all, Remove; *Lock circles* and *Lock this story* side by side, the latter at a station only; *Show all
+    rings* and *On this network*), people (at most `PEOPLE_ROWS`, 8, and as many as leave room for You), You (name,
+    colour, Leave). *Join with a code* and *Another room* (the owner, 30 October 2026: "Joining a room with code not
+    possible in ar/vr?") open a page in place of the rest of the tab (`codePage`, `PNL.code`): the code so far in three
+    boxes, a keypad of the 26 letters (seven to a row; a fourth letter refused), Delete, Join (once there are three
+    letters, and not the room you are in; a code with no room says so, as on a page) and Back.
+  - **Debug**: the room's alignment (in a room, once the question is answered: here or elsewhere, Calibrate, Re-align,
+    *I am elsewhere* / *in the room*, the shared space's lines, Forget calibration, Shared space: on/off, Fresh shared
+    space), *People: same circle* / *everyone* and *Sound check* (a page in place of the rest of the tab: the two beeps,
+    the engine choice, Reset the sound and `HOST.audio.report()`, redrawn twice a second; *Try the sound effects*;
+    Back), then read-outs (`debugLines`: the release and `FORMAT`, the room's code, relay or peer to peer and its round
+    trip, Quest Browser's version, the frame rate, `FPS`, once a second).
+  The canvas is 1920 px tall (the tallest tab, Circles in a room on this headset with a three-line note at a station,
+  is about TALLEST px). A right index fingertip also presses its buttons (`poke`: within 1.5 cm of the panel over one,
+  again once pulled back 3 cm; a pinch on the ray at the same button within 0.7 s counts once with it, `twice`). The
+  once-per-room question still opens it by itself (on Circles), and so does the first time in a room with no stations
+  (once per room: its Stations section says "None yet: Arrange all puts every story in front of you"). The notices
+  say how to open it and under which tab (`menuWhere`). `HOST.collab.panelOpen(on)`, `HOST.collab.menu`,
+  `menuTab(t)`, `menuIdle(ms)`, `menuFind(id)` (a button on whichever tab has it, that tab shown) and `menuIds()`
+  (every tab's buttons) are for tests.
 - Other people in a headset (`drawPeople`: from their presence, in room
   coordinates: their rays and the dots at their ends, a name tag over the head,
   and in VR or for someone elsewhere a simple head and hands) are drawn only
@@ -2526,7 +2547,7 @@ hidden, nothing to point at, paused, no Stories button, the clock in front),
 before any circle every station's icon over its ring (its story's miniature, in
 its colour, turning) and its card, placement at its station once it walks into
 its circle (the story shown; the other stations' icons only, pointable, no card and no
-ring further than 2 m off, its own ring alone), a recentre, taken off and on again (it stays in its story),
+ring further than 2 m off, of its own nothing), a recentre, taken off and on again (it stays in its story),
 a Stories screen opened at a station closing at once (restarting nothing),
 walking out of the circle into no other (still its station and shown, playing
 on the station's clock, the others still icons only, the walk writing nothing;
@@ -2546,19 +2567,21 @@ table in explore mode, its icon and card gone; walked out, still at the design
 room, its icon still gone and built from the table's miniature),
 the station's clock and state, rays and head in room coordinates, another
 person at its circle drawn (one at another circle or at none not; all with
-People: everyone), the sound zone, the trigger on the menu's clock, the trigger on
+People: everyone), the sound zone, the trigger on the menu's clock opening nothing, the trigger on
 another station's card running nothing (its icon pointed at first, bringing
 the card up; a notice: walk into its circle), the story panel winning over a
 card behind it, a station moved with the grip on its card (its icon pointed at
 first; swung, pushed further, turned; the others see it while it moves) and
 gliding into place when someone else moves it, the circles lock (the grip and
 Arrange all refused; unlocked from the headset's menu), the menu (closed at
-first, only its clock; on the left controller and on a tracked hand's wrist;
-opened by the left stick, a touch of the right controller or fingertip and
-the trigger on the clock, a touch and a trigger at once toggling it once, no
-touch with the grip held or while calibrating; Exit inside; buttons pressed by
-a fingertip, a poke and a pinch at once pressing once; at its tallest, You still on it;
-Sound check in it: both beeps, the engine choice, Back), re-alignment, walking to another station
+first, only its clock, not pointable; on the left controller and on a tracked hand's wrist;
+opened and closed by a click of the left stick or the right, floating in front of you (0.48 m along your gaze, turned
+to you; Close and its three tabs at its top); a touch of the clock doing nothing; closing by itself unused (not with a
+ray resting on it, not while calibrating); staying put as you look about a little and gliding back in front once you
+have turned further; with tracked hands two quick pinches of the left hand pointing at nothing opening and closing it
+(not one pinch, not two slow ones, not the right hand's, not the left's on the menu); Exit under Settings; buttons
+pressed by a fingertip, a poke and a pinch at once pressing once; at its tallest, You still on it; Sound check under
+Debug: both beeps, the engine choice, Back), re-alignment, walking to another station
 and back, Remove asking first; calibration from two marks (Stop calibrating
 still pressable, two anchors made and checked, the marks drawn), a reset with
 a transform, a recentre without a reset (the anchors keep the frame), the
@@ -2658,8 +2681,10 @@ people list with Follow, `follow-person-1-people.png`, and the dialog following 
 and `follow-person-3-people-following.png`). The ten-headset round (`headsetRound`, also in the main run, after the
 room on this device; `--circles` runs only it, a room of its own with three stations, about four minutes): a pretend
 headset sees every card and icon and everyone before any circle, the station cards and a person's name tag following
-Cards (in 3D by default, on top, hidden with the rings and icons staying) and not Labels (hidden, still in 3D); in its circle the others' icons only (pointable; their rings gone, its own there) and only the
-people at its circle; *People* in the clock menu drawing everyone and back (kept on the headset, nothing written); a ray
+Cards (in 3D by default, on top, hidden with the rings and icons staying) and not Labels (hidden, still in 3D); the rings 0.5 m over the floor and each card over its ring's middle; in its circle the others' icons only (pointable; their rings gone) and of its own nothing, and only the
+people at its circle; *People* in the clock menu drawing everyone and back (kept on the headset, nothing written);
+*Show all rings* there showing every ring at any distance, its own too (pointable; kept on the headset, nothing
+written), and off again; a ray
 resting on another station's icon bringing up its card (no other), still there a second after it moves off, gone about
 2 s later, the icon staying; the trigger there running nothing; walked out, still in its story; 1.6 m from another
 station's spot its ring there (pointable), 2.6 m off gone again; walking into another circle switching;

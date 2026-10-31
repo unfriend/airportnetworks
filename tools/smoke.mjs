@@ -1496,7 +1496,7 @@ for (const key of ['airports', 'proteins', 'spatial', 'lbi', 'nmd', 'endo', 'pet
     const d0 = await sp.evaluate(() => [HOST.xr.labels(), HOST.xr.cards(), HOST.xr.free(), HOST.cur.peek('XR.lm'), HOST.cur.peek('XR.cm'), HOST.cur.peek('XR.free'), localStorage.getItem('xrLabels2'), localStorage.getItem('xrCards')]);
     if (d0.join() !== 'face,fixed,true,face,fixed,true,,') bad.push('the defaults are not labels on top, cards in 3D and free moving: ' + JSON.stringify(d0));
     await sp.evaluate(() => HOST.collab.panelOpen(true)); await tick(2);
-    const press = async id => { await tick(2); const ok = await sp.evaluate(id => { const r = HOST.collab.overlay().panel.regions.find(x => x.id === id); if (r && r.fn) r.fn(); return !!(r && r.fn); }, id); await tick(2); return ok; };
+    const press = async id => { await tick(2); const ok = await sp.evaluate(id => { const r = HOST.collab.menuFind(id); if (r && r.fn) r.fn(); return !!(r && r.fn); }, id); await tick(2); return ok; };
     const seen = [], seenC = [];
     for (let k = 0; k < 3; k++) { if (!await press('labels')) { bad.push('no Labels button in the menu'); break; } seen.push(await sp.evaluate(() => HOST.xr.labels() + '/' + HOST.cur.peek('XR.lm') + '/' + HOST.xr.cards())); }
     if (seen.join() !== 'fixed/fixed/fixed,hidden/hidden/fixed,face/face/fixed') bad.push('Labels went ' + seen.join(', ') + ' (not in 3D, hidden, on top, with the story following and the cards staying)');
@@ -1532,7 +1532,7 @@ for (const key of ['airports', 'proteins', 'spatial', 'lbi', 'nmd', 'endo', 'pet
     // the chapter on show's words, as its panel shows them (every word of a caption is there)
     const inPanel = async s => { const all = await sx(`(() => { const s = storyT(APP.t), c = CH.find(x => s >= x.a && s < x.b) || CH[CH.length - 1]; return ST.items.find(x => x.ch === c).sec.textContent.replace(/\\s+/g, ' '); })()`);
       return !!s && s.split(' ').every(w => all.includes(w.replace(/:$/, ''))); };
-    const press = async id => { await tick(2); const ok = await sp.evaluate(id => { const r = HOST.collab.overlay().panel.regions.find(x => x.id === id); if (r && r.fn) r.fn(); return !!(r && r.fn); }, id); await tick(2); return ok; };
+    const press = async id => { await tick(2); const ok = await sp.evaluate(id => { const r = HOST.collab.menuFind(id); if (r && r.fn) r.fn(); return !!(r && r.fn); }, id); await tick(2); return ok; };
     const deg = (a, b) => Math.acos(Math.max(-1, Math.min(1, a[0] * b[0] + a[1] * b[1] + a[2] * b[2]))) * 180 / Math.PI;
     const ahead = yaw => { const d = 16 * Math.PI / 180; return [-Math.sin(yaw) * Math.cos(d), -Math.sin(d), -Math.cos(yaw) * Math.cos(d)]; };
     await openXR('qubits');
@@ -1604,8 +1604,8 @@ for (const key of ['airports', 'proteins', 'spatial', 'lbi', 'nmd', 'endo', 'pet
   // still hides both, labels hidden neither; no row on the Stories screen, whose panels stay
   await step('panels per story in the headset: shown, controls only, hidden through the menu; each story its own, kept, set by a link; cards hidden hides both', async () => {
     const bad = [];
-    const press = async id => { await tick(2); const ok = await sp.evaluate(id => { const r = HOST.collab.overlay().panel.regions.find(x => x.id === id); if (r && r.fn) r.fn(); return !!(r && r.fn); }, id); await tick(2); return ok; };
-    const row = () => sp.evaluate(() => { const r = HOST.collab.overlay().panel.regions.find(x => x.id === 'panels'); return !!(r && r.fn); });
+    const press = async id => { await tick(2); const ok = await sp.evaluate(id => { const r = HOST.collab.menuFind(id); if (r && r.fn) r.fn(); return !!(r && r.fn); }, id); await tick(2); return ok; };
+    const row = () => sp.evaluate(() => { const r = HOST.collab.menuFind('panels'); return !!(r && r.fn); });
     const vis = async () => { await tick(2); return sx('(XR.main.mesh.visible ? "main" : "-") + "," + (XR.foot.mesh.visible ? "foot" : "-")'); };
     const want = { shown: 'main,foot', controls: '-,foot', hidden: '-,-' }, hits = { shown: 'panel:main,panel:foot', controls: 'x,panel:foot', hidden: 'x,x' };
     const pointed = async () => (await pointBoth()).map(h => (h.startsWith('panel') ? h : 'x')).join();
@@ -1618,7 +1618,7 @@ for (const key of ['airports', 'proteins', 'spatial', 'lbi', 'nmd', 'endo', 'pet
     await sp.evaluate(() => HOST.collab.panelOpen(true));
     for (let k = 0; k < 40 && !await row(); k++) { await sp.waitForTimeout(50); await tick(1); }   // (a busy machine: the menu drawn with its row)
     const seen = [];
-    for (let k = 0; k < 3; k++) { if (!await press('panels')) { bad.push('no Panels row in the menu: ' + JSON.stringify(await sp.evaluate(() => [!!HOST.session, HOST.curKey, HOST.busy, HOST.onStories, HOST.room.away(), HOST.collab.code, HOST.collab.overlay().panel.regions.map(r => r.id).slice(0, 12)]))); break; } seen.push(await sp.evaluate(() => HOST.panels.get('qubits')) + '/' + await vis()); }
+    for (let k = 0; k < 3; k++) { if (!await press('panels')) { bad.push('no Panels row in the menu: ' + JSON.stringify(await sp.evaluate(() => [!!HOST.session, HOST.curKey, HOST.busy, HOST.onStories, HOST.room.away(), HOST.collab.code, HOST.collab.menuIds().slice(0, 12)]))); break; } seen.push(await sp.evaluate(() => HOST.panels.get('qubits')) + '/' + await vis()); }
     if (seen.join(' ') !== 'controls/-,foot hidden/-,- shown/main,foot') bad.push('the menu\'s Panels row went ' + seen.join(' ') + ' (not controls only, hidden, shown, with the panels following)');
     // on the Stories screen: no row (no story on show), and its panels stay whatever this story's are
     await sp.evaluate(() => HOST.panels.set('qubits', 'hidden'));
@@ -1689,12 +1689,12 @@ for (const key of ['airports', 'proteins', 'spatial', 'lbi', 'nmd', 'endo', 'pet
   // closes, the table opens in explore mode, and the button greys while you are there (nothing to press)
   await step('the headset menu\'s Design room button opens the design room outside a room', async () => {
     const bad = [];
-    const btn = () => sp.evaluate(() => { const r = HOST.collab.overlay().panel.regions.find(x => x.id === 'design'); return r && r.fn ? 'on' : 'off'; });   // (a greyed button has no region)
+    const btn = () => sp.evaluate(() => { const r = HOST.collab.menuFind('design'); return r && r.fn ? 'on' : 'off'; });   // (a greyed button has no region)
     await openXR('qubits');
     await sp.evaluate(() => HOST.collab.panelOpen(true));
     for (let k = 0; k < 40 && await btn() !== 'on'; k++) { await sp.waitForTimeout(50); await tick(1); }
     const was = await btn();
-    await sp.evaluate(() => { const r = HOST.collab.overlay().panel.regions.find(x => x.id === 'design'); if (r && r.fn) r.fn(); });
+    await sp.evaluate(() => { const r = HOST.collab.menuFind('design'); if (r && r.fn) r.fn(); });
     const opened = await sp.waitForFunction(() => HOST.curKey === 'design' && HOST.cur && HOST.cur.peek('typeof GL !== "undefined" && !!XR.panelGroup && typeof ST !== "undefined" && ST.items.length > 0'), null, { timeout: 60000 })
       .then(() => true, () => false);
     if (opened) { await sp.evaluate(() => HOST.cur.peek('xrAdopt()')); await tick(3); }   // (as a story adopts a real session: the pretend one is not presenting)

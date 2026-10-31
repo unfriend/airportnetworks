@@ -43,6 +43,23 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
 
 ## Where things stand
 
+- **Released as networks-v102 (31 October 2026; FORMAT networks-27 as v100 and v101, so they all share rooms), tested
+  headlessly only:** the owner's six notes after a day's testing (the bullet below). TESTS_V102
+- **Released in v102 (31 October 2026), tested headlessly only: the owner's notes after testing v101.** (1) The station
+  rings float 0.5 m over the floor ("Circles sollten ca 50 cm in der luft sein": a headset that finds the floor a
+  little wrong no longer sinks them into it). (2) A station's card stands over its ring's middle (it stood where the
+  content floats, 1.4 m ahead), under its icon, fading as you walk in. (3) Your own station's ring is hidden as long as
+  it is yours ("just hide it once i am inside, only show it if i turn on the show all rings in the menu"); (4) *Show all
+  rings* in the menu shows every ring at any distance, yours too (this headset's own, never in the room). (5) The
+  clock on the wrist only shows the time: the menu opens and closes with a click of either stick, or with hand tracking
+  two quick pinches of the left hand pointing at nothing (the owner chose the left hand only); it floats in front of
+  you ("just make it float in front of the headset"), stays put while used, follows when you turn away, and closes by
+  itself after 20 s unused (not while calibrating). (6) Three tabs: Settings, Circles (the old shared room part, with
+  Show all rings) and Debug (calibration and alignment, People, Sound check, the version, the connection, the frame
+  rate); it opens on the tab used last, on Circles when it opens by itself. No `FORMAT` change, no story touched.
+  Untested on a headset: the rings' height and the cards over them from across a room, the floating menu's distance
+  and size (0.48 m, 30 cm wide) for reading and for a fingertip, its follow (30 degrees), the double pinch next to the
+  stories' own pinches, and whether 20 s is right.
 - **Released as networks-v101 (30 October 2026; FORMAT networks-27 as v100, so v100 and v101 devices share rooms),
   tested headlessly only:** the owner's four notes after testing v100 (the bullet below). Reviewed once from three sides
   (two low findings, fixed). Tests: smoke, audio, live, peer, relay (243) and the update test from v100 all good; the

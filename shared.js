@@ -1275,7 +1275,7 @@
       C.rejoining = false;
       if (C.code || C.creating || !rejoinable() || rejoinable().code !== r.code) return;
       join(r.code, 'auto', r.rid);
-      if (HOST.session) notice('Back in room ' + r.code, 'This headset was in it on this network, so it joined it again. To leave it, open the menu: ' + menuWhere() + '.', 9000);
+      if (HOST.session) notice('Back in room ' + r.code, 'This headset was in it on this network, so it joined it again. To leave it, open the menu (' + menuWhere() + '): Leave is under Circles.', 9000);
       else toast(r.code);
     };
     if (!C.relay) { go(); return true; }
@@ -1618,7 +1618,7 @@
     try { i = [...s.inputSources].indexOf(e.inputSource); } catch (err) { /* gone */ }
     const h = i >= 0 ? hovOf(i) : null;
     if (!h || h.target.kind !== 'station' || !C.stById.has(h.target.id)) return;
-    if (refused('grab')) { notice('The circles are locked', 'Unlock them in the menu (' + menuWhere() + ') to move the circles.', 3000); pulse(e.inputSource, 0.15, 10); return; }
+    if (refused('grab')) { notice('The circles are locked', 'Unlock them in the menu (' + menuWhere() + '), under Circles, to move the circles.', 3000); pulse(e.inputSource, 0.15, 10); return; }
     Object.assign(MV, { id: h.target.id, src: e.inputSource, a: null, pose: null, at: 0, sent: '', moved: false, t0: performance.now() });
     log('station grab', { st: MV.id });
     pulse(e.inputSource, 0.4, 25);
@@ -1782,7 +1782,7 @@
   function recenterStation() {
     const L = liveSt();
     if (!L || !placing()) return false;
-    if (stLocked(L)) { notice('This story is locked', 'Unlock it in the menu (Story locked: unlock) to recenter it.', 3500); return false; }
+    if (stLocked(L)) { notice('This story is locked', 'Unlock it in the menu, under Circles (Story locked: unlock), to recenter it.', 3500); return false; }
     BUF.delete(kPlace(L.id)); BUF.delete(kPanel(L.id));
     publish([[kPlace(L.id), null], [kPanel(L.id), null]]);
     const H = VW.home, A = C.hook && C.hook.APP;
@@ -2319,7 +2319,7 @@
     ctx.textAlign = 'left'; ctx.textBaseline = 'top';
     // (a switch, drawn lit or not: its press sounds as turning it off or on (o.tog, when that is not what lit says: true
     // sounds as off); tog null: a plain button)
-    if (fn) S.regions.push({ id, x, y, w, h, fn, tog: typeof o.tog === 'boolean' ? o.tog : typeof o.on === 'boolean' ? o.on : null });
+    if (fn) S.regions.push({ id, x, y, w, h, fn, tog: typeof o.tog === 'boolean' ? o.tog : o.tog === null ? null : typeof o.on === 'boolean' ? o.on : null });
   }
   function build() {
     if (OV.root) return;
@@ -2594,17 +2594,20 @@
     poseIcon(I, yaw, lean, performance.now() / 1000);
   }
 
-  // a preview of a station that is not live here: a ring on the floor at its spot in the story's colour, its icon over
-  // it, and a small upright card where its content would float (title, who is there, playing at 1:23 / exploring)
+  // a preview of a station that is not live here: a ring at its spot in the story's colour, floating RING.y over the
+  // floor (the owner, 31 October 2026: "Circles sollten ca 50 cm in der luft sein": a headset that puts the floor a
+  // little wrong sinks a ring on the floor into it or lifts it off it, while one in the air reads as floating anyway), its
+  // icon over it, and a small upright card over its middle, under the icon (title, who is there, playing at 1:23 /
+  // exploring)
   function ringFor(s) {
     let o = OV.rings.get(s.id);
     if (!o) {
       const col = new THREE.Color(meta(s.story).col), g = new THREE.Group();
       const mat = new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.75, side: THREE.DoubleSide, depthWrite: false });
       const ring = new THREE.Mesh(new THREE.RingGeometry(0.44, 0.52, 48), mat);
-      ring.rotation.x = -Math.PI / 2; ring.position.y = 0.01;
+      ring.rotation.x = -Math.PI / 2; ring.position.y = RING.y;
       const tip = new THREE.Mesh(new THREE.CircleGeometry(0.09, 3), mat);   // a triangle at the front: which way it faces
-      tip.rotation.set(-Math.PI / 2, 0, Math.PI / 2); tip.position.set(0, 0.011, -0.62);
+      tip.rotation.set(-Math.PI / 2, 0, Math.PI / 2); tip.position.set(0, RING.y + 0.001, -0.62);
       g.add(ring, tip);
       ring.userData.shell = { kind: 'station', id: s.id };
       // an unseen ball round its icon: pointed at like the ring (in a circle the icon stands for the station: the ring is
@@ -2648,10 +2651,12 @@
       o.fixed = m.depthWrite = fixed; m.alphaTest = fixed ? 0.1 : 0; m.needsUpdate = true;
       o.mesh.renderOrder = o.back.renderOrder = fixed ? -1 : 49;
     }
-    const S = shown(s), [cx, cz] = content(S);
-    // turned to you, upright (seen from another row it would be back to front), on top or in 3D alike: it is a card in
-    // the room either way; without a head, facing back to its spot
-    o.mesh.position.set(cx, 1.45, cz); o.mesh.rotation.set(0, R.headOK ? Math.atan2(R.hr.x - cx, R.hr.z - cz) : S.yaw, 0);
+    // over the middle of its ring, under its icon (the owner, 31 October 2026: "Circle card soll mittig ueber circle
+    // sein"; it stood where the content floats, 1.4 m ahead); turned to you, upright (seen from another row it would be
+    // back to front), on top or in 3D alike: it is a card in the room either way; without a head, facing back, where
+    // people come from (Arrange all faces its stations away from you)
+    const S = shown(s), cx = S.x, cz = S.z;
+    o.mesh.position.set(cx, CARD_Y, cz); o.mesh.rotation.set(0, R.headOK ? Math.atan2(R.hr.x - cx, R.hr.z - cz) : S.yaw, 0);
     return o;
   }
   function stationLine(s) {
@@ -2790,16 +2795,24 @@
       }
     }
   }
-  // the previews of the stations that are not live here (the live one keeps only its ring, fainter, and no icon). In a
-  // circle (a live station here) the others show their icons only (the owner, 30 October 2026, after v100: "Once inside a
-  // story hide the circles and show only the 3d icons, show circle once a person moves close to the 3d icon of that
-  // story"; before, 29 October, rings only): a station's ring (your own too) comes back within RING.near of its spot, so
-  // you see where to step in, and a ray resting on an icon, a ring or the card it brought up shows that station's card for
-  // as long as it points, fading about 2 s after (PEEK), so you can tell which story it is without walking over. Before
-  // any circle everything shows
+  // the previews of the stations that are not live here (the live one has no card and no icon, and its ring only with
+  // Show all rings). In a circle (a live station here) the others show their icons only (the owner, 30 October 2026,
+  // after v100: "Once inside a story hide the circles and show only the 3d icons, show circle once a person moves close
+  // to the 3d icon of that story"; before, 29 October, rings only): another station's ring comes back within RING.near of
+  // its spot, so you see where to step in, and a ray resting on an icon, a ring or the card it brought up shows that
+  // station's card for as long as it points, fading about 2 s after (PEEK), so you can tell which story it is without
+  // walking over. Your own station's ring is hidden as long as it is yours, wherever you walk (the owner, 31 October:
+  // "just hide it once i am inside, only show it if i turn on the show all rings in the menu"): not drawn and not
+  // pointable. Show all rings (the menu's Circles tab; this headset's own, kept here and never in the room) shows every
+  // ring at any distance, yours too. Before any circle everything shows
+  const RINGS = { all: get('collabRings') === 'all' }, ringsAll = () => RINGS.all;
+  function setRingsAll(on) { RINGS.all = !!on; put('collabRings', on ? 'all' : null); log('rings', { all: !!on }); changed(); }
   const HOV = [];   // what the controllers point at, this frame
   const PEEK = { hold: 2000, in: 12, out: 5 };   // (ms shown after the pointing stops; how fast it comes and goes, per s)
-  const RING = { near: 2, far: 2.2, in: 6, out: 4 };   // (m from its spot: in a circle a ring shows within near and goes beyond far; how fast)
+  const RING = { y: 0.5, near: 2, far: 2.2, in: 6, out: 4 };   // (its height over the floor; m from its spot: in a circle a ring shows within near and goes beyond far; how fast)
+  const CARD_Y = 1.45;   // a station's card: its middle over the floor (its top edge at 1.6 m, under the icon at ICON.y)
+  // the card fades as your head comes within CARD_NEAR of its ring's middle (walking in, it would be in your face)
+  const CARD_NEAR = [0.45, 0.8];
   function drawPreviews(dt) {
     const ids = new Set(C.st.map(s => s.id)), cm = cardMode(), L = liveSt(), t = performance.now();
     for (const [id, o] of OV.rings) if (!ids.has(id)) {
@@ -2811,9 +2824,10 @@
     }
     for (const s of C.st) {
       const r = ringFor(s), live = s.id === C.live && s.story === HOST.curKey, hov = HOV.some(h => h.target.kind === 'station' && h.target.id === s.id);
-      // its ring: always before any circle (and while carried); in a circle only near its spot
-      const S = shown(s), d = R.headOK ? Math.hypot(R.hr.x - S.x, R.hr.z - S.z) : 0;
-      const nw = !L || MV.id === s.id || d < (r.near > 0.5 ? RING.far : RING.near) ? 1 : 0;
+      // its ring: always before any circle, with Show all rings and while carried; in a circle another station's only
+      // near its spot, your own never
+      const S = shown(s), d = R.headOK ? Math.hypot(R.hr.x - S.x, R.hr.z - S.z) : 0, own = !!L && s.id === L.id;
+      const nw = !L || RINGS.all || MV.id === s.id || (!own && d < (r.near > 0.5 ? RING.far : RING.near)) ? 1 : 0;
       if (r.near === undefined) r.near = nw;
       r.near += (nw - r.near) * (1 - Math.exp(-dt * (nw ? RING.in : RING.out)));
       if (Math.abs(nw - r.near) < 0.01) r.near = nw;
@@ -2830,9 +2844,9 @@
       iconStep(r, S, !live, dt);
       if (live) continue;
       // cards hidden: no card (the ring stays, to walk up to, point at and move); in a circle none unless pointed at
-      const c = cardFor(s, cm);
-      c.mesh.visible = cm !== 'hidden' && r.peek > 0.02;
-      c.mesh.material.opacity = r.peek;
+      const c = cardFor(s, cm), k = r.peek * Math.min(1, Math.max(0, ((R.headOK ? d : 9) - CARD_NEAR[0]) / (CARD_NEAR[1] - CARD_NEAR[0])));
+      c.mesh.visible = cm !== 'hidden' && k > 0.02;
+      c.mesh.material.opacity = k;
       if (!c.mesh.visible) continue;
       c.hover = hov;
       drawCard(c, s);
@@ -2841,13 +2855,29 @@
 
   // ------------------------------------------------------- the headset's menu --
   // A clock over the back of the left wrist (a controller's grip, or a tracked hand's wrist; beside the story panel
-  // without either) opens the menu: touch it with the other controller's tip or index fingertip, click the left
-  // stick, or point at it and pull the trigger (or pinch). The menu stands above the clock: Exit, the slideshow for
-  // every story and Sound check, the headsets' settings, the story's panels, the design room (opened, or in a room its
-  // table put at your feet), then the shared room: join one from the list (no typing), leave, your name and colour,
-  // calibrate, the alignment, the stations (Arrange all, Add a station here, Move here, Remove) and the people.
-  // It is closed at the start of every session, and opens by itself the first time in a room with no stations.
-  const PNL = { open: false, page: 'main', asked: '', empty: '', code: '' };   // (code: the letters typed on its keypad page)
+  // without either) shows the time. The menu opens and closes with a click of either stick, or with tracked hands two
+  // quick pinches of the left hand pointing at nothing (the owner, 31 October 2026: "Clock menu nur aufmachen mit stick
+  // click", "only left double pinch"; touching the clock or pointing at it no longer opens it), and closes by itself
+  // after IDLE.ms unused (not while calibrating). It floats in front of you ("just make it float in front of the
+  // headset": FLOAT), in three tabs ("a tab in clock menu for debug settings etc, one that shows the current circles
+  // menu"): Settings (Exit, Recenter, the slideshow for every story, the headsets' settings, the story's panels, the
+  // sound switches, the design room), Circles (the shared room: join one from the list or by its code, the stations,
+  // the locks, Show all rings, the people, your name and colour, leave) and Debug (the alignment and calibration, People,
+  // Sound check, the version, the connection, the browser and the frame rate).
+  // It is closed at the start of every session, and opens by itself (on Circles) for the question in VR and the first
+  // time in a room with no stations.
+  const TABS = [['settings', 'Settings'], ['circles', 'Circles'], ['debug', 'Debug']];
+  const PEOPLE_ROWS = 8;   // people listed under Circles at most (the rest as a count): the menu floats in front of you
+  const FPS = { v: 0, n: 0, t0: 0 };   // the headset's frame rate, for the Debug tab
+  const tab0 = () => { const t = get('xrMenuTab'); return TABS.some(x => x[0] === t) ? t : 'settings'; };
+  // where it floats: its middle d m ahead of your eyes along your gaze (its pitch held within pitch, rad) and below m
+  // under that, turned to you, at scale (the panel is 0.42 m wide at 1: about 30 cm, within a fingertip's reach); it
+  // stays put while you use it and glides back in front once your head has turned more than turn (rad) from it, gone
+  // further than far or nearer than near (m, along the floor) or moved up or down by rise (m)
+  const FLOAT = { d: 0.48, below: 0.08, pitch: [-0.4, 0.15], scale: 0.72, turn: 30 * Math.PI / 180, far: 0.85, near: 0.25, rise: 0.25, ease: 6,
+    placed: false, glide: false, y: 0, at: new THREE.Vector3() };
+  const PNL = { open: false, page: 'main', asked: '', empty: '', code: '', tab: tab0(), used: 0 };   // (code: the letters typed on its keypad page)
+  const IDLE = { ms: 20000 }, _vs = new THREE.Vector3();   // the menu closes by itself after this long unused (a press, or a ray or fingertip on it)
   // the clock's canvas (px) and its width in the room (m): a face 6.5 cm across with "Open menu" under it; top and
   // below: how far its face reaches above its middle and its caption below it (m)
   const CLOCK = { w: 300, h: 380, cy: 150, r: 140, mw: 0.07 };
@@ -2855,17 +2885,23 @@
   function menuOpen(on, why) {
     on = !!on;
     if (on !== PNL.open) log('menu', { open: on, by: why || '' });
-    // (opened or closed by hand: a sound from the clock; not when it opens by itself or for a test)
-    if (on !== PNL.open && HOST.session && /^(trigger|touch|finger|stick|close)$/.test(why || '')) sfx(on ? 'open' : 'close', OV.clockG && OV.clockG.position);
-    PNL.open = on; PNL.page = 'main'; PNL.code = ''; C.listing.menu = on;
+    // (opened or closed by hand: a sound from where it floats, or will; not when it opens or closes by itself, or for a test)
+    if (on !== PNL.open && HOST.session && /^(stick|pinch|close)$/.test(why || '')) {
+      const at = PNL.open && FLOAT.placed ? OV.panelG.position : HD.ok ? _vs.set(0, 0, -FLOAT.d).applyQuaternion(HD.q).add(HD.p) : OV.clockG && OV.clockG.position;
+      sfx(on ? 'open' : 'close', at);
+    }
+    PNL.open = on; PNL.page = 'main'; PNL.code = ''; C.listing.menu = on; PNL.used = performance.now(); FLOAT.placed = false;
+    if (on && /^(question|empty)$/.test(why || '')) PNL.tab = 'circles';   // (opened by itself: for the room)
     if (on && !C.code) { listRooms(); nearFind('menu'); }
   }
   const toggleMenu = why => menuOpen(!PNL.open, why);
+  // the tabs, and the one it opens on: the one used last (kept on this headset)
+  function setTab(t) { if (!TABS.some(x => x[0] === t)) return; PNL.tab = t; PNL.page = 'main'; PNL.code = ''; put('xrMenuTab', t); }
   // where a press on the open menu sounds from (a headset; null on a screen)
   function menuAt() { return HOST.session && PNL.open && OV.panelG && OV.panelG.visible ? OV.panelG.position : null; }
-  // where the menu is and how it closes, for the notices and its header
-  const menuWhere = () => (HAND.ok ? 'the clock on your left wrist' : away() ? 'the clock in front of you' : 'the clock beside the story panel');
-  const menuHint = () => (!HAND.ok ? 'Point at the clock to close it' : HAND.hand ? 'Touch the clock to close it' : 'Touch the clock or click the left stick to close');
+  // how the menu opens, for the notices, and how it closes, for its header
+  const menuWhere = () => (HAND.hand ? 'pinch twice with your left hand' : 'click a stick');
+  const menuHint = () => (HAND.hand ? 'Pinch twice (left hand) to close' : 'Click a stick to close') + ' · closes by itself after ' + Math.round(IDLE.ms / 1000) + ' s';
   // Remove takes two presses (page and headset): the first arms it for 3 s ("Remove for everyone?")
   const armed = id => !!(C.rm && C.rm.id === id && performance.now() < C.rm.until);
   function removeAsk(id) {
@@ -2886,7 +2922,7 @@
       C.code ? 0 : (C.rooms || []).map(r => r.code + r.members), C.roomsErr, C.relay, C.code ? nearShown() : [(C.near || []).map(r => r.code + r.members + r.name), C.netState, C.nearBusy, C.nearErr, (offer() || {}).code], sharedLine(), sourceLine(), versionNote(), scanNote(), fullNote(), floorNote(), forgetArmed(), freshArmed(), canFresh(), !!(R.saved || R.frame), R.sharedAlign, circlesLocked(), stLocked(liveSt()), peopleAll(),
       C.local, C.code ? 0 : localRooms().map(r => r.code + r.stations), !!R.again, HOST.slides ? HOST.slides.sig() : '', menuHint(), HOST.xr.sig(), showing(), showing() && HOST.panels.sig(showing()),
       PNL.page === 'sound' ? Math.floor(performance.now() / 500) + HOST.audio.pref : '', HOST.curKey, HOST.sfx ? HOST.sfx.sig() : '', HOST.xr.voice ? HOST.xr.voice() : '',
-      PNL.code, (r => r.label + !!r.fn)(recenterRow())]);
+      PNL.code, (r => r.label + !!r.fn)(recenterRow()), PNL.tab, ringsAll(), PNL.tab === 'debug' ? [FPS.v, Math.round(C.rtt / 10), HOST.shell && HOST.shell.n] : '']);
   }
   // the menu's Recenter (the owner, 30 October 2026): as the story panel's (its recenter hook: you in front again, or
   // Place again while anchored); at a station its scene and panel back where the story puts them, for everyone at its
@@ -2944,7 +2980,7 @@
     const S = OV.panel, sig = panelSig();
     if (sig === S.sig) return;
     S.sig = sig;
-    const ctx = S.ctx, W = S.w, x = 34, w = W - 68, bw = (w - 16) / 2;
+    const ctx = S.ctx, W = S.w, x = 34, w = W - 68, bw = (w - 16) / 2, tw = (w - 32) / 3;
     const YOU = 36 + 70 + 46 + 28;   // the You section at the bottom (its label, name, colours and margin): kept free
     ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, W, S.h); ctx.textBaseline = 'top'; ctx.textAlign = 'left';
     S.regions = [];
@@ -2955,7 +2991,8 @@
     let y = 118;
     const line = () => { ctx.fillStyle = 'rgba(149,166,189,0.22)'; ctx.fillRect(x, y, w, 2); y += 18; };
     const label = (s, col) => { ctx.font = FONT(22, 700); ctx.fillStyle = col || MUTED; ctx.fillText(s.toUpperCase(), x, y); y += 36; };
-    // as tall as what it shows (it hangs from its top edge): the background goes in behind
+    const note = (s, at) => { ctx.font = FONT(21); ctx.fillStyle = MUTED; wrapText(ctx, s, x + bw + 16, at + 2, bw, 28, 2); };   // (beside a button)
+    // as tall as what it shows (it hangs from its top edge, so the tabs stay put): the background goes in behind
     const finish = y => {
       const H = Math.min(S.h, Math.ceil(y));
       ctx.globalCompositeOperation = 'destination-over';
@@ -2965,63 +3002,116 @@
       showTop(S, H);
       S.tex.needsUpdate = true;
     };
+    // the tabs (a press shows the tab's first page; the one used last is kept on this headset)
+    TABS.forEach(([k, l], i) => button(S, 'tab:' + k, x + i * (tw + 16), y, tw, 60, l, () => setTab(k), { on: PNL.tab === k, tog: null, px: 25 }));
+    y += 76;
     line();
-    // Sound check, or a room's code typed in: in place of the rest of the menu
-    if (PNL.page === 'sound') { finish(soundPage(S, x, y, w)); return; }
+    if (PNL.tab === 'settings') {
+      // Exit (leave VR or AR) and Recenter (as the story panel's: at a station its scene and panel back where the story
+      // puts them, for everyone at its circle; greyed while its story is locked), then the slideshow for every story
+      const rc = recenterRow();
+      button(S, 'exit', x, y, bw, 60, 'Exit', () => { if (HOST.session && HOST.session.end) HOST.session.end(); });
+      button(S, 'recenter', x + bw + 16, y, bw, 60, rc.label, rc.fn);
+      y += 76;
+      if (HOST.slides) {
+        const on = !!HOST.slides.global();
+        button(S, 'slides', x, y, bw, 60, on ? 'Slideshow: on' : 'Slideshow: off', () => HOST.slides.setGlobal(!on), { on, px: 23 });
+        note('Every story waits at the end of each chapter', y);
+        y += 76;
+      }
+      // the scenes' small labels and the cards (the story panels, station cards and name tags), each on top, in 3D or hidden
+      // (each press the next, from its default: labels on top, cards in 3D; lit while shown, and a press that hides sounds
+      // as turning off), free moving and subtitles, for every story; in a room the room's
+      const lm = HOST.xr.labels(), cm = cardMode(), fr = HOST.xr.free(), su = HOST.xr.subs(), SAY = { fixed: 'in 3D', hidden: 'hidden', face: 'on top' };
+      const nl = { face: 'fixed', fixed: 'hidden', hidden: 'face' }[lm], nc = { fixed: 'face', face: 'hidden', hidden: 'fixed' }[cm];
+      button(S, 'labels', x, y, bw, 60, 'Labels: ' + SAY[lm], () => HOST.xr.setLabels(nl), { on: lm !== 'hidden', tog: nl === 'hidden' });
+      if (HOST.xr.setCards) button(S, 'cards', x + bw + 16, y, bw, 60, 'Cards: ' + SAY[cm], () => HOST.xr.setCards(nc), { on: cm !== 'hidden', tog: nc === 'hidden' });
+      y += 76;
+      button(S, 'free', x, y, bw, 60, fr ? 'Moving: free' : 'Moving: facing you', () => HOST.xr.setFree(!fr), { on: fr });
+      button(S, 'subs', x + bw + 16, y, bw, 60, su ? 'Subtitles: on' : 'Subtitles: off', () => HOST.xr.setSubs(!su), { on: su });
+      y += 76;
+      // the story on show's panels (shown, controls only, hidden: each press the next), that story's alone; in a room its
+      // station's, for everyone at that circle. No row on the Stories screen or away from a station (no story on show)
+      const pk = showing(), pm = pk ? HOST.panels.get(pk) : '';
+      if (pm) {
+        button(S, 'panels', x, y, bw, 60, 'Panels: ' + PANELS_SAY[pm], () => HOST.panels.set(pk, HOST.panels.next(pk)), { on: pm === 'shown' });
+        ctx.font = FONT(21); ctx.fillStyle = MUTED;
+        wrapText(ctx, C.code ? 'Panels for this circle, the rest for the room' : 'Panels: for ' + ((meta(pk) || {}).title || 'this story') + ' only', x + bw + 16, y + 2, bw, 28, 2);
+        y += 76;
+      } else if (C.code) {
+        ctx.font = FONT(21); ctx.fillStyle = MUTED;
+        ctx.fillText(fit(ctx, 'These settings and the sound: the same for everyone in this room', w), x, y - 4); y += 30;
+      }
+      // the sound switches for every story: sound effects (sfx.js) and narration on or off (the owner, 30 October 2026); in
+      // a room the room's, for everyone in it (pages too), else this headset's own. The effects' volume (each press the next
+      // step) is always this headset's own
+      if (HOST.sfx) {
+        const so = HOST.sfx.on(), vo = !HOST.xr.voice || HOST.xr.voice();
+        button(S, 'sfx', x, y, bw, 60, so ? 'Sound effects: on' : 'Sound effects: off', () => HOST.sfx.set(!so), { on: so, px: 23 });
+        if (HOST.xr.setVoice) button(S, 'voice', x + bw + 16, y, bw, 60, vo ? 'Narration: on' : 'Narration: off', () => HOST.xr.setVoice(!vo), { on: vo, px: 23 });
+        y += 76;
+        button(S, 'sfxvol', x, y, bw, 60, 'Effects volume: ' + Math.round(HOST.sfx.volume() * 100) + '%', () => HOST.sfx.setVolume(HOST.sfx.nextVolume()), { px: 22 });
+        ctx.font = FONT(21); ctx.fillStyle = MUTED; wrapText(ctx, C.code ? 'The volume is this headset\'s own; both switches the room\'s' : 'The volume: this headset\'s own', x + bw + 16, y + 2, bw, 28, 2);
+        y += 76;
+      }
+      // the design room: outside a room it opens (the props table); in a room it puts the table at your feet as a circle,
+      // facing your way (the room's one moved here when it has one), as Add does: not while the circles are locked
+      const dz = designRow();
+      button(S, 'design', x, y, bw, 60, dz.label, dz.fn, { px: 24, color: '#f0d58c' });
+      ctx.font = FONT(21); ctx.fillStyle = MUTED; wrapText(ctx, dz.note, x + bw + 16, y + 2, bw, 28, 2);
+      y += 76;
+      finish(y);
+      return;
+    }
+    if (PNL.tab === 'debug') {
+      // Sound check: in place of the rest of the tab
+      if (PNL.page === 'sound') { finish(soundPage(S, x, y, w)); return; }
+      // the room's alignment: calibrate, re-align, here or elsewhere, the shared space and the frame it rests on
+      label('Alignment');
+      const cal = R.state === 'mark-a' || R.state === 'mark-b';
+      if (!C.code || askHere()) {
+        ctx.font = FONT(22); ctx.fillStyle = MUTED;
+        ctx.fillText(fit(ctx, !C.code ? 'Only in a shared room: start or join one under Circles.' : 'First answer the question under Circles.', w), x, y); y += 40;
+      } else {
+        ctx.font = FONT(22); ctx.fillStyle = MUTED;
+        ctx.fillText(fit(ctx, C.local ? 'On this headset only: ' + whyLocal() + '.' : here() ? 'You are in the room with the others.' : 'You are elsewhere: the stations stand round you.', w), x, y); y += 36;
+        // Calibrate, Re-align (this headset lines up again from the start) and, with others, here or elsewhere
+        const b3 = C.local ? bw : (w - 32) / 3, ag = !!R.again;
+        if (here()) button(S, 'cal', x, y, b3, 60, cal ? 'Stop calibrating' : 'Calibrate', () => (cal ? R.cancel() : R.calibrate()), { on: cal, px: C.local ? 24 : 22 });
+        else button(S, 'cal', x, y, b3, 60, 'Calibrate', null, { px: 22 });
+        button(S, 'realign', x + b3 + 16, y, b3, 60, ag ? 'Re-aligning...' : 'Re-align', R.session && !cal ? () => realignNow() : null, { on: ag, px: C.local ? 24 : 22 });
+        if (!C.local) button(S, 'here', x + 2 * (b3 + 16), y, b3, 60, here() ? 'I am elsewhere' : 'I am in the room', () => setHere(!here()), { px: 21 });
+        y += 76;
+        if (here()) {
+          ctx.font = FONT(21); ctx.fillStyle = MUTED; ctx.fillText(fit(ctx, sharedLine(), w), x, y); y += 30;
+          const fl = versionNote() || scanNote() || fullNote() || floorNote(), src = fl || sourceLine();   // a floor that differs matters more than what the frame rests on
+          if (src) { ctx.fillStyle = fl || R.notJoined || (!own() && (!R.sharedAlign || splitHere())) || (own() && R.reenter) || (R.cmp && (R.cmp.d > 0.05 || R.cmp.a > 2)) ? '#ffb43b' : MUTED; ctx.fillText(fit(ctx, src, w), x, y); y += 30; }
+          y += 4;
+          // (with a relay that serves the page, a third: a fresh shared space for everyone, two presses)
+          const fa = forgetArmed(), fr = canFresh(), fx = freshArmed(), c3 = fr ? (w - 32) / 3 : bw, px = fr ? 20 : 22;
+          button(S, 'forget', x, y, c3, 56, fa ? 'Forget? Press again' : 'Forget calibration', R.saved || R.frame ? forgetAsk : null,
+            { px, color: fa ? '#ffb43b' : undefined, on: fa });
+          button(S, 'sharedalign', x + c3 + 16, y, c3, 56, R.sharedAlign ? 'Shared space: on' : 'Shared space: off', () => setSharedAlign(!R.sharedAlign),
+            { px, on: R.sharedAlign });
+          if (fr) button(S, 'fresh', x + 2 * (c3 + 16), y, c3, 56, fx ? 'Sure? Press again' : 'Fresh shared space', freshAsk, { px, color: fx ? '#ffb43b' : undefined, on: fx });
+          y += 72;
+        }
+      }
+      line();
+      // this headset's own: whose figures it draws (people at your circle only, or everyone: for debugging), Sound check
+      label('This headset');
+      const pa = peopleAll();
+      button(S, 'people', x, y, bw, 56, pa ? 'People: everyone' : 'People: same circle', () => setPeopleAll(!pa), { px: 21, on: !pa });
+      button(S, 'sound', x + bw + 16, y, bw, 56, 'Sound check', () => { PNL.page = 'sound'; }, { px: 23 });
+      y += 72;
+      // what to tell someone helping: the release, the room's connection, the browser, the frame rate
+      ctx.font = FONT(21); ctx.fillStyle = MUTED;
+      for (const l of debugLines()) { ctx.fillText(fit(ctx, l, w), x, y); y += 30; }
+      finish(y + 18);
+      return;
+    }
+    // Circles: a room's code typed in (a keypad: headsets cannot type), in place of the rest of the tab
     if (PNL.page === 'code') { finish(codePage(S, x, y, w)); return; }
-    // Exit (leave VR or AR) and Recenter (as the story panel's: at a station its scene and panel back where the story puts
-    // them, for everyone at its circle; greyed while its story is locked), then the slideshow for every story and Sound
-    // check: at hand on the left wrist, not on the story panels (Sound check is here too because a shared room never shows
-    // the Stories screen, where the stories have theirs)
-    const rc = recenterRow();
-    button(S, 'exit', x, y, bw, 60, 'Exit', () => { if (HOST.session && HOST.session.end) HOST.session.end(); });
-    button(S, 'recenter', x + bw + 16, y, bw, 60, rc.label, rc.fn);
-    y += 76;
-    if (HOST.slides) { const on = !!HOST.slides.global(); button(S, 'slides', x, y, bw, 60, on ? 'Slideshow: on' : 'Slideshow: off', () => HOST.slides.setGlobal(!on), { on, px: 23 }); }
-    button(S, 'sound', x + bw + 16, y, bw, 60, 'Sound check', () => { PNL.page = 'sound'; }, { px: 23 });
-    y += 76;
-    // the scenes' small labels and the cards (the story panels, station cards and name tags), each on top, in 3D or hidden
-    // (each press the next, from its default: labels on top, cards in 3D; lit while shown, and a press that hides sounds
-    // as turning off), free moving and subtitles, for every story; in a room the room's
-    const lm = HOST.xr.labels(), cm = cardMode(), fr = HOST.xr.free(), su = HOST.xr.subs(), SAY = { fixed: 'in 3D', hidden: 'hidden', face: 'on top' };
-    const nl = { face: 'fixed', fixed: 'hidden', hidden: 'face' }[lm], nc = { fixed: 'face', face: 'hidden', hidden: 'fixed' }[cm];
-    button(S, 'labels', x, y, bw, 60, 'Labels: ' + SAY[lm], () => HOST.xr.setLabels(nl), { on: lm !== 'hidden', tog: nl === 'hidden' });
-    if (HOST.xr.setCards) button(S, 'cards', x + bw + 16, y, bw, 60, 'Cards: ' + SAY[cm], () => HOST.xr.setCards(nc), { on: cm !== 'hidden', tog: nc === 'hidden' });
-    y += 76;
-    button(S, 'free', x, y, bw, 60, fr ? 'Moving: free' : 'Moving: facing you', () => HOST.xr.setFree(!fr), { on: fr });
-    button(S, 'subs', x + bw + 16, y, bw, 60, su ? 'Subtitles: on' : 'Subtitles: off', () => HOST.xr.setSubs(!su), { on: su });
-    y += 76;
-    // the story on show's panels (shown, controls only, hidden: each press the next), that story's alone; in a room its
-    // station's, for everyone at that circle. No row on the Stories screen or away from a station (no story on show)
-    const pk = showing(), pm = pk ? HOST.panels.get(pk) : '';
-    if (pm) {
-      button(S, 'panels', x, y, bw, 60, 'Panels: ' + PANELS_SAY[pm], () => HOST.panels.set(pk, HOST.panels.next(pk)), { on: pm === 'shown' });
-      ctx.font = FONT(21); ctx.fillStyle = MUTED;
-      wrapText(ctx, C.code ? 'Panels for this circle, the rest for the room' : 'Panels: for ' + ((meta(pk) || {}).title || 'this story') + ' only', x + bw + 16, y + 2, bw, 28, 2);
-      y += 76;
-    } else if (C.code) {
-      ctx.font = FONT(21); ctx.fillStyle = MUTED;
-      ctx.fillText(fit(ctx, 'These settings and the sound: the same for everyone in this room', w), x, y - 4); y += 30;
-    }
-    // the sound switches for every story: sound effects (sfx.js) and narration on or off (the owner, 30 October 2026); in
-    // a room the room's, for everyone in it (pages too), else this headset's own. The effects' volume (each press the next
-    // step) is always this headset's own
-    if (HOST.sfx) {
-      const so = HOST.sfx.on(), vo = !HOST.xr.voice || HOST.xr.voice();
-      button(S, 'sfx', x, y, bw, 60, so ? 'Sound effects: on' : 'Sound effects: off', () => HOST.sfx.set(!so), { on: so, px: 23 });
-      if (HOST.xr.setVoice) button(S, 'voice', x + bw + 16, y, bw, 60, vo ? 'Narration: on' : 'Narration: off', () => HOST.xr.setVoice(!vo), { on: vo, px: 23 });
-      y += 76;
-      button(S, 'sfxvol', x, y, bw, 60, 'Effects volume: ' + Math.round(HOST.sfx.volume() * 100) + '%', () => HOST.sfx.setVolume(HOST.sfx.nextVolume()), { px: 22 });
-      ctx.font = FONT(21); ctx.fillStyle = MUTED; wrapText(ctx, C.code ? 'The volume is this headset\'s own; both switches the room\'s' : 'The volume: this headset\'s own', x + bw + 16, y + 2, bw, 28, 2);
-      y += 76;
-    }
-    // the design room: outside a room it opens (the props table); in a room it puts the table at your feet as a circle,
-    // facing your way (the room's one moved here when it has one), as Add does: not while the circles are locked
-    const dz = designRow();
-    button(S, 'design', x, y, bw, 60, dz.label, dz.fn, { px: 24, color: '#f0d58c' });
-    ctx.font = FONT(21); ctx.fillStyle = MUTED; wrapText(ctx, dz.note, x + bw + 16, y + 2, bw, 28, 2);
-    y += 76;
-    line();
     // the shared room: its code, how many are in it, the connection
     const n = C.members.length, title = !C.code ? 'Shared room' : C.local ? `Room ${C.code} · this headset` : `Shared room ${C.code} · ${n} ${n === 1 ? 'person' : 'people'}`;
     ctx.font = FONT(28, 700); ctx.fillStyle = C.code ? CYAN : INK; ctx.fillText(fit(ctx, title, C.code ? w - 216 : w), x, y);
@@ -3094,7 +3184,6 @@
       button(S, 'add:cancel', x, y, 200, 58, 'Cancel', () => { PNL.page = 'main'; });
       y += 82; line();
     } else {
-      const cal = R.state === 'mark-a' || R.state === 'mark-b';
       if (askHere()) {
         // in VR, once per room: are you with the others (calibrate, share their room) or somewhere else?
         label('One question', '#ffb43b');
@@ -3104,31 +3193,6 @@
         button(S, 'ask:in', x, y, bw, 60, 'In this room', () => setHere(true), { primary: true });
         button(S, 'ask:away', x + bw + 16, y, bw, 60, 'Somewhere else', () => setHere(false));
         y += 84; line();
-      } else {
-        label('The room');
-        ctx.font = FONT(22); ctx.fillStyle = MUTED;
-        ctx.fillText(fit(ctx, C.local ? 'On this headset only: ' + whyLocal() + '.' : here() ? 'You are in the room with the others.' : 'You are elsewhere: the stations stand round you.', w), x, y); y += 36;
-        // Calibrate, Re-align (this headset lines up again from the start) and, with others, here or elsewhere
-        const b3 = C.local ? bw : (w - 32) / 3, ag = !!R.again;
-        if (here()) button(S, 'cal', x, y, b3, 60, cal ? 'Stop calibrating' : 'Calibrate', () => (cal ? R.cancel() : R.calibrate()), { on: cal, px: C.local ? 24 : 22 });
-        else button(S, 'cal', x, y, b3, 60, 'Calibrate', null, { px: 22 });
-        button(S, 'realign', x + b3 + 16, y, b3, 60, ag ? 'Re-aligning...' : 'Re-align', R.session && !cal ? () => realignNow() : null, { on: ag, px: C.local ? 24 : 22 });
-        if (!C.local) button(S, 'here', x + 2 * (b3 + 16), y, b3, 60, here() ? 'I am elsewhere' : 'I am in the room', () => setHere(!here()), { px: 21 });
-        y += 76;
-        if (here()) {
-          ctx.font = FONT(21); ctx.fillStyle = MUTED; ctx.fillText(fit(ctx, sharedLine(), w), x, y); y += 30;
-          const fl = versionNote() || scanNote() || fullNote() || floorNote(), src = fl || sourceLine();   // a floor that differs matters more than what the frame rests on
-          if (src) { ctx.fillStyle = fl || R.notJoined || (!own() && (!R.sharedAlign || splitHere())) || (own() && R.reenter) || (R.cmp && (R.cmp.d > 0.05 || R.cmp.a > 2)) ? '#ffb43b' : MUTED; ctx.fillText(fit(ctx, src, w), x, y); y += 30; }
-          y += 4;
-          // (with a relay that serves the page, a third: a fresh shared space for everyone, two presses)
-          const fa = forgetArmed(), fr = canFresh(), fx = freshArmed(), c3 = fr ? (w - 32) / 3 : bw, px = fr ? 20 : 22;
-          button(S, 'forget', x, y, c3, 56, fa ? 'Forget? Press again' : 'Forget calibration', R.saved || R.frame ? forgetAsk : null,
-            { px, color: fa ? '#ffb43b' : undefined, on: fa });
-          button(S, 'sharedalign', x + c3 + 16, y, c3, 56, R.sharedAlign ? 'Shared space: on' : 'Shared space: off', () => setSharedAlign(!R.sharedAlign),
-            { px, on: R.sharedAlign });
-          if (fr) button(S, 'fresh', x + 2 * (c3 + 16), y, c3, 56, fx ? 'Sure? Press again' : 'Fresh shared space', freshAsk, { px, color: fx ? '#ffb43b' : undefined, on: fx });
-          y += 72;
-        }
       }
       label('Stations');
       const mine = C.stById.get(C.mine), arm = mine && armed(mine.id);
@@ -3142,15 +3206,14 @@
       button(S, 'remove', x + bw + 16, y, bw, 60, arm ? 'Remove for everyone?' : 'Remove', mine && !lk ? () => removeAsk(mine.id) : null, { px: arm ? 21 : 24, color: arm ? '#ffb43b' : undefined, on: arm });
       y += 72;
       // the two locks side by side: the circles (for the whole room) and this story's scene and panels (at a station: for
-      // everyone at its circle; never locked with the circles); then whether the room shows on this network (not locked
-      // with the circles) and whose figures this headset draws (people at your circle only, or everyone: this headset's
-      // own, for debugging)
-      const L = liveSt(), sl = !!L && stLocked(L), ns = nearShown() && !C.local, pa = peopleAll();
+      // everyone at its circle; never locked with the circles); then every ring at any distance, yours too (this headset's
+      // own), and whether the room shows on this network (not locked with the circles)
+      const L = liveSt(), sl = !!L && stLocked(L), ns = nearShown() && !C.local, ra = ringsAll();
       button(S, 'lock', x, y, bw, 56, lk ? 'Circles locked: unlock' : 'Lock circles', () => setLock(!lk), { px: 22, on: lk });
       button(S, 'stlock', x + bw + 16, y, bw, 56, sl ? 'Story locked: unlock' : 'Lock this story', L ? () => setStLock(L.id, !sl) : null, { px: 22, on: sl });
       y += 72;
-      button(S, 'near', x, y, bw, 56, ns ? 'On this network: shown' : 'On this network: hidden', C.local ? null : () => setNear(!nearShown()), { px: 21, on: ns });
-      button(S, 'people', x + bw + 16, y, bw, 56, pa ? 'People: everyone' : 'People: same circle', () => setPeopleAll(!pa), { px: 21, on: !pa });
+      button(S, 'rings', x, y, bw, 56, ra ? 'Show all rings: on' : 'Show all rings: off', () => setRingsAll(!ra), { px: 21, on: ra });
+      button(S, 'near', x + bw + 16, y, bw, 56, ns ? 'On this network: shown' : 'On this network: hidden', C.local ? null : () => setNear(!nearShown()), { px: 21, on: ns });
       y += 72; line();
       if (C.local) {   // nobody else: what a relay would add, and that the room is kept here
         ctx.font = FONT(22); ctx.fillStyle = MUTED;
@@ -3160,7 +3223,7 @@
       } else if (S.h - y - YOU - 26 - 36 >= 38) {   // (as many people as fit above You; none when nothing fits: the title counts them)
         label('People');
         // as many as fit above "You"; the rest as a count
-        const fitN = Math.max(1, Math.floor((S.h - y - YOU - 26 - 36) / 38)), shown = C.members.length > fitN ? fitN - 1 : fitN;
+        const fitN = Math.max(1, Math.min(PEOPLE_ROWS, Math.floor((S.h - y - YOU - 26 - 36) / 38))), shown = C.members.length > fitN ? fitN - 1 : fitN;
         for (const m of C.members.slice(0, Math.max(0, shown))) {
           const P = m.id === C.id ? { st: C.mine } : C.pres.get(m.id), s = P && C.stById.get(P.st);
           ctx.fillStyle = m.color || INK; rr(ctx, x, y + 4, 22, 22, 6); ctx.fill();
@@ -3190,6 +3253,17 @@
     y += 46 + 28;
     finish(y);
   }
+  // the Debug tab's read-outs
+  function debugLines() {
+    const sh = HOST.shell || {}, via = C.local ? 'this headset only' : C.via === 'peer' ? 'peer to peer' : C.relay ? 'relay ' + String(C.relay).replace(/^wss?:\/\//, '') : 'no relay known';
+    const ua = (/(Chrome|Firefox|Safari)\/\d+/.exec(navigator.userAgent) || [''])[0];
+    return [
+      'App: release ' + (sh.n || '?') + ' · rooms ' + FORMAT,
+      'Room: ' + (C.code ? C.code + ' · ' + via + ' · ' + connLine() + (C.rtt > 0 ? ' · ' + Math.round(C.rtt) + ' ms there and back' : '') : 'none · ' + via),
+      'Browser: ' + (BROWSER ? 'Quest Browser ' + BROWSER : ua || 'unknown'),
+      'Frame rate: ' + (FPS.v ? FPS.v + ' frames a second' : 'measuring...'),
+    ];
+  }
   // Sound check in the menu, as the stories have it on their Stories screen (which a shared room never shows): a beep
   // through each engine, the engine choice and what the sound system is doing (HOST.audio.report(), redrawn twice a
   // second while it shows)
@@ -3218,10 +3292,12 @@
     return y + 58 + 28;
   }
   // the clock: the local time (hour ticks, hour and minute hands) in the app's cyan rim, on a dark face that stands
-  // out against the room and a dark scene alike, "Open menu" or "Close menu" under it; drawn again only when the
-  // minute or what it shows changes
+  // out against the room and a dark scene alike, how the menu opens under it ("Click a stick", with tracked hands "Pinch
+  // twice"; lit, "Menu open", while it is open: it is no button any more); drawn again only when the minute or what it
+  // shows changes
   function drawClock() {
-    const S = OV.clock, d = new Date(), hot = !!(S.hover || TCH.near), sig = [d.getHours(), d.getMinutes(), hot, PNL.open].join('|');
+    const S = OV.clock, d = new Date(), hot = PNL.open, cap = PNL.open ? 'Menu open' : HAND.hand ? 'Pinch twice' : 'Click a stick';
+    const sig = [d.getHours(), d.getMinutes(), hot, cap].join('|');
     if (sig === S.sig) return;
     S.sig = sig;
     const ctx = S.ctx, cx = CLOCK.w / 2, cy = CLOCK.cy;
@@ -3239,7 +3315,6 @@
     hand((d.getHours() % 12 + m / 60) * Math.PI / 6, 62, 13);
     hand(m * Math.PI / 30, 100, 8);
     ctx.beginPath(); ctx.arc(cx, cy, 11, 0, 2 * Math.PI); ctx.fillStyle = CYAN; ctx.fill();
-    const cap = PNL.open ? 'Close menu' : 'Open menu';
     ctx.font = FONT(34, 700); ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     const tw = Math.min(S.w - 8, ctx.measureText(cap).width + 44);
     rr(ctx, cx - tw / 2, 302, tw, 66, 33); ctx.fillStyle = 'rgba(8,15,28,0.92)'; ctx.fill();
@@ -3455,11 +3530,10 @@
     for (const x of hits) {
       const t = x.object.userData.shell;
       if (!t) continue;
-      if ((x.object === OV.panel.mesh || x.object === OV.clock.mesh) && OV.onHand && i === HAND.i && x.distance < 0.4) continue;   // the left hand's own menu and clock
       if (!R.calib && near != null && x.distance > near) break;   // the story's own panel is in front
       const S = x.object.userData.sheet, hx = S && x.uv ? x.uv.x * S.w : 0, hy = S && x.uv ? (1 - x.uv.y) * S.vis : 0;
       C.hov.set(i, { target: t, x: hx, y: hy, at: h.at, p: x.point });
-      // a soft tick as the pointer comes onto something new: a button of the menu, the clock, a station
+      // a soft tick as the pointer comes onto something new: a button of the menu, a station
       const r = t.kind === 'panel' && S ? S.at(hx, hy) : null, key = t.kind === 'panel' ? (r && r.fn ? 'p:' + r.id : '') : t.kind === 'station' ? 's:' + t.id : t.kind;
       if (key && key !== h.hk) sfx('hover', x.point);
       h.hk = key;
@@ -3480,21 +3554,15 @@
     const h = hovOf(i);
     if (!h) return;
     if (h.target.kind === 'mark') { R.mark(i); return; }   // calibrating (the panel's Stop calibrating still works)
-    if (h.target.kind === 'clock') {
-      // the tip touching the clock as the trigger is pulled: the touch has opened (or closed) it already, or must not now
-      if (TCH.near) { if (!TCH.armed) return; TCH.armed = false; }
-      toggleMenu('trigger'); return;
-    }
-    if (h.target.kind === 'panel') { const r = OV.panel.at(h.x, h.y); if (r && r.fn && !twice(r.id, 'ray')) { log('panel', { id: r.id }); const n = sfxN(); r.fn(); OV.panel.sig = ''; pressSound(r, n, h.p); } }
+    if (h.target.kind === 'panel') { PNL.used = performance.now(); const r = OV.panel.at(h.x, h.y); if (r && r.fn && !twice(r.id, 'ray')) { log('panel', { id: r.id }); const n = sfxN(); r.fn(); OV.panel.sig = ''; pressSound(r, n, h.p); } }
     // a station runs only where it stands: the trigger on its card or ring says so (the grip still moves it)
     else if (h.target.kind === 'station' && !h.target.live && !MV.src) notice('Walk into its circle', 'A story plays where its station stands: walk up to it to see it.', 3500);
   }
-  // touching the clock opens and closes the menu: the right controller's tip (the first 4 cm of its ray) or the right
-  // index fingertip within 4 cm of the clock's middle; it takes another touch only once moved 7 cm away. A fingertip
-  // also presses the open menu's buttons: within 1.5 cm of the panel over one, again once pulled back 3 cm; a pinch
-  // on the ray at the button the fingertip has just pressed (or the other way round, within 0.7 s) counts once
-  const TCH = { armed: false, near: false }, POKE = { armed: true, hov: null, ok: false, tip: new THREE.Vector3() }, LASTP = { id: '', by: '', at: 0 };
-  const _to = new THREE.Vector3(), _td = new THREE.Vector3(), _tm = new THREE.Matrix4();
+  // the right index fingertip presses the open menu's buttons: within 1.5 cm of the panel over one, again once pulled
+  // back 3 cm; a pinch on the ray at the button the fingertip has just pressed (or the other way round, within 0.7 s)
+  // counts once. (Touching the clock no longer opens the menu: the owner, 31 October 2026, "nur aufmachen mit stick
+  // click"; a stick's click or two pinches of the left hand do, below.)
+  const POKE = { armed: true, hov: null, ok: false, near: false, tip: new THREE.Vector3() }, LASTP = { id: '', by: '', at: 0 };
   function twice(id, by) {
     const t = performance.now();
     if (LASTP.id === id && LASTP.by !== by && t - LASTP.at < 700) return true;
@@ -3502,45 +3570,58 @@
     return false;
   }
   function touch(f, local) {
-    let src = null, d = Infinity;
+    let src = null;
     POKE.ok = false;
-    if (R.session && f && local && OV.clockG && OV.clockG.visible) {
+    if (R.session && f && local) {
       try { for (const x of R.session.inputSources) if (x && x.handedness === 'right') { src = x; break; } } catch (e) { /* gone */ }
-      const c = OV.clockG.position;
       if (src && src.hand) {
         let jp = null;
         try { jp = f.getJointPose(src.hand.get('index-finger-tip'), local); } catch (e) { /* not tracked now */ }
-        if (jp) { const q = jp.transform.position; POKE.tip.set(q.x, q.y, q.z); POKE.ok = true; d = POKE.tip.distanceTo(c); }
-      } else if (src) {
-        let rp = null;
-        try { rp = f.getPose(src.targetRaySpace, local); } catch (e) { /* not tracked now */ }
-        if (rp) {
-          _tm.fromArray(rp.transform.matrix); _to.setFromMatrixPosition(_tm); _td.set(0, 0, -1).transformDirection(_tm);
-          const k = Math.max(0, Math.min(0.04, _v2.copy(c).sub(_to).dot(_td)));
-          d = _v2.copy(_to).addScaledVector(_td, k).distanceTo(c);
-        }
+        if (jp) { const q = jp.transform.position; POKE.tip.set(q.x, q.y, q.z); POKE.ok = true; }
       }
     }
-    const sc = OV.clockG ? OV.clockG.scale.x : 1;   // (beside the story panel the clock is twice the size)
-    // not while that hand is busy: its grip held (carrying a station, the scene or a panel; both grips resizing the
-    // scene bring the hands together) or calibrating (its tip goes to the tape marks); a touch begun busy waits
-    // until the hand has moved away
-    const gp = src && src.gamepad, busy = !!(R.calib || (src && MV.src === src) || (gp && gp.buttons && gp.buttons[1] && gp.buttons[1].pressed));
-    TCH.near = d < 0.07 * sc;
-    if (!TCH.near) TCH.armed = true;
-    else if (busy) TCH.armed = false;
-    else if (TCH.armed && d < 0.04 * sc) { TCH.armed = false; pulse(src, 0.4, 25); toggleMenu(src.hand ? 'finger' : 'touch'); }
     poke();
+  }
+  // the menu opens and closes with a click of either stick (xr-standard button 3; no story uses it: they use the stick's
+  // axes and button 4), a stick held down as its controller appears being no click
+  const STK = new WeakMap();
+  function sticks() {
+    let list = [];
+    try { list = R.session ? [...R.session.inputSources] : []; } catch (e) { /* gone */ }
+    for (const src of list) {
+      const gp = src && !src.hand && src.gamepad, b = !!(gp && gp.buttons && gp.buttons[3] && gp.buttons[3].pressed);
+      if (!src) continue;
+      const was = STK.get(src);
+      STK.set(src, b);
+      if (b && was === false && HOST.session) toggleMenu('stick');
+    }
+  }
+  // with tracked hands, two quick pinches of the left hand (the clock's) open and close it (the owner, 31 October 2026:
+  // "only left double pinch"), but only while its ray points at nothing: not at the menu, a station, a story panel or
+  // the scene (the stories get the pinches too, so a double pinch meant for them stays theirs)
+  const PINCH = { at: 0, gap: 400 };
+  function pinched(e) {
+    const src = e && e.inputSource, s = R.session;
+    if (!src || !src.hand || src.handedness !== 'left' || !s || !HOST.session) return;
+    let i = -1;
+    try { i = [...s.inputSources].indexOf(src); } catch (e2) { /* gone */ }
+    let story = 0;
+    try { story = C.hook && C.hook.hover ? +C.hook.hover(i) || 0 : 0; } catch (e2) { /* story not ready */ }
+    const t = performance.now();
+    if (i < 0 || hovOf(i) || story > 0 || R.calib) { PINCH.at = 0; return; }   // (pointing at something: the story's, or the shell's)
+    if (PINCH.at && t - PINCH.at < PINCH.gap) { PINCH.at = 0; toggleMenu('pinch'); return; }
+    PINCH.at = t;
   }
   function poke() {
     const S = OV.panel;
-    if (!POKE.ok || !PNL.open || !OV.panelG.visible) { POKE.armed = true; POKE.hov = null; return; }
+    if (!POKE.ok || !PNL.open || !OV.panelG.visible) { POKE.armed = true; POKE.hov = null; POKE.near = false; return; }
     const lp = S.mesh.worldToLocal(_v2.copy(POKE.tip)), u = lp.x / S.mw + 0.5, v = 0.5 - lp.y / (S.mw * S.h / S.w), dz = lp.z * OV.panelG.scale.x;
     const on = u >= 0 && u <= 1 && v >= 0 && v <= 1, r = on && dz > -0.03 && dz < 0.05 ? S.at(u * S.w, v * S.vis) : null;
+    POKE.near = on && dz > -0.03 && dz < 0.08;   // (a fingertip at the menu: it is in use)
     if (r && r.fn && r.id !== POKE.hov) sfx('hover', POKE.tip);   // (the fingertip over a new button)
     POKE.hov = r ? r.id : null;
     if (dz > 0.03 || (!on && dz > 0)) POKE.armed = true;   // (pulled back, or beside it in front: not from behind)
-    else if (POKE.armed && dz < 0.015 && r && r.fn) { POKE.armed = false; if (!twice(r.id, 'finger')) { log('panel', { id: r.id, by: 'finger' }); const n = sfxN(); r.fn(); S.sig = ''; pressSound(r, n, POKE.tip); } }
+    else if (POKE.armed && dz < 0.015 && r && r.fn) { POKE.armed = false; PNL.used = performance.now(); if (!twice(r.id, 'finger')) { log('panel', { id: r.id, by: 'finger' }); const n = sfxN(); r.fn(); S.sig = ''; pressSound(r, n, POKE.tip); } }
   }
 
   // ---------------------------------------------------------- every frame --
@@ -3550,7 +3631,7 @@
   // the left controller (or hand) in the story's space: the menu's clock sits on its wrist, the menu above it
   // (a pose only guessed, or none for a moment, keeps the last one for half a second: no jumping to the story
   // panel and back when tracking drops briefly)
-  const HAND = { m: new THREE.Matrix4(), c: new THREE.Vector3(), ok: false, at: 0, i: -1, src: null, hand: false, b3: true }, HAND_SCALE = 0.62;
+  const HAND = { m: new THREE.Matrix4(), c: new THREE.Vector3(), ok: false, at: 0, i: -1, src: null, hand: false };
   function leftHand(f, local) {
     const s = R.session, t = performance.now();
     let src = null, p = null;
@@ -3560,7 +3641,7 @@
       if (src && src.hand) try { p = f.getJointPose(src.hand.get('wrist'), local); } catch (e) { /* not tracked now */ }
       else if (src) try { p = f.getPose(src.gripSpace || src.targetRaySpace, local); } catch (e) { /* not tracked now */ }
     }
-    if (src !== HAND.src) { HAND.src = src; HAND.b3 = true; }   // (a stick held down as the controller appears is no click)
+    HAND.src = src;
     HAND.hand = !!(src && src.hand);
     if (p && !p.emulatedPosition) {
       HAND.m.fromArray(p.transform.matrix); HAND.at = t;
@@ -3571,14 +3652,11 @@
       else { HAND.c.set(0, 0, 0.05).applyMatrix4(HAND.m); HAND.c.y += 0.05; }
     }
     HAND.ok = !!src && t - HAND.at < 500;
-    // the left stick's click (xr-standard button 3: the stories use the stick's axes and button 4) opens and closes it
-    const gp = src && !src.hand && src.gamepad, b3 = !!(gp && gp.buttons && gp.buttons[3] && gp.buttons[3].pressed);
-    if (b3 && !HAND.b3 && HOST.session) toggleMenu('stick');
-    HAND.b3 = b3;
   }
   function tick(f) {
     const t = performance.now(), dt = Math.min(0.1, (t - (C.tickAt || t)) / 1000);
     C.tickAt = t; C.frameN = (C.frameN || 0) + 1;
+    if (HOST.session) { FPS.n++; if (t - FPS.t0 >= 1000) { FPS.v = FPS.t0 ? Math.round(FPS.n * 1000 / (t - FPS.t0)) : 0; FPS.n = 0; FPS.t0 = t; } } else FPS.t0 = 0;
     if (C.code) renderStep();   // (the time others' moves are drawn at, smoothed)
     attachCheck();
     const local = refSpace();
@@ -3604,7 +3682,7 @@
     // in VR, once per room: the shell's panel opens with its question (in the room with the others, or elsewhere?)
     if (HOST.session && askHere() && PNL.asked !== C.code && OV.root && OV.root.visible) {
       PNL.asked = C.code; menuOpen(true, 'question');
-      notice('One question', 'Are you in the same room as the others? Answer in the menu, ' + (HAND.ok ? 'above the clock on your left wrist.' : away() ? 'under the clock in front of you.' : 'left of the story panel.'), 9000);
+      notice('One question', 'Are you in the same room as the others? Answer in the menu in front of you.', 9000);
     }
     // the first time in a room with no stations yet (nothing to see but the menu): the menu opens by itself, with Arrange
     // all in it (once per room)
@@ -3612,6 +3690,7 @@
     if (MV.src && f) carryStation(f, t);
     if (C.code) { placeSync(dt, t); viewSync(t); }
     leftHand(f, local);
+    sticks();
     touch(f, local);
     easeStations(dt);
     drawOverlay(dt);
@@ -3675,67 +3754,61 @@
       drawPeople(dt);
     }
     drawMarks();
-    // the menu: its clock on the left wrist when there is a left controller or hand (always at hand), else beside
-    // the story's panel (in front of you away from a station in a shared room, the story hidden); open, the menu above
-    // the clock. Drawn first, so it is placed by its height this frame (it hangs from its top edge, and its height
-    // follows what it shows). Without a relay too: a room on this headset places the stories
+    // the clock on the left wrist when there is a left controller or hand (always at hand), else beside the story's panel
+    // (in front of you away from a station in a shared room, the story hidden); the menu floats in front of you (FLOAT,
+    // floatMenu). The menu is drawn first, so it is placed by its height this frame. Without a relay too: a room on this
+    // headset places the stories
     const t = performance.now(), aw = away();
     let p = null;
     if (!HAND.ok && !aw) { try { p = HOST.cur && HOST.cur.xrPose(); } catch (e) { /* not ready */ } }
     OV.clockG.visible = HAND.ok || !!p || (aw && HD.ok);
-    OV.panelG.visible = OV.clockG.visible && PNL.open;
+    OV.panelG.visible = PNL.open && (HD.ok || FLOAT.placed);
     if (OV.panelG.visible) {
       OV.panel.hover = POKE.hov;
       for (const h of HOV) if (h.target.kind === 'panel') { const r = OV.panel.at(h.x, h.y); if (r) OV.panel.hover = r.id; }
       drawPanel();
       if (!C.code && t - C.roomsAt > 4000) listRooms();
+      // in use while a ray or a fingertip is at it, or while calibrating (the tip goes to the tape marks); unused for
+      // IDLE.ms, it closes by itself
+      const busy = POKE.near || R.calib || HOV.some(h => h.target.kind === 'panel');
+      if (busy) PNL.used = t;
+      else if (t - PNL.used > IDLE.ms) menuOpen(false, 'idle');
     } else if (OV.panel.regions.length) { OV.panel.regions = []; OV.panel.sig = ''; }   // (closed: nothing on it to press)
-    if (OV.clockG.visible) { OV.clock.hover = HOV.some(h => h.target.kind === 'clock'); drawClock(); }
-    const S = OV.panel;
+    if (OV.clockG.visible) drawClock();
     if (OV.clockG.visible && HAND.ok) {
-      // the clock turned to your eyes, eased a little (a shaking hand does not shake it); the menu above it, its lower
-      // edge 6.5 cm over the clock's middle, at about two thirds of its size
+      // the clock turned to your eyes, eased a little (a shaking hand does not shake it)
       if (!OV.onHand) OV.clockG.position.copy(HAND.c); else OV.clockG.position.lerp(HAND.c, 1 - Math.exp(-dt * 30));
       if (HD.ok) OV.clockG.quaternion.setFromRotationMatrix(_m.lookAt(HD.p, OV.clockG.position, _Y));
       OV.clockG.scale.setScalar(1);
-      const sc = HAND_SCALE, vh = S.mw * S.vis / S.w * sc;
-      OV.panelG.position.copy(OV.clockG.position); OV.panelG.position.y += 0.065 + vh;
-      if (HD.ok) OV.panelG.quaternion.setFromRotationMatrix(_m.lookAt(HD.p, OV.panelG.position, _Y));
-      OV.panelG.scale.setScalar(sc);
       OV.onHand = true;
     } else if (OV.clockG.visible && p) {
       OV.onHand = false;
-      // to the left of the story panel (0.62 m wide), turned a little more towards you: the clock (twice its size,
-      // as it is further away) with its top where the closed menu's tab used to be, the menu hanging below it
+      // to the left of the story panel (0.62 m wide), turned a little more towards you: the clock (twice its size, as it
+      // is further away) with its top where the closed menu's tab used to be
       const a = 0.42;
       _v.set(-0.31 - 0.02 - 0.21 * Math.cos(a), 0.36, 0.21 * Math.sin(a)).applyAxisAngle(_Y, p.pr).add(p.pp);
       _v.applyQuaternion(p.rq).add(p.rp);
       OV.clockG.quaternion.copy(p.rq).multiply(_q.setFromAxisAngle(_Y, p.pr + a));
       OV.clockG.position.copy(_v).add(_v2.set(0, -2 * CLOCK.top, 0).applyQuaternion(OV.clockG.quaternion));
       OV.clockG.scale.setScalar(2);
-      OV.panelG.quaternion.copy(OV.clockG.quaternion); OV.panelG.scale.setScalar(1);
-      OV.panelG.position.copy(OV.clockG.position).add(_v2.set(0, -2 * CLOCK.below - 0.015, 0).applyQuaternion(OV.clockG.quaternion));
     } else if (OV.clockG.visible) {
       // away from a station in a shared room the story and its panel are hidden: without a left controller or hand the
-      // clock (twice its size) hangs in front of you, a little to the left, and follows you gently (not while the menu
-      // is open below it, so its buttons stay put)
+      // clock (twice its size) hangs in front of you, a little to the left, and follows you gently
       _v.set(0, 0, -1).applyQuaternion(HD.q);
       const hy = Math.atan2(-_v.x, -_v.z);   // (where you face along the floor)
       _v.set(-0.3, 0.1, -0.65).applyAxisAngle(_Y, hy).add(HD.p);
-      if (!OV.ahead) OV.clockG.position.copy(_v); else if (!PNL.open) OV.clockG.position.lerp(_v, 1 - Math.exp(-dt * 3));
+      if (!OV.ahead) OV.clockG.position.copy(_v); else OV.clockG.position.lerp(_v, 1 - Math.exp(-dt * 3));
       OV.clockG.quaternion.setFromRotationMatrix(_m.lookAt(HD.p, OV.clockG.position, _Y));
       OV.clockG.scale.setScalar(2);
-      OV.panelG.quaternion.copy(OV.clockG.quaternion); OV.panelG.scale.setScalar(1);
-      OV.panelG.position.copy(OV.clockG.position).add(_v2.set(0, -2 * CLOCK.below - 0.015, 0).applyQuaternion(OV.clockG.quaternion));
       OV.onHand = false;
     } else OV.onHand = false;
+    if (OV.panelG.visible) floatMenu(dt, HOV.some(h => h.target.kind === 'panel') || POKE.near);
     OV.ahead = OV.clockG.visible && !HAND.ok && !p;
     drawNote(HD.ok ? HD.p : null, HD.q);
     drawSubs(dt);
     // what the controllers can point at
     OV.hit.length = 0;
-    if (OV.clockG.visible) OV.hit.push(OV.clock.mesh);
-    if (OV.panelG.visible) OV.hit.push(OV.panel.mesh);
+    if (OV.panelG.visible) OV.hit.push(OV.panel.mesh);   // (the clock is not pointed at: it only shows the time)
     if (OV.room.visible) {
       for (const o of OV.cards.values()) if (o.mesh.visible) OV.hit.push(o.mesh, o.back);
       for (const o of OV.rings.values()) {
@@ -3744,6 +3817,39 @@
       }
     }
     OV.root.updateMatrixWorld(true);
+  }
+  // the menu floats in front of you (the owner, 31 October 2026: "just make it float in front of the headset"): put there
+  // as it opens (its middle FLOAT.d ahead along your gaze, held within FLOAT.pitch, and FLOAT.below under it; it hangs
+  // from its top edge, so the tabs stay put while the tab below them changes height; turned to you about its middle), it
+  // stays put while you use it, so the ray and the fingertip land where they aim, and glides back
+  // in front (FLOAT.ease) once your head has turned more than FLOAT.turn from it, walked off, come too near or moved up
+  // or down a lot; never while a ray or a fingertip is at it
+  function floatMenu(dt, inUse) {
+    const G = OV.panelG, S = OV.panel, F = FLOAT;
+    G.scale.setScalar(F.scale);
+    if (!HD.ok) return;
+    _v.set(0, 0, -1).applyQuaternion(HD.q);
+    const hy = Math.atan2(-_v.x, -_v.z), pitch = Math.max(F.pitch[0], Math.min(F.pitch[1], Math.asin(Math.max(-1, Math.min(1, _v.y)))));
+    const h = S.mw * S.vis / S.w * F.scale;   // (its height now, m)
+    const want = () => {
+      F.at.set(-Math.sin(hy) * Math.cos(pitch), Math.sin(pitch), -Math.cos(hy) * Math.cos(pitch)).multiplyScalar(F.d).add(HD.p);
+      F.at.y += h / 2 - F.below;   // (its top edge, from which it hangs)
+      return F.at;
+    };
+    const face = at => { _v2.copy(at); _v2.y -= h / 2; G.quaternion.setFromRotationMatrix(_m.lookAt(HD.p, _v2, _Y)); };
+    if (!F.placed) {
+      G.position.copy(want()); face(G.position); F.placed = true; F.glide = false; F.y = HD.p.y; return;
+    }
+    if (!F.glide && !inUse) {
+      const dx = G.position.x - HD.p.x, dz = G.position.z - HD.p.z, dist = Math.hypot(dx, dz);
+      let da = Math.atan2(-dx, -dz) - hy; da = Math.atan2(Math.sin(da), Math.cos(da));
+      if (Math.abs(da) > F.turn || dist > F.far || dist < F.near || Math.abs(HD.p.y - F.y) > F.rise) F.glide = true;
+    }
+    if (F.glide) {
+      const W = want(), k = 1 - Math.exp(-dt * F.ease);
+      G.position.lerp(W, k); face(G.position); F.y = HD.p.y;
+      if (G.position.distanceTo(W) < 0.01) F.glide = false;
+    }
   }
   const refSpace = () => { try { return HOST.renderer && HOST.renderer.xr.getReferenceSpace(); } catch (e) { return null; } };
 
@@ -4301,7 +4407,7 @@
     const d = _v2.set(0, 0, -1).applyQuaternion(_q.set(q.x, q.y, q.z, q.w)).transformDirection(R.lfi), yaw = Math.atan2(-d.x, -d.z);
     R.mk = null;
     setFrame({ o: [hp.x, 0, hp.z], x: [Math.cos(yaw), 0, -Math.sin(yaw)] }, 'own', askHere() ? '' : 'Joined from elsewhere',
-      'The stations stand round you as they stand in the room. In the room with the others after all? Say so in the menu (' + menuWhere() + ').');
+      'The stations stand round you as they stand in the room. In the room with the others after all? Say so in the menu (' + menuWhere() + '), under Debug.');
   }
   // is the room calibrated in a shared space other than ours, by someone still here? (then our space's own
   // origin would make another room: calibrate instead)
@@ -4435,10 +4541,10 @@
     if (!R.frame && R.state !== 'restoring') {
       // on this headset alone there is nobody to line up with: the stations stand on its floor (where the session
       // began) until it is calibrated, which keeps them in place next time
-      if (C.local && R.lfOK) { R.mk = null; setFrame({ o: [0, 0, 0], x: [1, 0, 0] }, 'floor', 'On your floor', 'The stations stand where you put them, for this session. To keep them in place next time, calibrate on two tape marks (Calibrate, in the menu).'); return; }
+      if (C.local && R.lfOK) { R.mk = null; setFrame({ o: [0, 0, 0], x: [1, 0, 0] }, 'floor', 'On your floor', 'The stations stand where you put them, for this session. To keep them in place next time, calibrate on two tape marks (Calibrate, under Debug in the menu).'); return; }
       setState('calibrate');
       if (notJoined && R.noticed !== 'alone') { R.noticed = 'alone'; notice('Not in the shared space', 'Check on every headset: the same Quest Browser version, the WebXR experiments flag, Enhanced spatial services, the same address. Then restart both headsets and start one after the other, or calibrate both on the same tape marks.', 9000); }
-      else if (!notJoined && R.noticed !== 'calibrate') { R.noticed = 'calibrate'; notice('Calibrate the room', 'Press Calibrate in the menu (' + menuWhere() + '), then touch mark A and mark B with a controller\'s tip: tape crosses a metre or more apart.', 9000); }
+      else if (!notJoined && R.noticed !== 'calibrate') { R.noticed = 'calibrate'; notice('Calibrate the room', 'Press Calibrate in the menu (' + menuWhere() + '), under Debug, then touch mark A and mark B with a controller\'s tip: tape crosses a metre or more apart.', 9000); }
     }
   }
   // After waking, the frame the floor's resets carried over (the room as it was; Quest's transforms were right to
@@ -4475,7 +4581,7 @@
     if (steady && P.by !== C.id && R.qAsk !== R.visibleAt) { R.qAsk = R.visibleAt; fx('q.frame', { id: R.sharedId }); log('frame asked for', { by: P.by }); }
     if (R.blind && R.sharedOwn && steady && R.noticed !== 'lost') {
       R.noticed = 'lost';
-      notice('Lost its place', 'The headset lost its place while it was off: press Re-align in the menu (' + menuWhere() + '), or calibrate on the tape marks.', 12000);
+      notice('Lost its place', 'The headset lost its place while it was off: press Re-align in the menu (' + menuWhere() + '), under Debug, or calibrate on the tape marks.', 12000);
     }
     return held();
   }
@@ -4817,7 +4923,7 @@
   function watch(s) {
     if (s === R.session) return;
     R.session = s; R.begun = null; R.aligned = false; R.frame = null; R.src = ''; R.calib = null;
-    PNL.open = false; PNL.page = 'main'; TCH.armed = false; C.listing.menu = false;   // the menu starts closed: only its clock shows
+    PNL.open = false; PNL.page = 'main'; FLOAT.placed = false; PINCH.at = 0; C.listing.menu = false;   // the menu starts closed: only its clock shows
     // what a story does by itself when a session starts or a headset wakes is not a person's action: not published
     holdTask();
     if (!s) { dropStation(null); letGo(); setState('off'); HOST.audio.zone(null); if (HOST.sfx) HOST.sfx.listen(null); if (C.code) { upload(performance.now(), true); hello(); connect(); } changed(); return; }
@@ -4839,7 +4945,7 @@
       }
       if (s.visibilityState === 'visible' && C.code) wake('headset');
     }));
-    quiet(() => { s.addEventListener('squeezestart', grabStation); s.addEventListener('squeezeend', dropStation); });
+    quiet(() => { s.addEventListener('squeezestart', grabStation); s.addEventListener('squeezeend', dropStation); s.addEventListener('selectstart', pinched); });
     // the stories set HOST.mode just after HOST.session: say who we are once both are known
     setTimeout(() => { if (R.session === s && C.code) { hello(); connect(); begin(); } }, 0);
     if (!C.relay || C.served === null) detect();
@@ -5216,6 +5322,30 @@
     stationLock: id => stLocked(C.stById.get(id)), setStationLock: (id, on) => setStLock(id, on),
     // whose figures this headset draws: false, the people at its circle (or everyone before any circle); true, everyone
     seeAll: on => { if (on !== undefined) setPeopleAll(on); return peopleAll(); },
+    allRings: on => { if (on !== undefined) setRingsAll(on); return ringsAll(); },   // Show all rings (this headset's own)
+    // for tests: the menu's tab (and its first page), how long it waits unused before it closes, and a button by its id
+    // on whichever tab has it (that tab shown; null when none has it, or it is greyed: a greyed button has no region)
+    menuTab: t => { if (t !== undefined) { setTab(t); OV.panel && (OV.panel.sig = ''); } return PNL.tab; },
+    menuIdle: ms => { if (ms !== undefined) IDLE.ms = +ms; return IDLE.ms; },
+    menuFind: id => {
+      if (!PNL.open || !OV.panel) return null;
+      const S = OV.panel, find = () => { S.sig = ''; drawPanel(); return S.regions.find(r => r.id === id) || null; };
+      let r = find();
+      if (r) return r;
+      const tab = PNL.tab, page = PNL.page, code = PNL.code;
+      for (const [k] of TABS) { if (k === tab) continue; PNL.tab = k; PNL.page = 'main'; if ((r = find())) return r; }
+      PNL.tab = tab; PNL.page = page; PNL.code = code; find();
+      return null;
+    },
+    // for tests: the ids of every button the open menu has, on the page shown and on the other tabs' first pages
+    menuIds: () => {
+      if (!PNL.open || !OV.panel) return [];
+      const S = OV.panel, draw = () => { S.sig = ''; drawPanel(); return S.regions.map(r => r.id); }, tab = PNL.tab, page = PNL.page, code = PNL.code;
+      const ids = new Set(draw());
+      for (const [k] of TABS) { if (k === tab) continue; PNL.tab = k; PNL.page = 'main'; for (const i of draw()) ids.add(i); }
+      PNL.tab = tab; PNL.page = page; PNL.code = code; draw();
+      return [...ids];
+    },
     // the room's headset settings and sound switches ({ labels, cards, free, subs, sfx, voice }; null outside a room), set
     // for everyone there (HOST.xr calls these)
     look, setLook,
