@@ -2756,9 +2756,10 @@ try {
     const at = d => X.aim(0, new M4().compose(g.position.clone().add(new V(d, 0, 0)), new THREE.Quaternion(), new V(1, 1, 1)));
     at(0.1); await steps(2); at(0.02); await steps(3); out.touch = HOST.collab.menu;
     at(0.3); await steps(2);
-    // unused, it closes by itself (here after 0.6 s); a ray resting on it keeps it open; not while calibrating
-    const idle0 = HOST.collab.menuIdle();
-    HOST.collab.menuIdle(600);
+    // unused, it closes by itself (here after 0.6 s); a ray resting on it keeps it open; not while calibrating (the right
+    // controller put away meanwhile: its ray, straight ahead from beside the clock, can rest on the menu)
+    const idle0 = HOST.collab.menuIdle(), away0 = () => { const c = HOST.cur.peek('XR.ctrls')[0]; c.g.visible = false; };
+    HOST.collab.menuIdle(600); away0(); await steps(2);
     btn.pressed = true; await steps(2); btn.pressed = false; await steps(2);
     await wait(1100); out.idleClosed = !HOST.collab.menu && (window.__collabLog.filter(e => e.ev === 'menu').pop() || {}).by === 'idle';
     btn.pressed = true; await steps(2); btn.pressed = false; await steps(2);
@@ -2767,12 +2768,12 @@ try {
     const aimMenu = () => c0.g.matrix.compose(ro, new THREE.Quaternion().setFromUnitVectors(new V(0, 0, -1), mid().sub(ro).normalize()), new V(1, 1, 1));
     const t0 = performance.now(); while (performance.now() - t0 < 1200) { aimMenu(); await steps(1); }
     out.idleHeld = HOST.collab.menu;
-    c0.g.visible = false; at(0.3);
+    away0();
     await wait(1100); out.idleAfter = !HOST.collab.menu;
     HOST.room.calibrate(); btn.pressed = true; await steps(2); btn.pressed = false; await steps(2);
     await wait(1000); out.idleCalib = HOST.collab.menu && !!HOST.room.internals().calib;
     HOST.room.cancel(); HOST.collab.panelOpen(false); await steps(2);
-    HOST.collab.menuIdle(idle0);
+    HOST.collab.menuIdle(idle0);   // (the right controller stays away for the follow below: a ray on the menu holds it)
     // it stays put as you look about a little (15 degrees), and glides back in front once you have turned further (60)
     const H0 = X.W.head.clone(), turn = a => { X.W.head = H0.clone().multiply(new M4().makeRotationY(a)); };
     btn.pressed = true; await steps(2); btn.pressed = false; await steps(3);
