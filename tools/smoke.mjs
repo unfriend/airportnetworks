@@ -445,6 +445,7 @@ for (const key of ['airports', 'proteins', 'spatial', 'lbi', 'nmd', 'endo', 'pet
       const out = [], r2 = x => Math.round(x * 100) / 100;
       const settle = () => { X.hand = null; Object.assign(XS, exploreTargets()); };
       const at = u => { const T = exploreTargets(X.hand.t0 + u * 1000); return { rise: r2(T.scan_rise), scan: r2(T.scan_a), body: r2(T.body_a), pet: r2(T.body_pet), org: r2(T.organs_a) }; };
+      selectCmp(-1, false);   // (no comparison left from the step before: its network would dim the organs)
       openScene('scan', false); settle();
       openScene('body', true, true);
       if (!X.hand || X.hand.dir !== 'fwd') out.push('Scanner to Body: no hand-over (' + JSON.stringify(X.hand) + ')');
@@ -471,7 +472,8 @@ for (const key of ['airports', 'proteins', 'spatial', 'lbi', 'nmd', 'endo', 'pet
       settle();
       const o = PET_DATA.organs[0].id;
       selectOrgan(o);
-      if (X.hand || X.scene !== 'organs' || exploreTargets().organs_a !== 1) out.push('an organ picked from the scanner waited for a hand-over');
+      const oa = exploreTargets().organs_a;   // (a hand-over holds the organs at 0 until its end)
+      if (X.hand || X.scene !== 'organs' || !(oa > 0)) out.push('an organ picked from the scanner waited for a hand-over (' + JSON.stringify({ hand: X.hand, scene: X.scene, oa }) + ')');
       selectOrgan(null); openScene('scan', false); settle();
       openScene('body', true, true);
       const mid = exploreTargets(X.hand.t0 + 3000);
