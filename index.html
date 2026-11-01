@@ -1568,15 +1568,15 @@ HOST.lowpoly = function () {
 // HOST.progress(done, total, label): the page shows a thin bar in the story's colour and the step under its loading
 // line. In a headset the old story's scene is gone while the next one builds, so the shell draws a loading scene of its
 // own (the frame loop HOST.teardown gives the renderer): a card with the story's name and a bar in its colour, 1.2 m in
-// front of you and a little below your eyes, easing with your head, and a ring at the left wrist where the menu's clock
-// sits (the menu is out of the scenes while a story builds). It shows only once a load has taken 0.4 s, fades out over
+// front of you and a little below your eyes, easing with your head (until v102 also a ring at the left wrist, where the
+// menu's clock sat: the owner, 1 November 2026, "watch can be totally hidden now"). It shows only once a load has taken 0.4 s, fades out over
 // the new story's first frames (drawn over them, HOST.loading.wrap) and lives in a scene of its own, never in a story's,
 // made once with HOST.quiet set. It is placed in the renderer's reference space (where three.js puts the camera); in AR
 // the room shows through. The headset draws it between the story's steps, so a step must not run long.
 HOST.loading = (() => {
-  const L = { meta: null, done: 0, total: 0, label: '', on: false, ran: false, fade: false, t0: 0, last: 0, a: 0, placed: false, sc: null, cam: null, card: null, ring: null, sig: '', scam: null };
+  const L = { meta: null, done: 0, total: 0, label: '', on: false, ran: false, fade: false, t0: 0, last: 0, a: 0, placed: false, sc: null, cam: null, card: null, sig: '', scam: null };
   const el = id => document.getElementById(id), FONT = (px, w) => `${w || 400} ${px}px B612, "Segoe UI", Arial, sans-serif`;
-  const head = new THREE.Vector3(), hq = new THREE.Quaternion(), to = new THREE.Vector3(), fw = new THREE.Vector3(), wm = new THREE.Matrix4(), wr = new THREE.Vector3();
+  const head = new THREE.Vector3(), hq = new THREE.Quaternion(), to = new THREE.Vector3(), fw = new THREE.Vector3();
   // the page: the bar and the step under the story's loading line, changed at most every 150 ms and only where they
   // change (each change costs the page a frame, which a slow device composites in software while the story builds)
   const P = { at: 0, t: 0 };
@@ -1606,7 +1606,7 @@ HOST.loading = (() => {
         L.sc.add(m);
         return { cv, ctx: cv.getContext('2d'), tex, m };
       };
-      L.card = card(0.5, 768, 232); L.ring = card(0.07, 192, 192);
+      L.card = card(0.5, 768, 232);
     } finally { HOST.quiet = q; }
   }
   const rr = (c, x, y, w, h, r) => { c.beginPath(); c.moveTo(x + r, y); c.arcTo(x + w, y, x + w, y + h, r); c.arcTo(x + w, y + h, x, y + h, r); c.arcTo(x, y + h, x, y, r); c.arcTo(x, y, x + w, y, r); c.closePath(); };
@@ -1630,19 +1630,8 @@ HOST.loading = (() => {
     if (f > 0) { rr(c, 40, 146, Math.max(12, (W - 80) * f), 12, 6); c.fillStyle = C; c.fill(); }
     c.font = FONT(24); c.fillStyle = '#9fb0c8'; c.fillText(L.label || (m.loading || 'Loading'), 40, 198);
     L.card.tex.needsUpdate = true;
-    // the ring at the wrist: how far, round from twelve o'clock
-    c = L.ring.ctx;
-    const R = L.ring.cv.width / 2;
-    c.clearRect(0, 0, 2 * R, 2 * R);
-    c.beginPath(); c.arc(R, R, R - 6, 0, 2 * Math.PI); c.fillStyle = 'rgba(8,15,28,0.92)'; c.fill();
-    c.lineCap = 'round'; c.lineWidth = 16;
-    c.beginPath(); c.arc(R, R, R - 30, 0, 2 * Math.PI); c.strokeStyle = 'rgba(255,255,255,0.16)'; c.stroke();
-    if (f > 0) { c.beginPath(); c.arc(R, R, R - 30, -Math.PI / 2, -Math.PI / 2 + 2 * Math.PI * f); c.strokeStyle = C; c.stroke(); }
-    c.font = FONT(40, 700); c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillStyle = '#e8f1ff'; c.fillText(Math.round(100 * f) + '%', R, R + 2);
-    L.ring.tex.needsUpdate = true;
   }
-  // this frame: the card in front of your head (eased), the ring on the left wrist as the menu's clock sits there (a
-  // controller's grip, or a tracked hand's wrist), both turned to your eyes; fading in after 0.4 s, or out (fading)
+  // this frame: the card in front of your head (eased), turned to your eyes; fading in after 0.4 s, or out (fading)
   function place(f, fading) {
     const r = HOST.renderer, ref = r && r.xr.getReferenceSpace(), now = performance.now(), dt = Math.min(0.1, (now - (L.last || now)) / 1000);
     L.last = now;
@@ -1651,7 +1640,7 @@ HOST.loading = (() => {
     if (L.a < 0.01 && !want) L.a = 0;
     let vp = null;
     try { vp = ref && f.getViewerPose(ref); } catch (e) { /* not this frame */ }
-    if (!vp || L.a <= 0) { L.card.m.visible = L.ring.m.visible = false; return; }
+    if (!vp || L.a <= 0) { L.card.m.visible = false; return; }
     draw();
     const p = vp.transform.position, o = vp.transform.orientation;
     head.set(p.x, p.y, p.z); hq.set(o.x, o.y, o.z, o.w);
@@ -1661,17 +1650,6 @@ HOST.loading = (() => {
     if (!L.placed) { L.card.m.position.copy(to); L.placed = true; } else L.card.m.position.lerp(to, 1 - Math.exp(-dt * 3));
     L.card.m.lookAt(head);
     L.card.m.material.opacity = L.a; L.card.m.visible = true;
-    // the left wrist, as shared.js places the menu's clock (HAND)
-    let src = null, wp = null;
-    try { for (const x of f.session.inputSources) if (x && x.handedness === 'left') { src = x; break; } } catch (e) { /* gone */ }
-    if (src && src.hand) try { wp = f.getJointPose(src.hand.get('wrist'), ref); } catch (e) { /* not tracked now */ }
-    else if (src) try { wp = f.getPose(src.gripSpace || src.targetRaySpace, ref); } catch (e) { /* not tracked now */ }
-    if (wp && !wp.emulatedPosition) {
-      wm.fromArray(wp.transform.matrix);
-      if (src.hand) wr.set(0, 0.03, 0.035).applyMatrix4(wm); else { wr.set(0, 0, 0.05).applyMatrix4(wm); wr.y += 0.05; }
-      L.ring.m.position.copy(wr); L.ring.m.lookAt(head);
-      L.ring.m.material.opacity = L.a; L.ring.m.visible = true;
-    } else L.ring.m.visible = false;
   }
   // the frame loop while a story builds in a headset
   function loop(t, f) {
@@ -1680,12 +1658,12 @@ HOST.loading = (() => {
     place(f, false);
     r.render(L.sc, L.cam);
   }
-  // over a new story's first frames: the card and ring fading out (drawn after the story, with its camera's near and
+  // over a new story's first frames: the card fading out (drawn after the story, with its camera's near and
   // far, so the session's depth range is not changed back and forth)
   function over(f) {
     const r = HOST.renderer;
     if (!L.fade || !f) return;
-    if (!r || !r.xr.isPresenting || !L.scam) { L.fade = false; L.card.m.visible = L.ring.m.visible = false; return; }
+    if (!r || !r.xr.isPresenting || !L.scam) { L.fade = false; L.card.m.visible = false; return; }
     place(f, true);
     if (L.a <= 0) { L.fade = false; return; }
     L.cam.near = L.scam.near; L.cam.far = L.scam.far;
@@ -1727,8 +1705,8 @@ HOST.loading = (() => {
     },
     // for tests and pictures: what shows now, and the scene itself
     state: () => ({ on: L.on, fade: L.fade, a: L.a, since: performance.now() - L.t0, done: L.done, total: L.total, label: L.label,
-      card: !!(L.card && L.card.m.visible), ring: !!(L.ring && L.ring.m.visible), cardAt: L.card ? L.card.m.position.toArray() : null, ringAt: L.ring ? L.ring.m.position.toArray() : null }),
-    parts: () => ({ scene: L.sc, cam: L.cam, card: L.card && L.card.m, ring: L.ring && L.ring.m }),
+      card: !!(L.card && L.card.m.visible), cardAt: L.card ? L.card.m.position.toArray() : null }),
+    parts: () => ({ scene: L.sc, cam: L.cam, card: L.card && L.card.m }),
   };
 })();
 HOST.progress = (done, total, label) => HOST.loading.progress(done, total, label);

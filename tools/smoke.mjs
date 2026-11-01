@@ -964,7 +964,7 @@ await step('a story picked while another builds: its steps stop, the headset\'s 
 });
 // The headset's loading scene with a pretend headset (its frames driven by the test, the renderer's drawing recorded): a
 // story that takes a while to build shows a card with its name and a bar 1.2 m in front of you and a little below your
-// eyes, and a ring on the left wrist, from 0.4 s on, drawn in a scene of its own (never in the story's, its listeners
+// eyes (nothing at the wrist: the watch went in v103), from 0.4 s on, drawn in a scene of its own (never in the story's, its listeners
 // the shell's); it fades out over the story's first frames; in AR the room still shows through (the clear colour stays
 // see-through)
 {
@@ -974,7 +974,7 @@ await step('a story picked while another builds: its steps stop, the headset\'s 
   const hp = await browser.newPage({ viewport: { width: 640, height: 400 } });
   hp.on('pageerror', e => errors.push('loading scene: ' + (e.stack || e.message)));
   hp.on('console', m => { if (m.type() === 'error' && !/404|Failed to load resource/.test(m.text())) errors.push('loading scene: ' + m.text()); });
-  await step('headset: the loading scene in front of you and at the wrist, gone as the story starts (VR and AR)', async () => {
+  await step('headset: the loading scene in front of you, gone as the story starts (VR and AR)', async () => {
     await hp.goto(base + 'index.html#flock');
     await hp.waitForFunction(() => typeof HOST !== 'undefined' && HOST.curKey === 'flock' && HOST.cur && HOST.cur.collab.scene(), null, { timeout: 60000 });
     for (const [mode, key] of [['immersive-vr', 'lbi'], ['immersive-ar', 'lbi']]) {
@@ -999,7 +999,7 @@ await step('a story picked while another builds: its steps stop, the headset\'s 
           while (performance.now() - t0 < 60000 && !(HOST.curKey === key && HOST.cur && HOST.cur.collab.scene())) {
             if (cb) cb(performance.now(), frame);
             const S = L.state();
-            if (S.on && S.since < 350 && (S.card || S.ring)) early = true;
+            if (S.on && S.since < 350 && S.card) early = true;
             if (S.on && S.since > 700 && S.card && !shown) { shown = S; alpha = r.getClearAlpha(); }
             await sleep(25);
           }
@@ -1007,10 +1007,9 @@ await step('a story picked while another builds: its steps stop, the headset\'s 
           if (!shown) out.push('no card while the story built');
           else {
             near(shown.cardAt, [0, 1.45, -1.2], 'the card');
-            if (!shown.ring) out.push('no ring at the wrist'); else near(shown.ringAt, [-0.2, 1.15, -0.25], 'the ring');
             if (!drawn.includes(L.parts().scene)) out.push('the loading scene was not drawn');
             if (alpha !== (mode === 'immersive-ar' ? 0 : 1)) out.push(`the clear colour's alpha was ${alpha} while it loaded`);
-            HOST.cur.peek('GL.scene').traverse(o => { if (o === L.parts().card || o === L.parts().ring) inStory++; });
+            HOST.cur.peek('GL.scene').traverse(o => { if (o === L.parts().card) inStory++; });
             if (inStory) out.push('the loading scene is in the story\'s scene');
             if (HOST_REC.some(([t]) => t === L.parts().card || t === L.parts().card.material || t === L.parts().card.material.map)) out.push('a listener of the loading scene is the story\'s');
             // the story's first frames: the card fades out over them, drawn after them

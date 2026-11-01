@@ -559,7 +559,7 @@ async function headsetDesign(A, B, H, S, shots) {
   check('design room: standing in it the headset takes it as its station and the design room opens there at its table (explore mode; its icon and card gone)',
     inD && there.mine && there.key === 'design' && !there.away && there.world && there.mode === 'explore' && !there.icon && !there.card, JSON.stringify({ inD, there }));
   if (shots && inD) {
-    // (the menu's clock on a left controller held low, out of the way)
+    // (a left controller held low, out of the way)
     const lowClock = () => H.evaluate(() => {
       const X = window.__xr, V = THREE.Vector3, R = HOST.room.internals(), Y = R.hyaw + R.yaw;
       const hp = new V().setFromMatrixPosition(X.W.head).applyMatrix4(X.W.local.clone().invert());
@@ -2189,12 +2189,13 @@ try {
   const wantO = unapply(FLOOR, ROOM.slice(0, 3)), wantX = rot(-FLOOR[3], rot(ROOM[3], [1, 0, 0]));
   check('headset: aligns from the frame published for its shared space', fr && fr.src === 'adopted' && near(fr.o, [wantO[0], 0, wantO[2]], 1e-4) && near(fr.x, wantX, 1e-4),
     fr ? `${fr.src} o ${fmt(fr.o)} x ${fmt(fr.x)}, want o ${fmt(wantO)} x ${fmt(wantX)}` : 'no frame');
-  // the menu is closed at the start of a session: only its clock shows (here twice its size, no left controller: in front
-  // of you away from a station, beside the story panel at one)
-  const menu0 = await H.evaluate(() => { const O = HOST.collab.overlay(); return { open: HOST.collab.menu, clock: O.clockG.visible, panel: O.panelG.visible,
-    regions: O.panel.regions.length, onHand: !!O.onHand, scale: O.clockG.scale.x, hit: !O.hit.includes(O.clock.mesh) && !O.hit.includes(O.panel.mesh) }; });
-  check('headset: the menu is closed at first, only its clock shows (twice its size without a left controller; not pointed at: it only shows the time)', !menu0.open && menu0.clock && !menu0.panel &&
-    !menu0.regions && !menu0.onHand && menu0.scale === 2 && menu0.hit, JSON.stringify(menu0));
+  // the menu is closed at the start of a session (nothing of it shows: the watch went in v103), and a notice says how to
+  // open it a moment in
+  await until(H, () => { window.__xr.step(); return window.__collabLog.some(e => e.ev === 'notice' && e.title === 'The menu'); }, null, 8000);
+  const menu0 = await H.evaluate(() => { const O = HOST.collab.overlay(); return { open: HOST.collab.menu, clock: 'clockG' in O, panel: O.panelG.visible,
+    regions: O.panel.regions.length, hit: !O.hit.includes(O.panel.mesh), note: (window.__collabLog.find(e => e.ev === 'notice' && e.title === 'The menu') || {}).text }; });
+  check('headset: the menu is closed at first, with no watch on the wrist, and a notice says how to open it', !menu0.open && !menu0.clock && !menu0.panel &&
+    !menu0.regions && menu0.hit && /stick|pinch/i.test(menu0.note || ''), JSON.stringify(menu0));
   // the shared space as the relay logs caught Quest Browser: its pose at the head right after waking (not used,
   // nothing compared or published from it), and a space that is just this headset's own floor (named on the panel)
   const glitch = await H.evaluate(() => {
@@ -2349,10 +2350,7 @@ try {
     const t0 = P('APP.t');
     const out = { away: HOST.room.away(), mine: HOST.collab.mine(), stories: P('XR.stories'), playing: P('APP.playing'), world: P('GL.world.visible'),
       panels: P('XR.main.mesh.visible || XR.foot.mesh.visible'), land: P('XR.land.some(Q => Q.mesh.visible)'), kind: c.hover && c.hover.kind,
-      button: P('XR.main.regions.some(r => r.id === "stories")'), clock: O.clockG.visible && !!O.ahead && O.clockG.scale.x === 2 };
-    const hm = X.W.local.clone().invert().multiply(X.W.head), hp = new V(), hq = new THREE.Quaternion();
-    hm.decompose(hp, hq, new V());
-    out.front = +O.clockG.position.clone().sub(hp).normalize().dot(new V(0, 0, -1).applyQuaternion(hq)).toFixed(3);   // (the clock ahead of your eyes)
+      button: P('XR.main.regions.some(r => r.id === "stories")') };
     await steps(10);
     out.still = P('APP.t') === t0 && !P('APP.playing');
     const aw = HOST.room.away;
@@ -2362,9 +2360,9 @@ try {
     await steps(2);
     return out;
   });
-  check('headset: away from every station in a room no story shows (no Stories screen, the scene and panels hidden, nothing to point at, paused, no Stories button; the clock in front of you)',
+  check('headset: away from every station in a room no story shows (no Stories screen, the scene and panels hidden, nothing to point at, paused, no Stories button)',
     away0.away && !away0.mine && !away0.stories && !away0.playing && !away0.world && !away0.panels && !away0.land && !away0.kind && away0.control === 'globe' && !away0.button &&
-    away0.still && away0.clock && away0.front > 0.85, JSON.stringify(away0));
+    away0.still, JSON.stringify(away0));
   // before any circle every station shows its story's icon over its ring: its miniature (lowpoly.js, its entry's icon;
   // built one a frame, the fallback until then), in the story's colour and turning, and its card
   const stationFor = async k => { const s = await H.evaluate(k => HOST.collab.stations().find(s => s.story === k) || null, k); if (!s) throw new Error('no station for ' + k); return s; };
@@ -2559,15 +2557,54 @@ try {
     }, target);
     await frames(H, 150);
   };
-  const openAt = await H.evaluate(() => { const O = HOST.collab.overlay(); return !HOST.collab.menu && O.clockG.visible ? O.clockG.getWorldPosition(new THREE.Vector3()).toArray() : null; });
-  if (openAt) await press(openAt);
-  const notOpened = await H.evaluate(() => !HOST.collab.menu);
   await H.evaluate(() => HOST.collab.panelOpen(true));
   await frames(H, 150);
   const opened = await H.evaluate(() => { const O = HOST.collab.overlay(); return { open: HOST.collab.menu, panel: O.panelG.visible, vis: O.panel.vis, ids: HOST.collab.menuIds() }; });
-  check('headset: the trigger on the menu\'s clock (beside the story panel) opens nothing (it only shows the time); open, the menu has Close in its header, its three tabs and Exit',
-    !!openAt && notOpened && opened.open && opened.panel && opened.vis > 200 && ['close', 'exit', 'tab:settings', 'tab:circles', 'tab:debug'].every(i => opened.ids.includes(i)), JSON.stringify(opened));
-  await H.evaluate(() => HOST.collab.panelOpen(false));
+  check('headset: open, the menu has Close in its header, its four tabs and Exit',
+    opened.open && opened.panel && opened.vis > 200 && ['close', 'exit', 'tab:story', 'tab:settings', 'tab:circles', 'tab:debug'].every(i => opened.ids.includes(i)), JSON.stringify(opened));
+  // the Story tab (at its station): the story's own two panels on the menu (their textures, under its tabs), a press there
+  // is a press on the story's own panel (its Replay story, then Explore now, through the copy), and the grip on the copy
+  // moves the menu, never the story's panel
+  const storyTab = await H.evaluate(async () => {
+    const X = window.__xr, V = THREE.Vector3, M4 = THREE.Matrix4, O = HOST.collab.overlay(), P = s => HOST.cur.peek(s);
+    const steps = async n => { for (let k = 0; k < n; k++) { X.step(); await new Promise(r => setTimeout(r, 20)); } };
+    HOST.collab.menuTab('story'); await steps(4);
+    const sp = HOST.cur.panels(), out = { main: O.mirror.main.visible && O.mirror.main.material.map === sp.main.tex, foot: O.mirror.foot.visible && O.mirror.foot.material.map === sp.foot.tex,
+      under: O.mirror.main.getWorldPosition(new V()).y < O.panelG.getWorldPosition(new V()).y, mode0: P('APP.mode') };
+    const head = () => new V().setFromMatrixPosition(X.W.head).applyMatrix4(X.W.local.clone().invert());
+    const c = P('XR.ctrls')[0];
+    c.src = c.src || X.session.inputSources[0] || { targetRayMode: 'tracked-pointer', handedness: 'right', gamepad: null };
+    const aimAt = p => { const o = head().add(new V(0.12, -0.3, -0.1)); c.g.visible = true; c.g.matrix.compose(o, new THREE.Quaternion().setFromUnitVectors(new V(0, 0, -1), p.clone().sub(o).normalize()), new V(1, 1, 1)); };
+    // a button of the story's main panel, through the menu's copy: its point on the copy
+    const onCopy = id => { const Q = sp.main, r = Q.regions.find(x => x.id === id && x.fn); if (!r) return null;
+      return O.mirror.main.localToWorld(new V((r.x + r.w / 2) / Q.w - 0.5, 0.5 - (r.y + r.h / 2) / Q.h, 0)); };
+    for (const want of ['story', 'explore']) {
+      await steps(3);
+      const at = onCopy('mode');
+      if (!at) { out['no' + want] = true; break; }
+      aimAt(at); await steps(3); out['hover' + want] = c.hover && c.hover.kind === 'panel' && c.hover.P === sp.main && !!c.hover.menu;
+      c.wantPress = true; await steps(4);
+      for (let k = 0; k < 60 && P('APP.mode') !== want; k++) await steps(1);
+      out['mode' + want] = P('APP.mode');
+    }
+    // the grip on the copy: the menu goes with the controller, the story's panel stays
+    const pk = 'st.' + HOST.collab.mine() + '.panel', before = JSON.stringify(HOST.collab.internals().keys.get(pk) || null), g0 = O.panelG.position.clone();
+    const at = O.mirror.main.localToWorld(new V(0, 0, 0));
+    aimAt(at); await steps(3);
+    X.fire('squeezestart', { inputSource: c.src }); await steps(2);
+    out.grabbed = HOST.collab.menuGrab && !P('XR.ctrls[0].grab');
+    aimAt(at.clone().add(new V(0.3, 0, 0))); await steps(4);
+    out.moved = +O.panelG.position.distanceTo(g0).toFixed(3);
+    X.fire('squeezeend', { inputSource: c.src }); await steps(2);
+    out.storyPanel = JSON.stringify(HOST.collab.internals().keys.get(pk) || null) === before;
+    c.g.visible = false;
+    HOST.collab.panelOpen(false); HOST.collab.menuTab('settings'); await steps(2);
+    localStorage.removeItem('xrMenuAt');
+    return out;
+  });
+  check('headset: the menu\'s Story tab shows the story\'s own panels, a press there works the story\'s panel (Replay story, Explore now), and the grip on it moves the menu, not the story\'s panel',
+    storyTab.main && storyTab.foot && storyTab.under && storyTab.mode0 === 'explore' && storyTab.hoverstory && storyTab.modestory === 'story' && storyTab.modeexplore === 'explore' &&
+    storyTab.grabbed && storyTab.moved > 0.1 && storyTab.storyPanel, JSON.stringify(storyTab));
   await frames(H, 150);
   // a station's card 1 m behind the story's own panel: the panel takes the ray (it is nearer, and drawn on top);
   // without the panel in front the card would have taken it
@@ -2713,16 +2750,15 @@ try {
   check('headset: Sound check in the menu (under Debug): a beep through each engine, the engine choice and what the sound system is doing; Back returns to the tab',
     snd.button && snd.tab === 'debug' && ['snd:beepW', 'snd:beepM', 'snd:auto', 'snd:webaudio', 'snd:media', 'snd:reset', 'snd:back'].every(id => snd.page.includes(id)) && !snd.page.includes('exit') &&
     snd.tall > 600 && snd.beeps === 'webaudio,media' && snd.media === 'media' && snd.auto === 'auto' && snd.back, JSON.stringify(snd));
-  // the menu's clock rides on the left controller (behind its grip and above it, turned to the eyes) and only shows the
-  // time; a click of either stick opens the menu, floating in front of you (about 0.48 m along your gaze, turned to you),
-  // and closes it again; a touch of the right controller's tip on the clock does nothing; unused (no press, no ray or
-  // fingertip on it) it closes by itself, not while calibrating; it stays put while you look about a little and glides
-  // back in front once you have turned further; with tracked hands the clock sits on the left wrist, two quick pinches of
-  // the left hand pointing at nothing open and close the menu (one pinch, two slow ones, the right hand's or the left's
-  // pointing at the menu do not), and the right index fingertip presses its buttons by touch; without a left controller
-  // or hand the clock goes back beside the story panel
+  // a click of either stick opens the menu, floating in front of you (0.8 m ahead and a little below your eyes, turned to
+  // you), and closes it again; unused (no press, no ray or fingertip on it) it closes by itself, not while calibrating;
+  // it stays put while you look about a little and glides back in front once you have turned further; the grip on it
+  // carries it, where it is let go it stays (not following your head), and it opens there next time (its distance and
+  // height kept on this headset); with tracked hands two quick pinches of the left hand pointing at nothing open and
+  // close the menu (one pinch, two slow ones, the right hand's or the left's pointing at a panel do not), and the right
+  // index fingertip presses its buttons by touch
   const hand = await H.evaluate(async () => {
-    const X = window.__xr, V = THREE.Vector3, M4 = THREE.Matrix4, O = HOST.collab.overlay(), g = O.clockG, S = O.panel;
+    const X = window.__xr, V = THREE.Vector3, M4 = THREE.Matrix4, O = HOST.collab.overlay(), S = O.panel;
     const steps = async n => { for (let k = 0; k < n; k++) { X.step(); await new Promise(r => setTimeout(r, 20)); } };
     const wait = async ms => { const t0 = performance.now(); while (performance.now() - t0 < ms) await steps(1); };
     HOST.collab.panelOpen(false);
@@ -2732,8 +2768,8 @@ try {
     const head = headNow(), lp = head.clone().add(new V(-0.2, -0.35, -0.3));
     X.aim(1, new M4().compose(lp, new THREE.Quaternion(), new V(1, 1, 1)));
     await steps(4);
-    const out = { closed: !HOST.collab.menu && g.visible && !O.panelG.visible, c: g.position.toArray(), want: lp.clone().add(new V(0, 0.05, 0.05)).toArray(), scale: g.scale.x,
-      facing: new V(0, 0, 1).applyQuaternion(g.quaternion).dot(head.clone().sub(g.position).normalize()) };
+    localStorage.removeItem('xrMenuAt');
+    const out = { closed: !HOST.collab.menu && !O.panelG.visible };
     // where the open menu is: its middle's distance from the eyes, how far ahead along the gaze (level), and whether it
     // faces you
     const mid = () => S.mesh.getWorldPosition(new V());
@@ -2754,10 +2790,9 @@ try {
     rbtn.pressed = true; await steps(2); out.rstick = HOST.collab.menu; rbtn.pressed = false; await steps(2);
     rbtn.pressed = true; await steps(2); rbtn.pressed = false; await steps(2); out.rstickClosed = !HOST.collab.menu;
     right.gamepad = null;
-    // the right controller's tip touching the clock: nothing (it only shows the time)
-    const at = d => X.aim(0, new M4().compose(g.position.clone().add(new V(d, 0, 0)), new THREE.Quaternion(), new V(1, 1, 1)));
-    at(0.1); await steps(2); at(0.02); await steps(3); out.touch = HOST.collab.menu;
-    at(0.3); await steps(2);
+    // the right controller held low, pointing at the floor (nothing of the menu)
+    const at = () => X.aim(0, new M4().compose(head.clone().add(new V(0.3, -0.6, 0)), new THREE.Quaternion().setFromUnitVectors(new V(0, 0, -1), new V(0, -1, 0)), new V(1, 1, 1)));
+    at(); await steps(2);
     // unused, it closes by itself (here after 0.6 s); a ray resting on it keeps it open; not while calibrating (the right
     // controller put away meanwhile: its ray, straight ahead from beside the clock, can rest on the menu)
     const idle0 = HOST.collab.menuIdle(), away0 = () => { const c = HOST.cur.peek('XR.ctrls')[0]; c.g.visible = false; };
@@ -2784,6 +2819,23 @@ try {
     turn(60 * Math.PI / 180); await wait(1500);
     out.follow = where();
     X.W.head = H0; HOST.collab.panelOpen(false); await steps(3);
+    // the grip on it (the right controller's ray on its middle) carries it: let go 0.3 m to the side it stays there, even
+    // with the head turned 60 degrees; closed and opened again it opens at the distance and height it was left at
+    btn.pressed = true; await steps(2); btn.pressed = false; await steps(3);
+    const aimTo = p => { const m = new M4().compose(ro, new THREE.Quaternion().setFromUnitVectors(new V(0, 0, -1), p.clone().sub(ro).normalize()), new V(1, 1, 1)); X.aim(0, m); };
+    const m0 = mid(); aimTo(m0); await steps(3);
+    X.fire('squeezestart', { inputSource: X.session.inputSources[0] }); await steps(2);
+    out.grab = HOST.collab.menuGrab;
+    const to = m0.clone().add(new V(-0.3, 0.1, -0.2)); aimTo(to); await steps(4);
+    X.fire('squeezeend', { inputSource: X.session.inputSources[0] }); await steps(2);
+    out.carried = +mid().distanceTo(m0).toFixed(3); out.put = !HOST.collab.menuGrab; out.pos = HOST.collab.menuPos(); out.kept = localStorage.getItem('xrMenuAt');
+    at(); await steps(2);
+    const p1 = mid(); turn(60 * Math.PI / 180); await wait(1500);
+    out.pinnedStill = +mid().distanceTo(p1).toFixed(4);
+    X.W.head = H0; HOST.collab.panelOpen(false); await steps(3);
+    btn.pressed = true; await steps(2); btn.pressed = false; await steps(3);
+    out.again = where(); out.againWant = +Math.hypot(out.pos.d, out.pos.h).toFixed(3);
+    HOST.collab.panelOpen(false); localStorage.removeItem('xrMenuAt'); await steps(2);
     btn.pressed = true; await steps(2); btn.pressed = false; await steps(2);
     // hands: a left wrist turned every which way, its ray pointing up (at nothing); the right index fingertip
     const J = m => ({ world: X.W.local.clone().multiply(m) }), tip = J(new M4());
@@ -2797,8 +2849,7 @@ try {
     X.aim(1, up); left.targetRaySpace = J(up);
     tipAt(head.clone().add(new V(0.3, -0.3, -0.2)));
     await steps(25);
-    out.wrist = g.position.toArray(); out.wristWant = wp.clone().add(new V(0, 0.03, 0.035).applyQuaternion(wq)).toArray();
-    out.handClosed = !HOST.collab.menu && g.visible && !!O.onHand;
+    out.handClosed = !HOST.collab.menu;
     const pinch = src => X.fire('selectstart', { inputSource: src });
     pinch(left); await steps(1); await wait(150); pinch(left); await steps(2); out.pinch2 = HOST.collab.menu;
     pinch(left); await wait(120); pinch(left); await steps(2); out.pinch2Closed = !HOST.collab.menu;
@@ -2844,27 +2895,23 @@ try {
     if (e0) s.end = e0; else delete s.end;
     tipAt(head.clone().add(new V(0.3, -0.3, -0.2))); await steps(2);
     HOST.collab.panelOpen(false);
-    // no left controller or hand: beside the story panel again
     for (const k of [0, 1]) { const c = HOST.cur.peek('XR.ctrls')[k]; c.g.visible = false; c.src = null; }
     X.session.inputSources.length = 0;
     await steps(3);
-    out.back = g.scale.x === 2 && !O.onHand && g.visible;
     return out;
   });
-  check('headset: the menu\'s clock rides on the left controller (behind its grip and above it, turned to your eyes)', hand.closed && near(hand.c, hand.want, 2e-3) &&
-    hand.scale === 1 && hand.facing > 0.99, JSON.stringify(hand));
-  check('headset: a click of the left stick opens the menu floating in front of you (about 0.5 m along your gaze, turned to you; Close and the tabs at its top) and closes it again; so does the right stick\'s',
-    hand.stick && hand.float.dist > 0.38 && hand.float.dist < 0.6 && hand.float.ahead > 0.95 && hand.float.faces > 0.95 && Math.abs(hand.pscale - 0.66) < 1e-6 &&
-    hand.ids.join() === 'close,tab:settings,tab:circles,tab:debug' && hand.stickClosed && hand.rstick && hand.rstickClosed, JSON.stringify(hand));
-  check('headset: touching the clock with the right controller\'s tip does nothing', !hand.touch, JSON.stringify(hand));
+  check('headset: a click of the left stick opens the menu floating in front of you (0.8 m ahead, a little below your eyes, turned to you; Close and the four tabs at its top) and closes it again; so does the right stick\'s',
+    hand.closed && hand.stick && hand.float.dist > 0.72 && hand.float.dist < 0.9 && hand.float.ahead > 0.95 && hand.float.faces > 0.95 && Math.abs(hand.pscale - 1.05) < 1e-6 &&
+    hand.ids.join() === 'close,tab:story,tab:settings,tab:circles' && hand.stickClosed && hand.rstick && hand.rstickClosed, JSON.stringify(hand));
+  check('headset: the grip carries the menu; let go, it stays where it was put (also with the head turned away) and opens there again next time',
+    hand.grab && hand.put && hand.carried > 0.2 && hand.pos.pinned && !!hand.kept && hand.pinnedStill < 1e-3 && Math.abs(hand.again.dist - hand.againWant) < 0.03 && hand.again.faces > 0.95, JSON.stringify(hand));
   check('headset: unused, the menu closes by itself; a ray resting on it keeps it open; it stays open while calibrating', hand.idleClosed && hand.idleHeld && hand.idleAfter && hand.idleCalib, JSON.stringify(hand));
   check('headset: the menu stays put as you look about a little and glides back in front once you have turned further', hand.still < 1e-3 && hand.follow.ahead > 0.95 && hand.follow.faces > 0.95, JSON.stringify(hand));
-  check('headset: with tracked hands the clock sits on the left wrist; two quick pinches of the left hand pointing at no panel (the scene counts as nothing) open and close the menu (not one, not two slow ones, not the right hand\'s, not the left\'s on the story\'s panel or on the menu)',
-    hand.handClosed && near(hand.wrist, hand.wristWant, 2e-3) && hand.pinch2 && hand.pinch2Closed && !hand.pinch1 && !hand.pinchSlow && !hand.pinchRight && hand.pinchOnPanel === false && hand.pinchOnMenu, JSON.stringify(hand));
+  check('headset: with tracked hands two quick pinches of the left hand pointing at no panel (the scene counts as nothing) open and close the menu (not one, not two slow ones, not the right hand\'s, not the left\'s on the story\'s panel or on the menu)',
+    hand.handClosed && hand.pinch2 && hand.pinch2Closed && !hand.pinch1 && !hand.pinchSlow && !hand.pinchRight && hand.pinchOnPanel === false && hand.pinchOnMenu, JSON.stringify(hand));
   check('headset: the right index fingertip presses the menu\'s buttons by touch (once, again after pulling back)',
     hand.finger && hand.pokeHover === 'exit' && hand.poke1 === 1 && hand.poke1b === 1 && hand.poke2 === 2, JSON.stringify(hand));
   check('headset: a fingertip poke and a pinch on the ray at the same button press it once (a pinch a second later again)', hand.pokePinch === 1 && hand.pinchLater === 2, JSON.stringify(hand));
-  check('headset: without a left controller or hand the clock goes back beside the story panel', hand.back, JSON.stringify(hand));
   await frames(H, 150);
   // the room frame moves (newer marks elsewhere): this headset follows within a second
   ROOM = [2.05, 0, 1, 0.3];
@@ -3707,7 +3754,7 @@ try {
   // Exit (leaving VR or AR) is inside the headset's menu, and not on the story panel; closed, only the clock shows
   await H.evaluate(() => HOST.collab.panelOpen(false));
   await frames(H, 200);
-  const exitClosed = await H.evaluate(() => { const O = HOST.collab.overlay(); return O.clockG.visible && !O.panelG.visible && !O.panel.regions.some(x => x.id === 'exit'); });
+  const exitClosed = await H.evaluate(() => { const O = HOST.collab.overlay(); return !O.panelG.visible && !O.panel.regions.some(x => x.id === 'exit'); });
   await H.evaluate(() => HOST.collab.panelOpen(true));
   await frames(H, 200);
   const exitT = await H.evaluate(() => {
@@ -3930,19 +3977,13 @@ try {
     await H.evaluate(() => HOST.collab.panelOpen(true));
     await frames(H, 200);
     await view('headset-panels.png', Sf.yaw + 0.85, -0.18);
-    // the menu's clock on a left controller held low in front (closed), and the menu open above it
-    await H.evaluate(yaw => {
-      const X = window.__xr, V = THREE.Vector3, Y = yaw + HOST.room.internals().yaw;
-      const hp = new V().setFromMatrixPosition(X.W.head).applyMatrix4(X.W.local.clone().invert());
-      const lp = hp.add(new V(-Math.sin(Y), 0, -Math.cos(Y)).multiplyScalar(0.45)).add(new V(-Math.cos(Y), -5, Math.sin(Y)).multiplyScalar(0.06));
-      X.aim(1, new THREE.Matrix4().compose(lp, new THREE.Quaternion().setFromAxisAngle(new V(0, 1, 0), Y), new V(1, 1, 1)));
-      HOST.collab.panelOpen(false);
-    }, Sf.yaw);
-    await frames(H, 300);
-    await view('headset-clock.png', Sf.yaw, -0.55);
-    await H.evaluate(() => HOST.collab.panelOpen(true));
+    // the menu floating in front of you, on its Settings tab and then its Story tab (the story's own panels on it)
+    await H.evaluate(() => { HOST.collab.panelOpen(false); HOST.collab.panelOpen(true); HOST.collab.menuTab('settings'); });
     await frames(H, 300);
     await view('headset-menu.png', Sf.yaw, -0.13);
+    await H.evaluate(() => HOST.collab.menuTab('story'));
+    await frames(H, 300);
+    await view('headset-story-tab.png', Sf.yaw, -0.13);
     // Sound check in the menu
     await H.evaluate(() => { const r = HOST.collab.menuFind('sound'); if (r) r.fn(); });
     await frames(H, 300);

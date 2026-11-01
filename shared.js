@@ -9,7 +9,8 @@
 // shows only the room (no Stories screen in a room: a story is reached by walking into its circle); desktop operators
 // follow a station from a room map.
 // Nobody outside a room is affected: until you join, only the Shared buttons show (and, in a headset, the menu:
-// a clock on the left wrist that opens it, with Exit, the slideshow, Sound check and the shared room inside).
+// opened by a stick's click or two pinches of the left hand, with the story's panels, Exit, the settings, Sound check
+// and the shared room inside).
 //
 //  HOST.collab  the session: relay, room, keys (echo suppression by value, optimistic writes, apply order),
 //               members, the relay's clock, stations, the story hooks, presence, effects, the overlay hung in the
@@ -1612,6 +1613,7 @@
   const MV = { id: '', src: null, a: null, pose: null, at: 0, sent: '', moved: false };
   function pulse(src, v, ms) { try { const a = src && src.gamepad && src.gamepad.hapticActuators; if (a && a[0] && a[0].pulse) a[0].pulse(v, ms); } catch (e) { /* no haptics */ } }
   function grabStation(e) {
+    if (grabMenu(e)) return;   // (the menu, when the grip is on it)
     const s = R.session;
     if (!s || !C.code || !R.aligned || MV.src || !e || !e.inputSource) return;
     let i = -1;
@@ -1626,6 +1628,7 @@
     changed();
   }
   function dropStation(e) {
+    if (MG.src && (!e || e.inputSource === MG.src)) menuPut();
     if (!MV.src || (e && e.inputSource !== MV.src)) return;
     if (MV.pose) sendStation(true);
     log('station put', { st: MV.id, at: MV.pose ? [r3(MV.pose.x), r3(MV.pose.z), r3(MV.pose.yaw)] : null });
@@ -2330,12 +2333,14 @@
     OV.panel = sheet(720, 1920, 0.42, 53);   // (the tallest it gets: a room on this headset with a three-line note, at a station, 1885 px)
     OV.panelG.add(OV.panel.mesh); OV.root.add(OV.panelG);
     OV.panel.mesh.userData.shell = { kind: 'panel' };
-    // the menu's clock: the group's origin is the face's middle
-    OV.clockG = new THREE.Group();
-    OV.clock = sheet(CLOCK.w, CLOCK.h, CLOCK.mw, 53);
-    OV.clock.mesh.position.y = -(CLOCK.h / 2 - CLOCK.cy) * CLOCK.mw / CLOCK.w;
-    OV.clockG.add(OV.clock.mesh); OV.root.add(OV.clockG);
-    OV.clock.mesh.userData.shell = { kind: 'clock' };
+    // the Story tab: the story's own two panels (its text and explore panes, its play bar), their textures shown on
+    // planes of the menu's, over its canvas; pointing at them points at the story's panel (storyPanels, mirrorStep)
+    OV.mirror = {};
+    for (const which of ['main', 'foot']) {
+      const m = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ transparent: true, depthTest: false, depthWrite: false }));
+      m.renderOrder = 54; m.visible = false; m.userData.shell = { kind: 'storypanel', which };
+      OV.panelG.add(m); OV.mirror[which] = m;
+    }
     OV.note = sheet(720, 170, 0.5, 54);
     OV.root.add(OV.note.mesh); OV.note.mesh.visible = false;
     // the subtitles' strip (drawSubs): over the story's panels, under the menu and the notices
@@ -2854,43 +2859,51 @@
   }
 
   // ------------------------------------------------------- the headset's menu --
-  // A clock over the back of the left wrist (a controller's grip, or a tracked hand's wrist; beside the story panel
-  // without either) shows the time. The menu opens and closes with a click of either stick, or with tracked hands two
-  // quick pinches of the left hand pointing at nothing (the owner, 31 October 2026: "Clock menu nur aufmachen mit stick
-  // click", "only left double pinch"; touching the clock or pointing at it no longer opens it), and closes by itself
-  // after IDLE.ms unused (not while calibrating). It floats in front of you ("just make it float in front of the
-  // headset": FLOAT), in three tabs ("a tab in clock menu for debug settings etc, one that shows the current circles
-  // menu"): Settings (Exit, Recenter, the slideshow for every story, the headsets' settings, the story's panels, the
-  // sound switches, the design room), Circles (the shared room: join one from the list or by its code, the stations,
-  // the locks, Show all rings, the people, your name and colour, leave) and Debug (the alignment and calibration, People,
-  // Sound check, the version, the connection, the browser and the frame rate).
-  // It is closed at the start of every session, and opens by itself (on Circles) for the question in VR and the first
-  // time in a room with no stations.
-  const TABS = [['settings', 'Settings'], ['circles', 'Circles'], ['debug', 'Debug']];
+  // The menu opens and closes with a click of either stick, or with tracked hands two quick pinches of the left hand
+  // pointing at no panel (the owner, 31 October 2026: "Clock menu nur aufmachen mit stick click", "only left double
+  // pinch"; the clock on the wrist that opened it until then went in v103: "watch can be totally hidden now"; the time
+  // is in the menu's header), and closes by itself after IDLE.ms unused (not while calibrating). It floats in front of you
+  // ("just make it float in front of the headset"; 1 November: "further away from the face by default, also should be
+  // movable with grabbing": FLOAT, MG), in four tabs ("a tab in clock menu that shows the current circle story menu
+  // card"; "a tab in clock menu for debug settings etc, one that shows the current circles menu"): Story (the story on
+  // show's own panels, usable there), Settings (Exit, Recenter, the slideshow for every story, the headsets' settings,
+  // the story's panels, the sound switches, the design room), Circles (the shared room: join one from the list or by its
+  // code, the stations, the locks, Show all rings, the people, your name and colour, leave) and Debug (the alignment and
+  // calibration, People, Sound check, the version, the connection, the browser and the frame rate).
+  // It is closed at the start of every session (a notice says how to open it), and opens by itself (on Circles) for the
+  // question in VR and the first time in a room with no stations.
+  const TABS = [['story', 'Story'], ['settings', 'Settings'], ['circles', 'Circles'], ['debug', 'Debug']];
   const PEOPLE_ROWS = 6;   // people listed under Circles at most (the rest as a count): the menu floats in front of you
   const FPS = { v: 0, n: 0, t0: 0 };   // the headset's frame rate, for the Debug tab
-  const tab0 = () => { const t = get('xrMenuTab'); return TABS.some(x => x[0] === t) ? t : 'settings'; };
-  // where it floats: its middle d m ahead of your eyes along your gaze (its pitch held within pitch, rad) and below m
-  // under that, turned to you, at scale (the panel is 0.42 m wide at 1: about 28 cm, within a fingertip's reach); it
-  // stays put while you use it and glides back in front once your head has turned more than turn (rad) from it, gone
-  // further than far or nearer than near (m, along the floor) or moved up or down by rise (m)
-  const FLOAT = { d: 0.5, below: 0.08, pitch: [-0.4, 0.15], scale: 0.66, turn: 30 * Math.PI / 180, far: 0.85, near: 0.25, rise: 0.25, ease: 6,
-    placed: false, glide: false, y: 0, at: new THREE.Vector3() };
+  const tab0 = () => { const t = get('xrMenuTab'); return TABS.some(x => x[0] === t) ? t : 'story'; };
+  // where it floats: its middle pos.d m ahead of your eyes along the floor and pos.h m above them (below: negative),
+  // turned to you, at scale (the panel is 0.42 m wide at 1: about 44 cm, read as the 28 cm one at 0.5 m was; too far for
+  // a fingertip, the ray reaches it); pos is where you last left it with the grip (kept on this headset, xrMenuAt), else
+  // 0.8 m ahead and 12 cm below your eyes. It stays put while you use it and glides back in front once your head has
+  // turned more than turn (rad) from it, gone further than far or nearer than near (m, along the floor) or moved up or
+  // down by rise (m); left somewhere by hand (pinned) it stays there until it closes
+  const FLOAT = { scale: 1.05, turn: 30 * Math.PI / 180, far: 1.4, near: 0.35, rise: 0.25, ease: 6, pos: menuAt0(),
+    placed: false, glide: false, pinned: false, y: 0, at: new THREE.Vector3() };
+  function menuAt0() {
+    let o = null;
+    try { o = JSON.parse(get('xrMenuAt') || 'null'); } catch (e) { /* none kept */ }
+    return o && Number.isFinite(o.d) && Number.isFinite(o.h) ? { d: Math.min(2, Math.max(0.3, o.d)), h: Math.min(0.6, Math.max(-0.8, o.h)) } : { d: 0.8, h: -0.12 };
+  }
+  // the menu carried by the grip (MG): the controller it follows, how far along its ray it was taken, and where the
+  // menu's top edge was from that point
+  const MG = { src: null, i: -1, dist: 0, off: new THREE.Vector3(), at: 0 };
   const PNL = { open: false, page: 'main', asked: '', empty: '', code: '', tab: tab0(), used: 0, self: false };   // (code: the letters typed on its keypad page)
   const IDLE = { ms: 20000 }, _vs = new THREE.Vector3();   // the menu closes by itself after this long unused (a press, or a ray or fingertip on it)
-  // the clock's canvas (px) and its width in the room (m): a face 6.5 cm across with "Open menu" under it; top and
-  // below: how far its face reaches above its middle and its caption below it (m)
-  const CLOCK = { w: 300, h: 380, cy: 150, r: 140, mw: 0.07 };
-  CLOCK.top = CLOCK.r * CLOCK.mw / CLOCK.w; CLOCK.below = (CLOCK.h - CLOCK.cy) * CLOCK.mw / CLOCK.w;
   function menuOpen(on, why) {
     on = !!on;
     if (on !== PNL.open) log('menu', { open: on, by: why || '' });
     // (opened or closed by hand: a sound from where it floats, or will; not when it opens or closes by itself, or for a test)
     if (on !== PNL.open && HOST.session && /^(stick|pinch|close)$/.test(why || '')) {
-      const at = PNL.open && FLOAT.placed ? OV.panelG.position : HD.ok ? _vs.set(0, 0, -FLOAT.d).applyQuaternion(HD.q).add(HD.p) : OV.clockG && OV.clockG.position;
+      const at = PNL.open && FLOAT.placed ? OV.panelG.position : HD.ok ? _vs.set(0, 0, -FLOAT.pos.d).applyQuaternion(HD.q).add(HD.p) : null;
       sfx(on ? 'open' : 'close', at);
     }
-    PNL.open = on; PNL.page = 'main'; PNL.code = ''; C.listing.menu = on; PNL.used = performance.now(); FLOAT.placed = false;
+    PNL.open = on; PNL.page = 'main'; PNL.code = ''; C.listing.menu = on; PNL.used = performance.now(); FLOAT.placed = false; FLOAT.pinned = false;
+    if (!on && MG.src) menuPut();   // (closed while carried)
     PNL.self = on && /^(question|empty)$/.test(why || '');   // (opened by itself, for the room: on Circles, and kept open until used)
     if (PNL.self) PNL.tab = 'circles';
     if (on && !C.code) { listRooms(); nearFind('menu'); }
@@ -2917,13 +2930,37 @@
   // a room
   const showing = () => (HOST.session && HOST.panels && HOST.cur && HOST.curKey && !HOST.onStories && !away() ? HOST.curKey : '');
   const PANELS_SAY = { shown: 'shown', controls: 'controls only', hidden: 'hidden' };
+  // the time for the menu's header (hours and minutes, as the watch showed them)
+  const timeNow = () => { const d = new Date(); return d.getHours() + ':' + String(d.getMinutes()).padStart(2, '0'); };
+  // the story on show's two panels for the Story tab (its panels hook: { main, foot }, each with its canvas texture and
+  // size), or null (no story on show, a story without the hook, away from every station)
+  function storyPanels() {
+    if (!showing()) return null;
+    let sp = null;
+    try { sp = HOST.cur.panels ? HOST.cur.panels() : null; } catch (e) { /* not ready */ }
+    return sp && sp.main && sp.foot && sp.main.tex && sp.foot.tex && sp.main.w && sp.foot.w ? sp : null;
+  }
+  // each frame: the Story tab's planes over the menu's canvas where drawPanel left room for them (PNL.mirror), showing
+  // the story's own panel textures; hidden on any other tab, page, or with the menu closed
+  function mirrorStep() {
+    const g = PNL.mirror, sp = OV.panelG.visible && PNL.tab === 'story' && g ? storyPanels() : null, k = OV.panel.mw / OV.panel.w;
+    for (const which of ['main', 'foot']) {
+      const m = OV.mirror[which], P = sp && sp[which];
+      if (!P) { m.visible = false; continue; }
+      if (m.material.map !== P.tex) { m.material.map = P.tex; m.material.needsUpdate = true; }
+      const h = which === 'main' ? g.hm : g.hf, top = which === 'main' ? g.y0 : g.y0 + g.hm + g.gap;
+      m.scale.set(g.w * k, h * k, 1);
+      m.position.set((g.x + g.w / 2 - OV.panel.w / 2) * k, -(top + h / 2) * k, 0.002);
+      m.visible = true;
+    }
+  }
   function panelSig() {
     return J([C.code, C.status, C.note, PNL.open, PNL.page, OV.panel.hover, C.name, C.color, C.hereSet, here(), askHere(), R.status(), C.mine, C.live, armed(C.mine),
       C.st.map(s => s.id + s.story), C.members.map(m => m.id + m.name + m.color + m.kind + m.here + (m.host ? 'h' : '')), [...C.pres].map(([id, P]) => id + P.st), C.via, hosting(), C.takeover, C.peer,
       C.code ? 0 : (C.rooms || []).map(r => r.code + r.members), C.roomsErr, C.relay, C.code ? nearShown() : [(C.near || []).map(r => r.code + r.members + r.name), C.netState, C.nearBusy, C.nearErr, (offer() || {}).code], sharedLine(), sourceLine(), versionNote(), scanNote(), fullNote(), floorNote(), forgetArmed(), freshArmed(), canFresh(), !!(R.saved || R.frame), R.sharedAlign, circlesLocked(), stLocked(liveSt()), peopleAll(),
       C.local, C.code ? 0 : localRooms().map(r => r.code + r.stations), !!R.again, HOST.slides ? HOST.slides.sig() : '', menuHint(), HOST.xr.sig(), showing(), showing() && HOST.panels.sig(showing()),
       PNL.page === 'sound' ? Math.floor(performance.now() / 500) + HOST.audio.pref : '', HOST.curKey, HOST.sfx ? HOST.sfx.sig() : '', HOST.xr.voice ? HOST.xr.voice() : '',
-      PNL.code, (r => r.label + !!r.fn)(recenterRow()), PNL.tab, ringsAll(), PNL.tab === 'debug' ? [FPS.v, Math.round(C.rtt / 10), HOST.shell && HOST.shell.n] : '']);
+      PNL.code, (r => r.label + !!r.fn)(recenterRow()), PNL.tab, ringsAll(), timeNow(), PNL.tab === 'story' ? !!storyPanels() : '', PNL.tab === 'debug' ? [FPS.v, Math.round(C.rtt / 10), HOST.shell && HOST.shell.n] : '']);
   }
   // the menu's Recenter (the owner, 30 October 2026): as the story panel's (its recenter hook: you in front again, or
   // Place again while anchored); at a station its scene and panel back where the story puts them, for everyone at its
@@ -2981,12 +3018,13 @@
     const S = OV.panel, sig = panelSig();
     if (sig === S.sig) return;
     S.sig = sig;
-    const ctx = S.ctx, W = S.w, x = 34, w = W - 68, bw = (w - 16) / 2, tw = (w - 32) / 3;
+    const ctx = S.ctx, W = S.w, x = 34, w = W - 68, bw = (w - 16) / 2, tw = (w - 16 * (TABS.length - 1)) / TABS.length;
     const YOU = 36 + 70 + 46 + 28;   // the You section at the bottom (its label, name, colours and margin): kept free
     ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, W, S.h); ctx.textBaseline = 'top'; ctx.textAlign = 'left';
     S.regions = [];
-    // the header: Menu, how it closes again, and Close
+    // the header: Menu and the time (the watch's, gone), how it closes again, and Close
     ctx.font = FONT(34, 700); ctx.fillStyle = INK; ctx.fillText('Menu', x, 24);
+    { const mw = ctx.measureText('Menu').width; ctx.font = FONT(30); ctx.fillStyle = MUTED; ctx.fillText(timeNow(), x + mw + 22, 27); }
     ctx.font = FONT(20); ctx.fillStyle = MUTED; ctx.fillText(fit(ctx, menuHint(), w - 170), x, 72);
     button(S, 'close', W - 34 - 150, 26, 150, 60, 'Close', () => menuOpen(false, 'close'));
     let y = 118;
@@ -3004,9 +3042,28 @@
       S.tex.needsUpdate = true;
     };
     // the tabs (a press shows the tab's first page; the one used last is kept on this headset)
-    TABS.forEach(([k, l], i) => button(S, 'tab:' + k, x + i * (tw + 16), y, tw, 60, l, () => setTab(k), { on: PNL.tab === k, tog: null, px: 25 }));
+    TABS.forEach(([k, l], i) => button(S, 'tab:' + k, x + i * (tw + 16), y, tw, 60, l, () => setTab(k), { on: PNL.tab === k, tog: null, px: 24 }));
     y += 76;
     line();
+    PNL.mirror = null;
+    if (PNL.tab === 'story') {
+      // the story on show's own two panels (its text and explore panes, its play bar), drawn by the story and shown on
+      // planes over this canvas in the room this leaves for them (mirrorStep); pointing there points at the story's
+      // panel, so every button and slider works as it does there. None on the Stories screen or away from a station
+      const sp = storyPanels(), m = sp && meta(HOST.curKey);
+      if (!sp) {
+        ctx.font = FONT(24); ctx.fillStyle = MUTED;
+        y += wrapText(ctx, away() ? 'No story here yet: walk into a circle to see its story.' : 'No story on show: pick one on the Stories screen first.', x, y, w, 32, 3) + 20;
+        finish(y);
+        return;
+      }
+      ctx.font = FONT(22, 700); ctx.fillStyle = (m && m.col) || MUTED; ctx.fillText(fit(ctx, ((m && m.title) || '').toUpperCase(), w), x, y); y += 38;
+      const hm = w * sp.main.h / sp.main.w, hf = w * sp.foot.h / sp.foot.w;
+      PNL.mirror = { x, w, y0: y, hm, hf, gap: 12 };
+      y += hm + 12 + hf + 26;
+      finish(y);
+      return;
+    }
     if (PNL.tab === 'settings') {
       // Exit (leave VR or AR) and Recenter (as the story panel's: at a station its scene and panel back where the story
       // puts them, for everyone at its circle; greyed while its story is locked), then the slideshow for every story
@@ -3292,38 +3349,6 @@
     button(S, 'snd:reset', x + bw + 16, y, bw, 58, 'Reset the sound', () => A.reset(), { px: 23 });
     return y + 58 + 28;
   }
-  // the clock: the local time (hour ticks, hour and minute hands) in the app's cyan rim, on a dark face that stands
-  // out against the room and a dark scene alike, how the menu opens under it ("Click a stick", with tracked hands "Pinch
-  // twice"; lit, "Menu open", while it is open: it is no button any more); drawn again only when the minute or what it
-  // shows changes
-  function drawClock() {
-    const S = OV.clock, d = new Date(), hot = PNL.open, cap = PNL.open ? 'Menu open' : HAND.hand ? 'Pinch twice' : 'Click a stick';
-    const sig = [d.getHours(), d.getMinutes(), hot, cap].join('|');
-    if (sig === S.sig) return;
-    S.sig = sig;
-    const ctx = S.ctx, cx = CLOCK.w / 2, cy = CLOCK.cy;
-    ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, S.w, S.h); ctx.lineCap = 'round';
-    ctx.beginPath(); ctx.arc(cx, cy, CLOCK.r - 7, 0, 2 * Math.PI);
-    ctx.fillStyle = hot ? 'rgba(18,40,58,0.97)' : 'rgba(8,15,28,0.94)'; ctx.fill();
-    ctx.lineWidth = hot ? 14 : 11; ctx.strokeStyle = hot ? '#8ce9ff' : CYAN; ctx.stroke();
-    ctx.strokeStyle = INK;
-    for (let k = 0; k < 12; k++) {
-      const a = k * Math.PI / 6, q = k % 3 === 0, sx = Math.sin(a), sy = -Math.cos(a), r0 = q ? 90 : 104;
-      ctx.lineWidth = q ? 9 : 5; ctx.beginPath(); ctx.moveTo(cx + sx * r0, cy + sy * r0); ctx.lineTo(cx + sx * 118, cy + sy * 118); ctx.stroke();
-    }
-    const hand = (a, len, lw) => { ctx.lineWidth = lw; ctx.beginPath(); ctx.moveTo(cx - Math.sin(a) * 14, cy + Math.cos(a) * 14); ctx.lineTo(cx + Math.sin(a) * len, cy - Math.cos(a) * len); ctx.stroke(); };
-    const m = d.getMinutes();
-    hand((d.getHours() % 12 + m / 60) * Math.PI / 6, 62, 13);
-    hand(m * Math.PI / 30, 100, 8);
-    ctx.beginPath(); ctx.arc(cx, cy, 11, 0, 2 * Math.PI); ctx.fillStyle = CYAN; ctx.fill();
-    ctx.font = FONT(34, 700); ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    const tw = Math.min(S.w - 8, ctx.measureText(cap).width + 44);
-    rr(ctx, cx - tw / 2, 302, tw, 66, 33); ctx.fillStyle = 'rgba(8,15,28,0.92)'; ctx.fill();
-    ctx.lineWidth = 2; ctx.strokeStyle = hot ? '#8ce9ff' : 'rgba(70,217,255,0.55)'; ctx.stroke();
-    ctx.fillStyle = hot ? '#8ce9ff' : INK; ctx.fillText(cap, cx, 336);
-    ctx.textAlign = 'left'; ctx.textBaseline = 'top';
-    S.tex.needsUpdate = true;
-  }
   function connLine() {
     if (C.local) return 'on this device';
     if (C.via === 'peer') {   // (peer to peer: who hosts it)
@@ -3527,11 +3552,14 @@
     while (h.hist.length && h.at - h.hist[0][0] > 500) h.hist.shift();
     if (!OV.root || !OV.root.visible || !OV.root.parent) return null;
     RC.set(o, d); RC.far = 30;   // a station across a large room can be picked too
-    const hits = RC.intersectObjects(R.calib ? OV.hit.filter(m => m === OV.panel.mesh || m === OV.clock.mesh) : OV.hit, false);
+    const hits = RC.intersectObjects(R.calib ? OV.hit.filter(m => m === OV.panel.mesh) : OV.hit, false);
     for (const x of hits) {
       const t = x.object.userData.shell;
       if (!t) continue;
       if (!R.calib && near != null && x.distance > near) break;   // the story's own panel is in front
+      // the Story tab: the story's own panel there (the story takes it as its panel, at u, v of its canvas: its buttons,
+      // sliders and hover tick as on the panel itself)
+      if (t.kind === 'storypanel') { C.hov.set(i, { target: t, at: h.at, p: x.point }); h.hk = ''; return { kind: 'shell', panel: t.which, u: x.uv.x, v: x.uv.y, point: x.point, dist: x.distance }; }
       const S = x.object.userData.sheet, hx = S && x.uv ? x.uv.x * S.w : 0, hy = S && x.uv ? (1 - x.uv.y) * S.vis : 0;
       C.hov.set(i, { target: t, x: hx, y: hy, at: h.at, p: x.point });
       // a soft tick as the pointer comes onto something new: a button of the menu, a station
@@ -3631,9 +3659,8 @@
   // From the shell's own frame callback in a headset (and from HOST.anchor.frame, which every story calls):
   // the room frame, your head in the room, your station, presence, the sound zone and the overlay
   const HD = { p: new THREE.Vector3(), q: new THREE.Quaternion(), ok: false };
-  // the left controller (or hand) in the story's space: the menu's clock sits on its wrist, the menu above it
-  // (a pose only guessed, or none for a moment, keeps the last one for half a second: no jumping to the story
-  // panel and back when tracking drops briefly)
+  // the left controller (or hand) in the story's space: whether it is a tracked hand (how the menu opens, and the notices
+  // say so) and where its wrist is (a pose only guessed, or none for a moment, keeps the last one for half a second)
   const HAND = { m: new THREE.Matrix4(), c: new THREE.Vector3(), ok: false, at: 0, i: -1, src: null, hand: false };
   function leftHand(f, local) {
     const s = R.session, t = performance.now();
@@ -3757,63 +3784,31 @@
       drawPeople(dt);
     }
     drawMarks();
-    // the clock on the left wrist when there is a left controller or hand (always at hand), else beside the story's panel
-    // (in front of you away from a station in a shared room, the story hidden); the menu floats in front of you (FLOAT,
-    // floatMenu). The menu is drawn first, so it is placed by its height this frame. Without a relay too: a room on this
-    // headset places the stories
-    const t = performance.now(), aw = away();
-    let p = null;
-    if (!HAND.ok && !aw) { try { p = HOST.cur && HOST.cur.xrPose(); } catch (e) { /* not ready */ } }
-    OV.clockG.visible = HAND.ok || !!p || (aw && HD.ok);
+    // the menu floats in front of you (FLOAT, floatMenu; carried by the grip, MG). It is drawn first, so it is placed by
+    // its height this frame. Without a relay too: a room on this headset places the stories
+    const t = performance.now(), atMenu = h => h.target.kind === 'panel' || h.target.kind === 'storypanel';
     OV.panelG.visible = PNL.open && (HD.ok || FLOAT.placed);
+    const inUse = OV.panelG.visible && (POKE.near || HOV.some(atMenu) || !!MG.src);
     if (OV.panelG.visible) {
       OV.panel.hover = POKE.hov;
       for (const h of HOV) if (h.target.kind === 'panel') { const r = OV.panel.at(h.x, h.y); if (r) OV.panel.hover = r.id; }
       drawPanel();
       if (!C.code && t - C.roomsAt > 4000) listRooms();
-      // in use while a ray or a fingertip is at it, or while calibrating (the tip goes to the tape marks); unused for
-      // IDLE.ms, it closes by itself, but not while it asks its once-per-room question, nor when it opened by itself
-      // (the question, a room with no stations) until it has been used: neither opens again by itself
-      const at = POKE.near || HOV.some(h => h.target.kind === 'panel');
-      if (at) PNL.self = false;
-      if (at || R.calib || askHere() || PNL.self) PNL.used = t;
+      // in use while a ray or a fingertip is at it, it is carried, or while calibrating (the tip goes to the tape marks);
+      // unused for IDLE.ms, it closes by itself, but not while it asks its once-per-room question, nor when it opened by
+      // itself (the question, a room with no stations) until it has been used: neither opens again by itself
+      if (inUse) PNL.self = false;
+      if (inUse || R.calib || askHere() || PNL.self) PNL.used = t;
       else if (t - PNL.used > IDLE.ms) menuOpen(false, 'idle');
     } else if (OV.panel.regions.length) { OV.panel.regions = []; OV.panel.sig = ''; }   // (closed: nothing on it to press)
-    if (OV.clockG.visible) drawClock();
-    if (OV.clockG.visible && HAND.ok) {
-      // the clock turned to your eyes, eased a little (a shaking hand does not shake it)
-      if (!OV.onHand) OV.clockG.position.copy(HAND.c); else OV.clockG.position.lerp(HAND.c, 1 - Math.exp(-dt * 30));
-      if (HD.ok) OV.clockG.quaternion.setFromRotationMatrix(_m.lookAt(HD.p, OV.clockG.position, _Y));
-      OV.clockG.scale.setScalar(1);
-      OV.onHand = true;
-    } else if (OV.clockG.visible && p) {
-      OV.onHand = false;
-      // to the left of the story panel (0.62 m wide), turned a little more towards you: the clock (twice its size, as it
-      // is further away) with its top where the closed menu's tab used to be
-      const a = 0.42;
-      _v.set(-0.31 - 0.02 - 0.21 * Math.cos(a), 0.36, 0.21 * Math.sin(a)).applyAxisAngle(_Y, p.pr).add(p.pp);
-      _v.applyQuaternion(p.rq).add(p.rp);
-      OV.clockG.quaternion.copy(p.rq).multiply(_q.setFromAxisAngle(_Y, p.pr + a));
-      OV.clockG.position.copy(_v).add(_v2.set(0, -2 * CLOCK.top, 0).applyQuaternion(OV.clockG.quaternion));
-      OV.clockG.scale.setScalar(2);
-    } else if (OV.clockG.visible) {
-      // away from a station in a shared room the story and its panel are hidden: without a left controller or hand the
-      // clock (twice its size) hangs in front of you, a little to the left, and follows you gently
-      _v.set(0, 0, -1).applyQuaternion(HD.q);
-      const hy = Math.atan2(-_v.x, -_v.z);   // (where you face along the floor)
-      _v.set(-0.3, 0.1, -0.65).applyAxisAngle(_Y, hy).add(HD.p);
-      if (!OV.ahead) OV.clockG.position.copy(_v); else OV.clockG.position.lerp(_v, 1 - Math.exp(-dt * 3));
-      OV.clockG.quaternion.setFromRotationMatrix(_m.lookAt(HD.p, OV.clockG.position, _Y));
-      OV.clockG.scale.setScalar(2);
-      OV.onHand = false;
-    } else OV.onHand = false;
-    if (OV.panelG.visible) floatMenu(dt, HOV.some(h => h.target.kind === 'panel') || POKE.near);
-    OV.ahead = OV.clockG.visible && !HAND.ok && !p;
+    if (OV.panelG.visible) { if (MG.src) carryMenu(); else floatMenu(dt, inUse); }
+    mirrorStep();
     drawNote(HD.ok ? HD.p : null, HD.q);
     drawSubs(dt);
     // what the controllers can point at
     OV.hit.length = 0;
-    if (OV.panelG.visible) OV.hit.push(OV.panel.mesh);   // (the clock is not pointed at: it only shows the time)
+    if (OV.panelG.visible) OV.hit.push(OV.panel.mesh);
+    for (const m of Object.values(OV.mirror)) if (m.visible) OV.hit.push(m);   // (the Story tab's: the story's panels)
     if (OV.room.visible) {
       for (const o of OV.cards.values()) if (o.mesh.visible) OV.hit.push(o.mesh, o.back);
       for (const o of OV.rings.values()) {
@@ -3823,38 +3818,88 @@
     }
     OV.root.updateMatrixWorld(true);
   }
-  // the menu floats in front of you (the owner, 31 October 2026: "just make it float in front of the headset"): put there
-  // as it opens (its middle FLOAT.d ahead along your gaze, held within FLOAT.pitch, and FLOAT.below under it; it hangs
-  // from its top edge, so the tabs stay put while the tab below them changes height; turned to you about its middle), it
-  // stays put while you use it, so the ray and the fingertip land where they aim, and glides back
-  // in front (FLOAT.ease) once your head has turned more than FLOAT.turn from it, walked off, come too near or moved up
-  // or down a lot; never while a ray or a fingertip is at it
+  // the menu floats in front of you (the owner, 31 October 2026: "just make it float in front of the headset"; 1 November:
+  // "further away from the face by default"): put there as it opens (its middle FLOAT.pos.d ahead of your eyes along the
+  // floor, FLOAT.pos.h above them; it hangs from its top edge, so the tabs stay put while the tab below them changes
+  // height; turned to you about its middle), it stays put while you use it, so the ray lands where it aims, and glides
+  // back in front (FLOAT.ease) once your head has turned more than FLOAT.turn from it, walked off, come too near or moved
+  // up or down a lot; never while a ray or a fingertip is at it, nor after you have put it somewhere by hand (pinned)
   function floatMenu(dt, inUse) {
-    const G = OV.panelG, S = OV.panel, F = FLOAT;
+    const G = OV.panelG, F = FLOAT;
     G.scale.setScalar(F.scale);
     if (!HD.ok) return;
     _v.set(0, 0, -1).applyQuaternion(HD.q);
-    const hy = Math.atan2(-_v.x, -_v.z), pitch = Math.max(F.pitch[0], Math.min(F.pitch[1], Math.asin(Math.max(-1, Math.min(1, _v.y)))));
-    const h = S.mw * S.vis / S.w * F.scale;   // (its height now, m)
+    const hy = Math.atan2(-_v.x, -_v.z), h = menuH();
     const want = () => {
-      F.at.set(-Math.sin(hy) * Math.cos(pitch), Math.sin(pitch), -Math.cos(hy) * Math.cos(pitch)).multiplyScalar(F.d).add(HD.p);
-      F.at.y += h / 2 - F.below;   // (its top edge, from which it hangs)
+      F.at.set(-Math.sin(hy), 0, -Math.cos(hy)).multiplyScalar(F.pos.d).add(HD.p);
+      F.at.y += F.pos.h + h / 2;   // (its top edge, from which it hangs)
       return F.at;
     };
-    const face = at => { _v2.copy(at); _v2.y -= h / 2; G.quaternion.setFromRotationMatrix(_m.lookAt(HD.p, _v2, _Y)); };
     if (!F.placed) {
-      G.position.copy(want()); face(G.position); F.placed = true; F.glide = false; F.y = HD.p.y; return;
+      G.position.copy(want()); menuFace(); F.placed = true; F.glide = false; F.y = HD.p.y; return;
     }
-    if (!F.glide && !inUse) {
+    if (!F.glide && !inUse && !F.pinned) {
       const dx = G.position.x - HD.p.x, dz = G.position.z - HD.p.z, dist = Math.hypot(dx, dz);
       let da = Math.atan2(-dx, -dz) - hy; da = Math.atan2(Math.sin(da), Math.cos(da));
       if (Math.abs(da) > F.turn || dist > F.far || dist < F.near || Math.abs(HD.p.y - F.y) > F.rise) F.glide = true;
     }
     if (F.glide) {
       const W = want(), k = 1 - Math.exp(-dt * F.ease);
-      G.position.lerp(W, k); face(G.position); F.y = HD.p.y;
+      G.position.lerp(W, k); menuFace(); F.y = HD.p.y;
       if (G.position.distanceTo(W) < 0.01) F.glide = false;
     }
+  }
+  const menuH = () => OV.panel.mw * OV.panel.vis / OV.panel.w * FLOAT.scale;   // (the menu's height now, m)
+  // turned to your eyes about its middle (upright: its top edge level)
+  function menuFace() {
+    const G = OV.panelG;
+    if (!HD.ok) return;
+    _v2.copy(G.position); _v2.y -= menuH() / 2;
+    G.quaternion.setFromRotationMatrix(_m.lookAt(HD.p, _v2, _Y));
+  }
+  // the grip on the menu (on its canvas or the Story tab's panels) picks it up (MG): it stays where it was on the
+  // controller's ray, as far along it as where it was taken, turned to you, and stays where you let go, for the rest of
+  // the time it is open (pinned); the distance and height you left it at are where it opens next time (xrMenuAt). From
+  // grabStation, before a station is looked for; true if it took the grip
+  function grabMenu(e) {
+    const s = R.session;
+    if (!s || !PNL.open || !OV.panelG.visible || MG.src || !e || !e.inputSource) return false;
+    let i = -1;
+    try { i = [...s.inputSources].indexOf(e.inputSource); } catch (err) { /* gone */ }
+    const h = i >= 0 ? hovOf(i) : null, r = i >= 0 ? C.rays.get(i) : null;
+    if (!h || !h.p || !r || !(h.target.kind === 'panel' || h.target.kind === 'storypanel')) return false;
+    MG.src = e.inputSource; MG.i = i; MG.at = performance.now();
+    MG.dist = h.p.distanceTo(r.o);
+    MG.off.copy(OV.panelG.position).sub(h.p);
+    FLOAT.glide = false; FLOAT.pinned = true;
+    log('menu grab', {});
+    pulse(e.inputSource, 0.4, 25);
+    sfx('grab', h.p);
+    return true;
+  }
+  function carryMenu() {
+    const r = C.rays.get(MG.i);
+    let gone = !r || performance.now() - r.at > 500;
+    try { gone = gone || ![...R.session.inputSources].includes(MG.src); } catch (e) { gone = true; }
+    if (gone) { menuPut(); return; }
+    OV.panelG.scale.setScalar(FLOAT.scale);
+    OV.panelG.position.copy(r.d).multiplyScalar(MG.dist).add(r.o).add(MG.off);
+    menuFace();
+    PNL.used = performance.now();
+  }
+  function menuPut() {
+    if (!MG.src) return;
+    const G = OV.panelG;
+    if (HD.ok) {   // (where it opens next time: its middle's distance along the floor and height from your eyes)
+      const d = Math.hypot(G.position.x - HD.p.x, G.position.z - HD.p.z), hh = G.position.y - menuH() / 2 - HD.p.y;
+      FLOAT.pos = { d: Math.min(2, Math.max(0.3, d)), h: Math.min(0.6, Math.max(-0.8, hh)) };
+      put('xrMenuAt', JSON.stringify({ d: +FLOAT.pos.d.toFixed(3), h: +FLOAT.pos.h.toFixed(3) }));
+      FLOAT.y = HD.p.y;
+    }
+    log('menu put', { d: +FLOAT.pos.d.toFixed(2), h: +FLOAT.pos.h.toFixed(2) });
+    pulse(MG.src, 0.25, 15);
+    sfx('drop', G.position);
+    MG.src = null; MG.i = -1;
   }
   const refSpace = () => { try { return HOST.renderer && HOST.renderer.xr.getReferenceSpace(); } catch (e) { return null; } };
 
@@ -4928,7 +4973,10 @@
   function watch(s) {
     if (s === R.session) return;
     R.session = s; R.begun = null; R.aligned = false; R.frame = null; R.src = ''; R.calib = null;
-    PNL.open = false; PNL.page = 'main'; FLOAT.placed = false; PINCH.at = 0; C.listing.menu = false;   // the menu starts closed: only its clock shows
+    PNL.open = false; PNL.page = 'main'; FLOAT.placed = false; FLOAT.pinned = false; PINCH.at = 0; MG.src = null; C.listing.menu = false;   // the menu starts closed
+    // nothing on the wrist says how to open it any more: a notice says so once, a moment into the session (when the
+    // controllers or hands are known), unless it is open by then
+    if (s) setTimeout(() => { if (R.session === s && !PNL.open) notice('The menu', HAND.hand ? 'Pinch twice with your left hand, pointing at nothing, to open the menu.' : 'Click a stick to open the menu.', 6000); }, 2500);
     // what a story does by itself when a session starts or a headset wakes is not a person's action: not published
     holdTask();
     if (!s) { dropStation(null); letGo(); setState('off'); HOST.audio.zone(null); if (HOST.sfx) HOST.sfx.listen(null); if (C.code) { upload(performance.now(), true); hello(); connect(); } changed(); return; }
@@ -5365,6 +5413,7 @@
     get net() { return C.net; }, nearby: () => C.near, findNear: () => nearFind('api'), get nearOn() { return nearShown(); }, setNear: on => setNear(on),
     rejoinable: () => rejoinable(), offer: () => offer(), netAgain: why => netAgain(why || 'api'), pretendNet: w => pretendNet(w), netHash: a => netHash(netName(a)),
     panelOpen(on) { menuOpen(on, 'api'); }, get menu() { return PNL.open; },   // the headset's menu, open or closed
+    get menuGrab() { return !!MG.src; }, menuPos: () => Object.assign({ pinned: FLOAT.pinned }, FLOAT.pos),   // (the menu carried by the grip; where it opens)
     overlay: () => OV,   // for tests: the overlay's objects (panel, cards, rings and their icons, people)
     subtitles: { split: s => subSplit(s), state: () => SUB },   // for tests: how a line is cut into captions, and where the strip is
     // a station's icon on its own (tools/icons.html, after HOST.lowpoly()): { g, lean, spin, mesh, see, halo, model: its
