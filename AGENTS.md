@@ -1863,8 +1863,11 @@ contract.
   `engine/e4_explore.js`) holds the camera 1.5 s while the scanner goes, eases it to the new scene's view as the
   patient stands up and turns (the sets unturned in explore, so `riseTo.yaw` is 0 there: `updateSets`), cools the glow
   and plays the tracer's arrival (6.5 to 15 s; Organs then fade in); the Scanner picked from Body or Organs plays it
-  backwards in 6 s (the tracer drains, the image glows, lies down as the camera goes back, the room returns). A flight
-  of its own (an organ picked, a view) takes the camera from it; a control changed ends it. Open: the owner finds the text from the
+  backwards in 6 s (the tracer drains, the image glows, lies down as the camera goes back, the room returns). Only a
+  scene picked as such plays it (the Scenes pane, page or headset, and a scene from a shared room once this page has
+  taken the room's state, `X.synced`): an organ, a network, a comparison or a tab picked from the Scanner shows at
+  once. Picked while another plays, it starts at the moment that matches what shows (`handFrom`), so turning back
+  halfway plays back from there. A flight of its own (a view) takes the camera from it; a control changed ends it. Open: the owner finds the text from the
   Network chapter on does not match the poster (the poster is needed to rewrite it; see HANDOVER.md).
 
 ## The microanatomy story (`stories/micro.js`) is built the same way
