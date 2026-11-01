@@ -951,7 +951,7 @@ void main() {
     return { n: N, m, vq: VQ, d: btoa(s) };
   }
   function align(o, age) {
-    if (!o || o.n !== N || typeof o.d !== 'string' || !Array.isArray(o.m) || o.m.length !== 3 || !o.m.every(Number.isFinite) || !(o.vq > 0 && o.vq < 1)) return false;
+    if (!o || o.n !== N || typeof o.d !== 'string' || !Array.isArray(o.m) || o.m.length !== 3 || !o.m.every(x => Number.isFinite(x) && Math.abs(x) < 1e4) || !(o.vq > 0 && o.vq < 1)) return false;   // (from another device: never a value that overflows)
     let s; try { s = atob(o.d); } catch (e) { return false; }
     if (s.length !== N * 9) return false;
     const b = new Uint8Array(s.length); for (let k = 0; k < s.length; k++) b[k] = s.charCodeAt(k);
@@ -960,6 +960,7 @@ void main() {
       const q = i * 3 + c, v = dv.getInt8(i * 9 + 6 + c) * o.vq;
       TP[q] = o.m[c] + dv.getInt16(i * 9 + c * 2, true) / 100 + v * e; TV[q] = v;
     }
+    if (!TP.every(Number.isFinite)) return false;
     const off = () => { const d = []; for (let i = 0; i < N; i++) d.push(Math.hypot(TP[i * 3] - P[i * 3] - V[i * 3] * acc, TP[i * 3 + 1] - P[i * 3 + 1] - V[i * 3 + 1] * acc, TP[i * 3 + 2] - P[i * 3 + 2] - V[i * 3 + 2] * acc)); return d.sort((x, y) => x - y)[N >> 1]; };
     if (off() > 0.5) repair(TP);
     for (let q = 0; q < N * 3; q++) { EP[q] = TP[q] - (P[q] + V[q] * acc); EV[q] = TV[q] - V[q]; }
@@ -976,6 +977,7 @@ void main() {
         const d = (P[j * 3] - TP[i * 3]) ** 2 + (P[j * 3 + 1] - TP[i * 3 + 1]) ** 2 + (P[j * 3 + 2] - TP[i * 3 + 2]) ** 2;
         if (d < bd) { bd = d; best = j; }
       }
+      if (best < 0) best = taken.indexOf(0);   // (no distance to compare: the first not yet taken)
       taken[best] = 1; to[i] = best;
     }
     const p = cp(P, N * 3), v = cp(V, N * 3), al = cp(AL, N), fl = cp(FL, N), bk = cp(BK, N);

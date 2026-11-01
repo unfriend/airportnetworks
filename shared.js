@@ -1460,7 +1460,7 @@
       const L = liveSt(), v = m.v || {};
       if (!v.q) log('effect in', { st: m.k.slice(2), type: v.type, by: m.by });
       if (L && m.k === 'e.' + L.id && C.ready && L.story === HOST.curKey && C.hook && C.hook.effect) {
-        try { C.hook.effect(v.type, v.data); } catch (e) { log('effect failed', { e: e.message }); }
+        try { C.hook.effect(v.type, v.data, m.by); } catch (e) { log('effect failed', { e: e.message }); }   // (by: who sent it, as the relay says)
       }
     }
   }

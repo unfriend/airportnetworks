@@ -68,7 +68,8 @@ function exploreStep(dt, now) {
   }
   // the shark's button follows the sharks (how many swim, and yours refused while four do)
   const so = GL.sets.fish.sharks() + (GL.sets.fish.refused() ? 'r' : '');
-  if (so !== X.so) { X.so = so; renderFish(); }
+  // (not while a slider of its pane is held: rebuilding the pane would drop the drag; it follows once let go)
+  if (so !== X.so && !document.querySelector('#pane-fish input[type="range"]:active')) { X.so = so; renderFish(); }
   // a gently swaying scene, unless you are steering it, it is life size, or a headset at its station stands still
   if (X.turn === 'on' && X.scene !== 'fish' && !orbit.to && !orbit.held && !GL.still && !HOST.room.placing()) { X.sway = (X.sway || 0) + dt; orbit.cur[0] += dt * 6 * Math.cos(X.sway * 0.25); }
   return XS;
@@ -354,10 +355,12 @@ function sfxLive() {
 }
 // what another device at the station sent: where its school is, its every fish (from the one this page follows), a
 // passing shark, or someone's own shark
-const v3ok = a => Array.isArray(a) && a.length === 3 && a.every(Number.isFinite);
+const v3ok = a => Array.isArray(a) && a.length === 3 && a.every(x => Number.isFinite(x) && Math.abs(x) < 1e4);   // (from another device: bounded)
 const idOk = id => typeof id === 'string' && id.length > 0 && id.length < 64;
-function fishEffect(type, d) {
+function fishEffect(type, d, by) {
   if (!d || typeof d !== 'object') return;
+  // (who sent it: the relay's word for it when the shell passes it on, not what the data says)
+  if (typeof by === 'string' && by) { if (d.id !== undefined && d.id !== by) return; d = Object.assign({}, d, { id: by }); }
   if (type === 'school' && idOk(d.id) && Number.isFinite(d.since) && Number.isFinite(d.at) && Number.isFinite(d.t) && v3ok(d.m) && v3ok(d.v)) {
     FSY.heard.set(d.id, { id: d.id, since: d.since, at: d.at, t: d.t, m: d.m, v: d.v, pace: d.pace > 0 && d.pace <= 1.2 ? d.pace : 1, got: performance.now() });
   } else if (type === 'fishes' && idOk(d.id) && d.id === FSY.lead && Number.isFinite(d.at) && FSY.at) {

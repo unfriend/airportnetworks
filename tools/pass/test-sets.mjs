@@ -204,6 +204,9 @@ if (want('fish')) {
   G.fish_n = 350; both(1);
   ok(!f.align(g.pack(), 0), 'a snapshot with another count of fish is ignored');
   G.fish_n = 300; both(1);
+  // (one from another device that is broken or hostile: a middle far beyond the sea, never taken, nothing turns NaN)
+  ok(!f.align(Object.assign(g.pack(), { m: [1e39, 0, 0] }), 0) && !f.align(Object.assign(g.pack(), { m: [5e4, 0, 0] }), 0) && st().P.every(Number.isFinite),
+    'a snapshot with a middle out of range is ignored (no fish turned to NaN)');
   let jump = 0, prev = Float32Array.from(st().P);
   const syncd = (n) => both(n, i => {
     const fl = g.flight(); f.follow(fl, 1 / 30);

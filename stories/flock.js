@@ -562,9 +562,12 @@ void main() { vec3 d = normalize(vW - cameraPosition);
     return true;
   }
   // a falcon from where it starts (p, v) and where it was sent (aim, or null: the flock): launched here, or by another
-  // device in a shared room (then exactly the same falcon); beside any others, none while four are in the air (null)
-  function startFalcon(f) {
-    const F = FALS.find(x => !x.on);
+  // device in a shared room (then exactly the same falcon); beside any others, none while four are in the air (null),
+  // except one from another device (far): it takes the place of the oldest, so devices that each launched a fourth at
+  // once, or one still flying a falcon that has gone elsewhere, end with the same four (the newest)
+  function startFalcon(f, far) {
+    let F = FALS.find(x => !x.on);
+    if (!F && far) F = FALS.reduce((o, x) => (!o || x.born < o.born ? x : o), null);
     if (!F) return null;
     F.p = f.p.slice(); F.v = f.v.slice(); F.on = true; F.t = 0; F.pass = 0; F.aim = f.aim ? f.aim.slice() : null; F.born = ++BORN;
     return F;
@@ -788,7 +791,7 @@ void main() {
     return { n: N, m, vq: VQ, d: btoa(s) };
   }
   function align(o, age) {
-    if (!o || o.n !== N || typeof o.d !== 'string' || !Array.isArray(o.m) || o.m.length !== 3 || !o.m.every(Number.isFinite) || !(o.vq > 0 && o.vq < 1)) return false;
+    if (!o || o.n !== N || typeof o.d !== 'string' || !Array.isArray(o.m) || o.m.length !== 3 || !o.m.every(x => Number.isFinite(x) && Math.abs(x) < 1e4) || !(o.vq > 0 && o.vq < 1)) return false;   // (from another device: never a value that overflows)
     let s; try { s = atob(o.d); } catch (e) { return false; }
     if (s.length !== N * 9) return false;
     const b = new Uint8Array(s.length); for (let k = 0; k < s.length; k++) b[k] = s.charCodeAt(k);
@@ -797,6 +800,7 @@ void main() {
       const q = i * 3 + c, v = dv.getInt8(i * 9 + 6 + c) * o.vq;
       TP[q] = o.m[c] + dv.getInt16(i * 9 + c * 2, true) / 100 + v * e; TV[q] = v;
     }
+    if (!TP.every(Number.isFinite)) return false;
     const off = () => { const d = []; for (let i = 0; i < N; i++) d.push(Math.hypot(TP[i * 3] - P[i * 3] - V[i * 3] * acc, TP[i * 3 + 1] - P[i * 3 + 1] - V[i * 3 + 1] * acc, TP[i * 3 + 2] - P[i * 3 + 2] - V[i * 3 + 2] * acc)); return d.sort((x, y) => x - y)[N >> 1]; };
     if (off() > 2) repair(TP);
     for (let q = 0; q < N * 3; q++) { EP[q] = TP[q] - (P[q] + V[q] * acc); EV[q] = TV[q] - V[q]; }
@@ -813,6 +817,7 @@ void main() {
         const d = (P[j * 3] - TP[i * 3]) ** 2 + (P[j * 3 + 1] - TP[i * 3 + 1]) ** 2 + (P[j * 3 + 2] - TP[i * 3 + 2]) ** 2;
         if (d < bd) { bd = d; best = j; }
       }
+      if (best < 0) best = taken.indexOf(0);   // (no distance to compare: the first not yet taken)
       taken[best] = 1; to[i] = best;
     }
     const p = cp(P, N * 3), v = cp(V, N * 3), al = cp(AL, N), bk = cp(BK, N);
@@ -1452,15 +1457,17 @@ function sfxLive() {
 }
 // what another device at the station sent: where its flock is, its every bird (from the one this page follows), or a
 // falcon
-const v3ok = a => Array.isArray(a) && a.length === 3 && a.every(Number.isFinite);
-function flockEffect(type, d) {
+const v3ok = a => Array.isArray(a) && a.length === 3 && a.every(x => Number.isFinite(x) && Math.abs(x) < 1e4);   // (from another device: bounded)
+function flockEffect(type, d, by) {
   if (!d || typeof d !== 'object') return;
+  // (who sent it: the relay's word for it when the shell passes it on, not what the data says)
+  if (typeof by === 'string' && by) { if (d.id !== undefined && d.id !== by) return; d = Object.assign({}, d, { id: by }); }
   if (type === 'flock' && typeof d.id === 'string' && d.id.length < 64 && Number.isFinite(d.since) && Number.isFinite(d.at) && Number.isFinite(d.t) && v3ok(d.m) && v3ok(d.v)) {
     FSY.heard.set(d.id, { id: d.id, since: d.since, at: d.at, t: d.t, m: d.m, v: d.v, pace: d.pace > 0 && d.pace <= 1.2 ? d.pace : 1, got: performance.now() });
   } else if (type === 'birds' && typeof d.id === 'string' && d.id && d.id === FSY.lead && Number.isFinite(d.at) && FSY.at) {
     GL.sets.flock.align(d, clamp((FSY.at - d.at) / 1000, -0.5, 1) * (d.pace > 0 && d.pace <= 1.2 ? d.pace : 1));   // (to where this flock is drawn: at FSY.at)
   } else if (type === 'falcon' && v3ok(d.p) && v3ok(d.v) && (d.aim === null || v3ok(d.aim))) {
-    GL.sets.flock.falcon(d); renderScenes();
+    GL.sets.flock.falcon(d, true); renderScenes();
   }
 }
 // shared rooms: the controls everyone at the station sees alike (the view is each person's own camera)

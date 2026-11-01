@@ -120,15 +120,17 @@ function sfxLive() {
 }
 // what another device at the station sent: where its flock is, its every bird (from the one this page follows), or a
 // falcon
-const v3ok = a => Array.isArray(a) && a.length === 3 && a.every(Number.isFinite);
-function flockEffect(type, d) {
+const v3ok = a => Array.isArray(a) && a.length === 3 && a.every(x => Number.isFinite(x) && Math.abs(x) < 1e4);   // (from another device: bounded)
+function flockEffect(type, d, by) {
   if (!d || typeof d !== 'object') return;
+  // (who sent it: the relay's word for it when the shell passes it on, not what the data says)
+  if (typeof by === 'string' && by) { if (d.id !== undefined && d.id !== by) return; d = Object.assign({}, d, { id: by }); }
   if (type === 'flock' && typeof d.id === 'string' && d.id.length < 64 && Number.isFinite(d.since) && Number.isFinite(d.at) && Number.isFinite(d.t) && v3ok(d.m) && v3ok(d.v)) {
     FSY.heard.set(d.id, { id: d.id, since: d.since, at: d.at, t: d.t, m: d.m, v: d.v, pace: d.pace > 0 && d.pace <= 1.2 ? d.pace : 1, got: performance.now() });
   } else if (type === 'birds' && typeof d.id === 'string' && d.id && d.id === FSY.lead && Number.isFinite(d.at) && FSY.at) {
     GL.sets.flock.align(d, clamp((FSY.at - d.at) / 1000, -0.5, 1) * (d.pace > 0 && d.pace <= 1.2 ? d.pace : 1));   // (to where this flock is drawn: at FSY.at)
   } else if (type === 'falcon' && v3ok(d.p) && v3ok(d.v) && (d.aim === null || v3ok(d.aim))) {
-    GL.sets.flock.falcon(d); renderScenes();
+    GL.sets.flock.falcon(d, true); renderScenes();
   }
 }
 // shared rooms: the controls everyone at the station sees alike (the view is each person's own camera)
