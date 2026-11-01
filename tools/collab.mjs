@@ -150,8 +150,11 @@ const STORIES = {
       }
       const ms = meds.sort((x, y) => x - y), mm = ms[ms.length >> 1];
       // (pages too slow to keep a leader here, a frame every few seconds, are said so and not judged)
-      if (ms.length < 4) console.log(`     (pass: too few frames to judge the school: ${ms.length} steady follower frames in 10 s)`);
-      check('pass: the school is shared fish by fish (with two sharks in it): a follower\'s fish within 0.5 m of the leader\'s (median)', !!L && (ms.length < 4 || mm < 0.5),
+      // (but followers that drew frames enough and still seldom held one leader for 3 s on end are judged: a leader that
+      // keeps changing is a failure, not a slow machine)
+      const plenty = !!L && recs.filter(r => r !== L).every(r => r.f.length >= 8);
+      if (ms.length < 4) console.log(`     (pass: ${plenty ? 'frames enough but' : 'too few frames:'} ${ms.length} steady follower frames in 10 s (frames per page ${recs.map(r => r.f.length).join(', ')})${plenty ? '' : ', not judged'})`);
+      check('pass: the school is shared fish by fish (with two sharks in it): a follower\'s fish within 0.5 m of the leader\'s (median)', !!L && (ms.length < 4 ? !plenty : mm < 0.5),
         `median over ${ms.length} follower frames ${mm === undefined ? '-' : mm.toFixed(3)} m, 90th percentile ${ms.length ? ms[Math.floor(ms.length * 0.9)].toFixed(3) : '-'} m`);
       for (const p of [A, B]) await p.evaluate(() => { clearInterval(window.__steer); HOST.cur.peek('setShark(false)'); });
       check('pass: let go, their sharks swim off on the third page', await until(C, q => !HOST.cur.peek(q).length, farOn, 6000));
@@ -241,8 +244,11 @@ const STORIES = {
       }
       const ms = meds.sort((x, y) => x - y), mm = ms[ms.length >> 1];
       // (pages too slow to keep a leader here, a frame every few seconds, are said so and not judged)
-      if (ms.length < 4) console.log(`     (flock: too few frames to judge the birds: ${ms.length} steady follower frames in 10 s)`);
-      check('flock: the birds are shared bird by bird (two falcons passing): a follower\'s birds within 0.5 m of the leader\'s (median)', !!L && (ms.length < 4 || mm < 0.5),
+      // (but followers that drew frames enough and still seldom held one leader for 3 s on end are judged: a leader that
+      // keeps changing is a failure, not a slow machine)
+      const plenty = !!L && recs.filter(r => r !== L).every(r => r.f.length >= 8);
+      if (ms.length < 4) console.log(`     (flock: ${plenty ? 'frames enough but' : 'too few frames:'} ${ms.length} steady follower frames in 10 s (frames per page ${recs.map(r => r.f.length).join(', ')})${plenty ? '' : ', not judged'})`);
+      check('flock: the birds are shared bird by bird (two falcons passing): a follower\'s birds within 0.5 m of the leader\'s (median)', !!L && (ms.length < 4 ? !plenty : mm < 0.5),
         `median over ${ms.length} follower frames ${mm === undefined ? '-' : mm.toFixed(3)} m, 90th percentile ${ms.length ? ms[Math.floor(ms.length * 0.9)].toFixed(3) : '-'} m`);
     },
   },
@@ -2273,7 +2279,7 @@ try {
   // open it a moment in
   await until(H, () => { window.__xr.step(); return window.__collabLog.some(e => e.ev === 'notice' && e.title === 'The menu'); }, null, 8000);
   const menu0 = await H.evaluate(() => { const O = HOST.collab.overlay(); return { open: HOST.collab.menu, clock: 'clockG' in O, panel: O.panelG.visible,
-    regions: O.panel.regions.length, hit: !O.hit.includes(O.panel.mesh), note: (window.__collabLog.find(e => e.ev === 'notice' && e.title === 'The menu') || {}).text }; });
+    regions: O.panel.regions.length, hit: !O.hit.includes(O.panel.mesh), note: HOST.collab.lastNote().title === 'The menu' ? HOST.collab.lastNote().text : '' }; });
   check('headset: the menu is closed at first, with no watch on the wrist, and a notice says how to open it', !menu0.open && !menu0.clock && !menu0.panel &&
     !menu0.regions && menu0.hit && /stick|pinch/i.test(menu0.note || ''), JSON.stringify(menu0));
   // the shared space as the relay logs caught Quest Browser: its pose at the head right after waking (not used,
@@ -2861,7 +2867,7 @@ try {
     await steps(2);
     btn.pressed = true; await steps(2); out.stick = HOST.collab.menu; btn.pressed = false; await steps(3);
     out.float = where(); out.pscale = O.panelG.scale.x;
-    out.ids = S.regions.map(r => r.id).slice(0, 4);
+    out.ids = S.regions.map(r => r.id).slice(0, 5);
     btn.pressed = true; await steps(2); btn.pressed = false; await steps(2);
     out.stickClosed = !HOST.collab.menu && !O.panelG.visible;
     const right = X.session.inputSources[0] || (X.session.inputSources[0] = { targetRayMode: 'tracked-pointer', handedness: 'right', gamepad: null, targetRaySpace: {} });
@@ -2982,7 +2988,7 @@ try {
   });
   check('headset: a click of the left stick opens the menu floating in front of you (0.8 m ahead, a little below your eyes, turned to you; Close and the four tabs at its top) and closes it again; so does the right stick\'s',
     hand.closed && hand.stick && hand.float.dist > 0.72 && hand.float.dist < 0.9 && hand.float.ahead > 0.95 && hand.float.faces > 0.95 && Math.abs(hand.pscale - 1.05) < 1e-6 &&
-    hand.ids.join() === 'close,tab:story,tab:settings,tab:circles' && hand.stickClosed && hand.rstick && hand.rstickClosed, JSON.stringify(hand));
+    hand.ids.join() === 'close,tab:story,tab:settings,tab:circles,tab:debug' && hand.stickClosed && hand.rstick && hand.rstickClosed, JSON.stringify(hand));
   check('headset: the grip carries the menu; let go, it stays where it was put (also with the head turned away) and opens there again next time',
     hand.grab && hand.put && hand.carried > 0.2 && hand.pos.pinned && !!hand.kept && hand.pinnedStill < 1e-3 && Math.abs(hand.again.dist - hand.againWant) < 0.03 && hand.again.faces > 0.95, JSON.stringify(hand));
   check('headset: unused, the menu closes by itself; a ray resting on it keeps it open; it stays open while calibrating', hand.idleClosed && hand.idleHeld && hand.idleAfter && hand.idleCalib, JSON.stringify(hand));

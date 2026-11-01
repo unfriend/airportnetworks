@@ -177,6 +177,7 @@ const APP = {
   enterExplore() {
     if (this.mode === 'explore') return;
     this.mode = 'explore';
+    X.hand = null; X.synced = false;   // (no hand-over carried over; a room's next scene is its state, not a change)
     document.body.classList.add('exploring');
     $('#btnMode').textContent = 'Replay story';
     // carry on from what the story shows: its look, its camera, its scene
@@ -222,6 +223,7 @@ const APP = {
   },
   enterStory(t) {
     this.mode = 'story';
+    X.hand = null;
     document.body.classList.remove('exploring');
     $('#btnMode').textContent = 'Explore now';
     // the story shows its scenes as it tells them: no picked organ or group, the scanner not life size

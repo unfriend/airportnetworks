@@ -194,7 +194,7 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
   future' take a little time to load"). Every story now builds in steps that yield (the scene, each set with its
   shaders, the story, explore mode, the panels; `LOAD` in each engine and in the three hand-written stories) and
   reports them (`HOST.progress`): the page shows a thin bar and the step under the loading line, and a headset shows
-  a card with the story's name and a bar in its colour in front of you and a ring on the left wrist, from 0.4 s on,
+  a card with the story's name and a bar in its colour in front of you (and, until v102, a ring on the left wrist), from 0.4 s on,
   fading as the story appears (`HOST.loading`; AGENTS.md "How the shell and stories fit together"). The PET story's
   organ icons are made after the load. Measured headlessly (software WebGL, a busy machine), the longest task of a
   multi-scene story's load fell from 0.7 to 1.4 s to 0.2 to 0.4 s (at most one shader's compile), while the whole load
@@ -432,7 +432,7 @@ Before handing over (or making anything more public), someone has to decide thes
      data, the room with live reload, a bridge to Claude on a laptop, push-to-talk in the headset) the catalogue, the
      room's table and live reload are built and the player was dropped; the bridge and push-to-talk wait for the owner
      (the microphone inside a headset session is untested on Quest);
-   - **a loading bar in the headset** (at the wrist clock and in front of you while a story loads): built (see "Where
+   - **a loading bar in the headset** (in front of you while a story loads; until v102 also a ring at the wrist clock): built (see "Where
      things stand"; AGENTS.md "How the shell and stories fit together" and "Inside a story"). What could come next: a
      single shader's compile is still one task (three.js r128 cannot compile in parallel), and a few sets take 0.2 to
      0.5 s to build here; both would need changes inside three.js or the sets;
@@ -581,7 +581,8 @@ Before handing over (or making anything more public), someone has to decide thes
     (`tools/sfx.html`, served next to the app: every sound with a button, every story's background, a 3D demo for
     headphones, the ducking demo, the voice limit), or the rendered files (`node tools/sfx-render.mjs [url] [folder]`:
     one MP3 per sound, `sfx-all.mp3` with its index, `levels.txt`), or in the app with `#sfx=on` (in a headset:
-    *Sound effects* in the menu on the left wrist, and *Try the sound effects* on its Sound check page). Levels: the
+    *Sound effects* in the menu's Settings tab (click a stick to open it), and *Try the sound effects* on its Sound check
+    page under Debug). Levels: the
     interface sounds peak at -30 to -15 dBFS (the loudest 400 ms -54 to -30 LUFS), the backgrounds -35 LUFS, against the
     narration's -13 to -16 LUFS; the default volume is 75 % (5 dB lower). **TO FILL (owner):** which sounds to keep,
     change or drop, whether the backgrounds are wanted, and then whether sound effects go on by default. **Phase 2**

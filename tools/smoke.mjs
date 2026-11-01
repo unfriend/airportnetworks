@@ -437,6 +437,53 @@ for (const key of ['airports', 'proteins', 'spatial', 'lbi', 'nmd', 'endo', 'pet
     await sleep(300);
     if (bad.length) throw new Error(bad.join('; '));
   }));
+  // the story's hand-over between the scanner and the body, played by explore's Scenes (on synthetic time: the targets
+  // at given seconds of it), backwards to the scanner; a pick of an organ from the scanner showing it at once; and a
+  // turn back halfway starting where the patient is
+  if (key === 'pet') await step('pet: explore plays the scanner-to-body hand-over and back, only for a scene picked', () => page.evaluate(async () => {
+    const bad = HOST.cur.peek(`(() => {
+      const out = [], r2 = x => Math.round(x * 100) / 100;
+      const settle = () => { X.hand = null; Object.assign(XS, exploreTargets()); };
+      const at = u => { const T = exploreTargets(X.hand.t0 + u * 1000); return { rise: r2(T.scan_rise), scan: r2(T.scan_a), body: r2(T.body_a), pet: r2(T.body_pet), org: r2(T.organs_a) }; };
+      openScene('scan', false); settle();
+      openScene('body', true, true);
+      if (!X.hand || X.hand.dir !== 'fwd') out.push('Scanner to Body: no hand-over (' + JSON.stringify(X.hand) + ')');
+      else {
+        const a0 = at(0), a3 = at(3), a7 = at(7), a15 = at(15);
+        if (a0.rise !== 0 || a0.scan !== 1 || a0.pet !== 0) out.push('at 0 s ' + JSON.stringify(a0));
+        if (!(a3.rise > 0.25 && a3.rise < 0.75) || a3.body !== 0) out.push('at 3 s the patient not standing up: ' + JSON.stringify(a3));
+        if (a7.rise !== 1 || a7.body !== 1 || a7.pet > 0.1) out.push('at 7 s ' + JSON.stringify(a7));
+        if (a15.pet !== 1) out.push('at 15 s the tracer not arrived: ' + JSON.stringify(a15));
+        handStep(X.hand.t0 + 15100);
+        if (X.hand) out.push('the hand-over did not end at 15 s');
+      }
+      settle();
+      openScene('scan', true, true);
+      if (!X.hand || X.hand.dir !== 'back') out.push('Body to Scanner: no hand-over back');
+      else {
+        const b0 = at(0), b1 = at(1), b4 = at(4);
+        if (b0.pet !== 1 || b0.rise !== 1) out.push('back at 0 s not where the body was: ' + JSON.stringify(b0));
+        if (!(b1.pet < 1) || b1.rise !== 1) out.push('back at 1 s the tracer not draining: ' + JSON.stringify(b1));
+        if (!(b4.rise > 0.25 && b4.rise < 0.75)) out.push('back at 4 s the patient not lying down: ' + JSON.stringify(b4));
+        handStep(X.hand.t0 + 6100);
+        if (X.hand || exploreTargets().scan_rise !== 0) out.push('back: not ended with the room there at 6 s');
+      }
+      settle();
+      const o = PET_DATA.organs[0].id;
+      selectOrgan(o);
+      if (X.hand || X.scene !== 'organs' || exploreTargets().organs_a !== 1) out.push('an organ picked from the scanner waited for a hand-over');
+      selectOrgan(null); openScene('scan', false); settle();
+      openScene('body', true, true);
+      const mid = exploreTargets(X.hand.t0 + 3000);
+      Object.assign(XS, mid);
+      openScene('scan', true, true);
+      const u = (performance.now() - X.hand.t0) / 1000, back = exploreTargets(X.hand.t0 + u * 1000);
+      if (X.hand.dir !== 'back' || Math.abs(back.scan_rise - mid.scan_rise) > 0.05) out.push('turned back halfway it jumps: rise ' + r2(mid.scan_rise) + ' to ' + r2(back.scan_rise) + ' (from ' + r2(u) + ' s)');
+      settle(); openScene('organs', false); settle();
+      return out;
+    })()`);
+    if (bad.length) throw new Error(bad.join('; '));
+  }));
   if (key === 'micro') await step('micro: every explore tool, on the page and in the headset', () => page.evaluate(async () => {
     const sleep = ms => new Promise(r => setTimeout(r, ms));
     const bad = HOST.cur.peek(`(() => {

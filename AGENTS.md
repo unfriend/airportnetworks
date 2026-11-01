@@ -200,7 +200,7 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
   while the next one builds, so `HOST.teardown` gives the renderer the shell's loading scene as its frame loop
   (`HOST.loading`, in `index.html`, in place of the blank loop that kept the session alive): a card with the story's
   kicker, title and a bar in its colour and the step, 1.2 m in front of you and 15 cm below your eyes, easing with your
-  head (upright, turned to you; until v103 also a ring with the share done on the left wrist, where the menu's clock
+  head (upright, turned to you; until v102 also a ring with the share done on the left wrist, where the menu's clock
   sat; the menu is out of the scenes while a story builds). It is placed from the frame in the renderer's reference space (where three.js puts the
   camera), shown only once a load has taken 0.4 s, and fade out over the new story's first frames (`HOST.loading.wrap`,
   in `makeRenderer`'s `setAnimationLoop`: drawn after the story's frame with its camera's near and far, so the
@@ -567,7 +567,7 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
     two pinches opening and closing the menu (open, close, from where it floats;
     not when it opens by itself); pointing at a menu button or a station's ring
     or card, or a fingertip over a new button (hover, a soft tick); the grip
-    taking and putting down the menu (grab, at it); grabbing and letting go of a circle (grab,
+    taking and putting down the menu (grab and drop, at it); grabbing and letting go of a circle (grab,
     drop, at it); a circle placed (place, a soft thunk: Add, Move here, Design
     room here, the map's drag; Arrange all one per spot, along the rows); the
     circles lock and a story's lock (lock, unlock); a notice in front of you
@@ -1107,9 +1107,9 @@ and the cards' setting, `cards`, joined `look` in v100). The plan is `docs/share
     row); never refused by the circles lock, nor the other way round.
 - The headset's menu (the shell's panel, `PNL`, `drawPanel`) is closed at the
   start of every session, and nothing of it shows then: no watch (the owner, 1 November 2026: "Watch can be totally
-  hidden now, not needed anymore if we can open the menu with stick click or double pinch"; until v103 a clock showed
-  the time on the left wrist, and the loading ring sat there too). A notice 2.5 s into a session says how to open it
-  (`watch`: *Click a stick to open the menu*, or with tracked hands *Pinch twice with your left hand, pointing at
+  hidden now, not needed anymore if we can open the menu with stick click or double pinch"; until v102 a clock showed
+  the time on the left wrist, and the loading ring sat there too). A notice titled *The menu*, 2.5 s into a session, says how to open it
+  (set as the session starts, in `watch`: *Click a stick to open the menu*, or with tracked hands *Pinch twice with your left hand, pointing at
   nothing*), unless it is open by then. The menu opens and closes with a click of either stick
   (`sticks`: `buttons[3]`, rising edge, per input source; a stick held down as its controller appears is no click; no
   story uses it: they use the stick's axes and `buttons[4]`), or with tracked hands two pinches of the left hand within
