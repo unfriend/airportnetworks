@@ -43,6 +43,23 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
 
 ## Where things stand
 
+- **Released in v103 (1 November 2026), tested headlessly only: the owner's notes after testing v102.** (1) A *Story*
+  tab, first in the headset's menu ("A tab in clock menu that shows the current circle story menu card"): the story on
+  show's own text panel and play bar, drawn from the story's own canvases and used there with the ray (a pinch or the
+  trigger) as on the story, so the story's controls are at hand with its panels hidden or out of sight (each story's
+  `panels` hook and one line in its `xrPoint`, in all sixteen and the design room). (2) The menu floats further away
+  (0.8 m, about 44 cm wide) and the grip moves it; it stays where it is put and opens there next time (per headset).
+  (3) No watch ("Watch can be totally hidden now"): nothing at the wrist (the loading ring went with it), the time in
+  the menu's header, and a notice at the start of a session says how to open the menu. (4) Pass it on: up to four
+  sharks at once; everyone who is the shark at a circle has a shark of their own, sent about 15 times a second and
+  drawn smoothly on the others' headsets in their colour; the story's and Now and then's count among the four. (5) The
+  flock: up to four falcons; the school and the flock shared fish by fish and bird by bird (the leader sends every one
+  three times a second; the followers come into step within about a second, a few centimetres apart in the tests).
+  (6) PET explore plays the story's hand-over between the Scanner and the Body or Organs (the scanner goes, the patient
+  stands up and turns, the glow cools, the tracer arrives), backwards to the Scanner (asked "play reverse"). The
+  tissue and time crossfade the owner first asked about was fine on a second look (dropped). No `FORMAT` change.
+  Untested on a headset: the Story tab's reading and pointing, the menu's distance, size and grip, the notice, four
+  sharks and their tints, others' sharks and the synced school and flock over Wi-Fi, and the PET hand-over in explore.
 - **Released as networks-v102 (31 October 2026; FORMAT networks-27 as v100 and v101, so they all share rooms), tested
   headlessly only:** the owner's six notes after a day's testing (the bullet below). Reviewed once (two Sonnet reviewers,
   two skeptics per finding): the 20 s close dropped the once-per-room question for good (now it waits until it is

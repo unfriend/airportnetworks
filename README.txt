@@ -191,8 +191,10 @@ under the panel, good with subtitles) or hidden (A or X still plays); each story
 keeps its own, in a shared room each station's, for everyone at its circle (also
 per station in the Shared dialog); #panels=controls in a link sets it for the
 story the link opens.
-At a station the flock flies round the station's spot, roughly in the same place for everyone (one device leads, the others follow it), with the
-same falcons. The robots move separately on each device; their controls and crumbs are shared. Others join a room through the relay
+At a station the flock flies round the station's spot and the school of Pass it on swims there, the same for everyone
+bird by bird and fish by fish (one device leads and sends every bird or fish three times a second, the others follow
+it), with the same falcons and sharks: up to four of each at once, and everyone who is the shark has a shark of their
+own, which the others see in that person's colour. The robots move separately on each device; their controls and crumbs are shared. Others join a room through the relay
 (relay/, Node, no packages), which GitHub Pages cannot run: for now it runs on a
 machine on the same Wi-Fi as the headsets and serves the app itself (node
 relay/server.mjs --lan prints the https:// address to open on each headset; see
