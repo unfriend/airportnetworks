@@ -385,7 +385,8 @@ function xrPoint(c, dt) {
   const hs = XR.raycaster.intersectObjects(XR.panelMeshes.filter(m => m.visible), false);
   // then the shared room's own things (its panel, the other stations, a calibration), if nearer than a panel
   const sh = HOST.collab.ray(c.i, c.o, c.d, hs.length ? hs[0].distance : Infinity);
-  if (sh) { hit = sh; dist = sh.dist; }
+  if (sh && sh.panel && XR[sh.panel]) { const P = XR[sh.panel]; hit = { kind: 'panel', P, x: sh.u * P.w, y: (1 - sh.v) * P.h, point: sh.point }; dist = sh.dist; }   // (this panel in the shell's menu, its Story tab)
+  else if (sh) { hit = sh; dist = sh.dist; }
   else if (xrAway()) hit = null;   // away from its station in a shared room: nothing of the story to point at
   else if (hs.length) {
     const h = hs[0], P = XR.panels.find(q => q.mesh === h.object);
