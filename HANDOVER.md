@@ -43,6 +43,21 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
 
 ## Where things stand
 
+- **Released as networks-v103 (1 November 2026; FORMAT networks-27 as v100 to v102, so they all share rooms), tested
+  headlessly only:** the owner's notes after testing v102 (the bullet below). Reviewed once (seven Sonnet reviewers, two
+  skeptics per finding): picking an organ or a network from PET's Scanner waited out the whole hand-over with the organs
+  hidden (now only a scene picked plays it), the scanner could come back with its patient standing, and a test check
+  could never pass; all fixed, with the low findings. A second look at the sharks and swarms found that a broken or
+  hostile snapshot from another device could turn a follower's school or flock to NaN and freeze it: values from other
+  devices are now bounded, the sender of an effect is the relay's word (`effect(type, data, by)`), and a falcon from
+  another device takes the oldest's place when four fly. Tests: smoke 148 good; audio 53 good; relay 243 good; the update
+  test from v102 good; live 21 good; the pass story's set checks all good; shared rooms: the full run's every per-story
+  part good (the school and the flock in step, two sharks and two falcons shared), its headset part good once five
+  checks of its own were mended (they aimed at where the menu had been, read a notice another had replaced, measured a
+  reopened menu by its height, gave a slow wake too little time, pressed a story panel the pretend headset had not
+  redrawn), the last run of the rest 274 good and 1 failed: a silent peer-to-peer host replaced after 42 s on a machine
+  drawing about a frame a second (as in v102; `--p2p` alone 18 good, `--near` alone 19 good). The Story tab shows the
+  story's panel as it is, so its empty lower part comes along (to crop if it reads badly on a headset).
 - **Released in v103 (1 November 2026), tested headlessly only: the owner's notes after testing v102.** (1) A *Story*
   tab, first in the headset's menu ("A tab in clock menu that shows the current circle story menu card"): the story on
   show's own text panel and play bar, drawn from the story's own canvases and used there with the ray (a pinch or the
