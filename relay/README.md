@@ -112,9 +112,9 @@ the app's files from the repository over HTTPS, and prints the address to open.
    square to turn it. At your own station the grip moves its scene and story panel (both grips resize the scene) for everyone there, and nobody can move them anywhere else, so everyone sees them alike. Once
    the stations are where you want them, **Lock circles** (in the headset's menu or the Shared dialog) so nobody moves
    one by accident; anyone can unlock it. A story's scene and panel have a lock of their own (**Lock this story** in the
-   menu at its circle, **Lock story** on its row in the Shared dialog). In the headset the menu's clock rides
-   on your left wrist, so the menu is always at hand (without a left controller or hand it stays beside the story
-   panel).
+   menu at its circle, **Lock story** on its row in the Shared dialog). In the headset a click of either stick (or two
+   quick pinches of the left hand) opens the menu in front of you, so it is always at hand; its Story tab holds the
+   story's own panel.
 4. In the room, use **Enter AR**: you see the room and each other, and the stations stand in it. In VR the menu
    asks once whether you are in the same room as the others (then the room is aligned as in AR) or elsewhere
    (then you get your own floor and the others see you as an avatar).

@@ -58,9 +58,10 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
 - `stories/<key>.js` - one story each, wrapped in
   `HOST.register('<key>', function (HOST) { ... })`. Everything a story
   defines is local to that function. Each returns
-  `{ inputs, caption, recenter, xrPose, collab, peek, dispose }` to the shell (`collab`: its
+  `{ inputs, caption, recenter, panels, xrPose, collab, peek, dispose }` to the shell (`collab`: its
   shared-room hooks, see "Shared rooms"; `caption`: its line on show, for the
-  headset's subtitles; `recenter`: its Recenter, for the headset's menu).
+  headset's subtitles; `recenter`: its Recenter, for the headset's menu; `panels`: its two headset panels, for the
+  menu's Story tab).
 - `proteins.html`, `spatial.html` - redirect stubs to `index.html#proteins`
   / `#spatial` so old links keep working. Do not put code there.
 - `sw.js` - service worker. Pages and app files come from the network first,
@@ -199,9 +200,8 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
   while the next one builds, so `HOST.teardown` gives the renderer the shell's loading scene as its frame loop
   (`HOST.loading`, in `index.html`, in place of the blank loop that kept the session alive): a card with the story's
   kicker, title and a bar in its colour and the step, 1.2 m in front of you and 15 cm below your eyes, easing with your
-  head (upright, turned to you), and a ring with the share done on the left wrist where the menu's clock sits (a
-  controller's grip or a tracked hand's wrist, placed as `shared.js` places the clock; the menu is out of the scenes
-  while a story builds). Both are placed from the frame in the renderer's reference space (where three.js puts the
+  head (upright, turned to you; until v103 also a ring with the share done on the left wrist, where the menu's clock
+  sat; the menu is out of the scenes while a story builds). It is placed from the frame in the renderer's reference space (where three.js puts the
   camera), shown only once a load has taken 0.4 s, and fade out over the new story's first frames (`HOST.loading.wrap`,
   in `makeRenderer`'s `setAnimationLoop`: drawn after the story's frame with its camera's near and far, so the
   session's depth range does not flip). The loading scene is a scene of its own, never in a story's, made once with
@@ -351,8 +351,9 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
     behind the scene. On top: both story panels over everything, as before
     (`renderOrder` 50). Hidden: no story panel at all, neither `XR.main` nor
     `XR.foot`, in story and explore mode (not drawn and not pointable); the
-    headset Stories screen stays (never stuck), the shell's menu and its clock
-    stay (to switch back), and A or X still plays and pauses. Shown, the story's
+    headset Stories screen stays (never stuck), the shell's menu stays (to
+    switch back; its Story tab still shows the story's panels and works), and A
+    or X still plays and pauses. Shown, the story's
     Panels row (below) applies on top. In the shell, station cards are drawn on
     top (after the scenes, before the story's panels, depth-tested) or, in 3D,
     as the labels' signs are (`renderOrder` -1, writing depth, `alphaTest` 0.1,
@@ -361,8 +362,9 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
     while their ring is pointed at, see "Shared rooms", and with cards hidden a
     ring pointed at brings up its icon alone); people's name tags are sprites,
     signs over the head drawn the same way, or nothing.
-  - In every mode of both: the Stories screen's panels, the menu, its clock,
-    the shell's notes and the subtitles are on top, and the stations' icons
+  - In every mode of both: the Stories screen's panels, the menu (its Story
+    tab's copies of the story panels too), the shell's notes and the subtitles
+    are on top, and the stations' icons
     are as ever.
   - Free moving: the grip holds the scene like a real object, the point you
     hold the pivot. One hand moves it and turns it with the hand (`XR.rot`, a
@@ -561,10 +563,11 @@ the folder to any HTTPS host (GitHub Pages works); VR and installing need HTTPS.
     `aria-pressed`, unless the press made a sound of its own (`HOST.sfx.count()`
     moved) or the button has `data-sfx="none"` (the beeps). The headset menu: a
     click, or a switch's sound for a button drawn with `on` (`tog` in its
-    region), at the pointer or fingertip; the clock opening and closing the menu
-    by hand (open, close; not when it opens by itself); pointing at a menu
-    button, the clock or a station's ring or card, or a fingertip over a new
-    button (hover, a soft tick); grabbing and letting go of a circle (grab,
+    region), at the pointer or fingertip; a stick's click or the left hand's
+    two pinches opening and closing the menu (open, close, from where it floats;
+    not when it opens by itself); pointing at a menu button or a station's ring
+    or card, or a fingertip over a new button (hover, a soft tick); the grip
+    taking and putting down the menu (grab, at it); grabbing and letting go of a circle (grab,
     drop, at it); a circle placed (place, a soft thunk: Add, Move here, Design
     room here, the map's drag; Arrange all one per spot, along the rows); the
     circles lock and a story's lock (lock, unlock); a notice in front of you
@@ -964,8 +967,7 @@ and the cards' setting, `cards`, joined `look` in v100). The plan is `docs/share
   (`GL.world`, with the life-size holders in it), their story panels and
   labels, leave nothing of them to point at, and pause the story, silent
   (`xrAway`); only the shell's things show (the stations' rings, cards and
-  icons, people, the menu and its clock, calibration marks; the clock hangs in
-  front of you without a left controller or hand), and nothing of a story
+  icons, people, the menu, calibration marks), and nothing of a story
   goes out to the room. A desktop page follows one from the Shared dialog (a
   page cannot walk). A story the person starts themselves leaves the station
   (no longer following, not pulled back).
@@ -1104,14 +1106,11 @@ and the cards' setting, `cards`, joined `look` in v100). The plan is `docs/share
     page's Shared dialog (*Lock story* / *Story locked* on each station's
     row); never refused by the circles lock, nor the other way round.
 - The headset's menu (the shell's panel, `PNL`, `drawPanel`) is closed at the
-  start of every session: only a clock shows (`drawClock`: the local time, a
-  face 6.5 cm across in the app's cyan rim, how the menu opens under it, *Click a stick* or with tracked hands *Pinch
-  twice*, lit *Menu open* while it is open; redrawn when the minute or that changes), worn like a watch on the left
-  wrist (`HAND`, each frame: a controller's grip, the clock 5 cm behind it and 5 cm above; a tracked hand's `wrist`
-  joint, the clock 3 cm off the back of the wrist and 3.5 cm up the forearm), turned to your eyes and eased; without a
-  left controller or hand it hangs, twice the size, beside the story panel. The clock only shows the time: it is not
-  pointed at or touched (the owner, 31 October 2026: "Clock menu nur aufmachen mit stick click"; until v101 a touch of
-  the clock, the trigger on it or the left stick opened it). The menu opens and closes with a click of either stick
+  start of every session, and nothing of it shows then: no watch (the owner, 1 November 2026: "Watch can be totally
+  hidden now, not needed anymore if we can open the menu with stick click or double pinch"; until v103 a clock showed
+  the time on the left wrist, and the loading ring sat there too). A notice 2.5 s into a session says how to open it
+  (`watch`: *Click a stick to open the menu*, or with tracked hands *Pinch twice with your left hand, pointing at
+  nothing*), unless it is open by then. The menu opens and closes with a click of either stick
   (`sticks`: `buttons[3]`, rising edge, per input source; a stick held down as its controller appears is no click; no
   story uses it: they use the stick's axes and `buttons[4]`), or with tracked hands two pinches of the left hand within
   0.4 s while its ray points at none of the panels (`pinched`, from the session's `selectstart`: not at the menu, a
@@ -1119,18 +1118,35 @@ and the cards' setting, `cards`, joined `look` in v100). The plan is `docs/share
   meant for a panel's button stay the button's; the scene counts as nothing, since in the flock, the robots and the
   pass story's sea the scene is everywhere the ray goes, and the story gets those two pinches too; not the right
   hand's, not while calibrating; the owner: "only left double pinch"), and by Close in its header. Unused for
-  20 s (`IDLE`; no press, no ray resting on it, no fingertip at it) it closes by itself, not while calibrating, not
-  while it asks its once-per-room question, and when it opened by itself (`PNL.self`) not until it has been used
-  (neither opens again by itself). It
-  floats in front of you (the owner: "just make it float in front of the headset"; until v101 it stood above the
-  clock): put there as it opens (`floatMenu`, `FLOAT`: its middle 0.5 m ahead of your eyes along your gaze, the gaze's
-  pitch held between -23 and +9 degrees, 8 cm under it, about 28 cm wide (0.66 of the panel's 0.42 m), within a
-  fingertip's reach, turned to you), it hangs from its top edge, so the tabs stay put while the tab below them changes
-  height; it stays put while you use it and glides back in front once your head has turned more than 30 degrees from
-  it, walked off (nearer than 0.25 m or further than 0.85 m along the floor) or moved 25 cm up or down, never while a
-  ray or a fingertip is at it. It shows *Menu*, how it closes, Close, and three tabs (the owner: "A tab in clock menu
-  for debug settings etc, one that shows the current circles menu"; `TABS`, `PNL.tab`, `setTab`; it opens on the tab
-  used last, kept as `xrMenuTab`, and on Circles when it opens by itself), each as tall as what it shows:
+  20 s (`IDLE`; no press, no ray resting on it, no fingertip at it, not held) it closes by itself, not while
+  calibrating, not while it asks its once-per-room question, and when it opened by itself (`PNL.self`) not until it has
+  been used (neither opens again by itself). It
+  floats in front of you (`floatMenu`, `FLOAT`; the owner: "Menu should be further away from the face by default, also
+  should be movable with grabbing"): put there as it opens, level in the direction you face, its middle 0.8 m ahead
+  along the floor and 12 cm under your eyes (`FLOAT.pos`, `{ d, h }`), at 1.05 of the panel's 0.42 m (about 44 cm
+  wide: too far for a fingertip, the ray reaches it; in v102 it was 28 cm wide at 0.5 m), turned to you, hanging from
+  its top edge, so the tabs stay put while the tab below them changes height. It stays put while you use it and glides
+  back in front once your head has turned more than 30 degrees from it, walked off (nearer than 0.35 m or further than
+  1.4 m along the floor) or moved 25 cm up or down, never while a ray or a fingertip is at it. The grip on it (on its
+  canvas or the Story tab's copies of the panels; `grabMenu`, before the shell looks for a station; `MG`) picks it up:
+  it stays at that point of the controller's ray, as far along it as where it was taken, turned to you (`carryMenu`),
+  and where you let go (`menuPut`) it stays for as long as it is open (`FLOAT.pinned`: no gliding back), and the
+  distance and height you left it at are where it opens next time (`xrMenuAt` in `localStorage`, this headset's own;
+  `d` 0.3 to 2 m, `h` -0.8 to +0.6 m). It is put down when its controller goes, its ray is stale or the menu closes.
+  Its header shows *Menu* and the time (hours and minutes, `timeNow`, redrawn when the minute changes), how it closes,
+  Close, and four tabs (`TABS`, `PNL.tab`, `setTab`; it opens on the tab used last, kept as `xrMenuTab`, Story the
+  first time, and on Circles when it opens by itself), each as tall as what it shows:
+  - **Story** (the owner, 1 November 2026: "A tab in clock menu that shows the current circle story menu card"): the
+    story on show's own two panels, its text panel over its foot bar, drawn by the menu as two planes over its canvas
+    (`OV.mirror`, `renderOrder` 54, `mirrorStep` each frame where `drawPanel` left room for them, `PNL.mirror`) with the
+    story's own canvas textures, so they are the story's panels exactly as they are now (its pane, its hover, its
+    buttons lit), whatever the Cards and Panels settings and wherever the story's own panels are. They are used there
+    as on the story: the ray on a copy is a shell hit of kind `storypanel` that `HOST.collab.ray` returns as
+    `{ kind: 'shell', panel: 'main' | 'foot', u, v, point, dist }`, and the story turns it into a hit on its own panel
+    at that point (`menu: true`), so hovering, pressing and its sounds are the story's own; the grip there moves the
+    menu, never the story's panel (`xrGrab` ignores `h.menu`). Over them the story's title in its colour; with no story
+    on show a line instead (in a room away from every station: walk into a circle; else pick one). The story gives
+    its panels through the `panels` hook (below).
   - **Settings**: Exit (ends the session: the story panels have no Exit, the headset Stories screen keeps its own) and
     *Recenter* side by side (the owner, 30 October 2026: the story's own, `HOST.cur.recenter`, as the story panel's
     button: you in front of it again, *Place again* while anchored; at a station the station's scene and panel back
@@ -1159,13 +1175,14 @@ and the cards' setting, `cards`, joined `look` in v100). The plan is `docs/share
     Back), then read-outs (`debugLines`: the release and `FORMAT`, the room's code, relay or peer to peer and its round
     trip, Quest Browser's version, the frame rate, `FPS`, once a second).
   The canvas is 1920 px tall, more than any tab needs (Circles in a room with six people is about 1150 px; Settings
-  about 820, Debug about 760). A right index fingertip also presses its buttons (`poke`: within 1.5 cm of the panel over one,
-  again once pulled back 3 cm; a pinch on the ray at the same button within 0.7 s counts once with it, `twice`). The
+  about 820, Debug about 760; Story as tall as the story's two panels at the menu's width). A right index fingertip also presses its buttons (`poke`: within 1.5
+  cm of the panel over one, again once pulled back 3 cm; a pinch on the ray at the same button within 0.7 s counts once
+  with it, `twice`), not the Story tab's copies (the ray does). The
   once-per-room question still opens it by itself (on Circles), and so does the first time in a room with no stations
   (once per room: its Stations section says "None yet: Arrange all puts every story in front of you"). The notices
   say how to open it and under which tab (`menuWhere`). `HOST.collab.panelOpen(on)`, `HOST.collab.menu`,
-  `menuTab(t)`, `menuIdle(ms)`, `menuFind(id)` (a button on whichever tab has it, that tab shown) and `menuIds()`
-  (every tab's buttons) are for tests.
+  `menuTab(t)`, `menuIdle(ms)`, `menuFind(id)` (a button on whichever tab has it, that tab shown), `menuIds()`
+  (every tab's buttons), `menuGrab` (held by the grip) and `menuPos()` (`{ d, h, pinned }`) are for tests.
 - Other people in a headset (`drawPeople`: from their presence, in room
   coordinates: their rays and the dots at their ends, a name tag over the head,
   and in VR or for someone elsewhere a simple head and hands) are drawn only
@@ -1507,17 +1524,24 @@ reference, `tools/flock/engine/`):
   `caption: xrCaption,` in the returned object, after `inputs`. The shell does
   the reading, splitting, timing and drawing; a story without it (the design
   room) simply has no subtitles.
+- The panels hook for the menu's Story tab, after `recenter` in the returned object:
+  `panels: () => (XR.main && XR.foot ? { main: XR.main, foot: XR.foot } : null),` (each panel with its `tex`, `w`
+  and `h`; the shell draws their textures, the story keeps drawing them every frame whether they show or not).
 - `xrPoint`: after raycasting its own panels (`hs`),
   `const sh = HOST.collab.ray(c.i, c.o, c.d, hs.length ? hs[0].distance : Infinity);`;
-  a hit (`kind: 'shell'`: the shell's menu and its clock, the other stations' cards and
+  a hit (`kind: 'shell'`: the shell's menu, the other stations' cards and
   rings, calibration marks) is nearer than the story's panels and is the hover
-  instead of them and of the scene; then `else if (xrAway()) hit = null;`
+  instead of them and of the scene, except a hit on the menu's Story tab's copy
+  of one of the story's panels (`sh.panel`, `'main'` or `'foot'`), which becomes
+  a hit on that panel of the story's own at the same point:
+  `if (sh && sh.panel && XR[sh.panel]) { const P = XR[sh.panel]; hit = { kind: 'panel', P, x: sh.u * P.w, y: (1 - sh.v) * P.h, point: sh.point, menu: true }; dist = sh.dist; }`
+  before `else if (sh)`; then `else if (xrAway()) hit = null;`
   (nothing of the story to point at). `xrPress`:
   `if (h.kind === 'shell') { HOST.collab.press(c.i); return; }`.
-- `xrGrab`: `if (XR.stories || HOST.anchor.locked(h.kind)) return;` (in a
+- `xrGrab`: `if (XR.stories || h.menu || HOST.anchor.locked(h.kind)) return;` (in a
   shared room only at its station and unless its story is locked; the shell's
-  own things never move the scene, and the grip on a station's preview moves
-  that station, done by the shell); `carry` lets go when that turns locked, and
+  own things never move the scene, the grip on a station's preview moves
+  that station and the grip on the menu, its Story tab too, moves the menu, done by the shell); `carry` lets go when that turns locked, and
   a controller that disappears lets go too.
 - `xrBegin`, after setting the rig from `HOST.anchor.frame()`:
   `const roomOnly = xrRoomOnly(); if (XR.inRoom && !roomOnly) xrFreshStart(); XR.inRoom = roomOnly;`
@@ -1832,7 +1856,14 @@ contract.
   the second chapter became "How PET sees" (FDG as the most common of the tracers; no brackets in its text), the organ
   labels became names only and the AI "segmentation algorithms". The scanner hands its patient to the body set in one
   move (`scan_rise`): the scanner goes, the patient stands up exactly where the body set's body stands (`riseTo`, after
-  `buildCamera`'s turn), its glow cools, then the tracer arrives as before. Open: the owner finds the text from the
+  `buildCamera`'s turn), its glow cools, then the tracer arrives as before. Explore mode plays the same hand-over (the owner, 1 November 2026:
+  "better hide the scanner, rotate the body, fade out the organs and then show the sugar thing ... the explore mode does
+  not do the same"; back: "play reverse"): picking Body or Organs from the Scanner (`openScene`, `X.hand`, `HAND` in
+  `engine/e4_explore.js`) holds the camera 1.5 s while the scanner goes, eases it to the new scene's view as the
+  patient stands up and turns (the sets unturned in explore, so `riseTo.yaw` is 0 there: `updateSets`), cools the glow
+  and plays the tracer's arrival (6.5 to 15 s; Organs then fade in); the Scanner picked from Body or Organs plays it
+  backwards in 6 s (the tracer drains, the image glows, lies down as the camera goes back, the room returns). A flight
+  of its own (an organ picked, a view) takes the camera from it; a control changed ends it. Open: the owner finds the text from the
   Network chapter on does not match the poster (the poster is needed to rewrite it; see HANDOVER.md).
 
 ## The microanatomy story (`stories/micro.js`) is built the same way
@@ -2376,7 +2407,7 @@ and step shown and gone, no task of the load longer than `LOAD_LIMIT`, 4 s: gene
 shader at a time in software; the shared-room hooks seeing the scene only once it is built; a story picked while
 another builds stopping that one's steps and keeping the controllers and place), and with a pretend headset (its
 frames driven, the drawing recorded) the loading scene in VR and AR: nothing before 0.4 s, then the card 1.2 m in
-front and 15 cm below the eyes and the ring at the left wrist, drawn in a scene of its own (not the story's, no
+front and 15 cm below the eyes (nothing at the wrist since v103), drawn in a scene of its own (not the story's, no
 listener of the story's), the clear colour kept, the card fading out over the story's first frames,
 switches stories, runs anchored placement in each
 story with a pretend headset (an origin that jumps, anchors that stay, saved
@@ -2547,7 +2578,7 @@ their row and a story picked by hand each stopping it; they leave, it stops afte
 15 s and the page stays at their last station), a relay restart, and
 a pretend headset with fake `local-floor` and `shared` spaces: alignment,
 away from every station no story (no Stories screen, the scene and panels
-hidden, nothing to point at, paused, no Stories button, the clock in front),
+hidden, nothing to point at, paused, no Stories button),
 before any circle every station's icon over its ring (its story's miniature, in
 its colour, turning) and its card, placement at its station once it walks into
 its circle (the story shown; the other stations' icons only, pointable, no card and no
@@ -2571,16 +2602,19 @@ table in explore mode, its icon and card gone; walked out, still at the design
 room, its icon still gone and built from the table's miniature),
 the station's clock and state, rays and head in room coordinates, another
 person at its circle drawn (one at another circle or at none not; all with
-People: everyone), the sound zone, the trigger on the menu's clock opening nothing, the trigger on
+People: everyone), the sound zone, the trigger on
 another station's card running nothing (its icon pointed at first, bringing
 the card up; a notice: walk into its circle), the story panel winning over a
 card behind it, a station moved with the grip on its card (its icon pointed at
 first; swung, pushed further, turned; the others see it while it moves) and
 gliding into place when someone else moves it, the circles lock (the grip and
 Arrange all refused; unlocked from the headset's menu), the menu (closed at
-first, only its clock, not pointable; on the left controller and on a tracked hand's wrist;
-opened and closed by a click of the left stick or the right, floating in front of you (0.5 m along your gaze, turned
-to you; Close and its three tabs at its top); a touch of the clock doing nothing; closing by itself unused (not with a
+first with nothing at the wrist, and a notice saying how to open it;
+opened and closed by a click of the left stick or the right, floating in front of you (0.8 m ahead, a little below
+your eyes, turned to you; Close and its four tabs at its top); the grip carrying it, let go staying where it was put
+(also with the head turned away) and opening there again next time; its Story tab showing the story's own panels
+(their textures), a press there working the story's panel (Replay story, Explore now) and the grip there moving the
+menu, not the story's panel; closing by itself unused (not with a
 ray resting on it, not while calibrating); staying put as you look about a little and gliding back in front once you
 have turned further; with tracked hands two quick pinches of the left hand pointing at nothing opening and closing it
 (not one pinch, not two slow ones, not the right hand's, not the left's on the story's panel or the menu); Exit under Settings; buttons
@@ -2717,7 +2751,7 @@ it was let go). A new story needs an entry in `STORIES`
 (`change` and `back`: code that changes its `state()`, and optional `effect`
 and `more`); the headset's story (`HEADSET_STORY`) stays the last entry.
 `--shots <dir>` also saves pictures of rooms on this network (`near-dialog.png`, `near-toast.png`, `near-again.png`,
-the menu's canvas `near-menu.png`), of the dialog and eight headset views (with the menu's clock on the left wrist, the menu open, its Sound check,
+the menu's canvas `near-menu.png`), of the dialog and eight headset views (the menu open on its Settings tab, its Story tab, its Sound check,
 stepped out of a station's circle: still in its story, the others as icons only, and the stations' icons from behind the first row and along it, as a headset in no circle sees them, at 1280 x 800), and the ten-headset round's four.
 
 For the tour, test a changed set on its own in the set harness first

@@ -48,7 +48,7 @@ Besides the stories, the design room (#design, stories/design.js; not on the
 Stories screen) is a table with a small model of every prop of the stories,
 a plate per story: point at one for its name, put it on the stage for its card
 (what it shows, its params, views and source), and in a headset pick it up.
-In a headset, Design room in the menu (the clock on the left wrist) opens it;
+In a headset, Design room in the menu (click a stick to open it) opens it;
 in a shared room, Design room here puts the table at your feet as a circle
 (Add a station on the page offers it too; Arrange all leaves it alone), and
 over every circle its story's small model turns, so circles tell apart.
@@ -66,7 +66,7 @@ directly (proteins.html and spatial.html forward there). Taking the headset off 
 (and, unless Anchor is on, places everything in front of the next wearer).
 A story builds in steps while it loads: the page shows a thin bar and the step
 under its loading line, and a headset shows a card with the story's name and a
-bar in front of you and a ring on your left wrist until the story appears.
+bar in front of you until the story appears.
 Repeat all and Repeat one on the Stories screen (page and headset) keep the app
 playing for an exhibition: Repeat all plays the stories one after another
 without end, Repeat one plays the story you pick again and again. Press the lit
@@ -79,7 +79,7 @@ panel (on a phone, beside Play), and in a headset under the panel where the
 chapter's name was. Turn it on for one story
 with "Slideshow: off/on" at the foot of the story panel (in a headset, beside
 the clock under the panel), or for every story with
-Slideshow on the Stories screen (in a headset, in the menu on the left hand).
+Slideshow on the Stories screen (in a headset, in the menu's Settings tab).
 It is remembered on the device; #slides=on (or #slides=off) in a link sets it
 for every story. In a shared room a stop pauses the station for everyone there,
 like a pause by hand.
@@ -151,13 +151,16 @@ everyone at once (unless that story is locked: Lock this story in the menu at it
 circle, or Lock story per station in the Shared dialog; among the fish of Pass it on the
 grip in the sea moves the school, for everyone there too); each station keeps
 its story, so the story panel has no Stories button there: another story is
-another station. In a headset the menu is closed at first: only a clock shows the
-time, worn like a watch on your left wrist (on the left controller, or on your
-wrist with hand tracking; beside the story panel without either). Click either
-stick to open the menu (with hand tracking, pinch twice quickly with your left
-hand while it points at nothing); it floats in front of you, and the same, or
-Close, closes it again; unused for 20 seconds it closes by itself. It has three
-tabs: Settings (Exit, which leaves VR or AR, as the story panels have none;
+another station. In a headset the menu is closed at first (a note at the start
+says how to open it). Click either stick to open the menu (with hand tracking,
+pinch twice quickly with your left hand while it points at nothing); it floats
+in front of you, about 80 cm away, with the time in its header, and the same, or
+Close, closes it again; unused for 20 seconds it closes by itself. Point at it
+and hold the grip to move it (nearer, further, higher or lower): it stays where
+you put it, and opens there next time. It has four tabs: Story (the story
+panel and play bar of the story on show, usable there as on the story itself,
+so the story's controls are at hand even when its panels are hidden or out of
+sight), Settings (Exit, which leaves VR or AR, as the story panels have none;
 Recenter; Slideshow for every story; four headset settings for every story; the
 sound switches; the design room), Circles (the shared room: rooms to join, a
 room by its code, the stations, the locks, Show all rings, the people, your
