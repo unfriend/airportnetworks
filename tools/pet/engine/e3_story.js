@@ -393,8 +393,8 @@ function buildStory() {
   buildCamera(wp);
   // the scan set's patient stands up where the body set stands: no move, the same size, and the body set's turn (taken
   // from the camera's hand-over above) less its own
-  const rt = GL.sets.scan.riseTo;
-  if (rt) rt.yaw = (setYaw('body', C.body.a + 5) - setYaw('scan', C.body.a + 5)) * D2R;
+  // (explore shows the sets unturned, so there it is none: updateSets)
+  ST.riseYaw = (setYaw('body', C.body.a + 5) - setYaw('scan', C.body.a + 5)) * D2R;
 
   // --------------------------------------------------------- story labels
   // (the sets label their own parts, the hubs among them; the story adds what the scene alone does not say; the body

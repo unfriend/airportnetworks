@@ -4482,6 +4482,7 @@ function updateSets(S, t, dt, story) {
   for (const k of SET_ORDER) {
     const s = GL.sets[k], a = S[k + '_a'] || 0;
     s.group.rotation.y = story ? setYaw(k, t) * D2R : 0;
+    if (s.riseTo) s.riseTo.yaw = story ? ST.riseYaw || 0 : 0;   // (where the scanner's patient stands up: the body set's turn less its own)
     s.setAlpha(a);
     if (a > 0.003) s.update(S, t, dt);
     else if (s.idle) s.idle(dt);   // a hidden set may build in slices
@@ -4941,8 +4942,8 @@ function buildStory() {
   buildCamera(wp);
   // the scan set's patient stands up where the body set stands: no move, the same size, and the body set's turn (taken
   // from the camera's hand-over above) less its own
-  const rt = GL.sets.scan.riseTo;
-  if (rt) rt.yaw = (setYaw('body', C.body.a + 5) - setYaw('scan', C.body.a + 5)) * D2R;
+  // (explore shows the sets unturned, so there it is none: updateSets)
+  ST.riseYaw = (setYaw('body', C.body.a + 5) - setYaw('scan', C.body.a + 5)) * D2R;
 
   // --------------------------------------------------------- story labels
   // (the sets label their own parts, the hubs among them; the story adds what the scene alone does not say; the body
@@ -5198,7 +5199,7 @@ const ctlsOf = k => (GL.sets[k].controls || []).filter(c => !(HIDE_CTL[k] || [])
 // a control the panes offer now: a set may say when one applies (when(values)), so none sits there doing nothing; the
 // shared state keeps every control (ctlsOf) all the same
 const ctlShown = (k, c) => !c.when || c.when(Object.fromEntries(ctlsOf(k).map(x => [x.key, ctlValue(k, x)])));
-const X = { tab: 'networks', scene: 'organs', ctl: {}, t0: 0, turn: 'on', cmp: -1, netX: null, organ: null, life: false };
+const X = { tab: 'networks', scene: 'organs', ctl: {}, t0: 0, turn: 'on', cmp: -1, netX: null, organ: null, life: false, hand: null };
 const XS = {};
 // params that pick something by number jump to their new value instead of easing through the ones in between; the
 // organs' network and its crossfade (organs_prev to organs_which by organs_mix) and the explainer's pair change smoothly
@@ -5228,6 +5229,54 @@ const netView = () => viewIs('organs', /net/i);
 const NEXT = [];
 const afterUpdate = f => { NEXT.push(f); };
 
+// The hand-over between the Scanner and the Body or the Organs, played as the story plays it (the owner, 31 October
+// 2026: "better hide the scanner, rotate the body, fade out the organs and then show the sugar thing like it is now";
+// back to the Scanner "play reverse"): the scanner goes, its patient's image stands up and turns where the body set
+// stands (the camera holding, then easing to the new scene's view in step), its glow cools, then the tracer arrives;
+// back, the tracer drains, the image glows again, lies down as the camera goes back to the scanner, and the room
+// returns. Stages are seconds from its start, [param, t0, t1, v0, v1], eased as the story's tracks are; the camera
+// flies over cam. Picked with a flight of its own (an organ, a view), the hand-over leaves the camera to it.
+const HAND = {
+  fwd: { end: 15, cam: [1.5, 5], tracer: 6.5, keys: [['scan_rise', 0, 1.5, 0, 0.25], ['scan_rise', 1.5, 5, 0.25, 0.75],
+    ['scan_rise', 5, 6.5, 0.75, 1], ['body_pet', 6.5, 15, 0, 1]] },
+  back: { end: 6, cam: [2.5, 5], keys: [['body_pet', 0, 1.5, 1, 0], ['scan_rise', 1.5, 2.5, 1, 0.75], ['scan_rise', 2.5, 5, 0.75, 0.25],
+    ['scan_rise', 5, 6, 0.25, 0]] },
+};
+const HAND_EXACT = new Set(['scan_rise', 'body_pet']);   // (followed exactly while it plays, not eased)
+const handOf = (from, to) => (from === 'scan' && (to === 'body' || to === 'organs') ? 'fwd' : to === 'scan' && (from === 'body' || from === 'organs') ? 'back' : null);
+function handVal(H, n, u) {
+  let v = null;
+  for (const [m, t0, t1, v0, v1] of HAND[H.dir].keys) {
+    if (m !== n) continue;
+    if (u < t0) return v === null ? v0 : v;
+    v = u < t1 ? v0 + (v1 - v0) * smooth((u - t0) / (t1 - t0)) : v1;
+    if (u < t1) return v;
+  }
+  return v;
+}
+// each frame: the hand-over's camera and sound at their moments, and its end (the scene's own targets from then on)
+function handStep(now) {
+  const H = X.hand;
+  if (!H) return;
+  const D = HAND[H.dir], u = (now - H.t0) / 1000;
+  if (!H.flew && u >= D.cam[0]) { H.flew = true; if (!orbit.held) flyTo(view(X.scene, X.life && X.scene === 'scan' ? 'life' : viewCam(X.scene) || 'default'), D.cam[1] - D.cam[0], true); }
+  if (D.tracer && !H.grew && u >= D.tracer) { H.grew = true; sfxAct('grow', 'body', null, { dur: 8, pitch: 0.9 }); }
+  if (u >= D.end) { X.hand = null; X.t0 = now - (X.scene === 'body' ? 8000 : 0); }   // (Arriving carries on from the tracer arrived)
+}
+// what the hand-over asks for on top of the scene's own targets: the scanner (with its image lit, unless the vision row
+// already stands its patient up) while its patient rises or lies down, the body as far as the tracer has come
+function handTargets(tg, now) {
+  const H = X.hand, u = (now - H.t0) / 1000, sc = GL.sets.scan, c = {};
+  for (const ct of sc.controls || []) c[ct.key] = ctlValue('scan', ct);
+  if (H.dir === 'fwd') Object.assign(tg, sc.params, sc.explore ? sc.explore(c) : {});
+  if (c.view !== 'vision') tg.scan_image = 1;
+  tg.scan_a = H.dir === 'back' || u < 6.5 ? 1 : 0;
+  tg.scan_rise = handVal(H, 'scan_rise', u);
+  tg.body_a = H.dir === 'fwd' ? (u >= 5 ? 1 : 0) : (u < 1.5 ? 1 : 0);
+  tg.body_pet = handVal(H, 'body_pet', u); tg.body_blank = 0; tg.body_net = 0; tg.body_state = 0;
+  tg.organs_a = 0;
+}
+
 // what the chosen scene and its controls ask for: that set fully in, every other set out; then what the panes pick
 function exploreTargets(now = performance.now()) {
   const k = X.scene, s = GL.sets[k], tg = Object.assign({}, s.params);
@@ -5248,32 +5297,40 @@ function exploreTargets(now = performance.now()) {
   }
   // life size: the scanner at work, the couch in, no vision row
   if (k === 'scan' && X.life) Object.assign(tg, { scan_vision: 0, scan_bed: 1, scan_events: Math.max(tg.scan_events || 0, 0.7), scan_lines: Math.max(tg.scan_lines || 0, 0.6) });
+  if (X.hand) handTargets(tg, now);
   const out = {};
   for (const n in DEF) out[n] = n in tg ? tg[n] : n.endsWith('_a') ? 0 : XS[n];
   return out;
 }
 function exploreStep(dt, now) {
-  const tg = exploreTargets(now), k = 1 - Math.exp(-dt * 3.5);
-  for (const n in DEF) XS[n] = STEP.has(n) ? tg[n] : XS[n] + (tg[n] - XS[n]) * k;
-  // a gently swaying scene, unless you are steering it, standing by the scanner life size, or a set asks for stillness
-  if (X.turn === 'on' && !(X.life && X.scene === 'scan') && !orbit.to && !orbit.held && !GL.still && !HOST.room.placing()) { X.sway = (X.sway || 0) + dt; orbit.cur[0] += dt * 6 * Math.cos(X.sway * 0.25); }
+  handStep(now);
+  const tg = exploreTargets(now), k = 1 - Math.exp(-dt * 3.5), H = !!X.hand;
+  for (const n in DEF) XS[n] = STEP.has(n) || (H && HAND_EXACT.has(n)) ? tg[n] : XS[n] + (tg[n] - XS[n]) * k;
+  // (a scanner coming back while hidden, not by the hand-over: its patient already lying down, the room there)
+  if (!H && XS.scan_a < 0.004) XS.scan_rise = tg.scan_rise;
+  // a gently swaying scene, unless you are steering it, standing by the scanner life size, a hand-over holds the camera,
+  // or a set asks for stillness
+  if (X.turn === 'on' && !(X.life && X.scene === 'scan') && !(X.hand && !X.hand.flew) && !orbit.to && !orbit.held && !GL.still && !HOST.room.placing()) { X.sway = (X.sway || 0) + dt; orbit.cur[0] += dt * 6 * Math.cos(X.sway * 0.25); }
   return XS;
 }
 // what the panes pick reaches the sets through their params (exploreTargets); here only the labels follow
 function pushState() { updateExtraLabels(); }
 function openScene(k, fly = true) {
   if (!GL.sets[k]) return;
-  const same = X.scene === k;
+  const same = X.scene === k, from = X.scene;
   X.scene = k; X.t0 = performance.now();
   if (!same) sfxAct('whoosh', k, null, { dur: 1.2 });   // (sound effects: another scene)
   if (X.life && k !== 'scan') setLife(false);   // (life size is the scanner's)
-  if (fly && !same) flyTo(view(k, X.life && k === 'scan' ? 'life' : viewCam(k) || 'default'));
+  // between the Scanner and the Body or the Organs, the story's hand-over (HAND), with its own camera; else a flight
+  if (!same) { const dir = fly && APP.mode === 'explore' && handOf(from, k); X.hand = dir ? { dir, t0: X.t0, flew: false, grew: false } : null; }
+  if (fly && !same && !X.hand) flyTo(view(k, X.life && k === 'scan' ? 'life' : viewCam(k) || 'default'));
   lifeCtl();
   renderScenes(); renderNets(); updateExtraLabels();
 }
 function setCtl(k, key, v) {
   const c = ctlOf(k, key);
   if (!c || !c.options.some(o => o[0] === v)) return;
+  if (k === X.scene && ctlValue(k, c) !== v) X.hand = null;   // (a control changed: the scene's own targets at once)
   (X.ctl[k] = X.ctl[k] || {})[key] = v;
   X.t0 = performance.now();
   if (k === 'organs' && key === 'network') X.netX = null;   // a network of the control's own
@@ -5281,7 +5338,9 @@ function setCtl(k, key, v) {
   if (key === 'view' && k === X.scene && !(X.life && k === 'scan')) { const n = camFor(k, v); flyTo(view(k, n || 'default')); }
   renderAll();
 }
-function flyTo(v) {
+function flyTo(v, dur, hand) {
+  if (X.hand && !hand) X.hand.flew = true;   // (another flight takes the camera: the hand-over leaves it be)
+  orbit.d = dur || 0;
   const c = orbit.cur;
   orbit.from = c.slice();
   orbit.to = v.slice();
@@ -5290,7 +5349,7 @@ function flyTo(v) {
 }
 function orbitStep(now) {
   if (!orbit.to) return;
-  const x = smooth((now - orbit.t0) / ((orbit.fast ? 0.25 : orbit.dur) * 1000)), f = orbit.from, t = orbit.to;   // fast: a view from the room
+  const x = smooth((now - orbit.t0) / ((orbit.fast ? 0.25 : orbit.d || orbit.dur) * 1000)), f = orbit.from, t = orbit.to;   // fast: a view from the room
   orbit.cur = f.map((v, k) => (k === 2 ? Math.exp(Math.log(v) + (Math.log(t[k]) - Math.log(v)) * x) : v + (t[k] - v) * x));
   if (x >= 1) { orbit.to = null; orbit.fast = false; }
 }

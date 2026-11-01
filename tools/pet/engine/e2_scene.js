@@ -47,6 +47,7 @@ function updateSets(S, t, dt, story) {
   for (const k of SET_ORDER) {
     const s = GL.sets[k], a = S[k + '_a'] || 0;
     s.group.rotation.y = story ? setYaw(k, t) * D2R : 0;
+    if (s.riseTo) s.riseTo.yaw = story ? ST.riseYaw || 0 : 0;   // (where the scanner's patient stands up: the body set's turn less its own)
     s.setAlpha(a);
     if (a > 0.003) s.update(S, t, dt);
     else if (s.idle) s.idle(dt);   // a hidden set may build in slices
