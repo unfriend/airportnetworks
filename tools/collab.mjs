@@ -2277,9 +2277,9 @@ try {
     fr ? `${fr.src} o ${fmt(fr.o)} x ${fmt(fr.x)}, want o ${fmt(wantO)} x ${fmt(wantX)}` : 'no frame');
   // the menu is closed at the start of a session (nothing of it shows: the watch went in v103), and a notice says how to
   // open it a moment in
-  await until(H, () => { window.__xr.step(); const n = HOST.collab.lastNote(); if (n.title === 'The menu') window.__menuNote = n.text; return window.__collabLog.some(e => e.ev === 'notice' && e.title === 'The menu'); }, null, 8000);
+  await until(H, () => { window.__xr.step(); return window.__collabLog.some(e => e.ev === 'notice' && e.title === 'The menu'); }, null, 8000);
   const menu0 = await H.evaluate(() => { const O = HOST.collab.overlay(); return { open: HOST.collab.menu, clock: 'clockG' in O, panel: O.panelG.visible,
-    regions: O.panel.regions.length, hit: !O.hit.includes(O.panel.mesh), note: window.__menuNote || '' }; });   // (as it showed: another notice may have followed it by now)
+    regions: O.panel.regions.length, hit: !O.hit.includes(O.panel.mesh), note: (HOST.collab.notes().find(n => n.title === 'The menu') || {}).text }; });   // (as it showed: another may have followed it)
   check('headset: the menu is closed at first, with no watch on the wrist, and a notice says how to open it', !menu0.open && !menu0.clock && !menu0.panel &&
     !menu0.regions && menu0.hit && /stick|pinch/i.test(menu0.note || ''), JSON.stringify(menu0));
   // the shared space as the relay logs caught Quest Browser: its pose at the head right after waking (not used,
@@ -2327,6 +2327,8 @@ try {
   await sleepWake(FLOOR, SHARED);   // and back to the floor the rest expects
   await H.evaluate(() => { HOST.room.internals().visibleAt -= 21000; });   // (held for 20 s after waking, at the height it had)
   await frames(H, 800);
+  // (a frame or two at a time on a busy machine: given up to 8 s more to come back)
+  await until(H, w => { window.__xr.step(); const o = HOST.room.frame && HOST.room.frame.o; return !!o && Math.abs(o[0] - w[0]) < 2e-3 && Math.abs(o[1]) < 2e-3 && Math.abs(o[2] - w[2]) < 2e-3; }, wantO, 8000);
   check('headset: woken again on the first floor, the room is back on it', near(await H.evaluate(() => HOST.room.frame.o), [wantO[0], 0, wantO[2]], 2e-3),
     fmt(await H.evaluate(() => HOST.room.frame.o)));
   // Re-align by hand (in the menu): a headset left offset (as one was after a long standby) goes back to the
@@ -2664,18 +2666,20 @@ try {
     const aimAt = p => { const o = head().add(new V(0.12, -0.3, -0.1)); c.g.visible = true; c.g.matrix.compose(o, new THREE.Quaternion().setFromUnitVectors(new V(0, 0, -1), p.clone().sub(o).normalize()), new V(1, 1, 1)); };
     // a button of the story's main panel, through the menu's copy: its point on the copy
     const onCopy = id => { const Q = sp.main, r = Q.regions.find(x => x.id === id && x.fn); if (!r) return null;
+      O.panelG.updateMatrixWorld(true);   // (where the menu is now: the shell moves it each frame)
       return O.mirror.main.localToWorld(new V((r.x + r.w / 2) / Q.w - 0.5, 0.5 - (r.y + r.h / 2) / Q.h, 0)); };
     for (const want of ['story', 'explore']) {
       await steps(3);
       const at = onCopy('mode');
       if (!at) { out['no' + want] = true; break; }
-      aimAt(at); await steps(3); out['hover' + want] = c.hover && c.hover.kind === 'panel' && c.hover.P === sp.main && !!c.hover.menu;
+      aimAt(at); await steps(3); out['hover' + want] = c.hover && c.hover.kind === 'panel' && c.hover.P === sp.main && !!c.hover.menu && (sp.main.at(c.hover.x, c.hover.y) || {}).id === 'mode';
       c.wantPress = true; await steps(2); c.g.dispatchEvent({ type: 'selectend' }); await steps(2);   // (pressed on a frame, let go: the button's own release)
       for (let k = 0; k < 60 && P('APP.mode') !== want; k++) await steps(1);
       out['mode' + want] = P('APP.mode');
     }
     // the grip on the copy: the menu goes with the controller, the story's panel stays
     const pk = 'st.' + HOST.collab.mine() + '.panel', before = JSON.stringify(HOST.collab.internals().keys.get(pk) || null), g0 = O.panelG.position.clone();
+    O.panelG.updateMatrixWorld(true);
     const at = O.mirror.main.localToWorld(new V(0, 0, 0));
     aimAt(at); await steps(3); X.step();   // (a grip comes between frames, on a fresh hover)
     X.fire('squeezestart', { inputSource: c.src }); await steps(2);
@@ -2861,7 +2865,7 @@ try {
     // faces you
     const mid = () => S.mesh.getWorldPosition(new V());
     const where = () => { const m = mid(), h = headNow(), d = m.clone().sub(h), f = gaze(); f.y = 0; f.normalize(); const dl = d.clone(); dl.y = 0; dl.normalize();
-      return { dist: +d.length().toFixed(3), ahead: +dl.dot(f).toFixed(3), faces: +new V(0, 0, 1).applyQuaternion(O.panelG.quaternion).dot(h.clone().sub(m).normalize()).toFixed(3), p: m.toArray().map(v => +v.toFixed(3)) }; };
+      return { dist: +d.length().toFixed(3), flat: +Math.hypot(d.x, d.z).toFixed(3), ahead: +dl.dot(f).toFixed(3), faces: +new V(0, 0, 1).applyQuaternion(O.panelG.quaternion).dot(h.clone().sub(m).normalize()).toFixed(3), p: m.toArray().map(v => +v.toFixed(3)) }; };
     // the left stick's click (button 3), pressed and let go: open; again: closed; the right stick's the same
     const btn = { pressed: false }, rbtn = { pressed: false };
     X.session.inputSources[1].gamepad = { buttons: [{}, {}, {}, btn], axes: [0, 0, 0, 0], hapticActuators: [] };
@@ -2921,7 +2925,7 @@ try {
     out.pinnedStill = +mid().distanceTo(p1).toFixed(4);
     X.W.head = H0; HOST.collab.panelOpen(false); await steps(3);
     btn.pressed = true; await steps(2); btn.pressed = false; await steps(3);
-    out.again = where(); out.againWant = +Math.hypot(out.pos.d, out.pos.h).toFixed(3);
+    out.again = where(); out.againWant = +out.pos.d.toFixed(3);   // (along the floor: it hangs from its top edge, so its middle's height follows the tab shown)
     HOST.collab.panelOpen(false); localStorage.removeItem('xrMenuAt'); await steps(2);
     btn.pressed = true; await steps(2); btn.pressed = false; await steps(2);
     // hands: a left wrist turned every which way, its ray pointing up (at nothing); the right index fingertip
@@ -2991,7 +2995,7 @@ try {
     hand.closed && hand.stick && hand.float.dist > 0.72 && hand.float.dist < 0.9 && hand.float.ahead > 0.95 && hand.float.faces > 0.95 && Math.abs(hand.pscale - 1.05) < 1e-6 &&
     hand.ids.join() === 'close,tab:story,tab:settings,tab:circles,tab:debug' && hand.stickClosed && hand.rstick && hand.rstickClosed, JSON.stringify(hand));
   check('headset: the grip carries the menu; let go, it stays where it was put (also with the head turned away) and opens there again next time',
-    hand.grab && hand.put && hand.carried > 0.2 && hand.pos.pinned && !!hand.kept && hand.pinnedStill < 1e-3 && Math.abs(hand.again.dist - hand.againWant) < 0.03 && hand.again.faces > 0.95, JSON.stringify(hand));
+    hand.grab && hand.put && hand.carried > 0.2 && hand.pos.pinned && !!hand.kept && hand.pinnedStill < 1e-3 && Math.abs(hand.again.flat - hand.againWant) < 0.03 && hand.again.faces > 0.95, JSON.stringify(hand));
   check('headset: unused, the menu closes by itself; a ray resting on it keeps it open; it stays open while calibrating', hand.idleClosed && hand.idleHeld && hand.idleAfter && hand.idleCalib, JSON.stringify(hand));
   check('headset: the menu stays put as you look about a little and glides back in front once you have turned further', hand.still < 1e-3 && hand.follow.ahead > 0.95 && hand.follow.faces > 0.95, JSON.stringify(hand));
   check('headset: with tracked hands two quick pinches of the left hand pointing at no panel (the scene counts as nothing) open and close the menu (not one, not two slow ones, not the right hand\'s, not the left\'s on the story\'s panel or on the menu)',
@@ -3341,9 +3345,12 @@ try {
   // pressed by mistake: the panel's Stop calibrating still takes the trigger (no mark is taken)
   await H.evaluate(() => { HOST.room.calibrate(); HOST.collab.panelOpen(true); });
   await frames(H, 200);
+  await H.evaluate(() => HOST.collab.menuFind('cal'));   // (under Debug: that tab shown, and drawn, before it is aimed at)
+  await frames(H, 200);
   const stopAt = await H.evaluate(() => {
-    const S = HOST.collab.overlay().panel, r = HOST.collab.menuFind('cal');   // (under Debug)
+    const S = HOST.collab.overlay().panel, r = HOST.collab.menuFind('cal');
     if (!r || !S.mesh.parent.visible) return null;
+    S.mesh.parent.updateMatrixWorld(true);   // (where the menu is now)
     const H = S.mw * S.h / S.w, cx = r.x + r.w / 2, cy = r.y + r.h / 2;
     return S.mesh.localToWorld(new THREE.Vector3((cx / S.w - 0.5) * S.mw, (0.5 - cy / S.vis) * H, 0)).toArray();
   });

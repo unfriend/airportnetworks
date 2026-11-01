@@ -3373,13 +3373,14 @@
   }
 
   // notices: a small panel in front of you that closes by itself ("Aligned automatically", "Calibrate the room")
-  const NOTE = { title: '', text: '', until: 0, sig: '' };
+  const NOTE = { title: '', text: '', until: 0, sig: '' }, NOTES = [];
   function notice(title, text, ms) {
     // (a soft chime from where it shows, a metre ahead; not again for the same notice within 2 s)
     const t = performance.now();
     if (HOST.session && HD.ok && !(NOTE.title === title && t - (NOTE.at || -1e9) < 2000)) sfx('notice', new THREE.Vector3(0, -0.22, -1).applyQuaternion(HD.q).add(HD.p));
     NOTE.at = t;
     NOTE.title = title; NOTE.text = text || ''; NOTE.until = ms === 0 ? Infinity : t + (ms || 4500);
+    NOTES.push({ title, text: NOTE.text }); if (NOTES.length > 8) NOTES.shift();   // (the last few, for tests; kept on this page only)
     log('notice', { title });
   }
   function drawNote(head, hq) {
@@ -5414,7 +5415,7 @@
     get net() { return C.net; }, nearby: () => C.near, findNear: () => nearFind('api'), get nearOn() { return nearShown(); }, setNear: on => setNear(on),
     rejoinable: () => rejoinable(), offer: () => offer(), netAgain: why => netAgain(why || 'api'), pretendNet: w => pretendNet(w), netHash: a => netHash(netName(a)),
     panelOpen(on) { menuOpen(on, 'api'); }, get menu() { return PNL.open; },   // the headset's menu, open or closed
-    lastNote: () => ({ title: NOTE.title || '', text: NOTE.text || '' }),   // (for tests: the notice shown last)
+    notes: () => NOTES.slice(),   // (for tests: the last few notices, oldest first)
     get menuGrab() { return !!MG.src; }, menuPos: () => Object.assign({ pinned: FLOAT.pinned }, FLOAT.pos),   // (the menu carried by the grip; where it opens)
     overlay: () => OV,   // for tests: the overlay's objects (panel, cards, rings and their icons, people)
     subtitles: { split: s => subSplit(s), state: () => SUB },   // for tests: how a line is cut into captions, and where the strip is
