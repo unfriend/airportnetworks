@@ -134,9 +134,16 @@ cities by day 5, 47 by day 10, 676 by day 20, 1,673 by day 30), `cell.api.counts
 
 ## Shared rooms
 
-- Fish: as the flock's `flockSync` (the set has the same `flight`, `follow`, `hush`, `onLaunch`, `shark(f)`; effects
-  `shark` with `{ p, v, aim }` and a quiet `school` twice a second). The school roosts round the station's spot
-  (`see(..., spot)`), moved by the station's sea.
+- Fish: as the flock's `flockSync` (the set has the same `flight`, `follow`, `hush`, `onLaunch`, `shark(f)`, `pack`,
+  `align`; effects `shark` with `{ p, v, aim }`, a quiet `school` twice a second and, from the leader while anyone else
+  is there, a quiet `fishes` three times a second: every fish, which the others take their fish into step with). The
+  school roosts round the station's spot (`see(..., spot)`), moved by the station's sea.
+- Sharks: up to four at once (the owner, 1 November 2026). Be the shark at a station: yours goes to the others as a
+  quiet `steered` about 15 times a second while you steer it or keep it (`{ id, col, at, p, v, e, b }`, where it is
+  drawn now, your colour; `{ id, at, off: 1 }` as you let it go), and theirs are drawn here 120 ms behind their
+  samples, tinted by their colour (the set's `sample`, `clock`, `me`, `mine`). A fifth shark wanted: a passing one is
+  not sent, a steered one takes the oldest passing one's place, and with four steered ones yours is refused and the
+  panel says so (`f.full`).
 - The school's place at a station: `sea` in `collab.state()` (`[x, y, z]`, metres in the station rig's frame, to the
   centimetre, `[0, 0, 0]` until someone moves it; `XR.lifeSt`), always present, so it is the same on every device and
   `apply(state())` gives it back. The grip on the sea at your station moves it (`carrySea`), the shell sends it out

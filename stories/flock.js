@@ -462,7 +462,7 @@ void main() { vec3 d = normalize(vW - cameraPosition);
     // there at once, else every bird gets the same pull (a spring on the middle, damped by the velocity)
     let lx = 0, ly = 0, lz = 0;
     if (FOL) {
-      const e = tSim - FOL.t0, ex = FOL.m[0] + FOL.v[0] * e - gcx, ey = FOL.m[1] + FOL.v[1] * e - gcy, ez = FOL.m[2] + FOL.v[2] * e - gcz;
+      const e = tSim - SIM - FOL.t0, ex = FOL.m[0] + FOL.v[0] * e - gcx, ey = FOL.m[1] + FOL.v[1] * e - gcy, ez = FOL.m[2] + FOL.v[2] * e - gcz;
       if (Math.hypot(ex, ey, ez) > 12) {
         for (let i = 0; i < MAXN; i++) { P[i * 3] += ex; P[i * 3 + 1] += ey; P[i * 3 + 2] += ez; V[i * 3] += FOL.v[0] - gvx; V[i * 3 + 1] += FOL.v[1] - gvy; V[i * 3 + 2] += FOL.v[2] - gvz; }
         gcx += ex; gcy += ey; gcz += ez; CEN[0] += ex; CEN[1] += ey; CEN[2] += ez; ALN = 0;   // (a snapshot's differences from before the move are stale)
@@ -749,16 +749,19 @@ void main() {
   }
   // shared rooms: this flock's flight (its time, middle and velocity), and another's to follow ({ t, m, v } as of
   // now, or null: this one leads; dt: the real time since the last call); hush: no falcons of its own for now
+  // (both as drawn now: the flight's time, middle and velocity; another's as of the moment this flock is drawn at now,
+  // which the steps that follow carry on)
   function flight() {
     const m = middle(); let x = 0, y = 0, z = 0;
     for (let i = 0; i < N; i++) { x += V[i * 3]; y += V[i * 3 + 1]; z += V[i * 3 + 2]; }
-    return { t: tSim + tOff, m, v: [x / N, y / N, z / N] };
+    const v = [x / N, y / N, z / N];
+    return { t: tSim + tOff + acc, m: m.map((c, k) => c + v[k] * acc), v };
   }
   function follow(o, dt) {
-    FOL = o ? { m: o.m, v: o.v, t0: tSim } : null;
+    FOL = o ? { m: o.m, v: o.v, t0: tSim + acc } : null;
     if (!o) return;
     // another leader's time at once; a small drift eased away in real time (a slow device's steps fall behind)
-    const d = o.t - (tSim + tOff);
+    const d = o.t - (tSim + tOff + acc);
     tOff += Math.abs(d) > 2 ? d : d * (1 - Math.exp(-(dt || 0) / 0.8));
   }
   function hush(on) { HUSH = !!on; }
@@ -789,7 +792,7 @@ void main() {
     let s; try { s = atob(o.d); } catch (e) { return false; }
     if (s.length !== N * 9) return false;
     const b = new Uint8Array(s.length); for (let k = 0; k < s.length; k++) b[k] = s.charCodeAt(k);
-    const dv = new DataView(b.buffer), e = clamp(age || 0, 0, 1), TP = new Float32Array(N * 3), TV = new Float32Array(N * 3);
+    const dv = new DataView(b.buffer), e = clamp(age || 0, -0.5, 1), TP = new Float32Array(N * 3), TV = new Float32Array(N * 3);
     for (let i = 0; i < N; i++) for (let c = 0; c < 3; c++) {
       const q = i * 3 + c, v = dv.getInt8(i * 9 + 6 + c) * o.vq;
       TP[q] = o.m[c] + dv.getInt16(i * 9 + c * 2, true) / 100 + v * e; TV[q] = v;
@@ -837,7 +840,7 @@ void main() {
     // how many falcons are in the air (at most MAXF), and how many came so far
     birds: () => N, falconOn: () => count() > 0, falcons: count, most: MAXF, full: () => count() >= MAXF, arrivals: () => BORN, following: () => !!FOL,
     // (falcon: the newest, else the first place; falcons: all four places)
-    state: () => ({ P, V, AL, N, NB, NBC, me: ME, falcon: newest() || FALS[0], falcons: FALS }) });
+    state: () => ({ P, V, AL, N, NB, NBC, me: ME, falcon: newest() || FALS[0], falcons: FALS, lag: acc }) });   // (lag: how far past its last step it is drawn, s)
 };
 
 
@@ -1392,9 +1395,10 @@ function sendFalcon(dir) {
 // pack, about 2.5 KB for 200 birds), which the others take their birds into step with (the set's align, only from the
 // one they follow and with as many birds); only it sends falcons of its own (the story's, now and then; a page new
 // there listens 1.5 s first); a falcon anyone sends goes to everyone, exactly as it starts (falcon), up to four in the
-// air at once. Positions are in the set's frame, whose origin is the station's spot on every device. True while at a
-// station (the flock then roosts round its spot)
-const FSY = { heard: new Map(), sent: 0, last: 0, since: 0, from: 0, packed: 0, lead: '' };
+// air at once. Positions are in the set's frame, whose origin is the station's spot on every device; times (at) are the
+// relay's at the frame they were drawn in (FSY.at: this page's latest; what this page sends goes after the frame's
+// step, flockSend). True while at a station (the flock then roosts round its spot)
+const FSY = { heard: new Map(), sent: 0, last: 0, since: 0, from: 0, packed: 0, pa: 0, pt: 0, pace: 1, lead: '', on: false, at: 0 };
 const r2 = a => a.map(x => Math.round(x * 100) / 100);
 const earlier = (a, b) => a.since < b.since || (a.since === b.since && a.id < b.id);
 function flockSync() {
@@ -1402,23 +1406,36 @@ function flockSync() {
   const pn = performance.now(), gap = FSY.last ? pn - FSY.last : 0;
   FSY.last = pn;
   s.onLaunch = f => HOST.collab.effect('falcon', f);
-  if (!on) { FSY.heard.clear(); FSY.since = 0; FSY.lead = ''; s.hush(false); if (s.following()) s.follow(null); return false; }
-  const now = HOST.collab.now(), me = { id: HOST.collab.id || '', since: FSY.since };
+  FSY.on = on;
+  if (!on) { FSY.heard.clear(); FSY.since = 0; FSY.lead = ''; FSY.at = FSY.pa = 0; FSY.pace = 1; s.hush(false); if (s.following()) s.follow(null); return false; }
+  // (the flock as it is now was drawn in the frame before: at FSY.at; this frame's step brings it to now)
+  const now = HOST.collab.now(), was = FSY.at || now, me = { id: HOST.collab.id || '', since: FSY.since };
+  FSY.at = now;
   if (!FSY.since || gap > 1500) { FSY.since = me.since = Math.round(now); FSY.from = pn; }
-  if (pn - FSY.sent > 500) {
-    FSY.sent = pn;
-    const f = s.flight();
-    HOST.collab.effect('flock', { id: me.id, since: me.since, at: Math.round(now), t: Math.round(f.t * 1000) / 1000, m: r2(f.m), v: r2(f.v) }, true);
-  }
   let lead = null;
   for (const [k, v] of FSY.heard) if (pn - v.got > 2000) FSY.heard.delete(k); else if (earlier(v, me) && (!lead || earlier(v, lead))) lead = v;
   FSY.lead = lead ? lead.id : '';
   s.hush(pn - FSY.from < 1500);
-  if (lead) { const age = clamp((now - lead.at) / 1000, 0, 2); s.follow({ t: lead.t + age, m: lead.m.map((x, j) => x + lead.v[j] * age), v: lead.v }, Math.min(gap, 1000) / 1000); }
+  if (lead) { const age = clamp((was - lead.at) / 1000, 0, 2) * lead.pace; s.follow({ t: lead.t + age, m: lead.m.map((x, j) => x + lead.v[j] * age), v: lead.v }, Math.min(gap, 1000) / 1000); }
   else if (s.following()) s.follow(null);
-  // leading with someone else here: every bird, three times a second
-  if (!lead && FSY.heard.size && pn - FSY.packed > 333) { FSY.packed = pn; HOST.collab.effect('birds', Object.assign({ id: me.id, at: Math.round(now) }, s.pack()), true); }
   return true;
+}
+// what this page sends from a station, after the frame's step (so where things are drawn now, at FSY.at): its flock
+// twice a second, and leading with someone else here, every bird three times a second
+function flockSend() {
+  if (!FSY.on) return;
+  const s = GL.sets.flock, pn = performance.now(), at = Math.round(FSY.at), id = HOST.collab.id || '';
+  // (its pace: simulated seconds a second of the relay's clock, measured over a second; 1 unless its frames come
+  // slower than ten a second, when its steps fall behind: the others carry what it sends on at that pace)
+  const z = s.state(), sim = z.t + (z.lag || 0);
+  if (!FSY.pa || FSY.at - FSY.pa > 1000) { if (FSY.pa) FSY.pace = clamp((sim - FSY.pt) / ((FSY.at - FSY.pa) / 1000), 0.1, 1.2); FSY.pa = FSY.at; FSY.pt = sim; }
+  const pace = Math.round((FSY.pace || 1) * 100) / 100;
+  if (pn - FSY.sent > 500) {
+    FSY.sent = pn;
+    const f = s.flight();
+    HOST.collab.effect('flock', { id, since: FSY.since, at, pace, t: Math.round(f.t * 1000) / 1000, m: r2(f.m), v: r2(f.v) }, true);
+  }
+  if (!FSY.lead && FSY.heard.size && pn - FSY.packed > 333) { FSY.packed = pn; HOST.collab.effect('birds', Object.assign({ id, at, pace }, s.pack()), true); }
 }
 // sound effects, live (the shared block's sfxStep calls this every frame, story and explore mode alike, unless the story is
 // hidden): each falcon's dive and, 0.4 s later, the flock bursting away, heard on every device as it sees that falcon
@@ -1439,9 +1456,9 @@ const v3ok = a => Array.isArray(a) && a.length === 3 && a.every(Number.isFinite)
 function flockEffect(type, d) {
   if (!d || typeof d !== 'object') return;
   if (type === 'flock' && typeof d.id === 'string' && d.id.length < 64 && Number.isFinite(d.since) && Number.isFinite(d.at) && Number.isFinite(d.t) && v3ok(d.m) && v3ok(d.v)) {
-    FSY.heard.set(d.id, { id: d.id, since: d.since, at: d.at, t: d.t, m: d.m, v: d.v, got: performance.now() });
-  } else if (type === 'birds' && typeof d.id === 'string' && d.id && d.id === FSY.lead && Number.isFinite(d.at)) {
-    GL.sets.flock.align(d, clamp((HOST.collab.now() - d.at) / 1000, 0, 1));
+    FSY.heard.set(d.id, { id: d.id, since: d.since, at: d.at, t: d.t, m: d.m, v: d.v, pace: d.pace > 0 && d.pace <= 1.2 ? d.pace : 1, got: performance.now() });
+  } else if (type === 'birds' && typeof d.id === 'string' && d.id && d.id === FSY.lead && Number.isFinite(d.at) && FSY.at) {
+    GL.sets.flock.align(d, clamp((FSY.at - d.at) / 1000, -0.5, 1) * (d.pace > 0 && d.pace <= 1.2 ? d.pace : 1));   // (to where this flock is drawn: at FSY.at)
   } else if (type === 'falcon' && v3ok(d.p) && v3ok(d.v) && (d.aim === null || v3ok(d.aim))) {
     GL.sets.flock.falcon(d); renderScenes();
   }
@@ -2910,6 +2927,7 @@ function frame(now, xrFrame) {
   if (XR.on && !XR.clear) S = Object.assign({}, S, { flock_sky: 0 });   // passthrough: the birds fly in your room
   tellFlock(xr, flockSync());
   updateSets(S, tSet, dt, APP.mode === 'story');
+  flockSend();   // (shared rooms: after the flock's step, so what goes out is where it is drawn now)
   if (xr) xrUpdate(S);
   GL.renderer.render(GL.scene, GL.camera);
   if (!xr) {

@@ -1594,8 +1594,8 @@ What each story shares:
 | mutation | tab, scene, every scene's controls (letters: view, letter or mix; rule: view, rule, start and parent letters; tree: view, tree, how fast letters change, machines; stem: view, numbers (the authors' test or this example), method), the branch length (`time`, to the hundredth), the read-outs and their seed, the branch picked, the pair favour (`w`), the rebuild's seed (never the camera or how far the read-outs have played) | none |
 | topo | tab, scene, every scene's controls (the liver: lifted out, in the body or a slice; the slide: tissue, look, one scale; the tower: view, what is lit; the cohort: view, pieces or loops; the map: show, 50 or 100 µm), the patch's radius (`r`, µm to the hundredth), a cell's network radius (`mr`), the slide picked (`slide`, -1 none), the window of radii (`from`, `to`, on the 0.5 µm grid; `to` 100.5 is "and above"), the cell picked (`cell`, -1 the poster's cell v) | none |
 | soil | tab, scene, every scene's controls (the soil block: view, fertiliser, wheat, DCD; the field: view, date, measure, wheat line, regime; the microbes: view, colour, split by), the module picked (`mod`, -1 none), the threshold (`rho`, to the hundredth), the shuffle (`shuf`, 0 or 1), the kind picked (`kind`, a cloud index, -1 none), the group of plots picked (`plot`, line * 3 + regime, -1 none) | none |
-| pass | tab, scene, every scene's controls but the fish's view (the fish: neighbours watched, links, shark now and then; the globe: view, colour, pillars, outbreak on; the cell: view, organelles, colour, move), the school's size, the outbreak's start (an airport's code) and settings (incubation, infectious days, spread, flights cut), the city looked up, the protein picked, the school's place at a station (`sea`, moved with the grip there) (never the language, the outbreak's day, the steered shark or the sea moved outside a room) | `shark` (as the flock's falcon, in the set's frame), `school` (quiet, twice a second, as the flock's `flock`) |
-| flock | birds, links, falcon | `falcon` (where it starts, its velocity and aim, in the set's frame), `flock` (quiet, twice a second: where the flock is, see the flock's notes) |
+| pass | tab, scene, every scene's controls but the fish's view (the fish: neighbours watched, links, shark now and then; the globe: view, colour, pillars, outbreak on; the cell: view, organelles, colour, move), the school's size, the outbreak's start (an airport's code) and settings (incubation, infectious days, spread, flights cut), the city looked up, the protein picked, the school's place at a station (`sea`, moved with the grip there) (never the language, the outbreak's day, the steered shark or the sea moved outside a room) | `shark` (a passing one, as the flock's falcon, in the set's frame), `school` (quiet, twice a second, as the flock's `flock`), `fishes` (quiet, three times a second from the leader: every fish, as the flock's `birds`), `steered` (quiet, about 15 times a second while someone is the shark: their own shark, see the pass story's notes) |
+| flock | birds, links, falcon | `falcon` (where it starts, its velocity and aim, in the set's frame; up to four in the air), `flock` (quiet, twice a second: where the flock is, see the flock's notes), `birds` (quiet, three times a second from the leader while anyone else is there: every bird, about 2.4 KB for 200) |
 | robots | rule, robots, trails, links | `crumbs` (a pile: in room coordinates in a headset with an aligned frame, else in the station's frame), `dust` |
 | design (not a story) | the prop on the stage (`pick`), and one field per miniature moved by hand (its key: `[x, y, z, qx, qy, qz, qw, s]` in the table's frame, mm, 3 decimals, 2 decimals) | none |
 
@@ -1618,9 +1618,10 @@ Rules that matter most (from `docs/multiplayer.md`):
   likely, and a late timer that wrote into shared element ids once crashed
   the next story.
 - The live simulations run on each device. The robots are not synced (only
-  their controls and effects); the flock follows one device at the station
-  (see the flock's notes). `HOST.collab.effect(type, data, true)` sends a
-  quiet effect: one sent often, kept out of the log on both sides.
+  their controls and effects); the flock and the pass story's school follow one
+  device at the station, bird by bird and fish by fish (see the flock's notes).
+  `HOST.collab.effect(type, data, true)` sends a quiet effect: one sent often,
+  kept out of the log on both sides.
 
 Testing: `node relay/test.mjs` and `node tools/collab.mjs` (see Testing). A new
 story gets the hooks, then an entry in `STORIES` in `tools/collab.mjs`.
@@ -2174,7 +2175,32 @@ contract.
   links; the school's size), Outbreak (pick any airport on the globe, by click,
   ray or search, as the start or to look it up; play, the day, the chart of cities in each state, the settings), Cell
   (a protein's places and partners there, the cell map's seven moves and what each changes) and Scenes. In a shared
-  room the school belongs to the station as the flock does (`fishSync`).
+  room the school belongs to the station as the flock does (`fishSync`), fish by fish (the leader's every fish three
+  times a second, the quiet effect `fishes`: the flock's `birds`).
+- **Up to four sharks at once** (the owner, 31 October and 1 November 2026, after a test with headsets: "if be the
+  shark is on on one player the shark should be shared for all of them"; one or several: "ok lets make it 4"; the
+  set's `MAXS`): passing ones (the story's, Now and then, one sent, one let go and swimming off) and people's own. At
+  a station everyone there sees every shark and every school flees all of them (each fish from each shark within
+  4.5 m, the forces added up; the warning passes on as before). Be the shark there: yours goes to the others as the
+  quiet effect `steered` about 15 times a second while you steer it or keep it (`fishSend`: where it is drawn now, in
+  the set's frame, how it moves and swims, your member id and colour; once more with `off` as you let it go, and it
+  swims off there as here), and theirs are drawn here 120 ms behind their samples (the relay's time, `clock`), between
+  the two samples round that moment (a cubic along their velocities), past the last for at most half a second; with
+  none for 1.5 s it swims off as a passing one does (taken up again if they go on). Each person's shark is tinted
+  with their colour (the shell's member colour: its back takes a little of it and a faint glow of it runs along its
+  edge; it still reads as a shark); passing ones keep the shark's own colours. The fish flee another person's shark
+  where it is now (its drawn place carried on by its velocity for those 120 ms), as its owner's fish do. A fifth
+  shark wanted: a passing one is not sent (Send a shark greyed: *Four sharks already*; the story's and Now and then
+  wait), a steered one (yours, or another person's) takes the place of the oldest passing one, which goes, and with
+  four people's sharks swimming yours is refused and the panel says so (`f.full`: "Four sharks are swimming already.
+  Wait until one swims off." in both languages). Outside a room it works as before (yours, the story's and the ones
+  you send), only now several may swim at once. The school, fish by fish, as the flock's birds (see the flock's
+  notes: `pack`, `align`, `fishSend`; about 3.6 KB for 300 fish, 7.2 KB for 600): measured in Node, a follower 3.7 m
+  off (median) within 0.15 m after 1 s and 3 mm after 3 s, and 2 mm with a shark passing through both; in headless
+  Chromium, three pages drawing in software at 4 to 5 frames a second, a follower's fish 1 to 8 cm from the leader's
+  (median) alone and 4 cm with two people's sharks in the school, and another person's shark drawn on a third page
+  within 0.3 m of where its owner had it 120 ms before. Untested on headsets: how four sharks and their tints look,
+  and how others' sharks and the school feel at these rates over Wi-Fi.
 
 ## The flock (`stories/flock.js`) is built the same way
 
@@ -2218,8 +2244,36 @@ scene list).
   sends falcons of its own (the story's and *Now and then*; a page new at the
   station listens 1.5 s first, the set's `hush`); every falcon,
   also one someone points at the sky, goes out as it starts (`onLaunch`, the
-  effect `falcon`), so all see the same one. The birds still differ in detail;
-  the flock is roughly in the same place.
+  effect `falcon`), so all see the same one; up to four in the air at once (the
+  owner, 1 November 2026: "yes also make it 4 falcons"; the set's `MAXF`: a fifth
+  is not launched, here or from another device, and Send a falcon says *Four
+  falcons already*; Now and then waits while one is in the air), and the birds
+  flee every falcon near them.
+- Bird by bird (the owner, the same day: the birds shared exactly too): while
+  anyone else is at the station the leader also sends every bird three times a
+  second (the quiet effect `birds`, from `flockSend` after the frame's step, so
+  where they are drawn now: the set's `pack`, positions in cm from the flock's
+  middle as 16-bit numbers and velocities in steps of 0.15 m/s as 8-bit ones, 9
+  bytes a bird in base64, about 2.4 KB for 200 and 4.8 KB for 400, well under the
+  relay's 64 KB a message; with presence, `flock` and `birds` a page sends some
+  20 messages a second, under the relay's 60). The others take only the one they
+  follow, with as many birds (the count is in `state()`): each bird's difference
+  from the leader's, carried on by its velocity to the moment this page's flock is
+  drawn at, is taken up frame by frame (`align`: time constant 0.25 s, at most
+  12 m/s, so no bird jumps and the shader's gliding between steps stays smooth),
+  on top of the flock's own flight, which is the same on both, so they stay in
+  step between snapshots; far apart, as on joining, the birds are first paired
+  afresh, each of the leader's with the nearest of ours, ours only renumbered, so
+  none crosses the flock. A bird's own wingbeat and lean are the same on every
+  device (drawn once at the start, by index). Times are the relay's at the frame
+  a thing was drawn in (`FSY.at`; what a page sends goes after its step), and a
+  leader whose frames come slower than ten a second (its steps fall behind) says
+  its pace, which the others carry what it sends on at. Measured: in Node, two
+  flocks 13 m apart (median) within 0.18 m after 1 s and 0.01 m after 3 s; in
+  headless Chromium, three pages drawing in software at 5 to 10 frames a second,
+  0.03 to 0.1 m with no falcon and 0.1 to 0.48 m with two passing (the median
+  distance between a follower's bird and the leader's at the same moment).
+  Untested on headsets.
 - On a screen the camera stands where you do and turns to follow the flock
   (`followView`: a dead zone, eased turns of up to 50 degrees a second; from
   afar it aims at the flock instead and comes round to the view's side at up
@@ -2542,7 +2596,15 @@ three pages in a room follow its station and check play, pause, jumps, mode
 changes and Replay (within 5 s), the relay's clock, the explore state both
 ways and the story's effect (for the robots also the pile's spot and dust, and the
 crumbs' patter on the others; for the flock the same falcon, one page leading, the
-same flight time and the flocks together, and its dive and flutter on the others);
+same flight time and the flocks together, its dive and flutter on the others, two
+falcons sent at once from two pages flying on the third, and the birds shared bird by
+bird: every page records its birds as drawn in each frame for 10 s (the pages made
+small meanwhile, so each draws a few frames a second), and a follower's birds, once it
+has followed the leader for 3 s on end, are within 0.5 m of the leader's at the same
+moment (the median over its frames; too few such frames are said so, not judged); for
+the pass story two pages being the shark, both their sharks swimming on the third in
+their owners' colours and swimming off once let go, and the school shared fish by fish
+the same way, with the two sharks in it);
 on the first story followed, also its sound cues (every page playing the same cues at
 the same moment, each every cue its own frames reach, none twice: a cue more than 1.5 s
 late is dropped by design, and three pages drawing in software can draw a frame only

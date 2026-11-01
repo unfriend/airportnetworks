@@ -254,6 +254,7 @@ function frame(now, xrFrame) {
   if (XR.on && !XR.clear) S = Object.assign({}, S, { flock_sky: 0 });   // passthrough: the birds fly in your room
   tellFlock(xr, flockSync());
   updateSets(S, tSet, dt, APP.mode === 'story');
+  flockSend();   // (shared rooms: after the flock's step, so what goes out is where it is drawn now)
   if (xr) xrUpdate(S);
   GL.renderer.render(GL.scene, GL.camera);
   if (!xr) {

@@ -26,14 +26,15 @@ and seeking the story only changes the params.
   one neighbour each, 16 groups, local order 0.52, 3.4 m spread (it falls apart within about 10 s); 40 s after going back
   to seven, one school again (86 %). Tuned to look right: the numbers (speeds, distances, the warning's pace) are not
   measured on real fish.
-- **Shark**: a body of its own (`sharkGeo`, one mesh, one draw call, about 1,100 triangles; its own shader): 2.3 m from
+- **Sharks**: up to four at once (`MAXS`, the owner's choice, 1 November 2026), each a body of its own (`sharkGeo`, one
+  geometry; one mesh and one material per shark, the same program; about 1,100 triangles each): 2.3 m from
   the snout to the tip of the tail, a torpedo lofted from a profile (`PROF`: a conical snout, widest a third of the way
   back, a slim tail stalk, a little flatter underneath), a tall swept-back first dorsal fin and a small second one, long
   pectoral fins swept back and down, small pelvic and anal fins, and a crescent tail whose upper lobe is the longer.
   Counter-shaded (a blue-grey back down to an uneven line along the flank, a pale belly; fins dark, pale seen from
   below), five gill slits on each flank as darker bands, small dark eyes, a faint mouth line underneath, a sheen from
   the surface and a faint rim against deep water; in passthrough no rim and no fog. It swims heavily (`poseShark`, every
-  frame): a slow wave runs back along the body, its sway growing towards the tail (the head nearly still, the tail
+  frame, `poseSharks`): a slow wave runs back along the body, its sway growing towards the tail (the head nearly still, the tail
   about 13 cm each way), the tail beating about 0.8 times a second at 2.4 m/s and faster (up to about 1.6) as it speeds
   up or turns hard; it banks into turns and never stands on its nose (pitch within 0.5 rad). It comes in from 22 m at
   3.2 m/s, homes on the school's main body (or first on where it was sent), bursts through at 5 m/s, then swims away,
@@ -49,8 +50,16 @@ and seeking the story only changes the params.
   crosses your view); its way bends round your head 3-4 m off and a burst that would bring it nearer is given up.
   Steered again, it comes back to your point; `hold(false)` (being the shark off, another tab, the story) sends it off
   as a passing shark goes. Measured in `test-sets.mjs`: in 90 s 7 passes through the school, within 12 m of you 95 % of
-  the time, never nearer your head than 3.3 m; gone 8 s after `hold(false)`. A shark from another device (`shark(f)`)
-  does not replace one you are steering or keeping.
+  the time, never nearer your head than 3.3 m; gone 8 s after `hold(false)`. A passing shark from another device
+  (`shark(f)`) swims beside yours. Each shark has a kind: `pass` (passing: the story's, now and then, one sent, one from
+  another device, or one let go and swimming off), `mine` (yours: steered or kept) or `far` (another person's own in a
+  shared room, drawn from their samples: `sample`). Four swimming: a passing one is not sent (`scatter` and `shark`
+  give false; now and then waits), a steered one (yours or another person's) takes the place of the oldest passing one
+  (which goes), and with no passing one among the four a steered one is refused (yours: `steer` gives false and
+  `refused()` is true for 2 s; the panel says "Four sharks are swimming already"). A shark with an owner (`mine` in a
+  room, `far`) is tinted by their colour: its back takes a little of it (`uTint`, `uTk`) and a faint glow of it runs
+  along its edge; it still reads as a shark. Fish flee each shark within reach (the forces add up), another person's
+  where it is now (its drawn place carried on by its velocity for `DELAY`), as its owner's fish flee it.
 - **Network**: each fish's link to the fish it watches (cyan, additive, fainter with distance from you), warming to
   white where the warning is.
 - **Passthrough** (`fish_water` below 0.5): the water, light, seabed and specks are hidden and the school swims in your
@@ -82,20 +91,36 @@ Suggested story keys: chapter 1 the defaults; chapter 2 `fish_links` 0 -> 1 at +
 room: the school stays round the station's spot, this frame's origin, which the engine moves with the station's sea,
 the same for everyone there; `[x, z]`: round that point instead, the engine's way of keeping the school where you moved
 the sea outside a room). `hold(on)`: explore's "be the shark" is on (every frame): a shark let go stays;
-`kept()`: one is cruising. `steer(p)`: the shark chases `p` (set frame) until `steer(null)`.
-`scatter(dir)`: send a shark where `dir` points (from the head; none: from anywhere); false while one is about. Shared
-rooms, as the flock's: `flight()` `{ t, m, v }`, `follow(o, dt)`, `hush(on)`, `following()`, `onLaunch` (set by the
-engine: hears each shark launched here as `{ p, v, aim }`), `shark(f)` (launch exactly that one); `falcon` and
-`falconOn` are the same as `shark` and `sharkOn`, so the flock engine's code ports as it is. `sharkOn()`, `fish()`,
-`neighbours()`, `state()` and `watch(f)` (hear each fish the warning reaches) for tests. `setLang('en' | 'de')`.
+`kept()`: yours is cruising. `steer(p)`: yours chases `p` (set frame) until `steer(null)` (false: refused, four
+swim). `scatter(dir)`: send a passing shark where `dir` points (from the head; none: from anywhere); false while four
+swim. `sharkOn()` (any), `sharks()` (how many), `most` (4), `full()`, `refused()`, `arrivals()` (sharks so far, of
+every kind: the engine's sounds). Shared rooms, as the flock's: `flight()` `{ t, m, v }` (as drawn now: `t` and `m`
+carried on by the time since the last step), `follow(o, dt)` (`o` as of the moment the school is drawn at now),
+`hush(on)`, `following()`, `onLaunch` (set by the engine: hears each passing shark launched here as `{ p, v, aim }`),
+`shark(f)` (launch exactly that one, beside any others); `falcon` and `falconOn` are the same as `shark` and
+`sharkOn`, so the flock engine's code ports as it is. Others' own sharks: `clock(now)` (the relay's time, ms, every
+frame at a station; `null`: away from it, and the others' sharks swim off), `sample(id, o)` (one of their samples,
+`{ at, p, v, e, b, col }` or `{ at, off: true }`: drawn `DELAY`, 120 ms, behind the relay's time between the two
+samples round it, a cubic along their velocities, on its way for at most 0.5 s past the last one; quiet for 1.5 s or
+`off`, it swims off as a passing one does, taken up again if their samples go on), `me(id, col)` (who you are: your
+shark is tinted with your colour in a room), `mine()` (yours as drawn now, `{ p, v, e, b }`, or null; for the
+others). The school fish by fish: `pack()` (every fish as drawn now: `{ n, m, vq, d }`, positions in cm from the
+middle as 16-bit numbers and velocities in steps of `vq`, 0.05 m/s, as 8-bit ones, 9 bytes a fish in base64; about
+3.6 KB for 300 fish) and `align(o, age)` (on a follower, with as many fish: the leader's fish carried on by their
+velocity for `age` s, each fish's difference taken up frame by frame, time constant 0.25 s, at most 4 m/s; most fish
+more than 0.5 m off, as on joining, the fish are first paired afresh, each of the leader's with the nearest of ours not
+yet taken, ours only renumbered). A fish's own pace and phase (`GR`, `PH`) are drawn once at the start, the same on
+every device, so a fish that joins later takes its index's. `fish()`, `neighbours()`, `state()` (with `sharks`, all
+four places, `shark`, yours or else the newest, and `lag`, how far past its last step the school is drawn) and
+`watch(f)` (hear each fish the warning reaches) for tests. `setLang('en' | 'de')`.
 `hunted(h)`: count `fish_hunt` as passed up to `h` without sending a shark (the engine, on a jump well past the story's
 shark).
 
 ## Anchors, labels, views, controls
 
 Anchors `school` (0.6 m above the middle of the school's main body: a mean shift over the fish within 4 m) and `shark`
-(0.75 m above it: just over its dorsal fin). Label: **Shark** / **Hai** (amber) while it comes in (never on a steered
-or kept shark). Views: `default` [0, -6, 0.25, 0, 1.6, 0] (floating where you
+(0.75 m above the newest shark: just over its dorsal fin). Label: **Shark** / **Hai** (amber) while the newest, a
+passing one, comes in (never on a steered or kept shark). Views: `default` [0, -6, 0.25, 0, 1.6, 0] (floating where you
 are, looking ahead; the engine turns it to the school, as the flock's `followView`), `up` (to the light), `near`
 [25, 10, 8, 0, 1.6, -4] (from just outside the school: each fish and its links apart; aim at `school`), `afar` [25, 10, 13, 0, 1.6, -4] (the whole school from outside; aim at `school`), `above` [0, 80, 40, 0, 1.6, -4] (looking down
 from above the surface). Controls (getter, in the set's language): View (Follow the school, Look around, From afar),

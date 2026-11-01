@@ -560,7 +560,7 @@ void main() {
     let s; try { s = atob(o.d); } catch (e) { return false; }
     if (s.length !== N * 9) return false;
     const b = new Uint8Array(s.length); for (let k = 0; k < s.length; k++) b[k] = s.charCodeAt(k);
-    const dv = new DataView(b.buffer), e = clamp(age || 0, 0, 1), TP = new Float32Array(N * 3), TV = new Float32Array(N * 3);
+    const dv = new DataView(b.buffer), e = clamp(age || 0, -0.5, 1), TP = new Float32Array(N * 3), TV = new Float32Array(N * 3);
     for (let i = 0; i < N; i++) for (let c = 0; c < 3; c++) {
       const q = i * 3 + c, v = dv.getInt8(i * 9 + 6 + c) * o.vq;
       TP[q] = o.m[c] + dv.getInt16(i * 9 + c * 2, true) / 100 + v * e; TV[q] = v;
@@ -608,5 +608,5 @@ void main() {
     // how many falcons are in the air (at most MAXF), and how many came so far
     birds: () => N, falconOn: () => count() > 0, falcons: count, most: MAXF, full: () => count() >= MAXF, arrivals: () => BORN, following: () => !!FOL,
     // (falcon: the newest, else the first place; falcons: all four places)
-    state: () => ({ P, V, AL, N, NB, NBC, me: ME, falcon: newest() || FALS[0], falcons: FALS }) });
+    state: () => ({ P, V, AL, N, NB, NBC, me: ME, falcon: newest() || FALS[0], falcons: FALS, lag: acc }) });   // (lag: how far past its last step it is drawn, s)
 };

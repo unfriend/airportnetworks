@@ -310,6 +310,7 @@ function frame(now, xrFrame) {
   GL.sets.fish.hold(sharking());   // (be the shark: a shark let go stays while it is on)
   tellFish(xr, fishSync());
   updateSets(S, tSet, dt, APP.mode === 'story');
+  fishSend();   // (shared rooms: after the school's step, so what goes out is where it is drawn now)
   // what explore mode asked to do once the sets show its pick
   if (NEXT.length) { const fs = NEXT.splice(0); if (APP.mode === 'explore') for (const f of fs) f(); }
   if (xr) xrUpdate(S);

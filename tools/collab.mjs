@@ -111,6 +111,51 @@ const STORIES = {
     change: "pickTab('outbreak'); setStart('LHR'); setOut('inc', 3); setOut('cut', 50); selectCity('SYD'); XR.lifeSt.set(0.4, -0.3, 1.25)",
     back: "selectProtein('RELA'); setMove('nfkb'); setFishK(3); setFishN(450); pickTab('fish'); XR.lifeSt.set(-1.5, 0.2, 0)",
     effect: { quiet: "setCtl('fish', 'shark', 'off')", idle: '!GL.sets.fish.sharkOn()', send: 'sendShark(null)', seen: 'GL.sets.fish.sharkOn()' },
+    // up to four sharks (the owner, 1 November 2026): A and B being the shark, both their sharks swim on C, each in its
+    // owner's colour; and the school is shared fish by fish: every page records its fish as drawn in each frame (the
+    // frame's relay time, FSY.at), and each frame of a follower is compared with the leader's two round it
+    async more(A, B, C) {
+      const ids = await Promise.all([A, B].map(p => p.evaluate(() => HOST.collab.id)));
+      for (const [k, p] of [A, B].entries()) {
+        await peek(p, 'setShark(true)');
+        await p.evaluate(k => { window.__steer = setInterval(() => { const f = HOST.cur.peek('GL.sets.fish'), c = f.state().centre, t = performance.now() / 1000; f.steer([c[0] + 2.5 * Math.cos(t * 0.8 + k * 3), c[1] + 0.3 * k, c[2] + 2.5 * Math.sin(t * 0.8 + k * 3)]); }, 50); }, k);
+      }
+      const farOn = 'GL.sets.fish.state().sharks.filter(H => H.on && H.kind === "far")';
+      const two = await until(C, ([ids, q]) => HOST.cur.peek(q).map(H => H.who + (/^#/.test(H.col) ? '' : '?')).sort().join() === ids.slice().sort().join(), [ids, farOn], 8000);
+      check('pass: two people being the shark: both their sharks swim on a third page, each in its owner\'s colour', two, JSON.stringify(await peek(C, `${farOn}.map(H => [H.who, H.col])`)));
+      const meds = [];
+      // (smaller pages while it records: three drawing the sea in software here can fall to a frame a second, too few to keep a leader)
+      const size = A.viewportSize();
+      for (const p of [A, B, C]) await p.setViewportSize({ width: 320, height: 200 });
+      await sleep(2000);
+      await Promise.all([A, B, C].map(p => p.evaluate(() => { const R = window.__rec = { f: [], id: HOST.collab.id }; const tick = () => { if (window.__rec !== R) return; const at = HOST.cur.peek('FSY.at'), s = HOST.cur.peek('GL.sets.fish');
+        if (at && (!R.f.length || R.f[R.f.length - 1].at !== at)) { const z = s.state(), l = z.lag || 0; R.f.push({ at, lead: HOST.cur.peek('FSY.lead'), P: Array.from(z.P.subarray(0, z.N * 3), (x, i) => x + z.V[i] * l) }); }
+        requestAnimationFrame(tick); }; requestAnimationFrame(tick); })));
+      await sleep(10000);
+      const recs = await Promise.all([A, B, C].map(p => p.evaluate(() => { const R = window.__rec; window.__rec = null; return R; })));
+      for (const p of [A, B, C]) await p.setViewportSize(size);
+      // (the leader: the page the others follow in most of their frames; only its frames while it leads and theirs while
+      // they follow it count, as pages drawing a frame every few seconds here can lose the lead for a moment)
+      const votes = {}; for (const r of recs) for (const x of r.f) if (x.lead) votes[x.lead] = (votes[x.lead] || 0) + 1;
+      const lid = Object.keys(votes).sort((x, y) => votes[y] - votes[x])[0];
+      const L = recs.find(r => r.id === lid), Lf = L ? L.f.filter(x => !x.lead) : [];
+      // (and a follower's frames only once it has followed it for 3 s on end: after losing it, it glides back at 4 m/s)
+      const steady = F => { let t0 = null; return F.f.filter(x => { if (x.lead !== lid) { t0 = null; return false; } if (t0 === null) t0 = x.at; return x.at - t0 >= 3000; }); };
+      if (L) for (const F of recs.filter(r => r !== L)) for (const f of steady(F)) {
+        const k = Lf.findIndex((a, j) => j + 1 < Lf.length && a.at <= f.at && Lf[j + 1].at >= f.at), a = Lf[k], b = Lf[k + 1];
+        if (k < 0 || a.P.length !== f.P.length || b.at - a.at > 1500) continue;
+        const u = b.at > a.at ? (f.at - a.at) / (b.at - a.at) : 0, d = [];
+        for (let i = 0; i < f.P.length / 3; i++) d.push(Math.hypot(...[0, 1, 2].map(c => f.P[i * 3 + c] - (a.P[i * 3 + c] + (b.P[i * 3 + c] - a.P[i * 3 + c]) * u))));
+        meds.push(d.sort((x, y) => x - y)[d.length >> 1]);
+      }
+      const ms = meds.sort((x, y) => x - y), mm = ms[ms.length >> 1];
+      // (pages too slow to keep a leader here, a frame every few seconds, are said so and not judged)
+      if (ms.length < 4) console.log(`     (pass: too few frames to judge the school: ${ms.length} steady follower frames in 10 s)`);
+      check('pass: the school is shared fish by fish (with two sharks in it): a follower\'s fish within 0.5 m of the leader\'s (median)', !!L && (ms.length < 4 || mm < 0.5),
+        `median over ${ms.length} follower frames ${mm === undefined ? '-' : mm.toFixed(3)} m, 90th percentile ${ms.length ? ms[Math.floor(ms.length * 0.9)].toFixed(3) : '-'} m`);
+      for (const p of [A, B]) await p.evaluate(() => { clearInterval(window.__steer); HOST.cur.peek('setShark(false)'); });
+      check('pass: let go, their sharks swim off on the third page', await until(C, q => !HOST.cur.peek(q).length, farOn, 6000));
+    },
   },
   ovary: {
     change: "selectKind('follicle'); setAge(60); setMethod('seg')",
@@ -164,6 +209,41 @@ const STORIES = {
       check('flock: one page at the station leads, the others follow it', f.filter(x => x.lead).length === 1, show);
       check('flock: every page flies on the leader\'s flight time', Math.max(...f.map(x => x.t)) - Math.min(...f.map(x => x.t)) < 0.6, show);
       check('flock: the flocks fly together (their middles within 5 m)', d(f[0], f[1]) < 5 && d(f[0], f[2]) < 5, show);
+      // up to four falcons (the owner, 1 November 2026): two sent at once from two pages fly on the third; and the birds
+      // are shared bird by bird: every page records its birds as drawn in each frame (the frame's relay time, FSY.at),
+      // and each frame of a follower is compared with the leader's two round it
+      await peek(A, 'sendFalcon(null)'); await peek(B, 'sendFalcon([0, 0.4, -1])');
+      check('flock: two falcons at once, sent from two pages, fly on the third', await until(C, () => HOST.cur.peek('GL.sets.flock.falcons()') === 2, null, 5000), String(await peek(C, 'GL.sets.flock.falcons()')));
+      const meds = [];
+      // (smaller pages while it records: three drawing the sky in software here can fall to a frame a second, too few to keep a leader)
+      const size = A.viewportSize();
+      for (const p of [A, B, C]) await p.setViewportSize({ width: 320, height: 200 });
+      await sleep(2000);
+      await Promise.all([A, B, C].map(p => p.evaluate(() => { const R = window.__rec = { f: [], id: HOST.collab.id }; const tick = () => { if (window.__rec !== R) return; const at = HOST.cur.peek('FSY.at'), s = HOST.cur.peek('GL.sets.flock');
+        if (at && (!R.f.length || R.f[R.f.length - 1].at !== at)) { const z = s.state(), l = z.lag || 0; R.f.push({ at, lead: HOST.cur.peek('FSY.lead'), P: Array.from(z.P.subarray(0, z.N * 3), (x, i) => x + z.V[i] * l) }); }
+        requestAnimationFrame(tick); }; requestAnimationFrame(tick); })));
+      await sleep(10000);
+      const recs = await Promise.all([A, B, C].map(p => p.evaluate(() => { const R = window.__rec; window.__rec = null; return R; })));
+      for (const p of [A, B, C]) await p.setViewportSize(size);
+      // (the leader: the page the others follow in most of their frames; only its frames while it leads and theirs while
+      // they follow it count, as pages drawing a frame every few seconds here can lose the lead for a moment)
+      const votes = {}; for (const r of recs) for (const x of r.f) if (x.lead) votes[x.lead] = (votes[x.lead] || 0) + 1;
+      const lid = Object.keys(votes).sort((x, y) => votes[y] - votes[x])[0];
+      const L = recs.find(r => r.id === lid), Lf = L ? L.f.filter(x => !x.lead) : [];
+      // (and a follower's frames only once it has followed it for 3 s on end: after losing it, it glides back at 4 m/s)
+      const steady = F => { let t0 = null; return F.f.filter(x => { if (x.lead !== lid) { t0 = null; return false; } if (t0 === null) t0 = x.at; return x.at - t0 >= 3000; }); };
+      if (L) for (const F of recs.filter(r => r !== L)) for (const fr of steady(F)) {
+        const k = Lf.findIndex((a, j) => j + 1 < Lf.length && a.at <= fr.at && Lf[j + 1].at >= fr.at), a = Lf[k], b = Lf[k + 1];
+        if (k < 0 || a.P.length !== fr.P.length || b.at - a.at > 1500) continue;
+        const u = b.at > a.at ? (fr.at - a.at) / (b.at - a.at) : 0, dd = [];
+        for (let i = 0; i < fr.P.length / 3; i++) dd.push(Math.hypot(...[0, 1, 2].map(c => fr.P[i * 3 + c] - (a.P[i * 3 + c] + (b.P[i * 3 + c] - a.P[i * 3 + c]) * u))));
+        meds.push(dd.sort((x, y) => x - y)[dd.length >> 1]);
+      }
+      const ms = meds.sort((x, y) => x - y), mm = ms[ms.length >> 1];
+      // (pages too slow to keep a leader here, a frame every few seconds, are said so and not judged)
+      if (ms.length < 4) console.log(`     (flock: too few frames to judge the birds: ${ms.length} steady follower frames in 10 s)`);
+      check('flock: the birds are shared bird by bird (two falcons passing): a follower\'s birds within 0.5 m of the leader\'s (median)', !!L && (ms.length < 4 || mm < 0.5),
+        `median over ${ms.length} follower frames ${mm === undefined ? '-' : mm.toFixed(3)} m, 90th percentile ${ms.length ? ms[Math.floor(ms.length * 0.9)].toFixed(3) : '-'} m`);
     },
   },
 };

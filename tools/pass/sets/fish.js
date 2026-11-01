@@ -955,7 +955,7 @@ void main() {
     let s; try { s = atob(o.d); } catch (e) { return false; }
     if (s.length !== N * 9) return false;
     const b = new Uint8Array(s.length); for (let k = 0; k < s.length; k++) b[k] = s.charCodeAt(k);
-    const dv = new DataView(b.buffer), e = clamp(age || 0, 0, 1), TP = new Float32Array(N * 3), TV = new Float32Array(N * 3);
+    const dv = new DataView(b.buffer), e = clamp(age || 0, -0.5, 1), TP = new Float32Array(N * 3), TV = new Float32Array(N * 3);
     for (let i = 0; i < N; i++) for (let c = 0; c < 3; c++) {
       const q = i * 3 + c, v = dv.getInt8(i * 9 + 6 + c) * o.vq;
       TP[q] = o.m[c] + dv.getInt16(i * 9 + c * 2, true) / 100 + v * e; TV[q] = v;
@@ -1008,7 +1008,7 @@ void main() {
     falcon: arrive, falconOn: () => count() > 0, kept: () => { const H = mineOf(); return !!H && H.cruise; },
     setLang: l => { LANG = l === 'de' ? 'de' : 'en'; },
     // (shark: yours, else the newest; sharks: all four places)
-    state: () => ({ P, V, AL, FL, N, NB, NBC, KN, KMAX, me: ME, shark: mineOf() || newest() || SHS[0], sharks: SHS, centre: CEN, t: tSim }), watch: f => { WATCH = f; } });
+    state: () => ({ P, V, AL, FL, N, NB, NBC, KN, KMAX, me: ME, shark: mineOf() || newest() || SHS[0], sharks: SHS, centre: CEN, t: tSim, lag: acc }), watch: f => { WATCH = f; } });
   Object.defineProperty(out, 'controls', { get: () => CTL[LANG], enumerable: true });
   return out;
 };

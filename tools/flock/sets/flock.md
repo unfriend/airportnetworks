@@ -24,19 +24,28 @@ the params and the time.
   (2.6 m) and hands (2.2 m) a wide berth, and bank into turns. Measured over two minutes from where you stand: the
   flock is 8-29 m away (median 19), its bearing changes by about 18 degrees a second (median) and turns back about
   every ten seconds.
-- **Falcon**: a larger bird that comes in fast from about 70 m, homes on the flock's main body (or first on where it
-  was sent), stoops once straight through it and climbs away (about 10 s; never below 2 m). Birds within 8 m flee and
-  raise the alarm; alarm passes from
+- **Falcons**: up to four at once (`MAXF`, the owner's choice, 1 November 2026; a fifth is not launched, here or from
+  another device: `scatter` gives false, `falcon(f)` null), drawn in one batch. Each a larger bird that comes in fast
+  from about 70 m, homes on the flock's main body (or first on where it
+  was sent), stoops once straight through it and climbs away (about 10 s; never below 2 m). Birds within 8 m of a
+  falcon flee it (the forces of several add up) and raise the alarm; alarm passes from
   neighbour to neighbour, a little weaker each time, at the pace of a turn, so a wave runs through the flock: alarmed
-  birds fly faster and all bank the same way (a dark band). It comes by itself every 40-80 s when `flock_falcon` is
-  on, whenever `flock_hunt` passes a whole number, or when sent (`scatter`).
+  birds fly faster and all bank the same way (a dark band). One comes by itself every 40-80 s when `flock_falcon` is
+  on (while no other is in the air), whenever `flock_hunt` passes a whole number, or when sent (`scatter`).
 - **Shared rooms**: `see(head, hands, spot)` with `spot` true makes the flock roost round this frame's origin (the
   station's spot) instead of round the viewer. `flight()` gives `{ t, m, v }` (its flight time, middle and mean
-  velocity); `follow({ t, m, v })` takes another flock's flight time and steers the whole flock to its middle (all
+  velocity, as drawn now); `follow({ t, m, v })` (as of the moment the flock is drawn at now) takes another flock's
+  flight time and steers the whole flock to its middle (all
   at once when more than 12 m off; `null`: lead again; a second argument, the real time since the last call, eases
   the time), and while following, or hushed (`hush(true)`: new at a station), the set sends no falcons of its own.
   `onLaunch(f)` (set by the engine) hears every falcon launched here as `{ p, v, aim }`; `falcon(f)` launches
-  exactly that one (from another device).
+  exactly that one (from another device). Bird by bird: `pack()` (every bird as drawn now: `{ n, m, vq, d }`,
+  positions in cm from the middle as 16-bit numbers and velocities in steps of `vq`, 0.15 m/s, as 8-bit ones, 9 bytes
+  a bird in base64; about 2.4 KB for 200 birds) and `align(o, age)` (on a follower, with as many birds: the leader's
+  birds carried on by their velocity for `age` s, each bird's difference taken up frame by frame, time constant
+  0.25 s, at most 12 m/s; most birds more than 2 m off, as on joining, the birds are first paired afresh, each of the
+  leader's with the nearest of ours not yet taken, ours only renumbered). A bird's own wingbeat and lean (`PH`, `GR`)
+  are drawn once at the start, the same on every device, so a bird that joins later takes its index's.
 - **Network**: each bird's link to the seven it follows (cyan, additive; fainter with distance).
 
 ## Params
@@ -53,14 +62,15 @@ the params and the time.
 ## Exports beyond the set contract
 
 `see(head, hands)`: where the viewer is, in the set's frame (the engine calls it every frame). `scatter(dir)`: send a
-falcon where `dir` points (none: from anywhere); false while one is hunting. `birds()`, `falconOn()`, `state()` (for
-tests).
+falcon where `dir` points (none: from anywhere); false while four are in the air. `birds()`, `falconOn()` (any),
+`falcons()` (how many), `most` (4), `full()`, `arrivals()` (falcons so far: the engine's sounds), `state()` (for tests;
+`falcon` the newest, `falcons` all four places, `lag` how far past its last step the flock is drawn).
 
 ## Anchors, labels, views, controls
 
 Anchors `flock` (3 m above the middle of the flock's main body: a mean shift over the birds within 9 m, so a flock
-split by the falcon is not looked for in the empty sky between its parts) and `falcon`. Label: **Falcon** (amber)
-while it comes in. Views: `default` [0, -26, 0.25, 0, 1.6, 0] (standing where you do, looking a little up; the engine
+split by the falcon is not looked for in the empty sky between its parts) and `falcon` (the newest). Label: **Falcon**
+(amber) while the newest comes in. Views: `default` [0, -26, 0.25, 0, 1.6, 0] (standing where you do, looking a little up; the engine
 turns it to the flock), `up` (looking up), `afar` [20, 6, 17, 0, 9, -4] (the engine aims it at the flock). Controls: View (Follow the flock,
 Look around, From afar), Birds (200, 100, 400), Network (Off, Who follows whom), Falcon (Now and then, Off).
 
