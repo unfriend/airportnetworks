@@ -1486,8 +1486,9 @@ reference, `tools/flock/engine/`):
 
 - `collab: { APP, scene: () => (LOAD.done ? GL.scene : null), state, apply, view, setView, effect, hover, panel, place }`
   in its returned object (`scene()` is null until the story is all built, so the shell attaches to it, applies the
-  room's clock and state and hangs its overlay only then): `APP` is its own clock object, `effect(type, data)`
-  plays a one-shot effect another person caused (without sending it again),
+  room's clock and state and hangs its overlay only then): `APP` is its own clock object, `effect(type, data, by)`
+  plays a one-shot effect another person caused (without sending it again; `by`, since v103, is their member id as the
+  relay or the host says, which a story trusts over anything in the data),
   `hover(i)` is how far controller i's ray reaches now (or 0), `panel(p, yaw, q)`
   puts the story panel where another person moved it (upright at `yaw`, or
   held at the turn `q` while free moving is on), `place(o, s, q)` the scene
@@ -2249,9 +2250,14 @@ scene list).
   also one someone points at the sky, goes out as it starts (`onLaunch`, the
   effect `falcon`), so all see the same one; up to four in the air at once (the
   owner, 1 November 2026: "yes also make it 4 falcons"; the set's `MAXF`: a fifth
-  is not launched, here or from another device, and Send a falcon says *Four
-  falcons already*; Now and then waits while one is in the air), and the birds
-  flee every falcon near them.
+  is not launched here, and Send a falcon says *Four falcons already*; one from
+  another device takes the place of the oldest, so two devices that each sent a
+  fourth at once, or one still flying a falcon gone elsewhere, end with the same
+  four; Now and then waits while one is in the air), and the birds
+  flee every falcon near them. Every value from another device is bounded
+  (positions and velocities under 10 km in size, a snapshot whose fish or birds
+  would not be finite is ignored), and who sent an effect is the relay's word for
+  it (the shell passes it to the story's `effect(type, data, by)`), not its data's.
 - Bird by bird (the owner, the same day: the birds shared exactly too): while
   anyone else is at the station the leader also sends every bird three times a
   second (the quiet effect `birds`, from `flockSend` after the frame's step, so

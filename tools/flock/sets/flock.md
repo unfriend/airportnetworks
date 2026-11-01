@@ -24,8 +24,9 @@ the params and the time.
   (2.6 m) and hands (2.2 m) a wide berth, and bank into turns. Measured over two minutes from where you stand: the
   flock is 8-29 m away (median 19), its bearing changes by about 18 degrees a second (median) and turns back about
   every ten seconds.
-- **Falcons**: up to four at once (`MAXF`, the owner's choice, 1 November 2026; a fifth is not launched, here or from
-  another device: `scatter` gives false, `falcon(f)` null), drawn in one batch. Each a larger bird that comes in fast
+- **Falcons**: up to four at once (`MAXF`, the owner's choice, 1 November 2026; a fifth is not launched here:
+  `scatter` gives false, `falcon(f)` null; one from another device, `falcon(f, true)`, takes the oldest's place, so every
+  device keeps the same four), drawn in one batch. Each a larger bird that comes in fast
   from about 70 m, homes on the flock's main body (or first on where it
   was sent), stoops once straight through it and climbs away (about 10 s; never below 2 m). Birds within 8 m of a
   falcon flee it (the forces of several add up) and raise the alarm; alarm passes from
