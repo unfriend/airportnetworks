@@ -1182,7 +1182,8 @@ and the cards' setting, `cards`, joined `look` in v100). The plan is `docs/share
   (once per room: its Stations section says "None yet: Arrange all puts every story in front of you"). The notices
   say how to open it and under which tab (`menuWhere`). `HOST.collab.panelOpen(on)`, `HOST.collab.menu`,
   `menuTab(t)`, `menuIdle(ms)`, `menuFind(id)` (a button on whichever tab has it, that tab shown), `menuIds()`
-  (every tab's buttons), `menuGrab` (held by the grip) and `menuPos()` (`{ d, h, pinned }`) are for tests.
+  (every tab's buttons), `menuGrab` (held by the grip), `menuPos()` (`{ d, h, pinned }`) and `notes()` (the last eight notices
+  shown, titles and texts, kept on the page only) are for tests.
 - Other people in a headset (`drawPeople`: from their presence, in room
   coordinates: their rays and the dots at their ends, a name tag over the head,
   and in VR or for someone elsewhere a simple head and hands) are drawn only
