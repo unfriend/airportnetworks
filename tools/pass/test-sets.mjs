@@ -1,6 +1,8 @@
 // Checks the pass story's sets without a browser (three.js runs in Node for building; nothing is drawn): the outbreak
 // is the same for the same start and settings, its series add up, fewer flights slow it; the fish school holds with
-// seven neighbours and falls apart with one, and its warning outruns the shark; the cell's moves and API.
+// seven neighbours and falls apart with one, and its warning outruns the shark; up to four sharks at once (passing
+// ones, yours, others' drawn from their samples), and a follower's school taken into step with a leader's snapshots;
+// the cell's moves and API.
 // usage (from the repository root, after node tools/pass/build.mjs): node tools/pass/test-sets.mjs [globe|fish|cell ...]
 import fs from 'fs';
 import path from 'path';
@@ -13,7 +15,7 @@ const want = k => !only.length || only.includes(k);
 // a page without a page: a canvas whose 2D context draws nothing, a screen, a window
 const ctx2d = new Proxy({}, { get: (o, k) => (k in o ? o[k] : () => {}), set: (o, k, v) => { o[k] = v; return true; } });
 const canvas = () => ({ width: 0, height: 0, getContext: () => ctx2d, style: {} });
-const sandbox = { console, atob, TextDecoder, Math, Date, performance, setTimeout, clearTimeout,
+const sandbox = { console, atob, btoa, TextDecoder, Math, Date, performance, setTimeout, clearTimeout,
   document: { createElement: () => canvas(), querySelector: () => null, documentElement: {} }, screen: { width: 1920, height: 1080 },
   window: { devicePixelRatio: 1, innerWidth: 1280, innerHeight: 760 }, navigator: { language: 'en-GB' }, getComputedStyle: () => ({ getPropertyValue: () => '' }) };
 sandbox.THREE = require(path.join(root, 'three.min.js'));
@@ -131,11 +133,95 @@ if (want('fish')) {
   }
   ok(on && passes >= 4 && farH < 18 && inView > 0.85 * 90 * 30, `let go while you are the shark, it stays: in 90 s ${passes} passes through the school (nearest ${nearC.toFixed(1)} m from its middle), within 12 m of you ${(inView / 27).toFixed(0)} % of the time, at most ${farH.toFixed(1)} m`);
   ok(nearH > 2, `and keeps clear of your head (nearest ${nearH.toFixed(1)} m)`);
-  f.shark({ p: [20, 1.6, 0], v: [-3, 0, 0], aim: null }); ok(Math.hypot(st().shark.p[0] - 20, st().shark.p[2]) > 1, 'a shark from someone else does not take yours');
+  f.shark({ p: [20, 1.6, 0], v: [-3, 0, 0], aim: null });
+  ok(f.sharks() === 2 && st().shark.cruise && Math.hypot(st().shark.p[0] - 20, st().shark.p[2]) > 1, `a shark from someone else swims beside yours (${f.sharks()} sharks; yours still yours)`);
   f.steer([1, 1.6, -3]); run(4, 7); ok(st().shark.steer && Math.hypot(st().shark.p[0] - 1, st().shark.p[2] + 3) < 3, 'steered again, it comes back to your point');
   f.steer(null); f.hold(false); let gone = -1;
   for (let i = 0; i < 30 * 30 && gone < 0; i++) { f.hold(false); f.see([0, 1.6, 0], []); f.update(S, 0, 1 / 30); if (!st().shark.on) gone = i / 30; }
   ok(gone > 2 && gone < 25, `when you stop being the shark it swims off (gone after ${gone.toFixed(1)} s)`);
+
+  // up to four sharks at once (the owner's choice), as at a station in a shared room: one frame is a clock tick (the
+  // relay's time, ms), the others' samples (15 a second) and a step
+  let at = 5e6;
+  const SAMPLE = 1000 / 15;
+  const frame = (fn) => { at += 1000 / 30; f.clock(at); if (fn) fn(at); f.hold(true); f.see([0, 1.6, 0], []); f.update(S, 0, 1 / 30); };
+  for (let i = 0; i < 40 * 30 && f.sharks(); i++) frame();
+  const kinds = () => st().sharks.filter(H => H.on).map(H => H.kind + (H.who ? ':' + H.who : '')).sort().join(' ');
+  f.steer([2, 1.6, -4]); frame();
+  const sent = [0, 1, 2, 3].map(() => f.scatter(null));
+  ok(sent.join() === 'true,true,true,false' && f.sharks() === 4 && f.full(), `with yours swimming, three passing ones go at once and a fourth is not sent (${sent.join(', ')}: ${kinds()})`);
+  // others' sharks (their samples, along a line through the school at 2 m/s, each a little apart): each takes the
+  // oldest passing one's place, a steered one never gives way, a fourth person's is refused
+  const c0 = st().centre.slice(), ta = at;
+  const path = (k, t) => ({ at: t, p: [c0[0] - 3 + 2 * ((t - ta) / 1000 % 3), c0[1] + (k - 1.5) * 0.4, c0[2] + (k - 1.5) * 1.2], v: [2, 0, 0], e: 0.4, b: 0.1, col: ['#ff5ad9', '#3ee08f', '#ffb43b', '#9db4ff'][k] });
+  let last = at, who = ['B', 'C'];
+  const feed = t => { if (t - last >= SAMPLE - 1) { last = t; for (const [k, id] of who.entries()) f.sample(id, path(k, t)); } };
+  for (let i = 0; i < 30; i++) frame(feed);
+  ok(kinds() === 'far:B far:C mine pass' && f.sharks() === 4, `two people's sharks take the places of the two oldest passing ones (${kinds()})`);
+  // drawn where their samples say, DELAY (120 ms) behind, along the line
+  const fb = st().sharks.find(H => H.on && H.who === 'B'), want = path(0, at - 120).p;
+  ok(Math.hypot(fb.p[0] - want[0], fb.p[1] - want[1], fb.p[2] - want[2]) < 0.04 && Math.abs(fb.v[0] - 2) < 0.05, `another person's shark is drawn where it was 120 ms before (${fb.p.map(x => x.toFixed(2))} for ${want.map(x => x.toFixed(2))})`);
+  // the fish flee each of them (those within 3.5 m of one warned)
+  const warned = H => { const { P, AL, N } = st(); let n = 0, w = 0; for (let i = 0; i < N; i++) if (Math.hypot(P[3 * i] - H.p[0], P[3 * i + 1] - H.p[1], P[3 * i + 2] - H.p[2]) < 3.5) { n++; if (AL[i] > 0.65) w++; } return [w, n]; };
+  const ws = st().sharks.filter(H => H.on && H.kind === 'far').map(warned);
+  ok(ws.every(([w, n]) => w === n) && ws.every(([, n]) => n > 0), `the fish near each of the others' sharks flee it (warned of those within 3.5 m: ${ws.map(x => x.join(' of ')).join(', ')})`);
+  who = ['B', 'C', 'D'];
+  for (let i = 0; i < 10; i++) frame(feed);
+  ok(kinds() === 'far:B far:C far:D mine', `a third person's takes the last passing one's (${kinds()})`);
+  who = ['B', 'C', 'D', 'E'];
+  for (let i = 0; i < 10; i++) frame(feed);
+  ok(kinds() === 'far:B far:C far:D mine', `a fourth person's is refused: four steered sharks swim (${kinds()})`);
+  // let go and no longer the shark, yours swims off; a fifth wish to steer is refused and said so
+  f.steer(null); f.hold(false); frame(feed);
+  ok(kinds() === 'far:B far:C far:D pass', `yours let go swims off (${kinds()})`);
+  for (let i = 0; i < 10; i++) frame(feed);
+  ok(kinds() === 'far:B far:C far:D far:E', `and the fourth person's takes its place (${kinds()})`);
+  const r = f.steer([1, 1.6, -3]); frame(feed);
+  ok(r === false && f.refused() && !st().sharks.some(H => H.on && H.kind === 'mine'), `with four people's sharks, yours is refused (${kinds()}; refused: ${f.refused()})`);
+  // one falls silent: after 1.5 s it swims off here (taken up again when it goes on); one lets go (off): it swims off
+  who = ['B', 'C', 'E'];
+  for (let i = 0; i < 50; i++) frame(feed);
+  const dq = st().sharks.find(H => H.on && H.who === 'D');
+  ok(!!dq && dq.kind === 'pass' && dq.lapsed, `one gone quiet for 1.5 s swims off as a passing one does (${kinds()})`);
+  who = ['B', 'C', 'D', 'E'];
+  for (let i = 0; i < 5; i++) frame(feed);
+  ok(kinds() === 'far:B far:C far:D far:E', `and is taken up again when it goes on (${kinds()})`);
+  f.sample('C', { at, off: true }); frame();
+  ok(kinds() === 'far:B far:D far:E pass:C', `one let go (off) swims off (${kinds()})`);
+  f.clock(null); frame();
+  ok(!st().sharks.some(H => H.on && H.kind === 'far'), `away from the station the others' sharks swim off (${kinds()})`);
+  for (let i = 0; i < 40 * 30 && f.sharks(); i++) frame();
+  f.clock(null);
+
+  // a follower's school taken into step with a leader's: the same set twice, the leader 7 s ahead (its fish elsewhere);
+  // the follower takes its time and swim (follow) every step and its every fish (align) three times a second
+  const g = build('fish'), G = Object.assign({}, g.params), gs = () => g.state();
+  // (the follower takes the leader's swim and fish as they are now, then both take a step)
+  const both = (n, fn) => { for (let i = 0; i < n; i++) { if (fn) fn(i); g.see([0, 1.6, 0], []); g.update(G, 0, 1 / 30); f.see([0, 1.6, 0], []); f.update(S, 0, 1 / 30); } };
+  for (let i = 0; i < 7 * 30; i++) { g.see([0, 1.6, 0], []); g.update(G, 0, 1 / 30); }
+  const gap = () => { const a = st(), b = gs(), d = []; for (let i = 0; i < a.N; i++) d.push(Math.hypot(a.P[3 * i] - b.P[3 * i], a.P[3 * i + 1] - b.P[3 * i + 1], a.P[3 * i + 2] - b.P[3 * i + 2])); d.sort((x, y) => x - y); return d[d.length >> 1]; };
+  const d0 = gap(), pk = g.pack(), size = JSON.stringify(pk).length;
+  G.fish_n = 350; both(1);
+  ok(!f.align(g.pack(), 0), 'a snapshot with another count of fish is ignored');
+  G.fish_n = 300; both(1);
+  let jump = 0, prev = Float32Array.from(st().P);
+  const syncd = (n) => both(n, i => {
+    const fl = g.flight(); f.follow(fl, 1 / 30);
+    if (i % 10 === 0) f.align(g.pack(), 0);
+  });
+  // (how far a fish moves in a step beyond where it was swimming: each fish against the nearest of the step before, as
+  // pairing afresh only renumbers them)
+  let pv = Float32Array.from(st().V);
+  const measure = n => { for (let k = 0; k < n; k++) { syncd(1); const { P, V, N } = st();
+    for (let i = 0; i < N; i++) { let m = Infinity; for (let j = 0; j < N; j++) m = Math.min(m, (P[3 * i] - prev[3 * j] - pv[3 * j] / 30) ** 2 + (P[3 * i + 1] - prev[3 * j + 1] - pv[3 * j + 1] / 30) ** 2 + (P[3 * i + 2] - prev[3 * j + 2] - pv[3 * j + 2] / 30) ** 2); jump = Math.max(jump, Math.sqrt(m)); }
+    prev = Float32Array.from(P); pv = Float32Array.from(V); } };
+  measure(30); const d1 = gap(); measure(60); const d3 = gap();
+  ok(d0 > 1 && d1 < 0.5 && d3 < 0.05, `a follower's fish come into step with the leader's (median distance ${d0.toFixed(2)} m, after 1 s ${d1.toFixed(2)} m, after 3 s ${d3.toFixed(3)} m)`);
+  ok(jump <= 0.2, `without a jump (at most ${jump.toFixed(3)} m a step beyond its own swimming)`);
+  ok(size < 6000, `a snapshot of ${gs().N} fish is ${size} characters`);
+  // and stays so while a shark passes through both (the leader's, sent to the follower as it starts)
+  g.onLaunch = o => f.shark(o); g.scatter(null); measure(150); g.onLaunch = null;
+  ok(gap() < 0.1, `and stays in step while a shark passes through both (median ${gap().toFixed(3)} m)`);
 }
 if (want('cell')) {
   const c = build('cell'), A = c.api, S = Object.assign({}, c.params);

@@ -137,7 +137,7 @@ function panelTick(P, now) {
 // ------------------------------------------------------------ main panel --
 function sigMain() {
   if (XR.stories) return 'stories' + audioLabel();
-  if (APP.mode !== 'story') return ['x', LANG, audioLabel(), xrSig(), X.tab, X.scene, JSON.stringify(X.ctl), X.n, X.shark, GL.sets.fish.sharkOn(), !!GL.lifeOn, JSON.stringify(X.out), Math.floor(X.out.day), X.city, X.prot].join('|');
+  if (APP.mode !== 'story') return ['x', LANG, audioLabel(), xrSig(), X.tab, X.scene, JSON.stringify(X.ctl), X.n, X.shark, GL.sets.fish.sharks(), GL.sets.fish.refused(), !!GL.lifeOn, JSON.stringify(X.out), Math.floor(X.out.day), X.city, X.prot].join('|');
   {
     const it = ST.items.find(x => x.ch === curCh);
     let s = 's' + LANG + audioLabel() + xrSig() + (GL.lifeOn ? 'f' : '') + (HOST.room && HOST.room.inRoom() ? 'r' + HOST.room.gripHint : '') + (curCh ? curCh.key : '');
@@ -499,12 +499,13 @@ function headVal(ctx, x, y, w, k, v) {
 }
 // the fish: be the shark, neighbours watched, the network, the school's size, the view
 function drawFishPane(ctx, P, x, y, W, bottom) {
-  const busy = GL.sets.fish.sharkOn(), k = fishK(), vc = ctlOf('fish', 'view'), lc = ctlOf('fish', 'links');
+  const busy = GL.sets.fish.full(), k = fishK(), vc = ctlOf('fish', 'view'), lc = ctlOf('fish', 'links');
   y += textBlock(ctx, T('f.sub'), x, y, W, 24, 33, VC.muted, 400, 2) + 14;
   y += head(ctx, x, y, T('f.shark'));
   y += flow(ctx, P, [['off', T('off')], ['on', T('on')]].map(([v, n]) => ({ id: 'shark:' + v, label: n, on: X.shark === (v === 'on'), fn: () => setShark(v === 'on') }))
     .concat([{ id: 'send', label: busy ? T('f.busy') : T('f.send'), on: busy, fn: busy ? null : () => sendShark(null) }]), x, y, W, bottom, { px: 23, h: 54 }) + 10;
-  if (X.shark) y += textBlock(ctx, T('f.shark.how'), x, y, W, 22, 30, VC.faint, 400, 3) + 10;
+  if (X.shark && GL.sets.fish.refused()) y += textBlock(ctx, T('f.full'), x, y, W, 22, 30, VC.amber, 400, 3) + 10;   // (four sharks swim: yours refused)
+  else if (X.shark) y += textBlock(ctx, T('f.shark.how'), x, y, W, 22, 30, VC.faint, 400, 3) + 10;
   y += headVal(ctx, x, y, W, T('f.k'), k);
   vSlider(ctx, P, 'fk', x + 16, y, W - 32, k, 1, 12, VC.cyan, v => setFishK(v));
   y += 54;

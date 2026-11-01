@@ -66,8 +66,8 @@ function exploreStep(dt, now) {
     else if (MOVE_P.has(n)) { const r = dt / (n === 'cell_cue' ? 1.6 : 3); XS[n] += clamp(tg[n] - XS[n], -r, r); }
     else XS[n] += (tg[n] - XS[n]) * k;
   }
-  // the shark's button follows the shark
-  const so = GL.sets.fish.sharkOn();
+  // the shark's button follows the sharks (how many swim, and yours refused while four do)
+  const so = GL.sets.fish.sharks() + (GL.sets.fish.refused() ? 'r' : '');
   if (so !== X.so) { X.so = so; renderFish(); }
   // a gently swaying scene, unless you are steering it, it is life size, or a headset at its station stands still
   if (X.turn === 'on' && X.scene !== 'fish' && !orbit.to && !orbit.held && !GL.still && !HOST.room.placing()) { X.sway = (X.sway || 0) + dt; orbit.cur[0] += dt * 6 * Math.cos(X.sway * 0.25); }
@@ -278,12 +278,18 @@ function collabApply(v) {
   renderAll();
 }
 // shared rooms: the school belongs to the station, as the flock does. Everyone there says where their school is, twice
-// a second (a quiet effect); the one there longest leads (since: when it came, in the relay's time; a page back from a
-// pause, a hidden tab, counts as new; ties by member id): the others take its swimming time and steer their school to
-// it (the set's follow), and only it sends sharks of its own (the story's, now and then; a page new there listens
-// 1.5 s first); a shark anyone sends goes to everyone, exactly as it starts. Positions are in the set's frame, whose
-// origin is the station's spot on every device. True while at a station (the school then stays round its spot)
-const FSY = { heard: new Map(), sent: 0, last: 0, since: 0, from: 0 };
+// a second (a quiet effect, school); the one there longest leads (since: when it came, in the relay's time; a page back
+// from a pause, a hidden tab, counts as new; ties by member id): the others take its swimming time and steer their
+// school to it (the set's follow), and it also sends its every fish three times a second while anyone else is there
+// (fishes: the set's pack, about 4 KB for 300 fish), which the others take their fish into step with (the set's align,
+// only from the one they follow and with as many fish); only it sends sharks of its own (the story's, now and then; a
+// page new there listens 1.5 s first); a passing shark anyone sends goes to everyone, exactly as it starts (shark). Be
+// the shark: yours goes to the others about 15 times a second while you steer it or keep it (steered: where it is
+// drawn now, how it moves and swims, your colour; once more with off as you let it go), and theirs are drawn here a
+// moment behind their samples (the set's sample and clock); at most four sharks at once. Positions are in the set's
+// frame, whose origin is the station's spot on every device. True while at a station (the school then stays round
+// its spot)
+const FSY = { heard: new Map(), sent: 0, last: 0, since: 0, from: 0, packed: 0, steered: 0, had: false };
 const r2 = a => a.map(x => Math.round(x * 100) / 100);
 const earlier = (a, b) => a.since < b.since || (a.since === b.since && a.id < b.id);
 function fishSync() {
@@ -291,8 +297,9 @@ function fishSync() {
   const pn = performance.now(), gap = FSY.last ? pn - FSY.last : 0;
   FSY.last = pn;
   s.onLaunch = f => HOST.collab.effect('shark', f);
-  if (!on) { FSY.heard.clear(); FSY.since = 0; s.hush(false); if (s.following()) s.follow(null); return false; }
+  if (!on) { FSY.heard.clear(); FSY.since = 0; FSY.had = false; FSY.lead = ''; s.hush(false); s.clock(null); s.me('', null); if (s.following()) s.follow(null); return false; }
   const now = HOST.collab.now(), me = { id: HOST.collab.id || '', since: FSY.since };
+  s.clock(now); s.me(me.id, HOST.collab.color);
   if (!FSY.since || gap > 1500) { FSY.since = me.since = Math.round(now); FSY.from = pn; }
   if (pn - FSY.sent > 500) {
     FSY.sent = pn;
@@ -301,34 +308,51 @@ function fishSync() {
   }
   let lead = null;
   for (const [k, v] of FSY.heard) if (pn - v.got > 2000) FSY.heard.delete(k); else if (earlier(v, me) && (!lead || earlier(v, lead))) lead = v;
+  FSY.lead = lead ? lead.id : '';
   s.hush(pn - FSY.from < 1500);
   if (lead) { const age = clamp((now - lead.at) / 1000, 0, 2); s.follow({ t: lead.t + age, m: lead.m.map((x, j) => x + lead.v[j] * age), v: lead.v }, Math.min(gap, 1000) / 1000); }
   else if (s.following()) s.follow(null);
+  // leading with someone else here: every fish, three times a second
+  if (!lead && FSY.heard.size && pn - FSY.packed > 333) { FSY.packed = pn; HOST.collab.effect('fishes', Object.assign({ id: me.id, at: Math.round(now) }, s.pack()), true); }
+  // your own shark, about 15 times a second while you steer or keep it, and once more as you let it go
+  const m = s.mine();
+  if (m && pn - FSY.steered > 62) {
+    FSY.steered = pn;
+    HOST.collab.effect('steered', { id: me.id, col: HOST.collab.color, at: Math.round(now), p: r2(m.p), v: r2(m.v), e: Math.round(m.e * 100) / 100, b: Math.round(m.b * 100) / 100 }, true);
+  } else if (!m && FSY.had) HOST.collab.effect('steered', { id: me.id, at: Math.round(now), off: 1 }, true);
+  FSY.had = !!m;
   return true;
 }
 // sound effects, live (the shared block's sfxStep calls this every frame, story and explore mode alike, unless the story is
 // hidden): a shark arriving (a rush where it is) and, half a second later, the warning racing through the school; your own
 // steering starting; the school's middle coming within 3 m of your head after being more than 5 m off (at most every
 // 10 s). Polled, not hooked, so sharks from other devices sound too; only while the fish show (GL.lifeOn)
-const SFL = { so: false, st: false, far: true, near: 0 };
+const SFL = { so: 0, st: false, far: true, near: 0 };
 function sfxLive() {
-  const s = GL.sets.fish, so = s.sharkOn(), z = s.state(), st = !!(so && z.shark.steer), pn = performance.now();
+  const s = GL.sets.fish, so = s.arrivals(), z = s.state(), st = !!(z.shark.on && z.shark.kind === 'mine' && z.shark.steer), pn = performance.now();
   if (!GL.lifeOn) { SFL.so = so; SFL.st = st; SFL.far = true; return; }
-  if (so && !SFL.so) { sfxPlay('rush', 'fish', 'shark', { dur: 1.4 }); sfxPlay('rush', 'fish', 'school', { delay: 0.5, pitch: 1.3, dur: 1, force: true }); }
+  if (so > SFL.so && s.sharkOn()) { sfxPlay('rush', 'fish', 'shark', { dur: 1.4 }); sfxPlay('rush', 'fish', 'school', { delay: 0.5, pitch: 1.3, dur: 1, force: true }); }   // (a shark arriving: at the newest)
   else if (st && !SFL.st) sfxPlay('rush', 'fish', 'shark', { dur: 0.8, pitch: 1.2, gain: 0.7 });
   SFL.so = so; SFL.st = st;
   const h = z.me.head, f = s.flight().m, d = Math.hypot(f[0] - h[0], f[1] - h[1], f[2] - h[2]);
   if (d > 5) SFL.far = true;
   else if (d < 3 && SFL.far && pn - SFL.near > 10000) { SFL.far = false; SFL.near = pn; sfxPlay('rush', 'fish', 'school', { dur: 1.6, pitch: 0.8, gain: 0.3 }); }
 }
-// what another device at the station sent: where its school is, or a shark
+// what another device at the station sent: where its school is, its every fish (from the one this page follows), a
+// passing shark, or someone's own shark
 const v3ok = a => Array.isArray(a) && a.length === 3 && a.every(Number.isFinite);
+const idOk = id => typeof id === 'string' && id.length > 0 && id.length < 64;
 function fishEffect(type, d) {
   if (!d || typeof d !== 'object') return;
-  if (type === 'school' && typeof d.id === 'string' && d.id.length < 64 && Number.isFinite(d.since) && Number.isFinite(d.at) && Number.isFinite(d.t) && v3ok(d.m) && v3ok(d.v)) {
+  if (type === 'school' && idOk(d.id) && Number.isFinite(d.since) && Number.isFinite(d.at) && Number.isFinite(d.t) && v3ok(d.m) && v3ok(d.v)) {
     FSY.heard.set(d.id, { id: d.id, since: d.since, at: d.at, t: d.t, m: d.m, v: d.v, got: performance.now() });
+  } else if (type === 'fishes' && idOk(d.id) && d.id === FSY.lead && Number.isFinite(d.at)) {
+    GL.sets.fish.align(d, clamp((HOST.collab.now() - d.at) / 1000, 0, 1));
   } else if (type === 'shark' && v3ok(d.p) && v3ok(d.v) && (d.aim === null || v3ok(d.aim))) {
     GL.sets.fish.shark(d); renderFish();
+  } else if (type === 'steered' && idOk(d.id) && d.id !== HOST.collab.id && Number.isFinite(d.at) && (d.off || (v3ok(d.p) && v3ok(d.v)))) {
+    GL.sets.fish.sample(d.id, d.off ? { at: d.at, off: true } : { at: d.at, p: d.p, v: d.v, e: clamp(+d.e || 0, 0, 1), b: clamp(+d.b || 0, -0.5, 0.5),
+      col: typeof d.col === 'string' && /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(d.col) ? d.col : null });
   }
 }
 
@@ -425,11 +449,11 @@ const kText = k => (k === 1 ? T('f.k1') : k === 2 ? T('f.k2') : T('f.k3', k));
 function renderFish() {
   const pane = $('#pane-fish');
   if (!pane) return;
-  const busy = GL.sets.fish.sharkOn(), k = fishK(), vc = ctlOf('fish', 'view'), lc = ctlOf('fish', 'links');
+  const busy = GL.sets.fish.full(), k = fishK(), vc = ctlOf('fish', 'view'), lc = ctlOf('fish', 'links');
   pane.innerHTML = `<p class="sub">${esc(T('f.sub'))}</p>
     ${grpH(T('f.shark'))}<div class="chips">${[['off', T('off')], ['on', T('on')]].map(([v, n]) => chip(`data-act="shark" data-v="${v}"`, esc(n), X.shark === (v === 'on'))).join('')}
       <button type="button" data-act="send"${busy ? ' disabled' : ''}>${esc(busy ? T('f.busy') : T('f.send'))}</button></div>
-    ${X.shark ? `<p class="sub">${esc(T('f.shark.how'))}</p>` : ''}
+    ${X.shark && GL.sets.fish.refused() ? `<p class="sub" style="color:var(--amber)">${esc(T('f.full'))}</p>` : X.shark ? `<p class="sub">${esc(T('f.shark.how'))}</p>` : ''}
     ${grpH(T('f.k'), k, 'data-kv')}${slider('fk', 1, 12, 1, k, T('f.k'))}
     <p class="sub" data-kt>${esc(kText(k))}</p>
     ${grpH(T('f.links'))}<div class="chips">${lc.options.map(([v, n]) => chip(`data-act="ctl" data-scene="fish" data-ctl="links" data-v="${v}"`, esc(n), ctlValue('fish', lc) === v)).join('')}</div>

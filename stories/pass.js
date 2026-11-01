@@ -2669,10 +2669,10 @@ return { PLACES, CONTACTS, MOVES, NET, A, CP, CELL, LAYOUT, POS, cpos, latLonOf,
 // A school of fish all around you, in deep blue water. A live simulation, after the flock's (tools/flock/sets/flock.js):
 // each fish watches its nearest few neighbours (seven by default, one to twelve: fish_k) whatever the distance, swims
 // the way they swim, keeps a little apart and stays with them, and wanders a little of its own accord; nothing else
-// holds the school together, so with one neighbour each it falls apart and with seven it holds. A shark (sent by the
-// story, now and then in explore mode, or steered from a point, and then kept round the school while you are the
-// shark) frightens the fish nearest it, and the warning passes from neighbour to neighbour faster than the shark swims:
-// each fish flashes silver as it reaches it.
+// holds the school together, so with one neighbour each it falls apart and with seven it holds. Up to four sharks at
+// once (sent by the story, now and then in explore mode, or steered from a point, and then kept round the school while
+// you are the shark; in a shared room also the others' own) frighten the fish nearest them, and the warning passes
+// from neighbour to neighbour faster than a shark swims: each fish flashes silver as it reaches it.
 // Life size: 1 unit is 1 m, the viewer floats at the origin with eyes at 1.6 m (the seabed is far below, the surface far
 // above), the sun is up and a little towards -z. Without the water (passthrough AR) nothing opaque is drawn and the
 // school swims in your room at a third of life size, shrunk round your eyes.
@@ -2868,20 +2868,34 @@ void main() { vec2 c = gl_PointCoord - 0.5; float d = length(c); if (d > 0.5) di
   const NB = new Int32Array(MAXN * KMAX), NBC = new Uint8Array(MAXN);
   const R = rng(2207);
   let N = 300, KN = 7;
-  const spawn = (i, c, r0) => {
+  // (a fish's own pace and phase are drawn once, at the start, the same on every device: a fish that joins later takes
+  // its index's, so a shared room's schools can match fish by fish, see align)
+  const spawn = (i, c, r0, first) => {
     const u = K.unit(R), r = (r0 || 2.2) * Math.cbrt(R());
     P[i * 3] = c[0] + u[0] * r; P[i * 3 + 1] = c[1] + u[1] * r * 0.5; P[i * 3 + 2] = c[2] + u[2] * r;
     V[i * 3] = 1.4; V[i * 3 + 1] = 0; V[i * 3 + 2] = 0.2;
-    AL[i] = 0; FL[i] = 0; BK[i] = 0; PH[i] = R() * TAU; GR[i] = R();
+    AL[i] = 0; FL[i] = 0; BK[i] = 0; if (first) { PH[i] = R() * TAU; GR[i] = R(); }
   };
-  for (let i = 0; i < MAXN; i++) spawn(i, [0, 2, -6], 2.6);
-  // the viewer (head and hands, in this set's frame; the engine updates them) and the shark (cruise: kept, swimming
-  // loops round the school; dash and thru: a pass through it; ph, eff, bank: its swimming, see poseShark)
+  for (let i = 0; i < MAXN; i++) spawn(i, [0, 2, -6], 2.6, true);
+  // the viewer (head and hands, in this set's frame; the engine updates them) and up to four sharks at once (MAXS, the
+  // owner's choice): kind 'pass' (passing through: the story's, now and then, one sent, one from another device, or one
+  // let go and swimming off), 'mine' (yours: steered from a point, and kept round the school while you are the shark)
+  // or 'far' (another person's own in a shared room, drawn where their samples put it: sample). cruise: kept, swimming
+  // loops round the school; dash and thru: a pass through it; ph, eff, bank: its swimming, see poseSharks; who and col:
+  // its owner and their colour (it is tinted so); born: the order they came in (the oldest passing one gives way to a
+  // steered one when four swim); lapsed: someone else's that fell silent and swims off, taken up again if they go on
   const ME = { head: [0, 1.6, 0], hands: [], c: [0, 0] };
-  const SH = { on: false, p: [0, 0, 0], v: [0, 0, 0], t: 0, pass: 0, next: 25, aim: null, steer: null, gone: 0,
-    cruise: false, dir: 1, ct: 0, gap: 8, dash: false, thru: 0, ph: 0, eff: 0, bank: 0, hd: [0, 1] };
+  const MAXS = 4;
+  const SHS = Array.from({ length: MAXS }, () => ({ on: false, p: [0, 0, 0], v: [0, 0, 0], t: 0, pass: 0, aim: null, steer: null,
+    cruise: false, dir: 1, ct: 0, gap: 8, dash: false, thru: 0, ph: 0, eff: 0, bank: 0, hd: [0, 1], kind: '', who: '', col: null, born: 0,
+    buf: null, heard: 0, lapsed: false }));
+  let NEXT = 25, BORN = 0, FULL = -9, MYID = '', MYCOL = null;   // now and then: the next in (s); sharks so far; when one of yours was last refused; who you are in a room
   let tOff = 0, FOL = null, HUSH = false;   // shared rooms: another device's school to follow (see follow), and no sharks of our own for now
   let HOLD = false;                         // explore's "be the shark" is on: a shark let go stays (cruises) until it is off
+  // shared rooms: how far this school's fish are from the leading device's as of its last snapshot (EP, EV: what is
+  // still to be taken up; ALN: some is), see pack and align
+  const VQ = 0.05, TAUA = 0.25, CAPA = 4, EP = new Float32Array(MAXN * 3), EV = new Float32Array(MAXN * 3);
+  let ALN = 0;
   const CEN = [0, 2, -6];                   // the middle of the school's main body (centre())
 
   // a grid of cells round the viewer for the neighbour search: the fish sorted by cell, then shells of cells searched
@@ -2950,7 +2964,7 @@ void main() { vec2 c = gl_PointCoord - 0.5; float d = length(c); if (d > 0.5) di
       const e = tSim - FOL.t0, ex = FOL.m[0] + FOL.v[0] * e - gcx, ey = FOL.m[1] + FOL.v[1] * e - gcy, ez = FOL.m[2] + FOL.v[2] * e - gcz;
       if (Math.hypot(ex, ey, ez) > 6) {
         for (let i = 0; i < MAXN; i++) { P[i * 3] += ex; P[i * 3 + 1] += ey; P[i * 3 + 2] += ez; }
-        CEN[0] += ex; CEN[1] += ey; CEN[2] += ez;
+        CEN[0] += ex; CEN[1] += ey; CEN[2] += ez; ALN = 0;   // (a snapshot's differences from before the move are stale)
       } else {
         lx = ex * 0.4 + (FOL.v[0] - gvx) * 0.6; ly = ey * 0.4 + (FOL.v[1] - gvy) * 0.6; lz = ez * 0.4 + (FOL.v[2] - gvz) * 0.6;
         const ll = Math.hypot(lx, ly, lz); if (ll > 3) { lx *= 3 / ll; ly *= 3 / ll; lz *= 3 / ll; }
@@ -2991,9 +3005,11 @@ void main() { vec2 c = gl_PointCoord - 0.5; float d = length(c); if (d > 0.5) di
       const qx = x - hx, qy = y - hy, qz = z - hz, qd = Math.hypot(qx, qy, qz) + 1e-3;
       if (qd < 1.3) { const f = 14 * (1.3 - qd) / (1.3 * qd); ax += qx * f; ay += qy * f; az += qz * f; }
       for (const hd of ME.hands) { const ux = x - hd[0], uy = y - hd[1], uz = z - hd[2], ud = Math.hypot(ux, uy, uz) + 1e-3; if (ud < 0.9) { const f = 12 * (0.9 - ud) / (0.9 * ud); ax += ux * f; ay += uy * f; az += uz * f; AL2[i] = Math.max(AL2[i], 0.5 * (1 - ud / 0.9)); } }
-      // the shark: those it nears flee, and raise the warning
-      if (SH.on) {
-        const fx = x - SH.p[0], fy = y - SH.p[1], fz = z - SH.p[2], fd = Math.hypot(fx, fy, fz) + 1e-3;
+      // the sharks: those they near flee (from each one within reach), and raise the warning (another person's where it
+      // is now, not where it is drawn a moment behind: as its owner's fish flee it)
+      for (let k = 0; k < MAXS; k++) {
+        const H = SHS[k]; if (!H.on) continue;
+        const e = H.kind === 'far' ? DELAY / 1000 : 0, fx = x - H.p[0] - H.v[0] * e, fy = y - H.p[1] - H.v[1] * e, fz = z - H.p[2] - H.v[2] * e, fd = Math.hypot(fx, fy, fz) + 1e-3;
         if (fd < 4.5) { const f = 16 * (4.5 - fd) / (4.5 * fd); ax += fx * f; ay += fy * f * 0.5; az += fz * f; AL2[i] = Math.max(AL2[i], 1 - fd / 4.5 * 0.4); }
       }
       // speed: back towards cruising, faster when warned
@@ -3019,93 +3035,166 @@ void main() { vec2 c = gl_PointCoord - 0.5; float d = length(c); if (d > 0.5) di
       AL[i] = AL2[i];
     }
     centre();
-    sharkStep(dt);
+    for (const H of SHS) if (H.on && H.kind !== 'far') sharkStep(H, dt);   // (another person's moves by their samples: farStep)
   }
   let WATCH = null;   // (tests: hear when the warning reaches each fish)
-  // the shark: in from afar, straight through the thick of the school, then away (about 16 s); or after a point it is
+  // a shark: in from afar, straight through the thick of the school, then away (about 16 s); or after a point it is
   // steered to (explore mode: you are the shark), and let go while you still are, it stays: it cruises in wide loops
   // round the school and every so often bursts straight through it, so the fish keep fleeing, until you steer it again
   // or stop being the shark (then it swims off)
   const SV = 3.2;   // its cruising speed in (m/s); it bursts to 5 through the school, still slower than the warning
   const LOOP = 5, CRUISE = 2.4, DASH = 4.6, HEAD = 3;   // a kept shark's loops (m) and speeds (m/s), and how far it keeps from your head
-  function sharkStep(dt) {
-    if (!SH.on) return;
-    SH.t += dt;
-    const v0 = SH.v.slice();
+  function sharkStep(H, dt) {
+    H.t += dt;
+    const v0 = H.v.slice();
     let tx, ty, tz, sp, turn = 1.4;
-    if (SH.steer) {
-      tx = SH.steer[0]; ty = SH.steer[1]; tz = SH.steer[2];
-      sp = clamp(Math.hypot(tx - SH.p[0], ty - SH.p[1], tz - SH.p[2]) * 1.6, 0.8, 5.5);   // (never quite still: a shark swims to breathe)
-    } else if (SH.cruise) {
-      SH.ct += dt;
-      const ex = SH.p[0] - CEN[0], ez = SH.p[2] - CEN[2];
-      if (SH.dash) {
+    if (H.steer) {
+      tx = H.steer[0]; ty = H.steer[1]; tz = H.steer[2];
+      sp = clamp(Math.hypot(tx - H.p[0], ty - H.p[1], tz - H.p[2]) * 1.6, 0.8, 5.5);   // (never quite still: a shark swims to breathe)
+    } else if (H.cruise) {
+      H.ct += dt;
+      const ex = H.p[0] - CEN[0], ez = H.p[2] - CEN[2];
+      if (H.dash) {
         // through the school: at its middle, then on past it for a moment, then back to the loops
-        if (!SH.thru && Math.hypot(ex, SH.p[1] - CEN[1], ez) < 1.4) SH.thru = SH.ct;
-        if (SH.thru) { tx = SH.p[0] + SH.v[0]; ty = SH.p[1]; tz = SH.p[2] + SH.v[2]; } else { tx = CEN[0]; ty = CEN[1]; tz = CEN[2]; }
+        if (!H.thru && Math.hypot(ex, H.p[1] - CEN[1], ez) < 1.4) H.thru = H.ct;
+        if (H.thru) { tx = H.p[0] + H.v[0]; ty = H.p[1]; tz = H.p[2] + H.v[2]; } else { tx = CEN[0]; ty = CEN[1]; tz = CEN[2]; }
         sp = DASH;
-        if ((SH.thru && SH.ct > SH.thru + 1.1) || SH.ct > 9) { SH.dash = false; SH.thru = 0; SH.ct = 0; SH.gap = 9 + R() * 8; SH.dir = loopDir(); }
+        if ((H.thru && H.ct > H.thru + 1.1) || H.ct > 9) { H.dash = false; H.thru = 0; H.ct = 0; H.gap = 9 + R() * 8; H.dir = loopDir(H); }
       } else {
         // a wide loop round the school's middle, the way it was going, rising and sinking a little; a burst through the
         // school once it is due and the shark is off to the school's side as you see it (so it crosses your view, never
         // comes at you)
-        const a = Math.atan2(ez, ex) + SH.dir * 0.75;
-        tx = CEN[0] + Math.cos(a) * LOOP; ty = CEN[1] + 0.5 * Math.sin(SH.t * 0.21); tz = CEN[2] + Math.sin(a) * LOOP;
+        const a = Math.atan2(ez, ex) + H.dir * 0.75;
+        tx = CEN[0] + Math.cos(a) * LOOP; ty = CEN[1] + 0.5 * Math.sin(H.t * 0.21); tz = CEN[2] + Math.sin(a) * LOOP;
         sp = CRUISE;
         const yx = ME.head[0] - CEN[0], yz = ME.head[2] - CEN[2], side = (ex * yx + ez * yz) / ((Math.hypot(ex, ez) * Math.hypot(yx, yz)) + 1e-3);
-        if (SH.ct > SH.gap && Math.abs(side) < 0.5) { SH.dash = true; SH.ct = 0; SH.thru = 0; }
+        if (H.ct > H.gap && Math.abs(side) < 0.5) { H.dash = true; H.ct = 0; H.thru = 0; }
       }
       // never through your head: its way goes round you a few metres off, and where it would soon come nearer (where it
       // is in 0.8 s) it gives up a burst and turns away hard
       const hx = tx - ME.head[0], hz = tz - ME.head[2], hl = Math.hypot(hx, hz) + 1e-3;
       if (hl < HEAD + 1) { tx = ME.head[0] + hx / hl * (HEAD + 1); tz = ME.head[2] + hz / hl * (HEAD + 1); }
-      const qx = SH.p[0] + SH.v[0] * 0.8 - ME.head[0], qz = SH.p[2] + SH.v[2] * 0.8 - ME.head[2], ql = Math.hypot(qx, qz) + 1e-3;
+      const qx = H.p[0] + H.v[0] * 0.8 - ME.head[0], qz = H.p[2] + H.v[2] * 0.8 - ME.head[2], ql = Math.hypot(qx, qz) + 1e-3;
       if (ql < HEAD + 0.5) {
-        if (SH.dash) { SH.dash = false; SH.thru = 0; SH.ct = 0; SH.gap = 4 + R() * 4; }
-        tx = SH.p[0] + qx / ql * 4; ty = SH.p[1]; tz = SH.p[2] + qz / ql * 4; sp = CRUISE; turn = 3.5;
+        if (H.dash) { H.dash = false; H.thru = 0; H.ct = 0; H.gap = 4 + R() * 4; }
+        tx = H.p[0] + qx / ql * 4; ty = H.p[1]; tz = H.p[2] + qz / ql * 4; sp = CRUISE; turn = 3.5;
       }
     } else {
-      const hunting = !SH.pass && SH.t < 9, through = SH.pass && SH.t < SH.pass + 1.6;
+      const hunting = !H.pass && H.t < 9, through = H.pass && H.t < H.pass + 1.6;
       if (hunting) {
         tx = CEN[0]; ty = CEN[1]; tz = CEN[2];
-        if (SH.aim && SH.t < 2.5) { tx = SH.aim[0]; ty = SH.aim[1]; tz = SH.aim[2]; }
-        if (Math.hypot(CEN[0] - SH.p[0], CEN[1] - SH.p[1], CEN[2] - SH.p[2]) < 1.5) SH.pass = SH.t;
-      } else if (through) { tx = SH.p[0] + SH.v[0]; ty = SH.p[1]; tz = SH.p[2] + SH.v[2]; }
+        if (H.aim && H.t < 2.5) { tx = H.aim[0]; ty = H.aim[1]; tz = H.aim[2]; }
+        if (Math.hypot(CEN[0] - H.p[0], CEN[1] - H.p[1], CEN[2] - H.p[2]) < 1.5) H.pass = H.t;
+      } else if (through) { tx = H.p[0] + H.v[0]; ty = H.p[1]; tz = H.p[2] + H.v[2]; }
       else {
         // away: on its way and away from you, slowly sinking
-        const ox = SH.p[0] - ME.c[0], oz = SH.p[2] - ME.c[1], ol = Math.hypot(ox, oz) + 1e-3, vl = Math.hypot(SH.v[0], SH.v[2]) + 1e-3;
-        tx = SH.p[0] + (SH.v[0] / vl + ox / ol) * 3; ty = SH.p[1] - 0.5; tz = SH.p[2] + (SH.v[2] / vl + oz / ol) * 3;
+        const ox = H.p[0] - ME.c[0], oz = H.p[2] - ME.c[1], ol = Math.hypot(ox, oz) + 1e-3, vl = Math.hypot(H.v[0], H.v[2]) + 1e-3;
+        tx = H.p[0] + (H.v[0] / vl + ox / ol) * 3; ty = H.p[1] - 0.5; tz = H.p[2] + (H.v[2] / vl + oz / ol) * 3;
       }
-      sp = hunting && Math.hypot(CEN[0] - SH.p[0], CEN[2] - SH.p[2]) < 7 ? 5 : through ? 5 : hunting ? SV : 2.8;   // (it goes a little slower than it came: longer in view)
+      sp = hunting && Math.hypot(CEN[0] - H.p[0], CEN[2] - H.p[2]) < 7 ? 5 : through ? 5 : hunting ? SV : 2.8;   // (it goes a little slower than it came: longer in view)
     }
-    const dx = tx - SH.p[0], dy = ty - SH.p[1], dz = tz - SH.p[2], dl = Math.hypot(dx, dy, dz) + 1e-3, k = Math.min(1, dt * turn);
-    for (let c = 0; c < 3; c++) { SH.v[c] += ([dx, dy, dz][c] / dl * sp - SH.v[c]) * k; SH.p[c] += SH.v[c] * dt; }
-    SH.p[1] = clamp(SH.p[1], BED + 1, 8);
+    const dx = tx - H.p[0], dy = ty - H.p[1], dz = tz - H.p[2], dl = Math.hypot(dx, dy, dz) + 1e-3, k = Math.min(1, dt * turn);
+    for (let c = 0; c < 3; c++) { H.v[c] += ([dx, dy, dz][c] / dl * sp - H.v[c]) * k; H.p[c] += H.v[c] * dt; }
+    H.p[1] = clamp(H.p[1], BED + 1, 8);
     // how hard it works (speeding up, turning: its tail beats faster and wider) and how it banks into a turn
-    const vl = Math.hypot(SH.v[0], SH.v[1], SH.v[2]) + 1e-3, fx = SH.v[0] / vl, fz = SH.v[2] / vl;
-    const ax = (SH.v[0] - v0[0]) / dt, ay = (SH.v[1] - v0[1]) / dt, az = (SH.v[2] - v0[2]) / dt;
-    const fwd = ax * fx + ay * SH.v[1] / vl + az * fz, lat = -ax * fz + az * fx;   // (along its way; to its right, as cross(forward, up))
-    SH.eff += (clamp(Math.max(0, fwd) / 3 + Math.abs(lat) / 7, 0, 1) - SH.eff) * Math.min(1, dt * 2.5);
-    SH.bank += (clamp(lat * 0.07, -0.5, 0.5) - SH.bank) * Math.min(1, dt * 3);
-    const far = Math.hypot(SH.p[0] - ME.c[0], SH.p[2] - ME.c[1]), mine = SH.steer || SH.cruise;
-    if (!mine && SH.t > 8 && far > 24) { SH.on = false; SH.aim = null; }
-    if (!mine && SH.t > 30) { SH.on = false; SH.aim = null; }
+    const vl = Math.hypot(H.v[0], H.v[1], H.v[2]) + 1e-3, fx = H.v[0] / vl, fz = H.v[2] / vl;
+    const ax = (H.v[0] - v0[0]) / dt, ay = (H.v[1] - v0[1]) / dt, az = (H.v[2] - v0[2]) / dt;
+    const fwd = ax * fx + ay * H.v[1] / vl + az * fz, lat = -ax * fz + az * fx;   // (along its way; to its right, as cross(forward, up))
+    H.eff += (clamp(Math.max(0, fwd) / 3 + Math.abs(lat) / 7, 0, 1) - H.eff) * Math.min(1, dt * 2.5);
+    H.bank += (clamp(lat * 0.07, -0.5, 0.5) - H.bank) * Math.min(1, dt * 3);
+    const far = Math.hypot(H.p[0] - ME.c[0], H.p[2] - ME.c[1]), kept = H.steer || H.cruise;
+    if (!kept && ((H.t > 8 && far > 24) || H.t > 30)) gone(H);
   }
   // which way round the school a shark is swimming (1: the way the angle grows)
-  const loopDir = () => ((SH.p[0] - CEN[0]) * SH.v[2] - (SH.p[2] - CEN[2]) * SH.v[0] >= 0 ? 1 : -1);
+  const loopDir = H => ((H.p[0] - CEN[0]) * H.v[2] - (H.p[2] - CEN[2]) * H.v[0] >= 0 ? 1 : -1);
   // a shark let go while you are the shark: it cruises (its first burst through the school comes soon)
-  function cruise() { SH.cruise = true; SH.dash = false; SH.thru = 0; SH.ct = 0; SH.gap = 5 + R() * 5; SH.dir = loopDir(); }
-  // off it goes, as a passing shark does after its pass; leave: yours, once you stop being the shark
-  function away() { SH.steer = null; SH.cruise = false; SH.dash = false; SH.t = 8; SH.pass = 6; SH.aim = null; }
-  function leave() { if (SH.on && (SH.cruise || SH.steer)) away(); }
-  function launch(aim) {
-    const from = aim ? Math.atan2(aim[2] - ME.c[1], aim[0] - ME.c[0]) + Math.PI * (0.7 + R() * 0.6) : R() * TAU;
-    startShark({ p: [ME.c[0] + Math.cos(from) * 22, CEN[1] + (R() - 0.5) * 2, ME.c[1] + Math.sin(from) * 22], v: [-Math.cos(from) * SV, 0, -Math.sin(from) * SV], aim: aim || null });
-    if (set.onLaunch) set.onLaunch({ p: SH.p.slice(), v: SH.v.slice(), aim: SH.aim });   // in a shared room: the others' shark too
+  function cruise(H) { H.cruise = true; H.dash = false; H.thru = 0; H.ct = 0; H.gap = 5 + R() * 5; H.dir = loopDir(H); }
+  // off it goes, as a passing shark does after its pass (yours, once you let it go and are no longer the shark;
+  // another person's, once they do so or fall silent); it keeps its owner's colour while it goes
+  function away(H) {
+    if (H.kind === 'mine') H.col = MYCOL;
+    H.steer = null; H.cruise = false; H.dash = false; H.t = 8; H.pass = 6; H.aim = null; H.kind = 'pass'; H.buf = null;
   }
-  function startShark(f) {
-    SH.p = f.p.slice(); SH.v = f.v.slice(); SH.on = true; SH.t = 0; SH.pass = 0; SH.aim = f.aim ? f.aim.slice() : null;
-    SH.cruise = false; SH.dash = false; SH.thru = 0; SH.eff = 0.5; SH.bank = 0;
+  function gone(H) { H.on = false; H.aim = null; H.steer = null; H.cruise = false; H.kind = ''; H.who = ''; H.col = null; H.buf = null; H.lapsed = false; }
+  const mineOf = () => SHS.find(H => H.on && H.kind === 'mine') || null;
+  const count = () => SHS.reduce((n, H) => n + (H.on ? 1 : 0), 0);
+  const newest = () => SHS.reduce((o, H) => (H.on && (!o || H.born > o.born) ? H : o), null);
+  function leave() { const H = mineOf(); if (H) away(H); }
+  // a place for a new shark: a free one; for a steered one (yours, or another person's) when four swim already, the
+  // oldest passing one's (it goes: a steered shark never gives way); else none (a passing one is not sent)
+  function slot(steered) {
+    let H = SHS.find(x => !x.on) || null;
+    if (!H && steered) for (const x of SHS) if (x.kind === 'pass' && (!H || x.born < H.born)) H = x;
+    return H;
+  }
+  function launch(aim) {
+    const H = slot(false);
+    if (!H) return false;
+    const from = aim ? Math.atan2(aim[2] - ME.c[1], aim[0] - ME.c[0]) + Math.PI * (0.7 + R() * 0.6) : R() * TAU;
+    startShark(H, { p: [ME.c[0] + Math.cos(from) * 22, CEN[1] + (R() - 0.5) * 2, ME.c[1] + Math.sin(from) * 22], v: [-Math.cos(from) * SV, 0, -Math.sin(from) * SV], aim: aim || null }, 'pass');
+    if (set.onLaunch) set.onLaunch({ p: H.p.slice(), v: H.v.slice(), aim: H.aim });   // in a shared room: the others' shark too
+    return true;
+  }
+  function startShark(H, f, kind) {
+    H.p = f.p.slice(); H.v = f.v.slice(); H.on = true; H.t = 0; H.pass = 0; H.aim = f.aim ? f.aim.slice() : null;
+    H.steer = null; H.cruise = false; H.dash = false; H.thru = 0; H.eff = 0.5; H.bank = 0;
+    H.kind = kind; H.who = kind === 'mine' ? MYID : ''; H.col = null; H.buf = null; H.lapsed = false; H.born = ++BORN;
+    return H;
+  }
+  // shared rooms: another person's own shark, from their samples ({ at, p, v, e, b } in the relay's time, ms, about 15
+  // a second; positions in this set's frame), drawn where it was DELAY ms ago between the two samples round that moment
+  // (a cubic along their velocities, so it never jerks), as the shell draws others' moves (shared.js, SMOOTH); past the
+  // last sample it swims on its way for at most half a second; with none for 1.5 s it swims off here as a passing one
+  // does (lapsed: taken up again if they go on). off: they let it go (it swims off here as there)
+  const DELAY = 120, QUIET = 1500;
+  let NOW = null, RT = null;
+  function sample(id, o) {
+    let H = SHS.find(x => x.on && x.who === id && (x.kind === 'far' || x.lapsed)) || null;
+    if (o.off) { if (H && H.kind === 'far') away(H); return true; }
+    if (!H) {
+      if (!(H = slot(true))) return false;
+      startShark(H, { p: o.p, v: o.v, aim: null }, 'far'); H.who = id;
+    }
+    if (H.kind !== 'far') { H.kind = 'far'; H.lapsed = false; H.t = 0; H.pass = 0; }
+    const B = H.buf || (H.buf = []);
+    if (B.length && o.at <= B[B.length - 1].at) return true;   // (late: a newer one is here)
+    B.push({ at: o.at, p: o.p.slice(), v: o.v.slice(), e: o.e || 0, b: o.b || 0 });
+    if (B.length > 8) B.shift();
+    H.col = o.col || null; H.heard = NOW === null ? o.at : NOW;
+    return true;
+  }
+  // the relay's time now (ms; null: not at a station, and the others' sharks swim off)
+  function clock(now) {
+    NOW = Number.isFinite(now) ? now : null;
+    if (NOW === null) { RT = null; for (const H of SHS) if (H.on && H.kind === 'far') { H.lapsed = true; away(H); } }
+  }
+  function farStep(d) {
+    if (NOW === null) return;
+    // the time drawn: on by the frame's own time, eased towards the relay's less DELAY by at most 2 ms a frame (a new
+    // measure of the relay's clock never jolts a shark)
+    const want = NOW - DELAY;
+    RT = RT === null || Math.abs(want - RT) > 1000 ? want : RT + d * 1000 + clamp(want - RT - d * 1000, -2, 2);
+    for (const H of SHS) {
+      if (!H.on || H.kind !== 'far') continue;
+      if (NOW - H.heard > QUIET || !H.buf || !H.buf.length) { H.lapsed = true; away(H); continue; }
+      const B = H.buf;
+      let i = B.length - 1;
+      while (i > 0 && B[i].at > RT) i--;
+      const a = B[i], b = B[i + 1];
+      if (b && RT >= a.at) {
+        const h = (b.at - a.at) / 1000, u = (RT - a.at) / (b.at - a.at), u2 = u * u, u3 = u2 * u;
+        const h00 = 2 * u3 - 3 * u2 + 1, h10 = u3 - 2 * u2 + u, h01 = 3 * u2 - 2 * u3, h11 = u3 - u2;
+        for (let c = 0; c < 3; c++) {
+          H.p[c] = h00 * a.p[c] + h10 * h * a.v[c] + h01 * b.p[c] + h11 * h * b.v[c];
+          H.v[c] = (6 * u2 - 6 * u) * (a.p[c] - b.p[c]) / h + (3 * u2 - 4 * u + 1) * a.v[c] + (3 * u2 - 2 * u) * b.v[c];
+        }
+        H.eff = a.e + (b.e - a.e) * u; H.bank = a.b + (b.b - a.b) * u;
+      } else {
+        const e = clamp((RT - a.at) / 1000, 0, 0.5);
+        for (let c = 0; c < 3; c++) { H.p[c] = a.p[c] + a.v[c] * e; H.v[c] = a.v[c]; }
+        H.eff = a.e; H.bank = a.b;
+      }
+    }
   }
 
   // drawing: one instanced batch of fish, lit by the water's light from above: a dark back, silver flanks that glint
@@ -3201,7 +3290,7 @@ void main() {
   // the shark: a body of its own, 2.3 m from the snout to the tip of the tail. A torpedo lofted from a profile (a
   // conical snout, widest a third of the way back, a slim tail stalk), a tall first dorsal fin and a small second one,
   // long pectoral fins swept back and down, small pelvic and anal fins, and a crescent tail whose upper lobe is the
-  // longer; drawn in one batch. x to its left (the frame poseShark builds), y up, z forward (the snout at +z), metres;
+  // longer; drawn in one batch. x to its left (the frame poseSharks builds), y up, z forward (the snout at +z), metres;
   // aS 0 at the snout, 1 at the tail's root (more on the tail fin), for the swimming wave; aK 1 on fins
   const SNOUT = 1.0, BODY = 1.85, sOf = z => (SNOUT - z) / BODY;
   // the body's profile: s, half height, half width, the middle's height (a smooth curve through these)
@@ -3255,8 +3344,9 @@ void main() {
   }
   // its eye (on each side, a little above the middle), for the shader
   const EYE = (() => { const s = 0.1, [h, w, yc] = prof(s); return new THREE.Vector3(Math.sin(1.05) * w * 0.98, yc + Math.cos(1.05) * h, SNOUT - s * BODY); })();
-  const sharkMat = mat({
-    uniforms: Object.assign({ uA: set.uA, uPh: { value: 0 }, uAmp: { value: 0.09 }, uEye: { value: EYE } }, U), transparent: true, side: THREE.DoubleSide,
+  // one material per shark (its own swimming and tint; the same program); uTint, uTk: its owner's colour and how much
+  const sharkMat = () => mat({
+    uniforms: Object.assign({ uA: set.uA, uPh: { value: 0 }, uAmp: { value: 0.09 }, uEye: { value: EYE }, uTint: { value: new THREE.Color(1, 1, 1) }, uTk: { value: 0 } }, U), transparent: true, side: THREE.DoubleSide,
     vertexShader: `attribute float aS, aK; uniform float uPh, uAmp; varying vec3 vW, vN, vNL, vL; varying float vK;
 void main() {
   // swimming: a slow wave runs back along the body, wider towards the tail; the head stays nearly still
@@ -3269,7 +3359,7 @@ void main() {
   vW = (modelMatrix * vec4(p, 1.0)).xyz; vN = normalize(mat3(modelMatrix) * n);
   gl_Position = projectionMatrix * viewMatrix * vec4(vW, 1.0);
 }`,
-    fragmentShader: WATER + `uniform float uA, uWater; uniform vec3 uEye; varying vec3 vW, vN, vNL, vL; varying float vK;
+    fragmentShader: WATER + `uniform float uA, uWater, uTk; uniform vec3 uEye, uTint; varying vec3 vW, vN, vNL, vL; varying float vK;
 void main() {
   vec3 v = vW - cameraPosition; float dist = length(v); vec3 d = v / dist;
   float fs = gl_FrontFacing ? 1.0 : -1.0;
@@ -3279,6 +3369,8 @@ void main() {
   float back = vK > 0.5 ? smoothstep(-0.75, -0.3, nl.y) : smoothstep(-0.4, -0.12, nl.y + wob);
   vec3 c = mix(vec3(0.86, 0.88, 0.88), vec3(0.25, 0.33, 0.4), back);
   c *= 1.0 - 0.2 * smoothstep(0.55, 0.95, nl.y) * (1.0 - vK);   // (darker along the spine)
+  // a shark someone steers: its back takes a little of their colour (it still reads as a shark)
+  c = mix(c, c * (0.35 + 1.3 * uTint), uTk * 0.6 * back);
   // five gill slits on each flank, just before the pectoral fins, leaning back towards the top
   if (vK < 0.5 && abs(nl.x) > 0.55 && nl.y > -0.5 && nl.y < 0.5) {
     float q = (vL.z - 0.47 + 0.22 * vL.y) / 0.042;
@@ -3294,28 +3386,38 @@ void main() {
   vec3 rf = reflect(d, n);
   c += vec3(0.55, 0.8, 0.85) * (pow(max(rf.y, 0.0), 6.0) * 0.2 + pow(max(dot(rf, uSun), 0.0), 28.0) * 0.4) * (1.0 - 0.5 * vK);
   c += vec3(0.3, 0.55, 0.6) * pow(1.0 - abs(dot(n, d)), 3.0) * 0.16 * uWater;
+  c += uTint * pow(1.0 - abs(dot(n, d)), 2.5) * 0.2 * uTk;   // (and a faint glow of it along its edge)
   c = mix(c, waterCol(d), (1.0 - exp(-dist * ${FOG.toFixed(4)})) * uWater);
   gl_FragColor = vec4(c, uA);
 }`,
   });
-  const shark = new THREE.Mesh(sharkGeo(), sharkMat);
-  shark.frustumCulled = false; shark.renderOrder = 2; shark.visible = false; set.group.add(shark);
-  // its pose, every frame: where it glides between steps, along its way (never standing on its nose), banked into
-  // turns; its tail beats slowly at cruise and faster as it speeds up or turns hard
+  const SGEO = sharkGeo(), sharks = SHS.map(() => {
+    const m = new THREE.Mesh(SGEO, sharkMat());
+    m.frustumCulled = false; m.renderOrder = 2; m.visible = false; set.group.add(m);
+    return m;
+  });
+  // their poses, every frame: where each glides between steps (another person's: where their samples put it now),
+  // along its way (never standing on its nose), banked into turns; its tail beats slowly at cruise and faster as it
+  // speeds up or turns hard; tinted by its owner's colour, if it has one
   const _sf = new THREE.Vector3(), _sx = new THREE.Vector3(), _sy = new THREE.Vector3(), _sZ = new THREE.Vector3(0, 0, 1), _sU = new THREE.Vector3(0, 1, 0), _sM = new THREE.Matrix4(), _sQ = new THREE.Quaternion();
-  function poseShark(dt, lag) {
-    shark.visible = SH.on;
-    if (!SH.on) return;
-    const sp = Math.hypot(SH.v[0], SH.v[1], SH.v[2]), hl = Math.hypot(SH.v[0], SH.v[2]);
-    if (hl > 0.05) { SH.hd[0] = SH.v[0] / hl; SH.hd[1] = SH.v[2] / hl; }
-    const pitch = clamp(Math.atan2(SH.v[1], hl), -0.5, 0.5), cp = Math.cos(pitch);
-    _sf.set(SH.hd[0] * cp, Math.sin(pitch), SH.hd[1] * cp);
-    _sx.crossVectors(_sU, _sf).normalize(); _sy.crossVectors(_sf, _sx);
-    shark.quaternion.setFromRotationMatrix(_sM.makeBasis(_sx, _sy, _sf)).multiply(_sQ.setFromAxisAngle(_sZ, SH.bank));
-    shark.position.set(SH.p[0] + SH.v[0] * lag, SH.p[1] + SH.v[1] * lag, SH.p[2] + SH.v[2] * lag);
-    SH.ph += dt * TAU * (0.3 + 0.2 * sp + 0.8 * SH.eff);
-    sharkMat.uniforms.uPh.value = SH.ph % (TAU * 1000);
-    sharkMat.uniforms.uAmp.value = 0.085 * (1 + 0.5 * SH.eff);
+  function poseSharks(dt, lag) {
+    for (let k = 0; k < MAXS; k++) {
+      const H = SHS[k], mesh = sharks[k], u = mesh.material.uniforms;
+      mesh.visible = H.on;
+      if (!H.on) continue;
+      const sp = Math.hypot(H.v[0], H.v[1], H.v[2]), hl = Math.hypot(H.v[0], H.v[2]), l = H.kind === 'far' ? 0 : lag;
+      if (hl > 0.05) { H.hd[0] = H.v[0] / hl; H.hd[1] = H.v[2] / hl; }
+      const pitch = clamp(Math.atan2(H.v[1], hl), -0.5, 0.5), cp = Math.cos(pitch);
+      _sf.set(H.hd[0] * cp, Math.sin(pitch), H.hd[1] * cp);
+      _sx.crossVectors(_sU, _sf).normalize(); _sy.crossVectors(_sf, _sx);
+      mesh.quaternion.setFromRotationMatrix(_sM.makeBasis(_sx, _sy, _sf)).multiply(_sQ.setFromAxisAngle(_sZ, H.bank));
+      mesh.position.set(H.p[0] + H.v[0] * l, H.p[1] + H.v[1] * l, H.p[2] + H.v[2] * l);
+      H.ph += dt * TAU * (0.3 + 0.2 * sp + 0.8 * H.eff);
+      u.uPh.value = H.ph % (TAU * 1000);
+      u.uAmp.value = 0.085 * (1 + 0.5 * H.eff);
+      const col = H.kind === 'mine' ? MYCOL : H.col;
+      if (col) { if (u.uTint.col !== col) { u.uTint.value.set(col); u.uTint.col = col; } u.uTk.value = 1; } else u.uTk.value = 0;
+    }
   }
   // the network: each fish to the few it watches; cyan, warming to white where the warning is
   const lg = K.linesGeo(MAXN * KMAX), lm = K.lines(set, { additive: true }), net = new THREE.LineSegments(lg, lm);
@@ -3379,20 +3481,24 @@ void main() {
     if (want > N) for (let i = N; i < want; i++) { const j = Math.floor(R() * N) * 3; spawn(i, [P[j], P[j + 1], P[j + 2]], 0.4); V[i * 3] = V[j]; V[i * 3 + 1] = V[j + 1]; V[i * 3 + 2] = V[j + 2]; }
     N = want;
     KN = clamp(Math.round(S.fish_k), 1, KMAX);
-    // the story (or a button) sends a shark each time fish_hunt passes a whole number
+    // the story (or a button) sends a shark each time fish_hunt passes a whole number (none while four swim)
     const h = Math.floor(S.fish_hunt + 1e-6);
-    if (h > hunts && !SH.on && !FOL && !HUSH) launch(null);
+    if (h > hunts && !FOL && !HUSH) launch(null);
     hunts = h;
     let d = dt === undefined ? (tLast === null ? 0 : t - tLast) : dt;
     tLast = t;
     d = clamp(d, 0, 0.1);
-    if (S.fish_shark > 0.5 && !SH.on && !FOL && !HUSH) { SH.next -= d; if (SH.next < 0) { launch(null); SH.next = 30 + R() * 25; } }
+    // now and then one passes (while none other passes: steered ones do not count)
+    if (S.fish_shark > 0.5 && !SHS.some(H => H.on && H.kind === 'pass') && !FOL && !HUSH) { NEXT -= d; if (NEXT < 0) { launch(null); NEXT = 30 + R() * 25; } }
+    farStep(d);
+    const aligned = ALN && d > 0;
+    if (aligned) aligning(d);   // (frame by frame, so the fish glide into step between the school's steps)
     acc = Math.min(acc + d, 0.2);
     let stepped = false;
     while (acc >= SIM) { acc -= SIM; tSim += SIM; step(SIM, tSim + tOff); stepped = true; }
-    if (stepped) draw(S);
+    if (stepped) draw(S); else if (aligned) aP.needsUpdate = aV.needsUpdate = true;
     U.uLag.value = acc;
-    poseShark(d, acc);
+    poseSharks(d, acc);
     SNOWC.set(ME.head[0], ME.head[1], ME.head[2]);
   }
   // warm up, so the school is already swimming when the scene first shows; then move it in front of you
@@ -3404,10 +3510,11 @@ void main() {
   }
   draw(params);
 
+  // (the newest shark: just over its dorsal fin; named while a passing one comes in)
   const anchors = { school: () => [CEN[0], CEN[1] + 0.6, CEN[2]],
-    shark: () => (SH.on ? [SH.p[0], SH.p[1] + 0.75, SH.p[2]] : [0, -100, 0]) };   // (just over its dorsal fin)
+    shark: () => { const H = newest(); return H ? [H.p[0], H.p[1] + 0.75, H.p[2]] : [0, -100, 0]; } };
   const labels = [
-    { text: () => [T('Shark', 'Hai'), ''], at: 'shark', cls: 'amb', alpha: () => (SH.on && !SH.steer && !SH.cruise && SH.t < 7 ? 1 : 0) },
+    { text: () => [T('Shark', 'Hai'), ''], at: 'shark', cls: 'amb', alpha: () => { const H = newest(); return H && H.kind === 'pass' && H.t < 7 ? 1 : 0; } },
   ];
   // views: [az, el, dist, tx, ty, tz]: floating where you are, looking ahead (the target is just in front of your eyes,
   // so the camera stands where you do; the engine turns it to the school), looking up to the light, from outside the
@@ -3446,26 +3553,35 @@ void main() {
     const at = Array.isArray(spot), cx = at ? spot[0] : spot ? 0 : head[0], cz = at ? spot[1] : spot ? 0 : head[2];
     ME.c[0] += (cx - ME.c[0]) * 0.02; ME.c[1] += (cz - ME.c[1]) * 0.02;
   }
-  // you are the shark: it swims after this point (in this set's frame) for as long as you steer it (none yet: it comes
-  // in from beyond the point, away from you); null lets it go: while you are still the shark (hold) it stays and
-  // cruises round the school, else it swims off
+  // you are the shark: yours swims after this point (in this set's frame) for as long as you steer it (none yet: it
+  // comes in from beyond the point, away from you; with four swimming already, none of them passing, it is refused:
+  // false, and refused() says so for 2 s); null lets it go: while you are still the shark (hold) it stays and cruises
+  // round the school, else it swims off
   function steer(p) {
+    let H = mineOf();
     if (p) {
-      if (!SH.on) {
+      if (!H) {
+        if (!(H = slot(true))) { FULL = tSim; return false; }
         const ox = p[0] - ME.head[0], oz = p[2] - ME.head[2], ol = Math.hypot(ox, oz) + 1e-3;
-        startShark({ p: [p[0] + ox / ol * 7, p[1], p[2] + oz / ol * 7], v: [-ox / ol * 2, 0, -oz / ol * 2], aim: null });
+        startShark(H, { p: [p[0] + ox / ol * 7, p[1], p[2] + oz / ol * 7], v: [-ox / ol * 2, 0, -oz / ol * 2], aim: null }, 'mine');
       }
-      SH.steer = p.slice(); SH.cruise = false; SH.dash = false;
-    } else if (SH.steer) {
-      SH.steer = null;
-      if (HOLD) cruise(); else away();
+      H.steer = p.slice(); H.cruise = false; H.dash = false;
+    } else if (H && H.steer) {
+      H.steer = null;
+      if (HOLD) cruise(H); else away(H);
     }
+    return true;
   }
   // explore's "be the shark" on (the engine says so every frame): off, a shark of yours swims off
   function hold(on) { HOLD = !!on; if (!HOLD) leave(); }
-  // a shark from another device at the station (or the story's, sent with shark): not while you are being the shark
-  // with one of your own
-  function arrive(f) { if (HOLD && SH.on && (SH.cruise || SH.steer)) return; startShark(f); }
+  // a passing shark from another device at the station (or the story's, sent with shark), beside any others (none
+  // while four swim)
+  function arrive(f) { const H = slot(false); if (H) startShark(H, f, 'pass'); return !!H; }
+  // yours, for the others at a station (one you steer, or keep while you are the shark): where it is drawn now, how
+  // it moves and swims; null when you have none
+  function mine() { const H = mineOf(); return H ? { p: H.p.map((x, c) => x + H.v[c] * acc), v: H.v.slice(), e: H.eff, b: H.bank } : null; }
+  // who you are in a shared room (your shark is tinted with your colour there; none outside a room)
+  function me(id, col) { MYID = id || ''; MYCOL = col || null; }
   // shared rooms, as the flock's: this school's swim (its time, middle and velocity), and another's to follow
   function flight() {
     const m = middle(); let x = 0, y = 0, z = 0;
@@ -3478,17 +3594,87 @@ void main() {
     const d = o.t - (tSim + tOff);
     tOff += Math.abs(d) > 2 ? d : d * (1 - Math.exp(-(dt || 0) / 0.8));
   }
+  // a passing shark from anywhere, or towards where you point (dir, from your head); false while four swim
   function scatter(dir) {
-    if (SH.on) return false;
-    launch(dir ? [ME.head[0] + dir[0] * 8, ME.head[1] + dir[1] * 8, ME.head[2] + dir[2] * 8] : null);
+    return launch(dir ? [ME.head[0] + dir[0] * 8, ME.head[1] + dir[1] * 8, ME.head[2] + dir[2] * 8] : null);
+  }
+  // shared rooms: every fish as the leading device has it, a few times a second (pack: positions as drawn now, in cm
+  // from the school's middle, as 16-bit numbers; velocities in steps of VQ m/s, as 8-bit ones; 9 bytes a fish, in
+  // base64), and on a follower each fish eased towards its counterpart (align, with the snapshot's age in s: only with
+  // as many fish). The difference when it comes (the leader's fish carried on by their velocity for that age) is taken
+  // up frame by frame (time constant TAUA, at most CAPA m/s, so no fish jumps), on top of the school's own swimming,
+  // which is the same on both: so the two stay in step between snapshots. Far apart (most fish more than half a metre
+  // off, as on joining) the fish are first paired afresh, each of the leader's with the nearest of ours not yet taken
+  // (ours are only renumbered: nothing moves), so no fish crosses the school to find its counterpart
+  function pack() {
+    const m = middle().map(x => Math.round(x * 100) / 100), b = new Uint8Array(N * 9), dv = new DataView(b.buffer);
+    for (let i = 0; i < N; i++) for (let c = 0; c < 3; c++) {
+      const q = i * 3 + c;
+      dv.setInt16(i * 9 + c * 2, clamp(Math.round((P[q] + V[q] * acc - m[c]) * 100), -32767, 32767), true);
+      dv.setInt8(i * 9 + 6 + c, clamp(Math.round(V[q] / VQ), -127, 127));
+    }
+    let s = ''; for (let k = 0; k < b.length; k += 4096) s += String.fromCharCode.apply(null, b.subarray(k, k + 4096));
+    return { n: N, m, vq: VQ, d: btoa(s) };
+  }
+  function align(o, age) {
+    if (!o || o.n !== N || typeof o.d !== 'string' || !Array.isArray(o.m) || o.m.length !== 3 || !o.m.every(Number.isFinite) || !(o.vq > 0 && o.vq < 1)) return false;
+    let s; try { s = atob(o.d); } catch (e) { return false; }
+    if (s.length !== N * 9) return false;
+    const b = new Uint8Array(s.length); for (let k = 0; k < s.length; k++) b[k] = s.charCodeAt(k);
+    const dv = new DataView(b.buffer), e = clamp(age || 0, 0, 1), TP = new Float32Array(N * 3), TV = new Float32Array(N * 3);
+    for (let i = 0; i < N; i++) for (let c = 0; c < 3; c++) {
+      const q = i * 3 + c, v = dv.getInt8(i * 9 + 6 + c) * o.vq;
+      TP[q] = o.m[c] + dv.getInt16(i * 9 + c * 2, true) / 100 + v * e; TV[q] = v;
+    }
+    const off = () => { const d = []; for (let i = 0; i < N; i++) d.push(Math.hypot(TP[i * 3] - P[i * 3] - V[i * 3] * acc, TP[i * 3 + 1] - P[i * 3 + 1] - V[i * 3 + 1] * acc, TP[i * 3 + 2] - P[i * 3 + 2] - V[i * 3 + 2] * acc)); return d.sort((x, y) => x - y)[N >> 1]; };
+    if (off() > 0.5) repair(TP);
+    for (let q = 0; q < N * 3; q++) { EP[q] = TP[q] - (P[q] + V[q] * acc); EV[q] = TV[q] - V[q]; }
+    ALN = 1;
     return true;
   }
+  // each of the leader's fish (TP) paired with the nearest of ours not yet taken, ours renumbered to match
+  function repair(TP) {
+    const taken = new Uint8Array(N), to = new Int32Array(N), cp = (a, n) => a.slice(0, n);
+    for (let i = 0; i < N; i++) {
+      let best = -1, bd = Infinity;
+      for (let j = 0; j < N; j++) {
+        if (taken[j]) continue;
+        const d = (P[j * 3] - TP[i * 3]) ** 2 + (P[j * 3 + 1] - TP[i * 3 + 1]) ** 2 + (P[j * 3 + 2] - TP[i * 3 + 2]) ** 2;
+        if (d < bd) { bd = d; best = j; }
+      }
+      taken[best] = 1; to[i] = best;
+    }
+    const p = cp(P, N * 3), v = cp(V, N * 3), al = cp(AL, N), fl = cp(FL, N), bk = cp(BK, N);
+    for (let i = 0; i < N; i++) {
+      const j = to[i];
+      for (let c = 0; c < 3; c++) { P[i * 3 + c] = p[j * 3 + c]; V[i * 3 + c] = v[j * 3 + c]; }
+      AL[i] = al[j]; FL[i] = fl[j]; BK[i] = bk[j];
+    }
+  }
+  // what is left of the differences taken up, a frame's worth (d: its time, s)
+  function aligning(d) {
+    const f = 1 - Math.exp(-d / TAUA), cap = CAPA * d;
+    let left = 0;
+    for (let i = 0; i < N; i++) {
+      const q = i * 3;
+      let dx = EP[q] * f, dy = EP[q + 1] * f, dz = EP[q + 2] * f;
+      const l = Math.hypot(dx, dy, dz); if (l > cap) { dx *= cap / l; dy *= cap / l; dz *= cap / l; }
+      P[q] += dx; P[q + 1] += dy; P[q + 2] += dz; EP[q] -= dx; EP[q + 1] -= dy; EP[q + 2] -= dz;
+      for (let c = 0; c < 3; c++) { const w = EV[q + c] * f; V[q + c] += w; EV[q + c] -= w; }
+      left = Math.max(left, Math.abs(EP[q]) + Math.abs(EP[q + 1]) + Math.abs(EP[q + 2]));
+    }
+    if (left < 0.003) ALN = 0;
+  }
   const out = Object.assign(set, { params, update, anchors, labels, cam, explore, see, steer, hold, scatter, shark: arrive, flight, follow,
-    hush: on => { HUSH = !!on; }, hunted: h => { hunts = Math.floor(h + 1e-6); }, sharkOn: () => SH.on, following: () => !!FOL, fish: () => N, neighbours: () => KN,
+    mine, me, sample, clock, pack, align,
+    hush: on => { HUSH = !!on; }, hunted: h => { hunts = Math.floor(h + 1e-6); }, following: () => !!FOL, fish: () => N, neighbours: () => KN,
+    // how many sharks swim (at most MAXS); whether one of yours was refused just now (four swimming)
+    sharkOn: () => count() > 0, sharks: count, most: MAXS, full: () => count() >= MAXS, refused: () => tSim - FULL < 2, arrivals: () => BORN,
     // (the flock engine's names, so its shared-room code ports as it is)
-    falcon: arrive, falconOn: () => SH.on, kept: () => SH.on && SH.cruise,
+    falcon: arrive, falconOn: () => count() > 0, kept: () => { const H = mineOf(); return !!H && H.cruise; },
     setLang: l => { LANG = l === 'de' ? 'de' : 'en'; },
-    state: () => ({ P, V, AL, FL, N, NB, NBC, KN, KMAX, me: ME, shark: SH, centre: CEN, t: tSim }), watch: f => { WATCH = f; } });
+    // (shark: yours, else the newest; sharks: all four places)
+    state: () => ({ P, V, AL, FL, N, NB, NBC, KN, KMAX, me: ME, shark: mineOf() || newest() || SHS[0], sharks: SHS, centre: CEN, t: tSim }), watch: f => { WATCH = f; } });
   Object.defineProperty(out, 'controls', { get: () => CTL[LANG], enumerable: true });
   return out;
 };
@@ -4617,7 +4803,8 @@ const STR = {
   'f.shark': ['Be the shark', 'Sei der Hai'],
   'f.shark.how': ['Move the pointer over the water (drag on a touch screen). In a headset, point and hold the trigger, or move your fingertip.',
     'Fahr mit dem Zeiger übers Wasser (auf einem Touchscreen: ziehen). Mit VR-Brille: zeigen und den Abzug halten, oder den Zeigefinger bewegen.'],
-  'f.send': ['Send a shark', 'Hai losschicken'], 'f.busy': ['A shark is coming', 'Ein Hai kommt'],
+  'f.send': ['Send a shark', 'Hai losschicken'], 'f.busy': ['Four sharks already', 'Schon vier Haie'],
+  'f.full': ['Four sharks are swimming already. Wait until one swims off.', 'Es schwimmen schon vier Haie. Warte, bis einer wegschwimmt.'],
   'f.k': ['Neighbours each fish watches', 'Nachbarn, die jeder Fisch beobachtet'],
   'f.k1': ['One neighbour each: pairs follow pairs, and the school falls apart.', 'Nur ein Nachbar: Paare folgen Paaren, und der Schwarm fällt auseinander.'],
   'f.k2': ['Two neighbours each: small groups hold, but the school splits up.', 'Zwei Nachbarn: Kleine Gruppen halten, aber der Schwarm zerfällt.'],
@@ -5310,8 +5497,8 @@ function exploreStep(dt, now) {
     else if (MOVE_P.has(n)) { const r = dt / (n === 'cell_cue' ? 1.6 : 3); XS[n] += clamp(tg[n] - XS[n], -r, r); }
     else XS[n] += (tg[n] - XS[n]) * k;
   }
-  // the shark's button follows the shark
-  const so = GL.sets.fish.sharkOn();
+  // the shark's button follows the sharks (how many swim, and yours refused while four do)
+  const so = GL.sets.fish.sharks() + (GL.sets.fish.refused() ? 'r' : '');
   if (so !== X.so) { X.so = so; renderFish(); }
   // a gently swaying scene, unless you are steering it, it is life size, or a headset at its station stands still
   if (X.turn === 'on' && X.scene !== 'fish' && !orbit.to && !orbit.held && !GL.still && !HOST.room.placing()) { X.sway = (X.sway || 0) + dt; orbit.cur[0] += dt * 6 * Math.cos(X.sway * 0.25); }
@@ -5522,12 +5709,18 @@ function collabApply(v) {
   renderAll();
 }
 // shared rooms: the school belongs to the station, as the flock does. Everyone there says where their school is, twice
-// a second (a quiet effect); the one there longest leads (since: when it came, in the relay's time; a page back from a
-// pause, a hidden tab, counts as new; ties by member id): the others take its swimming time and steer their school to
-// it (the set's follow), and only it sends sharks of its own (the story's, now and then; a page new there listens
-// 1.5 s first); a shark anyone sends goes to everyone, exactly as it starts. Positions are in the set's frame, whose
-// origin is the station's spot on every device. True while at a station (the school then stays round its spot)
-const FSY = { heard: new Map(), sent: 0, last: 0, since: 0, from: 0 };
+// a second (a quiet effect, school); the one there longest leads (since: when it came, in the relay's time; a page back
+// from a pause, a hidden tab, counts as new; ties by member id): the others take its swimming time and steer their
+// school to it (the set's follow), and it also sends its every fish three times a second while anyone else is there
+// (fishes: the set's pack, about 4 KB for 300 fish), which the others take their fish into step with (the set's align,
+// only from the one they follow and with as many fish); only it sends sharks of its own (the story's, now and then; a
+// page new there listens 1.5 s first); a passing shark anyone sends goes to everyone, exactly as it starts (shark). Be
+// the shark: yours goes to the others about 15 times a second while you steer it or keep it (steered: where it is
+// drawn now, how it moves and swims, your colour; once more with off as you let it go), and theirs are drawn here a
+// moment behind their samples (the set's sample and clock); at most four sharks at once. Positions are in the set's
+// frame, whose origin is the station's spot on every device. True while at a station (the school then stays round
+// its spot)
+const FSY = { heard: new Map(), sent: 0, last: 0, since: 0, from: 0, packed: 0, steered: 0, had: false };
 const r2 = a => a.map(x => Math.round(x * 100) / 100);
 const earlier = (a, b) => a.since < b.since || (a.since === b.since && a.id < b.id);
 function fishSync() {
@@ -5535,8 +5728,9 @@ function fishSync() {
   const pn = performance.now(), gap = FSY.last ? pn - FSY.last : 0;
   FSY.last = pn;
   s.onLaunch = f => HOST.collab.effect('shark', f);
-  if (!on) { FSY.heard.clear(); FSY.since = 0; s.hush(false); if (s.following()) s.follow(null); return false; }
+  if (!on) { FSY.heard.clear(); FSY.since = 0; FSY.had = false; FSY.lead = ''; s.hush(false); s.clock(null); s.me('', null); if (s.following()) s.follow(null); return false; }
   const now = HOST.collab.now(), me = { id: HOST.collab.id || '', since: FSY.since };
+  s.clock(now); s.me(me.id, HOST.collab.color);
   if (!FSY.since || gap > 1500) { FSY.since = me.since = Math.round(now); FSY.from = pn; }
   if (pn - FSY.sent > 500) {
     FSY.sent = pn;
@@ -5545,34 +5739,51 @@ function fishSync() {
   }
   let lead = null;
   for (const [k, v] of FSY.heard) if (pn - v.got > 2000) FSY.heard.delete(k); else if (earlier(v, me) && (!lead || earlier(v, lead))) lead = v;
+  FSY.lead = lead ? lead.id : '';
   s.hush(pn - FSY.from < 1500);
   if (lead) { const age = clamp((now - lead.at) / 1000, 0, 2); s.follow({ t: lead.t + age, m: lead.m.map((x, j) => x + lead.v[j] * age), v: lead.v }, Math.min(gap, 1000) / 1000); }
   else if (s.following()) s.follow(null);
+  // leading with someone else here: every fish, three times a second
+  if (!lead && FSY.heard.size && pn - FSY.packed > 333) { FSY.packed = pn; HOST.collab.effect('fishes', Object.assign({ id: me.id, at: Math.round(now) }, s.pack()), true); }
+  // your own shark, about 15 times a second while you steer or keep it, and once more as you let it go
+  const m = s.mine();
+  if (m && pn - FSY.steered > 62) {
+    FSY.steered = pn;
+    HOST.collab.effect('steered', { id: me.id, col: HOST.collab.color, at: Math.round(now), p: r2(m.p), v: r2(m.v), e: Math.round(m.e * 100) / 100, b: Math.round(m.b * 100) / 100 }, true);
+  } else if (!m && FSY.had) HOST.collab.effect('steered', { id: me.id, at: Math.round(now), off: 1 }, true);
+  FSY.had = !!m;
   return true;
 }
 // sound effects, live (the shared block's sfxStep calls this every frame, story and explore mode alike, unless the story is
 // hidden): a shark arriving (a rush where it is) and, half a second later, the warning racing through the school; your own
 // steering starting; the school's middle coming within 3 m of your head after being more than 5 m off (at most every
 // 10 s). Polled, not hooked, so sharks from other devices sound too; only while the fish show (GL.lifeOn)
-const SFL = { so: false, st: false, far: true, near: 0 };
+const SFL = { so: 0, st: false, far: true, near: 0 };
 function sfxLive() {
-  const s = GL.sets.fish, so = s.sharkOn(), z = s.state(), st = !!(so && z.shark.steer), pn = performance.now();
+  const s = GL.sets.fish, so = s.arrivals(), z = s.state(), st = !!(z.shark.on && z.shark.kind === 'mine' && z.shark.steer), pn = performance.now();
   if (!GL.lifeOn) { SFL.so = so; SFL.st = st; SFL.far = true; return; }
-  if (so && !SFL.so) { sfxPlay('rush', 'fish', 'shark', { dur: 1.4 }); sfxPlay('rush', 'fish', 'school', { delay: 0.5, pitch: 1.3, dur: 1, force: true }); }
+  if (so > SFL.so && s.sharkOn()) { sfxPlay('rush', 'fish', 'shark', { dur: 1.4 }); sfxPlay('rush', 'fish', 'school', { delay: 0.5, pitch: 1.3, dur: 1, force: true }); }   // (a shark arriving: at the newest)
   else if (st && !SFL.st) sfxPlay('rush', 'fish', 'shark', { dur: 0.8, pitch: 1.2, gain: 0.7 });
   SFL.so = so; SFL.st = st;
   const h = z.me.head, f = s.flight().m, d = Math.hypot(f[0] - h[0], f[1] - h[1], f[2] - h[2]);
   if (d > 5) SFL.far = true;
   else if (d < 3 && SFL.far && pn - SFL.near > 10000) { SFL.far = false; SFL.near = pn; sfxPlay('rush', 'fish', 'school', { dur: 1.6, pitch: 0.8, gain: 0.3 }); }
 }
-// what another device at the station sent: where its school is, or a shark
+// what another device at the station sent: where its school is, its every fish (from the one this page follows), a
+// passing shark, or someone's own shark
 const v3ok = a => Array.isArray(a) && a.length === 3 && a.every(Number.isFinite);
+const idOk = id => typeof id === 'string' && id.length > 0 && id.length < 64;
 function fishEffect(type, d) {
   if (!d || typeof d !== 'object') return;
-  if (type === 'school' && typeof d.id === 'string' && d.id.length < 64 && Number.isFinite(d.since) && Number.isFinite(d.at) && Number.isFinite(d.t) && v3ok(d.m) && v3ok(d.v)) {
+  if (type === 'school' && idOk(d.id) && Number.isFinite(d.since) && Number.isFinite(d.at) && Number.isFinite(d.t) && v3ok(d.m) && v3ok(d.v)) {
     FSY.heard.set(d.id, { id: d.id, since: d.since, at: d.at, t: d.t, m: d.m, v: d.v, got: performance.now() });
+  } else if (type === 'fishes' && idOk(d.id) && d.id === FSY.lead && Number.isFinite(d.at)) {
+    GL.sets.fish.align(d, clamp((HOST.collab.now() - d.at) / 1000, 0, 1));
   } else if (type === 'shark' && v3ok(d.p) && v3ok(d.v) && (d.aim === null || v3ok(d.aim))) {
     GL.sets.fish.shark(d); renderFish();
+  } else if (type === 'steered' && idOk(d.id) && d.id !== HOST.collab.id && Number.isFinite(d.at) && (d.off || (v3ok(d.p) && v3ok(d.v)))) {
+    GL.sets.fish.sample(d.id, d.off ? { at: d.at, off: true } : { at: d.at, p: d.p, v: d.v, e: clamp(+d.e || 0, 0, 1), b: clamp(+d.b || 0, -0.5, 0.5),
+      col: typeof d.col === 'string' && /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(d.col) ? d.col : null });
   }
 }
 
@@ -5669,11 +5880,11 @@ const kText = k => (k === 1 ? T('f.k1') : k === 2 ? T('f.k2') : T('f.k3', k));
 function renderFish() {
   const pane = $('#pane-fish');
   if (!pane) return;
-  const busy = GL.sets.fish.sharkOn(), k = fishK(), vc = ctlOf('fish', 'view'), lc = ctlOf('fish', 'links');
+  const busy = GL.sets.fish.full(), k = fishK(), vc = ctlOf('fish', 'view'), lc = ctlOf('fish', 'links');
   pane.innerHTML = `<p class="sub">${esc(T('f.sub'))}</p>
     ${grpH(T('f.shark'))}<div class="chips">${[['off', T('off')], ['on', T('on')]].map(([v, n]) => chip(`data-act="shark" data-v="${v}"`, esc(n), X.shark === (v === 'on'))).join('')}
       <button type="button" data-act="send"${busy ? ' disabled' : ''}>${esc(busy ? T('f.busy') : T('f.send'))}</button></div>
-    ${X.shark ? `<p class="sub">${esc(T('f.shark.how'))}</p>` : ''}
+    ${X.shark && GL.sets.fish.refused() ? `<p class="sub" style="color:var(--amber)">${esc(T('f.full'))}</p>` : X.shark ? `<p class="sub">${esc(T('f.shark.how'))}</p>` : ''}
     ${grpH(T('f.k'), k, 'data-kv')}${slider('fk', 1, 12, 1, k, T('f.k'))}
     <p class="sub" data-kt>${esc(kText(k))}</p>
     ${grpH(T('f.links'))}<div class="chips">${lc.options.map(([v, n]) => chip(`data-act="ctl" data-scene="fish" data-ctl="links" data-v="${v}"`, esc(n), ctlValue('fish', lc) === v)).join('')}</div>
@@ -6264,7 +6475,7 @@ function xrGrab(c, on) {
   c.grab = null;
   const h = c.hover;
   if (!on || !h) return;
-  if (XR.stories || HOST.anchor.locked(h.kind)) return; // the Stories screen stays put, and so does an anchored place (in a shared room: only at its station, unless locked)
+  if (XR.stories || h.menu || HOST.anchor.locked(h.kind)) return; // the Stories screen stays put, and so does an anchored place (in a shared room: only at its station, unless locked)
   // the sea: the school moves with your hand (one hand at a time; it lets go of the shark you were leading)
   if (h.kind === 'sea') {
     if (seaHeld()) return;
@@ -6349,7 +6560,7 @@ function xrPoint(c, dt) {
   const hs = XR.raycaster.intersectObjects(XR.panelMeshes.filter(m => m.visible), false);
   // then the shared room's own things (its panel, the other stations, a calibration), if nearer than a panel
   const sh = HOST.collab.ray(c.i, c.o, c.d, hs.length ? hs[0].distance : Infinity);
-  if (sh && sh.panel && XR[sh.panel]) { const P = XR[sh.panel]; hit = { kind: 'panel', P, x: sh.u * P.w, y: (1 - sh.v) * P.h, point: sh.point }; dist = sh.dist; }   // (this panel in the shell's menu, its Story tab)
+  if (sh && sh.panel && XR[sh.panel]) { const P = XR[sh.panel]; hit = { kind: 'panel', P, x: sh.u * P.w, y: (1 - sh.v) * P.h, point: sh.point, menu: true }; dist = sh.dist; }   // (this panel in the shell's menu, its Story tab)
   else if (sh) { hit = sh; dist = sh.dist; }
   else if (xrAway()) hit = null;   // away from its station in a shared room: nothing of the story to point at
   else if (hs.length) {
@@ -6822,7 +7033,7 @@ function panelTick(P, now) {
 // ------------------------------------------------------------ main panel --
 function sigMain() {
   if (XR.stories) return 'stories' + audioLabel();
-  if (APP.mode !== 'story') return ['x', LANG, audioLabel(), xrSig(), X.tab, X.scene, JSON.stringify(X.ctl), X.n, X.shark, GL.sets.fish.sharkOn(), !!GL.lifeOn, JSON.stringify(X.out), Math.floor(X.out.day), X.city, X.prot].join('|');
+  if (APP.mode !== 'story') return ['x', LANG, audioLabel(), xrSig(), X.tab, X.scene, JSON.stringify(X.ctl), X.n, X.shark, GL.sets.fish.sharks(), GL.sets.fish.refused(), !!GL.lifeOn, JSON.stringify(X.out), Math.floor(X.out.day), X.city, X.prot].join('|');
   {
     const it = ST.items.find(x => x.ch === curCh);
     let s = 's' + LANG + audioLabel() + xrSig() + (GL.lifeOn ? 'f' : '') + (HOST.room && HOST.room.inRoom() ? 'r' + HOST.room.gripHint : '') + (curCh ? curCh.key : '');
@@ -7184,12 +7395,13 @@ function headVal(ctx, x, y, w, k, v) {
 }
 // the fish: be the shark, neighbours watched, the network, the school's size, the view
 function drawFishPane(ctx, P, x, y, W, bottom) {
-  const busy = GL.sets.fish.sharkOn(), k = fishK(), vc = ctlOf('fish', 'view'), lc = ctlOf('fish', 'links');
+  const busy = GL.sets.fish.full(), k = fishK(), vc = ctlOf('fish', 'view'), lc = ctlOf('fish', 'links');
   y += textBlock(ctx, T('f.sub'), x, y, W, 24, 33, VC.muted, 400, 2) + 14;
   y += head(ctx, x, y, T('f.shark'));
   y += flow(ctx, P, [['off', T('off')], ['on', T('on')]].map(([v, n]) => ({ id: 'shark:' + v, label: n, on: X.shark === (v === 'on'), fn: () => setShark(v === 'on') }))
     .concat([{ id: 'send', label: busy ? T('f.busy') : T('f.send'), on: busy, fn: busy ? null : () => sendShark(null) }]), x, y, W, bottom, { px: 23, h: 54 }) + 10;
-  if (X.shark) y += textBlock(ctx, T('f.shark.how'), x, y, W, 22, 30, VC.faint, 400, 3) + 10;
+  if (X.shark && GL.sets.fish.refused()) y += textBlock(ctx, T('f.full'), x, y, W, 22, 30, VC.amber, 400, 3) + 10;   // (four sharks swim: yours refused)
+  else if (X.shark) y += textBlock(ctx, T('f.shark.how'), x, y, W, 22, 30, VC.faint, 400, 3) + 10;
   y += headVal(ctx, x, y, W, T('f.k'), k);
   vSlider(ctx, P, 'fk', x + 16, y, W - 32, k, 1, 12, VC.cyan, v => setFishK(v));
   y += 54;

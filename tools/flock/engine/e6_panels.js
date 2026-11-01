@@ -147,7 +147,7 @@ function sigMain() {
     }
     return s;
   }
-  return ['x', audioLabel(), xrSig(), X.scene, JSON.stringify(X.ctl[X.scene] || {}), GL.sets.flock.falconOn()].join('|');
+  return ['x', audioLabel(), xrSig(), X.scene, JSON.stringify(X.ctl[X.scene] || {}), GL.sets.flock.falcons()].join('|');
 }
 const XR_HERE = 'flock';
 const XR_STORIES = HOST.list;
@@ -427,7 +427,7 @@ function drawStoryEl(ctx, P, el, x, y, W, pa) {
 
 // explore: the flock's pane, mirroring the HTML one
 function drawExplorePane(ctx, P, x, y, W) {
-  const sc = SCENES[0], s = GL.sets.flock, busy = s.falconOn();
+  const sc = SCENES[0], s = GL.sets.flock, busy = s.full();
   ctx.font = vfont(30, 700); ctx.fillStyle = VC.ink; ctx.fillText(sc[1], x, y);
   y += 50;
   y += textBlock(ctx, 'Starlings at dusk, all around you. Each bird follows the seven nearest to it. Point at the sky and pull the trigger to send a falcon.', x, y, W, 25, 35, VC.muted, 400, 4) + 18;
@@ -447,7 +447,7 @@ function drawExplorePane(ctx, P, x, y, W) {
     }
     y = by + 80;
   }
-  if (y + 60 < bottom) vButton(ctx, P, 'falcon', x, y, 300, 60, busy ? 'A falcon is hunting' : 'Send a falcon', () => sendFalcon(null), { px: 24, on: busy });
+  if (y + 60 < bottom) vButton(ctx, P, 'falcon', x, y, 300, 60, busy ? 'Four falcons already' : 'Send a falcon', () => sendFalcon(null), { px: 24, on: busy });
 }
 function sigFoot() {
   return APP.mode === 'story' ? 's' + Math.round(APP.t * 4) + APP.playing + (curCh ? curCh.key : '') + slideSig() : 'x';

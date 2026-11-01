@@ -232,8 +232,9 @@ const { smooth, clamp } = K;
 const SETS = {};
 // A murmuration: starlings at dusk, flying all around you. A live simulation: each bird matches the heading of its
 // seven nearest neighbours (as starlings do, whatever the distance), keeps its distance, follows the flock's
-// wandering roosts round the viewer, steers clear of the viewer's head and hands, and flees a falcon. Alarm passes
-// from bird to neighbour, so a wave runs through the flock (the birds bank, and their wings show as dark bands).
+// wandering roosts round the viewer, steers clear of the viewer's head and hands, and flees the falcons (up to four
+// at once). Alarm passes from bird to neighbour, so a wave runs through the flock (the birds bank, and their wings
+// show as dark bands).
 // Life size: 1 unit is 1 m, the viewer stands at the origin, the ground is y = 0, the sun sets towards -z.
 // The simulation is the one part of a set that is not a pure function of the params and the time: it runs on.
 SETS.flock = function (K) {
@@ -358,16 +359,21 @@ void main() { vec3 d = normalize(vW - cameraPosition);
   const NB = new Int32Array(MAXN * KN), NBC = new Uint8Array(MAXN);
   const R = rng(1903);
   let N = 200;
-  const spawn = (i, c) => {
+  // (a bird's own wingbeat and lean are drawn once, at the start, the same on every device: a bird that joins later
+  // takes its index's, so a shared room's flocks can match bird by bird, see align)
+  const spawn = (i, c, first) => {
     const a = R() * TAU, r = 3 + R() * 6, e = (R() - 0.5) * 4;
     P[i * 3] = c[0] + Math.cos(a) * r; P[i * 3 + 1] = Math.max(4, c[1] + e); P[i * 3 + 2] = c[2] + Math.sin(a) * r;
     V[i * 3] = -Math.sin(a) * 9; V[i * 3 + 1] = 0; V[i * 3 + 2] = Math.cos(a) * 9;
-    AL[i] = 0; BK[i] = 0; PH[i] = R() * TAU; GR[i] = R();
+    AL[i] = 0; BK[i] = 0; if (first) { PH[i] = R() * TAU; GR[i] = R(); }
   };
-  for (let i = 0; i < MAXN; i++) spawn(i, [0, 9, -14]);
-  // the viewer (head and hands, in this set's frame; the engine updates them) and the falcon
+  for (let i = 0; i < MAXN; i++) spawn(i, [0, 9, -14], true);
+  // the viewer (head and hands, in this set's frame; the engine updates them) and up to four falcons at once (MAXF, the
+  // owner's choice; born: the order they came in)
   const ME = { head: [0, 1.6, 0], hands: [], c: [0, 0] };
-  const FAL = { on: false, p: [0, 0, 0], v: [0, 0, 0], t: 0, pass: 0, next: 30, aim: null };
+  const MAXF = 4;
+  const FALS = Array.from({ length: MAXF }, () => ({ on: false, p: [0, 0, 0], v: [0, 0, 0], t: 0, pass: 0, aim: null, born: 0 }));
+  let NEXT = 30, BORN = 0;   // now and then: the next in (s); falcons so far
 
   // where the flock likes to be: a roost point in front of the viewer (towards the sunset) that wanders slowly
   // left and right, in and out, up and down, and every 88 s comes in low and close for about ten seconds, so the
@@ -396,6 +402,10 @@ void main() { vec3 d = normalize(vW - cameraPosition);
   // in a shared room another device's flock may lead this one (follow): its flight time is taken (tOff, so the roost
   // and the whim are the same) and the flock as a whole is steered to where that one is
   let tOff = 0, FOL = null, HUSH = false;   // HUSH: new at a station, listening for a leader before sending falcons
+  // and its birds bird by bird: how far these are from the leading flock's as of its last snapshot (EP, EV: what is
+  // still to be taken up; ALN: some is), see pack and align
+  const VQ = 0.15, TAUA = 0.25, CAPA = 12, EP = new Float32Array(MAXN * 3), EV = new Float32Array(MAXN * 3);
+  let ALN = 0;
   const CEN = [0, 9, -14];   // the middle of the flock's main body (centre())
 
   // a grid of cells round the viewer for the neighbour search (birds beyond its edge share the edge cells)
@@ -455,7 +465,7 @@ void main() { vec3 d = normalize(vW - cameraPosition);
       const e = tSim - FOL.t0, ex = FOL.m[0] + FOL.v[0] * e - gcx, ey = FOL.m[1] + FOL.v[1] * e - gcy, ez = FOL.m[2] + FOL.v[2] * e - gcz;
       if (Math.hypot(ex, ey, ez) > 12) {
         for (let i = 0; i < MAXN; i++) { P[i * 3] += ex; P[i * 3 + 1] += ey; P[i * 3 + 2] += ez; V[i * 3] += FOL.v[0] - gvx; V[i * 3 + 1] += FOL.v[1] - gvy; V[i * 3 + 2] += FOL.v[2] - gvz; }
-        gcx += ex; gcy += ey; gcz += ez; CEN[0] += ex; CEN[1] += ey; CEN[2] += ez;
+        gcx += ex; gcy += ey; gcz += ez; CEN[0] += ex; CEN[1] += ey; CEN[2] += ez; ALN = 0;   // (a snapshot's differences from before the move are stale)
       } else {
         lx = ex * 0.5 + (FOL.v[0] - gvx) * 0.8; ly = ey * 0.5 + (FOL.v[1] - gvy) * 0.8; lz = ez * 0.5 + (FOL.v[2] - gvz) * 0.8;
         const ll = Math.hypot(lx, ly, lz); if (ll > 10) { lx *= 10 / ll; ly *= 10 / ll; lz *= 10 / ll; }
@@ -497,9 +507,10 @@ void main() { vec3 d = normalize(vW - cameraPosition);
       const qx = x - hx, qy = y - hy, qz = z - hz, qd = Math.hypot(qx, qy, qz) + 1e-3;
       if (qd < 2.6) { const f = 40 * (2.6 - qd) / (2.6 * qd); ax += qx * f; ay += qy * f + (2.6 - qd) * 5; az += qz * f; }
       for (const hd of ME.hands) { const ux = x - hd[0], uy = y - hd[1], uz = z - hd[2], ud = Math.hypot(ux, uy, uz) + 1e-3; if (ud < 2.2) { const f = 30 * (2.2 - ud) / (2.2 * ud); ax += ux * f; ay += uy * f; az += uz * f; } }
-      // the falcon: those it nears flee, and raise the alarm
-      if (FAL.on) {
-        const fx = x - FAL.p[0], fy = y - FAL.p[1], fz = z - FAL.p[2], fd = Math.hypot(fx, fy, fz) + 1e-3;
+      // the falcons: those they near flee (from each one within reach), and raise the alarm
+      for (let k = 0; k < MAXF; k++) {
+        const F = FALS[k]; if (!F.on) continue;
+        const fx = x - F.p[0], fy = y - F.p[1], fz = z - F.p[2], fd = Math.hypot(fx, fy, fz) + 1e-3;
         if (fd < 8) { const f = 40 * (8 - fd) / (8 * fd); ax += fx * f; ay += fy * f; az += fz * f; AL2[i] = Math.max(AL2[i], 1 - fd / 8 * 0.5); }
       }
       // speed: back towards cruising, faster when alarmed
@@ -522,32 +533,41 @@ void main() { vec3 d = normalize(vW - cameraPosition);
       AL[i] = AL2[i];
     }
     centre();
-    // the falcon: in fast from afar, one stoop straight through the thick of the flock, then up and away
-    if (FAL.on) {
-      FAL.t += dt;
+    // each falcon: in fast from afar, one stoop straight through the thick of the flock, then up and away
+    for (const F of FALS) {
+      if (!F.on) continue;
+      F.t += dt;
       let tx, ty, tz;
-      const hunting = !FAL.pass && FAL.t < 6, through = FAL.pass && FAL.t < FAL.pass + 1.2;
+      const hunting = !F.pass && F.t < 6, through = F.pass && F.t < F.pass + 1.2;
       if (hunting) {   // home on the flock's main body (or where it was sent)
         tx = CEN[0]; ty = CEN[1]; tz = CEN[2];
-        if (FAL.aim && FAL.t < 1.5) { tx = FAL.aim[0]; ty = FAL.aim[1]; tz = FAL.aim[2]; }
-        if (Math.hypot(CEN[0] - FAL.p[0], CEN[1] - FAL.p[1], CEN[2] - FAL.p[2]) < 4) FAL.pass = FAL.t;
-      } else if (through) { tx = FAL.p[0] + FAL.v[0]; ty = Math.max(FAL.p[1] + FAL.v[1], 6); tz = FAL.p[2] + FAL.v[2]; }
-      else { tx = FAL.p[0] + FAL.v[0] * 3; ty = FAL.p[1] + 30; tz = FAL.p[2] + FAL.v[2] * 3; }
-      const dx = tx - FAL.p[0], dy = ty - FAL.p[1], dz = tz - FAL.p[2], dl = Math.hypot(dx, dy, dz) + 1e-3, sp = hunting || through ? 26 : 18;
-      for (let c = 0; c < 3; c++) { FAL.v[c] += ([dx, dy, dz][c] / dl * sp - FAL.v[c]) * Math.min(1, dt * 2.2); FAL.p[c] += FAL.v[c] * dt; }
-      if (FAL.p[1] < 2) { FAL.p[1] = 2; FAL.v[1] = Math.max(FAL.v[1], 0); }   // never into the ground
-      if (FAL.t > 10) { FAL.on = false; FAL.aim = null; }
+        if (F.aim && F.t < 1.5) { tx = F.aim[0]; ty = F.aim[1]; tz = F.aim[2]; }
+        if (Math.hypot(CEN[0] - F.p[0], CEN[1] - F.p[1], CEN[2] - F.p[2]) < 4) F.pass = F.t;
+      } else if (through) { tx = F.p[0] + F.v[0]; ty = Math.max(F.p[1] + F.v[1], 6); tz = F.p[2] + F.v[2]; }
+      else { tx = F.p[0] + F.v[0] * 3; ty = F.p[1] + 30; tz = F.p[2] + F.v[2] * 3; }
+      const dx = tx - F.p[0], dy = ty - F.p[1], dz = tz - F.p[2], dl = Math.hypot(dx, dy, dz) + 1e-3, sp = hunting || through ? 26 : 18;
+      for (let c = 0; c < 3; c++) { F.v[c] += ([dx, dy, dz][c] / dl * sp - F.v[c]) * Math.min(1, dt * 2.2); F.p[c] += F.v[c] * dt; }
+      if (F.p[1] < 2) { F.p[1] = 2; F.v[1] = Math.max(F.v[1], 0); }   // never into the ground
+      if (F.t > 10) { F.on = false; F.aim = null; }
     }
   }
+  const count = () => FALS.reduce((n, F) => n + (F.on ? 1 : 0), 0);
+  const newest = () => FALS.reduce((o, F) => (F.on && (!o || F.born > o.born) ? F : o), null);
+  // a falcon from afar (aim: where it was sent, or null: the flock); none while four are in the air (false)
   function launch(aim) {
+    if (count() >= MAXF) return false;
     const a = R() * TAU, from = aim ? Math.atan2(aim[2] - ME.c[1], aim[0] - ME.c[0]) + Math.PI * (0.7 + R() * 0.6) : a;
-    startFalcon({ p: [ME.c[0] + Math.cos(from) * 70, 30 + R() * 15, ME.c[1] + Math.sin(from) * 70], v: [-Math.cos(from) * 20, -4, -Math.sin(from) * 20], aim: aim || null });
-    if (set.onLaunch) set.onLaunch({ p: FAL.p.slice(), v: FAL.v.slice(), aim: FAL.aim });   // in a shared room: the others' falcon too
+    const F = startFalcon({ p: [ME.c[0] + Math.cos(from) * 70, 30 + R() * 15, ME.c[1] + Math.sin(from) * 70], v: [-Math.cos(from) * 20, -4, -Math.sin(from) * 20], aim: aim || null });
+    if (set.onLaunch) set.onLaunch({ p: F.p.slice(), v: F.v.slice(), aim: F.aim });   // in a shared room: the others' falcon too
+    return true;
   }
   // a falcon from where it starts (p, v) and where it was sent (aim, or null: the flock): launched here, or by another
-  // device in a shared room (then exactly the same falcon)
+  // device in a shared room (then exactly the same falcon); beside any others, none while four are in the air (null)
   function startFalcon(f) {
-    FAL.p = f.p.slice(); FAL.v = f.v.slice(); FAL.on = true; FAL.t = 0; FAL.pass = 0; FAL.aim = f.aim ? f.aim.slice() : null;
+    const F = FALS.find(x => !x.on);
+    if (!F) return null;
+    F.p = f.p.slice(); F.v = f.v.slice(); F.on = true; F.t = 0; F.pass = 0; F.aim = f.aim ? f.aim.slice() : null; F.born = ++BORN;
+    return F;
   }
 
   // drawing: one instanced batch of birds; a body and two pointed wings that flap and glide, banking with the bird
@@ -605,9 +625,10 @@ void main() {
   bg.setAttribute('iP', aP); bg.setAttribute('iV', aV); bg.setAttribute('iB', aB);
   const birds = new THREE.Mesh(bg, birdMat(7.5, 'vec3(0.16, 0.12, 0.22)'));
   birds.frustumCulled = false; birds.renderOrder = 2; set.group.add(birds);
-  // the falcon: one larger bird, longer pointed wings, slower deeper beats
-  const fg = birdGeo(1.0, 0.42), fP = new THREE.InstancedBufferAttribute(new Float32Array(3), 3), fV = new THREE.InstancedBufferAttribute(new Float32Array(3), 3), fB = new THREE.InstancedBufferAttribute(new Float32Array(3), 3);
-  fg.setAttribute('iP', fP); fg.setAttribute('iV', fV); fg.setAttribute('iB', fB); fg.instanceCount = 1;
+  // the falcons: larger birds, longer pointed wings, slower deeper beats (one batch of up to four)
+  const fg = birdGeo(1.0, 0.42), fP = new THREE.InstancedBufferAttribute(new Float32Array(MAXF * 3), 3), fV = new THREE.InstancedBufferAttribute(new Float32Array(MAXF * 3), 3), fB = new THREE.InstancedBufferAttribute(new Float32Array(MAXF * 3), 3);
+  fg.setAttribute('iP', fP); fg.setAttribute('iV', fV); fg.setAttribute('iB', fB); fg.instanceCount = 0;
+  for (const a of [fP, fV, fB]) a.setUsage(THREE.DynamicDrawUsage);
   const falcon = new THREE.Mesh(fg, birdMat(4.2, 'vec3(0.2, 0.17, 0.14)'));
   falcon.frustumCulled = false; falcon.renderOrder = 2; set.group.add(falcon);
   // the network: each bird to the seven it follows
@@ -619,8 +640,10 @@ void main() {
     for (let i = 0; i < N; i++) { iB[i * 3] = BK[i]; iB[i * 3 + 1] = AL[i]; iB[i * 3 + 2] = PH[i]; }
     bg.instanceCount = N;
     aP.needsUpdate = aV.needsUpdate = aB.needsUpdate = true;
-    falcon.visible = FAL.on;
-    if (FAL.on) { fP.array.set(FAL.p); fV.array.set(FAL.v); fB.array.set([0, 0, 1.3]); fP.needsUpdate = fV.needsUpdate = fB.needsUpdate = true; }
+    let nf = 0;
+    for (const F of FALS) if (F.on) { fP.array.set(F.p, nf * 3); fV.array.set(F.v, nf * 3); fB.array.set([0, 0, 1.3 + F.born * 2.1], nf * 3); nf++; }
+    falcon.visible = nf > 0; fg.instanceCount = nf;
+    if (nf) fP.needsUpdate = fV.needsUpdate = fB.needsUpdate = true;
     const la = clamp(S.flock_links, 0, 1);
     net.visible = la > 0.01;
     if (net.visible) {
@@ -668,19 +691,21 @@ void main() {
     const want = clamp(Math.round(S.flock_birds), 50, MAXN);
     if (want > N) for (let i = N; i < want; i++) { const j = Math.floor(R() * N) * 3; spawn(i, [P[j], P[j + 1], P[j + 2]]); }
     N = want;
-    // the story (or a button) sends a falcon each time flock_hunt passes a whole number
+    // the story (or a button) sends a falcon each time flock_hunt passes a whole number (none while four are in the air)
     const h = Math.floor(S.flock_hunt + 1e-6);
-    if (h > hunts && !FAL.on && !FOL && !HUSH) launch(null);   // following: the leading device sends its falcons
+    if (h > hunts && !FOL && !HUSH) launch(null);   // following: the leading device sends its falcons
     hunts = h;
     let d = dt === undefined ? (tLast === null ? 0 : t - tLast) : dt;
     tLast = t;
     d = clamp(d, 0, 0.1);
-    // now and then a falcon comes on its own
-    if (S.flock_falcon > 0.5 && !FAL.on && !FOL && !HUSH) { FAL.next -= d; if (FAL.next < 0) { launch(null); FAL.next = 40 + R() * 40; } }
+    // now and then a falcon comes on its own (while no other is in the air)
+    if (S.flock_falcon > 0.5 && !count() && !FOL && !HUSH) { NEXT -= d; if (NEXT < 0) { launch(null); NEXT = 40 + R() * 40; } }
+    const aligned = ALN && d > 0;
+    if (aligned) aligning(d);   // (frame by frame, so the birds glide into step between the flock's steps)
     acc = Math.min(acc + d, 0.2);
     let stepped = false;
     while (acc >= SIM) { acc -= SIM; tSim += SIM; step(SIM, tSim + tOff, S); stepped = true; }
-    if (stepped) draw(S);
+    if (stepped) draw(S); else if (aligned) aP.needsUpdate = aV.needsUpdate = true;
     U.uLag.value = acc;
   }
   // warm up, so the flock is already in the air when the scene first shows; then move it to its roost, in front
@@ -694,9 +719,9 @@ void main() {
   draw(params);
 
   const anchors = { flock: () => [CEN[0], CEN[1] + 3, CEN[2]],   // 3 m above the body: where the camera aims
-    falcon: () => (FAL.on ? [FAL.p[0], FAL.p[1] + 1.5, FAL.p[2]] : [0, -100, 0]) };
+    falcon: () => { const F = newest(); return F ? [F.p[0], F.p[1] + 1.5, F.p[2]] : [0, -100, 0]; } };   // (the newest)
   const labels = [
-    { text: ['Falcon', ''], at: 'falcon', cls: 'amb', alpha: () => (FAL.on && FAL.t < 6 ? 1 : 0) },
+    { text: ['Falcon', ''], at: 'falcon', cls: 'amb', alpha: () => { const F = newest(); return F && F.t < 6 ? 1 : 0; } },
   ];
   // views: [az, el, dist, tx, ty, tz]. Among them: standing in the field, looking a little up (the target is just in
   // front of your eyes, so the camera stands where you do); from afar: the whole flock round the spot you stood on
@@ -737,13 +762,82 @@ void main() {
     tOff += Math.abs(d) > 2 ? d : d * (1 - Math.exp(-(dt || 0) / 0.8));
   }
   function hush(on) { HUSH = !!on; }
+  // a falcon towards where you point (dir, from your head), or from anywhere; false while four are in the air
   function scatter(dir) {
-    if (FAL.on) return false;
-    launch(dir ? [ME.head[0] + dir[0] * 20, Math.max(6, ME.head[1] + dir[1] * 20), ME.head[2] + dir[2] * 20] : null);
+    return launch(dir ? [ME.head[0] + dir[0] * 20, Math.max(6, ME.head[1] + dir[1] * 20), ME.head[2] + dir[2] * 20] : null);
+  }
+  // shared rooms: every bird as the leading device has it, a few times a second (pack: positions as drawn now, in cm
+  // from the flock's middle, as 16-bit numbers; velocities in steps of VQ m/s, as 8-bit ones; 9 bytes a bird, in
+  // base64), and on a follower each bird eased towards its counterpart (align, with the snapshot's age in s: only with
+  // as many birds). The difference when it comes (the leader's birds carried on by their velocity for that age) is
+  // taken up frame by frame (time constant TAUA, at most CAPA m/s, so no bird jumps), on top of the flock's own flight,
+  // which is the same on both: so the two stay in step between snapshots. Far apart (most birds more than 2 m off, as
+  // on joining) the birds are first paired afresh, each of the leader's with the nearest of ours not yet taken (ours
+  // are only renumbered: nothing moves), so no bird crosses the flock to find its counterpart
+  function pack() {
+    const m = middle().map(x => Math.round(x * 100) / 100), b = new Uint8Array(N * 9), dv = new DataView(b.buffer);
+    for (let i = 0; i < N; i++) for (let c = 0; c < 3; c++) {
+      const q = i * 3 + c;
+      dv.setInt16(i * 9 + c * 2, clamp(Math.round((P[q] + V[q] * acc - m[c]) * 100), -32767, 32767), true);
+      dv.setInt8(i * 9 + 6 + c, clamp(Math.round(V[q] / VQ), -127, 127));
+    }
+    let s = ''; for (let k = 0; k < b.length; k += 4096) s += String.fromCharCode.apply(null, b.subarray(k, k + 4096));
+    return { n: N, m, vq: VQ, d: btoa(s) };
+  }
+  function align(o, age) {
+    if (!o || o.n !== N || typeof o.d !== 'string' || !Array.isArray(o.m) || o.m.length !== 3 || !o.m.every(Number.isFinite) || !(o.vq > 0 && o.vq < 1)) return false;
+    let s; try { s = atob(o.d); } catch (e) { return false; }
+    if (s.length !== N * 9) return false;
+    const b = new Uint8Array(s.length); for (let k = 0; k < s.length; k++) b[k] = s.charCodeAt(k);
+    const dv = new DataView(b.buffer), e = clamp(age || 0, 0, 1), TP = new Float32Array(N * 3), TV = new Float32Array(N * 3);
+    for (let i = 0; i < N; i++) for (let c = 0; c < 3; c++) {
+      const q = i * 3 + c, v = dv.getInt8(i * 9 + 6 + c) * o.vq;
+      TP[q] = o.m[c] + dv.getInt16(i * 9 + c * 2, true) / 100 + v * e; TV[q] = v;
+    }
+    const off = () => { const d = []; for (let i = 0; i < N; i++) d.push(Math.hypot(TP[i * 3] - P[i * 3] - V[i * 3] * acc, TP[i * 3 + 1] - P[i * 3 + 1] - V[i * 3 + 1] * acc, TP[i * 3 + 2] - P[i * 3 + 2] - V[i * 3 + 2] * acc)); return d.sort((x, y) => x - y)[N >> 1]; };
+    if (off() > 2) repair(TP);
+    for (let q = 0; q < N * 3; q++) { EP[q] = TP[q] - (P[q] + V[q] * acc); EV[q] = TV[q] - V[q]; }
+    ALN = 1;
     return true;
   }
-  return Object.assign(set, { params, update, anchors, labels, cam, controls, explore, see, scatter, falcon: startFalcon, flight, follow, hush,
-    birds: () => N, falconOn: () => FAL.on, following: () => !!FOL, state: () => ({ P, V, AL, N, NB, NBC, me: ME, falcon: FAL }) });
+  // each of the leader's birds (TP) paired with the nearest of ours not yet taken, ours renumbered to match
+  function repair(TP) {
+    const taken = new Uint8Array(N), to = new Int32Array(N), cp = (a, n) => a.slice(0, n);
+    for (let i = 0; i < N; i++) {
+      let best = -1, bd = Infinity;
+      for (let j = 0; j < N; j++) {
+        if (taken[j]) continue;
+        const d = (P[j * 3] - TP[i * 3]) ** 2 + (P[j * 3 + 1] - TP[i * 3 + 1]) ** 2 + (P[j * 3 + 2] - TP[i * 3 + 2]) ** 2;
+        if (d < bd) { bd = d; best = j; }
+      }
+      taken[best] = 1; to[i] = best;
+    }
+    const p = cp(P, N * 3), v = cp(V, N * 3), al = cp(AL, N), bk = cp(BK, N);
+    for (let i = 0; i < N; i++) {
+      const j = to[i];
+      for (let c = 0; c < 3; c++) { P[i * 3 + c] = p[j * 3 + c]; V[i * 3 + c] = v[j * 3 + c]; }
+      AL[i] = al[j]; BK[i] = bk[j];
+    }
+  }
+  // what is left of the differences taken up, a frame's worth (d: its time, s)
+  function aligning(d) {
+    const f = 1 - Math.exp(-d / TAUA), cap = CAPA * d;
+    let left = 0;
+    for (let i = 0; i < N; i++) {
+      const q = i * 3;
+      let dx = EP[q] * f, dy = EP[q + 1] * f, dz = EP[q + 2] * f;
+      const l = Math.hypot(dx, dy, dz); if (l > cap) { dx *= cap / l; dy *= cap / l; dz *= cap / l; }
+      P[q] += dx; P[q + 1] += dy; P[q + 2] += dz; EP[q] -= dx; EP[q + 1] -= dy; EP[q + 2] -= dz;
+      for (let c = 0; c < 3; c++) { const w = EV[q + c] * f; V[q + c] += w; EV[q + c] -= w; }
+      left = Math.max(left, Math.abs(EP[q]) + Math.abs(EP[q + 1]) + Math.abs(EP[q + 2]));
+    }
+    if (left < 0.005) ALN = 0;
+  }
+  return Object.assign(set, { params, update, anchors, labels, cam, controls, explore, see, scatter, falcon: startFalcon, flight, follow, hush, pack, align,
+    // how many falcons are in the air (at most MAXF), and how many came so far
+    birds: () => N, falconOn: () => count() > 0, falcons: count, most: MAXF, full: () => count() >= MAXF, arrivals: () => BORN, following: () => !!FOL,
+    // (falcon: the newest, else the first place; falcons: all four places)
+    state: () => ({ P, V, AL, N, NB, NBC, me: ME, falcon: newest() || FALS[0], falcons: FALS }) });
 };
 
 
@@ -1264,8 +1358,8 @@ const STEP = new Set(['flock_birds', 'flock_hunt']);   // counts jump, they do n
 function exploreStep(dt, now) {
   const tg = exploreTargets(now), k = 1 - Math.exp(-dt * 3.5);
   for (const n in DEF) XS[n] = STEP.has(n) ? tg[n] : XS[n] + (tg[n] - XS[n]) * k;
-  const fo = GL.sets.flock.falconOn();
-  if (fo !== X.fo) { X.fo = fo; renderScenes(); }   // the falcon button follows the falcon
+  const fo = GL.sets.flock.falcons();
+  if (fo !== X.fo) { X.fo = fo; renderScenes(); }   // the falcon button follows the falcons (four in the air: no more)
   // looking around by yourself, the view drifts slowly round unless you are steering it
   if (X.turn === 'on' && !following() && !orbit.to && !orbit.held) { X.sway = (X.sway || 0) + dt; orbit.cur[0] += dt * 4 * Math.cos(X.sway * 0.2); }
   return XS;
@@ -1292,12 +1386,15 @@ function sendFalcon(dir) {
   return true;
 }
 // shared rooms: the flock belongs to the station. Everyone there says where their flock is, twice a second (a quiet
-// effect); the one there longest leads (since: when it came, in the relay's time; a page back from a pause, a hidden
-// tab, counts as new; ties by member id): the others take its flight time and steer their flock to it (the set's
-// follow), and only it sends falcons of its own (the story's, now and then; a page new there listens 1.5 s first);
-// a falcon anyone sends goes to everyone, exactly as it starts. Positions are in the set's frame, whose origin is the
-// station's spot on every device. True while at a station (the flock then roosts round its spot)
-const FSY = { heard: new Map(), sent: 0, last: 0, since: 0, from: 0 };
+// effect, flock); the one there longest leads (since: when it came, in the relay's time; a page back from a pause, a
+// hidden tab, counts as new; ties by member id): the others take its flight time and steer their flock to it (the
+// set's follow), and it also sends its every bird three times a second while anyone else is there (birds: the set's
+// pack, about 2.5 KB for 200 birds), which the others take their birds into step with (the set's align, only from the
+// one they follow and with as many birds); only it sends falcons of its own (the story's, now and then; a page new
+// there listens 1.5 s first); a falcon anyone sends goes to everyone, exactly as it starts (falcon), up to four in the
+// air at once. Positions are in the set's frame, whose origin is the station's spot on every device. True while at a
+// station (the flock then roosts round its spot)
+const FSY = { heard: new Map(), sent: 0, last: 0, since: 0, from: 0, packed: 0, lead: '' };
 const r2 = a => a.map(x => Math.round(x * 100) / 100);
 const earlier = (a, b) => a.since < b.since || (a.since === b.since && a.id < b.id);
 function flockSync() {
@@ -1305,7 +1402,7 @@ function flockSync() {
   const pn = performance.now(), gap = FSY.last ? pn - FSY.last : 0;
   FSY.last = pn;
   s.onLaunch = f => HOST.collab.effect('falcon', f);
-  if (!on) { FSY.heard.clear(); FSY.since = 0; s.hush(false); if (s.following()) s.follow(null); return false; }
+  if (!on) { FSY.heard.clear(); FSY.since = 0; FSY.lead = ''; s.hush(false); if (s.following()) s.follow(null); return false; }
   const now = HOST.collab.now(), me = { id: HOST.collab.id || '', since: FSY.since };
   if (!FSY.since || gap > 1500) { FSY.since = me.since = Math.round(now); FSY.from = pn; }
   if (pn - FSY.sent > 500) {
@@ -1315,30 +1412,36 @@ function flockSync() {
   }
   let lead = null;
   for (const [k, v] of FSY.heard) if (pn - v.got > 2000) FSY.heard.delete(k); else if (earlier(v, me) && (!lead || earlier(v, lead))) lead = v;
+  FSY.lead = lead ? lead.id : '';
   s.hush(pn - FSY.from < 1500);
   if (lead) { const age = clamp((now - lead.at) / 1000, 0, 2); s.follow({ t: lead.t + age, m: lead.m.map((x, j) => x + lead.v[j] * age), v: lead.v }, Math.min(gap, 1000) / 1000); }
   else if (s.following()) s.follow(null);
+  // leading with someone else here: every bird, three times a second
+  if (!lead && FSY.heard.size && pn - FSY.packed > 333) { FSY.packed = pn; HOST.collab.effect('birds', Object.assign({ id: me.id, at: Math.round(now) }, s.pack()), true); }
   return true;
 }
 // sound effects, live (the shared block's sfxStep calls this every frame, story and explore mode alike, unless the story is
 // hidden): each falcon's dive and, 0.4 s later, the flock bursting away, heard on every device as it sees that falcon
 // (the story's, Now and then, one you send, one from another device: all found by watching the falcon start), and the
 // flock passing near you (its middle coming within 7 m of your head after being more than 10 m off; at most every 6 s)
-const SFL = { fo: false, far: true, near: 0 };
+const SFL = { fo: 0, far: true, near: 0 };
 function sfxLive() {
-  const s = GL.sets.flock, fo = s.falconOn(), pn = performance.now();
-  if (fo && !SFL.fo) { sfxPlay('whoosh', 'flock', 'falcon', { pitch: 1.4, dur: 1.1 }); sfxPlay('flutter', 'flock', 'flock', { delay: 0.4, dur: 0.9 }); }
+  const s = GL.sets.flock, fo = s.arrivals(), pn = performance.now();
+  if (fo > SFL.fo && s.falconOn()) { sfxPlay('whoosh', 'flock', 'falcon', { pitch: 1.4, dur: 1.1 }); sfxPlay('flutter', 'flock', 'flock', { delay: 0.4, dur: 0.9 }); }   // (a falcon arriving: at the newest)
   SFL.fo = fo;
   const h = s.state().me.head, f = s.anchors.flock(), d = Math.hypot(f[0] - h[0], f[1] - h[1], f[2] - h[2]);
   if (d > 10) SFL.far = true;
   else if (d < 7 && SFL.far && pn - SFL.near > 6000) { SFL.far = false; SFL.near = pn; sfxPlay('flutter', 'flock', 'flock', { gain: clamp(1.25 - d / 7, 0.3, 1) * 0.8 }); }
 }
-// what another device at the station sent: where its flock is, or a falcon
+// what another device at the station sent: where its flock is, its every bird (from the one this page follows), or a
+// falcon
 const v3ok = a => Array.isArray(a) && a.length === 3 && a.every(Number.isFinite);
 function flockEffect(type, d) {
   if (!d || typeof d !== 'object') return;
   if (type === 'flock' && typeof d.id === 'string' && d.id.length < 64 && Number.isFinite(d.since) && Number.isFinite(d.at) && Number.isFinite(d.t) && v3ok(d.m) && v3ok(d.v)) {
     FSY.heard.set(d.id, { id: d.id, since: d.since, at: d.at, t: d.t, m: d.m, v: d.v, got: performance.now() });
+  } else if (type === 'birds' && typeof d.id === 'string' && d.id && d.id === FSY.lead && Number.isFinite(d.at)) {
+    GL.sets.flock.align(d, clamp((HOST.collab.now() - d.at) / 1000, 0, 1));
   } else if (type === 'falcon' && v3ok(d.p) && v3ok(d.v) && (d.aim === null || v3ok(d.aim))) {
     GL.sets.flock.falcon(d); renderScenes();
   }
@@ -1391,10 +1494,10 @@ function showTab(k) { X.tab = k; }
 function renderScenes() {
   const pane = $('#pane-scenes');
   if (!pane) return;
-  const sc = SCENES.find(s => s[0] === X.scene), s = GL.sets[X.scene], busy = s.falconOn && s.falconOn();
+  const sc = SCENES.find(s => s[0] === X.scene), s = GL.sets[X.scene], busy = s.full && s.full();
   pane.innerHTML = `<h3>${esc(sc[1])}</h3><p class="sub">${esc(sc[2])}</p>
     ${(s.controls || []).map(c => `<p class="grp-h">${esc(c.label)}</p><div class="chips">${c.options.map(([v, n]) => `<button type="button" data-ctl="${c.key}" data-v="${v}" aria-pressed="${ctlValue(X.scene, c) === v}"${ctlValue(X.scene, c) === v ? ' style="background:var(--cyan);color:#04131c"' : ''}>${esc(n)}</button>`).join('')}</div>`).join('')}
-    <div class="actions"><button class="btn primary" type="button" data-falcon${busy ? ' disabled' : ''}>${busy ? 'A falcon is hunting' : 'Send a falcon'}</button></div>`;
+    <div class="actions"><button class="btn primary" type="button" data-falcon${busy ? ' disabled' : ''}>${busy ? 'Four falcons already' : 'Send a falcon'}</button></div>`;
 }
 function updateExtraLabels() {}
 
@@ -1726,7 +1829,7 @@ function xrGrab(c, on) {
   c.grab = null;
   const h = c.hover;
   if (!on || !h) return;
-  if (XR.stories || HOST.anchor.locked(h.kind)) return; // the Stories screen stays put, and so does an anchored place (in a shared room: only at its station, unless locked)
+  if (XR.stories || h.menu || HOST.anchor.locked(h.kind)) return; // the Stories screen stays put, and so does an anchored place (in a shared room: only at its station, unless locked)
   if (h.kind !== 'panel') return;   // the field and the sky stay where they are: only the panel moves
   const p0 = XR.panelGroup.getWorldPosition(new THREE.Vector3());
   c.grab = { target: 'panel', q0: new THREE.Quaternion().setFromRotationMatrix(c.g.matrix).invert(),
@@ -1786,7 +1889,7 @@ function xrPoint(c, dt) {
   const hs = XR.raycaster.intersectObjects(XR.panelMeshes.filter(m => m.visible), false);
   // then the shared room's own things (its panel, the other stations, a calibration), if nearer than a panel
   const sh = HOST.collab.ray(c.i, c.o, c.d, hs.length ? hs[0].distance : Infinity);
-  if (sh && sh.panel && XR[sh.panel]) { const P = XR[sh.panel]; hit = { kind: 'panel', P, x: sh.u * P.w, y: (1 - sh.v) * P.h, point: sh.point }; dist = sh.dist; }   // (this panel in the shell's menu, its Story tab)
+  if (sh && sh.panel && XR[sh.panel]) { const P = XR[sh.panel]; hit = { kind: 'panel', P, x: sh.u * P.w, y: (1 - sh.v) * P.h, point: sh.point, menu: true }; dist = sh.dist; }   // (this panel in the shell's menu, its Story tab)
   else if (sh) { hit = sh; dist = sh.dist; }
   else if (xrAway()) hit = null;   // away from its station in a shared room: nothing of the story to point at
   else if (hs.length) {
@@ -2211,7 +2314,7 @@ function sigMain() {
     }
     return s;
   }
-  return ['x', audioLabel(), xrSig(), X.scene, JSON.stringify(X.ctl[X.scene] || {}), GL.sets.flock.falconOn()].join('|');
+  return ['x', audioLabel(), xrSig(), X.scene, JSON.stringify(X.ctl[X.scene] || {}), GL.sets.flock.falcons()].join('|');
 }
 const XR_HERE = 'flock';
 const XR_STORIES = HOST.list;
@@ -2491,7 +2594,7 @@ function drawStoryEl(ctx, P, el, x, y, W, pa) {
 
 // explore: the flock's pane, mirroring the HTML one
 function drawExplorePane(ctx, P, x, y, W) {
-  const sc = SCENES[0], s = GL.sets.flock, busy = s.falconOn();
+  const sc = SCENES[0], s = GL.sets.flock, busy = s.full();
   ctx.font = vfont(30, 700); ctx.fillStyle = VC.ink; ctx.fillText(sc[1], x, y);
   y += 50;
   y += textBlock(ctx, 'Starlings at dusk, all around you. Each bird follows the seven nearest to it. Point at the sky and pull the trigger to send a falcon.', x, y, W, 25, 35, VC.muted, 400, 4) + 18;
@@ -2511,7 +2614,7 @@ function drawExplorePane(ctx, P, x, y, W) {
     }
     y = by + 80;
   }
-  if (y + 60 < bottom) vButton(ctx, P, 'falcon', x, y, 300, 60, busy ? 'A falcon is hunting' : 'Send a falcon', () => sendFalcon(null), { px: 24, on: busy });
+  if (y + 60 < bottom) vButton(ctx, P, 'falcon', x, y, 300, 60, busy ? 'Four falcons already' : 'Send a falcon', () => sendFalcon(null), { px: 24, on: busy });
 }
 function sigFoot() {
   return APP.mode === 'story' ? 's' + Math.round(APP.t * 4) + APP.playing + (curCh ? curCh.key : '') + slideSig() : 'x';

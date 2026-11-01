@@ -29,8 +29,8 @@ const STEP = new Set(['flock_birds', 'flock_hunt']);   // counts jump, they do n
 function exploreStep(dt, now) {
   const tg = exploreTargets(now), k = 1 - Math.exp(-dt * 3.5);
   for (const n in DEF) XS[n] = STEP.has(n) ? tg[n] : XS[n] + (tg[n] - XS[n]) * k;
-  const fo = GL.sets.flock.falconOn();
-  if (fo !== X.fo) { X.fo = fo; renderScenes(); }   // the falcon button follows the falcon
+  const fo = GL.sets.flock.falcons();
+  if (fo !== X.fo) { X.fo = fo; renderScenes(); }   // the falcon button follows the falcons (four in the air: no more)
   // looking around by yourself, the view drifts slowly round unless you are steering it
   if (X.turn === 'on' && !following() && !orbit.to && !orbit.held) { X.sway = (X.sway || 0) + dt; orbit.cur[0] += dt * 4 * Math.cos(X.sway * 0.2); }
   return XS;
@@ -57,12 +57,15 @@ function sendFalcon(dir) {
   return true;
 }
 // shared rooms: the flock belongs to the station. Everyone there says where their flock is, twice a second (a quiet
-// effect); the one there longest leads (since: when it came, in the relay's time; a page back from a pause, a hidden
-// tab, counts as new; ties by member id): the others take its flight time and steer their flock to it (the set's
-// follow), and only it sends falcons of its own (the story's, now and then; a page new there listens 1.5 s first);
-// a falcon anyone sends goes to everyone, exactly as it starts. Positions are in the set's frame, whose origin is the
-// station's spot on every device. True while at a station (the flock then roosts round its spot)
-const FSY = { heard: new Map(), sent: 0, last: 0, since: 0, from: 0 };
+// effect, flock); the one there longest leads (since: when it came, in the relay's time; a page back from a pause, a
+// hidden tab, counts as new; ties by member id): the others take its flight time and steer their flock to it (the
+// set's follow), and it also sends its every bird three times a second while anyone else is there (birds: the set's
+// pack, about 2.5 KB for 200 birds), which the others take their birds into step with (the set's align, only from the
+// one they follow and with as many birds); only it sends falcons of its own (the story's, now and then; a page new
+// there listens 1.5 s first); a falcon anyone sends goes to everyone, exactly as it starts (falcon), up to four in the
+// air at once. Positions are in the set's frame, whose origin is the station's spot on every device. True while at a
+// station (the flock then roosts round its spot)
+const FSY = { heard: new Map(), sent: 0, last: 0, since: 0, from: 0, packed: 0, lead: '' };
 const r2 = a => a.map(x => Math.round(x * 100) / 100);
 const earlier = (a, b) => a.since < b.since || (a.since === b.since && a.id < b.id);
 function flockSync() {
@@ -70,7 +73,7 @@ function flockSync() {
   const pn = performance.now(), gap = FSY.last ? pn - FSY.last : 0;
   FSY.last = pn;
   s.onLaunch = f => HOST.collab.effect('falcon', f);
-  if (!on) { FSY.heard.clear(); FSY.since = 0; s.hush(false); if (s.following()) s.follow(null); return false; }
+  if (!on) { FSY.heard.clear(); FSY.since = 0; FSY.lead = ''; s.hush(false); if (s.following()) s.follow(null); return false; }
   const now = HOST.collab.now(), me = { id: HOST.collab.id || '', since: FSY.since };
   if (!FSY.since || gap > 1500) { FSY.since = me.since = Math.round(now); FSY.from = pn; }
   if (pn - FSY.sent > 500) {
@@ -80,30 +83,36 @@ function flockSync() {
   }
   let lead = null;
   for (const [k, v] of FSY.heard) if (pn - v.got > 2000) FSY.heard.delete(k); else if (earlier(v, me) && (!lead || earlier(v, lead))) lead = v;
+  FSY.lead = lead ? lead.id : '';
   s.hush(pn - FSY.from < 1500);
   if (lead) { const age = clamp((now - lead.at) / 1000, 0, 2); s.follow({ t: lead.t + age, m: lead.m.map((x, j) => x + lead.v[j] * age), v: lead.v }, Math.min(gap, 1000) / 1000); }
   else if (s.following()) s.follow(null);
+  // leading with someone else here: every bird, three times a second
+  if (!lead && FSY.heard.size && pn - FSY.packed > 333) { FSY.packed = pn; HOST.collab.effect('birds', Object.assign({ id: me.id, at: Math.round(now) }, s.pack()), true); }
   return true;
 }
 // sound effects, live (the shared block's sfxStep calls this every frame, story and explore mode alike, unless the story is
 // hidden): each falcon's dive and, 0.4 s later, the flock bursting away, heard on every device as it sees that falcon
 // (the story's, Now and then, one you send, one from another device: all found by watching the falcon start), and the
 // flock passing near you (its middle coming within 7 m of your head after being more than 10 m off; at most every 6 s)
-const SFL = { fo: false, far: true, near: 0 };
+const SFL = { fo: 0, far: true, near: 0 };
 function sfxLive() {
-  const s = GL.sets.flock, fo = s.falconOn(), pn = performance.now();
-  if (fo && !SFL.fo) { sfxPlay('whoosh', 'flock', 'falcon', { pitch: 1.4, dur: 1.1 }); sfxPlay('flutter', 'flock', 'flock', { delay: 0.4, dur: 0.9 }); }
+  const s = GL.sets.flock, fo = s.arrivals(), pn = performance.now();
+  if (fo > SFL.fo && s.falconOn()) { sfxPlay('whoosh', 'flock', 'falcon', { pitch: 1.4, dur: 1.1 }); sfxPlay('flutter', 'flock', 'flock', { delay: 0.4, dur: 0.9 }); }   // (a falcon arriving: at the newest)
   SFL.fo = fo;
   const h = s.state().me.head, f = s.anchors.flock(), d = Math.hypot(f[0] - h[0], f[1] - h[1], f[2] - h[2]);
   if (d > 10) SFL.far = true;
   else if (d < 7 && SFL.far && pn - SFL.near > 6000) { SFL.far = false; SFL.near = pn; sfxPlay('flutter', 'flock', 'flock', { gain: clamp(1.25 - d / 7, 0.3, 1) * 0.8 }); }
 }
-// what another device at the station sent: where its flock is, or a falcon
+// what another device at the station sent: where its flock is, its every bird (from the one this page follows), or a
+// falcon
 const v3ok = a => Array.isArray(a) && a.length === 3 && a.every(Number.isFinite);
 function flockEffect(type, d) {
   if (!d || typeof d !== 'object') return;
   if (type === 'flock' && typeof d.id === 'string' && d.id.length < 64 && Number.isFinite(d.since) && Number.isFinite(d.at) && Number.isFinite(d.t) && v3ok(d.m) && v3ok(d.v)) {
     FSY.heard.set(d.id, { id: d.id, since: d.since, at: d.at, t: d.t, m: d.m, v: d.v, got: performance.now() });
+  } else if (type === 'birds' && typeof d.id === 'string' && d.id && d.id === FSY.lead && Number.isFinite(d.at)) {
+    GL.sets.flock.align(d, clamp((HOST.collab.now() - d.at) / 1000, 0, 1));
   } else if (type === 'falcon' && v3ok(d.p) && v3ok(d.v) && (d.aim === null || v3ok(d.aim))) {
     GL.sets.flock.falcon(d); renderScenes();
   }
@@ -156,10 +165,10 @@ function showTab(k) { X.tab = k; }
 function renderScenes() {
   const pane = $('#pane-scenes');
   if (!pane) return;
-  const sc = SCENES.find(s => s[0] === X.scene), s = GL.sets[X.scene], busy = s.falconOn && s.falconOn();
+  const sc = SCENES.find(s => s[0] === X.scene), s = GL.sets[X.scene], busy = s.full && s.full();
   pane.innerHTML = `<h3>${esc(sc[1])}</h3><p class="sub">${esc(sc[2])}</p>
     ${(s.controls || []).map(c => `<p class="grp-h">${esc(c.label)}</p><div class="chips">${c.options.map(([v, n]) => `<button type="button" data-ctl="${c.key}" data-v="${v}" aria-pressed="${ctlValue(X.scene, c) === v}"${ctlValue(X.scene, c) === v ? ' style="background:var(--cyan);color:#04131c"' : ''}>${esc(n)}</button>`).join('')}</div>`).join('')}
-    <div class="actions"><button class="btn primary" type="button" data-falcon${busy ? ' disabled' : ''}>${busy ? 'A falcon is hunting' : 'Send a falcon'}</button></div>`;
+    <div class="actions"><button class="btn primary" type="button" data-falcon${busy ? ' disabled' : ''}>${busy ? 'Four falcons already' : 'Send a falcon'}</button></div>`;
 }
 function updateExtraLabels() {}
 
