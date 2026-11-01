@@ -28,9 +28,9 @@
 // behind it, has Sound check in its menu; a headset without a shared space calibrates from two marks (its panel's
 // Stop calibrating still works), saves the frame with an anchor at mark A and finds it again next time; a VR
 // headset asks once whether it is in the room, and takes its own floor when elsewhere; the headset's menu (closed
-// at first, only its clock on the left wrist, which only shows the time; opened by either stick's click or two quick
-// pinches of the left hand pointing at nothing, floating in front of you, closing by itself unused; three tabs, Exit
-// under Settings); a headset in an empty room sees only the menu, opened by
+// at first, nothing at the wrist, a notice saying how to open it; opened by either stick's click or two quick
+// pinches of the left hand pointing at nothing, floating in front of you, carried by the grip, closing by itself
+// unused; four tabs, the Story tab working the story's own panels, Exit under Settings); a headset in an empty room sees only the menu, opened by
 // itself, and leaving the room brings its Stories screen back. Then peer to peer (no relay: pages whose relay calls go
 // nowhere, as on GitHub Pages, introduced by the relay's own introduction server at /peerjs, so nothing goes to the
 // internet): a page starts a room and hosts it, two more join by its link (the dialog says who hosts it); Arrange all,
@@ -150,9 +150,9 @@ const STORIES = {
       }
       const ms = meds.sort((x, y) => x - y), mm = ms[ms.length >> 1];
       // (pages too slow to keep a leader here, a frame every few seconds, are said so and not judged)
-      // (but followers that drew frames enough and still seldom held one leader for 3 s on end are judged: a leader that
-      // keeps changing is a failure, not a slow machine)
-      const plenty = !!L && recs.filter(r => r !== L).every(r => r.f.length >= 8);
+      // (but followers that drew frames enough, three a second, and still seldom held one leader for 3 s on end are
+      // judged: a leader that keeps changing is a failure, not a slow machine; below about 1.5 a second it changes here)
+      const plenty = !!L && recs.filter(r => r !== L).every(r => r.f.length >= 30);
       if (ms.length < 4) console.log(`     (pass: ${plenty ? 'frames enough but' : 'too few frames:'} ${ms.length} steady follower frames in 10 s (frames per page ${recs.map(r => r.f.length).join(', ')})${plenty ? '' : ', not judged'})`);
       check('pass: the school is shared fish by fish (with two sharks in it): a follower\'s fish within 0.5 m of the leader\'s (median)', !!L && (ms.length < 4 ? !plenty : mm < 0.5),
         `median over ${ms.length} follower frames ${mm === undefined ? '-' : mm.toFixed(3)} m, 90th percentile ${ms.length ? ms[Math.floor(ms.length * 0.9)].toFixed(3) : '-'} m`);
@@ -244,9 +244,9 @@ const STORIES = {
       }
       const ms = meds.sort((x, y) => x - y), mm = ms[ms.length >> 1];
       // (pages too slow to keep a leader here, a frame every few seconds, are said so and not judged)
-      // (but followers that drew frames enough and still seldom held one leader for 3 s on end are judged: a leader that
-      // keeps changing is a failure, not a slow machine)
-      const plenty = !!L && recs.filter(r => r !== L).every(r => r.f.length >= 8);
+      // (but followers that drew frames enough, three a second, and still seldom held one leader for 3 s on end are
+      // judged: a leader that keeps changing is a failure, not a slow machine; below about 1.5 a second it changes here)
+      const plenty = !!L && recs.filter(r => r !== L).every(r => r.f.length >= 30);
       if (ms.length < 4) console.log(`     (flock: ${plenty ? 'frames enough but' : 'too few frames:'} ${ms.length} steady follower frames in 10 s (frames per page ${recs.map(r => r.f.length).join(', ')})${plenty ? '' : ', not judged'})`);
       check('flock: the birds are shared bird by bird (two falcons passing): a follower\'s birds within 0.5 m of the leader\'s (median)', !!L && (ms.length < 4 ? !plenty : mm < 0.5),
         `median over ${ms.length} follower frames ${mm === undefined ? '-' : mm.toFixed(3)} m, 90th percentile ${ms.length ? ms[Math.floor(ms.length * 0.9)].toFixed(3) : '-'} m`);
@@ -2277,9 +2277,9 @@ try {
     fr ? `${fr.src} o ${fmt(fr.o)} x ${fmt(fr.x)}, want o ${fmt(wantO)} x ${fmt(wantX)}` : 'no frame');
   // the menu is closed at the start of a session (nothing of it shows: the watch went in v103), and a notice says how to
   // open it a moment in
-  await until(H, () => { window.__xr.step(); return window.__collabLog.some(e => e.ev === 'notice' && e.title === 'The menu'); }, null, 8000);
+  await until(H, () => { window.__xr.step(); const n = HOST.collab.lastNote(); if (n.title === 'The menu') window.__menuNote = n.text; return window.__collabLog.some(e => e.ev === 'notice' && e.title === 'The menu'); }, null, 8000);
   const menu0 = await H.evaluate(() => { const O = HOST.collab.overlay(); return { open: HOST.collab.menu, clock: 'clockG' in O, panel: O.panelG.visible,
-    regions: O.panel.regions.length, hit: !O.hit.includes(O.panel.mesh), note: HOST.collab.lastNote().title === 'The menu' ? HOST.collab.lastNote().text : '' }; });
+    regions: O.panel.regions.length, hit: !O.hit.includes(O.panel.mesh), note: window.__menuNote || '' }; });   // (as it showed: another notice may have followed it by now)
   check('headset: the menu is closed at first, with no watch on the wrist, and a notice says how to open it', !menu0.open && !menu0.clock && !menu0.panel &&
     !menu0.regions && menu0.hit && /stick|pinch/i.test(menu0.note || ''), JSON.stringify(menu0));
   // the shared space as the relay logs caught Quest Browser: its pose at the head right after waking (not used,
@@ -2659,7 +2659,8 @@ try {
       under: O.mirror.main.getWorldPosition(new V()).y < O.panelG.getWorldPosition(new V()).y, mode0: P('APP.mode') };
     const head = () => new V().setFromMatrixPosition(X.W.head).applyMatrix4(X.W.local.clone().invert());
     const c = P('XR.ctrls')[0];
-    c.src = c.src || X.session.inputSources[0] || { targetRayMode: 'tracked-pointer', handedness: 'right', gamepad: null };
+    // (the session's own input source, so the shell can tell which controller holds the grip)
+    c.src = X.session.inputSources[0] || (X.session.inputSources[0] = { targetRayMode: 'tracked-pointer', handedness: 'right', gamepad: null, targetRaySpace: {} });
     const aimAt = p => { const o = head().add(new V(0.12, -0.3, -0.1)); c.g.visible = true; c.g.matrix.compose(o, new THREE.Quaternion().setFromUnitVectors(new V(0, 0, -1), p.clone().sub(o).normalize()), new V(1, 1, 1)); };
     // a button of the story's main panel, through the menu's copy: its point on the copy
     const onCopy = id => { const Q = sp.main, r = Q.regions.find(x => x.id === id && x.fn); if (!r) return null;
@@ -2669,14 +2670,14 @@ try {
       const at = onCopy('mode');
       if (!at) { out['no' + want] = true; break; }
       aimAt(at); await steps(3); out['hover' + want] = c.hover && c.hover.kind === 'panel' && c.hover.P === sp.main && !!c.hover.menu;
-      c.wantPress = true; await steps(4);
+      c.wantPress = true; await steps(2); c.g.dispatchEvent({ type: 'selectend' }); await steps(2);   // (pressed on a frame, let go: the button's own release)
       for (let k = 0; k < 60 && P('APP.mode') !== want; k++) await steps(1);
       out['mode' + want] = P('APP.mode');
     }
     // the grip on the copy: the menu goes with the controller, the story's panel stays
     const pk = 'st.' + HOST.collab.mine() + '.panel', before = JSON.stringify(HOST.collab.internals().keys.get(pk) || null), g0 = O.panelG.position.clone();
     const at = O.mirror.main.localToWorld(new V(0, 0, 0));
-    aimAt(at); await steps(3);
+    aimAt(at); await steps(3); X.step();   // (a grip comes between frames, on a fresh hover)
     X.fire('squeezestart', { inputSource: c.src }); await steps(2);
     out.grabbed = HOST.collab.menuGrab && !P('XR.ctrls[0].grab');
     aimAt(at.clone().add(new V(0.3, 0, 0))); await steps(4);
@@ -3220,7 +3221,7 @@ try {
     const o = O.people.get(id), f = m => ({ vis: m.visible, dt: m.material.depthTest, dw: m.material.depthWrite, at: m.material.alphaTest, ro: m.renderOrder });
     const out = { cards: [...O.cards.values()].map(c => Object.assign(f(c.mesh), { back: c.back.renderOrder, same: c.back.material === c.mesh.material, v: c.mesh.material.version })),
       tag: o ? f(o.tag) : null, sign: o ? { vis: o.sign.visible, faces: o.sign.children.map(f) } : null,
-      menu: [O.clock, O.panel, O.note].map(S => !S.mesh.material.depthTest && S.mesh.renderOrder > 50) };
+      menu: [O.panel, O.note].map(S => !S.mesh.material.depthTest && S.mesh.renderOrder > 50) };
     C.pres.delete(id); C.members = C.members.filter(m => m.id !== id);
     return out;
   });
