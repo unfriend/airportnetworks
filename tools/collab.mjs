@@ -2655,7 +2655,10 @@ try {
   // moves the menu, never the story's panel
   const storyTab = await H.evaluate(async () => {
     const X = window.__xr, V = THREE.Vector3, M4 = THREE.Matrix4, O = HOST.collab.overlay(), P = s => HOST.cur.peek(s);
-    const steps = async n => { for (let k = 0; k < n; k++) { X.step(); await new Promise(r => setTimeout(r, 20)); } };
+    // (the story's panels drawn each step: this pretend headset runs the story's xrBegin, not its own frame, so they would
+    // keep their last drawing, as of story mode, with its button for the other mode)
+    const draw = () => { for (const M of P('XR.panels')) { M.last = ''; M.t = -1e9; P('panelTick')(M, performance.now() + 1e6); } };
+    const steps = async n => { for (let k = 0; k < n; k++) { X.step(); draw(); await new Promise(r => setTimeout(r, 20)); } };
     HOST.collab.menuTab('story'); await steps(4);
     const sp = HOST.cur.panels(), out = { main: O.mirror.main.visible && O.mirror.main.material.map === sp.main.tex, foot: O.mirror.foot.visible && O.mirror.foot.material.map === sp.foot.tex,
       under: O.mirror.main.getWorldPosition(new V()).y < O.panelG.getWorldPosition(new V()).y, mode0: P('APP.mode') };
@@ -2871,7 +2874,7 @@ try {
     X.session.inputSources[1].gamepad = { buttons: [{}, {}, {}, btn], axes: [0, 0, 0, 0], hapticActuators: [] };
     await steps(2);
     btn.pressed = true; await steps(2); out.stick = HOST.collab.menu; btn.pressed = false; await steps(3);
-    out.float = where(); out.pscale = O.panelG.scale.x;
+    out.float = where(); out.pscale = O.panelG.scale.x; out.d0 = HOST.collab.menuPos().d;
     out.ids = S.regions.map(r => r.id).slice(0, 5);
     btn.pressed = true; await steps(2); btn.pressed = false; await steps(2);
     out.stickClosed = !HOST.collab.menu && !O.panelG.visible;
@@ -2897,7 +2900,8 @@ try {
     const t0 = performance.now(); while (performance.now() - t0 < 1200) { aimMenu(); await steps(1); }
     out.idleHeld = HOST.collab.menu;
     away0();
-    await wait(1100); out.idleAfter = !HOST.collab.menu;
+    await wait(1100); for (let k = 0; k < 40 && HOST.collab.menu; k++) await wait(100);   // (a frame a second here: given time)
+    out.idleAfter = !HOST.collab.menu;
     HOST.room.calibrate(); btn.pressed = true; await steps(2); btn.pressed = false; await steps(2);
     await wait(1000); out.idleCalib = HOST.collab.menu && !!HOST.room.internals().calib;
     HOST.room.cancel(); HOST.collab.panelOpen(false); await steps(2);
@@ -2925,7 +2929,9 @@ try {
     out.pinnedStill = +mid().distanceTo(p1).toFixed(4);
     X.W.head = H0; HOST.collab.panelOpen(false); await steps(3);
     btn.pressed = true; await steps(2); btn.pressed = false; await steps(3);
-    out.again = where(); out.againWant = +out.pos.d.toFixed(3);   // (along the floor: it hangs from its top edge, so its middle's height follows the tab shown)
+    // (along the floor, against the first opening: it hangs from its top edge, so its middle's height follows the tab
+    // shown, and this test's head is a few centimetres from the shell's eye; both open straight ahead)
+    out.again = where(); out.againWant = +(out.float.flat + out.pos.d - out.d0).toFixed(3);
     HOST.collab.panelOpen(false); localStorage.removeItem('xrMenuAt'); await steps(2);
     btn.pressed = true; await steps(2); btn.pressed = false; await steps(2);
     // hands: a left wrist turned every which way, its ray pointing up (at nothing); the right index fingertip
