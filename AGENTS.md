@@ -2127,8 +2127,12 @@ engine parts adapted from the microanatomy story's.
   leads to z fighting inside the headsets"): the section, the ovary and the donors' slides all stand at the origin, and
   two see-through models in one place flicker in a headset as their drawing order flips with the head. At each change
   of model in the story (Donors to Section, Methods to Age, Age to Next) the old one fades out over 1.2 s and the new one
-  in from 1.0 s; explore's `exploreStep` holds a set's fade-in while any set going out is still above 0.12; and the
-  older section of the pair comes in from the right and behind (`section_pair`), never across the younger one.
+  in from 1.2 s; explore's `exploreStep` holds a set's fade-in until every set going out is at 0 (one going out also
+  drops by 0.6 a second, so it is gone in about half a second); and the older section of the pair comes in from the
+  right and behind (`section_pair`), never across the younger one. Since v107 (the owner: "ovary section and more still
+  overlaps on transitions") a set writes no depth while it fades (`fadeDepth` in `engine/e2_scene.js`: each material's
+  own `depthWrite` back once its set is fully in, above 0.97; the kit's own faded materials left to `setAlpha`): a faint
+  model that wrote depth hid the next one where it was drawn first, and in a headset that order flips with the head.
 - Labels whose text is a function (the ovary's age and count tags, `organ_counts`) are read again while they show
   (`labelText`, as in the qubits story).
 - Explore: Objects (pick a kind: its numbers as text, picked out on the section and in the ovary; pointing at an object

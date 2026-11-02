@@ -14,8 +14,6 @@ MP3 at the file named under each story; if your chapters start at other times, c
 | Story | File | Narration | Length |
 | --- | --- | --- | --- |
 | Network theory: Airports | `audio/narration.mp3` | recorded | 3:51 |
-| Network medicine: Proteins | `audio/narration-proteins.mp3` | not yet | 4:38 |
-| Spatial interactome: Cell map | `audio/narration-spatial.mp3` | not yet | 5:09 |
 | LBI Network Medicine: The future | `audio/narration-lbi.mp3` | synthetic voice | 10:42 |
 | Rare muscle diseases: Muscle and heart | `audio/narration-nmd.mp3` | not yet | 7:47 |
 | Disease endotypes: Endotypes | `audio/narration-endo.mp3` | not yet | 7:12 |
@@ -25,8 +23,10 @@ MP3 at the file named under each story; if your chapters start at other times, c
 | Quantum network compression: Three qubits | `audio/narration-qubits.mp3` | not yet | 9:04 |
 | Quantum phylogenetics: The mutation machine | `audio/narration-mutation.mp3` | not yet | 8:39 |
 | Tissue topology: The shape of tissue | `audio/narration-topo.mp3` | not yet | 8:07 |
-| Soil microbes: Holding on to nitrogen | `audio/narration-soil.mp3` | not yet | 8:42 |
 | Networks for everyone: Pass it on | `audio/narration-pass.mp3` | not yet | 6:53 |
+| Soil microbes: Holding on to nitrogen | `audio/narration-soil.mp3` | not yet | 8:42 |
+| Network medicine: Proteins | `audio/narration-proteins.mp3` | not yet | 4:38 |
+| Spatial interactome: Cell map | `audio/narration-spatial.mp3` | not yet | 5:09 |
 | Collective motion: Flock | `audio/narration-flock.mp3` | not yet | 1:57 |
 | Swarm robotics: Robot gang | `audio/narration-robots.mp3` | not yet | 2:01 |
 
@@ -113,177 +113,6 @@ File: `audio/narration.mp3` (recorded). Chapters: 0:00 Intro, 0:16 Nodes, 0:38 E
 - **3:38** NodesEdgesDegreeHubsShortest pathsBetweennessCommunitiesRobustness
 - **3:40** Now it's your turn. Search any airport, trace shortest paths, isolate communities, or close airports and watch what breaks.
 - **3:41** Routes: OpenFlights.org (Open Database License), 2014 snapshot. Coastlines: Natural Earth (public domain). Statistics computed with NetworkX on the full graph.
-
-## Network medicine: Proteins (`#proteins`)
-
-File: `audio/narration-proteins.mp3` (not recorded yet). Chapters: 0:00 Intro, 0:15 Proteins, 0:37 Interactions, 1:01 Hubs, 1:30 Essential, 1:52 Modules, 2:27 Disease modules, 2:58 Drug targets, 3:33 Robustness, 4:16 Recap; it ends at 4:38.
-
-### 0:00 Intro
-
-- **0:01** Network medicine
-- **0:02** told with the proteins in a human cell
-- **0:05** 254 proteins and 375 interactions, placed where they work in the cell. Eight ideas about how health and disease play out on the molecular network, then the network is yours to explore.
-
-### 0:15 Proteins
-
-- **0:15** Proteins are nodes
-- **0:16** Every dot is a protein, one of the roughly 20,000 our genes encode. This map shows 254 well-studied ones, each placed where it mainly works: on the cell membrane, in the cytoplasm, or inside the nucleus, the inner sphere.
-- **0:28** Proteins are nodes just like airports: the same rules of network theory apply.
-
-### 0:37 Interactions
-
-- **0:38** Interactions are edges
-- **0:39** When two proteins physically bind, they share an edge. MDM2 binds the tumour suppressor p53 and marks it for destruction, keeping it in check.
-- **0:48** All together, 375 interactions tie these proteins into one network.
-- **0:54** Every interaction here was measured in experiments. Even so, maps like this are incomplete: many human protein interactions are still unknown.
-
-### 1:01 Hubs
-
-- **1:01** Hubs
-- **1:02** Most proteins bind only a few partners, while a few hubs bind many. p53 has 18 partners in this map, beta-catenin 12.
-- **1:09** Proteins by number of partners
-- **1:09** 53 170 264 336 418 5–68 7–94 10–141 15+
-- **1:14** 123 proteins have one or two partners, while the 10 biggest hubs take part in 24% of all interactions. Spike height shows the number of partners.
-
-### 1:30 Essential
-
-- **1:30** Essential proteins
-- **1:31** Some proteins are essential: without them, almost no human cell can survive.
-- **1:35** 69 proteins in this map are essential (highlighted). They have 3.2 partners on average, the others 2.9: essential proteins tend to have more partners.
-- **1:42** In yeast, hubs turned out to be more likely essential: the centrality-lethality rule. Many essential proteins work in tight machines such as the proteasome and RNA polymerase.
-
-### 1:52 Modules
-
-- **1:52** Modules
-- **1:53** Proteins that work together are densely linked: molecular machines and signalling pathways form modules. The Louvain algorithm found these ten from the interactions alone.
-- **2:01** Cell cycle & DNA copying
-- **2:02** DNA break repair
-- **2:03** p53 & gene control
-- **2:04** Growth-factor signalling
-- **2:05** Wnt & amyloid
-- **2:06** Proteasome
-- **2:06** DNA replication start
-- **2:07** AKT-mTOR & survival
-- **2:07** TNF & cell death
-- **2:08** RNA polymerase II
-
-### 2:27 Disease modules
-
-- **2:28** Disease modules
-- **2:29** Genes linked to the same disease are not scattered across the network. Here are the 16 breast cancer genes in this map.
-- **2:35** 12of 16 form one connected module
-- **2:40** Pick 16 proteins at random and the largest connected group has only 2.0 on average. Disease genes cluster in the same neighbourhood: the disease module at the heart of network medicine.
-
-### 2:58 Drug targets
-
-- **2:59** Drugs and distance
-- **3:00** Drugs work by binding target proteins. Network medicine asks how close a drug's targets sit to a disease module.
-- **3:06** Tamoxifen and trastuzumab hit ESR1 and HER2, inside the breast cancer module. Olaparib blocks PARP1, right next to it.
-- **3:12** 0steps
-- **3:23** BACE1, a target of drugs tested against Alzheimer's disease, sits 4 steps away. Drugs whose targets are close to a disease module are more likely to work against it.
-
-### 3:33 Robustness
-
-- **3:34** Robustness
-- **3:35** What happens when proteins fail, through mutations or drugs? Track the share of protein pairs that can still reach each other.
-- **3:42** 100%
-- **3:42** of protein pairs still connected
-- **3:45** Knock out 20 random proteins: 75% of pairs still connect. Most proteins have few partners, so random failures often miss the hubs.
-- **3:58** Now knock out the 20 most central proteins, the ones with the highest betweenness.
-- **4:08** Robust to random failure, fragile when hubs are hit. TP53, the biggest hub here, is also the most frequently mutated gene in human cancer.
-
-### 4:16 Recap
-
-- **4:16** Network medicine
-- **4:17** ProteinsInteractionsHubsEssentialModulesDisease modulesDrug targetsRobustness
-- **4:18** Now it's your turn. Search any protein, trace paths between proteins, isolate modules, or knock out proteins and watch what breaks.
-- **4:26** An illustrative, curated subnetwork of 254 proteins from well-documented interactions and complexes, not the complete human interactome. Essential genes: DepMap common essentials. Statistics computed with NetworkX. Ideas: Barabási, Gulbahce & Loscalzo 2011; Menche et al. 2015; Guney et al. 2016.
-
-## Spatial interactome: Cell map (`#spatial`)
-
-File: `audio/narration-spatial.mp3` (not recorded yet). Chapters: 0:00 Intro, 0:16 Compartments, 0:50 Addresses, 1:16 Meeting, 1:50 Many places, 2:22 Signals, 3:00 Moving, 3:31 Proximity, 4:04 Wrong place, 4:37 Recap; it ends at 5:09.
-
-### 0:00 Intro
-
-- **0:01** Spatial interactome
-- **0:02** where proteins meet inside a human cell
-- **0:05** 249 proteins in the compartments of a model cell, and the 252 interactions between them. Eight ideas about how location shapes the protein network, then the cell is yours to explore.
-
-### 0:16 Compartments
-
-- **0:16** A cell has rooms
-- **0:19** Membranes divide a human cell into compartments, each with its own chemistry and its own set of proteins.
-- **0:18** Plasma membrane
-- **0:25** Nucleus
-- **0:28** Nucleolus
-- **0:30** Endoplasmic reticulum
-- **0:32** Golgi apparatus
-- **0:34** Mitochondria
-- **0:36** Lysosomes
-- **0:38** Endosomes and vesicles
-- **0:41** Peroxisomes
-- **0:43** Cytoskeleton
-- **0:47** The cytoplasm fills the space between them.
-
-### 0:50 Addresses
-
-- **0:51** Every protein has an address
-- **0:52** Each dot is a protein, coloured by the compartment it works in. This model holds 249 well-studied human proteins.
-- **0:59** The address is written into the protein itself: short signals in its sequence send it into the nucleus, into the ER or into mitochondria.
-- **1:08** The Human Protein Atlas has located more than 12,000 human proteins by staining them in cells.
-
-### 1:16 Meeting
-
-- **1:16** Proteins bind where they meet
-- **1:18** Two proteins can only bind if they are in the same place at the same time. These are the 252 interactions in this cell.
-- **1:27** 85%in one compartment
-- **1:30** The rest reach across a boundary: EGF outside the cell binds its receptor in the membrane, and the receptor binds GRB2 just inside. Of random pairs of proteins, only 15% share a compartment.
-- **1:42** Spatial maps help weed out interactions measured in a test tube between proteins that never meet in a living cell.
-
-### 1:50 Many places
-
-- **1:51** One protein, several places
-- **1:52** About half of human proteins are found in more than one place. Dotted lines join the copies of the 30 proteins here that live or work in two or three.
-- **2:03** Beta-catenin glues cells together at the membrane, is destroyed in the cytoplasm and switches on genes in the nucleus.
-- **2:10** 82%of linked protein pairs
-- **2:12** would lose touch if every protein stayed in its usual place. Proteins with several addresses tie the compartments together.
-
-### 2:22 Signals
-
-- **2:23** Signals cross the cell
-- **2:24** A growth signal outside the cell reaches the genes in the nucleus by passing from protein to protein.
-- **2:31** 0steps
-- **2:47** The EGF receptor carries the signal across the membrane, the RAS relay passes it through the cytoplasm, and ERK itself travels through a nuclear pore to switch on ELK1 and SRF: 10 steps, one of them a move.
-
-### 3:00 Moving
-
-- **3:01** Moving rewires the network
-- **3:03** In a resting cell the inflammation switch NF-κB waits in the cytoplasm, held by its inhibitor IκBα.
-- **3:09** TNF outside the cell sets off a relay that marks IκBα for destruction.
-- **3:15** Freed, NF-κB moves into the nucleus. It leaves IκB-alpha behind and gains 2 new partners, p300 and CBP, which switch on inflammation genes.
-- **3:24** Same protein, new place, new partners, new job.
-
-### 3:31 Proximity
-
-- **3:32** Mapping by proximity
-- **3:33** How are such maps made? Microscopes show where proteins sit. Proximity labelling fuses an enzyme to a bait protein, and it tags every protein within about ten nanometres.
-- **3:44** 8proteins tagged around LAMTOR1
-- **3:47** 4 of them bind LAMTOR1 directly; the others are neighbours on the same lysosome. Hundreds of baits together chart the neighbourhoods of a whole cell.
-- **3:56** In this model the bubble is drawn far larger than ten nanometres.
-
-### 4:04 Wrong place
-
-- **4:04** Proteins in the wrong place
-- **4:06** Many disease mutations leave a protein able to work, but send it to the wrong place.
-- **4:12** Cystic fibrosis: the F508del mutation makes the chloride channel CFTR fold badly. Quality control in the ER catches it, and it never reaches the membrane.
-- **4:22** ALS: in nearly all patients, TDP-43 leaves the nucleus of motor neurons and clumps in the cytoplasm. It loses 2 splicing partners and gains 3 new ones there.
-
-### 4:37 Recap
-
-- **4:38** Spatial interactome
-- **4:38** CompartmentsAddressesMeetingMany placesSignalsMovingProximityWrong place
-- **4:40** Now it's your turn. Search any protein, trace signals between compartments, set proteins moving, or tag a protein's neighbours.
-- **4:48** An illustrative, curated set of 249 well-studied human proteins and 252 documented interactions, placed in a model cell; a real cell makes about 20,000 kinds of protein. Places follow the Human Protein Atlas and UniProt. Ideas: Thul et al. 2017 (subcellular map of the human proteome); Go et al. 2021 (Human Cell Map); Cho et al. 2022 (OpenCell); Qin et al. 2021 (MuSIC); Lundberg & Borner 2019.
 
 ## LBI Network Medicine: The future (`#lbi`)
 
@@ -1141,105 +970,6 @@ File: `audio/narration-topo.mp3` (not recorded yet). Chapters: 0:00 Where cells 
 - **7:37** After the poster by Simon Schindler, André Rendeiro and Jörg Menche (Ludwig Boltzmann Institute for Network Medicine at the University of Vienna; University of Vienna; CeMM Research Center for Molecular Medicine of the Austrian Academy of Sciences; Medical University of Vienna; Max Perutz Labs, Vienna BioCenter).
 - **7:55** The cells: the GTEx project's liver slides, segmented by the authors with HistoPLUS (CC BY 4.0); slides are numbered, never named. The genes and proteins are sketches of the workflow, not data. topocyte.lab.lbi-netmed.com
 
-## Soil microbes: Holding on to nitrogen (`#soil`)
-
-File: `audio/narration-soil.mp3` (not recorded yet). Chapters: 0:00 Half the sack, 0:52 The relay, 1:53 A wheat fights back, 2:48 The field trial, 3:54 Greener, fewer leaks, 5:17 A crowd of 100,000, 6:17 Who rises together, 7:40 What we know; it ends at 8:42.
-
-### 0:00 Half the sack
-
-- **0:01** Holding on to nitrogen
-- **0:02** A wheat, its soil and the microbes in between
-- **0:05** Less than half of the fertiliser a farmer spreads ends up in the crop.
-- **0:13** The plant takes up some of it; microbes in the soil get to much of the rest first.
-- **0:24** They turn it into nitrate, which washes away, and into nitrous oxide, a strong greenhouse gas.
-- **0:33** So farmers spread more.
-- **0:36** "Less than 50 %", as the slides put it. The flows in this block are a drawing: ammonium amber, nitrate blue, nitrous oxide lilac, nitrogen in the plant green.
-- **0:41** After the slides by Marina Montserrat Díez and colleagues (University of Vienna, JIRCAS, University of Thessaly, Université Lyon 1) and their field trial's data.
-
-### 0:52 The relay
-
-- **0:53** The relay underground
-- **0:54** Inside the soil, microbes pass the nitrogen on, like runners in a relay.
-- **1:02** Archaea: turn ammonium into nitrite
-- **1:11** Bacteria: do the same
-- **1:20** Nitrite oxidisers: turn nitrite into nitrate
-- **1:30** Comammox: does both steps in one microbe
-- **1:38** Each hand-off is a step in a network of processes, and at each one nitrogen can leak away.
-- **1:43** Nitrification: ammonia-oxidising archaea (AOA) and bacteria (AOB), nitrite-oxidising bacteria (NOB), complete ammonia oxidisers (comammox). Nitrous oxide escapes along the way. The pore is an illustration.
-
-### 1:53 A wheat fights back
-
-- **1:53** A wheat that fights back
-- **1:54** Some plants release substances from their roots that slow the relay down: biological nitrification inhibition, or BNI.
-- **2:03** Breeders moved a piece of chromosome from a wild grass into the wheat Munal.
-- **2:19** The new wheat's roots are meant to slow the first hand-off, so that more ammonium stays where the plant can take it up.
-- **2:32** Until now the evidence was one bacterium in a dish and one day in a field.
-- **2:36** The wild grass is Leymus racemosus; the BNI wheat is Munal-BNI, the control wheat Munal-control, the same wheat without the segment (Subbarao et al., PNAS). The earlier evidence: root exudates slowed one ammonia-oxidising bacterium in a culture; one field sampling found more nitrogen in the plant and fewer ammonia-oxidising archaea.
-
-### 2:48 The field trial
-
-- **2:49** The field trial
-- **2:49** To test it, the BNI wheat and the control wheat were grown side by side in a field in Japan:
-- **3:06** with no fertiliser
-- **3:07** with fertiliser
-- **3:09** with fertiliser and a synthetic inhibitor
-- **3:16** Five times over 70 days, soil was taken from the roots in every plot.
-- **3:32** 119: samples
-- **3:34** 24: plots
-- **3:35** 5: dates
-- **3:39** A JIRCAS trial: its site and year are not given, so the arc ends at JIRCAS's home in Tsukuba. Fertiliser: 250 kg of nitrogen per hectare; the inhibitor: DCD (dicyandiamide, our reading). Days 1 to 70 are 129 to 199 days after planting. Four replicates; soil clinging to the roots (the rhizosphere); one sample is missing. The plots' layout is illustrative.
-
-### 3:54 Greener, fewer leaks
-
-- **3:55** Greener, fewer leaks
-- **3:55** At the end of the season the BNI wheat is still green where the control wheat yellows, most clearly without fertiliser.
-- **4:04** 62: BNI wheat, day 70
-- **4:06** 49: control wheat
-- **4:07** Chlorophyll (SPAD) in the leaves of unfertilised plots, read off the slides.
-- **4:18** With fertiliser there is less nitrate in the soil under it in mid-season.
-- **4:27** 40: mg N per kg, day 24
-- **4:29** 61: under the control wheat
-- **4:30** Nitrate in fertilised plots, the group means of the data (p = 0.03). The slides call it lower from day 24 to day 53; only day 24 is starred.
-- **4:40** And soil from its roots, given ammonium in a jar, gives off far less nitrous oxide, close to what the synthetic inhibitor achieves.
-- **4:51** 0.4: ppm at the peak, BNI wheat
-- **4:53** 1.3: control wheat, day 1
-- **4:57** Fertilised soil, read off the slides (250 mg N/kg soil (NH4)2SO4, 70% water content, 20 days incubation). An open question: the data's own N2O value, "the potential amount of produced nitrous oxide" (unit not given), shows no clear difference over the season (0.81 against 0.98, p = 0.58); how the two measurements relate is not known yet.
-
-### 5:17 A crowd of 100,000
-
-- **5:17** A crowd of 100,000
-- **5:18** Across the 119 samples, this soil holds about 100,000 kinds of microbe, some 3,200 in a typical sample.
-- **5:26** 3,384 of them make up 95 % of the DNA read.
-- **5:43** Fertiliser roughly doubles one ammonia-eating bacterium, Nitrosospira.
-- **5:51** The wheat line barely shows: only two of the 3,384 common kinds differ between the two wheats.
-- **5:58** 1,646: differ by fertiliser
-- **6:00** 580: by date
-- **6:02** 2: by wheat line
-- **6:05** Kinds of microbe: amplicon sequence variants (ASVs) from 16S rRNA gene reads, numbered by abundance. Nitrosospira: 0.23, 0.51, 0.42 % of reads without fertiliser, with it, with DCD. Gene counts of the ammonia oxidisers (qPCR, read off the slides) differ little between the wheats (one marginal p = 0.057).
-
-### 6:17 Who rises together
-
-- **6:18** Who rises together
-- **6:18** Link two kinds of microbe when their numbers rise and fall together across the samples.
-- **6:28** 1,564: kinds
-- **6:30** 22,348: links
-- **6:38** Shuffle the samples, and not one link is left: the pattern is real.
-- **6:51** Its groups follow the fertiliser and the field's plots; the wheat barely shows.
-- **7:01** About five big groups (modules): two rise and fall with the fertiliser, three with the plots; the wheat line explains under 1 % of any big group's ups and downs.
-- **7:18** Split by wheat line, the two networks differ no more than two random halves of the samples do.
-- **7:27** And rising together is not working together.
-- **7:31** Built for this story, not the authors' analysis: the 3,384 common kinds, centred log-ratios, Spearman's correlation of at least 0.6 (false discovery rate under 5 %), Louvain modules. Each half's own network: 38,653 and 30,276 links; 20 random halves differ by 158 to 27,758.
-
-### 7:40 What we know
-
-- **7:40** What we know
-- **7:41** There are strong indications that the BNI wheat stays greener and loses less nitrate, and that the soil's microbe community and network show no clear change from the wheat line.
-- **7:51** It is not yet proof.
-- **7:55** Next: following marked nitrogen atoms through soil, microbe and plant, and reading which microbial genes are switched on.
-- **8:07** Marked atoms: isotope studies (15N); genes switched on: metatranscriptomics. Still open: the jars show far less nitrous oxide from the BNI wheat's soil, while the data's own N2O value shows no clear difference over the season (0.81 against 0.98, p = 0.58); how the two measurements relate is not known yet.
-- **8:18** After the slides by Marina Montserrat Díez, Tadashi Yoshihashi, Guntur Subbarao Ventaka, Eleftheria Bachtsevani, Dimitrios Karpouzas, Christina Hazard, Melina Kerou and Christa Schleper (University of Vienna; University of Thessaly; Université Lyon 1; JIRCAS, Japan). The BNI wheat: Subbarao et al., PNAS.
-- **8:26** The trial's data used with the authors' permission. The soil block, the relay, the chromosome and the field's layout are illustrative.
-
 ## Networks for everyone: Pass it on (`#pass`)
 
 File: `audio/narration-pass.mp3` (not recorded yet). Chapters: 0:00 The school, 0:44 Who watches whom, 1:53 Other links, 2:43 The sky, 4:18 The cell, 5:46 Medicine; it ends at 6:53.
@@ -1395,6 +1125,276 @@ DE: Medizin
 - **6:11** Genau daran arbeiten wir am Ludwig Boltzmann Institut für Netzwerkmedizin in Wien.
 - **6:17** Jetzt bist du dran: Sei der Hai, starte einen Ausbruch irgendwo auf der Erde oder schick ein Protein an den falschen Ort.
 - **6:27** Eine Geschichte für alle vom Ludwig Boltzmann Institut für Netzwerkmedizin (LBI-NetMed). Flugrouten: OpenFlights.org (2014, Open Database License); Küsten: Natural Earth. Die Zelle: Proteine und Orte aus der Geschichte „Cell map“ (Human Protein Atlas, UniProt; Ideen aus Thul und andere 2017, Go und andere 2021, Cho und andere 2022, Qin und andere 2021, Lundberg & Borner 2019). Fischschwärme: Rosenthal und andere 2015, Handegard und andere 2012. Die Fische und der Ausbruch sind Simulationen, keine Messungen und keine Vorhersagen.
+
+## Soil microbes: Holding on to nitrogen (`#soil`)
+
+File: `audio/narration-soil.mp3` (not recorded yet). Chapters: 0:00 Half the sack, 0:52 The relay, 1:53 A wheat fights back, 2:48 The field trial, 3:54 Greener, fewer leaks, 5:17 A crowd of 100,000, 6:17 Who rises together, 7:40 What we know; it ends at 8:42.
+
+### 0:00 Half the sack
+
+- **0:01** Holding on to nitrogen
+- **0:02** A wheat, its soil and the microbes in between
+- **0:05** Less than half of the fertiliser a farmer spreads ends up in the crop.
+- **0:13** The plant takes up some of it; microbes in the soil get to much of the rest first.
+- **0:24** They turn it into nitrate, which washes away, and into nitrous oxide, a strong greenhouse gas.
+- **0:33** So farmers spread more.
+- **0:36** "Less than 50 %", as the slides put it. The flows in this block are a drawing: ammonium amber, nitrate blue, nitrous oxide lilac, nitrogen in the plant green.
+- **0:41** After the slides by Marina Montserrat Díez and colleagues (University of Vienna, JIRCAS, University of Thessaly, Université Lyon 1) and their field trial's data.
+
+### 0:52 The relay
+
+- **0:53** The relay underground
+- **0:54** Inside the soil, microbes pass the nitrogen on, like runners in a relay.
+- **1:02** Archaea: turn ammonium into nitrite
+- **1:11** Bacteria: do the same
+- **1:20** Nitrite oxidisers: turn nitrite into nitrate
+- **1:30** Comammox: does both steps in one microbe
+- **1:38** Each hand-off is a step in a network of processes, and at each one nitrogen can leak away.
+- **1:43** Nitrification: ammonia-oxidising archaea (AOA) and bacteria (AOB), nitrite-oxidising bacteria (NOB), complete ammonia oxidisers (comammox). Nitrous oxide escapes along the way. The pore is an illustration.
+
+### 1:53 A wheat fights back
+
+- **1:53** A wheat that fights back
+- **1:54** Some plants release substances from their roots that slow the relay down: biological nitrification inhibition, or BNI.
+- **2:03** Breeders moved a piece of chromosome from a wild grass into the wheat Munal.
+- **2:19** The new wheat's roots are meant to slow the first hand-off, so that more ammonium stays where the plant can take it up.
+- **2:32** Until now the evidence was one bacterium in a dish and one day in a field.
+- **2:36** The wild grass is Leymus racemosus; the BNI wheat is Munal-BNI, the control wheat Munal-control, the same wheat without the segment (Subbarao et al., PNAS). The earlier evidence: root exudates slowed one ammonia-oxidising bacterium in a culture; one field sampling found more nitrogen in the plant and fewer ammonia-oxidising archaea.
+
+### 2:48 The field trial
+
+- **2:49** The field trial
+- **2:49** To test it, the BNI wheat and the control wheat were grown side by side in a field in Japan:
+- **3:06** with no fertiliser
+- **3:07** with fertiliser
+- **3:09** with fertiliser and a synthetic inhibitor
+- **3:16** Five times over 70 days, soil was taken from the roots in every plot.
+- **3:32** 119: samples
+- **3:34** 24: plots
+- **3:35** 5: dates
+- **3:39** A JIRCAS trial: its site and year are not given, so the arc ends at JIRCAS's home in Tsukuba. Fertiliser: 250 kg of nitrogen per hectare; the inhibitor: DCD (dicyandiamide, our reading). Days 1 to 70 are 129 to 199 days after planting. Four replicates; soil clinging to the roots (the rhizosphere); one sample is missing. The plots' layout is illustrative.
+
+### 3:54 Greener, fewer leaks
+
+- **3:55** Greener, fewer leaks
+- **3:55** At the end of the season the BNI wheat is still green where the control wheat yellows, most clearly without fertiliser.
+- **4:04** 62: BNI wheat, day 70
+- **4:06** 49: control wheat
+- **4:07** Chlorophyll (SPAD) in the leaves of unfertilised plots, read off the slides.
+- **4:18** With fertiliser there is less nitrate in the soil under it in mid-season.
+- **4:27** 40: mg N per kg, day 24
+- **4:29** 61: under the control wheat
+- **4:30** Nitrate in fertilised plots, the group means of the data (p = 0.03). The slides call it lower from day 24 to day 53; only day 24 is starred.
+- **4:40** And soil from its roots, given ammonium in a jar, gives off far less nitrous oxide, close to what the synthetic inhibitor achieves.
+- **4:51** 0.4: ppm at the peak, BNI wheat
+- **4:53** 1.3: control wheat, day 1
+- **4:57** Fertilised soil, read off the slides (250 mg N/kg soil (NH4)2SO4, 70% water content, 20 days incubation). An open question: the data's own N2O value, "the potential amount of produced nitrous oxide" (unit not given), shows no clear difference over the season (0.81 against 0.98, p = 0.58); how the two measurements relate is not known yet.
+
+### 5:17 A crowd of 100,000
+
+- **5:17** A crowd of 100,000
+- **5:18** Across the 119 samples, this soil holds about 100,000 kinds of microbe, some 3,200 in a typical sample.
+- **5:26** 3,384 of them make up 95 % of the DNA read.
+- **5:43** Fertiliser roughly doubles one ammonia-eating bacterium, Nitrosospira.
+- **5:51** The wheat line barely shows: only two of the 3,384 common kinds differ between the two wheats.
+- **5:58** 1,646: differ by fertiliser
+- **6:00** 580: by date
+- **6:02** 2: by wheat line
+- **6:05** Kinds of microbe: amplicon sequence variants (ASVs) from 16S rRNA gene reads, numbered by abundance. Nitrosospira: 0.23, 0.51, 0.42 % of reads without fertiliser, with it, with DCD. Gene counts of the ammonia oxidisers (qPCR, read off the slides) differ little between the wheats (one marginal p = 0.057).
+
+### 6:17 Who rises together
+
+- **6:18** Who rises together
+- **6:18** Link two kinds of microbe when their numbers rise and fall together across the samples.
+- **6:28** 1,564: kinds
+- **6:30** 22,348: links
+- **6:38** Shuffle the samples, and not one link is left: the pattern is real.
+- **6:51** Its groups follow the fertiliser and the field's plots; the wheat barely shows.
+- **7:01** About five big groups (modules): two rise and fall with the fertiliser, three with the plots; the wheat line explains under 1 % of any big group's ups and downs.
+- **7:18** Split by wheat line, the two networks differ no more than two random halves of the samples do.
+- **7:27** And rising together is not working together.
+- **7:31** Built for this story, not the authors' analysis: the 3,384 common kinds, centred log-ratios, Spearman's correlation of at least 0.6 (false discovery rate under 5 %), Louvain modules. Each half's own network: 38,653 and 30,276 links; 20 random halves differ by 158 to 27,758.
+
+### 7:40 What we know
+
+- **7:40** What we know
+- **7:41** There are strong indications that the BNI wheat stays greener and loses less nitrate, and that the soil's microbe community and network show no clear change from the wheat line.
+- **7:51** It is not yet proof.
+- **7:55** Next: following marked nitrogen atoms through soil, microbe and plant, and reading which microbial genes are switched on.
+- **8:07** Marked atoms: isotope studies (15N); genes switched on: metatranscriptomics. Still open: the jars show far less nitrous oxide from the BNI wheat's soil, while the data's own N2O value shows no clear difference over the season (0.81 against 0.98, p = 0.58); how the two measurements relate is not known yet.
+- **8:18** After the slides by Marina Montserrat Díez, Tadashi Yoshihashi, Guntur Subbarao Ventaka, Eleftheria Bachtsevani, Dimitrios Karpouzas, Christina Hazard, Melina Kerou and Christa Schleper (University of Vienna; University of Thessaly; Université Lyon 1; JIRCAS, Japan). The BNI wheat: Subbarao et al., PNAS.
+- **8:26** The trial's data used with the authors' permission. The soil block, the relay, the chromosome and the field's layout are illustrative.
+
+## Network medicine: Proteins (`#proteins`)
+
+File: `audio/narration-proteins.mp3` (not recorded yet). Chapters: 0:00 Intro, 0:15 Proteins, 0:37 Interactions, 1:01 Hubs, 1:30 Essential, 1:52 Modules, 2:27 Disease modules, 2:58 Drug targets, 3:33 Robustness, 4:16 Recap; it ends at 4:38.
+
+### 0:00 Intro
+
+- **0:01** Network medicine
+- **0:02** told with the proteins in a human cell
+- **0:05** 254 proteins and 375 interactions, placed where they work in the cell. Eight ideas about how health and disease play out on the molecular network, then the network is yours to explore.
+
+### 0:15 Proteins
+
+- **0:15** Proteins are nodes
+- **0:16** Every dot is a protein, one of the roughly 20,000 our genes encode. This map shows 254 well-studied ones, each placed where it mainly works: on the cell membrane, in the cytoplasm, or inside the nucleus, the inner sphere.
+- **0:28** Proteins are nodes just like airports: the same rules of network theory apply.
+
+### 0:37 Interactions
+
+- **0:38** Interactions are edges
+- **0:39** When two proteins physically bind, they share an edge. MDM2 binds the tumour suppressor p53 and marks it for destruction, keeping it in check.
+- **0:48** All together, 375 interactions tie these proteins into one network.
+- **0:54** Every interaction here was measured in experiments. Even so, maps like this are incomplete: many human protein interactions are still unknown.
+
+### 1:01 Hubs
+
+- **1:01** Hubs
+- **1:02** Most proteins bind only a few partners, while a few hubs bind many. p53 has 18 partners in this map, beta-catenin 12.
+- **1:09** Proteins by number of partners
+- **1:09** 53 170 264 336 418 5–68 7–94 10–141 15+
+- **1:14** 123 proteins have one or two partners, while the 10 biggest hubs take part in 24% of all interactions. Spike height shows the number of partners.
+
+### 1:30 Essential
+
+- **1:30** Essential proteins
+- **1:31** Some proteins are essential: without them, almost no human cell can survive.
+- **1:35** 69 proteins in this map are essential (highlighted). They have 3.2 partners on average, the others 2.9: essential proteins tend to have more partners.
+- **1:42** In yeast, hubs turned out to be more likely essential: the centrality-lethality rule. Many essential proteins work in tight machines such as the proteasome and RNA polymerase.
+
+### 1:52 Modules
+
+- **1:52** Modules
+- **1:53** Proteins that work together are densely linked: molecular machines and signalling pathways form modules. The Louvain algorithm found these ten from the interactions alone.
+- **2:01** Cell cycle & DNA copying
+- **2:02** DNA break repair
+- **2:03** p53 & gene control
+- **2:04** Growth-factor signalling
+- **2:05** Wnt & amyloid
+- **2:06** Proteasome
+- **2:06** DNA replication start
+- **2:07** AKT-mTOR & survival
+- **2:07** TNF & cell death
+- **2:08** RNA polymerase II
+
+### 2:27 Disease modules
+
+- **2:28** Disease modules
+- **2:29** Genes linked to the same disease are not scattered across the network. Here are the 16 breast cancer genes in this map.
+- **2:35** 12of 16 form one connected module
+- **2:40** Pick 16 proteins at random and the largest connected group has only 2.0 on average. Disease genes cluster in the same neighbourhood: the disease module at the heart of network medicine.
+
+### 2:58 Drug targets
+
+- **2:59** Drugs and distance
+- **3:00** Drugs work by binding target proteins. Network medicine asks how close a drug's targets sit to a disease module.
+- **3:06** Tamoxifen and trastuzumab hit ESR1 and HER2, inside the breast cancer module. Olaparib blocks PARP1, right next to it.
+- **3:12** 0steps
+- **3:23** BACE1, a target of drugs tested against Alzheimer's disease, sits 4 steps away. Drugs whose targets are close to a disease module are more likely to work against it.
+
+### 3:33 Robustness
+
+- **3:34** Robustness
+- **3:35** What happens when proteins fail, through mutations or drugs? Track the share of protein pairs that can still reach each other.
+- **3:42** 100%
+- **3:42** of protein pairs still connected
+- **3:45** Knock out 20 random proteins: 75% of pairs still connect. Most proteins have few partners, so random failures often miss the hubs.
+- **3:58** Now knock out the 20 most central proteins, the ones with the highest betweenness.
+- **4:08** Robust to random failure, fragile when hubs are hit. TP53, the biggest hub here, is also the most frequently mutated gene in human cancer.
+
+### 4:16 Recap
+
+- **4:16** Network medicine
+- **4:17** ProteinsInteractionsHubsEssentialModulesDisease modulesDrug targetsRobustness
+- **4:18** Now it's your turn. Search any protein, trace paths between proteins, isolate modules, or knock out proteins and watch what breaks.
+- **4:26** An illustrative, curated subnetwork of 254 proteins from well-documented interactions and complexes, not the complete human interactome. Essential genes: DepMap common essentials. Statistics computed with NetworkX. Ideas: Barabási, Gulbahce & Loscalzo 2011; Menche et al. 2015; Guney et al. 2016.
+
+## Spatial interactome: Cell map (`#spatial`)
+
+File: `audio/narration-spatial.mp3` (not recorded yet). Chapters: 0:00 Intro, 0:16 Compartments, 0:50 Addresses, 1:16 Meeting, 1:50 Many places, 2:22 Signals, 3:00 Moving, 3:31 Proximity, 4:04 Wrong place, 4:37 Recap; it ends at 5:09.
+
+### 0:00 Intro
+
+- **0:01** Spatial interactome
+- **0:02** where proteins meet inside a human cell
+- **0:05** 249 proteins in the compartments of a model cell, and the 252 interactions between them. Eight ideas about how location shapes the protein network, then the cell is yours to explore.
+
+### 0:16 Compartments
+
+- **0:16** A cell has rooms
+- **0:19** Membranes divide a human cell into compartments, each with its own chemistry and its own set of proteins.
+- **0:18** Plasma membrane
+- **0:25** Nucleus
+- **0:28** Nucleolus
+- **0:30** Endoplasmic reticulum
+- **0:32** Golgi apparatus
+- **0:34** Mitochondria
+- **0:36** Lysosomes
+- **0:38** Endosomes and vesicles
+- **0:41** Peroxisomes
+- **0:43** Cytoskeleton
+- **0:47** The cytoplasm fills the space between them.
+
+### 0:50 Addresses
+
+- **0:51** Every protein has an address
+- **0:52** Each dot is a protein, coloured by the compartment it works in. This model holds 249 well-studied human proteins.
+- **0:59** The address is written into the protein itself: short signals in its sequence send it into the nucleus, into the ER or into mitochondria.
+- **1:08** The Human Protein Atlas has located more than 12,000 human proteins by staining them in cells.
+
+### 1:16 Meeting
+
+- **1:16** Proteins bind where they meet
+- **1:18** Two proteins can only bind if they are in the same place at the same time. These are the 252 interactions in this cell.
+- **1:27** 85%in one compartment
+- **1:30** The rest reach across a boundary: EGF outside the cell binds its receptor in the membrane, and the receptor binds GRB2 just inside. Of random pairs of proteins, only 15% share a compartment.
+- **1:42** Spatial maps help weed out interactions measured in a test tube between proteins that never meet in a living cell.
+
+### 1:50 Many places
+
+- **1:51** One protein, several places
+- **1:52** About half of human proteins are found in more than one place. Dotted lines join the copies of the 30 proteins here that live or work in two or three.
+- **2:03** Beta-catenin glues cells together at the membrane, is destroyed in the cytoplasm and switches on genes in the nucleus.
+- **2:10** 82%of linked protein pairs
+- **2:12** would lose touch if every protein stayed in its usual place. Proteins with several addresses tie the compartments together.
+
+### 2:22 Signals
+
+- **2:23** Signals cross the cell
+- **2:24** A growth signal outside the cell reaches the genes in the nucleus by passing from protein to protein.
+- **2:31** 0steps
+- **2:47** The EGF receptor carries the signal across the membrane, the RAS relay passes it through the cytoplasm, and ERK itself travels through a nuclear pore to switch on ELK1 and SRF: 10 steps, one of them a move.
+
+### 3:00 Moving
+
+- **3:01** Moving rewires the network
+- **3:03** In a resting cell the inflammation switch NF-κB waits in the cytoplasm, held by its inhibitor IκBα.
+- **3:09** TNF outside the cell sets off a relay that marks IκBα for destruction.
+- **3:15** Freed, NF-κB moves into the nucleus. It leaves IκB-alpha behind and gains 2 new partners, p300 and CBP, which switch on inflammation genes.
+- **3:24** Same protein, new place, new partners, new job.
+
+### 3:31 Proximity
+
+- **3:32** Mapping by proximity
+- **3:33** How are such maps made? Microscopes show where proteins sit. Proximity labelling fuses an enzyme to a bait protein, and it tags every protein within about ten nanometres.
+- **3:44** 8proteins tagged around LAMTOR1
+- **3:47** 4 of them bind LAMTOR1 directly; the others are neighbours on the same lysosome. Hundreds of baits together chart the neighbourhoods of a whole cell.
+- **3:56** In this model the bubble is drawn far larger than ten nanometres.
+
+### 4:04 Wrong place
+
+- **4:04** Proteins in the wrong place
+- **4:06** Many disease mutations leave a protein able to work, but send it to the wrong place.
+- **4:12** Cystic fibrosis: the F508del mutation makes the chloride channel CFTR fold badly. Quality control in the ER catches it, and it never reaches the membrane.
+- **4:22** ALS: in nearly all patients, TDP-43 leaves the nucleus of motor neurons and clumps in the cytoplasm. It loses 2 splicing partners and gains 3 new ones there.
+
+### 4:37 Recap
+
+- **4:38** Spatial interactome
+- **4:38** CompartmentsAddressesMeetingMany placesSignalsMovingProximityWrong place
+- **4:40** Now it's your turn. Search any protein, trace signals between compartments, set proteins moving, or tag a protein's neighbours.
+- **4:48** An illustrative, curated set of 249 well-studied human proteins and 252 documented interactions, placed in a model cell; a real cell makes about 20,000 kinds of protein. Places follow the Human Protein Atlas and UniProt. Ideas: Thul et al. 2017 (subcellular map of the human proteome); Go et al. 2021 (Human Cell Map); Cho et al. 2022 (OpenCell); Qin et al. 2021 (MuSIC); Lundberg & Borner 2019.
 
 ## Collective motion: Flock (`#flock`)
 
