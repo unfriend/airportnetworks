@@ -43,6 +43,31 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
 
 ## Where things stand
 
+- **Released as networks-v107 (2 November 2026; FORMAT networks-28 as v104 to v106, shell 107: running pages ask to
+  reload), tested headlessly only: a room setup guide with an alignment check, the PET network in 3D, and three small
+  notes.** (1) The room setup guide (the owner: "a from zero tutorial when one starts a shared room ... How can we check
+  if we are aligned?"): *Room setup* on the headset menu's Circles tab, four pages (*Before you start*: the room scan,
+  one browser version, two tape crosses about 2 m apart; *Line up, one headset at a time*; *Check that you line up*;
+  *Not lined up?*: Re-align, calibrate on the tape, a fresh shared space), with a live line saying how this headset lines
+  up (*Room ready*, *Lined up through the shared space*, *Lined up from your tape marks*, *Not lined up yet* and why) and
+  how many headsets are. It opens by itself the first time a headset is in a room with another one, and on its last page
+  when one is not lined up 20 s in or a check comes out red. *Touch the spot*: two people press *Check here*, touch the
+  same spot (the cross at mark A, or each other's controller tips) and pull the trigger; both headsets show how far
+  apart their rooms put that spot: up to 10 cm green, up to 25 cm amber, beyond red. The laptop's Shared dialog lists
+  each headset's state and the steps (*Setting up a room*); the notices were renamed to the guide's words. Alignment
+  itself is unchanged. (2) The PET story's network (story and explore) shows each organ as its 3D model (the opening's,
+  lit, in its colour, turning) instead of the flat icons, the hub glowing orange-yellow; so do the uptake bars, the
+  matrix and the scatter's axes. (3) The new story order (Pass it on after The shape of tissue; the proteins and the
+  cell map after Holding on to nitrogen). (4) The muscle story's tower glows less (smaller points with a soft glow, the
+  layer fills at half, the faint links fainter), so the network reads through. (5) The aging ovary in explore: a model
+  fading out no longer writes depth (it hid the next one where it was drawn first, and in a headset that order flips
+  with the head) and is fully gone before the next comes in; the story the same. Built by two builders (the guide; the
+  PET network) and by hand, reviewed once (six Sonnet reviewers, two skeptics for each finding): one medium (an armed
+  *Check here* took the trigger until used: it now stops after 30 s or when the menu closes) and lows, fixed. Tests:
+  TESTS-V107. The site moved to the owner's domain, https://stories.lbi-netmed.com/ (the github.io address redirects;
+  install again there and calibrate again). Untested on headsets: how the guide's pages read, when it opens, how close
+  two tips on one cross read when headsets do line up (the 10 cm limit), the PET organ models' frame rate on a Quest,
+  and whether the ovary's flicker is gone.
 - **Released as networks-v106 (2 November 2026; FORMAT networks-28 as v104 and v105, shell 106: running pages ask to
   reload), tested headlessly only: focus mode for phones and tablets** (the owner: "on a mobile device, phone as well
   as the ipad it needs less of the ui, maybe just a small bar and subtitles so the main focus is on the 3d models"; on
@@ -475,8 +500,9 @@ Before handing over (or making anything more public), someone has to decide thes
    `d7c7862`, `e548fa0` and `e3f6b4f`, removed in `bdc8a8e`; drawn content only). Deleting branches or rewriting
    history cannot be undone for those who already fetched them: decide first. The checklist is in
    [docs/data-and-permissions.md](docs/data-and-permissions.md).
-5. **The live site**: GitHub Pages publishes `main` at https://unfriend.github.io/airportnetworks/ (no custom domain
-   found). Confirm the settings and who may change them (see [docs/setup-and-release.md](docs/setup-and-release.md)).
+5. **The live site**: GitHub Pages publishes `main` at the owner's custom domain, https://stories.lbi-netmed.com/ (the
+   `CNAME` file on main, 2 November 2026); https://unfriend.github.io/airportnetworks/ now redirects there (301). A new
+   address starts empty in every browser and headset: install the app again there, and calibrate the headsets again. Confirm the settings and who may change them (see [docs/setup-and-release.md](docs/setup-and-release.md)).
    - **The relay on a public server** (the owner's Coolify, considered on 29 October 2026; `relay/Dockerfile` is ready
      for it: Dockerfile location `/relay/Dockerfile`, port 8787, a domain with HTTPS). It works wherever web pages do
      (eduroam, hotspots), serves the app too, and peer to peer stays the fallback when it is down. **It has no login:**

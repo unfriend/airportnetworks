@@ -117,7 +117,7 @@ preprint (doi 10.1101/2025.10.13.682110).
 ## Before the repository or the site is public
 
 **Both are public already.** Checked on 22 October 2026: GitHub reports `unfriend/airportnetworks` as public, and
-GitHub Pages serves it at `https://unfriend.github.io/airportnetworks/` with the same version as `main`
+GitHub Pages serves it at `https://stories.lbi-netmed.com/` (the github.io address redirects there) with the same version as `main`
 (`networks-v64`; nine stories, the microanatomy story is not on `main` yet). GitHub Pages serves every file of the
 branch, not only the app: a file of `ikerdata/` downloads from the site. (The relay serves only the app's own files,
 see `APP_FILES` in `relay/server.mjs`; the Docker image leaves out `ikerdata/`, `tools/`, `docs/` and the logs, see

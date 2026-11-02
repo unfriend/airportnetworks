@@ -237,7 +237,7 @@ only after the tests pass. No pull requests are used.
 
    Never push to main with `--force`.
 10. **Check the live copy.** After about a minute, the repository's Actions tab shows a finished "pages build and
-    deployment" run, and `curl -s https://unfriend.github.io/airportnetworks/sw.js | sed -n 3p` shows the new
+    deployment" run, and `curl -s https://stories.lbi-netmed.com/sw.js | sed -n 3p` shows the new
     `VERSION`.
 
 **What visitors and headsets then get** (see `sw.js`, and `HOST.live` and `HOST.reloadIfUpdated` in `index.html`;
@@ -264,8 +264,10 @@ Installed copies play narrations from their offline copy, so a replaced narratio
   run (see the Actions tab), which deploys to the `github-pages` environment.
 - The site's root is the repository's root. `https://unfriend.github.io/airportnetworks/` served `sw.js` with
   `networks-v64`, which was main's `VERSION` that day.
-- The repository has no `CNAME` file, and the github.io address answers without redirecting, so no custom domain
-  seems to be set.
+- Since 2 November 2026 the site has a custom domain, `stories.lbi-netmed.com` (the `CNAME` file on main, added by the
+  owner); the github.io address redirects there (301). Everything a browser keeps (the installed app, settings, an
+  anchored place, calibrations and their anchors, rooms kept on a device, Quest's shared space) belongs to the address,
+  so it started afresh at the new one.
 - Pages publishes **everything** on main, not only the app. `ikerdata/`, `tools/` and `docs/` can be downloaded from
   the live site too (a file in `ikerdata/` answered). The relay, and its Docker image, serve only the app's files.
 - Pages sends `Cache-Control: max-age=600` and ETags (tags that let a browser ask whether a file changed). The update
