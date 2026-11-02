@@ -382,6 +382,16 @@ body.picking #panel, body.picking #bar { visibility: hidden; }
 #shared .sh-colors button { width: 30px; height: 30px; border-radius: 7px; border: 2px solid transparent; padding: 0; }
 #shared .sh-colors button[aria-pressed="true"] { border-color: #f2f6fc; }
 #shared .hint { color: #7f91a8; font-size: 13px; margin: 6px 0 0; }
+/* Setting up a room (the room setup guide on a page): each headset's status in its colour, and the steps */
+#shared .sh-lu li span { flex: 1 1 240px; }
+#shared .sh-lu li.ok span { color: #3ee08f; }
+#shared .sh-lu li.mid span { color: #ffb43b; }
+#shared .sh-lu li.bad span { color: #ff6b6b; }
+#shared .sh-lu li.wait span { color: #46d9ff; }
+#shared .sh-guide { margin-top: 8px; }
+#shared .sh-guide summary { cursor: pointer; color: #a9b8cc; font-size: 14px; }
+#shared .sh-guide ol { margin: 6px 0 0; padding-left: 22px; }
+#shared .sh-guide ol li { display: list-item; border: 0; padding: 4px 0; font-size: 14px; color: #c9d5e4; }
 #nogl { display: none; position: fixed; inset: 0; place-items: center; padding: 30px; text-align: center; background: var(--scene); color: #e7eef8; z-index: 11; }
 
 .btn[hidden] { display: none; }
@@ -596,7 +606,7 @@ body.focus:not(.picking) #livebar, body.focus:not(.picking) #xrmsg { top: calc(v
     <header><h2 id="shTitle">Shared space</h2><button class="btn" type="button" data-sh="close">Close</button></header>
     <p class="sh-status" aria-live="polite"></p>
     <div class="sh-out">
-      <p class="hint">In a room, several headsets and screens see the same stories in step. Each story stands at a station, a spot in the room: walk up to one in a headset, or follow one on a screen.</p>
+      <p class="hint">In a room, several headsets and screens see the same stories in step. Each story stands at a station, a spot in the room: walk up to one in a headset, or follow one on a screen. Start the room here, and this dialog shows the steps for lining the headsets up and how each one lines up.</p>
       <div class="sh-relay">
         <h3>Relay</h3>
         <div class="row"><input id="shRelay" type="url" inputmode="url" autocomplete="off" spellcheck="false" placeholder="wss://relay.example.org" aria-label="Relay address"><button class="btn" type="button" data-sh="relay">Use</button></div>
@@ -612,6 +622,16 @@ body.focus:not(.picking) #livebar, body.focus:not(.picking) #xrmsg { top: calc(v
     </div>
     <div class="sh-in">
       <div class="sh-room"></div>
+      <h3>Setting up a room</h3>
+      <ul class="sh-lu"></ul>
+      <details class="sh-guide" open><summary>The steps (in a headset: the menu, Circles, Room setup)</summary>
+        <ol>
+          <li><b>Before:</b> each Quest scans this room once (Settings, Physical space, Space setup, with Physical space features on). Every headset on the same Quest Browser version, the same bookmarked address and the same Wi-Fi. Two tape crosses on the floor, A and B, about 2 m apart in the middle of the play area, with an arrow from A to B.</li>
+          <li><b>Line up, one headset at a time:</b> the first enters AR and within about 10 s becomes the room's origin (<em>Room ready</em>; its All stories circle appears). Then the others, one by one, each waiting for <em>Lined up</em> before the next enters AR. A VR headset elsewhere skips this.</li>
+          <li><b>Check:</b> everyone's name tag should float just above the real person's head. Then touch the spot: two people hold a controller's tip on the cross at A one after the other (or touch tips), and each presses <b>Check here</b> within 20 s of the other. Up to 10 cm: lined up. 10 to 25 cm: fine for walking about. Over 25 cm: not lined up.</li>
+          <li><b>Not lined up:</b> <b>Re-align</b> on that headset, then check again. Still out: <b>Calibrate</b> on the tape, on every headset (mark A, then mark B). Still out: check each headset's room scan and browser version, then <b>Fresh shared space</b> (everyone leaves AR; one headset first, the others after <em>Room ready</em>).</li>
+        </ol>
+      </details>
       <canvas id="shMap" role="img" aria-label="Room map: the stations and the people, seen from above. Click a station to follow it."></canvas>
       <p class="hint">Dot: where you stand at a station. Square: where its story floats. Arrows: people. Up is forward.</p>
       <h3>Stations</h3>

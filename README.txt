@@ -133,7 +133,24 @@ start, every circle with its card and model, until you walk into another circle.
 Arrange all leaves both kinds where they are; screens follow an All stories
 circle like any other (its Stories screen while it shows its cards, and its row
 in the Shared dialog has a story picker), and the lobby has no Follow.
-People in the room calibrate every headset on the same two tape marks
+Room setup (in a headset the menu's Circles tab, Room setup; on a page the
+Shared dialog's Setting up a room) takes a group through starting a shared room
+from zero. Before the event every Quest scans the room once, all run the same
+Quest Browser version, the same bookmarked address and the same Wi-Fi, and two
+tape crosses, A and B, lie about 2 m apart on the floor with an arrow from A to
+B. Then one headset at a time enters AR: the first becomes the room's origin
+(Room ready), and each of the others waits for Lined up (through the shared
+space, or from its tape marks) before the next; a status line says how each
+headset lines up, and the page's dialog lists them all. Lined up is only what
+the app believes, so Touch the spot checks it: two people hold a controller's
+tip on the cross at A (one after the other, or tip to tip) and each presses
+Check here within 20 s of the other; both headsets show how far apart their
+rooms put that spot: up to 10 cm green, up to 25 cm amber (fine for walking
+about), more red (not lined up), which opens the guide's page on what to do:
+Re-align, calibrate on the tape, or a fresh shared space. The guide opens by
+itself the first time a headset is in a room with another headset there, and
+when it is not lined up 20 s after entering AR.
+When they do not line up, people in the room calibrate every headset on the same two tape marks
 (Calibrate: touch mark A, then mark B, with the ring at the front of a
 controller; orange crosses then show where the headset puts the marks, and two
 anchors keep the calibration for next time and after the headset was off; if
@@ -187,8 +204,8 @@ so the story's controls are at hand even when its panels are hidden or out of
 sight), Settings (Exit, which leaves VR or AR, as the story panels have none;
 Recenter; Slideshow for every story; four headset settings for every story; the
 sound switches; the design room), Circles (the shared room: rooms to join, a
-room by its code, the stations, the locks, Show all rings, the people, your
-name) and Debug (calibration and alignment, People, Sound check, the version,
+room by its code, Room setup, the stations, the locks, Show all rings, the people,
+your name) and Debug (calibration and alignment, Check here, People, Sound check, the version,
 the connection and the frame rate). With hand tracking a fingertip presses its
 buttons too, or pinch while pointing. Labels,
 the small labels inside the scenes: on top (the default: drawn over

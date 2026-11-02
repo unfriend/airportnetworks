@@ -1033,7 +1033,7 @@ circle placed), below). The plan is `docs/shared-space-plan.md`.
   restart, moves nobody, and a page at `s/<n>/` gives it its generation). `SG` is the page's own generation and
   `appRoot()` the app's address, where the relay is (`detect`). The headsets
   leave AR as their pages move; the page and then the headset say to start AR on
-  one headset first and the others after "Shared space found". Every headset's
+  one headset first and the others after "Room ready". Every headset's
   log says its whole address (`search`, `sg` in `session`).
 - Re-align (a button in the headset's menu, `HOST.room.realignNow()`):
   this headset lines up again from the start without leaving the session or
@@ -1043,6 +1043,53 @@ circle placed), below). The plan is `docs/shared-space-plan.md`.
   space again (`q.frame`, passed on like presence) and takes it (waiting up to
   3 s). The frame held so far stays until another is found ("Re-aligned", or
   "Nothing to re-align to").
+- The room setup guide and Touch the spot (v107; the owner, 2 November 2026: "a guided room setup and an alignment
+  check, so a group can start a shared room from zero and know whether the headsets line up"; "make it so that we can
+  run the touch the spot"). Nothing in how alignment works changed: `lineUp()` (in `shared.js`, after `status()`) only
+  says in plain words what the frame rests on: *Room ready* (this headset's shared space's origin is the room's, `R.src`
+  `'shared'`; the notice of that name), *Lined up through the shared space* (`'adopted'`), *Lined up from your tape
+  marks* (`'marks'`, `'anchor'`), *Lining up with the room...*, or *Not lined up yet* with why (`LU_WHY`: no shared space,
+  not in the others' shared space (`R.notJoined`), the space split (`splitHere`), no room scan (`R.noScan`, for a frame
+  taken through the space), another Quest Browser version (the frame's writer's, `otherVersion`; `versionNote` before
+  it lines up), the shared space switched off, tape marks not found (`R.reenter`), or nothing after 20 s).
+  - The guide (`guidePage`, `PNL.page` `'guide'`, `PNL.gs` its page, in place of the rest of the Circles tab as the
+    code page is): four pages, *Before you start* (the room scan, the same browser version, address and Wi-Fi, two tape
+    crosses A and B about 2 m apart with an arrow, drawn: `drawTape`), *Line up, one headset at a time*, *Check that you
+    line up* (the quick look at the name tags, Touch the spot, drawn: `drawTips`, and *Check here*) and *Not lined up?*
+    (Re-align and Check again, Calibrate, Fresh shared space where the relay serves the page), with Back, Next (Done on
+    the last) and Close, and over them a live status (`guideStatus`: the room, `lineUp()` in its colour, *Headsets lined
+    up: n of m*, an amber note for another version or no room scan). *Room setup* on the Circles tab (with
+    `lineUp()`'s words beside it) opens it at the page last shown; only a headset in a room with the others (not one
+    elsewhere, not a room on this device: `guideOn`).
+  - It opens by itself (`guideStep`, from the shell's tick; `guideOpen`): at *Line up* the first time this headset is in
+    a room with another headset there (in AR, or in VR answered *In this room*; within 10 s of entering), once per device
+    (`roomGuide` in `localStorage`, set by any opening); at *Not lined up?* when it is not lined up 20 s after entering
+    with another headset there (once a session; `CK.late`), and after a red check. Never for a headset alone or one
+    elsewhere, never while calibrating or checking, never over the once-per-room question (it waits for the answer), and
+    not while the menu is in use for something else (it waits). Opened by itself it stays open until used (`PNL.self`).
+  - Touch the spot (`CK`): *Check here* (the guide's check page, and the Debug tab beside Re-align) arms it; the next
+    trigger off the menu takes the controller's tip where it was held still (`steady`, the point a calibration mark
+    takes; the bright rings show, as while calibrating, `tipMode()`) in room coordinates with the relay's time, and sends
+    it to the room as a one-off message (`fx` `q.check`, `{ p, at, n }`, as `q.frame` is: nothing stored). Each headset
+    pairs its last check with another person's within 20 s (`CK.win`; the nearest in time; each pair once, so a new check
+    waits for a new partner) and shows the distance between the two points: up to 10 cm green (*Lined up: 4 cm*), 10 to 25
+    cm amber (*14 cm out: fine for walking about; calibrate on the tape for close work*), over 25 cm red (*60 cm out: not
+    lined up*, which opens *Not lined up?*); a notice says it too. Alone: *Waiting for someone else to press Check here
+    (20 s)*, then *Nobody else pressed Check here within 20 s*; someone else's check waiting: *Anna pressed Check here:
+    touch the same spot and press it too*. The result (`CK.res`) stands until the next check, Re-align, a calibration or
+    a frame that moves (another source, or 5 cm or 2 degrees: `setFrame`), and `lineUp()` takes it as the better word
+    (green or amber: lined up; red: not).
+  - Presence carries `lu` (`{ k, h, w, c }`: `'ok'`, `'wait'`, `'no'`, `'away'` or `'alone'`, how, why, the check in
+    cm), and a headset in a room that is not lined up yet sends a presence without a head once a second (`statusOut`),
+    so the pages hear it (older pages keep it as they keep a page's; nothing new is stored, no `FORMAT` change). The
+    page's Shared dialog has *Setting up a room* under the room's line: each headset in the room and how it lines up
+    (`guideList`, `luLine`: *Anna: lined up (shared space, checked 4 cm)*, *room ready (the room's origin)*, *not lined up
+    (no room scan)*, *not lined up (checked 60 cm out)*, *elsewhere: nothing to line up*; an older app's headset by its
+    `al`), *n of m headsets in the room lined up*, and the steps as text (a `<details>`, open). For tests:
+    `HOST.collab.guide()` (`{ open, step, status, check, lined, seen }`), `guideOpen(k)`, `checkArm(on)`,
+    `guideTimes({ win, late })` and `autoGuide(on)` (its opening by itself at the first time and when late; the pretend
+    headsets in `tools/collab.mjs` turn it off unless asked, `guide: true` in `installXR`, as they do `autoAll`). How it
+    works on real Quests (the points' accuracy, the guide's timing, the notices) is untested.
 - A headset runs live the station whose circle it walked into last (within
   1.1 m of its spot for 1 s): stations are walk-in only (the owner, October
   2026: "the stories can only be visited by going to their circle"), and a
@@ -1266,19 +1313,21 @@ circle placed), below). The plan is `docs/shared-space-plan.md`.
     room the rooms, then *Start a room*, *Join with a code* and *Refresh*; the question; stations (Move here, Add here;
     Arrange all, Remove; *Lock circles* and *Lock this story* side by side, the latter at a station only; at an All
     stories circle its switch, *Own stories* / *With the room's circles*, and *Back to all stories*; *Show all
-    rings* and *On this network*), people (at most `PEOPLE_ROWS`, 6, and as many as leave room for You), You (name,
+    rings* and *On this network*; above them, for a headset in the room with the others, *Room setup* and how it lines
+    up), people (at most `PEOPLE_ROWS`, 6, and as many as leave room for You), You (name,
     colour, Leave). *Join with a code* and *Another room* (the owner, 30 October 2026: "Joining a room with code not
     possible in ar/vr?") open a page in place of the rest of the tab (`codePage`, `PNL.code`): the code so far in three
     boxes, a keypad of the 26 letters (seven to a row; a fourth letter refused), Delete, Join (once there are three
-    letters, and not the room you are in; a code with no room says so, as on a page) and Back.
-  - **Debug**: the room's alignment (in a room, once the question is answered: here or elsewhere, Calibrate, Re-align,
-    *I am elsewhere* / *in the room*, the shared space's lines, Forget calibration, Shared space: on/off, Fresh shared
-    space), *People: same circle* / *everyone* and *Sound check* (a page in place of the rest of the tab: the two beeps,
+    letters, and not the room you are in; a code with no room says so, as on a page) and Back. *Room setup* opens the
+    room setup guide's four pages there likewise (`guidePage`: "The room setup guide and Touch the spot").
+  - **Debug**: the room's alignment (in a room, once the question is answered: Calibrate, Re-align, *Check here* (Touch
+    the spot) and what the check says, the shared space's lines, Forget calibration, Shared space: on/off, Fresh shared
+    space, then *I am elsewhere* / *in the room*), *People: same circle* / *everyone* and *Sound check* (a page in place of the rest of the tab: the two beeps,
     the engine choice, Reset the sound and `HOST.audio.report()`, redrawn twice a second; *Try the sound effects*;
     Back), then read-outs (`debugLines`: the release and `FORMAT`, the room's code, relay or peer to peer and its round
     trip, Quest Browser's version, the frame rate, `FPS`, once a second).
-  The canvas is 1920 px tall, more than any tab needs (Circles in a room with six people is about 1150 px; Settings
-  about 820, Debug about 760; Story as tall as the story's two panels at the menu's width). A right index fingertip also presses its buttons (`poke`: within 1.5
+  The canvas is 1920 px tall, more than any tab needs (Circles in a room with six people is about 1230 px, the room setup
+  guide's tallest page about 1090; Settings about 820, Debug about 840; Story as tall as the story's two panels at the menu's width). A right index fingertip also presses its buttons (`poke`: within 1.5
   cm of the panel over one, again once pulled back 3 cm; a pinch on the ray at the same button within 0.7 s counts once
   with it, `twice`), not the Story tab's copies (the ray does). The
   once-per-room question still opens it by itself (on Circles), and so does the first time in a room with no stations
@@ -2797,7 +2846,18 @@ story going on; on again and the linked circle given another story, the circle g
 clock written); the dialog's picker back to the cards; the lobby added from the page, listed without Follow, walking in ending the
 headset's story with every ring, icon and card showing, then a story circle entered as usual; Arrange all leaving both
 kinds where they are; with `--shots` its pictures: `all-1-cards.png`, the cards from inside the circle, `all-2-picked.png`,
-a story picked there, and `all-3-lobby.png`, the All stories circle seen from the lobby), the design room (the Shared dialog's picker listing it after
+a story picked there, and `all-3-lobby.png`, the All stories circle seen from the lobby), the room setup guide (`guideRound`, after the All stories
+round in the main run; `--guide` runs only it, a room of its own, three or four minutes: a page starts the room with a
+station far off; the first pretend headset enters AR alone and becomes the room's origin, *Room ready*, its guide not
+opening by itself; the second, more than 10 s later, lines up through the shared space and its guide opens by itself at
+*Line up*, `roomGuide` kept, the first's staying shut, both counting 2 of 2 lined up; the pages: Back greyed on the
+first, Next, Back, Close, *Room setup* opening it again, *Check here* there and in the Debug tab; the laptop's *Setting up
+a room* listing both; Touch the spot with the tips 3 cm apart, the first waiting, then green on both and *checked 3 cm*
+in the laptop's list; 40 cm apart, red on both, *Not lined up?* opened by itself on both, the laptop's list saying so;
+Re-align taking the red result away and a check alone timing out (the window shortened to 3 s); the second back with no
+shared space getting *Not lined up?* by itself once late (shortened), saying why; back again lined up, nothing opening by
+itself; with `--shots` its pictures, `guide-*.png`: each page's menu canvas, waiting, green, red, alone, no shared space,
+and the laptop's section), the design room (the Shared dialog's picker listing it after
 the stories, its station added there for every page, refused while locked from
 Add and the Design room button, left where it is by Arrange all, the button
 moving the room's one to your feet rather than adding a second), the headsets' four settings and the two sound switches

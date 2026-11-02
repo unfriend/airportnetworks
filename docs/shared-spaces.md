@@ -60,14 +60,14 @@ headsets up: the shared space overrode each fresh calibration, see below), first
 2. **A frame published for this shared space** (key `rf.<id>`, grade `marks` or `shared`), **unless switched off**
    (*Shared space: off* on the panel; it was off by default after the measurements in section 9, and is on
    again since two headsets on one browser version lined up through it): adopted by headsets without marks
-   ("Aligned automatically"), first on the headset's own floor and then held at that height in the shared space,
+   ("Lined up through the shared space", until v107 "Aligned automatically"), first on the headset's own floor and then held at that height in the shared space,
    followed when it moves by more than **3 cm, 1 degree or 2 cm in height** ("Re-aligned"). An adopted frame is
    never published again. A space that is just this headset's own floor is the first headset's, or, when someone
    present had already published for the id as it appeared, not joined: nothing is taken or published through it
    then. A frame from someone who has left may be last time's (the id stayed the same across days): taken only
    after 8 s, and replaced by the first headset's own space. A height change alone moves things without a
    notice.
-3. **The shared space's own origin** when nobody (still here) has published for it ("Shared space found"; also
+3. **The shared space's own origin** when nobody (still here) has published for it ("Room ready", until v107 "Shared space found"; also
    unless switched off), published with grade `shared` (unless the room was calibrated in another space by someone still
    there: then calibrate).
 4. **Two-point calibration**: the person touches mark A, then mark B (tape crosses on a table or the floor, a
@@ -96,9 +96,11 @@ marks when the origin moves (a recentre) and find the marks next session. Restor
 placement (the same budget and code). Without anchors, a reset event or a jump of the head (more than 6 m/s or
 1150 degrees a second, the origin moving under it) asks to calibrate again.
 
-**Notices** in the headset: a small self-closing panel in front of the person for each step ("Aligned
-automatically", "Shared space found", "Room calibration from last time", "Calibrate the room" with the how-to
-and the flag tip, "Room calibrated", "Re-aligned").
+**Notices** in the headset: a small self-closing panel in front of the person for each step ("Lined up through the
+shared space", "Room ready", "Lined up from your tape marks" (until v107 "Aligned automatically", "Shared space
+found", "Room calibration from last time"), "Calibrate the room" with the how-to and the flag tip, "Room calibrated",
+"Re-aligned"). Since v107 the room setup guide in the headset's menu says the same in a status line, and Touch the
+spot checks it (AGENTS.md, "The room setup guide and Touch the spot").
 
 ## 5. Quest Browser shared spaces (experimental)
 
