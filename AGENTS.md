@@ -2728,8 +2728,9 @@ hidden and nothing written to the circle's keys, and a page following it on its 
 picking that story for everyone there, from its start and playing on the headset and the page; the story panel's
 Stories button back to the cards, the keys gone; the menu's switch row turning sync on, and with a circle of that story
 in the room the headset joining its session: explore state and clock both ways with a page following that circle, its
-presence still the All stories circle's; the dialog's toggle turning it off, its own keys seeded and the story going on;
-the dialog's picker back to the cards; the lobby added from the page, listed without Follow, walking in ending the
+presence still the All stories circle's; the dialog's toggle turning it off, its own keys seeded (the clock, state and the linked circle's moved scene) and the
+story going on; on again and the linked circle given another story, the circle going on alone where its story was (its own
+clock written); the dialog's picker back to the cards; the lobby added from the page, listed without Follow, walking in ending the
 headset's story with every ring, icon and card showing, then a story circle entered as usual; Arrange all leaving both
 kinds where they are), the design room (the Shared dialog's picker listing it after
 the stories, its station added there for every page, refused while locked from
