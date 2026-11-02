@@ -270,6 +270,7 @@ const CIRCLES_ONLY = argv.includes('--circles');   // (only the ten-headset roun
 const SMOOTH_ONLY = argv.includes('--smooth');   // (only others' moves drawn smoothly: smoothRound, in a room of its own)
 const CODE_ONLY = argv.includes('--code');   // (only a room joined by its code from a headset's menu: codeRound)
 const ALL_ONLY = argv.includes('--all');   // (only the All stories and Back to the lobby circles: allRound, in a room of its own)
+const ALL_T = STORIES[PICK_STORY];   // (the All stories round's story: kept, as --quick drops it from STORIES)
 if (argv.includes('--quick')) for (const k of Object.keys(STORIES).slice(0, -1)) delete STORIES[k];
 const relayPort = argv.includes('--port') ? +argv[argv.indexOf('--port') + 1] : 0;
 const { chromium } = await import(process.env.PLAYWRIGHT_MODULE || 'playwright');
@@ -1644,7 +1645,7 @@ async function codeRound() {
 // the dialog's picker; the lobby (added from the page, no Follow): walking in ends the headset's story (away: hidden,
 // paused) with every ring and card showing, then a story circle is entered as usual; Arrange all leaves both kinds
 async function allRound() {
-  const PK = PICK_STORY, T = STORIES[PK];
+  const PK = PICK_STORY, T = ALL_T;
   const A = await open('#stories');
   await A.evaluate(async () => { await HOST.collab.detect(); HOST.collab.create(); });
   await until(A, () => HOST.collab.status === 'open', null, 10000);
@@ -1719,9 +1720,11 @@ async function allRound() {
   const okB = await ready(B, PK);
   await sleep(1500);
   const hc = await clockOf(H), bc = await clockOf(B), hs = await H.evaluate(() => (HOST.cur.peek('xrUpdate(APP.mode === "story" ? storyState(storyT(APP.t)) : XS)'), { stories: HOST.cur.peek('XR.stories'), world: HOST.cur.peek('GL.world.visible'), placing: HOST.room.placing(), cards: HOST.room.cards() }));
+  // (from its start: no further on than the time since the pick, which a loaded machine's story load can make long)
+  const since = play0 ? (await A.evaluate(() => HOST.collab.now()) - play0.at) / 1000 : 0;
   check('all: a card pressed at the circle picks its story for everyone there: the station\'s story its key, from its start, playing, on the headset and the page following',
-    press && !!play0 && play0.mode === 'story' && play0.t === 0 && play0.playing === true && switched && okB && hc[0] === 'story' && hc[1] && hc[2] < 25 && bc[0] === 'story' && bc[1] && Math.abs(bc[2] - hc[2]) < 3 &&
-    !hs.stories && hs.world && hs.placing && !hs.cards && !(await B.evaluate(() => HOST.picking)), JSON.stringify({ press, play0, switched, okB, hc, bc, hs }));
+    press && !!play0 && play0.mode === 'story' && play0.t === 0 && play0.playing === true && switched && okB && hc[0] === 'story' && hc[1] && hc[2] < since + 2 && bc[0] === 'story' && bc[1] && Math.abs(bc[2] - hc[2]) < 3 &&
+    !hs.stories && hs.world && hs.placing && !hs.cards && !(await B.evaluate(() => HOST.picking)), JSON.stringify({ press, play0, switched, okB, hc, bc, since, hs }));
   // the story panel's Stories button: back to the cards, for everyone there (the circle's keys gone)
   await frames(H, 300);
   await redraw();
